@@ -42,5 +42,7 @@ void app_focus(int on);             /* the window lost (0) or regained (1) focus
 int  app_quit_requested(void);      /* the player chose to leave: save, then exit */
 int  app_save(uint8_t *buf, int cap);
 void app_load(const uint8_t *buf, int len);   /* saved progress, before app_init */
+void app_slot_load(int i, const uint8_t *buf, int len);   /* a stored save slot, before app_init */
+int  app_slot_take(int i, uint8_t *buf, int cap);         /* a slot written since last asked: its length, else 0 */
 
 #endif

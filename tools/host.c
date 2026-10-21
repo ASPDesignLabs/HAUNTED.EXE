@@ -8,7 +8,8 @@
  *
  * HOST_INPUT plays a person at the keys, e.g. "1:+H;4.2:-H;5:m300,0;6:+W;8:-W;9:+MOUSE1;9.2:-MOUSE1;
  * 10:w1" (+ press, - release, m mouse counts, w wheel notches). HOST_SAVE=file writes the progress
- * and stops when the player chooses to leave; HOST_LOAD=file starts from saved progress.
+ * and stops when the player chooses to leave; HOST_LOAD=file starts from saved progress. HOST_SLOTS=dir
+ * keeps the three save slots as dir/slot1.bin to slot3.bin.
  */
 #include <stdio.h>
 #include <time.h>
@@ -101,8 +102,23 @@ static void input_step(double now) {
         g_iev++;
     }
 }
+/* save slots written this step go to HOST_SLOTS, as the saver keeps them in the registry */
+static void slots_flush(void) {
+    const char *dir = getenv("HOST_SLOTS");
+    for (int i = 0; i < SLOT_COUNT; i++) {
+        uint8_t buf[SLOT_MAX];
+        int n = app_slot_take(i, buf, sizeof buf);
+        if (n <= 0 || !dir) continue;
+        char path[512];
+        snprintf(path, sizeof path, "%s/slot%d.bin", dir, i + 1);
+        FILE *f = fopen(path, "wb");
+        if (f) { fwrite(buf, 1, (size_t)n, f); fclose(f); }
+        fprintf(stderr, "SLOT %d: saved %d bytes\n", i + 1, n);
+    }
+}
 /* the player chose to leave: keep the progress, as the saver would in the registry */
 static int input_quit(void) {
+    slots_flush();
     if (!app_quit_requested()) return 0;
     const char *path = getenv("HOST_SAVE");
     uint8_t blob[1024];
@@ -119,6 +135,14 @@ static void input_init(void) {
         uint8_t blob[1024];
         FILE *f = fopen(path, "rb");
         if (f) { size_t n = fread(blob, 1, sizeof blob, f); fclose(f); app_load(blob, (int)n); }
+    }
+    const char *dir = getenv("HOST_SLOTS");
+    for (int i = 0; dir && i < SLOT_COUNT; i++) {
+        char p[512];
+        uint8_t buf[SLOT_MAX];
+        snprintf(p, sizeof p, "%s/slot%d.bin", dir, i + 1);
+        FILE *f = fopen(p, "rb");
+        if (f) { size_t n = fread(buf, 1, sizeof buf, f); fclose(f); app_slot_load(i, buf, (int)n); }
     }
 }
 

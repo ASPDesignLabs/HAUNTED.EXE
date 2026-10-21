@@ -52,6 +52,13 @@ typedef struct Scene {
     void (*load)(const uint8_t *buf, int len);    /* before the first enter */
 } Scene;
 
+/* Save slots, three of them: the app keeps their bytes, the platform stores them (the registry on
+ * Windows, files in the harness). A scene reads and writes them whenever it likes. */
+#define SLOT_COUNT 3
+#define SLOT_MAX 256
+int  slot_read(int i, uint8_t *buf, int cap);        /* the slot's length, 0 when it is empty */
+void slot_write(int i, const uint8_t *buf, int len);
+
 extern const Scene scene_haunt;     /* HAUNT.EXE   - 80x25 text mode, 720x400 */
 extern const Scene scene_crawl;     /* CATACOMB    - mode 13h, 320x200        */
 

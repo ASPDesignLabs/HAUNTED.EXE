@@ -87,6 +87,32 @@ static void progress_save(const uint8_t *buf, int len) {
     RegCloseKey(k);
 }
 
+/* the three save slots, as values Slot1 to Slot3 beside the progress */
+static void slots_load(void) {
+    HKEY k;
+    if (RegOpenKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, KEY_READ, &k) != ERROR_SUCCESS) return;
+    for (int i = 0; i < SLOT_COUNT; i++) {
+        uint8_t buf[SLOT_MAX];
+        char name[8];
+        DWORD sz = sizeof buf, type = 0;
+        snprintf(name, sizeof name, "Slot%d", i + 1);
+        if (RegQueryValueExA(k, name, NULL, &type, buf, &sz) == ERROR_SUCCESS && type == REG_BINARY) app_slot_load(i, buf, (int)sz);
+    }
+    RegCloseKey(k);
+}
+static void slots_flush(void) {
+    for (int i = 0; i < SLOT_COUNT; i++) {
+        uint8_t buf[SLOT_MAX];
+        int n = app_slot_take(i, buf, sizeof buf);
+        HKEY k;
+        if (n <= 0 || RegCreateKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, NULL, 0, KEY_WRITE, NULL, &k, NULL) != ERROR_SUCCESS) continue;
+        char name[8];
+        snprintf(name, sizeof name, "Slot%d", i + 1);
+        RegSetValueExA(k, name, 0, REG_BINARY, buf, (DWORD)n);
+        RegCloseKey(k);
+    }
+}
+
 static void settings_save(const Settings *s) {
     HKEY k;
     if (RegCreateKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, NULL, 0, KEY_WRITE, NULL, &k, NULL) != ERROR_SUCCESS) return;
@@ -588,6 +614,7 @@ static int run_saver(HINSTANCE hi, const Settings *set, int windowed) {
     int audio = set->app.sound ? audio_start() : 0;
     static uint8_t blob[1024];
     app_load(blob, progress_load(blob, sizeof blob));
+    slots_load();
     app_set_input(&g_in);
     app_init(&set->app, audio);                    /* audio: the device owns the sound clock */
 
@@ -599,6 +626,7 @@ static int run_saver(HINSTANCE hi, const Settings *set, int windowed) {
         double dt = t - prev; prev = t;
         if (dt > 0.1) dt = 0.1;
         app_update(dt);
+        slots_flush();                                 /* a grave was carved: keep it */
         if (app_quit_requested()) { progress_save(blob, app_save(blob, sizeof blob)); break; }   /* fled to the surface */
         set_capture(app_control_state() == APP_PLAYER && GetForegroundWindow() == g_main);
         display_frame(&g_disp, 1);

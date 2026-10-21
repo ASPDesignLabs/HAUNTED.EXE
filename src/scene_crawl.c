@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <time.h>
 
 #define W 320
 #define H 200
@@ -162,6 +163,7 @@ static struct {
 
     /* a person at the controls */
     int player, ui, ui_sel, quit_line, status_ret;
+    int graves_mode, graves_arm, graves_msg;    /* the save slots: carving (0) or rising (1); a second Enter's slot; why */
     float pc_t, pc_len, grab_t, hint_t, msg_t;     /* their cast; reaching for a ware; the hints; a message */
     int pc_fired;
     char msg[64];
@@ -173,7 +175,7 @@ static struct {
     float mood_t;
 } G;
 static float zbuf[W];
-enum { UI_NONE, UI_INVENTORY, UI_QUIT };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 
 static uint8_t ramp_at(int ramp, int k) { return (uint8_t)(ramp + clampi(k, 0, ramp == R_GOLD ? 12 : 15)); }   /* the gold ramp is short */
@@ -3109,8 +3111,10 @@ static void update_inventory(void) {
 
 /* ---- Esc: leave the crypt? ---- */
 
-enum { Q_FLEE, Q_STAY, Q_SLEEP, Q_OPTIONS };
+enum { Q_FLEE, Q_STAY, Q_SLEEP, Q_CARVE, Q_RISE, Q_OPTIONS };
+static void open_graves(int mode);
 static void quit_choose(int c) {
+    if (c == Q_CARVE || c == Q_RISE) { open_graves(c == Q_RISE); return; }
     if (c == Q_FLEE) { G.status_ret = PLAY_QUIT; snd_sfx_ex(SFX_GHOST_DIE, 0.8f, 0.5f); }
     else if (c == Q_STAY) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
     else { G.ui = UI_NONE; human_end(); snd_sfx_ex(SFX_WHISPER, 0.7f, 0.5f); }
@@ -3123,8 +3127,6 @@ static void update_quit(void) {
     if (IN.hit[KEY_Y]) { quit_choose(Q_FLEE); return; }
     if (IN.hit[KEY_N] || IN.hit[KEY_ESC]) { quit_choose(Q_STAY); return; }
 }
-
-static void update_ui(void) { if (G.ui == UI_INVENTORY) update_inventory(); else update_quit(); }
 
 /* ---- the scene's side of the bargain with the app ---- */
 
@@ -3180,6 +3182,90 @@ static void crawl_load(const uint8_t *buf, int len) {
     RUN.hp = clampi(get32(buf + 12), 1, gear_max_hp(&RUN.gear));
     if (RUN.treasure < 0) RUN.treasure = 0;
     if (RUN.souls < 0) RUN.souls = 0;
+}
+
+/* ---- the graves: three save slots, carved and risen from the Esc menu ---- */
+
+/* A grave holds what fleeing to the surface keeps (the level to start from, health, gold, souls and
+ * gear), then when it was carved. */
+typedef struct { int used, level, hp, gold, souls; int64_t when; } Grave;
+static const char *const ROMAN[SLOT_COUNT] = { "I", "II", "III" };
+
+static Grave grave_info(int i) {
+    Grave g;
+    memset(&g, 0, sizeof g);
+    uint8_t buf[SLOT_MAX];
+    int n = slot_read(i, buf, sizeof buf), base = 28 + (int)sizeof(Gear);
+    if (n < base || (uint32_t)get32(buf) != SAVE_MAGIC || get32(buf + 4) != 1) return g;
+    g.used = 1; g.level = get32(buf + 8); g.hp = get32(buf + 12); g.gold = get32(buf + 16); g.souls = get32(buf + 20);
+    if (n >= base + 8) g.when = (int64_t)((uint64_t)(uint32_t)get32(buf + base) | (uint64_t)(uint32_t)get32(buf + base + 4) << 32);
+    return g;
+}
+
+static void open_graves(int mode) {
+    G.ui = UI_GRAVES; G.graves_mode = mode; G.graves_arm = -1; G.graves_msg = 0; G.ui_sel = 0;
+    int64_t newest = -1;
+    for (int i = SLOT_COUNT - 1; i >= 0; i--) {
+        Grave g = grave_info(i);
+        if (!mode && !g.used) G.ui_sel = i;                        /* carving: the first empty grave */
+        if (mode && g.used && g.when >= newest) { newest = g.when; G.ui_sel = i; }   /* rising: the newest */
+    }
+    snd_sfx_ex(SFX_KEY, 0.7f, 0.5f);
+}
+
+static void carve_grave(int i) {
+    uint8_t buf[SLOT_MAX];
+    int n = crawl_save(buf, SLOT_MAX - 8);
+    if (n <= 0) return;
+    uint64_t now = (uint64_t)(int64_t)time(NULL);
+    put32(buf + n, (int32_t)(uint32_t)(now & 0xffffffffu)); put32(buf + n + 4, (int32_t)(uint32_t)(now >> 32));
+    slot_write(i, buf, n + 8);
+    G.ui = UI_NONE;
+    say("CARVED INTO GRAVE %s", ROMAN[i]);
+    snd_sfx_ex(SFX_KNOCK, 1.0f, 0.5f); snd_sfx_ex(SFX_RUNE, 0.6f, 0.5f);
+}
+
+/* the grave's run comes back at the start of its level, still in your hands */
+static void rise_from_grave(int i) {
+    uint8_t buf[SLOT_MAX];
+    int n = slot_read(i, buf, sizeof buf), ql = G.quit_line;
+    uint32_t seed = G.rs * 1664525u + 1013904223u;
+    crawl_load(buf, n);
+    crawl_enter(seed);
+    G.player = 1; G.status_ret = PLAY_PLAYER; G.ui = UI_NONE; G.quit_line = ql;
+    if (G.shop) { G.sdur = 0.0f; G.shop_look = -1; }
+    else human_begin();
+    say("RISEN FROM GRAVE %s: LEVEL %d", ROMAN[i], G.level);
+    snd_sfx_ex(SFX_WHOOSH, 0.8f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.8f, 0.5f);
+}
+
+enum { GM_NONE, GM_ARMED, GM_EMPTY };
+static void update_graves(void) {
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB] || IN.hit[KEY_N]) {        /* back to the question */
+        G.ui = UI_QUIT; G.ui_sel = G.graves_mode ? Q_RISE : Q_CARVE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f);
+        return;
+    }
+    int mv = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]), pick = -1;
+    for (int k = 0; k < SLOT_COUNT; k++) if (IN.hit[KEY_1 + k]) pick = k;
+    if (mv || pick >= 0) {
+        G.ui_sel = pick >= 0 ? pick : (G.ui_sel + mv + SLOT_COUNT) % SLOT_COUNT;
+        G.graves_arm = -1; G.graves_msg = GM_NONE;
+        snd_sfx_ex(SFX_TICK, 0.6f, 0.5f);
+    }
+    if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_SPACE] || IN.hit[KEY_E] || IN.hit[KEY_MOUSE1])) return;
+    int i = G.ui_sel, used = grave_info(i).used;
+    if (G.graves_mode && !used) { G.graves_msg = GM_EMPTY; snd_sfx_ex(SFX_ZAP, 0.4f, 0.5f); return; }
+    if ((used || G.graves_mode) && G.graves_arm != i) {               /* over a carved name, or losing this run: ask twice */
+        G.graves_arm = i; G.graves_msg = GM_ARMED; snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f);
+        return;
+    }
+    if (G.graves_mode) rise_from_grave(i); else carve_grave(i);
+}
+
+static void update_ui(void) {
+    if (G.ui == UI_INVENTORY) update_inventory();
+    else if (G.ui == UI_GRAVES) update_graves();
+    else update_quit();
 }
 
 /* ================================================================== */
@@ -4303,7 +4389,7 @@ static void render_quit(Frame *f) {
     };
     enum { NLINE = (int)(sizeof LINE / sizeof LINE[0]) };
     dim_view(f);
-    int bw = 280, bh = 132, bx = (W - bw) / 2, by = (H - bh) / 2 - 6;
+    int bw = 280, bh = 176, bx = (W - bw) / 2, by = (H - bh) / 2 - 6;
     panel(f, bx, by, bw, bh);
     gfx_text16(f, (W - gfx_text_width("LEAVE THE CRYPT?", 1)) / 2, by + 8, "LEAVE THE CRYPT?", R_BLOOD + 13, 1);
     char msg[96];
@@ -4317,10 +4403,12 @@ static void render_quit(Frame *f) {
         gfx_text8(f, (W - gfx_text_width(ln, 1)) / 2, y, ln, R_STONE + 13, 1);
         p += n; while (*p == ' ') p++;
     }
-    static const char *const OPT[Q_OPTIONS] = { "FLEE TO THE SURFACE", "STAY IN THE DARK", "SLEEPWALK" };
-    static const char *const NOTE[Q_OPTIONS] = { "YOUR LEVEL, GOLD AND GEAR ARE KEPT", "BACK TO THE CRYPT", "THE AUTOPILOT WALKS ON WITHOUT YOU" };
+    static const char *const OPT[Q_OPTIONS] = { "FLEE TO THE SURFACE", "STAY IN THE DARK", "SLEEPWALK", "CARVE A GRAVESTONE", "RISE FROM A GRAVE" };
+    static const char *const NOTE[Q_OPTIONS] = { "YOUR LEVEL, GOLD AND GEAR ARE KEPT", "BACK TO THE CRYPT", "THE AUTOPILOT WALKS ON WITHOUT YOU",
+                                                 "SAVE THIS RUN IN ONE OF 3 SLOTS", "LOAD A RUN FROM ONE OF 3 SLOTS" };
+    for (int i = 10 + bx; i < bx + bw - 10; i += 2) gfx_px(f, i, by + 120, R_STONE + 5);   /* leaving, then the graves */
     for (int i = 0; i < Q_OPTIONS; i++) {
-        int oy = by + 66 + i * 18, sel = i == G.ui_sel;
+        int oy = by + 66 + i * 18 + (i >= Q_CARVE ? 4 : 0), sel = i == G.ui_sel;
         int w = gfx_text_width(OPT[i], 1), ox = (W - w) / 2;
         gfx_text16(f, ox, oy, OPT[i], sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 9), 1);
         if (sel) {                                                 /* a candle flame for a cursor */
@@ -4337,9 +4425,63 @@ static void render_quit(Frame *f) {
     gfx_text8(f, (W - gfx_text_width(note, 1)) / 2, by + bh - 14, note, R_GOLD + 9, 1);
 }
 
+/* a headstone, 22 wide and 26 tall, its numeral cut into it */
+static void headstone(Frame *f, int x, int y, int i, int used) {
+    int w = 22, h = 26, r = w / 2;
+    for (int yy = 0; yy < h; yy++)
+        for (int xx = 0; xx < w; xx++) {
+            float dx = xx + 0.5f - r, dy = yy + 0.5f - r;
+            if (yy < r && dx * dx + dy * dy > r * r) continue;       /* the rounded top */
+            int edge = xx == 0 || xx == w - 1 || yy == h - 1 || (yy < r && dx * dx + dy * dy > (r - 1.2f) * (r - 1.2f));
+            int k = used ? (edge ? 6 : 10 - (xx + yy) % 3 / 2) : (edge ? 4 : 6);
+            gfx_px(f, x + xx, y + yy, (uint8_t)(R_STONE + k));
+        }
+    for (int xx = -3; xx < w + 3; xx++) gfx_px(f, x + xx, y + h, R_STONE + 3);   /* the ground it stands in */
+    int tw = gfx_text_width(ROMAN[i], 1);
+    gfx_text8(f, x + (w - tw) / 2, y + 9, ROMAN[i], used ? R_STONE + 3 : R_STONE + 2, 1);
+}
+
+/* CARVE A GRAVESTONE / RISE FROM A GRAVE: the three save slots */
+static void render_graves(Frame *f) {
+    static const char *const MONTH[12] = { "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" };
+    dim_view(f);
+    int bw = 288, bh = 150, bx = (W - bw) / 2, by = (H - bh) / 2 - 6;
+    panel(f, bx, by, bw, bh);
+    const char *title = G.graves_mode ? "RISE FROM A GRAVE" : "CARVE A GRAVESTONE";
+    gfx_text16(f, (W - gfx_text_width(title, 1)) / 2, by + 8, title, G.graves_mode ? R_BLOOD + 13 : R_GOLD + 12, 1);
+    for (int i = 0; i < SLOT_COUNT; i++) {
+        int y = by + 30 + i * 34, sel = i == G.ui_sel;
+        Grave g = grave_info(i);
+        if (sel) gfx_rect(f, bx + 6, y - 3, bw - 12, 33, R_IRON + 3);
+        headstone(f, bx + 14, y, i, g.used);
+        char l1[48], l2[48];
+        if (g.used) {
+            snprintf(l1, sizeof l1, "LEVEL %d  $%d  %d SOULS", g.level, g.gold, g.souls);
+            time_t when = (time_t)g.when;
+            struct tm *tm = g.when > 0 ? localtime(&when) : NULL;
+            if (tm) snprintf(l2, sizeof l2, "%d %s %d  %02d:%02d  HP %d", tm->tm_mday, MONTH[tm->tm_mon % 12], tm->tm_year + 1900, tm->tm_hour, tm->tm_min, g.hp);
+            else snprintf(l2, sizeof l2, "HP %d", g.hp);
+        } else {
+            snprintf(l1, sizeof l1, "UNMARKED");
+            snprintf(l2, sizeof l2, "AN EMPTY GRAVE");
+        }
+        gfx_text8(f, bx + 46, y + 5, l1, sel ? (uint8_t)C_WHITE : (uint8_t)(g.used ? R_STONE + 12 : R_STONE + 9), 1);
+        gfx_text8(f, bx + 46, y + 16, l2, R_STONE + 9, 1);
+    }
+    const char *note = G.graves_mode ? "ENTER RISES   ESC GOES BACK" : "ENTER CARVES   ESC GOES BACK";
+    int col = R_GOLD + 9;
+    if (G.graves_msg == GM_EMPTY) { note = "NOTHING LIES HERE"; col = R_STONE + 10; }
+    else if (G.graves_msg == GM_ARMED && G.graves_arm == G.ui_sel) {
+        note = G.graves_mode ? "ENTER AGAIN. THIS RUN WILL BE LOST" : "ENTER AGAIN TO CARVE OVER IT";
+        col = R_BLOOD + 13;
+    }
+    gfx_text8(f, (W - gfx_text_width(note, 1)) / 2, by + bh - 14, note, col, 1);
+}
+
 static void render_ui(Frame *f) {
     if (G.ui == UI_INVENTORY) render_inventory(f);
     else if (G.ui == UI_QUIT) render_quit(f);
+    else if (G.ui == UI_GRAVES) render_graves(f);
 }
 
 static void crawl_render(Frame *f) {

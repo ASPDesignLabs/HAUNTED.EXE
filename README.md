@@ -82,7 +82,7 @@ yours, and the scenes stop switching until you hand it back. HAUNT.EXE cuts stra
 | 1 to 9, or the wheel | Choose an attack spell from your book: 1 Fire Bolt, 2 Frost Shard, 3 Chain Lightning, 4 Bone Spear, 5 Soul Drain, 6 Hellfire, 7 Seeker Wisps, 8 Rapid Sparks, 9 BFS9000 |
 | E or Space | Open the door ahead, unlock a vault with its key, or step through the exit runes. Walking into a door opens it too |
 | Tab | The inventory: your wardrobe and spellbook. W and S choose a slot, A and D change what is worn there, with your numbers shown changing |
-| Esc | Asks whether you want to leave, with a different argument each time for staying |
+| Esc | Asks whether you want to leave, with a different argument each time for staying; also where you save and load |
 
 Your defensive runes still fire on their own, as quickly (and as fallibly) as they do for the
 autopilot. In the merchant's room you shop yourself: walk up to a pedestal to see its card, and press
@@ -92,7 +92,7 @@ Everything you buy stays in your wardrobe, so you can swap robes, hoods and the 
 inventory. The Wolfenstein status bar stays up while you play: level, gold, health, your face,
 souls, the spell in hand and your keys.
 
-Esc offers three answers:
+Esc offers five answers:
 
 * **Flee to the surface** ends the screensaver and saves your progress: the level you were on, your
   health, gold, souls and gear. Not where you stood: next time you start at the beginning of that level
@@ -101,11 +101,17 @@ Esc offers three answers:
 * **Stay in the dark** closes the question.
 * **Sleepwalk** hands the crypt back to the autopilot, which settles into its walk from where you stood.
   The mouse then ends the screensaver again (after a second and a half).
+* **Carve a gravestone** saves the run in one of three slots, graves I to III. A grave keeps the same
+  things fleeing does, plus when it was carved. Carving over a used grave asks for a second Enter.
+* **Rise from a grave** loads one: its run starts again at the beginning of that level (or at the
+  merchant), and the controls stay yours. It asks for a second Enter, because the run you're in is lost.
+
+In the graves, W and S (or 1 to 3) choose, Enter carves or rises, and Esc goes back to the question.
 
 If the window loses focus while you play, the game pauses on that question. The saved progress is a
 `Progress` value under `HKEY_CURRENT_USER\Software\HalloweenVGASaver` (the project's name before it
-became HAUNTED.EXE, kept so that settings and progress carry over); `uninstall.cmd` removes it with the
-settings.
+became HAUNTED.EXE, kept so that settings and progress carry over), and the graves are `Slot1` to `Slot3`
+beside it; `uninstall.cmd` removes them with the settings.
 
 ## Install
 
@@ -253,7 +259,7 @@ once a second, logs every throw, hit, shriek, key pickup, cast, rune, purchase a
 `CRAWL_SEED=n`, `CRAWL_LEVEL=n` to start deeper, `CRAWL_GEAR=n` to own everything at tier n,
 `CRAWL_GOLD=n` and `CRAWL_SOULS=n`. The harness plays a person at the keys with `HOST_INPUT`, for
 example `HOST_INPUT="1:+H;4.2:-H;5:m300,0;6:+W;8:-W;9:+MOUSE1;9.2:-MOUSE1"` (press, release, mouse
-counts), and `HOST_SAVE=file` / `HOST_LOAD=file` stand in for the registry.
+counts), and `HOST_SAVE=file` / `HOST_LOAD=file` and `HOST_SLOTS=dir` stand in for the registry.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
