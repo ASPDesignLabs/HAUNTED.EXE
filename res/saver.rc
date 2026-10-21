@@ -1,0 +1,32 @@
+#include <windows.h>
+#include "build/version.h"
+1 24 "res/saver.manifest"
+
+STRINGTABLE
+BEGIN
+  1, "HAUNTED.EXE"
+END
+
+1 VERSIONINFO
+ FILEVERSION HVS_FILEVERSION
+ PRODUCTVERSION HVS_FILEVERSION
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "FileDescription", "HAUNTED.EXE - a Halloween VGA screensaver"
+      VALUE "ProductName", "HAUNTED.EXE"
+      VALUE "FileVersion", HVS_VERSION
+      VALUE "ProductVersion", HVS_VERSION
+      VALUE "OriginalFilename", "HAUNTED.scr"
+      VALUE "LegalCopyright", "GPL-3.0. Font bitmaps: Px437 IBM fonts by VileR, CC BY-SA 4.0"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x0409, 1200
+  END
+END

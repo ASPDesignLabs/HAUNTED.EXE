@@ -1,0 +1,4 @@
+# Windows scripts need CRLF line endings; everything else is LF.
+*.cmd text eol=crlf
+*.png binary
+*.ttf binary

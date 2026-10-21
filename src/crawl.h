@@ -1,0 +1,82 @@
+/* Shared data for the CATACOMB raycaster: palette, light colormap, wall
+ * textures and sprites.  All of it is generated procedurally at startup. */
+#ifndef CRAWL_H
+#define CRAWL_H
+
+#include "core.h"
+
+#define TS 64                       /* texture and sprite size */
+#define NLIGHT 32                   /* light levels in the colormap; level 24 = unlit base colour */
+#define LIGHT_UNIT 24.0f
+
+/* Palette layout: 16-entry ramps, dark to light. */
+enum {
+    R_STONE = 1, R_WARM = 17, R_BONE = 33, R_BRICK = 49, R_MOSS = 65, R_WOOD = 81,
+    R_IRON = 97, R_SKIN = 113, R_GHOST = 129, R_PURPLE = 145, R_BLOOD = 161,
+    R_FLOOR = 177, R_CEIL = 193,
+    R_FLAME = 209,                  /* full-bright: fire */
+    R_GLOW = 225,                   /* full-bright: magic */
+    C_WHITE = 241,
+    R_GOLD = 242,                   /* 13 entries, 242..254: treasure and the key */
+    C_CLEAR = 255                   /* transparent in sprites */
+};
+#define NGOLD 13
+#define IS_FULLBRIGHT(c) ((c) >= R_FLAME && (c) <= C_WHITE)
+
+enum {
+    T_STONE, T_RUBBLE, T_SKULLS, T_BRICK, T_MOSS, T_NICHE, T_BANNER,
+    T_TORCH0, T_TORCH1, T_TORCH2, T_DOOR, T_JAMB, T_LOCKED,
+    T_EXIT0, T_EXIT1, T_EXIT_OPEN,                /* the way out: runes shimmering, then thrown open */
+    T_LOCKED_S, T_LOCKED_C,                       /* the silver and crimson vault doors */
+    T_SIGN,                                       /* the merchant's sign */
+    NTEX
+};
+
+enum {
+    SP_BONES1, SP_BONES2, SP_SKULLPILE, SP_COBWEB, SP_CHAINS, SP_URN, SP_PILLAR, SP_CANDLES,
+    SP_SKEL_A, SP_SKEL_B, SP_SKEL_D1, SP_SKEL_D2, SP_SKEL_D3,
+    SP_GHOST_A, SP_GHOST_B, SP_GHOST_D1, SP_GHOST_D2,
+    SP_BAT_A, SP_BAT_B, SP_BAT_D,
+    SP_FIRE_A, SP_FIRE_B, SP_BOOM1, SP_BOOM2, SP_BOOM3,
+    SP_SKEL_T,                                  /* skeleton winding up a throw */
+    SP_BONEFLY0, SP_BONEFLY1, SP_BONEFLY2, SP_BONEFLY3,
+    SP_COINS_A, SP_COINS_B, SP_CHALICE, SP_GEMS, SP_CROWN, SP_CHEST,
+    SP_KEY0, SP_KEY1, SP_KEY2, SP_KEY3, SP_POTION,
+    SP_KEYS0, SP_KEYS1, SP_KEYS2, SP_KEYS3,     /* the silver key, turning */
+    SP_KEYC0, SP_KEYC1, SP_KEYC2, SP_KEYC3,     /* the crimson key */
+    SP_SHIELD_A, SP_SHIELD_B, SP_SHIELD_S,      /* shield-bearing skeleton: walking, swinging */
+    SP_SHIELD_XA, SP_SHIELD_XB, SP_SHIELD_XS,   /* ... its shield broken */
+    SP_WSKULL0, SP_WSKULL1, SP_WSKULL2, SP_WSKULL_D,   /* the wall skull: asleep, charging, blazing, falling */
+    SP_SPIDER_A, SP_SPIDER_B, SP_SPIDER_BITE, SP_SPIDER_D,
+    SP_SKULLFIRE_A, SP_SKULLFIRE_B,             /* a wall skull's fireball */
+    SP_FROST, SP_SPEAR, SP_HELL_A, SP_HELL_B, SP_WISP, SP_SPARK, SP_BURN_A, SP_BURN_B,
+    SP_SOULURN, SP_RINGITEM,                    /* in the key rooms */
+    SP_PEDESTAL, SP_ITEM_TOME, SP_ITEM_RUNE, SP_ITEM_ROBE, SP_ITEM_HOOD, SP_ITEM_RING,   /* the merchant's wares; R_PURPLE parts take the item's colour */
+    NSPR
+};
+
+#define HAND_W 160
+#define HAND_H 144
+#define CAT_W 128
+#define CAT_H 128
+#define FACE_W 32
+#define FACE_H 40
+#define FACE_FRAMES 30
+
+extern uint8_t crawl_pal[256][3];               /* 6-bit DAC values */
+extern uint8_t crawl_cmap[NLIGHT][256];         /* colour at a light level */
+extern uint8_t crawl_tex[NTEX][TS * TS];        /* column-major: [x * TS + y] */
+extern uint8_t crawl_spr[NSPR][TS * TS];        /* column-major, C_CLEAR = transparent */
+extern const uint8_t crawl_hand_img[HAND_H * HAND_W];  /* the caster's hand, row-major, C_CLEAR = transparent (hand_img.c) */
+extern int8_t crawl_glint[NSPR][2];             /* brightest gold pixel of a sprite, for twinkles; -1 if none */
+/* the merchant (cat_img.c): the owner's cat draped over a chest, with what the game needs to animate it */
+extern const uint8_t crawl_cat_img[CAT_H * CAT_W];
+extern const uint8_t crawl_cat_eye[2][4], crawl_cat_eyecol[5], crawl_cat_lid[2], crawl_cat_ear[2][4], crawl_cat_tail[2];
+/* the caster's face for the status bar (face_img.c): frame = stage * 4 + {ahead, left, right, grimace}; 28 grin, 29 dead */
+extern const uint8_t crawl_face_img[FACE_FRAMES][FACE_H * FACE_W];
+extern const uint8_t crawl_face_eyes[FACE_FRAMES][2][2];
+
+void crawl_art_init(void);                      /* builds everything once */
+void crawl_art_level(int level);                /* that level's palette, ruin and rot (call after init) */
+
+#endif

@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HAUNTED.EXE</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="A Halloween screensaver for Windows in real VGA modes: a possessed 486 PC and a crypt crawl you can take over and play.">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+  /* Layout: one reading column. The game's own screens (the BIOS boot, the status bar, the crypt's
+     question, a DOS setup window) sit in it as fixed-colour objects; the page around them is quiet.
+     Palette: crypt-stone neutrals with a violet bias, pumpkin orange for actions. Dark first; the light
+     theme reads like the printed manual. */
+  @font-face { font-family: "Px437 IBM VGA 8x16"; src: url("fonts/Px437_IBM_VGA_8x16.ttf") format("truetype"); font-display: swap; }
+  @font-face { font-family: "Px437 IBM BIOS"; src: url("fonts/Px437_IBM_BIOS.ttf") format("truetype"); font-display: swap; }
+  :root {
+    --bg: #0d0c10;
+    --surface: #17151c;
+    --fg: #e4e2ea;
+    --muted: #9c99ad;
+    --line: #2d2a37;
+    --accent: #f08a24;
+    --accent-ink: #160b02;
+    --ok: #7fd39b; --mid: #e3b45a; --low: #ff8f86;
+
+    /* the game's palette, the same in both themes: these are screens */
+    --scr-black: #000000;
+    --vga-grey: #aaaaaa; --vga-white: #ffffff; --vga-blue: #0000aa; --vga-cyan: #00aaaa; --vga-yellow: #ffff55;
+    --stone-hi: #6f7283; --stone: #565a6a; --stone-mid: #373b4c; --stone-lo: #292937;
+    --hud: #1f1b22; --hud-hi: #45414c; --hud-cell: #111114; --hud-cell-lo: #0e0e11; --hud-cell-hover: #19181e;
+    --hud-label: #868a9b; --hud-text: #d9d9d9; --gold: #e8c25a; --blood: #d23a26; --flame: #ff9a2e;
+
+    --font-vga: "Px437 IBM VGA 8x16", "IBM Plex Mono", ui-monospace, monospace;
+    --font-bios: "Px437 IBM BIOS", "IBM Plex Mono", ui-monospace, monospace;
+    --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #ecebf1; --surface: #f8f8fb; --fg: #1b1a22; --muted: #5b5a6b; --line: #d3d1de;
+      --accent: #b04a0a; --accent-ink: #ffffff; --ok: #1f6b3f; --mid: #8a5a00; --low: #a3281f;
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #ecebf1; --surface: #f8f8fb; --fg: #1b1a22; --muted: #5b5a6b; --line: #d3d1de;
+    --accent: #b04a0a; --accent-ink: #ffffff; --ok: #1f6b3f; --mid: #8a5a00; --low: #a3281f;
+    color-scheme: light;
+  }
+
+  :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  *, *::before, *::after { box-sizing: border-box; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 17px;
+    line-height: 1.6;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 32px 72px;
+  }
+  .page { max-width: 760px; margin-inline: auto; display: flex; flex-direction: column; gap: 64px; min-width: 0; }
+  section, header { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+
+  h1, h2, h3 { font-weight: 400; margin: 0; text-wrap: balance; }
+  h1 { font-family: var(--font-vga); font-size: 64px; line-height: 1; letter-spacing: 0; }
+  h1 .ext { color: var(--accent); }
+  h2 { font-family: var(--font-vga); font-size: 32px; line-height: 1.1; }
+  h3 { font-family: var(--font-vga); font-size: 16px; line-height: 1.5; letter-spacing: .02em; color: var(--fg); }
+  @media (max-width: 520px) { h1 { font-size: 48px; } }
+  p { margin: 0; max-width: 66ch; }
+  .lede { font-size: 19px; max-width: 60ch; }
+  .muted { color: var(--muted); }
+  .eyebrow { font-family: var(--font-bios); font-size: 16px; letter-spacing: .04em; color: var(--muted); margin: 0; }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  code, .mono { font-family: var(--font-mono); font-size: .88em; }
+  strong { font-weight: 600; }
+
+  /* --- the BIOS screen ------------------------------------------------------------ */
+  .crt {
+    position: relative;
+    background: var(--scr-black);
+    color: var(--vga-grey);
+    border-radius: 14px;
+    padding: 26px 28px 30px;
+    box-shadow: 0 0 0 1px var(--line), 0 0 0 10px var(--surface), 0 0 0 11px var(--line);
+    margin: 11px;
+    overflow: hidden;
+  }
+  .crt pre {
+    margin: 0;
+    font-family: var(--font-vga);
+    font-size: 16px;
+    line-height: 16px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .crt b { font-weight: 400; color: var(--vga-white); }
+  .crt::after {               /* scanlines, faint */
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0, 0, 0, .28) 2px 3px);
+  }
+  .cursor { display: inline-block; width: 8px; height: 2px; background: var(--vga-grey); vertical-align: -1px; }
+  @media (prefers-reduced-motion: no-preference) { .cursor { animation: blink 1.07s steps(1) infinite; } }
+  @keyframes blink { 50% { visibility: hidden; } }
+  @media (max-width: 520px) { .crt { padding: 18px 16px 20px; } .crt pre { font-size: 12px; line-height: 14px; } }
+
+  /* --- the status bar: downloads ----------------------------------------------- */
+  .hud {
+    background: var(--hud);
+    border-top: 2px solid var(--hud-hi);
+    border-radius: 4px;
+    padding: 0 0 12px;
+    display: flex; flex-direction: column; gap: 12px;
+    color: var(--hud-text);
+  }
+  .hud .strip { display: block; width: 100%; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; border-bottom: 2px solid var(--hud-cell-lo); }
+  .cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding-inline: 12px; }
+  @media (max-width: 620px) { .cells { grid-template-columns: minmax(0, 1fr); } }
+  a.cell {
+    display: flex; flex-direction: column; gap: 4px; min-width: 0;
+    background: var(--hud-cell);
+    border-top: 2px solid var(--hud-cell-lo); border-bottom: 2px solid var(--hud-hi);
+    padding: 10px 12px 12px;
+    color: var(--hud-text); text-decoration: none;
+  }
+  a.cell:hover { background: var(--hud-cell-hover); }
+  a.cell:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .cell .label { font-family: var(--font-bios); font-size: 16px; color: var(--hud-label); letter-spacing: .04em; }
+  .cell .name { font-family: var(--font-vga); font-size: 16px; color: var(--hud-text); overflow-wrap: anywhere; }
+  .cell.primary .name { color: var(--gold); }
+  .cell .what { font-size: 14px; line-height: 1.45; color: var(--hud-label); }
+  .cell .size { font-family: var(--font-vga); font-size: 16px; color: var(--hud-label); font-variant-numeric: tabular-nums; }
+  .hud .meta { padding-inline: 12px; font-size: 14px; color: var(--hud-label); }
+  .hud .meta a { color: var(--gold); }
+  #dl-status { min-height: 1.4em; }
+
+  /* --- figures ------------------------------------------------------------------- */
+  .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+  @media (max-width: 620px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+  .scene { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .scene img, .frame { display: block; width: 100%; height: auto; image-rendering: pixelated; background: var(--scr-black); border-radius: 6px; }
+  .scene .spec { font-family: var(--font-vga); font-size: 16px; color: var(--muted); }
+  figure { margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  figure img { display: block; width: 100%; height: auto; border-radius: 6px; background: var(--scr-black); }
+  figcaption { font-size: 14.5px; color: var(--muted); }
+
+  /* --- controls -------------------------------------------------------------------- */
+  .scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 15.5px; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  th { font-family: var(--font-bios); font-size: 16px; font-weight: 400; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.keys { white-space: nowrap; }
+  @media (max-width: 520px) { td.keys { white-space: normal; width: 7.5em; } th, td { padding: 10px 10px; } }
+  kbd {
+    display: inline-block; min-width: 1.9em; text-align: center;
+    font-family: var(--font-bios); font-size: 16px; line-height: 1;
+    padding: 5px 6px 4px; margin: 0 2px 4px 0;
+    color: var(--fg); background: var(--bg);
+    border: 1px solid var(--line); border-bottom-width: 3px; border-radius: 4px;
+  }
+  ul.plain, ol.plain { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; max-width: 66ch; }
+
+  /* --- LEAVE THE CRYPT? -------------------------------------------------------- */
+  .quit {
+    position: relative; align-self: center; width: min(100%, 600px);
+    background: var(--scr-black); color: var(--hud-text);
+    border: 2px solid; border-color: var(--stone-hi) var(--stone-mid) var(--stone-mid) var(--stone-hi);
+    padding: 26px 22px 22px;
+    display: flex; flex-direction: column; align-items: center; gap: 18px;
+    text-align: center;
+  }
+  .quit::before {
+    content: ""; position: absolute; inset: 4px; pointer-events: none;
+    border: 2px solid; border-color: var(--stone-mid) var(--stone-lo) var(--stone-lo) var(--stone-mid);
+  }
+  .quit .q-title { font-family: var(--font-vga); font-size: 32px; line-height: 1; color: var(--blood); }
+  .quit .q-line { font-family: var(--font-bios); font-size: 16px; line-height: 24px; letter-spacing: .02em; min-height: 48px; max-width: 34ch; text-wrap: balance; }
+  .quit .q-opts { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .quit button {
+    position: relative;
+    font-family: var(--font-vga); font-size: 32px; line-height: 1;
+    background: none; border: 0; padding: 4px 30px; cursor: pointer;
+    color: var(--stone);
+  }
+  .quit button[aria-pressed="true"] { color: var(--vga-white); }
+  .quit button[aria-pressed="true"]::before, .quit button[aria-pressed="true"]::after {   /* a candle flame for a cursor */
+    content: ""; position: absolute; top: 50%; width: 8px; height: 14px; margin-top: -8px;
+    background: var(--flame); border-radius: 50% 50% 30% 30% / 70% 70% 30% 30%;
+  }
+  .quit button::before { left: 8px; } .quit button::after { right: 8px; }
+  @media (max-width: 560px) { .quit button[aria-pressed="true"]::before, .quit button[aria-pressed="true"]::after { width: 6px; height: 10px; margin-top: -6px; } }
+  .quit button:focus-visible { outline: 2px solid var(--gold); outline-offset: 0; }
+  @media (max-width: 560px) { .quit button { font-size: 16px; padding: 8px 26px; } }
+  .quit .q-note { font-family: var(--font-bios); font-size: 16px; color: var(--gold); min-height: 24px; letter-spacing: .02em; }
+  @media (prefers-reduced-motion: no-preference) {
+    .quit button[aria-pressed="true"]::before, .quit button[aria-pressed="true"]::after { animation: flicker .2s steps(1) infinite; }
+  }
+  @keyframes flicker { 50% { transform: scaleY(.8) translateY(1px); } }
+
+  /* --- the DOS setup window ---------------------------------------------------- */
+  .dos { background: var(--vga-blue); color: var(--vga-grey); font-family: var(--font-vga); font-size: 16px; line-height: 20px; border-radius: 4px; overflow: hidden; }
+  .dos .bar { background: var(--vga-grey); color: var(--scr-black); padding: 2px 12px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .dos ol { margin: 0; padding: 16px 18px 6px 52px; display: flex; flex-direction: column; gap: 14px; }
+  .dos li::marker { color: var(--vga-yellow); }
+  .dos b { font-weight: 400; color: var(--vga-white); }
+  .dos .warn { color: var(--vga-yellow); padding: 6px 18px 0; }
+  .dos .foot { background: var(--vga-cyan); color: var(--scr-black); padding: 2px 12px; margin-top: 16px; }
+
+  /* --- the rest ------------------------------------------------------------------ */
+  pre.code { margin: 0; padding: 14px 16px; overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; font-family: var(--font-mono); font-size: 14px; line-height: 1.6; }
+  .links { display: flex; flex-wrap: wrap; gap: 10px 22px; }
+  .links a { font-family: var(--font-bios); font-size: 16px; letter-spacing: .03em; }
+  .tag { display: inline-block; font-family: var(--font-bios); font-size: 16px; padding: 3px 8px 2px; border-radius: 3px; border: 1px solid currentColor; white-space: nowrap; }
+  .tag.ok { color: var(--ok); } .tag.mid { color: var(--mid); } .tag.low { color: var(--low); }
+  footer { font-size: 14.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+  footer p { max-width: 72ch; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="crt" role="img" aria-label="A 486 BIOS boot screen: CRYPTEK 486 BIOS, Cache 256K haunted, FPU present and watching, memory test 16384K OK, then the prompt C:\>HAUNTED.EXE">
+<pre aria-hidden="true"><b>CRYPTEK 486 BIOS</b> v13.0.31   (C) 1994 Phantom Systems Inc.
+BIOS date: 10/31/94 00:00:00
+
+CPU      : <b>80486DX2-66</b>  (66 MHz)
+Cache    : <b>256K, haunted</b>
+FPU      : <b>Present (and watching)</b>
+
+Memory Test : <b id="mem">16384K OK</b>
+
+Press <b>DEL</b> to enter SETUP, or don't. We'll know.
+
+C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
+    </div>
+
+    <p class="eyebrow" id="edition">WINDOWS SCREENSAVER &middot; v@VERSION@ &middot; BETA</p>
+    <h1>HAUNTED<span class="ext">.EXE</span></h1>
+    <p class="lede">A Halloween screensaver for Windows that runs in real VGA modes. A possessed 486 boots, types back and falls apart; a Wolfenstein-style crypt crawl plays itself; and if you hold H for three seconds, the crypt is yours. It's made for OLED screens: true black, whole-number scaling up to 4K, and FM-synth music generated as it plays.</p>
+
+    <section class="hud" id="download" data-live="on" aria-label="Download">
+      <img class="strip" src="img/statusbar.png" width="320" height="44" alt="">
+      <div class="cells">
+        <a class="cell primary" data-asset="^HAUNTED\.EXE$" href="https://github.com/ASPDesignLabs/HAUNTED.EXE/releases/download/v@VERSION@/HAUNTED.EXE">
+          <span class="label">PLAY</span>
+          <span class="name">HAUNTED.EXE &#x2193;</span>
+          <span class="what">Double-click to open it in a window. Hold H to play.</span>
+          <span class="size">64-bit</span>
+        </a>
+        <a class="cell" data-asset="^HAUNTED\.scr$" href="https://github.com/ASPDesignLabs/HAUNTED.EXE/releases/download/v@VERSION@/HAUNTED.scr">
+          <span class="label">INSTALL</span>
+          <span class="name">HAUNTED.scr &#x2193;</span>
+          <span class="what">The same program as a screensaver. Right-click, Install.</span>
+          <span class="size">64-bit</span>
+        </a>
+        <a class="cell" data-asset="^HAUNTED-.*-win64\.zip$" href="https://github.com/ASPDesignLabs/HAUNTED.EXE/releases/download/v@VERSION@/HAUNTED-@VERSION@-win64.zip">
+          <span class="label">EVERYTHING</span>
+          <span class="name">HAUNTED-@VERSION@-win64.zip &#x2193;</span>
+          <span class="what">Both, with install scripts, previews and the source.</span>
+          <span class="size">zip</span>
+        </a>
+      </div>
+      <p class="meta" id="dl-meta">For Windows 10 and 11. A pre-release built by GitHub Actions from tag v@VERSION@. <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE/releases/download/v@VERSION@/SHA256SUMS.txt" id="sums">Checksums</a> &middot; <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE/releases">All releases</a></p>
+      <p class="meta" id="dl-status" role="status" aria-live="polite">The files aren't code-signed, so Windows may warn you the first time. Choose More info, then Run anyway.</p>
+    </section>
+  </header>
+
+  <section aria-labelledby="scenes">
+    <h2 id="scenes">Two scenes</h2>
+    <p>They take turns every few minutes, with a fade of the picture and the sound. You can turn either off in the settings.</p>
+    <div class="pair">
+      <div class="scene">
+        <img src="img/haunt_pumpkin.png" width="720" height="400" alt="HAUNT.EXE: a half-block ANSI jack-o'-lantern grinning in a pumpkin patch under a full moon, with a scarecrow behind it and the words 'happy halloween. i have been carved for you.' typed below">
+        <h3>HAUNT.EXE</h3>
+        <p class="spec">80&times;25 text, 720&times;400</p>
+        <p>A possessed 486 PC. It boots, a ghost types back at the DOS prompt, and the programs have been got at: EDIT rewriting AUTOEXEC.BAT for a s&eacute;ance, DEFRAG moving souls to the front of the disk, a modem call to a BBS on the other side, MSD finding GHOST.SYS on IRQ 13. Between them come seven half-block ANSI scenes, from the jack-o'-lantern to a ghost that rushes down a hallway. It ends in a fatal error and a CRT power-off, then reboots.</p>
+      </div>
+      <div class="scene">
+        <img src="img/catacomb_fight.png" width="320" height="200" alt="CATACOMB: a fireball strikes a shield-bearing skeleton in a torch-lit hall while a hooded wraith looms to the right; the caster's hand is raised in the foreground beside a pile of skulls">
+        <h3>CATACOMB</h3>
+        <p class="spec">Mode 13h, 320&times;200, 256 colours</p>
+        <p>A Catacomb 3-D style crawl through crypts generated for each level. The caster buys from the merchant, a cat on a treasure chest, then fights skeletons, shield-bearers, wall skulls, spiders, bats and wraiths with nine attack spells and nine runes, opening colour-coded vaults on the way to a rune-sealed exit. Every level is older and harder than the last.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="play">
+    <h2 id="play">The crypt is yours</h2>
+    <p>Hold <kbd>H</kbd> for three seconds in either scene. A bar fills at the bottom of the screen; let go early and nothing happens. When it fills, the autopilot steps aside and the scenes stop switching until you hand it back. Any other key still ends the screensaver as usual.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Keys</th><th>What they do</th></tr></thead>
+        <tbody>
+          <tr><td class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td><td>Walk and strafe. The arrow keys work too; left and right turn. Shift runs.</td></tr>
+          <tr><td class="keys"><kbd>MOUSE</kbd></td><td>Turn, the way Doom does. There is no looking up or down.</td></tr>
+          <tr><td class="keys"><kbd>CLICK</kbd><kbd>CTRL</kbd></td><td>Cast the spell in hand where you look. Lightning and Soul Drain catch the nearest creature near the middle of the view.</td></tr>
+          <tr><td class="keys"><kbd>1</kbd>&ndash;<kbd>9</kbd></td><td>Choose a spell you own: Fire Bolt, Frost Shard, Chain Lightning, Bone Spear, Soul Drain, Hellfire, Seeker Wisps, Rapid Sparks, BFS9000. The wheel works too.</td></tr>
+          <tr><td class="keys"><kbd>E</kbd><kbd>SPACE</kbd></td><td>Open the door ahead, unlock a vault with its key, step through the exit runes, or buy from the merchant.</td></tr>
+          <tr><td class="keys"><kbd>TAB</kbd></td><td>Your wardrobe and spellbook. W and S pick a slot, A and D change what you wear there.</td></tr>
+          <tr><td class="keys"><kbd>ESC</kbd></td><td>Ask to leave. The crypt will argue.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Your defensive runes still fire on their own, as quickly and as fallibly as they do for the autopilot. Everything you buy stays in your wardrobe, and the Wolfenstein status bar stays up while you play.</p>
+
+    <div class="quit" id="quit" role="group" aria-labelledby="q-title">
+      <p class="q-title" id="q-title">LEAVE THE CRYPT?</p>
+      <p class="q-line" id="q-line" aria-live="polite">THE CAT IS WATCHING. THE CAT IS ALWAYS WATCHING.</p>
+      <div class="q-opts" role="group" aria-label="Answers">
+        <button type="button" id="q-flee" aria-pressed="false">FLEE TO THE SURFACE</button>
+        <button type="button" id="q-stay" aria-pressed="true">STAY IN THE DARK</button>
+        <button type="button" id="q-sleep" aria-pressed="false">SLEEPWALK</button>
+      </div>
+      <p class="q-note" id="q-note">BACK TO THE CRYPT</p>
+    </div>
+    <ul class="plain">
+      <li><strong>Flee to the surface</strong> ends the screensaver and saves your level, health, gold, souls and gear. Next time you start at the beginning of that level, and the next session starts from it whether you play or not.</li>
+      <li><strong>Stay in the dark</strong> closes the question. It's the default, so a stray Enter keeps you playing.</li>
+      <li><strong>Sleepwalk</strong> hands the crypt back to the autopilot, which walks on from where you stood.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="screens">
+    <h2 id="screens">Screens</h2>
+    <figure>
+      <img src="img/preview_catacomb_play.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB played by hand: the HOLD H TO TAKE CONTROL bar; the controls listed above the raised hand and the status bar; the merchant's card for a spell; a fireball leaving the hand toward a skeleton; the wardrobe with rings being chosen; and the LEAVE THE CRYPT? question">
+      <figcaption>Taking over, shopping, casting, the wardrobe and the question at Esc.</figcaption>
+    </figure>
+    <figure>
+      <img src="img/preview_catacomb.png" loading="lazy" width="2578" height="806" alt="Eight frames from CATACOMB: the cat merchant on its chest, a merchant's card, a wall skull waking, a spider dropping, a shield skeleton, the BFS9000 forming and imploding, Hellfire, and the caster's portrait after a hit">
+      <figcaption>The merchant, a wall skull, a spider, the BFS9000 and Hellfire.</figcaption>
+    </figure>
+    <figure>
+      <img src="img/preview_catacomb_crypt.png" loading="lazy" width="1932" height="806" alt="Six frames from CATACOMB: the rune-sealed exit, the exit opened, the LEVEL 1 COMPLETE tally, a wraith rearing back, a violet deeper corridor and a mossy room">
+      <figcaption>The exit, the tally, a wraith and the deeper levels.</figcaption>
+    </figure>
+    <figure>
+      <img src="img/preview_haunt_text.png" loading="lazy" width="2898" height="806" alt="Eight frames of haunted DOS programs: EDIT, DEFRAG, the BBS, the virus scan, MSD, SETUP, QBasic and the file manager">
+      <figcaption>HAUNT.EXE's programs.</figcaption>
+    </figure>
+    <figure>
+      <img src="img/preview_haunt_art.png" loading="lazy" width="1446" height="806" alt="Four frames from HAUNT.EXE: the jack-o'-lantern lit and wicked, and the talking skull lit and in the dark">
+      <figcaption>The pumpkin patch and the ossuary.</figcaption>
+    </figure>
+    <figure>
+      <img src="img/preview_haunt.png" loading="lazy" width="1476" height="1660" alt="Eight frames from HAUNT.EXE: the DOS prompt typing THEY ARE ALL STILL HERE, the manor in a thunderstorm, zombies rising in a graveyard, skeletons dancing out of their coffins and collapsing when the music stops, the ghost saying boo, and the spider in a candle-lit corner">
+      <figcaption>The prompt, the manor, the graveyard, the skeletons, the ghost and the spider.</figcaption>
+    </figure>
+  </section>
+
+  <section aria-labelledby="install">
+    <h2 id="install">Install</h2>
+    <div class="dos">
+      <div class="bar"><span>HAUNTED.EXE Setup</span><span>v@VERSION@</span></div>
+      <ol>
+        <li>Download <b>HAUNTED.EXE</b> and double-click it to try it in a window. F11 switches to full screen and Esc quits.</li>
+        <li>To make it your screensaver, right-click <b>HAUNTED.scr</b> and choose Install, or run <b>install.cmd</b> from the zip. Windows asks for administrator rights.</li>
+        <li>In Screen Saver Settings choose <b>HAUNTED.EXE</b>. Settings&hellip; sets the sound, brightness, scenes and monitor.</li>
+        <li>To remove it, run <b>uninstall.cmd</b> as administrator.</li>
+      </ol>
+      <p class="warn">Unsigned file: if SmartScreen stops it, choose More info, then Run anyway.</p>
+      <div class="foot">F1=Help  Esc=Cancel</div>
+    </div>
+    <p>HAUNT.EXE's file manager shows your Windows user name and today's date. Keep that in mind before you share a recording. <code>capture.cmd</code> in the zip runs it as an ordinary window that OBS or Xbox Game Bar can record.</p>
+  </section>
+
+  <section aria-labelledby="source">
+    <h2 id="source">Built in the open</h2>
+    <p>Every release is built from this repository by GitHub Actions. The MinGW-w64 cross-compiler builds the program, a headless harness renders both scenes and plays a scripted session, and the files go up with their SHA-256 checksums. It's about 15,000 lines of C with no dependencies beyond the standard Windows DLLs.</p>
+<pre class="code">sudo apt install gcc-mingw-w64-x86-64 zlib1g-dev
+make zip      # dist/HAUNTED.scr, dist/HAUNTED.EXE and the zip
+make smoke    # both scenes and a scripted player in the test harness</pre>
+    <div class="links">
+      <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE">SOURCE</a>
+      <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE/actions">BUILDS</a>
+      <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE/releases">RELEASES</a>
+      <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE/issues">ISSUES</a>
+    </div>
+  </section>
+
+  <section aria-labelledby="beta">
+    <h2 id="beta">Beta status</h2>
+    <p>This is the first public build. Here is what has been tested, and how.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Area</th><th>Evidence</th><th>Confidence</th></tr></thead>
+        <tbody>
+          <tr><td>Playing</td><td>Scripted sessions in the harness: taking over from both scenes, shopping, every spell, the wardrobe, the question at Esc, dying, the exit, saving and loading. 170 seconds under AddressSanitizer and UBSan, clean.</td><td><span class="tag ok">HIGH</span></td></tr>
+          <tr><td>The autopilot</td><td>Six 50-minute simulations: every run reached level 8 to 10 and left every level by its exit.</td><td><span class="tag ok">HIGH</span></td></tr>
+          <tr><td>Input on Windows</td><td>The Windows build under Wine with real key presses and mouse motion, including saving to the registry and loading it back.</td><td><span class="tag mid">MEDIUM</span></td></tr>
+          <tr><td>Mouse feel</td><td>One fixed speed, 0.0015 radians per count, not yet tried by hand.</td><td><span class="tag low">UNKNOWN</span></td></tr>
+          <tr><td>Sound</td><td>Analysed offline for clipping and levels, never heard through real speakers.</td><td><span class="tag low">UNKNOWN</span></td></tr>
+          <tr><td>Real Windows</td><td>Wine only so far, including the screensaver desktop and &ldquo;On resume, display logon screen&rdquo;.</td><td><span class="tag low">UNTESTED</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>If something is wrong on your machine, <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE/issues">open an issue</a> with your Windows version and graphics card.</p>
+  </section>
+
+  <footer>
+    <p>HAUNTED.EXE is free software under the GNU General Public License v3.0. The VGA glyphs come from the Px437 IBM VGA 8&times;16 and IBM BIOS fonts in The Ultimate Oldschool PC Font Pack by VileR, licensed CC BY-SA 4.0, and this page uses the same fonts. The caster's hand and face and the merchant were traced from the author's photographs; everything else, including the art, music and effects, is generated by the code.</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* the BIOS counts its memory, then the prompt types the command */
+  if (!still) {
+    var mem = document.getElementById("mem"), cmd = document.getElementById("cmd");
+    var word = cmd.textContent, kb = 0;
+    cmd.textContent = "";
+    var count = setInterval(function () {
+      kb += 512;
+      mem.textContent = kb >= 16384 ? "16384K OK" : kb + "K";
+      if (kb >= 16384) {
+        clearInterval(count);
+        var i = 0, type = setInterval(function () {
+          cmd.textContent = word.slice(0, ++i);
+          if (i >= word.length) clearInterval(type);
+        }, 110);
+      }
+    }, 28);
+  }
+
+  /* LEAVE THE CRYPT? */
+  var LINES = [
+    "THE MERCHANT WILL MISS YOU. THE MERCHANT WILL NEVER SAY SO.",
+    "LEAVING? THE DEAD HAVE BEEN SO PATIENT WITH YOU.",
+    "YOU STILL HAVE 1240 GOLD. IT SPENDS NOTHING UP THERE.",
+    "OUT THERE IT IS JUST EMAIL. DOWN HERE YOU ARE A WIZARD.",
+    "THE SKELETONS WERE JUST STARTING TO LIKE YOU.",
+    "THE TORCHES WILL GO OUT WITHOUT YOU. ALL OF THEM.",
+    "THE CAT IS WATCHING. THE CAT IS ALWAYS WATCHING.",
+    "ONE MORE LEVEL. EVERYONE SAYS ONE MORE LEVEL.",
+    "THE WRAITHS WILL TELL EVERYONE YOU RAN.",
+    "YOUR DESK IS THE REAL TOMB, YOU KNOW.",
+    "SOMEWHERE ON LEVEL 3 A KEY IS STILL WAITING FOR YOU.",
+    "WHO WILL PET THE MERCHANT WHILE YOU ARE GONE?",
+    "THE SPIDERS SAY STAY AS LONG AS YOU LIKE. THE SPIDERS INSIST.",
+    "GO, THEN. THE CRYPT WILL KEEP YOUR PLACE. AND YOUR NAME.",
+    "REAL WIZARDS DO NOT HAVE MEETINGS.",
+    "87 SOULS. SO CLOSE TO SOMETHING WONDERFUL."
+  ];
+  var NOTES = { "q-flee": "YOUR LEVEL, GOLD AND GEAR ARE KEPT", "q-stay": "BACK TO THE CRYPT", "q-sleep": "THE AUTOPILOT WALKS ON WITHOUT YOU" };
+  var line = document.getElementById("q-line"), note = document.getElementById("q-note");
+  var opts = ["q-flee", "q-stay", "q-sleep"].map(function (id) { return document.getElementById(id); });
+  var li = Math.floor(Math.random() * LINES.length), walker = null;
+  function show() { line.textContent = LINES[li % LINES.length]; }
+  function select(b) {
+    opts.forEach(function (o) { o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+    note.textContent = NOTES[b.id];
+  }
+  show();
+  opts.forEach(function (b, i) {
+    b.addEventListener("mouseenter", function () { select(b); });
+    b.addEventListener("focus", function () { select(b); });
+    b.addEventListener("keydown", function (e) {
+      var d = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+      if (d) { e.preventDefault(); opts[(i + d + opts.length) % opts.length].focus(); }
+    });
+    b.addEventListener("click", function () {
+      select(b);
+      if (walker) { clearInterval(walker); walker = null; }
+      if (b.id === "q-flee") {
+        line.textContent = "THE SURFACE IS UP THERE. THE CRYPT WILL WAIT.";
+        document.getElementById("download").scrollIntoView({ behavior: still ? "auto" : "smooth", block: "center" });
+      } else if (b.id === "q-stay") {
+        li++; show();
+      } else {
+        li++; show();
+        if (!still) walker = setInterval(function () { li++; show(); }, 4200);
+      }
+    });
+  });
+
+  /* the newest release, pre-releases included (GitHub's "latest" skips them) */
+  var box = document.getElementById("download");
+  if (box.getAttribute("data-live") !== "on" || !window.fetch) return;
+  function size(n) { return n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.round(n / 1024) + " KB"; }
+  fetch("https://api.github.com/repos/ASPDesignLabs/HAUNTED.EXE/releases?per_page=10", { headers: { Accept: "application/vnd.github+json" } })
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function (list) {
+      var rel = (list || []).filter(function (r) { return !r.draft; })[0];
+      if (!rel) return;
+      var tag = rel.tag_name, assets = rel.assets || [];
+      box.querySelectorAll("[data-asset]").forEach(function (a) {
+        var re = new RegExp(a.getAttribute("data-asset"));
+        var f = assets.filter(function (x) { return re.test(x.name); })[0];
+        if (!f) return;
+        a.href = f.browser_download_url;
+        a.querySelector(".name").textContent = f.name + " \u2193";
+        a.querySelector(".size").textContent = size(f.size);
+      });
+      var sums = assets.filter(function (x) { return x.name === "SHA256SUMS.txt"; })[0];
+      if (sums) document.getElementById("sums").href = sums.browser_download_url;
+      var when = rel.published_at ? new Date(rel.published_at).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }) : "";
+      var meta = document.getElementById("dl-meta");
+      meta.firstChild.textContent = "For Windows 10 and 11. " + (rel.prerelease ? "A pre-release" : "A release") +
+        " built by GitHub Actions from tag " + tag + (when ? " on " + when : "") + ". ";
+      document.getElementById("edition").textContent = "WINDOWS SCREENSAVER \u00b7 " + tag + (rel.prerelease ? " \u00b7 BETA" : "");
+    })
+    .catch(function () { /* the links above already point at this version */ });
+})();
+</script>
+</body>
+</html>
