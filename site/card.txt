@@ -1,0 +1,4 @@
+# The title card X and other sites show when the project page is shared. The cards are in
+# site/cards/ ("make cards" rebuilds them). One line per release, "<version> <card>";
+# "*" is for every version without a line of its own.
+* c-pumpkin

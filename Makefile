@@ -3,6 +3,7 @@
 #   make scr    - Windows screensaver (needs x86_64-w64-mingw32-gcc)
 #   make zip    - the release package
 #   make smoke  - a short headless run of both scenes in the test harness
+#   make cards  - the project page's title cards in site/cards (needs Pillow)
 VERSION := $(shell cat VERSION)
 FILEVER := $(shell sed -E 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*/\1,\2,\3,0/' VERSION)
 PKG      = dist/HAUNTED-$(VERSION)-win64.zip
@@ -52,6 +53,16 @@ smoke: build/host
 	    ./build/host shot crawl 3,6,9.5,12 build/smoke/play
 	./build/host bench crawl 60
 
+build/host_debug: $(SRC) tools/host.c src/*.h
+	@mkdir -p build
+	gcc $(CFLAGS) -DHAUNT_DEBUG -DCRAWL_DEBUG -o $@ $(SRC) tools/host.c -lm -lz
+
+cards: build/host_debug
+	@mkdir -p build/cards
+	cd build/cards && ../host_debug shot haunt 25 h 1 >/dev/null && HAUNT_PLAN=10 ../host_debug shot haunt 14 pk 1 >/dev/null \
+	    && CRAWL_SEED=7 CRAWL_LEVEL=3 ../host_debug shot crawl 75,110 c 1 >/dev/null
+	python3 tools/make_cards.py build/cards site/cards
+
 clean:
 	rm -rf build dist/HAUNTED.scr dist/HAUNTED.EXE dist/*.zip
-.PHONY: all host scr zip smoke clean
+.PHONY: all host scr zip smoke cards clean
