@@ -1,6 +1,6 @@
 The first public build of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H** for three seconds.
 
-This is a beta. It has been tested in a headless harness and under Wine, not yet on real Windows hardware. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
+This is a beta. Besides the automated tests and runs under Wine, it has been played by hand on the author's own Windows PC in a few different configurations; other PCs and graphics cards haven't been tried yet. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
 
 ### Files
 

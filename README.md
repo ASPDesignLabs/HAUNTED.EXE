@@ -283,11 +283,10 @@ The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.p
   reading back the frame: 10x scale, centred, pixel drift applied), in a window, with the GDI fallback,
   the settings dialog, and the `/p` preview. The `/f` capture window came up borderless at 3840x2161.
   Whether it really ignores the mouse is untested, because nothing here could send mouse input.
-* **Not tested here: real Windows hardware, and real audio output.** That includes how the mouse feels
-  (it turns 0.0015 radians per count) and how Windows' own screensaver desktop treats a game being
-  played on it. There was no sound device in the
-  build environment, so the waveOut path (a small double-buffered thread) has been compiled and read
-  through but not heard. If you get no sound, the saver still runs silently; please open an issue.
+* **Played by hand on real Windows.** The author has run it on their own Windows PC in a few different
+  configurations. The sound plays as intended, the mouse speed (0.0015 radians per count) feels right,
+  and holding H, the keys and the mouse capture all work. Other PCs and graphics cards haven't been
+  tried yet; if you get no sound or something misbehaves, please open an issue.
 
 ## Credits and licences
 

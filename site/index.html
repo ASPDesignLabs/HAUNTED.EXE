@@ -409,17 +409,17 @@ make smoke    # both scenes and a scripted player in the test harness</pre>
 
   <section aria-labelledby="beta">
     <h2 id="beta">Beta status</h2>
-    <p>This is the first public build. Here is what has been tested, and how.</p>
+    <p>This is the first public build. It has been played by hand on the author's own Windows PC in a few different configurations, on top of the automated tests. Here is what has been tested, and how.</p>
     <div class="scroll">
       <table>
         <thead><tr><th>Area</th><th>Evidence</th><th>Confidence</th></tr></thead>
         <tbody>
           <tr><td>Playing</td><td>Scripted sessions in the harness: taking over from both scenes, shopping, every spell, the wardrobe, the question at Esc, dying, the exit, saving and loading. 170 seconds under AddressSanitizer and UBSan, clean.</td><td><span class="tag ok">HIGH</span></td></tr>
           <tr><td>The autopilot</td><td>Six 50-minute simulations: every run reached level 8 to 10 and left every level by its exit.</td><td><span class="tag ok">HIGH</span></td></tr>
-          <tr><td>Input on Windows</td><td>The Windows build under Wine with real key presses and mouse motion, including saving to the registry and loading it back.</td><td><span class="tag mid">MEDIUM</span></td></tr>
-          <tr><td>Mouse feel</td><td>One fixed speed, 0.0015 radians per count, not yet tried by hand.</td><td><span class="tag low">UNKNOWN</span></td></tr>
-          <tr><td>Sound</td><td>Analysed offline for clipping and levels, never heard through real speakers.</td><td><span class="tag low">UNKNOWN</span></td></tr>
-          <tr><td>Real Windows</td><td>Wine only so far, including the screensaver desktop and &ldquo;On resume, display logon screen&rdquo;.</td><td><span class="tag low">UNTESTED</span></td></tr>
+          <tr><td>Input on Windows</td><td>Played by hand on real Windows: holding H, the keys, raw mouse turning and keeping the mouse inside the window all work flawlessly. Also driven under Wine with real key presses, including saving to the registry and loading it back.</td><td><span class="tag ok">HIGH</span></td></tr>
+          <tr><td>Mouse feel</td><td>Tried by hand: the fixed speed of 0.0015 radians per count feels spot-on.</td><td><span class="tag ok">HIGH</span></td></tr>
+          <tr><td>Sound</td><td>Heard through real speakers, where the music and effects play as intended. Also analysed offline for clipping and levels.</td><td><span class="tag ok">HIGH</span></td></tr>
+          <tr><td>Real Windows</td><td>Runs on the author's Windows PC in a few different configurations. Other PCs and graphics cards haven't been tried yet.</td><td><span class="tag mid">MEDIUM</span></td></tr>
         </tbody>
       </table>
     </div>
