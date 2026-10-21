@@ -1,6 +1,9 @@
 # Builds HAUNTED.scr, HAUNTED.EXE and the zip on every push and pull request, runs the headless
-# smoke test, and keeps the files as a workflow artifact. A pushed tag v<VERSION> also publishes
-# them as a GitHub release (a pre-release when the version has a, b or rc in it).
+# smoke test, and keeps the files as a workflow artifact.
+#
+# Releases: when main carries a VERSION that has no release yet, the build is published as release
+# v<VERSION>, creating that tag on the commit. Pushing a tag v<VERSION> yourself does the same.
+# A version with a, b or rc in it becomes a pre-release.
 name: Build
 
 on:
@@ -64,7 +67,7 @@ jobs:
 
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -81,13 +84,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="$GITHUB_REF_NAME"
+          tag="v$(cat VERSION)"
           pre=""
           case "$tag" in *a[0-9]*|*b[0-9]*|*rc[0-9]*) pre="--prerelease" ;; esac
           ls -l dist
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" dist/* --clobber
+            if [ "$GITHUB_REF_TYPE" = tag ]; then
+              gh release upload "$tag" dist/* --clobber      # a re-run of the tag's build
+            else
+              echo "Release $tag already exists; bump VERSION to publish a new one."
+            fi
           else
-            gh release create "$tag" dist/* --verify-tag $pre \
+            gh release create "$tag" dist/* --target "$GITHUB_SHA" $pre \
               --title "HAUNTED.EXE ${tag#v}" --notes-file .github/release-notes.md
           fi

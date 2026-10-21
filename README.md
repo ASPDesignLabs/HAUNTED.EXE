@@ -224,10 +224,10 @@ site/                               the project page, published to GitHub Pages
 .github/workflows/                  build.yml (build, smoke test, release on v* tags), pages.yml
 ```
 
-The version lives in `VERSION`. To release, update it, commit, and push a matching tag
-(`git tag v1.0.0b1 && git push origin v1.0.0b1`). The build workflow checks that the tag matches
-`VERSION`, builds the files above, and publishes them as a GitHub release; a tag with `a`, `b` or `rc`
-in it becomes a pre-release.
+The version lives in `VERSION`. To release, change it and push to `main`: when the build passes,
+the workflow tags the commit `v<VERSION>` and publishes the files above as a GitHub release, with their
+checksums. Pushing a tag `v<VERSION>` yourself does the same (the workflow checks that the two match).
+A version with `a`, `b` or `rc` in it becomes a pre-release.
 
 A scene is a `Scene` struct (video mode, sound program, `enter` / `update` / `render`), so adding a third
 scene means writing one file and adding it to the list in `app.c`.
