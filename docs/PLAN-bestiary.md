@@ -389,7 +389,53 @@ schedule) is best done before step 1 here, since debuts and rank mix are laid ou
 - then the owner plays it. Navigation will make today's creatures noticeably more dangerous, so expect
   a balance pass in step 1.
 
-## 11. Questions for the owner
+## 11. Achievements and the bestiary page
+
+Asked for by the owner on 22 October, after the art was approved; the answers below are theirs.
+
+**Kept in the save, per save.** The progress save and each of the three graves carry their own
+counts and achievements, so loading an old grave rolls them back to what that grave knew. That needs
+a version 2 save (version 1 still loads, with everything at zero) and a larger slot than today's 256
+bytes (`SLOT_MAX`), since the counts alone come to about 300 bytes.
+
+**Everything counts.** Kills, secrets and level clears count whoever makes them, the autopilot
+included, and the pop-ups show in screensaver mode too.
+
+**Achievements:**
+
+- **Slayer**, one per creature per rank it comes in. Its lowest rank needs 60 kills, then 40, 25,
+  15 and 8 for each rank up; gilded needs 3. Only the ranks a creature can actually be met in are
+  listed: a deacon, first met in the Deep, starts at rank II. Spectres and the Wraith can't be killed
+  and have none.
+- **Secrets:** the first, then 5, 10, 20, 30, 40 and 50 found (the steps after the first are a
+  default, not the owner's).
+- **Levels:** one for clearing each of levels 1 to 20, then one for each further loop (40, 60, 80
+  and on, as far as anyone goes).
+
+**The tracker.** A pop-up in the upper right of the view, in the manner of Steam's:
+
+- a small framed box slides in with the creature (or a trophy) and its name, the achievement's
+  name, and a chime;
+- it stays about four seconds, then slides out;
+- a progress note shows halfway to an achievement ("SKELETONS 30 / 60");
+- several unlocking at once queue up.
+
+Nothing stays on screen, so OLED panels stay safe.
+
+**The bestiary page,** opened with B and paged with W/S/A/D:
+
+- one creature to a page, drawn large in each rank you have met it in;
+- its name, a line or two in the game's voice, and the kills in each rank;
+- weaknesses filled in after a few kills with each spell;
+- creatures not yet met show as a dark silhouette with "???";
+- a last page lists the achievements, earned and not.
+
+B is a new key for the platform layer and the harness.
+
+**Order:** after the groundwork (it needs the creature table and ranks), as its own step before the
+new creatures go in, so that each creature arrives with its page and achievements.
+
+## 12. Questions for the owner
 
 Answer as many as you like ("B1 a, B6 b"). Anything left unanswered takes the recommended option
 (marked *).
