@@ -1,6 +1,8 @@
 # The descent: themes, wall tiles, enemies, bosses and bonus levels
 
-**Status: a proposal, nothing built yet.** Written at 1.0.0b2 for whoever picks this up. The owner's
+**Status: step 1 of section 8 is built** (sets, names, the decay schedule and palettes with today's
+textures, October 2026); the rest is still a proposal, with the owner's answers taken as the
+recommended or proposed option. Written at 1.0.0b2 for whoever picks this up. The owner's
 brief is quoted first; everything after it is a proposal to discuss, and the questions at the end need
 answers before the work starts. Section 8 lists the code it touches.
 

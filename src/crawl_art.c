@@ -3101,26 +3101,23 @@ static void decay_tex(int t, float dk, uint32_t seed) {
 }
 
 void crawl_art_level(int level) {
-    static const float TINT[8][3] = {
-        { 1.00f, 1.00f, 1.00f },     /* blue-grey stone */
-        { 0.88f, 1.06f, 0.90f },     /* green with damp */
-        { 1.14f, 1.00f, 0.76f },     /* sandstone */
-        { 0.84f, 0.95f, 1.20f },     /* cold blue */
-        { 1.16f, 0.86f, 0.82f },     /* rust and old blood */
-        { 1.04f, 0.88f, 1.14f },     /* violet */
-        { 0.92f, 0.92f, 0.94f },     /* ash */
-        { 1.10f, 1.05f, 0.88f },     /* bone-pale */
+    static const float TINT[4][2][3] = {                            /* each set's stone, from its first level to its last */
+        { { 1.00f, 1.00f, 1.00f }, { 1.10f, 1.05f, 0.88f } },     /* the Crypts: blue-grey limestone, yellowing like bone */
+        { { 0.88f, 1.06f, 0.90f }, { 0.84f, 0.95f, 1.20f } },     /* the Catacombs: green with damp, to cold wet slate */
+        { { 1.14f, 1.00f, 0.76f }, { 1.16f, 0.86f, 0.82f } },     /* the Hollows: sandstone, to rust and old blood */
+        { { 0.92f, 0.92f, 0.94f }, { 1.04f, 0.88f, 1.14f } },     /* the Deep: ash, to violet */
     };
-    float dk = clampf((level - 1) / 7.0f, 0.0f, 1.0f), dim = 1.0f - 0.035f * fminf((float)(level - 1), 8.0f);
-    const float *tn = TINT[(level - 1) % 8];
-    float half[3] = { 1.0f + (tn[0] - 1.0f) * 0.5f, 1.0f + (tn[1] - 1.0f) * 0.5f, 1.0f + (tn[2] - 1.0f) * 0.5f };
-    g_decay = dk;
+    int set = crawl_set(level), step = crawl_step(level);
+    float dk = crawl_decay(level), depth = crawl_depth(level), dim = 1.0f - 0.09f * set - 0.015f * step;
+    float tn[3], half[3];
+    for (int c = 0; c < 3; c++) { tn[c] = lerpf(TINT[set][0][c], TINT[set][1][c], step / 4.0f); half[c] = 1.0f + (tn[c] - 1.0f) * 0.5f; }
+    g_decay = fmaxf(dk, depth);                                     /* the dead themselves only get older going down */
     build_palette();
     { static const int a[3] = { 2, 2, 4 }, m[3] = { 20, 21, 26 }, b[3] = { 46, 47, 52 }; ramp_tinted(R_STONE, a, m, b, tn, dim); }
     { static const int a[3] = { 2, 2, 2 }, m[3] = { 15, 13, 11 }, b[3] = { 34, 30, 26 }; ramp_tinted(R_FLOOR, a, m, b, half, dim); }
     { static const int a[3] = { 1, 1, 2 }, m[3] = { 10, 10, 13 }, b[3] = { 26, 26, 32 }; ramp_tinted(R_CEIL, a, m, b, half, dim); }
     {                                                                /* bones yellow and dull with age */
-        float aged[3] = { 1.0f - 0.12f * dk, 1.0f - 0.16f * dk, 1.0f - 0.38f * dk };
+        float age = 0.4f * dk + 0.6f * depth, aged[3] = { 1.0f - 0.12f * age, 1.0f - 0.16f * age, 1.0f - 0.38f * age };
         static const int a[3] = { 4, 3, 2 }, m[3] = { 34, 30, 22 }, b[3] = { 62, 58, 48 };
         ramp_tinted(R_BONE, a, m, b, aged, 1.0f);
     }

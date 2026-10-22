@@ -139,6 +139,17 @@ extern const uint8_t crawl_cat_eye[2][4], crawl_cat_eyecol[5], crawl_cat_lid[2],
 extern const uint8_t crawl_face_img[FACE_FRAMES][FACE_H * FACE_W];
 extern const uint8_t crawl_face_eyes[FACE_FRAMES][2][2];
 
+/* The descent: four sets of five levels, each worn down towards its last (the boss level), then the
+ * four again, deeper (docs/PLAN-descent.md). */
+static inline int crawl_set(int level) { return ((level - 1) / 5) % 4; }    /* 0 the Crypts, 1 the Catacombs, 2 the Hollows, 3 the Deep */
+static inline int crawl_step(int level) { return (level - 1) % 5; }         /* 0..4 within the set; 4 is its last */
+static inline int crawl_loop(int level) { return (level - 1) / 20; }        /* 0 the first time down */
+static inline float crawl_decay(int level) { return (float)crawl_step(level) / 4.0f; }   /* rot and ruin: fresh at a set's start */
+static inline float crawl_depth(int level) {                                /* how far down: darker, fewer torches */
+    float d = (float)(crawl_set(level) + 4 * crawl_loop(level)) / 3.0f;
+    return d < 1.0f ? d : 1.0f;
+}
+
 void crawl_art_init(void);                      /* builds everything once */
 void crawl_art_level(int level);                /* that level's palette, ruin and rot (call after init) */
 

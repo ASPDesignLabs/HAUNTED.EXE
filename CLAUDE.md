@@ -154,10 +154,19 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   below -100 means steady), fog, sprites with sway, the hand, HUD (Wolfenstein status bar for a player,
   a small readout for the autopilot).
 - **Art** (`crawl_art.c`). The 256-colour palette is fully allocated in 16-entry ramps (`R_STONE` ...
-  `R_GLOW`, `C_WHITE`, 13 gold, `C_CLEAR`); `R_FLAME` and `R_GLOW` are full-bright. `crawl_art_level`
-  retints stone, floor, ceiling and bone per level (eight tints cycling), regenerates the wall textures
-  with a level seed and runs `decay_tex` (grime, moss, drips, cracks) by `decay()`, which reaches 1 by
-  level 8. Textures and sprites are 64x64, column-major.
+  `R_GLOW`, `C_WHITE`, 13 gold, `C_CLEAR`); `R_FLAME` and `R_GLOW` are full-bright.
+- **Sets** (`crawl.h`: `crawl_set`, `crawl_step`, `crawl_loop`, `crawl_decay`, `crawl_depth`). Levels
+  come in four sets of five (the Crypts, the Catacombs, the Hollows, the Deep); the fifth of each is
+  meant for its boss, and past level 20 the sets repeat. Each set has two tints that the stone, floor
+  and ceiling move between over its five levels. Decay (`decay()`: grime, moss, drips and cracks by
+  `decay_tex`, and more of the dressing) starts fresh at each set and reaches 1 on its last level.
+  Depth (`depth()`: fewer torches, thicker fog, a darker base light, older bones) grows set by set and
+  stays at 1 from the Deep on. `level_name` gives each of the twenty its name, with a numeral after
+  the first time down. `crawl_art_level` regenerates the wall textures with a level seed. Textures
+  and sprites are 64x64, column-major.
+- **Ranks and the bestiary art.** `crawl_rank_lut[family][rank]` recolours a creature's body ramp
+  (`PF_*`, `RK_*` in `crawl.h`). The new creatures' and decorations' sprites are drawn in
+  `crawl_art.c`; `make sheets` shows them. See `docs/PLAN-bestiary.md` for what is in play.
 - **Saves.** `crawl_save`/`crawl_load` (format above; `Gear` is copied raw, so changing `Gear`'s layout
   breaks old saves: bump the version and keep loading version 1). Progress saves on fleeing; graves are
   the same blob plus 8 bytes of time in slots 1-3.
@@ -186,5 +195,5 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
 - `decay_tex` already draws cracks on ordinary walls at depth; keep secret cracks distinguishable if
   textures change (see the plan).
 - CI warns that `actions/download-artifact@v6` targets Node 20; bump the action when a newer major is out.
-- Level names (`LEVEL_NAMES`) and tints cycle every eight levels; the plan replaces this with four
-  sets of five.
+- Boss levels (5, 10, 15, 20) are ordinary levels for now, under their boss's name; there are no
+  loop moods yet past level 20, only the numeral.

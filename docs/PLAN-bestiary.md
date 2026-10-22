@@ -19,7 +19,8 @@ goes into play.
   line-up of every creature at its proposed size, to `build/sheets`.
 - **Checks:** the game itself is unchanged, and the smoke test, the frame time and an ASan run are
   clean.
-- **Waiting on:** the owner's yes on the sheets.
+- **Approved:** the owner liked every sheet, and the line-up's sizes, as a first shot (22 October).
+  Their look and feel will be refined as they playtest, so the drawings are not final.
 - **Decided while drawing:**
   - Knights and deacons have their own rank families: plate (`PF_ARMOUR`, whose rank V darkens the
     iron rather than going pale) and robe (`PF_ROBE`). With only their bones taking the rank, a

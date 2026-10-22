@@ -91,10 +91,18 @@ typedef struct { int fx, fy, d, sx, sy, tex, state, rolled; } Secret;   /* stand
 static const int DX[4] = { 1, 0, -1, 0 }, DY[4] = { 0, 1, 0, -1 };
 static const uint8_t BAYER[4][4] = { {0, 8, 2, 10}, {12, 4, 14, 6}, {3, 11, 1, 9}, {15, 7, 13, 5} };
 
-static const char *const LEVEL_NAMES[] = {
-    "THE OSSUARY", "HALL OF TORCHES", "CRYPT OF THE NAMELESS", "THE BONE GALLERY",
-    "THE DROWNED VAULT", "CATACOMB OF SAINTS", "THE CHARNEL HOUSE", "WARRENS OF THE DEAD",
+static const char *const LEVEL_NAMES[20] = {                       /* five to a set; the last of each is its boss's */
+    "THE OSSUARY", "HALL OF TORCHES", "CRYPT OF THE NAMELESS", "THE BONE GALLERY", "THE WARDEN'S HALL",
+    "THE DROWNED VAULT", "CATACOMB OF SAINTS", "THE WEEPING STAIR", "CISTERN OF BONES", "THE ABBESS BELOW",
+    "THE CHARNEL MINE", "WARRENS OF THE DEAD", "THE FOSSIL ROAD", "THE BROKEN SEAM", "THE COLOSSUS DEEP",
+    "THE GLITTERING DARK", "VEINS OF THE EARTH", "THE EMBER ROOT", "THE BLACK GLASS", "THRONE OF THE HOLLOW KING",
 };
+/* the level's name; past the twentieth they come round again with a numeral: THE OSSUARY II */
+static void level_name(int level, char *buf, int n) {
+    static const char *const NUM[] = { "", " II", " III", " IV", " V", " VI", " VII", " VIII", " IX", " X" };
+    int loop = crawl_loop(level);
+    snprintf(buf, (size_t)n, "%s%s", LEVEL_NAMES[(level - 1) % 20], loop < 10 ? NUM[loop] : " X");
+}
 
 /* The run: what carries from level to level, through death and across scene switches */
 static struct {
@@ -198,7 +206,8 @@ static Input IN;                            /* their keys and mouse, this step *
 
 static uint8_t ramp_at(int ramp, int k) { return (uint8_t)(ramp + clampi(k, 0, ramp == R_GOLD ? 12 : 15)); }   /* the gold ramp is short */
 static int rnd(int n) { return (int)(rng_next(&G.rs) % (uint32_t)n); }
-static float decay(void) { return clampf((G.level - 1) / 7.0f, 0.0f, 1.0f); }   /* 0 on level 1, 1 by level 8 */
+static float decay(void) { return crawl_decay(G.level); }        /* rot and ruin: 0 as a set begins, 1 on its last level */
+static float depth(void) { return crawl_depth(G.level); }         /* how far down: 0 in the Crypts, 1 from the Deep on */
 static int enemy_damage(void) {                                  /* 5 on level 1, one more each level; less after each death on it */
     int d = 4 + G.level, r = G.retries < 3 ? G.retries : 3;
     return d - d * r * 15 / 100;
@@ -732,7 +741,7 @@ static void gen_level(void) {
         if (G.map[y][x].kind != K_FLOOR || G.map[y][x].secret) continue;
         int near = 0;
         for (int l = 0; l < G.nlights; l++) if (abs(G.lights[l].cx - x) + abs(G.lights[l].cy - y) < 6) near = 1;
-        if (near || rndf() > 0.68f - 0.22f * decay()) continue;     /* fewer torches the deeper you go */
+        if (near || rndf() > 0.68f - 0.22f * depth()) continue;     /* fewer torches the deeper you go */
         int d = rnd(4);
         for (int k = 0; k < 4; k++, d = (d + 1) & 3) {
             int wx = x + DX[d], wy = y + DY[d];
@@ -752,11 +761,11 @@ static void gen_level(void) {
     G.ncells = 0;                                                  /* what the autopilot can walk */
     for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (G.map[y][x].kind == K_FLOOR && lane(x, y) && !G.map[y][x].secret) G.ncells++;
 
-    /* fog banks: smooth blobs from a coarse random lattice; a few wisps at first, thick by level 8 */
+    /* fog banks: smooth blobs from a coarse random lattice; a few wisps at first, thick in the Deep */
     #define FOGL (MAPN * 10 / 48 + 3)
     float lat[FOGL][FOGL];
     for (int j = 0; j < FOGL; j++) for (int i = 0; i < FOGL; i++) lat[j][i] = rndf();
-    float dk = decay(), thr = 0.72f - 0.32f * dk, amt = 0.4f + 0.45f * dk;
+    float dk = clampf(0.45f * decay() + 0.55f * depth(), 0.0f, 1.0f), thr = 0.72f - 0.32f * dk, amt = 0.4f + 0.45f * dk;
     for (int y = 0; y < MAPN; y++)
         for (int x = 0; x < MAPN; x++) {
             float fx = x / 4.8f, fy = y / 4.8f;
@@ -1183,7 +1192,8 @@ static float torch_flicker(const Light *L) {
 }
 
 static void build_lightmap(void) {
-    for (int i = 0; i < LMN * LMN; i++) G.lm[i] = 0.06f;
+    float ambient = G.shop ? 0.06f : 0.06f - 0.012f * depth();    /* the dark itself deepens, set by set */
+    for (int i = 0; i < LMN * LMN; i++) G.lm[i] = ambient;
     for (int l = 0; l < G.nlights; l++) {
         const Light *L = &G.lights[l];
         float f = torch_flicker(L);
@@ -4948,9 +4958,11 @@ static void render_card(Frame *f) {
         return;
     }
     if (G.card < 0.3f || G.card > 3.6f) return;
+    char name[48];
     snprintf(line, sizeof line, "LEVEL %d", G.level);
-    const char *name = LEVEL_NAMES[(G.level - 1) % (int)(sizeof LEVEL_NAMES / sizeof LEVEL_NAMES[0])];
-    card_box(f, 210, 64, 68);
+    level_name(G.level, name, sizeof name);
+    int bw = gfx_text_width(name, 1) + 32;
+    card_box(f, bw > 210 ? bw : 210, 64, 68);
     card_text(f, 80, line, C_WHITE);
     card_text(f, 104, name, R_FLAME + 11);
 }
@@ -4965,7 +4977,8 @@ static void render_tally(Frame *f) {
     int flash = t < 0.6f && ((int)(t * 12.0f) & 1);
     gfx_text16(f, (W - gfx_text_width(line, 2)) / 2 + 1, 29, line, R_GOLD + 2, 2);          /* drop shadow */
     gfx_text16(f, (W - gfx_text_width(line, 2)) / 2, 28, line, flash ? C_WHITE : R_GOLD + 12, 2);
-    const char *name = LEVEL_NAMES[(G.level - 1) % (int)(sizeof LEVEL_NAMES / sizeof LEVEL_NAMES[0])];
+    char name[48];
+    level_name(G.level, name, sizeof name);
     card_text(f, 64, name, R_FLAME + 9);
     static const char *LABEL[TALLY_ROWS] = { "TIME", "KILLS", "TREASURE", "SOULS", "SECRETS" };
     int totals[TALLY_ROWS] = { 0, G.kills_total, G.items_total, 0, G.nsecrets };
