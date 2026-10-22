@@ -77,6 +77,27 @@ enum {
     SP_SHADE_A, SP_SHADE_B, SP_SHADE_TOUCH, SP_SHADE_D,
     SP_IMP_A, SP_IMP_B, SP_IMP_THROW, SP_IMP_D, SP_EMBER_A, SP_EMBER_B,
     SP_GARG_PERCH, SP_GARG_A, SP_GARG_B, SP_GARG_SWOOP, SP_GARG_D,   /* the perch is also the statue in an alcove */
+    /* the dressing brought in as you go down (docs/PLAN-bestiary.md, section 8): drawn, not yet placed */
+    SP_CANDLESTAND_A, SP_CANDLESTAND_B,         /* I: a hall's light before the totems come */
+    SP_BROKEN_ARMS,                             /* I: a split shield and a broken sword */
+    SP_MOUND, SP_PIT,                           /* I: a grave's earth freshly turned; and opened */
+    SP_PUDDLE_A, SP_PUDDLE_B,                   /* II: still water; and bubbling */
+    SP_STALAG,                                  /* II: flowstone */
+    SP_LANTERN_A, SP_LANTERN_B,                 /* II: hung on a chain, lit */
+    SP_BRAZIER_A, SP_BRAZIER_B, SP_BRAZIER_C,
+    SP_COLLAR,                                  /* II: a chain and a spiked collar among gnawed bones */
+    SP_ICICLES,                                 /* II: where the Wraith has passed */
+    SP_BELL,                                    /* II: a bell hung from a beam */
+    SP_CARCASS,                                 /* III: picked to the bone */
+    SP_ARMOURSTAND, SP_HELM,                    /* III: plate on a stand; a great helm fallen */
+    SP_TIMBER,                                  /* III: a mine prop */
+    SP_MINELAMP_A, SP_MINELAMP_B,
+    SP_CART,                                    /* III: a mine cart of ore */
+    SP_FUNGUS,
+    SP_CRYSTAL_A, SP_CRYSTAL_B,                 /* IV: glowing, as they pulse */
+    SP_MAGMA_A, SP_MAGMA_B, SP_MAGMA_C,         /* IV: a vent of molten rock */
+    SP_OBSIDIAN,
+    SP_ALTAR_A, SP_ALTAR_B,                     /* IV: black candles on a draped stone */
     NSPR
 };
 

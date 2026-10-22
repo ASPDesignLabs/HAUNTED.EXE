@@ -10,6 +10,25 @@ proposals stand as its defaults too. Work began with the assets: the rank tables
 for the new creatures and decorations, each shown on a sheet (`make sheets`) for a yes before it
 goes into play.
 
+**Where it stands (22 October 2026): assets drawn, none of it in play yet.**
+
+- **Rank tables:** `crawl_rank_lut` in `crawl_art.c`.
+- **Creature sprites:** all eleven new creatures, plus egg sacs, spiderlings and the imp's ember.
+- **Decorations:** the dressing for all four sets.
+- **Sheets:** `tools/sheet.c` draws them by rank; `make sheets` writes one PNG per group, and a
+  line-up of every creature at its proposed size, to `build/sheets`.
+- **Checks:** the game itself is unchanged, and the smoke test, the frame time and an ASan run are
+  clean.
+- **Waiting on:** the owner's yes on the sheets.
+- **Decided while drawing:**
+  - Knights and deacons have their own rank families: plate (`PF_ARMOUR`, whose rank V darkens the
+    iron rather than going pale) and robe (`PF_ROBE`). With only their bones taking the rank, a
+    knight in full plate would hardly show it.
+  - The knight's blade is drawn in `R_GHOST` so that it stays steel at every rank.
+  - The deacon's raising light is the blue of magic, not green: the palette has no full-bright
+    green.
+  - Rank shown in the eyes is left for the renderer.
+
 ## The brief
 
 > Enemy types are important, as is variety. Think hauntings, like zombies, different types of
@@ -338,8 +357,9 @@ Options, each a question below. None of them is needed for the creatures themsel
 - Each creature gets a sound or two in `snd.c`. Graves and puddles get rising animations.
 - Saves: unchanged, unless the bestiary or soul rank goes in. Those mean a version 2 save that still
   loads version 1.
-- The mock-up sheet came from a small tool that links `crawl_art.c` and writes a PNG of sprites by
-  rank. Worth keeping in `tools/` as the way to show each new creature for approval.
+- `tools/sheet.c` (`make sheets`) links `crawl_art.c` and writes a PNG of each group of sprites by
+  rank, and a line-up at the sizes they are drawn. It is how each new creature is shown for
+  approval.
 
 **Order** (question B29):
 

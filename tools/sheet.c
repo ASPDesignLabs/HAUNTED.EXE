@@ -71,6 +71,17 @@ static const Group GROUPS[] = {
       { { SP_IMP_A, "HOP A" }, { SP_IMP_B, "HOP B" }, { SP_IMP_THROW, "THROW" }, { SP_IMP_D, "CRUMBLED" }, { SP_EMBER_A, "EMBER" }, { -1, 0 } } },
     { "gargoyle", "GARGOYLE (FROM LEVEL 19)", PF_STONE, ALL_RANKS,
       { { SP_GARG_PERCH, "PERCHED" }, { SP_GARG_A, "FLY A" }, { SP_GARG_B, "FLY B" }, { SP_GARG_SWOOP, "SWOOP" }, { SP_GARG_D, "BROKEN" }, { -1, 0 } } },
+    { "dress1", "DRESSING, SET I: THE CRYPTS", -1, 1,
+      { { SP_CANDLESTAND_A, "CANDLE STAND" }, { SP_BROKEN_ARMS, "BROKEN ARMS" }, { SP_MOUND, "TURNED EARTH" }, { SP_PIT, "OPEN GRAVE" }, { -1, 0 } } },
+    { "dress2", "DRESSING, SET II: THE CATACOMBS", -1, 1,
+      { { SP_PUDDLE_A, "PUDDLE" }, { SP_PUDDLE_B, "STIRRING" }, { SP_STALAG, "FLOWSTONE" }, { SP_LANTERN_A, "LANTERN" }, { SP_BRAZIER_A, "BRAZIER" },
+        { SP_COLLAR, "COLLAR" }, { SP_ICICLES, "ICICLES" }, { SP_BELL, "BELL" }, { -1, 0 } } },
+    { "dress3", "DRESSING, SET III: THE HOLLOWS", -1, 1,
+      { { SP_CARCASS, "CARCASS" }, { SP_ARMOURSTAND, "ARMOUR STAND" }, { SP_HELM, "FALLEN HELM" }, { SP_TIMBER, "MINE PROP" }, { SP_MINELAMP_A, "MINER'S LAMP" },
+        { SP_CART, "ORE CART" }, { SP_FUNGUS, "FUNGUS" }, { SP_SAC_A, "EGG SAC" }, { -1, 0 } } },
+    { "dress4", "DRESSING, SET IV: THE DEEP", -1, 1,
+      { { SP_CRYSTAL_A, "CRYSTALS" }, { SP_CRYSTAL_B, "PULSE" }, { SP_MAGMA_A, "MAGMA VENT" }, { SP_MAGMA_B, "FLARE" }, { SP_OBSIDIAN, "OBSIDIAN" },
+        { SP_ALTAR_A, "ALTAR" }, { SP_GARG_PERCH, "STATUE" }, { -1, 0 } } },
 };
 #define NGROUPS ((int)(sizeof GROUPS / sizeof GROUPS[0]))
 
@@ -139,6 +150,62 @@ static int write_png(const char *path) {
     return 1;
 }
 
+/* ---- the line-up: everything at the size it is drawn in play, on one floor ---- */
+
+typedef struct { int spr, family, rank; float scale, z; const char *label; } Stand;
+static const Stand LINEUP[] = {                 /* today's sizes from scene_crawl.c; the new ones are proposals */
+    { SP_SKEL_A, -1, 0, 1.0f, 0.0f, "SKELETON" }, { SP_SHIELD_A, PF_BONE, RK_IV, 1.0f, 0.0f, "SHIELD IV" },
+    { SP_GHOST_A, -1, 0, 1.35f, 0.1f, "SPECTRE" }, { SP_BAT_A, -1, 0, 1.0f, 0.2f, "BAT" },
+    { SP_WSKULL1, -1, 0, 0.62f, 0.3f, "WALL SKULL" }, { SP_SPIDER_A, -1, 0, 0.42f, 0.62f, "WEB SPIDER" },
+    { SP_SHAMB_A, -1, 0, 1.0f, 0.0f, "SHAMBLER" }, { SP_DROWN_A, -1, 0, 1.1f, 0.0f, "DROWNED" },
+    { SP_HOUND_A, PF_BONE, RK_III, 0.75f, 0.0f, "HOUND III" }, { SP_WRAITH_A, -1, 0, 1.6f, 0.0f, "THE WRAITH" },
+    { SP_HUNTER_A, -1, 0, 0.6f, 0.0f, "HUNTER" }, { SP_GHOUL_A, PF_FLESH, RK_II, 0.85f, 0.0f, "GHOUL II" },
+    { SP_KNIGHT_A, PF_ARMOUR, RK_IV, 1.2f, 0.0f, "KNIGHT IV" }, { SP_BROOD_A, -1, 0, 1.0f, 0.0f, "BROOD" },
+    { SP_LING_A, -1, 0, 0.22f, 0.0f, "LINGS" }, { SP_SHADE_A, -1, 0, 1.1f, 0.0f, "SHADE" },
+    { SP_IMP_A, -1, 0, 0.55f, 0.0f, "IMP" }, { SP_DEACON_A, PF_ROBE, RK_V, 1.05f, 0.0f, "DEACON V" },
+    { SP_GARG_A, PF_STONE, RK_GILDED, 0.9f, 0.4f, "GARGOYLE G" },
+};
+#define NSTAND ((int)(sizeof LINEUP / sizeof LINEUP[0]))
+#define UNIT 150                                /* pixels to a cell */
+
+static int draw_lineup(const char *path, int level) {
+    int step = 112, top = PAD + LABEL_H + 16;
+    iw = PAD * 2 + (NSTAND / 2 + 1) * step + UNIT;
+    int floor1 = top + (int)(UNIT * 1.75f), floor2 = floor1 + LABEL_H * 2 + (int)(UNIT * 1.75f);
+    ih = floor2 + LABEL_H * 3 + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    char head[96];
+    snprintf(head, sizeof head, "THE LINE-UP, AT THE SIZE THEY ARE DRAWN - LEVEL %d", level);
+    text(PAD, PAD, head, 230, 230, 230);
+    for (int row = 0; row < 2; row++) {
+        int fl = row ? floor2 : floor1;
+        rect(PAD, fl, iw - PAD * 2, 2, 60, 58, 64);
+        for (int x = PAD; x < iw - PAD; x += 6) { put(x, fl - UNIT / 2, 70, 50, 50); put(x, fl - UNIT, 45, 45, 50); }   /* the eye, and a cell up */
+    }
+    text(PAD, floor1 - UNIT / 2 - 8 * TXT - 2, "EYE", 110, 70, 70);
+    text(PAD, floor1 - UNIT - 8 * TXT - 2, "1 CELL", 80, 80, 90);
+    for (int i = 0; i < NSTAND; i++) {
+        const Stand *st = &LINEUP[i];
+        int row = i >= (NSTAND + 1) / 2, col = row ? i - (NSTAND + 1) / 2 : i;
+        int fl = row ? floor2 : floor1, size = (int)(UNIT * st->scale);
+        int cx = PAD + 70 + col * step + step / 2, x0 = cx - size / 2, y0 = fl - (int)(st->z * UNIT) - size;
+        const uint8_t *lut = st->family >= 0 ? crawl_rank_lut[st->family][st->rank] : NULL;
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++) {
+                uint8_t c = crawl_spr[st->spr][(x * TS / size) * TS + y * TS / size];
+                if (c == C_CLEAR) continue;
+                c = crawl_cmap[LIGHT][lut ? lut[c] : c];
+                put(x0 + x, y0 + y, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+            }
+        text(cx - (int)strlen(st->label) * 4 * TXT, fl + 6 + (col & 1) * (8 * TXT + 4), st->label, 190, 190, 190);   /* staggered, so they don't collide */
+    }
+    text(PAD, ih - PAD - 8 * TXT, "SCALES FOR THE NEW ONES ARE PROPOSALS. SOME SHOWN IN A RANK.", 120, 120, 120);
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
 /* ---- a group's sheet: frames across, ranks down ---- */
 
 static int draw_group(const Group *g, const char *path, int level) {
@@ -170,6 +237,7 @@ static int draw_group(const Group *g, const char *path, int level) {
 int main(int argc, char **argv) {
     if (argc >= 2 && !strcmp(argv[1], "list")) {
         for (int i = 0; i < NGROUPS; i++) printf("%-12s %s\n", GROUPS[i].name, GROUPS[i].title);
+        printf("%-12s %s\n", "lineup", "EVERY CREATURE AT ITS SIZE IN PLAY");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -177,6 +245,13 @@ int main(int argc, char **argv) {
     crawl_art_init();
     crawl_art_level(level < 1 ? 1 : level);
     int done = 0;
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "lineup")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/lineup.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_lineup(path, level)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
     for (int i = 0; i < NGROUPS; i++) {
         if (strcmp(argv[1], "all") && strcmp(argv[1], GROUPS[i].name)) continue;
         char path[512];
