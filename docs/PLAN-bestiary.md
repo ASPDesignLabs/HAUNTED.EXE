@@ -45,6 +45,26 @@ the rank's (was 10% a level).
 
 The first try, without a cap on hunters and with throwers that threw the moment they found you
 again, died 14 times. Only the harness has run this; it is untested by hand.
+
+**Achievements, the tracker and the bestiary page built** (section 11), on today's six creatures:
+
+- a save version 2 that carries the run's record (version 1 still loads, with an empty record);
+- `SLOT_MAX` raised to 1024;
+- B and W/S/A/D for the bestiary, including the achievements page;
+- the pop-up at the upper right, with a progress note halfway.
+
+In an autopilot run, level 1 cleared at 5:43, the first secret at 15 minutes, five secrets and 60
+skeletons at about 43 minutes. Checked in the harness:
+
+- saving, loading and loading a version 1 save;
+- carving a grave and rising from it, with the grave's own counts;
+- ASan.
+
+**Open question (asked 22 October):**
+
+- Progress is saved only when a person flees to the surface. So in screensaver mode the autopilot's
+  achievements show their pop-ups but are gone when the saver closes.
+- Should the saver keep its record when it closes, or is that as intended?
 - **Decided while drawing:**
   - Knights and deacons have their own rank families: plate (`PF_ARMOUR`, whose rank V darkens the
     iron rather than going pale) and robe (`PF_ROBE`). With only their bones taking the rank, a

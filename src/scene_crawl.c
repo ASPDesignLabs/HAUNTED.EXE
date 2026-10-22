@@ -58,22 +58,30 @@ typedef struct {
     float hp, maxhp, shield, face;                                 /* face: where a shield-bearer is looking */
     float frozen, feared, slowed, swing;                           /* frost nova, dread, frost shard; a sword raised */
     int sub, guard; float ax, ay, bx, by, sub_t;                   /* wall skulls and spiders: a phase, an anchor, a way back */
-    int rank, home, hunts; float alert, dmgk, lost;                /* its rank (RK_*); the room it keeps to (-1: none); whether it
+    int rank, home, hunts, last_atk; float alert, dmgk, lost;                /* its rank (RK_*); the room it keeps to (-1: none); whether it
                                                                       may hunt now; how long it will go on hunting; its rank's
                                                                       weight of blow; how long since it saw the caster */
 } Mob;
-/* What each kind of creature is (docs/PLAN-bestiary.md): its name, the ramp its rank recolours (-1:
- * off the ladder), the first level it is met on, and what each spell does to it (x1 plain, x0
- * nothing). The autopilot plays to these. */
-typedef struct { const char *name; int family, debut; float weak[NATK]; } Kind;
+/* What each kind of creature is (docs/PLAN-bestiary.md): its names, a line for the bestiary, the
+ * picture of it there, the ramp its rank recolours (-1: off the ladder), the first level it is met
+ * on, the highest rank it comes in, whether one may be gilded, and what each spell does to it (x1
+ * plain, x0 nothing). The autopilot plays to these. A kind's number is kept in saves: add new ones at
+ * the end. */
+typedef struct { const char *name, *plural, *lore; int spr, family, debut, top, gild; float weak[NATK]; } Kind;
 static const Kind KINDS[] = {
-    /*                                            fire   frost  chain  spear  drain  hell   wisps  sparks bfs */
-    [MOB_SKEL]   = { "SKELETON", PF_BONE, 1,      { 1.0f, 0.75f, 1.25f, 1.25f, 0.75f, 1.25f, 1.0f, 1.0f, 1.0f } },
-    [MOB_GHOST]  = { "SPECTRE", -1, 1,            { 0 } },
-    [MOB_BAT]    = { "BAT", PF_WING, 1,           { 1.0f, 1.5f, 1.25f, 1.0f, 1.0f, 1.0f, 1.25f, 1.25f, 1.0f } },
-    [MOB_WSKULL] = { "WALL SKULL", PF_BONE, 3,    { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f } },
-    [MOB_SHIELD] = { "SHIELD-BEARER", PF_BONE, 4, { 0.75f, 1.0f, 1.5f, 1.5f, 1.0f, 1.0f, 1.0f, 0.75f, 1.0f } },
-    [MOB_SPIDER] = { "SPIDER", PF_CHITIN, 6,      { 1.25f, 1.5f, 1.0f, 1.0f, 1.0f, 1.25f, 1.25f, 1.0f, 1.0f } },
+    /*                                                                                   fire   frost  chain  spear  drain  hell   wisps  sparks bfs */
+    [MOB_SKEL]   = { "SKELETON", "SKELETONS", "THE ORDER'S DEAD, STILL AT THEIR POSTS. THEY THROW WHAT THEY ARE MADE OF.",
+                     SP_SKEL_A, PF_BONE, 1, RK_V, 1,      { 1.0f, 0.75f, 1.25f, 1.25f, 0.75f, 1.25f, 1.0f, 1.0f, 1.0f } },
+    [MOB_GHOST]  = { "SPECTRE", "SPECTRES", "A CHILL WITH A FACE. IT ONLY WANTS YOU TO KNOW IT IS THERE.",
+                     SP_GHOST_A, -1, 1, RK_I, 0,          { 0 } },
+    [MOB_BAT]    = { "BAT", "BATS", "THEY COME FOR THE FACE, AND BITE WHEN THEY HAVE IT. DEEP DOWN THEY ARE THE COLOUR OF EMBERS.",
+                     SP_BAT_A, PF_WING, 1, RK_IV, 0,      { 1.0f, 1.5f, 1.25f, 1.0f, 1.0f, 1.0f, 1.25f, 1.25f, 1.0f } },
+    [MOB_WSKULL] = { "WALL SKULL", "WALL SKULLS", "SET IN THE STONE TO WATCH THE HALLS. WALK UP TO ONE AND MEET ITS EYE, AND IT WAKES.",
+                     SP_WSKULL1, PF_BONE, 3, RK_V, 0,     { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f } },
+    [MOB_SHIELD] = { "SHIELD-BEARER", "SHIELD-BEARERS", "A SKELETON THAT REMEMBERS ITS DRILL. GO ROUND THE SHIELD, OR THROUGH IT.",
+                     SP_SHIELD_A, PF_BONE, 4, RK_V, 1,    { 0.75f, 1.0f, 1.5f, 1.5f, 1.0f, 1.0f, 1.0f, 0.75f, 1.0f } },
+    [MOB_SPIDER] = { "SPIDER", "SPIDERS", "IT WAITS IN A CORNER WEB, AND ALL YOU SEE ARE ITS EYES. THE DEEP ONES ARE PALE.",
+                     SP_SPIDER_A, PF_CHITIN, 6, RK_V, 0,  { 1.25f, 1.5f, 1.0f, 1.0f, 1.0f, 1.25f, 1.25f, 1.0f, 1.0f } },
 };
 #define NKINDS ((int)(sizeof KINDS / sizeof KINDS[0]))
 /* the ladder: a rank means about the same strength at any depth; depth shows in which ranks come */
@@ -130,6 +138,21 @@ static void level_name(int level, char *buf, int n) {
     snprintf(buf, (size_t)n, "%s%s", LEVEL_NAMES[(level - 1) % 20], loop < 10 ? NUM[loop] : " X");
 }
 
+/* A run's record: what it has slain, met, found and cleared, and the achievements earned. It is kept
+ * in the save with the run (version 2), so each save has its own. Its sizes are fixed so saves keep
+ * their shape as the bestiary grows. */
+#define REC_KINDS 24
+#define ACH_BITS 256
+typedef struct {
+    uint16_t kills[REC_KINDS][NRANK];
+    uint8_t spell_kills[REC_KINDS][NATK];   /* by which spell, to 255: three, and its effect is known */
+    uint8_t seen[REC_KINDS];                /* the ranks of each kind met */
+    uint16_t secrets, descents;             /* secrets found; times all the way down (20, 40, 60 ...) */
+    uint32_t cleared;                       /* levels 1 to 20 cleared, a bit each */
+    uint8_t got[ACH_BITS / 8];              /* achievements earned, a bit each (see ach_bit) */
+} Record;
+#define REC_BYTES (REC_KINDS * NRANK * 2 + REC_KINDS * NATK + REC_KINDS + 2 + 2 + 4 + ACH_BITS / 8)
+
 /* The run: what carries from level to level, through death and across scene switches */
 static struct {
     int active, level, hp, treasure, souls;
@@ -138,6 +161,7 @@ static struct {
     int goal;                               /* gold it is saving towards (0: not saving) */
     int shop_next;                          /* the merchant comes first when the level is (re)entered */
     int loaded;                             /* just read from a save: nothing in G to carry over */
+    Record rec;
 } RUN;
 
 static struct {
@@ -218,6 +242,7 @@ static struct {
     /* a person at the controls */
     int player, ui, ui_sel, quit_line, status_ret;
     int graves_mode, graves_arm, graves_msg;    /* the save slots: carving (0) or rising (1); a second Enter's slot; why */
+    int best_page, best_rank, best_scroll;      /* the bestiary: which creature (or the achievements), which rank, how far down */
     float pc_t, pc_len, grab_t, hint_t, msg_t;     /* their cast; reaching for a ware; the hints; a message */
     int pc_fired;
     char msg[64];
@@ -229,7 +254,7 @@ static struct {
     float mood_t;
 } G;
 static float zbuf[W];
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES, UI_BESTIARY };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 
 static uint8_t ramp_at(int ramp, int k) { return (uint8_t)(ramp + clampi(k, 0, ramp == R_GOLD ? 12 : 15)); }   /* the gold ramp is short */
@@ -1432,8 +1457,7 @@ static int pick_rank(int type) {
     for (int l = 0; l < loop; l++) { share[4] += share[3]; for (int i = 3; i > 0; i--) share[i] = share[i - 1]; share[0] = 0; }
     int r = rnd(100), k = 0;
     while (k < 4 && r >= share[k]) r -= share[k++];
-    if (type == MOB_BAT && k > RK_IV) k = RK_IV;                   /* a black bat is lost in the dark */
-    return k;
+    return k < KINDS[type].top ? k : KINDS[type].top;              /* a black bat is lost in the dark: they stop at red */
 }
 
 /* may one of these come now? not before its first level; and on that level, only the one */
@@ -1449,7 +1473,7 @@ static Mob *spawn_mob(int x, int y, int type) {
         memset(m, 0, sizeof *m);
         m->alive = 1; m->type = type; m->state = MS_WALK;
         m->x = x + 0.5f; m->y = y + 0.5f; m->cx = m->tx = x; m->cy = m->ty = y;
-        m->home = -1;
+        m->home = -1; m->last_atk = -1;
         set_rank(m, pick_rank(type));
         G.spawned[type]++;
         m->face = rndf() * TAU_F;
@@ -1609,10 +1633,109 @@ static void gain_souls(float n) {
     if (whole > 0) { RUN.souls += whole; RUN.soul_frac -= (float)whole; G.level_souls += whole; snd_sfx_ex(SFX_GHOST_TICK, 0.5f, 0.5f); }
 }
 
+/* ---- the record and its achievements (PLAN-bestiary, section 11): the autopilot earns them too ---- */
+
+enum { ACH_SECRET0 = REC_KINDS * NRANK, ACH_LEVEL0 = ACH_SECRET0 + 16, ACH_DESCENT0 = ACH_LEVEL0 + 20 };   /* bits: slayers by kind and rank, then the rest */
+#define NSECRET_STEPS 7
+static const int SECRET_STEP[NSECRET_STEPS] = { 1, 5, 10, 20, 30, 40, 50 };
+static const char *const SECRET_NAME[NSECRET_STEPS] = { "A HOLLOW KNOCK", "LISTENING WALLS", "THE STONE GIVES WAY", "NOTHING STAYS HIDDEN",
+                                                        "THE BUILDERS' TRICKS", "EVERY LAST CRACK", "KEEPER OF SECRETS" };
+#define MAX_DESCENT 20                                              /* level 400: as far as anyone will go */
+static const char *const ORDINAL[MAX_DESCENT + 1] = { "", "FIRST", "SECOND", "THIRD", "FOURTH", "FIFTH", "SIXTH", "SEVENTH", "EIGHTH", "NINTH",
+    "TENTH", "ELEVENTH", "TWELFTH", "THIRTEENTH", "FOURTEENTH", "FIFTEENTH", "SIXTEENTH", "SEVENTEENTH", "EIGHTEENTH", "NINETEENTH", "TWENTIETH" };
+
+/* how many of a kind in a rank make an achievement: 60 of the lowest rank it comes in, fewer up the
+ * ladder, 3 gilded; 0 if it never comes in that rank (or can't be killed) */
+static int slayer_need(int kind, int rank) {
+    const Kind *k = &KINDS[kind];
+    if (k->family < 0) return 0;
+    if (rank == RK_GILDED) return k->gild ? 3 : 0;
+    int low = crawl_set(k->debut) == 3 ? RK_II : RK_I;             /* the Deep has no rank I */
+    static const int NEED[5] = { 60, 40, 25, 15, 8 };
+    return rank < low || rank > k->top ? 0 : NEED[rank - low];
+}
+static const char *rank_word(int kind, int rank) { return KINDS[kind].family == PF_CHITIN && rank == RK_V ? "PALE " : RANK_WORD[rank]; }
+
+/* The tracker: pop-ups at the upper right, one at a time, in the manner of Steam's. An unlocked
+ * achievement stays a little over four seconds; a note of progress, halfway there, less. */
+typedef struct { int spr, family, rank, progress; char title[32], desc[32]; } Toast;
+#define MAXTOASTS 12
+static struct { Toast q[MAXTOASTS]; int n; float t; } TOASTS;
+static float toast_len(const Toast *t) { return t->progress ? 2.8f : 4.4f; }
+static void toast(int spr, int family, int rank, int progress, const char *title, const char *desc) {
+    if (TOASTS.n >= MAXTOASTS) return;
+    Toast *t = &TOASTS.q[TOASTS.n++];
+    t->spr = spr; t->family = family; t->rank = rank; t->progress = progress;
+    snprintf(t->title, sizeof t->title, "%s", title); snprintf(t->desc, sizeof t->desc, "%s", desc);
+    if (TOASTS.n == 1) TOASTS.t = -1.0f;                           /* its chime as it comes in */
+}
+static void update_toasts(float dt) {
+    if (!TOASTS.n) return;
+    if (TOASTS.t < 0.0f) { TOASTS.t = 0.0f; snd_sfx_ex(TOASTS.q[0].progress ? SFX_TICK : SFX_KEYGET, TOASTS.q[0].progress ? 0.6f : 0.9f, 0.5f); }
+    TOASTS.t += dt;
+    if (TOASTS.t >= toast_len(&TOASTS.q[0])) {
+        memmove(TOASTS.q, TOASTS.q + 1, sizeof TOASTS.q[0] * (size_t)(TOASTS.n - 1));
+        if (--TOASTS.n) TOASTS.t = -1.0f;
+    }
+}
+
+static int ach_has(int bit) { return RUN.rec.got[bit >> 3] >> (bit & 7) & 1; }
+static void ach_earn(int bit, int spr, int family, int rank, const char *title, const char *desc) {
+    if (ach_has(bit)) return;
+    RUN.rec.got[bit >> 3] |= (uint8_t)(1 << (bit & 7));
+    toast(spr, family, rank, 0, title, desc);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT achievement %d %s: %s t=%.1f\n", bit, title, desc, G.t);
+#endif
+}
+
+static void rec_kill(const Mob *m) {
+    Record *r = &RUN.rec;
+    if (m->type >= REC_KINDS) return;
+    if (r->kills[m->type][m->rank] < 65535) r->kills[m->type][m->rank]++;
+    if (m->last_atk >= 0 && r->spell_kills[m->type][m->last_atk] < 255) r->spell_kills[m->type][m->last_atk]++;
+    int need = slayer_need(m->type, m->rank), have = r->kills[m->type][m->rank], bit = m->type * NRANK + m->rank;
+    if (!need || ach_has(bit)) return;
+    char title[32], desc[32];
+    snprintf(title, sizeof title, "%s%s", rank_word(m->type, m->rank), KINDS[m->type].plural);
+    if (have >= need) { snprintf(desc, sizeof desc, "%d SLAIN", need); ach_earn(bit, KINDS[m->type].spr, KINDS[m->type].family, m->rank, title, desc); }
+    else if (need >= 8 && have == need / 2) { snprintf(desc, sizeof desc, "%d OF %d SLAIN", have, need); toast(KINDS[m->type].spr, KINDS[m->type].family, m->rank, 1, title, desc); }
+}
+static void rec_seen(const Mob *m) { if (m->type < REC_KINDS) RUN.rec.seen[m->type] |= (uint8_t)(1 << m->rank); }
+static void rec_secret(void) {
+    Record *r = &RUN.rec;
+    if (r->secrets < 65535) r->secrets++;
+    for (int i = 0; i < NSECRET_STEPS; i++)
+        if (r->secrets >= SECRET_STEP[i] && !ach_has(ACH_SECRET0 + i)) {
+            char d[32];
+            if (i) snprintf(d, sizeof d, "%d SECRETS FOUND", SECRET_STEP[i]); else snprintf(d, sizeof d, "A SECRET FOUND");
+            ach_earn(ACH_SECRET0 + i, SP_CHEST, -1, 0, SECRET_NAME[i], d);
+        }
+}
+static void rec_cleared(void) {
+    Record *r = &RUN.rec;
+    char t[48], d[32];
+    if (G.level <= 20) {
+        r->cleared |= 1u << (G.level - 1);
+        level_name(G.level, t, sizeof t);
+        snprintf(d, sizeof d, "LEVEL %d CLEARED", G.level);
+        ach_earn(ACH_LEVEL0 + G.level - 1, SP_CHALICE, -1, 0, t, d);
+    }
+    if (G.level % 20 == 0) {
+        int k = G.level / 20;
+        if (k > r->descents) r->descents = (uint16_t)k;
+        if (k >= 2 && k <= MAX_DESCENT) {
+            snprintf(t, sizeof t, "THE %s DESCENT", ORDINAL[k]); snprintf(d, sizeof d, "LEVEL %d CLEARED", G.level);
+            ach_earn(ACH_DESCENT0 + k - 2, SP_CROWN, -1, 0, t, d);
+        }
+    }
+}
+
 static Item *add_item(int x, int y, int type);
 static void kill_mob(Mob *m) {
     m->state = MS_DIE; m->t = 0.0f;
     G.kills++;
+    rec_kill(m);
     static const int SND[] = { SFX_BONES, SFX_GHOST_DIE, SFX_BAT, SFX_SHATTER, SFX_BONES, SFX_SKITTER };
     sfx_at(SND[m->type], m->x, m->y, 1.0f);
     if (m->type == MOB_SPIDER && m->z > 0.3f) m->sub = 9;           /* it falls from the web */
@@ -1648,7 +1771,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
     }
     if ((flags & DM_SLOW) && slow > 0.0f) m->slowed = fmaxf(m->slowed, slow);
     int atk = (flags >> 8) - 1;
-    if (atk >= 0 && atk < NATK) dmg *= KINDS[m->type].weak[atk];  /* what it is weak to, or shrugs off */
+    if (atk >= 0 && atk < NATK) { dmg *= KINDS[m->type].weak[atk]; m->last_atk = atk; }   /* what it is weak to, or shrugs off */
     m->misses = 0;
     m->alert = fmaxf(m->alert, 12.0f);                             /* hurt, it knows where you are */
     if (m->rank == RK_GILDED && m->hp > m->maxhp * 0.5f && m->hp - dmg <= m->maxhp * 0.5f) m->feared = 6.0f;   /* the gilded run, with their gold */
@@ -2491,6 +2614,7 @@ static void open_secret(int i) {
     light_static(sc->sx + 0.5f + DX[sc->d] * 1.5f, sc->sy + 0.5f + DY[sc->d] * 1.5f, 0.75f, 3.4f);   /* the hoard's own glow */
     if (G.nlights > nl) G.lights[nl].phase = -1000.0f;             /* steady, not a flame */
     G.secrets_found++;
+    rec_secret();
     say("A SECRET!   %d OF %d", G.secrets_found, G.nsecrets);
     sfx_at(SFX_PUSHWALL, sc->sx + 0.5f, sc->sy + 0.5f, 1.0f);
     snd_sfx_ex(SFX_SECRET, 1.0f, 0.5f);
@@ -2938,6 +3062,7 @@ static void update_player(float dt) {
         if (G.exit_t >= 2.4f && !G.tally) {
             G.tally = 1; G.tally_t = 0.0; G.clear_time = G.level_t; G.retries = 0;
             snd_sfx_ex(SFX_FANFARE, 1.0f, 0.5f);
+            rec_cleared();
 #ifdef CRAWL_DEBUG
             fprintf(stderr, "EVENT cleared level %d t=%.1f by %s\n", G.level, G.level_t, G.player ? "player" : "autopilot");
 #endif
@@ -3093,7 +3218,7 @@ static void start_level(void) {
         int pick[MAXMOBS], np = 0;
         for (int i = 0; i < MAXMOBS; i++) {
             const Mob *m = &G.mobs[i];
-            if (m->alive && !m->guard && KINDS[m->type].family >= 0 && m->type != MOB_WSKULL && m->type != MOB_SPIDER && m->type != MOB_BAT) pick[np++] = i;
+            if (m->alive && !m->guard && KINDS[m->type].gild) pick[np++] = i;
         }
         if (np) set_rank(&G.mobs[pick[rnd(np)]], RK_GILDED);
     }
@@ -3374,8 +3499,10 @@ static void update_wisp(float dt) {
 static void crawl_update(double dt) {
     float fdt = (float)dt;
     G.msg_t = fmaxf(0.0f, G.msg_t - fdt); G.hint_t = fmaxf(0.0f, G.hint_t - fdt);
+    update_toasts(fdt);
     if (G.player && G.ui && !G.shop) { update_ui(); return; }     /* a menu is up: the crypt holds its breath */
     if (G.player && (G.tally || G.dead) && IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
+    if (G.player && (G.tally || G.dead) && IN.hit[KEY_B]) { open_ui(UI_BESTIARY); return; }
     G.t += dt; G.level_t += dt; G.card += fdt;
     if (G.shop) { update_shop(dt); return; }
     if (G.tally) {                                                 /* the level-complete screen; the crypt waits */
@@ -3478,6 +3605,7 @@ static void crawl_update(double dt) {
     }
     if (!G.tally && !G.dead && !G.player && (G.exit_fx < 0 || G.level_t > 600.0)) {   /* no exit, or hopelessly lost: call it done */
         G.tally = 1; G.tally_t = 0.0; G.clear_time = G.level_t; G.retries = 0; snd_sfx_ex(SFX_FANFARE, 1.0f, 0.5f);
+        rec_cleared();
     }
     float fout = 1.0f;
     if (G.dead) {                                                  /* down to the floor, a red haze, then the level again */
@@ -3769,6 +3897,7 @@ static void name_newcomers(void) {
         float dx = m->x - G.px, dy = m->y - G.py, d = sqrtf(dx * dx + dy * dy) + 1e-4f;
         if (d > 9.0f || (dx * fx + dy * fy) / d < 0.5f || !line_clear(G.px, G.py, m->x, m->y)) continue;
         G.named[m->type] |= (uint8_t)(1 << m->rank);
+        rec_seen(m);
         const char *word = KINDS[m->type].family == PF_CHITIN && m->rank == RK_V ? "PALE " : RANK_WORD[m->rank];
         char first = *word ? *word : KINDS[m->type].name[0];
         say("%s %s%s", strchr("AEIOU", first) ? "AN" : "A", word, KINDS[m->type].name);
@@ -3914,9 +4043,13 @@ static void human_walk(float dt) {
     }
 }
 
+static void best_default_rank(void);
+static void update_bestiary(void);
+static int toast_showing(void);
 static void open_ui(int which) {
     G.ui = which;
     if (which == UI_INVENTORY) { G.ui_sel = 0; G.inv0 = RUN.gear; snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); }
+    else if (which == UI_BESTIARY) { best_default_rank(); snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); }
     else { G.ui_sel = 1; G.quit_line++; snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); }
 }
 
@@ -3960,6 +4093,7 @@ static void update_human(float dt) {
 #endif
     spell_keys();
     if (IN.hit[KEY_TAB]) { open_ui(UI_INVENTORY); return; }
+    if (IN.hit[KEY_B]) { open_ui(UI_BESTIARY); return; }
     if (IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
     human_walk(dt);
     if (IN.hit[KEY_E] || IN.hit[KEY_SPACE]) human_use();
@@ -3971,6 +4105,7 @@ static void update_human(float dt) {
 static void shop_human(float dt) {
     spell_keys();
     if (IN.hit[KEY_TAB]) { open_ui(UI_INVENTORY); return; }
+    if (IN.hit[KEY_B]) { open_ui(UI_BESTIARY); return; }
     if (IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
     human_walk(dt);
     G.shop_look = -1;
@@ -4108,30 +4243,60 @@ static void crawl_control(int what) {
 
 static int crawl_status(void) { return G.player ? G.status_ret : PLAY_AUTO; }
 
-/* What a save keeps: the level to start from, health, gold, souls and the gear. Not where you
- * stood: you come back to the start of the level, so its gold and souls are taken back out. */
+/* What a save keeps: the level to start from, health, gold, souls and the gear, and since version 2
+ * the run's record (kills, secrets, levels cleared, achievements). Not where you stood: you come back
+ * to the start of the level, so its gold and souls are taken back out. Version 1 still loads, with
+ * an empty record. */
 #define SAVE_MAGIC 0x31535648u              /* "HVS1" */
+#define SAVE_V1 (28 + (int)sizeof(Gear))    /* to the end of the gear */
 static void put32(uint8_t *p, int32_t v) { for (int i = 0; i < 4; i++) p[i] = (uint8_t)((uint32_t)v >> (8 * i)); }
 static int32_t get32(const uint8_t *p) { uint32_t v = 0; for (int i = 0; i < 4; i++) v |= (uint32_t)p[i] << (8 * i); return (int32_t)v; }
+static void put16(uint8_t *p, int v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
+static int get16(const uint8_t *p) { return p[0] | p[1] << 8; }
+
+/* the record, little-endian, field by field */
+static void rec_pack(uint8_t *p, const Record *r) {
+    for (int k = 0; k < REC_KINDS; k++) for (int i = 0; i < NRANK; i++, p += 2) put16(p, r->kills[k][i]);
+    memcpy(p, r->spell_kills, sizeof r->spell_kills); p += sizeof r->spell_kills;
+    memcpy(p, r->seen, sizeof r->seen); p += sizeof r->seen;
+    put16(p, r->secrets); put16(p + 2, r->descents); put32(p + 4, (int32_t)r->cleared); p += 8;
+    memcpy(p, r->got, sizeof r->got);
+}
+static void rec_unpack(const uint8_t *p, Record *r) {
+    for (int k = 0; k < REC_KINDS; k++) for (int i = 0; i < NRANK; i++, p += 2) r->kills[k][i] = (uint16_t)get16(p);
+    memcpy(r->spell_kills, p, sizeof r->spell_kills); p += sizeof r->spell_kills;
+    memcpy(r->seen, p, sizeof r->seen); p += sizeof r->seen;
+    r->secrets = (uint16_t)get16(p); r->descents = (uint16_t)get16(p + 2); r->cleared = (uint32_t)get32(p + 4); p += 8;
+    memcpy(r->got, p, sizeof r->got);
+}
+static int save_version(const uint8_t *buf, int len) {             /* 1 or 2 if it is a save we can read, else 0 */
+    if (len < SAVE_V1 || (uint32_t)get32(buf) != SAVE_MAGIC) return 0;
+    int v = get32(buf + 4);
+    return v == 1 || (v == 2 && len >= SAVE_V1 + REC_BYTES) ? v : 0;
+}
 
 static int crawl_save(uint8_t *buf, int cap) {
-    int n = 4 + 6 * 4 + (int)sizeof(Gear);
+    int n = SAVE_V1 + REC_BYTES;
     if (cap < n) return 0;
     int level = G.level, hp = G.dead || G.hp <= 0 ? gear_max_hp(&RUN.gear) : G.hp, gold = RUN.treasure, souls = RUN.souls, shop = 0;
     if (G.tally || G.exiting) { level = G.level + 1; shop = 1; }   /* the level is won */
     else if (G.shop) shop = !G.shop_bought;
     else { gold -= G.level_treasure; souls -= G.level_souls; }
     put32(buf, (int32_t)SAVE_MAGIC);
-    put32(buf + 4, 1);                                             /* version */
+    put32(buf + 4, 2);                                             /* version */
     put32(buf + 8, level); put32(buf + 12, hp); put32(buf + 16, gold); put32(buf + 20, souls); put32(buf + 24, shop);
     memcpy(buf + 28, &RUN.gear, sizeof(Gear));
+    rec_pack(buf + SAVE_V1, &RUN.rec);
     return n;
 }
 
 static void crawl_load(const uint8_t *buf, int len) {
-    if (len < 28 + (int)sizeof(Gear) || (uint32_t)get32(buf) != SAVE_MAGIC || get32(buf + 4) != 1) return;
+    int v = save_version(buf, len);
+    if (!v) return;
     memset(&RUN, 0, sizeof RUN);
     RUN.active = 1; RUN.loaded = 1;
+    if (v >= 2) rec_unpack(buf + SAVE_V1, &RUN.rec);
+    TOASTS.n = 0;                                                  /* another run's news is no news */
     RUN.level = clampi(get32(buf + 8), 1, 999); RUN.treasure = get32(buf + 16); RUN.souls = get32(buf + 20);
     RUN.shop_next = get32(buf + 24) != 0;
     memcpy(&RUN.gear, buf + 28, sizeof(Gear));
@@ -4152,8 +4317,8 @@ static Grave grave_info(int i) {
     Grave g;
     memset(&g, 0, sizeof g);
     uint8_t buf[SLOT_MAX];
-    int n = slot_read(i, buf, sizeof buf), base = 28 + (int)sizeof(Gear);
-    if (n < base || (uint32_t)get32(buf) != SAVE_MAGIC || get32(buf + 4) != 1) return g;
+    int n = slot_read(i, buf, sizeof buf), v = save_version(buf, n), base = SAVE_V1 + (v >= 2 ? REC_BYTES : 0);
+    if (!v) return g;
     g.used = 1; g.level = get32(buf + 8); g.hp = get32(buf + 12); g.gold = get32(buf + 16); g.souls = get32(buf + 20);
     if (n >= base + 8) g.when = (int64_t)((uint64_t)(uint32_t)get32(buf + base) | (uint64_t)(uint32_t)get32(buf + base + 4) << 32);
     return g;
@@ -4222,6 +4387,7 @@ static void update_graves(void) {
 static void update_ui(void) {
     if (G.ui == UI_INVENTORY) update_inventory();
     else if (G.ui == UI_GRAVES) update_graves();
+    else if (G.ui == UI_BESTIARY) update_bestiary();
     else update_quit();
 }
 
@@ -5378,13 +5544,13 @@ static void tint(Frame *f) {
 static void render_messages(Frame *f) {
     if (G.msg_t > 0.0f && G.msg[0] && !(G.player && G.ui)) {
         if (G.msg_t > 0.3f || ((int)(G.msg_t * 20.0f) & 1)) {
-            int w = gfx_text_width(G.msg, 1), x = (W - w) / 2;
-            gfx_rect(f, x - 5, 14, w + 10, 14, 0);
-            gfx_text8(f, x, 17, G.msg, R_GOLD + 11, 1);
+            int w = gfx_text_width(G.msg, 1), x = (W - w) / 2, y = toast_showing() ? 50 : 14;   /* below a pop-up */
+            gfx_rect(f, x - 5, y, w + 10, 14, 0);
+            gfx_text8(f, x, y + 3, G.msg, R_GOLD + 11, 1);
         }
     }
     if (G.hint_t > 0.0f && G.player && !G.ui) {
-        static const char *const HINT[3] = { "WASD WALK  MOUSE TURN  CLICK CASTS", "1-9 SPELLS  E OPENS  TAB INVENTORY", "ESC TO LEAVE OR SLEEPWALK" };
+        static const char *const HINT[3] = { "WASD WALK  MOUSE TURN  CLICK CASTS", "1-9 SPELLS  E OPENS  TAB INVENTORY", "B BESTIARY  ESC LEAVE OR SLEEPWALK" };
         for (int i = 0; i < 3; i++) {
             int w = gfx_text_width(HINT[i], 1), x = (W - w) / 2, y = 34 + i * 11;
             gfx_rect(f, x - 4, y - 2, w + 8, 11, 0);
@@ -5593,17 +5759,246 @@ static void render_graves(Frame *f) {
     gfx_text8(f, (W - gfx_text_width(note, 1)) / 2, by + bh - 14, note, col, 1);
 }
 
+
+/* ---- the tracker's pop-up, and the bestiary (B) ---- */
+
+static const char *const RANK_ROMAN[NRANK] = { "I", "II", "III", "IV", "V", "GILDED" };
+static const int RANK_COL[NRANK] = { R_BONE + 13, R_MOSS + 13, R_GHOST + 13, R_BLOOD + 13, R_IRON + 11, R_GOLD + 11 };
+
+/* a sprite drawn flat into a box, scaled to size, in a rank's colours, or as a dark shape */
+static void ui_sprite(Frame *f, int spr, int x0, int y0, int size, const uint8_t *lut, int shadow) {
+    for (int y = 0; y < size; y++)
+        for (int x = 0; x < size; x++) {
+            uint8_t c = crawl_spr[spr][(x * TS / size) * TS + y * TS / size];
+            if (c == C_CLEAR) continue;
+            gfx_px(f, x0 + x, y0 + y, shadow ? (uint8_t)(R_IRON + 2) : (lut ? lut[c] : c));
+        }
+}
+
+/* 8x8 type wrapped at spaces to cols a line; returns the lines it took */
+static int text_wrap(Frame *f, int x, int y, const char *s, int cols, int col, int maxlines) {
+    int lines = 0;
+    while (*s && lines < maxlines) {
+        int n = (int)strlen(s), cut = n;
+        if (n > cols) { cut = cols; while (cut > 0 && s[cut] != ' ') cut--; if (!cut) cut = cols; }
+        char line[64];
+        snprintf(line, sizeof line, "%.*s", cut, s);
+        gfx_text8(f, x, y + lines * 9, line, (uint8_t)col, 1);
+        lines++;
+        s += cut;
+        while (*s == ' ') s++;
+    }
+    return lines;
+}
+
+static int toast_showing(void) { return TOASTS.n > 0 && TOASTS.t >= 0.0f; }
+
+static void render_toasts(Frame *f) {
+    if (!toast_showing()) return;
+    const Toast *t = &TOASTS.q[0];
+    float len = toast_len(t), k = smoothstepf(0.0f, 0.25f, TOASTS.t) * (1.0f - smoothstepf(len - 0.3f, len, TOASTS.t));
+    char a[32], b[32];                                             /* the title on a line, or two */
+    snprintf(a, sizeof a, "%s", t->title); b[0] = 0;
+    if (strlen(a) > 20) {
+        int cut = 20;
+        while (cut > 0 && a[cut] != ' ') cut--;
+        if (cut > 0) { snprintf(b, sizeof b, "%s", a + cut + 1); a[cut] = 0; }
+    }
+    const char *head = t->progress ? "PROGRESS" : "ACHIEVEMENT";
+    int tw = (int)strlen(head);
+    if ((int)strlen(a) > tw) tw = (int)strlen(a);
+    if ((int)strlen(b) > tw) tw = (int)strlen(b);
+    if ((int)strlen(t->desc) > tw) tw = (int)strlen(t->desc);
+    int lines = 3 + (b[0] != 0), bw = 38 + tw * 8 + 6, bh = lines * 9 + 8 > 36 ? lines * 9 + 8 : 36;
+    int x = W - (int)((float)(bw + 3) * k), y = 3;
+    int edge = t->progress ? R_STONE + 9 : R_GOLD + 9;
+    gfx_rect(f, x, y, bw, bh, 0);
+    for (int i = 0; i < bw; i++) { gfx_px(f, x + i, y, (uint8_t)edge); gfx_px(f, x + i, y + bh - 1, (uint8_t)(edge - 4)); }
+    for (int i = 0; i < bh; i++) { gfx_px(f, x, y + i, (uint8_t)edge); gfx_px(f, x + bw - 1, y + i, (uint8_t)(edge - 4)); }
+    bevel(f, x + 4, y + 4, 30, 28, R_IRON + 2);
+    const uint8_t *lut = t->family >= 0 && t->rank != RK_I ? crawl_rank_lut[t->family][t->rank] : NULL;
+    ui_sprite(f, t->spr, x + 6, y + 5, 26, lut, 0);
+    int tx = x + 38, ty = y + 5;
+    gfx_text8(f, tx, ty, head, t->progress ? (uint8_t)(R_STONE + 12) : (uint8_t)(R_GOLD + 12), 1); ty += 9;
+    gfx_text8(f, tx, ty, a, C_WHITE, 1); ty += 9;
+    if (b[0]) { gfx_text8(f, tx, ty, b, C_WHITE, 1); ty += 9; }
+    gfx_text8(f, tx, ty, t->desc, R_STONE + 12, 1);
+}
+
+/* the bestiary's pages: the kinds in the order you meet them, then the achievements */
+static int best_kinds(int *out) {
+    int n = 0;
+    for (int lv = 1; lv <= 20; lv++) for (int k = 0; k < NKINDS; k++) if (KINDS[k].debut == lv) out[n++] = k;
+    return n;
+}
+static int kind_ranks(int k, int *out) {                           /* the ranks a kind comes in */
+    int n = 0;
+    if (KINDS[k].family < 0) { out[n++] = RK_I; return n; }
+    for (int r = 0; r < NRANK; r++) if (slayer_need(k, r)) out[n++] = r;
+    return n;
+}
+static int kind_met(int k) {
+    if (RUN.rec.seen[k]) return 1;
+    for (int r = 0; r < NRANK; r++) if (RUN.rec.kills[k][r]) return 1;
+    return 0;
+}
+
+typedef struct { int done, known; char title[40], prog[16]; } AchLine;
+static int ach_lines(AchLine *L, int max) {
+    const Record *r = &RUN.rec;
+    int order[NKINDS], nk = best_kinds(order), n = 0;
+    for (int i = 0; i < nk && n < max; i++) {
+        int k = order[i], rk[NRANK], nr = kind_ranks(k, rk);
+        for (int j = 0; j < nr && n < max; j++) {
+            int need = slayer_need(k, rk[j]);
+            if (!need) continue;
+            AchLine *l = &L[n++];
+            l->done = ach_has(k * NRANK + rk[j]); l->known = kind_met(k);
+            if (l->known) snprintf(l->title, sizeof l->title, "%s%s", rank_word(k, rk[j]), KINDS[k].plural);
+            else snprintf(l->title, sizeof l->title, "%s???", rank_word(k, rk[j]));
+            snprintf(l->prog, sizeof l->prog, "%d/%d", r->kills[k][rk[j]] < need ? r->kills[k][rk[j]] : need, need);
+        }
+    }
+    for (int i = 0; i < NSECRET_STEPS && n < max; i++) {
+        AchLine *l = &L[n++];
+        l->done = ach_has(ACH_SECRET0 + i); l->known = 1;
+        snprintf(l->title, sizeof l->title, "%s", SECRET_NAME[i]);
+        snprintf(l->prog, sizeof l->prog, "%d/%d", r->secrets < SECRET_STEP[i] ? r->secrets : SECRET_STEP[i], SECRET_STEP[i]);
+    }
+    for (int lv = 1; lv <= 20 && n < max; lv++) {
+        AchLine *l = &L[n++];
+        l->done = ach_has(ACH_LEVEL0 + lv - 1); l->known = 1;
+        char nm[40];
+        level_name(lv, nm, sizeof nm);
+        if (l->done || lv <= RUN.level) snprintf(l->title, sizeof l->title, "%s", nm); else snprintf(l->title, sizeof l->title, "LEVEL %d", lv);
+        snprintf(l->prog, sizeof l->prog, "L%d", lv);
+    }
+    int top = r->descents + 1 < 2 ? 2 : r->descents + 1;           /* the descents so far, and the next */
+    for (int k = 2; k <= top && k <= MAX_DESCENT && n < max; k++) {
+        AchLine *l = &L[n++];
+        l->done = ach_has(ACH_DESCENT0 + k - 2); l->known = 1;
+        snprintf(l->title, sizeof l->title, "THE %s DESCENT", ORDINAL[k]);
+        snprintf(l->prog, sizeof l->prog, "L%d", k * 20);
+    }
+    return n;
+}
+#define ACH_ROWS 15
+
+static void best_default_rank(void) {
+    int order[NKINDS], nk = best_kinds(order);
+    G.best_rank = RK_I;
+    if (G.best_page >= nk) return;
+    int k = order[G.best_page], rk[NRANK], nr = kind_ranks(k, rk);
+    G.best_rank = rk[0];
+    for (int j = 0; j < nr; j++) if (RUN.rec.seen[k] >> rk[j] & 1) { G.best_rank = rk[j]; break; }
+}
+
+static void update_bestiary(void) {
+    if (IN.hit[KEY_B] || IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
+    int order[NKINDS], nk = best_kinds(order), pages = nk + 1;
+    int dx = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
+    int dy = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
+    if (dx) { G.best_page = (G.best_page + dx + pages) % pages; G.best_scroll = 0; best_default_rank(); snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    if (!dy) return;
+    if (G.best_page < nk) {                                        /* through the ranks it comes in */
+        int rk[NRANK], nr = kind_ranks(order[G.best_page], rk), at = 0;
+        for (int j = 0; j < nr; j++) if (rk[j] == G.best_rank) at = j;
+        G.best_rank = rk[(at + dy + nr) % nr];
+    } else {
+        static AchLine L[256];
+        int n = ach_lines(L, 256);
+        G.best_scroll = clampi(G.best_scroll + dy * 3, 0, n > ACH_ROWS ? n - ACH_ROWS : 0);
+    }
+    snd_sfx_ex(SFX_TICK, 0.6f, 0.5f);
+}
+
+static void render_bestiary(Frame *f) {
+    dim_view(f);
+    panel(f, 4, 4, W - 8, H - 8);
+    int order[NKINDS], nk = best_kinds(order), pages = nk + 1;
+    char line[64];
+    gfx_text16(f, 14, 9, G.best_page < nk ? "BESTIARY" : "ACHIEVEMENTS", R_GOLD + 12, 1);
+    gfx_text8(f, 14, 26, G.best_page < nk ? "A/D CREATURE  W/S RANK  B CLOSE" : "A/D PAGE  W/S SCROLL  B CLOSE", R_STONE + 9, 1);
+    snprintf(line, sizeof line, "%d / %d", G.best_page + 1, pages);
+    gfx_text8(f, W - 14 - gfx_text_width(line, 1), 13, line, R_STONE + 11, 1);
+    const Record *r = &RUN.rec;
+    if (G.best_page >= nk) {                                       /* the achievements, earned and not */
+        static AchLine L[256];
+        int n = ach_lines(L, 256), got = 0;
+        for (int i = 0; i < n; i++) got += L[i].done;
+        snprintf(line, sizeof line, "%d OF %d EARNED", got, n);
+        gfx_text8(f, 126, 13, line, R_GOLD + 10, 1);
+        for (int i = 0; i < ACH_ROWS && G.best_scroll + i < n; i++) {
+            const AchLine *l = &L[G.best_scroll + i];
+            int y = 40 + i * 10;
+            gfx_text8(f, 14, y, l->done ? "*" : "-", l->done ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 7), 1);
+            gfx_text8(f, 26, y, l->title, l->done ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + (l->known ? 11 : 8)), 1);
+            gfx_text8(f, W - 14 - gfx_text_width(l->prog, 1), y, l->prog, l->done ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 10), 1);
+        }
+        if (n > ACH_ROWS) {                                        /* where in the list */
+            int bar = 150 * ACH_ROWS / n, at = 150 * G.best_scroll / n;
+            for (int y = 0; y < bar; y++) gfx_px(f, W - 8, 40 + at + y, R_STONE + 9);
+        }
+        return;
+    }
+    int k = order[G.best_page], met = kind_met(k), seen = r->seen[k] >> G.best_rank & 1 || r->kills[k][G.best_rank] > 0;
+    bevel(f, 12, 38, 104, 104, 0);
+    const uint8_t *lut = KINDS[k].family >= 0 && G.best_rank != RK_I ? crawl_rank_lut[KINDS[k].family][G.best_rank] : NULL;
+    ui_sprite(f, KINDS[k].spr, 16, 42, 96, lut, !met || !seen);
+    int x0 = 124;
+    gfx_text16(f, x0, 38, met ? KINDS[k].name : "???", C_WHITE, 1);
+    if (KINDS[k].family < 0) snprintf(line, sizeof line, "A SPIRIT: NO RANK");
+    else if (seen) snprintf(line, sizeof line, "RANK %s  %s", RANK_ROMAN[G.best_rank], G.best_rank == RK_I ? "" : rank_word(k, G.best_rank));
+    else snprintf(line, sizeof line, "RANK %s  NOT MET YET", RANK_ROMAN[G.best_rank]);
+    gfx_text8(f, x0, 57, line, seen || KINDS[k].family < 0 ? (uint8_t)RANK_COL[G.best_rank] : (uint8_t)(R_STONE + 8), 1);
+    if (met) text_wrap(f, x0, 70, KINDS[k].lore, 23, R_STONE + 12, 4);
+    else text_wrap(f, x0, 70, "NOT YET MET. IT IS DOWN THERE SOMEWHERE.", 23, R_STONE + 8, 4);
+    /* slain, rank by rank, against what each achievement asks */
+    int rk[NRANK], nr = kind_ranks(k, rk);
+    gfx_text8(f, x0, 108, "SLAIN", R_GOLD + 10, 1);
+    if (KINDS[k].family < 0) gfx_text8(f, x0 + 48, 108, "IT CANNOT BE", R_STONE + 9, 1);
+    else for (int j = 0; j < nr; j++) {
+        int need = slayer_need(k, rk[j]), have = r->kills[k][rk[j]], done = ach_has(k * NRANK + rk[j]);
+        snprintf(line, sizeof line, "%-3s%3d/%d", rk[j] == RK_GILDED ? "G" : RANK_ROMAN[rk[j]], have < 999 ? have : 999, need);
+        int cx = x0 + (j & 1) * 92, cy = 118 + (j / 2) * 9;
+        gfx_text8(f, cx, cy, line, done ? (uint8_t)(R_GOLD + 12) : (rk[j] == G.best_rank ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 11)), 1);
+    }
+    /* what hurts it, learnt from three kills with each spell */
+    for (int i = 10; i < W - 10; i++) gfx_px(f, i, 147, R_STONE + 5);
+    gfx_text8(f, 14, 151, "WHAT HURTS IT", R_GOLD + 10, 1);
+    if (KINDS[k].family < 0) { gfx_text8(f, 14, 161, "NOTHING YOU CARRY TOUCHES IT", R_STONE + 11, 1); return; }
+    char more[80] = "MORE:", less[80] = "LESS:", same[80] = "AS USUAL:", untried[80] = "NOT YET LEARNT:";
+    int nm = 0, nl = 0, ns = 0, nu = 0;
+    for (int sp = 0; sp < AT_BFS; sp++) {
+        char *dst; int *cnt;
+        float wv = KINDS[k].weak[sp];
+        if (r->spell_kills[k][sp] < 3) { dst = untried; cnt = &nu; }
+        else if (wv > 1.01f) { dst = more; cnt = &nm; }
+        else if (wv < 0.99f) { dst = less; cnt = &nl; }
+        else { dst = same; cnt = &ns; }
+        size_t len = strlen(dst);
+        snprintf(dst + len, sizeof more - len, " %s", ATK_SHORT[sp]);
+        (*cnt)++;
+    }
+    int y = 161;
+    if (nm) { gfx_text8(f, 14, y, more, R_MOSS + 13, 1); y += 9; }
+    if (nl) { gfx_text8(f, 14, y, less, R_BLOOD + 13, 1); y += 9; }
+    if (ns && y < 186) { gfx_text8(f, 14, y, same, R_STONE + 12, 1); y += 9; }
+    if (nu && y < 186) text_wrap(f, 14, y, untried, 36, R_STONE + 8, (195 - y) / 9);
+}
+
 static void render_ui(Frame *f) {
     if (G.ui == UI_INVENTORY) render_inventory(f);
     else if (G.ui == UI_QUIT) render_quit(f);
     else if (G.ui == UI_GRAVES) render_graves(f);
+    else if (G.ui == UI_BESTIARY) render_bestiary(f);
 }
 
 static void crawl_render(Frame *f) {
     f->w = W; f->h = H;
     memcpy(f->pal, crawl_pal, sizeof crawl_pal);
     f->fade = G.fade;
-    if (G.tally) { render_tally(f); if (G.player && G.ui) render_ui(f); return; }
+    if (G.tally) { render_tally(f); if (G.player && G.ui) render_ui(f); render_toasts(f); return; }
     g_camfog = fog_at(G.px, G.py);
     float ang = G.ang + G.kick;
     float dx = cosf(ang), dy = sinf(ang);
@@ -5624,6 +6019,7 @@ static void crawl_render(Frame *f) {
     if (!G.shop) render_card(f);
     render_messages(f);
     if (G.player && G.ui) render_ui(f);
+    render_toasts(f);
     tint(f);
 }
 

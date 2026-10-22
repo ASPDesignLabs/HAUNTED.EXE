@@ -73,7 +73,7 @@ static Input g_in;
 static struct { double t; int key, down, dx, dy, wheel; } g_ev[4096];
 static int g_nev, g_iev;
 static const char *const KEYNAME[KEY_COUNT] = { "UP", "DOWN", "LEFT", "RIGHT", "W", "A", "S", "D", "E", "Q", "SPACE", "CTRL",
-    "SHIFT", "TAB", "ESC", "ENTER", "H", "Y", "N", "1", "2", "3", "4", "5", "6", "7", "8", "9", "MOUSE1", "MOUSE2" };
+    "SHIFT", "TAB", "ESC", "ENTER", "H", "Y", "N", "1", "2", "3", "4", "5", "6", "7", "8", "9", "MOUSE1", "MOUSE2", "B" };
 static void input_parse(const char *s) {
     static char buf[65536];
     snprintf(buf, sizeof buf, "%s", s);
@@ -121,7 +121,7 @@ static int input_quit(void) {
     slots_flush();
     if (!app_quit_requested()) return 0;
     const char *path = getenv("HOST_SAVE");
-    uint8_t blob[1024];
+    uint8_t blob[2048];
     int n = app_save(blob, sizeof blob);
     if (path) { FILE *f = fopen(path, "wb"); if (f) { fwrite(blob, 1, (size_t)n, f); fclose(f); } }
     fprintf(stderr, "QUIT: saved %d bytes%s%s\n", n, path ? " to " : "", path ? path : "");
@@ -132,7 +132,7 @@ static void input_init(void) {
     app_set_input(&g_in);
     const char *path = getenv("HOST_LOAD");
     if (path) {
-        uint8_t blob[1024];
+        uint8_t blob[2048];
         FILE *f = fopen(path, "rb");
         if (f) { size_t n = fread(blob, 1, sizeof blob, f); fclose(f); app_load(blob, (int)n); }
     }

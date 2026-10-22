@@ -99,9 +99,12 @@ log` per seed, four at a time, then a short script over the logs: levels reached
 secrets. Compare against a build of the previous commit (a `git worktree`) on the same seeds; one run
 can spiral, so use at least eight seeds before trusting a balance change.
 
-A save blob (for `HOST_LOAD`) is `"HVS1"` (u32 0x31535648 LE), version 1, then little-endian int32
-level, hp, gold, souls, shop-first flag, then the raw `Gear` struct. Write one with a few lines of
-Python to start a test at a given level with given gear.
+A save blob (for `HOST_LOAD`) is `"HVS1"` (u32 0x31535648 LE), version 2, then little-endian int32
+level, hp, gold, souls, shop-first flag, then the raw `Gear` struct, then the run's `Record`
+(`rec_pack`: u16 kills by kind and rank, u8 kills by kind and spell, u8 ranks seen by kind, u16
+secrets, u16 descents, u32 levels cleared, 32 bytes of achievement bits; `REC_BYTES` in all). A
+version 1 blob (no record) still loads, with an empty record, so a few lines of Python writing
+version 1 are still the quickest way to start a test at a given level with given gear.
 
 Memory safety: build the harness with `-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer
 -DHAUNT_DEBUG -DCRAWL_DEBUG` (same sources as `build/host`) and run long autopilot and scripted player
@@ -132,7 +135,15 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   (360), or earlier once it has most of the treasure. It presses about a third of the secrets it walks
   past.
 - **Player mode** (`update_human`, `human_walk`, `human_use`, `human_cast`) after holding H. Esc opens
-  the question (flee, stay, sleepwalk, carve a gravestone, rise from a grave); Tab the wardrobe.
+  the question (flee, stay, sleepwalk, carve a gravestone, rise from a grave); Tab the wardrobe; B the
+  bestiary (`render_bestiary`: a page a kind, A/D through them, W/S through its ranks, then the
+  achievements).
+- **The record and achievements** (`Record` in `RUN.rec`, saved with the run, so each save and grave
+  has its own). `rec_kill`, `rec_seen`, `rec_secret` and `rec_cleared` keep it, the autopilot's
+  doings included. Achievements are bits (`ach_bit` layout: kind x rank, then secrets, levels,
+  descents): 60 kills of a kind's lowest rank, then 40, 25, 15, 8; gilded 3 (`slayer_need`);
+  secrets 1-50; each of levels 1-20; each descent after (level 40, 60 ...). `toast` queues the
+  pop-up at the upper right (`render_toasts`), with a progress note halfway.
 - **Enemies** (`MOB_SKEL`, `MOB_GHOST` (the spectre: harmless, through walls, gone after level 10),
   `MOB_BAT`, `MOB_WSKULL` from level 3, `MOB_SHIELD` from 4, `MOB_SPIDER` from 6; guardians in vaults).
   `KINDS[]` gives each its name, rank family, first level and weaknesses (damage per spell, which
@@ -183,8 +194,9 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   (`PF_*`, `RK_*` in `crawl.h`). The new creatures' and decorations' sprites are drawn in
   `crawl_art.c`; `make sheets` shows them. See `docs/PLAN-bestiary.md` for what is in play.
 - **Saves.** `crawl_save`/`crawl_load` (format above; `Gear` is copied raw, so changing `Gear`'s layout
-  breaks old saves: bump the version and keep loading version 1). Progress saves on fleeing; graves are
-  the same blob plus 8 bytes of time in slots 1-3.
+  breaks old saves: bump the version and keep loading the old ones; `REC_KINDS` is fixed at 24 for the
+  same reason). Progress saves on fleeing; graves are the same blob plus 8 bytes of time in slots 1-3
+  (`SLOT_MAX` 1024).
 
 ## Releasing
 

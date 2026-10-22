@@ -26,7 +26,7 @@ typedef struct Frame {
 /* Keys and the mouse, for a scene a person can take over (holding H). */
 enum { KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_W, KEY_A, KEY_S, KEY_D, KEY_E, KEY_Q, KEY_SPACE, KEY_CTRL,
        KEY_SHIFT, KEY_TAB, KEY_ESC, KEY_ENTER, KEY_H, KEY_Y, KEY_N,
-       KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_MOUSE1, KEY_MOUSE2, KEY_COUNT };
+       KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_MOUSE1, KEY_MOUSE2, KEY_B, KEY_COUNT };
 typedef struct Input {
     uint8_t down[KEY_COUNT];        /* held now */
     uint8_t hit[KEY_COUNT];         /* went down since the last update */
@@ -55,7 +55,7 @@ typedef struct Scene {
 /* Save slots, three of them: the app keeps their bytes, the platform stores them (the registry on
  * Windows, files in the harness). A scene reads and writes them whenever it likes. */
 #define SLOT_COUNT 3
-#define SLOT_MAX 256
+#define SLOT_MAX 1024                  /* a run, its record of kills and achievements, and when it was carved */
 int  slot_read(int i, uint8_t *buf, int cap);        /* the slot's length, 0 when it is empty */
 void slot_write(int i, const uint8_t *buf, int len);
 

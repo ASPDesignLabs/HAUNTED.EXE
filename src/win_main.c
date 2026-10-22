@@ -356,6 +356,7 @@ static int vk_key(WPARAM vk) {
     case VK_UP: return KEY_UP; case VK_DOWN: return KEY_DOWN; case VK_LEFT: return KEY_LEFT; case VK_RIGHT: return KEY_RIGHT;
     case 'W': return KEY_W; case 'A': return KEY_A; case 'S': return KEY_S; case 'D': return KEY_D;
     case 'E': return KEY_E; case 'Q': return KEY_Q; case 'H': return KEY_H; case 'Y': return KEY_Y; case 'N': return KEY_N;
+    case 'B': return KEY_B;
     case VK_SPACE: return KEY_SPACE; case VK_CONTROL: return KEY_CTRL; case VK_SHIFT: return KEY_SHIFT;
     case VK_TAB: return KEY_TAB; case VK_ESCAPE: return KEY_ESC; case VK_RETURN: return KEY_ENTER;
     default: return vk >= '1' && vk <= '9' ? KEY_1 + (int)(vk - '1') : -1;
@@ -612,7 +613,7 @@ static int run_saver(HINSTANCE hi, const Settings *set, int windowed) {
 
     snd_init();                                    /* the audio thread needs the synth ready */
     int audio = set->app.sound ? audio_start() : 0;
-    static uint8_t blob[1024];
+    static uint8_t blob[2048];
     app_load(blob, progress_load(blob, sizeof blob));
     slots_load();
     app_set_input(&g_in);
