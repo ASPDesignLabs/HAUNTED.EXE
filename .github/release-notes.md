@@ -1,6 +1,15 @@
-The first public build of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H** for three seconds.
+The second beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H** for three seconds.
 
-This is a beta. Besides the automated tests and runs under Wine, it has been played by hand on the author's own Windows PC in a few different configurations; other PCs and graphics cards haven't been tried yet. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
+### New in this beta
+
+- **A wider crypt.** Main halls two and three cells wide, big chambers and colonnades, with a few narrow side passages.
+- **Set dressing.** Swaying chains and meat hooks, gibbet cages, candle chandeliers, roots and cobweb curtains, graveyards of tombstones, and more light: fire pits, lit totems and a light in every room.
+- **Secrets.** One to three walls a level give when pressed (E or Space). Their cracks show only when you are close. Behind each is a closet of treasure and often a potion, never a key, and it doesn't count towards the level's treasure. The tally counts the secrets found.
+- **The will-o'-wisp.** Take ten souls on a level and it kindles on the back of your hand, leaning the way out (by way of a vault key if the exit needs one) and lighting the crypt around you. It goes out with the level.
+- **Three save graves** in the Esc menu: carve a gravestone to save the run, rise from one to load it.
+- **Balance for the open halls.** Bones thrown from far across a hall fly wider, and each death on a level makes its creatures hit a little softer until it is cleared.
+
+This is still a beta. The first beta was played by hand on the author's own Windows PC in a few different configurations; the new crypt, the secrets, the wisp and the graves have so far been tested by the harness and under Wine. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
 
 ### Files
 

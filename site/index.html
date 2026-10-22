@@ -220,6 +220,7 @@
   .quit button:focus-visible { outline: 2px solid var(--gold); outline-offset: 0; }
   @media (max-width: 560px) { .quit button { font-size: 16px; padding: 8px 26px; } }
   .quit .q-note { font-family: var(--font-bios); font-size: 16px; color: var(--gold); min-height: 24px; letter-spacing: .02em; }
+  .quit .q-rule { width: 70%; height: 0; margin: 6px 0; border-top: 2px solid var(--stone-mid); }
   @media (prefers-reduced-motion: no-preference) {
     .quit button[aria-pressed="true"]::before, .quit button[aria-pressed="true"]::after { animation: flicker .2s steps(1) infinite; }
   }
@@ -308,7 +309,7 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
         <img src="img/catacomb_fight.png" width="320" height="200" alt="CATACOMB: a fireball strikes a shield-bearing skeleton in a torch-lit hall while a hooded wraith looms to the right; the caster's hand is raised in the foreground beside a pile of skulls">
         <h3>CATACOMB</h3>
         <p class="spec">Mode 13h, 320&times;200, 256 colours</p>
-        <p>A Catacomb 3-D style crawl through crypts generated for each level. The caster buys from the merchant, a cat on a treasure chest, then fights skeletons, shield-bearers, wall skulls, spiders, bats and wraiths with nine attack spells and nine runes, opening colour-coded vaults on the way to a rune-sealed exit. Every level is older and harder than the last.</p>
+        <p>A Catacomb 3-D style crawl through crypts generated for each level: halls two and three cells wide, big chambers and colonnades, hung with chains, hooks, gibbet cages and chandeliers, with graveyards, fire pits and lit totems. The caster buys from the merchant, a cat on a treasure chest, then fights skeletons, shield-bearers, wall skulls, spiders, bats and wraiths with nine attack spells and nine runes, opening colour-coded vaults and hidden walls on the way to a rune-sealed exit. Every level is older and harder than the last.</p>
       </div>
     </div>
   </section>
@@ -324,13 +325,15 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
           <tr><td class="keys"><kbd>MOUSE</kbd></td><td>Turn, the way Doom does. There is no looking up or down.</td></tr>
           <tr><td class="keys"><kbd>CLICK</kbd><kbd>CTRL</kbd></td><td>Cast the spell in hand where you look. Lightning and Soul Drain catch the nearest creature near the middle of the view.</td></tr>
           <tr><td class="keys"><kbd>1</kbd>&ndash;<kbd>9</kbd></td><td>Choose a spell you own: Fire Bolt, Frost Shard, Chain Lightning, Bone Spear, Soul Drain, Hellfire, Seeker Wisps, Rapid Sparks, BFS9000. The wheel works too.</td></tr>
-          <tr><td class="keys"><kbd>E</kbd><kbd>SPACE</kbd></td><td>Open the door ahead, unlock a vault with its key, step through the exit runes, or buy from the merchant.</td></tr>
+          <tr><td class="keys"><kbd>E</kbd><kbd>SPACE</kbd></td><td>Open the door ahead, unlock a vault with its key, press a cracked wall, step through the exit runes, or buy from the merchant.</td></tr>
           <tr><td class="keys"><kbd>TAB</kbd></td><td>Your wardrobe and spellbook. W and S pick a slot, A and D change what you wear there.</td></tr>
           <tr><td class="keys"><kbd>ESC</kbd></td><td>Ask to leave. The crypt will argue.</td></tr>
         </tbody>
       </table>
     </div>
     <p>Your defensive runes still fire on their own, as quickly and as fallibly as they do for the autopilot. Everything you buy stays in your wardrobe, and the Wolfenstein status bar stays up while you play.</p>
+    <p><strong>Secrets.</strong> Every level hides one to three walls that give: one on the first two levels, two from level 3 and three from level 6. They look like plain stone until you are a step or two away, when cracks show in them. Press <kbd>E</kbd> and the wall grinds back into a hidden closet. Inside is treasure and often a potion, never a key, and none of it counts towards the level's treasure, so whatever you find is extra. The tally at the end of the level counts the secrets you found.</p>
+    <p><strong>The will-o'-wisp.</strong> Take ten souls on a level and one kindles on the back of your hand. Its body leans the way out, along the route you would walk, held to your hand by its tail, and it lights the crypt a few steps around you. If the exit is in a locked vault, it leads you to the key first. It goes out when you leave the level.</p>
 
     <div class="quit" id="quit" role="group" aria-labelledby="q-title">
       <p class="q-title" id="q-title">LEAVE THE CRYPT?</p>
@@ -339,6 +342,9 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
         <button type="button" id="q-flee" aria-pressed="false">FLEE TO THE SURFACE</button>
         <button type="button" id="q-stay" aria-pressed="true">STAY IN THE DARK</button>
         <button type="button" id="q-sleep" aria-pressed="false">SLEEPWALK</button>
+        <span class="q-rule" aria-hidden="true"></span>
+        <button type="button" id="q-carve" aria-pressed="false">CARVE A GRAVESTONE</button>
+        <button type="button" id="q-rise" aria-pressed="false">RISE FROM A GRAVE</button>
       </div>
       <p class="q-note" id="q-note">BACK TO THE CRYPT</p>
     </div>
@@ -346,6 +352,8 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
       <li><strong>Flee to the surface</strong> ends the screensaver and saves your level, health, gold, souls and gear. Next time you start at the beginning of that level, and the next session starts from it whether you play or not.</li>
       <li><strong>Stay in the dark</strong> closes the question. It's the default, so a stray Enter keeps you playing.</li>
       <li><strong>Sleepwalk</strong> hands the crypt back to the autopilot, which walks on from where you stood.</li>
+      <li><strong>Carve a gravestone</strong> saves the run in one of three graves. Carving over a used grave asks twice.</li>
+      <li><strong>Rise from a grave</strong> loads one, from the beginning of its level, and the controls stay yours.</li>
     </ul>
   </section>
 
@@ -360,8 +368,8 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
       <figcaption>The merchant, a wall skull, a spider, the BFS9000 and Hellfire.</figcaption>
     </figure>
     <figure>
-      <img src="img/preview_catacomb_crypt.png" loading="lazy" width="1932" height="806" alt="Six frames from CATACOMB: the rune-sealed exit, the exit opened, the LEVEL 1 COMPLETE tally, a wraith rearing back, a violet deeper corridor and a mossy room">
-      <figcaption>The exit, the tally, a wraith and the deeper levels.</figcaption>
+      <img src="img/preview_catacomb_crypt.png" loading="lazy" width="1932" height="806" alt="Six frames from CATACOMB: a big chamber hung with candle chandeliers and banners; a hall with a fire pit beside a skull wall and a key glinting in the distance; a wide hall with a stone pillar; the hand pressing a cracked wall with A SECRET! 1 OF 3 above it; the closet behind it with gems and a potion; and the will-o'-wisp glowing blue on the back of the hand in an ossuary hall">
+      <figcaption>Big chambers and wide halls, a secret wall and its closet, and the wisp.</figcaption>
     </figure>
     <figure>
       <img src="img/preview_haunt_text.png" loading="lazy" width="2898" height="806" alt="Eight frames of haunted DOS programs: EDIT, DEFRAG, the BBS, the virus scan, MSD, SETUP, QBasic and the file manager">
@@ -395,7 +403,7 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
 
   <section aria-labelledby="source">
     <h2 id="source">Built in the open</h2>
-    <p>Every release is built from this repository by GitHub Actions. The MinGW-w64 cross-compiler builds the program, a headless harness renders both scenes and plays a scripted session, and the files go up with their SHA-256 checksums. It's about 15,000 lines of C with no dependencies beyond the standard Windows DLLs.</p>
+    <p>Every release is built from this repository by GitHub Actions. The MinGW-w64 cross-compiler builds the program, a headless harness renders both scenes and plays a scripted session, and the files go up with their SHA-256 checksums. It's about 17,000 lines of C with no dependencies beyond the standard Windows DLLs.</p>
 <pre class="code">sudo apt install gcc-mingw-w64-x86-64 zlib1g-dev
 make zip      # dist/HAUNTED.scr, dist/HAUNTED.EXE and the zip
 make smoke    # both scenes and a scripted player in the test harness</pre>
@@ -409,13 +417,14 @@ make smoke    # both scenes and a scripted player in the test harness</pre>
 
   <section aria-labelledby="beta">
     <h2 id="beta">Beta status</h2>
-    <p>This is the first public build. It has been played by hand on the author's own Windows PC in a few different configurations, on top of the automated tests. Here is what has been tested, and how.</p>
+    <p>This is the second beta. The first was played by hand on the author's own Windows PC in a few different configurations, on top of the automated tests; this one adds a wider crypt, secrets, the will-o'-wisp and three save graves, which so far have been tested only by the harness and under Wine. Here is what has been tested, and how.</p>
     <div class="scroll">
       <table>
         <thead><tr><th>Area</th><th>Evidence</th><th>Confidence</th></tr></thead>
         <tbody>
           <tr><td>Playing</td><td>Scripted sessions in the harness: taking over from both scenes, shopping, every spell, the wardrobe, the question at Esc, dying, the exit, saving and loading. 170 seconds under AddressSanitizer and UBSan, clean.</td><td><span class="tag ok">HIGH</span></td></tr>
-          <tr><td>The autopilot</td><td>Six 50-minute simulations: every run reached level 8 to 10 and left every level by its exit.</td><td><span class="tag ok">HIGH</span></td></tr>
+          <tr><td>The new crypt</td><td>Every lane of every generated level checked for reach. A test player that only walks where the wisp leans cleared 24 of 24 levels, fetching vault keys where the exit needed them. Pressing a secret wall, walking into its closet and taking the loot, carving and rising from graves (also under Wine, into the registry). About 30 minutes under AddressSanitizer and UBSan, clean. Not yet played by hand on Windows.</td><td><span class="tag mid">MEDIUM</span></td></tr>
+          <tr><td>The autopilot</td><td>Eight 50-minute simulations in the wider crypt: runs reached level 6 to 9, left every level by its exit and found two to six secrets. It dies a little more often than in the narrower crypt of the first beta: four runs never died, two died once, one twice and one five times.</td><td><span class="tag ok">HIGH</span></td></tr>
           <tr><td>Input on Windows</td><td>Played by hand on real Windows: holding H, the keys, raw mouse turning and keeping the mouse inside the window all work flawlessly. Also driven under Wine with real key presses, including saving to the registry and loading it back.</td><td><span class="tag ok">HIGH</span></td></tr>
           <tr><td>Mouse feel</td><td>Tried by hand: the fixed speed of 0.0015 radians per count feels spot-on.</td><td><span class="tag ok">HIGH</span></td></tr>
           <tr><td>Sound</td><td>Heard through real speakers, where the music and effects play as intended. Also analysed offline for clipping and levels.</td><td><span class="tag ok">HIGH</span></td></tr>
@@ -472,9 +481,10 @@ make smoke    # both scenes and a scripted player in the test harness</pre>
     "REAL WIZARDS DO NOT HAVE MEETINGS.",
     "87 SOULS. SO CLOSE TO SOMETHING WONDERFUL."
   ];
-  var NOTES = { "q-flee": "YOUR LEVEL, GOLD AND GEAR ARE KEPT", "q-stay": "BACK TO THE CRYPT", "q-sleep": "THE AUTOPILOT WALKS ON WITHOUT YOU" };
+  var NOTES = { "q-flee": "YOUR LEVEL, GOLD AND GEAR ARE KEPT", "q-stay": "BACK TO THE CRYPT", "q-sleep": "THE AUTOPILOT WALKS ON WITHOUT YOU",
+                "q-carve": "THREE GRAVES. CHOOSE ONE.", "q-rise": "WHICH GRAVE WILL YOU LEAVE?" };
   var line = document.getElementById("q-line"), note = document.getElementById("q-note");
-  var opts = ["q-flee", "q-stay", "q-sleep"].map(function (id) { return document.getElementById(id); });
+  var opts = ["q-flee", "q-stay", "q-sleep", "q-carve", "q-rise"].map(function (id) { return document.getElementById(id); });
   var li = Math.floor(Math.random() * LINES.length), walker = null;
   function show() { line.textContent = LINES[li % LINES.length]; }
   function select(b) {
@@ -497,6 +507,10 @@ make smoke    # both scenes and a scripted player in the test harness</pre>
         document.getElementById("download").scrollIntoView({ behavior: still ? "auto" : "smooth", block: "center" });
       } else if (b.id === "q-stay") {
         li++; show();
+      } else if (b.id === "q-carve") {
+        line.textContent = "HERE LIES A CASTER. NOT FOR LONG.";
+      } else if (b.id === "q-rise") {
+        line.textContent = "THE EARTH GIVES YOU BACK. IT ALWAYS DOES.";
       } else {
         li++; show();
         if (!still) walker = setInterval(function () { li++; show(); }, 4200);
