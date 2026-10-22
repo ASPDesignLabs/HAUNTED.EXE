@@ -70,6 +70,21 @@ enum {
 #define FACE_H 40
 #define FACE_FRAMES 30
 
+/* Ranks: one ladder of colours for every family, strongest last (docs/PLAN-bestiary.md). A rank
+ * redraws a creature's body ramp in another as it is drawn; shading stays inside the new ramp. */
+enum { RK_I, RK_II, RK_III, RK_IV, RK_V, RK_GILDED, NRANK };    /* own colour, green, blue, red, black, gold */
+enum {                                          /* which ramp a creature's body is drawn in */
+    PF_BONE,                                    /* R_BONE: skeletons, hounds, knights, deacons, wall skulls */
+    PF_FLESH,                                   /* R_WARM: shamblers, ghouls */
+    PF_CHITIN,                                  /* R_IRON: web spiders, the brood; black already, so rank V goes pale */
+    PF_HIDE,                                    /* R_WOOD: hunting spiders */
+    PF_WING,                                    /* R_PURPLE: bats, which stop at rank IV */
+    PF_CLAY,                                    /* R_BRICK: ember imps */
+    PF_STONE,                                   /* R_STONE: the Drowned, gargoyles */
+    NPF
+};
+extern uint8_t crawl_rank_lut[NPF][NRANK][256];
+
 extern uint8_t crawl_pal[256][3];               /* 6-bit DAC values */
 extern uint8_t crawl_cmap[NLIGHT][256];         /* colour at a light level */
 extern uint8_t crawl_tex[NTEX][TS * TS];        /* column-major: [x * TS + y] */

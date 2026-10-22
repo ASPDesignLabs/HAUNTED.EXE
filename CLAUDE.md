@@ -11,8 +11,11 @@ Current release: **1.0.0b2** (pre-release, October 2026). Project page:
 https://aspdesignlabs.github.io/HAUNTED.EXE/ · repo: `ASPDesignLabs/HAUNTED.EXE`.
 
 The next planned work (themes every five levels, wall tiles, enemies, bosses, bonus levels) is written
-up in [`docs/PLAN-descent.md`](docs/PLAN-descent.md), with the owner's open questions. Read it before
-starting on any of that, and get the questions answered first.
+up in [`docs/PLAN-descent.md`](docs/PLAN-descent.md). The creatures, their colour ranks and the order
+in which creatures and decorations appear are in [`docs/PLAN-bestiary.md`](docs/PLAN-bestiary.md),
+which replaces the descent plan's section on enemies. The owner has accepted the recommended answer
+to every question in both; the bestiary's status line says how far the work has got. Read both
+before starting on any of it.
 
 ## Working with the owner
 

@@ -1601,6 +1601,30 @@ static void find_glints(void) {
     }
 }
 
+/* ---- ranks: the body ramp redrawn in the rank's own (see crawl.h) ---- */
+
+uint8_t crawl_rank_lut[NPF][NRANK][256];
+
+static void lut_ramp(uint8_t *lut, int from, int to) {             /* the gold ramp is short: spread over it */
+    for (int k = 0; k < 16; k++) lut[from + k] = (uint8_t)(to == R_GOLD ? R_GOLD + (k * (NGOLD - 1) + 7) / 15 : to + k);
+}
+
+static void build_rank_luts(void) {
+    static const int BODY[NPF] = { R_BONE, R_WARM, R_IRON, R_WOOD, R_PURPLE, R_BRICK, R_STONE };
+    static const int LADDER[NRANK] = { -1, R_MOSS, R_GHOST, R_BLOOD, R_IRON, R_GOLD };
+    for (int f = 0; f < NPF; f++)
+        for (int r = 0; r < NRANK; r++) {
+            uint8_t *lut = crawl_rank_lut[f][r];
+            for (int i = 0; i < 256; i++) lut[i] = (uint8_t)i;
+            int to = LADDER[r];
+            if (to < 0) continue;
+            if (to == BODY[f]) to = R_BONE;                        /* black already: the deep ones go pale instead */
+            if (f == PF_WING && r == RK_V) to = R_BLOOD;           /* a black bat is lost in the dark: they stop at red */
+            lut_ramp(lut, BODY[f], to);
+            if (to == R_MOSS) lut_ramp(lut, R_MOSS, R_WARM);       /* moss on a green body would vanish: grime instead */
+        }
+}
+
 /* ------------------------------------------------------------------ */
 
 /* ---- each level down looks older: its own hue, darker stone, rot and ruin ---- */
@@ -1713,6 +1737,7 @@ void crawl_art_init(void) {
     done = 1;
     build_palette();
     build_colormap();
+    build_rank_luts();
     gen_stone(T_STONE, R_STONE, 11);
     gen_rubble(T_RUBBLE, 23);
     gen_skulls(T_SKULLS, 31);

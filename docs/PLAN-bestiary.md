@@ -1,10 +1,14 @@
 # The bestiary and the dressing: who lives down there, and when you meet them
 
-**Status: a proposal, nothing built yet.** Written at 1.0.0b2 as a companion to
+**Status: agreed; asset generation under way.** Written at 1.0.0b2 as a companion to
 [`PLAN-descent.md`](PLAN-descent.md). It replaces that plan's section 5 (Enemies) and its questions
-11-14; everything else there (sets, wall tiles, bosses, bonus levels, loops) stands. The questions at
-the end (B1-B34) need answers before the work starts. Anything left unanswered takes the recommended
-option.
+11-14; everything else there (sets, wall tiles, bosses, bonus levels, loops) stands.
+
+**Decided (22 October 2026):** the owner reviewed the plan and found it sound, so every question
+below (B1-B34) takes its recommended option (marked *). Under B34 that means the descent plan's
+proposals stand as its defaults too. Work began with the assets: the rank tables and the sprites
+for the new creatures and decorations, each shown on a sheet (`make sheets`) for a yes before it
+goes into play.
 
 ## The brief
 

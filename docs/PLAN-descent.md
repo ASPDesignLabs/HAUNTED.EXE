@@ -139,6 +139,9 @@ Difficulty needs a curve for loops: today's damage and throw speed keep rising w
 
 ## 5. Enemies
 
+**Superseded by [`PLAN-bestiary.md`](PLAN-bestiary.md)**, which also answers questions 11-14. Kept
+here for the record.
+
 Rules learned so far:
 
 - In wide halls, ranged enemies are the killers (bones from far away were the main cause of the

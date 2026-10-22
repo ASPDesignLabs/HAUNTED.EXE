@@ -4,6 +4,7 @@
 #   make zip    - the release package
 #   make smoke  - a short headless run of both scenes in the test harness
 #   make cards  - the project page's title cards in site/cards (needs Pillow)
+#   make sheets - CATACOMB's sprite sheets in build/sheets, by rank, for approval
 VERSION := $(shell cat VERSION)
 FILEVER := $(shell sed -E 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*/\1,\2,\3,0/' VERSION)
 PKG      = dist/HAUNTED-$(VERSION)-win64.zip
@@ -63,6 +64,16 @@ cards: build/host_debug
 	    && CRAWL_SEED=7 CRAWL_LEVEL=3 ../host_debug shot crawl 75,110 c 1 >/dev/null
 	python3 tools/make_cards.py build/cards site/cards
 
+ART_SRC  = src/crawl_art.c src/hand_img.c src/face_img.c src/cat_img.c src/font_vga.c
+
+build/sheet: $(ART_SRC) tools/sheet.c src/*.h
+	@mkdir -p build
+	gcc $(CFLAGS) -o $@ $(ART_SRC) tools/sheet.c -lm -lz
+
+sheets: build/sheet
+	@mkdir -p build/sheets
+	./build/sheet all build/sheets 1
+
 clean:
 	rm -rf build dist/HAUNTED.scr dist/HAUNTED.EXE dist/*.zip
-.PHONY: all host scr zip smoke cards clean
+.PHONY: all host scr zip smoke cards sheets clean
