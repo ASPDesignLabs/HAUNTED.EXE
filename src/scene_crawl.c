@@ -41,6 +41,7 @@ enum { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_KEY, IT_POTION, IT_
 static const int ITEM_VALUE[] = { 10, 25, 50, 100, 250, 0, 0, 0, 0 };
 enum { MIS_BONE, MIS_FIRE };                /* what the dead throw: bones, and a wall skull's fireball */
 enum { DM_PIERCE = 1, DM_ARC = 2, DM_SLOW = 4 };   /* how a hit lands: through shields, round them, chilling */
+#define DM_ATK(a) (((a) + 1) << 8)          /* and which spell it is, for the creature's weakness to it */
 enum { HURT_BLOW, HURT_MAGIC, HURT_POISON };
 #define NKEYS 3                             /* gold, silver, crimson */
 #define SHOT_REFLECT NATK                   /* a shot kind: something the Mirror Veil sent back */
@@ -57,7 +58,32 @@ typedef struct {
     float hp, maxhp, shield, face;                                 /* face: where a shield-bearer is looking */
     float frozen, feared, slowed, swing;                           /* frost nova, dread, frost shard; a sword raised */
     int sub, guard; float ax, ay, bx, by, sub_t;                   /* wall skulls and spiders: a phase, an anchor, a way back */
+    int rank, home, hunts; float alert, dmgk, lost;                /* its rank (RK_*); the room it keeps to (-1: none); whether it
+                                                                      may hunt now; how long it will go on hunting; its rank's
+                                                                      weight of blow; how long since it saw the caster */
 } Mob;
+/* What each kind of creature is (docs/PLAN-bestiary.md): its name, the ramp its rank recolours (-1:
+ * off the ladder), the first level it is met on, and what each spell does to it (x1 plain, x0
+ * nothing). The autopilot plays to these. */
+typedef struct { const char *name; int family, debut; float weak[NATK]; } Kind;
+static const Kind KINDS[] = {
+    /*                                            fire   frost  chain  spear  drain  hell   wisps  sparks bfs */
+    [MOB_SKEL]   = { "SKELETON", PF_BONE, 1,      { 1.0f, 0.75f, 1.25f, 1.25f, 0.75f, 1.25f, 1.0f, 1.0f, 1.0f } },
+    [MOB_GHOST]  = { "SPECTRE", -1, 1,            { 0 } },
+    [MOB_BAT]    = { "BAT", PF_WING, 1,           { 1.0f, 1.5f, 1.25f, 1.0f, 1.0f, 1.0f, 1.25f, 1.25f, 1.0f } },
+    [MOB_WSKULL] = { "WALL SKULL", PF_BONE, 3,    { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f } },
+    [MOB_SHIELD] = { "SHIELD-BEARER", PF_BONE, 4, { 0.75f, 1.0f, 1.5f, 1.5f, 1.0f, 1.0f, 1.0f, 0.75f, 1.0f } },
+    [MOB_SPIDER] = { "SPIDER", PF_CHITIN, 6,      { 1.25f, 1.5f, 1.0f, 1.0f, 1.0f, 1.25f, 1.25f, 1.0f, 1.0f } },
+};
+#define NKINDS ((int)(sizeof KINDS / sizeof KINDS[0]))
+/* the ladder: a rank means about the same strength at any depth; depth shows in which ranks come */
+static const float RANK_HP[NRANK] = { 1.0f, 1.6f, 2.4f, 3.5f, 5.0f, 3.0f };
+static const float RANK_DMG[NRANK] = { 1.0f, 1.15f, 1.3f, 1.5f, 1.7f, 1.2f };
+static const float RANK_SPEED[NRANK] = { 1.0f, 1.05f, 1.1f, 1.15f, 1.15f, 1.0f };
+static const int RANK_SOULS[NRANK] = { 1, 2, 3, 4, 6, 5 };
+static const float RANK_SIZE[NRANK] = { 1.0f, 1.04f, 1.08f, 1.12f, 1.16f, 1.08f };   /* a second cue, for eyes that mix up the colours */
+static const char *const RANK_WORD[NRANK] = { "", "ROTTEN ", "COLD ", "BLOODY ", "BLACK ", "GILDED " };
+
 typedef struct { int alive, kind, target; float x, y, z, vx, vy, life, dmg; uint32_t pierced; } Shot;
 typedef struct { int alive, kind; float x, y, vx, vy, life, spin, dmg; } Bone;
 typedef struct { int alive, type, cx, cy, seen, color, lx, ly, secret; float x, y, phase; } Item;   /* lx, ly: the lane cell it is taken from */
@@ -76,7 +102,7 @@ typedef struct { int fx, fy, d, sx, sy, tex, state, rolled; } Secret;   /* stand
 #define MAXLIGHTS 160
 #define MAXLC 420000
 #define MAXDECO 900
-#define MAXMOBS 20
+#define MAXMOBS 32
 #define MAXSHOTS 16
 #define MAXBOOMS 8
 #define MAXBONES 10
@@ -161,6 +187,8 @@ static struct {
     int leaving, exiting;                   /* heading for the exit; stepping through it */
     float exit_open, exit_t;
     int kills, kills_total;
+    int spawned[NKINDS];                    /* how many of each kind have come on this level: a newcomer comes alone */
+    uint8_t named[NKINDS];                  /* the ranks of each kind the caption has named on this level */
     Secret secrets[MAXSECRETS]; int nsecrets, secrets_found;
     int slide, seek_secret; float slide_t;  /* the wall sliding back, and how far; a secret the autopilot means to press */
     int16_t route[MAPN][MAPN];              /* steps to where the wisp leads, every way round; -1 where none */
@@ -208,9 +236,11 @@ static uint8_t ramp_at(int ramp, int k) { return (uint8_t)(ramp + clampi(k, 0, r
 static int rnd(int n) { return (int)(rng_next(&G.rs) % (uint32_t)n); }
 static float decay(void) { return crawl_decay(G.level); }        /* rot and ruin: 0 as a set begins, 1 on its last level */
 static float depth(void) { return crawl_depth(G.level); }         /* how far down: 0 in the Crypts, 1 from the Deep on */
-static int enemy_damage(void) {                                  /* 5 on level 1, one more each level; less after each death on it */
-    int d = 4 + G.level, r = G.retries < 3 ? G.retries : 3;
-    return d - d * r * 15 / 100;
+/* a creature's blow: a little more each level, more by its rank, less after each death on the level */
+static float mob_damage(const Mob *m) {
+    float d = (4.0f + 0.8f * (float)G.level) * m->dmgk;
+    int r = G.retries < 3 ? G.retries : 3;
+    return d * (1.0f - 0.15f * (float)r);
 }
 static float throw_interval(void) { return 1.5f / powf(1.05f, (float)(G.level - 1)); }   /* 5% quicker each level */
 static float rndf(void) { return rng_f(&G.rs); }
@@ -246,6 +276,8 @@ static int passable(int x, int y) {
 }
 static int vault_of_room(int x, int y);
 static Mob *spawn_mob(int x, int y, int type);
+static int may_spawn(int type);
+static void name_newcomers(void);
 static float heading_angle_raw(int h) { return h * (PI_F * 0.5f) + PI_F; }   /* facing back the other way */
 static float wrap_pi(float a) { while (a > PI_F) a -= TAU_F; while (a < -PI_F) a += TAU_F; return a; }
 
@@ -274,7 +306,8 @@ static void add_deco_ex(float x, float y, int spr, int nfr, int flags) {
 }
 static void add_deco(float x, float y, int spr) {
     add_deco_ex(x, y, spr, 1, spr == SP_CHAINS ? DF_SWAY : 0);
-    if (spr == SP_SKULLPILE || spr == SP_BONES2 || spr == SP_URN || spr == SP_CANDLES || spr == SP_CHAINS)
+    if (spr == SP_SKULLPILE || spr == SP_BONES2 || spr == SP_URN || spr == SP_CANDLES || spr == SP_CHAINS || spr == SP_BROKEN_ARMS
+        || spr == SP_COLLAR || spr == SP_CARCASS || spr == SP_HELM || spr == SP_FUNGUS || spr == SP_SAC_A)
         G.bulky[clampi((int)y, 0, MAPN - 1)][clampi((int)x, 0, MAPN - 1)] = 1;
 }
 
@@ -799,9 +832,59 @@ static void solid_prop(int x, int y, int spr, int nfr, int kind) {
 static void fire_pit(int x, int y) { solid_prop(x, y, SP_FIREPIT_A, 3, K_PROP); light_static(x + 0.5f, y + 0.5f, 1.7f, 5.6f); }
 static void totem(int x, int y) { solid_prop(x, y, SP_TOTEM_A, 2, K_PILLAR); light_static(x + 0.5f, y + 0.5f, 1.0f, 3.8f); }
 static void chandelier(int x, int y) { add_deco_ex(x + 0.5f, y + 0.5f, SP_CHANDELIER_A, 2, DF_SWAY); light_static(x + 0.5f, y + 0.5f, 1.35f, 6.0f); }
+static void candlestand(int x, int y) { solid_prop(x, y, SP_CANDLESTAND_A, 2, K_PROP); light_static(x + 0.5f, y + 0.5f, 0.95f, 3.6f); }
+static void lantern(int x, int y) { add_deco_ex(x + 0.5f, y + 0.5f, SP_LANTERN_A, 2, DF_SWAY); light_static(x + 0.5f, y + 0.5f, 1.1f, 5.0f); }
+static void brazier(int x, int y) { solid_prop(x, y, SP_BRAZIER_A, 3, K_PROP); light_static(x + 0.5f, y + 0.5f, 1.5f, 5.2f); }
+static void minelamp(int x, int y) { solid_prop(x, y, SP_MINELAMP_A, 2, K_PILLAR); light_static(x + 0.5f, y + 0.5f, 0.95f, 4.2f); }
+static void crystals(int x, int y) {                               /* a steady glow, not a flame */
+    int n = G.nlights;
+    solid_prop(x, y, SP_CRYSTAL_A, 2, K_PROP); light_static(x + 0.5f, y + 0.5f, 1.15f, 4.6f);
+    if (G.nlights > n) G.lights[n].phase = -1000.0f;
+}
+static void magma(int x, int y) { solid_prop(x, y, SP_MAGMA_A, 3, K_PROP); light_static(x + 0.5f, y + 0.5f, 1.6f, 5.4f); }
+
+/* The dressing comes in as you go down (PLAN-bestiary, section 8): each set lights and furnishes
+ * itself in its own way, and some things show a level or two before what they warn of. In the second
+ * time down and after, everything a set has is there from its first level. */
+static int since(int level) { return G.level >= level || crawl_loop(G.level) > 0; }
+
+/* a light for a hall crossing, by the set */
+static void crossing_light(int x, int y) {
+    switch (crawl_set(G.level)) {
+    case 0: if (since(3)) totem(x, y); else candlestand(x, y); break;
+    case 1: if (rnd(2)) totem(x, y); else lantern(x, y); break;
+    case 2: if (rnd(2)) minelamp(x, y); else brazier(x, y); break;
+    default: if (rnd(3)) crystals(x, y); else magma(x, y); break;
+    }
+}
+/* a room's own light, in a corner of one of its blocks */
+static void room_light(int x, int y, int vault) {
+    switch (crawl_set(G.level)) {
+    case 0: if (vault || rnd(3) || !since(3)) chandelier(x, y); else totem(x, y); break;
+    case 1: if (vault || rnd(3)) chandelier(x, y); else lantern(x, y); break;
+    case 2: if (rnd(2)) brazier(x, y); else minelamp(x, y); break;
+    default: if (vault || rnd(3)) crystals(x, y); else magma(x, y); break;
+    }
+}
+/* a fire hall's fire */
+static void hall_fire(int x, int y) {
+    int set = crawl_set(G.level);
+    if (set <= 1) fire_pit(x, y); else if (set == 2) brazier(x, y); else magma(x, y);
+}
+
+/* something on the floor of a hall, by a wall: mostly bones, now and then a sign of what is coming */
+static int hall_litter(void) {
+    int set = crawl_set(G.level), k = rnd(100);
+    if (set <= 1 && since(3) && k < 6) return SP_BROKEN_ARMS;      /* shield-bearers from 4 */
+    if (set >= 1 && set <= 2 && since(7) && k < 12) return SP_COLLAR;   /* hounds from 8 */
+    if (set >= 2 && since(11) && k < 18) return SP_CARCASS;         /* ghouls from 12 */
+    if (set == 2 && since(12) && k < 23) return SP_HELM;            /* knights from 13 */
+    return rnd(4) ? SP_BONES1 : SP_BONES2;
+}
 
 static void dress_level(void) {
     float dk = decay();
+    int set = crawl_set(G.level);
     /* the halls */
     for (int y = 1; y < MAPN - 1; y++)
         for (int x = 1; x < MAPN - 1; x++) {
@@ -818,17 +901,22 @@ static void dress_level(void) {
             int wd = wall_toward(x, y);
             if (lane(x, y)) {                                      /* on a lane: only things kept to the side */
                 if (wd < 0 || n > 2) continue;
-                if (rndf() < 0.09f + 0.08f * dk) add_deco(cx + DX[wd] * 0.31f + DY[wd] * (rndf() - 0.5f) * 0.3f, cy + DY[wd] * 0.31f + DX[wd] * (rndf() - 0.5f) * 0.3f, rnd(4) ? SP_BONES1 : SP_BONES2);
+                if (rndf() < 0.09f + 0.08f * dk) add_deco(cx + DX[wd] * 0.31f + DY[wd] * (rndf() - 0.5f) * 0.3f, cy + DY[wd] * 0.31f + DX[wd] * (rndf() - 0.5f) * 0.3f, hall_litter());
                 else if (rndf() < 0.05f) add_deco(cx + DX[wd] * 0.34f, cy + DY[wd] * 0.34f, SP_CHAINS);
+                else if (since(8) && rndf() < 0.025f) add_deco(cx + DX[wd] * 0.3f, cy + DY[wd] * 0.3f, SP_ICICLES);   /* the Wraith has been by */
                 continue;
             }
             float k = rndf();                                      /* beside the lane, in the wide halls */
-            if (k < 0.08f) add_deco_ex(cx, cy, rnd(3) ? SP_HOOKS : SP_CHAINS, 1, DF_SWAY);
-            else if (k < 0.13f + 0.06f * dk) add_deco_ex(cx, cy, SP_ROOTS, 1, DF_SWAY);
-            else if (k < 0.17f + 0.06f * dk) add_deco_ex(cx, cy, SP_WEBSHEET, 1, DF_SWAY);
-            else if (wd >= 0 && k < 0.29f + 0.1f * dk) add_deco(cx + DX[wd] * 0.3f, cy + DY[wd] * 0.3f, rnd(4) ? SP_BONES1 : SP_BONES2);
+            if (k < 0.08f) add_deco_ex(cx, cy, set <= 1 && since(3) && rnd(3) ? SP_HOOKS : SP_CHAINS, 1, DF_SWAY);
+            else if (k < 0.13f + 0.06f * dk) { if (since(6) && set <= 2) add_deco_ex(cx, cy, SP_ROOTS, 1, DF_SWAY); }
+            else if (k < 0.17f + 0.06f * dk) { if (since(4)) add_deco_ex(cx, cy, SP_WEBSHEET, 1, DF_SWAY); }
+            else if (set == 1 && k < 0.24f + 0.06f * dk) add_deco(cx, cy, rnd(4) ? SP_PUDDLE_A : SP_PUDDLE_B);   /* water underfoot */
+            else if (set >= 1 && set <= 2 && wd >= 0 && k < 0.27f + 0.04f * dk) solid_prop(x, y, SP_STALAG, 1, K_PILLAR);   /* flowstone */
+            else if (set == 2 && k < 0.31f) add_deco(cx, cy, SP_FUNGUS);
+            else if (set == 3 && wd >= 0 && k < 0.31f) solid_prop(x, y, SP_OBSIDIAN, 1, K_PROP);
+            else if (wd >= 0 && k < 0.40f + 0.1f * dk) add_deco(cx + DX[wd] * 0.3f, cy + DY[wd] * 0.3f, hall_litter());
         }
-    /* a lit totem at some crossings of the wide halls */
+    /* a light at some crossings of the wide halls */
     for (int my = 1; my < MG; my += 2)
         for (int mx = 1; mx < MG; mx += 2) {
             if (!mopen(mx, my) || MM[my][mx].room >= 0 || mdeg(mx, my) < 3 || rnd(10) >= 4) continue;
@@ -836,54 +924,69 @@ static void dress_level(void) {
             for (int t = 0; t < 4; t++, k = (k + 1) & 3) {
                 int x = x0 + (k & 1) * 2, y = y0 + (k >> 1) * 2;
                 if (G.map[y][x].kind != K_FLOOR || by_way(x, y)) continue;
-                totem(x, y);
+                crossing_light(x, y);
                 break;
             }
         }
-    /* the rooms */
+    /* the rooms: a plain crypt, a graveyard, a fire hall or a gibbet room, or what the deeper sets
+     * make of them (a cave, a mine, a web room; a crystal cave, an altar room, a field of glass) */
     for (int r = 0; r < G.nrooms; r++) {
         Room *R = &G.rooms[r];
         int vault = 0;
         for (int k = 0; k < G.nvaults; k++) vault |= G.vault_room[k] == r;
         int big = mroom[r][2] >= 3 && mroom[r][3] >= 3, style = vault ? 0 : rnd(10);
         style = style < 3 ? 0 : (style < 6 ? 1 : (style < 8 ? 2 : 3));   /* crypt, graveyard, fire hall, gibbets */
+        if (style == 3 && set <= 1 && !since(3)) style = 0;        /* no gibbets on the first two levels */
         if (r == 0 && style == 1) style = 2;                       /* the first room has a fire to start by */
         int lit = 0;
-        if (big && !vault) {                                       /* chandeliers where four blocks meet */
+        if (big && !vault && set <= 2) {                           /* lights where four blocks meet, hung */
             for (int my = mroom[r][1] + 1; my < mroom[r][1] + mroom[r][3] - 1; my += 2)
                 for (int mx = mroom[r][0] + 1; mx < mroom[r][0] + mroom[r][2] - 1; mx += 2) {
                     int x = mstart(mx), y = mstart(my);
                     if (G.map[y][x].kind != K_FLOOR || rnd(10) >= (style == 2 ? 4 : 7)) continue;
-                    if (style == 2 && !lit) fire_pit(x, y); else chandelier(x, y);
+                    if (style == 2 && !lit && set <= 1) fire_pit(x, y);
+                    else if (set <= 1) chandelier(x, y);
+                    else lantern(x, y);
                     lit++;
                 }
         }
-        if (style == 2 && !lit) {                                  /* a small room's fire, in a corner of its middle block */
+        if (style == 2 && !lit) {                                  /* a fire hall's fire, in a corner of its middle block */
             for (int tries = 0; tries < 20; tries++) {
                 int x = R->x + rnd(R->w), y = R->y + rnd(R->h);
                 if (G.map[y][x].kind != K_FLOOR || !block_corner(x, y) || by_way(x, y)) continue;
-                fire_pit(x, y); lit = 1;
+                hall_fire(x, y); lit = 1;
                 break;
             }
         }
         for (int tries = 0; tries < 40 && lit < (big ? 2 : 1); tries++) {   /* every room some light of its own; a big one two */
             int x = R->x + rnd(R->w), y = R->y + rnd(R->h);
             if (G.map[y][x].kind != K_FLOOR || !block_corner(x, y) || by_way(x, y)) continue;
-            if (vault || rnd(3)) chandelier(x, y); else totem(x, y);
+            room_light(x, y, vault);
             lit++;
         }
         for (int y = R->y; y < R->y + R->h; y++)
             for (int x = R->x; x < R->x + R->w; x++) {
                 if (G.map[y][x].kind != K_FLOOR || lane(x, y)) continue;
-                if (style == 1 && block_corner(x, y) && !by_way(x, y) && rndf() < 0.6f) {   /* rows of graves */
-                    solid_prop(x, y, SP_TOMB_ROUND + rnd(4), 1, K_PROP);
+                int corner = block_corner(x, y) && !by_way(x, y);
+                if (style == 1 && corner && rndf() < 0.6f) {       /* rows of graves; a mine's carts and props; an altar room */
+                    if (set <= 1) solid_prop(x, y, SP_TOMB_ROUND + rnd(4), 1, K_PROP);
+                    else if (set == 2) { if (rnd(3)) solid_prop(x, y, SP_CART, 1, K_PROP); else minelamp(x, y); }
+                    else if (since(17) && rnd(2)) { solid_prop(x, y, SP_ALTAR_A, 2, K_PROP); light_static(x + 0.5f, y + 0.5f, 0.8f, 3.2f); }
+                    else if (since(18)) solid_prop(x, y, SP_GARG_PERCH, 1, K_PROP);   /* a statue: gargoyles from 19 */
+                    else solid_prop(x, y, SP_OBSIDIAN, 1, K_PROP);
                     continue;
                 }
-                if (style == 3 && block_corner(x, y) && rndf() < 0.3f) {   /* cages over the floor */
-                    add_deco_ex(x + 0.5f, y + 0.5f, rnd(3) ? SP_GIBBET_SKEL : SP_GIBBET, 1, DF_SWAY);
+                if (style == 3 && corner && rndf() < 0.3f) {       /* cages over the floor; deeper, webs and their sacs, or glass */
+                    if (set <= 1) add_deco_ex(x + 0.5f, y + 0.5f, since(4) && rnd(3) ? SP_GIBBET_SKEL : SP_GIBBET, 1, DF_SWAY);
+                    else if (set == 2) add_deco_ex(x + 0.5f, y + 0.5f, since(13) && rnd(2) ? SP_SAC_A : SP_WEBSHEET, 1, DF_SWAY);
+                    else solid_prop(x, y, SP_OBSIDIAN, 1, K_PROP);
                     continue;
                 }
-                if ((style == 1 || style == 3) && rndf() < 0.04f + 0.05f * dk) { add_deco_ex(x + 0.5f, y + 0.5f, rnd(2) ? SP_ROOTS : SP_WEBSHEET, 1, DF_SWAY); continue; }
+                if (set == 1 && style == 1 && rndf() < 0.1f) { add_deco(x + 0.5f, y + 0.5f, rnd(3) ? SP_PUDDLE_A : SP_PUDDLE_B); continue; }   /* the graves have flooded */
+                if (set == 1 && since(9) && style == 0 && corner && rnd(30) == 0) { add_deco_ex(x + 0.5f, y + 0.5f, SP_BELL, 1, DF_SWAY); continue; }
+                if (set == 2 && style == 0 && corner && since(12) && rnd(12) == 0) { solid_prop(x, y, SP_ARMOURSTAND, 1, K_PROP); continue; }
+                if (set == 3 && style == 0 && corner && rnd(4) == 0) { crystals(x, y); continue; }
+                if ((style == 1 || style == 3) && since(4) && rndf() < 0.04f + 0.05f * dk) { add_deco_ex(x + 0.5f, y + 0.5f, since(6) && set <= 2 && rnd(2) ? SP_ROOTS : SP_WEBSHEET, 1, DF_SWAY); continue; }
                 int d = wall_toward(x, y);
                 if (d < 0 || by_way(x, y) || rndf() > (style == 0 ? 0.3f : 0.12f) + 0.1f * dk) continue;
                 int spr, k = rnd(10);
@@ -891,7 +994,9 @@ static void dress_level(void) {
                     spr = SP_CANDLES;
                     light_static(x + 0.5f + DX[d] * 0.3f, y + 0.5f + DY[d] * 0.3f, 0.95f, 3.0f);
                 } else if (R->theme == TH_OSSUARY) spr = k < 5 ? SP_SKULLPILE : SP_BONES2;
-                else spr = k < 3 ? SP_URN : (k < 6 ? SP_BONES2 : (k < 8 ? SP_SKULLPILE : SP_BONES1));
+                else if (set == 2 && k < 3) spr = since(13) && k == 1 ? SP_SAC_A : (since(11) && k == 2 ? SP_CARCASS : SP_FUNGUS);
+                else if (set == 3 && k < 3) spr = k == 1 ? SP_SKULLPILE : SP_BONES2;
+                else spr = k < 3 ? SP_URN : (k < 6 ? SP_BONES2 : (k < 8 ? SP_SKULLPILE : hall_litter()));
                 add_deco(x + 0.5f + DX[d] * 0.3f, y + 0.5f + DY[d] * 0.3f, spr);
             }
     }
@@ -1095,10 +1200,10 @@ static void place_items(int sx, int sy) {
     }
 }
 
-/* wall skulls, from level 2: on a wall the caster will walk straight at, at the end of a run of hall */
+/* wall skulls, from level 3: on a wall the caster will walk straight at, at the end of a run of hall */
 static void place_wall_skulls(int sx, int sy) {
-    if (G.level < 2) return;
-    int want = 2 + (G.level >= 5) + rnd(2), placed = 0, px[6], py[6];
+    if (G.level < KINDS[MOB_WSKULL].debut) return;
+    int want = G.level == KINDS[MOB_WSKULL].debut ? 1 : 2 + (G.level >= 5) + rnd(2), placed = 0, px[6], py[6];
     for (int tries = 0; tries < 3000 && placed < want; tries++) {
         int x = 1 + rnd(MAPN - 2), y = 1 + rnd(MAPN - 2), d = rnd(4);
         if (G.map[y][x].kind != K_FLOOR || G.map[y][x].secret || G.bulky[y][x] || vault_of_room(x, y) >= 0 || abs(x - sx) + abs(y - sy) < 6) continue;
@@ -1118,10 +1223,10 @@ static void place_wall_skulls(int sx, int sy) {
     }
 }
 
-/* spiders, from level 4: in some of the corner webs */
+/* spiders, from level 6: in some of the corner webs */
 static void place_spiders(int sx, int sy) {
-    if (G.level < 4) return;
-    int want = 2 + (G.level >= 6) + rnd(2), placed = 0;
+    if (G.level < KINDS[MOB_SPIDER].debut) return;
+    int want = G.level == KINDS[MOB_SPIDER].debut ? 1 : 2 + (G.level >= 8) + rnd(2), placed = 0;
     for (int tries = 0; tries < 60 && placed < want && G.ndecos; tries++) {
         const Deco *dc = &G.decos[rnd(G.ndecos)];
         if (dc->spr != SP_COBWEB || hypotf(dc->x - sx, dc->y - sy) < 5.0f) continue;
@@ -1140,7 +1245,7 @@ static void place_guardians(void) {
     for (int k = 1; k < G.nvaults; k++) {
         int x, y;
         if (!room_cell(G.vault_room[k], &x, &y)) continue;
-        if (G.level >= 4 && rnd(5) < 2) {                          /* a spider in a corner of the room */
+        if (may_spawn(MOB_SPIDER) && G.level > KINDS[MOB_SPIDER].debut && rnd(5) < 2) {   /* a spider in a corner of the room */
             const Room *R = &G.rooms[G.vault_room[k]];
             int cx = rnd(2) ? R->x : R->x + R->w - 1, cy = rnd(2) ? R->y : R->y + R->h - 1;
             if (G.map[cy][cx].kind != K_FLOOR) continue;
@@ -1149,7 +1254,7 @@ static void place_guardians(void) {
             Mob *m = spawn_mob(cx, cy, MOB_SPIDER);
             if (m) { m->ax = m->x = wx; m->ay = m->y = wy; m->z = 0.62f; m->guard = 1; }
         } else {
-            Mob *m = spawn_mob(x, y, G.level >= 3 ? MOB_SHIELD : MOB_SKEL);
+            Mob *m = spawn_mob(x, y, may_spawn(MOB_SHIELD) ? MOB_SHIELD : MOB_SKEL);
             if (m) m->guard = 1;
         }
     }
@@ -1302,6 +1407,41 @@ static float mob_base_hp(int type) {
 }
 static float shield_hp(void) { return 10.0f + 6.0f * (float)(G.level - 3); }   /* grows tougher each level */
 
+/* a creature takes a rank: its colour, and its toughness, blow, pace and worth with it */
+static void set_rank(Mob *m, int rank) {
+    m->rank = rank;
+    float base = m->type == MOB_GHOST ? 0.7f : (m->type == MOB_BAT ? 1.7f : (m->type == MOB_SHIELD ? 1.0f : 0.9f));
+    m->speed = base * RANK_SPEED[rank];
+    m->hp = m->maxhp = m->type == MOB_WSKULL ? 1.0f : mob_base_hp(m->type) * powf(1.04f, (float)(G.level - 1)) * RANK_HP[rank];
+    if (m->type == MOB_SHIELD) m->shield = shield_hp() * sqrtf(RANK_HP[rank]);
+    m->dmgk = RANK_DMG[rank];
+}
+
+/* which rank, by the set's mix (PLAN-bestiary, section 4): the set's newest rung comes in on its third
+ * level; each time round again the mix climbs a rung, up to black */
+static int pick_rank(int type) {
+    if (KINDS[type].family < 0) return RK_I;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_RANK")) return clampi(atoi(getenv("CRAWL_RANK")), 0, NRANK - 1);
+#endif
+    static const int MIX[4][5] = { { 85, 15, 0, 0, 0 }, { 55, 35, 10, 0, 0 }, { 20, 40, 30, 10, 0 }, { 0, 25, 35, 30, 10 } };
+    int set = crawl_set(G.level), step = crawl_step(G.level), loop = crawl_loop(G.level), share[5];
+    if (type == MOB_BAT && set == 3) return RK_IV;                 /* the Deep's bats: embers, all of them */
+    for (int i = 0; i < 5; i++) share[i] = MIX[set][i];
+    if (step < 2 && loop == 0) { share[set] += share[set + 1]; share[set + 1] = 0; }
+    for (int l = 0; l < loop; l++) { share[4] += share[3]; for (int i = 3; i > 0; i--) share[i] = share[i - 1]; share[0] = 0; }
+    int r = rnd(100), k = 0;
+    while (k < 4 && r >= share[k]) r -= share[k++];
+    if (type == MOB_BAT && k > RK_IV) k = RK_IV;                   /* a black bat is lost in the dark */
+    return k;
+}
+
+/* may one of these come now? not before its first level; and on that level, only the one */
+static int may_spawn(int type) {
+    if (G.level < KINDS[type].debut) return 0;
+    return G.level > KINDS[type].debut || G.spawned[type] == 0;
+}
+
 static Mob *spawn_mob(int x, int y, int type) {
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *m = &G.mobs[i];
@@ -1309,9 +1449,9 @@ static Mob *spawn_mob(int x, int y, int type) {
         memset(m, 0, sizeof *m);
         m->alive = 1; m->type = type; m->state = MS_WALK;
         m->x = x + 0.5f; m->y = y + 0.5f; m->cx = m->tx = x; m->cy = m->ty = y;
-        m->speed = type == MOB_BAT ? 1.7f : (type == MOB_GHOST ? 0.7f : (type == MOB_SHIELD ? 1.0f : 0.9f));
-        m->hp = m->maxhp = type == MOB_WSKULL ? 1.0f : mob_base_hp(type) * powf(1.1f, (float)(G.level - 1));
-        if (type == MOB_SHIELD) m->shield = shield_hp();
+        m->home = -1;
+        set_rank(m, pick_rank(type));
+        G.spawned[type]++;
         m->face = rndf() * TAU_F;
         if (type != MOB_GHOST) G.kills_total++;
         m->t = rndf() * 10.0f; m->orbit = rndf() * TAU_F;
@@ -1320,11 +1460,18 @@ static Mob *spawn_mob(int x, int y, int type) {
     return NULL;
 }
 
-/* what wanders the halls: skeletons, wraiths and bats, then the shield-bearers from level 3 */
+/* what wanders the halls: skeletons, spectres and bats, shield-bearers from level 4; the spectres
+ * give way to the Wraith after the Catacombs, and bats grow rare in the Deep */
 static int random_type(void) {
-    int k = rnd(20);
-    if (G.level >= 3 && k < 4) return MOB_SHIELD;
-    return k < 10 ? MOB_SKEL : (k < 15 ? MOB_GHOST : MOB_BAT);
+    int w[NKINDS] = { 0 }, total = 0;
+    w[MOB_SKEL] = 10;
+    w[MOB_GHOST] = G.level <= 10 ? 5 : 0;
+    w[MOB_BAT] = crawl_set(G.level) == 3 ? 2 : 5;
+    w[MOB_SHIELD] = may_spawn(MOB_SHIELD) ? 4 : 0;
+    for (int i = 0; i < NKINDS; i++) total += w[i];
+    int r = rnd(total), k = 0;
+    while (r >= w[k]) r -= w[k++];
+    return k;
 }
 
 /* cells reachable from (sx,sy) at a BFS depth in [dmin, dmax] */
@@ -1411,7 +1558,7 @@ static void throw_missile(const Mob *m, int kind) {
         float far = fmaxf(0.0f, hypotf(G.px - m->x, G.py - m->y) - 4.0f);   /* across a great hall a bone goes wide */
         float a = atan2f(ty - m->y, tx - m->x) + (rndf() - 0.5f) * (kind == MIS_FIRE ? 0.05f : 0.14f + 0.05f * far);
         *b = (Bone){ 1, kind, m->x + cosf(a) * 0.3f, m->y + sinf(a) * 0.3f, cosf(a) * sp, sinf(a) * sp, 4.0f, rndf() * 4.0f,
-                     (float)(kind == MIS_FIRE ? 2 * enemy_damage() : enemy_damage()) };
+                     kind == MIS_FIRE ? 2.0f * mob_damage(m) : mob_damage(m) };
         sfx_at(kind == MIS_FIRE ? SFX_CAST : SFX_THROW, m->x, m->y, 1.0f);
         return;
     }
@@ -1462,13 +1609,27 @@ static void gain_souls(float n) {
     if (whole > 0) { RUN.souls += whole; RUN.soul_frac -= (float)whole; G.level_souls += whole; snd_sfx_ex(SFX_GHOST_TICK, 0.5f, 0.5f); }
 }
 
+static Item *add_item(int x, int y, int type);
 static void kill_mob(Mob *m) {
     m->state = MS_DIE; m->t = 0.0f;
     G.kills++;
     static const int SND[] = { SFX_BONES, SFX_GHOST_DIE, SFX_BAT, SFX_SHATTER, SFX_BONES, SFX_SKITTER };
     sfx_at(SND[m->type], m->x, m->y, 1.0f);
     if (m->type == MOB_SPIDER && m->z > 0.3f) m->sub = 9;           /* it falls from the web */
-    gain_souls(1.0f);
+    gain_souls((float)RANK_SOULS[m->rank]);
+    /* what it leaves: the gilded always something good, the higher ranks now and then coin or a potion.
+     * Like a closet's loot it isn't counted in the level's treasure, and it glints a little */
+    int drop = -1;
+    if (m->rank == RK_GILDED) drop = rnd(3) ? IT_CROWN : IT_CHEST;
+    else if (m->rank >= RK_IV && rnd(10) == 0) drop = IT_POTION;
+    else if (m->rank >= RK_II && rndf() < 0.08f * (float)m->rank) drop = m->rank >= RK_IV ? IT_GEMS : IT_COINS;
+    if (drop >= 0 && G.map[m->cy][m->cx].kind == K_FLOOR) {
+        Item *it = add_item(m->cx, m->cy, drop);
+        if (it) {
+            it->secret = 1; it->seen = 1;
+            if (drop < IT_KEY) { G.items_total--; G.value_total -= treasure_value(drop); }
+        }
+    }
 }
 
 /* A hit on a creature, from (fx, fy) (shields only stop what comes from in front). Returns 1 if it died. */
@@ -1486,7 +1647,11 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
         }
     }
     if ((flags & DM_SLOW) && slow > 0.0f) m->slowed = fmaxf(m->slowed, slow);
+    int atk = (flags >> 8) - 1;
+    if (atk >= 0 && atk < NATK) dmg *= KINDS[m->type].weak[atk];  /* what it is weak to, or shrugs off */
     m->misses = 0;
+    m->alert = fmaxf(m->alert, 12.0f);                             /* hurt, it knows where you are */
+    if (m->rank == RK_GILDED && m->hp > m->maxhp * 0.5f && m->hp - dmg <= m->maxhp * 0.5f) m->feared = 6.0f;   /* the gilded run, with their gold */
     m->hp -= dmg;
     if (m->hp <= 0.0f) { kill_mob(m); return 1; }
     if (m->type == MOB_SKEL || m->type == MOB_SHIELD) {            /* knocked back a step */
@@ -1514,11 +1679,11 @@ static void explode_big(float x, float y, float r) {
 }
 
 /* everything within r of (x, y) takes dmg, but not `skip` (it took the direct hit) */
-static void splash(float x, float y, float r, float dmg, const Mob *skip) {
+static void splash(float x, float y, float r, float dmg, const Mob *skip, int atk) {
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *m = &G.mobs[i];
         if (m == skip || !m->alive || m->state != MS_WALK || m->type == MOB_GHOST) continue;
-        if (hypotf(m->x - x, m->y - y) < r && line_clear(x, y, m->x, m->y)) damage_mob(m, dmg, DM_ARC, x, y, 0.0f);
+        if (hypotf(m->x - x, m->y - y) < r && line_clear(x, y, m->x, m->y)) damage_mob(m, dmg, DM_ARC | DM_ATK(atk), x, y, 0.0f);
     }
 }
 
@@ -1551,6 +1716,65 @@ static void update_ghost(Mob *m, float dt) {
     }
     m->x = clampf(m->x, 0.5f, MAPN - 0.5f); m->y = clampf(m->y, 0.5f, MAPN - 0.5f);
     m->cx = m->tx = (int)m->x; m->cy = m->ty = (int)m->y;
+}
+
+/* The hunt: steps from every cell to the caster, rebuilt as it moves, which creatures that know where
+ * it is follow round corners and through doors (a closed door counts: they open it; a locked one
+ * doesn't). -1 where it is too far, or can't be walked. */
+#define HUNT_FAR 30
+static int16_t hunt[MAPN][MAPN];
+static int hunt_cx = -1, hunt_cy = -1;
+static float hunt_t;
+static int hunt_pass(int x, int y) {
+    const Cell *c = cell(x, y);
+    if (c->kind == K_FLOOR) return !(G.slide >= 0 && slide_covers(x, y));
+    return c->kind == K_DOOR && G.doors[c->door].locked != 1;
+}
+static void build_hunt(float dt) {
+    int cx = (int)G.px, cy = (int)G.py;
+    hunt_t -= dt;
+    if (cx == hunt_cx && cy == hunt_cy && hunt_t > 0.0f) return;   /* doors and walls move too: now and then, anyway */
+    hunt_cx = cx; hunt_cy = cy; hunt_t = 0.5f;
+    static int q[MAPN * MAPN];
+    memset(hunt, 0xff, sizeof hunt);
+    int qh = 0, qt = 0;
+    hunt[cy][cx] = 0; q[qt++] = cy * MAPN + cx;
+    while (qh < qt) {
+        int x = q[qh] % MAPN, y = q[qh] / MAPN; qh++;
+        if (hunt[y][x] >= HUNT_FAR) continue;
+        for (int d = 0; d < 4; d++) {
+            int nx = x + DX[d], ny = y + DY[d];
+            if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || hunt[ny][nx] >= 0 || !hunt_pass(nx, ny)) continue;
+            hunt[ny][nx] = (int16_t)(hunt[y][x] + 1); q[qt++] = ny * MAPN + nx;
+        }
+    }
+}
+/* only the nearest few hunt at once, so the whole level doesn't arrive together */
+#define MAX_HUNTERS 3
+static void pick_hunters(void) {
+    int best[MAX_HUNTERS], bd[MAX_HUNTERS], n = 0;
+    for (int i = 0; i < MAXMOBS; i++) {
+        Mob *m = &G.mobs[i];
+        m->hunts = 0;
+        if (!m->alive || m->state != MS_WALK || m->alert <= 0.0f) continue;
+        int h = hunt[m->cy][m->cx];
+        if (h < 0) continue;
+        int k = n < MAX_HUNTERS ? n++ : MAX_HUNTERS;
+        if (k == MAX_HUNTERS) { if (h >= bd[MAX_HUNTERS - 1]) continue; k = MAX_HUNTERS - 1; }
+        while (k > 0 && bd[k - 1] > h) { best[k] = best[k - 1]; bd[k] = bd[k - 1]; k--; }
+        best[k] = i; bd[k] = h;
+    }
+    for (int i = 0; i < n; i++) G.mobs[best[i]].hunts = 1;
+}
+
+/* a noise: whatever is within so many steps knows where the caster is now */
+static void alert_near(int steps, float secs) {
+    for (int i = 0; i < MAXMOBS; i++) {
+        Mob *m = &G.mobs[i];
+        if (!m->alive || m->state != MS_WALK) continue;
+        int h = hunt[m->cy][m->cx];
+        if (h >= 0 && h <= steps) m->alert = fmaxf(m->alert, secs);
+    }
 }
 
 /* how fast a creature's clock runs: frozen stops it, frost slows it, Time Slip slows everything near */
@@ -1616,7 +1840,7 @@ static void bite(Mob *m) {
     if (G.purify_t > 0.0f) return;                                  /* Purify's protection */
     float k = 1.0f - gear_poison_resist(g);
     G.poison_t = fmaxf(G.poison_t, 6.0f * k);
-    G.poison_dps = 1.0f + (float)((G.level - 4) / 2 > 0 ? (G.level - 4) / 2 : 0);
+    G.poison_dps = (1.0f + (float)((G.level - 4) / 2 > 0 ? (G.level - 4) / 2 : 0)) * m->dmgk;
     G.slow_t = fmaxf(G.slow_t, 4.0f * k);
 }
 
@@ -1682,11 +1906,20 @@ static void update_mob(Mob *m, float dt) {
     m->z = m->type == MOB_BAT ? 0.20f + 0.07f * sinf(m->t * 7.0f) : 0.0f;
     float pdx0 = G.px - m->x, pdy0 = G.py - m->y, pd0 = sqrtf(pdx0 * pdx0 + pdy0 * pdy0);
     int undead = m->type == MOB_SKEL || m->type == MOB_SHIELD;
+    int sees = !G.dead && pd0 < 9.0f && line_clear(m->x, m->y, G.px, G.py);
+    if (sees && G.level_t > 1.5) {                                 /* it has you: it will come after you a while */
+        m->alert = m->type == MOB_SKEL ? 7.0f : 12.0f;            /* a thrower gives up sooner */
+        if (m->lost > 1.0f && m->type == MOB_SKEL) m->cool = fmaxf(m->cool, 0.6f * throw_interval());   /* finding its range again */
+        m->lost = 0.0f;
+    } else {
+        if (m->alert > 0.0f) m->alert -= dt;
+        m->lost += dt;
+    }
     if (m->feared > 0.0f) m->feared -= dt;
     if (m->stagger > 0.0f) { m->stagger -= dt; return; }
     int afraid = undead && m->feared > 0.0f;
     if (m->type == MOB_SKEL && !G.dead && !afraid) {               /* once it has seen you, it keeps throwing */
-        int los = pd0 < 9.0f && G.level_t > 1.5 && line_clear(m->x, m->y, G.px, G.py);
+        int los = sees && G.level_t > 1.5;
         if (los && !m->seen) { m->seen = 1; m->cool = (0.45f + 0.35f * rndf()) * throw_interval() / 1.5f; }
         if (m->throw_t > 0.0f) {
             m->throw_t -= dt;
@@ -1696,7 +1929,7 @@ static void update_mob(Mob *m, float dt) {
         if (m->seen && los && (m->cool -= dt) <= 0.0f) { m->throw_t = 0.35f; return; }
     }
     if (m->type == MOB_SHIELD && !G.dead && !afraid) {             /* closes in behind its shield and strikes */
-        int los = pd0 < 9.0f && G.level_t > 1.5 && line_clear(m->x, m->y, G.px, G.py);
+        int los = sees && G.level_t > 1.5;
         if (los) { m->seen = 1; m->face += wrap_pi(atan2f(pdy0, pdx0) - m->face) * fminf(1.0f, dt * 6.0f); }
         m->cool -= dt;
         if (m->swing > 0.0f) {
@@ -1704,14 +1937,14 @@ static void update_mob(Mob *m, float dt) {
             if (m->swing <= 0.0f) {
                 m->swing = 0.0f; m->cool = 1.4f;
                 sfx_at(SFX_SWORD, m->x, m->y, 1.2f);
-                if (pd0 < 1.6f && hurt_ex((float)(enemy_damage() + 1), HURT_BLOW, m->x, m->y) > 0) { thorns(m); DBG_COUNT(hits_sword); }
+                if (pd0 < 1.6f && hurt_ex(mob_damage(m) + 1.0f, HURT_BLOW, m->x, m->y) > 0) { thorns(m); DBG_COUNT(hits_sword); }
             }
             return;
         }
         if (los && pd0 < 1.35f && m->cool <= 0.0f) { m->swing = 0.45f; return; }
     }
     if (m->type == MOB_BAT && !G.dead) {                           /* bats come for your face */
-        int los = pd0 < 5.0f && line_clear(m->x, m->y, G.px, G.py);
+        int los = pd0 < 5.0f && sees;
         if (los) m->attacking = 1;
         if (m->attacking && pd0 > 7.0f) { m->attacking = 0; m->tx = m->cx; m->ty = m->cy; }
         if (m->attacking) {
@@ -1727,7 +1960,7 @@ static void update_mob(Mob *m, float dt) {
                 m->contact += dt;
                 if (m->contact >= 3.0f) {
                     m->contact = 0.0f;
-                    if (hurt_ex((float)enemy_damage(), HURT_BLOW, m->x, m->y) > 0) thorns(m);
+                    if (hurt_ex(mob_damage(m), HURT_BLOW, m->x, m->y) > 0) thorns(m);
                     sfx_at(SFX_BAT, m->x, m->y, 1.0f); DBG_COUNT(hits_bat);
                 }
             } else m->contact = 0.0f;
@@ -1743,16 +1976,37 @@ static void update_mob(Mob *m, float dt) {
     float pdx = G.px - m->x, pdy = G.py - m->y, pd = sqrtf(pdx * pdx + pdy * pdy);
     float keep = m->type == MOB_SHIELD ? 1.05f : 2.2f;              /* shield-bearers come right up close */
     int chase = pd < (m->type == MOB_SHIELD ? 9.0f : 7.0f) && pd > keep && line_clear(m->x, m->y, G.px, G.py);
+    int here = hunt[m->cy][m->cx], opens = undead;                 /* the dead open doors; bats wait behind them */
+    int hunting = !afraid && !chase && !G.dead && m->alert > 0.0f && m->hunts && here > 0 && pd > keep;
     int best = -1; float bs = -1e9f;
     for (int k = 0; k < 4; k++) {
         int nx = m->cx + DX[k], ny = m->cy + DY[k];
+        const Cell *c = cell(nx, ny);
+        if (hunting) {                                             /* down the field, towards the caster */
+            int h = hunt[ny][nx];
+            if (h < 0 || h >= here || occupied(nx, ny, m)) continue;
+            if (c->kind == K_DOOR && !opens && G.doors[c->door].open < 0.9f) continue;
+            float s = rndf() * 0.5f - (float)h;
+            if (s > bs) { bs = s; best = k; }
+            continue;
+        }
         if (blocks_move(nx, ny) || occupied(nx, ny, m)) continue;
+        if (!chase && !afraid && m->home >= 0 && c->region != m->home) continue;   /* keeps to its own room till it knows */
         float s = rndf();
         if (afraid) s += hypotf(nx + 0.5f - G.px, ny + 0.5f - G.py) * 2.0f;
         else if (chase) s -= hypotf(nx + 0.5f - G.px, ny + 0.5f - G.py);
         if (s > bs) { bs = s; best = k; }
     }
-    if (best >= 0 && (afraid || !(pd <= keep))) { m->tx = m->cx + DX[best]; m->ty = m->cy + DY[best]; }
+    if (best >= 0 && hunting) {
+        int nx = m->cx + DX[best], ny = m->cy + DY[best];
+        const Cell *c = cell(nx, ny);
+        if (c->kind == K_DOOR && G.doors[c->door].open < 0.9f) {    /* a door in the way: it pulls it open, and waits */
+            Door *dr = &G.doors[c->door];
+            if (!dr->opening) { dr->opening = 1; sfx_at(SFX_DOOR, nx + 0.5f, ny + 0.5f, 0.8f); }
+            return;
+        }
+        m->tx = nx; m->ty = ny;
+    } else if (best >= 0 && (afraid || !(pd <= keep))) { m->tx = m->cx + DX[best]; m->ty = m->cy + DY[best]; }
     if (m->type == MOB_BAT && pd < 6.0f && rnd(40) == 0) sfx_at(SFX_BAT, m->x, m->y, 0.6f);
 }
 
@@ -1799,7 +2053,7 @@ static void chain_lightning(int t, float dmg) {
     float hx = G.px + cosf(G.ang) * 0.35f, hy = G.py + sinf(G.ang) * 0.35f;
     add_beam(AT_CHAIN, hx, hy, 0.42f, m->x, m->y, m->z + 0.5f);
     hit |= 1u << t;
-    damage_mob(m, dmg, DM_ARC, G.px, G.py, 0.0f);
+    damage_mob(m, dmg, DM_ARC | DM_ATK(AT_CHAIN), G.px, G.py, 0.0f);
     int tier = spell_tier(AT_CHAIN), hops = 2 + (tier >= 4) + (tier >= 7);
     float cx = m->x, cy = m->y, cz = m->z;
     for (int h = 0; h < hops; h++) {
@@ -1815,7 +2069,7 @@ static void chain_lightning(int t, float dmg) {
         add_beam(AT_CHAIN, cx, cy, cz + 0.5f, o->x, o->y, o->z + 0.5f);
         hit |= 1u << best;
         dmg *= 0.75f;
-        damage_mob(o, dmg, DM_ARC, cx, cy, 0.0f);
+        damage_mob(o, dmg, DM_ARC | DM_ATK(AT_CHAIN), cx, cy, 0.0f);
         cx = o->x; cy = o->y; cz = o->z;
     }
     snd_sfx_ex(SFX_ZAP, 1.2f, 0.5f);
@@ -1851,6 +2105,7 @@ static void cast_spell(int sp, int t) {
     if (G.player && sp != AT_CHAIN && sp != AT_DRAIN) a = G.ang;   /* a person's shots go where they look */
     float hx = G.px + cosf(a) * 0.35f, hy = G.py + sinf(a) * 0.35f;
     int bat = have && m->type == MOB_BAT && !G.player;
+    alert_near(8, 8.0f);                                           /* a spell is heard down the halls */
 #ifdef CRAWL_DEBUG
     casts[sp]++;
     fprintf(stderr, "EVENT cast_%s t=%.2f\n", ATK_NAME[sp], G.t);
@@ -1861,7 +2116,7 @@ static void cast_spell(int sp, int t) {
         if (have) {
             add_beam(AT_DRAIN, hx, hy, 0.42f, m->x, m->y, m->z + 0.5f);
             float before = m->hp;
-            damage_mob(m, dmg, DM_ARC, G.px, G.py, 0.0f);
+            damage_mob(m, dmg, DM_ARC | DM_ATK(AT_DRAIN), G.px, G.py, 0.0f);
             float dealt = before - fmaxf(m->hp, 0.0f);
             G.hp = clampi(G.hp + (int)(dealt * fminf(0.8f, 0.5f + 0.05f * spell_tier(AT_DRAIN)) + 0.5f), 0, G.max_hp);
             pop_readout();
@@ -1933,7 +2188,7 @@ static void update_shots(float dt) {
                     break;
                 }
                 s->alive = 0;
-                if (s->kind == AT_HELL) { explode_big(s->x, s->y, 1.6f); splash(s->x, s->y, 1.5f, s->dmg, NULL); }
+                if (s->kind == AT_HELL) { explode_big(s->x, s->y, 1.6f); splash(s->x, s->y, 1.5f, s->dmg, NULL, AT_HELL); }
                 else if (s->kind == AT_FROST) sfx_at(SFX_FROST, s->x, s->y, 0.6f);
                 else if (s->kind == SHOT_REFLECT && s->z < 0.5f) sfx_at(SFX_BONES, s->x, s->y, 0.4f);
                 else if (s->kind != AT_SPEAR && s->kind != AT_SPARKS) explode(s->x, s->y);
@@ -1950,28 +2205,28 @@ static void update_shots(float dt) {
                 switch (s->kind) {
                 case AT_SPEAR:                                     /* through everything in the line, shields too */
                     s->pierced |= 1u << mi;
-                    damage_mob(mb, s->dmg, DM_PIERCE, fx, fy, 0.0f);
+                    damage_mob(mb, s->dmg, DM_PIERCE | DM_ATK(AT_SPEAR), fx, fy, 0.0f);
                     sfx_at(SFX_BONES, mb->x, mb->y, 0.5f);
                     continue;
                 case AT_HELL:
                     s->alive = 0; explode_big(s->x, s->y, 1.6f);
-                    damage_mob(mb, s->dmg, 0, fx, fy, 0.0f); splash(s->x, s->y, 1.5f, s->dmg, mb);
+                    damage_mob(mb, s->dmg, DM_ATK(AT_HELL), fx, fy, 0.0f); splash(s->x, s->y, 1.5f, s->dmg, mb, AT_HELL);
                     for (int b = 0; b < MAXBURNS; b++)
                         if (!G.burns[b].alive) { G.burns[b] = (Burn){ 1, s->x, s->y, 0.0f, 4.0f + spell_tier(AT_HELL) }; break; }
                     break;
                 case AT_FIRE:
                     s->alive = 0; explode(s->x, s->y);
-                    damage_mob(mb, s->dmg, 0, fx, fy, 0.0f);
-                    if (spell_tier(AT_FIRE) >= 2) splash(s->x, s->y, 0.75f, s->dmg * 0.5f, mb);
+                    damage_mob(mb, s->dmg, DM_ATK(AT_FIRE), fx, fy, 0.0f);
+                    if (spell_tier(AT_FIRE) >= 2) splash(s->x, s->y, 0.75f, s->dmg * 0.5f, mb, AT_FIRE);
                     break;
                 case AT_FROST:
                     s->alive = 0; sfx_at(SFX_FROST, s->x, s->y, 0.8f);
-                    damage_mob(mb, s->dmg, DM_SLOW, fx, fy, 2.5f + 0.25f * spell_tier(AT_FROST));
+                    damage_mob(mb, s->dmg, DM_SLOW | DM_ATK(AT_FROST), fx, fy, 2.5f + 0.25f * spell_tier(AT_FROST));
                     break;
                 default:                                           /* sparks, wisps, reflected missiles */
                     s->alive = 0;
                     if (s->kind == SHOT_REFLECT) explode(s->x, s->y); else sfx_at(SFX_ZAP, s->x, s->y, 0.35f);
-                    damage_mob(mb, s->dmg, 0, fx, fy, 0.0f);
+                    damage_mob(mb, s->dmg, s->kind == SHOT_REFLECT ? 0 : DM_ATK(s->kind), fx, fy, 0.0f);
                     break;
                 }
                 break;
@@ -1990,7 +2245,7 @@ static void update_shots(float dt) {
             for (int k = 0; k < MAXMOBS; k++) {
                 Mob *m = &G.mobs[k];
                 if (m->alive && m->state == MS_WALK && m->type != MOB_GHOST && m->type != MOB_WSKULL && hypotf(m->x - b->x, m->y - b->y) < 0.7f)
-                    damage_mob(m, b->dps * 0.25f, DM_ARC, b->x, b->y, 0.0f);
+                    damage_mob(m, b->dps * 0.25f, DM_ARC | DM_ATK(AT_HELL), b->x, b->y, 0.0f);
             }
     }
     (void)g;
@@ -2544,11 +2799,10 @@ static int choose_spell(int t) {
         case AT_CHAIN: v *= 1.0f + 0.6f * (float)(near < 3 ? near : 3); if (shielded) v *= 1.8f; break;
         case AT_HELL: v *= 1.0f + 0.8f * packed; break;
         case AT_DRAIN: if (hpf < 0.45f) v *= 2.2f; break;
-        case AT_FROST: if (m->type == MOB_BAT || m->type == MOB_SPIDER || m->type == MOB_SHIELD) v *= 1.6f; else v *= 0.8f; break;
-        case AT_SPARKS: if (m->type == MOB_BAT) v *= 1.5f; break;
-        case AT_WISPS: if (m->type == MOB_BAT || m->type == MOB_SPIDER) v *= 1.6f; break;
+        case AT_FROST: if (m->type == MOB_BAT || m->type == MOB_SPIDER || m->type == MOB_SHIELD) v *= 1.2f; break;   /* slowing what closes in */
         default: break;
         }
+        if (m->type != MOB_WSKULL) v *= KINDS[m->type].weak[sp];   /* what it is weak to */
         if (sp == AT_WISPS) v *= 0.75f;                            /* not every wisp gets there */
         if (sp == G.spell) v *= 0.8f;                              /* and a little variety */
         v *= 0.85f + 0.3f * rndf();
@@ -2821,14 +3075,32 @@ static void start_level(void) {
     G.map[G.cy][G.cx].visits = 1; G.explored = 1;
     G.spd = 0.0f; G.bobph = 0.0f; G.camz = 0.5f; G.hand = 0.0f; G.cooldown = 2.0f; G.calm = 0.0f;
     start_move();
+    memset(G.spawned, 0, sizeof G.spawned); memset(G.named, 0, sizeof G.named);
     place_wall_skulls(G.cx, G.cy);
     place_spiders(G.cx, G.cy);
     place_guardians();
     int x, y;
-    for (int i = 0; i < 4 + (G.level >= 4); i++) if (pick_cell_at_depth(G.cx, G.cy, 7, 40, 1, &x, &y)) spawn_mob(x, y, random_type());
+    for (int i = 0; i < 3 + (G.level >= 4); i++) if (pick_cell_at_depth(G.cx, G.cy, 7, 40, 1, &x, &y)) spawn_mob(x, y, random_type());
+    for (int r = 1; r < G.nrooms; r++) {                           /* residents: the dead keep to their rooms till they know you are there */
+        const Room *R = &G.rooms[r];
+        if (vault_of_room(R->x, R->y) >= 0 || (R->theme != TH_OSSUARY && R->theme != TH_CRYPT) || rnd(100) >= 45) continue;
+        if (!room_cell(r, &x, &y) || abs(x - G.cx) + abs(y - G.cy) < 8) continue;
+        Mob *m = spawn_mob(x, y, R->theme == TH_CRYPT && may_spawn(MOB_SHIELD) && rnd(3) == 0 ? MOB_SHIELD : MOB_SKEL);
+        if (m) m->home = G.map[y][x].region;
+    }
+    hunt_cx = -1;
+    if (G.level >= 7 && rnd(3) == 0) {                             /* now and then one of them is gilded, and carries treasure */
+        int pick[MAXMOBS], np = 0;
+        for (int i = 0; i < MAXMOBS; i++) {
+            const Mob *m = &G.mobs[i];
+            if (m->alive && !m->guard && KINDS[m->type].family >= 0 && m->type != MOB_WSKULL && m->type != MOB_SPIDER && m->type != MOB_BAT) pick[np++] = i;
+        }
+        if (np) set_rank(&G.mobs[pick[rnd(np)]], RK_GILDED);
+    }
 #ifdef CRAWL_DEBUG
-    { int nt[6] = { 0 }; for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive) nt[G.mobs[i].type]++;
-      fprintf(stderr, "LEVEL %d mobs: skel %d ghost %d bat %d wskull %d shield %d spider %d\n", G.level, nt[0], nt[1], nt[2], nt[3], nt[4], nt[5]); }
+    { int nt[6] = { 0 }, nr[NRANK] = { 0 }; for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive) { nt[G.mobs[i].type]++; nr[G.mobs[i].rank]++; }
+      fprintf(stderr, "LEVEL %d mobs: skel %d ghost %d bat %d wskull %d shield %d spider %d; ranks %d %d %d %d %d gilded %d\n", G.level, nt[0], nt[1], nt[2], nt[3], nt[4], nt[5],
+              nr[0], nr[1], nr[2], nr[3], nr[4], nr[5]); }
 #endif
     G.level_t = 0.0; G.card = 0.0f; G.ending = 0;
     G.readout = READOUT_T + 1.5f;                                  /* show where things stand as the level opens */
@@ -3114,6 +3386,8 @@ static void crawl_update(double dt) {
     float ox = G.px, oy = G.py;
     if (G.level_t > 1.0 && !G.dead) { if (G.player && !G.exiting) update_human(fdt); else update_player(fdt); }
     if (fdt > 0.0f) { G.pvx = (G.px - ox) / fdt; G.pvy = (G.py - oy) / fdt; }
+    build_hunt(fdt);
+    pick_hunters();
     for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive) update_mob(&G.mobs[i], fdt);
     update_shots(fdt);
     update_bones(fdt);
@@ -3131,8 +3405,10 @@ static void crawl_update(double dt) {
     if (G.readout > 0.0f) G.readout -= fdt;
     if (G.hp <= G.max_hp / 4 && !G.dead && (G.heartbeat -= fdt) <= 0.0f) { snd_sfx_ex(SFX_HEART, 0.9f, 0.5f); G.heartbeat = 1.1f; }
 
+    name_newcomers();
+
     /* keep the action coming: if nothing has happened for a while, wake something up ahead */
-    if (G.calm > 11.0f) {
+    if (G.calm > (G.player ? 35.0f : 11.0f)) {                     /* a person clears a level for good, mostly */
         int x, y, alive = 0;
         for (int i = 0; i < MAXMOBS; i++) alive += G.mobs[i].alive && !G.mobs[i].guard && G.mobs[i].type != MOB_WSKULL && G.mobs[i].type != MOB_SPIDER;
         if (alive < 8 && pick_cell_at_depth(G.cx, G.cy, 4, 8, 1, &x, &y)) spawn_mob(x, y, random_type());
@@ -3479,6 +3755,25 @@ static void say(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt); vsnprintf(b, sizeof b, fmt, ap); va_end(ap);
     if (strcmp(b, G.msg) || G.msg_t < 1.2f) { snprintf(G.msg, sizeof G.msg, "%s", b); G.msg_t = 2.2f; }
+}
+
+/* The first time each kind of creature, in each rank, comes into view on a level, a caption names
+ * it: A BLOODY SKELETON. One at a time; the rest wait their turn. */
+static void name_newcomers(void) {
+    if (G.msg_t > 0.4f || G.dead || G.shop || G.tally) return;
+    float fx = cosf(G.ang), fy = sinf(G.ang);
+    for (int i = 0; i < MAXMOBS; i++) {
+        const Mob *m = &G.mobs[i];
+        if (!m->alive || m->state != MS_WALK || (G.named[m->type] >> m->rank & 1)) continue;
+        if (m->type == MOB_SPIDER && m->sub == 0) continue;         /* still hidden in its web */
+        float dx = m->x - G.px, dy = m->y - G.py, d = sqrtf(dx * dx + dy * dy) + 1e-4f;
+        if (d > 9.0f || (dx * fx + dy * fy) / d < 0.5f || !line_clear(G.px, G.py, m->x, m->y)) continue;
+        G.named[m->type] |= (uint8_t)(1 << m->rank);
+        const char *word = KINDS[m->type].family == PF_CHITIN && m->rank == RK_V ? "PALE " : RANK_WORD[m->rank];
+        char first = *word ? *word : KINDS[m->type].name[0];
+        say("%s %s%s", strchr("AEIOU", first) ? "AN" : "A", word, KINDS[m->type].name);
+        return;
+    }
 }
 
 static void fizzle(int sp) {                                      /* chain or drain with nothing to bite on */
@@ -4121,8 +4416,9 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
     }
 }
 
-/* alpha < 1: dithered see-through. remap: the ramp R_PURPLE turns into. flags: how it is drawn */
-typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; } Draw;
+/* alpha < 1: dithered see-through. remap: the ramp R_PURPLE turns into. flags: how it is drawn.
+ * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
+typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; } Draw;
 enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_SWAY = 32 };
 
 static int cmp_draw(const void *a, const void *b) {
@@ -4328,7 +4624,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
-        if (dp_ > 0.12f && dp_ < 24.0f) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f }; } while (0)
+        if (dp_ > 0.12f && dp_ < 24.0f) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL }; } while (0)
     for (int i = 0; i < G.ndecos; i++) {
         const Deco *dc = &G.decos[i];
         static const float FPS[4] = { 0.0f, 0.0f, 3.0f, 9.0f };    /* by frame count: candles flicker, fire roars */
@@ -4347,7 +4643,8 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         ADD(m->x, m->y, m->z, s, m->type == MOB_GHOST ? (m->state == MS_RECOIL ? 0.9f : 0.72f * (1.0f - m->fade) + 0.01f) : 0.0f);
         if (n == n0) continue;
         Draw *d = &list[n - 1];
-        d->scale = sc;
+        d->scale = sc * RANK_SIZE[m->rank];
+        if (m->rank != RK_I && KINDS[m->type].family >= 0) d->lut = crawl_rank_lut[KINDS[m->type].family][m->rank];
         if (m->type == MOB_SPIDER && m->state == MS_WALK && m->sub == 0) d->flags = DR_EYES;
         if (m->frozen > 0.0f && m->state == MS_WALK) d->flags |= DR_ICE;   /* only its eyes, in the dark of the web */
         if (m->state == MS_DIE && m->sub == 77) {                  /* drawn in to a point */
@@ -4494,6 +4791,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                 uint8_t c = col[clampi((int)ty, 0, TS - 1)];
                 if (c == C_CLEAR) continue;
                 if (d->alpha < 1.0f && d->alpha * 16.0f <= BAYER[(y + (int)(G.t * 20.0)) & 3][x & 3] + 0.5f) continue;
+                if (d->lut) c = d->lut[c];
                 if (d->remap && c >= R_PURPLE && c < R_PURPLE + 16) c = ramp_at(d->remap, c - R_PURPLE);
                 if (d->flags & DR_IMPLODE) { f->pix[y * W + x] = c == 0 ? 0 : (uint8_t)(R_GLOW + clampi(6 + (int)((c & 15) * 0.6f), 6, 15)); continue; }
                 if ((d->flags & DR_ICE) && c != 0 && ((x + y) & 1)) {    /* rimed with frost */

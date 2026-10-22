@@ -21,6 +21,30 @@ goes into play.
   clean.
 - **Approved:** the owner liked every sheet, and the line-up's sizes, as a first shot (22 October).
   Their look and feel will be refined as they playtest, so the drawings are not final.
+
+**Step 1 (groundwork) built** on top of the descent plan's step 1 (sets):
+
+- the creature table (`KINDS`) with each kind's weaknesses, which apply to damage and which the
+  autopilot plays to;
+- ranks in play: the set's mix, gilded from level 7, drops, captions, size;
+- the hunt field and alerts, doors pulled open, at most three hunting at once;
+- residents in ossuaries and crypts;
+- today's six at their new first levels: wall skulls 3, shield-bearers 4, web spiders 6; spectres
+  gone after level 10; bats rare and red in the Deep;
+- the dressing brought in by level and set.
+
+Damage is now (4 + 0.8 x level) x the rank's weight (was 4 + level), and HP grows 4% a level times
+the rank's (was 10% a level).
+
+**Eight 50-minute autopilot runs, the same seeds, against the sets-only build:**
+
+| | Deaths | Runs that never died | Median level reached | Mean level time |
+|---|---|---|---|---|
+| This build | 7 | five | 8 | 344 s |
+| Sets-only build | 9 | four | 8.5 | 328 s |
+
+The first try, without a cap on hunters and with throwers that threw the moment they found you
+again, died 14 times. Only the harness has run this; it is untested by hand.
 - **Decided while drawing:**
   - Knights and deacons have their own rank families: plate (`PF_ARMOUR`, whose rank V darkens the
     iron rather than going pale) and robe (`PF_ROBE`). With only their bones taking the rank, a

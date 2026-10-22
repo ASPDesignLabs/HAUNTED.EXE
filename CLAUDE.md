@@ -133,10 +133,25 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   past.
 - **Player mode** (`update_human`, `human_walk`, `human_use`, `human_cast`) after holding H. Esc opens
   the question (flee, stay, sleepwalk, carve a gravestone, rise from a grave); Tab the wardrobe.
-- **Enemies** (`MOB_SKEL`, `MOB_GHOST` (wraith), `MOB_BAT`, `MOB_WSKULL` from level 2, `MOB_SHIELD` from
-  3, `MOB_SPIDER` from 4; guardians in vaults). `enemy_damage()` is 4 + level, less 15% per death on
-  the level (`G.retries`, up to 45%, reset when cleared). `throw_interval()` 5% quicker per level. Bones
-  thrown from beyond 4 cells spread wider (wide halls made long throws too deadly).
+- **Enemies** (`MOB_SKEL`, `MOB_GHOST` (the spectre: harmless, through walls, gone after level 10),
+  `MOB_BAT`, `MOB_WSKULL` from level 3, `MOB_SHIELD` from 4, `MOB_SPIDER` from 6; guardians in vaults).
+  `KINDS[]` gives each its name, rank family, first level and weaknesses (damage per spell, which
+  `choose_spell` plays to). On its first level a kind comes alone (`may_spawn`).
+  - **Ranks.** Every creature takes a rank on spawning (`pick_rank`, by the set's mix; `set_rank`):
+    HP, damage, pace, souls and size by `RANK_*`, and its colour through `crawl_rank_lut` when drawn.
+    From level 7, one level in three has a gilded creature that runs when hurt and drops treasure.
+    Ranks II and up sometimes drop coin, gems or a potion (not counted in the level's treasure).
+  - **Captions.** `name_newcomers` names each kind and rank the first time it is seen on a level.
+  - **Strength.** HP is the kind's base x 1.04 per level x the rank's; `mob_damage()` is
+    (4 + 0.8 x level) x the rank's, less 15% per death on the level (`G.retries`, up to 45%, reset
+    when cleared). `throw_interval()` 5% quicker per level. Bones thrown from beyond 4 cells spread
+    wider (wide halls made long throws too deadly).
+  - **Hunting.** `build_hunt` keeps a field of steps to the caster. A creature that sees the caster,
+    is hit, or hears a spell within 8 steps (`alert_near`) is alerted (`Mob.alert`) and follows the
+    field round corners; the dead pull ordinary doors open. Only the nearest three hunt at once
+    (`pick_hunters`). A thrower that finds you again waits a moment before it throws.
+  - **Residents.** Ossuaries and crypts have residents (`Mob.home`) that keep to their room until
+    alerted. In player mode the "something wakes ahead" respawn waits 35 s of quiet, not 11.
 - **Secrets** (`place_secrets`, `open_secret`, `update_slide`). One on levels 1-2, two on 3-5, three
   from 6. A solid plan block beside a hall becomes a 3x3 closet behind a wall (`Cell.secret` 1 closet,
   2 wall); the wall's cracks are drawn by the renderer only within about two cells. E/Space pushes it
