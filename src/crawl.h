@@ -63,6 +63,16 @@ enum {
     SP_SHAMB_A, SP_SHAMB_B, SP_SHAMB_GRAB, SP_SHAMB_RISE1, SP_SHAMB_RISE2, SP_SHAMB_D1, SP_SHAMB_D2,
     SP_DROWN_A, SP_DROWN_B, SP_DROWN_GRAB, SP_DROWN_RISE, SP_DROWN_BURST, SP_DROWN_POOL,
     SP_GHOUL_A, SP_GHOUL_B, SP_GHOUL_LEAP, SP_GHOUL_FEED, SP_GHOUL_D,
+    SP_HOUND_A, SP_HOUND_B, SP_HOUND_BITE, SP_HOUND_D,
+    SP_KNIGHT_A, SP_KNIGHT_B, SP_KNIGHT_W, SP_KNIGHT_S,     /* walking, winding up, striking: in full plate, */
+    SP_KNIGHT2_A, SP_KNIGHT2_B, SP_KNIGHT2_W, SP_KNIGHT2_S, /* ... with half of it hacked off, */
+    SP_KNIGHT3_A, SP_KNIGHT3_B, SP_KNIGHT3_W, SP_KNIGHT3_S, /* ... and down to the breastplate */
+    SP_KNIGHT_D,
+    SP_DEACON_A, SP_DEACON_B, SP_DEACON_CHANT, SP_DEACON_D,
+    SP_HUNTER_A, SP_HUNTER_B, SP_HUNTER_LEAP, SP_HUNTER_D,   /* drawn right way up: the renderer flips it on the ceiling */
+    SP_BROOD_A, SP_BROOD_B, SP_BROOD_LAY, SP_BROOD_D,
+    SP_SAC_A, SP_SAC_B, SP_SAC_OPEN,                         /* an egg sac on the wall: still, stirring, split */
+    SP_LING_A, SP_LING_B,                                    /* spiderlings, drawn small */
     NSPR
 };
 
@@ -78,13 +88,15 @@ enum {
  * redraws a creature's body ramp in another as it is drawn; shading stays inside the new ramp. */
 enum { RK_I, RK_II, RK_III, RK_IV, RK_V, RK_GILDED, NRANK };    /* own colour, green, blue, red, black, gold */
 enum {                                          /* which ramp a creature's body is drawn in */
-    PF_BONE,                                    /* R_BONE: skeletons, hounds, knights, deacons, wall skulls */
+    PF_BONE,                                    /* R_BONE: skeletons, shield-bearers, hounds, wall skulls */
     PF_FLESH,                                   /* R_WARM: shamblers, ghouls */
     PF_CHITIN,                                  /* R_IRON: web spiders, the brood; black already, so rank V goes pale */
     PF_HIDE,                                    /* R_WOOD: hunting spiders */
     PF_WING,                                    /* R_PURPLE: bats, which stop at rank IV */
     PF_CLAY,                                    /* R_BRICK: ember imps */
     PF_STONE,                                   /* R_STONE: the Drowned, gargoyles */
+    PF_ARMOUR,                                  /* R_IRON: a knight's plate (its blade is R_GHOST, and stays steel); rank V darkens it */
+    PF_ROBE,                                    /* R_PURPLE: the deacon's robe */
     NPF
 };
 extern uint8_t crawl_rank_lut[NPF][NRANK][256];

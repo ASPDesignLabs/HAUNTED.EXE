@@ -1902,6 +1902,423 @@ static void spr_ghoul(int id, float w, int pose) {
     cv_store(id);
 }
 
+/* grime and moss on bones, deeper down, as on the skeletons */
+static void cv_bone_decay(uint32_t seed) {
+    if (g_decay <= 0.0f) return;
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c = cv_sprite[y * TS + x];
+            if (c < R_BONE || c >= R_BONE + 16) continue;
+            float n = fbm(x / 5.0f, y / 5.0f, 16, seed);
+            if (n < 0.28f + 0.32f * g_decay) cv_sprite[y * TS + x] = (uint8_t)(c - 3 < R_BONE + 1 ? R_BONE + 1 : c - 3);
+            if (g_decay > 0.35f && n > 0.78f - 0.12f * g_decay) cv_sprite[y * TS + x] = sh(R_MOSS, 0.3f + 0.3f * n);
+        }
+}
+
+/* The bone hound: a dog's skeleton in a spiked collar, coming at you a little from the side.
+ * pose: 0-1 running, 2 biting, 3 a heap. All bone (PF_BONE). */
+static void dog_skull(float x, float y, float jaw, int eye) {
+    cv_ellipse(x + 3, y - 1, 6.0f, 5.0f, R_BONE, 0.3f, 1.0f);      /* the crown, behind */
+    cv_capsule(x + 1, y + 1, x - 7, y + 6, 2.8f, R_BONE, 0.3f, 0.95f);   /* the long snout, towards you */
+    cv_capsule(x + 2, y + 4, x - 6, y + 8 + jaw, 1.6f, R_BONE, 0.25f, 0.8f);   /* the jaw */
+    for (int i = 0; i < 4; i++) {                                   /* teeth, top and bottom */
+        cv_px((int)(x - 6 + i * 2.0f), (int)(y + 8.0f - (3 - i) * 0.6f), sh(R_BONE, 1.0f));
+        cv_px((int)(x - 5 + i * 2.0f), (int)(y + 7.5f + jaw - (3 - i) * 0.6f), sh(R_BONE, 0.9f));
+    }
+    if (jaw > 1.0f) cv_flat(x - 2, y + 7 + jaw * 0.5f, 3.0f, jaw * 0.5f, 0);   /* the gape */
+    cv_flat(x - 7, y + 5, 1.0f, 0.8f, 0);                          /* nostril */
+    cv_flat(x + 2.5f, y - 0.5f, 2.0f, 1.8f, 0);                    /* the eye socket */
+    if (eye) cv_px((int)(x + 2.5f), (int)(y - 0.5f), (uint8_t)(R_FLAME + 11));
+}
+
+static void spr_hound(int id, float w, int pose) {
+    cv_begin(cv_sprite, TS, TS);
+    if (pose == 3) {
+        cv_flat(32, 61.5f, 24, 2.5f, R_WARM + 1);
+        for (int i = 0; i < 8; i++) {
+            float cx = 32 + (h01(i, 1, 301) - 0.5f) * 36, cy = 59 - 4 * h01(i, 2, 301), a = (h01(i, 3, 301) - 0.5f) * 2.0f, l = 4 + 5 * h01(i, 4, 301);
+            cv_bone(cx - cosf(a) * l, cy - sinf(a) * l, cx + cosf(a) * l, cy + sinf(a) * l, 1.1f, 0.25f, 0.9f);
+        }
+        for (int i = 0; i < 5; i++) cv_line(30 + i * 3, 52, 28 + i * 3, 58, sh(R_BONE, 0.7f));   /* the ribs, fallen in */
+        dog_skull(20, 52, 2.0f, 0);
+        cv_bone_decay(303);
+        cv_outline(0); cv_store(id); return;
+    }
+    float bite = pose == 2 ? 1.0f : 0.0f, bob = (pose == 0 ? 1.0f : 0.0f) * w;
+    cv_flat(32, 62, 20, 2.0f, R_WARM + 1);
+    /* the far legs, thinner and darker */
+    cv_capsule(44, 32 + bob, 48 - w * 2, 44, 1.2f, R_BONE, 0.15f, 0.5f); cv_capsule(48 - w * 2, 44, 45 - w * 3, 58, 1.0f, R_BONE, 0.15f, 0.5f);
+    cv_capsule(30, 37 + bob, 33 + w * 2, 48, 1.2f, R_BONE, 0.15f, 0.5f); cv_capsule(33 + w * 2, 48, 32 + w * 3, 60, 1.0f, R_BONE, 0.15f, 0.5f);
+    /* the tail, up and wagging for no one */
+    cv_capsule(46, 29 + bob, 52, 23 - w, 1.1f, R_BONE, 0.3f, 0.8f); cv_capsule(52, 23 - w, 57, 21 + w, 0.9f, R_BONE, 0.3f, 0.8f);
+    /* the spine and the cage of ribs hanging from it */
+    for (int i = 0; i < 9; i++) cv_ellipse(24 + i * 2.5f, 30 + bob - sinf(i / 8.0f * PI_F) * 2.0f, 1.5f, 1.3f, R_BONE, 0.35f, 0.95f);
+    for (int i = 0; i < 5; i++) {
+        float x = 27 + i * 3.0f, top = 31 + bob - sinf((x - 24) / 20.0f * PI_F) * 2.0f, drop = 10 - fabsf(i - 1.5f) * 1.5f;
+        cv_capsule(x, top, x - 2.5f, top + drop * 0.6f, 0.8f, R_BONE, 0.3f, 0.85f);
+        cv_capsule(x - 2.5f, top + drop * 0.6f, x - 1.0f, top + drop, 0.7f, R_BONE, 0.25f, 0.75f);
+    }
+    cv_ellipse(43, 33 + bob, 4.0f, 3.0f, R_BONE, 0.3f, 0.85f);      /* the pelvis */
+    /* the near legs */
+    cv_bone(42, 34 + bob, 39 + w * 2, 46, 1.2f, 0.3f, 0.9f); cv_capsule(39 + w * 2, 46, 42 + w, 52, 1.1f, R_BONE, 0.3f, 0.85f);
+    cv_capsule(42 + w, 52, 40 + w * 3, 61, 1.0f, R_BONE, 0.3f, 0.85f); cv_ellipse(39 + w * 3, 61.5f, 2.2f, 1.2f, R_BONE, 0.3f, 0.8f);
+    cv_bone(27, 37 + bob, 24 - w * 2, 48, 1.3f, 0.3f, 0.95f); cv_capsule(24 - w * 2, 48, 25 - w * 3, 60, 1.1f, R_BONE, 0.3f, 0.9f);
+    cv_ellipse(24 - w * 3, 61.5f, 2.4f, 1.2f, R_BONE, 0.3f, 0.85f);
+    /* the collar, spiked, and the head */
+    float hx = 18, hy = 26 + bob + bite * 6.0f;
+    for (int a = 0; a < 20; a++) {
+        float ang = TAU_F * a / 20.0f, sz = sinf(ang);
+        if (sz < -0.3f) continue;
+        int x = (int)(23 + 4.5f * cosf(ang)), y = (int)(hy + 5 + 2.0f * sz);
+        cv_px(x, y, sh(R_IRON, 0.3f + 0.4f * sz)); cv_px(x, y + 1, sh(R_IRON, 0.2f));
+        if (a % 4 == 1 && sz > 0.2f) cv_px(x, y + 2, sh(R_IRON, 0.85f));
+    }
+    dog_skull(hx, hy, bite ? 6.0f : 1.0f + (w > 0 ? 0.6f : 0.0f), 1);
+    cv_bone_decay(305);
+    cv_outline(0);
+    cv_store(id);
+}
+
+/* The skeleton knight: plate over bone, a two-handed sword with a steel blade (R_GHOST, so the
+ * plate's rank leaves it alone). pose 0-1 walking, 2 the long wind-up, 3 the blow. state: 0 full
+ * plate, 1 helm and half the plate hacked off, 2 down to a cracked breastplate. */
+static void plate(float x0, float y0, float x1, float y1, float r, float dent) {
+    cv_capsule(x0, y0, x1, y1, r, R_IRON, 0.25f - dent, 1.0f - dent);
+}
+static void sword(float gx, float gy, float a) {
+    float dx = cosf(a), dy = sinf(a), px = -dy, py = dx;
+    cv_ellipse(gx - dx * 6.0f, gy - dy * 6.0f, 1.8f, 1.8f, R_IRON, 0.4f, 1.0f);   /* pommel */
+    cv_capsule(gx - dx * 5.0f, gy - dy * 5.0f, gx + dx * 3.0f, gy + dy * 3.0f, 1.2f, R_WOOD, 0.2f, 0.6f);   /* the grip */
+    cv_capsule(gx + dx * 3.5f - px * 6.0f, gy + dy * 3.5f - py * 6.0f, gx + dx * 3.5f + px * 6.0f, gy + dy * 3.5f + py * 6.0f, 1.1f, R_IRON, 0.35f, 0.95f);
+    for (int i = 4; i < 40; i++) {                                  /* the blade, a bright edge and a fuller down it */
+        float t = (float)i, wdt = i > 34 ? (40 - i) * 0.35f : 1.9f;
+        for (float o = -wdt; o <= wdt; o += 0.5f) {
+            float v = 0.55f + 0.4f * (o / (wdt + 0.01f)) * -0.5f + (fabsf(o) < 0.4f ? -0.15f : 0.0f) + (o > wdt - 0.6f ? 0.35f : 0.0f);
+            cv_px((int)(gx + dx * t + px * o), (int)(gy + dy * t + py * o), sh(R_GHOST, v));
+        }
+    }
+}
+static void spr_knight(int id, float w, int pose, int state) {
+    cv_begin(cv_sprite, TS, TS);
+    float gx, gy, ga;                                               /* where the hands grip, and where the blade points */
+    if (pose == 2) { gx = 41; gy = 11; ga = -2.9f; }
+    else if (pose == 3) { gx = 27; gy = 40; ga = 2.55f; }
+    else { gx = 37; gy = 34; ga = -1.05f; }
+    cv_flat(32, 62, 16, 2.0f, R_WARM + 1);
+    if (pose == 2) sword(gx, gy, ga);                               /* raised behind the head */
+    /* legs: bone, with plate on the thighs and shins unless it has been hacked away */
+    for (int s = -1; s <= 1; s += 2) {
+        float k = s * w, hx = 32 + s * 4.0f, kx = 32 + s * 5.0f - k * 2.5f, fx = 32 + s * 5.5f - k * 4.0f;
+        if (pose == 3) { kx += s * 1.5f; fx += s * 3.0f; }          /* braced for the blow */
+        cv_bone(hx, 41, kx, 51, 1.6f, 0.25f, 0.95f);
+        cv_bone(kx, 51, fx, 60, 1.4f, 0.25f, 0.9f);
+        if (state < 1 || (state < 2 && s > 0)) plate(hx, 42, kx, 50, 3.0f, 0.0f);
+        if (state < 2) { plate(kx, 52, fx, 59, 2.6f, 0.0f); cv_ellipse(kx, 51, 2.6f, 2.2f, R_IRON, 0.4f, 1.0f); }
+        if (state < 2) cv_ellipse(fx - s * 1.0f, 61.5f, 3.6f, 1.6f, R_IRON, 0.3f, 0.9f);
+        else cv_capsule(fx, 61.5f, fx - s * 3.5f, 62, 1.0f, R_BONE, 0.3f, 0.8f);
+    }
+    /* the spine and ribs under the plate, which show where it is gone */
+    cv_capsule(32, 18, 32, 40, 1.4f, R_BONE, 0.3f, 0.9f);
+    for (int i = 0; i < 4; i++) {
+        float y = 21 + i * 3.6f;
+        cv_capsule(31, y, 25 + i * 0.6f, y + 2, 0.9f, R_BONE, 0.25f, 0.9f); cv_capsule(33, y, 39 - i * 0.6f, y + 2, 0.9f, R_BONE, 0.25f, 0.9f);
+    }
+    cv_ellipse(32, 40, 7, 3.4f, R_BONE, 0.25f, 0.9f);
+    /* the fauld: bands of plate over the hips */
+    if (state < 2)
+        for (int b = 0; b < 3; b++) {
+            float y = 37 + b * 2.6f, hw = 9.5f + b * 0.8f;
+            for (int x = (int)(32 - hw); x <= (int)(32 + hw); x++) {
+                if (state == 1 && x < 28 && b > 0) continue;
+                float nx = (x + 0.5f - 32) / hw;
+                for (int yy = 0; yy < 3; yy++) cv_px(x, (int)y + yy, sh(R_IRON, 0.3f + 0.5f * lit(nx, -0.2f, sqrtf(fmaxf(0, 1 - nx * nx))) - yy * 0.08f));
+            }
+        }
+    /* the breastplate, with a ridge down it; hacked and split as the knight is worn down */
+    for (int y = 18; y <= 37; y++) {
+        float hw = 9.0f + 1.5f * sinf((y - 18) / 19.0f * PI_F) - (y > 31 ? (y - 31) * 0.6f : 0.0f);
+        for (int x = (int)(32 - hw); x <= (int)(32 + hw); x++) {
+            float nx = (x + 0.5f - 32) / hw;
+            if (state == 2 && (x < 30 - (y - 18) * 0.15f || y > 32)) continue;   /* the left half and the belly gone */
+            float v = 0.25f + 0.6f * lit(nx, (y - 26) / 14.0f, sqrtf(fmaxf(0.0f, 1.0f - nx * nx)));
+            if (fabsf(x + 0.5f - 32) < 0.8f) v += 0.25f;
+            if (state >= 1 && h01(x / 2, y / 2, 311) > 0.86f) v -= 0.3f;    /* dents */
+            cv_px(x, y, sh(R_IRON, v));
+        }
+    }
+    if (state == 2) cv_line(30, 19, 33, 33, sh(R_IRON, 0.05f));
+    /* arms: both hands on the grip */
+    for (int s = -1; s <= 1; s += 2) {
+        float sx = 32 + s * 9.0f, sy = 20;
+        float ex = (sx + gx) * 0.5f + s * 4.0f, ey = (sy + gy) * 0.5f + 4.0f;
+        if (pose == 2) { ex = (sx + gx) * 0.5f + s * 3.0f; ey = (sy + gy) * 0.5f + 3.0f; }
+        cv_bone(sx, sy, ex, ey, 1.3f, 0.25f, 0.9f);
+        cv_bone(ex, ey, gx + s * 1.0f, gy, 1.1f, 0.25f, 0.9f);
+        int keep = state == 0 || (state == 1 && s > 0) || (state == 2 && s > 0);
+        if (keep) cv_ellipse(sx, sy - 0.5f, 5.0f, 4.0f, R_IRON, 0.3f, 1.0f);   /* pauldron */
+        if (state < 2) plate(ex, ey, gx + s * 1.0f, gy, 2.0f, 0.05f);          /* vambrace */
+    }
+    if (pose != 2) sword(gx, gy, ga);
+    for (int s = -1; s <= 1; s += 2) cv_ellipse(gx + s * 1.2f, gy + 0.5f, 2.2f, 2.0f, state < 2 ? R_IRON : R_BONE, 0.3f, 0.9f);   /* gauntlets, or bare bone */
+    /* the head: a great helm with a slit, and two embers in it; or the bare skull once the helm is off */
+    cv_capsule(32, 15, 32, 18, 1.2f, R_BONE, 0.3f, 0.9f);
+    if (state == 0) {
+        for (int y = 2; y <= 16; y++)
+            for (int x = 25; x <= 39; x++) {
+                float nx = (x + 0.5f - 32) / 7.0f, top = 2 + 3.0f * nx * nx;
+                if (fabsf(nx) > 1.0f || y < top) continue;
+                float v = 0.25f + 0.6f * lit(nx, (y - 9) / 9.0f, sqrtf(fmaxf(0, 1 - nx * nx)));
+                if (fabsf(x + 0.5f - 32) < 0.8f && y < 9) v += 0.25f;
+                if (y == 9 || (y == 10 && fabsf(nx) < 0.85f)) v = 0.0f;   /* the eye slit */
+                if (y > 11 && (x & 1) && fabsf(nx) < 0.5f && y < 15) v -= 0.3f;   /* breaths */
+                cv_px(x, y, sh(R_IRON, v));
+            }
+        cv_px(29, 9, (uint8_t)(R_FLAME + 11)); cv_px(34, 9, (uint8_t)(R_FLAME + 11));
+    } else {
+        cv_skull(32, 9, 1.0f, 0.3f, 1.0f);
+        cv_px(30, 10, (uint8_t)(R_FLAME + 10)); cv_px(34, 10, (uint8_t)(R_FLAME + 10));
+        if (state == 1) for (int x = 26; x <= 38; x++) cv_px(x, 3 + (x - 32) * (x - 32) / 12, sh(R_IRON, 0.5f));   /* the helm's rim, all that is left */
+    }
+    cv_bone_decay(313);
+    cv_outline(0);
+    cv_store(id);
+}
+
+static void spr_knight_dead(int id) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 61.5f, 26, 2.5f, R_WARM + 1);
+    for (int i = 0; i < 6; i++) {
+        float cx = 32 + (h01(i, 1, 321) - 0.5f) * 34, cy = 59 - 3 * h01(i, 2, 321), a = (h01(i, 3, 321) - 0.5f) * 1.6f, l = 5 + 4 * h01(i, 4, 321);
+        cv_bone(cx - cosf(a) * l, cy - sinf(a) * l, cx + cosf(a) * l, cy + sinf(a) * l, 1.3f, 0.25f, 0.9f);
+    }
+    cv_ellipse(30, 56, 9, 5, R_IRON, 0.2f, 0.9f);                  /* the breastplate, on its back */
+    cv_line(30, 52, 30, 60, sh(R_IRON, 0.9f));
+    cv_ellipse(47, 57, 5, 4, R_IRON, 0.2f, 0.85f);                 /* a pauldron */
+    for (int y = 49; y <= 61; y++)                                  /* the helm, rolled on its side */
+        for (int x = 9; x <= 21; x++) {
+            float nx = (x + 0.5f - 15) / 6.5f, ny = (y + 0.5f - 55) / 6.5f;
+            if (nx * nx + ny * ny > 1.0f) continue;
+            float v = 0.25f + 0.6f * lit(nx, ny, sqrtf(fmaxf(0, 1 - nx * nx - ny * ny)));
+            if (fabsf(x + 0.5f - 13.0f) < 0.8f && ny > -0.6f) v = 0.0f;   /* the slit, now upright */
+            cv_px(x, y, sh(R_IRON, v));
+        }
+    for (int i = 4; i < 34; i++) cv_px(20 + i, 62 - i / 8, sh(R_GHOST, 0.7f - (i & 1) * 0.15f));   /* the sword, flat on the floor */
+    cv_bone_decay(323);
+    cv_outline(0);
+    cv_store(id);
+}
+
+/* The deacon: a skeleton priest in a hooded violet robe (PF_ROBE) with a red stole, a staff with a
+ * skull on it. pose 0-1 walking, 2 raising the dead, 3 fallen. */
+static void spr_deacon(int id, float w, int pose) {
+    cv_begin(cv_sprite, TS, TS);
+    if (pose == 3) {
+        cv_flat(32, 61.5f, 24, 2.5f, R_WARM + 1);
+        float m[12] = { 10, 62, 16, 52, 28, 48, 42, 50, 54, 57, 56, 62 };
+        cv_poly(m, 6, R_PURPLE, 0.45f, 0.1f, 48, 14);
+        cv_capsule(20, 60, 50, 55, 1.2f, R_BLOOD, 0.15f, 0.45f);
+        cv_capsule(6, 61, 58, 59, 1.1f, R_WOOD, 0.2f, 0.6f);        /* the staff, across */
+        cv_skull(30, 50, 0.95f, 0.3f, 1.0f);
+        cv_bone_decay(331);
+        cv_outline(0); cv_store(id); return;
+    }
+    int chant = pose == 2;
+    cv_flat(32, 62, 15, 1.8f, R_WARM + 1);
+    if (chant)                                                      /* the dead's light, rising round it */
+        for (int i = 0; i < 26; i++) {
+            float x = 32 + (h01(i, 1, 333) - 0.5f) * 44, y = 30 + 32 * h01(i, 2, 333);
+            cv_px((int)x, (int)y, (uint8_t)(R_GLOW + 6 + (int)(8 * h01(i, 3, 333))));
+        }
+    /* the staff, in its right hand */
+    float stx = chant ? 47.0f : 45.0f + w * 0.5f, sty = chant ? 0.0f : 6.0f;
+    cv_capsule(stx, sty + 6, stx - 1, 62, 1.2f, R_WOOD, 0.2f, 0.65f);
+    cv_skull(stx, sty + 3, 0.7f, 0.3f, 1.0f);
+    cv_px((int)stx - 1, (int)sty + 4, (uint8_t)(chant ? R_GLOW + 14 : R_FLAME + 6)); cv_px((int)stx + 2, (int)sty + 4, (uint8_t)(chant ? R_GLOW + 14 : R_FLAME + 6));
+    /* the robe, falling from the shoulders to a hem that drags */
+    for (int y = 16; y < 63; y++) {
+        float t = (y - 16) / 46.0f, hw = 8.5f + 7.0f * t, sway = w * 1.2f * t;
+        for (int x = (int)(32 - hw + sway) - 1; x <= (int)(32 + hw + sway) + 1; x++) {
+            float dx = x + 0.5f - 32 - sway;
+            if (fabsf(dx) > hw) continue;
+            if (y > 58 && h01(x, y, 335 + (w > 0)) < (y - 58) / 5.0f) continue;   /* ragged hem */
+            float u = dx / hw, v = 0.15f + 0.4f * (1.0f - u * u) * (1.0f - 0.3f * t);
+            if (sinf(dx * 1.1f + y * 0.05f) > 0.6f) v -= 0.08f;     /* folds */
+            cv_px(x, y, sh(R_PURPLE, v));
+        }
+    }
+    for (int s = -1; s <= 1; s += 2)                                /* the stole down the front */
+        for (int y = 20; y < 52; y++) {
+            int x = 32 + s * 3 + (int)(w * 1.0f * (y - 16) / 46.0f);
+            cv_px(x, y, sh(R_BLOOD, 0.3f + 0.15f * (s > 0))); cv_px(x + s, y, sh(R_BLOOD, 0.22f));
+            if (y == 49 || y == 50) { cv_px(x - s, y, sh(R_BONE, 0.7f)); }
+        }
+    /* arms: sleeves, and bone hands out of them */
+    for (int s = -1; s <= 1; s += 2) {
+        float sx = 32 + s * 8, sy = 20, hx, hy;
+        if (chant) { hx = 32 + s * 17; hy = 6; }
+        else if (s > 0) { hx = stx - 1; hy = 34; }
+        else { hx = 21 - w; hy = 38; }
+        float ex = (sx + hx) * 0.5f + s * 3.0f, ey = (sy + hy) * 0.5f + 2.0f;
+        if (chant) { cv_bone(sx, sy, ex, ey, 1.2f, 0.25f, 0.9f); cv_bone(ex, ey, hx, hy + 2, 1.0f, 0.25f, 0.9f); }   /* the sleeves fallen back */
+        cv_capsule(sx, sy, chant ? sx + s * 2.0f : ex, chant ? sy + 4.0f : ey, 3.4f, R_PURPLE, 0.15f, 0.55f);
+        if (!chant) cv_capsule(ex, ey, hx, hy - 1, 3.0f, R_PURPLE, 0.15f, 0.5f);
+        cv_ellipse(hx, hy, 1.9f, 1.8f, R_BONE, 0.3f, 0.95f);
+        for (int f = 0; f < 3; f++) cv_line(hx, hy, hx + s * (1.0f + f) * (chant ? 0.6f : 0.4f), hy + (chant ? -3.0f : 3.0f) + f * (chant ? 0.0f : 0.5f), sh(R_BONE, 0.8f));
+        if (chant) for (int k = 0; k < 6; k++) cv_px((int)(hx + (h01(k, s + 2, 337) - 0.5f) * 8), (int)(hy - 2 - 6 * h01(k, s + 5, 337)), (uint8_t)(R_GLOW + 10 + (k & 3)));
+    }
+    /* the hood, and the skull in its shadow */
+    cv_ellipse(32, 12, 8.0f, 8.5f, R_PURPLE, 0.15f, 0.6f);
+    cv_flat(32, 13.5f, 5.6f, 6.4f, 0);
+    cv_skull(32, 13, 0.82f, 0.25f, 0.85f);
+    cv_px(30, 14, (uint8_t)(chant ? R_GLOW + 14 : R_FLAME + 8)); cv_px(34, 14, (uint8_t)(chant ? R_GLOW + 14 : R_FLAME + 8));
+    cv_bone_decay(339);
+    cv_outline(0);
+    cv_store(id);
+}
+
+/* the bestiary's bones age with the level, like the skeletons' */
+static void spr_bestiary_bones(void) {
+    spr_hound(SP_HOUND_A, 1.0f, 0); spr_hound(SP_HOUND_B, -1.0f, 1); spr_hound(SP_HOUND_BITE, 0.0f, 2); spr_hound(SP_HOUND_D, 0.0f, 3);
+    for (int st = 0; st < 3; st++) {
+        int base = SP_KNIGHT_A + st * 4;
+        spr_knight(base, 1.0f, 0, st); spr_knight(base + 1, -1.0f, 1, st); spr_knight(base + 2, 0.0f, 2, st); spr_knight(base + 3, 0.0f, 3, st);
+    }
+    spr_knight_dead(SP_KNIGHT_D);
+    spr_deacon(SP_DEACON_A, 1.0f, 0); spr_deacon(SP_DEACON_B, -1.0f, 1); spr_deacon(SP_DEACON_CHANT, 0.0f, 2); spr_deacon(SP_DEACON_D, 0.0f, 3);
+}
+
+/* a spider's leg in two joints from the body at (kx, ky) out to the foot, banded if band >= 0 */
+static void spider_leg(float kx, float ky, float mx, float my, float fx, float fy, float r, int ramp, int band) {
+    cv_capsule(kx, ky, mx, my, r, ramp, 0.12f, 0.6f);
+    cv_capsule(mx, my, fx, fy, r * 0.75f, ramp, 0.1f, 0.55f);
+    if (band >= 0) {                                                /* dark rings round the joints */
+        cv_ellipse(mx, my, r * 1.1f, r * 1.1f, band, 0.02f, 0.2f);
+        cv_ellipse((mx + fx) * 0.5f, (my + fy) * 0.5f, r * 0.8f, r * 0.8f, band, 0.02f, 0.18f);
+    }
+}
+
+/* The hunting spider: a big brown wolf spider, hairy, low and wide, its two great front eyes shining
+ * back at you. Body R_WOOD (PF_HIDE), dark bands. pose 0-1 running, 2 leaping, 3 dead. */
+static void spr_hunter(int id, int frame) {
+    cv_begin(cv_sprite, TS, TS);
+    float cx = 32, cy = frame == 3 ? 54 : 44;
+    if (frame != 2 && frame != 3) cv_flat(32, 62, 24, 2.0f, R_WARM + 1);
+    for (int s = -1; s <= 1; s += 2)
+        for (int l = 0; l < 4; l++) {                               /* legs: up into a high knee, then out and down */
+            float k = (frame == 1 ? (l & 1 ? 1.0f : -1.0f) : (frame == 0 ? (l & 1 ? -1.0f : 1.0f) : 0.0f)) * s;
+            float kx = cx + s * (5 + l * 1.2f), ky = cy - 2 + l * 2.0f;
+            float mx = cx + s * (14 + l * 3.0f), my = cy - 14 + l * 3.0f + k * 2.0f;
+            float fx = cx + s * (20 + l * 4.0f) + k, fy = 61 - (l == 0 ? 2.0f : 0.0f);
+            if (frame == 2) { mx = cx + s * (12 + l * 2); my = cy - 16 - (3 - l) * 2.0f; fx = cx + s * (16 + l * 4); fy = cy - 24 + l * 6.0f; }
+            if (frame == 3) { mx = cx + s * (8 + l * 2); my = cy - 10 - l * 2; fx = cx + s * (4 + l); fy = cy - 16 - l * 1.5f; }
+            spider_leg(kx, ky, mx, my, fx, fy, 1.5f, R_WOOD, R_IRON);
+        }
+    cv_ellipse(cx, cy - 3, 10.0f, 7.0f, R_WOOD, 0.1f, 0.55f);     /* the abdomen, behind and above */
+    for (int i = 0; i < 4; i++) cv_line(cx - 6 + i * 4, cy - 8, cx - 5 + i * 3.4f, cy + 1, sh(R_IRON, 0.12f));   /* chevrons */
+    cv_ellipse(cx, cy + 4, 8.0f, 6.0f, R_WOOD, 0.15f, 0.65f);     /* the head and fore-body */
+    for (int y = (int)cy - 10; y < (int)cy + 10; y++)               /* hair: a fringe of lighter flecks round the edge */
+        for (int x = (int)cx - 12; x < (int)cx + 12; x++) {
+            uint8_t c = cv_sprite[y * TS + x];
+            if (c >= R_WOOD && c < R_WOOD + 16 && h01(x, y, 401) > 0.82f) cv_px(x, y, (uint8_t)(c + 3 > R_WOOD + 15 ? R_WOOD + 15 : c + 3));
+        }
+    if (frame != 3) {
+        for (int k = -1; k <= 1; k += 2) {                          /* the two great eyes, shining */
+            cv_flat(cx + k * 2.6f, cy + 2.5f, 2.0f, 2.0f, 0);
+            cv_px((int)(cx + k * 2.6f), (int)(cy + 2), (uint8_t)(R_FLAME + 14)); cv_px((int)(cx + k * 2.6f) + (k > 0 ? -1 : 1), (int)(cy + 3), (uint8_t)(R_FLAME + 9));
+        }
+        static const int EYE[6][2] = { {-5, 0}, {5, 0}, {-2, -1}, {2, -1}, {-4, 6}, {4, 6} };
+        for (int i = 0; i < 6; i++) cv_px((int)cx + EYE[i][0], (int)cy + EYE[i][1], (uint8_t)(R_FLAME + 4));
+        float open = frame == 2 ? 3.0f : 1.0f;
+        for (int k = -1; k <= 1; k += 2) cv_capsule(cx + k * 2.0f, cy + 7, cx + k * (2.0f + open * 0.5f), cy + 10 + open, 0.9f, R_IRON, 0.1f, 0.4f);   /* fangs */
+        for (int k = -1; k <= 1; k += 2) cv_capsule(cx + k * 6.0f, cy + 6, cx + k * 7.0f, cy + 11, 1.2f, R_WOOD, 0.15f, 0.5f);   /* palps */
+    }
+    cv_outline(0);
+    cv_store(id);
+}
+
+/* The brood mother: a black spider the size of a dog, her abdomen swollen with eggs that show pale
+ * through the skin. Body R_IRON (PF_CHITIN). pose 0-1 walking, 2 laying, 3 dead. */
+static void spr_brood(int id, int frame) {
+    cv_begin(cv_sprite, TS, TS);
+    float cx = 32, cy = frame == 3 ? 52 : 42, ab = frame == 2 ? -6.0f : 0.0f;
+    if (frame != 3) cv_flat(32, 62, 28, 2.2f, R_WARM + 1);
+    cv_ellipse(cx, cy - 12 + ab, 17.0f, 13.0f, R_IRON, 0.05f, 0.42f);   /* the abdomen, raised behind her */
+    for (int i = 0; i < 14; i++) {                                  /* eggs pressing pale against the skin */
+        float a = h01(i, 1, 411) * TAU_F, r = 11.0f * sqrtf(h01(i, 2, 411));
+        cv_ellipse(cx + cosf(a) * r * 1.2f, cy - 12 + ab + sinf(a) * r * 0.8f, 2.4f, 2.0f, R_BONE, 0.15f, 0.45f);
+    }
+    cv_flat(cx, cy - 6 + ab, 3.0f, 2.4f, (uint8_t)(R_BLOOD + 9));   /* her mark */
+    if (frame == 2) {                                               /* a sac coming, on a thread */
+        cv_line(cx, cy - 2 + ab, cx, cy + 12, sh(R_STONE, 0.8f));
+        cv_ellipse(cx, cy + 16, 5.0f, 5.5f, R_BONE, 0.3f, 0.85f);
+    }
+    for (int s = -1; s <= 1; s += 2)
+        for (int l = 0; l < 4; l++) {
+            float k = (frame == 1 ? (l & 1 ? 1.0f : -1.0f) : (frame == 0 ? (l & 1 ? -1.0f : 1.0f) : 0.0f)) * s;
+            float kx = cx + s * (7 + l * 1.5f), ky = cy + l * 2.0f;
+            float mx = cx + s * (18 + l * 2.5f), my = cy - 14 + l * 3.5f + k * 2.0f;
+            float fx = cx + s * (24 + l * 2.0f) + k, fy = 61;
+            if (frame == 3) { mx = cx + s * (9 + l * 2); my = cy - 12 - l * 2; fx = cx + s * (5 + l); fy = cy - 18 - l; }
+            spider_leg(kx, ky, mx, my, fx, fy, 2.0f, R_IRON, -1);
+        }
+    cv_ellipse(cx, cy + 3, 9.0f, 7.0f, R_IRON, 0.06f, 0.45f);     /* head */
+    if (frame != 3) {
+        static const int EYE[10][2] = { {-3, 0}, {3, 0}, {-1, -1}, {1, -1}, {-5, 1}, {5, 1}, {-2, 2}, {2, 2}, {-4, -2}, {4, -2} };
+        for (int i = 0; i < 10; i++) cv_px((int)cx + EYE[i][0], (int)cy + EYE[i][1], (uint8_t)(R_FLAME + (i < 4 ? 5 : 2)));
+        for (int k = -1; k <= 1; k += 2) cv_capsule(cx + k * 2.5f, cy + 7, cx + k * 3.5f, cy + 12, 1.1f, R_BONE, 0.3f, 0.75f);
+    }
+    cv_outline(0);
+    cv_store(id);
+}
+
+/* an egg sac, stuck to the wall: still, stirring with shapes inside, then split and empty */
+static void spr_sac(int id, int frame) {
+    cv_begin(cv_sprite, TS, TS);
+    float cx = 32, cy = 40, r = frame == 1 ? 13.0f : 12.0f;
+    for (int i = 0; i < 9; i++) {                                   /* the silk that holds it, slung from above */
+        float x = cx + (h01(i, 1, 421) - 0.5f) * 30;
+        cv_line(x, 0, cx + (x - cx) * 0.4f, cy - r + 2, sh(R_STONE, 0.6f + 0.2f * (i & 1)));
+    }
+    if (frame == 2) {                                               /* split: torn lips of silk round a dark hollow */
+        cv_ellipse(cx, cy, r, r * 1.1f, R_BONE, 0.2f, 0.7f);
+        cv_flat(cx, cy + 1, r * 0.6f, r * 0.8f, 0);
+        for (int i = 0; i < 10; i++) {
+            float a = h01(i, 2, 423) * TAU_F;
+            cv_line(cx + cosf(a) * r * 0.55f, cy + sinf(a) * r * 0.75f, cx + cosf(a) * r * 0.75f, cy + sinf(a) * r * 0.95f, sh(R_BONE, 0.9f));
+        }
+        cv_line(cx, cy + r, cx + 2, cy + r + 8, sh(R_BONE, 0.5f));  /* a strand trailing */
+        cv_outline(0); cv_store(id); return;
+    }
+    cv_ellipse(cx, cy, r, r * 1.1f, R_BONE, 0.3f, 0.95f);
+    for (int y = (int)(cy - r * 1.1f); y <= (int)(cy + r * 1.1f); y++)   /* wound silk, and the dark shapes inside */
+        for (int x = (int)(cx - r); x <= (int)(cx + r); x++) {
+            uint8_t *p = &cv_sprite[y * TS + x];
+            if (*p < R_BONE || *p >= R_BONE + 16) continue;
+            if (sinf((x - cx) * 0.8f + (y - cy) * 1.3f) > 0.85f) *p = (uint8_t)(*p + 2 > R_BONE + 15 ? R_BONE + 15 : *p + 2);
+            float n = fbm(x / 3.0f + frame * 2.3f, y / 3.0f, 32, 425);
+            if (n > 0.62f) *p = sh(R_IRON, 0.2f + 0.2f * (1.0f - n));
+        }
+    if (frame == 1) for (int i = 0; i < 4; i++) cv_px((int)(cx - 6 + i * 4), (int)(cy - 3 + (i & 1) * 5), (uint8_t)(R_FLAME + 3));   /* eyes, inside */
+    cv_outline(0);
+    cv_store(id);
+}
+
+/* spiderlings: drawn bold, to be shown at a fifth of the size */
+static void spr_ling(int id, int frame) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int s = -1; s <= 1; s += 2)
+        for (int l = 0; l < 4; l++) {
+            float k = (frame ? (l & 1 ? 1.0f : -1.0f) : (l & 1 ? -1.0f : 1.0f)) * s * 3.0f;
+            cv_capsule(32 + s * 6, 40 + l * 3, 32 + s * (20 + l * 2), 30 + l * 6 + k, 2.4f, R_IRON, 0.05f, 0.4f);
+            cv_capsule(32 + s * (20 + l * 2), 30 + l * 6 + k, 32 + s * (26 + l * 1.5f), 60, 2.0f, R_IRON, 0.05f, 0.35f);
+        }
+    cv_ellipse(32, 38, 12, 10, R_IRON, 0.06f, 0.45f);
+    cv_ellipse(32, 48, 8, 7, R_IRON, 0.08f, 0.5f);
+    for (int k = -1; k <= 1; k += 2) cv_flat(32 + k * 3.5f, 47, 2.2f, 2.2f, (uint8_t)(R_FLAME + 5));
+    cv_outline(0);
+    cv_store(id);
+}
+
 static void find_glints(void) {
     for (int i = 0; i < NSPR; i++) {
         int bx = -1, by = -1, best = -1;
@@ -1914,6 +2331,8 @@ static void find_glints(void) {
     }
 }
 
+static void spr_bestiary_bones(void);
+
 /* ---- ranks: the body ramp redrawn in the rank's own (see crawl.h) ---- */
 
 uint8_t crawl_rank_lut[NPF][NRANK][256];
@@ -1923,7 +2342,7 @@ static void lut_ramp(uint8_t *lut, int from, int to) {             /* the gold r
 }
 
 static void build_rank_luts(void) {
-    static const int BODY[NPF] = { R_BONE, R_WARM, R_IRON, R_WOOD, R_PURPLE, R_BRICK, R_STONE };
+    static const int BODY[NPF] = { R_BONE, R_WARM, R_IRON, R_WOOD, R_PURPLE, R_BRICK, R_STONE, R_IRON, R_PURPLE };
     static const int LADDER[NRANK] = { -1, R_MOSS, R_GHOST, R_BLOOD, R_IRON, R_GOLD };
     for (int f = 0; f < NPF; f++)
         for (int r = 0; r < NRANK; r++) {
@@ -1931,6 +2350,10 @@ static void build_rank_luts(void) {
             for (int i = 0; i < 256; i++) lut[i] = (uint8_t)i;
             int to = LADDER[r];
             if (to < 0) continue;
+            if (f == PF_ARMOUR && r == RK_V) {                     /* plate blackened: the same iron, deeper */
+                for (int k = 0; k < 16; k++) lut[R_IRON + k] = (uint8_t)(R_IRON + 1 + k * 9 / 15);
+                continue;
+            }
             if (to == BODY[f]) to = R_BONE;                        /* black already: the deep ones go pale instead */
             if (f == PF_WING && r == RK_V) to = R_BLOOD;           /* a black bat is lost in the dark: they stop at red */
             lut_ramp(lut, BODY[f], to);
@@ -2042,6 +2465,7 @@ void crawl_art_level(int level) {
     spr_skeleton(SP_SKEL_T, 0.3f, 0.0f, 3, 1);
     spr_shieldskel(SP_SHIELD_A, 1.0f, 0, 1); spr_shieldskel(SP_SHIELD_B, -1.0f, 0, 1); spr_shieldskel(SP_SHIELD_S, 0.2f, 1, 1);
     spr_shieldskel(SP_SHIELD_XA, 1.0f, 0, 0); spr_shieldskel(SP_SHIELD_XB, -1.0f, 0, 0); spr_shieldskel(SP_SHIELD_XS, 0.2f, 1, 0);
+    spr_bestiary_bones();
 }
 
 void crawl_art_init(void) {
@@ -2125,5 +2549,9 @@ void crawl_art_init(void) {
     spr_drowned(SP_DROWN_A, 1.0f, 0); spr_drowned(SP_DROWN_B, -1.0f, 1); spr_drowned(SP_DROWN_GRAB, 0.0f, 2);
     spr_drowned(SP_DROWN_RISE, 0.0f, 3); spr_drowned(SP_DROWN_BURST, 0.0f, 4); spr_drowned(SP_DROWN_POOL, 0.0f, 5);
     spr_ghoul(SP_GHOUL_A, 1.0f, 0); spr_ghoul(SP_GHOUL_B, -1.0f, 1); spr_ghoul(SP_GHOUL_LEAP, 0.0f, 2); spr_ghoul(SP_GHOUL_FEED, 0.0f, 3); spr_ghoul(SP_GHOUL_D, 0.0f, 4);
+    spr_bestiary_bones();
+    for (int f = 0; f < 4; f++) { spr_hunter(SP_HUNTER_A + f, f); spr_brood(SP_BROOD_A + f, f); }
+    for (int f = 0; f < 3; f++) spr_sac(SP_SAC_A + f, f);
+    spr_ling(SP_LING_A, 0); spr_ling(SP_LING_B, 1);
     find_glints();
 }
