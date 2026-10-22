@@ -73,6 +73,10 @@ enum {
     SP_BROOD_A, SP_BROOD_B, SP_BROOD_LAY, SP_BROOD_D,
     SP_SAC_A, SP_SAC_B, SP_SAC_OPEN,                         /* an egg sac on the wall: still, stirring, split */
     SP_LING_A, SP_LING_B,                                    /* spiderlings, drawn small */
+    SP_WRAITH_A, SP_WRAITH_B, SP_WRAITH_REACH, SP_WRAITH_BACK,   /* the Wraith: gliding, reaching, driven back */
+    SP_SHADE_A, SP_SHADE_B, SP_SHADE_TOUCH, SP_SHADE_D,
+    SP_IMP_A, SP_IMP_B, SP_IMP_THROW, SP_IMP_D, SP_EMBER_A, SP_EMBER_B,
+    SP_GARG_PERCH, SP_GARG_A, SP_GARG_B, SP_GARG_SWOOP, SP_GARG_D,   /* the perch is also the statue in an alcove */
     NSPR
 };
 
