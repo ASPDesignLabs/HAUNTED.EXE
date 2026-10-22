@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0d0c10">
 <title>HAUNTED.EXE</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="A Halloween screensaver for Windows in real VGA modes: a possessed 486 PC and a crypt crawl you can take over and play.">
@@ -29,8 +31,8 @@
 <style>
   /* Layout: one reading column. The game's own screens (the BIOS boot, the status bar, the crypt's
      question, a DOS setup window) sit in it as fixed-colour objects; the page around them is quiet.
-     Palette: crypt-stone neutrals with a violet bias, pumpkin orange for actions. Dark first; the light
-     theme reads like the printed manual. */
+     Palette: crypt-stone neutrals with a violet bias, pumpkin orange for actions. Always dark, like the
+     crypt, whatever the device's own setting. */
   @font-face { font-family: "Px437 IBM VGA 8x16"; src: url("fonts/Px437_IBM_VGA_8x16.ttf") format("truetype"); font-display: swap; }
   @font-face { font-family: "Px437 IBM BIOS"; src: url("fonts/Px437_IBM_BIOS.ttf") format("truetype"); font-display: swap; }
   :root {
@@ -55,18 +57,6 @@
     --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
     color-scheme: dark;
-  }
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme="dark"]) {
-      --bg: #ecebf1; --surface: #f8f8fb; --fg: #1b1a22; --muted: #5b5a6b; --line: #d3d1de;
-      --accent: #b04a0a; --accent-ink: #ffffff; --ok: #1f6b3f; --mid: #8a5a00; --low: #a3281f;
-      color-scheme: light;
-    }
-  }
-  :root[data-theme="light"] {
-    --bg: #ecebf1; --surface: #f8f8fb; --fg: #1b1a22; --muted: #5b5a6b; --line: #d3d1de;
-    --accent: #b04a0a; --accent-ink: #ffffff; --ok: #1f6b3f; --mid: #8a5a00; --low: #a3281f;
-    color-scheme: light;
   }
 
   :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
