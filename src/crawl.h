@@ -59,6 +59,10 @@ enum {
     SP_TOMB_ROUND, SP_TOMB_CROSS, SP_TOMB_OBELISK, SP_TOMB_BROKEN,
     SP_FIREPIT_A, SP_FIREPIT_B, SP_FIREPIT_C,   /* a ring of stones, burning */
     SP_TOTEM_A, SP_TOTEM_B,                     /* a pole of skulls with candles, flickering */
+    /* the bestiary (docs/PLAN-bestiary.md): drawn, not yet in play */
+    SP_SHAMB_A, SP_SHAMB_B, SP_SHAMB_GRAB, SP_SHAMB_RISE1, SP_SHAMB_RISE2, SP_SHAMB_D1, SP_SHAMB_D2,
+    SP_DROWN_A, SP_DROWN_B, SP_DROWN_GRAB, SP_DROWN_RISE, SP_DROWN_BURST, SP_DROWN_POOL,
+    SP_GHOUL_A, SP_GHOUL_B, SP_GHOUL_LEAP, SP_GHOUL_FEED, SP_GHOUL_D,
     NSPR
 };
 
