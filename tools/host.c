@@ -213,6 +213,7 @@ int main(int argc, char **argv) {
     if (!strcmp(cmd, "apl")) {
         /* host apl <scene> <seconds>: average picture level (mean luma, % of white), sampled twice a second */
         double secs = atof(argv[3]), sum = 0.0, peak = 0.0, peak_t = 0.0;
+        input_init();
         app_init(&cfg, 0);
         uint8_t *rgb = malloc(FB_MAX_W * FB_MAX_H * 3);
         const double dt = 1.0 / 70.0;

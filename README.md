@@ -32,7 +32,7 @@ Two scenes are included. They alternate every few minutes (configurable) with a 
 | Scene | VGA mode | What it is |
 |---|---|---|
 | **HAUNT.EXE** | 80x25 text mode, 720x400 | A possessed 486 PC: BIOS POST, a DOS prompt, and a ghost that types back. Between the gags it runs DOS programs that have been got at: EDIT rewriting AUTOEXEC.BAT for a seance, DEFRAG consuming souls and moving the remains to the front of the disk, a modem call to a BBS on the other side, a virus scan that cannot clean a dead host, MSD finding GHOST.SYS on IRQ 13, a thirteen-disk SETUP, a QBasic program that writes itself, and a file manager moving the dead from GRAVES to SOULS, until a file with your name turns up. Art materialises in between, seven full-screen half-block ANSI scenes with their own stories: the jack-o'-lantern in the pumpkin patch, the talking skull in the ossuary, the manor in a thunderstorm, the spider in the candle-lit corner, zombies digging out of a graveyard, skeletons dancing out of their coffins, and a ghost that rushes down a hallway to say boo. It ends in a fatal error and a CRT power-off, then reboots. |
-| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and buys one of three wares with the gold it carries (see below). Each level is generated anew: skull walls, niches, banners, moss, torch-lit halls, bone piles and sliding doors, walked with quick 90-degree turns. Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. Skeletons throw bones; from level 2 skulls set in the walls you walk towards scream and gather a fireball for three seconds; from level 3 shield-bearing skeletons close in with swords; from level 4 spiders wait in corner webs, only their red eyes showing, and their bite poisons and slows. Bats bite, and wraiths loom and flee. Every level is older and harder than the one before. Your face, Wolfenstein-style, pops up when you are hurt. Hold H for three seconds to play it yourself (see below). |
+| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and buys one of three wares with the gold it carries (see below). Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, with skull walls, niches, banners, moss and sliding doors, walked with quick 90-degree turns. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides one to three secrets behind cracked walls (see below). Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. Skeletons throw bones; from level 2 skulls set in the walls you walk towards scream and gather a fireball for three seconds; from level 3 shield-bearing skeletons close in with swords; from level 4 spiders wait in corner webs, only their red eyes showing, and their bite poisons and slows. Bats bite, and wraiths loom and flee. Every level is older and harder than the one before, though each death on a level makes its creatures hit a little softer on the next try (by up to 45%, until it is cleared). Your face, Wolfenstein-style, pops up when you are hurt. Hold H for three seconds to play it yourself (see below). |
 
 ![CATACOMB: the merchant, wall skulls, spiders, shields and spells](docs/preview_catacomb.png)
 ![CATACOMB: the exit, the tally, a wraith and the deeper levels](docs/preview_catacomb_crypt.png)
@@ -80,7 +80,7 @@ yours, and the scenes stop switching until you hand it back. HAUNT.EXE cuts stra
 | Mouse | Turn, Doom-style; there is no looking up or down |
 | Left click, or Ctrl | Cast the spell in hand where you are looking (lightning and Soul Drain pick the nearest creature near the middle of the view) |
 | 1 to 9, or the wheel | Choose an attack spell from your book: 1 Fire Bolt, 2 Frost Shard, 3 Chain Lightning, 4 Bone Spear, 5 Soul Drain, 6 Hellfire, 7 Seeker Wisps, 8 Rapid Sparks, 9 BFS9000 |
-| E or Space | Open the door ahead, unlock a vault with its key, or step through the exit runes. Walking into a door opens it too |
+| E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, or step through the exit runes. Walking into a door opens it too |
 | Tab | The inventory: your wardrobe and spellbook. W and S choose a slot, A and D change what is worn there, with your numbers shown changing |
 | Esc | Asks whether you want to leave, with a different argument each time for staying; also where you save and load |
 
@@ -91,6 +91,19 @@ E, Space or click to buy it; one ware per visit. Then leave by the east door.
 Everything you buy stays in your wardrobe, so you can swap robes, hoods and the four rings in the
 inventory. The Wolfenstein status bar stays up while you play: level, gold, health, your face,
 souls, the spell in hand and your keys.
+
+**Secrets.** Every level hides some walls that give: one on levels 1 and 2, two on levels 3 to 5, and
+three from level 6. Such a wall looks like any other plain stone until you are within a couple of
+steps of it, when a set of cracks shows in it. Face it and press E (or Space) and it grinds back
+through a hidden closet, with a chime and "A SECRET! 1 OF 3" on screen. A closet only ever holds treasure
+and, often, a potion: never a key, and its treasure isn't counted in the level's total, so whatever you
+find there is on top of it. The tally at the end of a level counts the secrets you found. The autopilot
+notices the cracks now and then and presses them too.
+
+**The wisp.** Take ten souls on a level and a will-o'-wisp kindles on the back of your hand. It leans
+the way out, along the way you would walk rather than as the crow flies, held to your hand by its tail.
+If the exit is in a locked vault, it leads you to the key first. It also lights the crypt about four
+cells around you. It goes out when you leave the level, and the next one has to earn it again.
 
 Esc offers five answers:
 
@@ -200,7 +213,8 @@ square-wave beeps, a Freeverb-style reverb and a ping-pong delay.
   bones, ghost wails, bat squeaks, drips and distant moans, all in a cave reverb. On top of those come
   the game sounds: coin chimes, the key's jingle, the vault's lock, thrown bones, the caster grunting
   when hit, a heartbeat at low HP, a potion, a death groan, the wraiths' shriek, and a brass fanfare
-  for each level cleared.
+  for each level cleared. A secret wall grinds and thuds back with a pair of knocks and a peal of bells,
+  and the wisp arrives with a rising shimmer.
 
 ## Building from source
 
@@ -257,7 +271,11 @@ zombies, 16 the skeletons, 17 the crash, and 18-25 the programs (EDIT, DEFRAG, t
 SETUP, QBasic, the file manager). `-DCRAWL_DEBUG` prints the CATACOMB autopilot's state
 once a second, logs every throw, hit, shriek, key pickup, cast, rune, purchase and exit, and takes
 `CRAWL_SEED=n`, `CRAWL_LEVEL=n` to start deeper, `CRAWL_GEAR=n` to own everything at tier n,
-`CRAWL_GOLD=n` and `CRAWL_SOULS=n`. The harness plays a person at the keys with `HOST_INPUT`, for
+`CRAWL_GOLD=n` and `CRAWL_SOULS=n`. `CRAWL_MAP=1` prints each level's map and plan (and checks every lane
+can be reached), `CRAWL_MAPAT=t` prints it again at t seconds with what has been explored,
+`CRAWL_TPSECRET=n` and `CRAWL_TPEXIT=1` stand you in front of a secret wall or the exit, `CRAWL_WISP=1`
+lights the wisp from the start, and `CRAWL_FOLLOWWISP=1` makes a person at the keys walk wherever the wisp
+leans (a test that it really leads out). The harness plays a person at the keys with `HOST_INPUT`, for
 example `HOST_INPUT="1:+H;4.2:-H;5:m300,0;6:+W;8:-W;9:+MOUSE1;9.2:-MOUSE1"` (press, release, mouse
 counts), and `HOST_SAVE=file` / `HOST_LOAD=file` and `HOST_SLOTS=dir` stand in for the registry.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
@@ -266,16 +284,23 @@ The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.p
 
 * The synth output was analysed offline: no clipping (peak 0.85 across the new programs and art scenes),
   no DC offset, and every new effect's level measured against the existing ones.
-* The CATACOMB autopilot was simulated for 50 minutes on each of six seeds, merchant visits included.
-  Every seed reached level 8 to 10. Levels took about 5 to 6.5 minutes (up to 13 with deaths), every one
-  ended through its exit, and each run died 0 to 2 times. The median level ended with about 85% of its
-  treasure, and the caster bought five to nine things per run: spells from level 3 or 4 on, and armour,
-  hoods and rings in between, saving up now and then. Wall skulls woke 6-15 times a run, spiders dropped
-  10-30 times and shield-bearers landed 2-33 sword blows.
+* The CATACOMB autopilot was simulated for 50 minutes on each of eight seeds, merchant visits included,
+  in the wider crypt with its secrets. Runs reached level 6 to 9 (the earlier, narrower crypt reached 9 on
+  every seed under the same test). Levels took a median of about 5.6 minutes, every one ended through its
+  exit, the median level ended with 83% of its treasure (87% before), and the caster bought four to eight
+  things per run and found two to six secrets. The wider halls make it a little harder: four runs never
+  died, two died once, one twice and one five times (the earlier crypt: none or once). That is after
+  bones thrown from far across a hall were made to fly wider, and the crypt was made to ease off after each
+  death on a level, which ended runs that died again and again on the same level.
+* Every generated level was checked for reach: each walkable lane connected, on 15 seeds and levels. A
+  test player that does nothing but walk where the wisp leans cleared 24 of 24 levels (levels 1 to 9,
+  six seeds) in 25 to 115 seconds, fetching vault keys on the way where the exit needed them, including
+  a key locked inside another vault.
 * The core was run under AddressSanitizer and UBSan: earlier rounds for about an hour (every HAUNT.EXE
-  act and art scene, scene switches and CATACOMB), and this round for 27 more minutes of CATACOMB with
-  every frame drawn, covering the merchant, levels 1 to 7, every spell, rune, robe, hood and ring, and
-  the BFS9000. All clean. The per-frame CPU cost (simulation plus drawing, without the synth) is about
+  act and art scene, scene switches and CATACOMB, with the merchant, levels 1 to 7, every spell, rune,
+  robe, hood and ring, and the BFS9000), and this round for about 30 more minutes of the new crypt with
+  every frame drawn: the autopilot (finding and opening secrets, with the wisp lit), a person following
+  the wisp out, and pressing a secret wall, walking into its closet and taking the loot. All clean. The per-frame CPU cost (simulation plus drawing, without the synth) is about
   0.8 ms for HAUNT.EXE and about 2 ms for CATACOMB, deep levels with every spell included (2.3 ms while
   you play it).
 * Playing it was tested two ways. The harness played scripted sessions: taking control from either
@@ -284,7 +309,8 @@ The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.p
   (clean). The Windows build was driven under Wine with real key presses and mouse movement: holding H,
   turning with the raw mouse, the inventory, fleeing (the progress landed in the registry), the next run
   starting from it, and the mouse ending the saver again after sleepwalking. The autopilot's simulated
-  runs came out exactly as before.
+  runs came out exactly as before. With the wider crypt, the Windows build went under Wine again: taking
+  over, the merchant, walking and turning, and the Esc question.
 * The Windows build was run under Wine on a virtual 3840x2160 display (the OpenGL path was checked by
   reading back the frame: 10x scale, centred, pixel drift applied), in a window, with the GDI fallback,
   the settings dialog, and the `/p` preview. The `/f` capture window came up borderless at 3840x2161.

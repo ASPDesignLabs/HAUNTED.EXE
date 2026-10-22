@@ -1325,6 +1325,270 @@ static void spr_potion(void) {
     cv_store(SP_POTION);
 }
 
+/* ------------------------------------------------------------------ */
+/* Set dressing: things that hang from the ceiling, graves, fire        */
+/* ------------------------------------------------------------------ */
+
+/* a chain straight down from y0 to y1: links alternately edge-on and face-on */
+static void chain_down(float x, int y0, int y1) {
+    for (int y = y0; y < y1; y += 4) {
+        if (((y - y0) / 4) & 1) cv_capsule(x, (float)y, x, (float)(y + 4), 0.9f, R_IRON, 0.2f, 0.85f);
+        else for (int a = 0; a < 16; a++) {
+            float ang = TAU_F * a / 16;
+            cv_px((int)(x + 0.5f + 2.0f * cosf(ang)), (int)(y + 2.5f + 2.6f * sinf(ang)), sh(R_IRON, 0.45f - 0.3f * sinf(ang + 0.7f)));
+        }
+    }
+}
+/* a thin chain on a slant: beads of iron, light and dark */
+static void chain_line(float x0, float y0, float x1, float y1) {
+    int n = (int)(hypotf(x1 - x0, y1 - y0) / 1.6f) + 1;
+    for (int i = 0; i <= n; i++) {
+        float t = (float)i / n;
+        cv_px((int)(x0 + (x1 - x0) * t), (int)(y0 + (y1 - y0) * t), sh(R_IRON, (i & 1) ? 0.7f : 0.3f));
+    }
+}
+static void hook(float x, float y, float s) {                       /* a meat hook hanging at (x, y) */
+    cv_capsule(x, y, x, y + 7 * s, 1.0f * s, R_IRON, 0.25f, 0.9f);
+    for (int a = 0; a <= 14; a++) {
+        float ang = PI_F * a / 14.0f, r = 4.0f * s;
+        cv_px((int)(x - r + r * cosf(ang) + 0.5f), (int)(y + 7 * s + r * sinf(ang)), sh(R_IRON, 0.75f - 0.4f * a / 14.0f));
+        cv_px((int)(x - r + r * cosf(ang) + 0.5f), (int)(y + 7 * s + r * sinf(ang) + 1), sh(R_IRON, 0.3f));
+    }
+    cv_px((int)(x - 2 * 4.0f * s), (int)(y + 7 * s - 1), sh(R_IRON, 0.9f));   /* the point */
+}
+
+static void spr_hooks(void) {
+    cv_begin(cv_sprite, TS, TS);
+    static const float X[3] = { 20, 33, 45 }, L[3] = { 22, 34, 16 };
+    for (int i = 0; i < 3; i++) { chain_down(X[i], 0, (int)L[i]); hook(X[i] + 0.5f, L[i], 1.0f); }
+    for (int y = 37; y < 47; y++)                                  /* a rag of something long dead on the middle one */
+        for (int x = 25; x < 36; x++) {
+            float u = (y - 37) / 10.0f, w = 4.5f - 2.0f * u + sinf(y * 1.3f) * 0.8f;
+            if (fabsf(x + 0.5f - 30.5f) > w) continue;
+            cv_px(x, y, sh(R_WARM, 0.18f + 0.22f * h01(x, y, 5)));
+        }
+    cv_store(SP_HOOKS);
+}
+
+static void spr_gibbet(int id, int prisoner) {
+    cv_begin(cv_sprite, TS, TS);
+    chain_down(32, 0, 12);
+    float cx = 32, top = 15, bot = 47, rx = 11;
+    if (prisoner) {                                                /* slumped against the bars, an arm through them */
+        cv_bone(26, 44, 37, 45, 1.3f, 0.25f, 0.85f);
+        cv_bone(29, 44, 33, 33, 1.1f, 0.25f, 0.85f);
+        for (int r = 0; r < 4; r++) cv_capsule(28.5f, 34.0f + r * 2.2f, 35.5f, 35.0f + r * 2.2f, 0.8f, R_BONE, 0.25f, 0.8f);
+        cv_skull(31, 28, 0.9f, 0.3f, 0.95f);
+        cv_bone(36, 37, 46, 42, 1.0f, 0.25f, 0.8f);
+        cv_bone(46, 42, 47, 50, 0.9f, 0.25f, 0.75f);
+    }
+    for (int a = 0; a < 40; a++) {                                 /* the hoops, top and bottom, and a band round the middle */
+        float ang = TAU_F * a / 40.0f, sx = cx + rx * cosf(ang), sz = sinf(ang);
+        if (sz < 0) continue;                                      /* the front half only: the back is behind the bars */
+        cv_px((int)sx, (int)(top + 2.5f * sz), sh(R_IRON, 0.35f + 0.5f * sz));
+        cv_px((int)sx, (int)(bot + 2.5f * sz), sh(R_IRON, 0.35f + 0.5f * sz));
+        cv_px((int)sx, (int)(31 + 2.5f * sz), sh(R_IRON, 0.3f + 0.4f * sz));
+    }
+    cv_ellipse(cx, top - 1, 4, 3, R_IRON, 0.2f, 0.8f);             /* the dome where the chain takes it */
+    for (int b = 0; b < 7; b++) {                                  /* the bars, brighter in front */
+        float ang = PI_F * (b + 0.5f) / 7.0f, x = cx - rx * cosf(ang), lit = 0.3f + 0.55f * sinf(ang);
+        for (int y = (int)(top + 2.5f * sinf(ang)); y <= (int)(bot + 2.5f * sinf(ang)); y++) cv_px((int)x, y, sh(R_IRON, lit));
+    }
+    for (int x = (int)(cx - rx); x <= (int)(cx + rx); x++) cv_px(x, (int)bot + 3, sh(R_IRON, 0.25f));
+    cv_outline(0);
+    cv_store(id);
+}
+
+static void spr_chandelier(int id, int frame) {
+    cv_begin(cv_sprite, TS, TS);
+    float cx = 32, ry = 24, rx = 21;
+    chain_down(cx, 0, 7);
+    for (int k = 0; k < 3; k++) {                                  /* three chains down to the ring */
+        float ang = PI_F * (0.15f + 0.35f * k), x = cx + rx * cosf(ang) * 0.95f;
+        chain_line(cx, 8, x, ry + 3.0f * sinf(ang));
+    }
+    for (int a = 0; a < 72; a++) {                                 /* the iron ring */
+        float ang = TAU_F * a / 72.0f, sz = sinf(ang);
+        uint8_t c = sh(R_IRON, sz > 0 ? 0.35f + 0.5f * sz : 0.18f);
+        cv_px((int)(cx + rx * cosf(ang)), (int)(ry + 3.5f * sz), c);
+        if (sz > 0) cv_px((int)(cx + rx * cosf(ang)), (int)(ry + 3.5f * sz + 1), sh(R_IRON, 0.2f));
+    }
+    for (int k = 0; k < 7; k++) {                                  /* candles, the ones in front drawn last */
+        float ang = TAU_F * k / 7.0f + 0.25f, sz = sinf(ang);
+        if (sz < -0.2f) continue;
+        float x = cx + rx * cosf(ang), y = ry + 3.5f * sz, h = 6 + 3 * h01(k, 1, 77);
+        for (int yy = (int)(y - h); yy <= (int)y; yy++) { cv_px((int)x, yy, sh(R_BONE, 0.55f + 0.25f * sz)); cv_px((int)x + 1, yy, sh(R_BONE, 0.35f + 0.25f * sz)); }
+        cv_px((int)x, (int)(y - h + 2), sh(R_BONE, 0.95f));        /* a drip */
+        flame(x + 1.0f, y - h - 1, 5.5f + (float)((frame + k) & 1), 1.7f, (((frame + k) % 3) - 1) * 0.8f);
+    }
+    cv_store(id);
+}
+
+static void spr_roots(void) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int r = 0; r < 9; r++) {
+        float x = 6 + 52 * h01(r, 1, 31), len = 10 + 30 * h01(r, 2, 31), w = 1.6f + 1.4f * h01(r, 3, 31), ph = h01(r, 4, 31) * 6.0f;
+        for (int y = 0; y < (int)len; y++) {
+            float u = y / len, xx = x + sinf(y * 0.25f + ph) * 2.0f * u, ww = w * (1.0f - u * 0.85f);
+            for (int dx = (int)(-ww - 1); dx <= (int)(ww + 1); dx++) {
+                float nx = (dx + 0.5f) / (ww + 0.01f);
+                if (fabsf(nx) > 1.0f) continue;
+                cv_px((int)(xx + dx), y, sh(R_WOOD, 0.12f + 0.3f * lit(nx, 0, sqrtf(1 - nx * nx)) - 0.08f * u));
+            }
+            if (h01(r, y, 33) > 0.93f) cv_line(xx, (float)y, xx + (h01(r, y, 34) - 0.5f) * 10, y + 4 + 4 * h01(r, y, 35), sh(R_WOOD, 0.15f));   /* a rootlet */
+        }
+    }
+    for (int x = 0; x < TS; x++) for (int y = 0; y < 2 + (int)(3 * h01(x / 3, 0, 36)); y++) cv_px(x, y, sh(R_WARM, 0.1f + 0.15f * h01(x, y, 37)));   /* soil */
+    cv_store(SP_ROOTS);
+}
+
+static void spr_websheet(void) {
+    cv_begin(cv_sprite, TS, TS);
+    uint8_t c = R_STONE + 12, c2 = R_STONE + 9;
+    for (int s = 0; s < 9; s++) {                                  /* strands slung from the ceiling, overlapping */
+        float x0 = -4 + 60 * h01(s, 1, 41), span = 14 + 22 * h01(s, 2, 41), sag = 5 + 22 * h01(s, 3, 41);
+        int n = (int)span;
+        for (int i = 0; i <= n; i++) {
+            float t = (float)i / n, y = sag * 4.0f * t * (1 - t) + 0.5f;
+            cv_px((int)(x0 + span * t), (int)y, (s & 1) ? c : c2);
+        }
+    }
+    for (int s = 0; s < 7; s++) {                                  /* threads hanging down, tattered, a few with dust caught */
+        float x = 4 + 56 * h01(s, 4, 41), drop = 14 + 26 * h01(s, 5, 41);
+        for (int y = 0; y < (int)drop; y++) if (h01(s, y, 42) > 0.2f) cv_px((int)(x + sinf(y * 0.35f + s) * 0.9f), y, (y & 1) ? c : c2);
+        cv_px((int)x, (int)drop, c); cv_px((int)x + 1, (int)drop, c2);
+    }
+    for (int i = 0; i < 14; i++) {                                 /* a few strands across */
+        float x = 6 + 50 * h01(i, 3, 43), y = 4 + 18 * h01(i, 4, 43), a = (h01(i, 6, 43) - 0.5f) * 1.2f, l = 6 + 8 * h01(i, 5, 43);
+        cv_line(x, y, x + cosf(a) * l, y + sinf(a) * l, c2);
+    }
+    cv_px(40, 12, R_IRON + 1); cv_px(41, 12, R_IRON + 1); cv_px(22, 7, R_IRON + 1);   /* flies */
+    cv_store(SP_WEBSHEET);
+}
+
+/* a grave: a stone on its mound */
+static void mound(float cx, float w) {
+    cv_ellipse(cx, 61.5f, w, 3.0f, R_WARM, 0.08f, 0.35f);
+    for (int i = 0; i < 6; i++) cv_px((int)(cx - w + 2 * w * h01(i, 1, 51)), 59 + (int)(2 * h01(i, 2, 51)), sh(R_MOSS, 0.3f + 0.3f * h01(i, 3, 51)));
+}
+static void stone_px(int x, int y, float nx, float shade_v, int seed) {
+    float v = 0.2f + 0.55f * lit(nx, 0.0f, sqrtf(fmaxf(0.0f, 1.0f - nx * nx))) + shade_v + (fbm(x / 4.0f, y / 4.0f, 16, (uint32_t)seed) - 0.5f) * 0.22f;
+    if (h01(x, y, seed + 5) > 0.97f) v -= 0.2f;                    /* pits */
+    if (y > 50 && fbm(x / 3.0f, y / 3.0f, 32, (uint32_t)seed + 9) > 0.6f) { cv_px(x, y, sh(R_MOSS, 0.15f + 0.4f * v)); return; }   /* moss creeping up */
+    cv_px(x, y, sh(R_STONE, v));
+}
+static void spr_tomb(int id, int kind) {
+    cv_begin(cv_sprite, TS, TS);
+    switch (kind) {
+    case 0: {                                                      /* round-topped headstone */
+        float cx = 32, hw = 11, top = 26;
+        mound(cx, 17);
+        for (int y = (int)top; y <= 60; y++)
+            for (int x = (int)(cx - hw); x <= (int)(cx + hw); x++) {
+                float nx = (x + 0.5f - cx) / hw, dy = y + 0.5f - (top + hw);
+                if (dy < 0 && (x + 0.5f - cx) * (x + 0.5f - cx) + dy * dy > hw * hw) continue;
+                float e = 0.0f;
+                if ((fabsf(x + 0.5f - cx) < 1.0f && y > 32 && y < 46) || (fabsf(y + 0.5f - 37) < 1.0f && fabsf(x + 0.5f - cx) < 5)) e = -0.25f;   /* a cross cut in it */
+                if (y > 49 && y < 55 && (x & 3) == 0 && fabsf(x + 0.5f - cx) < 7) e = -0.18f;               /* worn letters */
+                stone_px(x, y, nx, e, 61);
+            }
+        cv_line(cx + 6, top + 4, cx + 2, top + 13, sh(R_STONE, 0.05f));     /* a crack */
+        break;
+    }
+    case 1: {                                                      /* a stone cross */
+        float cx = 32;
+        mound(cx, 14);
+        for (int y = 18; y <= 60; y++)
+            for (int x = 20; x <= 44; x++) {
+                int upright = fabsf(x + 0.5f - cx) < 4.0f, arm = y >= 27 && y <= 33 && fabsf(x + 0.5f - cx) < 12.0f;
+                if (!upright && !arm) continue;
+                float nx = upright && !arm ? (x + 0.5f - cx) / 4.0f : (y + 0.5f - 30.0f) / 3.5f * 0.6f;
+                stone_px(x, y, nx, (y == 18 || y == 27) ? 0.12f : 0.0f, 67);
+            }
+        for (int a = 0; a < 40; a++) {                             /* a ring at the crossing, celtic style */
+            float ang = TAU_F * a / 40.0f;
+            cv_px((int)(cx + 7.5f * cosf(ang)), (int)(30 + 7.5f * sinf(ang)), sh(R_STONE, 0.35f + 0.3f * -sinf(ang)));
+        }
+        break;
+    }
+    case 2: {                                                      /* an obelisk */
+        float cx = 32;
+        mound(cx, 13);
+        for (int y = 8; y <= 60; y++) {
+            float hw = y < 16 ? (y - 8) * 0.75f : 6.0f + (y - 16) * 0.05f;
+            for (int x = (int)(cx - hw - 1); x <= (int)(cx + hw + 1); x++) {
+                if (fabsf(x + 0.5f - cx) > hw) continue;
+                float nx = (x + 0.5f - cx) / (hw + 0.01f);
+                stone_px(x, y, nx > 0 ? 0.6f : -0.6f, (y < 16 ? 0.15f : 0.0f) + (y == 52 ? -0.2f : 0.0f), 71);   /* two faces, one lit */
+            }
+        }
+        cv_skull(cx, 40, 0.55f, 0.3f, 0.9f);                       /* a carved death's head */
+        break;
+    }
+    default: {                                                     /* broken: the stump, the top fallen beside it */
+        float cx = 28, hw = 10;
+        mound(32, 19);
+        for (int y = 40; y <= 60; y++)
+            for (int x = (int)(cx - hw); x <= (int)(cx + hw); x++) {
+                float edge = 40 + (x - (cx - hw)) * 0.45f;               /* a slanting break */
+                if (y < edge) continue;
+                stone_px(x, y, (x + 0.5f - cx) / hw, y < edge + 1.5f ? 0.15f : 0.0f, 73);
+            }
+        for (int y = 52; y <= 60; y++)                             /* the fallen top, on its side */
+            for (int x = 38; x <= 56; x++) {
+                float dx = x + 0.5f - 47.0f, dy = y + 0.5f - 60.0f;
+                if (dx * dx / 81.0f + dy * dy / 64.0f > 1.0f) continue;
+                stone_px(x, y, dx / 9.0f, -0.05f, 79);
+            }
+        break;
+    }
+    }
+    cv_outline(0);
+    cv_store(id);
+}
+
+static void spr_firepit(int id, int frame) {
+    cv_begin(cv_sprite, TS, TS);
+    float cx = 32;
+    for (int i = 0; i < 4; i++) {                                  /* the fire, tongues of it, licking up */
+        float x = cx - 9 + i * 6 + (h01(i, frame, 81) - 0.5f) * 3, h = 18 + 14 * h01(i, frame + 5, 81);
+        flame(x, 54, h, 3.6f, (h01(i, frame + 9, 81) - 0.5f) * 5.0f);
+    }
+    flame(cx + (frame - 1) * 1.2f, 55, 30, 6.0f, (frame - 1) * 2.5f);
+    for (int i = 0; i < 6; i++) {                                  /* sparks */
+        float x = cx + (h01(i, frame, 83) - 0.5f) * 26, y = 12 + 18 * h01(i, frame + 2, 83);
+        cv_px((int)x, (int)y, (uint8_t)(R_FLAME + 9 + (i & 3)));
+    }
+    for (int i = 0; i < 11; i++) {                                 /* the ring of stones, the front ones over the flames */
+        float ang = PI_F * (0.0f + i / 10.0f), x = cx - 17 * cosf(ang), y = 55 + 4.5f * sinf(ang);
+        cv_ellipse(x, y, 4.2f, 3.3f, R_STONE, 0.15f + 0.1f * h01(i, 1, 85), 0.75f + 0.15f * sinf(ang));
+    }
+    cv_flat(cx, 62, 19, 1.6f, R_WARM + 1);
+    cv_store(id);
+}
+
+static void spr_totem(int id, int frame) {
+    cv_begin(cv_sprite, TS, TS);
+    float cx = 32;
+    cv_flat(cx, 62, 9, 1.6f, R_WARM + 1);
+    cv_capsule(cx, 20, cx, 62, 2.2f, R_WOOD, 0.15f, 0.7f);         /* the pole */
+    cv_capsule(cx - 13, 30, cx + 13, 30, 1.3f, R_WOOD, 0.15f, 0.6f);   /* the crossbar */
+    for (int k = 0; k < 3; k++) cv_skull(cx, 52 - k * 10.5f, 0.85f, 0.28f, 0.92f);   /* stacked skulls */
+    for (int k = 0; k < 3; k++) {                                  /* their eyes, lit from within */
+        float y = 52 - k * 10.5f + 0.8f;
+        int c = R_FLAME + 9 + ((frame + k) & 1) * 3;
+        cv_px((int)(cx - 2.0f), (int)y, (uint8_t)c); cv_px((int)(cx + 2.0f), (int)y, (uint8_t)c);
+    }
+    for (int s = -1; s <= 1; s += 2) {                             /* candles on the crossbar ends, and one on top */
+        float x = cx + s * 12;
+        for (int y = 22; y <= 29; y++) { cv_px((int)x, y, sh(R_BONE, 0.6f)); cv_px((int)x + 1, y, sh(R_BONE, 0.4f)); }
+        flame(x + 1, 21, 6.0f + (float)((frame + (s > 0)) & 1), 1.8f, (frame ? 0.7f : -0.7f) * s);
+    }
+    for (int y = 13; y <= 20; y++) { cv_px((int)cx, y, sh(R_BONE, 0.65f)); cv_px((int)cx + 1, y, sh(R_BONE, 0.45f)); }
+    flame(cx + 1, 12, 7.0f + frame, 2.0f, frame ? 0.8f : -0.6f);
+    cv_store(id);
+}
+
 static void find_glints(void) {
     for (int i = 0; i < NSPR; i++) {
         int bx = -1, by = -1, best = -1;
@@ -1511,5 +1775,12 @@ void crawl_art_init(void) {
     static const float KS[4] = { 1.0f, 0.5f, 0.12f, -0.5f };
     for (int f = 0; f < 4; f++) { spr_key(SP_KEY0 + f, KS[f], R_GOLD); spr_key(SP_KEYS0 + f, KS[f], R_IRON); spr_key(SP_KEYC0 + f, KS[f], R_BLOOD); }
     spr_potion();
+    spr_hooks();
+    spr_gibbet(SP_GIBBET, 0); spr_gibbet(SP_GIBBET_SKEL, 1);
+    spr_chandelier(SP_CHANDELIER_A, 0); spr_chandelier(SP_CHANDELIER_B, 1);
+    spr_roots(); spr_websheet();
+    for (int k = 0; k < 4; k++) spr_tomb(SP_TOMB_ROUND + k, k);
+    for (int f = 0; f < 3; f++) spr_firepit(SP_FIREPIT_A + f, f);
+    spr_totem(SP_TOTEM_A, 0); spr_totem(SP_TOTEM_B, 1);
     find_glints();
 }

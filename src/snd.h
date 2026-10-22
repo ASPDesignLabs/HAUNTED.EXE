@@ -67,6 +67,8 @@ enum {
     SFX_RUNE,           /* a rune flaring on the caster's hand       */
     SFX_PURR,           /* the merchant purring, about two breaths   */
     SFX_TRILL,          /* the merchant's chirrup                    */
+    SFX_PUSHWALL,       /* a block of stone grinding back, then settling */
+    SFX_SECRET,         /* a secret found: a hollow knock, then bells  */
     SFX_COUNT
 };
 

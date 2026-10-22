@@ -824,6 +824,32 @@ static float sfx_sample(Sfx *s) {
         x = b * roll * sinf(PI_F * u) * 0.5f;
         break;
     }
+    case SFX_PUSHWALL: {                            /* a long grind with catches in it, a low rumble, then a thud */
+        float w = fminf(1.0f, t / 0.12f) * fminf(1.0f, fmaxf(0.0f, 2.35f - t) / 0.2f);
+        s->lp1 += 0.04f * (nz(&s->rng) - s->lp1);
+        s->lp2 += 0.25f * (nz(&s->rng) - s->lp2);
+        float catches = 0.55f + 0.45f * sinf(t * 37.0f) * sinf(t * 7.3f + 1.0f);
+        float grit = (s->lp2 - s->lp1) * (sinf(t * 53.0f) > 0.6f ? 0.9f : 0.2f);
+        float rumble = sin_cyc(33.0f * t) * 0.3f + sin_cyc(47.0f * t) * 0.15f;
+        float thud = t > 2.38f ? (sin_cyc(52.0f * (t - 2.38f)) * 0.9f + nz(&s->rng) * 0.3f * expf(-(t - 2.38f) * 60.0f)) * expf(-(t - 2.38f) * 9.0f) : 0.0f;
+        x = (s->lp1 * 2.8f * catches + grit * 0.6f + rumble) * w * 0.55f + thud;
+        break;
+    }
+    case SFX_SECRET: {                              /* knock-knock on hollow stone, then four bells rising */
+        float knock = 0.0f;
+        for (int i = 0; i < 2; i++) {
+            float u = t - i * 0.13f;
+            if (u >= 0.0f && u < 0.12f) knock += (sin_cyc(140.0f * u) * 0.7f + nz(&s->rng) * 0.4f * expf(-u * 200.0f)) * expf(-u * 35.0f);
+        }
+        static const float N[4] = { 587.3f, 698.5f, 880.0f, 1174.7f };   /* D, F, A, high D */
+        float bells = 0.0f;
+        for (int i = 0; i < 4; i++) {
+            float u = t - 0.32f - i * 0.12f;
+            if (u > 0.0f) bells += (sin_cyc(N[i] * u) * 0.5f + sin_cyc(N[i] * 2.76f * u) * 0.18f + sin_cyc(N[i] * 5.4f * u) * 0.06f) * expf(-u * 2.6f);
+        }
+        x = knock * 0.6f + bells * 0.22f;
+        break;
+    }
     case X_KICK: {
         float f = 46.0f + 130.0f * expf(-t * 32.0f);
         s->ph[0] += f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
@@ -1265,6 +1291,8 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_RUNE]       = { 0.80f, 0.70f,  0.50f, 0.55f },
     [SFX_PURR]       = { 2.00f, 0.90f,  0.50f, 0.10f },
     [SFX_TRILL]      = { 0.35f, 0.70f,  0.50f, 0.30f },
+    [SFX_PUSHWALL]   = { 2.90f, 0.80f,  0.50f, 0.35f },
+    [SFX_SECRET]     = { 1.90f, 0.85f,  0.50f, 0.55f },
 };
 
 void snd_sfx_ex(int id, float gain, float pan) {
