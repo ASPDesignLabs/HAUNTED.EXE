@@ -47,6 +47,7 @@ enum { DM_PIERCE = 1, DM_ARC = 2, DM_SLOW = 4 };   /* how a hit lands: through s
 enum { HURT_BLOW, HURT_MAGIC, HURT_POISON };
 #define NKEYS 3                             /* gold, silver, crimson */
 #define SHOT_REFLECT NATK                   /* a shot kind: something the Mirror Veil sent back */
+#define NPED 7                              /* the merchant's pedestals, at most */
 
 typedef struct { uint8_t kind, tex, theme, visits; int16_t region, door; uint8_t secret; } Cell;   /* secret: 1 a hidden closet, 2 its cracked wall */
 typedef struct { int x, y, along_x; float open, idle; int opening, locked, color; } Door;   /* locked: 1 locked, 2 unlocked */
@@ -311,8 +312,11 @@ static struct {
 
     /* the merchant's antechamber, before each level */
     int shop, shop_step, shop_pick, shop_bought, shop_look, shop_gold, shop_saving, shop_heal;
-    Offer offers[NPOOL];
-    int offer_gone[NPOOL];
+    Offer offers[NPED];
+    int offer_gone[NPED], offer_back[NPED]; /* offer_back: held last visit, back as it was */
+    float ped_x[NPED], ped_y[NPED];         /* the pedestals, in an arc round the back wall */
+    int ped_n, shop_left, shop_confirm, shop_letgo, shop_held;   /* pedestals; wares still to be had; a ware awaiting a
+                                               second E; one awaiting room in the bag; the ware held this visit */
     double shop_t;
     float sa0, sa1, sdur, sx0, sy0, sx1, sy1, smove, sparkle;    /* turning and walking: from, to, how long */
     float cat_blink, cat_slow, cat_ear, cat_trill, cat_look, purr_t, cat_next_blink, cat_next_ear, cat_tail_k;
@@ -335,7 +339,7 @@ static struct {
     float mood_t;
 } G;
 static float zbuf[W];
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES, UI_BESTIARY };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES, UI_BESTIARY, UI_LETGO };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 
 static uint8_t ramp_at(int ramp, int k) { return (uint8_t)(ramp + clampi(k, 0, ramp == R_GOLD ? 12 : 15)); }   /* the gold ramp is short */
@@ -3939,16 +3943,17 @@ static void debug_gear(void) {
 }
 #endif
 
-/* A piece comes to the caster, bought or found: worn if it beats what is on, otherwise into the bag;
- * what has nowhere to go is lost. A caption says which. (A person will choose at the merchant.) */
-static void take_piece(const Offer *o) {
+/* A piece comes to the caster, bought or found. Found, or bought by the autopilot: worn if it beats
+ * what is on, otherwise into the bag. Bought by a person: worn at once (wear). What has nowhere to go
+ * is lost. A caption says which. */
+static void take_piece(const Offer *o, int wear) {
     const Piece *p = &o->piece;
     char a[48], b[48];
     piece_name(p, a, b, sizeof a);
     int slot = piece_slot(&RUN.gear, p->kind);
     const char *was = slot >= 0 ? KIND_NAME[RUN.gear.worn[slot].kind] : "";
     int old = G.max_hp;
-    switch (gear_take(&RUN.gear, o)) {
+    switch (wear ? gear_take_wear(&RUN.gear, o) : gear_take(&RUN.gear, o)) {
     case TAKE_WORN: say("NOW WEARING %s", b); break;
     case TAKE_WORN_OLD_BAGGED: say("%s ON; THE OLD %s IN THE BAG", KIND_NAME[p->kind], was); break;
     case TAKE_WORN_OLD_LOST: say("%s ON; THE OLD %s LOST", KIND_NAME[p->kind], was); break;
@@ -4018,7 +4023,7 @@ static void collect(Item *it) {
         memset(&o, 0, sizeof o);
         o.kind = GK_PIECE; o.id = IK_RING;
         o.piece = piece_roll(o.id, G.level, -1, &G.rs); o.tier = G.level;
-        take_piece(&o);
+        take_piece(&o, 0);
         snd_sfx(SFX_KEYGET); G.gold = 1.0f; G.grin_t = 1.6f;
         break;
     }
@@ -4423,15 +4428,17 @@ static void crawl_update(double dt) {
 }
 
 /* ================================================================== */
-/* The merchant's antechamber, before each level: the owner's cat on a chest, three wares on
- * pedestals (an attack spell, a defensive rune, something to wear), one to be had for the gold in
- * hand. The first is free. Then out through the east door and into the level. */
+/* The merchant's antechamber, before each level: the owner's cat on a chest, and five to seven wares
+ * on pedestals in an arc round the back wall (an attack spell, a defensive rune, the rest things to
+ * wear), one to three to be had for the gold in hand, deeper down more. The first is free. A person
+ * can hold one for the next visit. Then out through the east door and into the level. */
 /* ================================================================== */
 
-#define CAT_X 12.62f
+#define CAT_X 10.62f
 #define CAT_Y 15.45f
 #define CAT_S 1.05f
-static const float PED_X[NPOOL] = { 13.75f, 15.5f, 17.25f }, PED_Y[NPOOL] = { 13.75f, 13.55f, 13.75f };
+#define SHOP_MID 15.5f                      /* the middle of the room, east to west */
+#define SHOP_DOOR 21                        /* the east door, and the way on */
 enum { SH_GREET, SH_LOOK, SH_THINK, SH_GO, SH_BUY, SH_THANK, SH_LEAVE };
 static int offer_sprite(const Offer *o) {
     static const int PIECE_SPR[NIK] = { SP_ITEM_RING, SP_ITEM_BRACER, SP_ITEM_BOOTS, SP_ITEM_AMULET, SP_ITEM_HOOD, SP_ITEM_ROBE, SP_ITEM_RING, SP_ITEM_BAG };
@@ -4451,19 +4458,27 @@ static void gen_shop(void) {
     G.nsecrets = G.secrets_found = 0; G.slide = G.seek_secret = -1;
     for (int k = 0; k < NKEYS; k++) G.vault_room[k] = G.vault_door[k] = -1;
     memset(G.bulky, 0, sizeof G.bulky); memset(G.fog, 0, sizeof G.fog);
-    for (int y = 13; y <= 17; y++) for (int x = 12; x <= 18; x++) carve(x, y, 0, TH_BRICK);
-    G.rooms[G.nrooms++] = (Room){ 12, 13, 7, 5, 0, TH_BRICK };
-    for (int x = 19; x <= 24; x++) carve(x, 15, 1, TH_CORRIDOR);
-    G.map[15][19].kind = K_DOOR; G.map[15][19].door = 0;
-    G.doors[0] = (Door){ 19, 15, 1, 0.0f, 0.0f, 0, 0, 0 }; G.ndoors = 1;
-    G.map[12][15].tex = T_SIGN;                                    /* the merchant's sign behind the wares */
-    G.map[12][13].tex = G.map[12][17].tex = T_TORCH0;
-    light_static(13.5f, 12.92f, 1.35f, 4.6f); light_static(17.5f, 12.92f, 1.35f, 4.6f);
-    G.map[17][11].tex = T_TORCH0; light_static(12.08f, 17.5f, 1.2f, 4.2f);   /* by the cat */
-    G.map[12][14].tex = G.map[12][16].tex = T_BRICK;
-    add_deco(12.4f, 13.4f, SP_CANDLES); light_static(12.45f, 13.45f, 0.9f, 3.0f);
-    add_deco(18.55f, 13.45f, SP_URN); add_deco(18.55f, 17.55f, SP_URN);
-    for (int i = 0; i < NPOOL; i++) add_deco(PED_X[i], PED_Y[i], SP_PEDESTAL);
+    for (int y = 12; y <= 17; y++) for (int x = 10; x <= 20; x++) carve(x, y, 0, TH_BRICK);
+    G.rooms[G.nrooms++] = (Room){ 10, 12, 11, 6, 0, TH_BRICK };
+    for (int x = SHOP_DOOR; x <= SHOP_DOOR + 5; x++) carve(x, 15, 1, TH_CORRIDOR);
+    G.map[15][SHOP_DOOR].kind = K_DOOR; G.map[15][SHOP_DOOR].door = 0;
+    G.doors[0] = (Door){ SHOP_DOOR, 15, 1, 0.0f, 0.0f, 0, 0, 0 }; G.ndoors = 1;
+    G.map[11][15].tex = T_SIGN;                                    /* the merchant's sign behind the wares */
+    G.map[11][12].tex = G.map[11][18].tex = T_TORCH0;
+    light_static(12.5f, 11.92f, 1.35f, 4.6f); light_static(18.5f, 11.92f, 1.35f, 4.6f);
+    G.map[17][9].tex = T_TORCH0; light_static(10.08f, 17.5f, 1.2f, 4.2f);   /* by the cat */
+    G.map[13][SHOP_DOOR].tex = T_TORCH0; light_static(SHOP_DOOR - 0.08f, 13.5f, 1.2f, 4.2f);   /* the east end */
+    G.map[11][14].tex = G.map[11][16].tex = T_BRICK;
+    add_deco(10.4f, 12.4f, SP_CANDLES); light_static(10.45f, 12.45f, 0.9f, 3.0f);
+    add_deco(15.5f, 12.3f, SP_CANDLES); light_static(15.5f, 12.35f, 0.8f, 3.2f);   /* under the sign */
+    add_deco(20.55f, 12.45f, SP_URN); add_deco(20.55f, 17.55f, SP_URN);
+    G.ped_n = gear_shop_pedestals(G.level);                        /* an arc, its ends come forward */
+    float half = 3.0f + 0.4f * (float)(G.ped_n - 5);
+    for (int i = 0; i < G.ped_n; i++) {
+        float t = -1.0f + 2.0f * (float)i / (float)(G.ped_n - 1);
+        G.ped_x[i] = SHOP_MID + t * half; G.ped_y[i] = 12.9f + 0.75f * t * t;
+        add_deco(G.ped_x[i], G.ped_y[i], SP_PEDESTAL);
+    }
     G.ncells = 0;
     for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (G.map[y][x].kind == K_FLOOR) G.ncells++;
 }
@@ -4482,29 +4497,30 @@ static float face_of(float x, float y) { return atan2f(y - G.py, x - G.px); }
  * spell it cannot yet afford, sometimes splashing out on the dearest thing it can */
 static int shop_choose(void) {
     const Gear *g = &RUN.gear;
-    float v[NPOOL];
-    int best = -1, dear = -1;
+    float v[NPED];
+    int best = -1, dear = -1, purse = RUN.treasure;
     float bs = 0.0f;
-    for (int i = 0; i < NPOOL; i++) {
-        v[i] = gear_value(g, &G.offers[i], G.level);
-        if (v[i] <= 0.0f || G.offers[i].price > RUN.treasure) continue;
+    if (G.shop_bought > 0) purse -= (int)(gear_haul(G.level) * 0.15f);   /* after the first, a little gold kept back */
+    for (int i = 0; i < G.ped_n; i++) {
+        v[i] = G.offer_gone[i] ? 0.0f : gear_value(g, &G.offers[i], G.level);
+        if (v[i] <= 0.0f || G.offers[i].price > purse) continue;
         float s = v[i] / sqrtf(fmaxf(1.0f, (float)G.offers[i].price) / 100.0f + 1.0f) * (0.8f + 0.4f * rndf());
         if (s > bs) { bs = s; best = i; }
         if (dear < 0 || G.offers[i].price > G.offers[dear].price) dear = i;
     }
     G.shop_saving = 0;
-    if (G.level == 1) return best;                                 /* the first is free: take the best */
+    if (G.level == 1 || G.shop_bought > 0) return best;            /* the first is free; after one, the best for the gold */
     #define SPELL(o) ((o).kind == GK_ATK || (o).kind == GK_DEF)
     if (RUN.goal > 0) {                                            /* saving: a spell worth the wait now? */
         int sp = -1;
-        for (int i = 0; i < NPOOL; i++)
+        for (int i = 0; i < G.ped_n; i++)
             if (SPELL(G.offers[i]) && G.offers[i].price <= RUN.treasure && v[i] > 0.5f && (sp < 0 || v[i] > v[sp])) sp = i;
         if (sp >= 0) { RUN.goal = 0; return sp; }
         if (RUN.treasure < RUN.goal && rndf() < 0.7f) { G.shop_saving = 1; return -1; }
         RUN.goal = 0;
     }
     float next = gear_haul(G.level) * 0.6f;                        /* what the coming level should bring, cautiously */
-    for (int i = 0; i < NPOOL; i++) {                              /* a spell it can't quite afford: put the gold by */
+    for (int i = 0; i < G.ped_n; i++) {                            /* a spell it can't quite afford: put the gold by */
         if (!SPELL(G.offers[i]) || G.offers[i].price <= RUN.treasure || v[i] <= (best >= 0 ? v[best] : 0.3f)) continue;
         float p = G.offers[i].price <= RUN.treasure + next ? 0.4f : 0.15f;
         if (best >= 0 && SPELL(G.offers[best])) p *= 0.3f;         /* a spell in hand already */
@@ -4525,14 +4541,24 @@ static void begin_shop(void) {
     if (G.hp <= 0) G.hp = G.max_hp;
     G.tally = 0; G.dead = 0; G.exiting = G.leaving = 0; G.readout = 0.0f; G.card = 99.0f;
     G.hurt = G.gold = G.kick = G.chill = 0.0f;
-    G.px = 14.35f; G.py = 15.95f; G.cx = 14; G.cy = 15;            /* close by the merchant */
+    G.px = 13.6f; G.py = 16.2f; G.cx = 13; G.cy = 16;              /* close by the merchant, the wares before you */
     G.ang = face_of(CAT_X, CAT_Y);
     G.camz = 0.5f; G.hand = 0.0f; G.spd = 0.0f; G.bob = 0.0f;
-    for (int p = 0; p < NPOOL; p++) {
-        G.offers[p] = gear_offer(p, G.level, &RUN.gear, &G.rs);
-        if (G.level == 1) G.offers[p].price = 0;
-        G.offer_gone[p] = 0;
+    int bag_up = 0;
+    for (int p = 0; p < G.ped_n; p++) {                            /* a spell, a rune, the rest to wear; one bag at most */
+        int pool = p == 0 ? POOL_ATTACK : (p == 1 ? POOL_DEFENSE : POOL_GEAR);
+        Offer o = gear_offer(pool, G.level, &RUN.gear, &G.rs);
+        for (int k = 0; k < 8 && bag_up && o.kind == GK_PIECE && o.piece.kind == IK_BAG; k++) o = gear_offer(pool, G.level, &RUN.gear, &G.rs);
+        bag_up |= o.kind == GK_PIECE && o.piece.kind == IK_BAG;
+        if (G.level == 1) o.price = 0;
+        G.offers[p] = o; G.offer_gone[p] = G.offer_back[p] = 0;
     }
+    if (RUN.gear.has_held) {                                       /* last visit's hold: back as it was, at the price it showed */
+        const Offer *h = &RUN.gear.held;
+        int p = h->kind == GK_ATK ? 0 : (h->kind == GK_DEF ? 1 : 2);
+        G.offers[p] = *h; G.offer_back[p] = 1;
+    }
+    G.shop_left = gear_shop_purchases(G.level); G.shop_confirm = G.shop_letgo = G.shop_held = -1;
     G.shop_step = SH_GREET; G.shop_t = 0.0; G.shop_pick = -1; G.shop_bought = 0; G.shop_look = -1;
     G.shop_gold = RUN.treasure; G.shop_saving = 0; G.sparkle = 0.0f;
     G.shop_heal = G.hp + (G.max_hp - G.hp) * 4 / 10;               /* a rest by the purring cat */
@@ -4542,7 +4568,7 @@ static void begin_shop(void) {
     G.level_t = 0.0;
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "SHOP level %d gold %d souls %d:", G.level, RUN.treasure, RUN.souls);
-    for (int p = 0; p < NPOOL; p++) { char nm[80]; gear_name(&G.offers[p], nm, sizeof nm); fprintf(stderr, " [%s $%d%s]", nm, G.offers[p].price, G.offers[p].rare ? " RARE" : ""); }
+    for (int p = 0; p < G.ped_n; p++) { char nm[80]; gear_name(&G.offers[p], nm, sizeof nm); fprintf(stderr, " [%s $%d%s%s]", nm, G.offers[p].price, G.offers[p].rare ? " RARE" : "", G.offer_back[p] ? " HELD" : ""); }
     fprintf(stderr, "\n");
 #endif
 }
@@ -4563,9 +4589,10 @@ static void shop_cat(float dt) {
 /* the ware on pedestal i changes hands */
 static void shop_purchase(int i) {
     const Offer *o = &G.offers[i];
-    G.shop_pick = i; G.shop_bought = 1; G.offer_gone[i] = 1; G.sparkle = 0.8f;
+    G.shop_pick = i; G.shop_bought++; G.shop_left--; G.offer_gone[i] = 1; G.sparkle = 0.8f; G.shop_confirm = -1;
+    if (i == G.shop_held) { RUN.gear.has_held = 0; G.shop_held = -1; }   /* bought after all: the hold is spent */
     RUN.treasure -= o->price;
-    if (o->kind == GK_PIECE) take_piece(o);
+    if (o->kind == GK_PIECE) take_piece(o, G.player);
     else gear_take(&RUN.gear, o);
     if (o->price > 0) snd_sfx_ex(SFX_COIN, 1.1f, 0.5f);
     snd_sfx_ex(SFX_SHIMMER, 0.8f, 0.5f);
@@ -4615,13 +4642,13 @@ static void update_shop(double dt) {
     case -1: break;                                                /* a person is choosing */
     case SH_GREET:                                                 /* the merchant first: a slow blink */
         if (st > 0.8f && st - fdt <= 0.8f) G.cat_slow = 1.4f;
-        if (st >= 2.4f) { G.shop_step = SH_LOOK; G.shop_look = 0; G.shop_t = 0.0; shop_turn(face_of(PED_X[0], PED_Y[0]), 0.7f); }
+        if (st >= 2.4f) { G.shop_step = SH_LOOK; G.shop_look = 0; G.shop_t = 0.0; shop_turn(face_of(G.ped_x[0], G.ped_y[0]), 0.7f); }
         break;
     case SH_LOOK: {                                                /* each ware in turn */
         float hold = 0.7f + 1.0f + 0.5f * (float)(hash2(G.level, G.shop_look) % 100) / 100.0f;
         if (st >= hold) {
-            if (++G.shop_look >= NPOOL) { G.shop_look = -1; G.shop_step = SH_THINK; G.shop_t = 0.0; shop_turn(face_of(15.5f, 13.0f), 0.5f); }
-            else { G.shop_t = 0.0; shop_turn(face_of(PED_X[G.shop_look], PED_Y[G.shop_look]), 0.45f); }
+            if (++G.shop_look >= G.ped_n) { G.shop_look = -1; G.shop_step = SH_THINK; G.shop_t = 0.0; shop_turn(face_of(SHOP_MID, 13.0f), 0.5f); }
+            else { G.shop_t = 0.0; shop_turn(face_of(G.ped_x[G.shop_look], G.ped_y[G.shop_look]), 0.45f); }
         }
         break;
     }
@@ -4632,7 +4659,7 @@ static void update_shop(double dt) {
             if (G.shop_pick >= 0) {
                 int i = G.shop_pick;
                 G.shop_look = i;
-                shop_walk(PED_X[i] + (15.5f - PED_X[i]) * 0.25f, PED_Y[i] + 1.0f, 1.6f);
+                shop_walk(G.ped_x[i] + (SHOP_MID - G.ped_x[i]) * 0.25f, G.ped_y[i] + 1.0f, 1.6f);
                 G.shop_step = SH_GO;
             } else { G.shop_step = SH_THANK; shop_turn(face_of(CAT_X, CAT_Y), 0.7f); }
 #ifdef CRAWL_DEBUG
@@ -4641,31 +4668,38 @@ static void update_shop(double dt) {
         }
         break;
     case SH_GO:
-        if (st >= G.sdur + 0.15f) { G.shop_step = SH_BUY; G.shop_t = 0.0; shop_turn(face_of(PED_X[G.shop_pick], PED_Y[G.shop_pick]), 0.3f); }
+        if (st >= G.sdur + 0.15f) { G.shop_step = SH_BUY; G.shop_t = 0.0; shop_turn(face_of(G.ped_x[G.shop_pick], G.ped_y[G.shop_pick]), 0.3f); }
         break;
     case SH_BUY: {                                                 /* reach out and take it */
         G.hand = st < 0.35f ? st / 0.35f : (st > 1.05f ? fmaxf(0.0f, 1.0f - (st - 1.05f) / 0.3f) : 1.0f);
-        if (!G.shop_bought && st >= 0.5f) shop_purchase(G.shop_pick);
-        if (st >= 1.5f) { G.hand = 0.0f; G.shop_step = SH_THANK; G.shop_t = 0.0; shop_turn(face_of(CAT_X, CAT_Y), 0.7f); }
+        if (G.shop_pick >= 0 && !G.offer_gone[G.shop_pick] && st >= 0.5f) shop_purchase(G.shop_pick);
+        if (st >= 1.5f) {
+            G.hand = 0.0f; G.shop_t = 0.0;
+            if (G.shop_left > 0) { G.shop_step = SH_THINK; shop_turn(face_of(SHOP_MID, 13.0f), 0.5f); }   /* another, deeper down */
+            else { G.shop_step = SH_THANK; shop_turn(face_of(CAT_X, CAT_Y), 0.7f); }
+        }
         break;
     }
     case SH_THANK:                                                 /* a look back at the merchant */
         if (!G.shop_bought && st > 0.9f && st - fdt <= 0.9f) G.cat_slow = 1.4f;
-        if (st >= 2.1f) { G.shop_step = SH_LEAVE; G.shop_t = 0.0; shop_walk(18.2f, 15.5f, 1.8f); }
+        if (st >= 2.1f) { G.shop_step = SH_LEAVE; G.shop_t = 0.0; shop_walk(SHOP_DOOR - 0.8f, 15.5f, 1.8f); }
         break;
     default: {                                                     /* out through the door */
         Door *d = &G.doors[0];
         if (hypotf(d->x + 0.5f - G.px, d->y + 0.5f - G.py) < 2.2f && d->open < 1.0f) d->opening = 1;
-        if (st >= G.sdur && G.sx1 < 20.0f) { G.shop_t = 0.0; shop_walk(22.5f, 15.5f, 1.8f); }
+        if (st >= G.sdur && G.sx1 < SHOP_DOOR) { G.shop_t = 0.0; shop_walk(SHOP_DOOR + 3.5f, 15.5f, 1.8f); }
         break;
     }
     }
-    if (G.px > 20.4f) {                                            /* through the door and into the level */
-        G.fade = 1.0f - smoothstepf(20.4f, 21.6f, G.px);
-        if (G.px >= 21.6f) { start_level(); return; }
+    if (G.px > SHOP_DOOR + 1.4f) {                                 /* through the door and into the level */
+        G.fade = 1.0f - smoothstepf(SHOP_DOOR + 1.4f, SHOP_DOOR + 2.6f, G.px);
+        if (G.px >= SHOP_DOOR + 2.6f) {
+            if (G.shop_held < 0) RUN.gear.has_held = 0;            /* last visit's hold, bought or passed over, is gone */
+            start_level(); return;
+        }
     }
     update_doors(fdt);
-    if (G.px <= 20.4f) G.fade = smoothstepf(0.0f, 0.7f, (float)G.level_t);
+    if (G.px <= SHOP_DOOR + 1.4f) G.fade = smoothstepf(0.0f, 0.7f, (float)G.level_t);
     G.mood_t -= fdt;
     if (G.mood_t <= 0.0f) { snd_set_mood(0.6f); G.mood_t = 0.5f; }
     build_lightmap();
@@ -4784,7 +4818,7 @@ static float human_move(float dx, float dy) {
         if (solid_mob(m) && m->state == MS_WALK && m->type != MOB_BAT) push_from(m->x, m->y, 0.5f);
     }
     if (G.shop) {                                                  /* the pedestals and the merchant's chest */
-        for (int i = 0; i < NPOOL; i++) push_from(PED_X[i], PED_Y[i], 0.5f);
+        for (int i = 0; i < G.ped_n; i++) push_from(G.ped_x[i], G.ped_y[i], 0.5f);
         push_from(CAT_X, CAT_Y, 0.75f);
     }
     return hypotf(G.px - ox, G.py - oy);
@@ -4913,22 +4947,63 @@ static void shop_human(float dt) {
     if (IN.hit[KEY_B]) { open_ui(UI_BESTIARY); return; }
     if (IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
     human_walk(dt);
+    int was = G.shop_look;
     G.shop_look = -1;
     float bd = 3.2f;
-    for (int i = 0; i < NPOOL; i++) {
+    for (int i = 0; i < G.ped_n; i++) {
         if (G.offer_gone[i]) continue;
-        float d = hypotf(PED_X[i] - G.px, PED_Y[i] - G.py);
-        if (d < bd && fabsf(wrap_pi(atan2f(PED_Y[i] - G.py, PED_X[i] - G.px) - G.ang)) < 0.3f + 0.25f / d) { bd = d; G.shop_look = i; }
+        float d = hypotf(G.ped_x[i] - G.px, G.ped_y[i] - G.py);
+        if (d < bd && fabsf(wrap_pi(atan2f(G.ped_y[i] - G.py, G.ped_x[i] - G.px) - G.ang)) < 0.3f + 0.25f / d) { bd = d; G.shop_look = i; }
     }
+    if (G.shop_look != was) G.shop_confirm = -1;                   /* a warning is for the ware it was given over */
+#ifdef CRAWL_DEBUG
+    if (G.shop_look != was) fprintf(stderr, "EVENT shop_look %d t=%.2f at (%.2f,%.2f) ang %.3f\n", G.shop_look, G.t, G.px, G.py, G.ang);
+#endif
+    int i = G.shop_look;
     if (IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1]) {
-        int i = G.shop_look;
         if (i >= 0) {
-            if (G.shop_bought) say("ONE WARE A VISIT");
-            else if (G.offers[i].price > RUN.treasure) { say("YOU CAN'T AFFORD THAT"); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); }
+            const Offer *o = &G.offers[i];
+            int worn = -1;                                         /* buying for a slot already worn */
+            if (o->kind == GK_PIECE && o->piece.kind != IK_BAG) {
+                int sl = piece_slot(&RUN.gear, o->piece.kind);
+                if (RUN.gear.worn[sl].kind != IK_NONE) worn = sl;
+            }
+            if (G.shop_left <= 0) say("NO MORE WARES THIS VISIT");
+            else if (o->price > RUN.treasure) { say("YOU CAN'T AFFORD THAT"); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); }
+            else if (worn >= 0 && !RUN.gear.bag_size && G.shop_confirm != i) { G.shop_confirm = i; snd_sfx_ex(SFX_KNOCK, 0.7f, 0.5f); }   /* the card warns; a second E buys */
+            else if (worn >= 0 && RUN.gear.bag_size && !gear_bag_free(&RUN.gear)) { G.shop_letgo = i; G.ui = UI_LETGO; G.ui_sel = 0; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); }
             else { shop_purchase(i); G.grab_t = 1.0f; }
         } else if (!human_use() && hypotf(G.px - CAT_X, G.py - CAT_Y) < 1.8f) { G.cat_slow = 1.4f; sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.9f); }   /* a pat */
     }
+    if (IN.hit[KEY_Q] && i >= 0) {                                 /* hold it for the next visit, for a quarter of its price */
+        const Offer *o = &G.offers[i];
+        int cost = (o->price + 3) / 4;
+        if (o->price <= 0) say("IT IS FREE: NOTHING TO HOLD");
+        else if (G.shop_held >= 0) say(G.shop_held == i ? "IT IS HELD FOR YOU" : "ONE WARE HELD AT A TIME");
+        else if (cost > RUN.treasure) say("HOLDING IT COSTS $%d", cost);
+        else {
+            RUN.treasure -= cost;
+            RUN.gear.held = *o; RUN.gear.has_held = 1; G.shop_held = i;
+            say("HELD FOR NEXT TIME: $%d", cost);
+            snd_sfx_ex(SFX_COIN, 0.8f, 0.5f); sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.9f); G.cat_slow = 1.2f;
+        }
+    }
     human_cast(dt);
+}
+
+/* the bag is full and a ware is bought for a slot already worn: let something go to make room, or not */
+static void update_letgo(void) {
+    Gear *g = &RUN.gear;
+    int n = g->bag_size;
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; G.shop_letgo = -1; say("THOUGHT BETTER OF IT"); snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
+    if (IN.hit[KEY_W] || IN.hit[KEY_UP]) { G.ui_sel = (G.ui_sel + n - 1) % n; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    if (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) { G.ui_sel = (G.ui_sel + 1) % n; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    if (IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE]) {
+        int i = G.shop_letgo;
+        memset(&g->bag[G.ui_sel], 0, sizeof g->bag[G.ui_sel]);    /* gone, and nothing for it */
+        G.ui = UI_NONE; G.shop_letgo = -1;
+        if (i >= 0 && !G.offer_gone[i] && G.offers[i].price <= RUN.treasure && G.shop_left > 0) { shop_purchase(i); G.grab_t = 1.0f; }
+    }
 }
 
 /* the person takes over, from wherever the autopilot was */
@@ -4942,8 +5017,8 @@ static void human_begin(void) {
 static void human_end(void) {
     G.player = 0; G.ui = UI_NONE; G.status_ret = PLAY_AUTO; G.pc_t = -1.0f;
     if (G.shop) {
-        if (G.shop_bought) { G.shop_step = SH_LEAVE; G.shop_t = 0.0; shop_walk(18.2f, 15.5f, 1.8f); }
-        else { G.shop_step = SH_THINK; G.shop_t = 0.0; shop_turn(face_of(15.5f, 13.0f), 0.5f); }
+        if (G.shop_left <= 0) { G.shop_step = SH_LEAVE; G.shop_t = 0.0; shop_walk(SHOP_DOOR - 0.8f, 15.5f, 1.8f); }
+        else { G.shop_step = SH_THINK; G.shop_t = 0.0; shop_turn(face_of(SHOP_MID, 13.0f), 0.5f); }
         return;
     }
     if (G.exiting || G.tally || G.dead) return;
@@ -5267,6 +5342,7 @@ static void update_ui(void) {
     if (G.ui == UI_INVENTORY) update_inventory();
     else if (G.ui == UI_GRAVES) update_graves();
     else if (G.ui == UI_BESTIARY) update_bestiary();
+    else if (G.ui == UI_LETGO) update_letgo();
     else update_quit();
 }
 
@@ -5810,13 +5886,13 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         int n0 = n;
         ADD(CAT_X, CAT_Y, 0.0f, SP_PEDESTAL, 0);
         if (n > n0) { list[n - 1].scale = CAT_S; list[n - 1].flags = DR_CAT; }
-        for (int i = 0; i < NPOOL; i++) {
+        for (int i = 0; i < G.ped_n; i++) {
             if (G.offer_gone[i]) continue;
             const Offer *o = &G.offers[i];
             int sp = offer_sprite(o);
             float sc = 0.42f, z = 0.55f + 0.03f * sinf((float)G.t * 2.0f + i * 2.1f) - (TS - 1 - spr_bottom(sp)) / (float)TS * sc;
             n0 = n;
-            ADD(PED_X[i], PED_Y[i], z, sp, 0);
+            ADD(G.ped_x[i], G.ped_y[i], z, sp, 0);
             if (n > n0) {
                 Draw *d = &list[n - 1];
                 d->scale = sc; d->remap = offer_color(o);
@@ -5953,9 +6029,17 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
 
 /* ---- the merchant's wares: prices over the pedestals, a sparkle when one is taken ---- */
 static void render_shop_tags(Frame *f, float dx, float dy, float horizon) {
-    for (int i = 0; i < NPOOL; i++) {
+    int order[NPED], n = 0, box[NPED][4], nb = 0;                  /* nearest first; a tag that would cover a nearer one waits */
+    for (int i = 0; i < G.ped_n; i++) order[n++] = i;
+    for (int a = 1; a < n; a++) for (int b = a; b > 0; b--) {
+        float da = hypotf(G.ped_x[order[b]] - G.px, G.ped_y[order[b]] - G.py), db = hypotf(G.ped_x[order[b - 1]] - G.px, G.ped_y[order[b - 1]] - G.py);
+        int look = order[b] == G.shop_look;                        /* the one looked at comes first of all */
+        if (look || (da < db && order[b - 1] != G.shop_look)) { int t = order[b]; order[b] = order[b - 1]; order[b - 1] = t; } else break;
+    }
+    for (int oi = 0; oi < n; oi++) {
+        int i = order[oi];
         float sx, sy, dep;
-        if (!project(PED_X[i], PED_Y[i], i == G.shop_pick && G.sparkle > 0.0f ? 0.78f : 1.04f, dx, dy, horizon, &sx, &sy, &dep)) continue;
+        if (!project(G.ped_x[i], G.ped_y[i], i == G.shop_pick && G.sparkle > 0.0f ? 0.78f : 1.04f, dx, dy, horizon, &sx, &sy, &dep)) continue;
         int x = (int)sx;
         if (x < 0 || x >= W || dep >= zbuf[x] + 0.3f) continue;
         if (G.offer_gone[i]) {
@@ -5972,12 +6056,17 @@ static void render_shop_tags(Frame *f, float dx, float dy, float horizon) {
         char tag[16];
         if (o->price == 0) snprintf(tag, sizeof tag, "FREE");
         else snprintf(tag, sizeof tag, "$%d", o->price);
-        int w = gfx_text_width(tag, 1), tx = x - w / 2, ty = (int)sy - 10;
+        int w = gfx_text_width(tag, 1), tx = x - w / 2, ty = (int)sy - 10, hit = 0;
         if (ty < 0 || ty > H - 60) continue;
+        for (int k = 0; k < nb; k++)
+            hit |= tx < box[k][2] + 3 && tx + w + 3 > box[k][0] && ty - 10 < box[k][3] && ty + 9 > box[k][1];
+        if (hit) continue;
+        box[nb][0] = tx; box[nb][1] = ty - 10; box[nb][2] = tx + w; box[nb][3] = ty + 9; nb++;
         uint8_t col = o->price <= RUN.treasure ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_BLOOD + 11);
         gfx_text8(f, tx + 1, ty + 1, tag, 0, 1);
         gfx_text8(f, tx, ty, tag, col, 1);
-        if (o->rare && ((int)(G.t * 3.0) & 1)) { int rw = gfx_text_width("RARE", 1); gfx_text8(f, x - rw / 2 + 1, ty - 9, "RARE", 0, 1); gfx_text8(f, x - rw / 2, ty - 10, "RARE", C_WHITE, 1); }
+        const char *over = G.shop_held == i || G.offer_back[i] ? "HELD" : (o->rare && ((int)(G.t * 3.0) & 1) ? "RARE" : NULL);
+        if (over) { int rw = gfx_text_width(over, 1); gfx_text8(f, x - rw / 2 + 1, ty - 9, over, 0, 1); gfx_text8(f, x - rw / 2, ty - 10, over, over[0] == 'H' ? (uint8_t)(R_GLOW + 12) : (uint8_t)C_WHITE, 1); }
     }
 }
 
@@ -6084,7 +6173,7 @@ static int text_wrap(Frame *f, int x, int y, const char *s, int cols, int col, i
 
 /* what the caster is looking at, and what it costs */
 static void render_shop_card(Frame *f) {
-    int i = G.shop_step == SH_LOOK || G.shop_step == SH_GO || (G.shop_step == SH_BUY && !G.shop_bought) ? G.shop_look : -1;
+    int i = G.shop_step == SH_LOOK || G.shop_step == SH_GO || (G.shop_step == SH_BUY && G.shop_pick >= 0 && !G.offer_gone[G.shop_pick]) ? G.shop_look : -1;
     if (G.shop_step == SH_LOOK && G.shop_t < 0.35) i = -1;
     if (G.player) i = G.shop_look;
     int y0 = H - 44 - 46;
@@ -6102,6 +6191,24 @@ static void render_shop_card(Frame *f) {
     if (o->price == 0) snprintf(price, sizeof price, "FREE");
     else snprintf(price, sizeof price, "$%d", o->price);
     int bw = 264, bx = (W - bw) / 2, ph = 42, pw = gfx_text_width(price, 1);
+    char foot[2][48] = { "", "" };                                 /* for a person: what E and Q do here, or a warning */
+    int warn = 0;
+    if (G.player) {
+        if (G.shop_confirm == i) {
+            int sl = piece_slot(&RUN.gear, o->piece.kind);
+            snprintf(foot[0], sizeof foot[0], "YOUR OLD %s WILL BE LOST.", KIND_NAME[RUN.gear.worn[sl].kind]);
+            snprintf(foot[1], sizeof foot[1], "NO GOLD COMES BACK. E AGAIN BUYS.");
+            warn = 1;
+        } else {
+            if (G.shop_left <= 0) snprintf(foot[0], sizeof foot[0], "NO MORE WARES THIS VISIT");
+            else if (o->price > 0 && G.shop_held < 0) snprintf(foot[0], sizeof foot[0], "E BUYS  Q HOLDS FOR $%d", (o->price + 3) / 4);
+            else snprintf(foot[0], sizeof foot[0], "E BUYS");
+            if (G.shop_left > 0) snprintf(foot[1], sizeof foot[1], G.shop_left == 1 ? "ONE MORE WARE THIS VISIT" : "%d MORE WARES THIS VISIT", G.shop_left);
+            if (G.offer_back[i]) snprintf(foot[1], sizeof foot[1], "HELD FOR YOU LAST TIME");
+            if (G.shop_held == i) snprintf(foot[1], sizeof foot[1], "HELD FOR YOUR NEXT VISIT");
+        }
+    }
+    int fl = (foot[0][0] != 0) + (foot[1][0] != 0), body = 42;     /* the footer goes under the body */
     char name[100], l1[48], l2[48], stats[160] = "";
     const Piece *p = &o->piece;
     if (o->kind == GK_PIECE) {                                     /* a piece: its stats under its name */
@@ -6117,12 +6224,15 @@ static void render_shop_card(Frame *f) {
             piece_ability_text(p, ab, sizeof ab);
             snprintf(stats + strlen(stats), sizeof stats - strlen(stats), ". %s", ab);
         }
-        ph = 34 + 9 * text_wrap_ex(NULL, 0, 0, stats, (bw - 16) / 8, 0, 4, 9);
+        body = 34 + 9 * text_wrap_ex(NULL, 0, 0, stats, (bw - 16) / 8, 0, 4, 9);
     }
+    ph = body + (fl ? 9 * fl + 2 : 0);
     y0 = H - 44 - 4 - ph;
     gfx_rect(f, bx, y0, bw, ph, 0);
     for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
     for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+    for (int k = 0, fy = y0 + body; k < 2; k++)                    /* the footer, at the bottom of the card */
+        if (foot[k][0]) { gfx_text8(f, bx + 8, fy, foot[k], warn ? (uint8_t)(R_BLOOD + 13) : (k ? (uint8_t)(R_GOLD + 10) : (uint8_t)(R_STONE + 10)), 1); fy += 9; }
     if (o->kind == GK_PIECE) {
         int col = qual_text(p->quality);
         gfx_text8(f, bx + 8, y0 + 5, KIND_NAME[p->kind], R_STONE + 11, 1);
@@ -6621,6 +6731,32 @@ static int piece_card(Frame *f, int x, int y, int w, const Piece *p, const Gear 
     return y;
 }
 
+/* the bag is full and a ware is bought for a slot already worn: which spare to let go */
+static void render_letgo(Frame *f) {
+    dim_view(f);
+    panel(f, 4, 4, W - 8, H - 8);
+    const Gear *g = &RUN.gear;
+    gfx_text16(f, 14, 9, "THE BAG IS FULL", R_GOLD + 12, 1);
+    gfx_text8(f, 14, 26, "W/S PICK  ENTER LET GO  ESC NOT NOW", R_STONE + 9, 1);
+    int i = G.shop_letgo;
+    if (i >= 0) {
+        const Piece *np = &G.offers[i].piece;
+        int sl = piece_slot(g, np->kind);
+        char line[48];
+        snprintf(line, sizeof line, "TO MAKE ROOM FOR YOUR OLD %s", KIND_NAME[g->worn[sl].kind]);
+        gfx_text8(f, 14, 38, line, R_STONE + 12, 1);
+    }
+    int n = g->bag_size, sel = clampi(G.ui_sel, 0, n - 1);
+    for (int r = 0; r < n; r++) {
+        int y = 54 + r * 10;
+        const Piece *p = &g->bag[r];
+        if (r == sel) gfx_rect(f, 10, y - 1, 102, 10, R_IRON + 3);
+        gfx_text8(f, 14, y, p->kind ? KIND_NAME[p->kind] : "-", p->kind ? qual_text(p->quality) : R_STONE + 7, 1);
+        if (p->anointed) gfx_glyph8(f, 14 + gfx_text_width(KIND_NAME[p->kind], 1), y, '*', R_GOLD + 12, -1, 1);
+    }
+    piece_card(f, 120, 54, W - 10 - 120, &g->bag[sel], NULL, NULL);
+}
+
 /* Tab, the second page: the caster's numbers (what abilities add in gold beside them) and the spellbook */
 static void render_caster(Frame *f) {
     static const char *const SHORT[NSTAT] = { "ARMOR", "DODGE", "HEALTH", "RESTORES", "POISON WARD", "BURN WARD", "SLOW WARD",
@@ -7065,6 +7201,7 @@ static void render_ui(Frame *f) {
     else if (G.ui == UI_QUIT) render_quit(f);
     else if (G.ui == UI_GRAVES) render_graves(f);
     else if (G.ui == UI_BESTIARY) render_bestiary(f);
+    else if (G.ui == UI_LETGO) render_letgo(f);
 }
 
 static void crawl_render(Frame *f) {

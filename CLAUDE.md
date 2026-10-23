@@ -17,8 +17,8 @@ which replaces the descent plan's section on enemies. The owner has accepted the
 to every question in both; the bestiary's status line says how far the work has got. Read both
 before starting on any of it. The overhaul of items, abilities, spirit and the merchant is planned in
 [`docs/PLAN-items.md`](docs/PLAN-items.md); the owner has answered its questions, and its status line
-says which of its seven steps are built (steps 1 to 4 so far: items as data, save version 3,
-everything worn felt in the game, spirit and bones, and the abilities).
+says which of its seven steps are built (steps 1 to 5 so far: items as data, save version 3,
+everything worn felt in the game, spirit and bones, the abilities, and the merchant).
 
 ## Working with the owner
 
@@ -276,6 +276,18 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   weighs each spell at the strength it can pay for, grows thrifty under 15 spirit and skips spears
   without bones (`choose_spell`). The debug build logs `EVENT weak_<spell>` for each weak cast, `EVENT commune` and
   `EVENT mirrored`.
+
+- **The merchant** (`gen_shop`, `begin_shop`, `update_shop`, `shop_human`). A room 11 cells wide
+  with five to seven pedestals in an arc (`G.ped_x/ped_y`, `gear_shop_pedestals`): a spell, a rune,
+  the rest things to wear, a bag at most once a visit and only one bigger than yours. One to three
+  wares a visit (`gear_shop_purchases`, `G.shop_left`); the autopilot buys up to that by value,
+  keeping 15% of a level's haul back after the first. A person: E buys and wears it at once
+  (`gear_take_wear`); with no bag a worn slot gets a red warning on the card first
+  (`G.shop_confirm`, a second E buys); with a full bag `UI_LETGO` asks which spare to let go. Q holds
+  a ware for a quarter of its price (`Gear.held`, `G.shop_held`); next visit it is back on its
+  pedestal at the price it showed (`G.offer_back`), and the hold ends when the caster leaves the room.
+  Price tags over the pedestals skip any that would cover a nearer one. The debug build logs
+  `EVENT shop_look` as a person's eye moves between wares.
 
 ## Releasing
 

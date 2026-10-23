@@ -1,9 +1,9 @@
 # Items, abilities and ammunition: the merchant's new stock
 
-**Status: agreed (23 October 2026); steps 1 to 4 built (items as data, the wardrobe, save version 3;
+**Status: agreed (23 October 2026); steps 1 to 5 built (items as data, the wardrobe, save version 3;
 every worn stat felt in the game, footsteps and Quiet, the cuff and the totals page; spirit and bones;
-the abilities), tested in the harness only; the owner checked the rolled wares (and asked for
-Exquisite a little more often); steps 5-7 to come.** A plan from the owner's guide, written after
+the abilities; the merchant), tested in the harness only; the owner checked the rolled wares (and
+asked for Exquisite a little more often); steps 6 and 7 to come.** A plan from the owner's guide, written after
 reading the code as it stands at 1.0.0b3.
 
 **Decided (23 October 2026):**
@@ -227,7 +227,15 @@ spirit.
   there is room. With no bag, the merchant's card warns first: "YOUR OLD BOOTS WILL BE LOST. NO GOLD
   COMES BACK." A second E buys. With a full bag, you are offered the bag's contents to let one go,
   then the purchase goes ahead; Esc thinks better of it.
-- **The autopilot** buys bags too, but never asks: what it can't keep, it loses.
+- **The autopilot** never asks: what it can't keep, it loses. (Changed while building step 1, and
+  accepted: it doesn't buy bags at all, since it never takes anything out of one.)
+
+As built in step 5: the room is 11 cells wide, the pedestals in a shallow arc whose ends come forward;
+the merchant puts out at most one bag a visit, and only one bigger than yours. The card shows what E
+and Q do, how many wares are left this visit, and whether this ware is held; with no bag, the
+warning replaces those lines in red. A free ware (the first visit's) can't be held. Holding a ware and
+then buying it in the same visit spends the hold. The autopilot keeps 15% of a level's haul back
+after its first purchase.
 
 ### Black Altars
 

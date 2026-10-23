@@ -444,6 +444,19 @@ int gear_take(Gear *g, const Offer *o) {
     return bag_put(g, p) ? TAKE_BAGGED : TAKE_LOST;
 }
 
+/* a person buying: worn at once, whatever it is worth (the merchant has warned what becomes of the old) */
+int gear_take_wear(Gear *g, const Offer *o) {
+    if (o->kind != GK_PIECE || o->piece.kind == IK_BAG) return gear_take(g, o);
+    int s = piece_slot(g, o->piece.kind);
+    Piece old = g->worn[s];
+    g->worn[s] = o->piece;
+    if (old.kind == IK_NONE) return TAKE_WORN;
+    return bag_put(g, &old) ? TAKE_WORN_OLD_BAGGED : TAKE_WORN_OLD_LOST;
+}
+
+int gear_shop_purchases(int level) { return level <= 9 ? 1 : (level <= 14 ? 2 : 3); }
+int gear_shop_pedestals(int level) { return level <= 9 ? 5 : (level <= 14 ? 6 : 7); }
+
 /* ---- offers ---- */
 
 Offer gear_offer(int pool, int level, const Gear *g, uint32_t *rng) {
@@ -458,6 +471,10 @@ Offer gear_offer(int pool, int level, const Gear *g, uint32_t *rng) {
         while (r >= w[k]) r -= w[k++];
         o.kind = GK_PIECE;
         o.piece = piece_roll(k, level, -1, rng);
+        if (k == IK_BAG && g) {                                     /* only ever a bigger bag than yours */
+            while (bag_capacity(o.piece.quality) <= g->bag_size && o.piece.quality < Q_EXQUISITE) o.piece.quality++;
+            if (bag_capacity(o.piece.quality) <= g->bag_size) { k = IK_WRIST; o.piece = piece_roll(k, level, -1, rng); }
+        }
         o.id = k; o.tier = o.piece.level; o.rare = o.piece.quality >= Q_ULTRA;
         o.price = piece_price(&o.piece);
         return o;
