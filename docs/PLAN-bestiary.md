@@ -1,6 +1,7 @@
 # The bestiary and the dressing: who lives down there, and when you meet them
 
-**Status: agreed; asset generation under way.** Written at 1.0.0b2 as a companion to
+**Status: agreed; every creature in the plan is in play, tested only in the harness (23 October).**
+Bosses and the boss levels are still to come. Written at 1.0.0b2 as a companion to
 [`PLAN-descent.md`](PLAN-descent.md). It replaces that plan's section 5 (Enemies) and its questions
 11-14; everything else there (sets, wall tiles, bosses, bonus levels, loops) stands.
 
@@ -103,6 +104,31 @@ Eight 50-minute autopilot runs from level 11, everything at tier 1, against the 
 - Level 13, the knight's first, was the worst, with 6 deaths. One run spiralled, with 7.
 - The first try, where every leap of the hunting spider poisoned, died 33 times.
 - With everything at tier 2, in 25-minute runs, neither build died.
+- Only the harness has run this; it is untested by hand.
+
+**The Deep's newcomers in play (23 October):**
+
+- the shade, which shows only in light: torches, fires, the wisp's pool, a spell going by, and
+  for a moment after its touch. Its touch takes souls, or more of your health when there are none.
+  The autopilot can't pick it out in the dark;
+- the ember imp, born by the magma. It keeps its distance and lobs embers that burn the floor for a
+  moment where they come down;
+- the deacon, which walks with two or three skeletons, keeps back, and chants over remains and bone
+  heaps until a skeleton gets up, four at most. The autopilot aims at it first;
+- the gargoyle, a statue on a plinth until you pass within three cells or hit it. Then it flies
+  over whatever stands on the floor, and swoops. While it is a statue its rank doesn't show.
+
+Eight 30-minute autopilot runs from level 16, everything at tier 2, against the build before:
+
+| | Deaths | Median level reached | Mean level time |
+|---|---|---|---|
+| This build | 22 | 19 | 359 s |
+| The build before | 25 | 19 | 351 s |
+
+- The Deep was already this deadly at tier 2 before its newcomers came: the old creatures at ranks
+  III to V do most of the killing (bones, hounds, knights' blows and leaps come before most deaths).
+- In those runs imps threw 162 embers, 56 of which hit; deacons raised 21 skeletons; 9 gargoyles
+  woke; shades touched the autopilot 6 times.
 - Only the harness has run this; it is untested by hand.
 
 **Open question (asked 22 October):**

@@ -87,7 +87,9 @@ same), `CRAWL_LEVEL=n` (start deeper; you start at the merchant), `CRAWL_GEAR=t`
 tier t), `CRAWL_GOLD`, `CRAWL_SOULS`, `CRAWL_ROBE`, `CRAWL_MAP=1` (prints the map, the plan and a lane
 reachability check), `CRAWL_MAPAT=t`, `CRAWL_TPSECRET=n` / `CRAWL_TPEXIT=1` (stand in front of a secret
 or the exit once you take control), `CRAWL_WISP=1` (wisp from the start), `CRAWL_FOLLOWWISP=1` (a
-player that walks wherever the wisp leans: a test that it leads out), `CRAWL_SHOWHAND`, `CRAWL_BFSANY`.
+player that walks wherever the wisp leans: a test that it leads out), `CRAWL_SHOWHAND`, `CRAWL_BFSANY`,
+`CRAWL_RANK=r` (every creature at rank r), `CRAWL_WRAITH=s` (the Wraith at s seconds), `CRAWL_MEET=k`
+(one creature of kind k, the `MOB_*` number, a few cells ahead at the start of each level).
 `HAUNT_DEBUG` adds `HAUNT_PLAN=10,11,...` to force HAUNT.EXE acts (numbers in the README).
 
 The debug build prints the autopilot's state once a second (`lvl=... t=... hp=... items=a/b val=a/b
@@ -182,7 +184,16 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
       heavy blow; `knight_stage` (by health) picks its plate, its pace, and whether fire bites.
     - The brood mother (from 14) lays egg sacs (`MOB_SAC`, `update_sac`) that split into spiderlings
       (`MOB_LING`); the sacs die with the last mother.
-    - Every kind is in `KINDS` already, but the Deep's four don't come yet.
+    - The shade (from 16) shows only in light (`shade_alpha`, `shade_hidden`: torches, fires, the
+      wisp's pool, a spell going by, and for a moment after its touch); its touch takes souls, or
+      more health when there are none. The autopilot can't target it in the dark.
+    - Ember imps (from 17) start beside magma (`place_imps`), keep their distance and lob embers
+      (`MIS_EMBER`) that burn the floor where they land (`Burn.foe`).
+    - The deacon (from 18) walks with two or three skeletons, keeps back, and chants over remains
+      or bone heaps (`DEACON_CHANT`) until a skeleton gets up from them, four at most. The autopilot
+      aims at it first.
+    - Gargoyles (from 19) are statues on plinths (`place_gargoyles`, `garg_wake`) until you pass
+      within three cells or hit one; then they fly over the floor's things (`blocks_flight`) and swoop.
 - **Secrets** (`place_secrets`, `open_secret`, `update_slide`). One on levels 1-2, two on 3-5, three
   from 6. A solid plan block beside a hall becomes a 3x3 closet behind a wall (`Cell.secret` 1 closet,
   2 wall); the wall's cracks are drawn by the renderer only within about two cells. E/Space pushes it
@@ -244,3 +255,6 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
 - CI warns that `actions/download-artifact@v6` targets Node 20; bump the action when a newer major is out.
 - Boss levels (5, 10, 15, 20) are ordinary levels for now, under their boss's name; there are no
   loop moods yet past level 20, only the numeral.
+- The Deep (levels 16-20) is deadly for the autopilot even with every spell at tier 2: eight
+  30-minute runs from level 16 died 22 times (25 before the Deep's newcomers came). The Hollows at
+  tier 1 died 18 times in eight 50-minute runs from level 11, against 9 before theirs. Tune by hand.
