@@ -313,14 +313,18 @@ float piece_worth(const Piece *p, int level) {
     static const int REF[NSTAT] = { IK_ROBE, IK_BOOTS, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_BOOTS, IK_BOOTS,
                                     IK_WRIST, IK_WRIST, IK_RING, IK_RING, IK_RING, IK_RING, IK_HOOD };
     static const float AW[NABIL] = { 0.0f, 0.15f, 0.3f, 0.4f, 0.0f, 0.0f, 0.4f, 0.5f };
+    /* what the game doesn't use yet (Quiet, Spirit Cost, the elements, Spell Effect, most abilities)
+     * weighs nothing for now; the plan's steps 2-4 lift these as they come into play */
+    static const int FELT[NSTAT] = { 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0 };
+    static const int FELT_AB[NABIL] = { 0, 1, 0, 0, 0, 0, 1, 0 };
     if (p->kind == IK_NONE || p->kind == IK_BAG) return 0.0f;
     if (level < 1) level = 1;
     float w = 0.0f;
     for (int i = 0; i < p->nstat; i++) {
         int st = p->stat[i];
-        w += W[st] * ((float)p->val[i] / STAT_SCALE[st]) / fmaxf(1e-3f, stat_base(st, REF[st], level));
+        if (FELT[st]) w += W[st] * ((float)p->val[i] / STAT_SCALE[st]) / fmaxf(1e-3f, stat_base(st, REF[st], level));
     }
-    return w + AW[p->ability] * (1.0f + 0.25f * p->quality);
+    return w + (FELT_AB[p->ability] ? AW[p->ability] * (1.0f + 0.25f * p->quality) : 0.0f);
 }
 
 int piece_slot(const Gear *g, int kind) {
@@ -390,10 +394,7 @@ float gear_value(const Gear *g, const Offer *o, int level) {
     }
     default: {
         const Piece *p = &o->piece;
-        if (p->kind == IK_BAG) {                                    /* room for spares: a little, if bigger */
-            int more = bag_capacity(p->quality) - g->bag_size;
-            return more > 0 ? 0.12f * more : 0.0f;
-        }
+        if (p->kind == IK_BAG) return 0.0f;                         /* the autopilot never takes anything out of one */
         int s = piece_slot(g, p->kind);
         float v = piece_worth(p, level) - piece_worth(&g->worn[s], level);
         return v > 0.0f ? v * 0.7f : 0.0f;

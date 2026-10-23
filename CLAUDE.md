@@ -243,7 +243,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   hundredths). `piece_roll` follows the plan's tables (`KIND_STATS`, `QUAL_STATS`, `ABIL_CHANCE`,
   `stat_base`); no piece rolls past its stat's cap (`STAT_CAP`). `gear_total` sums what is worn, lets
   Swiftness and Arcane Knowledge raise the summed stat once, then caps it. `piece_name` gives the two
-  name lines; `piece_worth` and `gear_value` are the autopilot's sense of what helps; `gear_take` wears
+  name lines; `piece_worth` and `gear_value` are the autopilot's sense of what helps (it counts only stats
+  and abilities the game uses so far, `FELT`, and never buys a bag); `gear_take` wears
   a piece if it is better and bags or loses the old one (`take_piece` says which in a caption). So far
   the game feels Armor, Dodge, Health, Restores, the three resists, Movement (and Swiftness), Spell Haste,
   Damage and Thorns, as the old robes, hoods and rings did; Quiet, Spirit Cost, the elements, Spell
