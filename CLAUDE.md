@@ -15,7 +15,8 @@ up in [`docs/PLAN-descent.md`](docs/PLAN-descent.md). The creatures, their colou
 in which creatures and decorations appear are in [`docs/PLAN-bestiary.md`](docs/PLAN-bestiary.md),
 which replaces the descent plan's section on enemies. The owner has accepted the recommended answer
 to every question in both; the bestiary's status line says how far the work has got. Read both
-before starting on any of it.
+before starting on any of it. The overhaul of items, abilities, spirit and the merchant is planned in
+[`docs/PLAN-items.md`](docs/PLAN-items.md); its questions are still with the owner.
 
 ## Working with the owner
 
