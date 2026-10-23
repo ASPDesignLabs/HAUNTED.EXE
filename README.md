@@ -32,14 +32,66 @@ Two scenes are included. They alternate every few minutes (configurable) with a 
 | Scene | VGA mode | What it is |
 |---|---|---|
 | **HAUNT.EXE** | 80x25 text mode, 720x400 | A possessed 486 PC: BIOS POST, a DOS prompt, and a ghost that types back. Between the gags it runs DOS programs that have been got at: EDIT rewriting AUTOEXEC.BAT for a seance, DEFRAG consuming souls and moving the remains to the front of the disk, a modem call to a BBS on the other side, a virus scan that cannot clean a dead host, MSD finding GHOST.SYS on IRQ 13, a thirteen-disk SETUP, a QBasic program that writes itself, and a file manager moving the dead from GRAVES to SOULS, until a file with your name turns up. Art materialises in between, seven full-screen half-block ANSI scenes with their own stories: the jack-o'-lantern in the pumpkin patch, the talking skull in the ossuary, the manor in a thunderstorm, the spider in the candle-lit corner, zombies digging out of a graveyard, skeletons dancing out of their coffins, and a ghost that rushes down a hallway to say boo. It ends in a fatal error and a CRT power-off, then reboots. |
-| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and buys one of three wares with the gold it carries (see below). Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, with skull walls, niches, banners, moss and sliding doors, walked with quick 90-degree turns. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides one to three secrets behind cracked walls (see below). Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. Skeletons throw bones; from level 2 skulls set in the walls you walk towards scream and gather a fireball for three seconds; from level 3 shield-bearing skeletons close in with swords; from level 4 spiders wait in corner webs, only their red eyes showing, and their bite poisons and slows. Bats bite, and wraiths loom and flee. Every level is older and harder than the one before, though each death on a level makes its creatures hit a little softer on the next try (by up to 45%, until it is cleared). Your face, Wolfenstein-style, pops up when you are hurt. Hold H for three seconds to play it yourself (see below). |
+| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and buys one of three wares with the gold it carries (see below). Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, with skull walls, niches, banners, moss and sliding doors, walked with quick 90-degree turns. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides one to three secrets behind cracked walls (see below). Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. The twenty levels have names and come in four sets of five, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its last level; then the sets come round again. Twenty kinds of creature come in as you go down, about one new kind a level, each in ranks you can tell by its colour (see below). Every level is older and harder than the one before, though each death on a level makes its creatures hit a little softer on the next try (by up to 45%, until it is cleared). Your face, Wolfenstein-style, pops up when you are hurt. Hold H for three seconds to play it yourself (see below). |
 
+![CATACOMB: the new creatures in the crypt, from the shambler to the gargoyle](docs/preview_catacomb_creatures.png)
+![CATACOMB: an achievement, the bestiary's pages and the achievements list](docs/preview_catacomb_bestiary.png)
 ![CATACOMB: the merchant, wall skulls, spiders, shields and spells](docs/preview_catacomb.png)
 ![CATACOMB: big chambers and wide halls, a secret wall and its closet, and the wisp](docs/preview_catacomb_crypt.png)
 ![CATACOMB played by hand: holding H, the controls, shopping, casting, the wardrobe and the question at Esc](docs/preview_catacomb_play.png)
 ![HAUNT.EXE: the jack-o'-lantern and the skull](docs/preview_haunt_art.png)
 ![HAUNT.EXE: the haunted programs](docs/preview_haunt_text.png)
 ![HAUNT.EXE: the other art scenes](docs/preview_haunt.png)
+
+### CATACOMB: who lives down there
+
+New kinds come in a level or two after their sign (a broken shield, a collar among gnawed bones, an
+armour stand), and on its first level a new kind comes alone.
+
+* **The Crypts** (levels 1 to 5): skeletons that throw their own bones, bats, and spectres that only
+  want you to know they are there. From level 2 a grave's earth is sometimes turned over from below, and
+  a shambler climbs out as you pass and takes hold of you. Skulls set in the walls wake from level 3 and
+  gather a fireball; shield-bearing skeletons close in with swords from level 4.
+* **The Catacombs** (6 to 10): spiders in corner webs, only their eyes showing, whose bite poisons and
+  slows; the Drowned, rising from a stirring puddle and bursting into a foul pool; bone hounds hunting in
+  pairs; and from level 9 the Wraith, once a level, coming down the halls from the far end while the
+  torches gutter. Nothing kills it: fire, the wisp's light and Dread drive it back for a while. The
+  spectres are gone after level 10.
+* **The Hollows** (11 to 15): hunting spiders that walk the ceiling and drop on you; ghouls that leap the
+  last of the way and stop to feed on bones, mending as they eat; skeleton knights in plate that comes off
+  as you hurt them, quicker as it goes; brood mothers laying egg sacs that split into spiderlings.
+* **The Deep** (16 to 20): shades that show only in light, whose touch takes your souls; ember imps that
+  live by the magma and lob embers that set the floor burning; deacons that walk with their skeletons
+  and raise more from the bones (kill them first); gargoyles that are statues on their plinths until you
+  pass.
+
+**Ranks.** Every creature takes a rank as it comes: its own colour, then green, blue, red and black,
+each tougher, harder hitting, quicker, a little bigger and worth more souls. The deeper the set, the
+higher the mix, and each time round the sets it climbs a rung. From level 7 one level in three has a
+gilded one, which runs when it is hurt and carries treasure; higher ranks now and then drop coin, gems
+or a potion. A caption names each kind and rank the first time you see it on a level.
+
+**Hunting.** A creature that sees you, is hit, or hears a spell nearby follows you round corners, and
+the dead pull doors open; the nearest three hunt at once. The dead in ossuaries and crypts keep to
+their rooms until they know you are there. Each kind has its weaknesses (fire for the shambler, frost
+for hounds and spiders, lightning and Bone Spear through armour), which the autopilot plays to.
+
+### CATACOMB: achievements and the bestiary
+
+Each run keeps a record of what it has killed, by kind, rank and spell, the secrets it has found and
+the levels it has cleared, and it is saved with the run, so each grave has its own. Achievements come
+for 60 kills of a creature's lowest rank, then 40, 25, 15 and 8 up the ranks and 3 gilded; for 1, 5,
+10, 20, 30, 40 and 50 secrets; for each of the first twenty levels; and for each time down past level 20
+again. Everything counts, the autopilot's kills too, and each one slides in at the upper right with a
+chime.
+
+Press **B** while you play for the bestiary: a page for each creature (a dark shape until you meet it),
+walking on the spot and turning about, drawn in each rank you have seen, with your kills against each achievement and what
+hurts it, learnt after three kills with each spell. A and D turn the pages, W and S choose a rank, and
+the last page lists the achievements.
+
+The record is kept when your progress is: when you flee to the surface or carve a grave. What the
+autopilot earns in an ordinary screensaver session shows, but isn't kept.
 
 ### CATACOMB: the merchant, the spellbook and the wardrobe
 
@@ -82,6 +134,7 @@ yours, and the scenes stop switching until you hand it back. HAUNT.EXE cuts stra
 | 1 to 9, or the wheel | Choose an attack spell from your book: 1 Fire Bolt, 2 Frost Shard, 3 Chain Lightning, 4 Bone Spear, 5 Soul Drain, 6 Hellfire, 7 Seeker Wisps, 8 Rapid Sparks, 9 BFS9000 |
 | E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, or step through the exit runes. Walking into a door opens it too |
 | Tab | The inventory: your wardrobe and spellbook. W and S choose a slot, A and D change what is worn there, with your numbers shown changing |
+| B | The bestiary and the achievements. A and D turn the pages, W and S choose a rank or scroll |
 | Esc | Asks whether you want to leave, with a different argument each time for staying; also where you save and load |
 
 Your defensive runes still fire on their own, as quickly (and as fallibly) as they do for the
@@ -125,6 +178,11 @@ If the window loses focus while you play, the game pauses on that question. The 
 `Progress` value under `HKEY_CURRENT_USER\Software\HalloweenVGASaver` (the project's name before it
 became HAUNTED.EXE, kept so that settings and progress carry over), and the graves are `Slot1` to `Slot3`
 beside it; `uninstall.cmd` removes them with the settings.
+
+1.0.0b3 saves in a new format, to carry the record. Progress and graves from earlier betas still load,
+but 1.0.0b2 and earlier can't read a save made by 1.0.0b3: they start again from level 1, and fleeing
+there overwrites it. If you might go back, keep a copy first:
+`reg export HKCU\Software\HalloweenVGASaver haunted-backup.reg` (double-click the file to restore it).
 
 ## Install
 
@@ -226,6 +284,7 @@ make zip          # -> dist/HAUNTED-<version>-win64.zip and dist/HAUNTED.EXE
 make host         # Linux test harness (needs zlib): renders PNG frames and WAV audio
 make smoke        # a short headless run of both scenes, a scripted player and a CPU benchmark
 make cards        # the project page's five title cards, from real frames (needs Pillow)
+make sheets       # CATACOMB's creatures and dressing, rank by rank, in build/sheets
 ```
 
 Layout:
@@ -241,6 +300,7 @@ src/hand_img.c  face_img.c  cat_img.c   the hand, the face and the merchant, con
 src/win_main.c                      Win32 shell: /s /c /p /w /f, OpenGL+GDI, waveOut, settings dialog
 src/font_vga.c                      generated by tools/gen_font.py from third_party/font
 tools/host.c                        host harness
+tools/sheet.c                       sprite sheets: every creature in every rank, side views, the dressing
 site/                               the project page, published to GitHub Pages
 site/cards/  site/card.txt          its link-preview cards for X and others (make cards), and which one is shown
 .github/workflows/                  build.yml (build, smoke test, release on v* tags), pages.yml
@@ -275,12 +335,44 @@ once a second, logs every throw, hit, shriek, key pickup, cast, rune, purchase a
 can be reached), `CRAWL_MAPAT=t` prints it again at t seconds with what has been explored,
 `CRAWL_TPSECRET=n` and `CRAWL_TPEXIT=1` stand you in front of a secret wall or the exit, `CRAWL_WISP=1`
 lights the wisp from the start, and `CRAWL_FOLLOWWISP=1` makes a person at the keys walk wherever the wisp
-leans (a test that it really leads out). The harness plays a person at the keys with `HOST_INPUT`, for
+leans (a test that it really leads out). `CRAWL_RANK=r` puts every creature in rank r (0 to 5),
+`CRAWL_WRAITH=s` sends the Wraith at s seconds, and `CRAWL_MEET=k` puts one creature of kind k (0 the
+skeleton to 19 the gargoyle, in the order of `MOB_*` in `scene_crawl.c`) a few cells ahead five seconds
+into each level. The harness plays a person at the keys with `HOST_INPUT`, for
 example `HOST_INPUT="1:+H;4.2:-H;5:m300,0;6:+W;8:-W;9:+MOUSE1;9.2:-MOUSE1"` (press, release, mouse
 counts), and `HOST_SAVE=file` / `HOST_LOAD=file` and `HOST_SLOTS=dir` stand in for the registry.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b3** (the creatures, their ranks, the sets, achievements and the bestiary):
+
+* **The owner ran a build of this beta on their own Windows PC**, from just before the two bestiary fixes
+  below, and found it looks and runs well. Not every creature, achievement and bestiary page has been gone
+  through by hand, and this round wasn't run under Wine.
+* **The first ten levels play about as before.** Eight 50-minute autopilot runs from level 1, on the same
+  seeds as 1.0.0b2: 7 deaths against 9, six runs that never died against four, levels 6 to 9 reached in
+  both (median 8.5), levels a median of about 5.6 minutes, about 80% of the treasure taken (77% before),
+  five to eight purchases and one to six secrets a run.
+* **The Hollows and the Deep are a good deal harder.** Eight 50-minute runs from level 11 with every spell
+  at tier 1 died 18 times, against 9 before the Hollows' newcomers came (the first try died 33 times,
+  nearly all from the hunting spider poisoning on every leap, so now only one leap in three does). Eight
+  30-minute runs from level 16 with everything at tier 2 died 22 times, against 25 before the Deep's
+  newcomers: the old creatures in the Deep's high ranks were already that deadly. These levels will be
+  tuned as they are played by hand.
+* **Each newcomer was seen doing its work** in the harness, in those runs: hunting spiders and ghouls
+  leaping (over 300 times), knights' blows, sacs laid and hatched, the Wraith driven back by fire and the
+  wisp, imps throwing 162 embers (56 hit), deacons raising 21 skeletons, 9 gargoyles waking, shades
+  touching the caster 6 times. Each was also rendered in the crypt for the previews above.
+* **The record and the bestiary.** Saving and loading the new save, loading an old one (with an empty
+  record), carving a grave and rising from it with its own counts, the pop-up on a first secret, and
+  every bestiary page drawn from a full record. Drawing every page that way found two bugs before release,
+  both fixed: the shade's page called it a spirit that can't be killed, and the achievements' count ran
+  into the page number.
+* **AddressSanitizer and UBSan**, clean: about an hour and a half more of the autopilot on levels 11 to
+  19, with every newcomer in play (drawing two frames a second), on top of the earlier rounds below.
+
+**From the earlier betas:**
 
 * The synth output was analysed offline: no clipping (peak 0.85 across the new programs and art scenes),
   no DC offset, and every new effect's level measured against the existing ones.
