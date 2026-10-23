@@ -319,10 +319,9 @@ float piece_worth(const Piece *p, int level) {
     static const int REF[NSTAT] = { IK_ROBE, IK_BOOTS, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_BOOTS, IK_BOOTS,
                                     IK_WRIST, IK_WRIST, IK_RING, IK_RING, IK_RING, IK_RING, IK_HOOD };
     static const float AW[NABIL] = { 0.0f, 0.15f, 0.3f, 0.4f, 0.0f, 0.0f, 0.4f, 0.5f };
-    /* what the game doesn't use yet (Spirit Cost, most abilities) weighs nothing for now; the plan's
-     * steps 3 and 4 lift these as they come into play */
-    static const int FELT[NSTAT] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1 };
-    static const int FELT_AB[NABIL] = { 0, 1, 0, 0, 0, 0, 1, 0 };
+    /* abilities the game doesn't use yet weigh nothing for now; the plan's step 4 lifts them */
+    static const int FELT[NSTAT] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+    static const int FELT_AB[NABIL] = { 0, 1, 1, 0, 0, 0, 1, 0 };
     if (p->kind == IK_NONE || p->kind == IK_BAG) return 0.0f;
     if (level < 1) level = 1;
     float w = 0.0f;
@@ -412,7 +411,12 @@ float gear_value(const Gear *g, const Offer *o, int level) {
  * a person chooses at the merchant). What comes off goes into the bag if there is room, or is lost. */
 int gear_take(Gear *g, const Offer *o) {
     switch (o->kind) {
-    case GK_ATK: if (o->tier > g->atk[o->id]) g->atk[o->id] = (int8_t)o->tier; return TAKE_LEARNT;
+    case GK_ATK:
+        if (o->tier > g->atk[o->id]) {
+            g->atk[o->id] = (int8_t)o->tier;
+            if (o->id == AT_SPEAR) g->bones = (int16_t)(g->bones + SPEAR_BONES > BONES_MAX ? BONES_MAX : g->bones + SPEAR_BONES);
+        }
+        return TAKE_LEARNT;
     case GK_DEF: if (o->tier > g->def[o->id]) g->def[o->id] = (int8_t)o->tier; return TAKE_LEARNT;
     default: break;
     }
@@ -506,10 +510,28 @@ int offer_color(const Offer *o) { return o->kind == GK_PIECE ? QUAL_RAMP[o->piec
 
 /* ---- spells ---- */
 
-float spell_damage(const Gear *g, int atk) {
+float spell_damage_at(const Gear *g, int atk, int t) {
     static const float B[NATK] = { 10.0f, 7.0f, 8.0f, 12.0f, 9.0f, 18.0f, 4.0f, 4.0f, 9999.0f };
-    int t = g->atk[atk] < 0 ? 0 : g->atk[atk];
+    if (t < 0) t = 0;
     return B[atk] * (1.0f + 0.25f * t) * gear_ember(g);
+}
+float spell_damage(const Gear *g, int atk) { return spell_damage_at(g, atk, g->atk[atk]); }
+
+/* Spirit: free at tier 1 and below (and the fireball you start with); above, a cast costs its damage
+ * over SPIRIT_REF (a tier-2 Fire Bolt about 0.1), at most 1 and never under 0.1, less Spirit Cost
+ * Reduction. Seeker Wisps cost 1 a wisp. The BFS9000 keeps its own price in souls (bfs_cost). */
+#define SPIRIT_REF 150.0f
+int wisp_count(int tier) { return 3 + (tier >= 3) + (tier >= 6); }
+float spell_cost(const Gear *g, int atk, int tier) {
+    if (tier <= 1 || atk == AT_BFS) return 0.0f;
+    float keep = 1.0f - gear_total(g, ST_THRIFT) / 100.0f;
+    if (atk == AT_WISPS) return (float)wisp_count(tier) * fmaxf(0.1f, keep);
+    return fmaxf(0.1f, fminf(1.0f, spell_damage_at(g, atk, tier) / SPIRIT_REF) * keep);
+}
+/* Soul Drain's healing: half a soul for each point restored at tier 1, down to a quarter at tier 11 */
+float heal_cost(const Gear *g, int tier) {
+    float f = fmaxf(0.25f, 0.5f - 0.025f * (float)(tier - 1));
+    return f * (1.0f - gear_total(g, ST_THRIFT) / 100.0f);
 }
 float spell_cycle(const Gear *g, int atk) {
     static const float B[NATK] = { 1.95f, 1.8f, 2.2f, 2.0f, 2.0f, 2.9f, 2.2f, 0.7f, 3.0f };

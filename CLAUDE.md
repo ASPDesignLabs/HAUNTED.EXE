@@ -17,8 +17,8 @@ which replaces the descent plan's section on enemies. The owner has accepted the
 to every question in both; the bestiary's status line says how far the work has got. Read both
 before starting on any of it. The overhaul of items, abilities, spirit and the merchant is planned in
 [`docs/PLAN-items.md`](docs/PLAN-items.md); the owner has answered its questions, and its status line
-says which of its seven steps are built (steps 1 and 2 so far: items as data, save version 3, and
-everything worn felt in the game).
+says which of its seven steps are built (steps 1 to 3 so far: items as data, save version 3,
+everything worn felt in the game, and spirit and bones).
 
 ## Working with the owner
 
@@ -253,10 +253,22 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   creatures three hunt-field steps off, less with Quiet); Spell Haste; Damage; the elements
   (`hit_mult`: each adds its share of every spell's damage, by the creature's weakness to Fire Bolt,
   Frost Shard or Chain Lightning); Spell Effect (`spell_effect`: Soul Drain's healing, Frost's slow,
-  Hellfire's burning floor and every rune's strength); Thorns. Spirit Cost and the other abilities are
-  rolled and shown but wait for steps 3 and 4. The hand shows the robe on the sleeve, the right bracer
+  Hellfire's burning floor and every rune's strength); Thorns; Spirit Cost (below). The other
+  abilities are rolled and shown but wait for step 4. The hand shows the robe on the sleeve, the right bracer
   as an iron cuff inlaid in its colour, and the ring's stone; the hood frames the portrait. Tab's
   second page lists every total, gold for what an ability adds, blue at a cap (`gear_capped`).
+
+- **Spirit and bones.** Spirit is the souls (`RUN.souls` and `RUN.soul_frac`, `spirit()`), spent to
+  the tenth by `spend_spirit` and shown with one decimal (`spirit_text`). In `cast_spell`: tier 1 and
+  below (and the starting fireball) is free; above, `spell_cost` (damage over 150, 0.1 to 1, less Spirit
+  Cost; Seeker Wisps 1 a wisp); with too little, the cast goes at tier 1 (`Shot.tier` carries it to the
+  hit) and a caption says so once a level (`G.spirit_said`). Soul Drain's healing costs `heal_cost` a
+  point (half a soul at tier 1, a quarter at 11) or doesn't happen. The BFS9000 keeps its price in
+  souls. Every spear takes a bone (`Gear.bones`, up to `BONES_MAX` 30; the spear brings `SPEAR_BONES`
+  6 when bought or improved); skeletons, shield-bearers, knights and hounds drop them (`IT_BONE`, about
+  one in eight, more by rank). The status bar shows spirit, and the bones over the spear. The autopilot
+  weighs each spell at the strength it can pay for, grows thrifty under 15 spirit and skips spears
+  without bones (`choose_spell`). The debug build logs `EVENT weak_<spell>` for each weak cast.
 
 ## Releasing
 

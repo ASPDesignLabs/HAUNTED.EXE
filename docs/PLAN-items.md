@@ -1,9 +1,9 @@
 # Items, abilities and ammunition: the merchant's new stock
 
-**Status: agreed (23 October 2026); steps 1 and 2 built (items as data, the wardrobe, save version 3;
-every worn stat felt in the game, footsteps and Quiet, the cuff and the totals page), tested in the
-harness only; the owner checked the rolled wares (and asked for Exquisite a little more often); steps
-3-7 to come.** A plan from the owner's guide, written after
+**Status: agreed (23 October 2026); steps 1 to 3 built (items as data, the wardrobe, save version 3;
+every worn stat felt in the game, footsteps and Quiet, the cuff and the totals page; spirit and bones),
+tested in the harness only; the owner checked the rolled wares (and asked for Exquisite a little more
+often); steps 4-7 to come.** A plan from the owner's guide, written after
 reading the code as it stands at 1.0.0b3.
 
 **Decided (23 October 2026):**
@@ -189,6 +189,13 @@ Graded by quality, Common to Exquisite; where two items carry the same ability t
 - **Bones**: every spear needs one. Skeletons, shield-bearers, knights and bone hounds drop one now and
   then (about 1 in 8, more at higher ranks); buying or improving the spear brings six. Carry up to 30.
 - **The status bar** shows spirit beside the souls and, with the spear in hand, the bones.
+
+As built in step 3: the reference is 150 damage a cast (a tier-2 Fire Bolt costs 0.1), and the 0.1
+floor holds after Spirit Cost Reduction. Soul Drain's healing is paid apart from its damage, at every
+tier (tier 1 too); if it can't be paid, the hit lands and nothing is healed. A spear with no bones
+fizzles with "NO BONES FOR THE SPEAR". Bones drop at 12.5% plus 3% a rank. The weak-cast caption shows
+once a level. The autopilot values a spell at the strength it can afford and grows thrifty below 15
+spirit.
 
 ### The merchant
 

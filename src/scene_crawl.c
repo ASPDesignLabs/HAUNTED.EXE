@@ -39,8 +39,8 @@ enum { MOB_SKEL, MOB_GHOST, MOB_BAT, MOB_WSKULL, MOB_SHIELD, MOB_SPIDER,
        MOB_SHAMBLER, MOB_DROWNED, MOB_HOUND, MOB_WRAITH, MOB_HUNTER, MOB_GHOUL, MOB_KNIGHT, MOB_BROOD, MOB_LING, MOB_SAC,
        MOB_SHADE, MOB_IMP, MOB_DEACON, MOB_GARGOYLE };   /* kept in saves (the record): new kinds go at the end */
 enum { MS_WALK, MS_DIE, MS_RECOIL, MS_FLEE };   /* the last two: wraiths only */
-enum { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_KEY, IT_POTION, IT_URN, IT_RING };
-static const int ITEM_VALUE[] = { 10, 25, 50, 100, 250, 0, 0, 0, 0 };
+enum { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_KEY, IT_POTION, IT_URN, IT_RING, IT_BONE };
+static const int ITEM_VALUE[] = { 10, 25, 50, 100, 250, 0, 0, 0, 0, 0 };
 enum { MIS_BONE, MIS_FIRE, MIS_EMBER };     /* what the dead throw: bones, a wall skull's fireball, an imp's ember */
 enum { DM_PIERCE = 1, DM_ARC = 2, DM_SLOW = 4 };   /* how a hit lands: through shields, round them, chilling */
 #define DM_ATK(a) (((a) + 1) << 8)          /* and which spell it is, for the creature's weakness to it */
@@ -162,7 +162,7 @@ static const int RANK_SOULS[NRANK] = { 1, 2, 3, 4, 6, 5 };
 static const float RANK_SIZE[NRANK] = { 1.0f, 1.04f, 1.08f, 1.12f, 1.16f, 1.08f };   /* a second cue, for eyes that mix up the colours */
 static const char *const RANK_WORD[NRANK] = { "", "ROTTEN ", "COLD ", "BLOODY ", "BLACK ", "GILDED " };
 
-typedef struct { int alive, kind, target; float x, y, z, vx, vy, life, dmg; uint32_t pierced; } Shot;
+typedef struct { int alive, kind, target; float x, y, z, vx, vy, life, dmg; uint32_t pierced; int tier; } Shot;   /* tier: as cast */
 typedef struct { int alive, kind; float x, y, vx, vy, life, spin, dmg, life0; } Bone;   /* life0: an ember's whole flight */
 typedef struct { int alive, type, cx, cy, seen, color, lx, ly, secret; float x, y, phase; } Item;   /* lx, ly: the lane cell it is taken from */
 typedef struct { int alive; float x, y, t, r; int big; } Boom;
@@ -322,7 +322,7 @@ static struct {
     int best_page, best_rank, best_scroll;      /* the bestiary: which creature (or the achievements), which rank, how far down */
     float ui_t;                                 /* a clock that runs while a menu holds the crypt still */
     float pc_t, pc_len, grab_t, hint_t, msg_t;     /* their cast; reaching for a ware; the hints; a message */
-    int pc_fired;
+    int pc_fired, spirit_said;              /* spirit_said: the caption for a weak cast, once a level */
     char msg[64];
     Gear inv0;                              /* the gear as it was when the inventory opened */
     int inv_page;                           /* the wardrobe (0) or the caster's numbers and spellbook (1) */
@@ -1821,6 +1821,22 @@ static void gain_souls(float n) {
     if (whole > 0) { RUN.souls += whole; RUN.soul_frac -= (float)whole; G.level_souls += whole; snd_sfx_ex(SFX_GHOST_TICK, 0.5f, 0.5f); }
 }
 
+/* Spirit is the souls, spent on spells to the tenth (PLAN-items: spirit and bones). Spending never
+ * touches what the level has given (G.level_souls), so the wisp still comes after ten gained. */
+static float spirit(void) { return (float)RUN.souls + RUN.soul_frac; }
+static void spirit_text(char *buf, int n) {                         /* to the tenth, while it fits */
+    if (RUN.souls < 1000) snprintf(buf, (size_t)n, "%d.%d", RUN.souls, clampi((int)(RUN.soul_frac * 10.0f), 0, 9));
+    else snprintf(buf, (size_t)n, "%d", RUN.souls);
+}
+static int spend_spirit(float c) {
+    if (c <= 0.0f) return 1;
+    if (spirit() + 1e-4f < c) return 0;
+    RUN.soul_frac -= c;
+    while (RUN.soul_frac < -1e-5f) { RUN.soul_frac += 1.0f; RUN.souls--; }
+    if (RUN.soul_frac < 0.0f) RUN.soul_frac = 0.0f;
+    return 1;
+}
+
 /* ---- the record and its achievements (PLAN-bestiary, section 11): the autopilot earns them too ---- */
 
 enum { ACH_SECRET0 = REC_KINDS * NRANK, ACH_LEVEL0 = ACH_SECRET0 + 16, ACH_DESCENT0 = ACH_LEVEL0 + 20 };   /* bits: slayers by kind and rank, then the rest */
@@ -1947,6 +1963,12 @@ static void kill_mob(Mob *m) {
             it->secret = 1; it->seen = 1;
             if (drop < IT_KEY) { G.items_total--; G.value_total -= treasure_value(drop); }
         }
+    }
+    /* the bony ones leave a bone for the spear now and then: about one in eight, more at higher ranks */
+    int bony = m->type == MOB_SKEL || m->type == MOB_SHIELD || m->type == MOB_KNIGHT || m->type == MOB_HOUND;
+    if (bony && G.map[m->cy][m->cx].kind == K_FLOOR && rndf() < 0.125f + 0.03f * (float)m->rank) {
+        Item *it = add_item(m->cx, m->cy, IT_BONE);
+        if (it) { it->secret = 1; it->seen = 1; }
     }
 }
 
@@ -2729,7 +2751,7 @@ static Shot *new_shot(int kind, float x, float y, float a, float speed, float dm
     for (int i = 0; i < MAXSHOTS; i++) {
         Shot *s = &G.shots[i];
         if (s->alive) continue;
-        *s = (Shot){ 1, kind, -1, x, y, 0.0f, cosf(a) * speed, sinf(a) * speed, kind == AT_SPEAR ? 1.0f : 1.6f, dmg, 0 };
+        *s = (Shot){ 1, kind, -1, x, y, 0.0f, cosf(a) * speed, sinf(a) * speed, kind == AT_SPEAR ? 1.0f : 1.6f, dmg, 0, 1 };
         return s;
     }
     return NULL;
@@ -2743,14 +2765,14 @@ static void add_beam(int kind, float x0, float y0, float z0, float x1, float y1,
 static int spell_tier(int sp) { return RUN.gear.atk[sp] < 0 ? 0 : RUN.gear.atk[sp]; }
 
 /* lightning: to the target, then hopping on to others nearby */
-static void chain_lightning(int t, float dmg) {
+static void chain_lightning(int t, float dmg, int tier) {
     uint32_t hit = 0;
     Mob *m = &G.mobs[t];
     float hx = G.px + cosf(G.ang) * 0.35f, hy = G.py + sinf(G.ang) * 0.35f;
     add_beam(AT_CHAIN, hx, hy, 0.42f, m->x, m->y, m->z + 0.5f);
     hit |= 1u << t;
     damage_mob(m, dmg, DM_ARC | DM_ATK(AT_CHAIN), G.px, G.py, 0.0f);
-    int tier = spell_tier(AT_CHAIN), hops = 2 + (tier >= 4) + (tier >= 7);
+    int hops = 2 + (tier >= 4) + (tier >= 7);
     float cx = m->x, cy = m->y, cz = m->z;
     for (int h = 0; h < hops; h++) {
         int best = -1; float bd = 3.5f;
@@ -2792,13 +2814,27 @@ static void bfs9000(void) {
 
 /* let the chosen spell go at target t (or straight ahead if it is gone) */
 static void fizzle(int sp);
+static void say(const char *fmt, ...);
 static void cast_spell(int sp, int t) {
     const Gear *g = &RUN.gear;
     Mob *m = t >= 0 ? &G.mobs[t] : &G.mobs[0];
     int have = t >= 0 && m->alive && m->state == MS_WALK;
     float tx = have ? m->x : G.px + cosf(G.ang) * 4, ty = have ? m->y : G.py + sinf(G.ang) * 4;
-    float a = atan2f(ty - G.py, tx - G.px), dmg = spell_damage(g, sp);
+    float a = atan2f(ty - G.py, tx - G.px);
     if (G.player && sp != AT_CHAIN && sp != AT_DRAIN) a = G.ang;   /* a person's shots go where they look */
+    /* what it costs: a bone for every spear; spirit above tier 1, and with too little, it goes at tier-1
+     * strength (and heals nothing) */
+    if (sp == AT_SPEAR && RUN.gear.bones <= 0) { say("NO BONES FOR THE SPEAR"); fizzle(sp); return; }
+    int tier = spell_tier(sp), weak = 0;
+    if (sp != AT_BFS && !((sp == AT_CHAIN || sp == AT_DRAIN) && !have) && !spend_spirit(spell_cost(g, sp, tier))) {
+        tier = 1; weak = 1;
+        if (!G.spirit_said) { G.spirit_said = 1; say("LOW ON SPIRIT: SPELLS CAST WEAK"); }
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT weak_%s t=%.2f\n", ATK_NAME[sp], G.t);
+#endif
+    }
+    if (sp == AT_SPEAR) RUN.gear.bones--;
+    float dmg = spell_damage_at(g, sp, tier);
     float hx = G.px + cosf(a) * 0.35f, hy = G.py + sinf(a) * 0.35f;
     int bat = have && m->type == MOB_BAT && !G.player;
     alert_near(8, 8.0f);                                           /* a spell is heard down the halls */
@@ -2807,25 +2843,30 @@ static void cast_spell(int sp, int t) {
     fprintf(stderr, "EVENT cast_%s t=%.2f\n", ATK_NAME[sp], G.t);
 #endif
     switch (sp) {
-    case AT_CHAIN: if (have) chain_lightning(t, dmg); else fizzle(sp); return;
+    case AT_CHAIN: if (have) chain_lightning(t, dmg, tier); else fizzle(sp); return;
     case AT_DRAIN:
         if (have) {
             add_beam(AT_DRAIN, hx, hy, 0.42f, m->x, m->y, m->z + 0.5f);
             float before = m->hp;
             damage_mob(m, dmg, DM_ARC | DM_ATK(AT_DRAIN), G.px, G.py, 0.0f);
             float dealt = before - fmaxf(m->hp, 0.0f);
-            G.hp = clampi(G.hp + (int)(dealt * fminf(0.8f, 0.5f + 0.05f * spell_tier(AT_DRAIN)) * spell_effect() + 0.5f), 0, G.max_hp);
+            float heal = fminf(dealt * fminf(0.8f, 0.5f + 0.05f * tier) * spell_effect(), (float)(G.max_hp - G.hp));
+            if (heal > 0.0f && (weak || !spend_spirit(heal * heal_cost(g, tier)))) {   /* healing costs spirit too */
+                heal = 0.0f;
+                if (!G.spirit_said) { G.spirit_said = 1; say("LOW ON SPIRIT: SPELLS CAST WEAK"); }
+            }
+            G.hp = clampi(G.hp + (int)(heal + 0.5f), 0, G.max_hp);
             pop_readout();
             snd_sfx_ex(SFX_WHISPER, 0.8f, 0.5f);
         } else fizzle(sp);
         return;
     case AT_BFS: bfs9000(); return;
     case AT_WISPS: {
-        int n = 3 + (spell_tier(AT_WISPS) >= 3) + (spell_tier(AT_WISPS) >= 6);
+        int n = wisp_count(tier);
         if (have) wisp_bfs(m->cx, m->cy);
         for (int i = 0; i < n; i++) {
             Shot *s = new_shot(AT_WISPS, hx, hy, a + (i - (n - 1) * 0.5f) * 0.45f, 4.5f, dmg);
-            if (s) { s->target = have ? t : -1; s->life = 3.0f; }
+            if (s) { s->target = have ? t : -1; s->life = 3.0f; s->tier = tier; }
         }
         snd_sfx_ex(SFX_SHIMMER, 0.6f, 0.5f);
         return;
@@ -2833,7 +2874,8 @@ static void cast_spell(int sp, int t) {
     default: {
         float speed = sp == AT_SPEAR ? 12.0f : (sp == AT_SPARKS ? 11.0f : (sp == AT_HELL ? 6.0f : (sp == AT_FROST ? 9.0f : 8.0f)));
         if (bat) a += (rndf() - 0.5f) * (sp == AT_SPARKS || sp == AT_FROST ? 0.3f : 0.6f);   /* bats are hard to hit */
-        new_shot(sp, hx, hy, a, speed, dmg);
+        Shot *s = new_shot(sp, hx, hy, a, speed, dmg);
+        if (s) s->tier = tier;
         snd_sfx_ex(sp == AT_FROST ? SFX_FROST : SFX_CAST, sp == AT_SPARKS ? 0.6f : (sp == AT_HELL ? 1.3f : 1.0f), 0.5f);
         return;
     }
@@ -2908,16 +2950,16 @@ static void update_shots(float dt) {
                     s->alive = 0; explode_big(s->x, s->y, 1.6f);
                     damage_mob(mb, s->dmg, DM_ATK(AT_HELL), fx, fy, 0.0f); splash(s->x, s->y, 1.5f, s->dmg, mb, AT_HELL);
                     for (int b = 0; b < MAXBURNS; b++)
-                        if (!G.burns[b].alive) { G.burns[b] = (Burn){ 1, s->x, s->y, 0.0f, (4.0f + spell_tier(AT_HELL)) * spell_effect(), 0 }; break; }
+                        if (!G.burns[b].alive) { G.burns[b] = (Burn){ 1, s->x, s->y, 0.0f, (4.0f + s->tier) * spell_effect(), 0 }; break; }
                     break;
                 case AT_FIRE:
                     s->alive = 0; explode(s->x, s->y);
                     damage_mob(mb, s->dmg, DM_ATK(AT_FIRE), fx, fy, 0.0f);
-                    if (spell_tier(AT_FIRE) >= 2) splash(s->x, s->y, 0.75f, s->dmg * 0.5f, mb, AT_FIRE);
+                    if (s->tier >= 2) splash(s->x, s->y, 0.75f, s->dmg * 0.5f, mb, AT_FIRE);
                     break;
                 case AT_FROST:
                     s->alive = 0; sfx_at(SFX_FROST, s->x, s->y, 0.8f);
-                    damage_mob(mb, s->dmg, DM_SLOW | DM_ATK(AT_FROST), fx, fy, (2.5f + 0.25f * spell_tier(AT_FROST)) * spell_effect());
+                    damage_mob(mb, s->dmg, DM_SLOW | DM_ATK(AT_FROST), fx, fy, (2.5f + 0.25f * s->tier) * spell_effect());
                     break;
                 default:                                           /* sparks, wisps, reflected missiles */
                     s->alive = 0;
@@ -3276,6 +3318,7 @@ static int key_calls(const Item *it) {
 
 static int worth_taking(const Item *it) {
     if (it->type == IT_POTION) return G.hp < G.max_hp * 4 / 5;      /* saved for when it is needed */
+    if (it->type == IT_BONE) return RUN.gear.atk[AT_SPEAR] >= 0 && RUN.gear.bones < BONES_MAX;
     return 1;
 }
 
@@ -3491,22 +3534,27 @@ static int choose_spell(int t) {
     int owned[NATK], no = 0, pick = AT_FIRE;
     float best = -1.0f;
     int shielded = m->type == MOB_SHIELD && m->shield > 0.0f;
+    float have = spirit();
     for (int sp = 0; sp < AT_BFS; sp++) {
-        if (g->atk[sp] < 0) continue;
+        if (g->atk[sp] < 0 || (sp == AT_SPEAR && g->bones <= 0)) continue;   /* no bones, no spears */
         owned[no++] = sp;
-        float v = spell_damage(g, sp) / spell_cycle(g, sp);
-        if (sp == AT_WISPS) v *= (float)(3 + (g->atk[sp] >= 3) + (g->atk[sp] >= 6));
+        int tier = g->atk[sp];
+        float cost = spell_cost(g, sp, tier);
+        if (cost > have) { tier = 1; cost = 0.0f; }                 /* what it would really get */
+        float v = spell_damage_at(g, sp, tier) / spell_cycle(g, sp);
+        if (sp == AT_WISPS) v *= (float)wisp_count(tier);
         if (m->type == MOB_WSKULL) v = 1.0f / spell_cycle(g, sp);   /* any hit will do: the quickest */
         switch (sp) {
         case AT_SPEAR: if (shielded) v *= 2.2f; if (near) v *= 1.3f; break;
         case AT_CHAIN: v *= 1.0f + 0.6f * (float)(near < 3 ? near : 3); if (shielded) v *= 1.8f; break;
         case AT_HELL: v *= 1.0f + 0.8f * packed; break;
-        case AT_DRAIN: if (hpf < 0.45f) v *= 2.2f; break;
+        case AT_DRAIN: if (hpf < 0.45f && have > 5.0f) v *= 2.2f; break;   /* the healing costs spirit too */
         case AT_FROST: if (m->type == MOB_BAT || m->type == MOB_SPIDER || m->type == MOB_SHIELD) v *= 1.2f; break;   /* slowing what closes in */
         default: break;
         }
         if (m->type != MOB_WSKULL) v *= hit_mult(m, sp);           /* what it is weak to, the elements worn too */
         if (sp == AT_WISPS) v *= 0.75f;                            /* not every wisp gets there */
+        v /= 1.0f + cost * (have < 15.0f ? 1.0f : 0.25f);          /* thriftier as spirit runs low */
         if (sp == G.spell) v *= 0.8f;                              /* and a little variety */
         v *= 0.85f + 0.3f * rndf();
         if (v > best) { best = v; pick = sp; }
@@ -3767,7 +3815,7 @@ static void start_level(void) {
     place_items(G.cx, G.cy);
     place_exit(G.cx, G.cy);
     G.route_gx = -1;
-    G.level_treasure = 0; G.level_souls = 0; G.dead = 0; G.dead_t = 0.0;
+    G.level_treasure = 0; G.level_souls = 0; G.dead = 0; G.dead_t = 0.0; G.spirit_said = 0;
     G.wisp_on = 0; G.wisp_a = 0.0f;                                /* the wisp is earned afresh on every level */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_WISP")) G.level_souls = WISP_SOULS;
@@ -3844,6 +3892,7 @@ static void debug_gear(void) {
         static const int KIND_OF[NSLOT] = { IK_WRIST, IK_WRIST, IK_BOOTS, IK_NECK, IK_HOOD, IK_ROBE, IK_RING };
         for (int i = 0; i < NATK; i++) RUN.gear.atk[i] = (int8_t)t;
         for (int i = 0; i < NDEF; i++) RUN.gear.def[i] = (int8_t)t;
+        RUN.gear.bones = (int16_t)clampi(SPEAR_BONES * t, 0, BONES_MAX);   /* as if the spear were bought t times */
         for (int s = 0; s < NSLOT && t > 0; s++) RUN.gear.worn[s] = piece_roll(KIND_OF[s], 2 * t, Q_UNCOMMON, &rs);
     }
     if (getenv("CRAWL_BAG")) {                                     /* a bag of that quality, all but one place filled */
@@ -3920,6 +3969,10 @@ static void collect(Item *it) {
 #endif
         break;
     case IT_POTION: G.hp = G.hp + 25 > G.max_hp ? G.max_hp : G.hp + 25; snd_sfx(SFX_POTION); break;
+    case IT_BONE:                                                  /* for the spear */
+        if (RUN.gear.bones < BONES_MAX) RUN.gear.bones++;
+        snd_sfx_ex(SFX_BONES, 0.5f, 0.5f);
+        break;
     case IT_URN: {                                                 /* it shatters and the souls inside are yours */
         int n = 5 + rnd(6);
         RUN.souls += n; G.level_souls += n;
@@ -3954,6 +4007,7 @@ static void update_items(void) {
         if (!it->alive) continue;
         float d = hypotf(it->x - G.px, it->y - G.py);
         if (!it->seen && d < (it->type == IT_KEY ? 13.0f : 8.5f) && line_clear(G.px, G.py, it->x, it->y)) it->seen = 1;
+        if (it->type == IT_BONE && RUN.gear.bones >= BONES_MAX) continue;   /* no room for it */
         if (d < (G.player ? 0.5f : 1.5f) && G.level_t > 1.0 && !G.ending) collect(it);   /* the autopilot reaches out */
     }
 }
@@ -4963,7 +5017,7 @@ static void gear_unpack(const uint8_t *p, Gear *g) {
     }
     g->bag_size = (uint8_t)clampi(p[0], 0, BAG_MAX); g->bag_quality = (uint8_t)clampi(p[1], 0, NQUAL - 1); p += 2;
     for (int i = 0; i < BAG_MAX; i++, p += PIECE_BYTES) if (i < g->bag_size) g->bag[i] = piece_unpack(p);
-    g->bones = (int16_t)clampi(get16(p), 0, 999); p += 2;
+    g->bones = (int16_t)clampi(get16(p), 0, BONES_MAX); p += 2;
     g->has_held = *p++ != 0;
     g->held.kind = p[0]; g->held.id = p[1]; g->held.tier = p[2]; g->held.rare = p[3] != 0; g->held.price = get32(p + 4); p += 8;
     g->held.piece = piece_unpack(p);
@@ -5019,7 +5073,8 @@ static int crawl_save(uint8_t *buf, int cap) {
     else { gold -= G.level_treasure; souls -= G.level_souls; }
     put32(buf, (int32_t)SAVE_MAGIC);
     put32(buf + 4, 3);                                             /* version */
-    put32(buf + 8, level); put32(buf + 12, hp); put32(buf + 16, gold); put32(buf + 20, souls * 10); put32(buf + 24, shop);
+    put32(buf + 8, level); put32(buf + 12, hp); put32(buf + 16, gold); put32(buf + 24, shop);
+    put32(buf + 20, souls * 10 + clampi((int)(RUN.soul_frac * 10.0f), 0, 9));   /* spirit, in tenths */
     gear_pack(buf + 28, &RUN.gear);
     rec_pack(buf + SAVE_V3, &RUN.rec);
     return n;
@@ -5034,11 +5089,11 @@ static void crawl_load(const uint8_t *buf, int len) {
     TOASTS.n = 0;                                                  /* another run's news is no news */
     RUN.level = clampi(get32(buf + 8), 1, 999); RUN.treasure = get32(buf + 16); RUN.souls = get32(buf + 20);
     RUN.shop_next = get32(buf + 24) != 0;
-    if (v >= 3) { gear_unpack(buf + 28, &RUN.gear); RUN.souls /= 10; }
+    if (v >= 3) { gear_unpack(buf + 28, &RUN.gear); RUN.soul_frac = (float)(RUN.souls % 10) / 10.0f; RUN.souls /= 10; }
     else gear_from_old(buf + 28, &RUN.gear, (uint32_t)RUN.level * 2654435761u);
     RUN.hp = clampi(get32(buf + 12), 1, gear_max_hp(&RUN.gear));
     if (RUN.treasure < 0) RUN.treasure = 0;
-    if (RUN.souls < 0) RUN.souls = 0;
+    if (RUN.souls < 0 || RUN.soul_frac < 0.0f) { RUN.souls = RUN.souls < 0 ? 0 : RUN.souls; RUN.soul_frac = 0.0f; }
 }
 
 /* ---- the graves: three save slots, carved and risen from the Esc menu ---- */
@@ -5645,7 +5700,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     for (int i = 0; i < G.nitems; i++) {
         const Item *it = &G.items[i];
         if (!it->alive) continue;
-        static const int SPR[] = { SP_COINS_A, SP_CHALICE, SP_GEMS, SP_CROWN, SP_CHEST, SP_KEY0, SP_POTION, SP_SOULURN, SP_RINGITEM };
+        static const int SPR[] = { SP_COINS_A, SP_CHALICE, SP_GEMS, SP_CROWN, SP_CHEST, SP_KEY0, SP_POTION, SP_SOULURN, SP_RINGITEM, SP_ITEM_BONE };
         float ph = (float)G.t + it->phase, z = 0.0f;
         int sp = SPR[it->type];
         if (it->type == IT_COINS && ((int)(ph * 2.5f) & 1)) sp = SP_COINS_B;
@@ -5865,13 +5920,23 @@ static void render_statusbar(Frame *f) {
         case 0: snprintf(num, sizeof num, "%d", G.level); break;
         case 1: snprintf(num, sizeof num, "$%d", G.shop ? G.shop_gold : RUN.treasure); col = R_GOLD + 12; break;
         case 2: snprintf(num, sizeof num, "%d%%", G.max_hp ? G.hp * 100 / G.max_hp : 0); col = G.hp * 4 <= G.max_hp ? R_BLOOD + 13 : (G.poison_t > 0.0f ? R_MOSS + 13 : C_WHITE); break;
-        case 3: snprintf(num, sizeof num, "%d", RUN.souls); col = R_GLOW + 12; break;
+        case 3: spirit_text(num, sizeof num); col = R_GLOW + 12; break;
         default: {                                                 /* the spell in hand, by name and tier */
             int sp = clampi(G.spell, 0, NATK - 1), t = RUN.gear.atk[sp];
             uint8_t sc = ramp_at(gear_color(GK_ATK, sp), 13);
             gfx_text8(f, P[i].x + (P[i].w - gfx_text_width(ATK_SHORT[sp], 1)) / 2, y0 + 19, ATK_SHORT[sp], sc, 1);
             if (sp == AT_BFS) snprintf(num, sizeof num, "-%d", bfs_cost(t));
             else { char nm[40]; gear_item_name(GK_ATK, sp, t, nm, sizeof nm); const char *r = strrchr(nm, ' '); snprintf(num, sizeof num, "%s", t > 0 && r ? r + 1 : ""); }
+            if (sp == AT_SPEAR) {                                  /* the bones to throw, over the label */
+                char bn[8];
+                snprintf(bn, sizeof bn, "%d", RUN.gear.bones);
+                int bw = gfx_text_width(bn, 1), bx = P[i].x + (P[i].w - bw - 12) / 2, by = y0 + 7;
+                gfx_rect(f, P[i].x + 2, by - 1, P[i].w - 4, 9, R_IRON + 2);
+                uint8_t bc = RUN.gear.bones > 0 ? (uint8_t)(R_BONE + 14) : (uint8_t)(R_BLOOD + 13);
+                static const char *BONE[3] = { "##.....##", ".#######.", "##.....##" };   /* a bone */
+                for (int r = 0; r < 3; r++) for (int k = 0; k < 9; k++) if (BONE[r][k] == '#') gfx_px(f, bx + k, by + 2 + r, bc);
+                gfx_text8(f, bx + 12, by, bn, bc, 1);
+            }
             gfx_text8(f, P[i].x + (P[i].w - gfx_text_width(num, 1)) / 2, y0 + 30, num, R_IRON + 13, 1);
             continue;
         }
@@ -6308,7 +6373,7 @@ static void render_readout(Frame *f) {
     if (k <= 0.0f) return;
     char num[16], gold[16], souls[16];
     snprintf(gold, sizeof gold, "%d", RUN.treasure);
-    snprintf(souls, sizeof souls, "%d", RUN.souls);
+    spirit_text(souls, sizeof souls);
     int nk = 0;
     for (int c = 0; c < NKEYS; c++) nk += G.has_key[c] > 0;
     int show_souls = RUN.souls > 0 || RUN.gear.atk[AT_BFS] >= 0;

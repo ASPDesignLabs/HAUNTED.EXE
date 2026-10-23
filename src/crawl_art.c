@@ -1107,6 +1107,11 @@ static void spr_items(void) {
     for (int k = 0; k < 4; k++) cv_line(26 + k * 4, 20, 25 + k * 4.4f, 17, sh(R_PURPLE, 0.6f));   /* the gathered cloth */
     cv_outline(0);
     cv_store(SP_ITEM_BAG);
+    /* a long bone on the floor, for the spear */
+    cv_begin(cv_sprite, TS, TS);
+    cv_bone(20, 58, 44, 54, 2.2f, 0.35f, 0.95f);
+    cv_outline(0);
+    cv_store(SP_ITEM_BONE);
 }
 
 /* The wraith: a tall hooded shape, nothing inside the hood but two cold eyes, bone hands reaching

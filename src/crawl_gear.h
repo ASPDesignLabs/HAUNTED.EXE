@@ -88,8 +88,14 @@ int   gear_max_hp(const Gear *g);
 float gear_haste(const Gear *g);                         /* walking speed factor */
 float gear_ember(const Gear *g);                         /* spell damage factor */
 
-/* spells */
+/* spells, and the spirit (souls) and bones they cost */
+#define BONES_MAX 30                                     /* bones the caster can carry */
+#define SPEAR_BONES 6                                    /* what buying or improving the spear brings */
 float spell_damage(const Gear *g, int atk);              /* per hit, with the damage worn */
+float spell_damage_at(const Gear *g, int atk, int tier); /* the same at another tier (a weak cast) */
+float spell_cost(const Gear *g, int atk, int tier);      /* spirit a cast takes at this tier: 0 at tier 1 and below */
+float heal_cost(const Gear *g, int tier);                /* spirit for each point Soul Drain restores */
+int   wisp_count(int tier);                              /* Seeker Wisps a cast sends */
 float spell_cycle(const Gear *g, int atk);               /* seconds between casts */
 int   bfs_cost(int tier);                                /* souls a BFS9000 shot burns */
 float def_cooldown(int tier);
