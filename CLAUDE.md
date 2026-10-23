@@ -17,8 +17,9 @@ which replaces the descent plan's section on enemies. The owner has accepted the
 to every question in both; the bestiary's status line says how far the work has got. Read both
 before starting on any of it. The overhaul of items, abilities, spirit and the merchant is planned in
 [`docs/PLAN-items.md`](docs/PLAN-items.md); the owner has answered its questions, and its status line
-says which of its seven steps are built (steps 1 to 6 so far: items as data, save version 3,
-everything worn felt in the game, spirit and bones, the abilities, the merchant, and the Black Altars).
+says all seven steps are built (items as data, save version 3, everything worn felt in the game,
+spirit and bones, the abilities, the merchant, the Black Altars, and the balance runs), tested in the
+harness; the next beta waits until the owner has played it.
 
 ## Working with the owner
 
@@ -287,8 +288,10 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   (`G.shop_confirm`, a second E buys); with a full bag `UI_LETGO` asks which spare to let go. Q holds
   a ware for a quarter of its price (`Gear.held`, `G.shop_held`); next visit it is back on its
   pedestal at the price it showed (`G.offer_back`), and the hold ends when the caster leaves the room.
-  Price tags over the pedestals skip any that would cover a nearer one. The debug build logs
-  `EVENT shop_look` as a person's eye moves between wares.
+  Price tags over the pedestals skip any that would cover a nearer one. A click that buys a ware or
+  pats the cat casts nothing until it is let go (`G.click_spent`), and taking control in the room
+  leaves no cast half-made (`G.pc_t`). A card's price drops to the top line when the name is long.
+  The debug build logs `EVENT shop_look` as a person's eye moves between wares.
 - **Black Altars** (`place_altar`, `update_altar`, `use_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are
@@ -317,15 +320,21 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
 
 ## Known issues and loose ends
 
-- In the wider crypt the autopilot dies more than it did in 1.0.0b1's narrow halls (eight 50-minute
-  runs: four never died, two once, one twice, one five times; levels 6-9 reached against 9 before).
-  Weak runs are the ones whose shopping skipped attack spells.
-- Secrets, the wisp and the graves have not been played by hand on Windows yet.
+- With the items (step 7 of the items plan), eight 50-minute autopilot runs from level 1 died 3 times
+  (7 at 1.0.0b3; six of eight never died in both), levels 8-9 reached. Weak runs were the ones whose
+  shopping skipped attack spells, so `shop_choose` takes three attack spells first, and saves only for a
+  spell within two levels' gold (`gear_haul` x 0.6 x 2).
+- Secrets, the wisp and the graves have not been played by hand on Windows yet; nor have the items,
+  spirit, bones, the merchant's new room or the Black Altars.
 - `decay_tex` already draws cracks on ordinary walls at depth; keep secret cracks distinguishable if
   textures change (see the plan).
 - CI warns that `actions/download-artifact@v6` targets Node 20; bump the action when a newer major is out.
 - Boss levels (5, 10, 15, 20) are ordinary levels for now, under their boss's name; there are no
   loop moods yet past level 20, only the numeral.
 - The Deep (levels 16-20) is deadly for the autopilot even with every spell at tier 2: eight
-  30-minute runs from level 16 died 22 times (25 before the Deep's newcomers came). The Hollows at
-  tier 1 died 18 times in eight 50-minute runs from level 11, against 9 before theirs. Tune by hand.
+  30-minute runs from level 16 died 25 times with the items (22 at 1.0.0b3, 25 before the Deep's
+  newcomers came); it can seldom afford anything there. The Hollows at tier 1 died 12 times in eight
+  50-minute runs from level 11 (18 at 1.0.0b3, 9 before their newcomers). `CRAWL_GEAR` gives different
+  pieces than it did at 1.0.0b3, so those compare only roughly. Tune by hand.
+- The harness isn't quite deterministic between `shot` runs that end at different times or scales
+  (the same seed and input can part ways after a minute or so); compare runs made the same way.

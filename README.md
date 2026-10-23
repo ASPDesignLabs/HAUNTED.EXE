@@ -32,13 +32,14 @@ Two scenes are included. They alternate every few minutes (configurable) with a 
 | Scene | VGA mode | What it is |
 |---|---|---|
 | **HAUNT.EXE** | 80x25 text mode, 720x400 | A possessed 486 PC: BIOS POST, a DOS prompt, and a ghost that types back. Between the gags it runs DOS programs that have been got at: EDIT rewriting AUTOEXEC.BAT for a seance, DEFRAG consuming souls and moving the remains to the front of the disk, a modem call to a BBS on the other side, a virus scan that cannot clean a dead host, MSD finding GHOST.SYS on IRQ 13, a thirteen-disk SETUP, a QBasic program that writes itself, and a file manager moving the dead from GRAVES to SOULS, until a file with your name turns up. Art materialises in between, seven full-screen half-block ANSI scenes with their own stories: the jack-o'-lantern in the pumpkin patch, the talking skull in the ossuary, the manor in a thunderstorm, the spider in the candle-lit corner, zombies digging out of a graveyard, skeletons dancing out of their coffins, and a ghost that rushes down a hallway to say boo. It ends in a fatal error and a CRT power-off, then reboots. |
-| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and buys one of three wares with the gold it carries (see below). Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, with skull walls, niches, banners, moss and sliding doors, walked with quick 90-degree turns. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides one to three secrets behind cracked walls (see below). Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. The twenty levels have names and come in four sets of five, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its last level; then the sets come round again. Twenty kinds of creature come in as you go down, about one new kind a level, each in ranks you can tell by its colour (see below). Every level is older and harder than the one before, though each death on a level makes its creatures hit a little softer on the next try (by up to 45%, until it is cleared). Your face, Wolfenstein-style, pops up when you are hurt. Hold H for three seconds to play it yourself (see below). |
+| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and chooses among five to seven wares for the gold it carries: spells, runes, and things to wear that are rolled like loot, each in its quality's colour (see below). Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, with skull walls, niches, banners, moss and sliding doors, walked with quick 90-degree turns. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides one to three secrets behind cracked walls (see below). Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. From level 6 a Black Altar stands deep in each level, and blesses what you wear once you have found the level's secrets. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. The twenty levels have names and come in four sets of five, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its last level; then the sets come round again. Twenty kinds of creature come in as you go down, about one new kind a level, each in ranks you can tell by its colour (see below). Every level is older and harder than the one before, though each death on a level makes its creatures hit a little softer on the next try (by up to 45%, until it is cleared). Your face, Wolfenstein-style, pops up when you are hurt. Hold H for three seconds to play it yourself (see below). |
 
 ![CATACOMB: the new creatures in the crypt, from the shambler to the gargoyle](docs/preview_catacomb_creatures.png)
 ![CATACOMB: an achievement, the bestiary's pages and the achievements list](docs/preview_catacomb_bestiary.png)
 ![CATACOMB: the merchant, wall skulls, spiders, shields and spells](docs/preview_catacomb.png)
 ![CATACOMB: big chambers and wide halls, a secret wall and its closet, and the wisp](docs/preview_catacomb_crypt.png)
 ![CATACOMB played by hand: holding H, the controls, shopping, casting, the wardrobe and the question at Esc](docs/preview_catacomb_play.png)
+![CATACOMB's wares: an Exquisite hood at the merchant, the caster's numbers, a full bag, Commune's red shapes through the wall, and a Black Altar woken and burning gold](docs/preview_catacomb_items.png)
 ![HAUNT.EXE: the jack-o'-lantern and the skull](docs/preview_haunt_art.png)
 ![HAUNT.EXE: the haunted programs](docs/preview_haunt_text.png)
 ![HAUNT.EXE: the other art scenes](docs/preview_haunt.png)
@@ -95,30 +96,65 @@ autopilot earns in an ordinary screensaver session shows, but isn't kept.
 
 ### CATACOMB: the merchant, the spellbook and the wardrobe
 
-Each level begins in a small antechamber. The caster greets the merchant (a slow blink back), looks
-over the three pedestals, and buys at most one: an **attack spell**, a **defensive rune** or something
-to **wear**. The first visit is free. Prices and strength rise with depth; an offer is usually a tier
-near the level, and now and then (about 1 in 12) a rare one well ahead of its time. Armor costs about
-one level's gold and spells about two, so the caster sometimes saves up instead, and sometimes
-splurges. Everything bought is kept, even through death. The cat trills when you buy, and a rest
-while it purrs mends some of your wounds.
+Each level begins in the merchant's room. The caster greets the cat (a slow blink back) and looks over
+the pedestals standing in an arc round the back wall: five to level 9, six to level 14, seven from 15.
+One holds an **attack spell**, one a **defensive rune**, and the rest things to **wear**, with now and
+then a bag among them. The caster may buy one ware a visit to level 9, two to level 14 and three from
+15, and the first visit's is free. Prices and strength rise with depth: a spell is usually a tier near
+the level, now and then (about 1 in 12) a rare one well ahead of its time, and costs about two levels'
+gold; a thing to wear costs by its quality, from part of a level's gold for something common to several
+levels' for something exquisite. The caster sometimes saves up for a spell it can nearly afford, and
+sometimes splurges. Whatever you own is kept, even through death. The cat trills when you buy,
+and a rest while it purrs mends some of your wounds.
 
 * **Attack spells** (the caster chooses per target): Fire Bolt (the fireball, splashing from tier II),
   Frost Shard (slows), Chain Lightning (arcs to others, around shields), Bone Spear (pierces a whole
   line and shields), Soul Drain (heals you), Hellfire (a big blast that leaves the floor burning),
   Seeker Wisps (home in around corners), Rapid Sparks (quick and light), and the **BFS9000**:
   incredibly rare and very dear, it burns 100 souls (fewer at higher tiers) to collapse everything in
-  sight into a point of light. Souls come one per kill, more with a Soul Jar ring or Soul Reaping.
+  sight into a point of light.
+* **Spirit.** The souls you take (one to six a kill, by the creature's rank, three times as many under
+  Soul Reaping) are also your spirit, and spells spend it, to the tenth. The Fire Bolt you start with,
+  and any spell cast at its tier-I strength, costs nothing. A stronger cast costs by its damage, from a
+  tenth of a soul to a whole one (Seeker Wisps a soul a wisp), and Soul Drain's healing costs half a soul
+  a point at tier I, down to a quarter. With too little spirit a spell goes out at tier-I strength and
+  heals nothing, and a caption says so. The BFS9000 keeps its own price. Ten souls taken on a level still
+  bring the wisp, however many you spend.
+* **Bones.** Every Bone Spear throws a bone. Skeletons, shield-bearers, knights and bone hounds drop them
+  now and then (about one in eight, more at higher ranks), buying or improving the spear brings six, and
+  you can carry thirty. With none, the spear fizzles.
 * **Defensive runes**, tattooed on the back of the hand and glowing when they fire, each on its own
   cooldown and triggered by the situation, with a human's reaction time (sometimes slow, sometimes
   missed, now and then wasted): Bone Ward (soaks blows), Blink (steps out of trouble), Mirror Veil
   (sends missiles back), Mend, Purify (cures poison and slow), Frost Nova (freezes what is close),
-  Dread (the dead flee), Time Slip (slows everything near) and Soul Reaping (triple souls).
-* **To wear**: robes (padded to archmage's, spider-silk against poison, shadow for dodging, thorned
-  to hurt what hurts you, blessed vestments that mend), hoods (warded against fire, hunter's to spot
-  lurkers, Death's cowl for bonus souls) and up to four rings (Bone Charm, Soul Jar, Haste, Ember,
-  Seeker's). A ring of a kind you already wear makes that one stronger. The robe colours the sleeve,
-  the rings sit on the fingers and the hood frames the portrait.
+  Dread (the dead flee), Time Slip (slows everything near) and Soul Reaping (triple souls). Runes cost
+  no spirit.
+* **To wear**, in seven places: a bracer on each wrist, boots, an amulet, a hood, robes and a ring. Every
+  piece is rolled. Its quality, Common (white), Uncommon (green), Rare (blue), Ultra-Rare (purple) or
+  Exquisite (gold), sets how many stats it has and how strong they are, and the deeper it was sold, the
+  stronger it is. The stats: Armor, Dodge, Health, Restores (health back each second), wards against
+  poison, burning and slowing, Movement, Quiet (creatures hear your footsteps less), Spell Haste, Spirit
+  Cost, Damage, Fire, Frost or Lightning (that much again of the element on every spell, biting hardest
+  on what it hurts), and Spell Effect (Soul Drain's healing, Frost's slow, Hellfire's burning and the
+  runes' strength). The totals are capped (Dodge at 35%, each ward at 75%, and so on), and no piece
+  promises more than a cap allows. A piece is named for its strongest stat: *Rare Boots of Shadows*,
+  *Uncommon Robes of the Bulwark*.
+* **Abilities.** A hood always carries one, other pieces sometimes, graded by quality: **Swift** (more
+  Movement), **Arcane** (more Spirit Cost reduction), **Treasure Hunter** (treasure worth more, and a
+  whisper from a secret wall within three cells), **Keymaker** (keys shine through the stone while the
+  wisp is lit, and **L** sends the wisp to each key in turn), **Communing** (every 15 seconds, creatures
+  near you show as red shapes through the walls), **Thorned** (hurts what strikes you) and **Mirrored**
+  (sends some missiles back at whoever threw them).
+* **Anointed** pieces, about one in ten, have their stats raised by 10% (Common) to 25% (Exquisite).
+  The Black Altars anoint too (below).
+* **Bags.** You start without one. A bag holds two to five spare pieces by its quality (a Burlap Sack,
+  a Gravedigger's Satchel, a Pilgrim's Scrip, a Bone Reliquary), turns up now and then among the things
+  to wear, only ever bigger than the one you carry, and takes over its contents. Without a bag, whatever
+  a new piece replaces is lost.
+
+The robes colour the sleeve, the right bracer shows as an iron cuff inlaid in its quality's colour, the
+ring's stone takes its colour, and the hood frames the portrait. The autopilot shops by what helps it,
+never buys a bag, and loses whatever a new piece replaces.
 
 ### Playing CATACOMB yourself
 
@@ -133,17 +169,22 @@ yours, and the scenes stop switching until you hand it back. HAUNT.EXE cuts stra
 | Left click, or Ctrl | Cast the spell in hand where you are looking (lightning and Soul Drain pick the nearest creature near the middle of the view) |
 | 1 to 9, or the wheel | Choose an attack spell from your book: 1 Fire Bolt, 2 Frost Shard, 3 Chain Lightning, 4 Bone Spear, 5 Soul Drain, 6 Hellfire, 7 Seeker Wisps, 8 Rapid Sparks, 9 BFS9000 |
 | E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, or step through the exit runes. Walking into a door opens it too |
-| Tab | The inventory: your wardrobe and spellbook. W and S choose a slot, A and D change what is worn there, with your numbers shown changing |
+| Tab | The wardrobe: W and S choose a place, worn or in the bag, and Enter moves a piece between them. A and D turn to the caster's page: every total, what abilities add (in gold) and what is at its cap (in blue), and the spellbook |
 | B | The bestiary and the achievements. A and D turn the pages, W and S choose a rank or scroll |
+| L | With a Keymaker piece on: turns the wisp from the way out to each key still lying in the level, in turn |
 | Esc | Asks whether you want to leave, with a different argument each time for staying; also where you save and load |
 
 Your defensive runes still fire on their own, as quickly (and as fallibly) as they do for the
 autopilot. In the merchant's room you shop yourself: walk up to a pedestal to see its card, and press
-E, Space or click to buy it; one ware per visit. Then leave by the east door.
+E, Space or click to buy it, as many times as the visit allows. A piece is worn at once. If it takes
+the place of one you wear and you have no bag, the card warns in red that the old one will be lost,
+and a second E buys; if your bag is full, you are asked which spare to let go (Esc thinks better of
+it). **Q** holds a ware for the next visit, for a quarter of its price: it comes back on its pedestal
+at the price it showed, and the hold ends when you leave the room the next time, bought or not. One
+ware is held at a time. Then leave by the east door.
 
-Everything you buy stays in your wardrobe, so you can swap robes, hoods and the four rings in the
-inventory. The Wolfenstein status bar stays up while you play: level, gold, health, your face,
-souls, the spell in hand and your keys.
+The Wolfenstein status bar stays up while you play: level, gold, health, your face, your spirit (the
+souls, to a tenth), the spell in hand, with the bones above it when the spear is in hand, and your keys.
 
 **Secrets.** Every level hides some walls that give: one on levels 1 and 2, two on levels 3 to 5, and
 three from level 6. Such a wall looks like any other plain stone until you are within a couple of
@@ -157,6 +198,13 @@ notices the cracks now and then and presses them too.
 the way out, along the way you would walk rather than as the crow flies, held to your hand by its tail.
 If the exit is in a locked vault, it leads you to the key first. It also lights the crypt about four
 cells around you. It goes out when you leave the level, and the next one has to earn it again.
+
+**Black Altars.** From level 6, a level with secrets has a Black Altar, in a corner of the exit room or
+else in the room farthest from the start. Press E at it and ten spirit wakes it: a violet flame lights
+in its bowl and a violet wisp comes to your hand, leading to the nearest secret wall you haven't opened
+(through the key of any vault it lies in), then the next. Once every secret on the level is found the
+flame turns gold. Press E again and it anoints one thing you wear, at random, one not anointed already,
+and names it. Then it is spent. The autopilot leaves altars alone.
 
 Esc offers five answers:
 
@@ -179,8 +227,10 @@ If the window loses focus while you play, the game pauses on that question. The 
 became HAUNTED.EXE, kept so that settings and progress carry over), and the graves are `Slot1` to `Slot3`
 beside it; `uninstall.cmd` removes them with the settings.
 
-1.0.0b3 saves in a new format, to carry the record. Progress and graves from earlier betas still load,
-but 1.0.0b2 and earlier can't read a save made by 1.0.0b3: they start again from level 1, and fleeing
+This build saves in a new format again, to carry what you wear, your bag, your bones and a held ware.
+Progress and graves from earlier betas still load: their spells, runes, gold and souls come across, their
+robe, hood and best ring become Common pieces of about the same strength, and there is no bag. But
+1.0.0b3 and earlier can't read a save made by this build: they start again from level 1, and fleeing
 there overwrites it. If you might go back, keep a copy first:
 `reg export HKCU\Software\HalloweenVGASaver haunted-backup.reg` (double-click the file to restore it).
 
@@ -345,7 +395,45 @@ The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.p
 
 ## What has been verified
 
-**New in 1.0.0b3** (the creatures, their ranks, the sets, achievements and the bestiary):
+**New since 1.0.0b3** (not released yet: things to wear rolled like loot, spirit and bones, the
+abilities, the merchant's wider room and the Black Altars). All of it has been tested in the harness
+only. None of it has been played by hand yet, and this round wasn't run under Wine; the Windows build is
+compiled and smoke-tested by CI.
+
+* **The first ten levels are a little kinder to the autopilot.** Eight 50-minute runs from level 1, on
+  the same seeds as 1.0.0b3: 3 deaths against 7, six runs that never died in both, levels 8 and 9
+  reached (median 8, against 8.5), levels a median of about 5.6 minutes as before, about 75% of the
+  treasure taken (79% before), four to nine purchases and two to seven secrets a run.
+* **The Hollows are easier and the Deep a little harder.** Eight 50-minute runs from level 11 with every
+  spell at tier 1 died 12 times, against 18 at 1.0.0b3. Eight 30-minute runs from level 16 with everything
+  at tier 2 died 25 times, against 22. These runs begin with seven Uncommon pieces where 1.0.0b3's began
+  with a robe, a hood and rings, so they compare only roughly. In the Deep the autopilot can seldom afford
+  much: seven of those eight runs bought one thing or nothing.
+* **Spirit is enough for the autopilot.** In all those runs it cast about 10,700 spells, and 51 of them
+  went out weak for want of spirit.
+* **Its shopping was mended twice on the way.** Runs that skipped attack spells were the ones that died,
+  so it now takes three before anything else. And in the Deep it would fix on a rare spell costing four or
+  five levels' gold and save for it for half an hour, buying nothing; now it saves only for a spell that
+  two levels' gold might bring (deaths from level 16 went from 28 to 25).
+* **Played in the harness:** buying a piece for a worn place with no bag (the red warning, then a second
+  E) and with a full bag (letting a spare go); holding a ware and finding it back on the next visit at
+  the price it showed; moving pieces between the wardrobe and the bag; the caster's page; Keymaker's L
+  sending the wisp to each key in turn, with a test player following it to the keys and out; Commune's
+  red shapes; Mirrored sending missiles home; Treasure Hunter's whisper; waking a Black Altar, with a test
+  player following its violet wisp to all three secrets on a level, through two vault keys. The gold flame
+  and the anointing were seen in a scratch build that marks the secrets found, since finding every one by
+  script takes a while. Anointing was checked on 72,000 rolled pieces: no stat ever passes its cap.
+* **Saves.** Fleeing and loading the new save (939 bytes) with what was worn and abilities intact, and
+  loading a 1.0.0b3 save, whose robe, hood and ring came across as Common pieces, with no bag.
+* **Found and fixed on the way:** taking control in the merchant's room cast a stray Fire Bolt (in
+  1.0.0b3 too, where it cost nothing); clicking a ware bought it and cast a Fire Bolt as well; a long name
+  ran under the price on the merchant's card, and a number could be parted from its unit at the end of a
+  line; the altar's wisp stalled at a vault door when the secret it sought lay inside the vault.
+* **AddressSanitizer and UBSan**, clean: about 40 minutes of scripted sessions (the shop, the wardrobe
+  and the caster's page, holding and the next visit, the altar and its wisp, Keymaker and Mirrored,
+  fleeing and loading new and old saves), on top of rounds after each step of the work.
+
+**In 1.0.0b3** (the creatures, their ranks, the sets, achievements and the bestiary):
 
 * **The owner ran a build of this beta on their own Windows PC**, from just before the two bestiary fixes
   below, and found it looks and runs well. Not every creature, achievement and bestiary page has been gone

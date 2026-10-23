@@ -1,9 +1,10 @@
 # Items, abilities and ammunition: the merchant's new stock
 
-**Status: agreed (23 October 2026); steps 1 to 6 built (items as data, the wardrobe, save version 3;
+**Status: agreed (23 October 2026); all seven steps built (items as data, the wardrobe, save version 3;
 every worn stat felt in the game, footsteps and Quiet, the cuff and the totals page; spirit and bones;
-the abilities; the merchant; the Black Altars), tested in the harness only; the owner checked the
-rolled wares (and asked for Exquisite a little more often); step 7 to come.** A plan from the owner's guide, written after
+the abilities; the merchant; the Black Altars; the balance runs), tested in the harness only; the owner
+checked the rolled wares (and asked for Exquisite a little more often). The beta waits until the owner
+has played it.** A plan from the owner's guide, written after
 reading the code as it stands at 1.0.0b3.
 
 **Decided (23 October 2026):**
@@ -302,6 +303,18 @@ blob is about 950 bytes with the record; graves (`SLOT_MAX`) go from 1024 to 204
 6. **Black Altars**: placing them, waking their wisp, the route to each secret, anointing.
 7. **Balance**: eight-seed runs against 1.0.0b3, from level 1 and from 11; ASan; the README and plan
    kept true. Then a beta, once the owner has played it.
+
+As built in step 7: eight 50-minute autopilot runs from level 1 died 3 times (7 at 1.0.0b3), from
+level 11 at tier 1 12 times (18), and eight 30-minute runs from level 16 at tier 2 25 times (22): the
+Deep is still the hard part, and there the autopilot can seldom afford anything. Of about 10,700 casts
+in those runs, 51 went out weak for want of spirit, so the first risk below didn't come to much. The
+autopilot used to fix on a rare spell four or five levels' gold away and save for it for half an hour;
+it now saves only for a spell two levels' gold might bring (the Deep's deaths went from 28 to 25).
+Four faults turned up and were fixed: a stray Fire Bolt when a person took control in the merchant's
+room, a Fire Bolt cast by the same click that bought a ware, a long name under the price on the card,
+and a number parted from its unit at a line's end. The README and its previews (the play strip, the
+merchant strip and a new strip of the wares) show the items as built. ASan and UBSan were clean over
+about 40 minutes of scripted sessions.
 
 Risks worth naming:
 
