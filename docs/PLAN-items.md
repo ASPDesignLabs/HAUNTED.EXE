@@ -1,8 +1,22 @@
 # Items, abilities and ammunition: the merchant's new stock
 
-**Status: questions open (23 October 2026).** A plan from the owner's guide, written after reading the
-code as it stands at 1.0.0b3. Nothing is built yet. Each question at the end has a recommended answer
-(marked *); the owner picks, and the answers are recorded here before work starts.
+**Status: answered, with a few follow-ups on the bag and the Black Altars (23 October 2026).** A plan
+from the owner's guide, written after reading the code as it stands at 1.0.0b3. Nothing is built yet.
+
+**Decided (23 October 2026):**
+
+- I1 a: spirit is the souls you collect, spent on spells. I2 a: the starting fireball and any spell at
+  tier-1 strength are free; above that, Fire Bolt costs too. I5 a: every spear needs a bone. I16 a:
+  footsteps make noise, and Quiet boots soften it. I10 a: any item can roll an ability; hoods always do.
+- **I19, in the owner's words:** no bag to begin with. Bags (two to five slots, with a fitting name) are
+  bought from the merchant and hold items in reserve. Without a bag, buying an item for a slot already
+  worn warns that the old item will be lost, and no gold comes back. With a bag that is full, the player
+  is offered the chance to free a slot first, then buys.
+- **I12, in the owner's words:** some items come Anointed. Black Altars also anoint, once every secret
+  on their level has been found. Finding a Black Altar lights a wisp that leads to the nearest secret
+  not yet found; it takes ten souls to wake. Black Altars stand deep in the maze, in the exit room
+  where possible.
+- Every other question takes its recommended answer (*).
 
 ## 1. What the game does today
 
