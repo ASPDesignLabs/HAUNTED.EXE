@@ -16,7 +16,8 @@ in which creatures and decorations appear are in [`docs/PLAN-bestiary.md`](docs/
 which replaces the descent plan's section on enemies. The owner has accepted the recommended answer
 to every question in both; the bestiary's status line says how far the work has got. Read both
 before starting on any of it. The overhaul of items, abilities, spirit and the merchant is planned in
-[`docs/PLAN-items.md`](docs/PLAN-items.md); the owner has answered its questions, and nothing is built yet.
+[`docs/PLAN-items.md`](docs/PLAN-items.md); the owner has answered its questions, and its status line
+says which of its seven steps are built (step 1, items as data and save version 3, so far).
 
 ## Working with the owner
 
@@ -45,7 +46,8 @@ before starting on any of it. The overhaul of items, abilities, spirit and the m
 | `src/scene_haunt.c`, `src/haunt_art.c/.h` | HAUNT.EXE: BIOS POST, DOS prompt, the haunted programs, seven half-block ANSI art scenes, the crash |
 | `src/scene_crawl.c` | CATACOMB: generator, autopilot, player mode, combat, spells and runes, merchant, secrets, the wisp, lightmap, raycaster, sprites, HUD, tally, menus, save/load, graves, creatures, the record and the bestiary (about 6,700 lines; see below) |
 | `src/crawl_art.c`, `src/crawl.h` | CATACOMB's palette, colormap, procedural wall textures (`T_*`) and sprites (`SP_*`), `crawl_art_level()` per-level tint and decay |
-| `src/crawl_gear.c/.h` | Spells, runes, robes, hoods, rings: tiers, prices, stats |
+| `src/crawl_gear.c/.h` | Spells and runes by tier; pieces to wear (`Piece`: kind, quality, level, anointed, ability, rolled stats) and bags; rolls, names, prices, the caster's totals and their caps |
+| `tools/items.c` | `make items`: a hundred rolled wares a level as `build/items.json`, for checking names and numbers |
 | `src/hand_img.c`, `src/face_img.c`, `src/cat_img.c` | Traced bitmaps (data) |
 | `tools/host.c` | The headless test harness (Linux): PNG frames, WAV audio, benchmarks, scripted input |
 | `tools/build_site.sh` | Assembles the Pages site from `site/` and `docs/*.png`, fills `@VERSION@` and the title card |
@@ -84,8 +86,9 @@ Environment for the harness: `HOST_INPUT="1:+H;4.3:-H;5:+W;7:-W;8:m400,0;9:+MOUS
 (graves as `slot1.bin`..`slot3.bin`), `BOTH=1` (scene rotation), `STAY=n`.
 
 Debug build switches (`CRAWL_DEBUG`): `CRAWL_SEED=n` (seeds are OR-ed with 1, so 2 and 3 are the
-same), `CRAWL_LEVEL=n` (start deeper; you start at the merchant), `CRAWL_GEAR=t` (own everything at
-tier t), `CRAWL_GOLD`, `CRAWL_SOULS`, `CRAWL_ROBE`, `CRAWL_MAP=1` (prints the map, the plan and a lane
+same), `CRAWL_LEVEL=n` (start deeper; you start at the merchant), `CRAWL_GEAR=t` (every spell and
+rune at tier t, and an Uncommon piece of level 2t in every slot), `CRAWL_BAG=q` (a bag of quality q, all
+but one place filled with spares), `CRAWL_GOLD`, `CRAWL_SOULS`, `CRAWL_MAP=1` (prints the map, the plan and a lane
 reachability check), `CRAWL_MAPAT=t`, `CRAWL_TPSECRET=n` / `CRAWL_TPEXIT=1` (stand in front of a secret
 or the exit once you take control), `CRAWL_WISP=1` (wisp from the start), `CRAWL_FOLLOWWISP=1` (a
 player that walks wherever the wisp leans: a test that it leads out), `CRAWL_SHOWHAND`, `CRAWL_BFSANY`,
@@ -102,12 +105,15 @@ log` per seed, four at a time, then a short script over the logs: levels reached
 secrets. Compare against a build of the previous commit (a `git worktree`) on the same seeds; one run
 can spiral, so use at least eight seeds before trusting a balance change.
 
-A save blob (for `HOST_LOAD`) is `"HVS1"` (u32 0x31535648 LE), version 2, then little-endian int32
-level, hp, gold, souls, shop-first flag, then the raw `Gear` struct, then the run's `Record`
-(`rec_pack`: u16 kills by kind and rank, u8 kills by kind and spell, u8 ranks seen by kind, u16
-secrets, u16 descents, u32 levels cleared, 32 bytes of achievement bits; `REC_BYTES` in all). A
-version 1 blob (no record) still loads, with an empty record, so a few lines of Python writing
-version 1 are still the quickest way to start a test at a given level with given gear.
+A save blob (for `HOST_LOAD`) is `"HVS1"` (u32 0x31535648 LE), version 3, then little-endian int32
+level, hp, gold, souls (in tenths), shop-first flag, then the gear packed field by field (`gear_pack`:
+attack and rune tiers, the seven worn pieces, bag size and quality, five bag places, bones, a held ware;
+a piece is 24 bytes, `PIECE_BYTES`), then the run's `Record` (`rec_pack`: u16 kills by kind and rank,
+u8 kills by kind and spell, u8 ranks seen by kind, u16 secrets, u16 descents, u32 levels cleared, 32
+bytes of achievement bits; `REC_BYTES` in all): 939 bytes. Versions 1 and 2 (the old 46-byte raw
+`Gear`; version 1 without a record) still load: their worn robe, hood and best ring become Common
+pieces of their tier (`gear_from_old`). A few lines of Python writing version 1 are still the quickest
+way to start a test at a given level with given spells.
 
 Memory safety: build the harness with `-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer
 -DHAUNT_DEBUG -DCRAWL_DEBUG` (same sources as `build/host`) and run long autopilot and scripted player
@@ -138,7 +144,9 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   (360), or earlier once it has most of the treasure. It presses about a third of the secrets it walks
   past.
 - **Player mode** (`update_human`, `human_walk`, `human_use`, `human_cast`) after holding H. Esc opens
-  the question (flee, stay, sleepwalk, carve a gravestone, rise from a grave); Tab the wardrobe; B the
+  the question (flee, stay, sleepwalk, carve a gravestone, rise from a grave); Tab the wardrobe (the
+  seven worn slots and the bag, Enter moves a piece between them; A/D turns to the caster's totals and
+  the spellbook); B the
   bestiary (`render_bestiary`: a page a kind, A/D through them, W/S through its ranks, then the
   achievements).
 - **The record and achievements** (`Record` in `RUN.rec`, saved with the run, so each save and grave
@@ -225,10 +233,21 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
 - **Ranks and the bestiary art.** `crawl_rank_lut[family][rank]` recolours a creature's body ramp
   (`PF_*`, `RK_*` in `crawl.h`). The new creatures' and decorations' sprites are drawn in
   `crawl_art.c`; `make sheets` shows them. See `docs/PLAN-bestiary.md` for what is in play.
-- **Saves.** `crawl_save`/`crawl_load` (format above; `Gear` is copied raw, so changing `Gear`'s layout
-  breaks old saves: bump the version and keep loading the old ones; `REC_KINDS` is fixed at 24 for the
-  same reason). Progress saves on fleeing; graves are the same blob plus 8 bytes of time in slots 1-3
-  (`SLOT_MAX` 1024).
+- **Saves.** `crawl_save`/`crawl_load` (format above; the gear is packed field by field, so adding to
+  `Gear` means adding to `gear_pack`/`gear_unpack` and a new version that still loads the old ones;
+  `REC_KINDS` is fixed at 24 because the record is packed by it). Progress saves on fleeing; graves are
+  the same blob plus 8 bytes of time in slots 1-3 (`SLOT_MAX` 2048).
+- **Items** (`crawl_gear.c`, docs/PLAN-items.md). A `Piece` has a kind (`IK_*`: bracer, boots,
+  amulet, hood, robes, ring, bag), a quality (`Q_*`, white to gold: `QUAL_RAMP`), its level, Anointed or
+  not, an ability (`AB_*`) and up to six rolled stats (`ST_*`, in tenths; health restored in
+  hundredths). `piece_roll` follows the plan's tables (`KIND_STATS`, `QUAL_STATS`, `ABIL_CHANCE`,
+  `stat_base`); no piece rolls past its stat's cap (`STAT_CAP`). `gear_total` sums what is worn, lets
+  Swiftness and Arcane Knowledge raise the summed stat once, then caps it. `piece_name` gives the two
+  name lines; `piece_worth` and `gear_value` are the autopilot's sense of what helps; `gear_take` wears
+  a piece if it is better and bags or loses the old one (`take_piece` says which in a caption). So far
+  the game feels Armor, Dodge, Health, Restores, the three resists, Movement (and Swiftness), Spell Haste,
+  Damage and Thorns, as the old robes, hoods and rings did; Quiet, Spirit Cost, the elements, Spell
+  Effect and the other abilities are rolled and shown but do nothing until the plan's later steps.
 
 ## Releasing
 

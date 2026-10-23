@@ -55,7 +55,7 @@ typedef struct Scene {
 /* Save slots, three of them: the app keeps their bytes, the platform stores them (the registry on
  * Windows, files in the harness). A scene reads and writes them whenever it likes. */
 #define SLOT_COUNT 3
-#define SLOT_MAX 1024                  /* a run, its record of kills and achievements, and when it was carved */
+#define SLOT_MAX 2048                  /* a run, its record of kills and achievements, and when it was carved */
 int  slot_read(int i, uint8_t *buf, int cap);        /* the slot's length, 0 when it is empty */
 void slot_write(int i, const uint8_t *buf, int len);
 

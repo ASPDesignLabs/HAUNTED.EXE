@@ -1,6 +1,8 @@
 # Items, abilities and ammunition: the merchant's new stock
 
-**Status: agreed (23 October 2026); nothing built yet.** A plan from the owner's guide, written after
+**Status: agreed (23 October 2026); step 1 built (items as data, the wardrobe on the new items, save
+version 3), tested in the harness only, with a page of rolled wares for the owner to check; steps 2-7
+to come.** A plan from the owner's guide, written after
 reading the code as it stands at 1.0.0b3.
 
 **Decided (23 October 2026):**
@@ -122,8 +124,9 @@ and one step further each time round. About one item in ten comes Anointed; the 
 others (below).
 
 **Totals are capped,** whatever is worn: Dodge 35%, each Resist 75%, Spell Haste +50%, Spirit Cost
-Reduction 60%, Damage x2, Elemental +50%, Movement +40%, Spell Effectiveness +50%. HP, Armor, health
-restored and Thorns have no cap.
+Reduction 60%, Damage x2, Elemental +50%, Movement +40%, Spell Effectiveness +50% (and Quiet 80%). HP,
+Armor, health restored and Thorns have no cap. No single piece rolls past a cap either, since the
+excess could never count (a default taken while building step 1).
 
 **What the stats do in the game:**
 

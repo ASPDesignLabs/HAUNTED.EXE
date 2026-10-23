@@ -325,6 +325,7 @@ static struct {
     int pc_fired;
     char msg[64];
     Gear inv0;                              /* the gear as it was when the inventory opened */
+    int inv_page;                           /* the wardrobe (0) or the caster's numbers and spellbook (1) */
 
     float fade, card;
     int ending;
@@ -336,6 +337,7 @@ enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES, UI_BESTIARY };   /* the menus 
 static Input IN;                            /* their keys and mouse, this step */
 
 static uint8_t ramp_at(int ramp, int k) { return (uint8_t)(ramp + clampi(k, 0, ramp == R_GOLD ? 12 : 15)); }   /* the gold ramp is short */
+static uint8_t qual_text(int q) { return q == Q_COMMON ? (uint8_t)C_WHITE : ramp_at(QUAL_RAMP[q], 13); }   /* white, then green, blue, purple, gold */
 static int rnd(int n) { return (int)(rng_next(&G.rs) % (uint32_t)n); }
 static float decay(void) { return crawl_decay(G.level); }        /* rot and ruin: 0 as a set begins, 1 on its last level */
 static float depth(void) { return crawl_depth(G.level); }         /* how far down: 0 in the Crypts, 1 from the Deep on */
@@ -1811,11 +1813,10 @@ static void update_bones(float dt) {
     }
 }
 
-/* souls: one per kill, more with a Soul Jar, three times over while Soul Reaping runs */
+/* souls: one or more a kill, by its rank, three times over while Soul Reaping runs */
 static void gain_souls(float n) {
-    float mult = gear_soul_mult(&RUN.gear) * (G.reap_t > 0.0f ? 3.0f : 1.0f);
+    float mult = G.reap_t > 0.0f ? 3.0f : 1.0f;
     RUN.soul_frac += n * mult;
-    if (rndf() < gear_cowl(&RUN.gear)) RUN.soul_frac += 1.0f;      /* Death's cowl */
     int whole = (int)RUN.soul_frac;
     if (whole > 0) { RUN.souls += whole; RUN.soul_frac -= (float)whole; G.level_souls += whole; snd_sfx_ex(SFX_GHOST_TICK, 0.5f, 0.5f); }
 }
@@ -2140,7 +2141,7 @@ static void update_wraith(Mob *m, float dt) {
         m->cool = 2.0f;
         sfx_at(SFX_SHRIEK, m->x, m->y, 1.0f);
         if (hurt_ex(mob_damage(m) * 1.5f, HURT_MAGIC, m->x, m->y) > 0) {
-            G.chill = 1.0f; G.slow_t = fmaxf(G.slow_t, 2.0f * (1.0f - gear_poison_resist(&RUN.gear)));
+            G.chill = 1.0f; G.slow_t = fmaxf(G.slow_t, 2.0f * (1.0f - gear_slow_resist(&RUN.gear)));
             DBG_COUNT(wraith_touches);
         }
     }
@@ -2259,7 +2260,7 @@ static void bite(Mob *m) {
     float k = 1.0f - gear_poison_resist(g);
     G.poison_t = fmaxf(G.poison_t, 6.0f * k);
     G.poison_dps = (1.0f + (float)((G.level - 4) / 2 > 0 ? (G.level - 4) / 2 : 0)) * m->dmgk;
-    G.slow_t = fmaxf(G.slow_t, 4.0f * k);
+    G.slow_t = fmaxf(G.slow_t, 4.0f * (1.0f - gear_slow_resist(g)));
 }
 
 static void update_spider(Mob *m, float dt) {
@@ -2435,7 +2436,7 @@ static void update_mob(Mob *m, float dt) {
             if (m->swing <= 0.0f) {
                 m->swing = 0.0f; m->cool = 1.8f;
                 if (pd0 < 1.45f && hurt_ex(mob_damage(m), HURT_BLOW, m->x, m->y) > 0) {
-                    G.slow_t = fmaxf(G.slow_t, (m->type == MOB_DROWNED ? 2.5f : 1.2f) * (1.0f - gear_poison_resist(&RUN.gear)));   /* it holds on */
+                    G.slow_t = fmaxf(G.slow_t, (m->type == MOB_DROWNED ? 2.5f : 1.2f) * (1.0f - gear_slow_resist(&RUN.gear)));   /* it holds on */
                     thorns(m); DBG_COUNT(grabs);
                 }
             }
@@ -3411,15 +3412,12 @@ static void begin_turn(float target) {
     G.st = 0.0f;
 }
 
-/* can the caster pick this one out? a spider in its web shows only its eyes, and only a hunter's
- * hood lets the caster pick those out in time */
+/* can the caster pick this one out? a spider in its web shows only its eyes, and a wall skull
+ * asleep is only a carving: neither, until it stirs */
 static int targetable(const Mob *m) {
     if (!m->alive || m->state != MS_WALK || m->type == MOB_GHOST || buried(m) || shade_hidden(m)) return 0;
     if (m->type == MOB_GARGOYLE && m->sub == 0) return 0;          /* only a statue, as far as anyone can tell */
-    if ((m->type == MOB_SPIDER || m->type == MOB_WSKULL) && m->sub == 0) {
-        float h = gear_hunter(&RUN.gear), notice = h > 1.0f ? fminf(1.5f + (h - 1.0f) * 12.0f, 8.0f) : 0.0f;
-        return hypotf(m->x - G.px, m->y - G.py) < notice;
-    }
+    if ((m->type == MOB_SPIDER || m->type == MOB_WSKULL) && m->sub == 0) return 0;
     return 1;
 }
 
@@ -3811,24 +3809,50 @@ static void start_level(void) {
 }
 
 #ifdef CRAWL_DEBUG
-/* for testing: CRAWL_GEAR=n gives every spell, rune, robe and ring at tier n; CRAWL_GOLD, CRAWL_SOULS */
+/* for testing: CRAWL_GEAR=n gives every spell and rune at tier n, and an Uncommon piece of level 2n
+ * in every slot (about what tier n used to wear); CRAWL_GOLD, CRAWL_SOULS */
 static void debug_gear(void) {
     if (getenv("CRAWL_GEAR")) {
         int t = atoi(getenv("CRAWL_GEAR"));
+        uint32_t rs = 0x9e3779b9u ^ (uint32_t)t;
+        static const int KIND_OF[NSLOT] = { IK_WRIST, IK_WRIST, IK_BOOTS, IK_NECK, IK_HOOD, IK_ROBE, IK_RING };
         for (int i = 0; i < NATK; i++) RUN.gear.atk[i] = (int8_t)t;
         for (int i = 0; i < NDEF; i++) RUN.gear.def[i] = (int8_t)t;
-        for (int i = 1; i < NROBE; i++) RUN.gear.robe_own[i] = (int8_t)t;   /* the whole wardrobe */
-        for (int i = 1; i < NHOOD; i++) RUN.gear.hood_own[i] = (int8_t)t;
-        for (int i = 0; i < NRING; i++) RUN.gear.ring_own[i] = (int8_t)t;
-        RUN.gear.robe = RB_SHADOW; RUN.gear.hood = HD_HUNTER;
-        for (int f = 0; f < NFINGERS; f++) RUN.gear.ring[f] = (int8_t)f;
+        for (int s = 0; s < NSLOT && t > 0; s++) RUN.gear.worn[s] = piece_roll(KIND_OF[s], 2 * t, Q_UNCOMMON, &rs);
     }
-    if (getenv("CRAWL_ROBE")) RUN.gear.robe = (int8_t)atoi(getenv("CRAWL_ROBE"));
-    gear_sync(&RUN.gear);
+    if (getenv("CRAWL_BAG")) {                                     /* a bag of that quality, all but one place filled */
+        int q = clampi(atoi(getenv("CRAWL_BAG")), 0, NQUAL - 1);
+        uint32_t rs = 0x85ebca6bu ^ (uint32_t)q;
+        RUN.gear.bag_size = (uint8_t)bag_capacity(q); RUN.gear.bag_quality = (uint8_t)q;
+        for (int i = 0; i + 1 < RUN.gear.bag_size; i++) RUN.gear.bag[i] = piece_roll(IK_WRIST + (int)(rs % 6), 3 + i * 2, i % NQUAL, &rs);
+    }
     if (getenv("CRAWL_GOLD")) RUN.treasure = atoi(getenv("CRAWL_GOLD"));
     if (getenv("CRAWL_SOULS")) RUN.souls = atoi(getenv("CRAWL_SOULS"));
 }
 #endif
+
+/* A piece comes to the caster, bought or found: worn if it beats what is on, otherwise into the bag;
+ * what has nowhere to go is lost. A caption says which. (A person will choose at the merchant.) */
+static void take_piece(const Offer *o) {
+    const Piece *p = &o->piece;
+    char a[48], b[48];
+    piece_name(p, a, b, sizeof a);
+    int slot = piece_slot(&RUN.gear, p->kind);
+    const char *was = slot >= 0 ? KIND_NAME[RUN.gear.worn[slot].kind] : "";
+    int old = G.max_hp;
+    switch (gear_take(&RUN.gear, o)) {
+    case TAKE_WORN: say("NOW WEARING %s", b); break;
+    case TAKE_WORN_OLD_BAGGED: say("%s ON; THE OLD %s IN THE BAG", KIND_NAME[p->kind], was); break;
+    case TAKE_WORN_OLD_LOST: say("%s ON; THE OLD %s LOST", KIND_NAME[p->kind], was); break;
+    case TAKE_BAGGED: say("INTO THE BAG: %s", b); break;
+    case TAKE_LOST: say("NO ROOM FOR IT: %s LEFT", KIND_NAME[p->kind]); break;
+    case TAKE_BAG: say("A %s: ROOM FOR %d", bag_name(RUN.gear.bag_size), RUN.gear.bag_size); break;
+    default: break;
+    }
+    G.max_hp = gear_max_hp(&RUN.gear);
+    if (G.max_hp > old) G.hp += G.max_hp - old;                    /* new strength comes with it */
+    if (G.hp > G.max_hp) G.hp = G.max_hp;
+}
 
 /* The run carries on across scene switches: the level, HP, gold, souls and gear are kept, and the
  * current level is laid out afresh (without a second visit to the merchant). */
@@ -3876,10 +3900,12 @@ static void collect(Item *it) {
         snd_sfx_ex(SFX_SHATTER, 0.8f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.6f, 0.5f); G.chill = 0.5f;
         break;
     }
-    case IT_RING: {                                                /* a ring of its own, for nothing */
-        Offer o = { GK_RING, rnd(NRING), G.level, 0, 0 };
-        gear_take(&RUN.gear, &o);
-        G.max_hp = gear_max_hp(&RUN.gear);
+    case IT_RING: {                                                /* a ring, for nothing */
+        Offer o;
+        memset(&o, 0, sizeof o);
+        o.kind = GK_PIECE; o.id = IK_RING;
+        o.piece = piece_roll(o.id, G.level, -1, &G.rs); o.tier = G.level;
+        take_piece(&o);
         snd_sfx(SFX_KEYGET); G.gold = 1.0f; G.grin_t = 1.6f;
         break;
     }
@@ -3897,12 +3923,11 @@ static void collect(Item *it) {
 }
 
 static void update_items(void) {
-    int seek = gear_seek(&RUN.gear);
     for (int i = 0; i < G.nitems; i++) {
         Item *it = &G.items[i];
         if (!it->alive) continue;
         float d = hypotf(it->x - G.px, it->y - G.py);
-        if (!it->seen && ((d < (it->type == IT_KEY ? 13.0f : 8.5f) && line_clear(G.px, G.py, it->x, it->y)) || d < seek)) it->seen = 1;   /* the Seeker's Ring feels it through stone */
+        if (!it->seen && d < (it->type == IT_KEY ? 13.0f : 8.5f) && line_clear(G.px, G.py, it->x, it->y)) it->seen = 1;
         if (d < (G.player ? 0.5f : 1.5f) && G.level_t > 1.0 && !G.ending) collect(it);   /* the autopilot reaches out */
     }
 }
@@ -4241,7 +4266,10 @@ static void crawl_update(double dt) {
 #define CAT_S 1.05f
 static const float PED_X[NPOOL] = { 13.75f, 15.5f, 17.25f }, PED_Y[NPOOL] = { 13.75f, 13.55f, 13.75f };
 enum { SH_GREET, SH_LOOK, SH_THINK, SH_GO, SH_BUY, SH_THANK, SH_LEAVE };
-static const int ITEM_SPR[] = { SP_ITEM_TOME, SP_ITEM_RUNE, SP_ITEM_ROBE, SP_ITEM_HOOD, SP_ITEM_RING };
+static int offer_sprite(const Offer *o) {
+    static const int PIECE_SPR[NIK] = { SP_ITEM_RING, SP_ITEM_BRACER, SP_ITEM_BOOTS, SP_ITEM_AMULET, SP_ITEM_HOOD, SP_ITEM_ROBE, SP_ITEM_RING, SP_ITEM_BAG };
+    return o->kind == GK_ATK ? SP_ITEM_TOME : (o->kind == GK_DEF ? SP_ITEM_RUNE : PIECE_SPR[o->piece.kind]);
+}
 
 static void gen_shop(void) {
     memset(G.map, 0, sizeof G.map);
@@ -4334,7 +4362,7 @@ static void begin_shop(void) {
     G.ang = face_of(CAT_X, CAT_Y);
     G.camz = 0.5f; G.hand = 0.0f; G.spd = 0.0f; G.bob = 0.0f;
     for (int p = 0; p < NPOOL; p++) {
-        G.offers[p] = gear_offer(p, G.level, &G.rs);
+        G.offers[p] = gear_offer(p, G.level, &RUN.gear, &G.rs);
         if (G.level == 1) G.offers[p].price = 0;
         G.offer_gone[p] = 0;
     }
@@ -4347,7 +4375,7 @@ static void begin_shop(void) {
     G.level_t = 0.0;
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "SHOP level %d gold %d souls %d:", G.level, RUN.treasure, RUN.souls);
-    for (int p = 0; p < NPOOL; p++) { char nm[40]; gear_name(&G.offers[p], nm, sizeof nm); fprintf(stderr, " [%s $%d%s]", nm, G.offers[p].price, G.offers[p].rare ? " RARE" : ""); }
+    for (int p = 0; p < NPOOL; p++) { char nm[80]; gear_name(&G.offers[p], nm, sizeof nm); fprintf(stderr, " [%s $%d%s]", nm, G.offers[p].price, G.offers[p].rare ? " RARE" : ""); }
     fprintf(stderr, "\n");
 #endif
 }
@@ -4370,17 +4398,15 @@ static void shop_purchase(int i) {
     const Offer *o = &G.offers[i];
     G.shop_pick = i; G.shop_bought = 1; G.offer_gone[i] = 1; G.sparkle = 0.8f;
     RUN.treasure -= o->price;
-    gear_take(&RUN.gear, o);
-    int old = G.max_hp;
-    G.max_hp = gear_max_hp(&RUN.gear);
-    if (G.max_hp > old) G.hp += G.max_hp - old;                    /* a new charm's strength comes with it */
+    if (o->kind == GK_PIECE) take_piece(o);
+    else gear_take(&RUN.gear, o);
     if (o->price > 0) snd_sfx_ex(SFX_COIN, 1.1f, 0.5f);
     snd_sfx_ex(SFX_SHIMMER, 0.8f, 0.5f);
     if (o->kind == GK_DEF) snd_sfx_ex(SFX_RUNE, 0.8f, 0.5f);
     G.grin_t = 2.5f;
     sfx_at(SFX_TRILL, CAT_X, CAT_Y, 1.3f); G.cat_trill = 0.5f; G.cat_slow = 1.6f; G.cat_tail_k = 1.0f;
 #ifdef CRAWL_DEBUG
-    char nm[40]; gear_name(o, nm, sizeof nm);
+    char nm[80]; gear_name(o, nm, sizeof nm);
     fprintf(stderr, "EVENT bought %s for %d (left %d) t=%.2f\n", nm, o->price, RUN.treasure, G.t);
 #endif
 }
@@ -4659,7 +4685,7 @@ static void update_bestiary(void);
 static int toast_showing(void);
 static void open_ui(int which) {
     G.ui = which;
-    if (which == UI_INVENTORY) { G.ui_sel = 0; G.inv0 = RUN.gear; snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); }
+    if (which == UI_INVENTORY) { G.ui_sel = 0; G.inv_page = 0; G.inv0 = RUN.gear; snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); }
     else if (which == UI_BESTIARY) { best_default_rank(); snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); }
     else { G.ui_sel = 1; G.quit_line++; snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); }
 }
@@ -4770,40 +4796,43 @@ static void human_end(void) {
     G.state = PS_SETTLE; G.st = 0.0f;
 }
 
-/* ---- the inventory (Tab): the wardrobe and the spellbook ---- */
+/* ---- the inventory (Tab): what is worn, the bag, and the spellbook ---- */
 
-enum { INV_ROBE, INV_HOOD, INV_F0, INV_SLOTS = INV_F0 + NFINGERS };
-static const int FINGER_OF_ROW[NFINGERS] = { 2, 1, 0, 3 };         /* shown index, middle, ring, little */
-static const char *const FINGER_NAME[NFINGERS] = { "INDEX", "MIDDLE", "RING", "LITTLE" };
+static const char *const SLOT_NAME[NSLOT] = { "LEFT WRIST", "RIGHT WRIST", "BOOTS", "NECK", "HOOD", "ROBES", "RING" };
 
-static int inv_options(int slot, int *opt) {
-    const Gear *g = &RUN.gear;
-    int n = 0;
-    if (slot == INV_ROBE) { opt[n++] = RB_CLOAK; for (int i = 1; i < NROBE; i++) if (g->robe_own[i] > 0) opt[n++] = i; }
-    else if (slot == INV_HOOD) { opt[n++] = HD_CLOAK; for (int i = 1; i < NHOOD; i++) if (g->hood_own[i] > 0) opt[n++] = i; }
-    else { opt[n++] = -1; for (int i = 0; i < NRING; i++) if (g->ring_own[i] > 0) opt[n++] = i; }
-    return n;
-}
-static int inv_worn(int slot) {
-    const Gear *g = &RUN.gear;
-    return slot == INV_ROBE ? g->robe : (slot == INV_HOOD ? g->hood : g->ring[FINGER_OF_ROW[slot - INV_F0]]);
+static int inv_rows(void) { return NSLOT + RUN.gear.bag_size; }
+static const Piece *inv_piece(int r) { return r < NSLOT ? &RUN.gear.worn[r] : &RUN.gear.bag[r - NSLOT]; }
+
+/* what Enter would do with the row: 1 into the bag, 2 worn; or why not (as a negative) */
+enum { INV_NOTHING = -1, INV_NO_BAG = -2, INV_BAG_FULL = -3, INV_TO_BAG = 1, INV_TO_WEAR = 2 };
+static int inv_action(int r) {
+    const Piece *p = inv_piece(r);
+    if (p->kind == IK_NONE) return INV_NOTHING;
+    if (r >= NSLOT) return INV_TO_WEAR;
+    if (!RUN.gear.bag_size) return INV_NO_BAG;
+    return gear_bag_free(&RUN.gear) ? INV_TO_BAG : INV_BAG_FULL;
 }
 
 static void update_inventory(void) {
     spell_keys();
-    if (IN.hit[KEY_TAB] || IN.hit[KEY_ESC] || IN.hit[KEY_ENTER]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
-    if (IN.hit[KEY_W] || IN.hit[KEY_UP]) { G.ui_sel = (G.ui_sel + INV_SLOTS - 1) % INV_SLOTS; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
-    if (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) { G.ui_sel = (G.ui_sel + 1) % INV_SLOTS; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
-    int dir = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
-    if (!dir) return;
-    int opt[8], n = inv_options(G.ui_sel, opt), cur = inv_worn(G.ui_sel), at = 0;
-    if (n < 2) { say("NOTHING ELSE TO WEAR THERE"); return; }
-    for (int i = 0; i < n; i++) if (opt[i] == cur) at = i;
-    int pick = opt[(at + dir + n) % n];
-    if (G.ui_sel == INV_ROBE) gear_wear_robe(&RUN.gear, pick);
-    else if (G.ui_sel == INV_HOOD) gear_wear_hood(&RUN.gear, pick);
-    else gear_wear_ring(&RUN.gear, FINGER_OF_ROW[G.ui_sel - INV_F0], pick);
-    G.max_hp = gear_max_hp(&RUN.gear);
+    if (IN.hit[KEY_TAB] || IN.hit[KEY_ESC]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
+    if (IN.hit[KEY_A] || IN.hit[KEY_LEFT] || IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) { G.inv_page ^= 1; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f); }
+    if (G.inv_page) return;
+    int n = inv_rows();
+    if (G.ui_sel >= n) G.ui_sel = n - 1;
+    if (IN.hit[KEY_W] || IN.hit[KEY_UP]) { G.ui_sel = (G.ui_sel + n - 1) % n; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    if (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) { G.ui_sel = (G.ui_sel + 1) % n; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE])) return;
+    Gear *g = &RUN.gear;
+    int r = G.ui_sel, act = inv_action(r);
+    if (act == INV_TO_BAG) {
+        for (int i = 0; i < g->bag_size; i++)
+            if (g->bag[i].kind == IK_NONE) { g->bag[i] = g->worn[r]; memset(&g->worn[r], 0, sizeof g->worn[r]); break; }
+    } else if (act == INV_TO_WEAR) {
+        int bi = r - NSLOT, slot = piece_slot(g, g->bag[bi].kind);
+        gear_wear(g, slot, bi);
+    } else { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+    G.max_hp = gear_max_hp(g);
     if (G.hp > G.max_hp) G.hp = G.max_hp;
     snd_sfx_ex(SFX_STEP, 1.2f, 0.5f);
 }
@@ -4856,15 +4885,82 @@ static int crawl_status(void) { return G.player ? G.status_ret : PLAY_AUTO; }
 
 /* What a save keeps: the level to start from, health, gold, souls and the gear, and since version 2
  * the run's record (kills, secrets, levels cleared, achievements). Not where you stood: you come back
- * to the start of the level, so its gold and souls are taken back out. Version 1 still loads, with
- * an empty record. */
+ * to the start of the level, so its gold and souls are taken back out. Version 3 packs the gear field
+ * by field (what is worn, the bag, the bones, a ware held at the merchant's) and keeps souls in
+ * tenths. Versions 1 and 2 still load: their spells and runes stay, their robe, hood and best ring
+ * become Common pieces of their tier, and version 1 has an empty record. */
 #define SAVE_MAGIC 0x31535648u              /* "HVS1" */
-#define SAVE_V1 (28 + (int)sizeof(Gear))    /* to the end of the gear */
+#define OLD_GEAR 46                         /* versions 1 and 2: the gear as it was, copied raw */
+#define SAVE_V1 (28 + OLD_GEAR)
+#define PIECE_BYTES (6 + 3 * PIECE_STATS)
+#define GEAR_BYTES (NATK + NDEF + NSLOT * PIECE_BYTES + 2 + BAG_MAX * PIECE_BYTES + 2 + 1 + 8 + PIECE_BYTES)
+#define SAVE_V3 (28 + GEAR_BYTES)
 static void put32(uint8_t *p, int32_t v) { for (int i = 0; i < 4; i++) p[i] = (uint8_t)((uint32_t)v >> (8 * i)); }
 static int32_t get32(const uint8_t *p) { uint32_t v = 0; for (int i = 0; i < 4; i++) v |= (uint32_t)p[i] << (8 * i); return (int32_t)v; }
 static void put16(uint8_t *p, int v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
 static int get16(const uint8_t *p) { return p[0] | p[1] << 8; }
 
+static void piece_pack(uint8_t *p, const Piece *pc) {
+    p[0] = pc->kind; p[1] = pc->quality; p[2] = pc->level; p[3] = pc->anointed; p[4] = pc->ability; p[5] = pc->nstat;
+    for (int i = 0; i < PIECE_STATS; i++) { p[6 + i] = pc->stat[i]; put16(p + 6 + PIECE_STATS + 2 * i, pc->val[i]); }
+}
+static Piece piece_unpack(const uint8_t *p) {                       /* anything out of range comes back as nothing */
+    Piece pc;
+    memset(&pc, 0, sizeof pc);
+    if (p[0] >= NIK || p[1] >= NQUAL || p[4] >= NABIL || p[5] > PIECE_STATS) return pc;
+    for (int i = 0; i < p[5]; i++) if (p[6 + i] >= NSTAT) return pc;
+    pc.kind = p[0]; pc.quality = p[1]; pc.level = p[2]; pc.anointed = p[3] != 0; pc.ability = p[4]; pc.nstat = p[5];
+    for (int i = 0; i < PIECE_STATS; i++) { pc.stat[i] = p[6 + i]; pc.val[i] = (int16_t)get16(p + 6 + PIECE_STATS + 2 * i); }
+    return pc;
+}
+static void gear_pack(uint8_t *p, const Gear *g) {
+    for (int i = 0; i < NATK; i++) *p++ = (uint8_t)g->atk[i];
+    for (int i = 0; i < NDEF; i++) *p++ = (uint8_t)g->def[i];
+    for (int s = 0; s < NSLOT; s++, p += PIECE_BYTES) piece_pack(p, &g->worn[s]);
+    *p++ = g->bag_size; *p++ = g->bag_quality;
+    for (int i = 0; i < BAG_MAX; i++, p += PIECE_BYTES) piece_pack(p, &g->bag[i]);
+    put16(p, g->bones); p += 2;
+    *p++ = g->has_held;
+    p[0] = (uint8_t)g->held.kind; p[1] = (uint8_t)g->held.id; p[2] = (uint8_t)g->held.tier; p[3] = (uint8_t)g->held.rare;
+    put32(p + 4, g->held.price); p += 8;
+    piece_pack(p, &g->held.piece);
+}
+static void gear_unpack(const uint8_t *p, Gear *g) {
+    static const int SLOT_IK[NSLOT] = { IK_WRIST, IK_WRIST, IK_BOOTS, IK_NECK, IK_HOOD, IK_ROBE, IK_RING };
+    gear_reset(g);
+    for (int i = 0; i < NATK; i++) g->atk[i] = (int8_t)clampi((int8_t)*p++, -1, 15);
+    if (g->atk[AT_FIRE] < 0) g->atk[AT_FIRE] = 0;
+    for (int i = 0; i < NDEF; i++) g->def[i] = (int8_t)clampi((int8_t)*p++, 0, 15);
+    for (int s = 0; s < NSLOT; s++, p += PIECE_BYTES) {
+        g->worn[s] = piece_unpack(p);
+        if (g->worn[s].kind != SLOT_IK[s]) memset(&g->worn[s], 0, sizeof g->worn[s]);   /* only what goes there */
+    }
+    g->bag_size = (uint8_t)clampi(p[0], 0, BAG_MAX); g->bag_quality = (uint8_t)clampi(p[1], 0, NQUAL - 1); p += 2;
+    for (int i = 0; i < BAG_MAX; i++, p += PIECE_BYTES) if (i < g->bag_size) g->bag[i] = piece_unpack(p);
+    g->bones = (int16_t)clampi(get16(p), 0, 999); p += 2;
+    g->has_held = *p++ != 0;
+    g->held.kind = p[0]; g->held.id = p[1]; g->held.tier = p[2]; g->held.rare = p[3] != 0; g->held.price = get32(p + 4); p += 8;
+    g->held.piece = piece_unpack(p);
+    if (g->held.kind > GK_PIECE || (g->held.kind == GK_ATK && g->held.id >= NATK) || (g->held.kind == GK_DEF && g->held.id >= NDEF) || g->held.price < 0)
+        g->has_held = 0;
+    if (!g->has_held) memset(&g->held, 0, sizeof g->held);
+}
+/* versions 1 and 2: the spellbook as it was; the robe, hood and best ring as Common pieces of their tier */
+static void gear_from_old(const uint8_t *p, Gear *g, uint32_t seed) {
+    static const int ROBE_STAT[6] = { -1, ST_ARMOR, ST_RES_POISON, ST_ARMOR, ST_ARMOR, ST_REGEN };   /* plain, silk, shadow, thorned, blessed */
+    static const int HOOD_STAT[5] = { -1, ST_ARMOR, ST_ARMOR, ST_EFFECT, ST_HP };                   /* plain, warded, hunter's, cowl */
+    uint32_t rs = seed | 1u;
+    gear_reset(g);
+    for (int i = 0; i < NATK; i++) g->atk[i] = (int8_t)clampi((int8_t)p[i], -1, 15);
+    if (g->atk[AT_FIRE] < 0) g->atk[AT_FIRE] = 0;
+    for (int i = 0; i < NDEF; i++) g->def[i] = (int8_t)clampi((int8_t)p[NATK + i], 0, 15);
+    int robe = (int8_t)p[18], robe_t = (int8_t)p[19], hood = (int8_t)p[20], hood_t = (int8_t)p[21];
+    if (robe > 0 && robe < 6 && robe_t > 0) g->worn[SL_ROBE] = piece_make(IK_ROBE, robe_t, ROBE_STAT[robe], &rs);
+    if (hood > 0 && hood < 5 && hood_t > 0) g->worn[SL_HOOD] = piece_make(IK_HOOD, hood_t, HOOD_STAT[hood], &rs);
+    int best = 0;
+    for (int f = 0; f < 4; f++) if ((int8_t)p[22 + f] >= 0 && (int8_t)p[26 + f] > best) best = (int8_t)p[26 + f];
+    if (best > 0) g->worn[SL_RING] = piece_make(IK_RING, best, ST_DAMAGE, &rs);
+}
 /* the record, little-endian, field by field */
 static void rec_pack(uint8_t *p, const Record *r) {
     for (int k = 0; k < REC_KINDS; k++) for (int i = 0; i < NRANK; i++, p += 2) put16(p, r->kills[k][i]);
@@ -4880,24 +4976,26 @@ static void rec_unpack(const uint8_t *p, Record *r) {
     r->secrets = (uint16_t)get16(p); r->descents = (uint16_t)get16(p + 2); r->cleared = (uint32_t)get32(p + 4); p += 8;
     memcpy(r->got, p, sizeof r->got);
 }
-static int save_version(const uint8_t *buf, int len) {             /* 1 or 2 if it is a save we can read, else 0 */
+static int save_version(const uint8_t *buf, int len) {             /* 1, 2 or 3 if it is a save we can read, else 0 */
     if (len < SAVE_V1 || (uint32_t)get32(buf) != SAVE_MAGIC) return 0;
     int v = get32(buf + 4);
-    return v == 1 || (v == 2 && len >= SAVE_V1 + REC_BYTES) ? v : 0;
+    if (v == 1 || (v == 2 && len >= SAVE_V1 + REC_BYTES) || (v == 3 && len >= SAVE_V3 + REC_BYTES)) return v;
+    return 0;
 }
+static int save_end(int v) { return (v >= 3 ? SAVE_V3 : SAVE_V1) + (v >= 2 ? REC_BYTES : 0); }   /* a grave's time follows */
 
 static int crawl_save(uint8_t *buf, int cap) {
-    int n = SAVE_V1 + REC_BYTES;
+    int n = SAVE_V3 + REC_BYTES;
     if (cap < n) return 0;
     int level = G.level, hp = G.dead || G.hp <= 0 ? gear_max_hp(&RUN.gear) : G.hp, gold = RUN.treasure, souls = RUN.souls, shop = 0;
     if (G.tally || G.exiting) { level = G.level + 1; shop = 1; }   /* the level is won */
     else if (G.shop) shop = !G.shop_bought;
     else { gold -= G.level_treasure; souls -= G.level_souls; }
     put32(buf, (int32_t)SAVE_MAGIC);
-    put32(buf + 4, 2);                                             /* version */
-    put32(buf + 8, level); put32(buf + 12, hp); put32(buf + 16, gold); put32(buf + 20, souls); put32(buf + 24, shop);
-    memcpy(buf + 28, &RUN.gear, sizeof(Gear));
-    rec_pack(buf + SAVE_V1, &RUN.rec);
+    put32(buf + 4, 3);                                             /* version */
+    put32(buf + 8, level); put32(buf + 12, hp); put32(buf + 16, gold); put32(buf + 20, souls * 10); put32(buf + 24, shop);
+    gear_pack(buf + 28, &RUN.gear);
+    rec_pack(buf + SAVE_V3, &RUN.rec);
     return n;
 }
 
@@ -4906,12 +5004,12 @@ static void crawl_load(const uint8_t *buf, int len) {
     if (!v) return;
     memset(&RUN, 0, sizeof RUN);
     RUN.active = 1; RUN.loaded = 1;
-    if (v >= 2) rec_unpack(buf + SAVE_V1, &RUN.rec);
+    if (v >= 2) rec_unpack(buf + (v >= 3 ? SAVE_V3 : SAVE_V1), &RUN.rec);
     TOASTS.n = 0;                                                  /* another run's news is no news */
     RUN.level = clampi(get32(buf + 8), 1, 999); RUN.treasure = get32(buf + 16); RUN.souls = get32(buf + 20);
     RUN.shop_next = get32(buf + 24) != 0;
-    memcpy(&RUN.gear, buf + 28, sizeof(Gear));
-    gear_sync(&RUN.gear);
+    if (v >= 3) { gear_unpack(buf + 28, &RUN.gear); RUN.souls /= 10; }
+    else gear_from_old(buf + 28, &RUN.gear, (uint32_t)RUN.level * 2654435761u);
     RUN.hp = clampi(get32(buf + 12), 1, gear_max_hp(&RUN.gear));
     if (RUN.treasure < 0) RUN.treasure = 0;
     if (RUN.souls < 0) RUN.souls = 0;
@@ -4928,9 +5026,9 @@ static Grave grave_info(int i) {
     Grave g;
     memset(&g, 0, sizeof g);
     uint8_t buf[SLOT_MAX];
-    int n = slot_read(i, buf, sizeof buf), v = save_version(buf, n), base = SAVE_V1 + (v >= 2 ? REC_BYTES : 0);
+    int n = slot_read(i, buf, sizeof buf), v = save_version(buf, n), base = save_end(v);
     if (!v) return g;
-    g.used = 1; g.level = get32(buf + 8); g.hp = get32(buf + 12); g.gold = get32(buf + 16); g.souls = get32(buf + 20);
+    g.used = 1; g.level = get32(buf + 8); g.hp = get32(buf + 12); g.gold = get32(buf + 16); g.souls = get32(buf + 20) / (v >= 3 ? 10 : 1);
     if (n >= base + 8) g.when = (int64_t)((uint64_t)(uint32_t)get32(buf + base) | (uint64_t)(uint32_t)get32(buf + base + 4) << 32);
     return g;
 }
@@ -5538,13 +5636,13 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         for (int i = 0; i < NPOOL; i++) {
             if (G.offer_gone[i]) continue;
             const Offer *o = &G.offers[i];
-            int sp = ITEM_SPR[o->kind];
+            int sp = offer_sprite(o);
             float sc = 0.42f, z = 0.55f + 0.03f * sinf((float)G.t * 2.0f + i * 2.1f) - (TS - 1 - spr_bottom(sp)) / (float)TS * sc;
             n0 = n;
             ADD(PED_X[i], PED_Y[i], z, sp, 0);
             if (n > n0) {
                 Draw *d = &list[n - 1];
-                d->scale = sc; d->remap = gear_color(o->kind, o->id);
+                d->scale = sc; d->remap = offer_color(o);
                 float u = (float)G.t * 0.5f + i * 0.33f; u -= floorf(u);
                 d->twinkle = u < 0.12f ? sinf(u / 0.12f * PI_F) : 0.0f;
             }
@@ -5693,9 +5791,9 @@ static void draw_face(Frame *f, int ox, int oy, int sub) {
     float hpf = G.max_hp > 0 ? (float)G.hp / (float)G.max_hp : 0.0f;
     int stage = clampi((int)((1.0f - hpf) * 7.0f), 0, 6);
     int fr = G.dead || G.hp <= 0 ? 29 : (G.grin_t > 0.0f ? 28 : stage * 4 + sub);
-    int hood = gear_hood_ramp(g->hood, g->hood_tier);
-    static const int TRIM[NHOOD] = { R_GOLD, R_WOOD, R_GLOW, R_WOOD, R_BLOOD };
-    int trim = TRIM[g->hood];
+    const Piece *hp = &g->worn[SL_HOOD];                           /* the caster's own purple, or the hood's quality */
+    int hood = hp->kind ? QUAL_RAMP[hp->quality] : R_PURPLE, shade = hp->kind && hp->quality == Q_COMMON ? -3 : 0;
+    int trim = !hp->kind || hp->anointed ? (hood == R_GOLD ? R_BONE : R_GOLD) : R_WOOD;
     const uint8_t *img = crawl_face_img[fr];
     for (int y = 0; y < FACE_H; y++)
         for (int x = 0; x < FACE_W; x++) {
@@ -5703,7 +5801,7 @@ static void draw_face(Frame *f, int ox, int oy, int sub) {
             if (c == C_CLEAR) continue;
             int sx = ox + x, sy = oy + y;
             if (sx < 0 || sx >= W || sy < 0 || sy >= H) continue;
-            if (c >= R_PURPLE && c < R_PURPLE + 16) c = (uint8_t)(hood + (c - R_PURPLE));
+            if (c >= R_PURPLE && c < R_PURPLE + 16) c = ramp_at(hood, c - R_PURPLE + shade);
             else if (c >= R_GOLD && c < R_GOLD + 13 && trim != R_GOLD) c = (uint8_t)(trim + clampi(c - R_GOLD + 3, 0, 15));
             else if (c >= R_SKIN && c < R_SKIN + 16 && ((x + y) & 1)) {
                 if (G.poison_t > 0.0f) c = (uint8_t)(R_MOSS + clampi(c - R_SKIN - 1, 0, 15));          /* green about the gills */
@@ -5760,6 +5858,23 @@ static void render_statusbar(Frame *f) {
     draw_face(f, 166, y0 + 3, face_sub());
 }
 
+/* 8x8 type wrapped at spaces to cols a line, lh px apart; returns the lines it took (no frame: only counts) */
+static int text_wrap_ex(Frame *f, int x, int y, const char *s, int cols, int col, int maxlines, int lh) {
+    int lines = 0;
+    while (*s && lines < maxlines) {
+        int n = (int)strlen(s), cut = n;
+        if (n > cols) { cut = cols; while (cut > 0 && s[cut] != ' ') cut--; if (!cut) cut = cols; }
+        char line[64];
+        snprintf(line, sizeof line, "%.*s", cut, s);
+        if (f) gfx_text8(f, x, y + lines * lh, line, (uint8_t)col, 1);
+        lines++;
+        s += cut;
+        while (*s == ' ') s++;
+    }
+    return lines;
+}
+static int text_wrap(Frame *f, int x, int y, const char *s, int cols, int col, int maxlines) { return text_wrap_ex(f, x, y, s, cols, col, maxlines, 9); }
+
 /* what the caster is looking at, and what it costs */
 static void render_shop_card(Frame *f) {
     int i = G.shop_step == SH_LOOK || G.shop_step == SH_GO || (G.shop_step == SH_BUY && !G.shop_bought) ? G.shop_look : -1;
@@ -5775,22 +5890,47 @@ static void render_shop_card(Frame *f) {
         }
         return;
     }
-    static const char *const POOL[] = { "ATTACK SPELL", "DEFENSIVE RUNE", "ROBE", "HOOD", "RING" };
     const Offer *o = &G.offers[i];
-    char name[40], price[16];
-    gear_name(o, name, sizeof name);
+    char price[16];
     if (o->price == 0) snprintf(price, sizeof price, "FREE");
     else snprintf(price, sizeof price, "$%d", o->price);
-    int bw = 264, bx = (W - bw) / 2;
-    gfx_rect(f, bx, y0, bw, 42, 0);
-    for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + 41, R_STONE + 6); }
-    for (int y = 0; y < 42; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
-    gfx_text8(f, bx + 8, y0 + 5, POOL[o->kind], R_STONE + 11, 1);
+    int bw = 264, bx = (W - bw) / 2, ph = 42, pw = gfx_text_width(price, 1);
+    char name[100], l1[48], l2[48], stats[160] = "";
+    const Piece *p = &o->piece;
+    if (o->kind == GK_PIECE) {                                     /* a piece: its stats under its name */
+        piece_name(p, l1, l2, sizeof l1);
+        for (int k = 0; k < p->nstat; k++) {
+            char st[40];
+            piece_stat_text(p->stat[k], p->val[k], st, sizeof st);
+            snprintf(stats + strlen(stats), sizeof stats - strlen(stats), "%s%s", k ? ", " : "", st);
+        }
+        if (p->kind == IK_BAG) snprintf(stats, sizeof stats, "HOLDS %d. %s", bag_capacity(p->quality), gear_blurb(o));
+        if (p->ability) {
+            char ab[64];
+            piece_ability_text(p, ab, sizeof ab);
+            snprintf(stats + strlen(stats), sizeof stats - strlen(stats), ". %s", ab);
+        }
+        ph = 34 + 9 * text_wrap_ex(NULL, 0, 0, stats, (bw - 16) / 8, 0, 4, 9);
+    }
+    y0 = H - 44 - 4 - ph;
+    gfx_rect(f, bx, y0, bw, ph, 0);
+    for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
+    for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+    if (o->kind == GK_PIECE) {
+        int col = qual_text(p->quality);
+        gfx_text8(f, bx + 8, y0 + 5, KIND_NAME[p->kind], R_STONE + 11, 1);
+        gfx_text8(f, bx + 8, y0 + 14, l1, col, 1);
+        gfx_text8(f, bx + 8, y0 + 23, l2, col, 1);
+        text_wrap_ex(f, bx + 8, y0 + 33, stats, (bw - 16) / 8, R_STONE + 13, 4, 9);
+        gfx_text16(f, bx + bw - 8 - pw, y0 + 4, price, o->price <= RUN.treasure ? R_GOLD + 12 : R_BLOOD + 12, 1);
+        return;
+    }
+    gear_name(o, name, sizeof name);
+    gfx_text8(f, bx + 8, y0 + 5, o->kind == GK_ATK ? "ATTACK SPELL" : "DEFENSIVE RUNE", R_STONE + 11, 1);
     if (o->rare) gfx_text8(f, bx + bw - 8 - gfx_text_width("RARE", 1), y0 + 5, "RARE", ((int)(G.t * 3.0) & 1) ? C_WHITE : R_GOLD + 12, 1);
-    int col = gear_color(o->kind, o->id);
-    gfx_text16(f, bx + 8, y0 + 14, name, ramp_at(col, 13), 1);
+    gfx_text16(f, bx + 8, y0 + 14, name, ramp_at(offer_color(o), 13), 1);
     gfx_text8(f, bx + 8, y0 + 31, gear_blurb(o), R_STONE + 13, 1);
-    gfx_text16(f, bx + bw - 8 - gfx_text_width(price, 1), y0 + 14, price, o->price <= RUN.treasure ? R_GOLD + 12 : R_BLOOD + 12, 1);
+    gfx_text16(f, bx + bw - 8 - pw, y0 + 14, price, o->price <= RUN.treasure ? R_GOLD + 12 : R_BLOOD + 12, 1);
 }
 
 /* in the crypt: the face pops up from the bottom-left corner when hurt or pleased, then goes */
@@ -5837,13 +5977,13 @@ static void render_wards(Frame *f) {
     }
 }
 
-/* The hand as the caster is dressed: the sleeve in the robe's cloth, rings on the fingers, and a rune
- * tattooed on the back of the hand for each defensive spell it knows. Rebuilt when the gear changes. */
+/* The hand as the caster is dressed: the sleeve in the colour of the robe's quality (the caster's own
+ * purple without one), a ring on the ring finger with a stone of its quality, and a rune tattooed on the
+ * back of the hand for each defensive spell it knows. Rebuilt when any of that changes. */
 static uint8_t hand_buf[HAND_H * HAND_W], hand_rune[HAND_H * HAND_W];   /* hand_rune: 1 + spell for tattoo ink */
-static Gear hand_gear; static int hand_built;
+static Piece hand_worn[NSLOT]; static int8_t hand_def[NDEF]; static int hand_built;
 
-/* finger slots: ring, middle, index, little; where a ring sits on each (back of the hand, fingers up-left) */
-static const int RING_AT[NFINGERS][2] = { { 55, 32 }, { 40, 36 }, { 26, 34 }, { 71, 38 } };
+static const int RING_AT[2] = { 55, 32 };                          /* on the ring finger (back of the hand, fingers up-left) */
 static const int RUNE_AT[NDEF][2] = { { 40, 50 }, { 56, 49 }, { 72, 50 }, { 45, 61 }, { 61, 61 }, { 77, 62 }, { 51, 72 }, { 67, 73 }, { 83, 74 } };
 static const char *const RUNE_GLYPH[NDEF][7] = {
     { "#.#.#", "#.#.#", ".###.", "..#..", "..#..", "..#..", "..#.." },   /* algiz: the ward */
@@ -5865,43 +6005,18 @@ static int is_skin(int x, int y) {
 
 static void build_hand(void) {
     const Gear *g = &RUN.gear;
+    const Piece *robe = &g->worn[SL_ROBE], *ring = &g->worn[SL_RING];
     memcpy(hand_buf, crawl_hand_img, sizeof hand_buf);
     memset(hand_rune, 0, sizeof hand_rune);
-    int ramp = gear_robe_ramp(g->robe, g->robe_tier);
-    for (int y = 0; y < HAND_H; y++)                               /* the sleeve, in the robe's cloth */
+    int ramp = robe->kind ? QUAL_RAMP[robe->quality] : R_PURPLE, top = ramp == R_GOLD ? 12 : 15;
+    int shift = robe->kind && robe->quality == Q_COMMON ? -3 : 0;  /* plain cloth, not bone-white */
+    for (int y = 0; y < HAND_H; y++)                               /* the sleeve */
         for (int x = 0; x < HAND_W; x++) {
             uint8_t *p = &hand_buf[y * HAND_W + x];
             if (*p < R_PURPLE || *p >= R_PURPLE + 16) continue;
-            int v = *p - R_PURPLE;
-            switch (g->robe) {
-            case RB_SHADOW:                                        /* soot-dark, shifting */
-                v = v - 3 - (BAYER[y & 3][x & 3] < 6 ? 2 : 0); break;
-            case RB_SILK: {                                        /* a web woven into it */
-                float a = atan2f(y - 150.0f, x - 150.0f), r = hypotf(x - 150.0f, y - 150.0f);
-                if (fabsf(fmodf(a * 7.0f / PI_F + 20.0f, 1.0f) - 0.5f) > 0.46f || fabsf(fmodf(r, 11.0f)) < 0.8f) v += 4;
-                break;
-            }
-            case RB_THORN: {                                       /* briars wound round the sleeve, under the cuff */
-                int hit = 0;
-                for (int b = 0; b < 2 && !hit; b++) {
-                    float vy = 117.0f - (x - 54) * 0.59f + 13.0f + b * 20.0f + 3.5f * sinf(x * 0.21f + b * 2.0f);
-                    if (fabsf(y - vy) < 0.9f) { *p = (uint8_t)(R_BLOOD + 3); hit = 1; }
-                    else if (((x + b * 4) % 8) == 0 && y < vy && y > vy - 4) { *p = (uint8_t)(R_BLOOD + 5); hit = 1; }
-                    else if (((x + b * 4) % 8) == 4 && y > vy && y < vy + 4) { *p = (uint8_t)(R_BLOOD + 5); hit = 1; }
-                }
-                if (hit) continue;
-                break;
-            }
-            case RB_BLESSED: {                                     /* a gold sun on the cloth */
-                float d = hypotf(x - 118.0f, y - 118.0f);
-                if (d < 4.5f || (d < 10.0f && fabsf(fmodf(atan2f(y - 118.0f, x - 118.0f) * 8.0f / PI_F + 16.0f, 2.0f) - 1.0f) < 0.3f)) { *p = (uint8_t)(R_GOLD + 9 - (int)(d * 0.4f)); continue; }
-                break;
-            }
-            default: break;
-            }
-            *p = (uint8_t)(ramp + clampi(v, 0, 15));
+            *p = (uint8_t)(ramp + clampi(*p - R_PURPLE + shift, 0, top));
         }
-    if (g->robe_tier >= 4)                                         /* finer robes: a second band of trim */
+    if (robe->kind && robe->anointed)                              /* anointed: a second band of trim */
         for (int y = 1; y < HAND_H; y++)
             for (int x = 0; x < HAND_W - 6; x++)
                 if (crawl_hand_img[y * HAND_W + x] >= R_GOLD && crawl_hand_img[y * HAND_W + x] < R_GOLD + 13) {
@@ -5909,14 +6024,12 @@ static void build_hand(void) {
                     if (tx < HAND_W && ty < HAND_H && crawl_hand_img[ty * HAND_W + tx] >= R_PURPLE && crawl_hand_img[ty * HAND_W + tx] < R_PURPLE + 16)
                         hand_buf[ty * HAND_W + tx] = (uint8_t)(R_GOLD + 6 + (x & 1) * 3);
                 }
-    /* rings: a band across the finger, a stone set in it */
-    static const int METAL[NRING] = { R_BONE, R_IRON, R_GOLD, R_GOLD, R_IRON };
-    static const int GEM[NRING] = { -1, R_GLOW, R_MOSS, R_FLAME, R_BLOOD };
-    float ux = 0.29f, uy = 0.96f, vx = 0.96f, vy = -0.29f;          /* along the finger, and across it */
-    for (int f = 0; f < NFINGERS; f++) {
-        if (g->ring[f] < 0) continue;
-        int id = g->ring[f], wide = g->ring_tier[f] >= 4 ? 2 : 1;
-        float cx = (float)RING_AT[f][0], cy = (float)RING_AT[f][1];
+    /* the ring: a band across the finger, a stone set in it */
+    if (ring->kind) {
+        static const int METAL[NQUAL] = { R_IRON, R_BONE, R_BONE, R_GOLD, R_GOLD };
+        int q = ring->quality, wide = q >= Q_ULTRA ? 2 : 1, metal = METAL[q];
+        float ux = 0.29f, uy = 0.96f, vx = 0.96f, vy = -0.29f;      /* along the finger, and across it */
+        float cx = (float)RING_AT[0], cy = (float)RING_AT[1];
         for (int a = -wide; a <= 1; a++)
             for (int side = -1; side <= 1; side += 2)
                 for (int sd = side < 0 ? 0 : 1; sd <= 7; sd++) {
@@ -5924,13 +6037,14 @@ static void build_hand(void) {
                     int x = (int)lroundf(cx + vx * s + ux * a), y = (int)lroundf(cy + vy * s + uy * a);
                     if (!is_skin(x, y) || crawl_hand_img[y * HAND_W + x] <= R_SKIN + 1) break;   /* the edge of the finger */
                     float lit = 0.5f + 0.5f * cosf(s * 0.25f + 0.6f) - (a == 1 ? 0.25f : 0.0f) - (a == -wide ? 0.1f : 0.0f);
-                    hand_buf[y * HAND_W + x] = (uint8_t)(METAL[id] + clampi((int)(4 + lit * 10), 2, 14));
+                    hand_buf[y * HAND_W + x] = ramp_at(metal, clampi((int)(4 + lit * 10), 2, 14));
                 }
-        if (GEM[id] >= 0) {
-            int gx = (int)lroundf(cx - ux * 0.5f), gy = (int)lroundf(cy - uy * 0.5f), r = g->ring_tier[f] >= 4 ? 2 : 1;
+        if (q > Q_COMMON) {
+            static const int GEM[NQUAL] = { 0, R_MOSS, R_GLOW, R_PURPLE, R_BLOOD };
+            int gx = (int)lroundf(cx - ux * 0.5f), gy = (int)lroundf(cy - uy * 0.5f), r = q >= Q_ULTRA ? 2 : 1;
             for (int y = -r; y <= r; y++)
                 for (int x = -r; x <= r; x++)
-                    if (abs(x) + abs(y) <= r + (r > 1)) hand_buf[(gy + y) * HAND_W + gx + x] = (uint8_t)(GEM[id] + 9 + (x < 0) * 3 + (y < 0) * 2);
+                    if (abs(x) + abs(y) <= r + (r > 1)) hand_buf[(gy + y) * HAND_W + gx + x] = (uint8_t)(GEM[q] + 9 + (x < 0) * 3 + (y < 0) * 2);
             hand_buf[(gy - r) * HAND_W + gx - (r > 1)] = C_WHITE;
         }
     }
@@ -5946,7 +6060,7 @@ static void build_hand(void) {
                 hand_rune[hy * HAND_W + hx] = (uint8_t)(1 + k);
             }
     }
-    hand_gear = *g; hand_built = 1;
+    memcpy(hand_worn, g->worn, sizeof hand_worn); memcpy(hand_def, g->def, sizeof hand_def); hand_built = 1;
 }
 
 static void render_hand(Frame *f) {
@@ -5955,7 +6069,7 @@ static void render_hand(Frame *f) {
     if (getenv("CRAWL_SHOWHAND")) { hand = 1.0f; G.rune_glow[atoi(getenv("CRAWL_SHOWHAND")) % NDEF] = 1.0f; }
 #endif
     if (hand <= 0.0f) return;
-    if (!hand_built || memcmp(&hand_gear, &RUN.gear, sizeof hand_gear)) build_hand();
+    if (!hand_built || memcmp(hand_worn, RUN.gear.worn, sizeof hand_worn) || memcmp(hand_def, RUN.gear.def, sizeof hand_def)) build_hand();
     float fox, foy;
     hand_origin(hand, &fox, &foy);
     int ox = (int)fox, oy = (int)foy;
@@ -6239,82 +6353,152 @@ static void panel(Frame *f, int x, int y, int w, int h) {
     for (int i = 0; i < h; i++) { gfx_px(f, x, y + i, R_STONE + 11); gfx_px(f, x + w - 1, y + i, R_STONE + 6); if (i >= 2 && i < h - 2) { gfx_px(f, x + 2, y + i, R_STONE + 6); gfx_px(f, x + w - 3, y + i, R_STONE + 4); } }
 }
 
-/* Tab: what you wear (A and D change it) and how it adds up, and the spellbook */
-static void render_inventory(Frame *f) {
-    dim_view(f);
-    panel(f, 4, 4, W - 8, H - 8);
-    gfx_text16(f, 14, 9, "WARDROBE", R_GOLD + 12, 1);
-    gfx_text8(f, 14, 26, "W/S PICK  A/D CHANGE  TAB CLOSE", R_STONE + 9, 1);
-    bevel(f, 274, 8, 38, 46, 0);
-    draw_face(f, 277, 11, 0);
-    const Gear *g = &RUN.gear;
-    for (int r = 0; r < INV_SLOTS; r++) {
-        int y = 40 + r * 18, sel = r == G.ui_sel, id = inv_worn(r);
-        char nm[40], label[16];
-        if (r == INV_ROBE) { snprintf(label, sizeof label, "ROBE"); gear_item_name(GK_ROBE, id, g->robe_tier, nm, sizeof nm); }
-        else if (r == INV_HOOD) { snprintf(label, sizeof label, "HOOD"); gear_item_name(GK_HOOD, id, g->hood_tier, nm, sizeof nm); }
-        else {
-            snprintf(label, sizeof label, "%s FINGER", FINGER_NAME[r - INV_F0]);
-            if (id < 0) snprintf(nm, sizeof nm, "BARE");
-            else gear_item_name(GK_RING, id, g->ring_own[id], nm, sizeof nm);
-        }
-        int col = r == INV_ROBE ? gear_robe_ramp(id, g->robe_tier) : (r == INV_HOOD ? gear_hood_ramp(id, g->hood_tier) : (id >= 0 ? gear_color(GK_RING, id) : R_STONE));
-        if (sel) gfx_rect(f, 10, y - 2, 188, 18, R_IRON + 3);
-        gfx_text8(f, 22, y, label, sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 10), 1);
-        gfx_text8(f, 22, y + 8, nm, id < 0 && r >= INV_F0 ? (uint8_t)(R_STONE + 8) : ramp_at(col, 13), 1);
-        if (sel) {
-            int opt[8];
-            if (inv_options(r, opt) > 1) { gfx_glyph8(f, 12, y + 8, '<', R_GOLD + 12, -1, 1); gfx_glyph8(f, 22 + gfx_text_width(nm, 1) + 4, y + 8, '>', R_GOLD + 12, -1, 1); }
-        }
+/* the caster's total of a stat, in its units: health as the whole of it */
+static void total_text(const Gear *g, int st, char *buf, int n) {
+    float t = gear_total(g, st);
+    if (st == ST_HP) snprintf(buf, (size_t)n, "%d", gear_max_hp(g));
+    else if (st == ST_ARMOR) snprintf(buf, (size_t)n, "%.0f", t);
+    else if (st == ST_REGEN) snprintf(buf, (size_t)n, "%.2f/S", t);
+    else if (st == ST_THRIFT && t >= 0.5f) snprintf(buf, (size_t)n, "-%.0f%%", t);
+    else snprintf(buf, (size_t)n, "%.0f%%", t);
+}
+
+/* a piece's card: its name in its quality's colour, its stats (each beside the caster's total, green
+ * or red against when the wardrobe opened), its ability; the bottom it reached */
+static int piece_card(Frame *f, int x, int y, int w, const Piece *p, const Gear *g, const Gear *g0) {
+    if (p->kind == IK_NONE) { gfx_text8(f, x, y, "NOTHING", R_STONE + 8, 1); return y + 8; }
+    char l1[48], l2[48], line[100];
+    piece_name(p, l1, l2, sizeof l1);
+    int col = qual_text(p->quality);
+    snprintf(line, sizeof line, "%s%s%s", l1, *l1 ? " " : "", l2);
+    y += text_wrap_ex(f, x, y, line, w / 8, col, 4, 8) * 8 + 2;
+    if (p->kind == IK_BAG) {
+        snprintf(line, sizeof line, "HOLDS %d", bag_capacity(p->quality));
+        gfx_text8(f, x, y, line, R_STONE + 12, 1);
+        return y + 8;
     }
-    /* how it adds up, against how it was when the bag was opened */
-    const Gear *g0 = &G.inv0;
-    struct { const char *fmt; float v, v0; } ST[] = {
-        { "ARMOR %.0f", (float)gear_armor(g), (float)gear_armor(g0) },
-        { "FIRE WARD %.0f%%", gear_magic_resist(g) * 100.0f, gear_magic_resist(g0) * 100.0f },
-        { "DODGE %.0f%%", gear_dodge(g) * 100.0f, gear_dodge(g0) * 100.0f },
-        { "THORNS %.0f", (float)gear_thorns(g), (float)gear_thorns(g0) },
-        { "MENDS %.2f/S", gear_regen(g), gear_regen(g0) },
-        { "VENOM WARD %.0f%%", gear_poison_resist(g) * 100.0f, gear_poison_resist(g0) * 100.0f },
-        { "MAX HEALTH %.0f", (float)gear_max_hp(g), (float)gear_max_hp(g0) },
-        { "SOULS X%.2f", gear_soul_mult(g), gear_soul_mult(g0) },
-        { "SPEED X%.2f", gear_haste(g), gear_haste(g0) },
-        { "SPELLS X%.2f", gear_ember(g), gear_ember(g0) },
-        { "GOLD SENSE %.0f", (float)gear_seek(g), (float)gear_seek(g0) },
-    };
-    for (int i = 0; i < (int)(sizeof ST / sizeof ST[0]); i++) {
-        char line[32];
-        snprintf(line, sizeof line, ST[i].fmt, ST[i].v);
-        int better = ST[i].v > ST[i].v0 + 1e-4f, worse = ST[i].v < ST[i].v0 - 1e-4f;
-        gfx_text8(f, 206, 58 + i * 8, line, better ? (uint8_t)(R_MOSS + 13) : (worse ? (uint8_t)(R_BLOOD + 13) : (uint8_t)(R_STONE + 12)), 1);
+    for (int i = 0; i < p->nstat; i++) {
+        piece_stat_text(p->stat[i], p->val[i], line, sizeof line);
+        gfx_text8(f, x, y, line, R_STONE + 12, 1);
+        if (g) {
+            float v = gear_total(g, p->stat[i]), v0 = gear_total(g0, p->stat[i]);
+            int c = v > v0 + 1e-3f ? R_MOSS + 13 : (v < v0 - 1e-3f ? R_BLOOD + 13 : R_STONE + 9);
+            total_text(g, p->stat[i], line, sizeof line);
+            gfx_text8(f, x + w - gfx_text_width(line, 1), y, line, c, 1);
+        }
+        y += 8;
     }
+    if (p->ability) {
+        piece_ability_text(p, line, sizeof line);
+        y += 2 + text_wrap_ex(f, x, y + 2, line, w / 8, R_GOLD + 11, 3, 8) * 8;
+    }
+    return y;
+}
+
+/* Tab, the second page: the caster's numbers (what abilities add in gold beside them) and the spellbook */
+static void render_caster(Frame *f) {
+    static const char *const SHORT[NSTAT] = { "ARMOR", "DODGE", "HEALTH", "RESTORES", "POISON WARD", "BURN WARD", "SLOW WARD",
+                                              "MOVEMENT", "QUIET", "SPELL HASTE", "SPIRIT COST", "DAMAGE", "FIRE", "FROST",
+                                              "LIGHTNING", "EFFECT" };
+    const Gear *g = &RUN.gear, *g0 = &G.inv0;
+    gfx_text16(f, 14, 9, "THE CASTER", R_GOLD + 12, 1);
+    gfx_text8(f, 14, 26, "A/D PAGE  TAB CLOSE", R_STONE + 9, 1);
+    char v[24], extra[16];
+    for (int st = 0; st < NSTAT; st++) {
+        int x = st < 8 ? 14 : 162, y = 40 + (st % 8) * 9, w = st < 8 ? 140 : 144;
+        float t = gear_total(g, st), t0 = gear_total(g0, st), add = 0.0f;
+        if (st == ST_MOVE || st == ST_THRIFT) add = t - fminf(gear_total_raw(g, st), t);   /* Swiftness, Arcane Knowledge */
+        total_text(g, st, v, sizeof v);
+        int c = t > t0 + 1e-3f ? R_MOSS + 13 : (t < t0 - 1e-3f ? R_BLOOD + 13 : (t > 0.0f ? R_STONE + 13 : R_STONE + 7));
+        gfx_text8(f, x, y, SHORT[st], t > 0.0f ? (uint8_t)(R_STONE + 11) : (uint8_t)(R_STONE + 7), 1);
+        int vw = gfx_text_width(v, 1);
+        gfx_text8(f, x + w - vw, y, v, c, 1);
+        if (add >= 0.5f) { snprintf(extra, sizeof extra, "+%.0f", add); gfx_text8(f, x + w - vw - 4 - gfx_text_width(extra, 1), y, extra, R_GOLD + 11, 1); }
+    }
+    /* the abilities, summed and capped */
+    int n = 0, y = 117;
+    for (int ab = 1; ab < NABIL; ab++) {
+        float a = gear_ability(g, ab, 0), b = gear_ability(g, ab, 1);
+        if (a <= 0.0f) continue;
+        switch (ab) {
+        case AB_SWIFT: snprintf(v, sizeof v, "SWIFT +%.0f%%", a); break;
+        case AB_ARCANE: snprintf(v, sizeof v, "ARCANE +%.0f%%", a); break;
+        case AB_TREASURE: snprintf(v, sizeof v, "TREASURE +%.0f%%", a); break;
+        case AB_KEYMAKER: snprintf(v, sizeof v, "KEYMAKER %.0f CELLS", a); break;
+        case AB_COMMUNE: snprintf(v, sizeof v, "COMMUNE %.0f, %.1f S", a, b / 10.0f); break;
+        case AB_THORNS: snprintf(v, sizeof v, "THORNS %.0f", a); break;
+        default: snprintf(v, sizeof v, "MIRROR %.0f%% AT %.0f%%", a, b); break;
+        }
+        gfx_text8(f, n % 2 ? 162 : 14, y + (n / 2) * 9, v, R_GOLD + 11, 1);
+        n++;
+    }
+    if (!n) gfx_text8(f, 14, y, "NO ABILITIES WORN", R_STONE + 8, 1);
     /* the spellbook: number keys for the attack spells, the runes as they stand */
-    int y = 154, x = 14;
-    for (int i = 10; i < W - 10; i++) gfx_px(f, i, 149, R_STONE + 5);
+    y += ((n + 1) / 2 > 1 ? (n + 1) / 2 : 1) * 9 + 4;
+    for (int i = 10; i < W - 10; i++) gfx_px(f, i, y, R_STONE + 5);
+    y += 5;
+    int x = 14;
     gfx_text8(f, x, y, "SPELLS", R_GOLD + 10, 1);
-    x += 56;
+    x = 66;
     for (int sp = 0; sp < NATK; sp++) {
         if (g->atk[sp] < 0) continue;
         char e[16]; snprintf(e, sizeof e, "%d %s", sp + 1, ATK_SHORT[sp]);
         int w = gfx_text_width(e, 1);
-        if (x + w > W - 12) { x = 70; y += 9; }
+        if (x + w > W - 10) { x = 66; y += 9; }
         gfx_text8(f, x, y, e, sp == G.spell ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 11), 1);
-        x += w + 10;
+        x += w + 8;
     }
-    y += 11; x = 14;
+    y += 10; x = 14;
     gfx_text8(f, x, y, "RUNES", R_GOLD + 10, 1);
-    x += 56;
+    x = 66;
     static const char *const DEF_SHORT[NDEF] = { "WARD", "BLINK", "MIRROR", "MEND", "PURIFY", "NOVA", "DREAD", "SLIP", "REAP" };
     int any = 0;
     for (int k = 0; k < NDEF; k++) {
         if (g->def[k] <= 0) continue;
         any = 1;
         int w = gfx_text_width(DEF_SHORT[k], 1);
-        if (x + w > W - 12) { x = 70; y += 9; }
+        if (x + w > W - 10) { x = 66; y += 9; }
+        if (y > H - 14) break;
         gfx_text8(f, x, y, DEF_SHORT[k], G.def_cd[k] > 0.0f ? (uint8_t)(R_STONE + 8) : (uint8_t)(R_GLOW + 11), 1);
-        x += w + 10;
+        x += w + 8;
     }
     if (!any) gfx_text8(f, x, y, "NONE YET", R_STONE + 8, 1);
+}
+
+/* Tab: what you wear and the bag (Enter moves between them) and the selected piece; A/D turns the page */
+static void render_inventory(Frame *f) {
+    dim_view(f);
+    panel(f, 4, 4, W - 8, H - 8);
+    if (G.inv_page) { render_caster(f); return; }
+    gfx_text16(f, 14, 9, "WARDROBE", R_GOLD + 12, 1);
+    gfx_text8(f, 14, 26, "W/S PICK  ENTER MOVE  A/D PAGE", R_STONE + 9, 1);
+    bevel(f, 274, 8, 38, 46, 0);
+    draw_face(f, 277, 11, 0);
+    const Gear *g = &RUN.gear;
+    int n = inv_rows(), sel = G.ui_sel < n ? G.ui_sel : n - 1;
+    for (int r = 0; r < n; r++) {
+        int y = r < NSLOT ? 40 + r * 10 : 124 + (r - NSLOT) * 10;
+        const Piece *p = inv_piece(r);
+        char nm[24];
+        if (r < NSLOT) snprintf(nm, sizeof nm, "%s", SLOT_NAME[r]);
+        else snprintf(nm, sizeof nm, "%s", p->kind ? KIND_NAME[p->kind] : "-");
+        if (r == sel) gfx_rect(f, 10, y - 1, 102, 10, R_IRON + 3);
+        int col = p->kind ? qual_text(p->quality) : R_STONE + 7;
+        gfx_text8(f, 14, y, nm, col, 1);
+        if (p->anointed) gfx_glyph8(f, 14 + gfx_text_width(nm, 1), y, '*', R_GOLD + 12, -1, 1);
+    }
+    char line[48];
+    if (g->bag_size) snprintf(line, sizeof line, "BAG %d/%d", g->bag_size - gear_bag_free(g), g->bag_size);
+    else snprintf(line, sizeof line, "NO BAG");
+    gfx_text8(f, 14, 113, line, R_GOLD + 10, 1);
+    /* the selected piece */
+    snprintf(line, sizeof line, "%s", sel < NSLOT ? SLOT_NAME[sel] : "IN THE BAG");
+    gfx_text8(f, 120, 40, line, R_STONE + 10, 1);
+    static const char *const WHY[] = { "", "NOTHING THERE", "NO BAG TO HOLD IT", "THE BAG IS FULL" };
+    int act = inv_action(sel);
+    const char *what = act == INV_TO_BAG ? "ENTER: INTO THE BAG" : (act == INV_TO_WEAR ? "ENTER: WEAR IT" : WHY[-act]);
+    gfx_text8(f, 120, 49, what, act > 0 ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 8), 1);
+    piece_card(f, 120, 62, W - 10 - 120, inv_piece(sel), g, &G.inv0);
 }
 
 /* Esc: the crypt makes its case for staying */
@@ -6445,22 +6629,6 @@ static void ui_sprite_ex(Frame *f, int spr, int x0, int y0, int size, const uint
         }
 }
 static void ui_sprite(Frame *f, int spr, int x0, int y0, int size, const uint8_t *lut, int shadow) { ui_sprite_ex(f, spr, x0, y0, size, lut, shadow, 0); }
-
-/* 8x8 type wrapped at spaces to cols a line; returns the lines it took */
-static int text_wrap(Frame *f, int x, int y, const char *s, int cols, int col, int maxlines) {
-    int lines = 0;
-    while (*s && lines < maxlines) {
-        int n = (int)strlen(s), cut = n;
-        if (n > cols) { cut = cols; while (cut > 0 && s[cut] != ' ') cut--; if (!cut) cut = cols; }
-        char line[64];
-        snprintf(line, sizeof line, "%.*s", cut, s);
-        gfx_text8(f, x, y + lines * 9, line, (uint8_t)col, 1);
-        lines++;
-        s += cut;
-        while (*s == ' ') s++;
-    }
-    return lines;
-}
 
 static int toast_showing(void) { return TOASTS.n > 0 && TOASTS.t >= 0.0f; }
 

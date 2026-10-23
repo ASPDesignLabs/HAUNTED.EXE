@@ -1,4 +1,4 @@
-/* The merchant's wares and what they do. See crawl_gear.h. */
+/* The merchant's wares and what they do. See crawl_gear.h and docs/PLAN-items.md. */
 #include "crawl_gear.h"
 #include "crawl.h"
 #include <stdio.h>
@@ -8,70 +8,359 @@ const char *const ATK_NAME[NATK] = { "FIRE BOLT", "FROST SHARD", "CHAIN LIGHTNIN
                                      "HELLFIRE", "SEEKER WISPS", "RAPID SPARKS", "BFS9000" };
 const char *const DEF_NAME[NDEF] = { "BONE WARD", "BLINK", "MIRROR VEIL", "MEND", "PURIFY", "FROST NOVA",
                                      "DREAD", "TIME SLIP", "SOUL REAPING" };
-static const char *const ROBE_NAME[NROBE] = { "VIOLET CLOAK", "ROBE", "SPIDER-SILK ROBE", "SHADOW ROBE", "THORNED ROBE", "BLESSED VESTMENTS" };
-static const char *const HOOD_NAME[NHOOD] = { "VIOLET HOOD", "HOOD", "WARDED HOOD", "HUNTER'S HOOD", "DEATH'S COWL" };
-static const char *const RING_NAME[NRING] = { "BONE CHARM", "SOUL JAR", "RING OF HASTE", "EMBER RING", "SEEKER'S RING" };
-
 static const char *const ATK_BLURB[NATK] = { "THE FIREBALL, HOTTER", "SLOWS WHAT IT HITS", "ARCS TO NEARBY FOES", "PIERCES ALL IN A LINE",
                                              "HEALS YOU AS IT HURTS", "HEAVY BLAST, FLOOR BURNS", "HOMING, ROUND CORNERS",
                                              "QUICK AND LIGHT", "SPENDS SOULS. KILLS ALL." };
 static const char *const DEF_BLURB[NDEF] = { "ABSORBS THE NEXT BLOWS", "STEP AWAY FROM HARM", "SENDS MISSILES BACK", "HEALS OVER TIME",
                                              "CURES POISON AND SLOW", "FREEZES ALL AROUND", "THE DEAD FLEE",
                                              "SLOWS ALL BUT YOU", "TRIPLE SOULS A WHILE" };
-static const char *const ROBE_BLURB[NROBE] = { "", "SOFTENS EVERY BLOW", "RESISTS POISON, SLOW", "NOW AND THEN, NOT THERE",
-                                               "HURTS WHAT HURTS YOU", "SLOWLY HEALS" };
-static const char *const HOOD_BLURB[NHOOD] = { "", "A LITTLE MORE ARMOR", "TURNS FIRE AND MAGIC", "SPOTS LURKERS SOONER", "BONUS SOULS" };
-static const char *const RING_BLURB[NRING] = { "MORE HEALTH", "MORE SOULS PER KILL", "QUICKER FEET", "STRONGER SPELLS", "SENSES HIDDEN GOLD" };
+
+const char *const QUAL_NAME[NQUAL] = { "COMMON", "UNCOMMON", "RARE", "ULTRA-RARE", "EXQUISITE" };
+const int QUAL_RAMP[NQUAL] = { R_BONE, R_MOSS, R_GLOW, R_PURPLE, R_GOLD };   /* white, green, blue, purple, gold */
+const char *const KIND_NAME[NIK] = { "", "BRACER", "BOOTS", "AMULET", "HOOD", "ROBES", "RING", "BAG" };
+const char *const STAT_NAME[NSTAT] = { "ARMOR", "DODGE", "HEALTH", "RESTORES", "RESIST POISON", "RESIST BURN", "RESIST SLOW",
+                                       "MOVEMENT", "QUIET", "SPELL HASTE", "SPIRIT COST", "DAMAGE", "FIRE", "FROST", "LIGHTNING",
+                                       "SPELL EFFECT" };
+static const char *const STAT_OF[NSTAT] = { "THE BULWARK", "SHADOWS", "VIGOUR", "REJUVENATION", "CLEAN BLOOD", "THE HEARTH",
+                                            "THE UNBOUND", "THE LIGHTFOOT", "SILENCE", "QUICKENING", "THE FRUGAL SOUL",
+                                            "SPELLTONGUE", "CINDERS", "RIME", "STORMS", "THE ADEPT" };
+const char *const ABIL_NAME[NABIL] = { "", "SWIFTNESS", "ARCANE KNOWLEDGE", "TREASURE HUNTER", "KEYMAKER", "COMMUNE", "THORNS", "MIRRORED" };
+static const char *const ABIL_WORD[NABIL] = { "", "SWIFT", "ARCANE", "TREASURE HUNTER", "KEYMAKER", "COMMUNING", "THORNED", "MIRRORED" };
+
+static const float QUAL_MULT[NQUAL] = { 1.0f, 1.2f, 1.45f, 1.75f, 2.1f };   /* how strong its stats roll */
+static const float QUAL_PRICE[NQUAL] = { 1.0f, 1.5f, 2.2f, 3.2f, 4.5f };
+static const float ANOINT[NQUAL] = { 0.10f, 0.13f, 0.16f, 0.20f, 0.25f };
+static const int QUAL_STATS[NQUAL] = { 1, 2, 3, 4, 99 };                     /* never more than the slots; Exquisite one more */
+static const int ABIL_CHANCE[NQUAL] = { 0, 10, 25, 50, 100 };                /* percent */
+static const int KIND_SLOTS[NIK] = { 0, 2, 2, 2, 2, 4, 1, 0 };
+static const float KIND_PRICE[NIK] = { 0.0f, 0.45f, 0.6f, 0.7f, 0.7f, 0.9f, 0.8f, 0.5f };
+static const int STAT_SCALE[NSTAT] = { 10, 10, 10, 100, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10 };
+static const float STAT_CAP[NSTAT] = { 0, 35, 0, 0, 75, 75, 75, 40, 80, 50, 60, 100, 50, 50, 50, 50 };   /* on totals; 0 = none */
+#define ST_ELEM ST_FIRE                       /* in the tables below: an element, chosen when it is rolled */
+
+/* what each kind can roll; wrists have damage only from Rare up */
+static const int KIND_STATS[NIK][10] = {
+    { -1 },
+    { ST_HASTE, ST_THRIFT, ST_ARMOR, ST_DODGE, ST_DAMAGE, -1 },
+    { ST_MOVE, ST_QUIET, ST_DODGE, -1 },
+    { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, -1 },
+    { ST_ARMOR, ST_EFFECT, ST_HP, -1 },
+    { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_ARMOR, ST_HASTE, ST_ELEM, ST_DAMAGE, -1 },
+    { ST_DAMAGE, ST_ELEM, -1 },
+    { -1 },
+};
 
 static uint32_t rnext(uint32_t *s) { *s ^= *s << 13; *s ^= *s >> 17; *s ^= *s << 5; return *s; }
 static int rpick(uint32_t *s, int n) { return (int)(rnext(s) % (uint32_t)n); }
+static float rfrac(uint32_t *s) { return (float)(rnext(s) & 0xffff) / 65536.0f; }
+static int is_elem(int st) { return st >= ST_FIRE && st <= ST_SHOCK; }
 
 void gear_reset(Gear *g) {
     memset(g, 0, sizeof *g);
     for (int i = 0; i < NATK; i++) g->atk[i] = -1;
     g->atk[AT_FIRE] = 0;
-    g->robe = RB_CLOAK; g->hood = HD_CLOAK;
-    for (int i = 0; i < NFINGERS; i++) g->ring[i] = -1;
 }
 
 /* about what the caster finds on a level of this depth; prices are set against it */
 /* roughly the gold a level gives up (measured from the autopilot's runs); deeper levels hold more */
 float gear_haul(int level) { return level < 1 ? 450.0f : 400.0f + 60.0f * level + 45.0f * level * level; }
 
-/* priced against the haul of the level before the one it suits: armor about one level's gold, spells two */
+/* spells and runes, priced against the haul of the level before the one they suit: about two levels' gold */
 int gear_price(int kind, int id, int tier, int rare) {
     float p;
     if (kind == GK_ATK && id == AT_BFS) p = gear_haul(tier + 2) * 5.0f;
-    else if (kind == GK_ATK || kind == GK_DEF) p = gear_haul(tier - 1) * 1.8f;
-    else if (kind == GK_ROBE) p = gear_haul(tier - 1) * 0.9f;
-    else p = gear_haul(tier - 1) * 0.75f;                         /* hoods and rings */
+    else p = gear_haul(tier - 1) * 1.8f;
     if (rare) p *= 1.25f;
     return ((int)(p + 2.5f) / 5) * 5;
 }
 
-Offer gear_offer(int pool, int level, uint32_t *rng) {
-    Offer o = { 0 };
-    int r = rpick(rng, 12);
-    if (r == 0) { o.rare = 1; o.tier = level + 2 + rpick(rng, 2); }    /* a jackpot: well ahead of its time */
-    else o.tier = level + (r < 3 ? -1 : (r < 10 ? 0 : 1));
-    if (o.tier < 1) o.tier = 1;
-    if (pool == POOL_ATTACK) {
-        o.kind = GK_ATK;
-        if (level >= 3 && rpick(rng, 22) == 0) { o.id = AT_BFS; o.rare = 1; o.tier = 1 + level / 4; }   /* incredibly rare */
-        else o.id = rpick(rng, AT_BFS);
-    } else if (pool == POOL_DEFENSE) {
-        o.kind = GK_DEF; o.id = rpick(rng, NDEF);
-    } else {
-        int k = rpick(rng, 10);
-        if (k < 4) { o.kind = GK_ROBE; o.id = 1 + rpick(rng, NROBE - 1); }
-        else if (k < 7) { o.kind = GK_HOOD; o.id = 1 + rpick(rng, NHOOD - 1); }
-        else { o.kind = GK_RING; o.id = rpick(rng, NRING); }
+/* ---- pieces ---- */
+
+/* a stat's value for a piece of this kind and level, before quality and the roll, in its own units */
+static float stat_base(int st, int kind, int level) {
+    float l = (float)level;
+    switch (st) {
+    case ST_ARMOR:  return 0.8f * l * (kind == IK_ROBE ? 1.0f : (kind == IK_HOOD ? 0.6f : 0.3f));
+    case ST_DODGE:  return (3.0f + 0.7f * l) * (kind == IK_BOOTS ? 1.0f : 0.5f);
+    case ST_HP:     return 6.0f * l * (kind == IK_ROBE ? 1.0f : (kind == IK_NECK ? 0.85f : 0.7f));
+    case ST_REGEN:  return 0.05f * l;
+    case ST_RES_POISON: case ST_RES_BURN: case ST_RES_SLOW: return 4.0f + 1.6f * l;
+    case ST_MOVE:   return 4.0f + 0.8f * l;
+    case ST_QUIET:  return 12.0f + 2.0f * l;
+    case ST_HASTE:  return (3.0f + 0.6f * l) * (kind == IK_ROBE ? 1.2f : 1.0f);
+    case ST_THRIFT: return 5.0f + 1.0f * l;
+    case ST_DAMAGE: return (5.0f + 2.0f * l) * (kind == IK_RING ? 1.0f : (kind == IK_ROBE ? 0.6f : 0.3f));
+    case ST_FIRE: case ST_FROST: case ST_SHOCK: return (4.0f + 1.5f * l) * (kind == IK_RING ? 1.0f : 0.6f);
+    default:        return 5.0f + 1.5f * l;     /* ST_EFFECT */
     }
-    o.price = gear_price(o.kind, o.id, o.tier, o.rare);
-    return o;
+}
+static float stat_expect(const Piece *p, int st) {           /* what an average roll of it would be */
+    return stat_base(st, p->kind, p->level) * QUAL_MULT[p->quality] * (p->anointed ? 1.0f + ANOINT[p->quality] : 1.0f);
+}
+static int has_stat(const Piece *p, int st) { for (int i = 0; i < p->nstat; i++) if (p->stat[i] == st) return 1; return 0; }
+static void add_stat(Piece *p, int st, uint32_t *rng) {
+    if (p->nstat >= PIECE_STATS) return;
+    float v = stat_expect(p, st) * (0.85f + 0.3f * rfrac(rng));
+    if (STAT_CAP[st] > 0.0f && v > STAT_CAP[st]) v = STAT_CAP[st];   /* no piece promises more than can count */
+    int iv = (int)(v * STAT_SCALE[st] + 0.5f);
+    p->stat[p->nstat] = (uint8_t)st; p->val[p->nstat] = (int16_t)(iv < 1 ? 1 : (iv > 32000 ? 32000 : iv)); p->nstat++;
 }
 
+int bag_capacity(int quality) { static const int C[NQUAL] = { 2, 3, 3, 4, 5 }; return C[quality]; }
+const char *bag_name(int size) {
+    switch (size) {
+    case 2: return "BURLAP SACK";
+    case 3: return "GRAVEDIGGER'S SATCHEL";
+    case 4: return "PILGRIM'S SCRIP";
+    default: return "BONE RELIQUARY";
+    }
+}
+
+/* the odds of each quality climb set by set, and a step further each time round the sets */
+int piece_quality_roll(int level, uint32_t *rng) {
+    static const int ODDS[4][NQUAL] = { { 60, 30, 9, 1, 0 }, { 40, 35, 18, 6, 1 }, { 25, 35, 25, 12, 3 }, { 15, 30, 30, 18, 7 } };
+    int set = crawl_set(level), loop = crawl_loop(level), share[NQUAL];
+    for (int q = 0; q < NQUAL; q++) share[q] = ODDS[set][q];
+    for (int l = 0; l < loop && l < 4; l++) { share[4] += share[3]; for (int q = 3; q > 0; q--) share[q] = share[q - 1]; share[0] = 0; }
+    int r = rpick(rng, 100), q = 0;
+    while (q < NQUAL - 1 && r >= share[q]) r -= share[q++];
+    return q;
+}
+
+static int pick_ability(uint32_t *rng) {
+    static const int W[NABIL] = { 0, 4, 4, 4, 2, 3, 4, 3 };
+    int tot = 0;
+    for (int i = 0; i < NABIL; i++) tot += W[i];
+    int r = rpick(rng, tot), a = 0;
+    while (r >= W[a]) r -= W[a++];
+    return a;
+}
+
+Piece piece_roll(int kind, int level, int quality, uint32_t *rng) {
+    Piece p;
+    memset(&p, 0, sizeof p);
+    p.kind = (uint8_t)kind; p.level = (uint8_t)(level < 1 ? 1 : (level > 250 ? 250 : level));
+    p.quality = (uint8_t)(quality >= 0 ? quality : piece_quality_roll(level, rng));
+    if (kind == IK_BAG) return p;                                  /* a bag holds; it does nothing else */
+    p.anointed = rpick(rng, 10) == 0;
+    int pool[10], n = 0;
+    for (int i = 0; KIND_STATS[kind][i] >= 0; i++) {
+        int st = KIND_STATS[kind][i];
+        if (kind == IK_WRIST && st == ST_DAMAGE && p.quality < Q_RARE) continue;
+        pool[n++] = st;
+    }
+    int want = QUAL_STATS[p.quality] < KIND_SLOTS[kind] ? QUAL_STATS[p.quality] : KIND_SLOTS[kind] + (p.quality == Q_EXQUISITE);
+    if (want > n) want = n;
+    for (int k = 0; k < want; k++) {                               /* different stats, picked at random */
+        int j = k + rpick(rng, n - k), t = pool[k];
+        pool[k] = pool[j]; pool[j] = t;
+        int st = pool[k] == ST_ELEM ? ST_FIRE + rpick(rng, 3) : pool[k];
+        add_stat(&p, st, rng);
+    }
+    if (kind == IK_HOOD || rpick(rng, 100) < ABIL_CHANCE[p.quality]) {   /* hoods always carry one */
+        p.ability = (uint8_t)pick_ability(rng);
+        if (p.ability == AB_SWIFT && !has_stat(&p, ST_MOVE)) add_stat(&p, ST_MOVE, rng);       /* and bring their stat */
+        if (p.ability == AB_ARCANE && !has_stat(&p, ST_THRIFT)) add_stat(&p, ST_THRIFT, rng);
+    }
+    return p;
+}
+
+Piece piece_make(int kind, int level, int stat, uint32_t *rng) {
+    Piece p;
+    memset(&p, 0, sizeof p);
+    p.kind = (uint8_t)kind; p.level = (uint8_t)(level < 1 ? 1 : (level > 250 ? 250 : level)); p.quality = Q_COMMON;
+    add_stat(&p, stat, rng);
+    if (kind == IK_HOOD) {
+        p.ability = (uint8_t)pick_ability(rng);
+        if (p.ability == AB_SWIFT && !has_stat(&p, ST_MOVE)) add_stat(&p, ST_MOVE, rng);
+        if (p.ability == AB_ARCANE && !has_stat(&p, ST_THRIFT)) add_stat(&p, ST_THRIFT, rng);
+    }
+    return p;
+}
+
+int piece_price(const Piece *p) {
+    if (p->kind == IK_NONE) return 0;
+    float v = gear_haul(p->level - 1) * KIND_PRICE[p->kind] * QUAL_PRICE[p->quality];
+    return ((int)(v + 2.5f) / 5) * 5;
+}
+
+/* its best stat: the one rolled furthest above the average */
+static int best_stat(const Piece *p) {
+    int best = -1; float br = -1.0f;
+    for (int i = 0; i < p->nstat; i++) {
+        float r = (float)p->val[i] / STAT_SCALE[p->stat[i]] / fmaxf(1e-3f, stat_expect(p, p->stat[i]));
+        if (r > br) { br = r; best = p->stat[i]; }
+    }
+    return best;
+}
+
+void piece_name(const Piece *p, char *line1, char *line2, int n) {
+    if (p->kind == IK_NONE) { snprintf(line1, (size_t)n, "%s", ""); snprintf(line2, (size_t)n, "NOTHING"); return; }
+    if (p->kind == IK_BAG) {
+        snprintf(line1, (size_t)n, "%s", QUAL_NAME[p->quality]);
+        snprintf(line2, (size_t)n, "%s", bag_name(bag_capacity(p->quality)));
+        return;
+    }
+    snprintf(line1, (size_t)n, "%s%s%s%s", p->anointed ? "ANOINTED " : "", QUAL_NAME[p->quality], p->ability ? " " : "", ABIL_WORD[p->ability]);
+    int b = best_stat(p);
+    if (b >= 0) snprintf(line2, (size_t)n, "%s OF %s", KIND_NAME[p->kind], STAT_OF[b]);
+    else snprintf(line2, (size_t)n, "%s", KIND_NAME[p->kind]);
+}
+void piece_full_name(const Piece *p, char *buf, int n) {
+    char a[48], b[48];
+    piece_name(p, a, b, sizeof a);
+    snprintf(buf, (size_t)n, "%s%s%s", a, *a ? " " : "", b);
+}
+
+void piece_stat_text(int st, int val, char *buf, int n) {
+    float v = (float)val / STAT_SCALE[st];
+    switch (st) {
+    case ST_ARMOR: case ST_HP: snprintf(buf, (size_t)n, "%s +%.0f", STAT_NAME[st], v); break;
+    case ST_REGEN: snprintf(buf, (size_t)n, "RESTORES %.2f/S", v); break;
+    case ST_THRIFT: snprintf(buf, (size_t)n, "SPIRIT COST -%.0f%%", v); break;
+    case ST_FIRE: case ST_FROST: case ST_SHOCK: snprintf(buf, (size_t)n, "ADDS %.0f%% %s", v, STAT_NAME[st]); break;
+    default: snprintf(buf, (size_t)n, "%s +%.0f%%", STAT_NAME[st], v); break;
+    }
+}
+
+void piece_ability_text(const Piece *p, char *buf, int n) {
+    int q = p->quality, a = piece_grade(p->ability, q, p->level, 0), b = piece_grade(p->ability, q, p->level, 1);
+    switch (p->ability) {
+    case AB_SWIFT: snprintf(buf, (size_t)n, "SWIFTNESS: MOVEMENT +%d%% MORE", a); break;
+    case AB_ARCANE: snprintf(buf, (size_t)n, "ARCANE KNOWLEDGE: SPIRIT SAVED +%d%% MORE", a); break;
+    case AB_TREASURE: snprintf(buf, (size_t)n, "TREASURE HUNTER: TREASURE +%d%%", a); break;
+    case AB_KEYMAKER: snprintf(buf, (size_t)n, "KEYMAKER: KEYS SHOWN %d CELLS OFF, L FOR THE WISP", a); break;
+    case AB_COMMUNE: snprintf(buf, (size_t)n, "COMMUNE: FOES WITHIN %d CELLS SHOWN FOR %d.%d S, EVERY 15 S", a, b / 10, b % 10); break;
+    case AB_THORNS: snprintf(buf, (size_t)n, "THORNS: %d BACK TO WHAT STRIKES YOU", a); break;
+    case AB_MIRRORED: snprintf(buf, (size_t)n, "MIRRORED: %d%% OF MISSILES SENT BACK AT %d%%", a, b); break;
+    default: snprintf(buf, (size_t)n, "%s", ""); break;
+    }
+}
+
+/* An ability's numbers by quality (and level, for Thorns): `which` picks the second number where
+ * there are two (Commune's time in tenths of a second, Mirrored's share of damage sent back). */
+int piece_grade(int ab, int q, int level, int which) {
+    static const int PCT_SWIFT[NQUAL] = { 5, 10, 15, 20, 25 }, PCT_HALF[NQUAL] = { 10, 20, 30, 40, 50 };
+    static const int KEY_RANGE[NQUAL] = { 6, 8, 10, 12, 16 };
+    static const int COMMUNE_R[NQUAL] = { 4, 6, 8, 10, 12 }, COMMUNE_T[NQUAL] = { 10, 15, 20, 25, 30 };
+    static const int MIRROR_P[NQUAL] = { 8, 12, 17, 23, 30 }, MIRROR_D[NQUAL] = { 50, 60, 75, 90, 100 };
+    switch (ab) {
+    case AB_SWIFT: return PCT_SWIFT[q];
+    case AB_ARCANE: case AB_TREASURE: return PCT_HALF[q];
+    case AB_KEYMAKER: return KEY_RANGE[q];
+    case AB_COMMUNE: return which ? COMMUNE_T[q] : COMMUNE_R[q];
+    case AB_THORNS: return (int)((2.0f + 0.6f * level) * QUAL_MULT[q] + 0.5f);
+    case AB_MIRRORED: return which ? MIRROR_D[q] : MIRROR_P[q];
+    default: return 0;
+    }
+}
+
+/* ---- the caster's numbers ---- */
+
+float gear_total_raw(const Gear *g, int st) {
+    float t = 0.0f;
+    for (int s = 0; s < NSLOT; s++) {
+        const Piece *p = &g->worn[s];
+        for (int i = 0; i < p->nstat; i++) if (p->stat[i] == st) t += (float)p->val[i] / STAT_SCALE[st];
+    }
+    return t;
+}
+
+/* abilities add up across what is worn, to a cap; Mirrored's share sent back is the best of them */
+float gear_ability(const Gear *g, int ab, int which) {
+    static const float CAP0[NABIL] = { 0, 25, 50, 50, 16, 12, 0, 50 }, CAP1[NABIL] = { 0, 0, 0, 0, 0, 30, 0, 0 };
+    float t = 0.0f;
+    for (int s = 0; s < NSLOT; s++) {
+        const Piece *p = &g->worn[s];
+        if (p->kind == IK_NONE || p->ability != ab) continue;
+        float v = (float)piece_grade(ab, p->quality, p->level, which);
+        if (ab == AB_MIRRORED && which) t = fmaxf(t, v); else t += v;
+    }
+    float cap = which ? CAP1[ab] : CAP0[ab];
+    return cap > 0.0f && !(ab == AB_MIRRORED && which) ? fminf(t, cap) : t;
+}
+
+/* Abilities raise the summed stat once, rather than each piece's own (so nothing compounds), and
+ * then the totals are capped. The elements share one cap between them. */
+float gear_total(const Gear *g, int st) {
+    float t = gear_total_raw(g, st);
+    if (st == ST_MOVE) t *= 1.0f + gear_ability(g, AB_SWIFT, 0) / 100.0f;
+    if (st == ST_THRIFT) t *= 1.0f + gear_ability(g, AB_ARCANE, 0) / 100.0f;
+    if (is_elem(st)) {
+        float all = gear_total_raw(g, ST_FIRE) + gear_total_raw(g, ST_FROST) + gear_total_raw(g, ST_SHOCK);
+        if (all > STAT_CAP[st]) t *= STAT_CAP[st] / all;
+        return t;
+    }
+    return STAT_CAP[st] > 0.0f ? fminf(t, STAT_CAP[st]) : t;
+}
+
+int   gear_armor(const Gear *g) { return (int)gear_total(g, ST_ARMOR); }
+float gear_magic_resist(const Gear *g) { return gear_total(g, ST_RES_BURN) / 100.0f; }
+float gear_dodge(const Gear *g) { return gear_total(g, ST_DODGE) / 100.0f; }
+int   gear_thorns(const Gear *g) { return (int)gear_ability(g, AB_THORNS, 0); }
+float gear_regen(const Gear *g) { return gear_total(g, ST_REGEN); }
+float gear_poison_resist(const Gear *g) { return gear_total(g, ST_RES_POISON) / 100.0f; }
+float gear_slow_resist(const Gear *g) { return gear_total(g, ST_RES_SLOW) / 100.0f; }
+int   gear_max_hp(const Gear *g) { return 100 + (int)gear_total(g, ST_HP); }
+float gear_haste(const Gear *g) { return 1.0f + gear_total(g, ST_MOVE) / 100.0f; }
+float gear_ember(const Gear *g) { return 1.0f + gear_total(g, ST_DAMAGE) / 100.0f; }
+
 /* ---- worth, for the autopilot ---- */
+
+/* each stat against what a plain piece of the level would give, weighed by how much it helps */
+float piece_worth(const Piece *p, int level) {
+    static const float W[NSTAT] = { 1.0f, 0.8f, 1.0f, 0.6f, 0.35f, 0.35f, 0.25f, 0.35f, 0.15f, 0.8f, 0.3f, 1.0f, 0.6f, 0.6f, 0.6f, 0.3f };
+    static const int REF[NSTAT] = { IK_ROBE, IK_BOOTS, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_BOOTS, IK_BOOTS,
+                                    IK_WRIST, IK_WRIST, IK_RING, IK_RING, IK_RING, IK_RING, IK_HOOD };
+    static const float AW[NABIL] = { 0.0f, 0.15f, 0.3f, 0.4f, 0.0f, 0.0f, 0.4f, 0.5f };
+    if (p->kind == IK_NONE || p->kind == IK_BAG) return 0.0f;
+    if (level < 1) level = 1;
+    float w = 0.0f;
+    for (int i = 0; i < p->nstat; i++) {
+        int st = p->stat[i];
+        w += W[st] * ((float)p->val[i] / STAT_SCALE[st]) / fmaxf(1e-3f, stat_base(st, REF[st], level));
+    }
+    return w + AW[p->ability] * (1.0f + 0.25f * p->quality);
+}
+
+int piece_slot(const Gear *g, int kind) {
+    switch (kind) {
+    case IK_WRIST: {
+        if (g->worn[SL_WRIST_L].kind == IK_NONE) return SL_WRIST_L;
+        if (g->worn[SL_WRIST_R].kind == IK_NONE) return SL_WRIST_R;
+        int lvl = g->worn[SL_WRIST_L].level > g->worn[SL_WRIST_R].level ? g->worn[SL_WRIST_L].level : g->worn[SL_WRIST_R].level;
+        return piece_worth(&g->worn[SL_WRIST_L], lvl) <= piece_worth(&g->worn[SL_WRIST_R], lvl) ? SL_WRIST_L : SL_WRIST_R;
+    }
+    case IK_BOOTS: return SL_BOOTS;
+    case IK_NECK: return SL_NECK;
+    case IK_HOOD: return SL_HOOD;
+    case IK_ROBE: return SL_ROBE;
+    case IK_RING: return SL_RING;
+    default: return -1;
+    }
+}
+
+int gear_bag_free(const Gear *g) {
+    int n = 0;
+    for (int i = 0; i < g->bag_size && i < BAG_MAX; i++) n += g->bag[i].kind == IK_NONE;
+    return n;
+}
+static int bag_put(Gear *g, const Piece *p) {
+    for (int i = 0; i < g->bag_size && i < BAG_MAX; i++) if (g->bag[i].kind == IK_NONE) { g->bag[i] = *p; return 1; }
+    return 0;
+}
+
+static int slot_fits(int slot, int kind) {
+    static const int SLOT_KIND[NSLOT] = { IK_WRIST, IK_WRIST, IK_BOOTS, IK_NECK, IK_HOOD, IK_ROBE, IK_RING };
+    return SLOT_KIND[slot] == kind;
+}
+int gear_wear(Gear *g, int slot, int bi) {
+    if (slot < 0 || slot >= NSLOT || bi < 0 || bi >= g->bag_size || !slot_fits(slot, g->bag[bi].kind)) return 0;
+    Piece t = g->worn[slot];
+    g->worn[slot] = g->bag[bi];
+    g->bag[bi] = t;
+    return 1;
+}
 
 static float atk_worth(int id, int tier) {
     static const float B[NATK] = { 1.0f, 0.9f, 1.1f, 1.0f, 1.0f, 1.05f, 0.95f, 0.9f, 3.0f };
@@ -86,24 +375,6 @@ static float def_worth(const Gear *g, int id, int tier, int level) {
     if (id == DF_MIRROR && level >= 2) b += 0.2f;                  /* wall skulls */
     return b * (1.0f + 0.25f * tier);
 }
-static float robe_worth(int id, int tier, int level) {
-    static const float B[NROBE] = { 0.0f, 1.0f, 0.6f, 0.9f, 0.8f, 0.9f };
-    float b = B[id] + (id == RB_SILK && level >= 4 ? 0.4f : 0.0f);
-    return b * tier;
-}
-static float hood_worth(const Gear *g, int id, int tier, int level) {
-    static const float B[NHOOD] = { 0.0f, 0.5f, 0.5f, 0.4f, 0.3f };
-    float b = B[id];
-    if (id == HD_WARDED && level >= 2) b += 0.3f;
-    if (id == HD_HUNTER && level >= 4) b += 0.3f;
-    if (id == HD_COWL && g->atk[AT_BFS] >= 0) b += 0.4f;
-    return b * tier;
-}
-static float ring_worth(const Gear *g, int id, int tier) {
-    static const float B[NRING] = { 0.7f, 0.3f, 0.6f, 0.9f, 0.5f };
-    float b = B[id] + (id == RG_SOUL && g->atk[AT_BFS] >= 0 ? 0.5f : 0.0f);
-    return b * tier;
-}
 
 float gear_value(const Gear *g, const Offer *o, int level) {
     switch (o->kind) {
@@ -117,85 +388,82 @@ float gear_value(const Gear *g, const Offer *o, int level) {
         if (g->def[o->id] <= 0) v += 0.3f;
         return v > 0.0f ? v * 1.4f : 0.0f;
     }
-    case GK_ROBE: {                                                 /* only worth it if it beats what is worn */
-        if (g->robe_own[o->id] >= o->tier) return 0.0f;
-        float v = robe_worth(o->id, o->tier, level) - robe_worth(g->robe, g->robe_tier, level);
-        return v > 0.0f ? v : 0.0f;
-    }
-    case GK_HOOD: {
-        if (g->hood_own[o->id] >= o->tier) return 0.0f;
-        float v = hood_worth(g, o->id, o->tier, level) - hood_worth(g, g->hood, g->hood_tier, level);
-        return v > 0.0f ? v : 0.0f;
-    }
     default: {
-        int same = -1, free_f = -1; float wv = 1e9f;
-        for (int f = 0; f < NFINGERS; f++) {
-            if (g->ring[f] == o->id) same = f;
-            if (g->ring[f] < 0) { if (free_f < 0) free_f = f; continue; }
-            float v = ring_worth(g, g->ring[f], g->ring_tier[f]);
-            if (v < wv) wv = v;
+        const Piece *p = &o->piece;
+        if (p->kind == IK_BAG) {                                    /* room for spares: a little, if bigger */
+            int more = bag_capacity(p->quality) - g->bag_size;
+            return more > 0 ? 0.12f * more : 0.0f;
         }
-        int own = g->ring_own[o->id];
-        if (own > 0) {                                             /* one of these already: it grows stronger */
-            int nt = own + 1 > o->tier ? own + 1 : o->tier;
-            float gain = ring_worth(g, o->id, nt) - ring_worth(g, o->id, own);
-            if (same >= 0) return gain;
-            float v = ring_worth(g, o->id, nt) - (free_f >= 0 ? 0.0f : wv);   /* and it would go on a finger */
-            return v > 0.0f ? v : 0.0f;
-        }
-        float v = ring_worth(g, o->id, o->tier) - (free_f >= 0 ? 0.0f : wv);
-        return v > 0.0f ? v : 0.0f;
+        int s = piece_slot(g, p->kind);
+        float v = piece_worth(p, level) - piece_worth(&g->worn[s], level);
+        return v > 0.0f ? v * 0.7f : 0.0f;
     }
     }
 }
 
-void gear_sync(Gear *g) {
-    g->robe_tier = g->robe == RB_CLOAK ? 0 : g->robe_own[g->robe];
-    g->hood_tier = g->hood == HD_CLOAK ? 0 : g->hood_own[g->hood];
-    for (int f = 0; f < NFINGERS; f++) g->ring_tier[f] = g->ring[f] < 0 ? 0 : g->ring_own[g->ring[f]];
-}
-
-void gear_wear_robe(Gear *g, int id) { if (id == RB_CLOAK || g->robe_own[id] > 0) g->robe = (int8_t)id; gear_sync(g); }
-void gear_wear_hood(Gear *g, int id) { if (id == HD_CLOAK || g->hood_own[id] > 0) g->hood = (int8_t)id; gear_sync(g); }
-void gear_wear_ring(Gear *g, int finger, int id) {
-    if (finger < 0 || finger >= NFINGERS || (id >= 0 && g->ring_own[id] <= 0)) return;
-    if (id >= 0)
-        for (int f = 0; f < NFINGERS; f++) if (g->ring[f] == id) g->ring[f] = g->ring[finger];   /* swap fingers */
-    g->ring[finger] = (int8_t)id;
-    gear_sync(g);
-}
-
-/* into the wardrobe; worn at once if it is better than what is on (the autopilot's rule) */
-void gear_take(Gear *g, const Offer *o) {
+/* Into the book, or onto the caster if it is better than what is worn there (the autopilot's rule;
+ * a person chooses at the merchant). What comes off goes into the bag if there is room, or is lost. */
+int gear_take(Gear *g, const Offer *o) {
     switch (o->kind) {
-    case GK_ATK: if (o->tier > g->atk[o->id]) g->atk[o->id] = (int8_t)o->tier; break;
-    case GK_DEF: if (o->tier > g->def[o->id]) g->def[o->id] = (int8_t)o->tier; break;
-    case GK_ROBE:
-        if (o->tier > g->robe_own[o->id]) g->robe_own[o->id] = (int8_t)o->tier;
-        if (robe_worth(o->id, g->robe_own[o->id], o->tier) >= robe_worth(g->robe, g->robe_tier, o->tier)) g->robe = (int8_t)o->id;
-        break;
-    case GK_HOOD:
-        if (o->tier > g->hood_own[o->id]) g->hood_own[o->id] = (int8_t)o->tier;
-        if (hood_worth(g, o->id, g->hood_own[o->id], o->tier) >= hood_worth(g, g->hood, g->hood_tier, o->tier)) g->hood = (int8_t)o->id;
-        break;
-    default: {
-        int own = g->ring_own[o->id];
-        if (own > 0) {                                              /* the same ring again: it grows stronger */
-            int nt = own + 1 > o->tier ? own + 1 : o->tier;
-            g->ring_own[o->id] = (int8_t)(nt > 12 ? 12 : nt);
-        } else g->ring_own[o->id] = (int8_t)o->tier;
-        gear_sync(g);
-        for (int f = 0; f < NFINGERS; f++) if (g->ring[f] == o->id) { gear_sync(g); return; }   /* already on */
-        int f = -1; float wv = 1e9f;
-        for (int k = 0; k < NFINGERS; k++) {
-            if (g->ring[k] < 0) { f = k; break; }
-            float v = ring_worth(g, g->ring[k], g->ring_tier[k]);
-            if (v < wv) { wv = v; f = k; }                           /* all four taken: off comes the weakest, into the bag */
+    case GK_ATK: if (o->tier > g->atk[o->id]) g->atk[o->id] = (int8_t)o->tier; return TAKE_LEARNT;
+    case GK_DEF: if (o->tier > g->def[o->id]) g->def[o->id] = (int8_t)o->tier; return TAKE_LEARNT;
+    default: break;
+    }
+    const Piece *p = &o->piece;
+    if (p->kind == IK_BAG) {
+        int cap = bag_capacity(p->quality);
+        if (cap > g->bag_size) {                                    /* the bigger bag takes everything over */
+            Piece keep[BAG_MAX];
+            int n = 0;
+            for (int i = 0; i < g->bag_size && i < BAG_MAX; i++) if (g->bag[i].kind != IK_NONE) keep[n++] = g->bag[i];
+            memset(g->bag, 0, sizeof g->bag);
+            for (int i = 0; i < n; i++) g->bag[i] = keep[i];
+            g->bag_size = (uint8_t)cap; g->bag_quality = p->quality;
         }
-        if (ring_worth(g, o->id, g->ring_own[o->id]) >= wv || g->ring[f] < 0) g->ring[f] = (int8_t)o->id;
+        return TAKE_BAG;
     }
+    int s = piece_slot(g, p->kind);
+    int lvl = p->level;
+    if (g->worn[s].kind == IK_NONE) { g->worn[s] = *p; return TAKE_WORN; }
+    if (piece_worth(p, lvl) >= piece_worth(&g->worn[s], lvl)) {
+        Piece old = g->worn[s];
+        g->worn[s] = *p;
+        return bag_put(g, &old) ? TAKE_WORN_OLD_BAGGED : TAKE_WORN_OLD_LOST;
     }
-    gear_sync(g);
+    return bag_put(g, p) ? TAKE_BAGGED : TAKE_LOST;
+}
+
+/* ---- offers ---- */
+
+Offer gear_offer(int pool, int level, const Gear *g, uint32_t *rng) {
+    Offer o;
+    memset(&o, 0, sizeof o);
+    if (pool == POOL_GEAR) {                                        /* something to wear, or now and then a bag */
+        int w[NIK] = { 0, 3, 2, 2, 2, 3, 2, 0 };
+        w[IK_BAG] = g && g->bag_size == 0 ? 3 : (g && g->bag_size >= BAG_MAX ? 0 : 1);
+        int tot = 0;
+        for (int i = 0; i < NIK; i++) tot += w[i];
+        int r = rpick(rng, tot), k = 0;
+        while (r >= w[k]) r -= w[k++];
+        o.kind = GK_PIECE;
+        o.piece = piece_roll(k, level, -1, rng);
+        o.id = k; o.tier = o.piece.level; o.rare = o.piece.quality >= Q_ULTRA;
+        o.price = piece_price(&o.piece);
+        return o;
+    }
+    int r = rpick(rng, 12);
+    if (r == 0) { o.rare = 1; o.tier = level + 2 + rpick(rng, 2); }    /* a jackpot: well ahead of its time */
+    else o.tier = level + (r < 3 ? -1 : (r < 10 ? 0 : 1));
+    if (o.tier < 1) o.tier = 1;
+    if (pool == POOL_ATTACK) {
+        o.kind = GK_ATK;
+        if (level >= 3 && rpick(rng, 22) == 0) { o.id = AT_BFS; o.rare = 1; o.tier = 1 + level / 4; }   /* incredibly rare */
+        else o.id = rpick(rng, AT_BFS);
+    } else {
+        o.kind = GK_DEF; o.id = rpick(rng, NDEF);
+    }
+    o.price = gear_price(o.kind, o.id, o.tier, o.rare);
+    return o;
 }
 
 static const char *roman(int t) {
@@ -204,92 +472,32 @@ static const char *roman(int t) {
 }
 
 void gear_item_name(int kind, int id, int tier, char *buf, int n) {
-    const char *base = "";
-    static const char *const PLAIN_ROBE[4] = { "PADDED ROBE", "QUILTED ROBE", "MAIL-LINED ROBE", "ARCHMAGE'S ROBE" };
-    static const char *const PLAIN_HOOD[4] = { "CLOTH HOOD", "LEATHER HOOD", "MAIL COWL", "ARCHMAGE'S HOOD" };
-    int pt = tier < 1 ? 1 : tier;
-    switch (kind) {
-    case GK_ATK: base = ATK_NAME[id]; break;
-    case GK_DEF: base = DEF_NAME[id]; break;
-    case GK_ROBE: base = id == RB_PLAIN ? PLAIN_ROBE[pt > 6 ? 3 : (pt - 1) / 2] : ROBE_NAME[id]; break;
-    case GK_HOOD: base = id == HD_PLAIN ? PLAIN_HOOD[pt > 6 ? 3 : (pt - 1) / 2] : HOOD_NAME[id]; break;
-    default: base = RING_NAME[id]; break;
-    }
+    const char *base = kind == GK_DEF ? DEF_NAME[id] : ATK_NAME[id];
     if (tier <= 0) snprintf(buf, (size_t)n, "%s", base);
     else snprintf(buf, (size_t)n, "%s %s", base, roman(tier));
 }
 
-void gear_name(const Offer *o, char *buf, int n) { gear_item_name(o->kind, o->id, o->tier, buf, n); }
+void gear_name(const Offer *o, char *buf, int n) {
+    if (o->kind == GK_PIECE) piece_full_name(&o->piece, buf, n);
+    else gear_item_name(o->kind, o->id, o->tier, buf, n);
+}
 
 const char *gear_blurb(const Offer *o) {
     switch (o->kind) {
     case GK_ATK: return ATK_BLURB[o->id];
     case GK_DEF: return DEF_BLURB[o->id];
-    case GK_ROBE: return ROBE_BLURB[o->id];
-    case GK_HOOD: return HOOD_BLURB[o->id];
-    default: return RING_BLURB[o->id];
+    default: return o->piece.kind == IK_BAG ? "KEEPS WHAT YOU DON'T WEAR" : "";
     }
 }
 
 int gear_color(int kind, int id) {
     static const int A[NATK] = { R_FLAME, R_GLOW, R_GLOW, R_BONE, R_PURPLE, R_FLAME, R_GHOST, R_GOLD, R_MOSS };
     static const int D[NDEF] = { R_BONE, R_PURPLE, R_GHOST, R_BLOOD, R_MOSS, R_GLOW, R_PURPLE, R_GOLD, R_GHOST };
-    static const int RG[NRING] = { R_BONE, R_GHOST, R_GLOW, R_FLAME, R_MOSS };
-    switch (kind) {
-    case GK_ATK: return A[id];
-    case GK_DEF: return D[id];
-    case GK_ROBE: return gear_robe_ramp(id, 1);
-    case GK_HOOD: return gear_hood_ramp(id, 1);
-    default: return RG[id];
-    }
+    return kind == GK_DEF ? D[id] : A[id];
 }
+int offer_color(const Offer *o) { return o->kind == GK_PIECE ? QUAL_RAMP[o->piece.quality] : gear_color(o->kind, o->id); }
 
-int gear_robe_ramp(int robe, int tier) {
-    switch (robe) {
-    case RB_PLAIN: return tier <= 2 ? R_WARM : (tier <= 4 ? R_BRICK : (tier <= 6 ? R_MOSS : R_PURPLE));
-    case RB_SILK: return R_GHOST;
-    case RB_SHADOW: return R_IRON;
-    case RB_THORN: return R_WOOD;
-    case RB_BLESSED: return R_BONE;
-    default: return R_PURPLE;
-    }
-}
-int gear_hood_ramp(int hood, int tier) {
-    switch (hood) {
-    case HD_PLAIN: return tier <= 2 ? R_WARM : (tier <= 4 ? R_WOOD : (tier <= 6 ? R_IRON : R_PURPLE));
-    case HD_WARDED: return R_IRON;
-    case HD_HUNTER: return R_MOSS;
-    case HD_COWL: return R_IRON;
-    default: return R_PURPLE;
-    }
-}
-
-/* ---- the caster's numbers ---- */
-
-static int ring_tier(const Gear *g, int id) {
-    for (int f = 0; f < NFINGERS; f++) if (g->ring[f] == id) return g->ring_tier[f];
-    return 0;
-}
-
-int gear_armor(const Gear *g) {
-    static const float RB[NROBE] = { 0.0f, 1.0f, 0.6f, 0.4f, 0.5f, 0.4f };
-    int a = (int)(RB[g->robe] * g->robe_tier);
-    if (g->hood == HD_PLAIN) a += g->hood_tier / 2;
-    return a;
-}
-float gear_magic_resist(const Gear *g) { return g->hood == HD_WARDED ? fminf(0.7f, 0.1f * g->hood_tier) : 0.0f; }
-float gear_dodge(const Gear *g) { return g->robe == RB_SHADOW ? fminf(0.35f, 0.04f + 0.03f * g->robe_tier) : 0.0f; }
-int   gear_thorns(const Gear *g) { return g->robe == RB_THORN ? 3 + 2 * g->robe_tier : 0; }
-float gear_regen(const Gear *g) { return g->robe == RB_BLESSED ? 1.0f / fmaxf(2.0f, 6.0f - 0.4f * g->robe_tier) : 0.0f; }
-float gear_poison_resist(const Gear *g) { return g->robe == RB_SILK ? fminf(0.8f, 0.12f * g->robe_tier) : 0.0f; }
-int   gear_max_hp(const Gear *g) { return 100 + 10 * ring_tier(g, RG_BONE); }
-float gear_soul_mult(const Gear *g) { return 1.0f + fminf(1.5f, 0.25f * ring_tier(g, RG_SOUL)); }
-float gear_cowl(const Gear *g) { return g->hood == HD_COWL ? fminf(0.6f, 0.08f * g->hood_tier) : 0.0f; }
-float gear_haste(const Gear *g) { return 1.0f + fminf(0.3f, 0.05f * ring_tier(g, RG_HASTE)); }
-float gear_ember(const Gear *g) { return 1.0f + 0.06f * ring_tier(g, RG_EMBER); }
-int   gear_seek(const Gear *g) { int t = ring_tier(g, RG_SEEKER); return t ? 3 + t : 0; }
-float gear_hunter(const Gear *g) { return g->hood == HD_HUNTER ? 1.0f + 0.15f * g->hood_tier : 1.0f; }
-int   gear_rings_worn(const Gear *g) { int n = 0; for (int f = 0; f < NFINGERS; f++) n += g->ring[f] >= 0; return n; }
+/* ---- spells ---- */
 
 float spell_damage(const Gear *g, int atk) {
     static const float B[NATK] = { 10.0f, 7.0f, 8.0f, 12.0f, 9.0f, 18.0f, 4.0f, 4.0f, 9999.0f };
@@ -299,7 +507,7 @@ float spell_damage(const Gear *g, int atk) {
 float spell_cycle(const Gear *g, int atk) {
     static const float B[NATK] = { 1.95f, 1.8f, 2.2f, 2.0f, 2.0f, 2.9f, 2.2f, 0.7f, 3.0f };
     int t = g->atk[atk] < 0 ? 0 : g->atk[atk];
-    return B[atk] / (1.0f + 0.07f * t) / (1.0f + 0.03f * ring_tier(g, RG_EMBER));
+    return B[atk] / (1.0f + 0.07f * t) / (1.0f + gear_total(g, ST_HASTE) / 100.0f);
 }
 int bfs_cost(int tier) { int c = 100 - 10 * (tier - 1); return c < 40 ? 40 : c; }
 float def_cooldown(int tier) { return fmaxf(20.0f, 45.0f * powf(0.88f, (float)(tier - 1))); }

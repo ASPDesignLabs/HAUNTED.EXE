@@ -1059,6 +1059,54 @@ static void spr_items(void) {
     cv_outline(0);
     cv_px(30, 22, C_WHITE);
     cv_store(SP_ITEM_RING);
+    /* a bracer, lying on its side: a cuff of cloth and leather, two straps, studs */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 20; y < 46; y++)
+        for (int x = 18; x < 47; x++) {
+            float hh = 7.0f + 2.0f * (x - 18) / 28.0f, v = (y + 0.5f - 33) / hh;
+            if (fabsf(v) > 1.0f) continue;
+            float f = 0.2f + 0.65f * lit(0.0f, v, sqrtf(1.0f - v * v)) - ((x - 18) % 5 == 0 ? 0.06f : 0.0f);
+            int strap = (x >= 24 && x <= 26) || (x >= 37 && x <= 39);
+            cv_px(x, y, strap ? sh(R_WOOD, f * 0.8f) : sh(R_PURPLE, f));
+        }
+    for (int y = 25; y < 42; y++) cv_px(46, y, sh(R_IRON, 0.08f));   /* the open end */
+    cv_px(25, 31, sh(R_GOLD, 0.95f)); cv_px(38, 30, sh(R_GOLD, 0.95f));
+    cv_outline(0);
+    cv_store(SP_ITEM_BRACER);
+    /* boots, a pair, side by side */
+    cv_begin(cv_sprite, TS, TS);
+    for (int b = 0; b < 2; b++) {
+        float dx = b ? 0.0f : -7.0f, dy = b ? 0.0f : -2.0f, lo = b ? 0.75f : 0.5f, hi = b ? 0.3f : 0.15f;
+        float boot[14] = { 21 + dx, 16 + dy, 31 + dx, 16 + dy, 31 + dx, 36 + dy, 42 + dx, 38 + dy, 44 + dx, 42 + dy, 44 + dx, 46 + dy, 21 + dx, 46 + dy };
+        cv_poly(boot, 7, R_PURPLE, lo, hi, 16 + dy, 30);
+        cv_line(21 + dx, 46 + dy, 44 + dx, 46 + dy, sh(R_IRON, 0.25f));
+        cv_line(21 + dx, 19 + dy, 31 + dx, 19 + dy, sh(R_PURPLE, b ? 0.95f : 0.7f));
+        cv_line(24 + dx, 46 + dy, 24 + dx, 41 + dy, sh(R_IRON, 0.3f));
+    }
+    cv_outline(0);
+    cv_store(SP_ITEM_BOOTS);
+    /* an amulet: a chain, a gold rim, a stone in the colour of what it is */
+    cv_begin(cv_sprite, TS, TS);
+    for (int i = 0; i <= 12; i++) {
+        float t = i / 12.0f;
+        cv_px((int)(20 + 10 * t), (int)(12 + 16 * t * (2 - t)), sh(R_IRON, 0.7f - 0.3f * (i & 1)));
+        cv_px((int)(44 - 10 * t), (int)(12 + 16 * t * (2 - t)), sh(R_IRON, 0.7f - 0.3f * (i & 1)));
+    }
+    cv_ellipse(32, 37, 8.5f, 9.5f, R_GOLD, 0.35f, 0.95f);
+    gem(32, 37, 6.0f, R_PURPLE);
+    cv_outline(0);
+    cv_px(30, 33, C_WHITE);
+    cv_store(SP_ITEM_AMULET);
+    /* a bag, tied at the neck */
+    cv_begin(cv_sprite, TS, TS);
+    cv_ellipse(32, 38, 13.5f, 10.5f, R_PURPLE, 0.15f, 0.85f);
+    float neck[8] = { 28, 29, 36, 29, 40, 20, 24, 20 };
+    cv_poly(neck, 4, R_PURPLE, 0.75f, 0.35f, 20, 10);
+    for (int x = 27; x <= 37; x++) { cv_px(x, 28, sh(R_WOOD, 0.6f)); cv_px(x, 29, sh(R_WOOD, 0.35f)); }
+    cv_line(37, 29, 41, 34, sh(R_WOOD, 0.5f));
+    for (int k = 0; k < 4; k++) cv_line(26 + k * 4, 20, 25 + k * 4.4f, 17, sh(R_PURPLE, 0.6f));   /* the gathered cloth */
+    cv_outline(0);
+    cv_store(SP_ITEM_BAG);
 }
 
 /* The wraith: a tall hooded shape, nothing inside the hood but two cold eyes, bone hands reaching
