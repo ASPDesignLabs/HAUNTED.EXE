@@ -227,10 +227,10 @@ If the window loses focus while you play, the game pauses on that question. The 
 became HAUNTED.EXE, kept so that settings and progress carry over), and the graves are `Slot1` to `Slot3`
 beside it; `uninstall.cmd` removes them with the settings.
 
-This build saves in a new format again, to carry what you wear, your bag, your bones and a held ware.
+1.0.0b4 saves in a new format again, to carry what you wear, your bag, your bones and a held ware.
 Progress and graves from earlier betas still load: their spells, runes, gold and souls come across, their
 robe, hood and best ring become Common pieces of about the same strength, and there is no bag. But
-1.0.0b3 and earlier can't read a save made by this build: they start again from level 1, and fleeing
+1.0.0b3 and earlier can't read a save made by 1.0.0b4: they start again from level 1, and fleeing
 there overwrites it. If you might go back, keep a copy first:
 `reg export HKCU\Software\HalloweenVGASaver haunted-backup.reg` (double-click the file to restore it).
 
@@ -395,9 +395,9 @@ The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.p
 
 ## What has been verified
 
-**New since 1.0.0b3** (not released yet: things to wear rolled like loot, spirit and bones, the
-abilities, the merchant's wider room and the Black Altars). All of it has been tested in the harness
-only. None of it has been played by hand yet, and this round wasn't run under Wine; the Windows build is
+**New in 1.0.0b4** (things to wear rolled like loot, spirit and bones, the abilities, the merchant's
+wider room and the Black Altars). All of it has been tested in the harness only. None of it had been
+played by hand when this beta went out, and this round wasn't run under Wine; the Windows build is
 compiled and smoke-tested by CI.
 
 * **The first ten levels are a little kinder to the autopilot.** Eight 50-minute runs from level 1, on

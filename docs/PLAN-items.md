@@ -3,8 +3,8 @@
 **Status: agreed (23 October 2026); all seven steps built (items as data, the wardrobe, save version 3;
 every worn stat felt in the game, footsteps and Quiet, the cuff and the totals page; spirit and bones;
 the abilities; the merchant; the Black Altars; the balance runs), tested in the harness only; the owner
-checked the rolled wares (and asked for Exquisite a little more often). The beta waits until the owner
-has played it.** A plan from the owner's guide, written after
+checked the rolled wares (and asked for Exquisite a little more often). Released as 1.0.0b4 (23 October
+2026), at the owner's word, before it had been played by hand.** A plan from the owner's guide, written after
 reading the code as it stands at 1.0.0b3.
 
 **Decided (23 October 2026):**
