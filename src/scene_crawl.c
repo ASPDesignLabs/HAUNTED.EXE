@@ -1953,6 +1953,25 @@ static void kill_mob(Mob *m) {
 /* the knight's plate comes off as it is hurt: 0 whole, 1 half, 2 down to the breastplate */
 static int knight_stage(const Mob *m) { return m->hp > m->maxhp * 0.66f ? 0 : (m->hp > m->maxhp * 0.33f ? 1 : 2); }
 
+/* How much a spell bites a creature: its weakness to the spell, and each element worn added in by how
+ * much that element hurts it (fire as Fire Bolt does, frost as Frost Shard, lightning as Chain
+ * Lightning). A knight down to its breastplate has nothing left to keep fire off. */
+static float weak_to(const Mob *m, int atk) {
+    if (m->type == MOB_KNIGHT && atk == AT_FIRE && knight_stage(m) == 2) return 1.0f;
+    return KINDS[m->type].weak[atk];
+}
+static float hit_mult(const Mob *m, int atk) {
+    const Gear *g = &RUN.gear;
+    float k = weak_to(m, atk);
+    if (atk == AT_BFS) return k;
+    return k + gear_total(g, ST_FIRE) / 100.0f * weak_to(m, AT_FIRE) + gear_total(g, ST_FROST) / 100.0f * weak_to(m, AT_FROST)
+             + gear_total(g, ST_SHOCK) / 100.0f * weak_to(m, AT_CHAIN);
+}
+static float slow_factor(void) {                                   /* slowed, the caster walks at 60%; resisted, less slowly */
+    return G.slow_t > 0.0f ? 1.0f - 0.4f * (1.0f - 0.5f * gear_slow_resist(&RUN.gear)) : 1.0f;
+}
+static float spell_effect(void) { return 1.0f + gear_total(&RUN.gear, ST_EFFECT) / 100.0f; }   /* all a spell does besides damage */
+
 /* A hit on a creature, from (fx, fy) (shields only stop what comes from in front). Returns 1 if it died. */
 static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float slow) {
     if (m->type == MOB_WRAITH && m->alive && m->state == MS_WALK) {   /* fire won't kill it, but it drives it back */
@@ -1975,8 +1994,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
     }
     if ((flags & DM_SLOW) && slow > 0.0f) m->slowed = fmaxf(m->slowed, slow);
     int atk = (flags >> 8) - 1;
-    if (atk >= 0 && atk < NATK) { dmg *= KINDS[m->type].weak[atk]; m->last_atk = atk; }   /* what it is weak to, or shrugs off */
-    if (m->type == MOB_KNIGHT && atk == AT_FIRE && knight_stage(m) == 2) dmg /= KINDS[MOB_KNIGHT].weak[AT_FIRE];   /* the plates off, fire bites */
+    if (atk >= 0 && atk < NATK) { dmg *= hit_mult(m, atk); m->last_atk = atk; }   /* what it is weak to, or shrugs off */
     if (m->type == MOB_GHOUL && m->sub == 4) { dmg *= 2.0f; m->sub = 0; }   /* caught feeding */
     if (m->type == MOB_GARGOYLE) garg_wake(m);                     /* it was never a statue */
     if (m->type == MOB_HUNTER && m->sub == 0) { m->sub = 1; m->sub_t = 0.0f; }   /* hit, it drops from the ceiling */
@@ -2108,6 +2126,13 @@ static void alert_near(int steps, float secs) {
     }
 }
 
+/* A footstep: heard three steps off down the halls, by anything there that isn't already after you.
+ * Quiet boots soften it (80% Quiet: only the next cell hears). */
+static void footstep(void) {
+    snd_sfx_ex(SFX_STEP, 1.0f, ((int)(G.bobph / PI_F) & 1) ? 0.44f : 0.56f);
+    alert_near((int)(3.0f * (1.0f - gear_total(&RUN.gear, ST_QUIET) / 100.0f) + 0.5f), 4.0f);
+}
+
 /* how fast a creature's clock runs: frozen stops it, frost slows it, Time Slip slows everything near */
 static float mob_time(Mob *m, float dt) {
     if (m->frozen > 0.0f) { m->frozen -= dt; return 0.0f; }
@@ -2200,7 +2225,7 @@ static void update_pools(float dt) {
         if (!G.dead && G.purify_t <= 0.0f && hypotf(G.px - p->x, G.py - p->y) < 0.9f) {
             float k = 1.0f - gear_poison_resist(&RUN.gear);
             G.poison_t = fmaxf(G.poison_t, 2.5f * k);
-            G.poison_dps = fmaxf(G.poison_dps, 1.0f + (float)(G.level > 4 ? (G.level - 4) / 2 : 0));
+            G.poison_dps = fmaxf(G.poison_dps, (1.0f + (float)(G.level > 4 ? (G.level - 4) / 2 : 0)) * (0.5f + 0.5f * k));
         }
     }
 }
@@ -2257,9 +2282,9 @@ static void bite(Mob *m) {
     thorns(m);
     DBG_COUNT(bites);
     if (G.purify_t > 0.0f) return;                                  /* Purify's protection */
-    float k = 1.0f - gear_poison_resist(g);
+    float k = 1.0f - gear_poison_resist(g);                        /* resisted, it is shorter and weaker */
     G.poison_t = fmaxf(G.poison_t, 6.0f * k);
-    G.poison_dps = (1.0f + (float)((G.level - 4) / 2 > 0 ? (G.level - 4) / 2 : 0)) * m->dmgk;
+    G.poison_dps = (1.0f + (float)((G.level - 4) / 2 > 0 ? (G.level - 4) / 2 : 0)) * m->dmgk * (0.5f + 0.5f * k);
     G.slow_t = fmaxf(G.slow_t, 4.0f * (1.0f - gear_slow_resist(g)));
 }
 
@@ -2789,7 +2814,7 @@ static void cast_spell(int sp, int t) {
             float before = m->hp;
             damage_mob(m, dmg, DM_ARC | DM_ATK(AT_DRAIN), G.px, G.py, 0.0f);
             float dealt = before - fmaxf(m->hp, 0.0f);
-            G.hp = clampi(G.hp + (int)(dealt * fminf(0.8f, 0.5f + 0.05f * spell_tier(AT_DRAIN)) + 0.5f), 0, G.max_hp);
+            G.hp = clampi(G.hp + (int)(dealt * fminf(0.8f, 0.5f + 0.05f * spell_tier(AT_DRAIN)) * spell_effect() + 0.5f), 0, G.max_hp);
             pop_readout();
             snd_sfx_ex(SFX_WHISPER, 0.8f, 0.5f);
         } else fizzle(sp);
@@ -2883,7 +2908,7 @@ static void update_shots(float dt) {
                     s->alive = 0; explode_big(s->x, s->y, 1.6f);
                     damage_mob(mb, s->dmg, DM_ATK(AT_HELL), fx, fy, 0.0f); splash(s->x, s->y, 1.5f, s->dmg, mb, AT_HELL);
                     for (int b = 0; b < MAXBURNS; b++)
-                        if (!G.burns[b].alive) { G.burns[b] = (Burn){ 1, s->x, s->y, 0.0f, 4.0f + spell_tier(AT_HELL), 0 }; break; }
+                        if (!G.burns[b].alive) { G.burns[b] = (Burn){ 1, s->x, s->y, 0.0f, (4.0f + spell_tier(AT_HELL)) * spell_effect(), 0 }; break; }
                     break;
                 case AT_FIRE:
                     s->alive = 0; explode(s->x, s->y);
@@ -2892,7 +2917,7 @@ static void update_shots(float dt) {
                     break;
                 case AT_FROST:
                     s->alive = 0; sfx_at(SFX_FROST, s->x, s->y, 0.8f);
-                    damage_mob(mb, s->dmg, DM_SLOW | DM_ATK(AT_FROST), fx, fy, 2.5f + 0.25f * spell_tier(AT_FROST));
+                    damage_mob(mb, s->dmg, DM_SLOW | DM_ATK(AT_FROST), fx, fy, (2.5f + 0.25f * spell_tier(AT_FROST)) * spell_effect());
                     break;
                 default:                                           /* sparks, wisps, reflected missiles */
                     s->alive = 0;
@@ -3036,17 +3061,18 @@ static void cast_defense(int k) {
     defs[k]++;
     fprintf(stderr, "EVENT defense %s t=%.2f hp=%d\n", DEF_NAME[k], G.t, G.hp);
 #endif
+    float eff = spell_effect();                                    /* the runes' strength */
     switch (k) {
-    case DF_WARD: G.ward_hp = 10.0f + 5.0f * t; G.ward_t = 12.0f; break;
+    case DF_WARD: G.ward_hp = (10.0f + 5.0f * t) * eff; G.ward_t = 12.0f; break;
     case DF_BLINK: blink(); break;
-    case DF_MIRROR: G.mirror_t = 3.0f + 0.5f * t; break;
-    case DF_MEND: G.mend_t = 4.0f; G.mend_rate = (15.0f + 5.0f * t) / 4.0f; break;
-    case DF_PURIFY: G.poison_t = G.slow_t = 0.0f; G.purify_t = 4.0f + t; break;
+    case DF_MIRROR: G.mirror_t = (3.0f + 0.5f * t) * eff; break;
+    case DF_MEND: G.mend_t = 4.0f; G.mend_rate = (15.0f + 5.0f * t) / 4.0f * eff; break;
+    case DF_PURIFY: G.poison_t = G.slow_t = 0.0f; G.purify_t = (4.0f + t) * eff; break;
     case DF_NOVA:
         for (int i = 0; i < MAXMOBS; i++) {
             Mob *m = &G.mobs[i];
             if (m->alive && m->state == MS_WALK && !KIND_IS(m, KF_SPIRIT) && hypotf(m->x - G.px, m->y - G.py) < 1.8f + 0.1f * t)
-                { m->frozen = 2.0f + 0.3f * t; m->swing = 0.0f; m->throw_t = 0.0f; }
+                { m->frozen = (2.0f + 0.3f * t) * eff; m->swing = 0.0f; m->throw_t = 0.0f; }
         }
         snd_sfx_ex(SFX_FROST, 1.3f, 0.5f);
         G.nova_t = 0.001f; G.chill = fmaxf(G.chill, 0.55f);
@@ -3055,13 +3081,13 @@ static void cast_defense(int k) {
         for (int i = 0; i < MAXMOBS; i++) {
             Mob *m = &G.mobs[i];
             if (m->alive && m->state == MS_WALK && (KIND_IS(m, KF_UNDEAD) || m->type == MOB_WSKULL || m->type == MOB_WRAITH)
-                && hypotf(m->x - G.px, m->y - G.py) < 5.0f) m->feared = 3.0f + 0.5f * t;
+                && hypotf(m->x - G.px, m->y - G.py) < 5.0f) m->feared = (3.0f + 0.5f * t) * eff;
         }
         G.dread_t = 0.001f;
         snd_sfx_ex(SFX_MOAN, 1.2f, 0.5f);
         break;
-    case DF_SLIP: G.slip_t = 3.0f + 0.4f * t; break;
-    default: G.reap_t = 15.0f + t; break;
+    case DF_SLIP: G.slip_t = (3.0f + 0.4f * t) * eff; break;
+    default: G.reap_t = (15.0f + t) * eff; break;
     }
 }
 
@@ -3401,7 +3427,7 @@ static void advance(float du) {                     /* move along the current st
     G.py = lerpf(G.cy + 0.5f, G.ty + 0.5f, k);
     float ph0 = G.bobph;
     G.bobph += du * TAU_F;
-    if (floorf(ph0 / PI_F) != floorf(G.bobph / PI_F)) snd_sfx_ex(SFX_STEP, 1.0f, ((int)(G.bobph / PI_F) & 1) ? 0.44f : 0.56f);
+    if (floorf(ph0 / PI_F) != floorf(G.bobph / PI_F)) footstep();
 }
 
 static void begin_turn(float target) {
@@ -3479,7 +3505,7 @@ static int choose_spell(int t) {
         case AT_FROST: if (m->type == MOB_BAT || m->type == MOB_SPIDER || m->type == MOB_SHIELD) v *= 1.2f; break;   /* slowing what closes in */
         default: break;
         }
-        if (m->type != MOB_WSKULL && !(m->type == MOB_KNIGHT && sp == AT_FIRE && knight_stage(m) == 2)) v *= KINDS[m->type].weak[sp];   /* what it is weak to */
+        if (m->type != MOB_WSKULL) v *= hit_mult(m, sp);           /* what it is weak to, the elements worn too */
         if (sp == AT_WISPS) v *= 0.75f;                            /* not every wisp gets there */
         if (sp == G.spell) v *= 0.8f;                              /* and a little variety */
         v *= 0.85f + 0.3f * rndf();
@@ -3505,7 +3531,7 @@ static void update_player(float dt) {
     switch (G.state) {
     case PS_MOVE: {
         int keyed = G.has_key[0] || G.has_key[1] || G.has_key[2];
-        float target = (keyed ? CRUISE * 1.25f : CRUISE) * gear_haste(&RUN.gear) * (G.slow_t > 0.0f ? 0.6f : 1.0f);   /* a key in hand: hurry */
+        float target = (keyed ? CRUISE * 1.25f : CRUISE) * gear_haste(&RUN.gear) * slow_factor();   /* a key in hand: hurry */
         if (G.next_h != G.h && G.u > 0.62f) target = CRUISE * 0.45f;
         int blocker = -1;                                          /* something in the way: stop and deal with it */
         for (int i = 0; i < MAXMOBS && G.blocked < 3.0f; i++) {
@@ -4664,14 +4690,14 @@ static void human_walk(float dt) {
     float side = (float)IN.down[KEY_D] - (float)IN.down[KEY_A];
     float len = sqrtf(fwd * fwd + side * side), moved = 0.0f;
     if (len > 0.0f) {
-        float sp = WALK * run * gear_haste(&RUN.gear) * (G.slow_t > 0.0f ? 0.6f : 1.0f) * dt / len;
+        float sp = WALK * run * gear_haste(&RUN.gear) * slow_factor() * dt / len;
         float c = cosf(G.ang), s = sinf(G.ang);
         moved = human_move((c * fwd - s * side) * sp, (s * fwd + c * side) * sp);
     }
     G.spd = dt > 0.0f ? moved / dt : 0.0f;
     float ph0 = G.bobph;
     G.bobph += moved * TAU_F;
-    if (floorf(ph0 / PI_F) != floorf(G.bobph / PI_F)) snd_sfx_ex(SFX_STEP, 1.0f, ((int)(G.bobph / PI_F) & 1) ? 0.44f : 0.56f);
+    if (floorf(ph0 / PI_F) != floorf(G.bobph / PI_F)) footstep();
     G.camz = 0.5f + 0.014f * clampf(G.spd / CRUISE, 0.0f, 1.0f) * sinf(G.bobph);
     int ncx = (int)G.px, ncy = (int)G.py;
     if (ncx != G.cx || ncy != G.cy) {
@@ -6024,6 +6050,25 @@ static void build_hand(void) {
                     if (tx < HAND_W && ty < HAND_H && crawl_hand_img[ty * HAND_W + tx] >= R_PURPLE && crawl_hand_img[ty * HAND_W + tx] < R_PURPLE + 16)
                         hand_buf[ty * HAND_W + tx] = (uint8_t)(R_GOLD + 6 + (x & 1) * 3);
                 }
+    /* the right bracer: an iron cuff on the wrist just above the sleeve's trim, inlaid in its quality's colour */
+    const Piece *br = &g->worn[SL_WRIST_R];
+    if (br->kind) {
+        int cr = QUAL_RAMP[br->quality];
+        for (int x = 0; x < HAND_W; x++) {
+            int top = -1;
+            for (int y = 0; y < HAND_H && top < 0; y++)
+                if (crawl_hand_img[y * HAND_W + x] >= R_GOLD && crawl_hand_img[y * HAND_W + x] < R_GOLD + 13) top = y;
+            if (top < 0) continue;
+            for (int dy = 1; dy <= 7; dy++) {
+                int y = top - dy;
+                if (!is_skin(x, y)) continue;
+                static const int IRON[8] = { 0, 4, 7, -1, -1, -1, 10, 13 };   /* shadow by the trim, the inlay, a lit edge */
+                uint8_t c = IRON[dy] >= 0 ? (uint8_t)(R_IRON + IRON[dy]) : ramp_at(cr, dy == 3 ? 9 : (dy == 4 ? 13 : 11));
+                if (dy >= 6 && x % 10 == 5) c = (uint8_t)(R_GOLD + (dy == 7 ? 12 : 9));   /* rivets */
+                hand_buf[y * HAND_W + x] = c;
+            }
+        }
+    }
     /* the ring: a band across the finger, a stone set in it */
     if (ring->kind) {
         static const int METAL[NQUAL] = { R_IRON, R_BONE, R_BONE, R_GOLD, R_GOLD };
@@ -6404,17 +6449,20 @@ static void render_caster(Frame *f) {
     gfx_text16(f, 14, 9, "THE CASTER", R_GOLD + 12, 1);
     gfx_text8(f, 14, 26, "A/D PAGE  TAB CLOSE", R_STONE + 9, 1);
     char v[24], extra[16];
+    int capped = 0;
     for (int st = 0; st < NSTAT; st++) {
         int x = st < 8 ? 14 : 162, y = 40 + (st % 8) * 9, w = st < 8 ? 140 : 144;
         float t = gear_total(g, st), t0 = gear_total(g0, st), add = 0.0f;
         if (st == ST_MOVE || st == ST_THRIFT) add = t - fminf(gear_total_raw(g, st), t);   /* Swiftness, Arcane Knowledge */
         total_text(g, st, v, sizeof v);
         int c = t > t0 + 1e-3f ? R_MOSS + 13 : (t < t0 - 1e-3f ? R_BLOOD + 13 : (t > 0.0f ? R_STONE + 13 : R_STONE + 7));
+        if (gear_capped(g, st)) { c = t < t0 - 1e-3f ? c : R_GLOW + 12; capped = 1; }   /* at its cap */
         gfx_text8(f, x, y, SHORT[st], t > 0.0f ? (uint8_t)(R_STONE + 11) : (uint8_t)(R_STONE + 7), 1);
         int vw = gfx_text_width(v, 1);
         gfx_text8(f, x + w - vw, y, v, c, 1);
         if (add >= 0.5f) { snprintf(extra, sizeof extra, "+%.0f", add); gfx_text8(f, x + w - vw - 4 - gfx_text_width(extra, 1), y, extra, R_GOLD + 11, 1); }
     }
+    if (capped) gfx_text8(f, W - 10 - gfx_text_width("BLUE: AT ITS CAP", 1), 26, "BLUE: AT ITS CAP", R_GLOW + 12, 1);
     /* the abilities, summed and capped */
     int n = 0, y = 117;
     for (int ab = 1; ab < NABIL; ab++) {

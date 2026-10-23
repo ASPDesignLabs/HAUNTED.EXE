@@ -294,6 +294,12 @@ float gear_total(const Gear *g, int st) {
     return STAT_CAP[st] > 0.0f ? fminf(t, STAT_CAP[st]) : t;
 }
 
+int gear_capped(const Gear *g, int st) {
+    if (STAT_CAP[st] <= 0.0f) return 0;
+    if (is_elem(st)) return gear_total_raw(g, st) > 0.0f && gear_total_raw(g, ST_FIRE) + gear_total_raw(g, ST_FROST) + gear_total_raw(g, ST_SHOCK) >= STAT_CAP[st] - 0.05f;
+    return gear_total(g, st) >= STAT_CAP[st] - 0.05f;
+}
+
 int   gear_armor(const Gear *g) { return (int)gear_total(g, ST_ARMOR); }
 float gear_magic_resist(const Gear *g) { return gear_total(g, ST_RES_BURN) / 100.0f; }
 float gear_dodge(const Gear *g) { return gear_total(g, ST_DODGE) / 100.0f; }
@@ -313,9 +319,9 @@ float piece_worth(const Piece *p, int level) {
     static const int REF[NSTAT] = { IK_ROBE, IK_BOOTS, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_BOOTS, IK_BOOTS,
                                     IK_WRIST, IK_WRIST, IK_RING, IK_RING, IK_RING, IK_RING, IK_HOOD };
     static const float AW[NABIL] = { 0.0f, 0.15f, 0.3f, 0.4f, 0.0f, 0.0f, 0.4f, 0.5f };
-    /* what the game doesn't use yet (Quiet, Spirit Cost, the elements, Spell Effect, most abilities)
-     * weighs nothing for now; the plan's steps 2-4 lift these as they come into play */
-    static const int FELT[NSTAT] = { 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0 };
+    /* what the game doesn't use yet (Spirit Cost, most abilities) weighs nothing for now; the plan's
+     * steps 3 and 4 lift these as they come into play */
+    static const int FELT[NSTAT] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1 };
     static const int FELT_AB[NABIL] = { 0, 1, 0, 0, 0, 0, 1, 0 };
     if (p->kind == IK_NONE || p->kind == IK_BAG) return 0.0f;
     if (level < 1) level = 1;

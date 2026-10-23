@@ -17,7 +17,8 @@ which replaces the descent plan's section on enemies. The owner has accepted the
 to every question in both; the bestiary's status line says how far the work has got. Read both
 before starting on any of it. The overhaul of items, abilities, spirit and the merchant is planned in
 [`docs/PLAN-items.md`](docs/PLAN-items.md); the owner has answered its questions, and its status line
-says which of its seven steps are built (step 1, items as data and save version 3, so far).
+says which of its seven steps are built (steps 1 and 2 so far: items as data, save version 3, and
+everything worn felt in the game).
 
 ## Working with the owner
 
@@ -169,7 +170,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
     when cleared). `throw_interval()` 5% quicker per level. Bones thrown from beyond 4 cells spread
     wider (wide halls made long throws too deadly).
   - **Hunting.** `build_hunt` keeps a field of steps to the caster. A creature that sees the caster,
-    is hit, or hears a spell within 8 steps (`alert_near`) is alerted (`Mob.alert`) and follows the
+    is hit, hears a spell within 8 steps or a footstep within 3 (`alert_near`, `footstep`; Quiet boots
+    shorten the footstep's reach) is alerted (`Mob.alert`) and follows the
     field round corners; the dead pull ordinary doors open. Only the nearest three hunt at once
     (`pick_hunters`). A thrower that finds you again waits a moment before it throws.
   - **Residents.** Ossuaries and crypts have residents (`Mob.home`) that keep to their room until
@@ -245,10 +247,16 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   Swiftness and Arcane Knowledge raise the summed stat once, then caps it. `piece_name` gives the two
   name lines; `piece_worth` and `gear_value` are the autopilot's sense of what helps (it counts only stats
   and abilities the game uses so far, `FELT`, and never buys a bag); `gear_take` wears
-  a piece if it is better and bags or loses the old one (`take_piece` says which in a caption). So far
-  the game feels Armor, Dodge, Health, Restores, the three resists, Movement (and Swiftness), Spell Haste,
-  Damage and Thorns, as the old robes, hoods and rings did; Quiet, Spirit Cost, the elements, Spell
-  Effect and the other abilities are rolled and shown but do nothing until the plan's later steps.
+  a piece if it is better and bags or loses the old one (`take_piece` says which in a caption).
+  In play: Armor, Dodge, Health, Restores; the resists (poison and slowing last shorter and bite less,
+  `slow_factor`; burning hurts less); Movement (and Swiftness); Quiet (`footstep`: each step alerts
+  creatures three hunt-field steps off, less with Quiet); Spell Haste; Damage; the elements
+  (`hit_mult`: each adds its share of every spell's damage, by the creature's weakness to Fire Bolt,
+  Frost Shard or Chain Lightning); Spell Effect (`spell_effect`: Soul Drain's healing, Frost's slow,
+  Hellfire's burning floor and every rune's strength); Thorns. Spirit Cost and the other abilities are
+  rolled and shown but wait for steps 3 and 4. The hand shows the robe on the sleeve, the right bracer
+  as an iron cuff inlaid in its colour, and the ring's stone; the hood frames the portrait. Tab's
+  second page lists every total, gold for what an ability adds, blue at a cap (`gear_capped`).
 
 ## Releasing
 

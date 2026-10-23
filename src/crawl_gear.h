@@ -75,6 +75,7 @@ extern const int QUAL_RAMP[NQUAL];
 /* the caster's numbers, from what it wears: totals after abilities and caps */
 float gear_total(const Gear *g, int stat);               /* in the stat's own units (points, % or HP/s) */
 float gear_total_raw(const Gear *g, int stat);           /* before abilities and caps */
+int   gear_capped(const Gear *g, int stat);              /* worn past its cap: any more is wasted */
 float gear_ability(const Gear *g, int ability, int which);   /* abilities summed, capped */
 int   gear_armor(const Gear *g);                         /* points taken off every blow */
 float gear_magic_resist(const Gear *g);                  /* fraction of fire and burning shrugged off */

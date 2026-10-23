@@ -1,8 +1,9 @@
 # Items, abilities and ammunition: the merchant's new stock
 
-**Status: agreed (23 October 2026); step 1 built (items as data, the wardrobe on the new items, save
-version 3), tested in the harness only, with a page of rolled wares for the owner to check; steps 2-7
-to come.** A plan from the owner's guide, written after
+**Status: agreed (23 October 2026); steps 1 and 2 built (items as data, the wardrobe, save version 3;
+every worn stat felt in the game, footsteps and Quiet, the cuff and the totals page), tested in the
+harness only; the owner checked the rolled wares (and asked for Exquisite a little more often); steps
+3-7 to come.** A plan from the owner's guide, written after
 reading the code as it stands at 1.0.0b3.
 
 **Decided (23 October 2026):**
@@ -141,6 +142,15 @@ excess could never count (a default taken while building step 1).
   and adds that much again of it to every spell, so it bites harder on what that element hurts.
 - *Spell Effectiveness*: all a spell does besides damage: Soul Drain's healing, Frost's slow, Hellfire's
   burning floor, and the runes' strength.
+
+As built in step 2: an element's share is weighed by the creature's weakness to Fire Bolt, Frost Shard
+or Chain Lightning. Resisted poison lasts shorter by the full resist and stings less by half of it;
+resisted slowing lasts shorter and drags less (60% pace at no resist, 75% at the cap). Spell
+Effectiveness lengthens or strengthens each of those effects and every rune (the ward's bones, Mirror's
+and Time Slip's time, Mend's healing, Purify's protection, Nova's freeze, Dread's fear, Reaping's time).
+Footsteps, which no step named, came in with the boots in step 2: each step alerts creatures within
+three steps along the halls (walls block it), for four seconds; Quiet shortens the reach, to the next
+cell at its 80% cap.
 
 **Names.** Each stat has its "of" name: Movement *of the Lightfoot*, Quiet *of Silence*, Dodge *of
 Shadows*, Armor *of the Bulwark*, HP *of Vigour*, Restore *of Rejuvenation*, the resists *of Clean
