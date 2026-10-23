@@ -163,6 +163,18 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
     (`pick_hunters`). A thrower that finds you again waits a moment before it throws.
   - **Residents.** Ossuaries and crypts have residents (`Mob.home`) that keep to their room until
     alerted. In player mode the "something wakes ahead" respawn waits 35 s of quiet, not 11.
+  - **Kinds' properties** (`KF_*` in `KINDS`, tested with `KIND_IS`): undead, solid, spirit (nothing
+    hurts it), unique, opens doors, melee, uncounted. A newcomer's first level always brings one.
+  - **The newcomers so far.**
+    - The shambler (from 2) and the Drowned (from 7) wait under turned earth before a grave, or a
+      stirring puddle (`place_risers`, `update_riser`), and rise when you come near. They grab, which
+      slows you; the Drowned burst into a foul pool (`Pool`).
+    - Bone hounds (from 8) come in pairs (`spawn_wanderer`), bite and dart back.
+    - The Wraith (from 9; `update_wraith`) comes once a level after 240 s (`CRAWL_WRAITH=s` to
+      test), from the far end, down the hunt field, opening doors, while torches gutter near it.
+      It can't be killed: fire, the wisp's light close by and Dread drive it back for 5 s
+      (`wraith_back`). The autopilot turns fire on it.
+    - Every kind is in `KINDS` already, but the later ones don't come yet.
 - **Secrets** (`place_secrets`, `open_secret`, `update_slide`). One on levels 1-2, two on 3-5, three
   from 6. A solid plan block beside a hall becomes a 3x3 closet behind a wall (`Cell.secret` 1 closet,
   2 wall); the wall's cracks are drawn by the renderer only within about two cells. E/Space pushes it

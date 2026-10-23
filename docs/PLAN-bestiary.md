@@ -60,6 +60,28 @@ skeletons at about 43 minutes. Checked in the harness:
 - carving a grave and rising from it, with the grave's own counts;
 - ASan.
 
+**Side views (23 October), as the owner asked:**
+
+- every creature in play is also drawn walking in profile, and the bestiary turns them about;
+- the frames are there for creatures to face the way they move in the crypt, later;
+- where a newcomer's profile is not drawn yet, its front view stands in.
+
+**Sets I and II's newcomers in play (23 October):**
+
+- the shambler, rising from graves;
+- the Drowned, rising from puddles and bursting into foul pools;
+- bone hounds in pairs;
+- the Wraith.
+
+Eight 50-minute autopilot runs from level 1: 6 deaths against 7 for the build before, four that
+never died against five, median level 8.5 against 8. Eight 30-minute runs from level 6 with
+everything at tier 2: no deaths in either build, levels 5% slower. In those runs:
+
+- the Wraith came 8 times and was driven back 16 times, by fire and the wisp; it never laid a hand
+  on the autopilot;
+- shamblers and the Drowned grabbed 66 times;
+- hounds bit 12 times.
+
 **Open question (asked 22 October):**
 
 - Progress is saved only when a person flees to the surface. So in screensaver mode the autopilot's
