@@ -118,7 +118,7 @@ const char *bag_name(int size) {
 
 /* the odds of each quality climb set by set, and a step further each time round the sets */
 int piece_quality_roll(int level, uint32_t *rng) {
-    static const int ODDS[4][NQUAL] = { { 60, 30, 9, 1, 0 }, { 40, 35, 18, 6, 1 }, { 25, 35, 25, 12, 3 }, { 15, 30, 30, 18, 7 } };
+    static const int ODDS[4][NQUAL] = { { 59, 30, 9, 1, 1 }, { 39, 35, 18, 6, 2 }, { 23, 35, 25, 12, 5 }, { 12, 30, 30, 18, 10 } };
     int set = crawl_set(level), loop = crawl_loop(level), share[NQUAL];
     for (int q = 0; q < NQUAL; q++) share[q] = ODDS[set][q];
     for (int l = 0; l < loop && l < 4; l++) { share[4] += share[3]; for (int q = 3; q > 0; q--) share[q] = share[q - 1]; share[0] = 0; }

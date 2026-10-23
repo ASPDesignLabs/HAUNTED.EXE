@@ -115,12 +115,13 @@ have three stats and an Exquisite robe five. The odds of each quality climb set 
 
 | | Common | Uncommon | Rare | Ultra-Rare | Exquisite |
 |---|---|---|---|---|---|
-| The Crypts (1-5) | 60% | 30% | 9% | 1% | |
-| The Catacombs (6-10) | 40% | 35% | 18% | 6% | 1% |
-| The Hollows (11-15) | 25% | 35% | 25% | 12% | 3% |
-| The Deep (16-20) | 15% | 30% | 30% | 18% | 7% |
+| The Crypts (1-5) | 59% | 30% | 9% | 1% | 1% |
+| The Catacombs (6-10) | 39% | 35% | 18% | 6% | 2% |
+| The Hollows (11-15) | 23% | 35% | 25% | 12% | 5% |
+| The Deep (16-20) | 12% | 30% | 30% | 18% | 10% |
 
-and one step further each time round. About one item in ten comes Anointed; the Black Altars anoint
+and one step further each time round. (Exquisite raised a little at the owner's word after the rolled
+wares were checked, 23 October; the points came from Common.) About one item in ten comes Anointed; the Black Altars anoint
 others (below).
 
 **Totals are capped,** whatever is worn: Dodge 35%, each Resist 75%, Spell Haste +50%, Spirit Cost
