@@ -88,6 +88,12 @@ static const Group GROUPS[] = {
     { "sides2", "SIDE VIEWS: SETS I AND II", -1, 1,
       { { SP_SHAMB_SA, "SHAMBLER A" }, { SP_SHAMB_SB, "B" }, { SP_DROWN_SA, "DROWNED A" }, { SP_DROWN_SB, "B" }, { SP_HOUND_SA, "HOUND A" }, { SP_HOUND_SB, "B" },
         { SP_WRAITH_SA, "WRAITH A" }, { SP_WRAITH_SB, "B" }, { -1, 0 } } },
+    { "sides3", "SIDE VIEWS: SET III", -1, 1,
+      { { SP_HUNTER_SA, "HUNTER A" }, { SP_HUNTER_SB, "B" }, { SP_GHOUL_SA, "GHOUL A" }, { SP_GHOUL_SB, "B" }, { SP_KNIGHT_SA, "KNIGHT A" }, { SP_KNIGHT_SB, "B" },
+        { SP_BROOD_SA, "BROOD A" }, { SP_BROOD_SB, "B" }, { -1, 0 } } },
+    { "sides4", "SIDE VIEWS: SET IV", -1, 1,
+      { { SP_SHADE_SA, "SHADE A" }, { SP_SHADE_SB, "B" }, { SP_IMP_SA, "IMP A" }, { SP_IMP_SB, "B" }, { SP_DEACON_SA, "DEACON A" }, { SP_DEACON_SB, "B" },
+        { SP_GARG_SA, "GARGOYLE A" }, { SP_GARG_SB, "B" }, { -1, 0 } } },
 };
 #define NGROUPS ((int)(sizeof GROUPS / sizeof GROUPS[0]))
 

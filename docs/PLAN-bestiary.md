@@ -64,7 +64,7 @@ skeletons at about 43 minutes. Checked in the harness:
 
 - every creature in play is also drawn walking in profile, and the bestiary turns them about;
 - the frames are there for creatures to face the way they move in the crypt, later;
-- where a newcomer's profile is not drawn yet, its front view stands in.
+- every newcomer has its profile drawn now too (the last eight on 23 October).
 
 **Sets I and II's newcomers in play (23 October):**
 
@@ -81,6 +81,29 @@ everything at tier 2: no deaths in either build, levels 5% slower. In those runs
   on the autopilot;
 - shamblers and the Drowned grabbed 66 times;
 - hounds bit 12 times.
+
+**Set III's newcomers in play (23 October):**
+
+- the hunting spider, upside down on the ceiling until you come close, then down a thread and
+  leaping; one leap in three ends in a poisoned bite;
+- the ghoul, which leaps the last of the way, and stops to feed on bones when it has lost you: it
+  mends while it feeds, and takes double damage;
+- the skeleton knight, with a long wind-up and a heavy blow. Its plate comes off in three stages, it
+  gets quicker as it goes, and fire bites once the plate is gone;
+- the brood mother, who lays egg sacs once she knows you are there. They split into spiderlings,
+  and the unhatched die with the last mother.
+
+Eight 50-minute autopilot runs from level 11, everything at tier 1, against the build before:
+
+| | Deaths | Runs that never died | Median level reached | Mean level time |
+|---|---|---|---|---|
+| This build | 18 | one | 17.5 | 357 s |
+| The build before | 9 | four | 18 | 352 s |
+
+- Level 13, the knight's first, was the worst, with 6 deaths. One run spiralled, with 7.
+- The first try, where every leap of the hunting spider poisoned, died 33 times.
+- With everything at tier 2, in 25-minute runs, neither build died.
+- Only the harness has run this; it is untested by hand.
 
 **Open question (asked 22 October):**
 

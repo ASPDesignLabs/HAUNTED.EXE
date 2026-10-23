@@ -174,7 +174,15 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
       test), from the far end, down the hunt field, opening doors, while torches gutter near it.
       It can't be killed: fire, the wisp's light close by and Dread drive it back for 5 s
       (`wraith_back`). The autopilot turns fire on it.
-    - Every kind is in `KINDS` already, but the later ones don't come yet.
+    - The hunting spider (from 11) waits upside down on the ceiling (`DR_FLIPV`), drops when you
+      come close, and leaps (`start_leap`, `update_leap`); one leap in three poisons.
+    - The ghoul (from 12) leaps too, and feeds on bones when it has lost you (`sub` 4: it mends, and
+      takes double damage).
+    - The skeleton knight (from 13, with two hounds after its first level): a 0.9 s wind-up and a
+      heavy blow; `knight_stage` (by health) picks its plate, its pace, and whether fire bites.
+    - The brood mother (from 14) lays egg sacs (`MOB_SAC`, `update_sac`) that split into spiderlings
+      (`MOB_LING`); the sacs die with the last mother.
+    - Every kind is in `KINDS` already, but the Deep's four don't come yet.
 - **Secrets** (`place_secrets`, `open_secret`, `update_slide`). One on levels 1-2, two on 3-5, three
   from 6. A solid plan block beside a hall becomes a 3x3 closet behind a wall (`Cell.secret` 1 closet,
   2 wall); the wall's cracks are drawn by the renderer only within about two cells. E/Space pushes it
