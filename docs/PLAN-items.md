@@ -1,9 +1,9 @@
 # Items, abilities and ammunition: the merchant's new stock
 
-**Status: agreed (23 October 2026); steps 1 to 5 built (items as data, the wardrobe, save version 3;
+**Status: agreed (23 October 2026); steps 1 to 6 built (items as data, the wardrobe, save version 3;
 every worn stat felt in the game, footsteps and Quiet, the cuff and the totals page; spirit and bones;
-the abilities; the merchant), tested in the harness only; the owner checked the rolled wares (and
-asked for Exquisite a little more often); steps 6 and 7 to come.** A plan from the owner's guide, written after
+the abilities; the merchant; the Black Altars), tested in the harness only; the owner checked the
+rolled wares (and asked for Exquisite a little more often); step 7 to come.** A plan from the owner's guide, written after
 reading the code as it stands at 1.0.0b3.
 
 **Decided (23 October 2026):**
@@ -249,6 +249,17 @@ after its first purchase.
   anoints one of the worn items at random, never one already Anointed, and names it in a caption. One
   anointing an altar. With everything worn already Anointed, the altar says so and keeps its gift.
 - **The autopilot** leaves altars alone (a default, not the owner's).
+
+As built in step 6: an altar needs a level with secrets (levels from 6 are given three, though the
+generator can place fewer). It stands in a corner of the exit room, off the lanes and the way and at
+least two cells from the exit, and failing that in the room farthest from the start. It is its own
+sprite, an iron block with a slab, a faint violet rune and an iron bowl on top; awake, a small ragged violet flame burns in the bowl, gold when it is ready, and none once
+it has given. Waking it with too little spirit says what it wants. Awake, the wisp comes to the hand
+in violet whatever the level's souls, and when the secret it seeks lies in a locked vault it leads to
+the key first, as the ordinary wisp does for the exit. Anointing raises each stat by the quality's
+share but never past the stat's cap: in the first twenty levels that raises nearly every stat; from
+about level 30 half the stats rolled are already at their caps and stay where they are. With nothing
+worn, the altar says so and keeps its gift.
 
 ### The wardrobe and the character sheet (Tab)
 

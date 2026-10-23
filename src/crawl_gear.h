@@ -59,6 +59,7 @@ int  offer_color(const Offer *o);                        /* and any ware, a piec
 /* pieces */
 Piece piece_roll(int kind, int level, int quality, uint32_t *rng);   /* quality -1: by the depth's odds */
 int  piece_quality_roll(int level, uint32_t *rng);
+void piece_anoint(Piece *p);                                         /* a Black Altar's blessing */
 Piece piece_make(int kind, int level, int stat, uint32_t *rng);    /* a Common piece of one stat (old saves' robes and rings) */
 int  piece_price(const Piece *p);
 void piece_name(const Piece *p, char *line1, char *line2, int n);  /* "ANOINTED RARE SWIFT", "BOOTS OF THE LIGHTFOOT" */

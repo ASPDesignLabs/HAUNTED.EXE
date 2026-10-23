@@ -54,6 +54,9 @@ enum {
     SP_PEDESTAL, SP_ITEM_TOME, SP_ITEM_RUNE, SP_ITEM_ROBE, SP_ITEM_HOOD, SP_ITEM_RING,   /* the merchant's wares; R_PURPLE parts take the item's colour */
     SP_ITEM_BRACER, SP_ITEM_BOOTS, SP_ITEM_AMULET, SP_ITEM_BAG,
     SP_ITEM_BONE,                               /* a bone on the floor, for the spear */
+    SP_BALTAR,                                  /* a Black Altar: black stone, carved, a bowl for its fire */
+    SP_BFLAME_V0, SP_BFLAME_V1,                 /* ... its fire, violet while it seeks */
+    SP_BFLAME_G0, SP_BFLAME_G1,                 /* ... and gold when every secret is found */
     SP_HOOKS,                                   /* chains from the ceiling ending in meat hooks */
     SP_GIBBET, SP_GIBBET_SKEL,                  /* a hanging cage, empty or with its prisoner */
     SP_CHANDELIER_A, SP_CHANDELIER_B,           /* a ring of candles hung on chains, flickering */

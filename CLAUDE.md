@@ -17,8 +17,8 @@ which replaces the descent plan's section on enemies. The owner has accepted the
 to every question in both; the bestiary's status line says how far the work has got. Read both
 before starting on any of it. The overhaul of items, abilities, spirit and the merchant is planned in
 [`docs/PLAN-items.md`](docs/PLAN-items.md); the owner has answered its questions, and its status line
-says which of its seven steps are built (steps 1 to 5 so far: items as data, save version 3,
-everything worn felt in the game, spirit and bones, the abilities, and the merchant).
+says which of its seven steps are built (steps 1 to 6 so far: items as data, save version 3,
+everything worn felt in the game, spirit and bones, the abilities, the merchant, and the Black Altars).
 
 ## Working with the owner
 
@@ -90,9 +90,10 @@ Debug build switches (`CRAWL_DEBUG`): `CRAWL_SEED=n` (seeds are OR-ed with 1, so
 same), `CRAWL_LEVEL=n` (start deeper; you start at the merchant), `CRAWL_GEAR=t` (every spell and
 rune at tier t, and an Uncommon piece of level 2t in every slot), `CRAWL_BAG=q` (a bag of quality q, all
 but one place filled with spares), `CRAWL_ABIL=a` (every worn piece with ability a, the `AB_*` number), `CRAWL_GOLD`, `CRAWL_SOULS`, `CRAWL_MAP=1` (prints the map, the plan and a lane
-reachability check), `CRAWL_MAPAT=t`, `CRAWL_TPSECRET=n` / `CRAWL_TPEXIT=1` (stand in front of a secret
-or the exit once you take control), `CRAWL_WISP=1` (wisp from the start), `CRAWL_FOLLOWWISP=1` (a
-player that walks wherever the wisp leans: a test that it leads out), `CRAWL_SHOWHAND`, `CRAWL_BFSANY`,
+reachability check), `CRAWL_MAPAT=t`, `CRAWL_TPSECRET=n` / `CRAWL_TPEXIT=1` / `CRAWL_TPALTAR=1` (stand in front of a secret,
+the exit or the Black Altar once you take control), `CRAWL_WISP=1` (wisp from the start), `CRAWL_FOLLOWWISP=1` (a
+player that walks wherever the wisp leans and presses E at the exit and at secrets: a test that it
+leads out, and that an altar's wisp finds every secret), `CRAWL_SHOWHAND`, `CRAWL_BFSANY`,
 `CRAWL_RANK=r` (every creature at rank r), `CRAWL_WRAITH=s` (the Wraith at s seconds), `CRAWL_MEET=k`
 (one creature of kind k, the `MOB_*` number, a few cells ahead of the caster five seconds into each level).
 `HAUNT_DEBUG` adds `HAUNT_PLAN=10,11,...` to force HAUNT.EXE acts (numbers in the README).
@@ -288,6 +289,16 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   pedestal at the price it showed (`G.offer_back`), and the hold ends when the caster leaves the room.
   Price tags over the pedestals skip any that would cover a nearer one. The debug build logs
   `EVENT shop_look` as a person's eye moves between wares.
+- **Black Altars** (`place_altar`, `update_altar`, `use_altar`; `G.altar_*`). One a level from 6, on a
+  level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
+  the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are
+  `SP_BFLAME_V*` and `_G*`). Dormant, then awake (E, ten spirit: `ALTAR_SOULS`), then gold once every
+  secret on the level is found, then spent. Awake, it lights the wisp (violet: `wisp_ramp`) whatever
+  the level's souls, and `wisp_goal` leads to the nearest secret still shut (`G.altar_seek`), through
+  the keys of any vault it lies in (`past_vaults`, shared with the way to the exit). Gold, E anoints one
+  worn piece at random that isn't yet (`piece_anoint`: its stats rise by the quality's share, never
+  past their caps). The autopilot leaves altars alone. The debug build logs `EVENT altar at`, `wakes`
+  and `anoints`.
 
 ## Releasing
 

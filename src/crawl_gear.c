@@ -165,6 +165,18 @@ Piece piece_roll(int kind, int level, int quality, uint32_t *rng) {
     return p;
 }
 
+/* A Black Altar's blessing: the rolled stats rise by the quality's share, no further than their caps */
+void piece_anoint(Piece *p) {
+    if (p->anointed) return;
+    p->anointed = 1;
+    for (int i = 0; i < p->nstat; i++) {
+        int st = p->stat[i], cap = STAT_CAP[st] > 0.0f ? (int)(STAT_CAP[st] * STAT_SCALE[st] + 0.5f) : 32000;
+        int v = (int)(p->val[i] * (1.0f + ANOINT[p->quality]) + 0.5f);
+        if (v > cap) v = cap > p->val[i] ? cap : p->val[i];
+        p->val[i] = (int16_t)(v < 1 ? 1 : (v > 32000 ? 32000 : v));
+    }
+}
+
 Piece piece_make(int kind, int level, int stat, uint32_t *rng) {
     Piece p;
     memset(&p, 0, sizeof p);

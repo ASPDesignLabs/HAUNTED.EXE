@@ -1114,6 +1114,47 @@ static void spr_items(void) {
     cv_store(SP_ITEM_BONE);
 }
 
+/* The Black Altar: a squat block of black stone under a heavier slab, a rune cut in its face, an iron
+ * bowl on top. Its fire is drawn apart (and at full brightness), violet or gold, two frames each. */
+static void spr_black_altar(void) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 40; y < 64; y++)                                   /* the block */
+        for (int x = 17; x < 47; x++) {
+            float u = (x + 0.5f - 32) / 15.0f;
+            float v = 0.12f + 0.22f * lit(u, -0.2f, sqrtf(fmaxf(0.0f, 1.0f - u * u))) + 0.05f * fbm(x / 3.0f, y / 3.0f, 8, 41);
+            cv_px(x, y, sh(R_IRON, v));
+        }
+    for (int y = 36; y < 41; y++)                                   /* the slab over it */
+        for (int x = 13; x < 51; x++) cv_px(x, y, sh(R_IRON, y == 36 ? 0.45f : 0.22f + 0.04f * fbm(x / 2.0f, y, 8, 43)));
+    static const char *RUNE[9] = { "#...#", "##.##", "#.#.#", "..#..", "..#..", ".#.#.", "#...#", "#...#", "#...#" };
+    for (int y = 0; y < 9; y++)                                     /* a rune cut in the face, faintly violet */
+        for (int x = 0; x < 5; x++) if (RUNE[y][x] == '#') { cv_px(28 + x * 2, 44 + y * 2, sh(R_PURPLE, 0.35f)); cv_px(29 + x * 2, 44 + y * 2, sh(R_PURPLE, 0.25f)); }
+    for (int x = 24; x < 41; x++) {                                 /* the iron bowl */
+        float u = (x + 0.5f - 32) / 8.5f, d = 1.0f - u * u;
+        if (d <= 0.0f) continue;
+        for (int y = 31; y < 31 + (int)(5.0f * d) + 1; y++) cv_px(x, y, sh(R_IRON, 0.3f + 0.3f * (y == 31)));
+    }
+    cv_outline(0);
+    cv_store(SP_BALTAR);
+    for (int c = 0; c < 2; c++)                                     /* the fire: violet, then gold */
+        for (int fr = 0; fr < 2; fr++) {
+            cv_begin(cv_sprite, TS, TS);
+            int ramp = c ? R_GOLD : R_PURPLE;
+            for (int y = 13; y < 32; y++)
+                for (int x = 24; x < 41; x++) {
+                    float h = (32 - y) / 19.0f;                     /* 0 at the bowl, 1 at the tip */
+                    float sway = 1.6f * sinf(h * 6.0f + fr * 2.6f) * h;
+                    float w = (6.2f - 5.4f * h) * (0.8f + 0.2f * sinf(y * 1.7f + fr * 3.0f));
+                    float dx = fabsf(x + 0.5f - 32 - sway);
+                    if (dx > w || (dx > w * 0.55f && h01(x, y + fr * 7, 47 + c) < 0.3f)) continue;   /* ragged at the edges */
+                    float core = 1.0f - dx / w;
+                    if (core > 0.65f && h < 0.45f) { cv_px(x, y, C_WHITE); continue; }
+                    cv_px(x, y, sh(ramp, fminf(1.0f, 0.3f + 0.65f * core * (1.0f - 0.4f * h))));
+                }
+            cv_store(c ? SP_BFLAME_G0 + fr : SP_BFLAME_V0 + fr);
+        }
+}
+
 /* The wraith: a tall hooded shape, nothing inside the hood but two cold eyes, bone hands reaching
  * out of the sleeves, the hem of its robe dissolving into wisps. recoil: thrown back, shrieking. */
 static void spr_wraith(int id, float phase, int recoil) {
@@ -3830,7 +3871,7 @@ void crawl_art_init(void) {
     spr_ball(SP_HELL_A, 12.0f, R_FLAME, R_BLOOD, 0, 0); spr_ball(SP_HELL_B, 12.5f, R_FLAME, R_BLOOD, 1, 0);
     spr_frost(); spr_spear(); spr_wisp(); spr_spark();
     spr_burn(SP_BURN_A, 0); spr_burn(SP_BURN_B, 1);
-    spr_soulurn(); spr_ringitem(); spr_pedestal(); spr_items();
+    spr_soulurn(); spr_ringitem(); spr_pedestal(); spr_items(); spr_black_altar();
     for (int f = 0; f < 4; f++) spr_bonefly(SP_BONEFLY0 + f, f * PI_F * 0.25f);
     spr_coins(SP_COINS_A, 0);
     spr_coins(SP_COINS_B, 1);
