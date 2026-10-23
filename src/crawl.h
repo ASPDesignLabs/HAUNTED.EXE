@@ -98,6 +98,9 @@ enum {
     SP_MAGMA_A, SP_MAGMA_B, SP_MAGMA_C,         /* IV: a vent of molten rock */
     SP_OBSIDIAN,
     SP_ALTAR_A, SP_ALTAR_B,                     /* IV: black candles on a draped stone */
+    /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
+    SP_SKEL_SA, SP_SKEL_SB, SP_SHIELD_SA, SP_SHIELD_SB, SP_BAT_SA, SP_BAT_SB, SP_SPIDER_SA, SP_SPIDER_SB,
+    SP_GHOST_SA, SP_GHOST_SB, SP_WSKULL_S,
     NSPR
 };
 

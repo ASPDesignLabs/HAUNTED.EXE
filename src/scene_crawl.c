@@ -67,21 +67,21 @@ typedef struct {
  * on, the highest rank it comes in, whether one may be gilded, and what each spell does to it (x1
  * plain, x0 nothing). The autopilot plays to these. A kind's number is kept in saves: add new ones at
  * the end. */
-typedef struct { const char *name, *plural, *lore; int spr, family, debut, top, gild; float weak[NATK]; } Kind;
+typedef struct { const char *name, *plural, *lore; int spr, spr2, side, side2, family, debut, top, gild; float weak[NATK]; } Kind;
 static const Kind KINDS[] = {
     /*                                                                                   fire   frost  chain  spear  drain  hell   wisps  sparks bfs */
     [MOB_SKEL]   = { "SKELETON", "SKELETONS", "THE ORDER'S DEAD, STILL AT THEIR POSTS. THEY THROW WHAT THEY ARE MADE OF.",
-                     SP_SKEL_A, PF_BONE, 1, RK_V, 1,      { 1.0f, 0.75f, 1.25f, 1.25f, 0.75f, 1.25f, 1.0f, 1.0f, 1.0f } },
+                     SP_SKEL_A, SP_SKEL_B, SP_SKEL_SA, SP_SKEL_SB, PF_BONE, 1, RK_V, 1,      { 1.0f, 0.75f, 1.25f, 1.25f, 0.75f, 1.25f, 1.0f, 1.0f, 1.0f } },
     [MOB_GHOST]  = { "SPECTRE", "SPECTRES", "A CHILL WITH A FACE. IT ONLY WANTS YOU TO KNOW IT IS THERE.",
-                     SP_GHOST_A, -1, 1, RK_I, 0,          { 0 } },
+                     SP_GHOST_A, SP_GHOST_B, SP_GHOST_SA, SP_GHOST_SB, -1, 1, RK_I, 0,          { 0 } },
     [MOB_BAT]    = { "BAT", "BATS", "THEY COME FOR THE FACE, AND BITE WHEN THEY HAVE IT. DEEP DOWN THEY ARE THE COLOUR OF EMBERS.",
-                     SP_BAT_A, PF_WING, 1, RK_IV, 0,      { 1.0f, 1.5f, 1.25f, 1.0f, 1.0f, 1.0f, 1.25f, 1.25f, 1.0f } },
+                     SP_BAT_A, SP_BAT_B, SP_BAT_SA, SP_BAT_SB, PF_WING, 1, RK_IV, 0,      { 1.0f, 1.5f, 1.25f, 1.0f, 1.0f, 1.0f, 1.25f, 1.25f, 1.0f } },
     [MOB_WSKULL] = { "WALL SKULL", "WALL SKULLS", "SET IN THE STONE TO WATCH THE HALLS. WALK UP TO ONE AND MEET ITS EYE, AND IT WAKES.",
-                     SP_WSKULL1, PF_BONE, 3, RK_V, 0,     { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f } },
+                     SP_WSKULL1, SP_WSKULL1, SP_WSKULL_S, SP_WSKULL_S, PF_BONE, 3, RK_V, 0,     { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f } },
     [MOB_SHIELD] = { "SHIELD-BEARER", "SHIELD-BEARERS", "A SKELETON THAT REMEMBERS ITS DRILL. GO ROUND THE SHIELD, OR THROUGH IT.",
-                     SP_SHIELD_A, PF_BONE, 4, RK_V, 1,    { 0.75f, 1.0f, 1.5f, 1.5f, 1.0f, 1.0f, 1.0f, 0.75f, 1.0f } },
+                     SP_SHIELD_A, SP_SHIELD_B, SP_SHIELD_SA, SP_SHIELD_SB, PF_BONE, 4, RK_V, 1,    { 0.75f, 1.0f, 1.5f, 1.5f, 1.0f, 1.0f, 1.0f, 0.75f, 1.0f } },
     [MOB_SPIDER] = { "SPIDER", "SPIDERS", "IT WAITS IN A CORNER WEB, AND ALL YOU SEE ARE ITS EYES. THE DEEP ONES ARE PALE.",
-                     SP_SPIDER_A, PF_CHITIN, 6, RK_V, 0,  { 1.25f, 1.5f, 1.0f, 1.0f, 1.0f, 1.25f, 1.25f, 1.0f, 1.0f } },
+                     SP_SPIDER_A, SP_SPIDER_B, SP_SPIDER_SA, SP_SPIDER_SB, PF_CHITIN, 6, RK_V, 0,  { 1.25f, 1.5f, 1.0f, 1.0f, 1.0f, 1.25f, 1.25f, 1.0f, 1.0f } },
 };
 #define NKINDS ((int)(sizeof KINDS / sizeof KINDS[0]))
 /* the ladder: a rank means about the same strength at any depth; depth shows in which ranks come */
@@ -243,6 +243,7 @@ static struct {
     int player, ui, ui_sel, quit_line, status_ret;
     int graves_mode, graves_arm, graves_msg;    /* the save slots: carving (0) or rising (1); a second Enter's slot; why */
     int best_page, best_rank, best_scroll;      /* the bestiary: which creature (or the achievements), which rank, how far down */
+    float ui_t;                                 /* a clock that runs while a menu holds the crypt still */
     float pc_t, pc_len, grab_t, hint_t, msg_t;     /* their cast; reaching for a ware; the hints; a message */
     int pc_fired;
     char msg[64];
@@ -3499,6 +3500,7 @@ static void update_wisp(float dt) {
 static void crawl_update(double dt) {
     float fdt = (float)dt;
     G.msg_t = fmaxf(0.0f, G.msg_t - fdt); G.hint_t = fmaxf(0.0f, G.hint_t - fdt);
+    G.ui_t += fdt;
     update_toasts(fdt);
     if (G.player && G.ui && !G.shop) { update_ui(); return; }     /* a menu is up: the crypt holds its breath */
     if (G.player && (G.tally || G.dead) && IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
@@ -5765,15 +5767,17 @@ static void render_graves(Frame *f) {
 static const char *const RANK_ROMAN[NRANK] = { "I", "II", "III", "IV", "V", "GILDED" };
 static const int RANK_COL[NRANK] = { R_BONE + 13, R_MOSS + 13, R_GHOST + 13, R_BLOOD + 13, R_IRON + 11, R_GOLD + 11 };
 
-/* a sprite drawn flat into a box, scaled to size, in a rank's colours, or as a dark shape */
-static void ui_sprite(Frame *f, int spr, int x0, int y0, int size, const uint8_t *lut, int shadow) {
+/* a sprite drawn flat into a box, scaled to size, in a rank's colours, or as a dark shape; flip: facing left */
+static void ui_sprite_ex(Frame *f, int spr, int x0, int y0, int size, const uint8_t *lut, int shadow, int flip) {
     for (int y = 0; y < size; y++)
         for (int x = 0; x < size; x++) {
-            uint8_t c = crawl_spr[spr][(x * TS / size) * TS + y * TS / size];
+            int sx = flip ? size - 1 - x : x;
+            uint8_t c = crawl_spr[spr][(sx * TS / size) * TS + y * TS / size];
             if (c == C_CLEAR) continue;
             gfx_px(f, x0 + x, y0 + y, shadow ? (uint8_t)(R_IRON + 2) : (lut ? lut[c] : c));
         }
 }
+static void ui_sprite(Frame *f, int spr, int x0, int y0, int size, const uint8_t *lut, int shadow) { ui_sprite_ex(f, spr, x0, y0, size, lut, shadow, 0); }
 
 /* 8x8 type wrapped at spaces to cols a line; returns the lines it took */
 static int text_wrap(Frame *f, int x, int y, const char *s, int cols, int col, int maxlines) {
@@ -5944,7 +5948,11 @@ static void render_bestiary(Frame *f) {
     int k = order[G.best_page], met = kind_met(k), seen = r->seen[k] >> G.best_rank & 1 || r->kills[k][G.best_rank] > 0;
     bevel(f, 12, 38, 104, 104, 0);
     const uint8_t *lut = KINDS[k].family >= 0 && G.best_rank != RK_I ? crawl_rank_lut[KINDS[k].family][G.best_rank] : NULL;
-    ui_sprite(f, KINDS[k].spr, 16, 42, 96, lut, !met || !seen);
+    /* it walks on the spot and turns about: towards you, its right side, towards you, its left */
+    float ph = fmodf(G.ui_t, 6.4f);
+    int step = (int)(G.ui_t * 4.0f) & 1, facing = (int)(ph / 1.6f);   /* 0 front, 1 right, 2 front, 3 left */
+    int spr = facing & 1 ? (step ? KINDS[k].side2 : KINDS[k].side) : (step ? KINDS[k].spr2 : KINDS[k].spr);
+    ui_sprite_ex(f, spr, 16, 42, 96, lut, !met || !seen, facing == 3);
     int x0 = 124;
     gfx_text16(f, x0, 38, met ? KINDS[k].name : "???", C_WHITE, 1);
     if (KINDS[k].family < 0) snprintf(line, sizeof line, "A SPIRIT: NO RANK");
