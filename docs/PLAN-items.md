@@ -1,9 +1,9 @@
 # Items, abilities and ammunition: the merchant's new stock
 
-**Status: agreed (23 October 2026); steps 1 to 3 built (items as data, the wardrobe, save version 3;
-every worn stat felt in the game, footsteps and Quiet, the cuff and the totals page; spirit and bones),
-tested in the harness only; the owner checked the rolled wares (and asked for Exquisite a little more
-often); steps 4-7 to come.** A plan from the owner's guide, written after
+**Status: agreed (23 October 2026); steps 1 to 4 built (items as data, the wardrobe, save version 3;
+every worn stat felt in the game, footsteps and Quiet, the cuff and the totals page; spirit and bones;
+the abilities), tested in the harness only; the owner checked the rolled wares (and asked for
+Exquisite a little more often); steps 5-7 to come.** A plan from the owner's guide, written after
 reading the code as it stands at 1.0.0b3.
 
 **Decided (23 October 2026):**
@@ -175,6 +175,15 @@ Graded by quality, Common to Exquisite; where two items carry the same ability t
 - **Thorns** hurts what strikes you hand to hand, by quality and level (the thorned robe's job now).
 - **Mirrored** an 8 to 30% chance a missile goes back, homing on its thrower, with 50 to 100% of its
   damage. The Mirror Veil rune stays as it is.
+
+As built in step 4: the whisper comes every 1.6 to 3.4 s, quicker and louder the nearer the wall. A
+key within Keymaker's reach shows through the stone as itself and a pulsing sparkle in its colour; L
+says where the wisp now leads ("THE WISP SEEKS THE SILVER KEY") and, with no key left to choose,
+returns it to the way out. Commune's shapes fade in and out over its time and show only where the
+creature is hidden (behind stone, or a shade in the dark); a heartbeat marks it. Mirrored is rolled
+as a missile reaches the caster; the missile goes back at its speed, steering round corners to its
+thrower (up to 14 steps), and a silver ripple shows at the edges of sight. Keymaker and Commune mean
+nothing to the autopilot, so it doesn't value them.
 
 ### Spirit and bones
 

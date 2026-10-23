@@ -73,7 +73,7 @@ static Input g_in;
 static struct { double t; int key, down, dx, dy, wheel; } g_ev[4096];
 static int g_nev, g_iev;
 static const char *const KEYNAME[KEY_COUNT] = { "UP", "DOWN", "LEFT", "RIGHT", "W", "A", "S", "D", "E", "Q", "SPACE", "CTRL",
-    "SHIFT", "TAB", "ESC", "ENTER", "H", "Y", "N", "1", "2", "3", "4", "5", "6", "7", "8", "9", "MOUSE1", "MOUSE2", "B" };
+    "SHIFT", "TAB", "ESC", "ENTER", "H", "Y", "N", "1", "2", "3", "4", "5", "6", "7", "8", "9", "MOUSE1", "MOUSE2", "B", "L" };
 static void input_parse(const char *s) {
     static char buf[65536];
     snprintf(buf, sizeof buf, "%s", s);

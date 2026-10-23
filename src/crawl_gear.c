@@ -319,9 +319,9 @@ float piece_worth(const Piece *p, int level) {
     static const int REF[NSTAT] = { IK_ROBE, IK_BOOTS, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_BOOTS, IK_BOOTS,
                                     IK_WRIST, IK_WRIST, IK_RING, IK_RING, IK_RING, IK_RING, IK_HOOD };
     static const float AW[NABIL] = { 0.0f, 0.15f, 0.3f, 0.4f, 0.0f, 0.0f, 0.4f, 0.5f };
-    /* abilities the game doesn't use yet weigh nothing for now; the plan's step 4 lifts them */
+    /* Keymaker and Commune are for a person's eyes: the autopilot doesn't count them */
     static const int FELT[NSTAT] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
-    static const int FELT_AB[NABIL] = { 0, 1, 1, 0, 0, 0, 1, 0 };
+    static const int FELT_AB[NABIL] = { 0, 1, 1, 1, 0, 0, 1, 1 };
     if (p->kind == IK_NONE || p->kind == IK_BAG) return 0.0f;
     if (level < 1) level = 1;
     float w = 0.0f;

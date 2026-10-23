@@ -17,8 +17,8 @@ which replaces the descent plan's section on enemies. The owner has accepted the
 to every question in both; the bestiary's status line says how far the work has got. Read both
 before starting on any of it. The overhaul of items, abilities, spirit and the merchant is planned in
 [`docs/PLAN-items.md`](docs/PLAN-items.md); the owner has answered its questions, and its status line
-says which of its seven steps are built (steps 1 to 3 so far: items as data, save version 3,
-everything worn felt in the game, and spirit and bones).
+says which of its seven steps are built (steps 1 to 4 so far: items as data, save version 3,
+everything worn felt in the game, spirit and bones, and the abilities).
 
 ## Working with the owner
 
@@ -89,7 +89,7 @@ Environment for the harness: `HOST_INPUT="1:+H;4.3:-H;5:+W;7:-W;8:m400,0;9:+MOUS
 Debug build switches (`CRAWL_DEBUG`): `CRAWL_SEED=n` (seeds are OR-ed with 1, so 2 and 3 are the
 same), `CRAWL_LEVEL=n` (start deeper; you start at the merchant), `CRAWL_GEAR=t` (every spell and
 rune at tier t, and an Uncommon piece of level 2t in every slot), `CRAWL_BAG=q` (a bag of quality q, all
-but one place filled with spares), `CRAWL_GOLD`, `CRAWL_SOULS`, `CRAWL_MAP=1` (prints the map, the plan and a lane
+but one place filled with spares), `CRAWL_ABIL=a` (every worn piece with ability a, the `AB_*` number), `CRAWL_GOLD`, `CRAWL_SOULS`, `CRAWL_MAP=1` (prints the map, the plan and a lane
 reachability check), `CRAWL_MAPAT=t`, `CRAWL_TPSECRET=n` / `CRAWL_TPEXIT=1` (stand in front of a secret
 or the exit once you take control), `CRAWL_WISP=1` (wisp from the start), `CRAWL_FOLLOWWISP=1` (a
 player that walks wherever the wisp leans: a test that it leads out), `CRAWL_SHOWHAND`, `CRAWL_BFSANY`,
@@ -253,8 +253,14 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   creatures three hunt-field steps off, less with Quiet); Spell Haste; Damage; the elements
   (`hit_mult`: each adds its share of every spell's damage, by the creature's weakness to Fire Bolt,
   Frost Shard or Chain Lightning); Spell Effect (`spell_effect`: Soul Drain's healing, Frost's slow,
-  Hellfire's burning floor and every rune's strength); Thorns; Spirit Cost (below). The other
-  abilities are rolled and shown but wait for step 4. The hand shows the robe on the sleeve, the right bracer
+  Hellfire's burning floor and every rune's strength); Thorns; Spirit Cost (below). The abilities
+  (`update_abilities` and where each acts): Swiftness and Arcane Knowledge raise their stat's total;
+  Treasure Hunter adds to treasure picked up and whispers from an unopened secret wall within three
+  cells; Keymaker makes keys within its reach sparkle through walls while the wisp is lit
+  (`DR_GLINT`), and L (`KEY_L`, `wisp_choose`) turns the wisp from the exit to each key still lying,
+  in colour order (`G.wisp_key`); Commune shows creatures within its reach as red shapes through the
+  walls every 15 s (`DR_COMMUNE`); Thorns hurts what strikes you; Mirrored may send a missile back,
+  homing on its thrower round corners (`Bone.from`, `reflect_field`). The hand shows the robe on the sleeve, the right bracer
   as an iron cuff inlaid in its colour, and the ring's stone; the hood frames the portrait. Tab's
   second page lists every total, gold for what an ability adds, blue at a cap (`gear_capped`).
 
@@ -268,7 +274,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   6 when bought or improved); skeletons, shield-bearers, knights and hounds drop them (`IT_BONE`, about
   one in eight, more by rank). The status bar shows spirit, and the bones over the spear. The autopilot
   weighs each spell at the strength it can pay for, grows thrifty under 15 spirit and skips spears
-  without bones (`choose_spell`). The debug build logs `EVENT weak_<spell>` for each weak cast.
+  without bones (`choose_spell`). The debug build logs `EVENT weak_<spell>` for each weak cast, `EVENT commune` and
+  `EVENT mirrored`.
 
 ## Releasing
 

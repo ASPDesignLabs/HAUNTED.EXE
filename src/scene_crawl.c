@@ -163,7 +163,7 @@ static const float RANK_SIZE[NRANK] = { 1.0f, 1.04f, 1.08f, 1.12f, 1.16f, 1.08f 
 static const char *const RANK_WORD[NRANK] = { "", "ROTTEN ", "COLD ", "BLOODY ", "BLACK ", "GILDED " };
 
 typedef struct { int alive, kind, target; float x, y, z, vx, vy, life, dmg; uint32_t pierced; int tier; } Shot;   /* tier: as cast */
-typedef struct { int alive, kind; float x, y, vx, vy, life, spin, dmg, life0; } Bone;   /* life0: an ember's whole flight */
+typedef struct { int alive, kind; float x, y, vx, vy, life, spin, dmg, life0; int from; } Bone;   /* life0: an ember's whole flight; from: its thrower */
 typedef struct { int alive, type, cx, cy, seen, color, lx, ly, secret; float x, y, phase; } Item;   /* lx, ly: the lane cell it is taken from */
 typedef struct { int alive; float x, y, t, r; int big; } Boom;
 typedef struct { int alive, kind; float x0, y0, z0, x1, y1, z1, t; } Beam;   /* lightning and soul drain, for a moment */
@@ -277,7 +277,9 @@ static struct {
 
     /* what is on the caster: poison, slow, and the defensive spells running */
     float poison_t, poison_dps, poison_acc, slow_t, purify_t, regen_acc;
-    float ward_hp, ward_t, mirror_t, slip_t, reap_t, mend_t, mend_rate;
+    float ward_hp, ward_t, mirror_t, slip_t, reap_t, mend_t, mend_rate, mirror_flash;   /* mirror_flash: Mirrored just sent one back */
+    float whisper_t, commune_t, commune_show, commune_len, commune_r;   /* Treasure Hunter's whisper; Commune's clock and showing */
+    int wisp_key;                           /* Keymaker: the key the wisp seeks (L), or -1 for the exit */
     float def_cd[NDEF], def_wait[NDEF], def_hush[NDEF], rune_glow[NDEF];   /* cooldown; a cast on its way; a missed cue; glow on the hand */
     float bfs_t;                        /* the BFS9000's implosion, playing */
     float nova_t, dread_t, rune_lift;   /* rune_lift: the hand comes up to show a rune burning */              /* the frost nova bursting; Dread's shadow going out */
@@ -1705,7 +1707,7 @@ static void pop_readout(void) { G.readout = READOUT_T; }
 #ifdef CRAWL_DEBUG
 static int hits_bone, hits_bat, throws, shrieks, hits_fire, hits_sword, bites, casts[NATK], defs[NDEF], bfs_kills, dodges, wskull_wakes, spider_drops,
            grabs, hound_bites, wraith_touches, wraith_drives, leaps, knight_blows, brood_bites, ling_bites, sacs_laid,
-           shade_touches, embers, ember_hits, ember_burns, ember_scorch, raised, garg_wakes;
+           shade_touches, embers, ember_hits, ember_burns, ember_scorch, raised, garg_wakes, mirrored;
 #define DBG_COUNT(v) ((v)++, fprintf(stderr, "EVENT %s t=%.2f\n", #v, G.t))
 #else
 #define DBG_COUNT(v) ((void)0)
@@ -1762,7 +1764,7 @@ static void throw_missile(const Mob *m, int kind) {
         float far = fmaxf(0.0f, hypotf(G.px - m->x, G.py - m->y) - 4.0f);   /* across a great hall a bone goes wide */
         float a = atan2f(ty - m->y, tx - m->x) + (rndf() - 0.5f) * (kind == MIS_FIRE ? 0.05f : 0.14f + 0.05f * far);
         *b = (Bone){ 1, kind, m->x + cosf(a) * 0.3f, m->y + sinf(a) * 0.3f, cosf(a) * sp, sinf(a) * sp, 4.0f, rndf() * 4.0f,
-                     kind == MIS_FIRE ? 2.0f * mob_damage(m) : (kind == MIS_EMBER ? 0.8f * mob_damage(m) : mob_damage(m)), 0.0f };
+                     kind == MIS_FIRE ? 2.0f * mob_damage(m) : (kind == MIS_EMBER ? 0.8f * mob_damage(m) : mob_damage(m)), 0.0f, (int)(m - G.mobs) };
         if (kind == MIS_EMBER) b->life = b->life0 = fminf(4.0f, hypotf(tx - m->x, ty - m->y) / sp);   /* lobbed to where the caster will be */
         sfx_at(kind == MIS_BONE ? SFX_THROW : SFX_CAST, m->x, m->y, kind == MIS_EMBER ? 0.7f : 1.0f);
         return;
@@ -1800,6 +1802,15 @@ static void update_bones(float dt) {
                 Shot *sh = new_shot(SHOT_REFLECT, b->x, b->y, atan2f(-b->vy, -b->vx), b->kind == MIS_FIRE ? 6.0f : 7.0f, b->dmg * 1.5f);
                 if (sh) sh->z = (float)b->kind;
                 snd_sfx_ex(SFX_SHIMMER, 0.35f, 0.5f);
+                break;
+            }
+            if (!G.dead && d < 0.36f && rndf() * 100.0f < gear_ability(&RUN.gear, AB_MIRRORED, 0)) {   /* Mirrored: back to its thrower */
+                b->alive = 0;
+                Shot *sh = new_shot(SHOT_REFLECT, b->x, b->y, atan2f(-b->vy, -b->vx), b->kind == MIS_FIRE ? 6.0f : 7.0f,
+                                    b->dmg * gear_ability(&RUN.gear, AB_MIRRORED, 1) / 100.0f);
+                if (sh) { sh->z = (float)b->kind; sh->target = b->from; sh->life = 3.0f; }
+                snd_sfx_ex(SFX_SHIMMER, 0.5f, 0.5f); G.mirror_flash = 0.35f;
+                DBG_COUNT(mirrored);
                 break;
             }
             if (!G.dead && d < 0.36f) {
@@ -2731,21 +2742,23 @@ static void update_mob(Mob *m, float dt) {
 /* ---- the caster's spells ---- */
 
 static int wisp_field[MAPN][MAPN];                                  /* steps to the wisps' target, for going round corners */
-static void wisp_bfs(int tx, int ty) {
+static int reflect_field[MAPN][MAPN];                               /* the same, to a reflected missile's thrower */
+static void field_bfs(int f[MAPN][MAPN], int tx, int ty) {
     static int qx[MAPN * MAPN], qy[MAPN * MAPN];
-    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) wisp_field[y][x] = -1;
+    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) f[y][x] = -1;
     int qh = 0, qt = 0;
-    wisp_field[ty][tx] = 0; qx[qt] = tx; qy[qt] = ty; qt++;
+    f[ty][tx] = 0; qx[qt] = tx; qy[qt] = ty; qt++;
     while (qh < qt) {
         int x = qx[qh], y = qy[qh]; qh++;
-        if (wisp_field[y][x] > 14) continue;
+        if (f[y][x] > 14) continue;
         for (int d = 0; d < 4; d++) {
             int nx = x + DX[d], ny = y + DY[d];
-            if (blocks_light(nx, ny) || cell(nx, ny)->kind == K_PILLAR || wisp_field[ny][nx] >= 0) continue;
-            wisp_field[ny][nx] = wisp_field[y][x] + 1; qx[qt] = nx; qy[qt] = ny; qt++;
+            if (blocks_light(nx, ny) || cell(nx, ny)->kind == K_PILLAR || f[ny][nx] >= 0) continue;
+            f[ny][nx] = f[y][x] + 1; qx[qt] = nx; qy[qt] = ny; qt++;
         }
     }
 }
+static void wisp_bfs(int tx, int ty) { field_bfs(wisp_field, tx, ty); }
 
 static Shot *new_shot(int kind, float x, float y, float a, float speed, float dmg) {
     for (int i = 0; i < MAXSHOTS; i++) {
@@ -2912,6 +2925,24 @@ static void update_shots(float dt) {
                 float want = atan2f(gy - s->y, gx - s->x), have = atan2f(s->vy, s->vx);
                 have += clampf(wrap_pi(want - have), -6.0f * dt, 6.0f * dt);
                 s->vx = cosf(have) * 4.5f; s->vy = sinf(have) * 4.5f;
+            }
+        }
+        if (s->kind == SHOT_REFLECT && s->target >= 0) {          /* Mirrored: home on the thrower, round corners */
+            Mob *m = &G.mobs[s->target];
+            if (!m->alive || m->state != MS_WALK) s->target = -1;
+            else {
+                float gx = m->x, gy = m->y, sp = hypotf(s->vx, s->vy);
+                int cx = (int)s->x, cy = (int)s->y;
+                if (!line_clear(s->x, s->y, m->x, m->y)) {
+                    field_bfs(reflect_field, m->cx, m->cy);
+                    for (int d = 0; d < 4 && reflect_field[cy][cx] > 0; d++) {
+                        int nx = cx + DX[d], ny = cy + DY[d];
+                        if (reflect_field[ny][nx] >= 0 && reflect_field[ny][nx] < reflect_field[cy][cx]) { gx = nx + 0.5f; gy = ny + 0.5f; break; }
+                    }
+                }
+                float want = atan2f(gy - s->y, gx - s->x), have = atan2f(s->vy, s->vx);
+                have += clampf(wrap_pi(want - have), -7.0f * dt, 7.0f * dt);
+                s->vx = cosf(have) * sp; s->vy = sinf(have) * sp;
             }
         }
         int n = 1 + (int)(sqrtf(s->vx * s->vx + s->vy * s->vy) * dt / 0.08f);
@@ -3163,7 +3194,7 @@ static void update_status(float dt) {
     G.slow_t = fmaxf(0.0f, G.slow_t - dt);
     G.purify_t = fmaxf(0.0f, G.purify_t - dt);
     if (G.ward_t > 0.0f && (G.ward_t -= dt) <= 0.0f) G.ward_hp = 0.0f;
-    G.mirror_t = fmaxf(0.0f, G.mirror_t - dt);
+    G.mirror_t = fmaxf(0.0f, G.mirror_t - dt); G.mirror_flash = fmaxf(0.0f, G.mirror_flash - dt);
     G.slip_t = fmaxf(0.0f, G.slip_t - dt);
     G.reap_t = fmaxf(0.0f, G.reap_t - dt);
     for (int k = 0; k < NDEF; k++) G.rune_glow[k] = fmaxf(0.0f, G.rune_glow[k] - dt);
@@ -3738,7 +3769,7 @@ static void human_begin(void);
 
 static void reset_caster_state(void) {
     G.poison_t = G.poison_dps = G.poison_acc = G.slow_t = G.purify_t = G.regen_acc = 0.0f;
-    G.ward_hp = G.ward_t = G.mirror_t = G.slip_t = G.reap_t = G.mend_t = G.mend_rate = 0.0f;
+    G.ward_hp = G.ward_t = G.mirror_t = G.slip_t = G.reap_t = G.mend_t = G.mend_rate = G.mirror_flash = 0.0f;
     memset(G.def_cd, 0, sizeof G.def_cd); memset(G.def_wait, 0, sizeof G.def_wait);
     memset(G.def_hush, 0, sizeof G.def_hush); memset(G.rune_glow, 0, sizeof G.rune_glow);
     G.bfs_t = 0.0f; G.face_t = G.grin_t = 0.0f;
@@ -3815,7 +3846,7 @@ static void start_level(void) {
     place_items(G.cx, G.cy);
     place_exit(G.cx, G.cy);
     G.route_gx = -1;
-    G.level_treasure = 0; G.level_souls = 0; G.dead = 0; G.dead_t = 0.0; G.spirit_said = 0;
+    G.level_treasure = 0; G.level_souls = 0; G.dead = 0; G.dead_t = 0.0; G.spirit_said = 0; G.wisp_key = -1;
     G.wisp_on = 0; G.wisp_a = 0.0f;                                /* the wisp is earned afresh on every level */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_WISP")) G.level_souls = WISP_SOULS;
@@ -3895,6 +3926,8 @@ static void debug_gear(void) {
         RUN.gear.bones = (int16_t)clampi(SPEAR_BONES * t, 0, BONES_MAX);   /* as if the spear were bought t times */
         for (int s = 0; s < NSLOT && t > 0; s++) RUN.gear.worn[s] = piece_roll(KIND_OF[s], 2 * t, Q_UNCOMMON, &rs);
     }
+    if (getenv("CRAWL_ABIL"))                                      /* every worn piece with that ability */
+        for (int sl = 0; sl < NSLOT; sl++) if (RUN.gear.worn[sl].kind) RUN.gear.worn[sl].ability = (uint8_t)clampi(atoi(getenv("CRAWL_ABIL")), 0, NABIL - 1);
     if (getenv("CRAWL_BAG")) {                                     /* a bag of that quality, all but one place filled */
         int q = clampi(atoi(getenv("CRAWL_BAG")), 0, NQUAL - 1);
         uint32_t rs = 0x85ebca6bu ^ (uint32_t)q;
@@ -3924,6 +3957,7 @@ static void take_piece(const Offer *o) {
     case TAKE_BAG: say("A %s: ROOM FOR %d", bag_name(RUN.gear.bag_size), RUN.gear.bag_size); break;
     default: break;
     }
+    if (p->ability == AB_KEYMAKER && G.player) say("KEYMAKER: L CHOOSES WHAT THE WISP SEEKS");   /* on every purchase */
     G.max_hp = gear_max_hp(&RUN.gear);
     if (G.max_hp > old) G.hp += G.max_hp - old;                    /* new strength comes with it */
     if (G.hp > G.max_hp) G.hp = G.max_hp;
@@ -3990,7 +4024,8 @@ static void collect(Item *it) {
     }
     default: {
         int v = treasure_value(it->type);
-        RUN.treasure += v; G.level_treasure += v;
+        int got = (int)(v * (1.0f + gear_ability(&RUN.gear, AB_TREASURE, 0) / 100.0f) + 0.5f);   /* Treasure Hunter */
+        RUN.treasure += got; G.level_treasure += got;
         if (!it->secret) { G.value_got += v; G.items_got++; }
         snd_sfx_ex(SFX_COIN, it->type >= IT_CROWN ? 1.2f : 0.9f, 0.5f);
         G.gold = it->type >= IT_CROWN ? 1.0f : 0.6f;
@@ -3999,6 +4034,37 @@ static void collect(Item *it) {
     }
     }
     pop_readout();
+}
+
+/* Abilities that run by themselves. Treasure Hunter: an eerie whisper from an unopened secret wall
+ * within three cells, louder as you near it. Commune: every 15 s, the creatures within its reach show
+ * as red shapes through the walls for a moment (render_commune). */
+static void update_abilities(float dt) {
+    const Gear *g = &RUN.gear;
+    if (gear_ability(g, AB_TREASURE, 0) > 0.0f && (G.whisper_t -= dt) <= 0.0f) {
+        G.whisper_t = 2.4f;
+        float best = 3.5f; int bi = -1;
+        for (int i = 0; i < G.nsecrets; i++) {
+            if (G.secrets[i].state) continue;
+            float d = hypotf(G.secrets[i].sx + 0.5f - G.px, G.secrets[i].sy + 0.5f - G.py);
+            if (d < best) { best = d; bi = i; }
+        }
+        if (bi >= 0) {
+            sfx_at(SFX_WHISPER, G.secrets[bi].sx + 0.5f, G.secrets[bi].sy + 0.5f, 0.35f + 0.9f * (1.0f - best / 3.5f));
+            G.whisper_t = 1.6f + best * 0.5f;                       /* quicker, the nearer */
+        }
+    }
+    float reach = gear_ability(g, AB_COMMUNE, 0);
+    G.commune_show = fmaxf(0.0f, G.commune_show - dt);
+    if (reach > 0.0f && (G.commune_t += dt) >= 15.0f) {
+        G.commune_t = 0.0f;
+        G.commune_show = G.commune_len = gear_ability(g, AB_COMMUNE, 1) / 10.0f;
+        G.commune_r = reach;
+        snd_sfx_ex(SFX_HEART, 0.7f, 0.5f);
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT commune t=%.2f r=%.0f for %.1f\n", G.t, reach, G.commune_len);
+#endif
+    }
 }
 
 static void update_items(void) {
@@ -4058,7 +4124,28 @@ static void hand_origin(float hand, float *ox, float *oy) {
 
 /* where the wisp leads: the exit, or first the key to the vault the exit is in, and to the vault that
  * key is in, if it comes to that */
+/* Keymaker: L turns the wisp from the exit to each key still lying in the level, in colour order */
+static int key_lying(int color) {
+    for (int i = 0; i < G.nitems; i++) if (G.items[i].alive && G.items[i].type == IT_KEY && G.items[i].color == color) return i;
+    return -1;
+}
+static const char *const KEY_COLOR[NKEYS];
+static void wisp_choose(void) {
+    if (gear_ability(&RUN.gear, AB_KEYMAKER, 0) <= 0.0f) return;
+    int c = G.wisp_key;
+    do c++; while (c < NKEYS && key_lying(c) < 0);
+    G.wisp_key = c < NKEYS ? c : -1;
+    if (G.wisp_key < 0) say("THE WISP SEEKS THE WAY OUT");
+    else say("THE WISP SEEKS THE %s KEY", KEY_COLOR[G.wisp_key]);
+    snd_sfx_ex(SFX_KEY, 0.7f, 0.5f);
+}
+
 static void wisp_goal(int *gx, int *gy) {
+    if (G.wisp_key >= 0) {                                         /* a key chosen with L */
+        int i = key_lying(G.wisp_key);
+        if (i >= 0 && gear_ability(&RUN.gear, AB_KEYMAKER, 0) > 0.0f) { *gx = G.items[i].cx; *gy = G.items[i].cy; return; }
+        G.wisp_key = -1;                                           /* taken, or the Keymaker taken off */
+    }
     *gx = G.exit_fx; *gy = G.exit_fy;
     int k = G.exit_in_vault;
     for (int depth = 0; depth < 4 && k >= 0 && G.vault_door[k] >= 0 && G.doors[G.vault_door[k]].locked == 1 && !G.has_key[k]; depth++) {
@@ -4236,7 +4323,7 @@ static void crawl_update(double dt) {
     update_doors(fdt);
     update_slide(fdt);
     update_wisp(fdt);
-    if (!G.dead) { update_items(); update_status(fdt); if (G.level_t > 1.0) update_defense(fdt); }
+    if (!G.dead) { update_items(); update_abilities(fdt); update_status(fdt); if (G.level_t > 1.0) update_defense(fdt); }
     if (G.bfs_t > 0.0f && (G.bfs_t += fdt) > 1.6f) G.bfs_t = 0.0f;
     G.hurt = fmaxf(0.0f, G.hurt - fdt / 0.35f);
     G.gold = fmaxf(0.0f, G.gold - fdt / 0.45f);
@@ -4812,6 +4899,7 @@ static void update_human(float dt) {
     if (IN.hit[KEY_TAB]) { open_ui(UI_INVENTORY); return; }
     if (IN.hit[KEY_B]) { open_ui(UI_BESTIARY); return; }
     if (IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
+    if (IN.hit[KEY_L]) wisp_choose();
     human_walk(dt);
     if (IN.hit[KEY_E] || IN.hit[KEY_SPACE]) human_use();
     if (G.exiting) return;
@@ -4911,6 +4999,7 @@ static void update_inventory(void) {
     } else if (act == INV_TO_WEAR) {
         int bi = r - NSLOT, slot = piece_slot(g, g->bag[bi].kind);
         gear_wear(g, slot, bi);
+        if (g->worn[slot].ability == AB_KEYMAKER) say("KEYMAKER: L CHOOSES WHAT THE WISP SEEKS");   /* and every time it is put on */
     } else { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
     G.max_hp = gear_max_hp(g);
     if (G.hp > G.max_hp) G.hp = G.max_hp;
@@ -5374,8 +5463,9 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
 
 /* alpha < 1: dithered see-through. remap: the ramp R_PURPLE turns into. flags: how it is drawn.
  * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
-typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; } Draw;
-enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_SWAY = 32, DR_FLIPV = 64 };   /* FLIPV: upside down, on the ceiling */
+typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; } Draw;   /* glint: a key's ramp, for Keymaker's sparkle */
+enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_SWAY = 32, DR_FLIPV = 64, DR_COMMUNE = 128, DR_GLINT = 256 };
+/* FLIPV: upside down, on the ceiling; COMMUNE: red through walls; GLINT: a key glinting through walls (Keymaker) */
 
 static int cmp_draw(const void *a, const void *b) {
     float da = ((const Draw *)a)->depth, db = ((const Draw *)b)->depth;
@@ -5624,7 +5714,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
-        if (dp_ > 0.12f && dp_ < 24.0f) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL }; } while (0)
+        if (dp_ > 0.12f && dp_ < 24.0f) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0 }; } while (0)
     for (int i = 0; i < G.ndecos; i++) {
         const Deco *dc = &G.decos[i];
         static const float FPS[4] = { 0.0f, 0.0f, 3.0f, 9.0f };    /* by frame count: candles flicker, fire roars */
@@ -5642,8 +5732,9 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         float sc;
         int s = mob_sprite(m, &sc), n0 = n, statue = m->type == MOB_GARGOYLE && m->sub == 0;
         float gh = m->type == MOB_GHOST ? (m->state == MS_RECOIL ? 0.9f : 0.72f * (1.0f - m->fade) + 0.01f) : (m->type == MOB_SHADE ? shade_alpha(m) : 0.0f);
-        if (m->type == MOB_SHADE && gh < 0.04f) continue;
-        ADD(m->x, m->y, m->z, s, gh);
+        int commune = G.commune_show > 0.0f && m->state == MS_WALK && hypotf(m->x - G.px, m->y - G.py) <= G.commune_r;
+        if (m->type == MOB_SHADE && gh < 0.04f && !commune) continue;
+        ADD(m->x, m->y, m->z, s, commune && gh > 0.0f && gh < 0.04f ? 0.04f : gh);
         if (n == n0) continue;
         Draw *d = &list[n - 1];
         d->scale = statue ? 1.0f : sc * RANK_SIZE[m->rank];       /* a statue like the others: its rank doesn't show yet */
@@ -5651,6 +5742,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (m->type == MOB_SPIDER && m->state == MS_WALK && m->sub == 0) d->flags = DR_EYES;
         if (m->type == MOB_HUNTER && m->state == MS_WALK && m->sub == 0) d->flags = DR_FLIPV;
         if (m->frozen > 0.0f && m->state == MS_WALK) d->flags |= DR_ICE;   /* only its eyes, in the dark of the web */
+        if (commune) d->flags = (d->flags & ~DR_EYES) | DR_COMMUNE;   /* Commune: its shape, wherever it is */
         if (m->state == MS_DIE && m->sub == 77) {                  /* drawn in to a point */
             float k = smoothstepf(0.1f, 0.75f, m->t);
             d->z += sc * 0.5f * k; d->scale = sc * (1.0f - k) + 0.02f; d->flags = DR_IMPLODE;
@@ -5707,6 +5799,10 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (it->type == IT_KEY) { sp = key_sprite(it->color, ph); z = 0.14f + 0.04f * sinf(ph * 2.5f); }
         int n0 = n;
         ADD(it->x, it->y, z, sp, 0);
+        if (n > n0 && it->type == IT_KEY && G.wisp_a > 0.2f && hypotf(it->x - G.px, it->y - G.py) <= gear_ability(&RUN.gear, AB_KEYMAKER, 0)) {
+            static const int GLINT[NKEYS] = { R_GOLD, R_BONE, R_BLOOD };
+            list[n - 1].flags |= DR_GLINT; list[n - 1].glint = GLINT[it->color];
+        }
         if (n > n0 && it->type != IT_KEY) { float u = ph * 0.6f - floorf(ph * 0.6f); list[n - 1].twinkle = u < 0.1f ? sinf(u / 0.1f * PI_F) : 0.0f; }
     }
     if (G.shop) {
@@ -5795,8 +5891,11 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             }
             continue;
         }
+        int com = d->flags & (DR_COMMUNE | DR_GLINT);              /* seen where it can't be: Commune's red, a key's glint */
+        float ck = (d->flags & DR_COMMUNE) ? fminf(1.0f, fminf(G.commune_show, G.commune_len - G.commune_show) * 5.0f + 0.2f) : (com ? 0.6f : 0.0f);
         for (int x = x0; x < x1; x++) {
-            if (d->depth >= zbuf[x]) continue;
+            int behind = d->depth >= zbuf[x];
+            if (behind && !com) continue;
             int tx = clampi((int)((x + 0.5f - left) * step), 0, TS - 1);
             const uint8_t *col = &img[tx * TS];
             float ty = (y0 + 0.5f - top) * step;
@@ -5804,7 +5903,13 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                 int tyi = clampi((int)ty, 0, TS - 1);
                 uint8_t c = col[(d->flags & DR_FLIPV) ? TS - 1 - tyi : tyi];
                 if (c == C_CLEAR) continue;
-                if (d->alpha < 1.0f && d->alpha * 16.0f <= BAYER[(y + (int)(G.t * 20.0)) & 3][x & 3] + 0.5f) continue;
+                int faded = d->alpha < 1.0f && d->alpha * 16.0f <= BAYER[(y + (int)(G.t * 20.0)) & 3][x & 3] + 0.5f;
+                if (behind || (com && faded)) {
+                    if (d->flags & DR_GLINT) { if (((x + y + (int)(G.t * 6.0)) & 3) < 2) f->pix[y * W + x] = c; }   /* its own colours, shimmering */
+                    else if (ck * 16.0f > BAYER[y & 3][x & 3]) f->pix[y * W + x] = (uint8_t)(R_BLOOD + 9 + ((x + y) & 1) * 3);
+                    continue;
+                }
+                if (faded) continue;
                 if (d->lut) c = d->lut[c];
                 if (d->remap && c >= R_PURPLE && c < R_PURPLE + 16) c = ramp_at(d->remap, c - R_PURPLE);
                 if (d->flags & DR_IMPLODE) { f->pix[y * W + x] = c == 0 ? 0 : (uint8_t)(R_GLOW + clampi(6 + (int)((c & 15) * 0.6f), 6, 15)); continue; }
@@ -5813,6 +5918,17 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     continue;
                 }
                 f->pix[y * W + x] = (d->flags & DR_BRIGHT) ? c : fogged(shade(c, light, x, y), fog, light, x, y);
+            }
+        }
+        if (d->flags & DR_GLINT) {                                 /* Keymaker: a sparkle where the key lies, through the stone */
+            float pulse = 0.5f + 0.5f * sinf((float)G.t * 5.0f + d->x);
+            int cx = (int)(left + size * 0.5f), cy = (int)(top + size * 0.62f), arm = 3 + (int)(pulse * 4.0f + fminf(size / 12.0f, 4.0f));
+            for (int k = -arm; k <= arm; k++) {
+                int a = abs(k);
+                uint8_t c = a <= 1 ? (uint8_t)C_WHITE : ramp_at(d->glint, 14 - a);
+                int px[4] = { cx + k, cx, cx + k / 2, cx + k / 2 }, py[4] = { cy, cy + k, cy + k / 2, cy - k / 2 };
+                for (int j = 0; j < (a <= arm / 2 ? 4 : 2); j++)
+                    if (px[j] >= 0 && px[j] < W && py[j] >= 0 && py[j] < H) f->pix[py[j] * W + px[j]] = c;
             }
         }
         if (d->twinkle > 0.0f && crawl_glint[d->spr][0] >= 0) {     /* a glint off the gold */
@@ -6055,8 +6171,8 @@ static void render_wards(Frame *f) {
                 }
         }
     }
-    if (G.mirror_t > 0.0f) {                                       /* a silvered ripple at the edges of sight */
-        float k = fminf(1.0f, G.mirror_t * 2.0f);
+    if (G.mirror_t > 0.0f || G.mirror_flash > 0.0f) {             /* a silvered ripple at the edges of sight */
+        float k = fminf(1.0f, fmaxf(G.mirror_t, G.mirror_flash) * 2.0f);
         for (int y = 0; y < H; y++) {
             int w = (int)((5.0f + 3.0f * sinf(y * 0.13f + (float)G.t * 6.0f)) * k);
             for (int x = 0; x < w; x++) {
