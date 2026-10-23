@@ -1,7 +1,7 @@
 # Items, abilities and ammunition: the merchant's new stock
 
-**Status: answered, with a few follow-ups on the bag and the Black Altars (23 October 2026).** A plan
-from the owner's guide, written after reading the code as it stands at 1.0.0b3. Nothing is built yet.
+**Status: agreed (23 October 2026); nothing built yet.** A plan from the owner's guide, written after
+reading the code as it stands at 1.0.0b3.
 
 **Decided (23 October 2026):**
 
@@ -16,7 +16,11 @@ from the owner's guide, written after reading the code as it stands at 1.0.0b3. 
   on their level has been found. Finding a Black Altar lights a wisp that leads to the nearest secret
   not yet found; it takes ten souls to wake. Black Altars stand deep in the maze, in the exit room
   where possible.
-- Every other question takes its recommended answer (*).
+- **The follow-ups:** bags come now and then on a wearables pedestal, more often while you have none,
+  sized by quality. Black Altars stand on every level from 6 (the Catacombs) on. Waking an altar's wisp
+  spends ten souls. A finished altar anoints one of the worn items at random, never one already Anointed.
+- Every other question takes its recommended answer (*). One default was set here, not by the owner:
+  the autopilot leaves Black Altars alone (it seldom finds every secret anyway). Easily changed.
 
 ## 1. What the game does today
 
@@ -114,7 +118,8 @@ have three stats and an Exquisite robe five. The odds of each quality climb set 
 | The Hollows (11-15) | 25% | 35% | 25% | 12% | 3% |
 | The Deep (16-20) | 15% | 30% | 30% | 18% | 7% |
 
-and one step further each time round. About one item in ten is Anointed.
+and one step further each time round. About one item in ten comes Anointed; the Black Altars anoint
+others (below).
 
 **Totals are capped,** whatever is worn: Dodge 35%, each Resist 75%, Spell Haste +50%, Spirit Cost
 Reduction 60%, Damage x2, Elemental +50%, Movement +40%, Spell Effectiveness +50%. HP, Armor, health
@@ -181,10 +186,36 @@ Graded by quality, Common to Exquisite; where two items carry the same ability t
   showed. Bought or passed over, the hold is gone. Holds are kept in saves and graves.
 - **The autopilot** buys up to its allowance by value for gold, never holds, and keeps a little gold back.
 
+### Bags
+
+- **None at first.** A bag is a ware like the others. It turns up now and then on a wearables pedestal,
+  more often while you have none, and buying one counts as a purchase. Its size goes by quality:
+  Common 2, Uncommon 3, Rare 3, Ultra-Rare 4, Exquisite 5. Its name goes by size: a Burlap Sack, a
+  Gravedigger's Satchel, a Pilgrim's Scrip, a Bone Reliquary. A bigger bag takes over a smaller one's
+  contents.
+- **Buying for a slot already worn**: the new item is worn at once. The old one goes into the bag if
+  there is room. With no bag, the merchant's card warns first: "YOUR OLD BOOTS WILL BE LOST. NO GOLD
+  COMES BACK." A second E buys. With a full bag, you are offered the bag's contents to let one go,
+  then the purchase goes ahead; Esc thinks better of it.
+- **The autopilot** buys bags too, but never asks: what it can't keep, it loses.
+
+### Black Altars
+
+- **Where**: one on every level from 6, deep in the maze: in the exit room where it can stand clear of
+  the way, otherwise in the room farthest from the start. It is drawn apart from the black altars of
+  the Deep's dressing: a violet flame burns on it when it wakes.
+- **Waking it**: E at the altar spends ten souls. A wisp kindles there and leads to the nearest secret
+  wall not yet found, then the next, until none is left. It goes out when the last one opens. While it
+  is lit it takes the place of the ordinary wisp; L (Keymaker) still turns the ordinary one.
+- **Anointing**: once every secret on the level is found, however, the altar's flame turns gold. E then
+  anoints one of the worn items at random, never one already Anointed, and names it in a caption. One
+  anointing an altar. With everything worn already Anointed, the altar says so and keeps its gift.
+- **The autopilot** leaves altars alone (a default, not the owner's).
+
 ### The wardrobe and the character sheet (Tab)
 
-- Seven worn slots (left wrist, right wrist, boots, neck, hood, robe, ring) and a bag of up to twelve
-  unworn items to swap in. Buying with a full bag sells the weakest unworn item back for 25%, and says so.
+- Seven worn slots (left wrist, right wrist, boots, neck, hood, robe, ring) and the bag, if you have one,
+  below them. Items move between them with Enter.
 - The selected item's card: name in its quality's colour, every rolled stat, the ability and its grade.
 - The sheet: every total, with what abilities add shown beside it, for example `MOVE +18% (+3% SWIFT)`,
   green where it would get better and red where worse, as now.
@@ -201,8 +232,9 @@ sooner). With souls now spent as spirit, losing the first two makes spirit scarc
 
 ### Saves
 
-`Gear` changes shape, so the save goes to version 3. Old saves keep their spells, runes, gold and
-souls; their worn robe, hood and best ring become Common items of about the same strength. The new
+`Gear` changes shape, so the save goes to version 3, carrying the worn items, the bag and its
+contents, the bones and the held ware. Old saves keep their spells, runes, gold and souls; their worn
+robe, hood and best ring become Common items of about the same strength, and they have no bag. The new
 blob is about 950 bytes with the record; graves (`SLOT_MAX`) go from 1024 to 2048 bytes to leave room.
 
 ## 4. Building it
@@ -217,8 +249,9 @@ blob is about 950 bytes with the record; graves (`SLOT_MAX`) go from 1024 to 204
 4. **Abilities**: Swiftness, Arcane Knowledge, Treasure Hunter (and its whisper), Keymaker (and L),
    Commune (silhouettes through walls), Thorns, Mirrored.
 5. **The merchant**: the wider room, five to seven pedestals, more purchases, holding (Q), the cards in
-   quality colours.
-6. **Balance**: eight-seed runs against 1.0.0b3, from level 1 and from 11; ASan; the README and plan
+   quality colours, bags and the warnings that go with them.
+6. **Black Altars**: placing them, waking their wisp, the route to each secret, anointing.
+7. **Balance**: eight-seed runs against 1.0.0b3, from level 1 and from 11; ASan; the README and plan
    kept true. Then a beta, once the owner has played it.
 
 Risks worth naming:
@@ -256,7 +289,8 @@ Risks worth naming:
 - **I11.** An ability on an item without its stat (Swiftness on a robe) adds the stat, as the guide says
   for Arcane Knowledge: a) yes, for every ability with a stat* b) no, it does nothing there.
 - **I12.** Anointed: a) a blessing by chance, about one item in ten, any quality* b) given at the black
-  altars of the Deep, to an item you choose c) both.
+  altars of the Deep, to an item you choose c) both. *Answered by the owner: by chance, and at Black
+  Altars once a level's secrets are found (see Decided).*
 - **I13.** Resist (Poison, Burn, Slow): a) three stats, each rolled on its own* b) one stat for all three.
 - **I14.** Spell Effectiveness strengthens what spells do besides damage (healing, slowing, burning
   floors) and the runes; Damage Multiplier only damage: a) yes* b) another meaning (say which).
@@ -268,7 +302,8 @@ Risks worth naming:
 - **I18.** Caps are on totals across everything worn (Dodge 35%, each Resist 75%, Spell Haste +50%,
   Spirit Cost Reduction 60%, Damage x2, Elemental +50%, Movement +40%, Effectiveness +50%): a) yes* b)
   other caps (say which).
-- **I19.** The bag: a) twelve unworn items kept; a full bag sells the weakest back for 25%* b) no bag: a
+- **I19.** *Answered by the owner: bags bought from the merchant, none at first (see Decided).* The bag:
+  a) twelve unworn items kept; a full bag sells the weakest back for 25%* b) no bag: a
   new item replaces what was in its slot.
 - **I20.** Let the old kinds go (Soul Jar, Death's Cowl, Seeker's Ring, Hunter's Hood): a) yes* b) keep a
   Soul Gain stat on rings and amulets, so spirit is less scarce.

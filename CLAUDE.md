@@ -16,7 +16,7 @@ in which creatures and decorations appear are in [`docs/PLAN-bestiary.md`](docs/
 which replaces the descent plan's section on enemies. The owner has accepted the recommended answer
 to every question in both; the bestiary's status line says how far the work has got. Read both
 before starting on any of it. The overhaul of items, abilities, spirit and the merchant is planned in
-[`docs/PLAN-items.md`](docs/PLAN-items.md); its questions are still with the owner.
+[`docs/PLAN-items.md`](docs/PLAN-items.md); the owner has answered its questions, and nothing is built yet.
 
 ## Working with the owner
 
