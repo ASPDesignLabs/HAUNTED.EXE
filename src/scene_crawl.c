@@ -3787,18 +3787,6 @@ static void start_level(void) {
             for (int k = 0; k < 1 + rnd(2); k++) if (room_cell(r, &sx, &sy)) { Mob *e = spawn_mob(sx, sy, MOB_SAC); if (e) e->rank = m->rank; }
             break;
         }
-#ifdef CRAWL_DEBUG
-    if (getenv("CRAWL_MEET")) {                                    /* one of a kind, a few cells ahead, to look at */
-        int k = clampi(atoi(getenv("CRAWL_MEET")), 0, NKINDS - 1);
-        for (int d = 4; d >= 2; d--) {
-            int mx = G.cx + DX[G.h] * d, my = G.cy + DY[G.h] * d;
-            if (G.map[my][mx].kind != K_FLOOR || occupied(mx, my, NULL)) continue;
-            Mob *m = spawn_mob(mx, my, k);
-            if (m && k == MOB_HUNTER) m->sub = 0;
-            break;
-        }
-    }
-#endif
     hunt_cx = -1;
     if (G.level >= 7 && rnd(3) == 0) {                             /* now and then one of them is gilded, and carries treasure */
         int pick[MAXMOBS], np = 0;
@@ -4103,6 +4091,22 @@ static void crawl_update(double dt) {
     if (fdt > 0.0f) { G.pvx = (G.px - ox) / fdt; G.pvy = (G.py - oy) / fdt; }
     build_hunt(fdt);
     pick_hunters();
+#ifdef CRAWL_DEBUG
+    static int meet_level = -1;                                    /* one of a kind, ahead, once the level's card has gone */
+    if (getenv("CRAWL_MEET") && meet_level != G.level && G.level_t > 5.0 && !G.dead) {
+        int k = clampi(atoi(getenv("CRAWL_MEET")), 0, NKINDS - 1), far = 0;
+        for (int d = 1; d <= 7; d++) {                             /* the farthest open cell in view, up to seven */
+            int mx = (int)(G.px + cosf(G.ang) * d), my = (int)(G.py + sinf(G.ang) * d);
+            if (G.map[my][mx].kind != K_FLOOR || !line_clear(G.px, G.py, mx + 0.5f, my + 0.5f)) break;
+            if (d >= 3 && !occupied(mx, my, NULL)) far = d;
+        }
+        if (far) {
+            Mob *m = spawn_mob((int)(G.px + cosf(G.ang) * far), (int)(G.py + sinf(G.ang) * far), k);
+            if (m && k == MOB_HUNTER) m->sub = 0;
+            meet_level = G.level;
+        }
+    }
+#endif
     for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive) update_mob(&G.mobs[i], fdt);
     update_pools(fdt);
     /* the Wraith comes, once, after about four minutes on a level, from the far end of it */
@@ -6587,14 +6591,14 @@ static void render_bestiary(Frame *f) {
     gfx_text16(f, 14, 9, G.best_page < nk ? "BESTIARY" : "ACHIEVEMENTS", R_GOLD + 12, 1);
     gfx_text8(f, 14, 26, G.best_page < nk ? "A/D CREATURE  W/S RANK  B CLOSE" : "A/D PAGE  W/S SCROLL  B CLOSE", R_STONE + 9, 1);
     snprintf(line, sizeof line, "%d / %d", G.best_page + 1, pages);
-    gfx_text8(f, W - 14 - gfx_text_width(line, 1), 13, line, R_STONE + 11, 1);
+    if (G.best_page < nk) gfx_text8(f, W - 14 - gfx_text_width(line, 1), 13, line, R_STONE + 11, 1);
     const Record *r = &RUN.rec;
     if (G.best_page >= nk) {                                       /* the achievements, earned and not */
         static AchLine L[256];
         int n = ach_lines(L, 256), got = 0;
         for (int i = 0; i < n; i++) got += L[i].done;
-        snprintf(line, sizeof line, "%d OF %d EARNED", got, n);
-        gfx_text8(f, 126, 13, line, R_GOLD + 10, 1);
+        snprintf(line, sizeof line, "%d OF %d EARNED", got, n);    /* in the page count's place: it is the last page */
+        gfx_text8(f, W - 14 - gfx_text_width(line, 1), 13, line, R_GOLD + 10, 1);
         for (int i = 0; i < ACH_ROWS && G.best_scroll + i < n; i++) {
             const AchLine *l = &L[G.best_scroll + i];
             int y = 40 + i * 10;
@@ -6609,6 +6613,7 @@ static void render_bestiary(Frame *f) {
         return;
     }
     int k = order[G.best_page], met = kind_met(k), seen = r->seen[k] >> G.best_rank & 1 || r->kills[k][G.best_rank] > 0;
+    int spirit = (KINDS[k].flags & KF_SPIRIT) != 0;                /* the spectre and the Wraith: no rank, and nothing kills them */
     bevel(f, 12, 38, 104, 104, 0);
     const uint8_t *lut = KINDS[k].family >= 0 && G.best_rank != RK_I ? crawl_rank_lut[KINDS[k].family][G.best_rank] : NULL;
     /* it walks on the spot and turns about: towards you, its right side, towards you, its left */
@@ -6618,16 +6623,16 @@ static void render_bestiary(Frame *f) {
     ui_sprite_ex(f, spr, 16, 42, 96, lut, !met || !seen, facing == 3);
     int x0 = 124;
     gfx_text16(f, x0, 38, met ? KINDS[k].name : "???", C_WHITE, 1);
-    if (KINDS[k].family < 0) snprintf(line, sizeof line, "A SPIRIT: NO RANK");
+    if (spirit) snprintf(line, sizeof line, "A SPIRIT: NO RANK");
     else if (seen) snprintf(line, sizeof line, "RANK %s  %s", RANK_ROMAN[G.best_rank], G.best_rank == RK_I ? "" : rank_word(k, G.best_rank));
     else snprintf(line, sizeof line, "RANK %s  NOT MET YET", RANK_ROMAN[G.best_rank]);
-    gfx_text8(f, x0, 57, line, seen || KINDS[k].family < 0 ? (uint8_t)RANK_COL[G.best_rank] : (uint8_t)(R_STONE + 8), 1);
+    gfx_text8(f, x0, 57, line, seen || spirit ? (uint8_t)RANK_COL[G.best_rank] : (uint8_t)(R_STONE + 8), 1);
     if (met) text_wrap(f, x0, 70, KINDS[k].lore, 23, R_STONE + 12, 4);
     else text_wrap(f, x0, 70, "NOT YET MET. IT IS DOWN THERE SOMEWHERE.", 23, R_STONE + 8, 4);
     /* slain, rank by rank, against what each achievement asks */
     int rk[NRANK], nr = kind_ranks(k, rk);
     gfx_text8(f, x0, 108, "SLAIN", R_GOLD + 10, 1);
-    if (KINDS[k].family < 0) gfx_text8(f, x0 + 48, 108, "IT CANNOT BE", R_STONE + 9, 1);
+    if (spirit) gfx_text8(f, x0 + 48, 108, "IT CANNOT BE", R_STONE + 9, 1);
     else for (int j = 0; j < nr; j++) {
         int need = slayer_need(k, rk[j]), have = r->kills[k][rk[j]], done = ach_has(k * NRANK + rk[j]);
         snprintf(line, sizeof line, "%-3s%3d/%d", rk[j] == RK_GILDED ? "G" : RANK_ROMAN[rk[j]], have < 999 ? have : 999, need);
@@ -6637,7 +6642,7 @@ static void render_bestiary(Frame *f) {
     /* what hurts it, learnt from three kills with each spell */
     for (int i = 10; i < W - 10; i++) gfx_px(f, i, 147, R_STONE + 5);
     gfx_text8(f, 14, 151, "WHAT HURTS IT", R_GOLD + 10, 1);
-    if (KINDS[k].family < 0) { gfx_text8(f, 14, 161, "NOTHING YOU CARRY TOUCHES IT", R_STONE + 11, 1); return; }
+    if (spirit) { gfx_text8(f, 14, 161, "NOTHING YOU CARRY TOUCHES IT", R_STONE + 11, 1); return; }
     char more[80] = "MORE:", less[80] = "LESS:", same[80] = "AS USUAL:", untried[80] = "NOT YET LEARNT:";
     int nm = 0, nl = 0, ns = 0, nu = 0;
     for (int sp = 0; sp < AT_BFS; sp++) {
