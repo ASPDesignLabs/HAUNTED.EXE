@@ -4509,6 +4509,13 @@ static int shop_choose(void) {
         if (dear < 0 || G.offers[i].price > G.offers[dear].price) dear = i;
     }
     G.shop_saving = 0;
+    int natk = 0, fresh = -1;                                      /* three attack spells before anything else: the */
+    for (int k = 0; k < NATK; k++) natk += g->atk[k] >= 0;         /* runs that skipped them were the ones that died */
+    for (int i = 0; i < G.ped_n && natk < 3; i++) {
+        const Offer *o = &G.offers[i];
+        if (!G.offer_gone[i] && o->kind == GK_ATK && o->id != AT_SPEAR && g->atk[o->id] < 0 && o->price <= purse && (fresh < 0 || v[i] > v[fresh])) fresh = i;
+    }
+    if (fresh >= 0) return fresh;
     if (G.level == 1 || G.shop_bought > 0) return best;            /* the first is free; after one, the best for the gold */
     #define SPELL(o) ((o).kind == GK_ATK || (o).kind == GK_DEF)
     if (RUN.goal > 0) {                                            /* saving: a spell worth the wait now? */
