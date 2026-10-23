@@ -19,13 +19,43 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    env:
+      PACKAGES: gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64 zlib1g-dev
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install the MinGW-w64 cross-compiler
+      # The mirror has been known to take half an hour over the cross-compiler's 116 MB, so the
+      # .debs wait in the Actions cache, keyed on the exact files apt asks for. The index comes in
+      # seconds, so apt-get update stays and apt still chooses the versions.
+      - name: List the cross-compiler's packages
+        id: debs
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64 zlib1g-dev
+          apt-get install --print-uris -qq --no-install-recommends $PACKAGES | cut -d' ' -f2- | tee "$RUNNER_TEMP/debs.txt"
+          echo "prefix=mingw-$ImageOS-" >> "$GITHUB_OUTPUT"
+          echo "key=mingw-$ImageOS-$(sha256sum < "$RUNNER_TEMP/debs.txt" | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache/restore@v5
+        id: cache
+        with:
+          path: ~/debs
+          key: ${{ steps.debs.outputs.key }}
+          restore-keys: ${{ steps.debs.outputs.prefix }}
+
+      - name: Install the MinGW-w64 cross-compiler
+        run: |
+          mkdir -p ~/debs
+          find ~/debs -name '*.deb' -exec sudo cp -t /var/cache/apt/archives {} +
+          sudo apt-get install -y --no-install-recommends --download-only $PACKAGES
+          rm -f ~/debs/*.deb                  # an older cache's leftovers go
+          (cd /var/cache/apt/archives && cut -d' ' -f1 "$RUNNER_TEMP/debs.txt" | xargs -r cp -t ~/debs)
+          sudo apt-get install -y --no-install-recommends $PACKAGES
+
+      - uses: actions/cache/save@v5
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          path: ~/debs
+          key: ${{ steps.debs.outputs.key }}
 
       - name: Check the tag matches VERSION
         if: startsWith(github.ref, 'refs/tags/v')
