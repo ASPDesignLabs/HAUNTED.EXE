@@ -390,6 +390,7 @@ float gear_value(const Gear *g, const Offer *o, int level) {
     case GK_ATK: {
         float v = atk_worth(o->id, o->tier) - atk_worth(o->id, g->atk[o->id]);
         if (g->atk[o->id] < 0) v += 0.3f;                           /* a new trick for the book */
+        if (o->id == AT_SPEAR) v *= fminf(1.0f, fmaxf(0.33f, (float)(g->bones + SPEAR_BONES) / 18.0f));   /* only as good as the bones */
         return v > 0.0f ? v * 1.4f : 0.0f;                          /* spells weigh heavier than armor */
     }
     case GK_DEF: {
