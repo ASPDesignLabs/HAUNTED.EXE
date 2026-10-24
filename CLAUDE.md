@@ -34,8 +34,10 @@ Coins, and the Rune Shrine in the merchant's room as the only source of runes, w
 The owner answered five rounds of questions; the plan marks the defaults and what is still to settle.
 Built so far (harness only): the hand fix (casting from rest while the bar is away), runes by quality
 (step 2: Common to Exquisite, the nine Exquisite second effects, save version 5, the merchant's rune
-pedestal now another piece to wear) and the Rune Shrine (step 3). Until Cursed Coins come (step 7)
-there are none to find, so in play runes come only from an old save, the console or the debug switches.
+pedestal now another piece to wear), the Rune Shrine (step 3) and the secret areas (step 4: counts by
+set, chains of carved rooms, pockets, and the altar's wisp that goes to one secret and back for a price).
+Until Cursed Coins come (step 7) there are none to find, so in play runes come only from an old save, the
+console or the debug switches. The pockets are still plain stone until the themes (steps 5 and 6).
 
 ## Working with the owner
 
@@ -111,12 +113,14 @@ slot), `CRAWL_RUNES=q` (every rune at quality q, 1 Common to 5 Exquisite), `CRAW
 `CRAWL_SHRINE=r` (the Rune Shrine's rank, 0 sanctified to 5), `CRAWL_BAG=q` (a bag of quality q, all
 but one place filled with spares), `CRAWL_ABIL=a` (every worn piece with ability a, the `AB_*` number), `CRAWL_GOLD`, `CRAWL_SOULS`, `CRAWL_MAP=1` (prints the map, the plan and a lane
 reachability check), `CRAWL_MAPAT=t`, `CRAWL_TPSECRET=n` / `CRAWL_TPEXIT=1` / `CRAWL_TPALTAR=1` (stand in front of a secret,
-the exit or the Black Altar once you take control), `CRAWL_TPDOOR=k` (open the first chained room and
+the exit or the Black Altar once you take control; an altar in a locked vault has the vault's door
+unlocked for you), `CRAWL_TPDOOR=k` (open the first chained room and
 stand before its doorway; 2 on: into that link of the chain, facing the way on), `CRAWL_TAKEALL=1`
 (everything in a pocket picked up as you enter), `CRAWL_KILLAT=s` (struck down at scene time s), `CRAWL_BLESS=1` (the altar's blessing on every level), `CRAWL_WISP=1` (a free exit wisp as each level opens; 2 to 4: to the
 gold, silver or crimson key), `CRAWL_FOLLOWWISP=1` (a player that walks the way the wisp went, from
 wherever it stands, and presses E at the exit and at secrets: a test that it leads out, and that an
-altar's wisp finds every secret), `CRAWL_SHOWHAND`, `CRAWL_BFSANY`,
+altar's wisp finds the secrets; with the altar's wisp it goes into each secret and out, presses E at the
+wisp, follows it home and sends it on from the altar's menu; it can't be hurt), `CRAWL_SHOWHAND`, `CRAWL_BFSANY`,
 `CRAWL_RANK=r` (every creature at rank r), `CRAWL_WRAITH=s` (the Wraith at s seconds), `CRAWL_MEET=k`
 (one creature of kind k, the `MOB_*` number, a few cells ahead of the caster five seconds into each level).
 `HAUNT_DEBUG` adds `HAUNT_PLAN=10,11,...` to force HAUNT.EXE acts (numbers in the README).
@@ -174,9 +178,11 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   (360), or earlier once it has most of the treasure. It presses about a third of the secrets it walks
   past. Setting off for the exit (`G.leaving`), it casts an exit wisp with 2 spirit or more. It stops
   at a Black Altar within 24 steps (30 to anoint) from the lane beside it (`altar_spot`, `at_altar`,
-  `PS_ALTAR`): anoints when it is gold, wakes it with 25 spirit until 180 s (`WAKE_TIME`), and blesses
-  with 40 when the level has undead until 240 s (`ALTAR_TIME`); while the altar is awake and there is
-  time it walks to the secret its wisp seeks (`G.altar_seek` as `G.seek_secret`).
+  `PS_ALTAR`): anoints when it is gold, wakes it with 25 spirit until 180 s (`WAKE_TIME`), sends its
+  wisp on when the price leaves it 15 spirit, until 240 s (`wants_send`), and blesses with 40 when the
+  level has undead until 240 s (`ALTAR_TIME`); while the altar's wisp is out and there is time it walks
+  to the secret it seeks (`G.altar_seek` as `G.seek_secret`), and calls it home once the wall has moved
+  and it is out of the room and within four cells of it.
 - **Player mode** (`update_human`, `human_walk`, `human_use`, `human_cast`) after holding H. The hand
   is out of sight but for a cast or a ware reached for, and stays up 0.9 s after (`G.hand_base`,
   `G.ready_t`). Esc opens
@@ -265,16 +271,17 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   `update_wisps`, `render_wisps`, `wisp_target`, `wisp_route`). Things in the crypt, not on the hand: a
   wisp kindles before the caster (or over the altar), flies down its own BFS field (`wisp_route`: floor
   and doors, not the door of a vault you have no key for) at `WISP_PACE`, looking ahead along the way
-  where the line is clear (`wisp_line`), and hovers at its target until you come within 1.5 cells
-  (exit, key) or the secret opens (altar). Kinds `WK_EXIT` (blue, the exit's doorstep, or first the
+  where the line is clear (`wisp_line`; a wisp that strays off its field over a prop steps back onto
+  it), and hovers at its target until you come within 1.5 cells (exit, key); the altar's waits at its
+  secret's door until it is sent home (below). Kinds `WK_EXIT` (blue, the exit's doorstep, or first the
   key the exit's vault needs: `past_vaults`), `WK_KEY` (the key's colour, `KEY_RAMP`) and `WK_ALTAR`
-  (violet, the nearest secret still shut). It leaves motes that hang for `WISP_MOTE_T` (12 s) to show
+  (violet, a secret's door, or home to the altar's edge). It leaves motes that hang for `WISP_MOTE_T` (12 s) to show
   the way round corners, lights four cells round itself (`light_dynamic_ex(..., flat)`, which shows
   shades), and drives the Wraith back within three cells. A soul a wisp (`WISP_COST`); casting another
   replaces the first; the altar's is free. Reset per level. The debug build logs `EVENT wisp kind colour`.
 - **The L menu** (`UI_WISPS`: `wisp_choices`, `update_wispmenu`, `render_wispmenu`). A tap of L opens
   it (paused): the exit wisp, a wisp to each key still lying with Keymaker, the altar's wisp while it is
-  awake with secrets left; W/S, Enter (or E, or a click) casts, Space turns *L ALWAYS CASTS THIS*.
+  out at a secret (`AW_SEEK`); W/S, Enter (or E, or a click) casts, Space turns *L ALWAYS CASTS THIS*.
   With that on (`RUN.wisp_auto`, `RUN.wisp_kind`, `RUN.wisp_color`, saved), a tap casts and holding L
   0.6 s opens the menu (`G.l_t`, `G.l_down`). A click that closes any menu casts nothing until the
   button is let go (`G.click_spent`).
@@ -390,18 +397,25 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are
   `SP_BFLAME_V*` and `_G*`). E opens its menu (`UI_ALTAR`: `altar_rows`, `update_altarmenu`,
-  `render_altarmenu`), three gifts with a note on each: `altar_wake`, `altar_bless` and `altar_anoint`,
-  which the autopilot calls directly. Dormant, then awake (ten spirit: `ALTAR_SOULS`), then gold once
-  every secret on the level is found, then spent. Waking it sends out its own violet wisp (`WK_ALTAR`,
-  free), which goes to the nearest secret still shut (`G.altar_seek`), through the keys of any vault it
-  lies in (`past_vaults`, shared with the way to the exit), and on to the next. Gold, it anoints one
+  `render_altarmenu`), three gifts with a note on each: `altar_wake` (or `altar_send`), `altar_bless`
+  and `altar_anoint`, which the autopilot calls directly. Dormant, then awake (ten spirit:
+  `ALTAR_SOULS`), then gold once every secret on the level is found, every link of every chain
+  (`G.links_found >= G.nlinks`), then spent. Waking it sends out its own violet wisp (`WK_ALTAR`, free) to
+  the nearest secret still shut (`G.altar_seek`, `nearest_shut`), through the keys of any vault it lies in
+  (`past_vaults`, shared with the way to the exit). Its round is `G.altar_wisp`: `AW_SEEK` (waiting at
+  the secret's door, the cell before the cracked wall), `AW_HOME`, `AW_REST` (over the altar's edge). It
+  waits while you are in the secret's room or a pocket beyond; once you have been in
+  (`G.altar_inside`, `in_secret`) and come out, E facing it within 2.2 cells sends it home
+  (`altar_callable`, `altar_call_home`). Resting, the altar's first row sends it on to the next secret
+  still shut for `altar_price` (ten and five for every secret found on the level). Gold, it anoints one
   worn piece at random that isn't yet (`piece_anoint`: its stats rise by the quality's share, never
   past their caps). The blessing (`ALTAR_BLESS`, 25, in any state, `G.blessed`, cleared by
   `place_altar`, so it ends with the level or a death) makes every exit wisp turn the undead
   (`turn_undead`: within `BLESS_REACH`, 4 cells, in sight of it, as Dread does, fleeing from where the
   wisp was, `Mob.wfeared`/`wfx`/`wfy`, for 3 s after it passes; the Wraith is driven back); a blessed
   exit wisp has a pale gold halo, and the altar's fire burns with a white edge (`DR_EDGE`). The debug
-  build logs `EVENT altar at`, `wakes`, `blesses`, `anoints` and `turned`.
+  build logs `EVENT altar at`, `wakes`, `altar wisp home`, `altar sends price=`, `blesses`, `anoints` and
+  `turned`.
 
 ## Releasing
 

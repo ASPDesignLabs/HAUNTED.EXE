@@ -1,9 +1,10 @@
 # 1.0.0b6: secrets that go deeper, Cursed Coins and the Rune Shrine
 
-**Status: planned (24 October 2026) and settled; steps 1 to 3 are built (the hand fix, runes by
-quality, the Rune Shrine) and most of step 4 (secrets by set and in chains, bigger rooms, doorways and
-the pockets), tested in the harness only; the altar's wisp is next. The owner approved
-Blink's double and the shrine's art.** The owner
+**Status: planned (24 October 2026) and settled; steps 1 to 4 are built (the hand fix, runes by
+quality, the Rune Shrine, and the secret areas: secrets by set and in chains, bigger rooms, doorways,
+the pockets, and the altar's wisp to one secret and back for a price), tested in the harness only; the
+Backrooms (step 5) are next, starting with art for approval. The owner approved Blink's double and the
+shrine's art.** The owner
 asked for the things below after 1.0.0b5, answered six rounds of questions, and left the rest to
 defaults, marked *default* here so they can be changed. Nothing in this plan names the console's codes.
 
@@ -234,8 +235,11 @@ creatures did:
    pulls, combining, attunement and offerings, takes when leaving, the overflow question, and the
    autopilot at the shrine. Until the Cursed Coins come in step 7 there are none to find; `CRAWL_COINS`
    and `CRAWL_SHRINE` stand in for testing.
-4. **Secret areas:** counts by set, the bigger first room, chains and the pocket machinery (going in
-   and out, the level waiting), and the altar's new wisp and price.
+4. **Secret areas** (built): counts by set, the bigger first room, chains and the pocket machinery
+   (going in and out, the level waiting), and the altar's new wisp and price. The autopilot calls the
+   wisp home as it passes once the wall has moved, without going in first; it sends it on seldom, since
+   it comes back past the altar in time only now and then (two runs in eight from level 7). It doesn't
+   go through a chain's doors yet (step 7).
 5. **The Backrooms:** textures and props (for approval), the tube lights, the glitching, the reverb and
    silence, the visportal.
 6. **Severance:** textures and props (for approval), the cubicles and doors, the water cooler, the

@@ -50,6 +50,7 @@ enum { HURT_BLOW, HURT_MAGIC, HURT_POISON };
 #define SHOT_REFLECT NATK                   /* a shot kind: something the Mirror Veil sent back */
 #define NPED 7                              /* the merchant's pedestals, at most */
 enum { ALTAR_DORMANT, ALTAR_AWAKE, ALTAR_READY, ALTAR_SPENT };   /* a Black Altar: asleep, seeking, gold, given */
+enum { AW_NONE, AW_SEEK, AW_HOME, AW_REST };   /* its wisp: not woken, at a secret's door, on its way home, resting over it */
 #define ALTAR_SOULS 10                      /* what waking one costs */
 #define ALTAR_BLESS 25                      /* its blessing on your exit wisps, once a level */
 #define BLESS_REACH 4.0f                    /* how near a blessed wisp the undead turn */
@@ -326,6 +327,7 @@ static struct {
     float ward_shards, decoy_x, decoy_y, decoy_t;   /* Exquisite runes: the Bone Ward's burst when it breaks; Blink's double */
     float whisper_t, commune_t, commune_show, commune_len, commune_r;   /* Treasure Hunter's whisper; Commune's clock and showing */
     int altar_x, altar_y, altar_state, altar_seek;   /* the Black Altar (x -1: none); the secret its wisp seeks */
+    int altar_wisp, altar_inside;                    /* where its wisp is (AW_*); whether you have been into the secret it shows */
     int blessed;                                     /* the altar's blessing: exit wisps turn the undead, this level */
     float def_cd[NDEF], def_wait[NDEF], def_hush[NDEF], rune_glow[NDEF];   /* cooldown; a cast on its way; a missed cue; glow on the hand */
     float bfs_t;                        /* the BFS9000's implosion, playing */
@@ -3557,7 +3559,7 @@ static int worth_taking(const Item *it) {
  * undead, and anoints when it burns gold. It asks from the lane beside it. */
 #define ALTAR_TIME 240.0                    /* past this, it leaves the altar and its secrets be */
 #define WAKE_TIME 180.0                     /* and past this, it is too late to wake one */
-static int altar_wake(void), altar_bless(void), altar_anoint(void);
+static int altar_wake(void), altar_bless(void), altar_anoint(void), altar_send(void), nearest_shut(float x, float y), altar_price(void);
 static int altar_spot(int *sx, int *sy) {
     if (G.shop || G.altar_x < 0) return 0;
     for (int d = 0; d < 4; d++) {
@@ -3572,6 +3574,10 @@ static int undead_about(void) {
 }
 static int wants_wake(void) { return G.altar_state == ALTAR_DORMANT && G.level_t <= WAKE_TIME && spirit() >= 25.0f && G.secrets_found < G.nsecrets; }
 static int wants_bless(void) { return !G.blessed && G.level_t <= ALTAR_TIME && spirit() >= 40.0f && undead_about(); }
+static int wants_send(void) {                                      /* its wisp home and resting: on, if 15 spirit is left after */
+    return G.altar_state == ALTAR_AWAKE && G.altar_wisp == AW_REST && G.level_t <= ALTAR_TIME
+        && nearest_shut(G.altar_x + 0.5f, G.altar_y + 0.5f) >= 0 && spirit() - (float)altar_price() >= 15.0f;
+}
 static int wants_anoint(void) {
     if (G.altar_state == ALTAR_READY)
         for (int s = 0; s < NSLOT; s++) if (RUN.gear.worn[s].kind && !RUN.gear.worn[s].anointed) return 1;
@@ -3579,7 +3585,7 @@ static int wants_anoint(void) {
 }
 static int altar_wanted(void) {
     if (G.player || G.leaving || G.shop || G.altar_x < 0) return 0;
-    return wants_anoint() || wants_wake() || wants_bless();
+    return wants_anoint() || wants_wake() || wants_send() || wants_bless();
 }
 
 /* something worth walking to from (x,y): a vault door once its key is held, else treasure it has seen */
@@ -3618,7 +3624,8 @@ static int pick_goal(int x, int y, int *gx, int *gy) {
     int ax, ay;
     if (altar_wanted() && altar_spot(&ax, &ay) && bfs_dist[ay][ax] > 0
         && bfs_dist[ay][ax] <= (G.altar_state == ALTAR_READY ? 30 : 24)) { *gx = ax; *gy = ay; return 1; }   /* the altar, when it passes */
-    if (!G.player && G.altar_state == ALTAR_AWAKE && G.altar_seek >= 0 && G.level_t < ALTAR_TIME) {   /* where the violet wisp leads */
+    if (!G.player && G.altar_state == ALTAR_AWAKE && G.altar_wisp == AW_SEEK && G.altar_seek >= 0 && !G.secrets[G.altar_seek].state
+        && G.level_t < ALTAR_TIME) {                               /* where the violet wisp leads */
         const Secret *sc = &G.secrets[G.altar_seek];
         if (bfs_dist[sc->fy][sc->fx] > 0) { G.seek_secret = G.altar_seek; *gx = sc->fx; *gy = sc->fy; return 1; }
     }
@@ -3988,7 +3995,7 @@ static void update_player(float dt) {
         }
         break;
     }
-    case PS_ALTAR: {                                               /* a hand to the altar: anointed, woken, blessed */
+    case PS_ALTAR: {                                               /* a hand to the altar: anointed, woken, sent on, blessed */
         G.st += dt;
         G.ang = lerpf(G.ang0, G.ang1, smoothstepf(0.0f, 1.0f, fminf(1.0f, G.st / G.adur)));
         float k = G.st - G.adur;
@@ -3997,6 +4004,7 @@ static void update_player(float dt) {
             G.fired = 1;
             if (wants_anoint()) altar_anoint();
             if (wants_wake()) altar_wake();
+            if (wants_send()) altar_send();
             if (wants_bless()) altar_bless();
         }
         if (k >= 1.2f) {
@@ -4095,7 +4103,7 @@ static void debug_map(int seen) {
 /* A Black Altar, from level 6, on a level with secrets to find: in the exit room, clear of the way,
  * else in the room farthest from the start (PLAN-items: Black Altars). */
 static void place_altar(void) {
-    G.altar_x = -1; G.altar_state = ALTAR_DORMANT; G.altar_seek = -1; G.blessed = 0;
+    G.altar_x = -1; G.altar_state = ALTAR_DORMANT; G.altar_seek = -1; G.blessed = 0; G.altar_wisp = AW_NONE; G.altar_inside = 0;
     if (G.level < 6 || G.nsecrets == 0) return;
     int room = -1;
     for (int r = 0; r < G.nrooms && G.exit_fx >= 0 && room < 0; r++) if (in_room(&G.rooms[r], G.exit_fx, G.exit_fy)) room = r;
@@ -4587,41 +4595,79 @@ static void collect(Item *it) {
 /* Abilities that run by themselves. Treasure Hunter: an eerie whisper from an unopened secret wall
  * within three cells, louder as you near it. Commune: every 15 s, the creatures within its reach show
  * as red shapes through the walls for a moment (render_commune). */
-/* The Black Altar: gold once every secret is found, however; while awake, its wisp seeks the nearest
- * secret wall not yet opened */
+static int summon_wisp(int kind, int color, float cost);
+static void wisp_out(Wisp *w);
+/* The Black Altar (docs/PLAN-b6.md): gold once every secret is found, every link of every chain. Its
+ * wisp goes to one secret at a time and waits at its door, the cell before the cracked wall, while you
+ * are inside; once you have been in and come out again, E at the wisp sends it home, and at the altar
+ * it can be sent on to the next for ALTAR_SOULS and five more for every secret found on the level. */
+static int nearest_shut(float x, float y) {
+    int best = -1; float bd = 1e9f;
+    for (int i = 0; i < G.nsecrets; i++) {
+        if (G.secrets[i].state) continue;
+        float d = hypotf(G.secrets[i].fx + 0.5f - x, G.secrets[i].fy + 0.5f - y);
+        if (d < bd) { bd = d; best = i; }
+    }
+    return best;
+}
+static int in_secret(int i) {                                      /* standing in that secret's room */
+    const Secret *sc = &G.secrets[i];
+    return G.cx >= sc->x0 && G.cx <= sc->x1 && G.cy >= sc->y0 && G.cy <= sc->y1;
+}
+static int altar_price(void) { return ALTAR_SOULS + 5 * G.links_found; }
+static int altar_callable(void) {                                  /* been in, and out again: it may be sent home */
+    return G.altar_wisp == AW_SEEK && G.altar_seek >= 0 && G.secrets[G.altar_seek].state && G.altar_inside && !in_secret(G.altar_seek);
+}
+static void altar_call_home(void) {
+    G.altar_wisp = AW_HOME; G.wisps[1].retarget = 0.0f;
+    sfx_at(SFX_SHIMMER, G.wisps[1].x, G.wisps[1].y, 0.8f);
+    if (G.player) say("THE WISP GOES HOME TO ITS ALTAR");
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT altar wisp home t=%.2f\n", G.t);
+#endif
+}
 static void update_altar(void) {
     if (G.altar_x < 0 || G.altar_state >= ALTAR_READY) return;
     if (G.links_found >= G.nlinks) {
         G.altar_state = ALTAR_READY; G.altar_seek = -1;
+        if (G.wisps[1].on && G.wisps[1].state != WS_GONE) wisp_out(&G.wisps[1]);   /* its work done */
+        G.altar_wisp = AW_NONE;
         sfx_at(SFX_SHIMMER, G.altar_x + 0.5f, G.altar_y + 0.5f, 1.2f);
         if (G.player) say("THE BLACK ALTAR BURNS GOLD");
         return;
     }
-    if (G.altar_state == ALTAR_AWAKE && (G.altar_seek < 0 || G.secrets[G.altar_seek].state)) {   /* the next nearest */
-        float bd = 1e9f;
-        G.altar_seek = -1;
-        for (int i = 0; i < G.nsecrets; i++) {
-            if (G.secrets[i].state) continue;
-            float d = hypotf(G.secrets[i].fx + 0.5f - G.px, G.secrets[i].fy + 0.5f - G.py);
-            if (d < bd) { bd = d; G.altar_seek = i; }
-        }
+    if (G.altar_wisp == AW_SEEK && G.altar_seek >= 0) {
+        if (in_secret(G.altar_seek)) G.altar_inside = 1;
+        if (!G.player && G.secrets[G.altar_seek].state && !in_secret(G.altar_seek)   /* the autopilot calls it home as it goes */
+            && hypotf(G.wisps[1].x - G.px, G.wisps[1].y - G.py) < 4.0f) altar_call_home();
     }
+    if (G.altar_wisp == AW_HOME && G.wisps[1].on && G.wisps[1].state == WS_HOVER) G.altar_wisp = AW_REST;
+    if ((G.altar_wisp == AW_HOME || G.altar_wisp == AW_REST) && !G.wisps[1].on) summon_wisp(WK_ALTAR, 0, 0.0f);   /* lost: it comes again */
 }
 
-static int summon_wisp(int kind, int color, float cost);
 /* The altar's three gifts, chosen from its menu (E) or by the autopilot: its wisp for ten souls, its
  * blessing on your exit wisps for twenty-five, and when it burns gold, an anointing */
 static int altar_wake(void) {
     if (G.altar_state != ALTAR_DORMANT) return 0;
     if (!spend_spirit((float)ALTAR_SOULS)) { if (G.player) say("THE ALTAR WANTS %d SOULS", ALTAR_SOULS); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 0; }
-    G.altar_state = ALTAR_AWAKE; G.altar_seek = -1;
+    G.altar_state = ALTAR_AWAKE; G.altar_seek = nearest_shut(G.px, G.py); G.altar_wisp = AW_SEEK; G.altar_inside = 0;
     if (G.player) say("THE ALTAR'S WISP SEEKS WHAT IS HIDDEN");
     snd_sfx_ex(SFX_WHISPER, 0.9f, 0.5f); sfx_at(SFX_SHIMMER, G.altar_x + 0.5f, G.altar_y + 0.5f, 1.0f);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT altar wakes t=%.2f\n", G.t);
 #endif
-    update_altar();
     summon_wisp(WK_ALTAR, 0, 0.0f);                                /* the altar's own, free */
+    return 1;
+}
+static int altar_send(void) {                                      /* its wisp, resting, sent on to the next secret */
+    if (G.altar_state != ALTAR_AWAKE || G.altar_wisp != AW_REST || nearest_shut(G.px, G.py) < 0) return 0;
+    if (!spend_spirit((float)altar_price())) { if (G.player) say("SENDING IT ON WANTS %d SOULS", altar_price()); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 0; }
+    G.altar_seek = nearest_shut(G.px, G.py); G.altar_wisp = AW_SEEK; G.altar_inside = 0; G.wisps[1].retarget = 0.0f;
+    if (G.player) say("THE WISP GOES TO THE NEXT SECRET");
+    snd_sfx_ex(SFX_WHISPER, 0.9f, 0.5f); sfx_at(SFX_SHIMMER, G.altar_x + 0.5f, G.altar_y + 0.5f, 1.0f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT altar sends price=%d t=%.2f\n", altar_price(), G.t);
+#endif
     return 1;
 }
 static int altar_bless(void) {
@@ -4795,11 +4841,19 @@ static int wisp_target(int kind, int color, int *gx, int *gy, float *hx, float *
         if (i < 0) return 0;
         x = G.items[i].cx; y = G.items[i].cy; px = G.items[i].x; py = G.items[i].y;   /* over the key */
         *gx = x; *gy = y; past_vaults(gx, gy, vault_of_room(x, y));
+    } else if (G.altar_wisp == AW_HOME || G.altar_wisp == AW_REST) {   /* home: over the altar */
+        if (G.altar_x < 0) return 0;
+        int d = 0;
+        for (; d < 4; d++) if (is_open(G.altar_x + DX[d], G.altar_y + DY[d])) break;
+        if (d == 4) return 0;
+        x = G.altar_x + DX[d]; y = G.altar_y + DY[d];
+        px = x + 0.5f - DX[d] * 0.45f; py = y + 0.5f - DY[d] * 0.45f;   /* at the altar's edge, over its fire */
+        *gx = x; *gy = y; past_vaults(gx, gy, vault_of_room(x, y));
     } else {
         if (G.altar_state != ALTAR_AWAKE || G.altar_seek < 0) return 0;
         const Secret *sc = &G.secrets[G.altar_seek];
         x = sc->fx; y = sc->fy;
-        px = x + 0.5f + DX[sc->d] * 0.3f; py = y + 0.5f + DY[sc->d] * 0.3f;   /* before the cracked wall */
+        px = x + 0.5f + DX[sc->d] * 0.3f; py = y + 0.5f + DY[sc->d] * 0.3f;   /* at its door, till you have been in and out */
         *gx = x; *gy = y; past_vaults(gx, gy, vault_of_room(x, y));
     }
     *final = *gx == x && *gy == y;
@@ -4873,7 +4927,7 @@ static int wisp_choices(WispChoice *c) {
     c[n++] = (WispChoice){ WK_EXIT, 0, WISP_COST };
     if (gear_ability(&RUN.gear, AB_KEYMAKER, 0) > 0.0f)            /* Keymaker: a wisp to each key still lying */
         for (int k = 0; k < NKEYS; k++) if (key_lying(k) >= 0) c[n++] = (WispChoice){ WK_KEY, k, WISP_COST };
-    if (G.altar_state == ALTAR_AWAKE && G.altar_seek >= 0) c[n++] = (WispChoice){ WK_ALTAR, 0, 0.0f };   /* the altar's, back */
+    if (G.altar_state == ALTAR_AWAKE && G.altar_wisp == AW_SEEK && G.altar_seek >= 0) c[n++] = (WispChoice){ WK_ALTAR, 0, 0.0f };   /* the altar's, back */
     return n;
 }
 static int wisp_choice_at(const WispChoice *c, int n, int kind, int color) {
@@ -4888,8 +4942,14 @@ static void cast_choice(const WispChoice *c) {
 typedef struct { const char *what, *cost, *note; int ok, price; } AltarRow;
 static void altar_rows(AltarRow *r) {
     static char found[40];
-    if (G.altar_state == ALTAR_DORMANT) r[0] = (AltarRow){ "WAKE ITS WISP", "10 SOULS", "IT LEADS YOU TO EACH SECRET", 1, ALTAR_SOULS };
-    else if (G.altar_state == ALTAR_AWAKE) r[0] = (AltarRow){ "ITS WISP IS AWAKE", "", "L CALLS IT BACK IF IT IS LOST", 0, 0 };
+    static char price[24];
+    if (G.altar_state == ALTAR_DORMANT) r[0] = (AltarRow){ "WAKE ITS WISP", "10 SOULS", "IT LEADS YOU TO A SECRET", 1, ALTAR_SOULS };
+    else if (G.altar_state == ALTAR_AWAKE && G.altar_wisp == AW_REST && nearest_shut(G.px, G.py) >= 0) {
+        snprintf(price, sizeof price, "%d SOULS", altar_price());
+        r[0] = (AltarRow){ "SEND ITS WISP ON", price, "TO THE NEAREST SECRET STILL SHUT", 1, altar_price() };
+    }
+    else if (G.altar_state == ALTAR_AWAKE && G.altar_wisp == AW_REST) r[0] = (AltarRow){ "ITS WISP RESTS", "", "NO SECRET WALL IS LEFT SHUT", 0, 0 };
+    else if (G.altar_state == ALTAR_AWAKE) r[0] = (AltarRow){ "ITS WISP IS OUT", "", "IN, OUT, THEN E SENDS IT HOME", 0, 0 };
     else r[0] = (AltarRow){ "ITS WISP HAS DONE ITS WORK", "", "EVERY SECRET HERE IS FOUND", 0, 0 };
     r[1] = G.blessed ? (AltarRow){ "YOUR EXIT WISPS ARE BLESSED", "", "UNTIL YOU LEAVE THIS LEVEL", 0, 0 }
                      : (AltarRow){ "BLESS YOUR EXIT WISPS", "25 SOULS", "THEY TURN THE UNDEAD, THIS LEVEL", 1, ALTAR_BLESS };
@@ -4959,6 +5019,14 @@ static void update_wisps(float dt) {
                     x = bx; y = by;
                 }
                 if (w->field[y][x] > 0) { tx = x + 0.5f; ty = y + 0.5f; }
+            } else if (f < 0 && cx >= 0 && cy >= 0 && cx < MAPN && cy < MAPN) {   /* strayed off its way (over a prop): back onto it */
+                int best = -1;
+                for (int d = 0; d < 4; d++) {
+                    int nx = cx + DX[d], ny = cy + DY[d];
+                    if (nx < 0 || ny < 0 || nx >= MAPN || ny >= MAPN || w->field[ny][nx] < 0) continue;
+                    if (best < 0 || w->field[ny][nx] < w->field[cy + DY[best]][cx + DX[best]]) best = d;
+                }
+                if (best >= 0) { tx = cx + DX[best] + 0.5f; ty = cy + DY[best] + 0.5f; }
             }
             if (f >= 0 && f < 2) pace *= 0.45f + 0.55f * fminf(1.0f, hypotf(w->hx - w->x, w->hy - w->y));   /* slowing as it comes there */
             float dx = tx - w->x, dy = ty - w->y, d = hypotf(dx, dy);
@@ -5786,6 +5854,11 @@ static int human_use(void) {
     Cell *c = cell(cx, cy);
     if (c->kind == K_DOOR) { open_door(&G.doors[c->door]); return 1; }
     if (c->kind == K_WALL && c->secret == 3 && pocket_door(cx, cy)) return 1;   /* a secret's doorway */
+    if (!PK.depth && altar_callable()) {                           /* the altar's wisp, waiting at a secret you have been into */
+        const Wisp *w = &G.wisps[1];
+        float d = hypotf(w->x - G.px, w->y - G.py);
+        if (w->on && d < 2.2f && fabsf(wrap_pi(atan2f(w->y - G.py, w->x - G.px) - G.ang)) < 0.35f + 0.4f / fmaxf(d, 0.5f)) { altar_call_home(); return 1; }
+    }
     if (c->kind == K_WALL && c->secret == 2)                       /* a cracked wall: it gives */
         for (int i = 0; i < G.nsecrets; i++) if (G.secrets[i].sx == cx && G.secrets[i].sy == cy && !G.secrets[i].state) { open_secret(i); G.grab_t = 1.0f; return 1; }
     if (!G.shop && G.exit_fx >= 0 && cx == G.exit_wx && cy == G.exit_wy && hypotf(G.exit_fx + 0.5f - G.px, G.exit_fy + 0.5f - G.py) < 1.0f) { human_exit(); return 1; }
@@ -5955,10 +6028,33 @@ static void pilgrim_step(float dt) {
         if (G.pilgrim == 1) { G.pilgrim = 0; say("THE WISP IS GONE, AND THE PULL WITH IT"); }
         return;
     }
+#ifdef CRAWL_DEBUG
+    if (G.pilgrim == 2) G.hp = G.max_hp;                           /* the test player can't be hurt */
+    if (G.pilgrim == 2 && G.altar_wisp == AW_SEEK && G.altar_seek >= 0 && G.secrets[G.altar_seek].state == 2) {   /* testing the altar's */
+        const Secret *sc = &G.secrets[G.altar_seek];                /* wisp: in, out, and E at it */
+        if (G.altar_inside && !in_secret(G.altar_seek)) { G.ang = atan2f(G.wisps[1].y - G.py, G.wisps[1].x - G.px); IN.hit[KEY_E] = 1; return; }
+        float lx = sc->sx + 0.5f, ly = sc->sy + 0.5f, along = (G.px - lx) * DX[sc->d] + (G.py - ly) * DY[sc->d];
+        float off = (G.px - lx) * DY[sc->d] + (G.py - ly) * DX[sc->d];   /* across the stone's path, which is the way in */
+        float want = G.altar_inside ? -1.0f : 2.0f;                    /* in two cells, or back out to the hall */
+        float tx = lx + DX[sc->d] * want, ty = ly + DY[sc->d] * want;
+        if (fabsf(off) > 0.08f) { tx = lx + DX[sc->d] * along; ty = ly + DY[sc->d] * along; }   /* in line with it first */
+        G.ang = atan2f(ty - G.py, tx - G.px); IN.down[KEY_W] = 1;
+        return;
+    }
+    if (G.pilgrim == 2 && G.altar_wisp == AW_REST && hypotf(G.altar_x + 0.5f - G.px, G.altar_y + 0.5f - G.py) < 1.5f
+        && line_clear(G.px, G.py, G.altar_x + 0.5f, G.altar_y + 0.5f)) {
+        static float wait;                                          /* at the altar: a look at it resting, then its menu */
+        G.ang = atan2f(G.altar_y + 0.5f - G.py, G.altar_x + 0.5f - G.px);
+        if ((wait += dt) < 2.0f) return;
+        wait = 0.0f; IN.hit[KEY_E] = 1;                             /* and Enter there (update_ui) sends it on */
+        return;
+    }
+#endif
     if (!wisp_lean(fw, &lean)) return;                             /* only just kindled: it hasn't found its way yet */
     G.ang = wrap_pi(G.ang + wrap_pi(lean - G.ang) * fminf(1.0f, dt * 8.0f));
     IN.down[KEY_W] = 1;
     IN.hit[KEY_E] = fmodf((float)G.t, 0.5f) < dt;                  /* doors in the way */
+    if (G.pilgrim == 2 && G.altar_x >= 0 && hypotf(G.altar_x + 0.5f - G.px, G.altar_y + 0.5f - G.py) < 2.5f) IN.hit[KEY_E] = 0;   /* not the altar's menu */
     if ((int)G.px == G.exit_fx && (int)G.py == G.exit_fy) { G.ang = heading_angle(G.exit_dir); IN.hit[KEY_E] = 1; }
     for (int i = 0; i < G.nsecrets; i++)                            /* the altar's wisp's secrets */
         if (!G.secrets[i].state && (int)G.px == G.secrets[i].fx && (int)G.py == G.secrets[i].fy) { G.ang = heading_angle(G.secrets[i].d); IN.hit[KEY_E] = 1; }
@@ -6206,6 +6302,8 @@ static int tp_altar(void) {                                        /* before the
     for (int d = 0; d < 4 && G.altar_x >= 0; d++) {
         int x = G.altar_x + DX[d], y = G.altar_y + DY[d];
         if (!is_open(x, y)) continue;
+        int k = vault_of_room(x, y);                               /* in a vault: its door unlocked, as if by its key */
+        if (k >= 0 && G.vault_door[k] >= 0 && G.doors[G.vault_door[k]].locked == 1) G.doors[G.vault_door[k]].locked = 2;
         G.px = x + 0.5f; G.py = y + 0.5f; G.ang = heading_angle((d + 2) & 3); human_begin();
         return 1;
     }
@@ -6847,7 +6945,8 @@ static void update_altarmenu(void) {
     if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) return;
     if (!r[G.ui_sel].ok) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }   /* its note says why */
     G.ui = UI_NONE;
-    if (G.ui_sel == 0) altar_wake(); else if (G.ui_sel == 1) altar_bless(); else altar_anoint();
+    if (G.ui_sel == 0) { if (G.altar_state == ALTAR_DORMANT) altar_wake(); else altar_send(); }
+    else if (G.ui_sel == 1) altar_bless(); else altar_anoint();
 }
 
 /* the shrine's screen: W/S the actions, A/D their values, Enter; among the slots W/A/S/D and Enter;
@@ -6949,6 +7048,12 @@ static void update_ui(void) {
     if (IN.hit[KEY_MOUSE1]) G.click_spent = 1;                    /* a click that closes a menu casts nothing */
     if (G.ui == UI_WISPS) { update_wispmenu(); return; }
     if (G.ui == UI_SHRINE) { update_shrinemenu(); return; }
+#ifdef CRAWL_DEBUG
+    if (G.pilgrim == 2 && G.ui == UI_ALTAR) {                     /* the test player sends the wisp on, after a look */
+        static int look;
+        if (++look >= 40) { look = 0; G.ui_sel = 0; IN.hit[KEY_ENTER] = 1; }
+    }
+#endif
     if (G.ui == UI_ALTAR) { update_altarmenu(); return; }
     if (G.ui == UI_INVENTORY) update_inventory();
     else if (G.ui == UI_GRAVES) update_graves();
