@@ -395,6 +395,31 @@ static void gen_sign(int t, uint32_t seed) {
 
 /* the final door of each level: an arch of old stone, iron doors, a skull for a keystone, and
  * runes that glow; opened, it is nothing but light */
+/* A secret's doorway into its pockets (until each theme gives it its own look): an opening cut in the
+ * stone, and inside it doorway after doorway going away into a pale light, yellow for the first two
+ * sets and cold white for the last two; full-bright, so it shows in the dark of the room */
+static void gen_passage(int t, int warm) {
+    int ramp = warm ? R_FLAME : R_GLOW;
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c;
+            if (x < 18 || x > 45 || y < 12) {
+                c = sh(R_STONE, block_shade(x, y, 221) * 0.8f);
+                if ((x == 17 || x == 46) && y >= 12) c = sh(R_STONE, 0.1f);   /* the cut's edge */
+                if (y == 11 && x >= 17 && x <= 46) c = sh(R_STONE, 0.12f);
+            } else {
+                c = 0;
+                for (int k = 0; k < 6; k++) {                      /* the frames, each further and dimmer */
+                    int l = 18 + 3 * k, r = 45 - 3 * k, top = 12 + 3 * k;
+                    if (y >= top && ((x == l || x == r) || (y == top && x >= l && x <= r))) c = (uint8_t)(ramp + 15 - k);
+                }
+                if (x >= 28 && x <= 35 && y >= 30) c = C_WHITE;           /* the light at the end */
+                if (y > 56 && c == 0 && ((x + y) & 1)) c = (uint8_t)(ramp + 3);   /* a little of it on the floor */
+            }
+            tput(t, x, y, c);
+        }
+}
+
 static void gen_exit(int t, int frame, int open) {
     for (int y = 0; y < TS; y++)
         for (int x = 0; x < TS; x++) {
@@ -3984,6 +4009,7 @@ void crawl_art_level(int level) {
     gen_banner(T_BANNER, 11);
     for (int f = 0; f < 3; f++) gen_torch(T_TORCH0 + f, f, 11);
     gen_jamb(T_JAMB, 79);
+    gen_passage(T_PASSAGE, crawl_set(level) < 2);
     static const int DECAYS[] = { T_STONE, T_RUBBLE, T_SKULLS, T_BRICK, T_MOSS, T_NICHE, T_BANNER, T_TORCH0, T_TORCH1, T_TORCH2, T_JAMB };
     for (int i = 0; i < (int)(sizeof DECAYS / sizeof DECAYS[0]); i++)
         decay_tex(DECAYS[i], dk, (uint32_t)(DECAYS[i] >= T_TORCH0 && DECAYS[i] <= T_TORCH2 ? 900 : 900 + DECAYS[i] * 13 + level * 31));
@@ -4023,6 +4049,7 @@ void crawl_art_init(void) {
     gen_exit(T_EXIT0, 0, 0);
     gen_exit(T_EXIT1, 1, 0);
     gen_exit(T_EXIT_OPEN, 1, 1);
+    gen_passage(T_PASSAGE, 1);
 
     spr_bones(SP_BONES1, 0, 5);
     spr_bones(SP_BONES2, 1, 9);

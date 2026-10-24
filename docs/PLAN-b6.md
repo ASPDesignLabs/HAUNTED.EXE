@@ -177,6 +177,10 @@ for a door, a wall or a ware is unchanged. Harness frames show both cases.
 - **Leaving:** for each pull made this visit, you choose one rune from the slots to take. Taking one
   of a kind you already hold keeps the better of the two. The rest stay in the slots for next time.
 - **The shop's rune pedestal** becomes another piece to wear.
+- **Pockets (24 October 2026, seventh round):** you go through a chain's doorway by walking into it,
+  as into the exit; dying in a pocket throws you back to the chain's first room, by its doorway, at full
+  health, and the pocket behind you resets; the level's clock waits while you are in a pocket (so the
+  Wraith can't come mid-chain), and pockets keep their own.
 - **As built** (step 3): the shrine is a solid stele on two steps at (15.5, 17.5) with candles either
   side; sanctified it is pale with a gilded disc, cursed it is sooty with its broken disc and turned
   cross glowing in its rank's colour (white, green, blue, purple, gold), and the runes it is attuned to

@@ -29,6 +29,7 @@ enum {
     T_EXIT0, T_EXIT1, T_EXIT_OPEN,                /* the way out: runes shimmering, then thrown open */
     T_LOCKED_S, T_LOCKED_C,                       /* the silver and crimson vault doors */
     T_SIGN,                                       /* the merchant's sign */
+    T_PASSAGE,                                    /* a secret's doorway into its pockets: frames going away into light */
     NTEX
 };
 

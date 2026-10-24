@@ -179,9 +179,11 @@ typedef struct { int alive; float x, y, t, dps; int foe; } Burn;           /* he
 typedef struct { int alive; float x, y, t; } Pool;                         /* what a drowned one leaves: foul, a few seconds */
 #define MAXPOOLS 4
 typedef struct { int x, y, w, h, region, theme; } Room;
-typedef struct { int fx, fy, d, sx, sy, tex, state, rolled; } Secret;   /* stand at f, press d: the wall at s slides back */
-#define MAXSECRETS 3
-#define SLIDE_CELLS 3                       /* how far a secret wall slides: right through its closet */
+/* stand at f, press d: the wall at s slides len cells back into its room (x0..x1, y0..y1). links: the chain
+ * it begins (1, a room alone); door: the doorway at the back of its room into the pockets (x -1: none) */
+typedef struct { int fx, fy, d, sx, sy, tex, state, rolled, len, links, door_x, door_y, x0, y0, x1, y1; } Secret;
+#define MAXSECRETS 6
+#define SLIDE_TIME 2.3f                     /* how long a secret wall takes to slide right through its room */
 #define MAXWISPS 2                          /* the one you summon, and the Black Altar's */
 #define WISP_MOTES 192                      /* the trail a wisp leaves hanging in the air */
 #define WISP_MOTE_T 12.0f                   /* how long a mote of it hangs there */
@@ -336,7 +338,7 @@ static struct {
     int kills, kills_total;
     int spawned[NKINDS];                    /* how many of each kind have come on this level: a newcomer comes alone */
     uint8_t named[NKINDS];                  /* the ranks of each kind the caption has named on this level */
-    Secret secrets[MAXSECRETS]; int nsecrets, secrets_found;
+    Secret secrets[MAXSECRETS]; int nsecrets, secrets_found, nlinks, links_found;   /* rooms behind cracked walls; every link of every chain */
     int slide, seek_secret; float slide_t;  /* the wall sliding back, and how far; a secret the autopilot means to press */
     Wisp wisps[MAXWISPS];                   /* will-o'-wisps in the crypt: [0] summoned, [1] the altar's */
     int tally;                              /* the level-complete screen */
@@ -737,18 +739,59 @@ static void mz_draw(void) {
         }
 }
 
-/* Secrets: a block left solid beside a hall or room becomes a closet of loot behind a wall with
- * cracks in it, which slides back when pressed. One on the first two levels, two from level 3,
- * three from level 6. They never lead anywhere but the closet. */
+/* Secrets (docs/PLAN-b6.md): a set's levels hold 3, 4, 4, 5 and 6 of them, every link of a chain
+ * counted, split into chains that grow longer deeper into the set (the first always two or more, so
+ * every level has a way into a pocket). Each chain begins in a room behind a cracked wall beside a hall,
+ * made of blocks the plan left solid: one, two side by side, or two by two where there is the room;
+ * the wall slides right through it and comes to rest at the back. A chain of two or more has a doorway
+ * in the back wall, beside where the stone stops. */
+static int imin(int a, int b) { return a < b ? a : b; }
+static int imax(int a, int b) { return a > b ? a : b; }
+static int secret_block_free(int mx, int my) { return mx >= 1 && my >= 1 && mx < MG - 1 && my < MG - 1 && !mopen(mx, my) && !MM[my][mx].trunk; }
+/* a doorway into a room's pockets: in its back wall if it can, else a side wall, beside where the stone
+ * stops and never behind it, with solid rock beyond (kept so) for the doorway not to show elsewhere */
+static int secret_door(Secret *sc) {
+    int rx = sc->sx + DX[sc->d] * sc->len, ry = sc->sy + DY[sc->d] * sc->len, best = -1; float bs = -1e9f;
+    for (int y = sc->y0 - 1; y <= sc->y1 + 1; y++)
+        for (int x = sc->x0 - 1; x <= sc->x1 + 1; x++) {
+            int inside = x >= sc->x0 && x <= sc->x1 && y >= sc->y0 && y <= sc->y1;
+            if (inside || x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1) continue;
+            for (int n = 0; n < 4; n++) {                          /* n: outwards from the room */
+                int ix = x - DX[n], iy = y - DY[n], bx = x + DX[n], by = y + DY[n];
+                if (ix < sc->x0 || ix > sc->x1 || iy < sc->y0 || iy > sc->y1 || (ix == rx && iy == ry)) continue;
+                if (n == ((sc->d + 2) & 3) || G.map[y][x].kind != K_WALL || G.map[y][x].secret) continue;   /* not the front */
+                if (bx < 1 || by < 1 || bx >= MAPN - 1 || by >= MAPN - 1 || G.map[by][bx].kind != K_WALL || G.map[by][bx].secret) continue;
+                int along = (ix - sc->sx) * DX[sc->d] + (iy - sc->sy) * DY[sc->d];
+                float sc0 = (n == sc->d ? 20.0f : 0.0f) + (float)along + rndf() * 2.0f;
+                if (sc0 > bs) { bs = sc0; best = (y * MAPN + x) * 4 + n; }
+            }
+        }
+    if (best < 0) return 0;
+    int n = best % 4, x = best / 4 % MAPN, y = best / 4 / MAPN, bx = x + DX[n], by = y + DY[n];
+    if ((bx & 3) && (by & 3)) MM[(by - 1) / 4 * 2 + 1][(bx - 1) / 4 * 2 + 1].trunk = 1;
+    sc->door_x = x; sc->door_y = y;
+    G.map[y][x].secret = 3;
+    return 1;
+}
 static void place_secrets(void) {
-    G.nsecrets = G.secrets_found = 0; G.slide = -1;
-    int want = G.level >= 6 ? 3 : (G.level >= 3 ? 2 : 1);
+    static const int LINKS[5] = { 3, 4, 4, 5, 6 };
+    G.nsecrets = G.secrets_found = G.nlinks = G.links_found = 0; G.slide = -1;
+    int step = crawl_step(G.level), left = LINKS[step], chain[MAXSECRETS], nch = 0;
+    float longer = 0.3f + 0.1f * (float)step;
+    while (left > 0 && nch < MAXSECRETS) {
+        int len = 1;
+        while (len < left && rndf() < longer) len++;
+        if (!nch && len < 2 && left >= 2) len = 2;
+        chain[nch++] = len; left -= len;
+    }
+    left = 0;                                                      /* now: links that found no room, to go to a chain that has one */
+    for (int i = 1; i < nch; i++) { int v = chain[i], j = i - 1; while (j >= 0 && chain[j] < v) { chain[j + 1] = chain[j]; j--; } chain[j + 1] = v; }   /* the longest first */
     static int cand[MG * MG * 4];
     int nc = 0;
     for (int my = 1; my < MG; my += 2)
         for (int mx = 1; mx < MG; mx += 2) {
             if (mopen(mx, my)) continue;
-            for (int d = 0; d < 4; d++) {                          /* d: from the closet towards where it is pressed */
+            for (int d = 0; d < 4; d++) {                          /* d: from the room towards where it is pressed */
                 int cx = mx + DX[d], cy = my + DY[d], nx = mx + 2 * DX[d], ny = my + 2 * DY[d];
                 if (nx < 1 || ny < 1 || nx >= MG - 1 || ny >= MG - 1 || mopen(cx, cy) || !mopen(nx, ny)) continue;
                 int sx = mstart(cx) + (cx & 1), sy = mstart(cy) + (cy & 1), fx = sx + DX[d], fy = sy + DY[d];
@@ -760,18 +803,51 @@ static void place_secrets(void) {
             }
         }
     for (int i = nc - 1; i > 0; i--) { int j = rnd(i + 1), t = cand[i]; cand[i] = cand[j]; cand[j] = t; }
-    for (int i = 0; i < nc && G.nsecrets < want; i++) {
-        int b = cand[i] / 4, d = cand[i] % 4, mx = b % MG, my = b / MG;
+    int placed = 0;
+    for (int i = 0; i < nc && placed < nch; i++) {
+        int b = cand[i] / 4, d = cand[i] % 4, mx = b % MG, my = b / MG, in = (d + 2) & 3;
         int cx = mx + DX[d], cy = my + DY[d], sx = mstart(cx) + (cx & 1), sy = mstart(cy) + (cy & 1);
-        int clash = MM[my][mx].trunk;                              /* trunk marks a closet already taken */
+        int clash = MM[my][mx].trunk;                              /* trunk marks a room already taken */
         for (int k = 0; k < G.nsecrets; k++) clash |= abs(G.secrets[k].sx - sx) + abs(G.secrets[k].sy - sy) < 8;
         if (clash) continue;
-        MM[my][mx].trunk = 1;
-        for (int y = mstart(my); y < mstart(my) + 3; y++)
-            for (int x = mstart(mx); x < mstart(mx) + 3; x++) { carve(x, y, -2, TH_CORRIDOR); G.map[y][x].secret = 1; }
+        /* how big: two by two, two side by side, or the one block, as the plan allows */
+        int px = DY[in], py = DX[in], side = rnd(2) ? 1 : -1, bx[4] = { mx }, by[4] = { my }, nb = 1;
+        float r = rndf();
+        if (r < 0.15f + 0.1f * (float)step) {
+            for (int sd = 0; sd < 2 && nb == 1; sd++, side = -side) {
+                int ax = mx + 2 * px * side, ay = my + 2 * py * side, dx2 = mx + 2 * DX[in], dy2 = my + 2 * DY[in];
+                if (secret_block_free(ax, ay) && secret_block_free(dx2, dy2) && secret_block_free(ax + 2 * DX[in], ay + 2 * DY[in])) {
+                    bx[1] = ax; by[1] = ay; bx[2] = dx2; by[2] = dy2; bx[3] = ax + 2 * DX[in]; by[3] = ay + 2 * DY[in]; nb = 4;
+                }
+            }
+        }
+        if (nb == 1 && r < 0.65f)
+            for (int sd = 0; sd < 2 && nb == 1; sd++, side = -side)
+                if (secret_block_free(mx + 2 * px * side, my + 2 * py * side)) { bx[1] = mx + 2 * px * side; by[1] = my + 2 * py * side; nb = 2; }
+        int x0 = MAPN, y0 = MAPN, x1 = -1, y1 = -1;
+        for (int k = 0; k < nb; k++) {
+            MM[by[k]][bx[k]].trunk = 1;
+            x0 = imin(x0, mstart(bx[k])); y0 = imin(y0, mstart(by[k])); x1 = imax(x1, mstart(bx[k]) + 2); y1 = imax(y1, mstart(by[k]) + 2);
+        }
+        for (int y = y0; y <= y1; y++)
+            for (int x = x0; x <= x1; x++) { carve(x, y, -2, TH_CORRIDOR); G.map[y][x].secret = 1; }
         G.map[sy][sx].secret = 2;
-        G.secrets[G.nsecrets++] = (Secret){ sx + DX[d], sy + DY[d], (d + 2) & 3, sx, sy, 0, 0, 0 };
+        Secret *sc = &G.secrets[G.nsecrets++];
+        *sc = (Secret){ sx + DX[d], sy + DY[d], in, sx, sy, 0, 0, 0, nb == 4 ? 7 : 3, chain[placed++], -1, -1, x0, y0, x1, y1 };
+        if (sc->links >= 2 && !secret_door(sc)) { left += sc->links - 1; sc->links = 1; }   /* nowhere for a doorway: alone after all */
     }
+    for (int k = placed; k < nch; k++) left += chain[k];
+    for (int k = 0; k < G.nsecrets && left > 0; k++)               /* what found no room goes deeper into a chain */
+        if (G.secrets[k].door_x >= 0) { G.secrets[k].links += left; left = 0; }
+    for (int k = 0; k < G.nsecrets && left > 0; k++)               /* or makes one of a room alone */
+        if (secret_door(&G.secrets[k])) { G.secrets[k].links += left; left = 0; }
+    for (int k = 0; k < G.nsecrets; k++) G.nlinks += G.secrets[k].links;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "SECRETS level %d: %d links in %d rooms:", G.level, G.nlinks, G.nsecrets);
+    for (int k = 0; k < G.nsecrets; k++)
+        fprintf(stderr, " [%dx%d chain %d door (%d,%d)]", G.secrets[k].x1 - G.secrets[k].x0 + 1, G.secrets[k].y1 - G.secrets[k].y0 + 1, G.secrets[k].links, G.secrets[k].door_x, G.secrets[k].door_y);
+    fprintf(stderr, "\n");
+#endif
 }
 
 /* the sliding wall: a block of stone at its cell plus how far it has come */
@@ -912,6 +988,7 @@ static void gen_level(void) {
         Cell *w = &G.map[sc->sy][sc->sx];
         if (w->tex == T_NICHE || w->tex == T_BANNER || w->tex == T_SKULLS) w->tex = T_STONE;
         sc->tex = w->tex;
+        if (sc->door_x >= 0) G.map[sc->door_y][sc->door_x].tex = T_PASSAGE;
     }
 
     /* colonnades down some of the big rooms: a pillar where four of their blocks meet */
@@ -1340,17 +1417,24 @@ static void place_items(int sx, int sy) {
         add_item(x, y, IT_POTION);
         break;
     }
-    /* and in each secret closet, off to the sides at the back where it glints past the wall as it goes:
-     * treasure, and often something to heal with. None of it counts towards the level's treasure, so a
-     * secret is pure gain */
+    /* and in each secret room, off the stone's path and clear of its doorway, within reach of a lane:
+     * treasure, more for a bigger room, and often something to heal with. None of it counts towards the
+     * level's treasure, so a secret is pure gain */
     static const int LOOT[6] = { IT_CHEST, IT_CROWN, IT_GEMS, IT_GEMS, IT_CROWN, IT_CHALICE };
     for (int k = 0; k < G.nsecrets; k++) {
         const Secret *sc = &G.secrets[k];
-        int px = DY[sc->d], py = DX[sc->d], spots[4][2], ns = 0;  /* beside the last two cells of the closet */
-        for (int depth = 2; depth <= 3; depth++)
-            for (int side = -1; side <= 1; side += 2) { spots[ns][0] = sc->sx + DX[sc->d] * depth + px * side; spots[ns][1] = sc->sy + DY[sc->d] * depth + py * side; ns++; }
+        static int spots[64][2];
+        int ns = 0;
+        for (int y = sc->y0; y <= sc->y1; y++)
+            for (int x = sc->x0; x <= sc->x1; x++) {
+                int along = (x - sc->sx) * DX[sc->d] + (y - sc->sy) * DY[sc->d], across = (x - sc->sx) * DY[sc->d] + (y - sc->sy) * DX[sc->d];
+                if (across == 0 || lane_dist(x, y) > 1 || ns >= 64) continue;   /* the stone's way, and out of reach */
+                if (sc->door_x >= 0 && abs(x - sc->door_x) + abs(y - sc->door_y) <= 1) continue;
+                if (along < 2 && sc->len > 3) continue;            /* a big room keeps its front clear */
+                spots[ns][0] = x; spots[ns][1] = y; ns++;
+            }
         for (int i = ns - 1; i > 0; i--) { int j = rnd(i + 1); int t0 = spots[i][0], t1 = spots[i][1]; spots[i][0] = spots[j][0]; spots[i][1] = spots[j][1]; spots[j][0] = t0; spots[j][1] = t1; }
-        int n = 2 + (G.level >= 4) + (rnd(3) == 0);
+        int big = (sc->x1 - sc->x0 + 1) * (sc->y1 - sc->y0 + 1), n = 2 + (G.level >= 4) + (rnd(3) == 0) + (big > 9) + (big > 21);
         for (int i = 0; i < n && i < ns; i++) {
             int type = (i == n - 1 && rnd(10) < 6) ? IT_POTION : LOOT[rnd(6)];
             Item *it = add_item(spots[i][0], spots[i][1], type);
@@ -3363,28 +3447,30 @@ static void open_secret(int i) {
     G.map[sc->sy][sc->sx].kind = K_FLOOR;                          /* the block is drawn by itself while it moves */
     int nl = G.nlights;
     light_static(sc->sx + 0.5f + DX[sc->d] * 1.5f, sc->sy + 0.5f + DY[sc->d] * 1.5f, 0.75f, 3.4f);   /* the hoard's own glow */
-    if (G.nlights > nl) G.lights[nl].phase = -1000.0f;             /* steady, not a flame */
-    G.secrets_found++;
+    if (sc->len > 3 || sc->x1 - sc->x0 + sc->y1 - sc->y0 > 4)     /* a bigger room: the far end too */
+        light_static((sc->x0 + sc->x1 + 1) * 0.5f + DX[sc->d] * 1.0f, (sc->y0 + sc->y1 + 1) * 0.5f + DY[sc->d] * 1.0f, 0.7f, 4.0f);
+    if (sc->door_x >= 0)                                           /* what comes through the doorway */
+        light_static(sc->door_x + 0.5f - (sc->door_x - imin(imax(sc->door_x, sc->x0), sc->x1)) * 0.6f,
+                     sc->door_y + 0.5f - (sc->door_y - imin(imax(sc->door_y, sc->y0), sc->y1)) * 0.6f, 0.55f, 2.6f);
+    for (int l = nl; l < G.nlights; l++) G.lights[l].phase = -1000.0f;   /* steady, not flames */
+    G.secrets_found++; G.links_found++;
     rec_secret();
-    say("A SECRET!   %d OF %d", G.secrets_found, G.nsecrets);
+    say("A SECRET!   %d OF %d", G.links_found, G.nlinks);
     sfx_at(SFX_PUSHWALL, sc->sx + 0.5f, sc->sy + 0.5f, 1.0f);
     snd_sfx_ex(SFX_SECRET, 1.0f, 0.5f);
 #ifdef CRAWL_DEBUG
-    fprintf(stderr, "EVENT secret %d of %d t=%.2f by %s\n", G.secrets_found, G.nsecrets, G.t, G.player ? "player" : "autopilot");
+    fprintf(stderr, "EVENT secret %d of %d (room %d, chain of %d) t=%.2f by %s\n", G.links_found, G.nlinks, i, sc->links, G.t, G.player ? "player" : "autopilot");
 #endif
 }
 static void update_slide(float dt) {
     if (G.slide < 0) return;
     Secret *sc = &G.secrets[G.slide];
-    G.slide_t += dt / 0.78f;
-    if (G.slide_t < SLIDE_CELLS) return;
-    int ex = sc->sx + DX[sc->d] * SLIDE_CELLS, ey = sc->sy + DY[sc->d] * SLIDE_CELLS;   /* it comes to rest at the back */
+    G.slide_t += dt * (float)sc->len / SLIDE_TIME;
+    if (G.slide_t < (float)sc->len) return;
+    int ex = sc->sx + DX[sc->d] * sc->len, ey = sc->sy + DY[sc->d] * sc->len;   /* it comes to rest at the back */
     G.map[ey][ex].kind = K_WALL; G.map[ey][ex].tex = (uint8_t)sc->tex;
-    for (int k = 0; k <= SLIDE_CELLS; k++)
-        for (int side = -1; side <= 1; side++) {
-            int x = sc->sx + DX[sc->d] * k + DY[sc->d] * side, y = sc->sy + DY[sc->d] * k + DX[sc->d] * side;
-            if (x >= 0 && y >= 0 && x < MAPN && y < MAPN) G.map[y][x].secret = 0;
-        }
+    G.map[sc->sy][sc->sx].secret = 0;
+    for (int y = sc->y0; y <= sc->y1; y++) for (int x = sc->x0; x <= sc->x1; x++) G.map[y][x].secret = 0;
     sc->state = 2; G.slide = -1;
     for (int i = 0; i < MAXWISPS; i++) G.wisps[i].gx = -1;        /* the closet is part of the crypt now: map the ways again */
 }
@@ -3954,7 +4040,7 @@ static void debug_map(int seen) {
                 const Cell *c = &G.map[y][x];
                 char ch = c->kind == K_WALL ? '#' : c->kind == K_PILLAR ? 'O' : c->kind == K_PROP ? 'p' : c->kind == K_DOOR ? (G.doors[c->door].locked ? 'L' : 'D') : (lane(x, y) ? (seen && c->visits ? 'o' : '.') : ' ');
                 if (c->kind == K_WALL && c->tex == T_TORCH0) ch = 't';
-                if (c->secret) ch = c->secret == 2 ? '?' : ':';
+                if (c->secret) ch = c->secret == 2 ? '?' : (c->secret == 3 ? '&' : ':');
                 rows[y][x] = ch;
             }
             rows[y][MAPN] = 0;
@@ -4258,7 +4344,7 @@ static void collect(Item *it) {
  * secret wall not yet opened */
 static void update_altar(void) {
     if (G.altar_x < 0 || G.altar_state >= ALTAR_READY) return;
-    if (G.secrets_found >= G.nsecrets) {
+    if (G.links_found >= G.nlinks) {
         G.altar_state = ALTAR_READY; G.altar_seek = -1;
         sfx_at(SFX_SHIMMER, G.altar_x + 0.5f, G.altar_y + 0.5f, 1.2f);
         if (G.player) say("THE BLACK ALTAR BURNS GOLD");
@@ -4371,12 +4457,12 @@ static void update_tally(double dt) {
     float pt = (float)G.tally_t;
     G.tally_t += dt;
     float t = (float)G.tally_t;
-    int finals[TALLY_ROWS] = { (int)G.clear_time, G.kills, G.items_got, G.level_souls, G.secrets_found };
+    int finals[TALLY_ROWS] = { (int)G.clear_time, G.kills, G.items_got, G.level_souls, G.links_found };
     for (int r = 0; r < TALLY_ROWS; r++) {
         int v = tally_value(r, t, finals[r]);
         if (v != G.tally_shown[r]) { G.tally_shown[r] = v; snd_sfx_ex(SFX_TICK, 0.7f, 0.5f); }
         float done = TALLY_ROW0 + r * TALLY_ROW_GAP + TALLY_COUNT;
-        if (pt < done && t >= done) snd_sfx_ex(r == 2 ? SFX_COIN : (r == 4 && G.nsecrets && G.secrets_found == G.nsecrets ? SFX_SECRET : SFX_ENTER), 1.0f, 0.5f);
+        if (pt < done && t >= done) snd_sfx_ex(r == 2 ? SFX_COIN : (r == 4 && G.nlinks && G.links_found == G.nlinks ? SFX_SECRET : SFX_ENTER), 1.0f, 0.5f);
     }
     float perfect = TALLY_ROW0 + TALLY_ROWS * TALLY_ROW_GAP + 0.2f;
     if (pt < perfect && t >= perfect && G.items_total > 0 && G.items_got == G.items_total) snd_sfx_ex(SFX_KEYGET, 1.0f, 0.5f);
@@ -4556,7 +4642,7 @@ static void altar_rows(AltarRow *r) {
     if (G.altar_state == ALTAR_READY) r[2] = (AltarRow){ "ANOINT WHAT YOU WEAR", "FREE", "ONE WORN PIECE GROWS STRONGER", 1, 0 };
     else if (G.altar_state == ALTAR_SPENT) r[2] = (AltarRow){ "IT HAS ANOINTED ALREADY", "", "IT HAS GIVEN WHAT IT HAD", 0, 0 };
     else {
-        snprintf(found, sizeof found, "FIND EVERY SECRET: %d OF %d SO FAR", G.secrets_found, G.nsecrets);
+        snprintf(found, sizeof found, "FIND EVERY SECRET: %d OF %d SO FAR", G.links_found, G.nlinks);
         r[2] = (AltarRow){ "ANOINT WHAT YOU WEAR", "", found, 0, 0 };
     }
 }
@@ -4871,7 +4957,7 @@ static void gen_shop(void) {
         }
     G.nrooms = 0; G.ndoors = 0; G.nlights = 0; G.nlc = 0; G.ndecos = 0; G.nitems = 0;
     G.items_total = G.items_got = G.value_total = G.value_got = 0; G.nvaults = 0;
-    G.nsecrets = G.secrets_found = 0; G.slide = G.seek_secret = -1;
+    G.nsecrets = G.secrets_found = G.nlinks = G.links_found = 0; G.slide = G.seek_secret = -1;
     for (int k = 0; k < NKEYS; k++) G.vault_room[k] = G.vault_door[k] = -1;
     memset(G.bulky, 0, sizeof G.bulky); memset(G.fog, 0, sizeof G.fog);
     for (int y = 12; y <= 17; y++) for (int x = 10; x <= 20; x++) carve(x, y, 0, TH_BRICK);
@@ -5829,6 +5915,23 @@ static void tp_secret(int i) {                                     /* three step
     const Secret *sc = &G.secrets[i];
     G.px = sc->fx + 0.5f - DX[sc->d] * 2.5f; G.py = sc->fy + 0.5f - DY[sc->d] * 2.5f; G.ang = heading_angle(sc->d); human_begin();
 }
+#ifdef CRAWL_DEBUG
+static void tp_door(void) {                                        /* a chained room opened, and you before its doorway */
+    for (int i = 0; i < G.nsecrets; i++) {
+        Secret *sc = &G.secrets[i];
+        if (sc->door_x < 0) continue;
+        if (!sc->state) { open_secret(i); while (G.slide >= 0) update_slide(0.5f); }
+        for (int n = 0; n < 4; n++) {
+            int fx = sc->door_x - DX[n], fy = sc->door_y - DY[n];
+            if (fx < sc->x0 || fx > sc->x1 || fy < sc->y0 || fy > sc->y1 || G.map[fy][fx].kind != K_FLOOR) continue;
+            int bx = fx - DX[n], by = fy - DY[n];
+            float back = (bx >= sc->x0 && bx <= sc->x1 && by >= sc->y0 && by <= sc->y1 && G.map[by][bx].kind == K_FLOOR) ? 1.0f : 0.0f;
+            G.px = fx + 0.5f - DX[n] * back; G.py = fy + 0.5f - DY[n] * back; G.ang = heading_angle(n); human_begin();
+            return;
+        }
+    }
+}
+#endif
 static int tp_altar(void) {                                        /* before the Black Altar, facing it */
     for (int d = 0; d < 4 && G.altar_x >= 0; d++) {
         int x = G.altar_x + DX[d], y = G.altar_y + DY[d];
@@ -6192,6 +6295,7 @@ static void crawl_control(int what) {
     if (getenv("CRAWL_TPEXIT") && !G.shop && G.exit_fx >= 0) tp_exit();    /* testing: straight to the exit, facing it */
     if (getenv("CRAWL_TPSECRET") && !G.shop && G.nsecrets) tp_secret(atoi(getenv("CRAWL_TPSECRET")) % G.nsecrets);
     if (getenv("CRAWL_TPALTAR") && !G.shop) tp_altar();
+    if (getenv("CRAWL_TPDOOR") && !G.shop) tp_door();              /* before a secret's doorway, its room open */
     fprintf(stderr, "EVENT control t=%.2f at (%.2f,%.2f) ang %.3f shop %d\n", G.t, G.px, G.py, G.ang, G.shop);
 #endif
 }
@@ -7867,7 +7971,7 @@ static void render_tally(Frame *f) {
     level_name(G.level, name, sizeof name);
     card_text(f, 64, name, R_FLAME + 9);
     static const char *LABEL[TALLY_ROWS] = { "TIME", "KILLS", "TREASURE", "SOULS", "SECRETS" };
-    int totals[TALLY_ROWS] = { 0, G.kills_total, G.items_total, 0, G.nsecrets };
+    int totals[TALLY_ROWS] = { 0, G.kills_total, G.items_total, 0, G.nlinks };
     for (int r = 0; r < TALLY_ROWS; r++) {
         if (t < TALLY_ROW0 + r * TALLY_ROW_GAP - 0.3f) continue;
         int y = 82 + r * 16, v = G.tally_shown[r];
