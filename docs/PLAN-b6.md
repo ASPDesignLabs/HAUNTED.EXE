@@ -8,7 +8,7 @@ caught in a loop, the glitch, the silence, echo and hum, and the visportal's gif
 is built too: white halls and offices, the ward doors, the panels, the water cooler's drink, the
 creatures lit brighter, the muzak. Step 7 is built: the coins, creatures in the pockets, the autopilot
 in chains. The owner approved Blink's double, the shrine's art, the Backrooms and Severance as drawn.
-Step 8, the checks, is done; 1.0.0b6 waits for the owner's word.** The owner
+Step 8, the checks, is done, and 1.0.0b6 was released at the owner's word on 24 October 2026.** The owner
 asked for the things below after 1.0.0b5, answered nine rounds of questions, and left the rest to
 defaults, marked *default* here so they can be changed. Nothing in this plan names the console's codes.
 
@@ -267,8 +267,8 @@ two states are approved.
    80% in and 50% out instead of two thirds changed little, so the plan's rule stays. The pockets'
    creatures are where the challenge is, for it as for a person. The desks stand in an office's corner,
    off the lanes the autopilot walks.
-8. **Checks and the beta** (done but for the release): frames, eight-seed runs against 1.0.0b5, ASan,
-   the README, previews and release notes; the page changes with the release, when the owner says. In
+8. **Checks and the beta** (done; released as 1.0.0b6): frames, eight-seed runs against 1.0.0b5, ASan,
+   the README, previews and release notes, and the page with the release. In
    the runs the autopilot died about as often in the crypt (4, 7 and 30 from levels 1, 11 and 16,
    against 5, 11 and 28), and 2, 2 and 5 times more in chains, which only throws it back whole. The
    risk named below came true in part: it took three runes from the shrine in 24 runs, where it bought
