@@ -71,7 +71,7 @@ typedef struct Patch {
 } Patch;
 
 enum { PAT_BELL, PAT_MBOX, PAT_DRONE, PAT_PAD, PAT_BASS, PAT_STAB,
-       PAT_FLUTE, PAT_BRASS, PAT_HARP, PAT_ORGAN, PAT_COUNT };
+       PAT_FLUTE, PAT_BRASS, PAT_HARP, PAT_ORGAN, PAT_EPIANO, PAT_VIBES, PAT_COUNT };
 
 static const Patch PATCHES[PAT_COUNT] = {
     /* bell: inharmonic 1:3.5, modulation dies away -> pure ring */
@@ -114,6 +114,14 @@ static const Patch PATCHES[PAT_COUNT] = {
     [PAT_ORGAN] = { .mc=1, .mm=2.0f, .wc=0, .wm=0, .idx=1.0f, .fb=0.15f,
                     .am=0.08f,.dm=1.0f,.sm=0.9f, .rm=0.40f, .ac=0.08f,.dc=1.0f,.sc=0.95f, .rc=0.45f,
                     .vib_hz=5.5f,.vib_st=0.04f,.vib_delay=0.4f, .level=0.075f, .rev=0.45f, .dly=0.0f },
+    /* electric piano for the muzak: the tine's bark dies away, a round tone stays */
+    [PAT_EPIANO] = { .mc=1, .mm=1.0f, .wc=0, .wm=0, .idx=1.8f, .fb=0.05f,
+                    .am=0.001f,.dm=0.6f,.sm=0.15f, .rm=0.3f, .ac=0.002f,.dc=1.8f,.sc=0.3f, .rc=0.35f,
+                    .vib_hz=4.0f,.vib_st=0.02f,.vib_delay=0.2f, .level=0.13f, .rev=0.40f, .dly=0.10f },
+    /* vibraphone: a soft bell with a slow shimmer */
+    [PAT_VIBES] = { .mc=1, .mm=4.0f, .wc=0, .wm=0, .idx=1.5f, .fb=0.0f,
+                    .am=0.001f,.dm=0.35f,.sm=0, .rm=0.5f, .ac=0.001f,.dc=2.2f,.sc=0, .rc=0.6f,
+                    .vib_hz=5.5f,.vib_st=0.03f,.vib_delay=0.0f, .level=0.17f, .rev=0.45f, .dly=0.20f },
 };
 
 /* ------------------------------------------------------------------ */
@@ -138,6 +146,7 @@ typedef struct Voice {
     float vel, pl, pr, t;
     int gainch;                 /* 1 = scaled by the drone gain */
     int ctl;
+    int muz;                    /* 1 = Severance's muzak, which fades in as the march fades out */
 } Voice;
 
 #define NV 36
@@ -260,8 +269,8 @@ static Sfx g_s[NS];
 static uint32_t g_rng = 12345;
 static int g_hold;                  /* the console is open: the game's effects and the crackle wait; the music and its drums play */
 static float g_fx_gain = 1.0f;      /* the game's effects fade out and back in over a fiftieth of a second, so nothing clicks */
-static int g_room;                  /* 1 the Backrooms: the music gone, a hum, more echo on the game's sounds */
-static float g_room_k;              /* how far into the room's sound, 0..1, over a second */
+static int g_room;                  /* 1 the Backrooms: the music gone, a hum, more echo on the game's sounds; 2 Severance: muzak too */
+static float g_room_k, g_muz_k;     /* how far into the room's sound, and into the muzak, 0..1, over a second */
 static float g_hum_ph;
 
 static Sfx *sfx_start(int type, float dur, float gain, float pan, float rev) {
@@ -1128,7 +1137,34 @@ static int crawl_drums(int sec, int s) {
 
 static const uint8_t ARP8[8] = { 0, 1, 2, 3, 2, 1, 2, 1 };
 
+/* Severance's muzak: eight bars of major sevenths, slightly too calm. An electric piano comps in a
+ * bossa rhythm, a soft bass walks root and fifth, a vibraphone carries a tune nobody asked for. */
+static void muzak_step(uint32_t step) {
+    static const int8_t CH[8][5] = {                              /* bass, then four chord tones */
+        { 41, 53, 57, 60, 64 }, { 40, 52, 55, 59, 62 }, { 38, 50, 53, 57, 60 }, { 43, 53, 55, 59, 62 },
+        { 36, 52, 55, 59, 60 }, { 45, 52, 55, 57, 60 }, { 38, 50, 53, 57, 60 }, { 43, 53, 55, 59, 62 } };
+    static const int8_t MEL[][4] = {                               /* bar, step, note, length in steps */
+        { 0, 0, 69, 4 }, { 0, 4, 72, 4 }, { 0, 8, 76, 8 }, { 1, 0, 74, 6 }, { 1, 6, 71, 2 }, { 1, 8, 67, 8 },
+        { 2, 0, 69, 4 }, { 2, 4, 72, 4 }, { 2, 8, 77, 6 }, { 2, 14, 76, 2 }, { 3, 0, 74, 12 },
+        { 4, 0, 76, 4 }, { 4, 4, 79, 4 }, { 4, 8, 71, 8 }, { 5, 0, 72, 6 }, { 5, 6, 69, 2 }, { 5, 8, 76, 8 },
+        { 6, 0, 77, 4 }, { 6, 4, 76, 4 }, { 6, 8, 74, 4 }, { 6, 12, 72, 4 }, { 7, 0, 71, 8 }, { 7, 8, 74, 8 } };
+    int bar = (int)(step / 16) & 7, s = (int)(step & 15), sps = (int)g_sps;
+    const int8_t *ch = CH[bar];
+    Voice *v;
+    if (s == 0 || s == 6 || s == 8 || s == 14) {                   /* the bass: root, and the fifth on the off-beat */
+        int n = (s == 6 || s == 14) ? ch[0] + 7 : ch[0];
+        if ((v = voice_on(PAT_BASS, n, s == 0 ? 0.55f : 0.42f, 0.5f, sps * (s == 6 || s == 14 ? 2 : 5)))) v->muz = 1;
+    }
+    if (s == 0 || s == 3 || s == 6 || s == 10 || s == 12)          /* the piano, comping */
+        for (int k = 1; k < 5; k++)
+            if ((v = voice_on(PAT_EPIANO, ch[k], s == 0 ? 0.62f : 0.42f, 0.3f + 0.12f * k, sps * 2))) v->muz = 1;
+    for (unsigned i = 0; i < sizeof MEL / sizeof MEL[0]; i++)
+        if (MEL[i][0] == bar && MEL[i][1] == s && (v = voice_on(PAT_VIBES, MEL[i][2], 0.8f, 0.62f, MEL[i][3] * sps - sps / 3))) v->muz = 1;
+}
+
 static void crawl_step(uint32_t step) {
+    if (g_room == 2) muzak_step(step);
+    if (g_room && g_room_k >= 1.0f) return;                        /* the march has faded: none of it, nor the cave's drips */
     int bar = (int)(step / 16), sec = bar & 31, s = (int)(step & 15);
     const ChordDef *ch = &CHORDS[sec];
     int third = ch->minor ? 3 : 4;
@@ -1172,7 +1208,8 @@ static void crawl_step(uint32_t step) {
         if (LEAD[i].bar == sec && LEAD[i].step == s)
             voice_on(LEAD[i].pat, LEAD[i].midi, 1.0f, 0.5f, LEAD[i].len * sps - sps / 4);
 
-    /* the cave itself: drips and, rarely, something moaning far away */
+    /* the cave itself: drips and, rarely, something moaning far away; not in a pocket's room */
+    if (g_room) return;
     if (rng_f(&g_mrng) < 0.022f) sfx_start(SFX_DRIP, 0.6f, 0.5f + 0.5f * rng_f(&g_mrng), 0.1f + 0.8f * rng_f(&g_mrng), 0.75f);
     if (s == 0 && rng_f(&g_mrng) < 0.06f) sfx_start(SFX_MOAN, 2.6f, 0.45f, 0.2f + 0.6f * rng_f(&g_mrng), 0.8f);
 }
@@ -1220,7 +1257,7 @@ void snd_start_program(int prog) {
     g_prog = prog;
     g_samples = 0; g_step_acc = 0; g_step = 0;
     g_mrng = 777u + (uint32_t)prog * 31u;
-    g_hb_timer = 0; g_hold = 0; g_fx_gain = 1.0f; g_room = 0; g_room_k = 0.0f;
+    g_hb_timer = 0; g_hold = 0; g_fx_gain = 1.0f; g_room = 0; g_room_k = g_muz_k = 0.0f;
     if (prog == SND_PROG_HAUNT) {
         g_sps = 0.25 * SND_RATE;                      /* 60 BPM sixteenths */
         g_rv_fb = 0.86f; g_rv_damp = 0.30f; g_rv_wet = 0.36f;
@@ -1361,12 +1398,19 @@ static void render_locked(int16_t *out, int frames) {
         float L = 0.0f, R = 0.0f, rev = 0.0f, dly = 0.0f;
 
         g_room_k = g_room ? fminf(1.0f, g_room_k + 1.0f / SR) : fmaxf(0.0f, g_room_k - 1.0f / SR);
-        float mus = 1.0f - g_room_k;                               /* the music, and its drums, fade in the Backrooms */
-        if (mus > 0.0f) {
-            float ml = 0.0f, mr = 0.0f, mrev = 0.0f, mdly = 0.0f;
-            for (int i = 0; i < NV; i++) if (g_v[i].active) voice_run(&g_v[i], &ml, &mr, &mrev, &mdly);
-            L += ml * mus; R += mr * mus; rev += mrev * mus; dly += mdly * mus;
-        } else for (int i = 0; i < NV; i++) g_v[i].active = 0;
+        g_muz_k = g_room == 2 ? fminf(1.0f, g_muz_k + 1.0f / SR) : fmaxf(0.0f, g_muz_k - 1.0f / SR);
+        float mus = 1.0f - g_room_k;                               /* the march, and its drums, fade in a pocket's room; */
+        {                                                          /* Severance's muzak fades in over it */
+            float ml = 0.0f, mr = 0.0f, mrev = 0.0f, mdly = 0.0f, zl = 0.0f, zr = 0.0f, zrev = 0.0f, zdly = 0.0f;
+            for (int i = 0; i < NV; i++) {
+                Voice *v = &g_v[i];
+                if (!v->active) continue;
+                if (v->muz ? g_muz_k <= 0.0f : mus <= 0.0f) { v->active = 0; continue; }
+                if (v->muz) voice_run(v, &zl, &zr, &zrev, &zdly); else voice_run(v, &ml, &mr, &mrev, &mdly);
+            }
+            L += ml * mus + zl * g_muz_k; R += mr * mus + zr * g_muz_k;
+            rev += mrev * mus + zrev * g_muz_k; dly += mdly * mus + zdly * g_muz_k;
+        }
 
         g_fx_gain = g_hold ? fmaxf(0.0f, g_fx_gain - 50.0f / SR) : fminf(1.0f, g_fx_gain + 50.0f / SR);
         for (int i = 0; i < NS; i++) if (g_s[i].active) {

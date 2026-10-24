@@ -4,8 +4,10 @@
 quality, the Rune Shrine, and the secret areas: secrets by set and in chains, bigger rooms, doorways,
 the pockets, and the altar's wisp to one secret and back for a price), tested in the harness only. The
 Backrooms (step 5) are built: the look, the tubes lit, failing and dead, things out of place, creatures
-caught in a loop, the glitch, the silence, echo and hum, and the visportal's gift. The owner approved
-Blink's double, the shrine's art and the Backrooms as drawn; Severance (step 6) is next, art first.** The owner
+caught in a loop, the glitch, the silence, echo and hum, and the visportal's gift. Severance (step 6)
+is built too: white halls and offices, the ward doors, the panels, the water cooler's drink, the
+creatures lit brighter, the muzak; its art awaits approval. The owner approved Blink's double, the
+shrine's art and the Backrooms as drawn.** The owner
 asked for the things below after 1.0.0b5, answered eight rounds of questions, and left the rest to
 defaults, marked *default* here so they can be changed. Nothing in this plan names the console's codes.
 
@@ -250,8 +252,11 @@ the shrine in its two states are approved.
 5. **The Backrooms** (built; art approved): textures and props, the tube lights (lit, failing, dead),
    the things out of place and the creatures caught in a loop, the glitch, the silence with its echo and
    hum, and the visportal (full health, or fifty souls if whole, once a chain).
-6. **Severance:** textures and props (for approval), the cubicles and doors, the water cooler, the
-   brighter creatures, the muzak.
+6. **Severance** (built; art for approval): textures and props, narrow white halls between a few
+   offices of four desks, the ward doors, every panel lit, the water cooler (one drink: full health or
+   fifty souls), creatures drawn brighter, the muzak (an electric piano, a bass, a vibraphone, eight
+   bars of major sevenths) over the hum. The creatures' extra strength and haste come with the
+   creatures in pockets, in step 7.
 7. **Coins and challenge:** coins and the all-found coin, the stronger creatures in pockets, and the
    autopilot in chains.
 8. **Checks and the beta:** frames, eight-seed runs against 1.0.0b5, ASan, the README, the page,

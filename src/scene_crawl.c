@@ -4553,7 +4553,7 @@ static void pocket_build(int link, int from_deeper) {
     for (int k = 0; k < NKEYS; k++) G.vault_room[k] = G.vault_door[k] = -1;
     gen_pocket(&G_LEVEL.secrets[PK.chain], link);
     crawl_art_theme(G.ptheme, G.level);
-    snd_set_room(G.ptheme == PT_BACKROOMS);                        /* the Backrooms: no music, a hum, an echo */
+    snd_set_room(G.ptheme == PT_BACKROOMS ? 1 : G.ptheme == PT_SEVERANCE ? 2 : 0);   /* no music, a hum, an echo; Severance's muzak */
     PK.depth = link; PK.since = 0.0f;
     if (from_deeper) stand_at_door(PK.on_x, PK.on_y); else stand_at_door(PK.back_x, PK.back_y);
     G.map[G.cy][G.cx].visits = 1; G.explored = 1;
@@ -5216,9 +5216,9 @@ static void crawl_update(double dt) {
     if (getenv("CRAWL_KILLAT") && !G.dead && G.t >= atof(getenv("CRAWL_KILLAT")) && G.t - dt < atof(getenv("CRAWL_KILLAT"))) {   /* testing: struck down */
         G.level_t = fmax(G.level_t, 2.0); hurt_ex(99999.0f, HURT_MAGIC, G.px, G.py);
     }
-    static int meet_level = -1;                                    /* one of a kind, ahead, once the level's card has gone */
-    if (getenv("CRAWL_MEET") && meet_level != G.level && G.level_t > 5.0 && !G.dead
-        && meet_creature(clampi(atoi(getenv("CRAWL_MEET")), 0, NKINDS - 1))) meet_level = G.level;
+    static int meet_level = -1;                                    /* one of a kind, ahead, once the level's card has gone (and in each pocket) */
+    if (getenv("CRAWL_MEET") && meet_level != G.level * 16 + PK.depth && G.level_t > 5.0 && !G.dead
+        && meet_creature(clampi(atoi(getenv("CRAWL_MEET")), 0, NKINDS - 1))) meet_level = G.level * 16 + PK.depth;
 #endif
     for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive) update_mob(&G.mobs[i], fdt);
     update_pools(fdt);
@@ -7426,9 +7426,9 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
  * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
 typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; } Draw;   /* glint: a key's ramp, for Keymaker's sparkle */
 enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_SWAY = 32, DR_FLIPV = 64, DR_COMMUNE = 128, DR_GLINT = 256, DR_EDGE = 512,
-       DR_GLITCH = 1024, DR_CLIP = 2048, DR_LOOPED = 4096 };
+       DR_GLITCH = 1024, DR_CLIP = 2048, DR_LOOPED = 4096, DR_LIT = 8192 };
 /* GLITCH: rows torn sideways and colours slipping, now and then (the Backrooms), more often when LOOPED; CLIP: cut at
- * the floor and ceiling */
+ * the floor and ceiling; LIT: brighter than the light it stands in (Severance's creatures, under the panels) */
 /* FLIPV: upside down, on the ceiling; COMMUNE: red through walls; GLINT: a key glinting through walls (Keymaker) */
 
 static int cmp_draw(const void *a, const void *b) {
@@ -7757,6 +7757,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (m->type == MOB_HUNTER && m->state == MS_WALK && m->sub == 0) d->flags = DR_FLIPV;
         if (m->frozen > 0.0f && m->state == MS_WALK) d->flags |= DR_ICE;   /* only its eyes, in the dark of the web */
         if (G.ptheme == PT_BACKROOMS) d->flags |= DR_GLITCH;           /* nothing here is quite right */
+        if (G.ptheme == PT_SEVERANCE) d->flags |= DR_LIT;              /* nor here: everything is too clean */
         if (commune) d->flags = (d->flags & ~DR_EYES) | DR_COMMUNE;   /* Commune: its shape, wherever it is */
         if (m->state == MS_DIE && m->sub == 77) {                  /* drawn in to a point */
             float k = smoothstepf(0.1f, 0.75f, m->t);
@@ -7890,6 +7891,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             continue;
         }
         float light = lm_at(d->x, d->y) * atten(d->depth) * (1.0f - 0.85f * bfs_dark);
+        if (d->flags & DR_LIT) light = fminf(1.3f, light * 1.3f + 0.15f);
         float fog = fog_amount(d->x, d->y, 1.0f - expf(-d->depth * 0.28f));
         const uint8_t *img = crawl_spr[d->spr];
         float step = TS / size;

@@ -36,9 +36,9 @@ Built so far (harness only): the hand fix (casting from rest while the bar is aw
 (step 2: Common to Exquisite, the nine Exquisite second effects, save version 5, the merchant's rune
 pedestal now another piece to wear), the Rune Shrine (step 3) and the secret areas (step 4: counts by
 set, chains of carved rooms, pockets, and the altar's wisp that goes to one secret and back for a price)
-and the Backrooms (step 5, the art approved). Until Cursed Coins come (step 7) there are none to find, so in
-play runes come only from an old save, the console or the debug switches. Pockets on levels 11-20 are
-still plain stone until Severance (step 6).
+and the Backrooms (step 5, the art approved) and Severance (step 6, the art awaiting approval). Until
+Cursed Coins come (step 7) there are none to find, so in play runes come only from an old save, the
+console or the debug switches. Creatures come into pockets in step 7.
 
 ## Working with the owner
 
@@ -125,7 +125,8 @@ wherever it stands, and presses E at the exit and at secrets: a test that it lea
 altar's wisp finds the secrets; with the altar's wisp it goes into each secret and out, presses E at the
 wisp, follows it home and sends it on from the altar's menu; it can't be hurt), `CRAWL_SHOWHAND`, `CRAWL_BFSANY`,
 `CRAWL_RANK=r` (every creature at rank r), `CRAWL_WRAITH=s` (the Wraith at s seconds), `CRAWL_MEET=k`
-(one creature of kind k, the `MOB_*` number, a few cells ahead of the caster five seconds into each level).
+(one creature of kind k, the `MOB_*` number, a few cells ahead of the caster five seconds into each level,
+and into each pocket).
 `HAUNT_DEBUG` adds `HAUNT_PLAN=10,11,...` to force HAUNT.EXE acts (numbers in the README).
 
 The debug build prints the autopilot's state once a second (`lvl=... t=... hp=... items=a/b val=a/b
@@ -288,6 +289,19 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   Sound: `snd_set_room(1)` fades the music and its drums, adds echo to the game's sounds and a faint
   mains hum. E at the visportal (`visportal_use`, `PK.vis_used`) gives full health, or fifty souls if
   whole, once a chain; then it stops drifting. The debug build logs `EVENT visportal`.
+- **Severance** (pockets on levels 11-20; `PT_SEVERANCE`; docs/PLAN-b6.md step 6; built, the art awaiting
+  the owner's approval). `R_FLOOR` a muted green (carpet, doors, partitions), `R_CEIL` a cool white
+  (walls, ceiling, the cooler's cabinet). `gen_pocket` carves no blocks at first: once the far end is
+  known, a fifth of the blocks (and always the first and the far) are offices (`office`), the rest
+  narrow halls from block middle to block middle, turning corners, with a hall out to the door on. Walls
+  `T_WHITE` (`_SIGN`, `_ART`), doorways `T_SDOOR`, floor `T_SCARPET`, ceiling `T_SCEIL`/`T_SCEILLAMP`
+  (every block lit and steady; ambient 0.16). Offices hold `SP_DESKS` (a solid prop) where nothing
+  lies. At the chain's end the water cooler (`SP_COOLER`, a solid prop at `G.vis_x/y`, `G.vis_deco`)
+  stands against a wall with the hoard beside it; `visportal_use` gives its one drink and turns it to
+  `SP_COOLER_LOW`. Creatures are drawn `DR_LIT`. Sound: `snd_set_room(2)` fades the march into
+  `muzak_step` (eight bars of major sevenths: `PAT_EPIANO` comping, `PAT_BASS` root and fifth,
+  `PAT_VIBES` on the tune; voices flagged `muz`) over the same hum and echo. `make sheets` draws
+  `severance.png`.
 - **Will-o'-wisps** (`Wisp` in `G.wisps`: [0] the one summoned, [1] the Black Altar's; `summon_wisp`,
   `update_wisps`, `render_wisps`, `wisp_target`, `wisp_route`). Things in the crypt, not on the hand: a
   wisp kindles before the caster (or over the altar), flies down its own BFS field (`wisp_route`: floor
