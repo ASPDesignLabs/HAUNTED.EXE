@@ -387,14 +387,15 @@ static float atk_worth(int id, int tier) {
     static const float B[NATK] = { 1.0f, 0.9f, 1.1f, 1.0f, 1.0f, 1.05f, 0.95f, 0.9f, 3.0f };
     return tier < 0 ? 0.0f : B[id] * (1.0f + 0.3f * tier);
 }
-static float def_worth(const Gear *g, int id, int tier, int level) {
+static float def_worth(const Gear *g, int id, int q, int level) {
     static const float B[NDEF] = { 1.0f, 0.8f, 0.9f, 1.1f, 0.6f, 0.85f, 0.8f, 0.85f, 0.7f };
-    if (tier <= 0) return 0.0f;
+    if (q <= 0) return 0.0f;
+    int tier = rune_tier(q);
     float b = B[id];
     if (id == DF_PURIFY && level >= 4) b += 0.4f;                  /* spiders */
     if (id == DF_REAP && g->atk[AT_BFS] >= 0) b += 0.6f;
     if (id == DF_MIRROR && level >= 2) b += 0.2f;                  /* wall skulls */
-    return b * (1.0f + 0.25f * tier);
+    return b * (1.0f + 0.25f * tier) * (q >= RUNE_EXQ ? 1.3f : 1.0f);   /* and its second effect */
 }
 
 float gear_value(const Gear *g, const Offer *o, int level) {
@@ -496,13 +497,9 @@ Offer gear_offer(int pool, int level, const Gear *g, uint32_t *rng) {
     if (r == 0) { o.rare = 1; o.tier = level + 2 + rpick(rng, 2); }    /* a jackpot: well ahead of its time */
     else o.tier = level + (r < 3 ? -1 : (r < 10 ? 0 : 1));
     if (o.tier < 1) o.tier = 1;
-    if (pool == POOL_ATTACK) {
-        o.kind = GK_ATK;
-        if (level >= 3 && rpick(rng, 22) == 0) { o.id = AT_BFS; o.rare = 1; o.tier = 1 + level / 4; }   /* incredibly rare */
-        else o.id = rpick(rng, AT_BFS);
-    } else {
-        o.kind = GK_DEF; o.id = rpick(rng, NDEF);
-    }
+    o.kind = GK_ATK;
+    if (level >= 3 && rpick(rng, 22) == 0) { o.id = AT_BFS; o.rare = 1; o.tier = 1 + level / 4; }   /* incredibly rare */
+    else o.id = rpick(rng, AT_BFS);
     o.price = gear_price(o.kind, o.id, o.tier, o.rare);
     return o;
 }
@@ -514,7 +511,8 @@ static const char *roman(int t) {
 
 void gear_item_name(int kind, int id, int tier, char *buf, int n) {
     const char *base = kind == GK_DEF ? DEF_NAME[id] : ATK_NAME[id];
-    if (tier <= 0) snprintf(buf, (size_t)n, "%s", base);
+    if (kind == GK_DEF && tier > 0) snprintf(buf, (size_t)n, "%s %s", QUAL_NAME[tier > NQUAL ? NQUAL - 1 : tier - 1], base);
+    else if (tier <= 0) snprintf(buf, (size_t)n, "%s", base);
     else snprintf(buf, (size_t)n, "%s %s", base, roman(tier));
 }
 
@@ -536,7 +534,10 @@ int gear_color(int kind, int id) {
     static const int D[NDEF] = { R_BONE, R_PURPLE, R_GHOST, R_BLOOD, R_MOSS, R_GLOW, R_PURPLE, R_GOLD, R_GHOST };
     return kind == GK_DEF ? D[id] : A[id];
 }
-int offer_color(const Offer *o) { return o->kind == GK_PIECE ? QUAL_RAMP[o->piece.quality] : gear_color(o->kind, o->id); }
+int offer_color(const Offer *o) {
+    if (o->kind == GK_DEF && o->tier > 0) return QUAL_RAMP[o->tier > NQUAL ? NQUAL - 1 : o->tier - 1];
+    return o->kind == GK_PIECE ? QUAL_RAMP[o->piece.quality] : gear_color(o->kind, o->id);
+}
 
 /* ---- spells ---- */
 
@@ -569,4 +570,12 @@ float spell_cycle(const Gear *g, int atk) {
     return B[atk] / (1.0f + 0.07f * t) / (1.0f + gear_total(g, ST_HASTE) / 100.0f);
 }
 int bfs_cost(int tier) { int c = 100 - 10 * (tier - 1); return c < 40 ? 40 : c; }
-float def_cooldown(int tier) { return fmaxf(20.0f, 45.0f * powf(0.88f, (float)(tier - 1))); }
+
+/* Runes by quality (docs/PLAN-b6.md): each works at about the tier it used to be bought at, and the
+ * cooldown that went with it; an Exquisite one comes round sooner, and does a second thing. */
+int rune_tier(int q) { static const int T[NQUAL + 1] = { 0, 2, 5, 8, 12, 18 }; return T[q < 0 ? 0 : (q > NQUAL ? NQUAL : q)]; }
+int rune_from_tier(int t) { return t <= 0 ? 0 : (t <= 3 ? 1 : (t <= 6 ? 2 : (t <= 10 ? 3 : 4))); }
+float def_cooldown(int q) {
+    if (q >= RUNE_EXQ) return 16.0f;
+    return fmaxf(20.0f, 45.0f * powf(0.88f, (float)(rune_tier(q) - 1)));
+}

@@ -1,5 +1,5 @@
-/* What the CATACOMB caster can buy from the merchant, keep and wear: the spellbook (attack spells and
- * defensive runes, by tier) and pieces to wear (docs/PLAN-items.md): bracers, boots, an amulet, a hood,
+/* What the CATACOMB caster can buy from the merchant, keep and wear: the spellbook (attack spells by
+ * tier, defensive runes by quality) and pieces to wear (docs/PLAN-items.md): bracers, boots, an amulet, a hood,
  * robes and a ring, each of a quality, rolled with a few stats and now and then an ability, and a bag
  * to keep spares in. Pure data and arithmetic; the game decides when things happen. */
 #ifndef CRAWL_GEAR_H
@@ -10,7 +10,7 @@
 enum { AT_FIRE, AT_FROST, AT_CHAIN, AT_SPEAR, AT_DRAIN, AT_HELL, AT_WISPS, AT_SPARKS, AT_BFS, NATK };
 enum { DF_WARD, DF_BLINK, DF_MIRROR, DF_MEND, DF_PURIFY, DF_NOVA, DF_DREAD, DF_SLIP, DF_REAP, NDEF };
 enum { GK_ATK, GK_DEF, GK_PIECE };                     /* what kind of thing an offer is */
-enum { POOL_ATTACK, POOL_DEFENSE, POOL_GEAR, NPOOL };
+enum { POOL_ATTACK, POOL_GEAR };                         /* the merchant's; runes come from the Rune Shrine */
 
 enum { Q_COMMON, Q_UNCOMMON, Q_RARE, Q_ULTRA, Q_EXQUISITE, NQUAL };
 enum { IK_NONE, IK_WRIST, IK_BOOTS, IK_NECK, IK_HOOD, IK_ROBE, IK_RING, IK_BAG, NIK };   /* what a piece is */
@@ -27,11 +27,11 @@ typedef struct {
     int16_t val[PIECE_STATS];                           /* in tenths (hundredths for health restored) */
 } Piece;
 
-typedef struct { int kind, id, tier, price, rare; Piece piece; } Offer;   /* a piece: id its kind, tier its level */
+typedef struct { int kind, id, tier, price, rare; Piece piece; } Offer;   /* a piece: id its kind, tier its level; a rune: tier its quality, 1-5 */
 
 typedef struct {
     int8_t atk[NATK];                   /* tier known, -1 if not; Fire Bolt starts at tier 0 (the fireball) */
-    int8_t def[NDEF];                   /* tier known, 0 if not */
+    int8_t def[NDEF];                   /* quality held: 0 none, 1 Common to 5 Exquisite (RUNE_EXQ) */
     Piece worn[NSLOT];
     Piece bag[BAG_MAX];
     uint8_t bag_size, bag_quality;      /* 0: no bag */
@@ -51,7 +51,7 @@ int  gear_shop_purchases(int level);                     /* wares a visit: one t
 int  gear_shop_pedestals(int level);                     /* five to level 9, six to 14, seven after */
 float gear_value(const Gear *g, const Offer *o, int level);   /* how much better off the caster would be (0 = useless) */
 void gear_name(const Offer *o, char *buf, int n);        /* "FROST SHARD III", or a piece's whole name */
-void gear_item_name(int kind, int id, int tier, char *buf, int n);   /* a spell or rune by its tier */
+void gear_item_name(int kind, int id, int tier, char *buf, int n);   /* a spell by its tier, a rune by its quality */
 const char *gear_blurb(const Offer *o);                  /* one line on what it does */
 int  gear_color(int kind, int id);                       /* palette ramp a spell or rune glows in */
 int  offer_color(const Offer *o);                        /* and any ware, a piece by its quality */
@@ -102,7 +102,12 @@ float heal_cost(const Gear *g, int tier);                /* spirit for each poin
 int   wisp_count(int tier);                              /* Seeker Wisps a cast sends */
 float spell_cycle(const Gear *g, int atk);               /* seconds between casts */
 int   bfs_cost(int tier);                                /* souls a BFS9000 shot burns */
-float def_cooldown(int tier);
+
+/* runes, by quality: one of each held at most, the best, and every one held is worn */
+#define RUNE_EXQ (Q_EXQUISITE + 1)                       /* an Exquisite rune, which does a second thing */
+int   rune_tier(int q);                                  /* the strength a quality works at: 2, 5, 8, 12, 18 */
+int   rune_from_tier(int t);                             /* old saves: 1-3 Common, 4-6 Uncommon, 7-10 Rare, 11 up Ultra-Rare */
+float def_cooldown(int q);                               /* seconds between casts of a rune of this quality */
 extern const char *const ATK_NAME[NATK], *const DEF_NAME[NDEF];
 
 #endif

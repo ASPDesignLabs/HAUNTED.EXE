@@ -65,7 +65,8 @@ typedef struct {
     float fade, st;                                                /* wraiths: how far gone, time in state */
     float hp, maxhp, shield, face;                                 /* face: where a shield-bearer is looking */
     float frozen, feared, slowed, swing;                           /* frost nova, dread, frost shard; a sword raised */
-    int wfeared; float wfx, wfy;                                   /* turned by a blessed wisp: it flees from where that was */
+    int wfeared, dreaded; float wfx, wfy;                          /* turned by a blessed wisp: it flees from where that was;
+                                                                      dreaded: Exquisite Dread has it, living or dead */
     int sub, guard; float ax, ay, bx, by, sub_t;                   /* wall skulls and spiders: a phase, an anchor, a way back */
     int rank, home, hunts, last_atk, deco, raised;                 /* its rank (RK_*); the room it keeps to (-1: none); whether it may
                                                                       hunt now; the spell that last hurt it; the grave or puddle it
@@ -251,6 +252,7 @@ typedef struct {
 #define REC_BYTES (REC_KINDS * NRANK * 2 + REC_KINDS * NATK + REC_KINDS + 2 + 2 + 4 + ACH_BITS / 8)
 
 /* The run: what carries from level to level, through death and across scene switches */
+#define SHRINE_SLOTS 9
 static struct {
     int active, level, hp, treasure, souls;
     float soul_frac;
@@ -260,6 +262,9 @@ static struct {
     int loaded;                             /* just read from a save: nothing in G to carry over */
     Record rec;
     int wisp_kind, wisp_color, wisp_auto;   /* the wisp L casts at a tap, once the menu's toggle is on */
+    int coins, shrine, attuned;             /* Cursed Coins; the Rune Shrine's rank (0 sanctified, 1-5 the best quality
+                                               it gives); the rune kinds it is attuned to, a bit each */
+    uint8_t slot_def[SHRINE_SLOTS], slot_q[SHRINE_SLOTS];   /* the shrine's slots: rune kind + 1 (0 empty), quality 1-5 */
 } RUN;
 
 /* The console (~): its lines and what is typed, and what a code has done to this session, which lasts
@@ -313,6 +318,7 @@ static struct {
     /* what is on the caster: poison, slow, and the defensive spells running */
     float poison_t, poison_dps, poison_acc, slow_t, purify_t, regen_acc;
     float ward_hp, ward_t, mirror_t, slip_t, reap_t, mend_t, mend_rate, mirror_flash;   /* mirror_flash: Mirrored just sent one back */
+    float ward_shards, decoy_x, decoy_y, decoy_t;   /* Exquisite runes: the Bone Ward's burst when it breaks; Blink's double */
     float whisper_t, commune_t, commune_show, commune_len, commune_r;   /* Treasure Hunter's whisper; Commune's clock and showing */
     int altar_x, altar_y, altar_state, altar_seek;   /* the Black Altar (x -1: none); the secret its wisp seeks */
     int blessed;                                     /* the altar's blessing: exit wisps turn the undead, this level */
@@ -1753,7 +1759,8 @@ static void show_bar(void) { G.bar_t = BAR_T; }
 #ifdef CRAWL_DEBUG
 static int hits_bone, hits_bat, throws, shrieks, hits_fire, hits_sword, bites, casts[NATK], defs[NDEF], bfs_kills, dodges, wskull_wakes, spider_drops,
            grabs, hound_bites, wraith_touches, wraith_drives, leaps, knight_blows, brood_bites, ling_bites, sacs_laid,
-           shade_touches, embers, ember_hits, ember_burns, ember_scorch, raised, garg_wakes, mirrored, turned;
+           shade_touches, embers, ember_hits, ember_burns, ember_scorch, raised, garg_wakes, mirrored, turned,
+           exq_shatter, exq_bruise, exq_reaped, exq_mendward, exq_dread, exq_mirror;   /* Exquisite runes' second effects */
 #define DBG_COUNT(v) ((v)++, fprintf(stderr, "EVENT %s t=%.2f\n", #v, G.t))
 #else
 #define DBG_COUNT(v) ((void)0)
@@ -1763,6 +1770,7 @@ static int in_combat(void);
 
 /* The caster takes a blow. Shadow robes may make it miss, a ward soaks it up, armor blunts it.
  * Returns what got through. (sx, sy): where it came from, for the portrait's flinch. */
+static void ward_burst(void);
 static int hurt_ex(float dmg, int kind, float sx, float sy) {
     if (G.dead || G.ending || G.exiting || G.tally || G.shop || G.level_t < 1.5) return 0;
     const Gear *g = &RUN.gear;
@@ -1775,7 +1783,7 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
             float ab = fminf(G.ward_hp, dmg);
             G.ward_hp -= ab; dmg -= ab;
             sfx_at(SFX_BONES, sx, sy, 0.5f);
-            if (G.ward_hp <= 0.0f) { G.ward_t = 0.0f; snd_sfx_ex(SFX_SHATTER, 0.8f, 0.5f); }
+            if (G.ward_hp <= 0.0f) { G.ward_t = 0.0f; snd_sfx_ex(SFX_SHATTER, 0.8f, 0.5f); if (G.ward_shards > 0.0f) ward_burst(); }
             if (dmg < 0.5f) return 0;
         }
     }
@@ -1845,8 +1853,9 @@ static void update_bones(float dt) {
             float d = hypotf(b->x - G.px, b->y - G.py);
             if (G.mirror_t > 0.0f && d < 0.7f && !G.dead) {           /* the Mirror Veil sends it back */
                 b->alive = 0;
-                Shot *sh = new_shot(SHOT_REFLECT, b->x, b->y, atan2f(-b->vy, -b->vx), b->kind == MIS_FIRE ? 6.0f : 7.0f, b->dmg * 1.5f);
-                if (sh) sh->z = (float)b->kind;
+                int exq = RUN.gear.def[DF_MIRROR] >= RUNE_EXQ;      /* Exquisite: home to its thrower, twice as hard */
+                Shot *sh = new_shot(SHOT_REFLECT, b->x, b->y, atan2f(-b->vy, -b->vx), b->kind == MIS_FIRE ? 6.0f : 7.0f, b->dmg * (exq ? 3.0f : 1.5f));
+                if (sh) { sh->z = (float)b->kind; if (exq) { sh->target = b->from; sh->life = 3.0f; DBG_COUNT(exq_mirror); } }
                 snd_sfx_ex(SFX_SHIMMER, 0.35f, 0.5f);
                 break;
             }
@@ -2009,6 +2018,10 @@ static void kill_mob(Mob *m) {
         if (!others) for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && G.mobs[i].type == MOB_SAC && G.mobs[i].state == MS_WALK) { G.mobs[i].state = MS_DIE; G.mobs[i].t = 0.0f; }
     }
     gain_souls((float)RANK_SOULS[m->rank]);
+    if (G.reap_t > 0.0f && RUN.gear.def[DF_REAP] >= RUNE_EXQ && !G.dead && !KIND_IS(m, KF_UNCOUNTED)) {   /* Exquisite: a little life back */
+        G.hp = clampi(G.hp + (G.max_hp + 19) / 20, 0, G.max_hp);
+        DBG_COUNT(exq_reaped);
+    }
     /* what it leaves: the gilded always something good, the higher ranks now and then coin or a potion.
      * Like a closet's loot it isn't counted in the level's treasure, and it glints a little */
     int drop = -1;
@@ -2075,6 +2088,8 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
     if ((flags & DM_SLOW) && slow > 0.0f) m->slowed = fmaxf(m->slowed, slow);
     int atk = (flags >> 8) - 1;
     if (atk >= 0 && atk < NATK) { dmg *= hit_mult(m, atk); m->last_atk = atk; }   /* what it is weak to, or shrugs off */
+    if (m->frozen > 0.0f && RUN.gear.def[DF_NOVA] >= RUNE_EXQ) { dmg *= 2.0f; DBG_COUNT(exq_shatter); }   /* Exquisite runes: the frozen */
+    if (G.slip_t > 0.0f && RUN.gear.def[DF_SLIP] >= RUNE_EXQ && hypotf(m->x - G.px, m->y - G.py) < 7.0f) { dmg *= 1.25f; DBG_COUNT(exq_bruise); }   /* shatter, the slowed bruise */
     if (m->type == MOB_GHOUL && m->sub == 4) { dmg *= 2.0f; m->sub = 0; }   /* caught feeding */
     if (m->type == MOB_GARGOYLE) garg_wake(m);                     /* it was never a statue */
     if (m->type == MOB_HUNTER && m->sub == 0) { m->sub = 1; m->sub_t = 0.0f; }   /* hit, it drops from the ceiling */
@@ -2094,6 +2109,25 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
 static void thorns(Mob *m) {
     int t = gear_thorns(&RUN.gear);
     if (t > 0 && m->alive) damage_mob(m, (float)t, DM_ARC, G.px, G.py, 0.0f);
+}
+
+/* an Exquisite Bone Ward, broken: its shards fly out and cut everything within two cells */
+static void ward_burst(void) {
+    float dmg = G.ward_shards;
+    G.ward_shards = 0.0f;
+    for (int i = 0; i < MAXMOBS; i++) {
+        Mob *m = &G.mobs[i];
+        if (!m->alive || m->state != MS_WALK || KIND_IS(m, KF_SPIRIT) || buried(m)) continue;
+        if (hypotf(m->x - G.px, m->y - G.py) < 2.0f && line_clear(G.px, G.py, m->x, m->y)) damage_mob(m, dmg, DM_ARC, G.px, G.py, 0.0f);
+    }
+    for (int k = 0; k < 6; k++) {                                   /* to be seen going; they touch nothing */
+        Shot *sh = new_shot(SHOT_REFLECT, G.px, G.py, G.ang + 0.3f + (float)k * (2.0f * PI_F / 6.0f), 7.0f, 0.0f);
+        if (sh) { sh->tier = -1; sh->life = 0.3f; }
+    }
+    sfx_at(SFX_BONES, G.px, G.py, 1.4f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ward_burst %.0f t=%.2f\n", dmg, G.t);
+#endif
 }
 
 static void explode(float x, float y) {
@@ -2378,12 +2412,13 @@ static void update_spider(Mob *m, float dt) {
     }
     dt = mob_time(m, dt);
     m->sub_t += dt; m->cool -= dt;
+    if (m->feared > 0.0f) m->feared -= dt;                         /* Exquisite Dread: it keeps to its web */
     float dax = G.px - m->ax, day = G.py - m->ay, da = sqrtf(dax * dax + day * day) + 1e-4f;
     float reach = fminf(da - 0.45f, 0.75f);                         /* how far out from the corner it drops */
     switch (m->sub) {
     case 0:
         m->x = m->ax; m->y = m->ay; m->z = 0.62f;
-        if (!G.dead && m->cool <= 0.0f && da < 2.0f && line_clear(m->ax, m->ay, G.px, G.py)) { m->sub = 1; m->sub_t = 0.0f; sfx_at(SFX_SKITTER, m->x, m->y, 1.0f); DBG_COUNT(spider_drops); }
+        if (!G.dead && m->cool <= 0.0f && m->feared <= 0.0f && da < 2.0f && line_clear(m->ax, m->ay, G.px, G.py)) { m->sub = 1; m->sub_t = 0.0f; sfx_at(SFX_SKITTER, m->x, m->y, 1.0f); DBG_COUNT(spider_drops); }
         break;
     case 1: {                                                      /* down the thread */
         float k = fminf(1.0f, m->sub_t / 0.35f);
@@ -2506,11 +2541,14 @@ static void update_mob(Mob *m, float dt) {
         if (m->alert > 0.0f) m->alert -= dt;
         m->lost += dt;
     }
-    if (m->feared > 0.0f) m->feared -= dt;
+    if (m->feared > 0.0f) m->feared -= dt; else m->dreaded = 0;
     if (m->stagger > 0.0f) { m->stagger -= dt; return; }
     int keeps_off = m->type == MOB_IMP || m->type == MOB_DEACON;   /* they fight from further off, and back away */
-    int afraid = (undead && m->feared > 0.0f) || (keeps_off && sees && pd0 < 2.8f);
-    if (m->type == MOB_SKEL && !G.dead && !afraid) {               /* once it has seen you, it keeps throwing */
+    int cowed = m->feared > 0.0f && (undead || m->dreaded);       /* Dread */
+    int lured = !cowed && G.decoy_t > 0.0f && hypotf(m->x - G.decoy_x, m->y - G.decoy_y) < 6.0f;   /* Blink's double draws it */
+    int fights = !G.dead && !cowed && !lured;                     /* it may go for the caster now */
+    int afraid = cowed || (keeps_off && sees && pd0 < 2.8f);
+    if (m->type == MOB_SKEL && fights && !afraid) {               /* once it has seen you, it keeps throwing */
         int los = sees && G.level_t > 1.5;
         if (los && !m->seen) { m->seen = 1; m->cool = (0.45f + 0.35f * rndf()) * throw_interval() / 1.5f; }
         if (m->throw_t > 0.0f) {
@@ -2520,7 +2558,7 @@ static void update_mob(Mob *m, float dt) {
         }
         if (m->seen && los && (m->cool -= dt) <= 0.0f) { m->throw_t = 0.35f; return; }
     }
-    if (m->type == MOB_SHIELD && !G.dead && !afraid) {             /* closes in behind its shield and strikes */
+    if (m->type == MOB_SHIELD && fights && !afraid) {             /* closes in behind its shield and strikes */
         int los = sees && G.level_t > 1.5;
         if (los) { m->seen = 1; m->face += wrap_pi(atan2f(pdy0, pdx0) - m->face) * fminf(1.0f, dt * 6.0f); }
         m->cool -= dt;
@@ -2535,7 +2573,7 @@ static void update_mob(Mob *m, float dt) {
         }
         if (los && pd0 < 1.35f && m->cool <= 0.0f) { m->swing = 0.45f; return; }
     }
-    if ((m->type == MOB_SHAMBLER || m->type == MOB_DROWNED) && !G.dead && !afraid) {   /* it lurches in and takes hold */
+    if ((m->type == MOB_SHAMBLER || m->type == MOB_DROWNED) && fights && !afraid) {   /* it lurches in and takes hold */
         m->cool -= dt;
         if (m->swing > 0.0f) {
             m->swing -= dt;
@@ -2551,7 +2589,7 @@ static void update_mob(Mob *m, float dt) {
         if (sees && pd0 < 1.25f && m->cool <= 0.0f) { m->swing = 0.6f; sfx_at(SFX_GROAN, m->x, m->y, 1.0f); return; }
         if (pd0 < 7.0f && rnd(500) == 0) sfx_at(SFX_GROAN, m->x, m->y, 0.7f);
     }
-    if (m->type == MOB_HOUND && !G.dead && !afraid) {               /* in, a bite, and away */
+    if (m->type == MOB_HOUND && fights && !afraid) {               /* in, a bite, and away */
         m->cool -= dt;
         if (m->swing > 0.0f) {
             m->swing -= dt;
@@ -2569,13 +2607,13 @@ static void update_mob(Mob *m, float dt) {
         m->cool -= dt;
         if (m->sub == 0) {                                         /* overhead, upside down */
             m->z = 1.0f - KINDS[MOB_HUNTER].scale * RANK_SIZE[m->rank];
-            if (sees && pd0 < 2.6f && G.level_t > 1.5) { m->sub = 1; m->sub_t = 0.0f; sfx_at(SFX_SKITTER, m->x, m->y, 1.3f); }
+            if (fights && sees && pd0 < 2.6f && G.level_t > 1.5) { m->sub = 1; m->sub_t = 0.0f; sfx_at(SFX_SKITTER, m->x, m->y, 1.3f); }
         } else if (m->sub == 1) {                                  /* it drops */
             m->sub_t += dt;
             m->z = lerpf(1.0f - KINDS[MOB_HUNTER].scale, 0.0f, fminf(1.0f, m->sub_t / 0.4f));
             if (m->sub_t >= 0.4f) { m->sub = 2; m->z = 0.0f; m->alert = 12.0f; }
             return;
-        } else if (sees && pd0 < 2.4f && pd0 > 0.9f && m->cool <= 0.0f) { start_leap(m); return; }
+        } else if (fights && sees && pd0 < 2.4f && pd0 > 0.9f && m->cool <= 0.0f) { start_leap(m); return; }
     }
     if (m->type == MOB_GHOUL && !G.dead) {                          /* it leaps the last of the way; it feeds on the dead */
         if (update_leap(m, dt)) return;
@@ -2586,7 +2624,7 @@ static void update_mob(Mob *m, float dt) {
             if (rnd(90) == 0) sfx_at(SFX_BONES, m->x, m->y, 0.5f);
             return;
         }
-        if (!afraid && sees && pd0 < 2.6f && pd0 > 0.9f && m->cool <= 0.0f) { start_leap(m); return; }
+        if (fights && !afraid && sees && pd0 < 2.6f && pd0 > 0.9f && m->cool <= 0.0f) { start_leap(m); return; }
         if (m->alert <= 0.0f && m->hp < m->maxhp && (m->contact -= dt) <= 0.0f) {   /* bones near? it stops to eat */
             m->contact = 2.0f;
             for (int i = 0; i < G.ndecos; i++) {
@@ -2596,7 +2634,7 @@ static void update_mob(Mob *m, float dt) {
             }
         }
     }
-    if (m->type == MOB_KNIGHT && !G.dead && !afraid) {              /* a long wind-up, and a blow that tells */
+    if (m->type == MOB_KNIGHT && fights && !afraid) {              /* a long wind-up, and a blow that tells */
         int st = knight_stage(m);
         if (st != m->sub) { m->sub = st; sfx_at(SFX_SHATTER, m->x, m->y, 1.1f); m->speed = KINDS[MOB_KNIGHT].speed * RANK_SPEED[m->rank] * (1.0f + 0.25f * st); }
         m->cool -= dt;
@@ -2615,7 +2653,7 @@ static void update_mob(Mob *m, float dt) {
     if (m->type == MOB_BROOD && !G.dead) {                          /* she lays as she goes, and bites what comes close */
         m->cool -= dt;
         if (m->swing > 0.0f) { if ((m->swing -= dt) <= 0.0f) m->swing = 0.0f; return; }   /* laying */
-        if (sees && pd0 < 1.4f && m->cool <= 0.0f) {
+        if (fights && sees && pd0 < 1.4f && m->cool <= 0.0f) {
             m->cool = 1.6f;
             if (hurt_ex(mob_damage(m) * 1.2f, HURT_BLOW, m->x, m->y) > 0) { thorns(m); DBG_COUNT(brood_bites); }
             sfx_at(SFX_SKITTER, m->x, m->y, 1.2f);
@@ -2632,7 +2670,7 @@ static void update_mob(Mob *m, float dt) {
     }
     if (m->type == MOB_LING && !G.dead) {                           /* a swarm of small bites */
         m->cool -= dt; m->alert = fmaxf(m->alert, 5.0f);
-        if (pd0 < 0.8f && m->cool <= 0.0f) {
+        if (fights && pd0 < 0.8f && m->cool <= 0.0f) {
             m->cool = 1.0f;
             if (hurt_ex(mob_damage(m) * 0.4f, HURT_BLOW, m->x, m->y) > 0) { thorns(m); DBG_COUNT(ling_bites); }
         }
@@ -2654,7 +2692,7 @@ static void update_mob(Mob *m, float dt) {
             }
             return;
         }
-        if (pd0 < 0.95f && m->cool <= 0.0f) { m->swing = 0.5f; sfx_at(SFX_GHOST_TICK, m->x, m->y, 0.8f); return; }
+        if (fights && pd0 < 0.95f && m->cool <= 0.0f) { m->swing = 0.5f; sfx_at(SFX_GHOST_TICK, m->x, m->y, 0.8f); return; }
         if (pd0 < 6.0f && shade_hidden(m) && rnd(100) == 0) sfx_at(SFX_STEP, m->x, m->y, 0.45f);   /* footsteps, and no one there */
     }
     if (m->type == MOB_IMP && !G.dead) {                           /* it keeps off, and lobs embers */
@@ -2663,7 +2701,7 @@ static void update_mob(Mob *m, float dt) {
             return;
         }
         m->cool -= dt;
-        if (sees && pd0 > 1.5f && pd0 < 8.0f && m->cool <= 0.0f && G.level_t > 1.5) { m->throw_t = 0.4f; return; }
+        if (fights && sees && pd0 > 1.5f && pd0 < 8.0f && m->cool <= 0.0f && G.level_t > 1.5) { m->throw_t = 0.4f; return; }
     }
     if (m->type == MOB_DEACON && !G.dead) {                        /* it keeps back, and calls the fallen up again */
         if (m->swing > 0.0f) {                                     /* chanting over the bones */
@@ -2685,7 +2723,7 @@ static void update_mob(Mob *m, float dt) {
             }
             return;
         }
-        if (m->alert > 0.0f && m->raised < 4 && (m->contact -= dt) <= 0.0f) {
+        if (fights && m->alert > 0.0f && m->raised < 4 && (m->contact -= dt) <= 0.0f) {
             m->contact = 1.0f;                                     /* it looks again in a moment */
             for (int i = 0; i < G.ndecos; i++) {
                 const Deco *dc = &G.decos[i];
@@ -2717,13 +2755,13 @@ static void update_mob(Mob *m, float dt) {
             }
             return;
         }
-        if (!G.dead && sees && pd0 < 1.2f && m->cool <= 0.0f) { m->swing = 0.3f; return; }
-        if (!G.dead && sees && pd0 > 1.4f && pd0 < 3.2f && m->cool <= 0.0f) { start_leap(m); return; }
+        if (fights && sees && pd0 < 1.2f && m->cool <= 0.0f) { m->swing = 0.3f; return; }
+        if (fights && sees && pd0 > 1.4f && pd0 < 3.2f && m->cool <= 0.0f) { start_leap(m); return; }
     }
     if (m->type == MOB_BAT && !G.dead) {                           /* bats come for your face */
         int los = pd0 < 5.0f && sees;
-        if (los) m->attacking = 1;
-        if (m->attacking && pd0 > 7.0f) { m->attacking = 0; m->tx = m->cx; m->ty = m->cy; }
+        if (los && fights) m->attacking = 1;
+        if (m->attacking && (pd0 > 7.0f || !fights)) { m->attacking = 0; m->tx = m->cx; m->ty = m->cy; }
         if (m->attacking) {
             m->orbit += dt * (1.3f + 0.4f * sinf(m->t * 0.7f));
             float a = G.ang + sinf(m->orbit) * 1.5f, r = 0.95f + 0.18f * sinf(m->orbit * 2.3f);
@@ -2752,9 +2790,9 @@ static void update_mob(Mob *m, float dt) {
     /* next cell: close in on the caster when it is near and visible, otherwise wander; flee if afraid */
     float pdx = G.px - m->x, pdy = G.py - m->y, pd = sqrtf(pdx * pdx + pdy * pdy);
     float keep = KIND_IS(m, KF_MELEE) ? 1.05f : (keeps_off ? 4.0f : 2.2f);   /* those that fight hand to hand come right up close */
-    int chase = pd < (KIND_IS(m, KF_MELEE) ? 9.0f : 7.0f) && pd > keep && line_clear(m->x, m->y, G.px, G.py);
+    int chase = !lured && pd < (KIND_IS(m, KF_MELEE) ? 9.0f : 7.0f) && pd > keep && line_clear(m->x, m->y, G.px, G.py);
     int here = hunt[m->cy][m->cx], opens = KIND_IS(m, KF_DOORS) != 0;   /* the dead open doors; bats and hounds wait behind them */
-    int hunting = !afraid && !chase && !G.dead && m->alert > 0.0f && m->hunts && here > 0 && pd > keep;
+    int hunting = !afraid && !lured && !chase && !G.dead && m->alert > 0.0f && m->hunts && here > 0 && pd > keep;
     int best = -1; float bs = -1e9f;
     for (int k = 0; k < 4; k++) {
         int nx = m->cx + DX[k], ny = m->cy + DY[k];
@@ -2768,9 +2806,10 @@ static void update_mob(Mob *m, float dt) {
             continue;
         }
         if ((m->type == MOB_GARGOYLE ? blocks_flight(nx, ny) : blocks_move(nx, ny)) || occupied(nx, ny, m)) continue;
-        if (!chase && !afraid && m->home >= 0 && c->region != m->home) continue;   /* keeps to its own room till it knows */
+        if (!chase && !afraid && !lured && m->home >= 0 && c->region != m->home) continue;   /* keeps to its own room till it knows */
         float s = rndf();
         if (afraid) s += hypotf(nx + 0.5f - (m->wfeared ? m->wfx : G.px), ny + 0.5f - (m->wfeared ? m->wfy : G.py)) * 2.0f;
+        else if (lured) s -= hypotf(nx + 0.5f - G.decoy_x, ny + 0.5f - G.decoy_y);
         else if (chase) s -= hypotf(nx + 0.5f - G.px, ny + 0.5f - G.py);
         if (s > bs) { bs = s; best = k; }
     }
@@ -2783,7 +2822,7 @@ static void update_mob(Mob *m, float dt) {
             return;
         }
         m->tx = nx; m->ty = ny;
-    } else if (best >= 0 && (afraid || !(pd <= keep))) { m->tx = m->cx + DX[best]; m->ty = m->cy + DY[best]; }
+    } else if (best >= 0 && (afraid || lured || !(pd <= keep))) { m->tx = m->cx + DX[best]; m->ty = m->cy + DY[best]; }
     if (m->type == MOB_BAT && pd < 6.0f && rnd(40) == 0) sfx_at(SFX_BAT, m->x, m->y, 0.6f);
 }
 
@@ -3012,7 +3051,7 @@ static void update_shots(float dt) {
                 break;
             }
             s->x = nx; s->y = ny;
-            for (int mi = 0; mi < MAXMOBS; mi++) {
+            for (int mi = 0; mi < MAXMOBS && s->tier >= 0; mi++) {    /* tier -1: a broken ward's shards, only for show */
                 Mob *mb = &G.mobs[mi];
                 if (!mb->alive || mb->state != MS_WALK || mb->type == MOB_GHOST) continue;   /* fire passes through wraiths */
                 if (s->kind == AT_SPEAR && (s->pierced >> mi & 1)) continue;
@@ -3134,10 +3173,11 @@ static void begin_turn(float target);
 static float heading_angle(int h);
 static int decide(int x, int y, int h);
 
-/* Blink: two or three steps to wherever is furthest from trouble, out of sight if it can */
+/* Blink: two to six steps to wherever is furthest from trouble, out of sight if it can */
+#define DECOY_T 3.0f                        /* how long an Exquisite Blink's double holds them */
 static void blink(void) {
     static int dist[MAPN][MAPN], qx[MAPN * MAPN], qy[MAPN * MAPN];
-    int range = 2 + RUN.gear.def[DF_BLINK] / 3;
+    int range = clampi(2 + rune_tier(RUN.gear.def[DF_BLINK]) / 3, 2, 6);
     for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) dist[y][x] = -1;
     int qh = 0, qt = 0, bx = -1, by = -1; float bs = -1e9f;
     dist[G.cy][G.cx] = 0; qx[qt] = G.cx; qy[qt] = G.cy; qt++;
@@ -3161,6 +3201,14 @@ static void blink(void) {
         }
     }
     if (bx < 0) return;
+    if (RUN.gear.def[DF_BLINK] >= RUNE_EXQ) {                      /* Exquisite: a double stays */
+        G.decoy_x = G.px; G.decoy_y = G.py; G.decoy_t = DECOY_T;
+#ifdef CRAWL_DEBUG
+        int nl = 0;
+        for (int i = 0; i < MAXMOBS; i++) nl += G.mobs[i].alive && G.mobs[i].state == MS_WALK && hypotf(G.mobs[i].x - G.px, G.mobs[i].y - G.py) < 6.0f;
+        fprintf(stderr, "EVENT decoy near=%d t=%.2f\n", nl, G.t);
+#endif
+    }
     G.cx = G.tx = bx; G.cy = G.ty = by; G.px = bx + 0.5f; G.py = by + 0.5f; G.u = 1.0f;
     G.spd = 0.0f;
     if (!G.player) {
@@ -3173,18 +3221,18 @@ static void blink(void) {
 }
 
 static void cast_defense(int k) {
-    int t = RUN.gear.def[k];
-    if (t <= 0) return;
-    G.def_cd[k] = def_cooldown(t);
+    int q = RUN.gear.def[k], t = rune_tier(q);                     /* by its quality, at about the tier it once was */
+    if (q <= 0) return;
+    G.def_cd[k] = def_cooldown(q);
     G.rune_glow[k] = 1.4f; G.rune_lift = 1.4f;
     snd_sfx_ex(SFX_RUNE, 0.9f, 0.5f);
 #ifdef CRAWL_DEBUG
     defs[k]++;
-    fprintf(stderr, "EVENT defense %s t=%.2f hp=%d\n", DEF_NAME[k], G.t, G.hp);
+    fprintf(stderr, "EVENT defense %s q=%d t=%.2f hp=%d\n", DEF_NAME[k], q, G.t, G.hp);
 #endif
     float eff = spell_effect();                                    /* the runes' strength */
     switch (k) {
-    case DF_WARD: G.ward_hp = (10.0f + 5.0f * t) * eff; G.ward_t = 12.0f; break;
+    case DF_WARD: G.ward_hp = (10.0f + 5.0f * t) * eff; G.ward_t = 12.0f; G.ward_shards = q >= RUNE_EXQ ? G.ward_hp * 0.5f : 0.0f; break;
     case DF_BLINK: blink(); break;
     case DF_MIRROR: G.mirror_t = (3.0f + 0.5f * t) * eff; break;
     case DF_MEND: G.mend_t = 4.0f; G.mend_rate = (15.0f + 5.0f * t) / 4.0f * eff; break;
@@ -3201,8 +3249,10 @@ static void cast_defense(int k) {
     case DF_DREAD:
         for (int i = 0; i < MAXMOBS; i++) {
             Mob *m = &G.mobs[i];
-            if (m->alive && m->state == MS_WALK && (KIND_IS(m, KF_UNDEAD) || m->type == MOB_WSKULL || m->type == MOB_WRAITH)
-                && hypotf(m->x - G.px, m->y - G.py) < 5.0f) { m->feared = (3.0f + 0.5f * t) * eff; m->wfeared = 0; }
+            int dead = KIND_IS(m, KF_UNDEAD) || m->type == MOB_WSKULL || m->type == MOB_WRAITH;
+            int any = q >= RUNE_EXQ && !KIND_IS(m, KF_SPIRIT) && !buried(m);   /* Exquisite: the living too */
+            if (m->alive && m->state == MS_WALK && (dead || any) && hypotf(m->x - G.px, m->y - G.py) < 5.0f)
+                { m->feared = (3.0f + 0.5f * t) * eff; m->wfeared = 0; m->dreaded = !dead; if (!dead) DBG_COUNT(exq_dread); }
         }
         G.dread_t = 0.001f;
         snd_sfx_ex(SFX_MOAN, 1.2f, 0.5f);
@@ -3241,7 +3291,8 @@ static void update_status(float dt) {
     } else G.poison_acc = 0.0f;
     G.slow_t = fmaxf(0.0f, G.slow_t - dt);
     G.purify_t = fmaxf(0.0f, G.purify_t - dt);
-    if (G.ward_t > 0.0f && (G.ward_t -= dt) <= 0.0f) G.ward_hp = 0.0f;
+    if (G.ward_t > 0.0f && (G.ward_t -= dt) <= 0.0f) G.ward_hp = G.ward_shards = 0.0f;   /* it fades unbroken */
+    G.decoy_t = fmaxf(0.0f, G.decoy_t - dt);
     G.mirror_t = fmaxf(0.0f, G.mirror_t - dt); G.mirror_flash = fmaxf(0.0f, G.mirror_flash - dt);
     G.slip_t = fmaxf(0.0f, G.slip_t - dt);
     G.reap_t = fmaxf(0.0f, G.reap_t - dt);
@@ -3249,9 +3300,17 @@ static void update_status(float dt) {
     G.rune_lift = fmaxf(0.0f, G.rune_lift - dt);
     if (G.nova_t > 0.0f && (G.nova_t += dt) > 0.6f) G.nova_t = 0.0f;
     if (G.dread_t > 0.0f && (G.dread_t += dt) > 0.8f) G.dread_t = 0.0f;
-    float heal = 0.0f;
-    if (G.mend_t > 0.0f) { G.mend_t -= dt; heal += G.mend_rate * dt; }
+    float heal = 0.0f, mend = 0.0f;
+    if (G.mend_t > 0.0f) { G.mend_t -= dt; mend = G.mend_rate * dt; heal += mend; }
+    if (G.purify_t > 0.0f && RUN.gear.def[DF_PURIFY] >= RUNE_EXQ) heal += (float)G.max_hp * 0.02f * dt;   /* Exquisite Purify mends too */
     heal += gear_regen(&RUN.gear) * dt;
+    if (mend > 0.0f && G.hp >= G.max_hp && !G.dead && RUN.gear.def[DF_MEND] >= RUNE_EXQ) {   /* Exquisite Mend: past full, a small ward */
+        float cap = (float)G.max_hp * 0.25f;
+        if (G.ward_hp < cap) {
+            if (G.ward_hp <= 0.0f) DBG_COUNT(exq_mendward);
+            G.ward_hp = fminf(cap, G.ward_hp + mend); G.ward_t = fmaxf(G.ward_t, 8.0f);
+        }
+    }
     if (heal > 0.0f && G.hp < G.max_hp && !G.dead) {
         G.regen_acc += heal;
         if (G.regen_acc >= 1.0f) { int h = (int)G.regen_acc; G.regen_acc -= h; G.hp = clampi(G.hp + h, 0, G.max_hp); if (G.mend_t > 0.0f) pop_readout(); }
@@ -3865,6 +3924,7 @@ static void human_begin(void);
 static void reset_caster_state(void) {
     G.poison_t = G.poison_dps = G.poison_acc = G.slow_t = G.purify_t = G.regen_acc = 0.0f;
     G.ward_hp = G.ward_t = G.mirror_t = G.slip_t = G.reap_t = G.mend_t = G.mend_rate = G.mirror_flash = 0.0f;
+    G.ward_shards = G.decoy_t = 0.0f;
     memset(G.def_cd, 0, sizeof G.def_cd); memset(G.def_wait, 0, sizeof G.def_wait);
     memset(G.def_hush, 0, sizeof G.def_hush); memset(G.rune_glow, 0, sizeof G.rune_glow);
     G.bfs_t = 0.0f; G.face_t = G.grin_t = 0.0f;
@@ -4042,13 +4102,14 @@ static void start_level(void) {
 #endif
 }
 
-/* every spell and rune at tier t, and an Uncommon piece of level 2t in every slot (about what tier t
- * used to wear); for the console and the test switches alike */
+/* every spell at tier t, every rune at the quality tier t comes to in an old save, and an Uncommon
+ * piece of level 2t in every slot (about what tier t used to wear); for the console and the test
+ * switches alike */
 static void give_gear(int t) {
     uint32_t rs = 0x9e3779b9u ^ (uint32_t)t;
     static const int KIND_OF[NSLOT] = { IK_WRIST, IK_WRIST, IK_BOOTS, IK_NECK, IK_HOOD, IK_ROBE, IK_RING };
     for (int i = 0; i < NATK; i++) RUN.gear.atk[i] = (int8_t)t;
-    for (int i = 0; i < NDEF; i++) RUN.gear.def[i] = (int8_t)t;
+    for (int i = 0; i < NDEF; i++) RUN.gear.def[i] = (int8_t)rune_from_tier(t);
     RUN.gear.bones = (int16_t)clampi(SPEAR_BONES * t, 0, BONES_MAX);   /* as if the spear were bought t times */
     for (int s = 0; s < NSLOT && t > 0; s++) RUN.gear.worn[s] = piece_roll(KIND_OF[s], 2 * t, Q_UNCOMMON, &rs);
 }
@@ -4065,9 +4126,11 @@ static void give_bag(int q) {                                      /* a bag of t
 }
 
 #ifdef CRAWL_DEBUG
-/* for testing: CRAWL_GEAR=n (give_gear), CRAWL_ABIL, CRAWL_BAG, CRAWL_GOLD, CRAWL_SOULS */
+/* for testing: CRAWL_GEAR=n (give_gear), CRAWL_RUNES=q (every rune at quality q, 1 Common to 5
+ * Exquisite), CRAWL_ABIL, CRAWL_BAG, CRAWL_GOLD, CRAWL_SOULS */
 static void debug_gear(void) {
     if (getenv("CRAWL_GEAR")) give_gear(atoi(getenv("CRAWL_GEAR")));
+    if (getenv("CRAWL_RUNES")) for (int i = 0; i < NDEF; i++) RUN.gear.def[i] = (int8_t)clampi(atoi(getenv("CRAWL_RUNES")), 0, RUNE_EXQ);
     if (getenv("CRAWL_ABIL")) give_ability(atoi(getenv("CRAWL_ABIL")));
     if (getenv("CRAWL_BAG")) give_bag(atoi(getenv("CRAWL_BAG")));
     if (getenv("CRAWL_GOLD")) RUN.treasure = atoi(getenv("CRAWL_GOLD"));
@@ -4893,8 +4956,8 @@ static void begin_shop(void) {
     G.ang = face_of(CAT_X, CAT_Y);
     G.camz = 0.5f; G.hand = 0.0f; G.spd = 0.0f; G.bob = 0.0f; G.bar = 1.0f;
     int bag_up = 0;
-    for (int p = 0; p < G.ped_n; p++) {                            /* a spell, a rune, the rest to wear; one bag at most */
-        int pool = p == 0 ? POOL_ATTACK : (p == 1 ? POOL_DEFENSE : POOL_GEAR);
+    for (int p = 0; p < G.ped_n; p++) {                            /* a spell, the rest to wear; one bag at most */
+        int pool = p == 0 ? POOL_ATTACK : POOL_GEAR;               /* runes are the Rune Shrine's now */
         Offer o = gear_offer(pool, G.level, &RUN.gear, &G.rs);
         for (int k = 0; k < 8 && bag_up && o.kind == GK_PIECE && o.piece.kind == IK_BAG; k++) o = gear_offer(pool, G.level, &RUN.gear, &G.rs);
         bag_up |= o.kind == GK_PIECE && o.piece.kind == IK_BAG;
@@ -4903,7 +4966,7 @@ static void begin_shop(void) {
     }
     if (RUN.gear.has_held) {                                       /* last visit's hold: back as it was, at the price it showed */
         const Offer *h = &RUN.gear.held;
-        int p = h->kind == GK_ATK ? 0 : (h->kind == GK_DEF ? 1 : 2);
+        int p = h->kind == GK_ATK ? 0 : 2;
         G.offers[p] = *h; G.offer_back[p] = 1;
     }
     G.shop_left = gear_shop_purchases(G.level); G.shop_confirm = G.shop_letgo = G.shop_held = -1;
@@ -4944,7 +5007,6 @@ static void shop_purchase(int i) {
     else gear_take(&RUN.gear, o);
     if (o->price > 0) snd_sfx_ex(SFX_COIN, 1.1f, 0.5f);
     snd_sfx_ex(SFX_SHIMMER, 0.8f, 0.5f);
-    if (o->kind == GK_DEF) snd_sfx_ex(SFX_RUNE, 0.8f, 0.5f);
     G.grin_t = 2.5f;
     sfx_at(SFX_TRILL, CAT_X, CAT_Y, 1.3f); G.cat_trill = 0.5f; G.cat_slow = 1.6f; G.cat_tail_k = 1.0f;
 #ifdef CRAWL_DEBUG
@@ -5693,7 +5755,7 @@ static int con_do(int what, int num, const char *rest) {
         if (num < 1 || num > 15) { con_print("TIERS GO FROM 1 TO 15.", no); return 0; }
         give_gear(num);
         G.max_hp = gear_max_hp(&RUN.gear); if (G.hp > G.max_hp) G.hp = G.max_hp;
-        con_printf(ok, "EVERY SPELL AND RUNE AT TIER %d, AND NEW CLOTHES.", num);
+        con_printf(ok, "EVERY SPELL AT TIER %d, EVERY RUNE %s, AND NEW CLOTHES.", num, QUAL_NAME[rune_from_tier(num) - 1]);
         return 1;
     case CH_BAG:
         if (num < 1 || num > NQUAL) { con_print("QUALITIES GO FROM 1, COMMON, TO 5, EXQUISITE.", no); return 0; }
@@ -5887,9 +5949,12 @@ static int crawl_status(void) { return G.player ? G.status_ret : PLAY_AUTO; }
  * the run's record (kills, secrets, levels cleared, achievements). Not where you stood: you come back
  * to the start of the level, so its gold and souls are taken back out. Version 3 packs the gear field
  * by field (what is worn, the bag, the bones, a ware held at the merchant's) and keeps souls in
- * tenths. Version 4 adds four bytes after the record: the wisp L casts and the menu's toggle. Versions
- * 1 and 2 still load: their spells and runes stay, their robe, hood and best ring become Common pieces
- * of their tier, and version 1 has an empty record. */
+ * tenths. Version 4 adds four bytes after the record: the wisp L casts and the menu's toggle. Version
+ * 5 keeps runes by quality, not tier, and adds 32 bytes for the Rune Shrine: the coins, its rank, its
+ * attunements and its nine slots. Older saves' runes come by their tier (rune_from_tier), and a rune
+ * held at the merchant's gives back what holding it cost. Versions 1 and 2 still load: their spells
+ * and runes stay, their robe, hood and best ring become Common pieces of their tier, and version 1 has
+ * an empty record. */
 #define SAVE_MAGIC 0x31535648u              /* "HVS1" */
 #define OLD_GEAR 46                         /* versions 1 and 2: the gear as it was, copied raw */
 #define SAVE_V1 (28 + OLD_GEAR)
@@ -5926,12 +5991,12 @@ static void gear_pack(uint8_t *p, const Gear *g) {
     put32(p + 4, g->held.price); p += 8;
     piece_pack(p, &g->held.piece);
 }
-static void gear_unpack(const uint8_t *p, Gear *g) {
+static void gear_unpack(const uint8_t *p, Gear *g, int by_quality) {   /* runes by quality from version 5, by tier before */
     static const int SLOT_IK[NSLOT] = { IK_WRIST, IK_WRIST, IK_BOOTS, IK_NECK, IK_HOOD, IK_ROBE, IK_RING };
     gear_reset(g);
     for (int i = 0; i < NATK; i++) g->atk[i] = (int8_t)clampi((int8_t)*p++, -1, 15);
     if (g->atk[AT_FIRE] < 0) g->atk[AT_FIRE] = 0;
-    for (int i = 0; i < NDEF; i++) g->def[i] = (int8_t)clampi((int8_t)*p++, 0, 15);
+    for (int i = 0; i < NDEF; i++, p++) g->def[i] = (int8_t)(by_quality ? clampi((int8_t)*p, 0, RUNE_EXQ) : rune_from_tier(clampi((int8_t)*p, 0, 15)));
     for (int s = 0; s < NSLOT; s++, p += PIECE_BYTES) {
         g->worn[s] = piece_unpack(p);
         if (g->worn[s].kind != SLOT_IK[s]) memset(&g->worn[s], 0, sizeof g->worn[s]);   /* only what goes there */
@@ -5954,7 +6019,7 @@ static void gear_from_old(const uint8_t *p, Gear *g, uint32_t seed) {
     gear_reset(g);
     for (int i = 0; i < NATK; i++) g->atk[i] = (int8_t)clampi((int8_t)p[i], -1, 15);
     if (g->atk[AT_FIRE] < 0) g->atk[AT_FIRE] = 0;
-    for (int i = 0; i < NDEF; i++) g->def[i] = (int8_t)clampi((int8_t)p[NATK + i], 0, 15);
+    for (int i = 0; i < NDEF; i++) g->def[i] = (int8_t)rune_from_tier(clampi((int8_t)p[NATK + i], 0, 15));
     int robe = (int8_t)p[18], robe_t = (int8_t)p[19], hood = (int8_t)p[20], hood_t = (int8_t)p[21];
     if (robe > 0 && robe < 6 && robe_t > 0) g->worn[SL_ROBE] = piece_make(IK_ROBE, robe_t, ROBE_STAT[robe], &rs);
     if (hood > 0 && hood < 5 && hood_t > 0) g->worn[SL_HOOD] = piece_make(IK_HOOD, hood_t, HOOD_STAT[hood], &rs);
@@ -5978,30 +6043,49 @@ static void rec_unpack(const uint8_t *p, Record *r) {
     memcpy(r->got, p, sizeof r->got);
 }
 #define SAVE_V4_EXTRA 4                     /* version 4: the wisp L casts, and the toggle */
-static int save_version(const uint8_t *buf, int len) {             /* 1 to 4 if it is a save we can read, else 0 */
+#define SAVE_V5_SHRINE 32                   /* version 5: Cursed Coins and the Rune Shrine */
+static int save_version(const uint8_t *buf, int len) {             /* 1 to 5 if it is a save we can read, else 0 */
     if (len < SAVE_V1 || (uint32_t)get32(buf) != SAVE_MAGIC) return 0;
     int v = get32(buf + 4);
     if (v == 1 || (v == 2 && len >= SAVE_V1 + REC_BYTES) || (v == 3 && len >= SAVE_V3 + REC_BYTES)
-        || (v == 4 && len >= SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA)) return v;
+        || (v == 4 && len >= SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA) || (v == 5 && len >= SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA + SAVE_V5_SHRINE)) return v;
     return 0;
 }
-static int save_end(int v) { return (v >= 3 ? SAVE_V3 : SAVE_V1) + (v >= 2 ? REC_BYTES : 0) + (v >= 4 ? SAVE_V4_EXTRA : 0); }   /* a grave's time follows */
+static int save_end(int v) {                                       /* a grave's time follows */
+    return (v >= 3 ? SAVE_V3 : SAVE_V1) + (v >= 2 ? REC_BYTES : 0) + (v >= 4 ? SAVE_V4_EXTRA : 0) + (v >= 5 ? SAVE_V5_SHRINE : 0);
+}
+/* the shrine's 32 bytes: coins (u16), rank, attunements (u16, a bit a rune), then the slots as rune
+ * kind + 1 and quality; the rest spare */
+static void shrine_pack(uint8_t *p) {
+    memset(p, 0, SAVE_V5_SHRINE);
+    put16(p, clampi(RUN.coins, 0, 65535)); p[2] = (uint8_t)RUN.shrine; put16(p + 3, RUN.attuned);
+    for (int i = 0; i < SHRINE_SLOTS; i++) { p[5 + 2 * i] = RUN.slot_def[i]; p[6 + 2 * i] = RUN.slot_q[i]; }
+}
+static void shrine_unpack(const uint8_t *p) {                      /* anything out of range comes back empty */
+    RUN.coins = get16(p); RUN.shrine = clampi(p[2], 0, NQUAL); RUN.attuned = get16(p + 3) & ((1 << NDEF) - 1);
+    for (int i = 0; i < SHRINE_SLOTS; i++) {
+        int d = p[5 + 2 * i], q = p[6 + 2 * i];
+        if (d < 1 || d > NDEF || q < 1 || q > RUNE_EXQ) d = q = 0;
+        RUN.slot_def[i] = (uint8_t)d; RUN.slot_q[i] = (uint8_t)q;
+    }
+}
 
 static int crawl_save(uint8_t *buf, int cap) {
-    int n = SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA;
+    int n = SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA + SAVE_V5_SHRINE;
     if (cap < n || CON.used) return 0;                             /* the dead took note: nothing is kept */
     int level = G.level, hp = G.dead || G.hp <= 0 ? gear_max_hp(&RUN.gear) : G.hp, gold = RUN.treasure, souls = RUN.souls, shop = 0;
     if (G.tally || G.exiting) { level = G.level + 1; shop = 1; }   /* the level is won */
     else if (G.shop) shop = !G.shop_bought;
     else { gold -= G.level_treasure; souls -= G.level_souls; }
     put32(buf, (int32_t)SAVE_MAGIC);
-    put32(buf + 4, 4);                                             /* version */
+    put32(buf + 4, 5);                                             /* version */
     put32(buf + 8, level); put32(buf + 12, hp); put32(buf + 16, gold); put32(buf + 24, shop);
     put32(buf + 20, souls * 10 + clampi((int)(RUN.soul_frac * 10.0f), 0, 9));   /* spirit, in tenths */
     gear_pack(buf + 28, &RUN.gear);
     rec_pack(buf + SAVE_V3, &RUN.rec);
     uint8_t *x = buf + SAVE_V3 + REC_BYTES;
     x[0] = (uint8_t)RUN.wisp_kind; x[1] = (uint8_t)RUN.wisp_color; x[2] = (uint8_t)(RUN.wisp_auto != 0); x[3] = 0;
+    shrine_pack(x + SAVE_V4_EXTRA);
     return n;
 }
 
@@ -6014,12 +6098,17 @@ static void crawl_load(const uint8_t *buf, int len) {
     TOASTS.n = 0;                                                  /* another run's news is no news */
     RUN.level = clampi(get32(buf + 8), 1, 999); RUN.treasure = get32(buf + 16); RUN.souls = get32(buf + 20);
     RUN.shop_next = get32(buf + 24) != 0;
-    if (v >= 3) { gear_unpack(buf + 28, &RUN.gear); RUN.soul_frac = (float)(RUN.souls % 10) / 10.0f; RUN.souls /= 10; }
+    if (v >= 3) { gear_unpack(buf + 28, &RUN.gear, v >= 5); RUN.soul_frac = (float)(RUN.souls % 10) / 10.0f; RUN.souls /= 10; }
     else gear_from_old(buf + 28, &RUN.gear, (uint32_t)RUN.level * 2654435761u);
     RUN.hp = clampi(get32(buf + 12), 1, gear_max_hp(&RUN.gear));
     if (v >= 4) {
         const uint8_t *x = buf + SAVE_V3 + REC_BYTES;
         RUN.wisp_kind = clampi(x[0], WK_EXIT, WK_ALTAR); RUN.wisp_color = clampi(x[1], 0, NKEYS - 1); RUN.wisp_auto = x[2] != 0;
+        if (v >= 5) shrine_unpack(x + SAVE_V4_EXTRA);
+    }
+    if (RUN.gear.has_held && RUN.gear.held.kind == GK_DEF) {        /* the merchant sells no runes now: the hold is paid back */
+        RUN.treasure += (RUN.gear.held.price + 3) / 4;
+        RUN.gear.has_held = 0; memset(&RUN.gear.held, 0, sizeof RUN.gear.held);
     }
     if (RUN.treasure < 0) RUN.treasure = 0;
     if (RUN.souls < 0 || RUN.soul_frac < 0.0f) { RUN.souls = RUN.souls < 0 ? 0 : RUN.souls; RUN.soul_frac = 0.0f; }
@@ -6605,6 +6694,11 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         int n0 = n, fr = ((int)(G.t * 8.0)) & 1;
         ADD(G.altar_x + 0.5f, G.altar_y + 0.5f, 0.0f, (G.altar_state == ALTAR_READY ? SP_BFLAME_G0 : SP_BFLAME_V0) + fr, 0);
         if (n > n0) { list[n - 1].flags = DR_BRIGHT | (G.blessed ? DR_EDGE : 0); list[n - 1].depth -= 0.02f; }
+    }
+    if (G.decoy_t > 0.0f && !G.shop) {                             /* an Exquisite Blink's double, fading where you stood */
+        int n0 = n;
+        ADD(G.decoy_x, G.decoy_y, 0.0f, SP_DOUBLE, fminf(0.8f, 0.15f + G.decoy_t / DECOY_T));
+        if (n > n0) list[n - 1].flags = DR_BRIGHT;
     }
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *m = &G.mobs[i];
@@ -7643,15 +7737,19 @@ static void render_caster(Frame *f) {
     gfx_text8(f, x, y, "RUNES", R_GOLD + 10, 1);
     x = 66;
     static const char *const DEF_SHORT[NDEF] = { "WARD", "BLINK", "MIRROR", "MEND", "PURIFY", "NOVA", "DREAD", "SLIP", "REAP" };
+    static const char *const Q_TAG[NQUAL] = { "C", "U", "R", "UR", "EX" };   /* the quality in a letter or two, as well as its colour */
     int any = 0;
     for (int k = 0; k < NDEF; k++) {
-        if (g->def[k] <= 0) continue;
+        int q = g->def[k];
+        if (q <= 0) continue;
         any = 1;
-        int w = gfx_text_width(DEF_SHORT[k], 1);
-        if (x + w > W - 10) { x = 66; y += 9; }
+        int w = gfx_text_width(DEF_SHORT[k], 1), wt = gfx_text_width(Q_TAG[q - 1], 1);
+        if (x + w + 5 + wt > W - 10) { x = 66; y += 9; }
         if (y > H - 14) break;
-        gfx_text8(f, x, y, DEF_SHORT[k], G.def_cd[k] > 0.0f ? (uint8_t)(R_STONE + 8) : (uint8_t)(R_GLOW + 11), 1);
-        x += w + 8;
+        int ramp = QUAL_RAMP[q - 1], cool = G.def_cd[k] > 0.0f;   /* dimmer while it comes round again */
+        gfx_text8(f, x, y, DEF_SHORT[k], (uint8_t)(ramp + (cool ? 7 : 12)), 1);
+        gfx_text8(f, x + w + 5, y, Q_TAG[q - 1], (uint8_t)(ramp + (cool ? 5 : 9)), 1);
+        x += w + 5 + wt + 9;
     }
     if (!any) gfx_text8(f, x, y, "NONE YET", R_STONE + 8, 1);
 }

@@ -9,6 +9,7 @@
 #include "../src/crawl.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <zlib.h>
 
 #define SC 3                                /* sprite pixels per texel */
@@ -94,6 +95,8 @@ static const Group GROUPS[] = {
     { "sides4", "SIDE VIEWS: SET IV", -1, 1,
       { { SP_SHADE_SA, "SHADE A" }, { SP_SHADE_SB, "B" }, { SP_IMP_SA, "IMP A" }, { SP_IMP_SB, "B" }, { SP_DEACON_SA, "DEACON A" }, { SP_DEACON_SB, "B" },
         { SP_GARG_SA, "GARGOYLE A" }, { SP_GARG_SB, "B" }, { -1, 0 } } },
+    { "b6", "1.0.0B6: FOR APPROVAL", -1, 1,
+      { { SP_DOUBLE, "BLINK'S DOUBLE" }, { -1, 0 } } },
 };
 #define NGROUPS ((int)(sizeof GROUPS / sizeof GROUPS[0]))
 
@@ -224,12 +227,15 @@ static int draw_group(const Group *g, const char *path, int level) {
     int nf = 0, nr = 0;
     while (nf < 16 && g->fr[nf].spr >= 0) nf++;
     for (int r = 0; r < NRANK; r++) nr += g->ranks >> r & 1;
+    char head[96];
+    snprintf(head, sizeof head, "%s - LEVEL %d", g->title, level);
     iw = PAD + ROWHEAD + nf * (CELL + PAD);
+    int tw = PAD * 2 + (int)strlen(head) * 8 * TXT, fw = PAD * 2 + 47 * 8 * TXT;   /* room for the title and the note under it */
+    if (iw < tw) iw = tw;
+    if (iw < fw) iw = fw;
     ih = PAD + LABEL_H + 8 * TXT + PAD + nr * (CELL + PAD) + 8 * TXT + PAD;
     img = calloc((size_t)iw * ih, 3);
     rect(0, 0, iw, ih, 10, 10, 12);
-    char head[96];
-    snprintf(head, sizeof head, "%s - LEVEL %d", g->title, level);
     text(PAD, PAD, head, 230, 230, 230);
     int y = PAD + LABEL_H;
     for (int f = 0; f < nf; f++) text(PAD + ROWHEAD + f * (CELL + PAD), y, g->fr[f].label, 190, 190, 190);

@@ -1,7 +1,9 @@
 # 1.0.0b6: secrets that go deeper, Cursed Coins and the Rune Shrine
 
-**Status: planned (24 October 2026) and settled; the hand fix is built (harness only); step 2, runes by quality, is next.** The owner
-asked for the things below after 1.0.0b5, answered four rounds of questions, and left the rest to
+**Status: planned (24 October 2026) and settled; steps 1 and 2 are built (the hand fix, and runes by
+quality), tested in the harness only; step 3, the Rune Shrine, is next. Blink's double is a new sprite
+awaiting the owner's approval.** The owner
+asked for the things below after 1.0.0b5, answered five rounds of questions, and left the rest to
 defaults, marked *default* here so they can be changed. Nothing in this plan names the console's codes.
 
 ## What the owner asked for
@@ -200,8 +202,13 @@ creatures did:
 ## Building it
 
 1. **The hand** (built).
-2. **Runes by quality:** the data, the strengths, the Exquisite effects once approved, the old saves'
-   runes, save version 5, the merchant's pedestal, the autopilot's sense of runes.
+2. **Runes by quality** (built): the data, the strengths, the Exquisite effects, the old saves'
+   runes, save version 5, the merchant's pedestal, the autopilot's sense of runes. Defaults taken
+   while building it: Blink reaches two to six cells by quality; the double draws creatures within six
+   cells of it for three seconds, and they don't strike while drawn; the Mirror Veil's Exquisite
+   return is three times the missile (the veil's 1.5, doubled); Mend's ward holds up to a quarter of
+   your health for 8 s; Purify mends 2% of your health a second; Soul Reaping heals a twentieth of it a
+   kill; a burst ward's shards deal half the ward's strength to everything within two cells in sight.
 3. **The Rune Shrine:** its art (for approval), its place in the room, curse and ranks, its screen,
    pulls, combining, attunement and offerings, takes when leaving, the overflow question, and the
    autopilot at the shrine.

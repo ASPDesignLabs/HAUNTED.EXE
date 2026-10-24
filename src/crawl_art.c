@@ -1155,6 +1155,33 @@ static void spr_black_altar(void) {
         }
 }
 
+/* An Exquisite Blink's double: the caster as the creatures see it, hooded and robed, one hand up,
+ * all in violet light that thins towards the hem. Drawn at full brightness, and faded as it goes. */
+static void spr_double(void) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 17; y < 63; y++) {                                 /* the robe */
+        float t = (y - 17) / 45.0f, hw = 8.0f + 6.5f * t;
+        for (int x = (int)(32 - hw) - 1; x <= (int)(32 + hw) + 1; x++) {
+            float dx = x + 0.5f - 32;
+            if (fabsf(dx) > hw) continue;
+            if (y > 48 && h01(x, y, 351) < (y - 48) / 15.0f) continue;   /* thinning away below */
+            float u = dx / hw, v = 0.35f + 0.45f * (1.0f - u * u) * (1.0f - 0.4f * t);
+            if (sinf(dx * 1.2f + y * 0.04f) > 0.65f) v -= 0.1f;     /* folds */
+            cv_px(x, y, sh(R_PURPLE, v));
+        }
+    }
+    cv_capsule(24, 21, 21, 38, 3.2f, R_PURPLE, 0.3f, 0.7f);         /* the left arm, hanging */
+    cv_ellipse(21, 39, 1.8f, 1.8f, R_PURPLE, 0.6f, 0.95f);
+    cv_capsule(40, 21, 46, 12, 3.0f, R_PURPLE, 0.3f, 0.75f);        /* the right, raised as it cast */
+    cv_ellipse(47, 10, 2.0f, 2.0f, R_PURPLE, 0.7f, 1.0f);
+    for (int k = 0; k < 10; k++)                                    /* the spell's last sparks about the hand */
+        cv_px((int)(47 + (h01(k, 1, 353) - 0.5f) * 9), (int)(9 - 7 * h01(k, 2, 353)), sh(R_PURPLE, 0.85f + 0.15f * h01(k, 3, 353)));
+    cv_ellipse(32, 12, 7.5f, 8.0f, R_PURPLE, 0.35f, 0.8f);          /* the hood, and only shadow in it */
+    cv_flat(32, 13.5f, 4.8f, 5.6f, 0);
+    cv_outline(0);
+    cv_store(SP_DOUBLE);
+}
+
 /* The wraith: a tall hooded shape, nothing inside the hood but two cold eyes, bone hands reaching
  * out of the sleeves, the hem of its robe dissolving into wisps. recoil: thrown back, shrieking. */
 static void spr_wraith(int id, float phase, int recoil) {
@@ -3871,7 +3898,7 @@ void crawl_art_init(void) {
     spr_ball(SP_HELL_A, 12.0f, R_FLAME, R_BLOOD, 0, 0); spr_ball(SP_HELL_B, 12.5f, R_FLAME, R_BLOOD, 1, 0);
     spr_frost(); spr_spear(); spr_wisp(); spr_spark();
     spr_burn(SP_BURN_A, 0); spr_burn(SP_BURN_B, 1);
-    spr_soulurn(); spr_ringitem(); spr_pedestal(); spr_items(); spr_black_altar();
+    spr_soulurn(); spr_ringitem(); spr_pedestal(); spr_items(); spr_black_altar(); spr_double();
     for (int f = 0; f < 4; f++) spr_bonefly(SP_BONEFLY0 + f, f * PI_F * 0.25f);
     spr_coins(SP_COINS_A, 0);
     spr_coins(SP_COINS_B, 1);

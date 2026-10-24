@@ -31,8 +31,11 @@ listed the console's codes never reached main; keep it that way.
 The next beta, 1.0.0b6, is planned in [`docs/PLAN-b6.md`](docs/PLAN-b6.md): secrets in chains of
 carved rooms and pocket areas themed as the Backrooms (levels 1-10) and Severance (11-20), Cursed
 Coins, and the Rune Shrine in the merchant's room as the only source of runes, which now come by quality.
-The owner answered four rounds of questions; the plan marks the defaults and what is still to settle.
-The hand fix (casting from rest while the bar is away) is built.
+The owner answered five rounds of questions; the plan marks the defaults and what is still to settle.
+Built so far (harness only): the hand fix (casting from rest while the bar is away) and runes by
+quality (step 2: Common to Exquisite, the nine Exquisite second effects, save version 5, the merchant's
+rune pedestal now another piece to wear). Until the shrine (step 3) is built there is no way to get a
+rune in play but an old save, the console or the debug switches.
 
 ## Working with the owner
 
@@ -61,7 +64,7 @@ The hand fix (casting from rest while the bar is away) is built.
 | `src/scene_haunt.c`, `src/haunt_art.c/.h` | HAUNT.EXE: BIOS POST, DOS prompt, the haunted programs, seven half-block ANSI art scenes, the crash |
 | `src/scene_crawl.c` | CATACOMB: generator, autopilot, player mode, combat, spells and runes, merchant, secrets, wisps, Black Altars, lightmap, raycaster, sprites, HUD, tally, menus, the console, save/load, graves, creatures, the record and the bestiary (about 8,100 lines; see below) |
 | `src/crawl_art.c`, `src/crawl.h` | CATACOMB's palette, colormap, procedural wall textures (`T_*`) and sprites (`SP_*`), `crawl_art_level()` per-level tint and decay |
-| `src/crawl_gear.c/.h` | Spells and runes by tier; pieces to wear (`Piece`: kind, quality, level, anointed, ability, rolled stats) and bags; rolls, names, prices, the caster's totals and their caps |
+| `src/crawl_gear.c/.h` | Spells by tier and runes by quality (`rune_tier`, `rune_from_tier`, `RUNE_EXQ`); pieces to wear (`Piece`: kind, quality, level, anointed, ability, rolled stats) and bags; rolls, names, prices, the caster's totals and their caps |
 | `tools/items.c` | `make items`: a hundred rolled wares a level as `build/items.json`, for checking names and numbers |
 | `src/hand_img.c`, `src/face_img.c`, `src/cat_img.c` | Traced bitmaps (data) |
 | `tools/host.c` | The headless test harness (Linux): PNG frames, WAV audio, benchmarks, scripted input |
@@ -102,8 +105,9 @@ as in `core.h` without `KEY_`, so `CONSOLE`, `BACK`, `PGUP`, `PGDN` too),
 (graves as `slot1.bin`..`slot3.bin`), `BOTH=1` (scene rotation), `STAY=n`.
 
 Debug build switches (`CRAWL_DEBUG`): `CRAWL_SEED=n` (seeds are OR-ed with 1, so 2 and 3 are the
-same), `CRAWL_LEVEL=n` (start deeper; you start at the merchant), `CRAWL_GEAR=t` (every spell and
-rune at tier t, and an Uncommon piece of level 2t in every slot), `CRAWL_BAG=q` (a bag of quality q, all
+same), `CRAWL_LEVEL=n` (start deeper; you start at the merchant), `CRAWL_GEAR=t` (every spell at
+tier t, every rune at the quality an old save's tier t becomes, and an Uncommon piece of level 2t in every
+slot), `CRAWL_RUNES=q` (every rune at quality q, 1 Common to 5 Exquisite), `CRAWL_BAG=q` (a bag of quality q, all
 but one place filled with spares), `CRAWL_ABIL=a` (every worn piece with ability a, the `AB_*` number), `CRAWL_GOLD`, `CRAWL_SOULS`, `CRAWL_MAP=1` (prints the map, the plan and a lane
 reachability check), `CRAWL_MAPAT=t`, `CRAWL_TPSECRET=n` / `CRAWL_TPEXIT=1` / `CRAWL_TPALTAR=1` (stand in front of a secret,
 the exit or the Black Altar once you take control), `CRAWL_BLESS=1` (the altar's blessing on every level), `CRAWL_WISP=1` (a free exit wisp as each level opens; 2 to 4: to the
@@ -123,13 +127,17 @@ log` per seed, four at a time, then a short script over the logs: levels reached
 secrets. Compare against a build of the previous commit (a `git worktree`) on the same seeds; one run
 can spiral, so use at least eight seeds before trusting a balance change.
 
-A save blob (for `HOST_LOAD`) is `"HVS1"` (u32 0x31535648 LE), version 4, then little-endian int32
+A save blob (for `HOST_LOAD`) is `"HVS1"` (u32 0x31535648 LE), version 5, then little-endian int32
 level, hp, gold, souls (in tenths), shop-first flag, then the gear packed field by field (`gear_pack`:
-attack and rune tiers, the seven worn pieces, bag size and quality, five bag places, bones, a held ware;
+attack tiers and rune qualities, the seven worn pieces, bag size and quality, five bag places, bones, a held ware;
 a piece is 24 bytes, `PIECE_BYTES`), then the run's `Record` (`rec_pack`: u16 kills by kind and rank,
 u8 kills by kind and spell, u8 ranks seen by kind, u16 secrets, u16 descents, u32 levels cleared, 32
 bytes of achievement bits; `REC_BYTES` in all), then four bytes for the L menu (the wisp kind, the
-key's colour, the toggle, a spare): 943 bytes. Version 3 is the same without the last four. Versions 1
+key's colour, the toggle, a spare), then 32 for the Rune Shrine (`shrine_pack`: u16 Cursed Coins, its
+rank, u16 attunements, nine slots of rune kind + 1 and quality, nine spare): 975 bytes. Version 4 is
+the same without the shrine and with runes by tier (`rune_from_tier`: 1-3 Common, 4-6 Uncommon, 7-10
+Rare, 11 up Ultra-Rare; a rune held at the merchant's is dropped and its hold fee paid back); version 3
+is version 4 without the L menu's four bytes. Versions 1
 and 2 (the old 46-byte raw `Gear`; version 1 without a record) still load: their worn robe, hood and best ring become Common
 pieces of their tier (`gear_from_old`). A few lines of Python writing version 1 are still the quickest
 way to start a test at a given level with given spells.
@@ -323,9 +331,21 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   without bones (`choose_spell`). The debug build logs `EVENT weak_<spell>` for each weak cast, `EVENT commune` and
   `EVENT mirrored`.
 
+- **Runes** (`Gear.def[NDEF]`: 0 none, 1 Common to 5 Exquisite, `RUNE_EXQ`; docs/PLAN-b6.md). One of each
+  at most, the best, all worn; `def_trigger` picks the moment and `cast_defense` works at `rune_tier`
+  (2, 5, 8, 12, 18: about the tier each quality used to be bought at), with `def_cooldown` by quality
+  (16 s at Exquisite, otherwise as the tier had it). An Exquisite rune does a second thing: the Bone
+  Ward bursts into shards when it breaks (`G.ward_shards`, `ward_burst`; six shots of tier -1 that only
+  show); Blink leaves a double for `DECOY_T` (`G.decoy_*`, `SP_DOUBLE`) that creatures within six cells
+  go for and don't fight from (`lured`, `fights` in `update_mob`); the Mirror Veil sends missiles home
+  to their thrower at twice the veil's strength; Mend past full becomes a small ward; Purify mends 2%
+  a second; the frozen take double; Dread reaches the living (`Mob.dreaded`); what Time Slip slows
+  takes a quarter more; Soul Reaping heals a twentieth of your health a kill. The caster's page shows
+  each rune in its quality's colour with a tag (C, U, R, UR, EX). The debug build logs `EVENT
+  ward_burst`, `decoy`, and `exq_*` for the rest.
 - **The merchant** (`gen_shop`, `begin_shop`, `update_shop`, `shop_human`). A room 11 cells wide
-  with five to seven pedestals in an arc (`G.ped_x/ped_y`, `gear_shop_pedestals`): a spell, a rune,
-  the rest things to wear, a bag at most once a visit and only one bigger than yours. One to three
+  with five to seven pedestals in an arc (`G.ped_x/ped_y`, `gear_shop_pedestals`): a spell, the
+  rest things to wear (runes come only from the Rune Shrine now), a bag at most once a visit and only one bigger than yours. One to three
   wares a visit (`gear_shop_purchases`, `G.shop_left`); the autopilot buys up to that by value,
   keeping 15% of a level's haul back after the first. A person: E buys and wears it at once
   (`gear_take_wear`); with no bag a worn slot gets a red warning on the card first
