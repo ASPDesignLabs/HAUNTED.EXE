@@ -260,6 +260,9 @@ static Sfx g_s[NS];
 static uint32_t g_rng = 12345;
 static int g_hold;                  /* the console is open: the game's effects and the crackle wait; the music and its drums play */
 static float g_fx_gain = 1.0f;      /* the game's effects fade out and back in over a fiftieth of a second, so nothing clicks */
+static int g_room;                  /* 1 the Backrooms: the music gone, a hum, more echo on the game's sounds */
+static float g_room_k;              /* how far into the room's sound, 0..1, over a second */
+static float g_hum_ph;
 
 static Sfx *sfx_start(int type, float dur, float gain, float pan, float rev) {
     static Sfx none;
@@ -1217,7 +1220,7 @@ void snd_start_program(int prog) {
     g_prog = prog;
     g_samples = 0; g_step_acc = 0; g_step = 0;
     g_mrng = 777u + (uint32_t)prog * 31u;
-    g_hb_timer = 0; g_hold = 0; g_fx_gain = 1.0f;
+    g_hb_timer = 0; g_hold = 0; g_fx_gain = 1.0f; g_room = 0; g_room_k = 0.0f;
     if (prog == SND_PROG_HAUNT) {
         g_sps = 0.25 * SND_RATE;                      /* 60 BPM sixteenths */
         g_rv_fb = 0.86f; g_rv_damp = 0.30f; g_rv_wet = 0.36f;
@@ -1235,6 +1238,7 @@ void snd_start_program(int prog) {
 
 void snd_set_mood(float m) { LOCK(); g_mood_target = clampf(m, 0.0f, 1.0f); UNLOCK(); }
 void snd_hold(int on) { LOCK(); g_hold = on != 0; UNLOCK(); }
+void snd_set_room(int room) { LOCK(); g_room = room; UNLOCK(); }
 void snd_set_latency(int frames) { LOCK(); g_latency = frames; UNLOCK(); }
 
 /* duration, gain, default pan (negative: random spread of that width), reverb send */
@@ -1356,17 +1360,30 @@ static void render_locked(int16_t *out, int frames) {
 
         float L = 0.0f, R = 0.0f, rev = 0.0f, dly = 0.0f;
 
-        for (int i = 0; i < NV; i++) if (g_v[i].active) voice_run(&g_v[i], &L, &R, &rev, &dly);
+        g_room_k = g_room ? fminf(1.0f, g_room_k + 1.0f / SR) : fmaxf(0.0f, g_room_k - 1.0f / SR);
+        float mus = 1.0f - g_room_k;                               /* the music, and its drums, fade in the Backrooms */
+        if (mus > 0.0f) {
+            float ml = 0.0f, mr = 0.0f, mrev = 0.0f, mdly = 0.0f;
+            for (int i = 0; i < NV; i++) if (g_v[i].active) voice_run(&g_v[i], &ml, &mr, &mrev, &mdly);
+            L += ml * mus; R += mr * mus; rev += mrev * mus; dly += mdly * mus;
+        } else for (int i = 0; i < NV; i++) g_v[i].active = 0;
 
         g_fx_gain = g_hold ? fmaxf(0.0f, g_fx_gain - 50.0f / SR) : fminf(1.0f, g_fx_gain + 50.0f / SR);
         for (int i = 0; i < NS; i++) if (g_s[i].active) {
             Sfx *s = &g_s[i];
             int game = s->type < SFX_COUNT;
             if (game && g_fx_gain <= 0.0f) continue;               /* held where it is */
-            float x = sfx_sample(s) * (game ? g_fx_gain : 1.0f);
+            float x = sfx_sample(s) * (game ? g_fx_gain : mus);
             float a = s->pan * (PI_F * 0.5f);
             L += x * cosf(a) * 1.0f; R += x * sinf(a) * 1.0f;      /* cheap pan */
-            rev += x * s->rev;
+            rev += x * (s->rev + (game ? 0.25f * g_room_k : 0.0f));
+        }
+        if (g_room_k > 0.0f && g_fx_gain > 0.0f) {                 /* the tubes' hum: the mains, and a buzz on top */
+            g_hum_ph += 60.0f / SR; if (g_hum_ph >= 1.0f) g_hum_ph -= 1.0f;
+            float p = g_hum_ph;
+            float h = 0.55f * sin_cyc(p * 2.0f) + 0.25f * sin_cyc(p * 4.0f) + 0.12f * sin_cyc(p * 6.0f + 0.2f) + 0.06f * sin_cyc(p * 10.0f);
+            h *= 0.012f * g_room_k * g_fx_gain;
+            L += h; R += h;
         }
 
         if (g_prog == SND_PROG_HAUNT) {

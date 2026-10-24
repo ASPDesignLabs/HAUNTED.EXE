@@ -405,6 +405,7 @@ static struct {
     float since;                                                   /* since the last doorway, for the fade */
     uint8_t reached[MAXSECRETS];                                   /* the deepest link found in each chain */
     uint32_t taken[MAXSECRETS][POCKET_LINKS];                      /* the things picked up in each pocket, a bit each */
+    uint8_t vis_used[MAXSECRETS];                                  /* each chain's visportal, once it has given */
 } PK;
 
 static uint8_t ramp_at(int ramp, int k) { return (uint8_t)(ramp + clampi(k, 0, ramp == R_GOLD ? 12 : 15)); }   /* the gold ramp is short */
@@ -4494,6 +4495,7 @@ static void pocket_build(int link, int from_deeper) {
     for (int k = 0; k < NKEYS; k++) G.vault_room[k] = G.vault_door[k] = -1;
     gen_pocket(&G_LEVEL.secrets[PK.chain], link);
     crawl_art_theme(G.ptheme, G.level);
+    snd_set_room(G.ptheme == PT_BACKROOMS);                        /* the Backrooms: no music, a hum, an echo */
     PK.depth = link; PK.since = 0.0f;
     if (from_deeper) stand_at_door(PK.on_x, PK.on_y); else stand_at_door(PK.back_x, PK.back_y);
     G.map[G.cy][G.cx].visits = 1; G.explored = 1;
@@ -4515,6 +4517,7 @@ static void pocket_return(int died) {
     G = G_LEVEL;
     carry_caster(&G_KEEP);
     crawl_art_theme(PT_NONE, G.level);
+    snd_set_room(0);
     PK.depth = 0; PK.since = 0.0f;
     stand_at_door(sc->door_x, sc->door_y);
     G.camz = 0.5f; G.spd = 0.0f;
@@ -4556,7 +4559,7 @@ static int pocket_door(int x, int y) {
     if (x == PK.on_x && y == PK.on_y) { pocket_build(PK.depth + 1, 0); return 1; }
     return 0;
 }
-static void pocket_reset_level(void) { memset(&PK, 0, sizeof PK); PK.level = G.level; }
+static void pocket_reset_level(void) { memset(&PK, 0, sizeof PK); PK.level = G.level; snd_set_room(0); }
 
 static void crawl_enter(uint32_t seed) {
     crawl_art_init();
@@ -5888,11 +5891,28 @@ static void human_bump(int cx, int cy) {
 }
 
 /* E or Space: the door or exit just ahead */
+/* The Backrooms' end: E at the visportal, once a chain, gives your health back in full, or fifty souls
+ * if you are whole. It goes on drifting until it has given; then it stands still. */
+static int visportal_use(void) {
+    if (PK.vis_used[PK.chain]) { say("THE DOORWAYS GO ON, AND GIVE NO MORE"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return 1; }
+    PK.vis_used[PK.chain] = 1;
+    int heal = G.hp < G.max_hp;
+    if (heal) { G.hp = G.max_hp; G.poison_t = G.slow_t = 0.0f; say("THE DOORWAYS MAKE YOU WHOLE AGAIN"); }
+    else { RUN.souls += 50; G.level_souls += 50; pop_readout(); say("THE DOORWAYS GIVE YOU FIFTY SOULS"); }
+    snd_sfx_ex(SFX_SHIMMER, 1.0f, 0.5f); snd_sfx_ex(SFX_POTION, 0.7f, 0.5f);
+    G.grab_t = 1.0f; show_bar();
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT visportal chain %d %s t=%.2f\n", PK.chain, heal ? "heals" : "souls", G.t);
+#endif
+    return 1;
+}
+
 static int human_use(void) {
     int cx = (int)floorf(G.px + cosf(G.ang) * 0.8f), cy = (int)floorf(G.py + sinf(G.ang) * 0.8f);
     Cell *c = cell(cx, cy);
     if (c->kind == K_DOOR) { open_door(&G.doors[c->door]); return 1; }
     if (c->kind == K_WALL && c->secret == 3 && pocket_door(cx, cy)) return 1;   /* a secret's doorway */
+    if (PK.depth && cx == G.vis_x && cy == G.vis_y) return visportal_use();
     if (!PK.depth && altar_callable()) {                           /* the altar's wisp, waiting at a secret you have been into */
         const Wisp *w = &G.wisps[1];
         float d = hypotf(w->x - G.px, w->y - G.py);
@@ -7267,7 +7287,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 if (cell(pxc, pyc)->kind == K_DOOR) tex = T_JAMB;
                 if (tex == T_TORCH0) tex = T_TORCH0 + (int)((tframe + hash2(mx, my)) % 3);
                 if (tex == T_EXIT0) tex = G.exit_open > 0.3f ? T_EXIT_OPEN : T_EXIT0 + ((int)(G.t * 2.5) & 1);
-                if (tex == T_VISPORT0) tex = T_VISPORT0 + ((int)(G.t * 5.0) & 3);
+                if (tex == T_VISPORT0) tex = T_VISPORT0 + (PK.vis_used[PK.chain] ? 0 : ((int)(G.t * 5.0) & 3));
                 float wallx = side == 0 ? G.py + perp * rdy : G.px + perp * rdx;
                 wallx -= floorf(wallx);
                 texx = (int)(wallx * TS);
