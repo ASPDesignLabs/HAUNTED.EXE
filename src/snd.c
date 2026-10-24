@@ -258,8 +258,12 @@ typedef struct Sfx {
 #define NS 28
 static Sfx g_s[NS];
 static uint32_t g_rng = 12345;
+static int g_hold;                  /* the console is open: the game's effects and the crackle wait; the music and its drums play */
+static float g_fx_gain = 1.0f;      /* the game's effects fade out and back in over a fiftieth of a second, so nothing clicks */
 
 static Sfx *sfx_start(int type, float dur, float gain, float pan, float rev) {
+    static Sfx none;
+    if (g_hold && type < SFX_COUNT) { memset(&none, 0, sizeof none); return &none; }   /* nothing new while it waits */
     Sfx *s = NULL;
     for (int i = 0; i < NS; i++) if (!g_s[i].active) { s = &g_s[i]; break; }
     if (!s) s = &g_s[rng_next(&g_rng) % NS];
@@ -1213,7 +1217,7 @@ void snd_start_program(int prog) {
     g_prog = prog;
     g_samples = 0; g_step_acc = 0; g_step = 0;
     g_mrng = 777u + (uint32_t)prog * 31u;
-    g_hb_timer = 0;
+    g_hb_timer = 0; g_hold = 0; g_fx_gain = 1.0f;
     if (prog == SND_PROG_HAUNT) {
         g_sps = 0.25 * SND_RATE;                      /* 60 BPM sixteenths */
         g_rv_fb = 0.86f; g_rv_damp = 0.30f; g_rv_wet = 0.36f;
@@ -1230,6 +1234,7 @@ void snd_start_program(int prog) {
 }
 
 void snd_set_mood(float m) { LOCK(); g_mood_target = clampf(m, 0.0f, 1.0f); UNLOCK(); }
+void snd_hold(int on) { LOCK(); g_hold = on != 0; UNLOCK(); }
 void snd_set_latency(int frames) { LOCK(); g_latency = frames; UNLOCK(); }
 
 /* duration, gain, default pan (negative: random spread of that width), reverb send */
@@ -1353,9 +1358,12 @@ static void render_locked(int16_t *out, int frames) {
 
         for (int i = 0; i < NV; i++) if (g_v[i].active) voice_run(&g_v[i], &L, &R, &rev, &dly);
 
+        g_fx_gain = g_hold ? fmaxf(0.0f, g_fx_gain - 50.0f / SR) : fminf(1.0f, g_fx_gain + 50.0f / SR);
         for (int i = 0; i < NS; i++) if (g_s[i].active) {
             Sfx *s = &g_s[i];
-            float x = sfx_sample(s);
+            int game = s->type < SFX_COUNT;
+            if (game && g_fx_gain <= 0.0f) continue;               /* held where it is */
+            float x = sfx_sample(s) * (game ? g_fx_gain : 1.0f);
             float a = s->pan * (PI_F * 0.5f);
             L += x * cosf(a) * 1.0f; R += x * sinf(a) * 1.0f;      /* cheap pan */
             rev += x * s->rev;
@@ -1380,13 +1388,13 @@ static void render_locked(int16_t *out, int frames) {
             }
         }
 
-        if (g_prog == SND_PROG_CRAWL && g_mood > 0.01f) {
+        if (g_prog == SND_PROG_CRAWL && g_mood > 0.01f && g_fx_gain > 0.0f) {
             /* torch crackle: sparse pops, louder when torches are close */
             if (rng_f(&g_mrng) < 0.0002f + 0.0016f * g_mood) g_crk_env = 0.4f + 0.6f * rng_f(&g_mrng);
             g_crk_env *= 0.9965f;
             float n = nz(&g_mrng), hp = n - g_crk_lp; g_crk_lp = n;
             g_crk_hiss += 0.02f * (nz(&g_mrng) - g_crk_hiss);
-            float c = (hp * g_crk_env * 0.30f + g_crk_hiss * 0.05f) * g_mood;
+            float c = (hp * g_crk_env * 0.30f + g_crk_hiss * 0.05f) * g_mood * g_fx_gain;
             L += c * 0.9f; R += c; rev += c * 0.1f;
         }
 

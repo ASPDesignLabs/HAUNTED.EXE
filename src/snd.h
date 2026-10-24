@@ -87,6 +87,7 @@ void snd_start_program(int prog);           /* hard reset into a program */
 void snd_set_mood(float m);                 /* HAUNT: intensity; CRAWL: nearby torches (crackle) */
 void snd_sfx(int id);
 void snd_sfx_ex(int id, float gain, float pan); /* pan 0..1, or < 0 for the effect's default */
+void snd_hold(int on);                      /* effects and the torches' crackle wait; the music plays on */
 void snd_set_latency(int frames);           /* device latency, for visual sync */
 void snd_render(int16_t *out, int frames);  /* interleaved stereo */
 void snd_advance(double seconds);           /* run the clock with no audio device */

@@ -15,7 +15,7 @@ CFLAGS  ?= -O2 -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Wno-misleading-in
 
 all: host
 
-build/host: $(SRC) tools/host.c src/*.h
+build/host: $(SRC) tools/host.c src/*.h build/version.h
 	@mkdir -p build
 	gcc $(CFLAGS) -o $@ $(SRC) tools/host.c -lm -lz
 
@@ -55,7 +55,7 @@ smoke: build/host
 	    ./build/host shot crawl 3,6,9.5,12 build/smoke/play
 	./build/host bench crawl 60
 
-build/host_debug: $(SRC) tools/host.c src/*.h
+build/host_debug: $(SRC) tools/host.c src/*.h build/version.h
 	@mkdir -p build
 	gcc $(CFLAGS) -DHAUNT_DEBUG -DCRAWL_DEBUG -o $@ $(SRC) tools/host.c -lm -lz
 

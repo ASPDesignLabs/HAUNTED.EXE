@@ -1,19 +1,19 @@
-The fourth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H** for three seconds.
+The fifth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H** for three seconds.
 
 ### New in this beta
 
-- **Things to wear, rolled like loot.** Seven places: a bracer on each wrist, boots, an amulet, a hood, robes and a ring. Every piece comes in a quality you can see by its colour, Common (white) to Exquisite (gold), and the better the quality, the more stats it rolls and the stronger they are: armour, dodge, health, wards against poison, burning and slowing, movement, quiet footsteps, spell haste, spirit cost, damage, fire, frost or lightning, and spell effect. About one in ten comes Anointed, a little stronger.
-- **Abilities.** Hoods always carry one, other pieces sometimes: Swift, Arcane, Treasure Hunter (a whisper near secret walls), Keymaker (keys shine through the stone, and **L** sends the wisp to each in turn), Communing (creatures as red shapes through the walls), Thorned and Mirrored.
-- **Spirit and bones.** Your souls are now spent on spells, to the tenth. The Fire Bolt you start with and any spell at tier-I strength are free; stronger casts cost a little, and with too little spirit a spell goes out weak. Every Bone Spear throws a bone, which skeletons, shield-bearers, knights and hounds drop now and then.
-- **The merchant's wider room.** Five to seven pedestals, one to three purchases a visit by depth, and **Q** holds a ware for your next visit for a quarter of its price. Bags, from a Burlap Sack to a Bone Reliquary, keep spare pieces; without one, what a new piece replaces is lost, and the card warns you first.
-- **Black Altars.** From level 6, an altar stands deep in each level. Ten spirit wakes it, and its violet wisp leads you to every secret on the level; find them all and it anoints something you wear.
-- **The wardrobe and the caster's page** (Tab): what you wear and carry, every total, what your abilities add, and what has reached its cap.
+- **More of the crypt to look at.** The status bar slides away five seconds after anything it has to show, and comes back when you are hurt, choose a spell, tap **H**, or open the wardrobe or the bestiary; a small readout shows gold, keys and souls as they come and go meanwhile. Your hand rises only to cast or to reach for something.
+- **Wisps in the crypt.** **L** lists the wisps you can summon and their price. A wisp to the way out costs a soul: it flies off down the halls, fetching the key first if the exit is locked away, lights the dark as it goes, drives back the Wraith, and leaves a trail of motes that hangs for twelve seconds so you can follow it round corners. With a Keymaker piece on, there is a wisp for each key still lying. Set **L** to cast your choice at a tap; holding **L** brings the list back.
+- **The Black Altar's gifts.** **E** at an altar offers its three: wake its violet wisp to the secrets (10 souls), bless your exit wisps for the level (25 souls), so that the undead flee from them, and, once every secret is found, anoint something you wear.
+- **The autopilot uses them too:** an exit wisp as it heads for the way out, and the altars when it has souls to spare.
+- **The Wraith now comes once a level**, as it was always meant to; it had been coming only once a session.
+- **Secrets were added.**
 
-This is still a beta, and none of what is new has been played by hand yet: it has been tested by the harness, and the autopilot's runs are in the README. The deepest levels are still the hardest, and will be tuned as they are played. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
+This is still a beta, and none of what is new has been played by hand yet: it has been tested by the harness, and the autopilot's runs are in the README. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
 
 ### Before you upgrade
 
-Your settings, progress and graves from earlier betas carry over: spells, runes, gold and souls as they were, with your robe, hood and best ring turned into Common pieces. This beta saves in a new format, and **1.0.0b3 and earlier can't read it**: they start again from level 1, and fleeing there overwrites the save. If you might go back, keep a copy first, from a command prompt:
+Your settings, progress and graves carry over from earlier betas. This beta adds four bytes to the save, and **earlier betas can't read it**: they start again from level 1, and fleeing there overwrites the save. If you might go back, keep a copy first, from a command prompt:
 
 ```
 reg export HKCU\Software\HalloweenVGASaver haunted-backup.reg

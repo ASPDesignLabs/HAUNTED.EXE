@@ -100,6 +100,7 @@ void app_update(double dt) {
     if (A.in && !A.control && !A.quit) {
         if (A.in->down[KEY_H] && playable_scene() >= 0) {
             A.hold_t += dt;
+            if (A.cur == playable_scene() && SCENES[A.cur]->control) SCENES[A.cur]->control(CTRL_PEEK);   /* a look at where things stand */
             if (A.hold_t >= HOLD_SECONDS) take_control();
         } else A.hold_t = 0;
     }
@@ -114,7 +115,7 @@ void app_update(double dt) {
         if (st == PLAY_AUTO) { A.control = 0; A.scene_t = 0; A.grace = 1.5; }   /* back to the autopilot */
         else if (st == PLAY_QUIT) A.quit = 1;
     }
-    if (A.in) { memset(A.in->hit, 0, sizeof A.in->hit); A.in->mdx = A.in->mdy = 0.0f; A.in->wheel = 0; }
+    if (A.in) { memset(A.in->hit, 0, sizeof A.in->hit); A.in->mdx = A.in->mdy = 0.0f; A.in->wheel = 0; A.in->ntext = 0; }
 
     switch (A.phase) {
     case PH_FADEIN:

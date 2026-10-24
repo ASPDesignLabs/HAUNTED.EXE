@@ -359,9 +359,12 @@ static int vk_key(WPARAM vk) {
     case 'B': return KEY_B; case 'L': return KEY_L;
     case VK_SPACE: return KEY_SPACE; case VK_CONTROL: return KEY_CTRL; case VK_SHIFT: return KEY_SHIFT;
     case VK_TAB: return KEY_TAB; case VK_ESCAPE: return KEY_ESC; case VK_RETURN: return KEY_ENTER;
+    case VK_BACK: return KEY_BACK; case VK_PRIOR: return KEY_PGUP; case VK_NEXT: return KEY_PGDN;
     default: return vk >= '1' && vk <= '9' ? KEY_1 + (int)(vk - '1') : -1;
     }
 }
+/* the key left of 1 by where it is (scan code 0x29), not what it prints, as in Quake */
+static int key_of(WPARAM vk, LPARAM lp) { return ((lp >> 16) & 0xFF) == 0x29 ? KEY_CONSOLE : vk_key(vk); }
 static void key_event(int k, int down, LPARAM lp) {
     if (k < 0) return;
     if (down && !(lp & (1 << 30))) g_in.hit[k] = 1;              /* not the key repeating */
@@ -420,7 +423,7 @@ static LRESULT CALLBACK saver_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (g_captured) { set_capture(0); set_capture(1); }
         return 0;
     case WM_KEYDOWN: case WM_SYSKEYDOWN: {
-        int k = vk_key(wp);
+        int k = key_of(wp, lp);
         if (wp == VK_F11 || (wp == VK_RETURN && (GetKeyState(VK_MENU) & 0x8000))) {
             if (g_mode == MODE_WINDOWED || g_mode == MODE_CAPTURE) set_borderless(!g_borderless);
             else if (play != APP_PLAYER) request_quit();
@@ -430,7 +433,14 @@ static LRESULT CALLBACK saver_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         break;
     }
     case WM_KEYUP: case WM_SYSKEYUP:
-        key_event(vk_key(wp), 0, lp);
+        key_event(key_of(wp, lp), 0, lp);
+        return 0;
+    case WM_CHAR:                                                  /* letters and digits, for the console */
+        if (play == APP_PLAYER) {
+            char c = (char)wp;
+            if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+            if (((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) && g_in.ntext < (int)sizeof g_in.text) g_in.text[g_in.ntext++] = c;
+        }
         return 0;
     case WM_LBUTTONDOWN: case WM_RBUTTONDOWN:
         if (play == APP_PLAYER) { key_event(msg == WM_LBUTTONDOWN ? KEY_MOUSE1 : KEY_MOUSE2, 1, 0); return 0; }

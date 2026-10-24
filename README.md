@@ -32,12 +32,13 @@ Two scenes are included. They alternate every few minutes (configurable) with a 
 | Scene | VGA mode | What it is |
 |---|---|---|
 | **HAUNT.EXE** | 80x25 text mode, 720x400 | A possessed 486 PC: BIOS POST, a DOS prompt, and a ghost that types back. Between the gags it runs DOS programs that have been got at: EDIT rewriting AUTOEXEC.BAT for a seance, DEFRAG consuming souls and moving the remains to the front of the disk, a modem call to a BBS on the other side, a virus scan that cannot clean a dead host, MSD finding GHOST.SYS on IRQ 13, a thirteen-disk SETUP, a QBasic program that writes itself, and a file manager moving the dead from GRAVES to SOULS, until a file with your name turns up. Art materialises in between, seven full-screen half-block ANSI scenes with their own stories: the jack-o'-lantern in the pumpkin patch, the talking skull in the ossuary, the manor in a thunderstorm, the spider in the candle-lit corner, zombies digging out of a graveyard, skeletons dancing out of their coffins, and a ghost that rushes down a hallway to say boo. It ends in a fatal error and a CRT power-off, then reboots. |
-| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and chooses among five to seven wares for the gold it carries: spells, runes, and things to wear that are rolled like loot, each in its quality's colour (see below). Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, with skull walls, niches, banners, moss and sliding doors, walked with quick 90-degree turns. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides one to three secrets behind cracked walls (see below). Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. From level 6 a Black Altar stands deep in each level, and blesses what you wear once you have found the level's secrets. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. The twenty levels have names and come in four sets of five, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its last level; then the sets come round again. Twenty kinds of creature come in as you go down, about one new kind a level, each in ranks you can tell by its colour (see below). Every level is older and harder than the one before, though each death on a level makes its creatures hit a little softer on the next try (by up to 45%, until it is cleared). Your face, Wolfenstein-style, pops up when you are hurt. Hold H for three seconds to play it yourself (see below). |
+| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and chooses among five to seven wares for the gold it carries: spells, runes, and things to wear that are rolled like loot, each in its quality's colour (see below). Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, with skull walls, niches, banners, moss and sliding doors, walked with quick 90-degree turns. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides one to three secrets behind cracked walls (see below). Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. From level 6 a Black Altar stands deep in each level: for souls it sends a wisp to the level's secrets or blesses your wisps against the dead, and once the secrets are found it anoints something you wear. Will-o'-wisps, a soul each, fly ahead through the halls to the way out or a key and leave a trail of light to follow. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. The twenty levels have names and come in four sets of five, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its last level; then the sets come round again. Twenty kinds of creature come in as you go down, about one new kind a level, each in ranks you can tell by its colour (see below). Every level is older and harder than the one before, though each death on a level makes its creatures hit a little softer on the next try (by up to 45%, until it is cleared). Your face, Wolfenstein-style, pops up when you are hurt. Hold H for three seconds to play it yourself (see below). |
 
 ![CATACOMB: the new creatures in the crypt, from the shambler to the gargoyle](docs/preview_catacomb_creatures.png)
 ![CATACOMB: an achievement, the bestiary's pages and the achievements list](docs/preview_catacomb_bestiary.png)
 ![CATACOMB: the merchant, wall skulls, spiders, shields and spells](docs/preview_catacomb.png)
-![CATACOMB: big chambers and wide halls, a secret wall and its closet, and the wisp](docs/preview_catacomb_crypt.png)
+![CATACOMB: a long hall with chains and a fire pit, an urn and a chandelier, a hoard, a wall skull waking, and a secret wall and its closet](docs/preview_catacomb_crypt.png)
+![CATACOMB's wisps: the L list with three keys lying, a wisp kindling for the silver key, an exit wisp's trail down a hall, the Black Altar's gifts, a skeleton by a blessed wisp's trail, and the blessed wisp waiting at the way out](docs/preview_catacomb_wisps.png)
 ![CATACOMB played by hand: holding H, the controls, shopping, casting, the wardrobe and the question at Esc](docs/preview_catacomb_play.png)
 ![CATACOMB's wares: an Exquisite hood at the merchant, the caster's numbers, a full bag, Commune's red shapes through the wall, and a Black Altar woken and burning gold](docs/preview_catacomb_items.png)
 ![HAUNT.EXE: the jack-o'-lantern and the skull](docs/preview_haunt_art.png)
@@ -171,7 +172,8 @@ yours, and the scenes stop switching until you hand it back. HAUNT.EXE cuts stra
 | E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, or step through the exit runes. Walking into a door opens it too |
 | Tab | The wardrobe: W and S choose a place, worn or in the bag, and Enter moves a piece between them. A and D turn to the caster's page: every total, what abilities add (in gold) and what is at its cap (in blue), and the spellbook |
 | B | The bestiary and the achievements. A and D turn the pages, W and S choose a rank or scroll |
-| L | With a Keymaker piece on: turns the wisp from the way out to each key still lying in the level, in turn |
+| L | The wisps: a list of what can be summoned now and at what price (see below). W and S choose, Enter casts, Space sets L to cast that one at a tap; then holding L brings the list back |
+| H | A look at the status bar while it is tucked away |
 | Esc | Asks whether you want to leave, with a different argument each time for staying; also where you save and load |
 
 Your defensive runes still fire on their own, as quickly (and as fallibly) as they do for the
@@ -183,8 +185,13 @@ it). **Q** holds a ware for the next visit, for a quarter of its price: it comes
 at the price it showed, and the hold ends when you leave the room the next time, bought or not. One
 ware is held at a time. Then leave by the east door.
 
-The Wolfenstein status bar stays up while you play: level, gold, health, your face, your spirit (the
-souls, to a tenth), the spell in hand, with the bones above it when the spear is in hand, and your keys.
+The Wolfenstein status bar shows the level, gold, health, your face, your spirit (the souls, to a
+tenth), the spell in hand, with the bones above it when the spear is in hand, and your keys. Five seconds
+after anything it has to show, it slides away to give you the whole view, and comes back when you are
+hurt, choose a spell, tap H, or open the wardrobe or the bestiary. It stays up in the merchant's room.
+While it is away, the small readout the autopilot uses appears when gold, a key or souls come and go.
+Your hand, likewise, rises only to cast or to reach for something, stays ready a moment, and sinks out
+of sight.
 
 **Secrets.** Every level hides some walls that give: one on levels 1 and 2, two on levels 3 to 5, and
 three from level 6. Such a wall looks like any other plain stone until you are within a couple of
@@ -194,17 +201,34 @@ and, often, a potion: never a key, and its treasure isn't counted in the level's
 find there is on top of it. The tally at the end of a level counts the secrets you found. The autopilot
 notices the cracks now and then and presses them too.
 
-**The wisp.** Take ten souls on a level and a will-o'-wisp kindles on the back of your hand. It leans
-the way out, along the way you would walk rather than as the crow flies, held to your hand by its tail.
-If the exit is in a locked vault, it leads you to the key first. It also lights the crypt about four
-cells around you. It goes out when you leave the level, and the next one has to earn it again.
+**Wisps.** Press L for the list of wisps. A wisp to the way out costs a soul: it kindles before you and
+flies off down the halls the way you would walk, fetching the key first if the exit is in a locked
+vault, and hovers at the doorstep until you come. It lights about four cells round itself as it goes,
+shows the shades, and drives the Wraith back, and it leaves motes of light hanging behind it for twelve
+seconds, so you can follow it round corners or after a fight. With a Keymaker piece on, the list offers
+a wisp to each key still lying in the level as well, in that key's colour. Casting another sends the
+first out. Choose one and press Space to have L cast it at a tap from then on; holding L brings the list
+back. The choice is kept in your saves.
 
 **Black Altars.** From level 6, a level with secrets has a Black Altar, in a corner of the exit room or
-else in the room farthest from the start. Press E at it and ten spirit wakes it: a violet flame lights
-in its bowl and a violet wisp comes to your hand, leading to the nearest secret wall you haven't opened
-(through the key of any vault it lies in), then the next. Once every secret on the level is found the
-flame turns gold. Press E again and it anoints one thing you wear, at random, one not anointed already,
-and names it. Then it is spent. The autopilot leaves altars alone.
+else in the room farthest from the start. Press E at it for what it offers, each with its price and a
+note on why it can't be had yet:
+
+* **Wake its wisp**, for ten spirit: a violet flame lights in its bowl and a violet wisp rises from it,
+  free, to the nearest secret wall you haven't opened (through the key of any vault it lies in), then the
+  next. If you lose it, the L list calls it back for nothing.
+* **Bless your exit wisps**, for twenty-five, once a level: every wisp to the way out you cast on that
+  level wears a pale gold halo, and the undead within about four cells of it flee from it, as from Dread,
+  for three seconds after it has gone by; the Wraith is driven back. The altar's fire burns with a white
+  edge while it lasts. It ends with the level, or a death on it.
+* **Anoint what you wear**, once every secret on the level is found and the flame has turned gold: one
+  thing you wear, at random, one not anointed already. Then the altar is spent.
+
+The autopilot uses them too: it wakes an altar it passes with 25 spirit or more and follows the violet
+wisp while it has time, blesses with 40 or more when the level has undead, and anoints. It casts an exit
+wisp as it sets off for the way out.
+
+*Secrets were added.*
 
 Esc offers five answers:
 
@@ -227,11 +251,11 @@ If the window loses focus while you play, the game pauses on that question. The 
 became HAUNTED.EXE, kept so that settings and progress carry over), and the graves are `Slot1` to `Slot3`
 beside it; `uninstall.cmd` removes them with the settings.
 
-1.0.0b4 saves in a new format again, to carry what you wear, your bag, your bones and a held ware.
-Progress and graves from earlier betas still load: their spells, runes, gold and souls come across, their
-robe, hood and best ring become Common pieces of about the same strength, and there is no bag. But
-1.0.0b3 and earlier can't read a save made by 1.0.0b4: they start again from level 1, and fleeing
-there overwrites it. If you might go back, keep a copy first:
+1.0.0b5 adds four bytes to the save, for the wisp L casts and its setting. Progress and graves from
+1.0.0b4 load as they were; from earlier betas their spells, runes, gold and souls come across, their
+robe, hood and best ring become Common pieces of about the same strength, and there is no bag. But an
+earlier beta can't read a save made by a later one: it starts again from level 1, and fleeing there
+overwrites it. If you might go back, keep a copy first:
 `reg export HKCU\Software\HalloweenVGASaver haunted-backup.reg` (double-click the file to restore it).
 
 ## Install
@@ -383,9 +407,10 @@ once a second, logs every throw, hit, shriek, key pickup, cast, rune, purchase a
 `CRAWL_SEED=n`, `CRAWL_LEVEL=n` to start deeper, `CRAWL_GEAR=n` to own everything at tier n,
 `CRAWL_GOLD=n` and `CRAWL_SOULS=n`. `CRAWL_MAP=1` prints each level's map and plan (and checks every lane
 can be reached), `CRAWL_MAPAT=t` prints it again at t seconds with what has been explored,
-`CRAWL_TPSECRET=n` and `CRAWL_TPEXIT=1` stand you in front of a secret wall or the exit, `CRAWL_WISP=1`
-lights the wisp from the start, and `CRAWL_FOLLOWWISP=1` makes a person at the keys walk wherever the wisp
-leans (a test that it really leads out). `CRAWL_RANK=r` puts every creature in rank r (0 to 5),
+`CRAWL_TPSECRET=n`, `CRAWL_TPEXIT=1` and `CRAWL_TPALTAR=1` stand you in front of a secret wall, the exit
+or the Black Altar, `CRAWL_WISP=1` casts a free exit wisp as each level opens (2 to 4: to the gold, silver
+or crimson key), `CRAWL_BLESS=1` blesses every level, and `CRAWL_FOLLOWWISP=1` makes a person at the keys
+walk the way the wisp went (a test that it really leads out). `CRAWL_RANK=r` puts every creature in rank r (0 to 5),
 `CRAWL_WRAITH=s` sends the Wraith at s seconds, and `CRAWL_MEET=k` puts one creature of kind k (0 the
 skeleton to 19 the gargoyle, in the order of `MOB_*` in `scene_crawl.c`) a few cells ahead five seconds
 into each level. The harness plays a person at the keys with `HOST_INPUT`, for
@@ -394,6 +419,39 @@ counts), and `HOST_SAVE=file` / `HOST_LOAD=file` and `HOST_SLOTS=dir` stand in f
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b5** (the status bar that steps aside, wisps in the crypt and the L list, the Black Altar's
+menu and blessing, the autopilot's wisps and altars, the hand that rises only to cast, and a few secrets).
+All of it has been tested in the harness only; none of it has been played by hand yet, and this round
+wasn't run under Wine. The Windows build was compiled here without warnings, and by CI.
+
+* **The autopilot does about as well as in 1.0.0b4**, on the same seeds. Eight 50-minute runs from level 1
+  died 4 times against 3 (five runs never died), reached levels 7 to 9 (median 8.5, against 8), took about
+  77% of the treasure (75% before) and found 43 secrets (34). Eight 50-minute runs from level 11 with every
+  spell at tier 1 died 11 times against 12. Eight 30-minute runs from level 16 at tier 2 died 28 times
+  against 25.
+* **The Wraith now comes once a level, as it was meant to.** Since 1.0.0b3 it had come only once a session.
+  In the runs from level 11 it came 56 times (8 before) and from level 16, 33 times (8): most of the Deep's
+  extra deaths came late in a level, when it is about (7 after four minutes, against 5). The share of the
+  treasure taken fell in the Hollows (67%, from 71%) and the Deep (63%, from 68%), where the autopilot also
+  spends time at the altars.
+* **What the autopilot did with the new things.** In those 24 runs it cast 146 exit wisps, woke 39 altars,
+  bought 54 blessings, whose wisps turned the undead 72 times, and was anointed once: it seldom finds every
+  secret on a level before it is time to go. It lost the light of the hand's wisp, and no more of its deaths
+  came early in a level than before.
+* **Played in the harness:** the status bar sliding away and coming back for a hurt, a spell, H, Tab and B,
+  and the small readout meanwhile; the L list with and without Keymaker, a hold of L, the setting for a tap,
+  a cast with too few souls; wisps to the way out and to each key, with a test player following them to
+  the keys and out (18 of 18 levels); the altar's menu, waking, the blessing and its gold halo and white
+  edge; a test player that only follows a blessed exit wisp through level 9 took 2 blows on four seeds,
+  against 11 without the blessing.
+* **Saves.** The new save (943 bytes) fled and loaded with the L setting kept, and a save in 1.0.0b4's
+  format loaded in this beta and in 1.0.0b4.
+* **Found and fixed on the way:** the Wraith (above); a level's wisps could leave their motes drawn in the
+  merchant's room; a click that closed a menu cast a spell as well; and the first try at holding the game's
+  sounds for a pause also held the music's drums, which then all played at once.
+* **AddressSanitizer and UBSan**, clean, after each step: the menus, the altar, the autopilot at the altars,
+  long scripted sessions and autopilot runs.
 
 **New in 1.0.0b4** (things to wear rolled like loot, spirit and bones, the abilities, the merchant's
 wider room and the Black Altars). All of it has been tested in the harness only. None of it had been

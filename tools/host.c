@@ -70,10 +70,11 @@ static int scene_by_name(const char *n) { return (!strcmp(n, "crawl") || !strcmp
 
 /* ---- a scripted player ---- */
 static Input g_in;
-static struct { double t; int key, down, dx, dy, wheel; } g_ev[4096];
+static struct { double t; int key, down, dx, dy, wheel; char text[24]; } g_ev[4096];
 static int g_nev, g_iev;
 static const char *const KEYNAME[KEY_COUNT] = { "UP", "DOWN", "LEFT", "RIGHT", "W", "A", "S", "D", "E", "Q", "SPACE", "CTRL",
-    "SHIFT", "TAB", "ESC", "ENTER", "H", "Y", "N", "1", "2", "3", "4", "5", "6", "7", "8", "9", "MOUSE1", "MOUSE2", "B", "L" };
+    "SHIFT", "TAB", "ESC", "ENTER", "H", "Y", "N", "1", "2", "3", "4", "5", "6", "7", "8", "9", "MOUSE1", "MOUSE2", "B", "L",
+    "CONSOLE", "BACK", "PGUP", "PGDN" };
 static void input_parse(const char *s) {
     static char buf[65536];
     snprintf(buf, sizeof buf, "%s", s);
@@ -86,6 +87,7 @@ static void input_parse(const char *s) {
         g_ev[g_nev].t = t; g_ev[g_nev].key = -1;
         if (*a == 'm') sscanf(a + 1, "%d,%d", &g_ev[g_nev].dx, &g_ev[g_nev].dy);
         else if (*a == 'w') g_ev[g_nev].wheel = atoi(a + 1);
+        else if (*a == 't') snprintf(g_ev[g_nev].text, sizeof g_ev[g_nev].text, "%s", a + 1);   /* typed: t then the letters */
         else if (*a == '+' || *a == '-') {
             for (int k = 0; k < KEY_COUNT; k++) if (!strcmp(a + 1, KEYNAME[k])) g_ev[g_nev].key = k;
             if (g_ev[g_nev].key < 0) { fprintf(stderr, "unknown key %s\n", a + 1); continue; }
@@ -99,6 +101,8 @@ static void input_step(double now) {
         int k = g_ev[g_iev].key;
         if (k >= 0) { if (g_ev[g_iev].down && !g_in.down[k]) g_in.hit[k] = 1; g_in.down[k] = (uint8_t)g_ev[g_iev].down; }
         g_in.mdx += (float)g_ev[g_iev].dx; g_in.mdy += (float)g_ev[g_iev].dy; g_in.wheel += g_ev[g_iev].wheel;
+        for (const char *c = g_ev[g_iev].text; *c && g_in.ntext < (int)sizeof g_in.text; c++)
+            if ((*c >= 'A' && *c <= 'Z') || (*c >= '0' && *c <= '9')) g_in.text[g_in.ntext++] = *c;
         g_iev++;
     }
 }

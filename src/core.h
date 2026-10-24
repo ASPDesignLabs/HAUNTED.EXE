@@ -26,14 +26,17 @@ typedef struct Frame {
 /* Keys and the mouse, for a scene a person can take over (holding H). */
 enum { KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_W, KEY_A, KEY_S, KEY_D, KEY_E, KEY_Q, KEY_SPACE, KEY_CTRL,
        KEY_SHIFT, KEY_TAB, KEY_ESC, KEY_ENTER, KEY_H, KEY_Y, KEY_N,
-       KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_MOUSE1, KEY_MOUSE2, KEY_B, KEY_L, KEY_COUNT };
+       KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_MOUSE1, KEY_MOUSE2, KEY_B, KEY_L,
+       KEY_CONSOLE, KEY_BACK, KEY_PGUP, KEY_PGDN, KEY_COUNT };   /* KEY_CONSOLE: the key left of 1, wherever ~ is on it */
 typedef struct Input {
     uint8_t down[KEY_COUNT];        /* held now */
     uint8_t hit[KEY_COUNT];         /* went down since the last update */
     float mdx, mdy;                 /* mouse movement since the last update, in mouse counts */
     int wheel;                      /* wheel notches since the last update, + away from you */
+    char text[24];                  /* letters and digits typed since the last update, in capitals */
+    int ntext;
 } Input;
-enum { CTRL_TAKE = 1, CTRL_PAUSE = 2 };                 /* Scene.control */
+enum { CTRL_TAKE = 1, CTRL_PAUSE = 2, CTRL_PEEK = 3 };  /* Scene.control */
 enum { PLAY_AUTO, PLAY_PLAYER, PLAY_QUIT };             /* Scene.status */
 
 /* A scene owns one VGA mode and one sound program. */
@@ -45,7 +48,7 @@ typedef struct Scene {
     void (*update)(double dt);      /* advance the simulation */
     void (*render)(Frame *f);       /* draw the current state */
     /* playable scenes only; NULL elsewhere */
-    void (*control)(int what);                    /* CTRL_TAKE: a person takes over; CTRL_PAUSE: the window lost focus */
+    void (*control)(int what);                    /* CTRL_TAKE: a person takes over; CTRL_PAUSE: the window lost focus; CTRL_PEEK: H held, not yet taken */
     int  (*status)(void);                         /* PLAY_AUTO once handed back, PLAY_QUIT when the player chose to leave */
     void (*input)(const Input *in, double dt);    /* before each update while a person has it */
     int  (*save)(uint8_t *buf, int cap);          /* the progress worth keeping; returns its length */
