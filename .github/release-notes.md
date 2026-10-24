@@ -1,19 +1,18 @@
-The fifth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H** for three seconds.
+The sixth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H** for three seconds.
 
 ### New in this beta
 
-- **More of the crypt to look at.** The status bar slides away five seconds after anything it has to show, and comes back when you are hurt, choose a spell, tap **H**, or open the wardrobe or the bestiary; a small readout shows gold, keys and souls as they come and go meanwhile. Your hand rises only to cast or to reach for something.
-- **Wisps in the crypt.** **L** lists the wisps you can summon and their price. A wisp to the way out costs a soul: it flies off down the halls, fetching the key first if the exit is locked away, lights the dark as it goes, drives back the Wraith, and leaves a trail of motes that hangs for twelve seconds so you can follow it round corners. With a Keymaker piece on, there is a wisp for each key still lying. Set **L** to cast your choice at a tap; holding **L** brings the list back.
-- **The Black Altar's gifts.** **E** at an altar offers its three: wake its violet wisp to the secrets (10 souls), bless your exit wisps for the level (25 souls), so that the undead flee from them, and, once every secret is found, anoint something you wear.
-- **The autopilot uses them too:** an exit wisp as it heads for the way out, and the altars when it has souls to spare.
-- **The Wraith now comes once a level**, as it was always meant to; it had been coming only once a session.
-- **Secrets were added.**
+- **Secrets that go deeper.** Three to six on every level, behind cracked walls, in rooms carved out of the rock. Some rooms have a doorway at the back, and a chain of places beyond it: on the first ten levels **the Backrooms** (yellow wallpaper, damp carpet, failing tubes, things from the crypt where they shouldn't be, creatures glitching, and no music), on the next ten **Severance** (white halls, green carpet, offices, too much light, and muzak). The level waits while you are away. Each link is bigger and its creatures stronger; at the end, a visportal or a water cooler restores you, with a **Cursed Coin**.
+- **The Rune Shrine.** Runes no longer come from the merchant. Across the room a shrine waits to be cursed with a Cursed Coin, and then gives runes for coins, in five qualities from Common to Exquisite; three alike become one better. Every rune at Exquisite does a second thing. Coins come at the end of each chain, and one more for finding every secret on a level.
+- **The Black Altar's wisp** now goes to one secret at a time and waits at its door while you are inside; once you are out again, **E** at it sends it home, and from the altar you send it on, for a little more each time.
+- **The autopilot does all of it too**, within reason: it presses every secret it passes while it has time, goes into chains while it is healthy, and plays the shrine with the coins it finds.
+- **Your hand** rises once to its resting height to cast while the status bar is away.
 
 This is still a beta, and none of what is new has been played by hand yet: it has been tested by the harness, and the autopilot's runs are in the README. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
 
 ### Before you upgrade
 
-Your settings, progress and graves carry over from earlier betas. This beta adds four bytes to the save, and **earlier betas can't read it**: they start again from level 1, and fleeing there overwrites the save. If you might go back, keep a copy first, from a command prompt:
+Your settings, progress and graves carry over from earlier betas: runes come across by their old tier as a quality, and a rune held at the merchant's is let go and its fee given back. This beta adds 32 bytes to the save for the shrine, and **earlier betas can't read it**: they start again from level 1, and fleeing there overwrites the save. If you might go back, keep a copy first, from a command prompt:
 
 ```
 reg export HKCU\Software\HalloweenVGASaver haunted-backup.reg
