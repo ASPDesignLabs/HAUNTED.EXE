@@ -30,6 +30,12 @@ enum {
     T_LOCKED_S, T_LOCKED_C,                       /* the silver and crimson vault doors */
     T_SIGN,                                       /* the merchant's sign */
     T_PASSAGE,                                    /* a secret's doorway into its pockets: frames going away into light */
+    /* the Backrooms (1.0.0b6): drawn in R_FLOOR and R_CEIL, which a pocket recolours (crawl_art_theme) */
+    T_PAPER, T_PAPER_DAMP, T_PAPER_OUTLET,        /* the yellow wallpaper; a leak from above; a socket */
+    T_BDOOR,                                      /* a doorway between pockets: painted trim, another yellow room */
+    T_VISPORT0, T_VISPORT1, T_VISPORT2, T_VISPORT3,   /* the chain's end: a doorway onto doorways, without end */
+    T_CARPET,                                     /* the floor: damp carpet */
+    T_CEILTILE, T_CEILSTAIN, T_CEILLAMP, T_CEILDEAD,  /* the ceiling: tiles, a stained one, a tube panel lit and dead */
     NTEX
 };
 
@@ -171,5 +177,7 @@ static inline float crawl_depth(int level) {                                /* h
 extern const char *const RUNE_GLYPH[9][7];      /* the runes' marks, 5 by 7, by DF_* (the hand's tattoos, the shrine) */
 void crawl_art_init(void);                      /* builds everything once */
 void crawl_art_level(int level);                /* that level's palette, ruin and rot (call after init) */
+enum { PT_NONE, PT_BACKROOMS, PT_SEVERANCE };   /* a pocket's theme */
+void crawl_art_theme(int theme, int level);     /* the palette inside a pocket of that theme, or the level's again */
 
 #endif

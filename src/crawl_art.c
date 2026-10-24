@@ -398,8 +398,21 @@ static void gen_sign(int t, uint32_t seed) {
 /* A secret's doorway into its pockets (until each theme gives it its own look): an opening cut in the
  * stone, and inside it doorway after doorway going away into a pale light, yellow for the first two
  * sets and cold white for the last two; full-bright, so it shows in the dark of the room */
+/* Looking through a doorway (x 18..45, y 10..63) into a room beyond, in one-point perspective towards
+ * (32, 34): how far in (s, 1 at the doorway's edge, smaller further in) and which face is seen. */
+enum { RV_WALL, RV_CEIL, RV_FLOOR };
+static float room_view(int x, int y, int *face) {
+    float px = x + 0.5f - 32.0f, py = y + 0.5f - 34.0f;
+    float sx = fabsf(px) / 14.0f, st = -py / 24.0f, sb = py / 29.0f, s = sx;
+    *face = RV_WALL;
+    if (st > s) { s = st; *face = RV_CEIL; }
+    if (sb > s) { s = sb; *face = RV_FLOOR; }
+    return s;
+}
+
+/* A secret's doorway into its pockets, cut through the stone. Into the Backrooms (the first two sets):
+ * a glimpse of a pale yellow room under a tube light. Otherwise frames going away into light. */
 static void gen_passage(int t, int warm) {
-    int ramp = warm ? R_FLAME : R_GLOW;
     for (int y = 0; y < TS; y++)
         for (int x = 0; x < TS; x++) {
             uint8_t c;
@@ -407,14 +420,152 @@ static void gen_passage(int t, int warm) {
                 c = sh(R_STONE, block_shade(x, y, 221) * 0.8f);
                 if ((x == 17 || x == 46) && y >= 12) c = sh(R_STONE, 0.1f);   /* the cut's edge */
                 if (y == 11 && x >= 17 && x <= 46) c = sh(R_STONE, 0.12f);
+            } else if (warm) {                                     /* the Backrooms beyond, in bone's pale yellow */
+                int face;
+                float s = room_view(x, y, &face);
+                if (s < 0.4f) c = sh(R_BONE, 0.74f + 0.04f * h01(x, y, 225));          /* the far wall */
+                else if (face == RV_CEIL) c = (fabsf(x + 0.5f - 32.0f) < 3.5f * s && s > 0.5f && s < 0.68f) ? C_WHITE : sh(R_BONE, 0.82f - 0.2f * s);
+                else if (face == RV_FLOOR) c = sh(R_BONE, 0.42f + 0.05f * h01(x, y, 226) - 0.08f * s);
+                else c = sh(R_BONE, 0.66f - 0.14f * s + ((x & 3) == 0 ? 0.04f : 0.0f));
             } else {
                 c = 0;
                 for (int k = 0; k < 6; k++) {                      /* the frames, each further and dimmer */
                     int l = 18 + 3 * k, r = 45 - 3 * k, top = 12 + 3 * k;
-                    if (y >= top && ((x == l || x == r) || (y == top && x >= l && x <= r))) c = (uint8_t)(ramp + 15 - k);
+                    if (y >= top && ((x == l || x == r) || (y == top && x >= l && x <= r))) c = (uint8_t)(R_GLOW + 15 - k);
                 }
                 if (x >= 28 && x <= 35 && y >= 30) c = C_WHITE;           /* the light at the end */
-                if (y > 56 && c == 0 && ((x + y) & 1)) c = (uint8_t)(ramp + 3);   /* a little of it on the floor */
+                if (y > 56 && c == 0 && ((x + y) & 1)) c = (uint8_t)(R_GLOW + 3);   /* a little of it on the floor */
+            }
+            tput(t, x, y, c);
+        }
+}
+
+/* ---- the Backrooms (1.0.0b6) ----
+ * Everything here is drawn in R_FLOOR (dark brown, mustard, pale yellow) and R_CEIL (off-white), which
+ * only the floor, the ceiling and the fog use in the crypt; a Backrooms pocket recolours the two
+ * (crawl_art_theme). The tube lights are C_WHITE, and R_FLAME's palest step for the diffuser. */
+static float paper_shade(int x, int y, uint32_t seed) {
+    int sx = x & 31;
+    float v = 0.74f + (fbm(x / 16.0f, y / 16.0f, 4, seed) - 0.5f) * 0.10f;
+    if (sx == 0) v -= 0.06f;                                       /* the seam between two strips */
+    if (sx == 8 || sx == 24) v += 0.05f;                           /* pinstripes */
+    int cy = (y + (x >> 5) * 8) & 15, dx = abs(sx - 16);
+    if (dx <= 3 && (cy == dx + 4 || cy == dx + 5)) v -= 0.07f;      /* a small chevron, over and over */
+    v -= 0.12f * smoothstepf(34.0f, 58.0f, (float)y) * fbm(x / 8.0f, y / 8.0f, 8, seed + 5);   /* damp, rising */
+    if (y <= 1) v -= 0.12f;                                        /* the ceiling's shadow */
+    if (y >= 59) v = y == 59 ? 0.64f : 0.44f + 0.04f * h01(x, y, seed + 7);   /* the skirting */
+    return v;
+}
+
+static void gen_paper(int t, int kind, uint32_t seed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = paper_shade(x, y, seed);
+            uint8_t c;
+            if (kind == 1 && y < 59) {                             /* a leak from above: a stain, its tide line, runs */
+                float dx = x - 40.0f, dy = (y - 2.0f) * 0.8f;
+                float r = sqrtf(dx * dx + dy * dy) + (fbm(x / 8.0f, y / 8.0f, 8, seed + 9) - 0.5f) * 12.0f;
+                if (r < 20.0f) v -= 0.08f + 0.08f * (r / 20.0f);
+                if (r >= 18.5f && r < 21.0f) v -= 0.10f;
+                for (int k = 0; k < 3; k++) {
+                    float rx = 33.0f + k * 6.0f + 2.0f * sinf(y * 0.21f + k);
+                    if (fabsf(x - rx) < 0.8f && y < 30 + k * 9) v -= 0.07f;
+                }
+            }
+            c = sh(R_FLOOR, v);
+            if (kind == 2 && x >= 29 && x <= 34 && y >= 48 && y <= 56) {   /* a socket, painted over */
+                c = sh(R_CEIL, (x == 29 || y == 48) ? 0.86f : (x == 34 || y == 56) ? 0.52f : 0.74f);
+                if ((x == 31 || x == 32) && (y == 50 || y == 51 || y == 53 || y == 54)) c = sh(R_CEIL, 0.18f);
+            }
+            tput(t, x, y, c);
+        }
+}
+
+/* a doorway between pockets: off-white trim, and through it another yellow room under a tube */
+static void gen_bdoor(int t, uint32_t seed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c;
+            int trim = (x >= 16 && x <= 47 && y >= 8) && !(x >= 18 && x <= 45 && y >= 10);
+            if (trim) c = sh(R_CEIL, (x == 16 || y == 8) ? 0.86f : (x == 47 || x == 18 || y == 10) ? 0.56f : 0.74f);
+            else if (!(x >= 18 && x <= 45 && y >= 10)) c = sh(R_FLOOR, paper_shade(x, y, seed));
+            else {
+                int face;
+                float s = room_view(x, y, &face);
+                if (s < 0.4f) c = sh(R_FLOOR, 0.66f + 0.03f * h01(x, y, seed));
+                else if (face == RV_CEIL) c = (fabsf(x + 0.5f - 32.0f) < 3.5f * s && s > 0.5f && s < 0.68f) ? C_WHITE : sh(R_CEIL, 0.66f - 0.22f * s);
+                else if (face == RV_FLOOR) c = sh(R_FLOOR, 0.40f + 0.06f * h01(x, y, seed + 1) - 0.10f * s);
+                else c = sh(R_FLOOR, 0.62f - 0.18f * s);
+            }
+            tput(t, x, y, c);
+        }
+}
+
+/* The chain's end: a doorway onto a run of doorways, each 0.7 the size of the one before, paler further
+ * in until they burn white; four frames that drift in, so it never arrives. */
+static void gen_visportal(int t, int frame, uint32_t seed) {
+    const float r = 0.70f, lr = -logf(r), p = frame / 4.0f;
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c;
+            int trim = (x >= 16 && x <= 47 && y >= 8) && !(x >= 18 && x <= 45 && y >= 10);
+            if (trim) c = sh(R_CEIL, (x == 16 || y == 8) ? 0.86f : (x == 47 || x == 18 || y == 10) ? 0.56f : 0.74f);
+            else if (!(x >= 18 && x <= 45 && y >= 10)) c = sh(R_FLOOR, paper_shade(x, y, seed));
+            else {
+                int face;
+                float s = fmaxf(room_view(x, y, &face), 1e-4f);
+                float d = -logf(s) / lr + p, f = d - floorf(d);    /* how many doorways in, and where between two */
+                int k = (int)floorf(d);
+                float heat = clampf((d - 3.0f) / 3.0f, 0.0f, 1.0f);   /* from the fourth doorway on, light itself */
+                static const uint8_t BY[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
+                int lit = heat * 2.0f * 16.0f > BY[y & 3][x & 3] + 0.5f;   /* the light comes on through an ordered dither */
+                if (s < 0.02f) c = C_WHITE;
+                else if (f < 0.12f) c = heat > 0.4f ? C_WHITE : sh(R_CEIL, 0.86f);   /* each doorway's trim */
+                else if (lit) c = (uint8_t)(R_FLAME + clampi(13 + (int)(heat * 2.99f) - (face == RV_FLOOR), 12, 15));
+                else if (face == RV_CEIL) c = (fabsf(x + 0.5f - 32.0f) < 3.5f * s && f > 0.45f && f < 0.62f) ? C_WHITE : sh(R_CEIL, 0.60f + 0.05f * k);
+                else if (face == RV_FLOOR) c = sh(R_FLOOR, 0.38f + 0.04f * k + 0.05f * h01(x, y, seed + 2));
+                else c = sh(R_FLOOR, 0.60f + 0.05f * k);
+            }
+            tput(t, x, y, c);
+        }
+}
+
+static void gen_carpet(int t, uint32_t seed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = 0.47f + (h01(x, y, seed) - 0.5f) * 0.10f + (fbm(x / 4.0f, y / 4.0f, 16, seed + 1) - 0.5f) * 0.10f;
+            float damp = fbm(x / 16.0f, y / 16.0f, 4, seed + 2);
+            if (damp > 0.60f) v -= (damp - 0.60f) * 0.5f;            /* dark where it is wet through */
+            tput(t, x, y, sh(R_FLOOR, v));
+        }
+}
+
+/* ceiling tiles: a grid of T-bars at x 16 and 48 and y 0 and 32, so a panel can sit in the middle of a
+ * cell and run its length; kind 0 plain, 1 stained, 2 a tube panel lit, 3 the panel dead */
+static void gen_ceiling(int t, int kind, uint32_t seed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int gx = (x + 16) & 31, gy = y & 31;
+            uint8_t c;
+            if (gx == 0 || gy == 0) c = sh(R_CEIL, 0.88f);         /* the T-bars */
+            else {
+                float v = 0.70f + (h01(x, y, seed) - 0.5f) * 0.06f - (gx == 31 || gy == 31 ? 0.08f : 0.0f);
+                if (h01(x, y, seed + 3) > 0.94f) v -= 0.10f;         /* pinholes */
+                c = sh(R_CEIL, v);
+                if (kind == 1) {                                   /* a water stain on the middle tile */
+                    float dx = x - 34.0f, dy = y - 15.0f, rr = sqrtf(dx * dx + dy * dy) + (fbm(x / 8.0f, y / 8.0f, 8, seed + 4) - 0.5f) * 8.0f;
+                    if (gx > 1 && gx < 31 && gy > 1 && gy < 31 && x >= 17 && x <= 47 && y < 32 && rr < 11.0f)
+                        c = sh(R_FLOOR, rr > 9.5f ? 0.46f : 0.66f + 0.04f * h01(x, y, seed + 5));
+                }
+            }
+            if (kind >= 2 && x >= 17 && x <= 47 && y >= 1) {       /* the panel, the cell's length */
+                int frame = x <= 18 || x >= 46 || y <= 2 || y >= 62;
+                int tube = (x >= 23 && x <= 25) || (x >= 37 && x <= 39);
+                if (kind == 2) c = frame ? sh(R_CEIL, 0.92f) : (tube || ((x + y) & 3) == 0) ? C_WHITE : (uint8_t)(R_FLAME + 15);
+                else {
+                    int end = y <= 8 || y >= 55;
+                    c = frame ? sh(R_CEIL, 0.82f) : tube ? sh(R_CEIL, end ? 0.22f : 0.44f) : sh(R_CEIL, ((x + y) & 3) == 0 ? 0.52f : 0.58f);
+                }
             }
             tput(t, x, y, c);
         }
@@ -3978,7 +4129,8 @@ static void decay_tex(int t, float dk, uint32_t seed) {
     }
 }
 
-void crawl_art_level(int level) {
+/* the level's palette: its set's tint, dimmer going down, bones yellowing with age */
+static void level_palette(int level) {
     static const float TINT[4][2][3] = {                            /* each set's stone, from its first level to its last */
         { { 1.00f, 1.00f, 1.00f }, { 1.10f, 1.05f, 0.88f } },     /* the Crypts: blue-grey limestone, yellowing like bone */
         { { 0.88f, 1.06f, 0.90f }, { 0.84f, 0.95f, 1.20f } },     /* the Catacombs: green with damp, to cold wet slate */
@@ -3989,7 +4141,6 @@ void crawl_art_level(int level) {
     float dk = crawl_decay(level), depth = crawl_depth(level), dim = 1.0f - 0.09f * set - 0.015f * step;
     float tn[3], half[3];
     for (int c = 0; c < 3; c++) { tn[c] = lerpf(TINT[set][0][c], TINT[set][1][c], step / 4.0f); half[c] = 1.0f + (tn[c] - 1.0f) * 0.5f; }
-    g_decay = fmaxf(dk, depth);                                     /* the dead themselves only get older going down */
     build_palette();
     { static const int a[3] = { 2, 2, 4 }, m[3] = { 20, 21, 26 }, b[3] = { 46, 47, 52 }; ramp_tinted(R_STONE, a, m, b, tn, dim); }
     { static const int a[3] = { 2, 2, 2 }, m[3] = { 15, 13, 11 }, b[3] = { 34, 30, 26 }; ramp_tinted(R_FLOOR, a, m, b, half, dim); }
@@ -3999,6 +4150,23 @@ void crawl_art_level(int level) {
         static const int a[3] = { 4, 3, 2 }, m[3] = { 34, 30, 22 }, b[3] = { 62, 58, 48 };
         ramp_tinted(R_BONE, a, m, b, aged, 1.0f);
     }
+}
+
+/* Inside a pocket the floor and ceiling ramps are the theme's: for the Backrooms, R_FLOOR runs from
+ * dark brown through mustard to pale yellow (carpet and wallpaper both) and R_CEIL is off-white. */
+void crawl_art_theme(int theme, int level) {
+    level_palette(level);
+    if (theme == PT_BACKROOMS) {
+        RAMP(R_FLOOR, 4, 3, 1,  33, 28, 12,  58, 55, 34);
+        RAMP(R_CEIL,  3, 3, 2,  30, 29, 24,  60, 59, 53);
+    }
+    build_colormap();
+}
+
+void crawl_art_level(int level) {
+    float dk = crawl_decay(level), depth = crawl_depth(level);
+    g_decay = fmaxf(dk, depth);                                     /* the dead themselves only get older going down */
+    level_palette(level);
     build_colormap();
     gen_stone(T_STONE, R_STONE, 11 + level * 7);
     gen_rubble(T_RUBBLE, 23 + level * 7);
@@ -4050,6 +4218,11 @@ void crawl_art_init(void) {
     gen_exit(T_EXIT1, 1, 0);
     gen_exit(T_EXIT_OPEN, 1, 1);
     gen_passage(T_PASSAGE, 1);
+    for (int k = 0; k < 3; k++) gen_paper(T_PAPER + k, k, 301);
+    gen_bdoor(T_BDOOR, 301);
+    for (int f = 0; f < 4; f++) gen_visportal(T_VISPORT0 + f, f, 301);
+    gen_carpet(T_CARPET, 307);
+    for (int k = 0; k < 4; k++) gen_ceiling(T_CEILTILE + k, k, 311);
 
     spr_bones(SP_BONES1, 0, 5);
     spr_bones(SP_BONES2, 1, 9);

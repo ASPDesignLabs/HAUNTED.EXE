@@ -2,9 +2,9 @@
 
 **Status: planned (24 October 2026) and settled; steps 1 to 4 are built (the hand fix, runes by
 quality, the Rune Shrine, and the secret areas: secrets by set and in chains, bigger rooms, doorways,
-the pockets, and the altar's wisp to one secret and back for a price), tested in the harness only; the
-Backrooms (step 5) are next, starting with art for approval. The owner approved Blink's double and the
-shrine's art.** The owner
+the pockets, and the altar's wisp to one secret and back for a price), tested in the harness only. The
+Backrooms' art (step 5) is drawn and in the pockets, awaiting the owner's approval. The owner approved
+Blink's double and the shrine's art.** The owner
 asked for the things below after 1.0.0b5, answered six rounds of questions, and left the rest to
 defaults, marked *default* here so they can be changed. Nothing in this plan names the console's codes.
 

@@ -55,7 +55,7 @@ enum { AW_NONE, AW_SEEK, AW_HOME, AW_REST };   /* its wisp: not woken, at a secr
 #define ALTAR_BLESS 25                      /* its blessing on your exit wisps, once a level */
 #define BLESS_REACH 4.0f                    /* how near a blessed wisp the undead turn */
 
-typedef struct { uint8_t kind, tex, theme, visits; int16_t region, door; uint8_t secret; } Cell;   /* secret: 1 a hidden closet, 2 its cracked wall */
+typedef struct { uint8_t kind, tex, theme, visits; int16_t region, door; uint8_t secret, lamp; } Cell;   /* secret: 1 a hidden closet, 2 its cracked wall; lamp: a pocket's ceiling panel, 1 + its light, 255 dead */
 typedef struct { int x, y, along_x; float open, idle; int opening, locked, color; } Door;   /* locked: 1 locked, 2 unlocked */
 typedef struct { float x, y, power, radius, phase; int cx, cy, first, count; } Light;
 typedef struct { float x, y, phase; int spr, nfr, flags; } Deco;   /* nfr: frames to cycle through */
@@ -287,7 +287,7 @@ static struct {
 static struct {
     uint32_t rs;
     double t, level_t;
-    int level;
+    int level, ptheme, vis_x, vis_y;                               /* a pocket's look (PT_*), PT_NONE on the level; its visportal */
     Cell map[MAPN][MAPN];
     Room rooms[12]; int nrooms;
     Door doors[MAXDOORS]; int ndoors;
@@ -427,7 +427,7 @@ static uint32_t hash2(int x, int y) {
 }
 
 static Cell *cell(int x, int y) {
-    static Cell solid = { K_WALL, T_STONE, 0, 0, -1, -1, 0 };
+    static Cell solid = { K_WALL, T_STONE, 0, 0, -1, -1, 0, 0 };
     if (x < 0 || y < 0 || x >= MAPN || y >= MAPN) return &solid;
     return &G.map[y][x];
 }
@@ -1629,6 +1629,12 @@ static void light_dynamic(float lx, float ly, float power, float radius) { light
 
 static float torch_flicker(const Light *L) {
     if (L->phase < -100.0f) return 1.0f;                          /* a steady glow, not a flame */
+    if (L->phase < 0.0f) {                                         /* a failing tube: steady, then a burst of blinking */
+        float t = (float)G.t - L->phase * 13.0f;
+        if (fmodf(t, 5.3f) > 0.9f) return 1.0f;
+        uint32_t h = (uint32_t)(int)(t * 14.0f) * 2654435761u;
+        return (h >> 13 & 3) ? 0.12f : 1.0f;
+    }
     float t = (float)G.t + L->phase;
     return 0.80f + 0.12f * sinf(t * 9.1f) * sinf(t * 5.3f + 1.0f) + 0.08f * sinf(t * 23.0f + L->phase * 3.0f);
 }
@@ -4335,8 +4341,11 @@ static void gen_pocket(const Secret *sc, int link) {
     int n = clampi(3 + (int)(t * 8.0f + 0.5f), 3, 11), S = 4 * n + 1, o = ((MAPN - S) / 2) & ~3;
     uint32_t keep_rs = G.rs;
     G.rs = sc->seed ^ ((uint32_t)link * 2654435761u);
+    G.ptheme = lv < 10 ? PT_BACKROOMS : PT_NONE;                   /* the Backrooms for the first two sets; Severance to come */
+    G.vis_x = G.vis_y = -1;
+    int back = G.ptheme == PT_BACKROOMS;
     for (int y = 0; y < MAPN; y++)
-        for (int x = 0; x < MAPN; x++) { Cell *c = &G.map[y][x]; memset(c, 0, sizeof *c); c->kind = K_WALL; c->tex = T_STONE; c->region = -1; c->door = -1; }
+        for (int x = 0; x < MAPN; x++) { Cell *c = &G.map[y][x]; memset(c, 0, sizeof *c); c->kind = K_WALL; c->tex = back ? T_PAPER : T_STONE; c->region = -1; c->door = -1; }
     #define BX(i) (o + 4 * (i) + 1)
     for (int j = 0; j < n; j++)
         for (int i = 0; i < n; i++)
@@ -4368,9 +4377,15 @@ static void gen_pocket(const Secret *sc, int link) {
             if (i + 1 < n && j + 1 < n && open_e[j][i] == 2 && open_s[j][i] == 2 && open_e[j + 1][i] == 2 && open_s[j][i + 1] == 2)
                 carve(BX(i) + 3, BX(j) + 3, 0, TH_CORRIDOR);       /* four walls gone: the corner too, a hall */
         }
+    if (back)                                                      /* here and there a leak, now and then a socket */
+        for (int y = o; y < o + S; y++)
+            for (int x = o; x < o + S; x++) {
+                uint32_t h = hash2(x, y) ^ sc->seed;
+                if (G.map[y][x].kind == K_WALL) G.map[y][x].tex = h % 100 < 6 ? T_PAPER_DAMP : h % 100 < 9 ? T_PAPER_OUTLET : T_PAPER;
+            }
     /* the way back, in the west wall; the farthest block, by the maze */
     PK.back_x = o; PK.back_y = BX(j0) + 1;
-    G.map[PK.back_y][PK.back_x].secret = 3; G.map[PK.back_y][PK.back_x].tex = T_PASSAGE;
+    G.map[PK.back_y][PK.back_x].secret = 3; G.map[PK.back_y][PK.back_x].tex = back ? T_BDOOR : T_PASSAGE;
     static int dist[11][11], q[121];
     for (int j = 0; j < n; j++) for (int i = 0; i < n; i++) dist[j][i] = -1;
     int qh = 0, qt = 0, far = j0 * 11;
@@ -4402,19 +4417,41 @@ static void gen_pocket(const Secret *sc, int link) {
         if (bi == n - 1) { PK.on_x = o + S - 1; PK.on_y = BX(bj) + 1; }
         else if (bj == 0) { PK.on_x = BX(bi) + 1; PK.on_y = o; }
         else { PK.on_x = BX(bi) + 1; PK.on_y = o + S - 1; }
-        G.map[PK.on_y][PK.on_x].secret = 3; G.map[PK.on_y][PK.on_x].tex = T_PASSAGE;
+        G.map[PK.on_y][PK.on_x].secret = 3; G.map[PK.on_y][PK.on_x].tex = back ? T_BDOOR : T_PASSAGE;
     } else {                                                       /* the chain's end: its reward, for now a hoard */
-        int fi = far % 11, fj = far / 11;
-        POCKET_ITEM(BX(fi) + 1, BX(fj) + 1, IT_CHEST);
-        POCKET_ITEM(BX(fi) + 0, BX(fj) + 1, IT_CROWN);
-        POCKET_ITEM(BX(fi) + 2, BX(fj) + 1, IT_GEMS);
-        light_static(BX(fi) + 1.5f, BX(fj) + 1.5f, 1.4f, 5.0f);
+        int cx = BX(far % 11) + 1, cy = BX(far / 11) + 1, vd = -1;
+        for (int d = 0; d < 4 && back && vd < 0; d++) {            /* the Backrooms' end: a doorway onto doorways */
+            int wx = cx + DX[d] * 2, wy = cy + DY[d] * 2;
+            if (G.map[wy][wx].kind == K_WALL && !G.map[wy][wx].secret) { G.map[wy][wx].tex = T_VISPORT0; G.vis_x = wx; G.vis_y = wy; vd = d; }
+        }
+        if (vd >= 0) {                                             /* the hoard to either side, out of its way */
+            int qx = DY[vd] != 0, qy = DX[vd] != 0;
+            POCKET_ITEM(cx + DX[vd] + qx, cy + DY[vd] + qy, IT_CHEST);
+            POCKET_ITEM(cx + qx, cy + qy, IT_CROWN);
+            POCKET_ITEM(cx - qx, cy - qy, IT_GEMS);
+        } else {
+            POCKET_ITEM(cx, cy, IT_CHEST);
+            POCKET_ITEM(cx - 1, cy, IT_CROWN);
+            POCKET_ITEM(cx + 1, cy, IT_GEMS);
+            light_static(cx + 0.5f, cy + 0.5f, 1.4f, 5.0f);
+        }
     }
-    /* light here and there, and a few things lying about */
+    /* light here and there, and a few things lying about; in the Backrooms a tube panel over every block,
+     * most lit, some failing, some dead */
     for (int j = 0; j < n; j++)
-        for (int i = 0; i < n; i++)
-            if ((i == 0 && j == j0) || rnd(100) < 55) light_static(BX(i) + 1.5f, BX(j) + 1.5f, 1.25f + 0.35f * rndf(), 5.0f);
-    for (int l = 0; l < G.nlights; l++) G.lights[l].phase = -1000.0f;   /* steady: no flames here */
+        for (int i = 0; i < n; i++) {
+            int r = rnd(100), first = (i == 0 && j == j0) || (back && G.vis_x >= 0 && j * 11 + i == far);   /* the way in and the end, lit */
+            if (back) {
+                Cell *lc = &G.map[BX(j) + 1][BX(i) + 1];
+                if (!first && r >= 75) { lc->lamp = 255; continue; }
+                lc->lamp = (uint8_t)(1 + G.nlights);
+                light_static(BX(i) + 1.5f, BX(j) + 1.5f, 1.3f + 0.25f * rndf(), 5.0f);
+                G.lights[G.nlights - 1].phase = (!first && r >= 60) ? -10.0f - 80.0f * rndf() : -1000.0f;
+            } else if (first || r < 55) {
+                light_static(BX(i) + 1.5f, BX(j) + 1.5f, 1.25f + 0.35f * rndf(), 5.0f);
+                G.lights[G.nlights - 1].phase = -1000.0f;              /* steady: no flames here */
+            }
+        }
     static const int LOOT[5] = { IT_COINS, IT_COINS, IT_GEMS, IT_CHALICE, IT_CROWN };
     for (int k = 0; k < 2 + link + rnd(2); k++) {
         int i = rnd(n), j = rnd(n);
@@ -4456,6 +4493,7 @@ static void pocket_build(int link, int from_deeper) {
     G.altar_x = G.altar_y = -1; G.altar_seek = -1; G.slide = G.seek_secret = -1;
     for (int k = 0; k < NKEYS; k++) G.vault_room[k] = G.vault_door[k] = -1;
     gen_pocket(&G_LEVEL.secrets[PK.chain], link);
+    crawl_art_theme(G.ptheme, G.level);
     PK.depth = link; PK.since = 0.0f;
     if (from_deeper) stand_at_door(PK.on_x, PK.on_y); else stand_at_door(PK.back_x, PK.back_y);
     G.map[G.cy][G.cx].visits = 1; G.explored = 1;
@@ -4476,6 +4514,7 @@ static void pocket_return(int died) {
     G_KEEP = G;
     G = G_LEVEL;
     carry_caster(&G_KEEP);
+    crawl_art_theme(PT_NONE, G.level);
     PK.depth = 0; PK.since = 0.0f;
     stand_at_door(sc->door_x, sc->door_y);
     G.camz = 0.5f; G.spd = 0.0f;
@@ -6293,6 +6332,14 @@ static void tp_door(void) {                                        /* a chained 
             pocket_door(sc->door_x, sc->door_y);
             while (PK.depth < k) pocket_build(PK.depth + 1, 0);
             if (PK.on_x >= 0) { stand_at_door(PK.on_x, PK.on_y); G.ang = wrap_pi(G.ang + PI_F); }   /* facing the way on */
+            if (getenv("CRAWL_TPVIS") && G.vis_x >= 0)              /* or a few steps from the visportal, facing it */
+                for (int d = 0; d < 4; d++) {
+                    int fx = G.vis_x + DX[d], fy = G.vis_y + DY[d];
+                    if (G.map[fy][fx].kind != K_FLOOR) continue;
+                    int far = G.map[fy + DY[d] * 2][fx + DX[d] * 2].kind == K_FLOOR ? 2 : 1;
+                    G.px = fx + DX[d] * far + 0.5f; G.py = fy + DY[d] * far + 0.5f; G.ang = heading_angle((d + 2) & 3);
+                    break;
+                }
             return;
         }
     }
@@ -7093,6 +7140,9 @@ static inline uint8_t fogged(uint8_t c, float fog, float light, int x, int y) {
 
 static void render_floor(Frame *f, float dx, float dy, float plx, float ply, float horizon) {
     float lx = dx - plx, ly = dy - ply, rx = dx + plx, ry = dy + ply;
+    int themed = G.ptheme == PT_BACKROOMS;                         /* carpet underfoot, tiles and tube panels above */
+    static uint8_t lamp_lit[MAXLIGHTS + 1];
+    if (themed) for (int l = 0; l < G.nlights; l++) lamp_lit[l + 1] = torch_flicker(&G.lights[l]) > 0.5f;
     for (int y = 0; y < H; y++) {
         uint8_t *row = &f->pix[y * W];
         float p = y - horizon + 0.5f;
@@ -7108,8 +7158,17 @@ static void render_floor(Frame *f, float dx, float dy, float plx, float ply, flo
             if (floor_row) {
                 int cx = (int)floorf(wx), cy = (int)floorf(wy);
                 float fx = wx - cx, fy = wy - cy;
-                base = (uint8_t)(R_FLOOR + 8 + ((cx * 7 + cy * 13) & 1));
-                if (grout && (fx < 0.035f || fy < 0.035f)) base = R_FLOOR + 5;
+                if (themed) {                                      /* each cell's carpet turned about, so it doesn't repeat */
+                    uint32_t h = hash2(cx, cy);
+                    int tx = (int)(fx * TS) & (TS - 1), ty = (int)(fy * TS) & (TS - 1);
+                    if (h & 1) tx = TS - 1 - tx;
+                    if (h & 2) ty = TS - 1 - ty;
+                    if (h & 4) { int q = tx; tx = ty; ty = q; }
+                    base = crawl_tex[T_CARPET][tx * TS + ty];
+                } else {
+                    base = (uint8_t)(R_FLOOR + 8 + ((cx * 7 + cy * 13) & 1));
+                    if (grout && (fx < 0.035f || fy < 0.035f)) base = R_FLOOR + 5;
+                }
                 if (G.nova_t > 0.0f) {                             /* the frost nova racing out over the floor */
                     float r = 2.2f * sqrtf(G.nova_t / 0.6f), d = hypotf(wx - G.px, wy - G.py);
                     if (d < r && (fabsf(d - r) < 0.22f || BAYER[y & 3][x & 3] < (int)(10.0f * (1.0f - G.nova_t / 0.6f)))) {
@@ -7117,6 +7176,13 @@ static void render_floor(Frame *f, float dx, float dy, float plx, float ply, flo
                         continue;
                     }
                 }
+            } else if (themed) {
+                int cx = (int)floorf(wx), cy = (int)floorf(wy);
+                int tx = (int)((wx - cx) * TS) & (TS - 1), ty = (int)((wy - cy) * TS) & (TS - 1);
+                const Cell *c = cell(cx, cy);
+                int t = c->lamp == 255 ? T_CEILDEAD : c->lamp ? (lamp_lit[c->lamp] ? T_CEILLAMP : T_CEILDEAD)
+                      : hash2(cx, cy) % 14 == 0 ? T_CEILSTAIN : T_CEILTILE;
+                base = crawl_tex[t][tx * TS + ty];
             } else base = R_CEIL + 8;
             float L = lm_at(wx, wy) * a;
             row[x] = fogged(shade(base, L, x, y), fog_amount(wx, wy, dk * (floor_row ? 1.15f : 0.8f)), L, x, y);
@@ -7201,6 +7267,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 if (cell(pxc, pyc)->kind == K_DOOR) tex = T_JAMB;
                 if (tex == T_TORCH0) tex = T_TORCH0 + (int)((tframe + hash2(mx, my)) % 3);
                 if (tex == T_EXIT0) tex = G.exit_open > 0.3f ? T_EXIT_OPEN : T_EXIT0 + ((int)(G.t * 2.5) & 1);
+                if (tex == T_VISPORT0) tex = T_VISPORT0 + ((int)(G.t * 5.0) & 3);
                 float wallx = side == 0 ? G.py + perp * rdy : G.px + perp * rdx;
                 wallx -= floorf(wallx);
                 texx = (int)(wallx * TS);

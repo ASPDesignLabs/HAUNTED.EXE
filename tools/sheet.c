@@ -326,11 +326,102 @@ static int draw_shrine(const char *path, int level) {
     return ok;
 }
 
+/* ---- the Backrooms (1.0.0b6): the pocket's textures in its palette, and a glitch proposed ---- */
+
+static void tex(int ox, int oy, int t, int scale, int light) {    /* a wall, floor or ceiling texture, shaded */
+    for (int y = 0; y < TS * scale; y++)
+        for (int x = 0; x < TS * scale; x++) {
+            uint8_t c = crawl_cmap[light][crawl_tex[t][(x / scale) * TS + y / scale]];
+            put(ox + x, oy + y, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+        }
+}
+static uint32_t gl_hash(uint32_t v) { v ^= v >> 16; v *= 0x7feb352du; v ^= v >> 15; v *= 0x846ca68bu; return v ^ (v >> 16); }
+/* a creature as the Backrooms would show it: bands of rows torn sideways, and its colours slipping,
+ * a red copy one way and a blue the other; `seed` stands for the moment */
+static void glitched(int ox, int oy, int spr, uint32_t seed) {
+    rect(ox, oy, CELL, CELL, 22, 21, 24);
+    int shift[TS], slip[TS];
+    for (int y = 0; y < TS;) {
+        uint32_t h = gl_hash(seed * 977u + (uint32_t)y);
+        int band = 2 + (int)(h % 6), torn = (h >> 8) % 3 == 0;
+        int dx = torn ? (int)((h >> 12) % 9) - 4 : 0, sl = (h >> 20) % 4 == 0;
+        for (int k = 0; k < band && y < TS; k++, y++) { shift[y] = dx; slip[y] = sl; }
+    }
+    for (int pass = 0; pass < 3; pass++)                           /* the red copy, the blue, then the creature */
+        for (int y = 0; y < TS; y++) {
+            if (pass < 2 && !slip[y]) continue;
+            for (int x = 0; x < TS; x++) {
+                int sx = x - shift[y] + (pass == 0 ? 2 : pass == 1 ? -2 : 0);
+                if (sx < 0 || sx >= TS) continue;
+                uint8_t c = crawl_spr[spr][sx * TS + y];
+                if (c == C_CLEAR) continue;
+                if (pass < 2) {
+                    int lum = crawl_pal[c][0] + crawl_pal[c][1] + crawl_pal[c][2];
+                    c = (uint8_t)((pass == 0 ? R_BLOOD : R_GLOW) + clampi(lum / 12, 4, 15));
+                } else c = crawl_cmap[LIGHT][c];
+                rect(ox + x * SC, oy + y * SC, SC, SC, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+            }
+        }
+}
+static int draw_backrooms(const char *path, int level) {
+    int cw = CELL + PAD, top = PAD + LABEL_H + 8, x0 = PAD + ROWHEAD, row = CELL + 2 * LABEL_H + PAD;
+    iw = x0 + 5 * cw + PAD;
+    ih = top + 5 * row + 8 * TXT + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    char head[96];
+    snprintf(head, sizeof head, "1.0.0B6: THE BACKROOMS, FOR APPROVAL - LEVEL %d", level);
+    text(PAD, PAD, head, 230, 230, 230);
+    crawl_art_theme(PT_BACKROOMS, level);
+    int y = top;
+    #define LBL(x_, s_) text((x_), y + CELL + 4, (s_), 190, 190, 190)
+    #define LBL2(x_, s_) text((x_), y + CELL + 6 + 8 * TXT, (s_), 150, 150, 150)
+    text(PAD, y + CELL / 2, "WALLS", 200, 200, 200);
+    static const int WALLS[4] = { T_PAPER, T_PAPER_DAMP, T_PAPER_OUTLET, T_BDOOR };
+    static const char *const WN[4][2] = { { "WALLPAPER", "" }, { "A LEAK", "" }, { "A SOCKET", "" }, { "DOORWAY", "TO THE NEXT" } };
+    for (int k = 0; k < 4; k++) { tex(x0 + k * cw, y, WALLS[k], SC, LIGHT); LBL(x0 + k * cw, WN[k][0]); LBL2(x0 + k * cw, WN[k][1]); }
+    y += row;
+    text(PAD, y + CELL / 2, "THE END", 200, 200, 200);
+    text(PAD, y + CELL / 2 + 8 * TXT + 4, "OF A CHAIN", 200, 200, 200);
+    for (int f = 0; f < 4; f++) { tex(x0 + f * cw, y, T_VISPORT0 + f, SC, LIGHT); }
+    LBL(x0, "VISPORTAL, FOUR FRAMES"); LBL2(x0, "DRIFTING IN, OVER AND OVER");
+    y += row;
+    text(PAD, y + CELL / 2, "UNDERFOOT", 200, 200, 200);
+    text(PAD, y + CELL / 2 + 8 * TXT + 4, "AND ABOVE", 200, 200, 200);
+    static const int FC[5] = { T_CARPET, T_CEILTILE, T_CEILSTAIN, T_CEILLAMP, T_CEILDEAD };
+    static const char *const FN[5][2] = { { "CARPET", "" }, { "CEILING", "TILES" }, { "A STAINED", "TILE" }, { "A TUBE", "PANEL, LIT" }, { "AND DEAD", "" } };
+    for (int k = 0; k < 5; k++) { tex(x0 + k * cw, y, FC[k], SC, LIGHT); LBL(x0 + k * cw, FN[k][0]); LBL2(x0 + k * cw, FN[k][1]); }
+    y += row;
+    text(PAD, y + CELL / 2, "AS THEY TILE", 200, 200, 200);
+    for (int j = 0; j < 3; j++)                                    /* three by three cells of each, at a third the size */
+        for (int i = 0; i < 3; i++) {
+            tex(x0 + i * TS, y + j * TS, T_CARPET, 1, LIGHT);
+            int t = (i == 1 && j == 1) ? T_CEILLAMP : (i == 0 && j == 2) ? T_CEILDEAD : (i == 2 && j == 0) ? T_CEILSTAIN : T_CEILTILE;
+            tex(x0 + cw + i * TS, y + j * TS, t, 1, LIGHT);
+            tex(x0 + 2 * cw + i * TS, y + j * TS, (i == 2 && j == 1) ? T_PAPER_DAMP : T_PAPER, 1, LIGHT);
+        }
+    LBL(x0, "CARPET"); LBL(x0 + cw, "CEILING"); LBL(x0 + 2 * cw, "WALLPAPER");
+    y += row;
+    crawl_art_level(level);                                        /* back to the crypt's own colours */
+    text(PAD, y + CELL / 2, "FROM THE", 200, 200, 200);
+    text(PAD, y + CELL / 2 + 8 * TXT + 4, "CRYPT", 200, 200, 200);
+    tex(x0, y, T_PASSAGE, SC, LIGHT); LBL(x0, "THE WAY IN"); LBL2(x0, "LEVELS 1-10");
+    glitched(x0 + cw, y, SP_SKEL_A, 3); glitched(x0 + 2 * cw, y, SP_SKEL_B, 8); glitched(x0 + 3 * cw, y, SP_BAT_A, 5); glitched(x0 + 4 * cw, y, SP_SPIDER_A, 11);
+    LBL(x0 + cw, "GLITCHED: TORN ROWS,"); LBL2(x0 + cw, "COLOURS SLIPPING; A FEW MOMENTS");
+    #undef LBL
+    #undef LBL2
+    text(PAD, ih - PAD - 8 * TXT, "SHADED AS NEAR A LIGHT; THE TUBES AND THE VISPORTAL'S HEART AT FULL BRIGHTNESS.", 120, 120, 120);
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && !strcmp(argv[1], "list")) {
         for (int i = 0; i < NGROUPS; i++) printf("%-12s %s\n", GROUPS[i].name, GROUPS[i].title);
         printf("%-12s %s\n", "lineup", "EVERY CREATURE AT ITS SIZE IN PLAY");
         printf("%-12s %s\n", "shrine", "THE RUNE SHRINE, ITS RUNES AND THE CURSED COIN");
+        printf("%-12s %s\n", "backrooms", "THE BACKROOMS: WALLS, FLOOR, CEILING, THE VISPORTAL, THE GLITCH");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -350,6 +441,13 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/shrine.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_shrine(path, level)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "backrooms")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/backrooms.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_backrooms(path, level)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     for (int i = 0; i < NGROUPS; i++) {
