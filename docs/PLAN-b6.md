@@ -1,6 +1,6 @@
 # 1.0.0b6: secrets that go deeper, Cursed Coins and the Rune Shrine
 
-**Status: planned (24 October 2026); the hand fix is built (harness only); nothing else yet.** The owner
+**Status: planned (24 October 2026) and settled; the hand fix is built (harness only); step 2, runes by quality, is next.** The owner
 asked for the things below after 1.0.0b5, answered four rounds of questions, and left the rest to
 defaults, marked *default* here so they can be changed. Nothing in this plan names the console's codes.
 
@@ -73,9 +73,9 @@ for a door, a wall or a ware is unchanged. Harness frames show both cases.
 - Once you have stepped back out past the doorway, E facing the wisp sends it home to the altar. While
   you are inside, or until you have left, E does nothing to it, so a press meant for the wall or a chest
   can't send it off.
-- At the altar, E offers *Send the wisp to the next secret*, at **10 x 1.5 to the power of the secrets
-  revealed on the level so far** *(default)*: after one secret 15, after two 22.5, after three 33.8,
-  after four 50.6, to the tenth of a soul. Waking stays 10. The blessing and the anointing are unchanged.
+- At the altar, E offers *Send the wisp to the next secret*, at **10 souls and 5 more for each secret
+  revealed on the level so far** (the owner's choice): 15 after one, 20 after two, 25 after three. Waking
+  stays 10. The blessing and the anointing are unchanged.
 - The altar burns gold once every secret on the level is found, every link of every chain included
   *(default)*: anointing is the prize for clearing a level's secrets.
 - The autopilot sends it on only if the price leaves it 15 spirit for its spells *(default)*.
@@ -90,8 +90,9 @@ for a door, a wall or a ware is unchanged. Harness frames show both cases.
   closet *(default)*. It holds more loot than today: two to four treasures and often a potion. No
   creatures, ever.
 - **A chain's next link** is a door at the back of the first room: a doorway in the theme's look.
-  Through it is a **pocket area**, its own small map (up to 21 by 21 cells, about a fifth of a level),
-  built and lit in the theme. The level waits, as it is, while you are in a pocket; coming back through
+  Through it is a **pocket area**, its own map, built and lit in the theme. Pockets grow with the depth
+  of the chain and the set: a few rooms (about 13 by 13 cells) early in the Crypts, up to the size of a
+  whole level (45 by 45) at the end of a long chain in the Deep (the owner's choice). The level waits, as it is, while you are in a pocket; coming back through
   the doorway puts you in the first room again. A pocket may hold the door to the next pocket, so a
   chain of 4 is the carved room and three pockets, each a little bigger and harder than the last.
 - **Enemies** are only in pockets: the level's own kinds, at one rank higher per link past the first
@@ -138,7 +139,7 @@ for a door, a wall or a ware is unchanged. Harness frames show both cases.
 - Each of the nine runes is held at one quality at most, the best you have; every rune held is worn.
 - **Strength** *(default, to be tuned with the runs)*: Common about today's tier 2, Uncommon 5, Rare 8,
   Ultra-Rare 12, Exquisite about 18, with the cooldowns that go with those tiers.
-- **At Exquisite, a second effect** *(proposed, for the owner's approval)*:
+- **At Exquisite, a second effect** (approved by the owner):
   - **Bone Ward:** when it breaks, it bursts into shards that hurt everything within two cells.
   - **Blink:** you leave a fading double where you stood, and creatures go for it for three seconds.
   - **Mirror Veil:** what it turns back flies home to whoever threw it, and hits twice as hard.
@@ -188,14 +189,13 @@ Versions 1 to 4 still load.
 
 ## Still to settle with the owner
 
-1. The Exquisite second effects above.
-2. The altar's price, 10 x 1.5 to the power of the secrets revealed.
-3. The art. Sheets of the new textures and sprites go to the owner before they go into the game, as the
-   creatures did:
-   - the yellow wallpaper, carpet and ceiling tiles with their tubes;
-   - the white walls, office carpet and fluorescent panels;
-   - the cubicle partitions and the treatment doors;
-   - the water cooler, the visportal doorway, and the shrine in its two states.
+The Exquisite effects, the altar's price and the sizes are settled (24 October 2026). What remains is
+the art: sheets of the new textures and sprites go to the owner before they go into the game, as the
+creatures did:
+- the yellow wallpaper, carpet and ceiling tiles with their tubes;
+- the white walls, office carpet and fluorescent panels;
+- the cubicle partitions and the treatment doors;
+- the water cooler, the visportal doorway, and the shrine in its two states.
 
 ## Building it
 
