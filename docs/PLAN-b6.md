@@ -3,8 +3,9 @@
 **Status: planned (24 October 2026) and settled; steps 1 to 4 are built (the hand fix, runes by
 quality, the Rune Shrine, and the secret areas: secrets by set and in chains, bigger rooms, doorways,
 the pockets, and the altar's wisp to one secret and back for a price), tested in the harness only. The
-Backrooms' art (step 5) is drawn and in the pockets, awaiting the owner's approval. The owner approved
-Blink's double and the shrine's art.** The owner
+Backrooms (step 5) are built: the look, the tubes lit, failing and dead, things out of place, creatures
+caught in a loop, the glitch, the silence, echo and hum, and the visportal's gift; the art awaits the
+owner's approval. The owner approved Blink's double and the shrine's art.** The owner
 asked for the things below after 1.0.0b5, answered six rounds of questions, and left the rest to
 defaults, marked *default* here so they can be changed. Nothing in this plan names the console's codes.
 
@@ -120,7 +121,8 @@ for a door, a wall or a ware is unchanged. Harness frames show both cases.
   the walls, the floor or the ceiling.
 - **Creatures that fight** look glitched (scanline tearing and colour slips on their sprites) and have
   25% more health and damage; a few more of them than a crypt room would hold.
-- **Sound.** No music. A slight reverb on every sound the caster and the creatures make.
+- **Sound.** No music. A slight reverb on every sound the caster and the creatures make, and a faint
+  mains hum from the tubes *(default)*.
 - **The reward**, at the deepest link: an open doorway onto an endless run of doorways, a visportal
   effect. You can't walk through it; E at it restores your health in full (or gives 50 souls if you are
   already whole) and gives the chain's Cursed Coin.

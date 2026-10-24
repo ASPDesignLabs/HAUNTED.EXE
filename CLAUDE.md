@@ -116,7 +116,8 @@ reachability check), `CRAWL_MAPAT=t`, `CRAWL_TPSECRET=n` / `CRAWL_TPEXIT=1` / `C
 the exit or the Black Altar once you take control; an altar in a locked vault has the vault's door
 unlocked for you), `CRAWL_TPDOOR=k` (open the first chained room and
 stand before its doorway; 2 on: into that link of the chain, facing the way on; with `CRAWL_TPVIS=1`, in
-the last link, facing its visportal), `CRAWL_TAKEALL=1`
+the last link, facing its visportal; with `CRAWL_TPTHING=k`, a few steps from the k-th thing out of
+place), `CRAWL_TAKEALL=1`
 (everything in a pocket picked up as you enter), `CRAWL_KILLAT=s` (struck down at scene time s), `CRAWL_BLESS=1` (the altar's blessing on every level), `CRAWL_WISP=1` (a free exit wisp as each level opens; 2 to 4: to the
 gold, silver or crimson key), `CRAWL_FOLLOWWISP=1` (a player that walks the way the wisp went, from
 wherever it stands, and presses E at the exit and at secrets: a test that it leads out, and that an
@@ -269,7 +270,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   pocket the exit wisp goes to the way back; no Wraith, no wakers. The debug build logs `POCKET ...`,
   `EVENT pocket_in`, `pocket_out`, `pocket_thrown`.
 - **The Backrooms** (pockets on levels 1-10 of each descent; `G.ptheme` `PT_BACKROOMS`; docs/PLAN-b6.md
-  step 5; the art drawn, awaiting the owner's approval, the rest to build). `crawl_art_theme` swaps
+  step 5; built, the art awaiting the owner's approval; creatures in pockets come in step 7). `crawl_art_theme` swaps
   `R_FLOOR` (dark brown, mustard, pale yellow: carpet and wallpaper) and `R_CEIL` (off-white) on the way in
   and back on the way out; nothing in the crypt but its floor, ceiling and fog uses those two ramps.
   Walls `T_PAPER` (and `_DAMP`, `_OUTLET`), doorways `T_BDOOR`, and at the chain's end `T_VISPORT0..3`
@@ -277,8 +278,15 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   `T_CARPET` (turned about per cell) and the ceiling tiles, with a tube panel over every block
   (`Cell.lamp`: 1 + its light, 255 dead; `T_CEILLAMP`/`T_CEILDEAD` by the light's state). A failing tube
   is a light with phase between -100 and 0 (`torch_flicker`: steady, then a burst of blinking).
-  `make sheets` draws them as `backrooms.png`, with the glitch proposed for creatures. `T_PASSAGE` from
-  the crypt shows a pale yellow room on these levels.
+  `make sheets` draws them as `backrooms.png`, with the glitch for creatures. `T_PASSAGE` from
+  the crypt shows a pale yellow room on these levels. Things out of place are decorations with `DF_FLIP`
+  (upside down on the ceiling), `DF_FLOAT`, `DF_SINK` (half into the floor, or with `DF_FLIP` the
+  ceiling; drawn with `DR_CLIP`) and `DF_LOOP` (the level's own kinds walking the same few steps, glitching
+  most of the time: `DR_LOOPED`). Every creature in a Backrooms pocket is drawn with `DR_GLITCH`
+  (`glitch_rows`: in bursts, bands of rows torn sideways, some slipping red one way and blue the other).
+  Sound: `snd_set_room(1)` fades the music and its drums, adds echo to the game's sounds and a faint
+  mains hum. E at the visportal (`visportal_use`, `PK.vis_used`) gives full health, or fifty souls if
+  whole, once a chain; then it stops drifting. The debug build logs `EVENT visportal`.
 - **Will-o'-wisps** (`Wisp` in `G.wisps`: [0] the one summoned, [1] the Black Altar's; `summon_wisp`,
   `update_wisps`, `render_wisps`, `wisp_target`, `wisp_route`). Things in the crypt, not on the hand: a
   wisp kindles before the caster (or over the altar), flies down its own BFS field (`wisp_route`: floor

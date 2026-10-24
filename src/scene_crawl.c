@@ -59,7 +59,9 @@ typedef struct { uint8_t kind, tex, theme, visits; int16_t region, door; uint8_t
 typedef struct { int x, y, along_x; float open, idle; int opening, locked, color; } Door;   /* locked: 1 locked, 2 unlocked */
 typedef struct { float x, y, power, radius, phase; int cx, cy, first, count; } Light;
 typedef struct { float x, y, phase; int spr, nfr, flags; } Deco;   /* nfr: frames to cycle through */
-enum { DF_SWAY = 1 };                                                /* hanging: swings a little, from the top */
+enum { DF_SWAY = 1,                                                  /* hanging: swings a little, from the top */
+       DF_FLIP = 2, DF_FLOAT = 4, DF_SINK = 8,                       /* the Backrooms' things out of place: upside down on the */
+       DF_LOOP = 16 };                                               /* ceiling, floating, half sunk; a creature caught in a loop */
 typedef struct {
     int type, state, alive; float x, y, z, t, anim, speed; int cx, cy, tx, ty;
     int seen, attacking, hits, misses; float cool, throw_t, contact, orbit, stagger, ignore;   /* skeleton throws, bat bites */
@@ -4459,6 +4461,21 @@ static void gen_pocket(const Secret *sc, int link) {
         if (i == 0 && j == j0) continue;
         POCKET_ITEM(BX(i) + 1, BX(j) + 1, LOOT[rnd(5)]);
     }
+    if (back) {                                                    /* things from the crypt out of place, and some caught in a loop */
+        static const int OUT[8] = { SP_URN, SP_SKULLPILE, SP_BONES1, SP_BONES2, SP_TOMB_ROUND, SP_TOMB_CROSS, SP_BROKEN_ARMS, SP_CANDLESTAND_A };
+        static const int HOW[4] = { DF_FLIP, DF_FLOAT, DF_SINK, DF_FLIP | DF_SINK };   /* on the ceiling, floating, half sunk below or above */
+        for (int k = 0; k < 1 + n * n / 6; k++) {
+            int i = rnd(n), j = rnd(n), cx = BX(i) + rnd(3), cy = BX(j) + rnd(3), sp = OUT[rnd(8)], how = HOW[rnd(4)];
+            if (i == 0 && j == j0) continue;
+            add_deco_ex(cx + 0.5f, cy + 0.5f, sp, sp == SP_CANDLESTAND_A ? 2 : 1, how);
+        }
+        static const int LOOPER[5][3] = { { SP_SKEL_A, 1, 0 }, { SP_BAT_A, 1, DF_FLOAT }, { SP_SHAMB_A, 2, 0 }, { SP_SPIDER_A, 6, 0 }, { SP_GHOST_A, 1, 0 } };
+        for (int k = 0; k < 1 + link / 2; k++) {                   /* the level's own kinds, harmless and untouchable */
+            int i = rnd(n), j = rnd(n), w = rnd(5);
+            if ((i == 0 && j == j0) || G.level < LOOPER[w][1]) continue;
+            add_deco_ex(BX(i) + 1.5f, BX(j) + 1.5f, LOOPER[w][0], 2, DF_LOOP | LOOPER[w][2]);
+        }
+    }
     #undef POCKET_ITEM
     #undef BX
     G.rooms[0] = (Room){ o + 1, o + 4 * j0 + 1, 3, 3, 0, TH_CORRIDOR }; G.nrooms = 1;
@@ -6352,6 +6369,22 @@ static void tp_door(void) {                                        /* a chained 
             pocket_door(sc->door_x, sc->door_y);
             while (PK.depth < k) pocket_build(PK.depth + 1, 0);
             if (PK.on_x >= 0) { stand_at_door(PK.on_x, PK.on_y); G.ang = wrap_pi(G.ang + PI_F); }   /* facing the way on */
+            if (getenv("CRAWL_TPTHING")) {                          /* or a few steps from the k-th thing out of place, facing it */
+                int want = atoi(getenv("CRAWL_TPTHING")), seen = 0;
+                for (int i = 0; i < G.ndecos; i++) {
+                    const Deco *dc = &G.decos[i];
+                    if (!(dc->flags & (DF_FLIP | DF_FLOAT | DF_SINK | DF_LOOP)) || seen++ != want) continue;
+                    int tx = (int)dc->x, ty = (int)dc->y;
+                    for (int d = 0, done = 0; d < 4 && !done; d++)
+                        for (int r = 3; r >= 2 && !done; r--) {
+                            int ok = 1;
+                            for (int k = 1; k <= r; k++) ok &= G.map[ty + DY[d] * k][tx + DX[d] * k].kind == K_FLOOR;
+                            if (!ok) continue;
+                            G.px = tx + DX[d] * r + 0.5f; G.py = ty + DY[d] * r + 0.5f; G.ang = heading_angle((d + 2) & 3); done = 1;
+                        }
+                    fprintf(stderr, "THING %d: sprite %d flags %d at (%.1f,%.1f)\n", want, dc->spr, dc->flags, dc->x, dc->y);
+                }
+            }
             if (getenv("CRAWL_TPVIS") && G.vis_x >= 0)              /* or a few steps from the visportal, facing it */
                 for (int d = 0; d < 4; d++) {
                     int fx = G.vis_x + DX[d], fy = G.vis_y + DY[d];
@@ -7343,7 +7376,10 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
 /* alpha < 1: dithered see-through. remap: the ramp R_PURPLE turns into. flags: how it is drawn.
  * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
 typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; } Draw;   /* glint: a key's ramp, for Keymaker's sparkle */
-enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_SWAY = 32, DR_FLIPV = 64, DR_COMMUNE = 128, DR_GLINT = 256, DR_EDGE = 512 };
+enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_SWAY = 32, DR_FLIPV = 64, DR_COMMUNE = 128, DR_GLINT = 256, DR_EDGE = 512,
+       DR_GLITCH = 1024, DR_CLIP = 2048, DR_LOOPED = 4096 };
+/* GLITCH: rows torn sideways and colours slipping, now and then (the Backrooms), more often when LOOPED; CLIP: cut at
+ * the floor and ceiling */
 /* FLIPV: upside down, on the ceiling; COMMUNE: red through walls; GLINT: a key glinting through walls (Keymaker) */
 
 static int cmp_draw(const void *a, const void *b) {
@@ -7588,6 +7624,20 @@ static int shot_sprite(const Shot *s, float *scale) {
     }
 }
 
+/* the Backrooms' glitch: in bursts, bands of rows torn sideways, and some of them slipping colour,
+ * a red copy one way and a blue the other; 0 when it is still. Creatures caught in a loop glitch most. */
+static int glitch_rows(const Draw *d, int8_t *shift, uint8_t *slip) {
+    uint32_t seed = (uint32_t)(int)(d->x * 7.0f) * 73856093u ^ (uint32_t)(int)(d->y * 7.0f) * 19349663u;
+    int slot = (int)(G.t * 12.0);
+    if (hash2(slot / 6, (int)(seed & 0xFFFF)) % 100 >= ((d->flags & DR_LOOPED) ? 70u : 35u)) return 0;
+    for (int y = 0; y < TS;) {
+        uint32_t h = hash2(slot, (int)(seed % 9973u) + y * 31);
+        int band = 2 + (int)(h % 6), dx = (h >> 8) % 3 == 0 ? (int)((h >> 12) % 9) - 4 : 0, sl = (h >> 20) % 4 == 0;
+        for (int k = 0; k < band && y < TS; k++, y++) { shift[y] = (int8_t)dx; slip[y] = (uint8_t)sl; }
+    }
+    return 1;
+}
+
 static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     static Draw list[MAXDECO + MAXMOBS + MAXSHOTS + MAXBOOMS + MAXBONES + MAXITEMS + MAXBURNS + MAXPOOLS];
     int n = 0;
@@ -7599,7 +7649,20 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         static const float FPS[4] = { 0.0f, 0.0f, 3.0f, 9.0f };    /* by frame count: candles flicker, fire roars */
         if (dc->spr < 0) continue;                                 /* gone: risen, or never a statue */
         int spr = dc->spr + (dc->nfr > 1 ? (int)((float)G.t * FPS[dc->nfr & 3] + dc->phase) % dc->nfr : 0), n0 = n;
-        ADD(dc->x, dc->y, 0.0f, spr, 0);
+        float zx = 0.0f, ox = 0.0f, oy = 0.0f;
+        if (dc->flags & (DF_FLIP | DF_FLOAT | DF_SINK | DF_LOOP)) {   /* out of place */
+            if (dc->flags & DF_FLOAT) zx = 0.40f + 0.05f * sinf((float)G.t * 1.3f + dc->phase);
+            if (dc->flags & DF_SINK) zx = (dc->flags & DF_FLIP) ? 0.25f : -0.22f;   /* most things fill the lower half of their picture */
+            else if (dc->flags & DF_FLIP) zx = 0.0f;
+            if (dc->flags & DF_LOOP) {                             /* a few steps forward, and back to where it began */
+                float u = (float)G.t * 0.7f + dc->phase, k = 0.5f * (u - floorf(u)) - 0.25f;
+                if ((int)dc->phase & 1) ox = k; else oy = k;
+            }
+        }
+        ADD(dc->x + ox, dc->y + oy, zx, spr, 0);
+        if (n > n0 && (dc->flags & (DF_FLIP | DF_FLOAT | DF_SINK | DF_LOOP))) {
+            list[n - 1].flags = ((dc->flags & DF_FLIP) ? DR_FLIPV : 0) | ((dc->flags & DF_SINK) ? DR_CLIP : 0) | ((dc->flags & DF_LOOP) ? DR_GLITCH | DR_LOOPED : 0);
+        }
         if (n > n0 && (dc->flags & DF_SWAY)) {                     /* a slow swing, and a shiver on top of it */
             list[n - 1].flags = DR_SWAY;
             list[n - 1].sway = 2.6f * sinf((float)G.t * 0.9f + dc->phase) + 0.6f * sinf((float)G.t * 2.3f + dc->phase * 1.7f);
@@ -7644,6 +7707,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (m->type == MOB_SPIDER && m->state == MS_WALK && m->sub == 0) d->flags = DR_EYES;
         if (m->type == MOB_HUNTER && m->state == MS_WALK && m->sub == 0) d->flags = DR_FLIPV;
         if (m->frozen > 0.0f && m->state == MS_WALK) d->flags |= DR_ICE;   /* only its eyes, in the dark of the web */
+        if (G.ptheme == PT_BACKROOMS) d->flags |= DR_GLITCH;           /* nothing here is quite right */
         if (commune) d->flags = (d->flags & ~DR_EYES) | DR_COMMUNE;   /* Commune: its shape, wherever it is */
         if (m->state == MS_DIE && m->sub == 77) {                  /* drawn in to a point */
             float k = smoothstepf(0.1f, 0.75f, m->t);
@@ -7795,6 +7859,14 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         }
         int com = d->flags & (DR_COMMUNE | DR_GLINT);              /* seen where it can't be: Commune's red, a key's glint */
         float ck = (d->flags & DR_COMMUNE) ? fminf(1.0f, fminf(G.commune_show, G.commune_len - G.commune_show) * 5.0f + 0.2f) : (com ? 0.6f : 0.0f);
+        if (d->flags & DR_CLIP) {                                  /* half sunk: cut where the floor and ceiling are */
+            y0 = clampi(y0, (int)ceilf(horizon - (1.0f - G.camz) * FOCAL / d->depth), H);
+            y1 = clampi(y1, 0, (int)ceilf(horizon + G.camz * FOCAL / d->depth));
+            if (y0 >= y1) continue;
+        }
+        static int8_t gshift[TS];
+        static uint8_t gslip[TS];
+        int glitch = (d->flags & DR_GLITCH) && glitch_rows(d, gshift, gslip);
         for (int x = x0; x < x1; x++) {
             int behind = d->depth >= zbuf[x];
             if (behind && !com) continue;
@@ -7802,8 +7874,17 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             const uint8_t *col = &img[tx * TS];
             float ty = (y0 + 0.5f - top) * step;
             for (int y = y0; y < y1; y++, ty += step) {
-                int tyi = clampi((int)ty, 0, TS - 1);
-                uint8_t c = col[(d->flags & DR_FLIPV) ? TS - 1 - tyi : tyi];
+                int tyi = clampi((int)ty, 0, TS - 1), sy = (d->flags & DR_FLIPV) ? TS - 1 - tyi : tyi;
+                uint8_t c = col[sy];
+                if (glitch) {
+                    int gx = tx - gshift[tyi];
+                    c = gx >= 0 && gx < TS ? img[gx * TS + sy] : C_CLEAR;
+                    if (c == C_CLEAR && gslip[tyi] && !behind) {   /* the colours slipping off it */
+                        if (gx - 2 >= 0 && gx - 2 < TS && img[(gx - 2) * TS + sy] != C_CLEAR) f->pix[y * W + x] = (uint8_t)(R_BLOOD + 11);
+                        else if (gx + 2 >= 0 && gx + 2 < TS && img[(gx + 2) * TS + sy] != C_CLEAR) f->pix[y * W + x] = (uint8_t)(R_GLOW + 9);
+                        continue;
+                    }
+                }
                 if (c == C_CLEAR) {
                     if ((d->flags & DR_EDGE) && !behind && ((x + y + (int)(G.t * 10.0)) & 1)
                         && ((tyi < TS - 1 && col[tyi + 1] != C_CLEAR) || (tx > 0 && img[(tx - 1) * TS + tyi] != C_CLEAR)
