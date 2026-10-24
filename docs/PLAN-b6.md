@@ -1,0 +1,226 @@
+# 1.0.0b6: secrets that go deeper, Cursed Coins and the Rune Shrine
+
+**Status: planned (24 October 2026); the hand fix is built (harness only); nothing else yet.** The owner
+asked for the things below after 1.0.0b5, answered four rounds of questions, and left the rest to
+defaults, marked *default* here so they can be changed. Nothing in this plan names the console's codes.
+
+## What the owner asked for
+
+1. **The hand.** Since the status bar now tucks away, the hand needn't jump up a second time when it
+   appears to cast; it does need to while the bar is up, or the robes and bracer can't be seen.
+2. **The Black Altar's wisp** goes from the altar to a secret and back to the altar, not from secret to
+   secret. It waits at the secret's entrance while you are inside; once you are out you interact with
+   it (not before, so that pressing E near the wall can't set it off by accident), and a further trip
+   costs more: 1.5 times as much for each secret revealed, rolling within the level.
+3. **Secrets, more of them and deeper.** More loot, more space, their own look. No enemies unless the
+   secret is chained; the second step of a chain and beyond hold stronger enemies. Three to six secret
+   rooms a level instead of one to three, to allow for chains, several chains, or one very long one.
+   This is where challenge lives; the deeper into a set, the more a secret should feel like a level of
+   its own.
+4. **Two themes.** The Backrooms for the first two sets, Severance for the last two, each with its own
+   wall textures, decorations, light and sound, and its own reward.
+5. **Cursed Coins**, found deep in chains, and a reward for finding every secret on a level.
+6. **The Rune Shrine** in the merchant's room, cursed awake with a coin, upgraded and pulled with coins:
+   the only way to get runes from now on.
+
+## Decided (24 October 2026)
+
+- **The hand:** with the bar away, the hand rises once to its resting height and the spell leaves from
+  there; with the bar up it rises clear of it as before. *Built: see below.*
+- **Where secrets live: both.** A secret's first room is carved into the level, bigger than today's
+  closet; the deeper links of a chain are pocket areas, separate places you go into and come back from.
+- **The altar's wisp:** E at the wisp once you are out of the secret area sends it home to the altar;
+  sending it to the next secret costs more each time (see the design).
+- **Runes:** quality replaces tier. You hold at most one of each of the nine runes, the best you have,
+  and every rune you hold is worn and fires on its own. Their strength is to be reconsidered so that an
+  Exquisite rune, a long and costly road, is worth it: **at Exquisite each rune gains a second effect**,
+  proposed below for approval.
+- **How many secrets:** within each set, 3 secret rooms on its first level rising to 6 on its fifth,
+  counting every link of a chain.
+- **Cursed Coins:** one at the deepest reward of each chain (the visportal or the water cooler), and one
+  more for finding every secret on the level. A lone secret with no chain gives none.
+- **Pulls:** 1 to 3 coins a pull. The coins set how many runes show (1 coin 1-2, 2 coins 2-3, 3 coins
+  3-5); the shrine's rank sets the best quality that can show, and lower qualities are likelier.
+- **The nine slots** belong to the shrine and are kept between visits and in saves. Each pull earns one
+  take: when you leave, you choose a rune to carry for each take that visit; the rest stay in the slots
+  to combine later.
+- **Attunement:** a kind of rune is attuned once you hold it at Rare or better (pulled so, or combined
+  up). On a pull you may offer 1 to 3 more coins for one attuned kind; each coin makes it a third likelier
+  than it was (three coins: about 2.4 times).
+- **The autopilot plays the shrine too:** it goes into secret chains while it has time and health, takes
+  the coins it finds, curses and upgrades the shrine, and pulls, keeping the best rune each time.
+- **The water cooler:** one drink a level: full health if you are hurt, otherwise 50 souls.
+- **New creatures for the deep links: later.** For now the deeper links hold the existing creatures a
+  rank or two higher, with each theme's look and boosts. Creatures of their own come in a later beta,
+  planned with the owner first.
+- **Release:** the hand fix waits on the branch and goes out with the rest as 1.0.0b6.
+- **Severance's sound:** bright FM muzak, slightly too calm, over a fluorescent hum.
+- **The merchant's rune pedestal** becomes another piece to wear.
+
+## The design
+
+### The hand (built)
+
+`human_cast`: the cast's top is `lerp(rest, 1, G.bar)`, so with the bar away the cast stays at the
+resting height (the hand has risen there once, over 0.08 s), and as the bar slides it follows. Reaching
+for a door, a wall or a ware is unchanged. Harness frames show both cases.
+
+### The altar's wisp
+
+- Woken (10 spirit, as now), the violet wisp flies to the nearest secret still shut and hovers at its
+  entrance (the cell in front of the cracked wall).
+- It stays there while you are inside the secret area, the carved room and any pocket beyond it.
+- Once you have stepped back out past the doorway, E facing the wisp sends it home to the altar. While
+  you are inside, or until you have left, E does nothing to it, so a press meant for the wall or a chest
+  can't send it off.
+- At the altar, E offers *Send the wisp to the next secret*, at **10 x 1.5 to the power of the secrets
+  revealed on the level so far** *(default)*: after one secret 15, after two 22.5, after three 33.8,
+  after four 50.6, to the tenth of a soul. Waking stays 10. The blessing and the anointing are unchanged.
+- The altar burns gold once every secret on the level is found, every link of every chain included
+  *(default)*: anointing is the prize for clearing a level's secrets.
+- The autopilot sends it on only if the price leaves it 15 spirit for its spells *(default)*.
+
+### Secret areas
+
+- **How many:** a set's levels have 3, 4, 4, 5 and 6 secret rooms *(default)*, counting every link.
+  They are split into chains at random: a level with 5 might have a chain of 3 and two singles, or one
+  chain of 5. Chains of 3 and more grow likelier deeper into a set.
+- **The first room** of every secret is carved into the level behind its cracked wall, as today, but
+  bigger: up to two plan blocks (3 by 7 or 7 by 7 cells) where the level has the room, else a 3 by 3
+  closet *(default)*. It holds more loot than today: two to four treasures and often a potion. No
+  creatures, ever.
+- **A chain's next link** is a door at the back of the first room: a doorway in the theme's look.
+  Through it is a **pocket area**, its own small map (up to 21 by 21 cells, about a fifth of a level),
+  built and lit in the theme. The level waits, as it is, while you are in a pocket; coming back through
+  the doorway puts you in the first room again. A pocket may hold the door to the next pocket, so a
+  chain of 4 is the carved room and three pockets, each a little bigger and harder than the last.
+- **Enemies** are only in pockets: the level's own kinds, at one rank higher per link past the first
+  *(default)*, capped at black, with the theme's boosts on top.
+- **The deepest link of a chain** holds its reward: the Backrooms' visportal or Severance's water cooler,
+  with the chain's Cursed Coin.
+- **Tally and record:** every link counts as a secret in the tally, the record and the achievements.
+
+### The Backrooms (secrets on levels 1 to 10)
+
+- **Look.** The same yellow wallpaper on every wall, damp mono-yellow carpet, white ceiling tiles with
+  inset fluorescent tubes. The tubes are the lights: most steady, some flickering, some dead, so some
+  stretches are bright and others nearly dark. Empty, repetitive rooms and long corridors. All of it can
+  be drawn from the palette's existing gold and bone ramps, recoloured inside the pocket.
+- **Things out of place.** Props from the crypt hung upside down or floating; creatures caught in a
+  loop on one spot (the level's own kinds, glitching, harmless and untouchable); a few stuck half into
+  the walls, the floor or the ceiling.
+- **Creatures that fight** look glitched (scanline tearing and colour slips on their sprites) and have
+  25% more health and damage; a few more of them than a crypt room would hold.
+- **Sound.** No music. A slight reverb on every sound the caster and the creatures make.
+- **The reward**, at the deepest link: an open doorway onto an endless run of doorways, a visportal
+  effect. You can't walk through it; E at it restores your health in full (or gives 50 souls if you are
+  already whole) and gives the chain's Cursed Coin.
+
+### Severance (secrets on levels 11 to 20)
+
+- **Look.** White walls, fluorescent panels across every ceiling, plain office carpet, half-height
+  cubicle partitions, long empty corridors and corners, and doors more fit for a treatment facility than
+  an office (the doorways between pockets). Drawn from the bone and glow ramps, recoloured.
+- **Creatures** wear a brighter palette and have 30% more health and damage, and strike or throw a
+  little more often (their waits between attacks a fifth shorter) *(default)*.
+- **Sound.** Bright FM muzak over a fluorescent hum, with the same slight reverb.
+- **The reward**, at the deepest link: one water cooler, the only one in the chain. One drink a level:
+  full health if hurt, otherwise 50 souls, and the chain's Cursed Coin with the first drink.
+
+### Cursed Coins
+
+- One at the deepest reward of each chain, one more for finding every secret on the level.
+- Shown on the status bar beside the keys, and on the caster's page; kept in saves.
+- Spent only at the Rune Shrine.
+
+### Runes by quality
+
+- Each of the nine runes is held at one quality at most, the best you have; every rune held is worn.
+- **Strength** *(default, to be tuned with the runs)*: Common about today's tier 2, Uncommon 5, Rare 8,
+  Ultra-Rare 12, Exquisite about 18, with the cooldowns that go with those tiers.
+- **At Exquisite, a second effect** *(proposed, for the owner's approval)*:
+  - **Bone Ward:** when it breaks, it bursts into shards that hurt everything within two cells.
+  - **Blink:** you leave a fading double where you stood, and creatures go for it for three seconds.
+  - **Mirror Veil:** what it turns back flies home to whoever threw it, and hits twice as hard.
+  - **Mend:** healing past full becomes a small ward.
+  - **Purify:** while it lasts, you also mend a little each second.
+  - **Frost Nova:** what it freezes takes double damage while frozen.
+  - **Dread:** it reaches every creature, not only the dead.
+  - **Time Slip:** what it slows also takes a quarter more damage.
+  - **Soul Reaping:** each kill while it lasts also restores a little health.
+- **Saves from 1.0.0b5 and before:** runes come across by tier: 1-3 Common, 4-6 Uncommon, 7-10 Rare,
+  11 and up Ultra-Rare; none becomes Exquisite *(default)*. Save version 5.
+
+### The Rune Shrine
+
+- **Where:** in the merchant's room, against the left wall, with candles about it so it can be seen.
+- **Sanctified** at first: dark, cold, unusable. E at it offers *Curse the shrine, one Cursed Coin*.
+  Cursed, it lights, and a single grey rune circles it. The circling runes show its rank: their number
+  and colour (grey, then green, blue, purple, gold) say what it is attuned to and the best quality it
+  can give.
+- **Its ranks** are the qualities: cursed it gives Common; 6 coins raise it to Uncommon, 12 to Rare, 24
+  to Ultra-Rare, 32 to Exquisite.
+- **Its own screen** (E at the shrine): the nine slots in a 3 by 3 grid, your coins, the shrine's rank,
+  the runes you hold, and three actions: *Pull* (choose 1 to 3 coins, and optionally 1 to 3 more for an
+  attuned kind), *Upgrade the shrine*, and *Leave*.
+- **A pull** shows its runes appearing in empty slots. Any three of the same kind and quality in the
+  slots combine into one of the next quality at once, with a flash, and that can chain upwards.
+- **Before a pull** that could need more empty slots than there are, the shrine says so and offers to
+  let go of runes from the slots first, chosen by you.
+- **Leaving:** for each pull made this visit, you choose one rune from the slots to take. Taking one
+  of a kind you already hold keeps the better of the two. The rest stay in the slots for next time.
+- **The shop's rune pedestal** becomes another piece to wear.
+
+### The autopilot
+
+- **Secrets:** it presses every secret it passes while it has time, goes through a chain's doors while
+  its health is above two thirds and there are more than 90 seconds before it means to leave *(default)*,
+  and comes back out when either fails.
+- **The altar's wisp:** it follows it as now, and calls it home and sends it on as the price allows.
+- **The shrine:** it curses the shrine with its first coin; after that it upgrades whenever it can
+  afford the next rank, and otherwise pulls with up to three coins once it has them, taking the best
+  rune of each pull *(default)*.
+
+### Saves: version 5
+
+Adds the coins, the runes by quality, the shrine's rank, its nine slots and its attunements.
+Versions 1 to 4 still load.
+
+## Still to settle with the owner
+
+1. The Exquisite second effects above.
+2. The altar's price, 10 x 1.5 to the power of the secrets revealed.
+3. The art. Sheets of the new textures and sprites go to the owner before they go into the game, as the
+   creatures did:
+   - the yellow wallpaper, carpet and ceiling tiles with their tubes;
+   - the white walls, office carpet and fluorescent panels;
+   - the cubicle partitions and the treatment doors;
+   - the water cooler, the visportal doorway, and the shrine in its two states.
+
+## Building it
+
+1. **The hand** (built).
+2. **Runes by quality:** the data, the strengths, the Exquisite effects once approved, the old saves'
+   runes, save version 5, the merchant's pedestal, the autopilot's sense of runes.
+3. **The Rune Shrine:** its art (for approval), its place in the room, curse and ranks, its screen,
+   pulls, combining, attunement and offerings, takes when leaving, the overflow question, and the
+   autopilot at the shrine.
+4. **Secret areas:** counts by set, the bigger first room, chains and the pocket machinery (going in
+   and out, the level waiting), and the altar's new wisp and price.
+5. **The Backrooms:** textures and props (for approval), the tube lights, the glitching, the reverb and
+   silence, the visportal.
+6. **Severance:** textures and props (for approval), the cubicles and doors, the water cooler, the
+   brighter creatures, the muzak.
+7. **Coins and challenge:** coins and the all-found coin, the stronger creatures in pockets, and the
+   autopilot in chains.
+8. **Checks and the beta:** frames, eight-seed runs against 1.0.0b5, ASan, the README, the page,
+   previews and release notes; 1.0.0b6 when the owner says.
+
+Risks worth naming:
+
+- **The autopilot may struggle.** Runes only from the shrine, and coins only deep in dangerous chains,
+  could leave it with fewer runes than it buys today, so it may die more until it has them. The runs
+  will show it, and the shrine's prices or the coins can be tuned.
+- **A big change to the code.** The pocket areas mean the level waiting while a second map is played,
+  which touches the generator, the renderer and the saves. It is built and tested on its own before the
+  themes go on top.

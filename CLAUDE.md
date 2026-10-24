@@ -28,6 +28,12 @@ the console. All seven steps were built and released as 1.0.0b5 at the owner's w
 harness only. It went to main as one squashed commit, so that an early commit on the work branch that
 listed the console's codes never reached main; keep it that way.
 
+The next beta, 1.0.0b6, is planned in [`docs/PLAN-b6.md`](docs/PLAN-b6.md): secrets in chains of
+carved rooms and pocket areas themed as the Backrooms (levels 1-10) and Severance (11-20), Cursed
+Coins, and the Rune Shrine in the merchant's room as the only source of runes, which now come by quality.
+The owner answered four rounds of questions; the plan marks the defaults and what is still to settle.
+The hand fix (casting from rest while the bar is away) is built.
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture
