@@ -416,12 +416,81 @@ static int draw_backrooms(const char *path, int level) {
     return ok;
 }
 
+/* ---- Severance (1.0.0b6): the pocket's textures and things in its palette, and its brighter creatures ---- */
+
+static void shaded(int ox, int oy, int spr, int light) {          /* a sprite at a given light, on the cell's ground */
+    rect(ox, oy, CELL, CELL, 22, 21, 24);
+    for (int y = 0; y < CELL; y++)
+        for (int x = 0; x < CELL; x++) {
+            uint8_t c = crawl_spr[spr][(x / SC) * TS + y / SC];
+            if (c == C_CLEAR) continue;
+            c = crawl_cmap[light][c];
+            put(ox + x, oy + y, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+        }
+}
+static int draw_severance(const char *path, int level) {
+    int cw = CELL + PAD, top = PAD + LABEL_H + 8, x0 = PAD + ROWHEAD, row = CELL + 2 * LABEL_H + PAD;
+    iw = x0 + 5 * cw + PAD;
+    ih = top + 5 * row + 8 * TXT + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    char head[96];
+    snprintf(head, sizeof head, "1.0.0B6: SEVERANCE, FOR APPROVAL - LEVEL %d", level);
+    text(PAD, PAD, head, 230, 230, 230);
+    crawl_art_theme(PT_SEVERANCE, level);
+    int y = top;
+    #define LBL(x_, s_) text((x_), y + CELL + 4, (s_), 190, 190, 190)
+    #define LBL2(x_, s_) text((x_), y + CELL + 6 + 8 * TXT, (s_), 150, 150, 150)
+    text(PAD, y + CELL / 2, "WALLS", 200, 200, 200);
+    static const int WALLS[4] = { T_WHITE, T_WHITE_SIGN, T_WHITE_ART, T_SDOOR };
+    static const char *const WN[4][2] = { { "WHITE", "" }, { "A PLACARD", "" }, { "A PICTURE", "" }, { "DOORWAY", "TO THE NEXT" } };
+    for (int k = 0; k < 4; k++) { tex(x0 + k * cw, y, WALLS[k], SC, LIGHT); LBL(x0 + k * cw, WN[k][0]); LBL2(x0 + k * cw, WN[k][1]); }
+    y += row;
+    text(PAD, y + CELL / 2, "UNDERFOOT", 200, 200, 200);
+    text(PAD, y + CELL / 2 + 8 * TXT + 4, "AND ABOVE", 200, 200, 200);
+    tex(x0, y, T_SCARPET, SC, LIGHT); LBL(x0, "CARPET");
+    tex(x0 + cw, y, T_SCEIL, SC, LIGHT); LBL(x0 + cw, "PANELS");
+    tex(x0 + 2 * cw, y, T_SCEILLAMP, SC, LIGHT); LBL(x0 + 2 * cw, "AND LIT");
+    for (int j = 0; j < 3; j++)                                    /* as they tile, a third the size */
+        for (int i = 0; i < 3; i++) {
+            tex(x0 + 3 * cw + i * TS, y + j * TS, (i == 1 && j == 1) ? T_SCEILLAMP : T_SCEIL, 1, LIGHT);
+            tex(x0 + 4 * cw + i * TS, y + j * TS, (i == 1 && j == 0) ? T_SDOOR : (i == 2 && j == 2) ? T_WHITE_SIGN : T_WHITE, 1, LIGHT);
+        }
+    LBL(x0 + 3 * cw, "CEILING"); LBL(x0 + 4 * cw, "WALLS"); LBL2(x0 + 3 * cw, "AS THEY TILE");
+    y += row;
+    text(PAD, y + CELL / 2, "THINGS", 200, 200, 200);
+    shaded(x0, y, SP_DESKS, LIGHT); LBL(x0, "FOUR DESKS"); LBL2(x0, "AND SCREENS");
+    shaded(x0 + cw, y, SP_COOLER, LIGHT); LBL(x0 + cw, "THE WATER"); LBL2(x0 + cw, "COOLER");
+    shaded(x0 + 2 * cw, y, SP_COOLER_LOW, LIGHT); LBL(x0 + 2 * cw, "AFTER ITS"); LBL2(x0 + 2 * cw, "ONE DRINK");
+    y += row;
+    text(PAD, y + CELL / 2, "BRIGHTER", 200, 200, 200);
+    text(PAD, y + CELL / 2 + 8 * TXT + 4, "CREATURES", 200, 200, 200);
+    static const int CR[4] = { SP_SKEL_A, SP_SHIELD_A, SP_GHOUL_A, SP_KNIGHT_A };
+    for (int k = 0; k < 2; k++) {                                  /* as in the crypt, then as Severance shows them */
+        shaded(x0 + (2 * k) * cw, y, CR[k * 2], 22); shaded(x0 + (2 * k + 1) * cw, y, CR[k * 2], 31);
+    }
+    shaded(x0 + 4 * cw, y, CR[3], 31);
+    LBL(x0, "IN THE CRYPT,"); LBL2(x0, "THEN UNDER THE PANELS");
+    y += row;
+    crawl_art_level(level);
+    text(PAD, y + CELL / 2, "FROM THE", 200, 200, 200);
+    text(PAD, y + CELL / 2 + 8 * TXT + 4, "CRYPT", 200, 200, 200);
+    tex(x0, y, T_PASSAGE, SC, LIGHT); LBL(x0, "THE WAY IN"); LBL2(x0, "LEVELS 11-20");
+    #undef LBL
+    #undef LBL2
+    text(PAD, ih - PAD - 8 * TXT, "SHADED AS NEAR A LIGHT; THE LIT PANELS AT FULL BRIGHTNESS.", 120, 120, 120);
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && !strcmp(argv[1], "list")) {
         for (int i = 0; i < NGROUPS; i++) printf("%-12s %s\n", GROUPS[i].name, GROUPS[i].title);
         printf("%-12s %s\n", "lineup", "EVERY CREATURE AT ITS SIZE IN PLAY");
         printf("%-12s %s\n", "shrine", "THE RUNE SHRINE, ITS RUNES AND THE CURSED COIN");
         printf("%-12s %s\n", "backrooms", "THE BACKROOMS: WALLS, FLOOR, CEILING, THE VISPORTAL, THE GLITCH");
+        printf("%-12s %s\n", "severance", "SEVERANCE: WALLS, DOORS, FLOOR, CEILING, DESKS, THE WATER COOLER");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -448,6 +517,13 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/backrooms.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_backrooms(path, level)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "severance")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/severance.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_severance(path, level)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     for (int i = 0; i < NGROUPS; i++) {

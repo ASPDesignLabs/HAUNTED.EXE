@@ -36,6 +36,11 @@ enum {
     T_VISPORT0, T_VISPORT1, T_VISPORT2, T_VISPORT3,   /* the chain's end: a doorway onto doorways, without end */
     T_CARPET,                                     /* the floor: damp carpet */
     T_CEILTILE, T_CEILSTAIN, T_CEILLAMP, T_CEILDEAD,  /* the ceiling: tiles, a stained one, a tube panel lit and dead */
+    /* Severance (1.0.0b6): R_FLOOR a muted green, R_CEIL a cool white, inside its pockets */
+    T_WHITE, T_WHITE_SIGN, T_WHITE_ART,           /* white walls; a placard with an arrow; a calm picture */
+    T_SDOOR,                                      /* a doorway between pockets: a treatment door, wired glass, a push bar */
+    T_SCARPET,                                    /* the floor: close office carpet */
+    T_SCEIL, T_SCEILLAMP,                         /* the ceiling: smooth panels, and panels lit */
     NTEX
 };
 
@@ -116,6 +121,8 @@ enum {
     SP_SRUNE0, SP_SRUNE1, SP_SRUNE2, SP_SRUNE3, SP_SRUNE4, SP_SRUNE5, SP_SRUNE6, SP_SRUNE7, SP_SRUNE8,   /* a rune circling it, by kind */
     SP_SRUNE_X,                                 /* ... the one it shows before it is attuned to any */
     SP_CCOIN,                                   /* a Cursed Coin */
+    SP_DESKS,                                   /* Severance: four desks behind low partitions, old terminals on them */
+    SP_COOLER, SP_COOLER_LOW,                   /* ... the water cooler, full, and after its one drink */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
     SP_SKEL_SA, SP_SKEL_SB, SP_SHIELD_SA, SP_SHIELD_SB, SP_BAT_SA, SP_BAT_SB, SP_SPIDER_SA, SP_SPIDER_SB,
     SP_GHOST_SA, SP_GHOST_SB, SP_WSKULL_S,

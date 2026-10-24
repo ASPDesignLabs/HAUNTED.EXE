@@ -289,7 +289,7 @@ static struct {
 static struct {
     uint32_t rs;
     double t, level_t;
-    int level, ptheme, vis_x, vis_y;                               /* a pocket's look (PT_*), PT_NONE on the level; its visportal */
+    int level, ptheme, vis_x, vis_y, vis_deco;                     /* a pocket's look (PT_*), PT_NONE on the level; its visportal or water cooler */
     Cell map[MAPN][MAPN];
     Room rooms[12]; int nrooms;
     Door doors[MAXDOORS]; int ndoors;
@@ -1643,7 +1643,7 @@ static float torch_flicker(const Light *L) {
 }
 
 static void build_lightmap(void) {
-    float ambient = G.shop ? 0.06f : (PK.depth ? 0.08f : 0.06f - 0.012f * depth());   /* the dark itself deepens, set by set; not in a pocket */
+    float ambient = G.shop ? 0.06f : (PK.depth ? (G.ptheme == PT_SEVERANCE ? 0.16f : 0.08f) : 0.06f - 0.012f * depth());   /* the dark itself deepens, set by set; not in a pocket */
     for (int i = 0; i < LMN * LMN; i++) G.lm[i] = ambient;
     const Mob *wr = NULL;                                          /* torches gutter where the Wraith goes */
     for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && G.mobs[i].type == MOB_WRAITH) wr = &G.mobs[i];
@@ -4344,13 +4344,13 @@ static void gen_pocket(const Secret *sc, int link) {
     int n = clampi(3 + (int)(t * 8.0f + 0.5f), 3, 11), S = 4 * n + 1, o = ((MAPN - S) / 2) & ~3;
     uint32_t keep_rs = G.rs;
     G.rs = sc->seed ^ ((uint32_t)link * 2654435761u);
-    G.ptheme = lv < 10 ? PT_BACKROOMS : PT_NONE;                   /* the Backrooms for the first two sets; Severance to come */
-    G.vis_x = G.vis_y = -1;
-    int back = G.ptheme == PT_BACKROOMS;
+    G.ptheme = lv < 10 ? PT_BACKROOMS : PT_SEVERANCE;              /* the Backrooms for the first two sets, Severance for the last */
+    G.vis_x = G.vis_y = G.vis_deco = -1;
+    int back = G.ptheme == PT_BACKROOMS, sev = G.ptheme == PT_SEVERANCE;
     for (int y = 0; y < MAPN; y++)
-        for (int x = 0; x < MAPN; x++) { Cell *c = &G.map[y][x]; memset(c, 0, sizeof *c); c->kind = K_WALL; c->tex = back ? T_PAPER : T_STONE; c->region = -1; c->door = -1; }
+        for (int x = 0; x < MAPN; x++) { Cell *c = &G.map[y][x]; memset(c, 0, sizeof *c); c->kind = K_WALL; c->tex = back ? T_PAPER : sev ? T_WHITE : T_STONE; c->region = -1; c->door = -1; }
     #define BX(i) (o + 4 * (i) + 1)
-    for (int j = 0; j < n; j++)
+    for (int j = 0; j < n && !sev; j++)                            /* Severance carves its halls once it knows its far end */
         for (int i = 0; i < n; i++)
             for (int y = BX(j); y < BX(j) + 3; y++) for (int x = BX(i); x < BX(i) + 3; x++) carve(x, y, 0, TH_CORRIDOR);
     /* the maze: a spanning tree over the blocks, then loops; a wall opened right across, or by a door's width */
@@ -4373,7 +4373,7 @@ static void gen_pocket(const Secret *sc, int link) {
             if (i + 1 < n && !open_e[j][i] && rnd(100) < 35) open_e[j][i] = 1 + rnd(2);
             if (j + 1 < n && !open_s[j][i] && rnd(100) < 35) open_s[j][i] = 1 + rnd(2);
         }
-    for (int j = 0; j < n; j++)
+    for (int j = 0; j < n && !sev; j++)
         for (int i = 0; i < n; i++) {
             if (open_e[j][i]) for (int k = open_e[j][i] == 2 ? 0 : 1; k < (open_e[j][i] == 2 ? 3 : 2); k++) carve(BX(i) + 3, BX(j) + k, 0, TH_CORRIDOR);
             if (open_s[j][i]) for (int k = open_s[j][i] == 2 ? 0 : 1; k < (open_s[j][i] == 2 ? 3 : 2); k++) carve(BX(i) + k, BX(j) + 3, 0, TH_CORRIDOR);
@@ -4388,7 +4388,8 @@ static void gen_pocket(const Secret *sc, int link) {
             }
     /* the way back, in the west wall; the farthest block, by the maze */
     PK.back_x = o; PK.back_y = BX(j0) + 1;
-    G.map[PK.back_y][PK.back_x].secret = 3; G.map[PK.back_y][PK.back_x].tex = back ? T_BDOOR : T_PASSAGE;
+    int door_tex = back ? T_BDOOR : sev ? T_SDOOR : T_PASSAGE;
+    G.map[PK.back_y][PK.back_x].secret = 3; G.map[PK.back_y][PK.back_x].tex = (uint8_t)door_tex;
     static int dist[11][11], q[121];
     for (int j = 0; j < n; j++) for (int i = 0; i < n; i++) dist[j][i] = -1;
     int qh = 0, qt = 0, far = j0 * 11;
@@ -4403,6 +4404,29 @@ static void gen_pocket(const Secret *sc, int link) {
             if (!op) continue;
             dist[nj][ni] = dist[bj][bi] + 1; q[qt++] = nj * 11 + ni;
         }
+    }
+    static uint8_t office[11][11];                                 /* Severance: which blocks are rooms, the rest narrow halls */
+    if (sev) {                                                     /* white halls from block to block, turning corners; a few offices */
+        for (int j = 0; j < n; j++)
+            for (int i = 0; i < n; i++) office[j][i] = (i == 0 && j == j0) || j * 11 + i == far || (hash2(i, j) ^ sc->seed) % 100 < 22;
+        for (int j = 0; j < n; j++)
+            for (int i = 0; i < n; i++) {
+                if (office[j][i]) { for (int y = BX(j); y < BX(j) + 3; y++) for (int x = BX(i); x < BX(i) + 3; x++) carve(x, y, 0, TH_CORRIDOR); }
+                else carve(BX(i) + 1, BX(j) + 1, 0, TH_CORRIDOR);
+                if (open_e[j][i]) {
+                    for (int x = BX(i) + 1; x <= BX(i + 1) + 1; x++) carve(x, BX(j) + 1, 0, TH_CORRIDOR);
+                    if (open_e[j][i] == 2 && office[j][i] && office[j][i + 1]) for (int k = 0; k < 3; k++) carve(BX(i) + 3, BX(j) + k, 0, TH_CORRIDOR);
+                }
+                if (open_s[j][i]) {
+                    for (int y = BX(j) + 1; y <= BX(j + 1) + 1; y++) carve(BX(i) + 1, y, 0, TH_CORRIDOR);
+                    if (open_s[j][i] == 2 && office[j][i] && office[j + 1][i]) for (int k = 0; k < 3; k++) carve(BX(i) + k, BX(j) + 3, 0, TH_CORRIDOR);
+                }
+            }
+        for (int y = o; y < o + S; y++)                            /* a placard here and there, now and then a picture */
+            for (int x = o; x < o + S; x++) {
+                uint32_t h = hash2(x, y) ^ sc->seed;
+                if (G.map[y][x].kind == K_WALL && !G.map[y][x].secret) G.map[y][x].tex = h % 100 < 5 ? T_WHITE_SIGN : h % 100 < 8 ? T_WHITE_ART : T_WHITE;
+            }
     }
     PK.on_x = PK.on_y = -1;
     int gen = 0;
@@ -4420,12 +4444,19 @@ static void gen_pocket(const Secret *sc, int link) {
         if (bi == n - 1) { PK.on_x = o + S - 1; PK.on_y = BX(bj) + 1; }
         else if (bj == 0) { PK.on_x = BX(bi) + 1; PK.on_y = o; }
         else { PK.on_x = BX(bi) + 1; PK.on_y = o + S - 1; }
-        G.map[PK.on_y][PK.on_x].secret = 3; G.map[PK.on_y][PK.on_x].tex = back ? T_BDOOR : T_PASSAGE;
+        G.map[PK.on_y][PK.on_x].secret = 3; G.map[PK.on_y][PK.on_x].tex = (uint8_t)door_tex;
+        if (sev) {                                                 /* a hall from the block's middle out to the door */
+            int mx = BX(bi) + 1, my = BX(bj) + 1, sx = (mx > PK.on_x) - (mx < PK.on_x), sy = (my > PK.on_y) - (my < PK.on_y);
+            for (int x = PK.on_x + sx, y = PK.on_y + sy; x != mx || y != my; x += sx, y += sy) carve(x, y, 0, TH_CORRIDOR);
+        }
     } else {                                                       /* the chain's end: its reward, for now a hoard */
         int cx = BX(far % 11) + 1, cy = BX(far / 11) + 1, vd = -1;
-        for (int d = 0; d < 4 && back && vd < 0; d++) {            /* the Backrooms' end: a doorway onto doorways */
+        for (int d = 0; d < 4 && (back || sev) && vd < 0; d++) {   /* the Backrooms' end: a doorway onto doorways; Severance's, a water cooler */
             int wx = cx + DX[d] * 2, wy = cy + DY[d] * 2;
-            if (G.map[wy][wx].kind == K_WALL && !G.map[wy][wx].secret) { G.map[wy][wx].tex = T_VISPORT0; G.vis_x = wx; G.vis_y = wy; vd = d; }
+            if (G.map[wy][wx].kind != K_WALL || G.map[wy][wx].secret) continue;
+            vd = d;
+            if (back) { G.map[wy][wx].tex = T_VISPORT0; G.vis_x = wx; G.vis_y = wy; }
+            else { G.vis_x = cx + DX[d]; G.vis_y = cy + DY[d]; solid_prop(G.vis_x, G.vis_y, PK.vis_used[PK.chain] ? SP_COOLER_LOW : SP_COOLER, 1, K_PROP); G.vis_deco = G.ndecos - 1; }
         }
         if (vd >= 0) {                                             /* the hoard to either side, out of its way */
             int qx = DY[vd] != 0, qy = DX[vd] != 0;
@@ -4444,7 +4475,11 @@ static void gen_pocket(const Secret *sc, int link) {
     for (int j = 0; j < n; j++)
         for (int i = 0; i < n; i++) {
             int r = rnd(100), first = (i == 0 && j == j0) || (back && G.vis_x >= 0 && j * 11 + i == far);   /* the way in and the end, lit */
-            if (back) {
+            if (sev) {                                             /* Severance: every panel lit, and steady */
+                G.map[BX(j) + 1][BX(i) + 1].lamp = (uint8_t)(1 + G.nlights);
+                light_static(BX(i) + 1.5f, BX(j) + 1.5f, 1.45f + 0.1f * rndf(), 6.0f);
+                G.lights[G.nlights - 1].phase = -1000.0f;
+            } else if (back) {
                 Cell *lc = &G.map[BX(j) + 1][BX(i) + 1];
                 if (!first && r >= 75) { lc->lamp = 255; continue; }
                 lc->lamp = (uint8_t)(1 + G.nlights);
@@ -4461,6 +4496,12 @@ static void gen_pocket(const Secret *sc, int link) {
         if (i == 0 && j == j0) continue;
         POCKET_ITEM(BX(i) + 1, BX(j) + 1, LOOT[rnd(5)]);
     }
+    for (int j = 0; j < n && sev; j++)                             /* in the offices, four desks, where nothing lies already */
+        for (int i = 0; i < n; i++) {
+            int x = BX(i) + 1, y = BX(j) + 1, clear = office[j][i] && !(i == 0 && j == j0) && j * 11 + i != far;
+            for (int k = 0; k < G.nitems && clear; k++) clear = !(G.items[k].lx == x && G.items[k].ly == y);
+            if (clear) solid_prop(x, y, SP_DESKS, 1, K_PROP);
+        }
     if (back) {                                                    /* things from the crypt out of place, and some caught in a loop */
         static const int OUT[8] = { SP_URN, SP_SKULLPILE, SP_BONES1, SP_BONES2, SP_TOMB_ROUND, SP_TOMB_CROSS, SP_BROKEN_ARMS, SP_CANDLESTAND_A };
         static const int HOW[4] = { DF_FLIP, DF_FLOAT, DF_SINK, DF_FLIP | DF_SINK };   /* on the ceiling, floating, half sunk below or above */
@@ -5911,12 +5952,14 @@ static void human_bump(int cx, int cy) {
 /* The Backrooms' end: E at the visportal, once a chain, gives your health back in full, or fifty souls
  * if you are whole. It goes on drifting until it has given; then it stands still. */
 static int visportal_use(void) {
-    if (PK.vis_used[PK.chain]) { say("THE DOORWAYS GO ON, AND GIVE NO MORE"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return 1; }
+    int sev = G.ptheme == PT_SEVERANCE;                            /* Severance's water cooler gives the same, as one drink */
+    if (PK.vis_used[PK.chain]) { say(sev ? "THE COOLER HAS GIVEN ITS ONE DRINK" : "THE DOORWAYS GO ON, AND GIVE NO MORE"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return 1; }
     PK.vis_used[PK.chain] = 1;
     int heal = G.hp < G.max_hp;
-    if (heal) { G.hp = G.max_hp; G.poison_t = G.slow_t = 0.0f; say("THE DOORWAYS MAKE YOU WHOLE AGAIN"); }
-    else { RUN.souls += 50; G.level_souls += 50; pop_readout(); say("THE DOORWAYS GIVE YOU FIFTY SOULS"); }
-    snd_sfx_ex(SFX_SHIMMER, 1.0f, 0.5f); snd_sfx_ex(SFX_POTION, 0.7f, 0.5f);
+    if (heal) { G.hp = G.max_hp; G.poison_t = G.slow_t = 0.0f; say(sev ? "A CUP OF WATER. YOU ARE WHOLE AGAIN" : "THE DOORWAYS MAKE YOU WHOLE AGAIN"); }
+    else { RUN.souls += 50; G.level_souls += 50; pop_readout(); say(sev ? "A CUP OF WATER. FIFTY SOULS" : "THE DOORWAYS GIVE YOU FIFTY SOULS"); }
+    if (sev && G.vis_deco >= 0) G.decos[G.vis_deco].spr = SP_COOLER_LOW;
+    snd_sfx_ex(sev ? SFX_POTION : SFX_SHIMMER, 1.0f, 0.5f); snd_sfx_ex(sev ? SFX_DRIP : SFX_POTION, 0.7f, 0.5f);
     G.grab_t = 1.0f; show_bar();
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT visportal chain %d %s t=%.2f\n", PK.chain, heal ? "heals" : "souls", G.t);
@@ -6373,7 +6416,8 @@ static void tp_door(void) {                                        /* a chained 
                 int want = atoi(getenv("CRAWL_TPTHING")), seen = 0;
                 for (int i = 0; i < G.ndecos; i++) {
                     const Deco *dc = &G.decos[i];
-                    if (!(dc->flags & (DF_FLIP | DF_FLOAT | DF_SINK | DF_LOOP)) || seen++ != want) continue;
+                    if (!(dc->flags & (DF_FLIP | DF_FLOAT | DF_SINK | DF_LOOP)) && dc->spr != SP_DESKS) continue;
+                    if (seen++ != want) continue;
                     int tx = (int)dc->x, ty = (int)dc->y;
                     for (int d = 0, done = 0; d < 4 && !done; d++)
                         for (int r = 3; r >= 2 && !done; r--) {
@@ -6385,14 +6429,18 @@ static void tp_door(void) {                                        /* a chained 
                     fprintf(stderr, "THING %d: sprite %d flags %d at (%.1f,%.1f)\n", want, dc->spr, dc->flags, dc->x, dc->y);
                 }
             }
-            if (getenv("CRAWL_TPVIS") && G.vis_x >= 0)              /* or a few steps from the visportal, facing it */
-                for (int d = 0; d < 4; d++) {
-                    int fx = G.vis_x + DX[d], fy = G.vis_y + DY[d];
-                    if (G.map[fy][fx].kind != K_FLOOR) continue;
-                    int far = G.map[fy + DY[d] * 2][fx + DX[d] * 2].kind == K_FLOOR ? 2 : 1;
-                    G.px = fx + DX[d] * far + 0.5f; G.py = fy + DY[d] * far + 0.5f; G.ang = heading_angle((d + 2) & 3);
-                    break;
+            if (getenv("CRAWL_TPVIS") && G.vis_x >= 0) {            /* or a few steps from the visportal (or cooler), facing it */
+                int bd = -1, bfar = 0;
+                for (int d = 0; d < 4; d++) {                       /* from the side with the longest clear run */
+                    int far = 0;
+                    while (far < 3 && G.map[G.vis_y + DY[d] * (far + 1)][G.vis_x + DX[d] * (far + 1)].kind == K_FLOOR) far++;
+                    if (far > bfar) { bfar = far; bd = d; }
                 }
+                if (bd >= 0) {
+                    int k = bfar > 1 ? bfar : 1;
+                    G.px = G.vis_x + DX[bd] * k + 0.5f; G.py = G.vis_y + DY[bd] * k + 0.5f; G.ang = heading_angle((bd + 2) & 3);
+                }
+            }
             return;
         }
     }
@@ -7193,7 +7241,7 @@ static inline uint8_t fogged(uint8_t c, float fog, float light, int x, int y) {
 
 static void render_floor(Frame *f, float dx, float dy, float plx, float ply, float horizon) {
     float lx = dx - plx, ly = dy - ply, rx = dx + plx, ry = dy + ply;
-    int themed = G.ptheme == PT_BACKROOMS;                         /* carpet underfoot, tiles and tube panels above */
+    int themed = G.ptheme != PT_NONE, sev = G.ptheme == PT_SEVERANCE;   /* carpet underfoot, tiles or panels above */
     static uint8_t lamp_lit[MAXLIGHTS + 1];
     if (themed) for (int l = 0; l < G.nlights; l++) lamp_lit[l + 1] = torch_flicker(&G.lights[l]) > 0.5f;
     for (int y = 0; y < H; y++) {
@@ -7217,7 +7265,7 @@ static void render_floor(Frame *f, float dx, float dy, float plx, float ply, flo
                     if (h & 1) tx = TS - 1 - tx;
                     if (h & 2) ty = TS - 1 - ty;
                     if (h & 4) { int q = tx; tx = ty; ty = q; }
-                    base = crawl_tex[T_CARPET][tx * TS + ty];
+                    base = crawl_tex[sev ? T_SCARPET : T_CARPET][tx * TS + ty];
                 } else {
                     base = (uint8_t)(R_FLOOR + 8 + ((cx * 7 + cy * 13) & 1));
                     if (grout && (fx < 0.035f || fy < 0.035f)) base = R_FLOOR + 5;
@@ -7233,7 +7281,8 @@ static void render_floor(Frame *f, float dx, float dy, float plx, float ply, flo
                 int cx = (int)floorf(wx), cy = (int)floorf(wy);
                 int tx = (int)((wx - cx) * TS) & (TS - 1), ty = (int)((wy - cy) * TS) & (TS - 1);
                 const Cell *c = cell(cx, cy);
-                int t = c->lamp == 255 ? T_CEILDEAD : c->lamp ? (lamp_lit[c->lamp] ? T_CEILLAMP : T_CEILDEAD)
+                int t = sev ? (c->lamp && c->lamp != 255 && lamp_lit[c->lamp] ? T_SCEILLAMP : T_SCEIL)
+                      : c->lamp == 255 ? T_CEILDEAD : c->lamp ? (lamp_lit[c->lamp] ? T_CEILLAMP : T_CEILDEAD)
                       : hash2(cx, cy) % 14 == 0 ? T_CEILSTAIN : T_CEILTILE;
                 base = crawl_tex[t][tx * TS + ty];
             } else base = R_CEIL + 8;
