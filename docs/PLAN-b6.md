@@ -6,9 +6,9 @@ the pockets, and the altar's wisp to one secret and back for a price), tested in
 Backrooms (step 5) are built: the look, the tubes lit, failing and dead, things out of place, creatures
 caught in a loop, the glitch, the silence, echo and hum, and the visportal's gift. Severance (step 6)
 is built too: white halls and offices, the ward doors, the panels, the water cooler's drink, the
-creatures lit brighter, the muzak; its art awaits approval. The owner approved Blink's double, the
-shrine's art and the Backrooms as drawn.** The owner
-asked for the things below after 1.0.0b5, answered eight rounds of questions, and left the rest to
+creatures lit brighter, the muzak. The owner approved Blink's double, the shrine's art, the Backrooms
+and Severance as drawn; step 7 (coins, creatures in pockets, the autopilot in chains) is next.** The owner
+asked for the things below after 1.0.0b5, answered nine rounds of questions, and left the rest to
 defaults, marked *default* here so they can be changed. Nothing in this plan names the console's codes.
 
 ## What the owner asked for
@@ -63,6 +63,9 @@ defaults, marked *default* here so they can be changed. Nothing in this plan nam
 - **Release:** the hand fix waits on the branch and goes out with the rest as 1.0.0b6.
 - **Severance's sound:** bright FM muzak, slightly too calm, over a fluorescent hum.
 - **The merchant's rune pedestal** becomes another piece to wear.
+- **Severance (24 October 2026, ninth round):** the look goes in as drawn; narrow halls with an office
+  in about one block of five; the creatures as shown, brighter; the muzak kept but quieter (it now sits
+  about 9 dB under the crypt's march).
 - **The Backrooms (24 October 2026, eighth round):** the look goes in as drawn (the sheet and the
   frames); the glitch and the things out of place as shown; the faint hum stays under the silence; at a
   chain's end the hoard stays beside the visportal, with the chain's coin to come.
@@ -223,12 +226,9 @@ Versions 1 to 4 still load.
 The Exquisite effects, the altar's price and the sizes are settled (24 October 2026). What remains is
 the art: sheets of the new textures and sprites go to the owner before they go into the game, as the
 creatures did:
-- the white walls, office carpet and fluorescent panels;
-- the cubicle partitions and the treatment doors;
-- the water cooler.
-
-The Backrooms' art (the wallpaper, carpet, tiles and tubes, the doorway, the visportal, the glitch) and
-the shrine in its two states are approved.
+Nothing: the Backrooms' art (the wallpaper, carpet, tiles and tubes, the doorway, the visportal, the
+glitch), Severance's (the walls, carpet, panels, ward doors, desks and water cooler) and the shrine in its
+two states are approved.
 
 ## Building it
 
@@ -252,7 +252,7 @@ the shrine in its two states are approved.
 5. **The Backrooms** (built; art approved): textures and props, the tube lights (lit, failing, dead),
    the things out of place and the creatures caught in a loop, the glitch, the silence with its echo and
    hum, and the visportal (full health, or fifty souls if whole, once a chain).
-6. **Severance** (built; art for approval): textures and props, narrow white halls between a few
+6. **Severance** (built; art approved): textures and props, narrow white halls between a few
    offices of four desks, the ward doors, every panel lit, the water cooler (one drink: full health or
    fifty souls), creatures drawn brighter, the muzak (an electric piano, a bass, a vibraphone, eight
    bars of major sevenths) over the hum. The creatures' extra strength and haste come with the

@@ -1408,8 +1408,9 @@ static void render_locked(int16_t *out, int frames) {
                 if (v->muz ? g_muz_k <= 0.0f : mus <= 0.0f) { v->active = 0; continue; }
                 if (v->muz) voice_run(v, &zl, &zr, &zrev, &zdly); else voice_run(v, &ml, &mr, &mrev, &mdly);
             }
-            L += ml * mus + zl * g_muz_k; R += mr * mus + zr * g_muz_k;
-            rev += mrev * mus + zrev * g_muz_k; dly += mdly * mus + zdly * g_muz_k;
+            float mz = 0.6f * g_muz_k;                             /* kept well back, under the hum */
+            L += ml * mus + zl * mz; R += mr * mus + zr * mz;
+            rev += mrev * mus + zrev * mz; dly += mdly * mus + zdly * mz;
         }
 
         g_fx_gain = g_hold ? fmaxf(0.0f, g_fx_gain - 50.0f / SR) : fminf(1.0f, g_fx_gain + 50.0f / SR);
