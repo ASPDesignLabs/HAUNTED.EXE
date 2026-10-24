@@ -253,6 +253,8 @@ typedef struct {
 
 /* The run: what carries from level to level, through death and across scene switches */
 #define SHRINE_SLOTS 9
+#define SHRINE_X 15.5f
+#define SHRINE_Y 17.5f                      /* the Rune Shrine, in the merchant's room against the south wall */
 static struct {
     int active, level, hp, treasure, souls;
     float soul_frac;
@@ -356,6 +358,13 @@ static struct {
     float sa0, sa1, sdur, sx0, sy0, sx1, sy1, smove, sparkle;    /* turning and walking: from, to, how long */
     float cat_blink, cat_slow, cat_ear, cat_trill, cat_look, purr_t, cat_next_blink, cat_next_ear, cat_tail_k;
     int cat_ear_side;
+    /* the Rune Shrine, this visit: its decoration; looked at; takes earned and not yet used; pulls made; the
+       screen's mode, slot, coins for a pull and favour (0 none, else 1 + 3 x kind + coins - 1); a choice
+       awaiting a second Enter; runes on their way into the slots; the autopilot's errand there */
+    int sh_deco, sh_look, sh_takes, sh_pulls, sh_mode, sh_slot, sh_coins, sh_fav, sh_arm;
+    int sh_qk[6], sh_qq[6], sh_nq, sh_busy, sh_auto;   /* sh_busy: a pull still coming in, or three becoming one */
+    float sh_qt, sh_glow, sh_flash[SHRINE_SLOTS], sh_note_t;
+    char sh_note[80];
 
     /* a person at the controls */
     int player, ui, ui_sel, quit_line, status_ret;
@@ -378,7 +387,7 @@ static struct {
     float mood_t;
 } G;
 static float zbuf[W];
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 
 static uint8_t ramp_at(int ramp, int k) { return (uint8_t)(ramp + clampi(k, 0, ramp == R_GOLD ? 12 : 15)); }   /* the gold ramp is short */
@@ -1537,6 +1546,8 @@ static void build_lightmap(void) {
         for (int k = L->first; k < L->first + L->count; k++) G.lm[G.lc_idx[k]] += G.lc_w[k] * f;
     }
     light_dynamic(G.px, G.py, 0.62f, 2.8f);                        /* the caster's own faint glow */
+    if (G.shop && RUN.shrine > 0)                                  /* the cursed shrine, brighter as it works */
+        light_dynamic(SHRINE_X, SHRINE_Y - 0.4f, 0.7f + 0.8f * fminf(1.0f, G.sh_glow) + 0.08f * sinf((float)G.t * 5.0f), 3.6f);
     for (int i = 0; i < MAXWISPS && !G.shop; i++) {                /* and the wisps', four cells round them */
         const Wisp *w = &G.wisps[i];
         if (w->on && w->a > 0.0f) light_dynamic_ex(w->x, w->y, 0.6f * w->a * (0.93f + 0.07f * sinf((float)G.t * 7.0f + i)), 4.0f, 1);
@@ -4127,10 +4138,13 @@ static void give_bag(int q) {                                      /* a bag of t
 
 #ifdef CRAWL_DEBUG
 /* for testing: CRAWL_GEAR=n (give_gear), CRAWL_RUNES=q (every rune at quality q, 1 Common to 5
- * Exquisite), CRAWL_ABIL, CRAWL_BAG, CRAWL_GOLD, CRAWL_SOULS */
+ * Exquisite), CRAWL_ABIL, CRAWL_BAG, CRAWL_GOLD, CRAWL_SOULS, CRAWL_COINS (Cursed Coins), CRAWL_SHRINE=r
+ * (the Rune Shrine's rank, 0 sanctified to 5) */
 static void debug_gear(void) {
     if (getenv("CRAWL_GEAR")) give_gear(atoi(getenv("CRAWL_GEAR")));
     if (getenv("CRAWL_RUNES")) for (int i = 0; i < NDEF; i++) RUN.gear.def[i] = (int8_t)clampi(atoi(getenv("CRAWL_RUNES")), 0, RUNE_EXQ);
+    if (getenv("CRAWL_COINS")) RUN.coins = atoi(getenv("CRAWL_COINS"));
+    if (getenv("CRAWL_SHRINE")) RUN.shrine = clampi(atoi(getenv("CRAWL_SHRINE")), 0, NQUAL);
     if (getenv("CRAWL_ABIL")) give_ability(atoi(getenv("CRAWL_ABIL")));
     if (getenv("CRAWL_BAG")) give_bag(atoi(getenv("CRAWL_BAG")));
     if (getenv("CRAWL_GOLD")) RUN.treasure = atoi(getenv("CRAWL_GOLD"));
@@ -4841,7 +4855,7 @@ static void crawl_update(double dt) {
 #define CAT_S 1.05f
 #define SHOP_MID 15.5f                      /* the middle of the room, east to west */
 #define SHOP_DOOR 21                        /* the east door, and the way on */
-enum { SH_GREET, SH_LOOK, SH_THINK, SH_GO, SH_BUY, SH_THANK, SH_LEAVE };
+enum { SH_GREET, SH_LOOK, SH_THINK, SH_GO, SH_BUY, SH_THANK, SH_SHRINE_GO, SH_SHRINE, SH_LEAVE };
 static int offer_sprite(const Offer *o) {
     static const int PIECE_SPR[NIK] = { SP_ITEM_RING, SP_ITEM_BRACER, SP_ITEM_BOOTS, SP_ITEM_AMULET, SP_ITEM_HOOD, SP_ITEM_ROBE, SP_ITEM_RING, SP_ITEM_BAG };
     return o->kind == GK_ATK ? SP_ITEM_TOME : (o->kind == GK_DEF ? SP_ITEM_RUNE : PIECE_SPR[o->piece.kind]);
@@ -4874,6 +4888,11 @@ static void gen_shop(void) {
     add_deco(10.4f, 12.4f, SP_CANDLES); light_static(10.45f, 12.45f, 0.9f, 3.0f);
     add_deco(15.5f, 12.3f, SP_CANDLES); light_static(15.5f, 12.35f, 0.8f, 3.2f);   /* under the sign */
     add_deco(20.55f, 12.45f, SP_URN); add_deco(20.55f, 17.55f, SP_URN);
+    G.sh_deco = G.ndecos;                                          /* the Rune Shrine, across from the wares */
+    add_deco(SHRINE_X, SHRINE_Y, RUN.shrine ? SP_SHRINE_C : SP_SHRINE_S);
+    G.map[(int)SHRINE_Y][(int)SHRINE_X].kind = K_PROP;
+    add_deco(SHRINE_X - 1.15f, 17.6f, SP_CANDLES); light_static(SHRINE_X - 1.1f, 17.55f, 0.95f, 3.4f);
+    add_deco(SHRINE_X + 1.15f, 17.6f, SP_CANDLES); light_static(SHRINE_X + 1.1f, 17.55f, 0.95f, 3.4f);
     G.ped_n = gear_shop_pedestals(G.level);                        /* an arc, its ends come forward */
     float half = 3.0f + 0.4f * (float)(G.ped_n - 5);
     for (int i = 0; i < G.ped_n; i++) {
@@ -4970,6 +4989,8 @@ static void begin_shop(void) {
         G.offers[p] = *h; G.offer_back[p] = 1;
     }
     G.shop_left = gear_shop_purchases(G.level); G.shop_confirm = G.shop_letgo = G.shop_held = -1;
+    G.sh_look = G.sh_takes = G.sh_pulls = G.sh_nq = G.sh_busy = G.sh_auto = G.sh_fav = 0; G.sh_mode = 0; G.sh_arm = -1;
+    G.sh_qt = G.sh_glow = G.sh_note_t = 0.0f; memset(G.sh_flash, 0, sizeof G.sh_flash);
     G.shop_step = SH_GREET; G.shop_t = 0.0; G.shop_pick = -1; G.shop_bought = 0; G.shop_look = -1;
     G.shop_gold = RUN.treasure; G.shop_saving = 0; G.sparkle = 0.0f;
     G.shop_heal = G.hp + (G.max_hp - G.hp) * 4 / 10;               /* a rest by the purring cat */
@@ -5015,14 +5036,222 @@ static void shop_purchase(int i) {
 #endif
 }
 
+
+/* ---- the Rune Shrine (docs/PLAN-b6.md): cursed awake with a coin, raised with more, and pulled for
+ * runes, which come into its nine slots; three alike become one better. Each pull earns one take, a
+ * rune carried off before you leave the room. ---- */
+
+static const int SHRINE_COST[NQUAL] = { 1, 6, 12, 24, 32 };       /* to curse it, then to raise it to each rank after */
+static const char *const DEF_SHORT[NDEF] = { "WARD", "BLINK", "MIRROR", "MEND", "PURIFY", "NOVA", "DREAD", "SLIP", "REAP" };
+static const char *const Q_TAG[NQUAL] = { "C", "U", "R", "UR", "EX" };   /* a quality in a letter or two, as well as its colour */
+enum { SM_MENU, SM_TAKE, SM_LETGO, SM_FULL, SM_LEAVE, SM_PULL };   /* the screen: its actions, choosing a slot, two questions, a pull */
+enum { SR_PULL, SR_FAVOUR, SR_RAISE, SR_TAKE, SR_LETGO, SR_LEAVE, NSR };
+
+static int pull_most(int coins) { static const int M[4] = { 0, 2, 3, 5 }; return M[clampi(coins, 0, 3)]; }
+static int fav_kind(int f) { return (f - 1) / 3; }
+static int fav_coins(int f) { return f ? (f - 1) % 3 + 1 : 0; }
+static int fav_step(int f, int dir) {                              /* the next favour: none, or 1-3 coins on an attuned kind */
+    for (int i = 0; i < 1 + 3 * NDEF; i++) {
+        f = (f + dir + 1 + 3 * NDEF) % (1 + 3 * NDEF);
+        if (!f || (RUN.attuned >> fav_kind(f) & 1)) return f;
+    }
+    return 0;
+}
+static int shrine_count(int filled) { int n = 0; for (int i = 0; i < SHRINE_SLOTS; i++) n += (RUN.slot_def[i] != 0) == filled; return n; }
+static int runes_held(void) { int n = 0; for (int k = 0; k < NDEF; k++) n += RUN.gear.def[k] > 0; return n; }
+
+static void shrine_note(const char *fmt, ...) {                    /* a line on the shrine's screen, for a few seconds */
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(G.sh_note, sizeof G.sh_note, fmt, ap);
+    va_end(ap);
+    G.sh_note_t = 4.0f;
+    if (!G.player) say("%s", G.sh_note);                           /* the autopilot's doings, for whoever watches */
+}
+static void shrine_attune(int k, int q) {                          /* a rune at Rare or better: the shrine knows it */
+    if (q < Q_RARE + 1 || (RUN.attuned >> k & 1)) return;
+    RUN.attuned |= 1 << k;
+    shrine_note("THE SHRINE IS ATTUNED TO %s", DEF_NAME[k]);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT shrine_attune %s t=%.2f\n", DEF_NAME[k], G.t);
+#endif
+}
+
+static void shrine_curse(void) {
+    RUN.coins -= SHRINE_COST[0]; RUN.shrine = 1;
+    if (G.sh_deco >= 0 && G.sh_deco < G.ndecos) G.decos[G.sh_deco].spr = SP_SHRINE_C;
+    G.sh_glow = 2.0f;
+    snd_sfx_ex(SFX_STINGER, 0.6f, 0.5f); snd_sfx_ex(SFX_IGNITE, 0.9f, 0.5f);
+    shrine_note("THE SHRINE IS CURSED. IT GIVES COMMON RUNES");
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT shrine_curse coins=%d t=%.2f\n", RUN.coins, G.t);
+#endif
+}
+static void shrine_raise(void) {
+    RUN.coins -= SHRINE_COST[RUN.shrine]; RUN.shrine++;
+    G.sh_glow = 2.0f;
+    snd_sfx_ex(SFX_STINGER, 0.7f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.9f, 0.5f);
+    shrine_note("RAISED: IT GIVES RUNES UP TO %s", QUAL_NAME[RUN.shrine - 1]);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT shrine_raise %d coins=%d t=%.2f\n", RUN.shrine, RUN.coins, G.t);
+#endif
+}
+
+/* A pull: one coin shows one or two runes, two coins two or three, three coins three to five. Each is
+ * of a quality up to the shrine's rank, each two thirds as likely as the one below; a favoured kind is a
+ * third likelier for each coin offered on it. They wait in a queue and come into the slots one by one. */
+static void shrine_pull(int coins, int fav) {
+    RUN.coins -= coins + fav_coins(fav);
+    G.sh_takes++; G.sh_pulls++;
+    int n = coins <= 1 ? 1 + rnd(2) : (coins == 2 ? 2 + rnd(2) : 3 + rnd(3));
+    float wq[NQUAL], tq = 0.0f, wk[NDEF], tk = 0.0f;
+    for (int q = 0; q < NQUAL; q++) { wq[q] = q < RUN.shrine ? powf(2.0f / 3.0f, (float)q) : 0.0f; tq += wq[q]; }
+    for (int k = 0; k < NDEF; k++) { wk[k] = fav && fav_kind(fav) == k ? powf(4.0f / 3.0f, (float)fav_coins(fav)) : 1.0f; tk += wk[k]; }
+    G.sh_nq = 0;
+    for (int i = 0; i < n; i++) {
+        float r = rndf() * tq; int q = 0;
+        while (q < NQUAL - 1 && r >= wq[q]) r -= wq[q++];
+        r = rndf() * tk; int k = 0;
+        while (k < NDEF - 1 && r >= wk[k]) r -= wk[k++];
+        G.sh_qk[G.sh_nq] = k; G.sh_qq[G.sh_nq] = q + 1; G.sh_nq++;
+    }
+    G.sh_qt = 0.5f; G.sh_glow = 1.2f; G.sh_busy = 1;
+    snd_sfx_ex(SFX_COIN, 0.8f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.8f, 0.5f);
+    shrine_note("%d RUNES COME OUT OF THE STONE", n);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT shrine_pull coins=%d favour=%d n=%d left=%d t=%.2f\n", coins, fav, n, RUN.coins, G.t);
+#endif
+}
+/* any three of a kind and quality in the slots become one of the next quality, up to Exquisite */
+static int shrine_combine(void) {
+    for (int k = 0; k < NDEF; k++)
+        for (int q = 1; q < RUNE_EXQ; q++) {
+            int at[SHRINE_SLOTS], n = 0;
+            for (int i = 0; i < SHRINE_SLOTS; i++) if (RUN.slot_def[i] == k + 1 && RUN.slot_q[i] == q) at[n++] = i;
+            if (n < 3) continue;
+            RUN.slot_q[at[0]] = (uint8_t)(q + 1);
+            for (int j = 1; j < 3; j++) RUN.slot_def[at[j]] = RUN.slot_q[at[j]] = 0;
+            for (int j = 0; j < 3; j++) G.sh_flash[at[j]] = 0.7f;
+            snd_sfx_ex(SFX_SHIMMER, 1.0f, 0.5f); snd_sfx_ex(SFX_RUNE, 1.0f, 0.5f);
+            shrine_note("THREE %s %s BECOME ONE %s", QUAL_NAME[q - 1], DEF_SHORT[k], QUAL_NAME[q]);
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT shrine_combine %s q=%d t=%.2f\n", DEF_NAME[k], q + 1, G.t);
+#endif
+            shrine_attune(k, q + 1);
+            return 1;
+        }
+    return 0;
+}
+/* the runes of a pull arriving, and any three alike becoming one; 1 while that goes on */
+static int shrine_step(float dt) {
+    if ((G.sh_qt -= dt) > 0.0f) return 1;
+    if (shrine_combine()) { G.sh_qt = 0.55f; return 1; }
+    if (G.sh_nq <= 0) return 0;
+    int k = G.sh_qk[0], q = G.sh_qq[0], at = -1;
+    G.sh_nq--;
+    for (int i = 0; i < G.sh_nq; i++) { G.sh_qk[i] = G.sh_qk[i + 1]; G.sh_qq[i] = G.sh_qq[i + 1]; }
+    for (int i = 0; i < SHRINE_SLOTS && at < 0; i++) if (!RUN.slot_def[i]) at = i;
+    if (at < 0) { shrine_note("NO ROOM: THE %s %s FADES", QUAL_NAME[q - 1], DEF_SHORT[k]); snd_sfx_ex(SFX_ZAP, 0.4f, 0.5f); }
+    else {
+        RUN.slot_def[at] = (uint8_t)(k + 1); RUN.slot_q[at] = (uint8_t)q; G.sh_flash[at] = 0.5f;
+        snd_sfx_ex(SFX_RUNE, 0.7f, 0.5f);
+        shrine_attune(k, q);
+    }
+    G.sh_qt = 0.4f;
+    return 1;
+}
+static void shrine_tick(float dt) {                                /* every frame in the merchant's room */
+    for (int i = 0; i < SHRINE_SLOTS; i++) G.sh_flash[i] = fmaxf(0.0f, G.sh_flash[i] - dt);
+    G.sh_glow = fmaxf(0.0f, G.sh_glow - dt);
+    G.sh_note_t = fmaxf(0.0f, G.sh_note_t - dt);
+    if (G.sh_busy) G.sh_busy = shrine_step(dt);                    /* whoever is at the controls */
+    if (!G.sh_busy && G.sh_mode == SM_PULL) G.sh_mode = SM_MENU;
+}
+static void shrine_take(int i) {                                   /* a take spent on slot i; the better of two is kept */
+    int k = RUN.slot_def[i] - 1, q = RUN.slot_q[i];
+    if (k < 0) return;
+    int was = RUN.gear.def[k];
+    if (q > was) RUN.gear.def[k] = (int8_t)q;
+    RUN.slot_def[i] = RUN.slot_q[i] = 0;
+    G.sh_takes--; G.sh_flash[i] = 0.5f; G.rune_glow[k] = 1.4f;
+    snd_sfx_ex(SFX_RUNE, 1.0f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.6f, 0.5f);
+    shrine_note(q > was ? "TAKEN: %s %s" : "TAKEN, BUT YOURS WAS AS GOOD: %s %s", QUAL_NAME[q - 1], DEF_SHORT[k]);
+    shrine_attune(k, q);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT shrine_take %s q=%d had=%d t=%.2f\n", DEF_NAME[k], q, was, G.t);
+#endif
+}
+static void shrine_letgo(int i) {
+    if (!RUN.slot_def[i]) return;
+    shrine_note("LET GO: %s %s", QUAL_NAME[RUN.slot_q[i] - 1], DEF_NAME[RUN.slot_def[i] - 1]);
+    RUN.slot_def[i] = RUN.slot_q[i] = 0; G.sh_flash[i] = 0.4f;
+    snd_sfx_ex(SFX_WHOOSH, 0.5f, 0.5f);
+}
+
+/* the autopilot at the shrine: what a rune would do for it; room made before a pull by letting go of
+ * what it has no use for; the best rune taken after */
+static float rune_gain(int k, int q) {
+    Offer o;
+    memset(&o, 0, sizeof o);
+    o.kind = GK_DEF; o.id = k; o.tier = q;
+    return gear_value(&RUN.gear, &o, G.level);
+}
+static void auto_make_room(int need) {
+    while (shrine_count(0) < need) {
+        int worst = -1; float ws = 1e9f;
+        for (int i = 0; i < SHRINE_SLOTS; i++) {
+            if (!RUN.slot_def[i]) continue;
+            int k = RUN.slot_def[i] - 1, q = RUN.slot_q[i], same = 0;
+            for (int j = 0; j < SHRINE_SLOTS; j++) same += RUN.slot_def[j] == k + 1 && RUN.slot_q[j] == q;
+            float s = (float)q + (same >= 2 ? 3.0f : 0.0f) + (q > RUN.gear.def[k] ? 2.0f : 0.0f);   /* a pair waits for its third */
+            if (s < ws) { ws = s; worst = i; }
+        }
+        if (worst < 0) break;
+        shrine_letgo(worst);
+    }
+}
+static void auto_take(void) {
+    int best = -1; float bs = 0.0f;
+    for (int i = 0; i < SHRINE_SLOTS; i++) {
+        if (!RUN.slot_def[i]) continue;
+        float v = rune_gain(RUN.slot_def[i] - 1, RUN.slot_q[i]);
+        if (v > bs) { bs = v; best = i; }
+    }
+    if (best >= 0) shrine_take(best);
+    else { G.sh_takes = 0; shrine_note("NOTHING IN THE SLOTS IT WANTS"); }
+}
+/* whether the autopilot has business at the shrine: cursing it with its first coin, raising it when it
+ * can, otherwise pulling with three coins while it holds few runes, at the top rank, or once it has
+ * half the next rank's price put by, and three more (so that it still saves up); two pulls a visit */
+static int shrine_errand(void) {
+    if (!RUN.shrine) return RUN.coins >= SHRINE_COST[0];
+    if (RUN.shrine < NQUAL && RUN.coins >= SHRINE_COST[RUN.shrine]) return 1;
+    if (RUN.coins < 3 || G.sh_pulls >= 2) return 0;
+    return runes_held() < 3 || RUN.shrine >= NQUAL || RUN.coins >= SHRINE_COST[RUN.shrine] / 2 + 3;
+}
+static int auto_shrine_act(void) {                                 /* one deed; 1 if it began a pull */
+    if (!RUN.shrine) { shrine_curse(); return 0; }
+    if (RUN.shrine < NQUAL && RUN.coins >= SHRINE_COST[RUN.shrine]) { shrine_raise(); return 0; }
+    auto_make_room(pull_most(3));
+    shrine_pull(3, 0);
+    return 1;
+}
+
 static void shop_human(float dt);
 static void update_ui(void);
+
+static void shop_after(void) {                                     /* the wares done with: the shrine, if it has business there */
+    G.shop_t = 0.0;
+    if (shrine_errand()) { G.shop_step = SH_SHRINE_GO; G.sh_auto = 0; shop_walk(SHRINE_X, SHRINE_Y - 1.7f, 1.6f); }
+    else { G.shop_step = SH_THANK; shop_turn(face_of(CAT_X, CAT_Y), 0.7f); }
+}
 
 static void update_shop(double dt) {
     float fdt = (float)dt;
     G.shop_t += dt;
     float st = (float)G.shop_t;
     shop_cat(fdt);
+    shrine_tick(fdt);
     if (G.player) {
         if (G.ui) { update_ui(); return; }
         shop_human(fdt);
@@ -5071,7 +5300,7 @@ static void update_shop(double dt) {
                 G.shop_look = i;
                 shop_walk(G.ped_x[i] + (SHOP_MID - G.ped_x[i]) * 0.25f, G.ped_y[i] + 1.0f, 1.6f);
                 G.shop_step = SH_GO;
-            } else { G.shop_step = SH_THANK; shop_turn(face_of(CAT_X, CAT_Y), 0.7f); }
+            } else shop_after();
 #ifdef CRAWL_DEBUG
             fprintf(stderr, "EVENT shop_pick %d saving=%d goal=%d t=%.2f\n", G.shop_pick, G.shop_saving, RUN.goal, G.t);
 #endif
@@ -5086,10 +5315,24 @@ static void update_shop(double dt) {
         if (st >= 1.5f) {
             G.hand = 0.0f; G.shop_t = 0.0;
             if (G.shop_left > 0) { G.shop_step = SH_THINK; shop_turn(face_of(SHOP_MID, 13.0f), 0.5f); }   /* another, deeper down */
-            else { G.shop_step = SH_THANK; shop_turn(face_of(CAT_X, CAT_Y), 0.7f); }
+            else shop_after();
         }
         break;
     }
+    case SH_SHRINE_GO:
+        if (st >= G.sdur + 0.1f) { G.shop_step = SH_SHRINE; G.shop_t = 0.0; shop_turn(face_of(SHRINE_X, SHRINE_Y), 0.35f); }
+        break;
+    case SH_SHRINE:                                                /* a hand on the stone while its business is done */
+        G.hand = 0.55f * fminf(1.0f, st / 0.35f);
+        if (G.sh_auto) {                                           /* a pull coming in, then the best of it taken */
+            if (G.sh_busy) break;
+            auto_take(); G.sh_auto = 0; G.shop_t = 0.0;
+            break;
+        }
+        if (st < 1.0f) break;
+        if (shrine_errand()) { G.sh_auto = auto_shrine_act(); G.shop_t = 0.0; break; }
+        G.hand = 0.0f; G.shop_t = 0.0; G.shop_step = SH_THANK; shop_turn(face_of(CAT_X, CAT_Y), 0.7f);
+        break;
     case SH_THANK:                                                 /* a look back at the merchant */
         if (!G.shop_bought && st > 0.9f && st - fdt <= 0.9f) G.cat_slow = 1.4f;
         if (st >= 2.1f) { G.shop_step = SH_LEAVE; G.shop_t = 0.0; shop_walk(SHOP_DOOR - 0.8f, 15.5f, 1.8f); }
@@ -5309,6 +5552,13 @@ static void open_ui(int which) {
         for (int i = 2; i >= 0; i--) if (r[i].ok && spirit() + 1e-4f >= (float)r[i].price) G.ui_sel = i;
         snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f);
     }
+    else if (which == UI_SHRINE) {                                 /* on a pull, with what coins you have */
+        G.sh_mode = SM_MENU; G.ui_sel = 0; G.sh_arm = -1;
+        G.sh_coins = clampi(RUN.coins, 1, 3);
+        if (G.sh_fav && !(RUN.attuned >> fav_kind(G.sh_fav) & 1)) G.sh_fav = 0;
+        if (RUN.shrine) for (int k = 0; k < NDEF; k++) shrine_attune(k, RUN.gear.def[k]);   /* what you hold at Rare, it knows */
+        snd_sfx_ex(SFX_WHISPER, 0.6f, 0.5f);
+    }
     else if (which == UI_WISPS) {                                  /* on the wisp L last cast */
         WispChoice c[WISP_CHOICES];
         int n = wisp_choices(c), i = wisp_choice_at(c, n, RUN.wisp_kind, RUN.wisp_color);
@@ -5422,6 +5672,8 @@ static void shop_human(float dt) {
         if (d < bd && fabsf(wrap_pi(atan2f(G.ped_y[i] - G.py, G.ped_x[i] - G.px) - G.ang)) < 0.3f + 0.25f / d) { bd = d; G.shop_look = i; }
     }
     if (G.shop_look != was) G.shop_confirm = -1;                   /* a warning is for the ware it was given over */
+    float sd = hypotf(SHRINE_X - G.px, SHRINE_Y - G.py);
+    G.sh_look = G.shop_look < 0 && sd < 3.0f && fabsf(wrap_pi(atan2f(SHRINE_Y - G.py, SHRINE_X - G.px) - G.ang)) < 0.3f + 0.3f / sd;
 #ifdef CRAWL_DEBUG
     if (G.shop_look != was) fprintf(stderr, "EVENT shop_look %d t=%.2f at (%.2f,%.2f) ang %.3f\n", G.shop_look, G.t, G.px, G.py, G.ang);
 #endif
@@ -5441,7 +5693,8 @@ static void shop_human(float dt) {
             else if (worn >= 0 && !RUN.gear.bag_size && G.shop_confirm != i) { G.shop_confirm = i; snd_sfx_ex(SFX_KNOCK, 0.7f, 0.5f); }   /* the card warns; a second E buys */
             else if (worn >= 0 && RUN.gear.bag_size && !gear_bag_free(&RUN.gear)) { G.shop_letgo = i; G.ui = UI_LETGO; G.ui_sel = 0; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); }
             else { shop_purchase(i); G.grab_t = 1.0f; }
-        } else if (!human_use() && hypotf(G.px - CAT_X, G.py - CAT_Y) < 1.8f) {   /* a pat */
+        } else if (G.sh_look) { open_ui(UI_SHRINE); G.click_spent = IN.hit[KEY_MOUSE1]; G.grab_t = 1.0f; }
+        else if (!human_use() && hypotf(G.px - CAT_X, G.py - CAT_Y) < 1.8f) {   /* a pat */
             G.cat_slow = 1.4f; sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.9f); G.click_spent = IN.hit[KEY_MOUSE1];
         }
     }
@@ -6223,9 +6476,105 @@ static void update_altarmenu(void) {
     if (G.ui_sel == 0) altar_wake(); else if (G.ui_sel == 1) altar_bless(); else altar_anoint();
 }
 
+/* the shrine's screen: W/S the actions, A/D their values, Enter; among the slots W/A/S/D and Enter;
+ * Esc goes back, and from the actions leaves (asking first if a take would be lost) */
+static int shrine_rows(void) { return RUN.shrine ? NSR : 2; }
+static void shrine_leave(void) {
+    if (G.sh_takes > 0 && shrine_count(1) > 0) { G.sh_mode = SM_LEAVE; G.ui_sel = 0; snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return; }
+    G.ui = UI_NONE;
+}
+static void shrine_slots(int mode, int row) {                      /* into the slots, on one that holds a rune */
+    G.sh_mode = mode; G.sh_arm = -1; G.ui_sel = row;
+    if (!RUN.slot_def[G.sh_slot]) for (int i = 0; i < SHRINE_SLOTS; i++) if (RUN.slot_def[i]) { G.sh_slot = i; break; }
+    snd_sfx_ex(SFX_TICK, 0.6f, 0.5f);
+}
+static void update_shrinemenu(void) {
+    int enter = IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1];
+    int up = IN.hit[KEY_W] || IN.hit[KEY_UP], down = IN.hit[KEY_S] || IN.hit[KEY_DOWN];
+    int left = IN.hit[KEY_A] || IN.hit[KEY_LEFT], right = IN.hit[KEY_D] || IN.hit[KEY_RIGHT];
+    if (G.sh_mode == SM_PULL) return;                              /* the runes are coming */
+    if (G.sh_mode == SM_TAKE || G.sh_mode == SM_LETGO) {
+        if (IN.hit[KEY_ESC]) { G.sh_mode = SM_MENU; G.sh_arm = -1; return; }
+        int mx = right - left, my = down - up;
+        if (mx || my) { G.sh_slot = (G.sh_slot % 3 + mx + 3) % 3 + (G.sh_slot / 3 + my + 3) % 3 * 3; G.sh_arm = -1; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+        if (!enter) return;
+        int i = G.sh_slot, k = RUN.slot_def[i] - 1, q = RUN.slot_q[i];
+        if (k < 0) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        if (G.sh_mode == SM_TAKE) {
+            if (RUN.gear.def[k] >= q && G.sh_arm != i) { G.sh_arm = i; shrine_note("YOURS IS AS GOOD. ENTER AGAIN TAKES IT ANYWAY"); snd_sfx_ex(SFX_KNOCK, 0.7f, 0.5f); return; }
+            shrine_take(i);
+            if (G.sh_takes <= 0 || !shrine_count(1)) G.sh_mode = SM_MENU;
+        } else {
+            if (G.sh_arm != i) { G.sh_arm = i; shrine_note("ENTER AGAIN LETS IT GO FOR GOOD"); snd_sfx_ex(SFX_KNOCK, 0.7f, 0.5f); return; }
+            shrine_letgo(i);
+            if (!shrine_count(1)) G.sh_mode = SM_MENU;
+        }
+        G.sh_arm = -1;
+        return;
+    }
+    if (G.sh_mode == SM_FULL || G.sh_mode == SM_LEAVE) {             /* a question */
+        int full = G.sh_mode == SM_FULL, n = full ? 3 : 2;
+        if (IN.hit[KEY_ESC]) { G.sh_mode = SM_MENU; G.ui_sel = full ? SR_PULL : SR_LEAVE; return; }
+        if (up || down) { G.ui_sel = (G.ui_sel + n + down - up) % n; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+        G.ui_sel = clampi(G.ui_sel, 0, n - 1);
+        if (!enter) return;
+        if (full) {
+            if (G.ui_sel == 0) shrine_slots(SM_LETGO, SR_PULL);
+            else if (G.ui_sel == 1) { shrine_pull(G.sh_coins, G.sh_fav); G.sh_mode = SM_PULL; G.ui_sel = SR_PULL; }
+            else { G.sh_mode = SM_MENU; G.ui_sel = SR_PULL; }
+        } else if (G.ui_sel == 0) shrine_slots(SM_TAKE, SR_TAKE);
+        else G.ui = UI_NONE;
+        return;
+    }
+    int n = shrine_rows();
+    if (IN.hit[KEY_ESC]) { shrine_leave(); return; }
+    if (up || down) { G.ui_sel = (G.ui_sel + n + down - up) % n; G.sh_arm = -1; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    G.ui_sel = clampi(G.ui_sel, 0, n - 1);
+    if (!RUN.shrine) {                                             /* sanctified: it can only be cursed */
+        if (!enter) return;
+        if (G.ui_sel == 1) { G.ui = UI_NONE; return; }
+        if (RUN.coins < SHRINE_COST[0]) { shrine_note("YOU HAVE NO CURSED COINS"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        shrine_curse(); G.ui_sel = SR_PULL; G.sh_coins = clampi(RUN.coins, 1, 3);
+        return;
+    }
+    if (left || right) {
+        if (G.ui_sel == SR_PULL) G.sh_coins = clampi(G.sh_coins + right - left, 1, 3);
+        else if (G.ui_sel == SR_FAVOUR) G.sh_fav = fav_step(G.sh_fav, right - left);
+        snd_sfx_ex(SFX_TICK, 0.6f, 0.5f);
+    }
+    if (!enter) return;
+    switch (G.ui_sel) {
+    case SR_PULL: {
+        int cost = G.sh_coins + fav_coins(G.sh_fav);
+        if (cost > RUN.coins) { shrine_note("THAT PULL TAKES %d COIN%s; YOU HAVE %d", cost, cost == 1 ? "" : "S", RUN.coins); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        if (pull_most(G.sh_coins) > shrine_count(0)) { G.sh_mode = SM_FULL; G.ui_sel = 0; snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return; }
+        shrine_pull(G.sh_coins, G.sh_fav); G.sh_mode = SM_PULL;
+        return;
+    }
+    case SR_FAVOUR: G.sh_fav = fav_step(G.sh_fav, 1); snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); return;
+    case SR_RAISE:
+        if (RUN.shrine >= NQUAL) { shrine_note("IT CAN RISE NO HIGHER"); return; }
+        if (RUN.coins < SHRINE_COST[RUN.shrine]) { shrine_note("RAISING IT TAKES %d COINS", SHRINE_COST[RUN.shrine]); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        if (G.sh_arm != SR_RAISE) { G.sh_arm = SR_RAISE; shrine_note("ENTER AGAIN SPENDS %d COINS", SHRINE_COST[RUN.shrine]); snd_sfx_ex(SFX_KNOCK, 0.7f, 0.5f); return; }
+        shrine_raise(); G.sh_arm = -1;
+        return;
+    case SR_TAKE:
+        if (G.sh_takes <= 0) { shrine_note("PULL FIRST: EACH PULL EARNS ONE TAKE"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        if (!shrine_count(1)) { shrine_note("THE SLOTS ARE EMPTY"); return; }
+        shrine_slots(SM_TAKE, SR_TAKE);
+        return;
+    case SR_LETGO:
+        if (!shrine_count(1)) { shrine_note("THE SLOTS ARE EMPTY"); return; }
+        shrine_slots(SM_LETGO, SR_LETGO);
+        return;
+    default: shrine_leave(); return;
+    }
+}
+
 static void update_ui(void) {
     if (IN.hit[KEY_MOUSE1]) G.click_spent = 1;                    /* a click that closes a menu casts nothing */
     if (G.ui == UI_WISPS) { update_wispmenu(); return; }
+    if (G.ui == UI_SHRINE) { update_shrinemenu(); return; }
     if (G.ui == UI_ALTAR) { update_altarmenu(); return; }
     if (G.ui == UI_INVENTORY) update_inventory();
     else if (G.ui == UI_GRAVES) update_graves();
@@ -6695,6 +7044,19 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         ADD(G.altar_x + 0.5f, G.altar_y + 0.5f, 0.0f, (G.altar_state == ALTAR_READY ? SP_BFLAME_G0 : SP_BFLAME_V0) + fr, 0);
         if (n > n0) { list[n - 1].flags = DR_BRIGHT | (G.blessed ? DR_EDGE : 0); list[n - 1].depth -= 0.02f; }
     }
+    if (G.shop && RUN.shrine > 0) {                                /* the cursed shrine: its glow in its rank's colour, its runes going round */
+        int remap = QUAL_RAMP[RUN.shrine - 1], n0 = n, kinds[NDEF], nk = 0;
+        ADD(SHRINE_X, SHRINE_Y, 0.0f, ((int)(G.t * 3.0)) & 1 ? SP_SHRINE_G1 : SP_SHRINE_G0, 0);
+        if (n > n0) { list[n - 1].flags = DR_BRIGHT; list[n - 1].remap = remap; list[n - 1].depth -= 0.02f; }
+        for (int k = 0; k < NDEF; k++) if (RUN.attuned >> k & 1) kinds[nk++] = k;
+        for (int j = 0; j < (nk ? nk : 1); j++) {
+            float a = (float)G.t * 0.7f + (float)j * TAU_F / (float)(nk ? nk : 1);
+            int n1 = n;
+            ADD(SHRINE_X + cosf(a) * 0.62f, SHRINE_Y - 0.14f + sinf(a) * 0.28f, 0.46f + 0.05f * sinf((float)G.t * 2.0f + (float)j),
+                nk ? SP_SRUNE0 + kinds[j] : SP_SRUNE_X, 0);
+            if (n > n1) { list[n - 1].flags = DR_BRIGHT; list[n - 1].remap = remap; list[n - 1].scale = 0.2f; }
+        }
+    }
     if (G.decoy_t > 0.0f && !G.shop) {                             /* an Exquisite Blink's double, fading where you stood */
         int n0 = n;
         ADD(G.decoy_x, G.decoy_y, 0.0f, SP_DOUBLE, fminf(0.8f, 0.15f + G.decoy_t / DECOY_T));
@@ -7083,11 +7445,44 @@ static int text_wrap_ex(Frame *f, int x, int y, const char *s, int cols, int col
 static int text_wrap(Frame *f, int x, int y, const char *s, int cols, int col, int maxlines) { return text_wrap_ex(f, x, y, s, cols, col, maxlines, 9); }
 
 /* what the caster is looking at, and what it costs */
+static void draw_glyph(Frame *f, int x, int y, int k, int sc, uint8_t c) {
+    for (int gy = 0; gy < 7; gy++)
+        for (int gx = 0; gx < 5; gx++) if (RUNE_GLYPH[k][gy][gx] == '#') gfx_rect(f, x + gx * sc, y + gy * sc, sc, sc, c);
+}
+static void draw_coin(Frame *f, int x, int y) {                    /* a Cursed Coin, 7 across */
+    static const char *const C[7] = { "..###..", ".#####.", "##.#.##", "#######", "##...##", ".#####.", "..###.." };
+    for (int r = 0; r < 7; r++)
+        for (int c = 0; c < 7; c++)
+            if (C[r][c] == '#') gfx_px(f, x + c, y + r, (uint8_t)(r < 3 ? R_GOLD + 9 : R_GOLD + 5));
+            else if (r == 2 && c == 4) gfx_px(f, x + c, y + r, R_BLOOD + 14);   /* its red eye */
+            else if (r == 2 || r == 4) gfx_px(f, x + c, y + r, 0);
+}
 static void render_shop_card(Frame *f) {
     int i = G.shop_step == SH_LOOK || G.shop_step == SH_GO || (G.shop_step == SH_BUY && G.shop_pick >= 0 && !G.offer_gone[G.shop_pick]) ? G.shop_look : -1;
     if (G.shop_step == SH_LOOK && G.shop_t < 0.35) i = -1;
     if (G.player) i = G.shop_look;
     int y0 = H - 44 - 46;
+    if (G.player && G.sh_look && i < 0) {                          /* the shrine, and what E does there */
+        int bw = 264, bx = (W - bw) / 2, ph = 42;
+        y0 = H - 44 - 4 - ph;
+        gfx_rect(f, bx, y0, bw, ph, 0);
+        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
+        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        char l1[48], l2[48];
+        if (!RUN.shrine) { snprintf(l1, sizeof l1, "SANCTIFIED. IT GIVES NOTHING."); snprintf(l2, sizeof l2, RUN.coins ? "E: CURSE IT WITH A CURSED COIN" : "IT WANTS A CURSED COIN"); }
+        else {
+            snprintf(l1, sizeof l1, "CURSED: RUNES UP TO %s", QUAL_NAME[RUN.shrine - 1]);
+            if (G.sh_takes > 0) snprintf(l2, sizeof l2, "E OPENS IT. %d TAKE%s LEFT", G.sh_takes, G.sh_takes == 1 ? "" : "S");
+            else snprintf(l2, sizeof l2, "E OPENS IT");
+        }
+        gfx_text16(f, bx + 8, y0 + 4, "THE RUNE SHRINE", R_GOLD + 12, 1);
+        char c[16]; snprintf(c, sizeof c, "%d", RUN.coins);
+        gfx_text8(f, bx + bw - 8 - gfx_text_width(c, 1), y0 + 8, c, R_GOLD + 11, 1);
+        draw_coin(f, bx + bw - 19 - gfx_text_width(c, 1), y0 + 8);
+        gfx_text8(f, bx + 8, y0 + 21, l1, RUN.shrine ? ramp_at(QUAL_RAMP[RUN.shrine - 1], 12) : (uint8_t)(R_STONE + 12), 1);
+        gfx_text8(f, bx + 8, y0 + 31, l2, R_STONE + 10, 1);
+        return;
+    }
     if (i < 0 || G.offer_gone[i]) {
         if (!G.player && G.shop_step == SH_THANK && !G.shop_bought) {
             const char *msg = G.shop_saving ? "SAVING UP FOR SOMETHING BETTER" : "NOTHING TAKES ITS FANCY";
@@ -7215,17 +7610,6 @@ static Piece hand_worn[NSLOT]; static int8_t hand_def[NDEF]; static int hand_bui
 
 static const int RING_AT[2] = { 55, 32 };                          /* on the ring finger (back of the hand, fingers up-left) */
 static const int RUNE_AT[NDEF][2] = { { 40, 50 }, { 56, 49 }, { 72, 50 }, { 45, 61 }, { 61, 61 }, { 77, 62 }, { 51, 72 }, { 67, 73 }, { 83, 74 } };
-static const char *const RUNE_GLYPH[NDEF][7] = {
-    { "#.#.#", "#.#.#", ".###.", "..#..", "..#..", "..#..", "..#.." },   /* algiz: the ward */
-    { "##...", "#.#..", "#..#.", "#.#..", "##...", "#.#..", "#..#." },   /* raido: the journey */
-    { "#...#", "##.##", "#.#.#", "#...#", "#...#", "#...#", "#...#" },   /* mannaz: the mirror */
-    { "##...", "#.#..", "#.#..", "##...", "#.#..", "#.#..", "##..." },   /* berkano: healing */
-    { "#....", "##...", "#.#..", "#....", "#....", "#....", "#...." },   /* laguz: water, cleansing */
-    { "#.#.#", ".###.", "#####", ".###.", "#.#.#", "..#..", "..#.." },   /* frost, a star */
-    { "#....", "##...", "#.#..", "#..#.", "#.#..", "##...", "#...." },   /* thurisaz: the thorn, dread */
-    { "#...#", "##.##", "#.#.#", "#...#", "#.#.#", "##.##", "#...#" },   /* dagaz: the turning of time */
-    { "###..", "#.#..", "#..#.", "#.#..", "###..", "#.#..", "#..#." },   /* perthro: lots, fate, souls */
-};
 
 static int is_skin(int x, int y) {
     if (x < 0 || y < 0 || x >= HAND_W || y >= HAND_H) return 0;
@@ -7736,8 +8120,6 @@ static void render_caster(Frame *f) {
     y += 10; x = 14;
     gfx_text8(f, x, y, "RUNES", R_GOLD + 10, 1);
     x = 66;
-    static const char *const DEF_SHORT[NDEF] = { "WARD", "BLINK", "MIRROR", "MEND", "PURIFY", "NOVA", "DREAD", "SLIP", "REAP" };
-    static const char *const Q_TAG[NQUAL] = { "C", "U", "R", "UR", "EX" };   /* the quality in a letter or two, as well as its colour */
     int any = 0;
     for (int k = 0; k < NDEF; k++) {
         int q = g->def[k];
@@ -8189,7 +8571,123 @@ static void render_altarmenu(Frame *f) {
     if (G.blessed) gfx_text8(f, px + 10, ty + 14, "YOUR EXIT WISPS ARE BLESSED", R_GOLD + 10, 1);
 }
 
+/* the shrine's screen: the nine slots on the left, its actions (or a question) on the right with a note
+ * under them, and the runes you hold along the bottom */
+static void render_shrinemenu(Frame *f) {
+    dim_view(f);
+    int px = 6, py = 6, pw = W - 12, ph = H - 12;
+    panel(f, px, py, pw, ph);
+    gfx_text16(f, px + 10, py + 6, "THE RUNE SHRINE", R_GOLD + 12, 1);
+    char line[96];
+    snprintf(line, sizeof line, "CURSED COINS %d", RUN.coins);
+    int lw = gfx_text_width(line, 1);
+    gfx_text8(f, px + pw - 10 - lw, py + 10, line, R_GOLD + 11, 1);
+    draw_coin(f, px + pw - 21 - lw, py + 10);
+    int rank = RUN.shrine, ramp = rank ? QUAL_RAMP[rank - 1] : R_STONE;
+    if (!rank) gfx_text8(f, px + 10, py + 26, "SANCTIFIED: IT GIVES NOTHING", R_STONE + 11, 1);
+    else { snprintf(line, sizeof line, "CURSED: RUNES UP TO %s", QUAL_NAME[rank - 1]); gfx_text8(f, px + 10, py + 26, line, ramp_at(ramp, 12), 1); }
+    /* the slots */
+    int slots = G.sh_mode == SM_TAKE || G.sh_mode == SM_LETGO;
+    for (int i = 0; i < SHRINE_SLOTS; i++) {
+        int x = px + 8 + i % 3 * 36, y = py + 40 + i / 3 * 34, k = RUN.slot_def[i] - 1, q = RUN.slot_q[i];
+        int fl = G.sh_flash[i] > 0.0f && ((int)(G.sh_flash[i] * 16.0f) & 1);
+        gfx_rect(f, x, y, 32, 30, fl ? (uint8_t)(R_STONE + 7) : (uint8_t)(R_STONE + 2));
+        uint8_t rim = slots && i == G.sh_slot ? (uint8_t)(G.sh_arm == i ? R_BLOOD + 13 : R_GOLD + 12) : (fl ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 6));
+        for (int j = 0; j < 32; j++) { gfx_px(f, x + j, y, rim); gfx_px(f, x + j, y + 29, rim); }
+        for (int j = 0; j < 30; j++) { gfx_px(f, x, y + j, rim); gfx_px(f, x + 31, y + j, rim); }
+        if (k < 0) continue;
+        int r = QUAL_RAMP[q - 1];
+        draw_glyph(f, x + 11, y + 4, k, 2, ramp_at(r, 13));
+        gfx_text8(f, x + (32 - gfx_text_width(Q_TAG[q - 1], 1)) / 2, y + 20, Q_TAG[q - 1], ramp_at(r, 10), 1);
+    }
+    /* the actions, or a question */
+    int rx = px + 124, rr = px + pw - 10, ry = py + 41, ny;
+    char note[160] = "";
+    if (G.sh_mode == SM_FULL || G.sh_mode == SM_LEAVE) {
+        static const char *const FULL[3] = { "LET GO OF SOME FIRST", "PULL ANYWAY", "NOT NOW" };
+        static const char *const LEAVE[2] = { "CHOOSE A RUNE", "CLOSE FOR NOW" };
+        int full = G.sh_mode == SM_FULL, n = full ? 3 : 2;
+        if (full) snprintf(line, sizeof line, "THIS PULL MAY BRING %d, AND %d SLOT%s EMPTY. WHAT DOESN'T FIT FADES.",
+                           pull_most(G.sh_coins), shrine_count(0), shrine_count(0) == 1 ? " IS" : "S ARE");
+        else snprintf(line, sizeof line, "%d TAKE%s LEFT. UNUSED, %s LOST WHEN YOU LEAVE THE ROOM.", G.sh_takes, G.sh_takes == 1 ? "" : "S", G.sh_takes == 1 ? "IT IS" : "THEY ARE");
+        int nl = text_wrap(f, rx, ry, line, 22, R_STONE + 13, 4);
+        for (int i = 0; i < n; i++) {
+            int y = ry + nl * 9 + 6 + i * 13;
+            if (i == G.ui_sel) gfx_rect(f, rx - 4, y - 3, rr - rx + 8, 13, R_IRON + 3);
+            gfx_text8(f, rx, y, full ? FULL[i] : LEAVE[i], i == G.ui_sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12), 1);
+        }
+        ny = ry + nl * 9 + 10 + n * 13;
+    } else {
+        int n = shrine_rows();
+        for (int i = 0; i < n; i++) {
+            int y = ry + i * 11, sel = !slots && i == G.ui_sel, ok = 1;
+            const char *what = "";
+            char val[32] = "";
+            if (!rank) { what = i ? "LEAVE" : "CURSE IT"; if (!i) { snprintf(val, sizeof val, "1 COIN"); ok = RUN.coins >= 1; } }
+            else switch (i) {
+            case SR_PULL: what = "PULL"; snprintf(val, sizeof val, "< %d COIN%s >", G.sh_coins, G.sh_coins == 1 ? "" : "S"); ok = G.sh_coins + fav_coins(G.sh_fav) <= RUN.coins; break;
+            case SR_FAVOUR:
+                what = "FAVOUR";
+                if (!RUN.attuned) { snprintf(val, sizeof val, "NONE ATTUNED"); ok = 0; }
+                else if (!G.sh_fav) snprintf(val, sizeof val, "< NONE >");
+                else snprintf(val, sizeof val, "< %s +%d >", DEF_SHORT[fav_kind(G.sh_fav)], fav_coins(G.sh_fav));
+                break;
+            case SR_RAISE:
+                what = "RAISE";
+                if (rank >= NQUAL) { snprintf(val, sizeof val, "AT ITS HIGHEST"); ok = 0; }
+                else { snprintf(val, sizeof val, "%s: %d", QUAL_NAME[rank], SHRINE_COST[rank]); ok = RUN.coins >= SHRINE_COST[rank]; }
+                break;
+            case SR_TAKE: what = "TAKE A RUNE"; snprintf(val, sizeof val, "%d LEFT", G.sh_takes); ok = G.sh_takes > 0 && shrine_count(1); break;
+            case SR_LETGO: what = "LET GO OF ONE"; ok = shrine_count(1) > 0; break;
+            default: what = "LEAVE"; break;
+            }
+            if (sel) gfx_rect(f, rx - 4, y - 2, rr - rx + 8, 11, R_IRON + 3);
+            gfx_text8(f, rx, y, what, sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12), 1);
+            if (val[0]) gfx_text8(f, rr - gfx_text_width(val, 1), y, val, ok ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 9), 1);
+        }
+        ny = ry + n * 11 + 3;
+        if (slots) {                                               /* the rune in the slot chosen */
+            int k = RUN.slot_def[G.sh_slot] - 1, q = RUN.slot_q[G.sh_slot];
+            if (k < 0) snprintf(note, sizeof note, "AN EMPTY SLOT");
+            else if (RUN.gear.def[k] > 0) snprintf(note, sizeof note, "%s %s. YOU HOLD %s.", QUAL_NAME[q - 1], DEF_NAME[k], QUAL_NAME[RUN.gear.def[k] - 1]);
+            else snprintf(note, sizeof note, "%s %s. YOU HAVE NONE.", QUAL_NAME[q - 1], DEF_NAME[k]);
+        } else if (!rank) snprintf(note, sizeof note, RUN.coins ? "ONE CURSED COIN WAKES IT, AND THEN IT GIVES RUNES." : "CURSED COINS LIE DEEP IN THE SECRETS.");
+        else switch (G.ui_sel) {
+        case SR_PULL: { int lo = G.sh_coins == 3 ? 3 : G.sh_coins, hi = pull_most(G.sh_coins);
+            snprintf(note, sizeof note, "SHOWS %d TO %d RUNES. ONE TAKE A PULL.", lo, hi); break; }
+        case SR_FAVOUR: snprintf(note, sizeof note, RUN.attuned ? "EACH COIN, ADDED TO THE PULL, MAKES IT A THIRD LIKELIER." : "IT LEARNS A KIND WHEN YOU HOLD ONE AT RARE."); break;
+        case SR_RAISE: snprintf(note, sizeof note, "RAISED, IT GIVES BETTER RUNES."); break;
+        case SR_TAKE: snprintf(note, sizeof note, "UNUSED TAKES ARE LOST WHEN YOU LEAVE THE ROOM."); break;
+        case SR_LETGO: snprintf(note, sizeof note, "FREES A SLOT. THE RUNE IS GONE."); break;
+        default: snprintf(note, sizeof note, "THE SLOTS KEEP THEIR RUNES FOR NEXT TIME."); break;
+        }
+    }
+    if (G.sh_note_t > 0.0f && G.sh_mode != SM_FULL && G.sh_mode != SM_LEAVE) text_wrap(f, rx, ny + 2, G.sh_note, 22, R_GOLD + 11, 3);
+    else if (note[0]) text_wrap(f, rx, ny + 2, note, 22, R_STONE + 11, 3);
+    /* what you hold, under its own line */
+    int y = py + 143, x = px + 10;
+    for (int i = px + 8; i < px + pw - 8; i++) gfx_px(f, i, y - 2, R_STONE + 5);
+    gfx_text8(f, x, y + 1, "YOURS", R_GOLD + 10, 1);
+    y += 11;
+    int any = 0;
+    for (int k = 0; k < NDEF; k++) {
+        int q = RUN.gear.def[k];
+        if (q <= 0) continue;
+        any = 1;
+        int w = gfx_text_width(DEF_SHORT[k], 1), wt = gfx_text_width(Q_TAG[q - 1], 1);
+        if (x + w + 5 + wt > px + pw - 10) { x = px + 10; y += 9; }
+        gfx_text8(f, x, y, DEF_SHORT[k], ramp_at(QUAL_RAMP[q - 1], 12), 1);
+        gfx_text8(f, x + w + 5, y, Q_TAG[q - 1], ramp_at(QUAL_RAMP[q - 1], 9), 1);
+        x += w + 5 + wt + 9;
+    }
+    if (!any) gfx_text8(f, x, y, "NO RUNES YET", R_STONE + 9, 1);
+    const char *hint = slots ? (G.sh_mode == SM_TAKE ? "WASD A SLOT  ENTER TAKES  ESC BACK" : "WASD A SLOT  ENTER LETS GO  ESC BACK")
+                     : (G.sh_mode == SM_PULL ? "THE RUNES ARE COMING..." : "W/S CHOOSE  A/D CHANGE  ESC LEAVES");
+    gfx_text8(f, px + 10, py + ph - 12, hint, R_STONE + 9, 1);
+}
+
 static void render_ui(Frame *f) {
+    if (G.ui == UI_SHRINE) { render_shrinemenu(f); return; }
     if (G.ui == UI_WISPS) { render_wispmenu(f); return; }
     if (G.ui == UI_ALTAR) { render_altarmenu(f); return; }
     if (G.ui == UI_INVENTORY) render_inventory(f);

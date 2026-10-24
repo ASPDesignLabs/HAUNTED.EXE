@@ -32,10 +32,10 @@ The next beta, 1.0.0b6, is planned in [`docs/PLAN-b6.md`](docs/PLAN-b6.md): secr
 carved rooms and pocket areas themed as the Backrooms (levels 1-10) and Severance (11-20), Cursed
 Coins, and the Rune Shrine in the merchant's room as the only source of runes, which now come by quality.
 The owner answered five rounds of questions; the plan marks the defaults and what is still to settle.
-Built so far (harness only): the hand fix (casting from rest while the bar is away) and runes by
-quality (step 2: Common to Exquisite, the nine Exquisite second effects, save version 5, the merchant's
-rune pedestal now another piece to wear). Until the shrine (step 3) is built there is no way to get a
-rune in play but an old save, the console or the debug switches.
+Built so far (harness only): the hand fix (casting from rest while the bar is away), runes by quality
+(step 2: Common to Exquisite, the nine Exquisite second effects, save version 5, the merchant's rune
+pedestal now another piece to wear) and the Rune Shrine (step 3). Until Cursed Coins come (step 7)
+there are none to find, so in play runes come only from an old save, the console or the debug switches.
 
 ## Working with the owner
 
@@ -107,7 +107,8 @@ as in `core.h` without `KEY_`, so `CONSOLE`, `BACK`, `PGUP`, `PGDN` too),
 Debug build switches (`CRAWL_DEBUG`): `CRAWL_SEED=n` (seeds are OR-ed with 1, so 2 and 3 are the
 same), `CRAWL_LEVEL=n` (start deeper; you start at the merchant), `CRAWL_GEAR=t` (every spell at
 tier t, every rune at the quality an old save's tier t becomes, and an Uncommon piece of level 2t in every
-slot), `CRAWL_RUNES=q` (every rune at quality q, 1 Common to 5 Exquisite), `CRAWL_BAG=q` (a bag of quality q, all
+slot), `CRAWL_RUNES=q` (every rune at quality q, 1 Common to 5 Exquisite), `CRAWL_COINS=n` (Cursed Coins),
+`CRAWL_SHRINE=r` (the Rune Shrine's rank, 0 sanctified to 5), `CRAWL_BAG=q` (a bag of quality q, all
 but one place filled with spares), `CRAWL_ABIL=a` (every worn piece with ability a, the `AB_*` number), `CRAWL_GOLD`, `CRAWL_SOULS`, `CRAWL_MAP=1` (prints the map, the plan and a lane
 reachability check), `CRAWL_MAPAT=t`, `CRAWL_TPSECRET=n` / `CRAWL_TPEXIT=1` / `CRAWL_TPALTAR=1` (stand in front of a secret,
 the exit or the Black Altar once you take control), `CRAWL_BLESS=1` (the altar's blessing on every level), `CRAWL_WISP=1` (a free exit wisp as each level opens; 2 to 4: to the
@@ -343,6 +344,18 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   takes a quarter more; Soul Reaping heals a twentieth of your health a kill. The caster's page shows
   each rune in its quality's colour with a tag (C, U, R, UR, EX). The debug build logs `EVENT
   ward_burst`, `decoy`, and `exq_*` for the rest.
+- **The Rune Shrine** (`SHRINE_X/Y` on the merchant's south wall, `RUN.coins`, `RUN.shrine` 0 sanctified to
+  5, `RUN.attuned`, `RUN.slot_def/slot_q`; docs/PLAN-b6.md). `shrine_curse`, `shrine_raise` (`SHRINE_COST`
+  1, 6, 12, 24, 32), `shrine_pull` (runes rolled into `G.sh_qk/sh_qq`; `shrine_step` brings them into
+  the slots one by one and `shrine_combine` makes three alike one better; `G.sh_busy` while that goes
+  on, ticked in `shrine_tick` whoever plays), `shrine_take`, `shrine_letgo`, `shrine_attune`. Takes
+  (`G.sh_takes`) belong to the visit. The screen is `UI_SHRINE` (`update_shrinemenu`,
+  `render_shrinemenu`; modes `SM_*`, rows `SR_*`); looking at it gives a card (`G.sh_look`). The
+  autopilot goes there after the wares (`shop_after`, `SH_SHRINE_GO`, `SH_SHRINE`, `shrine_errand`,
+  `auto_shrine_act`, `auto_make_room`, `auto_take`). Art: `SP_SHRINE_S/C`, the glow `SP_SHRINE_G0/1`
+  (R_PURPLE remapped to the rank's colour), `SP_SRUNE0..8` and `SP_SRUNE_X` going round it, `SP_CCOIN`;
+  `make sheets` draws them as `shrine.png`. The debug build logs `EVENT shrine_curse`, `shrine_raise`,
+  `shrine_pull`, `shrine_combine`, `shrine_take`, `shrine_attune`.
 - **The merchant** (`gen_shop`, `begin_shop`, `update_shop`, `shop_human`). A room 11 cells wide
   with five to seven pedestals in an arc (`G.ped_x/ped_y`, `gear_shop_pedestals`): a spell, the
   rest things to wear (runes come only from the Rune Shrine now), a bag at most once a visit and only one bigger than yours. One to three

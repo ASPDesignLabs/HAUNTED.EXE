@@ -104,6 +104,11 @@ enum {
     SP_OBSIDIAN,
     SP_ALTAR_A, SP_ALTAR_B,                     /* IV: black candles on a draped stone */
     SP_DOUBLE,                                  /* an Exquisite Blink's double: the caster, hooded, in violet light */
+    SP_SHRINE_S, SP_SHRINE_C,                   /* the Rune Shrine: sanctified (pale, cold), and cursed (soot, cracks) */
+    SP_SHRINE_G0, SP_SHRINE_G1,                 /* ... its cursed carvings and candles, at full brightness; R_PURPLE takes its rank's colour */
+    SP_SRUNE0, SP_SRUNE1, SP_SRUNE2, SP_SRUNE3, SP_SRUNE4, SP_SRUNE5, SP_SRUNE6, SP_SRUNE7, SP_SRUNE8,   /* a rune circling it, by kind */
+    SP_SRUNE_X,                                 /* ... the one it shows before it is attuned to any */
+    SP_CCOIN,                                   /* a Cursed Coin */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
     SP_SKEL_SA, SP_SKEL_SB, SP_SHIELD_SA, SP_SHIELD_SB, SP_BAT_SA, SP_BAT_SB, SP_SPIDER_SA, SP_SPIDER_SB,
     SP_GHOST_SA, SP_GHOST_SB, SP_WSKULL_S,
@@ -162,6 +167,7 @@ static inline float crawl_depth(int level) {                                /* h
     return d < 1.0f ? d : 1.0f;
 }
 
+extern const char *const RUNE_GLYPH[9][7];      /* the runes' marks, 5 by 7, by DF_* (the hand's tattoos, the shrine) */
 void crawl_art_init(void);                      /* builds everything once */
 void crawl_art_level(int level);                /* that level's palette, ruin and rot (call after init) */
 

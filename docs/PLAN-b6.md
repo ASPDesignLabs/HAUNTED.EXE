@@ -1,9 +1,9 @@
 # 1.0.0b6: secrets that go deeper, Cursed Coins and the Rune Shrine
 
-**Status: planned (24 October 2026) and settled; steps 1 and 2 are built (the hand fix, and runes by
-quality), tested in the harness only; step 3, the Rune Shrine, is next. Blink's double is a new sprite
-awaiting the owner's approval.** The owner
-asked for the things below after 1.0.0b5, answered five rounds of questions, and left the rest to
+**Status: planned (24 October 2026) and settled; steps 1 to 3 are built (the hand fix, runes by
+quality, the Rune Shrine), tested in the harness only; step 4, secret areas, is next. The owner approved
+Blink's double and the shrine's art.** The owner
+asked for the things below after 1.0.0b5, answered six rounds of questions, and left the rest to
 defaults, marked *default* here so they can be changed. Nothing in this plan names the console's codes.
 
 ## What the owner asked for
@@ -58,6 +58,10 @@ defaults, marked *default* here so they can be changed. Nothing in this plan nam
 - **Release:** the hand fix waits on the branch and goes out with the rest as 1.0.0b6.
 - **Severance's sound:** bright FM muzak, slightly too calm, over a fluorescent hum.
 - **The merchant's rune pedestal** becomes another piece to wear.
+- **The shrine (24 October 2026, sixth round):** it stands against the south wall, across from the
+  wares; takes not used are lost when you leave the room, with a warning first; three alike combine
+  past the shrine's rank, up to Exquisite; in a pull each quality is two thirds as likely as the one
+  below it (at Rare: Common 47%, Uncommon 32%, Rare 21%).
 
 ## The design
 
@@ -173,6 +177,16 @@ for a door, a wall or a ware is unchanged. Harness frames show both cases.
 - **Leaving:** for each pull made this visit, you choose one rune from the slots to take. Taking one
   of a kind you already hold keeps the better of the two. The rest stay in the slots for next time.
 - **The shop's rune pedestal** becomes another piece to wear.
+- **As built** (step 3): the shrine is a solid stele on two steps at (15.5, 17.5) with candles either
+  side; sanctified it is pale with a gilded disc, cursed it is sooty with its broken disc and turned
+  cross glowing in its rank's colour (white, green, blue, purple, gold), and the runes it is attuned to
+  go round it (one plain mark before any). E facing it opens its screen: the slots on the left; PULL
+  (A/D: 1-3 coins), FAVOUR (A/D: none, or an attuned kind with 1-3 coins), RAISE (Enter twice), TAKE A
+  RUNE, LET GO OF ONE (Enter twice), LEAVE on the right, with a note under them; the runes you hold
+  along the bottom. Taking a rune no better than yours asks for a second Enter. A pull that could bring
+  more runes than there are empty slots asks first (let go of some, pull anyway, not now). A kind is
+  attuned when a Rare or better comes into the slots or into your hands, or when you open the screen
+  holding one.
 
 ### The autopilot
 
@@ -180,9 +194,11 @@ for a door, a wall or a ware is unchanged. Harness frames show both cases.
   its health is above two thirds and there are more than 90 seconds before it means to leave *(default)*,
   and comes back out when either fails.
 - **The altar's wisp:** it follows it as now, and calls it home and sends it on as the price allows.
-- **The shrine:** it curses the shrine with its first coin; after that it upgrades whenever it can
-  afford the next rank, and otherwise pulls with up to three coins once it has them, taking the best
-  rune of each pull *(default)*.
+- **The shrine:** after the wares it walks to the shrine if it has business there: it curses the shrine
+  with its first coin, raises it whenever it can afford the next rank, and otherwise pulls with three
+  coins while it holds fewer than three runes, at the top rank, or once it has half the next rank's
+  price and three more put by (so that it still saves up); two pulls a visit at most. Before a pull it
+  lets go of the runes it has least use for; after, it takes the one that does most for it *(default)*.
 
 ### Saves: version 5
 
@@ -209,9 +225,10 @@ creatures did:
    return is three times the missile (the veil's 1.5, doubled); Mend's ward holds up to a quarter of
    your health for 8 s; Purify mends 2% of your health a second; Soul Reaping heals a twentieth of it a
    kill; a burst ward's shards deal half the ward's strength to everything within two cells in sight.
-3. **The Rune Shrine:** its art (for approval), its place in the room, curse and ranks, its screen,
+3. **The Rune Shrine** (built): its art (approved), its place in the room, curse and ranks, its screen,
    pulls, combining, attunement and offerings, takes when leaving, the overflow question, and the
-   autopilot at the shrine.
+   autopilot at the shrine. Until the Cursed Coins come in step 7 there are none to find; `CRAWL_COINS`
+   and `CRAWL_SHRINE` stand in for testing.
 4. **Secret areas:** counts by set, the bigger first room, chains and the pocket machinery (going in
    and out, the level waiting), and the altar's new wisp and price.
 5. **The Backrooms:** textures and props (for approval), the tube lights, the glitching, the reverb and

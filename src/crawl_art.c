@@ -1155,6 +1155,165 @@ static void spr_black_altar(void) {
         }
 }
 
+const char *const RUNE_GLYPH[9][7] = {                             /* by DF_*: ward, blink, mirror, mend, purify, nova, dread, slip, reap */
+    { "#.#.#", "#.#.#", ".###.", "..#..", "..#..", "..#..", "..#.." },   /* algiz: the ward */
+    { "##...", "#.#..", "#..#.", "#.#..", "##...", "#.#..", "#..#." },   /* raido: the journey */
+    { "#...#", "##.##", "#.#.#", "#...#", "#...#", "#...#", "#...#" },   /* mannaz: the mirror */
+    { "##...", "#.#..", "#.#..", "##...", "#.#..", "#.#..", "##..." },   /* berkano: healing */
+    { "#....", "##...", "#.#..", "#....", "#....", "#....", "#...." },   /* laguz: water, cleansing */
+    { "#.#.#", ".###.", "#####", ".###.", "#.#.#", "..#..", "..#.." },   /* frost, a star */
+    { "#....", "##...", "#.#..", "#..#.", "#.#..", "##...", "#...." },   /* thurisaz: the thorn, dread */
+    { "#...#", "##.##", "#.#.#", "#...#", "#.#.#", "##.##", "#...#" },   /* dagaz: the turning of time */
+    { "###..", "#.#..", "#..#.", "#.#..", "###..", "#.#..", "#..#." },   /* perthro: lots, fate, souls */
+};
+
+/* The Rune Shrine: a stele with an arched head on two steps, a disc cut in its face. Sanctified, the
+ * stone is pale and clean, the disc gilded with a four-pointed star, a white cloth with a gold hem laid
+ * over the step and two candles cold. Cursed, the same stone gone dark with soot and cracked, the disc
+ * broken and the star turned over, the cloth burnt to rags, the candles guttered black; what glows
+ * (the cut channels, a column of small marks down each side, the flames) is drawn apart at full
+ * brightness, in R_PURPLE that takes the shrine's rank's colour. */
+static int shrine_stele(int x, int y) {                             /* inside the stele's outline? */
+    if (x < 21 || x > 42 || y > 50) return 0;
+    if (y >= 22) return y >= 12;
+    float dx = x + 0.5f - 32.0f, dy = y + 0.5f - 22.0f;
+    return dx * dx + dy * dy <= 11.0f * 11.0f;
+}
+static void spr_shrine_body(int cursed) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 0; y < TS; y++)                                    /* the stele */
+        for (int x = 0; x < TS; x++) {
+            if (!shrine_stele(x, y)) continue;
+            float u = (x + 0.5f - 32.0f) / 11.0f;
+            float v = 0.38f + 0.3f * lit(u, -0.3f, sqrtf(fmaxf(0.0f, 1.0f - u * u))) + 0.06f * fbm(x / 4.0f, y / 4.0f, 8, 501);
+            if (cursed) {
+                v *= 0.55f;
+                if (fbm(x / 3.0f, y / 6.0f, 8, 503) > 0.58f) v *= 0.6f;   /* soot running down */
+            }
+            cv_px(x, y, sh(R_STONE, v));
+        }
+    for (int y = 50; y < 64; y++)                                   /* two steps */
+        for (int x = 8; x < 56; x++) {
+            int top = y < 55;
+            if (top && (x < 14 || x > 49)) continue;
+            float v = (y == 50 || y == 55 ? 0.62f : 0.42f) + 0.05f * fbm(x / 3.0f, y / 2.0f, 8, 507);
+            cv_px(x, y, sh(R_STONE, cursed ? v * 0.5f : v));
+        }
+    if (!cursed) {
+        for (int y = 0; y < TS; y++)                                /* the disc, gilded, and its star */
+            for (int x = 0; x < TS; x++) {
+                float dx = x + 0.5f - 32.0f, dy = y + 0.5f - 27.0f, r = sqrtf(dx * dx + dy * dy);
+                if (r > 6.2f && r < 7.6f) cv_px(x, y, sh(R_GOLD, 0.55f + 0.35f * (dy < 0)));
+                float ax = fabsf(dx), ay = fabsf(dy);
+                if ((ax < 1.0f && ay < 6.0f) || (ay < 1.0f && ax < 6.0f) || (ax + ay < 2.6f)) cv_px(x, y, sh(R_GOLD, 0.7f + 0.25f * (dy < 0)));
+            }
+        for (int x = 15; x <= 48; x++) {                            /* the cloth, falling over the step to a point */
+            int drop = 6 - abs(x - 32) / 4;
+            for (int y = 49; y <= 52 + drop; y++) cv_px(x, y, sh(R_BONE, y == 49 ? 0.95f : 0.8f - 0.05f * (y - 49) + 0.08f * ((x & 3) == 0)));
+            cv_px(x, 53 + drop, sh(R_GOLD, 0.7f));                  /* its hem */
+        }
+        for (int s = -1; s <= 1; s += 2) {                          /* two candles, cold */
+            int cx = 32 + s * 15;
+            for (int y = 42; y < 50; y++) { cv_px(cx, y, sh(R_BONE, 0.85f)); cv_px(cx + 1, y, sh(R_BONE, 0.7f)); }
+            cv_px(cx, 41, 0);
+        }
+    } else {
+        for (int y = 0; y < TS; y++)                                /* the disc, broken: its cut channels dark */
+            for (int x = 0; x < TS; x++) {
+                float dx = x + 0.5f - 32.0f, dy = y + 0.5f - 27.0f, r = sqrtf(dx * dx + dy * dy);
+                float a = atan2f(dy, dx);
+                if (r > 6.2f && r < 7.6f && !(a > 0.9f && a < 1.5f)) cv_px(x, y, sh(R_STONE, 0.05f));
+            }
+        static const float CRACK[][4] = { { 26, 14, 23, 30 }, { 23, 30, 25, 44 }, { 38, 33, 41, 47 }, { 35, 15, 37, 21 } };
+        for (int i = 0; i < 4; i++) cv_line(CRACK[i][0], CRACK[i][1], CRACK[i][2], CRACK[i][3], sh(R_STONE, 0.02f));
+        for (int x = 16; x <= 47; x++) {                            /* what is left of the cloth, burnt */
+            if (h01(x, 0, 509) < 0.35f) continue;
+            int drop = (int)(4 * h01(x, 1, 509));
+            for (int y = 49; y <= 50 + drop; y++) cv_px(x, y, sh(y == 50 + drop ? R_WARM : R_BONE, y == 50 + drop ? 0.08f : 0.35f));
+        }
+        for (int s = -1; s <= 1; s += 2) {                          /* the candles, burnt down black */
+            int cx = 32 + s * 15;
+            for (int y = 45; y < 50; y++) { cv_px(cx, y, sh(R_IRON, 0.2f)); cv_px(cx + 1, y, sh(R_IRON, 0.12f)); }
+            cv_px(cx - 1, 49, sh(R_IRON, 0.15f)); cv_px(cx + 2, 49, sh(R_IRON, 0.1f));   /* the wax run down */
+        }
+        for (int y = 33; y < 49; y++) if (h01(31, y, 511) < 0.8f) cv_px(31 + (y > 40), y, sh(R_BLOOD, 0.3f));   /* a dark run from the disc */
+    }
+    cv_outline(0);
+    cv_store(cursed ? SP_SHRINE_C : SP_SHRINE_S);
+}
+static void spr_shrine_glow(int fr) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 0; y < TS; y++)                                    /* the broken disc and the star turned over */
+        for (int x = 0; x < TS; x++) {
+            float dx = x + 0.5f - 32.0f, dy = y + 0.5f - 27.0f, r = sqrtf(dx * dx + dy * dy), a = atan2f(dy, dx);
+            float ax = fabsf(dx);
+            if (r > 6.4f && r < 7.4f && !(a > 0.9f && a < 1.5f)) cv_px(x, y, sh(R_PURPLE, 0.75f + 0.2f * fr));
+            if ((ax < 0.9f && dy > -5.5f && dy < 5.5f) || (fabsf(dy - 2.5f) < 0.9f && ax < 3.6f))   /* the cross, its bar low */
+                cv_px(x, y, sh(R_PURPLE, 0.95f));
+        }
+    for (int s = -1; s <= 1; s += 2)                                /* a column of small marks down each side */
+        for (int k = 0; k < 5; k++) {
+            int gx = 32 + s * 7 - 1, gy = 37 + k * 3 - 15 * (k > 4);
+            if (gy > 48) break;
+            cv_px(gx, gy, sh(R_PURPLE, 0.7f + 0.3f * ((k + fr) & 1))); cv_px(gx + (int)(h01(k, s + 2, 513) * 2.0f), gy + 1, sh(R_PURPLE, 0.6f));
+        }
+    for (int s = -1; s <= 1; s += 2) {                              /* the candle flames */
+        int cx = 32 + s * 15;
+        float sway = (fr ? 0.6f : -0.5f) * s;
+        for (int y = 39; y < 45; y++) {
+            float h = (45 - y) / 6.0f, w = 1.6f * (1.0f - h) + 0.3f;
+            for (int x = cx - 2; x <= cx + 2; x++) {
+                float d = fabsf(x + 0.5f - cx - 0.5f - sway * h);
+                if (d > w) continue;
+                cv_px(x, y, d < w * 0.45f && h < 0.6f ? C_WHITE : sh(R_FLAME, 0.55f + 0.4f * (1.0f - h)));
+            }
+        }
+    }
+    cv_store(fr ? SP_SHRINE_G1 : SP_SHRINE_G0);
+}
+/* a rune about the shrine: its mark, big in the frame (drawn small), in R_PURPLE with a soft rim;
+ * k = NDEF for the plain mark it shows before it is attuned to any */
+static void spr_srune(int k) {
+    static const char *const PLAIN[7] = { "..#..", ".###.", "#.#.#", "..#..", "#.#.#", ".###.", "..#.." };
+    const char *const *g = k < 9 ? RUNE_GLYPH[k] : PLAIN;
+    cv_begin(cv_sprite, TS, TS);
+    for (int pass = 0; pass < 2; pass++)
+        for (int y = 0; y < 7; y++)
+            for (int x = 0; x < 5; x++) {
+                if (g[y][x] != '#') continue;
+                int x0 = 17 + x * 6, y0 = 11 + y * 6;
+                for (int yy = -1 + pass; yy < 7 - pass; yy++)
+                    for (int xx = -1 + pass; xx < 7 - pass; xx++)
+                        cv_px(x0 + xx, y0 + yy, pass ? sh(R_PURPLE, 1.0f - 0.25f * (float)(y0 + yy - 11) / 42.0f) : sh(R_PURPLE, 0.35f));
+            }
+    cv_store(k < 9 ? SP_SRUNE0 + k : SP_SRUNE_X);
+}
+/* a Cursed Coin, standing on its edge: old gold gone dark, a raised rim, green in the worn places, a
+ * skull struck on its face with one red eye */
+static void spr_ccoin(void) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 61.5f, 9.5f, 1.6f, sh(R_WARM, 0.05f));
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float dx = (x + 0.5f - 32.0f) / 10.0f, dy = (y + 0.5f - 50.0f) / 10.0f, d = dx * dx + dy * dy;
+            if (d > 1.0f) continue;
+            float v;
+            if (d > 0.74f) v = 0.5f + 0.4f * lit(dx, dy, sqrtf(1.0f - d));   /* the rim, catching the light */
+            else if (d > 0.6f) v = 0.08f;                          /* the groove inside it */
+            else v = 0.22f + 0.12f * (-dx - dy);                    /* the dark field */
+            uint8_t c = sh(R_GOLD, v);
+            if (d <= 0.6f && fbm(x / 1.5f, y / 1.5f, 8, 515) > 0.66f) c = sh(R_MOSS, 0.25f);   /* verdigris */
+            cv_px(x, y, c);
+        }
+    cv_ellipse(32, 48.5f, 3.6f, 3.3f, R_BONE, 0.4f, 0.8f);         /* the skull */
+    cv_flat(32, 52.2f, 2.0f, 1.2f, sh(R_BONE, 0.5f));
+    cv_px(30, 48, 0); cv_px(31, 48, 0); cv_px(33, 48, (uint8_t)(R_BLOOD + 14)); cv_px(34, 48, (uint8_t)(R_BLOOD + 12));   /* one eye dark, one red */
+    cv_px(32, 50, 0);
+    for (int k = 0; k < 3; k++) cv_px(31 + k, 53, 0);              /* teeth */
+    cv_outline(0);
+    cv_store(SP_CCOIN);
+}
+
 /* An Exquisite Blink's double: the caster as the creatures see it, hooded and robed, one hand up,
  * all in violet light that thins towards the hem. Drawn at full brightness, and faded as it goes. */
 static void spr_double(void) {
@@ -3899,6 +4058,9 @@ void crawl_art_init(void) {
     spr_frost(); spr_spear(); spr_wisp(); spr_spark();
     spr_burn(SP_BURN_A, 0); spr_burn(SP_BURN_B, 1);
     spr_soulurn(); spr_ringitem(); spr_pedestal(); spr_items(); spr_black_altar(); spr_double();
+    spr_shrine_body(0); spr_shrine_body(1); spr_shrine_glow(0); spr_shrine_glow(1);
+    for (int k = 0; k <= 9; k++) spr_srune(k);
+    spr_ccoin();
     for (int f = 0; f < 4; f++) spr_bonefly(SP_BONEFLY0 + f, f * PI_F * 0.25f);
     spr_coins(SP_COINS_A, 0);
     spr_coins(SP_COINS_B, 1);
