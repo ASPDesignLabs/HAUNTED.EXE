@@ -395,6 +395,261 @@ static void gen_sign(int t, uint32_t seed) {
 
 /* the final door of each level: an arch of old stone, iron doors, a skull for a keystone, and
  * runes that glow; opened, it is nothing but light */
+/* A secret's doorway into its pockets (until each theme gives it its own look): an opening cut in the
+ * stone, and inside it doorway after doorway going away into a pale light, yellow for the first two
+ * sets and cold white for the last two; full-bright, so it shows in the dark of the room */
+/* Looking through a doorway (x 18..45, y 10..63) into a room beyond, in one-point perspective towards
+ * (32, 34): how far in (s, 1 at the doorway's edge, smaller further in) and which face is seen. */
+enum { RV_WALL, RV_CEIL, RV_FLOOR };
+static float room_view(int x, int y, int *face) {
+    float px = x + 0.5f - 32.0f, py = y + 0.5f - 34.0f;
+    float sx = fabsf(px) / 14.0f, st = -py / 24.0f, sb = py / 29.0f, s = sx;
+    *face = RV_WALL;
+    if (st > s) { s = st; *face = RV_CEIL; }
+    if (sb > s) { s = sb; *face = RV_FLOOR; }
+    return s;
+}
+
+/* A secret's doorway into its pockets, cut through the stone. Into the Backrooms (the first two sets):
+ * a glimpse of a pale yellow room under a tube light; into Severance, a white hall and a pale door. */
+static void gen_passage(int t, int warm) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c;
+            if (x < 18 || x > 45 || y < 12) {
+                c = sh(R_STONE, block_shade(x, y, 221) * 0.8f);
+                if ((x == 17 || x == 46) && y >= 12) c = sh(R_STONE, 0.1f);   /* the cut's edge */
+                if (y == 11 && x >= 17 && x <= 46) c = sh(R_STONE, 0.12f);
+            } else if (warm) {                                     /* the Backrooms beyond, in bone's pale yellow */
+                int face;
+                float s = room_view(x, y, &face);
+                if (s < 0.4f) c = sh(R_BONE, 0.74f + 0.04f * h01(x, y, 225));          /* the far wall */
+                else if (face == RV_CEIL) c = (fabsf(x + 0.5f - 32.0f) < 3.5f * s && s > 0.5f && s < 0.68f) ? C_WHITE : sh(R_BONE, 0.82f - 0.2f * s);
+                else if (face == RV_FLOOR) c = sh(R_BONE, 0.42f + 0.05f * h01(x, y, 226) - 0.08f * s);
+                else c = sh(R_BONE, 0.66f - 0.14f * s + ((x & 3) == 0 ? 0.04f : 0.0f));
+            } else {                                               /* Severance beyond: a white hall, green carpet, a pale door */
+                int face;
+                float s = room_view(x, y, &face);
+                if (s < 0.4f) c = (x >= 30 && x <= 33 && y >= 30 && y <= 42) ? sh(R_MOSS, 0.78f)
+                                : (x >= 29 && x <= 34 && y >= 29 && y <= 42) ? sh(R_GHOST, 0.55f) : sh(R_GHOST, 0.88f);   /* the far wall, a door in it */
+                else if (face == RV_CEIL) c = (fabsf(x + 0.5f - 32.0f) < 5.0f * s && fmodf(s * 6.0f, 1.0f) < 0.5f) ? C_WHITE : sh(R_GHOST, 0.94f - 0.1f * s);
+                else if (face == RV_FLOOR) c = sh(R_MOSS, 0.30f + 0.03f * h01(x, y, 227) - 0.04f * s);
+                else c = sh(R_GHOST, 0.86f - 0.12f * s);
+            }
+            tput(t, x, y, c);
+        }
+}
+
+/* ---- the Backrooms (1.0.0b6) ----
+ * Everything here is drawn in R_FLOOR (dark brown, mustard, pale yellow) and R_CEIL (off-white), which
+ * only the floor, the ceiling and the fog use in the crypt; a Backrooms pocket recolours the two
+ * (crawl_art_theme). The tube lights are C_WHITE, and R_FLAME's palest step for the diffuser. */
+static float paper_shade(int x, int y, uint32_t seed) {
+    int sx = x & 31;
+    float v = 0.74f + (fbm(x / 16.0f, y / 16.0f, 4, seed) - 0.5f) * 0.10f;
+    if (sx == 0) v -= 0.06f;                                       /* the seam between two strips */
+    if (sx == 8 || sx == 24) v += 0.05f;                           /* pinstripes */
+    int cy = (y + (x >> 5) * 8) & 15, dx = abs(sx - 16);
+    if (dx <= 3 && (cy == dx + 4 || cy == dx + 5)) v -= 0.07f;      /* a small chevron, over and over */
+    v -= 0.12f * smoothstepf(34.0f, 58.0f, (float)y) * fbm(x / 8.0f, y / 8.0f, 8, seed + 5);   /* damp, rising */
+    if (y <= 1) v -= 0.12f;                                        /* the ceiling's shadow */
+    if (y >= 59) v = y == 59 ? 0.64f : 0.44f + 0.04f * h01(x, y, seed + 7);   /* the skirting */
+    return v;
+}
+
+static void gen_paper(int t, int kind, uint32_t seed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = paper_shade(x, y, seed);
+            uint8_t c;
+            if (kind == 1 && y < 59) {                             /* a leak from above: a stain, its tide line, runs */
+                float dx = x - 40.0f, dy = (y - 2.0f) * 0.8f;
+                float r = sqrtf(dx * dx + dy * dy) + (fbm(x / 8.0f, y / 8.0f, 8, seed + 9) - 0.5f) * 12.0f;
+                if (r < 20.0f) v -= 0.08f + 0.08f * (r / 20.0f);
+                if (r >= 18.5f && r < 21.0f) v -= 0.10f;
+                for (int k = 0; k < 3; k++) {
+                    float rx = 33.0f + k * 6.0f + 2.0f * sinf(y * 0.21f + k);
+                    if (fabsf(x - rx) < 0.8f && y < 30 + k * 9) v -= 0.07f;
+                }
+            }
+            c = sh(R_FLOOR, v);
+            if (kind == 2 && x >= 29 && x <= 34 && y >= 48 && y <= 56) {   /* a socket, painted over */
+                c = sh(R_CEIL, (x == 29 || y == 48) ? 0.86f : (x == 34 || y == 56) ? 0.52f : 0.74f);
+                if ((x == 31 || x == 32) && (y == 50 || y == 51 || y == 53 || y == 54)) c = sh(R_CEIL, 0.18f);
+            }
+            tput(t, x, y, c);
+        }
+}
+
+/* a doorway between pockets: off-white trim, and through it another yellow room under a tube */
+static void gen_bdoor(int t, uint32_t seed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c;
+            int trim = (x >= 16 && x <= 47 && y >= 8) && !(x >= 18 && x <= 45 && y >= 10);
+            if (trim) c = sh(R_CEIL, (x == 16 || y == 8) ? 0.86f : (x == 47 || x == 18 || y == 10) ? 0.56f : 0.74f);
+            else if (!(x >= 18 && x <= 45 && y >= 10)) c = sh(R_FLOOR, paper_shade(x, y, seed));
+            else {
+                int face;
+                float s = room_view(x, y, &face);
+                if (s < 0.4f) c = sh(R_FLOOR, 0.66f + 0.03f * h01(x, y, seed));
+                else if (face == RV_CEIL) c = (fabsf(x + 0.5f - 32.0f) < 3.5f * s && s > 0.5f && s < 0.68f) ? C_WHITE : sh(R_CEIL, 0.66f - 0.22f * s);
+                else if (face == RV_FLOOR) c = sh(R_FLOOR, 0.40f + 0.06f * h01(x, y, seed + 1) - 0.10f * s);
+                else c = sh(R_FLOOR, 0.62f - 0.18f * s);
+            }
+            tput(t, x, y, c);
+        }
+}
+
+/* The chain's end: a doorway onto a run of doorways, each 0.7 the size of the one before, paler further
+ * in until they burn white; four frames that drift in, so it never arrives. */
+static void gen_visportal(int t, int frame, uint32_t seed) {
+    const float r = 0.70f, lr = -logf(r), p = frame / 4.0f;
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c;
+            int trim = (x >= 16 && x <= 47 && y >= 8) && !(x >= 18 && x <= 45 && y >= 10);
+            if (trim) c = sh(R_CEIL, (x == 16 || y == 8) ? 0.86f : (x == 47 || x == 18 || y == 10) ? 0.56f : 0.74f);
+            else if (!(x >= 18 && x <= 45 && y >= 10)) c = sh(R_FLOOR, paper_shade(x, y, seed));
+            else {
+                int face;
+                float s = fmaxf(room_view(x, y, &face), 1e-4f);
+                float d = -logf(s) / lr + p, f = d - floorf(d);    /* how many doorways in, and where between two */
+                int k = (int)floorf(d);
+                float heat = clampf((d - 3.0f) / 3.0f, 0.0f, 1.0f);   /* from the fourth doorway on, light itself */
+                static const uint8_t BY[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
+                int lit = heat * 2.0f * 16.0f > BY[y & 3][x & 3] + 0.5f;   /* the light comes on through an ordered dither */
+                if (s < 0.02f) c = C_WHITE;
+                else if (f < 0.12f) c = heat > 0.4f ? C_WHITE : sh(R_CEIL, 0.86f);   /* each doorway's trim */
+                else if (lit) c = (uint8_t)(R_FLAME + clampi(13 + (int)(heat * 2.99f) - (face == RV_FLOOR), 12, 15));
+                else if (face == RV_CEIL) c = (fabsf(x + 0.5f - 32.0f) < 3.5f * s && f > 0.45f && f < 0.62f) ? C_WHITE : sh(R_CEIL, 0.60f + 0.05f * k);
+                else if (face == RV_FLOOR) c = sh(R_FLOOR, 0.38f + 0.04f * k + 0.05f * h01(x, y, seed + 2));
+                else c = sh(R_FLOOR, 0.60f + 0.05f * k);
+            }
+            tput(t, x, y, c);
+        }
+}
+
+static void gen_carpet(int t, uint32_t seed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = 0.47f + (h01(x, y, seed) - 0.5f) * 0.10f + (fbm(x / 4.0f, y / 4.0f, 16, seed + 1) - 0.5f) * 0.10f;
+            float damp = fbm(x / 16.0f, y / 16.0f, 4, seed + 2);
+            if (damp > 0.60f) v -= (damp - 0.60f) * 0.5f;            /* dark where it is wet through */
+            tput(t, x, y, sh(R_FLOOR, v));
+        }
+}
+
+/* ceiling tiles: a grid of T-bars at x 16 and 48 and y 0 and 32, so a panel can sit in the middle of a
+ * cell and run its length; kind 0 plain, 1 stained, 2 a tube panel lit, 3 the panel dead */
+static void gen_ceiling(int t, int kind, uint32_t seed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int gx = (x + 16) & 31, gy = y & 31;
+            uint8_t c;
+            if (gx == 0 || gy == 0) c = sh(R_CEIL, 0.88f);         /* the T-bars */
+            else {
+                float v = 0.70f + (h01(x, y, seed) - 0.5f) * 0.06f - (gx == 31 || gy == 31 ? 0.08f : 0.0f);
+                if (h01(x, y, seed + 3) > 0.94f) v -= 0.10f;         /* pinholes */
+                c = sh(R_CEIL, v);
+                if (kind == 1) {                                   /* a water stain on the middle tile */
+                    float dx = x - 34.0f, dy = y - 15.0f, rr = sqrtf(dx * dx + dy * dy) + (fbm(x / 8.0f, y / 8.0f, 8, seed + 4) - 0.5f) * 8.0f;
+                    if (gx > 1 && gx < 31 && gy > 1 && gy < 31 && x >= 17 && x <= 47 && y < 32 && rr < 11.0f)
+                        c = sh(R_FLOOR, rr > 9.5f ? 0.46f : 0.66f + 0.04f * h01(x, y, seed + 5));
+                }
+            }
+            if (kind >= 2 && x >= 17 && x <= 47 && y >= 1) {       /* the panel, the cell's length */
+                int frame = x <= 18 || x >= 46 || y <= 2 || y >= 62;
+                int tube = (x >= 23 && x <= 25) || (x >= 37 && x <= 39);
+                if (kind == 2) c = frame ? sh(R_CEIL, 0.92f) : (tube || ((x + y) & 3) == 0) ? C_WHITE : (uint8_t)(R_FLAME + 15);
+                else {
+                    int end = y <= 8 || y >= 55;
+                    c = frame ? sh(R_CEIL, 0.82f) : tube ? sh(R_CEIL, end ? 0.22f : 0.44f) : sh(R_CEIL, ((x + y) & 3) == 0 ? 0.52f : 0.58f);
+                }
+            }
+            tput(t, x, y, c);
+        }
+}
+
+/* ---- Severance (1.0.0b6) ----
+ * Again in R_FLOOR and R_CEIL, which a Severance pocket makes a muted green (the carpet, the doors, the
+ * partitions) and a cool white (walls, ceiling, frames, the water cooler). The lit panels are C_WHITE. */
+static float white_shade(int x, int y, uint32_t seed) {
+    float v = 0.86f + (h01(x, y, seed) - 0.5f) * 0.02f;
+    if ((x & 31) == 0) v -= 0.05f;                                 /* where two panels of the wall meet */
+    if (y <= 1) v -= 0.08f;
+    if (y >= 58) v = y == 58 ? 0.80f : 0.60f + 0.02f * h01(x, y, seed + 1);   /* a grey skirting */
+    return v;
+}
+
+static void gen_white(int t, int kind, uint32_t seed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c = sh(R_CEIL, white_shade(x, y, seed));
+            if (kind == 1 && x >= 22 && x <= 41 && y >= 18 && y <= 30) {   /* a placard: a line of print, an arrow */
+                c = sh(R_CEIL, (x == 22 || y == 18) ? 0.92f : (x == 41 || y == 30) ? 0.5f : 0.74f);
+                if (y == 21 && x >= 25 && x <= 38 && (x % 3) != 2) c = sh(R_CEIL, 0.3f);
+                if ((y == 26 && x >= 25 && x <= 34) || (x >= 34 && x <= 37 && abs(y - 26) <= 37 - x)) c = sh(R_CEIL, 0.15f);
+            }
+            if (kind == 2 && x >= 16 && x <= 47 && y >= 11 && y <= 37) {   /* a picture, calmer than it needs to be */
+                if (x <= 17 || x >= 46 || y <= 12 || y >= 36) c = sh(R_WOOD, (x == 16 || y == 11) ? 0.5f : 0.3f);
+                else {
+                    float hz = 27.0f + 1.5f * sinf(x * 0.21f) + 0.8f * sinf(x * 0.53f + 1.0f);
+                    if (y < hz) c = sh(R_GHOST, 0.84f - (y - 13) * 0.012f);            /* a pale sky */
+                    else c = sh(R_MOSS, 0.56f + 0.06f * h01(x, y, seed + 3) - (y - hz) * 0.006f);   /* a field */
+                    float tx = x - 37.0f, ty = y - 21.0f;
+                    if (tx * tx / 9.0f + ty * ty / 12.0f < 1.0f) c = sh(R_MOSS, 0.3f + 0.08f * h01(x, y, seed + 4));   /* one tree */
+                    if (x == 37 && y >= 24 && y < hz + 1) c = sh(R_WOOD, 0.3f);
+                }
+            }
+            tput(t, x, y, c);
+        }
+}
+
+/* a doorway between pockets: a door more fit for a ward than an office, in a steel frame */
+static void gen_sdoor(int t, uint32_t seed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c = sh(R_CEIL, white_shade(x, y, seed));
+            if (x >= 15 && x <= 48 && y >= 6) c = sh(R_CEIL, (x == 15 || y == 6) ? 0.84f : x == 48 ? 0.48f : 0.68f);   /* the frame */
+            if (x >= 18 && x <= 45 && y >= 9) {                    /* the door, pale green steel */
+                c = sh(R_FLOOR, 0.80f + 0.02f * h01(x, y, seed + 2) - (x == 45 || y == 9 ? 0.12f : 0.0f));
+                if (x >= 25 && x <= 38 && y >= 16 && y <= 29) {    /* wired glass, dark behind */
+                    int edge = x == 25 || x == 38 || y == 16 || y == 29;
+                    c = edge ? sh(R_CEIL, 0.42f) : (((x + y) & 3) == 0 || ((x - y) & 3) == 0) ? sh(R_CEIL, 0.36f) : sh(R_FLOOR, 0.14f);
+                    if (!edge && x - 26 < 4 && y - 17 < 4 - (x - 26)) c = sh(R_CEIL, 0.5f);   /* a glint on it */
+                }
+                if (y >= 11 && y <= 13 && x >= 27 && x <= 36) c = sh(R_CEIL, y == 12 && (x & 1) ? 0.2f : 0.55f);   /* a placard */
+                if (y >= 35 && y <= 38 && x >= 20 && x <= 43) c = sh(R_IRON, y == 35 ? 0.82f : y == 38 ? 0.38f : 0.62f);   /* the push bar */
+                if (y >= 53 && y <= 60 && x >= 19 && x <= 44) c = sh(R_IRON, 0.58f + 0.05f * sinf(x * 1.7f) + (y == 53 ? 0.15f : 0.0f));   /* kick plate */
+                if (x == 19 && (abs(y - 15) <= 1 || abs(y - 34) <= 1 || abs(y - 52) <= 1)) c = sh(R_IRON, 0.4f);   /* hinges */
+            }
+            tput(t, x, y, c);
+        }
+}
+
+static void gen_scarpet(int t, uint32_t seed) {                   /* close office carpet: a tight weave, nothing spilled */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = 0.50f + (h01(x, y, seed) - 0.5f) * 0.05f + ((((x >> 1) + (y >> 1)) & 1) ? 0.025f : 0.0f);
+            tput(t, x, y, sh(R_FLOOR, v));
+        }
+}
+
+/* ceiling panels, four to a cell; lit, every panel shines (C_WHITE, with a faint prism in R_GLOW) */
+static void gen_sceiling(int t, int lit_up, uint32_t seed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int gx = x & 31, gy = y & 31;
+            uint8_t c;
+            if (gx == 0 || gy == 0) c = sh(R_CEIL, 0.70f);
+            else if (gx == 31 || gy == 31) c = sh(R_CEIL, 0.80f);
+            else if (lit_up && gx >= 3 && gx <= 28 && gy >= 3 && gy <= 28) c = ((x + 2 * y) % 5 == 0) ? (uint8_t)(R_GLOW + 15) : C_WHITE;
+            else c = sh(R_CEIL, 0.90f + (h01(x, y, seed) - 0.5f) * 0.02f);
+            tput(t, x, y, c);
+        }
+}
+
 static void gen_exit(int t, int frame, int open) {
     for (int y = 0; y < TS; y++)
         for (int x = 0; x < TS; x++) {
@@ -1153,6 +1408,259 @@ static void spr_black_altar(void) {
                 }
             cv_store(c ? SP_BFLAME_G0 + fr : SP_BFLAME_V0 + fr);
         }
+}
+
+const char *const RUNE_GLYPH[9][7] = {                             /* by DF_*: ward, blink, mirror, mend, purify, nova, dread, slip, reap */
+    { "#.#.#", "#.#.#", ".###.", "..#..", "..#..", "..#..", "..#.." },   /* algiz: the ward */
+    { "##...", "#.#..", "#..#.", "#.#..", "##...", "#.#..", "#..#." },   /* raido: the journey */
+    { "#...#", "##.##", "#.#.#", "#...#", "#...#", "#...#", "#...#" },   /* mannaz: the mirror */
+    { "##...", "#.#..", "#.#..", "##...", "#.#..", "#.#..", "##..." },   /* berkano: healing */
+    { "#....", "##...", "#.#..", "#....", "#....", "#....", "#...." },   /* laguz: water, cleansing */
+    { "#.#.#", ".###.", "#####", ".###.", "#.#.#", "..#..", "..#.." },   /* frost, a star */
+    { "#....", "##...", "#.#..", "#..#.", "#.#..", "##...", "#...." },   /* thurisaz: the thorn, dread */
+    { "#...#", "##.##", "#.#.#", "#...#", "#.#.#", "##.##", "#...#" },   /* dagaz: the turning of time */
+    { "###..", "#.#..", "#..#.", "#.#..", "###..", "#.#..", "#..#." },   /* perthro: lots, fate, souls */
+};
+
+/* The Rune Shrine: a stele with an arched head on two steps, a disc cut in its face. Sanctified, the
+ * stone is pale and clean, the disc gilded with a four-pointed star, a white cloth with a gold hem laid
+ * over the step and two candles cold. Cursed, the same stone gone dark with soot and cracked, the disc
+ * broken and the star turned over, the cloth burnt to rags, the candles guttered black; what glows
+ * (the cut channels, a column of small marks down each side, the flames) is drawn apart at full
+ * brightness, in R_PURPLE that takes the shrine's rank's colour. */
+static int shrine_stele(int x, int y) {                             /* inside the stele's outline? */
+    if (x < 21 || x > 42 || y > 50) return 0;
+    if (y >= 22) return y >= 12;
+    float dx = x + 0.5f - 32.0f, dy = y + 0.5f - 22.0f;
+    return dx * dx + dy * dy <= 11.0f * 11.0f;
+}
+static void spr_shrine_body(int cursed) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 0; y < TS; y++)                                    /* the stele */
+        for (int x = 0; x < TS; x++) {
+            if (!shrine_stele(x, y)) continue;
+            float u = (x + 0.5f - 32.0f) / 11.0f;
+            float v = 0.38f + 0.3f * lit(u, -0.3f, sqrtf(fmaxf(0.0f, 1.0f - u * u))) + 0.06f * fbm(x / 4.0f, y / 4.0f, 8, 501);
+            if (cursed) {
+                v *= 0.55f;
+                if (fbm(x / 3.0f, y / 6.0f, 8, 503) > 0.58f) v *= 0.6f;   /* soot running down */
+            }
+            cv_px(x, y, sh(R_STONE, v));
+        }
+    for (int y = 50; y < 64; y++)                                   /* two steps */
+        for (int x = 8; x < 56; x++) {
+            int top = y < 55;
+            if (top && (x < 14 || x > 49)) continue;
+            float v = (y == 50 || y == 55 ? 0.62f : 0.42f) + 0.05f * fbm(x / 3.0f, y / 2.0f, 8, 507);
+            cv_px(x, y, sh(R_STONE, cursed ? v * 0.5f : v));
+        }
+    if (!cursed) {
+        for (int y = 0; y < TS; y++)                                /* the disc, gilded, and its star */
+            for (int x = 0; x < TS; x++) {
+                float dx = x + 0.5f - 32.0f, dy = y + 0.5f - 27.0f, r = sqrtf(dx * dx + dy * dy);
+                if (r > 6.2f && r < 7.6f) cv_px(x, y, sh(R_GOLD, 0.55f + 0.35f * (dy < 0)));
+                float ax = fabsf(dx), ay = fabsf(dy);
+                if ((ax < 1.0f && ay < 6.0f) || (ay < 1.0f && ax < 6.0f) || (ax + ay < 2.6f)) cv_px(x, y, sh(R_GOLD, 0.7f + 0.25f * (dy < 0)));
+            }
+        for (int x = 15; x <= 48; x++) {                            /* the cloth, falling over the step to a point */
+            int drop = 6 - abs(x - 32) / 4;
+            for (int y = 49; y <= 52 + drop; y++) cv_px(x, y, sh(R_BONE, y == 49 ? 0.95f : 0.8f - 0.05f * (y - 49) + 0.08f * ((x & 3) == 0)));
+            cv_px(x, 53 + drop, sh(R_GOLD, 0.7f));                  /* its hem */
+        }
+        for (int s = -1; s <= 1; s += 2) {                          /* two candles, cold */
+            int cx = 32 + s * 15;
+            for (int y = 42; y < 50; y++) { cv_px(cx, y, sh(R_BONE, 0.85f)); cv_px(cx + 1, y, sh(R_BONE, 0.7f)); }
+            cv_px(cx, 41, 0);
+        }
+    } else {
+        for (int y = 0; y < TS; y++)                                /* the disc, broken: its cut channels dark */
+            for (int x = 0; x < TS; x++) {
+                float dx = x + 0.5f - 32.0f, dy = y + 0.5f - 27.0f, r = sqrtf(dx * dx + dy * dy);
+                float a = atan2f(dy, dx);
+                if (r > 6.2f && r < 7.6f && !(a > 0.9f && a < 1.5f)) cv_px(x, y, sh(R_STONE, 0.05f));
+            }
+        static const float CRACK[][4] = { { 26, 14, 23, 30 }, { 23, 30, 25, 44 }, { 38, 33, 41, 47 }, { 35, 15, 37, 21 } };
+        for (int i = 0; i < 4; i++) cv_line(CRACK[i][0], CRACK[i][1], CRACK[i][2], CRACK[i][3], sh(R_STONE, 0.02f));
+        for (int x = 16; x <= 47; x++) {                            /* what is left of the cloth, burnt */
+            if (h01(x, 0, 509) < 0.35f) continue;
+            int drop = (int)(4 * h01(x, 1, 509));
+            for (int y = 49; y <= 50 + drop; y++) cv_px(x, y, sh(y == 50 + drop ? R_WARM : R_BONE, y == 50 + drop ? 0.08f : 0.35f));
+        }
+        for (int s = -1; s <= 1; s += 2) {                          /* the candles, burnt down black */
+            int cx = 32 + s * 15;
+            for (int y = 45; y < 50; y++) { cv_px(cx, y, sh(R_IRON, 0.2f)); cv_px(cx + 1, y, sh(R_IRON, 0.12f)); }
+            cv_px(cx - 1, 49, sh(R_IRON, 0.15f)); cv_px(cx + 2, 49, sh(R_IRON, 0.1f));   /* the wax run down */
+        }
+        for (int y = 33; y < 49; y++) if (h01(31, y, 511) < 0.8f) cv_px(31 + (y > 40), y, sh(R_BLOOD, 0.3f));   /* a dark run from the disc */
+    }
+    cv_outline(0);
+    cv_store(cursed ? SP_SHRINE_C : SP_SHRINE_S);
+}
+static void spr_shrine_glow(int fr) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 0; y < TS; y++)                                    /* the broken disc and the star turned over */
+        for (int x = 0; x < TS; x++) {
+            float dx = x + 0.5f - 32.0f, dy = y + 0.5f - 27.0f, r = sqrtf(dx * dx + dy * dy), a = atan2f(dy, dx);
+            float ax = fabsf(dx);
+            if (r > 6.4f && r < 7.4f && !(a > 0.9f && a < 1.5f)) cv_px(x, y, sh(R_PURPLE, 0.75f + 0.2f * fr));
+            if ((ax < 0.9f && dy > -5.5f && dy < 5.5f) || (fabsf(dy - 2.5f) < 0.9f && ax < 3.6f))   /* the cross, its bar low */
+                cv_px(x, y, sh(R_PURPLE, 0.95f));
+        }
+    for (int s = -1; s <= 1; s += 2)                                /* a column of small marks down each side */
+        for (int k = 0; k < 5; k++) {
+            int gx = 32 + s * 7 - 1, gy = 37 + k * 3 - 15 * (k > 4);
+            if (gy > 48) break;
+            cv_px(gx, gy, sh(R_PURPLE, 0.7f + 0.3f * ((k + fr) & 1))); cv_px(gx + (int)(h01(k, s + 2, 513) * 2.0f), gy + 1, sh(R_PURPLE, 0.6f));
+        }
+    for (int s = -1; s <= 1; s += 2) {                              /* the candle flames */
+        int cx = 32 + s * 15;
+        float sway = (fr ? 0.6f : -0.5f) * s;
+        for (int y = 39; y < 45; y++) {
+            float h = (45 - y) / 6.0f, w = 1.6f * (1.0f - h) + 0.3f;
+            for (int x = cx - 2; x <= cx + 2; x++) {
+                float d = fabsf(x + 0.5f - cx - 0.5f - sway * h);
+                if (d > w) continue;
+                cv_px(x, y, d < w * 0.45f && h < 0.6f ? C_WHITE : sh(R_FLAME, 0.55f + 0.4f * (1.0f - h)));
+            }
+        }
+    }
+    cv_store(fr ? SP_SHRINE_G1 : SP_SHRINE_G0);
+}
+/* a rune about the shrine: its mark, big in the frame (drawn small), in R_PURPLE with a soft rim;
+ * k = NDEF for the plain mark it shows before it is attuned to any */
+static void spr_srune(int k) {
+    static const char *const PLAIN[7] = { "..#..", ".###.", "#.#.#", "..#..", "#.#.#", ".###.", "..#.." };
+    const char *const *g = k < 9 ? RUNE_GLYPH[k] : PLAIN;
+    cv_begin(cv_sprite, TS, TS);
+    for (int pass = 0; pass < 2; pass++)
+        for (int y = 0; y < 7; y++)
+            for (int x = 0; x < 5; x++) {
+                if (g[y][x] != '#') continue;
+                int x0 = 17 + x * 6, y0 = 11 + y * 6;
+                for (int yy = -1 + pass; yy < 7 - pass; yy++)
+                    for (int xx = -1 + pass; xx < 7 - pass; xx++)
+                        cv_px(x0 + xx, y0 + yy, pass ? sh(R_PURPLE, 1.0f - 0.25f * (float)(y0 + yy - 11) / 42.0f) : sh(R_PURPLE, 0.35f));
+            }
+    cv_store(k < 9 ? SP_SRUNE0 + k : SP_SRUNE_X);
+}
+/* a Cursed Coin, standing on its edge: old gold gone dark, a raised rim, green in the worn places, a
+ * skull struck on its face with one red eye */
+static void spr_ccoin(void) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 61.5f, 9.5f, 1.6f, sh(R_WARM, 0.05f));
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float dx = (x + 0.5f - 32.0f) / 10.0f, dy = (y + 0.5f - 50.0f) / 10.0f, d = dx * dx + dy * dy;
+            if (d > 1.0f) continue;
+            float v;
+            if (d > 0.74f) v = 0.5f + 0.4f * lit(dx, dy, sqrtf(1.0f - d));   /* the rim, catching the light */
+            else if (d > 0.6f) v = 0.08f;                          /* the groove inside it */
+            else v = 0.22f + 0.12f * (-dx - dy);                    /* the dark field */
+            uint8_t c = sh(R_GOLD, v);
+            if (d <= 0.6f && fbm(x / 1.5f, y / 1.5f, 8, 515) > 0.66f) c = sh(R_MOSS, 0.25f);   /* verdigris */
+            cv_px(x, y, c);
+        }
+    cv_ellipse(32, 48.5f, 3.6f, 3.3f, R_BONE, 0.4f, 0.8f);         /* the skull */
+    cv_flat(32, 52.2f, 2.0f, 1.2f, sh(R_BONE, 0.5f));
+    cv_px(30, 48, 0); cv_px(31, 48, 0); cv_px(33, 48, (uint8_t)(R_BLOOD + 14)); cv_px(34, 48, (uint8_t)(R_BLOOD + 12));   /* one eye dark, one red */
+    cv_px(32, 50, 0);
+    for (int k = 0; k < 3; k++) cv_px(31 + k, 53, 0);              /* teeth */
+    cv_outline(0);
+    cv_store(SP_CCOIN);
+}
+
+/* Severance: four desks pushed together behind low green partitions, an old terminal on each, numbers
+ * on their dark screens. Drawn in R_FLOOR and R_CEIL, so only a Severance pocket shows it true. */
+static void spr_desks(void) {
+    cv_begin(cv_sprite, TS, TS);
+    static const int MX[2][2] = { { 9, 27 }, { 36, 54 } };          /* two terminals showing over the partitions */
+    for (int m = 0; m < 2; m++) {
+        int x0 = MX[m][0], x1 = MX[m][1], y0 = m ? 24 : 22, y1 = 39;
+        for (int y = y0; y <= y1; y++)
+            for (int x = x0; x <= x1; x++) {
+                float v = 0.80f - (x - x0) * 0.012f;
+                if (x == x0 || y == y0) v = 0.92f;
+                if (x == x1) v = 0.55f;
+                uint8_t c = sh(R_CEIL, v);
+                if (x >= x0 + 3 && x <= x1 - 3 && y >= y0 + 3 && y <= y1 - 4) {   /* the screen */
+                    c = sh(R_IRON, 0.08f);
+                    if ((y - y0) % 3 == 1 && h01(x, y, 611 + m) > 0.45f) c = sh(R_GHOST, 0.55f + 0.3f * h01(x, y, 612));
+                }
+                cv_px(x, y, c);
+            }
+    }
+    for (int y = 36; y < 62; y++)                                   /* the partitions */
+        for (int x = 3; x <= 60; x++) {
+            uint8_t c = sh(R_FLOOR, 0.56f + 0.05f * h01(x, y, 613) - (y > 56 ? 0.08f : 0.0f));
+            if (y <= 37) c = sh(R_CEIL, y == 36 ? 0.94f : 0.72f);     /* the white rail along the top */
+            if (x <= 4 || x >= 59 || x == 31 || x == 32) c = sh(R_CEIL, x <= 4 || x == 31 ? 0.86f : 0.6f);   /* posts */
+            cv_px(x, y, c);
+        }
+    for (int x = 3; x <= 60; x += 1) { cv_px(x, 62, sh(R_IRON, 0.3f)); cv_px(x, 63, sh(R_IRON, 0.18f)); }   /* feet */
+    cv_outline(0);
+    cv_store(SP_DESKS);
+}
+
+/* Severance's water cooler: a white cabinet, red and blue taps, cups at its side, and its bottle upside
+ * down on top, full, or lower after the drink */
+static void spr_cooler(int id, int low) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 36; y < 63; y++)                                   /* the cabinet */
+        for (int x = 22; x <= 41; x++) {
+            float v = 0.92f - (x - 22) * 0.016f;
+            if (y == 36) v = 0.96f;
+            uint8_t c = sh(R_CEIL, v);
+            if (y >= 40 && y <= 49 && x >= 25 && x <= 38) c = sh(R_CEIL, y == 40 ? 0.3f : 0.45f);   /* the recess */
+            if (y >= 48 && y <= 49 && x >= 26 && x <= 37) c = sh(R_IRON, 0.5f);   /* its drip tray */
+            cv_px(x, y, c);
+        }
+    for (int k = 0; k < 2; k++) {                                   /* the taps, hot and cold */
+        int tx = k ? 34 : 28;
+        for (int y = 41; y <= 44; y++) for (int x = tx; x <= tx + 1; x++) cv_px(x, y, k ? sh(R_GHOST, 0.45f + 0.15f * (x == tx)) : sh(R_BLOOD, 0.55f + 0.2f * (x == tx)));
+    }
+    for (int y = 39; y <= 52; y++) for (int x = 43; x <= 45; x++) cv_px(x, y, sh(R_CEIL, x == 43 ? 0.95f : 0.7f));   /* the cups */
+    cv_px(44, 53, sh(R_CEIL, 0.6f));
+    for (int y = 30; y <= 35; y++) for (int x = 29; x <= 34; x++) cv_px(x, y, sh(R_GHOST, 0.6f + 0.15f * (x <= 30)));   /* its neck */
+    float level = low ? 24.0f : 12.0f;                              /* the water's top, the bottle being upside down */
+    for (int y = 8; y < 30; y++)
+        for (int x = 21; x <= 42; x++) {
+            float nx = (x + 0.5f - 31.5f) / 10.5f, ny = (y + 0.5f - 19.0f) / 11.0f;
+            if (nx * nx * nx * nx + ny * ny * ny * ny > 1.0f) continue;   /* a rounded square, as such bottles are */
+            float l = lit(nx, ny, sqrtf(fmaxf(0.0f, 1.0f - nx * nx)));
+            float v = y >= level ? 0.42f + 0.25f * l : 0.88f + 0.1f * l;   /* water below, bare plastic above */
+            if (y == 14 || y == 20 || y == 26) v += 0.06f;           /* its ribs */
+            if ((int)level == y) v = 0.96f;                         /* the line of the water */
+            cv_px(x, y, sh(R_GHOST, v));
+        }
+    cv_outline(0);
+    cv_store(id);
+}
+
+/* An Exquisite Blink's double: the caster as the creatures see it, hooded and robed, one hand up,
+ * all in violet light that thins towards the hem. Drawn at full brightness, and faded as it goes. */
+static void spr_double(void) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 17; y < 63; y++) {                                 /* the robe */
+        float t = (y - 17) / 45.0f, hw = 8.0f + 6.5f * t;
+        for (int x = (int)(32 - hw) - 1; x <= (int)(32 + hw) + 1; x++) {
+            float dx = x + 0.5f - 32;
+            if (fabsf(dx) > hw) continue;
+            if (y > 48 && h01(x, y, 351) < (y - 48) / 15.0f) continue;   /* thinning away below */
+            float u = dx / hw, v = 0.35f + 0.45f * (1.0f - u * u) * (1.0f - 0.4f * t);
+            if (sinf(dx * 1.2f + y * 0.04f) > 0.65f) v -= 0.1f;     /* folds */
+            cv_px(x, y, sh(R_PURPLE, v));
+        }
+    }
+    cv_capsule(24, 21, 21, 38, 3.2f, R_PURPLE, 0.3f, 0.7f);         /* the left arm, hanging */
+    cv_ellipse(21, 39, 1.8f, 1.8f, R_PURPLE, 0.6f, 0.95f);
+    cv_capsule(40, 21, 46, 12, 3.0f, R_PURPLE, 0.3f, 0.75f);        /* the right, raised as it cast */
+    cv_ellipse(47, 10, 2.0f, 2.0f, R_PURPLE, 0.7f, 1.0f);
+    for (int k = 0; k < 10; k++)                                    /* the spell's last sparks about the hand */
+        cv_px((int)(47 + (h01(k, 1, 353) - 0.5f) * 9), (int)(9 - 7 * h01(k, 2, 353)), sh(R_PURPLE, 0.85f + 0.15f * h01(k, 3, 353)));
+    cv_ellipse(32, 12, 7.5f, 8.0f, R_PURPLE, 0.35f, 0.8f);          /* the hood, and only shadow in it */
+    cv_flat(32, 13.5f, 4.8f, 5.6f, 0);
+    cv_outline(0);
+    cv_store(SP_DOUBLE);
 }
 
 /* The wraith: a tall hooded shape, nothing inside the hood but two cold eyes, bone hands reaching
@@ -3767,7 +4275,8 @@ static void decay_tex(int t, float dk, uint32_t seed) {
     }
 }
 
-void crawl_art_level(int level) {
+/* the level's palette: its set's tint, dimmer going down, bones yellowing with age */
+static void level_palette(int level) {
     static const float TINT[4][2][3] = {                            /* each set's stone, from its first level to its last */
         { { 1.00f, 1.00f, 1.00f }, { 1.10f, 1.05f, 0.88f } },     /* the Crypts: blue-grey limestone, yellowing like bone */
         { { 0.88f, 1.06f, 0.90f }, { 0.84f, 0.95f, 1.20f } },     /* the Catacombs: green with damp, to cold wet slate */
@@ -3778,7 +4287,6 @@ void crawl_art_level(int level) {
     float dk = crawl_decay(level), depth = crawl_depth(level), dim = 1.0f - 0.09f * set - 0.015f * step;
     float tn[3], half[3];
     for (int c = 0; c < 3; c++) { tn[c] = lerpf(TINT[set][0][c], TINT[set][1][c], step / 4.0f); half[c] = 1.0f + (tn[c] - 1.0f) * 0.5f; }
-    g_decay = fmaxf(dk, depth);                                     /* the dead themselves only get older going down */
     build_palette();
     { static const int a[3] = { 2, 2, 4 }, m[3] = { 20, 21, 26 }, b[3] = { 46, 47, 52 }; ramp_tinted(R_STONE, a, m, b, tn, dim); }
     { static const int a[3] = { 2, 2, 2 }, m[3] = { 15, 13, 11 }, b[3] = { 34, 30, 26 }; ramp_tinted(R_FLOOR, a, m, b, half, dim); }
@@ -3788,6 +4296,27 @@ void crawl_art_level(int level) {
         static const int a[3] = { 4, 3, 2 }, m[3] = { 34, 30, 22 }, b[3] = { 62, 58, 48 };
         ramp_tinted(R_BONE, a, m, b, aged, 1.0f);
     }
+}
+
+/* Inside a pocket the floor and ceiling ramps are the theme's: for the Backrooms, R_FLOOR runs from
+ * dark brown through mustard to pale yellow (carpet and wallpaper both) and R_CEIL is off-white; for
+ * Severance, R_FLOOR is a muted green (carpet, doors, partitions) and R_CEIL a cool white. */
+void crawl_art_theme(int theme, int level) {
+    level_palette(level);
+    if (theme == PT_BACKROOMS) {
+        RAMP(R_FLOOR, 4, 3, 1,  33, 28, 12,  58, 55, 34);
+        RAMP(R_CEIL,  3, 3, 2,  30, 29, 24,  60, 59, 53);
+    } else if (theme == PT_SEVERANCE) {                             /* a muted green; a cool white */
+        RAMP(R_FLOOR, 2, 4, 3,  16, 25, 19,  42, 53, 44);
+        RAMP(R_CEIL,  3, 3, 4,  32, 34, 35,  62, 63, 63);
+    }
+    build_colormap();
+}
+
+void crawl_art_level(int level) {
+    float dk = crawl_decay(level), depth = crawl_depth(level);
+    g_decay = fmaxf(dk, depth);                                     /* the dead themselves only get older going down */
+    level_palette(level);
     build_colormap();
     gen_stone(T_STONE, R_STONE, 11 + level * 7);
     gen_rubble(T_RUBBLE, 23 + level * 7);
@@ -3798,6 +4327,7 @@ void crawl_art_level(int level) {
     gen_banner(T_BANNER, 11);
     for (int f = 0; f < 3; f++) gen_torch(T_TORCH0 + f, f, 11);
     gen_jamb(T_JAMB, 79);
+    gen_passage(T_PASSAGE, crawl_set(level) < 2);
     static const int DECAYS[] = { T_STONE, T_RUBBLE, T_SKULLS, T_BRICK, T_MOSS, T_NICHE, T_BANNER, T_TORCH0, T_TORCH1, T_TORCH2, T_JAMB };
     for (int i = 0; i < (int)(sizeof DECAYS / sizeof DECAYS[0]); i++)
         decay_tex(DECAYS[i], dk, (uint32_t)(DECAYS[i] >= T_TORCH0 && DECAYS[i] <= T_TORCH2 ? 900 : 900 + DECAYS[i] * 13 + level * 31));
@@ -3837,6 +4367,16 @@ void crawl_art_init(void) {
     gen_exit(T_EXIT0, 0, 0);
     gen_exit(T_EXIT1, 1, 0);
     gen_exit(T_EXIT_OPEN, 1, 1);
+    gen_passage(T_PASSAGE, 1);
+    for (int k = 0; k < 3; k++) gen_paper(T_PAPER + k, k, 301);
+    gen_bdoor(T_BDOOR, 301);
+    for (int f = 0; f < 4; f++) gen_visportal(T_VISPORT0 + f, f, 301);
+    gen_carpet(T_CARPET, 307);
+    for (int k = 0; k < 4; k++) gen_ceiling(T_CEILTILE + k, k, 311);
+    for (int k = 0; k < 3; k++) gen_white(T_WHITE + k, k, 401);
+    gen_sdoor(T_SDOOR, 401);
+    gen_scarpet(T_SCARPET, 407);
+    gen_sceiling(T_SCEIL, 0, 411); gen_sceiling(T_SCEILLAMP, 1, 411);
 
     spr_bones(SP_BONES1, 0, 5);
     spr_bones(SP_BONES2, 1, 9);
@@ -3871,7 +4411,11 @@ void crawl_art_init(void) {
     spr_ball(SP_HELL_A, 12.0f, R_FLAME, R_BLOOD, 0, 0); spr_ball(SP_HELL_B, 12.5f, R_FLAME, R_BLOOD, 1, 0);
     spr_frost(); spr_spear(); spr_wisp(); spr_spark();
     spr_burn(SP_BURN_A, 0); spr_burn(SP_BURN_B, 1);
-    spr_soulurn(); spr_ringitem(); spr_pedestal(); spr_items(); spr_black_altar();
+    spr_soulurn(); spr_ringitem(); spr_pedestal(); spr_items(); spr_black_altar(); spr_double();
+    spr_shrine_body(0); spr_shrine_body(1); spr_shrine_glow(0); spr_shrine_glow(1);
+    for (int k = 0; k <= 9; k++) spr_srune(k);
+    spr_ccoin();
+    spr_desks(); spr_cooler(SP_COOLER, 0); spr_cooler(SP_COOLER_LOW, 1);
     for (int f = 0; f < 4; f++) spr_bonefly(SP_BONEFLY0 + f, f * PI_F * 0.25f);
     spr_coins(SP_COINS_A, 0);
     spr_coins(SP_COINS_B, 1);

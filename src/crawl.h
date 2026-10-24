@@ -29,6 +29,18 @@ enum {
     T_EXIT0, T_EXIT1, T_EXIT_OPEN,                /* the way out: runes shimmering, then thrown open */
     T_LOCKED_S, T_LOCKED_C,                       /* the silver and crimson vault doors */
     T_SIGN,                                       /* the merchant's sign */
+    T_PASSAGE,                                    /* a secret's doorway into its pockets: frames going away into light */
+    /* the Backrooms (1.0.0b6): drawn in R_FLOOR and R_CEIL, which a pocket recolours (crawl_art_theme) */
+    T_PAPER, T_PAPER_DAMP, T_PAPER_OUTLET,        /* the yellow wallpaper; a leak from above; a socket */
+    T_BDOOR,                                      /* a doorway between pockets: painted trim, another yellow room */
+    T_VISPORT0, T_VISPORT1, T_VISPORT2, T_VISPORT3,   /* the chain's end: a doorway onto doorways, without end */
+    T_CARPET,                                     /* the floor: damp carpet */
+    T_CEILTILE, T_CEILSTAIN, T_CEILLAMP, T_CEILDEAD,  /* the ceiling: tiles, a stained one, a tube panel lit and dead */
+    /* Severance (1.0.0b6): R_FLOOR a muted green, R_CEIL a cool white, inside its pockets */
+    T_WHITE, T_WHITE_SIGN, T_WHITE_ART,           /* white walls; a placard with an arrow; a calm picture */
+    T_SDOOR,                                      /* a doorway between pockets: a treatment door, wired glass, a push bar */
+    T_SCARPET,                                    /* the floor: close office carpet */
+    T_SCEIL, T_SCEILLAMP,                         /* the ceiling: smooth panels, and panels lit */
     NTEX
 };
 
@@ -103,6 +115,14 @@ enum {
     SP_MAGMA_A, SP_MAGMA_B, SP_MAGMA_C,         /* IV: a vent of molten rock */
     SP_OBSIDIAN,
     SP_ALTAR_A, SP_ALTAR_B,                     /* IV: black candles on a draped stone */
+    SP_DOUBLE,                                  /* an Exquisite Blink's double: the caster, hooded, in violet light */
+    SP_SHRINE_S, SP_SHRINE_C,                   /* the Rune Shrine: sanctified (pale, cold), and cursed (soot, cracks) */
+    SP_SHRINE_G0, SP_SHRINE_G1,                 /* ... its cursed carvings and candles, at full brightness; R_PURPLE takes its rank's colour */
+    SP_SRUNE0, SP_SRUNE1, SP_SRUNE2, SP_SRUNE3, SP_SRUNE4, SP_SRUNE5, SP_SRUNE6, SP_SRUNE7, SP_SRUNE8,   /* a rune circling it, by kind */
+    SP_SRUNE_X,                                 /* ... the one it shows before it is attuned to any */
+    SP_CCOIN,                                   /* a Cursed Coin */
+    SP_DESKS,                                   /* Severance: four desks behind low partitions, old terminals on them */
+    SP_COOLER, SP_COOLER_LOW,                   /* ... the water cooler, full, and after its one drink */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
     SP_SKEL_SA, SP_SKEL_SB, SP_SHIELD_SA, SP_SHIELD_SB, SP_BAT_SA, SP_BAT_SB, SP_SPIDER_SA, SP_SPIDER_SB,
     SP_GHOST_SA, SP_GHOST_SB, SP_WSKULL_S,
@@ -161,7 +181,10 @@ static inline float crawl_depth(int level) {                                /* h
     return d < 1.0f ? d : 1.0f;
 }
 
+extern const char *const RUNE_GLYPH[9][7];      /* the runes' marks, 5 by 7, by DF_* (the hand's tattoos, the shrine) */
 void crawl_art_init(void);                      /* builds everything once */
 void crawl_art_level(int level);                /* that level's palette, ruin and rot (call after init) */
+enum { PT_NONE, PT_BACKROOMS, PT_SEVERANCE };   /* a pocket's theme */
+void crawl_art_theme(int theme, int level);     /* the palette inside a pocket of that theme, or the level's again */
 
 #endif

@@ -32,8 +32,11 @@ Two scenes are included. They alternate every few minutes (configurable) with a 
 | Scene | VGA mode | What it is |
 |---|---|---|
 | **HAUNT.EXE** | 80x25 text mode, 720x400 | A possessed 486 PC: BIOS POST, a DOS prompt, and a ghost that types back. Between the gags it runs DOS programs that have been got at: EDIT rewriting AUTOEXEC.BAT for a seance, DEFRAG consuming souls and moving the remains to the front of the disk, a modem call to a BBS on the other side, a virus scan that cannot clean a dead host, MSD finding GHOST.SYS on IRQ 13, a thirteen-disk SETUP, a QBasic program that writes itself, and a file manager moving the dead from GRAVES to SOULS, until a file with your name turns up. Art materialises in between, seven full-screen half-block ANSI scenes with their own stories: the jack-o'-lantern in the pumpkin patch, the talking skull in the ossuary, the manor in a thunderstorm, the spider in the candle-lit corner, zombies digging out of a graveyard, skeletons dancing out of their coffins, and a ghost that rushes down a hallway to say boo. It ends in a fatal error and a CRT power-off, then reboots. |
-| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and chooses among five to seven wares for the gold it carries: spells, runes, and things to wear that are rolled like loot, each in its quality's colour (see below). Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, with skull walls, niches, banners, moss and sliding doors, walked with quick 90-degree turns. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides one to three secrets behind cracked walls (see below). Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. From level 6 a Black Altar stands deep in each level: for souls it sends a wisp to the level's secrets or blesses your wisps against the dead, and once the secrets are found it anoints something you wear. Will-o'-wisps, a soul each, fly ahead through the halls to the way out or a key and leave a trail of light to follow. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. The twenty levels have names and come in four sets of five, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its last level; then the sets come round again. Twenty kinds of creature come in as you go down, about one new kind a level, each in ranks you can tell by its colour (see below). Every level is older and harder than the one before, though each death on a level makes its creatures hit a little softer on the next try (by up to 45%, until it is cleared). Your face, Wolfenstein-style, pops up when you are hurt. Hold H for three seconds to play it yourself (see below). |
+| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and chooses among five to seven wares for the gold it carries: spells, and things to wear that are rolled like loot, each in its quality's colour (see below). Runes come from the Rune Shrine across the room, for Cursed Coins. Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, with skull walls, niches, banners, moss and sliding doors, walked with quick 90-degree turns. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides three to six secrets behind cracked walls, some of them chains whose deeper links lead out of the crypt altogether: into the Backrooms on the first ten levels, and Severance on the next ten (see below). Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. From level 6 a Black Altar stands deep in each level: for souls it sends its wisp to a secret, one at a time, or blesses your wisps against the dead, and once every secret is found it anoints something you wear. Will-o'-wisps, a soul each, fly ahead through the halls to the way out or a key and leave a trail of light to follow. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. The twenty levels have names and come in four sets of five, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its last level; then the sets come round again. Twenty kinds of creature come in as you go down, about one new kind a level, each in ranks you can tell by its colour (see below). Every level is older and harder than the one before, though each death on a level makes its creatures hit a little softer on the next try (by up to 45%, until it is cleared). Your face, Wolfenstein-style, pops up when you are hurt. Hold H for three seconds to play it yourself (see below). |
 
+![CATACOMB's Backrooms: a chained room's doorway from the crypt, a corridor under the tubes, a leak, a candlestand hanging from the ceiling, a shambler caught in a loop, and the visportal at a chain's end](docs/preview_catacomb_backrooms.png)
+![CATACOMB's Severance: the doorway from the crypt, a white hall, a ward door, an office's desks, a skeleton under the panels, and the water cooler at a chain's end](docs/preview_catacomb_severance.png)
+![CATACOMB's Rune Shrine: the shrine in the merchant's room, its screen, three runes combining, the caster's runes and coins, a Cursed Coin found, and the Black Altar sending its wisp on](docs/preview_catacomb_shrine.png)
 ![CATACOMB: the new creatures in the crypt, from the shambler to the gargoyle](docs/preview_catacomb_creatures.png)
 ![CATACOMB: an achievement, the bestiary's pages and the achievements list](docs/preview_catacomb_bestiary.png)
 ![CATACOMB: the merchant, wall skulls, spiders, shields and spells](docs/preview_catacomb.png)
@@ -99,8 +102,8 @@ autopilot earns in an ordinary screensaver session shows, but isn't kept.
 
 Each level begins in the merchant's room. The caster greets the cat (a slow blink back) and looks over
 the pedestals standing in an arc round the back wall: five to level 9, six to level 14, seven from 15.
-One holds an **attack spell**, one a **defensive rune**, and the rest things to **wear**, with now and
-then a bag among them. The caster may buy one ware a visit to level 9, two to level 14 and three from
+One holds an **attack spell** and the rest things to **wear**, with now and then a bag among them;
+runes come from the Rune Shrine (below). The caster may buy one ware a visit to level 9, two to level 14 and three from
 15, and the first visit's is free. Prices and strength rise with depth: a spell is usually a tier near
 the level, now and then (about 1 in 12) a rare one well ahead of its time, and costs about two levels'
 gold; a thing to wear costs by its quality, from part of a level's gold for something common to several
@@ -119,8 +122,7 @@ and a rest while it purrs mends some of your wounds.
   and any spell cast at its tier-I strength, costs nothing. A stronger cast costs by its damage, from a
   tenth of a soul to a whole one (Seeker Wisps a soul a wisp), and Soul Drain's healing costs half a soul
   a point at tier I, down to a quarter. With too little spirit a spell goes out at tier-I strength and
-  heals nothing, and a caption says so. The BFS9000 keeps its own price. Ten souls taken on a level still
-  bring the wisp, however many you spend.
+  heals nothing, and a caption says so. The BFS9000 keeps its own price.
 * **Bones.** Every Bone Spear throws a bone. Skeletons, shield-bearers, knights and bone hounds drop them
   now and then (about one in eight, more at higher ranks), buying or improving the spear brings six, and
   you can carry thirty. With none, the spear fizzles.
@@ -129,7 +131,12 @@ and a rest while it purrs mends some of your wounds.
   missed, now and then wasted): Bone Ward (soaks blows), Blink (steps out of trouble), Mirror Veil
   (sends missiles back), Mend, Purify (cures poison and slow), Frost Nova (freezes what is close),
   Dread (the dead flee), Time Slip (slows everything near) and Soul Reaping (triple souls). Runes cost
-  no spirit.
+  no spirit. Each is held in one quality at most, the best you have, Common to Exquisite, stronger and
+  quicker to come round as it goes up. At **Exquisite** each does a second thing: the Ward bursts into
+  shards when it breaks; Blink leaves a double that creatures go for; the Veil sends missiles home at
+  twice the strength; Mend past full becomes a small ward; Purify mends a little each second; the frozen
+  take double; Dread reaches the living too; what Time Slip slows takes a quarter more; and Soul Reaping
+  heals a little each kill.
 * **To wear**, in seven places: a bracer on each wrist, boots, an amulet, a hood, robes and a ring. Every
   piece is rolled. Its quality, Common (white), Uncommon (green), Rare (blue), Ultra-Rare (purple) or
   Exquisite (gold), sets how many stats it has and how strong they are, and the deeper it was sold, the
@@ -142,8 +149,8 @@ and a rest while it purrs mends some of your wounds.
   *Uncommon Robes of the Bulwark*.
 * **Abilities.** A hood always carries one, other pieces sometimes, graded by quality: **Swift** (more
   Movement), **Arcane** (more Spirit Cost reduction), **Treasure Hunter** (treasure worth more, and a
-  whisper from a secret wall within three cells), **Keymaker** (keys shine through the stone while the
-  wisp is lit, and **L** sends the wisp to each key in turn), **Communing** (every 15 seconds, creatures
+  whisper from a secret wall within three cells), **Keymaker** (keys within its reach shine through the
+  stone, and the L list offers a wisp to each key still lying), **Communing** (every 15 seconds, creatures
   near you show as red shapes through the walls), **Thorned** (hurts what strikes you) and **Mirrored**
   (sends some missiles back at whoever threw them).
 * **Anointed** pieces, about one in ten, have their stats raised by 10% (Common) to 25% (Exquisite).
@@ -157,6 +164,23 @@ The robes colour the sleeve, the right bracer shows as an iron cuff inlaid in it
 ring's stone takes its colour, and the hood frames the portrait. The autopilot shops by what helps it,
 never buys a bag, and loses whatever a new piece replaces.
 
+### CATACOMB: the Rune Shrine and Cursed Coins
+
+Across the merchant's room from the wares stands the Rune Shrine, pale and sanctified, giving nothing.
+A **Cursed Coin** curses it: it darkens, its carving glows, and it gives runes. Coins are found at the
+end of each chain of secrets, and one more comes when every secret on a level is found; each pops up
+FOR THE SHRINE, and they show under the keys on the status bar and on the caster's page.
+
+Press E at the shrine for its screen: nine slots, and what it will do. **Pull** with one to three coins:
+more coins, more runes come into the slots (one or two, two or three, three to five). Its rank sets the
+best quality that can come, Common at first, and each quality is two thirds as likely as the one below.
+Three alike in the slots become one of the next quality, past the shrine's rank and up to Exquisite.
+**Raise** it with coins (6 to Uncommon, 12 to Rare, 24 to Ultra-Rare, 32 to Exquisite). **Favour** a
+kind it is attuned to (you have held it at Rare or better) with one to three coins more, each making it
+a third likelier. Each pull earns one **take**: a rune from the slots to keep, the better if you have
+that kind already. Takes not used are lost when you leave the room, and it says so first; the slots
+keep the rest for next time. The autopilot plays the shrine too, with the coins it finds.
+
 ### Playing CATACOMB yourself
 
 Hold **H** for three seconds, in either scene. A bar fills at the bottom of the screen; let go early
@@ -169,7 +193,7 @@ yours, and the scenes stop switching until you hand it back. HAUNT.EXE cuts stra
 | Mouse | Turn, Doom-style; there is no looking up or down |
 | Left click, or Ctrl | Cast the spell in hand where you are looking (lightning and Soul Drain pick the nearest creature near the middle of the view) |
 | 1 to 9, or the wheel | Choose an attack spell from your book: 1 Fire Bolt, 2 Frost Shard, 3 Chain Lightning, 4 Bone Spear, 5 Soul Drain, 6 Hellfire, 7 Seeker Wisps, 8 Rapid Sparks, 9 BFS9000 |
-| E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, or step through the exit runes. Walking into a door opens it too |
+| E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, step through the exit runes, or use the Rune Shrine, a Black Altar or its wisp, a visportal or a water cooler. Walking into a door opens it too, and walking into a chain's doorway takes you through |
 | Tab | The wardrobe: W and S choose a place, worn or in the bag, and Enter moves a piece between them. A and D turn to the caster's page: every total, what abilities add (in gold) and what is at its cap (in blue), and the spellbook |
 | B | The bestiary and the achievements. A and D turn the pages, W and S choose a rank or scroll |
 | L | The wisps: a list of what can be summoned now and at what price (see below). W and S choose, Enter casts, Space sets L to cast that one at a tap; then holding L brings the list back |
@@ -193,13 +217,28 @@ While it is away, the small readout the autopilot uses appears when gold, a key 
 Your hand, likewise, rises only to cast or to reach for something, stays ready a moment, and sinks out
 of sight.
 
-**Secrets.** Every level hides some walls that give: one on levels 1 and 2, two on levels 3 to 5, and
-three from level 6. Such a wall looks like any other plain stone until you are within a couple of
-steps of it, when a set of cracks shows in it. Face it and press E (or Space) and it grinds back
-through a hidden closet, with a chime and "A SECRET! 1 OF 3" on screen. A closet only ever holds treasure
-and, often, a potion: never a key, and its treasure isn't counted in the level's total, so whatever you
-find there is on top of it. The tally at the end of a level counts the secrets you found. The autopilot
-notices the cracks now and then and presses them too.
+**Secrets.** Every level hides walls that give: three secrets on a set's first level, rising to six on
+its last, counting every link of every chain. Such a wall looks like any other plain stone until you are
+within a couple of steps of it, when a set of cracks shows in it. Face it and press E (or Space) and it
+grinds back through a room carved behind it, one to four blocks of the plan, with a chime and "A SECRET!
+1 OF 5" on screen. A secret room only ever holds treasure and, often, a potion: never a key, and its
+treasure isn't counted in the level's total. The tally at the end of a level counts every secret found.
+The autopilot presses every one it passes while it has time, a third of them after.
+
+**Chains.** Some secret rooms have a doorway at the back, and through it a place of its own: walk into the
+doorway and you are elsewhere, and each link of the chain is a secret found. The level waits while you
+are away, its clock and its creatures with it. On the first ten levels the chains lead into **the
+Backrooms**: yellow wallpaper, damp carpet, tube lights humming, some failing, some dead, things from the
+crypt hung from the ceiling or sunk in the floor, and the level's own creatures glitching, a quarter
+stronger and more of them. There is no music, only the hum and an echo. On levels 11 to 20 they lead into
+**Severance**: white halls and corners, green carpet, offices of four desks, every panel lit, and the
+creatures there lit too brightly, 30% stronger and quicker to strike, to a muzak that is slightly too
+calm. Each link deeper is bigger and its creatures a rank higher. At the end of a chain the Backrooms
+keep a **visportal**, a doorway onto doorways without end, and Severance a **water cooler**: E there
+restores your health, or gives fifty souls if you are whole, with the chain's Cursed Coin, once. What you
+take and kill in a pocket stays taken and killed; die there and you are thrown back to the chain's first
+room, whole, and its creatures are back. The autopilot goes into chains while it has two thirds of its
+health and the time, and turns back when it hasn't.
 
 **Wisps.** Press L for the list of wisps. A wisp to the way out costs a soul: it kindles before you and
 flies off down the halls the way you would walk, fetching the key first if the exit is in a locked
@@ -215,18 +254,20 @@ else in the room farthest from the start. Press E at it for what it offers, each
 note on why it can't be had yet:
 
 * **Wake its wisp**, for ten spirit: a violet flame lights in its bowl and a violet wisp rises from it,
-  free, to the nearest secret wall you haven't opened (through the key of any vault it lies in), then the
-  next. If you lose it, the L list calls it back for nothing.
+  free, and goes to the nearest secret wall you haven't opened (through the key of any vault it lies
+  in). It waits at the wall while you are inside, and once you have been in and come out again, E at the
+  wisp sends it home to the altar. There, **send it on** to the next secret for ten spirit and five more
+  for every secret already found on the level. While it is out, the L list calls it back if you lose it.
 * **Bless your exit wisps**, for twenty-five, once a level: every wisp to the way out you cast on that
   level wears a pale gold halo, and the undead within about four cells of it flee from it, as from Dread,
   for three seconds after it has gone by; the Wraith is driven back. The altar's fire burns with a white
   edge while it lasts. It ends with the level, or a death on it.
-* **Anoint what you wear**, once every secret on the level is found and the flame has turned gold: one
-  thing you wear, at random, one not anointed already. Then the altar is spent.
+* **Anoint what you wear**, once every secret on the level is found, every link of every chain, and the
+  flame has turned gold: one thing you wear, at random, one not anointed already. Then the altar is spent.
 
 The autopilot uses them too: it wakes an altar it passes with 25 spirit or more and follows the violet
-wisp while it has time, blesses with 40 or more when the level has undead, and anoints. It casts an exit
-wisp as it sets off for the way out.
+wisp while it has time, calls it home and sends it on when that leaves it 15 spirit, blesses with 40 or
+more when the level has undead, and anoints. It casts an exit wisp as it sets off for the way out.
 
 *Secrets were added.*
 
@@ -237,7 +278,8 @@ Esc offers five answers:
   (or at the merchant, if you hadn't bought anything yet), and the gold and souls picked up on the
   unfinished level are taken back out. The next screensaver session, autopilot or not, starts from it.
 * **Stay in the dark** closes the question.
-* **Sleepwalk** hands the crypt back to the autopilot, which settles into its walk from where you stood.
+* **Sleepwalk** hands the crypt back to the autopilot, which settles into its walk from where you stood
+  (from a pocket, it first walks straight back out to the chain's room).
   The mouse then ends the screensaver again (after a second and a half).
 * **Carve a gravestone** saves the run in one of three slots, graves I to III. A grave keeps the same
   things fleeing does, plus when it was carved. Carving over a used grave asks for a second Enter.
@@ -251,9 +293,12 @@ If the window loses focus while you play, the game pauses on that question. The 
 became HAUNTED.EXE, kept so that settings and progress carry over), and the graves are `Slot1` to `Slot3`
 beside it; `uninstall.cmd` removes them with the settings.
 
-1.0.0b5 adds four bytes to the save, for the wisp L casts and its setting. Progress and graves from
-1.0.0b4 load as they were; from earlier betas their spells, runes, gold and souls come across, their
-robe, hood and best ring become Common pieces of about the same strength, and there is no bag. But an
+1.0.0b6 keeps runes by quality and adds 32 bytes to the save for the Rune Shrine: your coins, its rank,
+its slots and attunements, and which of the level's coins you have taken. Progress and graves from
+1.0.0b5 and 1.0.0b4 load: their runes become qualities by tier (tiers 1 to 3 Common, 4 to 6 Uncommon, 7
+to 10 Rare, 11 and up Ultra-Rare), and a rune held at the merchant's is let go and its fee given back.
+From earlier betas their spells, runes, gold and souls come across, their robe, hood and best ring become
+Common pieces of about the same strength, and there is no bag. But an
 earlier beta can't read a save made by a later one: it starts again from level 1, and fleeing there
 overwrites it. If you might go back, keep a copy first:
 `reg export HKCU\Software\HalloweenVGASaver haunted-backup.reg` (double-click the file to restore it).
@@ -369,7 +414,7 @@ src/snd.[ch]                        FM synth, effects, the two music programs
 src/scene_haunt.c  haunt_art.[ch]   HAUNT.EXE: text engine, script runner, acts, art pieces
 src/scene_crawl.c                   CATACOMB: level generator, autopilot, raycaster, sprites, light map
 src/crawl_art.c  crawl.h            CATACOMB palette, light colormap, procedural textures and sprites
-src/crawl_gear.[ch]                 CATACOMB's wares: spells, runes, robes, hoods, rings, prices and worth
+src/crawl_gear.[ch]                 CATACOMB's wares: spells, runes by quality, things to wear, bags, prices
 src/hand_img.c  face_img.c  cat_img.c   the hand, the face and the merchant, converted once from photographs
 src/win_main.c                      Win32 shell: /s /c /p /w /f, OpenGL+GDI, waveOut, settings dialog
 src/font_vga.c                      generated by tools/gen_font.py from third_party/font
@@ -419,6 +464,54 @@ counts), and `HOST_SAVE=file` / `HOST_LOAD=file` and `HOST_SLOTS=dir` stand in f
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b6** (secrets in chains through the Backrooms and Severance, Cursed Coins and the Rune
+Shrine, runes by quality, the altar's wisp to one secret and back, the autopilot in all of it, and the
+hand that rises once to cast). All of it has been tested in the harness only; none of it has been played
+by hand yet, and this round wasn't run under Wine. The Windows build was compiled here without warnings,
+and by CI.
+
+* **The autopilot does about as well as in 1.0.0b5**, run again here on the same seeds. Dying in a chain
+  only sends you back to its first room, whole, so those deaths are counted apart. Eight 50-minute runs
+  from level 1 died 4 times in the crypt against 5, and twice in chains; they reached levels 6 to 9
+  (median 8, against 8.5), took 76% of the treasure in both, and bought 60 things against 50. Eight
+  50-minute runs from level 11 with every spell at tier 1 died 7 times in the crypt against 11, and twice
+  in chains. Eight 30-minute runs from level 16 at tier 2 died 30 times in the crypt against 28, and 5
+  times in chains: the Deep is as deadly as it was.
+* **Where it went.** From level 1 it opened 89 secret rooms (40 in 1.0.0b5, with fewer to find), went
+  into chains 37 times, reached the end of one 20 times (15 times hurt enough to be healed, 5 times
+  given the souls) and came away with 29 Cursed Coins: 20 from chains' ends and 9 for finding every
+  secret on a level. From level 11 it went into 28 chains and reached 4 ends; from level 16, 13 chains
+  and no ends. It turns back when it is hurt, and the pockets' creatures, a rank up for each link and
+  stronger again in their theme, hurt it most times.
+* **The shrine.** It cursed the shrine in 18 of the 24 runs, but with three or four coins a run it pulled
+  three times and took three runes, all in runs from level 1, and never had the six coins to raise it. In
+  1.0.0b5 it bought 20 runes from the merchant in the same runs. It died no more for want of them.
+* **Exquisite runes are strong.** With every rune at Exquisite (through the debug switches) the
+  autopilot didn't die at level 18, even with every creature at the top rank. In play they are a long way
+  off, and they haven't been tuned.
+* **Played in the harness:** each Exquisite rune's second effect (the Bone Ward's burst only in a scratch
+  build with a weaker ward, since a full ward never broke); the shrine by a scripted person: the curse,
+  pulls, three Mends combining into one better, a take, letting one go, both questions and leaving; going
+  into a chain and out, the level waiting, dying in a pocket and waking in the chain's room, sleepwalking
+  out; a test player following the altar's wisp to a secret, in and out, home, and sent on to the next;
+  the Backrooms and Severance at every link of their chains, their sound (the silence, the echo and hum,
+  the muzak), the visportal's and the cooler's gift once a chain, the things out of place, the glitch,
+  and creatures killed in a chain staying dead until you die in it (spectres, which can't be killed, come
+  back); the hand rising once to cast while the bar is away; the coins on the status bar, the
+  readout and the caster's page; the menus inside a pocket.
+* **Saves.** The new save (975 bytes) fled from inside a chain and loaded with the shrine and its coins
+  kept, and a chain's coin, once taken, wasn't given again at its end after loading; a save in 1.0.0b5's
+  format loaded with its runes turned to qualities and a held rune's fee paid back.
+* **Found and fixed on the way:** in Severance a desk could stand across the autopilot's lane and leave
+  the cooler out of its reach; and the autopilot, once in a chain, came straight back out, taken for a
+  sleepwalker.
+* **AddressSanitizer and UBSan**, clean, after each step and once more over the whole beta:
+  nine sessions, about 75 minutes of game time: the autopilot from levels 1, 11 and 16 through chains of
+  both themes; the shrine with forty coins (cursed, raised twice, pulled, attuned, taken from); a person
+  in the Backrooms (the visportal, casting, walking) and in Severance (dying in a chain, and in the crypt);
+  the things out of place; the wardrobe, the bestiary and the wisps list inside a pocket, then
+  sleepwalking out; and fleeing from inside a chain and loading the save.
 
 **New in 1.0.0b5** (the status bar that steps aside, wisps in the crypt and the L list, the Black Altar's
 menu and blessing, the autopilot's wisps and altars, the hand that rises only to cast, and a few secrets).
