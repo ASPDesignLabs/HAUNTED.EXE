@@ -38,7 +38,9 @@ pedestal now another piece to wear), the Rune Shrine (step 3) and the secret are
 set, chains of carved rooms, pockets, and the altar's wisp that goes to one secret and back for a price)
 and the Backrooms (step 5) and Severance (step 6), their art approved. Step 7 is
 built too: Cursed Coins (at a chain's end, and for every secret found), creatures in the pockets, and the
-autopilot going through chains. Step 8 (the checks, previews, docs and the beta) is next.
+autopilot going through chains. Step 8 is done (eight-seed runs against 1.0.0b5, ASan, previews, the
+README and release notes); the page and `VERSION` wait for the owner's word to release 1.0.0b6, which
+goes to main as one squashed commit like 1.0.0b5.
 
 ## Working with the owner
 
@@ -496,10 +498,19 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   spell within two levels' gold (`gear_haul` x 0.6 x 2).
 - Secrets, the graves, the items, spirit, bones, the merchant's room and the Black Altars have not been
   played by hand on Windows yet; nor has anything in 1.0.0b5 (the sliding bar, wisps in the crypt, the L
-  list, the altar's menu and blessing, the console).
+  list, the altar's menu and blessing, the console), nor anything in 1.0.0b6 (chains and pockets, the
+  Backrooms and Severance, coins, the shrine, runes by quality).
 - With 1.0.0b5's wisps and altars, eight runs on each start died 4 times from level 1 (3 at 1.0.0b4), 11
   from level 11 (12) and 28 from level 16 (25). The Wraith had come only once a session since 1.0.0b3;
   now that it comes once a level, it is behind most of the Deep's extra deaths.
+- With 1.0.0b6's chains (both builds run again on the same seeds; the event log counts a death in a
+  pocket as `died` too, followed by `pocket_thrown`): in the crypt 4 deaths from level 1 (5 at 1.0.0b5),
+  7 from level 11 (11), 30 from level 16 (28), plus 2, 2 and 5 in chains. The autopilot reaches few
+  chain ends past level 10 (4 from 11, none from 16) and takes about three runes from the shrine in
+  eight runs (it bought 20 from the merchant at 1.0.0b5); it never saves the six coins to raise it.
+  Exquisite runes (only through the debug switches so far) made level 18 deathless; untuned.
+- Spectres in a pocket come back when you go in again: they can't be killed, so they never get a slain
+  bit (`PK.slain`). Harmless, but worth knowing when counting creatures.
 - `decay_tex` already draws cracks on ordinary walls at depth; keep secret cracks distinguishable if
   textures change (see the plan).
 - CI warns that `actions/download-artifact@v6` targets Node 20; bump the action when a newer major is out.

@@ -466,6 +466,54 @@ The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.p
 
 ## What has been verified
 
+**New in 1.0.0b6** (secrets in chains through the Backrooms and Severance, Cursed Coins and the Rune
+Shrine, runes by quality, the altar's wisp to one secret and back, the autopilot in all of it, and the
+hand that rises once to cast). All of it has been tested in the harness only; none of it has been played
+by hand yet, and this round wasn't run under Wine. The Windows build was compiled here without warnings,
+and by CI.
+
+* **The autopilot does about as well as in 1.0.0b5**, run again here on the same seeds. Dying in a chain
+  only sends you back to its first room, whole, so those deaths are counted apart. Eight 50-minute runs
+  from level 1 died 4 times in the crypt against 5, and twice in chains; they reached levels 6 to 9
+  (median 8, against 8.5), took 76% of the treasure in both, and bought 60 things against 50. Eight
+  50-minute runs from level 11 with every spell at tier 1 died 7 times in the crypt against 11, and twice
+  in chains. Eight 30-minute runs from level 16 at tier 2 died 30 times in the crypt against 28, and 5
+  times in chains: the Deep is as deadly as it was.
+* **Where it went.** From level 1 it opened 89 secret rooms (40 in 1.0.0b5, with fewer to find), went
+  into chains 37 times, reached the end of one 20 times (15 times hurt enough to be healed, 5 times
+  given the souls) and came away with 29 Cursed Coins: 20 from chains' ends and 9 for finding every
+  secret on a level. From level 11 it went into 28 chains and reached 4 ends; from level 16, 13 chains
+  and no ends. It turns back when it is hurt, and the pockets' creatures, a rank up for each link and
+  stronger again in their theme, hurt it most times.
+* **The shrine.** It cursed the shrine in 18 of the 24 runs, but with three or four coins a run it pulled
+  three times and took three runes, all in runs from level 1, and never had the six coins to raise it. In
+  1.0.0b5 it bought 20 runes from the merchant in the same runs. It died no more for want of them.
+* **Exquisite runes are strong.** With every rune at Exquisite (through the debug switches) the
+  autopilot didn't die at level 18, even with every creature at the top rank. In play they are a long way
+  off, and they haven't been tuned.
+* **Played in the harness:** each Exquisite rune's second effect (the Bone Ward's burst only in a scratch
+  build with a weaker ward, since a full ward never broke); the shrine by a scripted person: the curse,
+  pulls, three Mends combining into one better, a take, letting one go, both questions and leaving; going
+  into a chain and out, the level waiting, dying in a pocket and waking in the chain's room, sleepwalking
+  out; a test player following the altar's wisp to a secret, in and out, home, and sent on to the next;
+  the Backrooms and Severance at every link of their chains, their sound (the silence, the echo and hum,
+  the muzak), the visportal's and the cooler's gift once a chain, the things out of place, the glitch,
+  and creatures killed in a chain staying dead until you die in it (spectres, which can't be killed, come
+  back); the hand rising once to cast while the bar is away; the coins on the status bar, the
+  readout and the caster's page; the menus inside a pocket.
+* **Saves.** The new save (975 bytes) fled from inside a chain and loaded with the shrine and its coins
+  kept, and a chain's coin, once taken, wasn't given again at its end after loading; a save in 1.0.0b5's
+  format loaded with its runes turned to qualities and a held rune's fee paid back.
+* **Found and fixed on the way:** in Severance a desk could stand across the autopilot's lane and leave
+  the cooler out of its reach; and the autopilot, once in a chain, came straight back out, taken for a
+  sleepwalker.
+* **AddressSanitizer and UBSan**, clean, after each step and once more over the whole beta:
+  nine sessions, about 75 minutes of game time: the autopilot from levels 1, 11 and 16 through chains of
+  both themes; the shrine with forty coins (cursed, raised twice, pulled, attuned, taken from); a person
+  in the Backrooms (the visportal, casting, walking) and in Severance (dying in a chain, and in the crypt);
+  the things out of place; the wardrobe, the bestiary and the wisps list inside a pocket, then
+  sleepwalking out; and fleeing from inside a chain and loading the save.
+
 **New in 1.0.0b5** (the status bar that steps aside, wisps in the crypt and the L list, the Black Altar's
 menu and blessing, the autopilot's wisps and altars, the hand that rises only to cast, and a few secrets).
 All of it has been tested in the harness only; none of it has been played by hand yet, and this round
