@@ -111,7 +111,9 @@ slot), `CRAWL_RUNES=q` (every rune at quality q, 1 Common to 5 Exquisite), `CRAW
 `CRAWL_SHRINE=r` (the Rune Shrine's rank, 0 sanctified to 5), `CRAWL_BAG=q` (a bag of quality q, all
 but one place filled with spares), `CRAWL_ABIL=a` (every worn piece with ability a, the `AB_*` number), `CRAWL_GOLD`, `CRAWL_SOULS`, `CRAWL_MAP=1` (prints the map, the plan and a lane
 reachability check), `CRAWL_MAPAT=t`, `CRAWL_TPSECRET=n` / `CRAWL_TPEXIT=1` / `CRAWL_TPALTAR=1` (stand in front of a secret,
-the exit or the Black Altar once you take control), `CRAWL_BLESS=1` (the altar's blessing on every level), `CRAWL_WISP=1` (a free exit wisp as each level opens; 2 to 4: to the
+the exit or the Black Altar once you take control), `CRAWL_TPDOOR=k` (open the first chained room and
+stand before its doorway; 2 on: into that link of the chain, facing the way on), `CRAWL_TAKEALL=1`
+(everything in a pocket picked up as you enter), `CRAWL_KILLAT=s` (struck down at scene time s), `CRAWL_BLESS=1` (the altar's blessing on every level), `CRAWL_WISP=1` (a free exit wisp as each level opens; 2 to 4: to the
 gold, silver or crimson key), `CRAWL_FOLLOWWISP=1` (a player that walks the way the wisp went, from
 wherever it stands, and presses E at the exit and at secrets: a test that it leads out, and that an
 altar's wisp finds every secret), `CRAWL_SHOWHAND`, `CRAWL_BFSANY`,
@@ -238,12 +240,27 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
       aims at it first.
     - Gargoyles (from 19) are statues on plinths (`place_gargoyles`, `garg_wake`) until you pass
       within three cells or hit one; then they fly over the floor's things (`blocks_flight`) and swoop.
-- **Secrets** (`place_secrets`, `open_secret`, `update_slide`). One on levels 1-2, two on 3-5, three
-  from 6. A solid plan block beside a hall becomes a 3x3 closet behind a wall (`Cell.secret` 1 closet,
-  2 wall); the wall's cracks are drawn by the renderer only within about two cells. E/Space pushes it
-  three cells back over 2.3 s (`SFX_PUSHWALL`, `SFX_SECRET`, "A SECRET! n OF m"). Loot: treasure and
-  often a potion, never a key, flagged `Item.secret` and kept out of the level's totals. The tally has a
-  SECRETS row.
+- **Secrets** (`place_secrets`, `open_secret`, `update_slide`; docs/PLAN-b6.md). A set's levels hold
+  3, 4, 4, 5 and 6 links (`G.nlinks`, `G.links_found`: every link of every chain counts, in the caption,
+  the tally, the record and the altar's gold), split into chains, longer deeper into the set. Each chain
+  begins in a room (`Secret`: `x0..y1`, `len`, `links`) carved from solid plan blocks beside a hall: one
+  block, two side by side, or two by two (`secret_block_free`); `Cell.secret` 1 room, 2 the cracked
+  wall, 3 a doorway. The cracks show only within about two cells. E/Space pushes the wall right through
+  the room in `SLIDE_TIME` (2.3 s). Loot by the room's size, off the stone's path, flagged
+  `Item.secret` and kept out of the level's totals. A chained room has a doorway (`secret_door`: the
+  back wall, else a side, solid rock behind it, `T_PASSAGE`). Links that find no room go deeper into a
+  chain. The debug build prints `SECRETS level n: ...` with each room and doorway.
+- **Pockets** (`PK`, `G_LEVEL`, `gen_pocket`, `pocket_build`, `pocket_return`, `pocket_door`,
+  `carry_caster`). Walking into (or E at) a chained room's doorway saves the level whole in `G_LEVEL`
+  (it waits: its clock, creatures and Wraith stop) and builds the chain's next link into `G` from the
+  chain's seed: blocks in a square maze with loops and halls, 13 cells across early in the Crypts to 45
+  at the end of a long chain in the Deep, a doorway back in its west wall, a doorway on in an outer wall
+  or the chain's reward (for now a hoard). `carry_caster` copies the caster's spans of `G` across (keep
+  `G`'s field order in mind when adding fields). What is picked up is remembered (`Item.gen`,
+  `PK.taken`). The first time into a link is a secret found. Dying in a pocket throws you back to the
+  chain's room at full health (`pocket_return(1)`); sleepwalking takes the autopilot straight out. In a
+  pocket the exit wisp goes to the way back; no Wraith, no wakers. The debug build logs `POCKET ...`,
+  `EVENT pocket_in`, `pocket_out`, `pocket_thrown`.
 - **Will-o'-wisps** (`Wisp` in `G.wisps`: [0] the one summoned, [1] the Black Altar's; `summon_wisp`,
   `update_wisps`, `render_wisps`, `wisp_target`, `wisp_route`). Things in the crypt, not on the hand: a
   wisp kindles before the caster (or over the altar), flies down its own BFS field (`wisp_route`: floor

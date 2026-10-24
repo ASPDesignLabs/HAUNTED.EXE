@@ -1,7 +1,8 @@
 # 1.0.0b6: secrets that go deeper, Cursed Coins and the Rune Shrine
 
 **Status: planned (24 October 2026) and settled; steps 1 to 3 are built (the hand fix, runes by
-quality, the Rune Shrine), tested in the harness only; step 4, secret areas, is next. The owner approved
+quality, the Rune Shrine) and most of step 4 (secrets by set and in chains, bigger rooms, doorways and
+the pockets), tested in the harness only; the altar's wisp is next. The owner approved
 Blink's double and the shrine's art.** The owner
 asked for the things below after 1.0.0b5, answered six rounds of questions, and left the rest to
 defaults, marked *default* here so they can be changed. Nothing in this plan names the console's codes.

@@ -172,7 +172,8 @@ static const char *const RANK_WORD[NRANK] = { "", "ROTTEN ", "COLD ", "BLOODY ",
 
 typedef struct { int alive, kind, target; float x, y, z, vx, vy, life, dmg; uint32_t pierced; int tier; } Shot;   /* tier: as cast */
 typedef struct { int alive, kind; float x, y, vx, vy, life, spin, dmg, life0; int from; } Bone;   /* life0: an ember's whole flight; from: its thrower */
-typedef struct { int alive, type, cx, cy, seen, color, lx, ly, secret; float x, y, phase; } Item;   /* lx, ly: the lane cell it is taken from */
+typedef struct { int alive, type, cx, cy, seen, color, lx, ly, secret, gen; float x, y, phase; } Item;   /* lx, ly: the lane cell it is taken from;
+                                                                                                   gen: 1 + its place among a pocket's things (0: not a pocket's) */
 typedef struct { int alive; float x, y, t, r; int big; } Boom;
 typedef struct { int alive, kind; float x0, y0, z0, x1, y1, z1, t; } Beam;   /* lightning and soul drain, for a moment */
 typedef struct { int alive; float x, y, t, dps; int foe; } Burn;           /* hellfire on the floor; foe: an ember's, which burns the caster */
@@ -181,7 +182,7 @@ typedef struct { int alive; float x, y, t; } Pool;                         /* wh
 typedef struct { int x, y, w, h, region, theme; } Room;
 /* stand at f, press d: the wall at s slides len cells back into its room (x0..x1, y0..y1). links: the chain
  * it begins (1, a room alone); door: the doorway at the back of its room into the pockets (x -1: none) */
-typedef struct { int fx, fy, d, sx, sy, tex, state, rolled, len, links, door_x, door_y, x0, y0, x1, y1; } Secret;
+typedef struct { int fx, fy, d, sx, sy, tex, state, rolled, len, links, door_x, door_y, x0, y0, x1, y1; uint32_t seed; } Secret;   /* seed: its pockets' */
 #define MAXSECRETS 6
 #define SLIDE_TIME 2.3f                     /* how long a secret wall takes to slide right through its room */
 #define MAXWISPS 2                          /* the one you summon, and the Black Altar's */
@@ -391,6 +392,18 @@ static struct {
 static float zbuf[W];
 enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
+
+/* pockets (see the pockets' code below): the level as it waits, and where in a chain you are */
+#define POCKET_LINKS 8
+typedef __typeof__(G) GState;
+static GState G_LEVEL, G_KEEP;                                     /* the level as it waits; the caster on the way between */
+static struct {
+    int level, depth, chain;                                       /* depth: 0 in the level, else the link you are in (pockets are 2 on) */
+    int back_x, back_y, on_x, on_y;                                /* this pocket's doorways: the way back, and on (x -1: none) */
+    float since;                                                   /* since the last doorway, for the fade */
+    uint8_t reached[MAXSECRETS];                                   /* the deepest link found in each chain */
+    uint32_t taken[MAXSECRETS][POCKET_LINKS];                      /* the things picked up in each pocket, a bit each */
+} PK;
 
 static uint8_t ramp_at(int ramp, int k) { return (uint8_t)(ramp + clampi(k, 0, ramp == R_GOLD ? 12 : 15)); }   /* the gold ramp is short */
 static uint8_t qual_text(int q) { return q == Q_COMMON ? (uint8_t)C_WHITE : ramp_at(QUAL_RAMP[q], 13); }   /* white, then green, blue, purple, gold */
@@ -833,7 +846,7 @@ static void place_secrets(void) {
             for (int x = x0; x <= x1; x++) { carve(x, y, -2, TH_CORRIDOR); G.map[y][x].secret = 1; }
         G.map[sy][sx].secret = 2;
         Secret *sc = &G.secrets[G.nsecrets++];
-        *sc = (Secret){ sx + DX[d], sy + DY[d], in, sx, sy, 0, 0, 0, nb == 4 ? 7 : 3, chain[placed++], -1, -1, x0, y0, x1, y1 };
+        *sc = (Secret){ sx + DX[d], sy + DY[d], in, sx, sy, 0, 0, 0, nb == 4 ? 7 : 3, chain[placed++], -1, -1, x0, y0, x1, y1, rng_next(&G.rs) | 1u };
         if (sc->links >= 2 && !secret_door(sc)) { left += sc->links - 1; sc->links = 1; }   /* nowhere for a doorway: alone after all */
     }
     for (int k = placed; k < nch; k++) left += chain[k];
@@ -1619,7 +1632,7 @@ static float torch_flicker(const Light *L) {
 }
 
 static void build_lightmap(void) {
-    float ambient = G.shop ? 0.06f : 0.06f - 0.012f * depth();    /* the dark itself deepens, set by set */
+    float ambient = G.shop ? 0.06f : (PK.depth ? 0.08f : 0.06f - 0.012f * depth());   /* the dark itself deepens, set by set; not in a pocket */
     for (int i = 0; i < LMN * LMN; i++) G.lm[i] = ambient;
     const Mob *wr = NULL;                                          /* torches gutter where the Wraith goes */
     for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && G.mobs[i].type == MOB_WRAITH) wr = &G.mobs[i];
@@ -3836,7 +3849,9 @@ static void aim_at(int t) {
     G.state = PS_AIM; G.spd = 0.0f;
 }
 
+static void pocket_return(int died);
 static void update_player(float dt) {
+    if (PK.depth) { pocket_return(0); return; }                   /* sleepwalking in a pocket: the feet find the way back out */
     G.cooldown -= dt;
     G.calm += dt;
     switch (G.state) {
@@ -4111,7 +4126,9 @@ static void place_altar(void) {
     }
 }
 
+static void pocket_reset_level(void);
 static void start_level(void) {
+    pocket_reset_level();
     memset(G.has_key, 0, sizeof G.has_key);
     G.shop = 0;
     crawl_art_level(G.level);
@@ -4265,6 +4282,235 @@ static void take_piece(const Offer *o, int wear) {
 
 /* The run carries on across scene switches: the level, HP, gold, souls and gear are kept, and the
  * current level is laid out afresh (without a second visit to the merchant). */
+
+/* ---- pockets (docs/PLAN-b6.md): the deeper links of a secret's chain, each a place of its own beyond
+ * a doorway. Walking into the doorway at the back of a chained room takes you into the chain's first
+ * pocket; its doorway back returns you there, and a doorway on goes deeper. The level waits, as it is,
+ * while you are away (G_LEVEL keeps it), and a pocket is built afresh each time from its chain's seed,
+ * less what has been taken from it. Dying in one throws you back to the chain's room, whole. ---- */
+
+
+/* what goes with the caster through a doorway; the rest of G is the place. Ranges of G, in its order */
+#define G_SPAN(a, b) (offsetof(GState, b) + sizeof(((GState *)0)->b) - offsetof(GState, a))
+#define G_CARRY(from, a, b) memcpy((char *)&G + offsetof(GState, a), (const char *)(from) + offsetof(GState, a), G_SPAN(a, b))
+static void carry_caster(const GState *from) {
+    G.t = from->t; G.rs = from->rs; G.kills = from->kills; G.card = from->card; G.mood_t = from->mood_t;
+    G_CARRY(from, px, blocked);                                    /* where it stands and how it moves, the hand, the spell */
+    G_CARRY(from, pvx, unlock_t);                                  /* health, this level's gains, keys */
+    G_CARRY(from, poison_t, commune_r);                            /* what is on it, the runes running, the abilities' clocks */
+    G_CARRY(from, def_cd, face_side);                              /* the runes' cooldowns, the portrait */
+    G_CARRY(from, hurt, chill);
+    G_CARRY(from, player, inv_page);                               /* a person's controls and menus */
+}
+
+static void pocket_say_found(int link) {                           /* the first time into a link: a secret, on the level's count */
+    if (link <= PK.reached[PK.chain]) return;
+    PK.reached[PK.chain] = (uint8_t)link;
+    G_LEVEL.links_found++;
+    rec_secret();
+    say("A SECRET!   %d OF %d", G_LEVEL.links_found, G_LEVEL.nlinks);
+    snd_sfx_ex(SFX_SECRET, 0.9f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT secret %d of %d (pocket %d of chain %d) t=%.2f\n", G_LEVEL.links_found, G_LEVEL.nlinks, link, PK.chain, G.t);
+#endif
+}
+
+/* A pocket, built into G: blocks of three by three in a square, joined as a maze with loops, some
+ * walls opened right across into halls; lit here and there, dark between. It grows with the level and
+ * the link, from 13 cells across early in the Crypts to the whole 45 at the end of a long chain in the
+ * Deep. The way back is a doorway in its west wall; the way on, if the chain goes on, a doorway in an
+ * outer wall as far as can be from it; else the chain's reward (for now a hoard, until the themes bring
+ * theirs). Its things come in the same order each time, so what was taken can stay taken. */
+static void gen_pocket(const Secret *sc, int link) {
+    int lv = (G.level - 1) % 20;
+    float t = clampf(0.6f * (float)lv / 19.0f + 0.4f * (float)(link - 2) / 4.0f, 0.0f, 1.0f);
+    int n = clampi(3 + (int)(t * 8.0f + 0.5f), 3, 11), S = 4 * n + 1, o = ((MAPN - S) / 2) & ~3;
+    uint32_t keep_rs = G.rs;
+    G.rs = sc->seed ^ ((uint32_t)link * 2654435761u);
+    for (int y = 0; y < MAPN; y++)
+        for (int x = 0; x < MAPN; x++) { Cell *c = &G.map[y][x]; memset(c, 0, sizeof *c); c->kind = K_WALL; c->tex = T_STONE; c->region = -1; c->door = -1; }
+    #define BX(i) (o + 4 * (i) + 1)
+    for (int j = 0; j < n; j++)
+        for (int i = 0; i < n; i++)
+            for (int y = BX(j); y < BX(j) + 3; y++) for (int x = BX(i); x < BX(i) + 3; x++) carve(x, y, 0, TH_CORRIDOR);
+    /* the maze: a spanning tree over the blocks, then loops; a wall opened right across, or by a door's width */
+    static uint8_t seen[11][11], open_e[11][11], open_s[11][11];
+    static int st[121];
+    memset(seen, 0, sizeof seen); memset(open_e, 0, sizeof open_e); memset(open_s, 0, sizeof open_s);
+    int sp = 0, j0 = rnd(n);
+    st[sp++] = j0 * 11; seen[j0][0] = 1;
+    while (sp > 0) {
+        int b = st[sp - 1], bi = b % 11, bj = b / 11, opts[4], no = 0;
+        for (int d = 0; d < 4; d++) { int ni = bi + DX[d], nj = bj + DY[d]; if (ni >= 0 && nj >= 0 && ni < n && nj < n && !seen[nj][ni]) opts[no++] = d; }
+        if (!no) { sp--; continue; }
+        int d = opts[rnd(no)], ni = bi + DX[d], nj = bj + DY[d];
+        if (d == 0) open_e[bj][bi] = 1 + rnd(2); else if (d == 2) open_e[nj][ni] = 1 + rnd(2);
+        else if (d == 1) open_s[bj][bi] = 1 + rnd(2); else open_s[nj][ni] = 1 + rnd(2);
+        seen[nj][ni] = 1; st[sp++] = nj * 11 + ni;
+    }
+    for (int j = 0; j < n; j++)
+        for (int i = 0; i < n; i++) {
+            if (i + 1 < n && !open_e[j][i] && rnd(100) < 35) open_e[j][i] = 1 + rnd(2);
+            if (j + 1 < n && !open_s[j][i] && rnd(100) < 35) open_s[j][i] = 1 + rnd(2);
+        }
+    for (int j = 0; j < n; j++)
+        for (int i = 0; i < n; i++) {
+            if (open_e[j][i]) for (int k = open_e[j][i] == 2 ? 0 : 1; k < (open_e[j][i] == 2 ? 3 : 2); k++) carve(BX(i) + 3, BX(j) + k, 0, TH_CORRIDOR);
+            if (open_s[j][i]) for (int k = open_s[j][i] == 2 ? 0 : 1; k < (open_s[j][i] == 2 ? 3 : 2); k++) carve(BX(i) + k, BX(j) + 3, 0, TH_CORRIDOR);
+            if (i + 1 < n && j + 1 < n && open_e[j][i] == 2 && open_s[j][i] == 2 && open_e[j + 1][i] == 2 && open_s[j][i + 1] == 2)
+                carve(BX(i) + 3, BX(j) + 3, 0, TH_CORRIDOR);       /* four walls gone: the corner too, a hall */
+        }
+    /* the way back, in the west wall; the farthest block, by the maze */
+    PK.back_x = o; PK.back_y = BX(j0) + 1;
+    G.map[PK.back_y][PK.back_x].secret = 3; G.map[PK.back_y][PK.back_x].tex = T_PASSAGE;
+    static int dist[11][11], q[121];
+    for (int j = 0; j < n; j++) for (int i = 0; i < n; i++) dist[j][i] = -1;
+    int qh = 0, qt = 0, far = j0 * 11;
+    dist[j0][0] = 0; q[qt++] = j0 * 11;
+    while (qh < qt) {
+        int b = q[qh++], bi = b % 11, bj = b / 11;
+        if (dist[bj][bi] > dist[far / 11][far % 11]) far = b;
+        for (int d = 0; d < 4; d++) {
+            int ni = bi + DX[d], nj = bj + DY[d];
+            if (ni < 0 || nj < 0 || ni >= n || nj >= n || dist[nj][ni] >= 0) continue;
+            int op = d == 0 ? open_e[bj][bi] : d == 2 ? open_e[nj][ni] : d == 1 ? open_s[bj][bi] : open_s[nj][ni];
+            if (!op) continue;
+            dist[nj][ni] = dist[bj][bi] + 1; q[qt++] = nj * 11 + ni;
+        }
+    }
+    PK.on_x = PK.on_y = -1;
+    int gen = 0;
+    uint32_t taken = PK.taken[PK.chain][clampi(link, 0, POCKET_LINKS - 1)];
+    #define POCKET_ITEM(x, y, type) do { int g_ = gen++; Item *it_ = add_item(x, y, type);   /* made either way, so the dice fall alike */ \
+        if (it_) { it_->secret = 1; it_->gen = g_ + 1; if (taken >> g_ & 1) it_->alive = 0; } } while (0)
+    if (link < sc->links) {                                        /* the way on: in an outer wall, the farthest such block */
+        int best = -1, bd = -1;
+        for (int j = 0; j < n; j++)
+            for (int i = 0; i < n; i++) {
+                if (!(i == n - 1 || j == 0 || j == n - 1) || dist[j][i] < 0 || (i == 0 && j == j0)) continue;
+                if (dist[j][i] > bd) { bd = dist[j][i]; best = j * 11 + i; }
+            }
+        int bi = best % 11, bj = best / 11;
+        if (bi == n - 1) { PK.on_x = o + S - 1; PK.on_y = BX(bj) + 1; }
+        else if (bj == 0) { PK.on_x = BX(bi) + 1; PK.on_y = o; }
+        else { PK.on_x = BX(bi) + 1; PK.on_y = o + S - 1; }
+        G.map[PK.on_y][PK.on_x].secret = 3; G.map[PK.on_y][PK.on_x].tex = T_PASSAGE;
+    } else {                                                       /* the chain's end: its reward, for now a hoard */
+        int fi = far % 11, fj = far / 11;
+        POCKET_ITEM(BX(fi) + 1, BX(fj) + 1, IT_CHEST);
+        POCKET_ITEM(BX(fi) + 0, BX(fj) + 1, IT_CROWN);
+        POCKET_ITEM(BX(fi) + 2, BX(fj) + 1, IT_GEMS);
+        light_static(BX(fi) + 1.5f, BX(fj) + 1.5f, 1.4f, 5.0f);
+    }
+    /* light here and there, and a few things lying about */
+    for (int j = 0; j < n; j++)
+        for (int i = 0; i < n; i++)
+            if ((i == 0 && j == j0) || rnd(100) < 55) light_static(BX(i) + 1.5f, BX(j) + 1.5f, 1.25f + 0.35f * rndf(), 5.0f);
+    for (int l = 0; l < G.nlights; l++) G.lights[l].phase = -1000.0f;   /* steady: no flames here */
+    static const int LOOT[5] = { IT_COINS, IT_COINS, IT_GEMS, IT_CHALICE, IT_CROWN };
+    for (int k = 0; k < 2 + link + rnd(2); k++) {
+        int i = rnd(n), j = rnd(n);
+        if (i == 0 && j == j0) continue;
+        POCKET_ITEM(BX(i) + 1, BX(j) + 1, LOOT[rnd(5)]);
+    }
+    #undef POCKET_ITEM
+    #undef BX
+    G.rooms[0] = (Room){ o + 1, o + 4 * j0 + 1, 3, 3, 0, TH_CORRIDOR }; G.nrooms = 1;
+    G.ncells = 0;
+    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (G.map[y][x].kind == K_FLOOR && lane(x, y)) G.ncells++;
+    G.rs = keep_rs ^ (sc->seed + (uint32_t)link);
+#ifdef CRAWL_DEBUG
+    int alive = 0;
+    for (int i = 0; i < G.nitems; i++) alive += G.items[i].alive;
+    fprintf(stderr, "POCKET chain %d link %d of %d: %dx%d at %d, back (%d,%d) on (%d,%d), %d things, %d lights, %d of %d light texels\n", PK.chain, link, sc->links, S, S, o, PK.back_x, PK.back_y, PK.on_x, PK.on_y, alive, G.nlights, G.nlc, MAXLC);
+#endif
+}
+
+/* stand in the cell before a doorway, facing away from it into the place */
+static void stand_at_door(int dx, int dy) {
+    for (int d = 0; d < 4; d++) {
+        int fx = dx + DX[d], fy = dy + DY[d];
+        if (fx < 0 || fy < 0 || fx >= MAPN || fy >= MAPN || G.map[fy][fx].kind != K_FLOOR) continue;
+        G.cx = G.tx = fx; G.cy = G.ty = fy; G.px = fx + 0.5f; G.py = fy + 0.5f;
+        G.h = G.next_h = d; G.ang = heading_angle(d);
+        return;
+    }
+}
+
+/* into a pocket of the chain: the place is built, the caster brought along */
+static void collect(Item *it);
+static void pocket_build(int link, int from_deeper) {
+    G_KEEP = G;
+    memset(&G, 0, sizeof G);
+    carry_caster(&G_KEEP);
+    G.level = G_KEEP.level; G.retries = G_KEEP.retries; G.blessed = 0;
+    G.exit_fx = G.exit_fy = G.exit_wx = G.exit_wy = -1; G.exit_in_vault = -1;
+    G.altar_x = G.altar_y = -1; G.altar_seek = -1; G.slide = G.seek_secret = -1;
+    for (int k = 0; k < NKEYS; k++) G.vault_room[k] = G.vault_door[k] = -1;
+    gen_pocket(&G_LEVEL.secrets[PK.chain], link);
+    PK.depth = link; PK.since = 0.0f;
+    if (from_deeper) stand_at_door(PK.on_x, PK.on_y); else stand_at_door(PK.back_x, PK.back_y);
+    G.map[G.cy][G.cx].visits = 1; G.explored = 1;
+    G.level_t = 1.0;                                               /* the pocket's own clock; the hand is free at once */
+    G.dead = 0; G.ending = 0; G.leaving = G.exiting = 0;
+    hunt_cx = -1;
+    if (G.player) human_begin(); else { G.state = PS_MOVE; G.u = 1.0f; }
+    snd_sfx_ex(SFX_WHOOSH, 0.9f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.5f, 0.5f);
+    pocket_say_found(link);
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_TAKEALL")) for (int i = 0; i < G.nitems; i++) if (G.items[i].alive) collect(&G.items[i]);   /* testing: what was taken stays taken */
+#endif
+}
+
+/* back out to the level, before the chain's doorway; a death there comes back whole */
+static void pocket_return(int died) {
+    const Secret *sc = &G_LEVEL.secrets[PK.chain];
+    G_KEEP = G;
+    G = G_LEVEL;
+    carry_caster(&G_KEEP);
+    PK.depth = 0; PK.since = 0.0f;
+    stand_at_door(sc->door_x, sc->door_y);
+    G.camz = 0.5f; G.spd = 0.0f;
+    if (died) {                                                    /* thrown out, whole; the pocket behind resets */
+        G.hp = G.max_hp = gear_max_hp(&RUN.gear);
+        G.poison_t = G.slow_t = 0.0f; G.hurt = 0.0f; G.face_t = 0.0f;
+        say("THROWN BACK OUT");
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT pocket_thrown chain %d t=%.2f\n", PK.chain, G.t);
+#endif
+    }
+    hunt_cx = -1;
+    if (G.player) human_begin(); else { G.state = PS_MOVE; G.u = 1.0f; }
+    snd_sfx_ex(SFX_WHOOSH, 0.8f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT pocket_out chain %d level_t=%.2f hp=%d t=%.2f player=%d died=%d\n", PK.chain, G.level_t, G.hp, G.t, G.player, died);
+#endif
+}
+
+/* walked into a doorway (secret 3) at (x, y): which way it goes */
+static int pocket_door(int x, int y) {
+    if (abs(x - G.cx) + abs(y - G.cy) != 1) return 0;
+    if (!PK.depth) {
+        for (int i = 0; i < G.nsecrets; i++)
+            if (G.secrets[i].door_x == x && G.secrets[i].door_y == y && G.secrets[i].state == 2) {
+#ifdef CRAWL_DEBUG
+                fprintf(stderr, "EVENT pocket_in chain %d level_t=%.2f t=%.2f\n", i, G.level_t, G.t);
+#endif
+                G_LEVEL = G; PK.chain = i;
+                pocket_build(2, 0);
+                return 1;
+            }
+        return 0;
+    }
+    if (x == PK.back_x && y == PK.back_y) {
+        if (PK.depth <= 2) pocket_return(0); else pocket_build(PK.depth - 1, 1);
+        return 1;
+    }
+    if (x == PK.on_x && y == PK.on_y) { pocket_build(PK.depth + 1, 0); return 1; }
+    return 0;
+}
+static void pocket_reset_level(void) { memset(&PK, 0, sizeof PK); PK.level = G.level; }
+
 static void crawl_enter(uint32_t seed) {
     crawl_art_init();
     CON.open = 0; CON.slide = 0.0f; snd_hold(0);                   /* the console goes up; what a code did stays */
@@ -4295,6 +4541,7 @@ static void crawl_enter(uint32_t seed) {
 
 static void collect(Item *it) {
     it->alive = 0;
+    if (it->gen && PK.depth) PK.taken[PK.chain][clampi(PK.depth, 0, POCKET_LINKS - 1)] |= 1u << (it->gen - 1);   /* gone from the pocket for good */
     switch (it->type) {
     case IT_KEY:
         G.has_key[it->color] = 1; snd_sfx(SFX_KEYGET); G.gold = 1.0f; G.grin_t = 1.6f;
@@ -4531,7 +4778,14 @@ static int wisp_ramp_of(const Wisp *w) { return w->kind == WK_ALTAR ? R_PURPLE :
 static int wisp_target(int kind, int color, int *gx, int *gy, float *hx, float *hy, int *final) {
     int x, y;
     float px, py;
-    if (kind == WK_EXIT) {
+    if (kind == WK_EXIT && PK.depth) {                             /* in a pocket, the way out is the way back */
+        int d = 0;
+        for (; d < 4; d++) if (cell(PK.back_x + DX[d], PK.back_y + DY[d])->kind == K_FLOOR) break;
+        if (d == 4) return 0;
+        x = PK.back_x + DX[d]; y = PK.back_y + DY[d];
+        px = x + 0.5f - DX[d] * 0.3f; py = y + 0.5f - DY[d] * 0.3f;   /* before the doorway */
+        *gx = x; *gy = y;
+    } else if (kind == WK_EXIT) {
         if (G.exit_fx < 0) return 0;
         x = G.exit_fx; y = G.exit_fy;
         px = x + 0.5f + DX[G.exit_dir] * 0.3f; py = y + 0.5f + DY[G.exit_dir] * 0.3f;   /* before the door */
@@ -4791,6 +5045,9 @@ static void crawl_update(double dt) {
     build_hunt(fdt);
     pick_hunters();
 #ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_KILLAT") && !G.dead && G.t >= atof(getenv("CRAWL_KILLAT")) && G.t - dt < atof(getenv("CRAWL_KILLAT"))) {   /* testing: struck down */
+        G.level_t = fmax(G.level_t, 2.0); hurt_ex(99999.0f, HURT_MAGIC, G.px, G.py);
+    }
     static int meet_level = -1;                                    /* one of a kind, ahead, once the level's card has gone */
     if (getenv("CRAWL_MEET") && meet_level != G.level && G.level_t > 5.0 && !G.dead
         && meet_creature(clampi(atoi(getenv("CRAWL_MEET")), 0, NKINDS - 1))) meet_level = G.level;
@@ -4802,7 +5059,7 @@ static void crawl_update(double dt) {
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_WRAITH")) wraith_at = (float)atof(getenv("CRAWL_WRAITH"));
 #endif
-    if (!G.wraith_done && (G.wraith_now || ((G.level >= KINDS[MOB_WRAITH].debut || crawl_loop(G.level) > 0) && G.level_t > wraith_at))
+    if (!G.wraith_done && !PK.depth && (G.wraith_now || ((G.level >= KINDS[MOB_WRAITH].debut || crawl_loop(G.level) > 0) && G.level_t > wraith_at))
         && !G.tally && !G.exiting && (G.wraith_try -= fdt) <= 0.0f) {
         int x, y;
         G.wraith_try = 5.0f;
@@ -4842,7 +5099,7 @@ static void crawl_update(double dt) {
     name_newcomers();
 
     /* keep the action coming: if nothing has happened for a while, wake something up ahead */
-    if (G.calm > (G.player ? 35.0f : 11.0f)) {                     /* a person clears a level for good, mostly */
+    if (G.calm > (G.player ? 35.0f : 11.0f) && !PK.depth) {        /* a person clears a level for good, mostly */
         int x, y, alive = 0;
         for (int i = 0; i < MAXMOBS; i++) { const Mob *m = &G.mobs[i]; alive += m->alive && !m->guard && !KIND_IS(m, KF_UNCOUNTED) && m->type != MOB_WSKULL && m->type != MOB_SPIDER && m->type != MOB_GARGOYLE && m->type != MOB_LING; }
         if (alive < 8 && pick_cell_at_depth(G.cx, G.cy, 4, 8, 1, &x, &y)) spawn_wanderer(x, y);
@@ -4912,7 +5169,7 @@ static void crawl_update(double dt) {
         fprintf(stderr, "EVENT leaving t=%.2f in_vault=%d got=%.2f\n", G.t, G.exit_in_vault, got);
 #endif
     }
-    if (!G.tally && !G.dead && !G.player && (G.exit_fx < 0 || G.level_t > 600.0)) {   /* no exit, or hopelessly lost: call it done */
+    if (!G.tally && !G.dead && !G.player && !PK.depth && (G.exit_fx < 0 || G.level_t > 600.0)) {   /* no exit, or hopelessly lost: call it done */
         G.tally = 1; G.tally_t = 0.0; G.clear_time = G.level_t; G.retries = 0; snd_sfx_ex(SFX_FANFARE, 1.0f, 0.5f);
         rec_cleared();
     }
@@ -4921,9 +5178,13 @@ static void crawl_update(double dt) {
         G.dead_t += dt;
         G.camz = lerpf(0.5f, 0.1f, smoothstepf(0.0f, 0.9f, (float)G.dead_t));
         fout = 1.0f - smoothstepf(3.8f, 4.8f, (float)G.dead_t);
-        if (G.dead_t >= 5.0) { RUN.treasure -= G.level_treasure; G.hp = gear_max_hp(&RUN.gear); start_level(); }
+        if (G.dead_t >= 5.0) {
+            if (PK.depth) pocket_return(1);                        /* in a pocket: thrown back out to its chain's room */
+            else { RUN.treasure -= G.level_treasure; G.hp = gear_max_hp(&RUN.gear); start_level(); }
+        }
     }
-    float fin = smoothstepf(0.0f, 1.2f, (float)G.level_t);
+    PK.since += fdt;
+    float fin = fminf(smoothstepf(0.0f, 1.2f, (float)G.level_t), smoothstepf(0.0f, 0.6f, PK.since));   /* and through a doorway */
     if (G.exiting) fout = 1.0f - smoothstepf(1.6f, 2.4f, G.exit_t);  /* into the light */
     G.fade = fin * fout;
     build_lightmap();
@@ -5502,6 +5763,7 @@ static int open_door(Door *d) {
     return 1;
 }
 
+static int pocket_door(int x, int y);
 static void human_exit(void) {                                    /* into the runes */
     G.exiting = 1; G.leaving = 1; G.exit_t = 0.0f; G.u = 1.0f; G.pc_t = -1.0f; G.hand = 0.0f;
     G.cx = G.tx = G.exit_fx; G.cy = G.ty = G.exit_fy;
@@ -5514,6 +5776,7 @@ static void human_bump(int cx, int cy) {
     Cell *c = cell(cx, cy);
     if (G.shop) { if (c->kind == K_DOOR) open_door(&G.doors[c->door]); return; }
     if (c->kind == K_DOOR) open_door(&G.doors[c->door]);
+    else if (c->kind == K_WALL && c->secret == 3) pocket_door(cx, cy);   /* a secret's doorway: walked through */
     else if (G.exit_fx >= 0 && cx == G.exit_wx && cy == G.exit_wy && (int)G.px == G.exit_fx && (int)G.py == G.exit_fy) human_exit();
 }
 
@@ -5522,6 +5785,7 @@ static int human_use(void) {
     int cx = (int)floorf(G.px + cosf(G.ang) * 0.8f), cy = (int)floorf(G.py + sinf(G.ang) * 0.8f);
     Cell *c = cell(cx, cy);
     if (c->kind == K_DOOR) { open_door(&G.doors[c->door]); return 1; }
+    if (c->kind == K_WALL && c->secret == 3 && pocket_door(cx, cy)) return 1;   /* a secret's doorway */
     if (c->kind == K_WALL && c->secret == 2)                       /* a cracked wall: it gives */
         for (int i = 0; i < G.nsecrets; i++) if (G.secrets[i].sx == cx && G.secrets[i].sy == cy && !G.secrets[i].state) { open_secret(i); G.grab_t = 1.0f; return 1; }
     if (!G.shop && G.exit_fx >= 0 && cx == G.exit_wx && cy == G.exit_wy && hypotf(G.exit_fx + 0.5f - G.px, G.exit_fy + 0.5f - G.py) < 1.0f) { human_exit(); return 1; }
@@ -5927,6 +6191,12 @@ static void tp_door(void) {                                        /* a chained 
             int bx = fx - DX[n], by = fy - DY[n];
             float back = (bx >= sc->x0 && bx <= sc->x1 && by >= sc->y0 && by <= sc->y1 && G.map[by][bx].kind == K_FLOOR) ? 1.0f : 0.0f;
             G.px = fx + 0.5f - DX[n] * back; G.py = fy + 0.5f - DY[n] * back; G.ang = heading_angle(n); human_begin();
+            int k = clampi(atoi(getenv("CRAWL_TPDOOR")), 1, sc->links);   /* 2 on: straight into that link of the chain */
+            if (k < 2) return;
+            G.cx = fx; G.cy = fy;
+            pocket_door(sc->door_x, sc->door_y);
+            while (PK.depth < k) pocket_build(PK.depth + 1, 0);
+            if (PK.on_x >= 0) { stand_at_door(PK.on_x, PK.on_y); G.ang = wrap_pi(G.ang + PI_F); }   /* facing the way on */
             return;
         }
     }
@@ -6296,7 +6566,7 @@ static void crawl_control(int what) {
     if (getenv("CRAWL_TPSECRET") && !G.shop && G.nsecrets) tp_secret(atoi(getenv("CRAWL_TPSECRET")) % G.nsecrets);
     if (getenv("CRAWL_TPALTAR") && !G.shop) tp_altar();
     if (getenv("CRAWL_TPDOOR") && !G.shop) tp_door();              /* before a secret's doorway, its room open */
-    fprintf(stderr, "EVENT control t=%.2f at (%.2f,%.2f) ang %.3f shop %d\n", G.t, G.px, G.py, G.ang, G.shop);
+    fprintf(stderr, "EVENT control t=%.2f at (%.2f,%.2f) ang %.3f shop %d pocket %d\n", G.t, G.px, G.py, G.ang, G.shop, PK.depth);
 #endif
 }
 
