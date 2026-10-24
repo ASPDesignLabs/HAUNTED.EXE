@@ -4,9 +4,9 @@
 quality, the Rune Shrine, and the secret areas: secrets by set and in chains, bigger rooms, doorways,
 the pockets, and the altar's wisp to one secret and back for a price), tested in the harness only. The
 Backrooms (step 5) are built: the look, the tubes lit, failing and dead, things out of place, creatures
-caught in a loop, the glitch, the silence, echo and hum, and the visportal's gift; the art awaits the
-owner's approval. The owner approved Blink's double and the shrine's art.** The owner
-asked for the things below after 1.0.0b5, answered six rounds of questions, and left the rest to
+caught in a loop, the glitch, the silence, echo and hum, and the visportal's gift. The owner approved
+Blink's double, the shrine's art and the Backrooms as drawn; Severance (step 6) is next, art first.** The owner
+asked for the things below after 1.0.0b5, answered eight rounds of questions, and left the rest to
 defaults, marked *default* here so they can be changed. Nothing in this plan names the console's codes.
 
 ## What the owner asked for
@@ -61,6 +61,9 @@ defaults, marked *default* here so they can be changed. Nothing in this plan nam
 - **Release:** the hand fix waits on the branch and goes out with the rest as 1.0.0b6.
 - **Severance's sound:** bright FM muzak, slightly too calm, over a fluorescent hum.
 - **The merchant's rune pedestal** becomes another piece to wear.
+- **The Backrooms (24 October 2026, eighth round):** the look goes in as drawn (the sheet and the
+  frames); the glitch and the things out of place as shown; the faint hum stays under the silence; at a
+  chain's end the hoard stays beside the visportal, with the chain's coin to come.
 - **The shrine (24 October 2026, sixth round):** it stands against the south wall, across from the
   wares; takes not used are lost when you leave the room, with a warning first; three alike combine
   past the shrine's rank, up to Exquisite; in a pull each quality is two thirds as likely as the one
@@ -218,10 +221,12 @@ Versions 1 to 4 still load.
 The Exquisite effects, the altar's price and the sizes are settled (24 October 2026). What remains is
 the art: sheets of the new textures and sprites go to the owner before they go into the game, as the
 creatures did:
-- the yellow wallpaper, carpet and ceiling tiles with their tubes;
 - the white walls, office carpet and fluorescent panels;
 - the cubicle partitions and the treatment doors;
-- the water cooler, the visportal doorway, and the shrine in its two states.
+- the water cooler.
+
+The Backrooms' art (the wallpaper, carpet, tiles and tubes, the doorway, the visportal, the glitch) and
+the shrine in its two states are approved.
 
 ## Building it
 
@@ -242,8 +247,9 @@ creatures did:
    wisp home as it passes once the wall has moved, without going in first; it sends it on seldom, since
    it comes back past the altar in time only now and then (two runs in eight from level 7). It doesn't
    go through a chain's doors yet (step 7).
-5. **The Backrooms:** textures and props (for approval), the tube lights, the glitching, the reverb and
-   silence, the visportal.
+5. **The Backrooms** (built; art approved): textures and props, the tube lights (lit, failing, dead),
+   the things out of place and the creatures caught in a loop, the glitch, the silence with its echo and
+   hum, and the visportal (full health, or fifty souls if whole, once a chain).
 6. **Severance:** textures and props (for approval), the cubicles and doors, the water cooler, the
    brighter creatures, the muzak.
 7. **Coins and challenge:** coins and the all-found coin, the stronger creatures in pockets, and the

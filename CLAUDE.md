@@ -35,9 +35,10 @@ The owner answered five rounds of questions; the plan marks the defaults and wha
 Built so far (harness only): the hand fix (casting from rest while the bar is away), runes by quality
 (step 2: Common to Exquisite, the nine Exquisite second effects, save version 5, the merchant's rune
 pedestal now another piece to wear), the Rune Shrine (step 3) and the secret areas (step 4: counts by
-set, chains of carved rooms, pockets, and the altar's wisp that goes to one secret and back for a price).
-Until Cursed Coins come (step 7) there are none to find, so in play runes come only from an old save, the
-console or the debug switches. The pockets are still plain stone until the themes (steps 5 and 6).
+set, chains of carved rooms, pockets, and the altar's wisp that goes to one secret and back for a price)
+and the Backrooms (step 5, the art approved). Until Cursed Coins come (step 7) there are none to find, so in
+play runes come only from an old save, the console or the debug switches. Pockets on levels 11-20 are
+still plain stone until Severance (step 6).
 
 ## Working with the owner
 
@@ -270,7 +271,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   pocket the exit wisp goes to the way back; no Wraith, no wakers. The debug build logs `POCKET ...`,
   `EVENT pocket_in`, `pocket_out`, `pocket_thrown`.
 - **The Backrooms** (pockets on levels 1-10 of each descent; `G.ptheme` `PT_BACKROOMS`; docs/PLAN-b6.md
-  step 5; built, the art awaiting the owner's approval; creatures in pockets come in step 7). `crawl_art_theme` swaps
+  step 5; built, the art approved; creatures in pockets come in step 7). `crawl_art_theme` swaps
   `R_FLOOR` (dark brown, mustard, pale yellow: carpet and wallpaper) and `R_CEIL` (off-white) on the way in
   and back on the way out; nothing in the crypt but its floor, ceiling and fog uses those two ramps.
   Walls `T_PAPER` (and `_DAMP`, `_OUTLET`), doorways `T_BDOOR`, and at the chain's end `T_VISPORT0..3`
