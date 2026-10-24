@@ -145,7 +145,8 @@ a piece is 24 bytes, `PIECE_BYTES`), then the run's `Record` (`rec_pack`: u16 ki
 u8 kills by kind and spell, u8 ranks seen by kind, u16 secrets, u16 descents, u32 levels cleared, 32
 bytes of achievement bits; `REC_BYTES` in all), then four bytes for the L menu (the wisp kind, the
 key's colour, the toggle, a spare), then 32 for the Rune Shrine (`shrine_pack`: u16 Cursed Coins, its
-rank, u16 attunements, nine slots of rune kind + 1 and quality, nine spare): 975 bytes. Version 4 is
+rank, u16 attunements, nine slots of rune kind + 1 and quality, u16 the level whose coins were last
+taken and a byte of which (`RUN.coin_level/coin_bits`), six spare): 975 bytes. Version 4 is
 the same without the shrine and with runes by tier (`rune_from_tier`: 1-3 Common, 4-6 Uncommon, 7-10
 Rare, 11 up Ultra-Rare; a rune held at the merchant's is dropped and its hold fee paid back); version 3
 is version 4 without the L menu's four bytes. Versions 1
@@ -404,6 +405,11 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   takes a quarter more; Soul Reaping heals a twentieth of your health a kill. The caster's page shows
   each rune in its quality's colour with a tag (C, U, R, UR, EX). The debug build logs `EVENT
   ward_burst`, `decoy`, and `exq_*` for the rest.
+- **Cursed Coins** (`RUN.coins`; `gain_coin`). One at the end of each chain, with the visportal's gift or the
+  cooler's drink, and one more when every link on the level is found (`COIN_ALL`). Each is taken once a
+  level whatever deaths come between (`RUN.coin_level/coin_bits`, saved), and comes in as a pop-up headed
+  FOR THE SHRINE. Shown under the keys on the status bar (in `small_digits`), in the readout, and at the
+  top of the caster's page. The debug build logs `EVENT coin`.
 - **The Rune Shrine** (`SHRINE_X/Y` on the merchant's south wall, `RUN.coins`, `RUN.shrine` 0 sanctified to
   5, `RUN.attuned`, `RUN.slot_def/slot_q`; docs/PLAN-b6.md). `shrine_curse`, `shrine_raise` (`SHRINE_COST`
   1, 6, 12, 24, 32), `shrine_pull` (runes rolled into `G.sh_qk/sh_qq`; `shrine_step` brings them into

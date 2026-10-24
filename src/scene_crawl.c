@@ -273,6 +273,7 @@ static struct {
     int coins, shrine, attuned;             /* Cursed Coins; the Rune Shrine's rank (0 sanctified, 1-5 the best quality
                                                it gives); the rune kinds it is attuned to, a bit each */
     uint8_t slot_def[SHRINE_SLOTS], slot_q[SHRINE_SLOTS];   /* the shrine's slots: rune kind + 1 (0 empty), quality 1-5 */
+    int coin_level, coin_bits;              /* the coins already taken on that level: a bit a chain's end, bit 7 every secret */
 } RUN;
 
 /* The console (~): its lines and what is typed, and what a code has done to this session, which lasts
@@ -2070,6 +2071,22 @@ static void update_toasts(float dt) {
     }
 }
 
+/* A Cursed Coin: one at the end of each chain, one more for every secret on the level found. Each is
+ * taken once a level, dying or not (RUN.coin_bits, kept in saves), and pops up as an achievement does. */
+#define COIN_ALL 7
+static void gain_coin(int bit, const char *why) {
+    if (RUN.coin_level != G.level) { RUN.coin_level = G.level; RUN.coin_bits = 0; }
+    if (RUN.coin_bits >> bit & 1) return;
+    RUN.coin_bits |= 1 << bit;
+    RUN.coins++;
+    toast(SP_CCOIN, -1, RK_I, 0, "A CURSED COIN", why);
+    snd_sfx_ex(SFX_COIN, 0.7f, 0.5f);
+    if (G.player) pop_readout();
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT coin %d coins=%d t=%.2f by %s\n", bit, RUN.coins, G.t, G.player ? "player" : "autopilot");
+#endif
+}
+
 static int ach_has(int bit) { return RUN.rec.got[bit >> 3] >> (bit & 7) & 1; }
 static void ach_earn(int bit, int spr, int family, int rank, const char *title, const char *desc) {
     if (ach_has(bit) || CON.used) return;                          /* the dead took note of the codes */
@@ -3480,6 +3497,7 @@ static void open_secret(int i) {
     G.secrets_found++; G.links_found++;
     rec_secret();
     say("A SECRET!   %d OF %d", G.links_found, G.nlinks);
+    if (G.links_found >= G.nlinks) gain_coin(COIN_ALL, "EVERY SECRET HERE FOUND");
     sfx_at(SFX_PUSHWALL, sc->sx + 0.5f, sc->sy + 0.5f, 1.0f);
     snd_sfx_ex(SFX_SECRET, 1.0f, 0.5f);
 #ifdef CRAWL_DEBUG
@@ -4326,6 +4344,7 @@ static void pocket_say_found(int link) {                           /* the first 
     G_LEVEL.links_found++;
     rec_secret();
     say("A SECRET!   %d OF %d", G_LEVEL.links_found, G_LEVEL.nlinks);
+    if (G_LEVEL.links_found >= G_LEVEL.nlinks) gain_coin(COIN_ALL, "EVERY SECRET HERE FOUND");
     snd_sfx_ex(SFX_SECRET, 0.9f, 0.5f);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT secret %d of %d (pocket %d of chain %d) t=%.2f\n", G_LEVEL.links_found, G_LEVEL.nlinks, link, PK.chain, G.t);
@@ -5959,6 +5978,7 @@ static int visportal_use(void) {
     if (heal) { G.hp = G.max_hp; G.poison_t = G.slow_t = 0.0f; say(sev ? "A CUP OF WATER. YOU ARE WHOLE AGAIN" : "THE DOORWAYS MAKE YOU WHOLE AGAIN"); }
     else { RUN.souls += 50; G.level_souls += 50; pop_readout(); say(sev ? "A CUP OF WATER. FIFTY SOULS" : "THE DOORWAYS GIVE YOU FIFTY SOULS"); }
     if (sev && G.vis_deco >= 0) G.decos[G.vis_deco].spr = SP_COOLER_LOW;
+    gain_coin(PK.chain, "AT THE END OF A CHAIN");
     snd_sfx_ex(sev ? SFX_POTION : SFX_SHIMMER, 1.0f, 0.5f); snd_sfx_ex(sev ? SFX_DRIP : SFX_POTION, 0.7f, 0.5f);
     G.grab_t = 1.0f; show_bar();
 #ifdef CRAWL_DEBUG
@@ -6928,11 +6948,12 @@ static int save_end(int v) {                                       /* a grave's 
     return (v >= 3 ? SAVE_V3 : SAVE_V1) + (v >= 2 ? REC_BYTES : 0) + (v >= 4 ? SAVE_V4_EXTRA : 0) + (v >= 5 ? SAVE_V5_SHRINE : 0);
 }
 /* the shrine's 32 bytes: coins (u16), rank, attunements (u16, a bit a rune), then the slots as rune
- * kind + 1 and quality; the rest spare */
+ * kind + 1 and quality, then the level whose coins were last taken (u16) and which; the rest spare */
 static void shrine_pack(uint8_t *p) {
     memset(p, 0, SAVE_V5_SHRINE);
     put16(p, clampi(RUN.coins, 0, 65535)); p[2] = (uint8_t)RUN.shrine; put16(p + 3, RUN.attuned);
     for (int i = 0; i < SHRINE_SLOTS; i++) { p[5 + 2 * i] = RUN.slot_def[i]; p[6 + 2 * i] = RUN.slot_q[i]; }
+    put16(p + 23, clampi(RUN.coin_level, 0, 65535)); p[25] = (uint8_t)RUN.coin_bits;   /* the coins taken on that level */
 }
 static void shrine_unpack(const uint8_t *p) {                      /* anything out of range comes back empty */
     RUN.coins = get16(p); RUN.shrine = clampi(p[2], 0, NQUAL); RUN.attuned = get16(p + 3) & ((1 << NDEF) - 1);
@@ -6941,6 +6962,7 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
         if (d < 1 || d > NDEF || q < 1 || q > RUNE_EXQ) d = q = 0;
         RUN.slot_def[i] = (uint8_t)d; RUN.slot_q[i] = (uint8_t)q;
     }
+    RUN.coin_level = get16(p + 23); RUN.coin_bits = p[25];
 }
 
 static int crawl_save(uint8_t *buf, int cap) {
@@ -8075,6 +8097,17 @@ static void bevel(Frame *f, int x, int y, int w, int h, int fill) {
 
 /* the status bar, in the antechamber only (nothing stays put on an OLED for long) */
 static void key_icon(Frame *f, int kx, int ky, int color);
+static void draw_coin(Frame *f, int x, int y);
+static int small_digits(Frame *f, int x, int y, int n, uint8_t c) {   /* 3 by 5 figures, for the keys' box; returns the width */
+    static const char *const D[10] = { "####.##.##.####", ".#.##..#..#.###", "###..#####..###", "###..#.##..####", "#.##.####..#..#",
+                                       "####..###..####", "####..####.####", "###..#..#.#..#.", "####.#####.####", "####.####..####" };
+    char b[12];
+    snprintf(b, sizeof b, "%d", n);
+    int w = (int)strlen(b) * 4 - 1;
+    for (int i = 0; b[i] && f; i++)
+        for (int k = 0; k < 15; k++) if (D[b[i] - '0'][k] == '#') gfx_px(f, x + i * 4 + k % 3, y + k / 3, c);
+    return w;
+}
 static void render_statusbar(Frame *f) {
     int y0 = H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f);   /* it slides down out of sight */
     if (y0 >= H) return;
@@ -8113,8 +8146,13 @@ static void render_statusbar(Frame *f) {
         }
         gfx_text16(f, P[i].x + (P[i].w - gfx_text_width(num, 1)) / 2, y0 + 19, num, col, 1);
     }
-    bevel(f, 304, y0 + 4, 12, 37, R_IRON + 2);                     /* the keys in hand */
-    for (int c = 0; c < NKEYS; c++) if (G.has_key[c]) key_icon(f, 306, y0 + 9 + c * 10, c);
+    bevel(f, 304, y0 + 4, 12, 37, R_IRON + 2);                     /* the keys in hand, and under them the Cursed Coins */
+    for (int c = 0; c < NKEYS; c++) if (G.has_key[c]) key_icon(f, 306, y0 + 7 + c * 7, c);
+    if (RUN.coins > 0) {
+        draw_coin(f, 306, y0 + 27);
+        int w = small_digits(NULL, 0, 0, RUN.coins, 0);
+        small_digits(f, 304 + (12 - w) / 2, y0 + 35, RUN.coins, R_GOLD + 10);
+    }
     bevel(f, 162, y0 + 1, 40, 43, 0);
     draw_face(f, 166, y0 + 3, face_sub());
 }
@@ -8606,7 +8644,10 @@ static void render_readout(Frame *f) {
     int show_souls = RUN.souls > 0 || RUN.gear.atk[AT_BFS] >= 0;
     int gx = 84, sx = gx + 10 + gfx_text_width(gold, 1) + 8;
     int kx = show_souls ? sx + 12 + gfx_text_width(souls, 1) + 8 : sx;
-    int pw = kx + nk * 11 + 4, ph = 18, px = 6, py = H - 4 - (int)(k * (ph + 4)) + 4 - (int)(G.lift * 40.0f + 0.5f);   /* raised over HOLD H */
+    char coins[12];
+    snprintf(coins, sizeof coins, "%d", RUN.coins);
+    int cx = kx + nk * 11 + (nk ? 2 : 0);
+    int pw = cx + (RUN.coins > 0 ? 10 + gfx_text_width(coins, 1) + 6 : 0) + 4, ph = 18, px = 6, py = H - 4 - (int)(k * (ph + 4)) + 4 - (int)(G.lift * 40.0f + 0.5f);   /* raised over HOLD H */
     gfx_rect(f, px, py, pw, ph, 0);
     for (int i = 0; i < pw; i++) { gfx_px(f, px + i, py, R_STONE + 9); gfx_px(f, px + i, py + ph - 1, R_STONE + 5); }
     for (int i = 0; i < ph; i++) { gfx_px(f, px, py + i, R_STONE + 9); gfx_px(f, px + pw - 1, py + i, R_STONE + 5); }
@@ -8632,6 +8673,7 @@ static void render_readout(Frame *f) {
         gfx_text8(f, wx + 8, py + 5, souls, ready && ((int)(G.t * 3.0) & 1) ? C_WHITE : (uint8_t)(R_GLOW + 11), 1);
     }
     for (int c = 0, i = 0; c < NKEYS; c++) if (G.has_key[c] > 0) key_icon(f, px + kx + (i++) * 11, py + 6, c);
+    if (RUN.coins > 0) { draw_coin(f, px + cx, py + 5); gfx_text8(f, px + cx + 10, py + 5, coins, R_GOLD + 10, 1); }
 }
 
 /* screen tints: red when hurt or dying, gold for treasure; index 0 stays black for the OLED */
@@ -8767,6 +8809,13 @@ static void render_caster(Frame *f) {
     const Gear *g = &RUN.gear, *g0 = &G.inv0;
     gfx_text16(f, 14, 9, "THE CASTER", R_GOLD + 12, 1);
     gfx_text8(f, 14, 26, "A/D PAGE  TAB CLOSE", R_STONE + 9, 1);
+    {                                                              /* the Cursed Coins, for the shrine */
+        char cc[24];
+        snprintf(cc, sizeof cc, "%d CURSED COIN%s", RUN.coins, RUN.coins == 1 ? "" : "S");
+        int cw = gfx_text_width(cc, 1);
+        draw_coin(f, W - 10 - cw - 10, 12);
+        gfx_text8(f, W - 10 - cw, 12, cc, RUN.coins ? (uint8_t)(R_GOLD + 10) : (uint8_t)(R_STONE + 8), 1);
+    }
     char v[24], extra[16];
     int capped = 0;
     for (int st = 0; st < NSTAT; st++) {
@@ -9014,7 +9063,7 @@ static void render_toasts(Frame *f) {
         while (cut > 0 && a[cut] != ' ') cut--;
         if (cut > 0) { snprintf(b, sizeof b, "%s", a + cut + 1); a[cut] = 0; }
     }
-    const char *head = t->progress ? "PROGRESS" : "ACHIEVEMENT";
+    const char *head = t->spr == SP_CCOIN ? "FOR THE SHRINE" : t->progress ? "PROGRESS" : "ACHIEVEMENT";
     int tw = (int)strlen(head);
     if ((int)strlen(a) > tw) tw = (int)strlen(a);
     if ((int)strlen(b) > tw) tw = (int)strlen(b);
