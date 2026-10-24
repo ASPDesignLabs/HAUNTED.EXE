@@ -5275,9 +5275,9 @@ static void human_cast(float dt, int may) {
     float base = G.hand_base, h = base;
     if (G.pc_t >= 0.0f) {
         G.pc_t += dt;
-        float L = G.pc_len;
+        float L = G.pc_len, top = lerpf(rest, 1.0f, G.bar);       /* with the bar away the sleeve shows at rest: no second jump */
         if (!G.pc_fired && G.pc_t >= 0.35f * L) { G.pc_fired = 1; cast_spell(G.spell, aim_target()); G.calm = 0.0f; }
-        h = G.pc_t < 0.3f * L ? lerpf(base, 1.0f, G.pc_t / (0.3f * L)) : (G.pc_t < 0.7f * L ? 1.0f : lerpf(1.0f, base, (G.pc_t - 0.7f * L) / (0.3f * L)));
+        h = G.pc_t < 0.3f * L ? lerpf(base, top, G.pc_t / (0.3f * L)) : (G.pc_t < 0.7f * L ? top : lerpf(top, base, (G.pc_t - 0.7f * L) / (0.3f * L)));
         if (G.pc_t >= L) G.pc_t = -1.0f;
     }
     if (G.grab_t > 0.0f) { G.grab_t -= dt; h = fmaxf(h, base + (1.0f - base) * sinf(PI_F * clampf(1.0f - G.grab_t, 0.0f, 1.0f))); }
