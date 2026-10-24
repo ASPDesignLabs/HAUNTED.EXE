@@ -6,8 +6,9 @@ the pockets, and the altar's wisp to one secret and back for a price), tested in
 Backrooms (step 5) are built: the look, the tubes lit, failing and dead, things out of place, creatures
 caught in a loop, the glitch, the silence, echo and hum, and the visportal's gift. Severance (step 6)
 is built too: white halls and offices, the ward doors, the panels, the water cooler's drink, the
-creatures lit brighter, the muzak. The owner approved Blink's double, the shrine's art, the Backrooms
-and Severance as drawn; step 7 (coins, creatures in pockets, the autopilot in chains) is next.** The owner
+creatures lit brighter, the muzak. Step 7 is built: the coins, creatures in the pockets, the autopilot
+in chains. The owner approved Blink's double, the shrine's art, the Backrooms and Severance as drawn;
+step 8, the checks and the beta, is next.** The owner
 asked for the things below after 1.0.0b5, answered nine rounds of questions, and left the rest to
 defaults, marked *default* here so they can be changed. Nothing in this plan names the console's codes.
 
@@ -257,8 +258,15 @@ two states are approved.
    fifty souls), creatures drawn brighter, the muzak (an electric piano, a bass, a vibraphone, eight
    bars of major sevenths) over the hum. The creatures' extra strength and haste come with the
    creatures in pockets, in step 7.
-7. **Coins and challenge:** coins and the all-found coin, the stronger creatures in pockets, and the
-   autopilot in chains.
+7. **Coins and challenge** (built): a coin at each chain's end and one for every secret found, each
+   once a level whatever deaths come between; the creatures in pockets (the level's kinds, a rank up a
+   link past the first, the theme's boost; a quarter more of them in the Backrooms, 16 at most); the
+   autopilot in chains, by the rules above, within 150 s of chains a level *(default)*. In twelve
+   15-minute autopilot runs (six from level 4, six from level 13 with `CRAWL_GEAR=3`) it went into a
+   chain 12 times, came back out hurt most times, and reached the end twice, both in Severance; trying
+   80% in and 50% out instead of two thirds changed little, so the plan's rule stays. The pockets'
+   creatures are where the challenge is, for it as for a person. The desks stand in an office's corner,
+   off the lanes the autopilot walks.
 8. **Checks and the beta:** frames, eight-seed runs against 1.0.0b5, ASan, the README, the page,
    previews and release notes; 1.0.0b6 when the owner says.
 

@@ -36,9 +36,9 @@ Built so far (harness only): the hand fix (casting from rest while the bar is aw
 (step 2: Common to Exquisite, the nine Exquisite second effects, save version 5, the merchant's rune
 pedestal now another piece to wear), the Rune Shrine (step 3) and the secret areas (step 4: counts by
 set, chains of carved rooms, pockets, and the altar's wisp that goes to one secret and back for a price)
-and the Backrooms (step 5) and Severance (step 6), their art approved. Until
-Cursed Coins come (step 7) there are none to find, so in play runes come only from an old save, the
-console or the debug switches. Creatures come into pockets in step 7.
+and the Backrooms (step 5) and Severance (step 6), their art approved. Step 7 is
+built too: Cursed Coins (at a chain's end, and for every secret found), creatures in the pockets, and the
+autopilot going through chains. Step 8 (the checks, previews, docs and the beta) is next.
 
 ## Working with the owner
 
@@ -269,9 +269,23 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   or the chain's reward (for now a hoard). `carry_caster` copies the caster's spans of `G` across (keep
   `G`'s field order in mind when adding fields). What is picked up is remembered (`Item.gen`,
   `PK.taken`). The first time into a link is a secret found. Dying in a pocket throws you back to the
-  chain's room at full health (`pocket_return(1)`); sleepwalking takes the autopilot straight out. In a
-  pocket the exit wisp goes to the way back; no Wraith, no wakers. The debug build logs `POCKET ...`,
-  `EVENT pocket_in`, `pocket_out`, `pocket_thrown`.
+  chain's room at full health (`pocket_return(1)`) and the chain's creatures come back; sleepwalking takes
+  the autopilot straight out (`human_end`). In a pocket the exit wisp goes to the way back; no Wraith, no
+  wakers. The debug build logs `POCKET ...`, `EVENT pocket_in`, `pocket_out`, `pocket_thrown`.
+- **Pocket creatures** (step 7, end of `gen_pocket`). The level's own kinds (`random_type`, with their
+  escorts), away from the way in: about one per four blocks, a quarter more in the Backrooms, 16 at most;
+  each a rank higher for each link past the first, up to black; health and blow raised by
+  `theme_boost` (the Backrooms 1.25, Severance 1.3, whose also strike a fifth sooner: `m->cool` runs
+  faster in `update_mob`). `Mob.gen` and `PK.slain` keep the slain dead, as `PK.taken` does items. Their
+  kills go into the record, not the level's tally.
+- **The autopilot in chains** (`chain_goal`, ahead of `pick_goal`'s own; `use_spot`, `at_use`, `PS_USE`,
+  `pocket_go`). In the level, an open chained room's doorway while it has two thirds of its health,
+  before 180 s, and with time left of `CHAIN_TIME` (150 s a level in chains, `PK.auto_t`); each chain once
+  (`PK.auto_done`). In a pocket: treasure it has seen within 16 steps, then the visportal or cooler at
+  the end, else the way on; it turns back (`PK.auto_back`) under two thirds of its health, after
+  `CHAIN_TIME`, or with the gift taken. It stands on the lane beside the cell before a doorway, turns and
+  goes through. It now presses every secret it passes before 180 s, a third after. The debug build logs
+  `EVENT chain_use`, `chain_back` (hurt, time, done) and, every 3 s in a pocket, `CHAIN ...`.
 - **The Backrooms** (pockets on levels 1-10 of each descent; `G.ptheme` `PT_BACKROOMS`; docs/PLAN-b6.md
   step 5; built, the art approved; creatures in pockets come in step 7). `crawl_art_theme` swaps
   `R_FLOOR` (dark brown, mustard, pale yellow: carpet and wallpaper) and `R_CEIL` (off-white) on the way in

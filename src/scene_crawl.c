@@ -35,7 +35,7 @@
 
 enum { K_FLOOR, K_WALL, K_DOOR, K_PILLAR, K_PROP };   /* K_PROP: low and solid (a grave, a fire pit): walked round, seen and cast over */
 enum { TH_CORRIDOR, TH_OSSUARY, TH_CRYPT, TH_BRICK, TH_MOSS, TH_COUNT };
-enum { PS_MOVE, PS_TURN, PS_DOOR, PS_AIM, PS_CAST, PS_UNAIM, PS_HOLD, PS_EXIT, PS_SHOP, PS_PLAYER, PS_SETTLE, PS_PUSH, PS_ALTAR };
+enum { PS_MOVE, PS_TURN, PS_DOOR, PS_AIM, PS_CAST, PS_UNAIM, PS_HOLD, PS_EXIT, PS_SHOP, PS_PLAYER, PS_SETTLE, PS_PUSH, PS_ALTAR, PS_USE };
 enum { MOB_SKEL, MOB_GHOST, MOB_BAT, MOB_WSKULL, MOB_SHIELD, MOB_SPIDER,
        MOB_SHAMBLER, MOB_DROWNED, MOB_HOUND, MOB_WRAITH, MOB_HUNTER, MOB_GHOUL, MOB_KNIGHT, MOB_BROOD, MOB_LING, MOB_SAC,
        MOB_SHADE, MOB_IMP, MOB_DEACON, MOB_GARGOYLE };   /* kept in saves (the record): new kinds go at the end */
@@ -76,6 +76,7 @@ typedef struct {
                                                                       rises from, or the bones a deacon calls; how many it has raised */
     float alert, dmgk, lost;                                       /* how long it will go on hunting; its rank's weight of blow; how
                                                                       long since it saw the caster */
+    int gen;                                                       /* in a pocket: the order it was made in, 1 on, so the slain stay so */
 } Mob;
 /* What each kind of creature is (docs/PLAN-bestiary.md): its names, a line for the bestiary, its
  * pictures there (walking towards you, and from the side), the ramp its rank recolours (-1: off the
@@ -346,6 +347,7 @@ static struct {
     uint8_t named[NKINDS];                  /* the ranks of each kind the caption has named on this level */
     Secret secrets[MAXSECRETS]; int nsecrets, secrets_found, nlinks, links_found;   /* rooms behind cracked walls; every link of every chain */
     int slide, seek_secret; float slide_t;  /* the wall sliding back, and how far; a secret the autopilot means to press */
+    int use_x, use_y, use_kind;             /* the autopilot in a chain: a doorway or visportal it means to use (USE_*) */
     Wisp wisps[MAXWISPS];                   /* will-o'-wisps in the crypt: [0] summoned, [1] the altar's */
     int tally;                              /* the level-complete screen */
     double tally_t, clear_time;
@@ -409,7 +411,12 @@ static struct {
     uint8_t reached[MAXSECRETS];                                   /* the deepest link found in each chain */
     uint32_t taken[MAXSECRETS][POCKET_LINKS];                      /* the things picked up in each pocket, a bit each */
     uint8_t vis_used[MAXSECRETS];                                  /* each chain's visportal, once it has given */
+    uint32_t slain[MAXSECRETS][POCKET_LINKS];                      /* the creatures killed in each pocket, a bit each */
+    uint8_t auto_done[MAXSECRETS];                                 /* the autopilot: the chains it has been into, */
+    int auto_back; float auto_t;                                   /* whether it is on its way out, and its time in them */
 } PK;
+/* the pockets' creatures: a quarter stronger in the Backrooms, 30% in Severance (whose also strike sooner) */
+static float theme_boost(void) { return G.ptheme == PT_BACKROOMS ? 1.25f : G.ptheme == PT_SEVERANCE ? 1.3f : 1.0f; }
 
 static uint8_t ramp_at(int ramp, int k) { return (uint8_t)(ramp + clampi(k, 0, ramp == R_GOLD ? 12 : 15)); }   /* the gold ramp is short */
 static uint8_t qual_text(int q) { return q == Q_COMMON ? (uint8_t)C_WHITE : ramp_at(QUAL_RAMP[q], 13); }   /* white, then green, blue, purple, gold */
@@ -417,8 +424,9 @@ static int rnd(int n) { return (int)(rng_next(&G.rs) % (uint32_t)n); }
 static float decay(void) { return crawl_decay(G.level); }        /* rot and ruin: 0 as a set begins, 1 on its last level */
 static float depth(void) { return crawl_depth(G.level); }         /* how far down: 0 in the Crypts, 1 from the Deep on */
 /* a creature's blow: a little more each level, more by its rank, less after each death on the level */
+static float theme_boost(void);
 static float mob_damage(const Mob *m) {
-    float d = (4.0f + 0.8f * (float)G.level) * m->dmgk;
+    float d = (4.0f + 0.8f * (float)G.level) * m->dmgk * theme_boost();
     int r = G.retries < 3 ? G.retries : 3;
     return d * (1.0f - 0.15f * (float)r);
 }
@@ -2144,7 +2152,8 @@ static void add_pool(float x, float y);
 static void wraith_back(Mob *m);
 static void kill_mob(Mob *m) {
     m->state = MS_DIE; m->t = 0.0f;
-    if (!KIND_IS(m, KF_UNCOUNTED)) { G.kills++; rec_kill(m); }
+    if (!KIND_IS(m, KF_UNCOUNTED)) { if (!PK.depth) G.kills++; rec_kill(m); }   /* a pocket's are in the record, not the level's tally */
+    if (PK.depth && m->gen > 0 && m->gen <= 32) PK.slain[PK.chain][clampi(PK.depth, 0, POCKET_LINKS - 1)] |= 1u << (m->gen - 1);
     sfx_at(KINDS[m->type].sfx_die, m->x, m->y, 1.0f);
     if (m->type == MOB_SPIDER && m->z > 0.3f) m->sub = 9;           /* it falls from the web */
     if (m->type == MOB_DROWNED) { add_pool(m->x, m->y); sfx_at(SFX_EXPLODE, m->x, m->y, 0.6f); }   /* it bursts */
@@ -2645,6 +2654,7 @@ static int blocks_flight(int x, int y) { return cell(x, y)->kind != K_PROP && bl
 
 static void update_mob(Mob *m, float dt) {
     if (m->state == MS_DIE && m->sub == 77) { if ((m->t += dt) >= 0.9f) m->alive = 0; return; }   /* gone into the BFS9000 */
+    if (G.ptheme == PT_SEVERANCE && m->cool > 0.0f) m->cool -= dt * 0.25f;   /* Severance's strike and throw a fifth sooner */
     if (m->type == MOB_GHOST) { update_ghost(m, dt); return; }
     if (m->type == MOB_WSKULL) { update_wskull(m, dt); return; }
     if (m->type == MOB_SPIDER) { update_spider(m, dt); return; }
@@ -3615,8 +3625,75 @@ static int altar_wanted(void) {
     return wants_anoint() || wants_wake() || wants_send() || wants_bless();
 }
 
+/* The autopilot in a chain (docs/PLAN-b6.md): it goes through an open chained room's doorway while it
+ * has two thirds of its health and before 180 s, and in the pockets takes the treasure it sees near,
+ * then the visportal's gift (or the cooler's drink) at the end, or the way on; it turns back when its
+ * health falls under two thirds, when it has the gift, or after CHAIN_TIME in a level's chains. It
+ * stands on the lane beside the cell before a doorway or the visportal and turns to use it (PS_USE). */
+enum { USE_NONE, USE_DOOR, USE_VIS };
+#define CHAIN_TIME 150.0f
+static int pocket_go(int x, int y);
+static int visportal_use(void);
+static int use_spot(int tx, int ty, int *sx, int *sy) {
+    for (int d = 0; d < 4; d++) {
+        int fx = tx + DX[d], fy = ty + DY[d];
+        if (fx < 1 || fy < 1 || fx >= MAPN - 1 || fy >= MAPN - 1 || !passable(fx, fy)) continue;
+        if (apass(fx, fy)) { *sx = fx; *sy = fy; return 1; }
+        for (int e = 0; e < 4; e++) if (apass(fx + DX[e], fy + DY[e])) { *sx = fx + DX[e]; *sy = fy + DY[e]; return 1; }
+    }
+    return 0;
+}
+static int chain_goal(int x, int y, int *gx, int *gy) {
+    if (G.player || G.shop) return 0;
+    int sx, sy;
+    G.use_kind = USE_NONE;
+    bfs_from(x, y);
+    if (!PK.depth) {
+        if (G.leaving || G.level_t > 180.0 || G.hp * 3 < G.max_hp * 2 || PK.auto_t >= CHAIN_TIME) return 0;
+        int best = -1, bd = 41;
+        for (int i = 0; i < G.nsecrets; i++) {
+            const Secret *sc = &G.secrets[i];
+            if (sc->state != 2 || sc->door_x < 0 || PK.auto_done[i] || !use_spot(sc->door_x, sc->door_y, &sx, &sy)) continue;
+            int d = bfs_dist[sy][sx];
+            if (d >= 0 && d < bd) { bd = d; best = i; *gx = sx; *gy = sy; }
+        }
+        if (best < 0) return 0;
+        G.use_x = G.secrets[best].door_x; G.use_y = G.secrets[best].door_y; G.use_kind = USE_DOOR;
+        return 1;
+    }
+    if (!PK.auto_back && (G.hp * 3 < G.max_hp * 2 || PK.auto_t >= CHAIN_TIME || (G.vis_x >= 0 && PK.vis_used[PK.chain]))) {
+        PK.auto_back = 1;
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT chain_back %s link %d hp=%d/%d chain_t=%.1f t=%.2f\n", G.hp * 3 < G.max_hp * 2 ? "hurt" : PK.auto_t >= CHAIN_TIME ? "time" : "done",
+                PK.depth, G.hp, G.max_hp, PK.auto_t, G.t);
+#endif
+    }
+    int tx = PK.back_x, ty = PK.back_y, kind = USE_DOOR;
+    if (!PK.auto_back) {
+        int bi = -1, bd = 17;                                      /* treasure it has seen, close by */
+        for (int i = 0; i < G.nitems; i++) {
+            const Item *it = &G.items[i];
+            if (!it->alive || !it->seen || !worth_taking(it) || (it->lx == x && it->ly == y)) continue;
+            int d = bfs_dist[it->ly][it->lx];
+            if (d >= 0 && d < bd) { bd = d; bi = i; }
+        }
+        if (bi >= 0) { *gx = G.items[bi].lx; *gy = G.items[bi].ly; return 1; }
+        if (G.vis_x >= 0) { tx = G.vis_x; ty = G.vis_y; kind = USE_VIS; }
+        else if (PK.on_x >= 0) { tx = PK.on_x; ty = PK.on_y; }
+    }
+#ifdef CRAWL_DEBUG
+    { static double next; if (G.t >= next) { next = G.t + 3.0; int ok = use_spot(tx, ty, &sx, &sy);
+      fprintf(stderr, "CHAIN at (%d,%d) to (%d,%d) kind %d spot %d (%d,%d) dist %d back %d t=%.1f\n", x, y, tx, ty, kind, ok, sx, sy, ok ? bfs_dist[sy][sx] : -9, PK.auto_back, G.t); } }
+#endif
+    if (!use_spot(tx, ty, &sx, &sy) || bfs_dist[sy][sx] < 0) return 0;
+    G.use_x = tx; G.use_y = ty; G.use_kind = kind;
+    *gx = sx; *gy = sy;
+    return 1;
+}
+
 /* something worth walking to from (x,y): a vault door once its key is held, else treasure it has seen */
 static int pick_goal(int x, int y, int *gx, int *gy) {
+    if (chain_goal(x, y, gx, gy)) return 1;
     int saving = RUN.goal > RUN.treasure;
     if (G.leaving && G.exit_fx >= 0) {                              /* time to go: the exit, by way of key and vault if need be */
         if (G.exit_in_vault >= 0 && key_goal(G.exit_in_vault, 0, gx, gy)) return 1;
@@ -3741,17 +3818,26 @@ static int arrive(void) {
     for (int y = G.cy - 1; y <= G.cy + 1; y++)                     /* the lanes beside it are seen in passing */
         for (int x = G.cx - 1; x <= G.cx + 1; x++)
             if (apass(x, y) && G.map[y][x].visits == 0) { G.map[y][x].visits = 1; G.explored++; }
-    for (int i = 0; i < G.nsecrets && G.seek_secret < 0 && !G.leaving; i++) {   /* the cracks catch its eye, a third of the time */
-        Secret *sc = &G.secrets[i];
+    for (int i = 0; i < G.nsecrets && G.seek_secret < 0 && !G.leaving; i++) {   /* the cracks catch its eye: every one while it */
+        Secret *sc = &G.secrets[i];                                /* has time, a third of them after */
         if (sc->state || sc->rolled || abs(G.cx - sc->fx) + abs(G.cy - sc->fy) > 1) continue;
         sc->rolled = 1;
-        if (rndf() < 0.35f) G.seek_secret = i;
+        if (G.level_t < 180.0 || rndf() < 0.35f) G.seek_secret = i;
     }
     if (G.seek_secret >= 0) {                                      /* one step across to stand before it */
         const Secret *sc = &G.secrets[G.seek_secret];
         for (int d = 0; d < 4; d++) if (G.cx + DX[d] == sc->fx && G.cy + DY[d] == sc->fy) G.next_h = d;
     }
     return 0;
+}
+
+/* at the lane beside a doorway or the visportal it means to use: face it, and go through or ask */
+static int at_use(void) {
+    int sx, sy;
+    if (G.use_kind == USE_NONE || G.player || !use_spot(G.use_x, G.use_y, &sx, &sy) || G.cx != sx || G.cy != sy) return 0;
+    begin_turn(atan2f(G.use_y + 0.5f - G.py, G.use_x + 0.5f - G.px));
+    G.state = PS_USE; G.spd = 0.0f; G.fired = 0; G.u = 1.0f;
+    return 1;
 }
 
 /* beside the altar with something to ask of it: face it, and stop a moment */
@@ -3885,7 +3971,6 @@ static void aim_at(int t) {
 
 static void pocket_return(int died);
 static void update_player(float dt) {
-    if (PK.depth) { pocket_return(0); return; }                   /* sleepwalking in a pocket: the feet find the way back out */
     G.cooldown -= dt;
     G.calm += dt;
     switch (G.state) {
@@ -3914,7 +3999,7 @@ static void update_player(float dt) {
             break;
         }
         if (G.u >= 1.0f) {
-            if (arrive() || at_secret() || at_altar()) break;
+            if (arrive() || at_secret() || at_altar() || at_use()) break;
             if (G.next_h != G.h) {
                 begin_turn(heading_angle(G.next_h));
                 G.state = PS_TURN;
@@ -3930,12 +4015,12 @@ static void update_player(float dt) {
         G.st += dt;
         if (G.u < 1.0f) {                                         /* still finishing the step into the corner */
             advance(fmaxf(G.spd, CRUISE * 0.4f) * dt);
-            if (G.u >= 1.0f && (arrive() || at_secret() || at_altar())) break;
+            if (G.u >= 1.0f && (arrive() || at_secret() || at_altar() || at_use())) break;
         } else G.spd *= 0.85f;
         float k = smoothstepf(0.0f, 1.0f, G.st / G.adur);
         G.ang = lerpf(G.ang0, G.ang1, k);
         if (G.st >= G.adur) {
-            if (G.u < 1.0f) { advance(1.0f - G.u); if (arrive() || at_secret() || at_altar()) break; }
+            if (G.u < 1.0f) { advance(1.0f - G.u); if (arrive() || at_secret() || at_altar() || at_use()) break; }
             G.ang = wrap_pi(G.ang1);
             G.h = G.next_h;
             G.spd = CRUISE * 0.6f;
@@ -4019,6 +4104,29 @@ static void update_player(float dt) {
             G.ang = wrap_pi(G.ang1); G.hand = 0.0f;
             G.h = G.next_h = G.secrets[G.seek_secret].d; G.seek_secret = -1;
             G.state = PS_MOVE; start_move();
+        }
+        break;
+    }
+    case PS_USE: {                                                 /* a doorway in a chain, or the visportal's gift */
+        G.st += dt;
+        G.ang = lerpf(G.ang0, G.ang1, smoothstepf(0.0f, 1.0f, fminf(1.0f, G.st / G.adur)));
+        float k = G.st - G.adur;
+        G.hand = G.use_kind == USE_VIS ? (k < 0.0f ? 0.0f : (k < 0.25f ? k / 0.25f * 0.7f : (k < 0.9f ? 0.7f : fmaxf(0.0f, 0.7f - (k - 0.9f) * 2.5f)))) : 0.0f;
+        if (k >= 0.3f && !G.fired) {
+            G.fired = 1;
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT chain_use %s (%d,%d) link %d t=%.2f\n", G.use_kind == USE_DOOR ? "door" : "vis", G.use_x, G.use_y, PK.depth, G.t);
+#endif
+            if (G.use_kind == USE_DOOR) {                          /* through it: a new place, and G with it */
+                if (!PK.depth) for (int i = 0; i < G.nsecrets; i++) if (G.secrets[i].door_x == G.use_x && G.secrets[i].door_y == G.use_y) PK.auto_done[i] = 1;
+                if (pocket_go(G.use_x, G.use_y)) break;
+            } else { visportal_use(); PK.auto_back = 1; }
+        }
+        if (k >= (G.use_kind == USE_VIS ? 1.2f : 0.5f)) {
+            G.ang = wrap_pi(G.ang1); G.hand = 0.0f; G.use_kind = USE_NONE;
+            G.next_h = decide(G.cx, G.cy, G.h);
+            begin_turn(heading_angle(G.next_h));
+            G.state = PS_TURN;
         }
         break;
     }
@@ -4515,9 +4623,10 @@ static void gen_pocket(const Secret *sc, int link) {
         if (i == 0 && j == j0) continue;
         POCKET_ITEM(BX(i) + 1, BX(j) + 1, LOOT[rnd(5)]);
     }
-    for (int j = 0; j < n && sev; j++)                             /* in the offices, four desks, where nothing lies already */
-        for (int i = 0; i < n; i++) {
-            int x = BX(i) + 1, y = BX(j) + 1, clear = office[j][i] && !(i == 0 && j == j0) && j * 11 + i != far;
+    for (int j = 0; j < n && sev; j++)                             /* in the offices, four desks in a corner (off the lanes), where */
+        for (int i = 0; i < n; i++) {                              /* nothing lies already */
+            uint32_t h = hash2(i, j) ^ sc->seed;
+            int x = BX(i) + (int)(h & 1) * 2, y = BX(j) + (int)(h >> 1 & 1) * 2, clear = office[j][i] && !(i == 0 && j == j0) && j * 11 + i != far;
             for (int k = 0; k < G.nitems && clear; k++) clear = !(G.items[k].lx == x && G.items[k].ly == y);
             if (clear) solid_prop(x, y, SP_DESKS, 1, K_PROP);
         }
@@ -4534,6 +4643,24 @@ static void gen_pocket(const Secret *sc, int link) {
             int i = rnd(n), j = rnd(n), w = rnd(5);
             if ((i == 0 && j == j0) || G.level < LOOPER[w][1]) continue;
             add_deco_ex(BX(i) + 1.5f, BX(j) + 1.5f, LOOPER[w][0], 2, DF_LOOP | LOOPER[w][2]);
+        }
+    }
+    /* its creatures: the level's own kinds, away from the way in, a rank higher for each link past the
+     * first (up to black), a few more in the Backrooms; the slain stay slain until you die in the chain */
+    uint32_t slain = PK.slain[PK.chain][clampi(link, 0, POCKET_LINKS - 1)];
+    int want = clampi((1 + n * n / 4) * (back ? 5 : 4) / 4, 2, 16), mg = 0;
+    for (int k = 0, tries = 0; k < want && tries < 200; tries++) {
+        int i = rnd(n), j = rnd(n), x = BX(i) + rnd(3), y = BX(j) + rnd(3), type = random_type();
+        if (i + abs(j - j0) < 2 || G.map[y][x].kind != K_FLOOR || occupied(x, y, NULL)) continue;
+        spawn_wanderer_type(x, y, type);
+        k++;
+        for (int q = 0; q < MAXMOBS; q++) {
+            Mob *m = &G.mobs[q];
+            if (!m->alive || m->gen) continue;
+            m->gen = ++mg;
+            if (KINDS[m->type].family >= 0) set_rank(m, imin(m->rank + link - 1, imin(RK_V, KINDS[m->type].top)));
+            m->hp = m->maxhp = m->maxhp * theme_boost();
+            if (mg <= 32 && (slain >> (mg - 1) & 1)) { m->alive = 0; if (!KIND_IS(m, KF_UNCOUNTED)) G.kills_total--; }
         }
     }
     #undef POCKET_ITEM
@@ -4573,7 +4700,7 @@ static void pocket_build(int link, int from_deeper) {
     gen_pocket(&G_LEVEL.secrets[PK.chain], link);
     crawl_art_theme(G.ptheme, G.level);
     snd_set_room(G.ptheme == PT_BACKROOMS ? 1 : G.ptheme == PT_SEVERANCE ? 2 : 0);   /* no music, a hum, an echo; Severance's muzak */
-    PK.depth = link; PK.since = 0.0f;
+    PK.depth = link; PK.since = 0.0f; G.use_kind = 0;
     if (from_deeper) stand_at_door(PK.on_x, PK.on_y); else stand_at_door(PK.back_x, PK.back_y);
     G.map[G.cy][G.cx].visits = 1; G.explored = 1;
     G.level_t = 1.0;                                               /* the pocket's own clock; the hand is free at once */
@@ -4595,12 +4722,13 @@ static void pocket_return(int died) {
     carry_caster(&G_KEEP);
     crawl_art_theme(PT_NONE, G.level);
     snd_set_room(0);
-    PK.depth = 0; PK.since = 0.0f;
+    PK.depth = 0; PK.since = 0.0f; PK.auto_back = 0; G.use_kind = 0;
     stand_at_door(sc->door_x, sc->door_y);
     G.camz = 0.5f; G.spd = 0.0f;
     if (died) {                                                    /* thrown out, whole; the pocket behind resets */
         G.hp = G.max_hp = gear_max_hp(&RUN.gear);
         G.poison_t = G.slow_t = 0.0f; G.hurt = 0.0f; G.face_t = 0.0f;
+        memset(PK.slain[PK.chain], 0, sizeof PK.slain[PK.chain]);   /* and the chain behind you is as it was */
         say("THROWN BACK OUT");
 #ifdef CRAWL_DEBUG
         fprintf(stderr, "EVENT pocket_thrown chain %d t=%.2f\n", PK.chain, G.t);
@@ -4617,6 +4745,9 @@ static void pocket_return(int died) {
 /* walked into a doorway (secret 3) at (x, y): which way it goes */
 static int pocket_door(int x, int y) {
     if (abs(x - G.cx) + abs(y - G.cy) != 1) return 0;
+    return pocket_go(x, y);
+}
+static int pocket_go(int x, int y) {
     if (!PK.depth) {
         for (int i = 0; i < G.nsecrets; i++)
             if (G.secrets[i].door_x == x && G.secrets[i].door_y == y && G.secrets[i].state == 2) {
@@ -5371,6 +5502,7 @@ static void crawl_update(double dt) {
         }
     }
     PK.since += fdt;
+    if (PK.depth && !G.player) PK.auto_t += fdt;                    /* the autopilot's time in the level's chains */
     float fin = fminf(smoothstepf(0.0f, 1.2f, (float)G.level_t), smoothstepf(0.0f, 0.6f, PK.since));   /* and through a doorway */
     if (G.exiting) fout = 1.0f - smoothstepf(1.6f, 2.4f, G.exit_t);  /* into the light */
     G.fade = fin * fout;
@@ -6330,6 +6462,7 @@ static void human_end(void) {
         return;
     }
     if (G.exiting || G.tally || G.dead) return;
+    if (PK.depth) { pocket_return(0); return; }                    /* sleepwalking in a pocket: the feet find the way back out */
     G.cx = G.tx = (int)G.px; G.cy = G.ty = (int)G.py;
     if (!apass(G.cx, G.cy)) {                                      /* onto the nearest lane */
         int bd = 99, bx = G.cx, by = G.cy;
