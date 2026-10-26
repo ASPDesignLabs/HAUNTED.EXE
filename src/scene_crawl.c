@@ -445,11 +445,14 @@ typedef struct {
 } Stone;
 
 /* The run: what carries from level to level, through death and across scene switches */
+#define COMP_MAX 12                         /* the Compendium keeps so many of each kind at each quality */
 #define SHRINE_SLOTS 9
 #define SHRINE_X 15.5f
 #define SHRINE_Y 17.5f                      /* the Rune Shrine, in the merchant's room against the south wall */
 #define TOTEM_X 4.5f
 #define TOTEM_Y 12.5f                       /* the Hexed Totem, in the back room's corner */
+#define LECTERN_X 6
+#define LECTERN_Y 15                        /* the Corpus Compendium, in the back room's middle */
 #define PORTAL_X 16
 #define PORTAL_Y 27                         /* the Accursed Portal, in the grave plot's far wall */
 static const int8_t STONE_AT[10][2] = { { 20, 22 }, { 18, 22 }, { 16, 22 }, { 14, 22 }, { 12, 22 },   /* the plot's stones, */
@@ -479,6 +482,9 @@ static struct {
                                                death), and how many times its page has been written */
     Stone stones[STONES]; int nstones;      /* the grave plot, newest first */
     int peds;                               /* the merchant's pedestals, two to seven, the rest bought from her */
+    Piece comp[NIK][NQUAL][COMP_MAX];       /* the Corpus Compendium: each piece as first worn, by kind and quality, */
+    uint8_t ncomp[NIK][NQUAL];
+    int8_t comp_atk[NATK];                  /* and each spell at the highest tier learnt (0: none) */
 } RUN;
 
 /* The caster's boss abilities (docs/PLAN-b7.md, section 8): one a boss, unlocked at the Hexed Totem with a
@@ -624,6 +630,8 @@ static struct {
     char sh_note[80];
     int tot_look, tot_arm, tot_col;         /* the Hexed Totem: looked at; a sale awaiting a second Enter; raise (0) or sell (1) */
     int por_look;                           /* the Accursed Portal, looked at */
+    int comp_look, comp_page, comp_arm;     /* the Corpus Compendium: looked at; its page; a purchase awaiting a second Enter */
+    int comp_tried;                         /* the autopilot has looked in it this visit */
     int mer_look;                           /* the merchant herself, close enough for E */
     int stone_look, stone_sel;              /* a stone in the plot looked at (-1 none); the one whose page is open */
 
@@ -689,7 +697,7 @@ enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword plant
 static float zbuf[W];
 enum { MM_SIGN, MM_PED, MM_PAT, MM_LEAVE, NMM };                   /* the merchant's menu */
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 
 /* pockets (see the pockets' code below): the level as it waits, and where in a chain you are */
@@ -7352,9 +7360,11 @@ static int meet_creature(int k) {
 static int con_update(float dt);
 static void challenge_begin(int b);
 static void update_mark(float dt);
+static void comp_note(int level);
 static void crawl_update(double dt) {
     float fdt = (float)dt;
     if (con_update(fdt)) return;                                   /* the console is down: the crypt waits, the music plays */
+    if (RUN.active) comp_note(G.level);                            /* what is worn and known goes into the Compendium */
     G.msg_t = fmaxf(0.0f, G.msg_t - fdt); G.hint_t = fmaxf(0.0f, G.hint_t - fdt); G.knock_t = fmaxf(0.0f, G.knock_t - fdt);
     G.ui_t += fdt;
     update_toasts(fdt);
@@ -7606,6 +7616,8 @@ static void gen_shop(void) {
     solid_prop((int)TOTEM_X, (int)TOTEM_Y, SP_HEXTOTEM, 1, K_PILLAR);   /* the Hexed Totem, in its corner */
     add_deco(TOTEM_X + 1.05f, TOTEM_Y - 0.1f, SP_CANDLES); light_static(TOTEM_X + 1.0f, TOTEM_Y + 0.2f, 1.0f, 3.6f);   /* candles at its foot */
     G.map[18][6].tex = T_TORCH0; light_static(6.5f, 17.92f, 1.2f, 4.4f);
+    solid_prop(LECTERN_X, LECTERN_Y, SP_LECTERN, 1, K_PROP);        /* the Corpus Compendium, open on its lectern */
+    light_static(LECTERN_X + 0.5f, LECTERN_Y + 0.4f, 0.8f, 3.0f);
     for (int y = 20; y <= 26; y++) for (int x = 11; x <= 21; x++) carve(x, y, 3, TH_CRYPT);   /* the grave plot, through an arch past the shrine */
     carve(19, 18, 3, TH_CRYPT); carve(19, 19, 3, TH_CRYPT);
     G.rooms[G.nrooms++] = (Room){ 11, 20, 11, 7, 3, TH_CRYPT };
@@ -7707,7 +7719,7 @@ static void begin_shop(void) {
         int p = h->kind == GK_ATK ? 0 : imin(2, G.ped_n - 1);
         G.offers[p] = *h; G.offer_back[p] = 1;
     }
-    G.shop_left = gear_shop_purchases(G.level); G.shop_confirm = G.shop_letgo = G.shop_held = -1;
+    G.shop_left = gear_shop_purchases(G.level); G.shop_confirm = G.shop_letgo = G.shop_held = -1; G.comp_tried = 0;
     G.sh_look = G.sh_takes = G.sh_pulls = G.sh_nq = G.sh_busy = G.sh_auto = G.sh_fav = 0; G.sh_mode = 0; G.sh_arm = -1;
     G.sh_qt = G.sh_glow = G.sh_note_t = 0.0f; memset(G.sh_flash, 0, sizeof G.sh_flash);
     G.shop_step = SH_GREET; G.shop_t = 0.0; G.shop_pick = -1; G.shop_bought = 0; G.shop_look = -1;
@@ -8085,8 +8097,10 @@ static void challenge_begin(int b) {
 static void shop_human(float dt);
 static void update_ui(void);
 
+static void comp_auto(void);
 static void shop_after(void) {                                     /* the wares done with: the shrine, if it has business there */
     G.shop_t = 0.0;
+    if (!G.comp_tried) { G.comp_tried = 1; comp_auto(); }          /* and the Compendium, once */
     if (shrine_errand()) { G.shop_step = SH_SHRINE_GO; G.sh_auto = 0; shop_walk(SHRINE_X, SHRINE_Y - 1.7f, 1.6f); }
     else { G.shop_step = SH_THANK; shop_turn(face_of(CAT_X, CAT_Y), 0.7f); }
 }
@@ -8475,6 +8489,7 @@ static void open_ui(int which) {
         for (int i = 0; i < n; i++) if (r[i].run == crawl_run(G.level)) G.ui_sel = i;
         snd_sfx_ex(SFX_WHISPER, 0.7f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.4f, 0.5f);
     }
+    else if (which == UI_COMP) { G.ui_sel = 0; G.comp_arm = -1; G.sh_note_t = 0.0f; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.4f, 0.5f); }
     else if (which == UI_STONE) { G.ui_sel = 0; snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f); snd_sfx_ex(SFX_WIND, 0.4f, 0.5f); }
     else if (which == UI_MERCHANT) {                               /* on the ledger */
         G.ui_sel = MM_SIGN; sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.8f); G.cat_trill = 0.4f; G.cat_slow = 1.0f;
@@ -8630,15 +8645,17 @@ static void shop_human(float dt) {
     G.sh_look = G.shop_look < 0 && sd < 3.0f && fabsf(wrap_pi(atan2f(SHRINE_Y - G.py, SHRINE_X - G.px) - G.ang)) < 0.3f + 0.3f / sd;
     float td = hypotf(TOTEM_X - G.px, TOTEM_Y - G.py);
     G.tot_look = G.shop_look < 0 && !G.sh_look && td < 3.6f && fabsf(wrap_pi(atan2f(TOTEM_Y - G.py, TOTEM_X - G.px) - G.ang)) < 0.3f + 0.3f / td;
+    float cdx = LECTERN_X + 0.5f - G.px, cdy = LECTERN_Y + 0.5f - G.py, cd = hypotf(cdx, cdy);
+    G.comp_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && cd < 2.6f && fabsf(wrap_pi(atan2f(cdy, cdx) - G.ang)) < 0.3f + 0.35f / cd;
     float pdx = PORTAL_X + 0.5f - G.px, pdy = PORTAL_Y + 0.1f - G.py, pd = hypotf(pdx, pdy);
-    G.por_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && pd < 3.4f && fabsf(wrap_pi(atan2f(pdy, pdx) - G.ang)) < 0.3f + 0.35f / pd;
+    G.por_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && pd < 3.4f && fabsf(wrap_pi(atan2f(pdy, pdx) - G.ang)) < 0.3f + 0.35f / pd;
     G.stone_look = -1;
-    for (int k = 0; k < RUN.nstones && G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.por_look; k++) {   /* a stone in the plot */
+    for (int k = 0; k < RUN.nstones && G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.por_look; k++) {   /* a stone in the plot */
         float sx = STONE_AT[k][0] + 0.5f, sy = STONE_AT[k][1] + 0.5f, d = hypotf(sx - G.px, sy - G.py);
         if (d < 2.4f && fabsf(wrap_pi(atan2f(sy - G.py, sx - G.px) - G.ang)) < 0.25f + 0.3f / d
             && (G.stone_look < 0 || d < hypotf(STONE_AT[G.stone_look][0] + 0.5f - G.px, STONE_AT[G.stone_look][1] + 0.5f - G.py))) G.stone_look = k;
     }
-    G.mer_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.por_look && G.stone_look < 0 && hypotf(G.px - CAT_X, G.py - CAT_Y) < 1.8f;
+    G.mer_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.por_look && G.stone_look < 0 && hypotf(G.px - CAT_X, G.py - CAT_Y) < 1.8f;
 #ifdef CRAWL_DEBUG
     if (G.shop_look != was) fprintf(stderr, "EVENT shop_look %d t=%.2f at (%.2f,%.2f) ang %.3f\n", G.shop_look, G.t, G.px, G.py, G.ang);
 #endif
@@ -8660,6 +8677,7 @@ static void shop_human(float dt) {
             else { shop_purchase(i); G.grab_t = 1.0f; }
         } else if (G.sh_look) { open_ui(UI_SHRINE); G.click_spent = IN.hit[KEY_MOUSE1]; G.grab_t = 1.0f; }
         else if (G.tot_look) { open_ui(UI_TOTEM); G.click_spent = IN.hit[KEY_MOUSE1]; G.grab_t = 1.0f; }
+        else if (G.comp_look) { open_ui(UI_COMP); G.click_spent = IN.hit[KEY_MOUSE1]; }
         else if (G.por_look) { open_ui(UI_PORTAL); G.click_spent = IN.hit[KEY_MOUSE1]; }
         else if (G.stone_look >= 0) { G.stone_sel = G.stone_look; open_ui(UI_STONE); G.click_spent = IN.hit[KEY_MOUSE1]; }
         else if (!human_use() && G.mer_look) { open_ui(UI_MERCHANT); G.click_spent = IN.hit[KEY_MOUSE1]; }   /* her menu: the ledger, a pat */
@@ -9219,6 +9237,7 @@ static void crawl_control(int what) {
     if (getenv("CRAWL_TPPORTAL") && G.shop) { G.px = PORTAL_X + 0.5f; G.py = PORTAL_Y - 1.4f; G.ang = PI_F * 0.5f; G.cx = PORTAL_X; G.cy = PORTAL_Y - 2; }   /* before the Portal */
     if (getenv("CRAWL_TPSTONE") && G.shop) { G.px = STONE_AT[0][0] + 0.5f; G.py = STONE_AT[0][1] + 1.6f; G.ang = -PI_F * 0.5f; G.cx = STONE_AT[0][0]; G.cy = STONE_AT[0][1] + 1; }   /* before the newest stone */
     if (getenv("CRAWL_TPCAT") && G.shop) { G.px = CAT_X + 1.3f; G.py = CAT_Y + 0.4f; G.ang = face_of(CAT_X, CAT_Y); G.cx = (int)G.px; G.cy = (int)G.py; }   /* before the merchant */
+    if (getenv("CRAWL_TPLECTERN") && G.shop) { G.px = LECTERN_X + 0.5f; G.py = LECTERN_Y - 1.6f; G.ang = PI_F * 0.5f; G.cx = LECTERN_X; G.cy = LECTERN_Y - 2; }   /* before the Compendium */
     if (getenv("CRAWL_TPTOTEM") && G.shop) { G.px = 6.9f; G.py = 14.6f; G.ang = face_of(TOTEM_X, TOTEM_Y); G.cx = 6; G.cy = 14; }   /* before the Totem */
     if (getenv("CRAWL_TPBOSS") && !G.shop && G.boss >= 0 && G.bstart_x >= 0) {   /* in the boss's antechamber, facing the arch */
         G.px = G.bstart_x + 0.5f; G.py = G.bstart_y + 0.5f; G.ang = 0.0f; human_begin();
@@ -9420,15 +9439,18 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
  * takes, the ware held this visit (+1), then each pedestal's ware, gone or not and back or not.
  * LG_STONES: the grave plot, a count, then each stone (STONE_BYTES): when (u64), the level (u16), what
  * took it, gold, souls (u32 each), coins (u16), the spells' tiers and runes' qualities, the worn pieces,
- * the bag's size and quality and its pieces. LG_PEDS: the pedestals bought (a byte). */
+ * the bag's size and quality and its pieces. LG_PEDS: the pedestals bought (a byte). LG_COMP: the Corpus
+ * Compendium, a count for each kind (bracer to bag) and quality, the pieces in that order, then each
+ * spell's tier. */
 #define LEDGER_MAGIC 0x3147444Cu            /* "LDG1" */
 #define PROGRESS_MAGIC 0x31505648u          /* "HVP1": a progress that names the page to start from */
-enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS };
+enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP };
 enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
 #define LG_PAGE_BYTES 17
 #define LG_VISIT_BYTES (8 + NPED * (2 + OFFER_BYTES))
 #define STONE_BYTES (8 + 2 + 3 + 4 + 4 + 2 + NATK + NDEF + NSLOT * PIECE_BYTES + 2 + BAG_MAX * PIECE_BYTES)
-#define PAGE_BYTES (save_end(6) + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 1)   /* the most a page takes so far */
+#define COMP_BYTES ((NIK - 1) * NQUAL * (1 + COMP_MAX * PIECE_BYTES) + NATK)   /* at the most */
+#define PAGE_BYTES (save_end(6) + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 3 + COMP_BYTES + 1)   /* the most a page takes so far */
 static void stone_pack(uint8_t *p, const Stone *st) {
     uint64_t w = (uint64_t)st->when;
     put32(p, (int32_t)(uint32_t)(w & 0xffffffffu)); put32(p + 4, (int32_t)(uint32_t)(w >> 32)); put16(p + 8, st->level);
@@ -9494,6 +9516,12 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     c = section_begin(p, LG_PEDS);
     c[0] = (uint8_t)clampi(RUN.peds, 2, NPED);
     p = section_end(c, c + 1);
+    c = section_begin(p, LG_COMP);
+    uint8_t *q = c;
+    for (int k = 1; k < NIK; k++) for (int ql = 0; ql < NQUAL; ql++) *q++ = RUN.ncomp[k][ql];
+    for (int k = 1; k < NIK; k++) for (int ql = 0; ql < NQUAL; ql++) for (int i = 0; i < RUN.ncomp[k][ql]; i++, q += PIECE_BYTES) piece_pack(q, &RUN.comp[k][ql][i]);
+    for (int k = 0; k < NATK; k++) *q++ = (uint8_t)RUN.comp_atk[k];
+    p = section_end(c, q);
     if (RUN.nstones) {
         c = section_begin(p, LG_STONES);
         c[0] = (uint8_t)RUN.nstones;
@@ -9548,6 +9576,22 @@ static void run_unpack(const uint8_t *buf, int len) {
     }
     c = page_section(buf, len, LG_PEDS, &k);
     RUN.peds = c && k >= 1 ? clampi(c[0], 2, NPED) : gear_shop_pedestals(RUN.level);   /* an old save keeps what its level gave it */
+    c = page_section(buf, len, LG_COMP, &k);
+    if (c && k >= (NIK - 1) * NQUAL + NATK) {                      /* the Compendium; anything that doesn't fit comes back empty */
+        const uint8_t *q = c, *end = c + k;
+        int need = (NIK - 1) * NQUAL + NATK;
+        for (int kd = 1; kd < NIK; kd++) for (int ql = 0; ql < NQUAL; ql++) { RUN.ncomp[kd][ql] = (uint8_t)imin(*q++, COMP_MAX); need += RUN.ncomp[kd][ql] * PIECE_BYTES; }
+        if (need > k) memset(RUN.ncomp, 0, sizeof RUN.ncomp);
+        for (int kd = 1; kd < NIK; kd++) for (int ql = 0; ql < NQUAL; ql++) {
+            int m = 0;
+            for (int i = 0; i < RUN.ncomp[kd][ql]; i++, q += PIECE_BYTES) {
+                Piece pc = piece_unpack(q);
+                if (pc.kind == kd && pc.quality == ql) RUN.comp[kd][ql][m++] = pc;   /* only what belongs on its page */
+            }
+            RUN.ncomp[kd][ql] = (uint8_t)m;
+        }
+        if (q + NATK <= end) for (int a = 0; a < NATK; a++) RUN.comp_atk[a] = (int8_t)clampi((int8_t)*q++, 0, 15);
+    } else comp_note(RUN.level);                                   /* an old save: what it wears and knows goes in as it loads */
     c = page_section(buf, len, LG_STONES, &k);
     if (c && k >= 1) {
         RUN.nstones = imin(imin(c[0], STONES), (k - 1) / STONE_BYTES);
@@ -10058,6 +10102,132 @@ static void update_shrinemenu(void) {
 }
 
 /* the Totem: W/S a boss, A/D raise or sell, Enter takes (a sale asked twice), Esc closes */
+/* ---- the Corpus Compendium (docs/PLAN-b7.md, section 7): each piece as it was first put on (never
+ * anointed), kept once however often it comes again, twelve of a kind at a quality, the weakest going
+ * for a thirteenth; and each spell at the highest tier learnt. Kept through death. Sold back at the
+ * shop's price x1.2, five hundredths less for each run completed, never under half. ---- */
+
+enum { CP_WRIST, CP_BOOTS, CP_NECK, CP_HOOD, CP_ROBE, CP_RING, CP_BAG, CP_SPELLS, NCP };
+static const int CP_KIND[NCP] = { IK_WRIST, IK_BOOTS, IK_NECK, IK_HOOD, IK_ROBE, IK_RING, IK_BAG, IK_NONE };
+static const char *const CP_NAME[NCP] = { "BRACERS", "BOOTS", "AMULETS", "HOODS", "ROBES", "RINGS", "BAGS", "SPELLS" };
+static int piece_alike(const Piece *a, const Piece *b) {
+    if (a->kind != b->kind || a->quality != b->quality || a->ability != b->ability || a->nstat != b->nstat) return 0;
+    for (int i = 0; i < a->nstat; i++) if (a->stat[i] != b->stat[i] || a->val[i] != b->val[i]) return 0;
+    return 1;
+}
+static void comp_add(const Piece *p) {
+    if (p->kind == IK_NONE || p->kind >= NIK || p->quality >= NQUAL || p->anointed) return;
+    uint8_t *n = &RUN.ncomp[p->kind][p->quality];
+    Piece *list = RUN.comp[p->kind][p->quality];
+    for (int i = 0; i < *n; i++) if (piece_alike(&list[i], p)) return;
+    if (*n < COMP_MAX) { list[(*n)++] = *p; return; }
+    int weak = 0;
+    for (int i = 1; i < *n; i++) if (piece_price(&list[i]) < piece_price(&list[weak])) weak = i;
+    if (piece_price(p) > piece_price(&list[weak])) list[weak] = *p;
+}
+static void comp_note(int level) {                                 /* what is worn and known, into the index */
+    const Gear *g = &RUN.gear;
+    for (int s = 0; s < NSLOT; s++) comp_add(&g->worn[s]);
+    if (g->bag_size) { Piece b; memset(&b, 0, sizeof b); b.kind = IK_BAG; b.quality = g->bag_quality; b.level = (uint8_t)clampi(level, 1, 255); comp_add(&b); }
+    for (int k = 0; k < NATK; k++) if (g->atk[k] > RUN.comp_atk[k]) RUN.comp_atk[k] = g->atk[k];
+}
+typedef struct { int q, i, k; } CompRow;
+static int comp_rows(int page, CompRow *r) {                       /* a page's entries, Common first */
+    int n = 0;
+    if (page == CP_SPELLS) { for (int k = 0; k < NATK; k++) if (RUN.comp_atk[k] > 0) r[n++] = (CompRow){ 0, 0, k }; return n; }
+    int kind = CP_KIND[page];
+    for (int q = 0; q < NQUAL; q++) for (int i = 0; i < RUN.ncomp[kind][q]; i++) r[n++] = (CompRow){ q, i, -1 };
+    return n;
+}
+static int comp_count(void) { int n = 0; for (int k = 0; k < NIK; k++) for (int q = 0; q < NQUAL; q++) n += RUN.ncomp[k][q]; return n; }
+static float comp_factor(void) { return fmaxf(0.5f, 1.2f - 0.05f * (float)RUN.runs_done); }
+static int comp_round(float v) { return ((int)(v + 2.5f) / 5) * 5; }
+static int comp_price(int page, const CompRow *r) {
+    if (page == CP_SPELLS) return comp_round((float)gear_price(GK_ATK, r->k, RUN.comp_atk[r->k], 0) * comp_factor());
+    return comp_round((float)piece_price(&RUN.comp[CP_KIND[page]][r->q][r->i]) * comp_factor());
+}
+static void comp_buy(int page, const CompRow *r) {
+    int price = comp_price(page, r);
+    if (price > RUN.treasure) { shrine_note("IT WANTS $%d", price); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+    if (page == CP_SPELLS) {
+        int t = RUN.comp_atk[r->k];
+        if (RUN.gear.atk[r->k] >= t) { shrine_note("YOU KNOW IT SO ALREADY"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        Offer o; memset(&o, 0, sizeof o);
+        o.kind = GK_ATK; o.id = r->k; o.tier = t; o.price = price;
+        gear_take(&RUN.gear, &o);
+        char nm[48]; gear_item_name(GK_ATK, r->k, t, nm, sizeof nm);
+        shrine_note("LEARNT AGAIN: %s", nm);
+    } else {
+        const Piece *p = &RUN.comp[CP_KIND[page]][r->q][r->i];
+        if (p->kind == IK_BAG && bag_capacity(p->quality) <= RUN.gear.bag_size) { shrine_note("YOUR BAG HOLDS AS MUCH"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        int sl = p->kind == IK_BAG ? -1 : piece_slot(&RUN.gear, p->kind), key = page * 64 + r->q * COMP_MAX + r->i;
+        if (sl >= 0 && RUN.gear.worn[sl].kind != IK_NONE && !gear_bag_free(&RUN.gear) && G.comp_arm != key) {   /* nowhere for the old one */
+            G.comp_arm = key; shrine_note("ENTER AGAIN: THE ONE YOU WEAR IS LOST"); snd_sfx_ex(SFX_KNOCK, 0.7f, 0.5f);
+            return;
+        }
+        Offer o; memset(&o, 0, sizeof o);
+        o.kind = GK_PIECE; o.id = p->kind; o.tier = p->level; o.price = price; o.piece = *p;
+        take_piece(&o, 1);
+        shrine_note(p->kind == IK_BAG ? "THE BAG IS YOURS AGAIN" : "IT IS ON YOU AGAIN");
+    }
+    G.comp_arm = -1;
+    RUN.treasure -= price; G.shop_gold = RUN.treasure;
+    snd_sfx_ex(SFX_COIN, 1.0f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.7f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT comp_buy page %d row q%d i%d k%d for %d (left %d) t=%.2f\n", page, r->q, r->i, r->k, price, RUN.treasure, G.t);
+#endif
+}
+/* the autopilot: one thing from the Compendium a visit, when it beats what it has by more than the pedestals
+ * did, with a little of a level's haul kept back; never a bag */
+static void comp_auto(void) {
+    if (G.player) return;
+    int purse = RUN.treasure - (int)(gear_haul(G.level) * 0.15f), bp = -1;
+    float best = 0.0f;
+    CompRow br = { 0, 0, -1 }, r[NQUAL * COMP_MAX + NATK];
+    for (int page = 0; page < NCP; page++) {
+        if (page == CP_BAG) continue;
+        int n = comp_rows(page, r);
+        for (int j = 0; j < n; j++) {
+            int price = comp_price(page, &r[j]);
+            if (price > purse) continue;
+            Offer o; memset(&o, 0, sizeof o);
+            if (page == CP_SPELLS) { o.kind = GK_ATK; o.id = r[j].k; o.tier = RUN.comp_atk[r[j].k]; }
+            else { o.kind = GK_PIECE; o.piece = RUN.comp[CP_KIND[page]][r[j].q][r[j].i]; o.id = o.piece.kind; o.tier = o.piece.level; }
+            float v = gear_value(&RUN.gear, &o, G.level) / sqrtf(fmaxf(1.0f, (float)price) / 100.0f + 1.0f);
+            if (v > best) { best = v; bp = page; br = r[j]; }
+        }
+    }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "COMP auto best page %d value %.3f purse %d\n", bp, best, purse);
+#endif
+    if (bp < 0 || best < 0.1f) return;                           /* worth its gold, roughly: a tier of a spell is */
+    int price = comp_price(bp, &br);
+    Offer o; memset(&o, 0, sizeof o); o.price = price;
+    char nm[64];
+    if (bp == CP_SPELLS) { o.kind = GK_ATK; o.id = br.k; o.tier = RUN.comp_atk[br.k]; gear_take(&RUN.gear, &o); gear_item_name(GK_ATK, br.k, o.tier, nm, sizeof nm); }
+    else { o.kind = GK_PIECE; o.piece = RUN.comp[CP_KIND[bp]][br.q][br.i]; o.id = o.piece.kind; o.tier = o.piece.level; take_piece(&o, 0); piece_full_name(&o.piece, nm, sizeof nm); }
+    RUN.treasure -= price; G.shop_gold = RUN.treasure;
+    say("FROM THE COMPENDIUM: %s", nm);
+    snd_sfx_ex(SFX_COIN, 0.9f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT comp_auto %s for %d value %.2f (left %d) t=%.2f\n", nm, price, best, RUN.treasure, G.t);
+#endif
+}
+
+/* A/D the pages, W/S the entries, Enter buys and wears it, Esc closes */
+static void update_compmenu(void) {
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; return; }
+    int lr = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
+    if (lr) { G.comp_page = (G.comp_page + NCP + lr) % NCP; G.ui_sel = 0; G.comp_arm = -1; G.sh_note_t = 0.0f; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f); }
+    CompRow r[NQUAL * COMP_MAX + NATK];
+    int n = comp_rows(G.comp_page, r);
+    if (n <= 0) { G.ui_sel = 0; return; }
+    int ud = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
+    if (ud) { G.ui_sel = (G.ui_sel + n + ud) % n; G.comp_arm = -1; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    G.ui_sel = clampi(G.ui_sel, 0, n - 1);
+    if (IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1]) comp_buy(G.comp_page, &r[G.ui_sel]);
+}
+
 static void update_totemmenu(void) {
     int r[NBOSS], n = totem_rows(r);
     int enter = IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1];
@@ -10110,6 +10280,7 @@ static void update_ui(void) {
     if (G.ui == UI_SHRINE) { update_shrinemenu(); return; }
     if (G.ui == UI_TOTEM) { update_totemmenu(); return; }
     if (G.ui == UI_PORTAL) { update_portalmenu(); return; }
+    if (G.ui == UI_COMP) { update_compmenu(); return; }
 #ifdef CRAWL_DEBUG
     if (G.pilgrim == 2 && G.ui == UI_ALTAR) {                     /* the test player sends the wisp on, after a look */
         static int look;
@@ -11369,6 +11540,20 @@ static void render_shop_card(Frame *f) {
     if (G.shop_step == SH_LOOK && G.shop_t < 0.35) i = -1;
     if (G.player) i = G.shop_look;
     int y0 = H - 44 - 46;
+    if (G.player && G.comp_look && i < 0) {                        /* the Compendium, and what E does there */
+        int bw = 264, bx = (W - bw) / 2, ph = 42, ns = 0;
+        for (int k = 0; k < NATK; k++) ns += RUN.comp_atk[k] > 0;
+        y0 = H - 44 - 4 - ph;
+        gfx_rect(f, bx, y0, bw, ph, 0);
+        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
+        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        gfx_text16(f, bx + 8, y0 + 4, "THE CORPUS COMPENDIUM", R_BONE + 13, 1);
+        char l2[48];
+        snprintf(l2, sizeof l2, "%d PIECES, %d SPELLS WRITTEN IN IT", comp_count(), ns);
+        gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
+        gfx_text8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10, 1);
+        return;
+    }
     if (G.player && G.stone_look >= 0 && i < 0) {                  /* a stone in the plot */
         const Stone *st = &RUN.stones[clampi(G.stone_look, 0, STONES - 1)];
         int bw = 264, bx = (W - bw) / 2, ph = 42;
@@ -12979,6 +13164,62 @@ static void render_shrinemenu(Frame *f) {
 
 /* the Totem's screen: a row for each boss beaten, its ability's mark, its rank, the scrip held, what the
  * next rank costs and, with scrip to spare, a sale; a card on the one chosen */
+/* the Compendium's page: its entries in their qualities' colours with prices, and the card of the one chosen */
+static int piece_card(Frame *f, int x, int y, int w, const Piece *p, const Gear *g, const Gear *g0);
+static void render_compmenu(Frame *f) {
+    dim_view(f);
+    int px = 6, py = 6, pw = W - 12, ph = H - 12, page = clampi(G.comp_page, 0, NCP - 1);
+    panel(f, px, py, pw, ph);
+    gfx_text16(f, px + 10, py + 6, "THE CORPUS COMPENDIUM", R_GOLD + 12, 1);
+    char line[96];
+    snprintf(line, sizeof line, "$%d", RUN.treasure);
+    gfx_text8(f, px + pw - 10 - gfx_text_width(line, 1), py + 10, line, R_GOLD + 11, 1);
+    snprintf(line, sizeof line, "%s  %d OF %d", CP_NAME[page], page + 1, NCP);
+    gfx_text8(f, px + 10, py + 24, line, R_STONE + 13, 1);
+    gfx_text8(f, px + pw - 10 - gfx_text_width("A/D W/S ENTER ESC", 1), py + 24, "A/D W/S ENTER ESC", R_STONE + 9, 1);
+    CompRow r[NQUAL * COMP_MAX + NATK];
+    int n = comp_rows(page, r), sel = clampi(G.ui_sel, 0, n - 1), y = py + 37, rows = 7;
+    if (!n) {
+        text_wrap(f, px + 10, y, page == CP_SPELLS ? "NO SPELL IS WRITTEN HERE YET. WHAT YOU LEARN, IT KEEPS." :
+                                                     "NOTHING OF THIS KIND IS WRITTEN HERE YET. WHAT YOU WEAR, IT KEEPS.", 36, R_STONE + 11, 3);
+        return;
+    }
+    int top = clampi(sel - rows / 2, 0, imax(0, n - rows));
+    for (int j = top; j < n && j < top + rows; j++, y += 9) {
+        const CompRow *c = &r[j];
+        int price = comp_price(page, c), col;
+        if (page == CP_SPELLS) { gear_item_name(GK_ATK, c->k, RUN.comp_atk[c->k], line, sizeof line); col = ramp_at(gear_color(GK_ATK, c->k), 12); }
+        else {
+            char a[48], b[48];
+            piece_name(&RUN.comp[CP_KIND[page]][c->q][c->i], a, b, sizeof a);
+            snprintf(line, sizeof line, "%s", page == CP_BAG ? bag_name(bag_capacity(c->q)) : b);
+            col = qual_text(c->q);
+        }
+        if (j == sel) gfx_rect(f, px + 6, y - 1, pw - 12, 9, R_IRON + 3);
+        gfx_text8(f, px + 10, y, line, (uint8_t)col, 1);
+        char pr[16]; snprintf(pr, sizeof pr, "$%d", price);
+        gfx_text8(f, px + pw - 10 - gfx_text_width(pr, 1), y, pr, price <= RUN.treasure ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_BLOOD + 13), 1);
+    }
+    if (n > rows) { snprintf(line, sizeof line, "%d MORE", n - rows); gfx_text8(f, px + pw / 2 - 20, py + 37 + rows * 9, line, R_STONE + 8, 1); }
+    y = py + 37 + rows * 9 + 13;
+    for (int i = px + 8; i < px + pw - 8; i++) gfx_px(f, i, y - 3, R_STONE + 5);
+    const CompRow *c = &r[sel];
+    if (page == CP_SPELLS) {
+        Offer o; memset(&o, 0, sizeof o); o.kind = GK_ATK; o.id = c->k; o.tier = RUN.comp_atk[c->k];
+        text_wrap(f, px + 10, y, gear_blurb(&o), 36, R_STONE + 12, 2);
+        int have = RUN.gear.atk[c->k];
+        if (have >= o.tier) snprintf(line, sizeof line, "YOU KNOW IT SO ALREADY");
+        else if (have > 0) { char t[8]; numeral(have, t, sizeof t); snprintf(line, sizeof line, "YOU KNOW IT AT %s", t); }
+        else snprintf(line, sizeof line, "NOT KNOWN NOW");
+        gfx_text8(f, px + 10, y + 22, line, R_STONE + 10, 1);
+    } else piece_card(f, px + 10, y, pw - 20, &RUN.comp[CP_KIND[page]][c->q][c->i], NULL, NULL);
+    if (G.sh_note_t > 0.0f) gfx_text8(f, px + 10, py + ph - 12, G.sh_note, G.comp_arm >= 0 ? (uint8_t)(R_BLOOD + 13) : (uint8_t)(R_GOLD + 11), 1);
+    else {
+        snprintf(line, sizeof line, "AT THE SHOP'S PRICE x%.2f", comp_factor());
+        gfx_text8(f, px + 10, py + ph - 12, line, R_STONE + 9, 1);
+    }
+}
+
 static void render_totemmenu(Frame *f) {
     static const char *const RANK[ABIL_TOP + 1] = { "NOT KNOWN", "RANK I", "RANK II", "RANK III" };
     dim_view(f);
@@ -13077,6 +13318,7 @@ static void render_portalmenu(Frame *f) {
 
 static void render_ui(Frame *f) {
     if (G.ui == UI_PORTAL) { render_portalmenu(f); return; }
+    if (G.ui == UI_COMP) { render_compmenu(f); return; }
     if (G.ui == UI_SHRINE) { render_shrinemenu(f); return; }
     if (G.ui == UI_TOTEM) { render_totemmenu(f); return; }
     if (G.ui == UI_WISPS) { render_wispmenu(f); return; }

@@ -130,7 +130,7 @@ wisp, follows it home and sends it on from the altar's menu; it can't be hurt), 
 put there as the level opens, already leaving), `CRAWL_BOSSHP=f` (a boss's health times f), `CRAWL_OMEN=s` (the
 level's omens on any level, every s seconds, the first at once), `CRAWL_TOTEM=dddd` (each boss ability's rank, a digit
 each in boss order, and that boss counted beaten), `CRAWL_SCRIP=n` (n scrip of each boss, all four counted beaten),
-`CRAWL_PEDS=n` (the merchant's pedestals), `CRAWL_TPCAT=1` (before the merchant herself), `CRAWL_TPSTONE=1` (before the plot's newest stone), `CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_TPPORTAL=1` (in the
+`CRAWL_PEDS=n` (the merchant's pedestals), `CRAWL_TPCAT=1` (before the merchant herself), `CRAWL_TPSTONE=1` (before the plot's newest stone), `CRAWL_TPLECTERN=1` (before the Compendium), `CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_TPPORTAL=1` (in the
 grave plot facing the Accursed Portal), `CRAWL_RUNTOP=n` (the runs it opens: 0 only run I), `CRAWL_BSTEP=s` (every
 challenge at step s), `CRAWL_GOALS=1`
 (the autopilot's goal at every step, as `GOAL` lines),
@@ -169,8 +169,10 @@ bytes, to a tag of 0): `LG_PAGE` (u32 the run's id, u32 its signatures, u64 when
 level, pedestals, wares left and bought, the shrine's takes, the ware held this visit, then each
 pedestal's ware, `offer_pack`, and whether it is gone or back), and `LG_STONES` (the grave plot: a
 count, then each stone, `STONE_BYTES`, 331: when, the level, what took it as a `Blame`, gold, souls,
-coins, spells and runes, the worn pieces and the bag), and `LG_PEDS` (the pedestals bought, a byte): 1,355
-bytes with five pedestals and no stones. A
+coins, spells and runes, the worn pieces and the bag), `LG_PEDS` (the pedestals bought, a byte) and
+`LG_COMP` (the Compendium: a count for each kind, bracer to bag, and quality, those pieces, then each
+spell's tier): about 1,550 bytes with a little in the Compendium and no stones, under 15 KB at the most
+(`PAGE_BYTES`). A
 reader steps over sections it doesn't know, so the hall's parts can come as sections of their own. The
 progress (`SLOT_PROGRESS`) is either a whole run (unsigned: 1.0.0b6's, or a fresh one's) or `"HVP1"`, the
 page to open (a byte, 1-3), the run's id and signatures. Version 5 is the same without version 6's part; its
@@ -582,6 +584,18 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   under the keys on the status bar and after them in the readout, and FLEE and OPEN THE LEDGER carry
   *THE DEAD ARE WATCHING*. An old save's run id is a hash of its bytes, so its mark holds across starts.
   Debug: `EVENT mark on|off`, `EVENT claim`.
+- **The Corpus Compendium** (docs/PLAN-b7.md section 7; `comp_note`, `comp_add`, `comp_rows`,
+  `comp_price`, `comp_buy`, `comp_auto`, `UI_COMP`). A tome on a lectern (`SP_LECTERN`, at
+  `LECTERN_X/Y` in the back room). Every frame `comp_note` puts each worn piece not anointed into
+  `RUN.comp[kind][quality]` (alike in kind, quality, ability and stats: kept once; twelve a page,
+  `COMP_MAX`, the cheapest going for a better thirteenth), the bag by its quality, and each spell's
+  highest tier (`RUN.comp_atk`). Kept through death. Its pages (A/D: bracers, boots, amulets, hoods,
+  robes, rings, bags, spells) list them Common first with prices (the shop's x1.2, 0.05 less a run
+  completed, never under half); Enter buys and wears it (asking twice when the worn one has nowhere to
+  go), outside the wares a visit. The autopilot looks once a visit after the wares and buys the best
+  thing worth a tenth or more (`gear_value` over the price's root, as `shop_choose` weighs), never a
+  bag. An old save's worn pieces and spells go in as it loads. Debug: `EVENT comp_buy`, `comp_auto`,
+  `COMP auto best ...`; `CRAWL_TPLECTERN=1` stands you before it.
 - **Items** (`crawl_gear.c`, docs/PLAN-items.md). A `Piece` has a kind (`IK_*`: bracer, boots,
   amulet, hood, robes, ring, bag), a quality (`Q_*`, white to gold: `QUAL_RAMP`), its level, Anointed or
   not, an ability (`AB_*`) and up to six rolled stats (`ST_*`, in tenths; health restored in

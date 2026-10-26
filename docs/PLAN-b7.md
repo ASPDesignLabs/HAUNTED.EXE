@@ -914,7 +914,14 @@ first.
     The autopilot buys one at its greeting when a level's haul is left after. In the harness: all seven
     bought by a person, the autopilot's third at level 1, five kept on a page and set out again. ASan
     clean.
-15. **The Corpus Compendium.**
+15. **The Corpus Compendium** (built): the lectern and its tome in the back room (new art, on the b7
+    sheet); each piece as first worn, kept once, twelve to a kind and quality, the cheapest going for a
+    better thirteenth; each spell at its highest tier; eight pages, Common first, the card under the
+    list; bought back and worn at once at the plan's price, outside the wares a visit, asking twice when
+    the worn piece has nowhere to go. The autopilot looks once a visit, after the wares, and buys the
+    best thing it finds worth a tenth of its weighing (a lost tier of the Fire Bolt just passes); never
+    a bag. In the harness: a person's purchase, a claim's lost tier bought back by the autopilot, an old
+    save's pieces indexed as it loads. ASan clean.
 16. **The Wretched Repository.**
 17. **The Codex of Affixations.**
 18. **Checks**: frames of everything new; ASan; autopilot runs (boss wins and times by step, how far the

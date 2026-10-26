@@ -1821,6 +1821,41 @@ static void spr_hextotem(void) {
     cv_store(SP_HEXTOTEM);
 }
 
+/* The Corpus Compendium: a great tome open on a lectern of black oak, its pages close-written, a red
+ * ribbon hanging from it, and a few motes of light over it from whatever it remembers */
+static void spr_lectern(void) {
+    cv_begin(cv_sprite, TS, TS);
+    float cx = 32;
+    cv_flat(cx, 62, 11, 1.8f, R_WARM + 1);
+    const float base[8] = { 22, 61, 42, 61, 39, 56, 25, 56 };
+    cv_poly(base, 4, R_WOOD, 0.08f, 0.32f, 56, 6);                 /* its foot */
+    cv_capsule(cx, 36, cx, 57, 2.6f, R_WOOD, 0.08f, 0.42f);        /* the stem */
+    cv_capsule(cx - 6, 45, cx + 6, 45, 1.2f, R_WOOD, 0.1f, 0.4f);  /* a turned collar */
+    const float board[8] = { 11, 35, 53, 35, 47, 27, 17, 27 };
+    cv_poly(board, 4, R_WOOD, 0.14f, 0.42f, 27, 9);                /* the sloping top, nearer edge lower */
+    for (int x = 11; x <= 53; x++) { cv_px(x, 36, sh(R_WOOD, 0.08f)); cv_px(x, 37, sh(R_WOOD, 0.05f)); }   /* its lip */
+    const float cover[8] = { 14, 33, 50, 33, 46, 25, 18, 25 };
+    cv_poly(cover, 4, R_BLOOD, 0.1f, 0.24f, 25, 8);                /* the binding, dark red leather */
+    for (int side = 0; side < 2; side++) {                         /* the two pages, bowed up to the spine */
+        for (int y = 24; y <= 32; y++) {
+            float k = (y - 24) / 8.0f, xa = side ? 33.0f : 19.0f - 4.0f * k + 1.0f, xb = side ? 45.0f + 4.0f * k - 1.0f : 31.0f;
+            for (int x = (int)xa; x <= (int)xb; x++) {
+                float bow = side ? (x - 33) / 13.0f : (31 - x) / 13.0f;
+                float v = 0.72f + 0.12f * (1.0f - bow) - (y == 24 ? 0.0f : 0.0f);
+                if (((y - 25) % 2 == 0) && y < 32 && x > (int)xa + 1 && x < (int)xb - 1 && h01(x, y, 141 + side) > 0.3f) v -= 0.3f;   /* close-written */
+                cv_px(x, y - (int)(1.5f * (1.0f - bow)), sh(R_BONE, v));
+            }
+        }
+    }
+    cv_line(32, 22, 32, 32, sh(R_BONE, 0.35f));                    /* the spine's fold */
+    cv_line(36, 32, 37, 41, sh(R_BLOOD, 0.55f));                   /* the ribbon */
+    cv_px(37, 42, sh(R_BLOOD, 0.4f)); cv_px(36, 42, sh(R_BLOOD, 0.4f));
+    cv_outline(0);
+    static const int MOTE[5][2] = { { 26, 17 }, { 35, 14 }, { 41, 19 }, { 30, 10 }, { 22, 21 } };
+    for (int i = 0; i < 5; i++) cv_px(MOTE[i][0], MOTE[i][1], (uint8_t)(R_GLOW + 11 + (i & 1) * 3));   /* after the rim: they float free */
+    cv_store(SP_LECTERN);
+}
+
 /* Severance: four desks pushed together behind low green partitions, an old terminal on each, numbers
  * on their dark screens. Drawn in R_FLOOR and R_CEIL, so only a Severance pocket shows it true. */
 static void spr_desks(void) {
@@ -4711,6 +4746,7 @@ void crawl_art_init(void) {
     spr_roots(); spr_websheet();
     for (int k = 0; k < 4; k++) spr_tomb(SP_TOMB_ROUND + k, k);
     spr_tomb(SP_TOMB_FRESH, 4);
+    spr_lectern();
     for (int f = 0; f < 3; f++) spr_firepit(SP_FIREPIT_A + f, f);
     spr_totem(SP_TOTEM_A, 0); spr_totem(SP_TOTEM_B, 1);
     spr_shambler(SP_SHAMB_A, 1.0f, 0); spr_shambler(SP_SHAMB_B, -1.0f, 0); spr_shambler(SP_SHAMB_GRAB, 0.0f, 1);
