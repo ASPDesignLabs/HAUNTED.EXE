@@ -863,7 +863,16 @@ first.
    fight and webbing and raising 8 to 16; it never felt cornered enough to wraithwalk. A person's use was tried
    with scripted keys: a hound webbed, slain, raised; a five-cell dodge; Wraithwalk's grey. ASan clean. The
    Totem's sprite is on `make sheets` (b7) for the owner; the ability marks are small pixel glyphs in the code.
-10. **The Accursed Portal**: run starts and challenges.
+10. **The Accursed Portal** (built): the grave plot south of the merchant's room through an arch past the
+    shrine (empty until step 12 brings its stones), the Portal in its far wall, a red-violet swirl turning in
+    a stone arch. Its screen lists the runs opened (run II once run I's boss has fallen on the way down, and
+    so on), forward or back, and the challenges, each boss slain at its step with what the step brings. A run
+    start takes you to the merchant's room before that run's first level, as you are. A challenge puts you in
+    the boss's antechamber on its level this time down, the way back up fallen in so that the fight is all
+    there is; a win gives its scrip and the tally, then the merchant's room you left; a death (until step 12)
+    begins it again; a save or a scene switch mid-challenge comes back to that room too. In the harness: a
+    knight challenge from level 2 (won in 196 s, scrip 1 to 2, back to level 2's room), a spider challenge
+    (won in 292 s), and run II's start from level 2. ASan clean.
 11. **Saves version 6 and the ledger**: bigger pages, signing with the merchant, opening from Esc,
     fleeing, the dream, old saves.
 12. **Death's cost**: what goes and stays, written at the fall; the death card; the pocket's sealed

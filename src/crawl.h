@@ -45,6 +45,7 @@ enum {
     T_GATE,                                       /* a portcullis in an arch: the adds come through */
     T_FONT, T_FONT_DRY,                           /* a basin set in the wall, a draught in it; and drunk dry */
     T_GRATE,                                      /* a drain low in the wall: where the bile comes from */
+    T_PORTAL0, T_PORTAL1, T_PORTAL2, T_PORTAL3,   /* the Accursed Portal: an arch filled with a slow red-violet swirl */
     NTEX
 };
 

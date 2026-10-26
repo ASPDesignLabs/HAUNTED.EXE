@@ -129,7 +129,9 @@ wisp, follows it home and sends it on from the altar's menu; it can't be hurt), 
 put there as the level opens, already leaving), `CRAWL_BOSSHP=f` (a boss's health times f), `CRAWL_OMEN=s` (the
 level's omens on any level, every s seconds, the first at once), `CRAWL_TOTEM=dddd` (each boss ability's rank, a digit
 each in boss order, and that boss counted beaten), `CRAWL_SCRIP=n` (n scrip of each boss, all four counted beaten),
-`CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_GOALS=1`
+`CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_TPPORTAL=1` (in the
+grave plot facing the Accursed Portal), `CRAWL_RUNTOP=n` (the runs it opens: 0 only run I), `CRAWL_BSTEP=s` (every
+challenge at step s), `CRAWL_GOALS=1`
 (the autopilot's goal at every step, as `GOAL` lines),
 `CRAWL_RANK=r` (every creature at rank r), `CRAWL_WRAITH=s` (the Wraith at s seconds), `CRAWL_MEET=k`
 (one creature of kind k, the `MOB_*` number, a few cells ahead of the caster five seconds into each level,
@@ -159,8 +161,8 @@ as docs/PLAN-b7.md is built) the rest of the record (`rec_pack_extra`: u32 level
 bytes of achievement bits, and for each of eight bosses its met flag, u16 slain, tries, best time and
 scrip won), then the hall as far as it is built (`hall_pack`: u16 runs completed, u16 scrip for each of
 eight bosses, a byte each for their challenge steps, and 24 bytes of the highest rank of each kind met
-since the last death, a byte of omens named, a byte of each boss ability's rank and the one readied): 1,143 bytes
-so far. Version 5 is the same without version 6's part; its
+since the last death, a byte of omens named, a byte of each boss ability's rank and the one readied, u16 the furthest run opened): 1,145
+bytes so far. Version 5 is the same without version 6's part; its
 descents of twenty become descents of forty on loading (`rec_from_old`). Version 4 is
 the same without the shrine and with runes by tier (`rune_from_tier`: 1-3 Common, 4-6 Uncommon, 7-10
 Rare, 11 up Ultra-Rare; a rune held at the merchant's is dropped and its hold fee paid back); version 3
@@ -287,6 +289,15 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   (`auto_abilities`): dodges a missile or a warning, webs a creature come to blows, raises fresh remains in a
   fight, wraithwalks when cornered under 35%. Debug: `EVENT dodge`, `web_spit`, `web_hold`, `web_miss`,
   `web_free`, `gravecall`, `ally_falls`, `wraithwalk`, `totem_raise`, `totem_sell`.
+- **The Accursed Portal** (step 10; `PORTAL_X/Y` (16,27), `T_PORTAL0..3` turning in `render_walls`, in the far wall
+  of the grave plot: x 11-21, y 20-26, through an arch at (19,18) past the shrine; the stones come in step 12).
+  `UI_PORTAL` (`portal_rows`, `update_portalmenu`, `render_portalmenu`): the runs opened (`RUN.run_top`, raised in
+  `boss_fall` on the way down: the boss's level over ten) and the challenges (bosses slain, at `RUN.bstep`,
+  `step_text`). `portal_run(k)`: the merchant's room before level 1 + 10k, as you are. `challenge_begin(b)`: the
+  boss's level this time down (`boss_level_of`), `G.bchallenge`, the caster in the antechamber, the way down into
+  it fallen in (rubble), the autopilot set leaving; `RUN.chal_from` is the level whose room it was begun from: the
+  tally, a save and a scene switch all go back there; a death begins it again; `begin_shop` clears it. Debug:
+  `EVENT portal_run`, `challenge`.
 - **The autopilot in boss fights**: `find_target` takes a boss or its adds from any side within nine cells
   (before, only what was ahead or attacking, so a boss that never strikes, like the Deacon, was never
   aimed at); in a wave, `boss_goal` heads for the nearest add when none is within five cells.

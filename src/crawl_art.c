@@ -388,6 +388,28 @@ static void gen_gate(int t, uint32_t seed) {
         }
 }
 
+/* the Accursed Portal, in the grave plot's far wall: a stone arch, and in it a slow swirl of red and
+ * violet turning in on itself, a few sparks caught in it; four frames, a quarter turn apart */
+static void gen_portal(int t, int frame, uint32_t seed) {
+    gen_stone(t, R_STONE, seed);
+    for (int y = 2; y < TS; y++)
+        for (int x = 4; x < 60; x++) {
+            float ax = (x + 0.5f - 32.0f) / 28.0f, ay = (y + 0.5f - 24.0f) / 22.0f;
+            if (y < 24 && ax * ax + ay * ay > 1.0f) continue;
+            float edge = y < 24 ? 1.0f - sqrtf(ax * ax + ay * ay) : fminf((x - 4) / 28.0f, (59 - x) / 28.0f);
+            if (edge < 0.1f) { tput(t, x, y, sh(R_STONE, edge < 0.04f ? 0.8f : 0.3f)); continue; }   /* the arch's carved rim */
+            float dx = x + 0.5f - 32.0f, dy = y + 0.5f - 36.0f, r = sqrtf(dx * dx + dy * dy), a = atan2f(dy, dx);
+            float v = 0.5f + 0.5f * sinf(2.0f * a + r * 0.32f - (float)frame * PI_F * 0.5f) * (0.7f + 0.3f * sinf(r * 0.11f - frame));
+            uint8_t c;
+            if (r < 3.5f) c = r < 1.6f ? C_WHITE : (uint8_t)(R_PURPLE + 15);   /* its heart */
+            else if (v > 0.72f) c = (uint8_t)(R_PURPLE + clampi(11 + (int)((v - 0.72f) * 14.0f), 11, 15));
+            else if (v > 0.38f) c = (uint8_t)(R_PURPLE + 6 + (int)((v - 0.38f) * 12.0f));
+            else c = (uint8_t)(R_BLOOD + 3 + (int)(v * 10.0f));
+            if (h01(x + frame * 7, y, seed) > 0.985f) c = (uint8_t)(R_GLOW + 13);   /* a spark caught in it */
+            tput(t, x, y, c);
+        }
+}
+
 /* a font set into the wall: an arched niche over a stone basin, with a draught of pale water in it (a
  * few full-bright glints so it can be found in the dark), or drunk dry and cracked */
 static void gen_font(int t, uint32_t seed, int full) {
@@ -4566,6 +4588,7 @@ void crawl_art_init(void) {
     gen_gate(T_GATE, 97);
     gen_font(T_FONT, 101, 1); gen_font(T_FONT_DRY, 101, 0);
     gen_grate(T_GRATE, 103);
+    for (int f = 0; f < 4; f++) gen_portal(T_PORTAL0 + f, f, 107);
     gen_exit(T_EXIT0, 0, 0);
     gen_exit(T_EXIT1, 1, 0);
     gen_exit(T_EXIT_OPEN, 1, 1);

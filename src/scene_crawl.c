@@ -431,6 +431,10 @@ typedef struct {
 #define SHRINE_SLOTS 9
 #define SHRINE_X 15.5f
 #define SHRINE_Y 17.5f                      /* the Rune Shrine, in the merchant's room against the south wall */
+#define TOTEM_X 4.5f
+#define TOTEM_Y 12.5f                       /* the Hexed Totem, in the back room's corner */
+#define PORTAL_X 16
+#define PORTAL_Y 27                         /* the Accursed Portal, in the grave plot's far wall */
 static struct {
     int active, level, hp, treasure, souls;
     float soul_frac;
@@ -450,6 +454,8 @@ static struct {
     int omens;                              /* the hazards met, a bit each (HZ_*): the first of each is named */
     uint8_t abil[BOSS_REC];                 /* each boss's ability for the caster, from the Hexed Totem: its rank, 0-3 */
     int abil_sel;                           /* the one the right mouse uses (a boss's number) */
+    int run_top;                            /* the furthest run opened at the Accursed Portal: its boss's level over ten */
+    int chal_from;                          /* in a challenge: the level whose merchant's room it was begun from */
 } RUN;
 
 /* The caster's boss abilities (docs/PLAN-b7.md, section 8): one a boss, unlocked at the Hexed Totem with a
@@ -567,6 +573,7 @@ static struct {
     float sh_qt, sh_glow, sh_flash[SHRINE_SLOTS], sh_note_t;
     char sh_note[80];
     int tot_look, tot_arm, tot_col;         /* the Hexed Totem: looked at; a sale awaiting a second Enter; raise (0) or sell (1) */
+    int por_look;                           /* the Accursed Portal, looked at */
 
     /* a person at the controls */
     int player, ui, ui_sel, quit_line, status_ret;
@@ -628,7 +635,7 @@ static struct {
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
        BP_LITANY };                                 /* the Deacon's censer raised, the green light growing */
 static float zbuf[W];
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 
 /* pockets (see the pockets' code below): the level as it waits, and where in a chain you are */
@@ -2017,6 +2024,7 @@ static void build_lightmap(void) {
     light_dynamic(G.px, G.py, 0.62f, 2.8f);                        /* the caster's own faint glow */
     for (int b = 0; b < G.bbz_n && G.boss == BOSS_WRAITH && !PK.depth && !G.shop; b++)   /* the Wraith's braziers, those still lit */
         if (G.bbz_lit[b]) light_dynamic(G.bbz_x[b] + 0.5f, G.bbz_y[b] + 0.5f, 1.5f * (0.92f + 0.08f * sinf((float)G.t * 9.0f + b)), 5.2f);
+    if (G.shop) light_dynamic(PORTAL_X + 0.5f, PORTAL_Y - 0.3f, 1.0f + 0.15f * sinf((float)G.t * 2.3f), 4.6f);   /* the Portal's glow */
     if (G.shop && RUN.shrine > 0)                                  /* the cursed shrine, brighter as it works */
         light_dynamic(SHRINE_X, SHRINE_Y - 0.4f, 0.7f + 0.8f * fminf(1.0f, G.sh_glow) + 0.08f * sinf((float)G.t * 5.0f), 3.6f);
     for (int i = 0; i < MAXWISPS && !G.shop; i++) {                /* and the wisps', four cells round them */
@@ -5653,6 +5661,8 @@ static void debug_gear(void) {
     const char *tot = getenv("CRAWL_TOTEM");                       /* each boss ability's rank, a digit each: 3300 */
     for (int b = 0; tot && b < NBOSS && tot[b]; b++) { RUN.abil[b] = (uint8_t)clampi(tot[b] - '0', 0, ABIL_TOP); if (RUN.abil[b]) RUN.rec.boss[b].slain = 1; }
     if (getenv("CRAWL_SCRIP")) for (int b = 0; b < NBOSS; b++) { RUN.scrip[b] = atoi(getenv("CRAWL_SCRIP")); RUN.rec.boss[b].slain = 1; }   /* and the bosses beaten */
+    if (getenv("CRAWL_RUNTOP")) RUN.run_top = atoi(getenv("CRAWL_RUNTOP"));   /* the runs the Portal opens */
+    if (getenv("CRAWL_BSTEP")) for (int b = 0; b < NBOSS; b++) RUN.bstep[b] = clampi(atoi(getenv("CRAWL_BSTEP")), 0, 5);   /* each challenge's step */
 }
 #endif
 
@@ -6037,6 +6047,7 @@ static void crawl_enter(uint32_t seed) {
         int won = G.tally || G.exiting;
         RUN.level = G.level + won; RUN.hp = G.hp > 0 ? G.hp : gear_max_hp(&RUN.gear);
         RUN.shop_next = won || (G.shop && !G.shop_bought);
+        if (G.bchallenge && !G.shop) { RUN.level = RUN.chal_from; RUN.shop_next = 1; }   /* a challenge ends with the scene */
     }
     RUN.loaded = 0;
     memset(&G, 0, sizeof G);
@@ -6628,7 +6639,7 @@ static void boss_fall(Mob *m) {
     char d[32];
     if (!G.bchallenge) { snprintf(d, sizeof d, "SLAIN"); ach_earn(ACH_BOSS0 + G.boss * 6, SP_SCRIP, -1, 0, B->short_name, d); }
     else { snprintf(d, sizeof d, "SLAIN AT STEP %d", G.bstep); ach_earn(ACH_BOSS0 + G.boss * 6 + clampi(G.bstep, 1, 5), SP_SCRIP, -1, 0, B->short_name, d); }
-    if (!G.bchallenge) RUN.runs_done++;                            /* the run is done */
+    if (!G.bchallenge) { RUN.runs_done++; RUN.run_top = imax(RUN.run_top, G.level / RUN_LEN); }   /* the run is done, the next opened */
     else if (RUN.bstep[G.boss] < 5) RUN.bstep[G.boss]++;           /* the next challenge a step harder */
     snd_sfx_ex(SFX_FANFARE, 0.9f, 0.5f); snd_sfx_ex(SFX_SHATTER, 1.0f, 0.5f);
     snd_boss_fall();
@@ -6926,7 +6937,10 @@ static void update_tally(double dt) {
     }
     float perfect = TALLY_ROW0 + tally_rows() * TALLY_ROW_GAP + 0.2f;
     if (pt < perfect && t >= perfect && G.items_total > 0 && G.items_got == G.items_total) snd_sfx_ex(SFX_KEYGET, 1.0f, 0.5f);
-    if (t >= TALLY_END) { G.level++; RUN.level = G.level; RUN.hp = G.hp; begin_shop(); }
+    if (t >= TALLY_END) {                                          /* on, or after a challenge back to the room it was begun from */
+        if (G.bchallenge) G.level = RUN.chal_from; else G.level++;
+        RUN.level = G.level; RUN.hp = G.hp; begin_shop();
+    }
 }
 
 static void update_shop(double dt);
@@ -7253,6 +7267,7 @@ static int meet_creature(int k) {
 }
 
 static int con_update(float dt);
+static void challenge_begin(int b);
 static void crawl_update(double dt) {
     float fdt = (float)dt;
     if (con_update(fdt)) return;                                   /* the console is down: the crypt waits, the music plays */
@@ -7418,7 +7433,7 @@ static void crawl_update(double dt) {
         fout = 1.0f - smoothstepf(3.8f, 4.8f, (float)G.dead_t);
         if (G.dead_t >= 5.0) {
             if (PK.depth) pocket_return(1);                        /* in a pocket: thrown back out to its chain's room */
-            else { RUN.treasure -= G.level_treasure; G.hp = gear_max_hp(&RUN.gear); start_level(); }
+            else { RUN.treasure -= G.level_treasure; G.hp = gear_max_hp(&RUN.gear); if (G.bchallenge) challenge_begin(G.boss); else start_level(); }
         }
     }
     PK.since += fdt;
@@ -7441,8 +7456,6 @@ static void crawl_update(double dt) {
 #define CAT_S 1.05f
 #define SHOP_MID 15.5f                      /* the middle of the room, east to west */
 #define SHOP_DOOR 21                        /* the east door, and the way on */
-#define TOTEM_X 4.5f
-#define TOTEM_Y 12.5f                       /* the Hexed Totem, in the back room's corner */
 enum { SH_GREET, SH_LOOK, SH_THINK, SH_GO, SH_BUY, SH_THANK, SH_SHRINE_GO, SH_SHRINE, SH_LEAVE };
 static int offer_sprite(const Offer *o) {
     static const int PIECE_SPR[NIK] = { SP_ITEM_RING, SP_ITEM_BRACER, SP_ITEM_BOOTS, SP_ITEM_AMULET, SP_ITEM_HOOD, SP_ITEM_ROBE, SP_ITEM_RING, SP_ITEM_BAG };
@@ -7487,6 +7500,12 @@ static void gen_shop(void) {
     solid_prop((int)TOTEM_X, (int)TOTEM_Y, SP_HEXTOTEM, 1, K_PILLAR);   /* the Hexed Totem, in its corner */
     add_deco(TOTEM_X + 1.05f, TOTEM_Y - 0.1f, SP_CANDLES); light_static(TOTEM_X + 1.0f, TOTEM_Y + 0.2f, 1.0f, 3.6f);   /* candles at its foot */
     G.map[18][6].tex = T_TORCH0; light_static(6.5f, 17.92f, 1.2f, 4.4f);
+    for (int y = 20; y <= 26; y++) for (int x = 11; x <= 21; x++) carve(x, y, 3, TH_CRYPT);   /* the grave plot, through an arch past the shrine */
+    carve(19, 18, 3, TH_CRYPT); carve(19, 19, 3, TH_CRYPT);
+    G.rooms[G.nrooms++] = (Room){ 11, 20, 11, 7, 3, TH_CRYPT };
+    G.map[PORTAL_Y][PORTAL_X].tex = T_PORTAL0;                     /* the Accursed Portal in its far wall */
+    lantern(16, 23);
+    G.map[21][10].tex = T_TORCH0; light_static(10.92f, 21.5f, 1.1f, 4.2f);
     G.ped_n = gear_shop_pedestals(G.level);                        /* an arc, its ends come forward */
     float half = 3.0f + 0.4f * (float)(G.ped_n - 5);
     for (int i = 0; i < G.ped_n; i++) {
@@ -7556,6 +7575,7 @@ static int shop_choose(void) {
 
 static void begin_shop(void) {
     hz_clear(); snd_set_boss(0, 0);
+    G.bchallenge = 0;
     G.shop = 1; G.state = PS_SHOP;
     memset(G.wisps, 0, sizeof G.wisps);                            /* nor into the merchant's room */
     crawl_art_level(1);                                            /* the antechamber looks the same every time */
@@ -7872,6 +7892,59 @@ static void ab_text(int b, int r, char *buf, int n) {
                                8 + 4 * r, r, wait); break;
     default: snprintf(buf, (size_t)n, "RIGHT CLICK: %.1f S THROUGH CREATURES AND THEIR MISSILES, AND THEY LOSE YOU. AGAIN IN %.0f S.", 1.0f + 0.5f * (float)r, wait); break;
     }
+}
+
+/* ---- the Accursed Portal (docs/PLAN-b7.md, section 7): the start of any run opened (run II once run I's
+ * boss has fallen on the way down, and so on), forward or back, as you are, into the merchant's room before
+ * it; and the challenges: each boss beaten, fought again from its antechamber at its step, for its scrip, and
+ * back to the merchant's room you left. A challenge won is not a run completed. ---- */
+typedef struct { int run, boss; } PortRow;                         /* a run's start (boss -1), or a challenge (run -1) */
+static const char *const SET_NAME[4] = { "THE CRYPTS", "THE CATACOMBS", "THE HOLLOWS", "THE DEEP" };
+static const char *const RUN_ROMAN[8] = { "I", "II", "III", "IV", "V", "VI", "VII", "VIII" };
+static int portal_rows(PortRow *r) {
+    int n = 0;
+    for (int k = imax(0, RUN.run_top - 5); k <= RUN.run_top; k++) r[n++] = (PortRow){ k, -1 };
+    for (int b = 0; b < NBOSS; b++) if (RUN.rec.boss[b].slain > 0) r[n++] = (PortRow){ -1, b };
+    return n;
+}
+static int boss_level_of(int b) { return RUN_LEN * (b + 1) + DESCENT_LEN * crawl_loop(G.level); }   /* its level, this time down */
+static void step_text(int st, char *buf, int n) {                  /* what a challenge's step brings */
+    if (!st) { snprintf(buf, (size_t)n, "AS YOU FIRST MET IT, FROM ITS ANTECHAMBER. A WIN GIVES ONE OF ITS SCRIP."); return; }
+    snprintf(buf, (size_t)n, "STEP %d: HEALTH +%d%%, BLOWS +%d%%, ITS CASTS %d%% MORE OFTEN AND MORE OF THEM%s. A WIN GIVES %s SCRIP.",
+             st, 25 * st, 10 * st, 20 * st, st >= 4 ? ", ITS ADDS TWO RANKS UP" : (st >= 2 ? ", ITS ADDS A RANK UP" : ""), st >= 3 ? "TWO" : "ONE");
+}
+static void portal_run(int k) {                                    /* to the merchant's room before run k's first level */
+    G.ui = UI_NONE;
+    G.level = RUN.level = 1 + RUN_LEN * k; RUN.hp = G.hp; RUN.shop_next = 1;
+    begin_shop();
+    G.sdur = 0.0f; G.shop_look = -1; G.pc_t = -1.0f;
+    snd_sfx_ex(SFX_WHOOSH, 1.0f, 0.5f); snd_sfx_ex(SFX_STINGER, 0.5f, 0.5f);
+    say("RUN %s, %s: THE MERCHANT, THEN LEVEL %d", RUN_ROMAN[k % 8], SET_NAME[k % 4], G.level);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT portal_run %d level %d t=%.2f\n", k, G.level, G.t);
+#endif
+}
+/* a challenge (again, after a death in it): the boss's level, the caster in its antechamber, the way back
+ * up into the level sealed, so that the fight is all there is */
+static void challenge_begin(int b) {
+    G.ui = UI_NONE;
+    G.bchallenge = 1; G.level = boss_level_of(b);
+    start_level();
+    for (int x = 1; x < MAPN - 1; x++)                             /* the way down into the antechamber: fallen in */
+        if (G.map[BAND_Y0 - 1][x].kind != K_WALL && G.map[BAND_Y0][x].kind != K_WALL) {
+            Cell *c = &G.map[BAND_Y0 - 1][x];
+            c->kind = K_WALL; c->tex = T_RUBBLE; c->door = -1;
+        }
+    if (G.bstart_x >= 0) {
+        G.cx = G.tx = G.bstart_x; G.cy = G.ty = G.bstart_y; G.px = G.cx + 0.5f; G.py = G.cy + 0.5f;
+        G.h = G.next_h = 0; G.ang = 0.0f; G.u = 1.0f;
+    }
+    G.map[G.cy][G.cx].visits = 1;
+    if (G.player) human_begin(); else { G.leaving = 1; start_move(); }   /* the autopilot goes in at once */
+    say("A CHALLENGE, AT STEP %d", G.bstep);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT challenge %s step %d level %d from %d t=%.2f\n", BOSSES[b].name, G.bstep, G.level, RUN.chal_from, G.t);
+#endif
 }
 
 static void shop_human(float dt);
@@ -8257,6 +8330,13 @@ static void open_ui(int which) {
         for (int i = n - 1; i >= 0; i--) if (RUN.abil[r[i]] < ABIL_TOP && RUN.scrip[r[i]] > RUN.abil[r[i]]) G.ui_sel = i;
         snd_sfx_ex(SFX_WHISPER, 0.6f, 0.5f);
     }
+    else if (which == UI_PORTAL) {                                 /* on the run you are in */
+        PortRow r[16];
+        int n = portal_rows(r);
+        G.ui_sel = 0;
+        for (int i = 0; i < n; i++) if (r[i].run == crawl_run(G.level)) G.ui_sel = i;
+        snd_sfx_ex(SFX_WHISPER, 0.7f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.4f, 0.5f);
+    }
     else if (which == UI_WISPS) {                                  /* on the wisp L last cast */
         WispChoice c[WISP_CHOICES];
         int n = wisp_choices(c), i = wisp_choice_at(c, n, RUN.wisp_kind, RUN.wisp_color);
@@ -8408,6 +8488,8 @@ static void shop_human(float dt) {
     G.sh_look = G.shop_look < 0 && sd < 3.0f && fabsf(wrap_pi(atan2f(SHRINE_Y - G.py, SHRINE_X - G.px) - G.ang)) < 0.3f + 0.3f / sd;
     float td = hypotf(TOTEM_X - G.px, TOTEM_Y - G.py);
     G.tot_look = G.shop_look < 0 && !G.sh_look && td < 3.6f && fabsf(wrap_pi(atan2f(TOTEM_Y - G.py, TOTEM_X - G.px) - G.ang)) < 0.3f + 0.3f / td;
+    float pdx = PORTAL_X + 0.5f - G.px, pdy = PORTAL_Y + 0.1f - G.py, pd = hypotf(pdx, pdy);
+    G.por_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && pd < 3.4f && fabsf(wrap_pi(atan2f(pdy, pdx) - G.ang)) < 0.3f + 0.35f / pd;
 #ifdef CRAWL_DEBUG
     if (G.shop_look != was) fprintf(stderr, "EVENT shop_look %d t=%.2f at (%.2f,%.2f) ang %.3f\n", G.shop_look, G.t, G.px, G.py, G.ang);
 #endif
@@ -8429,6 +8511,7 @@ static void shop_human(float dt) {
             else { shop_purchase(i); G.grab_t = 1.0f; }
         } else if (G.sh_look) { open_ui(UI_SHRINE); G.click_spent = IN.hit[KEY_MOUSE1]; G.grab_t = 1.0f; }
         else if (G.tot_look) { open_ui(UI_TOTEM); G.click_spent = IN.hit[KEY_MOUSE1]; G.grab_t = 1.0f; }
+        else if (G.por_look) { open_ui(UI_PORTAL); G.click_spent = IN.hit[KEY_MOUSE1]; }
         else if (!human_use() && hypotf(G.px - CAT_X, G.py - CAT_Y) < 1.8f) {   /* a pat */
             G.cat_slow = 1.4f; sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.9f); G.click_spent = IN.hit[KEY_MOUSE1];
         }
@@ -8481,6 +8564,7 @@ static void human_end(void) {
     }
     if (G.exiting || G.tally || G.dead) return;
     if (PK.depth) { pocket_return(0); return; }                    /* sleepwalking in a pocket: the feet find the way back out */
+    if (G.bchallenge) G.leaving = 1;                               /* in a challenge: on into the fight */
     G.cx = G.tx = (int)G.px; G.cy = G.ty = (int)G.py;
     if (!apass(G.cx, G.cy)) {                                      /* onto the nearest lane */
         int bd = 99, bx = G.cx, by = G.cy;
@@ -8983,6 +9067,7 @@ static void crawl_control(int what) {
     if (getenv("CRAWL_TPSECRET") && !G.shop && G.nsecrets) tp_secret(atoi(getenv("CRAWL_TPSECRET")) % G.nsecrets);
     if (getenv("CRAWL_TPALTAR") && !G.shop) tp_altar();
     if (getenv("CRAWL_TPDOOR") && !G.shop) tp_door();              /* before a secret's doorway, its room open */
+    if (getenv("CRAWL_TPPORTAL") && G.shop) { G.px = PORTAL_X + 0.5f; G.py = PORTAL_Y - 2.2f; G.ang = PI_F * 0.5f; G.cx = PORTAL_X; G.cy = PORTAL_Y - 3; }   /* before the Portal */
     if (getenv("CRAWL_TPTOTEM") && G.shop) { G.px = 6.9f; G.py = 14.6f; G.ang = face_of(TOTEM_X, TOTEM_Y); G.cx = 6; G.cy = 14; }   /* before the Totem */
     if (getenv("CRAWL_TPBOSS") && !G.shop && G.boss >= 0 && G.bstart_x >= 0) {   /* in the boss's antechamber, facing the arch */
         G.px = G.bstart_x + 0.5f; G.py = G.bstart_y + 0.5f; G.ang = 0.0f; human_begin();
@@ -9104,7 +9189,7 @@ static void rec_unpack_extra(const uint8_t *p, Record *r) {
 }
 /* version 6's hall, as far as it is built: the runs completed, each boss's scrip and challenge step, the
  * ranks met since the last death, the omens named, each boss ability's rank and the one readied */
-#define SAVE_V6_HALL (2 + 2 * BOSS_REC + BOSS_REC + REC_KINDS + 1 + BOSS_REC + 1)
+#define SAVE_V6_HALL (2 + 2 * BOSS_REC + BOSS_REC + REC_KINDS + 1 + BOSS_REC + 1 + 2)
 static void hall_pack(uint8_t *p) {
     put16(p, clampi(RUN.runs_done, 0, 65535)); p += 2;
     for (int b = 0; b < BOSS_REC; b++, p += 2) put16(p, clampi(RUN.scrip[b], 0, 65535));
@@ -9112,7 +9197,8 @@ static void hall_pack(uint8_t *p) {
     memcpy(p, RUN.top_rank, REC_KINDS); p += REC_KINDS;
     *p++ = (uint8_t)RUN.omens;
     for (int b = 0; b < BOSS_REC; b++) *p++ = (uint8_t)clampi(RUN.abil[b], 0, ABIL_TOP);
-    *p = (uint8_t)clampi(RUN.abil_sel, 0, BOSS_REC - 1);
+    *p++ = (uint8_t)clampi(RUN.abil_sel, 0, BOSS_REC - 1);
+    put16(p, clampi(RUN.run_top, 0, 999));
 }
 static void hall_unpack(const uint8_t *p) {
     RUN.runs_done = get16(p); p += 2;
@@ -9122,7 +9208,8 @@ static void hall_unpack(const uint8_t *p) {
     p += REC_KINDS;
     RUN.omens = *p++ & ((1 << NHZ) - 1);
     for (int b = 0; b < BOSS_REC; b++) RUN.abil[b] = (uint8_t)(b < NBOSS ? clampi(*p, 0, ABIL_TOP) : 0), p++;
-    RUN.abil_sel = clampi(*p, 0, NBOSS - 1);
+    RUN.abil_sel = clampi(*p++, 0, NBOSS - 1);
+    RUN.run_top = clampi(get16(p), 0, 999);
 }
 /* before version 6 a descent was twenty levels: the 40th, 80th ... stay as the descents they are now
  * (the 40th as level 40 cleared), and the rest are let go */
@@ -9171,7 +9258,8 @@ static int crawl_save(uint8_t *buf, int cap) {
     int n = save_end(6);
     if (cap < n || CON.used) return 0;                             /* the dead took note: nothing is kept */
     int level = G.level, hp = G.dead || G.hp <= 0 ? gear_max_hp(&RUN.gear) : G.hp, gold = RUN.treasure, souls = RUN.souls, shop = 0;
-    if (G.tally || G.exiting) { level = G.level + 1; shop = 1; }   /* the level is won */
+    if (G.bchallenge && !G.shop) { level = RUN.chal_from; shop = 1; }   /* a challenge: back to the room it was begun from */
+    else if (G.tally || G.exiting) { level = G.level + 1; shop = 1; }   /* the level is won */
     else if (G.shop) shop = !G.shop_bought;
     else { gold -= G.level_treasure; souls -= G.level_souls; }
     put32(buf, (int32_t)SAVE_MAGIC);
@@ -9446,11 +9534,33 @@ static void update_totemmenu(void) {
     totem_raise(b);
 }
 
+/* the Portal: W/S a run or a challenge, Enter goes, Esc closes */
+static void update_portalmenu(void) {
+    PortRow r[16];
+    int n = portal_rows(r);
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; return; }
+    int up = IN.hit[KEY_W] || IN.hit[KEY_UP], down = IN.hit[KEY_S] || IN.hit[KEY_DOWN];
+    if (up || down) { G.ui_sel = (G.ui_sel + n + down - up) % n; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    G.ui_sel = clampi(G.ui_sel, 0, n - 1);
+    if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) return;
+    const PortRow *p = &r[G.ui_sel];
+    if (p->run >= 0) {
+        if (p->run == crawl_run(G.level) && crawl_step(G.level) == 0) { G.ui = UI_NONE; say("YOU ARE AT ITS START ALREADY"); return; }
+        portal_run(p->run);
+        return;
+    }
+    RUN.chal_from = G.level; RUN.hp = G.hp;
+    if (RUN.gear.has_held && G.shop_held < 0) RUN.gear.has_held = 0;   /* as on leaving the room by its door */
+    snd_sfx_ex(SFX_WHOOSH, 1.0f, 0.5f); snd_sfx_ex(SFX_STINGER, 0.6f, 0.5f);
+    challenge_begin(p->boss);
+}
+
 static void update_ui(void) {
     if (IN.hit[KEY_MOUSE1]) G.click_spent = 1;                    /* a click that closes a menu casts nothing */
     if (G.ui == UI_WISPS) { update_wispmenu(); return; }
     if (G.ui == UI_SHRINE) { update_shrinemenu(); return; }
     if (G.ui == UI_TOTEM) { update_totemmenu(); return; }
+    if (G.ui == UI_PORTAL) { update_portalmenu(); return; }
 #ifdef CRAWL_DEBUG
     if (G.pilgrim == 2 && G.ui == UI_ALTAR) {                     /* the test player sends the wisp on, after a look */
         static int look;
@@ -9755,6 +9865,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 if (tex == T_TORCH0) tex = T_TORCH0 + (int)((tframe + hash2(mx, my)) % 3);
                 if (tex == T_EXIT0) tex = boss_sealed() ? T_GATE : G.exit_open > 0.3f ? T_EXIT_OPEN : T_EXIT0 + ((int)(G.t * 2.5) & 1);   /* barred while a boss lives */
                 if (tex == T_VISPORT0) tex = T_VISPORT0 + (PK.vis_used[PK.chain] ? 0 : ((int)(G.t * 5.0) & 3));
+                if (tex == T_PORTAL0) tex = T_PORTAL0 + ((int)(G.t * 3.0) & 3);   /* the Accursed Portal, turning */
                 float wallx = side == 0 ? G.py + perp * rdy : G.px + perp * rdx;
                 wallx -= floorf(wallx);
                 texx = (int)(wallx * TS);
@@ -10705,6 +10816,20 @@ static void render_shop_card(Frame *f) {
     if (G.shop_step == SH_LOOK && G.shop_t < 0.35) i = -1;
     if (G.player) i = G.shop_look;
     int y0 = H - 44 - 46;
+    if (G.player && G.por_look && i < 0) {                         /* the Portal, and what E does there */
+        int bw = 264, bx = (W - bw) / 2, ph = 42, ch = 0;
+        for (int b = 0; b < NBOSS; b++) ch += RUN.rec.boss[b].slain > 0;
+        y0 = H - 44 - 4 - ph;
+        gfx_rect(f, bx, y0, bw, ph, 0);
+        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
+        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        gfx_text16(f, bx + 8, y0 + 4, "THE ACCURSED PORTAL", R_PURPLE + 13, 1);
+        char l2[48];
+        snprintf(l2, sizeof l2, "%d RUN%s OPEN, %d CHALLENGE%s", RUN.run_top + 1, RUN.run_top ? "S" : "", ch, ch == 1 ? "" : "S");
+        gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
+        gfx_text8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10, 1);
+        return;
+    }
     if (G.player && G.tot_look && i < 0) {                         /* the Totem, and what E does there */
         int bw = 264, bx = (W - bw) / 2, ph = 42, known = 0, scrip = 0;
         for (int b = 0; b < NBOSS; b++) { known += boss_beaten(b); scrip += RUN.scrip[b]; }
@@ -12146,7 +12271,48 @@ static void render_totemmenu(Frame *f) {
     else gfx_text8(f, px + 10, y + nl * 9 + 3, BOSSES[b].scrip, R_BONE + 10, 1);                /* or whose scrip it takes */
 }
 
+/* the Portal's screen: the runs it opens, the challenges it offers with each one's step, a note on the one chosen */
+static void render_portalmenu(Frame *f) {
+    dim_view(f);
+    int px = 6, py = 6, pw = W - 12, ph = H - 12;
+    panel(f, px, py, pw, ph);
+    gfx_text16(f, px + 10, py + 6, "THE ACCURSED PORTAL", R_GOLD + 12, 1);
+    gfx_text8(f, px + 10, py + 26, "W/S CHOOSE  ENTER GOES  ESC CLOSES", R_STONE + 9, 1);
+    PortRow r[16];
+    int n = portal_rows(r), sel = clampi(G.ui_sel, 0, n - 1), y = py + 40, here = crawl_run(G.level);
+    char line[200];
+    for (int i = 0; i < n; i++) {
+        const PortRow *p = &r[i];
+        if (i == 0 || (p->boss >= 0 && r[i - 1].boss < 0)) {       /* the headings */
+            gfx_text8(f, px + 10, y, p->boss < 0 ? "THE RUNS" : "THE CHALLENGES", R_GOLD + 10, 1);
+            y += 11;
+        }
+        if (i == sel) gfx_rect(f, px + 6, y - 2, pw - 12, 11, R_IRON + 3);
+        uint8_t c = i == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12);
+        if (p->boss < 0) {
+            snprintf(line, sizeof line, "RUN %s  %s", RUN_ROMAN[p->run % 8], SET_NAME[p->run % 4]);
+            gfx_text8(f, px + 18, y, line, c, 1);
+            snprintf(line, sizeof line, p->run == here ? "HERE  LEVEL %d" : "LEVEL %d", 1 + RUN_LEN * p->run);
+            gfx_text8(f, px + pw - 12 - gfx_text_width(line, 1), y, line, p->run == here ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 10), 1);
+        } else {
+            gfx_text8(f, px + 18, y, BOSSES[p->boss].short_name, c, 1);
+            snprintf(line, sizeof line, "STEP %d", RUN.bstep[p->boss]);
+            gfx_text8(f, px + pw - 12 - gfx_text_width(line, 1), y, line, ramp_at(R_BLOOD, 9 + RUN.bstep[p->boss]), 1);
+        }
+        y += 11;
+    }
+    y += 3;
+    for (int i = px + 8; i < px + pw - 8; i++) gfx_px(f, i, y, R_STONE + 5);
+    y += 5;
+    const PortRow *p = &r[sel];
+    if (p->boss < 0) snprintf(line, sizeof line, "THROUGH, AS YOU ARE, TO THE MERCHANT'S ROOM BEFORE LEVEL %d. %s", 1 + RUN_LEN * p->run,
+                              p->run < here ? "BACK UP IS NO LOSS." : (p->run > here ? "ON, PAST WHAT LIES BETWEEN." : "THE START OF THIS ONE."));
+    else step_text(RUN.bstep[p->boss], line, sizeof line);
+    text_wrap(f, px + 10, y, line, 36, R_STONE + 13, (py + ph - 4 - y) / 9);
+}
+
 static void render_ui(Frame *f) {
+    if (G.ui == UI_PORTAL) { render_portalmenu(f); return; }
     if (G.ui == UI_SHRINE) { render_shrinemenu(f); return; }
     if (G.ui == UI_TOTEM) { render_totemmenu(f); return; }
     if (G.ui == UI_WISPS) { render_wispmenu(f); return; }
