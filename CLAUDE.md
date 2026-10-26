@@ -130,7 +130,7 @@ wisp, follows it home and sends it on from the altar's menu; it can't be hurt), 
 put there as the level opens, already leaving), `CRAWL_BOSSHP=f` (a boss's health times f), `CRAWL_OMEN=s` (the
 level's omens on any level, every s seconds, the first at once), `CRAWL_TOTEM=dddd` (each boss ability's rank, a digit
 each in boss order, and that boss counted beaten), `CRAWL_SCRIP=n` (n scrip of each boss, all four counted beaten),
-`CRAWL_TPCAT=1` (before the merchant herself), `CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_TPPORTAL=1` (in the
+`CRAWL_TPCAT=1` (before the merchant herself), `CRAWL_TPSTONE=1` (before the plot's newest stone), `CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_TPPORTAL=1` (in the
 grave plot facing the Accursed Portal), `CRAWL_RUNTOP=n` (the runs it opens: 0 only run I), `CRAWL_BSTEP=s` (every
 challenge at step s), `CRAWL_GOALS=1`
 (the autopilot's goal at every step, as `GOAL` lines),
@@ -167,7 +167,9 @@ bytes; then the ledger's sections behind the marker `"LDG1"` (`page_section`; a 
 bytes, to a tag of 0): `LG_PAGE` (u32 the run's id, u32 its signatures, u64 when written, a byte of why:
 `PG_SIGNED`, `PG_DEATH`, `PG_CLAIM`) and, signed in the merchant's room, `LG_VISIT` (her visit: its
 level, pedestals, wares left and bought, the shrine's takes, the ware held this visit, then each
-pedestal's ware, `offer_pack`, and whether it is gone or back): 1,351 bytes with five pedestals. A
+pedestal's ware, `offer_pack`, and whether it is gone or back), and `LG_STONES` (the grave plot: a
+count, then each stone, `STONE_BYTES`, 331: when, the level, what took it as a `Blame`, gold, souls,
+coins, spells and runes, the worn pieces and the bag): 1,351 bytes with five pedestals and no stones. A
 reader steps over sections it doesn't know, so the hall's parts can come as sections of their own. The
 progress (`SLOT_PROGRESS`) is either a whole run (unsigned: 1.0.0b6's, or a fresh one's) or `"HVP1"`, the
 page to open (a byte, 1-3), the run's id and signatures. Version 5 is the same without version 6's part; its
@@ -547,6 +549,25 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   page (`progress_point`). 1.0.0b6's graves are pages (shown CARVED, with their carved time after the
   blob) and its last fled progress is the unsigned run. Debug: `EVENT ledger_sign`, `ledger_open`, and
   `LEDGER start from ...`; `CRAWL_TPCAT=1` stands you before her.
+- **Death's cost** (docs/PLAN-b7.md section 1; `death_fall`, `death_write`, `death_wake`). Only when the
+  run is a person's (`LEDGER.yours`), no code was used and not in a pocket (`death_costs`); otherwise the
+  old mercy (the level again, softer each time). At the fall: a `Stone` (newest first in `RUN.stones`,
+  ten kept) with what was carried and what took it, then gold, souls, coins, every piece and the bag,
+  every spell but the fireball, bones, the held ware and the ranks met (`RUN.top_rank`) go; the runes,
+  the shrine, the Totem, scrip, steps, runs and the record stay. The page it came from (or the unsigned
+  run's progress) is written at once (`PG_DEATH`, level 1 at the merchant's). A card (`render_card`,
+  `G.dcost`, `G.dlost`) holds the haze until E (the autopilot: 6 s), then `death_wake` puts the dweller
+  in the merchant's room before level 1. What hurt last is `G.blame` (`Blame`: `BL_MOB` kind and rank,
+  `BL_BOSS`, `BL_HAZARD`, `BL_POISON`, `BL_FIRE`, `BL_POOL`, `BL_MIRROR`), set before each `hurt_ex`
+  (`hurt_by(m, ...)` for a creature's blow; a missile carries its thrower's in `Bone.by`; poison keeps
+  `G.poison_by`); `blame_text` words it. The plot's stones stand at `STONE_AT` (the newest
+  `SP_TOMB_FRESH`); E at one opens its page (`UI_STONE`: the epitaph, the date, the spellbook and runes,
+  each worn piece's card; A/D the next stone). A death in a pocket puts the dweller at the secret's
+  entrance facing in and seals the chain's doorway for the level (`Secret.sealed`, `T_SEALED`; walking
+  into it only knocks), with *THE DWELLER FAILED THIS TRIAL* and the tally's *1 TRIAL FAILED*
+  (`G.trials_failed`). Debug: `EVENT died ... by what/type/rank`, `death_cost`, `death_written`;
+  `CRAWL_TPSTONE=1` stands you before the newest stone. `make sheets` draws `SP_TOMB_FRESH` on `b7.png`
+  and `T_SEALED` (with the Portal) on `b7walls.png`, for the owner.
 - **Items** (`crawl_gear.c`, docs/PLAN-items.md). A `Piece` has a kind (`IK_*`: bracer, boots,
   amulet, hood, robes, ring, bag), a quality (`Q_*`, white to gold: `QUAL_RAMP`), its level, Anointed or
   not, an ability (`AB_*`) and up to six rolled stats (`ST_*`, in tenths; health restored in

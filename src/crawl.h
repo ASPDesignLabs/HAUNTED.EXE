@@ -46,6 +46,7 @@ enum {
     T_FONT, T_FONT_DRY,                           /* a basin set in the wall, a draught in it; and drunk dry */
     T_GRATE,                                      /* a drain low in the wall: where the bile comes from */
     T_PORTAL0, T_PORTAL1, T_PORTAL2, T_PORTAL3,   /* the Accursed Portal: an arch filled with a slow red-violet swirl */
+    T_SEALED,                                     /* a chain's doorway shut for the level: dark frames under a cracked red seal */
     NTEX
 };
 
@@ -139,6 +140,7 @@ enum {
     SP_BSPIDER_A, SP_BSPIDER_B, SP_BSPIDER_LEAP, /* the Wandering Spider: a hunting spider with a pale skull on its back */
     SP_BRAZIER_OUT,                             /* a brazier the Wraith has put out: the cold bowl and a little ash */
     SP_HEXTOTEM,                                /* the Hexed Totem: a black pole of skulls, hooks for the bosses' scrip */
+    SP_TOMB_FRESH,                              /* the newest stone in the merchant's plot: clean-cut, the earth still turned */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
     SP_SKEL_SA, SP_SKEL_SB, SP_SHIELD_SA, SP_SHIELD_SB, SP_BAT_SA, SP_BAT_SB, SP_SPIDER_SA, SP_SPIDER_SB,
     SP_GHOST_SA, SP_GHOST_SB, SP_WSKULL_S,

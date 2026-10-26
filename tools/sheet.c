@@ -99,7 +99,7 @@ static const Group GROUPS[] = {
       { { SP_DOUBLE, "BLINK'S DOUBLE" }, { -1, 0 } } },
     { "b7", "1.0.0B7: FOR APPROVAL", -1, 1,
       { { SP_HEXTOTEM, "TOTEM" }, { SP_SCRIP, "SCRIP" }, { SP_BSPIDER_A, "SPIDER" }, { SP_KNIGHT_P0, "KNIGHT" },
-        { SP_BRAZIER_OUT, "PUT OUT" }, { -1, 0 } } },
+        { SP_BRAZIER_OUT, "PUT OUT" }, { SP_TOMB_FRESH, "NEWEST" }, { SP_TOMB_ROUND, "OLDER" }, { -1, 0 } } },
 };
 #define NGROUPS ((int)(sizeof GROUPS / sizeof GROUPS[0]))
 
@@ -487,6 +487,35 @@ static int draw_severance(const char *path, int level) {
     return ok;
 }
 
+/* ---- 1.0.0b7's walls: the Accursed Portal, and a chain's doorway sealed after a failed trial ---- */
+static int draw_b7walls(const char *path, int level) {
+    int cw = CELL + PAD, top = PAD + LABEL_H + 8, x0 = PAD + ROWHEAD, row = CELL + 2 * LABEL_H + PAD;
+    iw = x0 + 4 * cw + PAD;
+    ih = top + 2 * row + 8 * TXT + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    char head[96];
+    snprintf(head, sizeof head, "1.0.0B7: WALLS, FOR APPROVAL - LEVEL %d", level);
+    text(PAD, PAD, head, 230, 230, 230);
+    int y = top;
+    #define LBL(x_, s_) text((x_), y + CELL + 4, (s_), 190, 190, 190)
+    #define LBL2(x_, s_) text((x_), y + CELL + 6 + 8 * TXT, (s_), 150, 150, 150)
+    text(PAD, y + CELL / 2, "THE PORTAL", 200, 200, 200);
+    for (int f = 0; f < 4; f++) tex(x0 + f * cw, y, T_PORTAL0 + f, SC, LIGHT);
+    LBL(x0, "THE ACCURSED PORTAL, FOUR FRAMES"); LBL2(x0, "A SLOW RED-VIOLET SWIRL");
+    y += row;
+    text(PAD, y + CELL / 2, "A TRIAL", 200, 200, 200);
+    text(PAD, y + CELL / 2 + 8 * TXT + 4, "FAILED", 200, 200, 200);
+    tex(x0, y, T_PASSAGE, SC, LIGHT); LBL(x0, "THE WAY IN"); LBL2(x0, "AS IT WAS");
+    tex(x0 + cw, y, T_SEALED, SC, LIGHT); LBL(x0 + cw, "SEALED"); LBL2(x0 + cw, "FOR THE REST OF THE LEVEL");
+    #undef LBL
+    #undef LBL2
+    text(PAD, ih - PAD - 8 * TXT, "SHADED AS NEAR A TORCH.", 120, 120, 120);
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && !strcmp(argv[1], "list")) {
         for (int i = 0; i < NGROUPS; i++) printf("%-12s %s\n", GROUPS[i].name, GROUPS[i].title);
@@ -494,6 +523,7 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "shrine", "THE RUNE SHRINE, ITS RUNES AND THE CURSED COIN");
         printf("%-12s %s\n", "backrooms", "THE BACKROOMS: WALLS, FLOOR, CEILING, THE VISPORTAL, THE GLITCH");
         printf("%-12s %s\n", "severance", "SEVERANCE: WALLS, DOORS, FLOOR, CEILING, DESKS, THE WATER COOLER");
+        printf("%-12s %s\n", "b7walls", "1.0.0B7: THE PORTAL, AND A SEALED DOORWAY");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -527,6 +557,13 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/severance.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_severance(path, level)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "b7walls")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/b7walls.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_b7walls(path, level)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     for (int i = 0; i < NGROUPS; i++) {

@@ -514,6 +514,40 @@ static void gen_passage(int t, int warm) {
         }
 }
 
+/* A chain's doorway after the dweller failed its trial: the same cut in the stone, the frames inside gone
+ * dark, and across the opening a dull red seal, cracked through, with a little of it run down the stone */
+static void gen_sealed(int t) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c;
+            if (x < 18 || x > 45 || y < 12) {
+                c = sh(R_STONE, block_shade(x, y, 221) * 0.8f);
+                if ((x == 17 || x == 46) && y >= 12) c = sh(R_STONE, 0.1f);
+                if (y == 11 && x >= 17 && x <= 46) c = sh(R_STONE, 0.12f);
+            } else {                                               /* doorway after doorway, unlit */
+                int face;
+                float s = room_view(x, y, &face), f = fmodf(s * 5.0f, 1.0f);
+                c = sh(R_STONE, (f < 0.12f ? 0.13f : 0.04f) + 0.05f * s + (face == RV_FLOOR ? 0.02f : 0.0f));
+            }
+            float dx = x + 0.5f - 32.0f, dy = y + 0.5f - 33.0f, r = sqrtf(dx * dx + dy * dy);
+            float crack = fabsf(dy + dx * 0.55f - 1.5f * sinf(dx * 0.7f));   /* a jagged break, lower left to upper right */
+            if (r < 10.5f) {
+                float wob = 10.0f + 0.6f * sinf(atan2f(dy, dx) * 7.0f);     /* pressed wax, its rim uneven */
+                if (r < wob) {
+                    float v = 0.34f + 0.14f * (-dx - dy) / 14.0f - (r > wob - 1.5f ? 0.08f : 0.0f);
+                    if (r < 6.0f && r > 4.6f) v -= 0.1f;           /* the ring of the die */
+                    if (fabsf(dx) < 0.8f && dy > -4.0f && dy < 4.0f) v -= 0.1f;   /* a mark struck in it */
+                    if (fabsf(dy + 1.0f) < 0.8f && fabsf(dx) < 2.6f) v -= 0.1f;
+                    c = sh(R_BLOOD, v);
+                    if (crack < 0.9f) c = sh(R_STONE, 0.02f);
+                    else if (crack < 1.6f) c = sh(R_BLOOD, v - 0.12f);
+                }
+            }
+            if (x >= 27 && x <= 29 && y > 42 && y < 50 + 3 * (x == 28) && r > 9.0f) c = sh(R_BLOOD, 0.22f);   /* a run of it */
+            tput(t, x, y, c);
+        }
+}
+
 /* ---- the Backrooms (1.0.0b6) ----
  * Everything here is drawn in R_FLOOR (dark brown, mustard, pale yellow) and R_CEIL (off-white), which
  * only the floor, the ceiling and the fog use in the crypt; a Backrooms pocket recolours the two
@@ -2297,6 +2331,7 @@ static void stone_px(int x, int y, float nx, float shade_v, int seed) {
     if (y > 50 && fbm(x / 3.0f, y / 3.0f, 32, (uint32_t)seed + 9) > 0.6f) { cv_px(x, y, sh(R_MOSS, 0.15f + 0.4f * v)); return; }   /* moss creeping up */
     cv_px(x, y, sh(R_STONE, v));
 }
+static void soil(float cx, float w, int ground, uint32_t seed);
 static void spr_tomb(int id, int kind) {
     cv_begin(cv_sprite, TS, TS);
     switch (kind) {
@@ -2343,6 +2378,21 @@ static void spr_tomb(int id, int kind) {
             }
         }
         cv_skull(cx, 40, 0.55f, 0.3f, 0.9f);                       /* a carved death's head */
+        break;
+    }
+    case 4: {                                                      /* the newest: clean-cut and pale, the earth before it still turned */
+        float cx = 32, hw = 11, top = 25;
+        for (int y = (int)top; y <= 59; y++)
+            for (int x = (int)(cx - hw); x <= (int)(cx + hw); x++) {
+                float nx = (x + 0.5f - cx) / hw, dy = y + 0.5f - (top + hw);
+                if (dy < 0 && (x + 0.5f - cx) * (x + 0.5f - cx) + dy * dy > hw * hw) continue;
+                float v = 0.42f + 0.45f * lit(nx, 0.0f, sqrtf(fmaxf(0.0f, 1.0f - nx * nx))) + (fbm(x / 5.0f, y / 5.0f, 12, 83) - 0.5f) * 0.08f;
+                if (dy < 0 && (x + 0.5f - cx) * (x + 0.5f - cx) + dy * dy > (hw - 1.3f) * (hw - 1.3f)) v += 0.1f;   /* the dressed edge */
+                if ((fabsf(x + 0.5f - cx) < 1.0f && y > 30 && y < 43) || (fabsf(y + 0.5f - 34) < 1.0f && fabsf(x + 0.5f - cx) < 5)) v -= 0.3f;   /* a cross cut sharp */
+                if ((y == 47 || y == 50 || y == 53) && fabsf(x + 0.5f - cx) < 7 - (y == 53) * 3 && (x * 5 + y) % 4) v -= 0.28f;   /* fresh letters */
+                cv_px(x, y, sh(R_STONE, v));
+            }
+        soil(cx, 17, 59, 89);
         break;
     }
     default: {                                                     /* broken: the stump, the top fallen beside it */
@@ -4589,6 +4639,7 @@ void crawl_art_init(void) {
     gen_font(T_FONT, 101, 1); gen_font(T_FONT_DRY, 101, 0);
     gen_grate(T_GRATE, 103);
     for (int f = 0; f < 4; f++) gen_portal(T_PORTAL0 + f, f, 107);
+    gen_sealed(T_SEALED);
     gen_exit(T_EXIT0, 0, 0);
     gen_exit(T_EXIT1, 1, 0);
     gen_exit(T_EXIT_OPEN, 1, 1);
@@ -4659,6 +4710,7 @@ void crawl_art_init(void) {
     spr_chandelier(SP_CHANDELIER_A, 0); spr_chandelier(SP_CHANDELIER_B, 1);
     spr_roots(); spr_websheet();
     for (int k = 0; k < 4; k++) spr_tomb(SP_TOMB_ROUND + k, k);
+    spr_tomb(SP_TOMB_FRESH, 4);
     for (int f = 0; f < 3; f++) spr_firepit(SP_FIREPIT_A + f, f);
     spr_totem(SP_TOTEM_A, 0); spr_totem(SP_TOTEM_B, 1);
     spr_shambler(SP_SHAMB_A, 1.0f, 0); spr_shambler(SP_SHAMB_B, -1.0f, 0); spr_shambler(SP_SHAMB_GRAB, 0.0f, 1);

@@ -885,8 +885,19 @@ first.
     the unsigned run. In the harness: signing, opening, starting again from the progress, an old grave
     and progress from a 1.0.0b6 build, signing over another run's page, the visit kept. ASan clean; the
     Windows build compiles (not run under Wine).
-12. **Death's cost**: what goes and stays, written at the fall; the death card; the pocket's sealed
-    doorway; the grave plot, its stones and what killed you.
+12. **Death's cost** (built): only for a run a person has taken over, with no code used; the dream keeps
+    the old mercy. At the fall a stone is cut with what was carried and what took it, everything but the
+    runes and the hall's keeping goes, and the page (or the unsigned run) is written at once; a card says
+    what took you and what went, and holds the haze until E; you wake in the merchant's room before level
+    1. What took you is kept as it lands: a creature by its caption and rank, a boss by its title, a
+    hazard by name, a creature's poison or fire, a drowned one's pool, the knight's mirror. The plot holds
+    the last ten stones, the newest clean-cut with its earth turned (new art, on the b7 sheet); E at one
+    opens its page: the epitaph, the date, the spellbook and runes, each piece's card. A death in a pocket
+    puts you at the secret's entrance facing in, and its chain's doorway is sealed for the level under a
+    cracked red seal (new art, on the b7walls sheet), with the caption and the tally's note. In the
+    harness: a scripted death (the card, the wake at level 1, the page written, 1,505 bytes with one
+    stone), a shield-bearer's kill named on its stone, the stone's page, a pocket death and its seal, the
+    dream's death unchanged. ASan clean.
 13. **The claim**: danger and the mark, written at once; what she takes; her card; the warning eye.
 14. **The hall**: the room's new shape and art; her menu; pedestals two to seven.
 15. **The Corpus Compendium.**
