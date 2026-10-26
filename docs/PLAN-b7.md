@@ -780,13 +780,11 @@ not yet met don't show.
 
 ## Building it (the tasks)
 
-**Where things stand (for whoever picks this up).** Steps 1 to 6 are built and pushed on
+**Where things stand (for whoever picks this up).** Steps 1 to 7 are built and pushed on
 `claude/magical-cori-s471gj`, each in its own commit; the step list below says what each did and how it
 was tested (in the harness only; nothing of 1.0.0b7 has been played by hand). The owner asked for the four
-bosses next, then everything else in order, released together. Next: the Deacon (step 7: the
-autopilot can't finish his fight yet because he keeps away, and his arena is too dark) and the Wraith (step
-8: `update_wraith` still drives it, and it kills the autopilot; it needs the braziers, light and Time
-Slip). The bestiary's boss pages are still to do, with each boss's art. Samples of the four boss waltzes
+bosses next, then everything else in order, released together. Next: the Wraith (step 8: `update_wraith` still drives it, and it kills the autopilot; it needs the
+braziers, light and Time Slip). The bestiary's boss pages are still to do, with each boss's art. Samples of the four boss waltzes
 went to the owner for listening; no answer yet. Test a fight with `CRAWL_LEVEL=10|20|30|40
 CRAWL_TPBOSS=2 CRAWL_GEAR=4 CRAWL_SOULS=200` (and `CRAWL_BOSSHP=0.35` to reach the waves sooner) on
 `build/host_debug apl crawl 600`, and read the `EVENT boss_*` lines.
@@ -829,7 +827,14 @@ first.
    quarter (with souls to spare the autopilot was skipping from mark to mark). In the harness, every spell
    at tier 5, it won in 173, 199 and 209 s; one seed of four died four times without a win in 700 s. The
    knight's times didn't change. ASan clean.
-7. **The Black Deacon**: art sheet; the Bone Ward; Grave Call; Hellrent; Litany; his adds; THE PULPIT.
+7. **The Black Deacon** (built): black robes at twice a deacon's size (no new art yet: no censer or
+   crozier); the Bone Ward wheeling about him; Grave Call, one skeleton at a time, three at most, broken
+   off by a tenth of his health; Litany; five chandeliers in the chapel. His health went from 18 to 15
+   knights. Two faults found: the autopilot never aimed at a boss that doesn't strike (it took only what
+   was ahead of it or attacking it), and in a wave it kept away from slow adds instead of going after
+   them; both fixed, which also shortened the knight's fights. With the same seeds, every spell at tier
+   4, 5 and 7: the knight in 189-221 s, the spider in 189-232 s (four deaths on two seeds of four), the
+   Deacon in 160-210 s, none dying. ASan clean.
 8. **The Wraith Unbound**: art sheet; light and the braziers; Time Slip; Wraithwalk; the void and the
    silence; Grasping Dark; its adds; THE BOTTOM.
 9. **The Hexed Totem and the caster's abilities**: the totem; Swift Dodge, Tangled Web, Grave Call and

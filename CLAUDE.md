@@ -236,6 +236,20 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   a wall in your sight that hatches four small hunters 5 s later. Every 15 s one small hunter comes out of a
   burrow (`Mob.add` 2, four at most; only `add` 1 counts for a wave). Debug: `EVENT spider_ups`,
   `spider_mends`, `webbed`, `web_torn`, `egg_shots`. The BFS9000 takes 8% of a boss's health.
+- **The Black Deacon** (step 7). Drawn with the deacon's rank-V (black) colours at twice the size. Bone
+  Ward (`G.bward`, 4% of his health, `G.bward_cd` the Rare rune's cooldown to grow back): blows go to it
+  first; six bone shards wheel about him while it holds. Grave Call is the deacon's chant from the
+  chapel's heaps (`SP_BONES2` in his arena): one at a time, 12 s apart, three of his (`Mob.add` 3) about
+  him at most; a tenth of his health in damage mid-chant (`G.bchant_dmg`) breaks it off. Litany (`BP_LITANY`,
+  every 18-24 s): two seconds of green light (`DR_MEND`, the chant sprite), then a fifth of your health if he
+  can see you; timber props (`K_PILLAR`) hide you, pews don't. Five chandeliers light the chapel. Neither he
+  nor any boss's adds back away (`keeps_off`), and shamblers called as adds rise at once. Debug: `EVENT
+  ward_broken`, `ward_grown`, `chant_broken`, `litany_hits`, `litany_missed`; `BOSS fight ...` every 10 s of a
+  fight (health, ward, distance, sight, whether it is targetable and aimed at) and `BOSS adds left ...` when a
+  wave's adds linger past 20 s.
+- **The autopilot in boss fights**: `find_target` takes a boss or its adds from any side within nine cells
+  (before, only what was ahead or attacking, so a boss that never strikes, like the Deacon, was never
+  aimed at); in a wave, `boss_goal` heads for the nearest add when none is within five cells.
 - **The bosses' music** (`snd.c`: `BTHEMES`, `boss_step`; `snd_set_boss(theme, wave)`, `snd_boss_fall`).
   A slow waltz each on its own clock: eight bars of three beats, the last cut to two; a five-note
   ostinato that drifts against the bar; the bell on beat one; the tune rests one phrase in four and

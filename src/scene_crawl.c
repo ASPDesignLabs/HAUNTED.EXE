@@ -294,7 +294,7 @@ static const BossDef BOSSES[NBOSS] = {
         "THE WANDERING SPIDER'S ODIOUS SCRIP", "THE WANDERING SPIDER", MOB_HUNTER, 22.0f, 1.0f, 1.2f, 1.3f, MAP_WEB, SP_PILLAR, SP_PUDDLE_A,
         { { { MOB_HUNTER, 3, 1 } }, { { MOB_HUNTER, 4, 1 } }, { { MOB_HUNTER, 5, 1 } }, { { MOB_HUNTER, 6, 1 } } } },
     [BOSS_DEACON] = { "THE BLACK DEACON", "HE KEPT THE ORDER'S RITES LONG AFTER THE ORDER WAS DUST.",
-        "THE BLACK DEACON'S ODIOUS SCRIP", "THE BLACK DEACON", MOB_DEACON, 12.0f, 2.0f, 1.0f, 1.3f, MAP_PULPIT, SP_TIMBER, SP_TOMB_BROKEN,
+        "THE BLACK DEACON'S ODIOUS SCRIP", "THE BLACK DEACON", MOB_DEACON, 15.0f, 2.0f, 1.0f, 1.3f, MAP_PULPIT, SP_TIMBER, SP_TOMB_BROKEN,
         { { { MOB_DEACON, 1, 0 }, { MOB_SHAMBLER, 3, 0 } },
           { { MOB_DEACON, 1, 0 }, { MOB_SHAMBLER, 2, 0 }, { MOB_GHOUL, 1, 0 } },
           { { MOB_DEACON, 1, 0 }, { MOB_SHIELD, 2, 0 }, { MOB_GHOUL, 2, 0 } },
@@ -3423,7 +3423,7 @@ static void update_mob(Mob *m, float dt) {
     if (m->type == MOB_DEACON && !G.dead) {                        /* it keeps back, and calls the fallen up again */
         if (m->swing > 0.0f) {                                     /* chanting over the bones */
             if ((m->swing -= dt) > 0.0f) return;
-            m->swing = 0.0f; m->contact = 6.0f;
+            m->swing = 0.0f; m->contact = m->boss ? 12.0f : 6.0f;      /* the Black Deacon calls one at a time, with a pause */
             int di = m->deco;
             m->deco = -1;
             if (di >= 0 && (G.decos[di].spr == SP_SKEL_D3 || G.decos[di].spr == SP_BONES2)) {
@@ -4290,6 +4290,15 @@ static int boss_goal(int x, int y, int *gx, int *gy) {
             if (G.bfont_full[i] && G.bfont_fx[i] >= 0 && apass(G.bfont_fx[i], G.bfont_fy[i])) { *gx = G.bfont_fx[i]; *gy = G.bfont_fy[i]; return 1; }
     const Mob *b = boss_mob();
     float bx = b ? b->x : (float)G.exit_fx, by = b ? b->y : (float)G.exit_fy;
+    if (G.bstate == BS_WAVE && G.badds > 0) {                      /* adds out and none near: go and find the nearest */
+        float nd = 1e9f; const Mob *na = NULL;
+        for (int i = 0; i < MAXMOBS; i++) {
+            const Mob *o = &G.mobs[i];
+            float d = hypotf(o->x - G.px, o->y - G.py);
+            if (o->alive && o->add == 1 && o->state == MS_WALK && d < nd) { nd = d; na = o; }
+        }
+        if (na && nd > 5.0f) { bx = na->x; by = na->y; }
+    }
     static int keep_x = -1, keep_y = -1; static double keep_t = -1.0;
     if (keep_x >= 0 && G.t < keep_t && apass(keep_x, keep_y) && in_arena(keep_x + 0.5f, keep_y + 0.5f)
         && fabsf(hypotf(keep_x + 0.5f - bx, keep_y + 0.5f - by) - 4.5f) < 2.0f && (keep_x != x || keep_y != y)) { *gx = keep_x; *gy = keep_y; return 1; }
@@ -4525,7 +4534,8 @@ static int find_target(void) {
         if (depth >= 0.35f && depth <= 7.5f && fabsf(lat) <= fmaxf(depth * 0.42f, 0.3f)) score = depth;
         else if ((m->type == MOB_SKEL && m->seen && dist < 8.0f) || (m->type == MOB_BAT && dist < 1.4f) || (m->type == MOB_SHIELD && m->seen && dist < 3.0f)
                  || (m->type == MOB_SPIDER && m->sub >= 1 && dist < 2.0f) || (m->type == MOB_WSKULL && m->sub >= 1 && dist < 9.0f)
-                 || (m->type == MOB_WRAITH && m->sub == 0 && dist < 7.0f) || (KIND_IS(m, KF_MELEE) && m->alert > 0.0f && dist < 4.0f)) score = dist + 1.5f;
+                 || (m->type == MOB_WRAITH && m->sub == 0 && dist < 7.0f) || (KIND_IS(m, KF_MELEE) && m->alert > 0.0f && dist < 4.0f)
+                 || ((m->boss || m->add) && dist < 9.0f)) score = dist + 1.5f;   /* in a boss's fight, whatever is in it */
         else continue;
         if (m->type == MOB_WSKULL) score -= m->sub == 1 ? 4.0f : 1.5f;   /* one hit ends it: first, before it fires */
         if (m->type == MOB_DEACON) score -= 2.0f;                  /* the priest first, before it raises more */
@@ -5832,7 +5842,7 @@ static void boss_hazards(float dt) {
     }
     case BOSS_DEACON:                                              /* Hellrent: a line at you, a ring round him, a cross */
         if (!wave && m && m->swing <= 0.0f && G.bpose_t <= 0.0f && (G.bz2_t -= dt * pace) <= 0.0f) {   /* Litany */
-            G.bz2_t = 12.0f + 4.0f * rndf();
+            G.bz2_t = 18.0f + 6.0f * rndf();
             G.bpose = BP_LITANY; G.bpose_t = 2.0f;
             sfx_at(SFX_WAIL, m->x, m->y, 0.9f);
         }
@@ -6080,6 +6090,11 @@ static void update_boss(float dt) {
     }
     if (G.bstate == BS_DEAD) return;
     G.bfight_t += dt;
+#ifdef CRAWL_DEBUG
+    if (m && G.bstate == BS_FIGHT && (int)((G.bfight_t - dt) / 10.0f) != (int)(G.bfight_t / 10.0f))   /* how the fight goes */
+        fprintf(stderr, "BOSS fight t=%.1f hp=%.0f/%.0f ward=%.0f d=%.1f sight=%d target=%d aim=%d state=%d pose=%d swing=%.1f\n", G.t, m->hp, m->maxhp, G.bward,
+                hypotf(m->x - G.px, m->y - G.py), line_clear(m->x, m->y, G.px, G.py), targetable(m), G.target == G.bmob, G.state, G.bpose, m->swing);
+#endif
     boss_hazards(dt);
     if (G.boss == BOSS_DEACON && m && G.bward <= 0.0f && (G.bward_cd -= dt) <= 0.0f) {   /* his Bone Ward grows back */
         G.bward = 0.04f * m->maxhp; G.bward_cd = 0.0f;
@@ -6105,6 +6120,17 @@ static void update_boss(float dt) {
         int left = 0;
         for (int i = 0; i < MAXMOBS; i++) left += G.mobs[i].alive && G.mobs[i].add == 1 && G.mobs[i].state != MS_DIE;
         G.badds = left;
+#ifdef CRAWL_DEBUG
+        if (left && G.bstate_t > 20.0f && (int)((G.bstate_t - dt) / 10.0f) != (int)(G.bstate_t / 10.0f)) {   /* adds that linger */
+            fprintf(stderr, "BOSS adds left %d t=%.1f:", left, G.t);
+            for (int i = 0; i < MAXMOBS; i++) {
+                const Mob *o = &G.mobs[i];
+                if (o->alive && o->add == 1 && o->state != MS_DIE)
+                    fprintf(stderr, " %s@%.1f,%.1f sub%d alert%.0f hunts%d seen%d", KINDS[o->type].name, o->x, o->y, o->sub, o->alert, o->hunts, o->seen);
+            }
+            fprintf(stderr, " caster@%.1f,%.1f\n", G.px, G.py);
+        }
+#endif
         if (left) return;
         G.bstate = BS_RISE; G.bstate_t = 0.0f;
         snd_set_boss(G.boss + 1, 0);                               /* and settling back */
