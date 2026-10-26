@@ -247,6 +247,21 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   ward_broken`, `ward_grown`, `chant_broken`, `litany_hits`, `litany_missed`; `BOSS fight ...` every 10 s of a
   fight (health, ward, distance, sight, whether it is targetable and aimed at) and `BOSS adds left ...` when a
   wave's adds linger past 20 s.
+- **The Wraith Unbound** (step 8; `wraith_boss` in place of `update_wraith`, `wraith_lit`, `wraith_open`,
+  `brazier_set`, `brazier_facing`). Its arena's eight braziers (`G.bbz_*`) are props lit by a dynamic light
+  each frame, so they can go out (`SP_BRAZIER_OUT`): it gutters one it passes within a cell, one in 8 s at
+  most (`G.bgutter_cd`), and a void over one puts it out. E facing one kindles it in a second (`G.bbz_at`,
+  `G.bbz_t`; walking off cancels); a wisp within 1.5 cells kindles it at once; the autopilot kindles any
+  within two cells, and while fewer than four burn `boss_goal` takes it to the nearest one out. It can be
+  hurt only within four cells of a lit brazier or three of a wisp, and not while in the stone
+  (`wraith_open`: `damage_mob` refuses, shots pass, not `targetable`); it is drawn faint in the dark. The
+  ordinary Wraith's kind has no weaknesses, so `weak_to` gives the boss 1, fire 1.2. Time Slip (`G.bslip_*`,
+  the Rare rune's cooldown): a missile about to strike it, in light, slows to a fifth within three cells for
+  1.5 s (`update_shots`), a grey ring (`DR_RIPPLE`) and `SFX_DEEPCHIME`, and it steps aside. Wraithwalk
+  (`G.bww` 1 fading, 2 gone 1.5 s, 3 out of a wall two to three and a half cells from you; every 16-20 s).
+  Its touch: 1.2 blows, every 2.5 s, chill and slow. Nothing drives it back. Debug: `EVENT brazier_out`,
+  `brazier_lit`, `wraith_slips`, `wraithwalks`, `wraith_touches`. `in_arena` now stops short of the map's
+  rim (it had none, and a Wraithwalk could read and land past the edge; found by ASan).
 - **The autopilot in boss fights**: `find_target` takes a boss or its adds from any side within nine cells
   (before, only what was ahead or attacking, so a boss that never strikes, like the Deacon, was never
   aimed at); in a wave, `boss_goal` heads for the nearest add when none is within five cells.

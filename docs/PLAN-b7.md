@@ -780,12 +780,16 @@ not yet met don't show.
 
 ## Building it (the tasks)
 
-**Where things stand (for whoever picks this up).** Steps 1 to 7 are built and pushed on
-`claude/magical-cori-s471gj`, each in its own commit; the step list below says what each did and how it
-was tested (in the harness only; nothing of 1.0.0b7 has been played by hand). The owner asked for the four
-bosses next, then everything else in order, released together. Next: the Wraith (step 8: `update_wraith` still drives it, and it kills the autopilot; it needs the
-braziers, light and Time Slip). The bestiary's boss pages are still to do, with each boss's art. Samples of the four boss waltzes
-went to the owner for listening; no answer yet. Test a fight with `CRAWL_LEVEL=10|20|30|40
+**Where things stand (for whoever picks this up).** Steps 1 to 8 are built and pushed on
+`claude/magical-cori-s471gj`, each in its own commit (step 7 in two); the step list below says what each
+did and how it was tested (in the harness only; nothing of 1.0.0b7 has been played by hand). Work paused
+here at the owner's word, to be handed on. Next is step 9 (the Hexed Totem and the caster's abilities),
+then 10 to 18 in order; all of it goes out together. Loose ends from the bosses: the Wraith's fight runs
+about twice as long as planned (step 8 says where the time goes); the bestiary's boss pages are still to
+do; no boss has new art beyond what step 5 and 6 added (the knight's pose, the spider's skull, the cold
+brazier), and no art sheets or frames have gone to the owner; samples of the four boss waltzes went to
+the owner for listening, with no answer yet. The debug build's `BOSS fight` and `BOSS adds left` lines are
+the quickest way to see why a fight drags. Test a fight with `CRAWL_LEVEL=10|20|30|40
 CRAWL_TPBOSS=2 CRAWL_GEAR=4 CRAWL_SOULS=200` (and `CRAWL_BOSSHP=0.35` to reach the waves sooner) on
 `build/host_debug apl crawl 600`, and read the `EVENT boss_*` lines.
 
@@ -835,8 +839,17 @@ first.
    them; both fixed, which also shortened the knight's fights. With the same seeds, every spell at tier
    4, 5 and 7: the knight in 189-221 s, the spider in 189-232 s (four deaths on two seeds of four), the
    Deacon in 160-210 s, none dying. ASan clean.
-8. **The Wraith Unbound**: art sheet; light and the braziers; Time Slip; Wraithwalk; the void and the
-   silence; Grasping Dark; its adds; THE BOTTOM.
+8. **The Wraith Unbound** (built, but long): the braziers it gutters, kindled again with E or a wisp;
+   hurt only in their light (faint in the dark, spells through it); Time Slip with its grey ripple and deep
+   chime; Wraithwalk through the stone and out of a wall near you; its touch. The voids, Grasping Dark and
+   its adds were already in from steps 2 and 3. No new art (the ordinary Wraith's sprite; a cold brazier
+   made from the lit one), and no frame of the fight has been looked at yet. Its health went from 20 to 9
+   knights. In the harness, every spell at tier 8, eight fights of eight won in 332-593 s with three
+   deaths: still about twice the plan's three to five minutes. Its waves take only 25-50 s; the time goes
+   between them (90-230 s for each quarter of its health), because it is open only while lit. Ways to
+   shorten it, for whoever tunes it: a wider light, the autopilot drawing it into the light rather than
+   only standing in it, fewer Time Slips, or less health still. ASan clean over fights with all four
+   bosses (after the `in_arena` fix).
 9. **The Hexed Totem and the caster's abilities**: the totem; Swift Dodge, Tangled Web, Grave Call and
    Wraithwalk; the sockets.
 10. **The Accursed Portal**: run starts and challenges.

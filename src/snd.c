@@ -1541,6 +1541,7 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_PUSHWALL]   = { 2.90f, 0.80f,  0.50f, 0.35f },
     [SFX_SECRET]     = { 1.90f, 0.85f,  0.50f, 0.55f },
     [SFX_MIRRORBELL] = { 0.00f, 1.00f,  0.50f, 0.00f },
+    [SFX_DEEPCHIME]  = { 0.00f, 1.00f,  0.50f, 0.00f },
 };
 
 void snd_sfx_ex(int id, float gain, float pan) {
@@ -1563,6 +1564,12 @@ void snd_sfx_ex(int id, float gain, float pan) {
             if (v && i == 2) v->freq *= 0.993f;                  /* beating against the first */
         }
         sfx_start(X_HAT_O, 0.35f, 0.5f * gain, clampf(pan, 0.0f, 1.0f), 0.4f);
+    } else if (id == SFX_DEEPCHIME) {             /* low, and slowly beating */
+        static const short B[][2] = { { 45, 100 }, { 52, 60 }, { 57, 35 } };
+        for (int i = 0; i < 3; i++) {
+            Voice *v = voice_on(PAT_BELL, B[i][0], gain * B[i][1] / 100.0f, clampf(pan + (i - 1) * 0.15f, 0.0f, 1.0f), (int)(2.5f * SND_RATE));
+            if (v && i == 1) v->freq *= 1.004f;
+        }
     } else if (id == SFX_STINGER) {
         int notes[4] = { 38, 44, 45, 50 };
         for (int i = 0; i < 4; i++) {

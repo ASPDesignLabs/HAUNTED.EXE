@@ -4638,6 +4638,12 @@ void crawl_art_init(void) {
     spr_puddle(SP_PUDDLE_A, 0); spr_puddle(SP_PUDDLE_B, 1); spr_stalag();
     spr_lantern(SP_LANTERN_A, 0); spr_lantern(SP_LANTERN_B, 1);
     for (int f = 0; f < 3; f++) { spr_brazier(SP_BRAZIER_A + f, f); spr_magma(SP_MAGMA_A + f, f); }
+    {                                                               /* put out: the fire gone, ash where it sat */
+        uint8_t *d = crawl_spr[SP_BRAZIER_OUT];
+        memcpy(d, crawl_spr[SP_BRAZIER_A], TS * TS);
+        for (int i = 0; i < TS * TS; i++)
+            if (IS_FULLBRIGHT(d[i]) && d[i] != C_CLEAR) d[i] = (d[i + 1 < TS * TS ? i + 1 : i] == C_CLEAR || ((i * 7919) % 5)) ? (uint8_t)C_CLEAR : (uint8_t)(R_WARM + 3);
+    }
     spr_collar(); spr_icicles(); spr_bell(); spr_carcass(); spr_armourstand(); spr_helm(); spr_timber();
     spr_minelamp(SP_MINELAMP_A, 0); spr_minelamp(SP_MINELAMP_B, 1); spr_cart(); spr_fungus();
     spr_crystal(SP_CRYSTAL_A, 0); spr_crystal(SP_CRYSTAL_B, 1); spr_obsidian();

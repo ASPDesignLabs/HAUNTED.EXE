@@ -300,7 +300,7 @@ static const BossDef BOSSES[NBOSS] = {
           { { MOB_DEACON, 1, 0 }, { MOB_SHIELD, 2, 0 }, { MOB_GHOUL, 2, 0 } },
           { { MOB_DEACON, 2, 0 }, { MOB_SHIELD, 2, 0 }, { MOB_GHOUL, 1, 0 }, { MOB_KNIGHT, 1, 0 } } } },
     [BOSS_WRAITH] = { "THE WRAITH UNBOUND", "IT HAS WALKED BEHIND YOU SINCE THE NINTH LEVEL. HERE, AT THE BOTTOM, IT STOPS.",
-        "THE WRAITH'S ODIOUS SCRIP", "THE WRAITH", MOB_WRAITH, 20.0f, 1.0f, 1.0f, 1.3f, MAP_BOTTOM, SP_OBSIDIAN, SP_OBSIDIAN,
+        "THE WRAITH'S ODIOUS SCRIP", "THE WRAITH", MOB_WRAITH, 9.0f, 1.0f, 1.0f, 1.3f, MAP_BOTTOM, SP_OBSIDIAN, SP_OBSIDIAN,
         { { { MOB_SHADE, 2, 0 }, { MOB_DROWNED, 1, 0 } },
           { { MOB_SHADE, 2, 0 }, { MOB_DROWNED, 2, 0 } },
           { { MOB_SHADE, 3, 0 }, { MOB_DROWNED, 2, 0 } },
@@ -589,6 +589,12 @@ static struct {
     float bsp_t, bmend_base, bmend_t, bmend_cd, web_hp, web_max, web_cd, web_rear, web_idle, btrickle_t;
     /* the Deacon's: his Bone Ward (what is left of it, the wait for it to grow back), harm taken mid-chant */
     float bward, bward_cd, bchant_dmg;
+    /* the Wraith's: its arena's braziers (cell, lit, decoration), the one being kindled and how long it has
+       left; its Time Slip (how long it holds, where, the wait); Wraithwalk (the phase: 1 going, 2 gone, 3
+       coming out of a wall; its clock; the wait) */
+    int bbz_n, bbz_x[8], bbz_y[8], bbz_lit[8], bbz_deco[8], bbz_at;
+    float bbz_t, bslip_t, bslip_x, bslip_y, bslip_cd, bgutter_cd;
+    int bww; float bww_t, bww_cd;
 } G;
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
        BP_LITANY };                                 /* the Deacon's censer raised, the green light growing */
@@ -1553,7 +1559,12 @@ static void stamp_arena(void) {
      * Wraith's, which has only its braziers */
     add_deco(6.5f, 31.35f, SP_CANDLES); light_static(6.5f, 31.6f, 1.0f, 4.2f);
     for (int r = 0; r < BAND_H; r++)
-        for (int x = 0; x < MAPN; x++) if (B->map[r][x] == 'B') brazier(x, BAND_Y0 + r);
+        for (int x = 0; x < MAPN; x++) {
+            if (B->map[r][x] != 'B') continue;
+            if (G.boss != BOSS_WRAITH || G.bbz_n >= 8) { brazier(x, BAND_Y0 + r); continue; }
+            solid_prop(x, BAND_Y0 + r, SP_BRAZIER_A, 3, K_PROP);   /* the Wraith's: lit each frame, so they can go out */
+            G.bbz_x[G.bbz_n] = x; G.bbz_y[G.bbz_n] = BAND_Y0 + r; G.bbz_lit[G.bbz_n] = 1; G.bbz_deco[G.bbz_n++] = G.ndecos - 1;
+        }
     if (G.boss != BOSS_WRAITH)
         for (int x = ARENA_X0 + 5; x < MAPN - 6; x += 8)
             for (int k = 0; k < 2; k++) {
@@ -1975,6 +1986,8 @@ static void build_lightmap(void) {
         for (int k = L->first; k < L->first + L->count; k++) G.lm[G.lc_idx[k]] += G.lc_w[k] * f;
     }
     light_dynamic(G.px, G.py, 0.62f, 2.8f);                        /* the caster's own faint glow */
+    for (int b = 0; b < G.bbz_n && G.boss == BOSS_WRAITH && !PK.depth && !G.shop; b++)   /* the Wraith's braziers, those still lit */
+        if (G.bbz_lit[b]) light_dynamic(G.bbz_x[b] + 0.5f, G.bbz_y[b] + 0.5f, 1.5f * (0.92f + 0.08f * sinf((float)G.t * 9.0f + b)), 5.2f);
     if (G.shop && RUN.shrine > 0)                                  /* the cursed shrine, brighter as it works */
         light_dynamic(SHRINE_X, SHRINE_Y - 0.4f, 0.7f + 0.8f * fminf(1.0f, G.sh_glow) + 0.08f * sinf((float)G.t * 5.0f), 3.6f);
     for (int i = 0; i < MAXWISPS && !G.shop; i++) {                /* and the wisps', four cells round them */
@@ -2203,7 +2216,8 @@ static int hits_bone, hits_bat, throws, shrieks, hits_fire, hits_sword, bites, c
            exq_shatter, exq_bruise, exq_reaped, exq_mendward, exq_dread, exq_mirror,   /* Exquisite runes' second effects */
            knight_turned, turned_hits,                                                /* the Ill-Fated Knight's Mirror Rune */
            spider_mends, spider_ups, webbed, web_torn, egg_shots,                     /* the Wandering Spider */
-           ward_broken, ward_grown, chant_broken, litany_hits, litany_missed;         /* the Black Deacon */
+           ward_broken, ward_grown, chant_broken, litany_hits, litany_missed,         /* the Black Deacon */
+           brazier_out, brazier_lit, wraith_slips, wraithwalks;                       /* the Wraith Unbound */
 #define DBG_COUNT(v) ((v)++, fprintf(stderr, "EVENT %s t=%.2f\n", #v, G.t))
 #else
 #define DBG_COUNT(v) ((void)0)
@@ -2544,6 +2558,7 @@ static float knight_pace(const Mob *m, int st) {                   /* quicker as
  * Lightning). A knight down to its breastplate has nothing left to keep fire off. */
 static float weak_to(const Mob *m, int atk) {
     if (m->type == MOB_KNIGHT && atk == AT_FIRE && knight_stage(m) == 2) return 1.0f;
+    if (m->type == MOB_WRAITH && m->boss) return atk == AT_FIRE || atk == AT_HELL ? 1.2f : 1.0f;   /* the Wraith Unbound, in light */
     return KINDS[m->type].weak[atk];
 }
 static float hit_mult(const Mob *m, int atk) {
@@ -2561,10 +2576,12 @@ static float spell_effect(void) { return 1.0f + gear_total(&RUN.gear, ST_EFFECT)
 
 /* A hit on a creature, from (fx, fy) (shields only stop what comes from in front). Returns 1 if it died. */
 static int boss_hurt(Mob *m, float dmg);
+static int wraith_open(const Mob *m);
 static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float slow) {
     if (m->boss && m->alive && m->state == MS_WALK && dmg > 0.0f) {   /* a boss: its weaknesses, then its marks */
         if (G.bdash_t > 0.0f) return 0;                            /* darting: nothing touches it */
         if (m->type == MOB_HUNTER && (m->sub == 0 || m->sub == 5)) return 0;   /* overhead, out of reach */
+        if (!wraith_open(m)) return 0;                             /* the Wraith: in the dark, through it */
         int a = (flags >> 8) - 1;
         if (a >= 0 && a < NATK) { dmg *= hit_mult(m, a); m->last_atk = a; }
         if ((flags & DM_SLOW) && slow > 0.0f) m->slowed = fmaxf(m->slowed, slow * 0.5f);
@@ -3214,6 +3231,105 @@ static void egg_shot(const Mob *m) {
     }
 }
 
+/* The Wraith Unbound (docs/PLAN-b7.md): here it can be hurt, but only in light, from its braziers or your
+ * wisp; it puts the braziers out as it passes, and a void over one does too; E kindles one again in a
+ * second, and a wisp close by does it at once. Its Time Slip Rune slows your missiles near it with a grey
+ * ripple and a deep chime while it steps aside; Wraithwalk takes it into the stone and out of a wall
+ * near you. */
+static int wraith_lit(float x, float y) {
+    for (int b = 0; b < G.bbz_n; b++) if (G.bbz_lit[b] && hypotf(G.bbz_x[b] + 0.5f - x, G.bbz_y[b] + 0.5f - y) < 4.0f) return 1;
+    for (int i = 0; i < MAXWISPS; i++) if (G.wisps[i].on && G.wisps[i].a > 0.5f && hypotf(G.wisps[i].x - x, G.wisps[i].y - y) < 3.0f) return 1;
+    return 0;
+}
+static int wraith_open(const Mob *m) { return m->type != MOB_WRAITH || !m->boss || (!G.bww && wraith_lit(m->x, m->y)); }
+static void brazier_set(int b, int lit) {
+    if (G.bbz_lit[b] == lit) return;
+    G.bbz_lit[b] = lit;
+    Deco *dc = &G.decos[G.bbz_deco[b]];
+    dc->spr = lit ? SP_BRAZIER_A : SP_BRAZIER_OUT; dc->nfr = lit ? 3 : 1;
+    sfx_at(lit ? SFX_IGNITE : SFX_WHOOSH, G.bbz_x[b] + 0.5f, G.bbz_y[b] + 0.5f, lit ? 1.0f : 0.6f);
+#ifdef CRAWL_DEBUG
+    if (lit) DBG_COUNT(brazier_lit); else DBG_COUNT(brazier_out);
+#endif
+}
+static int brazier_facing(void) {                                   /* an unlit brazier before the dweller */
+    for (int b = 0; b < G.bbz_n; b++) {
+        float d = hypotf(G.bbz_x[b] + 0.5f - G.px, G.bbz_y[b] + 0.5f - G.py);
+        if (!G.bbz_lit[b] && d < 1.8f && fabsf(wrap_pi(atan2f(G.bbz_y[b] + 0.5f - G.py, G.bbz_x[b] + 0.5f - G.px) - G.ang)) < 0.8f) return b;
+    }
+    return -1;
+}
+static void wraith_boss(Mob *m, float dt) {
+    m->t += dt;
+    dt = mob_time(m, dt);
+    if (dt <= 0.0f) return;
+    m->anim += dt * 2.0f; m->cool -= dt; m->sub = 0;               /* nothing drives it back here */
+    if (G.bgutter_cd > 0.0f) G.bgutter_cd -= dt;
+    for (int b = 0; b < G.bbz_n && G.bgutter_cd <= 0.0f; b++)      /* it gutters a brazier it passes close by, one in eight seconds */
+        if (G.bbz_lit[b] && !G.bww && hypotf(G.bbz_x[b] + 0.5f - m->x, G.bbz_y[b] + 0.5f - m->y) < 1.05f) { brazier_set(b, 0); G.bgutter_cd = 8.0f; }
+    float pd = hypotf(G.px - m->x, G.py - m->y);
+    if (G.bww) {                                                   /* Wraithwalk */
+        G.bww_t += dt;
+        if (G.bww == 1 && G.bww_t >= 0.6f) { G.bww = 2; G.bww_t = 0.0f; }
+        else if (G.bww == 2 && G.bww_t >= 1.5f) {                  /* out of a wall near you */
+            for (int tries = 0; tries < 60; tries++) {
+                float a = rndf() * TAU_F, d = 2.0f + 1.5f * rndf();
+                int x = (int)floorf(G.px + cosf(a) * d), y = (int)floorf(G.py + sinf(a) * d), wall = 0;
+                if (!in_arena(x + 0.5f, y + 0.5f) || G.map[y][x].kind != K_FLOOR || occupied(x, y, m)) continue;
+                for (int k = 0; k < 4; k++) wall |= G.map[y + DY[k]][x + DX[k]].kind == K_WALL;
+                if (!wall) continue;
+                m->x = x + 0.5f; m->y = y + 0.5f; m->cx = m->tx = x; m->cy = m->ty = y;
+                break;
+            }
+            G.bww = 3; G.bww_t = 0.0f;
+            sfx_at(SFX_SHRIEK, m->x, m->y, 0.9f);
+        } else if (G.bww == 3 && G.bww_t >= 0.5f) { G.bww = 0; G.bww_cd = 16.0f + 4.0f * rndf(); m->cool = fminf(m->cool, 0.3f); }
+        return;
+    }
+    if ((G.bww_cd -= dt) <= 0.0f && pd > 2.0f && !G.dead) {
+        G.bww = 1; G.bww_t = 0.0f;
+        sfx_at(SFX_WAIL, m->x, m->y, 0.9f);
+        DBG_COUNT(wraithwalks);
+        return;
+    }
+    if (G.bslip_cd > 0.0f) G.bslip_cd -= dt;
+    if (G.bslip_cd <= 0.0f && wraith_lit(m->x, m->y))              /* its Time Slip Rune: a missile about to strike */
+        for (int i = 0; i < MAXSHOTS; i++) {
+            const Shot *sh = &G.shots[i];
+            if (!sh->alive || sh->tier < 0) continue;
+            float sp = hypotf(sh->vx, sh->vy) + 1e-3f, dx = m->x - sh->x, dy = m->y - sh->y;
+            float along = (dx * sh->vx + dy * sh->vy) / sp, off = fabsf(dx * sh->vy - dy * sh->vx) / sp;
+            if (along <= 0.0f || along > 2.5f || off > 0.7f) continue;
+            G.bslip_t = 1.5f; G.bslip_cd = def_cooldown(Q_RARE + 1); G.bslip_x = m->x; G.bslip_y = m->y;
+            float a = atan2f(sh->vy, sh->vx) + (rnd(2) ? 0.5f : -0.5f) * PI_F;   /* and it steps out of the way */
+            int nx = (int)(m->x + cosf(a) * 1.2f), ny = (int)(m->y + sinf(a) * 1.2f);
+            if (in_arena(nx + 0.5f, ny + 0.5f) && G.map[ny][nx].kind == K_FLOOR) { m->tx = nx; m->ty = ny; }
+            sfx_at(SFX_DEEPCHIME, m->x, m->y, 1.0f);
+            DBG_COUNT(wraith_slips);
+            break;
+        }
+    if (!G.dead && pd < 1.1f && m->cool <= 0.0f) {                 /* its touch */
+        m->cool = 2.5f;
+        sfx_at(SFX_SHRIEK, m->x, m->y, 1.0f);
+        if (hurt_ex(mob_damage(m) * 1.2f, HURT_MAGIC, m->x, m->y) > 0) {
+            G.chill = 1.0f; G.slow_t = fmaxf(G.slow_t, 2.0f * (1.0f - gear_slow_resist(&RUN.gear)));
+            DBG_COUNT(wraith_touches);
+        }
+    }
+    float gx = m->tx + 0.5f, gy = m->ty + 0.5f, dx = gx - m->x, dy = gy - m->y, d = sqrtf(dx * dx + dy * dy), step = m->speed * dt;
+    if (d > step) { m->x += dx / d * step; m->y += dy / d * step; return; }
+    m->x = gx; m->y = gy; m->cx = m->tx; m->cy = m->ty;
+    if (G.dead) return;
+    int best = -1; float bs = 1e9f;
+    for (int k = 0; k < 4; k++) {                                  /* straight for you, round what stands in the way */
+        int nx = m->cx + DX[k], ny = m->cy + DY[k];
+        if (!in_arena(nx + 0.5f, ny + 0.5f) || blocks_move(nx, ny) || occupied(nx, ny, m)) continue;
+        float sc = hypotf(nx + 0.5f - G.px, ny + 0.5f - G.py) + (hunt[ny][nx] >= 0 ? 0.0f : 2.0f) + rndf() * 0.3f;
+        if (sc < bs) { bs = sc; best = k; }
+    }
+    if (best >= 0) { m->tx = m->cx + DX[best]; m->ty = m->cy + DY[best]; }
+}
+
 static void update_mob(Mob *m, float dt) {
     if (m->state == MS_DIE && m->sub == 77) { if ((m->t += dt) >= 0.9f) m->alive = 0; return; }   /* gone into the BFS9000 */
     if (m->boss && m->state == MS_WALK && (G.bstate != BS_FIGHT || G.bpose_t > 0.0f)) {   /* waiting, holding while its wave
@@ -3226,7 +3342,7 @@ static void update_mob(Mob *m, float dt) {
     if (m->type == MOB_GHOST) { update_ghost(m, dt); return; }
     if (m->type == MOB_WSKULL) { update_wskull(m, dt); return; }
     if (m->type == MOB_SPIDER) { update_spider(m, dt); return; }
-    if (m->type == MOB_WRAITH) { update_wraith(m, dt); return; }
+    if (m->type == MOB_WRAITH) { if (m->boss) wraith_boss(m, dt); else update_wraith(m, dt); return; }
     if (m->type == MOB_SAC) { update_sac(m, dt); return; }
     if (update_riser(m, dt)) return;
     m->t += dt;
@@ -3755,9 +3871,10 @@ static void update_shots(float dt) {
                 s->vx = cosf(have) * sp; s->vy = sinf(have) * sp;
             }
         }
-        int n = 1 + (int)(sqrtf(s->vx * s->vx + s->vy * s->vy) * dt / 0.08f);
+        float sdt = G.bslip_t > 0.0f && hypotf(s->x - G.bslip_x, s->y - G.bslip_y) < 3.0f ? dt * 0.2f : dt;   /* the Wraith's Time Slip */
+        int n = 1 + (int)(sqrtf(s->vx * s->vx + s->vy * s->vy) * sdt / 0.08f);
         for (int k = 0; k < n && s->alive; k++) {
-            float nx = s->x + s->vx * dt / n, ny = s->y + s->vy * dt / n;
+            float nx = s->x + s->vx * sdt / n, ny = s->y + s->vy * sdt / n;
             if (blocks_light((int)nx, (int)ny) || cell((int)nx, (int)ny)->kind == K_PILLAR) {
                 if (s->kind == AT_WISPS) {                         /* wisps slide along the stone */
                     int bx = blocks_light((int)nx, (int)s->y) || cell((int)nx, (int)s->y)->kind == K_PILLAR;
@@ -3780,7 +3897,7 @@ static void update_shots(float dt) {
                 if (s->kind == AT_SPEAR && (s->pierced >> mi & 1)) continue;
                 float hr = KINDS[mb->type].rad * (mb->boss ? BOSSES[mb->boss - 1].scale : 1.0f);
                 if (hypotf(mb->x - s->x, mb->y - s->y) >= hr) continue;
-                if (mb->boss && (G.bdash_t > 0.0f || (mb->type == MOB_HUNTER && (mb->sub == 0 || mb->sub == 5)))) continue;   /* darting, or
+                if (mb->boss && (G.bdash_t > 0.0f || (mb->type == MOB_HUNTER && (mb->sub == 0 || mb->sub == 5)) || !wraith_open(mb))) continue;   /* darting, or
                                                                                                                          overhead: under it */
                 if (knight_turns(mb, s)) break;
                 float fx = s->x - s->vx * 0.1f, fy = s->y - s->vy * 0.1f;
@@ -4299,6 +4416,25 @@ static int boss_goal(int x, int y, int *gx, int *gy) {
         }
         if (na && nd > 5.0f) { bx = na->x; by = na->y; }
     }
+    if (G.boss == BOSS_WRAITH && G.bstate == BS_FIGHT) {           /* the Wraith's: under four lit, kindle the nearest out */
+        int lit = 0, nb = -1; float nd = 1e9f;
+        for (int k = 0; k < G.bbz_n; k++) {
+            float d = hypotf(G.bbz_x[k] + 0.5f - G.px, G.bbz_y[k] + 0.5f - G.py);
+            lit += G.bbz_lit[k];
+            if (!G.bbz_lit[k] && d < nd) { nd = d; nb = k; }
+        }
+        if (lit < 4 && nb >= 0) {
+            int bc = -1; float bdd = 1e9f;
+            for (int cy = G.bbz_y[nb] - 2; cy <= G.bbz_y[nb] + 2; cy++)
+                for (int cx = G.bbz_x[nb] - 2; cx <= G.bbz_x[nb] + 2; cx++) {
+                    float dd = hypotf(cx - G.bbz_x[nb], cy - G.bbz_y[nb]);
+                    if (cx < 0 || cy < 0 || cx >= MAPN || cy >= MAPN || dd > 1.9f || !apass(cx, cy) || !in_arena(cx + 0.5f, cy + 0.5f)) continue;
+                    if (dd < bdd) { bdd = dd; bc = cy * MAPN + cx; }
+                }
+            if (bc >= 0 && bc != y * MAPN + x) { *gx = bc % MAPN; *gy = bc / MAPN; return 1; }
+            if (bc >= 0) return 0;                                 /* there: stand and kindle it */
+        }
+    }
     static int keep_x = -1, keep_y = -1; static double keep_t = -1.0;
     if (keep_x >= 0 && G.t < keep_t && apass(keep_x, keep_y) && in_arena(keep_x + 0.5f, keep_y + 0.5f)
         && fabsf(hypotf(keep_x + 0.5f - bx, keep_y + 0.5f - by) - 4.5f) < 2.0f && (keep_x != x || keep_y != y)) { *gx = keep_x; *gy = keep_y; return 1; }
@@ -4309,6 +4445,7 @@ static int boss_goal(int x, int y, int *gx, int *gy) {
             float d = hypotf(cx + 0.5f - bx, cy + 0.5f - by), sc = fabsf(d - 4.5f) * 2.0f + 0.25f * (float)(abs(cx - x) + abs(cy - y)) + rndf();
             for (int i = 0; i < MAXMOBS; i++)
                 if (G.mobs[i].alive && G.mobs[i].add && G.mobs[i].state == MS_WALK && hypotf(G.mobs[i].x - cx - 0.5f, G.mobs[i].y - cy - 0.5f) < 2.5f) sc += 4.0f;
+            if (G.boss == BOSS_WRAITH && !wraith_lit(cx + 0.5f, cy + 0.5f)) sc += 3.0f;   /* in the light, where it can be hurt */
             if (sc < bs) { bs = sc; best = cy * MAPN + cx; }
         }
     if (best < 0) return 0;
@@ -4518,6 +4655,7 @@ static int targetable(const Mob *m) {
     if ((m->type == MOB_SPIDER || m->type == MOB_WSKULL) && m->sub == 0) return 0;
     if (m->boss && G.bstate != BS_FIGHT) return 0;                 /* untouchable: its adds first */
     if (m->boss && m->type == MOB_HUNTER && (m->sub == 0 || m->sub == 5)) return 0;   /* overhead */
+    if (m->boss && !wraith_open(m)) return 0;                      /* the Wraith in the dark, or in the stone */
     return 1;
 }
 
@@ -4549,7 +4687,7 @@ static int find_target(void) {
 static int choose_spell(int t) {
     const Gear *g = &RUN.gear;
     const Mob *m = &G.mobs[t];
-    if (m->type == MOB_WRAITH) return g->atk[AT_HELL] >= 0 ? AT_HELL : AT_FIRE;   /* only fire turns it */
+    if (m->type == MOB_WRAITH && !m->boss) return g->atk[AT_HELL] >= 0 ? AT_HELL : AT_FIRE;   /* only fire turns it */
     float hpf = (float)G.hp / (float)G.max_hp;
     int vis = 0, close = 0, near = 0, packed = 0;
     for (int i = 0; i < MAXMOBS; i++) {
@@ -4927,6 +5065,7 @@ static void start_level(void) {
     G.bpose = BP_NONE; G.bpose_t = G.bdash_t = G.bmirror_t = G.bmirror_cd = G.bhurt = 0.0f; G.bdash_age = 99.0f;
     memset(G.bdash_cd, 0, sizeof G.bdash_cd);
     G.bward = G.bward_cd = G.bchant_dmg = 0.0f;
+    G.bbz_n = 0; G.bbz_at = -1; G.bbz_t = G.bslip_t = G.bslip_cd = G.bgutter_cd = 0.0f; G.bww = 0; G.bww_t = 0.0f; G.bww_cd = 12.0f;
     G.bsp_t = 5.0f; G.bmend_t = G.bmend_cd = G.web_hp = G.web_rear = G.web_idle = G.btrickle_t = 0.0f; G.web_cd = 8.0f; G.bmend_base = 1e9f;
     if (G.boss < 0) G.bchallenge = 0;
     G.bstep = G.bchallenge && G.boss >= 0 ? RUN.bstep[G.boss] : 0;
@@ -5892,7 +6031,7 @@ static Mob *boss_mob(void) {
 }
 static int boss_sealed(void) { return G.boss >= 0 && !PK.depth && G.bstate != BS_DEAD; }   /* its way out shut till it falls */
 static int boss_fighting(void) { return G.boss >= 0 && !PK.depth && !G.shop && G.bstate >= BS_FIGHT && G.bstate <= BS_RISE; }
-static int in_arena(float x, float y) { return G.boss >= 0 && !PK.depth && y >= BAND_Y0 && x >= ARENA_X0; }
+static int in_arena(float x, float y) { return G.boss >= 0 && !PK.depth && y >= BAND_Y0 && x >= ARENA_X0 && x < MAPN - 1 && y < MAPN - 1; }   /* the map's rim is stone */
 static void font_fill(int i) {
     if (i < 0 || i >= G.bnfont || G.bfont_full[i]) return;
     G.bfont_full[i] = 1; G.map[G.bfont_y[i]][G.bfont_x[i]].tex = T_FONT;
@@ -6096,6 +6235,26 @@ static void update_boss(float dt) {
                 hypotf(m->x - G.px, m->y - G.py), line_clear(m->x, m->y, G.px, G.py), targetable(m), G.target == G.bmob, G.state, G.bpose, m->swing);
 #endif
     boss_hazards(dt);
+    if (G.boss == BOSS_WRAITH) {
+        if (G.bslip_t > 0.0f) G.bslip_t -= dt;
+        if (G.bbz_at < 0 && !G.player && !G.dead)                 /* the autopilot kindles what it stands by */
+            for (int b = 0; b < G.bbz_n; b++)
+                if (!G.bbz_lit[b] && hypotf(G.bbz_x[b] + 0.5f - G.px, G.bbz_y[b] + 0.5f - G.py) < 2.0f) { G.bbz_at = b; G.bbz_t = 1.0f; break; }
+        if (G.bbz_at >= 0) {
+            int b = G.bbz_at;
+            if (G.dead || G.bbz_lit[b] || hypotf(G.bbz_x[b] + 0.5f - G.px, G.bbz_y[b] + 0.5f - G.py) > 2.3f) G.bbz_at = -1;   /* walked off */
+            else if ((G.bbz_t -= dt) <= 0.0f) { brazier_set(b, 1); G.bbz_at = -1; }
+        }
+        for (int b = 0; b < G.bbz_n; b++) {
+            float bx = G.bbz_x[b] + 0.5f, by = G.bbz_y[b] + 0.5f;
+            if (!G.bbz_lit[b])                                     /* a wisp close by kindles it at once */
+                for (int i = 0; i < MAXWISPS; i++)
+                    if (G.wisps[i].on && G.wisps[i].a > 0.5f && hypotf(G.wisps[i].x - bx, G.wisps[i].y - by) < 1.5f) brazier_set(b, 1);
+            if (G.bbz_lit[b])                                      /* the void puts it out */
+                for (int i = 0; i < MAXHAZ; i++)
+                    if (G.haz[i].alive && G.haz[i].kind == HZ_VOID && hz_covers(&G.haz[i], G.bbz_x[b], G.bbz_y[b]) == 2) { brazier_set(b, 0); break; }
+        }
+    }
     if (G.boss == BOSS_DEACON && m && G.bward <= 0.0f && (G.bward_cd -= dt) <= 0.0f) {   /* his Bone Ward grows back */
         G.bward = 0.04f * m->maxhp; G.bward_cd = 0.0f;
         sfx_at(SFX_RUNE, m->x, m->y, 1.0f);
@@ -7442,6 +7601,11 @@ static int human_use(void) {
     if (c->kind == K_WALL && c->secret == 2)                       /* a cracked wall: it gives */
         for (int i = 0; i < G.nsecrets; i++) if (G.secrets[i].sx == cx && G.secrets[i].sy == cy && !G.secrets[i].state) { open_secret(i); G.grab_t = 1.0f; return 1; }
     if (!G.shop && font_facing() >= 0) return font_drink(font_facing());
+    if (!G.shop && G.boss == BOSS_WRAITH && brazier_facing() >= 0) {   /* a second's work to kindle it again */
+        G.bbz_at = brazier_facing(); G.bbz_t = 1.0f;
+        say("KINDLING THE BRAZIER"); snd_sfx_ex(SFX_IGNITE, 0.5f, 0.5f);
+        return 1;
+    }
     if (!G.shop && G.exit_fx >= 0 && cx == G.exit_wx && cy == G.exit_wy && hypotf(G.exit_fx + 0.5f - G.px, G.exit_fy + 0.5f - G.py) < 1.0f) {
         if (boss_sealed()) { say("THE WAY IS SHUT WHILE IT LIVES"); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 1; }
         human_exit(); return 1;
@@ -9074,7 +9238,8 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
  * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
 typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; } Draw;   /* glint: a key's ramp, for Keymaker's sparkle */
 enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_SWAY = 32, DR_FLIPV = 64, DR_COMMUNE = 128, DR_GLINT = 256, DR_EDGE = 512,
-       DR_GLITCH = 1024, DR_CLIP = 2048, DR_LOOPED = 4096, DR_LIT = 8192, DR_SHINE = 16384, DR_MEND = 32768 };   /* SHINE: polished plate, a glint
+       DR_GLITCH = 1024, DR_CLIP = 2048, DR_LOOPED = 4096, DR_LIT = 8192, DR_SHINE = 16384, DR_MEND = 32768,
+       DR_RIPPLE = 65536 };                                         /* RIPPLE: the Wraith's Time Slip, grey, going out */   /* SHINE: polished plate, a glint
                                                                                                  sliding over it */
 /* GLITCH: rows torn sideways and colours slipping, now and then (the Backrooms), more often when LOOPED; CLIP: cut at
  * the floor and ceiling; LIT: brighter than the light it stands in (Severance's creatures, under the panels) */
@@ -9401,6 +9566,12 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         float gh = m->type == MOB_GHOST ? (m->state == MS_RECOIL ? 0.9f : 0.72f * (1.0f - m->fade) + 0.01f) : (m->type == MOB_SHADE ? shade_alpha(m) : 0.0f);
         int commune = G.commune_show > 0.0f && m->state == MS_WALK && hypotf(m->x - G.px, m->y - G.py) <= G.commune_r;
         if (m->type == MOB_SHADE && gh < 0.04f && !commune) continue;
+        if (m->boss == 1 + BOSS_WRAITH && m->state == MS_WALK) {   /* into the stone and out; faint in the dark */
+            float a = G.bww == 1 ? 1.0f - G.bww_t / 0.6f : (G.bww == 2 ? 0.0f : (G.bww == 3 ? G.bww_t / 0.5f : 1.0f));
+            if (!wraith_lit(m->x, m->y)) a *= 0.35f;
+            if (a < 0.03f) continue;
+            gh = a;
+        }
         ADD(m->x, m->y, m->z, s, commune && gh > 0.0f && gh < 0.04f ? 0.04f : gh);
         if (n == n0) continue;
         Draw *d = &list[n - 1];
@@ -9428,6 +9599,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             }
         }
         if (m->boss == 1 + BOSS_SPIDER && G.bmend_t > 0.0f && m->state == MS_WALK) d->flags |= DR_MEND;   /* its Mend Rune */
+        if (m->boss == 1 + BOSS_WRAITH && G.bslip_t > 0.9f) d->flags |= DR_RIPPLE;
         if (m->boss == 1 + BOSS_DEACON) {
             d->lut = crawl_rank_lut[KINDS[MOB_DEACON].family][RK_V];   /* black robes */
             if (G.bpose == BP_LITANY && G.bpose_t > 0.0f && m->state == MS_WALK) d->flags |= DR_MEND;   /* the Litany's green light */
@@ -9694,13 +9866,15 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                 f->pix[y * W + x] = (d->flags & DR_BRIGHT) ? c : fogged(shade(c, light, x, y), fog, light, x, y);
             }
         }
-        if ((d->flags & DR_SHINE) && G.bmirror_t > 0.0f) {          /* the Mirror Rune: a silver ring going out from it */
-            float k = 1.0f - G.bmirror_t / 0.35f, rx = size * (0.22f + 0.4f * k), ry = rx * 0.85f;
+        if (((d->flags & DR_SHINE) && G.bmirror_t > 0.0f) || (d->flags & DR_RIPPLE)) {   /* the Mirror Rune's silver ring; Time Slip's grey */
+            int grey = (d->flags & DR_RIPPLE) != 0;
+            float k = grey ? (1.5f - G.bslip_t) / 0.6f : 1.0f - G.bmirror_t / 0.35f, rx = size * (0.22f + (grey ? 0.9f : 0.4f) * k), ry = rx * 0.85f;
             float cx = left + size * 0.5f, cy = top + size * 0.55f;
             for (int a = 0; a < 96; a++) {
                 if (k > 0.5f && ((a + (int)(G.t * 30.0)) & 1)) continue;   /* thinning as it goes */
                 int px = (int)(cx + cosf(a * (TAU_F / 96.0f)) * rx), py = (int)(cy + sinf(a * (TAU_F / 96.0f)) * ry);
-                if (px >= 0 && px < W && py >= 0 && py < H && d->depth < zbuf[px] + 0.6f) f->pix[py * W + px] = (a & 3) ? (uint8_t)C_WHITE : (uint8_t)(R_GHOST + 12);
+                if (px >= 0 && px < W && py >= 0 && py < H && d->depth < zbuf[px] + 0.6f)
+                    f->pix[py * W + px] = grey ? (uint8_t)(R_STONE + 9 + (a & 3)) : (a & 3) ? (uint8_t)C_WHITE : (uint8_t)(R_GHOST + 12);
             }
         }
         if (d->flags & DR_GLINT) {                                 /* Keymaker: a sparkle where the key lies, through the stone */
