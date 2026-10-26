@@ -1,9 +1,9 @@
 # 1.0.0b7: death that costs, runs of ten, four bosses, and the merchant's hall
 
-**Status: planned (26 October 2026). The owner answered the first round of questions the same day,
-chose the four bosses, asked for everything in one release, and asked for the bosses' hazards (section
-6), which are proposed here; the questions they left alone take the defaults marked *default*. A second,
-shorter round of questions is at the end. Nothing is built.**
+**Status: planned and settled (26 October 2026). The owner answered two rounds of questions the same
+day, chose the four bosses, asked for everything in one release, approved the bosses' hazards (section
+6) and said to start building; the questions they left alone take the defaults marked *default*.
+Building has begun on the work branch; the steps at the end say how far it has got.**
 
 A mock-up of the ability socket is in [`plan-b7/ability_socket.png`](plan-b7/ability_socket.png).
 
@@ -87,6 +87,18 @@ A mock-up of the ability socket is in [`plan-b7/ability_socket.png`](plan-b7/abi
 - **Everything else** in the first round (Q2-Q4, Q7-Q9, Q11, Q13-Q18, Q20, Q21, Q23, Q25-Q29, Q31-Q36)
   takes its default as written below.
 
+## Decided (26 October 2026, second round)
+
+- **Q38 (a):** challenges grow a step with each win, to five.
+- **Q39, no:** the hazards hurt only the dweller, never the adds or the boss.
+- **Q40, yes:** E still works in the void.
+- **Q41:** all four second casts are kept, and come from the first fight on, growing with the steps.
+- **Q42, yes:** the omens as proposed.
+- **Q43, yes:** the game calls the caster **the dweller** wherever it names them.
+- **Q44, yes:** every Totem ability stops at rank III, and **extra scrip sells for 20,000 gold** a piece
+  at the Totem. *Extra* is read as scrip beyond what that boss's ability still needs to reach III.
+- **Q45, yes:** the hazards' damage as starting points, tuned in the runs.
+
 ## How it has been read (please correct anything wrong)
 
 - **Completing a run** is beating its boss on the way down. You then go on, everything still yours, to
@@ -132,7 +144,7 @@ A mock-up of the ability socket is in [`plan-b7/ability_socket.png`](plan-b7/abi
   secret's entrance: the hall cell in front of the wall you pushed, facing into the secret's room.
 - The chain's doorway is **shut for the rest of the level**: its frames go dark under a dull red seal
   cracked across it (a new texture), and walking into it or pressing E does nothing but a knock.
-- A caption: **THE DWELLER FAILED THIS TRIAL** *(wording; Q43)*, and the tally's secrets row notes *1
+- A caption: **THE DWELLER FAILED THIS TRIAL** (decided), and the tally's secrets row notes *1
   TRIAL FAILED*.
 - The links behind the seal can't be found this level, so that chain's coin, the coin for every secret,
   and the Black Altar's gold are gone with it. The chain's carved room and anything already taken stay
@@ -143,7 +155,7 @@ A mock-up of the ability socket is in [`plan-b7/ability_socket.png`](plan-b7/abi
 
 - A walled yard south of the merchant's room (the map in section 7): ten stones in two rows, the newest
   nearest the arch. An eleventh death takes the oldest stone away.
-- **E at a stone** opens its page, laid out like the bestiary's: the epitaph (*HERE LIES A CASTER OF THE
+- **E at a stone** opens its page, laid out like the bestiary's: the epitaph (*HERE LIES A DWELLER OF THE
   THIRD RUN, TAKEN BY A BLOODY SHIELD-BEARER ON LEVEL 24, THE BROKEN SEAM*), the date and time (*26
   OCTOBER 2026, 21:14*), and what was carried: the worn pieces (W/S over them shows each card), the bag,
   the spells and their tiers, the runes, the gold, souls and coins. A/D goes to the next stone.
@@ -463,8 +475,7 @@ levels before the boss, more often the nearer you get.
 - **Harm is a share of your health**, so it means the same at level 10 as at level 40 and with any gear;
   the numbers below are starting points for the runs.
 - **Swift Dodge's dash is untouchable**, so a dash at the last moment gets through any of them.
-- The knight's rocks and the Deacon's fire **hurt the adds as well**, never the boss: drawing adds into
-  them is a skill worth having *(Q39)*. The spider's bile and the Wraith's void spare their own kin.
+- **They hurt only the dweller** (decided): never the adds, never the boss.
 - **Once seen, each has a page** in the Codex (section 9) and a line in the bestiary's boss page.
 
 ### Rockfall: the Ill-Fated Skeleton Knight
@@ -474,7 +485,7 @@ levels before the boss, more often the nearer you get.
   while a wave holds it.
 - **The warning** (1.2 s): grit trickles from the ceiling in a thin column, a shadow grows on the floor
   from a soft blur to a hard dark disc, and stone creaks overhead.
-- **The harm**: the rock lands with a thud and a puff of dust, and strikes once whatever stands within
+- **The harm**: the rock lands with a thud and a puff of dust, and strikes you once if you stand within
   half a cell of it: **12% of your health**. It is a blow: armour and the Bone Ward count; Dodge doesn't.
 - **After**: the rock lies as rubble for 3 s, sinking into dust. It blocks nothing and hurts no more.
 
@@ -492,7 +503,7 @@ levels before the boss, more often the nearer you get.
   counts), and slowed by a fifth.
 - **Closing**: it drains back towards its outlet a cell at a time over 3 s, harmless once the bubbles
   stop.
-- Spiders walk it unharmed; it is their nest.
+- Creatures walk it unharmed.
 
 ### Hellrent: the Black Deacon
 
@@ -504,7 +515,6 @@ levels before the boss, more often the nearer you get.
   burn resistance counts. Then the cracks cool to embers over 2 s, harmless.
 - **Its shapes**: a line from him towards you; a ring round him, to keep you off; a cross through the
   aisle. One shape a cast at first.
-- It burns the adds too: a skeleton risen from a heap that cracks under it burns with you.
 
 ### Void Energies: the Wraith Unbound
 
@@ -519,12 +529,12 @@ levels before the boss, more often the nearer you get.
 - **Silence shows plainly**: the hand drops and greys, the ability sockets and the spell box grey with a
   line through them, and the game's sounds go muffled, as if heard through cloth, until you step out.
 - A zone over a brazier puts it out: the dark and the void work together.
-- Shades and the Drowned go through it untouched.
+- Creatures go through it untouched.
 
-### Second casts (my additions; Q41)
+### Second casts (decided: from the first fight)
 
-One more for each boss, for challenges from the third step (below), so a returning caster meets
-something new, not only the same things faster. Each is a check of a different kind.
+One more for each boss, in every fight from the first, coming more often as the steps climb. Each is a
+check of a different kind.
 
 - **The knight, Sundering Arc** (where you stand): it raises its sword and a pale arc marks the floor
   before it, three cells deep and a quarter-circle wide, for 0.8 s; then it sweeps through it. Step behind
@@ -537,14 +547,14 @@ something new, not only the same things faster. Each is a check of a different k
 - **The Wraith, Grasping Dark** (where the light is): away from any lit brazier, a ring of black opens
   under you and hands rise from it 1 s later. Stay in the light, and keep it lit.
 
-### Challenges grow harder (Q38)
+### Challenges grow harder (decided)
 
-- Each challenge won raises that boss's next challenge by a **step**, up to five *(default)*. The fight
-  on the way down is always step 0.
-- Each step: its hazard comes a fifth more often, with one more rock, crack line, open outlet or zone at
-  a time (the warning never shorter than 0.9 s); from step 3 the second cast comes in; the adds rise a
-  rank at steps 2 and 4 (to black at most).
-- **Scrip**: one a win at steps 0 to 2, two at steps 3 to 5 *(default)*.
+- Each challenge won raises that boss's next challenge by a **step**, up to five. The fight on the way
+  down is always step 0.
+- Each step: its hazard and its second cast come a fifth more often, with one more rock, crack line,
+  open outlet or zone at a time (the warning never shorter than 0.9 s); the adds rise a rank at steps 2
+  and 4 (to black at most).
+- **Scrip**: one a win at steps 0 to 2, two at steps 3 to 5.
 - The Portal shows each boss's step and what it brings before you choose it.
 
 ### Omens: the three levels before
@@ -659,7 +669,9 @@ plot (stones from the graveyard sprites we have, a new one for the freshest, tur
 - **E at the totem.** A row for each boss beaten; bosses not yet beaten don't show at all. Each row: the
   ability, its rank and cap, the scrip of that boss you hold, and *RAISE: 1 SCRIP*. A card under it
   describes the rank you would get.
-- One scrip unlocks rank I; each rank after costs one more. All four stop at III *(default; Q44)*.
+- One scrip unlocks rank I; each rank after costs one more. All four stop at III (decided).
+- **Extra scrip** (more of a boss's than its ability still needs to reach III) can be sold at the row
+  for **20,000 gold** a piece, asked twice.
 
 ## 8. The caster's boss abilities
 
@@ -837,7 +849,9 @@ fought as you are (Q25), the hall's layout (Q26), what counts as a run completed
 double tap (Q33), webs not holding bosses (Q34), the socket at the bottom left (Q35), the Codex's pages
 (Q36).
 
-### Round two
+### Round two (answered 26 October 2026)
+
+Answered as recorded under *Decided, second round*. Kept below for the record.
 
 - **Q38.** How challenges grow: (a) by themselves, a step a win to five, with the second cast from step 3
   and two scrip from step 3 (recommended); (b) you choose the step at the Portal, higher steps paying
