@@ -568,6 +568,20 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   (`G.trials_failed`). Debug: `EVENT died ... by what/type/rank`, `death_cost`, `death_written`;
   `CRAWL_TPSTONE=1` stands you before the newest stone. `make sheets` draws `SP_TOMB_FRESH` on `b7.png`
   and `T_SEALED` (with the Portal) on `b7walls.png`, for the owner.
+- **Her claim** (docs/PLAN-b7.md section 2; `in_danger`, `update_mark`, `mark_write`, `mark_fits`,
+  `claim_take`). While a person's run is in danger (an alerted creature within eight cells, a missile on
+  its way, a wall skull charging, health under a quarter, poisoned, slowed or held fast, webbed, a foe's
+  fire underfoot, a hazard's warning or harm, a boss arena while its fight is on; never in a pocket or at
+  the merchant's) its page's entry in the mark (`SLOT_MARK`, `"HVM1"` and for each page, 0 the unsigned
+  run: on, run id, signatures; `MARK_BYTES`) is set at once, and cleared 8 s after the danger ends
+  (`LEDGER.calm_t`). A page opened (at the start or from Esc) whose entry still fits pays at once: a
+  quarter to a half of the gold, and one worn piece or a spell a tier down (lost at tier 1; the Fire Bolt
+  to the fireball, never below), each alike likely; she signs the page (`PG_CLAIM`) and her card
+  (`render_claim`, `G.claim_card`) holds a person until E (the autopilot: 9 s). Opening another page
+  leaves the marked one marked. A death clears its entry. While marked, a red eye (`dead_eye`) shows
+  under the keys on the status bar and after them in the readout, and FLEE and OPEN THE LEDGER carry
+  *THE DEAD ARE WATCHING*. An old save's run id is a hash of its bytes, so its mark holds across starts.
+  Debug: `EVENT mark on|off`, `EVENT claim`.
 - **Items** (`crawl_gear.c`, docs/PLAN-items.md). A `Piece` has a kind (`IK_*`: bracer, boots,
   amulet, hood, robes, ring, bag), a quality (`Q_*`, white to gold: `QUAL_RAMP`), its level, Anointed or
   not, an ability (`AB_*`) and up to six rolled stats (`ST_*`, in tenths; health restored in

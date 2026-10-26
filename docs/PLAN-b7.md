@@ -898,7 +898,15 @@ first.
     harness: a scripted death (the card, the wake at level 1, the page written, 1,505 bytes with one
     stone), a shield-bearer's kill named on its stone, the stone's page, a pocket death and its seal, the
     dream's death unchanged. ASan clean.
-13. **The claim**: danger and the mark, written at once; what she takes; her card; the warning eye.
+13. **The claim** (built): danger as section 2 lists it (and, read for "held fast", any slowing), never in a
+    pocket; the mark keeps an entry for each page, so opening another page leaves the marked one
+    marked; written the moment danger begins, cleared 8 s after it ends. A marked page opened, at the
+    start or from Esc, pays at once: a quarter to a half of the gold and one worn piece or a tier of a
+    spell, chosen alike; she signs the page, and her card (the wording as drafted) waits for E. The
+    red eye sits under the keys on the status bar and after them in the readout; FLEE and OPEN THE
+    LEDGER say THE DEAD ARE WATCHING. In the harness: a sleepwalking run marked as it met a black
+    skeleton, the window closed while marked, and the next start paying (740 gold and a tier of Rapid
+    Sparks), then nothing on the start after. ASan clean.
 14. **The hall**: the room's new shape and art; her menu; pedestals two to seven.
 15. **The Corpus Compendium.**
 16. **The Wretched Repository.**

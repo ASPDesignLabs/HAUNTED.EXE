@@ -519,6 +519,8 @@ typedef struct {
 static struct {
     int read, yours, page;
     int has_visit; Visit visit;             /* the page's visit, set out when its room is entered */
+    int marked, claim_due;                  /* this run's page is marked in danger; one opened marked: her claim is due */
+    float calm_t;                           /* how long the danger has been over, counting down to the mark's clearing */
 } LEDGER;
 
 static struct {
@@ -597,6 +599,8 @@ static struct {
     int dcost, dcard_done;              /* a death that costs (a person's run, docs/PLAN-b7.md section 1); its card let go */
     float dcard_t;                      /* how long the card has shown */
     char dlost[64];                     /* what went with it, in a line */
+    int claim_card; float claim_t;      /* her card, after a marked page was opened: what she took */
+    char claim_text[280];
 
     /* the merchant's antechamber, before each level */
     int shop, shop_step, shop_pick, shop_bought, shop_look, shop_gold, shop_saving, shop_heal;
@@ -6107,6 +6111,7 @@ static void pocket_reset_level(void) { memset(&PK, 0, sizeof PK); PK.level = G.l
 
 static void ledger_first(void);
 static uint32_t new_run_id(uint32_t seed);
+static void claim_take(void);
 static void crawl_enter(uint32_t seed) {
     crawl_art_init();
     CON.open = 0; CON.slide = 0.0f; snd_hold(0);                   /* the console goes up; what a code did stays */
@@ -6137,6 +6142,7 @@ static void crawl_enter(uint32_t seed) {
     G.level = RUN.level; G.hp = RUN.hp;
     if (RUN.shop_next) begin_shop(); else start_level();
     LEDGER.has_visit = 0;                                          /* a page's visit is for its own room only */
+    if (LEDGER.claim_due) claim_take();                            /* a page opened in danger: before you can move */
 }
 
 static void collect(Item *it) {
@@ -7340,6 +7346,7 @@ static int meet_creature(int k) {
 
 static int con_update(float dt);
 static void challenge_begin(int b);
+static void update_mark(float dt);
 static void crawl_update(double dt) {
     float fdt = (float)dt;
     if (con_update(fdt)) return;                                   /* the console is down: the crypt waits, the music plays */
@@ -7356,6 +7363,14 @@ static void crawl_update(double dt) {
     G.bar = G.bar_t > 0.0f ? fminf(1.0f, G.bar + fdt / BAR_SLIDE) : fmaxf(0.0f, G.bar - fdt / BAR_SLIDE);
     G.peek = fmaxf(0.0f, G.peek - fdt);                            /* the readout rises over the HOLD H plate, then settles */
     G.lift += ((G.peek > 0.0f ? 1.0f : 0.0f) - G.lift) * fminf(1.0f, fdt * 8.0f);
+    update_mark(fdt);
+    if (G.claim_card) {                                            /* her card: nothing moves until it is read */
+        G.claim_t += fdt;
+        if ((G.player && G.claim_t > 1.0f && (IN.hit[KEY_E] || IN.hit[KEY_ENTER] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) || (!G.player && G.claim_t > 9.0f)) {
+            G.claim_card = 0; G.click_spent = IN.hit[KEY_MOUSE1];
+        }
+        if (G.player) return;
+    }
     if (G.shop) { update_shop(dt); return; }
     if (G.tally) {                                                 /* the level-complete screen; the crypt waits */
         update_tally(dt);
@@ -9487,7 +9502,11 @@ static void run_unpack(const uint8_t *buf, int len) {
     if (RUN.souls < 0 || RUN.soul_frac < 0.0f) { RUN.souls = RUN.souls < 0 ? 0 : RUN.souls; RUN.soul_frac = 0.0f; }
     const uint8_t *c = page_section(buf, len, LG_PAGE, &k);
     if (c && k >= LG_PAGE_BYTES) { RUN.run_id = (uint32_t)get32(c); RUN.signs = (uint32_t)get32(c + 4); }
-    if (!RUN.run_id) RUN.run_id = new_run_id((uint32_t)len * 2654435761u);   /* an old save: a run of its own from now on */
+    if (!RUN.run_id) {                                             /* an old save: a run of its own, the same each time it is read */
+        uint32_t h = 2166136261u;
+        for (int i = 0; i < len; i++) h = (h ^ buf[i]) * 16777619u;
+        RUN.run_id = h ? h : 1u;
+    }
     c = page_section(buf, len, LG_STONES, &k);
     if (c && k >= 1) {
         RUN.nstones = imin(imin(c[0], STONES), (k - 1) / STONE_BYTES);
@@ -9516,6 +9535,33 @@ static void progress_point(void) {
     slot_write(SLOT_PROGRESS, p, sizeof p);
 }
 
+/* Her claim (docs/PLAN-b7.md, section 2). The mark, beside the pages: for each page (0 the unsigned run)
+ * whether it is marked, and whose run and which signature it was marked at. Written the moment a person's
+ * run comes into danger, cleared 8 s after the danger has passed; a page opened while its mark still
+ * fits pays her claim. */
+#define MARK_MAGIC 0x314D5648u              /* "HVM1" */
+#define MARK_BYTES (4 + (SLOT_COUNT + 1) * 9)
+static void mark_read(uint8_t *m) {
+    if (slot_read(SLOT_MARK, m, MARK_BYTES) != MARK_BYTES || (uint32_t)get32(m) != MARK_MAGIC) { memset(m, 0, MARK_BYTES); put32(m, (int32_t)MARK_MAGIC); }
+}
+static void mark_write(int on) {
+    uint8_t m[MARK_BYTES], *e = NULL;
+    mark_read(m);
+    e = m + 4 + clampi(LEDGER.page, 0, SLOT_COUNT) * 9;
+    e[0] = (uint8_t)on; put32(e + 1, (int32_t)RUN.run_id); put32(e + 5, (int32_t)RUN.signs);
+    slot_write(SLOT_MARK, m, MARK_BYTES);
+    LEDGER.marked = on;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT mark %s page %d run %08x signs %u t=%.2f\n", on ? "on" : "off", LEDGER.page, RUN.run_id, RUN.signs, G.t);
+#endif
+}
+static int mark_fits(void) {                                       /* the run just opened was marked at this very signature */
+    uint8_t m[MARK_BYTES];
+    mark_read(m);
+    const uint8_t *e = m + 4 + clampi(LEDGER.page, 0, SLOT_COUNT) * 9;
+    return e[0] && (uint32_t)get32(e + 1) == RUN.run_id && (uint32_t)get32(e + 5) == RUN.signs;
+}
+
 /* the first time the crypt is entered: the progress names the page to start from, or holds a run that was
  * never signed (1.0.0b6's, or one written at a death before any signing) */
 static void ledger_first(void) {
@@ -9530,6 +9576,7 @@ static void ledger_first(void) {
         if (!save_version(buf, n)) return;
         run_unpack(buf, n); LEDGER.page = pg;
     } else run_unpack(buf, n);
+    LEDGER.claim_due = RUN.active && !CON.used && mark_fits();
 #ifdef CRAWL_DEBUG
     if (RUN.active) fprintf(stderr, "LEDGER start from %s%s: level %d gold %d run %08x signs %u\n", LEDGER.page ? "page " : "the unsigned run",
                             LEDGER.page ? RUN_ROMAN[LEDGER.page - 1] : "", RUN.level, RUN.treasure, RUN.run_id, RUN.signs);
@@ -9598,6 +9645,8 @@ static void ledger_open(int i) {
     run_unpack(buf, n);
     LEDGER.page = i + 1;
     progress_point();
+    LEDGER.claim_due = !CON.used && mark_fits();
+    LEDGER.marked = 0;                                             /* the page left behind keeps its own mark */
     crawl_enter(seed);
     G.player = 1; G.status_ret = PLAY_PLAYER; G.ui = UI_NONE; G.quit_line = ql;
     if (G.shop) { G.sdur = 0.0f; G.shop_look = -1; G.pc_t = -1.0f; }   /* no cast left half-made */
@@ -9638,6 +9687,7 @@ static void death_write(void) {                                    /* the page i
     if (n <= 0) return;
     if (LEDGER.page) { slot_write(LEDGER.page - 1, buf, n); progress_point(); }
     else slot_write(SLOT_PROGRESS, buf, n);
+    if (LEDGER.marked) mark_write(0);                              /* the dead have had theirs */
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT death_written %s%s bytes %d stones %d t=%.2f\n", LEDGER.page ? "page " : "the unsigned run", LEDGER.page ? RUN_ROMAN[LEDGER.page - 1] : "", n, RUN.nstones, G.t);
 #endif
@@ -9694,6 +9744,94 @@ static void death_wake(void) {
     if (G.player) { G.sdur = 0.0f; G.shop_look = -1; G.pc_t = -1.0f; }
     say("YOU WAKE BY THE MERCHANT");
     snd_sfx_ex(SFX_WHOOSH, 0.8f, 0.5f); sfx_at(SFX_TRILL, CAT_X, CAT_Y, 1.0f);
+}
+
+/* ---- her claim: a marked page opened ---- */
+
+static void numeral(int v, char *buf, int n);
+
+static void commas(int v, char *buf, int n) {                      /* 1,240 */
+    char t[16];
+    snprintf(t, sizeof t, "%d", v < 0 ? 0 : v);
+    int len = (int)strlen(t), o = 0;
+    for (int i = 0; i < len && o < n - 1; i++) {
+        if (i && (len - i) % 3 == 0 && o < n - 2) buf[o++] = ',';
+        buf[o++] = t[i];
+    }
+    buf[o] = 0;
+}
+
+/* a quarter to a half of the gold, and one thing equipped at random (a worn piece taken, or a spell a tier
+ * down, lost at tier 1, the Fire Bolt never below the fireball); never a rune, the bag or the Totem's. She
+ * signs the page herself, and her card says so. */
+static void claim_take(void) {
+    static uint8_t buf[SLOT_MAX];
+    Gear *g = &RUN.gear;
+    LEDGER.claim_due = 0;
+    int gold = RUN.treasure * (25 + rnd(26)) / 100, cand[NSLOT + NATK], nc = 0;
+    for (int sl = 0; sl < NSLOT; sl++) if (g->worn[sl].kind != IK_NONE) cand[nc++] = sl;
+    for (int k = 0; k < NATK; k++) if (g->atk[k] > 0) cand[nc++] = NSLOT + k;
+    char what[96] = "", nm[64], g1[24];
+    if (nc) {
+        int c = cand[rnd(nc)];
+        if (c < NSLOT) {
+            piece_full_name(&g->worn[c], nm, sizeof nm);
+            snprintf(what, sizeof what, "THE %s", nm);
+            memset(&g->worn[c], 0, sizeof g->worn[c]);
+        } else {
+            int k = c - NSLOT, t = g->atk[k];
+            char tn[8];
+            numeral(t - 1, tn, sizeof tn);
+            if (k == AT_FIRE && t == 1) snprintf(what, sizeof what, "A TIER OF %s: THE FIREBALL AGAIN", ATK_NAME[k]);
+            else if (t <= 1) snprintf(what, sizeof what, "%s ITSELF", ATK_NAME[k]);
+            else snprintf(what, sizeof what, "A TIER OF %s, NOW %s", ATK_NAME[k], tn);
+            g->atk[k] = (int8_t)(k == AT_FIRE ? t - 1 : (t <= 1 ? -1 : t - 1));
+        }
+    }
+    RUN.treasure -= gold;
+    commas(gold, g1, sizeof g1);
+    char took[140];
+    if (gold > 0 && *what) snprintf(took, sizeof took, "%s GOLD, AND %s", g1, what);
+    else if (gold > 0) snprintf(took, sizeof took, "%s GOLD", g1);
+    else if (*what) snprintf(took, sizeof took, "%s", what);
+    else snprintf(took, sizeof took, "NOTHING, FOR YOU HAD NOTHING");
+    snprintf(G.claim_text, sizeof G.claim_text, "YOU TRIED TO CHEAT THE DEAD OF THEIR BOUNTY. WHATEVER YOU MEANT BY IT, SHE HAS TAKEN THEIR CLAIM: %s. THE LEDGER IS SIGNED.", took);
+    G.claim_card = 1; G.claim_t = 0.0f;
+    G.max_hp = gear_max_hp(g); if (G.hp > G.max_hp) G.hp = G.max_hp;
+    RUN.hp = imin(RUN.hp, G.max_hp);
+    if (G.shop) G.shop_gold = RUN.treasure;
+    RUN.signs++;                                                   /* she signs it herself */
+    int n = run_pack(buf, sizeof buf, PG_CLAIM);
+    if (n > 0) {
+        if (LEDGER.page) { slot_write(LEDGER.page - 1, buf, n); progress_point(); }
+        else slot_write(SLOT_PROGRESS, buf, n);
+    }
+    mark_write(0);
+    snd_sfx_ex(SFX_STINGER, 0.8f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.9f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT claim gold %d took %s page %d t=%.2f\n", gold, *what ? what : "nothing", LEDGER.page, G.t);
+#endif
+}
+
+/* danger, for the mark: a creature hunting within eight cells or a missile on its way; health under a
+ * quarter; poisoned, burning, held in a web, held fast, or in a hazard's warning or harm; a boss's arena
+ * from the doors shutting till it falls */
+static int in_danger(void) {
+    if (G.shop || G.tally || G.dead || G.exiting || PK.depth) return 0;
+    if (G.boss >= 0 && (G.bstate == BS_FIGHT || G.bstate == BS_WAVE || G.bstate == BS_RISE)) return 1;
+    if (G.hp * 4 < G.max_hp || G.poison_t > 0.0f || G.slow_t > 0.0f || G.web_hp > 0.0f || hz_danger(G.cx, G.cy)) return 1;
+    for (int i = 0; i < MAXBURNS; i++) if (G.burns[i].alive && G.burns[i].foe && hypotf(G.px - G.burns[i].x, G.py - G.burns[i].y) < 0.8f) return 1;
+    if (incoming(2.0f) > 0 || skull_charging(9.0f, 0.0f)) return 1;
+    for (int i = 0; i < MAXMOBS; i++) {
+        const Mob *m = &G.mobs[i];
+        if (m->alive && m->state == MS_WALK && m->alert && !m->ally && !(KINDS[m->type].flags & KF_SPIRIT) && hypotf(m->x - G.px, m->y - G.py) < 8.0f) return 1;
+    }
+    return 0;
+}
+static void update_mark(float dt) {
+    if (!LEDGER.yours || CON.used || !RUN.active) return;
+    if (in_danger()) { LEDGER.calm_t = 8.0f; if (!LEDGER.marked) mark_write(1); }
+    else if (LEDGER.marked && (LEDGER.calm_t -= dt) <= 0.0f) mark_write(0);
 }
 
 enum { LM_NONE, LM_ARMED, LM_EMPTY };
@@ -11081,6 +11219,7 @@ static void bevel(Frame *f, int x, int y, int w, int h, int fill) {
 
 /* the status bar, in the antechamber only (nothing stays put on an OLED for long) */
 static void key_icon(Frame *f, int kx, int ky, int color);
+static void dead_eye(Frame *f, int x, int y);
 static void draw_coin(Frame *f, int x, int y);
 static int small_digits(Frame *f, int x, int y, int n, uint8_t c) {   /* 3 by 5 figures, for the keys' box; returns the width */
     static const char *const D[10] = { "####.##.##.####", ".#.##..#..#.###", "###..#####..###", "###..#.##..####", "#.##.####..#..#",
@@ -11130,12 +11269,13 @@ static void render_statusbar(Frame *f) {
         }
         gfx_text16(f, P[i].x + (P[i].w - gfx_text_width(num, 1)) / 2, y0 + 19, num, col, 1);
     }
-    bevel(f, 304, y0 + 4, 12, 37, R_IRON + 2);                     /* the keys in hand, and under them the Cursed Coins */
-    for (int c = 0; c < NKEYS; c++) if (G.has_key[c]) key_icon(f, 306, y0 + 7 + c * 7, c);
+    bevel(f, 304, y0 + 4, 12, 37, R_IRON + 2);                     /* the keys in hand, the dead's eye, the Cursed Coins */
+    for (int c = 0; c < NKEYS; c++) if (G.has_key[c]) key_icon(f, 306, y0 + 6 + c * 6, c);
+    if (LEDGER.marked) dead_eye(f, 306, y0 + 24);
     if (RUN.coins > 0) {
-        draw_coin(f, 306, y0 + 27);
+        draw_coin(f, 306, y0 + 29);
         int w = small_digits(NULL, 0, 0, RUN.coins, 0);
-        small_digits(f, 304 + (12 - w) / 2, y0 + 35, RUN.coins, R_GOLD + 10);
+        small_digits(f, 304 + (12 - w) / 2, y0 + 36, RUN.coins, R_GOLD + 10);
     }
     bevel(f, 162, y0 + 1, 40, 43, 0);
     draw_face(f, 166, y0 + 3, face_sub());
@@ -11621,6 +11761,17 @@ static void card_box(Frame *f, int bw, int bh, int by) {
 
 static void card_text(Frame *f, int y, const char *s, int c) { gfx_text16(f, (W - gfx_text_width(s, 1)) / 2, y, s, c, 1); }
 
+/* her card, when a page marked in danger was opened */
+static void dim_view(Frame *f);
+static int text_centred(Frame *f, int y, const char *s, int cols, int col, int maxlines);
+static void render_claim(Frame *f) {
+    dim_view(f);
+    card_box(f, 292, 124, 34);
+    card_text(f, 42, "CAUGHT CHEATING THE DEAD", R_BLOOD + 13);
+    text_centred(f, 64, G.claim_text, 34, R_STONE + 13, 7);
+    if (G.player && G.claim_t > 1.0f) text_centred(f, 144, "E: SO BE IT", 34, R_STONE + 9, 1);
+}
+
 /* small text centred on the screen, wrapped at word ends; the lines it took */
 static int text_centred(Frame *f, int y, const char *s, int cols, int col, int maxlines) {
     int lines = 0;
@@ -11775,6 +11926,13 @@ static void render_tally(Frame *f) {
 #define SOCK 19                                                    /* an ability's socket and the gap after it */
 static int sockets_shown(void);
 static const char *const KEY_ART[5] = { ".##.....", "#..#####", "#..#..#.", ".##...#.", "........" };
+static void dead_eye(Frame *f, int x, int y) {                     /* the page is marked: the dead are watching */
+    static const char *const EYE[5] = { "..####..", ".#....#.", "#..##..#", ".#....#.", "..####.." };
+    int pulse = (int)(G.t * 2.0) & 1;
+    for (int r = 0; r < 5; r++)
+        for (int c = 0; c < 8; c++)
+            if (EYE[r][c] == '#') gfx_px(f, x + c, y + r, (uint8_t)(R_BLOOD + (r == 2 && c >= 3 && c <= 4 ? 15 : 10 + pulse)));
+}
 static void key_icon(Frame *f, int kx, int ky, int color) {
     static const int RAMP[NKEYS] = { R_GOLD, R_IRON, R_BLOOD };
     for (int y = 0; y < 5; y++)
@@ -11796,7 +11954,7 @@ static void render_readout(Frame *f) {
     int kx = show_souls ? sx + 12 + gfx_text_width(souls, 1) + 8 : sx;
     char coins[12];
     snprintf(coins, sizeof coins, "%d", RUN.coins);
-    int cx = kx + nk * 11 + (nk ? 2 : 0);
+    int ex = kx + nk * 11 + (nk ? 2 : 0), cx = ex + (LEDGER.marked ? 11 : 0);
     int pw = cx + (RUN.coins > 0 ? 10 + gfx_text_width(coins, 1) + 6 : 0) + 4, ph = 18, px = 6 + sockets_shown() * SOCK, py = H - 4 - (int)(k * (ph + 4)) + 4 - (int)(G.lift * 40.0f + 0.5f);   /* raised over HOLD H */
     gfx_rect(f, px, py, pw, ph, 0);
     for (int i = 0; i < pw; i++) { gfx_px(f, px + i, py, R_STONE + 9); gfx_px(f, px + i, py + ph - 1, R_STONE + 5); }
@@ -11823,6 +11981,7 @@ static void render_readout(Frame *f) {
         gfx_text8(f, wx + 8, py + 5, souls, ready && ((int)(G.t * 3.0) & 1) ? C_WHITE : (uint8_t)(R_GLOW + 11), 1);
     }
     for (int c = 0, i = 0; c < NKEYS; c++) if (G.has_key[c] > 0) key_icon(f, px + kx + (i++) * 11, py + 6, c);
+    if (LEDGER.marked) dead_eye(f, px + ex, py + 6);
     if (RUN.coins > 0) { draw_coin(f, px + cx, py + 5); gfx_text8(f, px + cx + 10, py + 5, coins, R_GOLD + 10, 1); }
 }
 
@@ -12187,8 +12346,10 @@ static void render_quit(Frame *f) {
         }
     }
     const char *note = NOTE[clampi(G.ui_sel, 0, Q_OPTIONS - 1)];
+    int ncol = R_GOLD + 9;
+    if (LEDGER.marked && (G.ui_sel == Q_FLEE || G.ui_sel == Q_OPEN)) { note = "THE DEAD ARE WATCHING"; ncol = R_BLOOD + 13; }
     if (CON.used && G.ui_sel == Q_FLEE) note = "THE DEAD TOOK NOTE: NOTHING KEPT";
-    gfx_text8(f, (W - gfx_text_width(note, 1)) / 2, by + bh - 14, note, R_GOLD + 9, 1);
+    gfx_text8(f, (W - gfx_text_width(note, 1)) / 2, by + bh - 14, note, (uint8_t)ncol, 1);
 }
 
 /* a page of the ledger, 24 wide and 27 tall, its corner turned down and its numeral at the foot; gold for
@@ -12904,6 +13065,7 @@ static void crawl_render(Frame *f) {
     if (!G.shop && !G.player) { render_readout(f); render_face_popup(f); }
     if (!G.shop) { render_bossbar(f); render_card(f); }
     render_messages(f);
+    if (G.claim_card) render_claim(f);
     if (G.player && G.ui) render_ui(f);
     render_toasts(f);
     tint(f);
