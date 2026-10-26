@@ -43,8 +43,9 @@ enum { MOB_SKEL, MOB_GHOST, MOB_BAT, MOB_WSKULL, MOB_SHIELD, MOB_SPIDER,
 enum { MS_WALK, MS_DIE, MS_RECOIL, MS_FLEE };   /* the last two: wraiths only */
 enum { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_KEY, IT_POTION, IT_URN, IT_RING, IT_BONE, IT_SCRIP };   /* IT_SCRIP: color is its boss */
 static const int ITEM_VALUE[] = { 10, 25, 50, 100, 250, 0, 0, 0, 0, 0, 0 };
-enum { MIS_BONE, MIS_FIRE, MIS_EMBER, MIS_TURNED };   /* what the dead throw: bones, a wall skull's fireball, an imp's ember;
-                                                           and a spell of yours the Ill-Fated Knight's Mirror Rune turned */
+enum { MIS_BONE, MIS_FIRE, MIS_EMBER, MIS_TURNED, MIS_WEB };   /* what the dead throw: bones, a wall skull's fireball, an imp's
+                                                                    ember; a spell of yours the Ill-Fated Knight's Mirror Rune
+                                                                    turned; the Wandering Spider's glob of web */
 enum { DM_PIERCE = 1, DM_ARC = 2, DM_SLOW = 4 };   /* how a hit lands: through shields, round them, chilling */
 #define DM_ATK(a) (((a) + 1) << 8)          /* and which spell it is, for the creature's weakness to it */
 enum { HURT_BLOW, HURT_MAGIC, HURT_POISON, HURT_STONE, HURT_VOID };   /* STONE: no dodging it; VOID: nothing resists it */
@@ -290,7 +291,7 @@ static const BossDef BOSSES[NBOSS] = {
           { { MOB_SKEL, 1, 0 }, { MOB_SHIELD, 2, 0 }, { MOB_HOUND, 2, 0 } },
           { { MOB_SKEL, 2, 0 }, { MOB_SHIELD, 2, 0 }, { MOB_HOUND, 1, 0 }, { MOB_KNIGHT, 1, 0 } } } },
     [BOSS_SPIDER] = { "THE WANDERING HUNTING SPIDER", "IT HAS WALKED THESE CISTERNS SINCE BEFORE THE ORDER CAME. ALL OF THEM ARE ITS.",
-        "THE WANDERING SPIDER'S ODIOUS SCRIP", "THE WANDERING SPIDER", MOB_HUNTER, 16.0f, 1.0f, 1.2f, 1.3f, MAP_WEB, SP_PILLAR, SP_PUDDLE_A,
+        "THE WANDERING SPIDER'S ODIOUS SCRIP", "THE WANDERING SPIDER", MOB_HUNTER, 22.0f, 1.0f, 1.2f, 1.3f, MAP_WEB, SP_PILLAR, SP_PUDDLE_A,
         { { { MOB_HUNTER, 3, 1 } }, { { MOB_HUNTER, 4, 1 } }, { { MOB_HUNTER, 5, 1 } }, { { MOB_HUNTER, 6, 1 } } } },
     [BOSS_DEACON] = { "THE BLACK DEACON", "HE KEPT THE ORDER'S RITES LONG AFTER THE ORDER WAS DUST.",
         "THE BLACK DEACON'S ODIOUS SCRIP", "THE BLACK DEACON", MOB_DEACON, 18.0f, 2.0f, 1.0f, 1.3f, MAP_PULPIT, SP_TIMBER, SP_TOMB_BROKEN,
@@ -582,6 +583,10 @@ static struct {
     int bpose; float bpose_t;
     float bdash_t, bdash_x0, bdash_y0, bdash_x1, bdash_y1, bdash_vx, bdash_vy, bdash_cd[3], bdash_age;
     float bmirror_t, bmirror_cd, bhurt;
+    /* the spider's: when it next goes up; its Mend Rune (health when it last mended, mending left, the wait);
+       its web on you (what is left of it, all of it, the wait for the next, the rearing before a spit, how
+       long since you struck at it); the fifteen-second spiders' clock */
+    float bsp_t, bmend_base, bmend_t, bmend_cd, web_hp, web_max, web_cd, web_rear, web_idle, btrickle_t;
 } G;
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE };   /* the knight's: sword planted with a shout, raised, swept */
 static float zbuf[W];
@@ -2190,7 +2195,8 @@ static int hits_bone, hits_bat, throws, shrieks, hits_fire, hits_sword, bites, c
            grabs, hound_bites, wraith_touches, wraith_drives, leaps, knight_blows, brood_bites, ling_bites, sacs_laid,
            shade_touches, embers, ember_hits, ember_burns, ember_scorch, raised, garg_wakes, mirrored, turned,
            exq_shatter, exq_bruise, exq_reaped, exq_mendward, exq_dread, exq_mirror,   /* Exquisite runes' second effects */
-           knight_turned, turned_hits;                                                /* the Ill-Fated Knight's Mirror Rune */
+           knight_turned, turned_hits,                                                /* the Ill-Fated Knight's Mirror Rune */
+           spider_mends, spider_ups, webbed, web_torn, egg_shots;                     /* the Wandering Spider */
 #define DBG_COUNT(v) ((v)++, fprintf(stderr, "EVENT %s t=%.2f\n", #v, G.t))
 #else
 #define DBG_COUNT(v) ((void)0)
@@ -2260,6 +2266,7 @@ static void throw_bone(const Mob *m) { throw_missile(m, MIS_BONE); }
 
 static void explode(float x, float y);
 static Shot *new_shot(int kind, float x, float y, float a, float speed, float dmg);
+static void say(const char *fmt, ...);
 
 static void ember_land(const Bone *b) {
     for (int i = 0; i < MAXBURNS; i++)
@@ -2281,6 +2288,7 @@ static void update_bones(float dt) {
                 if (b->kind == MIS_FIRE || (b->kind == MIS_TURNED && (b->atk == AT_FIRE || b->atk == AT_HELL))) explode(b->x, b->y);
                 else if (b->kind == MIS_EMBER) ember_land(b);
                 else if (b->kind == MIS_TURNED) sfx_at(b->atk == AT_FROST ? SFX_FROST : SFX_ZAP, b->x, b->y, 0.5f);
+                else if (b->kind == MIS_WEB) sfx_at(SFX_DIRT, b->x, b->y, 0.4f);
                 else sfx_at(SFX_BONES, b->x, b->y, 0.4f);
                 break;
             }
@@ -2307,6 +2315,11 @@ static void update_bones(float dt) {
                 b->alive = 0;
                 if (b->kind == MIS_FIRE) { hurt_ex(b->dmg, HURT_MAGIC, b->x - b->vx, b->y - b->vy); explode(b->x, b->y); DBG_COUNT(hits_fire); }
                 else if (b->kind == MIS_EMBER) { hurt_ex(b->dmg, HURT_MAGIC, b->x - b->vx, b->y - b->vy); ember_land(b); DBG_COUNT(ember_hits); }
+                else if (b->kind == MIS_WEB) {                     /* held fast */
+                    G.web_max = G.web_hp = (float)G.max_hp / 3.0f; G.web_idle = 0.0f;
+                    snd_sfx_ex(SFX_DIRT, 0.9f, 0.5f); say("CAUGHT IN THE WEB: CAST TO TEAR IT");
+                    DBG_COUNT(webbed);
+                }
                 else if (b->kind == MIS_TURNED) {                  /* your own spell, at half strength */
                     hurt_ex(b->dmg, b->atk == AT_SPEAR ? HURT_BLOW : HURT_MAGIC, b->x - b->vx, b->y - b->vy);
                     if (b->atk == AT_FIRE || b->atk == AT_HELL) explode(b->x, b->y); else sfx_at(b->atk == AT_FROST ? SFX_FROST : SFX_ZAP, b->x, b->y, 0.6f);
@@ -2534,6 +2547,7 @@ static float hit_mult(const Mob *m, int atk) {
              + gear_total(g, ST_SHOCK) / 100.0f * weak_to(m, AT_CHAIN);
 }
 static float slow_factor(void) {                                   /* slowed, the caster walks at 60%; resisted, less slowly; */
+    if (G.web_hp > 0.0f) return 0.0f;                              /* held in the Wandering Spider's web: not at all */
     return (G.slow_t > 0.0f ? 1.0f - 0.4f * (1.0f - 0.5f * gear_slow_resist(&RUN.gear)) : 1.0f) * (G.hz_slow > 0.0f ? G.hz_slow : 1.0f);   /* bile and void besides */
 }
 static float spell_effect(void) { return 1.0f + gear_total(&RUN.gear, ST_EFFECT) / 100.0f; }   /* all a spell does besides damage */
@@ -2543,6 +2557,7 @@ static int boss_hurt(Mob *m, float dmg);
 static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float slow) {
     if (m->boss && m->alive && m->state == MS_WALK && dmg > 0.0f) {   /* a boss: its weaknesses, then its marks */
         if (G.bdash_t > 0.0f) return 0;                            /* darting: nothing touches it */
+        if (m->type == MOB_HUNTER && (m->sub == 0 || m->sub == 5)) return 0;   /* overhead, out of reach */
         int a = (flags >> 8) - 1;
         if (a >= 0 && a < NATK) { dmg *= hit_mult(m, a); m->last_atk = a; }
         if ((flags & DM_SLOW) && slow > 0.0f) m->slowed = fmaxf(m->slowed, slow * 0.5f);
@@ -2960,11 +2975,12 @@ static void update_sac(Mob *m, float dt) {
     if (m->state == MS_DIE) { if (m->t >= 0.4f) { add_deco(m->x, m->y, SP_SAC_OPEN); m->alive = 0; } return; }
     if (hypotf(G.px - m->x, G.py - m->y) < 10.0f) m->sub_t += dt;
     if (m->sub_t < 8.0f) return;
-    for (int k = 0; k < 3; k++) {                                   /* it hatches */
-        Mob *l = spawn_mob(m->cx, m->cy, MOB_LING);
+    for (int k = 0; k < (m->small ? 4 : 3); k++) {                  /* it hatches; the Wandering Spider's, small hunters */
+        Mob *l = spawn_mob(m->cx, m->cy, m->small ? MOB_HUNTER : MOB_LING);
         if (!l) break;
         l->x = m->x + (rndf() - 0.5f) * 0.6f; l->y = m->y + (rndf() - 0.5f) * 0.6f; l->alert = 30.0f;
         set_rank(l, m->rank < RK_V ? m->rank : RK_V);              /* their mother's colour */
+        if (m->small) { l->small = 1; l->hp = l->maxhp = l->maxhp * 0.5f; l->sub = 2; l->home = -1; }
     }
     sfx_at(SFX_SKITTER, m->x, m->y, 1.4f);
     add_deco(m->x, m->y, SP_SAC_OPEN);
@@ -3083,6 +3099,103 @@ static int knight_turns(Mob *mb, Shot *s) {
     return 1;
 }
 
+/* The Wandering Spider (docs/PLAN-b7.md): up to the ceiling every four to seven seconds and across it,
+ * out of reach, to a spot two cells short of you, then down and a leap. Its Mend Rune mends an eighth of
+ * its health over four seconds once it has lost a fifth since it last mended, at most every twenty and
+ * never past the last wave mark, glowing green. Its Tangled Web: it rears with a hiss and spits a glob
+ * that can be sidestepped; if it lands you can't walk until your spells have torn a third of your health
+ * out of it (fire twice over); the next comes 12 s after you are free. */
+static int web_flying(void) {
+    for (int i = 0; i < MAXBONES; i++) if (G.bones[i].alive && G.bones[i].kind == MIS_WEB) return 1;
+    return 0;
+}
+static int spider_boss(Mob *m, float dt, float pd0, int sees) {
+    float top = 1.0f - KINDS[MOB_HUNTER].scale * BOSSES[BOSS_SPIDER].scale;
+    if (G.bmend_base > m->maxhp) G.bmend_base = m->maxhp;
+    if (G.bmend_cd > 0.0f) G.bmend_cd -= dt;
+    if (G.bmend_t > 0.0f) {
+        float cap = G.bwave > 0 ? m->maxhp * WAVE_MARK[G.bwave - 1] : m->maxhp;
+        m->hp = fminf(fmaxf(cap, m->hp), m->hp + m->maxhp * 0.125f / 4.0f * dt);
+        if ((G.bmend_t -= dt) <= 0.0f) G.bmend_base = m->hp;
+    } else if (G.bmend_cd <= 0.0f && m->hp <= G.bmend_base - 0.2f * m->maxhp) {
+        G.bmend_t = 4.0f; G.bmend_cd = 20.0f;
+        sfx_at(SFX_RUNE, m->x, m->y, 1.2f); sfx_at(SFX_POTION, m->x, m->y, 0.8f);
+        DBG_COUNT(spider_mends);
+    }
+    if (m->sub == 3 || m->sub == 1) return 0;                      /* a leap, or the drop: the hunter's own */
+    if (m->sub == 5) {                                             /* up to the ceiling */
+        m->sub_t += dt;
+        m->z = top * fminf(1.0f, m->sub_t / 0.4f);
+        if (m->sub_t >= 0.4f) { m->sub = 0; m->sub_t = 0.0f; }
+        return 1;
+    }
+    if (m->sub == 0) {                                             /* across it, to two cells short of you, and down */
+        m->z = top; m->sub_t += dt; m->t += dt;
+        float d = fmaxf(pd0, 0.01f), gx = G.px + (m->x - G.px) / d * 2.0f, gy = G.py + (m->y - G.py) / d * 2.0f;
+        float vx = gx - m->x, vy = gy - m->y, vd = hypotf(vx, vy), step = m->speed * 1.4f * dt;
+        if (vd > 0.3f) {
+            float nx = m->x + vx / vd * fminf(step, vd), ny = m->y + vy / vd * fminf(step, vd);
+            if (in_arena(nx, ny) && !knight_blocked(nx, ny)) { m->x = nx; m->y = ny; m->cx = m->tx = (int)nx; m->cy = m->ty = (int)ny; }
+            else vd = 0.0f;
+        }
+        if ((vd <= 0.3f || m->sub_t > 3.0f) && G.bstate == BS_FIGHT) { m->sub = 1; m->sub_t = 0.0f; m->cool = 0.0f; sfx_at(SFX_SKITTER, m->x, m->y, 1.3f); }
+        return 1;
+    }
+    if (G.web_rear > 0.0f) {                                       /* rearing: then the glob */
+        m->face = atan2f(G.py - m->y, G.px - m->x);
+        if ((G.web_rear -= dt) <= 0.0f)
+            for (int i = 0; i < MAXBONES; i++) {
+                Bone *b = &G.bones[i];
+                if (b->alive) continue;
+                float a = atan2f(G.py - m->y, G.px - m->x);
+                *b = (Bone){ 1, MIS_WEB, m->x + cosf(a) * 0.5f, m->y + sinf(a) * 0.5f, cosf(a) * 3.5f, sinf(a) * 3.5f, 4.0f, 0.0f, 0.0f, 0.0f, (int)(m - G.mobs), 0 };
+                sfx_at(SFX_THROW, m->x, m->y, 1.0f);
+                break;
+            }
+        return 1;
+    }
+    if (m->swing > 0.0f || G.dead) return 0;
+    if (G.web_hp <= 0.0f && !web_flying() && (G.web_cd -= dt) <= 0.0f && sees && pd0 > 2.5f && pd0 < 9.0f) {
+        G.web_rear = 0.6f; G.web_cd = 12.0f;
+        sfx_at(SFX_SKITTER, m->x, m->y, 1.5f); sfx_at(SFX_WHISPER, m->x, m->y, 0.6f);   /* a hiss */
+        return 1;
+    }
+    if ((G.bsp_t -= dt) <= 0.0f) {                                 /* up it goes */
+        G.bsp_t = 4.0f + 3.0f * rndf();
+        m->sub = 5; m->sub_t = 0.0f;
+        sfx_at(SFX_SKITTER, m->x, m->y, 1.1f);
+        DBG_COUNT(spider_ups);
+        return 1;
+    }
+    return 0;
+}
+/* a spell cast while held strikes the web instead; fire tears it twice as fast */
+static int web_strike(int sp, float dmg) {
+    if (G.web_hp <= 0.0f) return 0;
+    G.web_hp -= dmg * (sp == AT_FIRE || sp == AT_HELL ? 2.0f : 1.0f);
+    G.web_idle = 0.0f;
+    sfx_at(sp == AT_FIRE || sp == AT_HELL ? SFX_IGNITE : SFX_SKITTER, G.px, G.py, 0.8f);
+    if (G.web_hp <= 0.0f) { G.web_hp = 0.0f; G.web_cd = 12.0f; snd_sfx_ex(SFX_SHATTER, 0.6f, 0.5f); DBG_COUNT(web_torn); }
+    return 1;
+}
+/* Egg Shot: a sac stuck to the stone in sight of you, which hatches four small spiders in five seconds
+ * unless it is burned or broken first */
+static void egg_shot(const Mob *m) {
+    for (int tries = 0; tries < 60; tries++) {
+        float a = rndf() * TAU_F, d = 2.0f + 4.0f * rndf();
+        int x = (int)floorf(G.px + cosf(a) * d), y = (int)floorf(G.py + sinf(a) * d), wall = 0;
+        if (!in_arena(x + 0.5f, y + 0.5f) || G.map[y][x].kind != K_FLOOR || occupied(x, y, NULL)) continue;
+        for (int k = 0; k < 4; k++) wall |= G.map[y + DY[k]][x + DX[k]].kind == K_WALL;
+        if (!wall || !line_clear(G.px, G.py, x + 0.5f, y + 0.5f)) continue;
+        Mob *e = spawn_mob(x, y, MOB_SAC);
+        if (!e) return;
+        e->small = 1; e->sub_t = 3.0f; e->rank = m->rank; e->alert = 30.0f;
+        sfx_at(SFX_THROW, m->x, m->y, 1.0f); sfx_at(SFX_SKITTER, e->x, e->y, 1.0f);
+        DBG_COUNT(egg_shots);
+        return;
+    }
+}
+
 static void update_mob(Mob *m, float dt) {
     if (m->state == MS_DIE && m->sub == 77) { if ((m->t += dt) >= 0.9f) m->alive = 0; return; }   /* gone into the BFS9000 */
     if (m->boss && m->state == MS_WALK && (G.bstate != BS_FIGHT || G.bpose_t > 0.0f)) {   /* waiting, holding while its wave
@@ -3185,6 +3298,7 @@ static void update_mob(Mob *m, float dt) {
         }
         if (sees && pd0 < 1.15f && m->cool <= 0.0f) { m->swing = 0.25f; return; }
     }
+    if (m->boss == 1 + BOSS_SPIDER && spider_boss(m, dt, pd0, sees)) return;
     if (m->type == MOB_HUNTER && !G.dead) {                        /* along the ceiling, down a thread, and a leap */
         if (update_leap(m, dt)) return;
         m->cool -= dt;
@@ -3487,7 +3601,7 @@ static void bfs9000(void) {
         Mob *m = &G.mobs[i];
         if (!m->alive || m->state != MS_WALK || (KIND_IS(m, KF_SPIRIT) && !m->boss)) continue;
         if (hypotf(m->x - G.px, m->y - G.py) > 14.0f || !line_clear(G.px, G.py, m->x, m->y)) continue;
-        if (m->boss) { damage_mob(m, m->maxhp * 0.25f, 0, G.px, G.py, 0.0f); continue; }   /* a boss takes a quarter */
+        if (m->boss) { damage_mob(m, m->maxhp * 0.08f, 0, G.px, G.py, 0.0f); continue; }   /* a boss takes a twelfth or so */
         m->hp = 0.0f;
         kill_mob(m);
         m->sub = 77;                                               /* drawn imploding */
@@ -3520,6 +3634,7 @@ static void cast_spell(int sp, int t) {
     }
     if (sp == AT_SPEAR) RUN.gear.bones--;
     float dmg = spell_damage_at(g, sp, tier);
+    if (web_strike(sp, dmg * (sp == AT_WISPS ? (float)wisp_count(tier) : 1.0f))) return;   /* held: it strikes the web */
     float hx = G.px + cosf(a) * 0.35f, hy = G.py + sinf(a) * 0.35f;
     int bat = have && m->type == MOB_BAT && !G.player;
     alert_near(8, 8.0f);                                           /* a spell is heard down the halls */
@@ -3642,7 +3757,8 @@ static void update_shots(float dt) {
                 if (s->kind == AT_SPEAR && (s->pierced >> mi & 1)) continue;
                 float hr = KINDS[mb->type].rad * (mb->boss ? BOSSES[mb->boss - 1].scale : 1.0f);
                 if (hypotf(mb->x - s->x, mb->y - s->y) >= hr) continue;
-                if (mb->boss && G.bdash_t > 0.0f) continue;          /* darting: through where it was */
+                if (mb->boss && (G.bdash_t > 0.0f || (mb->type == MOB_HUNTER && (mb->sub == 0 || mb->sub == 5)))) continue;   /* darting, or
+                                                                                                                         overhead: under it */
                 if (knight_turns(mb, s)) break;
                 float fx = s->x - s->vx * 0.1f, fy = s->y - s->vy * 0.1f;
                 switch (s->kind) {
@@ -4369,6 +4485,7 @@ static int targetable(const Mob *m) {
     if (m->type == MOB_GARGOYLE && m->sub == 0) return 0;          /* only a statue, as far as anyone can tell */
     if ((m->type == MOB_SPIDER || m->type == MOB_WSKULL) && m->sub == 0) return 0;
     if (m->boss && G.bstate != BS_FIGHT) return 0;                 /* untouchable: its adds first */
+    if (m->boss && m->type == MOB_HUNTER && (m->sub == 0 || m->sub == 5)) return 0;   /* overhead */
     return 1;
 }
 
@@ -4458,6 +4575,10 @@ static void aim_at(int t) {
 
 static void pocket_return(int died);
 static void update_player(float dt) {
+    if (G.web_hp > 0.0f && !G.dead && (G.web_idle += dt) > 1.2f) {   /* held, and nothing to aim at: it tears at the web */
+        G.web_idle = 0.0f;
+        cast_spell(AT_FIRE, -1);
+    }
     G.cooldown -= dt;
     G.calm += dt;
     if ((G.state == PS_AIM || G.state == PS_HOLD || G.state == PS_UNAIM || (G.state == PS_CAST && G.fired) || (G.state == PS_CAST && G.silenced))
@@ -4772,6 +4893,7 @@ static void start_level(void) {
     G.bfight_t = G.bstate_t = G.bcard = G.bring = 0.0f; G.bbar = 1.0f;
     G.bpose = BP_NONE; G.bpose_t = G.bdash_t = G.bmirror_t = G.bmirror_cd = G.bhurt = 0.0f; G.bdash_age = 99.0f;
     memset(G.bdash_cd, 0, sizeof G.bdash_cd);
+    G.bsp_t = 5.0f; G.bmend_t = G.bmend_cd = G.web_hp = G.web_rear = G.web_idle = G.btrickle_t = 0.0f; G.web_cd = 8.0f; G.bmend_base = 1e9f;
     if (G.boss < 0) G.bchallenge = 0;
     G.bstep = G.bchallenge && G.boss >= 0 ? RUN.bstep[G.boss] : 0;
     crawl_art_level(G.level);
@@ -5662,6 +5784,7 @@ static void boss_hazards(float dt) {
         }
         break;
     case BOSS_SPIDER: {                                            /* the outlets: so many open at once, one changing every 20 s */
+        if (m && !wave && (G.bz2_t -= dt * pace) <= 0.0f) { G.bz2_t = 14.0f + 4.0f * rndf(); egg_shot(m); }   /* Egg Shot */
         int want = imin(G.bnout, 2 + (step >= 2) + (step >= 4) + wave), open = 0;
         for (int o = 0; o < G.bnout; o++) {
             int hi = G.bout_haz[o];
@@ -5854,6 +5977,7 @@ static void boss_adds(void) {
 static void boss_fall(Mob *m) {
     const BossDef *B = &BOSSES[G.boss];
     G.bstate = BS_DEAD; G.bstate_t = 0.0f;
+    G.web_hp = 0.0f;                                               /* its web goes slack */
     Item *it = add_item(m->cx, m->cy, IT_SCRIP);
     if (it) { it->secret = 1; it->seen = 1; it->color = G.boss; }
     if (G.barch >= 0) G.doors[G.barch].locked = 0;
@@ -5912,11 +6036,24 @@ static void update_boss(float dt) {
     if (G.bstate == BS_DEAD) return;
     G.bfight_t += dt;
     boss_hazards(dt);
+    if (G.boss == BOSS_SPIDER && G.bnspawn > 0 && (G.btrickle_t += dt) >= 15.0f) {   /* every fifteen seconds, one more out of a burrow */
+        int out = 0;
+        G.btrickle_t = 0.0f;
+        for (int i = 0; i < MAXMOBS; i++) out += G.mobs[i].alive && G.mobs[i].add == 2 && G.mobs[i].state != MS_DIE;
+        int k = rnd(G.bnspawn), x = G.bspawn_x[k], y = G.bspawn_y[k];
+        for (int d = 0; d < 4 && out < 4; d++) {
+            int cx = x + DX[d], cy = y + DY[d];
+            if (!in_arena((float)cx, (float)cy) || G.map[cy][cx].kind != K_FLOOR || occupied(cx, cy, NULL)) continue;
+            Mob *a = spawn_mob(cx, cy, MOB_HUNTER);
+            if (a) { set_rank(a, add_rank(MOB_HUNTER)); a->add = 2; a->small = 1; a->hp = a->maxhp = a->maxhp * 0.5f; a->sub = 2; a->alert = 30.0f; a->seen = 1; a->home = -1; }
+            break;
+        }
+    }
     for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && (G.mobs[i].boss || G.mobs[i].add)) G.mobs[i].alert = fmaxf(G.mobs[i].alert, 20.0f);
     if (G.bstate == BS_WAVE) {
         if (G.badds < 0) { if (G.bstate_t >= 2.0f) boss_adds(); return; }
         int left = 0;
-        for (int i = 0; i < MAXMOBS; i++) left += G.mobs[i].alive && G.mobs[i].add && G.mobs[i].state != MS_DIE;
+        for (int i = 0; i < MAXMOBS; i++) left += G.mobs[i].alive && G.mobs[i].add == 1 && G.mobs[i].state != MS_DIE;
         G.badds = left;
         if (left) return;
         G.bstate = BS_RISE; G.bstate_t = 0.0f;
@@ -8861,7 +8998,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
  * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
 typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; } Draw;   /* glint: a key's ramp, for Keymaker's sparkle */
 enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_SWAY = 32, DR_FLIPV = 64, DR_COMMUNE = 128, DR_GLINT = 256, DR_EDGE = 512,
-       DR_GLITCH = 1024, DR_CLIP = 2048, DR_LOOPED = 4096, DR_LIT = 8192, DR_SHINE = 16384 };   /* SHINE: polished plate, a glint
+       DR_GLITCH = 1024, DR_CLIP = 2048, DR_LOOPED = 4096, DR_LIT = 8192, DR_SHINE = 16384, DR_MEND = 32768 };   /* SHINE: polished plate, a glint
                                                                                                  sliding over it */
 /* GLITCH: rows torn sideways and colours slipping, now and then (the Backrooms), more often when LOOPED; CLIP: cut at
  * the floor and ceiling; LIT: brighter than the light it stands in (Severance's creatures, under the panels) */
@@ -9038,6 +9175,7 @@ static int mob_sprite(const Mob *m, float *scale) {
         return m->swing > 0.0f ? SP_HOUND_BITE : (fr ? SP_HOUND_B : SP_HOUND_A);
     case MOB_HUNTER:
         if (m->state == MS_DIE) return SP_HUNTER_D;
+        if (m->boss) return m->sub == 3 || G.web_rear > 0.0f ? SP_BSPIDER_LEAP : (((int)(m->t * 10.0f)) & 1 ? SP_BSPIDER_B : SP_BSPIDER_A);
         return m->sub == 3 ? SP_HUNTER_LEAP : (((int)(m->t * 10.0f)) & 1 ? SP_HUNTER_B : SP_HUNTER_A);
     case MOB_GHOUL:
         if (m->state == MS_DIE) return SP_GHOUL_D;
@@ -9212,6 +9350,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                 d = &list[n0];                                     /* the list may have moved on: the knight is still at n0 */
             }
         }
+        if (m->boss == 1 + BOSS_SPIDER && G.bmend_t > 0.0f && m->state == MS_WALK) d->flags |= DR_MEND;   /* its Mend Rune */
         if (commune) d->flags = (d->flags & ~DR_EYES) | DR_COMMUNE;   /* Commune: its shape, wherever it is */
         if (m->state == MS_DIE && m->sub == 77) {                  /* drawn in to a point */
             float k = smoothstepf(0.1f, 0.75f, m->t);
@@ -9289,6 +9428,10 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             int n0 = n;
             ADD(b->x, b->y, 0.05f + 0.4f * sinf(PI_F * k), ((int)(G.t * 12.0)) & 1 ? SP_EMBER_B : SP_EMBER_A, 0);
             if (n > n0) list[n - 1].scale = 0.45f;
+        } else if (b->kind == MIS_WEB) {                           /* a glob of web */
+            int n0 = n;
+            ADD(b->x, b->y, 0.15f, SP_SAC_A, 0);
+            if (n > n0) list[n - 1].scale = 0.35f;
         } else if (b->kind == MIS_TURNED) {                        /* your spell, coming back */
             Shot fake = { 0 };
             float sc;
@@ -9451,6 +9594,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     if (fabsf(u) < 0.035f && v > 3) { f->pix[y * W + x] = fabsf(u) < 0.012f ? (uint8_t)C_WHITE : (uint8_t)(R_IRON + 15); continue; }
                     c = (uint8_t)(R_IRON + imin(15, v + 2 + v / 4));
                 }
+                if ((d->flags & DR_MEND) && ((x + y + (int)(G.t * 8.0)) & 3) == 0) { f->pix[y * W + x] = (uint8_t)(R_MOSS + 12 + ((x >> 1) & 3)); continue; }   /* mending: green */
                 if (d->remap && c >= R_PURPLE && c < R_PURPLE + 16) c = ramp_at(d->remap, c - R_PURPLE);
                 if (d->flags & DR_IMPLODE) { f->pix[y * W + x] = c == 0 ? 0 : (uint8_t)(R_GLOW + clampi(6 + (int)((c & 15) * 0.6f), 6, 15)); continue; }
                 if ((d->flags & DR_ICE) && c != 0 && ((x + y) & 1)) {    /* rimed with frost */
@@ -10093,6 +10237,26 @@ static void render_card(Frame *f) {
 
 /* a boss's bar along the top of the view: its name, its health with a notch at each wave's mark, grey
  * while it is untouchable, and how many of its adds are still standing */
+/* held in the web: strands in from the edges, fewer as it tears */
+static void render_web(Frame *f) {
+    float k = G.web_max > 0.0f ? G.web_hp / G.web_max : 0.0f;
+    for (int i = 0; i < 28; i++) {
+        if (hash2(i, 77) % 100 >= (uint32_t)(25 + 75 * k)) continue;   /* torn away */
+        float t = (float)(hash2(i, 3) % 1000) / 1000.0f;
+        int side = i & 3, ex, ey;
+        if (side == 0) { ex = (int)(t * W); ey = 0; } else if (side == 1) { ex = (int)(t * W); ey = H - 1; }
+        else if (side == 2) { ex = 0; ey = (int)(t * H); } else { ex = W - 1; ey = (int)(t * H); }
+        float reach = (0.18f + 0.22f * (float)(hash2(i, 9) % 100) / 100.0f) * (0.5f + 0.5f * k);
+        int ix = ex + (int)((W / 2 - ex) * reach), iy = ey + (int)((H / 2 - ey) * reach);
+        gfx_line(f, ex, ey, ix, iy, (uint8_t)(R_GHOST + 10 + (i % 4)));
+        if (i > 0 && (hash2(i, 5) & 1)) {                          /* a cross thread to the last strand's middle */
+            int j = i - 1, s2 = j & 3; float t2 = (float)(hash2(j, 3) % 1000) / 1000.0f;
+            int ex2 = s2 == 2 ? 0 : (s2 == 3 ? W - 1 : (int)(t2 * W)), ey2 = s2 == 0 ? 0 : (s2 == 1 ? H - 1 : (int)(t2 * H));
+            if (s2 == side) gfx_line(f, (ex + ix) / 2, (ey + iy) / 2, (ex2 + W / 2) / 2 + (ex2 - W / 2) / 3, (ey2 + H / 2) / 2 + (ey2 - H / 2) / 3, (uint8_t)(R_GHOST + 9));
+        }
+    }
+}
+
 static void render_bossbar(Frame *f) {
     if (G.boss < 0 || PK.depth || G.shop || G.bstate < BS_FIGHT || (G.bstate == BS_DEAD && G.bstate_t > 3.0f)) return;
     const BossDef *B = &BOSSES[G.boss];
@@ -10997,6 +11161,7 @@ static void crawl_render(Frame *f) {
     render_beams(f, dx, dy, horizon);
     render_wisps(f, dx, dy, horizon);
     G.camz = camz;
+    if (G.web_hp > 0.0f && !G.dead && !G.shop) render_web(f);
     if (G.shop) render_shop_tags(f, dx, dy, horizon);
     if (!G.dead) { render_wards(f); render_hand(f); }
     if (G.shop) render_shop_card(f);

@@ -4618,6 +4618,14 @@ void crawl_art_init(void) {
     spr_ghoul(SP_GHOUL_A, 1.0f, 0); spr_ghoul(SP_GHOUL_B, -1.0f, 1); spr_ghoul(SP_GHOUL_LEAP, 0.0f, 2); spr_ghoul(SP_GHOUL_FEED, 0.0f, 3); spr_ghoul(SP_GHOUL_D, 0.0f, 4);
     spr_bestiary_bones();
     for (int f = 0; f < 4; f++) { spr_hunter(SP_HUNTER_A + f, f); spr_brood(SP_BROOD_A + f, f); }
+    for (int f = 0; f < 3; f++) {                                  /* the Wandering Spider: a pale skull on its back */
+        static const char *const SK[6] = { ".XXXXX.", "XXXXXXX", "XooXooX", "XXXXXXX", ".XXoXX.", ".X.X.X." };
+        uint8_t *d = crawl_spr[SP_BSPIDER_A + f];
+        memcpy(d, crawl_spr[SP_HUNTER_A + f], TS * TS);
+        for (int y = 0; y < 6; y++)
+            for (int x = 0; x < 7; x++)
+                if (SK[y][x] != '.') d[(29 + x) * TS + 35 + y] = SK[y][x] == 'X' ? (uint8_t)(R_BONE + 13 - (y > 3)) : (uint8_t)(R_BONE + 1);
+    }
     for (int f = 0; f < 3; f++) spr_sac(SP_SAC_A + f, f);
     spr_ling(SP_LING_A, 0); spr_ling(SP_LING_B, 1);
     spr_wraith_big(SP_WRAITH_A, 0.0f, 0); spr_wraith_big(SP_WRAITH_B, PI_F, 1); spr_wraith_big(SP_WRAITH_REACH, 1.0f, 2); spr_wraith_big(SP_WRAITH_BACK, 2.0f, 3);

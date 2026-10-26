@@ -780,12 +780,10 @@ not yet met don't show.
 
 ## Building it (the tasks)
 
-**Where things stand (for whoever picks this up).** Steps 1 to 5 are built and pushed on
+**Where things stand (for whoever picks this up).** Steps 1 to 6 are built and pushed on
 `claude/magical-cori-s471gj`, each in its own commit; the step list below says what each did and how it
 was tested (in the harness only; nothing of 1.0.0b7 has been played by hand). The owner asked for the four
-bosses next, then everything else in order, released together. Next: step 6, the spider (its own
-abilities: ceiling hops, the Mend Rune, Tangled Web on the caster, Egg Shot, the small spiders and the
-fifteen-second trickle; the bile outlets already work from step 3), then the Deacon (step 7: the
+bosses next, then everything else in order, released together. Next: the Deacon (step 7: the
 autopilot can't finish his fight yet because he keeps away, and his arena is too dark) and the Wraith (step
 8: `update_wraith` still drives it, and it kills the autopilot; it needs the braziers, light and Time
 Slip). The bestiary's boss pages are still to do, with each boss's art. Samples of the four boss waltzes
@@ -823,9 +821,14 @@ first.
    243, 245 and 280 s); about 25 dashes a fight (half to close in) and two to seven spells turned. ASan
    clean. No art sheet went to the owner yet: the knight's sprites are the skeleton knight's with a new
    pose, and frames of the fight are the next thing to show them.
-6. **The Wandering Hunting Spider**: art sheet; floor and ceiling; the web on the caster and getting
-   free; the Mend Rune; the bile and its outlets; Egg Shot; the small spiders and the fifteen-second
-   spiders; THE WEB.
+6. **The Wandering Hunting Spider** (built): the hunter's sprites with a pale skull stamped on the back;
+   floor and ceiling (out of reach overhead); the Mend Rune, glowing green; the Tangled Web (rearing, a
+   glob that can be sidestepped, held until your spells tear a third of your health out of it, strands
+   over the view); Egg Shot (four small spiders in 5 s); the small spiders by wave and the fifteen-second
+   spiders. Its health went from 16 to 22 knights, and the BFS9000 now takes 8% of a boss's health, not a
+   quarter (with souls to spare the autopilot was skipping from mark to mark). In the harness, every spell
+   at tier 5, it won in 173, 199 and 209 s; one seed of four died four times without a win in 700 s. The
+   knight's times didn't change. ASan clean.
 7. **The Black Deacon**: art sheet; the Bone Ward; Grave Call; Hellrent; Litany; his adds; THE PULPIT.
 8. **The Wraith Unbound**: art sheet; light and the braziers; Time Slip; Wraithwalk; the void and the
    silence; Grasping Dark; its adds; THE BOTTOM.

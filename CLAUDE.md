@@ -224,6 +224,18 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   `MIS_TURNED` (`Bone.atk` the spell, drawn as it) at half damage, capped at a fifth of your health, with
   `SFX_MIRRORBELL`. The autopilot values missiles at 0.8 against it. Debug: `EVENT knight_dash close|flee|
   dodge`, `knight_turned`, `turned_hits`. A boss's hit radius grows with its scale.
+- **The Wandering Spider** (step 6; `spider_boss`, `web_strike`, `egg_shot`). Sprites `SP_BSPIDER_A/B/LEAP`
+  (the hunter's, a pale skull stamped on the back in `crawl_art.c`). Up to the ceiling every 4-7 s
+  (`G.bsp_t`; `sub` 5 climbing, 0 overhead: out of reach, shots pass under, not `targetable`), across it to
+  two cells short of you, down (`sub` 1) and a leap. Mend Rune: an eighth over 4 s (`G.bmend_t`) after a
+  fifth lost since `G.bmend_base`, every 20 s at most, capped at the last wave mark, drawn `DR_MEND` (green).
+  Tangled Web: rears 0.6 s (`G.web_rear`, the leap sprite), spits `MIS_WEB`; held, `slow_factor` is 0 and
+  `cast_spell` sends each spell's damage into `G.web_hp` (a third of your health, fire double) instead;
+  `render_web` draws the strands; next 12 s after you are free; the autopilot casts a fire bolt at nothing
+  every 1.2 s while held and idle (`G.web_idle`). Egg Shot every 14-18 s (`G.bz2_t`): a sac (`Mob.small`) by
+  a wall in your sight that hatches four small hunters 5 s later. Every 15 s one small hunter comes out of a
+  burrow (`Mob.add` 2, four at most; only `add` 1 counts for a wave). Debug: `EVENT spider_ups`,
+  `spider_mends`, `webbed`, `web_torn`, `egg_shots`. The BFS9000 takes 8% of a boss's health.
 - **The bosses' music** (`snd.c`: `BTHEMES`, `boss_step`; `snd_set_boss(theme, wave)`, `snd_boss_fall`).
   A slow waltz each on its own clock: eight bars of three beats, the last cut to two; a five-note
   ostinato that drifts against the bar; the bell on beat one; the tune rests one phrase in four and
