@@ -125,6 +125,9 @@ gold, silver or crimson key), `CRAWL_FOLLOWWISP=1` (a player that walks the way 
 wherever it stands, and presses E at the exit and at secrets: a test that it leads out, and that an
 altar's wisp finds the secrets; with the altar's wisp it goes into each secret and out, presses E at the
 wisp, follows it home and sends it on from the altar's menu; it can't be hurt), `CRAWL_SHOWHAND`, `CRAWL_BFSANY`,
+`CRAWL_TPBOSS=1` (on a boss level, in its antechamber facing the arch once you take control; 2: the autopilot
+put there as the level opens, already leaving), `CRAWL_BOSSHP=f` (a boss's health times f), `CRAWL_GOALS=1`
+(the autopilot's goal at every step, as `GOAL` lines),
 `CRAWL_RANK=r` (every creature at rank r), `CRAWL_WRAITH=s` (the Wraith at s seconds), `CRAWL_MEET=k`
 (one creature of kind k, the `MOB_*` number, a few cells ahead of the caster five seconds into each level,
 and into each pocket).
@@ -133,7 +136,7 @@ and into each pocket).
 The debug build prints the autopilot's state once a second (`lvl=... t=... hp=... items=a/b val=a/b
 ...` plus a second line of hit counters) and `EVENT` lines: `cleared level N t=..`, `died level N
 t=..`, `secret i of n`, `key..`, `leaving`, `bought`, `shop_pick`, `cast`, `defense`, `exit_seen`,
-`control`. Long simulations are just `CRAWL_SEED=s timeout 3000 build/host_debug apl crawl 3000 >
+`control`, and for bosses `boss_begin`, `boss_wave`, `boss_adds`, `boss_rise`, `boss_fall`, `font`, `scrip`. Long simulations are just `CRAWL_SEED=s timeout 3000 build/host_debug apl crawl 3000 >
 log` per seed, four at a time, then a short script over the logs: levels reached, median level time
 (from `cleared`), treasure share (`val=` on the last state line before `cleared`), deaths, purchases,
 secrets. Compare against a build of the previous commit (a `git worktree`) on the same seeds; one run
@@ -149,7 +152,10 @@ key's colour, the toggle, a spare), then 32 for the Rune Shrine (`shrine_pack`: 
 rank, u16 attunements, nine slots of rune kind + 1 and quality, u16 the level whose coins were last
 taken and a byte of which (`RUN.coin_level/coin_bits`), six spare), then (version 6, runs of ten; it grows
 as docs/PLAN-b7.md is built) the rest of the record (`rec_pack_extra`: u32 levels 33-64 cleared, 32 more
-bytes of achievement bits): 1,011 bytes so far. Version 5 is the same without version 6's part; its
+bytes of achievement bits, and for each of eight bosses its met flag, u16 slain, tries, best time and
+scrip won), then the hall as far as it is built (`hall_pack`: u16 runs completed, u16 scrip for each of
+eight bosses, a byte each for their challenge steps, and 24 bytes of the highest rank of each kind met
+since the last death): 1,133 bytes so far. Version 5 is the same without version 6's part; its
 descents of twenty become descents of forty on loading (`rec_from_old`). Version 4 is
 the same without the shrine and with runes by tier (`rune_from_tier`: 1-3 Common, 4-6 Uncommon, 7-10
 Rare, 11 up Ultra-Rare; a rune held at the merchant's is dropped and its hold fee paid back); version 3
@@ -182,6 +188,28 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   keys, `place_secrets`, wall textures by room theme (`theme_tex`), colonnades, torches,
   `dress_level` (chains, hooks, gibbets, chandeliers, roots, web sheets, graveyards, fire pits, totems;
   every room gets a light), lightmap, fog.
+- **Bosses** (docs/PLAN-b7.md; `BOSSES[]`, `BossDef`, `boss_of_level`; the fight in `update_boss`). The last
+  level of each run (`crawl_boss`) holds its boss: the knight (10), the spider (20), the Deacon (30), the
+  Wraith (40), then round again. `gen_level` keeps plan rows from `ARENA_PLAN` (cells from `BAND_Y0`, 29)
+  out of the level (`K_PILLAR` on the plan), keeps a doorway at plan column `ARENA_DOOR_MX` open
+  (`MCell.keep`), moves the start room as far from it as it can (`swap_rooms`), and stamps the boss's
+  map last (`stamp_arena`, maps `MAP_LISTS`, `MAP_WEB`, `MAP_PULPIT`, `MAP_BOTTOM`: an antechamber, the arch,
+  the arena; the legend is above `BOSSES`), so nothing of the level spills into it; `in_band` keeps the
+  level's placements out. A boss is one of its run's creatures with `Mob.boss` (1 + `BOSS_*`): health in
+  rank-I skeleton knights of the level (`BossDef.hp`), size, pace and blow. It waits untouchable
+  (`BS_WAIT`) until you are a step into the arena; then the arch seals (`Door.locked` `SEALED`), its card
+  shows (`G.bcard`), and its bar runs along the top (`render_bossbar`; toasts wait). At 75, 50, 25 and 10%
+  (`WAVE_MARK`) `boss_hurt` stops its health at the mark and calls a wave (`BS_WAVE`): two seconds later
+  `boss_adds` brings the wave's adds (`BossDef.waves`, `Mob.add`, at `add_rank`: the highest rank of each
+  kind met since the last death, `RUN.top_rank`) out of its gates, burrows or heaps; when they are down it
+  rises (`BS_RISE`) and fights on. Untouchable, it wears a pale shell (`DR_EDGE`) and spells ring dully on
+  it (`G.bring`). Three fonts in the walls (`T_FONT`, `T_FONT_DRY`; `font_drink`, a third of your health)
+  fill at the start and after the first and third waves. It falls (`boss_fall`): its scrip drops
+  (`IT_SCRIP`, `SP_SCRIP`, to `RUN.scrip` at once), the exit (barred, `T_GATE`, while it lives) opens, the
+  tally gains a BOSS row, the record (`Record.boss`) and achievements (`ACH_BOSS0`) note it, and on the way
+  down `RUN.runs_done` counts the run. The autopilot (`boss_goal`) keeps three to six cells from it, away
+  from its adds, drinks under 40% and takes the scrip; a boss level waits 1500 s, not 600, before it gives
+  up on one. The bosses' own ways (runes, abilities, hazards) come in steps 5-8 of the plan.
 - **Autopilot** walks only lanes (`apass`), with quick 90-degree turns; `decide`, `pick_goal`,
   `key_goal`. It remembers treasure it has seen, leaves at 270 s (300 if above 60% health) or 330
   (360), or earlier once it has most of the treasure. It presses about a third of the secrets it walks

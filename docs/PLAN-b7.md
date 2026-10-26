@@ -785,11 +785,14 @@ each part can be tried as it comes: the fights first, while death still only res
 the costs on top. Each step is tested in the harness before the next; art goes to the owner as sheets
 first.
 
-1. **Runs of ten**: sets, steps, decay and tints over ten levels; forty names; secrets by step; the
-   rank and quality mixes; the themes by run; no Wraith on boss levels; the record's levels and runs.
-2. **Boss machinery**: arenas and antechambers from planned maps, set into a generated level; doors shut,
-   name card, top bar; the four waves (marks, untouchable, adds at set places, rising again); fonts;
-   scrip; the run completed; the tally's BOSS row; the bestiary's bosses.
+1. **Runs of ten** (built): sets, steps, decay and tints over ten levels; forty names; secrets by step;
+   the rank and quality mixes; the themes by run; no Wraith on boss levels; the record's levels and runs.
+2. **Boss machinery** (built, but for the bestiary's pages, which come with each boss's art): arenas and
+   antechambers from planned maps, set into a generated level; doors shut, name card, top bar; the four
+   waves (marks, untouchable, adds at set places, rising again); fonts; scrip; the run completed; the
+   tally's BOSS row; the autopilot's way of fighting one. In the harness the autopilot beat the knight in
+   two runs of two (237 and 288 s, all four waves) with every spell at tier 4. Found on the way: the
+   autopilot dithered near a key fewer than eight steps off while leaving (an old fault, now fixed).
 3. **Hazard machinery**: the floor's mark layer, warnings and harm, the see-through sprites, the
    muffling, the omens in the levels before, the autopilot's reading of them; challenge steps.
 4. **Boss music**: four themes, each with its wave section.

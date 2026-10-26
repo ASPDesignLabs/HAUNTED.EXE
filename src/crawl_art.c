@@ -370,6 +370,58 @@ static void gen_locked(int t, uint32_t seed, int metal) {
         }
 }
 
+/* a boss arena's gate: an arch of dressed stone over a portcullis, and the dark behind its bars */
+static void gen_gate(int t, uint32_t seed) {
+    gen_stone(t, R_STONE, seed);
+    for (int y = 6; y < TS; y++)
+        for (int x = 8; x < 56; x++) {
+            float dx = (x + 0.5f - 32.0f) / 24.0f, dy = (y + 0.5f - 22.0f) / 16.0f;
+            if (y < 22 && dx * dx + dy * dy > 1.0f) continue;
+            float edge = y < 22 ? 1.0f - sqrtf(dx * dx + dy * dy) : fminf((x - 8) / 24.0f, (55 - x) / 24.0f);
+            uint8_t c = sh(R_STONE, 0.03f + 0.04f * (1.0f - (float)y / TS));
+            if (edge < 0.06f) c = sh(R_STONE, 0.75f);             /* the arch's lit edge */
+            int bx = (x - 10) % 7, by = (y - 4) % 10;
+            if (edge >= 0.06f && (bx == 0 || bx == 1)) c = sh(R_IRON, bx ? 0.42f : 0.62f + 0.1f * h01(x, y, seed));   /* the bars */
+            if (edge >= 0.06f && (by == 0 || by == 1) && y > 8) c = sh(R_IRON, by ? 0.3f : 0.55f);
+            if (y >= 58 && bx <= 1 && edge >= 0.06f) c = (y & 1) ? sh(R_IRON, 0.8f) : sh(R_IRON, 0.2f);   /* the spikes, a hand off the floor */
+            tput(t, x, y, c);
+        }
+}
+
+/* a font set into the wall: an arched niche over a stone basin, with a draught of pale water in it (a
+ * few full-bright glints so it can be found in the dark), or drunk dry and cracked */
+static void gen_font(int t, uint32_t seed, int full) {
+    gen_stone(t, R_STONE, seed);
+    float cx = 32.0f;
+    for (int y = 8; y < 48; y++)
+        for (int x = 14; x < 50; x++) {
+            float dx = (x + 0.5f - cx) / 18.0f, dy = (y + 0.5f - 22.0f) / 14.0f;
+            if (y < 22 && dx * dx + dy * dy > 1.0f) continue;
+            tput(t, x, y, sh(R_STONE, 0.03f + 0.08f * (y - 8) / 40.0f));
+        }
+    for (int y = 38; y < 56; y++)                                   /* the basin, a half bowl standing out of the wall */
+        for (int x = 12; x < 52; x++) {
+            float dx = (x + 0.5f - cx) / 20.0f, dy = (y + 0.5f - 38.0f) / 16.0f;
+            if (dx * dx + dy * dy > 1.0f) continue;
+            float v = 0.38f + 0.28f * (-dx * 0.5f) + 0.25f * (1.0f - dy) + fbm(x / 4.0f, y / 4.0f, 16, seed + 5) * 0.12f;
+            if (y == 38 || y == 39) v = 0.8f;                       /* its lip */
+            tput(t, x, y, sh(R_STONE, v));
+        }
+    for (int x = 15; x < 49; x++)                                   /* what is in it, seen over the lip */
+        for (int y = 34; y < 38; y++) {
+            float dx = (x + 0.5f - cx) / 17.0f, dy = (y + 0.5f - 37.5f) / 3.5f;
+            if (dx * dx + dy * dy > 1.0f) continue;
+            uint8_t c;
+            if (full) {
+                c = sh(R_GHOST, 0.45f + 0.3f * sinf(x * 0.6f + y * 1.3f) * 0.5f + 0.15f * (y - 34) / 4.0f);
+                if (h01(x, y, seed + 9) > 0.86f) c = (uint8_t)(R_GLOW + 9 + (int)(h01(y, x, seed) * 5.0f));
+            } else c = sh(R_STONE, 0.05f + 0.05f * h01(x, y, seed));
+            tput(t, x, y, c);
+        }
+    if (!full)                                                      /* a crack down the dry bowl */
+        for (int y = 40, x = 30; y < 54; y++) { x += (int)(h01(y, 3, seed) * 3.0f) - 1; tput(t, x, y, sh(R_STONE, 0.06f)); }
+}
+
 static void gen_sign(int t, uint32_t seed) {
     gen_stone(t, R_STONE, seed);
     for (int y = 14; y < 48; y++)
@@ -1567,6 +1619,26 @@ static void spr_ccoin(void) {
     for (int k = 0; k < 3; k++) cv_px(31 + k, 53, 0);              /* teeth */
     cv_outline(0);
     cv_store(SP_CCOIN);
+}
+
+/* a boss's Named Odious Scrip: a curl of old parchment on the floor, tied with a red cord under a
+ * black seal pressed with a skull */
+static void spr_scrip(void) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 60.5f, 14.0f, 1.8f, sh(R_WARM, 0.05f));
+    cv_capsule(19, 53, 45, 53, 5.0f, R_BONE, 0.35f, 0.85f);        /* the roll */
+    for (int k = 0; k < 2; k++) {                                   /* its curled ends */
+        float ex = k ? 45.5f : 18.5f;
+        cv_ellipse(ex, 53, 2.2f, 5.2f, R_BONE, 0.2f, 0.7f);
+        cv_flat(ex, 53, 0.9f, 2.2f, sh(R_WARM, 0.15f));
+    }
+    for (int y = 47; y <= 59; y++) { cv_px(30, y, sh(R_BLOOD, 0.55f)); cv_px(31, y, sh(R_BLOOD, 0.75f)); }   /* the cord */
+    cv_ellipse(31, 53, 4.6f, 4.4f, R_IRON, 0.02f, 0.3f);           /* the seal, black wax */
+    cv_flat(31, 52.6f, 2.0f, 1.8f, sh(R_IRON, 0.38f));             /* a skull pressed in it */
+    cv_px(30, 52, sh(R_IRON, 0.05f)); cv_px(32, 52, sh(R_IRON, 0.05f));
+    cv_px(31, 54, sh(R_IRON, 0.45f));
+    cv_outline(0);
+    cv_store(SP_SCRIP);
 }
 
 /* Severance: four desks pushed together behind low green partitions, an old terminal on each, numbers
@@ -4365,6 +4437,8 @@ void crawl_art_init(void) {
     gen_locked(T_LOCKED_S, 85, R_IRON);
     gen_locked(T_LOCKED_C, 87, R_BLOOD);
     gen_sign(T_SIGN, 91);
+    gen_gate(T_GATE, 97);
+    gen_font(T_FONT, 101, 1); gen_font(T_FONT_DRY, 101, 0);
     gen_exit(T_EXIT0, 0, 0);
     gen_exit(T_EXIT1, 1, 0);
     gen_exit(T_EXIT_OPEN, 1, 1);
@@ -4416,6 +4490,7 @@ void crawl_art_init(void) {
     spr_shrine_body(0); spr_shrine_body(1); spr_shrine_glow(0); spr_shrine_glow(1);
     for (int k = 0; k <= 9; k++) spr_srune(k);
     spr_ccoin();
+    spr_scrip();
     spr_desks(); spr_cooler(SP_COOLER, 0); spr_cooler(SP_COOLER_LOW, 1);
     for (int f = 0; f < 4; f++) spr_bonefly(SP_BONEFLY0 + f, f * PI_F * 0.25f);
     spr_coins(SP_COINS_A, 0);
