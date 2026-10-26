@@ -781,10 +781,11 @@ not yet met don't show.
 ## Building it (the tasks)
 
 **Where things stand (for whoever picks this up).** Steps 1 to 8 are built and pushed on
-`claude/magical-cori-s471gj`, each in its own commit (step 7 in two); the step list below says what each
+`claude/magical-cori-s471gj`, each in its own commit (step 7 in two); step 9 and on continue on
+`claude/trusting-pasteur-ceyxan`, which carries all of that branch; the step list below says what each
 did and how it was tested (in the harness only; nothing of 1.0.0b7 has been played by hand). Work paused
-here at the owner's word, to be handed on. Next is step 9 (the Hexed Totem and the caster's abilities),
-then 10 to 18 in order; all of it goes out together. Loose ends from the bosses: the Wraith's fight runs
+here at the owner's word, to be handed on, and was picked up again at step 9. The steps below say how far
+it has got; all of it goes out together. Loose ends from the bosses: the Wraith's fight runs
 about twice as long as planned (step 8 says where the time goes); the bestiary's boss pages are still to
 do; no boss has new art beyond what step 5 and 6 added (the knight's pose, the spider's skull, the cold
 brazier), and no art sheets or frames have gone to the owner; samples of the four boss waltzes went to
@@ -850,8 +851,18 @@ first.
    shorten it, for whoever tunes it: a wider light, the autopilot drawing it into the light rather than
    only standing in it, fewer Time Slips, or less health still. ASan clean over fights with all four
    bosses (after the `in_arena` fix).
-9. **The Hexed Totem and the caster's abilities**: the totem; Swift Dodge, Tangled Web, Grave Call and
-   Wraithwalk; the sockets.
+9. **The Hexed Totem and the caster's abilities** (built): the Totem in a back room west of the merchant's,
+   through an arch beside her (the room the hall plan draws; its other fixtures come in steps 14 to 16): E opens
+   its screen, a row a boss beaten, a rank for its number in that boss's scrip, spare scrip sold for 20,000 gold,
+   asked twice; each boss's scrip hangs on a hook once its ability is known. Swift Dodge on a double tap of W, A,
+   S or D; Tangled Web, Grave Call and Wraithwalk on the right mouse, Q readying the next; the sockets at the
+   bottom left as in the mock-up, on the bar's top edge while it is up, in the corner when it is away, with the
+   readout beside them. The autopilot uses whatever the page has (it never raises them: the Totem is left to
+   people). In the harness, with every ability at rank III and the same seed, the autopilot beat the knight in
+   215 s (189 without), the spider in 175 (132) and the Deacon in 198 (234), no deaths, dodging 9 to 32 times a
+   fight and webbing and raising 8 to 16; it never felt cornered enough to wraithwalk. A person's use was tried
+   with scripted keys: a hound webbed, slain, raised; a five-cell dodge; Wraithwalk's grey. ASan clean. The
+   Totem's sprite is on `make sheets` (b7) for the owner; the ability marks are small pixel glyphs in the code.
 10. **The Accursed Portal**: run starts and challenges.
 11. **Saves version 6 and the ledger**: bigger pages, signing with the merchant, opening from Esc,
     fleeing, the dream, old saves.

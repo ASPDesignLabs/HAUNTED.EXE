@@ -1738,6 +1738,33 @@ static void spr_scrip(void) {
     cv_store(SP_SCRIP);
 }
 
+/* The Hexed Totem (1.0.0b7), in the merchant's back room: a black pole stacked with skulls whose eyes
+ * burn cold, under an iron crossbar with four hooks. Each boss's scrip hangs from a hook once its ability
+ * is unlocked; the game draws those on. */
+static void spr_hextotem(void) {
+    cv_begin(cv_sprite, TS, TS);
+    float cx = 32;
+    cv_flat(cx, 62, 11, 1.8f, R_WARM + 1);
+    cv_flat(cx, 61.5f, 5, 1.6f, sh(R_IRON, 0.1f));                /* its foot, driven into the floor */
+    cv_capsule(cx, 7, cx, 61, 2.5f, R_IRON, 0.04f, 0.38f);         /* the pole, black and old */
+    cv_capsule(cx - 15, 17, cx + 15, 17, 1.3f, R_IRON, 0.08f, 0.5f);   /* the crossbar */
+    for (int k = 0; k < 4; k++) {                                  /* its hooks */
+        int hx = (int)(cx - 13 + k * 8.67f);
+        for (int y = 18; y <= 22; y++) cv_px(hx, y, sh(R_IRON, 0.5f));
+        cv_px(hx + 1, 23, sh(R_IRON, 0.45f)); cv_px(hx + 2, 22, sh(R_IRON, 0.4f));
+    }
+    for (int k = 0; k < 4; k++) cv_skull(cx, 55 - k * 9.0f, 0.78f - 0.04f * k, 0.18f, 0.72f);   /* stacked, smaller going up */
+    cv_skull(cx, 8.5f, 0.62f, 0.22f, 0.8f);                       /* and one on top, over the bar */
+    for (int k = 0; k < 5; k++) {                                  /* their eyes, burning cold */
+        float y = k < 4 ? 55 - k * 9.0f + 0.7f : 9.1f, s = k < 4 ? 0.78f - 0.04f * k : 0.62f;
+        uint8_t c = (uint8_t)(R_GLOW + 12 + (k & 1) * 2);
+        cv_px((int)(cx - 2.4f * s), (int)y, c); cv_px((int)(cx + 2.4f * s), (int)y, c);
+    }
+    for (int y = 24; y < 60; y += 7) cv_px((int)cx - 3, y, sh(R_BLOOD, 0.4f));   /* old marks cut in the wood */
+    cv_outline(0);
+    cv_store(SP_HEXTOTEM);
+}
+
 /* Severance: four desks pushed together behind low green partitions, an old terminal on each, numbers
  * on their dark screens. Drawn in R_FLOOR and R_CEIL, so only a Severance pocket shows it true. */
 static void spr_desks(void) {
@@ -4590,7 +4617,7 @@ void crawl_art_init(void) {
     spr_shrine_body(0); spr_shrine_body(1); spr_shrine_glow(0); spr_shrine_glow(1);
     for (int k = 0; k <= 9; k++) spr_srune(k);
     spr_ccoin();
-    spr_scrip();
+    spr_scrip(); spr_hextotem();
     spr_grit(SP_GRIT0, 0); spr_grit(SP_GRIT1, 1); spr_rock(); spr_rubble();
     spr_erupt(SP_ERUPT0, 0); spr_erupt(SP_ERUPT1, 1); spr_voidcol(); spr_hands();
     spr_desks(); spr_cooler(SP_COOLER, 0); spr_cooler(SP_COOLER_LOW, 1);

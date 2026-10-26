@@ -97,6 +97,9 @@ static const Group GROUPS[] = {
         { SP_GARG_SA, "GARGOYLE A" }, { SP_GARG_SB, "B" }, { -1, 0 } } },
     { "b6", "1.0.0B6: FOR APPROVAL", -1, 1,
       { { SP_DOUBLE, "BLINK'S DOUBLE" }, { -1, 0 } } },
+    { "b7", "1.0.0B7: FOR APPROVAL", -1, 1,
+      { { SP_HEXTOTEM, "TOTEM" }, { SP_SCRIP, "SCRIP" }, { SP_BSPIDER_A, "SPIDER" }, { SP_KNIGHT_P0, "KNIGHT" },
+        { SP_BRAZIER_OUT, "PUT OUT" }, { -1, 0 } } },
 };
 #define NGROUPS ((int)(sizeof GROUPS / sizeof GROUPS[0]))
 

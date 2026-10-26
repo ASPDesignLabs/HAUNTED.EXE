@@ -127,7 +127,9 @@ altar's wisp finds the secrets; with the altar's wisp it goes into each secret a
 wisp, follows it home and sends it on from the altar's menu; it can't be hurt), `CRAWL_SHOWHAND`, `CRAWL_BFSANY`,
 `CRAWL_TPBOSS=1` (on a boss level, in its antechamber facing the arch once you take control; 2: the autopilot
 put there as the level opens, already leaving), `CRAWL_BOSSHP=f` (a boss's health times f), `CRAWL_OMEN=s` (the
-level's omens on any level, every s seconds, the first at once), `CRAWL_GOALS=1`
+level's omens on any level, every s seconds, the first at once), `CRAWL_TOTEM=dddd` (each boss ability's rank, a digit
+each in boss order, and that boss counted beaten), `CRAWL_SCRIP=n` (n scrip of each boss, all four counted beaten),
+`CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_GOALS=1`
 (the autopilot's goal at every step, as `GOAL` lines),
 `CRAWL_RANK=r` (every creature at rank r), `CRAWL_WRAITH=s` (the Wraith at s seconds), `CRAWL_MEET=k`
 (one creature of kind k, the `MOB_*` number, a few cells ahead of the caster five seconds into each level,
@@ -157,7 +159,8 @@ as docs/PLAN-b7.md is built) the rest of the record (`rec_pack_extra`: u32 level
 bytes of achievement bits, and for each of eight bosses its met flag, u16 slain, tries, best time and
 scrip won), then the hall as far as it is built (`hall_pack`: u16 runs completed, u16 scrip for each of
 eight bosses, a byte each for their challenge steps, and 24 bytes of the highest rank of each kind met
-since the last death, and a byte of omens named): 1,134 bytes so far. Version 5 is the same without version 6's part; its
+since the last death, a byte of omens named, a byte of each boss ability's rank and the one readied): 1,143 bytes
+so far. Version 5 is the same without version 6's part; its
 descents of twenty become descents of forty on loading (`rec_from_old`). Version 4 is
 the same without the shrine and with runes by tier (`rune_from_tier`: 1-3 Common, 4-6 Uncommon, 7-10
 Rare, 11 up Ultra-Rare; a rune held at the merchant's is dropped and its hold fee paid back); version 3
@@ -262,6 +265,28 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   Its touch: 1.2 blows, every 2.5 s, chill and slow. Nothing drives it back. Debug: `EVENT brazier_out`,
   `brazier_lit`, `wraith_slips`, `wraithwalks`, `wraith_touches`. `in_arena` now stops short of the map's
   rim (it had none, and a Wraithwalk could read and land past the edge; found by ASan).
+- **The caster's boss abilities** (step 9; `RUN.abil[b]` 0-3 by boss, `RUN.abil_sel` the right mouse's,
+  `BA_NAME`, `BA_WAIT`, `ab_wait`, `ab_readied`; `G.ab_cd`, `ab_update`). Unlocked and raised at the **Hexed Totem**
+  (`SP_HEXTOTEM` at `TOTEM_X/Y` in the merchant's back room, x 4-8, through an arch at (9,13); `UI_TOTEM`:
+  `totem_rows`, `update_totemmenu`, `render_totemmenu`; a rank costs its number in that boss's scrip, `totem_extra`
+  sells for `SCRIP_PRICE` 20,000, asked twice; the scrip hang on its hooks, drawn in `render_sprites`). **Swift
+  Dodge**: W/A/S/D tapped twice within 0.25 s (`G.tap_key/tap_t`), `swift_dodge`, `dash_reach` (stops before walls,
+  doors, props, creatures; under 2 cells nothing), `G.dash_t/dash_vx/vy` 0.25 s, `hurt_ex` refuses while it lasts,
+  missiles pass (`passing`); the autopilot's `auto_dodge` lands on a lane cell 2-5 off. **Tangled Web**: a
+  `SHOT_WEB` glob, `web_spit`, `web_land`, `web_holds` (not spirits, shades, wall skulls, sacs, web spiders or
+  bosses), `Mob.webbed/webmax` (a third of your health a rank), `web_claw` (its `mob_blow` at half its rate),
+  drawn `DR_WEBBED`; the wait is 2 s after a miss. **Grave Call**: `note_remains` keeps the last twelve remains of
+  what you slew (`G.remains`), `remains_near` (aimed, or fresh for the autopilot), `grave_call` raises it as
+  `Mob.ally` for `ally_t` (12/16/20 s), `update_ally` strikes the nearest foe or follows the hunt field to you;
+  foes turn on the nearest within six cells (`ally_near`, `ally_hurt`, `Mob.acool`); allies are skipped by every
+  spell, rune and count (`damage_mob` refuses them), drawn `DR_ALLY` (a violet edge). **Wraithwalk**: `wraithwalk`,
+  `G.wwalk_t`; creatures lose you (`sees` and `fights` false, `alert_near` deaf), missiles pass, you walk through
+  them; the view greys (`tint`) and the hand thins. Right mouse `use_readied`, Q `ready_next`; silenced, none of
+  them. The sockets: `render_sockets` (`BA_MARK` glyphs, a filling line, pips for webs and risen dead, the
+  readied one outlined), `sockets_shown`, `SOCK`; the readout moves over beside them. The autopilot
+  (`auto_abilities`): dodges a missile or a warning, webs a creature come to blows, raises fresh remains in a
+  fight, wraithwalks when cornered under 35%. Debug: `EVENT dodge`, `web_spit`, `web_hold`, `web_miss`,
+  `web_free`, `gravecall`, `ally_falls`, `wraithwalk`, `totem_raise`, `totem_sell`.
 - **The autopilot in boss fights**: `find_target` takes a boss or its adds from any side within nine cells
   (before, only what was ahead or attacking, so a boss that never strikes, like the Deacon, was never
   aimed at); in a wave, `boss_goal` heads for the nearest add when none is within five cells.

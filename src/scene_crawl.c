@@ -51,6 +51,7 @@ enum { DM_PIERCE = 1, DM_ARC = 2, DM_SLOW = 4 };   /* how a hit lands: through s
 enum { HURT_BLOW, HURT_MAGIC, HURT_POISON, HURT_STONE, HURT_VOID };   /* STONE: no dodging it; VOID: nothing resists it */
 #define NKEYS 3                             /* gold, silver, crimson */
 #define SHOT_REFLECT NATK                   /* a shot kind: something the Mirror Veil sent back */
+#define SHOT_WEB (NATK + 1)                 /* and your Tangled Web's glob */
 #define NPED 7                              /* the merchant's pedestals, at most */
 enum { ALTAR_DORMANT, ALTAR_AWAKE, ALTAR_READY, ALTAR_SPENT };   /* a Black Altar: asleep, seeking, gold, given */
 enum { AW_NONE, AW_SEEK, AW_HOME, AW_REST };   /* its wisp: not woken, at a secret's door, on its way home, resting over it */
@@ -81,6 +82,9 @@ typedef struct {
                                                                       long since it saw the caster */
     int gen;                                                       /* in a pocket: the order it was made in, 1 on, so the slain stay so */
     int boss, add, small;                                          /* 1 + BOSS_* for a boss; one of its wave's adds; made small */
+    float webbed, webmax, claw;                                    /* held in your Tangled Web: what is left of it, all of it, a claw at it */
+    int ally; float ally_t, acool;                                 /* raised by your Grave Call: how long it has left; its next blow at
+                                                                      the other side (an ally's at them, theirs at an ally) */
 } Mob;
 /* What each kind of creature is (docs/PLAN-bestiary.md): its names, a line for the bestiary, its
  * pictures there (walking towards you, and from the side), the ramp its rank recolours (-1: off the
@@ -339,6 +343,8 @@ typedef struct { int alive, kind; float x0, y0, z0, x1, y1, z1, t; } Beam;   /* 
 typedef struct { int alive; float x, y, t, dps; int foe; } Burn;           /* hellfire on the floor; foe: an ember's, which burns the caster */
 typedef struct { int alive; float x, y, t; } Pool;                         /* what a drowned one leaves: foul, a few seconds */
 #define MAXPOOLS 4
+typedef struct { int deco, type, rank; float t; } Remains;         /* what something you slew left: for Grave Call to raise */
+#define MAXREMAINS 12
 typedef struct { int x, y, w, h, region, theme; } Room;
 /* stand at f, press d: the wall at s slides len cells back into its room (x0..x1, y0..y1). links: the chain
  * it begins (1, a room alone); door: the doorway at the back of its room into the pockets (x -1: none) */
@@ -442,7 +448,24 @@ static struct {
     int scrip[BOSS_REC], bstep[BOSS_REC];   /* each boss's Named Odious Scrip, held at the Hexed Totem; its challenge's step, 0-5 */
     uint8_t top_rank[REC_KINDS];            /* 1 + the highest rank of each kind met since the last death (0: none yet) */
     int omens;                              /* the hazards met, a bit each (HZ_*): the first of each is named */
+    uint8_t abil[BOSS_REC];                 /* each boss's ability for the caster, from the Hexed Totem: its rank, 0-3 */
+    int abil_sel;                           /* the one the right mouse uses (a boss's number) */
 } RUN;
+
+/* The caster's boss abilities (docs/PLAN-b7.md, section 8): one a boss, unlocked at the Hexed Totem with a
+ * scrip of that boss and raised with more, to rank III. Swift Dodge (the knight's): tap a direction twice
+ * and dart that way. Tangled Web (the spider's), Grave Call (the Deacon's) and Wraithwalk (the Wraith's)
+ * are on the right mouse, the readied one, and Q readies the next. */
+#define ABIL_TOP 3
+static const char *const BA_NAME[NBOSS] = { "SWIFT DODGE", "TANGLED WEB", "GRAVE CALL", "WRAITHWALK" };
+static const float BA_WAIT[NBOSS][ABIL_TOP] = { { 15, 7, 3 }, { 12, 9, 6 }, { 20, 20, 20 }, { 25, 18, 12 } };
+static float ab_wait(int b) { return RUN.abil[b] ? BA_WAIT[b][clampi(RUN.abil[b], 1, ABIL_TOP) - 1] : 0.0f; }
+static int ab_on_mouse(int b) { return b >= BOSS_SPIDER && b < NBOSS && RUN.abil[b] > 0; }
+static int ab_readied(void) {                                      /* the right mouse's, or -1 */
+    if (ab_on_mouse(RUN.abil_sel)) return RUN.abil_sel;
+    for (int b = BOSS_SPIDER; b < NBOSS; b++) if (ab_on_mouse(b)) return b;
+    return -1;
+}
 
 /* The console (~): its lines and what is typed, and what a code has done to this session, which lasts
  * until the program is closed: no honours, no saved progress and no graves once one has worked */
@@ -475,6 +498,7 @@ static struct {
     Beam beams[MAXBEAMS];
     Burn burns[MAXBURNS];
     Pool pools[MAXPOOLS];
+    Remains remains[MAXREMAINS]; int nremains;                     /* the newest remains, round and round */
     int wraith_done, wraith_now; float wraith_try;   /* the Wraith has come this level (or is called now); when to look for a place for it */
     int pilgrim;                            /* the feet follow the wisp: 1 by a code, till a key is touched; 2 the test player */
     Item items[MAXITEMS]; int nitems, items_total, items_got, value_total, value_got;
@@ -542,6 +566,7 @@ static struct {
     int sh_qk[6], sh_qq[6], sh_nq, sh_busy, sh_auto;   /* sh_busy: a pull still coming in, or three becoming one */
     float sh_qt, sh_glow, sh_flash[SHRINE_SLOTS], sh_note_t;
     char sh_note[80];
+    int tot_look, tot_arm, tot_col;         /* the Hexed Totem: looked at; a sale awaiting a second Enter; raise (0) or sell (1) */
 
     /* a person at the controls */
     int player, ui, ui_sel, quit_line, status_ret;
@@ -557,6 +582,10 @@ static struct {
     char msg[64];
     Gear inv0;                              /* the gear as it was when the inventory opened */
     int inv_page;                           /* the wardrobe (0) or the caster's numbers and spellbook (1) */
+    /* the boss abilities: each one's wait; Swift Dodge's dart (its clock and its way) and the direction last
+       tapped and how long ago; Wraithwalk's while; which sockets were ready, for the tick when one comes round */
+    float ab_cd[NBOSS], dash_t, dash_vx, dash_vy, tap_t, wwalk_t;
+    int tap_key, ab_ready;
 
     float fade, card;
     int ending;
@@ -599,7 +628,7 @@ static struct {
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
        BP_LITANY };                                 /* the Deacon's censer raised, the green light growing */
 static float zbuf[W];
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 
 /* pockets (see the pockets' code below): the level as it waits, and where in a chain you are */
@@ -1996,7 +2025,7 @@ static void build_lightmap(void) {
     }
     for (int i = 0; i < MAXSHOTS; i++)
         if (G.shots[i].alive) {
-            static const float POW[NATK + 1] = { 1.7f, 1.1f, 1.2f, 0.4f, 1.0f, 2.3f, 0.8f, 0.7f, 0.0f, 1.4f };
+            static const float POW[NATK + 2] = { 1.7f, 1.1f, 1.2f, 0.4f, 1.0f, 2.3f, 0.8f, 0.7f, 0.0f, 1.4f, 0.0f };
             light_dynamic(G.shots[i].x, G.shots[i].y, POW[G.shots[i].kind], G.shots[i].kind == AT_HELL ? 4.4f : 3.4f);
         }
     for (int i = 0; i < MAXBONES; i++)
@@ -2228,8 +2257,10 @@ static int in_combat(void);
 /* The caster takes a blow. Shadow robes may make it miss, a ward soaks it up, armor blunts it.
  * Returns what got through. (sx, sy): where it came from, for the portrait's flinch. */
 static void ward_burst(void);
+static int passing(void) { return G.dash_t > 0.0f || G.wwalk_t > 0.0f; }   /* darting, or wraithwalking: missiles go through */
 static int hurt_ex(float dmg, int kind, float sx, float sy) {
     if (G.dead || G.ending || G.exiting || G.tally || G.shop || G.level_t < 1.5) return 0;
+    if (G.dash_t > 0.0f) return 0;                                 /* Swift Dodge: nothing touches you while you dart */
     const Gear *g = &RUN.gear;
     int seeping = kind == HURT_POISON || kind == HURT_VOID;        /* nothing turns these: no dodge, armour or ward */
     if (!seeping) {
@@ -2315,6 +2346,7 @@ static void update_bones(float dt) {
             }
             b->x = nx; b->y = ny;
             float d = hypotf(b->x - G.px, b->y - G.py);
+            if (passing()) continue;                               /* it goes through you */
             if (G.mirror_t > 0.0f && d < 0.7f && !G.dead) {           /* the Mirror Veil sends it back */
                 b->alive = 0;
                 int exq = RUN.gear.def[DF_MIRROR] >= RUNE_EXQ;      /* Exquisite: home to its thrower, twice as hard */
@@ -2578,6 +2610,7 @@ static float spell_effect(void) { return 1.0f + gear_total(&RUN.gear, ST_EFFECT)
 static int boss_hurt(Mob *m, float dmg);
 static int wraith_open(const Mob *m);
 static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float slow) {
+    if (m->ally) return 0;                                         /* yours: your spells pass it by */
     if (m->boss && m->alive && m->state == MS_WALK && dmg > 0.0f) {   /* a boss: its weaknesses, then its marks */
         if (G.bdash_t > 0.0f) return 0;                            /* darting: nothing touches it */
         if (m->type == MOB_HUNTER && (m->sub == 0 || m->sub == 5)) return 0;   /* overhead, out of reach */
@@ -2650,7 +2683,7 @@ static void ward_burst(void) {
     G.ward_shards = 0.0f;
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *m = &G.mobs[i];
-        if (!m->alive || m->state != MS_WALK || KIND_IS(m, KF_SPIRIT) || buried(m)) continue;
+        if (!m->alive || m->state != MS_WALK || KIND_IS(m, KF_SPIRIT) || buried(m) || m->ally) continue;
         if (hypotf(m->x - G.px, m->y - G.py) < 2.0f && line_clear(G.px, G.py, m->x, m->y)) damage_mob(m, dmg, DM_ARC, G.px, G.py, 0.0f);
     }
     for (int k = 0; k < 6; k++) {                                   /* to be seen going; they touch nothing */
@@ -2678,7 +2711,7 @@ static void explode_big(float x, float y, float r) {
 static void splash(float x, float y, float r, float dmg, const Mob *skip, int atk) {
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *m = &G.mobs[i];
-        if (m == skip || !m->alive || m->state != MS_WALK || KIND_IS(m, KF_SPIRIT)) continue;
+        if (m == skip || !m->alive || m->state != MS_WALK || KIND_IS(m, KF_SPIRIT) || m->ally) continue;
         if (hypotf(m->x - x, m->y - y) < r && line_clear(x, y, m->x, m->y)) damage_mob(m, dmg, DM_ARC | DM_ATK(atk), x, y, 0.0f);
     }
 }
@@ -2752,7 +2785,7 @@ static void pick_hunters(void) {
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *m = &G.mobs[i];
         m->hunts = m->type == MOB_LING;                            /* a swarm comes all at once */
-        if (!m->alive || m->state != MS_WALK || m->alert <= 0.0f || m->type == MOB_LING) continue;
+        if (!m->alive || m->state != MS_WALK || m->alert <= 0.0f || m->type == MOB_LING || m->ally || m->webbed > 0.0f) continue;
         int h = hunt[m->cy][m->cx];
         if (h < 0) continue;
         int k = n < MAX_HUNTERS ? n++ : MAX_HUNTERS;
@@ -2766,6 +2799,7 @@ static void pick_hunters(void) {
 
 /* a noise: whatever is within so many steps knows where the caster is now */
 static void alert_near(int steps, float secs) {
+    if (G.wwalk_t > 0.0f) return;                                  /* Wraithwalk: they hear nothing of you */
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *m = &G.mobs[i];
         if (!m->alive || m->state != MS_WALK) continue;
@@ -2811,7 +2845,7 @@ static void update_wraith(Mob *m, float dt) {
     for (int i = 0; i < MAXWISPS && m->sub != 1; i++)              /* a wisp's light, close by */
         if (G.wisps[i].on && G.wisps[i].a > 0.5f && hypotf(G.wisps[i].x - m->x, G.wisps[i].y - m->y) < 3.0f) wraith_back(m);
     if (m->sub == 1 && m->sub_t > 5.0f) m->sub = 0;
-    if (m->sub == 0 && !G.dead && pd < 1.1f && m->cool <= 0.0f) {  /* its touch */
+    if (m->sub == 0 && !G.dead && G.wwalk_t <= 0.0f && pd < 1.1f && m->cool <= 0.0f) {  /* its touch */
         m->cool = 2.0f;
         sfx_at(SFX_SHRIEK, m->x, m->y, 1.0f);
         if (hurt_ex(mob_damage(m) * 1.5f, HURT_MAGIC, m->x, m->y) > 0) {
@@ -2892,7 +2926,7 @@ static void update_wskull(Mob *m, float dt) {
     m->sub_t += dt;
     if (m->feared > 0.0f) { m->feared -= dt; m->sub = 0; m->sub_t = 0.0f; return; }   /* Dread: it cowers silent */
     float d = hypotf(G.px - m->x, G.py - m->y);
-    int seen = !G.dead && !G.exiting && line_clear(m->x, m->y, G.px, G.py);
+    int seen = !G.dead && !G.exiting && G.wwalk_t <= 0.0f && line_clear(m->x, m->y, G.px, G.py);
     switch (m->sub) {
     case 0: {                                                      /* asleep, until the caster walks up to it, eyes on it */
         float vx = (G.px - m->x) / (d + 1e-4f), vy = (G.py - m->y) / (d + 1e-4f);
@@ -2952,7 +2986,7 @@ static void update_spider(Mob *m, float dt) {
     switch (m->sub) {
     case 0:
         m->x = m->ax; m->y = m->ay; m->z = 0.62f;
-        if (!G.dead && m->cool <= 0.0f && m->feared <= 0.0f && da < 2.0f && line_clear(m->ax, m->ay, G.px, G.py)) { m->sub = 1; m->sub_t = 0.0f; sfx_at(SFX_SKITTER, m->x, m->y, 1.0f); DBG_COUNT(spider_drops); }
+        if (!G.dead && G.wwalk_t <= 0.0f && m->cool <= 0.0f && m->feared <= 0.0f && da < 2.0f && line_clear(m->ax, m->ay, G.px, G.py)) { m->sub = 1; m->sub_t = 0.0f; sfx_at(SFX_SKITTER, m->x, m->y, 1.0f); DBG_COUNT(spider_drops); }
         break;
     case 1: {                                                      /* down the thread */
         float k = fminf(1.0f, m->sub_t / 0.35f);
@@ -2963,7 +2997,7 @@ static void update_spider(Mob *m, float dt) {
     }
     case 2:                                                        /* the bite */
         if (m->sub_t >= 0.25f) {
-            if (!G.dead && hypotf(G.px - m->x, G.py - m->y) < 1.05f) bite(m);
+            if (!G.dead && G.wwalk_t <= 0.0f && hypotf(G.px - m->x, G.py - m->y) < 1.05f) bite(m);
             m->sub = 3; m->sub_t = 0.0f;
             m->bx = m->x; m->by = m->y;                             /* where it climbs back from */
         }
@@ -2996,7 +3030,7 @@ static int update_leap(Mob *m, float dt) {
     if (k < 1.0f) return 1;
     m->sub = m->type == MOB_HUNTER || garg ? 2 : 0; m->z = garg ? GARG_Z : 0.0f; m->cool = m->type == MOB_HUNTER ? 3.0f : 2.5f;
     m->cx = m->tx = (int)m->x; m->cy = m->ty = (int)m->y;
-    if (!G.dead && hypotf(G.px - m->x, G.py - m->y) < 1.2f) {
+    if (!G.dead && G.wwalk_t <= 0.0f && hypotf(G.px - m->x, G.py - m->y) < 1.2f) {
         if (hurt_ex(mob_damage(m) * (m->type == MOB_HUNTER ? 0.6f : 0.85f), HURT_BLOW, m->x, m->y) > 0) thorns(m);
         if (m->type == MOB_HUNTER && rnd(3) == 0) bite(m);         /* now and then the fangs go in */
         DBG_COUNT(leaps);
@@ -3308,7 +3342,7 @@ static void wraith_boss(Mob *m, float dt) {
             DBG_COUNT(wraith_slips);
             break;
         }
-    if (!G.dead && pd < 1.1f && m->cool <= 0.0f) {                 /* its touch */
+    if (!G.dead && G.wwalk_t <= 0.0f && pd < 1.1f && m->cool <= 0.0f) {   /* its touch */
         m->cool = 2.5f;
         sfx_at(SFX_SHRIEK, m->x, m->y, 1.0f);
         if (hurt_ex(mob_damage(m) * 1.2f, HURT_MAGIC, m->x, m->y) > 0) {
@@ -3330,8 +3364,15 @@ static void wraith_boss(Mob *m, float dt) {
     if (best >= 0) { m->tx = m->cx + DX[best]; m->ty = m->cy + DY[best]; }
 }
 
+static void update_ally(Mob *m, float dt);
+static void web_claw(Mob *m, float dt);
+static void note_remains(const Mob *m, int deco);
+static Mob *ally_near(const Mob *m, float r);
+static float mob_blow(const Mob *m, float *every);
+static void ally_hurt(Mob *a, float dmg);
 static void update_mob(Mob *m, float dt) {
     if (m->state == MS_DIE && m->sub == 77) { if ((m->t += dt) >= 0.9f) m->alive = 0; return; }   /* gone into the BFS9000 */
+    if (m->ally && m->state == MS_WALK) { update_ally(m, dt); return; }   /* raised by your Grave Call: it fights for you */
     if (m->boss && m->state == MS_WALK && (G.bstate != BS_FIGHT || G.bpose_t > 0.0f)) {   /* waiting, holding while its wave
                                                                                             fights, or casting */
         m->t += dt;
@@ -3350,7 +3391,9 @@ static void update_mob(Mob *m, float dt) {
         float dur = m->type == MOB_BAT ? 0.9f : 0.75f;
         if (m->type == MOB_BAT || m->type == MOB_HUNTER || m->type == MOB_GARGOYLE) m->z = fmaxf(0.0f, m->z - dt * (m->z > 0.3f ? 1.6f : 0.6f));   /* down it falls */
         if (m->t >= dur) {
+            int di = G.ndecos;
             if (KINDS[m->type].remains >= 0) add_deco(m->x, m->y, KINDS[m->type].remains);
+            if (G.ndecos > di && !m->ally && !m->boss) note_remains(m, di);   /* for Grave Call */
             m->alive = 0;
         }
         return;
@@ -3358,11 +3401,12 @@ static void update_mob(Mob *m, float dt) {
     if (m->type == MOB_SKEL && m->sub == 5) { if ((m->sub_t += dt) >= 0.7f) m->sub = 0; return; }   /* called up, it gets to its feet */
     dt = mob_time(m, dt);
     if (dt <= 0.0f) return;
+    if (m->webbed > 0.0f) { web_claw(m, dt); return; }            /* held in your web: it claws at that, not at you */
     m->anim += dt * m->speed * 3.0f;
     m->z = m->type == MOB_BAT ? 0.20f + 0.07f * sinf(m->t * 7.0f) : 0.0f;
     float pdx0 = G.px - m->x, pdy0 = G.py - m->y, pd0 = sqrtf(pdx0 * pdx0 + pdy0 * pdy0);
     int undead = KIND_IS(m, KF_UNDEAD) != 0;
-    int sees = !G.dead && pd0 < 9.0f && line_clear(m->x, m->y, G.px, G.py);
+    int sees = !G.dead && G.wwalk_t <= 0.0f && pd0 < 9.0f && line_clear(m->x, m->y, G.px, G.py);   /* wraithwalking, you are not there */
     if (sees && G.level_t > 1.5) {                                 /* it has you: it will come after you a while */
         m->alert = m->type == MOB_SKEL ? 7.0f : 12.0f;            /* a thrower gives up sooner */
         if (m->lost > 1.0f && m->type == MOB_SKEL) m->cool = fmaxf(m->cool, 0.6f * throw_interval());   /* finding its range again */
@@ -3377,8 +3421,21 @@ static void update_mob(Mob *m, float dt) {
                                                                                     away (not in a boss's fight: they hold the floor) */
     int cowed = m->feared > 0.0f && (undead || m->dreaded);       /* Dread */
     int lured = !cowed && G.decoy_t > 0.0f && hypotf(m->x - G.decoy_x, m->y - G.decoy_y) < 6.0f;   /* Blink's double draws it */
-    int fights = !G.dead && !cowed && !lured;                     /* it may go for the caster now */
+    float lure_x = G.decoy_x, lure_y = G.decoy_y;
+    Mob *foe = lured || cowed || m->boss ? NULL : ally_near(m, 6.0f);   /* and so does one you have raised, to fight it */
+    if (foe) { lured = 1; lure_x = foe->x; lure_y = foe->y; }
+    int fights = !G.dead && !cowed && !lured && G.wwalk_t <= 0.0f;   /* it may go for the caster now */
     int afraid = cowed || (keeps_off && sees && pd0 < 2.8f);
+    if (foe && hypotf(foe->x - m->x, foe->y - m->y) < 1.35f) {    /* at it: blows, as it would give you */
+        m->face = atan2f(foe->y - m->y, foe->x - m->x);
+        if ((m->acool -= dt) <= 0.0f) {
+            float every, b = mob_blow(m, &every);
+            m->acool = every;
+            sfx_at(m->type == MOB_SHIELD || m->type == MOB_KNIGHT ? SFX_SWORD : SFX_BONES, m->x, m->y, 0.7f);
+            ally_hurt(foe, b);
+        }
+        return;
+    }
     if (m->type == MOB_SKEL && fights && !afraid) {               /* once it has seen you, it keeps throwing */
         int los = sees && G.level_t > 1.5;
         if (los && !m->seen) { m->seen = 1; m->cool = (0.45f + 0.35f * rndf()) * throw_interval() / 1.5f; }
@@ -3646,7 +3703,7 @@ static void update_mob(Mob *m, float dt) {
         if (!chase && !afraid && !lured && m->home >= 0 && c->region != m->home) continue;   /* keeps to its own room till it knows */
         float s = rndf();
         if (afraid) s += hypotf(nx + 0.5f - (m->wfeared ? m->wfx : G.px), ny + 0.5f - (m->wfeared ? m->wfy : G.py)) * 2.0f;
-        else if (lured) s -= hypotf(nx + 0.5f - G.decoy_x, ny + 0.5f - G.decoy_y);
+        else if (lured) s -= hypotf(nx + 0.5f - lure_x, ny + 0.5f - lure_y);
         else if (chase) s -= hypotf(nx + 0.5f - G.px, ny + 0.5f - G.py);
         if (s > bs) { bs = s; best = k; }
     }
@@ -3715,7 +3772,7 @@ static void chain_lightning(int t, float dmg, int tier) {
         int best = -1; float bd = 3.5f;
         for (int i = 0; i < MAXMOBS; i++) {
             Mob *o = &G.mobs[i];
-            if ((hit >> i & 1) || !o->alive || o->state != MS_WALK || KIND_IS(o, KF_SPIRIT)) continue;
+            if ((hit >> i & 1) || !o->alive || o->state != MS_WALK || KIND_IS(o, KF_SPIRIT) || o->ally) continue;
             float d = hypotf(o->x - cx, o->y - cy);
             if (d < bd && line_clear(cx, cy, o->x, o->y)) { bd = d; best = i; }
         }
@@ -3738,7 +3795,7 @@ static void bfs9000(void) {
     snd_sfx_ex(SFX_IMPLODE, 1.3f, 0.5f);
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *m = &G.mobs[i];
-        if (!m->alive || m->state != MS_WALK || (KIND_IS(m, KF_SPIRIT) && !m->boss)) continue;
+        if (!m->alive || m->state != MS_WALK || (KIND_IS(m, KF_SPIRIT) && !m->boss) || m->ally) continue;
         if (hypotf(m->x - G.px, m->y - G.py) > 14.0f || !line_clear(G.px, G.py, m->x, m->y)) continue;
         if (m->boss) { damage_mob(m, m->maxhp * 0.08f, 0, G.px, G.py, 0.0f); continue; }   /* a boss takes a twelfth or so */
         m->hp = 0.0f;
@@ -3821,6 +3878,8 @@ static void cast_spell(int sp, int t) {
     }
 }
 
+static void web_miss(float x, float y);
+static void web_land(Shot *s, Mob *m);
 static void update_shots(float dt) {
     const Gear *g = &RUN.gear;
     for (int i = 0; i < MAXSHOTS; i++) {
@@ -3834,7 +3893,7 @@ static void update_shots(float dt) {
                 float bd = 6.0f;
                 for (int k = 0; k < MAXMOBS; k++) {
                     Mob *o = &G.mobs[k];
-                    if (!o->alive || o->state != MS_WALK || o->type == MOB_GHOST) continue;
+                    if (!o->alive || o->state != MS_WALK || o->type == MOB_GHOST || o->ally) continue;
                     float d = hypotf(o->x - s->x, o->y - s->y);
                     if (d < bd && line_clear(s->x, s->y, o->x, o->y)) { bd = d; m = o; s->target = k; }
                 }
@@ -3884,7 +3943,8 @@ static void update_shots(float dt) {
                     break;
                 }
                 s->alive = 0;
-                if (s->kind == AT_HELL) { explode_big(s->x, s->y, 1.6f); splash(s->x, s->y, 1.5f, s->dmg, NULL, AT_HELL); }
+                if (s->kind == SHOT_WEB) web_miss(s->x, s->y);
+                else if (s->kind == AT_HELL) { explode_big(s->x, s->y, 1.6f); splash(s->x, s->y, 1.5f, s->dmg, NULL, AT_HELL); }
                 else if (s->kind == AT_FROST) sfx_at(SFX_FROST, s->x, s->y, 0.6f);
                 else if (s->kind == SHOT_REFLECT && s->z < 0.5f) sfx_at(SFX_BONES, s->x, s->y, 0.4f);
                 else if (s->kind != AT_SPEAR && s->kind != AT_SPARKS) explode(s->x, s->y);
@@ -3893,7 +3953,7 @@ static void update_shots(float dt) {
             s->x = nx; s->y = ny;
             for (int mi = 0; mi < MAXMOBS && s->tier >= 0; mi++) {    /* tier -1: a broken ward's shards, only for show */
                 Mob *mb = &G.mobs[mi];
-                if (!mb->alive || mb->state != MS_WALK || mb->type == MOB_GHOST) continue;   /* fire passes through wraiths */
+                if (!mb->alive || mb->state != MS_WALK || mb->type == MOB_GHOST || mb->ally) continue;   /* fire passes through wraiths, and your own */
                 if (s->kind == AT_SPEAR && (s->pierced >> mi & 1)) continue;
                 float hr = KINDS[mb->type].rad * (mb->boss ? BOSSES[mb->boss - 1].scale : 1.0f);
                 if (hypotf(mb->x - s->x, mb->y - s->y) >= hr) continue;
@@ -3922,6 +3982,7 @@ static void update_shots(float dt) {
                     s->alive = 0; sfx_at(SFX_FROST, s->x, s->y, 0.8f);
                     damage_mob(mb, s->dmg, DM_SLOW | DM_ATK(AT_FROST), fx, fy, (2.5f + 0.25f * s->tier) * spell_effect());
                     break;
+                case SHOT_WEB: web_land(s, mb); break;             /* your Tangled Web */
                 default:                                           /* sparks, wisps, reflected missiles */
                     s->alive = 0;
                     if (s->kind == SHOT_REFLECT) explode(s->x, s->y); else sfx_at(SFX_ZAP, s->x, s->y, 0.35f);
@@ -3931,7 +3992,7 @@ static void update_shots(float dt) {
                 break;
             }
         }
-        if (s->alive && s->life <= 0) { s->alive = 0; if (s->kind == AT_FIRE || s->kind == AT_HELL) explode(s->x, s->y); }
+        if (s->alive && s->life <= 0) { s->alive = 0; if (s->kind == AT_FIRE || s->kind == AT_HELL) explode(s->x, s->y); if (s->kind == SHOT_WEB) web_miss(s->x, s->y); }
     }
     for (int i = 0; i < MAXBOOMS; i++) if (G.booms[i].alive && (G.booms[i].t += dt) >= 0.6f) G.booms[i].alive = 0;
     for (int i = 0; i < MAXBEAMS; i++) if (G.beams[i].alive && (G.beams[i].t += dt) >= 0.3f) G.beams[i].alive = 0;
@@ -3947,7 +4008,7 @@ static void update_shots(float dt) {
         if ((int)(pt * 4.0f) != (int)(b->t * 4.0f))
             for (int k = 0; k < MAXMOBS; k++) {
                 Mob *m = &G.mobs[k];
-                if (m->alive && m->state == MS_WALK && !KIND_IS(m, KF_SPIRIT) && m->type != MOB_WSKULL && hypotf(m->x - b->x, m->y - b->y) < 0.7f)
+                if (m->alive && m->state == MS_WALK && !KIND_IS(m, KF_SPIRIT) && m->type != MOB_WSKULL && !m->ally && hypotf(m->x - b->x, m->y - b->y) < 0.7f)
                     damage_mob(m, b->dps * 0.25f, DM_ARC | DM_ATK(AT_HELL), b->x, b->y, 0.0f);
             }
     }
@@ -3971,7 +4032,7 @@ static int enemies_within(float r, int undead_only) {
     int n = 0;
     for (int i = 0; i < MAXMOBS; i++) {
         const Mob *m = &G.mobs[i];
-        if (!m->alive || m->state != MS_WALK || m->type == MOB_GHOST || m->type == MOB_WSKULL || m->type == MOB_SAC) continue;
+        if (!m->alive || m->state != MS_WALK || m->type == MOB_GHOST || m->type == MOB_WSKULL || m->type == MOB_SAC || m->ally || m->webbed > 0.0f) continue;
         if ((m->type == MOB_SPIDER || m->type == MOB_GARGOYLE) && m->sub == 0) continue;
         if (undead_only && !KIND_IS(m, KF_UNDEAD)) continue;
         if (hypotf(m->x - G.px, m->y - G.py) < r && line_clear(m->x, m->y, G.px, G.py)) n++;
@@ -3989,7 +4050,7 @@ static int skull_charging(float r, float after) {
 static int melee_close(void) {                                      /* a sword raised, or a spider coming down */
     for (int i = 0; i < MAXMOBS; i++) {
         const Mob *m = &G.mobs[i];
-        if (!m->alive || m->state != MS_WALK) continue;
+        if (!m->alive || m->state != MS_WALK || m->ally || m->webbed > 0.0f) continue;
         float d = hypotf(m->x - G.px, m->y - G.py);
         if ((m->type == MOB_SHIELD && d < 1.5f) || (m->type == MOB_SPIDER && m->sub >= 1 && m->sub <= 2 && d < 1.4f)) return 1;
     }
@@ -4030,7 +4091,7 @@ static void blink(void) {
             float s = dist[y][x] * 0.3f;
             for (int i = 0; i < MAXMOBS; i++) {
                 const Mob *m = &G.mobs[i];
-                if (!m->alive || m->state != MS_WALK || m->type == MOB_GHOST) continue;
+                if (!m->alive || m->state != MS_WALK || m->type == MOB_GHOST || m->ally) continue;
                 float d = hypotf(m->x - x - 0.5f, m->y - y - 0.5f);
                 s += fminf(d, 6.0f) * 0.5f - (line_clear(m->x, m->y, x + 0.5f, y + 0.5f) ? 1.5f : 0.0f);
             }
@@ -4083,7 +4144,7 @@ static void cast_defense(int k) {
     case DF_NOVA:
         for (int i = 0; i < MAXMOBS; i++) {
             Mob *m = &G.mobs[i];
-            if (m->alive && m->state == MS_WALK && !KIND_IS(m, KF_SPIRIT) && hypotf(m->x - G.px, m->y - G.py) < 1.8f + 0.1f * t)
+            if (m->alive && m->state == MS_WALK && !KIND_IS(m, KF_SPIRIT) && !m->ally && hypotf(m->x - G.px, m->y - G.py) < 1.8f + 0.1f * t)
                 { m->frozen = (2.0f + 0.3f * t) * eff; m->swing = 0.0f; m->throw_t = 0.0f; }
         }
         snd_sfx_ex(SFX_FROST, 1.3f, 0.5f);
@@ -4094,7 +4155,7 @@ static void cast_defense(int k) {
             Mob *m = &G.mobs[i];
             int dead = KIND_IS(m, KF_UNDEAD) || m->type == MOB_WSKULL || m->type == MOB_WRAITH;
             int any = q >= RUNE_EXQ && !KIND_IS(m, KF_SPIRIT) && !buried(m);   /* Exquisite: the living too */
-            if (m->alive && m->state == MS_WALK && (dead || any) && hypotf(m->x - G.px, m->y - G.py) < 5.0f)
+            if (m->alive && m->state == MS_WALK && (dead || any) && !m->ally && hypotf(m->x - G.px, m->y - G.py) < 5.0f)
                 { m->feared = (3.0f + 0.5f * t) * eff; m->wfeared = 0; m->dreaded = !dead; if (!dead) DBG_COUNT(exq_dread); }
         }
         G.dread_t = 0.001f;
@@ -4158,6 +4219,381 @@ static void update_status(float dt) {
         G.regen_acc += heal;
         if (G.regen_acc >= 1.0f) { int h = (int)G.regen_acc; G.regen_acc -= h; G.hp = clampi(G.hp + h, 0, G.max_hp); if (G.mend_t > 0.0f) pop_readout(); }
     }
+}
+
+/* ---- the caster's boss abilities (docs/PLAN-b7.md, section 8), from the Hexed Totem ---- */
+static int hz_danger(int x, int y);
+static int walk_clear(float x0, float y0, float x1, float y1);
+
+/* a creature's usual blow and how often it comes: what it gives a web, one of yours, or one of theirs */
+static float mob_blow(const Mob *m, float *every) {
+    float k = 1.0f, e = 2.5f;
+    switch (m->type) {
+    case MOB_SKEL: e = throw_interval(); break;
+    case MOB_SHIELD: e = 1.85f; k = 1.1f; break;
+    case MOB_SHAMBLER: case MOB_DROWNED: e = 2.4f; break;
+    case MOB_HOUND: e = 1.55f; k = 0.8f; break;
+    case MOB_HUNTER: e = 3.0f; k = 0.6f; break;
+    case MOB_GHOUL: e = 2.5f; k = 0.85f; break;
+    case MOB_KNIGHT: e = 2.9f; k = 1.5f; break;
+    case MOB_BROOD: e = 1.6f; k = 1.2f; break;
+    case MOB_LING: e = 1.0f; k = 0.4f; break;
+    case MOB_IMP: e = 2.8f; k = 0.8f; break;
+    case MOB_GARGOYLE: e = 1.9f; k = 1.1f; break;
+    case MOB_BAT: e = 3.0f; break;
+    default: break;
+    }
+    *every = e;
+    return mob_damage(m) * k;
+}
+
+/* Tangled Web: a glob spat at what you aim at, eight cells a second and eight cells' reach. It holds what
+ * walks or flies and has a body (not a spirit, a shade, a wall skull, a sac or a web spider, nor a boss,
+ * from which it falls away torn), and the held thing claws at the web, at half its usual rate, till it
+ * has done as much to it as the web holds: a third of your health, two thirds, or all of it, by rank.
+ * One web out a rank; the wait is 2 s after a miss, the whole of it after a hit. */
+static int web_holds(const Mob *m) {
+    if (!m->alive || m->state != MS_WALK || m->boss || m->ally || buried(m)) return 0;
+    if (KIND_IS(m, KF_SPIRIT) || m->type == MOB_SHADE || m->type == MOB_WSKULL || m->type == MOB_SAC || m->type == MOB_SPIDER) return 0;
+    return !(m->type == MOB_GARGOYLE && m->sub == 0);
+}
+static int webs_out(void) {
+    int n = 0;
+    for (int i = 0; i < MAXMOBS; i++) n += G.mobs[i].alive && G.mobs[i].state == MS_WALK && G.mobs[i].webbed > 0.0f;
+    return n;
+}
+static int web_spit(int t) {
+    if (webs_out() >= RUN.abil[BOSS_SPIDER]) {
+        if (G.player) { say(RUN.abil[BOSS_SPIDER] > 1 ? "ALL YOUR WEBS ARE OUT" : "YOUR WEB IS OUT"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); }
+        return 0;
+    }
+    float a = t >= 0 && !G.player ? atan2f(G.mobs[t].y - G.py, G.mobs[t].x - G.px) : G.ang;   /* a person's goes where they look */
+    Shot *s = new_shot(SHOT_WEB, G.px + cosf(a) * 0.35f, G.py + sinf(a) * 0.35f, a, 8.0f, 0.0f);
+    if (!s) return 0;
+    s->life = 1.0f; s->tier = 0;
+    G.ab_cd[BOSS_SPIDER] = 2.0f;                                   /* what a miss costs; a hit, the whole wait */
+    snd_sfx_ex(SFX_THROW, 0.8f, 0.5f); snd_sfx_ex(SFX_SKITTER, 0.6f, 0.5f);
+    if (G.player) G.grab_t = fmaxf(G.grab_t, 0.7f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT web_spit at %d t=%.2f\n", t, G.t);
+#endif
+    return 1;
+}
+static void web_miss(float x, float y) {
+    sfx_at(SFX_SKITTER, x, y, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT web_miss t=%.2f\n", G.t);
+#endif
+}
+static void web_land(Shot *s, Mob *m) {
+    s->alive = 0;
+    if (!web_holds(m)) {                                           /* it falls away, torn */
+        sfx_at(SFX_SKITTER, m->x, m->y, 1.0f); sfx_at(SFX_SHATTER, m->x, m->y, 0.4f);
+        if (G.player && m->boss) say("THE WEB TEARS AWAY FROM IT");
+        web_miss(m->x, m->y);
+        return;
+    }
+    float every;
+    mob_blow(m, &every);
+    m->webbed = m->webmax = (float)G.max_hp * (float)RUN.abil[BOSS_SPIDER] / 3.0f;
+    m->cool = every; m->claw = 0.0f; m->swing = 0.0f; m->throw_t = 0.0f; m->attacking = 0;
+    if (m->type == MOB_BAT) m->contact = 0.0f;
+    if (m->type == MOB_DEACON) m->deco = -1;                       /* its chant broken off */
+    G.ab_cd[BOSS_SPIDER] = ab_wait(BOSS_SPIDER);
+    sfx_at(SFX_DIRT, m->x, m->y, 0.9f); sfx_at(SFX_SKITTER, m->x, m->y, 0.8f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT web_hold %s web=%.0f t=%.2f\n", KINDS[m->type].name, m->webbed, G.t);
+#endif
+}
+static void web_claw(Mob *m, float dt) {                           /* held: it claws at the web instead of you */
+    m->claw = fmaxf(0.0f, m->claw - dt);
+    if ((m->cool -= dt) > 0.0f) return;
+    float every, b = mob_blow(m, &every);
+    m->cool = 2.0f * every; m->claw = 0.3f;
+    m->webbed -= b;
+    sfx_at(SFX_SKITTER, m->x, m->y, 0.5f);
+    if (m->webbed > 0.0f) return;
+    m->webbed = 0.0f; m->claw = 0.0f; m->cool = 0.4f;
+    m->alert = fmaxf(m->alert, 20.0f);                             /* free, and it comes for you at once */
+    sfx_at(SFX_SHATTER, m->x, m->y, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT web_free %s t=%.2f\n", KINDS[m->type].name, G.t);
+#endif
+}
+
+/* Grave Call: the remains of something you slew, within four cells and in sight, get up and fight for you
+ * for 12, 16 or 20 s, one, two or three at once, by rank. Creatures turn on it as they would on Blink's
+ * double, and it strikes whatever is near; then it falls back into what it was. */
+static void note_remains(const Mob *m, int deco) {
+    if (m->type == MOB_SPIDER || m->type == MOB_SAC || m->type == MOB_LING) return;
+    Remains *r = &G.remains[G.nremains++ % MAXREMAINS];
+    r->deco = deco; r->type = m->type; r->rank = m->rank; r->t = (float)G.level_t;
+}
+static int remains_ok(const Remains *r) {
+    return r->type >= 0 && r->deco >= 0 && r->deco < G.ndecos && G.decos[r->deco].spr == KINDS[r->type].remains;
+}
+/* the remains to raise: those aimed at (a person), or the nearest fresh ones (the autopilot); -1 if none */
+static int remains_near(int aimed) {
+    int best = -1; float bs = 1e9f;
+    for (int i = 0; i < MAXREMAINS && i < G.nremains; i++) {
+        const Remains *r = &G.remains[i];
+        if (!remains_ok(r)) continue;
+        const Deco *dc = &G.decos[r->deco];
+        float d = hypotf(dc->x - G.px, dc->y - G.py), sc = d;
+        if (d > 4.0f || !line_clear(G.px, G.py, dc->x, dc->y)) continue;
+        if (aimed) {
+            float off = fabsf(wrap_pi(atan2f(dc->y - G.py, dc->x - G.px) - G.ang));
+            if (off > 0.3f + 0.45f / fmaxf(d, 0.6f)) continue;
+            sc = off * 4.0f + d * 0.2f;
+        } else if ((float)G.level_t - r->t > 20.0f) continue;
+        if (sc < bs) { bs = sc; best = i; }
+    }
+    return best;
+}
+static int allies_out(void) {
+    int n = 0;
+    for (int i = 0; i < MAXMOBS; i++) n += G.mobs[i].alive && G.mobs[i].ally && G.mobs[i].state == MS_WALK;
+    return n;
+}
+static int grave_call(int ri) {
+    int rank = RUN.abil[BOSS_DEACON];
+    if (allies_out() >= rank) {
+        if (G.player) { say(rank > 1 ? "ALL WHO WOULD ANSWER STAND ALREADY" : "ONE STANDS FOR YOU ALREADY"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); }
+        return 0;
+    }
+    Remains *r = &G.remains[ri];
+    Deco *dc = &G.decos[r->deco];
+    int x = (int)dc->x, y = (int)dc->y;
+    if (G.map[y][x].kind != K_FLOOR || occupied(x, y, NULL)) {      /* the floor beside it, if something stands on it */
+        int d = 0;
+        for (; d < 4; d++) if (cell(x + DX[d], y + DY[d])->kind == K_FLOOR && !occupied(x + DX[d], y + DY[d], NULL)) break;
+        if (d == 4) { if (G.player) say("NO ROOM FOR IT TO RISE"); return 0; }
+        x += DX[d]; y += DY[d];
+    }
+    Mob *m = spawn_mob(x, y, r->type);
+    if (!m) return 0;
+    G.spawned[r->type]--;                                          /* no newcomer, and no kill to be had of it */
+    if (!KIND_IS(m, KF_UNCOUNTED)) G.kills_total--;
+    set_rank(m, r->rank);
+    m->ally = 1; m->ally_t = 8.0f + 4.0f * (float)rank; m->home = -1; m->alert = 0.0f;
+    m->z = -0.55f; m->face = G.ang + PI_F;
+    if (m->type == MOB_HUNTER || m->type == MOB_GARGOYLE) m->sub = 2;   /* on its feet (or wings), not overhead or a statue */
+    dc->spr = -1; r->type = -1;
+    G.ab_cd[BOSS_DEACON] = ab_wait(BOSS_DEACON);
+    sfx_at(SFX_DIRT, m->x, m->y, 1.1f); sfx_at(SFX_BONES, m->x, m->y, 0.9f); snd_sfx_ex(SFX_RUNE, 0.7f, 0.5f);
+    if (G.player) G.grab_t = fmaxf(G.grab_t, 0.7f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT gravecall %s rank %d for %.0f s t=%.2f\n", KINDS[m->type].name, m->rank, m->ally_t, G.t);
+#endif
+    return 1;
+}
+static void ally_fall(Mob *m) {                                    /* its time is up, or they have beaten it down */
+    m->state = MS_DIE; m->t = 0.0f; m->sub = 0;
+    sfx_at(KINDS[m->type].sfx_die, m->x, m->y, 0.8f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ally_falls %s hp=%.0f t=%.2f\n", KINDS[m->type].name, m->hp, G.t);
+#endif
+}
+static void ally_hurt(Mob *a, float dmg) {
+    a->hp -= dmg;
+    if (a->hp <= 0.0f && a->state == MS_WALK) ally_fall(a);
+}
+static Mob *ally_near(const Mob *m, float r) {                     /* one of yours for this creature to turn on */
+    Mob *best = NULL; float bd = r;
+    for (int i = 0; i < MAXMOBS; i++) {
+        Mob *a = &G.mobs[i];
+        if (!a->alive || !a->ally || a->state != MS_WALK || a->z < -0.05f) continue;
+        float d = hypotf(a->x - m->x, a->y - m->y);
+        if (d < bd && line_clear(m->x, m->y, a->x, a->y)) { bd = d; best = a; }
+    }
+    return best;
+}
+static int targetable(const Mob *m);
+static void update_ally(Mob *m, float dt) {
+    m->t += dt;
+    float zt = m->type == MOB_BAT ? 0.2f : (m->type == MOB_GARGOYLE ? GARG_Z : 0.0f);
+    if (m->z < zt - 0.01f) { m->z = fminf(zt, m->z + dt); return; }   /* getting up out of what it left */
+    m->z = m->type == MOB_BAT ? 0.2f + 0.07f * sinf(m->t * 7.0f) : zt;
+    if ((m->ally_t -= dt) <= 0.0f) { ally_fall(m); return; }
+    m->claw = fmaxf(0.0f, m->claw - dt);
+    m->acool -= dt;
+    Mob *t = NULL;
+    float bd = 8.0f;
+    for (int i = 0; i < MAXMOBS; i++) {                            /* the nearest of them in its sight */
+        Mob *o = &G.mobs[i];
+        if (o == m || !targetable(o)) continue;
+        float d = hypotf(o->x - m->x, o->y - m->y);
+        if (d < bd && line_clear(m->x, m->y, o->x, o->y)) { bd = d; t = o; }
+    }
+    if (t) m->face = atan2f(t->y - m->y, t->x - m->x);
+    if (t && bd < 1.35f + (t->boss ? 0.5f : 0.0f)) {               /* at it */
+        if (m->acool <= 0.0f) {
+            float every, b = mob_blow(m, &every);
+            m->acool = every; m->claw = 0.3f;
+            sfx_at(m->type == MOB_SHIELD || m->type == MOB_KNIGHT ? SFX_SWORD : SFX_BONES, m->x, m->y, 0.8f);
+            damage_mob(t, b, DM_ARC, m->x, m->y, 0.0f);
+        }
+        return;
+    }
+    if (!t && hypotf(G.px - m->x, G.py - m->y) < 2.0f) return;     /* nothing to fight: it keeps by you */
+    m->anim += dt * m->speed * 3.0f;
+    float gx = m->tx + 0.5f, gy = m->ty + 0.5f, dx = gx - m->x, dy = gy - m->y, d = hypotf(dx, dy), step = m->speed * dt;
+    if (d > step) { m->x += dx / d * step; m->y += dy / d * step; return; }
+    m->x = gx; m->y = gy; m->cx = m->tx; m->cy = m->ty;
+    int best = -1, here = hunt[m->cy][m->cx];
+    float bs = t ? hypotf(m->cx + 0.5f - t->x, m->cy + 0.5f - t->y) - 0.01f : 1e9f;
+    for (int k = 0; k < 4; k++) {
+        int nx = m->cx + DX[k], ny = m->cy + DY[k];
+        if ((m->type == MOB_GARGOYLE ? blocks_flight(nx, ny) : blocks_move(nx, ny)) || occupied(nx, ny, m)) continue;
+        float sc;
+        if (t) sc = hypotf(nx + 0.5f - t->x, ny + 0.5f - t->y) + rndf() * 0.2f;   /* straight at it */
+        else { int h = hunt[ny][nx]; if (h < 0 || (here >= 0 && h >= here)) continue; sc = (float)h + rndf() * 0.3f; }   /* after you, round corners */
+        if (sc < bs) { bs = sc; best = k; }
+    }
+    if (best >= 0) { m->tx = m->cx + DX[best]; m->ty = m->cy + DY[best]; }
+}
+
+/* Wraithwalk: for 1.5, 2 or 2.5 s you pass through creatures and their missiles, and they lose you */
+static void wraithwalk(void) {
+    G.wwalk_t = 1.0f + 0.5f * (float)RUN.abil[BOSS_WRAITH];
+    G.ab_cd[BOSS_WRAITH] = ab_wait(BOSS_WRAITH);
+    for (int i = 0; i < MAXMOBS; i++) {                            /* they lose you, and must find you again */
+        Mob *m = &G.mobs[i];
+        if (!m->alive || m->ally) continue;
+        m->alert = 0.0f; m->lost = 9.0f; m->attacking = 0;
+        if (m->type == MOB_SKEL) { m->seen = 0; m->throw_t = 0.0f; }
+        if (m->swing > 0.0f && m->type != MOB_DEACON) m->swing = 0.0f;   /* a blow on its way finds nothing */
+    }
+    snd_sfx_ex(SFX_WAIL, 0.45f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.7f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT wraithwalk %.1f s t=%.2f by %s\n", G.wwalk_t, G.t, G.player ? "player" : "autopilot");
+#endif
+}
+
+/* Swift Dodge: a dart of two to five cells, a quarter of a second, untouchable; it stops before walls,
+ * doors, props and creatures, and with less than two cells clear nothing happens and nothing is spent */
+static int body_blocked(float x, float y, int *bx, int *by);
+static float dash_reach(float a, float most) {
+    float ca = cosf(a), sa = sinf(a), d = 0.0f;
+    int bx, by;
+    while (d + 0.1f <= most) {
+        float nx = G.px + ca * (d + 0.1f), ny = G.py + sa * (d + 0.1f);
+        if (body_blocked(nx, ny, &bx, &by) || cell((int)nx, (int)ny)->kind == K_DOOR) break;
+        int mob = 0;
+        for (int i = 0; i < MAXMOBS && !mob; i++) { const Mob *m = &G.mobs[i]; mob = solid_mob(m) && m->state == MS_WALK && !m->ally && hypotf(m->x - nx, m->y - ny) < 0.55f; }
+        if (mob) break;
+        d += 0.1f;
+    }
+    return d;
+}
+static void dash_begin(float vx, float vy) {
+    G.dash_t = 0.25f; G.dash_vx = vx; G.dash_vy = vy;
+    G.ab_cd[BOSS_KNIGHT] = ab_wait(BOSS_KNIGHT);
+    snd_sfx_ex(SFX_WHOOSH, 1.0f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT dodge %.1f cells t=%.2f by %s\n", hypotf(vx, vy) * 0.25f, G.t, G.player ? "player" : "autopilot");
+#endif
+}
+static int swift_dodge(float a) {
+    if (RUN.abil[BOSS_KNIGHT] <= 0 || G.dash_t > 0.0f || G.web_hp > 0.0f || G.shop) return 0;
+    if (G.silenced) { say("THE VOID TAKES THE WORDS FROM YOU"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); return 0; }
+    if (G.ab_cd[BOSS_KNIGHT] > 0.0f) return 0;                     /* quietly: a double tap is easily made by chance */
+    float r = dash_reach(a, 5.0f);
+    if (r < 2.0f) return 0;
+    dash_begin(cosf(a) * r / 0.25f, sinf(a) * r / 0.25f);
+    return 1;
+}
+/* the autopilot's dart keeps to the lanes: two to five cells to a lane cell, clear all the way, out of
+ * any warning, across the way a missile comes if one does */
+static int auto_dodge(void) {
+    int bx = (int)G.px, by = (int)G.py, best = -1, bk = 0;
+    float bs = -1e9f, mvx = 0.0f, mvy = 0.0f;
+    for (int i = 0; i < MAXBONES; i++) if (G.bones[i].alive && hypotf(G.bones[i].x - G.px, G.bones[i].y - G.py) < 4.0f) { mvx = G.bones[i].vx; mvy = G.bones[i].vy; }
+    float mv = hypotf(mvx, mvy);
+    for (int d = 0; d < 4; d++)
+        for (int k = 5; k >= 2; k--) {
+            int lx = bx + DX[d] * k, ly = by + DY[d] * k, ok = apass(lx, ly) && !hz_danger(lx, ly);
+            for (int j = 1; j <= k && ok; j++) ok = passable(bx + DX[d] * j, by + DY[d] * j) && cell(bx + DX[d] * j, by + DY[d] * j)->kind != K_DOOR && !occupied(bx + DX[d] * j, by + DY[d] * j, NULL);
+            if (!ok || !walk_clear(G.px, G.py, lx + 0.5f, ly + 0.5f)) continue;
+            float sc = (float)k * 0.3f + rndf() * 0.2f;
+            if (mv > 0.1f) sc += 2.0f * fabsf((float)DX[d] * mvy - (float)DY[d] * mvx) / mv;   /* across its way */
+            for (int i = 0; i < MAXMOBS; i++) {
+                const Mob *m = &G.mobs[i];
+                if (m->alive && m->state == MS_WALK && !m->ally && !KIND_IS(m, KF_SPIRIT)) sc += 0.15f * fminf(5.0f, hypotf(m->x - lx - 0.5f, m->y - ly - 0.5f));
+            }
+            if (sc > bs) { bs = sc; best = d; bk = k; }
+            break;                                                 /* the farthest that will do, that way */
+        }
+    if (best < 0) return 0;
+    G.tx = bx + DX[best] * bk; G.ty = by + DY[best] * bk;
+    dash_begin((G.tx + 0.5f - G.px) / 0.25f, (G.ty + 0.5f - G.py) / 0.25f);
+    return 1;
+}
+
+/* the right mouse: the readied ability; Q readies the next */
+static int aim_target(void);
+static void use_readied(void) {
+    int b = ab_readied();
+    if (b < 0) return;
+    if (G.silenced) { say("THE VOID TAKES THE WORDS FROM YOU"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); return; }
+    if (G.ab_cd[b] > 0.0f) { say("%s IN %.0f S", BA_NAME[b], ceilf(G.ab_cd[b])); snd_sfx_ex(SFX_KNOCK, 0.35f, 0.5f); return; }
+    show_bar();
+    if (b == BOSS_SPIDER) web_spit(aim_target());
+    else if (b == BOSS_DEACON) {
+        int ri = remains_near(1);
+        if (ri < 0) { say("NO REMAINS OF YOURS IN REACH"); snd_sfx_ex(SFX_KNOCK, 0.35f, 0.5f); }
+        else grave_call(ri);
+    } else wraithwalk();
+}
+static void ready_next(void) {
+    int b = ab_readied();
+    if (b < 0) return;
+    for (int k = 1; k <= NBOSS - BOSS_SPIDER; k++) {
+        int n = (b - BOSS_SPIDER + k) % (NBOSS - BOSS_SPIDER) + BOSS_SPIDER;
+        if (!ab_on_mouse(n)) continue;
+        if (n != b) { RUN.abil_sel = n; say("READIED: %s", BA_NAME[n]); snd_sfx_ex(SFX_TICK, 0.7f, 0.5f); show_bar(); }
+        return;
+    }
+}
+
+/* the autopilot, if the page has them: Swift Dodge out of a missile's way or a warning, Tangled Web on the
+ * nearest creature that comes to blows, Grave Call on fresh remains in a fight, Wraithwalk when cornered */
+static void auto_abilities(void) {
+    if (G.dead || G.silenced || G.shop || G.exiting || G.dash_t > 0.0f) return;
+    int st = G.state;
+    if (RUN.abil[BOSS_KNIGHT] && G.ab_cd[BOSS_KNIGHT] <= 0.0f && G.web_hp <= 0.0f
+        && (st == PS_MOVE || st == PS_TURN || st == PS_AIM || st == PS_CAST || st == PS_HOLD || st == PS_UNAIM)
+        && (incoming(0.45f) || hz_danger((int)G.px, (int)G.py)) && auto_dodge()) return;
+    if (RUN.abil[BOSS_SPIDER] && G.ab_cd[BOSS_SPIDER] <= 0.0f && webs_out() < RUN.abil[BOSS_SPIDER]) {
+        int best = -1; float bd = 2.2f;
+        for (int i = 0; i < MAXMOBS; i++) {
+            const Mob *m = &G.mobs[i];
+            if (!web_holds(m) || !targetable(m) || !KIND_IS(m, KF_MELEE) || m->alert <= 0.0f || m->webbed > 0.0f) continue;
+            float d = hypotf(m->x - G.px, m->y - G.py);
+            if (d < bd && shot_clear(m->x, m->y)) { bd = d; best = i; }
+        }
+        if (best >= 0 && web_spit(best)) return;
+    }
+    if (RUN.abil[BOSS_DEACON] && G.ab_cd[BOSS_DEACON] <= 0.0f && allies_out() < RUN.abil[BOSS_DEACON] && in_combat()) {
+        int ri = remains_near(0);
+        if (ri >= 0 && grave_call(ri)) return;
+    }
+    if (RUN.abil[BOSS_WRAITH] && G.ab_cd[BOSS_WRAITH] <= 0.0f && G.wwalk_t <= 0.0f && G.hp < G.max_hp * 0.35f) {
+        int near = enemies_within(2.2f, 0);
+        if (near >= 2 || (near >= 1 && incoming(0.8f))) wraithwalk();
+    }
+}
+
+/* every frame: the waits running down, a soft tick as one comes round, Wraithwalk wearing off */
+static void ab_update(float dt) {
+    int ready = 0;
+    for (int b = 0; b < NBOSS; b++) {
+        if (G.ab_cd[b] > 0.0f) G.ab_cd[b] -= dt;
+        if (RUN.abil[b] && G.ab_cd[b] <= 0.0f) ready |= 1 << b;
+    }
+    if (G.player && (ready & ~G.ab_ready)) snd_sfx_ex(SFX_TICK, 0.45f, 0.3f);
+    G.ab_ready = ready;
+    if (G.wwalk_t > 0.0f && (G.wwalk_t -= dt) <= 0.0f) { G.wwalk_t = 0.0f; snd_sfx_ex(SFX_WHOOSH, 0.45f, 0.5f); }
 }
 
 static void update_doors(float dt) {
@@ -4650,7 +5086,7 @@ static void begin_turn(float target) {
 /* can the caster pick this one out? a spider in its web shows only its eyes, and a wall skull
  * asleep is only a carving: neither, until it stirs */
 static int targetable(const Mob *m) {
-    if (!m->alive || m->state != MS_WALK || m->type == MOB_GHOST || buried(m) || shade_hidden(m)) return 0;
+    if (!m->alive || m->state != MS_WALK || m->type == MOB_GHOST || buried(m) || shade_hidden(m) || m->ally) return 0;
     if (m->type == MOB_GARGOYLE && m->sub == 0) return 0;          /* only a statue, as far as anyone can tell */
     if ((m->type == MOB_SPIDER || m->type == MOB_WSKULL) && m->sub == 0) return 0;
     if (m->boss && G.bstate != BS_FIGHT) return 0;                 /* untouchable: its adds first */
@@ -4745,7 +5181,21 @@ static void aim_at(int t) {
 }
 
 static void pocket_return(int died);
+static void auto_abilities(void);
 static void update_player(float dt) {
+    if (G.dash_t > 0.0f) {                                         /* Swift Dodge: darting to a lane cell */
+        float k = fminf(dt, G.dash_t);
+        G.px += G.dash_vx * k; G.py += G.dash_vy * k;
+        if ((G.dash_t -= dt) > 0.0f) return;
+        G.dash_t = 0.0f;
+        G.cx = G.tx; G.cy = G.ty; G.px = G.cx + 0.5f; G.py = G.cy + 0.5f; G.u = 1.0f; G.hand = 0.0f; G.spd = 0.0f;
+        if (G.map[G.cy][G.cx].visits < 250) { if (!G.map[G.cy][G.cx].visits) G.explored++; G.map[G.cy][G.cx].visits++; }
+        G.next_h = decide(G.cx, G.cy, G.h);
+        begin_turn(heading_angle(G.next_h)); G.state = PS_TURN;
+        return;
+    }
+    auto_abilities();
+    if (G.dash_t > 0.0f) return;
     if (G.web_hp > 0.0f && !G.dead && (G.web_idle += dt) > 1.2f) {   /* held, and nothing to aim at: it tears at the web */
         G.web_idle = 0.0f;
         cast_spell(AT_FIRE, -1);
@@ -4765,7 +5215,7 @@ static void update_player(float dt) {
         int blocker = -1;                                          /* something in the way: stop and deal with it */
         for (int i = 0; i < MAXMOBS && G.blocked < 3.0f; i++) {
             Mob *m = &G.mobs[i];
-            if (!solid_mob(m) || m->state != MS_WALK) continue;
+            if (!solid_mob(m) || m->state != MS_WALK || m->ally) continue;
             float vx = m->x - G.px, vy = m->y - G.py;
             float ahead = vx * cosf(G.ang) + vy * sinf(G.ang), side = -vx * sinf(G.ang) + vy * cosf(G.ang);
             if (ahead > 0.0f && ahead < 1.3f && fabsf(side) < 0.55f && line_clear(G.px, G.py, m->x, m->y)) blocker = i;
@@ -4968,6 +5418,8 @@ static void reset_caster_state(void) {
     memset(G.def_hush, 0, sizeof G.def_hush); memset(G.rune_glow, 0, sizeof G.rune_glow);
     G.bfs_t = 0.0f; G.face_t = G.grin_t = 0.0f;
     G.l_down = 0; G.l_t = 0.0f; G.pilgrim = 0;
+    memset(G.ab_cd, 0, sizeof G.ab_cd); G.dash_t = G.wwalk_t = 0.0f; G.tap_key = -1; G.ab_ready = 0;   /* the abilities ready again */
+    for (int b = 0; b < NBOSS; b++) if (RUN.abil[b]) G.ab_ready |= 1 << b;
     G.max_hp = gear_max_hp(&RUN.gear);
     if (G.hp > G.max_hp) G.hp = G.max_hp;
 }
@@ -5077,6 +5529,7 @@ static void start_level(void) {
     memset(G.bones, 0, sizeof G.bones);
     memset(G.beams, 0, sizeof G.beams);
     memset(G.burns, 0, sizeof G.burns);
+    memset(G.remains, 0, sizeof G.remains); G.nremains = 0;
     reset_caster_state();
     const Room *R = &G.rooms[0];
     G.cx = R->x + R->w / 2; G.cy = R->y + R->h / 2;
@@ -5197,6 +5650,9 @@ static void debug_gear(void) {
     if (getenv("CRAWL_BAG")) give_bag(atoi(getenv("CRAWL_BAG")));
     if (getenv("CRAWL_GOLD")) RUN.treasure = atoi(getenv("CRAWL_GOLD"));
     if (getenv("CRAWL_SOULS")) RUN.souls = atoi(getenv("CRAWL_SOULS"));
+    const char *tot = getenv("CRAWL_TOTEM");                       /* each boss ability's rank, a digit each: 3300 */
+    for (int b = 0; tot && b < NBOSS && tot[b]; b++) { RUN.abil[b] = (uint8_t)clampi(tot[b] - '0', 0, ABIL_TOP); if (RUN.abil[b]) RUN.rec.boss[b].slain = 1; }
+    if (getenv("CRAWL_SCRIP")) for (int b = 0; b < NBOSS; b++) { RUN.scrip[b] = atoi(getenv("CRAWL_SCRIP")); RUN.rec.boss[b].slain = 1; }   /* and the bosses beaten */
 }
 #endif
 
@@ -5245,7 +5701,7 @@ static void carry_caster(const GState *from) {
     G_CARRY(from, poison_t, commune_r);                            /* what is on it, the runes running, the abilities' clocks */
     G_CARRY(from, def_cd, face_side);                              /* the runes' cooldowns, the portrait */
     G_CARRY(from, hurt, chill);
-    G_CARRY(from, player, inv_page);                               /* a person's controls and menus */
+    G_CARRY(from, player, ab_ready);                               /* a person's controls and menus, the abilities' clocks */
 }
 
 static void pocket_say_found(int link) {                           /* the first time into a link: a secret, on the level's count */
@@ -6679,7 +7135,7 @@ static void wisp_out(Wisp *w) { w->state = WS_GONE; w->flare = 0.0f; sfx_at(SFX_
 static void turn_undead(const Wisp *w) {
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *m = &G.mobs[i];
-        if (!m->alive || m->state != MS_WALK || !(KIND_IS(m, KF_UNDEAD) || m->type == MOB_WSKULL || m->type == MOB_WRAITH)) continue;
+        if (!m->alive || m->state != MS_WALK || m->ally || !(KIND_IS(m, KF_UNDEAD) || m->type == MOB_WSKULL || m->type == MOB_WRAITH)) continue;
         if (hypotf(m->x - w->x, m->y - w->y) > BLESS_REACH || !line_clear(w->x, w->y, m->x, m->y)) continue;
         if (m->type == MOB_WRAITH) { if (m->sub != 1) wraith_back(m); continue; }
         if (m->feared <= 0.0f || !m->wfeared) { sfx_at(SFX_MOAN, m->x, m->y, 0.6f); DBG_COUNT(turned); }
@@ -6864,7 +7320,7 @@ static void crawl_update(double dt) {
         wisp_level = G.level;
     }
 #endif
-    if (!G.dead) { update_items(); update_abilities(fdt); update_altar(); update_status(fdt); if (G.level_t > 1.0) update_defense(fdt); }
+    if (!G.dead) { update_items(); update_abilities(fdt); ab_update(fdt); update_altar(); update_status(fdt); if (G.level_t > 1.0) update_defense(fdt); }
     update_boss(fdt);
     update_hazards(fdt);
     update_omens(fdt);
@@ -6883,7 +7339,7 @@ static void crawl_update(double dt) {
     /* keep the action coming: if nothing has happened for a while, wake something up ahead */
     if (G.calm > (G.player ? 35.0f : 11.0f) && !PK.depth) {        /* a person clears a level for good, mostly */
         int x, y, alive = 0;
-        for (int i = 0; i < MAXMOBS; i++) { const Mob *m = &G.mobs[i]; alive += m->alive && !m->guard && !KIND_IS(m, KF_UNCOUNTED) && m->type != MOB_WSKULL && m->type != MOB_SPIDER && m->type != MOB_GARGOYLE && m->type != MOB_LING; }
+        for (int i = 0; i < MAXMOBS; i++) { const Mob *m = &G.mobs[i]; alive += m->alive && !m->guard && !m->ally && !KIND_IS(m, KF_UNCOUNTED) && m->type != MOB_WSKULL && m->type != MOB_SPIDER && m->type != MOB_GARGOYLE && m->type != MOB_LING; }
         if (alive < 8 && pick_cell_at_depth(G.cx, G.cy, 4, 8, 1, &x, &y)) spawn_wanderer(x, y);
         G.calm = 4.0f;
     }
@@ -6985,6 +7441,8 @@ static void crawl_update(double dt) {
 #define CAT_S 1.05f
 #define SHOP_MID 15.5f                      /* the middle of the room, east to west */
 #define SHOP_DOOR 21                        /* the east door, and the way on */
+#define TOTEM_X 4.5f
+#define TOTEM_Y 12.5f                       /* the Hexed Totem, in the back room's corner */
 enum { SH_GREET, SH_LOOK, SH_THINK, SH_GO, SH_BUY, SH_THANK, SH_SHRINE_GO, SH_SHRINE, SH_LEAVE };
 static int offer_sprite(const Offer *o) {
     static const int PIECE_SPR[NIK] = { SP_ITEM_RING, SP_ITEM_BRACER, SP_ITEM_BOOTS, SP_ITEM_AMULET, SP_ITEM_HOOD, SP_ITEM_ROBE, SP_ITEM_RING, SP_ITEM_BAG };
@@ -7023,6 +7481,12 @@ static void gen_shop(void) {
     G.map[(int)SHRINE_Y][(int)SHRINE_X].kind = K_PROP;
     add_deco(SHRINE_X - 1.15f, 17.6f, SP_CANDLES); light_static(SHRINE_X - 1.1f, 17.55f, 0.95f, 3.4f);
     add_deco(SHRINE_X + 1.15f, 17.6f, SP_CANDLES); light_static(SHRINE_X + 1.1f, 17.55f, 0.95f, 3.4f);
+    for (int y = 12; y <= 17; y++) for (int x = 4; x <= 8; x++) carve(x, y, 2, TH_BRICK);   /* the back room, through an arch beside her */
+    carve(9, 13, 2, TH_BRICK);
+    G.rooms[G.nrooms++] = (Room){ 4, 12, 5, 6, 2, TH_BRICK };
+    solid_prop((int)TOTEM_X, (int)TOTEM_Y, SP_HEXTOTEM, 1, K_PILLAR);   /* the Hexed Totem, in its corner */
+    add_deco(TOTEM_X + 1.05f, TOTEM_Y - 0.1f, SP_CANDLES); light_static(TOTEM_X + 1.0f, TOTEM_Y + 0.2f, 1.0f, 3.6f);   /* candles at its foot */
+    G.map[18][6].tex = T_TORCH0; light_static(6.5f, 17.92f, 1.2f, 4.4f);
     G.ped_n = gear_shop_pedestals(G.level);                        /* an arc, its ends come forward */
     float half = 3.0f + 0.4f * (float)(G.ped_n - 5);
     for (int i = 0; i < G.ped_n; i++) {
@@ -7368,6 +7832,48 @@ static int auto_shrine_act(void) {                                 /* one deed; 
     return 1;
 }
 
+/* ---- the Hexed Totem (docs/PLAN-b7.md, section 7): each beaten boss's ability, unlocked with a scrip of
+ * that boss and raised with more, one for rank I, two for II, three for III; scrip beyond what its ability
+ * still needs sells there for 20,000 gold, asked twice. Bosses not yet beaten don't show. ---- */
+#define SCRIP_PRICE 20000
+static int boss_beaten(int b) { return RUN.rec.boss[b].slain > 0 || RUN.abil[b] > 0; }
+static int totem_need(int b) { int n = 0; for (int r = RUN.abil[b] + 1; r <= ABIL_TOP; r++) n += r; return n; }
+static int totem_extra(int b) { return imax(0, RUN.scrip[b] - totem_need(b)); }
+static int totem_rows(int *t) { int n = 0; for (int b = 0; b < NBOSS; b++) if (boss_beaten(b)) t[n++] = b; return n; }
+static void totem_raise(int b) {
+    RUN.scrip[b] -= RUN.abil[b] + 1; RUN.abil[b]++;
+    if (ab_on_mouse(b) && !ab_on_mouse(RUN.abil_sel)) RUN.abil_sel = b;   /* the first on the right mouse is readied */
+    G.ab_cd[b] = 0.0f;
+    static const char *const RANK[ABIL_TOP + 1] = { "", "I", "II", "III" };
+    shrine_note(RUN.abil[b] == 1 ? "THE TOTEM TEACHES YOU %s" : "%s, RANK %s", BA_NAME[b], RANK[RUN.abil[b]]);
+    snd_sfx_ex(SFX_RUNE, 1.0f, 0.5f); snd_sfx_ex(SFX_STINGER, 0.5f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.7f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT totem_raise %s to %d scrip left %d t=%.2f\n", BA_NAME[b], RUN.abil[b], RUN.scrip[b], G.t);
+#endif
+}
+static void totem_sell(int b) {
+    RUN.scrip[b]--; RUN.treasure += SCRIP_PRICE;
+    shrine_note("A SCRIP SOLD: $%d", SCRIP_PRICE);
+    snd_sfx_ex(SFX_COIN, 1.1f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT totem_sell %d left %d t=%.2f\n", b, RUN.scrip[b], G.t);
+#endif
+}
+/* what an ability does at a rank, in a few lines */
+static void ab_text(int b, int r, char *buf, int n) {
+    static const char *const HOLD[ABIL_TOP] = { "A THIRD OF", "TWO THIRDS OF", "ALL OF" };
+    r = clampi(r, 1, ABIL_TOP);
+    float wait = BA_WAIT[b][r - 1];
+    switch (b) {
+    case BOSS_KNIGHT: snprintf(buf, (size_t)n, "TAP W, A, S OR D TWICE: DART UP TO FIVE CELLS THAT WAY, UNTOUCHABLE. AGAIN IN %.0f S.", wait); break;
+    case BOSS_SPIDER: snprintf(buf, (size_t)n, "RIGHT CLICK: A WEB HOLDS WHAT YOU AIM AT, AND IT CLAWS AT THAT, NOT YOU. IT HOLDS %s YOUR HEALTH, %d AT ONCE. AGAIN IN %.0f S.",
+                               HOLD[r - 1], r, wait); break;
+    case BOSS_DEACON: snprintf(buf, (size_t)n, "RIGHT CLICK ON THE REMAINS OF WHAT YOU SLEW: IT RISES AND FIGHTS FOR YOU %d S, %d AT ONCE. AGAIN IN %.0f S.",
+                               8 + 4 * r, r, wait); break;
+    default: snprintf(buf, (size_t)n, "RIGHT CLICK: %.1f S THROUGH CREATURES AND THEIR MISSILES, AND THEY LOSE YOU. AGAIN IN %.0f S.", 1.0f + 0.5f * (float)r, wait); break;
+    }
+}
+
 static void shop_human(float dt);
 static void update_ui(void);
 
@@ -7514,7 +8020,7 @@ static void name_newcomers(void) {
         const Mob *m = &G.mobs[i];
         if (!m->alive || m->state != MS_WALK || (G.named[m->type] >> m->rank & 1)) continue;
         if ((m->type == MOB_SPIDER || m->type == MOB_GARGOYLE) && m->sub == 0) continue;   /* still hidden in its web, or still a statue */
-        if (m->type == MOB_SAC || shade_hidden(m) || m->boss) continue;   /* a shade shows only in light; a boss has its card */
+        if (m->type == MOB_SAC || shade_hidden(m) || m->boss || m->ally) continue;   /* a shade shows only in light; a boss has its card */
         float dx = m->x - G.px, dy = m->y - G.py, d = sqrtf(dx * dx + dy * dy) + 1e-4f;
         if (d > 9.0f || (dx * fx + dy * fy) / d < 0.5f || !line_clear(G.px, G.py, m->x, m->y)) continue;
         G.named[m->type] |= (uint8_t)(1 << m->rank);
@@ -7641,7 +8147,8 @@ static float human_move(float dx, float dy) {
     if (dy != 0.0f) { if (!body_blocked(G.px, G.py + dy, &bx, &by)) G.py += dy; else human_bump(bx, by); }
     for (int i = 0; i < MAXMOBS; i++) {
         const Mob *m = &G.mobs[i];
-        if (solid_mob(m) && m->state == MS_WALK && m->type != MOB_BAT) push_from(m->x, m->y, 0.5f);
+        if (solid_mob(m) && m->state == MS_WALK && m->type != MOB_BAT && !m->ally && G.wwalk_t <= 0.0f) push_from(m->x, m->y, 0.5f);   /* yours, and
+                                                                                       wraithwalking all of them, you go through */
     }
     if (G.shop) {                                                  /* the pedestals and the merchant's chest */
         for (int i = 0; i < G.ped_n; i++) push_from(G.ped_x[i], G.ped_y[i], 0.5f);
@@ -7708,6 +8215,20 @@ static void human_walk(float dt) {
     }
 }
 
+/* a person's dart: the way set when it began, the mouse still turning */
+static void dash_step(float dt) {
+    float k = fminf(dt, G.dash_t);
+    G.ang = wrap_pi(G.ang + IN.mdx * MOUSE_TURN);
+    G.px += G.dash_vx * k; G.py += G.dash_vy * k;
+    if ((G.dash_t -= dt) < 0.0f) G.dash_t = 0.0f;
+    G.spd = 0.0f;
+    int ncx = (int)G.px, ncy = (int)G.py;
+    if (ncx != G.cx || ncy != G.cy) {
+        G.cx = G.tx = ncx; G.cy = G.ty = ncy; G.u = 1.0f;
+        if (G.map[ncy][ncx].visits < 250) { if (G.map[ncy][ncx].visits == 0) G.explored++; G.map[ncy][ncx].visits++; }
+    }
+}
+
 static void best_default_rank(void);
 static void update_bestiary(void);
 static int toast_showing(void);
@@ -7728,6 +8249,12 @@ static void open_ui(int which) {
         G.sh_coins = clampi(RUN.coins, 1, 3);
         if (G.sh_fav && !(RUN.attuned >> fav_kind(G.sh_fav) & 1)) G.sh_fav = 0;
         if (RUN.shrine) for (int k = 0; k < NDEF; k++) shrine_attune(k, RUN.gear.def[k]);   /* what you hold at Rare, it knows */
+        snd_sfx_ex(SFX_WHISPER, 0.6f, 0.5f);
+    }
+    else if (which == UI_TOTEM) {                                  /* on the first rank it can raise now */
+        int r[NBOSS], n = totem_rows(r);
+        G.ui_sel = 0; G.tot_arm = -1; G.tot_col = 0; G.sh_note_t = 0.0f;
+        for (int i = n - 1; i >= 0; i--) if (RUN.abil[r[i]] < ABIL_TOP && RUN.scrip[r[i]] > RUN.abil[r[i]]) G.ui_sel = i;
         snd_sfx_ex(SFX_WHISPER, 0.6f, 0.5f);
     }
     else if (which == UI_WISPS) {                                  /* on the wisp L last cast */
@@ -7844,7 +8371,17 @@ static void update_human(float dt) {
         else { G.l_down = 0; cast_choice(&c[i]); }
     }
     if (IN.hit[KEY_H]) show_bar();                                 /* a look at where things stand */
-    human_walk(dt);
+    if (IN.hit[KEY_Q]) ready_next();                               /* the boss abilities: Q readies the next, */
+    if (IN.hit[KEY_MOUSE2]) use_readied();                         /* the right mouse uses it */
+    G.tap_t += dt;
+    static const int TAP[4] = { KEY_W, KEY_D, KEY_S, KEY_A };      /* ahead, right, back, left */
+    for (int k = 0; k < 4 && G.dash_t <= 0.0f; k++) {              /* and a direction tapped twice darts that way */
+        if (!IN.hit[TAP[k]]) continue;
+        if (G.tap_key == k && G.tap_t < 0.25f && swift_dodge(G.ang + (float)k * PI_F * 0.5f)) G.tap_key = -1;
+        else G.tap_key = k;
+        G.tap_t = 0.0f;
+    }
+    if (G.dash_t > 0.0f) dash_step(dt); else human_walk(dt);
     if (IN.hit[KEY_E] || IN.hit[KEY_SPACE]) human_use();
     if (G.exiting) return;
     if (!IN.down[KEY_MOUSE1]) G.click_spent = 0;
@@ -7869,6 +8406,8 @@ static void shop_human(float dt) {
     if (G.shop_look != was) G.shop_confirm = -1;                   /* a warning is for the ware it was given over */
     float sd = hypotf(SHRINE_X - G.px, SHRINE_Y - G.py);
     G.sh_look = G.shop_look < 0 && sd < 3.0f && fabsf(wrap_pi(atan2f(SHRINE_Y - G.py, SHRINE_X - G.px) - G.ang)) < 0.3f + 0.3f / sd;
+    float td = hypotf(TOTEM_X - G.px, TOTEM_Y - G.py);
+    G.tot_look = G.shop_look < 0 && !G.sh_look && td < 3.6f && fabsf(wrap_pi(atan2f(TOTEM_Y - G.py, TOTEM_X - G.px) - G.ang)) < 0.3f + 0.3f / td;
 #ifdef CRAWL_DEBUG
     if (G.shop_look != was) fprintf(stderr, "EVENT shop_look %d t=%.2f at (%.2f,%.2f) ang %.3f\n", G.shop_look, G.t, G.px, G.py, G.ang);
 #endif
@@ -7889,6 +8428,7 @@ static void shop_human(float dt) {
             else if (worn >= 0 && RUN.gear.bag_size && !gear_bag_free(&RUN.gear)) { G.shop_letgo = i; G.ui = UI_LETGO; G.ui_sel = 0; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); }
             else { shop_purchase(i); G.grab_t = 1.0f; }
         } else if (G.sh_look) { open_ui(UI_SHRINE); G.click_spent = IN.hit[KEY_MOUSE1]; G.grab_t = 1.0f; }
+        else if (G.tot_look) { open_ui(UI_TOTEM); G.click_spent = IN.hit[KEY_MOUSE1]; G.grab_t = 1.0f; }
         else if (!human_use() && hypotf(G.px - CAT_X, G.py - CAT_Y) < 1.8f) {   /* a pat */
             G.cat_slow = 1.4f; sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.9f); G.click_spent = IN.hit[KEY_MOUSE1];
         }
@@ -7926,14 +8466,14 @@ static void update_letgo(void) {
 
 /* the person takes over, from wherever the autopilot was */
 static void human_begin(void) {
-    G.state = PS_PLAYER; G.pc_t = -1.0f; G.u = 1.0f; G.spd = 0.0f; G.seek_secret = -1;
+    G.state = PS_PLAYER; G.pc_t = -1.0f; G.u = 1.0f; G.spd = 0.0f; G.seek_secret = -1; G.dash_t = 0.0f; G.tap_key = -1;
     G.cx = G.tx = (int)G.px; G.cy = G.ty = (int)G.py;
     if (RUN.gear.atk[G.spell] < 0) G.spell = AT_FIRE;
 }
 
 /* back to the autopilot: the merchant's routine picks up where it fits; in the crypt, settle into the grid */
 static void human_end(void) {
-    G.player = 0; G.ui = UI_NONE; G.status_ret = PLAY_AUTO; G.pc_t = -1.0f;
+    G.player = 0; G.ui = UI_NONE; G.status_ret = PLAY_AUTO; G.pc_t = -1.0f; G.dash_t = 0.0f;
     if (G.shop) {
         if (G.shop_left <= 0) { G.shop_step = SH_LEAVE; G.shop_t = 0.0; shop_walk(SHOP_DOOR - 0.8f, 15.5f, 1.8f); }
         else { G.shop_step = SH_THINK; G.shop_t = 0.0; shop_turn(face_of(SHOP_MID, 13.0f), 0.5f); }
@@ -8443,6 +8983,7 @@ static void crawl_control(int what) {
     if (getenv("CRAWL_TPSECRET") && !G.shop && G.nsecrets) tp_secret(atoi(getenv("CRAWL_TPSECRET")) % G.nsecrets);
     if (getenv("CRAWL_TPALTAR") && !G.shop) tp_altar();
     if (getenv("CRAWL_TPDOOR") && !G.shop) tp_door();              /* before a secret's doorway, its room open */
+    if (getenv("CRAWL_TPTOTEM") && G.shop) { G.px = 6.9f; G.py = 14.6f; G.ang = face_of(TOTEM_X, TOTEM_Y); G.cx = 6; G.cy = 14; }   /* before the Totem */
     if (getenv("CRAWL_TPBOSS") && !G.shop && G.boss >= 0 && G.bstart_x >= 0) {   /* in the boss's antechamber, facing the arch */
         G.px = G.bstart_x + 0.5f; G.py = G.bstart_y + 0.5f; G.ang = 0.0f; human_begin();
     }
@@ -8562,21 +9103,26 @@ static void rec_unpack_extra(const uint8_t *p, Record *r) {
     for (int b = 0; b < BOSS_REC; b++, p += 9) { r->boss[b].met = p[0] != 0; r->boss[b].slain = (uint16_t)get16(p + 1); r->boss[b].tries = (uint16_t)get16(p + 3); r->boss[b].best = (uint16_t)get16(p + 5); r->boss[b].scrip = (uint16_t)get16(p + 7); }
 }
 /* version 6's hall, as far as it is built: the runs completed, each boss's scrip and challenge step, the
- * ranks met since the last death */
-#define SAVE_V6_HALL (2 + 2 * BOSS_REC + BOSS_REC + REC_KINDS + 1)
+ * ranks met since the last death, the omens named, each boss ability's rank and the one readied */
+#define SAVE_V6_HALL (2 + 2 * BOSS_REC + BOSS_REC + REC_KINDS + 1 + BOSS_REC + 1)
 static void hall_pack(uint8_t *p) {
     put16(p, clampi(RUN.runs_done, 0, 65535)); p += 2;
     for (int b = 0; b < BOSS_REC; b++, p += 2) put16(p, clampi(RUN.scrip[b], 0, 65535));
     for (int b = 0; b < BOSS_REC; b++) *p++ = (uint8_t)clampi(RUN.bstep[b], 0, 5);
     memcpy(p, RUN.top_rank, REC_KINDS); p += REC_KINDS;
-    *p = (uint8_t)RUN.omens;
+    *p++ = (uint8_t)RUN.omens;
+    for (int b = 0; b < BOSS_REC; b++) *p++ = (uint8_t)clampi(RUN.abil[b], 0, ABIL_TOP);
+    *p = (uint8_t)clampi(RUN.abil_sel, 0, BOSS_REC - 1);
 }
 static void hall_unpack(const uint8_t *p) {
     RUN.runs_done = get16(p); p += 2;
     for (int b = 0; b < BOSS_REC; b++, p += 2) RUN.scrip[b] = get16(p);
     for (int b = 0; b < BOSS_REC; b++) RUN.bstep[b] = clampi(*p++, 0, 5);
     for (int k = 0; k < REC_KINDS; k++) RUN.top_rank[k] = (uint8_t)clampi(p[k], 0, NRANK);
-    RUN.omens = p[REC_KINDS] & ((1 << NHZ) - 1);
+    p += REC_KINDS;
+    RUN.omens = *p++ & ((1 << NHZ) - 1);
+    for (int b = 0; b < BOSS_REC; b++) RUN.abil[b] = (uint8_t)(b < NBOSS ? clampi(*p, 0, ABIL_TOP) : 0), p++;
+    RUN.abil_sel = clampi(*p, 0, NBOSS - 1);
 }
 /* before version 6 a descent was twenty levels: the 40th, 80th ... stay as the descents they are now
  * (the 40th as level 40 cleared), and the rest are let go */
@@ -8874,10 +9420,37 @@ static void update_shrinemenu(void) {
     }
 }
 
+/* the Totem: W/S a boss, A/D raise or sell, Enter takes (a sale asked twice), Esc closes */
+static void update_totemmenu(void) {
+    int r[NBOSS], n = totem_rows(r);
+    int enter = IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1];
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; return; }
+    if (!n) { if (enter) G.ui = UI_NONE; return; }
+    int up = IN.hit[KEY_W] || IN.hit[KEY_UP], down = IN.hit[KEY_S] || IN.hit[KEY_DOWN];
+    int side = (IN.hit[KEY_A] || IN.hit[KEY_LEFT]) || (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]);
+    if (up || down) { G.ui_sel = (G.ui_sel + n + down - up) % n; G.tot_arm = -1; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    G.ui_sel = clampi(G.ui_sel, 0, n - 1);
+    int b = r[G.ui_sel];
+    if (side && totem_extra(b) > 0) { G.tot_col ^= 1; G.tot_arm = -1; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    if (totem_extra(b) <= 0) G.tot_col = 0;
+    if (!enter) return;
+    if (G.tot_col) {
+        if (G.tot_arm != b) { G.tot_arm = b; shrine_note("ENTER AGAIN SELLS ONE FOR $%d", SCRIP_PRICE); snd_sfx_ex(SFX_KNOCK, 0.7f, 0.5f); return; }
+        totem_sell(b); G.tot_arm = -1;
+        return;
+    }
+    G.tot_arm = -1;
+    if (RUN.abil[b] >= ABIL_TOP) { shrine_note("IT CAN GO NO HIGHER"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+    int cost = RUN.abil[b] + 1;
+    if (RUN.scrip[b] < cost) { shrine_note("IT WANTS %d SCRIP OF %s", cost, BOSSES[b].short_name); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+    totem_raise(b);
+}
+
 static void update_ui(void) {
     if (IN.hit[KEY_MOUSE1]) G.click_spent = 1;                    /* a click that closes a menu casts nothing */
     if (G.ui == UI_WISPS) { update_wispmenu(); return; }
     if (G.ui == UI_SHRINE) { update_shrinemenu(); return; }
+    if (G.ui == UI_TOTEM) { update_totemmenu(); return; }
 #ifdef CRAWL_DEBUG
     if (G.pilgrim == 2 && G.ui == UI_ALTAR) {                     /* the test player sends the wisp on, after a look */
         static int look;
@@ -9236,10 +9809,11 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
 
 /* alpha < 1: dithered see-through. remap: the ramp R_PURPLE turns into. flags: how it is drawn.
  * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
-typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; } Draw;   /* glint: a key's ramp, for Keymaker's sparkle */
+typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; float web; } Draw;   /* glint: a key's
+                                                                                                   ramp, for Keymaker's sparkle; web: how much of yours holds it */
 enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_SWAY = 32, DR_FLIPV = 64, DR_COMMUNE = 128, DR_GLINT = 256, DR_EDGE = 512,
        DR_GLITCH = 1024, DR_CLIP = 2048, DR_LOOPED = 4096, DR_LIT = 8192, DR_SHINE = 16384, DR_MEND = 32768,
-       DR_RIPPLE = 65536 };                                         /* RIPPLE: the Wraith's Time Slip, grey, going out */   /* SHINE: polished plate, a glint
+       DR_RIPPLE = 65536, DR_ALLY = 131072, DR_WEBBED = 262144 };   /* ALLY: risen by your Grave Call, a violet edge; WEBBED: held in yours */                                         /* RIPPLE: the Wraith's Time Slip, grey, going out */   /* SHINE: polished plate, a glint
                                                                                                  sliding over it */
 /* GLITCH: rows torn sideways and colours slipping, now and then (the Backrooms), more often when LOOPED; CLIP: cut at
  * the floor and ceiling; LIT: brighter than the light it stands in (Severance's creatures, under the panels) */
@@ -9400,6 +9974,14 @@ static int key_sprite(int color, float ph) {
 }
 
 static int mob_sprite(const Mob *m, float *scale) {
+    if ((m->webbed > 0.0f || (m->ally && m->claw > 0.0f)) && m->state == MS_WALK) {   /* held still, clawing now and then; or one of
+                                                                                        yours, striking */
+        Mob c = *m;
+        c.webbed = 0.0f; c.ally = 0;
+        if (m->webbed > 0.0f) c.anim = 0.0f;
+        c.swing = m->claw > 0.0f ? 0.2f : 0.0f; c.throw_t = m->claw > 0.0f && m->type == MOB_SKEL ? 0.2f : 0.0f;
+        return mob_sprite(&c, scale);
+    }
     int fr = ((int)m->anim) & 1;
     *scale = KINDS[m->type].scale;
     switch (m->type) {
@@ -9487,6 +10069,7 @@ static int shot_sprite(const Shot *s, float *scale) {
     case AT_WISPS: *scale = 0.6f; return SP_WISP;
     case AT_SPARKS: *scale = 0.6f; return SP_SPARK;
     case SHOT_REFLECT: return s->z > 0.5f ? (fl ? SP_SKULLFIRE_B : SP_SKULLFIRE_A) : SP_BONEFLY0 + (((int)(G.t * 14.0)) & 3);
+    case SHOT_WEB: *scale = 0.3f; return SP_SAC_A;                 /* a glob of web */
     default: return fl ? SP_FIRE_B : SP_FIRE_A;
     }
 }
@@ -9510,7 +10093,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
-        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0 }; } while (0)
+        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f }; } while (0)
     for (int i = 0; i < G.ndecos; i++) {
         const Deco *dc = &G.decos[i];
         static const float FPS[4] = { 0.0f, 0.0f, 3.0f, 9.0f };    /* by frame count: candles flicker, fire roars */
@@ -9613,6 +10196,11 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                 d = &list[n0];
             }
         }
+        if (m->ally && m->state == MS_WALK) {                      /* yours: a violet edge, crumbling as its time runs out */
+            d->flags |= DR_ALLY | (m->z < -0.01f ? DR_CLIP : 0);
+            if (m->ally_t < 2.0f) d->alpha = fmaxf(0.2f, m->ally_t / 2.0f);
+        }
+        if (m->webbed > 0.0f && m->state == MS_WALK) { d->flags |= DR_WEBBED; d->web = m->webbed / fmaxf(1.0f, m->webmax); }
         if (commune) d->flags = (d->flags & ~DR_EYES) | DR_COMMUNE;   /* Commune: its shape, wherever it is */
         if (m->state == MS_DIE && m->sub == 77) {                  /* drawn in to a point */
             float k = smoothstepf(0.1f, 0.75f, m->t);
@@ -9719,6 +10307,14 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         }
         if (n > n0 && it->type != IT_KEY) { float u = ph * 0.6f - floorf(ph * 0.6f); list[n - 1].twinkle = u < 0.1f ? sinf(u / 0.1f * PI_F) : 0.0f; }
     }
+    if (G.shop)                                                    /* the bosses' scrip on the Totem's hooks, one for each ability known */
+        for (int b = 0; b < NBOSS; b++) {
+            if (!RUN.abil[b]) continue;
+            static const float HOOK[NBOSS] = { -0.2f, -0.068f, 0.068f, 0.2f };
+            int n0 = n;
+            ADD(TOTEM_X + rx * HOOK[b], TOTEM_Y + ry * HOOK[b], 0.54f + 0.01f * sinf((float)G.t * 1.3f + (float)b), SP_SCRIP, 0);
+            if (n > n0) { list[n - 1].scale = 0.34f; list[n - 1].depth -= 0.05f; }
+        }
     if (G.shop) {
         build_cat();
         int n0 = n;
@@ -9835,10 +10431,11 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     }
                 }
                 if (c == C_CLEAR) {
-                    if ((d->flags & DR_EDGE) && !behind && ((x + y + (int)(G.t * 10.0)) & 1)
+                    if ((d->flags & (DR_EDGE | DR_ALLY)) && !behind && ((x + y + (int)(G.t * 10.0)) & 1)
                         && ((tyi < TS - 1 && col[tyi + 1] != C_CLEAR) || (tx > 0 && img[(tx - 1) * TS + tyi] != C_CLEAR)
                             || (tx < TS - 1 && img[(tx + 1) * TS + tyi] != C_CLEAR)))
-                        f->pix[y * W + x] = C_WHITE;               /* the blessing: a white edge about its fire */
+                        f->pix[y * W + x] = (d->flags & DR_ALLY) ? (uint8_t)(R_PURPLE + 13) : (uint8_t)C_WHITE;   /* the blessing: a white edge
+                                                                                                         about its fire; yours, a violet one */
                     continue;
                 }
                 int faded = d->alpha < 1.0f && d->alpha * 16.0f <= BAYER[(y + (int)(G.t * 20.0)) & 3][x & 3] + 0.5f;
@@ -9875,6 +10472,21 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                 int px = (int)(cx + cosf(a * (TAU_F / 96.0f)) * rx), py = (int)(cy + sinf(a * (TAU_F / 96.0f)) * ry);
                 if (px >= 0 && px < W && py >= 0 && py < H && d->depth < zbuf[px] + 0.6f)
                     f->pix[py * W + px] = grey ? (uint8_t)(R_STONE + 9 + (a & 3)) : (a & 3) ? (uint8_t)C_WHITE : (uint8_t)(R_GHOST + 12);
+            }
+        }
+        if (d->flags & DR_WEBBED) {                                /* your web over it: strands, fewer as it is torn */
+            uint32_t hs = (uint32_t)(int)(d->x * 13.0f) * 2654435761u ^ (uint32_t)(int)(d->y * 7.0f) * 40503u;
+            for (int k = 0, ns = 3 + (int)(6.0f * d->web); k < ns; k++) {
+                uint32_t h1 = hs + (uint32_t)k * 2246822519u;
+                h1 ^= h1 >> 13; h1 *= 0x5bd1e995u; h1 ^= h1 >> 15;
+                float ax = left + size * (0.2f + 0.6f * (float)(h1 & 255) / 255.0f), ay = top + size * (0.3f + 0.65f * (float)((h1 >> 8) & 255) / 255.0f);
+                float bx = left + size * (0.2f + 0.6f * (float)((h1 >> 16) & 255) / 255.0f), by = top + size * (0.3f + 0.65f * (float)((h1 >> 24) & 255) / 255.0f);
+                int np = (int)fmaxf(fabsf(bx - ax), fabsf(by - ay)) + 1;
+                for (int i = 0; i <= np; i++) {
+                    int px = (int)(ax + (bx - ax) * (float)i / (float)np), py = (int)(ay + (by - ay) * (float)i / (float)np);
+                    if (px < 0 || px >= W || py < 0 || py >= H || d->depth >= zbuf[px] || ((px + py) & 1)) continue;
+                    f->pix[py * W + px] = (uint8_t)(R_GHOST + 11 + (k & 3));
+                }
             }
         }
         if (d->flags & DR_GLINT) {                                 /* Keymaker: a sparkle where the key lies, through the stone */
@@ -10093,6 +10705,21 @@ static void render_shop_card(Frame *f) {
     if (G.shop_step == SH_LOOK && G.shop_t < 0.35) i = -1;
     if (G.player) i = G.shop_look;
     int y0 = H - 44 - 46;
+    if (G.player && G.tot_look && i < 0) {                         /* the Totem, and what E does there */
+        int bw = 264, bx = (W - bw) / 2, ph = 42, known = 0, scrip = 0;
+        for (int b = 0; b < NBOSS; b++) { known += boss_beaten(b); scrip += RUN.scrip[b]; }
+        y0 = H - 44 - 4 - ph;
+        gfx_rect(f, bx, y0, bw, ph, 0);
+        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
+        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        gfx_text16(f, bx + 8, y0 + 4, "THE HEXED TOTEM", R_GOLD + 12, 1);
+        char l2[48];
+        if (!known) snprintf(l2, sizeof l2, "IT WANTS A BOSS'S ODIOUS SCRIP");
+        else snprintf(l2, sizeof l2, "%d SCRIP HELD", scrip);
+        gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
+        gfx_text8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10, 1);
+        return;
+    }
     if (G.player && G.sh_look && i < 0) {                          /* the shrine, and what E does there */
         int bw = 264, bx = (W - bw) / 2, ph = 42;
         y0 = H - 44 - 4 - ph;
@@ -10361,7 +10988,8 @@ static void render_hand(Frame *f) {
                 continue;
             }
             float lit = light;
-            f->pix[sy * W + sx] = shade(greyed ? grey[c] : c, lit, sx, sy);
+            if (G.wwalk_t > 0.0f && ((sx + sy + (int)(G.t * 20.0)) & 1)) continue;   /* Wraithwalk: the hand half there */
+            f->pix[sy * W + sx] = shade(greyed || G.wwalk_t > 0.0f ? grey[c] : c, lit, sx, sy);
         }
     }
     float ct = -1.0f, fire = 0.0f;                                 /* how far into a cast, and when it lets go */
@@ -10586,6 +11214,8 @@ static void render_tally(Frame *f) {
 }
 
 /* HP, gold, souls and keys: slides up from the bottom edge when something changes, then away */
+#define SOCK 19                                                    /* an ability's socket and the gap after it */
+static int sockets_shown(void);
 static const char *const KEY_ART[5] = { ".##.....", "#..#####", "#..#..#.", ".##...#.", "........" };
 static void key_icon(Frame *f, int kx, int ky, int color) {
     static const int RAMP[NKEYS] = { R_GOLD, R_IRON, R_BLOOD };
@@ -10609,7 +11239,7 @@ static void render_readout(Frame *f) {
     char coins[12];
     snprintf(coins, sizeof coins, "%d", RUN.coins);
     int cx = kx + nk * 11 + (nk ? 2 : 0);
-    int pw = cx + (RUN.coins > 0 ? 10 + gfx_text_width(coins, 1) + 6 : 0) + 4, ph = 18, px = 6, py = H - 4 - (int)(k * (ph + 4)) + 4 - (int)(G.lift * 40.0f + 0.5f);   /* raised over HOLD H */
+    int pw = cx + (RUN.coins > 0 ? 10 + gfx_text_width(coins, 1) + 6 : 0) + 4, ph = 18, px = 6 + sockets_shown() * SOCK, py = H - 4 - (int)(k * (ph + 4)) + 4 - (int)(G.lift * 40.0f + 0.5f);   /* raised over HOLD H */
     gfx_rect(f, px, py, pw, ph, 0);
     for (int i = 0; i < pw; i++) { gfx_px(f, px + i, py, R_STONE + 9); gfx_px(f, px + i, py + ph - 1, R_STONE + 5); }
     for (int i = 0; i < ph; i++) { gfx_px(f, px, py + i, R_STONE + 9); gfx_px(f, px + pw - 1, py + i, R_STONE + 5); }
@@ -10638,6 +11268,63 @@ static void render_readout(Frame *f) {
     if (RUN.coins > 0) { draw_coin(f, px + cx, py + 5); gfx_text8(f, px + cx + 10, py + 5, coins, R_GOLD + 10, 1); }
 }
 
+/* The ability sockets (docs/PLAN-b7.md, section 8), at the bottom left: each unlocked ability's mark, a
+ * line along its foot filling as it comes round (bright when ready), a pip over it for each web or risen
+ * dead it may have out (lit while one is), the right mouse's one outlined in gold, all greyed and struck
+ * through in the void. On the status bar's top edge while it is up; down in the corner when it is away. */
+static const char *const BA_MARK[NBOSS][11] = {
+    { "...........", "##...##....", ".##...##...", "..##...##..", "...##...##.", "....##...##",
+      "...##...##.", "..##...##..", ".##...##...", "##...##....", "..........." },   /* a dart, twice over */
+    { "#....#....#", ".#...#...#.", "..#######..", "..##.#.##..", "..#.###.#..", "#####.#####",
+      "..#.###.#..", "..##.#.##..", "..#######..", ".#...#...#.", "#....#....#" },   /* a web */
+    { "...#####...", "..#######..", ".##..#..##.", ".##..#..##.", ".#########.", "..##.#.##..",
+      "...#####...", "....#.#....", "#.#.....#.#", "###########", ".#########." },   /* a skull up out of the earth */
+    { "....###....", "...#####...", "..##...##..", "..#.#.#.#..", "..#.....#..", "..#.....#..",
+      "..##...##..", ".#.#...#.#.", ".#.#...#.#.", "#..#.#.#..#", "...#.#.#..." },   /* a hooded shape, going thin */
+};
+static const int BA_RAMP[NBOSS] = { R_GLOW, R_GHOST, R_BONE, R_PURPLE };
+static void ab_mark(Frame *f, int x, int y, int b, uint8_t c) {
+    for (int r = 0; r < 11; r++) for (int k = 0; k < 11; k++) if (BA_MARK[b][r][k] == '#') gfx_px(f, x + k, y + r, c);
+}
+static int sockets_shown(void) {                                   /* how many: only for a person, in the crypt */
+    int n = 0;
+    if (!G.player || G.shop || G.tally || G.dead) return 0;
+    for (int b = 0; b < NBOSS; b++) n += RUN.abil[b] > 0;
+    return n;
+}
+static void render_sockets(Frame *f) {
+    if (!sockets_shown()) return;
+    int bar_top = H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f);
+    int y = imin(bar_top - 20, H - 21), x = 4, sel = ab_readied();
+    for (int b = 0; b < NBOSS; b++) {
+        if (!RUN.abil[b]) continue;
+        float wait = ab_wait(b), k = wait > 0.0f ? 1.0f - clampf(G.ab_cd[b] / wait, 0.0f, 1.0f) : 1.0f;
+        int ready = k >= 1.0f, ramp = BA_RAMP[b];
+        if (b == sel && ab_on_mouse(b)) gfx_rect(f, x - 1, y - 1, 19, 19, (uint8_t)(R_GOLD + 11));   /* the right mouse's */
+        bevel(f, x, y, 17, 17, 0);
+        uint8_t mc = G.silenced ? (uint8_t)(R_STONE + 7) : (ready ? ramp_at(ramp, 14) : ramp_at(ramp, 8));
+        ab_mark(f, x + 3, y + 2, b, mc);
+        for (int i = 0; i < 13; i++)                               /* coming round */
+            gfx_px(f, x + 2 + i, y + 14, i < (int)(k * 13.0f + 0.5f) ? (ready && !G.silenced ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 9)) : (uint8_t)(R_STONE + 3));
+        if (G.silenced) for (int i = 1; i < 16; i++) gfx_px(f, x + i, y + 16 - i, R_BLOOD + 11);   /* struck through */
+        if (b == BOSS_SPIDER || b == BOSS_DEACON) {                /* a pip for each it may have out, lit while one is */
+            int out = b == BOSS_SPIDER ? webs_out() : allies_out();
+            for (int p = 0; p < RUN.abil[b]; p++) gfx_rect(f, x + 1 + p * 4, y - 4, 2, 2, p < out ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 7));
+        }
+        x += SOCK;
+    }
+}
+
+/* Swift Dodge, seen from inside it: streaks at the edges of sight */
+static void render_dash(Frame *f) {
+    if (G.dash_t <= 0.0f || !G.player) return;
+    for (int k = 0; k < 28; k++) {
+        uint32_t h = hash2(k, (int)(G.t * 30.0));
+        int y = (int)(h % H), len = 18 + (int)((h >> 8) % 70), side = (h >> 16) & 1;
+        for (int i = 0; i < len; i++) { int x = side ? W - 1 - i : i; if (!((x + y) & 1)) f->pix[y * W + x] = (uint8_t)(R_GHOST + 10 + (i < len / 3 ? 3 : 0)); }
+    }
+}
+
 /* screen tints: red when hurt or dying, gold for treasure; index 0 stays black for the OLED */
 static void tint(Frame *f) {
     float red = 0.30f * G.hurt, gold = 0.22f * G.gold, dark = 0.0f, chill = 0.3f * G.chill;
@@ -10648,11 +11335,14 @@ static void tint(Frame *f) {
     else if (G.hp <= G.max_hp / 4) red = fmaxf(red, 0.08f * (0.5f + 0.5f * sinf((float)G.t * 5.7f)));
     if (G.dread_t > 0.0f) { float k = sinf(PI_F * G.dread_t / 0.8f); dark = fmaxf(dark, 0.45f * k); violet = fmaxf(violet, 0.18f * k); }   /* Dread: a shadow falls */
     if (G.bfs_t > 0.0f) dark = fmaxf(dark, G.bfs_t < 0.12f ? 0.97f : 0.9f * (1.0f - smoothstepf(0.12f, 1.3f, G.bfs_t)));   /* the light goes out of the room */
-    if (red <= 0.0f && gold <= 0.0f && chill <= 0.0f && green <= 0.0f && blue <= 0.0f && violet <= 0.0f && dark <= 0.0f) return;
+    float ghost = G.wwalk_t > 0.0f ? 0.6f * fminf(1.0f, G.wwalk_t * 4.0f) : 0.0f;   /* Wraithwalk: the world grey and far */
+    if (red <= 0.0f && gold <= 0.0f && chill <= 0.0f && green <= 0.0f && blue <= 0.0f && violet <= 0.0f && dark <= 0.0f && ghost <= 0.0f) return;
     for (int i = 1; i < 256; i++) {
         int glow = G.bfs_t > 0.0f && i >= R_GLOW && i < R_GLOW + 16;   /* the imploding keep their light */
+        float lum = 0.3f * f->pal[i][0] + 0.59f * f->pal[i][1] + 0.11f * f->pal[i][2];
         for (int c = 0; c < 3; c++) {
             float v = f->pal[i][c] * (glow || i == C_WHITE ? 1.0f : 1.0f - dark);
+            v += ((c == 1 ? 0.7f : 0.85f) * lum + (c == 1 ? 0.0f : 4.0f) - v) * ghost;
             v += (50.0f * (c == 0) - v) * red * (c == 0 ? 0.6f : 1.0f);
             if (c < 2) v += ((c ? 50.0f : 63.0f) - v) * gold; else v -= v * gold;
             v += ((c == 0 ? 30.0f : 52.0f) - v) * chill;                 /* a wraith's cold breath */
@@ -10676,10 +11366,13 @@ static void render_messages(Frame *f) {
     if (G.hint_t > 0.0f && G.player && !G.ui) {
         static const char *const HINT[4] = { "WASD WALK  MOUSE TURN  CLICK CASTS", "1-9 SPELLS  E OPENS  TAB INVENTORY", "B BESTIARY  ESC LEAVE OR SLEEPWALK",
                                              "L WISPS  H THE STATUS BAR" };
-        for (int i = 0; i < 4; i++) {
-            int w = gfx_text_width(HINT[i], 1), x = (W - w) / 2, y = 34 + i * 11;
+        const char *more[2] = { RUN.abil[BOSS_KNIGHT] ? "TAP A DIRECTION TWICE TO DODGE" : NULL, ab_readied() >= 0 ? "RIGHT CLICK AN ABILITY  Q THE NEXT" : NULL };
+        for (int i = 0, row = 0; i < 6; i++) {
+            const char *h = i < 4 ? HINT[i] : more[i - 4];
+            if (!h) continue;
+            int w = gfx_text_width(h, 1), x = (W - w) / 2, y = 34 + row++ * 11;
             gfx_rect(f, x - 4, y - 2, w + 8, 11, 0);
-            gfx_text8(f, x, y, HINT[i], R_STONE + 13, 1);
+            gfx_text8(f, x, y, h, R_STONE + 13, 1);
         }
     }
 }
@@ -11395,8 +12088,67 @@ static void render_shrinemenu(Frame *f) {
     gfx_text8(f, px + 10, py + ph - 12, hint, R_STONE + 9, 1);
 }
 
+/* the Totem's screen: a row for each boss beaten, its ability's mark, its rank, the scrip held, what the
+ * next rank costs and, with scrip to spare, a sale; a card on the one chosen */
+static void render_totemmenu(Frame *f) {
+    static const char *const RANK[ABIL_TOP + 1] = { "NOT KNOWN", "RANK I", "RANK II", "RANK III" };
+    dim_view(f);
+    int px = 6, py = 6, pw = W - 12, ph = H - 12;
+    panel(f, px, py, pw, ph);
+    gfx_text16(f, px + 10, py + 6, "THE HEXED TOTEM", R_GOLD + 12, 1);
+    char line[200];
+    snprintf(line, sizeof line, "$%d", RUN.treasure);
+    gfx_text8(f, px + pw - 10 - gfx_text_width(line, 1), py + 10, line, R_GOLD + 11, 1);
+    int r[NBOSS], n = totem_rows(r), sel = clampi(G.ui_sel, 0, n - 1);
+    if (!n) {
+        text_wrap(f, px + 10, py + 34, "IT WANTS A BOSS'S ODIOUS SCRIP, AND NONE HAS FALLEN TO YOU YET. BEAT ONE ON THE WAY DOWN AND IT WILL TEACH YOU WHAT THAT ONE KNEW.", 36, R_STONE + 12, 6);
+        gfx_text8(f, px + 10, py + ph - 12, "ESC CLOSES", R_STONE + 9, 1);
+        return;
+    }
+    gfx_text8(f, px + 10, py + 26, "W/S CHOOSE  A/D SELL  ENTER TAKES", R_STONE + 9, 1);
+    int y = py + 40;
+    for (int i = 0; i < n; i++, y += 20) {
+        int b = r[i], rk = RUN.abil[b], top = rk >= ABIL_TOP, cost = rk + 1, extra = totem_extra(b);
+        if (i == sel) gfx_rect(f, px + 6, y - 2, pw - 12, 19, R_IRON + 3);
+        ab_mark(f, px + 12, y + 3, b, rk ? ramp_at(BA_RAMP[b], 14) : (uint8_t)(R_STONE + 8));
+        gfx_text8(f, px + 30, y, BA_NAME[b], i == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12), 1);
+        gfx_text8(f, px + pw - 12 - gfx_text_width(RANK[rk], 1), y, RANK[rk], rk ? ramp_at(BA_RAMP[b], 13) : (uint8_t)(R_STONE + 8), 1);
+        snprintf(line, sizeof line, "%d SCRIP", RUN.scrip[b]);
+        gfx_text8(f, px + 30, y + 9, line, R_BONE + 11, 1);
+        int x = px + pw - 12, on = i == sel;
+        if (extra > 0) {                                           /* the sale, right of the raise */
+            snprintf(line, sizeof line, "SELL $%d", SCRIP_PRICE);
+            x -= gfx_text_width(line, 1);
+            uint8_t c = G.tot_arm == b ? (uint8_t)(R_BLOOD + 13) : (on && G.tot_col ? (uint8_t)C_WHITE : (uint8_t)(R_GOLD + 9));
+            if (on && G.tot_col) gfx_rect(f, x - 2, y + 8, gfx_text_width(line, 1) + 4, 10, R_IRON + 6);
+            gfx_text8(f, x, y + 9, line, c, 1);
+            x -= 12;
+        }
+        if (top) snprintf(line, sizeof line, "HIGHEST"); else snprintf(line, sizeof line, rk ? "RAISE: %d" : "UNLOCK: %d", cost);
+        x -= gfx_text_width(line, 1);
+        if (on && !G.tot_col && extra > 0) gfx_rect(f, x - 2, y + 8, gfx_text_width(line, 1) + 4, 10, R_IRON + 6);
+        gfx_text8(f, x, y + 9, line, !top && RUN.scrip[b] >= cost ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 9), 1);
+    }
+    /* the card: what the next rank does (or this one, at the top), and whose scrip it takes */
+    int b = r[sel], rk = RUN.abil[b];
+    for (int i = px + 8; i < px + pw - 8; i++) gfx_px(f, i, y, R_STONE + 5);
+    y += 5;
+    if (G.tot_col && totem_extra(b) > 0)
+        snprintf(line, sizeof line, "YOU HOLD %d MORE OF ITS SCRIP THAN THE TOTEM WILL EVER ASK. EACH SELLS FOR $%d.", totem_extra(b), SCRIP_PRICE);
+    else {
+        char d[160];
+        int shown = rk < ABIL_TOP ? rk + 1 : rk;
+        ab_text(b, shown, d, sizeof d);
+        snprintf(line, sizeof line, "%s %s: %s", rk < ABIL_TOP ? (rk ? "NEXT," : "TO LEARN,") : "AT", RANK[shown], d);
+    }
+    int nl = text_wrap(f, px + 10, y, line, 36, R_STONE + 13, 5);
+    if (G.sh_note_t > 0.0f) gfx_text8(f, px + 10, y + nl * 9 + 3, G.sh_note, R_GOLD + 11, 1);   /* what was just done, */
+    else gfx_text8(f, px + 10, y + nl * 9 + 3, BOSSES[b].scrip, R_BONE + 10, 1);                /* or whose scrip it takes */
+}
+
 static void render_ui(Frame *f) {
     if (G.ui == UI_SHRINE) { render_shrinemenu(f); return; }
+    if (G.ui == UI_TOTEM) { render_totemmenu(f); return; }
     if (G.ui == UI_WISPS) { render_wispmenu(f); return; }
     if (G.ui == UI_ALTAR) { render_altarmenu(f); return; }
     if (G.ui == UI_INVENTORY) render_inventory(f);
@@ -11430,6 +12182,8 @@ static void crawl_render(Frame *f) {
     if (!G.dead) { render_wards(f); render_hand(f); }
     if (G.shop) render_shop_card(f);
     if (G.shop || G.player) render_statusbar(f);                    /* a person gets the Wolfenstein bar, */
+    render_sockets(f);
+    render_dash(f);
     if (G.player && !G.shop && G.bar <= 0.0f) render_readout(f);   /* and the small one while it is away */
     if (!G.shop && !G.player) { render_readout(f); render_face_popup(f); }
     if (!G.shop) { render_bossbar(f); render_card(f); }
