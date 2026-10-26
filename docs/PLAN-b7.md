@@ -873,8 +873,18 @@ first.
     begins it again; a save or a scene switch mid-challenge comes back to that room too. In the harness: a
     knight challenge from level 2 (won in 196 s, scrip 1 to 2, back to level 2's room), a spider challenge
     (won in 292 s), and run II's start from level 2. ASan clean.
-11. **Saves version 6 and the ledger**: bigger pages, signing with the merchant, opening from Esc,
-    fleeing, the dream, old saves.
+11. **Saves version 6 and the ledger** (built): pages of up to 16 KB, written as sections after the fixed part
+    so that the hall's parts can come as sections of their own; the progress names the page to start from,
+    or holds a run never signed; a third value, the mark, has its place beside them for step 13. The
+    platform writes any of them the moment the game changes it, and nothing on quitting. E at the
+    merchant opens her menu (sign, pat, leave); signing picks the page you came from and asks twice over
+    another run's page; a page signed in her room keeps her visit, so opening it sets out the same wares,
+    with what was bought gone. Esc offers flee, stay, sleepwalk and open the ledger; carving and rising
+    are gone. Taking over marks the run as yours until the program closes (deaths and the mark use it
+    from steps 12 and 13). 1.0.0b6's graves open as pages (marked CARVED) and its last fled progress is
+    the unsigned run. In the harness: signing, opening, starting again from the progress, an old grave
+    and progress from a 1.0.0b6 build, signing over another run's page, the visit kept. ASan clean; the
+    Windows build compiles (not run under Wine).
 12. **Death's cost**: what goes and stays, written at the fall; the death card; the pocket's sealed
     doorway; the grave plot, its stones and what killed you.
 13. **The claim**: danger and the mark, written at once; what she takes; her card; the warning eye.

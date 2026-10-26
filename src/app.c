@@ -204,23 +204,21 @@ void app_set_input(Input *in) { A.in = in; }
 int app_control_state(void) { return A.control ? APP_PLAYER : (A.hold_t > 0.0 || A.grace > 0.0 ? APP_HOLDING : APP_AUTO); }
 void app_focus(int on) { if (!on && A.control && SCENES[A.cur]->control) SCENES[A.cur]->control(CTRL_PAUSE); }
 int app_quit_requested(void) { return A.quit; }
-int app_save(uint8_t *buf, int cap) { int p = playable_scene(); return p >= 0 && SCENES[p]->save ? SCENES[p]->save(buf, cap) : 0; }
-void app_load(const uint8_t *buf, int len) { int p = playable_scene(); if (p >= 0 && SCENES[p]->load && buf && len > 0) SCENES[p]->load(buf, len); }
 
-static struct { uint8_t data[SLOT_MAX]; int len, dirty; } SLOTS[SLOT_COUNT];
+static struct { uint8_t data[SLOT_MAX]; int len, dirty; } SLOTS[SLOT_ALL];
 static void slot_put(int i, const uint8_t *buf, int len, int dirty) {
-    if (i < 0 || i >= SLOT_COUNT || !buf || len <= 0 || len > SLOT_MAX) return;
+    if (i < 0 || i >= SLOT_ALL || !buf || len <= 0 || len > SLOT_MAX) return;
     memcpy(SLOTS[i].data, buf, (size_t)len); SLOTS[i].len = len; SLOTS[i].dirty = dirty;
 }
 int slot_read(int i, uint8_t *buf, int cap) {
-    if (i < 0 || i >= SLOT_COUNT || SLOTS[i].len <= 0 || SLOTS[i].len > cap) return 0;
+    if (i < 0 || i >= SLOT_ALL || SLOTS[i].len <= 0 || SLOTS[i].len > cap) return 0;
     memcpy(buf, SLOTS[i].data, (size_t)SLOTS[i].len);
     return SLOTS[i].len;
 }
 void slot_write(int i, const uint8_t *buf, int len) { slot_put(i, buf, len, 1); }
 void app_slot_load(int i, const uint8_t *buf, int len) { slot_put(i, buf, len, 0); }
 int app_slot_take(int i, uint8_t *buf, int cap) {
-    if (i < 0 || i >= SLOT_COUNT || !SLOTS[i].dirty) return 0;
+    if (i < 0 || i >= SLOT_ALL || !SLOTS[i].dirty) return 0;
     SLOTS[i].dirty = 0;
     return slot_read(i, buf, cap);
 }

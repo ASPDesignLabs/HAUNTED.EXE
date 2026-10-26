@@ -51,14 +51,15 @@ typedef struct Scene {
     void (*control)(int what);                    /* CTRL_TAKE: a person takes over; CTRL_PAUSE: the window lost focus; CTRL_PEEK: H held, not yet taken */
     int  (*status)(void);                         /* PLAY_AUTO once handed back, PLAY_QUIT when the player chose to leave */
     void (*input)(const Input *in, double dt);    /* before each update while a person has it */
-    int  (*save)(uint8_t *buf, int cap);          /* the progress worth keeping; returns its length */
-    void (*load)(const uint8_t *buf, int len);    /* before the first enter */
 } Scene;
 
-/* Save slots, three of them: the app keeps their bytes, the platform stores them (the registry on
- * Windows, files in the harness). A scene reads and writes them whenever it likes. */
-#define SLOT_COUNT 3
-#define SLOT_MAX 2048                  /* a run, its record of kills and achievements, and when it was carved */
+/* Save slots: the merchant's ledger, three pages, and beside them the progress (which page to start
+ * from) and the dead's mark. The app keeps their bytes, the platform stores them (the registry on
+ * Windows, files in the harness), loading them all before the first scene and writing any that changed
+ * after each step. A scene reads and writes them whenever it likes. */
+#define SLOT_COUNT 3                   /* the ledger's pages */
+enum { SLOT_PROGRESS = SLOT_COUNT, SLOT_MARK, SLOT_ALL };
+#define SLOT_MAX 16384                 /* a run and all the merchant's hall keeps for it */
 int  slot_read(int i, uint8_t *buf, int cap);        /* the slot's length, 0 when it is empty */
 void slot_write(int i, const uint8_t *buf, int len);
 

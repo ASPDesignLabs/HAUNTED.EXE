@@ -456,6 +456,8 @@ static struct {
     int abil_sel;                           /* the one the right mouse uses (a boss's number) */
     int run_top;                            /* the furthest run opened at the Accursed Portal: its boss's level over ten */
     int chal_from;                          /* in a challenge: the level whose merchant's room it was begun from */
+    uint32_t run_id, signs;                 /* the ledger's: whose run this is (born at a fresh start, kept through
+                                               death), and how many times it has been signed */
 } RUN;
 
 /* The caster's boss abilities (docs/PLAN-b7.md, section 8): one a boss, unlocked at the Hexed Totem with a
@@ -483,6 +485,21 @@ static struct {
     char typed[25], last[25]; int ntyped;
     int used, rank;                         /* a code has worked; the rank every creature comes at (-1: as it falls) */
 } CON = { .rank = -1 };
+
+/* The merchant's ledger (docs/PLAN-b7.md, sections 2 and 3): three pages, written by signing with her, by
+ * a death and by her claim, and by nothing else. What lasts only while the program runs: whether a person
+ * has taken the run over (from then on it is theirs; until then it is the screensaver's dream, and nothing
+ * it does is kept), and the page it was opened from or last signed onto (0: unsigned, a run the progress
+ * holds itself). A page signed in her room keeps the visit too, so that opening it sets out the same wares. */
+typedef struct {
+    int level, ped_n, left, bought, takes, held;
+    uint8_t gone[NPED], back[NPED];
+    Offer offers[NPED];
+} Visit;
+static struct {
+    int read, yours, page;
+    int has_visit; Visit visit;             /* the page's visit, set out when its room is entered */
+} LEDGER;
 
 static struct {
     uint32_t rs;
@@ -574,10 +591,11 @@ static struct {
     char sh_note[80];
     int tot_look, tot_arm, tot_col;         /* the Hexed Totem: looked at; a sale awaiting a second Enter; raise (0) or sell (1) */
     int por_look;                           /* the Accursed Portal, looked at */
+    int mer_look;                           /* the merchant herself, close enough for E */
 
     /* a person at the controls */
     int player, ui, ui_sel, quit_line, status_ret;
-    int graves_mode, graves_arm, graves_msg;    /* the save slots: carving (0) or rising (1); a second Enter's slot; why */
+    int led_mode, led_arm, led_msg;             /* the ledger: signing (0) or opening (1); a second Enter's page; why */
     int best_page, best_rank, best_scroll;      /* the bestiary: which creature (or the achievements), which rank, how far down */
     float ui_t;                                 /* a clock that runs while a menu holds the crypt still */
     float pc_t, pc_len, grab_t, hint_t, msg_t;     /* their cast; reaching for a ware; the hints; a message */
@@ -635,7 +653,8 @@ static struct {
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
        BP_LITANY };                                 /* the Deacon's censer raised, the green light growing */
 static float zbuf[W];
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL };   /* the menus a person can open */
+enum { MM_SIGN, MM_PAT, MM_LEAVE, NMM };                           /* the merchant's menu */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 
 /* pockets (see the pockets' code below): the level as it waits, and where in a chain you are */
@@ -6039,9 +6058,12 @@ static int pocket_go(int x, int y) {
 }
 static void pocket_reset_level(void) { memset(&PK, 0, sizeof PK); PK.level = G.level; snd_set_room(0); }
 
+static void ledger_first(void);
+static uint32_t new_run_id(uint32_t seed);
 static void crawl_enter(uint32_t seed) {
     crawl_art_init();
     CON.open = 0; CON.slide = 0.0f; snd_hold(0);                   /* the console goes up; what a code did stays */
+    ledger_first();                                                /* the first time: the page to start from */
     int resume = RUN.active;
     if (resume && !RUN.loaded) {                                   /* back from the other scene: where was it? */
         int won = G.tally || G.exiting;
@@ -6055,6 +6077,7 @@ static void crawl_enter(uint32_t seed) {
     if (!resume) {
         memset(&RUN, 0, sizeof RUN);
         RUN.active = 1; RUN.level = 1; RUN.hp = 100; RUN.shop_next = 1;
+        RUN.run_id = new_run_id(seed);
         gear_reset(&RUN.gear);
 #ifdef CRAWL_DEBUG
         if (getenv("CRAWL_LEVEL")) RUN.level = atoi(getenv("CRAWL_LEVEL"));
@@ -6066,6 +6089,7 @@ static void crawl_enter(uint32_t seed) {
 #endif
     G.level = RUN.level; G.hp = RUN.hp;
     if (RUN.shop_next) begin_shop(); else start_level();
+    LEDGER.has_visit = 0;                                          /* a page's visit is for its own room only */
 }
 
 static void collect(Item *it) {
@@ -7613,10 +7637,16 @@ static void begin_shop(void) {
     G.cat_next_blink = 2.5f + 2.0f * rndf(); G.cat_next_ear = 3.0f + 3.0f * rndf(); G.cat_tail_k = 0.0f;
     G.sdur = 0.0f; G.smove = 0.0f;
     G.level_t = 0.0;
+    if (LEDGER.has_visit && LEDGER.visit.level == G.level) {       /* a page opened here: her visit as it was signed */
+        const Visit *v = &LEDGER.visit;
+        for (int p = 0; p < G.ped_n && p < v->ped_n; p++) { G.offers[p] = v->offers[p]; G.offer_gone[p] = v->gone[p]; G.offer_back[p] = v->back[p]; }
+        G.shop_left = v->left; G.shop_bought = v->bought; G.sh_takes = v->takes; G.shop_held = v->held < G.ped_n ? v->held : -1;
+    }
+    LEDGER.has_visit = 0;
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "SHOP level %d gold %d souls %d:", G.level, RUN.treasure, RUN.souls);
-    for (int p = 0; p < G.ped_n; p++) { char nm[80]; gear_name(&G.offers[p], nm, sizeof nm); fprintf(stderr, " [%s $%d%s%s]", nm, G.offers[p].price, G.offers[p].rare ? " RARE" : "", G.offer_back[p] ? " HELD" : ""); }
-    fprintf(stderr, "\n");
+    for (int p = 0; p < G.ped_n; p++) { char nm[80]; gear_name(&G.offers[p], nm, sizeof nm); fprintf(stderr, " [%s $%d%s%s%s]", nm, G.offers[p].price, G.offers[p].rare ? " RARE" : "", G.offer_back[p] ? " HELD" : "", G.offer_gone[p] ? " GONE" : ""); }
+    fprintf(stderr, " left %d\n", G.shop_left);
 #endif
 }
 
@@ -8337,6 +8367,9 @@ static void open_ui(int which) {
         for (int i = 0; i < n; i++) if (r[i].run == crawl_run(G.level)) G.ui_sel = i;
         snd_sfx_ex(SFX_WHISPER, 0.7f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.4f, 0.5f);
     }
+    else if (which == UI_MERCHANT) {                               /* on the ledger */
+        G.ui_sel = MM_SIGN; sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.8f); G.cat_trill = 0.4f; G.cat_slow = 1.0f;
+    }
     else if (which == UI_WISPS) {                                  /* on the wisp L last cast */
         WispChoice c[WISP_CHOICES];
         int n = wisp_choices(c), i = wisp_choice_at(c, n, RUN.wisp_kind, RUN.wisp_color);
@@ -8490,6 +8523,7 @@ static void shop_human(float dt) {
     G.tot_look = G.shop_look < 0 && !G.sh_look && td < 3.6f && fabsf(wrap_pi(atan2f(TOTEM_Y - G.py, TOTEM_X - G.px) - G.ang)) < 0.3f + 0.3f / td;
     float pdx = PORTAL_X + 0.5f - G.px, pdy = PORTAL_Y + 0.1f - G.py, pd = hypotf(pdx, pdy);
     G.por_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && pd < 3.4f && fabsf(wrap_pi(atan2f(pdy, pdx) - G.ang)) < 0.3f + 0.35f / pd;
+    G.mer_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.por_look && hypotf(G.px - CAT_X, G.py - CAT_Y) < 1.8f;
 #ifdef CRAWL_DEBUG
     if (G.shop_look != was) fprintf(stderr, "EVENT shop_look %d t=%.2f at (%.2f,%.2f) ang %.3f\n", G.shop_look, G.t, G.px, G.py, G.ang);
 #endif
@@ -8512,9 +8546,7 @@ static void shop_human(float dt) {
         } else if (G.sh_look) { open_ui(UI_SHRINE); G.click_spent = IN.hit[KEY_MOUSE1]; G.grab_t = 1.0f; }
         else if (G.tot_look) { open_ui(UI_TOTEM); G.click_spent = IN.hit[KEY_MOUSE1]; G.grab_t = 1.0f; }
         else if (G.por_look) { open_ui(UI_PORTAL); G.click_spent = IN.hit[KEY_MOUSE1]; }
-        else if (!human_use() && hypotf(G.px - CAT_X, G.py - CAT_Y) < 1.8f) {   /* a pat */
-            G.cat_slow = 1.4f; sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.9f); G.click_spent = IN.hit[KEY_MOUSE1];
-        }
+        else if (!human_use() && G.mer_look) { open_ui(UI_MERCHANT); G.click_spent = IN.hit[KEY_MOUSE1]; }   /* her menu: the ledger, a pat */
     }
     if (IN.hit[KEY_Q] && i >= 0) {                                 /* hold it for the next visit, for a quarter of its price */
         const Offer *o = &G.offers[i];
@@ -8626,10 +8658,10 @@ static void update_inventory(void) {
 
 /* ---- Esc: leave the crypt? ---- */
 
-enum { Q_FLEE, Q_STAY, Q_SLEEP, Q_CARVE, Q_RISE, Q_OPTIONS };
-static void open_graves(int mode);
+enum { Q_FLEE, Q_STAY, Q_SLEEP, Q_OPEN, Q_OPTIONS };
+static void open_ledger(int mode);
 static void quit_choose(int c) {
-    if (c == Q_CARVE || c == Q_RISE) { open_graves(c == Q_RISE); return; }
+    if (c == Q_OPEN) { open_ledger(1); return; }
     if (c == Q_FLEE) { G.status_ret = PLAY_QUIT; snd_sfx_ex(SFX_GHOST_DIE, 0.8f, 0.5f); }
     else if (c == Q_STAY) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
     else { G.ui = UI_NONE; human_end(); snd_sfx_ex(SFX_WHISPER, 0.7f, 0.5f); }
@@ -8980,7 +9012,7 @@ static void con_run(const char *w) {
         }
         if (con_do(c->what, num, rest) && c->what != CH_HELP && !CON.used) {
             CON.used = 1;                                          /* the price, until the program is closed */
-            con_print("THE DEAD TAKE NOTE. NO HONOURS AND NO GRAVES WHILE THIS LASTS.", R_BLOOD + 12);
+            con_print("THE DEAD TAKE NOTE. NO HONOURS AND NOTHING SIGNED WHILE THIS LASTS.", R_BLOOD + 12);
         }
 #ifdef CRAWL_DEBUG
         fprintf(stderr, "EVENT console code %d %d t=%.2f\n", c->what, num, G.t);
@@ -9056,6 +9088,7 @@ static void crawl_control(int what) {
     if (what == CTRL_PEEK) { if (!G.player) { pop_readout(); G.peek = 0.15f; } return; }
     show_bar();
     G.player = 1; G.status_ret = PLAY_PLAYER; G.ui = UI_NONE;
+    LEDGER.yours = 1;                                              /* the dream is over: from now on the run is yours */
     if (!G.quit_line) G.quit_line = 1 + rnd(97);                    /* the crypt's arguments, from somewhere new each time */
     if (G.shop) { G.sdur = 0.0f; G.shop_look = -1; G.pc_t = -1.0f; }   /* no cast left half-made */
     else if (!G.exiting && !G.tally && !G.dead) human_begin();
@@ -9068,6 +9101,7 @@ static void crawl_control(int what) {
     if (getenv("CRAWL_TPALTAR") && !G.shop) tp_altar();
     if (getenv("CRAWL_TPDOOR") && !G.shop) tp_door();              /* before a secret's doorway, its room open */
     if (getenv("CRAWL_TPPORTAL") && G.shop) { G.px = PORTAL_X + 0.5f; G.py = PORTAL_Y - 2.2f; G.ang = PI_F * 0.5f; G.cx = PORTAL_X; G.cy = PORTAL_Y - 3; }   /* before the Portal */
+    if (getenv("CRAWL_TPCAT") && G.shop) { G.px = CAT_X + 1.3f; G.py = CAT_Y + 0.4f; G.ang = face_of(CAT_X, CAT_Y); G.cx = (int)G.px; G.cy = (int)G.py; }   /* before the merchant */
     if (getenv("CRAWL_TPTOTEM") && G.shop) { G.px = 6.9f; G.py = 14.6f; G.ang = face_of(TOTEM_X, TOTEM_Y); G.cx = 6; G.cy = 14; }   /* before the Totem */
     if (getenv("CRAWL_TPBOSS") && !G.shop && G.boss >= 0 && G.bstart_x >= 0) {   /* in the boss's antechamber, facing the arch */
         G.px = G.bstart_x + 0.5f; G.py = G.bstart_y + 0.5f; G.ang = 0.0f; human_begin();
@@ -9113,6 +9147,19 @@ static Piece piece_unpack(const uint8_t *p) {                       /* anything 
     for (int i = 0; i < PIECE_STATS; i++) { pc.stat[i] = p[6 + i]; pc.val[i] = (int16_t)get16(p + 6 + PIECE_STATS + 2 * i); }
     return pc;
 }
+#define OFFER_BYTES (8 + PIECE_BYTES)
+static void offer_pack(uint8_t *p, const Offer *o) {                /* a ware: what it is, its price, and a piece's make */
+    p[0] = (uint8_t)o->kind; p[1] = (uint8_t)o->id; p[2] = (uint8_t)o->tier; p[3] = (uint8_t)o->rare;
+    put32(p + 4, o->price);
+    piece_pack(p + 8, &o->piece);
+}
+static int offer_unpack(const uint8_t *p, Offer *o) {               /* 0 if it is no ware the merchant sells */
+    memset(o, 0, sizeof *o);
+    o->kind = p[0]; o->id = p[1]; o->tier = p[2]; o->rare = p[3] != 0; o->price = get32(p + 4);
+    o->piece = piece_unpack(p + 8);
+    return !(o->kind > GK_PIECE || (o->kind == GK_ATK && o->id >= NATK) || (o->kind == GK_DEF && o->id >= NDEF) || o->price < 0
+             || (o->kind == GK_PIECE && o->piece.kind == IK_NONE));
+}
 static void gear_pack(uint8_t *p, const Gear *g) {
     for (int i = 0; i < NATK; i++) *p++ = (uint8_t)g->atk[i];
     for (int i = 0; i < NDEF; i++) *p++ = (uint8_t)g->def[i];
@@ -9121,9 +9168,7 @@ static void gear_pack(uint8_t *p, const Gear *g) {
     for (int i = 0; i < BAG_MAX; i++, p += PIECE_BYTES) piece_pack(p, &g->bag[i]);
     put16(p, g->bones); p += 2;
     *p++ = g->has_held;
-    p[0] = (uint8_t)g->held.kind; p[1] = (uint8_t)g->held.id; p[2] = (uint8_t)g->held.tier; p[3] = (uint8_t)g->held.rare;
-    put32(p + 4, g->held.price); p += 8;
-    piece_pack(p, &g->held.piece);
+    offer_pack(p, &g->held);
 }
 static void gear_unpack(const uint8_t *p, Gear *g, int by_quality) {   /* runes by quality from version 5, by tier before */
     static const int SLOT_IK[NSLOT] = { IK_WRIST, IK_WRIST, IK_BOOTS, IK_NECK, IK_HOOD, IK_ROBE, IK_RING };
@@ -9139,10 +9184,7 @@ static void gear_unpack(const uint8_t *p, Gear *g, int by_quality) {   /* runes 
     for (int i = 0; i < BAG_MAX; i++, p += PIECE_BYTES) if (i < g->bag_size) g->bag[i] = piece_unpack(p);
     g->bones = (int16_t)clampi(get16(p), 0, BONES_MAX); p += 2;
     g->has_held = *p++ != 0;
-    g->held.kind = p[0]; g->held.id = p[1]; g->held.tier = p[2]; g->held.rare = p[3] != 0; g->held.price = get32(p + 4); p += 8;
-    g->held.piece = piece_unpack(p);
-    if (g->held.kind > GK_PIECE || (g->held.kind == GK_ATK && g->held.id >= NATK) || (g->held.kind == GK_DEF && g->held.id >= NDEF) || g->held.price < 0)
-        g->has_held = 0;
+    if (!offer_unpack(p, &g->held)) g->has_held = 0;
     if (!g->has_held) memset(&g->held, 0, sizeof g->held);
 }
 /* versions 1 and 2: the spellbook as it was; the robe, hood and best ring as Common pieces of their tier */
@@ -9254,13 +9296,38 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
     RUN.coin_level = get16(p + 23); RUN.coin_bits = p[25];
 }
 
-static int crawl_save(uint8_t *buf, int cap) {
+/* A version 6 page goes on past the fixed part in sections, behind the marker "LDG1": a tag, a length
+ * (u16) and that many bytes, ending at a tag of 0. A reader takes what it knows and steps over the rest.
+ * LG_PAGE: whose run (u32), its signatures (u32), when it was written (u64) and why (PG_*). LG_VISIT: the
+ * merchant's visit it was signed in, its level (u16), pedestals, wares left and bought, the shrine's
+ * takes, the ware held this visit (+1), then each pedestal's ware, gone or not and back or not. */
+#define LEDGER_MAGIC 0x3147444Cu            /* "LDG1" */
+#define PROGRESS_MAGIC 0x31505648u          /* "HVP1": a progress that names the page to start from */
+enum { LG_END, LG_PAGE, LG_VISIT };
+enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
+#define LG_PAGE_BYTES 17
+#define LG_VISIT_BYTES (8 + NPED * (2 + OFFER_BYTES))
+#define PAGE_BYTES (save_end(6) + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 1)   /* the most a page takes so far */
+static const uint8_t *page_section(const uint8_t *buf, int len, int tag, int *n) {
+    int at = save_end(6);
+    if (save_version(buf, len) != 6 || len < at + 4 || (uint32_t)get32(buf + at) != LEDGER_MAGIC) return NULL;
+    for (at += 4; at + 3 <= len && buf[at] != LG_END; at += 3 + get16(buf + at + 1)) {
+        int k = get16(buf + at + 1);
+        if (at + 3 + k > len) return NULL;
+        if (buf[at] == tag) { *n = k; return buf + at + 3; }
+    }
+    return NULL;
+}
+static uint8_t *section_begin(uint8_t *p, int tag) { p[0] = (uint8_t)tag; return p + 3; }
+static uint8_t *section_end(uint8_t *at, uint8_t *end) { put16(at - 2, (int)(end - at)); return end; }
+
+static int run_pack(uint8_t *buf, int cap, int why) {
     int n = save_end(6);
-    if (cap < n || CON.used) return 0;                             /* the dead took note: nothing is kept */
+    if (cap < PAGE_BYTES || CON.used) return 0;                    /* the dead took note: nothing is kept */
     int level = G.level, hp = G.dead || G.hp <= 0 ? gear_max_hp(&RUN.gear) : G.hp, gold = RUN.treasure, souls = RUN.souls, shop = 0;
     if (G.bchallenge && !G.shop) { level = RUN.chal_from; shop = 1; }   /* a challenge: back to the room it was begun from */
     else if (G.tally || G.exiting) { level = G.level + 1; shop = 1; }   /* the level is won */
-    else if (G.shop) shop = !G.shop_bought;
+    else if (G.shop) shop = 1;                                     /* her room, with the visit as it stands */
     else { gold -= G.level_treasure; souls -= G.level_souls; }
     put32(buf, (int32_t)SAVE_MAGIC);
     put32(buf + 4, 6);                                             /* version */
@@ -9273,11 +9340,29 @@ static int crawl_save(uint8_t *buf, int cap) {
     shrine_pack(x + SAVE_V4_EXTRA);
     rec_pack_extra(x + SAVE_V4_EXTRA + SAVE_V5_SHRINE, &RUN.rec);
     hall_pack(x + SAVE_V4_EXTRA + SAVE_V5_SHRINE + REC_EXTRA);
-    return n;
+    uint8_t *p = buf + n, *c;
+    put32(p, (int32_t)LEDGER_MAGIC); p += 4;
+    c = section_begin(p, LG_PAGE);
+    uint64_t now = (uint64_t)(int64_t)time(NULL);
+    put32(c, (int32_t)RUN.run_id); put32(c + 4, (int32_t)RUN.signs);
+    put32(c + 8, (int32_t)(uint32_t)(now & 0xffffffffu)); put32(c + 12, (int32_t)(uint32_t)(now >> 32)); c[16] = (uint8_t)why;
+    p = section_end(c, c + LG_PAGE_BYTES);
+    if (G.shop) {
+        c = section_begin(p, LG_VISIT);
+        put16(c, G.level); c[2] = (uint8_t)G.ped_n; c[3] = (uint8_t)clampi(G.shop_left, 0, 255); c[4] = (uint8_t)clampi(G.shop_bought, 0, 255);
+        c[5] = (uint8_t)clampi(G.sh_takes, 0, 255); c[6] = (uint8_t)(G.shop_held + 1); c[7] = 0;
+        uint8_t *q = c + 8;
+        for (int i = 0; i < G.ped_n; i++, q += 2 + OFFER_BYTES) { q[0] = (uint8_t)G.offer_gone[i]; q[1] = (uint8_t)G.offer_back[i]; offer_pack(q + 2, &G.offers[i]); }
+        p = section_end(c, q);
+    }
+    *p++ = LG_END;
+    return (int)(p - buf);
 }
 
-static void crawl_load(const uint8_t *buf, int len) {
-    int v = save_version(buf, len);
+static uint32_t new_run_id(uint32_t seed) { uint32_t id = (uint32_t)time(NULL) * 2654435761u ^ seed * 40503u; return id ? id : 1u; }
+
+static void run_unpack(const uint8_t *buf, int len) {
+    int v = save_version(buf, len), k;
     if (!v) return;
     memset(&RUN, 0, sizeof RUN);
     RUN.active = 1; RUN.loaded = 1;
@@ -9301,85 +9386,160 @@ static void crawl_load(const uint8_t *buf, int len) {
     }
     if (RUN.treasure < 0) RUN.treasure = 0;
     if (RUN.souls < 0 || RUN.soul_frac < 0.0f) { RUN.souls = RUN.souls < 0 ? 0 : RUN.souls; RUN.soul_frac = 0.0f; }
+    const uint8_t *c = page_section(buf, len, LG_PAGE, &k);
+    if (c && k >= LG_PAGE_BYTES) { RUN.run_id = (uint32_t)get32(c); RUN.signs = (uint32_t)get32(c + 4); }
+    if (!RUN.run_id) RUN.run_id = new_run_id((uint32_t)len * 2654435761u);   /* an old save: a run of its own from now on */
+    LEDGER.has_visit = 0;
+    c = page_section(buf, len, LG_VISIT, &k);
+    if (c && k >= 8 && RUN.shop_next) {                            /* the merchant's visit, as it was when signed */
+        Visit *vs = &LEDGER.visit;
+        memset(vs, 0, sizeof *vs);
+        vs->level = get16(c); vs->ped_n = clampi(c[2], 0, NPED); vs->left = c[3]; vs->bought = c[4]; vs->takes = c[5]; vs->held = c[6] - 1;
+        vs->ped_n = imin(vs->ped_n, (k - 8) / (2 + OFFER_BYTES));
+        const uint8_t *q = c + 8;
+        int ok = vs->level == RUN.level;
+        for (int i = 0; i < vs->ped_n; i++, q += 2 + OFFER_BYTES) { vs->gone[i] = q[0] != 0; vs->back[i] = q[1] != 0; ok &= offer_unpack(q + 2, &vs->offers[i]); }
+        if (vs->held >= vs->ped_n || !RUN.gear.has_held) vs->held = -1;
+        LEDGER.has_visit = ok;
+    }
 }
 
-/* ---- the graves: three save slots, carved and risen from the Esc menu ---- */
+/* the next start opens this page */
+static void progress_point(void) {
+    if (CON.used || LEDGER.page < 1) return;
+    uint8_t p[13];
+    put32(p, (int32_t)PROGRESS_MAGIC); p[4] = (uint8_t)LEDGER.page; put32(p + 5, (int32_t)RUN.run_id); put32(p + 9, (int32_t)RUN.signs);
+    slot_write(SLOT_PROGRESS, p, sizeof p);
+}
 
-/* A grave holds what fleeing to the surface keeps (the level to start from, health, gold, souls and
- * gear), then when it was carved. */
-typedef struct { int used, level, hp, gold, souls; int64_t when; } Grave;
-static const char *const ROMAN[SLOT_COUNT] = { "I", "II", "III" };
+/* the first time the crypt is entered: the progress names the page to start from, or holds a run that was
+ * never signed (1.0.0b6's, or one written at a death before any signing) */
+static void ledger_first(void) {
+    static uint8_t buf[SLOT_MAX];
+    if (LEDGER.read) return;
+    LEDGER.read = 1;
+    int n = slot_read(SLOT_PROGRESS, buf, sizeof buf);
+    if (n >= 5 && (uint32_t)get32(buf) == PROGRESS_MAGIC) {
+        int pg = buf[4];
+        if (pg < 1 || pg > SLOT_COUNT) return;
+        n = slot_read(pg - 1, buf, sizeof buf);
+        if (!save_version(buf, n)) return;
+        run_unpack(buf, n); LEDGER.page = pg;
+    } else run_unpack(buf, n);
+#ifdef CRAWL_DEBUG
+    if (RUN.active) fprintf(stderr, "LEDGER start from %s%s: level %d gold %d run %08x signs %u\n", LEDGER.page ? "page " : "the unsigned run",
+                            LEDGER.page ? RUN_ROMAN[LEDGER.page - 1] : "", RUN.level, RUN.treasure, RUN.run_id, RUN.signs);
+#endif
+}
 
-static Grave grave_info(int i) {
-    Grave g;
+/* ---- the merchant's ledger: three pages, signed at her menu and opened from Esc ---- */
+
+typedef struct { int used, level, hp, gold, souls, why, mine, old; int64_t when; } Page;
+static Page page_info(int i) {
+    static uint8_t buf[SLOT_MAX];
+    Page g;
     memset(&g, 0, sizeof g);
-    uint8_t buf[SLOT_MAX];
-    int n = slot_read(i, buf, sizeof buf), v = save_version(buf, n), base = save_end(v);
+    int n = slot_read(i, buf, sizeof buf), v = save_version(buf, n), base = save_end(v), k;
     if (!v) return g;
     g.used = 1; g.level = get32(buf + 8); g.hp = get32(buf + 12); g.gold = get32(buf + 16); g.souls = get32(buf + 20) / (v >= 3 ? 10 : 1);
-    if (n >= base + 8) g.when = (int64_t)((uint64_t)(uint32_t)get32(buf + base) | (uint64_t)(uint32_t)get32(buf + base + 4) << 32);
+    const uint8_t *c = page_section(buf, n, LG_PAGE, &k);
+    if (c && k >= LG_PAGE_BYTES) {
+        uint32_t id = (uint32_t)get32(c);
+        g.mine = (id && id == RUN.run_id) || i + 1 == LEDGER.page;
+        g.when = (int64_t)((uint64_t)(uint32_t)get32(c + 8) | (uint64_t)(uint32_t)get32(c + 12) << 32); g.why = c[16];
+    } else {
+        g.mine = i + 1 == LEDGER.page; g.old = 1;
+        if (n >= base + 8) g.when = (int64_t)((uint64_t)(uint32_t)get32(buf + base) | (uint64_t)(uint32_t)get32(buf + base + 4) << 32);   /* 1.0.0b6's graves: when carved */
+    }
     return g;
 }
 
-static void open_graves(int mode) {
-    G.ui = UI_GRAVES; G.graves_mode = mode; G.graves_arm = -1; G.graves_msg = 0; G.ui_sel = 0;
+static void open_ledger(int mode) {
+    G.ui = UI_LEDGER; G.led_mode = mode; G.led_arm = -1; G.led_msg = 0; G.ui_sel = 0;
     int64_t newest = -1;
+    int empty = -1;
     for (int i = SLOT_COUNT - 1; i >= 0; i--) {
-        Grave g = grave_info(i);
-        if (!mode && !g.used) G.ui_sel = i;                        /* carving: the first empty grave */
-        if (mode && g.used && g.when >= newest) { newest = g.when; G.ui_sel = i; }   /* rising: the newest */
+        Page g = page_info(i);
+        if (!g.used) empty = i;
+        if (mode && g.used && g.when >= newest) { newest = g.when; G.ui_sel = i; }   /* opening: the newest */
     }
+    if (!mode) G.ui_sel = LEDGER.page ? LEDGER.page - 1 : (empty >= 0 ? empty : 0);   /* signing: the page you came from */
     snd_sfx_ex(SFX_KEY, 0.7f, 0.5f);
 }
 
-static void carve_grave(int i) {
-    uint8_t buf[SLOT_MAX];
-    if (CON.used) { G.ui = UI_NONE; say("NO GRAVES WHILE THE DEAD TAKE NOTE"); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return; }
-    int n = crawl_save(buf, SLOT_MAX - 8);
-    if (n <= 0) return;
-    uint64_t now = (uint64_t)(int64_t)time(NULL);
-    put32(buf + n, (int32_t)(uint32_t)(now & 0xffffffffu)); put32(buf + n + 4, (int32_t)(uint32_t)(now >> 32));
-    slot_write(i, buf, n + 8);
+static void ledger_sign(int i) {
+    static uint8_t buf[SLOT_MAX];
     G.ui = UI_NONE;
-    say("CARVED INTO GRAVE %s", ROMAN[i]);
-    snd_sfx_ex(SFX_KNOCK, 1.0f, 0.5f); snd_sfx_ex(SFX_RUNE, 0.6f, 0.5f);
+    if (CON.used) { say("THE DEAD TOOK NOTE: SHE SIGNS NOTHING"); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return; }
+    RUN.signs++;
+    int n = run_pack(buf, sizeof buf, PG_SIGNED);
+    if (n <= 0) { RUN.signs--; return; }
+    slot_write(i, buf, n);
+    LEDGER.page = i + 1;
+    progress_point();
+    say("SHE SIGNS PAGE %s OF HER LEDGER", RUN_ROMAN[i]);
+    snd_sfx_ex(SFX_KNOCK, 0.8f, 0.5f); snd_sfx_ex(SFX_RUNE, 0.6f, 0.5f);
+    sfx_at(SFX_TRILL, CAT_X, CAT_Y, 1.0f); G.cat_trill = 0.5f; G.cat_slow = 1.2f;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ledger_sign page %d level %d gold %d run %08x signs %u bytes %d t=%.2f\n", i + 1, G.level, RUN.treasure, RUN.run_id, RUN.signs, n, G.t);
+#endif
 }
 
-/* the grave's run comes back at the start of its level, still in your hands */
-static void rise_from_grave(int i) {
-    uint8_t buf[SLOT_MAX];
+/* the page's run comes back in her room (or, for 1.0.0b6's graves, at the start of its level), still in your hands */
+static void ledger_open(int i) {
+    static uint8_t buf[SLOT_MAX];
     int n = slot_read(i, buf, sizeof buf), ql = G.quit_line;
+    if (!save_version(buf, n)) return;
     uint32_t seed = G.rs * 1664525u + 1013904223u;
-    crawl_load(buf, n);
+    run_unpack(buf, n);
+    LEDGER.page = i + 1;
+    progress_point();
     crawl_enter(seed);
     G.player = 1; G.status_ret = PLAY_PLAYER; G.ui = UI_NONE; G.quit_line = ql;
     if (G.shop) { G.sdur = 0.0f; G.shop_look = -1; G.pc_t = -1.0f; }   /* no cast left half-made */
     else human_begin();
-    say("RISEN FROM GRAVE %s: LEVEL %d", ROMAN[i], G.level);
+    say("THE LEDGER OPENS AT PAGE %s: LEVEL %d", RUN_ROMAN[i], G.level);
     snd_sfx_ex(SFX_WHOOSH, 0.8f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.8f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ledger_open page %d level %d gold %d shop %d t=%.2f\n", i + 1, G.level, RUN.treasure, G.shop, G.t);
+#endif
 }
 
-enum { GM_NONE, GM_ARMED, GM_EMPTY };
-static void update_graves(void) {
-    if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB] || IN.hit[KEY_N]) {        /* back to the question */
-        G.ui = UI_QUIT; G.ui_sel = G.graves_mode ? Q_RISE : Q_CARVE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f);
+enum { LM_NONE, LM_ARMED, LM_EMPTY };
+static void update_ledger(void) {
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB] || IN.hit[KEY_N]) {        /* back to where it was opened from */
+        if (G.led_mode) { G.ui = UI_QUIT; G.ui_sel = Q_OPEN; } else { G.ui = UI_MERCHANT; G.ui_sel = MM_SIGN; }
+        snd_sfx_ex(SFX_KEY, 0.6f, 0.5f);
         return;
     }
     int mv = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]), pick = -1;
     for (int k = 0; k < SLOT_COUNT; k++) if (IN.hit[KEY_1 + k]) pick = k;
     if (mv || pick >= 0) {
         G.ui_sel = pick >= 0 ? pick : (G.ui_sel + mv + SLOT_COUNT) % SLOT_COUNT;
-        G.graves_arm = -1; G.graves_msg = GM_NONE;
+        G.led_arm = -1; G.led_msg = LM_NONE;
         snd_sfx_ex(SFX_TICK, 0.6f, 0.5f);
     }
     if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_SPACE] || IN.hit[KEY_E] || IN.hit[KEY_MOUSE1])) return;
-    int i = G.ui_sel, used = grave_info(i).used;
-    if (G.graves_mode && !used) { G.graves_msg = GM_EMPTY; snd_sfx_ex(SFX_ZAP, 0.4f, 0.5f); return; }
-    if ((used || G.graves_mode) && G.graves_arm != i) {               /* over a carved name, or losing this run: ask twice */
-        G.graves_arm = i; G.graves_msg = GM_ARMED; snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f);
+    int i = G.ui_sel;
+    Page g = page_info(i);
+    if (G.led_mode && !g.used) { G.led_msg = LM_EMPTY; snd_sfx_ex(SFX_ZAP, 0.4f, 0.5f); return; }
+    if ((G.led_mode || (g.used && !g.mine)) && G.led_arm != i) {   /* losing this run, or signing over another's: ask twice */
+        G.led_arm = i; G.led_msg = LM_ARMED; snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f);
         return;
     }
-    if (G.graves_mode) rise_from_grave(i); else carve_grave(i);
+    if (G.led_mode) ledger_open(i); else ledger_sign(i);
+}
+
+/* her menu: the ledger, a pat, and leaving her be (another pedestal comes with the hall) */
+static void update_merchantmenu(void) {
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; return; }
+    int up = IN.hit[KEY_W] || IN.hit[KEY_UP], down = IN.hit[KEY_S] || IN.hit[KEY_DOWN];
+    if (up || down) { G.ui_sel = (G.ui_sel + NMM + down - up) % NMM; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    G.ui_sel = clampi(G.ui_sel, 0, NMM - 1);
+    if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) return;
+    if (G.ui_sel == MM_SIGN) { open_ledger(0); return; }
+    G.ui = UI_NONE;
+    if (G.ui_sel == MM_PAT) { G.cat_slow = 1.4f; sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.9f); }
 }
 
 /* the L menu: W/S choose, Enter casts, Space the toggle, Esc or L closes */
@@ -9569,7 +9729,8 @@ static void update_ui(void) {
 #endif
     if (G.ui == UI_ALTAR) { update_altarmenu(); return; }
     if (G.ui == UI_INVENTORY) update_inventory();
-    else if (G.ui == UI_GRAVES) update_graves();
+    else if (G.ui == UI_LEDGER) update_ledger();
+    else if (G.ui == UI_MERCHANT) update_merchantmenu();
     else if (G.ui == UI_BESTIARY) update_bestiary();
     else if (G.ui == UI_LETGO) update_letgo();
     else update_quit();
@@ -10816,6 +10977,20 @@ static void render_shop_card(Frame *f) {
     if (G.shop_step == SH_LOOK && G.shop_t < 0.35) i = -1;
     if (G.player) i = G.shop_look;
     int y0 = H - 44 - 46;
+    if (G.player && G.mer_look && i < 0) {                         /* the merchant, and what E does with her */
+        int bw = 264, bx = (W - bw) / 2, ph = 42;
+        y0 = H - 44 - 4 - ph;
+        gfx_rect(f, bx, y0, bw, ph, 0);
+        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
+        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        gfx_text16(f, bx + 8, y0 + 4, "THE MERCHANT", R_GOLD + 12, 1);
+        char l2[48];
+        if (LEDGER.page) snprintf(l2, sizeof l2, "FROM PAGE %s OF HER LEDGER", RUN_ROMAN[LEDGER.page - 1]);
+        else snprintf(l2, sizeof l2, "THIS RUN IS UNSIGNED");
+        gfx_text8(f, bx + 8, y0 + 21, l2, LEDGER.page ? (uint8_t)(R_STONE + 12) : (uint8_t)(R_BLOOD + 12), 1);
+        gfx_text8(f, bx + 8, y0 + 31, "E: SIGN HER LEDGER, OR PAT HER", R_STONE + 10, 1);
+        return;
+    }
     if (G.player && G.por_look && i < 0) {                         /* the Portal, and what E does there */
         int bw = 264, bx = (W - bw) / 2, ph = 42, ch = 0;
         for (int b = 0; b < NBOSS; b++) ch += RUN.rec.boss[b].slain > 0;
@@ -11721,7 +11896,7 @@ static void render_quit(Frame *f) {
     };
     enum { NLINE = (int)(sizeof LINE / sizeof LINE[0]) };
     dim_view(f);
-    int bw = 280, bh = 176, bx = (W - bw) / 2, by = (H - bh) / 2 - 6;
+    int bw = 280, bh = 158, bx = (W - bw) / 2, by = (H - bh) / 2 - 6;
     panel(f, bx, by, bw, bh);
     gfx_text16(f, (W - gfx_text_width("LEAVE THE CRYPT?", 1)) / 2, by + 8, "LEAVE THE CRYPT?", R_BLOOD + 13, 1);
     char msg[96];
@@ -11735,12 +11910,12 @@ static void render_quit(Frame *f) {
         gfx_text8(f, (W - gfx_text_width(ln, 1)) / 2, y, ln, R_STONE + 13, 1);
         p += n; while (*p == ' ') p++;
     }
-    static const char *const OPT[Q_OPTIONS] = { "FLEE TO THE SURFACE", "STAY IN THE DARK", "SLEEPWALK", "CARVE A GRAVESTONE", "RISE FROM A GRAVE" };
-    static const char *const NOTE[Q_OPTIONS] = { "YOUR LEVEL, GOLD AND GEAR ARE KEPT", "BACK TO THE CRYPT", "THE AUTOPILOT WALKS ON WITHOUT YOU",
-                                                 "SAVE THIS RUN IN ONE OF 3 SLOTS", "LOAD A RUN FROM ONE OF 3 SLOTS" };
-    for (int i = 10 + bx; i < bx + bw - 10; i += 2) gfx_px(f, i, by + 120, R_STONE + 5);   /* leaving, then the graves */
+    static const char *const OPT[Q_OPTIONS] = { "FLEE TO THE SURFACE", "STAY IN THE DARK", "SLEEPWALK", "OPEN THE LEDGER" };
+    static const char *const NOTE[Q_OPTIONS] = { "NOTHING IS KEPT BUT WHAT IS SIGNED", "BACK TO THE CRYPT", "THE AUTOPILOT WALKS ON WITHOUT YOU",
+                                                 "A RUN FROM A PAGE SHE HAS SIGNED" };
+    for (int i = 10 + bx; i < bx + bw - 10; i += 2) gfx_px(f, i, by + 120, R_STONE + 5);   /* leaving, then the ledger */
     for (int i = 0; i < Q_OPTIONS; i++) {
-        int oy = by + 66 + i * 18 + (i >= Q_CARVE ? 4 : 0), sel = i == G.ui_sel;
+        int oy = by + 66 + i * 18 + (i >= Q_OPEN ? 4 : 0), sel = i == G.ui_sel;
         int w = gfx_text_width(OPT[i], 1), ox = (W - w) / 2;
         gfx_text16(f, ox, oy, OPT[i], sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 9), 1);
         if (sel) {                                                 /* a candle flame for a cursor */
@@ -11755,63 +11930,100 @@ static void render_quit(Frame *f) {
     }
     const char *note = NOTE[clampi(G.ui_sel, 0, Q_OPTIONS - 1)];
     if (CON.used && G.ui_sel == Q_FLEE) note = "THE DEAD TOOK NOTE: NOTHING KEPT";
-    if (CON.used && G.ui_sel == Q_CARVE) note = "THE DEAD TOOK NOTE: NO GRAVES";
     gfx_text8(f, (W - gfx_text_width(note, 1)) / 2, by + bh - 14, note, R_GOLD + 9, 1);
 }
 
-/* a headstone, 22 wide and 26 tall, its numeral cut into it */
-static void headstone(Frame *f, int x, int y, int i, int used) {
-    int w = 22, h = 26, r = w / 2;
+/* a page of the ledger, 24 wide and 27 tall, its corner turned down and its numeral at the foot; gold for
+ * this run's */
+static void ledger_leaf(Frame *f, int x, int y, int i, int used, int mine) {
+    int w = 24, h = 27, fold = 6;
     for (int yy = 0; yy < h; yy++)
         for (int xx = 0; xx < w; xx++) {
-            float dx = xx + 0.5f - r, dy = yy + 0.5f - r;
-            if (yy < r && dx * dx + dy * dy > r * r) continue;       /* the rounded top */
-            int edge = xx == 0 || xx == w - 1 || yy == h - 1 || (yy < r && dx * dx + dy * dy > (r - 1.2f) * (r - 1.2f));
-            int k = used ? (edge ? 6 : 10 - (xx + yy) % 3 / 2) : (edge ? 4 : 6);
-            gfx_px(f, x + xx, y + yy, (uint8_t)(R_STONE + k));
+            int c = w - 1 - xx + yy;                                /* the turned corner */
+            if (c < fold) continue;
+            int edge = xx == 0 || yy == h - 1 || xx == w - 1 || yy == 0 || c == fold;
+            int k = used ? (edge ? 7 : 12 - (xx + 2 * yy) % 5 / 3) : (edge ? 5 : 7);
+            gfx_px(f, x + xx, y + yy, (uint8_t)((used ? R_BONE : R_STONE) + k));
         }
-    for (int xx = -3; xx < w + 3; xx++) gfx_px(f, x + xx, y + h, R_STONE + 3);   /* the ground it stands in */
-    int tw = gfx_text_width(ROMAN[i], 1);
-    gfx_text8(f, x + (w - tw) / 2, y + 9, ROMAN[i], used ? R_STONE + 3 : R_STONE + 2, 1);
+    for (int k = 0; k < fold; k++) gfx_px(f, x + w - fold + k, y + k, (uint8_t)((used ? R_BONE : R_STONE) + 6));   /* the fold's crease */
+    if (used)                                                       /* her hand: lines of something written */
+        for (int ln = 0; ln < 4; ln++)
+            for (int xx = 3; xx < w - 3 - (ln == 0 ? fold - 1 : 0) - (ln == 3 ? 6 : 0); xx++)
+                if ((xx * 7 + ln * 3) % 5) gfx_px(f, x + xx, y + 4 + ln * 3, R_BONE + 5);
+    int tw = gfx_text_width(RUN_ROMAN[i], 1);
+    gfx_text8(f, x + (w - tw) / 2, y + h - 10, RUN_ROMAN[i], mine ? (uint8_t)(R_GOLD + 9) : (uint8_t)(used ? R_BONE + 4 : R_STONE + 3), 1);
 }
 
-/* CARVE A GRAVESTONE / RISE FROM A GRAVE: the three save slots */
-static void render_graves(Frame *f) {
+/* SIGN THE LEDGER / OPEN THE LEDGER: her three pages */
+static void render_ledger(Frame *f) {
     static const char *const MONTH[12] = { "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" };
+    static const char *const WHY[3] = { "SIGNED", "AT A DEATH", "HER CLAIM" };
     dim_view(f);
     int bw = 288, bh = 150, bx = (W - bw) / 2, by = (H - bh) / 2 - 6;
     panel(f, bx, by, bw, bh);
-    const char *title = G.graves_mode ? "RISE FROM A GRAVE" : "CARVE A GRAVESTONE";
-    gfx_text16(f, (W - gfx_text_width(title, 1)) / 2, by + 8, title, G.graves_mode ? R_BLOOD + 13 : R_GOLD + 12, 1);
+    const char *title = G.led_mode ? "OPEN THE LEDGER" : "SIGN THE LEDGER";
+    gfx_text16(f, (W - gfx_text_width(title, 1)) / 2, by + 8, title, G.led_mode ? R_BLOOD + 13 : R_GOLD + 12, 1);
+    Page sel_pg;
+    memset(&sel_pg, 0, sizeof sel_pg);
     for (int i = 0; i < SLOT_COUNT; i++) {
         int y = by + 30 + i * 34, sel = i == G.ui_sel;
-        Grave g = grave_info(i);
-        if (sel) gfx_rect(f, bx + 6, y - 3, bw - 12, 33, R_IRON + 3);
-        headstone(f, bx + 14, y, i, g.used);
+        Page g = page_info(i);
+        if (sel) { gfx_rect(f, bx + 6, y - 3, bw - 12, 33, R_IRON + 3); sel_pg = g; }
+        ledger_leaf(f, bx + 13, y - 1, i, g.used, g.used && g.mine);
         char l1[48], l2[48];
+        const char *tag = "";
         if (g.used) {
-            snprintf(l1, sizeof l1, "LEVEL %d  $%d  %d SOULS", g.level, g.gold, g.souls);
+            snprintf(l1, sizeof l1, "LEVEL %d  $%d", g.level, g.gold);
             time_t when = (time_t)g.when;
             struct tm *tm = g.when > 0 ? localtime(&when) : NULL;
-            if (tm) snprintf(l2, sizeof l2, "%d %s %d  %02d:%02d  HP %d", tm->tm_mday, MONTH[tm->tm_mon % 12], tm->tm_year + 1900, tm->tm_hour, tm->tm_min, g.hp);
-            else snprintf(l2, sizeof l2, "HP %d", g.hp);
+            if (tm) snprintf(l2, sizeof l2, "%d %s %d  %02d:%02d", tm->tm_mday, MONTH[tm->tm_mon % 12], tm->tm_year + 1900, tm->tm_hour, tm->tm_min);
+            else snprintf(l2, sizeof l2, "%d SOULS", g.souls);
+            tag = g.old ? "CARVED" : WHY[clampi(g.why, 0, 2)];
         } else {
-            snprintf(l1, sizeof l1, "UNMARKED");
-            snprintf(l2, sizeof l2, "AN EMPTY GRAVE");
+            snprintf(l1, sizeof l1, "A BLANK PAGE");
+            snprintf(l2, sizeof l2, "NOTHING WRITTEN");
         }
         gfx_text8(f, bx + 46, y + 5, l1, sel ? (uint8_t)C_WHITE : (uint8_t)(g.used ? R_STONE + 12 : R_STONE + 9), 1);
         gfx_text8(f, bx + 46, y + 16, l2, R_STONE + 9, 1);
+        gfx_text8(f, bx + bw - 12 - gfx_text_width(tag, 1), y + 5, tag, g.why == PG_SIGNED ? (uint8_t)(R_STONE + 10) : (uint8_t)(R_BLOOD + 12), 1);
+        if (g.used && g.mine) gfx_text8(f, bx + bw - 12 - gfx_text_width("THIS RUN", 1), y + 16, "THIS RUN", R_GOLD + 10, 1);
     }
-    const char *note = G.graves_mode ? "ENTER RISES   ESC GOES BACK" : "ENTER CARVES   ESC GOES BACK";
+    const char *note = G.led_mode ? "ENTER OPENS   ESC GOES BACK" : "ENTER SIGNS   ESC GOES BACK";
     int col = R_GOLD + 9;
-    if (G.graves_msg == GM_EMPTY) { note = "NOTHING LIES HERE"; col = R_STONE + 10; }
-    else if (G.graves_msg == GM_ARMED && G.graves_arm == G.ui_sel) {
-        note = G.graves_mode ? "ENTER AGAIN. THIS RUN WILL BE LOST" : "ENTER AGAIN TO CARVE OVER IT";
+    if (!G.led_mode && sel_pg.used && !sel_pg.mine) note = "ANOTHER RUN'S PAGE";
+    if (G.led_msg == LM_EMPTY) { note = "NOTHING IS WRITTEN HERE"; col = R_STONE + 10; }
+    else if (G.led_msg == LM_ARMED && G.led_arm == G.ui_sel) {
+        note = G.led_mode ? "ENTER AGAIN. THE UNSIGNED IS LOST" : "ENTER AGAIN TO SIGN OVER IT";
         col = R_BLOOD + 13;
     }
     gfx_text8(f, (W - gfx_text_width(note, 1)) / 2, by + bh - 14, note, col, 1);
 }
 
+/* E at the merchant: her menu, and a note on the row chosen */
+static void render_merchantmenu(Frame *f) {
+    static const char *const ROW[NMM] = { "SIGN THE LEDGER", "PAT HER", "LEAVE" };
+    int sel = clampi(G.ui_sel, 0, NMM - 1);
+    dim_view(f);
+    int pw = 296, ph = 118, px = (W - pw) / 2, py = 24;
+    panel(f, px, py, pw, ph);
+    gfx_text16(f, px + 10, py + 6, "THE MERCHANT", R_GOLD + 12, 1);
+    char line[160];
+    if (LEDGER.page) snprintf(line, sizeof line, "PAGE %s", RUN_ROMAN[LEDGER.page - 1]); else snprintf(line, sizeof line, "UNSIGNED");
+    gfx_text8(f, px + pw - 10 - gfx_text_width(line, 1), py + 10, line, LEDGER.page ? (uint8_t)(R_BONE + 12) : (uint8_t)(R_BLOOD + 13), 1);
+    gfx_text8(f, px + 10, py + 24, "W/S CHOOSE  ENTER TAKES  ESC CLOSES", R_STONE + 9, 1);
+    for (int i = 0; i < NMM; i++) {
+        int y = py + 40 + i * 13;
+        if (i == sel) gfx_rect(f, px + 6, y - 3, pw - 12, 13, R_IRON + 3);
+        gfx_text8(f, px + 14, y, ROW[i], i == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12), 1);
+    }
+    int ty = py + 40 + NMM * 13 + 6;
+    for (int i = px + 10; i < px + pw - 10; i++) gfx_px(f, i, ty - 4, R_STONE + 5);
+    if (sel == MM_SIGN && CON.used) snprintf(line, sizeof line, "THE DEAD TOOK NOTE. SHE WILL SIGN NOTHING WHILE THIS LASTS.");
+    else if (sel == MM_SIGN && LEDGER.page) snprintf(line, sizeof line, "SHE KEEPS YOUR RUN AS IT STANDS, ON A PAGE OF YOUR CHOOSING. YOU CAME FROM PAGE %s.", RUN_ROMAN[LEDGER.page - 1]);
+    else if (sel == MM_SIGN) snprintf(line, sizeof line, "SHE KEEPS YOUR RUN AS IT STANDS, ON A PAGE OF YOUR CHOOSING. THIS RUN IS UNSIGNED: FLEE NOW AND IT IS LOST.");
+    else snprintf(line, sizeof line, sel == MM_PAT ? "SHE ALLOWS IT." : "SHE WILL BE HERE. SHE IS ALWAYS HERE.");
+    text_wrap(f, px + 10, ty + 2, line, 35, sel == MM_SIGN && !LEDGER.page && !CON.used ? R_BLOOD + 12 : R_STONE + 12, 3);
+}
 
 /* ---- the tracker's pop-up, and the bestiary (B) ---- */
 
@@ -12319,7 +12531,8 @@ static void render_ui(Frame *f) {
     if (G.ui == UI_ALTAR) { render_altarmenu(f); return; }
     if (G.ui == UI_INVENTORY) render_inventory(f);
     else if (G.ui == UI_QUIT) render_quit(f);
-    else if (G.ui == UI_GRAVES) render_graves(f);
+    else if (G.ui == UI_LEDGER) render_ledger(f);
+    else if (G.ui == UI_MERCHANT) render_merchantmenu(f);
     else if (G.ui == UI_BESTIARY) render_bestiary(f);
     else if (G.ui == UI_LETGO) render_letgo(f);
 }
@@ -12346,7 +12559,7 @@ static void crawl_render(Frame *f) {
     if (G.web_hp > 0.0f && !G.dead && !G.shop) render_web(f);
     if (G.shop) render_shop_tags(f, dx, dy, horizon);
     if (!G.dead) { render_wards(f); render_hand(f); }
-    if (G.shop) render_shop_card(f);
+    if (G.shop && G.ui != UI_MERCHANT) render_shop_card(f);   /* her own card would show under her menu */
     if (G.shop || G.player) render_statusbar(f);                    /* a person gets the Wolfenstein bar, */
     render_sockets(f);
     render_dash(f);
@@ -12361,4 +12574,4 @@ static void crawl_render(Frame *f) {
 }
 
 const Scene scene_crawl = { "CATACOMB", W, H, SND_PROG_CRAWL, crawl_enter, crawl_update, crawl_render,
-                            crawl_control, crawl_status, crawl_input, crawl_save, crawl_load };
+                            crawl_control, crawl_status, crawl_input };

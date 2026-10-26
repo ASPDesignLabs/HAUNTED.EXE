@@ -7,9 +7,10 @@
  *   host apl   <haunt|crawl> <seconds>                    (average picture level)
  *
  * HOST_INPUT plays a person at the keys, e.g. "1:+H;4.2:-H;5:m300,0;6:+W;8:-W;9:+MOUSE1;9.2:-MOUSE1;
- * 10:w1" (+ press, - release, m mouse counts, w wheel notches). HOST_SAVE=file writes the progress
- * and stops when the player chooses to leave; HOST_LOAD=file starts from saved progress. HOST_SLOTS=dir
- * keeps the three save slots as dir/slot1.bin to slot3.bin.
+ * 10:w1" (+ press, - release, m mouse counts, w wheel notches); it stops when the player chooses to
+ * leave. HOST_LOAD=file is the progress to start from (a run, or the ledger page to open) and HOST_SAVE=file
+ * gets it whenever the game writes it; HOST_SLOTS=dir keeps the ledger's pages as dir/slot1.bin to
+ * slot3.bin, and the dead's mark as dir/mark.bin.
  */
 #include <stdio.h>
 #include <time.h>
@@ -106,47 +107,46 @@ static void input_step(double now) {
         g_iev++;
     }
 }
-/* save slots written this step go to HOST_SLOTS, as the saver keeps them in the registry */
+/* slots written this step: the pages and the mark go to HOST_SLOTS, the progress to HOST_SAVE, as the
+ * saver keeps them in the registry */
 static void slots_flush(void) {
-    const char *dir = getenv("HOST_SLOTS");
-    for (int i = 0; i < SLOT_COUNT; i++) {
-        uint8_t buf[SLOT_MAX];
+    const char *dir = getenv("HOST_SLOTS"), *save = getenv("HOST_SAVE");
+    for (int i = 0; i < SLOT_ALL; i++) {
+        static uint8_t buf[SLOT_MAX];
         int n = app_slot_take(i, buf, sizeof buf);
-        if (n <= 0 || !dir) continue;
+        if (n <= 0) continue;
         char path[512];
-        snprintf(path, sizeof path, "%s/slot%d.bin", dir, i + 1);
-        FILE *f = fopen(path, "wb");
+        if (i == SLOT_PROGRESS) snprintf(path, sizeof path, "%s", save ? save : "");
+        else if (dir) snprintf(path, sizeof path, i == SLOT_MARK ? "%s/mark.bin" : "%s/slot%d.bin", dir, i + 1);
+        else path[0] = 0;
+        FILE *f = path[0] ? fopen(path, "wb") : NULL;
         if (f) { fwrite(buf, 1, (size_t)n, f); fclose(f); }
-        fprintf(stderr, "SLOT %d: saved %d bytes\n", i + 1, n);
+        if (i == SLOT_PROGRESS) fprintf(stderr, "PROGRESS: saved %d bytes%s%s\n", n, save ? " to " : "", save ? save : "");
+        else if (i == SLOT_MARK) fprintf(stderr, "MARK: saved %d bytes\n", n);
+        else fprintf(stderr, "SLOT %d: saved %d bytes\n", i + 1, n);
     }
 }
-/* the player chose to leave: keep the progress, as the saver would in the registry */
+/* the player chose to leave: what is kept is already written */
 static int input_quit(void) {
     slots_flush();
     if (!app_quit_requested()) return 0;
-    const char *path = getenv("HOST_SAVE");
-    uint8_t blob[2048];
-    int n = app_save(blob, sizeof blob);
-    if (path) { FILE *f = fopen(path, "wb"); if (f) { fwrite(blob, 1, (size_t)n, f); fclose(f); } }
-    fprintf(stderr, "QUIT: saved %d bytes%s%s\n", n, path ? " to " : "", path ? path : "");
+    fprintf(stderr, "QUIT\n");
     return 1;
+}
+static void slot_file(int i, const char *path) {
+    static uint8_t buf[SLOT_MAX];
+    FILE *f = fopen(path, "rb");
+    if (f) { size_t n = fread(buf, 1, sizeof buf, f); fclose(f); app_slot_load(i, buf, (int)n); }
 }
 static void input_init(void) {
     if (getenv("HOST_INPUT")) input_parse(getenv("HOST_INPUT"));
     app_set_input(&g_in);
-    const char *path = getenv("HOST_LOAD");
-    if (path) {
-        uint8_t blob[2048];
-        FILE *f = fopen(path, "rb");
-        if (f) { size_t n = fread(blob, 1, sizeof blob, f); fclose(f); app_load(blob, (int)n); }
-    }
+    if (getenv("HOST_LOAD")) slot_file(SLOT_PROGRESS, getenv("HOST_LOAD"));
     const char *dir = getenv("HOST_SLOTS");
-    for (int i = 0; dir && i < SLOT_COUNT; i++) {
+    for (int i = 0; dir && i < SLOT_COUNT + 1; i++) {
         char p[512];
-        uint8_t buf[SLOT_MAX];
-        snprintf(p, sizeof p, "%s/slot%d.bin", dir, i + 1);
-        FILE *f = fopen(p, "rb");
-        if (f) { size_t n = fread(buf, 1, sizeof buf, f); fclose(f); app_slot_load(i, buf, (int)n); }
+        snprintf(p, sizeof p, i == SLOT_COUNT ? "%s/mark.bin" : "%s/slot%d.bin", dir, i + 1);
+        slot_file(i == SLOT_COUNT ? SLOT_MARK : i, p);
     }
 }
 

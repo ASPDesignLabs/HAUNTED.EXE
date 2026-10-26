@@ -39,10 +39,8 @@ enum { APP_AUTO, APP_HOLDING, APP_PLAYER };
 void app_set_input(Input *in);
 int  app_control_state(void);       /* APP_AUTO: input ends the saver; APP_HOLDING: only H matters; APP_PLAYER: keep it all */
 void app_focus(int on);             /* the window lost (0) or regained (1) focus */
-int  app_quit_requested(void);      /* the player chose to leave: save, then exit */
-int  app_save(uint8_t *buf, int cap);
-void app_load(const uint8_t *buf, int len);   /* saved progress, before app_init */
-void app_slot_load(int i, const uint8_t *buf, int len);   /* a stored save slot, before app_init */
+int  app_quit_requested(void);      /* the player chose to leave: write what changed, then exit */
+void app_slot_load(int i, const uint8_t *buf, int len);   /* a stored slot (SLOT_*), before app_init */
 int  app_slot_take(int i, uint8_t *buf, int cap);         /* a slot written since last asked: its length, else 0 */
 
 #endif
