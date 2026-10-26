@@ -922,7 +922,12 @@ first.
     best thing it finds worth a tenth of its weighing (a lost tier of the Fire Bolt just passes); never
     a bag. In the harness: a person's purchase, a claim's lost tier bought back by the autopilot, an old
     save's pieces indexed as it loads. ASan clean.
-16. **The Wretched Repository.**
+16. **The Wretched Repository** (built): three iron doors in niches, four lengths of the back room's west
+    wall (new art, on the b7walls sheet); its places down one side, the gold and coins on the other; the
+    plan's taxes and prices, the first place untaxed; gold moved all, half, a quarter or a tenth at a
+    time; a piece comes out into its bare slot or the bag, a bag only when bigger than yours. Kept
+    through death, which the harness showed (a death after filling it, then the page opened again).
+    ASan clean.
 17. **The Codex of Affixations.**
 18. **Checks**: frames of everything new; ASan; autopilot runs (boss wins and times by step, how far the
     dream gets, deaths to hazards and omens); the README's "What has been verified", the page and the

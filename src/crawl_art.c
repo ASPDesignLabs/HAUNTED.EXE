@@ -548,6 +548,38 @@ static void gen_sealed(int t) {
         }
 }
 
+/* The Wretched Repository: the stone cut with three narrow arched niches, an iron door shut in each,
+ * riveted, a lock plate and a ring, rust running from the rivets */
+static void gen_repository(int t) {
+    gen_stone(t, R_STONE, 233);
+    for (int k = 0; k < 3; k++) {
+        int x0 = 3 + k * 21, w = 16, y0 = 10, y1 = 56;
+        float cx = x0 + w / 2.0f;
+        for (int y = y0 - 1; y <= y1; y++)
+            for (int x = x0 - 1; x <= x0 + w; x++) {
+                int inside;
+                if (y < y0 + 7) { float dx = (x + 0.5f - cx) / (w / 2.0f + 1.0f), dy = (y + 0.5f - (y0 + 7)) / 8.0f; inside = dx * dx + dy * dy <= 1.0f; }
+                else inside = x >= x0 - 1 && x <= x0 + w;
+                if (!inside) continue;
+                uint8_t c = sh(R_STONE, 0.04f);                        /* the niche's dark rim */
+                int door = x >= x0 + 1 && x <= x0 + w - 2 && y >= y0 + 2;
+                if (door) {
+                    float v = 0.30f + 0.10f * (x - x0) / (float)w + (fbm(x / 3.0f, y / 6.0f, 8, 239 + k) - 0.5f) * 0.12f;
+                    if (x == x0 + 1 || y == y0 + 2) v += 0.12f;            /* its edge catching the light */
+                    if ((y - y0) % 13 == 6) v -= 0.12f;                    /* the bands */
+                    c = sh(R_IRON, v);
+                    if (((y - y0) % 13 == 5 || (y - y0) % 13 == 7) && (x == x0 + 3 || x == x0 + w - 4)) c = sh(R_IRON, 0.7f);   /* rivets */
+                    if (((y - y0) % 13 == 8 || (y - y0) % 13 == 9) && (x == x0 + 3 || x == x0 + w - 4) && h01(x, y, 241 + k) > 0.3f) c = sh(R_WARM, 0.32f);   /* rust run */
+                }
+                tput(t, x, y, c);
+            }
+        for (int y = 30; y <= 36; y++) for (int x = (int)cx - 2; x <= (int)cx + 2; x++) tput(t, x, y, sh(R_IRON, 0.62f));   /* the lock plate */
+        tput(t, (int)cx, 32, sh(R_IRON, 0.02f)); tput(t, (int)cx, 33, sh(R_IRON, 0.02f));   /* its keyhole */
+        for (int a = 0; a < 12; a++) { float an = TAU_F * a / 12.0f; tput(t, (int)(cx + 2.4f * cosf(an)), (int)(41 + 2.4f * sinf(an)), sh(R_IRON, 0.55f + 0.2f * -sinf(an))); }   /* a ring to pull */
+        for (int x = x0 - 1; x <= x0 + w; x++) tput(t, x, y1 + 1, sh(R_STONE, 0.7f));   /* the sill */
+    }
+}
+
 /* ---- the Backrooms (1.0.0b6) ----
  * Everything here is drawn in R_FLOOR (dark brown, mustard, pale yellow) and R_CEIL (off-white), which
  * only the floor, the ceiling and the fog use in the crypt; a Backrooms pocket recolours the two
@@ -4675,6 +4707,7 @@ void crawl_art_init(void) {
     gen_grate(T_GRATE, 103);
     for (int f = 0; f < 4; f++) gen_portal(T_PORTAL0 + f, f, 107);
     gen_sealed(T_SEALED);
+    gen_repository(T_REPOSITORY);
     gen_exit(T_EXIT0, 0, 0);
     gen_exit(T_EXIT1, 1, 0);
     gen_exit(T_EXIT_OPEN, 1, 1);

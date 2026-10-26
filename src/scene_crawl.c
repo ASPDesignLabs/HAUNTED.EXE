@@ -446,6 +446,7 @@ typedef struct {
 
 /* The run: what carries from level to level, through death and across scene switches */
 #define COMP_MAX 12                         /* the Compendium keeps so many of each kind at each quality */
+#define REPO_MAX 12                         /* the Repository's places, at the most */
 #define SHRINE_SLOTS 9
 #define SHRINE_X 15.5f
 #define SHRINE_Y 17.5f                      /* the Rune Shrine, in the merchant's room against the south wall */
@@ -485,6 +486,8 @@ static struct {
     Piece comp[NIK][NQUAL][COMP_MAX];       /* the Corpus Compendium: each piece as first worn, by kind and quality, */
     uint8_t ncomp[NIK][NQUAL];
     int8_t comp_atk[NATK];                  /* and each spell at the highest tier learnt (0: none) */
+    Piece repo[REPO_MAX];                   /* the Wretched Repository: what lies in each place, */
+    int repo_n, repo_gold, repo_coins;      /* the places bought (two at first, the first untaxed), its gold and coins */
 } RUN;
 
 /* The caster's boss abilities (docs/PLAN-b7.md, section 8): one a boss, unlocked at the Hexed Totem with a
@@ -632,6 +635,7 @@ static struct {
     int por_look;                           /* the Accursed Portal, looked at */
     int comp_look, comp_page, comp_arm;     /* the Corpus Compendium: looked at; its page; a purchase awaiting a second Enter */
     int comp_tried;                         /* the autopilot has looked in it this visit */
+    int rep_look, rep_mode, rep_place, rep_amt;   /* the Repository: looked at; choosing what goes in (1) and where; how much gold */
     int mer_look;                           /* the merchant herself, close enough for E */
     int stone_look, stone_sel;              /* a stone in the plot looked at (-1 none); the one whose page is open */
 
@@ -697,7 +701,7 @@ enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword plant
 static float zbuf[W];
 enum { MM_SIGN, MM_PED, MM_PAT, MM_LEAVE, NMM };                   /* the merchant's menu */
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 
 /* pockets (see the pockets' code below): the level as it waits, and where in a chain you are */
@@ -6142,7 +6146,7 @@ static void crawl_enter(uint32_t seed) {
     if (!resume) {
         memset(&RUN, 0, sizeof RUN);
         RUN.active = 1; RUN.level = 1; RUN.hp = 100; RUN.shop_next = 1;
-        RUN.run_id = new_run_id(seed); RUN.peds = 2;
+        RUN.run_id = new_run_id(seed); RUN.peds = 2; RUN.repo_n = 2;
         gear_reset(&RUN.gear);
 #ifdef CRAWL_DEBUG
         if (getenv("CRAWL_LEVEL")) RUN.level = atoi(getenv("CRAWL_LEVEL"));
@@ -7617,6 +7621,7 @@ static void gen_shop(void) {
     add_deco(TOTEM_X + 1.05f, TOTEM_Y - 0.1f, SP_CANDLES); light_static(TOTEM_X + 1.0f, TOTEM_Y + 0.2f, 1.0f, 3.6f);   /* candles at its foot */
     G.map[18][6].tex = T_TORCH0; light_static(6.5f, 17.92f, 1.2f, 4.4f);
     solid_prop(LECTERN_X, LECTERN_Y, SP_LECTERN, 1, K_PROP);        /* the Corpus Compendium, open on its lectern */
+    for (int y = 13; y <= 16; y++) G.map[y][3].tex = T_REPOSITORY;  /* the Wretched Repository, shut in the west wall */
     light_static(LECTERN_X + 0.5f, LECTERN_Y + 0.4f, 0.8f, 3.0f);
     for (int y = 20; y <= 26; y++) for (int x = 11; x <= 21; x++) carve(x, y, 3, TH_CRYPT);   /* the grave plot, through an arch past the shrine */
     carve(19, 18, 3, TH_CRYPT); carve(19, 19, 3, TH_CRYPT);
@@ -8489,6 +8494,7 @@ static void open_ui(int which) {
         for (int i = 0; i < n; i++) if (r[i].run == crawl_run(G.level)) G.ui_sel = i;
         snd_sfx_ex(SFX_WHISPER, 0.7f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.4f, 0.5f);
     }
+    else if (which == UI_REPO) { G.ui_sel = 0; G.rep_mode = 0; G.sh_note_t = 0.0f; snd_sfx_ex(SFX_UNLOCK, 0.6f, 0.5f); snd_sfx_ex(SFX_CREAK, 0.5f, 0.5f); }
     else if (which == UI_COMP) { G.ui_sel = 0; G.comp_arm = -1; G.sh_note_t = 0.0f; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.4f, 0.5f); }
     else if (which == UI_STONE) { G.ui_sel = 0; snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f); snd_sfx_ex(SFX_WIND, 0.4f, 0.5f); }
     else if (which == UI_MERCHANT) {                               /* on the ledger */
@@ -8647,15 +8653,17 @@ static void shop_human(float dt) {
     G.tot_look = G.shop_look < 0 && !G.sh_look && td < 3.6f && fabsf(wrap_pi(atan2f(TOTEM_Y - G.py, TOTEM_X - G.px) - G.ang)) < 0.3f + 0.3f / td;
     float cdx = LECTERN_X + 0.5f - G.px, cdy = LECTERN_Y + 0.5f - G.py, cd = hypotf(cdx, cdy);
     G.comp_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && cd < 2.6f && fabsf(wrap_pi(atan2f(cdy, cdx) - G.ang)) < 0.3f + 0.35f / cd;
+    G.rep_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && G.px > 3.9f && G.px < 6.6f && G.py > 12.6f && G.py < 17.4f
+                 && fabsf(wrap_pi(G.ang - PI_F)) < 0.55f;          /* facing the niches across the back room */
     float pdx = PORTAL_X + 0.5f - G.px, pdy = PORTAL_Y + 0.1f - G.py, pd = hypotf(pdx, pdy);
-    G.por_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && pd < 3.4f && fabsf(wrap_pi(atan2f(pdy, pdx) - G.ang)) < 0.3f + 0.35f / pd;
+    G.por_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && pd < 3.4f && fabsf(wrap_pi(atan2f(pdy, pdx) - G.ang)) < 0.3f + 0.35f / pd;
     G.stone_look = -1;
-    for (int k = 0; k < RUN.nstones && G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.por_look; k++) {   /* a stone in the plot */
+    for (int k = 0; k < RUN.nstones && G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look; k++) {   /* a stone in the plot */
         float sx = STONE_AT[k][0] + 0.5f, sy = STONE_AT[k][1] + 0.5f, d = hypotf(sx - G.px, sy - G.py);
         if (d < 2.4f && fabsf(wrap_pi(atan2f(sy - G.py, sx - G.px) - G.ang)) < 0.25f + 0.3f / d
             && (G.stone_look < 0 || d < hypotf(STONE_AT[G.stone_look][0] + 0.5f - G.px, STONE_AT[G.stone_look][1] + 0.5f - G.py))) G.stone_look = k;
     }
-    G.mer_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.por_look && G.stone_look < 0 && hypotf(G.px - CAT_X, G.py - CAT_Y) < 1.8f;
+    G.mer_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0 && hypotf(G.px - CAT_X, G.py - CAT_Y) < 1.8f;
 #ifdef CRAWL_DEBUG
     if (G.shop_look != was) fprintf(stderr, "EVENT shop_look %d t=%.2f at (%.2f,%.2f) ang %.3f\n", G.shop_look, G.t, G.px, G.py, G.ang);
 #endif
@@ -8678,6 +8686,7 @@ static void shop_human(float dt) {
         } else if (G.sh_look) { open_ui(UI_SHRINE); G.click_spent = IN.hit[KEY_MOUSE1]; G.grab_t = 1.0f; }
         else if (G.tot_look) { open_ui(UI_TOTEM); G.click_spent = IN.hit[KEY_MOUSE1]; G.grab_t = 1.0f; }
         else if (G.comp_look) { open_ui(UI_COMP); G.click_spent = IN.hit[KEY_MOUSE1]; }
+        else if (G.rep_look) { open_ui(UI_REPO); G.click_spent = IN.hit[KEY_MOUSE1]; }
         else if (G.por_look) { open_ui(UI_PORTAL); G.click_spent = IN.hit[KEY_MOUSE1]; }
         else if (G.stone_look >= 0) { G.stone_sel = G.stone_look; open_ui(UI_STONE); G.click_spent = IN.hit[KEY_MOUSE1]; }
         else if (!human_use() && G.mer_look) { open_ui(UI_MERCHANT); G.click_spent = IN.hit[KEY_MOUSE1]; }   /* her menu: the ledger, a pat */
@@ -9237,6 +9246,7 @@ static void crawl_control(int what) {
     if (getenv("CRAWL_TPPORTAL") && G.shop) { G.px = PORTAL_X + 0.5f; G.py = PORTAL_Y - 1.4f; G.ang = PI_F * 0.5f; G.cx = PORTAL_X; G.cy = PORTAL_Y - 2; }   /* before the Portal */
     if (getenv("CRAWL_TPSTONE") && G.shop) { G.px = STONE_AT[0][0] + 0.5f; G.py = STONE_AT[0][1] + 1.6f; G.ang = -PI_F * 0.5f; G.cx = STONE_AT[0][0]; G.cy = STONE_AT[0][1] + 1; }   /* before the newest stone */
     if (getenv("CRAWL_TPCAT") && G.shop) { G.px = CAT_X + 1.3f; G.py = CAT_Y + 0.4f; G.ang = face_of(CAT_X, CAT_Y); G.cx = (int)G.px; G.cy = (int)G.py; }   /* before the merchant */
+    if (getenv("CRAWL_TPREPO") && G.shop) { G.px = 5.5f; G.py = 14.5f; G.ang = PI_F; G.cx = 5; G.cy = 14; }   /* before the Repository's niches */
     if (getenv("CRAWL_TPLECTERN") && G.shop) { G.px = LECTERN_X + 0.5f; G.py = LECTERN_Y - 1.6f; G.ang = PI_F * 0.5f; G.cx = LECTERN_X; G.cy = LECTERN_Y - 2; }   /* before the Compendium */
     if (getenv("CRAWL_TPTOTEM") && G.shop) { G.px = 6.9f; G.py = 14.6f; G.ang = face_of(TOTEM_X, TOTEM_Y); G.cx = 6; G.cy = 14; }   /* before the Totem */
     if (getenv("CRAWL_TPBOSS") && !G.shop && G.boss >= 0 && G.bstart_x >= 0) {   /* in the boss's antechamber, facing the arch */
@@ -9441,16 +9451,17 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
  * took it, gold, souls (u32 each), coins (u16), the spells' tiers and runes' qualities, the worn pieces,
  * the bag's size and quality and its pieces. LG_PEDS: the pedestals bought (a byte). LG_COMP: the Corpus
  * Compendium, a count for each kind (bracer to bag) and quality, the pieces in that order, then each
- * spell's tier. */
+ * spell's tier. LG_REPO: the Repository, its places (a byte), gold (u32) and coins (u16), then each place. */
 #define LEDGER_MAGIC 0x3147444Cu            /* "LDG1" */
 #define PROGRESS_MAGIC 0x31505648u          /* "HVP1": a progress that names the page to start from */
-enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP };
+enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO };
 enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
 #define LG_PAGE_BYTES 17
 #define LG_VISIT_BYTES (8 + NPED * (2 + OFFER_BYTES))
 #define STONE_BYTES (8 + 2 + 3 + 4 + 4 + 2 + NATK + NDEF + NSLOT * PIECE_BYTES + 2 + BAG_MAX * PIECE_BYTES)
 #define COMP_BYTES ((NIK - 1) * NQUAL * (1 + COMP_MAX * PIECE_BYTES) + NATK)   /* at the most */
-#define PAGE_BYTES (save_end(6) + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 3 + COMP_BYTES + 1)   /* the most a page takes so far */
+#define REPO_BYTES (1 + 4 + 2 + REPO_MAX * PIECE_BYTES)
+#define PAGE_BYTES (save_end(6) + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 3 + COMP_BYTES + 3 + REPO_BYTES + 1)   /* the most a page takes so far */
 static void stone_pack(uint8_t *p, const Stone *st) {
     uint64_t w = (uint64_t)st->when;
     put32(p, (int32_t)(uint32_t)(w & 0xffffffffu)); put32(p + 4, (int32_t)(uint32_t)(w >> 32)); put16(p + 8, st->level);
@@ -9522,6 +9533,11 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     for (int k = 1; k < NIK; k++) for (int ql = 0; ql < NQUAL; ql++) for (int i = 0; i < RUN.ncomp[k][ql]; i++, q += PIECE_BYTES) piece_pack(q, &RUN.comp[k][ql][i]);
     for (int k = 0; k < NATK; k++) *q++ = (uint8_t)RUN.comp_atk[k];
     p = section_end(c, q);
+    c = section_begin(p, LG_REPO);
+    c[0] = (uint8_t)clampi(RUN.repo_n, 2, REPO_MAX); put32(c + 1, imax(0, RUN.repo_gold)); put16(c + 5, clampi(RUN.repo_coins, 0, 65535));
+    q = c + 7;
+    for (int i = 0; i < c[0]; i++, q += PIECE_BYTES) piece_pack(q, &RUN.repo[i]);
+    p = section_end(c, q);
     if (RUN.nstones) {
         c = section_begin(p, LG_STONES);
         c[0] = (uint8_t)RUN.nstones;
@@ -9592,6 +9608,12 @@ static void run_unpack(const uint8_t *buf, int len) {
         }
         if (q + NATK <= end) for (int a = 0; a < NATK; a++) RUN.comp_atk[a] = (int8_t)clampi((int8_t)*q++, 0, 15);
     } else comp_note(RUN.level);                                   /* an old save: what it wears and knows goes in as it loads */
+    c = page_section(buf, len, LG_REPO, &k);
+    RUN.repo_n = 2;
+    if (c && k >= 7) {
+        RUN.repo_n = clampi(c[0], 2, REPO_MAX); RUN.repo_gold = imax(0, get32(c + 1)); RUN.repo_coins = get16(c + 5);
+        for (int i = 0; i < RUN.repo_n && 7 + (i + 1) * PIECE_BYTES <= k; i++) RUN.repo[i] = piece_unpack(c + 7 + i * PIECE_BYTES);
+    }
     c = page_section(buf, len, LG_STONES, &k);
     if (c && k >= 1) {
         RUN.nstones = imin(imin(c[0], STONES), (k - 1) / STONE_BYTES);
@@ -10228,6 +10250,147 @@ static void update_compmenu(void) {
     if (IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1]) comp_buy(G.comp_page, &r[G.ui_sel]);
 }
 
+/* ---- the Wretched Repository (docs/PLAN-b7.md, section 7): places for pieces, and gold and Cursed Coins
+ * without limit, none of it lost to death or her claim. A piece goes in for a tenth of its shop price (the
+ * first place takes nothing); gold goes in less a quarter; coins go in free and come out for 2,500 gold
+ * each. Two places at first, ten more to buy. People only: the autopilot leaves it be. ---- */
+
+static const int PLACE_PRICE[REPO_MAX - 2] = { 2500, 3750, 5625, 8440, 12655, 18985, 28475, 42715, 64070, 96110 };
+#define COIN_OUT 2500
+enum { RR_PLACE, RR_BUY, RR_GOLD_IN, RR_GOLD_OUT, RR_COIN_IN, RR_COIN_OUT };
+typedef struct { int kind, i; } RepRow;                            /* a place, or one of the money's rows */
+static int repo_rows(RepRow *r) {
+    int n = 0;
+    for (int i = 0; i < RUN.repo_n; i++) r[n++] = (RepRow){ RR_PLACE, i };
+    if (RUN.repo_n < REPO_MAX) r[n++] = (RepRow){ RR_BUY, 0 };
+    for (int k = RR_GOLD_IN; k <= RR_COIN_OUT; k++) r[n++] = (RepRow){ k, 0 };
+    return n;
+}
+static Piece bag_piece(void) {                                     /* the bag you carry, as a piece */
+    Piece b; memset(&b, 0, sizeof b);
+    b.kind = IK_BAG; b.quality = RUN.gear.bag_quality; b.level = (uint8_t)clampi(G.level, 1, 255);
+    return b;
+}
+typedef struct { int slot, bag; } RepFrom;                         /* what can go in: a worn piece, a spare, or the empty bag itself */
+static int repo_froms(RepFrom *r) {
+    const Gear *g = &RUN.gear;
+    int n = 0, spares = 0;
+    for (int s = 0; s < NSLOT; s++) if (g->worn[s].kind != IK_NONE) r[n++] = (RepFrom){ s, -1 };
+    for (int b = 0; b < g->bag_size; b++) if (g->bag[b].kind != IK_NONE) { r[n++] = (RepFrom){ -1, b }; spares++; }
+    if (g->bag_size && !spares) r[n++] = (RepFrom){ -1, -1 };
+    return n;
+}
+static Piece repo_from_piece(const RepFrom *f) { return f->slot >= 0 ? RUN.gear.worn[f->slot] : (f->bag >= 0 ? RUN.gear.bag[f->bag] : bag_piece()); }
+static int repo_tax(int place, const Piece *p) { return place == 0 ? 0 : (piece_price(p) / 10 + 4) / 5 * 5; }
+static int gold_amount(int src) {                                  /* all of it, half, a quarter, a tenth */
+    static const int DIV[4] = { 1, 2, 4, 10 };
+    return src <= 0 ? 0 : imax(1, src / DIV[clampi(G.rep_amt, 0, 3)]);
+}
+static void repo_put(int place, const RepFrom *f) {
+    Piece p = repo_from_piece(f);
+    int tax = repo_tax(place, &p);
+    if (tax > RUN.treasure) { shrine_note("IT WANTS $%d TO TAKE IT", tax); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+    RUN.treasure -= tax;
+    if (f->slot >= 0) memset(&RUN.gear.worn[f->slot], 0, sizeof(Piece));
+    else if (f->bag >= 0) memset(&RUN.gear.bag[f->bag], 0, sizeof(Piece));
+    else { RUN.gear.bag_size = RUN.gear.bag_quality = 0; memset(RUN.gear.bag, 0, sizeof RUN.gear.bag); }
+    RUN.repo[place] = p;
+    G.max_hp = gear_max_hp(&RUN.gear); if (G.hp > G.max_hp) G.hp = G.max_hp;
+    G.rep_mode = 0;
+    shrine_note(tax ? "SHUT AWAY, FOR $%d" : "SHUT AWAY, UNTAXED", tax);
+    snd_sfx_ex(SFX_UNLOCK, 0.8f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT repo_put place %d kind %d tax %d t=%.2f\n", place, p.kind, tax, G.t);
+#endif
+}
+static void repo_take(int place) {
+    Piece *p = &RUN.repo[place];
+    Gear *g = &RUN.gear;
+    if (p->kind == IK_BAG) {
+        if (bag_capacity(p->quality) <= g->bag_size) { shrine_note("YOUR BAG HOLDS AS MUCH"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        Offer o; memset(&o, 0, sizeof o); o.kind = GK_PIECE; o.id = IK_BAG; o.piece = *p;
+        gear_take(g, &o);
+    } else {
+        int sl = piece_slot(g, p->kind), b = -1;
+        for (int i = 0; i < g->bag_size && b < 0; i++) if (g->bag[i].kind == IK_NONE) b = i;
+        if (g->worn[sl].kind == IK_NONE) g->worn[sl] = *p;
+        else if (b >= 0) g->bag[b] = *p;
+        else { shrine_note("NOWHERE TO PUT IT: WEAR LESS, OR BAG IT"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+    }
+    memset(p, 0, sizeof *p);
+    G.max_hp = gear_max_hp(g);
+    shrine_note("TAKEN OUT");
+    snd_sfx_ex(SFX_CREAK, 0.7f, 0.5f);
+}
+static void update_repomenu(void) {
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { if (G.rep_mode) { G.rep_mode = 0; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); } else G.ui = UI_NONE; return; }
+    int ud = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
+    int enter = IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1];
+    if (G.rep_mode) {                                              /* which piece goes in */
+        RepFrom fr[NSLOT + BAG_MAX + 1];
+        int n = repo_froms(fr);
+        if (!n) { G.rep_mode = 0; return; }
+        if (ud) { G.ui_sel = (G.ui_sel + n + ud) % n; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+        G.ui_sel = clampi(G.ui_sel, 0, n - 1);
+        if (enter) { repo_put(G.rep_place, &fr[G.ui_sel]); if (!G.rep_mode) G.ui_sel = G.rep_place; }
+        return;
+    }
+    RepRow r[REPO_MAX + 6];
+    int n = repo_rows(r);
+    if (ud) { G.ui_sel = (G.ui_sel + n + ud) % n; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    G.ui_sel = clampi(G.ui_sel, 0, n - 1);
+    const RepRow *c = &r[G.ui_sel];
+    int lr = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
+    if (lr && (c->kind == RR_GOLD_IN || c->kind == RR_GOLD_OUT)) { G.rep_amt = (G.rep_amt + 4 + lr) % 4; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    if (!enter) return;
+    switch (c->kind) {
+    case RR_PLACE:
+        if (RUN.repo[c->i].kind != IK_NONE) repo_take(c->i);
+        else {
+            RepFrom fr[NSLOT + BAG_MAX + 1];
+            if (!repo_froms(fr)) { shrine_note("YOU HAVE NOTHING TO SHUT AWAY"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); }
+            else { G.rep_mode = 1; G.rep_place = c->i; G.ui_sel = 0; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
+        }
+        break;
+    case RR_BUY: {
+        int price = PLACE_PRICE[clampi(RUN.repo_n - 2, 0, REPO_MAX - 3)];
+        if (price > RUN.treasure) { shrine_note("ANOTHER PLACE IS $%d", price); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); break; }
+        RUN.treasure -= price; RUN.repo_n++;
+        shrine_note("ANOTHER PLACE, FOR $%d", price); snd_sfx_ex(SFX_COIN, 1.0f, 0.5f); snd_sfx_ex(SFX_UNLOCK, 0.6f, 0.5f);
+        break;
+    }
+    case RR_GOLD_IN: {
+        int a = gold_amount(RUN.treasure), kept = a - a / 4;
+        if (a <= 0) { shrine_note("YOU CARRY NO GOLD"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); break; }
+        RUN.treasure -= a; RUN.repo_gold += kept;
+        shrine_note("$%d IN; $%d KEPT", a, kept); snd_sfx_ex(SFX_COIN, 1.0f, 0.5f);
+        break;
+    }
+    case RR_GOLD_OUT: {
+        int a = gold_amount(RUN.repo_gold);
+        if (a <= 0) { shrine_note("THERE IS NO GOLD IN IT"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); break; }
+        RUN.repo_gold -= a; RUN.treasure += a;
+        shrine_note("$%d OUT", a); snd_sfx_ex(SFX_COIN, 1.0f, 0.5f);
+        break;
+    }
+    case RR_COIN_IN:
+        if (RUN.coins <= 0) { shrine_note("YOU CARRY NO CURSED COINS"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); break; }
+        RUN.coins--; RUN.repo_coins++;
+        shrine_note("A CURSED COIN IN"); snd_sfx_ex(SFX_COIN, 0.8f, 0.5f);
+        break;
+    case RR_COIN_OUT:
+        if (RUN.repo_coins <= 0) { shrine_note("THERE ARE NO COINS IN IT"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); break; }
+        if (RUN.treasure < COIN_OUT) { shrine_note("EACH COMES OUT FOR $%d", COIN_OUT); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); break; }
+        RUN.treasure -= COIN_OUT; RUN.repo_coins--; RUN.coins++;
+        shrine_note("A CURSED COIN OUT, FOR $%d", COIN_OUT); snd_sfx_ex(SFX_COIN, 0.8f, 0.5f);
+        break;
+    }
+    G.shop_gold = RUN.treasure;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT repo row %d: carry $%d %d coins, in it $%d %d coins, %d places t=%.2f\n", c->kind, RUN.treasure, RUN.coins, RUN.repo_gold, RUN.repo_coins, RUN.repo_n, G.t);
+#endif
+}
+
 static void update_totemmenu(void) {
     int r[NBOSS], n = totem_rows(r);
     int enter = IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1];
@@ -10281,6 +10444,7 @@ static void update_ui(void) {
     if (G.ui == UI_TOTEM) { update_totemmenu(); return; }
     if (G.ui == UI_PORTAL) { update_portalmenu(); return; }
     if (G.ui == UI_COMP) { update_compmenu(); return; }
+    if (G.ui == UI_REPO) { update_repomenu(); return; }
 #ifdef CRAWL_DEBUG
     if (G.pilgrim == 2 && G.ui == UI_ALTAR) {                     /* the test player sends the wisp on, after a look */
         static int look;
@@ -11540,6 +11704,20 @@ static void render_shop_card(Frame *f) {
     if (G.shop_step == SH_LOOK && G.shop_t < 0.35) i = -1;
     if (G.player) i = G.shop_look;
     int y0 = H - 44 - 46;
+    if (G.player && G.rep_look && i < 0) {                         /* the Repository, and what E does there */
+        int bw = 264, bx = (W - bw) / 2, ph = 42, full = 0;
+        for (int k = 0; k < RUN.repo_n; k++) full += RUN.repo[k].kind != IK_NONE;
+        y0 = H - 44 - 4 - ph;
+        gfx_rect(f, bx, y0, bw, ph, 0);
+        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
+        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        gfx_text16(f, bx + 8, y0 + 4, "THE WRETCHED REPOSITORY", R_IRON + 13, 1);
+        char l2[48];
+        snprintf(l2, sizeof l2, "%d OF %d FULL, $%d, %d COINS", full, RUN.repo_n, RUN.repo_gold, RUN.repo_coins);
+        gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
+        gfx_text8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10, 1);
+        return;
+    }
     if (G.player && G.comp_look && i < 0) {                        /* the Compendium, and what E does there */
         int bw = 264, bx = (W - bw) / 2, ph = 42, ns = 0;
         for (int k = 0; k < NATK; k++) ns += RUN.comp_atk[k] > 0;
@@ -13220,6 +13398,96 @@ static void render_compmenu(Frame *f) {
     }
 }
 
+/* the Repository's screen: its places down the left, the gold and coins on the right, and under them the
+ * card of what lies in the place chosen, or what the row will do */
+static void render_repomenu(Frame *f) {
+    static const char *const AMT[4] = { "ALL", "HALF", "A QUARTER", "A TENTH" };
+    dim_view(f);
+    int px = 6, py = 6, pw = W - 12, ph = H - 12, cx = px + 156;
+    panel(f, px, py, pw, ph);
+    gfx_text16(f, px + 10, py + 6, "THE WRETCHED REPOSITORY", R_IRON + 13, 1);
+    char line[96];
+    if (G.rep_mode) {                                              /* which piece goes in */
+        RepFrom fr[NSLOT + BAG_MAX + 1];
+        int n = repo_froms(fr), sel = clampi(G.ui_sel, 0, n - 1);
+        snprintf(line, sizeof line, "INTO PLACE %d: WHICH?", G.rep_place + 1);
+        gfx_text8(f, px + 10, py + 24, line, R_STONE + 13, 1);
+        for (int j = 0; j < n; j++) {
+            int y = py + 37 + j * 9;
+            Piece p = repo_from_piece(&fr[j]);
+            if (j == sel) gfx_rect(f, px + 6, y - 1, 146, 9, R_IRON + 3);
+            if (fr[j].slot >= 0) snprintf(line, sizeof line, "%s", SLOT_NAME[fr[j].slot]);
+            else if (fr[j].bag >= 0) snprintf(line, sizeof line, "%s, BAGGED", KIND_NAME[p.kind]);
+            else snprintf(line, sizeof line, "THE BAG ITSELF");
+            gfx_text8(f, px + 10, y, line, (uint8_t)qual_text(p.quality), 1);
+        }
+        if (n) {
+            Piece p = repo_from_piece(&fr[sel]);
+            int tax = repo_tax(G.rep_place, &p);
+            if (tax) snprintf(line, sizeof line, "IN FOR $%d", tax); else snprintf(line, sizeof line, "IN FOR NOTHING");
+            gfx_text8(f, cx, py + 37, line, tax > RUN.treasure ? (uint8_t)(R_BLOOD + 13) : (uint8_t)(R_GOLD + 11), 1);
+            piece_card(f, cx, py + 50, pw - 166, &p, NULL, NULL);
+        }
+        gfx_text8(f, px + 10, py + ph - 12, G.sh_note_t > 0.0f ? G.sh_note : "ENTER SHUTS IT AWAY  ESC BACK", G.sh_note_t > 0.0f ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 9), 1);
+        return;
+    }
+    gfx_text8(f, px + 10, py + 24, "W/S CHOOSE  A/D HOW MUCH  ENTER  ESC", R_STONE + 9, 1);
+    RepRow r[REPO_MAX + 6];
+    int n = repo_rows(r), sel = clampi(G.ui_sel, 0, n - 1), ly = py + 37, ry = py + 37;
+    for (int j = 0; j < n; j++) {
+        const RepRow *c = &r[j];
+        if (c->kind <= RR_BUY) {                                   /* the places, down the left */
+            if (j == sel) gfx_rect(f, px + 6, ly - 1, 146, 9, R_IRON + 3);
+            if (c->kind == RR_BUY) {
+                snprintf(line, sizeof line, "BUY A PLACE");
+                gfx_text8(f, px + 10, ly, line, j == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 11), 1);
+                int pr = PLACE_PRICE[clampi(RUN.repo_n - 2, 0, REPO_MAX - 3)];
+                snprintf(line, sizeof line, "$%d", pr);
+                gfx_text8(f, px + 150 - gfx_text_width(line, 1), ly, line, pr <= RUN.treasure ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_BLOOD + 13), 1);
+            } else {
+                const Piece *p = &RUN.repo[c->i];
+                snprintf(line, sizeof line, "%2d %s", c->i + 1, p->kind ? KIND_NAME[p->kind] : "EMPTY");
+                gfx_text8(f, px + 10, ly, line, p->kind ? (uint8_t)qual_text(p->quality) : (uint8_t)(R_STONE + 8), 1);
+                if (c->i == 0) gfx_text8(f, px + 150 - gfx_text_width("UNTAXED", 1), ly, "UNTAXED", R_STONE + 9, 1);
+            }
+            ly += 9;
+            continue;
+        }
+        if (ry == py + 37) {                                       /* the money, on the right */
+            snprintf(line, sizeof line, "ON YOU: $%d", RUN.treasure);
+            gfx_text8(f, cx, ry, line, R_GOLD + 9, 1);
+            snprintf(line, sizeof line, "IN IT:  $%d", RUN.repo_gold);
+            gfx_text8(f, cx, ry + 9, line, R_GOLD + 11, 1);
+            draw_coin(f, cx, ry + 19);
+            snprintf(line, sizeof line, "%d IN, %d ON YOU", RUN.repo_coins, RUN.coins);
+            gfx_text8(f, cx + 10, ry + 19, line, R_GOLD + 10, 1);
+            ry += 32;
+        }
+        static const char *const MR[4] = { "PUT GOLD IN", "TAKE GOLD OUT", "PUT A COIN IN", "TAKE A COIN OUT" };
+        if (j == sel) gfx_rect(f, cx - 4, ry - 1, pw - 160, 9, R_IRON + 3);
+        gfx_text8(f, cx, ry, MR[c->kind - RR_GOLD_IN], j == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12), 1);
+        if (c->kind <= RR_GOLD_OUT) gfx_text8(f, px + pw - 10 - gfx_text_width(AMT[clampi(G.rep_amt, 0, 3)], 1), ry, AMT[clampi(G.rep_amt, 0, 3)], R_STONE + 10, 1);
+        ry += 10;
+    }
+    ry += 4;
+    for (int i = cx - 4; i < px + pw - 8; i++) gfx_px(f, i, ry - 2, R_STONE + 5);
+    const RepRow *c = &r[sel];
+    if (c->kind == RR_PLACE && RUN.repo[c->i].kind != IK_NONE) piece_card(f, cx, ry + 2, pw - 166, &RUN.repo[c->i], NULL, NULL);
+    else {
+        int a;
+        switch (c->kind) {
+        case RR_PLACE: snprintf(line, sizeof line, c->i == 0 ? "EMPTY. WHAT GOES IN HERE GOES IN FOR NOTHING." : "EMPTY. A PIECE GOES IN FOR A TENTH OF WHAT THE SHOP WOULD ASK."); break;
+        case RR_BUY: snprintf(line, sizeof line, "ONE MORE PLACE, KEPT THROUGH DEATH. TWELVE AT THE MOST."); break;
+        case RR_GOLD_IN: a = gold_amount(RUN.treasure); snprintf(line, sizeof line, "PUT IN $%d, AND $%d IS KEPT. A QUARTER GOES TO THE DEAD.", a, a - a / 4); break;
+        case RR_GOLD_OUT: snprintf(line, sizeof line, "TAKE OUT $%d, FREE.", gold_amount(RUN.repo_gold)); break;
+        case RR_COIN_IN: snprintf(line, sizeof line, "A CURSED COIN IN, FREE. NOTHING IN HERE IS LOST TO DEATH OR TO HER CLAIM."); break;
+        default: snprintf(line, sizeof line, "A CURSED COIN OUT, FOR $%d.", COIN_OUT); break;
+        }
+        text_wrap(f, cx, ry + 2, line, 17, R_STONE + 12, 6);
+    }
+    if (G.sh_note_t > 0.0f) gfx_text8(f, px + 10, py + ph - 12, G.sh_note, R_GOLD + 11, 1);
+}
+
 static void render_totemmenu(Frame *f) {
     static const char *const RANK[ABIL_TOP + 1] = { "NOT KNOWN", "RANK I", "RANK II", "RANK III" };
     dim_view(f);
@@ -13319,6 +13587,7 @@ static void render_portalmenu(Frame *f) {
 static void render_ui(Frame *f) {
     if (G.ui == UI_PORTAL) { render_portalmenu(f); return; }
     if (G.ui == UI_COMP) { render_compmenu(f); return; }
+    if (G.ui == UI_REPO) { render_repomenu(f); return; }
     if (G.ui == UI_SHRINE) { render_shrinemenu(f); return; }
     if (G.ui == UI_TOTEM) { render_totemmenu(f); return; }
     if (G.ui == UI_WISPS) { render_wispmenu(f); return; }

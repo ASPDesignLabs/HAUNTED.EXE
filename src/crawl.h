@@ -47,6 +47,7 @@ enum {
     T_GRATE,                                      /* a drain low in the wall: where the bile comes from */
     T_PORTAL0, T_PORTAL1, T_PORTAL2, T_PORTAL3,   /* the Accursed Portal: an arch filled with a slow red-violet swirl */
     T_SEALED,                                     /* a chain's doorway shut for the level: dark frames under a cracked red seal */
+    T_REPOSITORY,                                 /* the Wretched Repository: iron doors shut in niches, three to a wall */
     NTEX
 };
 

@@ -504,10 +504,10 @@ static int draw_b7walls(const char *path, int level) {
     for (int f = 0; f < 4; f++) tex(x0 + f * cw, y, T_PORTAL0 + f, SC, LIGHT);
     LBL(x0, "THE ACCURSED PORTAL, FOUR FRAMES"); LBL2(x0, "A SLOW RED-VIOLET SWIRL");
     y += row;
-    text(PAD, y + CELL / 2, "A TRIAL", 200, 200, 200);
-    text(PAD, y + CELL / 2 + 8 * TXT + 4, "FAILED", 200, 200, 200);
+    text(PAD, y + CELL / 2, "WALLS", 200, 200, 200);
     tex(x0, y, T_PASSAGE, SC, LIGHT); LBL(x0, "THE WAY IN"); LBL2(x0, "AS IT WAS");
     tex(x0 + cw, y, T_SEALED, SC, LIGHT); LBL(x0 + cw, "SEALED"); LBL2(x0 + cw, "FOR THE REST OF THE LEVEL");
+    tex(x0 + 2 * cw, y, T_REPOSITORY, SC, LIGHT); LBL(x0 + 2 * cw, "THE REPOSITORY"); LBL2(x0 + 2 * cw, "");
     #undef LBL
     #undef LBL2
     text(PAD, ih - PAD - 8 * TXT, "SHADED AS NEAR A TORCH.", 120, 120, 120);
@@ -523,7 +523,7 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "shrine", "THE RUNE SHRINE, ITS RUNES AND THE CURSED COIN");
         printf("%-12s %s\n", "backrooms", "THE BACKROOMS: WALLS, FLOOR, CEILING, THE VISPORTAL, THE GLITCH");
         printf("%-12s %s\n", "severance", "SEVERANCE: WALLS, DOORS, FLOOR, CEILING, DESKS, THE WATER COOLER");
-        printf("%-12s %s\n", "b7walls", "1.0.0B7: THE PORTAL, AND A SEALED DOORWAY");
+        printf("%-12s %s\n", "b7walls", "1.0.0B7: THE PORTAL, A SEALED DOORWAY, THE REPOSITORY");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }

@@ -130,7 +130,7 @@ wisp, follows it home and sends it on from the altar's menu; it can't be hurt), 
 put there as the level opens, already leaving), `CRAWL_BOSSHP=f` (a boss's health times f), `CRAWL_OMEN=s` (the
 level's omens on any level, every s seconds, the first at once), `CRAWL_TOTEM=dddd` (each boss ability's rank, a digit
 each in boss order, and that boss counted beaten), `CRAWL_SCRIP=n` (n scrip of each boss, all four counted beaten),
-`CRAWL_PEDS=n` (the merchant's pedestals), `CRAWL_TPCAT=1` (before the merchant herself), `CRAWL_TPSTONE=1` (before the plot's newest stone), `CRAWL_TPLECTERN=1` (before the Compendium), `CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_TPPORTAL=1` (in the
+`CRAWL_PEDS=n` (the merchant's pedestals), `CRAWL_TPCAT=1` (before the merchant herself), `CRAWL_TPSTONE=1` (before the plot's newest stone), `CRAWL_TPLECTERN=1` (before the Compendium), `CRAWL_TPREPO=1` (before the Repository), `CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_TPPORTAL=1` (in the
 grave plot facing the Accursed Portal), `CRAWL_RUNTOP=n` (the runs it opens: 0 only run I), `CRAWL_BSTEP=s` (every
 challenge at step s), `CRAWL_GOALS=1`
 (the autopilot's goal at every step, as `GOAL` lines),
@@ -171,7 +171,8 @@ pedestal's ware, `offer_pack`, and whether it is gone or back), and `LG_STONES` 
 count, then each stone, `STONE_BYTES`, 331: when, the level, what took it as a `Blame`, gold, souls,
 coins, spells and runes, the worn pieces and the bag), `LG_PEDS` (the pedestals bought, a byte) and
 `LG_COMP` (the Compendium: a count for each kind, bracer to bag, and quality, those pieces, then each
-spell's tier): about 1,550 bytes with a little in the Compendium and no stones, under 15 KB at the most
+spell's tier) and `LG_REPO` (the Repository: places, u32 gold, u16 coins, then each place's piece): about
+1,800 bytes with a little in the Compendium and the Repository and no stones, under 15.5 KB at the most
 (`PAGE_BYTES`). A
 reader steps over sections it doesn't know, so the hall's parts can come as sections of their own. The
 progress (`SLOT_PROGRESS`) is either a whole run (unsigned: 1.0.0b6's, or a fresh one's) or `"HVP1"`, the
@@ -596,6 +597,15 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   thing worth a tenth or more (`gear_value` over the price's root, as `shop_choose` weighs), never a
   bag. An old save's worn pieces and spells go in as it loads. Debug: `EVENT comp_buy`, `comp_auto`,
   `COMP auto best ...`; `CRAWL_TPLECTERN=1` stands you before it.
+- **The Wretched Repository** (docs/PLAN-b7.md section 7; `repo_rows`, `repo_froms`, `repo_put`,
+  `repo_take`, `update_repomenu`, `render_repomenu`, `UI_REPO`). Iron doors in niches on the back room's
+  west wall (`T_REPOSITORY`, x 3, y 13-16); E facing them opens it. `RUN.repo[]` (places, `RUN.repo_n`,
+  two at first, ten more at `PLACE_PRICE`), `RUN.repo_gold`, `RUN.repo_coins`, none of it lost to death or
+  the claim. A worn piece, a spare or an empty bag goes in for a tenth of its shop price (the first place
+  free) and comes out free, into its slot if bare, else the bag; gold goes in less a quarter (A/D: all,
+  half, a quarter, a tenth) and out free; a coin goes in free and comes out for 2,500 gold
+  (`COIN_OUT`). The autopilot leaves it alone. Debug: `EVENT repo_put`, `repo row ...`;
+  `CRAWL_TPREPO=1` stands you before it.
 - **Items** (`crawl_gear.c`, docs/PLAN-items.md). A `Piece` has a kind (`IK_*`: bracer, boots,
   amulet, hood, robes, ring, bag), a quality (`Q_*`, white to gold: `QUAL_RAMP`), its level, Anointed or
   not, an ability (`AB_*`) and up to six rolled stats (`ST_*`, in tenths; health restored in
