@@ -130,7 +130,7 @@ wisp, follows it home and sends it on from the altar's menu; it can't be hurt), 
 put there as the level opens, already leaving), `CRAWL_BOSSHP=f` (a boss's health times f), `CRAWL_OMEN=s` (the
 level's omens on any level, every s seconds, the first at once), `CRAWL_TOTEM=dddd` (each boss ability's rank, a digit
 each in boss order, and that boss counted beaten), `CRAWL_SCRIP=n` (n scrip of each boss, all four counted beaten),
-`CRAWL_TPCAT=1` (before the merchant herself), `CRAWL_TPSTONE=1` (before the plot's newest stone), `CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_TPPORTAL=1` (in the
+`CRAWL_PEDS=n` (the merchant's pedestals), `CRAWL_TPCAT=1` (before the merchant herself), `CRAWL_TPSTONE=1` (before the plot's newest stone), `CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_TPPORTAL=1` (in the
 grave plot facing the Accursed Portal), `CRAWL_RUNTOP=n` (the runs it opens: 0 only run I), `CRAWL_BSTEP=s` (every
 challenge at step s), `CRAWL_GOALS=1`
 (the autopilot's goal at every step, as `GOAL` lines),
@@ -169,7 +169,8 @@ bytes, to a tag of 0): `LG_PAGE` (u32 the run's id, u32 its signatures, u64 when
 level, pedestals, wares left and bought, the shrine's takes, the ware held this visit, then each
 pedestal's ware, `offer_pack`, and whether it is gone or back), and `LG_STONES` (the grave plot: a
 count, then each stone, `STONE_BYTES`, 331: when, the level, what took it as a `Blame`, gold, souls,
-coins, spells and runes, the worn pieces and the bag): 1,351 bytes with five pedestals and no stones. A
+coins, spells and runes, the worn pieces and the bag), and `LG_PEDS` (the pedestals bought, a byte): 1,355
+bytes with five pedestals and no stones. A
 reader steps over sections it doesn't know, so the hall's parts can come as sections of their own. The
 progress (`SLOT_PROGRESS`) is either a whole run (unsigned: 1.0.0b6's, or a fresh one's) or `"HVP1"`, the
 page to open (a byte, 1-3), the run's id and signatures. Version 5 is the same without version 6's part; its
@@ -542,8 +543,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   program runs: `yours` (a person has taken over: the screensaver's dream is over; sleepwalking doesn't
   end it), `page` (opened from or last signed onto; 0 for the unsigned run), and a page's visit
   (`Visit`, set out again by `begin_shop`). `ledger_first` reads the progress at the first
-  `crawl_enter`. E at the cat opens her menu (`UI_MERCHANT`: sign, pat, leave; another pedestal comes
-  with step 14); signing (`UI_LEDGER`, `led_mode` 0: `ledger_sign`) picks the page you came from first and
+  `crawl_enter`. E at the cat opens her menu (`UI_MERCHANT`: sign, another pedestal, pat, leave); signing (`UI_LEDGER`, `led_mode` 0: `ledger_sign`) picks the page you came from first and
   asks twice over another run's (`RUN.run_id`, born at a fresh start, kept through death); opening
   (Esc, `led_mode` 1: `ledger_open`) always asks twice. Signing or opening points the progress at the
   page (`progress_point`). 1.0.0b6's graves are pages (shown CARVED, with their carved time after the
@@ -649,7 +649,11 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `make sheets` draws them as `shrine.png`. The debug build logs `EVENT shrine_curse`, `shrine_raise`,
   `shrine_pull`, `shrine_combine`, `shrine_take`, `shrine_attune`.
 - **The merchant** (`gen_shop`, `begin_shop`, `update_shop`, `shop_human`). A room 11 cells wide
-  with five to seven pedestals in an arc (`G.ped_x/ped_y`, `gear_shop_pedestals`): a spell, the
+  with two to seven pedestals in an arc (`G.ped_x/ped_y`, `ped_arc`, `G.ped_deco`): `RUN.peds`, two for a
+  fresh run, more bought from her menu (`ped_buy`, `PED_PRICE`: 500, 1,250, 3,125, 7,815, 19,530), kept
+  through death; an old save (or a debug start past level 1) keeps what its level gave
+  (`gear_shop_pedestals`, five to seven), and `CRAWL_PEDS=n` sets it. The autopilot buys one at its
+  greeting when a level's haul (`gear_haul`) is left after. The wares: a spell, the
   rest things to wear (runes come only from the Rune Shrine now), a bag at most once a visit and only one bigger than yours. One to three
   wares a visit (`gear_shop_purchases`, `G.shop_left`); the autopilot buys up to that by value,
   keeping 15% of a level's haul back after the first. A person: E buys and wears it at once

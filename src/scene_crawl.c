@@ -478,6 +478,7 @@ static struct {
     uint32_t run_id, signs;                 /* the ledger's: whose run this is (born at a fresh start, kept through
                                                death), and how many times its page has been written */
     Stone stones[STONES]; int nstones;      /* the grave plot, newest first */
+    int peds;                               /* the merchant's pedestals, two to seven, the rest bought from her */
 } RUN;
 
 /* The caster's boss abilities (docs/PLAN-b7.md, section 8): one a boss, unlocked at the Hexed Totem with a
@@ -607,6 +608,7 @@ static struct {
     Offer offers[NPED];
     int offer_gone[NPED], offer_back[NPED]; /* offer_back: held last visit, back as it was */
     float ped_x[NPED], ped_y[NPED];         /* the pedestals, in an arc round the back wall */
+    int ped_deco[NPED];                     /* and their stones among the decorations */
     int ped_n, shop_left, shop_confirm, shop_letgo, shop_held;   /* pedestals; wares still to be had; a ware awaiting a
                                                second E; one awaiting room in the bag; the ware held this visit */
     double shop_t;
@@ -685,7 +687,8 @@ static struct {
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
        BP_LITANY };                                 /* the Deacon's censer raised, the green light growing */
 static float zbuf[W];
-enum { MM_SIGN, MM_PAT, MM_LEAVE, NMM };                           /* the merchant's menu */
+enum { MM_SIGN, MM_PED, MM_PAT, MM_LEAVE, NMM };                   /* the merchant's menu */
+static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
 enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 
@@ -5709,6 +5712,8 @@ static void give_bag(int q) {                                      /* a bag of t
  * Exquisite), CRAWL_ABIL, CRAWL_BAG, CRAWL_GOLD, CRAWL_SOULS, CRAWL_COINS (Cursed Coins), CRAWL_SHRINE=r
  * (the Rune Shrine's rank, 0 sanctified to 5) */
 static void debug_gear(void) {
+    if (RUN.level > 1) RUN.peds = gear_shop_pedestals(RUN.level);  /* started deeper: as an old save would come */
+    if (getenv("CRAWL_PEDS")) RUN.peds = clampi(atoi(getenv("CRAWL_PEDS")), 2, NPED);
     if (getenv("CRAWL_GEAR")) give_gear(atoi(getenv("CRAWL_GEAR")));
     if (getenv("CRAWL_RUNES")) for (int i = 0; i < NDEF; i++) RUN.gear.def[i] = (int8_t)clampi(atoi(getenv("CRAWL_RUNES")), 0, RUNE_EXQ);
     if (getenv("CRAWL_COINS")) RUN.coins = atoi(getenv("CRAWL_COINS"));
@@ -6129,7 +6134,7 @@ static void crawl_enter(uint32_t seed) {
     if (!resume) {
         memset(&RUN, 0, sizeof RUN);
         RUN.active = 1; RUN.level = 1; RUN.hp = 100; RUN.shop_next = 1;
-        RUN.run_id = new_run_id(seed);
+        RUN.run_id = new_run_id(seed); RUN.peds = 2;
         gear_reset(&RUN.gear);
 #ifdef CRAWL_DEBUG
         if (getenv("CRAWL_LEVEL")) RUN.level = atoi(getenv("CRAWL_LEVEL"));
@@ -7556,6 +7561,13 @@ static int offer_sprite(const Offer *o) {
     return o->kind == GK_ATK ? SP_ITEM_TOME : (o->kind == GK_DEF ? SP_ITEM_RUNE : PIECE_SPR[o->piece.kind]);
 }
 
+static void ped_arc(void) {                                        /* the pedestals in an arc, its ends come forward */
+    float half = 3.0f + 0.4f * (float)(G.ped_n - 5);
+    for (int i = 0; i < G.ped_n; i++) {
+        float t = G.ped_n > 1 ? -1.0f + 2.0f * (float)i / (float)(G.ped_n - 1) : 0.0f;
+        G.ped_x[i] = SHOP_MID + t * half; G.ped_y[i] = 12.9f + 0.75f * t * t;
+    }
+}
 static void gen_shop(void) {
     memset(G.map, 0, sizeof G.map);
     for (int y = 0; y < MAPN; y++)
@@ -7602,13 +7614,9 @@ static void gen_shop(void) {
     for (int i = 0; i < RUN.nstones; i++)                          /* a stone a death, the newest clean-cut */
         solid_prop(STONE_AT[i][0], STONE_AT[i][1], i == 0 ? SP_TOMB_FRESH : SP_TOMB_ROUND + (int)((uint64_t)RUN.stones[i].when % 3), 1, K_PROP);
     G.map[21][10].tex = T_TORCH0; light_static(10.92f, 21.5f, 1.1f, 4.2f);
-    G.ped_n = gear_shop_pedestals(G.level);                        /* an arc, its ends come forward */
-    float half = 3.0f + 0.4f * (float)(G.ped_n - 5);
-    for (int i = 0; i < G.ped_n; i++) {
-        float t = -1.0f + 2.0f * (float)i / (float)(G.ped_n - 1);
-        G.ped_x[i] = SHOP_MID + t * half; G.ped_y[i] = 12.9f + 0.75f * t * t;
-        add_deco(G.ped_x[i], G.ped_y[i], SP_PEDESTAL);
-    }
+    G.ped_n = clampi(RUN.peds, 2, NPED);                           /* the pedestals bought */
+    ped_arc();
+    for (int i = 0; i < G.ped_n; i++) { G.ped_deco[i] = G.ndecos; add_deco(G.ped_x[i], G.ped_y[i], SP_PEDESTAL); }
     G.ncells = 0;
     for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (G.map[y][x].kind == K_FLOOR) G.ncells++;
 }
@@ -7696,7 +7704,7 @@ static void begin_shop(void) {
     }
     if (RUN.gear.has_held) {                                       /* last visit's hold: back as it was, at the price it showed */
         const Offer *h = &RUN.gear.held;
-        int p = h->kind == GK_ATK ? 0 : 2;
+        int p = h->kind == GK_ATK ? 0 : imin(2, G.ped_n - 1);
         G.offers[p] = *h; G.offer_back[p] = 1;
     }
     G.shop_left = gear_shop_purchases(G.level); G.shop_confirm = G.shop_letgo = G.shop_held = -1;
@@ -7753,6 +7761,31 @@ static void shop_purchase(int i) {
 #endif
 }
 
+
+/* another pedestal, bought from her: the arc opens out and a ware is set on it at once */
+static int ped_price(void) { return RUN.peds < NPED ? PED_PRICE[RUN.peds + 1] : 0; }
+static void ped_buy(void) {
+    if (RUN.peds >= NPED || G.ped_n >= NPED || RUN.treasure < ped_price()) return;
+    RUN.treasure -= ped_price(); RUN.peds++;
+    if (G.shop) {
+        int p = G.ped_n++, bag_up = 0;
+        ped_arc();
+        for (int i = 0; i < p; i++) if (G.ped_deco[i] >= 0 && G.ped_deco[i] < G.ndecos) { G.decos[G.ped_deco[i]].x = G.ped_x[i]; G.decos[G.ped_deco[i]].y = G.ped_y[i]; }
+        G.ped_deco[p] = G.ndecos; add_deco(G.ped_x[p], G.ped_y[p], SP_PEDESTAL);
+        for (int i = 0; i < p; i++) bag_up |= G.offers[i].kind == GK_PIECE && G.offers[i].piece.kind == IK_BAG;
+        Offer o = gear_offer(POOL_GEAR, G.level, &RUN.gear, &G.rs);
+        for (int k = 0; k < 8 && bag_up && o.kind == GK_PIECE && o.piece.kind == IK_BAG; k++) o = gear_offer(POOL_GEAR, G.level, &RUN.gear, &G.rs);
+        if (G.level == 1) o.price = 0;
+        G.offers[p] = o; G.offer_gone[p] = G.offer_back[p] = 0;
+        G.shop_gold = RUN.treasure; G.sparkle = 0.8f;
+    }
+    snd_sfx_ex(SFX_COIN, 1.1f, 0.5f); snd_sfx_ex(SFX_PUSHWALL, 0.6f, 0.5f);
+    sfx_at(SFX_TRILL, CAT_X, CAT_Y, 1.1f); G.cat_trill = 0.5f; G.cat_slow = 1.2f;
+    say(RUN.peds >= NPED ? "SHE SETS OUT THE SEVENTH PEDESTAL, THE LAST" : "SHE SETS OUT ANOTHER PEDESTAL");
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT pedestal %d for %d (left %d) t=%.2f\n", RUN.peds, PED_PRICE[RUN.peds], RUN.treasure, G.t);
+#endif
+}
 
 /* ---- the Rune Shrine (docs/PLAN-b6.md): cursed awake with a coin, raised with more, and pulled for
  * runes, which come into its nine slots; three alike become one better. Each pull earns one take, a
@@ -8093,7 +8126,10 @@ static void update_shop(double dt) {
     case -1: break;                                                /* a person is choosing */
     case SH_GREET:                                                 /* the merchant first: a slow blink */
         if (st > 0.8f && st - fdt <= 0.8f) G.cat_slow = 1.4f;
-        if (st >= 2.4f) { G.shop_step = SH_LOOK; G.shop_look = 0; G.shop_t = 0.0; shop_turn(face_of(G.ped_x[0], G.ped_y[0]), 0.7f); }
+        if (st >= 2.4f) {
+            if (RUN.peds < NPED && RUN.treasure >= ped_price() + (int)gear_haul(G.level)) ped_buy();   /* another, if a level's haul is left after */
+            G.shop_step = SH_LOOK; G.shop_look = 0; G.shop_t = 0.0; shop_turn(face_of(G.ped_x[0], G.ped_y[0]), 0.7f);
+        }
         break;
     case SH_LOOK: {                                                /* each ware in turn */
         float hold = 0.7f + 1.0f + 0.5f * (float)(hash2(G.level, G.shop_look) % 100) / 100.0f;
@@ -9384,15 +9420,15 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
  * takes, the ware held this visit (+1), then each pedestal's ware, gone or not and back or not.
  * LG_STONES: the grave plot, a count, then each stone (STONE_BYTES): when (u64), the level (u16), what
  * took it, gold, souls (u32 each), coins (u16), the spells' tiers and runes' qualities, the worn pieces,
- * the bag's size and quality and its pieces. */
+ * the bag's size and quality and its pieces. LG_PEDS: the pedestals bought (a byte). */
 #define LEDGER_MAGIC 0x3147444Cu            /* "LDG1" */
 #define PROGRESS_MAGIC 0x31505648u          /* "HVP1": a progress that names the page to start from */
-enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES };
+enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS };
 enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
 #define LG_PAGE_BYTES 17
 #define LG_VISIT_BYTES (8 + NPED * (2 + OFFER_BYTES))
 #define STONE_BYTES (8 + 2 + 3 + 4 + 4 + 2 + NATK + NDEF + NSLOT * PIECE_BYTES + 2 + BAG_MAX * PIECE_BYTES)
-#define PAGE_BYTES (save_end(6) + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 1)   /* the most a page takes so far */
+#define PAGE_BYTES (save_end(6) + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 1)   /* the most a page takes so far */
 static void stone_pack(uint8_t *p, const Stone *st) {
     uint64_t w = (uint64_t)st->when;
     put32(p, (int32_t)(uint32_t)(w & 0xffffffffu)); put32(p + 4, (int32_t)(uint32_t)(w >> 32)); put16(p + 8, st->level);
@@ -9455,6 +9491,9 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     put32(c, (int32_t)RUN.run_id); put32(c + 4, (int32_t)RUN.signs);
     put32(c + 8, (int32_t)(uint32_t)(now & 0xffffffffu)); put32(c + 12, (int32_t)(uint32_t)(now >> 32)); c[16] = (uint8_t)why;
     p = section_end(c, c + LG_PAGE_BYTES);
+    c = section_begin(p, LG_PEDS);
+    c[0] = (uint8_t)clampi(RUN.peds, 2, NPED);
+    p = section_end(c, c + 1);
     if (RUN.nstones) {
         c = section_begin(p, LG_STONES);
         c[0] = (uint8_t)RUN.nstones;
@@ -9507,6 +9546,8 @@ static void run_unpack(const uint8_t *buf, int len) {
         for (int i = 0; i < len; i++) h = (h ^ buf[i]) * 16777619u;
         RUN.run_id = h ? h : 1u;
     }
+    c = page_section(buf, len, LG_PEDS, &k);
+    RUN.peds = c && k >= 1 ? clampi(c[0], 2, NPED) : gear_shop_pedestals(RUN.level);   /* an old save keeps what its level gave it */
     c = page_section(buf, len, LG_STONES, &k);
     if (c && k >= 1) {
         RUN.nstones = imin(imin(c[0], STONES), (k - 1) / STONE_BYTES);
@@ -9867,6 +9908,12 @@ static void update_merchantmenu(void) {
     G.ui_sel = clampi(G.ui_sel, 0, NMM - 1);
     if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) return;
     if (G.ui_sel == MM_SIGN) { open_ledger(0); return; }
+    if (G.ui_sel == MM_PED) {
+        if (RUN.peds >= NPED) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        if (RUN.treasure < ped_price()) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); return; }
+        G.ui = UI_NONE; ped_buy();
+        return;
+    }
     G.ui = UI_NONE;
     if (G.ui_sel == MM_PAT) { G.cat_slow = 1.4f; sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.9f); }
 }
@@ -12420,10 +12467,10 @@ static void render_ledger(Frame *f) {
 
 /* E at the merchant: her menu, and a note on the row chosen */
 static void render_merchantmenu(Frame *f) {
-    static const char *const ROW[NMM] = { "SIGN THE LEDGER", "PAT HER", "LEAVE" };
+    static const char *const ROW[NMM] = { "SIGN THE LEDGER", "ANOTHER PEDESTAL", "PAT HER", "LEAVE" };
     int sel = clampi(G.ui_sel, 0, NMM - 1);
     dim_view(f);
-    int pw = 296, ph = 118, px = (W - pw) / 2, py = 24;
+    int pw = 296, ph = 142, px = (W - pw) / 2, py = 22;
     panel(f, px, py, pw, ph);
     gfx_text16(f, px + 10, py + 6, "THE MERCHANT", R_GOLD + 12, 1);
     char line[160];
@@ -12433,15 +12480,23 @@ static void render_merchantmenu(Frame *f) {
     for (int i = 0; i < NMM; i++) {
         int y = py + 40 + i * 13;
         if (i == sel) gfx_rect(f, px + 6, y - 3, pw - 12, 13, R_IRON + 3);
-        gfx_text8(f, px + 14, y, ROW[i], i == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12), 1);
+        gfx_text8(f, px + 14, y, ROW[i], i == MM_PED && RUN.peds >= NPED ? (uint8_t)(R_STONE + 8) : (i == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12)), 1);
+        if (i == MM_PED && RUN.peds < NPED) {                       /* its price, red if it is beyond you */
+            char pr[16];
+            snprintf(pr, sizeof pr, "$%d", ped_price());
+            gfx_text8(f, px + pw - 12 - gfx_text_width(pr, 1), y, pr, RUN.treasure >= ped_price() ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_BLOOD + 13), 1);
+        }
     }
     int ty = py + 40 + NMM * 13 + 6;
     for (int i = px + 10; i < px + pw - 10; i++) gfx_px(f, i, ty - 4, R_STONE + 5);
     if (sel == MM_SIGN && CON.used) snprintf(line, sizeof line, "THE DEAD TOOK NOTE. SHE WILL SIGN NOTHING WHILE THIS LASTS.");
     else if (sel == MM_SIGN && LEDGER.page) snprintf(line, sizeof line, "SHE KEEPS YOUR RUN AS IT STANDS, ON A PAGE OF YOUR CHOOSING. YOU CAME FROM PAGE %s.", RUN_ROMAN[LEDGER.page - 1]);
     else if (sel == MM_SIGN) snprintf(line, sizeof line, "SHE KEEPS YOUR RUN AS IT STANDS, ON A PAGE OF YOUR CHOOSING. THIS RUN IS UNSIGNED: FLEE NOW AND IT IS LOST.");
+    else if (sel == MM_PED && RUN.peds >= NPED) snprintf(line, sizeof line, "ALL SEVEN STAND. SHE HAS NO MORE TO SET OUT.");
+    else if (sel == MM_PED) snprintf(line, sizeof line, "A %s PEDESTAL, AND A WARE ON IT FROM NOW ON, EVERY VISIT. KEPT THROUGH DEATH.",
+                                     RUN.peds == 2 ? "THIRD" : RUN.peds == 3 ? "FOURTH" : RUN.peds == 4 ? "FIFTH" : RUN.peds == 5 ? "SIXTH" : "SEVENTH");
     else snprintf(line, sizeof line, sel == MM_PAT ? "SHE ALLOWS IT." : "SHE WILL BE HERE. SHE IS ALWAYS HERE.");
-    text_wrap(f, px + 10, ty + 2, line, 35, sel == MM_SIGN && !LEDGER.page && !CON.used ? R_BLOOD + 12 : R_STONE + 12, 3);
+    text_wrap(f, px + 10, ty + 2, line, 35, sel == MM_SIGN && !LEDGER.page && !CON.used ? R_BLOOD + 12 : R_STONE + 12, 4);
 }
 
 /* a stone's page, laid out like the bestiary's: the epitaph and when, then what was carried */

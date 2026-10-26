@@ -907,7 +907,13 @@ first.
     LEDGER say THE DEAD ARE WATCHING. In the harness: a sleepwalking run marked as it met a black
     skeleton, the window closed while marked, and the next start paying (740 gold and a tier of Rapid
     Sparks), then nothing on the start after. ASan clean.
-14. **The hall**: the room's new shape and art; her menu; pedestals two to seven.
+14. **The hall** (built): the room's shape as the draft map has it came with steps 9, 10 and 12 (the back
+    room, the plot, its stones); the lectern and the niches come with their steps. Pedestals: two for a
+    fresh run, a spell and a thing to wear; more from her menu's ANOTHER PEDESTAL, at the plan's prices,
+    each set out at once with a ware on it, kept through death; an old save keeps what its level gave it.
+    The autopilot buys one at its greeting when a level's haul is left after. In the harness: all seven
+    bought by a person, the autopilot's third at level 1, five kept on a page and set out again. ASan
+    clean.
 15. **The Corpus Compendium.**
 16. **The Wretched Repository.**
 17. **The Codex of Affixations.**
