@@ -798,7 +798,10 @@ first.
    the autopilot's reading of them, the steps; and each boss's own hazard working in its arena, with the
    knight's arc and the Wraith's hands. In the harness the autopilot met 59 rocks and 16 arcs beating the
    knight and was struck 3 times; ASan clean over two boss fights and two levels of omens.
-4. **Boss music**: four themes, each with its wave section.
+4. **Boss music** (built): four waltzes, each with its section for the adds, on a clock of their own;
+   the march gives way to them and comes back after. The Deacon's is in G minor and the Wraith's in A
+   minor (the plan named no key for them). Two-minute samples of each went to the owner; in the harness
+   none clips and each sits within two decibels of the march.
 5. **The Ill-Fated Skeleton Knight**: art sheet; the Mirror Rune; Swift Dodge's three reasons;
    Rockfall; Sundering Arc; its adds; THE LISTS; the autopilot's tactics.
 6. **The Wandering Hunting Spider**: art sheet; floor and ceiling; the web on the caster and getting

@@ -212,6 +212,17 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   down `RUN.runs_done` counts the run. The autopilot (`boss_goal`) keeps three to six cells from it, away
   from its adds, drinks under 40% and takes the scrip; a boss level waits 1500 s, not 600, before it gives
   up on one. The bosses' own ways (runes, abilities) come in steps 5-8 of the plan.
+- **The bosses' music** (`snd.c`: `BTHEMES`, `boss_step`; `snd_set_boss(theme, wave)`, `snd_boss_fall`).
+  A slow waltz each on its own clock: eight bars of three beats, the last cut to two; a five-note
+  ostinato that drifts against the bar; the bell on beat one; the tune rests one phrase in four and
+  climbs an octave in another (the Wraith's voice sings a bar only now and then, `tune`). The knight's in
+  D minor on brass, the spider's B-flat minor plucked with a skittering hat, the Deacon's G minor on the
+  organ with a choir (`PAT_VOICE`), the Wraith's A minor on a drone. `boss_begin` starts it, `boss_wave`
+  turns it up (at the next bar line: drums, the bass doubled, a semitone up, 8% quicker), the rise settles
+  it, `boss_fall` fades it under three tolls; a death, a new level and the merchant's room fade it out.
+  Every voice, drum and scheduled note belongs to a bus (`BUS_MARCH`, `BUS_MUZAK`, `BUS_BOSS`, `BUS_SFX`,
+  set by `g_vbus` when it starts): the march gives way to the waltz as it does to a pocket's room, and the
+  fanfare and the stinger (`BUS_SFX`) play over either.
 - **Hazards and omens** (docs/PLAN-b7.md, section 6; `Hazard` in `G.haz`, `hz_new`, `update_hazards`,
   `boss_hazards`, `update_omens`). Each warns (`warn`, never under 0.9 s, `hz_warn`), harms (`on`) and fades
   (`off`), and hurts only the dweller, by a share of its health (`share`). `HZ_ROCK` (grit and a hardening

@@ -2226,6 +2226,7 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
 #endif
     G.hand = 0.0f; G.spd = 0.0f; G.face_t = 1e9f;
     snd_sfx(SFX_DEATH);
+    snd_set_boss(0, 0);
     return d;
 }
 
@@ -4641,7 +4642,7 @@ static void start_level(void) {
     pocket_reset_level();
     memset(G.has_key, 0, sizeof G.has_key);
     G.shop = 0;
-    hz_clear();
+    hz_clear(); snd_set_boss(0, 0);
     G.boss = boss_of_level(G.level); G.bstate = G.boss >= 0 ? BS_WAIT : BS_NONE; G.bwave = G.badds = 0; G.bmob = -1;
     G.bz_t = 6.0f; G.bz2_t = 9.0f; G.bcast_t = 0.0f; G.omen_t = 30.0f + 20.0f * rndf();
     G.bfight_t = G.bstate_t = G.bcard = G.bring = 0.0f; G.bbar = 1.0f;
@@ -5653,6 +5654,7 @@ static void boss_begin(void) {
     if (RUN.rec.boss[G.boss].tries < 65535) RUN.rec.boss[G.boss].tries++;
     font_fill(0);
     snd_sfx_ex(SFX_DOOR, 1.2f, 0.5f); snd_sfx_ex(SFX_STINGER, 1.0f, 0.5f);
+    snd_set_boss(G.boss + 1, 0);                                   /* its waltz */
     show_bar();
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT boss_begin %s step %d hp=%.0f t=%.2f by %s\n", BOSSES[G.boss].name, G.bstep, m ? m->maxhp : 0.0f, G.t, G.player ? "player" : "autopilot");
@@ -5663,6 +5665,7 @@ static void boss_wave(Mob *m) {
     G.bstate = BS_WAVE; G.bstate_t = 0.0f; G.badds = -1; G.bwave++;
     m->swing = 0.0f; m->throw_t = 0.0f; m->frozen = m->slowed = m->feared = 0.0f; m->stagger = 0.0f;
     snd_sfx_ex(SFX_SHRIEK, 0.8f, 0.5f); snd_sfx_ex(SFX_STINGER, 0.7f, 0.5f);
+    snd_set_boss(G.boss + 1, 1);                                   /* turned up while the adds are out */
     G.kick = 0.05f;
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT boss_wave %d hp=%.0f/%.0f t=%.2f\n", G.bwave, m->hp, m->maxhp, G.t);
@@ -5734,6 +5737,7 @@ static void boss_fall(Mob *m) {
     if (!G.bchallenge) RUN.runs_done++;                            /* the run is done */
     else if (RUN.bstep[G.boss] < 5) RUN.bstep[G.boss]++;           /* the next challenge a step harder */
     snd_sfx_ex(SFX_FANFARE, 0.9f, 0.5f); snd_sfx_ex(SFX_SHATTER, 1.0f, 0.5f);
+    snd_boss_fall();
     say("THE WAY OUT IS OPEN");
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT boss_fall %s in %d s t=%.2f by %s\n", B->name, secs, G.t, G.player ? "player" : "autopilot");
@@ -5775,6 +5779,7 @@ static void update_boss(float dt) {
         G.badds = left;
         if (left) return;
         G.bstate = BS_RISE; G.bstate_t = 0.0f;
+        snd_set_boss(G.boss + 1, 0);                               /* and settling back */
         if (G.bwave == 1) font_fill(1);                            /* a font fills after the first wave, and the third */
         if (G.bwave == 3) font_fill(2);
         if (m) sfx_at(SFX_GROAN, m->x, m->y, 1.0f);
@@ -6573,7 +6578,7 @@ static int shop_choose(void) {
 }
 
 static void begin_shop(void) {
-    hz_clear();
+    hz_clear(); snd_set_boss(0, 0);
     G.shop = 1; G.state = PS_SHOP;
     memset(G.wisps, 0, sizeof G.wisps);                            /* nor into the merchant's room */
     crawl_art_level(1);                                            /* the antechamber looks the same every time */

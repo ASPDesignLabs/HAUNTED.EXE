@@ -90,6 +90,8 @@ void snd_sfx_ex(int id, float gain, float pan); /* pan 0..1, or < 0 for the effe
 void snd_hold(int on);                      /* effects and the torches' crackle wait; the music plays on */
 void snd_set_room(int room);                /* CRAWL: 1 the Backrooms (no music, a hum, more echo), 2 Severance (muzak too), 0 the crypt */
 void snd_set_muffle(int on);                /* CRAWL: the void's silence, everything dulled */
+void snd_set_boss(int theme, int wave);     /* CRAWL: a boss's waltz, 1-4 (0 fades it out); wave 1 while its adds are out */
+void snd_boss_fall(void);                   /* the waltz fades and the bell tolls three times */
 void snd_set_latency(int frames);           /* device latency, for visual sync */
 void snd_render(int16_t *out, int frames);  /* interleaved stereo */
 void snd_advance(double seconds);           /* run the clock with no audio device */

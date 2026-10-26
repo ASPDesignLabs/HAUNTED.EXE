@@ -71,7 +71,7 @@ typedef struct Patch {
 } Patch;
 
 enum { PAT_BELL, PAT_MBOX, PAT_DRONE, PAT_PAD, PAT_BASS, PAT_STAB,
-       PAT_FLUTE, PAT_BRASS, PAT_HARP, PAT_ORGAN, PAT_EPIANO, PAT_VIBES, PAT_COUNT };
+       PAT_FLUTE, PAT_BRASS, PAT_HARP, PAT_ORGAN, PAT_EPIANO, PAT_VIBES, PAT_VOICE, PAT_COUNT };
 
 static const Patch PATCHES[PAT_COUNT] = {
     /* bell: inharmonic 1:3.5, modulation dies away -> pure ring */
@@ -122,6 +122,10 @@ static const Patch PATCHES[PAT_COUNT] = {
     [PAT_VIBES] = { .mc=1, .mm=4.0f, .wc=0, .wm=0, .idx=1.5f, .fb=0.0f,
                     .am=0.001f,.dm=0.35f,.sm=0, .rm=0.5f, .ac=0.001f,.dc=2.2f,.sc=0, .rc=0.6f,
                     .vib_hz=5.5f,.vib_st=0.03f,.vib_delay=0.0f, .level=0.17f, .rev=0.45f, .dly=0.20f },
+    /* a voice, or a choir of them: an "oo" that swells in, wavers and dies slowly */
+    [PAT_VOICE] = { .mc=1, .mm=2.0f, .wc=0, .wm=0, .idx=0.7f, .fb=0.25f,
+                    .am=0.50f,.dm=1.0f,.sm=0.8f, .rm=0.8f, .ac=0.45f,.dc=1.0f,.sc=0.9f, .rc=0.9f,
+                    .vib_hz=5.2f,.vib_st=0.14f,.vib_delay=0.35f, .level=0.14f, .rev=0.60f, .dly=0.15f },
 };
 
 /* ------------------------------------------------------------------ */
@@ -146,8 +150,13 @@ typedef struct Voice {
     float vel, pl, pr, t;
     int gainch;                 /* 1 = scaled by the drone gain */
     int ctl;
-    int muz;                    /* 1 = Severance's muzak, which fades in as the march fades out */
+    int bus;                    /* which music it belongs to, which fades as a whole: BUS_* */
 } Voice;
+
+/* The march, Severance's muzak (in as the march goes), a boss's waltz (the same), and the notes the
+ * game's effects play (the fanfare, the stinger), which neither fades. */
+enum { BUS_MARCH, BUS_MUZAK, BUS_BOSS, BUS_SFX };
+static int g_vbus;                  /* the bus new voices, drums and scheduled notes go to */
 
 #define NV 36
 static Voice g_v[NV];
@@ -179,6 +188,7 @@ static Voice *voice_on(int pat, int midi, float vel, float pan, int gate_samples
     v->gate = 1;
     v->gate_left = gate_samples;
     v->vel = vel;
+    v->bus = g_vbus;
     float a = clampf(pan, 0.0f, 1.0f) * (PI_F * 0.5f);
     v->pl = cosf(a); v->pr = sinf(a);
     return v;
@@ -262,6 +272,7 @@ typedef struct Sfx {
     float lp1, lp2, bp1, bp2, lo1, lo2;
     uint32_t rng;
     float gain, pan, rev;
+    int bus;                    /* a drum's music */
 } Sfx;
 
 #define NS 28
@@ -285,6 +296,7 @@ static Sfx *sfx_start(int type, float dur, float gain, float pan, float rev) {
     s->type = type; s->active = 1; s->dur = dur;
     s->gain = gain; s->pan = pan; s->rev = rev;
     s->rng = rng_next(&g_rng) | 1u;
+    s->bus = g_vbus;
     return s;
 }
 
@@ -993,13 +1005,14 @@ static const uint8_t HAUNT_WEIGHT[] = { 5, 2, 3, 2, 5, 2, 3, 4, 2, 2, 3, 1, 2 };
 static const uint8_t LULLABY[] = { 69, 74, 77, 76, 74, 77, 81, 79, 77, 76, 74, 73, 74, 0, 0, 0 };
 
 /* Delayed notes (the lullaby needs spaced onsets between sequencer steps). */
-typedef struct Sched { int when; int midi; float vel; int pat; int active; int gate; } Sched;
+typedef struct Sched { int when; int midi; float vel; int pat; int active; int gate; int bus; } Sched;
 #define NSCHED 32
 static Sched g_sched[NSCHED];
 static void sched_note_g(int delay_samples, int pat, int midi, float vel, int gate) {   /* gate 0: two steps */
     for (int i = 0; i < NSCHED; i++) if (!g_sched[i].active) {
         g_sched[i].when = delay_samples; g_sched[i].midi = midi;
         g_sched[i].vel = vel; g_sched[i].pat = pat; g_sched[i].active = 1; g_sched[i].gate = gate;
+        g_sched[i].bus = g_vbus;
         return;
     }
 }
@@ -1007,7 +1020,10 @@ static void sched_note(int delay_samples, int pat, int midi, float vel) { sched_
 static void sched_run(void) {
     for (int i = 0; i < NSCHED; i++) if (g_sched[i].active && --g_sched[i].when <= 0) {
         g_sched[i].active = 0;
+        int was = g_vbus;
+        g_vbus = g_sched[i].bus;
         voice_on(g_sched[i].pat, g_sched[i].midi, g_sched[i].vel, 0.55f, g_sched[i].gate ? g_sched[i].gate : (int)(g_sps * 2));
+        g_vbus = was;
     }
 }
 
@@ -1155,18 +1171,20 @@ static void muzak_step(uint32_t step) {
     Voice *v;
     if (s == 0 || s == 6 || s == 8 || s == 14) {                   /* the bass: root, and the fifth on the off-beat */
         int n = (s == 6 || s == 14) ? ch[0] + 7 : ch[0];
-        if ((v = voice_on(PAT_BASS, n, s == 0 ? 0.55f : 0.42f, 0.5f, sps * (s == 6 || s == 14 ? 2 : 5)))) v->muz = 1;
+        if ((v = voice_on(PAT_BASS, n, s == 0 ? 0.55f : 0.42f, 0.5f, sps * (s == 6 || s == 14 ? 2 : 5)))) v->bus = BUS_MUZAK;
     }
     if (s == 0 || s == 3 || s == 6 || s == 10 || s == 12)          /* the piano, comping */
         for (int k = 1; k < 5; k++)
-            if ((v = voice_on(PAT_EPIANO, ch[k], s == 0 ? 0.62f : 0.42f, 0.3f + 0.12f * k, sps * 2))) v->muz = 1;
+            if ((v = voice_on(PAT_EPIANO, ch[k], s == 0 ? 0.62f : 0.42f, 0.3f + 0.12f * k, sps * 2))) v->bus = BUS_MUZAK;
     for (unsigned i = 0; i < sizeof MEL / sizeof MEL[0]; i++)
-        if (MEL[i][0] == bar && MEL[i][1] == s && (v = voice_on(PAT_VIBES, MEL[i][2], 0.8f, 0.62f, MEL[i][3] * sps - sps / 3))) v->muz = 1;
+        if (MEL[i][0] == bar && MEL[i][1] == s && (v = voice_on(PAT_VIBES, MEL[i][2], 0.8f, 0.62f, MEL[i][3] * sps - sps / 3))) v->bus = BUS_MUZAK;
 }
+
+static float g_boss_k;              /* how far into a boss's waltz, 0..1 (below) */
 
 static void crawl_step(uint32_t step) {
     if (g_room == 2) muzak_step(step);
-    if (g_room && g_room_k >= 1.0f) return;                        /* the march has faded: none of it, nor the cave's drips */
+    if ((g_room && g_room_k >= 1.0f) || g_boss_k >= 1.0f) return;  /* the march has faded: none of it, nor the cave's drips */
     int bar = (int)(step / 16), sec = bar & 31, s = (int)(step & 15);
     const ChordDef *ch = &CHORDS[sec];
     int third = ch->minor ? 3 : 4;
@@ -1216,6 +1234,155 @@ static void crawl_step(uint32_t step) {
     if (s == 0 && rng_f(&g_mrng) < 0.06f) sfx_start(SFX_MOAN, 2.6f, 0.45f, 0.2f + 0.6f * rng_f(&g_mrng), 0.8f);
 }
 
+
+/* ------------------------------------------------------------------ */
+/* The bosses' music: a slow waltz each, off-kilter, in a minor key    */
+/* ------------------------------------------------------------------ */
+
+/* Eight bars of three beats, the last cut to two so the phrase stumbles back to its start; an ostinato
+ * of five notes that never sits square on the bar; a tritone in the tune and a bell on the first beat.
+ * While the adds are out the same theme turns up: drums, a doubled bass, a semitone higher, a little
+ * quicker; it settles back at the next bar line once the last add falls. */
+typedef struct BNote { int8_t bar, step, semi, len; } BNote;
+typedef struct BossTheme {
+    int root;                       /* the tonic, in the bass */
+    float bpm, tune, lead_vel;      /* quarters a minute; the chance a bar of the tune is sung */
+    int lead, lead_at;              /* the tune's patch, and how far above the root it sits */
+    int ost, ost_at, ost_every;     /* the ostinato's patch (-1 none), register, steps between notes */
+    int8_t ost5[5];
+    int chord, chord_at, held;      /* the chords (-1 none); held a bar, or oom-pah-pah on beats two and three */
+    int pad, pad_at;                /* a voice holding each chord (-1 none) */
+    int bell_at, bass, drone, skitter;
+    float bell;
+    int8_t prog[8][3];              /* each bar's chord, over the root */
+    const BNote *mel; int nmel;
+} BossTheme;
+
+static const BNote MEL_KNIGHT[] = {                            /* D minor, on brass */
+    {0,0,7,6},{0,6,8,2},{0,8,7,4}, {1,0,3,4},{1,4,2,4},{1,8,0,4}, {2,0,12,6},{2,6,10,2},{2,8,8,4},
+    {3,0,2,4},{3,4,8,8}, {4,0,7,6},{4,6,11,2},{4,8,14,4}, {5,0,15,8},{5,8,12,4},
+    {6,0,13,6},{6,6,12,2},{6,8,8,4}, {7,0,11,4},{7,4,7,4} };
+static const BNote MEL_SPIDER[] = {                            /* B-flat minor, plucked, creeping */
+    {0,0,0,2},{0,2,3,2},{0,4,7,2},{0,6,6,2},{0,8,7,2},{0,10,3,2}, {1,0,1,4},{1,4,5,2},{1,6,8,2},{1,8,5,4},
+    {2,0,12,2},{2,2,10,2},{2,4,7,2},{2,6,6,2},{2,8,3,4}, {3,0,2,4},{3,4,8,4},{3,8,2,4},
+    {4,0,5,2},{4,2,8,2},{4,4,12,2},{4,6,13,2},{4,8,12,4}, {5,0,13,4},{5,4,8,2},{5,6,5,2},{5,8,1,4},
+    {6,0,11,2},{6,2,7,2},{6,4,11,2},{6,6,14,2},{6,8,13,2},{6,10,11,2}, {7,0,12,6} };
+static const BNote MEL_DEACON[] = {                            /* G minor, a hymn on the organ */
+    {0,0,7,8},{0,8,8,4}, {1,0,12,8},{1,8,10,4}, {2,0,8,8},{2,8,5,4}, {3,0,7,12},
+    {4,0,3,8},{4,8,2,4}, {5,0,8,4},{5,4,2,8}, {6,0,1,8},{6,8,5,4}, {7,0,11,4},{7,4,7,4} };
+static const BNote MEL_WRAITH[] = {                            /* A minor, hardly a tune: a voice, now and then */
+    {0,0,7,12}, {1,0,8,8},{1,8,7,4}, {2,0,6,12}, {4,0,12,12}, {5,0,13,8},{5,8,12,4}, {6,0,6,12} };
+#define MEL(m) m, (int)(sizeof m / sizeof m[0])
+
+static const BossTheme BTHEMES[] = {
+    { .root = 38, .bpm = 66, .tune = 1.0f, .lead_vel = 0.9f, .lead = PAT_BRASS, .lead_at = 24,
+      .ost = PAT_HARP, .ost_at = 12, .ost_every = 2, .ost5 = { 0, 7, 3, 6, 7 },
+      .chord = PAT_ORGAN, .chord_at = 24, .held = 0, .pad = -1, .bell_at = 36, .bass = 1, .bell = 0.40f,
+      .prog = { {0,3,7}, {0,3,7}, {5,8,12}, {2,5,8}, {7,11,14}, {8,12,15}, {1,5,8}, {7,11,14} }, MEL(MEL_KNIGHT) },
+    { .root = 34, .bpm = 76, .tune = 1.0f, .lead_vel = 0.95f, .lead = PAT_HARP, .lead_at = 36,
+      .ost = PAT_MBOX, .ost_at = 24, .ost_every = 2, .ost5 = { 0, 1, 3, 1, 6 },
+      .chord = PAT_HARP, .chord_at = 24, .held = 0, .pad = -1, .bell_at = 36, .bass = 1, .skitter = 1, .bell = 0.32f,
+      .prog = { {0,3,7}, {1,5,8}, {0,3,7}, {2,5,8}, {5,8,12}, {1,5,8}, {7,11,14}, {0,3,7} }, MEL(MEL_SPIDER) },
+    { .root = 43, .bpm = 58, .tune = 1.0f, .lead_vel = 1.2f, .lead = PAT_ORGAN, .lead_at = 24,
+      .ost = PAT_MBOX, .ost_at = 36, .ost_every = 4, .ost5 = { 0, 7, 6, 7, 3 },
+      .chord = PAT_ORGAN, .chord_at = 12, .held = 1, .pad = PAT_VOICE, .pad_at = 24, .bell_at = 24, .bass = 1, .bell = 0.38f,
+      .prog = { {0,3,7}, {8,12,15}, {5,8,12}, {7,11,14}, {0,3,7}, {2,5,8}, {1,5,8}, {7,11,14} }, MEL(MEL_DEACON) },
+    { .root = 33, .bpm = 50, .tune = 0.45f, .lead_vel = 0.9f, .lead = PAT_VOICE, .lead_at = 24,
+      .ost = -1, .chord = -1, .pad = PAT_PAD, .pad_at = 12, .bell_at = 24, .bass = 0, .drone = 1, .bell = 0.50f,
+      .prog = { {0,3,7}, {0,3,7}, {1,4,8}, {0,3,7}, {0,3,6}, {0,3,7}, {1,5,8}, {0,6,12} }, MEL(MEL_WRAITH) },
+};
+#define NBTHEME ((int)(sizeof BTHEMES / sizeof BTHEMES[0]))
+#undef MEL
+
+static int g_boss_on, g_bth;        /* a boss's waltz playing, and which (1-4) */
+static int g_bwave, g_bwave_next;   /* the adds' section, and what it turns to at the next bar line */
+static int g_bbar, g_bpos, g_bost;  /* bars played, the step in this one, ostinato notes played */
+static int g_bsing, g_bhat;         /* this bar's tune sung; a second hat due in so many samples */
+static double g_bsps, g_bacc;       /* the waltz's own clock */
+static float g_bfade;               /* how fast it fades in or out */
+static Voice *g_bdrone[2];
+static uint32_t g_bdrone_id[2];
+
+static double boss_sps(void) {
+    const BossTheme *T = &BTHEMES[g_bth - 1];
+    return 60.0 / (T->bpm * (g_bwave ? 1.08 : 1.0)) / 4.0 * SND_RATE;
+}
+
+static void boss_drone(int on, int r) {
+    for (int k = 0; k < 2; k++) {
+        Voice *v = g_bdrone[k];
+        if (v && v->active && v->serial == g_bdrone_id[k]) v->gate_left = 1;   /* let the old one go */
+        g_bdrone[k] = NULL;
+        if (!on) continue;
+        int len = (int)(g_bsps * (7 * 12 + 8));
+        v = voice_on(PAT_DRONE, r + 7 * k, k ? 0.7f : 1.0f, k ? 0.65f : 0.35f, len);
+        if (v) { g_bdrone[k] = v; g_bdrone_id[k] = v->serial; }
+    }
+}
+
+static void boss_step(void) {
+    const BossTheme *T = &BTHEMES[g_bth - 1];
+    int b = g_bbar & 7, s = g_bpos, blen = b == 7 ? 8 : 12, phrase = (g_bbar / 8) & 3;
+    g_vbus = BUS_BOSS;
+    if (s == 0 && g_bwave != g_bwave_next) {                       /* the adds come, or the last has fallen */
+        g_bwave = g_bwave_next;
+        g_bsps = boss_sps();
+        if (g_bwave) sfx_start(X_CRASH, 1.6f, 0.45f, 0.5f, 0.3f);
+        if (T->drone) boss_drone(1, T->root + g_bwave);
+    }
+    int r = T->root + g_bwave, sps = (int)g_bsps;
+    const int8_t *ch = T->prog[b];
+    if (s == 0) {
+        if (T->drone && b == 0) boss_drone(1, r);
+        /* the tune rests one phrase in four and climbs an octave in another; the adds' section sings it all */
+        g_bsing = g_bwave || (phrase != 2 && rng_f(&g_mrng) < T->tune);
+        voice_on(PAT_BELL, r + T->bell_at, T->bell * (b == 0 || b == 4 ? 1.0f : 0.55f) * (phrase == 2 ? 1.3f : 1.0f), 0.2f + 0.6f * rng_f(&g_mrng), sps * 12);
+        if (T->pad >= 0)
+            for (int k = 0; k < 3; k++) {
+                Voice *v = voice_on(T->pad, r + T->pad_at + ch[k], T->pad == PAT_VOICE ? 0.45f : 0.75f, 0.3f + 0.2f * k, sps * (blen - 1));
+                if (v && k == 2) v->freq *= 1.004f;
+            }
+        if (T->chord >= 0 && T->held)
+            for (int k = 0; k < 3; k++) voice_on(T->chord, r + T->chord_at + ch[k], 0.35f, 0.35f + 0.15f * k, sps * (blen - 1));
+    }
+    if (T->chord >= 0 && !T->held && (s == 4 || s == 8))             /* oom-pah-pah */
+        for (int k = 0; k < 3; k++) voice_on(T->chord, r + T->chord_at + ch[k], T->chord == PAT_ORGAN ? 0.9f : 0.5f, 0.35f + 0.15f * k, sps * 2);
+    if ((s & 3) == 0 && (T->bass || g_bwave) && (s == 0 || g_bwave)) {   /* the bass, and doubled under the adds */
+        int n = r + (ch[0] > 6 ? ch[0] - 12 : ch[0]);
+        voice_on(PAT_BASS, n, s == 0 ? 0.9f : 0.65f, 0.5f, sps * (g_bwave ? 3 : blen - 1));
+        if (g_bwave) voice_on(PAT_BASS, n + 12, 0.45f, 0.55f, sps * 3);
+    }
+    if (T->ost >= 0 && s % T->ost_every == 0) {
+        voice_on(T->ost, r + T->ost_at + T->ost5[g_bost % 5], phrase == 2 ? 0.7f : 0.5f, 0.25f + 0.5f * (float)(g_bost & 1), sps * T->ost_every);
+        g_bost++;
+    }
+    if (g_bsing)
+        for (int i = 0; i < T->nmel; i++)
+            if (T->mel[i].bar == b && T->mel[i].step == s) {
+                int n = r + T->lead_at + T->mel[i].semi + (phrase == 3 && !g_bwave && T->lead != PAT_VOICE ? 12 : 0);
+                Voice *v = voice_on(T->lead, n, T->lead_vel, 0.5f, T->mel[i].len * sps - sps / 4);
+                if (v && T->lead == PAT_VOICE) {                    /* two voices, not quite together */
+                    Voice *w = voice_on(T->lead, n, T->lead_vel * 0.6f, 0.62f, T->mel[i].len * sps - sps / 4);
+                    if (w) w->freq *= 1.006f;
+                }
+            }
+    if (T->skitter && rng_f(&g_mrng) < (g_bwave ? 0.45f : 0.28f)) {   /* something many-legged */
+        sfx_start(X_HAT_C, 0.06f, 0.10f + 0.12f * rng_f(&g_mrng), 0.2f + 0.6f * rng_f(&g_mrng), 0.08f);
+        if (rng_f(&g_mrng) < 0.3f) g_bhat = sps / 2;
+    }
+    if (g_bwave) {                                                 /* drums: one, and two, three */
+        if (s == 0) sfx_start(X_KICK, 0.4f, 0.7f, 0.5f, 0.05f);
+        if (s == 4 || s == 8) {
+            if (T->drone) sfx_start(X_TOM, 0.6f, s == 4 ? 0.5f : 0.7f, 0.45f, 0.35f);
+            else sfx_start(X_SNARE, 0.3f, 0.42f, 0.5f, 0.22f);
+        }
+        if (!(s & 1)) sfx_start(X_HAT_C, 0.08f, (s & 3) == 0 ? 0.32f : 0.2f, 0.6f, 0.04f);
+        if (b == 7 && s >= 4 && !(s & 1)) sfx_start(X_TOM, 0.6f, 0.45f + 0.08f * (float)s, 0.4f, 0.35f);
+    }
+    g_vbus = BUS_MARCH;
+    if (++g_bpos >= blen) { g_bpos = 0; g_bbar++; }
+}
+
 /* ------------------------------------------------------------------ */
 /* Public API                                                          */
 /* ------------------------------------------------------------------ */
@@ -1260,6 +1427,7 @@ void snd_start_program(int prog) {
     g_samples = 0; g_step_acc = 0; g_step = 0;
     g_mrng = 777u + (uint32_t)prog * 31u;
     g_hb_timer = 0; g_hold = 0; g_fx_gain = 1.0f; g_room = 0; g_room_k = g_muz_k = 0.0f; g_muffle = 0; g_muf_k = 0.0f;
+    g_boss_on = 0; g_boss_k = 0.0f; g_bhat = 0; g_bdrone[0] = g_bdrone[1] = NULL; g_vbus = BUS_MARCH;
     if (prog == SND_PROG_HAUNT) {
         g_sps = 0.25 * SND_RATE;                      /* 60 BPM sixteenths */
         g_rv_fb = 0.86f; g_rv_damp = 0.30f; g_rv_wet = 0.36f;
@@ -1279,6 +1447,36 @@ void snd_set_mood(float m) { LOCK(); g_mood_target = clampf(m, 0.0f, 1.0f); UNLO
 void snd_hold(int on) { LOCK(); g_hold = on != 0; UNLOCK(); }
 void snd_set_room(int room) { LOCK(); g_room = room; UNLOCK(); }
 void snd_set_muffle(int on) { LOCK(); g_muffle = on != 0; UNLOCK(); }
+
+void snd_set_boss(int theme, int wave) {
+    LOCK();
+    if (theme < 1 || theme > NBTHEME) {
+        if (g_boss_on) g_bfade = 1.0f / (3.0f * SR);
+        g_boss_on = 0;
+    } else {
+        if (!g_boss_on || g_bth != theme) {                        /* from the top */
+            g_bth = theme; g_bbar = g_bpos = g_bost = 0;
+            g_bwave = g_bwave_next = wave != 0;
+            g_bsps = boss_sps(); g_bacc = g_bsps - 1.0;
+            g_bdrone[0] = g_bdrone[1] = NULL;
+        }
+        g_boss_on = 1; g_bwave_next = wave != 0;
+        g_bfade = 1.0f / (1.5f * SR);
+    }
+    UNLOCK();
+}
+
+void snd_boss_fall(void) {
+    LOCK();
+    if (g_boss_on) {                                               /* the waltz fades; the bell tolls three times */
+        const BossTheme *T = &BTHEMES[g_bth - 1];
+        g_boss_on = 0; g_bfade = 1.0f / (4.0f * SR);
+        g_vbus = BUS_SFX;
+        for (int i = 0; i < 3; i++) sched_note_g((int)((2.4f + 1.8f * i) * SND_RATE), PAT_BELL, T->root + 24, 0.75f - 0.15f * i, 3 * SND_RATE);
+        g_vbus = BUS_MARCH;
+    }
+    UNLOCK();
+}
 void snd_set_latency(int frames) { LOCK(); g_latency = frames; UNLOCK(); }
 
 /* duration, gain, default pan (negative: random spread of that width), reverb send */
@@ -1349,6 +1547,7 @@ void snd_sfx_ex(int id, float gain, float pan) {
     LOCK();
     const SfxDef *d = &SFXDEF[id];
     if (pan < 0.0f) pan = d->pan >= 0.0f ? d->pan : 0.5f + d->pan * (rng_f(&g_rng) * 2.0f - 1.0f);
+    g_vbus = BUS_SFX;
     if (id == SFX_FANFARE) {                       /* level complete: a brass flourish up to a held D major */
         static const short F[][3] = { {0, 62, 110}, {120, 66, 110}, {240, 69, 110}, {360, 74, 420},
                                       {840, 71, 110}, {960, 74, 110}, {1080, 78, 1300}, {1080, 74, 1300}, {1080, 69, 1300}, {1080, 50, 1300} };
@@ -1368,6 +1567,7 @@ void snd_sfx_ex(int id, float gain, float pan) {
         if (id == SFX_HEART) g = (0.6f + 0.5f * g_mood) * gain;
         sfx_start(id, d->dur, g, clampf(pan, 0.0f, 1.0f), d->rev);
     }
+    g_vbus = BUS_MARCH;
     UNLOCK();
 }
 
@@ -1389,6 +1589,8 @@ static void render_locked(int16_t *out, int frames) {
                 else crawl_step(g_step);
                 g_step++;
             }
+            if (g_boss_on && (g_bacc += 1.0) >= g_bsps) { g_bacc -= g_bsps; boss_step(); }
+            if (g_bhat > 0 && --g_bhat == 0) { g_vbus = BUS_BOSS; sfx_start(X_HAT_C, 0.05f, 0.09f, 0.3f + 0.4f * rng_f(&g_mrng), 0.08f); g_vbus = BUS_MARCH; }
             sched_run();
             g_samples += 1.0;
         }
@@ -1402,18 +1604,21 @@ static void render_locked(int16_t *out, int frames) {
 
         g_room_k = g_room ? fminf(1.0f, g_room_k + 1.0f / SR) : fmaxf(0.0f, g_room_k - 1.0f / SR);
         g_muz_k = g_room == 2 ? fminf(1.0f, g_muz_k + 1.0f / SR) : fmaxf(0.0f, g_muz_k - 1.0f / SR);
-        float mus = 1.0f - g_room_k;                               /* the march, and its drums, fade in a pocket's room; */
-        {                                                          /* Severance's muzak fades in over it */
-            float ml = 0.0f, mr = 0.0f, mrev = 0.0f, mdly = 0.0f, zl = 0.0f, zr = 0.0f, zrev = 0.0f, zdly = 0.0f;
+        g_boss_k = g_boss_on ? fminf(1.0f, g_boss_k + g_bfade) : fmaxf(0.0f, g_boss_k - g_bfade);
+        float bus[4];                                              /* the march, and its drums, fade in a pocket's room */
+        bus[BUS_MARCH] = (1.0f - g_room_k) * (1.0f - g_boss_k);    /* and under a boss's waltz; */
+        bus[BUS_MUZAK] = 0.6f * g_muz_k;                           /* Severance's muzak, kept well back under the hum; */
+        bus[BUS_BOSS] = g_boss_k;
+        bus[BUS_SFX] = g_fx_gain;                                  /* the fanfare and the stinger, with the game's sounds */
+        {
+            float bl[4] = { 0 }, br[4] = { 0 }, brev[4] = { 0 }, bdly[4] = { 0 };
             for (int i = 0; i < NV; i++) {
                 Voice *v = &g_v[i];
                 if (!v->active) continue;
-                if (v->muz ? g_muz_k <= 0.0f : mus <= 0.0f) { v->active = 0; continue; }
-                if (v->muz) voice_run(v, &zl, &zr, &zrev, &zdly); else voice_run(v, &ml, &mr, &mrev, &mdly);
+                if (bus[v->bus] <= 0.0f && v->bus != BUS_SFX) { v->active = 0; continue; }
+                voice_run(v, &bl[v->bus], &br[v->bus], &brev[v->bus], &bdly[v->bus]);
             }
-            float mz = 0.6f * g_muz_k;                             /* kept well back, under the hum */
-            L += ml * mus + zl * mz; R += mr * mus + zr * mz;
-            rev += mrev * mus + zrev * mz; dly += mdly * mus + zdly * mz;
+            for (int k = 0; k < 4; k++) { L += bl[k] * bus[k]; R += br[k] * bus[k]; rev += brev[k] * bus[k]; dly += bdly[k] * bus[k]; }
         }
 
         g_fx_gain = g_hold ? fmaxf(0.0f, g_fx_gain - 50.0f / SR) : fminf(1.0f, g_fx_gain + 50.0f / SR);
@@ -1421,7 +1626,7 @@ static void render_locked(int16_t *out, int frames) {
             Sfx *s = &g_s[i];
             int game = s->type < SFX_COUNT;
             if (game && g_fx_gain <= 0.0f) continue;               /* held where it is */
-            float x = sfx_sample(s) * (game ? g_fx_gain : mus);
+            float x = sfx_sample(s) * (game ? g_fx_gain : bus[s->bus]);
             float a = s->pan * (PI_F * 0.5f);
             L += x * cosf(a) * 1.0f; R += x * sinf(a) * 1.0f;      /* cheap pan */
             rev += x * (s->rev + (game ? 0.25f * g_room_k : 0.0f));
