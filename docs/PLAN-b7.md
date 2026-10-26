@@ -928,7 +928,13 @@ first.
     time; a piece comes out into its bare slot or the bag, a bag only when bigger than yours. Kept
     through death, which the harness showed (a death after filling it, then the page opened again).
     ASan clean.
-17. **The Codex of Affixations.**
+17. **The Codex of Affixations** (built): C in the crypt and at the merchant's, a new key for the game,
+    the Windows shell and the harness; a page an entry, in parts (the abilities worn, the runes held and
+    their Exquisite effects once held so, the bosses' gifts once their boss has fallen, the stats worn
+    with their caps and the kinds that roll them, the hazards met, her claim from the start), each with
+    what it does, its numbers by quality or rank, where it comes from and what you have of it now; A/D
+    pages, W/S parts. Kept with the page and through death. A caption when an ability is first written
+    in. In the harness: 24 pages with the debug gear, kept across a signing. ASan clean.
 18. **Checks**: frames of everything new; ASan; autopilot runs (boss wins and times by step, how far the
     dream gets, deaths to hazards and omens); the README's "What has been verified", the page and the
     release notes, then the release.

@@ -171,7 +171,8 @@ pedestal's ware, `offer_pack`, and whether it is gone or back), and `LG_STONES` 
 count, then each stone, `STONE_BYTES`, 331: when, the level, what took it as a `Blame`, gold, souls,
 coins, spells and runes, the worn pieces and the bag), `LG_PEDS` (the pedestals bought, a byte) and
 `LG_COMP` (the Compendium: a count for each kind, bracer to bag, and quality, those pieces, then each
-spell's tier) and `LG_REPO` (the Repository: places, u32 gold, u16 coins, then each place's piece): about
+spell's tier), `LG_REPO` (the Repository: places, u32 gold, u16 coins, then each place's piece) and
+`LG_CODEX` (four u32 of bits: abilities, runes, runes at Exquisite, stats): about
 1,800 bytes with a little in the Compendium and the Repository and no stones, under 15.5 KB at the most
 (`PAGE_BYTES`). A
 reader steps over sections it doesn't know, so the hall's parts can come as sections of their own. The
@@ -606,6 +607,13 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   half, a quarter, a tenth) and out free; a coin goes in free and comes out for 2,500 gold
   (`COIN_OUT`). The autopilot leaves it alone. Debug: `EVENT repo_put`, `repo row ...`;
   `CRAWL_TPREPO=1` stands you before it.
+- **The Codex of Affixations** (docs/PLAN-b7.md section 9; `codex_note`, `codex_entries`, `update_codex`,
+  `render_codex`, `UI_CODEX`, `KEY_C`). C opens it, in the crypt (which waits) and at the merchant's. Its
+  parts: the abilities worn (`RUN.cx_abil`), runes held (`cx_rune`, and the Exquisite effect once held at
+  Exquisite, `cx_exq`), the bosses' gifts once their boss has fallen, the stats worn (`cx_stat`, each with
+  its cap and the kinds that roll it: `gear_stat_cap`, `stat_on_kind`), the hazards met (`RUN.omens`), and
+  her claim, there from the start. A page each: what it does, its numbers by quality or rank, where it
+  comes from, what you have of it now. A/D pages, W/S parts. Kept through death and with the page.
 - **Items** (`crawl_gear.c`, docs/PLAN-items.md). A `Piece` has a kind (`IK_*`: bracer, boots,
   amulet, hood, robes, ring, bag), a quality (`Q_*`, white to gold: `QUAL_RAMP`), its level, Anointed or
   not, an ability (`AB_*`) and up to six rolled stats (`ST_*`, in tenths; health restored in

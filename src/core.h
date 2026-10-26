@@ -27,7 +27,7 @@ typedef struct Frame {
 enum { KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_W, KEY_A, KEY_S, KEY_D, KEY_E, KEY_Q, KEY_SPACE, KEY_CTRL,
        KEY_SHIFT, KEY_TAB, KEY_ESC, KEY_ENTER, KEY_H, KEY_Y, KEY_N,
        KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_MOUSE1, KEY_MOUSE2, KEY_B, KEY_L,
-       KEY_CONSOLE, KEY_BACK, KEY_PGUP, KEY_PGDN, KEY_COUNT };   /* KEY_CONSOLE: the key left of 1, wherever ~ is on it */
+       KEY_CONSOLE, KEY_BACK, KEY_PGUP, KEY_PGDN, KEY_C, KEY_COUNT };   /* KEY_CONSOLE: the key left of 1, wherever ~ is on it */
 typedef struct Input {
     uint8_t down[KEY_COUNT];        /* held now */
     uint8_t hit[KEY_COUNT];         /* went down since the last update */

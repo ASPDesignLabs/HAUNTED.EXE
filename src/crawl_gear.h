@@ -91,6 +91,9 @@ float gear_slow_resist(const Gear *g);                   /* and slowing */
 int   gear_max_hp(const Gear *g);
 float gear_haste(const Gear *g);                         /* walking speed factor */
 float gear_ember(const Gear *g);                         /* spell damage factor */
+float gear_stat_cap(int stat);                           /* the most a total of it counts for; 0: no cap */
+int   stat_on_kind(int stat, int kind);                  /* whether a kind of piece can roll it */
+float gear_ability_cap(int ability);                     /* the most an ability adds up to; 0: no cap */
 
 /* spells, and the spirit (souls) and bones they cost */
 #define BONES_MAX 30                                     /* bones the caster can carry */

@@ -278,9 +278,17 @@ float gear_total_raw(const Gear *g, int st) {
     return t;
 }
 
+float gear_stat_cap(int st) { return st >= 0 && st < NSTAT ? STAT_CAP[st] : 0.0f; }
+int stat_on_kind(int st, int kind) {
+    if (kind <= IK_NONE || kind >= NIK) return 0;
+    for (const int *k = KIND_STATS[kind]; *k >= 0; k++) if (*k == st || (*k == ST_ELEM && is_elem(st))) return 1;
+    return 0;
+}
+
 /* abilities add up across what is worn, to a cap; Mirrored's share sent back is the best of them */
+static const float CAP0[NABIL] = { 0, 25, 50, 50, 16, 12, 0, 50 }, CAP1[NABIL] = { 0, 0, 0, 0, 0, 30, 0, 0 };
+float gear_ability_cap(int ab) { return ab > 0 && ab < NABIL ? CAP0[ab] : 0.0f; }
 float gear_ability(const Gear *g, int ab, int which) {
-    static const float CAP0[NABIL] = { 0, 25, 50, 50, 16, 12, 0, 50 }, CAP1[NABIL] = { 0, 0, 0, 0, 0, 30, 0, 0 };
     float t = 0.0f;
     for (int s = 0; s < NSLOT; s++) {
         const Piece *p = &g->worn[s];

@@ -488,6 +488,7 @@ static struct {
     int8_t comp_atk[NATK];                  /* and each spell at the highest tier learnt (0: none) */
     Piece repo[REPO_MAX];                   /* the Wretched Repository: what lies in each place, */
     int repo_n, repo_gold, repo_coins;      /* the places bought (two at first, the first untaxed), its gold and coins */
+    uint32_t cx_abil, cx_rune, cx_exq, cx_stat;   /* the Codex: what is known, a bit each (hazards are RUN.omens) */
 } RUN;
 
 /* The caster's boss abilities (docs/PLAN-b7.md, section 8): one a boss, unlocked at the Hexed Totem with a
@@ -636,6 +637,7 @@ static struct {
     int comp_look, comp_page, comp_arm;     /* the Corpus Compendium: looked at; its page; a purchase awaiting a second Enter */
     int comp_tried;                         /* the autopilot has looked in it this visit */
     int rep_look, rep_mode, rep_place, rep_amt;   /* the Repository: looked at; choosing what goes in (1) and where; how much gold */
+    int cx_page;                            /* the Codex's page open */
     int mer_look;                           /* the merchant herself, close enough for E */
     int stone_look, stone_sel;              /* a stone in the plot looked at (-1 none); the one whose page is open */
 
@@ -701,7 +703,7 @@ enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword plant
 static float zbuf[W];
 enum { MM_SIGN, MM_PED, MM_PAT, MM_LEAVE, NMM };                   /* the merchant's menu */
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 
 /* pockets (see the pockets' code below): the level as it waits, and where in a chain you are */
@@ -7376,6 +7378,7 @@ static void crawl_update(double dt) {
     if (G.player && (G.tally || G.dead) && IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
     if (G.player && G.dead && G.dcost && G.dcard_t > 0.8f && (IN.hit[KEY_E] || IN.hit[KEY_ENTER] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) G.dcard_done = 1;
     if (G.player && (G.tally || G.dead) && IN.hit[KEY_B]) { open_ui(UI_BESTIARY); return; }
+    if (G.player && (G.tally || G.dead) && IN.hit[KEY_C]) { open_ui(UI_CODEX); return; }
     G.t += dt; G.level_t += dt; G.card += fdt;
     if (G.shop || G.dead || G.tally) G.bar_t = BAR_T;               /* always up at the merchant's, and at the end */
     else G.bar_t = fmaxf(0.0f, G.bar_t - fdt);
@@ -8494,6 +8497,7 @@ static void open_ui(int which) {
         for (int i = 0; i < n; i++) if (r[i].run == crawl_run(G.level)) G.ui_sel = i;
         snd_sfx_ex(SFX_WHISPER, 0.7f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.4f, 0.5f);
     }
+    else if (which == UI_CODEX) { snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.3f, 0.5f); }
     else if (which == UI_REPO) { G.ui_sel = 0; G.rep_mode = 0; G.sh_note_t = 0.0f; snd_sfx_ex(SFX_UNLOCK, 0.6f, 0.5f); snd_sfx_ex(SFX_CREAK, 0.5f, 0.5f); }
     else if (which == UI_COMP) { G.ui_sel = 0; G.comp_arm = -1; G.sh_note_t = 0.0f; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.4f, 0.5f); }
     else if (which == UI_STONE) { G.ui_sel = 0; snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f); snd_sfx_ex(SFX_WIND, 0.4f, 0.5f); }
@@ -8601,6 +8605,7 @@ static void update_human(float dt) {
     spell_keys();
     if (IN.hit[KEY_TAB]) { open_ui(UI_INVENTORY); return; }
     if (IN.hit[KEY_B]) { open_ui(UI_BESTIARY); return; }
+    if (IN.hit[KEY_C]) { open_ui(UI_CODEX); return; }
     if (IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
     if (IN.hit[KEY_L]) {
         if (RUN.wisp_auto) { G.l_down = 1; G.l_t = 0.0f; }
@@ -8636,6 +8641,7 @@ static void shop_human(float dt) {
     spell_keys();
     if (IN.hit[KEY_TAB]) { open_ui(UI_INVENTORY); return; }
     if (IN.hit[KEY_B]) { open_ui(UI_BESTIARY); return; }
+    if (IN.hit[KEY_C]) { open_ui(UI_CODEX); return; }
     if (IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
     human_walk(dt);
     int was = G.shop_look;
@@ -9451,17 +9457,18 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
  * took it, gold, souls (u32 each), coins (u16), the spells' tiers and runes' qualities, the worn pieces,
  * the bag's size and quality and its pieces. LG_PEDS: the pedestals bought (a byte). LG_COMP: the Corpus
  * Compendium, a count for each kind (bracer to bag) and quality, the pieces in that order, then each
- * spell's tier. LG_REPO: the Repository, its places (a byte), gold (u32) and coins (u16), then each place. */
+ * spell's tier. LG_REPO: the Repository, its places (a byte), gold (u32) and coins (u16), then each place.
+ * LG_CODEX: what the Codex knows, four u32 of bits: abilities, runes, runes at Exquisite, stats. */
 #define LEDGER_MAGIC 0x3147444Cu            /* "LDG1" */
 #define PROGRESS_MAGIC 0x31505648u          /* "HVP1": a progress that names the page to start from */
-enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO };
+enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX };
 enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
 #define LG_PAGE_BYTES 17
 #define LG_VISIT_BYTES (8 + NPED * (2 + OFFER_BYTES))
 #define STONE_BYTES (8 + 2 + 3 + 4 + 4 + 2 + NATK + NDEF + NSLOT * PIECE_BYTES + 2 + BAG_MAX * PIECE_BYTES)
 #define COMP_BYTES ((NIK - 1) * NQUAL * (1 + COMP_MAX * PIECE_BYTES) + NATK)   /* at the most */
 #define REPO_BYTES (1 + 4 + 2 + REPO_MAX * PIECE_BYTES)
-#define PAGE_BYTES (save_end(6) + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 3 + COMP_BYTES + 3 + REPO_BYTES + 1)   /* the most a page takes so far */
+#define PAGE_BYTES (save_end(6) + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 3 + COMP_BYTES + 3 + REPO_BYTES + 3 + 16 + 1)   /* the most a page takes so far */
 static void stone_pack(uint8_t *p, const Stone *st) {
     uint64_t w = (uint64_t)st->when;
     put32(p, (int32_t)(uint32_t)(w & 0xffffffffu)); put32(p + 4, (int32_t)(uint32_t)(w >> 32)); put16(p + 8, st->level);
@@ -9538,6 +9545,9 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     q = c + 7;
     for (int i = 0; i < c[0]; i++, q += PIECE_BYTES) piece_pack(q, &RUN.repo[i]);
     p = section_end(c, q);
+    c = section_begin(p, LG_CODEX);
+    put32(c, (int32_t)RUN.cx_abil); put32(c + 4, (int32_t)RUN.cx_rune); put32(c + 8, (int32_t)RUN.cx_exq); put32(c + 12, (int32_t)RUN.cx_stat);
+    p = section_end(c, c + 16);
     if (RUN.nstones) {
         c = section_begin(p, LG_STONES);
         c[0] = (uint8_t)RUN.nstones;
@@ -9608,6 +9618,11 @@ static void run_unpack(const uint8_t *buf, int len) {
         }
         if (q + NATK <= end) for (int a = 0; a < NATK; a++) RUN.comp_atk[a] = (int8_t)clampi((int8_t)*q++, 0, 15);
     } else comp_note(RUN.level);                                   /* an old save: what it wears and knows goes in as it loads */
+    c = page_section(buf, len, LG_CODEX, &k);
+    if (c && k >= 16) {
+        RUN.cx_abil = (uint32_t)get32(c) & ((1u << NABIL) - 2); RUN.cx_rune = (uint32_t)get32(c + 4) & ((1u << NDEF) - 1);
+        RUN.cx_exq = (uint32_t)get32(c + 8) & ((1u << NDEF) - 1); RUN.cx_stat = (uint32_t)get32(c + 12) & ((1u << NSTAT) - 1);
+    }
     c = page_section(buf, len, LG_REPO, &k);
     RUN.repo_n = 2;
     if (c && k >= 7) {
@@ -10147,8 +10162,10 @@ static void comp_add(const Piece *p) {
     for (int i = 1; i < *n; i++) if (piece_price(&list[i]) < piece_price(&list[weak])) weak = i;
     if (piece_price(p) > piece_price(&list[weak])) list[weak] = *p;
 }
+static void codex_note(void);
 static void comp_note(int level) {                                 /* what is worn and known, into the index */
     const Gear *g = &RUN.gear;
+    codex_note();
     for (int s = 0; s < NSLOT; s++) comp_add(&g->worn[s]);
     if (g->bag_size) { Piece b; memset(&b, 0, sizeof b); b.kind = IK_BAG; b.quality = g->bag_quality; b.level = (uint8_t)clampi(level, 1, 255); comp_add(&b); }
     for (int k = 0; k < NATK; k++) if (g->atk[k] > RUN.comp_atk[k]) RUN.comp_atk[k] = g->atk[k];
@@ -10391,6 +10408,55 @@ static void update_repomenu(void) {
 #endif
 }
 
+/* ---- the Codex of Affixations (docs/PLAN-b7.md, section 9): what every ability, rune, boss's gift, stat
+ * and hazard does, each written in once you have worn, held, unlocked or met it; and a page on her claim,
+ * there from the start. Kept through death, with the page. C opens it; the crypt waits. ---- */
+
+enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_CLAIM, NCX };
+typedef struct { int sec, i; } CxEntry;
+static const char *const CX_PART[NCX] = { "AN ABILITY OF WHAT YOU WEAR", "A RUNE", "A BOSS'S GIFT", "A STAT A PIECE CAN ROLL", "A HAZARD", "THE MERCHANT'S LEDGER" };
+static void codex_note(void) {                                     /* worn, held or met: written in */
+    const Gear *g = &RUN.gear;
+    uint32_t ab = RUN.cx_abil, st = RUN.cx_stat;
+    for (int s = 0; s < NSLOT; s++) {
+        const Piece *p = &g->worn[s];
+        if (p->kind == IK_NONE) continue;
+        if (p->ability) RUN.cx_abil |= 1u << p->ability;
+        for (int i = 0; i < p->nstat; i++) RUN.cx_stat |= 1u << p->stat[i];
+    }
+    for (int k = 0; k < NDEF; k++) {
+        if (g->def[k] > 0) RUN.cx_rune |= 1u << k;
+        if (g->def[k] >= RUNE_EXQ) RUN.cx_exq |= 1u << k;
+    }
+    if (G.player && RUN.cx_abil != ab) for (int a = 1; a < NABIL; a++) if ((RUN.cx_abil & ~ab) >> a & 1) say("WRITTEN IN THE CODEX: %s", ABIL_NAME[a]);
+    if (G.player && RUN.cx_stat != st && RUN.cx_abil == ab) say("WRITTEN IN THE CODEX. C TO READ IT");
+}
+static int codex_entries(CxEntry *e) {
+    int n = 0;
+    for (int a = 1; a < NABIL; a++) if (RUN.cx_abil >> a & 1) e[n++] = (CxEntry){ CX_ABIL, a };
+    for (int k = 0; k < NDEF; k++) if (RUN.cx_rune >> k & 1) e[n++] = (CxEntry){ CX_RUNE, k };
+    for (int b = 0; b < NBOSS; b++) if (boss_beaten(b)) e[n++] = (CxEntry){ CX_BOSS, b };
+    for (int t = 0; t < NSTAT; t++) if (RUN.cx_stat >> t & 1) e[n++] = (CxEntry){ CX_STAT, t };
+    for (int h = 0; h < NHZ; h++) if (RUN.omens >> h & 1) e[n++] = (CxEntry){ CX_HAZ, h };
+    e[n++] = (CxEntry){ CX_CLAIM, 0 };
+    return n;
+}
+/* A/D a page, W/S the next part, C or Esc closes */
+static void update_codex(void) {
+    if (IN.hit[KEY_C] || IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
+    CxEntry e[NABIL + NDEF + NBOSS + NSTAT + NHZ + 1];
+    int n = codex_entries(e), lr = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
+    int ud = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
+    G.cx_page = clampi(G.cx_page, 0, n - 1);
+    if (lr) { G.cx_page = (G.cx_page + n + lr) % n; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f); }
+    if (ud) {                                                      /* the first page of the next part, or of this one and the last */
+        int sec = e[G.cx_page].sec, p = G.cx_page;
+        if (ud > 0) { while (p < n && e[p].sec == sec) p++; if (p >= n) p = 0; }
+        else { while (p > 0 && e[p - 1].sec == sec) p--; if (p == G.cx_page) { p = p > 0 ? p - 1 : n - 1; sec = e[p].sec; while (p > 0 && e[p - 1].sec == sec) p--; } }
+        G.cx_page = p; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f);
+    }
+}
+
 static void update_totemmenu(void) {
     int r[NBOSS], n = totem_rows(r);
     int enter = IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1];
@@ -10445,6 +10511,7 @@ static void update_ui(void) {
     if (G.ui == UI_PORTAL) { update_portalmenu(); return; }
     if (G.ui == UI_COMP) { update_compmenu(); return; }
     if (G.ui == UI_REPO) { update_repomenu(); return; }
+    if (G.ui == UI_CODEX) { update_codex(); return; }
 #ifdef CRAWL_DEBUG
     if (G.pilgrim == 2 && G.ui == UI_ALTAR) {                     /* the test player sends the wisp on, after a look */
         static int look;
@@ -12492,7 +12559,7 @@ static void render_messages(Frame *f) {
     }
     if (G.hint_t > 0.0f && G.player && !G.ui) {
         static const char *const HINT[4] = { "WASD WALK  MOUSE TURN  CLICK CASTS", "1-9 SPELLS  E OPENS  TAB INVENTORY", "B BESTIARY  ESC LEAVE OR SLEEPWALK",
-                                             "L WISPS  H THE STATUS BAR" };
+                                             "L WISPS  C THE CODEX  H THE STATUS BAR" };
         const char *more[2] = { RUN.abil[BOSS_KNIGHT] ? "TAP A DIRECTION TWICE TO DODGE" : NULL, ab_readied() >= 0 ? "RIGHT CLICK AN ABILITY  Q THE NEXT" : NULL };
         for (int i = 0, row = 0; i < 6; i++) {
             const char *h = i < 4 ? HINT[i] : more[i - 4];
@@ -13488,6 +13555,161 @@ static void render_repomenu(Frame *f) {
     if (G.sh_note_t > 0.0f) gfx_text8(f, px + 10, py + ph - 12, G.sh_note, R_GOLD + 11, 1);
 }
 
+/* a page of the Codex: what it is, what it does, its numbers by quality or rank, where it comes from, and
+ * what you have of it now */
+static void total_text(const Gear *g, int st, char *buf, int n);
+static void render_codex(Frame *f) {
+    static const char *const ABIL_DOES[NABIL] = { "",
+        "YOUR MOVEMENT, RAISED ONCE MORE BY THIS SHARE OF IT.",
+        "THE SPIRIT YOUR SPELLS SAVE, RAISED ONCE MORE BY THIS SHARE OF IT.",
+        "MORE GOLD FROM TREASURE YOU PICK UP, AND A WHISPER FROM AN UNOPENED SECRET WALL WITHIN THREE CELLS.",
+        "KEYS WITHIN ITS REACH SPARKLE THROUGH THE WALLS, AND THE L MENU OFFERS A WISP TO EACH.",
+        "EVERY FIFTEEN SECONDS, CREATURES WITHIN ITS REACH SHOW AS RED SHAPES THROUGH THE WALLS FOR A MOMENT.",
+        "WHATEVER STRIKES OR BITES YOU TAKES SO MUCH BACK, WHATEVER YOUR ARMOUR TOOK.",
+        "A CHANCE THAT A MISSILE IS SENT BACK, HOMING ON ITS THROWER ROUND CORNERS." };
+    static const char *const EXQ_DOES[NDEF] = { "IT BURSTS INTO SHARDS WHEN IT BREAKS.", "IT LEAVES A DOUBLE BEHIND, AND THE DEAD NEARBY GO FOR THAT.",
+        "IT SENDS MISSILES HOME TO THEIR THROWER AT TWICE ITS STRENGTH.", "HEALING PAST FULL BECOMES A SMALL WARD.",
+        "IT MENDS TWO HUNDREDTHS OF YOUR HEALTH A SECOND WHILE IT LASTS.", "THE FROZEN TAKE DOUBLE.", "IT REACHES THE LIVING TOO.",
+        "WHAT IT SLOWS TAKES A QUARTER MORE.", "EACH KILL HEALS A TWENTIETH OF YOUR HEALTH." };
+    static const char *const STAT_DOES[NSTAT] = { "TAKEN OFF EVERY BLOW, HALF OFF FIRE AND MAGIC.", "A CHANCE THAT A BLOW PASSES THROUGH YOU.",
+        "MORE HEALTH.", "HEALTH BACK EVERY SECOND.", "POISON LASTS SHORTER AND BITES LESS.", "FIRE AND BURNING HURT LESS.",
+        "SLOWING AND BEING HELD LAST SHORTER.", "YOU WALK FASTER.", "YOUR STEPS WAKE FEWER OF THE DEAD.", "YOUR SPELLS COME ROUND SOONER.",
+        "YOUR SPELLS TAKE LESS SPIRIT.", "EVERY SPELL HITS HARDER.",
+        "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS FIRE, AS MUCH AS FIRE BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
+        "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS FROST, AS MUCH AS FROST BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
+        "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS LIGHTNING, AS MUCH AS LIGHTNING BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
+        "SOUL DRAIN'S HEALING, FROST'S SLOW, HELLFIRE'S BURNING FLOOR AND EVERY RUNE, STRONGER." };
+    static const char *const HZ_NAME[NHZ] = { "THE KNIGHT'S ROCKFALL", "THE DEACON'S HELLRENT", "THE CISTERN'S BILE", "THE VOID", "THE SUNDERING ARC", "THE GRASPING DARK" };
+    static const char *const HZ_DOES[NHZ] = {
+        "THE CEILING GROANS AND A SHADOW GROWS ON THE FLOOR, THEN STONE FALLS THERE. IT HURTS ONCE, AND NEVER BLOCKS THE WAY.",
+        "CRACKS SPREAD ACROSS THE FLOOR, THEN FIRE BURSTS FROM THEM AND BURNS WHOEVER STANDS ON THEM.",
+        "THE DRAINS SPILL A SLUDGE THAT POISONS AND SLOWS WHOEVER WADES IN IT.",
+        "PURPLE ZONES SHOW ON THE FLOOR AND AS A SHADED VOLUME BEFORE THEY COME. INSIDE, THEY SAP HEALTH, SLOW YOU AND SILENCE YOU: NO SPELLS, NO ABILITIES, NO RUNES.",
+        "THE KNIGHT RAISES ITS SWORD, AND ITS SWEEP CUTS ALL BEFORE IT IN AN ARC.",
+        "THE FLOOR DARKENS, THEN HANDS OF THE DARK RISE THERE. THEY STRIKE AND HOLD." };
+    static const int HZ_BOSS[NHZ] = { BOSS_KNIGHT, BOSS_DEACON, BOSS_SPIDER, BOSS_WRAITH, BOSS_KNIGHT, BOSS_WRAITH };
+    CxEntry e[NABIL + NDEF + NBOSS + NSTAT + NHZ + 1];
+    int n = codex_entries(e), pg = clampi(G.cx_page, 0, n - 1);
+    const CxEntry *c = &e[pg];
+    dim_view(f);
+    panel(f, 4, 4, W - 8, H - 8);
+    char line[240], name[48];
+    gfx_text8(f, 14, 10, CX_PART[c->sec], R_STONE + 10, 1);
+    snprintf(line, sizeof line, "%d OF %d", pg + 1, n);
+    gfx_text8(f, W - 14 - gfx_text_width(line, 1), 10, line, R_STONE + 10, 1);
+    switch (c->sec) {
+    case CX_ABIL: snprintf(name, sizeof name, "%s", ABIL_NAME[c->i]); break;
+    case CX_RUNE: snprintf(name, sizeof name, "%s", DEF_NAME[c->i]); break;
+    case CX_BOSS: snprintf(name, sizeof name, "%s", BA_NAME[c->i]); break;
+    case CX_STAT: snprintf(name, sizeof name, "%s", STAT_NAME[c->i]); break;
+    case CX_HAZ: snprintf(name, sizeof name, "%s", HZ_NAME[c->i]); break;
+    default: snprintf(name, sizeof name, "HER CLAIM"); break;
+    }
+    gfx_text16(f, 14, 21, name, R_GOLD + 12, 1);
+    int y = 40;
+    const Gear *g = &RUN.gear;
+    switch (c->sec) {
+    case CX_ABIL: {
+        int a = c->i;
+        y += text_wrap(f, 14, y, ABIL_DOES[a], 36, R_STONE + 13, 3) * 9 + 4;
+        for (int q = Q_UNCOMMON; q < NQUAL; q++, y += 9) {           /* never on a Common piece */
+            int v0 = piece_grade(a, q, G.level, 0), v1 = piece_grade(a, q, G.level, 1);
+            switch (a) {
+            case AB_KEYMAKER: snprintf(line, sizeof line, "%d CELLS", v0); break;
+            case AB_COMMUNE: snprintf(line, sizeof line, "%d CELLS, %d.%d S", v0, v1 / 10, v1 % 10); break;
+            case AB_THORNS: snprintf(line, sizeof line, "%d BACK, AT LEVEL %d", v0, G.level); break;
+            case AB_MIRRORED: snprintf(line, sizeof line, "%d%% OF THEM, AT %d%%", v0, v1); break;
+            default: snprintf(line, sizeof line, "+%d%%", v0); break;
+            }
+            gfx_text8(f, 14, y, QUAL_NAME[q], (uint8_t)qual_text(q), 1);
+            gfx_text8(f, 124, y, line, R_STONE + 12, 1);
+        }
+        float cap = gear_ability_cap(a);
+        if (cap > 0.0f) { snprintf(line, sizeof line, "SUMMED OVER WHAT YOU WEAR, TO %.0f%s AT MOST.", cap, a == AB_KEYMAKER || a == AB_COMMUNE ? " CELLS" : "%"); y += 2 + text_wrap(f, 14, y + 2, line, 36, R_STONE + 10, 2) * 9; }
+        y += 4;
+        y += text_wrap(f, 14, y, "ON ANY PIECE BUT A BAG, UNCOMMON OR BETTER: ONE IN TEN, A QUARTER AT RARE, HALF AT ULTRA-RARE, EVERY EXQUISITE ONE.", 36, R_BONE + 11, 4) * 9 + 4;
+        float have = gear_ability(g, a, 0);
+        if (have > 0.0f) snprintf(line, sizeof line, "YOU WEAR IT: %.0f%s", have, a == AB_KEYMAKER || a == AB_COMMUNE ? " CELLS" : (a == AB_THORNS ? " BACK" : "%"));
+        else snprintf(line, sizeof line, "YOU WEAR NONE OF IT NOW");
+        gfx_text8(f, 14, y, line, have > 0.0f ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 9), 1);
+        break;
+    }
+    case CX_RUNE: {
+        int k = c->i;
+        Offer o; memset(&o, 0, sizeof o); o.kind = GK_DEF; o.id = k;
+        snprintf(line, sizeof line, "%s. CAST BY ITSELF WHEN IT IS NEEDED.", gear_blurb(&o));
+        y += text_wrap(f, 14, y, line, 36, R_STONE + 13, 3) * 9 + 4;
+        for (int q = 1; q <= RUNE_EXQ; q++, y += 9) {
+            snprintf(line, sizeof line, "AT TIER %d, EVERY %.0f S", rune_tier(q), def_cooldown(q));
+            gfx_text8(f, 14, y, QUAL_NAME[q - 1], (uint8_t)qual_text(q - 1), 1);
+            gfx_text8(f, 124, y, line, R_STONE + 12, 1);
+        }
+        if (RUN.cx_exq >> k & 1) {
+            snprintf(line, sizeof line, "EXQUISITE, IT DOES MORE: %s", EXQ_DOES[k]);
+            y += 2 + text_wrap(f, 14, y + 2, line, 36, R_GOLD + 10, 3) * 9;
+        }
+        y += 4;
+        gfx_text8(f, 14, y, "FROM THE RUNE SHRINE", R_BONE + 11, 1);
+        y += 13;
+        if (g->def[k] > 0) snprintf(line, sizeof line, "YOU HOLD IT: %s", QUAL_NAME[clampi(g->def[k], 1, NQUAL) - 1]);
+        else snprintf(line, sizeof line, "NOT HELD NOW");
+        gfx_text8(f, 14, y, line, g->def[k] > 0 ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 9), 1);
+        break;
+    }
+    case CX_BOSS: {
+        int b = c->i;
+        static const char *const RK[ABIL_TOP] = { "I", "II", "III" };
+        for (int r = 1; r <= ABIL_TOP; r++) {
+            char d[200];
+            ab_text(b, r, d, sizeof d);
+            gfx_text8(f, 14, y, RK[r - 1], ramp_at(BA_RAMP[b], 13), 1);
+            y += text_wrap(f, 46, y, d, 32, R_STONE + 12, 4) * 9 + 3;
+        }
+        y += 2;
+        snprintf(line, sizeof line, "THE HEXED TOTEM, FOR %s", BOSSES[b].scrip);
+        y += text_wrap(f, 14, y, line, 36, R_BONE + 11, 2) * 9 + 4;
+        if (RUN.abil[b]) snprintf(line, sizeof line, "YOURS AT RANK %s OF III", RK[clampi(RUN.abil[b], 1, ABIL_TOP) - 1]);
+        else snprintf(line, sizeof line, "NOT YET UNLOCKED: %d SCRIP HELD", RUN.scrip[b]);
+        gfx_text8(f, 14, y, line, RUN.abil[b] ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 9), 1);
+        break;
+    }
+    case CX_STAT: {
+        int st = c->i;
+        y += text_wrap(f, 14, y, STAT_DOES[st], 36, R_STONE + 13, 4) * 9 + 4;
+        float cap = gear_stat_cap(st);
+        if (cap > 0.0f) snprintf(line, sizeof line, "IT COUNTS TO %.0f%s AT MOST", cap, st == ST_ARMOR || st == ST_HP ? "" : "%");
+        else snprintf(line, sizeof line, "NO CAP: AS MUCH AS YOU CAN WEAR");
+        gfx_text8(f, 14, y, line, R_STONE + 11, 1);
+        y += 13;
+        char kinds[96] = "";
+        for (int k = IK_WRIST; k < IK_BAG; k++)
+            if (stat_on_kind(st, k)) { size_t l = strlen(kinds); snprintf(kinds + l, sizeof kinds - l, "%s%s", l ? ", " : "", KIND_NAME[k]); }
+        snprintf(line, sizeof line, "ON %s", kinds);
+        y += text_wrap(f, 14, y, line, 36, R_BONE + 11, 2) * 9 + 4;
+        char t[24];
+        total_text(g, st, t, sizeof t);
+        snprintf(line, sizeof line, "YOUR TOTAL: %s%s", t, gear_capped(g, st) ? ", AT ITS CAP" : "");
+        gfx_text8(f, 14, y, line, gear_total(g, st) > 0.0f ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 9), 1);
+        break;
+    }
+    case CX_HAZ: {
+        int h = c->i;
+        y += text_wrap(f, 14, y, HZ_DOES[h], 36, R_STONE + 13, 6) * 9 + 4;
+        y += text_wrap(f, 14, y, "IT ALWAYS WARNS BEFORE IT HARMS, AND HARMS ONLY YOU.", 36, R_STONE + 11, 2) * 9 + 4;
+        snprintf(line, sizeof line, "IN THE HALL OF %s, AND AS AN OMEN ON THE THREE LEVELS BEFORE IT, AT HALF ITS HARM.", BOSSES[HZ_BOSS[h]].name);
+        text_wrap(f, 14, y, line, 36, R_BONE + 11, 3);
+        break;
+    }
+    default:
+        text_wrap(f, 14, y, "ONLY SHE SIGNS THE LEDGER. WHILE YOU ARE IN DANGER (A CREATURE HUNTING YOU, A MISSILE COMING, HEALTH UNDER A QUARTER, "
+                  "POISON, FIRE, SOMETHING HOLDING YOU, A HAZARD, A BOSS'S HALL) YOUR PAGE IS MARKED, AND A RED EYE SHOWS BY YOUR KEYS. "
+                  "IT CLEARS EIGHT SECONDS AFTER. OPEN A MARKED PAGE, OR START AGAIN FROM ONE, AND SHE TAKES THE DEAD'S CLAIM: A QUARTER "
+                  "TO A HALF OF YOUR GOLD, AND ONE THING YOU WEAR OR A TIER OF A SPELL. WHATEVER YOU MEANT BY IT.", 36, R_STONE + 13, 15);
+        break;
+    }
+    gfx_text8(f, 14, H - 18, "A/D PAGES  W/S PARTS  C CLOSES", R_STONE + 9, 1);
+}
+
 static void render_totemmenu(Frame *f) {
     static const char *const RANK[ABIL_TOP + 1] = { "NOT KNOWN", "RANK I", "RANK II", "RANK III" };
     dim_view(f);
@@ -13588,6 +13810,7 @@ static void render_ui(Frame *f) {
     if (G.ui == UI_PORTAL) { render_portalmenu(f); return; }
     if (G.ui == UI_COMP) { render_compmenu(f); return; }
     if (G.ui == UI_REPO) { render_repomenu(f); return; }
+    if (G.ui == UI_CODEX) { render_codex(f); return; }
     if (G.ui == UI_SHRINE) { render_shrinemenu(f); return; }
     if (G.ui == UI_TOTEM) { render_totemmenu(f); return; }
     if (G.ui == UI_WISPS) { render_wispmenu(f); return; }
