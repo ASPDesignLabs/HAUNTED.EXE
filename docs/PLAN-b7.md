@@ -1,10 +1,9 @@
-# 1.0.0b7 and after: death that costs, runs of ten, bosses, and the merchant's hall
+# 1.0.0b7: death that costs, runs of ten, four bosses, and the merchant's hall
 
-**Status: planned (26 October 2026); questions open; nothing built.** The owner offered the revamp below
-after 1.0.0b6. This plan restates it, says how each part has been read, fills the gaps with defaults
-(marked *default* so they can be changed), proposes the bosses and abilities the owner asked for ideas
-on, and ends with the building steps and the questions. Questions marked **(needs an answer)** change
-the shape of the work; the rest have a default that will be taken unless the owner says otherwise.
+**Status: planned (26 October 2026). The owner answered the first round of questions the same day,
+chose the four bosses, asked for everything in one release, and asked for the bosses' hazards (section
+6), which are proposed here; the questions they left alone take the defaults marked *default*. A second,
+shorter round of questions is at the end. Nothing is built.**
 
 A mock-up of the ability socket is in [`plan-b7/ability_socket.png`](plan-b7/ability_socket.png).
 
@@ -23,12 +22,11 @@ A mock-up of the ability socket is in [`plan-b7/ability_socket.png`](plan-b7/abi
 3. **Runs of ten.** A run is ten levels, not twenty, and ends with a boss on its tenth. The four sets'
    looks stretch across a whole run each; the decay creeps across the run.
 4. **Bosses.** A much stronger version of one of the run's creatures, or of one still to come. Far more
-   health; at each quarter of it lost it turns untouchable and calls a wave of adds, and moves again once
-   they are dead; a wave also comes at 10% health even if the blow would have killed it, so that every
-   fight has its three waves. Each boss sets its own adds. A planned arena for each boss, the same every
-   time: open, with cover that breaks sight and some ways round. AdLib-style boss music, eerie, that
-   changes while the adds are out. A few healing points, placed with care. Bosses drop only their own
-   Named Odious Scrip.
+   health; at each quarter of it lost, and again at a tenth, it turns untouchable and calls a wave of
+   adds, and moves again once they are dead. Each boss sets its own adds. A planned arena for each boss,
+   the same every time: open, with cover that breaks sight and some ways round. AdLib-style boss music,
+   eerie, that changes while the adds are out. A few healing points, placed with care. Bosses drop only
+   their own Named Odious Scrip.
    - **Level 10: the Ill-Fated Skeleton Knight.** Bigger, faster, a little shiny. A Rare Mirror Rune that
      turns back some of your missiles, with a sign you can see and hear. **Swift Dodge**: half a second
      untouchable while it darts two to five cells, with three cooldowns: to close on you (shortest), to
@@ -43,9 +41,9 @@ A mock-up of the ability socket is in [`plan-b7/ability_socket.png`](plan-b7/abi
    slot and quality, to buy again at the shop's price x1.2, 5% less for each run completed, down to half.
    The **Wretched Repository**: pieces (10% tax), Cursed Coins (free in, 2,500 gold each out) and gold (25%
    tax), kept through death; two places free, one of them untaxed; more from 2,500 gold, x1.5 each, to
-   twelve. The **Accursed Portal**: once a run is completed, start there again after a death (levels 1,
-   11, 21, 31), and fight beaten bosses again for scrip. The **Hexed Totem**: each boss's ability, unlocked
-   with one of its scrip and raised with more, each to its own cap; only known once that boss has fallen.
+   twelve. The **Accursed Portal**: once a run is completed, start there again (levels 1, 11, 21, 31), and
+   challenge beaten bosses again for scrip. The **Hexed Totem**: each boss's ability, unlocked with one of
+   its scrip and raised with more, each to its own cap; only known once that boss has fallen.
 6. **Boss abilities for the caster.** **Swift Dodge** (three ranks): tap a direction twice and dart two
    to five cells, not a teleport; cooldown 15, 7 and 3 s. **Tangled Web** (three ranks): webbing at what
    is in front of you; it holds the creature, halves its attacks and makes it claw at the web instead of
@@ -55,28 +53,57 @@ A mock-up of the ability socket is in [`plan-b7/ability_socket.png`](plan-b7/abi
 7. **The Codex of Affixations** on C: what every ability does, from gear, runes and bosses; only the ones
    known; kept through death. **A bosses section in the bestiary.** **A place on screen for abilities
    on the right mouse button**, with a suggestion where.
-8. **Ideas wanted** for more bosses and their abilities.
+8. **Ideas wanted** for more bosses and their abilities (answered in round one: the Deacon and the
+   Wraith join the knight and the spider).
+9. **The bosses' hazards** (round one): casts that endanger you in a boss fight and test where you
+   stand and what you watch, more so as you come back to challenge a boss for scrip. Some environmental,
+   always with a clear warning before harm:
+   - **the knight**: falling rocks that hurt once on striking you, don't block the way, and are gone
+     after a moment;
+   - **the Deacon**: hellfire erupting from the floor where cracks have spread first;
+   - **the spider**: toxic sludge from fixed places, turned on and off to set the difficulty;
+   - **the Wraith**: Void Energies, purple zones shown on the floor and as a shaded volume before they
+     come, that sap health, slow you and silence you (no spells, no abilities, no runes) while inside.
+   - Each is shown in the last three levels before its boss, more often each level nearer.
+
+## Decided (26 October 2026, first round)
+
+- **Q1, runs and sets (a):** each run is one set stretched over its ten levels: I the Crypts (1-10), II
+  the Catacombs (11-20), III the Hollows (21-30), IV the Deep (31-40).
+- **Q5, the screensaver (a):** the dream (section 3).
+- **Q6, a death in a pocket:** the mercy stays, changed: you are put back in the level at the secret's
+  entrance, the chain's doorway is shut for the rest of the level with a sign you can see, and the game
+  notes that the dweller failed that trial (section 1).
+- **Q10, the boss level:** on the way down it is a regular level with the arena at its end. Challenged
+  again from the Accursed Portal, you start in the arena's own antechamber.
+- **Q12, the waves (c):** four, at 75%, 50%, 25% and 10%, each mark holding however hard the blow.
+- **Q19, the spider's web (a):** every spell cast while held strikes the web, fire twice as hard.
+- **Q22, the bosses:** the knight (10), the spider (20), the **Black Deacon** (30) and the **Wraith
+  Unbound** (40). The Gorging Ghoul, the Stone Matriarch, the Cinder Tyrant and the Hollow King are kept
+  for later.
+- **Q24, the Portal's run starts (b):** at any visit to the merchant.
+- **Q30, the Repository:** two free places, one untaxed; twelve in all.
+- **Q37, releases (c):** all of it in one release, 1.0.0b7.
+- **Everything else** in the first round (Q2-Q4, Q7-Q9, Q11, Q13-Q18, Q20, Q21, Q23, Q25-Q29, Q31-Q36)
+  takes its default as written below.
 
 ## How it has been read (please correct anything wrong)
 
-- **Runs and sets.** Run I is levels 1-10 in the Crypts, run II 11-20 in the Catacombs, run III 21-30
-  in the Hollows, run IV 31-40 in the Deep; each set's look and decay are spread over its run's ten
-  levels instead of five. (Q1)
-- **Completing a run** is beating its boss. You then go on, everything still yours, to the merchant's
-  before the next run's first level. A run completed counts towards the Compendium's discount and opens
-  the next run's start in the Accursed Portal. (Q24, Q27)
+- **Completing a run** is beating its boss on the way down. You then go on, everything still yours, to
+  the merchant's before the next run's first level. A run completed counts towards the Compendium's
+  discount and opens the next run's start in the Accursed Portal.
 - **"Shop slots"** are the merchant's pedestals: two at first, up to seven, bought from her menu.
 - **"Equipped"**, for her claim, means the seven worn pieces and the spells known; the bag, the runes and
   the Totem's abilities are never taken.
-- **The three waves** are read as 75%, 50% and 25%, each mark holding however hard the blow that reaches
-  it. The brief also says "again at 10%"; Q12 asks which it is.
-- **The Repository's free places**: two from the start, one of which charges no tax on what goes in.
-  Twelve places in all, ten of them to buy. (Q30)
-- **Scrip** is a currency of its own per boss, kept through death. (Q7)
+- **Scrip** is a currency of its own per boss, kept through death.
+- **Two kinds of "trial"**: the owner calls a secret chain a trial (and failing it in a pocket is noted
+  as such). To keep the words apart, fighting a beaten boss again is a **challenge** everywhere in the game.
+- **The Portal at any visit** takes you as you are, and may take you back to an earlier run's start as
+  well as on to a later one *(default)*.
 
 ## 1. Death
 
-### What goes and what stays (*default*, where the brief is silent)
+### What goes and what stays
 
 | Lost on death | Kept with the save |
 |---|---|
@@ -85,131 +112,130 @@ A mock-up of the ability socket is in [`plan-b7/ability_socket.png`](plan-b7/abi
 | Every spell but the Fire Bolt, which goes back to the fireball | The Rune Shrine: its rank, its nine slots, its attunements |
 | Souls (spirit) and bones | Every rune held, at its quality |
 | Cursed Coins carried | The Corpus Compendium's index |
-| The ware held at the merchant's (Q17) | The Hexed Totem: abilities, ranks and unspent scrip |
-| | The Accursed Portal's runs opened; the runs completed |
-| | The record: the bestiary, the achievements (Q7) |
+| The ware held at the merchant's | The Hexed Totem: abilities, ranks and unspent scrip |
+| | The Accursed Portal's runs opened; the runs completed; each boss's challenge step |
+| | The record: the bestiary, the achievements |
 | | The Codex's entries; the grave plot; the L menu's choice |
 
-- You wake at full health in the merchant's room before level 1, or choose a later run's start at the
-  Accursed Portal once it is open. Level 1's free first ware is there as always.
+- You wake at full health in the merchant's room before level 1, and may go on to a later run's start
+  at the Accursed Portal once it is open. Level 1's free first ware is there as always.
 - The fall and the red haze stay; then a card: *YOU DIED ON LEVEL 7, TAKEN BY A COLD SHIELD-BEARER*, what
   was lost in a line, and *A NEW STONE IN THE PLOT*.
 - The death is written to the save the moment you fall, not when the haze clears, so closing the window
   during the fall does not undo it.
 - The easing after a death on a level (15% softer blows a death, up to 45%) has nothing left to do and
   goes, except in the screensaver's dream (section 3).
-- **In a pocket** a death throws you back whole to the chain's room today. Q6 asks whether that mercy
-  stays. Recommended: keep it. Chains are side trips whose prize is a coin and a drink; losing a whole
-  run to one would leave nobody going in.
+
+### A death in a pocket (decided)
+
+- You are not killed for it: you come back at full health *(default, as now)* in the level, at the
+  secret's entrance: the hall cell in front of the wall you pushed, facing into the secret's room.
+- The chain's doorway is **shut for the rest of the level**: its frames go dark under a dull red seal
+  cracked across it (a new texture), and walking into it or pressing E does nothing but a knock.
+- A caption: **THE DWELLER FAILED THIS TRIAL** *(wording; Q43)*, and the tally's secrets row notes *1
+  TRIAL FAILED*.
+- The links behind the seal can't be found this level, so that chain's coin, the coin for every secret,
+  and the Black Altar's gold are gone with it. The chain's carved room and anything already taken stay
+  as they are.
+- The same for the autopilot, in the dream or not.
 
 ### The grave plot
 
-- A walled yard south of the merchant's room (the map in section 6): ten stones in two rows, the newest
+- A walled yard south of the merchant's room (the map in section 7): ten stones in two rows, the newest
   nearest the arch. An eleventh death takes the oldest stone away.
 - **E at a stone** opens its page, laid out like the bestiary's: the epitaph (*HERE LIES A CASTER OF THE
   THIRD RUN, TAKEN BY A BLOODY SHIELD-BEARER ON LEVEL 24, THE BROKEN SEAM*), the date and time (*26
   OCTOBER 2026, 21:14*), and what was carried: the worn pieces (W/S over them shows each card), the bag,
   the spells and their tiers, the runes, the gold, souls and coins. A/D goes to the next stone.
 - **What killed you** is kept as it lands: the creature by its caption name and rank (*A COLD
-  SKELETON*), a boss by its title, the Wraith, or the thing it left behind (*A SPIDER'S POISON*, *AN EMBER
-  IMP'S FIRE*, *A DROWNED ONE'S POOL*, *THE KNIGHT'S MIRROR*: your own bolt, turned back).
+  SKELETON*), a boss by its title, the Wraith, a boss's hazard (*THE KNIGHT'S ROCKFALL*, *THE VOID*), or
+  the thing a creature left behind (*A SPIDER'S POISON*, *AN EMBER IMP'S FIRE*, *A DROWNED ONE'S POOL*,
+  *THE KNIGHT'S MIRROR*: your own bolt, turned back).
 - The stones belong to the save, so each save has its own plot.
 
 ## 2. Saving with the merchant, and her claim
 
 ### Signing and opening
 
-- **The save slots need a new name**, since gravestones now mean deaths. Proposed: **the merchant's
-  ledger**, three pages, I to III (Q8). *SIGN THE LEDGER* saves; *OPEN THE LEDGER* loads.
-- **E at the merchant** opens her menu *(default: explicit rows, so you always know when and where it
-  saved; Q9)*:
+- **The save slots become the merchant's ledger**, three pages, I to III, since gravestones now mean
+  deaths. *SIGN THE LEDGER* saves; *OPEN THE LEDGER* loads.
+- **E at the merchant** opens her menu:
   - **SIGN THE LEDGER**: choose a page; the page you came from is picked first; signing over another
     run's page asks twice, as carving over a grave does now. Each page shows its level, gold and when it
     was signed.
-  - **ANOTHER PEDESTAL**: the next one and its price (section 6).
+  - **ANOTHER PEDESTAL**: the next one and its price (section 7).
   - **PAT HER**: as now. The cat stays exactly where she is.
   - **LEAVE**.
 - **The Esc menu**: *FLEE*, *STAY*, *SLEEPWALK*, *OPEN THE LEDGER*. Carving goes; the merchant's
   ledger is the only place to sign.
-- **Fleeing** keeps nothing since the last signature *(default)*: the next start opens your last page.
-  Fleeing in danger brings the claim, below.
+- **Fleeing** keeps nothing since the last signature: the next start opens your last page. Fleeing in
+  danger brings the claim, below.
 - **Three things write a page**: signing it, a death, and the merchant's claim. Nothing else.
 - With a console code used, nothing is written, as today: no signing, no deaths, no claims.
 
 ### Her claim: what counts as cheating death
 
-The rule has to work the same whatever a person meant, so it is mechanical *(default; Q13-Q15)*:
+The rule has to work the same whatever a person meant, so it is mechanical:
 
 - **A page is marked while you are in danger** in the run it holds, and the mark clears 8 s after the
   danger has passed. Danger is any of:
   - a creature hunting you within eight cells, or a missile coming at you (the game's own `in_combat`);
   - health under a quarter;
-  - poisoned, burning, held in a web or grabbed;
+  - poisoned, burning, held in a web, grabbed, or inside a hazard's warning or harm;
   - inside a boss arena, from the doors shutting until the boss falls.
 - **The mark is written the moment danger begins**, as a small value beside the pages, and cleared when
   it ends. So a load from the Esc menu, a flee, a closed window, Alt-F4, a crash or a power cut while
-  marked all count. The brief says "regardless of intention", and a crash is the hard case (Q14).
+  marked all count, as the brief says: regardless of intention.
 - **The next time a marked page is opened** (by a load, or the next start), she takes her claim before
   you can move:
-  - **gold:** a quarter to a half of what you carry, rolled *(default; Q15)*;
+  - **gold:** a quarter to a half of what you carry, rolled;
   - **one thing equipped, at random:** a worn piece is taken; a spell drops one tier (one at tier 1 is
     lost; the Fire Bolt never goes below the fireball). Each worn piece and each spell has the same
     chance. Never a rune, the bag, a Totem ability, or anything in the Repository or Compendium.
-  - She signs the page herself, and says so, on a card at her room *(wording to approve; Q16)*:
+  - She signs the page herself, and says so, on a card at her room *(wording, still to approve)*:
 
     > **CAUGHT CHEATING THE DEAD**
     >
     > YOU TRIED TO CHEAT THE DEAD OF THEIR BOUNTY. WHATEVER YOU MEANT BY IT, SHE HAS TAKEN THEIR CLAIM:
     > 1,240 GOLD, AND THE RARE BOOTS OF THE LIGHTFOOT. THE LEDGER IS SIGNED.
 
-- **Fair warning** *(default; Q13)*: while a page is marked, a small red eye shows beside the keys on the
-  status bar and in the readout, and *OPEN THE LEDGER* and *FLEE* in the Esc menu carry the line *THE
-  DEAD ARE WATCHING*. Nobody should trip the claim without knowing the rule exists; the Codex explains it
-  too.
+- **Fair warning**: while a page is marked, a small red eye shows beside the keys on the status bar and
+  in the readout, and *OPEN THE LEDGER* and *FLEE* in the Esc menu carry the line *THE DEAD ARE
+  WATCHING*. Nobody should trip the claim without knowing the rule exists; the Codex explains it too.
 - Loading outside danger costs nothing; going back on a bad purchase is allowed.
 - Someone with the registry editor can always copy a page; the claim guards the game's own doors.
 
-## 3. The screensaver and your ledger (needs an answer: Q5)
+## 3. The screensaver and your ledger (decided: the dream)
 
-Today the screensaver plays on from your last saved progress and keeps nothing unless a person takes
-over and flees. With death this costly, the autopilot must not be able to lose a person's run while they
-are away. Three ways:
+- The screensaver plays on from your last page, and nothing it does is kept: its deaths use today's
+  mercy (the level starts again, with the easing), and it never signs or dies on your page.
+- **Holding H takes over where it stands**, and from that moment until the program closes the run is
+  yours: the new rules apply, deaths are written, the mark watches. Whatever the dream gained is yours
+  only if you sign the ledger.
+- Sleepwalking after taking over leaves the run under the new rules; otherwise handing over mid-fight
+  would dodge a death.
 
-- **(a) The dream (recommended).** The screensaver plays on from your last page, and nothing it does is
-  kept: its deaths use today's mercy (the level starts again, with the easing), and it never signs or
-  dies on your page. **Holding H takes over where it stands**, and from that moment until the program
-  closes the run is yours: the new rules apply, deaths are written, the mark watches. Whatever the dream
-  gained is yours only if you sign the ledger. Sleepwalking after taking over leaves the run under the
-  new rules (otherwise handing over mid-fight would dodge a death).
-- **(b) Wake at the merchant's.** Holding H puts you at the merchant's from your last page; the dream is
-  let go. The simplest and most predictable, but you can't drop into the action from the screensaver any
-  more.
-- **(c) One run, one rule.** The autopilot plays your page under the same rules, signs at the merchant's
-  as you would, and its deaths cost you.
-
-## 4. Runs of ten
+## 4. Runs of ten (decided)
 
 - `crawl_set(level) = ((level - 1) / 10) % 4`, `crawl_step` 0 to 9, decay `step / 9`: slowly across the
   whole run, at its worst on the boss level. Depth climbs run by run and stays at its deepest from run IV.
   Each set's two tints spread over ten levels.
 - **After level 40** the four runs come round again (41 to 80), deeper, with the loop moods the descent
-  plan proposed (not yet built) and the bosses back stronger; the numerals on the names go on as now
-  *(default; Q2)*.
-- **Creatures keep their first levels** (2 to 19) *(default; Q3)*, so every kind is met in runs I and II;
-  runs III and IV bring no new kinds until they are planned. The Knight at level 10 is "a future
-  encounter", as the brief allows: ordinary knights first come at 13.
-- **The rank and quality mixes follow the sets** *(default; Q4)*, so they now climb over ten levels:
-  levels 6 to 10 get the Crypts' gentle mix where they had the Catacombs', and the Deep's comes at 31 to
-  40. Levels 6 to 20 grow gentler; the bosses become the step up. The alternative is to keep the mixes
-  on the old five-level steps.
-- **Secrets**: levels 1 to 9 of a run hold 3, 3, 4, 4, 4, 5, 5, 5 and 6 links; the boss level none.
-  Pockets are the Backrooms in runs I and II and Severance in III and IV, as the two themes followed the
-  first two sets and the last two. Black Altars from level 6 and the Wraith from level 9 as now, but
-  neither on a boss level.
+  plan proposed (not yet built) and the bosses back stronger; the numerals on the names go on as now.
+- **Creatures keep their first levels** (2 to 19), so every kind is met in runs I and II; runs III and
+  IV bring no new kinds until they are planned. The knight at level 10 is "a future encounter", as the
+  brief allows: ordinary knights first come at 13.
+- **The rank and quality mixes follow the sets**, so they now climb over ten levels: levels 6 to 10 get
+  the Crypts' gentle mix where they had the Catacombs', and the Deep's comes at 31 to 40. Levels 6 to
+  20 grow gentler; the bosses and their omens become the step up.
+- **Secrets**: levels 1 to 10 of a run hold 3, 3, 4, 4, 4, 5, 5, 5, 6 and 6 links (the boss level is a
+  regular level now). Pockets are the Backrooms in runs I and II and Severance in III and IV. Black
+  Altars from level 6 as now. The Wraith from level 9 as now, but never on a boss level: the run's last
+  level belongs to its boss, and on level 40 the Wraith is waiting in the arena.
 - **The record and achievements**: each of levels 1 to 40 cleared (from 1 to 20); *RUN I COMPLETE* and
-  on, in place of the descents at 40, 60 ...; and a slayer's line for each boss.
-- **Level names**: forty, ten a run. Drafts: the twenty we have stay where they fit; the boss levels
-  take their boss's name (Q11).
+  on, in place of the descents at 40, 60 ...; a slayer's line for each boss; and each boss challenged at
+  each step.
+- **Level names**: forty, ten a run; the twenty we have stay where they fit.
   - **I, the Crypts:** The Ossuary, Hall of Torches, Crypt of the Nameless, The Bone Gallery, The
     Warden's Hall, The Chapter House, The Pilgrims' Stair, The Reliquary, The Knights' Vault, *The
     Ill-Fated Lists*.
@@ -218,31 +244,37 @@ are away. Three ways:
     Wanderer's Web*.
   - **III, the Hollows:** The Charnel Mine, Warrens of the Dead, The Fossil Road, The Broken Seam, The
     Colossus Deep, The Timbered Dark, The Gnawing Caves, The Lampless Shaft, The Flooded Chapel, *The
-    Deacon's Pulpit* (if Q22 picks him).
+    Deacon's Pulpit*.
   - **IV, the Deep:** The Glittering Dark, Veins of the Earth, The Ember Root, The Black Glass, Throne of
     the Hollow King, The Singing Geode, The Cinder Fields, The Molten Stair, The Last Light, *The Bottom
-    of Everything* (if Q22 picks the Wraith).
+    of Everything*.
 
 ## 5. Bosses
 
-### The boss level (*default*; Q10 asks whether it is the arena alone)
+### The boss level, and challenges (decided)
 
-- The merchant's before the boss level as always: the last chance to sign.
-- Her east door opens on a short antechamber, then an arch into the arena. Crossing it, the doors grind
-  shut behind you, the boss's name card shows with a line of lore, the boss music starts, and its health
-  bar appears along the top of the view, with the wave marks as notches.
-- Inside: no exit, no secrets, no altar, no Wraith; L casts nothing (*THE WAY IS SHUT*) until it falls.
-- When it falls: its scrip drops where it fell (walk over it), the exit opens in the far wall, the tally
-  gains a BOSS row with the time, the run is counted complete, and on you go.
-- Dying in the arena is a death like any other: the run ends. That is the risk at the end of a run.
+- **On the way down** the boss level is a regular level: the merchant's first (the last chance to sign),
+  then halls, rooms, treasure, keys, secrets and the altar as any level has, generated as usual, with the
+  boss's planned antechamber and arena set into the map's far end in place of the exit room. The level's
+  omens come at their most often (section 6).
+- **The antechamber**: a small room before the arena's arch, the same every time, with a candle and a
+  bench. Challenges from the Portal begin here, before the arch.
+- **Crossing the arch**: the doors grind shut behind you, the boss's name card shows with a line of
+  lore, the boss music starts, and its health bar appears along the top of the view with the four wave
+  marks as notches. No leaving, no wisps (L casts nothing: *THE WAY IS SHUT*) until it falls.
+- **When it falls**: its scrip drops where it fell (walk over it), the exit opens in the arena's far
+  wall, and the tally gains a BOSS row with the time. On the way down the run is counted complete and you
+  go on to the next run's merchant's room; a challenge takes you back to the merchant's room you left.
+- **Dying in the arena** is a death like any other, on the way down or in a challenge.
 
-### Waves
+### Waves (decided: four)
 
-- At each mark (Q12: 75, 50 and 25 by default), any damage past the mark is lost; the boss stops there.
+- At 75%, 50%, 25% and 10% of its health, any damage past the mark is lost; the boss stops there.
 - It turns untouchable at once: an animation of its own (the knight kneels on its sword, the spider
-  cocoons itself on the ceiling), a pale shell over it, and spells pass through with a dull ring.
+  cocoons itself on the ceiling, the Deacon stands in his pulpit and chants, the Wraith sinks into the
+  dark), a pale shell over it, and spells pass through with a dull ring.
 - It calls, and two seconds later (dust falling, a horn, so you can see where they will come from) the
-  adds come in at set places: gates in the walls, burrows, the floor.
+  adds come in at set places: gates in the walls, burrows, heaps of bone, the dark.
 - It stays still and untouchable while any add of the wave lives, then rises with a sound, and the music
   goes back to the fight.
 - The bar greys while it is untouchable and shows the adds left: *3 REMAIN*.
@@ -252,20 +284,21 @@ are away. Three ways:
 
 - **Health**: set by runs in the harness so that a fight with gear right for the level takes three to five
   minutes, waves included. A starting point: about twenty times a rank-I skeleton knight of the level.
-- **Bosses are slowed but never frozen or frightened** (a frozen boss would end the fight's shape); Time
-  Slip slows them by half as much as it slows a creature.
-- **Healing** *(default)*: three fonts set into the arena's walls behind cover, away from where the adds
-  come in. Each holds one draught of a third of your health. One is full when the fight begins; one more
-  fills as each of the first two waves is cleared. At most three draughts a fight. The autopilot drinks
+- **Bosses are slowed but never frozen or frightened**; Time Slip slows them by half as much as it slows
+  a creature. Your Tangled Web can't hold them (it falls away with a tearing sound).
+- **Healing**: three fonts set into the arena's walls behind cover, away from where the adds come in.
+  Each holds one draught of a third of your health. One is full when the fight begins; one more fills as
+  the first wave is cleared and one as the third is. At most three draughts a fight. The autopilot drinks
   under 40%.
-- **Music** *(default; Q20)*: a theme for each boss, OPL2 voices like the rest: a slow off-kilter waltz in
-  a minor key over an ostinato, a tritone in the tune, a bell on the first beat. While the adds are out,
-  the same theme turned up: drums come in, the bass doubles, the key rises a semitone, the pace lifts a
-  little. When the last add falls it settles back. The knight's in D minor with a brassy lead; the
-  spider's in B-flat minor, plucked, with a skittering hi-hat.
-- **Scrip**: one Named Odious Scrip a kill, e.g. *THE ILL-FATED KNIGHT'S ODIOUS SCRIP*, a curl of
-  parchment with a black seal. It goes to the Totem's account the moment it is taken, so it is kept
-  through death *(default; Q7)*.
+- **Music**: a theme for each boss, OPL2 voices like the rest: a slow off-kilter waltz in a minor key
+  over an ostinato, a tritone in the tune, a bell on the first beat. While the adds are out, the same
+  theme turned up: drums come in, the bass doubles, the key rises a semitone, the pace lifts a little;
+  when the last add falls it settles back. The knight's in D minor with a brassy lead; the spider's in
+  B-flat minor, plucked, with a skittering hi-hat; the Deacon's on an organ-like voice with a choir pad;
+  the Wraith's almost without a tune: a low drone, the bell, and a voice that comes and goes.
+- **Scrip**: Named Odious Scrip, e.g. *THE ILL-FATED KNIGHT'S ODIOUS SCRIP*, a curl of parchment with a
+  black seal. It goes to the Totem's account the moment it is taken, so it is kept through death. How
+  many a win gives: section 6, *challenges grow harder*.
 
 ### The Ill-Fated Skeleton Knight (level 10)
 
@@ -273,29 +306,32 @@ are away. Three ways:
   slow glint sliding across it. It sheds plate at each wave, as knights do by health now.
 - **Lore** (draft): *HE RODE DOWN TO FETCH THE ORDER'S DEAD, AND NEVER RODE BACK UP.*
 - **Blows**: the knight's wind-up and heavy strike, at the boss's strength.
-- **The Rare Mirror Rune**: about one missile in seven that strikes it is turned back at you *(default)*,
-  never twice within two seconds. The instant it happens its plate flashes silver in a ring and a struck
-  bell rings, a sound of its own, unlike your Mirror Veil. The turned shot comes back at half its damage
-  and can be dodged. Only missiles: Fire Bolt, Frost Shard, Bone Spear, Hellfire, Seeker Wisps and
-  Rapid Sparks. Chain Lightning, Soul Drain and the BFS9000 are not missiles and are never turned.
+- **The Rare Mirror Rune**: about one missile in seven that strikes it is turned back at you, never
+  twice within two seconds. The instant it happens its plate flashes silver in a ring and a struck bell
+  rings, a sound of its own, unlike your Mirror Veil. The turned shot comes back at half its damage and
+  can be dodged. Only missiles: Fire Bolt, Frost Shard, Bone Spear, Hellfire, Seeker Wisps and Rapid
+  Sparks. Chain Lightning, Soul Drain and the BFS9000 are not missiles and are never turned.
 - **Swift Dodge**: half a second untouchable while it darts two to five cells in a straight line, as far
   as the floor is clear, leaving two or three fading after-images and a whoosh with a clank of plate.
-  Three reasons, three cooldowns *(default)*:
+  Three reasons, three cooldowns:
   - **closing in**, every **5 s** at most: you are four cells off or more and in its sight; it dashes to
     a cell short of you, ready to strike;
   - **fleeing**, every **9 s**: you have taken a tenth of its health within three seconds, or it stands
     in burning floor; it dashes away from you;
   - **dodging**, every **16 s**: a shot of yours would hit it; it dashes aside.
   - No dodging while a wave holds it.
-- **Adds**: skeleton kinds only *(default)*:
-  - **wave 1**: a skeleton (the thrower), two shield-bearers and a bone hound;
-  - **wave 2**: a skeleton, two shield-bearers and two hounds;
-  - **wave 3**: two skeletons, two shield-bearers, a hound and an ordinary skeleton knight.
-  - They come through two gates in the north wall and two in the south. Their rank: Q18.
+- **Its hazard**: Rockfall (section 6).
+- **Adds**, skeleton kinds only, one ranged a wave and two in the last:
+  - **wave 1**: a skeleton (the thrower) and two shield-bearers;
+  - **wave 2**: a skeleton, two shield-bearers and a bone hound;
+  - **wave 3**: a skeleton, two shield-bearers and two hounds;
+  - **wave 4**: two skeletons, two shield-bearers, a hound and an ordinary skeleton knight.
+  - They come through two gates in the north wall and two in the south, at the highest rank of each kind
+    met since your last death or Portal start.
 - **The arena, THE LISTS** (draft; frames to the owner before it goes in):
 
   ```
-  ###########G###G###########     @  the way in (shut behind you)   E  the exit, shut till it falls
+  ###########G###G###########     @  from the antechamber (shut behind you)   E  the exit, shut till it falls
   #B.......................B#     O  great pillars: they break sight
   #...OO.......=.......OO...#     =  a low tilt rail: walked round, seen and cast over
   F...OO.......=.......OO...F     G  gates the adds come through
@@ -316,86 +352,233 @@ are away. Three ways:
   do and down again in a leap.
 - **The Rare Mend Rune**: when it has lost a fifth of its health since it last mended, it mends an eighth
   over four seconds, at most every twenty, never above the last wave mark it has passed; a green glow and
-  the Mend sound, so it can be seen and burst through *(default)*.
+  the Mend sound, so it can be seen and burst through.
 - **Tangled Web**: it rears up for 0.6 s with a hiss, then spits a glob of web, slower than a bone, that
   can be sidestepped. If it lands you are held: you can turn and cast but not walk, and the view's edges
-  fill with webbing that tears as it weakens. To get free you must do a third of your health in damage
-  to the web. Q19 asks how; the default is that every spell you cast while held strikes the web, and
-  fire strikes it twice as hard. One web out at a time; its next comes **12 s** after you are free
-  *(default)*.
-- **Adds**: smaller hunting spiders, without the web: four, five and six in the three waves, out of
+  fill with webbing that tears as it weakens. To get free you do a third of your health in damage to the
+  web: every spell you cast while held strikes the web, fire twice as hard. One web out at a time; its
+  next comes **12 s** after you are free.
+- **Its hazard**: the cistern's bile (section 6).
+- **Adds**: smaller hunting spiders, without the web: three, four, five and six in the four waves, out of
   burrows in the walls. **Every fifteen seconds**, wave or no wave, one more comes out of a burrow
-  already hunting you, with at most four of those alive at once *(default)*, so there is always something
-  coming.
+  already hunting you, with at most four of those alive at once, so there is always something coming.
 - **The arena, THE WEB** (draft): a round cistern hall with a high ceiling.
 
   ```
         ####h#####h####           h  burrows the small spiders come from
-      ###......w......###         O  pillars wrapped in web: they break sight
-     ##...O.........O...##        w  sheets of web hung from the ceiling (to look at, not to stop sight)
-    ##.....w.......w.....##       :  the cistern's well, low: walked round, seen and cast over
-    h.....................h       S  where it hangs at first, over the well
-    #.....O....:....O.....#       F  fonts
-    @.........:S:.........E
+      ###v.....w.....v###         v  outlets the bile pours from, in the walls
+     ##...O.........O...##        O  pillars wrapped in web: they break sight
+    ##.....w.......w.....##       w  sheets of web hung from the ceiling (to look at, not to stop sight)
+    h.....................h       :  the cistern's well, low: walked round, seen and cast over; an outlet too
+    #.....O....:....O.....#       S  where it hangs at first, over the well
+    @.........:S:.........E       F  fonts
     #.....O....:....O.....#
     h.....................h
     ##.....w.......w.....##
      ##...O.........O...##
-      ###...F.....F...###
+      ###v..F.....F..v###
         ####h##F##h####
   ```
 
-### Proposed bosses for levels 30 and 40 (the owner asked for ideas; Q22)
+### The Black Deacon (level 30)
 
-Each takes one of its run's creatures (or one still to come), carries one Rare rune used against you,
-and has one ability that becomes the caster's at the Totem. Recommended: **B for 30 and D for 40**,
-because with Swift Dodge (moving) and Tangled Web (holding) they make a Totem of four different kinds:
-moving, holding, an ally, and a way out.
+- **Look**: the deacons' master, twice their size; black robes, a censer swinging green smoke, a crozier
+  of bone.
+- **Lore** (draft): *HE KEPT THE ORDER'S RITES LONG AFTER THE ORDER WAS DUST.*
+- **The Rare Bone Ward**: a ring of shards turns round him and takes the first blows; it grows back on
+  the rune's cooldown, so it has to be broken before he can be hurt. It shows as bone wheeling about him,
+  and breaks with the shatter you know from your own.
+- **Grave Call**: while he is open, he chants over a bone heap by the walls and a skeleton gets up from
+  it, one at a time, at most three about him. A tenth of his health in damage mid-chant breaks it off.
+- **Its hazard**: Hellrent (section 6).
+- **Adds**, one deacon a wave and two in the last:
+  - **wave 1**: a deacon and three shamblers;
+  - **wave 2**: a deacon, two shamblers and a ghoul;
+  - **wave 3**: a deacon, two shield-bearers and two ghouls;
+  - **wave 4**: two deacons, two shield-bearers, a ghoul and a skeleton knight.
+- **The arena, THE PULPIT** (draft): a chapel cut in the mine.
 
-**Level 30, the Hollows**
+  ```
+  ###########################     %  bone heaps, where his skeletons and the adds get up
+  #%......%.......%......%..#     O  timber props: they break sight
+  #..O.........O.........U..#     =  pews: walked round, seen and cast over
+  #..===.===..===..===.===..#     U  the pulpit, where he stands at first
+  F.........................#     F  fonts
+  @.........................E
+  F.........................#
+  #..===.===..===..===.===..#
+  #..O.........O............#
+  #%......%.......%......%..#
+  ###########################
+  ```
 
-- **B. The Black Deacon (recommended).** The deacons' master, twice their size, in a mine chapel ringed
-  with bone heaps; black robes, a censer of green smoke, a crozier of bone.
-  - **Rare Bone Ward**: a ring of shards turns round him and takes the first blows; it grows back on
-    the rune's cooldown, so it has to be broken before he can be hurt.
-  - **Grave Call** (his): he chants over a heap and a skeleton gets up from it. A tenth of his health
-    in damage mid-chant breaks it off.
-  - **Adds**: risen skeletons, shield-bearers and a knight, with one deacon a wave and two in the last.
-  - **Arena**: timber pews for low cover, the heaps along the walls, a pulpit at the far end, mine lamps.
-  - **Grave Call for the caster** (three ranks): right mouse at the remains of something you slew,
-    within four cells: it rises and fights for you for 12, 16 or 20 s, one, two or three at once.
-    Creatures turn on it as they do on Blink's double; it strikes whatever is near.
-- **A. The Gorging Ghoul.** A ghoul swollen on the mine's dead; it leaps across the arena and feeds on the
-  spoil heaps when it loses you. **Rare Soul Reaping**: each add that falls near it gives it health. Adds:
-  ghouls and shamblers. **Ravenous Leap for the caster**: right mouse at a creature within 4, 5 or 6
-  cells; you leap onto it (an arc, not a teleport) and your next spell within a second strikes double;
-  cooldown 14, 10 or 7 s. Close to Swift Dodge in feel.
-- **C. The Stone Matriarch.** A cathedral gargoyle in a cavern church, waking the gargoyles on the arena's
-  plinths; it turns to stone, untouchable, when struck hard. **Stoneskin for the caster**: 1.5, 2 or 2.5 s
-  as stone: nothing hurts you, and you can neither move nor cast; cooldown 30, 24 or 18 s.
+### The Wraith Unbound (level 40)
 
-**Level 40, the Deep**
-
-- **D. The Wraith Unbound (recommended).** The Wraith that has walked the halls since level 9, waiting at
-  the bottom of everything, and here at last it can be hurt, but only in light. Braziers ring the arena
-  and it gutters them as it passes; relight one with E, or bring your wisp close; in the dark spells go
+- **What it is**: the Wraith that has walked the halls since level 9, waiting at the bottom of
+  everything. Here at last it can be hurt, but only in light: braziers ring the arena and it gutters them
+  as it passes; relight one with E (a second's work) or bring your wisp close; in the dark, spells go
   through it.
-  - **Rare Time Slip**: your missiles slow to a crawl near it for a moment, a grey ripple and a deep
-    chime, and it steps out of their way.
-  - **Wraithwalk** (its): through walls and creatures, gone from sight, out of a wall near you.
-  - **Adds**: shades (seen only in light) and the Drowned, with two shades in the last wave.
-  - **Wraithwalk for the caster** (three ranks): for 1.5, 2 or 2.5 s you pass through creatures and their
-    missiles, and they lose you and must find you again; cooldown 25, 18 or 12 s.
-- **E. The Cinder Tyrant.** An ember imp grown into a furnace, in a hall cut by magma channels, lobbing
-  embers that burn the floor in lines. **Rare Purify**: it shakes off your frost twice as fast. Adds: imps
-  from the vents. **Ember Rain for the caster**: right mouse: three embers at the floor up to six cells
-  ahead, burning it for 4, 5 or 6 s; cooldown 16, 12 or 9 s.
-- **F. The Hollow King.** The descent plan's lich in a geode heart, shielded by crystal pillars you must
-  break, blinking between them and raising shades. The biggest art job of the six.
+- **Lore** (draft): *IT HAS WALKED BEHIND YOU SINCE THE NINTH LEVEL. HERE, AT THE BOTTOM, IT STOPS.*
+- **The Rare Time Slip Rune**: your missiles slow to a crawl near it for a moment, with a grey ripple in
+  the air and a deep chime, and it steps out of their way.
+- **Wraithwalk**: through walls and creatures, gone from sight, out of a wall near you.
+- **Its hazard**: Void Energies (section 6).
+- **Adds**: shades (seen only in light) and the Drowned: two shades and a Drowned; two and two; three and
+  two; four shades and two Drowned.
+- **The arena, THE BOTTOM** (draft): a round hall of black glass.
 
-## 6. The merchant's hall
+  ```
+       ########E########          B  braziers: its light, and what it puts out
+     ###B.............B###        O  columns of black glass: they break sight
+    ##.......O...O.......##       F  fonts
+   ##.....................##
+   #B...O.............O...B#
+   @.......................F
+   #B...O.............O...B#
+   ##.....................##
+    ##.......O...O.......##
+     ###B.............B###
+       ######F###F######
+  ```
 
-### The room, grown (draft; Q26)
+### Kept for later bosses
+
+The Gorging Ghoul (Ravenous Leap), the Stone Matriarch (Stoneskin), the Cinder Tyrant (Ember Rain) and the
+Hollow King, as proposed in the first round, for the runs after 40 or a later beta.
+
+## 6. The bosses' hazards (proposed; round two)
+
+What the owner asked for: casts that put you in danger in a boss fight and make you watch the floor, the
+ceiling and the boss as well as the adds; some of them environmental, every one with a clear warning
+before it hurts; harder each time you come back to challenge the boss for scrip; and shown in the three
+levels before the boss, more often the nearer you get.
+
+### Rules every hazard keeps (*default*)
+
+- **A warning before any harm**, the same every time, that can be seen, heard and told by its shape and
+  movement as well as its colour: never shorter than 0.9 s, however hard the challenge.
+- **Never under you without a warning**, never shutting every way out, never more than about a third of
+  the arena's floor at once.
+- **No harsh flashing**: glows rise and fall; nothing blinks faster than three times a second.
+- **Harm is a share of your health**, so it means the same at level 10 as at level 40 and with any gear;
+  the numbers below are starting points for the runs.
+- **Swift Dodge's dash is untouchable**, so a dash at the last moment gets through any of them.
+- The knight's rocks and the Deacon's fire **hurt the adds as well**, never the boss: drawing adds into
+  them is a skill worth having *(Q39)*. The spider's bile and the Wraith's void spare their own kin.
+- **Once seen, each has a page** in the Codex (section 9) and a line in the bestiary's boss page.
+
+### Rockfall: the Ill-Fated Skeleton Knight
+
+- **The cast**: it plants its sword with a shout (a half-second pose of its own), and three to five
+  rocks come down round you, one of them on your cell. Every 10 to 14 s while it fights; half as often
+  while a wave holds it.
+- **The warning** (1.2 s): grit trickles from the ceiling in a thin column, a shadow grows on the floor
+  from a soft blur to a hard dark disc, and stone creaks overhead.
+- **The harm**: the rock lands with a thud and a puff of dust, and strikes once whatever stands within
+  half a cell of it: **12% of your health**. It is a blow: armour and the Bone Ward count; Dodge doesn't.
+- **After**: the rock lies as rubble for 3 s, sinking into dust. It blocks nothing and hurts no more.
+
+### The cistern's bile: the Wandering Hunting Spider
+
+- **Where it comes from**: fixed outlets, the four pipes in the walls and the well in the middle. Each
+  floods its own patch, drawn with the arena.
+- **On and off**: two outlets open as the fight begins; every 20 s one closes and another opens, so the
+  safe ground moves; each wave opens one more until the wave is cleared. How many may be open at once is
+  the difficulty's own setting, raised by challenges (below), as the owner asked.
+- **The warning** (2 s): the outlet gurgles and drips first, then a dark wet sheen creeps out from it a
+  cell at a time, so you see its edge coming; only when it has settled does it turn foul: a green surface
+  with bubbles rising and bursting, readable by its bubbling as well as its colour.
+- **The harm**, while you stand in it: poisoned, as by a spider's bite at the level (poison resistance
+  counts), and slowed by a fifth.
+- **Closing**: it drains back towards its outlet a cell at a time over 3 s, harmless once the bubbles
+  stop.
+- Spiders walk it unharmed; it is their nest.
+
+### Hellrent: the Black Deacon
+
+- **The cast**: he lifts the crozier and speaks a word; every 9 to 12 s while he is open, not while a
+  wave holds him (he is calling up the dead then).
+- **The warning** (1.5 s): cracks run across the floor along the way the fire will take, glowing from dull
+  red to bright orange as they widen, with a grinding rumble that rises to the burst.
+- **The harm**: fire bursts from every cracked cell for 1.2 s: burning, **8% of your health a second**;
+  burn resistance counts. Then the cracks cool to embers over 2 s, harmless.
+- **Its shapes**: a line from him towards you; a ring round him, to keep you off; a cross through the
+  aisle. One shape a cast at first.
+- It burns the adds too: a skeleton risen from a heap that cracks under it burns with you.
+
+### Void Energies: the Wraith Unbound
+
+- **The cast**: it reaches out (a pose) and one to three zones open: one where you stand, the rest across
+  your ways out; every 8 to 12 s.
+- **The warning** (1.5 s): a purple ring drawn on the floor where the zone will be, and a faint shaded
+  column rising from it, thin as mist, with a low swelling hum.
+- **The harm** (6 to 8 s): the column deepens to a purple volume with motes drifting up through it.
+  Inside it you lose **4% of your health a second** (nothing resists it), walk at 60%, and are
+  **silenced**: no spells, no Swift Dodge, no Tangled Web or other abilities, and no rune fires.
+  E still works, so you can drink from a font or light a brazier *(Q40)*.
+- **Silence shows plainly**: the hand drops and greys, the ability sockets and the spell box grey with a
+  line through them, and the game's sounds go muffled, as if heard through cloth, until you step out.
+- A zone over a brazier puts it out: the dark and the void work together.
+- Shades and the Drowned go through it untouched.
+
+### Second casts (my additions; Q41)
+
+One more for each boss, for challenges from the third step (below), so a returning caster meets
+something new, not only the same things faster. Each is a check of a different kind.
+
+- **The knight, Sundering Arc** (where you stand): it raises its sword and a pale arc marks the floor
+  before it, three cells deep and a quarter-circle wide, for 0.8 s; then it sweeps through it. Step behind
+  it or aside.
+- **The spider, Egg Shot** (what you look at): it fires an egg sac onto a wall in sight of you, which
+  hatches four small spiders in 5 s unless burned or broken. A target to choose over the boss.
+- **The Deacon, Litany** (what can see you): he raises his censer and a green light grows on him for 2 s;
+  if he can see you when it ends, it strikes you for a fifth of your health. The pews are low and don't
+  hide you; the timber props do.
+- **The Wraith, Grasping Dark** (where the light is): away from any lit brazier, a ring of black opens
+  under you and hands rise from it 1 s later. Stay in the light, and keep it lit.
+
+### Challenges grow harder (Q38)
+
+- Each challenge won raises that boss's next challenge by a **step**, up to five *(default)*. The fight
+  on the way down is always step 0.
+- Each step: its hazard comes a fifth more often, with one more rock, crack line, open outlet or zone at
+  a time (the warning never shorter than 0.9 s); from step 3 the second cast comes in; the adds rise a
+  rank at steps 2 and 4 (to black at most).
+- **Scrip**: one a win at steps 0 to 2, two at steps 3 to 5 *(default)*.
+- The Portal shows each boss's step and what it brings before you choose it.
+
+### Omens: the three levels before
+
+- In the last three levels before a boss (7 to 9 for the knight, 17 to 19, 27 to 29, 37 to 39), its
+  hazard comes into the halls by itself, near you (within eight cells, in sight), with the same warning,
+  at **half the harm** *(default; Q42)*.
+- **How often** *(default)*: three levels before, about once every 90 s; two before, every 60 s; the
+  level before, every 40 s; and in the boss level's own halls, every 30 s. Never in the merchant's room,
+  a vault, a secret's room or a pocket.
+- **Their form in the halls**: in the Crypts the ceiling drops a stone; in the Catacombs bile spills
+  from grates low in the walls onto the lanes; in the Hollows the floor cracks and spits fire; in the
+  Deep rings of void open.
+- The first omen of each kind comes with a caption (*THE CEILING GROANS ABOVE YOU*, *BILE RISES FROM THE
+  DRAINS*, *THE FLOOR SPLITS AND BURNS*, *THE VOID OPENS*) and opens its page in the Codex.
+- Creatures walk round warned cells when they can. The autopilot sees the same warnings: it waits, or
+  steps off its lane and back.
+- They come on the levels before a boss on every run round, in the dream too, so the screensaver shows
+  them.
+
+### What they need
+
+- **Art**, as a sheet for the owner first: the falling grit and the rock (falling, landed, sinking into
+  dust), the shadow; the cracks in their stages and the burst of fire (a taller column than Hellfire's
+  floor); the outlets (a wall pipe, a grate low in a wall), the sheen and the bubbling bile; the void's
+  ring, its column and motes; the greyed hand; the Deacon's and the Wraith's poses; the sealed doorway.
+- **Drawing**: a layer of marks on floor cells drawn with the floor (shadows, cracks, sheen, rings), and
+  sprites with see-through for the grit, the fire, the column and the motes.
+- **Sound**: the creak and the landing, the rumble and the burst, the gurgle, the hum, and the muffling
+  in the void (the game's sounds dulled while you are inside, the music too).
+
+## 7. The merchant's hall
+
+### The room, grown (draft)
 
 The shop stays as it is, the cat where she lies. A west arch, beside her, opens on a back room; a south
 arch, past the shrine, on the grave plot.
@@ -429,20 +612,18 @@ plot (stones from the graveyard sprites we have, a new one for the freshest, tur
 
 - **Two at first**, the first a spell and the second a thing to wear. More from her menu: the third
   **500** gold, then **1,250**, **3,125**, **7,815**, **19,530** for the seventh. Kept through death.
-- The wares-a-visit limit (one to level 9, two to 14, three after) becomes one in run I, two in run II,
-  three after *(default; Q28)*.
-- Old saves keep the pedestals their level gave them (five to seven), so nobody loses wares by updating
-  *(default; Q31)*.
+- Wares a visit: one in run I, two in run II, three after.
+- Old saves keep the pedestals their level gave them (five to seven), so nobody loses wares by updating.
 
 ### The Corpus Compendium
 
 - **E at the lectern.** A page for each slot (left and right wrist together, boots, neck, hood, robes,
   ring, bag) and one for the spells; A/D turns the pages, W/S runs down the list, sorted by quality,
   Common to Exquisite, each quality in its colour. The card is the shop's card, with its price.
-- **What it keeps** *(default; Q29)*: each piece exactly as it was when you first put it on (its level,
-  stats and ability; never anointed: anointing stays the altar's gift). Copies alike in kind, quality,
-  ability and stats are kept once. Up to twelve on each slot-and-quality page; when a thirteenth comes,
-  the weakest goes. Spells at the highest tier you have learnt each.
+- **What it keeps**: each piece exactly as it was when you first put it on (its level, stats and
+  ability; never anointed: anointing stays the altar's gift). Copies alike in kind, quality, ability and
+  stats are kept once. Up to twelve on each slot-and-quality page; when a thirteenth comes, the weakest
+  goes. Spells at the highest tier you have learnt each.
 - **Price**: what the shop would ask for it, x1.2, less 0.05 for each run completed, never under x0.5
   (14 runs). Buying puts it on as a pedestal's ware does, with the same warnings for what it replaces.
   It doesn't count against the merchant's wares a visit.
@@ -454,8 +635,8 @@ plot (stones from the graveyard sprites we have, a new one for the freshest, tur
 
 | | Going in | Coming out |
 |---|---|---|
-| A piece (worn or from the bag; an empty bag too) | 10% of its shop price in gold; nothing in the untaxed place | free *(default)* |
-| Gold | a quarter is taken: put in 1,000, 750 is kept | free *(default)* |
+| A piece (worn or from the bag; an empty bag too) | 10% of its shop price in gold; nothing in the untaxed place | free |
+| Gold | a quarter is taken: put in 1,000, 750 is kept | free |
 | Cursed Coins | free | 2,500 gold each |
 
 - **Places**: two from the start, one of them untaxed. Ten more to buy, to twelve in all: **2,500**,
@@ -463,40 +644,36 @@ plot (stones from the graveyard sprites we have, a new one for the freshest, tur
 - No limit on gold or coins. Nothing in it is lost to death or the claim. Spells don't go in; the
   Compendium has them.
 
-### The Accursed Portal
+### The Accursed Portal (decided: at any visit)
 
 - **E at the portal** opens its menu:
-  - **The runs**: run I (level 1) always; run II (level 11) once run I's boss has fallen; and so on.
-    Going through puts you in the merchant's room before that level, free. Offered only in the room before
-    level 1, where a death or a fresh start leaves you, so it never takes you out of a run in progress
-    *(default; Q24)*.
-  - **The trials**: each boss you have beaten, to fight again for its scrip, from any visit. The arena
-    alone, as you are; a win gives one scrip and brings you back to the room you left; a death is a death
-    *(default; Q25)*. A trial won is not a run completed (Q27).
+  - **The runs**: run I (level 1) always; run II (level 11) once run I's boss has fallen; and so on. At
+    any visit, as you are, forward or back. Going through puts you in the merchant's room before that
+    level, free.
+  - **The challenges**: each boss you have beaten, with its step and what that step brings; you start in
+    its antechamber, as you are; a win gives its scrip and brings you back to the merchant's room you
+    left; a death is a death. A challenge won is not a run completed.
 
 ### The Hexed Totem
 
 - **E at the totem.** A row for each boss beaten; bosses not yet beaten don't show at all. Each row: the
   ability, its rank and cap, the scrip of that boss you hold, and *RAISE: 1 SCRIP*. A card under it
   describes the rank you would get.
-- One scrip unlocks rank I; each rank after costs one more *(default for Tangled Web; the brief gives it
-  for Swift Dodge)*. Swift Dodge and Tangled Web stop at III; later abilities may stop elsewhere.
+- One scrip unlocks rank I; each rank after costs one more. All four stop at III *(default; Q44)*.
 
-## 7. The caster's boss abilities
+## 8. The caster's boss abilities
 
-### Swift Dodge
+### Swift Dodge (the knight's)
 
 - **Tap W, A, S or D twice** within a quarter of a second, the second a fresh press: you dart that way as
   far as the floor is clear up to five cells, stopping before walls, doors, props and creatures, over
   about a quarter of a second; you pass through the cells between and can be seen doing it. With less
   than two cells clear nothing happens and no cooldown is spent.
-- **Cooldown** 15, 7 and 3 s by rank.
-- **Untouchable while it moves**, as the knight's is *(default; Q32)*, so a dash well timed goes through
-  a bone.
+- **Cooldown** 15, 7 and 3 s by rank. **Untouchable while it moves.**
 - A double tap can go off by accident while walking. If it does in play, a setting can turn it to a
-  one-press form instead (Q33).
+  one-press form instead.
 
-### Tangled Web
+### Tangled Web (the spider's)
 
 - **Right mouse** spits a glob of web straight ahead, at the creature your spells would aim at, eight
   cells a second, eight cells' reach.
@@ -504,55 +681,68 @@ plot (stones from the graveyard sprites we have, a new one for the freshest, tur
   half its usual rate and at its usual strength; the web holds a third of your health (rank I), two
   thirds (II) or all of it (III). Held, it cannot strike or throw at you. Your spells pass through your
   own webs and hit the creature. Once free it hunts you at once.
-- **What can be held** *(default)*: anything that walks or flies and is solid; not spectres, shades,
-  wall skulls or egg sacs; **not bosses** (it falls away from them with a tearing sound) (Q34).
-- **Webs at once**: one, two or three by rank. A web holding nothing frees its place.
-- **Cooldown** *(default)*: 12, 9 or 6 s by rank after a hit; 2 s after a miss.
+- **What can be held**: anything that walks or flies and is solid; not spectres, shades, wall skulls or
+  egg sacs; not bosses.
+- **Webs at once**: one, two or three by rank. **Cooldown** 12, 9 or 6 s after a hit; 2 s after a miss.
 
-### The ability socket (Q35)
+### Grave Call (the Deacon's)
+
+- **Right mouse** at the remains of something you slew, within four cells and in sight: it rises and
+  fights for you for 12, 16 or 20 s by rank, one, two or three at once. Creatures turn on it as they do
+  on Blink's double; it strikes whatever is near. Cooldown 20 s *(default)*.
+
+### Wraithwalk (the Wraith's)
+
+- **Right mouse** (no aim): for 1.5, 2 or 2.5 s by rank you pass through creatures and their missiles,
+  and they lose you and must find you again. Cooldown 25, 18 or 12 s. It doesn't carry you through walls
+  *(default)*.
+
+### The ability socket
 
 ![Where the ability socket could go](plan-b7/ability_socket.png)
 
-From the left: **A** with the bar up, **A** with the bar away, **B** in the top corner.
+From the left: **A** with the bar up, **A** with the bar away, **B** in the top corner. **A is taken**.
 
-- **A (recommended): bottom left.** With the status bar up, the sockets sit on its top edge over LEVEL
-  and GOLD; when the bar slides away they go down to the corner, and the readout pops up beside them.
-  The hand comes up on the right, the toasts on the upper right and the captions in the middle, so the
-  lower left is clear, and the eye is near it already for the health.
-- **B: top left.** Always in the same place and never moving, but far from where the eye is in a fight.
+- **Bottom left.** With the status bar up, the sockets sit on its top edge over LEVEL and GOLD; when the
+  bar slides away they go down to the corner, and the readout pops up beside them. The hand comes up on
+  the right, the toasts on the upper right and the captions in the middle, so the lower left is clear,
+  and the eye is near it already for the health.
 - **Each socket** shows its ability's mark, a line along its foot that fills as it recovers and brightens
-  when ready (with a soft tick *(default)*), and, for Tangled Web, a pip for each web it may hold, lit while
-  one holds something. Swift Dodge has a socket too, for its cooldown, though it has no button.
+  when ready (with a soft tick), and, for Tangled Web and Grave Call, a pip for each one it may have out,
+  lit while one is out. Swift Dodge has a socket too, for its cooldown, though it has no button.
+- **Silenced** in the void, every socket greys with a line through it.
 - **Only abilities unlocked** have a socket; none show before the first boss falls.
-- **More than one right-mouse ability** (from level 30): the right mouse uses the readied one, outlined;
-  a tap of Q (free in the crypt) readies the next *(default)*.
+- **More than one right-mouse ability**: the right mouse uses the readied one, outlined; a tap of Q (free
+  in the crypt) readies the next.
 
-## 8. The Codex of Affixations (C)
+## 9. The Codex of Affixations (C)
 
 - A book like the bestiary, opened with **C** in the crypt and at the merchant's; the crypt waits while
   it is open.
 - **Pages**: the gear's abilities (Swiftness, Arcane Knowledge, Treasure Hunter, Keymaker, Commune,
-  Thorns, Mirrored); the runes, and each one's Exquisite effect; the bosses' abilities; and the sixteen
-  stats a piece can roll, with their caps *(default; Q36)*; and a page on the merchant's claim.
+  Thorns, Mirrored); the runes, and each one's Exquisite effect; the bosses' abilities; the sixteen stats
+  a piece can roll, with their caps; the omens and hazards, once met; and a page on the merchant's claim.
 - **Each entry**: what it does in plain words, its numbers at each quality or rank, where it comes from
   (*ON HOODS*, *FROM THE RUNE SHRINE*, *THE HEXED TOTEM, FOR THE ILL-FATED KNIGHT'S SCRIP*), and what you
   have of it now.
-- **Known** once you have worn, held or unlocked it: an ability once you have worn a piece with it; a
-  rune once held, and its Exquisite effect once held at Exquisite; a boss ability once its boss has
-  fallen. Unknown entries don't show at all. Kept through death, with the save.
+- **Known** once you have worn, held, unlocked or met it: an ability once you have worn a piece with it;
+  a rune once held, and its Exquisite effect once held at Exquisite; a boss ability once its boss has
+  fallen; a hazard once its omen or its boss has shown it. Unknown entries don't show at all. Kept
+  through death, with the save.
 - C is a new key for the game, the Windows shell and the harness.
 
-## 9. The bestiary's bosses
+## 10. The bestiary's bosses
 
 After the creatures and before the achievements, a page for each boss met: its name and lore, its
-pictures (from the front, and from the side, turned about as the creatures are), its rune and ability,
-what its waves bring, times slain, tries, its best time, scrip won. Bosses not yet met don't show.
+pictures (from the front, and from the side, turned about as the creatures are), its rune, ability and
+hazards, what its waves bring, times slain, tries, its best time, its challenge step, scrip won. Bosses
+not yet met don't show.
 
-## 10. Saves: version 6
+## 11. Saves: version 6
 
 - A page grows from about 1 KB to about 12 KB (`SLOT_MAX` from 2,048): the run as now, the pedestals,
-  the Compendium, the Repository, the Totem and scrip, the runs opened and completed, the Codex, the ten
-  stones, and a count of signatures for the mark.
+  the Compendium, the Repository, the Totem and scrip, the runs opened and completed, each boss's
+  challenge step, the Codex, the ten stones, and a count of signatures for the mark.
 - Beside the pages: `Mark` (the page and the signature it belongs to) and `Progress`, which now names the
   page to start from.
 - Versions 1 to 5 still load. 1.0.0b6's graves become ledger pages as they are; its last fled progress
@@ -560,126 +750,109 @@ what its waves bring, times slain, tries, its best time, scrip won. Bosses not y
   save's hall comes empty but for its pedestals and what it wears and knows, which go into the
   Compendium.
 
-## 11. The autopilot
+## 12. The autopilot
 
 - **Bosses**: it keeps three to five cells off, moves between the pillars, turns on the adds while the
   boss is untouchable, drinks at a font under 40%, sidesteps the web's glob and burns the web off with
   fire, and against the knight prefers Chain Lightning when it has it, since that is never turned back.
-  It can't win every time; in the dream the easing after deaths still applies, so it gets through in the
-  end.
-- **Its abilities**: if the page has them, Swift Dodge out of a missile's path, Tangled Web on the
-  nearest creature that comes to blows.
+  Against the Wraith it keeps near lit braziers and relights the nearest one out. It can't win every
+  time; in the dream the easing after deaths still applies, so it gets through in the end.
+- **Hazards and omens**: it reads the warnings from the cells' marks, waits or steps off its lane and back,
+  never stops in a warned cell, and leaves the void at once.
+- **Its abilities**: if the page has them, Swift Dodge out of a missile's or a rock's way, Tangled Web on
+  the nearest creature that comes to blows, Grave Call on fresh remains in a fight, Wraithwalk when
+  cornered.
 - **The hall**: it buys pedestals when it can afford one and keep a level's haul after; it buys from the
   Compendium when a page there beats the pedestals; it leaves the Repository, the Portal and the Totem to
-  people *(default)*.
+  people.
 
 ## Building it (the tasks)
 
-Each step is tested in the harness before the next; art goes to the owner as sheets first.
+All of it goes out together as 1.0.0b7 (decided). It is built in this order on the work branch so that
+each part can be tried as it comes: the fights first, while death still only restarts the level, then
+the costs on top. Each step is tested in the harness before the next; art goes to the owner as sheets
+first.
 
-1. **Runs of ten**: the sets, steps, decay and tints over ten levels; forty names; secrets by step; the
-   rank and quality mixes; the themes by run; no Wraith, altar or secrets on boss levels; the record's
-   levels and runs.
-2. **Boss machinery**: arenas from planned maps; the boss level (antechamber, doors shut, name card,
-   top bar); waves (marks, untouchable, adds at set places, rising again); fonts; scrip; the run
-   completed; the tally's BOSS row; the bestiary's bosses.
-3. **Boss music**: the knight's theme and the spider's, each with its wave section.
-4. **The Ill-Fated Skeleton Knight**: art sheet; the Mirror Rune's turned missiles, flash and bell; Swift
-   Dodge's three reasons; its adds; THE LISTS; the autopilot's tactics.
-5. **The Wandering Hunting Spider**: art sheet; floor and ceiling; the web on the caster and getting
-   free; the Mend Rune; the small spiders and the fifteen-second spiders; THE WEB; the autopilot.
-6. **The Hexed Totem and the caster's abilities**: the totem; Swift Dodge; Tangled Web; the sockets.
-7. **The Accursed Portal**: run starts and trials.
-8. **Saves version 6 and the ledger**: bigger pages, signing with the merchant, opening from Esc,
-   fleeing, the screensaver's dream (Q5), old saves.
-9. **Death's cost**: what goes and stays, written at the fall; the death card; the grave plot, its
-   stones and what killed you.
-10. **The claim**: danger and the mark, written at once; what she takes; her card; the warning eye.
-11. **The hall**: the room's new shape and art; her menu; pedestals two to seven.
-12. **The Corpus Compendium.**
-13. **The Wretched Repository.**
-14. **The Codex of Affixations.**
-15. **Checks**: frames of everything new; ASan; autopilot runs (boss wins and times, how far the dream
-    gets); the README's "What has been verified", the page and release notes at the release.
-16. **Levels 30 and 40**, once chosen (Q22): a later beta.
-
-Proposed releases (Q37): **1.0.0b7** with steps 1 to 7 (runs of ten, the two bosses, the Totem and its
-abilities, the Portal), while death still only restarts the level, so the fights can be tuned without
-sending anyone back to level 1 for a fight that is still being tuned; then **1.0.0b8** with steps 8 to 14
-(the ledger, death's cost, the claim, the hall, the Compendium, the Repository, the Codex); then the
-bosses of 30 and 40.
+1. **Runs of ten**: sets, steps, decay and tints over ten levels; forty names; secrets by step; the
+   rank and quality mixes; the themes by run; no Wraith on boss levels; the record's levels and runs.
+2. **Boss machinery**: arenas and antechambers from planned maps, set into a generated level; doors shut,
+   name card, top bar; the four waves (marks, untouchable, adds at set places, rising again); fonts;
+   scrip; the run completed; the tally's BOSS row; the bestiary's bosses.
+3. **Hazard machinery**: the floor's mark layer, warnings and harm, the see-through sprites, the
+   muffling, the omens in the levels before, the autopilot's reading of them; challenge steps.
+4. **Boss music**: four themes, each with its wave section.
+5. **The Ill-Fated Skeleton Knight**: art sheet; the Mirror Rune; Swift Dodge's three reasons;
+   Rockfall; Sundering Arc; its adds; THE LISTS; the autopilot's tactics.
+6. **The Wandering Hunting Spider**: art sheet; floor and ceiling; the web on the caster and getting
+   free; the Mend Rune; the bile and its outlets; Egg Shot; the small spiders and the fifteen-second
+   spiders; THE WEB.
+7. **The Black Deacon**: art sheet; the Bone Ward; Grave Call; Hellrent; Litany; his adds; THE PULPIT.
+8. **The Wraith Unbound**: art sheet; light and the braziers; Time Slip; Wraithwalk; the void and the
+   silence; Grasping Dark; its adds; THE BOTTOM.
+9. **The Hexed Totem and the caster's abilities**: the totem; Swift Dodge, Tangled Web, Grave Call and
+   Wraithwalk; the sockets.
+10. **The Accursed Portal**: run starts and challenges.
+11. **Saves version 6 and the ledger**: bigger pages, signing with the merchant, opening from Esc,
+    fleeing, the dream, old saves.
+12. **Death's cost**: what goes and stays, written at the fall; the death card; the pocket's sealed
+    doorway; the grave plot, its stones and what killed you.
+13. **The claim**: danger and the mark, written at once; what she takes; her card; the warning eye.
+14. **The hall**: the room's new shape and art; her menu; pedestals two to seven.
+15. **The Corpus Compendium.**
+16. **The Wretched Repository.**
+17. **The Codex of Affixations.**
+18. **Checks**: frames of everything new; ASan; autopilot runs (boss wins and times by step, how far the
+    dream gets, deaths to hazards and omens); the README's "What has been verified", the page and the
+    release notes, then the release.
 
 ## Risks worth naming
 
-- **The autopilot against bosses.** If it can't win, the screensaver would sit on level 10. The dream's
-  easing after deaths keeps it moving; the runs will show how often it wins first time.
-- **Death is now expensive for a person** while the Repository, Compendium and Totem are what soften
-  it; the order of the betas keeps the fights tunable before the cost comes in.
-- **Gentler levels 6 to 20**, from the stretched mixes, until the bosses; the runs will show it.
+- **The size of one release.** Four bosses, hazards, the hall, saves and death all at once is the
+  biggest change the game has had. Building it in the order above, each step tested before the next,
+  keeps it in hand; the owner will see sheets and frames along the way, but nothing of it is played by
+  hand until the beta.
+- **The autopilot against bosses and hazards.** If it can't win, the screensaver sits on a boss level.
+  The dream's easing after deaths keeps it moving; the runs will show how often it wins first time.
+- **Death is now expensive for a person**, and the Repository, Compendium and Totem are what soften it.
+- **Gentler levels 6 to 20**, from the stretched mixes, until the omens and the bosses.
 - **The claim catches crashes too**, by the brief's rule. If that proves unkind on real Windows, a crash
-  can be told from a deliberate close only roughly (the window closing cleanly or not).
+  can be told from a deliberate close only roughly.
 - **Writing the mark** a few times a minute: one small registry value, written from the main loop like
   the pages, so a frame never waits on it.
-- **The biggest change since the items**: saves, the merchant's room, death, the level flow and a new kind
-  of fight. It goes in steps, each tested on its own.
+- **Hazards and readability.** Many things on the floor at once in a 320 by 200 picture: the warnings
+  must stay clear among the adds. Frames of each at its hardest step go to the owner.
 
-## Questions for the owner
+## Questions
 
-**The shape of it (needs an answer)**
+### Round one (answered 26 October 2026)
 
-- **Q1.** Runs and sets: (a) each run is one set, stretched over its ten levels (I the Crypts 1-10, II the
-  Catacombs 11-20, III the Hollows 21-30, IV the Deep 31-40), as read here; (b) each run passes through
-  all four sets in its ten levels.
-- **Q5.** The screensaver and your ledger: (a) the dream (recommended); (b) wake at the merchant's; (c) one
-  run, one rule. See section 3.
-- **Q6.** A death in a pocket: (a) keep the throw-back to the chain's room, whole (recommended); (b) a death
-  like any other.
-- **Q10.** The boss level: (a) the arena alone, after a short antechamber from the merchant's
-  (recommended); (b) an ordinary level with the arena at its end.
-- **Q12.** The waves: (a) at 75%, 50% and 25%, each mark holding (recommended, three waves); (b) at 75%,
-  50% and 10%; (c) four, at 75, 50, 25 and 10.
-- **Q19.** Getting free of the spider's web: (a) every spell cast while held strikes the web, fire twice as
-  hard (recommended); (b) E tears at it; (c) either.
-- **Q22.** Bosses for 30 and 40: B (the Black Deacon, Grave Call) and D (the Wraith Unbound, Wraithwalk)
-  are recommended; or A, C, E or F, or your own.
-- **Q24.** The Portal's run starts: (a) offered only in the room before level 1 (recommended); (b) at any
-  visit to the merchant.
-- **Q30.** The Repository: two free places, one of them untaxed, and twelve places in all, as read here?
-- **Q37.** Releases: (a) bosses first (1.0.0b7), then death's cost and the hall (1.0.0b8) (recommended);
-  (b) the other way round; (c) all at once.
+Answered as recorded under *Decided*: Q1, Q5, Q6, Q10, Q12, Q19, Q22, Q24, Q30, Q37. The rest took the
+defaults written into the sections above: what comes after level 40 (Q2), creatures' first levels (Q3),
+the stretched mixes (Q4), the record and scrip kept through death (Q7), the ledger (Q8), signing as a row
+in her menu (Q9), the forty names (Q11), danger, the mark and the eye (Q13), crashes counting (Q14), a
+quarter to a half of the gold (Q15), her card's wording (Q16), the held ware lost (Q17), the adds' rank
+(Q18), a theme a boss (Q20), the numbers (Q21), bosses never frozen or frightened (Q23), challenges
+fought as you are (Q25), the hall's layout (Q26), what counts as a run completed (Q27), wares a visit
+(Q28), the Compendium's pages (Q29), old saves' pedestals (Q31), Swift Dodge untouchable (Q32), the
+double tap (Q33), webs not holding bosses (Q34), the socket at the bottom left (Q35), the Codex's pages
+(Q36).
 
-**Defaults taken unless you say otherwise**
+### Round two
 
-- **Q2.** After level 40, round again deeper with the bosses stronger; or end the descent at 40.
-- **Q3.** Creatures keep their first levels (2 to 19), or spread over forty.
-- **Q4.** Rank and quality mixes stretch with the runs, or stay on five-level steps.
-- **Q7.** The record (bestiary, achievements) and unspent scrip are kept through death.
-- **Q8.** The save slots become the merchant's ledger, pages I to III.
-- **Q9.** Signing is an explicit row in her menu, not every word with her.
-- **Q11.** The forty level names (section 4).
-- **Q13.** Danger as listed in section 2, clearing 8 s after; with a red eye and a line in the Esc menu
-  while the dead are watching.
-- **Q14.** A crash or power cut while marked counts, as the brief's "regardless of intention" says.
-- **Q15.** She takes a quarter to a half of the gold at random (or always half; or more the nearer you were
-  to death).
-- **Q16.** The wording of her card.
-- **Q17.** The ware held at the merchant's is lost on death.
-- **Q18.** The adds' rank: the highest of each kind met since your last death or Portal start (or the
-  highest ever met, which could bring black skeletons to level 10 after a deep run).
-- **Q20.** A theme for each boss, rather than one for all.
-- **Q21.** The numbers: the knight's cooldowns 5, 9 and 16 s, one missile in seven turned back at half
-  damage; the spider's web every 12 s after you are free, at most four fifteen-second spiders; three
-  fonts of a third of your health; Tangled Web's cooldowns 12, 9 and 6 s. All to be tuned in the runs.
-- **Q23.** Bosses are slowed but never frozen or frightened.
-- **Q25.** A trial is fought as you are, and a death there is a death.
-- **Q26.** The hall's layout as drawn.
-- **Q27.** Only beating a run's boss on the way down counts as a run completed; trials don't.
-- **Q28.** Wares a visit: one in run I, two in run II, three after (or buy every ware you can afford).
-- **Q29.** The Compendium keeps each piece exactly as first worn, twelve to a page (or every piece ever
-  worn, or only the kind, quality and ability, rolled fresh at the current level when bought).
-- **Q31.** Old saves keep their five to seven pedestals.
-- **Q32.** Swift Dodge is untouchable while it moves.
-- **Q33.** A double tap only, unless accidental dashes show up in play.
-- **Q34.** Tangled Web can't hold a boss.
-- **Q35.** The socket at the bottom left (A).
-- **Q36.** The Codex includes the sixteen stats as well as the abilities, and a page on the claim.
+- **Q38.** How challenges grow: (a) by themselves, a step a win to five, with the second cast from step 3
+  and two scrip from step 3 (recommended); (b) you choose the step at the Portal, higher steps paying
+  more; (c) every challenge is like the first fight.
+- **Q39.** The knight's rocks and the Deacon's fire hurt the adds too (never the boss), while the bile and
+  the void spare their own kin: yes (recommended), or hazards hurt only you.
+- **Q40.** In the void, E still works (fonts, braziers) so you are never left helpless: yes
+  (recommended), or E is silenced too.
+- **Q41.** The four second casts (Sundering Arc, Egg Shot, Litany, Grasping Dark): keep all, some or none;
+  from challenge step 3 (recommended) or from the first fight.
+- **Q42.** Omens at half harm, every 90, 60 and 40 s on the three levels before, and every 30 s in the
+  boss level's own halls: yes, or other numbers.
+- **Q43.** The pocket's caption, *THE DWELLER FAILED THIS TRIAL*: is "the dweller" what the game should
+  call the caster? It would be the first time it names them. Or *YOU FAILED THIS TRIAL*.
+- **Q44.** Every Totem ability stops at rank III, or should any stop sooner or go further ("each has a
+  different cap")?
+- **Q45.** The hazards' damage as starting points: rocks 12% of your health a hit, fire 8% a second, the
+  bile as a spider's poison, the void 4% a second. Fine to tune from there in the runs?
