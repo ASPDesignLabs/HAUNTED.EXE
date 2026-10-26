@@ -294,7 +294,7 @@ static const BossDef BOSSES[NBOSS] = {
         "THE WANDERING SPIDER'S ODIOUS SCRIP", "THE WANDERING SPIDER", MOB_HUNTER, 22.0f, 1.0f, 1.2f, 1.3f, MAP_WEB, SP_PILLAR, SP_PUDDLE_A,
         { { { MOB_HUNTER, 3, 1 } }, { { MOB_HUNTER, 4, 1 } }, { { MOB_HUNTER, 5, 1 } }, { { MOB_HUNTER, 6, 1 } } } },
     [BOSS_DEACON] = { "THE BLACK DEACON", "HE KEPT THE ORDER'S RITES LONG AFTER THE ORDER WAS DUST.",
-        "THE BLACK DEACON'S ODIOUS SCRIP", "THE BLACK DEACON", MOB_DEACON, 18.0f, 2.0f, 1.0f, 1.3f, MAP_PULPIT, SP_TIMBER, SP_TOMB_BROKEN,
+        "THE BLACK DEACON'S ODIOUS SCRIP", "THE BLACK DEACON", MOB_DEACON, 12.0f, 2.0f, 1.0f, 1.3f, MAP_PULPIT, SP_TIMBER, SP_TOMB_BROKEN,
         { { { MOB_DEACON, 1, 0 }, { MOB_SHAMBLER, 3, 0 } },
           { { MOB_DEACON, 1, 0 }, { MOB_SHAMBLER, 2, 0 }, { MOB_GHOUL, 1, 0 } },
           { { MOB_DEACON, 1, 0 }, { MOB_SHIELD, 2, 0 }, { MOB_GHOUL, 2, 0 } },
@@ -587,8 +587,11 @@ static struct {
        its web on you (what is left of it, all of it, the wait for the next, the rearing before a spit, how
        long since you struck at it); the fifteen-second spiders' clock */
     float bsp_t, bmend_base, bmend_t, bmend_cd, web_hp, web_max, web_cd, web_rear, web_idle, btrickle_t;
+    /* the Deacon's: his Bone Ward (what is left of it, the wait for it to grow back), harm taken mid-chant */
+    float bward, bward_cd, bchant_dmg;
 } G;
-enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE };   /* the knight's: sword planted with a shout, raised, swept */
+enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
+       BP_LITANY };                                 /* the Deacon's censer raised, the green light growing */
 static float zbuf[W];
 enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
@@ -1526,7 +1529,7 @@ static void stamp_arena(void) {
             case 'a': G.bstart_x = x; G.bstart_y = y; break;
             case 'O': solid_prop(x, y, B->pillar, 1, K_PILLAR); break;
             case '=': case ':': solid_prop(x, y, B->low, 1, K_PROP); break;
-            case '%': add_deco(x + 0.5f, y + 0.5f, SP_SKULLPILE); if (G.bnspawn < MAXSPAWN) { G.bspawn_x[G.bnspawn] = x; G.bspawn_y[G.bnspawn++] = y; } break;
+            case '%': add_deco(x + 0.5f, y + 0.5f, G.boss == BOSS_DEACON ? SP_BONES2 : SP_SKULLPILE); if (G.bnspawn < MAXSPAWN) { G.bspawn_x[G.bnspawn] = x; G.bspawn_y[G.bnspawn++] = y; } break;
             case 'w': add_deco_ex(x + 0.5f, y + 0.5f, SP_WEBSHEET, 1, DF_SWAY); break;
             case 'K': case 'S': case 'U': case 'W': G.bhome_x = x; G.bhome_y = y; break;
             default: break;
@@ -1574,7 +1577,10 @@ static void stamp_arena(void) {
         }
     if (G.boss == BOSS_KNIGHT) { chandelier(21, 36); chandelier(31, 36); }   /* the lists under their candles, so it can be seen */
     else if (G.boss == BOSS_SPIDER) { lantern(19, 36); lantern(33, 36); }    /* the cistern, dimly */
-    else if (G.boss == BOSS_DEACON) chandelier(26, 36);
+    else if (G.boss == BOSS_DEACON) {                              /* the chapel, lit for the rite */
+        static const int CH[5][2] = { { 17, 33 }, { 35, 33 }, { 26, 36 }, { 20, 39 }, { 32, 39 } };
+        for (int i = 0; i < 5; i++) { chandelier(CH[i][0], CH[i][1]); light_static(CH[i][0] + 0.5f, CH[i][1] + 0.5f, 0.9f, 7.0f); }
+    }
 }
 
 static int item_at(int x, int y) {
@@ -2196,7 +2202,8 @@ static int hits_bone, hits_bat, throws, shrieks, hits_fire, hits_sword, bites, c
            shade_touches, embers, ember_hits, ember_burns, ember_scorch, raised, garg_wakes, mirrored, turned,
            exq_shatter, exq_bruise, exq_reaped, exq_mendward, exq_dread, exq_mirror,   /* Exquisite runes' second effects */
            knight_turned, turned_hits,                                                /* the Ill-Fated Knight's Mirror Rune */
-           spider_mends, spider_ups, webbed, web_torn, egg_shots;                     /* the Wandering Spider */
+           spider_mends, spider_ups, webbed, web_torn, egg_shots,                     /* the Wandering Spider */
+           ward_broken, ward_grown, chant_broken, litany_hits, litany_missed;         /* the Black Deacon */
 #define DBG_COUNT(v) ((v)++, fprintf(stderr, "EVENT %s t=%.2f\n", #v, G.t))
 #else
 #define DBG_COUNT(v) ((void)0)
@@ -2562,6 +2569,17 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
         if (a >= 0 && a < NATK) { dmg *= hit_mult(m, a); m->last_atk = a; }
         if ((flags & DM_SLOW) && slow > 0.0f) m->slowed = fmaxf(m->slowed, slow * 0.5f);
         m->misses = 0;
+        if (m->type == MOB_DEACON && G.bstate == BS_FIGHT && G.bward > 0.0f) {   /* the Bone Ward takes the first blows */
+            float ab = fminf(G.bward, dmg);
+            G.bward -= ab; dmg -= ab;
+            if (G.bward <= 0.0f) { G.bward = 0.0f; G.bward_cd = def_cooldown(Q_RARE + 1); sfx_at(SFX_SHATTER, m->x, m->y, 1.3f); DBG_COUNT(ward_broken); }
+            if (dmg <= 0.0f) { sfx_at(SFX_BONES, m->x, m->y, 0.5f); return 0; }
+        }
+        if (m->type == MOB_DEACON && G.bstate == BS_FIGHT && m->swing > 0.0f && (G.bchant_dmg += dmg) >= 0.1f * m->maxhp) {
+            m->swing = 0.0f; m->deco = -1; m->contact = 3.0f;         /* a tenth of his health mid-chant breaks it off */
+            sfx_at(SFX_GROAN, m->x, m->y, 1.0f);
+            DBG_COUNT(chant_broken);
+        }
         if (G.bstate == BS_FIGHT) G.bhurt += dmg;
         return boss_hurt(m, dmg);
     }
@@ -3239,7 +3257,8 @@ static void update_mob(Mob *m, float dt) {
     }
     if (m->feared > 0.0f) m->feared -= dt; else m->dreaded = 0;
     if (m->stagger > 0.0f) { m->stagger -= dt; return; }
-    int keeps_off = m->type == MOB_IMP || m->type == MOB_DEACON;   /* they fight from further off, and back away */
+    int keeps_off = (m->type == MOB_IMP || m->type == MOB_DEACON) && !m->boss && !m->add;   /* they fight from further off, and back
+                                                                                    away (not in a boss's fight: they hold the floor) */
     int cowed = m->feared > 0.0f && (undead || m->dreaded);       /* Dread */
     int lured = !cowed && G.decoy_t > 0.0f && hypotf(m->x - G.decoy_x, m->y - G.decoy_y) < 6.0f;   /* Blink's double draws it */
     int fights = !G.dead && !cowed && !lured;                     /* it may go for the caster now */
@@ -3415,19 +3434,23 @@ static void update_mob(Mob *m, float dt) {
                     set_rank(r, m->rank > RK_I && m->rank < RK_GILDED ? m->rank - 1 : RK_I);
                     r->sub = 5; r->sub_t = 0.0f; r->alert = 12.0f; r->seen = 1; r->cool = throw_interval();
                     m->raised++;
+                    if (m->boss) { r->add = 3; r->home = -1; r->alert = 30.0f; }   /* the Black Deacon's: they come for you */
                     sfx_at(SFX_BONES, r->x, r->y, 1.1f);
                     DBG_COUNT(raised);
                 }
             }
             return;
         }
-        if (fights && m->alert > 0.0f && m->raised < 4 && (m->contact -= dt) <= 0.0f) {
+        int called = 0;
+        for (int i = 0; i < MAXMOBS && m->boss; i++) called += G.mobs[i].alive && G.mobs[i].add == 3 && G.mobs[i].state != MS_DIE;
+        if (fights && m->alert > 0.0f && (m->boss ? called < 3 : m->raised < 4) && (m->contact -= dt) <= 0.0f) {
             m->contact = 1.0f;                                     /* it looks again in a moment */
             for (int i = 0; i < G.ndecos; i++) {
                 const Deco *dc = &G.decos[i];
                 if (dc->spr != SP_SKEL_D3 && dc->spr != SP_BONES2) continue;
                 if (hypotf(dc->x - m->x, dc->y - m->y) > 6.0f || !line_clear(m->x, m->y, dc->x, dc->y) || occupied((int)dc->x, (int)dc->y, NULL)) continue;
                 m->swing = DEACON_CHANT; m->deco = i; m->ax = dc->x; m->ay = dc->y;
+                G.bchant_dmg = 0.0f;
                 sfx_at(SFX_WHISPER, m->x, m->y, 1.0f);
                 return;
             }
@@ -4893,6 +4916,7 @@ static void start_level(void) {
     G.bfight_t = G.bstate_t = G.bcard = G.bring = 0.0f; G.bbar = 1.0f;
     G.bpose = BP_NONE; G.bpose_t = G.bdash_t = G.bmirror_t = G.bmirror_cd = G.bhurt = 0.0f; G.bdash_age = 99.0f;
     memset(G.bdash_cd, 0, sizeof G.bdash_cd);
+    G.bward = G.bward_cd = G.bchant_dmg = 0.0f;
     G.bsp_t = 5.0f; G.bmend_t = G.bmend_cd = G.web_hp = G.web_rear = G.web_idle = G.btrickle_t = 0.0f; G.web_cd = 8.0f; G.bmend_base = 1e9f;
     if (G.boss < 0) G.bchallenge = 0;
     G.bstep = G.bchallenge && G.boss >= 0 ? RUN.bstep[G.boss] : 0;
@@ -5807,6 +5831,11 @@ static void boss_hazards(float dt) {
         break;
     }
     case BOSS_DEACON:                                              /* Hellrent: a line at you, a ring round him, a cross */
+        if (!wave && m && m->swing <= 0.0f && G.bpose_t <= 0.0f && (G.bz2_t -= dt * pace) <= 0.0f) {   /* Litany */
+            G.bz2_t = 12.0f + 4.0f * rndf();
+            G.bpose = BP_LITANY; G.bpose_t = 2.0f;
+            sfx_at(SFX_WAIL, m->x, m->y, 0.9f);
+        }
         if (wave || !m || (G.bz_t -= dt * pace) > 0.0f) break;
         G.bz_t = 9.0f + 3.0f * rndf();
         G.bcast_t = 0.6f;
@@ -5902,6 +5931,7 @@ static void boss_begin(void) {
     if (G.barch >= 0) { Door *d = &G.doors[G.barch]; d->locked = SEALED; d->opening = 0; d->idle = 99.0f; }
     Mob *m = boss_mob();
     if (m) { m->alert = 99.0f; m->seen = 1; rec_seen(m); }
+    if (m && G.boss == BOSS_DEACON) G.bward = 0.04f * m->maxhp;   /* his Bone Ward, whole */
     RUN.rec.boss[G.boss].met = 1;
     if (RUN.rec.boss[G.boss].tries < 65535) RUN.rec.boss[G.boss].tries++;
     font_fill(0);
@@ -5963,6 +5993,7 @@ static void boss_adds(void) {
             m->add = 1; m->alert = 30.0f; m->seen = 1; m->home = -1;
             if (wave[g].small) { m->small = 1; m->hp = m->maxhp = m->maxhp * 0.5f; }
             if (m->type == MOB_HUNTER) m->sub = 1;                 /* down and coming */
+            if (m->type == MOB_SHAMBLER || m->type == MOB_DROWNED) { m->sub = 2; m->sub_t = 0.0f; m->deco = -1; }   /* up at once */
             for (int j = 0; j < MAXBOOMS; j++)
                 if (!G.booms[j].alive) { memset(&G.booms[j], 0, sizeof G.booms[j]); G.booms[j].alive = 1; G.booms[j].x = m->x; G.booms[j].y = m->y; break; }
             n++;
@@ -6023,6 +6054,20 @@ static void update_boss(float dt) {
     G.bdash_age += dt;
     if (G.bpose_t > 0.0f && (G.bpose_t -= dt) <= 0.0f) {            /* a raised sword comes down */
         if (G.bpose == BP_RAISE) { G.bpose = BP_STRIKE; G.bpose_t = 0.35f; Mob *k = boss_mob(); if (k) sfx_at(SFX_SWORD, k->x, k->y, 1.5f); }
+        else if (G.bpose == BP_LITANY) {                           /* the Litany ends: if he sees you, it strikes */
+            Mob *k = boss_mob();
+            G.bpose = BP_NONE;
+            if (k && G.bstate == BS_FIGHT) {
+                int seen = !G.dead;
+                float lx = G.px - k->x, ly = G.py - k->y, ld = hypotf(lx, ly);
+                for (float u = 0.0f; u < ld && seen; u += 0.1f) {  /* the timber props hide you; the pews don't */
+                    int cx = (int)(k->x + lx / ld * u), cy = (int)(k->y + ly / ld * u);
+                    if (blocks_light(cx, cy) || G.map[cy][cx].kind == K_PILLAR) seen = 0;
+                }
+                if (seen) { hurt_ex((float)G.max_hp * 0.2f, HURT_MAGIC, k->x, k->y); sfx_at(SFX_ZAP, G.px, G.py, 1.2f); DBG_COUNT(litany_hits); }
+                else { sfx_at(SFX_WHISPER, k->x, k->y, 0.5f); DBG_COUNT(litany_missed); }
+            }
+        }
         else G.bpose = BP_NONE;
     }
     if (G.bcard > 0.0f) G.bcard += dt;
@@ -6036,6 +6081,11 @@ static void update_boss(float dt) {
     if (G.bstate == BS_DEAD) return;
     G.bfight_t += dt;
     boss_hazards(dt);
+    if (G.boss == BOSS_DEACON && m && G.bward <= 0.0f && (G.bward_cd -= dt) <= 0.0f) {   /* his Bone Ward grows back */
+        G.bward = 0.04f * m->maxhp; G.bward_cd = 0.0f;
+        sfx_at(SFX_RUNE, m->x, m->y, 1.0f);
+        DBG_COUNT(ward_grown);
+    }
     if (G.boss == BOSS_SPIDER && G.bnspawn > 0 && (G.btrickle_t += dt) >= 15.0f) {   /* every fifteen seconds, one more out of a burrow */
         int out = 0;
         G.btrickle_t = 0.0f;
@@ -9199,6 +9249,7 @@ static int mob_sprite(const Mob *m, float *scale) {
         return m->throw_t > 0.0f ? SP_IMP_THROW : (((int)(m->t * 8.0f)) & 1 ? SP_IMP_B : SP_IMP_A);
     case MOB_DEACON:
         if (m->state == MS_DIE) return SP_DEACON_D;
+        if (m->boss && G.bpose == BP_LITANY && G.bpose_t > 0.0f) return SP_DEACON_CHANT;
         return m->swing > 0.0f ? SP_DEACON_CHANT : (fr ? SP_DEACON_B : SP_DEACON_A);
     case MOB_GARGOYLE:
         if (m->state == MS_DIE) return SP_GARG_D;
@@ -9351,6 +9402,19 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             }
         }
         if (m->boss == 1 + BOSS_SPIDER && G.bmend_t > 0.0f && m->state == MS_WALK) d->flags |= DR_MEND;   /* its Mend Rune */
+        if (m->boss == 1 + BOSS_DEACON) {
+            d->lut = crawl_rank_lut[KINDS[MOB_DEACON].family][RK_V];   /* black robes */
+            if (G.bpose == BP_LITANY && G.bpose_t > 0.0f && m->state == MS_WALK) d->flags |= DR_MEND;   /* the Litany's green light */
+            if (G.bward > 0.0f && G.bstate == BS_FIGHT && m->state == MS_WALK) {   /* his Bone Ward, wheeling about him */
+                for (int k = 0; k < 6; k++) {
+                    float a = (float)G.t * 2.2f + (float)k * (TAU_F / 6.0f);
+                    int n1 = n;
+                    ADD(m->x + cosf(a) * 0.9f, m->y + sinf(a) * 0.9f, 0.25f + 0.15f * sinf(a * 2.0f), SP_BONEFLY0 + (k & 3), 0);
+                    if (n > n1) list[n - 1].scale = 0.55f;
+                }
+                d = &list[n0];
+            }
+        }
         if (commune) d->flags = (d->flags & ~DR_EYES) | DR_COMMUNE;   /* Commune: its shape, wherever it is */
         if (m->state == MS_DIE && m->sub == 77) {                  /* drawn in to a point */
             float k = smoothstepf(0.1f, 0.75f, m->t);
