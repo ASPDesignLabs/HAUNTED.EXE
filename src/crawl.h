@@ -134,6 +134,7 @@ enum {
     SP_ERUPT0, SP_ERUPT1,                       /* fire bursting from the cracks, at full brightness */
     SP_VOIDCOL,                                 /* the void's column of purple dark, drawn see-through */
     SP_HANDS,                                   /* hands of the dark rising from the floor */
+    SP_KNIGHT_P0, SP_KNIGHT_P1, SP_KNIGHT_P2,   /* the Ill-Fated Knight plants its sword, in each state of its plate */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
     SP_SKEL_SA, SP_SKEL_SB, SP_SHIELD_SA, SP_SHIELD_SB, SP_BAT_SA, SP_BAT_SB, SP_SPIDER_SA, SP_SPIDER_SB,
     SP_GHOST_SA, SP_GHOST_SB, SP_WSKULL_S,

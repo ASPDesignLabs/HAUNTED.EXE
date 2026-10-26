@@ -780,6 +780,19 @@ not yet met don't show.
 
 ## Building it (the tasks)
 
+**Where things stand (for whoever picks this up).** Steps 1 to 5 are built and pushed on
+`claude/magical-cori-s471gj`, each in its own commit; the step list below says what each did and how it
+was tested (in the harness only; nothing of 1.0.0b7 has been played by hand). The owner asked for the four
+bosses next, then everything else in order, released together. Next: step 6, the spider (its own
+abilities: ceiling hops, the Mend Rune, Tangled Web on the caster, Egg Shot, the small spiders and the
+fifteen-second trickle; the bile outlets already work from step 3), then the Deacon (step 7: the
+autopilot can't finish his fight yet because he keeps away, and his arena is too dark) and the Wraith (step
+8: `update_wraith` still drives it, and it kills the autopilot; it needs the braziers, light and Time
+Slip). The bestiary's boss pages are still to do, with each boss's art. Samples of the four boss waltzes
+went to the owner for listening; no answer yet. Test a fight with `CRAWL_LEVEL=10|20|30|40
+CRAWL_TPBOSS=2 CRAWL_GEAR=4 CRAWL_SOULS=200` (and `CRAWL_BOSSHP=0.35` to reach the waves sooner) on
+`build/host_debug apl crawl 600`, and read the `EVENT boss_*` lines.
+
 All of it goes out together as 1.0.0b7 (decided). It is built in this order on the work branch so that
 each part can be tried as it comes: the fights first, while death still only restarts the level, then
 the costs on top. Each step is tested in the harness before the next; art goes to the owner as sheets
@@ -802,8 +815,14 @@ first.
    the march gives way to them and comes back after. The Deacon's is in G minor and the Wraith's in A
    minor (the plan named no key for them). Two-minute samples of each went to the owner; in the harness
    none clips and each sits within two decibels of the march.
-5. **The Ill-Fated Skeleton Knight**: art sheet; the Mirror Rune; Swift Dodge's three reasons;
-   Rockfall; Sundering Arc; its adds; THE LISTS; the autopilot's tactics.
+5. **The Ill-Fated Skeleton Knight** (built): polished plate with a glint going by, shed at the first and
+   third waves; the planted-sword pose for Rockfall and the raised sword for the Sundering Arc; the Mirror
+   Rune (one missile in seven back at half damage, capped at a fifth of your health, a silver ring and a
+   struck bell); Swift Dodge's three reasons with after-images; the autopilot values missiles less
+   against it. In the harness, with every spell at tier 4, the autopilot won four fights of four (237,
+   243, 245 and 280 s); about 25 dashes a fight (half to close in) and two to seven spells turned. ASan
+   clean. No art sheet went to the owner yet: the knight's sprites are the skeleton knight's with a new
+   pose, and frames of the fight are the next thing to show them.
 6. **The Wandering Hunting Spider**: art sheet; floor and ceiling; the web on the caster and getting
    free; the Mend Rune; the bile and its outlets; Egg Shot; the small spiders and the fifteen-second
    spiders; THE WEB.

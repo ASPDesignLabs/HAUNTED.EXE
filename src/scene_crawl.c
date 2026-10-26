@@ -43,7 +43,8 @@ enum { MOB_SKEL, MOB_GHOST, MOB_BAT, MOB_WSKULL, MOB_SHIELD, MOB_SPIDER,
 enum { MS_WALK, MS_DIE, MS_RECOIL, MS_FLEE };   /* the last two: wraiths only */
 enum { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_KEY, IT_POTION, IT_URN, IT_RING, IT_BONE, IT_SCRIP };   /* IT_SCRIP: color is its boss */
 static const int ITEM_VALUE[] = { 10, 25, 50, 100, 250, 0, 0, 0, 0, 0, 0 };
-enum { MIS_BONE, MIS_FIRE, MIS_EMBER };     /* what the dead throw: bones, a wall skull's fireball, an imp's ember */
+enum { MIS_BONE, MIS_FIRE, MIS_EMBER, MIS_TURNED };   /* what the dead throw: bones, a wall skull's fireball, an imp's ember;
+                                                           and a spell of yours the Ill-Fated Knight's Mirror Rune turned */
 enum { DM_PIERCE = 1, DM_ARC = 2, DM_SLOW = 4 };   /* how a hit lands: through shields, round them, chilling */
 #define DM_ATK(a) (((a) + 1) << 8)          /* and which spell it is, for the creature's weakness to it */
 enum { HURT_BLOW, HURT_MAGIC, HURT_POISON, HURT_STONE, HURT_VOID };   /* STONE: no dodging it; VOID: nothing resists it */
@@ -328,7 +329,8 @@ static Mob *boss_mob(void);
 static void hz_clear(void);
 
 typedef struct { int alive, kind, target; float x, y, z, vx, vy, life, dmg; uint32_t pierced; int tier; } Shot;   /* tier: as cast */
-typedef struct { int alive, kind; float x, y, vx, vy, life, spin, dmg, life0; int from; } Bone;   /* life0: an ember's whole flight; from: its thrower */
+typedef struct { int alive, kind; float x, y, vx, vy, life, spin, dmg, life0; int from, atk; } Bone;   /* life0: an ember's whole flight; from: its thrower;
+                                                                                                    atk: a turned spell's kind */
 typedef struct { int alive, type, cx, cy, seen, color, lx, ly, secret, gen; float x, y, phase; } Item;   /* lx, ly: the lane cell it is taken from;
                                                                                                    gen: 1 + its place among a pocket's things (0: not a pocket's) */
 typedef struct { int alive; float x, y, t, r; int big; } Boom;
@@ -574,7 +576,14 @@ static struct {
     float hz_acc, hz_slow, omen_t, bz_t, bz2_t, bcast_t, sil_k;
     int silenced, bnout, bout_haz[MAXOUT];
     int8_t bout_cx[MAXOUT][HZ_CELLS], bout_cy[MAXOUT][HZ_CELLS]; uint8_t bout_cd[MAXOUT][HZ_CELLS], bout_n[MAXOUT];
+    /* the bosses' own ways: a pose (BP_*) and how long it lasts; the knight's Swift Dodge (its clock, where it
+       set out and where it is, its pace, the three cooldowns, the time since it set out) and Mirror Rune (its
+       flash, and the wait before it turns another); the harm it has taken lately, fading over three seconds */
+    int bpose; float bpose_t;
+    float bdash_t, bdash_x0, bdash_y0, bdash_x1, bdash_y1, bdash_vx, bdash_vy, bdash_cd[3], bdash_age;
+    float bmirror_t, bmirror_cd, bhurt;
 } G;
+enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE };   /* the knight's: sword planted with a shout, raised, swept */
 static float zbuf[W];
 enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
@@ -2180,7 +2189,8 @@ static void show_bar(void) { G.bar_t = BAR_T; }
 static int hits_bone, hits_bat, throws, shrieks, hits_fire, hits_sword, bites, casts[NATK], defs[NDEF], bfs_kills, dodges, wskull_wakes, spider_drops,
            grabs, hound_bites, wraith_touches, wraith_drives, leaps, knight_blows, brood_bites, ling_bites, sacs_laid,
            shade_touches, embers, ember_hits, ember_burns, ember_scorch, raised, garg_wakes, mirrored, turned,
-           exq_shatter, exq_bruise, exq_reaped, exq_mendward, exq_dread, exq_mirror;   /* Exquisite runes' second effects */
+           exq_shatter, exq_bruise, exq_reaped, exq_mendward, exq_dread, exq_mirror,   /* Exquisite runes' second effects */
+           knight_turned, turned_hits;                                                /* the Ill-Fated Knight's Mirror Rune */
 #define DBG_COUNT(v) ((v)++, fprintf(stderr, "EVENT %s t=%.2f\n", #v, G.t))
 #else
 #define DBG_COUNT(v) ((void)0)
@@ -2240,7 +2250,7 @@ static void throw_missile(const Mob *m, int kind) {
         float far = fmaxf(0.0f, hypotf(G.px - m->x, G.py - m->y) - 4.0f);   /* across a great hall a bone goes wide */
         float a = atan2f(ty - m->y, tx - m->x) + (rndf() - 0.5f) * (kind == MIS_FIRE ? 0.05f : 0.14f + 0.05f * far);
         *b = (Bone){ 1, kind, m->x + cosf(a) * 0.3f, m->y + sinf(a) * 0.3f, cosf(a) * sp, sinf(a) * sp, 4.0f, rndf() * 4.0f,
-                     kind == MIS_FIRE ? 2.0f * mob_damage(m) : (kind == MIS_EMBER ? 0.8f * mob_damage(m) : mob_damage(m)), 0.0f, (int)(m - G.mobs) };
+                     kind == MIS_FIRE ? 2.0f * mob_damage(m) : (kind == MIS_EMBER ? 0.8f * mob_damage(m) : mob_damage(m)), 0.0f, (int)(m - G.mobs), 0 };
         if (kind == MIS_EMBER) b->life = b->life0 = fminf(4.0f, hypotf(tx - m->x, ty - m->y) / sp);   /* lobbed to where the caster will be */
         sfx_at(kind == MIS_BONE ? SFX_THROW : SFX_CAST, m->x, m->y, kind == MIS_EMBER ? 0.7f : 1.0f);
         return;
@@ -2268,7 +2278,10 @@ static void update_bones(float dt) {
             float nx = b->x + b->vx * dt * k / 4, ny = b->y + b->vy * dt * k / 4;
             if (blocks_light((int)nx, (int)ny) || cell((int)nx, (int)ny)->kind == K_PILLAR) {
                 b->alive = 0;
-                if (b->kind == MIS_FIRE) explode(b->x, b->y); else if (b->kind == MIS_EMBER) ember_land(b); else sfx_at(SFX_BONES, b->x, b->y, 0.4f);
+                if (b->kind == MIS_FIRE || (b->kind == MIS_TURNED && (b->atk == AT_FIRE || b->atk == AT_HELL))) explode(b->x, b->y);
+                else if (b->kind == MIS_EMBER) ember_land(b);
+                else if (b->kind == MIS_TURNED) sfx_at(b->atk == AT_FROST ? SFX_FROST : SFX_ZAP, b->x, b->y, 0.5f);
+                else sfx_at(SFX_BONES, b->x, b->y, 0.4f);
                 break;
             }
             b->x = nx; b->y = ny;
@@ -2294,6 +2307,11 @@ static void update_bones(float dt) {
                 b->alive = 0;
                 if (b->kind == MIS_FIRE) { hurt_ex(b->dmg, HURT_MAGIC, b->x - b->vx, b->y - b->vy); explode(b->x, b->y); DBG_COUNT(hits_fire); }
                 else if (b->kind == MIS_EMBER) { hurt_ex(b->dmg, HURT_MAGIC, b->x - b->vx, b->y - b->vy); ember_land(b); DBG_COUNT(ember_hits); }
+                else if (b->kind == MIS_TURNED) {                  /* your own spell, at half strength */
+                    hurt_ex(b->dmg, b->atk == AT_SPEAR ? HURT_BLOW : HURT_MAGIC, b->x - b->vx, b->y - b->vy);
+                    if (b->atk == AT_FIRE || b->atk == AT_HELL) explode(b->x, b->y); else sfx_at(b->atk == AT_FROST ? SFX_FROST : SFX_ZAP, b->x, b->y, 0.6f);
+                    DBG_COUNT(turned_hits);
+                }
                 else { hurt_ex(b->dmg, HURT_BLOW, b->x - b->vx, b->y - b->vy); DBG_COUNT(hits_bone); }
             }
         }
@@ -2492,7 +2510,14 @@ static void kill_mob(Mob *m) {
 }
 
 /* the knight's plate comes off as it is hurt: 0 whole, 1 half, 2 down to the breastplate */
-static int knight_stage(const Mob *m) { return m->hp > m->maxhp * 0.66f ? 0 : (m->hp > m->maxhp * 0.33f ? 1 : 2); }
+static int knight_stage(const Mob *m) {
+    if (m->boss) return G.bwave <= 0 ? 0 : (G.bwave <= 2 ? 1 : 2);   /* the Ill-Fated Knight sheds plate as its waves come */
+    return m->hp > m->maxhp * 0.66f ? 0 : (m->hp > m->maxhp * 0.33f ? 1 : 2);
+}
+static float knight_pace(const Mob *m, int st) {                   /* quicker as the plate comes off */
+    if (m->boss) return KINDS[MOB_KNIGHT].speed * RANK_SPEED[m->rank] * BOSSES[m->boss - 1].speed * (1.0f + 0.15f * st);
+    return KINDS[MOB_KNIGHT].speed * RANK_SPEED[m->rank] * (1.0f + 0.25f * st);
+}
 
 /* How much a spell bites a creature: its weakness to the spell, and each element worn added in by how
  * much that element hurts it (fire as Fire Bolt does, frost as Frost Shard, lightning as Chain
@@ -2517,10 +2542,12 @@ static float spell_effect(void) { return 1.0f + gear_total(&RUN.gear, ST_EFFECT)
 static int boss_hurt(Mob *m, float dmg);
 static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float slow) {
     if (m->boss && m->alive && m->state == MS_WALK && dmg > 0.0f) {   /* a boss: its weaknesses, then its marks */
+        if (G.bdash_t > 0.0f) return 0;                            /* darting: nothing touches it */
         int a = (flags >> 8) - 1;
         if (a >= 0 && a < NATK) { dmg *= hit_mult(m, a); m->last_atk = a; }
         if ((flags & DM_SLOW) && slow > 0.0f) m->slowed = fmaxf(m->slowed, slow * 0.5f);
         m->misses = 0;
+        if (G.bstate == BS_FIGHT) G.bhurt += dmg;
         return boss_hurt(m, dmg);
     }
     if (m->type == MOB_WRAITH && m->alive && m->state == MS_WALK) {   /* fire won't kill it, but it drives it back */
@@ -2964,9 +2991,102 @@ static void garg_wake(Mob *m) {
 /* what stops a flier: walls and shut doors, not the things on the floor */
 static int blocks_flight(int x, int y) { return cell(x, y)->kind != K_PROP && blocks_move(x, y); }
 
+/* The Ill-Fated Knight's Swift Dodge (docs/PLAN-b7.md): half a second untouchable, darting two to five
+ * cells along clear floor, with after-images, a whoosh and a clank of plate. Three reasons, three waits:
+ * to close in when you are four cells off and in its sight (5 s), to get away when it has lost a tenth of
+ * its health lately or stands in fire (9 s), to step aside from a shot about to strike it (16 s). Never
+ * while a wave holds it: the hold comes first. */
+static int knight_blocked(float x, float y) {
+    for (int k = 0; k < 4; k++)
+        if (blocks_move((int)(x + ((k & 1) ? 0.28f : -0.28f)), (int)(y + ((k & 2) ? 0.28f : -0.28f)))) return 1;
+    return 0;
+}
+static float dash_room(const Mob *m, float a, float most) {
+    float d = 0.0f, ca = cosf(a), sa = sinf(a);
+    while (d + 0.25f <= most && in_arena(m->x + ca * (d + 0.25f), m->y + sa * (d + 0.25f)) && !knight_blocked(m->x + ca * (d + 0.25f), m->y + sa * (d + 0.25f)))
+        d += 0.25f;
+    return d;
+}
+static void knight_dash(Mob *m, float a, float dist, const char *why) {
+    G.bdash_t = 0.5f; G.bdash_age = 0.0f;
+    G.bdash_x0 = G.bdash_x1 = m->x; G.bdash_y0 = G.bdash_y1 = m->y;
+    G.bdash_vx = cosf(a) * dist / 0.5f; G.bdash_vy = sinf(a) * dist / 0.5f;
+    m->swing = 0.0f;
+    sfx_at(SFX_WHOOSH, m->x, m->y, 0.9f); sfx_at(SFX_SHATTER, m->x, m->y, 0.3f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT knight_dash %s %.1f cells t=%.2f\n", why, dist, G.t);
+#else
+    (void)why;
+#endif
+}
+static int knight_boss(Mob *m, float dt, float pd0, int sees) {
+    for (int k = 0; k < 3; k++) if (G.bdash_cd[k] > 0.0f) G.bdash_cd[k] -= dt;
+    G.bhurt *= expf(-dt / 3.0f);
+    if (G.bdash_t > 0.0f) {                                        /* on its way */
+        float nx = m->x + G.bdash_vx * dt, ny = m->y + G.bdash_vy * dt;
+        G.bdash_t -= dt;
+        if (!in_arena(nx, ny) || knight_blocked(nx, ny)) G.bdash_t = 0.0f;
+        else { m->x = nx; m->y = ny; }
+        m->cx = m->tx = (int)m->x; m->cy = m->ty = (int)m->y;
+        G.bdash_x1 = m->x; G.bdash_y1 = m->y;
+        m->face = atan2f(G.py - m->y, G.px - m->x);
+        return 1;
+    }
+    if (m->swing > 0.0f || G.dead) return 0;
+    int burning = 0;
+    for (int i = 0; i < MAXBURNS; i++) burning |= G.burns[i].alive && !G.burns[i].foe && hypotf(G.burns[i].x - m->x, G.burns[i].y - m->y) < 0.7f;
+    if (G.bdash_cd[1] <= 0.0f && (burning || G.bhurt >= m->maxhp * 0.1f)) {   /* away, as far as it can */
+        static const float TURN[5] = { 0.0f, 0.6f, -0.6f, 1.2f, -1.2f };
+        float away = atan2f(m->y - G.py, m->x - G.px), best = 0.0f, ba = away;
+        for (int k = 0; k < 5; k++) { float r = dash_room(m, away + TURN[k], 5.0f); if (r > best + 0.5f) { best = r; ba = away + TURN[k]; } }
+        if (best >= 2.0f) { G.bdash_cd[1] = 9.0f; G.bhurt = 0.0f; knight_dash(m, ba, best, "flee"); return 1; }
+    }
+    if (G.bdash_cd[2] <= 0.0f)                                     /* a shot about to strike: aside */
+        for (int i = 0; i < MAXSHOTS; i++) {
+            const Shot *sh = &G.shots[i];
+            if (!sh->alive || sh->tier < 0) continue;
+            float sp = hypotf(sh->vx, sh->vy) + 1e-3f, dx = m->x - sh->x, dy = m->y - sh->y;
+            float along = (dx * sh->vx + dy * sh->vy) / sp, off = fabsf(dx * sh->vy - dy * sh->vx) / sp;
+            if (along <= 0.0f || along > 3.5f || off > 0.7f) continue;
+            float a = atan2f(sh->vy, sh->vx), l = dash_room(m, a + PI_F * 0.5f, 3.0f), r = dash_room(m, a - PI_F * 0.5f, 3.0f);
+            if (fmaxf(l, r) < 2.0f) break;
+            G.bdash_cd[2] = 16.0f;
+            knight_dash(m, l >= r ? a + PI_F * 0.5f : a - PI_F * 0.5f, fmaxf(l, r), "dodge");
+            return 1;
+        }
+    if (G.bdash_cd[0] <= 0.0f && sees && pd0 >= 4.0f) {             /* to a cell short of you, ready to strike */
+        float a = atan2f(G.py - m->y, G.px - m->x), r = dash_room(m, a, fminf(5.0f, pd0 - 1.2f));
+        if (r >= 2.0f) { G.bdash_cd[0] = 5.0f; knight_dash(m, a, r, "close"); m->cool = 0.0f; return 1; }
+    }
+    return 0;
+}
+
+/* Its Mirror Rune: one missile in seven that strikes it goes back at you, never two within two seconds,
+ * at half the spell's damage and slower, so it can be dodged; its plate flashes silver in a ring and a
+ * struck bell rings. Chain Lightning, Soul Drain and the BFS9000 aren't missiles. */
+static int knight_turns(Mob *mb, Shot *s) {
+    if (mb->boss != 1 + BOSS_KNIGHT || G.bstate != BS_FIGHT || G.bmirror_cd > 0.0f || s->tier < 0) return 0;
+    if (s->kind != AT_FIRE && s->kind != AT_FROST && s->kind != AT_SPEAR && s->kind != AT_HELL && s->kind != AT_WISPS && s->kind != AT_SPARKS) return 0;
+    if (rnd(7)) return 0;
+    G.bmirror_cd = 2.0f; G.bmirror_t = 0.35f;
+    s->alive = 0;
+    for (int i = 0; i < MAXBONES; i++) {
+        Bone *b = &G.bones[i];
+        if (b->alive) continue;
+        float a = atan2f(G.py - mb->y, G.px - mb->x), sp = fminf(hypotf(s->vx, s->vy) * 0.8f, 6.0f);
+        *b = (Bone){ 1, MIS_TURNED, mb->x + cosf(a) * 0.5f, mb->y + sinf(a) * 0.5f, cosf(a) * sp, sinf(a) * sp, 4.0f, 0.0f,
+                     fminf(s->dmg * 0.5f, (float)G.max_hp * 0.2f), 0.0f, (int)(mb - G.mobs), s->kind };
+        break;
+    }
+    sfx_at(SFX_MIRRORBELL, mb->x, mb->y, 1.0f);
+    DBG_COUNT(knight_turned);
+    return 1;
+}
+
 static void update_mob(Mob *m, float dt) {
     if (m->state == MS_DIE && m->sub == 77) { if ((m->t += dt) >= 0.9f) m->alive = 0; return; }   /* gone into the BFS9000 */
-    if (m->boss && m->state == MS_WALK && G.bstate != BS_FIGHT) {  /* waiting, or holding while its wave fights */
+    if (m->boss && m->state == MS_WALK && (G.bstate != BS_FIGHT || G.bpose_t > 0.0f)) {   /* waiting, holding while its wave
+                                                                                            fights, or casting */
         m->t += dt;
         if (G.bstate != BS_WAIT) m->face += wrap_pi(atan2f(G.py - m->y, G.px - m->x) - m->face) * fminf(1.0f, dt * 2.0f);
         return;
@@ -3097,9 +3217,10 @@ static void update_mob(Mob *m, float dt) {
             }
         }
     }
+    if (m->boss == 1 + BOSS_KNIGHT && knight_boss(m, dt, pd0, sees)) return;
     if (m->type == MOB_KNIGHT && fights && !afraid) {              /* a long wind-up, and a blow that tells */
         int st = knight_stage(m);
-        if (st != m->sub) { m->sub = st; sfx_at(SFX_SHATTER, m->x, m->y, 1.1f); m->speed = KINDS[MOB_KNIGHT].speed * RANK_SPEED[m->rank] * (1.0f + 0.25f * st); }
+        if (st != m->sub) { m->sub = st; sfx_at(SFX_SHATTER, m->x, m->y, 1.1f); m->speed = knight_pace(m, st); }
         m->cool -= dt;
         if (m->throw_t > 0.0f) m->throw_t -= dt;                   /* the blow, still showing */
         if (m->swing > 0.0f) {
@@ -3519,8 +3640,10 @@ static void update_shots(float dt) {
                 Mob *mb = &G.mobs[mi];
                 if (!mb->alive || mb->state != MS_WALK || mb->type == MOB_GHOST) continue;   /* fire passes through wraiths */
                 if (s->kind == AT_SPEAR && (s->pierced >> mi & 1)) continue;
-                float hr = KINDS[mb->type].rad;
+                float hr = KINDS[mb->type].rad * (mb->boss ? BOSSES[mb->boss - 1].scale : 1.0f);
                 if (hypotf(mb->x - s->x, mb->y - s->y) >= hr) continue;
+                if (mb->boss && G.bdash_t > 0.0f) continue;          /* darting: through where it was */
+                if (knight_turns(mb, s)) break;
                 float fx = s->x - s->vx * 0.1f, fy = s->y - s->vy * 0.1f;
                 switch (s->kind) {
                 case AT_SPEAR:                                     /* through everything in the line, shields too */
@@ -4312,6 +4435,7 @@ static int choose_spell(int t) {
         default: break;
         }
         if (m->type != MOB_WSKULL) v *= hit_mult(m, sp);           /* what it is weak to, the elements worn too */
+        if (m->boss == 1 + BOSS_KNIGHT && sp != AT_CHAIN && sp != AT_DRAIN) v *= 0.8f;   /* its Mirror Rune turns missiles */
         if (sp == AT_WISPS) v *= 0.75f;                            /* not every wisp gets there */
         v /= 1.0f + cost * (have < 15.0f ? 1.0f : 0.25f);          /* thriftier as spirit runs low */
         if (sp == G.spell) v *= 0.8f;                              /* and a little variety */
@@ -4646,6 +4770,8 @@ static void start_level(void) {
     G.boss = boss_of_level(G.level); G.bstate = G.boss >= 0 ? BS_WAIT : BS_NONE; G.bwave = G.badds = 0; G.bmob = -1;
     G.bz_t = 6.0f; G.bz2_t = 9.0f; G.bcast_t = 0.0f; G.omen_t = 30.0f + 20.0f * rndf();
     G.bfight_t = G.bstate_t = G.bcard = G.bring = 0.0f; G.bbar = 1.0f;
+    G.bpose = BP_NONE; G.bpose_t = G.bdash_t = G.bmirror_t = G.bmirror_cd = G.bhurt = 0.0f; G.bdash_age = 99.0f;
+    memset(G.bdash_cd, 0, sizeof G.bdash_cd);
     if (G.boss < 0) G.bchallenge = 0;
     G.bstep = G.bchallenge && G.boss >= 0 ? RUN.bstep[G.boss] : 0;
     crawl_art_level(G.level);
@@ -5517,13 +5643,16 @@ static void boss_hazards(float dt) {
     if (G.bcast_t > 0.0f) G.bcast_t -= dt;
     switch (G.boss) {
     case BOSS_KNIGHT:                                              /* Rockfall: three to five about you, one on your cell */
+        if (G.bdash_t > 0.0f || G.bpose_t > 0.0f) break;            /* one thing at a time */
         if (m && !wave && (G.bz2_t -= dt * pace) <= 0.0f && hypotf(G.px - m->x, G.py - m->y) < 3.0f) {   /* the Sundering Arc, at you */
             G.bz2_t = 7.0f + 3.0f * rndf();
             hz_arc(m->x, m->y, atan2f(G.py - m->y, G.px - m->x), mob_damage(m) * 1.3f);
+            G.bpose = BP_RAISE; G.bpose_t = hz_warn(0.8f);         /* the sword up while the arc shows, then the sweep */
         }
         if ((G.bz_t -= dt * pace * (wave ? 0.5f : 1.0f)) > 0.0f) break;
         G.bz_t = 10.0f + 4.0f * rndf();
         G.bcast_t = 0.5f;
+        if (!wave) { G.bpose = BP_PLANT; G.bpose_t = 0.5f; }        /* it plants its sword with a shout */
         if (m) sfx_at(SFX_GROAN, m->x, m->y, 1.0f);
         hz_rock(G.px, G.py, 0);
         for (int i = 0, n = 2 + rnd(3) + step / 2; i < n; i++) {
@@ -5663,6 +5792,11 @@ static void boss_begin(void) {
 
 static void boss_wave(Mob *m) {
     G.bstate = BS_WAVE; G.bstate_t = 0.0f; G.badds = -1; G.bwave++;
+    G.bdash_t = 0.0f; G.bpose = BP_NONE; G.bpose_t = 0.0f;
+    if (m->type == MOB_KNIGHT && knight_stage(m) != m->sub) {      /* plate falls away */
+        m->sub = knight_stage(m); m->speed = knight_pace(m, m->sub);
+        sfx_at(SFX_SHATTER, m->x, m->y, 1.3f);
+    }
     m->swing = 0.0f; m->throw_t = 0.0f; m->frozen = m->slowed = m->feared = 0.0f; m->stagger = 0.0f;
     snd_sfx_ex(SFX_SHRIEK, 0.8f, 0.5f); snd_sfx_ex(SFX_STINGER, 0.7f, 0.5f);
     snd_set_boss(G.boss + 1, 1);                                   /* turned up while the adds are out */
@@ -5760,6 +5894,13 @@ static int boss_hurt(Mob *m, float dmg) {
 static void update_boss(float dt) {
     if (G.boss < 0 || PK.depth || G.shop || G.tally) return;
     if (G.bring > 0.0f) G.bring -= dt;
+    if (G.bmirror_t > 0.0f) G.bmirror_t -= dt;
+    if (G.bmirror_cd > 0.0f) G.bmirror_cd -= dt;
+    G.bdash_age += dt;
+    if (G.bpose_t > 0.0f && (G.bpose_t -= dt) <= 0.0f) {            /* a raised sword comes down */
+        if (G.bpose == BP_RAISE) { G.bpose = BP_STRIKE; G.bpose_t = 0.35f; Mob *k = boss_mob(); if (k) sfx_at(SFX_SWORD, k->x, k->y, 1.5f); }
+        else G.bpose = BP_NONE;
+    }
     if (G.bcard > 0.0f) G.bcard += dt;
     G.bstate_t += dt;
     Mob *m = boss_mob();
@@ -8720,7 +8861,8 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
  * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
 typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; } Draw;   /* glint: a key's ramp, for Keymaker's sparkle */
 enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_SWAY = 32, DR_FLIPV = 64, DR_COMMUNE = 128, DR_GLINT = 256, DR_EDGE = 512,
-       DR_GLITCH = 1024, DR_CLIP = 2048, DR_LOOPED = 4096, DR_LIT = 8192 };
+       DR_GLITCH = 1024, DR_CLIP = 2048, DR_LOOPED = 4096, DR_LIT = 8192, DR_SHINE = 16384 };   /* SHINE: polished plate, a glint
+                                                                                                 sliding over it */
 /* GLITCH: rows torn sideways and colours slipping, now and then (the Backrooms), more often when LOOPED; CLIP: cut at
  * the floor and ceiling; LIT: brighter than the light it stands in (Severance's creatures, under the panels) */
 /* FLIPV: upside down, on the ceiling; COMMUNE: red through walls; GLINT: a key glinting through walls (Keymaker) */
@@ -8903,6 +9045,8 @@ static int mob_sprite(const Mob *m, float *scale) {
     case MOB_KNIGHT: {
         if (m->state == MS_DIE) return SP_KNIGHT_D;
         int base = SP_KNIGHT_A + knight_stage(m) * 4;
+        if (m->boss && G.bpose_t > 0.0f && G.bpose != BP_NONE && m->state == MS_WALK)   /* the Ill-Fated Knight casting */
+            return G.bpose == BP_PLANT ? SP_KNIGHT_P0 + knight_stage(m) : base + (G.bpose == BP_RAISE ? 2 : 3);
         return base + (m->swing > 0.0f ? 2 : (m->throw_t > 0.0f ? 3 : fr));
     }
     case MOB_BROOD:
@@ -8982,11 +9126,11 @@ static int glitch_rows(const Draw *d, int8_t *shift, uint8_t *slip) {
 }
 
 static void render_sprites(Frame *f, float dx, float dy, float horizon) {
-    static Draw list[MAXDECO + MAXMOBS + MAXSHOTS + MAXBOOMS + MAXBONES + MAXITEMS + MAXBURNS + MAXPOOLS];
+    static Draw list[MAXDECO + MAXMOBS + MAXSHOTS + MAXBOOMS + MAXBONES + MAXITEMS + MAXBURNS + MAXPOOLS + MAXHAZ + 16];   /* and wisps, a double, after-images */
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
-        if (dp_ > 0.12f && dp_ < 24.0f) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0 }; } while (0)
+        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0 }; } while (0)
     for (int i = 0; i < G.ndecos; i++) {
         const Deco *dc = &G.decos[i];
         static const float FPS[4] = { 0.0f, 0.0f, 3.0f, 9.0f };    /* by frame count: candles flicker, fire roars */
@@ -9055,6 +9199,19 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (G.ptheme == PT_BACKROOMS) d->flags |= DR_GLITCH;           /* nothing here is quite right */
         if (G.ptheme == PT_SEVERANCE) d->flags |= DR_LIT;              /* nor here: everything is too clean */
         if (m->boss && G.bstate != BS_FIGHT && m->state == MS_WALK) d->flags |= DR_EDGE;
+        if (m->boss == 1 + BOSS_KNIGHT && m->state == MS_WALK) {
+            d->flags |= DR_SHINE;
+            if (G.bdash_age < 0.8f) {                              /* Swift Dodge: where it was a moment ago, fading */
+                Draw keep = *d;
+                for (int j = 0; j < 3; j++) {
+                    float f = (float)j / 3.0f, a = (0.5f - 0.12f * (float)j) * (1.0f - G.bdash_age / 0.8f);
+                    int n1 = n;
+                    if (a > 0.04f) ADD(G.bdash_x0 + (G.bdash_x1 - G.bdash_x0) * f, G.bdash_y0 + (G.bdash_y1 - G.bdash_y0) * f, m->z, s, a);
+                    if (n > n1) { list[n - 1].scale = keep.scale; list[n - 1].lut = keep.lut; }
+                }
+                d = &list[n0];                                     /* the list may have moved on: the knight is still at n0 */
+            }
+        }
         if (commune) d->flags = (d->flags & ~DR_EYES) | DR_COMMUNE;   /* Commune: its shape, wherever it is */
         if (m->state == MS_DIE && m->sub == 77) {                  /* drawn in to a point */
             float k = smoothstepf(0.1f, 0.75f, m->t);
@@ -9132,6 +9289,13 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             int n0 = n;
             ADD(b->x, b->y, 0.05f + 0.4f * sinf(PI_F * k), ((int)(G.t * 12.0)) & 1 ? SP_EMBER_B : SP_EMBER_A, 0);
             if (n > n0) list[n - 1].scale = 0.45f;
+        } else if (b->kind == MIS_TURNED) {                        /* your spell, coming back */
+            Shot fake = { 0 };
+            float sc;
+            fake.kind = b->atk;
+            int n0 = n;
+            ADD(b->x, b->y, 0.1f, shot_sprite(&fake, &sc), 0);
+            if (n > n0) list[n - 1].scale = sc;
         } else ADD(b->x, b->y, 0.04f, SP_BONEFLY0 + (((int)b->spin) & 3), 0);
     }
     for (int i = 0; i < G.nitems; i++) {
@@ -9280,6 +9444,13 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                 }
                 if (faded) continue;
                 if (d->lut) c = d->lut[c];
+                if ((d->flags & DR_SHINE) && c >= R_IRON && c < R_IRON + 16) {   /* polished: brighter, and the glint going by */
+                    int v = c - R_IRON;
+                    if (G.bmirror_t > 0.0f) { f->pix[y * W + x] = ((x + y) & 1) ? (uint8_t)C_WHITE : (uint8_t)(R_GHOST + 14); continue; }   /* the Mirror Rune */
+                    float u = ((float)tx + (float)(TS - tyi)) / (2.0f * TS) - (fmodf((float)G.t * 0.3f, 1.8f) - 0.4f);
+                    if (fabsf(u) < 0.035f && v > 3) { f->pix[y * W + x] = fabsf(u) < 0.012f ? (uint8_t)C_WHITE : (uint8_t)(R_IRON + 15); continue; }
+                    c = (uint8_t)(R_IRON + imin(15, v + 2 + v / 4));
+                }
                 if (d->remap && c >= R_PURPLE && c < R_PURPLE + 16) c = ramp_at(d->remap, c - R_PURPLE);
                 if (d->flags & DR_IMPLODE) { f->pix[y * W + x] = c == 0 ? 0 : (uint8_t)(R_GLOW + clampi(6 + (int)((c & 15) * 0.6f), 6, 15)); continue; }
                 if ((d->flags & DR_ICE) && c != 0 && ((x + y) & 1)) {    /* rimed with frost */
@@ -9287,6 +9458,15 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     continue;
                 }
                 f->pix[y * W + x] = (d->flags & DR_BRIGHT) ? c : fogged(shade(c, light, x, y), fog, light, x, y);
+            }
+        }
+        if ((d->flags & DR_SHINE) && G.bmirror_t > 0.0f) {          /* the Mirror Rune: a silver ring going out from it */
+            float k = 1.0f - G.bmirror_t / 0.35f, rx = size * (0.22f + 0.4f * k), ry = rx * 0.85f;
+            float cx = left + size * 0.5f, cy = top + size * 0.55f;
+            for (int a = 0; a < 96; a++) {
+                if (k > 0.5f && ((a + (int)(G.t * 30.0)) & 1)) continue;   /* thinning as it goes */
+                int px = (int)(cx + cosf(a * (TAU_F / 96.0f)) * rx), py = (int)(cy + sinf(a * (TAU_F / 96.0f)) * ry);
+                if (px >= 0 && px < W && py >= 0 && py < H && d->depth < zbuf[px] + 0.6f) f->pix[py * W + px] = (a & 3) ? (uint8_t)C_WHITE : (uint8_t)(R_GHOST + 12);
             }
         }
         if (d->flags & DR_GLINT) {                                 /* Keymaker: a sparkle where the key lies, through the stone */

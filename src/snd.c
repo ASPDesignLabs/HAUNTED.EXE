@@ -1540,6 +1540,7 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_TRILL]      = { 0.35f, 0.70f,  0.50f, 0.30f },
     [SFX_PUSHWALL]   = { 2.90f, 0.80f,  0.50f, 0.35f },
     [SFX_SECRET]     = { 1.90f, 0.85f,  0.50f, 0.55f },
+    [SFX_MIRRORBELL] = { 0.00f, 1.00f,  0.50f, 0.00f },
 };
 
 void snd_sfx_ex(int id, float gain, float pan) {
@@ -1555,6 +1556,13 @@ void snd_sfx_ex(int id, float gain, float pan) {
             sched_note_g(F[i][0] * SND_RATE / 1000 + 1, F[i][1] < 55 ? PAT_BASS : PAT_BRASS, F[i][1], gain * (F[i][1] < 55 ? 0.8f : 0.95f), F[i][2] * SND_RATE / 1000);
         sfx_start(X_TOM, 0.6f, 0.7f * gain, 0.45f, 0.35f);
         sfx_start(X_CRASH, 1.6f, 0.35f * gain, 0.55f, 0.3f);
+    } else if (id == SFX_MIRRORBELL) {            /* struck, not rung: two bells a little apart, and the strike */
+        static const short B[][2] = { { 88, 100 }, { 95, 55 }, { 89, 45 } };
+        for (int i = 0; i < 3; i++) {
+            Voice *v = voice_on(PAT_BELL, B[i][0], gain * B[i][1] / 100.0f, clampf(pan + (i - 1) * 0.12f, 0.0f, 1.0f), (int)(1.2f * SND_RATE));
+            if (v && i == 2) v->freq *= 0.993f;                  /* beating against the first */
+        }
+        sfx_start(X_HAT_O, 0.35f, 0.5f * gain, clampf(pan, 0.0f, 1.0f), 0.4f);
     } else if (id == SFX_STINGER) {
         int notes[4] = { 38, 44, 45, 50 };
         for (int i = 0; i < 4; i++) {

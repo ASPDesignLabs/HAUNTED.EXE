@@ -2774,13 +2774,14 @@ static void spr_knight(int id, float w, int pose, int state) {
     float gx, gy, ga;                                               /* where the hands grip, and where the blade points */
     if (pose == 2) { gx = 41; gy = 11; ga = -2.9f; }
     else if (pose == 3) { gx = 27; gy = 40; ga = 2.55f; }
+    else if (pose == 4) { gx = 32; gy = 25; ga = 1.5708f; }        /* planted: both hands on the pommel, the point in the floor */
     else { gx = 37; gy = 34; ga = -1.05f; }
     cv_flat(32, 62, 16, 2.0f, R_WARM + 1);
     if (pose == 2) sword(gx, gy, ga);                               /* raised behind the head */
     /* legs: bone, with plate on the thighs and shins unless it has been hacked away */
     for (int s = -1; s <= 1; s += 2) {
         float k = s * w, hx = 32 + s * 4.0f, kx = 32 + s * 5.0f - k * 2.5f, fx = 32 + s * 5.5f - k * 4.0f;
-        if (pose == 3) { kx += s * 1.5f; fx += s * 3.0f; }          /* braced for the blow */
+        if (pose == 3 || pose == 4) { kx += s * 1.5f; fx += s * 3.0f; }   /* braced for the blow, or the shout */
         cv_bone(hx, 41, kx, 51, 1.6f, 0.25f, 0.95f);
         cv_bone(kx, 51, fx, 60, 1.4f, 0.25f, 0.9f);
         if (state < 1 || (state < 2 && s > 0)) plate(hx, 42, kx, 50, 3.0f, 0.0f);
@@ -2953,6 +2954,7 @@ static void spr_bestiary_bones(void) {
     for (int st = 0; st < 3; st++) {
         int base = SP_KNIGHT_A + st * 4;
         spr_knight(base, 1.0f, 0, st); spr_knight(base + 1, -1.0f, 1, st); spr_knight(base + 2, 0.0f, 2, st); spr_knight(base + 3, 0.0f, 3, st);
+        spr_knight(SP_KNIGHT_P0 + st, 0.0f, 4, st);
     }
     spr_knight_dead(SP_KNIGHT_D);
     spr_deacon(SP_DEACON_A, 1.0f, 0); spr_deacon(SP_DEACON_B, -1.0f, 1); spr_deacon(SP_DEACON_CHANT, 0.0f, 2); spr_deacon(SP_DEACON_D, 0.0f, 3);

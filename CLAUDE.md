@@ -157,7 +157,7 @@ as docs/PLAN-b7.md is built) the rest of the record (`rec_pack_extra`: u32 level
 bytes of achievement bits, and for each of eight bosses its met flag, u16 slain, tries, best time and
 scrip won), then the hall as far as it is built (`hall_pack`: u16 runs completed, u16 scrip for each of
 eight bosses, a byte each for their challenge steps, and 24 bytes of the highest rank of each kind met
-since the last death): 1,133 bytes so far. Version 5 is the same without version 6's part; its
+since the last death, and a byte of omens named): 1,134 bytes so far. Version 5 is the same without version 6's part; its
 descents of twenty become descents of forty on loading (`rec_from_old`). Version 4 is
 the same without the shrine and with runes by tier (`rune_from_tier`: 1-3 Common, 4-6 Uncommon, 7-10
 Rare, 11 up Ultra-Rare; a rune held at the merchant's is dropped and its hold fee paid back); version 3
@@ -212,6 +212,18 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   down `RUN.runs_done` counts the run. The autopilot (`boss_goal`) keeps three to six cells from it, away
   from its adds, drinks under 40% and takes the scrip; a boss level waits 1500 s, not 600, before it gives
   up on one. The bosses' own ways (runes, abilities) come in steps 5-8 of the plan.
+- **The Ill-Fated Knight** (step 5). Sheds plate by waves, not health (`knight_stage`: full, then after
+  wave 1 half, after wave 3 the breastplate), 15% quicker each time (`knight_pace`, which keeps the boss's
+  pace). Drawn `DR_SHINE`: its plate's R_IRON raised, a glint sliding across, and while its Mirror Rune
+  flashes, silver all over with a ring going out. Poses (`G.bpose`, `BP_PLANT` with `SP_KNIGHT_P0..2` for
+  Rockfall, `BP_RAISE` then `BP_STRIKE` for the Sundering Arc) hold it still (`update_mob`'s boss hold).
+  Swift Dodge (`knight_boss`, `knight_dash`, `dash_room`): 0.5 s untouchable (`G.bdash_t`; shots pass,
+  `damage_mob` refuses), 2-5 cells, after-images from `G.bdash_x0/y0` for 0.8 s; to close in (5 s), to flee
+  when `G.bhurt` (harm fading over 3 s) passes a tenth of its health or it stands in fire (9 s), aside from a
+  shot (16 s). Mirror Rune (`knight_turns`): one missile in seven, not twice in 2 s, comes back as
+  `MIS_TURNED` (`Bone.atk` the spell, drawn as it) at half damage, capped at a fifth of your health, with
+  `SFX_MIRRORBELL`. The autopilot values missiles at 0.8 against it. Debug: `EVENT knight_dash close|flee|
+  dodge`, `knight_turned`, `turned_hits`. A boss's hit radius grows with its scale.
 - **The bosses' music** (`snd.c`: `BTHEMES`, `boss_step`; `snd_set_boss(theme, wave)`, `snd_boss_fall`).
   A slow waltz each on its own clock: eight bars of three beats, the last cut to two; a five-note
   ostinato that drifts against the bar; the bell on beat one; the tune rests one phrase in four and
