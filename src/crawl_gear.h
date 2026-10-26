@@ -47,7 +47,7 @@ float gear_haul(int level);                              /* about what a level's
 enum { TAKE_LEARNT, TAKE_WORN, TAKE_WORN_OLD_BAGGED, TAKE_WORN_OLD_LOST, TAKE_BAGGED, TAKE_LOST, TAKE_BAG };
 int  gear_take(Gear *g, const Offer *o);                 /* into the book, or worn if it is better (the autopilot's rule) */
 int  gear_take_wear(Gear *g, const Offer *o);            /* a person buying: worn at once, the old piece bagged or lost */
-int  gear_shop_purchases(int level);                     /* wares a visit: one to level 9, two to 14, three after */
+int  gear_shop_purchases(int level);                     /* wares a visit: one in run I, two in run II, three after */
 int  gear_shop_pedestals(int level);                     /* five to level 9, six to 14, seven after */
 float gear_value(const Gear *g, const Offer *o, int level);   /* how much better off the caster would be (0 = useless) */
 void gear_name(const Offer *o, char *buf, int n);        /* "FROST SHARD III", or a piece's whole name */

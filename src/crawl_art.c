@@ -4277,16 +4277,17 @@ static void decay_tex(int t, float dk, uint32_t seed) {
 
 /* the level's palette: its set's tint, dimmer going down, bones yellowing with age */
 static void level_palette(int level) {
-    static const float TINT[4][2][3] = {                            /* each set's stone, from its first level to its last */
+    static const float TINT[4][2][3] = {                            /* each set's stone, from its run's first level to its last */
         { { 1.00f, 1.00f, 1.00f }, { 1.10f, 1.05f, 0.88f } },     /* the Crypts: blue-grey limestone, yellowing like bone */
         { { 0.88f, 1.06f, 0.90f }, { 0.84f, 0.95f, 1.20f } },     /* the Catacombs: green with damp, to cold wet slate */
         { { 1.14f, 1.00f, 0.76f }, { 1.16f, 0.86f, 0.82f } },     /* the Hollows: sandstone, to rust and old blood */
         { { 0.92f, 0.92f, 0.94f }, { 1.04f, 0.88f, 1.14f } },     /* the Deep: ash, to violet */
     };
     int set = crawl_set(level), step = crawl_step(level);
-    float dk = crawl_decay(level), depth = crawl_depth(level), dim = 1.0f - 0.09f * set - 0.015f * step;
+    float sk = (float)step / (float)(RUN_LEN - 1);
+    float dk = crawl_decay(level), depth = crawl_depth(level), dim = 1.0f - 0.09f * set - 0.06f * sk;
     float tn[3], half[3];
-    for (int c = 0; c < 3; c++) { tn[c] = lerpf(TINT[set][0][c], TINT[set][1][c], step / 4.0f); half[c] = 1.0f + (tn[c] - 1.0f) * 0.5f; }
+    for (int c = 0; c < 3; c++) { tn[c] = lerpf(TINT[set][0][c], TINT[set][1][c], sk); half[c] = 1.0f + (tn[c] - 1.0f) * 0.5f; }
     build_palette();
     { static const int a[3] = { 2, 2, 4 }, m[3] = { 20, 21, 26 }, b[3] = { 46, 47, 52 }; ramp_tinted(R_STONE, a, m, b, tn, dim); }
     { static const int a[3] = { 2, 2, 2 }, m[3] = { 15, 13, 11 }, b[3] = { 34, 30, 26 }; ramp_tinted(R_FLOOR, a, m, b, half, dim); }

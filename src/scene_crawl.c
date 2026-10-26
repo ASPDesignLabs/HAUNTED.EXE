@@ -230,33 +230,38 @@ typedef struct {
 static const int DX[4] = { 1, 0, -1, 0 }, DY[4] = { 0, 1, 0, -1 };
 static const uint8_t BAYER[4][4] = { {0, 8, 2, 10}, {12, 4, 14, 6}, {3, 11, 1, 9}, {15, 7, 13, 5} };
 
-static const char *const LEVEL_NAMES[20] = {                       /* five to a set; the last of each is its boss's */
+static const char *const LEVEL_NAMES[DESCENT_LEN] = {              /* ten to a run; the last of each is its boss's */
     "THE OSSUARY", "HALL OF TORCHES", "CRYPT OF THE NAMELESS", "THE BONE GALLERY", "THE WARDEN'S HALL",
+    "THE CHAPTER HOUSE", "THE PILGRIMS' STAIR", "THE RELIQUARY", "THE KNIGHTS' VAULT", "THE ILL-FATED LISTS",
     "THE DROWNED VAULT", "CATACOMB OF SAINTS", "THE WEEPING STAIR", "CISTERN OF BONES", "THE ABBESS BELOW",
+    "THE SILTED NAVE", "THE BLACK CANAL", "THE SPINNERS' GALLERY", "THE HANGING DARK", "THE WANDERER'S WEB",
     "THE CHARNEL MINE", "WARRENS OF THE DEAD", "THE FOSSIL ROAD", "THE BROKEN SEAM", "THE COLOSSUS DEEP",
+    "THE TIMBERED DARK", "THE GNAWING CAVES", "THE LAMPLESS SHAFT", "THE FLOODED CHAPEL", "THE DEACON'S PULPIT",
     "THE GLITTERING DARK", "VEINS OF THE EARTH", "THE EMBER ROOT", "THE BLACK GLASS", "THRONE OF THE HOLLOW KING",
+    "THE SINGING GEODE", "THE CINDER FIELDS", "THE MOLTEN STAIR", "THE LAST LIGHT", "THE BOTTOM OF EVERYTHING",
 };
-/* the level's name; past the twentieth they come round again with a numeral: THE OSSUARY II */
+/* the level's name; past the fortieth they come round again with a numeral: THE OSSUARY II */
 static void level_name(int level, char *buf, int n) {
     static const char *const NUM[] = { "", " II", " III", " IV", " V", " VI", " VII", " VIII", " IX", " X" };
     int loop = crawl_loop(level);
-    snprintf(buf, (size_t)n, "%s%s", LEVEL_NAMES[(level - 1) % 20], loop < 10 ? NUM[loop] : " X");
+    snprintf(buf, (size_t)n, "%s%s", LEVEL_NAMES[(level - 1) % DESCENT_LEN], loop < 10 ? NUM[loop] : " X");
 }
 
 /* A run's record: what it has slain, met, found and cleared, and the achievements earned. It is kept
  * in the save with the run (version 2), so each save has its own. Its sizes are fixed so saves keep
  * their shape as the bestiary grows. */
 #define REC_KINDS 24
-#define ACH_BITS 256
+#define ACH_BITS 512                        /* 256 until version 6 */
 typedef struct {
     uint16_t kills[REC_KINDS][NRANK];
     uint8_t spell_kills[REC_KINDS][NATK];   /* by which spell, to 255: three, and its effect is known */
     uint8_t seen[REC_KINDS];                /* the ranks of each kind met */
-    uint16_t secrets, descents;             /* secrets found; times all the way down (20, 40, 60 ...) */
-    uint32_t cleared;                       /* levels 1 to 20 cleared, a bit each */
+    uint16_t secrets, descents;             /* secrets found; times all the way down (40, 80, 120 ...) */
+    uint64_t cleared;                       /* levels 1 to 40 cleared, a bit each */
     uint8_t got[ACH_BITS / 8];              /* achievements earned, a bit each (see ach_bit) */
 } Record;
-#define REC_BYTES (REC_KINDS * NRANK * 2 + REC_KINDS * NATK + REC_KINDS + 2 + 2 + 4 + ACH_BITS / 8)
+#define REC_BYTES (REC_KINDS * NRANK * 2 + REC_KINDS * NATK + REC_KINDS + 2 + 2 + 4 + 256 / 8)   /* as packed since version 2 */
+#define REC_EXTRA (4 + (ACH_BITS - 256) / 8)  /* version 6: levels 33 to 40 cleared, and the achievements past the 256th */
 
 /* The run: what carries from level to level, through death and across scene switches */
 #define SHRINE_SLOTS 9
@@ -801,10 +806,10 @@ static int secret_door(Secret *sc) {
     return 1;
 }
 static void place_secrets(void) {
-    static const int LINKS[5] = { 3, 4, 4, 5, 6 };
+    static const int LINKS[RUN_LEN] = { 3, 3, 4, 4, 4, 5, 5, 5, 6, 6 };
     G.nsecrets = G.secrets_found = G.nlinks = G.links_found = 0; G.slide = -1;
     int step = crawl_step(G.level), left = LINKS[step], chain[MAXSECRETS], nch = 0;
-    float longer = 0.3f + 0.1f * (float)step;
+    float sk = (float)step / (float)(RUN_LEN - 1), longer = 0.3f + 0.4f * sk;   /* longer chains deeper into the run */
     while (left > 0 && nch < MAXSECRETS) {
         int len = 1;
         while (len < left && rndf() < longer) len++;
@@ -840,7 +845,7 @@ static void place_secrets(void) {
         /* how big: two by two, two side by side, or the one block, as the plan allows */
         int px = DY[in], py = DX[in], side = rnd(2) ? 1 : -1, bx[4] = { mx }, by[4] = { my }, nb = 1;
         float r = rndf();
-        if (r < 0.15f + 0.1f * (float)step) {
+        if (r < 0.15f + 0.4f * sk) {
             for (int sd = 0; sd < 2 && nb == 1; sd++, side = -side) {
                 int ax = mx + 2 * px * side, ay = my + 2 * py * side, dx2 = mx + 2 * DX[in], dy2 = my + 2 * DY[in];
                 if (secret_block_free(ax, ay) && secret_block_free(dx2, dy2) && secret_block_free(ax + 2 * DX[in], ay + 2 * DY[in])) {
@@ -1774,8 +1779,8 @@ static void set_rank(Mob *m, int rank) {
     m->dmgk = RANK_DMG[rank];
 }
 
-/* which rank, by the set's mix (PLAN-bestiary, section 4): the set's newest rung comes in on its third
- * level; each time round again the mix climbs a rung, up to black */
+/* which rank, by the set's mix (PLAN-bestiary, section 4): the set's newest rung comes in on its run's
+ * fifth level; each time round again the mix climbs a rung, up to black */
 static int pick_rank(int type) {
     if (KINDS[type].family < 0) return RK_I;
     if (CON.rank >= 0) return CON.rank;
@@ -1786,7 +1791,7 @@ static int pick_rank(int type) {
     int set = crawl_set(G.level), step = crawl_step(G.level), loop = crawl_loop(G.level), share[5];
     if (type == MOB_BAT && set == 3) return RK_IV;                 /* the Deep's bats: embers, all of them */
     for (int i = 0; i < 5; i++) share[i] = MIX[set][i];
-    if (step < 2 && loop == 0) { share[set] += share[set + 1]; share[set + 1] = 0; }
+    if (step < 4 && loop == 0) { share[set] += share[set + 1]; share[set + 1] = 0; }
     for (int l = 0; l < loop; l++) { share[4] += share[3]; for (int i = 3; i > 0; i--) share[i] = share[i - 1]; share[0] = 0; }
     int r = rnd(100), k = 0;
     while (k < 4 && r >= share[k]) r -= share[k++];
@@ -1818,7 +1823,7 @@ static Mob *spawn_mob(int x, int y, int type) {
 }
 
 /* what wanders the halls: skeletons, spectres and bats, shield-bearers from level 4; the spectres
- * give way to the Wraith after the Catacombs, and bats grow rare in the Deep */
+ * give way to the Wraith after the first run, and bats grow rare in the Deep */
 static int random_type(void) {
     int w[NKINDS] = { 0 }, total = 0;
     w[MOB_SKEL] = 10;
@@ -2034,12 +2039,13 @@ static int spend_spirit(float c) {
 
 /* ---- the record and its achievements (PLAN-bestiary, section 11): the autopilot earns them too ---- */
 
-enum { ACH_SECRET0 = REC_KINDS * NRANK, ACH_LEVEL0 = ACH_SECRET0 + 16, ACH_DESCENT0 = ACH_LEVEL0 + 20 };   /* bits: slayers by kind and rank, then the rest */
+enum { ACH_SECRET0 = REC_KINDS * NRANK, ACH_LEVEL0 = ACH_SECRET0 + 16, ACH_DESCENT0 = ACH_LEVEL0 + 20,   /* bits: slayers by kind and rank, then the rest; */
+       ACH_LEVEL21 = 256, ACH_BOSS0 = ACH_LEVEL21 + 20 };       /* from version 6: levels 21 to 40, then the bosses */
 #define NSECRET_STEPS 7
 static const int SECRET_STEP[NSECRET_STEPS] = { 1, 5, 10, 20, 30, 40, 50 };
 static const char *const SECRET_NAME[NSECRET_STEPS] = { "A HOLLOW KNOCK", "LISTENING WALLS", "THE STONE GIVES WAY", "NOTHING STAYS HIDDEN",
                                                         "THE BUILDERS' TRICKS", "EVERY LAST CRACK", "KEEPER OF SECRETS" };
-#define MAX_DESCENT 20                                              /* level 400: as far as anyone will go */
+#define MAX_DESCENT 20                                              /* level 800: as far as anyone will go */
 static const char *const ORDINAL[MAX_DESCENT + 1] = { "", "FIRST", "SECOND", "THIRD", "FOURTH", "FIFTH", "SIXTH", "SEVENTH", "EIGHTH", "NINTH",
     "TENTH", "ELEVENTH", "TWELFTH", "THIRTEENTH", "FOURTEENTH", "FIFTEENTH", "SIXTEENTH", "SEVENTEENTH", "EIGHTEENTH", "NINETEENTH", "TWENTIETH" };
 
@@ -2128,17 +2134,18 @@ static void rec_secret(void) {
             ach_earn(ACH_SECRET0 + i, SP_CHEST, -1, 0, SECRET_NAME[i], d);
         }
 }
+static int ach_level(int lv) { return lv <= 20 ? ACH_LEVEL0 + lv - 1 : ACH_LEVEL21 + lv - 21; }   /* level lv cleared, 1 to 40 */
 static void rec_cleared(void) {
     Record *r = &RUN.rec;
     char t[48], d[32];
-    if (G.level <= 20) {
-        r->cleared |= 1u << (G.level - 1);
+    if (G.level <= DESCENT_LEN) {
+        r->cleared |= 1ull << (G.level - 1);
         level_name(G.level, t, sizeof t);
         snprintf(d, sizeof d, "LEVEL %d CLEARED", G.level);
-        ach_earn(ACH_LEVEL0 + G.level - 1, SP_CHALICE, -1, 0, t, d);
+        ach_earn(ach_level(G.level), SP_CHALICE, -1, 0, t, d);
     }
-    if (G.level % 20 == 0) {
-        int k = G.level / 20;
+    if (G.level % DESCENT_LEN == 0) {
+        int k = G.level / DESCENT_LEN;
         if (k > r->descents) r->descents = (uint16_t)k;
         if (k >= 2 && k <= MAX_DESCENT) {
             snprintf(t, sizeof t, "THE %s DESCENT", ORDINAL[k]); snprintf(d, sizeof d, "LEVEL %d CLEARED", G.level);
@@ -4466,12 +4473,12 @@ static void pocket_say_found(int link) {                           /* the first 
  * outer wall as far as can be from it; else the chain's reward (for now a hoard, until the themes bring
  * theirs). Its things come in the same order each time, so what was taken can stay taken. */
 static void gen_pocket(const Secret *sc, int link) {
-    int lv = (G.level - 1) % 20;
-    float t = clampf(0.6f * (float)lv / 19.0f + 0.4f * (float)(link - 2) / 4.0f, 0.0f, 1.0f);
+    int lv = (G.level - 1) % DESCENT_LEN;
+    float t = clampf(0.6f * (float)lv / (float)(DESCENT_LEN - 1) + 0.4f * (float)(link - 2) / 4.0f, 0.0f, 1.0f);
     int n = clampi(3 + (int)(t * 8.0f + 0.5f), 3, 11), S = 4 * n + 1, o = ((MAPN - S) / 2) & ~3;
     uint32_t keep_rs = G.rs;
     G.rs = sc->seed ^ ((uint32_t)link * 2654435761u);
-    G.ptheme = lv < 10 ? PT_BACKROOMS : PT_SEVERANCE;              /* the Backrooms for the first two sets, Severance for the last */
+    G.ptheme = crawl_set(G.level) < 2 ? PT_BACKROOMS : PT_SEVERANCE;   /* the Backrooms for the first two runs, Severance for the last */
     G.vis_x = G.vis_y = G.vis_deco = -1;
     int back = G.ptheme == PT_BACKROOMS, sev = G.ptheme == PT_SEVERANCE;
     for (int y = 0; y < MAPN; y++)
@@ -5377,7 +5384,7 @@ static void crawl_update(double dt) {
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_WRAITH")) wraith_at = (float)atof(getenv("CRAWL_WRAITH"));
 #endif
-    if (!G.wraith_done && !PK.depth && (G.wraith_now || ((G.level >= KINDS[MOB_WRAITH].debut || crawl_loop(G.level) > 0) && G.level_t > wraith_at))
+    if (!G.wraith_done && !PK.depth && (G.wraith_now || ((G.level >= KINDS[MOB_WRAITH].debut || crawl_loop(G.level) > 0) && G.level_t > wraith_at && !crawl_boss(G.level)))
         && !G.tally && !G.exiting && (G.wraith_try -= fdt) <= 0.0f) {
         int x, y;
         G.wraith_try = 5.0f;
@@ -6978,9 +6985,10 @@ static int crawl_status(void) { return G.player ? G.status_ret : PLAY_AUTO; }
  * tenths. Version 4 adds four bytes after the record: the wisp L casts and the menu's toggle. Version
  * 5 keeps runes by quality, not tier, and adds 32 bytes for the Rune Shrine: the coins, its rank, its
  * attunements and its nine slots. Older saves' runes come by their tier (rune_from_tier), and a rune
- * held at the merchant's gives back what holding it cost. Versions 1 and 2 still load: their spells
- * and runes stay, their robe, hood and best ring become Common pieces of their tier, and version 1 has
- * an empty record. */
+ * held at the merchant's gives back what holding it cost. Version 6 (runs of ten) adds the rest of the
+ * record: levels cleared to 40, and room for more achievements; older records' descents of twenty
+ * become descents of forty (rec_from_old). Versions 1 and 2 still load: their spells and runes stay,
+ * their robe, hood and best ring become Common pieces of their tier, and version 1 has an empty record. */
 #define SAVE_MAGIC 0x31535648u              /* "HVS1" */
 #define OLD_GEAR 46                         /* versions 1 and 2: the gear as it was, copied raw */
 #define SAVE_V1 (28 + OLD_GEAR)
@@ -7053,32 +7061,54 @@ static void gear_from_old(const uint8_t *p, Gear *g, uint32_t seed) {
     for (int f = 0; f < 4; f++) if ((int8_t)p[22 + f] >= 0 && (int8_t)p[26 + f] > best) best = (int8_t)p[26 + f];
     if (best > 0) g->worn[SL_RING] = piece_make(IK_RING, best, ST_DAMAGE, &rs);
 }
-/* the record, little-endian, field by field */
+/* the record, little-endian, field by field: the shape it has had since version 2, then (version 6)
+ * the rest of the levels cleared and of the achievements */
 static void rec_pack(uint8_t *p, const Record *r) {
     for (int k = 0; k < REC_KINDS; k++) for (int i = 0; i < NRANK; i++, p += 2) put16(p, r->kills[k][i]);
     memcpy(p, r->spell_kills, sizeof r->spell_kills); p += sizeof r->spell_kills;
     memcpy(p, r->seen, sizeof r->seen); p += sizeof r->seen;
-    put16(p, r->secrets); put16(p + 2, r->descents); put32(p + 4, (int32_t)r->cleared); p += 8;
-    memcpy(p, r->got, sizeof r->got);
+    put16(p, r->secrets); put16(p + 2, r->descents); put32(p + 4, (int32_t)(uint32_t)r->cleared); p += 8;
+    memcpy(p, r->got, 256 / 8);
 }
 static void rec_unpack(const uint8_t *p, Record *r) {
     for (int k = 0; k < REC_KINDS; k++) for (int i = 0; i < NRANK; i++, p += 2) r->kills[k][i] = (uint16_t)get16(p);
     memcpy(r->spell_kills, p, sizeof r->spell_kills); p += sizeof r->spell_kills;
     memcpy(r->seen, p, sizeof r->seen); p += sizeof r->seen;
     r->secrets = (uint16_t)get16(p); r->descents = (uint16_t)get16(p + 2); r->cleared = (uint32_t)get32(p + 4); p += 8;
-    memcpy(r->got, p, sizeof r->got);
+    memcpy(r->got, p, 256 / 8);
+}
+static void rec_pack_extra(uint8_t *p, const Record *r) {
+    put32(p, (int32_t)(uint32_t)(r->cleared >> 32));
+    memcpy(p + 4, r->got + 256 / 8, (ACH_BITS - 256) / 8);
+}
+static void rec_unpack_extra(const uint8_t *p, Record *r) {
+    r->cleared |= (uint64_t)(uint32_t)get32(p) << 32;
+    memcpy(r->got + 256 / 8, p + 4, (ACH_BITS - 256) / 8);
+}
+/* before version 6 a descent was twenty levels: the 40th, 80th ... stay as the descents they are now
+ * (the 40th as level 40 cleared), and the rest are let go */
+static void rec_from_old(Record *r) {
+    uint8_t old[19];
+    for (int k = 2; k <= MAX_DESCENT; k++) { int b = ACH_DESCENT0 + k - 2; old[k - 2] = r->got[b >> 3] >> (b & 7) & 1; r->got[b >> 3] &= (uint8_t)~(1 << (b & 7)); }
+    for (int k = 2; k <= MAX_DESCENT; k++) {
+        if (!old[k - 2] || (k * 20) % DESCENT_LEN) continue;
+        int nk = k * 20 / DESCENT_LEN, b = nk == 1 ? ach_level(DESCENT_LEN) : ACH_DESCENT0 + nk - 2;
+        r->got[b >> 3] |= (uint8_t)(1 << (b & 7));
+    }
+    r->descents /= 2;
 }
 #define SAVE_V4_EXTRA 4                     /* version 4: the wisp L casts, and the toggle */
 #define SAVE_V5_SHRINE 32                   /* version 5: Cursed Coins and the Rune Shrine */
-static int save_version(const uint8_t *buf, int len) {             /* 1 to 5 if it is a save we can read, else 0 */
+#define SAVE_V6_EXT REC_EXTRA               /* version 6: runs of ten (docs/PLAN-b7.md) */
+static int save_version(const uint8_t *buf, int len) {             /* 1 to 6 if it is a save we can read, else 0 */
     if (len < SAVE_V1 || (uint32_t)get32(buf) != SAVE_MAGIC) return 0;
-    int v = get32(buf + 4);
+    int v = get32(buf + 4), v5 = SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA + SAVE_V5_SHRINE;
     if (v == 1 || (v == 2 && len >= SAVE_V1 + REC_BYTES) || (v == 3 && len >= SAVE_V3 + REC_BYTES)
-        || (v == 4 && len >= SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA) || (v == 5 && len >= SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA + SAVE_V5_SHRINE)) return v;
+        || (v == 4 && len >= SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA) || (v == 5 && len >= v5) || (v == 6 && len >= v5 + SAVE_V6_EXT)) return v;
     return 0;
 }
 static int save_end(int v) {                                       /* a grave's time follows */
-    return (v >= 3 ? SAVE_V3 : SAVE_V1) + (v >= 2 ? REC_BYTES : 0) + (v >= 4 ? SAVE_V4_EXTRA : 0) + (v >= 5 ? SAVE_V5_SHRINE : 0);
+    return (v >= 3 ? SAVE_V3 : SAVE_V1) + (v >= 2 ? REC_BYTES : 0) + (v >= 4 ? SAVE_V4_EXTRA : 0) + (v >= 5 ? SAVE_V5_SHRINE : 0) + (v >= 6 ? SAVE_V6_EXT : 0);
 }
 /* the shrine's 32 bytes: coins (u16), rank, attunements (u16, a bit a rune), then the slots as rune
  * kind + 1 and quality, then the level whose coins were last taken (u16) and which; the rest spare */
@@ -7099,14 +7129,14 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
 }
 
 static int crawl_save(uint8_t *buf, int cap) {
-    int n = SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA + SAVE_V5_SHRINE;
+    int n = save_end(6);
     if (cap < n || CON.used) return 0;                             /* the dead took note: nothing is kept */
     int level = G.level, hp = G.dead || G.hp <= 0 ? gear_max_hp(&RUN.gear) : G.hp, gold = RUN.treasure, souls = RUN.souls, shop = 0;
     if (G.tally || G.exiting) { level = G.level + 1; shop = 1; }   /* the level is won */
     else if (G.shop) shop = !G.shop_bought;
     else { gold -= G.level_treasure; souls -= G.level_souls; }
     put32(buf, (int32_t)SAVE_MAGIC);
-    put32(buf + 4, 5);                                             /* version */
+    put32(buf + 4, 6);                                             /* version */
     put32(buf + 8, level); put32(buf + 12, hp); put32(buf + 16, gold); put32(buf + 24, shop);
     put32(buf + 20, souls * 10 + clampi((int)(RUN.soul_frac * 10.0f), 0, 9));   /* spirit, in tenths */
     gear_pack(buf + 28, &RUN.gear);
@@ -7114,6 +7144,7 @@ static int crawl_save(uint8_t *buf, int cap) {
     uint8_t *x = buf + SAVE_V3 + REC_BYTES;
     x[0] = (uint8_t)RUN.wisp_kind; x[1] = (uint8_t)RUN.wisp_color; x[2] = (uint8_t)(RUN.wisp_auto != 0); x[3] = 0;
     shrine_pack(x + SAVE_V4_EXTRA);
+    rec_pack_extra(x + SAVE_V4_EXTRA + SAVE_V5_SHRINE, &RUN.rec);
     return n;
 }
 
@@ -7133,7 +7164,9 @@ static void crawl_load(const uint8_t *buf, int len) {
         const uint8_t *x = buf + SAVE_V3 + REC_BYTES;
         RUN.wisp_kind = clampi(x[0], WK_EXIT, WK_ALTAR); RUN.wisp_color = clampi(x[1], 0, NKEYS - 1); RUN.wisp_auto = x[2] != 0;
         if (v >= 5) shrine_unpack(x + SAVE_V4_EXTRA);
+        if (v >= 6) rec_unpack_extra(x + SAVE_V4_EXTRA + SAVE_V5_SHRINE, &RUN.rec);
     }
+    if (v < 6) rec_from_old(&RUN.rec);
     if (RUN.gear.has_held && RUN.gear.held.kind == GK_DEF) {        /* the merchant sells no runes now: the hold is paid back */
         RUN.treasure += (RUN.gear.held.price + 3) / 4;
         RUN.gear.has_held = 0; memset(&RUN.gear.held, 0, sizeof RUN.gear.held);
@@ -9257,9 +9290,9 @@ static int ach_lines(AchLine *L, int max) {
         snprintf(l->title, sizeof l->title, "%s", SECRET_NAME[i]);
         snprintf(l->prog, sizeof l->prog, "%d/%d", r->secrets < SECRET_STEP[i] ? r->secrets : SECRET_STEP[i], SECRET_STEP[i]);
     }
-    for (int lv = 1; lv <= 20 && n < max; lv++) {
+    for (int lv = 1; lv <= DESCENT_LEN && n < max; lv++) {
         AchLine *l = &L[n++];
-        l->done = ach_has(ACH_LEVEL0 + lv - 1); l->known = 1;
+        l->done = ach_has(ach_level(lv)); l->known = 1;
         char nm[40];
         level_name(lv, nm, sizeof nm);
         if (l->done || lv <= RUN.level) snprintf(l->title, sizeof l->title, "%s", nm); else snprintf(l->title, sizeof l->title, "LEVEL %d", lv);
@@ -9270,7 +9303,7 @@ static int ach_lines(AchLine *L, int max) {
         AchLine *l = &L[n++];
         l->done = ach_has(ACH_DESCENT0 + k - 2); l->known = 1;
         snprintf(l->title, sizeof l->title, "THE %s DESCENT", ORDINAL[k]);
-        snprintf(l->prog, sizeof l->prog, "L%d", k * 20);
+        snprintf(l->prog, sizeof l->prog, "L%d", k * DESCENT_LEN);
     }
     return n;
 }

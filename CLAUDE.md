@@ -139,7 +139,7 @@ log` per seed, four at a time, then a short script over the logs: levels reached
 secrets. Compare against a build of the previous commit (a `git worktree`) on the same seeds; one run
 can spiral, so use at least eight seeds before trusting a balance change.
 
-A save blob (for `HOST_LOAD`) is `"HVS1"` (u32 0x31535648 LE), version 5, then little-endian int32
+A save blob (for `HOST_LOAD`) is `"HVS1"` (u32 0x31535648 LE), version 6, then little-endian int32
 level, hp, gold, souls (in tenths), shop-first flag, then the gear packed field by field (`gear_pack`:
 attack tiers and rune qualities, the seven worn pieces, bag size and quality, five bag places, bones, a held ware;
 a piece is 24 bytes, `PIECE_BYTES`), then the run's `Record` (`rec_pack`: u16 kills by kind and rank,
@@ -147,7 +147,10 @@ u8 kills by kind and spell, u8 ranks seen by kind, u16 secrets, u16 descents, u3
 bytes of achievement bits; `REC_BYTES` in all), then four bytes for the L menu (the wisp kind, the
 key's colour, the toggle, a spare), then 32 for the Rune Shrine (`shrine_pack`: u16 Cursed Coins, its
 rank, u16 attunements, nine slots of rune kind + 1 and quality, u16 the level whose coins were last
-taken and a byte of which (`RUN.coin_level/coin_bits`), six spare): 975 bytes. Version 4 is
+taken and a byte of which (`RUN.coin_level/coin_bits`), six spare), then (version 6, runs of ten; it grows
+as docs/PLAN-b7.md is built) the rest of the record (`rec_pack_extra`: u32 levels 33-64 cleared, 32 more
+bytes of achievement bits): 1,011 bytes so far. Version 5 is the same without version 6's part; its
+descents of twenty become descents of forty on loading (`rec_from_old`). Version 4 is
 the same without the shrine and with runes by tier (`rune_from_tier`: 1-3 Common, 4-6 Uncommon, 7-10
 Rare, 11 up Ultra-Rare; a rune held at the merchant's is dropped and its hold fee paid back); version 3
 is version 4 without the L menu's four bytes. Versions 1
@@ -201,7 +204,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   has its own). `rec_kill`, `rec_seen`, `rec_secret` and `rec_cleared` keep it, the autopilot's
   doings included. Achievements are bits (`ach_bit` layout: kind x rank, then secrets, levels,
   descents): 60 kills of a kind's lowest rank, then 40, 25, 15, 8; gilded 3 (`slayer_need`);
-  secrets 1-50; each of levels 1-20; each descent after (level 40, 60 ...). `toast` queues the
+  secrets 1-50; each of levels 1-40 (`ach_level`: 21-40 from bit 256); each descent after the first
+  (level 80, 120 ...). `toast` queues the
   pop-up at the upper right (`render_toasts`), with a progress note halfway.
 - **Enemies** (`MOB_SKEL`, `MOB_GHOST` (the spectre: harmless, through walls, gone after level 10),
   `MOB_BAT`, `MOB_WSKULL` from level 3, `MOB_SHIELD` from 4, `MOB_SPIDER` from 6; guardians in vaults).
@@ -252,9 +256,9 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
       aims at it first.
     - Gargoyles (from 19) are statues on plinths (`place_gargoyles`, `garg_wake`) until you pass
       within three cells or hit one; then they fly over the floor's things (`blocks_flight`) and swoop.
-- **Secrets** (`place_secrets`, `open_secret`, `update_slide`; docs/PLAN-b6.md). A set's levels hold
-  3, 4, 4, 5 and 6 links (`G.nlinks`, `G.links_found`: every link of every chain counts, in the caption,
-  the tally, the record and the altar's gold), split into chains, longer deeper into the set. Each chain
+- **Secrets** (`place_secrets`, `open_secret`, `update_slide`; docs/PLAN-b6.md). A run's levels hold
+  3, 3, 4, 4, 4, 5, 5, 5, 6 and 6 links (`G.nlinks`, `G.links_found`: every link of every chain counts, in the caption,
+  the tally, the record and the altar's gold), split into chains, longer deeper into the run. Each chain
   begins in a room (`Secret`: `x0..y1`, `len`, `links`) carved from solid plan blocks beside a hall: one
   block, two side by side, or two by two (`secret_block_free`); `Cell.secret` 1 room, 2 the cracked
   wall, 3 a doorway. The cracks show only within about two cells. E/Space pushes the wall right through
@@ -287,7 +291,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   `CHAIN_TIME`, or with the gift taken. It stands on the lane beside the cell before a doorway, turns and
   goes through. It now presses every secret it passes before 180 s, a third after. The debug build logs
   `EVENT chain_use`, `chain_back` (hurt, time, done) and, every 3 s in a pocket, `CHAIN ...`.
-- **The Backrooms** (pockets on levels 1-10 of each descent; `G.ptheme` `PT_BACKROOMS`; docs/PLAN-b6.md
+- **The Backrooms** (pockets in runs I and II, levels 1-20 of each descent; `G.ptheme` `PT_BACKROOMS`; docs/PLAN-b6.md
   step 5; built, the art approved; creatures in pockets come in step 7). `crawl_art_theme` swaps
   `R_FLOOR` (dark brown, mustard, pale yellow: carpet and wallpaper) and `R_CEIL` (off-white) on the way in
   and back on the way out; nothing in the crypt but its floor, ceiling and fog uses those two ramps.
@@ -305,7 +309,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   Sound: `snd_set_room(1)` fades the music and its drums, adds echo to the game's sounds and a faint
   mains hum. E at the visportal (`visportal_use`, `PK.vis_used`) gives full health, or fifty souls if
   whole, once a chain; then it stops drifting. The debug build logs `EVENT visportal`.
-- **Severance** (pockets on levels 11-20; `PT_SEVERANCE`; docs/PLAN-b6.md step 6; built, the art
+- **Severance** (pockets in runs III and IV, levels 21-40; `PT_SEVERANCE`; docs/PLAN-b6.md step 6; built, the art
   approved). `R_FLOOR` a muted green (carpet, doors, partitions), `R_CEIL` a cool white
   (walls, ceiling, the cooler's cabinet). `gen_pocket` carves no blocks at first: once the far end is
   known, a fifth of the blocks (and always the first and the far) are offices (`office`), the rest
@@ -347,14 +351,18 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   scene `CTRL_PEEK` (from `app.c`), which raises the readout above the HOLD H plate (`G.peek`, `G.lift`).
 - **Art** (`crawl_art.c`). The 256-colour palette is fully allocated in 16-entry ramps (`R_STONE` ...
   `R_GLOW`, `C_WHITE`, 13 gold, `C_CLEAR`); `R_FLAME` and `R_GLOW` are full-bright.
-- **Sets** (`crawl.h`: `crawl_set`, `crawl_step`, `crawl_loop`, `crawl_decay`, `crawl_depth`). Levels
-  come in four sets of five (the Crypts, the Catacombs, the Hollows, the Deep); the fifth of each is
-  meant for its boss, and past level 20 the sets repeat. Each set has two tints that the stone, floor
-  and ceiling move between over its five levels. Decay (`decay()`: grime, moss, drips and cracks by
-  `decay_tex`, and more of the dressing) starts fresh at each set and reaches 1 on its last level.
-  Depth (`depth()`: fewer torches, thicker fog, a darker base light, older bones) grows set by set and
-  stays at 1 from the Deep on. `level_name` gives each of the twenty its name, with a numeral after
-  the first time down. `crawl_art_level` regenerates the wall textures with a level seed. Textures
+- **Runs and sets** (`crawl.h`: `crawl_run`, `crawl_set`, `crawl_step`, `crawl_boss`, `crawl_loop`,
+  `crawl_decay`, `crawl_depth`; `RUN_LEN` 10, `DESCENT_LEN` 40; docs/PLAN-b7.md). Levels come in four
+  runs of ten, a set each (I the Crypts 1-10, II the Catacombs 11-20, III the Hollows 21-30, IV the
+  Deep 31-40); the tenth of each is its boss's, and past level 40 the runs repeat. Each set has two
+  tints that the stone, floor and ceiling move between over its ten levels. Decay (`decay()`: grime,
+  moss, drips and cracks by `decay_tex`, and more of the dressing) starts fresh at each run and reaches
+  1 on its last level. Depth (`depth()`: fewer torches, thicker fog, a darker base light, older bones)
+  grows run by run and stays at 1 from the Deep on. The rank mix (`pick_rank`) and the merchant's
+  qualities follow the sets, so they climb over ten levels; a set's newest rank comes in on its run's
+  fifth level. Pockets are the Backrooms in runs I and II, Severance in III and IV. The Wraith never
+  comes on a boss level. `level_name` gives each of the forty its name, with a numeral after the first
+  time down. `crawl_art_level` regenerates the wall textures with a level seed. Textures
   and sprites are 64x64, column-major.
 - **Ranks and the bestiary art.** `crawl_rank_lut[family][rank]` recolours a creature's body ramp
   (`PF_*`, `RK_*` in `crawl.h`). The new creatures' and decorations' sprites are drawn in

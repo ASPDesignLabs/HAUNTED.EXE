@@ -468,7 +468,7 @@ int gear_take_wear(Gear *g, const Offer *o) {
     return bag_put(g, &old) ? TAKE_WORN_OLD_BAGGED : TAKE_WORN_OLD_LOST;
 }
 
-int gear_shop_purchases(int level) { return level <= 9 ? 1 : (level <= 14 ? 2 : 3); }
+int gear_shop_purchases(int level) { return level <= RUN_LEN ? 1 : (level <= 2 * RUN_LEN ? 2 : 3); }
 int gear_shop_pedestals(int level) { return level <= 9 ? 5 : (level <= 14 ? 6 : 7); }
 
 /* ---- offers ---- */
