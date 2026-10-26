@@ -793,8 +793,11 @@ first.
    tally's BOSS row; the autopilot's way of fighting one. In the harness the autopilot beat the knight in
    two runs of two (237 and 288 s, all four waves) with every spell at tier 4. Found on the way: the
    autopilot dithered near a key fewer than eight steps off while leaving (an old fault, now fixed).
-3. **Hazard machinery**: the floor's mark layer, warnings and harm, the see-through sprites, the
-   muffling, the omens in the levels before, the autopilot's reading of them; challenge steps.
+3. **Hazard machinery** (built): the floor's mark layer, warnings and harm, the see-through sprites, the
+   muffling, the omens in the levels before (ahead of the dweller where they can be, so they are seen),
+   the autopilot's reading of them, the steps; and each boss's own hazard working in its arena, with the
+   knight's arc and the Wraith's hands. In the harness the autopilot met 59 rocks and 16 arcs beating the
+   knight and was struck 3 times; ASan clean over two boss fights and two levels of omens.
 4. **Boss music**: four themes, each with its wave section.
 5. **The Ill-Fated Skeleton Knight**: art sheet; the Mirror Rune; Swift Dodge's three reasons;
    Rockfall; Sundering Arc; its adds; THE LISTS; the autopilot's tactics.

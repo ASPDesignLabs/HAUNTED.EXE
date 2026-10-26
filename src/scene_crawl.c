@@ -32,6 +32,7 @@
 #define FOCAL ((W / 2) / PLANE_LEN)
 #define CRUISE 2.1f                         /* cells per second */
 #define WALK 3.0f                           /* cells a second, for a person at the keys */
+#define BODY 0.24f                          /* the caster's girth, against walls */
 
 enum { K_FLOOR, K_WALL, K_DOOR, K_PILLAR, K_PROP };   /* K_PROP: low and solid (a grave, a fire pit): walked round, seen and cast over */
 enum { TH_CORRIDOR, TH_OSSUARY, TH_CRYPT, TH_BRICK, TH_MOSS, TH_COUNT };
@@ -45,7 +46,7 @@ static const int ITEM_VALUE[] = { 10, 25, 50, 100, 250, 0, 0, 0, 0, 0, 0 };
 enum { MIS_BONE, MIS_FIRE, MIS_EMBER };     /* what the dead throw: bones, a wall skull's fireball, an imp's ember */
 enum { DM_PIERCE = 1, DM_ARC = 2, DM_SLOW = 4 };   /* how a hit lands: through shields, round them, chilling */
 #define DM_ATK(a) (((a) + 1) << 8)          /* and which spell it is, for the creature's weakness to it */
-enum { HURT_BLOW, HURT_MAGIC, HURT_POISON };
+enum { HURT_BLOW, HURT_MAGIC, HURT_POISON, HURT_STONE, HURT_VOID };   /* STONE: no dodging it; VOID: nothing resists it */
 #define NKEYS 3                             /* gold, silver, crimson */
 #define SHOT_REFLECT NATK                   /* a shot kind: something the Mirror Veil sent back */
 #define NPED 7                              /* the merchant's pedestals, at most */
@@ -304,6 +305,19 @@ static const BossDef BOSSES[NBOSS] = {
           { { MOB_SHADE, 4, 0 }, { MOB_DROWNED, 2, 0 } } } },
 };
 static int boss_of_level(int level) { return crawl_boss(level) ? crawl_set(level) : -1; }   /* which boss its last level holds */
+
+/* Hazards (docs/PLAN-b7.md, section 6): what a boss works on its arena, and the omens of them in the
+ * three levels before it. Each warns (warn), harms (on), then fades (off); harm is a share of your health,
+ * a hit or a second, and falls only on the dweller. Fire and bile cover cells, in the order they spread. */
+enum { HZ_ROCK, HZ_FIRE, HZ_BILE, HZ_VOID, HZ_ARC, HZ_GRASP, NHZ };
+#define MAXHAZ 48
+#define HZ_CELLS 24
+#define MAXOUT 6                            /* a boss's outlets for its bile */
+typedef struct {
+    int alive, kind, omen, hit, n, src, wx, wy, wtex;   /* src: the outlet it pours from; wx, wy, wtex: an omen's grate and the wall it was */
+    float x, y, r, ang, t, warn, on, off, share;
+    int8_t cx[HZ_CELLS], cy[HZ_CELLS]; uint8_t cd[HZ_CELLS];
+} Hazard;
 static int boss_sealed(void);
 static int boss_fighting(void);
 static int in_arena(float x, float y);
@@ -311,6 +325,7 @@ static void boss_spawn(void);
 static void update_boss(float dt);
 static int font_drink(int i);
 static Mob *boss_mob(void);
+static void hz_clear(void);
 
 typedef struct { int alive, kind, target; float x, y, z, vx, vy, life, dmg; uint32_t pierced; int tier; } Shot;   /* tier: as cast */
 typedef struct { int alive, kind; float x, y, vx, vy, life, spin, dmg, life0; int from; } Bone;   /* life0: an ember's whole flight; from: its thrower */
@@ -423,6 +438,7 @@ static struct {
     int runs_done;                          /* runs completed: their bosses beaten on the way down */
     int scrip[BOSS_REC], bstep[BOSS_REC];   /* each boss's Named Odious Scrip, held at the Hexed Totem; its challenge's step, 0-5 */
     uint8_t top_rank[REC_KINDS];            /* 1 + the highest rank of each kind met since the last death (0: none yet) */
+    int omens;                              /* the hazards met, a bit each (HZ_*): the first of each is named */
 } RUN;
 
 /* The console (~): its lines and what is typed, and what a code has done to this session, which lasts
@@ -552,6 +568,12 @@ static struct {
     int bfont_x[MAXFONTS], bfont_y[MAXFONTS], bfont_fx[MAXFONTS], bfont_fy[MAXFONTS], bfont_full[MAXFONTS];
     int bspawn_x[MAXSPAWN], bspawn_y[MAXSPAWN];
     float bfight_t, bstate_t, bcard, bbar, bring;
+    /* the hazards: those warning or harming now; what they add up to this step; the next omen; the boss's
+       next hazard and next second cast, and its pose casting one; whether the void has you; the outlets */
+    Hazard haz[MAXHAZ];
+    float hz_acc, hz_slow, omen_t, bz_t, bz2_t, bcast_t, sil_k;
+    int silenced, bnout, bout_haz[MAXOUT];
+    int8_t bout_cx[MAXOUT][HZ_CELLS], bout_cy[MAXOUT][HZ_CELLS]; uint8_t bout_cd[MAXOUT][HZ_CELLS], bout_n[MAXOUT];
 } G;
 static float zbuf[W];
 enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_GRAVES, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE };   /* the menus a person can open */
@@ -1048,6 +1070,7 @@ static int slide_covers(int x, int y) {
 #define ARENA_PLAN 15                       /* plan rows from here on are a boss's (cells from BAND_Y0) */
 #define ARENA_DOOR_MX 3                     /* and the way down to it: plan column 3, cell x 6 */
 static void stamp_arena(void);
+static int hz_patch(int sx, int sy, int reach, int8_t *cx, int8_t *cy, uint8_t *cd, int max);
 static void swap_rooms(int a, int b) {                             /* rooms a and b change places in the lists */
     for (int y = 0; y < MG; y++)
         for (int x = 0; x < MG; x++) {
@@ -1476,7 +1499,7 @@ static void stamp_arena(void) {
             G.fog[y][x] = 0.0f;
             if (ch == '#' || ch == 'E' || ch == 'G' || ch == 'h' || ch == 'F' || ch == 'v') {
                 c->kind = K_WALL;
-                c->tex = (uint8_t)(ch == 'E' ? T_EXIT0 : ch == 'G' ? T_GATE : ch == 'h' ? T_NICHE : ch == 'F' ? T_FONT_DRY : ch == 'v' ? T_BRICK
+                c->tex = (uint8_t)(ch == 'E' ? T_EXIT0 : ch == 'G' ? T_GATE : ch == 'h' ? T_NICHE : ch == 'F' ? T_FONT_DRY : ch == 'v' ? T_GRATE
                                    : theme_tex(THEME[G.boss], hash2(x, y)));
                 if (ch == 'E') { G.exit_wx = x; G.exit_wy = y; }
                 if (ch == 'F' && G.bnfont < MAXFONTS) { G.bfont_x[G.bnfont] = x; G.bfont_y[G.bnfont] = y; G.bfont_full[G.bnfont++] = 0; }
@@ -1524,6 +1547,17 @@ static void stamp_arena(void) {
                 light_static(x + 0.5f, wy + 0.5f + (k ? -0.42f : 0.42f), G.boss == BOSS_SPIDER ? 1.1f : 1.55f, 4.6f);
             }
     light_static(ARENA_X0 + 0.6f, 34.5f, 0.9f, 3.6f);               /* the arch, seen from inside */
+    G.bnout = 0;                                                   /* the outlets the bile comes from: drains in the walls, and the well */
+    for (int r = 0; r < BAND_H && G.bnout < MAXOUT; r++)
+        for (int x = 0; x < MAPN && G.bnout < MAXOUT; x++) {
+            char ch = B->map[r][x];
+            int y = BAND_Y0 + r, sx = -1, sy = -1;
+            if (ch == 'v') { for (int d = 0; d < 4; d++) if (in_arena((float)(x + DX[d]), (float)(y + DY[d])) && G.map[y + DY[d]][x + DX[d]].kind == K_FLOOR) { sx = x + DX[d]; sy = y + DY[d]; } }
+            else if (ch == ':' && B->map[r - 1][x] != ':' && B->map[r][x - 1] != ':') { sx = x - 1; sy = y + 1; }   /* the well: from its west side */
+            if (sx < 0) continue;
+            G.bout_n[G.bnout] = (uint8_t)hz_patch(sx, sy, ch == ':' ? 2 : 3, G.bout_cx[G.bnout], G.bout_cy[G.bnout], G.bout_cd[G.bnout], ch == ':' ? 14 : 18);
+            G.bout_haz[G.bnout++] = -1;
+        }
     if (G.boss == BOSS_KNIGHT) { chandelier(21, 36); chandelier(31, 36); }   /* the lists under their candles, so it can be seen */
     else if (G.boss == BOSS_SPIDER) { lantern(19, 36); lantern(33, 36); }    /* the cistern, dimly */
     else if (G.boss == BOSS_DEACON) chandelier(26, 36);
@@ -2160,8 +2194,9 @@ static void ward_burst(void);
 static int hurt_ex(float dmg, int kind, float sx, float sy) {
     if (G.dead || G.ending || G.exiting || G.tally || G.shop || G.level_t < 1.5) return 0;
     const Gear *g = &RUN.gear;
-    if (kind != HURT_POISON) {
-        if (rndf() < gear_dodge(g)) { snd_sfx_ex(SFX_WHOOSH, 0.5f, 0.5f); DBG_COUNT(dodges); return 0; }   /* it passed through a shadow */
+    int seeping = kind == HURT_POISON || kind == HURT_VOID;        /* nothing turns these: no dodge, armour or ward */
+    if (!seeping) {
+        if (kind != HURT_STONE && rndf() < gear_dodge(g)) { snd_sfx_ex(SFX_WHOOSH, 0.5f, 0.5f); DBG_COUNT(dodges); return 0; }   /* it passed through a shadow */
         if (kind == HURT_MAGIC) dmg *= 1.0f - gear_magic_resist(g);
         dmg -= kind == HURT_MAGIC ? gear_armor(g) * 0.5f : (float)gear_armor(g);
         if (dmg < 1.0f) dmg = 1.0f;
@@ -2176,7 +2211,7 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
     int d = (int)(dmg + 0.5f);
     if (d < 1) d = 1;
     G.hp -= d;
-    if (kind != HURT_POISON) {
+    if (!seeping) {
         G.hurt = 1.0f;
         G.kick = (rnd(2) ? 1.0f : -1.0f) * 0.07f;
         float lat = (sx - G.px) * -sinf(G.ang) + (sy - G.py) * cosf(G.ang);
@@ -2184,7 +2219,7 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
         G.face_t = FACE_T;
     } else G.hurt = fmaxf(G.hurt, 0.25f);
     pop_readout(); show_bar();
-    if (G.hp > 0) { if (kind != HURT_POISON) snd_sfx(SFX_HURT); return d; }
+    if (G.hp > 0) { if (!seeping) snd_sfx(SFX_HURT); return d; }
     G.hp = 0; G.dead = 1; G.dead_t = 0.0; G.retries++;
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT died level %d t=%.1f\n", G.level, G.level_t);
@@ -2472,8 +2507,8 @@ static float hit_mult(const Mob *m, int atk) {
     return k + gear_total(g, ST_FIRE) / 100.0f * weak_to(m, AT_FIRE) + gear_total(g, ST_FROST) / 100.0f * weak_to(m, AT_FROST)
              + gear_total(g, ST_SHOCK) / 100.0f * weak_to(m, AT_CHAIN);
 }
-static float slow_factor(void) {                                   /* slowed, the caster walks at 60%; resisted, less slowly */
-    return G.slow_t > 0.0f ? 1.0f - 0.4f * (1.0f - 0.5f * gear_slow_resist(&RUN.gear)) : 1.0f;
+static float slow_factor(void) {                                   /* slowed, the caster walks at 60%; resisted, less slowly; */
+    return (G.slow_t > 0.0f ? 1.0f - 0.4f * (1.0f - 0.5f * gear_slow_resist(&RUN.gear)) : 1.0f) * (G.hz_slow > 0.0f ? G.hz_slow : 1.0f);   /* bile and void besides */
 }
 static float spell_effect(void) { return 1.0f + gear_total(&RUN.gear, ST_EFFECT) / 100.0f; }   /* all a spell does besides damage */
 
@@ -3699,10 +3734,10 @@ static void update_defense(float dt) {
         G.def_cd[k] -= dt; G.def_hush[k] -= dt;
         if (G.def_wait[k] > 0.0f) {
             G.def_wait[k] -= dt;
-            if (G.def_wait[k] <= 0.0f && G.def_cd[k] <= 0.0f && !G.dead) cast_defense(k);
+            if (G.def_wait[k] <= 0.0f && G.def_cd[k] <= 0.0f && !G.dead && !G.silenced) cast_defense(k);
             continue;
         }
-        if (G.def_cd[k] > 0.0f || G.def_hush[k] > 0.0f || G.dead) continue;
+        if (G.def_cd[k] > 0.0f || G.def_hush[k] > 0.0f || G.dead || G.silenced) continue;   /* the void: no rune fires */
         if (def_trigger(k)) {
             if (rndf() < 0.12f) { G.def_hush[k] = 1.5f; continue; }   /* missed the moment */
             G.def_wait[k] = 0.15f + 0.55f * rndf() + (rndf() < 0.1f ? 0.8f : 0.0f);
@@ -4071,6 +4106,7 @@ static int pick_goal(int x, int y, int *gx, int *gy) {
 
 /* which way to leave (x,y): towards a goal if there is one, else new ground first,
  * otherwise towards the nearest unexplored cell */
+static int hz_danger(int x, int y);
 static int decide(int x, int y, int h) {
     int gx, gy;
 #ifdef CRAWL_DEBUG
@@ -4082,7 +4118,7 @@ static int decide(int x, int y, int h) {
         for (int d = 0; d < 4; d++) {
             int nx = x + DX[d], ny = y + DY[d];
             if (!apass(nx, ny) || bfs_dist[ny][nx] < 0) continue;
-            int sc = bfs_dist[ny][nx] * 4 + (d == h ? 0 : 1) + (d == ((h + 2) & 3) ? 2 : 0) + (G.bulky[ny][nx] ? 5 : 0);
+            int sc = bfs_dist[ny][nx] * 4 + (d == h ? 0 : 1) + (d == ((h + 2) & 3) ? 2 : 0) + (G.bulky[ny][nx] ? 5 : 0) + 400 * hz_danger(nx, ny);   /* not into a warning */
             if (sc < gs) { gs = sc; gbest = d; }
         }
         if (gbest >= 0 && bfs_dist[y][x] > 0) return gbest;
@@ -4096,6 +4132,7 @@ static int decide(int x, int y, int h) {
         if (G.map[ny][nx].visits == 0) s = 100.0f + (d == h ? 1.3f : 0.0f) + rndf() * 1.6f;
         else s = -(float)dist_to_unexplored(nx, ny, x, y) + (d == h ? 0.4f : 0.0f) + rndf() * 0.8f;
         if (G.bulky[ny][nx]) s -= 2.5f;                           /* walk past piles, not through them */
+        s -= 400.0f * (float)hz_danger(nx, ny);
         if (s > bs) { bs = s; best = d; }
     }
     return best < 0 ? ((h + 2) & 3) : best;
@@ -4298,6 +4335,11 @@ static void pocket_return(int died);
 static void update_player(float dt) {
     G.cooldown -= dt;
     G.calm += dt;
+    if ((G.state == PS_AIM || G.state == PS_HOLD || G.state == PS_UNAIM || (G.state == PS_CAST && G.fired) || (G.state == PS_CAST && G.silenced))
+        && hz_danger((int)G.px, (int)G.py)) {                      /* the floor warns: it stops aiming and goes on */
+        G.hand = 0.0f; G.state = PS_MOVE; G.ang = wrap_pi(G.ang);
+        begin_turn(heading_angle(G.h)); G.state = PS_TURN; G.st = 0.0f; G.adur = 0.15f;
+    }
     switch (G.state) {
     case PS_MOVE: {
         int keyed = G.has_key[0] || G.has_key[1] || G.has_key[2];
@@ -4313,7 +4355,7 @@ static void update_player(float dt) {
         }
         if (blocker >= 0) {
             target = 0.0f; G.spd = fminf(G.spd, 0.3f); G.blocked += dt;
-            if (G.cooldown <= 0.0f) { aim_at(blocker); break; }
+            if (G.cooldown <= 0.0f && !G.silenced) { aim_at(blocker); break; }
         } else G.blocked = 0.0f;
         G.spd += clampf(target - G.spd, -6.0f * dt, 6.0f * dt);
         advance(G.spd * dt);
@@ -4330,7 +4372,7 @@ static void update_player(float dt) {
                 G.state = PS_TURN;
             } else start_move();
         }
-        if (G.cooldown <= 0.0f && G.state == PS_MOVE) {
+        if (G.cooldown <= 0.0f && G.state == PS_MOVE && !G.silenced) {
             int t = find_target();
             if (t >= 0) aim_at(t);
         }
@@ -4599,7 +4641,9 @@ static void start_level(void) {
     pocket_reset_level();
     memset(G.has_key, 0, sizeof G.has_key);
     G.shop = 0;
+    hz_clear();
     G.boss = boss_of_level(G.level); G.bstate = G.boss >= 0 ? BS_WAIT : BS_NONE; G.bwave = G.badds = 0; G.bmob = -1;
+    G.bz_t = 6.0f; G.bz2_t = 9.0f; G.bcast_t = 0.0f; G.omen_t = 30.0f + 20.0f * rndf();
     G.bfight_t = G.bstate_t = G.bcard = G.bring = 0.0f; G.bbar = 1.0f;
     if (G.boss < 0) G.bchallenge = 0;
     G.bstep = G.bchallenge && G.boss >= 0 ? RUN.bstep[G.boss] : 0;
@@ -4802,6 +4846,8 @@ static void pocket_say_found(int link) {                           /* the first 
  * outer wall as far as can be from it; else the chain's reward (for now a hoard, until the themes bring
  * theirs). Its things come in the same order each time, so what was taken can stay taken. */
 static void gen_pocket(const Secret *sc, int link) {
+    memset(G.haz, 0, sizeof G.haz); G.hz_acc = 0.0f;               /* the level's hazards wait with it */
+    if (G.silenced) { G.silenced = 0; snd_set_muffle(0); }
     int lv = (G.level - 1) % DESCENT_LEN;
     float t = clampf(0.6f * (float)lv / (float)(DESCENT_LEN - 1) + 0.4f * (float)(link - 2) / 4.0f, 0.0f, 1.0f);
     int n = clampi(3 + (int)(t * 8.0f + 0.5f), 3, 11), S = 4 * n + 1, o = ((MAPN - S) / 2) & ~3;
@@ -5188,6 +5234,359 @@ static void collect(Item *it) {
     pop_readout();
 }
 
+/* ---- hazards (docs/PLAN-b7.md, section 6) ----
+ * Rockfall: grit and a growing shadow, then a rock that strikes once and lies as rubble. Hellrent:
+ * cracks running along a line, glowing up to the burst, then fire for a moment and embers. Bile: a wet
+ * sheen creeping from an outlet a cell at a time, foul (poison, and slow) once it has settled, draining
+ * back when the outlet shuts. The void: a ring and a thin column, then a purple volume that saps health,
+ * slows and silences. The Sundering Arc: a pale arc on the floor before the knight, then its sweep.
+ * Grasping Dark: a black ring under you, then hands. Omens are the same at half the harm. */
+static uint8_t hz_dmap[MAPN][MAPN];                                 /* warned or harmful cells, for the autopilot */
+static int hz_step(void) { return G.boss >= 0 ? G.bstep : 0; }
+static float hz_warn(float base) { return fmaxf(0.9f, base - 0.06f * (float)hz_step()); }   /* never under 0.9 s */
+static Hazard *hz_new(int kind, int omen) {
+    for (int i = 0; i < MAXHAZ; i++)
+        if (!G.haz[i].alive) {
+            Hazard *h = &G.haz[i];
+            memset(h, 0, sizeof *h);
+            h->alive = 1; h->kind = kind; h->omen = omen; h->src = -1; h->wx = -1;
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT hazard %d%s t=%.2f\n", kind, omen ? " omen" : "", G.t);
+#endif
+            if (!(RUN.omens >> kind & 1)) {                        /* the first of each kind is named */
+                static const char *const NAME[NHZ] = { "THE CEILING GROANS ABOVE YOU", "THE FLOOR SPLITS AND BURNS", "BILE RISES FROM THE DRAINS",
+                                                       "THE VOID OPENS", "MIND THE BLADE'S ARC", "THE DARK REACHES UP" };
+                RUN.omens |= 1 << kind;
+                say("%s", NAME[kind]);
+            }
+            return h;
+        }
+    return NULL;
+}
+static int hz_phase(const Hazard *h) { return h->t < h->warn ? 0 : (h->t < h->warn + h->on ? 1 : 2); }   /* warning, harm, fading */
+static int hz_floor(int x, int y) { return x > 0 && y > 0 && x < MAPN - 1 && y < MAPN - 1 && G.map[y][x].kind == K_FLOOR && !G.map[y][x].secret; }
+
+static void hz_rock(float x, float y, int omen) {
+    Hazard *h = hz_new(HZ_ROCK, omen);
+    if (!h) return;
+    h->x = x; h->y = y; h->r = 0.55f; h->warn = hz_warn(1.2f); h->on = 0.05f; h->off = 3.0f; h->share = omen ? 0.06f : 0.12f;
+    sfx_at(SFX_CREAK, x, y, 0.7f);
+}
+/* cells for hellrent: a line from (x,y) towards (tx,ty), so many long, in order */
+static int hz_line(Hazard *h, float x, float y, float tx, float ty, int len, int from) {
+    float a = atan2f(ty - y, tx - x), cx = cosf(a), cy = sinf(a);
+    int n = h->n;
+    for (int i = 0; i < len * 3 && n < HZ_CELLS; i++) {
+        int px = (int)floorf(x + cx * i / 3.0f), py = (int)floorf(y + cy * i / 3.0f), dup = 0;
+        if (!hz_floor(px, py)) { if (G.map[clampi(py, 0, MAPN - 1)][clampi(px, 0, MAPN - 1)].kind == K_WALL) break; continue; }
+        for (int k = 0; k < n; k++) dup |= h->cx[k] == px && h->cy[k] == py;
+        if (dup) continue;
+        h->cx[n] = (int8_t)px; h->cy[n] = (int8_t)py; h->cd[n] = (uint8_t)(from + i / 3); n++;
+        if (i / 3 >= len) break;
+    }
+    return h->n = n;
+}
+static Hazard *hz_fire(int omen) {
+    Hazard *h = hz_new(HZ_FIRE, omen);
+    if (!h) return NULL;
+    h->warn = hz_warn(1.5f); h->on = 1.2f; h->off = 2.0f; h->share = omen ? 0.04f : 0.08f;
+    return h;
+}
+static void hz_fire_done(Hazard *h, float sx, float sy) {
+    if (!h) return;
+    if (!h->n) { h->alive = 0; return; }
+    int maxd = 1;
+    for (int i = 0; i < h->n; i++) if (h->cd[i] > maxd) maxd = h->cd[i];
+    h->r = (float)maxd;
+    h->x = sx; h->y = sy;
+    sfx_at(SFX_PUSHWALL, sx, sy, 0.6f);
+}
+static Hazard *hz_bile(const int8_t *cx, const int8_t *cy, const uint8_t *cd, int n, int omen) {
+    Hazard *h = hz_new(HZ_BILE, omen);
+    if (!h) return NULL;
+    h->n = imin(n, HZ_CELLS);
+    int maxd = 1;
+    for (int i = 0; i < h->n; i++) { h->cx[i] = cx[i]; h->cy[i] = cy[i]; h->cd[i] = cd[i]; if (cd[i] > maxd) maxd = cd[i]; }
+    h->r = (float)maxd; h->warn = 2.0f; h->on = omen ? 8.0f : 1e6f; h->off = 3.0f; h->share = omen ? 0.5f : 1.0f;
+    if (h->n) { h->x = h->cx[0] + 0.5f; h->y = h->cy[0] + 0.5f; }
+    sfx_at(SFX_DRIP, h->x, h->y, 1.0f); sfx_at(SFX_GROAN, h->x, h->y, 0.3f);
+    return h;
+}
+static void hz_void(float x, float y, float r, int omen) {
+    Hazard *h = hz_new(HZ_VOID, omen);
+    if (!h) return;
+    h->x = x; h->y = y; h->r = r; h->warn = hz_warn(1.5f); h->on = omen ? 5.0f : 6.0f + 2.0f * rndf(); h->off = 1.0f; h->share = omen ? 0.02f : 0.04f;
+    sfx_at(SFX_SHIMMER, x, y, 0.5f);
+}
+static void hz_arc(float x, float y, float ang, float share) {
+    Hazard *h = hz_new(HZ_ARC, 0);
+    if (!h) return;
+    h->x = x; h->y = y; h->ang = ang; h->r = 3.2f; h->warn = hz_warn(0.8f); h->on = 0.05f; h->off = 0.4f; h->share = share;
+}
+static void hz_grasp(float x, float y) {
+    Hazard *h = hz_new(HZ_GRASP, 0);
+    if (!h) return;
+    h->x = x; h->y = y; h->r = 0.8f; h->warn = hz_warn(1.0f); h->on = 0.05f; h->off = 0.7f; h->share = 0.10f;
+    sfx_at(SFX_WHISPER, x, y, 0.8f);
+}
+
+/* how far a bile cell has come: 0 dry, up to 1 settled and foul (the sheen creeps out, then drains back) */
+static float hz_bile_wet(const Hazard *h, int i) {
+    float creep = h->t / h->warn * (h->r + 1.0f) - (float)h->cd[i];
+    if (h->t >= h->warn + h->on) creep = fminf(creep, (1.0f - (h->t - h->warn - h->on) / h->off) * (h->r + 1.0f) - (float)h->cd[i]);
+    return clampf(creep, 0.0f, 1.0f);
+}
+static int hz_in_arc(const Hazard *h, float x, float y) {
+    float d = hypotf(x - h->x, y - h->y);
+    return d <= h->r && d > 0.2f && fabsf(wrap_pi(atan2f(y - h->y, x - h->x) - h->ang)) <= 0.8f;
+}
+/* how much a hazard has a cell: 2 harming, 1 warning (or fading fire), 0 not at all */
+static int hz_covers(const Hazard *h, int x, int y) {
+    int ph = hz_phase(h);
+    float cx = x + 0.5f, cy = y + 0.5f;
+    switch (h->kind) {
+    case HZ_ROCK: return ph == 0 && hypotf(cx - h->x, cy - h->y) < h->r + 0.45f ? 1 : 0;
+    case HZ_FIRE: for (int i = 0; i < h->n; i++) if (h->cx[i] == x && h->cy[i] == y) return ph == 1 ? 2 : (ph == 0 ? 1 : 0); return 0;
+    case HZ_BILE: for (int i = 0; i < h->n; i++) if (h->cx[i] == x && h->cy[i] == y) { float w = hz_bile_wet(h, i); return w >= 1.0f && ph < 2 ? 2 : (w > 0.0f ? 1 : 0); } return 0;
+    case HZ_VOID: return ph < 2 && hypotf(cx - h->x, cy - h->y) < h->r + 0.35f ? (ph == 1 ? 2 : 1) : 0;
+    case HZ_ARC: return ph == 0 && hz_in_arc(h, cx, cy) ? 1 : 0;
+    default: return ph == 0 && hypotf(cx - h->x, cy - h->y) < h->r + 0.35f ? 1 : 0;   /* HZ_GRASP */
+    }
+}
+
+static void update_hazards(float dt) {
+    int was = G.silenced;
+    G.silenced = 0; G.hz_slow = 1.0f;
+    memset(hz_dmap, 0, sizeof hz_dmap);
+    if (PK.depth || G.shop || G.tally) { if (was) snd_set_muffle(0); return; }
+    int px = (int)G.px, py = (int)G.py, mhp = G.max_hp > 0 ? G.max_hp : 100;
+    for (int i = 0; i < MAXHAZ; i++) {
+        Hazard *h = &G.haz[i];
+        if (!h->alive) continue;
+        float pt = h->t;
+        h->t += dt;
+        if (h->t >= h->warn + h->on + h->off) {                    /* done: an omen's grate is a wall again */
+            if (h->wx >= 0) G.map[h->wy][h->wx].tex = (uint8_t)h->wtex;
+            h->alive = 0; continue;
+        }
+        int ph = hz_phase(h), struck = pt < h->warn && h->t >= h->warn;
+        switch (h->kind) {
+        case HZ_ROCK:
+            if (struck) {
+                sfx_at(SFX_BOOM, h->x, h->y, 0.9f); sfx_at(SFX_SHATTER, h->x, h->y, 0.5f);
+                for (int j = 0; j < MAXBOOMS; j++) if (!G.booms[j].alive) { memset(&G.booms[j], 0, sizeof G.booms[j]); G.booms[j].alive = 1; G.booms[j].x = h->x; G.booms[j].y = h->y; break; }
+                if (!G.dead && hypotf(G.px - h->x, G.py - h->y) < h->r + BODY) { int d = hurt_ex(h->share * (float)mhp, HURT_STONE, h->x, h->y);
+#ifdef CRAWL_DEBUG
+                    fprintf(stderr, "EVENT hz_hit rock %d t=%.2f\n", d, G.t);
+#endif
+                    (void)d; }
+            }
+            break;
+        case HZ_FIRE:
+            if (struck) { sfx_at(SFX_IGNITE, h->x, h->y, 1.0f); sfx_at(SFX_EXPLODE, h->x, h->y, 0.5f); }
+            if (ph == 1) for (int k = 0; k < h->n; k++) if (h->cx[k] == px && h->cy[k] == py) { G.hz_acc += h->share * (float)mhp * dt; break; }
+            break;
+        case HZ_BILE:
+            if (ph < 2)
+                for (int k = 0; k < h->n; k++)
+                    if (h->cx[k] == px && h->cy[k] == py && hz_bile_wet(h, k) >= 1.0f && G.purify_t <= 0.0f) {   /* Purify keeps it off */
+                        float r = 1.0f - gear_poison_resist(&RUN.gear);
+                        G.poison_t = fmaxf(G.poison_t, 2.5f * r);
+                        G.poison_dps = fmaxf(G.poison_dps, (1.0f + (float)imax(0, (G.level - 4) / 2)) * h->share * (0.5f + 0.5f * r));
+                        G.hz_slow = fminf(G.hz_slow, 0.8f);
+                        break;
+                    }
+            break;
+        case HZ_VOID:
+            if (struck) sfx_at(SFX_WAIL, h->x, h->y, 0.5f);
+            if (ph == 1 && hypotf(G.px - h->x, G.py - h->y) < h->r) { G.hz_acc += h->share * (float)mhp * dt; G.hz_slow = fminf(G.hz_slow, 0.6f); G.silenced = 1; }
+            break;
+        case HZ_ARC:
+            if (struck) { snd_sfx_ex(SFX_SWORD, 1.2f, 0.5f); if (!G.dead && hz_in_arc(h, G.px, G.py)) hurt_ex(h->share, HURT_BLOW, h->x, h->y); }
+            break;
+        case HZ_GRASP:
+            if (struck) {
+                sfx_at(SFX_DIRT, h->x, h->y, 0.8f);
+                if (!G.dead && hypotf(G.px - h->x, G.py - h->y) < h->r + BODY) { hurt_ex(h->share * (float)mhp, HURT_BLOW, h->x, h->y); G.slow_t = fmaxf(G.slow_t, 1.0f); }
+            }
+            break;
+        }
+        int x0 = imax(1, (int)(h->x - h->r - 2.0f)), x1 = imin(MAPN - 2, (int)(h->x + h->r + 2.0f));
+        int y0 = imax(1, (int)(h->y - h->r - 2.0f)), y1 = imin(MAPN - 2, (int)(h->y + h->r + 2.0f));
+        if (h->kind == HZ_FIRE || h->kind == HZ_BILE)
+            for (int k = 0; k < h->n; k++) { int c = hz_covers(h, h->cx[k], h->cy[k]); if (c > hz_dmap[h->cy[k]][h->cx[k]]) hz_dmap[h->cy[k]][h->cx[k]] = (uint8_t)c; }
+        else
+            for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++) { int c = hz_covers(h, x, y); if (c > hz_dmap[y][x]) hz_dmap[y][x] = (uint8_t)c; }
+    }
+    while (G.hz_acc >= 1.0f && !G.dead) {                          /* fire and void, a point at a time */
+        G.hz_acc -= 1.0f;
+#ifdef CRAWL_DEBUG
+        static int burns; if ((++burns & 15) == 1) fprintf(stderr, "EVENT hz_hit %s x16 t=%.2f\n", G.silenced ? "void" : "fire", G.t);
+#endif
+        hurt_ex(1.0f, G.silenced ? HURT_VOID : HURT_MAGIC, G.px, G.py);
+    }
+    if (G.dead) G.hz_acc = 0.0f;
+    if (G.silenced != was) snd_set_muffle(G.silenced);
+    G.sil_k += ((float)G.silenced - G.sil_k) * fminf(1.0f, dt * 8.0f);
+}
+static int hz_danger(int x, int y) { return x >= 0 && y >= 0 && x < MAPN && y < MAPN ? hz_dmap[y][x] : 0; }
+static void hz_clear(void) {                                       /* a new place: none of them come along */
+    for (int i = 0; i < MAXHAZ; i++) if (G.haz[i].alive && G.haz[i].wx >= 0) G.map[G.haz[i].wy][G.haz[i].wx].tex = (uint8_t)G.haz[i].wtex;
+    memset(G.haz, 0, sizeof G.haz); memset(hz_dmap, 0, sizeof hz_dmap);
+    G.hz_acc = 0.0f; G.hz_slow = 1.0f;
+    if (G.silenced) { G.silenced = 0; snd_set_muffle(0); }
+}
+
+/* a floor cell near the dweller, in sight, for an omen: from d0 to d1 off, ahead of you if it can be,
+ * so that it is seen */
+static int hz_near(float d0, float d1, int *ox, int *oy) {
+    for (int tries = 0; tries < 60; tries++) {
+        float a = tries < 40 ? G.ang + (rndf() - 0.5f) * 2.0f : rndf() * TAU_F, d = d0 + (d1 - d0) * rndf();
+        int x = (int)floorf(G.px + cosf(a) * d), y = (int)floorf(G.py + sinf(a) * d);
+        if (!hz_floor(x, y) || in_band(y) || vault_of_room(x, y) >= 0 || !line_clear(G.px, G.py, x + 0.5f, y + 0.5f)) continue;
+        *ox = x; *oy = y;
+        return 1;
+    }
+    return 0;
+}
+/* bile's patch: the floor within reach of a cell, nearest first */
+static int hz_patch(int sx, int sy, int reach, int8_t *cx, int8_t *cy, uint8_t *cd, int max) {
+    static int qx[MAPN * MAPN], qy[MAPN * MAPN], qd[MAPN * MAPN];
+    static uint8_t seen[MAPN][MAPN];
+    memset(seen, 0, sizeof seen);
+    int qh = 0, qt = 0, n = 0;
+    if (!hz_floor(sx, sy)) return 0;
+    qx[qt] = sx; qy[qt] = sy; qd[qt++] = 0; seen[sy][sx] = 1;
+    while (qh < qt && n < max) {
+        int x = qx[qh], y = qy[qh], d = qd[qh++];
+        cx[n] = (int8_t)x; cy[n] = (int8_t)y; cd[n] = (uint8_t)d; n++;
+        if (d >= reach) continue;
+        for (int k = 0; k < 4; k++) {
+            int nx = x + DX[k], ny = y + DY[k];
+            if (seen[ny][nx] || !hz_floor(nx, ny)) continue;
+            seen[ny][nx] = 1; qx[qt] = nx; qy[qt] = ny; qd[qt++] = d + 1;
+        }
+    }
+    return n;
+}
+
+/* the omens: in the three levels before a boss, and in its own level's halls, its hazard comes by
+ * itself near the dweller, at half the harm: a stone from the ceiling in the Crypts, bile from a drain in
+ * the Catacombs, the floor splitting in the Hollows, the void in the Deep */
+static float omen_every(void) { static const float E[4] = { 90.0f, 60.0f, 40.0f, 30.0f }; int s = crawl_step(G.level) - (RUN_LEN - 4); return s >= 0 ? E[s] : 0.0f; }
+static void update_omens(float dt) {
+    float every = omen_every();
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_OMEN")) { every = (float)atof(getenv("CRAWL_OMEN")); G.omen_t = fminf(G.omen_t, every); }   /* testing: omens on any level, this often */
+#endif
+    if (PK.depth || G.shop || G.tally || G.dead || G.exiting || G.level_t < 8.0 || every <= 0.0f || in_arena(G.px, G.py)) return;
+    if ((G.omen_t -= dt) > 0.0f) return;
+    G.omen_t = every * (0.75f + 0.5f * rndf());
+    int x, y;
+    switch (crawl_set(G.level)) {
+    case 0: if (hz_near(1.0f, 5.0f, &x, &y)) hz_rock(x + 0.5f, y + 0.5f, 1); break;
+    case 1:                                                        /* a drain in a wall near you, onto the lane */
+        for (int tries = 0; tries < 40; tries++) {
+            if (!hz_near(2.0f, 6.0f, &x, &y)) break;
+            int d = rnd(4), wx = x + DX[d], wy = y + DY[d];
+            Cell *w = &G.map[wy][wx];
+            if (w->kind != K_WALL || w->secret || (w->tex >= T_TORCH0 && w->tex <= T_TORCH2) || w->tex == T_EXIT0 || wx <= 0 || wy <= 0 || wx >= MAPN - 1 || wy >= MAPN - 1) continue;
+            int8_t cx[HZ_CELLS], cy[HZ_CELLS]; uint8_t cd[HZ_CELLS];
+            int n = hz_patch(x, y, 2, cx, cy, cd, 12);
+            Hazard *h = n ? hz_bile(cx, cy, cd, n, 1) : NULL;
+            if (h) { h->wx = wx; h->wy = wy; h->wtex = w->tex; w->tex = T_GRATE; }
+            break;
+        }
+        break;
+    case 2:
+        if (hz_near(1.0f, 4.0f, &x, &y)) { Hazard *h = hz_fire(1); float a = rndf() * TAU_F; if (h) { hz_line(h, x + 0.5f, y + 0.5f, x + 0.5f + cosf(a), y + 0.5f + sinf(a), 4 + rnd(3), 0); hz_fire_done(h, x + 0.5f, y + 0.5f); } }
+        break;
+    default: if (hz_near(1.5f, 5.0f, &x, &y)) hz_void(x + 0.5f, y + 0.5f, 1.2f, 1); break;
+    }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT omen set %d t=%.2f\n", crawl_set(G.level), G.t);
+#endif
+}
+
+/* a boss's own hazard, over its fight: how often and how much grow with the challenge's steps */
+static void boss_hazards(float dt) {
+    const Mob *m = boss_mob();
+    int step = G.bstep, wave = G.bstate == BS_WAVE || G.bstate == BS_RISE;
+    float pace = 1.0f + 0.2f * (float)step;
+    if (G.bcast_t > 0.0f) G.bcast_t -= dt;
+    switch (G.boss) {
+    case BOSS_KNIGHT:                                              /* Rockfall: three to five about you, one on your cell */
+        if (m && !wave && (G.bz2_t -= dt * pace) <= 0.0f && hypotf(G.px - m->x, G.py - m->y) < 3.0f) {   /* the Sundering Arc, at you */
+            G.bz2_t = 7.0f + 3.0f * rndf();
+            hz_arc(m->x, m->y, atan2f(G.py - m->y, G.px - m->x), mob_damage(m) * 1.3f);
+        }
+        if ((G.bz_t -= dt * pace * (wave ? 0.5f : 1.0f)) > 0.0f) break;
+        G.bz_t = 10.0f + 4.0f * rndf();
+        G.bcast_t = 0.5f;
+        if (m) sfx_at(SFX_GROAN, m->x, m->y, 1.0f);
+        hz_rock(G.px, G.py, 0);
+        for (int i = 0, n = 2 + rnd(3) + step / 2; i < n; i++) {
+            float a = rndf() * TAU_F, d = 1.5f + 2.5f * rndf();
+            int x = (int)floorf(G.px + cosf(a) * d), y = (int)floorf(G.py + sinf(a) * d);
+            if (in_arena((float)x, (float)y) && hz_floor(x, y)) hz_rock(x + 0.5f, y + 0.5f, 0);
+        }
+        break;
+    case BOSS_SPIDER: {                                            /* the outlets: so many open at once, one changing every 20 s */
+        int want = imin(G.bnout, 2 + (step >= 2) + (step >= 4) + wave), open = 0;
+        for (int o = 0; o < G.bnout; o++) {
+            int hi = G.bout_haz[o];
+            if (hi >= 0 && (!G.haz[hi].alive || G.haz[hi].src != o)) G.bout_haz[o] = hi = -1;
+            open += hi >= 0 && hz_phase(&G.haz[hi]) < 2;
+        }
+        int change = (G.bz_t -= dt * pace) <= 0.0f;
+        if (change) G.bz_t = 20.0f;
+        if (change || open > want) {                               /* shut one: it drains back */
+            int c[MAXOUT], nc = 0;
+            for (int o = 0; o < G.bnout; o++) if (G.bout_haz[o] >= 0 && hz_phase(&G.haz[G.bout_haz[o]]) < 2) c[nc++] = o;
+            if (nc) { Hazard *h = &G.haz[G.bout_haz[c[rnd(nc)]]]; h->on = fmaxf(0.0f, h->t - h->warn); if (h->t < h->warn) h->warn = h->t; open--; }
+        }
+        for (int tries = 0; open < want && tries < 8; tries++) {   /* and another opens */
+            int o = rnd(G.bnout);
+            if (G.bout_haz[o] >= 0) continue;
+            Hazard *h = hz_bile(G.bout_cx[o], G.bout_cy[o], G.bout_cd[o], G.bout_n[o], 0);
+            if (h) { h->src = o; G.bout_haz[o] = (int)(h - G.haz); open++; }
+        }
+        break;
+    }
+    case BOSS_DEACON:                                              /* Hellrent: a line at you, a ring round him, a cross */
+        if (wave || !m || (G.bz_t -= dt * pace) > 0.0f) break;
+        G.bz_t = 9.0f + 3.0f * rndf();
+        G.bcast_t = 0.6f;
+        for (int k = 0; k < 1 + (step >= 2); k++) {
+            Hazard *h = hz_fire(0);
+            if (!h) break;
+            int shape = rnd(3);
+            if (shape == 0) hz_line(h, m->x, m->y, G.px, G.py, 10, 0);
+            else if (shape == 1) for (int a = 0; a < 8; a++) hz_line(h, m->x + cosf(a * TAU_F / 8.0f) * 2.0f, m->y + sinf(a * TAU_F / 8.0f) * 2.0f, m->x + cosf(a * TAU_F / 8.0f) * 3.0f, m->y + sinf(a * TAU_F / 8.0f) * 3.0f, 0, a & 1);
+            else { hz_line(h, G.px - 4.0f, G.py, G.px + 4.0f, G.py, 8, 0); hz_line(h, G.px, G.py - 4.0f, G.px, G.py + 4.0f, 8, 0); }
+            hz_fire_done(h, m->x, m->y);
+        }
+        break;
+    case BOSS_WRAITH:                                              /* Void Energies: one on you, the rest across your ways out */
+        if ((G.bz2_t -= dt * pace) <= 0.0f) {                      /* Grasping Dark, wherever no fire is near */
+            G.bz2_t = 6.0f + 3.0f * rndf();
+            int lit = 0;
+            for (int l = 0; l < G.nlights; l++) lit |= hypotf(G.lights[l].x - G.px, G.lights[l].y - G.py) < 3.5f;
+            if (!lit) hz_grasp(G.px, G.py);
+        }
+        if ((G.bz_t -= dt * pace) > 0.0f) break;
+        G.bz_t = 8.0f + 4.0f * rndf();
+        G.bcast_t = 0.6f;
+        hz_void(G.px, G.py, 1.4f, 0);
+        for (int i = 0, n = rnd(3) + (step >= 3) + (step >= 5); i < n; i++) {
+            float a = rndf() * TAU_F, d = 3.0f + 2.0f * rndf();
+            int x = (int)floorf(G.px + cosf(a) * d), y = (int)floorf(G.py + sinf(a) * d);
+            if (in_arena((float)x, (float)y) && hz_floor(x, y)) hz_void(x + 0.5f, y + 0.5f, 1.2f + 0.5f * rndf(), 0);
+        }
+        break;
+    }
+}
+
 /* ---- a boss's fight (docs/PLAN-b7.md) ----
  * It waits, untouchable, until you are a step into its arena; then the arch seals behind you, its name
  * comes up and its bar along the top of the view. At 75%, 50%, 25% and 10% of its health it stops (the
@@ -5367,6 +5766,7 @@ static void update_boss(float dt) {
     }
     if (G.bstate == BS_DEAD) return;
     G.bfight_t += dt;
+    boss_hazards(dt);
     for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && (G.mobs[i].boss || G.mobs[i].add)) G.mobs[i].alert = fmaxf(G.mobs[i].alert, 20.0f);
     if (G.bstate == BS_WAVE) {
         if (G.badds < 0) { if (G.bstate_t >= 2.0f) boss_adds(); return; }
@@ -5948,6 +6348,8 @@ static void crawl_update(double dt) {
 #endif
     if (!G.dead) { update_items(); update_abilities(fdt); update_altar(); update_status(fdt); if (G.level_t > 1.0) update_defense(fdt); }
     update_boss(fdt);
+    update_hazards(fdt);
+    update_omens(fdt);
     if (G.bfs_t > 0.0f && (G.bfs_t += fdt) > 1.6f) G.bfs_t = 0.0f;
     G.hurt = fmaxf(0.0f, G.hurt - fdt / 0.35f);
     G.gold = fmaxf(0.0f, G.gold - fdt / 0.45f);
@@ -6171,6 +6573,7 @@ static int shop_choose(void) {
 }
 
 static void begin_shop(void) {
+    hz_clear();
     G.shop = 1; G.state = PS_SHOP;
     memset(G.wisps, 0, sizeof G.wisps);                            /* nor into the merchant's room */
     crawl_art_level(1);                                            /* the antechamber looks the same every time */
@@ -6574,7 +6977,6 @@ static void update_shop(double dt) {
 
 #define MOUSE_TURN 0.0015f                  /* radians per mouse count */
 #define KEY_TURN 2.6f                       /* radians a second with the arrow keys */
-#define BODY 0.24f                          /* the caster's girth, against walls */
 static const char *const ATK_SHORT[NATK] = { "FIRE", "FROST", "CHAIN", "SPEAR", "DRAIN", "HELL", "WISPS", "SPARKS", "BFS" };
 static const char *const KEY_COLOR[NKEYS] = { "GOLD", "SILVER", "CRIMSON" };
 
@@ -6817,6 +7219,7 @@ static void open_ui(int which) {
 static void human_cast(float dt, int may) {
     G.cooldown -= dt;
     int trig = may && (IN.down[KEY_MOUSE1] || IN.down[KEY_CTRL]);
+    if (trig && G.silenced) { if (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CTRL]) { say("THE VOID TAKES THE WORDS FROM YOU"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); } trig = 0; }
     if (trig && G.pc_t < 0.0f && G.cooldown <= 0.0f && !G.dead) {
         if (G.spell == AT_BFS && RUN.souls < bfs_cost(RUN.gear.atk[AT_BFS])) {
             if (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CTRL]) { say("THE BFS9000 NEEDS %d SOULS", bfs_cost(RUN.gear.atk[AT_BFS])); snd_sfx_ex(SFX_ZAP, 0.4f, 0.5f); }
@@ -7637,18 +8040,20 @@ static void rec_unpack_extra(const uint8_t *p, Record *r) {
 }
 /* version 6's hall, as far as it is built: the runs completed, each boss's scrip and challenge step, the
  * ranks met since the last death */
-#define SAVE_V6_HALL (2 + 2 * BOSS_REC + BOSS_REC + REC_KINDS)
+#define SAVE_V6_HALL (2 + 2 * BOSS_REC + BOSS_REC + REC_KINDS + 1)
 static void hall_pack(uint8_t *p) {
     put16(p, clampi(RUN.runs_done, 0, 65535)); p += 2;
     for (int b = 0; b < BOSS_REC; b++, p += 2) put16(p, clampi(RUN.scrip[b], 0, 65535));
     for (int b = 0; b < BOSS_REC; b++) *p++ = (uint8_t)clampi(RUN.bstep[b], 0, 5);
-    memcpy(p, RUN.top_rank, REC_KINDS);
+    memcpy(p, RUN.top_rank, REC_KINDS); p += REC_KINDS;
+    *p = (uint8_t)RUN.omens;
 }
 static void hall_unpack(const uint8_t *p) {
     RUN.runs_done = get16(p); p += 2;
     for (int b = 0; b < BOSS_REC; b++, p += 2) RUN.scrip[b] = get16(p);
     for (int b = 0; b < BOSS_REC; b++) RUN.bstep[b] = clampi(*p++, 0, 5);
     for (int k = 0; k < REC_KINDS; k++) RUN.top_rank[k] = (uint8_t)clampi(p[k], 0, NRANK);
+    RUN.omens = p[REC_KINDS] & ((1 << NHZ) - 1);
 }
 /* before version 6 a descent was twenty levels: the 40th, 80th ... stay as the descents they are now
  * (the 40th as level 40 cleared), and the rest are let go */
@@ -7993,6 +8398,8 @@ static inline uint8_t fogged(uint8_t c, float fog, float light, int x, int y) {
     return c;
 }
 
+static int fm_any;                                                 /* any hazard marks on the floor this frame */
+static int fm_at(int cx, int cy, float wx, float wy, float fx, float fy, int x, int y, uint8_t *base, float *lmul);
 static void render_floor(Frame *f, float dx, float dy, float plx, float ply, float horizon) {
     float lx = dx - plx, ly = dy - ply, rx = dx + plx, ry = dy + ply;
     int themed = G.ptheme != PT_NONE, sev = G.ptheme == PT_SEVERANCE;   /* carpet underfoot, tiles or panels above */
@@ -8010,6 +8417,7 @@ static void render_floor(Frame *f, float dx, float dy, float plx, float ply, flo
         int grout = floor_row && dist < 6.0f;
         for (int x = 0; x < W; x++, wx += sx, wy += sy) {
             uint8_t base;
+            float lmul = 1.0f;
             if (floor_row) {
                 int cx = (int)floorf(wx), cy = (int)floorf(wy);
                 float fx = wx - cx, fy = wy - cy;
@@ -8023,6 +8431,10 @@ static void render_floor(Frame *f, float dx, float dy, float plx, float ply, flo
                 } else {
                     base = (uint8_t)(R_FLOOR + 8 + ((cx * 7 + cy * 13) & 1));
                     if (grout && (fx < 0.035f || fy < 0.035f)) base = R_FLOOR + 5;
+                }
+                if (fm_any) {                                      /* a hazard's mark */
+                    int o = fm_at(cx, cy, wx, wy, fx, fy, x, y, &base, &lmul);
+                    if (o >= 0) { row[x] = (uint8_t)o; continue; }
                 }
                 if (G.nova_t > 0.0f) {                             /* the frost nova racing out over the floor */
                     float r = 2.2f * sqrtf(G.nova_t / 0.6f), d = hypotf(wx - G.px, wy - G.py);
@@ -8040,7 +8452,7 @@ static void render_floor(Frame *f, float dx, float dy, float plx, float ply, flo
                       : hash2(cx, cy) % 14 == 0 ? T_CEILSTAIN : T_CEILTILE;
                 base = crawl_tex[t][tx * TS + ty];
             } else base = R_CEIL + 8;
-            float L = lm_at(wx, wy) * a;
+            float L = lm_at(wx, wy) * a * lmul;
             row[x] = fogged(shade(base, L, x, y), fog_amount(wx, wy, dk * (floor_row ? 1.15f : 0.8f)), L, x, y);
         }
     }
@@ -8073,6 +8485,129 @@ static void build_cracks(void) {
 }
 
 /* where a ray meets the sliding block: distance, across its face, and which way the face looks */
+/* ---- the hazards, drawn: their marks on the floor, made each frame from G.haz ---- */
+enum { FM_NONE, FM_SHADOW, FM_CRACK, FM_FIRE, FM_EMBER, FM_SHEEN, FM_BILE, FM_VRING, FM_VOID, FM_ARC, FM_GRASP };
+typedef struct { uint8_t kind, prio; float k, ax, ay, r, ang; } FMark;
+static FMark fmark[MAPN][MAPN];
+static void fm_put(int x, int y, int kind, int prio, float k, const Hazard *h) {
+    if (x < 0 || y < 0 || x >= MAPN || y >= MAPN || fmark[y][x].prio > prio) return;
+    FMark *m = &fmark[y][x];
+    m->kind = (uint8_t)kind; m->prio = (uint8_t)prio; m->k = k; m->ax = h->x; m->ay = h->y; m->r = h->r; m->ang = h->ang;
+}
+static int hz_marks(void) {
+    memset(fmark, 0, sizeof fmark);
+    if (PK.depth || G.shop) return 0;
+    int any = 0;
+    for (int i = 0; i < MAXHAZ; i++) {
+        const Hazard *h = &G.haz[i];
+        if (!h->alive) continue;
+        int ph = hz_phase(h);
+        float kw = clampf(h->t / h->warn, 0.0f, 1.0f), kf = h->off > 0.0f ? 1.0f - clampf((h->t - h->warn - h->on) / h->off, 0.0f, 1.0f) : 0.0f;
+        int x0 = (int)floorf(h->x - h->r - 1.0f), x1 = (int)floorf(h->x + h->r + 1.0f), y0 = (int)floorf(h->y - h->r - 1.0f), y1 = (int)floorf(h->y + h->r + 1.0f);
+        any = 1;
+        switch (h->kind) {
+        case HZ_ROCK: if (ph == 0) for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++) fm_put(x, y, FM_SHADOW, 2, kw, h); break;
+        case HZ_FIRE:
+            for (int c = 0; c < h->n; c++) {
+                if (ph == 1) { fm_put(h->cx[c], h->cy[c], FM_FIRE, 3, 1.0f, h); continue; }
+                if (ph == 2) { fm_put(h->cx[c], h->cy[c], FM_EMBER, 1, kf, h); continue; }
+                float reach = h->warn * 0.6f * (float)h->cd[c] / fmaxf(1.0f, h->r);   /* the crack gets there along the line */
+                if (h->t >= reach) fm_put(h->cx[c], h->cy[c], FM_CRACK, 2, clampf((h->t - reach) / fmaxf(0.1f, h->warn - reach), 0.0f, 1.0f), h);
+            }
+            break;
+        case HZ_BILE:
+            for (int c = 0; c < h->n; c++) {
+                float w = hz_bile_wet(h, c);
+                if (w <= 0.0f) continue;
+                if (w >= 1.0f && ph < 2) fm_put(h->cx[c], h->cy[c], FM_BILE, 3, 1.0f, h);
+                else fm_put(h->cx[c], h->cy[c], FM_SHEEN, 2, w, h);
+            }
+            break;
+        case HZ_VOID:
+            for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++)
+                fm_put(x, y, ph == 0 ? FM_VRING : FM_VOID, ph == 1 ? 3 : 2, ph == 0 ? kw : (ph == 1 ? 1.0f : kf), h);
+            break;
+        case HZ_ARC:
+            if (ph < 2 || h->t < h->warn + h->on + 0.15f)
+                for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++) fm_put(x, y, FM_ARC, 2, ph == 0 ? kw : 2.0f, h);
+            break;
+        default:
+            if (ph == 0) for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++) fm_put(x, y, FM_GRASP, 2, kw, h);
+            break;
+        }
+    }
+    return any;
+}
+/* one floor pixel under a mark: returns a colour drawn as it is (bright, or the void's dark), or -1 to
+ * be lit as usual, with the floor's colour and a dimming for its light set */
+static int fm_pixel(const FMark *m, float wx, float wy, float fx, float fy, int x, int y, uint8_t *base, float *lmul) {
+    float d = hypotf(wx - m->ax, wy - m->ay), k = m->k;
+    int b = BAYER[y & 3][x & 3];
+    switch (m->kind) {
+    case FM_SHADOW: {                                              /* a blur that hardens into a dark disc */
+        float rr = m->r * (0.45f + 0.55f * k), edge = 0.05f + 0.3f * (1.0f - k);
+        if (d < rr) *lmul *= 1.0f - 0.85f * k * (1.0f - smoothstepf(rr - edge, rr, d));
+        if (k > 0.6f && fabsf(d - rr) < 0.035f) return 0;
+        return -1;
+    }
+    case FM_CRACK: case FM_EMBER: {
+        int tx = (int)(fx * TS) & (TS - 1), ty = (int)(fy * TS) & (TS - 1);
+        uint32_t hh = hash2((int)floorf(wx), (int)floorf(wy));
+        if (hh & 1) tx = TS - 1 - tx;
+        if (hh & 2) { int q = tx; tx = ty; ty = q; }
+        if (crack_mask[tx * TS + ty]) {
+            if (m->kind == FM_EMBER) return R_BLOOD + clampi((int)(3.0f + 9.0f * k), 0, 15);
+            return k < 0.5f ? R_BLOOD + clampi((int)(5.0f + k * 18.0f), 0, 15) : R_FLAME + clampi((int)(3.0f + (k - 0.5f) * 24.0f), 0, 15);
+        }
+        if (m->kind == FM_EMBER) *lmul *= 0.75f;
+        return -1;
+    }
+    case FM_FIRE: {
+        float v = 0.5f + 0.5f * sinf(wx * 9.0f + (float)G.t * 7.0f) * sinf(wy * 8.0f - (float)G.t * 5.0f);
+        return R_FLAME + clampi((int)(5.0f + 10.0f * v), 0, 15);
+    }
+    case FM_SHEEN:                                                 /* wet and dark, a glint or two */
+        *lmul *= 1.0f - 0.4f * k;
+        if (k > 0.3f && (hash2((int)(wx * 9.0f), (int)(wy * 9.0f)) & 63) == 0) *base = (uint8_t)(R_GHOST + 12);
+        return -1;
+    case FM_BILE: {                                                /* foul and green, bubbling: it shows in the dark */
+        int cx = (int)floorf(wx), cy = (int)floorf(wy);
+        for (int i = 0; i < 3; i++) {
+            uint32_t hh = hash2(cx * 3 + i, cy * 5 - i);
+            float bx = 0.2f + 0.6f * (float)(hh & 255) / 255.0f, by = 0.2f + 0.6f * (float)((hh >> 8) & 255) / 255.0f;
+            float ph = (float)G.t * 0.8f + (float)((hh >> 16) & 255) / 255.0f;
+            float rr = 0.14f * (ph - floorf(ph)), dd = hypotf(fx - bx, fy - by);
+            if (fabsf(dd - rr) < 0.025f) return R_MOSS + 15;     /* a bubble's skin */
+        }
+        float v = 0.5f + 0.25f * sinf((wx + wy) * 5.0f + (float)G.t * 1.7f);
+        return R_MOSS + clampi((int)(3.0f + 6.0f * v + (b > 12 ? 1 : 0)), 0, 15);
+    }
+    case FM_VRING:                                                 /* a ring where it will open, and a haze in it */
+        if (fabsf(d - m->r) < 0.05f + 0.05f * k) return R_PURPLE + clampi((int)(9.0f + 6.0f * k), 0, 15);
+        if (d < m->r && b < (int)(k * 4.0f)) return R_PURPLE + 4;
+        return -1;
+    case FM_VOID:
+        if (fabsf(d - m->r) < 0.07f) return R_PURPLE + clampi((int)(8.0f + 7.0f * k), 0, 15);
+        if (d < m->r && b < (int)(k * 11.0f)) return R_PURPLE + 2 + (b & 3);
+        return -1;
+    case FM_ARC: {                                                 /* a pale fan before the blade */
+        float a = fabsf(wrap_pi(atan2f(wy - m->ay, wx - m->ax) - m->ang));
+        if (d > m->r || a > 0.8f || d < 0.2f) return -1;
+        if (k >= 2.0f || fabsf(d - m->r) < 0.06f || fabsf(a - 0.8f) * d < 0.05f) return R_BONE + 14;
+        return b < (int)(k * 7.0f) ? R_BONE + 12 : -1;
+    }
+    case FM_GRASP:
+        if (fabsf(d - m->r) < 0.07f) return 0;
+        if (d < m->r && b < (int)(k * 8.0f)) return 0;
+        return -1;
+    }
+    return -1;
+}
+static int fm_at(int cx, int cy, float wx, float wy, float fx, float fy, int x, int y, uint8_t *base, float *lmul) {
+    if (cx < 0 || cy < 0 || cx >= MAPN || cy >= MAPN || !fmark[cy][cx].kind) return -1;
+    return fm_pixel(&fmark[cy][cx], wx, wy, fx, fy, x, y, base, lmul);
+}
+
 static int slide_ray(float rdx, float rdy, float *t, float *u, int *side) {
     float bx, by, tx0, tx1, ty0, ty1;
     slide_box(&bx, &by);
@@ -8519,6 +9054,38 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (m->state == MS_DIE && m->sub == 77) {                  /* drawn in to a point */
             float k = smoothstepf(0.1f, 0.75f, m->t);
             d->z += sc * 0.5f * k; d->scale = sc * (1.0f - k) + 0.02f; d->flags = DR_IMPLODE;
+        }
+    }
+    for (int i = 0; i < MAXHAZ && !PK.depth && !G.shop; i++) {      /* the hazards standing up off the floor */
+        const Hazard *h = &G.haz[i];
+        if (!h->alive) continue;
+        int ph = hz_phase(h), n0 = n;
+        float kf = h->off > 0.0f ? 1.0f - clampf((h->t - h->warn - h->on) / h->off, 0.0f, 1.0f) : 0.0f;
+        switch (h->kind) {
+        case HZ_ROCK:
+            if (ph == 0) {
+                ADD(h->x, h->y, 0.0f, SP_GRIT0 + (((int)(G.t * 8.0)) & 1), 0);
+                if (h->t > h->warn - 0.28f) { int n1 = n; ADD(h->x, h->y, (h->warn - h->t) / 0.28f * 0.8f, SP_ROCK, 0); if (n > n1) list[n - 1].scale = 0.8f; }
+            } else ADD(h->x, h->y, -0.15f * (1.0f - kf), SP_RUBBLE, fmaxf(0.05f, kf));
+            break;
+        case HZ_FIRE:
+            if (ph == 1)
+                for (int c = 0; c < h->n; c++) {
+                    int n1 = n;
+                    ADD(h->cx[c] + 0.5f, h->cy[c] + 0.5f, 0.0f, SP_ERUPT0 + ((((int)(G.t * 10.0)) + c) & 1), 0);
+                    if (n > n1) { list[n - 1].flags = DR_BRIGHT; list[n - 1].scale = 0.85f; }
+                }
+            break;
+        case HZ_VOID: {
+            float a = ph == 0 ? 0.12f + 0.15f * clampf(h->t / h->warn, 0.0f, 1.0f) : (ph == 1 ? 0.55f : 0.55f * kf);
+            ADD(h->x, h->y, 0.0f, SP_VOIDCOL, fmaxf(0.03f, a));
+            if (n > n0) list[n - 1].scale = 0.8f + 0.4f * h->r;
+            break;
+        }
+        case HZ_GRASP:
+            if (ph > 0) { float k = clampf((h->t - h->warn) / 0.25f, 0.0f, 1.0f); ADD(h->x, h->y, -0.45f * (1.0f - k), SP_HANDS, fmaxf(0.05f, kf)); }
+            break;
+        default: break;
         }
     }
     for (int i = 0; i < MAXSHOTS; i++) {
@@ -9178,6 +9745,13 @@ static void render_hand(Frame *f) {
     hand_origin(hand, &fox, &foy);
     int ox = (int)fox, oy = (int)foy;
     float light = fminf(lm_at(G.px, G.py) + 0.6f * hand, 1.25f);
+    static uint8_t grey[256]; static int grey_built;
+    if (!grey_built) {                                             /* each colour as a grey of its brightness */
+        for (int c = 0; c < 256; c++) grey[c] = (uint8_t)(R_STONE + clampi((crawl_pal[c][0] * 3 + crawl_pal[c][1] * 6 + crawl_pal[c][2]) * 15 / 630, 0, 15));
+        grey_built = 1;
+    }
+    int greyed = G.silenced;
+    oy += (int)(G.sil_k * 18.0f);                                  /* the void: the hand drops */
     for (int y = 0; y < HAND_H; y++) {
         int sy = oy + y;
         if (sy < 0 || sy >= H) continue;
@@ -9194,7 +9768,7 @@ static void render_hand(Frame *f) {
                 continue;
             }
             float lit = light;
-            f->pix[sy * W + sx] = shade(c, lit, sx, sy);
+            f->pix[sy * W + sx] = shade(greyed ? grey[c] : c, lit, sx, sy);
         }
     }
     float ct = -1.0f, fire = 0.0f;                                 /* how far into a cast, and when it lets go */
@@ -10231,6 +10805,7 @@ static void crawl_render(Frame *f) {
     float horizon = H / 2.0f + G.hurt * 3.0f;
     float camz = G.camz;
     G.camz -= 0.03f * G.hurt;
+    fm_any = hz_marks();
     render_floor(f, dx, dy, plx, ply, horizon);
     render_walls(f, dx, dy, plx, ply, horizon);
     render_sprites(f, dx, dy, horizon);

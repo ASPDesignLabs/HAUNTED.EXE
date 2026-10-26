@@ -126,7 +126,8 @@ wherever it stands, and presses E at the exit and at secrets: a test that it lea
 altar's wisp finds the secrets; with the altar's wisp it goes into each secret and out, presses E at the
 wisp, follows it home and sends it on from the altar's menu; it can't be hurt), `CRAWL_SHOWHAND`, `CRAWL_BFSANY`,
 `CRAWL_TPBOSS=1` (on a boss level, in its antechamber facing the arch once you take control; 2: the autopilot
-put there as the level opens, already leaving), `CRAWL_BOSSHP=f` (a boss's health times f), `CRAWL_GOALS=1`
+put there as the level opens, already leaving), `CRAWL_BOSSHP=f` (a boss's health times f), `CRAWL_OMEN=s` (the
+level's omens on any level, every s seconds, the first at once), `CRAWL_GOALS=1`
 (the autopilot's goal at every step, as `GOAL` lines),
 `CRAWL_RANK=r` (every creature at rank r), `CRAWL_WRAITH=s` (the Wraith at s seconds), `CRAWL_MEET=k`
 (one creature of kind k, the `MOB_*` number, a few cells ahead of the caster five seconds into each level,
@@ -136,7 +137,8 @@ and into each pocket).
 The debug build prints the autopilot's state once a second (`lvl=... t=... hp=... items=a/b val=a/b
 ...` plus a second line of hit counters) and `EVENT` lines: `cleared level N t=..`, `died level N
 t=..`, `secret i of n`, `key..`, `leaving`, `bought`, `shop_pick`, `cast`, `defense`, `exit_seen`,
-`control`, and for bosses `boss_begin`, `boss_wave`, `boss_adds`, `boss_rise`, `boss_fall`, `font`, `scrip`. Long simulations are just `CRAWL_SEED=s timeout 3000 build/host_debug apl crawl 3000 >
+`control`, and for bosses `boss_begin`, `boss_wave`, `boss_adds`, `boss_rise`, `boss_fall`, `font`, `scrip`,
+`hazard k` (`omen` when it is one), `hz_hit`, `omen set n`. Long simulations are just `CRAWL_SEED=s timeout 3000 build/host_debug apl crawl 3000 >
 log` per seed, four at a time, then a short script over the logs: levels reached, median level time
 (from `cleared`), treasure share (`val=` on the last state line before `cleared`), deaths, purchases,
 secrets. Compare against a build of the previous commit (a `git worktree`) on the same seeds; one run
@@ -209,7 +211,25 @@ screenshots with ImageMagick `import -window root`. Settings, progress and grave
   tally gains a BOSS row, the record (`Record.boss`) and achievements (`ACH_BOSS0`) note it, and on the way
   down `RUN.runs_done` counts the run. The autopilot (`boss_goal`) keeps three to six cells from it, away
   from its adds, drinks under 40% and takes the scrip; a boss level waits 1500 s, not 600, before it gives
-  up on one. The bosses' own ways (runes, abilities, hazards) come in steps 5-8 of the plan.
+  up on one. The bosses' own ways (runes, abilities) come in steps 5-8 of the plan.
+- **Hazards and omens** (docs/PLAN-b7.md, section 6; `Hazard` in `G.haz`, `hz_new`, `update_hazards`,
+  `boss_hazards`, `update_omens`). Each warns (`warn`, never under 0.9 s, `hz_warn`), harms (`on`) and fades
+  (`off`), and hurts only the dweller, by a share of its health (`share`). `HZ_ROCK` (grit and a hardening
+  shadow, then a rock: `HURT_STONE`, no dodging; rubble after), `HZ_FIRE` (Hellrent: cracks along `hz_line`
+  in order, glowing up to the burst, fire a second, embers), `HZ_BILE` (a sheen creeping cell by cell from an
+  outlet, foul once settled: poison and a fifth slower; drains when shut; `hz_bile_wet`), `HZ_VOID` (a ring and
+  a thin column, then a purple volume: `HURT_VOID`, 60% pace, `G.silenced`: no spells or runes, the hand
+  drops and greys, `snd_set_muffle`), `HZ_ARC` (the knight's Sundering Arc) and `HZ_GRASP` (the Wraith's
+  Grasping Dark). The floor's marks are made each frame (`hz_marks`, `FMark`, `fm_pixel` in `render_floor`);
+  what stands up is drawn with the sprites (`SP_GRIT0/1`, `SP_ROCK`, `SP_RUBBLE`, `SP_ERUPT0/1`, `SP_VOIDCOL`,
+  `SP_HANDS`). `hz_dmap` (`hz_danger`) tells the autopilot which cells warn or harm: `decide` keeps out of them
+  and it stops aiming to step out of one. A boss's own (`boss_hazards`): the knight's rockfall and arc, the
+  spider's outlets (`G.bout_*`, from the map's `v` and the well, two open, one changing every 20 s, one more
+  in a wave), the Deacon's lines, rings and crosses, the Wraith's voids and hands; each a fifth more often a
+  challenge step. Omens (`omen_every`): the run's hazard near you, ahead if it can be, at half the harm, on
+  its last four levels (every 90, 60, 40 and 30 s), never in a pocket or the arena; the Catacombs' bile
+  comes from a wall turned to a grate (`T_GRATE`) for the while. The first of each kind is named
+  (`RUN.omens`, saved).
 - **Autopilot** walks only lanes (`apass`), with quick 90-degree turns; `decide`, `pick_goal`,
   `key_goal`. It remembers treasure it has seen, leaves at 270 s (300 if above 60% health) or 330
   (360), or earlier once it has most of the treasure. It presses about a third of the secrets it walks

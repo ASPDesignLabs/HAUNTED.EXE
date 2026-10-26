@@ -270,6 +270,8 @@ static uint32_t g_rng = 12345;
 static int g_hold;                  /* the console is open: the game's effects and the crackle wait; the music and its drums play */
 static float g_fx_gain = 1.0f;      /* the game's effects fade out and back in over a fiftieth of a second, so nothing clicks */
 static int g_room;                  /* 1 the Backrooms: the music gone, a hum, more echo on the game's sounds; 2 Severance: muzak too */
+static int g_muffle;                /* the void: everything as if heard through cloth */
+static float g_muf_k, g_mlp[2];
 static float g_room_k, g_muz_k;     /* how far into the room's sound, and into the muzak, 0..1, over a second */
 static float g_hum_ph;
 
@@ -1257,7 +1259,7 @@ void snd_start_program(int prog) {
     g_prog = prog;
     g_samples = 0; g_step_acc = 0; g_step = 0;
     g_mrng = 777u + (uint32_t)prog * 31u;
-    g_hb_timer = 0; g_hold = 0; g_fx_gain = 1.0f; g_room = 0; g_room_k = g_muz_k = 0.0f;
+    g_hb_timer = 0; g_hold = 0; g_fx_gain = 1.0f; g_room = 0; g_room_k = g_muz_k = 0.0f; g_muffle = 0; g_muf_k = 0.0f;
     if (prog == SND_PROG_HAUNT) {
         g_sps = 0.25 * SND_RATE;                      /* 60 BPM sixteenths */
         g_rv_fb = 0.86f; g_rv_damp = 0.30f; g_rv_wet = 0.36f;
@@ -1276,6 +1278,7 @@ void snd_start_program(int prog) {
 void snd_set_mood(float m) { LOCK(); g_mood_target = clampf(m, 0.0f, 1.0f); UNLOCK(); }
 void snd_hold(int on) { LOCK(); g_hold = on != 0; UNLOCK(); }
 void snd_set_room(int room) { LOCK(); g_room = room; UNLOCK(); }
+void snd_set_muffle(int on) { LOCK(); g_muffle = on != 0; UNLOCK(); }
 void snd_set_latency(int frames) { LOCK(); g_latency = frames; UNLOCK(); }
 
 /* duration, gain, default pan (negative: random spread of that width), reverb send */
@@ -1476,6 +1479,12 @@ static void render_locked(int16_t *out, int frames) {
         /* DC blocker (~15 Hz): the low sines in kicks/bass are not zero-mean */
         float yl = L - g_dcx[0] + 0.9979f * g_dcy[0]; g_dcx[0] = L; g_dcy[0] = yl;
         float yr = R - g_dcx[1] + 0.9979f * g_dcy[1]; g_dcx[1] = R; g_dcy[1] = yr;
+        g_muf_k += ((float)g_muffle - g_muf_k) * (5.0f / SR);     /* the void: a low-pass coming down over everything */
+        if (g_muf_k > 0.002f) {
+            float a = 1.0f - 0.94f * g_muf_k;
+            g_mlp[0] += a * (yl - g_mlp[0]); g_mlp[1] += a * (yr - g_mlp[1]);
+            yl = g_mlp[0] * (1.0f - 0.25f * g_muf_k); yr = g_mlp[1] * (1.0f - 0.25f * g_muf_k);
+        } else { g_mlp[0] = yl; g_mlp[1] = yr; }
 
         float gm = g_master * g_mg;
         float ol = softclip(yl * gm * 1.15f), or_ = softclip(yr * gm * 1.15f);

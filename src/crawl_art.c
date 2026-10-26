@@ -1621,6 +1621,103 @@ static void spr_ccoin(void) {
     cv_store(SP_CCOIN);
 }
 
+/* a drain low in the wall, barred, a dark stain down from it: where a cistern's bile comes out */
+static void gen_grate(int t, uint32_t seed) {
+    gen_stone(t, R_STONE, seed);
+    for (int y = 38; y < 58; y++)
+        for (int x = 14; x < 50; x++) {
+            int edge = y == 38 || x == 14 || x == 49 || y == 57;
+            uint8_t c = edge ? sh(R_STONE, 0.72f) : sh(R_STONE, 0.02f + 0.03f * h01(x, y, seed));
+            if (!edge && (x - 16) % 6 < 2) c = sh(R_IRON, (x - 16) % 6 ? 0.35f : 0.6f);   /* the bars */
+            if (!edge && y == 47) c = sh(R_IRON, 0.5f);
+            tput(t, x, y, c);
+        }
+    for (int y = 58; y < TS; y++)                                   /* the stain, down to the floor */
+        for (int x = 20; x < 44; x++)
+            if (fbm(x / 3.0f, y / 6.0f, 16, seed + 3) > 0.42f) tput(t, x, y, sh(R_MOSS, 0.12f + 0.1f * h01(x, y, seed)));
+}
+
+/* grit falling from the ceiling in a thin column, two frames of it */
+static void spr_grit(int id, int frame) {
+    cv_begin(cv_sprite, TS, TS);
+    uint32_t s = 911u + (uint32_t)frame * 37u;
+    for (int i = 0; i < 70; i++) {
+        float y = h01(i, 1, s) * 52.0f, x = 32.0f + (h01(i, 2, s) - 0.5f) * (3.0f + y * 0.08f);
+        cv_px((int)x, (int)y, sh(R_BONE, 0.35f + 0.4f * h01(i, 3, s)));
+        if (h01(i, 4, s) > 0.7f) cv_px((int)x, (int)y + 1, sh(R_STONE, 0.5f));
+    }
+    cv_store(id);
+}
+
+/* a rock, broken from the vault: drawn at the bottom of its square, so it can be dropped from above */
+static void spr_rock(void) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 44; y < 64; y++)
+        for (int x = 20; x < 44; x++) {
+            float dx = (x + 0.5f - 32.0f) / 10.5f, dy = (y + 0.5f - 54.0f) / 8.5f, d = dx * dx + dy * dy;
+            d += (fbm(x / 3.0f, y / 3.0f, 16, 77) - 0.5f) * 0.6f;
+            if (d > 1.0f) continue;
+            cv_px(x, y, sh(R_STONE, 0.25f + 0.45f * lit(dx, dy, sqrtf(fmaxf(0.0f, 1.0f - d))) + 0.1f * h01(x, y, 5)));
+        }
+    cv_outline(0);
+    cv_store(SP_ROCK);
+}
+static void spr_rubble(void) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 13.0f, 1.6f, sh(R_STONE, 0.05f));
+    for (int k = 0; k < 6; k++) {
+        float cx = 22.0f + 20.0f * h01(k, 1, 31), cy = 59.0f + 3.0f * h01(k, 2, 31), r = 2.0f + 3.0f * h01(k, 3, 31);
+        cv_ellipse(cx, cy, r * 1.2f, r, R_STONE, 0.2f, 0.65f);
+    }
+    for (int i = 0; i < 40; i++) cv_px(18 + (int)(h01(i, 5, 31) * 28.0f), 60 + (int)(h01(i, 6, 31) * 4.0f), sh(R_BONE, 0.3f));   /* dust */
+    cv_outline(0);
+    cv_store(SP_RUBBLE);
+}
+
+/* fire bursting from the floor's cracks: a narrow tongue the height of a man, flickering */
+static void spr_erupt(int id, int frame) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 4; y < TS; y++)
+        for (int x = 18; x < 46; x++) {
+            float k = (float)(TS - y) / 60.0f;                      /* 0 at the floor, 1 at the top */
+            float w = 11.0f * (1.0f - k * 0.75f) + 2.0f * sinf(y * 0.45f + frame * 2.1f);
+            float dx = fabsf(x + 0.5f - 32.0f - 3.0f * sinf(y * 0.2f + frame * 1.7f) * k);
+            if (dx > w) continue;
+            float v = 1.0f - dx / w * 0.6f - k * 0.45f + 0.2f * (fbm(x / 4.0f, (y + frame * 9) / 4.0f, 16, 99) - 0.5f);
+            if (h01(x, y + frame * 31, 5) > 0.9f - k * 0.2f && k > 0.5f) continue;   /* ragged at the top */
+            cv_px(x, y, sh(R_FLAME, v));
+        }
+    cv_store(id);
+}
+
+/* the void's column: purple dark, thickest at the floor, with motes in it; the renderer draws it see-through */
+static void spr_voidcol(void) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 0; y < TS; y++)
+        for (int x = 14; x < 50; x++) {
+            float k = (float)y / (TS - 1), dx = fabsf(x + 0.5f - 32.0f) / 18.0f;
+            if (dx > 1.0f || h01(x, y, 61) > 0.35f + 0.6f * k * (1.0f - dx)) continue;
+            cv_px(x, y, sh(R_PURPLE, 0.15f + 0.35f * k * (1.0f - dx)));
+        }
+    for (int i = 0; i < 26; i++) cv_px(18 + (int)(h01(i, 1, 63) * 28.0f), (int)(h01(i, 2, 63) * 60.0f), sh(R_PURPLE, 0.85f + 0.15f * h01(i, 3, 63)));
+    cv_store(SP_VOIDCOL);
+}
+
+/* hands of the dark, rising: black, long-fingered, reaching */
+static void spr_hands(void) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int h = 0; h < 3; h++) {
+        float bx = 20.0f + h * 12.0f, top = 34.0f + 6.0f * h01(h, 1, 71), lean = (h - 1) * 1.6f;
+        cv_capsule(bx, 63, bx + lean, top + 8.0f, 2.6f, R_IRON, 0.02f, 0.2f);   /* the wrist */
+        for (int f = 0; f < 4; f++) {
+            float a = -0.9f + 0.6f * f + 0.15f * h, len = 7.0f + 2.0f * h01(h, f, 73);
+            cv_capsule(bx + lean, top + 8.0f, bx + lean + sinf(a) * len, top + 8.0f - cosf(a) * len, 1.0f, R_IRON, 0.05f, 0.3f);
+        }
+    }
+    cv_outline(0);
+    cv_store(SP_HANDS);
+}
+
 /* a boss's Named Odious Scrip: a curl of old parchment on the floor, tied with a red cord under a
  * black seal pressed with a skull */
 static void spr_scrip(void) {
@@ -4439,6 +4536,7 @@ void crawl_art_init(void) {
     gen_sign(T_SIGN, 91);
     gen_gate(T_GATE, 97);
     gen_font(T_FONT, 101, 1); gen_font(T_FONT_DRY, 101, 0);
+    gen_grate(T_GRATE, 103);
     gen_exit(T_EXIT0, 0, 0);
     gen_exit(T_EXIT1, 1, 0);
     gen_exit(T_EXIT_OPEN, 1, 1);
@@ -4491,6 +4589,8 @@ void crawl_art_init(void) {
     for (int k = 0; k <= 9; k++) spr_srune(k);
     spr_ccoin();
     spr_scrip();
+    spr_grit(SP_GRIT0, 0); spr_grit(SP_GRIT1, 1); spr_rock(); spr_rubble();
+    spr_erupt(SP_ERUPT0, 0); spr_erupt(SP_ERUPT1, 1); spr_voidcol(); spr_hands();
     spr_desks(); spr_cooler(SP_COOLER, 0); spr_cooler(SP_COOLER_LOW, 1);
     for (int f = 0; f < 4; f++) spr_bonefly(SP_BONEFLY0 + f, f * PI_F * 0.25f);
     spr_coins(SP_COINS_A, 0);

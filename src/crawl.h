@@ -44,6 +44,7 @@ enum {
     /* the bosses' arenas (1.0.0b7) */
     T_GATE,                                       /* a portcullis in an arch: the adds come through */
     T_FONT, T_FONT_DRY,                           /* a basin set in the wall, a draught in it; and drunk dry */
+    T_GRATE,                                      /* a drain low in the wall: where the bile comes from */
     NTEX
 };
 
@@ -127,6 +128,12 @@ enum {
     SP_DESKS,                                   /* Severance: four desks behind low partitions, old terminals on them */
     SP_COOLER, SP_COOLER_LOW,                   /* ... the water cooler, full, and after its one drink */
     SP_SCRIP,                                   /* a boss's Named Odious Scrip: a curl of parchment, a black seal */
+    /* the bosses' hazards (1.0.0b7) */
+    SP_GRIT0, SP_GRIT1,                         /* grit trickling from the ceiling where a rock will fall */
+    SP_ROCK, SP_RUBBLE,                         /* the rock, falling; and what it leaves, sinking into dust */
+    SP_ERUPT0, SP_ERUPT1,                       /* fire bursting from the cracks, at full brightness */
+    SP_VOIDCOL,                                 /* the void's column of purple dark, drawn see-through */
+    SP_HANDS,                                   /* hands of the dark rising from the floor */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
     SP_SKEL_SA, SP_SKEL_SB, SP_SHIELD_SA, SP_SHIELD_SB, SP_BAT_SA, SP_BAT_SB, SP_SPIDER_SA, SP_SPIDER_SB,
     SP_GHOST_SA, SP_GHOST_SB, SP_WSKULL_S,
