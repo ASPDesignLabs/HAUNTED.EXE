@@ -28,6 +28,9 @@ enum { KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_W, KEY_A, KEY_S, KEY_D, KEY_E,
        KEY_SHIFT, KEY_TAB, KEY_ESC, KEY_ENTER, KEY_H, KEY_Y, KEY_N,
        KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_MOUSE1, KEY_MOUSE2, KEY_B, KEY_L,
        KEY_CONSOLE, KEY_BACK, KEY_PGUP, KEY_PGDN, KEY_C, KEY_COUNT };   /* KEY_CONSOLE: the key left of 1, wherever ~ is on it */
+/* A game controller, by XInput's layout; the triggers count as buttons past a third of the way. */
+enum { PAD_A, PAD_B, PAD_X, PAD_Y, PAD_LB, PAD_RB, PAD_VIEW, PAD_MENU, PAD_LS, PAD_RS,
+       PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT, PAD_LT, PAD_RT, PAD_COUNT };
 typedef struct Input {
     uint8_t down[KEY_COUNT];        /* held now */
     uint8_t hit[KEY_COUNT];         /* went down since the last update */
@@ -35,7 +38,12 @@ typedef struct Input {
     int wheel;                      /* wheel notches since the last update, + away from you */
     char text[24];                  /* letters and digits typed since the last update, in capitals */
     int ntext;
+    int pad;                        /* a controller is plugged in */
+    uint8_t pad_down[PAD_COUNT], pad_hit[PAD_COUNT];
+    float lx, ly, rx, ry;           /* the sticks past their dead zones, -1..1, y up */
+    float lt, rt;                   /* the triggers, 0..1 */
 } Input;
+void pad_rumble(float low, float high, float seconds);   /* the controller's motors, 0..1 each, for a while */
 enum { CTRL_TAKE = 1, CTRL_PAUSE = 2, CTRL_PEEK = 3 };  /* Scene.control */
 enum { PLAY_AUTO, PLAY_PLAYER, PLAY_QUIT };             /* Scene.status */
 

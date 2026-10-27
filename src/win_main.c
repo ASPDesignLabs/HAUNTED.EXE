@@ -11,7 +11,8 @@
  * argument (a .scr opens its settings then, as Windows expects).
  *
  * In any of the running modes, holding H for three seconds hands CATACOMB to the keyboard and
- * mouse; the mouse is then read raw and kept inside the window. Choosing to leave saves the
+ * mouse; the mouse is then read raw and kept inside the window. Holding any button of a game
+ * controller (XInput, loaded if Windows has it) does the same, and the pad plays it. Choosing to leave saves the
  * progress in the registry, and the next run starts from it.
  *
  * Output is an indexed VGA frame scaled by an integer factor with nearest
@@ -62,6 +63,7 @@ static void settings_load(Settings *s) {
     s->app.scene_enabled[0] = (int)reg_get(k, "SceneHaunt", 1);
     s->app.scene_enabled[1] = (int)reg_get(k, "SceneDemo", 1);
     s->largest_monitor = (int)reg_get(k, "LargestMonitor", 1);
+    s->app.pad = (int)reg_get(k, "Controller", 1);
     RegCloseKey(k);
     if (s->app.volume < 0) s->app.volume = 0;
     if (s->app.volume > 100) s->app.volume = 100;
@@ -113,6 +115,7 @@ static void settings_save(const Settings *s) {
     reg_set(k, "SceneHaunt", (DWORD)s->app.scene_enabled[0]);
     reg_set(k, "SceneDemo", (DWORD)s->app.scene_enabled[1]);
     reg_set(k, "LargestMonitor", (DWORD)s->largest_monitor);
+    reg_set(k, "Controller", (DWORD)s->app.pad);
     RegCloseKey(k);
 }
 
@@ -378,6 +381,94 @@ static void set_capture(int on) {
 
 static void request_quit(void) { g_quit = 1; }
 
+/* ------------------------------------------------------------------ */
+/* A game controller (XInput), if Windows has it                       */
+/* ------------------------------------------------------------------ */
+
+/* XInput's own structures, declared here so it is only loaded, never linked */
+typedef struct { WORD buttons; BYTE lt, rt; SHORT lx, ly, rx, ry; } XPad;
+typedef struct { DWORD packet; XPad pad; } XState;
+typedef struct { WORD low, high; } XVibration;
+typedef DWORD (WINAPI *XGetStateFn)(DWORD, XState *);
+typedef DWORD (WINAPI *XSetStateFn)(DWORD, XVibration *);
+static XGetStateFn g_xget;
+static XSetStateFn g_xset;
+static int g_pad_on;                    /* the setting */
+static int g_pad_in[4];                 /* which slots have a pad */
+static DWORD g_pad_look[4];             /* when an empty slot was last asked: it is slow to answer */
+static double g_pad_touch = -1e9;       /* when the pad was last touched */
+static WORD g_mot_lo, g_mot_hi;         /* the motors as last set */
+
+static double now_seconds(void);
+static void pad_open(int on) {
+    static const char *const DLL[3] = { "xinput1_4.dll", "xinput1_3.dll", "xinput9_1_0.dll" };
+    g_pad_on = on;
+    for (int i = 0; i < 3 && on && !g_xget; i++) {
+        HMODULE m = LoadLibraryA(DLL[i]);
+        if (!m) continue;
+        g_xget = (XGetStateFn)(void *)GetProcAddress(m, "XInputGetState");
+        g_xset = (XSetStateFn)(void *)GetProcAddress(m, "XInputSetState");
+        if (!g_xget) FreeLibrary(m);
+    }
+    for (int i = 0; i < 4; i++) { g_pad_in[i] = 1; g_pad_look[i] = 0; }   /* ask every slot once */
+}
+/* a stick past its dead zone, round, the rest stretched back to 0..1 */
+static void pad_stick(SHORT sx, SHORT sy, float dead, float *ox, float *oy) {
+    float x = sx / 32767.0f, y = sy / 32767.0f, m = sqrtf(x * x + y * y), d = dead / 32767.0f;
+    if (m <= d) { *ox = *oy = 0.0f; return; }
+    float k = (fminf(m, 1.0f) - d) / (1.0f - d) / m;
+    *ox = clampf(x * k, -1.0f, 1.0f); *oy = clampf(y * k, -1.0f, 1.0f);
+}
+static void pad_motors(WORD lo, WORD hi) {
+    if (!g_xset || (lo == g_mot_lo && hi == g_mot_hi)) return;
+    XVibration v = { lo, hi };
+    for (int i = 0; i < 4; i++) if (g_pad_in[i]) g_xset((DWORD)i, &v);
+    g_mot_lo = lo; g_mot_hi = hi;
+}
+/* a person playing with the pad, touched in the last two minutes: Windows doesn't count it as activity */
+static int pad_playing(void) { return app_control_state() == APP_PLAYER && now_seconds() - g_pad_touch < 120.0; }
+static void pad_poll(void) {
+    static const WORD BIT[PAD_COUNT] = { 0x1000, 0x2000, 0x4000, 0x8000, 0x0100, 0x0200, 0x0020, 0x0010, 0x0040, 0x0080,
+                                         0x0001, 0x0002, 0x0004, 0x0008, 0, 0 };
+    uint8_t was[PAD_COUNT];
+    memcpy(was, g_in.pad_down, sizeof was);
+    memset(g_in.pad_down, 0, sizeof g_in.pad_down);
+    g_in.lx = g_in.ly = g_in.rx = g_in.ry = g_in.lt = g_in.rt = 0.0f;
+    g_in.pad = 0;
+    int focus = g_mode == MODE_SAVER || GetForegroundWindow() == g_main;   /* the program reads it only while it is in front */
+    if (!g_pad_on || !g_xget || !focus) { pad_motors(0, 0); return; }
+    DWORD now = GetTickCount();
+    for (int i = 0; i < 4; i++) {
+        if (!g_pad_in[i] && now - g_pad_look[i] < 2000) continue;
+        XState st;
+        g_pad_look[i] = now;
+        if (g_xget((DWORD)i, &st) != ERROR_SUCCESS) { g_pad_in[i] = 0; continue; }
+        g_pad_in[i] = 1; g_in.pad = 1;
+        for (int b = 0; b < PAD_COUNT; b++) if (BIT[b] && (st.pad.buttons & BIT[b])) g_in.pad_down[b] = 1;
+        float lt = st.pad.lt / 255.0f, rt = st.pad.rt / 255.0f, lx, ly, rx, ry;
+        g_in.lt = fmaxf(g_in.lt, lt > 0.1f ? lt : 0.0f); g_in.rt = fmaxf(g_in.rt, rt > 0.1f ? rt : 0.0f);
+        if (lt > 0.33f) g_in.pad_down[PAD_LT] = 1;
+        if (rt > 0.33f) g_in.pad_down[PAD_RT] = 1;
+        pad_stick(st.pad.lx, st.pad.ly, 7849.0f, &lx, &ly);        /* XInput's own suggested dead zones */
+        pad_stick(st.pad.rx, st.pad.ry, 8689.0f, &rx, &ry);
+        if (fabsf(lx) + fabsf(ly) > fabsf(g_in.lx) + fabsf(g_in.ly)) { g_in.lx = lx; g_in.ly = ly; }
+        if (fabsf(rx) + fabsf(ry) > fabsf(g_in.rx) + fabsf(g_in.ry)) { g_in.rx = rx; g_in.ry = ry; }
+    }
+    int touched = g_in.lx != 0.0f || g_in.ly != 0.0f || g_in.rx != 0.0f || g_in.ry != 0.0f;
+    for (int b = 0; b < PAD_COUNT; b++) {
+        if (g_in.pad_down[b] && !was[b]) g_in.pad_hit[b] = 1;
+        touched |= g_in.pad_down[b];
+    }
+    if (touched) g_pad_touch = now_seconds();
+    if (pad_playing()) {                                           /* keep the display awake, now and then */
+        static double told;
+        if (now_seconds() - told > 20.0) { told = now_seconds(); SetThreadExecutionState(ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED); }
+    }
+    float lo = 0.0f, hi = 0.0f;
+    if (app_control_state() == APP_PLAYER) app_pad_motors(&lo, &hi);
+    pad_motors((WORD)(lo * 65535.0f), (WORD)(hi * 65535.0f));
+}
+
 /* F11 in the test and capture windows: borderless over the whole monitor, or back to a normal
  * window.  The borderless window is one pixel taller than the monitor so Windows keeps composing
  * it (no exclusive full-screen switch), which is what screen recorders need to see it. */
@@ -467,6 +558,7 @@ static LRESULT CALLBACK saver_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_SYSCOMMAND:
         if (g_mode == MODE_SAVER && ((wp & 0xFFF0) == SC_SCREENSAVE || (wp & 0xFFF0) == SC_CLOSE)) return 0;
+        if (g_mode != MODE_PREVIEW && pad_playing() && ((wp & 0xFFF0) == SC_SCREENSAVE || (wp & 0xFFF0) == SC_MONITORPOWER)) return 0;
         break;
     case WM_CLOSE: request_quit(); return 0;
     case WM_DESTROY:
@@ -610,6 +702,7 @@ static int run_saver(HINSTANCE hi, const Settings *set, int windowed) {
     rid.usUsagePage = 0x01; rid.usUsage = 0x02; rid.dwFlags = 0; rid.hwndTarget = g_main;
     RegisterRawInputDevices(&rid, 1, sizeof rid);
 
+    pad_open(set->app.pad);                        /* a controller, if one is plugged in */
     snd_init();                                    /* the audio thread needs the synth ready */
     int audio = set->app.sound ? audio_start() : 0;
     slots_load();
@@ -623,6 +716,7 @@ static int run_saver(HINSTANCE hi, const Settings *set, int windowed) {
         double t = now_seconds();
         double dt = t - prev; prev = t;
         if (dt > 0.1) dt = 0.1;
+        pad_poll();
         app_update(dt);
         slots_flush();                                 /* a page signed, a death, the mark: keep it */
         if (app_quit_requested()) break;               /* fled to the surface: the ledger has what is kept */
@@ -632,6 +726,7 @@ static int run_saver(HINSTANCE hi, const Settings *set, int windowed) {
     }
     slots_flush();
     set_capture(0);
+    pad_motors(0, 0);                              /* never left rumbling */
 
     audio_stop();
     display_close(&g_disp);
@@ -688,7 +783,7 @@ static int run_preview(HINSTANCE hi, HWND parent) {
 /* ------------------------------------------------------------------ */
 
 enum { ID_SOUND = 100, ID_VOL, ID_VOLTXT, ID_BRIGHT, ID_BRIGHTTXT, ID_SC0, ID_SC1, ID_STAY, ID_STAYTXT,
-       ID_SHIFT, ID_MON };
+       ID_SHIFT, ID_MON, ID_PAD };
 
 static Settings g_cfg;
 static HWND g_cfgwnd, g_cfgparent;
@@ -721,6 +816,7 @@ static void cfg_apply_and_close(void) {
     if (!g_cfg.app.scene_enabled[0] && !g_cfg.app.scene_enabled[1]) g_cfg.app.scene_enabled[0] = 1;
     g_cfg.app.pixel_shift = IsDlgButtonChecked(g_cfgwnd, ID_SHIFT) == BST_CHECKED;
     g_cfg.largest_monitor = (int)SendDlgItemMessageA(g_cfgwnd, ID_MON, CB_GETCURSEL, 0, 0) == 1;
+    g_cfg.app.pad = IsDlgButtonChecked(g_cfgwnd, ID_PAD) == BST_CHECKED;
     settings_save(&g_cfg);
     DestroyWindow(g_cfgwnd);
 }
@@ -754,7 +850,7 @@ static int run_config(HINSTANCE hi, HWND parent) {
     wc.hCursor = LoadCursorA(NULL, IDC_ARROW); wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
     RegisterClassA(&wc);
 
-    const int W = 440, H = 372;
+    const int W = 440, H = 402;
     RECT r = { 0, 0, W, H };
     AdjustWindowRect(&r, WS_CAPTION | WS_SYSMENU, FALSE);
     int ww = r.right - r.left, wh = r.bottom - r.top;
@@ -798,6 +894,9 @@ static int run_config(HINSTANCE hi, HWND parent) {
     y += 38;
     ctl("BUTTON", "Slowly drift the picture (helps prevent OLED burn-in)", BS_AUTOCHECKBOX | WS_TABSTOP, 16, y, 408, 20, ID_SHIFT);
     CheckDlgButton(g_cfgwnd, ID_SHIFT, g_cfg.app.pixel_shift ? BST_CHECKED : BST_UNCHECKED);
+    y += 30;
+    ctl("BUTTON", "Game controller (Xbox and compatible): hold any button to play", BS_AUTOCHECKBOX | WS_TABSTOP, 16, y, 408, 20, ID_PAD);
+    CheckDlgButton(g_cfgwnd, ID_PAD, g_cfg.app.pad ? BST_CHECKED : BST_UNCHECKED);
     y += 30;
     ctl("STATIC", "Show on", 0, 16, y + 4, 60, 18, 0);
     HWND cb = ctl("COMBOBOX", "", CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL, 100, y, 320, 100, ID_MON);
