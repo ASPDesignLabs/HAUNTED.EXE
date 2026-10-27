@@ -3,7 +3,9 @@
 **Status: planned and settled (26 October 2026). The owner answered two rounds of questions the same
 day, chose the four bosses, asked for everything in one release, approved the bosses' hazards (section
 6) and said to start building; the questions they left alone take the defaults marked *default*.
-Building has begun on the work branch; the steps at the end say how far it has got.**
+All eighteen steps are built and were released as 1.0.0b7 (27 October 2026), tested in the harness
+only; the steps at the end say what each did. Still to do: the bestiary's boss pages, new art for the
+Deacon and the Wraith, and tuning.**
 
 A mock-up of the ability socket is in [`plan-b7/ability_socket.png`](plan-b7/ability_socket.png).
 
@@ -780,7 +782,8 @@ not yet met don't show.
 
 ## Building it (the tasks)
 
-**Where things stand (for whoever picks this up).** Steps 1 to 8 are built and pushed on
+**Where things stand (for whoever picks this up).** All eighteen steps are built and went out as
+1.0.0b7. Steps 1 to 8 were built and pushed on
 `claude/magical-cori-s471gj`, each in its own commit (step 7 in two); step 9 and on continue on
 `claude/trusting-pasteur-ceyxan`, which carries all of that branch; the step list below says what each
 did and how it was tested (in the harness only; nothing of 1.0.0b7 has been played by hand). Work paused
@@ -935,9 +938,15 @@ first.
     what it does, its numbers by quality or rank, where it comes from and what you have of it now; A/D
     pages, W/S parts. Kept with the page and through death. A caption when an ability is first written
     in. In the harness: 24 pages with the debug gear, kept across a signing. ASan clean.
-18. **Checks**: frames of everything new; ASan; autopilot runs (boss wins and times by step, how far the
-    dream gets, deaths to hazards and omens); the README's "What has been verified", the page and the
-    release notes, then the release.
+18. **Checks** (built): three preview strips (the bosses, the ledger and death, the hall) and the Esc
+    frame in the play strip made current; AddressSanitizer and UBSan over the whole beta (the autopilot
+    from levels 1 and 21, each boss's level, scene switches, scripted sessions of a death and its stone,
+    signing, the claim, the Totem, the Compendium, the Portal), clean; eight 100-minute dream runs from
+    level 1 against the step-10 build on the same seeds, in the README. Found: a vault could wall up the
+    arena's doorway (one boss level in seven; three of the eight dream runs sat on level 10 for good),
+    fixed in `mz_vault`; and a scene switch during a costly death's haze brought back the level it died
+    on, fixed in `crawl_enter`. Then the README, the page (its topics now folded), the release notes,
+    and the release, 1.0.0b7, at the owner's word.
 
 ## Risks worth naming
 

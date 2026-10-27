@@ -233,6 +233,27 @@
   .tag.ok { color: var(--ok); } .tag.mid { color: var(--mid); } .tag.low { color: var(--low); }
   footer { font-size: 14.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 18px; display: flex; flex-direction: column; gap: 10px; }
   footer p { max-width: 72ch; }
+
+  /* --- folds: the page has grown long, so the detail waits to be opened ------------ */
+  .folds { display: flex; flex-direction: column; }
+  .folds > details { border-top: 1px solid var(--line); }
+  .folds > details:last-child { border-bottom: 1px solid var(--line); }
+  summary {
+    list-style: none; cursor: pointer;
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 12px 2px;
+    font-family: var(--font-vga); font-size: 16px; line-height: 1.5; letter-spacing: .02em; color: var(--fg);
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: "\25B8"; flex: none; width: 1ch; color: var(--accent); transition: transform .15s; }
+  details[open] > summary::before { transform: rotate(90deg); }
+  summary:hover { color: var(--accent); }
+  summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  summary .hint { margin-left: auto; font-family: var(--font-body); font-size: 14px; letter-spacing: 0; color: var(--muted); text-align: right; }
+  @media (max-width: 520px) { summary .hint { display: none; } }
+  details > .fold { display: flex; flex-direction: column; gap: 14px; padding: 2px 0 22px 22px; min-width: 0; }
+  @media (max-width: 520px) { details > .fold { padding-left: 0; } }
+  @media (prefers-reduced-motion: reduce) { summary::before { transition: none; } }
 </style>
 </head>
 <body>
@@ -299,7 +320,7 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
         <img src="img/catacomb_fight.png" width="320" height="200" alt="CATACOMB: a fireball strikes a shield-bearing skeleton in a torch-lit hall while a hooded spectre looms to the right; the caster's hand is raised in the foreground beside a pile of skulls">
         <h3>CATACOMB</h3>
         <p class="spec">Mode 13h, 320&times;200, 256 colours</p>
-        <p>A Catacomb 3-D style crawl through crypts generated for each level: halls two and three cells wide, big chambers and colonnades, hung with chains, hooks, gibbet cages and chandeliers. Twenty named levels come in four sets of five, from the Crypts down to the Deep, each rotting further towards its end. The caster shops at the merchant, a cat on a treasure chest, for spells and things to wear that are rolled like loot, and takes its runes from a shrine across the room, for Cursed Coins. Then it fights twenty kinds of creature with nine attack spells and nine runes, opening colour-coded vaults and hidden walls on the way to a rune-sealed exit. Some of those walls open on chains of places that shouldn't be under a crypt at all: the Backrooms on the first ten levels, Severance on the next ten. The creatures come in as you go down, in ranks you can tell by their colour, and they hunt you round corners. Will-o'-wisps, a soul each, fly ahead through the halls to the way out or a key and leave a trail of light to follow. From level 6, a Black Altar deep in each level sends its own wisp to a secret, one at a time, blesses your wisps against the dead, and anoints what you wear once the secrets are found.</p>
+        <p>A Catacomb 3-D style crawl through crypts generated for each level: halls two and three cells wide, big chambers and colonnades, hung with chains, hooks, gibbet cages and chandeliers. Forty named levels come in four runs of ten, from the Crypts down to the Deep, each rotting further towards its tenth, where a boss waits in an arena of its own. The caster shops at the merchant, a cat on a treasure chest, for spells and things to wear that are rolled like loot, and takes its runes from a shrine across the room, for Cursed Coins. Then it fights twenty kinds of creature with nine attack spells and nine runes, opening colour-coded vaults and hidden walls on the way to a rune-sealed exit. Some of those walls open on chains of places that shouldn't be under a crypt at all: the Backrooms, and Severance. Will-o'-wisps fly ahead to the way out; Black Altars send their own to the secrets. Play it yourself and death costs: only the merchant's ledger keeps what you have, and her hall, with the bosses' gifts in it, is what you keep when you fall.</p>
       </div>
     </div>
   </section>
@@ -311,14 +332,16 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
       <table>
         <thead><tr><th>Keys</th><th>What they do</th></tr></thead>
         <tbody>
-          <tr><td class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td><td>Walk and strafe. The arrow keys work too; left and right turn. Shift runs.</td></tr>
+          <tr><td class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td><td>Walk and strafe. The arrow keys work too; left and right turn. Shift runs. Tap one twice for Swift Dodge, once the Hexed Totem has taught it.</td></tr>
           <tr><td class="keys"><kbd>MOUSE</kbd></td><td>Turn, the way Doom does. There is no looking up or down.</td></tr>
           <tr><td class="keys"><kbd>CLICK</kbd><kbd>CTRL</kbd></td><td>Cast the spell in hand where you look. Lightning and Soul Drain catch the nearest creature near the middle of the view.</td></tr>
+          <tr><td class="keys"><kbd>RIGHT CLICK</kbd></td><td>Use the boss ability readied: Tangled Web, Grave Call or Wraithwalk.</td></tr>
           <tr><td class="keys"><kbd>1</kbd>&ndash;<kbd>9</kbd></td><td>Choose a spell you own: Fire Bolt, Frost Shard, Chain Lightning, Bone Spear, Soul Drain, Hellfire, Seeker Wisps, Rapid Sparks, BFS9000. The wheel works too.</td></tr>
-          <tr><td class="keys"><kbd>E</kbd><kbd>SPACE</kbd></td><td>Open the door ahead, unlock a vault with its key, press a cracked wall, step through the exit runes, buy from the merchant, or use the Rune Shrine, a Black Altar or its wisp, a visportal or a water cooler. Walking into a chain's doorway takes you through.</td></tr>
-          <tr><td class="keys"><kbd>Q</kbd></td><td>At the merchant, hold a ware for your next visit, for a quarter of its price.</td></tr>
+          <tr><td class="keys"><kbd>E</kbd><kbd>SPACE</kbd></td><td>Open the door ahead, unlock a vault, press a cracked wall, step through the exit runes, drink at a boss's font, kindle a brazier, buy from the merchant or open her menu, or use whatever is before you: the Rune Shrine, the Hexed Totem, the Compendium, the Repository, a gravestone, the Accursed Portal, a Black Altar or its wisp, a visportal or a water cooler.</td></tr>
+          <tr><td class="keys"><kbd>Q</kbd></td><td>Ready the next boss ability. At a ware in the merchant's room, hold it for your next visit, for a quarter of its price.</td></tr>
           <tr><td class="keys"><kbd>TAB</kbd></td><td>Your wardrobe: W and S pick a place, worn or in the bag, and Enter moves a piece between them. A and D turn to your totals and the spellbook.</td></tr>
           <tr><td class="keys"><kbd>B</kbd></td><td>The bestiary and your achievements. A and D turn the pages, W and S choose a rank.</td></tr>
+          <tr><td class="keys"><kbd>C</kbd></td><td>The Codex of Affixations: what everything you have known does.</td></tr>
           <tr><td class="keys"><kbd>L</kbd></td><td>The wisps you can summon now, and their price. W and S choose, Enter casts, Space sets a tap of L to cast that one; then holding L brings the list back.</td></tr>
           <tr><td class="keys"><kbd>H</kbd></td><td>A look at the status bar while it is tucked away.</td></tr>
           <tr><td class="keys"><kbd>ESC</kbd></td><td>Ask to leave. The crypt will argue.</td></tr>
@@ -326,18 +349,133 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
       </table>
     </div>
     <p>Your defensive runes still fire on their own, as quickly and as fallibly as they do for the autopilot. The Wolfenstein status bar, with your spirit and, when the spear is in hand, your bones, slides away five seconds after anything it has to show, so you have the whole view; it comes back when you are hurt, choose a spell, tap <kbd>H</kbd>, or open the wardrobe or the bestiary, and stays up at the merchant's. Meanwhile a small readout shows gold, keys and souls as they come and go. Your hand rises only to cast or to reach for something, and sinks out of sight again.</p>
-    <p><strong>What you wear.</strong> Seven places: a bracer on each wrist, boots, an amulet, a hood, robes and a ring. Every piece is rolled, and its quality shows in its colour: Common in white, Uncommon in green, Rare in blue, Ultra-Rare in purple, Exquisite in gold. The better the quality, the more stats and the stronger: armour, dodge, health, health restored, wards against poison, burning and slowing, movement, quiet footsteps, spell haste, spirit cost, damage, fire, frost or lightning, and spell effect. A hood always carries an ability, other pieces sometimes: Swift, Arcane, Treasure Hunter (a whisper near secret walls), Keymaker (keys shine through the stone), Communing (creatures as red shapes through the walls), Thorned and Mirrored. About one piece in ten comes Anointed, a little stronger. The robes colour your sleeve, the bracer shows as a cuff, the ring's stone takes its colour and the hood frames your face.</p>
-    <p><strong>The merchant.</strong> Five to seven pedestals in an arc, deeper down more of them, and one to three purchases a visit. A piece is worn the moment you buy it. You start without a bag; bags hold two to five spare pieces, and without one, what a new piece replaces is lost, so the card warns you first in red. With a full bag you are asked which spare to let go. Runes aren't sold there any more.</p>
-    <p><strong>The Rune Shrine.</strong> Across the room from the wares it stands pale and sanctified, and gives nothing until a Cursed Coin curses it. Then <kbd>E</kbd> opens its nine slots: pull with one to three coins and runes come into them, the more coins the more runes; three alike become one of the next quality; raise its rank with coins for better ones, or favour a kind you know. Each pull earns one rune to take, and takes not used are lost when you leave the room. Runes come in the same five qualities as what you wear, one of each held, the best, and at Exquisite each does a second thing: the Ward bursts into shards, Blink leaves a double that creatures go for, the Veil sends missiles home twice as hard, and so on. Coins come at the end of each chain of secrets, and one more for finding every secret on a level.</p>
-    <p><strong>Spirit and bones.</strong> Your souls are your spirit, and spells spend it, to the tenth. The Fire Bolt you start with, and any spell at its tier-I strength, costs nothing; a stronger cast costs a tenth of a soul to a whole one, and with too little spirit a spell goes out weak. Every Bone Spear throws a bone, which skeletons, shield-bearers, knights and hounds drop now and then.</p>
-    <p><strong>Secrets.</strong> Every level hides three to six, more towards the end of each set. A secret wall looks like plain stone until you are a step or two away, when cracks show in it. Press <kbd>E</kbd> and it grinds back through a room carved out of the rock. Inside is treasure and often a potion, never a key, and none of it counts towards the level's treasure, so whatever you find is extra. The tally at the end of the level counts the secrets you found.</p>
-    <p><strong>Chains.</strong> Some secret rooms have a doorway at the back. Walk into it and you are somewhere else, and the level waits for you, its clock and its creatures with it. On the first ten levels it is the Backrooms: yellow wallpaper, damp carpet, tube lights humming, some failing, some dead, things from the crypt hung from the ceiling or sunk in the floor, the level's own creatures glitching, and no music, only the hum. On the next ten it is Severance: white halls, green carpet, offices of four desks, every panel lit, creatures lit too brightly, and a muzak that is slightly too calm. Each link deeper is bigger and its creatures a rank higher. At the end a visportal, or a water cooler, restores you once, with the chain's Cursed Coin. Die in a chain and you are thrown back to its first room, whole.</p>
-    <p><strong>Wisps.</strong> Press <kbd>L</kbd> and a wisp to the way out costs a soul. It kindles before you and flies off down the halls the way you would walk, fetching the key first if the exit is in a locked vault, and waits at the doorstep. It lights the dark as it goes, shows the shades and drives the Wraith back, and leaves motes of light hanging for twelve seconds, so you can follow it round corners or after a fight. With a Keymaker piece on, there is a wisp for each key still lying in the level, in that key's colour.</p>
-    <p><strong>Black Altars.</strong> From level 6, an altar stands deep in each level that has secrets. Press <kbd>E</kbd> at it for its three gifts, each with its price and a note on why it can't be had yet. Ten spirit wakes its wisp: a violet flame lights in its bowl, and a violet wisp leads you, free, to the nearest secret wall still shut, through any vault key on the way, and waits there while you are inside. Once you are out, <kbd>E</kbd> at it sends it home; from the altar you send it on to the next, for a little more each time. Twenty-five blesses your exit wisps until you leave the level: they wear a pale gold halo, and the undead near them flee. Find every secret and the flame burns gold; then it anoints one thing you wear that isn't anointed already. The autopilot uses the altars too, and casts a wisp when it heads for the way out.</p>
-    <p><em>Secrets were added.</em></p>
-    <p><strong>Who lives down there.</strong> About one new kind of creature a level, each a level or two after its sign, and alone the first time. In the Crypts, skeletons, bats and spectres, shamblers climbing out of turned graves, skulls in the walls and shield-bearers. In the Catacombs, spiders in their webs, the Drowned rising from puddles, bone hounds in pairs, and the Wraith, once a level, which nothing kills: fire and a wisp's light only drive it back. In the Hollows, hunting spiders on the ceiling, ghouls that feed on the dead, skeleton knights whose plate comes off as you hurt them, and brood mothers with their egg sacs. In the Deep, shades you see only in light, which take your souls, ember imps by the magma, deacons that raise the dead (kill them first), and gargoyles that are statues until you pass.</p>
-    <p><strong>Ranks.</strong> Each creature comes in its own colour or in green, blue, red or black, each tougher, quicker and worth more souls than the last, and the deeper you go, the higher the mix. Now and then one is gilded: it runs when hurt, and carries treasure.</p>
-    <p><strong>Achievements and the bestiary.</strong> Each run keeps a record of what it has killed, the secrets it has found and the levels it has cleared, saved with the run and with each grave. Achievements come for 60 of a creature's lowest rank and fewer for each rank up, for secrets from the first to the fiftieth, and for every level to 20 and each time down after; they slide in at the upper right. Press <kbd>B</kbd> for the bestiary: a page for each creature, turning on the spot in each rank you have met, with your kills and what hurts it, learnt from three kills with each spell. The record is kept when you flee or carve a grave; what the autopilot earns in an ordinary screensaver session isn't.</p>
+    <div class="folds" data-folds>
+      <details>
+        <summary>What you wear <span class="hint">seven places, five qualities</span></summary>
+        <div class="fold">
+          <p>Seven places: a bracer on each wrist, boots, an amulet, a hood, robes and a ring. Every piece is rolled, and its quality shows in its colour: Common in white, Uncommon in green, Rare in blue, Ultra-Rare in purple, Exquisite in gold. The better the quality, the more stats and the stronger: armour, dodge, health, health restored, wards against poison, burning and slowing, movement, quiet footsteps, spell haste, spirit cost, damage, fire, frost or lightning, and spell effect. A hood always carries an ability, other pieces sometimes: Swift, Arcane, Treasure Hunter (a whisper near secret walls), Keymaker (keys shine through the stone), Communing (creatures as red shapes through the walls), Thorned and Mirrored. About one piece in ten comes Anointed, a little stronger. The robes colour your sleeve, the bracer shows as a cuff, the ring's stone takes its colour and the hood frames your face.</p>
+        </div>
+      </details>
+      <details>
+        <summary>The merchant <span class="hint">two pedestals to seven</span></summary>
+        <div class="fold">
+          <p>Each level begins in her room. A fresh run has two pedestals, a spell and a thing to wear; more are bought from her menu, up to seven, and kept. One purchase a visit in the first run, two in the second, three from the third. A piece is worn the moment you buy it. You start without a bag; bags hold two to five spare pieces, and without one, what a new piece replaces is lost, so the card warns you first in red. With a full bag you are asked which spare to let go. <kbd>Q</kbd> holds a ware for your next visit. Runes aren't sold there.</p>
+        </div>
+      </details>
+      <details>
+        <summary>The Rune Shrine <span class="hint">for Cursed Coins</span></summary>
+        <div class="fold">
+          <p>Across the room from the wares it stands pale and sanctified, and gives nothing until a Cursed Coin curses it. Then <kbd>E</kbd> opens its nine slots: pull with one to three coins and runes come into them, the more coins the more runes; three alike become one of the next quality; raise its rank with coins for better ones, or favour a kind you know. Each pull earns one rune to take, and takes not used are lost when you leave the room. Runes come in the same five qualities as what you wear, one of each held, the best, and at Exquisite each does a second thing: the Ward bursts into shards, Blink leaves a double that creatures go for, the Veil sends missiles home twice as hard, and so on. Coins come at the end of each chain of secrets, and one more for finding every secret on a level.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Spirit and bones</summary>
+        <div class="fold">
+          <p>Your souls are your spirit, and spells spend it, to the tenth. The Fire Bolt you start with, and any spell at its tier-I strength, costs nothing; a stronger cast costs a tenth of a soul to a whole one, and with too little spirit a spell goes out weak. Every Bone Spear throws a bone, which skeletons, shield-bearers, knights and hounds drop now and then.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Secrets and chains <span class="hint">the Backrooms, Severance</span></summary>
+        <div class="fold">
+          <p>Every level hides three to six secrets, more towards the end of each run. A secret wall looks like plain stone until you are a step or two away, when cracks show in it. Press <kbd>E</kbd> and it grinds back through a room carved out of the rock. Inside is treasure and often a potion, never a key, and none of it counts towards the level's treasure, so whatever you find is extra.</p>
+          <p>Some secret rooms have a doorway at the back. Walk into it and you are somewhere else, and the level waits for you, its clock and its creatures with it. In the first two runs it is the Backrooms: yellow wallpaper, damp carpet, tube lights humming, some failing, some dead, things from the crypt hung from the ceiling or sunk in the floor, the level's own creatures glitching, and no music, only the hum. In the next two it is Severance: white halls, green carpet, offices of four desks, every panel lit, creatures lit too brightly, and a muzak that is slightly too calm. Each link deeper is bigger and its creatures a rank higher. At the end a visportal, or a water cooler, restores you once, with the chain's Cursed Coin. Die in a chain and you come back whole at the secret's entrance, and that chain's doorway is sealed for the rest of the level: <em>the dweller failed this trial</em>.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Wisps and the Black Altars</summary>
+        <div class="fold">
+          <p>Press <kbd>L</kbd> and a wisp to the way out costs a soul. It kindles before you and flies off down the halls the way you would walk, fetching the key first if the exit is in a locked vault, and waits at the doorstep. It lights the dark as it goes, shows the shades and drives the Wraith back, and leaves motes of light hanging for twelve seconds, so you can follow it round corners or after a fight. With a Keymaker piece on, there is a wisp for each key still lying in the level, in that key's colour.</p>
+          <p>From level 6, an altar stands deep in each level that has secrets. Press <kbd>E</kbd> at it for its three gifts, each with its price and a note on why it can't be had yet. Ten spirit wakes its wisp: a violet flame lights in its bowl, and a violet wisp leads you, free, to the nearest secret wall still shut, through any vault key on the way, and waits there while you are inside. Once you are out, <kbd>E</kbd> at it sends it home; from the altar you send it on to the next, for a little more each time. Twenty-five blesses your exit wisps until you leave the level: they wear a pale gold halo, and the undead near them flee. Find every secret and the flame burns gold; then it anoints one thing you wear that isn't anointed already.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Who lives down there <span class="hint">twenty kinds, five ranks</span></summary>
+        <div class="fold">
+          <p>About one new kind of creature a level over the first two runs, each a level or two after its sign, and alone the first time. In the Crypts, skeletons, bats and spectres, shamblers climbing out of turned graves, skulls in the walls, shield-bearers, spiders in their webs, the Drowned rising from puddles, bone hounds in pairs, and from level 9 the Wraith, once a level, which nothing kills: fire and a wisp's light only drive it back. In the Catacombs, hunting spiders on the ceiling, ghouls that feed on the dead, skeleton knights whose plate comes off as you hurt them, brood mothers with their egg sacs, shades you see only in light, which take your souls, ember imps by the magma, deacons that raise the dead (kill them first), and gargoyles that are statues until you pass. The Hollows and the Deep have all of them, higher in rank.</p>
+          <p>Each creature comes in its own colour or in green, blue, red or black, each tougher, quicker and worth more souls than the last, and the mix climbs over each run. Now and then one is gilded: it runs when hurt, and carries treasure.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Achievements and the bestiary</summary>
+        <div class="fold">
+          <p>Each run keeps a record of what it has killed, the secrets it has found, the levels it has cleared and the bosses it has slain, kept on its page in the ledger and never lost to death. Achievements come for 60 of a creature's lowest rank and fewer for each rank up, for secrets from the first to the fiftieth, for each of the forty levels, for each boss slain and slain again at each step of its challenge, and for each time down after; they slide in at the upper right. Press <kbd>B</kbd> for the bestiary: a page for each creature, turning on the spot in each rank you have met, with your kills and what hurts it, learnt from three kills with each spell. The bosses have no pages yet. What the autopilot earns in an ordinary screensaver session isn't kept.</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section aria-labelledby="bosses">
+    <h2 id="bosses">Four bosses</h2>
+    <p>The tenth level of each run is an ordinary level with an arena set into its far end in place of the exit: an antechamber with a candle and a bench, an arch, and the boss's own ground beyond. Step through and the arch seals behind you, the boss's card shows with a line of lore, its waltz begins, and its health runs along the top of the view. At 75, 50, 25 and 10% it stops, however hard the blow, turns untouchable in a pale shell and calls a wave of adds, at the highest rank of each kind you have met since you last died; when they are down it rises and fights on. Three fonts in the walls each hold a third of your health. When it falls it drops its Named Odious Scrip, the exit opens, and the run is complete.</p>
+    <div class="folds" data-folds>
+      <details>
+        <summary>The Ill-Fated Skeleton Knight <span class="hint">level 10</span></summary>
+        <div class="fold">
+          <p><em>He rode down to fetch the order's dead, and never rode back up.</em> Polished plate with a glint sliding across it, shed at the first and third waves, quicker each time. Swift Dodge carries it two to five cells in half a second, untouchable: to close on you, to get away when hurt, or aside from a shot. Its Mirror Rune turns about one missile in seven back at you, with a silver ring and a struck bell. It plants its sword and the ceiling comes down round you, and raises it for the Sundering Arc, a pale quarter-circle on the floor before it that it sweeps a moment later.</p>
+        </div>
+      </details>
+      <details>
+        <summary>The Wandering Hunting Spider <span class="hint">level 20</span></summary>
+        <div class="fold">
+          <p><em>It has walked these cisterns since before the order came. All of them are its.</em> Up to the ceiling every few seconds, out of reach, across it and down near you with a leap. Its Mend Rune knits it back together, glowing green. It spits a web that holds you until your spells have torn a third of your health out of it (fire tears twice as fast), fires egg sacs onto the walls that hatch four small spiders, and opens outlets in the cistern's floor that spill bile, which poisons and slows. One small spider more comes out of a burrow every fifteen seconds.</p>
+        </div>
+      </details>
+      <details>
+        <summary>The Black Deacon <span class="hint">level 30</span></summary>
+        <div class="fold">
+          <p>Black robes at twice a deacon's size, his Bone Ward wheeling about him as six shards; it takes the blows first, and grows back. He chants skeletons up from the chapel's heaps of bone, one at a time, unless a tenth of his health in damage breaks the chant. His Litany is two seconds of green light, then a fifth of your health if he can see you: the timber props hide you, the pews don't. Cracks run across the floor, glowing, until fire bursts from them.</p>
+        </div>
+      </details>
+      <details>
+        <summary>The Wraith Unbound <span class="hint">level 40</span></summary>
+        <div class="fold">
+          <p>Eight braziers light its hall, and it gutters any it passes. It can be hurt only near one that burns, or near a wisp; in the dark your spells pass through it. <kbd>E</kbd> kindles a brazier again, a wisp at once. Time Slip slows a missile about to strike it, and it steps aside; Wraithwalk takes it into the stone and out of a wall beside you. Rings of void open where you stand and become purple columns: inside one you are slowed, sapped and silenced, with no spells, runes or abilities. Away from the light, hands reach up out of the floor.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Hazards and omens</summary>
+        <div class="fold">
+          <p>Every hazard warns before it harms, never for less than about a second: grit and a hardening shadow before a rock, cracks glowing before the fire, a sheen creeping out before the bile turns foul, a ring and a thin column before the void. They harm only you, never the boss or its adds. On the last three levels before a boss, and in its own level's halls, its hazard comes into the crypt now and then as an omen, near you and at half the harm, more often the nearer you get: the ceiling drops a stone, bile spills from a grate, the floor splits and burns, the void opens.</p>
+        </div>
+      </details>
+      <details>
+        <summary>The waltzes</summary>
+        <div class="fold">
+          <p>Each boss has a slow waltz in a minor key over a five-note figure that drifts against the bar, a bell on the first beat: the knight's in D minor on brass, the spider's in B-flat minor, plucked, with a skittering hi-hat, the Deacon's in G minor on an organ with a choir, the Wraith's in A minor, a drone with a voice that comes and goes. While the adds are out it turns up, with drums, a doubled bass and a semitone higher, and when the boss falls it fades under three tolls.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Challenges <span class="hint">steps one to five</span></summary>
+        <div class="fold">
+          <p>A beaten boss can be fought again from the Accursed Portal, as you are, from its antechamber. Each win takes it a step higher, to five: more health, harder blows, its hazards and casts more often and more of them, its adds a rank or two up; from step 3 a win gives two scrip.</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section aria-labelledby="death">
+    <h2 id="death">Death costs</h2>
+    <p>While it plays itself, the screensaver dreams: it plays on from your last page, keeps nothing, and when it dies the level begins again, a little softer each time. Hold <kbd>H</kbd> and the run is yours until the program closes, sleepwalking or not, and death costs. The gold you carry, everything you wear, the bag, every spell but the Fire Bolt (back to the fireball), your souls, bones and Cursed Coins all go; a stone is cut in the grave plot with what you carried and what took you, and you wake in the merchant's room before level 1. The runes, the Rune Shrine and the merchant's hall stay.</p>
+    <div class="folds" data-folds>
+      <details>
+        <summary>The ledger <span class="hint">three pages, signed by her</span></summary>
+        <div class="fold">
+          <p>The merchant keeps three pages, and only she writes them. Press <kbd>E</kbd> at the cat and sign the ledger: the run as it stands goes onto a page, the one you came from picked first, and a page signed in her room keeps her visit too, the same wares set out when it is opened again. A page is written by a signature, a death and her claim, and by nothing else: fleeing keeps only what was signed, and the next start opens your last page. Open the ledger from <kbd>ESC</kbd> to load a page anywhere.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Her claim <span class="hint">the dead are watching</span></summary>
+        <div class="fold">
+          <p>While you are in danger (a creature hunting you close by, a missile on its way, health under a quarter, poison, a web, a hazard, a boss's arena) your page is marked, and the mark clears eight seconds after the danger has passed. A red eye shows under your keys while it holds. Open a marked page, by the ledger or the next start, and she takes the dead's claim, whatever you meant by it: a quarter to a half of your gold, and one piece you wear or a tier of one spell. Then she signs the page herself. A closed window, a crash or a power cut counts the same.</p>
+        </div>
+      </details>
+      <details>
+        <summary>The grave plot</summary>
+        <div class="fold">
+          <p>South of her room, the last ten deaths, a stone each, the newest freshly cut with its earth turned. <kbd>E</kbd> at a stone opens its page: the epitaph, the date, and what was carried, each worn piece with its card.</p>
+        </div>
+      </details>
+    </div>
 
     <div class="quit" id="quit" role="group" aria-labelledby="q-title">
       <p class="q-title" id="q-title">LEAVE THE CRYPT?</p>
@@ -347,74 +485,128 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
         <button type="button" id="q-stay" aria-pressed="true">STAY IN THE DARK</button>
         <button type="button" id="q-sleep" aria-pressed="false">SLEEPWALK</button>
         <span class="q-rule" aria-hidden="true"></span>
-        <button type="button" id="q-carve" aria-pressed="false">CARVE A GRAVESTONE</button>
-        <button type="button" id="q-rise" aria-pressed="false">RISE FROM A GRAVE</button>
+        <button type="button" id="q-open" aria-pressed="false">OPEN THE LEDGER</button>
       </div>
       <p class="q-note" id="q-note">BACK TO THE CRYPT</p>
     </div>
     <ul class="plain">
-      <li><strong>Flee to the surface</strong> ends the screensaver and saves your level, health, gold, souls and gear. Next time you start at the beginning of that level, and the next session starts from it whether you play or not.</li>
+      <li><strong>Flee to the surface</strong> ends the screensaver. Nothing is written: the next start opens the page you last signed.</li>
       <li><strong>Stay in the dark</strong> closes the question. It's the default, so a stray Enter keeps you playing.</li>
-      <li><strong>Sleepwalk</strong> hands the crypt back to the autopilot, which walks on from where you stood.</li>
-      <li><strong>Carve a gravestone</strong> saves the run in one of three graves. Carving over a used grave asks twice.</li>
-      <li><strong>Rise from a grave</strong> loads one, from the beginning of its level, and the controls stay yours.</li>
+      <li><strong>Sleepwalk</strong> hands the crypt back to the autopilot, which walks on from where you stood. The run is still yours.</li>
+      <li><strong>Open the ledger</strong> loads a page, asking twice, because whatever you haven't signed is lost.</li>
     </ul>
+  </section>
+
+  <section aria-labelledby="hall">
+    <h2 id="hall">The merchant's hall</h2>
+    <p>Her room has grown. Past an arch beside her is a back room, past another the grave plot, and nothing in any of it is lost to death. Press <kbd>E</kbd> at the cat for her menu: sign the ledger, buy another pedestal (500 gold for the third, up to 19,530 for the seventh), pat her, or leave.</p>
+    <div class="folds" data-folds>
+      <details>
+        <summary>The Hexed Totem <span class="hint">the bosses' gifts</span></summary>
+        <div class="fold">
+          <p>Each boss that falls teaches its ability here, raised to rank III with its scrip; scrip to spare sells for 20,000 gold. <strong>Swift Dodge</strong>, the knight's: tap a direction twice and dart two to five cells, untouchable. <strong>Tangled Web</strong>, the spider's: a glob of web holds a creature and sets it clawing at the web instead of you. <strong>Grave Call</strong>, the Deacon's: what you slew lately gets up again on your side for a while. <strong>Wraithwalk</strong>, the Wraith's: for a moment the creatures lose you and you walk through them. The right mouse uses the one readied, <kbd>Q</kbd> readies the next, and their sockets sit at the bottom left.</p>
+        </div>
+      </details>
+      <details>
+        <summary>The Accursed Portal <span class="hint">runs and challenges</span></summary>
+        <div class="fold">
+          <p>A red-violet swirl in the grave plot's far wall. Each run whose boss you have beaten on the way down opens its start here, forward or back, as you are; below them, each boss slain, to challenge again at its step.</p>
+        </div>
+      </details>
+      <details>
+        <summary>The Corpus Compendium</summary>
+        <div class="fold">
+          <p>A tome on a lectern that writes down every piece you wear, as you first wear it, and every spell at its highest tier. Its pages sell them back at the shop's price and a fifth, a little less for each run completed, outside the visit's wares.</p>
+        </div>
+      </details>
+      <details>
+        <summary>The Wretched Repository</summary>
+        <div class="fold">
+          <p>Iron doors in the back room's wall. Pieces go in for a tenth of their price, gold less a quarter, Cursed Coins free; everything comes out free but the coins, at 2,500 gold each. Two places at first, twelve at most, and neither death nor her claim touches what is inside.</p>
+        </div>
+      </details>
+      <details>
+        <summary>The Codex of Affixations <span class="hint">on C</span></summary>
+        <div class="fold">
+          <p>A page for everything you have known: each ability worn, each rune held and its Exquisite effect, each boss's gift once it has fallen, each stat with its cap and the pieces that roll it, each hazard met, and her claim. What it does, its numbers by quality or rank, where it comes from, and what you have of it now.</p>
+        </div>
+      </details>
+    </div>
   </section>
 
   <section aria-labelledby="screens">
     <h2 id="screens">Screens</h2>
     <figure>
-      <img src="img/preview_catacomb_backrooms.png" loading="lazy" width="1932" height="806" alt="Six frames of the Backrooms: a chained room's pale yellow doorway at the end of a mossy crypt hall; a long corridor of yellow wallpaper and carpet under ceiling tiles and a lit tube; a damp stain spreading on the wallpaper; a candle chandelier hanging where it shouldn't; a shambler glitching under a tube, torn into red and blue; and the visportal, a doorway onto doorways, with a chest of gold and a crown beside it">
-      <figcaption>Into the Backrooms: the doorway from the crypt, the halls, a leak, a chandelier out of place, a shambler caught in a loop, and the visportal.</figcaption>
+      <img src="img/preview_catacomb_bosses.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB's bosses: the Ill-Fated Skeleton Knight's card, HE RODE DOWN TO FETCH THE ORDER'S DEAD, AND NEVER RODE BACK UP; the knight in polished plate raising its sword, MIND THE BLADE'S ARC; the Wandering Hunting Spider's card over the spider with a pale skull on its back; the Black Deacon, huge in black robes, in a pale shell while a skeleton comes; the chapel floor cracking in glowing lines before the fire; and a fireball bursting on the Wraith Unbound beside a purple ring of void">
+      <figcaption>The four bosses: the knight's card and its Sundering Arc, the spider's card, the Deacon in his shell and his cracks, and the Wraith struck beside a void.</figcaption>
     </figure>
     <figure>
-      <img src="img/preview_catacomb_severance.png" loading="lazy" width="1932" height="806" alt="Six frames of Severance: a pale doorway onto green carpet in a dark skull-lined crypt beside a crown; a narrow white hall; a green ward door with a grille; two desks with their terminals in an office; a green skeleton with a bone in a white corridor, the status bar below; and the water cooler beside a chest of gold">
-      <figcaption>Severance: the doorway from the crypt, a white hall, a ward door, an office, a skeleton under the panels, and the water cooler.</figcaption>
+      <img src="img/preview_catacomb_ledger.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB's ledger and death: the merchant's menu, SIGN THE LEDGER, ANOTHER PEDESTAL, PAT HER, LEAVE, with a red warning that the run is unsigned; SIGN THE LEDGER with two signed pages and a blank one; a red card, YOU DIED ON LEVEL 12, TAKEN BY A ROTTEN SHIELD-BEARER; a gravestone's page, HERE LIES A DWELLER, with its spellbook and runes; THE DWELLER FAILED THIS TRIAL over a sealed doorway; and the card CAUGHT CHEATING THE DEAD">
+      <figcaption>Her menu, signing the ledger, a death and its stone, a trial failed, and her claim.</figcaption>
     </figure>
     <figure>
-      <img src="img/preview_catacomb_shrine.png" loading="lazy" width="1932" height="806" alt="Six frames: the Rune Shrine, a pale stone with a gold ring and cross, sanctified, with E: CURSE IT WITH A CURSED COIN; its screen of nine empty slots, cursed and giving Common runes; the slots filling, THREE COMMON MEND BECOME ONE UNCOMMON; the caster's page with two Cursed Coins and the runes held; A CURSED COIN AT THE END OF A CHAIN sliding in for the shrine; and the Black Altar offering to send its wisp on for 20 souls">
-      <figcaption>The Rune Shrine sanctified, cursed and pulled, three runes combining, the caster's runes and coins, a coin found, and the altar sending its wisp on.</figcaption>
+      <img src="img/preview_catacomb_hall.png" loading="lazy" width="1932" height="806" alt="Six frames of the merchant's hall: the Accursed Portal, a red-violet swirl in a stone arch beside a skull banner; the Portal's screen with three runs and four challenges; the Hexed Totem's screen with Swift Dodge, Tangled Web, Grave Call and Wraithwalk; the Corpus Compendium's page of spells and prices; the Wretched Repository's places, gold and coins; and the Codex of Affixations' page on her claim">
+      <figcaption>The Accursed Portal and its screen, the Hexed Totem, the Corpus Compendium, the Wretched Repository and the Codex.</figcaption>
     </figure>
-    <figure>
-      <img src="img/preview_catacomb_creatures.png" loading="lazy" width="2578" height="1212" alt="Twelve frames of CATACOMB's newer creatures in the crypt: a red shambler with a fireball coming at it, one of the Drowned in a burning hall, a bone hound, the Wraith struck by fire, a hunting spider, a ghoul, a skeleton knight with his sword, a brood mother, a shade glimpsed in a skull-lined hall, an ember imp, a deacon in green robes beyond a burning floor, and a gargoyle on its plinth">
-      <figcaption>Shambler, Drowned, bone hound, the Wraith; hunting spider, ghoul, knight, brood mother; shade, ember imp, deacon and gargoyle.</figcaption>
-    </figure>
-    <figure>
-      <img src="img/preview_catacomb_bestiary.png" loading="lazy" width="1932" height="806" alt="Six frames: an achievement, A HOLLOW KNOCK, sliding in as a secret wall grinds back; the bestiary's pages for a blue skeleton, a skeleton knight, a green deacon and a red gargoyle, each with its kills and what hurts it; and the list of achievements, 16 of 112 earned">
-      <figcaption>An achievement, four pages of the bestiary in four ranks, and the achievements.</figcaption>
-    </figure>
-    <figure>
-      <img src="img/preview_catacomb_wisps.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB's wisps: the WISPS list with the way out and the gold, silver and crimson keys at a soul each; a wisp kindling, bright, for the silver key; an exit wisp's blue trail down a hall; THE BLACK ALTAR's three gifts and their prices; a green skeleton beside a blessed wisp's trail; and the blessed wisp, haloed in pale gold, waiting at the rune-sealed exit">
-      <figcaption>The wisps, the keys' wisps and the Black Altar's gifts; a blessed wisp at the way out.</figcaption>
-    </figure>
-    <figure>
-      <img src="img/preview_catacomb_play.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB played by hand: the HOLD H TO TAKE CONTROL bar, with the small readout raised above it, in an ossuary; the controls listed over a clear view and the status bar; the merchant's card for a pair of Rare Boots of Shadows, free on the first visit; a fireball leaving the hand and bursting on a skeleton; the wardrobe, with Uncommon Robes of the Bulwark chosen and three spares in the bag; and the LEAVE THE CRYPT? question">
-      <figcaption>Taking over, shopping, casting, the wardrobe and the question at Esc.</figcaption>
-    </figure>
-    <figure>
-      <img src="img/preview_catacomb_items.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB's wares: the merchant's card for an Anointed Exquisite Communing Hood of the Bulwark in gold; the caster's page of totals, with what abilities add and the spellbook; THE BAG IS FULL, asking which spare to let go; a spectre and a shield-bearer shown as red shapes through the wall by Commune; a Black Altar woken, a violet flame in its bowl and its violet wisp's motes going off down the hall; and the altar burning gold">
-      <figcaption>An Exquisite hood, the caster's totals, a full bag, Commune, and a Black Altar woken and burning gold.</figcaption>
-    </figure>
-    <figure>
-      <img src="img/preview_catacomb.png" loading="lazy" width="2578" height="806" alt="Eight frames from CATACOMB: the cat merchant on its chest; the merchant's pedestals in an arc, free on the first visit, with a card for a Common bracer; a wall skull waking; a spider dropping; a rotten shield-bearer with a spell flying at it; Hellfire through cobwebs; Hellfire down a hall of skulls; and the caster's portrait after a hit">
-      <figcaption>The merchant and the wares, a wall skull, a spider, a shield-bearer and Hellfire.</figcaption>
-    </figure>
-    <figure>
-      <img src="img/preview_catacomb_crypt.png" loading="lazy" width="1932" height="806" alt="Six frames from CATACOMB: a long hall hung with chains, a fire pit at its far end; a hall with an urn and a candle chandelier, a shield-bearer named above; a hoard of gold by a torch between skull walls; a wall skull gathering its fireball as the hand casts; the hand pressing a cracked wall with A SECRET! 1 OF 2 above it and an achievement sliding in; and the closet behind it with two jewelled crowns">
-      <figcaption>Long halls and their dressing, a hoard, a wall skull, and a secret wall and its closet.</figcaption>
-    </figure>
-    <figure>
-      <img src="img/preview_haunt_text.png" loading="lazy" width="2898" height="806" alt="Eight frames of haunted DOS programs: EDIT, DEFRAG, the BBS, the virus scan, MSD, SETUP, QBasic and the file manager">
-      <figcaption>HAUNT.EXE's programs.</figcaption>
-    </figure>
-    <figure>
-      <img src="img/preview_haunt_art.png" loading="lazy" width="1446" height="806" alt="Four frames from HAUNT.EXE: the jack-o'-lantern lit and wicked, and the talking skull lit and in the dark">
-      <figcaption>The pumpkin patch and the ossuary.</figcaption>
-    </figure>
-    <figure>
-      <img src="img/preview_haunt.png" loading="lazy" width="1476" height="1660" alt="Eight frames from HAUNT.EXE: the DOS prompt typing THEY ARE ALL STILL HERE, the manor in a thunderstorm, zombies rising in a graveyard, skeletons dancing out of their coffins and collapsing when the music stops, the ghost saying boo, and the spider in a candle-lit corner">
-      <figcaption>The prompt, the manor, the graveyard, the skeletons, the ghost and the spider.</figcaption>
-    </figure>
+    <div class="folds">
+      <details>
+        <summary>Earlier screens <span class="hint">the crypt, the creatures, HAUNT.EXE</span></summary>
+        <div class="fold">
+          <figure>
+            <img src="img/preview_catacomb_backrooms.png" loading="lazy" width="1932" height="806" alt="Six frames of the Backrooms: a chained room's pale yellow doorway at the end of a mossy crypt hall; a long corridor of yellow wallpaper and carpet under ceiling tiles and a lit tube; a damp stain spreading on the wallpaper; a candle chandelier hanging where it shouldn't; a shambler glitching under a tube, torn into red and blue; and the visportal, a doorway onto doorways, with a chest of gold and a crown beside it">
+            <figcaption>Into the Backrooms: the doorway from the crypt, the halls, a leak, a chandelier out of place, a shambler caught in a loop, and the visportal.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/preview_catacomb_severance.png" loading="lazy" width="1932" height="806" alt="Six frames of Severance: a pale doorway onto green carpet in a dark skull-lined crypt beside a crown; a narrow white hall; a green ward door with a grille; two desks with their terminals in an office; a green skeleton with a bone in a white corridor, the status bar below; and the water cooler beside a chest of gold">
+            <figcaption>Severance: the doorway from the crypt, a white hall, a ward door, an office, a skeleton under the panels, and the water cooler.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/preview_catacomb_shrine.png" loading="lazy" width="1932" height="806" alt="Six frames: the Rune Shrine, a pale stone with a gold ring and cross, sanctified, with E: CURSE IT WITH A CURSED COIN; its screen of nine empty slots, cursed and giving Common runes; the slots filling, THREE COMMON MEND BECOME ONE UNCOMMON; the caster's page with two Cursed Coins and the runes held; A CURSED COIN AT THE END OF A CHAIN sliding in for the shrine; and the Black Altar offering to send its wisp on for 20 souls">
+            <figcaption>The Rune Shrine sanctified, cursed and pulled, three runes combining, the caster's runes and coins, a coin found, and the altar sending its wisp on.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/preview_catacomb_creatures.png" loading="lazy" width="2578" height="1212" alt="Twelve frames of CATACOMB's newer creatures in the crypt: a red shambler with a fireball coming at it, one of the Drowned in a burning hall, a bone hound, the Wraith struck by fire, a hunting spider, a ghoul, a skeleton knight with his sword, a brood mother, a shade glimpsed in a skull-lined hall, an ember imp, a deacon in green robes beyond a burning floor, and a gargoyle on its plinth">
+            <figcaption>Shambler, Drowned, bone hound, the Wraith; hunting spider, ghoul, knight, brood mother; shade, ember imp, deacon and gargoyle.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/preview_catacomb_bestiary.png" loading="lazy" width="1932" height="806" alt="Six frames: an achievement, A HOLLOW KNOCK, sliding in as a secret wall grinds back; the bestiary's pages for a blue skeleton, a skeleton knight, a green deacon and a red gargoyle, each with its kills and what hurts it; and the list of achievements, 16 of 112 earned">
+            <figcaption>An achievement, four pages of the bestiary in four ranks, and the achievements.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/preview_catacomb_wisps.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB's wisps: the WISPS list with the way out and the gold, silver and crimson keys at a soul each; a wisp kindling, bright, for the silver key; an exit wisp's blue trail down a hall; THE BLACK ALTAR's three gifts and their prices; a green skeleton beside a blessed wisp's trail; and the blessed wisp, haloed in pale gold, waiting at the rune-sealed exit">
+            <figcaption>The wisps, the keys' wisps and the Black Altar's gifts; a blessed wisp at the way out.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/preview_catacomb_play.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB played by hand: the HOLD H TO TAKE CONTROL bar, with the small readout raised above it, in an ossuary; the controls listed over a clear view and the status bar; the merchant's card for a pair of Rare Boots of Shadows, free on the first visit; a fireball leaving the hand and bursting on a skeleton; the wardrobe, with Uncommon Robes of the Bulwark chosen and three spares in the bag; and the LEAVE THE CRYPT? question, with OPEN THE LEDGER below the rule">
+            <figcaption>Taking over, shopping, casting, the wardrobe and the question at Esc.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/preview_catacomb_items.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB's wares: the merchant's card for an Anointed Exquisite Communing Hood of the Bulwark in gold; the caster's page of totals, with what abilities add and the spellbook; THE BAG IS FULL, asking which spare to let go; a spectre and a shield-bearer shown as red shapes through the wall by Commune; a Black Altar woken, a violet flame in its bowl and its violet wisp's motes going off down the hall; and the altar burning gold">
+            <figcaption>An Exquisite hood, the caster's totals, a full bag, Commune, and a Black Altar woken and burning gold.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/preview_catacomb.png" loading="lazy" width="2578" height="806" alt="Eight frames from CATACOMB: the cat merchant on its chest; the merchant's pedestals in an arc, free on the first visit, with a card for a Common bracer; a wall skull waking; a spider dropping; a rotten shield-bearer with a spell flying at it; Hellfire through cobwebs; Hellfire down a hall of skulls; and the caster's portrait after a hit">
+            <figcaption>The merchant and the wares, a wall skull, a spider, a shield-bearer and Hellfire.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/preview_catacomb_crypt.png" loading="lazy" width="1932" height="806" alt="Six frames from CATACOMB: a long hall hung with chains, a fire pit at its far end; a hall with an urn and a candle chandelier, a shield-bearer named above; a hoard of gold by a torch between skull walls; a wall skull gathering its fireball as the hand casts; the hand pressing a cracked wall with A SECRET! 1 OF 2 above it and an achievement sliding in; and the closet behind it with two jewelled crowns">
+            <figcaption>Long halls and their dressing, a hoard, a wall skull, and a secret wall and its closet.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/preview_haunt_text.png" loading="lazy" width="2898" height="806" alt="Eight frames of haunted DOS programs: EDIT, DEFRAG, the BBS, the virus scan, MSD, SETUP, QBasic and the file manager">
+            <figcaption>HAUNT.EXE's programs.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/preview_haunt_art.png" loading="lazy" width="1446" height="806" alt="Four frames from HAUNT.EXE: the jack-o'-lantern lit and wicked, and the talking skull lit and in the dark">
+            <figcaption>The pumpkin patch and the ossuary.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/preview_haunt.png" loading="lazy" width="1476" height="1660" alt="Eight frames from HAUNT.EXE: the DOS prompt typing THEY ARE ALL STILL HERE, the manor in a thunderstorm, zombies rising in a graveyard, skeletons dancing out of their coffins and collapsing when the music stops, the ghost saying boo, and the spider in a candle-lit corner">
+            <figcaption>The prompt, the manor, the graveyard, the skeletons, the ghost and the spider.</figcaption>
+          </figure>
+        </div>
+      </details>
+    </div>
   </section>
 
   <section aria-labelledby="install">
@@ -430,13 +622,13 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
       <p class="warn">Unsigned file: if SmartScreen stops it, choose More info, then Run anyway.</p>
       <div class="foot">F1=Help  Esc=Cancel</div>
     </div>
-    <p><strong>Upgrading from an earlier beta:</strong> your settings, progress and graves carry over. Your runes come across by their old tier as a quality, and a rune held at the merchant's is let go and its fee given back (from before the fourth beta, your old robe, hood and best ring become Common pieces). This beta adds a little to the save for the shrine, which earlier betas can't read, so if you might go back, keep a copy first: <code>reg export HKCU\Software\HalloweenVGASaver haunted-backup.reg</code>. Double-click the file to restore it.</p>
+    <p><strong>Upgrading from an earlier beta:</strong> your settings and saves carry over. The sixth beta's graves open as pages of the ledger, and its last progress as the unsigned run; sign it at the merchant's to keep it on a page. Older saves load as they did before. This beta writes a new kind of save, which earlier betas can't read, so if you might go back, keep a copy first: <code>reg export HKCU\Software\HalloweenVGASaver haunted-backup.reg</code>. Double-click the file to restore it.</p>
     <p>HAUNT.EXE's file manager shows your Windows user name and today's date. Keep that in mind before you share a recording. <code>capture.cmd</code> in the zip runs it as an ordinary window that OBS or Xbox Game Bar can record.</p>
   </section>
 
   <section aria-labelledby="source">
     <h2 id="source">Built in the open</h2>
-    <p>Every release is built from this repository by GitHub Actions. The MinGW-w64 cross-compiler builds the program, a headless harness renders both scenes and plays a scripted session, and the files go up with their SHA-256 checksums. It's about 24,000 lines of C with no dependencies beyond the standard Windows DLLs.</p>
+    <p>Every release is built from this repository by GitHub Actions. The MinGW-w64 cross-compiler builds the program, a headless harness renders both scenes and plays a scripted session, and the files go up with their SHA-256 checksums. It's about 30,000 lines of C with no dependencies beyond the standard Windows DLLs.</p>
 <pre class="code">sudo apt install gcc-mingw-w64-x86-64 zlib1g-dev
 make zip      # dist/HAUNTED.scr, dist/HAUNTED.EXE and the zip
 make smoke    # both scenes and a scripted player in the test harness</pre>
@@ -450,30 +642,37 @@ make smoke    # both scenes and a scripted player in the test harness</pre>
 
   <section aria-labelledby="beta">
     <h2 id="beta">Beta status</h2>
-    <p>This is the sixth beta. The third was played by hand on the author's own Windows PC, on top of the automated tests, as were the ones before it. The fourth added things to wear rolled like loot, their abilities, spirit and bones, the merchant's wider room, bags and the Black Altars; the fifth the status bar that steps aside, wisps that fly through the crypt, the altar's blessing, and a few secrets; this one adds chains of secrets into the Backrooms and Severance, Cursed Coins, the Rune Shrine and runes by quality. Nothing from the fourth, fifth or sixth has been played by hand yet: it has been tested by the harness. Here is what has been tested, and how.</p>
+    <p>This is the seventh beta. The third was played by hand on the author's own Windows PC, on top of the automated tests, as were the ones before it. The fourth added things to wear rolled like loot, spirit and bones and the Black Altars; the fifth wisps that fly through the crypt and the status bar that steps aside; the sixth chains of secrets into the Backrooms and Severance and the Rune Shrine. This one is the biggest change the game has had: runs of ten levels with four bosses, their hazards and omens, death that costs, the merchant's ledger and her claim, and her hall. Nothing from the fourth beta on has been played by hand yet, and this one hasn't been run under Wine either: it has been tested in the harness, and the Windows build compiled and smoke-tested by GitHub Actions.</p>
+    <div class="folds">
+      <details>
+        <summary>What has been tested, and how <span class="hint">area by area</span></summary>
+        <div class="fold">
     <div class="scroll">
       <table>
         <thead><tr><th>Area</th><th>Evidence</th><th>Confidence</th></tr></thead>
         <tbody>
-          <tr><td>Playing</td><td>Scripted sessions in the harness: taking over from both scenes, shopping, every spell, the wardrobe, the question at Esc, dying, the exit, saving and loading. 170 seconds under AddressSanitizer and UBSan, clean.</td><td><span class="tag ok">HIGH</span></td></tr>
-          <tr><td>The new crypt</td><td>Every lane of every generated level checked for reach. A test player that only walks where the wisp leans cleared 24 of 24 levels, fetching vault keys where the exit needed them. Pressing a secret wall, walking into the room behind it and taking the loot, carving and rising from graves (also under Wine, into the registry). About 30 minutes under AddressSanitizer and UBSan, clean. Not yet played by hand on Windows.</td><td><span class="tag mid">MEDIUM</span></td></tr>
-          <tr><td>The creatures</td><td>Each newcomer seen at work in long autopilot runs in the harness: leaping, feeding, rising, laying sacs, raising the dead, waking from stone, throwing embers. AddressSanitizer and UBSan on levels 11 to 19 with all of them in play, clean. Run by hand on Windows, not yet played through creature by creature.</td><td><span class="tag mid">MEDIUM</span></td></tr>
-          <tr><td>Things to wear and the merchant</td><td>In the harness: buying a piece for a place already worn with no bag (the warning, then a second E) and with a full bag (letting a spare go), holding a ware and finding it back on the next visit at its price, the wardrobe and the bag, the caster's totals, and each ability at work. Anointing checked on 72,000 rolled pieces: no stat passes its cap. Four faults found and fixed. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
-          <tr><td>Spirit and bones</td><td>In the autopilot's runs, about 10,700 spells cast and 51 of them weak for want of spirit. Bones dropped, carried and thrown in the harness. Not yet played by hand, so whether spirit feels scarce to a person is still open.</td><td><span class="tag mid">MEDIUM</span></td></tr>
-          <tr><td>The status bar and the hand</td><td>In the harness: the bar sliding away after five seconds and coming back for a hurt, a spell, H, Tab and B, the small readout meanwhile, and the hand rising to cast and sinking. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
-          <tr><td>Wisps</td><td>A test player that only follows a wisp cleared 18 of 18 levels, fetching up to three keys on the way. The L list with and without Keymaker, a hold of L, the setting for a tap, and a cast with too few souls, in scripted sessions. Not yet played by hand, so how easy the trail is to follow is still open.</td><td><span class="tag mid">MEDIUM</span></td></tr>
-          <tr><td>Chains, the Backrooms and Severance</td><td>In the harness: going in and out, the level waiting, every link of chains in both, the visportal's and the cooler's gift once a chain, dying in a chain and waking whole in its first room, sleepwalking out, what is taken and killed staying so, and the menus inside a pocket. The autopilot went into 78 chains in 24 runs and reached the end of 24. The hum, the echo and the muzak were rendered in the harness only. About 75 minutes of the whole beta under AddressSanitizer and UBSan, clean. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
-          <tr><td>Runes and the Rune Shrine</td><td>Every Exquisite rune's second effect seen in the harness (the Bone Ward's burst only in a scratch build with a weaker ward, since a full one never broke). The shrine by a scripted person: the curse, pulls, three runes combining, a take, letting one go, and both questions. The autopilot cursed it in 18 of 24 runs but took only three runes, and never had the coins to raise it. Exquisite runes are very strong and haven't been tuned. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
-          <tr><td>Black Altars</td><td>A test player woke an altar, followed its wisp to a secret, went in and came out, sent it home and on to the next, through vault keys where they lay. The menu, the blessing and its halo in scripted sessions; following a blessed wisp through level 9, a test player took 2 blows on four seeds against 11 without it. The gold flame and the anointing were seen in a scratch build that marks the secrets found. Not yet played by hand.</td><td><span class="tag low">LOW</span></td></tr>
-          <tr><td>Saves</td><td>The new save written by fleeing from inside a chain and loaded back with the shrine and its coins, a chain's coin not given twice after loading, a save in the fifth beta's format loaded with its runes as qualities and a held rune's fee paid back, one in the fourth beta's format loaded, and one from the third beta loaded with its robe, hood and ring as Common pieces. Scripted sessions under AddressSanitizer and UBSan after each step, clean.</td><td><span class="tag mid">MEDIUM</span></td></tr>
-          <tr><td>Achievements and the bestiary</td><td>Saving and loading the new save and the old one, graves with their own records, the pop-up, and every bestiary page drawn from a full record, which found two bugs that were fixed before release.</td><td><span class="tag mid">MEDIUM</span></td></tr>
-          <tr><td>The autopilot</td><td>Eight runs from each of levels 1, 11 and 16, on the same seeds in this beta and the fifth. Dying in a chain only throws you back whole, so those are counted apart: from level 1, 4 deaths in the crypt against 5, and 2 in chains; from level 11 with modest spells, 7 against 11, and 2; from level 16, 30 against 28, and 5. The Deep is as deadly as it was. It takes much the same share of the treasure, finds far more secrets, and came away with 44 Cursed Coins. Those levels will be tuned by playing them.</td><td><span class="tag ok">HIGH</span></td></tr>
-          <tr><td>Input on Windows</td><td>Played by hand on real Windows: holding H, the keys, raw mouse turning and keeping the mouse inside the window all work flawlessly. Also driven under Wine with real key presses, including saving to the registry and loading it back.</td><td><span class="tag ok">HIGH</span></td></tr>
+          <tr><td>The bosses</td><td>Fought by the autopilot in the harness as each was built, with every spell at tier 4 to 8: the knight beaten in 189 to 221 seconds, the spider in 173 to 232 (four deaths on two seeds of four), the Deacon in 160 to 210, and the Wraith in eight fights of eight, but in 332 to 593 seconds, about twice what was planned. With every boss ability at rank III, the knight in 215 seconds, the spider in 175 and the Deacon in 198. Challenges won from the Portal. Each boss's own ways seen in the event logs. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
+          <tr><td>Hazards and omens</td><td>Each boss's hazards and second casts in its fights, and the omens in the levels before, warning first; the autopilot steps out of them. In eight long runs it met hundreds of omens and was struck 45 times by rocks, and none of its deaths was to a hazard. Not yet played by hand, so how readable they are among the adds is still open.</td><td><span class="tag mid">MEDIUM</span></td></tr>
+          <tr><td>Death and the ledger</td><td>Scripted sessions in the harness: a death written the moment it falls, its card, waking before level 1 with the runes and the hall kept, the stone and its page, a death in a pocket and its sealed doorway, signing and opening pages, a page keeping the merchant's visit, signing over another run's page, and the sixth beta's graves and progress opening as pages. The screensaver's own deaths cost nothing, as before. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
+          <tr><td>Her claim</td><td>A run marked as it met a black skeleton, the program closed while marked, and the next start paying (740 gold and a tier of Rapid Sparks), then nothing on the start after. The mark is a registry value written from the main loop a few times a minute; that has been compiled for Windows but not run there.</td><td><span class="tag low">LOW</span></td></tr>
+          <tr><td>The merchant's hall</td><td>In scripted sessions: all seven pedestals bought and kept on a page; the Totem teaching and raising each ability, and scrip sold; Swift Dodge, a web, the dead raised, Wraithwalk; the Portal's run starts and challenges; buying from the Compendium, and the autopilot buying back a lost tier; the Repository's places, gold and coins, kept through a death; every page of the Codex. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
+          <tr><td>The autopilot</td><td>Eight 100-minute runs from level 1 against the same seeds in a build from before the ledger and the hall: it dies more and gets less far, because a fresh run starts with two pedestals and one purchase a visit in the first run. It cleared up to level 9 to 13 (median 9, against 11.5), died 22 times against 11 (15 of them on the knight's level), and beat the knight in 2 runs of 8 (6 before). It never died to a hazard. This will be tuned.</td><td><span class="tag mid">MEDIUM</span></td></tr>
+          <tr><td>Saves on Windows</td><td>Pages of up to 16 KB, the progress and the mark, written to the registry the moment the game changes them and never on quitting. Tested in the harness, which stands in for the registry; the Windows side compiles but hasn't been run, by hand or under Wine.</td><td><span class="tag low">LOW</span></td></tr>
+          <tr><td>Memory safety</td><td>AddressSanitizer and UBSan after every step of the work and once more over the whole beta: the autopilot from levels 1 and 21, every boss's fight, scene switches with the ledger's pages, and scripted sessions of the ledger, deaths, the claim and the hall. All clean.</td><td><span class="tag ok">HIGH</span></td></tr>
+          <tr><td>Chains, the Backrooms and Severance</td><td>In the harness: going in and out, the level waiting, every link of chains in both, the visportal's and the cooler's gift once a chain, what is taken and killed staying so, and the menus inside a pocket. The hum, the echo and the muzak were rendered in the harness only. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
+          <tr><td>Runes and the Rune Shrine</td><td>Every Exquisite rune's second effect seen in the harness. The shrine by a scripted person: the curse, pulls, three runes combining, a take, letting one go, and both questions. Exquisite runes are very strong and haven't been tuned. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
+          <tr><td>Wisps and Black Altars</td><td>A test player that only follows a wisp cleared 18 of 18 levels, fetching up to three keys on the way. A test player woke an altar, followed its wisp to a secret and back, and sent it on. The blessing and its halo in scripted sessions. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
+          <tr><td>Things to wear, spirit and bones</td><td>In the harness: buying with no bag and with a full one, holding a ware, the wardrobe and the bag, the caster's totals, each ability at work; anointing checked on 72,000 rolled pieces. About 10,700 spells cast by the autopilot in the fourth beta's runs, 51 of them weak for want of spirit. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
+          <tr><td>The creatures, achievements and the bestiary</td><td>Each creature seen at work in long autopilot runs; every bestiary page drawn from a full record. Run by hand on Windows in the third beta, not yet played through creature by creature.</td><td><span class="tag mid">MEDIUM</span></td></tr>
+          <tr><td>Input on Windows</td><td>Played by hand on real Windows: holding H, the keys, raw mouse turning and keeping the mouse inside the window all work flawlessly. The C key is new to the Windows shell, and the right mouse button had no use before this beta; neither has been pressed there yet.</td><td><span class="tag ok">HIGH</span></td></tr>
           <tr><td>Mouse feel</td><td>Tried by hand: the fixed speed of 0.0015 radians per count feels spot-on.</td><td><span class="tag ok">HIGH</span></td></tr>
-          <tr><td>Sound</td><td>Heard through real speakers, where the music and effects play as intended. Also analysed offline for clipping and levels. The fifth beta's pause of the effects and this one's hum, echo and muzak were measured in the harness only.</td><td><span class="tag ok">HIGH</span></td></tr>
+          <tr><td>Sound</td><td>Heard through real speakers in the earlier betas, where the music and effects play as intended. The four waltzes were measured in the harness: none clips, and each sits within two decibels of the march.</td><td><span class="tag ok">HIGH</span></td></tr>
           <tr><td>Real Windows</td><td>The earlier betas run on the author's Windows PC in a few different configurations. This one is built and smoke-tested by GitHub Actions, but hasn't been run by hand yet. Other PCs and graphics cards haven't been tried.</td><td><span class="tag mid">MEDIUM</span></td></tr>
         </tbody>
       </table>
+    </div>
+        </div>
+      </details>
     </div>
     <p>If something is wrong on your machine, <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE/issues">open an issue</a> with your Windows version and graphics card.</p>
   </section>
@@ -524,10 +723,10 @@ make smoke    # both scenes and a scripted player in the test harness</pre>
     "REAL WIZARDS DO NOT HAVE MEETINGS.",
     "87 SOULS. SO CLOSE TO SOMETHING WONDERFUL."
   ];
-  var NOTES = { "q-flee": "YOUR LEVEL, GOLD AND GEAR ARE KEPT", "q-stay": "BACK TO THE CRYPT", "q-sleep": "THE AUTOPILOT WALKS ON WITHOUT YOU",
-                "q-carve": "THREE GRAVES. CHOOSE ONE.", "q-rise": "WHICH GRAVE WILL YOU LEAVE?" };
+  var NOTES = { "q-flee": "NOTHING IS KEPT BUT WHAT IS SIGNED", "q-stay": "BACK TO THE CRYPT", "q-sleep": "THE AUTOPILOT WALKS ON WITHOUT YOU",
+                "q-open": "A RUN FROM A PAGE SHE HAS SIGNED" };
   var line = document.getElementById("q-line"), note = document.getElementById("q-note");
-  var opts = ["q-flee", "q-stay", "q-sleep", "q-carve", "q-rise"].map(function (id) { return document.getElementById(id); });
+  var opts = ["q-flee", "q-stay", "q-sleep", "q-open"].map(function (id) { return document.getElementById(id); });
   var li = Math.floor(Math.random() * LINES.length), walker = null;
   function show() { line.textContent = LINES[li % LINES.length]; }
   function select(b) {
@@ -550,10 +749,8 @@ make smoke    # both scenes and a scripted player in the test harness</pre>
         document.getElementById("download").scrollIntoView({ behavior: still ? "auto" : "smooth", block: "center" });
       } else if (b.id === "q-stay") {
         li++; show();
-      } else if (b.id === "q-carve") {
-        line.textContent = "HERE LIES A CASTER. NOT FOR LONG.";
-      } else if (b.id === "q-rise") {
-        line.textContent = "THE EARTH GIVES YOU BACK. IT ALWAYS DOES.";
+      } else if (b.id === "q-open") {
+        line.textContent = "SHE TURNS THE PAGES WITH ONE PAW. SHE NEVER LOOKS UP.";
       } else {
         li++; show();
         if (!still) walker = setInterval(function () { li++; show(); }, 4200);
