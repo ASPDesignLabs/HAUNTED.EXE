@@ -6136,7 +6136,9 @@ static void crawl_enter(uint32_t seed) {
     CON.open = 0; CON.slide = 0.0f; snd_hold(0);                   /* the console goes up; what a code did stays */
     ledger_first();                                                /* the first time: the page to start from */
     int resume = RUN.active;
-    if (resume && !RUN.loaded) {                                   /* back from the other scene: where was it? */
+    if (resume && !RUN.loaded && G.dead && G.dcost) {              /* a death that cost: it has already written level 1 */
+        RUN.shop_next = 1; RUN.hp = gear_max_hp(&RUN.gear);
+    } else if (resume && !RUN.loaded) {                            /* back from the other scene: where was it? */
         int won = G.tally || G.exiting;
         RUN.level = G.level + won; RUN.hp = G.hp > 0 ? G.hp : gear_max_hp(&RUN.gear);
         RUN.shop_next = won || (G.shop && !G.shop_bought);
