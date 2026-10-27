@@ -628,6 +628,58 @@ The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.p
 
 ## What has been verified
 
+**New in 1.0.0b7** (runs of ten and four bosses, their hazards, omens and waltzes; death that costs, the
+merchant's ledger and her claim; her hall, with the Hexed Totem and the bosses' abilities, the Accursed
+Portal, the Corpus Compendium, the Wretched Repository and the grave plot; the Codex). All of it has been
+tested in the harness only; none of it has been played by hand yet, and this round wasn't run under
+Wine. The Windows build was compiled here without warnings, and by CI.
+
+* **The bosses**, fought by the autopilot as each was built, with every spell at tier 4 to 8: the knight
+  beaten in 189 to 221 seconds, the spider in 173 to 232 (four deaths on two seeds of four), the Deacon
+  in 160 to 210, and the Wraith in eight fights of eight, but in 332 to 593 seconds, about twice what was
+  planned: it can be hurt only in the light, and most of the time goes between its waves. With every boss
+  ability at rank III, the knight fell in 215 seconds, the spider in 175 and the Deacon in 198. A knight
+  challenged from level 2 fell in 196 seconds and a spider in 292, each giving its scrip and the way back
+  to the room it was begun from.
+* **The dream gets less far than it did.** Eight 100-minute runs from level 1, against a build from
+  before the ledger and the hall on the same seeds: they cleared up to level 9 to 13 (median 9.5, against
+  11.5) and died 27 times (11), 21 of them on the knight's level (10 to the knight, 10 to its adds and one
+  to its mirror). Every run reached the knight. It fell in 4 runs of 8 (6 of 8), in 141 to 217 seconds,
+  after 23 tries (13); the other four were still trying when their time ran out. The cause is the
+  merchant: a fresh run has two pedestals and buys one ware a visit in the first run, so it bought 78
+  wares where it had bought 101. A variant that kept back half a level's gold when buying a pedestal
+  bought fewer still, and wasn't kept. It never died to a hazard, though rocks struck it 33 times; the
+  median level took 5.7 minutes, and it took 85% of the treasure (84% before).
+* **Found and fixed on the way:** a boss's arena could not be reached at all. The room above its
+  doorway could be made a vault, and making a vault walls up a room's other ways in, this one included.
+  Of 800 boss levels generated before the fix (200 seeds, each boss's level), 116 had the arena cut off,
+  and so did three of the eight runs above the first time they were made: the autopilot wandered level 10
+  until its time ran out, or until a boss level's twenty-five minutes of patience moved it on (a person
+  couldn't have reached it either). The comparison build had the fault too, in one of its runs. Now a
+  vault is never made of that room, and none of 800 is cut off. Also found: the autopilot never aimed at
+  a boss that doesn't strike, kept away from slow adds instead of going after them, and dithered near a
+  key while leaving; a Wraithwalk could read past the map's edge (found by AddressSanitizer); and a
+  scene switch during a costly death's haze brought back the level it died on.
+* **Played in the harness:** a person's death (the card, the stone and its page, the page written at
+  once, 1,505 bytes with one stone, waking before level 1 with the runes and the hall kept); a death in a
+  pocket and its sealed doorway; signing and opening pages, signing over another run's page, a page
+  keeping the merchant's visit; the sixth beta's graves and progress opening as pages; her claim (a run
+  marked as it met a black skeleton, the program closed while marked, and the next start paying 740 gold
+  and a tier of Rapid Sparks, then nothing on the start after); all seven pedestals; the Totem teaching
+  and raising each ability and selling scrip; Swift Dodge, a web, the dead raised, Wraithwalk; the
+  Portal's run starts and challenges; the Compendium's purchases, and the autopilot buying back a tier
+  her claim took; the Repository's places, gold and coins kept through a death; all 24 of the Codex's
+  pages with the debug gear. The four waltzes were measured: none clips, each within two decibels of the
+  march.
+* **Saves.** A page is up to 16 KB: 1,145 bytes of the run, then sections for the merchant's visit, the
+  stones, the pedestals, the Compendium, the Repository and the Codex, which a reader steps over when it
+  doesn't know them. The harness stands in for the registry; the Windows side, which writes a value the
+  moment the game changes it, compiles but hasn't been run.
+* **AddressSanitizer and UBSan**, clean, after each step and once more over the whole beta: the autopilot
+  for 50 minutes from level 1 and 30 from level 21, each boss's level for 20 minutes, 40 minutes of scene
+  switches, and scripted sessions of a death and its stone, signing, the claim, the Totem, the
+  Compendium, the Portal's run start and a challenge.
+
 **New in 1.0.0b6** (secrets in chains through the Backrooms and Severance, Cursed Coins and the Rune
 Shrine, runes by quality, the altar's wisp to one secret and back, the autopilot in all of it, and the
 hand that rises once to cast). All of it has been tested in the harness only; none of it has been played

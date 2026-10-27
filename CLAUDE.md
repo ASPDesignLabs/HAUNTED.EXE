@@ -773,13 +773,16 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
 - Past level 40 the runs come round with a numeral on the names; no loop moods yet, and the bosses are
   stronger only as their level makes them.
 - With 1.0.0b7, eight 100-minute dream runs from level 1 (seeds 1-15 odd, against the step-10 build on
-  the same seeds) cleared levels 9-13 (median 9, against 11.5), died 22 times (11), 15 of them on level 10
-  (6 to the knight, 8 to its adds, 1 to its mirror), and beat the knight in 2 runs of 8 (6), 15 tries
-  (13). None died to a hazard; rocks struck it 45 times. The cause is a fresh run's two pedestals and one
-  ware a visit in run I (75 wares bought against 101). A variant that kept half a level's haul back when
-  buying a pedestal bought fewer (64) and won once; not kept. In one run of the eight (seed 3) the
-  autopilot never found its way into the knight's antechamber and wandered level 10 for 1,300 s until the
-  boss level's give-up moved it on (see the next item if it was fixed).
+  the same seeds) cleared levels 9-13 (median 9.5, against 11.5), died 27 times (11), 21 of them on level
+  10 (10 to the knight, 10 to its adds, 1 to its mirror), and beat the knight in 4 runs of 8 (6), 23 tries
+  (13); four runs were still on level 10 at the end. None died to a hazard; rocks struck it 33 times. The
+  cause is a fresh run's two pedestals and one ware a visit in run I (78 wares bought against 101). A
+  variant that kept half a level's haul back when buying a pedestal bought fewer; not kept. Logs of these
+  runs aren't kept in the repo; rerun with `CRAWL_SEED=s build/host_debug apl crawl 6000`.
+- Before the release, `mz_vault` could make the room above a boss arena's doorway a vault and wall the
+  doorway up (116 of 800 boss levels; three of the eight dream runs sat on level 10). It now skips any
+  room with a `keep` exit; the debug map's `MAP lanes reachable` line shows such a cut-off at a glance
+  (about 200 lanes short).
 - Nothing in 1.0.0b7 has been played by hand or run under Wine: the bosses, hazards and omens, death's
   cost, the ledger and the claim (the mark is a registry value written from the main loop), the hall, the
   Codex, the C key and the right mouse's first use.
