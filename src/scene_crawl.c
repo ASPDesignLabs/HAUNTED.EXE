@@ -705,6 +705,18 @@ enum { MM_SIGN, MM_PED, MM_PAT, MM_LEAVE, NMM };                   /* the mercha
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
 enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
+static struct {                             /* their game controller, if they have one */
+    int used;                               /* the pad, not the keys, was touched last: the hints speak its language */
+    int fresh;                              /* just taken over: what is held now counts once it is let go */
+    uint32_t held;                          /* those buttons */
+    float rep[4];                           /* a direction held in a menu: when it repeats (up, down, left, right) */
+    uint8_t on[4];
+    int menu;                               /* a menu was open last step */
+    int run;                                /* the left stick clicked: running until it is let go */
+    int dodge;                              /* B: Swift Dodge, at dodge_a */
+    float dodge_a;
+} PADX;
+#define PAD_TURN 3.0f                       /* radians a second with the right stick all the way over */
 
 /* pockets (see the pockets' code below): the level as it waits, and where in a chain you are */
 #define POCKET_LINKS 8
@@ -8430,14 +8442,15 @@ static void spell_keys(void) {
 }
 
 /* turning and walking, shared by the crypt and the merchant's room */
+static float pad_turn(float dt) { return IN.rx * (0.4f + 0.6f * IN.rx * IN.rx) * PAD_TURN * dt; }   /* gentle near the middle */
 static void human_walk(float dt) {
-    float run = IN.down[KEY_SHIFT] ? 1.5f : 1.0f;
-    G.ang = wrap_pi(G.ang + IN.mdx * MOUSE_TURN + ((float)IN.down[KEY_RIGHT] - (float)IN.down[KEY_LEFT]) * KEY_TURN * run * dt);
-    float fwd = (float)(IN.down[KEY_W] || IN.down[KEY_UP]) - (float)(IN.down[KEY_S] || IN.down[KEY_DOWN]);
-    float side = (float)IN.down[KEY_D] - (float)IN.down[KEY_A];
+    float run = IN.down[KEY_SHIFT] || PADX.run ? 1.5f : 1.0f;
+    G.ang = wrap_pi(G.ang + IN.mdx * MOUSE_TURN + ((float)IN.down[KEY_RIGHT] - (float)IN.down[KEY_LEFT]) * KEY_TURN * run * dt + pad_turn(dt));
+    float fwd = (float)(IN.down[KEY_W] || IN.down[KEY_UP]) - (float)(IN.down[KEY_S] || IN.down[KEY_DOWN]) + IN.ly;
+    float side = (float)IN.down[KEY_D] - (float)IN.down[KEY_A] + IN.lx;
     float len = sqrtf(fwd * fwd + side * side), moved = 0.0f;
-    if (len > 0.0f) {
-        float sp = WALK * run * gear_haste(&RUN.gear) * slow_factor() * dt / len;
+    if (len > 0.0f) {                                              /* the stick part way over: slower */
+        float sp = WALK * run * gear_haste(&RUN.gear) * slow_factor() * dt / fmaxf(len, 1.0f);
         float c = cosf(G.ang), s = sinf(G.ang);
         moved = human_move((c * fwd - s * side) * sp, (s * fwd + c * side) * sp);
     }
@@ -8456,7 +8469,7 @@ static void human_walk(float dt) {
 /* a person's dart: the way set when it began, the mouse still turning */
 static void dash_step(float dt) {
     float k = fminf(dt, G.dash_t);
-    G.ang = wrap_pi(G.ang + IN.mdx * MOUSE_TURN);
+    G.ang = wrap_pi(G.ang + IN.mdx * MOUSE_TURN + pad_turn(dt));
     G.px += G.dash_vx * k; G.py += G.dash_vy * k;
     if ((G.dash_t -= dt) < 0.0f) G.dash_t = 0.0f;
     G.spd = 0.0f;
@@ -8634,6 +8647,7 @@ static void update_human(float dt) {
         else G.tap_key = k;
         G.tap_t = 0.0f;
     }
+    if (PADX.dodge) { PADX.dodge = 0; if (G.dash_t <= 0.0f) swift_dodge(PADX.dodge_a); }   /* or B on a controller */
     if (G.dash_t > 0.0f) dash_step(dt); else human_walk(dt);
     if (IN.hit[KEY_E] || IN.hit[KEY_SPACE]) human_use();
     if (G.exiting) return;
@@ -9231,7 +9245,76 @@ static void con_render(Frame *f) {
 
 /* ---- the scene's side of the bargain with the app ---- */
 
-static void crawl_input(const Input *in, double dt) { (void)dt; IN = *in; }
+/* The controller, made into the keys each place reads. In a menu the D-pad and the left stick are the
+ * arrows (repeating), A Enter, B and Menu Esc, Y Space, the bumpers the pages, View Tab. In the crypt
+ * and the merchant's room the sticks walk and turn (human_walk), RT casts and LT uses the ability readied,
+ * the bumpers turn the spellbook, A is E, B Swift Dodge the way the left stick leans, X Q, Y L, View Tab,
+ * Menu Esc, and the D-pad the bestiary, the Codex, the status bar and the wisps. */
+static void pad_keys(float dt) {
+    int keys = IN.ntext > 0 || IN.wheel || fabsf(IN.mdx) + fabsf(IN.mdy) > 4.0f, pads = 0;
+    PADX.dodge = 0;
+    for (int k = 0; k < KEY_COUNT && !keys; k++) keys = IN.hit[k];
+    if (!IN.pad) { PADX.used = PADX.run = 0; return; }
+    if (PADX.fresh) {                                              /* the button held to take over counts once let go */
+        PADX.fresh = 0; PADX.held = 0;
+        for (int b = 0; b < PAD_COUNT; b++) if (IN.pad_down[b]) PADX.held |= 1u << b;
+    }
+    uint8_t dn[PAD_COUNT], hit[PAD_COUNT];
+    for (int b = 0; b < PAD_COUNT; b++) {
+        if (!IN.pad_down[b]) PADX.held &= ~(1u << b);
+        int ok = !(PADX.held >> b & 1);
+        dn[b] = (uint8_t)(ok && IN.pad_down[b]); hit[b] = (uint8_t)(ok && IN.pad_hit[b]);
+        pads |= hit[b];
+    }
+    pads |= IN.lx * IN.lx + IN.ly * IN.ly > 0.09f || IN.rx * IN.rx + IN.ry * IN.ry > 0.09f;
+    if (pads) PADX.used = 1; else if (keys) PADX.used = 0;
+    if (IN.lx * IN.lx + IN.ly * IN.ly < 0.06f) PADX.run = 0;      /* running ends with the stick let go */
+    if (CON.open) return;
+#define PRESS(k) (IN.hit[k] = IN.down[k] = 1)
+    if (G.ui != UI_NONE) {
+        static const int DIRK[4] = { KEY_W, KEY_S, KEY_A, KEY_D };
+        int want[4] = { dn[PAD_UP] || IN.ly > 0.55f, dn[PAD_DOWN] || IN.ly < -0.55f, dn[PAD_LEFT] || IN.lx < -0.55f, dn[PAD_RIGHT] || IN.lx > 0.55f };
+        if (!PADX.menu)                                            /* just opened: what opened it, or a walk, isn't a turn of the page */
+            for (int d = 0; d < 4; d++) { PADX.on[d] = (uint8_t)want[d]; PADX.rep[d] = 0.4f; }
+        PADX.menu = 1;
+        for (int d = 0; d < 4; d++) {
+            if (!want[d]) { PADX.on[d] = 0; continue; }
+            IN.down[DIRK[d]] = 1;
+            if (!PADX.on[d]) { PADX.on[d] = 1; PADX.rep[d] = 0.4f; IN.hit[DIRK[d]] = 1; }
+            else if ((PADX.rep[d] -= dt) <= 0.0f) { PADX.rep[d] = 0.12f; IN.hit[DIRK[d]] = 1; }
+        }
+        if (hit[PAD_A]) PRESS(KEY_ENTER);
+        if (hit[PAD_B] || hit[PAD_MENU]) PRESS(KEY_ESC);
+        if (hit[PAD_Y]) PRESS(KEY_SPACE);
+        if (hit[PAD_RB]) PRESS(KEY_D);
+        if (hit[PAD_LB]) PRESS(KEY_A);
+        if (hit[PAD_VIEW]) PRESS(KEY_TAB);
+        return;
+    }
+    PADX.menu = 0;
+    if (hit[PAD_A]) PRESS(KEY_E);
+    if (hit[PAD_X]) PRESS(KEY_Q);
+    if (hit[PAD_VIEW]) PRESS(KEY_TAB);
+    if (hit[PAD_MENU]) PRESS(KEY_ESC);
+    if (hit[PAD_LEFT]) PRESS(KEY_B);
+    if (hit[PAD_RIGHT]) PRESS(KEY_C);
+    if (hit[PAD_DOWN]) PRESS(KEY_H);
+    if (hit[PAD_Y] || hit[PAD_UP]) IN.hit[KEY_L] = 1;
+    if (dn[PAD_Y] || dn[PAD_UP]) IN.down[KEY_L] = 1;               /* held, for the list when L casts at a tap */
+    if (dn[PAD_RT]) IN.down[KEY_MOUSE1] = 1;
+    if (hit[PAD_RT]) IN.hit[KEY_MOUSE1] = 1;
+    if (hit[PAD_LT]) PRESS(KEY_MOUSE2);
+    if (hit[PAD_RB]) IN.wheel -= 1;                                 /* the next spell */
+    if (hit[PAD_LB]) IN.wheel += 1;                                 /* the one before */
+    if (hit[PAD_LS]) PADX.run = 1;
+    if (hit[PAD_B]) {                                              /* Swift Dodge: the way the stick leans, else back */
+        PADX.dodge = 1;
+        PADX.dodge_a = G.ang + (IN.lx * IN.lx + IN.ly * IN.ly > 0.09f ? atan2f(IN.lx, IN.ly) : PI_F);
+    }
+#undef PRESS
+}
+
+static void crawl_input(const Input *in, double dt) { IN = *in; pad_keys((float)dt); }
 
 static void crawl_control(int what) {
     if (what == CTRL_PAUSE) {
@@ -9242,6 +9325,7 @@ static void crawl_control(int what) {
     if (what == CTRL_PEEK) { if (!G.player) { pop_readout(); G.peek = 0.15f; } return; }
     show_bar();
     G.player = 1; G.status_ret = PLAY_PLAYER; G.ui = UI_NONE;
+    PADX.fresh = 1;                                                /* the button that took over isn't a press */
     LEDGER.yours = 1;                                              /* the dream is over: from now on the run is yours */
     if (!G.quit_line) G.quit_line = 1 + rnd(97);                    /* the crypt's arguments, from somewhere new each time */
     if (G.shop) { G.sdur = 0.0f; G.shop_look = -1; G.pc_t = -1.0f; }   /* no cast left half-made */
