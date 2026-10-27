@@ -718,6 +718,65 @@ static struct {                             /* their game controller, if they ha
 } PADX;
 #define PAD_TURN 3.0f                       /* radians a second with the right stick all the way over */
 
+/* The hints in the pad's words, when it was touched last: each key a hint names becomes its button, a
+ * face button marked (\1) for its colour. Only hints go through here: elsewhere a lone C or E is prose. */
+/* the controller's motors, for a person playing with it */
+static void rumble(float low, float high, float secs) {
+    if (!G.player || !PADX.used) return;
+    pad_rumble(low, high, secs);
+}
+static const char *const PK_KEY[] = { "ENTER", "ESC", "E", "W/S", "WASD", "A/D", "TAB", "SPACE", "Q", "B", "C", "L", "1-9", "CLICK" };
+static const char *const PK_PAD[] = { "\1A", "\1B", "\1A", "D-PAD", "D-PAD", "LB/RB", "VIEW", "\1Y", "\1X", "\1B", "\1B", "\1Y", "LB/RB", "RT" };
+static const char *pk(const char *s) {
+    static char buf[8][240];
+    static int at;
+    if (!PADX.used || !s) return s;
+    char *o = buf[at = (at + 1) & 7];
+    int n = 0;
+    while (*s && n < 230) {
+        if (*s == ' ') { o[n++] = *s++; continue; }
+        const char *e = s, *a = s, *b;
+        while (*e && *e != ' ') e++;
+        if (*a == '(') a++;                                        /* the key, less a ( before or a : , . ) after */
+        for (b = e; b > a && (b[-1] == ':' || b[-1] == ')' || b[-1] == ',' || b[-1] == '.'); b--) {}
+        int key = -1;
+        for (int i = 0; i < (int)(sizeof PK_KEY / sizeof PK_KEY[0]); i++)
+            if ((int)strlen(PK_KEY[i]) == (int)(b - a) && !strncmp(a, PK_KEY[i], (size_t)(b - a))) key = i;
+        if (key < 0) { while (s < e && n < 230) o[n++] = *s++; continue; }
+        while (s < a) o[n++] = *s++;
+        for (const char *p = PK_PAD[key]; *p && n < 230; p++) o[n++] = *p;
+        for (s = b; s < e && n < 230; ) o[n++] = *s++;
+    }
+    o[n] = 0;
+    return o;
+}
+static const char *pkp(const char *s) {                            /* the same, plain, for text drawn as it is */
+    static char buf[4][240];
+    static int at;
+    const char *t = pk(s);
+    if (t == s) return s;
+    char *o = buf[at = (at + 1) & 3];
+    int n = 0;
+    for (; *t && n < 239; t++) if (*t != '\1') o[n++] = *t;
+    o[n] = 0;
+    return o;
+}
+static int hint_width(const char *s) {
+    int n = 0;
+    for (s = pk(s); *s; s++) n += *s != '\1';
+    return n * 8;
+}
+static void hint8(Frame *f, int x, int y, const char *s, int col) {   /* a hint, its buttons in their colours */
+    int mark = 0;
+    for (s = pk(s); *s; s++) {
+        if (*s == '\1') { mark = 1; continue; }
+        char c[2] = { *s, 0 };
+        int k = !mark ? col : (*s == 'A' ? R_MOSS + 14 : (*s == 'B' ? R_BLOOD + 14 : (*s == 'X' ? R_GLOW + 13 : R_GOLD + 10)));
+        gfx_text8(f, x, y, c, k, 1);
+        x += 8; mark = 0;
+    }
+}
+
 /* pockets (see the pockets' code below): the level as it waits, and where in a chain you are */
 #define POCKET_LINKS 8
 typedef __typeof__(G) GState;
@@ -2381,7 +2440,9 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
         G.face_t = FACE_T;
     } else G.hurt = fmaxf(G.hurt, 0.25f);
     pop_readout(); show_bar();
-    if (G.hp > 0) { if (!seeping) snd_sfx(SFX_HURT); return d; }
+    float share = G.max_hp > 0 ? (float)d / (float)G.max_hp : 0.0f;  /* the pad shakes by how much it hurt */
+    if (G.hp > 0) { if (!seeping) { snd_sfx(SFX_HURT); rumble(0.25f + 2.0f * share, 0.15f + 1.5f * share, 0.15f + share); } return d; }
+    rumble(1.0f, 0.7f, 0.9f);
     G.hp = 0; G.dead = 1; G.dead_t = 0.0; G.retries++; G.killer = G.blame;
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT died level %d t=%.1f by %d/%d/%d\n", G.level, G.level_t, G.killer.what, G.killer.type, G.killer.rank);
@@ -3888,6 +3949,7 @@ static void bfs9000(void) {
     int tier = RUN.gear.atk[AT_BFS];
     RUN.souls -= bfs_cost(tier);
     G.bfs_t = 0.001f;
+    rumble(1.0f, 1.0f, 0.7f);
     snd_sfx_ex(SFX_IMPLODE, 1.3f, 0.5f);
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *m = &G.mobs[i];
@@ -4728,6 +4790,7 @@ static void open_secret(int i) {
     Secret *sc = &G.secrets[i];
     if (sc->state || G.slide >= 0) return;
     sc->state = 1; G.slide = i; G.slide_t = 0.0f;
+    rumble(0.22f, 0.0f, SLIDE_TIME);                               /* stone grinding on stone */
     G.map[sc->sy][sc->sx].kind = K_FLOOR;                          /* the block is drawn by itself while it moves */
     int nl = G.nlights;
     light_static(sc->sx + 0.5f + DX[sc->d] * 1.5f, sc->sy + 0.5f + DY[sc->d] * 1.5f, 0.75f, 3.4f);   /* the hoard's own glow */
@@ -6376,6 +6439,7 @@ static void update_hazards(float dt) {
         case HZ_ROCK:
             if (struck) {
                 sfx_at(SFX_BOOM, h->x, h->y, 0.9f); sfx_at(SFX_SHATTER, h->x, h->y, 0.5f);
+                if (hypotf(G.px - h->x, G.py - h->y) < 4.0f) rumble(0.45f, 0.1f, 0.22f);   /* a rock lands near */
                 for (int j = 0; j < MAXBOOMS; j++) if (!G.booms[j].alive) { memset(&G.booms[j], 0, sizeof G.booms[j]); G.booms[j].alive = 1; G.booms[j].x = h->x; G.booms[j].y = h->y; break; }
                 if (!G.dead && hypotf(G.px - h->x, G.py - h->y) < h->r + BODY) { G.blame = (Blame){ BL_HAZARD, HZ_ROCK, 0 }; int d = hurt_ex(h->share * (float)mhp, HURT_STONE, h->x, h->y);
 #ifdef CRAWL_DEBUG
@@ -6739,6 +6803,7 @@ static void boss_fall(Mob *m) {
     const BossDef *B = &BOSSES[G.boss];
     G.bstate = BS_DEAD; G.bstate_t = 0.0f;
     G.web_hp = 0.0f;                                               /* its web goes slack */
+    rumble(0.9f, 0.5f, 1.4f);
     Item *it = add_item(m->cx, m->cy, IT_SCRIP);
     if (it) { it->secret = 1; it->seen = 1; it->color = G.boss; }
     if (G.barch >= 0) G.doors[G.barch].locked = 0;
@@ -7852,6 +7917,7 @@ static void shrine_note(const char *fmt, ...) {                    /* a line on 
     va_start(ap, fmt);
     vsnprintf(G.sh_note, sizeof G.sh_note, fmt, ap);
     va_end(ap);
+    snprintf(G.sh_note, sizeof G.sh_note, "%s", pkp(G.sh_note));    /* ENTER AGAIN, or A on a controller */
     G.sh_note_t = 4.0f;
     if (!G.player) say("%s", G.sh_note);                           /* the autopilot's doings, for whoever watches */
 }
@@ -8057,12 +8123,13 @@ static void ab_text(int b, int r, char *buf, int n) {
     r = clampi(r, 1, ABIL_TOP);
     float wait = BA_WAIT[b][r - 1];
     switch (b) {
-    case BOSS_KNIGHT: snprintf(buf, (size_t)n, "TAP W, A, S OR D TWICE: DART UP TO FIVE CELLS THAT WAY, UNTOUCHABLE. AGAIN IN %.0f S.", wait); break;
-    case BOSS_SPIDER: snprintf(buf, (size_t)n, "RIGHT CLICK: A WEB HOLDS WHAT YOU AIM AT, AND IT CLAWS AT THAT, NOT YOU. IT HOLDS %s YOUR HEALTH, %d AT ONCE. AGAIN IN %.0f S.",
+    case BOSS_KNIGHT: snprintf(buf, (size_t)n, PADX.used ? "B, AND THE WAY THE LEFT STICK LEANS: DART UP TO FIVE CELLS, UNTOUCHABLE. AGAIN IN %.0f S."
+                                                       : "TAP W, A, S OR D TWICE: DART UP TO FIVE CELLS THAT WAY, UNTOUCHABLE. AGAIN IN %.0f S.", wait); break;
+    case BOSS_SPIDER: snprintf(buf, (size_t)n, PADX.used ? "LT: A WEB HOLDS WHAT YOU AIM AT, AND IT CLAWS AT THAT, NOT YOU. IT HOLDS %s YOUR HEALTH, %d AT ONCE. AGAIN IN %.0f S." : "RIGHT CLICK: A WEB HOLDS WHAT YOU AIM AT, AND IT CLAWS AT THAT, NOT YOU. IT HOLDS %s YOUR HEALTH, %d AT ONCE. AGAIN IN %.0f S.",
                                HOLD[r - 1], r, wait); break;
-    case BOSS_DEACON: snprintf(buf, (size_t)n, "RIGHT CLICK ON THE REMAINS OF WHAT YOU SLEW: IT RISES AND FIGHTS FOR YOU %d S, %d AT ONCE. AGAIN IN %.0f S.",
+    case BOSS_DEACON: snprintf(buf, (size_t)n, PADX.used ? "LT AT THE REMAINS OF WHAT YOU SLEW: IT RISES AND FIGHTS FOR YOU %d S, %d AT ONCE. AGAIN IN %.0f S." : "RIGHT CLICK ON THE REMAINS OF WHAT YOU SLEW: IT RISES AND FIGHTS FOR YOU %d S, %d AT ONCE. AGAIN IN %.0f S.",
                                8 + 4 * r, r, wait); break;
-    default: snprintf(buf, (size_t)n, "RIGHT CLICK: %.1f S THROUGH CREATURES AND THEIR MISSILES, AND THEY LOSE YOU. AGAIN IN %.0f S.", 1.0f + 0.5f * (float)r, wait); break;
+    default: snprintf(buf, (size_t)n, PADX.used ? "LT: %.1f S THROUGH CREATURES AND THEIR MISSILES, AND THEY LOSE YOU. AGAIN IN %.0f S." : "RIGHT CLICK: %.1f S THROUGH CREATURES AND THEIR MISSILES, AND THEY LOSE YOU. AGAIN IN %.0f S.", 1.0f + 0.5f * (float)r, wait); break;
     }
 }
 
@@ -9258,6 +9325,7 @@ static void pad_keys(float dt) {
     if (PADX.fresh) {                                              /* the button held to take over counts once let go */
         PADX.fresh = 0; PADX.held = 0;
         for (int b = 0; b < PAD_COUNT; b++) if (IN.pad_down[b]) PADX.held |= 1u << b;
+        if (PADX.held) PADX.used = 1;                              /* taken by a button: the hints are the pad's from the start */
     }
     uint8_t dn[PAD_COUNT], hit[PAD_COUNT];
     for (int b = 0; b < PAD_COUNT; b++) {
@@ -11871,7 +11939,7 @@ static void render_shop_card(Frame *f) {
         char l2[48];
         snprintf(l2, sizeof l2, "%d OF %d FULL, $%d, %d COINS", full, RUN.repo_n, RUN.repo_gold, RUN.repo_coins);
         gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
-        gfx_text8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10, 1);
+        hint8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10);
         return;
     }
     if (G.player && G.comp_look && i < 0) {                        /* the Compendium, and what E does there */
@@ -11885,7 +11953,7 @@ static void render_shop_card(Frame *f) {
         char l2[48];
         snprintf(l2, sizeof l2, "%d PIECES, %d SPELLS WRITTEN IN IT", comp_count(), ns);
         gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
-        gfx_text8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10, 1);
+        hint8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10);
         return;
     }
     if (G.player && G.stone_look >= 0 && i < 0) {                  /* a stone in the plot */
@@ -11901,7 +11969,7 @@ static void render_shop_card(Frame *f) {
         snprintf(l2, sizeof l2, "LEVEL %d: %s", st->level, by);
         if (gfx_text_width(l2, 1) > bw - 16) snprintf(l2, sizeof l2, "TAKEN ON LEVEL %d", st->level);
         gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
-        gfx_text8(f, bx + 8, y0 + 31, "E: READ IT", R_STONE + 10, 1);
+        hint8(f, bx + 8, y0 + 31, "E: READ IT", R_STONE + 10);
         return;
     }
     if (G.player && G.mer_look && i < 0) {                         /* the merchant, and what E does with her */
@@ -11915,7 +11983,7 @@ static void render_shop_card(Frame *f) {
         if (LEDGER.page) snprintf(l2, sizeof l2, "FROM PAGE %s OF HER LEDGER", RUN_ROMAN[LEDGER.page - 1]);
         else snprintf(l2, sizeof l2, "THIS RUN IS UNSIGNED");
         gfx_text8(f, bx + 8, y0 + 21, l2, LEDGER.page ? (uint8_t)(R_STONE + 12) : (uint8_t)(R_BLOOD + 12), 1);
-        gfx_text8(f, bx + 8, y0 + 31, "E: SIGN HER LEDGER, OR PAT HER", R_STONE + 10, 1);
+        hint8(f, bx + 8, y0 + 31, "E: SIGN HER LEDGER, OR PAT HER", R_STONE + 10);
         return;
     }
     if (G.player && G.por_look && i < 0) {                         /* the Portal, and what E does there */
@@ -11929,7 +11997,7 @@ static void render_shop_card(Frame *f) {
         char l2[48];
         snprintf(l2, sizeof l2, "%d RUN%s OPEN, %d CHALLENGE%s", RUN.run_top + 1, RUN.run_top ? "S" : "", ch, ch == 1 ? "" : "S");
         gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
-        gfx_text8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10, 1);
+        hint8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10);
         return;
     }
     if (G.player && G.tot_look && i < 0) {                         /* the Totem, and what E does there */
@@ -11944,7 +12012,7 @@ static void render_shop_card(Frame *f) {
         if (!known) snprintf(l2, sizeof l2, "IT WANTS A BOSS'S ODIOUS SCRIP");
         else snprintf(l2, sizeof l2, "%d SCRIP HELD", scrip);
         gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
-        gfx_text8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10, 1);
+        hint8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10);
         return;
     }
     if (G.player && G.sh_look && i < 0) {                          /* the shrine, and what E does there */
@@ -11965,7 +12033,7 @@ static void render_shop_card(Frame *f) {
         gfx_text8(f, bx + bw - 8 - gfx_text_width(c, 1), y0 + 8, c, R_GOLD + 11, 1);
         draw_coin(f, bx + bw - 19 - gfx_text_width(c, 1), y0 + 8);
         gfx_text8(f, bx + 8, y0 + 21, l1, RUN.shrine ? ramp_at(QUAL_RAMP[RUN.shrine - 1], 12) : (uint8_t)(R_STONE + 12), 1);
-        gfx_text8(f, bx + 8, y0 + 31, l2, R_STONE + 10, 1);
+        hint8(f, bx + 8, y0 + 31, l2, R_STONE + 10);
         return;
     }
     if (i < 0 || G.offer_gone[i]) {
@@ -12023,7 +12091,7 @@ static void render_shop_card(Frame *f) {
     for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
     for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
     for (int k = 0, fy = y0 + body; k < 2; k++)                    /* the footer, at the bottom of the card */
-        if (foot[k][0]) { gfx_text8(f, bx + 8, fy, foot[k], warn ? (uint8_t)(R_BLOOD + 13) : (k ? (uint8_t)(R_GOLD + 10) : (uint8_t)(R_STONE + 10)), 1); fy += 9; }
+        if (foot[k][0]) { hint8(f, bx + 8, fy, foot[k], warn ? (uint8_t)(R_BLOOD + 13) : (k ? (uint8_t)(R_GOLD + 10) : (uint8_t)(R_STONE + 10))); fy += 9; }
     if (o->kind == GK_PIECE) {
         int col = qual_text(p->quality);
         gfx_text8(f, bx + 8, y0 + 5, KIND_NAME[p->kind], R_STONE + 11, 1);
@@ -12335,7 +12403,7 @@ static void render_claim(Frame *f) {
     card_box(f, 292, 124, 34);
     card_text(f, 42, "CAUGHT CHEATING THE DEAD", R_BLOOD + 13);
     text_centred(f, 64, G.claim_text, 34, R_STONE + 13, 7);
-    if (G.player && G.claim_t > 1.0f) text_centred(f, 144, "E: SO BE IT", 34, R_STONE + 9, 1);
+    if (G.player && G.claim_t > 1.0f) text_centred(f, 144, pkp("E: SO BE IT"), 34, R_STONE + 9, 1);
 }
 
 /* small text centred on the screen, wrapped at word ends; the lines it took */
@@ -12368,7 +12436,7 @@ static void render_card(Frame *f) {
         y += text_centred(f, y, tk, 33, C_WHITE, 2) * 10 + 4;
         y += text_centred(f, y, G.dlost, 33, R_STONE + 12, 2) * 10 + 4;
         text_centred(f, y, "A NEW STONE IN THE PLOT", 33, R_GOLD + 11, 1);
-        if (G.player && G.dcard_t > 0.8f) text_centred(f, 138, "E: WAKE BY THE MERCHANT", 33, R_STONE + 9, 1);
+        if (G.player && G.dcard_t > 0.8f) text_centred(f, 138, pkp("E: WAKE BY THE MERCHANT"), 33, R_STONE + 9, 1);
         return;
     }
     if (G.dead && G.dead_t > 1.1 && G.dead_t < 4.6) {
@@ -12649,13 +12717,16 @@ static void render_messages(Frame *f) {
     if (G.hint_t > 0.0f && G.player && !G.ui) {
         static const char *const HINT[4] = { "WASD WALK  MOUSE TURN  CLICK CASTS", "1-9 SPELLS  E OPENS  TAB INVENTORY", "B BESTIARY  ESC LEAVE OR SLEEPWALK",
                                              "L WISPS  C THE CODEX  H THE STATUS BAR" };
-        const char *more[2] = { RUN.abil[BOSS_KNIGHT] ? "TAP A DIRECTION TWICE TO DODGE" : NULL, ab_readied() >= 0 ? "RIGHT CLICK AN ABILITY  Q THE NEXT" : NULL };
+        static const char *const PADHINT[4] = { "L-STICK WALK  R-STICK TURN  RT CASTS", "LB RB SPELLS  \1A OPENS  VIEW INVENTORY",
+                                                "MENU LEAVE OR SLEEPWALK  \1Y WISPS", "D-PAD: BESTIARY, CODEX, STATUS BAR" };
+        const char *more[2] = { RUN.abil[BOSS_KNIGHT] ? (PADX.used ? "\1B DODGES THE WAY THE STICK LEANS" : "TAP A DIRECTION TWICE TO DODGE") : NULL,
+                                ab_readied() >= 0 ? (PADX.used ? "LT AN ABILITY  \1X THE NEXT" : "RIGHT CLICK AN ABILITY  Q THE NEXT") : NULL };
         for (int i = 0, row = 0; i < 6; i++) {
-            const char *h = i < 4 ? HINT[i] : more[i - 4];
+            const char *h = i < 4 ? (PADX.used ? PADHINT[i] : HINT[i]) : more[i - 4];
             if (!h) continue;
-            int w = gfx_text_width(h, 1), x = (W - w) / 2, y = 34 + row++ * 11;
+            int w = hint_width(h), x = (W - w) / 2, y = 34 + row++ * 11;
             gfx_rect(f, x - 4, y - 2, w + 8, 11, 0);
-            gfx_text8(f, x, y, h, R_STONE + 13, 1);
+            hint8(f, x, y, h, R_STONE + 13);
         }
     }
 }
@@ -12719,7 +12790,7 @@ static void render_letgo(Frame *f) {
     panel(f, 4, 4, W - 8, H - 8);
     const Gear *g = &RUN.gear;
     gfx_text16(f, 14, 9, "THE BAG IS FULL", R_GOLD + 12, 1);
-    gfx_text8(f, 14, 26, "W/S PICK  ENTER LET GO  ESC NOT NOW", R_STONE + 9, 1);
+    hint8(f, 14, 26, "W/S PICK  ENTER LET GO  ESC NOT NOW", R_STONE + 9);
     int i = G.shop_letgo;
     if (i >= 0) {
         const Piece *np = &G.offers[i].piece;
@@ -12746,7 +12817,7 @@ static void render_caster(Frame *f) {
                                               "LIGHTNING", "EFFECT" };
     const Gear *g = &RUN.gear, *g0 = &G.inv0;
     gfx_text16(f, 14, 9, "THE CASTER", R_GOLD + 12, 1);
-    gfx_text8(f, 14, 26, "A/D PAGE  TAB CLOSE", R_STONE + 9, 1);
+    hint8(f, 14, 26, "A/D PAGE  TAB CLOSE", R_STONE + 9);
     {                                                              /* the Cursed Coins, for the shrine */
         char cc[24];
         snprintf(cc, sizeof cc, "%d CURSED COIN%s", RUN.coins, RUN.coins == 1 ? "" : "S");
@@ -12827,7 +12898,7 @@ static void render_inventory(Frame *f) {
     panel(f, 4, 4, W - 8, H - 8);
     if (G.inv_page) { render_caster(f); return; }
     gfx_text16(f, 14, 9, "WARDROBE", R_GOLD + 12, 1);
-    gfx_text8(f, 14, 26, "W/S PICK  ENTER MOVE  A/D PAGE", R_STONE + 9, 1);
+    hint8(f, 14, 26, "W/S PICK  ENTER MOVE  A/D PAGE", R_STONE + 9);
     bevel(f, 274, 8, 38, 46, 0);
     draw_face(f, 277, 11, 0);
     const Gear *g = &RUN.gear;
@@ -12853,7 +12924,7 @@ static void render_inventory(Frame *f) {
     static const char *const WHY[] = { "", "NOTHING THERE", "NO BAG TO HOLD IT", "THE BAG IS FULL" };
     int act = inv_action(sel);
     const char *what = act == INV_TO_BAG ? "ENTER: INTO THE BAG" : (act == INV_TO_WEAR ? "ENTER: WEAR IT" : WHY[-act]);
-    gfx_text8(f, 120, 49, what, act > 0 ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 8), 1);
+    hint8(f, 120, 49, what, act > 0 ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 8));
     piece_card(f, 120, 62, W - 10 - 120, inv_piece(sel), g, &G.inv0);
 }
 
@@ -12981,7 +13052,7 @@ static void render_ledger(Frame *f) {
         note = G.led_mode ? "ENTER AGAIN. THE UNSIGNED IS LOST" : "ENTER AGAIN TO SIGN OVER IT";
         col = R_BLOOD + 13;
     }
-    gfx_text8(f, (W - gfx_text_width(note, 1)) / 2, by + bh - 14, note, col, 1);
+    hint8(f, (W - hint_width(note)) / 2, by + bh - 14, note, col);
 }
 
 /* E at the merchant: her menu, and a note on the row chosen */
@@ -12995,7 +13066,7 @@ static void render_merchantmenu(Frame *f) {
     char line[160];
     if (LEDGER.page) snprintf(line, sizeof line, "PAGE %s", RUN_ROMAN[LEDGER.page - 1]); else snprintf(line, sizeof line, "UNSIGNED");
     gfx_text8(f, px + pw - 10 - gfx_text_width(line, 1), py + 10, line, LEDGER.page ? (uint8_t)(R_BONE + 12) : (uint8_t)(R_BLOOD + 13), 1);
-    gfx_text8(f, px + 10, py + 24, "W/S CHOOSE  ENTER TAKES  ESC CLOSES", R_STONE + 9, 1);
+    hint8(f, px + 10, py + 24, "W/S CHOOSE  ENTER TAKES  ESC CLOSES", R_STONE + 9);
     for (int i = 0; i < NMM; i++) {
         int y = py + 40 + i * 13;
         if (i == sel) gfx_rect(f, px + 6, y - 3, pw - 12, 13, R_IRON + 3);
@@ -13037,7 +13108,7 @@ static void render_stonemenu(Frame *f) {
     char line[200], by[64], lname[48], num[8];
     snprintf(line, sizeof line, "%d OF %d", si + 1, n);
     gfx_text8(f, W - 14 - gfx_text_width(line, 1), 13, line, R_STONE + 10, 1);
-    gfx_text8(f, 14, 26, "W/S CHOOSE  A/D STONES  ESC CLOSES", R_STONE + 9, 1);
+    hint8(f, 14, 26, "W/S CHOOSE  A/D STONES  ESC CLOSES", R_STONE + 9);
     blame_text(&st->by, by, sizeof by);
     level_name(st->level, lname, sizeof lname);
     int run = crawl_run(st->level);
@@ -13240,7 +13311,7 @@ static void render_bestiary(Frame *f) {
     int order[NKINDS], nk = best_kinds(order), pages = nk + 1;
     char line[64];
     gfx_text16(f, 14, 9, G.best_page < nk ? "BESTIARY" : "ACHIEVEMENTS", R_GOLD + 12, 1);
-    gfx_text8(f, 14, 26, G.best_page < nk ? "A/D CREATURE  W/S RANK  B CLOSE" : "A/D PAGE  W/S SCROLL  B CLOSE", R_STONE + 9, 1);
+    hint8(f, 14, 26, G.best_page < nk ? "A/D CREATURE  W/S RANK  B CLOSE" : "A/D PAGE  W/S SCROLL  B CLOSE", R_STONE + 9);
     snprintf(line, sizeof line, "%d / %d", G.best_page + 1, pages);
     if (G.best_page < nk) gfx_text8(f, W - 14 - gfx_text_width(line, 1), 13, line, R_STONE + 11, 1);
     const Record *r = &RUN.rec;
@@ -13327,7 +13398,7 @@ static void render_wispmenu(Frame *f) {
     spirit_text(sp, sizeof sp);
     snprintf(line, sizeof line, "SPIRIT %s", sp);
     gfx_text8(f, px + pw - 10 - gfx_text_width(line, 1), py + 10, line, R_GLOW + 12, 1);
-    gfx_text8(f, px + 10, py + 24, "W/S CHOOSE  ENTER CASTS  ESC CLOSES", R_STONE + 9, 1);
+    hint8(f, px + 10, py + 24, "W/S CHOOSE  ENTER CASTS  ESC CLOSES", R_STONE + 9);
     for (int r = 0; r < n; r++) {
         int y = py + 40 + r * 13, ok = c[r].cost <= 0.0f || spirit() + 1e-4f >= c[r].cost;
         if (r == sel) gfx_rect(f, px + 6, y - 3, pw - 12, 13, R_IRON + 3);
@@ -13344,7 +13415,7 @@ static void render_wispmenu(Frame *f) {
     int ty = py + 44 + n * 13 + 4;
     for (int i = px + 10; i < px + pw - 10; i++) gfx_px(f, i, ty - 5, R_STONE + 5);
     gfx_text8(f, px + 10, ty, RUN.wisp_auto ? "[X]" : "[ ]", RUN.wisp_auto ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 10), 1);
-    gfx_text8(f, px + 38, ty, "L ALWAYS CASTS THIS  (SPACE)", R_STONE + 12, 1);
+    hint8(f, px + 38, ty, "L ALWAYS CASTS THIS  (SPACE)", R_STONE + 12);
     if (RUN.wisp_auto) gfx_text8(f, px + 38, ty + 10, "HOLD L FOR THIS LIST", R_STONE + 9, 1);
 }
 
@@ -13362,7 +13433,7 @@ static void render_altarmenu(Frame *f) {
     spirit_text(sp, sizeof sp);
     snprintf(line, sizeof line, "SPIRIT %s", sp);
     gfx_text8(f, px + pw - 10 - gfx_text_width(line, 1), py + 10, line, R_GLOW + 12, 1);
-    gfx_text8(f, px + 10, py + 24, "W/S CHOOSE  ENTER TAKES  ESC CLOSES", R_STONE + 9, 1);
+    hint8(f, px + 10, py + 24, "W/S CHOOSE  ENTER TAKES  ESC CLOSES", R_STONE + 9);
     for (int i = 0; i < 3; i++) {
         int y = py + 40 + i * 13, pay = r[i].price <= 0 || spirit() + 1e-4f >= (float)r[i].price;
         if (i == sel) gfx_rect(f, px + 6, y - 3, pw - 12, 13, R_IRON + 3);
@@ -13493,7 +13564,7 @@ static void render_shrinemenu(Frame *f) {
     if (!any) gfx_text8(f, x, y, "NO RUNES YET", R_STONE + 9, 1);
     const char *hint = slots ? (G.sh_mode == SM_TAKE ? "WASD A SLOT  ENTER TAKES  ESC BACK" : "WASD A SLOT  ENTER LETS GO  ESC BACK")
                      : (G.sh_mode == SM_PULL ? "THE RUNES ARE COMING..." : "W/S CHOOSE  A/D CHANGE  ESC LEAVES");
-    gfx_text8(f, px + 10, py + ph - 12, hint, R_STONE + 9, 1);
+    hint8(f, px + 10, py + ph - 12, hint, R_STONE + 9);
 }
 
 /* the Totem's screen: a row for each boss beaten, its ability's mark, its rank, the scrip held, what the
@@ -13510,7 +13581,7 @@ static void render_compmenu(Frame *f) {
     gfx_text8(f, px + pw - 10 - gfx_text_width(line, 1), py + 10, line, R_GOLD + 11, 1);
     snprintf(line, sizeof line, "%s  %d OF %d", CP_NAME[page], page + 1, NCP);
     gfx_text8(f, px + 10, py + 24, line, R_STONE + 13, 1);
-    gfx_text8(f, px + pw - 10 - gfx_text_width("A/D W/S ENTER ESC", 1), py + 24, "A/D W/S ENTER ESC", R_STONE + 9, 1);
+    hint8(f, px + pw - 10 - hint_width("A/D W/S ENTER ESC"), py + 24, "A/D W/S ENTER ESC", R_STONE + 9);
     CompRow r[NQUAL * COMP_MAX + NATK];
     int n = comp_rows(page, r), sel = clampi(G.ui_sel, 0, n - 1), y = py + 37, rows = 7;
     if (!n) {
@@ -13584,10 +13655,10 @@ static void render_repomenu(Frame *f) {
             gfx_text8(f, cx, py + 37, line, tax > RUN.treasure ? (uint8_t)(R_BLOOD + 13) : (uint8_t)(R_GOLD + 11), 1);
             piece_card(f, cx, py + 50, pw - 166, &p, NULL, NULL);
         }
-        gfx_text8(f, px + 10, py + ph - 12, G.sh_note_t > 0.0f ? G.sh_note : "ENTER SHUTS IT AWAY  ESC BACK", G.sh_note_t > 0.0f ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 9), 1);
+        hint8(f, px + 10, py + ph - 12, G.sh_note_t > 0.0f ? G.sh_note : "ENTER SHUTS IT AWAY  ESC BACK", G.sh_note_t > 0.0f ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 9));
         return;
     }
-    gfx_text8(f, px + 10, py + 24, "W/S CHOOSE  A/D HOW MUCH  ENTER  ESC", R_STONE + 9, 1);
+    hint8(f, px + 10, py + 24, "W/S CHOOSE  A/D HOW MUCH  ENTER  ESC", R_STONE + 9);
     RepRow r[REPO_MAX + 6];
     int n = repo_rows(r), sel = clampi(G.ui_sel, 0, n - 1), ly = py + 37, ry = py + 37;
     for (int j = 0; j < n; j++) {
@@ -13796,7 +13867,7 @@ static void render_codex(Frame *f) {
                   "TO A HALF OF YOUR GOLD, AND ONE THING YOU WEAR OR A TIER OF A SPELL. WHATEVER YOU MEANT BY IT.", 36, R_STONE + 13, 15);
         break;
     }
-    gfx_text8(f, 14, H - 18, "A/D PAGES  W/S PARTS  C CLOSES", R_STONE + 9, 1);
+    hint8(f, 14, H - 18, "A/D PAGES  W/S PARTS  C CLOSES", R_STONE + 9);
 }
 
 static void render_totemmenu(Frame *f) {
@@ -13811,10 +13882,10 @@ static void render_totemmenu(Frame *f) {
     int r[NBOSS], n = totem_rows(r), sel = clampi(G.ui_sel, 0, n - 1);
     if (!n) {
         text_wrap(f, px + 10, py + 34, "IT WANTS A BOSS'S ODIOUS SCRIP, AND NONE HAS FALLEN TO YOU YET. BEAT ONE ON THE WAY DOWN AND IT WILL TEACH YOU WHAT THAT ONE KNEW.", 36, R_STONE + 12, 6);
-        gfx_text8(f, px + 10, py + ph - 12, "ESC CLOSES", R_STONE + 9, 1);
+        hint8(f, px + 10, py + ph - 12, "ESC CLOSES", R_STONE + 9);
         return;
     }
-    gfx_text8(f, px + 10, py + 26, "W/S CHOOSE  A/D SELL  ENTER TAKES", R_STONE + 9, 1);
+    hint8(f, px + 10, py + 26, "W/S CHOOSE  A/D SELL  ENTER TAKES", R_STONE + 9);
     int y = py + 40;
     for (int i = 0; i < n; i++, y += 20) {
         int b = r[i], rk = RUN.abil[b], top = rk >= ABIL_TOP, cost = rk + 1, extra = totem_extra(b);
@@ -13861,7 +13932,7 @@ static void render_portalmenu(Frame *f) {
     int px = 6, py = 6, pw = W - 12, ph = H - 12;
     panel(f, px, py, pw, ph);
     gfx_text16(f, px + 10, py + 6, "THE ACCURSED PORTAL", R_GOLD + 12, 1);
-    gfx_text8(f, px + 10, py + 26, "W/S CHOOSE  ENTER GOES  ESC CLOSES", R_STONE + 9, 1);
+    hint8(f, px + 10, py + 26, "W/S CHOOSE  ENTER GOES  ESC CLOSES", R_STONE + 9);
     PortRow r[16];
     int n = portal_rows(r), sel = clampi(G.ui_sel, 0, n - 1), y = py + 40, here = crawl_run(G.level);
     char line[200];

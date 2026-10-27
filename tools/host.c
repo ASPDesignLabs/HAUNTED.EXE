@@ -110,6 +110,10 @@ static void input_parse(const char *s) {
     }
 }
 static void input_step(double now) {
+    float lo, hi;                                                   /* the controller's motors, when they start and stop */
+    static int on;
+    app_pad_motors(&lo, &hi);
+    if ((lo > 0.0f || hi > 0.0f) != on) { on = !on; fprintf(stderr, on ? "RUMBLE %.2f %.2f t=%.2f\n" : "RUMBLE off t=%.2f\n", on ? lo : now, hi, now); }
     while (g_iev < g_nev && g_ev[g_iev].t <= now) {
         int k = g_ev[g_iev].key;
         if (k >= 0) { if (g_ev[g_iev].down && !g_in.down[k]) g_in.hit[k] = 1; g_in.down[k] = (uint8_t)g_ev[g_iev].down; }
