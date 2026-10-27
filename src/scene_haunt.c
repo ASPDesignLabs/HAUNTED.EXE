@@ -1796,4 +1796,4 @@ static void haunt_render(Frame *f) {
     }
 }
 
-const Scene scene_haunt = { "HAUNT.EXE", 720, 400, SND_PROG_HAUNT, haunt_enter, haunt_update, haunt_render, NULL, NULL, NULL, NULL, NULL };   /* not playable */
+const Scene scene_haunt = { "HAUNT.EXE", 720, 400, SND_PROG_HAUNT, haunt_enter, haunt_update, haunt_render, NULL, NULL, NULL };   /* not playable */

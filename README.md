@@ -5,7 +5,7 @@
 
 A retro Halloween screensaver for Windows, built for OLED screens, with a crypt you can take over
 and play. It renders in genuine VGA modes, scales them by a whole number to fit a 4K display, and
-makes its own sound with an FM synthesiser, so there are no audio files. It's one 600 KB program
+makes its own sound with an FM synthesiser, so there are no audio files. It's one program of about 1.2 MB
 with no installer and no runtime to install.
 
 **[The project page](https://aspdesignlabs.github.io/HAUNTED.EXE/)** &middot;
@@ -32,8 +32,11 @@ Two scenes are included. They alternate every few minutes (configurable) with a 
 | Scene | VGA mode | What it is |
 |---|---|---|
 | **HAUNT.EXE** | 80x25 text mode, 720x400 | A possessed 486 PC: BIOS POST, a DOS prompt, and a ghost that types back. Between the gags it runs DOS programs that have been got at: EDIT rewriting AUTOEXEC.BAT for a seance, DEFRAG consuming souls and moving the remains to the front of the disk, a modem call to a BBS on the other side, a virus scan that cannot clean a dead host, MSD finding GHOST.SYS on IRQ 13, a thirteen-disk SETUP, a QBasic program that writes itself, and a file manager moving the dead from GRAVES to SOULS, until a file with your name turns up. Art materialises in between, seven full-screen half-block ANSI scenes with their own stories: the jack-o'-lantern in the pumpkin patch, the talking skull in the ossuary, the manor in a thunderstorm, the spider in the candle-lit corner, zombies digging out of a graveyard, skeletons dancing out of their coffins, and a ghost that rushes down a hallway to say boo. It ends in a fatal error and a CRT power-off, then reboots. |
-| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and chooses among five to seven wares for the gold it carries: spells, and things to wear that are rolled like loot, each in its quality's colour (see below). Runes come from the Rune Shrine across the room, for Cursed Coins. Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, with skull walls, niches, banners, moss and sliding doors, walked with quick 90-degree turns. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides three to six secrets behind cracked walls, some of them chains whose deeper links lead out of the crypt altogether: into the Backrooms on the first ten levels, and Severance on the next ten (see below). Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. From level 6 a Black Altar stands deep in each level: for souls it sends its wisp to a secret, one at a time, or blesses your wisps against the dead, and once every secret is found it anoints something you wear. Will-o'-wisps, a soul each, fly ahead through the halls to the way out or a key and leave a trail of light to follow. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. The twenty levels have names and come in four sets of five, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its last level; then the sets come round again. Twenty kinds of creature come in as you go down, about one new kind a level, each in ranks you can tell by its colour (see below). Every level is older and harder than the one before, though each death on a level makes its creatures hit a little softer on the next try (by up to 45%, until it is cleared). Your face, Wolfenstein-style, pops up when you are hurt. Hold H for three seconds to play it yourself (see below). |
+| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Forty levels in four runs of ten, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its tenth level, where a boss waits in an arena of its own: the Ill-Fated Skeleton Knight, the Wandering Hunting Spider, the Black Deacon and the Wraith Unbound; then the runs come round again. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and chooses among the wares on her pedestals for the gold it carries: spells, and things to wear that are rolled like loot, each in its quality's colour. Her room has grown into a hall: a back room with the Hexed Totem, where a beaten boss's scrip buys its ability, the Corpus Compendium and the Wretched Repository, and a grave plot with the Accursed Portal in its far wall. Runes come from the Rune Shrine across her room, for Cursed Coins. Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, with skull walls, niches, banners, moss and sliding doors, walked with quick 90-degree turns. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides three to six secrets behind cracked walls, some of them chains whose deeper links lead out of the crypt altogether: into the Backrooms in the first two runs, and Severance in the next two. Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. From level 6 a Black Altar stands deep in each level: for souls it sends its wisp to a secret, one at a time, or blesses your wisps against the dead, and once every secret is found it anoints something you wear. Will-o'-wisps, a soul each, fly ahead through the halls to the way out or a key and leave a trail of light to follow. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. Twenty kinds of creature come in over the first two runs, about one new kind a level, each in ranks you can tell by its colour, and on the last levels of each run its boss's hazards come into the halls as omens. Your face, Wolfenstein-style, pops up when you are hurt. Hold H for three seconds to play it yourself: then death costs, and only the merchant's ledger keeps what you have (see below). |
 
+![CATACOMB's bosses: the Ill-Fated Skeleton Knight's card, its Sundering Arc, the Wandering Hunting Spider's card, the Black Deacon untouchable while his adds come, the floor cracking before his fire, and a Fire Bolt bursting on the Wraith Unbound beside a void](docs/preview_catacomb_bosses.png)
+![CATACOMB's ledger: the merchant's menu, signing a page, a death and what it cost, a stone's page in the grave plot, a trial failed in a pocket, and the merchant's claim](docs/preview_catacomb_ledger.png)
+![CATACOMB's hall: the Accursed Portal in the grave plot and its screen, the Hexed Totem, the Corpus Compendium, the Wretched Repository and the Codex of Affixations](docs/preview_catacomb_hall.png)
 ![CATACOMB's Backrooms: a chained room's doorway from the crypt, a corridor under the tubes, a leak, a candlestand hanging from the ceiling, a shambler caught in a loop, and the visportal at a chain's end](docs/preview_catacomb_backrooms.png)
 ![CATACOMB's Severance: the doorway from the crypt, a white hall, a ward door, an office's desks, a skeleton under the panels, and the water cooler at a chain's end](docs/preview_catacomb_severance.png)
 ![CATACOMB's Rune Shrine: the shrine in the merchant's room, its screen, three runes combining, the caster's runes and coins, a Cursed Coin found, and the Black Altar sending its wisp on](docs/preview_catacomb_shrine.png)
@@ -51,65 +54,136 @@ Two scenes are included. They alternate every few minutes (configurable) with a 
 ### CATACOMB: who lives down there
 
 New kinds come in a level or two after their sign (a broken shield, a collar among gnawed bones, an
-armour stand), and on its first level a new kind comes alone.
+armour stand), and on its first level a new kind comes alone. They keep the levels they had when there
+were twenty, so every kind is met in the first two runs; the Hollows and the Deep bring none of their
+own yet, only higher ranks, the omens and the last two bosses.
 
-* **The Crypts** (levels 1 to 5): skeletons that throw their own bones, bats, and spectres that only
-  want you to know they are there. From level 2 a grave's earth is sometimes turned over from below, and
-  a shambler climbs out as you pass and takes hold of you. Skulls set in the walls wake from level 3 and
-  gather a fireball; shield-bearing skeletons close in with swords from level 4.
-* **The Catacombs** (6 to 10): spiders in corner webs, only their eyes showing, whose bite poisons and
-  slows; the Drowned, rising from a stirring puddle and bursting into a foul pool; bone hounds hunting in
-  pairs; and from level 9 the Wraith, once a level, coming down the halls from the far end while the
-  torches gutter. Nothing kills it: fire, the wisp's light and Dread drive it back for a while. The
-  spectres are gone after level 10.
-* **The Hollows** (11 to 15): hunting spiders that walk the ceiling and drop on you; ghouls that leap the
-  last of the way and stop to feed on bones, mending as they eat; skeleton knights in plate that comes off
-  as you hurt them, quicker as it goes; brood mothers laying egg sacs that split into spiderlings.
-* **The Deep** (16 to 20): shades that show only in light, whose touch takes your souls; ember imps that
+* **Run I, the Crypts** (levels 1 to 10): skeletons that throw their own bones, bats, and spectres that
+  only want you to know they are there. From level 2 a grave's earth is sometimes turned over from below,
+  and a shambler climbs out as you pass and takes hold of you. Skulls set in the walls wake from level 3
+  and gather a fireball; shield-bearing skeletons close in with swords from level 4. Spiders wait in
+  corner webs from level 6, only their eyes showing, and their bite poisons and slows; the Drowned rise
+  from a stirring puddle from 7 and burst into a foul pool; bone hounds hunt in pairs from 8; and from
+  level 9 the Wraith comes once a level, down the halls from the far end while the torches gutter.
+  Nothing kills it: fire, the wisp's light and Dread drive it back for a while. It never comes on a boss
+  level. The spectres are gone after level 10.
+* **Run II, the Catacombs** (11 to 20): hunting spiders that walk the ceiling and drop on you; ghouls
+  that leap the last of the way and stop to feed on bones, mending as they eat; skeleton knights in plate
+  that comes off as you hurt them, quicker as it goes; brood mothers laying egg sacs that split into
+  spiderlings; shades that show only in light, whose touch takes your souls (from 16); ember imps that
   live by the magma and lob embers that set the floor burning; deacons that walk with their skeletons
-  and raise more from the bones (kill them first); gargoyles that are statues on their plinths until you
-  pass.
+  and raise more from the bones (kill them first); and gargoyles that are statues on their plinths until
+  you pass (from 19).
+* **Runs III and IV, the Hollows and the Deep** (21 to 40): all of them, deeper, darker and higher in
+  rank.
 
 **Ranks.** Every creature takes a rank as it comes: its own colour, then green, blue, red and black,
-each tougher, harder hitting, quicker, a little bigger and worth more souls. The deeper the set, the
-higher the mix, and each time round the sets it climbs a rung. From level 7 one level in three has a
-gilded one, which runs when it is hurt and carries treasure; higher ranks now and then drop coin, gems
-or a potion. A caption names each kind and rank the first time you see it on a level.
+each tougher, harder hitting, quicker, a little bigger and worth more souls. The mix climbs over each
+run's ten levels, a set's newest rank coming in on its fifth, and each time round the runs it climbs a
+rung. From level 7 one level in three has a gilded one, which runs when it is hurt and carries
+treasure; higher ranks now and then drop coin, gems or a potion. A caption names each kind and rank the
+first time you see it on a level.
 
 **Hunting.** A creature that sees you, is hit, or hears a spell nearby follows you round corners, and
 the dead pull doors open; the nearest three hunt at once. The dead in ossuaries and crypts keep to
 their rooms until they know you are there. Each kind has its weaknesses (fire for the shambler, frost
 for hounds and spiders, lightning and Bone Spear through armour), which the autopilot plays to.
 
+### CATACOMB: the bosses
+
+The tenth level of each run is an ordinary level with an arena set into its far end in place of the
+exit room: a small antechamber with a candle and a bench, an arch, and the boss's own ground beyond it,
+the same every time. Step through the arch and it seals behind you, the boss's card shows with a line of
+lore, its waltz begins, and its health runs along the top of the view. At 75, 50, 25 and 10% of its
+health it stops, however hard the blow, turns untouchable in a pale shell, and calls a wave of adds out
+of its gates, burrows or heaps of bone, at the highest rank of each kind you have met since you last
+died; when they are down it rises and fights on. Three fonts in the walls hold a draught of a third of
+your health each: one full as the fight begins, one more after the first wave and one after the third.
+When it falls it drops its Named Odious Scrip, the exit opens, the tally gains a BOSS row, and the run
+is complete: on you go to the merchant's before the next run's first level.
+
+* **The Ill-Fated Skeleton Knight** (level 10). *He rode down to fetch the order's dead, and never rode
+  back up.* Polished plate with a glint sliding across it, shed at the first and third waves, quicker
+  each time. Swift Dodge carries it two to five cells in half a second, untouchable: to close on you, to
+  get away when hurt or burning, or aside from a shot, leaving after-images. Its Mirror Rune turns about
+  one missile in seven back at you at half strength, with a silver ring and a struck bell. It plants its
+  sword to bring the ceiling down round you (Rockfall), and raises it for the Sundering Arc, a pale
+  quarter-circle on the floor before it that it sweeps a moment later. Its adds are skeletons of every
+  kind.
+* **The Wandering Hunting Spider** (level 20). Up to the ceiling every few seconds, out of reach, across
+  it and down two cells short of you with a leap. Its Mend Rune knits back an eighth of its health,
+  glowing green, after it has lost a fifth. It rears and spits a web that holds you until your spells have
+  torn a third of your health out of it (fire tears twice as fast); fires an egg sac onto a wall that
+  hatches four small spiders five seconds later; and opens outlets in the cistern's floor, two at a time
+  and the open ones changing, that flood their patch with bile which poisons and slows. A small spider
+  comes out of a burrow every fifteen seconds.
+* **The Black Deacon** (level 30). Black robes at twice a deacon's size, his Bone Ward wheeling about him
+  as six shards; it takes the blows first, and grows back. He chants skeletons up from the chapel's heaps
+  of bone, one at a time and three at most, unless a tenth of his health in damage breaks the chant. His
+  Litany is two seconds of green light and then a fifth of your health if he can see you: the timber
+  props hide you, the pews don't. Cracks run across the floor, in a line at you, a ring round him or a
+  cross through the aisle, glowing until fire bursts from them.
+* **The Wraith Unbound** (level 40). Eight braziers light its hall, and it gutters any it passes. It can
+  be hurt only near one that burns, or near a wisp; in the dark your spells pass through it. E kindles a
+  brazier again in a second, and a wisp at once. Time Slip slows a missile about to strike it, and it
+  steps aside; Wraithwalk takes it into the stone and out of a wall beside you. Its touch chills and
+  slows. Rings of void open where you stand and across your ways out, and become purple columns: inside
+  one you are slowed, sapped and silenced, with no spells, runes or abilities (E still works); a void
+  over a brazier puts it out. Away from the light, hands reach up out of the floor.
+
+**Hazards** warn before they harm, never for less than about a second: grit and a hardening shadow
+before a rock, cracks glowing before the fire, a sheen creeping out before the bile turns foul, a ring
+and a thin column before the void. They harm only you, never the boss or its adds, by a share of your
+health. **Omens**: on the last three levels before a boss and in its own level's halls, its hazard comes
+now and then near you, ahead of you where it can, at half the harm: every 90, 60 and 40 seconds, then
+every 30. In the Crypts the ceiling drops a stone, in the Catacombs bile spills from a grate low in a
+wall, in the Hollows the floor splits and burns, and in the Deep the void opens. Never in a pocket. The
+first of each kind is named, and written in the Codex.
+
+**The waltzes.** Each boss has a slow waltz in a minor key, over a five-note figure that drifts against
+the bar, with a bell on the first beat: the knight's in D minor on brass, the spider's in B-flat minor,
+plucked, with a skittering hi-hat, the Deacon's in G minor on an organ with a choir, and the Wraith's
+in A minor, a drone with a voice that comes and goes. While the adds are out it turns up (drums, the
+bass doubled, a semitone higher, a little quicker) and settles when they fall. When the boss falls the
+waltz fades under three tolls, and the march comes back.
+
+**Challenges.** A beaten boss can be fought again from the Accursed Portal (below), as you are, from
+its antechamber, with the way back up fallen in. Each win takes it a step higher, to five: a quarter
+more health and a tenth more in its blows a step, its hazards and casts a fifth more often and more of
+them, its adds a rank higher from step 2 and two from step 4; from step 3 a win gives two scrip. A win
+takes you back to the merchant's room you left.
+
+The bestiary has no pages for the bosses yet.
+
 ### CATACOMB: achievements and the bestiary
 
-Each run keeps a record of what it has killed, by kind, rank and spell, the secrets it has found and
-the levels it has cleared, and it is saved with the run, so each grave has its own. Achievements come
-for 60 kills of a creature's lowest rank, then 40, 25, 15 and 8 up the ranks and 3 gilded; for 1, 5,
-10, 20, 30, 40 and 50 secrets; for each of the first twenty levels; and for each time down past level 20
-again. Everything counts, the autopilot's kills too, and each one slides in at the upper right with a
-chime.
+Each run keeps a record of what it has killed, by kind, rank and spell, the secrets it has found, the
+levels it has cleared and the bosses it has slain, and it is kept on the run's page in the ledger, so
+each page has its own. Achievements come for 60 kills of a creature's lowest rank, then 40, 25, 15 and
+8 up the ranks and 3 gilded; for 1, 5, 10, 20, 30, 40 and 50 secrets; for each of the forty levels; for
+each boss slain, and slain again at each challenge's step; and for each time down past level 40 again.
+Everything counts, the autopilot's kills too, and each one slides in at the upper right with a chime.
+Death doesn't take the record.
 
 Press **B** while you play for the bestiary: a page for each creature (a dark shape until you meet it),
 walking on the spot and turning about, drawn in each rank you have seen, with your kills against each achievement and what
 hurts it, learnt after three kills with each spell. A and D turn the pages, W and S choose a rank, and
 the last page lists the achievements.
 
-The record is kept when your progress is: when you flee to the surface or carve a grave. What the
-autopilot earns in an ordinary screensaver session shows, but isn't kept.
+What the autopilot earns in an ordinary screensaver session shows, but isn't kept.
 
 ### CATACOMB: the merchant, the spellbook and the wardrobe
 
 Each level begins in the merchant's room. The caster greets the cat (a slow blink back) and looks over
-the pedestals standing in an arc round the back wall: five to level 9, six to level 14, seven from 15.
-One holds an **attack spell** and the rest things to **wear**, with now and then a bag among them;
-runes come from the Rune Shrine (below). The caster may buy one ware a visit to level 9, two to level 14 and three from
-15, and the first visit's is free. Prices and strength rise with depth: a spell is usually a tier near
-the level, now and then (about 1 in 12) a rare one well ahead of its time, and costs about two levels'
-gold; a thing to wear costs by its quality, from part of a level's gold for something common to several
-levels' for something exquisite. The caster sometimes saves up for a spell it can nearly afford, and
-sometimes splurges. Whatever you own is kept, even through death. The cat trills when you buy,
-and a rest while it purrs mends some of your wounds.
+the pedestals standing in an arc round the back wall: two for a fresh run, a spell and a thing to wear,
+and more bought from her, up to seven (below). One holds an **attack spell** and the rest things to
+**wear**, with now and then a bag among them; runes come from the Rune Shrine (below). The caster may
+buy one ware a visit in the first run, two in the second and three from the third, and level 1's first
+is free. Prices and strength rise with depth: a spell is usually a tier near the level, now and then
+(about 1 in 12) a rare one well ahead of its time, and costs about two levels' gold; a thing to wear
+costs by its quality, from part of a level's gold for something common to several levels' for something
+exquisite. The caster sometimes saves up for a spell it can nearly afford, and sometimes splurges. The
+cat trills when you buy, and a rest while it purrs mends some of your wounds.
 
 * **Attack spells** (the caster chooses per target): Fire Bolt (the fireball, splashing from tier II),
   Frost Shard (slows), Chain Lightning (arcs to others, around shields), Bone Spear (pierces a whole
@@ -181,6 +255,89 @@ a third likelier. Each pull earns one **take**: a rune from the slots to keep, t
 that kind already. Takes not used are lost when you leave the room, and it says so first; the slots
 keep the rest for next time. The autopilot plays the shrine too, with the coins it finds.
 
+### CATACOMB: the merchant's hall
+
+Her room has grown. Press E at the cat for her menu: **sign the ledger** (below), **another pedestal**,
+**pat her**, or leave. Pedestals cost 500 gold for the third, then 1,250, 3,125, 7,815 and 19,530 for the
+seventh, and each is set out at once with a ware on it. An arch beside her leads to a back room, another
+past the shrine to the grave plot. Nothing in the hall is lost to death.
+
+* **The Hexed Totem**, in the back room. Each boss's scrip hangs on its hooks, and once a boss has fallen
+  its row on the Totem's screen teaches you its ability, raised to rank III for one, two and three of its
+  scrip. Scrip beyond what an ability still needs sells for 20,000 gold a piece (it asks twice). The
+  abilities: **Swift Dodge**, the knight's: tap W, A, S or D twice and dart two to five cells that way,
+  untouchable while it lasts, missiles passing through you (every 15, 7 or 3 seconds by rank).
+  **Tangled Web**, the spider's: a glob of web at what is before you holds it, halves its blows and sets
+  it clawing at the web, until it has done a third of your health a rank in damage to it; a rank holds
+  that many webs at once, and a miss costs only two seconds. Not bosses, spirits or shades. **Grave
+  Call**, the Deacon's: what you slew lately gets up again as yours for 12, 16 or 20 seconds, strikes
+  the nearest foe, and draws their blows. **Wraithwalk**, the Wraith's: for 1.5 to 2.5 seconds the
+  creatures lose you, missiles pass, and you walk through them, the view grey and the hand thin. The
+  right mouse uses the one readied and Q readies the next; Swift Dodge is always on the double tap. Their
+  sockets sit at the bottom left, filling as they come round; in a void, none of them works.
+* **The Corpus Compendium**, a tome on a lectern in the back room. Every piece you wear is written in it
+  as you first wear it (once, if it is alike in everything; twelve to a kind and quality, the cheapest
+  going for a better one), and every spell at the highest tier you have had it. Its pages, A and D
+  through them, list them Common first with their prices: the shop's times 1.2, five hundredths less for
+  each run completed, never under half. Enter buys a thing and wears it at once, outside the visit's
+  wares. The autopilot looks once a visit and buys the best thing it finds well worth its price.
+* **The Wretched Repository**, iron doors in niches in the back room's west wall. Two places at first,
+  one of them untaxed, and ten more to buy, from 2,500 gold, half as much again each. A piece you wear,
+  a spare or an empty bag goes in for a tenth of its price (the first place free) and comes out free, into
+  its place if that is bare, else the bag. Gold goes in less a quarter (all, a half, a quarter or a tenth
+  at a time) and comes out free. A Cursed Coin goes in free and comes out for 2,500 gold. Neither death
+  nor her claim touches any of it. The autopilot leaves it alone.
+* **The grave plot**, south of her room: the last ten deaths, a stone each, the newest freshly cut with
+  the earth turned. E at a stone opens its page: the epitaph (*HERE LIES A DWELLER OF THE FIRST RUN, TAKEN
+  BY THE DARK ON LEVEL 3, CRYPT OF THE NAMELESS*), when, and what was carried: the spells and runes, the
+  gold, souls and coins, and each worn piece's card. A and D go to the next stone.
+* **The Accursed Portal**, a red-violet swirl turning in a stone arch in the plot's far wall. Its screen
+  lists the runs opened, each by beating its boss on the way down, and takes you to the merchant's room
+  before any of them, forward or back, as you are. Below them, the challenges: each boss slain, at its
+  step, with what the step brings.
+
+Press **C**, in the crypt or here, for **the Codex of Affixations**: a page for each ability you have
+worn, each rune you have held (and its Exquisite effect once held so), each boss's gift once it has
+fallen, each stat you have worn, with its cap and the pieces that roll it, each hazard met, and her
+claim, there from the start. What it does, its numbers by quality or rank, where it comes from, and what
+you have of it now. A and D turn the pages, W and S go between the parts. It is kept through death.
+
+### CATACOMB: death, the ledger and her claim
+
+**The dream.** While it plays itself, the screensaver dreams: it plays on from your last page, keeps
+nothing, and dies as it always has, the level beginning again and its creatures hitting a little softer
+each time (by up to 45%, until it is cleared). Hold H and the run is yours, and stays yours until the
+program closes, even if you sleepwalk: from then on the rules below apply.
+
+**Death costs.** When you fall, the gold you carry, every piece you wear, the bag and what is in it,
+every spell but the Fire Bolt (which goes back to the fireball), your souls and bones, your Cursed Coins
+and the ware held at the merchant's all go. A stone is cut in the grave plot with what you carried and
+what took you, a card says so, and you wake in the merchant's room before level 1. What stays: the
+runes and the Rune Shrine, the pedestals, the Totem's abilities and scrip, the Compendium, the
+Repository, the Portal's runs and challenges, the record and the Codex. The death is written to your page
+the moment you fall, so closing the window during the fall undoes nothing. A death in a pocket is
+different: you come back whole at the entrance of the chain's first room, and its doorway is sealed for
+the rest of the level, *THE DWELLER FAILED THIS TRIAL*.
+
+**The ledger.** The merchant keeps three pages, I to III, and only she writes them. Her menu's **sign the
+ledger** writes the run as it stands onto a page, the page you came from picked first; signing over
+another run's page asks twice. A page signed in her room keeps her visit too: opened again, the same
+wares are set out, with what was bought gone. **Open the ledger**, from Esc, loads a page anywhere, asking
+twice. A page is written by a signature, a death and her claim, and by nothing else: fleeing keeps only
+what was signed, and the next start opens your last page. A run never signed is kept as the unsigned run
+until you sign it somewhere.
+
+**Her claim.** While you are in danger (a hunting creature within eight cells, a missile on its way,
+health under a quarter, poisoned, slowed, held in a web, a foe's fire underfoot, a hazard's warning or
+harm, or inside a boss's arena while it fights), your page is marked, and the mark clears eight seconds
+after the danger has passed. It is written the moment the danger begins. Open a marked page, by the
+ledger or the next start, and she takes the dead's claim at once, whatever you meant by it: a quarter to a
+half of your gold, and one piece you wear or a tier of one spell (lost at tier I; the Fire Bolt never
+goes below the fireball), all alike likely. Then she signs the page herself. While a page is marked a red
+eye shows under your keys and in the readout, and FLEE and OPEN THE LEDGER say *THE DEAD ARE WATCHING*.
+This catches a closed window, a crash or a power cut as well. Nothing in a pocket or her room counts as
+danger.
+
 ### Playing CATACOMB yourself
 
 Hold **H** for three seconds, in either scene. A bar fills at the bottom of the screen; let go early
@@ -193,12 +350,16 @@ yours, and the scenes stop switching until you hand it back. HAUNT.EXE cuts stra
 | Mouse | Turn, Doom-style; there is no looking up or down |
 | Left click, or Ctrl | Cast the spell in hand where you are looking (lightning and Soul Drain pick the nearest creature near the middle of the view) |
 | 1 to 9, or the wheel | Choose an attack spell from your book: 1 Fire Bolt, 2 Frost Shard, 3 Chain Lightning, 4 Bone Spear, 5 Soul Drain, 6 Hellfire, 7 Seeker Wisps, 8 Rapid Sparks, 9 BFS9000 |
-| E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, step through the exit runes, or use the Rune Shrine, a Black Altar or its wisp, a visportal or a water cooler. Walking into a door opens it too, and walking into a chain's doorway takes you through |
+| E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, step through the exit runes, drink from a boss's font, kindle a brazier, or use the merchant (her menu), the Rune Shrine, the Hexed Totem, the Compendium, the Repository, a gravestone, the Accursed Portal, a Black Altar or its wisp, a visportal or a water cooler. Walking into a door opens it too, and walking into a chain's doorway takes you through |
 | Tab | The wardrobe: W and S choose a place, worn or in the bag, and Enter moves a piece between them. A and D turn to the caster's page: every total, what abilities add (in gold) and what is at its cap (in blue), and the spellbook |
 | B | The bestiary and the achievements. A and D turn the pages, W and S choose a rank or scroll |
 | L | The wisps: a list of what can be summoned now and at what price (see below). W and S choose, Enter casts, Space sets L to cast that one at a tap; then holding L brings the list back |
+| C | The Codex of Affixations. A and D turn the pages, W and S go between its parts |
+| Right mouse | Use the boss ability readied (once the Hexed Totem has taught you one) |
+| Q | Ready the next boss ability; at a ware in the merchant's room, hold it |
+| W, A, S or D twice | Swift Dodge, once the Totem has taught it: a dart two to five cells that way |
 | H | A look at the status bar while it is tucked away |
-| Esc | Asks whether you want to leave, with a different argument each time for staying; also where you save and load |
+| Esc | Asks whether you want to leave, with a different argument each time for staying; also where you open the ledger |
 
 Your defensive runes still fire on their own, as quickly (and as fallibly) as they do for the
 autopilot. In the merchant's room you shop yourself: walk up to a pedestal to see its card, and press
@@ -207,7 +368,8 @@ the place of one you wear and you have no bag, the card warns in red that the ol
 and a second E buys; if your bag is full, you are asked which spare to let go (Esc thinks better of
 it). **Q** holds a ware for the next visit, for a quarter of its price: it comes back on its pedestal
 at the price it showed, and the hold ends when you leave the room the next time, bought or not. One
-ware is held at a time. Then leave by the east door.
+ware is held at a time. E at the cat herself opens her menu, where you sign the ledger and buy
+pedestals. Then leave by the east door.
 
 The Wolfenstein status bar shows the level, gold, health, your face, your spirit (the souls, to a
 tenth), the spell in hand, with the bones above it when the spear is in hand, and your keys. Five seconds
@@ -269,38 +431,33 @@ The autopilot uses them too: it wakes an altar it passes with 25 spirit or more 
 wisp while it has time, calls it home and sends it on when that leaves it 15 spirit, blesses with 40 or
 more when the level has undead, and anoints. It casts an exit wisp as it sets off for the way out.
 
-*Secrets were added.*
+Esc offers four answers:
 
-Esc offers five answers:
-
-* **Flee to the surface** ends the screensaver and saves your progress: the level you were on, your
-  health, gold, souls and gear. Not where you stood: next time you start at the beginning of that level
-  (or at the merchant, if you hadn't bought anything yet), and the gold and souls picked up on the
-  unfinished level are taken back out. The next screensaver session, autopilot or not, starts from it.
+* **Flee to the surface** ends the screensaver. Nothing is written: the next start, autopilot or not,
+  opens the page you last signed (or the unsigned run as it was last written), at the merchant's. If
+  the dead are watching, she takes her claim when it opens.
 * **Stay in the dark** closes the question.
 * **Sleepwalk** hands the crypt back to the autopilot, which settles into its walk from where you stood
-  (from a pocket, it first walks straight back out to the chain's room).
-  The mouse then ends the screensaver again (after a second and a half).
-* **Carve a gravestone** saves the run in one of three slots, graves I to III. A grave keeps the same
-  things fleeing does, plus when it was carved. Carving over a used grave asks for a second Enter.
-* **Rise from a grave** loads one: its run starts again at the beginning of that level (or at the
-  merchant), and the controls stay yours. It asks for a second Enter, because the run you're in is lost.
+  (from a pocket, it first walks straight back out to the chain's room). The run stays yours: a death
+  while it sleepwalks costs as yours would. The mouse then ends the screensaver again (after a second
+  and a half).
+* **Open the ledger** shows the three pages, with each one's level, gold and when it was signed, and
+  opens one, asking twice, because whatever you haven't signed is lost.
 
-In the graves, W and S (or 1 to 3) choose, Enter carves or rises, and Esc goes back to the question.
+In the ledger, W and S (or 1 to 3) choose, Enter signs or opens, and Esc goes back.
 
-If the window loses focus while you play, the game pauses on that question. The saved progress is a
-`Progress` value under `HKEY_CURRENT_USER\Software\HalloweenVGASaver` (the project's name before it
-became HAUNTED.EXE, kept so that settings and progress carry over), and the graves are `Slot1` to `Slot3`
-beside it; `uninstall.cmd` removes them with the settings.
+If the window loses focus while you play, the game pauses on that question. The ledger's pages are
+`Slot1` to `Slot3` under `HKEY_CURRENT_USER\Software\HalloweenVGASaver` (the project's name before it
+became HAUNTED.EXE, kept so that settings and saves carry over), `Progress` beside them names the page to
+start from or holds the unsigned run, and `Mark` is the dead's watch; `uninstall.cmd` removes them with
+the settings. They are written the moment the game changes them, and never on quitting.
 
-1.0.0b6 keeps runes by quality and adds 32 bytes to the save for the Rune Shrine: your coins, its rank,
-its slots and attunements, and which of the level's coins you have taken. Progress and graves from
-1.0.0b5 and 1.0.0b4 load: their runes become qualities by tier (tiers 1 to 3 Common, 4 to 6 Uncommon, 7
-to 10 Rare, 11 and up Ultra-Rare), and a rune held at the merchant's is let go and its fee given back.
-From earlier betas their spells, runes, gold and souls come across, their robe, hood and best ring become
-Common pieces of about the same strength, and there is no bag. But an
-earlier beta can't read a save made by a later one: it starts again from level 1, and fleeing there
-overwrites it. If you might go back, keep a copy first:
+1.0.0b7 writes a new kind of save, up to 16 KB a page. A 1.0.0b6 grave opens as a page, shown CARVED,
+and 1.0.0b6's last fled progress becomes the unsigned run, so nothing is lost; saves from 1.0.0b5 and
+earlier load as they did in 1.0.0b6 (runes by tier become qualities, an old robe, hood and ring become
+Common pieces). An old save keeps its level's number, though the runs now lie differently (level 15 is
+the Catacombs' fifth), and the five to seven pedestals its level gave it. But an earlier beta can't read a save made by a later one: it starts again from level 1, and
+fleeing there overwrites it. If you might go back, keep a copy first:
 `reg export HKCU\Software\HalloweenVGASaver haunted-backup.reg` (double-click the file to restore it).
 
 ## Install
@@ -391,7 +548,9 @@ square-wave beeps, a Freeverb-style reverb and a ping-pong delay.
   the game sounds: coin chimes, the key's jingle, the vault's lock, thrown bones, the caster grunting
   when hit, a heartbeat at low HP, a potion, a death groan, the wraiths' shriek, and a brass fanfare
   for each level cleared. A secret wall grinds and thuds back with a pair of knocks and a peal of bells,
-  and the wisp arrives with a rising shimmer.
+  and the wisp arrives with a rising shimmer. Each boss has its own waltz (above), which the march gives
+  way to and comes back after, and in the Backrooms and Severance the music fades for a mains hum and an
+  echo, or a muzak of major sevenths.
 
 ## Building from source
 
@@ -458,12 +617,68 @@ or crimson key), `CRAWL_BLESS=1` blesses every level, and `CRAWL_FOLLOWWISP=1` m
 walk the way the wisp went (a test that it really leads out). `CRAWL_RANK=r` puts every creature in rank r (0 to 5),
 `CRAWL_WRAITH=s` sends the Wraith at s seconds, and `CRAWL_MEET=k` puts one creature of kind k (0 the
 skeleton to 19 the gargoyle, in the order of `MOB_*` in `scene_crawl.c`) a few cells ahead five seconds
-into each level. The harness plays a person at the keys with `HOST_INPUT`, for
+into each level. `CRAWL_TPBOSS=1` stands you in a boss level's antechamber (2: the autopilot, already
+leaving), `CRAWL_BOSSHP=f` multiplies a boss's health, `CRAWL_OMEN=s` brings the level's omens on any level
+every s seconds, and `CRAWL_TPCAT=1`, `CRAWL_TPTOTEM=1`, `CRAWL_TPLECTERN=1`, `CRAWL_TPREPO=1`,
+`CRAWL_TPSTONE=1` and `CRAWL_TPPORTAL=1` stand you before the merchant and each of her hall's fixtures.
+The harness plays a person at the keys with `HOST_INPUT`, for
 example `HOST_INPUT="1:+H;4.2:-H;5:m300,0;6:+W;8:-W;9:+MOUSE1;9.2:-MOUSE1"` (press, release, mouse
 counts), and `HOST_SAVE=file` / `HOST_LOAD=file` and `HOST_SLOTS=dir` stand in for the registry.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b7** (runs of ten and four bosses, their hazards, omens and waltzes; death that costs, the
+merchant's ledger and her claim; her hall, with the Hexed Totem and the bosses' abilities, the Accursed
+Portal, the Corpus Compendium, the Wretched Repository and the grave plot; the Codex). All of it has been
+tested in the harness only; none of it has been played by hand yet, and this round wasn't run under
+Wine. The Windows build was compiled here without warnings, and by CI.
+
+* **The bosses**, fought by the autopilot as each was built, with every spell at tier 4 to 8: the knight
+  beaten in 189 to 221 seconds, the spider in 173 to 232 (four deaths on two seeds of four), the Deacon
+  in 160 to 210, and the Wraith in eight fights of eight, but in 332 to 593 seconds, about twice what was
+  planned: it can be hurt only in the light, and most of the time goes between its waves. With every boss
+  ability at rank III, the knight fell in 215 seconds, the spider in 175 and the Deacon in 198. A knight
+  challenged from level 2 fell in 196 seconds and a spider in 292, each giving its scrip and the way back
+  to the room it was begun from.
+* **The dream gets less far than it did.** Eight 100-minute runs from level 1, against a build from
+  before the ledger and the hall on the same seeds: they cleared up to level 9 to 13 (median 9.5, against
+  11.5) and died 27 times (11), 21 of them on the knight's level (10 to the knight, 10 to its adds and one
+  to its mirror). Every run reached the knight. It fell in 4 runs of 8 (6 of 8), in 141 to 217 seconds,
+  after 23 tries (13); the other four were still trying when their time ran out. The cause is the
+  merchant: a fresh run has two pedestals and buys one ware a visit in the first run, so it bought 78
+  wares where it had bought 101. A variant that kept back half a level's gold when buying a pedestal
+  bought fewer still, and wasn't kept. It never died to a hazard, though rocks struck it 33 times; the
+  median level took 5.7 minutes, and it took 85% of the treasure (84% before).
+* **Found and fixed on the way:** a boss's arena could not be reached at all. The room above its
+  doorway could be made a vault, and making a vault walls up a room's other ways in, this one included.
+  Of 800 boss levels generated before the fix (200 seeds, each boss's level), 116 had the arena cut off,
+  and so did three of the eight runs above the first time they were made: the autopilot wandered level 10
+  until its time ran out, or until a boss level's twenty-five minutes of patience moved it on (a person
+  couldn't have reached it either). The comparison build had the fault too, in one of its runs. Now a
+  vault is never made of that room, and none of 800 is cut off. Also found: the autopilot never aimed at
+  a boss that doesn't strike, kept away from slow adds instead of going after them, and dithered near a
+  key while leaving; a Wraithwalk could read past the map's edge (found by AddressSanitizer); and a
+  scene switch during a costly death's haze brought back the level it died on.
+* **Played in the harness:** a person's death (the card, the stone and its page, the page written at
+  once, 1,505 bytes with one stone, waking before level 1 with the runes and the hall kept); a death in a
+  pocket and its sealed doorway; signing and opening pages, signing over another run's page, a page
+  keeping the merchant's visit; the sixth beta's graves and progress opening as pages; her claim (a run
+  marked as it met a black skeleton, the program closed while marked, and the next start paying 740 gold
+  and a tier of Rapid Sparks, then nothing on the start after); all seven pedestals; the Totem teaching
+  and raising each ability and selling scrip; Swift Dodge, a web, the dead raised, Wraithwalk; the
+  Portal's run starts and challenges; the Compendium's purchases, and the autopilot buying back a tier
+  her claim took; the Repository's places, gold and coins kept through a death; all 24 of the Codex's
+  pages with the debug gear. The four waltzes were measured: none clips, each within two decibels of the
+  march.
+* **Saves.** A page is up to 16 KB: 1,145 bytes of the run, then sections for the merchant's visit, the
+  stones, the pedestals, the Compendium, the Repository and the Codex, which a reader steps over when it
+  doesn't know them. The harness stands in for the registry; the Windows side, which writes a value the
+  moment the game changes it, compiles but hasn't been run.
+* **AddressSanitizer and UBSan**, clean, after each step and once more over the whole beta: the autopilot
+  for 50 minutes from level 1 and 30 from level 21, each boss's level for 20 minutes, 40 minutes of scene
+  switches, and scripted sessions of a death and its stone, signing, the claim, the Totem, the
+  Compendium, the Portal's run start and a challenge.
 
 **New in 1.0.0b6** (secrets in chains through the Backrooms and Severance, Cursed Coins and the Rune
 Shrine, runes by quality, the altar's wisp to one secret and back, the autopilot in all of it, and the

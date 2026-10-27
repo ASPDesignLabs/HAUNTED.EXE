@@ -71,44 +71,33 @@ static void settings_load(Settings *s) {
     if (!s->app.scene_enabled[0] && !s->app.scene_enabled[1]) s->app.scene_enabled[0] = 1;
 }
 
-/* the player's progress: level, health, gold, souls and gear, as the game packs it */
-static int progress_load(uint8_t *buf, int cap) {
-    HKEY k;
-    DWORD sz = (DWORD)cap, type = 0;
-    if (RegOpenKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, KEY_READ, &k) != ERROR_SUCCESS) return 0;
-    LONG r = RegQueryValueExA(k, "Progress", NULL, &type, buf, &sz);
-    RegCloseKey(k);
-    return r == ERROR_SUCCESS && type == REG_BINARY ? (int)sz : 0;
+/* the merchant's ledger: its pages as values Slot1 to Slot3, and beside them Progress (the page to start
+ * from) and Mark (the dead's), all loaded before the first scene and written whenever the game changes one */
+static const char *slot_name(int i, char *buf, int n) {
+    if (i == SLOT_PROGRESS) return "Progress";
+    if (i == SLOT_MARK) return "Mark";
+    snprintf(buf, (size_t)n, "Slot%d", i + 1);
+    return buf;
 }
-static void progress_save(const uint8_t *buf, int len) {
-    HKEY k;
-    if (len <= 0 || RegCreateKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, NULL, 0, KEY_WRITE, NULL, &k, NULL) != ERROR_SUCCESS) return;
-    RegSetValueExA(k, "Progress", 0, REG_BINARY, buf, (DWORD)len);
-    RegCloseKey(k);
-}
-
-/* the three save slots, as values Slot1 to Slot3 beside the progress */
 static void slots_load(void) {
     HKEY k;
     if (RegOpenKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, KEY_READ, &k) != ERROR_SUCCESS) return;
-    for (int i = 0; i < SLOT_COUNT; i++) {
-        uint8_t buf[SLOT_MAX];
+    for (int i = 0; i < SLOT_ALL; i++) {
+        static uint8_t buf[SLOT_MAX];
         char name[8];
         DWORD sz = sizeof buf, type = 0;
-        snprintf(name, sizeof name, "Slot%d", i + 1);
-        if (RegQueryValueExA(k, name, NULL, &type, buf, &sz) == ERROR_SUCCESS && type == REG_BINARY) app_slot_load(i, buf, (int)sz);
+        if (RegQueryValueExA(k, slot_name(i, name, sizeof name), NULL, &type, buf, &sz) == ERROR_SUCCESS && type == REG_BINARY) app_slot_load(i, buf, (int)sz);
     }
     RegCloseKey(k);
 }
 static void slots_flush(void) {
-    for (int i = 0; i < SLOT_COUNT; i++) {
-        uint8_t buf[SLOT_MAX];
+    for (int i = 0; i < SLOT_ALL; i++) {
+        static uint8_t buf[SLOT_MAX];
         int n = app_slot_take(i, buf, sizeof buf);
         HKEY k;
         if (n <= 0 || RegCreateKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, NULL, 0, KEY_WRITE, NULL, &k, NULL) != ERROR_SUCCESS) continue;
         char name[8];
-        snprintf(name, sizeof name, "Slot%d", i + 1);
-        RegSetValueExA(k, name, 0, REG_BINARY, buf, (DWORD)n);
+        RegSetValueExA(k, slot_name(i, name, sizeof name), 0, REG_BINARY, buf, (DWORD)n);
         RegCloseKey(k);
     }
 }
@@ -356,7 +345,7 @@ static int vk_key(WPARAM vk) {
     case VK_UP: return KEY_UP; case VK_DOWN: return KEY_DOWN; case VK_LEFT: return KEY_LEFT; case VK_RIGHT: return KEY_RIGHT;
     case 'W': return KEY_W; case 'A': return KEY_A; case 'S': return KEY_S; case 'D': return KEY_D;
     case 'E': return KEY_E; case 'Q': return KEY_Q; case 'H': return KEY_H; case 'Y': return KEY_Y; case 'N': return KEY_N;
-    case 'B': return KEY_B; case 'L': return KEY_L;
+    case 'B': return KEY_B; case 'L': return KEY_L; case 'C': return KEY_C;
     case VK_SPACE: return KEY_SPACE; case VK_CONTROL: return KEY_CTRL; case VK_SHIFT: return KEY_SHIFT;
     case VK_TAB: return KEY_TAB; case VK_ESCAPE: return KEY_ESC; case VK_RETURN: return KEY_ENTER;
     case VK_BACK: return KEY_BACK; case VK_PRIOR: return KEY_PGUP; case VK_NEXT: return KEY_PGDN;
@@ -623,8 +612,6 @@ static int run_saver(HINSTANCE hi, const Settings *set, int windowed) {
 
     snd_init();                                    /* the audio thread needs the synth ready */
     int audio = set->app.sound ? audio_start() : 0;
-    static uint8_t blob[2048];
-    app_load(blob, progress_load(blob, sizeof blob));
     slots_load();
     app_set_input(&g_in);
     app_init(&set->app, audio);                    /* audio: the device owns the sound clock */
@@ -637,12 +624,13 @@ static int run_saver(HINSTANCE hi, const Settings *set, int windowed) {
         double dt = t - prev; prev = t;
         if (dt > 0.1) dt = 0.1;
         app_update(dt);
-        slots_flush();                                 /* a grave was carved: keep it */
-        if (app_quit_requested()) { progress_save(blob, app_save(blob, sizeof blob)); break; }   /* fled to the surface */
+        slots_flush();                                 /* a page signed, a death, the mark: keep it */
+        if (app_quit_requested()) break;               /* fled to the surface: the ledger has what is kept */
         set_capture(app_control_state() == APP_PLAYER && GetForegroundWindow() == g_main);
         display_frame(&g_disp, 1);
         if (!g_disp.use_gl) Sleep(8);                  /* no vsync available: pace ourselves */
     }
+    slots_flush();
     set_capture(0);
 
     audio_stop();

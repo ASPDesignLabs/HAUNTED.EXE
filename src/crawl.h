@@ -41,6 +41,13 @@ enum {
     T_SDOOR,                                      /* a doorway between pockets: a treatment door, wired glass, a push bar */
     T_SCARPET,                                    /* the floor: close office carpet */
     T_SCEIL, T_SCEILLAMP,                         /* the ceiling: smooth panels, and panels lit */
+    /* the bosses' arenas (1.0.0b7) */
+    T_GATE,                                       /* a portcullis in an arch: the adds come through */
+    T_FONT, T_FONT_DRY,                           /* a basin set in the wall, a draught in it; and drunk dry */
+    T_GRATE,                                      /* a drain low in the wall: where the bile comes from */
+    T_PORTAL0, T_PORTAL1, T_PORTAL2, T_PORTAL3,   /* the Accursed Portal: an arch filled with a slow red-violet swirl */
+    T_SEALED,                                     /* a chain's doorway shut for the level: dark frames under a cracked red seal */
+    T_REPOSITORY,                                 /* the Wretched Repository: iron doors shut in niches, three to a wall */
     NTEX
 };
 
@@ -123,6 +130,19 @@ enum {
     SP_CCOIN,                                   /* a Cursed Coin */
     SP_DESKS,                                   /* Severance: four desks behind low partitions, old terminals on them */
     SP_COOLER, SP_COOLER_LOW,                   /* ... the water cooler, full, and after its one drink */
+    SP_SCRIP,                                   /* a boss's Named Odious Scrip: a curl of parchment, a black seal */
+    /* the bosses' hazards (1.0.0b7) */
+    SP_GRIT0, SP_GRIT1,                         /* grit trickling from the ceiling where a rock will fall */
+    SP_ROCK, SP_RUBBLE,                         /* the rock, falling; and what it leaves, sinking into dust */
+    SP_ERUPT0, SP_ERUPT1,                       /* fire bursting from the cracks, at full brightness */
+    SP_VOIDCOL,                                 /* the void's column of purple dark, drawn see-through */
+    SP_HANDS,                                   /* hands of the dark rising from the floor */
+    SP_KNIGHT_P0, SP_KNIGHT_P1, SP_KNIGHT_P2,   /* the Ill-Fated Knight plants its sword, in each state of its plate */
+    SP_BSPIDER_A, SP_BSPIDER_B, SP_BSPIDER_LEAP, /* the Wandering Spider: a hunting spider with a pale skull on its back */
+    SP_BRAZIER_OUT,                             /* a brazier the Wraith has put out: the cold bowl and a little ash */
+    SP_HEXTOTEM,                                /* the Hexed Totem: a black pole of skulls, hooks for the bosses' scrip */
+    SP_TOMB_FRESH,                              /* the newest stone in the merchant's plot: clean-cut, the earth still turned */
+    SP_LECTERN,                                 /* the Corpus Compendium: a tome open on a lectern of black oak */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
     SP_SKEL_SA, SP_SKEL_SB, SP_SHIELD_SA, SP_SHIELD_SB, SP_BAT_SA, SP_BAT_SB, SP_SPIDER_SA, SP_SPIDER_SB,
     SP_GHOST_SA, SP_GHOST_SB, SP_WSKULL_S,
@@ -170,12 +190,16 @@ extern const uint8_t crawl_cat_eye[2][4], crawl_cat_eyecol[5], crawl_cat_lid[2],
 extern const uint8_t crawl_face_img[FACE_FRAMES][FACE_H * FACE_W];
 extern const uint8_t crawl_face_eyes[FACE_FRAMES][2][2];
 
-/* The descent: four sets of five levels, each worn down towards its last (the boss level), then the
- * four again, deeper (docs/PLAN-descent.md). */
-static inline int crawl_set(int level) { return ((level - 1) / 5) % 4; }    /* 0 the Crypts, 1 the Catacombs, 2 the Hollows, 3 the Deep */
-static inline int crawl_step(int level) { return (level - 1) % 5; }         /* 0..4 within the set; 4 is its last */
-static inline int crawl_loop(int level) { return (level - 1) / 20; }        /* 0 the first time down */
-static inline float crawl_decay(int level) { return (float)crawl_step(level) / 4.0f; }   /* rot and ruin: fresh at a set's start */
+/* The descent: four runs of ten levels, a set each, worn down slowly towards the last (the boss's
+ * level), then the four again, deeper (docs/PLAN-b7.md). */
+#define RUN_LEN 10
+#define DESCENT_LEN (4 * RUN_LEN)
+static inline int crawl_run(int level) { return (level - 1) / RUN_LEN; }     /* 0 run I, 1 run II ..., counting every time down */
+static inline int crawl_set(int level) { return crawl_run(level) % 4; }     /* 0 the Crypts, 1 the Catacombs, 2 the Hollows, 3 the Deep */
+static inline int crawl_step(int level) { return (level - 1) % RUN_LEN; }   /* 0..9 within the run; 9 is its boss's */
+static inline int crawl_boss(int level) { return crawl_step(level) == RUN_LEN - 1; }
+static inline int crawl_loop(int level) { return (level - 1) / DESCENT_LEN; }   /* 0 the first time down */
+static inline float crawl_decay(int level) { return (float)crawl_step(level) / (float)(RUN_LEN - 1); }   /* rot and ruin: fresh at a run's start */
 static inline float crawl_depth(int level) {                                /* how far down: darker, fewer torches */
     float d = (float)(crawl_set(level) + 4 * crawl_loop(level)) / 3.0f;
     return d < 1.0f ? d : 1.0f;
