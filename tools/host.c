@@ -7,8 +7,9 @@
  *   host apl   <haunt|crawl> <seconds>                    (average picture level)
  *
  * HOST_INPUT plays a person at the keys, e.g. "1:+H;4.2:-H;5:m300,0;6:+W;8:-W;9:+MOUSE1;9.2:-MOUSE1;
- * 10:w1" (+ press, - release, m mouse counts, w wheel notches); it stops when the player chooses to
- * leave. HOST_LOAD=file is the progress to start from (a run, or the ledger page to open) and HOST_SAVE=file
+ * 10:w1" (+ press, - release, m mouse counts, w wheel notches); a controller's buttons are PAD_A ...
+ * PAD_RT ("12:+PAD_A"), its sticks aLX, aLY, aRX, aRY with a value ("13:aLY1;15:aLY0"). It stops when
+ * the player chooses to leave. HOST_LOAD=file is the progress to start from (a run, or the ledger page to open) and HOST_SAVE=file
  * gets it whenever the game writes it; HOST_SLOTS=dir keeps the ledger's pages as dir/slot1.bin to
  * slot3.bin, and the dead's mark as dir/mark.bin.
  */
@@ -71,11 +72,14 @@ static int scene_by_name(const char *n) { return (!strcmp(n, "crawl") || !strcmp
 
 /* ---- a scripted player ---- */
 static Input g_in;
-static struct { double t; int key, down, dx, dy, wheel; char text[24]; } g_ev[4096];
+static struct { double t; int key, down, dx, dy, wheel, pad, axis; float v; char text[24]; } g_ev[4096];
 static int g_nev, g_iev;
 static const char *const KEYNAME[KEY_COUNT] = { "UP", "DOWN", "LEFT", "RIGHT", "W", "A", "S", "D", "E", "Q", "SPACE", "CTRL",
     "SHIFT", "TAB", "ESC", "ENTER", "H", "Y", "N", "1", "2", "3", "4", "5", "6", "7", "8", "9", "MOUSE1", "MOUSE2", "B", "L",
     "CONSOLE", "BACK", "PGUP", "PGDN", "C" };
+static const char *const PADNAME[PAD_COUNT] = { "PAD_A", "PAD_B", "PAD_X", "PAD_Y", "PAD_LB", "PAD_RB", "PAD_VIEW", "PAD_MENU",
+    "PAD_LS", "PAD_RS", "PAD_UP", "PAD_DOWN", "PAD_LEFT", "PAD_RIGHT", "PAD_LT", "PAD_RT" };
+static const char *const AXISNAME[4] = { "LX", "LY", "RX", "RY" };
 static void input_parse(const char *s) {
     static char buf[65536];
     snprintf(buf, sizeof buf, "%s", s);
@@ -85,8 +89,16 @@ static void input_parse(const char *s) {
         *c = 0;
         double t = atof(tok);
         char *a = c + 1;
-        g_ev[g_nev].t = t; g_ev[g_nev].key = -1;
-        if (*a == 'm') sscanf(a + 1, "%d,%d", &g_ev[g_nev].dx, &g_ev[g_nev].dy);
+        g_ev[g_nev].t = t; g_ev[g_nev].key = -1; g_ev[g_nev].pad = -1; g_ev[g_nev].axis = -1;
+        if (*a == 'a') {                                            /* a stick: aLX0.8 */
+            for (int k = 0; k < 4; k++) if (!strncmp(a + 1, AXISNAME[k], 2)) g_ev[g_nev].axis = k;
+            if (g_ev[g_nev].axis < 0) { fprintf(stderr, "unknown stick %s\n", a + 1); continue; }
+            g_ev[g_nev].v = (float)atof(a + 3); g_in.pad = 1;
+        } else if ((*a == '+' || *a == '-') && !strncmp(a + 1, "PAD_", 4)) {   /* a controller's button */
+            for (int k = 0; k < PAD_COUNT; k++) if (!strcmp(a + 1, PADNAME[k])) g_ev[g_nev].pad = k;
+            if (g_ev[g_nev].pad < 0) { fprintf(stderr, "unknown button %s\n", a + 1); continue; }
+            g_ev[g_nev].down = *a == '+'; g_in.pad = 1;
+        } else if (*a == 'm') sscanf(a + 1, "%d,%d", &g_ev[g_nev].dx, &g_ev[g_nev].dy);
         else if (*a == 'w') g_ev[g_nev].wheel = atoi(a + 1);
         else if (*a == 't') snprintf(g_ev[g_nev].text, sizeof g_ev[g_nev].text, "%s", a + 1);   /* typed: t then the letters */
         else if (*a == '+' || *a == '-') {
@@ -98,9 +110,22 @@ static void input_parse(const char *s) {
     }
 }
 static void input_step(double now) {
+    float lo, hi;                                                   /* the controller's motors, when they start and stop */
+    static int on;
+    app_pad_motors(&lo, &hi);
+    if ((lo > 0.0f || hi > 0.0f) != on) { on = !on; fprintf(stderr, on ? "RUMBLE %.2f %.2f t=%.2f\n" : "RUMBLE off t=%.2f\n", on ? lo : now, hi, now); }
     while (g_iev < g_nev && g_ev[g_iev].t <= now) {
         int k = g_ev[g_iev].key;
         if (k >= 0) { if (g_ev[g_iev].down && !g_in.down[k]) g_in.hit[k] = 1; g_in.down[k] = (uint8_t)g_ev[g_iev].down; }
+        int p = g_ev[g_iev].pad;
+        if (p >= 0) {
+            if (g_ev[g_iev].down && !g_in.pad_down[p]) g_in.pad_hit[p] = 1;
+            g_in.pad_down[p] = (uint8_t)g_ev[g_iev].down;
+            if (p == PAD_LT) g_in.lt = g_ev[g_iev].down ? 1.0f : 0.0f;
+            if (p == PAD_RT) g_in.rt = g_ev[g_iev].down ? 1.0f : 0.0f;
+        }
+        float *ax[4] = { &g_in.lx, &g_in.ly, &g_in.rx, &g_in.ry };
+        if (g_ev[g_iev].axis >= 0) *ax[g_ev[g_iev].axis] = g_ev[g_iev].v;
         g_in.mdx += (float)g_ev[g_iev].dx; g_in.mdy += (float)g_ev[g_iev].dy; g_in.wheel += g_ev[g_iev].wheel;
         for (const char *c = g_ev[g_iev].text; *c && g_in.ntext < (int)sizeof g_in.text; c++)
             if ((*c >= 'A' && *c <= 'Z') || (*c >= '0' && *c <= '9')) g_in.text[g_in.ntext++] = *c;

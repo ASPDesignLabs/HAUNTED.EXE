@@ -4,7 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/ASPDesignLabs/HAUNTED.EXE?include_prereleases&label=release)](https://github.com/ASPDesignLabs/HAUNTED.EXE/releases)
 
 A retro Halloween screensaver for Windows, built for OLED screens, with a crypt you can take over
-and play. It renders in genuine VGA modes, scales them by a whole number to fit a 4K display, and
+and play, with the keyboard and mouse or a game controller. It renders in genuine VGA modes, scales them by a whole number to fit a 4K display, and
 makes its own sound with an FM synthesiser, so there are no audio files. It's one program of about 1.2 MB
 with no installer and no runtime to install.
 
@@ -18,7 +18,7 @@ from this repository by GitHub Actions and carries three files:
 
 | File | What it is |
 |---|---|
-| `HAUNTED.EXE` | The program on its own. Double-click it and it opens in a window: hold H for three seconds to play, F11 for full screen, Esc to quit. |
+| `HAUNTED.EXE` | The program on its own. Double-click it and it opens in a window: hold H (or any button on a controller) for three seconds to play, F11 for full screen, Esc to quit. |
 | `HAUNTED.scr` | The same program named as a screensaver. Right-click it and choose **Install**. |
 | `HAUNTED-<version>-win64.zip` | Both of the above with the helper scripts below, this README, the previews and the full source. |
 
@@ -32,8 +32,9 @@ Two scenes are included. They alternate every few minutes (configurable) with a 
 | Scene | VGA mode | What it is |
 |---|---|---|
 | **HAUNT.EXE** | 80x25 text mode, 720x400 | A possessed 486 PC: BIOS POST, a DOS prompt, and a ghost that types back. Between the gags it runs DOS programs that have been got at: EDIT rewriting AUTOEXEC.BAT for a seance, DEFRAG consuming souls and moving the remains to the front of the disk, a modem call to a BBS on the other side, a virus scan that cannot clean a dead host, MSD finding GHOST.SYS on IRQ 13, a thirteen-disk SETUP, a QBasic program that writes itself, and a file manager moving the dead from GRAVES to SOULS, until a file with your name turns up. Art materialises in between, seven full-screen half-block ANSI scenes with their own stories: the jack-o'-lantern in the pumpkin patch, the talking skull in the ossuary, the manor in a thunderstorm, the spider in the candle-lit corner, zombies digging out of a graveyard, skeletons dancing out of their coffins, and a ghost that rushes down a hallway to say boo. It ends in a fatal error and a CRT power-off, then reboots. |
-| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Forty levels in four runs of ten, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its tenth level, where a boss waits in an arena of its own: the Ill-Fated Skeleton Knight, the Wandering Hunting Spider, the Black Deacon and the Wraith Unbound; then the runs come round again. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and chooses among the wares on her pedestals for the gold it carries: spells, and things to wear that are rolled like loot, each in its quality's colour. Her room has grown into a hall: a back room with the Hexed Totem, where a beaten boss's scrip buys its ability, the Corpus Compendium and the Wretched Repository, and a grave plot with the Accursed Portal in its far wall. Runes come from the Rune Shrine across her room, for Cursed Coins. Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, with skull walls, niches, banners, moss and sliding doors, walked with quick 90-degree turns. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides three to six secrets behind cracked walls, some of them chains whose deeper links lead out of the crypt altogether: into the Backrooms in the first two runs, and Severance in the next two. Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. From level 6 a Black Altar stands deep in each level: for souls it sends its wisp to a secret, one at a time, or blesses your wisps against the dead, and once every secret is found it anoints something you wear. Will-o'-wisps, a soul each, fly ahead through the halls to the way out or a key and leave a trail of light to follow. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. Twenty kinds of creature come in over the first two runs, about one new kind a level, each in ranks you can tell by its colour, and on the last levels of each run its boss's hazards come into the halls as omens. Your face, Wolfenstein-style, pops up when you are hurt. Hold H for three seconds to play it yourself: then death costs, and only the merchant's ledger keeps what you have (see below). |
+| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Forty levels in four runs of ten, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its tenth level, where a boss waits in an arena of its own: the Ill-Fated Skeleton Knight, the Wandering Hunting Spider, the Black Deacon and the Wraith Unbound; then the runs come round again. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and chooses among the wares on her pedestals for the gold it carries: spells, and things to wear that are rolled like loot, each in its quality's colour. Her room has grown into a hall: a back room with the Hexed Totem, where a beaten boss's scrip buys its ability, the Corpus Compendium and the Wretched Repository, and a grave plot with the Accursed Portal in its far wall. Runes come from the Rune Shrine across her room, for Cursed Coins. Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, with skull walls, niches, banners, moss and sliding doors, walked with quick 90-degree turns. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides three to six secrets behind cracked walls, some of them chains whose deeper links lead out of the crypt altogether: into the Backrooms in the first two runs, and Severance in the next two. Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. From level 6 a Black Altar stands deep in each level: for souls it sends its wisp to a secret, one at a time, or blesses your wisps against the dead, and once every secret is found it anoints something you wear. Will-o'-wisps, a soul each, fly ahead through the halls to the way out or a key and leave a trail of light to follow. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. Twenty kinds of creature come in over the first two runs, about one new kind a level, each in ranks you can tell by its colour, and on the last levels of each run its boss's hazards come into the halls as omens. Your face, Wolfenstein-style, pops up when you are hurt. Hold H, or any button on a game controller, for three seconds to play it yourself: then death costs, and only the merchant's ledger keeps what you have (see below). |
 
+![CATACOMB with a game controller: holding a button over HAUNT.EXE's pumpkin patch, the controls in the pad's words, the merchant's prompt, the wardrobe, the bestiary and the Codex with their buttons in colour](docs/preview_catacomb_pad.png)
 ![CATACOMB's bosses: the Ill-Fated Skeleton Knight's card, its Sundering Arc, the Wandering Hunting Spider's card, the Black Deacon untouchable while his adds come, the floor cracking before his fire, and a Fire Bolt bursting on the Wraith Unbound beside a void](docs/preview_catacomb_bosses.png)
 ![CATACOMB's ledger: the merchant's menu, signing a page, a death and what it cost, a stone's page in the grave plot, a trial failed in a pocket, and the merchant's claim](docs/preview_catacomb_ledger.png)
 ![CATACOMB's hall: the Accursed Portal in the grave plot and its screen, the Hexed Totem, the Corpus Compendium, the Wretched Repository and the Codex of Affixations](docs/preview_catacomb_hall.png)
@@ -340,9 +341,10 @@ danger.
 
 ### Playing CATACOMB yourself
 
-Hold **H** for three seconds, in either scene. A bar fills at the bottom of the screen; let go early
-and nothing happens (any other key still ends the screensaver as usual). When it fills, the crypt is
-yours, and the scenes stop switching until you hand it back. HAUNT.EXE cuts straight to the crypt.
+Hold **H** for three seconds, in either scene, or any button on a game controller. A bar fills at the
+bottom of the screen; let go early and nothing happens (any other key still ends the screensaver as
+usual; a controller's buttons never do). When it fills, the crypt is yours, and the scenes stop
+switching until you hand it back. HAUNT.EXE cuts straight to the crypt.
 
 | Key | What it does |
 |---|---|
@@ -360,6 +362,28 @@ yours, and the scenes stop switching until you hand it back. HAUNT.EXE cuts stra
 | W, A, S or D twice | Swift Dodge, once the Totem has taught it: a dart two to five cells that way |
 | H | A look at the status bar while it is tucked away |
 | Esc | Asks whether you want to leave, with a different argument each time for staying; also where you open the ledger |
+
+**With a game controller.** An Xbox controller, or any pad that speaks XInput (most PC pads do, some
+in an Xbox mode), plays it as well as the keys do, in the screensaver and in the window; the window
+reads it only while it is in front. A PlayStation or Switch pad needs a translator such as DS4Windows
+for now. When the pad was the last thing you touched, the hints in every menu name its buttons, A in
+green, B in red, X in blue, Y in gold; touch a key and they go back. It rumbles when you are hurt (by how
+much), when a rock lands near, a secret wall grinds, a boss falls, or the BFS9000 goes off. While you play
+with it the game keeps the display awake, since Windows doesn't count a controller as activity. The
+settings can turn it off.
+
+| Controller | In the crypt and the merchant's room | In a menu |
+|---|---|---|
+| Left stick | Walk and strafe, slower as it leans less; click it to run until you let go | Up, down, left, right |
+| Right stick | Turn, faster the further it leans | |
+| RT / LT | Cast / use the boss ability readied | |
+| RB / LB | Next / previous spell | Next / previous page |
+| A | Open, use, buy (E) | Choose (Enter) |
+| B | Swift Dodge, the way the left stick leans, else back | Back, close (Esc) |
+| X | Ready the next ability; at a ware, hold it (Q) | |
+| Y, or D-pad up | The wisps (L) | Space |
+| D-pad left, right, down | The bestiary, the Codex, the status bar | Up, down, left, right |
+| View / Menu | The wardrobe / the question at Esc | |
 
 Your defensive runes still fire on their own, as quickly (and as fallibly) as they do for the
 autopilot. In the merchant's room you shop yourself: walk up to a pedestal to see its card, and press
@@ -452,7 +476,8 @@ became HAUNTED.EXE, kept so that settings and saves carry over), `Progress` besi
 start from or holds the unsigned run, and `Mark` is the dead's watch; `uninstall.cmd` removes them with
 the settings. They are written the moment the game changes them, and never on quitting.
 
-1.0.0b7 writes a new kind of save, up to 16 KB a page. A 1.0.0b6 grave opens as a page, shown CARVED,
+1.0.0b8 changes nothing in the save, so 1.0.0b7 reads its saves too. 1.0.0b7 wrote a new kind of save, up to
+16 KB a page. A 1.0.0b6 grave opens as a page, shown CARVED,
 and 1.0.0b6's last fled progress becomes the unsigned run, so nothing is lost; saves from 1.0.0b5 and
 earlier load as they did in 1.0.0b6 (runes by tier become qualities, an old robe, hood and ring become
 Common pieces). An old save keeps its level's number, though the runs now lie differently (level 15 is
@@ -504,6 +529,7 @@ eight characters), and today's date. Keep that in mind before you share a record
   path (about one pixel every 8 s) so no pixel stays lit in the same place for hours.
 * **Show on**: the primary monitor, or the largest monitor (the default). All other monitors stay
   black, which suits an OLED beside an ordinary screen.
+* **Game controller**: hold any button to play, and play with it (on by default).
 
 Settings are stored in `HKEY_CURRENT_USER\Software\HalloweenVGASaver`.
 
@@ -623,10 +649,34 @@ every s seconds, and `CRAWL_TPCAT=1`, `CRAWL_TPTOTEM=1`, `CRAWL_TPLECTERN=1`, `C
 `CRAWL_TPSTONE=1` and `CRAWL_TPPORTAL=1` stand you before the merchant and each of her hall's fixtures.
 The harness plays a person at the keys with `HOST_INPUT`, for
 example `HOST_INPUT="1:+H;4.2:-H;5:m300,0;6:+W;8:-W;9:+MOUSE1;9.2:-MOUSE1"` (press, release, mouse
-counts), and `HOST_SAVE=file` / `HOST_LOAD=file` and `HOST_SLOTS=dir` stand in for the registry.
+counts), a controller's buttons as `+PAD_A` ... `+PAD_RT` and its sticks as `aLX0.8`, `aLY1`, `aRX-0.5`,
+and `HOST_SAVE=file` / `HOST_LOAD=file` and `HOST_SLOTS=dir` stand in for the registry. It reports the
+controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b8** (a game controller). Tested in the harness only, with a pretend controller scripted
+into it: no real controller has touched it yet, and it hasn't been run on Windows or under Wine. The
+Windows build was compiled here without warnings, and by CI.
+
+* **Taking over.** A button held three seconds takes the dweller, or cuts from HAUNT.EXE's pumpkin patch
+  into the crypt, with its own plate; a shorter hold does nothing. The button that took over counts only
+  once it has been let go, so a trigger held to take over doesn't cast.
+* **Playing by the pad alone**, in scripted sessions: walking and turning by the sticks, running, casting
+  on RT, the spellbook on the bumpers, Swift Dodge on B in four directions, a web spat on LT; the wardrobe, the
+  bestiary, the Codex and the question at Esc; her menu and a page of the ledger signed; the Totem
+  raising two abilities; a run started at the Portal; a piece bought from the Compendium and one put in
+  the Repository; a wisp cast from the list; a death, its cost and its card. A menu opened from the D-pad
+  doesn't take the press as a turn of its page (it did, at first).
+* **The hints.** Every menu's hint line, every card's prompt, the controls card and the bosses' gifts in
+  the Codex drawn in the pad's words, and back in the keys' when a key is touched. Played with the keys,
+  the smoke test's frames are identical to 1.0.0b7's, pixel for pixel.
+* **The rumble**, as the harness reports the motors starting and stopping: a hurt, a death, the BFS9000.
+* **Not tested at all:** XInput itself, which only Windows has; the dead zones and how the sticks' speeds
+  feel; how strong the rumble is; the display kept awake and the screensaver refused while a pad plays;
+  a pad unplugged mid-game; two pads at once.
+* **AddressSanitizer and UBSan**, clean, over all of those sessions.
 
 **New in 1.0.0b7** (runs of ten and four bosses, their hazards, omens and waltzes; death that costs, the
 merchant's ledger and her claim; her hall, with the Hexed Totem and the bosses' abilities, the Accursed

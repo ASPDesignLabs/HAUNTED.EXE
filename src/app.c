@@ -19,6 +19,8 @@ static struct {
     Input *in;
     int control, quit;              /* a person has the scene; they chose to leave */
     double hold_t, hold_show, grace;   /* H held this long; the bar as drawn; a moment's calm after handing back */
+    int hold_pad;                   /* a controller's button is what is held */
+    float rum_lo, rum_hi, rum_t;    /* the rumble asked for, and how long it has left */
 } A;
 
 void app_default_config(AppConfig *c) {
@@ -31,6 +33,7 @@ void app_default_config(AppConfig *c) {
     c->pixel_shift = 1;
     c->first_scene = 0;
     c->start_fade = 1;
+    c->pad = 1;
 }
 
 static void enter_scene(int idx) {
@@ -96,9 +99,13 @@ void app_update(double dt) {
     A.phase_t += dt;
     A.scene_t += dt;
     if (A.grace > 0) A.grace -= dt;
+    if (A.rum_t > 0.0f) A.rum_t -= (float)dt;
 
     if (A.in && !A.control && !A.quit) {
-        if (A.in->down[KEY_H] && playable_scene() >= 0) {
+        int button = 0;                                            /* any button of a controller, the sticks aside */
+        for (int b = 0; b < PAD_COUNT && A.cfg.pad; b++) button |= A.in->pad_down[b];
+        if ((A.in->down[KEY_H] || button) && playable_scene() >= 0) {
+            A.hold_pad = !A.in->down[KEY_H];
             A.hold_t += dt;
             if (A.cur == playable_scene() && SCENES[A.cur]->control) SCENES[A.cur]->control(CTRL_PEEK);   /* a look at where things stand */
             if (A.hold_t >= HOLD_SECONDS) take_control();
@@ -115,7 +122,7 @@ void app_update(double dt) {
         if (st == PLAY_AUTO) { A.control = 0; A.scene_t = 0; A.grace = 1.5; }   /* back to the autopilot */
         else if (st == PLAY_QUIT) A.quit = 1;
     }
-    if (A.in) { memset(A.in->hit, 0, sizeof A.in->hit); A.in->mdx = A.in->mdy = 0.0f; A.in->wheel = 0; A.in->ntext = 0; }
+    if (A.in) { memset(A.in->hit, 0, sizeof A.in->hit); memset(A.in->pad_hit, 0, sizeof A.in->pad_hit); A.in->mdx = A.in->mdy = 0.0f; A.in->wheel = 0; A.in->ntext = 0; }
 
     switch (A.phase) {
     case PH_FADEIN:
@@ -167,7 +174,8 @@ static void build_lut(uint32_t lut[256], int bgr) {
 static void hold_overlay(uint32_t *dst, int bgr) {
     if (A.hold_show <= 0.0 || A.control) return;
     int w = A.frame.w, h = A.frame.h, s = w > 400 ? 2 : 1;
-    const char *msg = A.cur == playable_scene() ? "HOLD H TO TAKE CONTROL" : "HOLD H TO ENTER THE CRYPT";
+    const char *msg = A.cur == playable_scene() ? (A.hold_pad ? "HOLD ANY BUTTON TO TAKE CONTROL" : "HOLD H TO TAKE CONTROL")
+                                                : (A.hold_pad ? "HOLD ANY BUTTON TO ENTER THE CRYPT" : "HOLD H TO ENTER THE CRYPT");
     int tw = (int)strlen(msg) * 8 * s, bw = tw, bh = 4 * s;
     int x0 = (w - tw) / 2, y0 = h - 30 * s;
     float k = (float)(A.hold_show / HOLD_SECONDS); if (k > 1.0f) k = 1.0f;
@@ -204,6 +212,19 @@ void app_set_input(Input *in) { A.in = in; }
 int app_control_state(void) { return A.control ? APP_PLAYER : (A.hold_t > 0.0 || A.grace > 0.0 ? APP_HOLDING : APP_AUTO); }
 void app_focus(int on) { if (!on && A.control && SCENES[A.cur]->control) SCENES[A.cur]->control(CTRL_PAUSE); }
 int app_quit_requested(void) { return A.quit; }
+
+/* the controller's motors: the strongest asked for wins, and it fades over its last fifth */
+void pad_rumble(float low, float high, float seconds) {
+    if (!A.cfg.pad || seconds <= 0.0f) return;
+    float k = A.rum_t > 0.0f ? 1.0f : 0.0f;
+    A.rum_lo = fmaxf(clampf(low, 0.0f, 1.0f), A.rum_lo * k);
+    A.rum_hi = fmaxf(clampf(high, 0.0f, 1.0f), A.rum_hi * k);
+    A.rum_t = fmaxf(seconds, A.rum_t);
+}
+void app_pad_motors(float *low, float *high) {
+    float k = A.rum_t > 0.0f ? clampf(A.rum_t / 0.12f, 0.0f, 1.0f) : 0.0f;
+    *low = A.rum_lo * k; *high = A.rum_hi * k;
+}
 
 static struct { uint8_t data[SLOT_MAX]; int len, dirty; } SLOTS[SLOT_ALL];
 static void slot_put(int i, const uint8_t *buf, int len, int dirty) {

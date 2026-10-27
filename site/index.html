@@ -277,7 +277,7 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
 
     <p class="eyebrow" id="edition">WINDOWS SCREENSAVER &middot; v@VERSION@ &middot; BETA</p>
     <h1>HAUNTED<span class="ext">.EXE</span></h1>
-    <p class="lede">A Halloween screensaver for Windows that runs in real VGA modes. A possessed 486 boots, types back and falls apart; a Wolfenstein-style crypt crawl plays itself; and if you hold H for three seconds, the crypt is yours. It's made for OLED screens: true black, whole-number scaling up to 4K, and FM-synth music generated as it plays.</p>
+    <p class="lede">A Halloween screensaver for Windows that runs in real VGA modes. A possessed 486 boots, types back and falls apart; a Wolfenstein-style crypt crawl plays itself; and if you hold H, or any button on a game controller, for three seconds, the crypt is yours. It's made for OLED screens: true black, whole-number scaling up to 4K, and FM-synth music generated as it plays.</p>
 
     <section class="hud" id="download" data-live="on" aria-label="Download">
       <img class="strip" src="img/statusbar.png" width="320" height="44" alt="">
@@ -285,7 +285,7 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
         <a class="cell primary" data-asset="^HAUNTED\.EXE$" href="https://github.com/ASPDesignLabs/HAUNTED.EXE/releases/download/v@VERSION@/HAUNTED.EXE">
           <span class="label">PLAY</span>
           <span class="name">HAUNTED.EXE &#x2193;</span>
-          <span class="what">Double-click to open it in a window. Hold H to play.</span>
+          <span class="what">Double-click to open it in a window. Hold H, or a controller's button, to play.</span>
           <span class="size">64-bit</span>
         </a>
         <a class="cell" data-asset="^HAUNTED\.scr$" href="https://github.com/ASPDesignLabs/HAUNTED.EXE/releases/download/v@VERSION@/HAUNTED.scr">
@@ -327,7 +327,7 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
 
   <section aria-labelledby="play">
     <h2 id="play">The crypt is yours</h2>
-    <p>Hold <kbd>H</kbd> for three seconds in either scene. A bar fills at the bottom of the screen; let go early and nothing happens. When it fills, the autopilot steps aside and the scenes stop switching until you hand it back. Any other key still ends the screensaver as usual.</p>
+    <p>Hold <kbd>H</kbd>, or any button on a game controller, for three seconds in either scene. A bar fills at the bottom of the screen; let go early and nothing happens. When it fills, the autopilot steps aside and the scenes stop switching until you hand it back. Any other key still ends the screensaver as usual; a controller's buttons never do.</p>
     <div class="scroll">
       <table>
         <thead><tr><th>Keys</th><th>What they do</th></tr></thead>
@@ -349,7 +349,30 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
       </table>
     </div>
     <p>Your defensive runes still fire on their own, as quickly and as fallibly as they do for the autopilot. The Wolfenstein status bar, with your spirit and, when the spear is in hand, your bones, slides away five seconds after anything it has to show, so you have the whole view; it comes back when you are hurt, choose a spell, tap <kbd>H</kbd>, or open the wardrobe or the bestiary, and stays up at the merchant's. Meanwhile a small readout shows gold, keys and souls as they come and go. Your hand rises only to cast or to reach for something, and sinks out of sight again.</p>
+    <p><strong>With a game controller.</strong> An Xbox controller, or any pad that speaks XInput (most PC pads do, some in an Xbox mode), plays it as well as the keys, in the screensaver and in the window. When the pad was the last thing you touched, every menu's hints name its buttons, A in green, B in red, X in blue, Y in gold. It rumbles when you are hurt, when a rock lands near, a secret wall grinds or a boss falls, and while you play it keeps the display awake, since Windows doesn't count a controller as activity. A PlayStation or Switch pad needs a translator such as DS4Windows for now.</p>
     <div class="folds" data-folds>
+      <details>
+        <summary>The controller's buttons <span class="hint">XInput: Xbox and compatible</span></summary>
+        <div class="fold">
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Pad</th><th>In the crypt</th><th>In a menu</th></tr></thead>
+              <tbody>
+                <tr><td class="keys"><kbd>L-STICK</kbd></td><td>Walk and strafe, slower as it leans less. Click it to run until you let go.</td><td>Up, down, left, right</td></tr>
+                <tr><td class="keys"><kbd>R-STICK</kbd></td><td>Turn, faster the further it leans.</td><td></td></tr>
+                <tr><td class="keys"><kbd>RT</kbd><kbd>LT</kbd></td><td>Cast; use the boss ability readied.</td><td></td></tr>
+                <tr><td class="keys"><kbd>RB</kbd><kbd>LB</kbd></td><td>Next and previous spell.</td><td>Next and previous page</td></tr>
+                <tr><td class="keys"><kbd>A</kbd></td><td>Open, use, buy.</td><td>Choose</td></tr>
+                <tr><td class="keys"><kbd>B</kbd></td><td>Swift Dodge, the way the left stick leans, else back.</td><td>Back, close</td></tr>
+                <tr><td class="keys"><kbd>X</kbd></td><td>Ready the next ability; at a ware, hold it.</td><td></td></tr>
+                <tr><td class="keys"><kbd>Y</kbd></td><td>The wisps (D-pad up too).</td><td>As Space</td></tr>
+                <tr><td class="keys"><kbd>D-PAD</kbd></td><td>Left the bestiary, right the Codex, down the status bar.</td><td>Up, down, left, right</td></tr>
+                <tr><td class="keys"><kbd>VIEW</kbd><kbd>MENU</kbd></td><td>The wardrobe; the question at Esc.</td><td></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
       <details>
         <summary>What you wear <span class="hint">seven places, five qualities</span></summary>
         <div class="fold">
@@ -537,6 +560,10 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
   <section aria-labelledby="screens">
     <h2 id="screens">Screens</h2>
     <figure>
+      <img src="img/preview_catacomb_pad.png" loading="lazy" width="1932" height="806" alt="Six frames with a game controller: HOLD ANY BUTTON TO ENTER THE CRYPT over HAUNT.EXE's grinning jack-o'-lantern; THE CONTROLS ARE YOURS in the pad's words, L-STICK WALK, R-STICK TURN, RT CASTS, A OPENS in green, above a ware's card, A BUYS, X HOLDS; the merchant's prompt, A: SIGN HER LEDGER, OR PAT HER; the wardrobe, D-PAD PICK, A MOVE, LB/RB PAGE; the bestiary, B CLOSE in red; and the Codex's page for Swift Dodge, B, AND THE WAY THE LEFT STICK LEANS">
+      <figcaption>With a controller: holding a button over the pumpkin patch, the controls and the cards in the pad's words, the wardrobe, the bestiary and the Codex.</figcaption>
+    </figure>
+    <figure>
       <img src="img/preview_catacomb_bosses.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB's bosses: the Ill-Fated Skeleton Knight's card, HE RODE DOWN TO FETCH THE ORDER'S DEAD, AND NEVER RODE BACK UP; the knight in polished plate raising its sword, MIND THE BLADE'S ARC; the Wandering Hunting Spider's card over the spider with a pale skull on its back; the Black Deacon, huge in black robes, in a pale shell while a skeleton comes; the chapel floor cracking in glowing lines before the fire; and a fireball bursting on the Wraith Unbound beside a purple ring of void">
       <figcaption>The four bosses: the knight's card and its Sundering Arc, the spider's card, the Deacon in his shell and his cracks, and the Wraith struck beside a void.</figcaption>
     </figure>
@@ -616,13 +643,13 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
       <ol>
         <li>Download <b>HAUNTED.EXE</b> and double-click it to try it in a window. F11 switches to full screen and Esc quits.</li>
         <li>To make it your screensaver, right-click <b>HAUNTED.scr</b> and choose Install, or run <b>install.cmd</b> from the zip. Windows asks for administrator rights.</li>
-        <li>In Screen Saver Settings choose <b>HAUNTED.EXE</b>. Settings&hellip; sets the sound, brightness, scenes and monitor.</li>
+        <li>In Screen Saver Settings choose <b>HAUNTED.EXE</b>. Settings&hellip; sets the sound, brightness, scenes, monitor and controller.</li>
         <li>To remove it, run <b>uninstall.cmd</b> as administrator.</li>
       </ol>
       <p class="warn">Unsigned file: if SmartScreen stops it, choose More info, then Run anyway.</p>
       <div class="foot">F1=Help  Esc=Cancel</div>
     </div>
-    <p><strong>Upgrading from an earlier beta:</strong> your settings and saves carry over. The sixth beta's graves open as pages of the ledger, and its last progress as the unsigned run; sign it at the merchant's to keep it on a page. Older saves load as they did before. This beta writes a new kind of save, which earlier betas can't read, so if you might go back, keep a copy first: <code>reg export HKCU\Software\HalloweenVGASaver haunted-backup.reg</code>. Double-click the file to restore it.</p>
+    <p><strong>Upgrading from an earlier beta:</strong> your settings and saves carry over. This beta changes nothing in the save, so the seventh can still read it. From the sixth, its graves open as pages of the ledger and its last progress as the unsigned run; sign it at the merchant's to keep it on a page. Saves from the seventh beta on can't be read by the sixth or earlier, so if you might go back that far, keep a copy first: <code>reg export HKCU\Software\HalloweenVGASaver haunted-backup.reg</code>. Double-click the file to restore it.</p>
     <p>HAUNT.EXE's file manager shows your Windows user name and today's date. Keep that in mind before you share a recording. <code>capture.cmd</code> in the zip runs it as an ordinary window that OBS or Xbox Game Bar can record.</p>
   </section>
 
@@ -642,7 +669,7 @@ make smoke    # both scenes and a scripted player in the test harness</pre>
 
   <section aria-labelledby="beta">
     <h2 id="beta">Beta status</h2>
-    <p>This is the seventh beta. The third was played by hand on the author's own Windows PC, on top of the automated tests, as were the ones before it. The fourth added things to wear rolled like loot, spirit and bones and the Black Altars; the fifth wisps that fly through the crypt and the status bar that steps aside; the sixth chains of secrets into the Backrooms and Severance and the Rune Shrine. This one is the biggest change the game has had: runs of ten levels with four bosses, their hazards and omens, death that costs, the merchant's ledger and her claim, and her hall. Nothing from the fourth beta on has been played by hand yet, and this one hasn't been run under Wine either: it has been tested in the harness, and the Windows build compiled and smoke-tested by GitHub Actions.</p>
+    <p>This is the eighth beta. The third was played by hand on the author's own Windows PC, on top of the automated tests, as were the ones before it. The fourth added things to wear rolled like loot, spirit and bones and the Black Altars; the fifth wisps that fly through the crypt and the status bar that steps aside; the sixth chains of secrets into the Backrooms and Severance and the Rune Shrine; the seventh, the biggest change the game has had, runs of ten levels with four bosses, death that costs, the merchant's ledger and her hall. This one adds a game controller. Nothing from the fourth beta on has been played by hand yet, and the seventh and eighth haven't been run under Wine either: they have been tested in the harness, and the Windows build compiled and smoke-tested by GitHub Actions.</p>
     <div class="folds">
       <details>
         <summary>What has been tested, and how <span class="hint">area by area</span></summary>
@@ -651,6 +678,7 @@ make smoke    # both scenes and a scripted player in the test harness</pre>
       <table>
         <thead><tr><th>Area</th><th>Evidence</th><th>Confidence</th></tr></thead>
         <tbody>
+          <tr><td>The game controller</td><td>Played by a pretend controller scripted into the harness: taking over by a held button from both scenes, walking, turning, casting, dodging and webbing by the pad, every menu of the merchant's hall, the ledger signed, the wisps, a death; the hints in the pad's words; the rumble's starts and stops. With the keys, every smoke-test frame is identical to the seventh beta's. XInput itself, the feel of the sticks, the rumble's strength and keeping the display awake are Windows' and haven't been tried with a real controller.</td><td><span class="tag low">LOW</span></td></tr>
           <tr><td>The bosses</td><td>Fought by the autopilot in the harness as each was built, with every spell at tier 4 to 8: the knight beaten in 189 to 221 seconds, the spider in 173 to 232 (four deaths on two seeds of four), the Deacon in 160 to 210, and the Wraith in eight fights of eight, but in 332 to 593 seconds, about twice what was planned. With every boss ability at rank III, the knight in 215 seconds, the spider in 175 and the Deacon in 198. Challenges won from the Portal. Each boss's own ways seen in the event logs. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
           <tr><td>Hazards and omens</td><td>Each boss's hazards and second casts in its fights, and the omens in the levels before, warning first; the autopilot steps out of them. In eight long runs it met hundreds of omens and was struck 45 times by rocks, and none of its deaths was to a hazard. Not yet played by hand, so how readable they are among the adds is still open.</td><td><span class="tag mid">MEDIUM</span></td></tr>
           <tr><td>Death and the ledger</td><td>Scripted sessions in the harness: a death written the moment it falls, its card, waking before level 1 with the runes and the hall kept, the stone and its page, a death in a pocket and its sealed doorway, signing and opening pages, a page keeping the merchant's visit, signing over another run's page, and the sixth beta's graves and progress opening as pages. The screensaver's own deaths cost nothing, as before. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
