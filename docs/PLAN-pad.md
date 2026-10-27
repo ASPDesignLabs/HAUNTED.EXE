@@ -3,7 +3,7 @@
 **Status: settled (27 October 2026).** The owner asked for XInput support: holding any button on a
 controller takes the dweller, or enters the crypt from HAUNT.EXE, in the screensaver and in the program.
 They read the plan below and said to go ahead; the questions it asked take the answers it recommended.
-The steps at the end say how far it has got.
+All four steps are built and went out as 1.0.0b8, tested in the harness with a scripted pad only.
 
 ## What was asked
 
@@ -71,12 +71,12 @@ to take over doesn't cast.
 
 ## Building it
 
-1. **Input**: the pad in `Input` (`core.h`), XInput in `win_main.c`, the hold in `app.c` and its
+1. **Input** (built): the pad in `Input` (`core.h`), XInput in `win_main.c`, the hold in `app.c` and its
    plate, the setting, the harness's pad (`HOST_INPUT` `+PAD_A`, `aLX0.8`).
-2. **Play**: the layout in `scene_crawl.c`, by context; walking and turning by the sticks.
-3. **Hints and rumble**: the hint lines, the cards, the controls card and the ability pages in
+2. **Play** (built): the layout in `scene_crawl.c`, by context; walking and turning by the sticks.
+3. **Hints and rumble** (built): the hint lines, the cards, the controls card and the ability pages in
    the pad's words; the rumble.
-4. **Checks**: every menu and the crypt by a scripted pad in the harness; ASan; the Windows build; the
+4. **Checks** (built): every menu and the crypt by a scripted pad in the harness; ASan; the Windows build; the
    README, the page and the release notes; the release.
 
 Nothing of it can be tried with a real pad here (no controller, no Wine in this container): the harness
