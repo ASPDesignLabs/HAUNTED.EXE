@@ -934,6 +934,9 @@ static int mz_vault(int *kx, int *ky, int *room) {
                     ex[ne] = nx; ey[ne] = ny; ed[ne] = d; ne++;
                 }
         if (!ne || ne > 8) continue;
+        int kept = 0;                                              /* the way down to a boss's arena is never sealed */
+        for (int i = 0; i < ne; i++) kept |= MM[ey[i]][ex[i]].keep;
+        if (kept) continue;
         int keep = -1;
         for (int i = 0; i < ne; i++) {
             if (!mopen(ex[i] + DX[ed[i]], ey[i] + DY[ed[i]])) continue;
