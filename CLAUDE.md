@@ -68,8 +68,11 @@ the harness only (no Wine, nothing by hand), and released at the owner's word, s
 crypts, the drowned catacombs, the charnel mine, the black glass), with room types, materials laid by the
 stretch and blended where they meet, features drawn over them, floors and ceilings, and each run's doors,
 torches, keys and treasure. The owner answered the first questions; it goes one run at a time, sheets first,
-then frames from the game. Run I's art is drawn (`crawl_art_run`) and on `make sheets`' `crypts.png` and
-`cryptrooms.png`, waiting for approval; the game doesn't use it yet.
+then frames from the game. Run I's art is drawn (`crawl_art_run`, on `make sheets`' `crypts.png` and
+`cryptrooms.png`) and approved, with the owner's defaults for the rest (the four themes as the plan has them,
+her hall rebuilt once in run I's stone). Step 2 put run I in the game (walls by face, room types, floors and
+ceilings, its doors, keys and torches, her hall); its frames from levels 1, 5 and 10 wait for approval before
+run II's sheets. Tested in the harness only.
 
 ## Working with the owner
 
@@ -171,7 +174,9 @@ challenge at step s), `CRAWL_GOALS=1`
 readout), `CRAWL_XP=n` (n experience banked as a person takes over: the autopilot never ascends a person's run),
 `CRAWL_LUCK=x` (Luck at x%), `CRAWL_CORNER=b` (the cornerstones held, a bit each: 1 Second Wind, 2 Premonition, 4
 Cartographer, 8 Lantern of the Dead, 16 Grave Sense),
-`CRAWL_RANK=r` (every creature at rank r), `CRAWL_WRAITH=s` (the Wraith at s seconds), `CRAWL_MEET=k`
+`CRAWL_TPROOM=k` (in a corner of the first room of run I's type k, looking across it: 1 ossuary, 2 burial
+vault, 3 chapter house, 4 knights' vault, 5 undercroft), `CRAWL_RANK=r` (every creature at rank r), `CRAWL_WRAITH=s`
+(the Wraith at s seconds), `CRAWL_MEET=k`
 (one creature of kind k, the `MOB_*` number, a few cells ahead of the caster five seconds into each level,
 and into each pocket).
 `HAUNT_DEBUG` adds `HAUNT_PLAN=10,11,...` to force HAUNT.EXE acts (numbers in the README).
@@ -586,7 +591,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   comes on a boss level. `level_name` gives each of the forty its name, with a numeral after the first
   time down. `crawl_art_level` regenerates the wall textures with a level seed. Textures
   and sprites are 64x64, column-major.
-- **Each run's look** (1.0.0b10, docs/PLAN-b10.md; only run I is drawn, and not yet in play). `crawl_art_run(level)`
+- **Each run's look** (1.0.0b10, docs/PLAN-b10.md; only run I is drawn and in play, `crawl_drawn`). `crawl_art_run(level)`
   (after `crawl_art_level`) makes the run's roles into their slots: `T_MATV(m, v)` (`NMAT` materials, `NVAR` looks
   each, on one 16-pixel course grid, so any two meet without a step; `g_mid` keeps their blocks for the blends),
   `T_BLEND` (`NBLEND`, one material into the next across a cell, the first on the left and in front: whole blocks
@@ -595,6 +600,25 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   (its grime and moss from a field shared by the run's textures, so it runs on across a seam; drips and cracks
   each texture's own), `plaster_flake`, `decay_flat`, the banner's tatter. Names and blend pairs are in
   `crawl_looks`. `make sheets` draws them (`crypts.png`, `cryptrooms.png`: the room types laid as stretches).
+  The specials (the sign, the Repository, the Portal, the gate, the fonts, the grate) are drawn again on the
+  run's ashlar (`specials_on`, `rebase`); other runs keep `specials_plain`.
+- **Laying it** (`G.faced`: a drawn run's level, and her hall always; never a pocket). A room's type (`RT_*`,
+  `RTYPES`: its floor, ceiling, dressing style and the old `TH_*` theme its dressing and dwellers follow; the
+  chapter house is `TH_BRICK` so it keeps none) comes from `pick_rtype` (its size in blocks and the run's step;
+  two ossuaries a level, three late in the run; one chapter house) and rides on `Room.rtype`; `dress_level`
+  takes its style from it. At the end of `gen_level` (after the arena) and `gen_shop`, `lay_faces` walks each
+  straight stretch of wall on each side (`faceable`, `face_open`; a stretch ends where the place it looks into
+  changes, `face_key`) in the face's own left-to-right order (+y, -x, -y, +x for faces looking east, south, west,
+  north) and `lay_stretch` gives it materials by its room type (`cell_rtype`: a secret's closet is an undercroft,
+  the arena the knights' vault): the halls, undercrofts and the plot from a smooth field (`mat_field`, six cells),
+  so whole stretches agree; a blend where two meet (`blend_of`, `Cell.fflip` mirrors it); what stands on the wall
+  by rule (niches in rows, banners centred, slabs spaced, a tablet, an undercroft's shrine once). `Cell.face[4]`,
+  `fover[4]` (the overlay; a torch's on `ftorch`, its face + 1, set where the torch is placed), `flo`, `cei` (the
+  floor and ceiling; flags break with the rot), `fflip` bits 5-7 the floor's turn, bit 4 laid as it is (the
+  lozenges). `render_walls` takes `face[fd]` for an ordinary wall and mixes the overlay in; a secret's cracked
+  wall carries no overlay, and the sliding box wears the face it shows the hall. `render_floor` looks the cell up
+  once per change along a row. Debug: `ROOMS level n: ...` (each room's type), `CRAWL_TPROOM=k` (in a corner of the
+  first room of type k, `RT_*`, looking across it, once you take control).
 - **Ranks and the bestiary art.** `crawl_rank_lut[family][rank]` recolours a creature's body ramp
   (`PF_*`, `RK_*` in `crawl.h`). The new creatures' and decorations' sprites are drawn in
   `crawl_art.c`; `make sheets` shows them. See `docs/PLAN-bestiary.md` for what is in play.

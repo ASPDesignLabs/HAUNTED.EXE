@@ -1,7 +1,9 @@
 # 1.0.0b10: a look of its own for each run
 
-**Status: planned (28 October 2026). Run I's art is drawn and on approval sheets (`make sheets`:
-`crypts.png`, `cryptrooms.png`); nothing in the game uses it yet.** The owner asked for the crypt's
+**Status: run I is in the game (28 October 2026), tested in the harness only; its frames from levels 1, 5
+and 10 and her hall wait for the owner's approval before run II's sheets. Run I's art was approved on its
+sheets (`make sheets`: `crypts.png`, `cryptrooms.png`), and the owner took the defaults for the three
+questions below.** The owner asked for the crypt's
 walls to flow together, for floors and ceilings, and for each run of ten to look like its own place.
 This plan sets out a theme for each run, the room types that carry it, and how the generator lays
 them; then the work, one run at a time.
@@ -112,18 +114,45 @@ On `crypts.png` and `cryptrooms.png`. Everything is made by the code (`crawl_art
 
 ## The work, one run at a time
 
-1. **Run I's art and its sheets** (done, for approval).
+1. **Run I's art and its sheets** (done, approved).
 2. **The engine**: faces, overlays, stretches, blends, room types by rule, floors and ceilings, run I's
-   doors, keys and torches in play. Frames from the game on levels 1, 5 and 10 for approval.
+   doors, keys and torches in play. Frames from the game on levels 1, 5 and 10 for approval. (Built; the
+   frames wait for approval. See "Run I in the game" below.)
 3. **Run II**: sheets, then frames. 4. **Run III**. 5. **Run IV**, with its glows.
 6. **Checks**: `bench` against 1.0.0b9; ASan; eight-seed dream runs against 1.0.0b9 (the lights move,
    so the autopilot's levels may play a little differently); the README's previews and "What has been
    verified"; the page.
 
-## Questions for the owner
+## Questions for the owner (answered: the defaults)
 
-1. Do the four themes fit? Each run's column above is a proposal; say what to change.
-2. Run I's sheets: anything to change before it goes into the game?
+1. Do the four themes fit? Each run's column above is a proposal; say what to change. *Taken as they
+   stand.*
+2. Run I's sheets: anything to change before it goes into the game? *Nothing.*
 3. The merchant's hall is red brick too. Keep it (it is her room, not the crypt's), or rebuild it once
-   in run I's ashlar and rubble, the same in every run? *Default: rebuild it once, the same in every
-   run.*
+   in run I's ashlar and rubble, the same in every run? *Default, taken: rebuild it once, the same in
+   every run.*
+
+## Run I in the game (step 2)
+
+- **Which levels.** Levels 1-10 of each time down (`crawl_drawn`) and her hall, always. Runs II-IV keep the
+  old look until they are drawn; the pockets keep theirs.
+- **Room types** (`pick_rtype`): an ossuary at most twice a level (three times from the seventh level), a
+  chapter house once and only in a room of four blocks or more, a knights' vault from the third level in rooms
+  of two blocks or more (one, then two from the sixth), the undercroft likeliest in the smallest rooms, the
+  burial vault the rest. Each type keeps the old dressing that suits it (graves in the burial vault and the
+  knights' vault, fire or cages in an undercroft) and the old theme's dwellers: the ossuary's and the vaults'
+  skeletons as before; the chapter house has none.
+- **The halls** take ashlar, rubble or the bedrock from a field that changes over about six cells, so a whole
+  run of hall is dressed, patched or raw, and the change between them is a blend. A hall's stretch of ashlar
+  may carry a tablet now and then. The undercrofts and a secret's closet are rubble and rock, the plot ashlar
+  and rubble.
+- **Floors and ceilings**: setts and the barrel vault in the halls, flags (breaking through as the run goes
+  on, to about two in five by its tenth level) under a rib vault in the burial and knights' vaults, the
+  lozenges in the chapter house, bone earth in the ossuary, rough rock over an undercroft.
+- **Doors, jambs, keys and torches** are run I's: oak under iron, vaults strapped in their key's metal, the
+  trefoil keys, and the torch's sconce as an overlay on whatever stone it is on.
+- **The boss's arena** takes the knights' vault (the lists): ashlar, slabs and banners, its burrows niches;
+  its gate, fonts and grate are drawn again on the ashlar, as are the sign, the Repository and the Portal. A
+  challenge's fallen way is run I's rubble.
+- **Her hall** is ashlar with the Order's banners under a rib vault, the plot ashlar and rubble under the
+  barrel vault, whichever run it comes before.

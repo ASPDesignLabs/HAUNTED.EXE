@@ -4683,6 +4683,7 @@ void crawl_art_theme(int theme, int level) {
     build_colormap();
 }
 
+static void specials_plain(void);
 void crawl_art_level(int level) {
     float dk = crawl_decay(level), depth = crawl_depth(level);
     g_decay = fmaxf(dk, depth);                                     /* the dead themselves only get older going down */
@@ -4711,6 +4712,12 @@ void crawl_art_level(int level) {
     spr_shieldskel(SP_SHIELD_XA, 1.0f, 0, 0); spr_shieldskel(SP_SHIELD_XB, -1.0f, 0, 0); spr_shieldskel(SP_SHIELD_XS, 0.2f, 1, 0);
     spr_bestiary_bones();
     spr_sides();
+    if (crawl_drawn(level)) crawl_art_run(level);                  /* the run's own look (docs/PLAN-b10.md) */
+    else {                                                          /* not drawn yet: the look as it was */
+        static const float KS[4] = { 1.0f, 0.5f, 0.12f, -0.5f };
+        for (int f = 0; f < 4; f++) { spr_key(SP_KEY0 + f, KS[f], R_GOLD); spr_key(SP_KEYS0 + f, KS[f], R_IRON); spr_key(SP_KEYC0 + f, KS[f], R_BLOOD); }
+        specials_plain();
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -4721,7 +4728,6 @@ void crawl_art_level(int level) {
  * on. g_mid keeps each material's blocks or stones by pixel (0 a joint), so a blend can let whole blocks
  * fall away. What stands on a wall is drawn apart, C_CLEAR where the wall shows through. Only the Crypts
  * are drawn so far; the other runs borrow them until theirs are approved. */
-enum { RM_ASHLAR, RM_RUBBLE, RM_PLASTER, RM_BEDROCK, RM_BONES };
 static uint16_t g_mid[NMAT][TS * TS];
 
 const RunLook crawl_looks[4] = {
@@ -4730,8 +4736,8 @@ const RunLook crawl_looks[4] = {
       { "BURIAL NICHES", "THE ORDER'S BANNER", "A KNIGHT'S SLAB", "WALL SHRINE", "MEMORIAL TABLET", "TORCH", "TORCH", "TORCH" },
       { "FLAGSTONES", "CHAPTER FLOOR", "WORN SETTS", "BONE EARTH", "BROKEN FLAGS" },
       { "RIBBED VAULT", "STONE VAULT", "ROUGH ROCK" },
-      { { RM_ASHLAR, RM_RUBBLE }, { RM_PLASTER, RM_ASHLAR }, { RM_PLASTER, RM_RUBBLE }, { RM_ASHLAR, RM_BEDROCK },
-        { RM_RUBBLE, RM_BEDROCK }, { RM_BONES, RM_ASHLAR } } },
+      { { M1_ASHLAR, M1_RUBBLE }, { M1_PLASTER, M1_ASHLAR }, { M1_PLASTER, M1_RUBBLE }, { M1_ASHLAR, M1_BEDROCK },
+        { M1_RUBBLE, M1_BEDROCK }, { M1_BONES, M1_ASHLAR } } },
     { "THE DROWNED CATACOMBS", { 0 }, { 0 }, { 0 }, { 0 }, { { 0 } } },
     { "THE CHARNEL MINE", { 0 }, { 0 }, { 0 }, { 0 }, { { 0 } } },
     { "THE BLACK GLASS", { 0 }, { 0 }, { 0 }, { 0 }, { { 0 } } },
@@ -5276,7 +5282,7 @@ static void gen_floor_chapter(int t, uint32_t seed) {              /* the chapte
     for (int y = 0; y < TS; y++)
         for (int x = 0; x < TS; x++) {
             int a = (x + y) & 31, b = (x - y + 64) & 31, dark = (((x + y) >> 5) + ((x - y + 64) >> 5)) & 1;
-            float v = dark ? 0.26f : 0.66f;
+            float v = dark ? 0.3f : 0.58f;
             v += 0.12f * (fbm(x / 8.0f, y / 8.0f, 8, seed + dark) - 0.5f) + 0.04f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 3) - 0.5f);
             uint8_t c = dark ? sh(R_STONE, v) : sh(R_FLOOR, v + 0.14f);
             if (a == 0 || b == 0) c = sh(R_FLOOR, 0.12f);
@@ -5464,6 +5470,30 @@ static void spr_key_trefoil(int id, float scale, int metal) {      /* a church k
     cv_store(id);
 }
 
+/* The hall's sign, the Repository and the Portal, and the arenas' gates, fonts and drains, are drawn on
+ * plain stone; on a drawn run they stand in its ashlar instead, wherever the plain stone showed */
+static void rebase(int t, uint32_t stone_seed, int base) {
+    static uint8_t keep[TS * TS];
+    memcpy(keep, crawl_tex[T_STONE], sizeof keep);
+    gen_stone(T_STONE, R_STONE, stone_seed);
+    for (int i = 0; i < TS * TS; i++) if (crawl_tex[t][i] == crawl_tex[T_STONE][i]) crawl_tex[t][i] = crawl_tex[base][i];
+    memcpy(crawl_tex[T_STONE], keep, sizeof keep);
+}
+static void specials_plain(void) {
+    gen_sign(T_SIGN, 91);
+    gen_repository(T_REPOSITORY);
+    for (int f = 0; f < 4; f++) gen_portal(T_PORTAL0 + f, f, 107);
+    gen_gate(T_GATE, 97);
+    gen_font(T_FONT, 101, 1); gen_font(T_FONT_DRY, 101, 0);
+    gen_grate(T_GRATE, 103);
+}
+static void specials_on(int base) {
+    specials_plain();
+    rebase(T_SIGN, 91, base); rebase(T_REPOSITORY, 233, base);
+    for (int f = 0; f < 4; f++) rebase(T_PORTAL0 + f, 107, base);
+    rebase(T_GATE, 97, base); rebase(T_FONT, 101, base); rebase(T_FONT_DRY, 101, base); rebase(T_GRATE, 103, base);
+}
+
 /* The run's own textures and keys, for the level's place in it: made from the level (so each level's
  * stones differ), with the rot of its step. Called after crawl_art_level, which sets the palette. */
 void crawl_art_run(int level) {
@@ -5472,16 +5502,16 @@ void crawl_art_run(int level) {
     uint32_t s = 7001u + (uint32_t)level * 7u, field = s + 50u;
     for (int v = 0; v < NVAR; v++) {
         uint32_t vs = v ? s + 1u : 0u;
-        gen_ashlar(T_MATV(RM_ASHLAR, v), RM_ASHLAR, s, vs);
-        gen_rubble_c(T_MATV(RM_RUBBLE, v), RM_RUBBLE, s + 10, vs);
-        gen_plaster(T_MATV(RM_PLASTER, v), RM_PLASTER, s + 20, vs);
-        gen_bedrock(T_MATV(RM_BEDROCK, v), RM_BEDROCK, s + 30, vs);
-        gen_bonewall(T_MATV(RM_BONES, v), RM_BONES, s + 40, vs);
+        gen_ashlar(T_MATV(M1_ASHLAR, v), M1_ASHLAR, s, vs);
+        gen_rubble_c(T_MATV(M1_RUBBLE, v), M1_RUBBLE, s + 10, vs);
+        gen_plaster(T_MATV(M1_PLASTER, v), M1_PLASTER, s + 20, vs);
+        gen_bedrock(T_MATV(M1_BEDROCK, v), M1_BEDROCK, s + 30, vs);
+        gen_bonewall(T_MATV(M1_BONES, v), M1_BONES, s + 40, vs);
     }
-    for (int v = 0; v < NVAR; v++) plaster_flake(T_MATV(RM_PLASTER, v), T_MATV(RM_RUBBLE, 0), dk, field + 30);
+    for (int v = 0; v < NVAR; v++) plaster_flake(T_MATV(M1_PLASTER, v), T_MATV(M1_RUBBLE, 0), dk, field + 30);
     for (int m = 0; m < NMAT; m++)
-        for (int v = 0; v < NVAR; v++) decay_wall(T_MATV(m, v), m == RM_BONES ? dk * 0.6f : dk, field, s + 60u + (uint32_t)(m * NVAR + v) * 3u);
-    for (int k = 0; k < NBLEND; k++) gen_blend(T_BLEND + k, L->blend[k][0], L->blend[k][1], L->blend[k][0] == RM_PLASTER, s + 70u + (uint32_t)k);
+        for (int v = 0; v < NVAR; v++) decay_wall(T_MATV(m, v), m == M1_BONES ? dk * 0.6f : dk, field, s + 60u + (uint32_t)(m * NVAR + v) * 3u);
+    for (int k = 0; k < NBLEND; k++) gen_blend(T_BLEND + k, L->blend[k][0], L->blend[k][1], L->blend[k][0] == M1_PLASTER, s + 70u + (uint32_t)k);
     gen_feat_niche(T_FEAT + 0, s + 80);
     gen_feat_banner(T_FEAT + 1, s + 81, dk);
     gen_feat_slab(T_FEAT + 2, s + 82);
@@ -5507,6 +5537,7 @@ void crawl_art_run(int level) {
     decay_flat(T_RDOOR, dk * 0.5f, s + 150);
     static const float KS[4] = { 1.0f, 0.5f, 0.12f, -0.5f };
     for (int f = 0; f < 4; f++) { spr_key_trefoil(SP_KEY0 + f, KS[f], R_GOLD); spr_key_trefoil(SP_KEYS0 + f, KS[f], R_IRON); spr_key_trefoil(SP_KEYC0 + f, KS[f], R_BLOOD); }
+    specials_on(T_MATV(M1_ASHLAR, 0));
 }
 
 void crawl_art_init(void) {

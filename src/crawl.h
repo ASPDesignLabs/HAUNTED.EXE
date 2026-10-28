@@ -67,6 +67,12 @@ enum {
 #define NFLOORS 5
 #define NCEILS 3
 #define T_MATV(m, v) (T_MAT + (m) * NVAR + (v))
+/* run I's slots, by name: its materials, what stands on its walls (the torch's three frames from F1_TORCH),
+ * its floors and its ceilings */
+enum { M1_ASHLAR, M1_RUBBLE, M1_PLASTER, M1_BEDROCK, M1_BONES };
+enum { F1_NICHE, F1_BANNER, F1_SLAB, F1_SHRINE, F1_TABLET, F1_TORCH };
+enum { FL1_FLAGS, FL1_CHAPTER, FL1_SETTS, FL1_EARTH, FL1_BROKEN };
+enum { CE1_RIB, CE1_VAULT, CE1_ROCK };
 
 enum {
     SP_BONES1, SP_BONES2, SP_SKULLPILE, SP_COBWEB, SP_CHAINS, SP_URN, SP_PILLAR, SP_CANDLES,
@@ -215,6 +221,7 @@ extern const uint8_t crawl_face_eyes[FACE_FRAMES][2][2];
 static inline int crawl_run(int level) { return (level - 1) / RUN_LEN; }     /* 0 run I, 1 run II ..., counting every time down */
 static inline int crawl_set(int level) { return crawl_run(level) % 4; }     /* 0 the Crypts, 1 the Catacombs, 2 the Hollows, 3 the Deep */
 static inline int crawl_step(int level) { return (level - 1) % RUN_LEN; }   /* 0..9 within the run; 9 is its boss's */
+static inline int crawl_drawn(int level) { return crawl_set(level) == 0; }  /* a run whose own look is drawn (docs/PLAN-b10.md): the Crypts so far */
 static inline int crawl_boss(int level) { return crawl_step(level) == RUN_LEN - 1; }
 static inline int crawl_loop(int level) { return (level - 1) / DESCENT_LEN; }   /* 0 the first time down */
 static inline float crawl_decay(int level) { return (float)crawl_step(level) / (float)(RUN_LEN - 1); }   /* rot and ruin: fresh at a run's start */
