@@ -672,6 +672,8 @@ static struct {
     Gear inv0;                              /* the gear as it was when the inventory opened */
     int inv_page;                           /* the wardrobe (0) or the caster's numbers and spellbook (1) */
     float map_cx, map_cy, map_hold;         /* the map open: the cell at its middle, a direction held this long */
+    int asc_buy[NLINE], asc_arm;            /* the caster's screen: steps bought since it opened (they may go back); a buy past a cap awaiting a second press */
+    int cs_sel, cs_arm;                     /* the cornerstones' screen: the one looked at; one awaiting a second Enter */
     /* the boss abilities: each one's wait; Swift Dodge's dart (its clock and its way) and the direction last
        tapped and how long ago; Wraithwalk's while; which sockets were ready, for the tick when one comes round */
     float ab_cd[NBOSS], dash_t, dash_vx, dash_vy, tap_t, wwalk_t;
@@ -718,9 +720,9 @@ static struct {
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
        BP_LITANY };                                 /* the Deacon's censer raised, the green light growing */
 static float zbuf[W];
-enum { MM_SIGN, MM_PED, MM_PAT, MM_LEAVE, NMM };                   /* the merchant's menu */
+enum { MM_SIGN, MM_ASCEND, MM_PED, MM_WIND, MM_PAT, MM_LEAVE, NMM };   /* the merchant's menu */
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_MAP };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_MAP, UI_ASCEND, UI_STONES };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 static double IN_DT;                        /* and how long the step is */
 static struct {                             /* their game controller, if they have one */
@@ -2767,6 +2769,94 @@ static void xp_kill(const Mob *m) {
     snprintf(what, sizeof what, "%s%s", m->rank == RK_I ? "" : rank_word(m->type, m->rank), KINDS[m->type].name);
     xp_gain(v, what);
 }
+/* ---- Levels of Atonement (docs/PLAN-b9.md, sections 4 and 5): ascending with the merchant takes every
+ * level the banked experience reaches and gives ten points for each up to the fiftieth; the points buy steps
+ * in these lines, which join what is worn under its cap ---- */
+typedef struct { const char *name, *does; int cost, stat; float step; } Line;
+static const Line LINES[NLINE] = {
+    [LN_HEALTH]   = { "HEALTH", "+5 HEALTH", 1, ST_HP, 5.0f },
+    [LN_DAMAGE]   = { "DAMAGE", "+1% TO EVERY SPELL'S DAMAGE", 3, ST_DAMAGE, 1.0f },
+    [LN_RESIST]   = { "RESIST ALL", "+5% TO EACH RESIST: POISON, BURN AND SLOW", 3, -1, 5.0f },
+    [LN_POISON]   = { "RESIST POISON", "+15%: POISON STINGS LESS, AND NOT AS LONG", 3, ST_RES_POISON, 15.0f },
+    [LN_BURN]     = { "RESIST BURN", "+15%: FIRE AND BURNING HURT LESS", 3, ST_RES_BURN, 15.0f },
+    [LN_SLOW]     = { "RESIST SLOW", "+15%: GRABS AND FROST SLOW YOU LESS", 3, ST_RES_SLOW, 15.0f },
+    [LN_HASTE]    = { "SPELL HASTE", "+1%: EVERY SPELL COMES ROUND SOONER", 3, ST_HASTE, 1.0f },
+    [LN_DODGE]    = { "DODGE", "+1%: A BLOW MAY PASS THROUGH YOU", 3, ST_DODGE, 1.0f },
+    [LN_TREASURE] = { "TREASURE", "+1% ON ALL GOLD PICKED UP", 2, ST_TREASURE, 1.0f },
+    [LN_MOVE]     = { "MOVEMENT", "+1% TO YOUR PACE", 2, ST_MOVE, 1.0f },
+    [LN_LUCK]     = { "LUCK", "+0.1%: THE DEAD DROP GOLD MORE OFTEN", 1, ST_LUCK, 0.1f },
+    [LN_ATTUNE]   = { "ATTUNEMENT", "+1%: SPELLS COST LESS SPIRIT", 1, ST_THRIFT, 1.0f },
+};
+#define LUCK_BASE 2.0f                      /* everyone's, at the start */
+static float over_step(int l) { return l == LN_LUCK ? 1.0f : 5.0f; }   /* an overlevel's: Luck 1, the rest 5 */
+static float line_own(int l) { return LINES[l].step * (float)RUN.steps[l] + over_step(l) * (float)RUN.over[l]; }
+static void caster_sync(void) {                                    /* the caster's own into the totals */
+    float own[NSTAT] = { 0 }, up[NSTAT] = { 0 };
+    for (int l = 0; l < NLINE; l++) {
+        float v = LINES[l].step * (float)RUN.steps[l], o = over_step(l) * (float)RUN.over[l];
+        if (l == LN_RESIST) { own[ST_RES_POISON] += v; own[ST_RES_BURN] += v; own[ST_RES_SLOW] += v; continue; }
+        own[LINES[l].stat] += v + o; up[LINES[l].stat] += o;
+    }
+    own[ST_LUCK] += LUCK_BASE;
+    for (int st = 0; st < NSTAT; st++) gear_set_own(st, own[st], up[st]);
+}
+static int line_capped(int l) {                                    /* more would be wasted */
+    if (l == LN_HEALTH) return 0;
+    if (l == LN_RESIST) return gear_capped(&RUN.gear, ST_RES_POISON) && gear_capped(&RUN.gear, ST_RES_BURN) && gear_capped(&RUN.gear, ST_RES_SLOW);
+    return gear_capped(&RUN.gear, LINES[l].stat);
+}
+static int ascend(void) {                                          /* every level the experience reaches; how many */
+    int to = atone_reach(), n = to - RUN.atone;
+    if (n <= 0) return 0;
+    for (int l = RUN.atone + 1; l <= to && l <= ATONE_TOP; l++) RUN.points += 10;
+    RUN.atone = to;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ascend to %d (+%d) points %d xp %d by %s t=%.2f\n", to, n, RUN.points, RUN.xp, G.player ? "player" : "autopilot", G.t);
+#endif
+    return n;
+}
+static void line_buy(int l) {
+    RUN.points -= LINES[l].cost; RUN.steps[l]++;
+    caster_sync();
+    if (l == LN_HEALTH) { G.max_hp = gear_max_hp(&RUN.gear); G.hp = imin(G.hp + (int)LINES[l].step, G.max_hp); }   /* felt at once */
+}
+/* the cornerstones (docs/PLAN-b9.md, section 6): one chosen, free, at every tenth Level of Atonement */
+enum { CS_WIND, CS_OMEN, CS_CARTO, CS_LANTERN, CS_SENSE, NCS };
+static int corner_count(void) { int n = 0; for (int c = 0; c < NCS; c++) n += RUN.corner >> c & 1; return n; }
+static int corner_due(void) { return imin(RUN.atone / 10, NCS) - corner_count(); }
+static int over_due(void) {                                        /* overlevels to choose: one at 55, 60, 65 ... */
+    int n = RUN.atone >= ATONE_TOP + 5 ? (RUN.atone - ATONE_TOP) / 5 : 0;
+    for (int l = 0; l < NLINE; l++) n -= RUN.over[l];
+    return n;
+}
+static int wind_restorable(void) { return (RUN.corner >> CS_WIND & 1) && RUN.wind_spent; }
+static int ascend_open(void) { return atone_reach() > RUN.atone || RUN.points > 0 || corner_due() > 0 || over_due() > 0; }
+
+static void auto_ascend(void) {                                    /* the autopilot's: a little of everything that keeps it alive */
+    if (LEDGER.yours) return;                                      /* a person's run: what it buys is theirs to choose */
+    ascend();
+    static const int ORDER[] = { LN_HASTE, LN_DAMAGE, LN_HEALTH, LN_HEALTH, LN_DODGE, LN_RESIST, LN_ATTUNE, LN_HEALTH, LN_LUCK };
+    for (int guard = 0; guard < 4000 && RUN.points > 0; guard++) {
+        int any = 0;
+        for (int i = 0; i < (int)(sizeof ORDER / sizeof ORDER[0]); i++) {
+            int l = ORDER[i];
+            if (RUN.points < LINES[l].cost || line_capped(l) || (l == LN_RESIST && RUN.steps[l] >= 9)) continue;
+            line_buy(l); any = 1;
+        }
+        if (!any) break;
+    }
+    static const int PICK[NCS] = { CS_WIND, CS_OMEN, CS_LANTERN, CS_SENSE, CS_CARTO };   /* the map it never buys */
+    for (int i = 0; i < NCS && corner_due() > 0; i++) {
+        int c = PICK[i];
+        if (RUN.corner >> c & 1 || (c == CS_CARTO && !RUN.has_map)) continue;
+        RUN.corner |= 1 << c;
+        if (c == CS_WIND) { RUN.wind_spent = 0; RUN.wind_run = crawl_run(G.level); }
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT cornerstone %d by autopilot t=%.2f\n", c, G.t);
+#endif
+    }
+}
+
 static void xp_rooms(void) {                                       /* a room first set foot in */
     if (G.shop || PK.depth) return;
     int cx = (int)G.px, cy = (int)G.py;
@@ -6379,7 +6469,7 @@ static void collect(Item *it) {
     }
     default: {
         int v = treasure_value(it->type);
-        int got = (int)(v * (1.0f + gear_ability(&RUN.gear, AB_TREASURE, 0) / 100.0f) + 0.5f);   /* Treasure Hunter */
+        int got = (int)(v * (1.0f + gear_total(&RUN.gear, ST_TREASURE) / 100.0f) + 0.5f);   /* Treasure Hunter, and the caster's own */
         RUN.treasure += got; G.level_treasure += got;
         if (!it->secret) { G.value_got += v; G.items_got++; }
         snd_sfx_ex(SFX_COIN, it->type >= IT_CROWN ? 1.2f : 0.9f, 0.5f);
@@ -7558,6 +7648,7 @@ static void crawl_update(double dt) {
     float fdt = (float)dt;
     if (con_update(fdt)) return;                                   /* the console is down: the crypt waits, the music plays */
     if (RUN.active) comp_note(G.level);                            /* what is worn and known goes into the Compendium */
+    caster_sync();                                                 /* and the caster's own joins what is worn */
     G.msg_t = fmaxf(0.0f, G.msg_t - fdt); G.hint_t = fmaxf(0.0f, G.hint_t - fdt); G.knock_t = fmaxf(0.0f, G.knock_t - fdt);
     G.ui_t += fdt;
     update_toasts(fdt);
@@ -8344,6 +8435,7 @@ static void update_shop(double dt) {
         if (st > 0.8f && st - fdt <= 0.8f) G.cat_slow = 1.4f;
         if (st >= 2.4f) {
             if (RUN.peds < NPED && RUN.treasure >= ped_price() + (int)gear_haul(G.level)) ped_buy();   /* another, if a level's haul is left after */
+            auto_ascend();
             G.shop_step = SH_LOOK; G.shop_look = 0; G.shop_t = 0.0; shop_turn(face_of(G.ped_x[0], G.ped_y[0]), 0.7f);
         }
         break;
@@ -8721,6 +8813,8 @@ static void open_ui(int which) {
         snd_sfx_ex(SFX_WHISPER, 0.7f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.4f, 0.5f);
     }
     else if (which == UI_CODEX) { snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.3f, 0.5f); }
+    else if (which == UI_STONES) { G.cs_arm = -1; snd_sfx_ex(SFX_WHISPER, 0.4f, 0.5f); }
+    else if (which == UI_ASCEND) { G.ui_sel = 0; G.asc_arm = -1; memset(G.asc_buy, 0, sizeof G.asc_buy); snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f); }
     else if (which == UI_MAP) { G.map_cx = G.px; G.map_cy = G.py; G.map_hold = 0.0f; snd_sfx_ex(SFX_WHOOSH, 0.35f, 0.5f); snd_sfx_ex(SFX_CREAK, 0.2f, 0.5f); }
     else if (which == UI_REPO) { G.ui_sel = 0; G.rep_mode = 0; G.sh_note_t = 0.0f; snd_sfx_ex(SFX_UNLOCK, 0.6f, 0.5f); snd_sfx_ex(SFX_CREAK, 0.5f, 0.5f); }
     else if (which == UI_COMP) { G.ui_sel = 0; G.comp_arm = -1; G.sh_note_t = 0.0f; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.4f, 0.5f); }
@@ -9027,10 +9121,13 @@ static int inv_action(int r) {
     return gear_bag_free(&RUN.gear) ? INV_TO_BAG : INV_BAG_FULL;
 }
 
+static void update_stones_core(void);
 static void update_inventory(void) {
     spell_keys();
     if (IN.hit[KEY_TAB] || IN.hit[KEY_ESC]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
-    if (IN.hit[KEY_A] || IN.hit[KEY_LEFT] || IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) { G.inv_page ^= 1; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f); }
+    int lr = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
+    if (lr) { G.inv_page = (G.inv_page + 3 + lr) % 3; G.cs_arm = -1; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f); }   /* the wardrobe, the caster, the cornerstones */
+    if (G.inv_page == 2) { update_stones_core(); return; }
     if (G.inv_page) return;
     int n = inv_rows();
     if (G.ui_sel >= n) G.ui_sel = n - 1;
@@ -9564,6 +9661,7 @@ static void crawl_control(int what) {
     snd_sfx_ex(SFX_RUNE, 1.0f, 0.5f); snd_sfx_ex(SFX_WHOOSH, 0.6f, 0.5f);
     say("THE CONTROLS ARE YOURS");
 #ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_XP")) RUN.xp += atoi(getenv("CRAWL_XP"));   /* testing: experience banked, not yet claimed */
     if (getenv("CRAWL_TPEXIT") && !G.shop && G.exit_fx >= 0) tp_exit();    /* testing: straight to the exit, facing it */
     if (getenv("CRAWL_TPSECRET") && !G.shop && G.nsecrets) tp_secret(atoi(getenv("CRAWL_TPSECRET")) % G.nsecrets);
     if (getenv("CRAWL_TPALTAR") && !G.shop) tp_altar();
@@ -10335,6 +10433,81 @@ static void update_ledger(void) {
 }
 
 /* her menu: the ledger, a pat, and leaving her be (another pedestal comes with the hall) */
+/* The cornerstones (the Player Abilities screen; docs/PLAN-b9.md, section 6): the five, those held, and the
+ * choices waiting, one at each tenth Level of Atonement. W/S look, Enter takes one (Enter again: it is yours
+ * until a death). From the caster's screen (Tab, back to it with Tab or Esc) and as Tab's third page. */
+static const char *const CS_NAME[NCS] = { "SECOND WIND", "PREMONITION", "CARTOGRAPHER", "LANTERN OF THE DEAD", "GRAVE SENSE" };
+static const char *const CS_DOES[NCS] = {
+    "WHEN A BLOW WOULD KILL YOU, YOU RISE AGAIN AT HALF YOUR HEALTH. ONCE A RUN OF TEN LEVELS; A CURSED COIN TO THE MERCHANT RESTORES IT SOONER.",
+    "A PURPLE ZONE ON THE FLOOR WARNS OF WHAT THE PLACE WILL DO BEFORE IT DOES IT: FALLING STONE, FIRE, BILE, THE VOID, WHERE AN EMBER WILL LAND.",
+    "YOUR MAP COMES DRAWN WHOLE, BUT FOR KEYS AND SECRETS. A LOCKED DOOR OR A SECRET SHOWS ON IT AS YOU PASS, SEEN OR NOT.",
+    "A FAINT LIGHT OF YOUR OWN, TWO CELLS ROUND YOU. SHADES SHOW IN IT, AND THE WRAITH KEEPS A CELL FURTHER OFF.",
+    "WHILE THE MAP IS OPEN, THE DEAD WITHIN TEN CELLS OF YOU SHOW ON IT AS RED MARKS." };
+static int cs_takeable(int c) {
+    if (RUN.corner >> c & 1 || corner_due() <= 0) return 0;
+    return c != CS_CARTO || RUN.has_map;                           /* the Cartographer needs a map to draw on */
+}
+static void corner_take(int c) {
+    RUN.corner |= 1 << c;
+    if (c == CS_WIND) { RUN.wind_spent = 0; RUN.wind_run = crawl_run(G.level); }
+    snd_sfx_ex(SFX_ATONE, 0.8f, 0.5f); snd_sfx_ex(SFX_RUNE, 0.6f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT cornerstone %s by %s t=%.2f\n", CS_NAME[c], G.player ? "player" : "autopilot", G.t);
+#endif
+}
+static void update_stones_core(void) {
+    int ud = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
+    if (ud) { G.cs_sel = (G.cs_sel + NCS + ud) % NCS; G.cs_arm = -1; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    int c = G.cs_sel = clampi(G.cs_sel, 0, NCS - 1);
+    if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) return;
+    if (!cs_takeable(c)) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+    if (G.cs_arm != c) { G.cs_arm = c; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }
+    G.cs_arm = -1;
+    corner_take(c);
+}
+static void update_stones(void) {
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_ASCEND; G.ui_sel = 0; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
+    update_stones_core();
+}
+
+/* Her offering for a Second Wind spent: a Cursed Coin */
+static void wind_offer(void) {
+    if (!wind_restorable()) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+    if (RUN.coins <= 0) { say("YOU HAVE NO CURSED COIN"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); return; }
+    RUN.coins--; RUN.wind_spent = 0;
+    snd_sfx_ex(SFX_COIN, 0.9f, 0.5f); snd_sfx_ex(SFX_WAIL, 0.4f, 0.5f); sfx_at(SFX_TRILL, CAT_X, CAT_Y, 1.0f); G.cat_slow = 1.4f;
+    say("YOUR SECOND WIND IS RESTORED");
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT wind_restored coins %d t=%.2f\n", RUN.coins, G.t);
+#endif
+}
+
+/* The caster's screen (docs/PLAN-b9.md, section 4): a row for each line points buy. W/S choose, D or Enter
+ * buys a step (a second press when it is at its cap: more is wasted), A or Backspace takes back a step bought
+ * since it opened, Tab the cornerstones, Esc leaves. */
+static void update_ascend(void) {
+    if (IN.hit[KEY_ESC]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
+    if (IN.hit[KEY_TAB]) { open_ui(UI_STONES); return; }
+    int ud = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
+    if (ud) { G.ui_sel = (G.ui_sel + NLINE + ud) % NLINE; G.asc_arm = -1; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    int l = G.ui_sel = clampi(G.ui_sel, 0, NLINE - 1);
+    if (IN.hit[KEY_D] || IN.hit[KEY_RIGHT] || IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1]) {
+        if (RUN.points < LINES[l].cost) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        if (line_capped(l) && G.asc_arm != l) { G.asc_arm = l; snd_sfx_ex(SFX_KNOCK, 0.7f, 0.5f); return; }   /* its note warns; again buys */
+        line_buy(l); G.asc_buy[l]++;
+        snd_sfx_ex(SFX_TICK, 0.9f, 0.5f); snd_sfx_ex(SFX_RUNE, 0.35f, 0.5f);
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT line_buy %s step %d points %d t=%.2f\n", LINES[l].name, RUN.steps[l], RUN.points, G.t);
+#endif
+    }
+    if ((IN.hit[KEY_A] || IN.hit[KEY_LEFT] || IN.hit[KEY_BACK]) && G.asc_buy[l] > 0) {
+        G.asc_buy[l]--; RUN.steps[l]--; RUN.points += LINES[l].cost; G.asc_arm = -1;
+        caster_sync();
+        G.max_hp = gear_max_hp(&RUN.gear); G.hp = imin(G.hp, G.max_hp);
+        snd_sfx_ex(SFX_TICK, 0.6f, 0.5f);
+    }
+}
+
 static void update_merchantmenu(void) {
     if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; return; }
     int up = IN.hit[KEY_W] || IN.hit[KEY_UP], down = IN.hit[KEY_S] || IN.hit[KEY_DOWN];
@@ -10342,6 +10515,17 @@ static void update_merchantmenu(void) {
     G.ui_sel = clampi(G.ui_sel, 0, NMM - 1);
     if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) return;
     if (G.ui_sel == MM_SIGN) { open_ledger(0); return; }
+    if (G.ui_sel == MM_ASCEND) {
+        int n = ascend();
+        if (n > 0) {
+            snd_sfx_ex(SFX_ATONE, 1.0f, 0.5f); sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.8f); G.cat_trill = 0.6f; G.cat_slow = 1.6f;
+            say("LEVEL OF ATONEMENT %d", RUN.atone);
+        }
+        if (n > 0 || RUN.points > 0 || corner_due() > 0 || over_due() > 0) { open_ui(UI_ASCEND); return; }
+        snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2);   /* its note says how far off it is */
+        return;
+    }
+    if (G.ui_sel == MM_WIND) { wind_offer(); return; }
     if (G.ui_sel == MM_PED) {
         if (RUN.peds >= NPED) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
         if (RUN.treasure < ped_price()) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); return; }
@@ -10897,6 +11081,8 @@ static void update_mapmenu(float dt) {
 static void update_ui(void) {
     if (IN.hit[KEY_MOUSE1]) G.click_spent = 1;                    /* a click that closes a menu casts nothing */
     if (G.ui == UI_MAP) { update_mapmenu((float)IN_DT); return; }
+    if (G.ui == UI_ASCEND) { update_ascend(); return; }
+    if (G.ui == UI_STONES) { update_stones(); return; }
     if (G.ui == UI_WISPS) { update_wispmenu(); return; }
     if (G.ui == UI_SHRINE) { update_shrinemenu(); return; }
     if (G.ui == UI_TOTEM) { update_totemmenu(); return; }
@@ -13026,6 +13212,7 @@ static void total_text(const Gear *g, int st, char *buf, int n) {
     else if (st == ST_ARMOR) snprintf(buf, (size_t)n, "%.0f", t);
     else if (st == ST_REGEN) snprintf(buf, (size_t)n, "%.2f/S", t);
     else if (st == ST_THRIFT && t >= 0.5f) snprintf(buf, (size_t)n, "-%.0f%%", t);
+    else if (st == ST_LUCK) snprintf(buf, (size_t)n, "%.1f%%", t);
     else snprintf(buf, (size_t)n, "%.0f%%", t);
 }
 
@@ -13091,9 +13278,14 @@ static void render_letgo(Frame *f) {
 static void render_caster(Frame *f) {
     static const char *const SHORT[NSTAT] = { "ARMOR", "DODGE", "HEALTH", "RESTORES", "POISON WARD", "BURN WARD", "SLOW WARD",
                                               "MOVEMENT", "QUIET", "SPELL HASTE", "SPIRIT COST", "DAMAGE", "FIRE", "FROST",
-                                              "LIGHTNING", "EFFECT" };
+                                              "LIGHTNING", "EFFECT", "TREASURE", "LUCK" };
     const Gear *g = &RUN.gear, *g0 = &G.inv0;
     gfx_text16(f, 14, 9, "THE CASTER", R_GOLD + 12, 1);
+    {
+        char at[24];
+        snprintf(at, sizeof at, "ATONEMENT %d", RUN.atone);
+        gfx_text8(f, 14 + gfx_text_width("THE CASTER", 1) + 10, 13, at, R_PURPLE + 13, 1);
+    }
     hint8(f, 14, 26, "A/D PAGE  TAB CLOSE", R_STONE + 9);
     {                                                              /* the Cursed Coins, for the shrine */
         char cc[24];
@@ -13105,9 +13297,9 @@ static void render_caster(Frame *f) {
     char v[24], extra[16];
     int capped = 0;
     for (int st = 0; st < NSTAT; st++) {
-        int x = st < 8 ? 14 : 162, y = 40 + (st % 8) * 9, w = st < 8 ? 140 : 144;
+        int x = st < 9 ? 14 : 162, y = 38 + (st % 9) * 9, w = st < 9 ? 140 : 144;
         float t = gear_total(g, st), t0 = gear_total(g0, st), add = 0.0f;
-        if (st == ST_MOVE || st == ST_THRIFT) add = t - fminf(gear_total_raw(g, st), t);   /* Swiftness, Arcane Knowledge */
+        if (st == ST_MOVE || st == ST_THRIFT) add = fminf(gear_total_raw(g, st) * (gear_ability(g, st == ST_MOVE ? AB_SWIFT : AB_ARCANE, 0) / 100.0f), t);   /* Swiftness, Arcane Knowledge */
         total_text(g, st, v, sizeof v);
         int c = t > t0 + 1e-3f ? R_MOSS + 13 : (t < t0 - 1e-3f ? R_BLOOD + 13 : (t > 0.0f ? R_STONE + 13 : R_STONE + 7));
         if (gear_capped(g, st)) { c = t < t0 - 1e-3f ? c : R_GLOW + 12; capped = 1; }   /* at its cap */
@@ -13118,7 +13310,7 @@ static void render_caster(Frame *f) {
     }
     if (capped) gfx_text8(f, W - 10 - gfx_text_width("BLUE: AT ITS CAP", 1), 26, "BLUE: AT ITS CAP", R_GLOW + 12, 1);
     /* the abilities, summed and capped */
-    int n = 0, y = 117;
+    int n = 0, y = 121;
     for (int ab = 1; ab < NABIL; ab++) {
         float a = gear_ability(g, ab, 0), b = gear_ability(g, ab, 1);
         if (a <= 0.0f) continue;
@@ -13170,9 +13362,11 @@ static void render_caster(Frame *f) {
 }
 
 /* Tab: what you wear and the bag (Enter moves between them) and the selected piece; A/D turns the page */
+static void render_stones(Frame *f, int tabbed);
 static void render_inventory(Frame *f) {
     dim_view(f);
     panel(f, 4, 4, W - 8, H - 8);
+    if (G.inv_page == 2) { render_stones(f, 1); return; }
     if (G.inv_page) { render_caster(f); return; }
     gfx_text16(f, 14, 9, "WARDROBE", R_GOLD + 12, 1);
     hint8(f, 14, 26, "W/S PICK  ENTER MOVE  A/D PAGE", R_STONE + 9);
@@ -13334,10 +13528,10 @@ static void render_ledger(Frame *f) {
 
 /* E at the merchant: her menu, and a note on the row chosen */
 static void render_merchantmenu(Frame *f) {
-    static const char *const ROW[NMM] = { "SIGN THE LEDGER", "ANOTHER PEDESTAL", "PAT HER", "LEAVE" };
+    static const char *const ROW[NMM] = { "SIGN THE LEDGER", "ASCEND", "ANOTHER PEDESTAL", "OFFER A COIN", "PAT HER", "LEAVE" };
     int sel = clampi(G.ui_sel, 0, NMM - 1);
     dim_view(f);
-    int pw = 296, ph = 142, px = (W - pw) / 2, py = 22;
+    int pw = 296, ph = 142 + (NMM - 4) * 13, px = (W - pw) / 2, py = 14;
     panel(f, px, py, pw, ph);
     gfx_text16(f, px + 10, py + 6, "THE MERCHANT", R_GOLD + 12, 1);
     char line[160];
@@ -13347,7 +13541,17 @@ static void render_merchantmenu(Frame *f) {
     for (int i = 0; i < NMM; i++) {
         int y = py + 40 + i * 13;
         if (i == sel) gfx_rect(f, px + 6, y - 3, pw - 12, 13, R_IRON + 3);
-        gfx_text8(f, px + 14, y, ROW[i], i == MM_PED && RUN.peds >= NPED ? (uint8_t)(R_STONE + 8) : (i == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12)), 1);
+        int off = (i == MM_PED && RUN.peds >= NPED) || (i == MM_WIND && !wind_restorable()) || (i == MM_ASCEND && !ascend_open());
+        gfx_text8(f, px + 14, y, ROW[i], off ? (uint8_t)(R_STONE + 8) : (i == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12)), 1);
+        if (i == MM_ASCEND) {                                      /* how far it goes, or the points still to spend */
+            char ar[24];
+            int to = atone_reach();
+            if (to > RUN.atone) snprintf(ar, sizeof ar, "TO %d", to);
+            else if (RUN.points > 0) snprintf(ar, sizeof ar, "%d POINTS", RUN.points);
+            else snprintf(ar, sizeof ar, "%d", RUN.atone);
+            gfx_text8(f, px + pw - 12 - gfx_text_width(ar, 1), y, ar, to > RUN.atone || RUN.points > 0 ? (uint8_t)(R_PURPLE + 13) : (uint8_t)(R_STONE + 8), 1);
+        }
+        if (i == MM_WIND && wind_restorable()) gfx_text8(f, px + pw - 12 - gfx_text_width("1 COIN", 1), y, "1 COIN", RUN.coins > 0 ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_BLOOD + 13), 1);
         if (i == MM_PED && RUN.peds < NPED) {                       /* its price, red if it is beyond you */
             char pr[16];
             snprintf(pr, sizeof pr, "$%d", ped_price());
@@ -13359,6 +13563,13 @@ static void render_merchantmenu(Frame *f) {
     if (sel == MM_SIGN && CON.used) snprintf(line, sizeof line, "THE DEAD TOOK NOTE. SHE WILL SIGN NOTHING WHILE THIS LASTS.");
     else if (sel == MM_SIGN && LEDGER.page) snprintf(line, sizeof line, "SHE KEEPS YOUR RUN AS IT STANDS, ON A PAGE OF YOUR CHOOSING. YOU CAME FROM PAGE %s.", RUN_ROMAN[LEDGER.page - 1]);
     else if (sel == MM_SIGN) snprintf(line, sizeof line, "SHE KEEPS YOUR RUN AS IT STANDS, ON A PAGE OF YOUR CHOOSING. THIS RUN IS UNSIGNED: FLEE NOW AND IT IS LOST.");
+    else if (sel == MM_ASCEND && atone_reach() > RUN.atone)
+        snprintf(line, sizeof line, "WHAT YOU HAVE DONE BUYS LEVEL OF ATONEMENT %d: TEN POINTS A LEVEL, TO SPEND AS YOU WILL. A DEATH TAKES IT ALL.", atone_reach());
+    else if (sel == MM_ASCEND && (RUN.points > 0 || corner_due() > 0 || over_due() > 0)) snprintf(line, sizeof line, "LEVEL OF ATONEMENT %d. %d POINTS STILL TO SPEND.", RUN.atone, RUN.points);
+    else if (sel == MM_ASCEND) snprintf(line, sizeof line, "LEVEL OF ATONEMENT %d. %d MORE EXPERIENCE FOR THE NEXT.", RUN.atone, atone_need(RUN.atone + 1) - RUN.xp);
+    else if (sel == MM_WIND && wind_restorable()) snprintf(line, sizeof line, "YOUR SECOND WIND IS SPENT. A CURSED COIN AND IT IS YOURS AGAIN.");
+    else if (sel == MM_WIND && (RUN.corner >> CS_WIND & 1)) snprintf(line, sizeof line, "YOUR SECOND WIND IS WAITING. SHE WANTS NOTHING FOR IT YET.");
+    else if (sel == MM_WIND) snprintf(line, sizeof line, "SHE TAKES A CURSED COIN TO RESTORE A SECOND WIND, ONCE YOU HAVE ONE.");
     else if (sel == MM_PED && RUN.peds >= NPED) snprintf(line, sizeof line, "ALL SEVEN STAND. SHE HAS NO MORE TO SET OUT.");
     else if (sel == MM_PED) snprintf(line, sizeof line, "A %s PEDESTAL, AND A WARE ON IT FROM NOW ON, EVERY VISIT. KEPT THROUGH DEATH.",
                                      RUN.peds == 2 ? "THIRD" : RUN.peds == 3 ? "FOURTH" : RUN.peds == 4 ? "FIFTH" : RUN.peds == 5 ? "SIXTH" : "SEVENTH");
@@ -14015,7 +14226,8 @@ static void render_codex(Frame *f) {
         "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS FIRE, AS MUCH AS FIRE BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
         "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS FROST, AS MUCH AS FROST BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
         "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS LIGHTNING, AS MUCH AS LIGHTNING BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
-        "SOUL DRAIN'S HEALING, FROST'S SLOW, HELLFIRE'S BURNING FLOOR AND EVERY RUNE, STRONGER." };
+        "SOUL DRAIN'S HEALING, FROST'S SLOW, HELLFIRE'S BURNING FLOOR AND EVERY RUNE, STRONGER.",
+        "MORE FOR EVERY GOLD PIECE YOU PICK UP.", "THE CHANCE THAT WHAT YOU SLAY DROPS GOLD OF ITS RANK, AND NOW AND THEN SOMETHING MORE." };
     static const char *const HZ_NAME[NHZ] = { "THE KNIGHT'S ROCKFALL", "THE DEACON'S HELLRENT", "THE CISTERN'S BILE", "THE VOID", "THE SUNDERING ARC", "THE GRASPING DARK" };
     static const char *const HZ_DOES[NHZ] = {
         "THE CEILING GROANS AND A SHADOW GROWS ON THE FLOOR, THEN STONE FALLS THERE. IT HURTS ONCE, AND NEVER BLOCKS THE WAY.",
@@ -14343,6 +14555,106 @@ static void render_target(Frame *f) {
     gfx_text8(f, bx + bw + 6, by - 1, wr, rr >= 0 ? ramp_at(rr, 13) : (uint8_t)(R_STONE + 9), 1);
 }
 
+/* ---- the cornerstones' screen ---- */
+static const char *const CS_MARK[NCS][11] = {
+    { "....###....", "..##...##..", ".#.......#.", "#...###...#", "#..#...#..#", "#..#.#.#..#",
+      "#...#..#..#", ".#....#...#", "..####...#.", "........#..", "......##..." },   /* breath, coming back */
+    { "...........", "....###....", "..##...##..", ".#..###..#.", "#..#####..#", "#..##.##..#",
+      "#..#####..#", ".#..###..#.", "..##...##..", "....###....", "..........." },   /* an eye */
+    { ".....#.....", ".....#.....", "....###....", "...#.#.#...", "..#..#..#..", "#####.#####",
+      "..#..#..#..", "...#.#.#...", "....###....", ".....#.....", ".....#....." },   /* a compass rose */
+    { "....###....", "...#...#...", "..#######..", "..#.###.#..", "..#.###.#..", "..#..#..#..",
+      "..#.###.#..", "..#######..", "...#####...", "....###....", "..........." },   /* a lantern */
+    { "#....#....#", "...#####...", "..#######..", ".##..#..##.", ".##..#..##.", ".#########.",
+      "..##.#.##..", "...#####...", "#...#.#...#", "...........", "....#.#...." },   /* a skull, sensed */
+};
+static void render_stones(Frame *f, int tabbed) {
+    gfx_text16(f, 14, 9, "CORNERSTONES", R_PURPLE + 13, 1);
+    char line[200];
+    int due = corner_due();
+    if (due > 0) snprintf(line, sizeof line, "%d TO CHOOSE", due); else snprintf(line, sizeof line, "%d OF %d HELD", corner_count(), NCS);
+    gfx_text8(f, W - 14 - gfx_text_width(line, 1), 13, line, due > 0 && ((int)(G.ui_t * 2.0f) & 1) ? (uint8_t)(R_PURPLE + 14) : (uint8_t)(R_STONE + 11), 1);
+    hint8(f, 14, 26, tabbed ? "A/D PAGE  ENTER CHOOSES  TAB CLOSE" : "W/S  ENTER CHOOSES  TAB BACK", R_STONE + 9);
+    gfx_text8(f, 14, 38, "ONE AT EACH TENTH LEVEL OF ATONEMENT", R_STONE + 10, 1);
+    int sel = clampi(G.cs_sel, 0, NCS - 1);
+    for (int c = 0; c < NCS; c++) {
+        int y = 52 + c * 16, held = RUN.corner >> c & 1, ok = cs_takeable(c);
+        if (c == sel) gfx_rect(f, 10, y - 3, W - 20, 15, R_IRON + 3);
+        uint8_t mc = held ? (uint8_t)(R_PURPLE + 13) : ok ? (uint8_t)(R_STONE + 13) : (uint8_t)(R_STONE + 7);
+        for (int r = 0; r < 11; r++) for (int k = 0; k < 11; k++) if (CS_MARK[c][r][k] == '#') gfx_px(f, 16 + k, y - 1 + r, mc);
+        gfx_text8(f, 34, y + 1, CS_NAME[c], c == sel ? (uint8_t)C_WHITE : held ? (uint8_t)(R_PURPLE + 13) : (uint8_t)(R_STONE + 12), 1);
+        const char *st = held ? (c == CS_WIND && RUN.wind_spent ? "HELD, SPENT" : "HELD") : (c == CS_CARTO && !RUN.has_map && due > 0 ? "NEEDS THE MAP" : (ok ? "CHOOSE" : ""));
+        char lvl[24];
+        if (!*st) { snprintf(lvl, sizeof lvl, "AT ATONEMENT %d", (corner_count() + 1) * 10); st = corner_count() < NCS ? lvl : ""; }
+        gfx_text8(f, W - 16 - gfx_text_width(st, 1), y + 1, st, held ? (uint8_t)(R_PURPLE + 11) : ok ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 8), 1);
+    }
+    int ty = 52 + NCS * 16 + 2;
+    for (int i = 10; i < W - 10; i++) gfx_px(f, i, ty - 3, R_STONE + 5);
+    if (G.cs_arm == sel) snprintf(line, sizeof line, "%s, UNTIL A DEATH TAKES IT. ENTER AGAIN TO TAKE IT.", CS_NAME[sel]);
+    else snprintf(line, sizeof line, "%s", CS_DOES[sel]);
+    text_wrap(f, 14, ty, line, 36, G.cs_arm == sel ? R_GOLD + 12 : R_STONE + 12, 4);
+}
+
+/* ---- the caster's screen: Levels of Atonement and what points buy (docs/PLAN-b9.md, section 4) ---- */
+static void line_value(int l, float v, char *buf, int n) {        /* a step's worth or a total, in its units */
+    if (l == LN_HEALTH) snprintf(buf, (size_t)n, "%+.0f", v);
+    else if (l == LN_LUCK) snprintf(buf, (size_t)n, "%+.1f%%", v);
+    else snprintf(buf, (size_t)n, "%+.0f%%", v);
+}
+static void line_total(int l, char *buf, int n, int *capped) {
+    const Gear *g = &RUN.gear;
+    *capped = line_capped(l);
+    if (l == LN_HEALTH) { snprintf(buf, (size_t)n, "%d", gear_max_hp(g)); return; }
+    if (l == LN_RESIST) {
+        snprintf(buf, (size_t)n, "%.0f %.0f %.0f", gear_total(g, ST_RES_POISON), gear_total(g, ST_RES_BURN), gear_total(g, ST_RES_SLOW));
+        return;
+    }
+    int st = LINES[l].stat;
+    if (l == LN_LUCK) snprintf(buf, (size_t)n, "%.1f/%.0f%%", gear_total(g, st), gear_stat_cap(st));
+    else snprintf(buf, (size_t)n, "%.0f/%.0f%%", gear_total(g, st), gear_stat_cap(st));
+}
+static void render_ascend(Frame *f) {
+    dim_view(f);
+    panel(f, 4, 4, W - 8, H - 8);
+    char line[96];
+    snprintf(line, sizeof line, "LEVEL OF ATONEMENT %d", RUN.atone);
+    gfx_text16(f, 14, 9, line, R_PURPLE + 13, 1);
+    snprintf(line, sizeof line, "%d POINT%s", RUN.points, RUN.points == 1 ? "" : "S");
+    gfx_text16(f, W - 14 - gfx_text_width(line, 1), 9, line, RUN.points ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 9), 1);
+    char a[16], b[16];
+    commas(RUN.xp, a, sizeof a); commas(atone_need(RUN.atone + 1), b, sizeof b);
+    snprintf(line, sizeof line, "EXPERIENCE %s, THE NEXT AT %s", a, b);
+    gfx_text8(f, 14, 27, line, R_STONE + 11, 1);
+    int due = corner_due() + over_due();
+    if (due > 0 && ((int)(G.ui_t * 2.0f) & 1)) {
+        snprintf(line, sizeof line, "%d TO CHOOSE", due);
+        gfx_text8(f, W - 14 - gfx_text_width(line, 1), 27, line, R_PURPLE + 14, 1);
+    }
+    gfx_text8(f, 132, 40, "COST", R_GOLD + 10, 1);
+    gfx_text8(f, 210 - gfx_text_width("YOURS", 1), 40, "YOURS", R_GOLD + 10, 1);
+    gfx_text8(f, 302 - gfx_text_width("TOTAL", 1), 40, "TOTAL", R_GOLD + 10, 1);
+    int sel = clampi(G.ui_sel, 0, NLINE - 1);
+    for (int l = 0; l < NLINE; l++) {
+        int y = 51 + l * 9, afford = RUN.points >= LINES[l].cost, capped;
+        if (l == sel) gfx_rect(f, 10, y - 1, W - 20, 9, R_IRON + 3);
+        gfx_text8(f, 14, y, LINES[l].name, l == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12), 1);
+        snprintf(line, sizeof line, "%d", LINES[l].cost);
+        gfx_text8(f, 140, y, line, afford ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 7), 1);
+        line_value(l, line_own(l), line, sizeof line);
+        gfx_text8(f, 210 - gfx_text_width(line, 1), y, line, line_own(l) > 0.0f ? (uint8_t)(R_PURPLE + 13) : (uint8_t)(R_STONE + 7), 1);
+        if (G.asc_buy[l] > 0) gfx_text8(f, 214, y, "*", R_PURPLE + 11, 1);   /* bought just now: it may go back */
+        line_total(l, line, sizeof line, &capped);
+        gfx_text8(f, 302 - gfx_text_width(line, 1), y, line, capped ? (uint8_t)(R_GLOW + 12) : (uint8_t)(R_STONE + 12), 1);
+    }
+    int ty = 51 + NLINE * 9 + 3;
+    for (int i = 10; i < W - 10; i++) gfx_px(f, i, ty - 2, R_STONE + 5);
+    int capped = line_capped(sel);
+    if (G.asc_arm == sel) snprintf(line, sizeof line, "IT IS AT ITS CAP: MORE IS WASTED. AGAIN TO BUY IT ANYWAY.");
+    else snprintf(line, sizeof line, "%d POINT%s: %s.%s", LINES[sel].cost, LINES[sel].cost == 1 ? "" : "S", LINES[sel].does, capped ? " AT ITS CAP." : "");
+    text_wrap(f, 14, ty + 1, line, 36, G.asc_arm == sel ? R_BLOOD + 12 : (capped ? R_GLOW + 12 : R_STONE + 12), 2);
+    hint8(f, 14, H - 16, PADX.used ? "\1A BUYS  LB TAKES BACK  VIEW CORNERSTONES" : "D BUYS  A TAKES BACK  TAB CORNERSTONES", R_STONE + 9);
+}
+
 /* ---- the map on its scroll (docs/PLAN-b9.md, section 1) ----
  * Parchment between two rollers across the middle eight-tenths of the view, torn top and bottom, a
  * burn or two, stained; made once a level, so it holds still. On it, in brown ink and seen from above,
@@ -14537,6 +14849,8 @@ static void render_map(Frame *f) {
 
 static void render_ui(Frame *f) {
     if (G.ui == UI_MAP) { render_map(f); return; }
+    if (G.ui == UI_ASCEND) { render_ascend(f); return; }
+    if (G.ui == UI_STONES) { dim_view(f); panel(f, 4, 4, W - 8, H - 8); render_stones(f, 0); return; }
     if (G.ui == UI_PORTAL) { render_portalmenu(f); return; }
     if (G.ui == UI_COMP) { render_compmenu(f); return; }
     if (G.ui == UI_REPO) { render_repomenu(f); return; }

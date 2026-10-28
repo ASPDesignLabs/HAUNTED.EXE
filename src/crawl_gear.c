@@ -20,10 +20,10 @@ const int QUAL_RAMP[NQUAL] = { R_BONE, R_MOSS, R_GLOW, R_PURPLE, R_GOLD };   /* 
 const char *const KIND_NAME[NIK] = { "", "BRACER", "BOOTS", "AMULET", "HOOD", "ROBES", "RING", "BAG" };
 const char *const STAT_NAME[NSTAT] = { "ARMOR", "DODGE", "HEALTH", "RESTORES", "RESIST POISON", "RESIST BURN", "RESIST SLOW",
                                        "MOVEMENT", "QUIET", "SPELL HASTE", "SPIRIT COST", "DAMAGE", "FIRE", "FROST", "LIGHTNING",
-                                       "SPELL EFFECT" };
+                                       "SPELL EFFECT", "TREASURE", "LUCK" };
 static const char *const STAT_OF[NSTAT] = { "THE BULWARK", "SHADOWS", "VIGOUR", "REJUVENATION", "CLEAN BLOOD", "THE HEARTH",
                                             "THE UNBOUND", "THE LIGHTFOOT", "SILENCE", "QUICKENING", "THE FRUGAL SOUL",
-                                            "SPELLTONGUE", "CINDERS", "RIME", "STORMS", "THE ADEPT" };
+                                            "SPELLTONGUE", "CINDERS", "RIME", "STORMS", "THE ADEPT", "PLENTY", "FORTUNE" };
 const char *const ABIL_NAME[NABIL] = { "", "SWIFTNESS", "ARCANE KNOWLEDGE", "TREASURE HUNTER", "KEYMAKER", "COMMUNE", "THORNS", "MIRRORED" };
 static const char *const ABIL_WORD[NABIL] = { "", "SWIFT", "ARCANE", "TREASURE HUNTER", "KEYMAKER", "COMMUNING", "THORNED", "MIRRORED" };
 
@@ -34,8 +34,9 @@ static const int QUAL_STATS[NQUAL] = { 1, 2, 3, 4, 99 };                     /* 
 static const int ABIL_CHANCE[NQUAL] = { 0, 10, 25, 50, 100 };                /* percent */
 static const int KIND_SLOTS[NIK] = { 0, 2, 2, 2, 2, 4, 1, 0 };
 static const float KIND_PRICE[NIK] = { 0.0f, 0.45f, 0.6f, 0.7f, 0.7f, 0.9f, 0.8f, 0.5f };
-static const int STAT_SCALE[NSTAT] = { 10, 10, 10, 100, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10 };
-static const float STAT_CAP[NSTAT] = { 0, 35, 0, 0, 75, 75, 75, 40, 80, 50, 60, 100, 50, 50, 50, 50 };   /* on totals; 0 = none */
+static const int STAT_SCALE[NSTAT] = { 10, 10, 10, 100, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10 };
+static const float STAT_CAP[NSTAT] = { 0, 35, 0, 0, 75, 75, 75, 40, 80, 50, 60, 100, 50, 50, 50, 50, 100, 25 };   /* on totals; 0 = none */
+static float OWN[NSTAT], CAP_UP[NSTAT];                           /* the caster's own, and the overlevels' raise of each cap */
 #define ST_ELEM ST_FIRE                       /* in the tables below: an element, chosen when it is rolled */
 
 /* what each kind can roll; wrists have damage only from Rare up */
@@ -278,7 +279,10 @@ float gear_total_raw(const Gear *g, int st) {
     return t;
 }
 
-float gear_stat_cap(int st) { return st >= 0 && st < NSTAT ? STAT_CAP[st] : 0.0f; }
+float gear_stat_cap(int st) { return st >= 0 && st < NSTAT && STAT_CAP[st] > 0.0f ? STAT_CAP[st] + CAP_UP[st] : 0.0f; }
+void gear_set_own(int st, float add, float cap_up) { if (st >= 0 && st < NSTAT) { OWN[st] = add; CAP_UP[st] = cap_up; } }
+float gear_own(int st) { return st >= 0 && st < NSTAT ? OWN[st] : 0.0f; }
+float gear_cap_up(int st) { return st >= 0 && st < NSTAT ? CAP_UP[st] : 0.0f; }
 int stat_on_kind(int st, int kind) {
     if (kind <= IK_NONE || kind >= NIK) return 0;
     for (const int *k = KIND_STATS[kind]; *k >= 0; k++) if (*k == st || (*k == ST_ELEM && is_elem(st))) return 1;
@@ -306,18 +310,20 @@ float gear_total(const Gear *g, int st) {
     float t = gear_total_raw(g, st);
     if (st == ST_MOVE) t *= 1.0f + gear_ability(g, AB_SWIFT, 0) / 100.0f;
     if (st == ST_THRIFT) t *= 1.0f + gear_ability(g, AB_ARCANE, 0) / 100.0f;
+    if (st == ST_TREASURE) t += gear_ability(g, AB_TREASURE, 0);  /* Treasure Hunter's share */
     if (is_elem(st)) {
         float all = gear_total_raw(g, ST_FIRE) + gear_total_raw(g, ST_FROST) + gear_total_raw(g, ST_SHOCK);
         if (all > STAT_CAP[st]) t *= STAT_CAP[st] / all;
         return t;
     }
-    return STAT_CAP[st] > 0.0f ? fminf(t, STAT_CAP[st]) : t;
+    t += OWN[st];                                                  /* the caster's own, after the abilities, under the one cap */
+    return STAT_CAP[st] > 0.0f ? fminf(t, STAT_CAP[st] + CAP_UP[st]) : t;
 }
 
 int gear_capped(const Gear *g, int st) {
     if (STAT_CAP[st] <= 0.0f) return 0;
     if (is_elem(st)) return gear_total_raw(g, st) > 0.0f && gear_total_raw(g, ST_FIRE) + gear_total_raw(g, ST_FROST) + gear_total_raw(g, ST_SHOCK) >= STAT_CAP[st] - 0.05f;
-    return gear_total(g, st) >= STAT_CAP[st] - 0.05f;
+    return gear_total(g, st) >= STAT_CAP[st] + CAP_UP[st] - 0.05f;
 }
 
 int   gear_armor(const Gear *g) { return (int)gear_total(g, ST_ARMOR); }
@@ -335,12 +341,12 @@ float gear_ember(const Gear *g) { return 1.0f + gear_total(g, ST_DAMAGE) / 100.0
 
 /* each stat against what a plain piece of the level would give, weighed by how much it helps */
 float piece_worth(const Piece *p, int level) {
-    static const float W[NSTAT] = { 1.0f, 0.8f, 1.0f, 0.6f, 0.35f, 0.35f, 0.25f, 0.35f, 0.15f, 0.8f, 0.3f, 1.0f, 0.6f, 0.6f, 0.6f, 0.3f };
+    static const float W[NSTAT] = { 1.0f, 0.8f, 1.0f, 0.6f, 0.35f, 0.35f, 0.25f, 0.35f, 0.15f, 0.8f, 0.3f, 1.0f, 0.6f, 0.6f, 0.6f, 0.3f, 0.0f, 0.0f };
     static const int REF[NSTAT] = { IK_ROBE, IK_BOOTS, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_BOOTS, IK_BOOTS,
                                     IK_WRIST, IK_WRIST, IK_RING, IK_RING, IK_RING, IK_RING, IK_HOOD };
     static const float AW[NABIL] = { 0.0f, 0.15f, 0.3f, 0.4f, 0.0f, 0.0f, 0.4f, 0.5f };
     /* Keymaker and Commune are for a person's eyes: the autopilot doesn't count them */
-    static const int FELT[NSTAT] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+    static const int FELT[NSTAT] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0 };
     static const int FELT_AB[NABIL] = { 0, 1, 1, 1, 0, 0, 1, 1 };
     if (p->kind == IK_NONE || p->kind == IK_BAG) return 0.0f;
     if (level < 1) level = 1;
