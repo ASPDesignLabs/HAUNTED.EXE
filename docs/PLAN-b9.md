@@ -291,14 +291,15 @@ worn share, as now. Armor, Restores, Quiet, Spell Effect, Thorns and the element
 ### Luck
 
 On every kill that counts, Luck is the chance of a **lucky drop**: treasure of the creature's tier (rank I a
-purse, II a chalice, III gems, IV a crown, V a chest, gilded two chests), worth about 8% of what the level's
+purse, II a chalice, III gems, IV a crown, V a chest, gilded two chests), worth about 12% of what the level's
 treasure comes to (`gear_haul`) times the tier (I 0.6, II 0.8, III 1, IV 1.3, V 1.6, gilded 3), and half the
 time a resource beside it: a bone from the bony kinds, a potion from rank III up, otherwise an urn of souls.
 It glints like a closet's loot and isn't counted in the level's treasure; Treasure Bonus adds to it. A boss's
 adds never drop.
 
-With about 30 kills a level (most of them rank I or II): 2% Luck adds about 4% to a level's gold, 5% about
-10%, 10% about 20%, the cap of 25% about half again. Luck is never rolled on a piece or sold (`ST_LUCK` is not in any kind's table). The
+Measured over the first four levels in autopilot runs (four seeds each, 8% at first, then raised to 12% so
+that it shows): 2% Luck adds about 3% to the gold, 5% about 7%, 10% about 19%; deeper, with more kills and
+higher ranks, more. Luck is never rolled on a piece or sold (`ST_LUCK` is not in any kind's table). The
 lucky drop comes on top of what ranks II and up drop now, which stays.
 
 ## 6. Cornerstones
