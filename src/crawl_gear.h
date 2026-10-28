@@ -16,7 +16,8 @@ enum { Q_COMMON, Q_UNCOMMON, Q_RARE, Q_ULTRA, Q_EXQUISITE, NQUAL };
 enum { IK_NONE, IK_WRIST, IK_BOOTS, IK_NECK, IK_HOOD, IK_ROBE, IK_RING, IK_BAG, NIK };   /* what a piece is */
 enum { SL_WRIST_L, SL_WRIST_R, SL_BOOTS, SL_NECK, SL_HOOD, SL_ROBE, SL_RING, NSLOT };   /* where it is worn */
 enum { ST_ARMOR, ST_DODGE, ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_MOVE, ST_QUIET,
-       ST_HASTE, ST_THRIFT, ST_DAMAGE, ST_FIRE, ST_FROST, ST_SHOCK, ST_EFFECT, NSTAT };
+       ST_HASTE, ST_THRIFT, ST_DAMAGE, ST_FIRE, ST_FROST, ST_SHOCK, ST_EFFECT,
+       ST_TREASURE, ST_LUCK, NSTAT };                   /* the last two never roll on a piece: only the caster's own (1.0.0b9) */
 enum { AB_NONE, AB_SWIFT, AB_ARCANE, AB_TREASURE, AB_KEYMAKER, AB_COMMUNE, AB_THORNS, AB_MIRRORED, NABIL };
 #define PIECE_STATS 6                                   /* five at most, and one an ability may add */
 #define BAG_MAX 5
@@ -94,6 +95,11 @@ float gear_ember(const Gear *g);                         /* spell damage factor 
 float gear_stat_cap(int stat);                           /* the most a total of it counts for; 0: no cap */
 int   stat_on_kind(int stat, int kind);                  /* whether a kind of piece can roll it */
 float gear_ability_cap(int ability);                     /* the most an ability adds up to; 0: no cap */
+/* the caster's own (docs/PLAN-b9.md): what Levels of Atonement bought, added to what is worn under one cap,
+ * and how far overlevels have raised that cap. Treasure is Treasure Hunter's and the caster's together */
+void  gear_set_own(int stat, float add, float cap_up);
+float gear_own(int stat);
+float gear_cap_up(int stat);
 
 /* spells, and the spirit (souls) and bones they cost */
 #define BONES_MAX 30                                     /* bones the caster can carry */

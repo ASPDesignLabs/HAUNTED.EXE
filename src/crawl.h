@@ -143,6 +143,7 @@ enum {
     SP_HEXTOTEM,                                /* the Hexed Totem: a black pole of skulls, hooks for the bosses' scrip */
     SP_TOMB_FRESH,                              /* the newest stone in the merchant's plot: clean-cut, the earth still turned */
     SP_LECTERN,                                 /* the Corpus Compendium: a tome open on a lectern of black oak */
+    SP_MAPWARE,                                 /* the merchant's map of the crypt: a scroll half unrolled, floating (1.0.0b9) */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
     SP_SKEL_SA, SP_SKEL_SB, SP_SHIELD_SA, SP_SHIELD_SB, SP_BAT_SA, SP_BAT_SB, SP_SPIDER_SA, SP_SPIDER_SB,
     SP_GHOST_SA, SP_GHOST_SB, SP_WSKULL_S,

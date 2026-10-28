@@ -90,6 +90,7 @@ typedef struct {
     float webbed, webmax, claw;                                    /* held in your Tangled Web: what is left of it, all of it, a claw at it */
     int ally; float ally_t, acool;                                 /* raised by your Grave Call: how long it has left; its next blow at
                                                                       the other side (an ally's at them, theirs at an ally) */
+    int rank0;                                                     /* in a pocket: 1 + the rank it would have had on the level */
 } Mob;
 /* What each kind of creature is (docs/PLAN-bestiary.md): its names, a line for the bestiary, its
  * pictures there (walking towards you, and from the side), the ramp its rank recolours (-1: off the
@@ -328,6 +329,7 @@ typedef struct {
     int alive, kind, omen, hit, n, src, wx, wy, wtex;   /* src: the outlet it pours from; wx, wy, wtex: an omen's grate and the wall it was */
     float x, y, r, ang, t, warn, on, off, share;
     int8_t cx[HZ_CELLS], cy[HZ_CELLS]; uint8_t cd[HZ_CELLS];
+    float pre;                                                     /* Premonition's second, before its own warning */
 } Hazard;
 static int boss_sealed(void);
 static int boss_fighting(void);
@@ -341,7 +343,7 @@ static void hz_clear(void);
 typedef struct { int alive, kind, target; float x, y, z, vx, vy, life, dmg; uint32_t pierced; int tier; } Shot;   /* tier: as cast */
 typedef struct { int alive, kind; float x, y, vx, vy, life, spin, dmg, life0; int from, atk; Blame by; } Bone;   /* life0: an ember's whole flight; from: its thrower;
                                                                                                     atk: a turned spell's kind */
-typedef struct { int alive, type, cx, cy, seen, color, lx, ly, secret, gen; float x, y, phase; } Item;   /* lx, ly: the lane cell it is taken from;
+typedef struct { int alive, type, cx, cy, seen, color, lx, ly, secret, gen; float x, y, phase; int value; } Item;   /* lx, ly: the lane cell it is taken from;
                                                                                                    gen: 1 + its place among a pocket's things (0: not a pocket's) */
 typedef struct { int alive; float x, y, t, r; int big; } Boom;
 typedef struct { int alive, kind; float x0, y0, z0, x1, y1, z1, t; } Beam;   /* lightning and soul drain, for a moment */
@@ -444,6 +446,11 @@ typedef struct {
     uint8_t bag_size, bag_quality;
 } Stone;
 
+/* What points buy (docs/PLAN-b9.md, section 5): a line each; Resist buys all three at once */
+enum { LN_HEALTH, LN_DAMAGE, LN_RESIST, LN_POISON, LN_BURN, LN_SLOW, LN_HASTE, LN_DODGE, LN_TREASURE, LN_MOVE, LN_LUCK, LN_ATTUNE, NLINE };
+/* the cornerstones (section 6): Second Wind, Premonition, Cartographer, Lantern of the Dead, Grave Sense */
+enum { CS_WIND, CS_OMEN, CS_CARTO, CS_LANTERN, CS_SENSE, NCS };
+
 /* The run: what carries from level to level, through death and across scene switches */
 #define COMP_MAX 12                         /* the Compendium keeps so many of each kind at each quality */
 #define REPO_MAX 12                         /* the Repository's places, at the most */
@@ -489,6 +496,14 @@ static struct {
     Piece repo[REPO_MAX];                   /* the Wretched Repository: what lies in each place, */
     int repo_n, repo_gold, repo_coins;      /* the places bought (two at first, the first untaxed), its gold and coins */
     uint32_t cx_abil, cx_rune, cx_exq, cx_stat;   /* the Codex: what is known, a bit each (hazards are RUN.omens) */
+    /* the caster's own (docs/PLAN-b9.md): the merchant's map, kept through death; and, gone with a death, the
+       Level of Atonement claimed, the experience earned since the last death (all of it, not only what is
+       over), the points not yet spent and the steps bought in each line, the overlevels chosen in each, the
+       cornerstones held (a bit each, CS_*), Second Wind spent, and the run it last came back on */
+    int has_map;
+    int atone, xp, points;
+    uint16_t steps[NLINE]; uint8_t over[NLINE];
+    int corner, wind_spent, wind_run;
 } RUN;
 
 /* The caster's boss abilities (docs/PLAN-b7.md, section 8): one a boss, unlocked at the Hexed Totem with a
@@ -547,6 +562,7 @@ static struct {
     Deco decos[MAXDECO]; int ndecos;
     uint8_t bulky[MAPN][MAPN];          /* cells holding something big to walk around */
     float fog[MAPN][MAPN];                  /* fog banks, 0..1, thicker the deeper the level */
+    uint8_t mapped[MAPN][MAPN];             /* the map: 1 its shape known, 2 been near it (docs/PLAN-b9.md) */
     Mob mobs[MAXMOBS];
     Shot shots[MAXSHOTS];
     Boom booms[MAXBOOMS];
@@ -569,7 +585,7 @@ static struct {
     float blocked;                      /* seconds spent waiting on a creature */
 
     float pvx, pvy;                     /* the caster's velocity, for skeletons leading their throws */
-    int hp, max_hp, level_treasure, level_souls, has_key[NKEYS];
+    int hp, max_hp, level_treasure, level_souls, level_xp, has_key[NKEYS];
     double unlock_t;
 
     /* what is on the caster: poison, slow, and the defensive spells running */
@@ -591,6 +607,8 @@ static struct {
     int leaving, exiting;                   /* heading for the exit; stepping through it */
     float exit_open, exit_t;
     int kills, kills_total;
+    int rooms_in;                           /* the level's rooms set foot in, a bit each, for their experience */
+    int look_mob; float look_t;             /* a person's target: the creature looked at or last hit, how long it stays so */
     int spawned[NKINDS];                    /* how many of each kind have come on this level: a newcomer comes alone */
     uint8_t named[NKINDS];                  /* the ranks of each kind the caption has named on this level */
     Secret secrets[MAXSECRETS]; int nsecrets, secrets_found, nlinks, links_found;   /* rooms behind cracked walls; every link of every chain */
@@ -601,8 +619,8 @@ static struct {
     Wisp wisps[MAXWISPS];                   /* will-o'-wisps in the crypt: [0] summoned, [1] the altar's */
     int tally;                              /* the level-complete screen */
     double tally_t, clear_time;
-    int tally_shown[6], tally_done;           /* one a row: time, kills, treasure, souls, secrets, and a boss's fight */
-    float hurt, gold, readout, kick, heartbeat, chill;              /* chill: the cold flash when a wraith shrieks */
+    int tally_shown[7], tally_done;           /* one a row: time, kills, treasure, souls, secrets, experience, and a boss's fight */
+    float hurt, gold, readout, kick, heartbeat, wind_t, chill;      /* chill: the cold flash when a wraith shrieks; wind_t: a Second Wind */
     int dead;
     int retries;                        /* deaths on this level so far: the crypt goes a little easier each time */
     double dead_t;
@@ -639,6 +657,7 @@ static struct {
     int rep_look, rep_mode, rep_place, rep_amt;   /* the Repository: looked at; choosing what goes in (1) and where; how much gold */
     int cx_page;                            /* the Codex's page open */
     int mer_look;                           /* the merchant herself, close enough for E */
+    int map_look;                           /* the map floating beside her, looked at */
     int stone_look, stone_sel;              /* a stone in the plot looked at (-1 none); the one whose page is open */
 
     /* a person at the controls */
@@ -655,6 +674,9 @@ static struct {
     char msg[64];
     Gear inv0;                              /* the gear as it was when the inventory opened */
     int inv_page;                           /* the wardrobe (0) or the caster's numbers and spellbook (1) */
+    float map_cx, map_cy, map_hold;         /* the map open: the cell at its middle, a direction held this long */
+    int asc_buy[NLINE], asc_arm;            /* the caster's screen: steps bought since it opened (they may go back); a buy past a cap awaiting a second press */
+    int cs_sel, cs_arm;                     /* the cornerstones' screen: the one looked at; one awaiting a second Enter */
     /* the boss abilities: each one's wait; Swift Dodge's dart (its clock and its way) and the direction last
        tapped and how long ago; Wraithwalk's while; which sockets were ready, for the tick when one comes round */
     float ab_cd[NBOSS], dash_t, dash_vx, dash_vy, tap_t, wwalk_t;
@@ -701,10 +723,11 @@ static struct {
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
        BP_LITANY };                                 /* the Deacon's censer raised, the green light growing */
 static float zbuf[W];
-enum { MM_SIGN, MM_PED, MM_PAT, MM_LEAVE, NMM };                   /* the merchant's menu */
+enum { MM_SIGN, MM_ASCEND, MM_PED, MM_WIND, MM_PAT, MM_LEAVE, NMM };   /* the merchant's menu */
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_MAP, UI_ASCEND, UI_STONES };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
+static double IN_DT;                        /* and how long the step is */
 static struct {                             /* their game controller, if they have one */
     int used;                               /* the pad, not the keys, was touched last: the hints speak its language */
     int fresh;                              /* just taken over: what is held now counts once it is let go */
@@ -725,8 +748,8 @@ static void rumble(float low, float high, float secs) {
     if (!G.player || !PADX.used) return;
     pad_rumble(low, high, secs);
 }
-static const char *const PK_KEY[] = { "ENTER", "ESC", "E", "W/S", "WASD", "A/D", "TAB", "SPACE", "Q", "B", "C", "L", "1-9", "CLICK" };
-static const char *const PK_PAD[] = { "\1A", "\1B", "\1A", "D-PAD", "D-PAD", "LB/RB", "VIEW", "\1Y", "\1X", "\1B", "\1B", "\1Y", "LB/RB", "RT" };
+static const char *const PK_KEY[] = { "ENTER", "ESC", "E", "W/S", "WASD", "A/D", "TAB", "SPACE", "Q", "B", "C", "L", "1-9", "CLICK", "M" };
+static const char *const PK_PAD[] = { "\1A", "\1B", "\1A", "D-PAD", "D-PAD", "LB/RB", "VIEW", "\1Y", "\1X", "\1B", "\1B", "\1Y", "LB/RB", "RT", "D-PAD UP" };
 static const char *pk(const char *s) {
     static char buf[8][240];
     static int at;
@@ -1291,7 +1314,7 @@ static void gen_level(void) {
     if (G.boss >= 0)                                               /* the boss's strip of the plan: kept out of the rest */
         for (int y = ARENA_PLAN; y < MG; y++) for (int x = 0; x < MG; x++) MM[y][x].kind = K_PILLAR;
     G.nrooms = 0; G.ndoors = 0; G.nlights = 0; G.nlc = 0; G.ndecos = 0;
-    memset(G.bulky, 0, sizeof G.bulky);
+    memset(G.bulky, 0, sizeof G.bulky); memset(G.mapped, 0, sizeof G.mapped);
     int nreg = 0;
 
     /* rooms: chambers of one to four blocks a side, a few of them big halls */
@@ -2164,6 +2187,7 @@ static void build_lightmap(void) {
         for (int k = L->first; k < L->first + L->count; k++) G.lm[G.lc_idx[k]] += G.lc_w[k] * f;
     }
     light_dynamic(G.px, G.py, 0.62f, 2.8f);                        /* the caster's own faint glow */
+    if ((RUN.corner >> CS_LANTERN & 1) && !G.shop) light_dynamic_ex(G.px, G.py, 0.9f + 0.06f * sinf((float)G.t * 3.1f), 2.6f, 1);   /* the Lantern of the Dead */
     for (int b = 0; b < G.bbz_n && G.boss == BOSS_WRAITH && !PK.depth && !G.shop; b++)   /* the Wraith's braziers, those still lit */
         if (G.bbz_lit[b]) light_dynamic(G.bbz_x[b] + 0.5f, G.bbz_y[b] + 0.5f, 1.5f * (0.92f + 0.08f * sinf((float)G.t * 9.0f + b)), 5.2f);
     if (G.shop) light_dynamic(PORTAL_X + 0.5f, PORTAL_Y - 0.3f, 1.0f + 0.15f * sinf((float)G.t * 2.3f), 4.6f);   /* the Portal's glow */
@@ -2414,6 +2438,7 @@ static void death_wake(void);
 static int hurt_ex(float dmg, int kind, float sx, float sy) {
     if (G.dead || G.ending || G.exiting || G.tally || G.shop || G.level_t < 1.5) return 0;
     if (G.dash_t > 0.0f) return 0;                                 /* Swift Dodge: nothing touches you while you dart */
+    if (G.wind_t > 0.0f) return 0;                                 /* a Second Wind: a breath when nothing touches you */
     const Gear *g = &RUN.gear;
     int seeping = kind == HURT_POISON || kind == HURT_VOID;        /* nothing turns these: no dodge, armour or ward */
     if (!seeping) {
@@ -2442,6 +2467,16 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
     pop_readout(); show_bar();
     float share = G.max_hp > 0 ? (float)d / (float)G.max_hp : 0.0f;  /* the pad shakes by how much it hurt */
     if (G.hp > 0) { if (!seeping) { snd_sfx(SFX_HURT); rumble(0.25f + 2.0f * share, 0.15f + 1.5f * share, 0.15f + share); } return d; }
+    if ((RUN.corner >> CS_WIND & 1) && !RUN.wind_spent) {          /* Second Wind: not yet */
+        RUN.wind_spent = 1;
+        G.hp = imax(1, G.max_hp / 2); G.wind_t = 2.0f; G.poison_t = 0.0f; G.hz_acc = 0.0f;
+        snd_sfx_ex(SFX_WAIL, 0.9f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 1.0f, 0.5f); snd_sfx_ex(SFX_WHOOSH, 0.8f, 0.5f);
+        rumble(0.8f, 0.5f, 0.6f); pop_readout(); show_bar();
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT second_wind level %d t=%.2f by %s\n", G.level, G.t, G.player ? "player" : "autopilot");
+#endif
+        return d;
+    }
     rumble(1.0f, 0.7f, 0.9f);
     G.hp = 0; G.dead = 1; G.dead_t = 0.0; G.retries++; G.killer = G.blame;
 #ifdef CRAWL_DEBUG
@@ -2692,6 +2727,167 @@ static void rec_cleared(void) {
 static Item *add_item(int x, int y, int type);
 static void add_pool(float x, float y);
 static void wraith_back(Mob *m);
+/* ---- experience (docs/PLAN-b9.md, section 3): banked as it comes, claimed as Levels of Atonement with
+ * the merchant. A kill pays its kind's worth by the level and its rank; in a pocket, the rank it would have
+ * had on the level, and a quarter more for the first link and a tenth for each after, 1.6 at most. Secrets,
+ * a chain's end, a boss, a level cleared and each room first set foot in pay too. Every gain is shown with
+ * its value, and the moment enough is banked for another level the choir sings. ---- */
+static const int KIND_XP[] = {
+    [MOB_SKEL] = 8, [MOB_GHOST] = 0, [MOB_BAT] = 5, [MOB_WSKULL] = 6, [MOB_SHIELD] = 12, [MOB_SPIDER] = 7,
+    [MOB_SHAMBLER] = 12, [MOB_DROWNED] = 16, [MOB_HOUND] = 8, [MOB_WRAITH] = 0, [MOB_HUNTER] = 12, [MOB_GHOUL] = 14,
+    [MOB_KNIGHT] = 24, [MOB_BROOD] = 26, [MOB_LING] = 1, [MOB_SAC] = 0, [MOB_SHADE] = 16, [MOB_IMP] = 12,
+    [MOB_DEACON] = 20, [MOB_GARGOYLE] = 18 };
+static const float RANK_XP[NRANK] = { 1.0f, 1.4f, 1.9f, 2.5f, 3.2f, 4.0f };
+static const int BOSS_XP[NBOSS] = { 24, 22, 22, 26 };              /* forty of these, at the boss's level */
+#define ATONE_TOP 50                        /* past it, overlevels */
+static float xp_level(void) { return 1.0f + 0.12f * (float)(imax(1, G.level) - 1); }
+#define ATONE_K 42                          /* 42 x (n-1)^2 in all for level n: the autopilot at 50 about level 35 */
+static int atone_need(int n) {                                     /* experience in all to reach Level of Atonement n */
+    if (n <= 1) return 0;
+    if (n <= ATONE_TOP) return ATONE_K * (n - 1) * (n - 1);
+    return ATONE_K * (ATONE_TOP - 1) * (ATONE_TOP - 1) + (n - ATONE_TOP) * ATONE_K * (2 * ATONE_TOP - 3);   /* each past it as dear as the last */
+}
+static int atone_reach(void) {                                     /* the level the experience banked would buy */
+    int n = imax(1, RUN.atone);
+    while (n < 9999 && atone_need(n + 1) <= RUN.xp) n++;
+    return n;
+}
+#define XPF_N 5
+static struct { char what[XPF_N][36]; int v[XPF_N]; float t[XPF_N]; int n; float banner; int banner_lvl; } XPF;   /* the gains shown, newest first */
+static void xp_gain(float amount, const char *what) {
+    int v = (int)(amount + 0.5f);
+    if (v <= 0) return;
+    int was = atone_reach();
+    RUN.xp = RUN.xp > 2000000000 - v ? 2000000000 : RUN.xp + v;
+    G.level_xp += v;
+    memmove(&XPF.what[1], &XPF.what[0], sizeof XPF.what[0] * (XPF_N - 1));
+    memmove(&XPF.v[1], &XPF.v[0], sizeof XPF.v[0] * (XPF_N - 1));
+    memmove(&XPF.t[1], &XPF.t[0], sizeof XPF.t[0] * (XPF_N - 1));
+    snprintf(XPF.what[0], sizeof XPF.what[0], "%s", what);
+    XPF.v[0] = v; XPF.t[0] = 0.0f; XPF.n = imin(XPF.n + 1, XPF_N);
+    int now = atone_reach();
+    if (now > was) {                                               /* enough for another: she will hear it */
+        XPF.banner = 3.2f; XPF.banner_lvl = now;
+        snd_sfx_ex(SFX_ATONE, 1.0f, 0.5f);
+        if (G.player) rumble(0.3f, 0.2f, 0.6f);
+    }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT xp +%d %s total %d reach %d level %d t=%.2f\n", v, what, RUN.xp, now, G.level, G.t);
+#endif
+}
+static void xp_kill(const Mob *m) {
+    if (m->boss || m->ally || m->type < 0 || m->type >= (int)(sizeof KIND_XP / sizeof KIND_XP[0]) || !KIND_XP[m->type]) return;
+    int rank = m->rank0 ? m->rank0 - 1 : m->rank;
+    float v = (float)KIND_XP[m->type] * xp_level() * RANK_XP[clampi(rank, 0, NRANK - 1)];
+    if (m->rank0 && PK.depth >= 2) v *= fminf(1.6f, 1.25f + 0.1f * (float)(PK.depth - 2));   /* a chain's: more, but not a black rank's worth */
+    if (m->add) v *= 0.5f;                                         /* a boss's adds */
+    char what[36];
+    snprintf(what, sizeof what, "%s%s", m->rank == RK_I ? "" : rank_word(m->type, m->rank), KINDS[m->type].name);
+    xp_gain(v, what);
+}
+/* ---- Levels of Atonement (docs/PLAN-b9.md, sections 4 and 5): ascending with the merchant takes every
+ * level the banked experience reaches and gives ten points for each up to the fiftieth; the points buy steps
+ * in these lines, which join what is worn under its cap ---- */
+typedef struct { const char *name, *does; int cost, stat; float step; } Line;
+static const Line LINES[NLINE] = {
+    [LN_HEALTH]   = { "HEALTH", "+5 HEALTH", 1, ST_HP, 5.0f },
+    [LN_DAMAGE]   = { "DAMAGE", "+1% TO EVERY SPELL'S DAMAGE", 3, ST_DAMAGE, 1.0f },
+    [LN_RESIST]   = { "RESIST ALL", "+5% TO EACH RESIST: POISON, BURN AND SLOW", 3, -1, 5.0f },
+    [LN_POISON]   = { "RESIST POISON", "+15%: POISON STINGS LESS, AND NOT AS LONG", 3, ST_RES_POISON, 15.0f },
+    [LN_BURN]     = { "RESIST BURN", "+15%: FIRE AND BURNING HURT LESS", 3, ST_RES_BURN, 15.0f },
+    [LN_SLOW]     = { "RESIST SLOW", "+15%: GRABS AND FROST SLOW YOU LESS", 3, ST_RES_SLOW, 15.0f },
+    [LN_HASTE]    = { "SPELL HASTE", "+1%: EVERY SPELL COMES ROUND SOONER", 3, ST_HASTE, 1.0f },
+    [LN_DODGE]    = { "DODGE", "+1%: A BLOW MAY PASS THROUGH YOU", 3, ST_DODGE, 1.0f },
+    [LN_TREASURE] = { "TREASURE", "+1% ON ALL GOLD PICKED UP", 2, ST_TREASURE, 1.0f },
+    [LN_MOVE]     = { "MOVEMENT", "+1% TO YOUR PACE", 2, ST_MOVE, 1.0f },
+    [LN_LUCK]     = { "LUCK", "+0.1%: THE DEAD DROP GOLD MORE OFTEN", 1, ST_LUCK, 0.1f },
+    [LN_ATTUNE]   = { "ATTUNEMENT", "+1%: SPELLS COST LESS SPIRIT", 1, ST_THRIFT, 1.0f },
+};
+#define LUCK_BASE 2.0f                      /* everyone's, at the start */
+static float over_step(int l) { return l == LN_LUCK ? 1.0f : 5.0f; }   /* an overlevel's: Luck 1, the rest 5 */
+static float line_own(int l) { return LINES[l].step * (float)RUN.steps[l] + over_step(l) * (float)RUN.over[l]; }
+static void caster_sync(void) {                                    /* the caster's own into the totals */
+    float own[NSTAT] = { 0 }, up[NSTAT] = { 0 };
+    for (int l = 0; l < NLINE; l++) {
+        float v = LINES[l].step * (float)RUN.steps[l], o = over_step(l) * (float)RUN.over[l];
+        if (l == LN_RESIST) { own[ST_RES_POISON] += v; own[ST_RES_BURN] += v; own[ST_RES_SLOW] += v; continue; }
+        own[LINES[l].stat] += v + o; up[LINES[l].stat] += o;
+    }
+    own[ST_LUCK] += LUCK_BASE;
+    for (int st = 0; st < NSTAT; st++) gear_set_own(st, own[st], up[st]);
+}
+static int line_capped(int l) {                                    /* more would be wasted */
+    if (l == LN_HEALTH) return 0;
+    if (l == LN_RESIST) return gear_capped(&RUN.gear, ST_RES_POISON) && gear_capped(&RUN.gear, ST_RES_BURN) && gear_capped(&RUN.gear, ST_RES_SLOW);
+    return gear_capped(&RUN.gear, LINES[l].stat);
+}
+static int ascend(void) {                                          /* every level the experience reaches; how many */
+    int to = atone_reach(), n = to - RUN.atone;
+    if (n <= 0) return 0;
+    for (int l = RUN.atone + 1; l <= to && l <= ATONE_TOP; l++) RUN.points += 10;
+    RUN.atone = to;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ascend to %d (+%d) points %d xp %d by %s t=%.2f\n", to, n, RUN.points, RUN.xp, G.player ? "player" : "autopilot", G.t);
+#endif
+    return n;
+}
+static void line_buy(int l) {
+    RUN.points -= LINES[l].cost; RUN.steps[l]++;
+    caster_sync();
+    if (l == LN_HEALTH) { G.max_hp = gear_max_hp(&RUN.gear); G.hp = imin(G.hp + (int)LINES[l].step, G.max_hp); }   /* felt at once */
+}
+/* the cornerstones (docs/PLAN-b9.md, section 6): one chosen, free, at every tenth Level of Atonement */
+static int corner_count(void) { int n = 0; for (int c = 0; c < NCS; c++) n += RUN.corner >> c & 1; return n; }
+static int corner_due(void) { return imin(RUN.atone / 10, NCS) - corner_count(); }
+static int over_due(void) {                                        /* overlevels to choose: one at 55, 60, 65 ... */
+    int n = RUN.atone >= ATONE_TOP + 5 ? (RUN.atone - ATONE_TOP) / 5 : 0;
+    for (int l = 0; l < NLINE; l++) n -= RUN.over[l];
+    return n;
+}
+static int wind_restorable(void) { return (RUN.corner >> CS_WIND & 1) && RUN.wind_spent; }
+static int ascend_open(void) { return atone_reach() > RUN.atone || RUN.points > 0 || corner_due() > 0 || over_due() > 0; }
+
+static void auto_ascend(void) {                                    /* the autopilot's: a little of everything that keeps it alive */
+    if (LEDGER.yours) return;                                      /* a person's run: what it buys is theirs to choose */
+    ascend();
+    static const int ORDER[] = { LN_HASTE, LN_DAMAGE, LN_HEALTH, LN_HEALTH, LN_DODGE, LN_RESIST, LN_ATTUNE, LN_HEALTH, LN_LUCK };
+    for (int guard = 0; guard < 4000 && RUN.points > 0; guard++) {
+        int any = 0;
+        for (int i = 0; i < (int)(sizeof ORDER / sizeof ORDER[0]); i++) {
+            int l = ORDER[i];
+            if (RUN.points < LINES[l].cost || line_capped(l) || (l == LN_RESIST && RUN.steps[l] >= 9)) continue;
+            line_buy(l); any = 1;
+        }
+        if (!any) break;
+    }
+    static const int PICK[NCS] = { CS_WIND, CS_OMEN, CS_LANTERN, CS_SENSE, CS_CARTO };   /* the map it never buys */
+    for (int i = 0; i < NCS && corner_due() > 0; i++) {
+        int c = PICK[i];
+        if (RUN.corner >> c & 1 || (c == CS_CARTO && !RUN.has_map)) continue;
+        RUN.corner |= 1 << c;
+        if (c == CS_WIND) { RUN.wind_spent = 0; RUN.wind_run = crawl_run(G.level); }
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT cornerstone %d by autopilot t=%.2f\n", c, G.t);
+#endif
+    }
+    static const int OVER_PICK[] = { LN_HASTE, LN_DAMAGE, LN_DODGE, LN_ATTUNE, LN_MOVE, LN_POISON, LN_BURN, LN_SLOW, LN_TREASURE, LN_LUCK };
+    while (over_due() > 0) {                                       /* overlevels: the first line already at its cap */
+        int pick = LN_DAMAGE;
+        for (int i = 0; i < (int)(sizeof OVER_PICK / sizeof OVER_PICK[0]); i++) if (line_capped(OVER_PICK[i])) { pick = OVER_PICK[i]; break; }
+        RUN.over[pick]++; caster_sync();
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT overlevel %d by autopilot t=%.2f\n", pick, G.t);
+#endif
+    }
+}
+
+static void xp_rooms(void) {                                       /* a room first set foot in */
+    if (G.shop || PK.depth) return;
+    int cx = (int)G.px, cy = (int)G.py;
+    for (int i = 0; i < G.nrooms && i < 31; i++)
+        if (!(G.rooms_in >> i & 1) && in_room(&G.rooms[i], cx, cy)) { G.rooms_in |= 1 << i; xp_gain(3.0f * xp_level(), "A ROOM FOUND"); }
+}
+
 static void kill_mob(Mob *m) {
     m->state = MS_DIE; m->t = 0.0f;
     if (!KIND_IS(m, KF_UNCOUNTED)) { if (!PK.depth) G.kills++; if (!m->boss) rec_kill(m); }   /* a pocket's are in the record, not the level's tally */
@@ -2705,6 +2901,7 @@ static void kill_mob(Mob *m) {
         if (!others) for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && G.mobs[i].type == MOB_SAC && G.mobs[i].state == MS_WALK) { G.mobs[i].state = MS_DIE; G.mobs[i].t = 0.0f; }
     }
     if (m->boss) return;                                           /* a boss leaves only its scrip */
+    xp_kill(m);
     gain_souls((float)RANK_SOULS[m->rank]);
     if (G.reap_t > 0.0f && RUN.gear.def[DF_REAP] >= RUNE_EXQ && !G.dead && !KIND_IS(m, KF_UNCOUNTED)) {   /* Exquisite: a little life back */
         G.hp = clampi(G.hp + (G.max_hp + 19) / 20, 0, G.max_hp);
@@ -2729,6 +2926,28 @@ static void kill_mob(Mob *m) {
     if (bony && G.map[m->cy][m->cx].kind == K_FLOOR && rndf() < 0.125f + 0.03f * (float)m->rank) {
         Item *it = add_item(m->cx, m->cy, IT_BONE);
         if (it) { it->secret = 1; it->seen = 1; }
+    }
+    /* Luck (docs/PLAN-b9.md, section 5): a chance of gold of its rank, a share of what the level's treasure
+     * comes to, and half the time something with it: a bone from the bony, a potion from rank III, else souls */
+    if (!m->add && !KIND_IS(m, KF_UNCOUNTED) && G.map[m->cy][m->cx].kind == K_FLOOR && rndf() < gear_total(&RUN.gear, ST_LUCK) / 100.0f) {
+        static const int TIER_ITEM[NRANK] = { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_CHEST };
+        static const float TIER_K[NRANK] = { 0.6f, 0.8f, 1.0f, 1.3f, 1.6f, 3.0f };
+        int r = clampi(m->rank, 0, NRANK - 1);
+        Item *it = add_item(m->cx, m->cy, TIER_ITEM[r]);
+        if (it) {
+            it->secret = 1; it->seen = 1;
+            it->value = imax(1, (int)(gear_haul(G.level) * 0.12f * TIER_K[r] + 0.5f));
+            G.items_total--; G.value_total -= treasure_value(TIER_ITEM[r]);   /* not the level's treasure */
+            sfx_at(SFX_COIN, m->x, m->y, 0.45f);
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT lucky %s rank %d worth %d t=%.2f\n", KINDS[m->type].name, r, it->value, G.t);
+#endif
+        }
+        if (rnd(2) == 0) {
+            int res = bony ? IT_BONE : (r >= RK_III ? IT_POTION : IT_URN);
+            Item *e = add_item(m->cx, m->cy, res);
+            if (e) { e->secret = 1; e->seen = 1; }
+        }
     }
 }
 
@@ -2797,6 +3016,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
         return 0;
     }
     if (!m->alive || m->state != MS_WALK || KIND_IS(m, KF_SPIRIT) || dmg <= 0.0f || buried(m)) return 0;
+    if (G.player) { G.look_mob = (int)(m - G.mobs); G.look_t = fmaxf(G.look_t, 3.0f); }   /* what you hit is your target a while */
     if (m->type == MOB_SHIELD && m->shield > 0.0f && !(flags & (DM_PIERCE | DM_ARC))) {
         float a = atan2f(fy - m->y, fx - m->x);
         if (fabsf(wrap_pi(a - m->face)) < 1.25f) {
@@ -3013,6 +3233,7 @@ static void update_wraith(Mob *m, float dt) {
     if (rnd(900) == 0) sfx_at(SFX_WAIL, m->x, m->y, 0.9f);
     float gx = m->tx + 0.5f, gy = m->ty + 0.5f, dx = gx - m->x, dy = gy - m->y, d = sqrtf(dx * dx + dy * dy);
     float step = m->speed * dt * (m->sub == 1 ? 1.6f : 1.0f);
+    if ((RUN.corner >> CS_LANTERN & 1) && m->sub == 0 && pd < 2.1f && hypotf(gx - G.px, gy - G.py) < pd) return;   /* the Lantern: it keeps a cell further off */
     if (d > step) { m->x += dx / d * step; m->y += dy / d * step; return; }
     m->x = gx; m->y = gy; m->cx = m->tx; m->cy = m->ty;
     if (G.dead || G.exiting) return;
@@ -4803,6 +5024,7 @@ static void open_secret(int i) {
     G.secrets_found++; G.links_found++;
     rec_secret();
     say("A SECRET!   %d OF %d", G.links_found, G.nlinks);
+    xp_gain(25.0f * xp_level(), "A SECRET");
     if (G.links_found >= G.nlinks) gain_coin(COIN_ALL, "EVERY SECRET HERE FOUND");
     sfx_at(SFX_PUSHWALL, sc->sx + 0.5f, sc->sy + 0.5f, 1.0f);
     snd_sfx_ex(SFX_SECRET, 1.0f, 0.5f);
@@ -5484,6 +5706,8 @@ static void update_player(float dt) {
             G.tally = 1; G.tally_t = 0.0; G.clear_time = G.level_t; G.retries = 0;
             snd_sfx_ex(SFX_FANFARE, 1.0f, 0.5f);
             rec_cleared();
+            char lc[36]; snprintf(lc, sizeof lc, "LEVEL %d CLEARED", G.level);
+            xp_gain(30.0f * xp_level(), lc);
 #ifdef CRAWL_DEBUG
             fprintf(stderr, "EVENT cleared level %d t=%.1f by %s\n", G.level, G.level_t, G.player ? "player" : "autopilot");
 #endif
@@ -5668,8 +5892,10 @@ static void place_altar(void) {
 }
 
 static void pocket_reset_level(void);
+static void map_carto(void);
 static void start_level(void) {
     pocket_reset_level();
+    G.rooms_in = 0;                                                /* a new level's rooms, each worth finding */
     memset(G.has_key, 0, sizeof G.has_key);
     G.shop = 0;
     hz_clear(); snd_set_boss(0, 0);
@@ -5768,6 +5994,8 @@ static void start_level(void) {
     }
 #endif
     G.level_t = 0.0; G.card = 0.0f; G.ending = 0;
+    if ((RUN.corner >> CS_WIND & 1) && crawl_run(G.level) != RUN.wind_run) { RUN.wind_spent = 0; RUN.wind_run = crawl_run(G.level); }   /* a new run: a Second Wind again */
+    map_carto();
     G.readout = READOUT_T + 1.5f;                                  /* show where things stand as the level opens */
     G.bar = 1.0f; show_bar();
     if (G.player) human_begin();
@@ -5876,6 +6104,7 @@ static void pocket_say_found(int link) {                           /* the first 
     G_LEVEL.links_found++;
     rec_secret();
     say("A SECRET!   %d OF %d", G_LEVEL.links_found, G_LEVEL.nlinks);
+    xp_gain(25.0f * xp_level(), "A SECRET");
     if (G_LEVEL.links_found >= G_LEVEL.nlinks) gain_coin(COIN_ALL, "EVERY SECRET HERE FOUND");
     snd_sfx_ex(SFX_SECRET, 0.9f, 0.5f);
 #ifdef CRAWL_DEBUG
@@ -5902,6 +6131,7 @@ static void gen_pocket(const Secret *sc, int link) {
     int back = G.ptheme == PT_BACKROOMS, sev = G.ptheme == PT_SEVERANCE;
     for (int y = 0; y < MAPN; y++)
         for (int x = 0; x < MAPN; x++) { Cell *c = &G.map[y][x]; memset(c, 0, sizeof *c); c->kind = K_WALL; c->tex = back ? T_PAPER : sev ? T_WHITE : T_STONE; c->region = -1; c->door = -1; }
+    memset(G.mapped, 0, sizeof G.mapped);                          /* the pocket's own map */
     #define BX(i) (o + 4 * (i) + 1)
     for (int j = 0; j < n && !sev; j++)                            /* Severance carves its halls once it knows its far end */
         for (int i = 0; i < n; i++)
@@ -6084,6 +6314,7 @@ static void gen_pocket(const Secret *sc, int link) {
             Mob *m = &G.mobs[q];
             if (!m->alive || m->gen) continue;
             m->gen = ++mg;
+            m->rank0 = m->rank + 1;                                /* for its experience: the level's own rank */
             if (KINDS[m->type].family >= 0) set_rank(m, imin(m->rank + link - 1, imin(RK_V, KINDS[m->type].top)));
             m->hp = m->maxhp = m->maxhp * theme_boost();
             if (mg <= 32 && (slain >> (mg - 1) & 1)) { m->alive = 0; if (!KIND_IS(m, KF_UNCOUNTED)) G.kills_total--; }
@@ -6129,6 +6360,7 @@ static void pocket_build(int link, int from_deeper) {
     PK.depth = link; PK.since = 0.0f; G.use_kind = 0;
     if (from_deeper) stand_at_door(PK.on_x, PK.on_y); else stand_at_door(PK.back_x, PK.back_y);
     G.map[G.cy][G.cx].visits = 1; G.explored = 1;
+    map_carto();
     G.level_t = 1.0;                                               /* the pocket's own clock; the hand is free at once */
     G.dead = 0; G.ending = 0; G.leaving = G.exiting = 0;
     hunt_cx = -1;
@@ -6228,11 +6460,15 @@ static void crawl_enter(uint32_t seed) {
     if (!resume) {
         memset(&RUN, 0, sizeof RUN);
         RUN.active = 1; RUN.level = 1; RUN.hp = 100; RUN.shop_next = 1;
-        RUN.run_id = new_run_id(seed); RUN.peds = 2; RUN.repo_n = 2;
+        RUN.run_id = new_run_id(seed); RUN.peds = 2; RUN.repo_n = 2; RUN.atone = 1;
         gear_reset(&RUN.gear);
 #ifdef CRAWL_DEBUG
         if (getenv("CRAWL_LEVEL")) RUN.level = atoi(getenv("CRAWL_LEVEL"));
         debug_gear();
+        if (getenv("CRAWL_HASMAP")) RUN.has_map = 1;              /* the map, already bought */
+        if (getenv("CRAWL_CORNER")) { RUN.corner = atoi(getenv("CRAWL_CORNER")) & ((1 << NCS) - 1); RUN.wind_run = crawl_run(RUN.level); }   /* cornerstones held, a bit each */
+        if (getenv("CRAWL_LUCK")) RUN.steps[LN_LUCK] = (uint16_t)clampi((int)((atof(getenv("CRAWL_LUCK")) - LUCK_BASE) * 10.0f + 0.5f), 0, 1000);   /* Luck at this */
+        if (getenv("CRAWL_LEARNT")) memset(RUN.rec.spell_kills, 3, sizeof RUN.rec.spell_kills);   /* every spell learnt on every kind */
 #endif
     }
 #ifdef CRAWL_DEBUG
@@ -6286,8 +6522,8 @@ static void collect(Item *it) {
         break;
     }
     default: {
-        int v = treasure_value(it->type);
-        int got = (int)(v * (1.0f + gear_ability(&RUN.gear, AB_TREASURE, 0) / 100.0f) + 0.5f);   /* Treasure Hunter */
+        int v = it->value ? it->value : treasure_value(it->type);   /* a lucky drop carries its own worth */
+        int got = (int)(v * (1.0f + gear_total(&RUN.gear, ST_TREASURE) / 100.0f) + 0.5f);   /* Treasure Hunter, and the caster's own */
         RUN.treasure += got; G.level_treasure += got;
         if (!it->secret) { G.value_got += v; G.items_got++; }
         snd_sfx_ex(SFX_COIN, it->type >= IT_CROWN ? 1.2f : 0.9f, 0.5f);
@@ -6315,6 +6551,7 @@ static Hazard *hz_new(int kind, int omen) {
             Hazard *h = &G.haz[i];
             memset(h, 0, sizeof *h);
             h->alive = 1; h->kind = kind; h->omen = omen; h->src = -1; h->wx = -1;
+            if ((RUN.corner >> CS_OMEN & 1) && kind != HZ_ARC) h->pre = 1.0f;   /* Premonition: a second's more notice (the arc keeps the blade's time) */
 #ifdef CRAWL_DEBUG
             fprintf(stderr, "EVENT hazard %d%s t=%.2f\n", kind, omen ? " omen" : "", G.t);
 #endif
@@ -6419,6 +6656,12 @@ static int hz_covers(const Hazard *h, int x, int y) {
     }
 }
 
+static int hz_pre_covers(const Hazard *h, int x, int y) {          /* what Premonition marks before it warns */
+    if (h->kind == HZ_FIRE || h->kind == HZ_BILE) { for (int i = 0; i < h->n; i++) if (h->cx[i] == x && h->cy[i] == y) return 1; return 0; }
+    float cx = x + 0.5f, cy = y + 0.5f;
+    if (h->kind == HZ_ARC) return hz_in_arc(h, cx, cy);
+    return hypotf(cx - h->x, cy - h->y) < h->r + 0.45f;
+}
 static void update_hazards(float dt) {
     int was = G.silenced;
     G.silenced = 0; G.hz_slow = 1.0f;
@@ -6428,6 +6671,14 @@ static void update_hazards(float dt) {
     for (int i = 0; i < MAXHAZ; i++) {
         Hazard *h = &G.haz[i];
         if (!h->alive) continue;
+        if (h->pre > 0.0f) {                                       /* Premonition: shown, and the autopilot keeps out, before it warns */
+            h->pre -= dt;
+            for (int y = imax(1, (int)(h->y - h->r - 2.0f)); y <= imin(MAPN - 2, (int)(h->y + h->r + 2.0f)); y++)
+                for (int x = imax(1, (int)(h->x - h->r - 2.0f)); x <= imin(MAPN - 2, (int)(h->x + h->r + 2.0f)); x++)
+                    if (!hz_dmap[y][x] && hz_pre_covers(h, x, y)) hz_dmap[y][x] = 1;
+            for (int k = 0; k < h->n; k++) if (!hz_dmap[h->cy[k]][h->cx[k]]) hz_dmap[h->cy[k]][h->cx[k]] = 1;
+            continue;
+        }
         float pt = h->t;
         h->t += dt;
         if (h->t >= h->warn + h->on + h->off) {                    /* done: an omen's grate is a wall again */
@@ -6823,6 +7074,7 @@ static void boss_fall(Mob *m) {
     snd_sfx_ex(SFX_FANFARE, 0.9f, 0.5f); snd_sfx_ex(SFX_SHATTER, 1.0f, 0.5f);
     snd_boss_fall();
     say("THE WAY OUT IS OPEN");
+    xp_gain(40.0f * (float)BOSS_XP[G.boss] * xp_level(), B->short_name);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT boss_fall %s in %d s t=%.2f by %s\n", B->name, secs, G.t, G.player ? "player" : "autopilot");
 #endif
@@ -7084,6 +7336,21 @@ static void update_abilities(float dt) {
     }
 }
 
+/* ---- the map (docs/PLAN-b9.md, section 1): bought from the merchant, kept through death ---- */
+#define MAP_PRICE 1000
+#define MAP_X 10.75f
+#define MAP_Y 14.1f                         /* where it floats in her room, at her left */
+#define MAP_REACH 3.2f                      /* what lies this near the caster fills in, through walls */
+static void map_carto(void) {                                      /* the Cartographer: the shape of it all, known at once */
+    if (RUN.corner >> CS_CARTO & 1) for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) G.mapped[y][x] |= 1;
+}
+static void map_note(void) {                                       /* its shape known, and been near it */
+    int cx = (int)G.px, cy = (int)G.py;
+    for (int y = cy - 4; y <= cy + 4; y++)
+        for (int x = cx - 4; x <= cx + 4; x++)
+            if (x >= 0 && y >= 0 && x < MAPN && y < MAPN && hypotf(x + 0.5f - G.px, y + 0.5f - G.py) <= MAP_REACH) G.mapped[y][x] |= 3;
+}
+
 static void update_items(void) {
     for (int i = 0; i < G.nitems; i++) {
         Item *it = &G.items[i];
@@ -7096,9 +7363,9 @@ static void update_items(void) {
 }
 
 /* the tally counts up row by row: time, kills, treasure, souls, secrets */
-#define TALLY_ROWS 6
+#define TALLY_ROWS 7
 static const float TALLY_ROW0 = 1.6f, TALLY_ROW_GAP = 1.0f, TALLY_COUNT = 0.75f, TALLY_END = 9.0f;
-static int tally_rows(void) { return G.boss >= 0 && G.bstate == BS_DEAD ? 6 : 5; }   /* a boss's level: how long its fight took */
+static int tally_rows(void) { return G.boss >= 0 && G.bstate == BS_DEAD ? 7 : 6; }   /* a boss's level: how long its fight took */
 static int tally_value(int row, float t, int final) {
     float k = smoothstepf(0.0f, 1.0f, (t - TALLY_ROW0 - row * TALLY_ROW_GAP) / TALLY_COUNT);
     return (int)floorf(final * k);
@@ -7107,7 +7374,7 @@ static void update_tally(double dt) {
     float pt = (float)G.tally_t;
     G.tally_t += dt;
     float t = (float)G.tally_t;
-    int finals[TALLY_ROWS] = { (int)G.clear_time, G.kills, G.items_got, G.level_souls, G.links_found, (int)G.bfight_t };
+    int finals[TALLY_ROWS] = { (int)G.clear_time, G.kills, G.items_got, G.level_souls, G.links_found, G.level_xp, (int)G.bfight_t };
     for (int r = 0; r < tally_rows(); r++) {
         int v = tally_value(r, t, finals[r]);
         if (v != G.tally_shown[r]) { G.tally_shown[r] = v; snd_sfx_ex(SFX_TICK, 0.7f, 0.5f); }
@@ -7453,9 +7720,15 @@ static void crawl_update(double dt) {
     float fdt = (float)dt;
     if (con_update(fdt)) return;                                   /* the console is down: the crypt waits, the music plays */
     if (RUN.active) comp_note(G.level);                            /* what is worn and known goes into the Compendium */
+    caster_sync();                                                 /* and the caster's own joins what is worn */
     G.msg_t = fmaxf(0.0f, G.msg_t - fdt); G.hint_t = fmaxf(0.0f, G.hint_t - fdt); G.knock_t = fmaxf(0.0f, G.knock_t - fdt);
     G.ui_t += fdt;
     update_toasts(fdt);
+    if (!(G.player && G.ui)) {                                     /* the experience shown: it waits with a menu */
+        for (int i = 0; i < XPF.n; i++) XPF.t[i] += fdt;
+        while (XPF.n > 0 && XPF.t[XPF.n - 1] > 3.0f) XPF.n--;
+        XPF.banner = fmaxf(0.0f, XPF.banner - fdt);
+    }
     if (G.player && G.ui && !G.shop) { update_ui(); return; }     /* a menu is up: the crypt holds its breath */
     if (G.player && (G.tally || G.dead) && IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
     if (G.player && G.dead && G.dcost && G.dcard_t > 0.8f && (IN.hit[KEY_E] || IN.hit[KEY_ENTER] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) G.dcard_done = 1;
@@ -7527,7 +7800,7 @@ static void crawl_update(double dt) {
         wisp_level = G.level;
     }
 #endif
-    if (!G.dead) { update_items(); update_abilities(fdt); ab_update(fdt); update_altar(); update_status(fdt); if (G.level_t > 1.0) update_defense(fdt); }
+    if (!G.dead) { map_note(); xp_rooms(); update_items(); update_abilities(fdt); ab_update(fdt); update_altar(); update_status(fdt); if (G.level_t > 1.0) update_defense(fdt); }
     update_boss(fdt);
     update_hazards(fdt);
     update_omens(fdt);
@@ -7535,6 +7808,7 @@ static void crawl_update(double dt) {
     G.hurt = fmaxf(0.0f, G.hurt - fdt / 0.35f);
     G.gold = fmaxf(0.0f, G.gold - fdt / 0.45f);
     G.chill = fmaxf(0.0f, G.chill - fdt / 0.6f);
+    G.wind_t = fmaxf(0.0f, G.wind_t - fdt);
     G.face_t = fmaxf(0.0f, G.face_t - fdt);
     G.grin_t = fmaxf(0.0f, G.grin_t - fdt);
     G.kick *= expf(-fdt * 9.0f);
@@ -7679,7 +7953,7 @@ static void gen_shop(void) {
     G.items_total = G.items_got = G.value_total = G.value_got = 0; G.nvaults = 0;
     G.nsecrets = G.secrets_found = G.nlinks = G.links_found = 0; G.slide = G.seek_secret = -1;
     for (int k = 0; k < NKEYS; k++) G.vault_room[k] = G.vault_door[k] = -1;
-    memset(G.bulky, 0, sizeof G.bulky); memset(G.fog, 0, sizeof G.fog);
+    memset(G.bulky, 0, sizeof G.bulky); memset(G.fog, 0, sizeof G.fog); memset(G.mapped, 0, sizeof G.mapped);
     for (int y = 12; y <= 17; y++) for (int x = 10; x <= 20; x++) carve(x, y, 0, TH_BRICK);
     G.rooms[G.nrooms++] = (Room){ 10, 12, 11, 6, 0, TH_BRICK };
     for (int x = SHOP_DOOR; x <= SHOP_DOOR + 5; x++) carve(x, 15, 1, TH_CORRIDOR);
@@ -8234,6 +8508,7 @@ static void update_shop(double dt) {
         if (st > 0.8f && st - fdt <= 0.8f) G.cat_slow = 1.4f;
         if (st >= 2.4f) {
             if (RUN.peds < NPED && RUN.treasure >= ped_price() + (int)gear_haul(G.level)) ped_buy();   /* another, if a level's haul is left after */
+            auto_ascend();
             G.shop_step = SH_LOOK; G.shop_look = 0; G.shop_t = 0.0; shop_turn(face_of(G.ped_x[0], G.ped_y[0]), 0.7f);
         }
         break;
@@ -8402,6 +8677,7 @@ static int visportal_use(void) {
     else { RUN.souls += 50; G.level_souls += 50; pop_readout(); say(sev ? "A CUP OF WATER. FIFTY SOULS" : "THE DOORWAYS GIVE YOU FIFTY SOULS"); }
     if (sev && G.vis_deco >= 0) G.decos[G.vis_deco].spr = SP_COOLER_LOW;
     gain_coin(PK.chain, "AT THE END OF A CHAIN");
+    xp_gain(60.0f * xp_level() * (float)imax(1, G_LEVEL.secrets[clampi(PK.chain, 0, MAXSECRETS - 1)].links), "THE TRIAL'S END");
     snd_sfx_ex(sev ? SFX_POTION : SFX_SHIMMER, 1.0f, 0.5f); snd_sfx_ex(sev ? SFX_DRIP : SFX_POTION, 0.7f, 0.5f);
     G.grab_t = 1.0f; show_bar();
 #ifdef CRAWL_DEBUG
@@ -8475,6 +8751,33 @@ static float human_move(float dx, float dy) {
 }
 
 /* what a cast would bite on: the nearest creature close to the middle of the view */
+/* The target's health (docs/PLAN-b9.md, section 2): the creature nearest the middle of the view, in sight
+ * and within twelve cells, stays the target a second and a half after you look away. Spirits count (their
+ * readout says nothing touches them); a boss has its own bar. */
+static int look_at(void) {
+    float dx = cosf(G.ang), dy = sinf(G.ang);
+    int best = -1; float bs = 1e9f;
+    for (int i = 0; i < MAXMOBS; i++) {
+        const Mob *m = &G.mobs[i];
+        int spirit = m->alive && m->state == MS_WALK && KIND_IS(m, KF_SPIRIT) && !m->boss && !m->ally;
+        if (!spirit && (!targetable(m) || m->boss)) continue;
+        if (m->type == MOB_SAC || m->small) continue;
+        float vx = m->x - G.px, vy = m->y - G.py, depth = vx * dx + vy * dy, lat = fabsf(-vx * dy + vy * dx);
+        if (depth < 0.3f || depth > 12.0f || lat > depth * 0.07f + 0.35f || !line_clear(G.px, G.py, m->x, m->y)) continue;
+        float sc = depth + lat * 6.0f;
+        if (sc < bs) { bs = sc; best = i; }
+    }
+    return best;
+}
+static void look_update(float dt) {
+    int i = look_at();
+    if (i >= 0) { G.look_mob = i; G.look_t = fmaxf(G.look_t, 1.5f); return; }
+    G.look_t = fmaxf(0.0f, G.look_t - dt);
+    const Mob *m = &G.mobs[clampi(G.look_mob, 0, MAXMOBS - 1)];
+    if (!m->alive || m->ally) G.look_t = 0.0f;
+    else if (m->state != MS_WALK) G.look_t = fminf(G.look_t, 0.6f);   /* fallen: the bar empties, and goes */
+}
+
 static int aim_target(void) {
     float dx = cosf(G.ang), dy = sinf(G.ang);
     int best = -1; float bs = 1e9f;
@@ -8583,6 +8886,12 @@ static void open_ui(int which) {
         snd_sfx_ex(SFX_WHISPER, 0.7f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.4f, 0.5f);
     }
     else if (which == UI_CODEX) { snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.3f, 0.5f); }
+    else if (which == UI_STONES) { G.cs_arm = -1; snd_sfx_ex(SFX_WHISPER, 0.4f, 0.5f); }
+    else if (which == UI_ASCEND) {
+        G.ui_sel = 0; G.asc_arm = -1; memset(G.asc_buy, 0, sizeof G.asc_buy); snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f);
+        for (int l = 0; l < NLINE; l++) if (RUN.over[l]) { snd_sfx_ex(SFX_WHISPER, 0.3f, 0.2f); break; }   /* the overlevelled: the dead murmur */
+    }
+    else if (which == UI_MAP) { G.map_cx = G.px; G.map_cy = G.py; G.map_hold = 0.0f; snd_sfx_ex(SFX_WHOOSH, 0.35f, 0.5f); snd_sfx_ex(SFX_CREAK, 0.2f, 0.5f); }
     else if (which == UI_REPO) { G.ui_sel = 0; G.rep_mode = 0; G.sh_note_t = 0.0f; snd_sfx_ex(SFX_UNLOCK, 0.6f, 0.5f); snd_sfx_ex(SFX_CREAK, 0.5f, 0.5f); }
     else if (which == UI_COMP) { G.ui_sel = 0; G.comp_arm = -1; G.sh_note_t = 0.0f; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.4f, 0.5f); }
     else if (which == UI_STONE) { G.ui_sel = 0; snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f); snd_sfx_ex(SFX_WIND, 0.4f, 0.5f); }
@@ -8687,11 +8996,16 @@ static void update_human(float dt) {
     if (getenv("CRAWL_FOLLOWWISP")) G.pilgrim = 2;                 /* testing: go the way the wisp went, to its end */
 #endif
     if (G.pilgrim) pilgrim_step(dt);
+    look_update(dt);
     spell_keys();
     if (IN.hit[KEY_TAB]) { open_ui(UI_INVENTORY); return; }
     if (IN.hit[KEY_B]) { open_ui(UI_BESTIARY); return; }
     if (IN.hit[KEY_C]) { open_ui(UI_CODEX); return; }
     if (IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
+    if (IN.hit[KEY_M]) {
+        if (RUN.has_map) { open_ui(UI_MAP); return; }
+        say("YOU HAVE NO MAP. THE MERCHANT SELLS ONE");
+    }
     if (IN.hit[KEY_L]) {
         if (RUN.wisp_auto) { G.l_down = 1; G.l_t = 0.0f; }
         else { open_ui(UI_WISPS); return; }
@@ -8729,6 +9043,7 @@ static void shop_human(float dt) {
     if (IN.hit[KEY_B]) { open_ui(UI_BESTIARY); return; }
     if (IN.hit[KEY_C]) { open_ui(UI_CODEX); return; }
     if (IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
+    if (IN.hit[KEY_M]) say(RUN.has_map ? "NOTHING HERE TO MAP" : "YOU HAVE NO MAP. SHE SELLS ONE");
     human_walk(dt);
     int was = G.shop_look;
     G.shop_look = -1;
@@ -8755,7 +9070,10 @@ static void shop_human(float dt) {
         if (d < 2.4f && fabsf(wrap_pi(atan2f(sy - G.py, sx - G.px) - G.ang)) < 0.25f + 0.3f / d
             && (G.stone_look < 0 || d < hypotf(STONE_AT[G.stone_look][0] + 0.5f - G.px, STONE_AT[G.stone_look][1] + 0.5f - G.py))) G.stone_look = k;
     }
-    G.mer_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0 && hypotf(G.px - CAT_X, G.py - CAT_Y) < 1.8f;
+    float mdx = MAP_X - G.px, mdy = MAP_Y - G.py, md = hypotf(mdx, mdy);   /* the map at her left, until it is yours */
+    G.map_look = !RUN.has_map && G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0
+                 && md < 2.6f && fabsf(wrap_pi(atan2f(mdy, mdx) - G.ang)) < 0.25f + 0.25f / fmaxf(md, 0.3f);
+    G.mer_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0 && !G.map_look && hypotf(G.px - CAT_X, G.py - CAT_Y) < 1.8f;
 #ifdef CRAWL_DEBUG
     if (G.shop_look != was) fprintf(stderr, "EVENT shop_look %d t=%.2f at (%.2f,%.2f) ang %.3f\n", G.shop_look, G.t, G.px, G.py, G.ang);
 #endif
@@ -8781,6 +9099,19 @@ static void shop_human(float dt) {
         else if (G.rep_look) { open_ui(UI_REPO); G.click_spent = IN.hit[KEY_MOUSE1]; }
         else if (G.por_look) { open_ui(UI_PORTAL); G.click_spent = IN.hit[KEY_MOUSE1]; }
         else if (G.stone_look >= 0) { G.stone_sel = G.stone_look; open_ui(UI_STONE); G.click_spent = IN.hit[KEY_MOUSE1]; }
+        else if (G.map_look) {
+            G.click_spent = IN.hit[KEY_MOUSE1];
+            if (RUN.treasure < MAP_PRICE) { say("YOU CAN'T AFFORD THAT"); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); }
+            else {
+                RUN.treasure -= MAP_PRICE; RUN.has_map = 1; G.map_look = 0; G.grab_t = 1.0f;
+                say(PADX.used ? "THE MAP IS YOURS: D-PAD UP OPENS IT" : "THE MAP IS YOURS: M OPENS IT");
+                snd_sfx_ex(SFX_COIN, 1.1f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.8f, 0.5f);
+                sfx_at(SFX_TRILL, CAT_X, CAT_Y, 1.2f); G.cat_trill = 0.5f; G.cat_slow = 1.4f; G.grin_t = 2.0f;
+#ifdef CRAWL_DEBUG
+                fprintf(stderr, "EVENT map_bought left %d t=%.2f\n", RUN.treasure, G.t);
+#endif
+            }
+        }
         else if (!human_use() && G.mer_look) { open_ui(UI_MERCHANT); G.click_spent = IN.hit[KEY_MOUSE1]; }   /* her menu: the ledger, a pat */
     }
     if (IN.hit[KEY_Q] && i >= 0) {                                 /* hold it for the next visit, for a quarter of its price */
@@ -8866,10 +9197,16 @@ static int inv_action(int r) {
     return gear_bag_free(&RUN.gear) ? INV_TO_BAG : INV_BAG_FULL;
 }
 
+static void update_stones_core(void);
 static void update_inventory(void) {
     spell_keys();
     if (IN.hit[KEY_TAB] || IN.hit[KEY_ESC]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
-    if (IN.hit[KEY_A] || IN.hit[KEY_LEFT] || IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) { G.inv_page ^= 1; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f); }
+    int lr = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
+    if (lr) {                                                      /* the wardrobe, the caster, the cornerstones */
+        G.inv_page = (G.inv_page + 3 + lr) % 3; G.cs_arm = -1; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f);
+        if (G.inv_page == 1) for (int l = 0; l < NLINE; l++) if (RUN.over[l]) { snd_sfx_ex(SFX_WHISPER, 0.3f, 0.2f); break; }
+    }
+    if (G.inv_page == 2) { update_stones_core(); return; }
     if (G.inv_page) return;
     int n = inv_rows();
     if (G.ui_sel >= n) G.ui_sel = n - 1;
@@ -9367,8 +9704,9 @@ static void pad_keys(float dt) {
     if (hit[PAD_LEFT]) PRESS(KEY_B);
     if (hit[PAD_RIGHT]) PRESS(KEY_C);
     if (hit[PAD_DOWN]) PRESS(KEY_H);
-    if (hit[PAD_Y] || hit[PAD_UP]) IN.hit[KEY_L] = 1;
-    if (dn[PAD_Y] || dn[PAD_UP]) IN.down[KEY_L] = 1;               /* held, for the list when L casts at a tap */
+    if (hit[PAD_Y]) IN.hit[KEY_L] = 1;
+    if (dn[PAD_Y]) IN.down[KEY_L] = 1;                             /* held, for the list when L casts at a tap */
+    if (hit[PAD_UP]) PRESS(KEY_M);                                 /* the map */
     if (dn[PAD_RT]) IN.down[KEY_MOUSE1] = 1;
     if (hit[PAD_RT]) IN.hit[KEY_MOUSE1] = 1;
     if (hit[PAD_LT]) PRESS(KEY_MOUSE2);
@@ -9382,7 +9720,7 @@ static void pad_keys(float dt) {
 #undef PRESS
 }
 
-static void crawl_input(const Input *in, double dt) { IN = *in; pad_keys((float)dt); }
+static void crawl_input(const Input *in, double dt) { IN = *in; IN_DT = dt; pad_keys((float)dt); }
 
 static void crawl_control(int what) {
     if (what == CTRL_PAUSE) {
@@ -9402,6 +9740,7 @@ static void crawl_control(int what) {
     snd_sfx_ex(SFX_RUNE, 1.0f, 0.5f); snd_sfx_ex(SFX_WHOOSH, 0.6f, 0.5f);
     say("THE CONTROLS ARE YOURS");
 #ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_XP")) RUN.xp += atoi(getenv("CRAWL_XP"));   /* testing: experience banked, not yet claimed */
     if (getenv("CRAWL_TPEXIT") && !G.shop && G.exit_fx >= 0) tp_exit();    /* testing: straight to the exit, facing it */
     if (getenv("CRAWL_TPSECRET") && !G.shop && G.nsecrets) tp_secret(atoi(getenv("CRAWL_TPSECRET")) % G.nsecrets);
     if (getenv("CRAWL_TPALTAR") && !G.shop) tp_altar();
@@ -9615,10 +9954,14 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
  * the bag's size and quality and its pieces. LG_PEDS: the pedestals bought (a byte). LG_COMP: the Corpus
  * Compendium, a count for each kind (bracer to bag) and quality, the pieces in that order, then each
  * spell's tier. LG_REPO: the Repository, its places (a byte), gold (u32) and coins (u16), then each place.
- * LG_CODEX: what the Codex knows, four u32 of bits: abilities, runes, runes at Exquisite, stats. */
+ * LG_CODEX: what the Codex knows, four u32 of bits: abilities, runes, runes at Exquisite, stats.
+ * LG_CASTER (1.0.0b9, docs/PLAN-b9.md): a byte of flags (1 the map), u16 the Level of Atonement, u32 the
+ * experience, u16 the points not spent, a u16 of steps bought in each line, a byte of overlevels chosen in each,
+ * a byte of cornerstones, a byte for Second Wind spent, u16 the run it last came back on. */
+#define LG_CASTER_BYTES (1 + 2 + 4 + 2 + NLINE * 2 + NLINE + 1 + 1 + 2)
 #define LEDGER_MAGIC 0x3147444Cu            /* "LDG1" */
 #define PROGRESS_MAGIC 0x31505648u          /* "HVP1": a progress that names the page to start from */
-enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX };
+enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX, LG_CASTER };
 enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
 #define LG_PAGE_BYTES 17
 #define LG_VISIT_BYTES (8 + NPED * (2 + OFFER_BYTES))
@@ -9702,6 +10045,19 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     q = c + 7;
     for (int i = 0; i < c[0]; i++, q += PIECE_BYTES) piece_pack(q, &RUN.repo[i]);
     p = section_end(c, q);
+    c = section_begin(p, LG_CASTER);
+    {
+        uint8_t *q = c;
+        *q++ = (uint8_t)(RUN.has_map ? 1 : 0);
+        put16(q, clampi(RUN.atone, 1, 65535)); q += 2;
+        put32(q, imax(0, RUN.xp)); q += 4;
+        put16(q, clampi(RUN.points, 0, 65535)); q += 2;
+        for (int l = 0; l < NLINE; l++, q += 2) put16(q, RUN.steps[l]);
+        for (int l = 0; l < NLINE; l++) *q++ = RUN.over[l];
+        *q++ = (uint8_t)RUN.corner; *q++ = (uint8_t)(RUN.wind_spent != 0);
+        put16(q, clampi(RUN.wind_run, 0, 65535)); q += 2;
+        p = section_end(c, q);
+    }
     c = section_begin(p, LG_CODEX);
     put32(c, (int32_t)RUN.cx_abil); put32(c + 4, (int32_t)RUN.cx_rune); put32(c + 8, (int32_t)RUN.cx_exq); put32(c + 12, (int32_t)RUN.cx_stat);
     p = section_end(c, c + 16);
@@ -9779,6 +10135,19 @@ static void run_unpack(const uint8_t *buf, int len) {
     if (c && k >= 16) {
         RUN.cx_abil = (uint32_t)get32(c) & ((1u << NABIL) - 2); RUN.cx_rune = (uint32_t)get32(c + 4) & ((1u << NDEF) - 1);
         RUN.cx_exq = (uint32_t)get32(c + 8) & ((1u << NDEF) - 1); RUN.cx_stat = (uint32_t)get32(c + 12) & ((1u << NSTAT) - 1);
+    }
+    c = page_section(buf, len, LG_CASTER, &k);
+    RUN.atone = 1;                                                 /* an older page: a fresh caster, and no map */
+    if (c && k >= LG_CASTER_BYTES) {
+        const uint8_t *q = c;
+        RUN.has_map = *q++ & 1;
+        RUN.atone = clampi(get16(q), 1, 9999); q += 2;
+        RUN.xp = imax(0, get32(q)); q += 4;
+        RUN.points = get16(q); q += 2;
+        for (int l = 0; l < NLINE; l++, q += 2) RUN.steps[l] = (uint16_t)get16(q);
+        for (int l = 0; l < NLINE; l++) RUN.over[l] = *q++;
+        RUN.corner = *q++; RUN.wind_spent = *q++ != 0;
+        RUN.wind_run = get16(q);
     }
     c = page_section(buf, len, LG_REPO, &k);
     RUN.repo_n = 2;
@@ -9998,6 +10367,7 @@ static void death_fall(void) {
     if (spells) LOST("%s%d SPELL%s", d > G.dlost ? ", " : "", spells, spells > 1 ? "S" : "");
     if (RUN.souls) LOST("%s%d SOULS", d > G.dlost ? ", " : "", RUN.souls);
     if (RUN.coins) LOST("%s%d COIN%s", d > G.dlost ? ", " : "", RUN.coins, RUN.coins > 1 ? "S" : "");
+    if (RUN.atone > 1) LOST("%sATONEMENT %d", d > G.dlost ? ", " : "", RUN.atone);
     #undef LOST
     if (d > G.dlost) snprintf(d, (size_t)left, " GONE WITH YOU"); else snprintf(G.dlost, sizeof G.dlost, "YOU HAD NOTHING TO LOSE");
 #ifdef CRAWL_DEBUG
@@ -10010,6 +10380,9 @@ static void death_fall(void) {
     memset(g->worn, 0, sizeof g->worn); memset(g->bag, 0, sizeof g->bag); g->bag_size = g->bag_quality = 0;
     g->bones = 0; g->has_held = 0; memset(&g->held, 0, sizeof g->held);
     memset(RUN.top_rank, 0, sizeof RUN.top_rank);                  /* the adds' ranks start again */
+    RUN.atone = 1; RUN.xp = 0; RUN.points = 0; RUN.corner = 0; RUN.wind_spent = 0;   /* the Level of Atonement and all it bought; */
+    memset(RUN.steps, 0, sizeof RUN.steps); memset(RUN.over, 0, sizeof RUN.over);       /* the map stays */
+    XPF.n = 0; XPF.banner = 0.0f;
     G.level_treasure = G.level_souls = 0;
     RUN.level = 1; RUN.shop_next = 1; RUN.hp = gear_max_hp(g);
     death_write();
@@ -10139,6 +10512,92 @@ static void update_ledger(void) {
 }
 
 /* her menu: the ledger, a pat, and leaving her be (another pedestal comes with the hall) */
+/* The cornerstones (the Player Abilities screen; docs/PLAN-b9.md, section 6): the five, those held, and the
+ * choices waiting, one at each tenth Level of Atonement. W/S look, Enter takes one (Enter again: it is yours
+ * until a death). From the caster's screen (Tab, back to it with Tab or Esc) and as Tab's third page. */
+static const char *const CS_NAME[NCS] = { "SECOND WIND", "PREMONITION", "CARTOGRAPHER", "LANTERN OF THE DEAD", "GRAVE SENSE" };
+static const char *const CS_DOES[NCS] = {
+    "WHEN A BLOW WOULD KILL YOU, YOU RISE AGAIN AT HALF YOUR HEALTH. ONCE A RUN OF TEN LEVELS; A CURSED COIN TO THE MERCHANT RESTORES IT SOONER.",
+    "A PURPLE ZONE ON THE FLOOR WARNS OF WHAT THE PLACE WILL DO BEFORE IT DOES IT: FALLING STONE, FIRE, BILE, THE VOID, WHERE AN EMBER WILL LAND.",
+    "YOUR MAP COMES DRAWN WHOLE, BUT FOR KEYS AND SECRETS. A LOCKED DOOR OR A SECRET SHOWS ON IT AS YOU PASS, SEEN OR NOT.",
+    "A FAINT LIGHT OF YOUR OWN, TWO CELLS ROUND YOU. SHADES SHOW IN IT, AND THE WRAITH KEEPS A CELL FURTHER OFF.",
+    "WHILE THE MAP IS OPEN, THE DEAD WITHIN TEN CELLS OF YOU SHOW ON IT AS RED MARKS." };
+static int cs_takeable(int c) {
+    if (RUN.corner >> c & 1 || corner_due() <= 0) return 0;
+    return c != CS_CARTO || RUN.has_map;                           /* the Cartographer needs a map to draw on */
+}
+static void corner_take(int c) {
+    RUN.corner |= 1 << c;
+    if (c == CS_WIND) { RUN.wind_spent = 0; RUN.wind_run = crawl_run(G.level); }
+    if (c == CS_CARTO && !G.shop) map_carto();
+    snd_sfx_ex(SFX_ATONE, 0.8f, 0.5f); snd_sfx_ex(SFX_RUNE, 0.6f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT cornerstone %s by %s t=%.2f\n", CS_NAME[c], G.player ? "player" : "autopilot", G.t);
+#endif
+}
+static void update_stones_core(void) {
+    int ud = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
+    if (ud) { G.cs_sel = (G.cs_sel + NCS + ud) % NCS; G.cs_arm = -1; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    int c = G.cs_sel = clampi(G.cs_sel, 0, NCS - 1);
+    if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) return;
+    if (!cs_takeable(c)) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+    if (G.cs_arm != c) { G.cs_arm = c; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }
+    G.cs_arm = -1;
+    corner_take(c);
+}
+static void update_stones(void) {
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_ASCEND; G.ui_sel = 0; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
+    update_stones_core();
+}
+
+/* Her offering for a Second Wind spent: a Cursed Coin */
+static void wind_offer(void) {
+    if (!wind_restorable()) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+    if (RUN.coins <= 0) { say("YOU HAVE NO CURSED COIN"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); return; }
+    RUN.coins--; RUN.wind_spent = 0;
+    snd_sfx_ex(SFX_COIN, 0.9f, 0.5f); snd_sfx_ex(SFX_WAIL, 0.4f, 0.5f); sfx_at(SFX_TRILL, CAT_X, CAT_Y, 1.0f); G.cat_slow = 1.4f;
+    say("YOUR SECOND WIND IS RESTORED");
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT wind_restored coins %d t=%.2f\n", RUN.coins, G.t);
+#endif
+}
+
+/* The caster's screen (docs/PLAN-b9.md, section 4): a row for each line points buy. W/S choose, D or Enter
+ * buys a step (a second press when it is at its cap: more is wasted), A or Backspace takes back a step bought
+ * since it opened, Tab the cornerstones, Esc leaves. */
+static void update_ascend(void) {
+    if (IN.hit[KEY_ESC]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
+    if (IN.hit[KEY_TAB]) { open_ui(UI_STONES); return; }
+    int ud = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
+    if (ud) { G.ui_sel = (G.ui_sel + NLINE + ud) % NLINE; G.asc_arm = -1; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    int l = G.ui_sel = clampi(G.ui_sel, 0, NLINE - 1);
+    if (IN.hit[KEY_SPACE] && over_due() > 0) {                     /* an overlevel: past the cap, five more (Luck one), asked twice */
+        if (l == LN_HEALTH || l == LN_RESIST) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        if (G.asc_arm != 100 + l) { G.asc_arm = 100 + l; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }
+        RUN.over[l]++; G.asc_arm = -1; caster_sync();
+        snd_sfx_ex(SFX_ATONE, 0.7f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.6f, 0.5f);
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT overlevel %s %d t=%.2f\n", LINES[l].name, RUN.over[l], G.t);
+#endif
+        return;
+    }
+    if (IN.hit[KEY_D] || IN.hit[KEY_RIGHT] || IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_MOUSE1]) {
+        if (RUN.points < LINES[l].cost) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        if (line_capped(l) && G.asc_arm != l) { G.asc_arm = l; snd_sfx_ex(SFX_KNOCK, 0.7f, 0.5f); return; }   /* its note warns; again buys */
+        line_buy(l); G.asc_buy[l]++;
+        snd_sfx_ex(SFX_TICK, 0.9f, 0.5f); snd_sfx_ex(SFX_RUNE, 0.35f, 0.5f);
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT line_buy %s step %d points %d t=%.2f\n", LINES[l].name, RUN.steps[l], RUN.points, G.t);
+#endif
+    }
+    if ((IN.hit[KEY_A] || IN.hit[KEY_LEFT] || IN.hit[KEY_BACK]) && G.asc_buy[l] > 0) {
+        G.asc_buy[l]--; RUN.steps[l]--; RUN.points += LINES[l].cost; G.asc_arm = -1;
+        caster_sync();
+        G.max_hp = gear_max_hp(&RUN.gear); G.hp = imin(G.hp, G.max_hp);
+        snd_sfx_ex(SFX_TICK, 0.6f, 0.5f);
+    }
+}
+
 static void update_merchantmenu(void) {
     if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; return; }
     int up = IN.hit[KEY_W] || IN.hit[KEY_UP], down = IN.hit[KEY_S] || IN.hit[KEY_DOWN];
@@ -10146,6 +10605,21 @@ static void update_merchantmenu(void) {
     G.ui_sel = clampi(G.ui_sel, 0, NMM - 1);
     if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) return;
     if (G.ui_sel == MM_SIGN) { open_ledger(0); return; }
+    if (G.ui_sel == MM_ASCEND) {
+        int n = ascend();
+        if (n > 0) {
+            snd_sfx_ex(SFX_ATONE, 1.0f, 0.5f); sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.8f); G.cat_trill = 0.6f; G.cat_slow = 1.6f;
+            say("LEVEL OF ATONEMENT %d", RUN.atone);
+        }
+        if (n > 0 || RUN.points > 0 || corner_due() > 0 || over_due() > 0) {
+            open_ui(UI_ASCEND);
+            if (corner_due() > 0) open_ui(UI_STONES);              /* a cornerstone to choose first; Tab or Esc goes on to the points */
+            return;
+        }
+        snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2);   /* its note says how far off it is */
+        return;
+    }
+    if (G.ui_sel == MM_WIND) { wind_offer(); return; }
     if (G.ui_sel == MM_PED) {
         if (RUN.peds >= NPED) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
         if (RUN.treasure < ped_price()) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); return; }
@@ -10569,9 +11043,11 @@ static void update_repomenu(void) {
  * and hazard does, each written in once you have worn, held, unlocked or met it; and a page on her claim,
  * there from the start. Kept through death, with the page. C opens it; the crypt waits. ---- */
 
-enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_CLAIM, NCX };
+enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_CASTER, CX_CLAIM, NCX };
+enum { CXC_ATONE, CXC_LUCK, CXC_OVER, CXC_CORNER };                /* the caster's own pages: then a cornerstone each, CXC_CORNER + CS_* */
 typedef struct { int sec, i; } CxEntry;
-static const char *const CX_PART[NCX] = { "AN ABILITY OF WHAT YOU WEAR", "A RUNE", "A BOSS'S GIFT", "A STAT A PIECE CAN ROLL", "A HAZARD", "THE MERCHANT'S LEDGER" };
+static const char *const CX_PART[NCX] = { "AN ABILITY OF WHAT YOU WEAR", "A RUNE", "A BOSS'S GIFT", "A STAT A PIECE CAN ROLL", "A HAZARD", "THE CASTER'S OWN",
+                                          "THE MERCHANT'S LEDGER" };
 static void codex_note(void) {                                     /* worn, held or met: written in */
     const Gear *g = &RUN.gear;
     uint32_t ab = RUN.cx_abil, st = RUN.cx_stat;
@@ -10595,13 +11071,17 @@ static int codex_entries(CxEntry *e) {
     for (int b = 0; b < NBOSS; b++) if (boss_beaten(b)) e[n++] = (CxEntry){ CX_BOSS, b };
     for (int t = 0; t < NSTAT; t++) if (RUN.cx_stat >> t & 1) e[n++] = (CxEntry){ CX_STAT, t };
     for (int h = 0; h < NHZ; h++) if (RUN.omens >> h & 1) e[n++] = (CxEntry){ CX_HAZ, h };
+    e[n++] = (CxEntry){ CX_CASTER, CXC_ATONE };
+    e[n++] = (CxEntry){ CX_CASTER, CXC_LUCK };
+    if (RUN.atone >= ATONE_TOP) e[n++] = (CxEntry){ CX_CASTER, CXC_OVER };
+    for (int c = 0; c < NCS; c++) if (RUN.corner >> c & 1) e[n++] = (CxEntry){ CX_CASTER, CXC_CORNER + c };
     e[n++] = (CxEntry){ CX_CLAIM, 0 };
     return n;
 }
 /* A/D a page, W/S the next part, C or Esc closes */
 static void update_codex(void) {
     if (IN.hit[KEY_C] || IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
-    CxEntry e[NABIL + NDEF + NBOSS + NSTAT + NHZ + 1];
+    CxEntry e[NABIL + NDEF + NBOSS + NSTAT + NHZ + 3 + NCS + 1];
     int n = codex_entries(e), lr = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
     int ud = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
     G.cx_page = clampi(G.cx_page, 0, n - 1);
@@ -10660,8 +11140,49 @@ static void update_portalmenu(void) {
     challenge_begin(p->boss);
 }
 
+/* The map open (docs/PLAN-b9.md, section 1): W/A/S/D or the arrows move it, a cell a tap and smoothly
+ * when held; the left mouse drags it and the left stick moves it; Space or Enter brings it back to you;
+ * M or Esc rolls it up. It never goes past what the level holds. */
+#define MAP_PX 5                            /* pixels a cell on the scroll */
+#define MAP_VX0 44
+#define MAP_VY0 24
+#define MAP_VW 232
+#define MAP_VH 150                          /* the part of the scroll the map is drawn in */
+static void map_clamp(void) {
+    int x0 = MAPN, y0 = MAPN, x1 = -1, y1 = -1;
+    for (int y = 0; y < MAPN; y++)
+        for (int x = 0; x < MAPN; x++)
+            if (G.map[y][x].kind != K_WALL) { x0 = imin(x0, x); y0 = imin(y0, y); x1 = imax(x1, x); y1 = imax(y1, y); }
+    if (x1 < 0) { G.map_cx = G.map_cy = MAPN * 0.5f; return; }
+    float hw = MAP_VW * 0.5f / MAP_PX, hh = MAP_VH * 0.5f / MAP_PX;
+    float ax = x0 - 1.0f, bx = x1 + 2.0f, ay = y0 - 1.0f, by = y1 + 2.0f;   /* a cell of stone round it */
+    G.map_cx = bx - ax <= 2.0f * hw ? (ax + bx) * 0.5f : clampf(G.map_cx, ax + hw, bx - hw);
+    G.map_cy = by - ay <= 2.0f * hh ? (ay + by) * 0.5f : clampf(G.map_cy, ay + hh, by - hh);
+}
+static void update_mapmenu(float dt) {
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_M] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; snd_sfx_ex(SFX_WHOOSH, 0.3f, 0.5f); return; }
+    if (IN.hit[KEY_SPACE] || IN.hit[KEY_ENTER] || IN.hit[KEY_E]) { G.map_cx = G.px; G.map_cy = G.py; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    float vx, vy;
+    if (IN.pad && IN.lx * IN.lx + IN.ly * IN.ly > 0.04f) { vx = IN.lx; vy = -IN.ly; }   /* the stick, as far as it leans */
+    else {
+        int hx = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
+        int hy = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
+        vx = (float)((IN.down[KEY_D] || IN.down[KEY_RIGHT]) - (IN.down[KEY_A] || IN.down[KEY_LEFT]));
+        vy = (float)((IN.down[KEY_S] || IN.down[KEY_DOWN]) - (IN.down[KEY_W] || IN.down[KEY_UP]));
+        if (hx || hy) { G.map_cx += (float)hx; G.map_cy += (float)hy; G.map_hold = 0.0f; }
+        if (vx != 0.0f || vy != 0.0f) G.map_hold += dt; else G.map_hold = 0.0f;
+        if (G.map_hold < 0.25f) vx = vy = 0.0f;
+    }
+    G.map_cx += vx * 14.0f * dt; G.map_cy += vy * 14.0f * dt;
+    if (IN.down[KEY_MOUSE1]) { G.map_cx -= IN.mdx * 0.03f; G.map_cy -= IN.mdy * 0.03f; }
+    map_clamp();
+}
+
 static void update_ui(void) {
     if (IN.hit[KEY_MOUSE1]) G.click_spent = 1;                    /* a click that closes a menu casts nothing */
+    if (G.ui == UI_MAP) { update_mapmenu((float)IN_DT); return; }
+    if (G.ui == UI_ASCEND) { update_ascend(); return; }
+    if (G.ui == UI_STONES) { update_stones(); return; }
     if (G.ui == UI_WISPS) { update_wispmenu(); return; }
     if (G.ui == UI_SHRINE) { update_shrinemenu(); return; }
     if (G.ui == UI_TOTEM) { update_totemmenu(); return; }
@@ -10802,7 +11323,8 @@ static void build_cracks(void) {
 
 /* where a ray meets the sliding block: distance, across its face, and which way the face looks */
 /* ---- the hazards, drawn: their marks on the floor, made each frame from G.haz ---- */
-enum { FM_NONE, FM_SHADOW, FM_CRACK, FM_FIRE, FM_EMBER, FM_SHEEN, FM_BILE, FM_VRING, FM_VOID, FM_ARC, FM_GRASP };
+enum { FM_NONE, FM_SHADOW, FM_CRACK, FM_FIRE, FM_EMBER, FM_SHEEN, FM_BILE, FM_VRING, FM_VOID, FM_ARC, FM_GRASP,
+       FM_OMEN, FM_OMEN_CELL, FM_OMEN_ARC };                    /* Premonition's zones: round, a cell's worth, a blade's fan */
 typedef struct { uint8_t kind, prio; float k, ax, ay, r, ang; } FMark;
 static FMark fmark[MAPN][MAPN];
 static void fm_put(int x, int y, int kind, int prio, float k, const Hazard *h) {
@@ -10810,13 +11332,52 @@ static void fm_put(int x, int y, int kind, int prio, float k, const Hazard *h) {
     FMark *m = &fmark[y][x];
     m->kind = (uint8_t)kind; m->prio = (uint8_t)prio; m->k = k; m->ax = h->x; m->ay = h->y; m->r = h->r; m->ang = h->ang;
 }
+static void fm_omen(int x, int y, int kind, float k, float ax, float ay, float r, float ang) {
+    if (x < 0 || y < 0 || x >= MAPN || y >= MAPN || fmark[y][x].prio > 1) return;
+    FMark *m = &fmark[y][x];
+    m->kind = (uint8_t)kind; m->prio = 1; m->k = k; m->ax = ax; m->ay = ay; m->r = r; m->ang = ang;
+}
+static void fm_omen_disc(float ax, float ay, float r) {
+    for (int y = (int)floorf(ay - r - 1.0f); y <= (int)floorf(ay + r + 1.0f); y++)
+        for (int x = (int)floorf(ax - r - 1.0f); x <= (int)floorf(ax + r + 1.0f); x++) fm_omen(x, y, FM_OMEN, 1.0f, ax, ay, r, 0.0f);
+}
+static int omen_marks(void) {                                      /* Premonition, besides the hazards: embers, bursts, the Litany */
+    if (!(RUN.corner >> CS_OMEN & 1) || G.shop) return 0;
+    int any = 0;
+    for (int i = 0; i < MAXBONES; i++) {                           /* where an ember will come down */
+        const Bone *b = &G.bones[i];
+        if (!b->alive || b->kind != MIS_EMBER) continue;
+        fm_omen_disc(b->x + b->vx * fmaxf(0.0f, b->life), b->y + b->vy * fmaxf(0.0f, b->life), 0.7f); any = 1;
+    }
+    for (int i = 0; i < MAXMOBS; i++) {                            /* a drowned one near its end: it bursts */
+        const Mob *m = &G.mobs[i];
+        if (!m->alive || m->state != MS_WALK || m->type != MOB_DROWNED || buried(m) || m->hp > 0.25f * m->maxhp) continue;
+        fm_omen_disc(m->x, m->y, 0.95f); any = 1;
+    }
+    if (G.boss == BOSS_DEACON && G.bpose == BP_LITANY && !PK.depth) {   /* the Litany reaches all he can see */
+        const Mob *k = boss_mob();
+        if (k && k->alive)
+            for (int y = imax(1, (int)k->y - 11); y <= imin(MAPN - 2, (int)k->y + 11); y++)
+                for (int x = imax(1, (int)k->x - 11); x <= imin(MAPN - 2, (int)k->x + 11); x++)
+                    if (G.map[y][x].kind == K_FLOOR && line_clear(k->x, k->y, x + 0.5f, y + 0.5f)) { fm_omen(x, y, FM_OMEN_CELL, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f); any = 1; }
+    }
+    return any;
+}
 static int hz_marks(void) {
     memset(fmark, 0, sizeof fmark);
-    if (PK.depth || G.shop) return 0;
-    int any = 0;
-    for (int i = 0; i < MAXHAZ; i++) {
+    if (G.shop) return 0;
+    int any = omen_marks();
+    for (int i = 0; i < MAXHAZ && !PK.depth; i++) {
         const Hazard *h = &G.haz[i];
         if (!h->alive) continue;
+        if (h->pre > 0.0f) {                                       /* Premonition's zone, before the hazard shows itself */
+            any = 1;
+            if (h->kind == HZ_FIRE || h->kind == HZ_BILE) { for (int c = 0; c < h->n; c++) fm_omen(h->cx[c], h->cy[c], FM_OMEN_CELL, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f); }
+            else for (int y = (int)floorf(h->y - h->r - 1.0f); y <= (int)floorf(h->y + h->r + 1.0f); y++)
+                for (int x = (int)floorf(h->x - h->r - 1.0f); x <= (int)floorf(h->x + h->r + 1.0f); x++)
+                    fm_omen(x, y, h->kind == HZ_ARC ? FM_OMEN_ARC : FM_OMEN, 1.0f, h->x, h->y, h->r, h->ang);
+            continue;
+        }
         int ph = hz_phase(h);
         float kw = clampf(h->t / h->warn, 0.0f, 1.0f), kf = h->off > 0.0f ? 1.0f - clampf((h->t - h->warn - h->on) / h->off, 0.0f, 1.0f) : 0.0f;
         int x0 = (int)floorf(h->x - h->r - 1.0f), x1 = (int)floorf(h->x + h->r + 1.0f), y0 = (int)floorf(h->y - h->r - 1.0f), y1 = (int)floorf(h->y + h->r + 1.0f);
@@ -10916,6 +11477,29 @@ static int fm_pixel(const FMark *m, float wx, float wy, float fx, float fy, int 
         if (fabsf(d - m->r) < 0.07f) return 0;
         if (d < m->r && b < (int)(k * 8.0f)) return 0;
         return -1;
+    case FM_OMEN: case FM_OMEN_CELL: case FM_OMEN_ARC: {          /* Premonition: a dashed purple edge, pulsing, and a faint haze */
+        uint8_t edge = (uint8_t)(R_PURPLE + clampi((int)(11.0f + 4.0f * sinf((float)G.t * 7.0f)), 0, 15));
+        int inside, on_edge;
+        if (m->kind == FM_OMEN_CELL) {                             /* only the edges with no marked cell beyond */
+            int cx = (int)floorf(wx), cy = (int)floorf(wy);
+            #define OM(xx, yy) ((xx) >= 0 && (yy) >= 0 && (xx) < MAPN && (yy) < MAPN && fmark[yy][xx].kind == FM_OMEN_CELL)
+            int dash = ((int)((fx + fy) * 8.0f + (float)G.t * 3.0f) & 1);
+            on_edge = dash && ((fx < 0.07f && !OM(cx - 1, cy)) || (fx > 0.93f && !OM(cx + 1, cy)) || (fy < 0.07f && !OM(cx, cy - 1)) || (fy > 0.93f && !OM(cx, cy + 1)));
+            #undef OM
+            inside = 1;
+        } else if (m->kind == FM_OMEN_ARC) {
+            float a = fabsf(wrap_pi(atan2f(wy - m->ay, wx - m->ax) - m->ang));
+            inside = d <= m->r && a <= 0.8f && d > 0.2f;
+            on_edge = inside && (fabsf(d - m->r) < 0.06f || fabsf(a - 0.8f) * d < 0.05f) && ((int)(d * 10.0f) & 1);
+        } else {
+            float a = atan2f(wy - m->ay, wx - m->ax);
+            inside = d < m->r;
+            on_edge = fabsf(d - m->r) < 0.05f && ((int)(a * 7.0f + (float)G.t * 2.0f) & 1);   /* dashed, turning slowly */
+        }
+        if (on_edge) return edge;
+        if (inside && b < (k < 0.75f ? 1 : 2)) return R_PURPLE + 7;
+        return -1;
+    }
     }
     return -1;
 }
@@ -11541,6 +12125,11 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         int n0 = n;
         ADD(CAT_X, CAT_Y, 0.0f, SP_PEDESTAL, 0);
         if (n > n0) { list[n - 1].scale = CAT_S; list[n - 1].flags = DR_CAT; }
+        if (!RUN.has_map) {                                        /* the map, floating at her left until it is yours */
+            n0 = n;
+            ADD(MAP_X, MAP_Y, 0.42f + 0.04f * sinf((float)G.t * 1.6f), SP_MAPWARE, 0);
+            if (n > n0) { float u = (float)G.t * 0.4f; u -= floorf(u); list[n - 1].scale = 0.5f; list[n - 1].twinkle = u < 0.1f ? sinf(u / 0.1f * PI_F) : 0.0f; }
+        }
         for (int i = 0; i < G.ped_n; i++) {
             if (G.offer_gone[i]) continue;
             const Offer *o = &G.offers[i];
@@ -11782,6 +12371,17 @@ static void render_shop_tags(Frame *f, float dx, float dy, float horizon) {
         const char *over = G.shop_held == i || G.offer_back[i] ? "HELD" : (o->rare && ((int)(G.t * 3.0) & 1) ? "RARE" : NULL);
         if (over) { int rw = gfx_text_width(over, 1); gfx_text8(f, x - rw / 2 + 1, ty - 9, over, 0, 1); gfx_text8(f, x - rw / 2, ty - 10, over, over[0] == 'H' ? (uint8_t)(R_GLOW + 12) : (uint8_t)C_WHITE, 1); }
     }
+    float sx, sy, dep;                                             /* the map's price, over it */
+    if (!RUN.has_map && project(MAP_X, MAP_Y, 0.95f, dx, dy, horizon, &sx, &sy, &dep) && sx >= 0 && sx < W && dep < zbuf[(int)sx] + 0.3f && dep < 6.0f) {
+        char tag[16];
+        snprintf(tag, sizeof tag, "$%d", MAP_PRICE);
+        int w = gfx_text_width(tag, 1), tx = (int)sx - w / 2, ty = (int)sy - 10, hit = 0;
+        for (int k = 0; k < nb; k++) hit |= tx < box[k][2] + 3 && tx + w + 3 > box[k][0] && ty - 10 < box[k][3] && ty + 9 > box[k][1];
+        if (!hit && ty >= 0 && ty <= H - 60) {
+            gfx_text8(f, tx + 1, ty + 1, tag, 0, 1);
+            gfx_text8(f, tx, ty, tag, MAP_PRICE <= RUN.treasure ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_BLOOD + 11), 1);
+        }
+    }
 }
 
 /* The caster's face, Wolfenstein style: bloodier as health runs out, glancing about, flinching
@@ -11841,7 +12441,15 @@ static void render_statusbar(Frame *f) {
     int y0 = H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f);   /* it slides down out of sight */
     if (y0 >= H) return;
     gfx_rect(f, 0, y0, W, 44, R_IRON + 4);
-    for (int x = 0; x < W; x++) { gfx_px(f, x, y0, R_IRON + 9); gfx_px(f, x, y0 + 1, R_IRON + 6); }
+    {                                                              /* its top edge: the experience towards the next level, gold when one waits */
+        int reach = atone_reach(), lo = atone_need(reach), hi = atone_need(reach + 1), waits = reach > RUN.atone;
+        int fill = hi > lo ? (int)((float)(RUN.xp - lo) / (float)(hi - lo) * W) : 0;
+        for (int x = 0; x < W; x++) {
+            int in = x < fill;
+            gfx_px(f, x, y0, in ? (uint8_t)(waits ? R_GOLD + 11 : R_PURPLE + 12) : (uint8_t)(R_IRON + 9));
+            gfx_px(f, x, y0 + 1, in ? (uint8_t)(waits ? R_GOLD + 6 : R_PURPLE + 7) : (uint8_t)(R_IRON + 6));
+        }
+    }
     char num[24];
     struct { int x, w; const char *label; } P[5] = { { 4, 40, "LEVEL" }, { 48, 56, "GOLD" }, { 108, 50, "HEALTH" }, { 206, 42, "SOULS" }, { 252, 48, "SPELL" } };
     for (int i = 0; i < 5; i++) {
@@ -11970,6 +12578,20 @@ static void render_shop_card(Frame *f) {
         if (gfx_text_width(l2, 1) > bw - 16) snprintf(l2, sizeof l2, "TAKEN ON LEVEL %d", st->level);
         gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
         hint8(f, bx + 8, y0 + 31, "E: READ IT", R_STONE + 10);
+        return;
+    }
+    if (G.player && G.map_look && i < 0) {                         /* the map, and what it does */
+        int bw = 264, bx = (W - bw) / 2, ph = 42;
+        y0 = H - 44 - 4 - ph;
+        gfx_rect(f, bx, y0, bw, ph, 0);
+        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
+        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        gfx_text16(f, bx + 8, y0 + 4, "A MAP OF THE CRYPT", R_BONE + 13, 1);
+        char pr[16];
+        snprintf(pr, sizeof pr, "$%d", MAP_PRICE);
+        gfx_text16(f, bx + bw - 8 - gfx_text_width(pr, 1), y0 + 4, pr, MAP_PRICE <= RUN.treasure ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_BLOOD + 11), 1);
+        gfx_text8(f, bx + 8, y0 + 21, "IT FILLS IN AS YOU WALK", R_STONE + 12, 1);
+        hint8(f, bx + 8, y0 + 31, "E BUYS IT. IT OUTLASTS DEATH", R_STONE + 10);
         return;
     }
     if (G.player && G.mer_look && i < 0) {                         /* the merchant, and what E does with her */
@@ -12529,14 +13151,14 @@ static void render_tally(Frame *f) {
     char name[48];
     level_name(G.level, name, sizeof name);
     card_text(f, 64, name, R_FLAME + 9);
-    static const char *LABEL[TALLY_ROWS] = { "TIME", "KILLS", "TREASURE", "SOULS", "SECRETS", "BOSS" };
-    int totals[TALLY_ROWS] = { 0, G.kills_total, G.items_total, 0, G.nlinks, 0 }, nr = tally_rows();
+    static const char *LABEL[TALLY_ROWS] = { "TIME", "KILLS", "TREASURE", "SOULS", "SECRETS", "EXPERIENCE", "BOSS" };
+    int totals[TALLY_ROWS] = { 0, G.kills_total, G.items_total, 0, G.nlinks, 0, 0 }, nr = tally_rows();
     for (int r = 0; r < nr; r++) {
         if (t < TALLY_ROW0 + r * TALLY_ROW_GAP - 0.3f) continue;
-        int y = nr > 5 ? 80 + r * 14 : 82 + r * 16, v = G.tally_shown[r];
-        gfx_text16(f, 52, y, LABEL[r], C_WHITE, 1);
-        if (r == 0 || r == 5) snprintf(line, sizeof line, "%d:%02d", v / 60, v % 60);
-        else if (r == 3) snprintf(line, sizeof line, "+%d", v);
+        int y = nr > 6 ? 74 + r * 13 : 80 + r * 14, v = G.tally_shown[r];
+        gfx_text16(f, 52, y, LABEL[r], r == 5 ? (uint8_t)(R_PURPLE + 13) : (uint8_t)C_WHITE, 1);
+        if (r == 0 || r == 6) snprintf(line, sizeof line, "%d:%02d", v / 60, v % 60);
+        else if (r == 3 || r == 5) snprintf(line, sizeof line, "+%d", v);
         else snprintf(line, sizeof line, "%d / %d", v, totals[r]);
         int done = t >= TALLY_ROW0 + r * TALLY_ROW_GAP + TALLY_COUNT, x0 = 52 + gfx_text_width(LABEL[r], 1) + 6;
         gfx_text16(f, 268 - gfx_text_width(line, 1), y, line, done ? R_GOLD + 12 : R_GOLD + 8, 1);
@@ -12706,10 +13328,13 @@ static void tint(Frame *f) {
 }
 
 /* a line of news at the top of the view, and the first-time hints */
+static int target_shown(void);
+static int target_y(void);
 static void render_messages(Frame *f) {
     if (G.msg_t > 0.0f && G.msg[0] && !(G.player && G.ui)) {
         if (G.msg_t > 0.3f || ((int)(G.msg_t * 20.0f) & 1)) {
             int w = gfx_text_width(G.msg, 1), x = (W - w) / 2, y = toast_showing() ? 50 : (boss_fighting() ? 34 : 14);   /* below a pop-up, or a boss's bar */
+            if (target_shown()) y = imax(y, target_y() + 26);         /* or what you are looking at */
             gfx_rect(f, x - 5, y, w + 10, 14, 0);
             gfx_text8(f, x, y + 3, G.msg, R_GOLD + 11, 1);
         }
@@ -12719,9 +13344,10 @@ static void render_messages(Frame *f) {
                                              "L WISPS  C THE CODEX  H THE STATUS BAR" };
         static const char *const PADHINT[4] = { "L-STICK WALK  R-STICK TURN  RT CASTS", "LB RB SPELLS  \1A OPENS  VIEW INVENTORY",
                                                 "MENU LEAVE OR SLEEPWALK  \1Y WISPS", "D-PAD: BESTIARY, CODEX, STATUS BAR" };
-        const char *more[2] = { RUN.abil[BOSS_KNIGHT] ? (PADX.used ? "\1B DODGES THE WAY THE STICK LEANS" : "TAP A DIRECTION TWICE TO DODGE") : NULL,
-                                ab_readied() >= 0 ? (PADX.used ? "LT AN ABILITY  \1X THE NEXT" : "RIGHT CLICK AN ABILITY  Q THE NEXT") : NULL };
-        for (int i = 0, row = 0; i < 6; i++) {
+        const char *more[3] = { RUN.abil[BOSS_KNIGHT] ? (PADX.used ? "\1B DODGES THE WAY THE STICK LEANS" : "TAP A DIRECTION TWICE TO DODGE") : NULL,
+                                ab_readied() >= 0 ? (PADX.used ? "LT AN ABILITY  \1X THE NEXT" : "RIGHT CLICK AN ABILITY  Q THE NEXT") : NULL,
+                                RUN.has_map ? (PADX.used ? "D-PAD UP THE MAP" : "M THE MAP") : NULL };
+        for (int i = 0, row = 0; i < 7; i++) {
             const char *h = i < 4 ? (PADX.used ? PADHINT[i] : HINT[i]) : more[i - 4];
             if (!h) continue;
             int w = hint_width(h), x = (W - w) / 2, y = 34 + row++ * 11;
@@ -12742,6 +13368,10 @@ static void panel(Frame *f, int x, int y, int w, int h) {
     for (int i = 0; i < h; i++) { gfx_px(f, x, y + i, R_STONE + 11); gfx_px(f, x + w - 1, y + i, R_STONE + 6); if (i >= 2 && i < h - 2) { gfx_px(f, x + 2, y + i, R_STONE + 6); gfx_px(f, x + w - 3, y + i, R_STONE + 4); } }
 }
 
+static int stat_over(int st);
+static void eerie_text(Frame *f, int x, int y, const char *s);
+static void eerie_eye(Frame *f, int x, int y);
+
 /* the caster's total of a stat, in its units: health as the whole of it */
 static void total_text(const Gear *g, int st, char *buf, int n) {
     float t = gear_total(g, st);
@@ -12749,6 +13379,7 @@ static void total_text(const Gear *g, int st, char *buf, int n) {
     else if (st == ST_ARMOR) snprintf(buf, (size_t)n, "%.0f", t);
     else if (st == ST_REGEN) snprintf(buf, (size_t)n, "%.2f/S", t);
     else if (st == ST_THRIFT && t >= 0.5f) snprintf(buf, (size_t)n, "-%.0f%%", t);
+    else if (st == ST_LUCK) snprintf(buf, (size_t)n, "%.1f%%", t);
     else snprintf(buf, (size_t)n, "%.0f%%", t);
 }
 
@@ -12814,13 +13445,18 @@ static void render_letgo(Frame *f) {
 static void render_caster(Frame *f) {
     static const char *const SHORT[NSTAT] = { "ARMOR", "DODGE", "HEALTH", "RESTORES", "POISON WARD", "BURN WARD", "SLOW WARD",
                                               "MOVEMENT", "QUIET", "SPELL HASTE", "SPIRIT COST", "DAMAGE", "FIRE", "FROST",
-                                              "LIGHTNING", "EFFECT" };
+                                              "LIGHTNING", "EFFECT", "TREASURE", "LUCK" };
     const Gear *g = &RUN.gear, *g0 = &G.inv0;
     gfx_text16(f, 14, 9, "THE CASTER", R_GOLD + 12, 1);
+    {
+        char at[24];
+        snprintf(at, sizeof at, "ATONEMENT %d", RUN.atone);
+        gfx_text8(f, 14 + gfx_text_width("THE CASTER", 1) + 10, 13, at, R_PURPLE + 13, 1);
+    }
     hint8(f, 14, 26, "A/D PAGE  TAB CLOSE", R_STONE + 9);
     {                                                              /* the Cursed Coins, for the shrine */
         char cc[24];
-        snprintf(cc, sizeof cc, "%d CURSED COIN%s", RUN.coins, RUN.coins == 1 ? "" : "S");
+        snprintf(cc, sizeof cc, "%d COIN%s", RUN.coins, RUN.coins == 1 ? "" : "S");
         int cw = gfx_text_width(cc, 1);
         draw_coin(f, W - 10 - cw - 10, 12);
         gfx_text8(f, W - 10 - cw, 12, cc, RUN.coins ? (uint8_t)(R_GOLD + 10) : (uint8_t)(R_STONE + 8), 1);
@@ -12828,20 +13464,21 @@ static void render_caster(Frame *f) {
     char v[24], extra[16];
     int capped = 0;
     for (int st = 0; st < NSTAT; st++) {
-        int x = st < 8 ? 14 : 162, y = 40 + (st % 8) * 9, w = st < 8 ? 140 : 144;
+        int x = st < 9 ? 14 : 162, y = 38 + (st % 9) * 9, w = st < 9 ? 140 : 144;
         float t = gear_total(g, st), t0 = gear_total(g0, st), add = 0.0f;
-        if (st == ST_MOVE || st == ST_THRIFT) add = t - fminf(gear_total_raw(g, st), t);   /* Swiftness, Arcane Knowledge */
+        if (st == ST_MOVE || st == ST_THRIFT) add = fminf(gear_total_raw(g, st) * (gear_ability(g, st == ST_MOVE ? AB_SWIFT : AB_ARCANE, 0) / 100.0f), t);   /* Swiftness, Arcane Knowledge */
         total_text(g, st, v, sizeof v);
         int c = t > t0 + 1e-3f ? R_MOSS + 13 : (t < t0 - 1e-3f ? R_BLOOD + 13 : (t > 0.0f ? R_STONE + 13 : R_STONE + 7));
         if (gear_capped(g, st)) { c = t < t0 - 1e-3f ? c : R_GLOW + 12; capped = 1; }   /* at its cap */
         gfx_text8(f, x, y, SHORT[st], t > 0.0f ? (uint8_t)(R_STONE + 11) : (uint8_t)(R_STONE + 7), 1);
         int vw = gfx_text_width(v, 1);
+        if (stat_over(st) > 0) { eerie_text(f, x + w - vw, y, v); eerie_eye(f, x + w - vw - 11, y + 1); continue; }   /* overlevelled */
         gfx_text8(f, x + w - vw, y, v, c, 1);
         if (add >= 0.5f) { snprintf(extra, sizeof extra, "+%.0f", add); gfx_text8(f, x + w - vw - 4 - gfx_text_width(extra, 1), y, extra, R_GOLD + 11, 1); }
     }
     if (capped) gfx_text8(f, W - 10 - gfx_text_width("BLUE: AT ITS CAP", 1), 26, "BLUE: AT ITS CAP", R_GLOW + 12, 1);
     /* the abilities, summed and capped */
-    int n = 0, y = 117;
+    int n = 0, y = 121;
     for (int ab = 1; ab < NABIL; ab++) {
         float a = gear_ability(g, ab, 0), b = gear_ability(g, ab, 1);
         if (a <= 0.0f) continue;
@@ -12893,9 +13530,11 @@ static void render_caster(Frame *f) {
 }
 
 /* Tab: what you wear and the bag (Enter moves between them) and the selected piece; A/D turns the page */
+static void render_stones(Frame *f, int tabbed);
 static void render_inventory(Frame *f) {
     dim_view(f);
     panel(f, 4, 4, W - 8, H - 8);
+    if (G.inv_page == 2) { render_stones(f, 1); return; }
     if (G.inv_page) { render_caster(f); return; }
     gfx_text16(f, 14, 9, "WARDROBE", R_GOLD + 12, 1);
     hint8(f, 14, 26, "W/S PICK  ENTER MOVE  A/D PAGE", R_STONE + 9);
@@ -13057,10 +13696,10 @@ static void render_ledger(Frame *f) {
 
 /* E at the merchant: her menu, and a note on the row chosen */
 static void render_merchantmenu(Frame *f) {
-    static const char *const ROW[NMM] = { "SIGN THE LEDGER", "ANOTHER PEDESTAL", "PAT HER", "LEAVE" };
+    static const char *const ROW[NMM] = { "SIGN THE LEDGER", "ASCEND", "ANOTHER PEDESTAL", "OFFER A COIN", "PAT HER", "LEAVE" };
     int sel = clampi(G.ui_sel, 0, NMM - 1);
     dim_view(f);
-    int pw = 296, ph = 142, px = (W - pw) / 2, py = 22;
+    int pw = 296, ph = 142 + (NMM - 4) * 13, px = (W - pw) / 2, py = 14;
     panel(f, px, py, pw, ph);
     gfx_text16(f, px + 10, py + 6, "THE MERCHANT", R_GOLD + 12, 1);
     char line[160];
@@ -13070,7 +13709,17 @@ static void render_merchantmenu(Frame *f) {
     for (int i = 0; i < NMM; i++) {
         int y = py + 40 + i * 13;
         if (i == sel) gfx_rect(f, px + 6, y - 3, pw - 12, 13, R_IRON + 3);
-        gfx_text8(f, px + 14, y, ROW[i], i == MM_PED && RUN.peds >= NPED ? (uint8_t)(R_STONE + 8) : (i == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12)), 1);
+        int off = (i == MM_PED && RUN.peds >= NPED) || (i == MM_WIND && !wind_restorable()) || (i == MM_ASCEND && !ascend_open());
+        gfx_text8(f, px + 14, y, ROW[i], off ? (uint8_t)(R_STONE + 8) : (i == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12)), 1);
+        if (i == MM_ASCEND) {                                      /* how far it goes, or the points still to spend */
+            char ar[24];
+            int to = atone_reach();
+            if (to > RUN.atone) snprintf(ar, sizeof ar, "TO %d", to);
+            else if (RUN.points > 0) snprintf(ar, sizeof ar, "%d POINTS", RUN.points);
+            else snprintf(ar, sizeof ar, "%d", RUN.atone);
+            gfx_text8(f, px + pw - 12 - gfx_text_width(ar, 1), y, ar, to > RUN.atone || RUN.points > 0 ? (uint8_t)(R_PURPLE + 13) : (uint8_t)(R_STONE + 8), 1);
+        }
+        if (i == MM_WIND && wind_restorable()) gfx_text8(f, px + pw - 12 - gfx_text_width("1 COIN", 1), y, "1 COIN", RUN.coins > 0 ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_BLOOD + 13), 1);
         if (i == MM_PED && RUN.peds < NPED) {                       /* its price, red if it is beyond you */
             char pr[16];
             snprintf(pr, sizeof pr, "$%d", ped_price());
@@ -13082,6 +13731,13 @@ static void render_merchantmenu(Frame *f) {
     if (sel == MM_SIGN && CON.used) snprintf(line, sizeof line, "THE DEAD TOOK NOTE. SHE WILL SIGN NOTHING WHILE THIS LASTS.");
     else if (sel == MM_SIGN && LEDGER.page) snprintf(line, sizeof line, "SHE KEEPS YOUR RUN AS IT STANDS, ON A PAGE OF YOUR CHOOSING. YOU CAME FROM PAGE %s.", RUN_ROMAN[LEDGER.page - 1]);
     else if (sel == MM_SIGN) snprintf(line, sizeof line, "SHE KEEPS YOUR RUN AS IT STANDS, ON A PAGE OF YOUR CHOOSING. THIS RUN IS UNSIGNED: FLEE NOW AND IT IS LOST.");
+    else if (sel == MM_ASCEND && atone_reach() > RUN.atone)
+        snprintf(line, sizeof line, "WHAT YOU HAVE DONE BUYS LEVEL OF ATONEMENT %d: TEN POINTS A LEVEL, TO SPEND AS YOU WILL. A DEATH TAKES IT ALL.", atone_reach());
+    else if (sel == MM_ASCEND && (RUN.points > 0 || corner_due() > 0 || over_due() > 0)) snprintf(line, sizeof line, "LEVEL OF ATONEMENT %d. %d POINTS STILL TO SPEND.", RUN.atone, RUN.points);
+    else if (sel == MM_ASCEND) snprintf(line, sizeof line, "LEVEL OF ATONEMENT %d. %d MORE EXPERIENCE FOR THE NEXT.", RUN.atone, atone_need(RUN.atone + 1) - RUN.xp);
+    else if (sel == MM_WIND && wind_restorable()) snprintf(line, sizeof line, "YOUR SECOND WIND IS SPENT. A CURSED COIN AND IT IS YOURS AGAIN.");
+    else if (sel == MM_WIND && (RUN.corner >> CS_WIND & 1)) snprintf(line, sizeof line, "YOUR SECOND WIND IS WAITING. SHE WANTS NOTHING FOR IT YET.");
+    else if (sel == MM_WIND) snprintf(line, sizeof line, "SHE TAKES A CURSED COIN TO RESTORE A SECOND WIND, ONCE YOU HAVE ONE.");
     else if (sel == MM_PED && RUN.peds >= NPED) snprintf(line, sizeof line, "ALL SEVEN STAND. SHE HAS NO MORE TO SET OUT.");
     else if (sel == MM_PED) snprintf(line, sizeof line, "A %s PEDESTAL, AND A WARE ON IT FROM NOW ON, EVERY VISIT. KEPT THROUGH DEATH.",
                                      RUN.peds == 2 ? "THIRD" : RUN.peds == 3 ? "FOURTH" : RUN.peds == 4 ? "FIFTH" : RUN.peds == 5 ? "SIXTH" : "SEVENTH");
@@ -13738,7 +14394,8 @@ static void render_codex(Frame *f) {
         "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS FIRE, AS MUCH AS FIRE BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
         "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS FROST, AS MUCH AS FROST BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
         "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS LIGHTNING, AS MUCH AS LIGHTNING BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
-        "SOUL DRAIN'S HEALING, FROST'S SLOW, HELLFIRE'S BURNING FLOOR AND EVERY RUNE, STRONGER." };
+        "SOUL DRAIN'S HEALING, FROST'S SLOW, HELLFIRE'S BURNING FLOOR AND EVERY RUNE, STRONGER.",
+        "MORE FOR EVERY GOLD PIECE YOU PICK UP.", "THE CHANCE THAT WHAT YOU SLAY DROPS GOLD OF ITS RANK, AND NOW AND THEN SOMETHING MORE." };
     static const char *const HZ_NAME[NHZ] = { "THE KNIGHT'S ROCKFALL", "THE DEACON'S HELLRENT", "THE CISTERN'S BILE", "THE VOID", "THE SUNDERING ARC", "THE GRASPING DARK" };
     static const char *const HZ_DOES[NHZ] = {
         "THE CEILING GROANS AND A SHADOW GROWS ON THE FLOOR, THEN STONE FALLS THERE. IT HURTS ONCE, AND NEVER BLOCKS THE WAY.",
@@ -13748,7 +14405,7 @@ static void render_codex(Frame *f) {
         "THE KNIGHT RAISES ITS SWORD, AND ITS SWEEP CUTS ALL BEFORE IT IN AN ARC.",
         "THE FLOOR DARKENS, THEN HANDS OF THE DARK RISE THERE. THEY STRIKE AND HOLD." };
     static const int HZ_BOSS[NHZ] = { BOSS_KNIGHT, BOSS_DEACON, BOSS_SPIDER, BOSS_WRAITH, BOSS_KNIGHT, BOSS_WRAITH };
-    CxEntry e[NABIL + NDEF + NBOSS + NSTAT + NHZ + 1];
+    CxEntry e[NABIL + NDEF + NBOSS + NSTAT + NHZ + 3 + NCS + 1];
     int n = codex_entries(e), pg = clampi(G.cx_page, 0, n - 1);
     const CxEntry *c = &e[pg];
     dim_view(f);
@@ -13763,6 +14420,8 @@ static void render_codex(Frame *f) {
     case CX_BOSS: snprintf(name, sizeof name, "%s", BA_NAME[c->i]); break;
     case CX_STAT: snprintf(name, sizeof name, "%s", STAT_NAME[c->i]); break;
     case CX_HAZ: snprintf(name, sizeof name, "%s", HZ_NAME[c->i]); break;
+    case CX_CASTER: snprintf(name, sizeof name, "%s", c->i == CXC_ATONE ? "LEVELS OF ATONEMENT" : c->i == CXC_LUCK ? "LUCK" : c->i == CXC_OVER ? "OVERLEVELS"
+                                                    : CS_NAME[clampi(c->i - CXC_CORNER, 0, NCS - 1)]); break;
     default: snprintf(name, sizeof name, "HER CLAIM"); break;
     }
     gfx_text16(f, 14, 21, name, R_GOLD + 12, 1);
@@ -13848,8 +14507,39 @@ static void render_codex(Frame *f) {
         y += text_wrap(f, 14, y, line, 36, R_BONE + 11, 2) * 9 + 4;
         char t[24];
         total_text(g, st, t, sizeof t);
-        snprintf(line, sizeof line, "YOUR TOTAL: %s%s", t, gear_capped(g, st) ? ", AT ITS CAP" : "");
-        gfx_text8(f, 14, y, line, gear_total(g, st) > 0.0f ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 9), 1);
+        snprintf(line, sizeof line, "YOUR TOTAL: %s%s", t, stat_over(st) > 0 ? ", PAST ITS CAP" : gear_capped(g, st) ? ", AT ITS CAP" : "");
+        if (stat_over(st) > 0) { eerie_text(f, 14, y, line); eerie_eye(f, 14 + gfx_text_width(line, 1) + 4, y + 1); }
+        else gfx_text8(f, 14, y, line, gear_total(g, st) > 0.0f ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 9), 1);
+        break;
+    }
+    case CX_CASTER: {
+        char a[16], b[16];
+        if (c->i == CXC_ATONE) {
+            y += text_wrap(f, 14, y, "WHAT YOU SLAY, THE SECRETS YOU FIND, THE TRIALS YOU END, A BOSS, A LEVEL CLEARED AND EACH ROOM FIRST ENTERED "
+                           "ALL COUNT AS EXPERIENCE. THE MERCHANT TURNS IT INTO LEVELS OF ATONEMENT, TEN POINTS EACH TO THE FIFTIETH, "
+                           "TO SPEND ON WHAT YOU ARE: ADDED TO WHAT YOU WEAR, UNDER THE SAME CAPS. A DEATH TAKES IT ALL.", 36, R_STONE + 13, 9) * 9 + 4;
+            commas(RUN.xp, a, sizeof a); commas(atone_need(RUN.atone + 1), b, sizeof b);
+            snprintf(line, sizeof line, "YOURS: %d, %d POINTS. EXPERIENCE %s, THE NEXT AT %s", RUN.atone, RUN.points, a, b);
+            text_wrap(f, 14, y, line, 36, R_GOLD + 11, 3);
+        } else if (c->i == CXC_LUCK) {
+            y += text_wrap(f, 14, y, STAT_DOES[ST_LUCK], 36, R_STONE + 13, 3) * 9 + 4;
+            y += text_wrap(f, 14, y, "TWO IN A HUNDRED FOR EVERYONE AT THE START. NO PIECE CARRIES IT: ONLY YOUR LEVELS OF ATONEMENT RAISE IT, A TENTH A POINT.", 36, R_BONE + 11, 4) * 9 + 4;
+            snprintf(line, sizeof line, "YOURS: %.1f%% OF %.0f%%", gear_total(g, ST_LUCK), gear_stat_cap(ST_LUCK));
+            gfx_text8(f, 14, y, line, R_GOLD + 11, 1);
+        } else if (c->i == CXC_OVER) {
+            y += text_wrap(f, 14, y, "PAST THE FIFTIETH LEVEL OF ATONEMENT THERE ARE NO MORE POINTS. AT EVERY FIFTH LEVEL AFTER, ONE LINE OF YOUR CHOOSING "
+                           "GOES PAST ITS CAP: FIVE MORE, AND ITS CAP WITH IT (LUCK ONE). THE DEAD SEE WHAT YOU HAVE BECOME.", 36, R_STONE + 13, 7) * 9 + 4;
+            int tot = 0;
+            for (int l = 0; l < NLINE; l++) tot += RUN.over[l];
+            snprintf(line, sizeof line, "YOURS: %d CHOSEN, %d TO CHOOSE", tot, imax(0, over_due()));
+            gfx_text8(f, 14, y, line, R_PURPLE + 13, 1);
+        } else {
+            int cs = clampi(c->i - CXC_CORNER, 0, NCS - 1);
+            y += text_wrap(f, 14, y, CS_DOES[cs], 36, R_STONE + 13, 5) * 9 + 4;
+            y += text_wrap(f, 14, y, "A CORNERSTONE: ONE CHOSEN, FREE, AT EACH TENTH LEVEL OF ATONEMENT, ON THE PLAYER ABILITIES SCREEN. A DEATH TAKES IT.", 36, R_BONE + 11, 4) * 9 + 4;
+            if (cs == CS_WIND) gfx_text8(f, 14, y, RUN.wind_spent ? "YOURS, SPENT FOR THIS RUN" : "YOURS, READY", RUN.wind_spent ? (uint8_t)(R_STONE + 9) : (uint8_t)(R_GOLD + 11), 1);
+            else gfx_text8(f, 14, y, "YOURS", R_GOLD + 11, 1);
+        }
         break;
     }
     case CX_HAZ: {
@@ -13966,7 +14656,466 @@ static void render_portalmenu(Frame *f) {
     text_wrap(f, px + 10, y, line, 36, R_STONE + 13, (py + ph - 4 - y) / 9);
 }
 
+/* ---- experience shown (docs/PLAN-b9.md, section 3): each gain a line at the lower left, newest lowest,
+ * gone after three seconds; the moment another Level of Atonement is banked, its name across the view ---- */
+static void render_xp(Frame *f) {
+    if (G.tally || (G.player && G.ui)) return;
+    int bar = (G.shop || G.player) ? H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f) : H;
+    int dream = !G.player && !G.shop;                              /* the dream: at the lower right, clear of the face */
+    int base = dream ? H - 30 - (int)(G.lift * 40.0f + 0.5f) : imin(bar, H - 24) - 12 - (sockets_shown() && bar < H ? 14 : 0);
+    for (int i = 0; i < XPF.n; i++) {
+        float a = XPF.t[i];
+        int y = base - i * 10;
+        if (y < 40) break;
+        char v[16];
+        snprintf(v, sizeof v, "+%d EXP", XPF.v[i]);
+        int vw = gfx_text_width(v, 1), ww = gfx_text_width(XPF.what[i], 1), dim = a > 2.4f, x = dream ? W - 10 - vw - ww - 6 : 7;
+        gfx_rect(f, x - 3, y - 1, vw + ww + 14, 10, 0);
+        gfx_text8(f, x, y, v, dim ? (uint8_t)(R_PURPLE + 9) : (uint8_t)(R_PURPLE + 13), 1);
+        gfx_text8(f, x + vw + 6, y, XPF.what[i], dim ? (uint8_t)(R_STONE + 8) : (uint8_t)(R_STONE + 12), 1);
+    }
+    if (XPF.banner > 0.0f && !G.dead) {                            /* another level banked: she will hear it */
+        float k = 3.2f - XPF.banner;
+        if (k < 0.5f && ((int)(k * 16.0f) & 1)) return;            /* it flickers in */
+        char l1[40];
+        snprintf(l1, sizeof l1, "LEVEL OF ATONEMENT %d", XPF.banner_lvl);
+        const char *l2 = "THE MERCHANT WILL HEAR IT";
+        int w1 = gfx_text_width(l1, 1), w2 = gfx_text_width(l2, 1), wb = imax(w1, w2) + 12, y = 62;
+        gfx_rect(f, (W - wb) / 2, y - 4, wb, 34, 0);
+        for (int i = 0; i < wb; i++) { gfx_px(f, (W - wb) / 2 + i, y - 4, R_PURPLE + 8); gfx_px(f, (W - wb) / 2 + i, y + 29, R_PURPLE + 5); }
+        int sway = (int)(1.5f * sinf(k * 5.0f));
+        gfx_text16(f, (W - w1) / 2 + sway + 1, y + 1, l1, R_PURPLE + 4, 1);
+        gfx_text16(f, (W - w1) / 2 + sway, y, l1, (int)(k * 6.0f) % 5 == 0 ? (uint8_t)C_WHITE : (uint8_t)(R_PURPLE + 14), 1);
+        gfx_text8(f, (W - w2) / 2, y + 18, l2, R_STONE + 12, 1);
+    }
+}
+
+/* a Second Wind: a white flash, and its name across the view while nothing can touch you */
+static void render_wind(Frame *f) {
+    if (G.wind_t <= 0.0f || G.tally) return;
+    float k = 2.0f - G.wind_t;
+    if (k < 0.3f) {                                                /* the flash, thinning */
+        int lim = (int)(16.0f * (1.0f - k / 0.3f));
+        for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) if (BAYER[y & 3][x & 3] < lim) f->pix[y * W + x] = C_WHITE;
+    }
+    const char *t = "SECOND WIND";
+    int w = gfx_text_width(t, 2), y = 54 + (int)(4.0f * sinf(k * 3.0f));
+    gfx_text16(f, (W - w) / 2 + 2, y + 2, t, R_STONE + 3, 2);
+    gfx_text16(f, (W - w) / 2, y, t, (int)(k * 10.0f) & 1 ? (uint8_t)C_WHITE : (uint8_t)(R_GHOST + 14), 2);
+}
+
+/* ---- the target's health (docs/PLAN-b9.md, section 2) ----
+ * At the top, under a boss's bar if one is up: its name and rank, its health as a bar and in figures, the
+ * spell it is learnt to take worst on the left and the one it shrugs off on the right. ? while some spell
+ * is still to be learnt on it (three kills each, as the bestiary has it) and none learnt says more; -- when
+ * every one is learnt and none differs. A tie takes turns, a second each. */
+static int target_y(void) { return boss_fighting() ? 30 : 2; }
+static int target_shown(void) {
+    if (!G.player || G.shop || G.ui || G.dead || G.tally || G.look_t <= 0.0f) return 0;
+    const Mob *m = &G.mobs[clampi(G.look_mob, 0, MAXMOBS - 1)];
+    return m->alive && !m->ally && !m->boss;
+}
+static int weak_word(int k, int most, char *buf, int n) {          /* the word, and its spell's colour (-1: none) */
+    const Record *r = &RUN.rec;
+    float best = most ? -1.0f : 1e9f;
+    int unknown = 0, tie[NATK], nt = 0;
+    for (int sp = 0; sp < AT_BFS; sp++) {
+        if (k >= REC_KINDS || r->spell_kills[k][sp] < 3) { unknown = 1; continue; }
+        float w = KINDS[k].weak[sp];
+        if (most ? w > best + 1e-3f : w < best - 1e-3f) { best = w; nt = 0; }
+        if (fabsf(w - best) < 1e-3f) tie[nt++] = sp;
+    }
+    if (nt == 0 || (most ? best < 1.01f : best > 0.99f)) { snprintf(buf, (size_t)n, "%s", unknown ? "?" : "--"); return -1; }
+    int sp = tie[(int)G.t % nt];
+    snprintf(buf, (size_t)n, "%s", ATK_SHORT[sp]);
+    return gear_color(GK_ATK, sp);
+}
+static void render_target(Frame *f) {
+    if (!target_shown()) return;
+    const Mob *m = &G.mobs[clampi(G.look_mob, 0, MAXMOBS - 1)];
+    int k = m->type, y0 = target_y(), spirit = KIND_IS(m, KF_SPIRIT) != 0;
+    char name[48];
+    snprintf(name, sizeof name, "%s%s", m->rank == RK_I || spirit ? "" : rank_word(k, m->rank), KINDS[k].name);
+    int nw = gfx_text_width(name, 1);
+    gfx_rect(f, (W - nw) / 2 - 3, y0, nw + 6, 10, 0);
+    gfx_text8(f, (W - nw) / 2, y0 + 1, name, spirit ? (uint8_t)(R_STONE + 12) : (uint8_t)RANK_COL[clampi(m->rank, 0, NRANK - 1)], 1);
+    if (spirit) {
+        const char *t = "NOTHING YOU CARRY TOUCHES IT";
+        int tw = gfx_text_width(t, 1);
+        gfx_rect(f, (W - tw) / 2 - 3, y0 + 11, tw + 6, 10, 0);
+        gfx_text8(f, (W - tw) / 2, y0 + 12, t, R_STONE + 10, 1);
+        return;
+    }
+    int bw = 120, bx = (W - bw) / 2, by = y0 + 13;
+    gfx_rect(f, bx - 2, by - 2, bw + 4, 11, 0);
+    for (int i = -1; i <= bw; i++) { gfx_px(f, bx + i, by - 1, R_STONE + 9); gfx_px(f, bx + i, by + 7, R_STONE + 5); }
+    for (int j = -1; j <= 7; j++) { gfx_px(f, bx - 1, by + j, R_STONE + 9); gfx_px(f, bx + bw, by + j, R_STONE + 5); }
+    float frac = m->state == MS_WALK && m->maxhp > 0.0f ? clampf(m->hp / m->maxhp, 0.0f, 1.0f) : 0.0f;
+    int fill = (int)(frac * bw + 0.5f);
+    for (int y = 0; y < 7; y++) for (int x = 0; x < bw; x++) gfx_px(f, bx + x, by + y, x < fill ? (uint8_t)(R_BLOOD + 9 + (y == 0 ? 4 : 0)) : (uint8_t)(R_BLOOD + 2));
+    int hp = m->state == MS_WALK ? (int)ceilf(fmaxf(0.0f, m->hp)) : 0, mx = (int)ceilf(m->maxhp);
+    int wa = small_digits(NULL, 0, 0, hp, 0), wb = small_digits(NULL, 0, 0, mx, 0), tx = bx + (bw - (wa + 5 + wb)) / 2;
+    for (int sh = 1; sh >= 0; sh--) {                              /* 34/60, shadowed */
+        uint8_t c = sh ? (uint8_t)0 : (uint8_t)C_WHITE;
+        small_digits(f, tx + sh, by + 1 + sh, hp, c);
+        static const int SL[5][2] = { { 3, 0 }, { 3, 1 }, { 2, 2 }, { 1, 3 }, { 1, 4 } };
+        for (int i = 0; i < 5; i++) gfx_px(f, tx + wa + SL[i][0] + sh, by + 1 + SL[i][1] + sh, c);
+        small_digits(f, tx + wa + 5 + sh, by + 1 + sh, mx, c);
+    }
+    char wl[16], wr[16];
+    int rl = weak_word(k, 1, wl, sizeof wl), rr = weak_word(k, 0, wr, sizeof wr);
+    int lw = gfx_text_width(wl, 1), rw = gfx_text_width(wr, 1);
+    gfx_rect(f, bx - 8 - lw, by - 2, lw + 4, 11, 0); gfx_rect(f, bx + bw + 4, by - 2, rw + 4, 11, 0);
+    gfx_text8(f, bx - 6 - lw, by - 1, wl, rl >= 0 ? ramp_at(rl, 13) : (uint8_t)(R_STONE + 9), 1);
+    gfx_text8(f, bx + bw + 6, by - 1, wr, rr >= 0 ? ramp_at(rr, 13) : (uint8_t)(R_STONE + 9), 1);
+}
+
+/* ---- the cornerstones' screen ---- */
+static const char *const CS_MARK[NCS][11] = {
+    { "....###....", "..##...##..", ".#.......#.", "#...###...#", "#..#...#..#", "#..#.#.#..#",
+      "#...#..#..#", ".#....#...#", "..####...#.", "........#..", "......##..." },   /* breath, coming back */
+    { "...........", "....###....", "..##...##..", ".#..###..#.", "#..#####..#", "#..##.##..#",
+      "#..#####..#", ".#..###..#.", "..##...##..", "....###....", "..........." },   /* an eye */
+    { ".....#.....", ".....#.....", "....###....", "...#.#.#...", "..#..#..#..", "#####.#####",
+      "..#..#..#..", "...#.#.#...", "....###....", ".....#.....", ".....#....." },   /* a compass rose */
+    { "....###....", "...#...#...", "..#######..", "..#.###.#..", "..#.###.#..", "..#..#..#..",
+      "..#.###.#..", "..#######..", "...#####...", "....###....", "..........." },   /* a lantern */
+    { "#....#....#", "...#####...", "..#######..", ".##..#..##.", ".##..#..##.", ".#########.",
+      "..##.#.##..", "...#####...", "#...#.#...#", "...........", "....#.#...." },   /* a skull, sensed */
+};
+static void render_stones(Frame *f, int tabbed) {
+    gfx_text16(f, 14, 9, "CORNERSTONES", R_PURPLE + 13, 1);
+    char line[200];
+    int due = corner_due();
+    if (due > 0) snprintf(line, sizeof line, "%d TO CHOOSE", due); else snprintf(line, sizeof line, "%d OF %d HELD", corner_count(), NCS);
+    gfx_text8(f, W - 14 - gfx_text_width(line, 1), 13, line, due > 0 && ((int)(G.ui_t * 2.0f) & 1) ? (uint8_t)(R_PURPLE + 14) : (uint8_t)(R_STONE + 11), 1);
+    hint8(f, 14, 26, tabbed ? "A/D PAGE  ENTER CHOOSES  TAB CLOSE" : "W/S  ENTER CHOOSES  TAB BACK", R_STONE + 9);
+    gfx_text8(f, 14, 38, "ONE AT EACH TENTH LEVEL OF ATONEMENT", R_STONE + 10, 1);
+    int sel = clampi(G.cs_sel, 0, NCS - 1);
+    for (int c = 0; c < NCS; c++) {
+        int y = 52 + c * 16, held = RUN.corner >> c & 1, ok = cs_takeable(c);
+        if (c == sel) gfx_rect(f, 10, y - 3, W - 20, 15, R_IRON + 3);
+        uint8_t mc = held ? (uint8_t)(R_PURPLE + 13) : ok ? (uint8_t)(R_STONE + 13) : (uint8_t)(R_STONE + 7);
+        for (int r = 0; r < 11; r++) for (int k = 0; k < 11; k++) if (CS_MARK[c][r][k] == '#') gfx_px(f, 16 + k, y - 1 + r, mc);
+        gfx_text8(f, 34, y + 1, CS_NAME[c], c == sel ? (uint8_t)C_WHITE : held ? (uint8_t)(R_PURPLE + 13) : (uint8_t)(R_STONE + 12), 1);
+        const char *st = held ? (c == CS_WIND && RUN.wind_spent ? "HELD, SPENT" : "HELD") : (c == CS_CARTO && !RUN.has_map && due > 0 ? "NEEDS THE MAP" : (ok ? "CHOOSE" : ""));
+        char lvl[24];
+        if (!*st) { snprintf(lvl, sizeof lvl, "ATONEMENT %d", (corner_count() + 1) * 10); st = corner_count() < NCS ? lvl : ""; }
+        gfx_text8(f, W - 16 - gfx_text_width(st, 1), y + 1, st, held ? (uint8_t)(R_PURPLE + 11) : ok ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 8), 1);
+    }
+    int ty = 52 + NCS * 16 + 2;
+    for (int i = 10; i < W - 10; i++) gfx_px(f, i, ty - 3, R_STONE + 5);
+    if (G.cs_arm == sel) snprintf(line, sizeof line, "%s, UNTIL A DEATH TAKES IT. ENTER AGAIN TO TAKE IT.", CS_NAME[sel]);
+    else snprintf(line, sizeof line, "%s", CS_DOES[sel]);
+    text_wrap(f, 14, ty, line, 36, G.cs_arm == sel ? R_GOLD + 12 : R_STONE + 12, 4);
+}
+
+/* An overlevelled number (docs/PLAN-b9.md, section 7): pale violet, breathing, now and then slipping a
+ * pixel or two with a red ghost the other way, the dead's eye beside it in their colour */
+static int stat_over(int st) {
+    int n = 0;
+    for (int l = 0; l < NLINE; l++) if (LINES[l].stat == st) n += RUN.over[l];
+    return n;
+}
+static void eerie_text(Frame *f, int x, int y, const char *s) {
+    float t = G.ui_t;
+    int slip = fmodf(t + (float)x * 0.013f + (float)y * 0.007f, 2.3f) < 0.09f ? 1 + ((int)(t * 40.0f) & 1) : 0;
+    if (slip) gfx_text8(f, x - slip, y, s, R_BLOOD + 9, 1);
+    gfx_text8(f, x + slip, y, s, (uint8_t)(R_PURPLE + 11 + (int)(2.5f + 2.5f * sinf(t * 1.6f))), 1);
+}
+static void eerie_eye(Frame *f, int x, int y) {
+    static const char *const EYE[5] = { "..####..", ".#....#.", "#..##..#", ".#....#.", "..####.." };
+    int open = fmodf(G.ui_t * 0.7f + (float)x * 0.01f, 4.0f) > 0.15f;   /* it blinks */
+    for (int r = 0; r < 5; r++)
+        for (int c = 0; c < 8; c++)
+            if (EYE[r][c] == '#' && (open || r == 2)) gfx_px(f, x + c, y + r, (uint8_t)(r == 2 && c >= 3 && c <= 4 ? R_GHOST + 15 : R_PURPLE + 12));
+}
+
+/* ---- the caster's screen: Levels of Atonement and what points buy (docs/PLAN-b9.md, section 4) ---- */
+static void line_value(int l, float v, char *buf, int n) {        /* a step's worth or a total, in its units */
+    if (l == LN_HEALTH) snprintf(buf, (size_t)n, "%+.0f", v);
+    else if (l == LN_LUCK) snprintf(buf, (size_t)n, "%+.1f%%", v);
+    else snprintf(buf, (size_t)n, "%+.0f%%", v);
+}
+static void line_total(int l, char *buf, int n, int *capped) {
+    const Gear *g = &RUN.gear;
+    *capped = line_capped(l);
+    if (l == LN_HEALTH) { snprintf(buf, (size_t)n, "%d", gear_max_hp(g)); return; }
+    if (l == LN_RESIST) {
+        snprintf(buf, (size_t)n, "%.0f %.0f %.0f", gear_total(g, ST_RES_POISON), gear_total(g, ST_RES_BURN), gear_total(g, ST_RES_SLOW));
+        return;
+    }
+    int st = LINES[l].stat;
+    if (l == LN_LUCK) snprintf(buf, (size_t)n, "%.1f/%.0f%%", gear_total(g, st), gear_stat_cap(st));
+    else snprintf(buf, (size_t)n, "%.0f/%.0f%%", gear_total(g, st), gear_stat_cap(st));
+}
+static void render_ascend(Frame *f) {
+    dim_view(f);
+    panel(f, 4, 4, W - 8, H - 8);
+    char line[96];
+    snprintf(line, sizeof line, "LEVEL OF ATONEMENT %d", RUN.atone);
+    gfx_text16(f, 14, 9, line, R_PURPLE + 13, 1);
+    snprintf(line, sizeof line, "%d POINT%s", RUN.points, RUN.points == 1 ? "" : "S");
+    gfx_text16(f, W - 14 - gfx_text_width(line, 1), 9, line, RUN.points ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 9), 1);
+    char a[16], b[16];
+    commas(RUN.xp, a, sizeof a); commas(atone_need(RUN.atone + 1), b, sizeof b);
+    snprintf(line, sizeof line, "EXP %s OF %s", a, b);
+    gfx_text8(f, 14, 27, line, R_STONE + 11, 1);
+    int due = corner_due() + over_due();
+    if (due > 0 && ((int)(G.ui_t * 2.0f) & 1)) {
+        snprintf(line, sizeof line, "%d TO CHOOSE", due);
+        gfx_text8(f, W - 14 - gfx_text_width(line, 1), 27, line, R_PURPLE + 14, 1);
+    }
+    gfx_text8(f, 132, 40, "COST", R_GOLD + 10, 1);
+    gfx_text8(f, 210 - gfx_text_width("YOURS", 1), 40, "YOURS", R_GOLD + 10, 1);
+    gfx_text8(f, 302 - gfx_text_width("TOTAL", 1), 40, "TOTAL", R_GOLD + 10, 1);
+    int sel = clampi(G.ui_sel, 0, NLINE - 1);
+    for (int l = 0; l < NLINE; l++) {
+        int y = 51 + l * 9, afford = RUN.points >= LINES[l].cost, capped;
+        if (l == sel) gfx_rect(f, 10, y - 1, W - 20, 9, R_IRON + 3);
+        gfx_text8(f, 14, y, LINES[l].name, l == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12), 1);
+        snprintf(line, sizeof line, "%d", LINES[l].cost);
+        gfx_text8(f, 140, y, line, afford ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 7), 1);
+        line_value(l, line_own(l), line, sizeof line);
+        gfx_text8(f, 210 - gfx_text_width(line, 1), y, line, line_own(l) > 0.0f ? (uint8_t)(R_PURPLE + 13) : (uint8_t)(R_STONE + 7), 1);
+        if (G.asc_buy[l] > 0) gfx_text8(f, 214, y, "*", R_PURPLE + 11, 1);   /* bought just now: it may go back */
+        line_total(l, line, sizeof line, &capped);
+        if (RUN.over[l] > 0) { eerie_text(f, 302 - gfx_text_width(line, 1), y, line); eerie_eye(f, 116, y + 1); }   /* past its cap: the dead see it */
+        else gfx_text8(f, 302 - gfx_text_width(line, 1), y, line, capped ? (uint8_t)(R_GLOW + 12) : (uint8_t)(R_STONE + 12), 1);
+    }
+    int ty = 51 + NLINE * 9 + 3;
+    for (int i = 10; i < W - 10; i++) gfx_px(f, i, ty - 2, R_STONE + 5);
+    int capped = line_capped(sel);
+    int od = over_due();
+    if (G.asc_arm == sel) snprintf(line, sizeof line, "IT IS AT ITS CAP: MORE IS WASTED. AGAIN TO BUY IT ANYWAY.");
+    else if (G.asc_arm == 100 + sel) snprintf(line, sizeof line, "%s PAST ITS CAP, FOR GOOD: %s AGAIN TO OVERLEVEL IT.", LINES[sel].name, PADX.used ? "Y" : "SPACE");
+    else if (od > 0 && (sel == LN_HEALTH || sel == LN_RESIST)) snprintf(line, sizeof line, "%d OVERLEVEL%s TO CHOOSE, BUT NOT FOR THIS LINE.", od, od == 1 ? "" : "S");
+    else if (od > 0) snprintf(line, sizeof line, "%d OVERLEVEL%s TO CHOOSE: %s PUTS %s %s PAST ITS CAP.", od, od == 1 ? "" : "S", PADX.used ? "Y" : "SPACE",
+                              sel == LN_LUCK ? "ONE" : "FIVE", LINES[sel].name);
+    else snprintf(line, sizeof line, "%d POINT%s: %s.%s", LINES[sel].cost, LINES[sel].cost == 1 ? "" : "S", LINES[sel].does, capped ? " AT ITS CAP." : "");
+    int warn = G.asc_arm == sel || G.asc_arm == 100 + sel;
+    text_wrap(f, 14, ty + 1, line, 36, warn ? R_BLOOD + 12 : (od > 0 ? R_PURPLE + 13 : (capped ? R_GLOW + 12 : R_STONE + 12)), 2);
+    hint8(f, 14, H - 16, od > 0 ? (PADX.used ? "\1A BUYS  \1Y OVERLEVELS  \1B LEAVES" : "D BUYS  SPACE OVERLEVELS  ESC LEAVES")
+                                : (PADX.used ? "\1A BUYS  LB UNDOES  VIEW CORNERSTONES" : "D BUYS  A UNDOES  TAB CORNERSTONES"), R_STONE + 9);
+}
+
+/* ---- the map on its scroll (docs/PLAN-b9.md, section 1) ----
+ * Parchment between two rollers across the middle eight-tenths of the view, torn top and bottom, a
+ * burn or two, stained; made once a level, so it holds still. On it, in brown ink and seen from above,
+ * north up: every wall face between floor and stone that has come within three cells of you, the doors
+ * (a vault's in its key's colour once you have been near it), the exit, keys seen, the Black Altar, a
+ * secret's doorway once opened, and you, in red. A secret still shut is drawn as the stone it looks like. */
+static uint8_t g_scroll[H][W];
+static int g_scroll_for = -1;
+static float map_noise(float x, int s) {
+    int i = (int)floorf(x);
+    float t = x - (float)i;
+    t = t * t * (3.0f - 2.0f * t);
+    float a = (float)(hash2(i, s) & 0xffff) / 65535.0f, b = (float)(hash2(i + 1, s) & 0xffff) / 65535.0f;
+    return a + (b - a) * t;
+}
+static float map_noise2(float x, float y, int s) {
+    int j = (int)floorf(y);
+    float t = y - (float)j;
+    t = t * t * (3.0f - 2.0f * t);
+    float a = map_noise(x, s + j * 7919), b = map_noise(x, s + (j + 1) * 7919);
+    return a + (b - a) * t;
+}
+#define SCROLL_X0 40
+#define SCROLL_X1 279
+static void map_scroll_make(int seed) {
+    memset(g_scroll, 0, sizeof g_scroll);
+    int top[W], bot[W], tx[4], tw[4], td[4], hx[2], hy[2], hr[2];
+    for (int k = 0; k < 4; k++) {                                  /* two tears at the top, two at the bottom */
+        tx[k] = SCROLL_X0 + 14 + (int)(hash2(k, seed + 11) % 212u);
+        if (k < 2 && abs(tx[k] - W / 2) < 56) tx[k] += tx[k] < W / 2 ? -56 : 56;   /* the name stays whole */
+        tw[k] = 4 + (int)(hash2(k, seed + 12) % 8u); td[k] = 4 + (int)(hash2(k, seed + 13) % 6u);
+    }
+    for (int k = 0; k < 2; k++) {                                  /* and two burns */
+        hx[k] = k ? 214 + (int)(hash2(k, seed + 14) % 50u) : 56 + (int)(hash2(k, seed + 14) % 50u);
+        hy[k] = k ? 30 + (int)(hash2(k, seed + 15) % 30u) : 140 + (int)(hash2(k, seed + 15) % 30u);
+        hr[k] = 2 + (int)(hash2(k, seed + 16) % 3u);
+    }
+    for (int x = SCROLL_X0; x <= SCROLL_X1; x++) {
+        float t = 8.0f + 3.0f * map_noise((float)x / 7.0f, seed) + 1.2f * map_noise((float)x / 2.0f, seed + 1);
+        float b = 180.0f - 3.0f * map_noise((float)x / 7.0f, seed + 2) - 1.2f * map_noise((float)x / 2.0f, seed + 3);
+        for (int k = 0; k < 4; k++) {
+            int d = abs(x - tx[k]);
+            if (d < tw[k]) { float v = (float)td[k] * (1.0f - (float)d / (float)tw[k]); if (k < 2) t += v; else b -= v; }
+        }
+        top[x] = (int)t; bot[x] = (int)b;
+    }
+    for (int y = 0; y < H; y++)
+        for (int x = SCROLL_X0; x <= SCROLL_X1; x++) {
+            if (y < top[x] || y > bot[x]) continue;
+            float hole = 99.0f;
+            for (int k = 0; k < 2; k++) hole = fminf(hole, hypotf((float)(x - hx[k]), (float)(y - hy[k]) * 1.2f) - (float)hr[k]);
+            if (hole < 0.0f) continue;
+            int edge = imin(y - top[x], bot[x] - y);
+            float v = 0.68f + 0.16f * (map_noise2((float)x / 23.0f, (float)y / 17.0f, seed + 5) - 0.5f) + 0.05f * ((float)(hash2(x, y + seed) & 255u) / 255.0f - 0.5f);
+            float st = 0.65f * map_noise2((float)x / 11.0f, (float)y / 9.0f, seed + 7) + 0.35f * map_noise2((float)x / 4.0f, (float)y / 5.0f, seed + 8);
+            if (st > 0.68f) v -= (st - 0.68f) * 1.0f;              /* old stains */
+            int side = imin(x - SCROLL_X0, SCROLL_X1 - x);
+            if (side < 6) v -= 0.03f * (float)(6 - side);          /* curling into the rollers */
+            uint8_t c = ramp_at(R_BONE, (int)(v * 15.0f + 0.5f));
+            if (edge < 1 || hole < 1.0f) c = R_WOOD + 2;           /* scorched and frayed at the edges */
+            else if (edge < 3 || hole < 2.2f) c = R_WOOD + 7;
+            g_scroll[y][x] = c;
+        }
+    g_scroll_for = seed;
+}
+static void map_roller(Frame *f, int cx) {
+    for (int y = 2; y <= 186; y++) {
+        int paper = y >= 9 && y <= 179;
+        float r = paper ? 4.6f : 2.0f;
+        for (int x = cx - 5; x <= cx + 5; x++) {
+            float d = ((float)x + 0.5f - (float)cx) / r;
+            if (fabsf(d) > 1.0f) continue;
+            float lit = sqrtf(1.0f - d * d) * (0.8f - 0.3f * d);   /* lit from the left */
+            gfx_px(f, x, y, paper ? ramp_at(R_BONE, 3 + (int)(lit * 7.0f) - (y % 9 == 0)) : ramp_at(R_WOOD, 1 + (int)(lit * 7.0f)));
+        }
+    }
+    for (int k = 0; k < 2; k++) {                                  /* the knobs, a gold stud on each */
+        int ky = k ? 185 : 3;
+        for (int y = ky - 3; y <= ky + 3; y++)
+            for (int x = cx - 4; x <= cx + 4; x++) {
+                float nx = ((float)x + 0.5f - (float)cx) / 3.6f, ny = ((float)y + 0.5f - (float)ky) / 2.8f, d = nx * nx + ny * ny;
+                if (d <= 1.0f) gfx_px(f, x, y, ramp_at(R_WOOD, 2 + (int)(5.0f * sqrtf(1.0f - d) * (0.8f - 0.3f * nx - 0.2f * ny))));
+            }
+        gfx_px(f, cx, ky, R_GOLD + 9); gfx_px(f, cx - 1, ky - 1, R_GOLD + 12);
+    }
+}
+static int map_hidden(int x, int y) {                              /* a secret still shut looks like stone */
+    for (int i = 0; i < G.nsecrets; i++) {
+        const Secret *sc = &G.secrets[i];
+        if (sc->state) continue;
+        if ((x == sc->sx && y == sc->sy) || (x == sc->door_x && y == sc->door_y) || (x >= sc->x0 && x <= sc->x1 && y >= sc->y0 && y <= sc->y1)) return 1;
+    }
+    return 0;
+}
+static int map_open(int x, int y) {
+    if (x < 0 || y < 0 || x >= MAPN || y >= MAPN) return 0;
+    int k = G.map[y][x].kind;
+    return (k == K_FLOOR || k == K_DOOR || k == K_PROP) && !map_hidden(x, y);
+}
+static int map_bx, map_by;                                          /* where cell (0, 0) falls on the screen */
+static void map_px(Frame *f, int x, int y, uint8_t c) {            /* only on the scroll, and inside its margin */
+    if (x >= MAP_VX0 && x < MAP_VX0 + MAP_VW && y >= MAP_VY0 && y < MAP_VY0 + MAP_VH && g_scroll[y][x]) f->pix[y * W + x] = c;
+}
+static void map_face(Frame *f, int wx, int wy, uint8_t c) {        /* a mark on a wall's face, two thick, where it meets the floor */
+    for (int d = 0; d < 4; d++) {
+        int nx = wx + DX[d], ny = wy + DY[d];
+        if (!map_open(nx, ny) || !(G.mapped[ny][nx] & 1)) continue;
+        int px = map_bx + nx * MAP_PX, py = map_by + ny * MAP_PX;
+        for (int i = 1; i < MAP_PX; i++)
+            for (int t = 0; t < 2; t++) {
+                if (d == 0) map_px(f, px + t, py + i, c);                      /* the wall is west of the floor */
+                else if (d == 2) map_px(f, px + MAP_PX - t, py + i, c);        /* east */
+                else if (d == 1) map_px(f, px + i, py + t, c);                 /* north */
+                else map_px(f, px + i, py + MAP_PX - t, c);                    /* south */
+            }
+    }
+}
+static void render_map(Frame *f) {
+    static const uint8_t KEY_INK[NKEYS] = { R_GOLD + 5, R_IRON + 9, R_BLOOD + 9 };
+    const uint8_t ink = R_WOOD + 2;
+    dim_view(f);
+    int seed = G.level * 131 + PK.depth * 17 + 7;
+    if (g_scroll_for != seed) map_scroll_make(seed);
+    for (int y = 0; y < H; y++) for (int x = SCROLL_X0; x <= SCROLL_X1; x++) if (g_scroll[y][x]) f->pix[y * W + x] = g_scroll[y][x];
+    map_roller(f, 37); map_roller(f, 282);
+    map_bx = (int)floorf(MAP_VX0 + MAP_VW * 0.5f - G.map_cx * MAP_PX);
+    map_by = (int)floorf(MAP_VY0 + MAP_VH * 0.5f - G.map_cy * MAP_PX);
+    for (int y = 0; y < MAPN; y++)                                 /* the walls: a line wherever floor meets stone */
+        for (int x = 0; x < MAPN; x++) {
+            if (!(G.mapped[y][x] & 1) || !map_open(x, y)) continue;
+            int px = map_bx + x * MAP_PX, py = map_by + y * MAP_PX;
+            if (px > MAP_VX0 + MAP_VW || py > MAP_VY0 + MAP_VH || px + MAP_PX < MAP_VX0 || py + MAP_PX < MAP_VY0) continue;
+            for (int i = 0; i <= MAP_PX; i++) {
+                if (!map_open(x + 1, y)) map_px(f, px + MAP_PX, py + i, ink);
+                if (!map_open(x - 1, y)) map_px(f, px, py + i, ink);
+                if (!map_open(x, y + 1)) map_px(f, px + i, py + MAP_PX, ink);
+                if (!map_open(x, y - 1)) map_px(f, px + i, py, ink);
+            }
+            if (G.map[y][x].kind == K_DOOR && G.map[y][x].door >= 0) {   /* a door: a bar across the way */
+                const Door *dr = &G.doors[G.map[y][x].door];
+                uint8_t c = dr->locked == SEALED ? (uint8_t)(R_BLOOD + 8)
+                          : dr->locked == 1 && (G.mapped[y][x] & 2) && dr->color >= 0 && dr->color < NKEYS ? KEY_INK[dr->color] : ink;
+                int across = !map_open(x - 1, y) && !map_open(x + 1, y);   /* stone east and west: the way runs north and south */
+                for (int i = 1; i < MAP_PX; i++)
+                    for (int t = 2; t <= 3; t++) { if (across) map_px(f, px + i, py + t, c); else map_px(f, px + t, py + i, c); }
+            }
+            if (G.map[y][x].kind == K_PROP) map_px(f, px + 2, py + 2, ramp_at(R_WOOD, 6));   /* something low: a grave, a fire pit */
+        }
+    if (G.exit_wx >= 0) map_face(f, G.exit_wx, G.exit_wy, R_MOSS + 5);   /* the way out, in green */
+    for (int i = 0; i < G.nsecrets; i++)                           /* a chained room's doorway, opened */
+        if (G.secrets[i].state && G.secrets[i].door_x >= 0) map_face(f, G.secrets[i].door_x, G.secrets[i].door_y, G.secrets[i].sealed ? (uint8_t)(R_BLOOD + 8) : (uint8_t)(R_PURPLE + 7));
+    if (PK.depth) {                                                /* a pocket's doorways, back and on */
+        if (PK.back_x >= 0) map_face(f, PK.back_x, PK.back_y, R_PURPLE + 7);
+        if (PK.on_x >= 0) map_face(f, PK.on_x, PK.on_y, R_PURPLE + 7);
+    }
+    if (G.vis_x >= 0 && G.vis_y >= 0 && G.vis_x < MAPN && G.vis_y < MAPN) {   /* the visportal, or the cooler */
+        if (G.map[G.vis_y][G.vis_x].kind == K_WALL) map_face(f, G.vis_x, G.vis_y, R_GOLD + 6);
+        else if (G.mapped[G.vis_y][G.vis_x] & 1)
+            for (int k = 1; k < 4; k++) for (int j = 1; j < 4; j++) map_px(f, map_bx + G.vis_x * MAP_PX + k, map_by + G.vis_y * MAP_PX + j, R_GOLD + 6);
+    }
+    if (G.altar_x >= 0 && (G.mapped[G.altar_y][G.altar_x] & 1)) {   /* the Black Altar */
+        int px = map_bx + G.altar_x * MAP_PX, py = map_by + G.altar_y * MAP_PX;
+        for (int k = 1; k < 4; k++) for (int j = 1; j < 4; j++) map_px(f, px + k, py + j, k == 2 && j == 2 ? (uint8_t)(R_PURPLE + 10) : (uint8_t)(R_IRON + 1));
+    }
+    for (int i = 0; i < G.nitems; i++) {                           /* the keys you have seen, until taken */
+        const Item *it = &G.items[i];
+        if (!it->alive || it->type != IT_KEY || !it->seen) continue;
+        int px = map_bx + (int)(it->x * MAP_PX), py = map_by + (int)(it->y * MAP_PX);
+        static const char *const KEYG[3] = { "##...", "#####", "##.#." };
+        for (int r = 0; r < 3; r++) for (int k = 0; k < 5; k++) if (KEYG[r][k] == '#') map_px(f, px - 2 + k, py - 1 + r, KEY_INK[clampi(it->color, 0, NKEYS - 1)]);
+    }
+    if (RUN.corner >> CS_CARTO & 1)                                /* the Cartographer: a secret's wall, once passed */
+        for (int i = 0; i < G.nsecrets; i++) {
+            const Secret *sc = &G.secrets[i];
+            if (sc->state || !(G.mapped[sc->sy][sc->sx] & 2)) continue;
+            for (int d = 0; d < 4; d++) {
+                int nx = sc->sx + DX[d], ny = sc->sy + DY[d];
+                if (!map_open(nx, ny)) continue;
+                int px = map_bx + nx * MAP_PX, py = map_by + ny * MAP_PX;
+                for (int k = 0; k <= MAP_PX; k += 2) {             /* a dotted crack along its face */
+                    if (d == 0) map_px(f, px + 1, py + k, R_PURPLE + 9); else if (d == 2) map_px(f, px + MAP_PX - 1, py + k, R_PURPLE + 9);
+                    else if (d == 1) map_px(f, px + k, py + 1, R_PURPLE + 9); else map_px(f, px + k, py + MAP_PX - 1, R_PURPLE + 9);
+                }
+            }
+        }
+    if (RUN.corner >> CS_SENSE & 1)                                /* Grave Sense: the dead within ten cells */
+        for (int i = 0; i < MAXMOBS; i++) {
+            const Mob *m = &G.mobs[i];
+            if (!m->alive || m->state != MS_WALK || m->ally || hypotf(m->x - G.px, m->y - G.py) > 10.0f) continue;
+            int px = map_bx + (int)(m->x * MAP_PX), py = map_by + (int)(m->y * MAP_PX), on = ((int)(G.ui_t * 3.0f + i) & 3) != 0;
+            for (int k = 0; k < 4; k++) map_px(f, px - 1 + (k & 1), py - 1 + (k >> 1), on ? (uint8_t)(R_BLOOD + 12) : (uint8_t)(R_BLOOD + 8));
+        }
+    {                                                              /* and you, an arrow the way you face */
+        float cx = map_bx + G.px * MAP_PX, cy = map_by + G.py * MAP_PX, dx = cosf(G.ang), dy = sinf(G.ang);
+        float ax = cx + 4.5f * dx, ay = cy + 4.5f * dy, bx = cx - 2.5f * dx - 2.6f * dy, by = cy - 2.5f * dy + 2.6f * dx, qx = cx - 2.5f * dx + 2.6f * dy, qy = cy - 2.5f * dy - 2.6f * dx;
+        for (int y = (int)cy - 6; y <= (int)cy + 6; y++)
+            for (int x = (int)cx - 6; x <= (int)cx + 6; x++) {
+                float px = x + 0.5f, py = y + 0.5f;
+                float e0 = (bx - ax) * (py - ay) - (by - ay) * (px - ax), e1 = (qx - bx) * (py - by) - (qy - by) * (px - bx), e2 = (ax - qx) * (py - qy) - (ay - qy) * (px - qx);
+                if ((e0 >= 0 && e1 >= 0 && e2 >= 0) || (e0 <= 0 && e1 <= 0 && e2 <= 0)) map_px(f, x, y, R_BLOOD + 11);
+            }
+    }
+    char name[48];                                                 /* where it is, across the top */
+    if (PK.depth) snprintf(name, sizeof name, "%s", G.ptheme == PT_SEVERANCE ? "THE SEVERED FLOOR" : "THE BACKROOMS");
+    else level_name(G.level, name, sizeof name);
+    gfx_text8(f, (W - gfx_text_width(name, 1)) / 2, 13, name, R_WOOD + 3, 1);
+    for (int y = 12; y <= 20; y++) gfx_px(f, 266, y, R_WOOD + 3);  /* north */
+    gfx_px(f, 265, 13, R_WOOD + 3); gfx_px(f, 267, 13, R_WOOD + 3); gfx_px(f, 264, 14, R_WOOD + 3); gfx_px(f, 268, 14, R_WOOD + 3);
+    gfx_text8(f, 255, 13, "N", R_WOOD + 3, 1);
+    const char *hint = "WASD MOVES IT  SPACE: BACK TO YOU  ESC";
+    hint8(f, (W - hint_width(hint)) / 2, 190, hint, R_STONE + 11);
+}
+
 static void render_ui(Frame *f) {
+    if (G.ui == UI_MAP) { render_map(f); return; }
+    if (G.ui == UI_ASCEND) { render_ascend(f); return; }
+    if (G.ui == UI_STONES) { dim_view(f); panel(f, 4, 4, W - 8, H - 8); render_stones(f, 0); return; }
     if (G.ui == UI_PORTAL) { render_portalmenu(f); return; }
     if (G.ui == UI_COMP) { render_compmenu(f); return; }
     if (G.ui == UI_REPO) { render_repomenu(f); return; }
@@ -14007,12 +15156,14 @@ static void crawl_render(Frame *f) {
     if (G.shop) render_shop_tags(f, dx, dy, horizon);
     if (!G.dead) { render_wards(f); render_hand(f); }
     if (G.shop && G.ui != UI_MERCHANT) render_shop_card(f);   /* her own card would show under her menu */
-    if (G.shop || G.player) render_statusbar(f);                    /* a person gets the Wolfenstein bar, */
+    if ((G.shop || G.player) && G.ui != UI_MAP) render_statusbar(f);   /* a person gets the Wolfenstein bar, */
     render_sockets(f);
     render_dash(f);
     if (G.player && !G.shop && G.bar <= 0.0f) render_readout(f);   /* and the small one while it is away */
     if (!G.shop && !G.player) { render_readout(f); render_face_popup(f); }
-    if (!G.shop) { render_bossbar(f); render_card(f); }
+    if (!G.shop) { render_bossbar(f); render_target(f); render_card(f); }
+    render_xp(f);
+    render_wind(f);
     render_messages(f);
     if (G.claim_card) render_claim(f);
     if (G.player && G.ui) render_ui(f);

@@ -76,7 +76,7 @@ static struct { double t; int key, down, dx, dy, wheel, pad, axis; float v; char
 static int g_nev, g_iev;
 static const char *const KEYNAME[KEY_COUNT] = { "UP", "DOWN", "LEFT", "RIGHT", "W", "A", "S", "D", "E", "Q", "SPACE", "CTRL",
     "SHIFT", "TAB", "ESC", "ENTER", "H", "Y", "N", "1", "2", "3", "4", "5", "6", "7", "8", "9", "MOUSE1", "MOUSE2", "B", "L",
-    "CONSOLE", "BACK", "PGUP", "PGDN", "C" };
+    "CONSOLE", "BACK", "PGUP", "PGDN", "C", "M" };
 static const char *const PADNAME[PAD_COUNT] = { "PAD_A", "PAD_B", "PAD_X", "PAD_Y", "PAD_LB", "PAD_RB", "PAD_VIEW", "PAD_MENU",
     "PAD_LS", "PAD_RS", "PAD_UP", "PAD_DOWN", "PAD_LEFT", "PAD_RIGHT", "PAD_LT", "PAD_RT" };
 static const char *const AXISNAME[4] = { "LX", "LY", "RX", "RY" };

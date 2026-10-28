@@ -1888,6 +1888,38 @@ static void spr_lectern(void) {
     cv_store(SP_LECTERN);
 }
 
+/* The merchant's map (1.0.0b9): a scroll half unrolled between its two rollers, a maze drawn on it in
+ * brown ink, a red seal; it floats beside her, so it casts no shadow */
+static void spr_mapware(void) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int x = 17; x <= 47; x++) {                               /* the sheet, its edges a little torn */
+        int top = 22 + (int)(1.6f * h01(x, 1, 151)) + (x % 9 == 4), bot = 44 - (int)(1.6f * h01(x, 2, 151)) - (x % 11 == 6);
+        for (int y = top; y <= bot; y++) {
+            float v = 0.74f + 0.12f * (fbm(x / 6.0f, y / 6.0f, 16, 153) - 0.5f) - 0.1f * ((y - top) < 1 || (bot - y) < 1);
+            cv_px(x, y, sh(R_BONE, v));
+        }
+    }
+    for (int i = 0; i < 9; i++) {                                  /* the maze on it */
+        int x0 = 21 + (int)(h01(i, 3, 155) * 20.0f), y0 = 26 + (int)(h01(i, 4, 155) * 14.0f), len = 3 + (int)(h01(i, 5, 155) * 6.0f);
+        if (i & 1) cv_line(x0, y0, fminf(x0 + len, 44), y0, sh(R_WOOD, 0.12f)); else cv_line(x0, y0, x0, fminf(y0 + len, 41), sh(R_WOOD, 0.12f));
+    }
+    cv_line(20, 25, 44, 25, sh(R_WOOD, 0.2f)); cv_line(20, 41, 44, 41, sh(R_WOOD, 0.2f));
+    cv_line(20, 25, 20, 41, sh(R_WOOD, 0.2f)); cv_line(44, 25, 44, 41, sh(R_WOOD, 0.2f));
+    cv_px(38, 37, sh(R_BLOOD, 0.75f)); cv_px(39, 37, sh(R_BLOOD, 0.75f)); cv_px(38, 36, sh(R_BLOOD, 0.6f));   /* you are here */
+    for (int k = 0; k < 2; k++) {                                  /* the rollers, dark wood, their knobs */
+        float rx = k ? 48.5f : 15.5f;
+        cv_capsule(rx, 20, rx, 46, 2.6f, R_BONE, 0.38f, 0.7f);
+        cv_ellipse(rx, 17.5f, 1.8f, 1.8f, R_WOOD, 0.1f, 0.45f);
+        cv_ellipse(rx, 48.5f, 1.8f, 1.8f, R_WOOD, 0.1f, 0.45f);
+    }
+    cv_ellipse(32, 45.5f, 3.2f, 2.6f, R_BLOOD, 0.15f, 0.5f);       /* the seal hanging from it */
+    cv_line(32, 43, 32, 44, sh(R_BLOOD, 0.3f));
+    cv_outline(0);
+    static const int MOTE[4][2] = { { 12, 30 }, { 52, 26 }, { 24, 14 }, { 42, 52 } };
+    for (int i = 0; i < 4; i++) cv_px(MOTE[i][0], MOTE[i][1], (uint8_t)(R_GLOW + 10 + (i & 1) * 3));
+    cv_store(SP_MAPWARE);
+}
+
 /* Severance: four desks pushed together behind low green partitions, an old terminal on each, numbers
  * on their dark screens. Drawn in R_FLOOR and R_CEIL, so only a Severance pocket shows it true. */
 static void spr_desks(void) {
@@ -4779,7 +4811,7 @@ void crawl_art_init(void) {
     spr_roots(); spr_websheet();
     for (int k = 0; k < 4; k++) spr_tomb(SP_TOMB_ROUND + k, k);
     spr_tomb(SP_TOMB_FRESH, 4);
-    spr_lectern();
+    spr_lectern(); spr_mapware();
     for (int f = 0; f < 3; f++) spr_firepit(SP_FIREPIT_A + f, f);
     spr_totem(SP_TOTEM_A, 0); spr_totem(SP_TOTEM_B, 1);
     spr_shambler(SP_SHAMB_A, 1.0f, 0); spr_shambler(SP_SHAMB_B, -1.0f, 0); spr_shambler(SP_SHAMB_GRAB, 0.0f, 1);
