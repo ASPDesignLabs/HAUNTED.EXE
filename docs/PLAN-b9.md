@@ -1,11 +1,31 @@
 # 1.0.0b9: the map, the caster's levels and the cornerstones
 
-**Status: proposed (28 October 2026); nothing built yet.** The owner asked for a map bought from the
+**Status: settled (28 October 2026); being built.** The owner asked for a map bought from the
 merchant, a levelling system for the caster (experience, levels bought with her, points for stats, Luck,
 overlevels past 50), three abilities the owner calls cornerstones, and the health of whatever you are
 looking at. This plan maps that onto the game as it stands at 1.0.0b8, says where it rubs against what is
-already there, and asks what only the owner can answer. Each question has a recommended answer (*); the
-rest of the plan is written as if those were taken.
+already there, and asked what only the owner could answer. They answered the same day (below); the
+questions they left alone take the recommended answer (*).
+
+## Decided (28 October 2026)
+
+- **G1**: the caster's level is the **Level of Atonement** (*LEVEL OF ATONEMENT 12*; *ATONEMENT 12* where it
+  is short). The crypt's levels keep their word.
+- **G2**: one release, 1.0.0b9.
+- **M1**: one map, north up. **M2**: everything within three cells fills in, through walls too.
+- **M3**: 1,000 gold, the map floating beside the merchant, on her left.
+- **S1**: one cap on the total, as proposed; but an overlevel gives Luck **+1**, not +5.
+- **S2**: points buy health: **+5 for each point**.
+- **S3**: Spell Haste **1% for 3 points**, its cap 50% (the cap on the total was already 50%; the 30 in the
+  question was the points it took at the old price).
+- **C1**: five cornerstones: Second Wind, Premonition, Cartographer, **Lantern of the Dead** and **Grave
+  Sense**. None is given: each tenth level brings one choice, made on a screen of their own (the **Player
+  Abilities** screen, *CORNERSTONES*).
+- **C2** (a): Second Wind comes back with each run of ten, and a coin restores it between. **C3** (a):
+  Premonition warns of everything the place does. **O1**: the first overlevel at 55.
+- T1, X1, X2 and S4 take their recommended answers.
+- **New**: an eerie fanfare the moment enough experience is banked to claim a level, so it is heard in the
+  middle of play; and every experience earned is shown as it comes, with its value and what it was for.
 
 ## What the owner asked for
 
@@ -90,6 +110,9 @@ rest of the plan is written as if those were taken.
 
 ## 1. The map
 
+Decided: one map, north up; what is within three cells fills in through walls; 1,000 gold, floating on the
+merchant's left.
+
 ### The scroll
 
 A parchment scroll unrolled across the view, held by two dark wooden rollers at its left and right ends,
@@ -128,7 +151,8 @@ pixels a cell, so a 45-cell level is a little bigger than the scroll and the far
 
 ### Buying it
 
-**M3. Where she sells it, and for how much.**
+**M3. Where she sells it, and for how much.** Decided: as (a), but 1,000 gold and floating in the air at
+her left, not on a stool.
 - (a*) A rolled map in a scroll case on a stool of its own beside her pedestals, there every visit until it is
   bought: 800 gold (about the first level and a half's treasure). It doesn't take a pedestal or count as one of the
   visit's wares. E looks and buys as at a pedestal.
@@ -184,10 +208,13 @@ No experience for treasure. The numbers are first guesses; step 9 tunes them by 
 
 ### Showing it
 
-- The readout and the mini bar's pop-up take *+12 EXP* as souls are shown now; the status bar's top edge
-  becomes a thin line that fills with the experience towards the next caster level, gold when there is
-  enough for one.
-- The first time on a level that there is enough for the next, a caption: *THE MERCHANT CAN RAISE YOU*.
+- **Every gain is shown** (decided): a short line for each, *+12 EXP  COLD SKELETON*, *+25 EXP  A SECRET*,
+  stacking at the lower left above the bar and fading after a couple of seconds; gains that come together
+  (a chain lightning's three kills) each get their line. The status bar's top edge becomes a thin line that
+  fills with the experience towards the next Level of Atonement, gold when there is enough for one.
+- **The moment there is enough for the next** (decided): an eerie fanfare (a low choir chord, a bell, a
+  falling whisper) and *THE MERCHANT WILL HEAR YOUR ATONEMENT* across the view; again for each further
+  level banked.
 - The tally gains an EXPERIENCE row.
 - The caster's page (Tab, A/D) heads with *CASTER LEVEL 12*, the experience and what the next needs.
 
@@ -212,11 +239,11 @@ still to spend, it opens the caster's screen; otherwise its note says how much m
 every level the banked experience reaches at once, keeps what is over, and gives ten points a level. A dull
 bell for each level, the cat's eyes catch the light.
 
-**The caster's screen** (`UI_ASCEND`): a row for each thing points buy: Damage, Resist all, Resist poison,
-Resist burn, Resist slow, Spell Haste, Dodge, Treasure, Movement, Luck, Attunement. Each row shows the step's
+**The caster's screen** (`UI_ASCEND`): a row for each thing points buy: Health, Damage, Resist all, Resist
+poison, Resist burn, Resist slow, Spell Haste, Dodge, Treasure, Movement, Luck, Attunement. Each row shows the step's
 price and size, the caster's own, what is worn, the total and its cap. W/S choose, D or Enter buys a step, A or
 Backspace takes back a step bought on this screen; Esc leaves. Points left over are kept for later (*default*);
-nothing is refunded once you leave (*default*: see S4). A cornerstone due comes as a card first (section 6).
+nothing is refunded once you leave (S4). A cornerstone due opens the Player Abilities screen first (section 6).
 
 **X2. When experience can be spent.** (a*) Only with her, as asked; (b) also from the caster's page.
 
@@ -243,15 +270,16 @@ Movement 100% (3 cells a second), Dodge 0%, **Luck 2%**, Spirit Cost 0%.
   (Dodge, say, 35% worn and 15% your own).
 
 **S2. Health.** Not in the list of things points buy.
-- (a*) It grows by itself: +2 a caster level (198 at level 50; a Common robe gives 120 on level 20).
+- (a) It grows by itself: +2 a caster level (198 at level 50; a Common robe gives 120 on level 20).
 - (b) Only gear raises it, as now.
 - (c) Points buy it too: 2 points for +5.
+- **Decided**: points buy it, +5 for each point. It has no cap, so it is not an overlevel's line (*default*).
 
 **S3. Spell Haste's price.** At 5% for 3 points it reaches its cap of 50% for 30 points, three caster levels,
 on the first or second level of the crypt; the same 30 points buy +10% Damage. More haste is more spells, so
 the two are nearly the same thing.
 - (a) As asked: 5% for 3.
-- (b*) 1% for 3, as Damage (150 points to the cap).
+- (b*) 1% for 3, as Damage (150 points to the cap). **Decided**, with the cap at 50%.
 - (c) 2% for 3.
 
 **S4. Taking points back.** (a*) Never, once you leave the screen; (b) she resets them all for a Cursed Coin.
@@ -275,8 +303,12 @@ lucky drop comes on top of what ranks II and up drop now, which stays.
 
 ## 6. Cornerstones
 
-At caster levels 10, 20, 30, 40 and 50, a card on the caster's screen offers each cornerstone not yet held;
-you take one, free. They go with the levels at death.
+At Levels of Atonement 10, 20, 30, 40 and 50 a choice falls due: the **Player Abilities** screen
+(*CORNERSTONES*) lists the five, those held, and how many choices wait; you take one, free, when you like.
+It opens of itself after an ascension that brings a choice, and from the caster's screen and Tab's pages at
+any time. They go with the levels at death.
+
+**Decided**: the five are Second Wind, Premonition, Cartographer, Lantern of the Dead and Grave Sense.
 
 **C1. Five unlocks, three cornerstones.**
 - (a*) Two more, so there is one for each tenth level; candidates for the owner to pick from or replace:
@@ -326,7 +358,8 @@ be taken.
 
 Past caster level 50, levels go on (2,910 experience each) without points. At 55, 60, 65 and every fifth after,
 you choose one line (Damage, a single resist, Spell Haste, Dodge, Treasure, Movement, Luck or Attunement): it
-gains 5 (percentage points) and its cap rises by 5 with it, so the bonus counts whatever the cap. The same line
+gains 5 (percentage points; Luck 1, decided) and its cap rises as much with it, so the bonus counts whatever
+the cap. The same line
 can be chosen again. They go with the rest at death.
 
 **O1. When the first comes.** (a*) At 55, five levels past 50; (b) at 50 itself.
@@ -358,11 +391,13 @@ do, with the dead's small eye beside it and a quiet whisper the first time the p
 1. **The map**: `KEY_M` and the pad; seen cells and walls per level and pocket; `UI_MAP` and the scroll's art;
    panning; the map on its stool at the merchant's; `LG_CASTER` with the map's bit; the harness.
 2. **The target's health**: the target, the readout, the weakness words.
-3. **Experience**: its sources, the readout, the bar's line, the tally's row, saved.
+3. **Experience**: its sources, every gain shown with its value, the fanfare when a level is banked, the
+   bar's line, the tally's row, saved.
 4. **Ascending and points**: *ASCEND*, `UI_ASCEND`, the caster's own stats into the totals (`gear_total` takes
    them from a small table the scene keeps in step), health by level, death; the autopilot's spending.
 5. **Luck and Treasure**: lucky drops, the Treasure Bonus.
-6. **Cornerstones**: the card; Second Wind and the coin; Premonition; Cartographer; any chosen in C1.
+6. **Cornerstones**: the Player Abilities screen; Second Wind and the coin; Premonition; Cartographer;
+   Lantern of the Dead; Grave Sense.
 7. **Overlevels** and their mark.
 8. **The Codex, the caster's page, the controls card.**
 9. **Checks**: the experience curve against the targets (autopilot runs from level 1 without deaths counting,
