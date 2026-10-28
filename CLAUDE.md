@@ -767,7 +767,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   spell not learnt and none says more, `--` all learnt and none differs; ties take turns). Spirits say nothing
   touches them; bosses keep their own bar; messages move below it.
 - **Experience** (section 3; `xp_gain`, `xp_kill`, `xp_rooms`, `KIND_XP`, `RANK_XP`, `BOSS_XP`, `xp_level`).
-  `RUN.xp` is all earned since the last death; `atone_need(n)` is 30 x (n-1)^2 to 50, then 2,910 a level;
+  `RUN.xp` is all earned since the last death; `atone_need(n)` is `ATONE_K` (42) x (n-1)^2 to 50, then 4,074 a level;
   `atone_reach` the level it would buy. Kills by kind, level and rank (a pocket's by `Mob.rank0`, the rank it
   had before the pocket raised it, x1.25 on the first link, +0.1 a link, 1.6 at most; a boss's adds half); a
   secret 25, a chain's end 60 a link, a boss 40 x `BOSS_XP`, a level cleared 30, a room first entered 3 (all
@@ -878,6 +878,12 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   doorway up (116 of 800 boss levels; three of the eight dream runs sat on level 10). It now skips any
   room with a `keep` exit; the debug map's `MAP lanes reachable` line shows such a cut-off at a glance
   (about 200 lanes short).
+- 1.0.0b9 (the map, the target's health, Levels of Atonement, Luck, cornerstones, overlevels) has been tested
+  in the harness only. Against 1.0.0b8 on the same eight seeds (100-minute dream runs from level 1, seeds 1-15
+  odd), the dream cleared a median 12.5 levels (9.5), died 13 times (27) and beat the knight in 6 runs of 8 (4):
+  its own levels make it stronger. The curve (`ATONE_K` 42) was set from these and from runs at 11, 21 and 31
+  so that the dream's caster reaches 50 at about level 35; none of it has been played by a person, so how a
+  person's pace compares is unknown. A level replayed after a death in the dream pays its experience again.
 - The game controller (1.0.0b8) has been tried only with a scripted pad in the harness: XInput itself, the
   dead zones, `PAD_TURN` and the stick's walk, the rumble's strength, the display kept awake and a pad
   pulled out mid-game are all untried on Windows. PlayStation and Switch pads (Raw Input) were left for

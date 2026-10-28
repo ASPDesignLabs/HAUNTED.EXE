@@ -1,6 +1,7 @@
 # 1.0.0b9: the map, the caster's levels and the cornerstones
 
-**Status: settled (28 October 2026); being built.** The owner asked for a map bought from the
+**Status: settled and built (28 October 2026) on `claude/gracious-newton-pqyd4u`, tested in the harness only
+(no Wine, nothing by hand); not released. The steps at the end say what each did.** The owner asked for a map bought from the
 merchant, a levelling system for the caster (experience, levels bought with her, points for stats, Luck,
 overlevels past 50), three abilities the owner calls cornerstones, and the health of whatever you are
 looking at. This plan maps that onto the game as it stands at 1.0.0b8, says where it rubs against what is
@@ -220,9 +221,17 @@ No experience for treasure. The numbers are first guesses; step 9 tunes them by 
 
 ### How much each level needs
 
-To reach caster level *n* needs 30 x (n-1)² experience in all: 30 for level 2, 480 for 5, 2,430 for 10,
-10,830 for 20, 25,230 for 30, 45,630 for 40, **72,030 for 50**. Past 50, each level costs what the fiftieth
-did (2,910).
+To reach Level of Atonement *n* needs 42 x (n-1)² experience in all (`ATONE_K`): 42 for level 2, 672 for 5,
+3,402 for 10, 15,162 for 20, 35,322 for 30, 63,882 for 40, **100,842 for 50**. Past 50, each level costs what
+the fiftieth did (4,074).
+
+**As built, measured** (28 October): the screensaver's caster, over levels it cleared without a death (eight
+100-minute runs from level 1, and four 40-minute runs each from 11, 21 and 31 with `CRAWL_GEAR`), earned
+about 260, 230, 360, 310, 500, 480, 760, 730 and 1,000 on levels 1-9, 3,700 on level 10 with the knight,
+1,000-2,200 on 11-15, 3,400-4,200 on 22-25 and 4,200-7,500 on 31-36. At the first guess of 30 x (n-1)² that
+caster reached 50 at about level 30, the thorough end of the target, so the curve was steepened to 42: it now
+reaches about 15 after level 10, 28 after 20, 43 after 30 and **50 at about 35**; someone who clears every chain
+(half as much again) about **29**. The figures below are the plan's first estimate, kept for the record.
 
 From eight short autopilot runs (kills by kind and rank on levels 1-7, 11-16 and 21-25, extrapolated
 past 25): a crypt level L pays about 100 x L^0.95 in kills, about a quarter more with the rest. That puts a
@@ -388,6 +397,24 @@ do, with the dead's small eye beside it and a quiet whisper the first time the p
 - The caster's page lists Luck and Treasure with the rest, and the caster's own share of each total.
 
 ## Building it
+
+All built (28 October 2026), each step a commit on `claude/gracious-newton-pqyd4u`:
+
+- Steps 1-2: the map and the target's health, as planned.
+- Step 3: experience and its feed (lower right in the screensaver, clear of the portrait), `SFX_ATONE`.
+- Step 4: *ASCEND*, the caster's screen and the Player Abilities screen (also Tab's third page). The
+  screensaver's caster ascends and spends by itself in a fixed order (spell haste, damage, health twice, dodge,
+  resist all to 45%, attunement, health, luck); never a person's run, whose points are theirs.
+- Step 5: Luck. A lucky purse was 8% of a level's treasure at first; over the first four levels 5% Luck added
+  only about 4.5%, so it is 12%.
+- Step 6: the cornerstones. The Lantern's light is a flat dynamic light of 0.9 over 2.6 cells; Premonition gives
+  every hazard but the knight's arc (which keeps the blade's time) its extra second.
+- Steps 7-8: overlevels (Space or Y on a line, asked twice), the eerie mark, the Codex's THE CASTER'S OWN.
+- Step 9: ASan clean over a long screensaver run with everything on, a pocket, the Deacon's fight with
+  Premonition and a scripted session through every new screen; the Windows build compiles. Against 1.0.0b8 on
+  the same eight seeds over 100 minutes from level 1, the screensaver's caster cleared a median 12.5 levels (9.5),
+  died 13 times (27) and beat the knight in 6 runs of 8 (4); Second Wind saved it in six. The experience curve
+  was steepened from these runs (above).
 
 1. **The map**: `KEY_M` and the pad; seen cells and walls per level and pocket; `UI_MAP` and the scroll's art;
    panning; the map on its stool at the merchant's; `LG_CASTER` with the map's bit; the harness.

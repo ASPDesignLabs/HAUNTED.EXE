@@ -2741,10 +2741,11 @@ static const float RANK_XP[NRANK] = { 1.0f, 1.4f, 1.9f, 2.5f, 3.2f, 4.0f };
 static const int BOSS_XP[NBOSS] = { 24, 22, 22, 26 };              /* forty of these, at the boss's level */
 #define ATONE_TOP 50                        /* past it, overlevels */
 static float xp_level(void) { return 1.0f + 0.12f * (float)(imax(1, G.level) - 1); }
+#define ATONE_K 42                          /* 42 x (n-1)^2 in all for level n: the autopilot at 50 about level 35 */
 static int atone_need(int n) {                                     /* experience in all to reach Level of Atonement n */
     if (n <= 1) return 0;
-    if (n <= ATONE_TOP) return 30 * (n - 1) * (n - 1);
-    return 30 * (ATONE_TOP - 1) * (ATONE_TOP - 1) + (n - ATONE_TOP) * 30 * (2 * ATONE_TOP - 3);   /* each past it as dear as the last */
+    if (n <= ATONE_TOP) return ATONE_K * (n - 1) * (n - 1);
+    return ATONE_K * (ATONE_TOP - 1) * (ATONE_TOP - 1) + (n - ATONE_TOP) * ATONE_K * (2 * ATONE_TOP - 3);   /* each past it as dear as the last */
 }
 static int atone_reach(void) {                                     /* the level the experience banked would buy */
     int n = imax(1, RUN.atone);
