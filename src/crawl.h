@@ -48,8 +48,25 @@ enum {
     T_PORTAL0, T_PORTAL1, T_PORTAL2, T_PORTAL3,   /* the Accursed Portal: an arch filled with a slow red-violet swirl */
     T_SEALED,                                     /* a chain's doorway shut for the level: dark frames under a cracked red seal */
     T_REPOSITORY,                                 /* the Wretched Repository: iron doors shut in niches, three to a wall */
+    /* each run's own (docs/PLAN-b10.md), made again for its run by crawl_art_run: the materials, two looks
+     * each, on one grid of courses; blends from one material to the next, left to right; what stands on a
+     * wall, drawn over its material (C_CLEAR lets the material show); floors, ceilings and the doors */
+    T_MAT,
+    T_BLEND = T_MAT + 10,                         /* NMAT x NVAR */
+    T_FEAT = T_BLEND + 6,                         /* NBLEND */
+    T_FLOORS = T_FEAT + 8,                        /* NFEAT */
+    T_CEILS = T_FLOORS + 5,                       /* NFLOORS */
+    T_RDOOR = T_CEILS + 3,                        /* NCEILS */
+    T_RJAMB, T_RLOCKED, T_RLOCKED_S, T_RLOCKED_C,
     NTEX
 };
+#define NMAT 5
+#define NVAR 2
+#define NBLEND 6
+#define NFEAT 8
+#define NFLOORS 5
+#define NCEILS 3
+#define T_MATV(m, v) (T_MAT + (m) * NVAR + (v))
 
 enum {
     SP_BONES1, SP_BONES2, SP_SKULLPILE, SP_COBWEB, SP_CHAINS, SP_URN, SP_PILLAR, SP_CANDLES,
@@ -211,5 +228,15 @@ void crawl_art_init(void);                      /* builds everything once */
 void crawl_art_level(int level);                /* that level's palette, ruin and rot (call after init) */
 enum { PT_NONE, PT_BACKROOMS, PT_SEVERANCE };   /* a pocket's theme */
 void crawl_art_theme(int theme, int level);     /* the palette inside a pocket of that theme, or the level's again */
+
+/* Each run's look (docs/PLAN-b10.md): what its materials, blends, features, floors and ceilings are, by
+ * slot. A blend joins two materials, the first on its left and in front (the second lies behind it). */
+typedef struct {
+    const char *name;
+    const char *mat[NMAT], *feat[NFEAT], *floor[NFLOORS], *ceil[NCEILS];
+    signed char blend[NBLEND][2];
+} RunLook;
+extern const RunLook crawl_looks[4];
+void crawl_art_run(int level);                  /* that run's own textures and keys, at the level's rot (after crawl_art_level) */
 
 #endif

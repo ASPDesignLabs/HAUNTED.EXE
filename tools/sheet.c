@@ -516,6 +516,212 @@ static int draw_b7walls(const char *path, int level) {
     return ok;
 }
 
+/* ---- a run's own look (docs/PLAN-b10.md): its parts, and its rooms laid out as the generator would ---- */
+
+typedef struct { uint8_t tex[NTEX][TS * TS]; uint8_t pal[256][3]; uint8_t cmap[NLIGHT][256]; } Snap;
+static Snap g_snap[2];                                              /* the run's first level and its last */
+static void snap_take(Snap *s, int level) {
+    crawl_art_level(level);
+    crawl_art_run(level);
+    memcpy(s->tex, crawl_tex, sizeof crawl_tex); memcpy(s->pal, crawl_pal, sizeof crawl_pal); memcpy(s->cmap, crawl_cmap, sizeof crawl_cmap);
+}
+static void textk(int x, int y, const char *s, int k, int r, int g, int b) {   /* the VGA font at any scale */
+    for (; *s; s++, x += 8 * k)
+        for (int row = 0; row < 8; row++)
+            for (int col = 0; col < 8; col++)
+                if (font_bios8[(uint8_t)*s][row] >> (7 - col) & 1) rect(x + col * k, y + row * k, k, k, r, g, b);
+}
+/* a texture as the game would draw it near a torch: flip for a wall seen from the other side, an overlay
+ * standing on it (-1 none), rot for a floor cell turned about as the game turns them */
+static void rtex(const Snap *s, int ox, int oy, int t, int scale, int flip, int over, int rot) {
+    for (int y = 0; y < TS * scale; y++)
+        for (int x = 0; x < TS * scale; x++) {
+            int tx = x / scale, ty = y / scale;
+            if (flip) tx = TS - 1 - tx;
+            if (rot & 1) tx = TS - 1 - tx;
+            if (rot & 2) ty = TS - 1 - ty;
+            if (rot & 4) { int q = tx; tx = ty; ty = q; }
+            uint8_t c = s->tex[t][tx * TS + ty];
+            if (over >= 0 && s->tex[over][tx * TS + ty] != C_CLEAR) c = s->tex[over][tx * TS + ty];
+            c = s->cmap[LIGHT][c];
+            put(ox + x, oy + y, s->pal[c][0] * 255 / 63, s->pal[c][1] * 255 / 63, s->pal[c][2] * 255 / 63);
+        }
+}
+static void rfloor(const Snap *s, int ox, int oy, int t, int scale, int n, uint32_t seed, int broken) {   /* n by n cells */
+    for (int j = 0; j < n; j++)
+        for (int i = 0; i < n; i++) {
+            uint32_t h = (uint32_t)(i * 7 + j * 13 + 1) * 2654435761u ^ seed;
+            int tt = broken && ((h >> 9) % 4 == 0) ? T_FLOORS + 4 : t;
+            rtex(s, ox + i * TS * scale, oy + j * TS * scale, tt, scale, 0, -1, t == T_FLOORS + 1 ? 0 : (int)((h >> 5) & 7));   /* a pattern lies as laid */
+        }
+}
+
+typedef struct { int t, flip, over; } Face;                       /* one wall cell in a strip */
+#define MV(m, v) T_MATV(m, v)
+#define F_(t) { (t), 0, -1 }
+#define FO(t, o) { (t), 0, T_FEAT + (o) }
+#define FB(k, fl) { T_BLEND + (k), (fl), -1 }
+typedef struct { const char *name, *what; Face f[8]; int floor, ceil, broken; } RoomMock;
+enum { A_, R_, P_, B_, O_ };                                        /* the Crypts' materials, as crawl_art.c numbers them */
+enum { NI, BA, SL, SR, TA, TO };
+static const RoomMock CRYPT_ROOMS[] = {
+    { "THE HALLS", "ASHLAR, PATCHED WITH RUBBLE, CUT INTO THE ROCK AT THE FAR END; TORCHES",
+      { F_(MV(A_, 0)), FO(MV(A_, 1), TO), F_(MV(A_, 0)), FB(0, 0), F_(MV(R_, 1)), FO(MV(R_, 0), TO), FB(4, 0), F_(MV(B_, 0)) }, 2, 1, 0 },
+    { "OSSUARY", "BONE WALLS FACING IN, DRESSED STONE AT THE ENDS",
+      { F_(MV(A_, 0)), FB(5, 1), F_(MV(O_, 0)), F_(MV(O_, 1)), F_(MV(O_, 0)), F_(MV(O_, 0)), FB(5, 0), F_(MV(A_, 1)) }, 3, 1, 0 },
+    { "BURIAL VAULT", "NICHES IN THE ASHLAR, A TORCH BETWEEN",
+      { F_(MV(A_, 0)), FO(MV(A_, 0), NI), FO(MV(A_, 1), NI), FO(MV(A_, 0), TO), FO(MV(A_, 0), NI), FO(MV(A_, 0), NI), F_(MV(A_, 1)), FO(MV(A_, 0), NI) }, 0, 0, 1 },
+    { "CHAPTER HOUSE", "PLASTERED AND PAINTED, THE ORDER'S BANNERS, A TABLET",
+      { F_(MV(P_, 0)), FO(MV(P_, 0), BA), F_(MV(P_, 1)), FO(MV(P_, 0), TA), FO(MV(P_, 0), TO), FO(MV(P_, 0), BA), FB(1, 0), F_(MV(A_, 0)) }, 1, 0, 0 },
+    { "KNIGHTS' VAULT", "SLABS OF THE ORDER'S KNIGHTS IN THE ASHLAR, A BANNER OVER THEM",
+      { F_(MV(A_, 0)), FO(MV(A_, 0), SL), FO(MV(A_, 1), TO), FO(MV(A_, 0), SL), FO(MV(A_, 0), BA), FO(MV(A_, 1), SL), FO(MV(A_, 0), TO), F_(MV(A_, 1)) }, 0, 0, 1 },
+    { "UNDERCROFT", "RUBBLE GIVING WAY TO THE ROCK, A SHRINE CUT IN IT",
+      { F_(MV(R_, 0)), FO(MV(R_, 1), TO), FB(4, 0), F_(MV(B_, 0)), F_(MV(B_, 1)), FO(MV(B_, 0), SR), FB(3, 1), F_(MV(A_, 0)) }, 2, 2, 0 },
+};
+
+static int draw_crypts(const char *path) {
+    const RunLook *L = &crawl_looks[0];
+    snap_take(&g_snap[1], 10);
+    snap_take(&g_snap[0], 1);                                       /* last, so the keys are level 1's */
+    const int S2 = 2, T2 = TS * S2, G = 10, x0 = PAD + ROWHEAD, lab = 8 * TXT + 6;
+    iw = x0 + NMAT * (2 * T2 + 3 * G) + PAD;
+    ih = 3000;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    textk(PAD, PAD, "RUN I, THE CRYPTS: THE ORDER'S CRYPTS, FOR APPROVAL", 3, 230, 230, 230);
+    int y = PAD + 24 + 18;
+    #define HEAD(s) textk(PAD, y + 4, (s), TXT, 230, 200, 120)
+    #define SUB(xx, yy, s) textk((xx), (yy), (s), 1, 160, 160, 160)
+    for (int lv = 0; lv < 2; lv++) {                                /* the materials, both looks side by side */
+        HEAD(lv ? "MATERIALS" : "MATERIALS"); SUB(PAD, y + 24, lv ? "LEVEL 10" : "LEVEL 1"); SUB(PAD, y + 36, "TWO LOOKS EACH");
+        for (int m = 0; m < NMAT; m++) {
+            int x = x0 + m * (2 * T2 + 3 * G);
+            rtex(&g_snap[lv], x, y, MV(m, 0), S2, 0, -1, 0); rtex(&g_snap[lv], x + T2, y, MV(m, 1), S2, 0, -1, 0);
+            if (!lv) textk(x, y + T2 + 4, L->mat[m], TXT, 190, 190, 190);
+        }
+        y += T2 + (lv ? G * 2 : lab + G);
+    }
+    y += G;
+    for (int lv = 0; lv < 2; lv++) {                                /* each blend between its two materials */
+        for (int half = 0; half < 2; half++) {
+            if (!half) { HEAD("BLENDS"); SUB(PAD, y + 24, lv ? "LEVEL 10" : "LEVEL 1"); SUB(PAD, y + 36, "THE FIRST IN FRONT"); }
+            for (int k = half * 3; k < half * 3 + 3; k++) {
+                int x = x0 + (k - half * 3) * (3 * T2 + 3 * G), a = L->blend[k][0], b = L->blend[k][1];
+                rtex(&g_snap[lv], x, y, MV(a, 0), S2, 0, -1, 0); rtex(&g_snap[lv], x + T2, y, T_BLEND + k, S2, 0, -1, 0); rtex(&g_snap[lv], x + 2 * T2, y, MV(b, 0), S2, 0, -1, 0);
+                if (!lv) {
+                    char s[64]; snprintf(s, sizeof s, "%s INTO %s", L->mat[a], L->mat[b]);
+                    SUB(x, y + T2 + 4, s);
+                }
+            }
+            y += T2 + (lv ? G : 16 + G);
+        }
+        y += G;
+    }
+    /* what stands on the walls, on the materials it would stand on */
+    static const int FT[10][3] = { { 0, A_, 0 }, { 0, B_, 0 }, { 1, P_, 0 }, { 1, A_, 1 }, { 2, A_, 0 }, { 3, B_, 0 }, { 3, R_, 1 }, { 4, P_, 0 }, { 5, R_, 0 }, { 5, A_, 1 } };
+    HEAD("ON THE WALLS"); SUB(PAD, y + 24, "OVER ANY MATERIAL"); SUB(PAD, y + 36, "TOP LEVEL 1, BOTTOM 10");
+    for (int i = 0; i < 10; i++) {
+        int x = x0 + (i % 5) * (2 * T2 + 3 * G) + (i / 5) * 0, yy = y + (i / 5) * 0;
+        (void)yy;
+        if (i >= 5) continue;
+        for (int lv = 0; lv < 2; lv++) {
+            int k = i * 2 + lv;
+            int f = FT[k][0], m = FT[k][1];
+            rtex(&g_snap[lv], x + lv * T2, y, MV(m, 0), S2, 0, T_FEAT + f, 0);
+        }
+        SUB(x, y + T2 + 4, L->feat[FT[i * 2][0]]);
+        char s[48]; snprintf(s, sizeof s, "ON %s, %s", L->mat[FT[i * 2][1]], L->mat[FT[i * 2 + 1][1]]);
+        SUB(x, y + T2 + 14, s);
+    }
+    y += T2 + 26 + 2 * G;
+    HEAD("FLOORS"); SUB(PAD, y + 24, "THREE BY THREE CELLS"); SUB(PAD, y + 36, "TURNED AS IN PLAY");
+    for (int lv = 0; lv < 2; lv++) {
+        for (int i = 0; i < NFLOORS - 1; i++) {
+            int x = x0 + i * (3 * TS + 2 * G) + lv * 0;
+            rfloor(&g_snap[lv], x, y, T_FLOORS + i, 1, 3, (uint32_t)(i * 31 + 5), lv && (i == 0));
+            if (!lv) SUB(x, y + 3 * TS + 4, L->floor[i]);
+        }
+        SUB(x0 + 4 * (3 * TS + 2 * G), y + 4, lv ? "LEVEL 10: SOME FLAGS" : "LEVEL 1");
+        if (lv) SUB(x0 + 4 * (3 * TS + 2 * G), y + 16, "BROKEN BY THEN");
+        y += 3 * TS + (lv ? G : 16 + G);
+    }
+    y += G;
+    HEAD("CEILINGS"); SUB(PAD, y + 24, "LEVEL 1, THEN 10");
+    for (int lv = 0; lv < 2; lv++)
+        for (int i = 0; i < NCEILS; i++) {
+            int x = x0 + (lv * NCEILS + i) * (2 * TS + 3 * G) + lv * 3 * G;
+            rfloor(&g_snap[lv], x, y, T_CEILS + i, 1, 2, (uint32_t)(i * 17 + 3), 0);
+            SUB(x, y + 2 * TS + 4, L->ceil[i]);
+        }
+    y += 2 * TS + 16 + 2 * G;
+    HEAD("DOORS"); SUB(PAD, y + 24, "THE VAULTS IN THEIR");  SUB(PAD, y + 36, "KEYS' METALS");
+    static const int DT[6] = { T_RDOOR, T_RJAMB, T_RLOCKED, T_RLOCKED_S, T_RLOCKED_C, T_RDOOR };
+    static const char *const DN[6] = { "DOOR", "ITS JAMB", "GOLD VAULT", "SILVER VAULT", "CRIMSON VAULT", "DOOR, LEVEL 10" };
+    for (int i = 0; i < 6; i++) {
+        int x = x0 + i * (T2 + 3 * G);
+        rtex(&g_snap[i == 5], x, y, DT[i], S2, 0, -1, 0);
+        SUB(x, y + T2 + 4, DN[i]);
+    }
+    y += T2 + 16 + 2 * G;
+    HEAD("KEYS"); SUB(PAD, y + 24, "TURNING, FOUR FRAMES"); SUB(PAD, y + 36, "TREASURE KEPT AS IT IS");
+    static const int KB[3] = { SP_KEY0, SP_KEYS0, SP_KEYC0 };
+    for (int c = 0; c < 3; c++)
+        for (int f = 0; f < 4; f++) {
+            if (c && f > 1) continue;                              /* every frame of the gold; the others face on and turning */
+            int ox = x0 + (c ? 4 + (c - 1) * 2 + f : f) * (T2 + 6) + c * 2 * G;
+            rect(ox, y, T2, T2, 22, 21, 24);
+            for (int yy = 0; yy < T2; yy++)
+                for (int xx = 0; xx < T2; xx++) {
+                    uint8_t k = crawl_spr[KB[c] + f][(xx / S2) * TS + yy / S2];
+                    if (k == C_CLEAR) continue;
+                    k = g_snap[0].cmap[LIGHT][k];
+                    put(ox + xx, y + yy, g_snap[0].pal[k][0] * 255 / 63, g_snap[0].pal[k][1] * 255 / 63, g_snap[0].pal[k][2] * 255 / 63);
+                }
+        }
+    y += T2 + 2 * G;
+    #undef HEAD
+    #undef SUB
+    ih = y + PAD;
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
+static int draw_cryptrooms(const char *path) {
+    snap_take(&g_snap[1], 10);
+    snap_take(&g_snap[0], 1);
+    const int S2 = 2, T2 = TS * S2, G = 10, x0 = PAD;
+    int nr = (int)(sizeof CRYPT_ROOMS / sizeof CRYPT_ROOMS[0]);
+    iw = x0 + 8 * T2 + 2 * G + 2 * TS + G + TS * 2 + PAD;
+    ih = 80 + nr * (2 * T2 + 3 * G + 40);
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    textk(PAD, PAD, "RUN I'S ROOMS: A STRETCH OF EACH AT LEVEL 1, THEN 10", 2, 230, 230, 230);
+    int y = PAD + 16 + 20;
+    static const char *const FLN[NFLOORS] = { "FLAGSTONES", "CHAPTER FLOOR", "WORN SETTS", "BONE EARTH", "BROKEN FLAGS" };
+    static const char *const CLN[NCEILS] = { "RIBBED VAULT", "STONE VAULT", "ROUGH ROCK" };
+    for (int r = 0; r < nr; r++) {
+        const RoomMock *R = &CRYPT_ROOMS[r];
+        textk(x0, y, R->name, TXT, 230, 200, 120);
+        textk(x0 + (int)strlen(R->name) * 8 * TXT + 16, y + 6, R->what, 1, 170, 170, 170);
+        y += 22;
+        for (int lv = 0; lv < 2; lv++) {
+            for (int i = 0; i < 8; i++) rtex(&g_snap[lv], x0 + i * T2, y + lv * (T2 + G), R->f[i].t, S2, R->f[i].flip, R->f[i].over, 0);
+            int fx = x0 + 8 * T2 + 2 * G;
+            rfloor(&g_snap[lv], fx, y + lv * (T2 + G), T_FLOORS + R->floor, 1, 2, (uint32_t)(r * 11 + 2), lv && R->broken);
+            rfloor(&g_snap[lv], fx + 2 * TS + G, y + lv * (T2 + G), T_CEILS + R->ceil, 1, 2, (uint32_t)(r * 13 + 7), 0);
+        }
+        int fx = x0 + 8 * T2 + 2 * G;
+        textk(fx, y + 2 * T2 + G + 4, FLN[R->floor], 1, 170, 170, 170);
+        textk(fx + 2 * TS + G, y + 2 * T2 + G + 4, CLN[R->ceil], 1, 170, 170, 170);
+        y += 2 * T2 + G + 18 + 2 * G;
+    }
+    ih = y + PAD;
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && !strcmp(argv[1], "list")) {
         for (int i = 0; i < NGROUPS; i++) printf("%-12s %s\n", GROUPS[i].name, GROUPS[i].title);
@@ -524,6 +730,8 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "backrooms", "THE BACKROOMS: WALLS, FLOOR, CEILING, THE VISPORTAL, THE GLITCH");
         printf("%-12s %s\n", "severance", "SEVERANCE: WALLS, DOORS, FLOOR, CEILING, DESKS, THE WATER COOLER");
         printf("%-12s %s\n", "b7walls", "1.0.0B7: THE PORTAL, A SEALED DOORWAY, THE REPOSITORY");
+        printf("%-12s %s\n", "crypts", "RUN I'S OWN LOOK: MATERIALS, BLENDS, FEATURES, FLOORS, CEILINGS, DOORS, KEYS");
+        printf("%-12s %s\n", "cryptrooms", "RUN I'S ROOMS, LAID AS THE GENERATOR WOULD LAY THEM");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -565,6 +773,18 @@ int main(int argc, char **argv) {
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_b7walls(path, level)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "crypts") || !strcmp(argv[1], "cryptrooms")) {
+        char path[512];
+        for (int k = 0; k < 2; k++) {
+            const char *nm = k ? "cryptrooms" : "crypts";
+            if (strcmp(argv[1], "all") && strcmp(argv[1], nm)) continue;
+            if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/%s.png", argv[2], nm);
+            else snprintf(path, sizeof path, "%s", argv[2]);
+            if (!(k ? draw_cryptrooms(path) : draw_crypts(path))) { fprintf(stderr, "can't write %s\n", path); return 1; }
+            crawl_art_level(level < 1 ? 1 : level);
+            done++;
+        }
     }
     for (int i = 0; i < NGROUPS; i++) {
         if (strcmp(argv[1], "all") && strcmp(argv[1], GROUPS[i].name)) continue;

@@ -64,6 +64,13 @@ Luck, overlevels past 50) with five cornerstones (Second Wind, Premonition, Cart
 Grave Sense), one chosen at each tenth level. All of it was built on `claude/gracious-newton-pqyd4u`, tested in
 the harness only (no Wine, nothing by hand), and released at the owner's word, squashed onto main as one commit.
 
+1.0.0b10 is planned in [`docs/PLAN-b10.md`](docs/PLAN-b10.md): a look of its own for each run (the Order's
+crypts, the drowned catacombs, the charnel mine, the black glass), with room types, materials laid by the
+stretch and blended where they meet, features drawn over them, floors and ceilings, and each run's doors,
+torches, keys and treasure. The owner answered the first questions; it goes one run at a time, sheets first,
+then frames from the game. Run I's art is drawn (`crawl_art_run`) and on `make sheets`' `crypts.png` and
+`cryptrooms.png`, waiting for approval; the game doesn't use it yet.
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture
@@ -579,6 +586,15 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   comes on a boss level. `level_name` gives each of the forty its name, with a numeral after the first
   time down. `crawl_art_level` regenerates the wall textures with a level seed. Textures
   and sprites are 64x64, column-major.
+- **Each run's look** (1.0.0b10, docs/PLAN-b10.md; only run I is drawn, and not yet in play). `crawl_art_run(level)`
+  (after `crawl_art_level`) makes the run's roles into their slots: `T_MATV(m, v)` (`NMAT` materials, `NVAR` looks
+  each, on one 16-pixel course grid, so any two meet without a step; `g_mid` keeps their blocks for the blends),
+  `T_BLEND` (`NBLEND`, one material into the next across a cell, the first on the left and in front: whole blocks
+  fall away, a skin frays), `T_FEAT` (`NFEAT`, overlays with `C_CLEAR` where the material shows; the torch's three
+  frames last), `T_FLOORS`, `T_CEILS`, `T_RDOOR`/`T_RJAMB`/`T_RLOCKED*`, and the keys' sprites. Rot: `decay_wall`
+  (its grime and moss from a field shared by the run's textures, so it runs on across a seam; drips and cracks
+  each texture's own), `plaster_flake`, `decay_flat`, the banner's tatter. Names and blend pairs are in
+  `crawl_looks`. `make sheets` draws them (`crypts.png`, `cryptrooms.png`: the room types laid as stretches).
 - **Ranks and the bestiary art.** `crawl_rank_lut[family][rank]` recolours a creature's body ramp
   (`PF_*`, `RK_*` in `crawl.h`). The new creatures' and decorations' sprites are drawn in
   `crawl_art.c`; `make sheets` shows them. See `docs/PLAN-bestiary.md` for what is in play.
