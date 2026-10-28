@@ -348,7 +348,7 @@ static int vk_key(WPARAM vk) {
     case VK_UP: return KEY_UP; case VK_DOWN: return KEY_DOWN; case VK_LEFT: return KEY_LEFT; case VK_RIGHT: return KEY_RIGHT;
     case 'W': return KEY_W; case 'A': return KEY_A; case 'S': return KEY_S; case 'D': return KEY_D;
     case 'E': return KEY_E; case 'Q': return KEY_Q; case 'H': return KEY_H; case 'Y': return KEY_Y; case 'N': return KEY_N;
-    case 'B': return KEY_B; case 'L': return KEY_L; case 'C': return KEY_C;
+    case 'B': return KEY_B; case 'L': return KEY_L; case 'C': return KEY_C; case 'M': return KEY_M;
     case VK_SPACE: return KEY_SPACE; case VK_CONTROL: return KEY_CTRL; case VK_SHIFT: return KEY_SHIFT;
     case VK_TAB: return KEY_TAB; case VK_ESCAPE: return KEY_ESC; case VK_RETURN: return KEY_ENTER;
     case VK_BACK: return KEY_BACK; case VK_PRIOR: return KEY_PGUP; case VK_NEXT: return KEY_PGDN;
