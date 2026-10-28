@@ -616,8 +616,9 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `fover[4]` (the overlay; a torch's on `ftorch`, its face + 1, set where the torch is placed), `flo`, `cei` (the
   floor and ceiling; flags break with the rot), `fflip` bits 5-7 the floor's turn, bit 4 laid as it is (the
   lozenges). `render_walls` takes `face[fd]` for an ordinary wall and mixes the overlay in; a secret's cracked
-  wall carries no overlay, and the sliding box wears the face it shows the hall. `render_floor` looks the cell up
-  once per change along a row. Debug: `ROOMS level n: ...` (each room's type), `CRAWL_TPROOM=k` (in a corner of the
+  wall carries no overlay, and the sliding box wears the face it shows the hall. `render_floor` steps along a row
+  in 16.16 fixed point texels (`U`, `V`: the cell by `>> 22`, the texel by `>> 16`, so `TS` must stay 64) and
+  looks the cell up once per change. Debug: `ROOMS level n: ...` (each room's type), `CRAWL_TPROOM=k` (in a corner of the
   first room of type k, `RT_*`, looking across it, once you take control).
 - **Ranks and the bestiary art.** `crawl_rank_lut[family][rank]` recolours a creature's body ramp
   (`PF_*`, `RK_*` in `crawl.h`). The new creatures' and decorations' sprites are drawn in
@@ -918,6 +919,11 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   doorway up (116 of 800 boss levels; three of the eight dream runs sat on level 10). It now skips any
   room with a `keep` exit; the debug map's `MAP lanes reachable` line shows such a cut-off at a glance
   (about 200 lanes short).
+- 1.0.0b10's run I in play (docs/PLAN-b10.md, step 2) has been tested in the harness only. Against 1.0.0b9 on
+  the same eight seeds (100-minute dream runs from level 1, seeds 1-15 odd): a median of 11 levels cleared
+  (9.5), 17 deaths (17; 13 on level 10, against 16), the knight beaten in 5 runs of 8 (4) in 19 tries (21). The
+  room types decide which rooms keep resident skeletons (the ossuary, burial and knights' vaults: about three
+  rooms in five, against one in two before), so the dwellers' count moved a little; the runs show no harm.
 - 1.0.0b9 (the map, the target's health, Levels of Atonement, Luck, cornerstones, overlevels) has been tested
   in the harness only. Against 1.0.0b8 on the same eight seeds (100-minute dream runs from level 1, seeds 1-15
   odd), the released build (`ATONE_K` 42) cleared a median 9.5 levels (9.5), died 17 times (27; 16 on level 10,

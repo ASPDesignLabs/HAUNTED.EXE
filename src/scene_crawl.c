@@ -11475,6 +11475,7 @@ static inline uint8_t fogged(uint8_t c, float fog, float light, int x, int y) {
 
 static int fm_any;                                                 /* any hazard marks on the floor this frame */
 static int fm_at(int cx, int cy, float wx, float wy, float fx, float fy, int x, int y, uint8_t *base, float *lmul);
+_Static_assert(TS == 64, "render_floor finds a texel's cell by shifting six bits");
 static void render_floor(Frame *f, float dx, float dy, float plx, float ply, float horizon) {
     float lx = dx - plx, ly = dy - ply, rx = dx + plx, ry = dy + ply;
     int themed = G.ptheme != PT_NONE, sev = G.ptheme == PT_SEVERANCE;   /* carpet underfoot, tiles or panels above */
@@ -11488,24 +11489,26 @@ static void render_floor(Frame *f, float dx, float dy, float plx, float ply, flo
         if (dist > 30.0f) { memset(row, 0, W); continue; }
         float sx = dist * (rx - lx) / W, sy = dist * (ry - ly) / W;
         float wx = G.px + dist * lx, wy = G.py + dist * ly;
+        /* the same in texels, 16.16 fixed point, so a pixel's cell and texel come by shifts (TS is 64) */
+        int32_t U = (int32_t)floor((double)wx * (TS << 16)), V = (int32_t)floor((double)wy * (TS << 16));
+        int32_t dU = (int32_t)lrint((double)sx * (TS << 16)), dV = (int32_t)lrint((double)sy * (TS << 16));
         float a = atten(dist), dk = 1.0f - expf(-dist * 0.28f);
         int grout = floor_row && dist < 6.0f, lcx = -9999, lcy = -9999;
         const Cell *lc = cell(-1, -1);                              /* the last cell looked up along the row */
-        for (int x = 0; x < W; x++, wx += sx, wy += sy) {
+        for (int x = 0; x < W; x++, wx += sx, wy += sy, U += dU, V += dV) {
             uint8_t base;
             float lmul = 1.0f;
+            int cx = U >> 22, cy = V >> 22, tx = (U >> 16) & (TS - 1), ty = (V >> 16) & (TS - 1);
             if (floor_row) {
-                int cx = (int)floorf(wx), cy = (int)floorf(wy);
                 float fx = wx - cx, fy = wy - cy;
                 if (themed) {                                      /* each cell's carpet turned about, so it doesn't repeat */
                     uint32_t h = hash2(cx, cy);
-                    int tx = (int)(fx * TS) & (TS - 1), ty = (int)(fy * TS) & (TS - 1);
                     if (h & 1) tx = TS - 1 - tx;
                     if (h & 2) ty = TS - 1 - ty;
                     if (h & 4) { int q = tx; tx = ty; ty = q; }
                     base = crawl_tex[sev ? T_SCARPET : T_CARPET][tx * TS + ty];
                 } else if (G.faced && (cx != lcx || cy != lcy ? (lcx = cx, lcy = cy, lc = cell(cx, cy))->flo : lc->flo)) {   /* a drawn run's floor, each cell turned about */
-                    int tx = (int)(fx * TS) & (TS - 1), ty = (int)(fy * TS) & (TS - 1), h = lc->fflip >> 5;
+                    int h = lc->fflip >> 5;
                     if (h & 1) tx = TS - 1 - tx;
                     if (h & 2) ty = TS - 1 - ty;
                     if (h & 4) { int q = tx; tx = ty; ty = q; }
@@ -11526,18 +11529,15 @@ static void render_floor(Frame *f, float dx, float dy, float plx, float ply, flo
                     }
                 }
             } else if (themed) {
-                int cx = (int)floorf(wx), cy = (int)floorf(wy);
-                int tx = (int)((wx - cx) * TS) & (TS - 1), ty = (int)((wy - cy) * TS) & (TS - 1);
                 const Cell *c = cell(cx, cy);
                 int t = sev ? (c->lamp && c->lamp != 255 && lamp_lit[c->lamp] ? T_SCEILLAMP : T_SCEIL)
                       : c->lamp == 255 ? T_CEILDEAD : c->lamp ? (lamp_lit[c->lamp] ? T_CEILLAMP : T_CEILDEAD)
                       : hash2(cx, cy) % 14 == 0 ? T_CEILSTAIN : T_CEILTILE;
                 base = crawl_tex[t][tx * TS + ty];
             } else if (G.faced) {
-                int cx = (int)floorf(wx), cy = (int)floorf(wy);
                 if (cx != lcx || cy != lcy) { lcx = cx; lcy = cy; lc = cell(cx, cy); }
                 if (lc->cei) {
-                    int tx = (int)((wx - cx) * TS) & (TS - 1), ty = (int)((wy - cy) * TS) & (TS - 1), h = lc->fflip >> 5;
+                    int h = lc->fflip >> 5;
                     if (h & 1) tx = TS - 1 - tx;
                     if (h & 2) ty = TS - 1 - ty;
                     base = crawl_tex[lc->cei][tx * TS + ty];

@@ -156,3 +156,12 @@ On `crypts.png` and `cryptrooms.png`. Everything is made by the code (`crawl_art
   challenge's fallen way is run I's rubble.
 - **Her hall** is ashlar with the Order's banners under a rib vault, the plot ashlar and rubble under the
   barrel vault, whichever run it comes before.
+- **Checked** (28 October 2026), in the harness only: nothing played by hand or run under Wine.
+  AddressSanitizer clean over the dream from level 1, the knight's level, levels 9 to 11 (the change back to
+  the old look), a person's pocket, her hall, a challenge from the Portal and an opened secret. Eight
+  100-minute dream runs from level 1 (seeds 1-15 odd) against 1.0.0b9 on the same seeds: a median of 11
+  levels cleared (9.5), 17 deaths (17; 13 on level 10, against 16), the knight beaten in 5 runs of 8 (4) in
+  19 tries (21), a level's median time 358 s (351), its treasure share 0.84 (0.86); the old build's numbers
+  are the ones its release recorded. `build/host bench crawl 60`, three runs each in turn: 3.64-3.82 ms a
+  frame against 3.25-3.90 ms. The floor and ceiling now find their cell and texel in fixed point along a row
+  (a first version that worked them out per pixel in floats cost a fifth more than 1.0.0b9).
