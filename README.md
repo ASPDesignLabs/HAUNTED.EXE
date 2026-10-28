@@ -745,6 +745,34 @@ The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.p
 
 ## What has been verified
 
+**New in 1.0.0b9** (the map, the target's health, experience and Levels of Atonement, Luck, the
+cornerstones and overlevels). Tested in the harness only, by the autopilot and scripted players: none of it
+has been played by hand, run on Windows or under Wine. The Windows build was compiled here without warnings,
+and by CI.
+
+* **Scripted sessions:** buying the map from the merchant and unrolling it, moving it and bringing it back;
+  the target's readout on a shield-bearer with every spell learnt and with none; experience shown as it
+  comes and a Level of Atonement banked mid-fight, banner and all; ascending, buying and taking back steps,
+  a step past a cap asked twice, an overlevel given; choosing cornerstones; Second Wind catching a killing
+  blow; Premonition's marks before omens and in the Deacon's fight; Cartographer in the crypt and in a pocket;
+  the Lantern and Grave Sense. A person's death writes the page with the map kept and Level of Atonement 1,
+  no experience and no cornerstones.
+* **The curve.** Over levels the screensaver's caster cleared without dying (eight 100-minute runs from
+  level 1, and four 40-minute runs each from levels 11, 21 and 31), it earned about 250 to 1,000 experience
+  a level on levels 1-9, 3,700 on level 10 with the knight, 1,000-2,200 on 11-15, 3,400-4,200 on 22-25 and
+  4,200-7,500 on 31-36. At a first guess the fiftieth Level of Atonement came at about level 30; the curve
+  was steepened so that it comes at about 35, as asked.
+* **The autopilot, against 1.0.0b8** on the same eight seeds (100-minute runs from level 1, seeds 1 to 15
+  odd): it dies less, 17 times against 27 (16 of them on the knight's level, against 21), but gets no
+  further: a median of 9.5 levels cleared (9.5), the knight beaten in 4 runs of 8 (4), in 21 tries (23).
+  Second Wind saved it once in each of seven runs, and Luck dropped 68 purses. With the first, gentler
+  curve it had cleared a median 12.5 levels and beaten the knight in 6 runs of 8: the knight is still the
+  wall, and the steeper curve gives the caster fewer levels to meet it with.
+* **Not tested at all:** how a person's pace through the fifty levels compares with the autopilot's;
+  overlevels in a real run (no run has reached 50); the fanfare through real speakers.
+* **AddressSanitizer and UBSan**, clean: a long autopilot run with everything on, a scripted session
+  through every new screen, a pocket with Cartographer, and the Deacon's fight with Premonition.
+
 **New in 1.0.0b8** (a game controller). Tested in the harness only, with a pretend controller scripted
 into it: no real controller has touched it yet, and it hasn't been run on Windows or under Wine. The
 Windows build was compiled here without warnings, and by CI.

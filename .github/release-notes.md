@@ -9,7 +9,7 @@ The ninth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real V
 - **Cornerstones.** At each tenth level, one of five, free: **Second Wind** (back at half health from a killing blow, once a run of ten, or again for a Cursed Coin), **Premonition** (a purple edge on the floor before the place does harm), **Cartographer** (the map comes drawn), **Lantern of the Dead** (a light that shows the shades and keeps the Wraith off) and **Grave Sense** (creatures on the map).
 - **Overlevels.** Past the fiftieth, at 55 and every fifth level after, one stat goes 5% past its cap (Luck 1%), drawn with an eerie mark wherever it shows.
 
-A death takes the experience, the levels, the points and the cornerstones, as it takes the gold; the map stays, and the merchant's claim leaves your levels alone. The screensaver's caster earns and spends levels too, so it gets further than it did.
+A death takes the experience, the levels, the points and the cornerstones, as it takes the gold; the map stays, and the merchant's claim leaves your levels alone. The screensaver's caster earns and spends levels too: it dies less than it did, though the first knight still stops it about as often.
 
 This is still a beta. Everything new has been tested only in the harness, with scripted players and the autopilot: none of it has been played by hand, run on Windows or under Wine, and how a person's pace through the fifty levels compares with the autopilot's is unknown. The controller from the eighth beta and everything in the seventh haven't been played by hand yet either. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
 

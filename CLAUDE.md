@@ -880,10 +880,13 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   (about 200 lanes short).
 - 1.0.0b9 (the map, the target's health, Levels of Atonement, Luck, cornerstones, overlevels) has been tested
   in the harness only. Against 1.0.0b8 on the same eight seeds (100-minute dream runs from level 1, seeds 1-15
-  odd), the dream cleared a median 12.5 levels (9.5), died 13 times (27) and beat the knight in 6 runs of 8 (4):
-  its own levels make it stronger. The curve (`ATONE_K` 42) was set from these and from runs at 11, 21 and 31
-  so that the dream's caster reaches 50 at about level 35; none of it has been played by a person, so how a
-  person's pace compares is unknown. A level replayed after a death in the dream pays its experience again.
+  odd), the released build (`ATONE_K` 42) cleared a median 9.5 levels (9.5), died 17 times (27; 16 on level 10,
+  against 21) and beat the knight in 4 runs of 8 (4) in 21 tries (23); Second Wind saved it in seven runs, Luck
+  dropped 68 purses. At the first curve (`ATONE_K` 30) the same seeds cleared a median 12.5, died 13 times and
+  beat the knight in 6 of 8: the knight is still the wall, and the steeper curve (set from those runs and from
+  runs at 11, 21 and 31, so that the dream's caster reaches 50 at about level 35) gives it fewer levels to meet
+  it with. None of it has been played by a person, so how a person's pace compares is unknown. A level replayed
+  after a death in the dream pays its experience again.
 - The game controller (1.0.0b8) has been tried only with a scripted pad in the harness: XInput itself, the
   dead zones, `PAD_TURN` and the stick's walk, the rumble's strength, the display kept awake and a pad
   pulled out mid-game are all untried on Windows. PlayStation and Switch pads (Raw Input) were left for

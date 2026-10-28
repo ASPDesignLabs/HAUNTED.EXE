@@ -415,7 +415,8 @@ All built (28 October 2026), each step a commit on `claude/gracious-newton-pqyd4
   Premonition and a scripted session through every new screen; the Windows build compiles. Against 1.0.0b8 on
   the same eight seeds over 100 minutes from level 1, the screensaver's caster cleared a median 12.5 levels (9.5),
   died 13 times (27) and beat the knight in 6 runs of 8 (4); Second Wind saved it in six. The experience curve
-  was steepened from these runs (above).
+  was steepened from these runs (above). Run again at the steeper curve, as released: a median 9.5 levels
+  (9.5), 17 deaths (27), the knight beaten in 4 runs of 8 (4); it dies less, but the knight stops it as often.
 
 1. **The map**: `KEY_M` and the pad; seen cells and walls per level and pocket; `UI_MAP` and the scroll's art;
    panning; the map on its stool at the merchant's; `LG_CASTER` with the map's bit; the harness.
