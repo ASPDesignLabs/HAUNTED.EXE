@@ -57,6 +57,12 @@ played by the pad, the hints in its words, rumble, the display kept awake while 
 Built on `claude/trusting-pasteur-ceyxan`, tested in the harness with a scripted pad only (no real
 controller, no Wine), and released at the owner's word, squashed onto main as one commit.
 
+1.0.0b9 is proposed in [`docs/PLAN-b9.md`](docs/PLAN-b9.md): a map on a scroll bought from the merchant
+(M, D-pad up), the target's health with its weakest and strongest spell, and levels for the caster
+(experience, *ASCEND* with the merchant, ten points a level, Luck, overlevels past 50) with a cornerstone
+(Second Wind, Premonition, Cartographer) free every ten levels. Waiting on the owner's answers to its
+questions; nothing built yet.
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture
