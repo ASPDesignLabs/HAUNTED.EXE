@@ -14534,7 +14534,7 @@ static void render_codex(Frame *f) {
         } else {
             int cs = clampi(c->i - CXC_CORNER, 0, NCS - 1);
             y += text_wrap(f, 14, y, CS_DOES[cs], 36, R_STONE + 13, 5) * 9 + 4;
-            y += text_wrap(f, 14, y, "A CORNERSTONE: ONE CHOSEN, FREE, AT EACH TENTH LEVEL OF ATONEMENT, ON THE PLAYER ABILITIES SCREEN. A DEATH TAKES IT.", 36, R_BONE + 11, 3) * 9 + 4;
+            y += text_wrap(f, 14, y, "A CORNERSTONE: ONE CHOSEN, FREE, AT EACH TENTH LEVEL OF ATONEMENT, ON THE PLAYER ABILITIES SCREEN. A DEATH TAKES IT.", 36, R_BONE + 11, 4) * 9 + 4;
             if (cs == CS_WIND) gfx_text8(f, 14, y, RUN.wind_spent ? "YOURS, SPENT FOR THIS RUN" : "YOURS, READY", RUN.wind_spent ? (uint8_t)(R_STONE + 9) : (uint8_t)(R_GOLD + 11), 1);
             else gfx_text8(f, 14, y, "YOURS", R_GOLD + 11, 1);
         }
@@ -14857,7 +14857,7 @@ static void render_ascend(Frame *f) {
     gfx_text16(f, W - 14 - gfx_text_width(line, 1), 9, line, RUN.points ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 9), 1);
     char a[16], b[16];
     commas(RUN.xp, a, sizeof a); commas(atone_need(RUN.atone + 1), b, sizeof b);
-    snprintf(line, sizeof line, "EXPERIENCE %s OF %s", a, b);
+    snprintf(line, sizeof line, "EXP %s OF %s", a, b);
     gfx_text8(f, 14, 27, line, R_STONE + 11, 1);
     int due = corner_due() + over_due();
     if (due > 0 && ((int)(G.ui_t * 2.0f) & 1)) {
