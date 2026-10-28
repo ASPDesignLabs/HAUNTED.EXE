@@ -1,7 +1,8 @@
 # 1.0.0b9: the map, the caster's levels and the cornerstones
 
 **Status: settled and built (28 October 2026) on `claude/gracious-newton-pqyd4u`, tested in the harness only
-(no Wine, nothing by hand); not released. The steps at the end say what each did.** The owner asked for a map bought from the
+(no Wine, nothing by hand), and released as 1.0.0b9 at the owner's word the same day. The steps at the end say
+what each did.** The owner asked for a map bought from the
 merchant, a levelling system for the caster (experience, levels bought with her, points for stats, Luck,
 overlevels past 50), three abilities the owner calls cornerstones, and the health of whatever you are
 looking at. This plan maps that onto the game as it stands at 1.0.0b8, says where it rubs against what is

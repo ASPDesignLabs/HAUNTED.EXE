@@ -14800,7 +14800,7 @@ static void render_stones(Frame *f, int tabbed) {
         gfx_text8(f, 34, y + 1, CS_NAME[c], c == sel ? (uint8_t)C_WHITE : held ? (uint8_t)(R_PURPLE + 13) : (uint8_t)(R_STONE + 12), 1);
         const char *st = held ? (c == CS_WIND && RUN.wind_spent ? "HELD, SPENT" : "HELD") : (c == CS_CARTO && !RUN.has_map && due > 0 ? "NEEDS THE MAP" : (ok ? "CHOOSE" : ""));
         char lvl[24];
-        if (!*st) { snprintf(lvl, sizeof lvl, "AT ATONEMENT %d", (corner_count() + 1) * 10); st = corner_count() < NCS ? lvl : ""; }
+        if (!*st) { snprintf(lvl, sizeof lvl, "ATONEMENT %d", (corner_count() + 1) * 10); st = corner_count() < NCS ? lvl : ""; }
         gfx_text8(f, W - 16 - gfx_text_width(st, 1), y + 1, st, held ? (uint8_t)(R_PURPLE + 11) : ok ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 8), 1);
     }
     int ty = 52 + NCS * 16 + 2;
@@ -14896,7 +14896,7 @@ static void render_ascend(Frame *f) {
     int warn = G.asc_arm == sel || G.asc_arm == 100 + sel;
     text_wrap(f, 14, ty + 1, line, 36, warn ? R_BLOOD + 12 : (od > 0 ? R_PURPLE + 13 : (capped ? R_GLOW + 12 : R_STONE + 12)), 2);
     hint8(f, 14, H - 16, od > 0 ? (PADX.used ? "\1A BUYS  \1Y OVERLEVELS  \1B LEAVES" : "D BUYS  SPACE OVERLEVELS  ESC LEAVES")
-                                : (PADX.used ? "\1A BUYS  LB TAKES BACK  VIEW CORNERSTONES" : "D BUYS  A TAKES BACK  TAB CORNERSTONES"), R_STONE + 9);
+                                : (PADX.used ? "\1A BUYS  LB UNDOES  VIEW CORNERSTONES" : "D BUYS  A UNDOES  TAB CORNERSTONES"), R_STONE + 9);
 }
 
 /* ---- the map on its scroll (docs/PLAN-b9.md, section 1) ----

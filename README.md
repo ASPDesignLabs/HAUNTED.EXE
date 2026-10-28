@@ -32,8 +32,9 @@ Two scenes are included. They alternate every few minutes (configurable) with a 
 | Scene | VGA mode | What it is |
 |---|---|---|
 | **HAUNT.EXE** | 80x25 text mode, 720x400 | A possessed 486 PC: BIOS POST, a DOS prompt, and a ghost that types back. Between the gags it runs DOS programs that have been got at: EDIT rewriting AUTOEXEC.BAT for a seance, DEFRAG consuming souls and moving the remains to the front of the disk, a modem call to a BBS on the other side, a virus scan that cannot clean a dead host, MSD finding GHOST.SYS on IRQ 13, a thirteen-disk SETUP, a QBasic program that writes itself, and a file manager moving the dead from GRAVES to SOULS, until a file with your name turns up. Art materialises in between, seven full-screen half-block ANSI scenes with their own stories: the jack-o'-lantern in the pumpkin patch, the talking skull in the ossuary, the manor in a thunderstorm, the spider in the candle-lit corner, zombies digging out of a graveyard, skeletons dancing out of their coffins, and a ghost that rushes down a hallway to say boo. It ends in a fatal error and a CRT power-off, then reboots. |
-| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Forty levels in four runs of ten, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its tenth level, where a boss waits in an arena of its own: the Ill-Fated Skeleton Knight, the Wandering Hunting Spider, the Black Deacon and the Wraith Unbound; then the runs come round again. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and chooses among the wares on her pedestals for the gold it carries: spells, and things to wear that are rolled like loot, each in its quality's colour. Her room has grown into a hall: a back room with the Hexed Totem, where a beaten boss's scrip buys its ability, the Corpus Compendium and the Wretched Repository, and a grave plot with the Accursed Portal in its far wall. Runes come from the Rune Shrine across her room, for Cursed Coins. Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, with skull walls, niches, banners, moss and sliding doors, walked with quick 90-degree turns. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides three to six secrets behind cracked walls, some of them chains whose deeper links lead out of the crypt altogether: into the Backrooms in the first two runs, and Severance in the next two. Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. From level 6 a Black Altar stands deep in each level: for souls it sends its wisp to a secret, one at a time, or blesses your wisps against the dead, and once every secret is found it anoints something you wear. Will-o'-wisps, a soul each, fly ahead through the halls to the way out or a key and leave a trail of light to follow. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. Twenty kinds of creature come in over the first two runs, about one new kind a level, each in ranks you can tell by its colour, and on the last levels of each run its boss's hazards come into the halls as omens. Your face, Wolfenstein-style, pops up when you are hurt. Hold H, or any button on a game controller, for three seconds to play it yourself: then death costs, and only the merchant's ledger keeps what you have (see below). |
+| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Forty levels in four runs of ten, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its tenth level, where a boss waits in an arena of its own: the Ill-Fated Skeleton Knight, the Wandering Hunting Spider, the Black Deacon and the Wraith Unbound; then the runs come round again. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and chooses among the wares on her pedestals for the gold it carries: spells, and things to wear that are rolled like loot, each in its quality's colour. Her room has grown into a hall: a back room with the Hexed Totem, where a beaten boss's scrip buys its ability, the Corpus Compendium and the Wretched Repository, and a grave plot with the Accursed Portal in its far wall. Runes come from the Rune Shrine across her room, for Cursed Coins. She sells a map that fills in as you walk, and turns what you have slain and found into Levels of Atonement: points to spend on the caster, and at every tenth a cornerstone. Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, with skull walls, niches, banners, moss and sliding doors, walked with quick 90-degree turns. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides three to six secrets behind cracked walls, some of them chains whose deeper links lead out of the crypt altogether: into the Backrooms in the first two runs, and Severance in the next two. Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. From level 6 a Black Altar stands deep in each level: for souls it sends its wisp to a secret, one at a time, or blesses your wisps against the dead, and once every secret is found it anoints something you wear. Will-o'-wisps, a soul each, fly ahead through the halls to the way out or a key and leave a trail of light to follow. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. Twenty kinds of creature come in over the first two runs, about one new kind a level, each in ranks you can tell by its colour, and on the last levels of each run its boss's hazards come into the halls as omens. Your face, Wolfenstein-style, pops up when you are hurt. Hold H, or any button on a game controller, for three seconds to play it yourself: then death costs, and only the merchant's ledger keeps what you have (see below). |
 
+![CATACOMB's map and Levels of Atonement: the map floating beside the merchant with its card, the map unrolled in the Ossuary, a shield-bearer's health with the spells that hurt it most and least, a Level of Atonement banked as it falls, the caster's screen, and the cornerstones](docs/preview_catacomb_atonement.png)
 ![CATACOMB with a game controller: holding a button over HAUNT.EXE's pumpkin patch, the controls in the pad's words, the merchant's prompt, the wardrobe, the bestiary and the Codex with their buttons in colour](docs/preview_catacomb_pad.png)
 ![CATACOMB's bosses: the Ill-Fated Skeleton Knight's card, its Sundering Arc, the Wandering Hunting Spider's card, the Black Deacon untouchable while his adds come, the floor cracking before his fire, and a Fire Bolt bursting on the Wraith Unbound beside a void](docs/preview_catacomb_bosses.png)
 ![CATACOMB's ledger: the merchant's menu, signing a page, a death and what it cost, a stone's page in the grave plot, a trial failed in a pocket, and the merchant's claim](docs/preview_catacomb_ledger.png)
@@ -258,8 +259,8 @@ keep the rest for next time. The autopilot plays the shrine too, with the coins 
 
 ### CATACOMB: the merchant's hall
 
-Her room has grown. Press E at the cat for her menu: **sign the ledger** (below), **another pedestal**,
-**pat her**, or leave. Pedestals cost 500 gold for the third, then 1,250, 3,125, 7,815 and 19,530 for the
+Her room has grown. Press E at the cat for her menu: **sign the ledger** (below), **ascend** (below),
+**another pedestal**, **offer a coin** (for Second Wind, below), **pat her**, or leave. Pedestals cost 500 gold for the third, then 1,250, 3,125, 7,815 and 19,530 for the
 seventh, and each is set out at once with a ware on it. An arch beside her leads to a back room, another
 past the shrine to the grave plot. Nothing in the hall is lost to death.
 
@@ -303,6 +304,84 @@ fallen, each stat you have worn, with its cap and the pieces that roll it, each 
 claim, there from the start. What it does, its numbers by quality or rank, where it comes from, and what
 you have of it now. A and D turn the pages, W and S go between the parts. It is kept through death.
 
+### CATACOMB: the map, Levels of Atonement and the cornerstones
+
+**The map.** The merchant sells one, once, for 1,000 gold: a small scroll floating at her left. It outlasts
+death and her claim. **M** (up on a controller's D-pad) unrolls it across the middle of the view, a tenth of
+the crypt showing either side, and the crypt waits while it is open: the level from above, north up, in brown
+ink on a torn and stained parchment. Every wall within about three cells of you is drawn as you go, through
+the stone as well, so a room beside a hall shows before you find its door. Doors are bars, a vault's in its
+key's colour once you have been near it; the exit, the keys you have seen, the Black Altar, opened secrets'
+doorways and a visportal or a cooler have marks of their own, and you are the red arrow. A secret is stone on
+the map until it is opened. W, A, S and D, the mouse dragged or the left stick move it about; Space brings it
+back to you; M, Esc or B rolls it up. A pocket has a map of its own while you are in it.
+
+**The target's health.** Look at a creature within twelve cells and its name and rank show at the top of
+the view with its health as a bar and in figures, for a moment after you look away, and for longer when you
+have hit it. On the left is the spell that hurts it most, on the right the one that hurts it least, as far
+as you have learnt them: a spell is learnt on a kind once it has killed three of them, the same count the
+bestiary keeps. `?` means some spell is still unlearnt and none known stands out; `--` that all are learnt
+and none differs. Bosses keep their own bar, and of a spirit it says only that nothing you carry touches it.
+
+**Experience.** Everything you do down there counts, and each gain is written at the lower left as it
+comes, with what it was for: a kill, by its kind, its rank and the level (a pocket's creatures by the rank
+they had before the pocket raised them, a quarter more on a chain's first link and a tenth more for each
+link after, never more than 1.6 times); a secret, 25; a chain's end, 60 for each link; a boss, a great
+deal; a level cleared, 30; each room first entered, 3; and all of it more the deeper the level. A line along
+the top of the status bar fills towards the next Level of Atonement and turns gold when one is waiting. The
+moment one is banked, a choir, a deep bell and a whisper sound and *LEVEL OF ATONEMENT 12* crosses the view.
+The tally has an EXPERIENCE row.
+
+**Ascending.** Experience becomes levels only with the merchant: her menu's **ascend** takes every level it
+reaches at once, ten points each, to the fiftieth. Level *n* needs 42 x (n-1)² in all: 42 for the second,
+3,402 for the tenth, 15,162 for the twentieth and 100,842 for the fiftieth. Without dying, the screensaver's
+caster reaches about Level of Atonement 15 by the end of the first run of the crypt and 28 by the end of the
+second, and 50 at about level 35; someone who clears every chain, at about level 29. Everyone starts alike, at 100
+health and 2% Luck, and the points buy:
+
+| Points | Line | A step | Cap on the total |
+|---|---|---|---|
+| 1 | Health | +5 | none |
+| 3 | Damage | +1% | 100% |
+| 3 | Resist all | +5% to poison, burning and slowing | 75% each |
+| 3 | Resist poison, burn or slow | +15% to the one | 75% |
+| 3 | Spell Haste | +1% | 50% |
+| 3 | Dodge | +1% | 35% |
+| 2 | Treasure | +1% | 100% |
+| 2 | Movement | +1% | 40% |
+| 1 | Luck | +0.1% | 25% |
+| 1 | Attunement (spirit cost) | +1% | 60% |
+
+On the caster's screen W and S choose a line, D or Enter buys a step and A takes back one bought since the
+screen opened; points not spent wait for next time. What the caster has of its own is added to what it
+wears, under the same caps, and a step that would go past one asks twice. **Luck** is new: each kill rolls
+it for a purse of gold, bigger by the creature's rank, and half the time a bone, a potion or an urn besides,
+none of it counted in the level's treasure. Nothing you wear has Luck; only points buy it. **Treasure** is the
+stat Treasure Hunter raises, and makes everything picked up worth more. The screensaver's caster ascends at
+each visit and spends by a fixed order (spell haste, damage, health, dodge, resistance, attunement, luck),
+but never on a run that is yours.
+
+**Cornerstones.** At each tenth Level of Atonement you choose one of five, free, on a screen of their own
+that opens before the points (and is Tab's third page). A death takes them.
+
+* **Second Wind.** A blow that would kill you leaves you at half your health instead, untouchable for two
+  seconds. Once a run of ten levels; a Cursed Coin offered to the merchant (**offer a coin**) restores it
+  sooner.
+* **Premonition.** A dashed purple edge on the floor a second before the place does harm there: falling
+  stone, fire, bile, the void, the Wraith's hands (the knight's arc keeps its own time). It also marks
+  where an imp's ember will land, a drowned one about to burst, and what the Deacon's Litany can see.
+* **Cartographer** (once you have the map). Each level's map comes already drawn, all but its secrets and
+  keys; a vault's door takes its key's colour, and a secret's wall shows dotted, once you have passed near.
+* **Lantern of the Dead.** A pale light about you, about two and a half cells, that shows the shades; the
+  ordinary Wraith won't come within two cells of it.
+* **Grave Sense.** Creatures within ten cells show on the map as red marks.
+
+**Overlevels.** Past the fiftieth, each level costs 4,074, and at 55, 60 and every fifth after you have an
+overlevel to give: Space (Y on a controller) on a line of the caster's screen, asked twice, puts that line
+5% past its cap, the cap with it (Luck 1%; not health or resist all). An overlevelled number is drawn pale
+violet, breathing and now and then slipping, with the dead's eye beside it, wherever it is shown. The
+Codex has a part of its own for all of this, THE CASTER'S OWN.
+
 ### CATACOMB: death, the ledger and her claim
 
 **The dream.** While it plays itself, the screensaver dreams: it plays on from your last page, keeps
@@ -311,10 +390,11 @@ each time (by up to 45%, until it is cleared). Hold H and the run is yours, and 
 program closes, even if you sleepwalk: from then on the rules below apply.
 
 **Death costs.** When you fall, the gold you carry, every piece you wear, the bag and what is in it,
-every spell but the Fire Bolt (which goes back to the fireball), your souls and bones, your Cursed Coins
-and the ware held at the merchant's all go. A stone is cut in the grave plot with what you carried and
+every spell but the Fire Bolt (which goes back to the fireball), your souls and bones, your Cursed Coins,
+the ware held at the merchant's, and your experience, Levels of Atonement, points, overlevels and
+cornerstones all go. A stone is cut in the grave plot with what you carried and
 what took you, a card says so, and you wake in the merchant's room before level 1. What stays: the
-runes and the Rune Shrine, the pedestals, the Totem's abilities and scrip, the Compendium, the
+runes and the Rune Shrine, the pedestals, the map, the Totem's abilities and scrip, the Compendium, the
 Repository, the Portal's runs and challenges, the record and the Codex. The death is written to your page
 the moment you fall, so closing the window during the fall undoes nothing. A death in a pocket is
 different: you come back whole at the entrance of the chain's first room, and its doorway is sealed for
@@ -334,7 +414,8 @@ harm, or inside a boss's arena while it fights), your page is marked, and the ma
 after the danger has passed. It is written the moment the danger begins. Open a marked page, by the
 ledger or the next start, and she takes the dead's claim at once, whatever you meant by it: a quarter to a
 half of your gold, and one piece you wear or a tier of one spell (lost at tier I; the Fire Bolt never
-goes below the fireball), all alike likely. Then she signs the page herself. While a page is marked a red
+goes below the fireball), all alike likely. Then she signs the page herself. She leaves your Levels of
+Atonement alone. While a page is marked a red
 eye shows under your keys and in the readout, and FLEE and OPEN THE LEDGER say *THE DEAD ARE WATCHING*.
 This catches a closed window, a crash or a power cut as well. Nothing in a pocket or her room counts as
 danger.
@@ -353,10 +434,11 @@ switching until you hand it back. HAUNT.EXE cuts straight to the crypt.
 | Left click, or Ctrl | Cast the spell in hand where you are looking (lightning and Soul Drain pick the nearest creature near the middle of the view) |
 | 1 to 9, or the wheel | Choose an attack spell from your book: 1 Fire Bolt, 2 Frost Shard, 3 Chain Lightning, 4 Bone Spear, 5 Soul Drain, 6 Hellfire, 7 Seeker Wisps, 8 Rapid Sparks, 9 BFS9000 |
 | E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, step through the exit runes, drink from a boss's font, kindle a brazier, or use the merchant (her menu), the Rune Shrine, the Hexed Totem, the Compendium, the Repository, a gravestone, the Accursed Portal, a Black Altar or its wisp, a visportal or a water cooler. Walking into a door opens it too, and walking into a chain's doorway takes you through |
-| Tab | The wardrobe: W and S choose a place, worn or in the bag, and Enter moves a piece between them. A and D turn to the caster's page: every total, what abilities add (in gold) and what is at its cap (in blue), and the spellbook |
+| Tab | The wardrobe: W and S choose a place, worn or in the bag, and Enter moves a piece between them. A and D turn to the caster's page: every total, what abilities add (in gold) and what is at its cap (in blue), and the spellbook; then the cornerstones |
 | B | The bestiary and the achievements. A and D turn the pages, W and S choose a rank or scroll |
 | L | The wisps: a list of what can be summoned now and at what price (see below). W and S choose, Enter casts, Space sets L to cast that one at a tap; then holding L brings the list back |
 | C | The Codex of Affixations. A and D turn the pages, W and S go between its parts |
+| M | The map, once bought from the merchant. W, A, S and D or the mouse dragged move it, Space brings it back to you, M or Esc rolls it up |
 | Right mouse | Use the boss ability readied (once the Hexed Totem has taught you one) |
 | Q | Ready the next boss ability; at a ware in the merchant's room, hold it |
 | W, A, S or D twice | Swift Dodge, once the Totem has taught it: a dart two to five cells that way |
@@ -381,8 +463,8 @@ settings can turn it off.
 | A | Open, use, buy (E) | Choose (Enter) |
 | B | Swift Dodge, the way the left stick leans, else back | Back, close (Esc) |
 | X | Ready the next ability; at a ware, hold it (Q) | |
-| Y, or D-pad up | The wisps (L) | Space |
-| D-pad left, right, down | The bestiary, the Codex, the status bar | Up, down, left, right |
+| Y | The wisps (L) | Space |
+| D-pad | Up the map, left the bestiary, right the Codex, down the status bar | Up, down, left, right |
 | View / Menu | The wardrobe / the question at Esc | |
 
 Your defensive runes still fire on their own, as quickly (and as fallibly) as they do for the
@@ -392,7 +474,7 @@ the place of one you wear and you have no bag, the card warns in red that the ol
 and a second E buys; if your bag is full, you are asked which spare to let go (Esc thinks better of
 it). **Q** holds a ware for the next visit, for a quarter of its price: it comes back on its pedestal
 at the price it showed, and the hold ends when you leave the room the next time, bought or not. One
-ware is held at a time. E at the cat herself opens her menu, where you sign the ledger and buy
+ware is held at a time. E at the cat herself opens her menu, where you sign the ledger, ascend and buy
 pedestals. Then leave by the east door.
 
 The Wolfenstein status bar shows the level, gold, health, your face, your spirit (the souls, to a
@@ -476,7 +558,10 @@ became HAUNTED.EXE, kept so that settings and saves carry over), `Progress` besi
 start from or holds the unsigned run, and `Mark` is the dead's watch; `uninstall.cmd` removes them with
 the settings. They are written the moment the game changes them, and never on quitting.
 
-1.0.0b8 changes nothing in the save, so 1.0.0b7 reads its saves too. 1.0.0b7 wrote a new kind of save, up to
+1.0.0b9 adds a part to each page for the caster's own: the map, the experience, the Level of Atonement,
+the points and what they bought, the overlevels and the cornerstones. 1.0.0b8 and 1.0.0b7 step over it,
+so they still read its pages, without those; a page they wrote opens here at Level of Atonement 1, without
+the map. 1.0.0b8 changed nothing in the save. 1.0.0b7 wrote a new kind of save, up to
 16 KB a page. A 1.0.0b6 grave opens as a page, shown CARVED,
 and 1.0.0b6's last fled progress becomes the unsigned run, so nothing is lost; saves from 1.0.0b5 and
 earlier load as they did in 1.0.0b6 (runes by tier become qualities, an old robe, hood and ring become
@@ -647,6 +732,10 @@ into each level. `CRAWL_TPBOSS=1` stands you in a boss level's antechamber (2: t
 leaving), `CRAWL_BOSSHP=f` multiplies a boss's health, `CRAWL_OMEN=s` brings the level's omens on any level
 every s seconds, and `CRAWL_TPCAT=1`, `CRAWL_TPTOTEM=1`, `CRAWL_TPLECTERN=1`, `CRAWL_TPREPO=1`,
 `CRAWL_TPSTONE=1` and `CRAWL_TPPORTAL=1` stand you before the merchant and each of her hall's fixtures.
+`CRAWL_HASMAP=1` gives you the map, `CRAWL_LEARNT=1` learns every spell on every kind for the target's
+readout, `CRAWL_XP=n` banks n experience as you take over, `CRAWL_LUCK=x` sets Luck at x%, and
+`CRAWL_CORNER=b` gives the cornerstones by bits (1 Second Wind, 2 Premonition, 4 Cartographer, 8 Lantern of
+the Dead, 16 Grave Sense).
 The harness plays a person at the keys with `HOST_INPUT`, for
 example `HOST_INPUT="1:+H;4.2:-H;5:m300,0;6:+W;8:-W;9:+MOUSE1;9.2:-MOUSE1"` (press, release, mouse
 counts), a controller's buttons as `+PAD_A` ... `+PAD_RT` and its sticks as `aLX0.8`, `aLY1`, `aRX-0.5`,
