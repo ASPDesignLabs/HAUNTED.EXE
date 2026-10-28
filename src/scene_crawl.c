@@ -90,6 +90,7 @@ typedef struct {
     float webbed, webmax, claw;                                    /* held in your Tangled Web: what is left of it, all of it, a claw at it */
     int ally; float ally_t, acool;                                 /* raised by your Grave Call: how long it has left; its next blow at
                                                                       the other side (an ally's at them, theirs at an ally) */
+    int rank0;                                                     /* in a pocket: 1 + the rank it would have had on the level */
 } Mob;
 /* What each kind of creature is (docs/PLAN-bestiary.md): its names, a line for the bestiary, its
  * pictures there (walking towards you, and from the side), the ramp its rank recolours (-1: off the
@@ -581,7 +582,7 @@ static struct {
     float blocked;                      /* seconds spent waiting on a creature */
 
     float pvx, pvy;                     /* the caster's velocity, for skeletons leading their throws */
-    int hp, max_hp, level_treasure, level_souls, has_key[NKEYS];
+    int hp, max_hp, level_treasure, level_souls, level_xp, has_key[NKEYS];
     double unlock_t;
 
     /* what is on the caster: poison, slow, and the defensive spells running */
@@ -603,6 +604,7 @@ static struct {
     int leaving, exiting;                   /* heading for the exit; stepping through it */
     float exit_open, exit_t;
     int kills, kills_total;
+    int rooms_in;                           /* the level's rooms set foot in, a bit each, for their experience */
     int look_mob; float look_t;             /* a person's target: the creature looked at or last hit, how long it stays so */
     int spawned[NKINDS];                    /* how many of each kind have come on this level: a newcomer comes alone */
     uint8_t named[NKINDS];                  /* the ranks of each kind the caption has named on this level */
@@ -614,7 +616,7 @@ static struct {
     Wisp wisps[MAXWISPS];                   /* will-o'-wisps in the crypt: [0] summoned, [1] the altar's */
     int tally;                              /* the level-complete screen */
     double tally_t, clear_time;
-    int tally_shown[6], tally_done;           /* one a row: time, kills, treasure, souls, secrets, and a boss's fight */
+    int tally_shown[7], tally_done;           /* one a row: time, kills, treasure, souls, secrets, experience, and a boss's fight */
     float hurt, gold, readout, kick, heartbeat, chill;              /* chill: the cold flash when a wraith shrieks */
     int dead;
     int retries;                        /* deaths on this level so far: the crypt goes a little easier each time */
@@ -2708,6 +2710,70 @@ static void rec_cleared(void) {
 static Item *add_item(int x, int y, int type);
 static void add_pool(float x, float y);
 static void wraith_back(Mob *m);
+/* ---- experience (docs/PLAN-b9.md, section 3): banked as it comes, claimed as Levels of Atonement with
+ * the merchant. A kill pays its kind's worth by the level and its rank; in a pocket, the rank it would have
+ * had on the level, and a quarter more for the first link and a tenth for each after, 1.6 at most. Secrets,
+ * a chain's end, a boss, a level cleared and each room first set foot in pay too. Every gain is shown with
+ * its value, and the moment enough is banked for another level the choir sings. ---- */
+static const int KIND_XP[] = {
+    [MOB_SKEL] = 8, [MOB_GHOST] = 0, [MOB_BAT] = 5, [MOB_WSKULL] = 6, [MOB_SHIELD] = 12, [MOB_SPIDER] = 7,
+    [MOB_SHAMBLER] = 12, [MOB_DROWNED] = 16, [MOB_HOUND] = 8, [MOB_WRAITH] = 0, [MOB_HUNTER] = 12, [MOB_GHOUL] = 14,
+    [MOB_KNIGHT] = 24, [MOB_BROOD] = 26, [MOB_LING] = 1, [MOB_SAC] = 0, [MOB_SHADE] = 16, [MOB_IMP] = 12,
+    [MOB_DEACON] = 20, [MOB_GARGOYLE] = 18 };
+static const float RANK_XP[NRANK] = { 1.0f, 1.4f, 1.9f, 2.5f, 3.2f, 4.0f };
+static const int BOSS_XP[NBOSS] = { 24, 22, 22, 26 };              /* forty of these, at the boss's level */
+#define ATONE_TOP 50                        /* past it, overlevels */
+static float xp_level(void) { return 1.0f + 0.12f * (float)(imax(1, G.level) - 1); }
+static int atone_need(int n) {                                     /* experience in all to reach Level of Atonement n */
+    if (n <= 1) return 0;
+    if (n <= ATONE_TOP) return 30 * (n - 1) * (n - 1);
+    return 30 * (ATONE_TOP - 1) * (ATONE_TOP - 1) + (n - ATONE_TOP) * 30 * (2 * ATONE_TOP - 3);   /* each past it as dear as the last */
+}
+static int atone_reach(void) {                                     /* the level the experience banked would buy */
+    int n = imax(1, RUN.atone);
+    while (n < 9999 && atone_need(n + 1) <= RUN.xp) n++;
+    return n;
+}
+#define XPF_N 5
+static struct { char what[XPF_N][36]; int v[XPF_N]; float t[XPF_N]; int n; float banner; int banner_lvl; } XPF;   /* the gains shown, newest first */
+static void xp_gain(float amount, const char *what) {
+    int v = (int)(amount + 0.5f);
+    if (v <= 0) return;
+    int was = atone_reach();
+    RUN.xp = RUN.xp > 2000000000 - v ? 2000000000 : RUN.xp + v;
+    G.level_xp += v;
+    memmove(&XPF.what[1], &XPF.what[0], sizeof XPF.what[0] * (XPF_N - 1));
+    memmove(&XPF.v[1], &XPF.v[0], sizeof XPF.v[0] * (XPF_N - 1));
+    memmove(&XPF.t[1], &XPF.t[0], sizeof XPF.t[0] * (XPF_N - 1));
+    snprintf(XPF.what[0], sizeof XPF.what[0], "%s", what);
+    XPF.v[0] = v; XPF.t[0] = 0.0f; XPF.n = imin(XPF.n + 1, XPF_N);
+    int now = atone_reach();
+    if (now > was) {                                               /* enough for another: she will hear it */
+        XPF.banner = 3.2f; XPF.banner_lvl = now;
+        snd_sfx_ex(SFX_ATONE, 1.0f, 0.5f);
+        if (G.player) rumble(0.3f, 0.2f, 0.6f);
+    }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT xp +%d %s total %d reach %d level %d t=%.2f\n", v, what, RUN.xp, now, G.level, G.t);
+#endif
+}
+static void xp_kill(const Mob *m) {
+    if (m->boss || m->ally || m->type < 0 || m->type >= (int)(sizeof KIND_XP / sizeof KIND_XP[0]) || !KIND_XP[m->type]) return;
+    int rank = m->rank0 ? m->rank0 - 1 : m->rank;
+    float v = (float)KIND_XP[m->type] * xp_level() * RANK_XP[clampi(rank, 0, NRANK - 1)];
+    if (m->rank0 && PK.depth >= 2) v *= fminf(1.6f, 1.25f + 0.1f * (float)(PK.depth - 2));   /* a chain's: more, but not a black rank's worth */
+    if (m->add) v *= 0.5f;                                         /* a boss's adds */
+    char what[36];
+    snprintf(what, sizeof what, "%s%s", m->rank == RK_I ? "" : rank_word(m->type, m->rank), KINDS[m->type].name);
+    xp_gain(v, what);
+}
+static void xp_rooms(void) {                                       /* a room first set foot in */
+    if (G.shop || PK.depth) return;
+    int cx = (int)G.px, cy = (int)G.py;
+    for (int i = 0; i < G.nrooms && i < 31; i++)
+        if (!(G.rooms_in >> i & 1) && in_room(&G.rooms[i], cx, cy)) { G.rooms_in |= 1 << i; xp_gain(3.0f * xp_level(), "A ROOM FOUND"); }
+}
+
 static void kill_mob(Mob *m) {
     m->state = MS_DIE; m->t = 0.0f;
     if (!KIND_IS(m, KF_UNCOUNTED)) { if (!PK.depth) G.kills++; if (!m->boss) rec_kill(m); }   /* a pocket's are in the record, not the level's tally */
@@ -2721,6 +2787,7 @@ static void kill_mob(Mob *m) {
         if (!others) for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && G.mobs[i].type == MOB_SAC && G.mobs[i].state == MS_WALK) { G.mobs[i].state = MS_DIE; G.mobs[i].t = 0.0f; }
     }
     if (m->boss) return;                                           /* a boss leaves only its scrip */
+    xp_kill(m);
     gain_souls((float)RANK_SOULS[m->rank]);
     if (G.reap_t > 0.0f && RUN.gear.def[DF_REAP] >= RUNE_EXQ && !G.dead && !KIND_IS(m, KF_UNCOUNTED)) {   /* Exquisite: a little life back */
         G.hp = clampi(G.hp + (G.max_hp + 19) / 20, 0, G.max_hp);
@@ -4820,6 +4887,7 @@ static void open_secret(int i) {
     G.secrets_found++; G.links_found++;
     rec_secret();
     say("A SECRET!   %d OF %d", G.links_found, G.nlinks);
+    xp_gain(25.0f * xp_level(), "A SECRET");
     if (G.links_found >= G.nlinks) gain_coin(COIN_ALL, "EVERY SECRET HERE FOUND");
     sfx_at(SFX_PUSHWALL, sc->sx + 0.5f, sc->sy + 0.5f, 1.0f);
     snd_sfx_ex(SFX_SECRET, 1.0f, 0.5f);
@@ -5501,6 +5569,8 @@ static void update_player(float dt) {
             G.tally = 1; G.tally_t = 0.0; G.clear_time = G.level_t; G.retries = 0;
             snd_sfx_ex(SFX_FANFARE, 1.0f, 0.5f);
             rec_cleared();
+            char lc[36]; snprintf(lc, sizeof lc, "LEVEL %d CLEARED", G.level);
+            xp_gain(30.0f * xp_level(), lc);
 #ifdef CRAWL_DEBUG
             fprintf(stderr, "EVENT cleared level %d t=%.1f by %s\n", G.level, G.level_t, G.player ? "player" : "autopilot");
 #endif
@@ -5893,6 +5963,7 @@ static void pocket_say_found(int link) {                           /* the first 
     G_LEVEL.links_found++;
     rec_secret();
     say("A SECRET!   %d OF %d", G_LEVEL.links_found, G_LEVEL.nlinks);
+    xp_gain(25.0f * xp_level(), "A SECRET");
     if (G_LEVEL.links_found >= G_LEVEL.nlinks) gain_coin(COIN_ALL, "EVERY SECRET HERE FOUND");
     snd_sfx_ex(SFX_SECRET, 0.9f, 0.5f);
 #ifdef CRAWL_DEBUG
@@ -6102,6 +6173,7 @@ static void gen_pocket(const Secret *sc, int link) {
             Mob *m = &G.mobs[q];
             if (!m->alive || m->gen) continue;
             m->gen = ++mg;
+            m->rank0 = m->rank + 1;                                /* for its experience: the level's own rank */
             if (KINDS[m->type].family >= 0) set_rank(m, imin(m->rank + link - 1, imin(RK_V, KINDS[m->type].top)));
             m->hp = m->maxhp = m->maxhp * theme_boost();
             if (mg <= 32 && (slain >> (mg - 1) & 1)) { m->alive = 0; if (!KIND_IS(m, KF_UNCOUNTED)) G.kills_total--; }
@@ -6843,6 +6915,7 @@ static void boss_fall(Mob *m) {
     snd_sfx_ex(SFX_FANFARE, 0.9f, 0.5f); snd_sfx_ex(SFX_SHATTER, 1.0f, 0.5f);
     snd_boss_fall();
     say("THE WAY OUT IS OPEN");
+    xp_gain(40.0f * (float)BOSS_XP[G.boss] * xp_level(), B->short_name);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT boss_fall %s in %d s t=%.2f by %s\n", B->name, secs, G.t, G.player ? "player" : "autopilot");
 #endif
@@ -7128,9 +7201,9 @@ static void update_items(void) {
 }
 
 /* the tally counts up row by row: time, kills, treasure, souls, secrets */
-#define TALLY_ROWS 6
+#define TALLY_ROWS 7
 static const float TALLY_ROW0 = 1.6f, TALLY_ROW_GAP = 1.0f, TALLY_COUNT = 0.75f, TALLY_END = 9.0f;
-static int tally_rows(void) { return G.boss >= 0 && G.bstate == BS_DEAD ? 6 : 5; }   /* a boss's level: how long its fight took */
+static int tally_rows(void) { return G.boss >= 0 && G.bstate == BS_DEAD ? 7 : 6; }   /* a boss's level: how long its fight took */
 static int tally_value(int row, float t, int final) {
     float k = smoothstepf(0.0f, 1.0f, (t - TALLY_ROW0 - row * TALLY_ROW_GAP) / TALLY_COUNT);
     return (int)floorf(final * k);
@@ -7139,7 +7212,7 @@ static void update_tally(double dt) {
     float pt = (float)G.tally_t;
     G.tally_t += dt;
     float t = (float)G.tally_t;
-    int finals[TALLY_ROWS] = { (int)G.clear_time, G.kills, G.items_got, G.level_souls, G.links_found, (int)G.bfight_t };
+    int finals[TALLY_ROWS] = { (int)G.clear_time, G.kills, G.items_got, G.level_souls, G.links_found, G.level_xp, (int)G.bfight_t };
     for (int r = 0; r < tally_rows(); r++) {
         int v = tally_value(r, t, finals[r]);
         if (v != G.tally_shown[r]) { G.tally_shown[r] = v; snd_sfx_ex(SFX_TICK, 0.7f, 0.5f); }
@@ -7488,6 +7561,11 @@ static void crawl_update(double dt) {
     G.msg_t = fmaxf(0.0f, G.msg_t - fdt); G.hint_t = fmaxf(0.0f, G.hint_t - fdt); G.knock_t = fmaxf(0.0f, G.knock_t - fdt);
     G.ui_t += fdt;
     update_toasts(fdt);
+    if (!(G.player && G.ui)) {                                     /* the experience shown: it waits with a menu */
+        for (int i = 0; i < XPF.n; i++) XPF.t[i] += fdt;
+        while (XPF.n > 0 && XPF.t[XPF.n - 1] > 3.0f) XPF.n--;
+        XPF.banner = fmaxf(0.0f, XPF.banner - fdt);
+    }
     if (G.player && G.ui && !G.shop) { update_ui(); return; }     /* a menu is up: the crypt holds its breath */
     if (G.player && (G.tally || G.dead) && IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
     if (G.player && G.dead && G.dcost && G.dcard_t > 0.8f && (IN.hit[KEY_E] || IN.hit[KEY_ENTER] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) G.dcard_done = 1;
@@ -7559,7 +7637,7 @@ static void crawl_update(double dt) {
         wisp_level = G.level;
     }
 #endif
-    if (!G.dead) { map_note(); update_items(); update_abilities(fdt); ab_update(fdt); update_altar(); update_status(fdt); if (G.level_t > 1.0) update_defense(fdt); }
+    if (!G.dead) { map_note(); xp_rooms(); update_items(); update_abilities(fdt); ab_update(fdt); update_altar(); update_status(fdt); if (G.level_t > 1.0) update_defense(fdt); }
     update_boss(fdt);
     update_hazards(fdt);
     update_omens(fdt);
@@ -8434,6 +8512,7 @@ static int visportal_use(void) {
     else { RUN.souls += 50; G.level_souls += 50; pop_readout(); say(sev ? "A CUP OF WATER. FIFTY SOULS" : "THE DOORWAYS GIVE YOU FIFTY SOULS"); }
     if (sev && G.vis_deco >= 0) G.decos[G.vis_deco].spr = SP_COOLER_LOW;
     gain_coin(PK.chain, "AT THE END OF A CHAIN");
+    xp_gain(60.0f * xp_level() * (float)imax(1, G_LEVEL.secrets[clampi(PK.chain, 0, MAXSECRETS - 1)].links), "THE TRIAL'S END");
     snd_sfx_ex(sev ? SFX_POTION : SFX_SHIMMER, 1.0f, 0.5f); snd_sfx_ex(sev ? SFX_DRIP : SFX_POTION, 0.7f, 0.5f);
     G.grab_t = 1.0f; show_bar();
 #ifdef CRAWL_DEBUG
@@ -10111,6 +10190,7 @@ static void death_fall(void) {
     if (spells) LOST("%s%d SPELL%s", d > G.dlost ? ", " : "", spells, spells > 1 ? "S" : "");
     if (RUN.souls) LOST("%s%d SOULS", d > G.dlost ? ", " : "", RUN.souls);
     if (RUN.coins) LOST("%s%d COIN%s", d > G.dlost ? ", " : "", RUN.coins, RUN.coins > 1 ? "S" : "");
+    if (RUN.atone > 1) LOST("%sATONEMENT %d", d > G.dlost ? ", " : "", RUN.atone);
     #undef LOST
     if (d > G.dlost) snprintf(d, (size_t)left, " GONE WITH YOU"); else snprintf(G.dlost, sizeof G.dlost, "YOU HAD NOTHING TO LOSE");
 #ifdef CRAWL_DEBUG
@@ -10123,6 +10203,9 @@ static void death_fall(void) {
     memset(g->worn, 0, sizeof g->worn); memset(g->bag, 0, sizeof g->bag); g->bag_size = g->bag_quality = 0;
     g->bones = 0; g->has_held = 0; memset(&g->held, 0, sizeof g->held);
     memset(RUN.top_rank, 0, sizeof RUN.top_rank);                  /* the adds' ranks start again */
+    RUN.atone = 1; RUN.xp = 0; RUN.points = 0; RUN.corner = 0; RUN.wind_spent = 0;   /* the Level of Atonement and all it bought; */
+    memset(RUN.steps, 0, sizeof RUN.steps); memset(RUN.over, 0, sizeof RUN.over);       /* the map stays */
+    XPF.n = 0; XPF.banner = 0.0f;
     G.level_treasure = G.level_souls = 0;
     RUN.level = 1; RUN.shop_next = 1; RUN.hp = gear_max_hp(g);
     death_write();
@@ -12009,7 +12092,15 @@ static void render_statusbar(Frame *f) {
     int y0 = H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f);   /* it slides down out of sight */
     if (y0 >= H) return;
     gfx_rect(f, 0, y0, W, 44, R_IRON + 4);
-    for (int x = 0; x < W; x++) { gfx_px(f, x, y0, R_IRON + 9); gfx_px(f, x, y0 + 1, R_IRON + 6); }
+    {                                                              /* its top edge: the experience towards the next level, gold when one waits */
+        int reach = atone_reach(), lo = atone_need(reach), hi = atone_need(reach + 1), waits = reach > RUN.atone;
+        int fill = hi > lo ? (int)((float)(RUN.xp - lo) / (float)(hi - lo) * W) : 0;
+        for (int x = 0; x < W; x++) {
+            int in = x < fill;
+            gfx_px(f, x, y0, in ? (uint8_t)(waits ? R_GOLD + 11 : R_PURPLE + 12) : (uint8_t)(R_IRON + 9));
+            gfx_px(f, x, y0 + 1, in ? (uint8_t)(waits ? R_GOLD + 6 : R_PURPLE + 7) : (uint8_t)(R_IRON + 6));
+        }
+    }
     char num[24];
     struct { int x, w; const char *label; } P[5] = { { 4, 40, "LEVEL" }, { 48, 56, "GOLD" }, { 108, 50, "HEALTH" }, { 206, 42, "SOULS" }, { 252, 48, "SPELL" } };
     for (int i = 0; i < 5; i++) {
@@ -12711,14 +12802,14 @@ static void render_tally(Frame *f) {
     char name[48];
     level_name(G.level, name, sizeof name);
     card_text(f, 64, name, R_FLAME + 9);
-    static const char *LABEL[TALLY_ROWS] = { "TIME", "KILLS", "TREASURE", "SOULS", "SECRETS", "BOSS" };
-    int totals[TALLY_ROWS] = { 0, G.kills_total, G.items_total, 0, G.nlinks, 0 }, nr = tally_rows();
+    static const char *LABEL[TALLY_ROWS] = { "TIME", "KILLS", "TREASURE", "SOULS", "SECRETS", "EXPERIENCE", "BOSS" };
+    int totals[TALLY_ROWS] = { 0, G.kills_total, G.items_total, 0, G.nlinks, 0, 0 }, nr = tally_rows();
     for (int r = 0; r < nr; r++) {
         if (t < TALLY_ROW0 + r * TALLY_ROW_GAP - 0.3f) continue;
-        int y = nr > 5 ? 80 + r * 14 : 82 + r * 16, v = G.tally_shown[r];
-        gfx_text16(f, 52, y, LABEL[r], C_WHITE, 1);
-        if (r == 0 || r == 5) snprintf(line, sizeof line, "%d:%02d", v / 60, v % 60);
-        else if (r == 3) snprintf(line, sizeof line, "+%d", v);
+        int y = nr > 6 ? 74 + r * 13 : 80 + r * 14, v = G.tally_shown[r];
+        gfx_text16(f, 52, y, LABEL[r], r == 5 ? (uint8_t)(R_PURPLE + 13) : (uint8_t)C_WHITE, 1);
+        if (r == 0 || r == 6) snprintf(line, sizeof line, "%d:%02d", v / 60, v % 60);
+        else if (r == 3 || r == 5) snprintf(line, sizeof line, "+%d", v);
         else snprintf(line, sizeof line, "%d / %d", v, totals[r]);
         int done = t >= TALLY_ROW0 + r * TALLY_ROW_GAP + TALLY_COUNT, x0 = 52 + gfx_text_width(LABEL[r], 1) + 6;
         gfx_text16(f, 268 - gfx_text_width(line, 1), y, line, done ? R_GOLD + 12 : R_GOLD + 8, 1);
@@ -14152,6 +14243,40 @@ static void render_portalmenu(Frame *f) {
     text_wrap(f, px + 10, y, line, 36, R_STONE + 13, (py + ph - 4 - y) / 9);
 }
 
+/* ---- experience shown (docs/PLAN-b9.md, section 3): each gain a line at the lower left, newest lowest,
+ * gone after three seconds; the moment another Level of Atonement is banked, its name across the view ---- */
+static void render_xp(Frame *f) {
+    if (G.tally || (G.player && G.ui)) return;
+    int bar = (G.shop || G.player) ? H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f) : H;
+    int dream = !G.player && !G.shop;                              /* the dream: at the lower right, clear of the face */
+    int base = dream ? H - 30 - (int)(G.lift * 40.0f + 0.5f) : imin(bar, H - 24) - 12 - (sockets_shown() && bar < H ? 14 : 0);
+    for (int i = 0; i < XPF.n; i++) {
+        float a = XPF.t[i];
+        int y = base - i * 10;
+        if (y < 40) break;
+        char v[16];
+        snprintf(v, sizeof v, "+%d EXP", XPF.v[i]);
+        int vw = gfx_text_width(v, 1), ww = gfx_text_width(XPF.what[i], 1), dim = a > 2.4f, x = dream ? W - 10 - vw - ww - 6 : 7;
+        gfx_rect(f, x - 3, y - 1, vw + ww + 14, 10, 0);
+        gfx_text8(f, x, y, v, dim ? (uint8_t)(R_PURPLE + 9) : (uint8_t)(R_PURPLE + 13), 1);
+        gfx_text8(f, x + vw + 6, y, XPF.what[i], dim ? (uint8_t)(R_STONE + 8) : (uint8_t)(R_STONE + 12), 1);
+    }
+    if (XPF.banner > 0.0f && !G.dead) {                            /* another level banked: she will hear it */
+        float k = 3.2f - XPF.banner;
+        if (k < 0.5f && ((int)(k * 16.0f) & 1)) return;            /* it flickers in */
+        char l1[40];
+        snprintf(l1, sizeof l1, "LEVEL OF ATONEMENT %d", XPF.banner_lvl);
+        const char *l2 = "THE MERCHANT WILL HEAR IT";
+        int w1 = gfx_text_width(l1, 1), w2 = gfx_text_width(l2, 1), wb = imax(w1, w2) + 12, y = 62;
+        gfx_rect(f, (W - wb) / 2, y - 4, wb, 34, 0);
+        for (int i = 0; i < wb; i++) { gfx_px(f, (W - wb) / 2 + i, y - 4, R_PURPLE + 8); gfx_px(f, (W - wb) / 2 + i, y + 29, R_PURPLE + 5); }
+        int sway = (int)(1.5f * sinf(k * 5.0f));
+        gfx_text16(f, (W - w1) / 2 + sway + 1, y + 1, l1, R_PURPLE + 4, 1);
+        gfx_text16(f, (W - w1) / 2 + sway, y, l1, (int)(k * 6.0f) % 5 == 0 ? (uint8_t)C_WHITE : (uint8_t)(R_PURPLE + 14), 1);
+        gfx_text8(f, (W - w2) / 2, y + 18, l2, R_STONE + 12, 1);
+    }
+}
+
 /* ---- the target's health (docs/PLAN-b9.md, section 2) ----
  * At the top, under a boss's bar if one is up: its name and rank, its health as a bar and in figures, the
  * spell it is learnt to take worst on the left and the one it shrugs off on the right. ? while some spell
@@ -14458,6 +14583,7 @@ static void crawl_render(Frame *f) {
     if (G.player && !G.shop && G.bar <= 0.0f) render_readout(f);   /* and the small one while it is away */
     if (!G.shop && !G.player) { render_readout(f); render_face_popup(f); }
     if (!G.shop) { render_bossbar(f); render_target(f); render_card(f); }
+    render_xp(f);
     render_messages(f);
     if (G.claim_card) render_claim(f);
     if (G.player && G.ui) render_ui(f);

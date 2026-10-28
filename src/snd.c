@@ -1542,6 +1542,7 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_SECRET]     = { 1.90f, 0.85f,  0.50f, 0.55f },
     [SFX_MIRRORBELL] = { 0.00f, 1.00f,  0.50f, 0.00f },
     [SFX_DEEPCHIME]  = { 0.00f, 1.00f,  0.50f, 0.00f },
+    [SFX_ATONE]      = { 0.00f, 1.00f,  0.50f, 0.00f },
 };
 
 void snd_sfx_ex(int id, float gain, float pan) {
@@ -1570,6 +1571,15 @@ void snd_sfx_ex(int id, float gain, float pan) {
             Voice *v = voice_on(PAT_BELL, B[i][0], gain * B[i][1] / 100.0f, clampf(pan + (i - 1) * 0.15f, 0.0f, 1.0f), (int)(2.5f * SND_RATE));
             if (v && i == 1) v->freq *= 1.004f;
         }
+    } else if (id == SFX_ATONE) {                 /* the choir on a diminished chord, settling into the minor under a high bell */
+        static const short C[][4] = { { 0, 50, 55, 1300 }, { 0, 53, 45, 1300 }, { 0, 56, 45, 1300 },   /* ms, note, gain %, ms held */
+                                      { 650, 50, 65, 1800 }, { 650, 53, 50, 1800 }, { 650, 57, 50, 1800 }, { 650, 62, 35, 1800 } };
+        for (int i = 0; i < (int)(sizeof C / sizeof C[0]); i++)
+            sched_note_g(C[i][0] * SND_RATE / 1000 + 1, PAT_VOICE, C[i][1], gain * C[i][2] / 100.0f, C[i][3] * SND_RATE / 1000);
+        voice_on(PAT_BELL, 38, gain * 0.8f, 0.5f, (int)(2.8f * SND_RATE));   /* a deep bell under it all */
+        sched_note_g(650 * SND_RATE / 1000, PAT_BELL, 74, gain * 0.45f, (int)(1.6f * SND_RATE));
+        sched_note_g(950 * SND_RATE / 1000, PAT_BELL, 69, gain * 0.3f, (int)(1.8f * SND_RATE));
+        sfx_start(SFX_WHISPER, 2.4f, 0.5f * gain, 0.5f, 0.75f);
     } else if (id == SFX_STINGER) {
         int notes[4] = { 38, 44, 45, 50 };
         for (int i = 0; i < 4; i++) {
