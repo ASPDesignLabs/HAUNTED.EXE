@@ -5894,6 +5894,7 @@ static void pocket_reset_level(void);
 static void map_carto(void);
 static void start_level(void) {
     pocket_reset_level();
+    G.rooms_in = 0;                                                /* a new level's rooms, each worth finding */
     memset(G.has_key, 0, sizeof G.has_key);
     G.shop = 0;
     hz_clear(); snd_set_boss(0, 0);
