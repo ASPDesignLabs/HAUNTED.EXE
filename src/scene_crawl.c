@@ -603,6 +603,7 @@ static struct {
     int leaving, exiting;                   /* heading for the exit; stepping through it */
     float exit_open, exit_t;
     int kills, kills_total;
+    int look_mob; float look_t;             /* a person's target: the creature looked at or last hit, how long it stays so */
     int spawned[NKINDS];                    /* how many of each kind have come on this level: a newcomer comes alone */
     uint8_t named[NKINDS];                  /* the ranks of each kind the caption has named on this level */
     Secret secrets[MAXSECRETS]; int nsecrets, secrets_found, nlinks, links_found;   /* rooms behind cracked walls; every link of every chain */
@@ -2812,6 +2813,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
         return 0;
     }
     if (!m->alive || m->state != MS_WALK || KIND_IS(m, KF_SPIRIT) || dmg <= 0.0f || buried(m)) return 0;
+    if (G.player) { G.look_mob = (int)(m - G.mobs); G.look_t = fmaxf(G.look_t, 3.0f); }   /* what you hit is your target a while */
     if (m->type == MOB_SHIELD && m->shield > 0.0f && !(flags & (DM_PIERCE | DM_ARC))) {
         float a = atan2f(fy - m->y, fx - m->x);
         if (fabsf(wrap_pi(a - m->face)) < 1.25f) {
@@ -6250,6 +6252,7 @@ static void crawl_enter(uint32_t seed) {
         if (getenv("CRAWL_LEVEL")) RUN.level = atoi(getenv("CRAWL_LEVEL"));
         debug_gear();
         if (getenv("CRAWL_HASMAP")) RUN.has_map = 1;              /* the map, already bought */
+        if (getenv("CRAWL_LEARNT")) memset(RUN.rec.spell_kills, 3, sizeof RUN.rec.spell_kills);   /* every spell learnt on every kind */
 #endif
     }
 #ifdef CRAWL_DEBUG
@@ -8504,6 +8507,33 @@ static float human_move(float dx, float dy) {
 }
 
 /* what a cast would bite on: the nearest creature close to the middle of the view */
+/* The target's health (docs/PLAN-b9.md, section 2): the creature nearest the middle of the view, in sight
+ * and within twelve cells, stays the target a second and a half after you look away. Spirits count (their
+ * readout says nothing touches them); a boss has its own bar. */
+static int look_at(void) {
+    float dx = cosf(G.ang), dy = sinf(G.ang);
+    int best = -1; float bs = 1e9f;
+    for (int i = 0; i < MAXMOBS; i++) {
+        const Mob *m = &G.mobs[i];
+        int spirit = m->alive && m->state == MS_WALK && KIND_IS(m, KF_SPIRIT) && !m->boss && !m->ally;
+        if (!spirit && (!targetable(m) || m->boss)) continue;
+        if (m->type == MOB_SAC || m->small) continue;
+        float vx = m->x - G.px, vy = m->y - G.py, depth = vx * dx + vy * dy, lat = fabsf(-vx * dy + vy * dx);
+        if (depth < 0.3f || depth > 12.0f || lat > depth * 0.07f + 0.35f || !line_clear(G.px, G.py, m->x, m->y)) continue;
+        float sc = depth + lat * 6.0f;
+        if (sc < bs) { bs = sc; best = i; }
+    }
+    return best;
+}
+static void look_update(float dt) {
+    int i = look_at();
+    if (i >= 0) { G.look_mob = i; G.look_t = fmaxf(G.look_t, 1.5f); return; }
+    G.look_t = fmaxf(0.0f, G.look_t - dt);
+    const Mob *m = &G.mobs[clampi(G.look_mob, 0, MAXMOBS - 1)];
+    if (!m->alive || m->ally) G.look_t = 0.0f;
+    else if (m->state != MS_WALK) G.look_t = fminf(G.look_t, 0.6f);   /* fallen: the bar empties, and goes */
+}
+
 static int aim_target(void) {
     float dx = cosf(G.ang), dy = sinf(G.ang);
     int best = -1; float bs = 1e9f;
@@ -8717,6 +8747,7 @@ static void update_human(float dt) {
     if (getenv("CRAWL_FOLLOWWISP")) G.pilgrim = 2;                 /* testing: go the way the wisp went, to its end */
 #endif
     if (G.pilgrim) pilgrim_step(dt);
+    look_update(dt);
     spell_keys();
     if (IN.hit[KEY_TAB]) { open_ui(UI_INVENTORY); return; }
     if (IN.hit[KEY_B]) { open_ui(UI_BESTIARY); return; }
@@ -12857,10 +12888,13 @@ static void tint(Frame *f) {
 }
 
 /* a line of news at the top of the view, and the first-time hints */
+static int target_shown(void);
+static int target_y(void);
 static void render_messages(Frame *f) {
     if (G.msg_t > 0.0f && G.msg[0] && !(G.player && G.ui)) {
         if (G.msg_t > 0.3f || ((int)(G.msg_t * 20.0f) & 1)) {
             int w = gfx_text_width(G.msg, 1), x = (W - w) / 2, y = toast_showing() ? 50 : (boss_fighting() ? 34 : 14);   /* below a pop-up, or a boss's bar */
+            if (target_shown()) y = imax(y, target_y() + 26);         /* or what you are looking at */
             gfx_rect(f, x - 5, y, w + 10, 14, 0);
             gfx_text8(f, x, y + 3, G.msg, R_GOLD + 11, 1);
         }
@@ -14118,6 +14152,72 @@ static void render_portalmenu(Frame *f) {
     text_wrap(f, px + 10, y, line, 36, R_STONE + 13, (py + ph - 4 - y) / 9);
 }
 
+/* ---- the target's health (docs/PLAN-b9.md, section 2) ----
+ * At the top, under a boss's bar if one is up: its name and rank, its health as a bar and in figures, the
+ * spell it is learnt to take worst on the left and the one it shrugs off on the right. ? while some spell
+ * is still to be learnt on it (three kills each, as the bestiary has it) and none learnt says more; -- when
+ * every one is learnt and none differs. A tie takes turns, a second each. */
+static int target_y(void) { return boss_fighting() ? 30 : 2; }
+static int target_shown(void) {
+    if (!G.player || G.shop || G.ui || G.dead || G.tally || G.look_t <= 0.0f) return 0;
+    const Mob *m = &G.mobs[clampi(G.look_mob, 0, MAXMOBS - 1)];
+    return m->alive && !m->ally && !m->boss;
+}
+static int weak_word(int k, int most, char *buf, int n) {          /* the word, and its spell's colour (-1: none) */
+    const Record *r = &RUN.rec;
+    float best = most ? -1.0f : 1e9f;
+    int unknown = 0, tie[NATK], nt = 0;
+    for (int sp = 0; sp < AT_BFS; sp++) {
+        if (k >= REC_KINDS || r->spell_kills[k][sp] < 3) { unknown = 1; continue; }
+        float w = KINDS[k].weak[sp];
+        if (most ? w > best + 1e-3f : w < best - 1e-3f) { best = w; nt = 0; }
+        if (fabsf(w - best) < 1e-3f) tie[nt++] = sp;
+    }
+    if (nt == 0 || (most ? best < 1.01f : best > 0.99f)) { snprintf(buf, (size_t)n, "%s", unknown ? "?" : "--"); return -1; }
+    int sp = tie[(int)G.t % nt];
+    snprintf(buf, (size_t)n, "%s", ATK_SHORT[sp]);
+    return gear_color(GK_ATK, sp);
+}
+static void render_target(Frame *f) {
+    if (!target_shown()) return;
+    const Mob *m = &G.mobs[clampi(G.look_mob, 0, MAXMOBS - 1)];
+    int k = m->type, y0 = target_y(), spirit = KIND_IS(m, KF_SPIRIT) != 0;
+    char name[48];
+    snprintf(name, sizeof name, "%s%s", m->rank == RK_I || spirit ? "" : rank_word(k, m->rank), KINDS[k].name);
+    int nw = gfx_text_width(name, 1);
+    gfx_rect(f, (W - nw) / 2 - 3, y0, nw + 6, 10, 0);
+    gfx_text8(f, (W - nw) / 2, y0 + 1, name, spirit ? (uint8_t)(R_STONE + 12) : (uint8_t)RANK_COL[clampi(m->rank, 0, NRANK - 1)], 1);
+    if (spirit) {
+        const char *t = "NOTHING YOU CARRY TOUCHES IT";
+        int tw = gfx_text_width(t, 1);
+        gfx_rect(f, (W - tw) / 2 - 3, y0 + 11, tw + 6, 10, 0);
+        gfx_text8(f, (W - tw) / 2, y0 + 12, t, R_STONE + 10, 1);
+        return;
+    }
+    int bw = 120, bx = (W - bw) / 2, by = y0 + 13;
+    gfx_rect(f, bx - 2, by - 2, bw + 4, 11, 0);
+    for (int i = -1; i <= bw; i++) { gfx_px(f, bx + i, by - 1, R_STONE + 9); gfx_px(f, bx + i, by + 7, R_STONE + 5); }
+    for (int j = -1; j <= 7; j++) { gfx_px(f, bx - 1, by + j, R_STONE + 9); gfx_px(f, bx + bw, by + j, R_STONE + 5); }
+    float frac = m->state == MS_WALK && m->maxhp > 0.0f ? clampf(m->hp / m->maxhp, 0.0f, 1.0f) : 0.0f;
+    int fill = (int)(frac * bw + 0.5f);
+    for (int y = 0; y < 7; y++) for (int x = 0; x < bw; x++) gfx_px(f, bx + x, by + y, x < fill ? (uint8_t)(R_BLOOD + 9 + (y == 0 ? 4 : 0)) : (uint8_t)(R_BLOOD + 2));
+    int hp = m->state == MS_WALK ? (int)ceilf(fmaxf(0.0f, m->hp)) : 0, mx = (int)ceilf(m->maxhp);
+    int wa = small_digits(NULL, 0, 0, hp, 0), wb = small_digits(NULL, 0, 0, mx, 0), tx = bx + (bw - (wa + 5 + wb)) / 2;
+    for (int sh = 1; sh >= 0; sh--) {                              /* 34/60, shadowed */
+        uint8_t c = sh ? (uint8_t)0 : (uint8_t)C_WHITE;
+        small_digits(f, tx + sh, by + 1 + sh, hp, c);
+        static const int SL[5][2] = { { 3, 0 }, { 3, 1 }, { 2, 2 }, { 1, 3 }, { 1, 4 } };
+        for (int i = 0; i < 5; i++) gfx_px(f, tx + wa + SL[i][0] + sh, by + 1 + SL[i][1] + sh, c);
+        small_digits(f, tx + wa + 5 + sh, by + 1 + sh, mx, c);
+    }
+    char wl[16], wr[16];
+    int rl = weak_word(k, 1, wl, sizeof wl), rr = weak_word(k, 0, wr, sizeof wr);
+    int lw = gfx_text_width(wl, 1), rw = gfx_text_width(wr, 1);
+    gfx_rect(f, bx - 8 - lw, by - 2, lw + 4, 11, 0); gfx_rect(f, bx + bw + 4, by - 2, rw + 4, 11, 0);
+    gfx_text8(f, bx - 6 - lw, by - 1, wl, rl >= 0 ? ramp_at(rl, 13) : (uint8_t)(R_STONE + 9), 1);
+    gfx_text8(f, bx + bw + 6, by - 1, wr, rr >= 0 ? ramp_at(rr, 13) : (uint8_t)(R_STONE + 9), 1);
+}
+
 /* ---- the map on its scroll (docs/PLAN-b9.md, section 1) ----
  * Parchment between two rollers across the middle eight-tenths of the view, torn top and bottom, a
  * burn or two, stained; made once a level, so it holds still. On it, in brown ink and seen from above,
@@ -14357,7 +14457,7 @@ static void crawl_render(Frame *f) {
     render_dash(f);
     if (G.player && !G.shop && G.bar <= 0.0f) render_readout(f);   /* and the small one while it is away */
     if (!G.shop && !G.player) { render_readout(f); render_face_popup(f); }
-    if (!G.shop) { render_bossbar(f); render_card(f); }
+    if (!G.shop) { render_bossbar(f); render_target(f); render_card(f); }
     render_messages(f);
     if (G.claim_card) render_claim(f);
     if (G.player && G.ui) render_ui(f);
