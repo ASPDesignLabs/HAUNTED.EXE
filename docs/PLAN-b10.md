@@ -229,9 +229,10 @@ same way (`catacombs_run` in `crawl_art.c`, each level from its own seed).
 - **The spider's arena** is the spinners' gallery, its burrows flooded niches; its outlets are culverts, and the
   grate the omens open is the culvert drawn over the lining.
 - **Checked** (29 October 2026), in the harness only. AddressSanitizer clean over the dream from level 11, the
-  spider's fight, levels 19 to 21, a pocket on 13, her hall before 11 and a cistern on 15. Eight 50-minute dream
-  runs from level 11 at `CRAWL_GEAR=3` (seeds 1-15 odd) against 1.0.0b9 on the same seeds: a median of 16.5
-  levels reached (16), no deaths in either. Sixty levels gave 45-101 cells of water a level.
+  spider's fight, levels 19 and 20, the spider's fall and on into 21, a pocket on 13, her hall before 11 and a
+  cistern on 15. Eight 50-minute dream runs from level 11 at `CRAWL_GEAR=3` (seeds 1-15 odd) against 1.0.0b9 on
+  the same seeds: a median of 16.5 levels reached (16), no deaths in either. Sixty levels gave 45-101 cells of
+  water a level.
 
 ## Run III, the Hollows, as drawn
 
@@ -342,5 +343,10 @@ level; `SHEET_LAST=37 build/sheet deep out.png` shows the burning.
   candles' rule: `wall_lights`); the vents' magma lights itself. The levels' average picture level matches
   1.0.0b9's on the same seeds (means of 8.4-13.5% against 8.9-14.1% from levels 31, 35 and 39).
 - **Checked** (29 October 2026), in the harness only. AddressSanitizer clean over the dream from level 31, the
-  Wraith's fight and fall, levels 38 and 39, a pocket on 33, the throne walked into and a magma vent. The Windows
-  build compiles without a warning.
+  Wraith's fight and fall and on into level 41 (run I's look again), levels 38 and 39, a pocket on 33, the throne
+  walked into and a magma vent. The Windows build compiles without a warning. Eight 50-minute dream runs from
+  level 31 at `CRAWL_GEAR=8` (seeds 1-15 odd) against 1.0.0b9 on the same seeds: a median of level 36.5 reached
+  (37), no deaths (one, on level 31), a level's median time 347 s (342). The Deep holds a little more than it did:
+  39 creatures a level in those runs against 35.5, and 21.6 at a level's start against 19.9 over forty-five
+  levels, since the glass halls, the throne and the cinder fields keep resident dead. Taking the cinder fields'
+  away changed that by 0.2, so they keep them; the runs show no harm, but a person will meet a few more.

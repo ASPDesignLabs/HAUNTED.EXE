@@ -951,8 +951,9 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   rooms in five, against one in two before), so the dwellers' count moved a little; the runs show no harm.
   Run II in play: eight 50-minute dream runs from level 11 at `CRAWL_GEAR=3` reached a median of level 16.5
   (16 for 1.0.0b9), no deaths in either. Run III: eight from level 21 at `CRAWL_GEAR=5` reached a median of
-  level 27 (27), one death (none), the same creatures slain a level. Run IV's are in the plan (docs/PLAN-b10.md,
-  "Run IV in the game"). None of the runs' looks has been seen on a real screen yet.
+  level 27 (27), one death (none), the same creatures slain a level. Run IV: eight from level 31 at `CRAWL_GEAR=8`
+  reached a median of 36.5 (37), no deaths (one), but its levels hold about a tenth more creatures (39 against
+  35.5), since more of its rooms keep resident dead. None of the runs' looks has been seen on a real screen yet.
 - 1.0.0b9 (the map, the target's health, Levels of Atonement, Luck, cornerstones, overlevels) has been tested
   in the harness only. Against 1.0.0b8 on the same eight seeds (100-minute dream runs from level 1, seeds 1-15
   odd), the released build (`ATONE_K` 42) cleared a median 9.5 levels (9.5), died 17 times (27; 16 on level 10,
