@@ -6307,6 +6307,10 @@ static void catacombs_run(float dk, uint32_t s, uint32_t field) {
     spr_reliquary(); spr_pearls();
     spr_crown(); spr_drown(SP_CROWN, s + 160); spr_chest(); spr_drown(SP_CHEST, s + 161);
     specials_on(T_MATV(M2_LINING, 0));
+    for (int i = 0; i < TS * TS; i++) {                             /* the drains the bile comes from: culverts in the lining */
+        uint8_t o = crawl_tex[T_FEAT + F2_CULVERT][i];
+        crawl_tex[T_GRATE][i] = o != C_CLEAR ? o : crawl_tex[T_MATV(M2_LINING, 0)][i];
+    }
 }
 void crawl_art_run(int level) {
     float dk = crawl_decay(level);

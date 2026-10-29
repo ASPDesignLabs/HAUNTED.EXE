@@ -227,7 +227,7 @@ extern const uint8_t crawl_face_eyes[FACE_FRAMES][2][2];
 static inline int crawl_run(int level) { return (level - 1) / RUN_LEN; }     /* 0 run I, 1 run II ..., counting every time down */
 static inline int crawl_set(int level) { return crawl_run(level) % 4; }     /* 0 the Crypts, 1 the Catacombs, 2 the Hollows, 3 the Deep */
 static inline int crawl_step(int level) { return (level - 1) % RUN_LEN; }   /* 0..9 within the run; 9 is its boss's */
-static inline int crawl_drawn(int level) { return crawl_set(level) == 0; }  /* a run whose own look is drawn (docs/PLAN-b10.md): the Crypts so far */
+static inline int crawl_drawn(int level) { return crawl_set(level) <= 1; }  /* a run whose own look is drawn (docs/PLAN-b10.md): the Crypts and the Catacombs so far */
 static inline int crawl_boss(int level) { return crawl_step(level) == RUN_LEN - 1; }
 static inline int crawl_loop(int level) { return (level - 1) / DESCENT_LEN; }   /* 0 the first time down */
 static inline float crawl_decay(int level) { return (float)crawl_step(level) / (float)(RUN_LEN - 1); }   /* rot and ruin: fresh at a run's start */

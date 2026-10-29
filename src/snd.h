@@ -72,6 +72,7 @@ enum {
     SFX_MIRRORBELL,     /* the knight's Mirror Rune: a struck bell, hard and high */
     SFX_DEEPCHIME,      /* the Wraith's Time Slip: a deep chime, slow to fade */
     SFX_ATONE,          /* a Level of Atonement banked: a low choir, a bell, a whisper */
+    SFX_SPLASH,         /* a footstep in shallow water: the slap, the slosh, a drop or two */
     SFX_COUNT
 };
 

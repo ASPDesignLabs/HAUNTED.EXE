@@ -558,7 +558,7 @@ static struct {
     uint32_t rs;
     double t, level_t;
     int level, ptheme, vis_x, vis_y, vis_deco;                     /* a pocket's look (PT_*), PT_NONE on the level; its visportal or water cooler */
-    int faced;                                                      /* walls by face and floors textured: a drawn run's look, or her hall's */
+    int faced, look;                                                /* walls by face and floors textured: a drawn run's look, or her hall's; look: whose (crawl_set) */
     Cell map[MAPN][MAPN];
     Room rooms[12]; int nrooms;
     Door doors[MAXDOORS]; int ndoors;
@@ -897,10 +897,12 @@ static int theme_tex(int theme, uint32_t h) {
     }
 }
 
-/* Each run's rooms (docs/PLAN-b10.md): their floor and ceiling, their dressing's style (0 a crypt, 1
- * graves, 2 a fire, 3 cages), and the old theme (TH_*) their dressing and dwellers still follow. What their
- * walls are made of and carry is in lay_stretch. Only the Crypts so far, and her hall. */
-enum { RT_HALL, RT_OSSUARY, RT_BURIAL, RT_CHAPTER, RT_KNIGHTS, RT_UNDER, RT_MERCHANT, RT_PLOT, NRT };
+/* Each run's rooms (docs/PLAN-b10.md): their floor and ceiling (in their run's slots), their dressing's
+ * style (0 a crypt, 1 graves, 2 a fire, 3 cages), and the old theme (TH_*) their dressing and dwellers
+ * still follow. What their walls are made of and carry is in lay_stretch. The Crypts, her hall (always in
+ * the Crypts' stone), and the Catacombs. The halls are each run's own, in the same slots. */
+enum { RT_HALL, RT_OSSUARY, RT_BURIAL, RT_CHAPTER, RT_KNIGHTS, RT_UNDER, RT_MERCHANT, RT_PLOT,
+       RT_SAINTS, RT_CISTERN, RT_NAVE, RT_CANAL, RT_SPINNERS, NRT };
 typedef struct { const char *name; uint8_t theme, style, floor, ceil; } RType;
 static const RType RTYPES[NRT] = {
     [RT_HALL]     = { "THE HALLS",      TH_CORRIDOR, 0, FL1_SETTS,   CE1_VAULT },
@@ -911,20 +913,34 @@ static const RType RTYPES[NRT] = {
     [RT_UNDER]    = { "UNDERCROFT",     TH_MOSS,     2, FL1_SETTS,   CE1_ROCK },
     [RT_MERCHANT] = { "HER HALL",       TH_BRICK,    0, FL1_FLAGS,   CE1_RIB },
     [RT_PLOT]     = { "THE GRAVE PLOT", TH_CRYPT,    0, FL1_EARTH,   CE1_VAULT },
+    [RT_SAINTS]   = { "SAINTS' CATACOMB", TH_CRYPT,  1, FL2_FLAGS,   CE2_VAULT },
+    [RT_CISTERN]  = { "CISTERN",        TH_MOSS,     0, FL2_FLAGS,   CE2_DRIP },   /* water in the middle, flags round it */
+    [RT_NAVE]     = { "SILTED NAVE",    TH_MOSS,     1, FL2_SILT,    CE2_VAULT },   /* its graves, but no dwellers kept */
+    [RT_CANAL]    = { "CANAL",          TH_BRICK,    0, FL2_FLAGS,   CE2_ROCK },   /* water down the middle */
+    [RT_SPINNERS] = { "SPINNERS' GALLERY", TH_OSSUARY, 0, FL2_SILT,  CE2_DRIP },
 };
 static int nr_type[NRT];                                            /* this level's rooms of each type so far */
 /* a room's type by what it is: its size in blocks, and how far into its run the level lies */
 static int pick_rtype(int w, int h) {
     int bw = (w + 1) / 2, bh = (h + 1) / 2, area = bw * bh, step = crawl_step(G.level);
     float wt[NRT] = { 0 }, sum = 0.0f;
+    if (G.look == 1) {                                              /* the Catacombs */
+        int lng = bw > bh ? bw : bh, shrt = bw > bh ? bh : bw, long_room = lng >= 3 && lng >= 2 * shrt;
+        wt[RT_SAINTS] = 2.6f / (1.0f + 0.6f * nr_type[RT_SAINTS]);     /* the commonest, but not every room */
+        wt[RT_NAVE] = ((area <= 2 ? 2.4f : 1.8f) + (long_room ? 1.0f : 0.0f)) / (1.0f + 0.3f * nr_type[RT_NAVE]);
+        wt[RT_CANAL] = long_room && nr_type[RT_CANAL] < 1 + step / 4 ? 3.0f : 0.0f;   /* only a long room */
+        wt[RT_CISTERN] = area >= 4 && !long_room && nr_type[RT_CISTERN] < 1 + (step >= 5) ? 2.6f : 0.0f;
+        wt[RT_SPINNERS] = step >= 2 && area >= 2 && nr_type[RT_SPINNERS] < 1 + (step >= 6) ? 1.0f + 0.2f * step : 0.0f;
+    } else {
     wt[RT_OSSUARY] = nr_type[RT_OSSUARY] < 2 + (step >= 6) ? 1.0f + 0.1f * step : 0.0f;   /* a display: two a level, three late in the run */
     wt[RT_BURIAL] = 3.0f / (1.0f + 0.45f * nr_type[RT_BURIAL]);         /* the commonest, but not every room */
     wt[RT_CHAPTER] = area >= 4 && !nr_type[RT_CHAPTER] ? 3.5f : 0.0f;
     wt[RT_KNIGHTS] = area >= 2 && step >= 2 && nr_type[RT_KNIGHTS] < 1 + step / 5 ? 1.6f + 0.15f * step : 0.0f;
     wt[RT_UNDER] = area <= 2 ? 3.0f : 1.0f;
+    }
     for (int k = 0; k < NRT; k++) sum += wt[k];
     float r = rndf() * sum;
-    int k = RT_BURIAL;
+    int k = G.look == 1 ? RT_SAINTS : RT_BURIAL;
     for (int i = 0; i < NRT; i++) { if (wt[i] > 0.0f && r < wt[i]) { k = i; break; } r -= wt[i]; }
     nr_type[k]++;
     return k;
@@ -1366,8 +1382,8 @@ static int face_open(int x, int y, int d) {
 }
 static int cell_rtype(int x, int y) {                              /* the room type a floor cell lies in */
     const Cell *n = cell(x, y);
-    if (n->secret && !G.shop) return RT_UNDER;                      /* a secret's closet: rough work */
-    if (n->region == ARENA_REGION) return RT_KNIGHTS;               /* the knight's lists */
+    if (n->secret && !G.shop) return G.look == 1 ? RT_NAVE : RT_UNDER;   /* a secret's closet: rough work */
+    if (n->region == ARENA_REGION) return G.look == 1 ? RT_SPINNERS : RT_KNIGHTS;   /* the knight's lists, the spider's gallery */
     if (n->theme != TH_CORRIDOR)
         for (int r = 0; r < G.nrooms; r++) if (G.rooms[r].region == n->region) return G.rooms[r].rtype;
     return RT_HALL;
@@ -1379,14 +1395,16 @@ static int face_key(int x, int y, int d) {                         /* which plac
     return n->theme == TH_CORRIDOR ? -1 : n->region;
 }
 static int blend_of(int a, int b, int *flip) {                     /* the blend from a (left) to b (right), and whether to mirror it */
-    const RunLook *L = &crawl_looks[0];
+    const RunLook *L = &crawl_looks[G.look];
     for (int k = 0; k < NBLEND; k++) {
         if (L->blend[k][0] == a && L->blend[k][1] == b) { *flip = 0; return k; }
         if (L->blend[k][0] == b && L->blend[k][1] == a) { *flip = 1; return k; }
     }
     return -1;
 }
+static int on_water(int x, int y) { return G.faced && G.look == 1 && cell(x, y)->flo == T_FLOORS + FL2_WATER; }   /* the Catacombs' standing water */
 static uint8_t room_shrine[12];                                     /* an undercroft's shrine, once */
+static int saint_lights;                                            /* the saints' candles lit this level */
 static float mat_field(int x, int y, uint32_t seed) {              /* smooth over six cells: where the halls are dressed, patched or raw */
     float fx = x / 6.0f, fy = y / 6.0f;
     int x0 = (int)floorf(fx), y0 = (int)floorf(fy);
@@ -1401,13 +1419,17 @@ static void lay_stretch(int d, const int *xs, const int *ys, int n, int rt) {
     uint32_t h0 = hash2(xs[0] * 7 + d, ys[0] * 13 + n * 5);
     #define HR(i, k) (hash2(xs[i] * 31 + (k), ys[i] * 17 + d) % 100u)
     for (int i = 0; i < n; i++) { feat[i] = -1; bl[i] = -1; blf[i] = 0; }
+    int look = G.look == 1, step = crawl_step(G.level);
     switch (rt) {
-    case RT_HALL: case RT_UNDER: case RT_PLOT: {                    /* by the field, so whole stretches of the crypt agree */
+    case RT_HALL: case RT_UNDER: case RT_PLOT: case RT_NAVE: case RT_CISTERN: {   /* by the field, so whole stretches of the crypt agree */
         uint32_t fs = (uint32_t)G.level * 7919u + (rt == RT_HALL ? 0u : 4111u);
         for (int i = 0; i < n; i++) {
             float v = mat_field(xs[i] + DX[d], ys[i] + DY[d], fs);
             mat[i] = (int8_t)(rt == RT_UNDER ? (v < 0.5f ? M1_RUBBLE : M1_BEDROCK)
                             : rt == RT_PLOT ? (v < 0.55f ? M1_ASHLAR : M1_RUBBLE)
+                            : rt == RT_NAVE ? (v < 0.42f ? M2_SILT : v < 0.72f ? M2_SLATE : M2_LINING)
+                            : rt == RT_CISTERN ? (v < 0.55f ? M2_FLOW : M2_LINING)
+                            : look ? (v < 0.58f ? M2_SLATE : v < 0.8f ? M2_LINING : M2_SILT)   /* the Catacombs' halls: the slate as cut, lined, silted */
                             : (v < 0.48f ? M1_ASHLAR : v < 0.72f ? M1_RUBBLE : M1_BEDROCK));
         }
         for (int i = 1; i + 1 < n; i++)                             /* no material for a single cell */
@@ -1422,6 +1444,13 @@ static void lay_stretch(int d, const int *xs, const int *ys, int n, int rt) {
         break;
     case RT_CHAPTER:
         for (int i = 0; i < n; i++) mat[i] = M1_PLASTER;
+        break;
+    case RT_SAINTS: case RT_CANAL:
+        for (int i = 0; i < n; i++) mat[i] = M2_LINING;
+        break;
+    case RT_SPINNERS:
+        for (int i = 0; i < n; i++) mat[i] = M2_BONES;
+        if (n >= 5) mat[0] = mat[n - 1] = M2_SILT;                  /* plain silt at the ends */
         break;
     default:
         for (int i = 0; i < n; i++) mat[i] = M1_ASHLAR;
@@ -1445,9 +1474,18 @@ static void lay_stretch(int d, const int *xs, const int *ys, int n, int rt) {
             if (n >= 3 && (i - mid) % 4 == 0) feat[i] = F1_BANNER;
             else if (rt == RT_CHAPTER && n >= 4 && i == lo + (int)(h0 % (uint32_t)(hi - lo + 1)) && (i - mid) % 4 != 0) feat[i] = F1_TABLET;
             break;
-        case RT_HALL: if (n >= 6 && mat[i] == M1_ASHLAR && HR(i, 3) < 6) feat[i] = F1_TABLET; break;
+        case RT_HALL:
+            if (look) { if (n >= 4 && mat[i] != M2_SLATE && HR(i, 3) < 5) feat[i] = F2_HANDS; }
+            else if (n >= 6 && mat[i] == M1_ASHLAR && HR(i, 3) < 6) feat[i] = F1_TABLET;
+            break;
+        case RT_SAINTS: feat[i] = n >= 3 && (i - mid) % 3 == 0 ? F2_SAINT : ((i - lo) % 4 != 3 ? F2_NICHE : -1); break;
+        case RT_CISTERN: if (mat[i] == M2_LINING && (i - lo) % 4 == 1) feat[i] = F2_CULVERT; break;
+        case RT_CANAL: if ((i - lo) % 4 == 1) feat[i] = F2_CULVERT; break;
+        case RT_NAVE: if (HR(i, 5) < 16) feat[i] = F2_HANDS; break;
+        case RT_SPINNERS: if (HR(i, 6) < 40) feat[i] = F2_WEB; break;
         default: break;
         }
+        if (look && feat[i] < 0 && step >= 5 && (int)HR(i, 7) < 3 * (step - 4)) feat[i] = F2_WEB;   /* then webs, more by the run's end */
     }
     if (rt == RT_UNDER && n >= 3) {                                 /* the undercroft's shrine, once a room */
         int r = cell(xs[mid] + DX[d], ys[mid] + DY[d])->region;
@@ -1463,12 +1501,16 @@ static void lay_stretch(int d, const int *xs, const int *ys, int n, int rt) {
         if (c->tex == T_TORCH0 && c->ftorch == d + 1) c->fover[d] = (uint8_t)(T_FEAT + F1_TORCH);
         else if (c->tex == T_NICHE && in_band(ys[i])) c->fover[d] = (uint8_t)(T_FEAT + F1_NICHE);   /* an arena's burrow: the adds come out of it */
         else if (feat[i] >= 0) c->fover[d] = (uint8_t)(T_FEAT + feat[i]);
+        if (look && feat[i] == F2_SAINT && saint_lights < 10 && G.nlights < MAXLIGHTS - 8) {   /* the candles at a saint's feet */
+            light_static(xs[i] + 0.5f + DX[d] * 0.62f, ys[i] + 0.5f + DY[d] * 0.62f, 0.55f, 2.4f);
+            saint_lights++;
+        }
     }
     #undef HR
 }
 static void lay_faces(void) {
     static int xs[MAPN], ys[MAPN];
-    memset(room_shrine, 0, sizeof room_shrine);
+    memset(room_shrine, 0, sizeof room_shrine); saint_lights = 0;
     for (int y = 0; y < MAPN; y++)                                  /* where a torch stands on a wall: the face by its light */
         for (int x = 0; x < MAPN; x++) {
             Cell *c = &G.map[y][x];
@@ -1503,9 +1545,22 @@ static void lay_faces(void) {
             Cell *c = &G.map[y][x];
             if (c->kind == K_WALL && c->secret != 2) continue;      /* a secret's wall: floor once it has slid */
             int rt = c->kind == K_DOOR ? RT_HALL : cell_rtype(x, y), fl = RTYPES[rt].floor;
-            if (fl == FL1_FLAGS && (float)(hash2(x * 5 + 3, y * 7 + 1) % 1000u) < 380.0f * decay()) fl = FL1_BROKEN;
+            if (rt == RT_CISTERN && c->kind != K_DOOR) {                /* the water in the middle, a walk of flags round it */
+                int open = 1;
+                for (int j = -1; j <= 1 && open; j++) for (int i = -1; i <= 1; i++) if (cell(x + i, y + j)->kind == K_WALL || cell(x + i, y + j)->kind == K_DOOR) { open = 0; break; }
+                if (open) fl = FL2_WATER;
+            }
+            if (rt == RT_CANAL && c->kind != K_DOOR)                    /* the water down its length */
+                for (int r = 0; r < G.nrooms; r++) {
+                    const Room *R = &G.rooms[r];
+                    if (R->region != c->region) continue;
+                    int along = R->w >= R->h, off = along ? y - (R->y + R->h / 2) : x - (R->x + R->w / 2), half = (along ? R->h : R->w) >= 7;
+                    if (abs(off) <= half) fl = FL2_WATER;
+                    break;
+                }
+            if (fl == FL1_FLAGS && (float)(hash2(x * 5 + 3, y * 7 + 1) % 1000u) < 380.0f * decay()) fl = FL1_BROKEN;   /* either run's floor 0 goes to its floor 4 with the rot */
             c->flo = (uint8_t)(T_FLOORS + fl); c->cei = (uint8_t)(T_CEILS + RTYPES[rt].ceil);
-            c->fflip = (uint8_t)((c->fflip & 15) | (fl == FL1_CHAPTER ? 16 : (hash2(x, y) & 7) << 5));   /* how it is turned, kept */
+            c->fflip = (uint8_t)((c->fflip & 15) | (fl == FL1_CHAPTER ? 16 : (hash2(x, y) & 7) << 5));   /* how it is turned, kept; floor 1 lies as laid */
         }
     for (int i = 0; i < G.nsecrets; i++) {                          /* the sliding wall wears the face it shows the hall */
         Secret *sc = &G.secrets[i];
@@ -1516,12 +1571,14 @@ static void lay_faces(void) {
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "ROOMS level %d:", G.level);
     for (int r = 0; r < G.nrooms; r++) fprintf(stderr, " %s (%d,%d %dx%d)", RTYPES[G.rooms[r].rtype].name, G.rooms[r].x, G.rooms[r].y, G.rooms[r].w, G.rooms[r].h);
-    fprintf(stderr, "\n");
+    int wet = 0;
+    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) wet += on_water(x, y);
+    fprintf(stderr, " | water %d cells, saints' candles %d\n", wet, saint_lights);
 #endif
 }
 
 static void gen_level(void) {
-    G.faced = crawl_drawn(G.level);
+    G.faced = crawl_drawn(G.level); G.look = crawl_set(G.level);
     memset(nr_type, 0, sizeof nr_type);
     memset(G.map, 0, sizeof G.map);
     for (int y = 0; y < MAPN; y++)
@@ -3408,7 +3465,7 @@ static void alert_near(int steps, float secs) {
 /* A footstep: heard three steps off down the halls, by anything there that isn't already after you.
  * Quiet boots soften it (80% Quiet: only the next cell hears). */
 static void footstep(void) {
-    snd_sfx_ex(SFX_STEP, 1.0f, ((int)(G.bobph / PI_F) & 1) ? 0.44f : 0.56f);
+    snd_sfx_ex(on_water((int)G.px, (int)G.py) ? SFX_SPLASH : SFX_STEP, 1.0f, ((int)(G.bobph / PI_F) & 1) ? 0.44f : 0.56f);
     alert_near((int)(3.0f * (1.0f - gear_total(&RUN.gear, ST_QUIET) / 100.0f) + 0.5f), 4.0f);
 }
 
@@ -8163,7 +8220,7 @@ static void ped_arc(void) {                                        /* the pedest
     }
 }
 static void gen_shop(void) {
-    G.faced = 1;                                                    /* her hall in the Crypts' stone, whatever the run (begin_shop draws level 1's) */
+    G.faced = 1; G.look = 0;                                        /* her hall in the Crypts' stone, whatever the run (begin_shop draws level 1's) */
     memset(G.map, 0, sizeof G.map);
     for (int y = 0; y < MAPN; y++)
         for (int x = 0; x < MAPN; x++) {
