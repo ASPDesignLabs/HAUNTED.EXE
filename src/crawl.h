@@ -73,6 +73,12 @@ enum { M1_ASHLAR, M1_RUBBLE, M1_PLASTER, M1_BEDROCK, M1_BONES };
 enum { F1_NICHE, F1_BANNER, F1_SLAB, F1_SHRINE, F1_TABLET, F1_TORCH };
 enum { FL1_FLAGS, FL1_CHAPTER, FL1_SETTS, FL1_EARTH, FL1_BROKEN };
 enum { CE1_RIB, CE1_VAULT, CE1_ROCK };
+/* run II's: the same slots, in the same roles (floor 1 lies as laid, floor 4 is floor 0 gone with the rot,
+ * ceiling 0 the rooms', 1 the halls') */
+enum { M2_SLATE, M2_LINING, M2_SILT, M2_FLOW, M2_BONES };
+enum { F2_NICHE, F2_SAINT, F2_CULVERT, F2_HANDS, F2_WEB, F2_LANTERN };
+enum { FL2_FLAGS, FL2_SILT, FL2_SLATE, FL2_WATER, FL2_PUDDLES };
+enum { CE2_VAULT, CE2_ROCK, CE2_DRIP };
 
 enum {
     SP_BONES1, SP_BONES2, SP_SKULLPILE, SP_COBWEB, SP_CHAINS, SP_URN, SP_PILLAR, SP_CANDLES,

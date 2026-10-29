@@ -71,8 +71,9 @@ torches, keys and treasure. The owner answered the first questions; it goes one 
 then frames from the game. Run I's art is drawn (`crawl_art_run`, on `make sheets`' `crypts.png` and
 `cryptrooms.png`) and approved, with the owner's defaults for the rest (the four themes as the plan has them,
 her hall rebuilt once in run I's stone). Step 2 put run I in the game (walls by face, room types, floors and
-ceilings, its doors, keys and torches, her hall); its frames from levels 1, 5 and 10 wait for approval before
-run II's sheets. Tested in the harness only.
+ceilings, its doors, keys and torches, her hall), and its frames from levels 1, 5 and 10 were approved. Run II's
+art is drawn (`catacombs_run`, on `make sheets`' `catacombs.png` and `catarooms.png`), waiting for approval; the
+game doesn't use it yet. Tested in the harness only.
 
 ## Working with the owner
 
@@ -601,7 +602,13 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   each texture's own), `plaster_flake`, `decay_flat`, the banner's tatter. Names and blend pairs are in
   `crawl_looks`. `make sheets` draws them (`crypts.png`, `cryptrooms.png`: the room types laid as stretches).
   The specials (the sign, the Repository, the Portal, the gate, the fonts, the grate) are drawn again on the
-  run's ashlar (`specials_on`, `rebase`); other runs keep `specials_plain`.
+  run's ashlar (`specials_on`, `rebase`); other runs keep `specials_plain`. `crawl_art_run` picks the run's own
+  (`crypts_run`, `catacombs_run`: run II's slots are named `M2_*`, `F2_*`, `FL2_*`, `CE2_*` in `crawl.h`, in run
+  I's roles: floor 1 lies as laid, floor 4 is floor 0 with the rot, ceiling 0 the rooms', 1 the halls'); run II's
+  rot is `decay_catacomb` (the flood line, `flood_y`) and `decay_flat2`, and it draws its own keys
+  (`spr_key_ring`) and treasure (`spr_coins_silt`, `spr_reliquary`, `spr_pearls`, `spr_drown`), which
+  `treasure_plain` puts back at every level. `make sheets` draws any run's pages from `RUNSHEETS` in
+  `tools/sheet.c` (`draw_runlook`, `draw_runrooms`).
 - **Laying it** (`G.faced`: a drawn run's level, and her hall always; never a pocket). A room's type (`RT_*`,
   `RTYPES`: its floor, ceiling, dressing style and the old `TH_*` theme its dressing and dwellers follow; the
   chapter house is `TH_BRICK` so it keeps none) comes from `pick_rtype` (its size in blocks and the run's step;

@@ -1,9 +1,9 @@
 # 1.0.0b10: a look of its own for each run
 
-**Status: run I is in the game (28 October 2026), tested in the harness only; its frames from levels 1, 5
-and 10 and her hall wait for the owner's approval before run II's sheets. Run I's art was approved on its
-sheets (`make sheets`: `crypts.png`, `cryptrooms.png`), and the owner took the defaults for the three
-questions below.** The owner asked for the crypt's
+**Status: run I is in the game, approved in its frames (28 October 2026), tested in the harness only. Run
+II's art is drawn and on approval sheets (`make sheets`: `catacombs.png`, `catarooms.png`, 29 October 2026);
+the game doesn't use it yet. Run I's art was approved on its sheets (`crypts.png`, `cryptrooms.png`), and the
+owner took the defaults for the three questions below.** The owner asked for the crypt's
 walls to flow together, for floors and ceilings, and for each run of ten to look like its own place.
 This plan sets out a theme for each run, the room types that carry it, and how the generator lays
 them; then the work, one run at a time.
@@ -80,6 +80,38 @@ On `crypts.png` and `cryptrooms.png`. Everything is made by the code (`crawl_art
   tablets, the lozenge floor), the knights' vault (slabs and banners), the undercroft (rubble giving
   way to the rock, a shrine cut in it).
 
+## Run II, the Catacombs, as drawn
+
+On `catacombs.png` and `catarooms.png`, in the same slots and roles as run I's, so the engine lays them the
+same way (`catacombs_run` in `crawl_art.c`, each level from its own seed).
+
+- **Materials**: **bedded slate** as it was cut, beds of every thickness, the partings waving a little, pieces
+  broken out of the face, the cleavage at a slant (the halls' rock); **slate lining**, dressed slabs a hand
+  thick laid dry in courses of 16; **silt and rubble**, river stones of several kinds in banded silt;
+  **flowstone**, lobe over lobe like wax down a candle, tan where the water ran most; **bone in silt**, the dead
+  the floods brought down, long bones every way, skulls, vertebrae, some under the mud again (rooms only).
+- **Blends**: lining into slate and into silt (slabs fall away), slate into silt (pieces fall away),
+  flowstone over slate and over lining (its edge frays), bone in silt into plain silt.
+- **On the walls**: flooded niches (water standing in them, a skull afloat), a saint's alcove (a saint in
+  faded blue under a gilt halo, candles on the sill), a culvert (bars, the water coming out over the foot of
+  the wall), handprints in pale silt, a web curtain, and a lantern on an iron hook in the torch's place.
+- **Floors**: wet slate flags, silt in ripples (laid as laid), slate set on edge (the halls), standing water,
+  and flags with puddles for the later levels. **Ceilings**: a slate vault over rooms, the bedded rock over
+  halls, dripping rock hung with calcite straws.
+- **The rot**: a flood line at one height on every wall of the run, so it runs on across seams, climbing from
+  the foot of the wall on level 11 to about three fifths up on level 20; under it the stain, older lines and
+  silt, algae along it in patches. Webs are things on the walls (and the dressing's sheets), not in the stone,
+  so they don't repeat cell after cell.
+- **Doors and keys**: sluice doors of riveted iron, rusted, green with slime where the water stood, a grille
+  and a wheel; the vaults banded in their key's metal with a plate and cross; keys on a ring, pitted.
+- **Treasure**: coin gone black in the silt (some still bright), a saint's reliquary (a little gilt house,
+  blue enamel, a bone behind crystal) in the chalice's place, pearls out of a rotted purse in the gems',
+  and the crown and the chest as the water gave them back. Only the look changes; their worth stays.
+- **Rooms** (`catarooms.png`): the halls (the slate as cut, lined in places, patched with silt; lanterns), the
+  saints' catacomb (lining, saints and flooded niches), the cistern (flowstone over the lining, culverts,
+  water underfoot), the silted nave (silt banked up the slate, handprints), the canal (lining both sides,
+  culverts, lanterns over the water), the spinners' gallery (bone in silt, webs; the spider's arena too).
+
 ## How the generator will lay it
 
 - **Faces, not cells.** Each wall cell gets a texture for each of its four faces (`Cell.face[4]`: a
@@ -118,7 +150,7 @@ On `crypts.png` and `cryptrooms.png`. Everything is made by the code (`crawl_art
 2. **The engine**: faces, overlays, stretches, blends, room types by rule, floors and ceilings, run I's
    doors, keys and torches in play. Frames from the game on levels 1, 5 and 10 for approval. (Built; the
    frames wait for approval. See "Run I in the game" below.)
-3. **Run II**: sheets, then frames. 4. **Run III**. 5. **Run IV**, with its glows.
+3. **Run II**: sheets (drawn, for approval), then frames. 4. **Run III**. 5. **Run IV**, with its glows.
 6. **Checks**: `bench` against 1.0.0b9; ASan; eight-seed dream runs against 1.0.0b9 (the lights move,
    so the autopilot's levels may play a little differently); the README's previews and "What has been
    verified"; the page.
@@ -165,3 +197,12 @@ On `crypts.png` and `cryptrooms.png`. Everything is made by the code (`crawl_art
   are the ones its release recorded. `build/host bench crawl 60`, three runs each in turn: 3.64-3.82 ms a
   frame against 3.25-3.90 ms. The floor and ceiling now find their cell and texel in fixed point along a row
   (a first version that worked them out per pixel in floats cost a fifth more than 1.0.0b9).
+
+## Questions for the owner on run II
+
+1. Water underfoot in the cistern and the canal: only a look, walked through as any floor, or should deep
+   water slow you as the bile does? *Default: only a look.*
+2. Webs outside the spinners' gallery: from the run's sixth level, more by its tenth, as the descent plan's
+   "then webs" has it? *Default: yes.*
+3. The spider's arena on level 20 dressed as the spinners' gallery (bone in silt, webs, the culverts for its
+   bile)? *Default: yes.*
