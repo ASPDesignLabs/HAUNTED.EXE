@@ -5,7 +5,7 @@
 
 A retro Halloween screensaver for Windows, built for OLED screens, with a crypt you can take over
 and play, with the keyboard and mouse or a game controller. It renders in genuine VGA modes, scales them by a whole number to fit a 4K display, and
-makes its own sound with an FM synthesiser, so there are no audio files. It's one program of about 1.2 MB
+makes its own sound with an FM synthesiser, so there are no audio files. It's one program of about 1.4 MB
 with no installer and no runtime to install.
 
 **[The project page](https://aspdesignlabs.github.io/HAUNTED.EXE/)** &middot;
@@ -32,26 +32,69 @@ Two scenes are included. They alternate every few minutes (configurable) with a 
 | Scene | VGA mode | What it is |
 |---|---|---|
 | **HAUNT.EXE** | 80x25 text mode, 720x400 | A possessed 486 PC: BIOS POST, a DOS prompt, and a ghost that types back. Between the gags it runs DOS programs that have been got at: EDIT rewriting AUTOEXEC.BAT for a seance, DEFRAG consuming souls and moving the remains to the front of the disk, a modem call to a BBS on the other side, a virus scan that cannot clean a dead host, MSD finding GHOST.SYS on IRQ 13, a thirteen-disk SETUP, a QBasic program that writes itself, and a file manager moving the dead from GRAVES to SOULS, until a file with your name turns up. Art materialises in between, seven full-screen half-block ANSI scenes with their own stories: the jack-o'-lantern in the pumpkin patch, the talking skull in the ossuary, the manor in a thunderstorm, the spider in the candle-lit corner, zombies digging out of a graveyard, skeletons dancing out of their coffins, and a ghost that rushes down a hallway to say boo. It ends in a fatal error and a CRT power-off, then reboots. |
-| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Forty levels in four runs of ten, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its tenth level, where a boss waits in an arena of its own: the Ill-Fated Skeleton Knight, the Wandering Hunting Spider, the Black Deacon and the Wraith Unbound; then the runs come round again. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and chooses among the wares on her pedestals for the gold it carries: spells, and things to wear that are rolled like loot, each in its quality's colour. Her room has grown into a hall: a back room with the Hexed Totem, where a beaten boss's scrip buys its ability, the Corpus Compendium and the Wretched Repository, and a grave plot with the Accursed Portal in its far wall. Runes come from the Rune Shrine across her room, for Cursed Coins. She sells a map that fills in as you walk, and turns what you have slain and found into Levels of Atonement: points to spend on the caster, and at every tenth a cornerstone. Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, with skull walls, niches, banners, moss and sliding doors, walked with quick 90-degree turns. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides three to six secrets behind cracked walls, some of them chains whose deeper links lead out of the crypt altogether: into the Backrooms in the first two runs, and Severance in the next two. Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. From level 6 a Black Altar stands deep in each level: for souls it sends its wisp to a secret, one at a time, or blesses your wisps against the dead, and once every secret is found it anoints something you wear. Will-o'-wisps, a soul each, fly ahead through the halls to the way out or a key and leave a trail of light to follow. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. Twenty kinds of creature come in over the first two runs, about one new kind a level, each in ranks you can tell by its colour, and on the last levels of each run its boss's hazards come into the halls as omens. Your face, Wolfenstein-style, pops up when you are hurt. Hold H, or any button on a game controller, for three seconds to play it yourself: then death costs, and only the merchant's ledger keeps what you have (see below). |
+| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Forty levels in four runs of ten, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its tenth level, where a boss waits in an arena of its own: the Ill-Fated Skeleton Knight, the Wandering Hunting Spider, the Black Deacon and the Wraith Unbound; then the runs come round again. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and chooses among the wares on her pedestals for the gold it carries: spells, and things to wear that are rolled like loot, each in its quality's colour. Her room has grown into a hall: a back room with the Hexed Totem, where a beaten boss's scrip buys its ability, the Corpus Compendium and the Wretched Repository, and a grave plot with the Accursed Portal in its far wall. Runes come from the Rune Shrine across her room, for Cursed Coins. She sells a map that fills in as you walk, and turns what you have slain and found into Levels of Atonement: points to spend on the caster, and at every tenth a cornerstone. Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, walked with quick 90-degree turns. Each run is a place of its own, built in its own stone with its own rooms, doors, keys, light and treasure: the Order's burial vaults in dressed ashlar and bone, the drowned catacombs in wet slate under a climbing flood line, a mine the dead were tipped into, and black glass and magma at the bottom. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides three to six secrets behind cracked walls, some of them chains whose deeper links lead out of the crypt altogether: into the Backrooms in the first two runs, and Severance in the next two. Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. From level 6 a Black Altar stands deep in each level: for souls it sends its wisp to a secret, one at a time, or blesses your wisps against the dead, and once every secret is found it anoints something you wear. Will-o'-wisps, a soul each, fly ahead through the halls to the way out or a key and leave a trail of light to follow. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. Twenty kinds of creature come in over the first two runs, about one new kind a level, each in ranks you can tell by its colour, and on the last levels of each run its boss's hazards come into the halls as omens. Your face, Wolfenstein-style, pops up when you are hurt. Hold H, or any button on a game controller, for three seconds to play it yourself: then death costs, and only the merchant's ledger keeps what you have (see below). |
 
+![CATACOMB's four runs: a chapter house with its plaster falling away and a knight's slab with candles in the Crypts; a shield-bearer wading through a cistern and a spinners' gallery of bone and webs in the Catacombs; a timbered gallery with mine carts and a lamp, and a fossil hall with a fire, in the Hollows; a geode under a roof of amethyst, and a glass hall with its cracks alight, in the Deep](docs/preview_catacomb_runs.png)
 ![CATACOMB's map and Levels of Atonement: the map floating beside the merchant with its card, the map unrolled in the Ossuary, a shield-bearer's health with the spells that hurt it most and least, a Level of Atonement banked as it falls, the caster's screen, and the cornerstones](docs/preview_catacomb_atonement.png)
 ![CATACOMB with a game controller: holding a button over HAUNT.EXE's pumpkin patch, the controls in the pad's words, the merchant's prompt, the wardrobe, the bestiary and the Codex with their buttons in colour](docs/preview_catacomb_pad.png)
-![CATACOMB's bosses: the Ill-Fated Skeleton Knight's card, its Sundering Arc, the Wandering Hunting Spider's card, the Black Deacon untouchable while his adds come, the floor cracking before his fire, and a Fire Bolt bursting on the Wraith Unbound beside a void](docs/preview_catacomb_bosses.png)
+![CATACOMB's bosses: the Ill-Fated Skeleton Knight's card in the knights' vault, the knight raising its blade, the Wandering Hunting Spider's card in its gallery, the Black Deacon in his chapel in a green light with his ward's shards about him, a fire bursting on him, and a Fire Bolt bursting on the Wraith Unbound on its throne beside a void](docs/preview_catacomb_bosses.png)
 ![CATACOMB's ledger: the merchant's menu, signing a page, a death and what it cost, a stone's page in the grave plot, a trial failed in a pocket, and the merchant's claim](docs/preview_catacomb_ledger.png)
-![CATACOMB's hall: the Accursed Portal in the grave plot and its screen, the Hexed Totem, the Corpus Compendium, the Wretched Repository and the Codex of Affixations](docs/preview_catacomb_hall.png)
+![CATACOMB's hall: the Accursed Portal in the grave plot's ashlar and its screen, the Hexed Totem, the Corpus Compendium, the Wretched Repository and the Codex of Affixations](docs/preview_catacomb_hall.png)
 ![CATACOMB's Backrooms: a chained room's doorway from the crypt, a corridor under the tubes, a leak, a candlestand hanging from the ceiling, a shambler caught in a loop, and the visportal at a chain's end](docs/preview_catacomb_backrooms.png)
 ![CATACOMB's Severance: the doorway from the crypt, a white hall, a ward door, an office's desks, a skeleton under the panels, and the water cooler at a chain's end](docs/preview_catacomb_severance.png)
 ![CATACOMB's Rune Shrine: the shrine in the merchant's room, its screen, three runes combining, the caster's runes and coins, a Cursed Coin found, and the Black Altar sending its wisp on](docs/preview_catacomb_shrine.png)
 ![CATACOMB: the new creatures in the crypt, from the shambler to the gargoyle](docs/preview_catacomb_creatures.png)
 ![CATACOMB: an achievement, the bestiary's pages and the achievements list](docs/preview_catacomb_bestiary.png)
-![CATACOMB: the merchant, wall skulls, spiders, shields and spells](docs/preview_catacomb.png)
-![CATACOMB: a long hall with chains and a fire pit, an urn and a chandelier, a hoard, a wall skull waking, and a secret wall and its closet](docs/preview_catacomb_crypt.png)
+![CATACOMB: the merchant in her hall of ashlar, her wares, a burial vault, an ossuary, Fire Bolts at a spectre and a skeleton, a chapter house, and the caster's portrait after a hit](docs/preview_catacomb.png)
+![CATACOMB: a chandelier over an ossuary's bone walls, a hoard with a crown, a vault strapped in gold, a cracked wall pressed and the secret behind it, and the rune-sealed exit with a wisp before it](docs/preview_catacomb_crypt.png)
 ![CATACOMB's wisps: the L list with three keys lying, a wisp kindling for the silver key, an exit wisp's trail down a hall, the Black Altar's gifts, a skeleton by a blessed wisp's trail, and the blessed wisp waiting at the way out](docs/preview_catacomb_wisps.png)
 ![CATACOMB played by hand: holding H, the controls, shopping, casting, the wardrobe and the question at Esc](docs/preview_catacomb_play.png)
 ![CATACOMB's wares: an Exquisite hood at the merchant, the caster's numbers, a full bag, Commune's red shapes through the wall, and a Black Altar woken and burning gold](docs/preview_catacomb_items.png)
 ![HAUNT.EXE: the jack-o'-lantern and the skull](docs/preview_haunt_art.png)
 ![HAUNT.EXE: the haunted programs](docs/preview_haunt_text.png)
 ![HAUNT.EXE: the other art scenes](docs/preview_haunt.png)
+
+*The strips of menus, creatures, wisps and pockets were made before 1.0.0b10, and show the crypt's old
+walls behind them.*
+
+### CATACOMB: four runs, four places
+
+Each run of ten is built in its own stone, and the generator lays it as a mason would: every straight
+stretch of wall gets a material by the room it faces, whole stretches agree, and where one material gives
+way to another the cell between is a blend, blocks falling away or a skin fraying, never a hard edge. What
+stands on a wall (niches, banners, saints, timber sets, geodes) is placed by rule along it, and floors and
+ceilings come from the room. Each run has its own doors, keys, torches and treasure, and its own way of
+rotting from its first level to its tenth; a fresh run starts clean.
+
+* **Run I, the Crypts.** The burial vaults of a forgotten order: dressed ashlar, coursed rubble in pale
+  lime, lime plaster with a painted dado, the bedrock, and bone walls in the ossuaries only. Burial vaults
+  with niches in rows, chapter houses with banners, tablets and a lozenge floor, knights' vaults with their
+  slabs, undercrofts cut from the rock. Torches in iron sconces, oak doors under iron, vaults strapped in
+  their key's metal with the Order's cross, keys with a trefoil bow. Kept at first, then damp, then falling
+  in: moss, plaster coming away in sheets, the flags broken through. The knight fights in a knights' vault.
+* **Run II, the Catacombs.** Tunnels cut into wet slate beneath them, flooded and drained: bedded slate,
+  slate lining, silt and river stones, flowstone, the dead the floods brought down set in the silt. Saints'
+  catacombs, cisterns with standing water, silted naves, canals and spinners' galleries. Lanterns on hooks,
+  candles at the saints' feet, sluice doors gone to rust, corroded keys on a ring, coin gone black in the
+  silt, reliquaries and pearls. A flood line climbs the walls as the run goes on, and webs come onto them
+  from its sixth level. The water is walked through as any floor, but every step on it splashes. The
+  spider's gallery is a spinners' gallery, its bile coming out of culverts.
+* **Run III, the Hollows.** Caverns and an abandoned mine where the dead were tipped: rough granite, the
+  pick-cut face, timber shoring, basalt columns, and backfill with the dead in it. Timbered galleries with
+  rails and carts, stopes, charnel pits, fossil halls, and a cult's chapel at the end. Oil lamps on spikes,
+  rough mine doors and chained vaults, heavy keys with a tally tag, nuggets, raw gems and a strongbox. Worked,
+  then abandoned: scree banks up the walls, boards split and fall, and late in the run something has
+  dragged its claws down the stone. The Deacon keeps his rites in the chapel.
+* **Run IV, the Deep.** Black glass at the bottom: obsidian, basalt, ash-crusted rock, amethyst, and the dead
+  fused into the glass. Geodes, glass halls, cinder fields, magma vents and a throne room. The walls are the
+  light: magma fissures in the torches' place, geodes alight. Black iron doors with the fire behind their
+  grilles, keys of glass, coin run molten, glowing crystal and an idol of black glass. It glitters on its
+  first levels, burns through its middle, runs molten, and goes dark at the end, which suits the Wraith; its
+  arena is the throne.
+
+The merchant's hall is rebuilt once in the Crypts' ashlar under the Order's banners, the same before every
+run; the red brick has gone. The pockets keep their own looks. Building from source, `make sheets` draws each
+run's materials, blends, wall pieces, floors, ceilings, doors, keys and treasure, and a stretch of each room.
 
 ### CATACOMB: who lives down there
 
@@ -744,6 +787,34 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b10** (a look of its own for each run). Tested in the harness only, by the autopilot and
+scripted players: none of it has been played by hand, run on Windows or under Wine, or seen on a real
+screen. The Windows build was compiled here without warnings, and by CI.
+
+* **The art.** Each run's materials, blends, wall pieces, floors, ceilings, doors, keys and treasure were
+  drawn on sheets first. The owner approved runs I and II on their sheets, and run I again in frames from the
+  game; runs III and IV went in without a review first, at the owner's word.
+* **The autopilot, against 1.0.0b9** on the same eight seeds (seeds 1 to 15 odd): from level 1, over 100
+  minutes, a median of 11 levels cleared (9.5), 17 deaths (17), the knight beaten in 5 runs of 8 (4); from
+  level 11, over 50 minutes with gear of tier 3, a median of level 16.5 reached (16) and no deaths in
+  either; from level 21 at tier 5, level 27 (27), one death (none), the same number slain a level; from level
+  31 at tier 8, level 36.5 (37), no deaths (one). **The Deep holds more:** about a tenth more creatures a
+  level (39 against 35.5), since more of its rooms keep their dead. The room types decide which rooms keep
+  resident dead, so the counts moved a little everywhere; the runs show no harm, but a person will meet a
+  few more in the Deep.
+* **Light.** The average brightness of a level in the Hollows and the Deep, as the harness measures it,
+  matches 1.0.0b9's on the same seeds; run III's stone was lifted after its first frames read dark. The last two levels of the Deep are
+  dark on purpose.
+* **Speed.** The floor and ceiling now find their textures in fixed point along each row; the benchmark runs
+  at 3.6-3.8 ms a frame on the Crypts (3.3-3.9 for 1.0.0b9) and 2.2-2.5 ms on the Hollows and the Deep, as
+  1.0.0b9.
+* **The splash** was checked by its loudness against a footstep, in the harness's audio.
+* **Not tested at all:** any of it on a real screen at full size, the splash through speakers, and how dark
+  the Deep's last levels look on an OLED.
+* **AddressSanitizer and UBSan**, clean: the autopilot in every run, all four boss fights, pockets, her hall,
+  a challenge from the Portal, rooms walked into, and the crossings from each run into the next (levels 9 to
+  11, 19 to 21, 28 to 31, and 40 into 41, where the Crypts come round again).
 
 **New in 1.0.0b9** (the map, the target's health, experience and Levels of Atonement, Luck, the
 cornerstones and overlevels). Tested in the harness only, by the autopilot and scripted players: none of it

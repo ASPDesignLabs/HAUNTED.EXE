@@ -4683,6 +4683,8 @@ void crawl_art_theme(int theme, int level) {
     build_colormap();
 }
 
+static void specials_plain(void);
+static void treasure_plain(void);
 void crawl_art_level(int level) {
     float dk = crawl_decay(level), depth = crawl_depth(level);
     g_decay = fmaxf(dk, depth);                                     /* the dead themselves only get older going down */
@@ -4711,6 +4713,2771 @@ void crawl_art_level(int level) {
     spr_shieldskel(SP_SHIELD_XA, 1.0f, 0, 0); spr_shieldskel(SP_SHIELD_XB, -1.0f, 0, 0); spr_shieldskel(SP_SHIELD_XS, 0.2f, 1, 0);
     spr_bestiary_bones();
     spr_sides();
+    treasure_plain();
+    if (crawl_drawn(level)) crawl_art_run(level);                  /* the run's own look (docs/PLAN-b10.md) */
+    else {                                                          /* not drawn yet: the look as it was */
+        static const float KS[4] = { 1.0f, 0.5f, 0.12f, -0.5f };
+        for (int f = 0; f < 4; f++) { spr_key(SP_KEY0 + f, KS[f], R_GOLD); spr_key(SP_KEYS0 + f, KS[f], R_IRON); spr_key(SP_KEYC0 + f, KS[f], R_BLOOD); }
+        specials_plain();
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Each run's own look (docs/PLAN-b10.md)                              */
+/* ------------------------------------------------------------------ */
+
+/* A run's materials are laid on one grid of courses, 16 pixels high, so where two meet the courses run
+ * on. g_mid keeps each material's blocks or stones by pixel (0 a joint), so a blend can let whole blocks
+ * fall away. What stands on a wall is drawn apart, C_CLEAR where the wall shows through. Only the Crypts
+ * are drawn so far; the other runs borrow them until theirs are approved. */
+static uint16_t g_mid[NMAT][TS * TS];
+
+const RunLook crawl_looks[4] = {
+    { "THE ORDER'S CRYPTS",
+      { "DRESSED ASHLAR", "COURSED RUBBLE", "LIME PLASTER", "CUT BEDROCK", "BONE WALL" },
+      { "BURIAL NICHES", "THE ORDER'S BANNER", "A KNIGHT'S SLAB", "WALL SHRINE", "MEMORIAL TABLET", "TORCH", "TORCH", "TORCH" },
+      { "FLAGSTONES", "CHAPTER FLOOR", "WORN SETTS", "BONE EARTH", "BROKEN FLAGS" },
+      { "RIBBED VAULT", "STONE VAULT", "ROUGH ROCK" },
+      { { M1_ASHLAR, M1_RUBBLE }, { M1_PLASTER, M1_ASHLAR }, { M1_PLASTER, M1_RUBBLE }, { M1_ASHLAR, M1_BEDROCK },
+        { M1_RUBBLE, M1_BEDROCK }, { M1_BONES, M1_ASHLAR } } },
+    { "THE DROWNED CATACOMBS",
+      { "BEDDED SLATE", "SLATE LINING", "SILT AND RUBBLE", "FLOWSTONE", "BONE IN SILT" },
+      { "FLOODED NICHES", "A SAINT'S ALCOVE", "A CULVERT", "HANDPRINTS", "A WEB CURTAIN", "LANTERN", "LANTERN", "LANTERN" },
+      { "WET FLAGS", "SILT", "SLATE ON EDGE", "STANDING WATER", "PUDDLED FLAGS" },
+      { "SLATE VAULT", "BEDDED ROCK", "DRIPPING ROCK" },
+      { { M2_LINING, M2_SLATE }, { M2_LINING, M2_SILT }, { M2_SLATE, M2_SILT }, { M2_FLOW, M2_SLATE },
+        { M2_FLOW, M2_LINING }, { M2_BONES, M2_SILT } } },
+    { "THE CHARNEL MINE",
+      { "ROUGH GRANITE", "PICK-CUT FACE", "TIMBER SHORING", "BASALT COLUMNS", "PACKED BACKFILL" },
+      { "AN ORE VEIN", "FOSSIL RIBS", "A TIMBER SET", "AN ORE CHUTE", "THE CULT'S MARKS", "OIL LAMP", "OIL LAMP", "OIL LAMP" },
+      { "GRAVEL", "RAILS", "TRODDEN EARTH", "CHARNEL FLOOR", "FALLEN SCREE" },
+      { "TIMBER LAGGING", "ROUGH ROCK", "ROCK AND ROOTS" },
+      { { M3_FACE, M3_GRANITE }, { M3_TIMBER, M3_FACE }, { M3_TIMBER, M3_GRANITE }, { M3_FACE, M3_FILL },
+        { M3_BASALT, M3_GRANITE }, { M3_FILL, M3_GRANITE } } },
+    { "THE BLACK GLASS",
+      { "OBSIDIAN", "BASALT COLUMNS", "ASH-CRUSTED ROCK", "CRYSTAL CRUST", "BONE IN GLASS" },
+      { "A GEODE", "A GEM SEAM", "GOLD VEINS", "FUSED BONES", "THE THRONE'S FRIEZE", "MAGMA FISSURE", "MAGMA FISSURE", "MAGMA FISSURE" },
+      { "CRACKED GLASS", "THRONE FLAGS", "DRIFTED ASH", "CINDERS", "SHATTERED GLASS" },
+      { "CRYSTAL", "GLINTING ROCK", "SOOTED ROCK" },
+      { { M4_OBSIDIAN, M4_ASH }, { M4_BASALT, M4_OBSIDIAN }, { M4_BASALT, M4_ASH }, { M4_CRYSTAL, M4_OBSIDIAN },
+        { M4_CRYSTAL, M4_ASH }, { M4_BONES, M4_OBSIDIAN } } },
+};
+
+static uint8_t lighter(uint8_t c, int by) {                        /* lighten a pixel within its own ramp */
+    if (c == 0 || c >= C_WHITE || IS_FULLBRIGHT(c)) return c;
+    int base = ((c - 1) / 16) * 16 + 1;
+    return (uint8_t)(c + by > base + 15 ? base + 15 : c + by);
+}
+static void cv_to_tex(int t) {                                     /* the canvas (row-major) into a texture (column-major) */
+    for (int x = 0; x < TS; x++)
+        for (int y = 0; y < TS; y++) crawl_tex[t][x * TS + y] = cv_sprite[y * TS + x];
+}
+static float wrapd(float d) { d = fabsf(d); return d > 32.0f ? 64.0f - d : d; }
+
+/* ---- the Crypts' materials ---- */
+
+/* dressed ashlar: courses 16 high, blocks 32 long (some cut in two), every other course set over by 16 */
+static int ashlar_at(int x, int y, uint32_t seed, int *lx, int *ly, int *bw) {
+    int r = (y & 63) >> 4, off = (r & 1) * 16, xx = (x - off) & 63, slot = xx >> 5, bx = xx & 31, w = 32;
+    if (h01(r, slot, seed) > 0.62f) { w = 16; slot = slot * 2 + (bx >> 4); bx &= 15; } else slot *= 2;
+    *lx = bx; *ly = y & 15; *bw = w;
+    return 1 + r * 4 + slot;
+}
+static const char *const MASON[4][5] = {                           /* masons' marks, cut small in a block's face */
+    { "..#..", "..#..", "#####", "..#..", "..#.." },
+    { "..#..", ".###.", "#.#.#", "..#..", "..#.." },
+    { "..#..", ".#.#.", "#...#", "#####", "....." },
+    { "####.", "...#.", "...#.", ".#.#.", "..#.." },
+};
+/* vseed 0 is the plain look; another gives the same courses with a mason's mark, a block put back
+ * later, a chipped corner, so the two sit side by side without a seam */
+static void gen_ashlar(int t, int m, uint32_t seed, uint32_t vseed) {
+    int ra = (int)(hsh(1, 1, vseed) & 1);
+    int idm = vseed ? 1 + ra * 8 + (int)(hsh(1, 2, vseed) & 1) * 2 : -1;          /* blocks in even courses never cross the edge */
+    int idr = vseed ? 1 + (1 - ra) * 8 + (int)(hsh(1, 3, vseed) & 1) * 2 : -1;
+    int idc = 1 + (int)(hsh(1, 4, vseed + 7) & 1) * 8 + 2 * (int)(hsh(1, 5, vseed + 7) & 1);
+    const char *const *gl = MASON[hsh(1, 6, vseed) & 3];
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int lx, ly, w, id = ashlar_at(x, y, seed, &lx, &ly, &w);
+            if (lx == 0 || ly == 0) { g_mid[m][x * TS + y] = 0; tput(t, x, y, sh(R_STONE, 0.08f + 0.06f * h01(x, y, seed + 1))); continue; }
+            g_mid[m][x * TS + y] = (uint16_t)id;
+            float quiet = id == idr ? 0.5f : 1.0f;
+            float v = 0.48f + 0.11f * (2.0f * h01(id, 3, seed) - 1.0f) - (id == idr ? 0.09f : 0.0f)
+                    + quiet * (0.17f * (fbm(x / 8.0f, y / 8.0f, 8, seed + 2) - 0.5f) + 0.07f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 3) - 0.5f));
+            int dir = (hsh(id, 4, seed) & 1) ? 1 : -1;               /* the tooling, one way or the other */
+            if ((((x * dir + y * 2) % 4) + 4) % 4 == 0) v -= 0.022f * quiet;
+            if (ly == 1) v += 0.12f; else if (lx == 1) v += 0.06f;
+            if (ly == 15) v -= 0.13f; else if (lx == w - 1) v -= 0.07f;
+            if (h01(x, y, seed + 5) > 0.982f) v -= 0.14f;
+            if (id == idm) {
+                int gx = lx - (w / 2 - 2), gy = ly - 6;
+                if (gx >= 0 && gx < 5 && gy >= 0 && gy < 5 && gl[gy][gx] == '#') v -= 0.13f;
+                else if (gx >= 1 && gx <= 5 && gy >= 1 && gy <= 5 && gl[gy - 1][gx - 1] == '#') v += 0.05f;
+            }
+            if (id == idc && (w - lx) + (16 - ly) < 8 + (int)(h01(x, y, seed + 6) * 2.0f)) v -= 0.17f;
+            tput(t, x, y, sh(R_STONE, v));
+        }
+}
+
+/* coursed rubble in lime: rough stones laid in courses of seven to nine, two to every course of ashlar,
+ * pointed with a pale mortar. In place of the brick: what an order would build with below ground */
+typedef struct { int sx[8][24], sw[8][24], ns[8], y0[8], h[8]; } RubbleLay;
+static RubbleLay g_rl;
+static void rubble_lay(uint32_t seed) {
+    for (int p = 0; p < 4; p++) {
+        int split = 7 + (int)(h01(p, 1, seed) * 3.0f);
+        g_rl.y0[2 * p] = p * 16; g_rl.h[2 * p] = split; g_rl.y0[2 * p + 1] = p * 16 + split; g_rl.h[2 * p + 1] = 16 - split;
+    }
+    for (int c = 0; c < 8; c++) {
+        int x = (int)(h01(c, 2, seed) * 64.0f), left = 64, k = 0;
+        while (left > 0 && k < 24) {
+            int w = 10 + (int)(h01(c, 10 + k, seed) * 11.0f);
+            if (left - w < 8) w = left;
+            g_rl.sx[c][k] = x; g_rl.sw[c][k] = w; x += w; left -= w; k++;
+        }
+        g_rl.ns[c] = k;
+    }
+}
+static int rubble_at(int x, int y, uint32_t seed, float *u, float *v) {   /* the stone there (0 mortar), and where in it */
+    x &= 63; y &= 63;
+    int c = 0;
+    while (c < 7 && y >= g_rl.y0[c] + g_rl.h[c]) c++;
+    for (int k = 0; k < g_rl.ns[c]; k++) {
+        int px = (x - g_rl.sx[c][k]) & 63, w = g_rl.sw[c][k], h = g_rl.h[c], py = y - g_rl.y0[c];
+        if (px >= w) continue;
+        int id = 1 + c * 24 + k;
+        float top = 0.3f + 0.9f * h01(id, 6, seed), bot = 0.3f + 0.9f * h01(id, 7, seed);   /* not every stone fills its course */
+        float uu = (px + 0.5f - w * 0.5f) / (w * 0.5f - 0.5f), vv = py + 0.5f < h * 0.5f ? (py + 0.5f - h * 0.5f) / (h * 0.5f - top) : (py + 0.5f - h * 0.5f) / (h * 0.5f - bot);
+        float r = powf(fabsf(uu), 4.0f) + powf(fabsf(vv), 3.2f);
+        *u = uu; *v = vv;
+        return r < 1.0f - 0.35f * h01(x, y, seed + 9) * (fabsf(uu) > 0.6f || fabsf(vv) > 0.6f) ? id : 0;
+    }
+    *u = *v = 0.0f;
+    return 0;
+}
+static void gen_rubble_c(int t, int m, uint32_t seed, uint32_t vseed) {
+    rubble_lay(seed);
+    int lc = (int)(hsh(2, 1, vseed) % 8), lost = vseed ? 1 + lc * 24 + (int)(hsh(2, 2, vseed) % (uint32_t)g_rl.ns[lc]) : -1;
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float u, v;
+            int id = rubble_at(x, y, seed, &u, &v);
+            g_mid[m][x * TS + y] = (uint16_t)id;
+            if (!id || id == lost) {                                 /* the mortar, shadowed under each stone; or a stone gone */
+                float u2, v2;
+                int above = rubble_at(x, y - 1, seed, &u2, &v2), above2 = rubble_at(x, y - 2, seed, &u2, &v2);
+                if (id == lost) { tput(t, x, y, sh(R_STONE, 0.03f + 0.04f * h01(x, y, seed + 13))); continue; }
+                float mv = 0.66f + 0.1f * (h01(x, y, seed + 11) - 0.5f) + 0.06f * (fbm(x / 4.0f, y / 4.0f, 16, seed + 12) - 0.5f);
+                if (above && above != lost) mv -= 0.28f; else if (above2 && above2 != lost) mv -= 0.1f;
+                tput(t, x, y, sh(R_STONE, mv));
+                continue;
+            }
+            int sand = h01(id, 4, seed) < 0.18f || (vseed && h01(id, 4, vseed) < 0.08f);
+            float r = powf(fabsf(u), 4.0f) + powf(fabsf(v), 3.2f);
+            float val = 0.30f + 0.2f * h01(id, 5, seed) - 0.08f * u - 0.16f * v - (r > 0.7f ? 0.06f : 0.0f)
+                      + 0.12f * (fbm(x / 4.0f, y / 4.0f, 16, seed + 14) - 0.5f) + 0.05f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 15) - 0.5f);
+            tput(t, x, y, sand ? sh(R_FLOOR, val + 0.2f) : sh(R_STONE, val));
+        }
+}
+
+/* lime plaster over the stone, trowelled, with a painted dado of red ochre and its crosses; vseed paints a
+ * consecration cross in a ring */
+static void gen_plaster(int t, int m, uint32_t seed, uint32_t vseed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = 0.62f + 0.10f * (fbm(x / 16.0f, y / 16.0f, 4, seed) - 0.5f) + 0.05f * (fbm(x / 4.0f, y / 4.0f, 16, seed + 1) - 0.5f);
+            for (int k = 0; k < 6; k++) {                            /* the trowel's arcs */
+                float cx = h01(k, 1, seed) * 64.0f, cy = h01(k, 2, seed) * 64.0f, rr = 6.0f + h01(k, 3, seed) * 10.0f;
+                float d = hypotf(wrapd(x + 0.5f - cx), wrapd(y + 0.5f - cy));
+                if (fabsf(d - rr) < 0.6f && h01(x, y, seed + 4 + k) > 0.45f) v -= 0.03f;
+            }
+            uint8_t c = sh(R_STONE, v);
+            int worn = fbm(x / 4.0f, y / 4.0f, 16, seed + 20) < 0.33f;
+            if (!worn && (y == 39 || y == 49)) c = sh(R_BRICK, 0.36f + 0.05f * h01(x, y, seed + 21));
+            if (y >= 41 && y <= 47) {
+                int lx = (x + 4) & 15, ly = y - 41;
+                int cross = ((lx == 7 || lx == 8) && ly >= 1 && ly <= 5) || (ly == 3 && lx >= 5 && lx <= 10);
+                if (!cross && !worn) c = sh(R_BRICK, 0.40f + 0.08f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 22) - 0.5f));
+            }
+            if (vseed) {
+                float dx = x + 0.5f - 32.0f, dy = y + 0.5f - 21.0f, d = hypotf(dx, dy);
+                int ring = d > 8.0f && d < 9.6f;
+                int arm = d < 7.6f && ((fabsf(dx) < 1.4f + 0.32f * fabsf(dy)) && fabsf(dy) > 1.0f ? 1 : (fabsf(dy) < 1.4f + 0.32f * fabsf(dx) && fabsf(dx) > 1.0f));
+                if ((ring || arm) && fbm(x / 4.0f, y / 4.0f, 16, seed + 23) > 0.3f) c = sh(R_BRICK, 0.38f);
+            }
+            tput(t, x, y, c);
+            g_mid[m][x * TS + y] = 0;
+        }
+}
+
+/* the rock the crypts are cut from: a face dressed with the pick in patches of parallel strokes, the beds
+ * showing faintly, a few old breaks; vseed has a fissure down it */
+static void gen_bedrock(int t, int m, uint32_t seed, uint32_t vseed) {
+    static float buf[TS * TS];
+    float px[9], py[9], pb[9];
+    for (int i = 0; i < 9; i++) { px[i] = h01(i, 1, seed) * 64; py[i] = h01(i, 2, seed) * 64; pb[i] = h01(i, 3, seed); }
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float d1 = 1e9f, d2 = 1e9f; int n1 = 0;
+            for (int i = 0; i < 9; i++) {
+                float dx = wrapd(x + 0.5f - px[i]), dy = wrapd(y + 0.5f - py[i]), d = sqrtf(dx * dx + dy * dy);
+                if (d < d1) { d2 = d1; d1 = d; n1 = i; } else if (d < d2) d2 = d;
+            }
+            float v = 0.38f + 0.07f * pb[n1] + 0.2f * (fbm(x / 16.0f, y / 16.0f, 4, seed + 1) - 0.5f) + 0.1f * (fbm(x / 4.0f, y / 4.0f, 16, seed + 4) - 0.5f)
+                    + 0.04f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 2) - 0.5f)
+                    + 0.04f * sinf(y * TAU_F / 16.0f + 2.5f * fbm(x / 16.0f, y / 16.0f, 4, seed + 3));
+            if (d2 - d1 < 1.0f) v -= 0.06f;
+            buf[x * TS + y] = v;
+            g_mid[m][x * TS + y] = 0;
+        }
+    for (int k = 0; k < 16; k++) {                                   /* the pick's work: patches of parallel grooves */
+        float cx = h01(k, 4, seed) * 64, cy = h01(k, 5, seed) * 64, a = (k & 1 ? 0.7f : -0.75f) + 0.25f * (h01(k, 6, seed) - 0.5f);
+        float rad = 6.0f + h01(k, 7, seed) * 5.0f, ca = cosf(a), sa = sinf(a);
+        for (int yy = -12; yy <= 12; yy++)
+            for (int xx = -12; xx <= 12; xx++) {
+                float d = sqrtf((float)(xx * xx + yy * yy));
+                if (d > rad) continue;
+                float across = xx * -sa + yy * ca, f = 1.0f - d / rad;
+                float g = fmodf(across + 30.0f, 3.0f);
+                int xi = ((int)cx + xx) & 63, yi = ((int)cy + yy) & 63;
+                if (g < 0.9f) buf[xi * TS + yi] -= 0.09f * f; else if (g < 1.6f) buf[xi * TS + yi] += 0.04f * f;
+            }
+    }
+    if (vseed) {
+        float x = 20.0f + h01(3, 1, vseed) * 24.0f;
+        for (int y = 0; y < TS; y++) {
+            x += (h01(y, 2, vseed) - 0.5f) * 1.4f;
+            int xi = ((int)x) & 63;
+            buf[xi * TS + y] -= 0.22f; buf[((xi + 1) & 63) * TS + y] -= 0.08f; buf[((xi - 1) & 63) * TS + y] += 0.04f;
+        }
+    }
+    for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) tput(t, x, y, sh(R_STONE, buf[x * TS + y]));
+}
+
+/* an ossuary's wall: rows of skulls between banks of long bones laid end out, the way the old charnel
+ * houses stacked them; vseed crosses two long bones in a bank and leaves a skull broken */
+static void bone_knob(int t, float cx, float cy, float bright) {
+    for (int y = (int)cy - 4; y <= (int)cy + 4; y++)
+        for (int x = (int)cx - 4; x <= (int)cx + 4; x++) {
+            float dx = (x + 0.5f - cx) / 2.9f, dy = (y + 0.5f - cy) / 3.1f, d = dx * dx + dy * dy;
+            if (d > 1.0f) continue;
+            float v = bright - 0.35f * d - 0.12f * (dx + dy);
+            if (fabsf(dx) < 0.18f && dy > 0.1f) v -= 0.25f;             /* the notch between the two knuckles */
+            tput(t, x, y, sh(R_BONE, v));
+        }
+}
+static void gen_bonewall(int t, int m, uint32_t seed, uint32_t vseed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) { tput(t, x, y, sh(R_BONE, 0.03f + 0.06f * fbm(x / 4.0f, y / 4.0f, 16, seed))); g_mid[m][x * TS + y] = 0; }
+    int broke = vseed ? (int)(hsh(4, 1, vseed) % 8) : -1;
+    for (int row = 0; row < 4; row++) {
+        int y0 = row * 16;
+        if (!(row & 1)) {
+            for (int k = 0; k < 4; k++) {
+                int n = (row / 2) * 4 + k;
+                tex_skull(t, k * 16 + (row == 2 ? 8 : 0), y0, 0.70f + 0.18f * h01(n, row, seed) - (n == broke ? 0.22f : 0.0f), 0);
+                if (n == broke)                                     /* a crack across the brow */
+                    for (int i = 0; i < 8; i++) tput(t, k * 16 + (row == 2 ? 8 : 0) + 4 + i, y0 + 3 + (i & 1) + i / 3, sh(R_BONE, 0.08f));
+            }
+        } else {
+            for (int sub = 0; sub < 2; sub++)
+                for (int k = 0; k < 10; k++) {
+                    float cx = k * 6.4f + (sub ? 3.2f : 0.0f) + (row == 3 ? 1.6f : 0.0f), cy = y0 + 4.0f + sub * 7.5f;
+                    if (vseed && row == 1 && cx > 20.0f && cx < 44.0f) continue;
+                    bone_knob(t, cx, cy, 0.62f + 0.22f * h01(k + sub * 10, row, seed));
+                }
+            if (vseed && row == 1)                                  /* two long bones crossed in the bank */
+                for (int b = 0; b < 2; b++)
+                    for (int i = 0; i <= 22; i++) {
+                        float x = 21.0f + i, y = y0 + 2.0f + (b ? 22 - i : i) * 0.55f;
+                        for (int w = -1; w <= 1; w++) tput(t, (int)x, (int)y + w, sh(R_BONE, 0.62f - 0.12f * w - (i == 0 || i == 22 ? 0.0f : 0.06f)));
+                        if (i == 0 || i == 22) { bone_knob(t, x, y, 0.75f); }
+                    }
+        }
+    }
+}
+
+/* ---- blends: one material giving way to the next across a cell, the first on its left and in front ---- */
+
+/* Whole blocks or stones of the first go where the second shows; a skin (plaster) frays instead, its lip
+ * catching the light. Where the first stands in front, the second takes its shadow. Both edges of the cell
+ * match the plain materials, so a blend sits between them without a seam. */
+static void gen_blend(int t, int a, int b, int skin, uint32_t seed) {
+    const uint8_t *A = crawl_tex[T_MATV(a, 0)], *B = crawl_tex[T_MATV(b, 0)];
+    const uint16_t *ida = g_mid[a];
+    static uint8_t mask[TS * TS];
+    static float sum[200][2]; static int cnt[200][2], mnx[200], mxx[200];
+    for (int i = 0; i < 200; i++) { sum[i][0] = sum[i][1] = 0; cnt[i][0] = cnt[i][1] = 0; mnx[i] = 64; mxx[i] = -1; }
+    for (int x = 0; x < TS; x++)
+        for (int y = 0; y < TS; y++) { int id = ida[x * TS + y]; if (id && id < 200) { if (x < mnx[id]) mnx[id] = x; if (x > mxx[id]) mxx[id] = x; } }
+    for (int x = 0; x < TS; x++)
+        for (int y = 0; y < TS; y++) {
+            int id = ida[x * TS + y];
+            if (!id || id >= 200) continue;
+            int half = mnx[id] < 8 && mxx[id] > 56 && x < 32;        /* a block across the cell's edge counts as two */
+            sum[id][half] += x + 0.5f; cnt[id][half]++;
+        }
+    for (int x = 0; x < TS; x++)
+        for (int y = 0; y < TS; y++) {
+            float g = (x + 0.5f) / 64.0f, env = sinf(PI_F * g);
+            int id = ida[x * TS + y], bm;
+            if (!skin && id && id < 200) {
+                int half = mnx[id] < 8 && mxx[id] > 56 && x < 32;
+                float c = sum[id][half] / (64.0f * (float)cnt[id][half]);
+                bm = c < 0.12f ? 0 : c > 0.88f ? 1 : c + (h01(id * 2 + half, 7, seed) - 0.5f) * 0.55f * sinf(PI_F * c) > 0.5f;
+            } else {
+                float n = fbm(x / 8.0f, y / 8.0f, 8, seed) - 0.5f + 0.4f * (fbm(x / 4.0f, y / 4.0f, 16, seed + 1) - 0.5f);
+                bm = g + env * n * (skin ? 0.75f : 0.9f) > 0.5f;
+            }
+            mask[x * TS + y] = (uint8_t)bm;
+        }
+    if (!skin)                                                       /* a joint follows the blocks beside it */
+        for (int x = 0; x < TS; x++)
+            for (int y = 0; y < TS; y++) {
+                if (ida[x * TS + y]) continue;
+                int votes[2] = { 0, 0 };
+                for (int d = 0; d < 4; d++) {
+                    int nx = x + (d == 0) - (d == 1), ny = (y + (d == 2) - (d == 3)) & 63;
+                    if (nx < 0 || nx > 63 || !ida[nx * TS + ny]) continue;
+                    votes[mask[nx * TS + ny]]++;
+                }
+                if (votes[0] || votes[1]) mask[x * TS + y] = votes[1] > votes[0];
+            }
+    #define MB(xx, yy) ((xx) < 0 ? 0 : (xx) > 63 ? 1 : mask[(xx) * TS + ((yy) & 63)])
+    for (int x = 0; x < TS; x++)
+        for (int y = 0; y < TS; y++) {
+            int bm = mask[x * TS + y];
+            uint8_t c = bm ? B[x * TS + y] : A[x * TS + y];
+            if (bm) {                                                /* in the shadow of what stands in front */
+                if (!MB(x - 1, y) || !MB(x, y - 1) || !MB(x - 1, y - 1)) c = darker(c, 4);
+                else if (!MB(x - 2, y) || !MB(x, y - 2) || !MB(x - 2, y - 1)) c = darker(c, 2);
+                else if (!MB(x + 1, y) || !MB(x, y + 1)) c = darker(c, 1);
+            } else if (MB(x + 1, y) || MB(x, y + 1) || MB(x - 1, y) || MB(x, y - 1)) {
+                c = skin ? ((MB(x - 1, y) || MB(x, y - 1)) ? lighter(c, 2) : darker(c, 1)) : darker(c, 1);
+            }
+            crawl_tex[t][x * TS + y] = c;
+        }
+    #undef MB
+}
+
+/* the plaster falling away with the years, the rubble behind it showing */
+static void plaster_flake(int tp, int tr, float dk, uint32_t seed) {
+    if (dk <= 0.05f) return;
+    static uint8_t lost[TS * TS];
+    for (int x = 0; x < TS; x++)
+        for (int y = 0; y < TS; y++) {
+            float f = fbm(x / 8.0f, y / 8.0f, 8, seed) + 0.25f * (fbm(x / 4.0f, y / 4.0f, 16, seed + 1) - 0.5f) - (y > 48 ? 0.08f : 0.0f);
+            lost[x * TS + y] = f < 0.14f + 0.36f * dk;
+        }
+    #define LO(xx, yy) lost[((xx) & 63) * TS + ((yy) & 63)]
+    for (int x = 0; x < TS; x++)
+        for (int y = 0; y < TS; y++) {
+            uint8_t *p = &crawl_tex[tp][x * TS + y];
+            if (LO(x, y)) {
+                uint8_t c = crawl_tex[tr][x * TS + y];
+                if (!LO(x - 1, y) || !LO(x, y - 1)) c = darker(c, 4); else if (!LO(x - 2, y) || !LO(x, y - 2)) c = darker(c, 2);
+                *p = c;
+            } else if (LO(x + 1, y) || LO(x, y + 1)) *p = lighter(*p, 2);
+        }
+    #undef LO
+}
+
+/* rot for the run's walls: the grime and moss follow one field shared by every texture of the run, so they
+ * run on across a seam; the drips, cracks and chips are each texture's own */
+static void decay_wall(int t, float dk, uint32_t field, uint32_t own) {
+    if (dk <= 0.0f) return;
+    uint8_t *p = crawl_tex[t];
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c = p[x * TS + y];
+            if (c == C_CLEAR || IS_FULLBRIGHT(c)) continue;
+            float n = fbm(x / 8.0f, y / 8.0f, 8, field + 5);
+            if (n < 0.22f + 0.3f * dk) c = darker(c, 1 + (n < 0.2f + 0.15f * dk));
+            if (dk > 0.25f && y > 40 && fbm(x / 8.0f, y / 4.0f, 8, field + 9) > 0.8f - 0.25f * dk - (y - 40) * 0.006f)
+                c = sh(R_MOSS, 0.2f + 0.35f * h01(x, y, field));
+            p[x * TS + y] = c;
+        }
+    #define DK(xx, yy, by) do { uint8_t *q_ = &p[((xx) & 63) * TS + ((yy) & 63)]; if (*q_ != C_CLEAR && !IS_FULLBRIGHT(*q_)) *q_ = darker(*q_, by); } while (0)
+    int drips = (int)(dk * 6.0f);
+    for (int k = 0; k < drips; k++) {
+        int x = (int)(h01(k, 1, own) * 63), len = 10 + (int)(h01(k, 2, own) * 40.0f * dk);
+        for (int y = 0; y < len; y++) DK(x, y, 2);
+    }
+    int cracks = (int)(dk * 5.0f + 0.5f);
+    for (int k = 0; k < cracks; k++) {
+        float x = h01(k, 3, own) * 64.0f, y = h01(k, 4, own) * 64.0f, a = h01(k, 5, own) * TAU_F;
+        int len = 8 + (int)(h01(k, 6, own) * 24.0f);
+        for (int i = 0; i < len; i++) { a += (h01(k, i + 10, own) - 0.5f) * 1.2f; x += cosf(a); y += sinf(a); DK((int)x, (int)y, 6); }
+    }
+    #undef DK
+}
+
+/* ---- what stands on the Crypts' walls (C_CLEAR elsewhere) ---- */
+
+static int arch_in(float x, float y, float x0, float y0, float w, float h, float rise) {   /* an arched opening */
+    if (x < x0 || x >= x0 + w || y >= y0 + h) return 0;
+    if (y >= y0 + rise) return 1;
+    float dx = (x - (x0 + w * 0.5f)) / (w * 0.5f), dy = (y - (y0 + rise)) / rise;
+    return dx * dx + dy * dy <= 1.0f;
+}
+static void cut_arch_r(float x0, float y0, float w, float h, float rise, int sill, uint32_t seed, int ramp, float lift) {   /* an opening with dressed stones round it, in that ramp */
+    for (int y = (int)y0 - 4; y < (int)(y0 + h) + 4; y++)
+        for (int x = (int)x0 - 4; x < (int)(x0 + w) + 4; x++) {
+            float px = x + 0.5f, py = y + 0.5f;
+            if (arch_in(px, py, x0, y0, w, h, rise)) { cv_px(x, y, sh(R_STONE, 0.02f + 0.06f * (py - y0) / h)); continue; }
+            int near = 0;
+            for (int k = 0; k < 12 && !near; k++) { float a = k * TAU_F / 12.0f; near = arch_in(px + 2.6f * cosf(a), py + 2.6f * sinf(a), x0, y0, w, h, rise); }
+            if (!near || py >= y0 + h) continue;
+            float cx = x0 + w * 0.5f, ang = atan2f(py - (y0 + rise), px - cx);
+            float v = 0.6f + 0.08f * (fbm(x / 4.0f, y / 4.0f, 16, seed) - 0.5f) - 0.06f * ((px - cx) / w) - 0.05f * ((py - y0) / h);
+            if (py < y0 + rise && fmodf(ang + TAU_F, 0.45f) < 0.07f) v = 0.25f;      /* the joints between the arch's stones */
+            if (py >= y0 + rise && ((int)(py - y0 - rise) % 8) == 0) v = 0.25f;
+            cv_px(x, y, sh(ramp, v + lift));
+        }
+    if (sill)
+        for (int x = (int)x0 - 4; x < (int)(x0 + w) + 4; x++) {
+            cv_px(x, (int)(y0 + h), sh(ramp, 0.74f + lift)); cv_px(x, (int)(y0 + h) + 1, sh(ramp, 0.48f + lift)); cv_px(x, (int)(y0 + h) + 2, sh(ramp, 0.2f + lift));
+        }
+}
+static void cut_arch(float x0, float y0, float w, float h, float rise, int sill, uint32_t seed) { cut_arch_r(x0, y0, w, h, rise, sill, seed, R_FLOOR, 0.12f); }
+static void gen_feat_niche(int t, uint32_t seed) {                 /* four burial niches, a skull or a shroud in each */
+    cv_begin(cv_sprite, TS, TS);
+    for (int ny = 0; ny < 2; ny++)
+        for (int nx = 0; nx < 2; nx++) {
+            float x0 = nx * 32 + 7.0f, y0 = ny * 32 + 6.0f, w = 18.0f, h = 19.0f, cx = x0 + w * 0.5f;
+            cut_arch(x0, y0, w, h, 7.0f, 1, seed);
+            int k = (int)(hsh(nx, ny, seed) % 3);
+            if (k == 0) cv_skull(cx, y0 + h - 5.5f, 0.8f, 0.3f, 0.82f);
+            else if (k == 1) { cv_ellipse(cx, y0 + h - 4.0f, 7.5f, 3.8f, R_WARM, 0.12f, 0.5f); cv_skull(cx - 5.0f, y0 + h - 5.0f, 0.55f, 0.25f, 0.6f); }
+            else { cv_bone(cx - 6, y0 + h - 1.5f, cx + 5, y0 + h - 2.5f, 1.0f, 0.25f, 0.7f); cv_skull(cx + 3.0f, y0 + h - 4.5f, 0.6f, 0.25f, 0.7f); }
+        }
+    cv_to_tex(t);
+}
+static void gen_feat_banner(int t, uint32_t seed, float tatter) {  /* the Order's banner: a cross on red, torn with the years */
+    cv_begin(cv_sprite, TS, TS);
+    for (int x = 10; x <= 53; x++) { cv_px(x, 3, sh(R_IRON, 0.75f)); cv_px(x, 4, sh(R_IRON, 0.35f)); }
+    cv_ellipse(10, 3.5f, 1.8f, 1.8f, R_IRON, 0.3f, 0.9f); cv_ellipse(53, 3.5f, 1.8f, 1.8f, R_IRON, 0.3f, 0.9f);
+    for (int x = 15; x <= 48; x++) {
+        float hem = 52.0f + 3.0f * sinf(x * 0.7f) - 3.0f * fabsf(sinf(x * 1.9f)) - tatter * (5.0f + 10.0f * h01(x / 3, 1, seed));
+        if (((x - 15) % 11) == 5) hem += 4.0f - tatter * 2.0f;                 /* the swallowtails */
+        for (int y = 5; y <= (int)hem; y++) {
+            float v = 0.40f + 0.16f * sinf((x - 15) * 0.55f) - 0.003f * y + fbm(x / 4.0f, y / 4.0f, 16, seed) * 0.12f;
+            uint8_t c = sh(R_BLOOD, v);
+            if (x <= 16 || x >= 47 || y <= 6) c = sh(R_GOLD, 0.55f + 0.2f * sinf(y * 0.9f));
+            float dx = x + 0.5f - 32.0f, dy = y + 0.5f - 26.0f;
+            int arm = (fabsf(dy) <= 11.0f && fabsf(dx) <= 1.6f + 0.42f * fabsf(dy)) || (fabsf(dx) <= 10.0f && fabsf(dy) <= 1.6f + 0.42f * fabsf(dx));
+            if (arm) c = sh(R_BONE, 0.82f - 0.012f * (dx + dy) - (fabsf(dx) > 9.0f || fabsf(dy) > 10.0f ? 0.15f : 0.0f));
+            if (tatter > 0.0f && fbm(x / 4.0f, y / 4.0f, 16, seed + 9) > 1.02f - 0.32f * tatter) continue;   /* holes, the wall behind */
+            if (tatter > 0.55f && fabsf((x - 21) - (y - 14) * 0.45f) < 0.6f && y > 14 && y < 38) continue;  /* a slash */
+            cv_px(x, y, c);
+        }
+    }
+    cv_skull(32, 26.5f, 0.42f, 0.35f, 0.85f);
+    cv_to_tex(t);
+}
+static void gen_feat_slab(int t, uint32_t seed) {                  /* a knight's slab set in the wall: shield on sword */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 3; y <= 60; y++)
+        for (int x = 13; x <= 50; x++) {
+            float v = 0.52f + 0.1f * (fbm(x / 4.0f, y / 4.0f, 16, seed) - 0.5f);
+            int bx = x - 13, by = y - 3, bw = 37, bh = 57;
+            if (bx < 3 || by < 3 || bx > bw - 3 || by > bh - 3) v += (bx == 0 || by == 0) ? 0.18f : (bx == bw || by == bh) ? -0.2f : 0.06f;
+            else if (bx == 3 || by == 3) v -= 0.16f; else if (bx == bw - 3 || by == bh - 3) v += 0.1f;
+            float dx = x + 0.5f - 32.0f;
+            if (fabsf(dx) <= 1.6f && y >= 6 && y <= 57) v = 0.7f - (dx > 0.8f ? 0.15f : 0.0f) - (y > 52 ? (y - 52) * 0.05f : 0.0f);   /* the sword */
+            if (y >= 10 && y <= 11 && fabsf(dx) <= 10.5f) v = y == 10 ? 0.78f : 0.4f;   /* its guard */
+            if (y >= 5 && y <= 7 && fabsf(dx) <= 2.2f) v = 0.72f;
+            float sy = y + 0.5f, hw = sy < 26 ? 10.0f : 10.0f * sqrtf(fmaxf(0.0f, 1.0f - (sy - 26) * (sy - 26) / 196.0f));
+            if (sy >= 14 && sy <= 40 && fabsf(dx) <= hw) {                            /* the shield over it, with its cross */
+                v = 0.64f - 0.015f * dx - 0.005f * (sy - 14);
+                if (fabsf(dx) > hw - 1.2f || sy < 15.2f) v = 0.42f;
+                if ((fabsf(dx) < 1.5f && sy > 16 && sy < 37) || (fabsf(sy - 24.0f) < 1.5f && fabsf(dx) < hw - 2.5f)) v = 0.82f;
+            }
+            cv_px(x, y, sh(R_FLOOR, v + 0.12f));
+        }
+    cv_to_tex(t);
+}
+static void gen_feat_shrine(int t, uint32_t seed) {                /* a wall shrine: a candle burning by a skull */
+    cv_begin(cv_sprite, TS, TS);
+    cut_arch(22, 12, 20, 32, 10, 1, seed);
+    for (int y = 12; y < 26; y++) for (int x = 24; x < 40; x++) if (cvp[y * TS + x] != C_CLEAR && arch_in(x + 0.5f, y + 0.5f, 22, 12, 20, 32, 10)) cv_px(x, y, sh(R_STONE, 0.01f));   /* soot */
+    cv_skull(35, 39, 0.62f, 0.3f, 0.8f);
+    for (int y = 33; y <= 43; y++) for (int x = 26; x <= 28; x++) cv_px(x, y, sh(R_BONE, 0.82f - (x - 26) * 0.18f));
+    cv_px(25, 42, sh(R_BONE, 0.6f)); cv_px(29, 40, sh(R_BONE, 0.55f)); cv_px(29, 41, sh(R_BONE, 0.5f));
+    for (int y = 27; y <= 32; y++) for (int x = 25; x <= 29; x++) {
+        float u = (x + 0.5f - 27.5f) / (1.2f + (y - 27) * 0.25f);
+        if (fabsf(u) <= 1.0f) cv_px(x, y, (uint8_t)(R_FLAME + clampi(15 - (int)(fabsf(u) * 6) - (32 - y), 6, 15)));
+    }
+    cv_to_tex(t);
+}
+static void gen_feat_tablet(int t, uint32_t seed) {                /* a memorial tablet, lettered, pinned with iron */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 14; y <= 47; y++)
+        for (int x = 15; x <= 48; x++) {
+            int bx = x - 15, by = y - 14;
+            float v = 0.68f + 0.08f * (fbm(x / 4.0f, y / 4.0f, 16, seed) - 0.5f);
+            if (bx == 0 || by == 0) v += 0.15f; else if (bx == 33 || by == 33) v -= 0.25f; else if (bx == 2 || by == 2) v -= 0.12f;
+            if ((y >= 18 && y <= 23 && x == 31) || (y == 20 && x >= 29 && x <= 33)) v = 0.32f;   /* a small cross */
+            int row = (y - 27) % 4;
+            if (y >= 27 && y <= 43 && row == 0 && x >= 19 && x <= 44) {                        /* the lettering */
+                int g = (x - 19) / 3;
+                if (h01(g, y, seed + 1) > 0.25f && ((x - 19) % 3) != 2) v = 0.36f;
+            }
+            if (y >= 28 && y <= 44 && row == 1 && x >= 19 && x <= 44 && ((x - 19) % 3) != 2 && h01((x - 19) / 3, y - 1, seed + 1) > 0.25f) v += 0.06f;
+            cv_px(x, y, sh(R_FLOOR, v + 0.1f));
+        }
+    for (int k = 0; k < 4; k++) cv_ellipse(k & 1 ? 45.5f : 18.5f, k & 2 ? 44.5f : 17.5f, 1.3f, 1.3f, R_IRON, 0.25f, 0.85f);
+    cv_to_tex(t);
+}
+static void gen_feat_torch(int t, int frame, uint32_t seed) {      /* an iron sconce and its torch, on whatever wall */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 38; y <= 47; y++)
+        for (int x = 27; x <= 36; x++) {
+            float v = 0.42f + ((x == 27 || y == 38) ? 0.2f : 0.0f) - ((x == 36 || y == 47) ? 0.2f : 0.0f);
+            if ((x == 29 || x == 34) && (y == 40 || y == 45)) v = 0.9f;
+            cv_px(x, y, sh(R_IRON, v));
+        }
+    for (int y = 33; y < 38; y++) for (int x = 30; x <= 33; x++) cv_px(x, y, sh(R_IRON, 0.55f - (x - 30) * 0.08f));
+    for (int x = 28; x <= 35; x++) { cv_px(x, 30, sh(R_IRON, 0.7f)); cv_px(x, 31, sh(R_IRON, 0.35f)); }   /* the ring that holds it */
+    for (int y = 20; y <= 35; y++)
+        for (int x = 30; x <= 33; x++) if (y < 30 || y > 31) cv_px(x, y, sh(R_WOOD, 0.5f - fabsf(x - 31.0f) * 0.12f - (y - 20) * 0.01f));
+    static const float SWAY[3] = { 0.0f, 1.6f, -1.3f }, TALL[3] = { 1.0f, 0.9f, 1.1f };
+    for (int y = 0; y <= 22; y++)
+        for (int x = 20; x <= 44; x++) {
+            float u = (22 - y) / (21.0f * TALL[frame]);
+            if (u > 1.0f) continue;
+            float cx = 31.5f + SWAY[frame] * u * u * 2.0f;
+            float w = 5.6f * powf(fmaxf(0.0f, sinf(PI_F * (0.18f + 0.82f * (1.0f - u)))), 0.8f) * (1.0f - 0.35f * u);
+            if (w < 0.3f) continue;
+            float d = fabsf(x + 0.5f - cx) / (w + 0.01f), n = fbm(x / 4.0f, y / 4.0f + frame * 3.0f, 16, seed + 90 + frame) * 0.5f;
+            if (d > 1.0f - 0.25f * n) continue;
+            cv_px(x, y, (uint8_t)(R_FLAME + clampi((int)((1.0f - d * 0.7f - u * 0.55f + n * 0.3f) * 15.0f), 1, 15)));
+        }
+    cv_to_tex(t);
+}
+
+/* ---- the Crypts' floors (each cell its own, so nothing crosses a cell's edge) ---- */
+
+static void gen_floor_flags(int t, uint32_t seed, int broken) {     /* flagstones, laid four to a side, some doubled */
+    int id[4][4], ox[16], oy[16], fw[16], fh[16], n = 0;
+    memset(id, -1, sizeof id);
+    for (int uy = 0; uy < 4; uy++)
+        for (int ux = 0; ux < 4; ux++) {
+            if (id[uy][ux] >= 0) continue;
+            float r = h01(ux, uy, seed);
+            int w = 1, h = 1;
+            if (r < 0.25f && ux < 3 && uy < 3 && id[uy][ux + 1] < 0 && id[uy + 1][ux] < 0 && id[uy + 1][ux + 1] < 0) w = h = 2;
+            else if (r < 0.55f && ux < 3 && id[uy][ux + 1] < 0) w = 2;
+            else if (r < 0.8f && uy < 3 && id[uy + 1][ux] < 0) h = 2;
+            for (int j = 0; j < h; j++) for (int i = 0; i < w; i++) id[uy + j][ux + i] = n;
+            ox[n] = ux * 16; oy[n] = uy * 16; fw[n] = w * 16; fh[n] = h * 16; n++;
+        }
+    int gone = broken ? (int)(hsh(5, 1, seed) % (uint32_t)n) : -1;
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int f = id[y / 16][x / 16], px = x - ox[f], py = y - oy[f];
+            uint8_t c;
+            if (px == 0 || py == 0 || px == fw[f] - 1 || py == fh[f] - 1) c = sh(R_FLOOR, 0.1f + 0.06f * h01(x, y, seed + 1));
+            else {
+                float cx = (px - fw[f] * 0.5f) / (fw[f] * 0.5f), cy = (py - fh[f] * 0.5f) / (fh[f] * 0.5f);
+                float v = 0.46f + 0.07f * (2.0f * h01(f, 3, seed) - 1.0f) + 0.14f * (fbm(x / 8.0f, y / 8.0f, 8, seed + 2) - 0.5f)
+                        + 0.05f * (1.0f - fmaxf(fabsf(cx), fabsf(cy))) + (px == 1 || py == 1 ? 0.07f : 0.0f) - (px == fw[f] - 2 || py == fh[f] - 2 ? 0.07f : 0.0f);
+                if (h01(x, y, seed + 4) > 0.985f) v -= 0.12f;
+                c = sh(R_FLOOR, v + 0.12f);
+                if (f == gone && fbm(x / 4.0f, y / 4.0f, 16, seed + 6) > 0.42f) c = sh(R_FLOOR, 0.14f + 0.1f * h01(x, y, seed + 7));   /* broken out: the earth below */
+            }
+            tput(t, x, y, c);
+        }
+    if (broken)                                                     /* cracks across the rest */
+        for (int k = 0; k < 4; k++) {
+            float x = h01(k, 8, seed) * 64.0f, y = h01(k, 9, seed) * 64.0f, a = h01(k, 10, seed) * TAU_F;
+            for (int i = 0; i < 22; i++) {
+                a += (h01(k, i + 11, seed) - 0.5f) * 1.0f; x += cosf(a); y += sinf(a);
+                if (x < 1 || y < 1 || x > 62 || y > 62) break;
+                crawl_tex[t][(int)x * TS + (int)y] = darker(crawl_tex[t][(int)x * TS + (int)y], 5);
+            }
+        }
+}
+static void gen_floor_chapter(int t, uint32_t seed) {              /* the chapter house: pale and dark stone set lozenge-wise */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int a = (x + y) & 31, b = (x - y + 64) & 31, dark = (((x + y) >> 5) + ((x - y + 64) >> 5)) & 1;
+            float v = dark ? 0.3f : 0.58f;
+            v += 0.12f * (fbm(x / 8.0f, y / 8.0f, 8, seed + dark) - 0.5f) + 0.04f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 3) - 0.5f);
+            uint8_t c = dark ? sh(R_STONE, v) : sh(R_FLOOR, v + 0.14f);
+            if (a == 0 || b == 0) c = sh(R_FLOOR, 0.12f);
+            tput(t, x, y, c);
+        }
+}
+static void gen_floor_setts(int t, uint32_t seed) {                /* a hall's setts, worn round on top */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int r = y / 8, ly = y & 7, s = x / 8, lx = x & 7;
+            int pair = h01(r, s / 2, seed) < 0.4f;                    /* some doubled, never across the edge */
+            int w = pair ? 16 : 8, px = pair ? (x & 15) : lx;
+            int sid = r * 8 + (pair ? (s & ~1) : s);
+            uint8_t c;
+            if (px == 0 || ly == 0) c = sh(R_FLOOR, 0.1f + 0.08f * h01(x, y, seed + 1));
+            else {
+                float u = (px + 0.5f - w * 0.5f) / (w * 0.5f), v = (ly + 0.5f - 4.0f) / 4.0f;
+                float val = 0.44f + 0.06f * (2.0f * h01(sid, 3, seed) - 1.0f) + 0.09f * (1.0f - u * u - v * v) - 0.04f * (u + v)
+                          + 0.07f * (fbm(x / 4.0f, y / 4.0f, 16, seed + 2) - 0.5f);
+                c = sh(h01(sid, 4, seed) < 0.12f ? R_STONE : R_FLOOR, val + (h01(sid, 4, seed) < 0.12f ? 0.0f : 0.12f));
+            }
+            tput(t, x, y, c);
+        }
+}
+static void gen_floor_earth(int t, uint32_t seed) {                /* an ossuary's floor: earth trodden hard, bone in it */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = 0.3f + 0.16f * (fbm(x / 8.0f, y / 8.0f, 8, seed) - 0.5f) + 0.08f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 1) - 0.5f);
+            uint8_t c = sh(R_FLOOR, v);
+            if (h01(x, y, seed + 2) > 0.93f) c = sh(R_FLOOR, v + 0.2f);
+            tput(t, x, y, c);
+        }
+    for (int k = 0; k < 14; k++) {                                   /* splinters of bone, a knuckle, a tooth */
+        float x = 3 + h01(k, 3, seed) * 58, y = 3 + h01(k, 4, seed) * 58, a = h01(k, 5, seed) * PI_F;
+        int len = 1 + (int)(h01(k, 6, seed) * 5.0f);
+        for (int i = 0; i <= len; i++) tput(t, (int)(x + cosf(a) * i), (int)(y + sinf(a) * i), sh(R_BONE, 0.5f + 0.2f * h01(k, i, seed)));
+        tput(t, (int)(x + sinf(a)), (int)(y - cosf(a)), sh(R_FLOOR, 0.12f));
+    }
+}
+
+/* ---- the Crypts' ceilings ---- */
+
+static float vault_stones(int x, int y, uint32_t seed, int cell) {  /* small stones in a vault's web */
+    float d1 = 1e9f, d2 = 1e9f; int n1 = 0;
+    for (int i = 0; i < 40; i++) {
+        float px = h01(i, 1, seed) * 64, py = h01(i, 2, seed) * 64, dx = wrapd(x + 0.5f - px), dy = wrapd(y + 0.5f - py);
+        float d = sqrtf(dx * dx * (cell ? 1.0f : 0.5f) + dy * dy);
+        if (d < d1) { d2 = d1; d1 = d; n1 = i; } else if (d < d2) d2 = d;
+    }
+    if (d2 - d1 < 1.0f) return 0.1f;
+    return 0.42f + 0.14f * (h01(n1, 3, seed) - 0.5f) + 0.1f * (fbm(x / 4.0f, y / 4.0f, 16, seed + 4) - 0.5f);
+}
+static void gen_ceil_rib(int t, uint32_t seed) {                   /* a rib vault over a room: ribs on the cell's edges and diagonals, a boss */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = vault_stones(x, y, seed, 1);
+            int e = x < 2 || x > 61 || y < 2 || y > 61, e2 = x == 2 || x == 61 || y == 2 || y == 61;
+            float dd = fminf(fabsf((float)x - y), fabsf((float)x + y - 63.0f));
+            if (dd < 1.6f) v = 0.62f; else if (dd < 2.6f) v = 0.22f;
+            if (e) v = 0.66f; else if (e2) v = 0.2f;
+            float bx = x + 0.5f - 32.0f, by = y + 0.5f - 32.0f, br = sqrtf(bx * bx + by * by);
+            if (br < 5.5f) { float a = atan2f(by, bx); v = 0.4f + 0.4f * (1.0f - br / 5.5f) + (fmodf(a + TAU_F, TAU_F / 6.0f) < 0.18f && br > 1.5f ? -0.25f : 0.0f); }
+            else if (br < 6.5f) v = 0.18f;
+            tput(t, x, y, sh(R_CEIL, v + 0.08f));
+        }
+}
+static void gen_ceil_vault(int t, uint32_t seed) {                 /* a hall's barrel vault: rough voussoirs, soot from the torches */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = vault_stones(x, y, seed, 0) - 0.12f * fmaxf(0.0f, fbm(x / 8.0f, y / 8.0f, 8, seed + 5) - 0.55f) * 3.0f;
+            tput(t, x, y, sh(R_CEIL, v));
+        }
+}
+static void gen_ceil_rock(int t, uint32_t seed) {                  /* rough rock, left as it was cut */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = 0.46f + 0.22f * (fbm(x / 8.0f, y / 8.0f, 8, seed) - 0.5f) + 0.1f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 1) - 0.5f);
+            if (fabsf(fbm(x / 8.0f, y / 8.0f, 8, seed + 2) - 0.5f) < 0.02f) v -= 0.16f;
+            tput(t, x, y, sh(R_CEIL, v));
+        }
+}
+static void decay_flat(int t, float dk, uint32_t seed) {           /* rot on a floor or ceiling: grime, damp, cracks */
+    if (dk <= 0.0f) return;
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c = crawl_tex[t][x * TS + y];
+            float n = fbm(x / 8.0f, y / 8.0f, 8, seed + 5);
+            if (n < 0.2f + 0.3f * dk) c = darker(c, 1 + (n < 0.18f + 0.15f * dk));
+            if (dk > 0.4f && fbm(x / 4.0f, y / 4.0f, 16, seed + 6) > 0.86f - 0.18f * dk && (c - 1) % 16 < 4) c = sh(R_MOSS, 0.15f + 0.2f * h01(x, y, seed));
+            crawl_tex[t][x * TS + y] = c;
+        }
+    int cracks = (int)(dk * 3.0f + 0.5f);
+    for (int k = 0; k < cracks; k++) {
+        float x = h01(k, 3, seed) * 64.0f, y = h01(k, 4, seed) * 64.0f, a = h01(k, 5, seed) * TAU_F;
+        for (int i = 0; i < 16; i++) {
+            a += (h01(k, i + 10, seed) - 0.5f) * 1.2f; x += cosf(a); y += sinf(a);
+            if (x < 1 || y < 1 || x > 62 || y > 62) break;
+            crawl_tex[t][(int)x * TS + (int)y] = darker(crawl_tex[t][(int)x * TS + (int)y], 4);
+        }
+    }
+}
+
+/* ---- the Crypts' doors and keys ---- */
+
+static void gen_rdoor(int t, uint32_t seed, int metal) {           /* oak under iron; a vault's straps and plate in its key's metal */
+    int vault = metal >= 0;
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int p = x / 8, lx = x % 8;
+            float v = (vault ? 0.32f : 0.42f) + 0.13f * h01(p, 0, seed) + 0.06f * sinf(y * 0.7f + p * 3.0f + x * 0.25f) + fbm(x / 4.0f, y / 16.0f, 16, seed) * 0.12f;
+            if (lx == 0) v = 0.05f; else if (lx == 1) v += 0.08f; else if (lx == 7) v -= 0.08f;
+            tput(t, x, y, sh(R_WOOD, v));
+        }
+    int strap = vault ? metal : R_IRON;
+    float lo = strap == R_GOLD ? 0.0f : 0.2f, k = strap == R_GOLD ? 1.0f : 0.8f;
+    for (int band = 0; band < (vault ? 3 : 2); band++) {
+        int y0 = vault ? 6 + band * 24 : (band ? 50 : 10), x1 = vault ? 63 : 46;
+        for (int y = y0; y < y0 + (vault ? 4 : 3); y++)
+            for (int x = 0; x <= x1; x++) {
+                float v = 0.5f + (y == y0 ? 0.3f : 0.0f) - (y == y0 + (vault ? 3 : 2) ? 0.3f : 0.0f);
+                if (x % 7 == 3 && y == y0 + 1) v = 1.0f;
+                tput(t, x, y, sh(strap, lo + v * k));
+            }
+        if (!vault)                                                  /* the strap ends in a split curl */
+            for (int a = 0; a < 18; a++) {
+                float ang = a / 18.0f * PI_F * 1.5f;
+                tput(t, x1 + 1 + (int)(3.0f * sinf(ang)), y0 + 1 - (int)(3.0f * cosf(ang)), sh(R_IRON, 0.6f));
+                tput(t, x1 + 1 + (int)(3.0f * sinf(ang)), y0 + 1 + (int)(3.0f * cosf(ang)), sh(R_IRON, 0.45f));
+            }
+    }
+    if (!vault) {
+        for (int r = 0; r < 3; r++) for (int p = 0; p < 8; p++) { int x = p * 8 + 4, y = 22 + r * 10; if (x > 22 && x < 42 && r == 0) continue; tput(t, x, y, sh(R_IRON, 0.9f)); tput(t, x + 1, y + 1, sh(R_IRON, 0.2f)); }
+        for (int y = 15; y <= 26; y++)
+            for (int x = 24; x <= 39; x++) {
+                int edge = x == 24 || x == 39 || y == 15 || y == 26, bar = x == 28 || x == 32 || x == 36;
+                tput(t, x, y, edge ? sh(R_IRON, 0.4f) : (bar ? sh(R_IRON, 0.65f) : 0));
+            }
+        for (int a = 0; a < 40; a++) {
+            float ang = TAU_F * a / 40;
+            tput(t, 47 + (int)lroundf(4.0f * cosf(ang)), 38 + (int)lroundf(4.5f * sinf(ang)), sh(R_IRON, 0.5f + 0.35f * -sinf(ang)));
+        }
+    } else
+        for (int y = 16; y <= 48; y++)
+            for (int x = 22; x <= 41; x++) {
+                int edge = x == 22 || y == 16, shade = x == 41 || y == 48;
+                float v = 0.62f + (edge ? 0.3f : 0.0f) - (shade ? 0.35f : 0.0f) + fbm(x / 4.0f, y / 4.0f, 16, seed + 7) * 0.15f;
+                float kx = x + 0.5f - 31.5f, ky = y + 0.5f - 34.0f;
+                if (kx * kx + ky * ky < 7.0f || (fabsf(kx) < 1.2f && ky > 0.0f && ky < 9.0f)) { tput(t, x, y, 0); continue; }
+                if ((fabsf(kx) < 1.0f && y >= 19 && y <= 28) || (y >= 22 && y <= 23 && fabsf(kx) < 4.0f)) v -= 0.35f;   /* the Order's cross */
+                tput(t, x, y, sh(metal, lo + v * k));
+            }
+}
+static void gen_rjamb(int t, uint32_t seed) {                      /* the doorway's side: the run's ashlar, cut narrow, the hinge pins */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = 0.46f + fbm(x / 8.0f, y / 8.0f, 8, seed) * 0.18f - 0.09f + 0.08f * h01(y / 16, 1, seed);
+            if ((y & 15) == 0 || ((y & 31) < 16 ? x == 32 : x == 16 || x == 48)) v = 0.1f;
+            if ((y & 15) == 1) v += 0.1f;
+            if (x < 3) v += 0.12f; if (x > 60) v -= 0.12f;
+            tput(t, x, y, sh(R_STONE, v));
+        }
+    for (int h = 0; h < 2; h++)
+        for (int y = 10 + h * 40; y < 15 + h * 40; y++)
+            for (int x = 0; x < 22; x++) tput(t, x, y, sh(R_IRON, 0.5f + (y == 10 + h * 40 ? 0.25f : 0.0f) + (x == 18 ? 0.3f : 0.0f)));
+}
+static void spr_key_trefoil(int id, float scale, int metal) {      /* a church key: a trefoil bow, a warded bit */
+    cv_begin(cv_sprite, TS, TS);
+    #define KX(x) (32.0f + ((x) - 32.0f) * scale)
+    float ar = fmaxf(fabsf(scale), 0.18f), lo = metal == R_GOLD ? 0.35f : 0.45f;
+    for (int k = 0; k < 3; k++) {
+        float a = -PI_F * 0.5f + k * TAU_F / 3.0f;
+        cv_ellipse(KX(20.0f + 3.6f * cosf(a)), 38.0f + 3.6f * sinf(a), 3.4f * ar, 3.4f, metal, lo, 1.0f);
+    }
+    cv_flat(KX(20), 38, 1.7f * ar, 1.7f, C_CLEAR);
+    cv_capsule(KX(25), 38, KX(47), 38, 1.9f, metal, lo, 1.0f);
+    cv_ellipse(KX(27), 38, 1.6f * ar, 2.8f, metal, 0.5f, 1.0f);
+    cv_ellipse(KX(30), 38, 1.3f * ar, 2.4f, metal, 0.5f, 1.0f);
+    for (int y = 38; y <= 46; y++)
+        for (int x = 41; x <= 47; x++) {
+            if ((x == 43 || x == 45) && y >= 42) continue;             /* the wards */
+            cv_px((int)KX(x + 0.5f), y, sh(metal, lo + (1.0f - lo) * (x == 41 || y == 38 ? 0.95f : 0.6f)));
+        }
+    #undef KX
+    cv_outline(sh(metal, 0.05f));
+    cv_store(id);
+}
+
+/* ---- the Catacombs' materials: slate cut and laid, the silt the floods left, the stone the water grew ---- */
+
+/* a tex pixel's value, kept in floats until the texture is made, so the layers can add */
+static float g_v[TS * TS];
+#define GV(x, y) g_v[((x) & 63) * TS + ((y) & 63)]
+
+/* bedded slate, as it was cut: beds of every thickness, the partings between them rough and waving a
+ * little, pieces broken out of the face, the cleavage running across at a slant; vseed runs a quartz vein
+ * through it and leaves a patch wet */
+static void gen_slate(int t, int m, uint32_t seed, uint32_t vseed) {
+    float bed_y0[24], bed_v[24];
+    int nb = 0;
+    for (int c = 0; c < 4; c++) {                                    /* beds within each course of 16 */
+        int y = c * 16;
+        while (y < c * 16 + 16 && nb < 23) {
+            int th = 3 + (int)(h01(c, y, seed) * 6.0f);
+            if (c * 16 + 16 - (y + th) < 3) th = c * 16 + 16 - y;
+            bed_y0[nb] = (float)y; bed_v[nb] = 0.31f + 0.12f * (h01(nb, 1, seed) - 0.5f);
+            y += th; nb++;
+        }
+    }
+    bed_y0[nb] = 64.0f;
+    float wph = h01(9, 9, seed) * TAU_F;
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float wave = 1.2f * sinf(x * TAU_F / 64.0f + wph) + 0.8f * (fbm(x / 8.0f, 0.5f, 8, seed + 12) - 0.5f) * 2.0f;
+            float yy = y - wave + 64.0f;
+            float ym = fmodf(yy, 64.0f);
+            int b = 0;
+            while (b + 1 < nb && ym >= bed_y0[b + 1]) b++;
+            float in = ym - bed_y0[b], th = bed_y0[b + 1] - bed_y0[b];
+            int course = (int)(ym / 16.0f) & 3, major = fmodf(ym, 16.0f) < 1.0f;
+            float v = bed_v[b] + 0.05f * (fbm(x / 8.0f, y / 4.0f, 8, seed + 5) - 0.5f) + 0.05f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 6) - 0.5f);
+            if (in < 1.0f) v = major ? 0.08f : v - 0.14f;             /* the partings */
+            else if (in < 2.0f) v += 0.07f;                          /* each bed's lip, catching the light */
+            else if (in > th - 1.0f) v -= 0.05f;
+            float cl = fmodf(x * 0.5f + y + 256.0f + 6.0f * fbm(x / 16.0f, y / 16.0f, 4, seed + 8), 7.0f);   /* the cleavage */
+            if (cl < 0.7f) v -= 0.03f; else if (cl < 1.4f) v += 0.02f;
+            float br = fbm(x / 8.0f, y / 8.0f, 8, seed + 13);         /* pieces broken out of the face */
+            int out = br > 0.68f && !major;
+            if (out) v -= 0.1f + (br > 0.74f ? 0.05f : 0.0f);
+            else if (br > 0.65f) v += 0.06f;
+            if (h01(x, y, seed + 10) > 0.99f) v += 0.12f;             /* wet glints */
+            int id = major || in < 1.0f ? 0 : 1 + course * 3 + (int)(((x + (int)(h01(course, b, seed) * 64.0f)) & 63) / 22);
+            if (vseed) {
+                float vx = 10.0f + y * 0.7f + 4.0f * sinf(y * 0.19f + h01(1, 1, vseed) * 6.0f), dv = wrapd(x + 0.5f - vx);
+                if (dv < 0.9f) v = 0.6f + 0.08f * h01(x, y, vseed); else if (dv < 1.6f) v += 0.08f;
+                if (hypotf(wrapd(x - 44.0f), wrapd(y - 20.0f)) < 9.0f + 3.0f * fbm(x / 8.0f, y / 8.0f, 8, vseed)) v -= 0.06f;
+            }
+            GV(x, y) = v;
+            g_mid[m][x * TS + y] = (uint16_t)id;
+        }
+    for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) tput(t, x, y, sh(R_STONE, GV(x, y)));
+}
+
+/* slate lining: dressed slabs a hand thick, laid dry in courses of 16, the joints deep; vseed cuts a
+ * cross in one slab and leaves one gone */
+static void gen_lining(int t, int m, uint32_t seed, uint32_t vseed) {
+    static const int SPLIT[4][4] = { { 5, 5, 6, 0 }, { 4, 6, 6, 0 }, { 6, 5, 5, 0 }, { 4, 4, 4, 4 } };
+    int sub[64], sub_k[64], sub_h[64], sub_y0[64], ns = 0;
+    for (int c = 0; c < 4; c++) {
+        const int *sp = SPLIT[hsh(c, 1, seed) & 3];
+        int y = c * 16;
+        for (int k = 0; k < 4 && sp[k]; k++) {
+            for (int i = 0; i < sp[k]; i++) { sub[y + i] = ns; sub_k[y + i] = i; sub_h[y + i] = sp[k]; sub_y0[y + i] = y; }
+            y += sp[k]; ns++;
+        }
+    }
+    int carve = vseed ? 1 + (int)(hsh(8, 1, vseed) % 30) : -1, gone = vseed ? 1 + (int)(hsh(8, 2, vseed) % 30) : -1;
+    for (int y = 0; y < TS; y++) {
+        int r = sub[y], off = (int)(h01(r, 3, seed) * 64.0f), x = 0;
+        int sx[12], sw[12], n = 0;
+        while (x < 64 && n < 12) { int w = 11 + (int)(h01(r, 10 + n, seed) * 17.0f); if (64 - x - w < 8) w = 64 - x; sx[n] = x; sw[n] = w; x += w; n++; }
+        for (int xx = 0; xx < TS; xx++) {
+            int lx = (xx - off) & 63, k = 0;
+            while (k + 1 < n && lx >= sx[k + 1]) k++;
+            int px = lx - sx[k], id = 1 + (r * 7 + k) % 180;
+            float v;
+            if (px == 0 || sub_k[y] == 0) { v = 0.04f + 0.04f * h01(xx, y, seed + 1); id = 0; }   /* laid dry: the joints are deep */
+            else {
+                v = 0.36f + 0.1f * (h01(id, 4, seed) - 0.5f) + 0.05f * (fbm(xx / 8.0f, y / 8.0f, 8, seed + 2) - 0.5f) + 0.03f * (fbm(xx / 2.0f, y / 2.0f, 32, seed + 3) - 0.5f);
+                if (sub_k[y] == 1) v += 0.1f; else if (sub_k[y] == sub_h[y] - 1) v -= 0.07f;
+                if (px == 1) v += 0.04f; else if (px == sw[k] - 1) v -= 0.05f;
+                if (h01(xx, y, seed + 4) > 0.985f) v += 0.1f;
+                if ((sw[k] - px) + (sub_h[y] - sub_k[y]) < 4 && h01(id, 5, seed) < 0.4f) v -= 0.12f;   /* a corner knocked off */
+                if (id == gone) { v = 0.05f + 0.03f * h01(xx, y, seed + 6); }
+                else if (id == carve) {                              /* a cross cut in the slab */
+                    int cx = px - sw[k] / 2, cy = sub_k[y] - sub_h[y] / 2;
+                    if ((cx == 0 && abs(cy) <= 2) || (abs(cx) <= 2 && cy == -1)) v -= 0.16f;
+                }
+            }
+            GV(xx, y) = v;
+            g_mid[m][xx * TS + y] = (uint16_t)id;
+        }
+        (void)sub_y0;
+    }
+    for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) tput(t, x, y, sh(R_STONE, GV(x, y)));
+}
+
+/* stones in the texture, wrapping at the edges: for the silt's cobbles and the bones in it */
+static void tx_blob(int m, int id, float cx, float cy, float rx, float ry, float base, int ramp, uint8_t *out, float sink) {
+    for (int y = (int)floorf(cy - ry) - 1; y <= (int)ceilf(cy + ry) + 1; y++)
+        for (int x = (int)floorf(cx - rx) - 1; x <= (int)ceilf(cx + rx) + 1; x++) {
+            float nx = (x + 0.5f - cx) / rx, ny = (y + 0.5f - cy) / ry, d = nx * nx + ny * ny;
+            if (d > 1.0f || ny > sink) continue;
+            GV(x, y) = base + 0.3f * lit(nx, ny, sqrtf(1.0f - d)) - 0.1f;
+            out[((x) & 63) * TS + ((y) & 63)] = (uint8_t)ramp;
+            if (m >= 0) g_mid[m][((x) & 63) * TS + ((y) & 63)] = (uint16_t)id;
+        }
+}
+
+/* silt and rubble: cobbles the water rolled, set in the silt it left in bands; vseed has a shell in it and a
+ * long bone */
+static void gen_silt(int t, int m, uint32_t seed, uint32_t vseed) {
+    static uint8_t ramp[TS * TS];
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            GV(x, y) = 0.36f + 0.06f * sinf(y * 1.1f + 5.0f * fbm(x / 16.0f, y / 16.0f, 4, seed)) + 0.06f * (fbm(x / 8.0f, y / 4.0f, 8, seed + 1) - 0.5f)
+                     + 0.04f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 2) - 0.5f);
+            ramp[x * TS + y] = R_FLOOR; g_mid[m][x * TS + y] = 0;
+        }
+    int n = 0;
+    float px[22], py[22], pr[22];
+    for (int k = 0; k < 60 && n < 22; k++) {                         /* cobbles, not too close */
+        float cx = h01(k, 3, seed) * 64.0f, cy = h01(k, 4, seed) * 64.0f, r = 3.5f + h01(k, 5, seed) * 5.0f;
+        int ok = 1;
+        for (int j = 0; j < n && ok; j++) if (hypotf(wrapd(cx - px[j]), wrapd(cy - py[j])) < r + pr[j] + 1.5f) ok = 0;
+        if (!ok) continue;
+        px[n] = cx; py[n] = cy; pr[n] = r * 1.2f;
+        n++;
+        float base = 0.3f + 0.24f * h01(k, 6, seed), q = h01(k, 8, seed);   /* river stones of several kinds, flattened as they lie */
+        tx_blob(m, n, cx, cy, r * (1.1f + 0.6f * h01(k, 7, seed)), r * (0.65f + 0.3f * h01(k, 11, seed)), base, q < 0.45f ? R_FLOOR : q < 0.6f ? R_WARM : R_STONE, ramp, 0.75f);
+    }
+    for (int y = 0; y < TS; y++)                                     /* the silt shadowed under each stone */
+        for (int x = 0; x < TS; x++)
+            if (ramp[x * TS + y] == R_FLOOR && !g_mid[m][x * TS + y] && g_mid[m][x * TS + ((y - 1) & 63)]) GV(x, y) -= 0.16f;
+    if (vseed) {                                                     /* a shell, ribbed; a long bone half out */
+        float sx = 18.0f + h01(2, 1, vseed) * 28.0f, sy = 20.0f + h01(2, 2, vseed) * 24.0f;
+        for (int y = (int)sy - 4; y <= (int)sy + 3; y++)
+            for (int x = (int)sx - 5; x <= (int)sx + 5; x++) {
+                float nx = (x + 0.5f - sx) / 5.0f, ny = (y + 0.5f - sy) / 4.0f;
+                if (nx * nx + ny * ny > 1.0f || ny > 0.6f) continue;
+                GV(x, y) = 0.6f + 0.15f * (1.0f - ny) - (fmodf(atan2f(ny + 1.2f, nx) * 6.0f + 20.0f, 1.0f) < 0.25f ? 0.2f : 0.0f);
+                ramp[(x & 63) * TS + (y & 63)] = R_BONE;
+            }
+        float bx = 6.0f + h01(2, 3, vseed) * 20.0f, by = 46.0f + h01(2, 4, vseed) * 8.0f;
+        for (int i = 0; i <= 18; i++)
+            for (int w = -1; w <= 1; w++) { GV((int)bx + i, (int)(by - i * 0.25f) + w) = 0.66f - 0.12f * w - (i == 0 || i == 18 ? 0.0f : 0.05f); ramp[(((int)bx + i) & 63) * TS + (((int)(by - i * 0.25f) + w) & 63)] = R_BONE; }
+    }
+    for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) tput(t, x, y, sh(ramp[x * TS + y], GV(x, y)));
+}
+
+/* flowstone: the calcite the water laid down over the wall, lobe over lobe like wax run down a candle, each
+ * lit on its shoulder and dark under its rim, soft folds down it, stained where the water ran most; vseed
+ * runs a thread of water down it */
+static void gen_flow(int t, int m, uint32_t seed, uint32_t vseed) {
+    float sx = 14.0f + h01(3, 1, vseed + 1) * 36.0f;
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float fold = sinf(TAU_F * 3.0f * x / 64.0f + 2.2f * (fbm(x / 16.0f, y / 32.0f, 4, seed) - 0.5f) * 2.0f);
+            float rims[6];                                            /* each lobe's rim, its own, dipping a little under the folds */
+            for (int k = 0; k < 6; k++) rims[k] = 16.0f * (k - 1) + 8.0f + 10.0f * (fbm(x / 16.0f, (float)((k + 3) & 3) * 2.3f, 4, seed + 3) - 0.5f) + 1.2f * fold;
+            int k = 1;
+            while (k < 5 && y >= rims[k]) k++;
+            float u = clampf((y - rims[k - 1]) / fmaxf(4.0f, rims[k] - rims[k - 1]), 0.0f, 1.0f);   /* 0 at a lobe's top, 1 at its rim */
+            float v = 0.66f - 0.34f * u * u + 0.05f * fold + 0.05f * (fbm(x / 8.0f, y / 8.0f, 8, seed + 1) - 0.5f) + 0.03f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 2) - 0.5f);
+            if (u > 0.93f) v = 0.12f;                                  /* the shadow under the rim */
+            else if (u < 0.08f) v += 0.06f;                           /* the shoulder below it */
+            uint8_t c = sh(R_BONE, v);
+            if (fbm(x / 4.0f, y / 16.0f, 16, seed + 5) > 0.6f && u > 0.25f && u < 0.93f) c = sh(R_WARM, 0.62f - 0.34f * u * u);   /* tan where the water ran most */
+            if (u < 0.2f && h01(x, y, seed + 4) > 0.9f) c = sh(R_BONE, 0.9f);   /* wet on the shoulders */
+            if (vseed && wrapd(x + 0.5f - (sx + 2.0f * sinf(y * 0.21f))) < 1.0f && u < 0.93f)
+                c = h01(x, y, vseed) > 0.5f ? sh(R_GHOST, 0.62f) : sh(R_GHOST, 0.36f);
+            tput(t, x, y, c);
+            g_mid[m][x * TS + y] = 0;
+        }
+}
+
+/* bone in silt: the dead the floods brought down, packed in the mud where they fell: long bones every way,
+ * skulls, a jaw, the odd run of vertebrae, some of it under the mud again; vseed leaves a ribcage open */
+static void wrap_draw(int kind, float x, float y, float a, float b, float c, float d) {   /* a shape on the canvas, again across each edge */
+    for (int oy = -64; oy <= 64; oy += 64)
+        for (int ox = -64; ox <= 64; ox += 64) {
+            if (kind == 0) cv_bone(x + ox, y + oy, a + ox, b + oy, c, 0.35f, d);
+            else if (kind == 1) cv_skull(x + ox, y + oy, a, 0.3f, b);
+            else cv_ellipse(x + ox, y + oy, a, b, R_BONE, 0.3f, c);
+        }
+}
+static void gen_bonesilt(int t, int m, uint32_t seed, uint32_t vseed) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int k = 0; k < 12; k++) {                                   /* long bones */
+        float x0 = h01(k, 1, seed) * 64.0f, y0 = h01(k, 2, seed) * 64.0f, a = h01(k, 3, seed) * PI_F, len = 11.0f + h01(k, 4, seed) * 9.0f;
+        wrap_draw(0, x0, y0, x0 + cosf(a) * len, y0 + sinf(a) * len, 1.25f + 0.35f * h01(k, 5, seed), 0.7f + 0.2f * h01(k, 6, seed));
+    }
+    for (int k = 0; k < 3; k++) {                                    /* skulls */
+        float cx = 10.0f + k * 21.0f + h01(k, 7, seed) * 8.0f, cy = 12.0f + h01(k, 8, seed) * 40.0f;
+        wrap_draw(1, cx, cy, 0.85f + 0.2f * h01(k, 9, seed), 0.82f, 0, 0);
+    }
+    for (int k = 0; k < 2; k++) {                                    /* a run of vertebrae */
+        float x = h01(k, 10, seed) * 64.0f, y = h01(k, 11, seed) * 64.0f, a = h01(k, 12, seed) * PI_F;
+        for (int i = 0; i < 6; i++) wrap_draw(2, x + cosf(a) * i * 2.6f, y + sinf(a) * i * 2.6f, 1.3f, 1.1f, 0.72f, 0);
+    }
+    if (vseed) {                                                     /* a ribcage, open */
+        float cx = 24.0f + h01(5, 1, vseed) * 16.0f, cy = 26.0f;
+        for (int r = 0; r < 5; r++)
+            for (int sd = -1; sd <= 1; sd += 2)
+                for (int i = 1; i <= 9; i++) {
+                    float x = cx + sd * i, y = cy + r * 3.4f + 0.06f * i * i;
+                    cv_px((int)x, (int)y, sh(R_BONE, 0.72f - 0.02f * i)); cv_px((int)x, (int)y + 1, sh(R_BONE, 0.4f));
+                }
+        cv_capsule(cx, cy - 2, cx, cy + 17, 1.0f, R_BONE, 0.4f, 0.75f);
+    }
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = 0.27f + 0.05f * sinf(y * 0.9f + 4.0f * fbm(x / 16.0f, y / 16.0f, 4, seed)) + 0.07f * (fbm(x / 4.0f, y / 4.0f, 16, seed + 1) - 0.5f);
+            uint8_t c = cv_sprite[y * TS + x];
+            float under = fbm(x / 8.0f, y / 8.0f, 8, seed + 2);       /* some of it under the mud again */
+            if (c != C_CLEAR && under > 0.64f) c = C_CLEAR;
+            if (c == C_CLEAR) {
+                uint8_t up = cv_sprite[((y - 1) & 63) * TS + x];
+                if (up != C_CLEAR && fbm(x / 8.0f, ((y - 1) & 63) / 8.0f, 8, seed + 2) <= 0.64f) v -= 0.12f;   /* the mud shadowed under what sticks out */
+                c = sh(R_FLOOR, v);
+            } else if (under > 0.58f) c = darker(c, 3);                /* just coming out of it */
+            tput(t, x, y, c);
+            g_mid[m][x * TS + y] = 0;
+        }
+}
+
+/* the Catacombs' rot: damp, then the floods. A flood line at one height on every wall of the run (from the
+ * shared field, so it runs on across a seam), climbing with the run; under it the stain, the silt, older
+ * lines; algae along it in patches. The webs come as things on the walls, not in the stone, so they don't
+ * repeat cell after cell */
+static float flood_y(float dk) { return 60.0f - 34.0f * dk; }
+static void decay_catacomb(int t, float dk, uint32_t field, uint32_t own) {
+    uint8_t *p = crawl_tex[t];
+    float fy = flood_y(dk);
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c = p[x * TS + y];
+            if (c == C_CLEAR || IS_FULLBRIGHT(c)) continue;
+            float n = fbm(x / 8.0f, y / 8.0f, 8, field + 5);
+            if (n < 0.2f + 0.25f * dk) c = darker(c, 1);              /* damp */
+            float line = fy + 1.6f * (fbm(x / 16.0f, 0.5f, 4, field + 7) - 0.5f) * 2.0f, d = y - line;
+            if (d >= 0.0f && d < 1.0f) c = lighter(c, 3);             /* the line's salt crust */
+            else if (d >= 1.0f && d < 3.0f) c = darker(c, 3);
+            else if (d >= 3.0f) {                                     /* under it: stained, silted, older lines */
+                c = darker(c, 1 + (d > 16.0f));
+                if (fmodf(d + 64.0f, 11.0f) < 0.8f && d > 8.0f) c = darker(c, 1);
+                if (d > 8.0f && fbm(x / 8.0f, y / 4.0f, 8, field + 8) < 0.06f + 0.006f * d) c = sh(R_FLOOR, 0.24f + 0.1f * h01(x, y, field));
+            }
+            if (dk > 0.15f && d > 1.0f && d < 3.0f + 3.0f * dk && fbm(x / 8.0f, y / 4.0f, 8, field + 9) > 0.7f - 0.08f * dk && h01(x, y, field + 2) > 0.3f)
+                c = sh(R_MOSS, 0.16f + 0.24f * h01(x, y, field + 1));  /* algae along the water's edge, in patches */
+            p[x * TS + y] = c;
+        }
+    #define DK(xx, yy, by) do { uint8_t *q_ = &p[((xx) & 63) * TS + ((yy) & 63)]; if (*q_ != C_CLEAR && !IS_FULLBRIGHT(*q_)) *q_ = darker(*q_, by); } while (0)
+    int drips = 2 + (int)(dk * 5.0f);                                /* the seep down from above */
+    for (int k = 0; k < drips; k++) {
+        int x = (int)(h01(k, 1, own) * 63), len = 8 + (int)(h01(k, 2, own) * 30.0f);
+        for (int y = 0; y < len; y++) { DK(x, y, 2); if (y > 2 && h01(k, y, own) > 0.8f) { uint8_t *q_ = &p[(x & 63) * TS + y]; if (*q_ != C_CLEAR && !IS_FULLBRIGHT(*q_)) *q_ = lighter(*q_, 4); } }
+    }
+    #undef DK
+}
+
+/* ---- what stands on the Catacombs' walls ---- */
+
+static void water_in(float x0, float x1, float y, float depth, uint32_t seed) {   /* standing water in an opening, its surface catching the light */
+    for (int yy = (int)y; yy < (int)(y + depth); yy++)
+        for (int x = (int)x0; x < (int)x1; x++) {
+            if (cvp[yy * TS + x] == C_CLEAR) continue;
+            float v = yy == (int)y ? 0.62f : 0.16f + 0.08f * (fbm(x / 4.0f, yy / 2.0f, 16, seed) - 0.5f) - 0.01f * (yy - y);
+            if (yy == (int)y + 1 && h01(x, yy, seed) > 0.6f) v = 0.42f;
+            cv_px(x, yy, sh(R_GHOST, v));
+        }
+}
+static void gen_feat_fniche(int t, uint32_t seed) {                /* two niches, the flood standing in them: a skull afloat, the silt under */
+    cv_begin(cv_sprite, TS, TS);
+    for (int nx = 0; nx < 2; nx++) {
+        float x0 = nx * 32 + 7.0f, y0 = 12.0f, w = 18.0f, h = 34.0f, cx = x0 + w * 0.5f;
+        cut_arch_r(x0, y0, w, h, 8.0f, 1, seed, R_STONE, 0.04f);
+        int k = (int)(hsh(nx, 1, seed) % 3);
+        float wy = y0 + h - 9.0f - 3.0f * h01(nx, 2, seed);
+        if (k == 0) cv_skull(cx, wy - 1.0f, 0.75f, 0.3f, 0.8f);
+        else if (k == 1) { cv_bone(cx - 6, wy - 1.0f, cx + 5, wy - 2.0f, 1.0f, 0.25f, 0.7f); cv_skull(cx + 3.0f, wy - 2.5f, 0.55f, 0.25f, 0.7f); }
+        else for (int y = (int)wy - 3; y < (int)wy; y++) for (int x = (int)x0 + 2; x < (int)(x0 + w) - 2; x++) cv_px(x, y, sh(R_WARM, 0.18f + 0.05f * h01(x, y, seed)));   /* a shroud gone to rags */
+        water_in(x0, x0 + w, wy, 9.0f + 3.0f * h01(nx, 2, seed), seed + nx);
+        for (int x = (int)x0 - 3; x < (int)(x0 + w) + 3; x++)        /* algae at the water's height on the stones */
+            for (int y = (int)wy - 1; y <= (int)wy + 1; y++) if (cvp[y * TS + x] != C_CLEAR && !arch_in(x + 0.5f, y + 0.5f, x0, y0, w, h, 8.0f) && h01(x, y, seed + 3) > 0.35f) cv_px(x, y, sh(R_MOSS, 0.3f + 0.2f * h01(x, y, seed + 4)));
+    }
+    cv_to_tex(t);
+}
+static void gen_feat_saint(int t, uint32_t seed) {                 /* a saint in an alcove, in faded blue and gilt, candles at the feet */
+    cv_begin(cv_sprite, TS, TS);
+    cut_arch_r(18, 4, 28, 50, 13, 1, seed, R_STONE, 0.06f);
+    for (int y = 5; y < 20; y++) for (int x = 20; x < 44; x++) if (cvp[y * TS + x] != C_CLEAR && arch_in(x + 0.5f, y + 0.5f, 18, 4, 28, 50, 13)) cv_px(x, y, sh(R_STONE, 0.12f));
+    for (int a = 0; a < 64; a++) {                                    /* the halo, gilt on the plaster */
+        float ang = TAU_F * a / 64.0f;
+        for (float rr = 7.2f; rr < 8.6f; rr += 0.5f) cv_px((int)(32.0f + rr * cosf(ang)), (int)(18.0f + rr * sinf(ang)), sh(R_GOLD, 0.55f + 0.3f * -sinf(ang)));
+    }
+    for (int y = 22; y <= 51; y++)                                   /* the robe, a hood over the skull */
+        for (int x = 20; x <= 44; x++) {
+            float half = y < 30 ? 5.5f + (y - 22) * 0.4f : 8.5f + (y - 30) * 0.16f, dx = x + 0.5f - 32.0f;
+            if (fabsf(dx) > half) continue;
+            float fold = sinf(dx * 1.1f + y * 0.05f) * 0.08f, v = 0.32f + fold - 0.012f * dx + (y > 46 ? -0.08f : 0.0f) + 0.06f * (fbm(x / 4.0f, y / 4.0f, 16, seed) - 0.5f);
+            cv_px(x, y, sh(R_GHOST, v));
+            if (fabsf(dx) > half - 1.0f) cv_px(x, y, sh(R_GOLD, 0.45f));   /* its gilt hem */
+        }
+    for (int y = 12; y <= 25; y++) for (int x = 25; x <= 39; x++) {   /* the hood */
+        float dx = (x + 0.5f - 32.0f) / 7.0f, dy = (y + 0.5f - 19.5f) / 7.0f;
+        if (dx * dx + dy * dy <= 1.0f) cv_px(x, y, sh(R_GHOST, 0.26f - 0.1f * dy));
+    }
+    cv_skull(32, 19.5f, 0.6f, 0.3f, 0.78f);
+    for (int i = -4; i <= 4; i++) { cv_px(32 + i, 36, sh(R_BONE, 0.7f)); cv_px(32 + i, 37, sh(R_BONE, 0.45f)); }   /* the hands, folded */
+    cv_ellipse(28, 36.5f, 1.6f, 1.4f, R_BONE, 0.5f, 0.85f); cv_ellipse(36, 36.5f, 1.6f, 1.4f, R_BONE, 0.5f, 0.85f);
+    for (int k = 0; k < 3; k++) {                                     /* candles on the sill */
+        float cx = 23.0f + k * 9.0f + (k == 1 ? 0.0f : 0.0f), top = 49.0f - (k == 1 ? 4 : 1);
+        for (int y = (int)top; y <= 53; y++) for (int x = (int)cx - 1; x <= (int)cx + 1; x++) cv_px(x, y, sh(R_BONE, 0.82f - (x - cx + 1) * 0.15f));
+        cv_px((int)cx, (int)top - 1, (uint8_t)(R_FLAME + 15)); cv_px((int)cx, (int)top - 2, (uint8_t)(R_FLAME + 12)); cv_px((int)cx, (int)top - 3, (uint8_t)(R_FLAME + 8));
+        cv_px((int)cx - 1, (int)top - 1, (uint8_t)(R_FLAME + 9)); cv_px((int)cx + 1, (int)top - 1, (uint8_t)(R_FLAME + 9));
+        for (int d = 1; d <= 2; d++) cv_px((int)cx + (k - 1), 54 + d, sh(R_BONE, 0.7f));   /* wax run down */
+    }
+    cv_to_tex(t);
+}
+static void gen_feat_culvert(int t, uint32_t seed) {               /* a culvert low in the wall: a round arch, its bars, the water coming out */
+    cv_begin(cv_sprite, TS, TS);
+    cut_arch_r(19, 32, 26, 22, 13, 0, seed, R_STONE, 0.06f);
+    for (int y = 32; y < 54; y++)
+        for (int x = 19; x < 45; x++) {
+            if (!arch_in(x + 0.5f, y + 0.5f, 19, 32, 26, 22, 13)) continue;
+            float v = 0.03f + 0.04f * h01(x, y, seed);
+            cv_px(x, y, sh(R_STONE, v));
+            if ((x - 19) % 5 == 2) cv_px(x, y, sh(R_IRON, 0.32f + (x % 5 == 1 ? 0.0f : 0.15f) * ((y & 3) != 0)));   /* the bars */
+            if ((x - 19) % 5 == 2 && h01(x, y / 3, seed + 2) > 0.7f) cv_px(x, y, sh(R_GHOST, 0.4f));   /* gone green */
+        }
+    for (int y = 54; y < 64; y++)                                     /* the outflow down the wall's foot */
+        for (int x = 24; x < 40; x++) {
+            float w = 6.0f + (y - 54) * 0.35f, dx = fabsf(x + 0.5f - 32.0f);
+            if (dx > w) continue;
+            float v = 0.22f + 0.2f * h01(x, y + (int)(dx), seed + 3) + (dx < 1.5f ? 0.2f : 0.0f);
+            cv_px(x, y, sh(R_GHOST, v));
+        }
+    for (int x = 15; x < 49; x++) for (int y = 52; y < 56; y++) if (cvp[y * TS + x] != C_CLEAR && h01(x, y, seed + 4) > 0.4f && !(x >= 24 && x < 40 && y >= 54)) cv_px(x, y, sh(R_MOSS, 0.28f + 0.2f * h01(x, y, seed + 5)));
+    cv_to_tex(t);
+}
+static void hand_at(float cx, float cy, float a, float s, uint32_t seed) {   /* a hand pressed in the mud, and its drag */
+    float ca = cosf(a), sa = sinf(a);
+    for (int y = (int)(cy - 9 * s); y <= (int)(cy + 9 * s); y++)
+        for (int x = (int)(cx - 9 * s); x <= (int)(cx + 9 * s); x++) {
+            float px = x + 0.5f - cx, py = y + 0.5f - cy, u = (px * ca + py * sa) / s, v = (-px * sa + py * ca) / s;
+            int in = (u * u) / 10.0f + (v - 1.5f) * (v - 1.5f) / 12.0f < 1.0f;                      /* the palm */
+            for (int f = 0; f < 5 && !in; f++) {
+                float fx = -3.2f + f * 1.6f + (f == 0 ? -0.8f : 0.0f), fy = f == 0 ? -0.5f : -2.0f, len = f == 0 ? 3.2f : (f == 2 ? 5.2f : 4.4f);
+                float ang = f == 0 ? -0.9f : -1.5708f + (f - 2) * 0.16f, ex = fx + cosf(ang) * len, ey = fy + sinf(ang) * len;
+                float vx = ex - fx, vy = ey - fy, tt = clampf(((u - fx) * vx + (v - fy) * vy) / (vx * vx + vy * vy), 0.0f, 1.0f);
+                float ox = u - (fx + vx * tt), oy = v - (fy + vy * tt);
+                in = ox * ox + oy * oy < 0.42f;
+            }
+            if (in) cv_px(x, y, sh(R_FLOOR, 0.46f + 0.1f * h01(x, y, seed)));
+        }
+    int drag = (int)(h01(1, 1, seed) * 3.0f);                        /* fingers dragged down after */
+    for (int k = 0; k < drag; k++)
+        for (int y = (int)(cy + 5 * s); y < (int)(cy + (12 + 8 * h01(k, 2, seed)) * s); y++)
+            if (h01(k, y, seed + 1) > 0.15f) cv_px((int)(cx - 2 + k * 1.6f * s + (y - cy) * sa * 0.3f), y, sh(R_FLOOR, 0.38f));
+}
+static void gen_feat_hands(int t, uint32_t seed) {                 /* handprints in the silt on the wall, where the water came up */
+    cv_begin(cv_sprite, TS, TS);
+    for (int k = 0; k < 4; k++) {
+        float x = 12.0f + (k & 1) * 26.0f + h01(k, 1, seed) * 14.0f, y = 14.0f + (k >> 1) * 20.0f + h01(k, 2, seed) * 10.0f;
+        hand_at(x, y, (h01(k, 3, seed) - 0.5f) * 0.8f, 1.45f + 0.3f * h01(k, 4, seed), seed + (uint32_t)k * 7u);
+    }
+    cv_to_tex(t);
+}
+static void gen_feat_web(int t, uint32_t seed) {                   /* a curtain of web across the stone: sagging strands, drops, two wheels */
+    cv_begin(cv_sprite, TS, TS);
+    #define WEBPX(xx, yy, vv) do { int x_ = (int)(xx), y_ = (int)(yy); if (x_ >= 1 && x_ <= 62 && y_ >= 0 && y_ <= 62 && h01(x_, y_, seed + 99) > 0.18f) cv_px(x_, y_, sh(R_STONE, (vv))); } while (0)
+    for (int k = 0; k < 4; k++) {                                     /* strands sagging from the top */
+        float sag = 10.0f + 22.0f * h01(k, 1, seed), y0 = 1.0f + 6.0f * h01(k, 2, seed);
+        for (float x = 1.0f; x < 63.0f; x += 0.5f) { float u = (x - 32.0f) / 31.0f; WEBPX(x, y0 + sag * (1.0f - u * u), 0.78f + 0.12f * h01((int)x, k, seed)); }
+    }
+    for (int k = 0; k < 5; k++) {                                     /* threads hanging down */
+        float x = 4.0f + h01(k, 3, seed) * 56.0f, len = 16.0f + 30.0f * h01(k, 4, seed);
+        for (float y = 0.0f; y < len; y += 0.5f) WEBPX(x + sinf(y * 0.15f + k) * 1.2f, y, 0.72f + 0.15f * h01(k, (int)y, seed));
+        WEBPX(x, len, 0.95f);
+    }
+    for (int w = 0; w < 1; w++) {                                     /* a wheel caught in it */
+        float cx = 16.0f + w * 30.0f + 6.0f * h01(w, 5, seed), cy = 26.0f + 14.0f * h01(w, 6, seed), R = 7.0f + 4.0f * h01(w, 7, seed);
+        for (int s = 0; s < 8; s++) { float a = s * TAU_F / 8.0f; for (float r = 0.0f; r < R; r += 0.5f) WEBPX(cx + cosf(a) * r, cy + sinf(a) * r, 0.84f); }
+        for (float r = 2.0f; r < R; r += 2.2f) for (int s = 0; s < 8; s++) {
+            float a0 = s * TAU_F / 8.0f, a1 = (s + 1) * TAU_F / 8.0f;
+            for (float q = 0.0f; q <= 1.0f; q += 0.12f) WEBPX(cx + cosf(a0 + (a1 - a0) * q) * r * (1.0f - 0.08f * sinf(q * PI_F)), cy + sinf(a0 + (a1 - a0) * q) * r * (1.0f - 0.08f * sinf(q * PI_F)), 0.76f);
+        }
+    }
+    #undef WEBPX
+    cv_to_tex(t);
+}
+static void gen_feat_lantern(int t, int frame, uint32_t seed) {    /* a lantern on an iron hook: horn panes lit from within */
+    cv_begin(cv_sprite, TS, TS);
+    for (int x = 31; x <= 42; x++) { cv_px(x, 20, sh(R_IRON, 0.7f)); cv_px(x, 21, sh(R_IRON, 0.3f)); }   /* the arm out from the wall */
+    for (int y = 16; y <= 26; y++) { cv_px(42, y, sh(R_IRON, 0.55f)); cv_px(43, y, sh(R_IRON, 0.3f)); }
+    for (int x = 40; x <= 45; x++) for (int y = 14; y <= 17; y++) cv_px(x, y, sh(R_IRON, y == 14 ? 0.7f : 0.4f));   /* its plate */
+    for (int y = 21; y <= 25; y++) cv_px(32, y, sh(R_IRON, 0.5f));    /* the hook */
+    cv_px(33, 25, sh(R_IRON, 0.5f)); cv_px(34, 24, sh(R_IRON, 0.5f));
+    for (int x = 28; x <= 37; x++) cv_px(x, 26, sh(R_IRON, 0.6f));    /* the cap */
+    for (int x = 29; x <= 36; x++) cv_px(x, 27, sh(R_IRON, 0.35f));
+    static const float GL[3] = { 0.0f, 0.08f, -0.06f };
+    for (int y = 28; y <= 40; y++)
+        for (int x = 27; x <= 37; x++) {
+            float nx = (x + 0.5f - 32.0f) / 5.5f;
+            int bar = fabsf(nx) > 0.82f || fabsf(nx) < 0.1f || y == 28 || y == 40 || y == 34;
+            if (bar) { cv_px(x, y, sh(R_IRON, 0.25f + 0.35f * lit(nx, 0.0f, sqrtf(fmaxf(0.0f, 1.0f - nx * nx))))); continue; }
+            float glow = 1.0f - fabsf(nx) * 0.55f - fabsf(y - 35.0f) / 13.0f + GL[frame];
+            cv_px(x, y, (uint8_t)(R_FLAME + clampi((int)(glow * 12.0f), 2, 12)));
+        }
+    static const float FH[3] = { 4.0f, 5.0f, 3.5f }, FS[3] = { 0.0f, 0.5f, -0.5f };
+    for (int y = 0; y < 7; y++) {
+        float u = y / FH[frame];
+        if (u > 1.0f) break;
+        int x = (int)(32.0f + FS[frame] * u);
+        cv_px(x, 37 - y, (uint8_t)(R_FLAME + 15 - y));
+        if (u < 0.6f) { cv_px(x - 1, 37 - y, (uint8_t)(R_FLAME + 11)); cv_px(x + 1, 37 - y, (uint8_t)(R_FLAME + 11)); }
+    }
+    for (int x = 27; x <= 37; x++) cv_px(x, 41, sh(R_IRON, 0.5f));    /* the base, a drip of wax */
+    cv_px(32, 42, sh(R_IRON, 0.4f));
+    (void)seed;
+    cv_to_tex(t);
+}
+
+/* ---- the Catacombs' floors and ceilings ---- */
+
+static void gen_floor_wetflags(int t, uint32_t seed, int puddles) { /* slate flags, wet: water in the joints, sheen on the stone; puddled, it stands */
+    int id[4][4], ox[16], oy[16], fw[16], fh[16], n = 0;
+    memset(id, -1, sizeof id);
+    for (int uy = 0; uy < 4; uy++)
+        for (int ux = 0; ux < 4; ux++) {
+            if (id[uy][ux] >= 0) continue;
+            float r = h01(ux, uy, seed);
+            int w = 1, h = 1;
+            if (r < 0.3f && ux < 3 && uy < 3 && id[uy][ux + 1] < 0 && id[uy + 1][ux] < 0 && id[uy + 1][ux + 1] < 0) w = h = 2;
+            else if (r < 0.6f && ux < 3 && id[uy][ux + 1] < 0) w = 2;
+            else if (r < 0.8f && uy < 3 && id[uy + 1][ux] < 0) h = 2;
+            for (int j = 0; j < h; j++) for (int i = 0; i < w; i++) id[uy + j][ux + i] = n;
+            ox[n] = ux * 16; oy[n] = uy * 16; fw[n] = w * 16; fh[n] = h * 16; n++;
+        }
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int f = id[y / 16][x / 16], px = x - ox[f], py = y - oy[f];
+            uint8_t c;
+            if (px == 0 || py == 0) c = sh(R_GHOST, 0.08f + 0.06f * h01(x, y, seed + 1));
+            else {
+                float v = 0.32f + 0.07f * (2.0f * h01(f, 3, seed) - 1.0f) + 0.1f * (fbm(x / 8.0f, y / 8.0f, 8, seed + 2) - 0.5f) + 0.012f * sinf(px * 1.7f)
+                        + (px == 1 || py == 1 ? 0.05f : 0.0f) - (px == fw[f] - 1 || py == fh[f] - 1 ? 0.06f : 0.0f);
+                if (h01(x, y, seed + 4) > 0.97f) v += 0.16f;           /* the wet on it */
+                c = sh(R_STONE, v);
+            }
+            float pd = fbm(x / 8.0f, y / 8.0f, 8, seed + 9) + 0.3f * (1.0f - fminf(1.0f, hypotf(x - 30.0f - 10.0f * h01(1, 1, seed), y - 34.0f) / 26.0f));
+            if (puddles && pd > 0.72f) {                              /* standing water, its edge catching the light */
+                c = pd > 0.745f ? sh(R_GHOST, 0.14f + 0.06f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 10) - 0.5f) + (h01(x, y, seed + 11) > 0.97f ? 0.3f : 0.0f)) : sh(R_GHOST, 0.42f);
+            }
+            tput(t, x, y, c);
+        }
+}
+static void gen_floor_silt(int t, uint32_t seed) {                 /* silt the water left, in ripples; laid as laid, so nothing in it repeats cell by cell */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float ph = y * TAU_F / 8.0f + 2.5f * fbm(x / 16.0f, y / 16.0f, 4, seed);
+            float v = 0.34f + 0.07f * sinf(ph) + 0.05f * cosf(ph) * 0.5f + 0.06f * (fbm(x / 8.0f, y / 8.0f, 8, seed + 1) - 0.5f) + 0.04f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 2) - 0.5f);
+            tput(t, x, y, sh(R_FLOOR, v));
+        }
+}
+static void gen_floor_slateedge(int t, uint32_t seed) {            /* a hall's floor: slate set on edge, rows of thin slips */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int r = y / 16, ly = y & 15, off = (int)(h01(r, 1, seed) * 8.0f), lx = (x + off) & 63, s = lx / 8, sx = lx & 7;
+            uint8_t c;
+            int gap = sx == 0 || ly == 0 || (h01(r, s, seed + 2) > 0.55f && ly == 8);
+            if (gap) c = sh(R_FLOOR, 0.1f + 0.06f * h01(x, y, seed + 3));
+            else {
+                int sid = r * 16 + s * 2 + (h01(r, s, seed + 2) > 0.55f && ly > 8);
+                float v = 0.34f + 0.16f * (h01(sid, 4, seed) - 0.5f) + (sx == 1 ? 0.06f : sx == 7 ? -0.05f : 0.0f) + (sx >= 3 && sx <= 4 ? 0.02f : 0.0f) + 0.05f * (fbm(x / 4.0f, y / 4.0f, 16, seed + 5) - 0.5f);
+                c = sh(R_STONE, v);
+            }
+            tput(t, x, y, c);
+        }
+}
+static void gen_floor_water(int t, uint32_t seed) {                /* standing water over flags: the stones dim beneath, a ring going out */
+    gen_floor_wetflags(t, seed, 0);
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t under = crawl_tex[t][x * TS + y];
+            float lum = (float)((under - 1) % 16) / 15.0f;
+            float rip = fbm(x / 8.0f, y / 8.0f, 8, seed + 20);
+            float v = 0.1f + 0.14f * lum + 0.06f * (rip - 0.5f) + (fabsf(rip - 0.55f) < 0.012f ? 0.08f : 0.0f);
+            if (h01(x, y, seed + 21) > 0.996f) v += 0.28f;
+            tput(t, x, y, sh(R_GHOST, v));
+        }
+}
+static void straw(int t, int x, int y) {                           /* a calcite straw hanging from the stone, seen from below */
+    tput(t, x, y, sh(R_BONE, 0.55f)); tput(t, x + 1, y + 1, sh(R_CEIL, 0.1f));
+}
+static void gen_ceil_slatevault(int t, uint32_t seed) {            /* a room's vault laid in slate: thin voussoirs, damp, straws */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int r = y / 8, ly = y & 7, off = (int)(h01(r, 1, seed) * 64.0f), lx = (x + off) & 63;
+            int sw = 16 + (int)(h01(r, 2, seed) * 2.0f) * 16, s = lx / sw;
+            float v = ly == 0 || lx % sw == 0 ? 0.04f : 0.4f + 0.12f * (h01(r * 8 + s, 3, seed) - 0.5f) + (ly == 1 ? 0.1f : ly == 7 ? -0.08f : 0.0f)
+                    + 0.05f * (fbm(x / 4.0f, y / 4.0f, 16, seed + 4) - 0.5f);
+            tput(t, x, y, sh(R_CEIL, v + 0.16f));
+        }
+    for (int k = 0; k < 3; k++) straw(t, (int)(h01(k, 5, seed) * 62), (int)(h01(k, 6, seed) * 62));
+}
+static void gen_ceil_bedded(int t, uint32_t seed) {                /* a hall's roof: the slate's beds seen from below, a joint across */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float b = y + 3.0f * fbm(x / 16.0f, y / 16.0f, 4, seed);
+            int bed = (int)(b / 5.0f);
+            float v = 0.36f + 0.08f * (h01(bed, 1, seed) - 0.5f) + 0.05f * (fbm(x / 4.0f, y / 4.0f, 16, seed + 2) - 0.5f);
+            if (fmodf(b + 64.0f, 5.0f) < 0.8f) v -= 0.2f; else if (fmodf(b + 64.0f, 5.0f) < 1.6f) v += 0.06f;
+            if (fabsf(x - 22.0f - 6.0f * fbm(x / 16.0f, y / 8.0f, 4, seed + 3)) < 0.6f) v -= 0.14f;
+            tput(t, x, y, sh(R_CEIL, v + 0.12f));
+        }
+    for (int k = 0; k < 2; k++) straw(t, (int)(h01(k, 5, seed) * 62), (int)(h01(k, 6, seed) * 62));
+}
+static void gen_ceil_drip(int t, uint32_t seed) {                  /* rough rock, wet, hung with straws */
+    gen_ceil_rock(t, seed);
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) if (h01(x, y, seed + 7) > 0.985f) tput(t, x, y, lighter(crawl_tex[t][x * TS + y], 3));   /* wet on it */
+    for (int k = 0; k < 7; k++) straw(t, (int)(h01(k, 5, seed) * 62), (int)(h01(k, 6, seed) * 62));
+}
+static void decay_flat2(int t, float dk, uint32_t seed, int wet) { /* the Catacombs' rot on a floor or ceiling: damp, silt drifting, algae */
+    if (dk <= 0.0f) return;
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c = crawl_tex[t][x * TS + y];
+            float n = fbm(x / 8.0f, y / 8.0f, 8, seed + 5);
+            if (n < 0.2f + 0.25f * dk) c = darker(c, 1);
+            if (wet && fbm(x / 8.0f, y / 8.0f, 8, seed + 6) < 0.1f + 0.22f * dk && (c - 1) / 16 != (R_GHOST - 1) / 16) c = sh(R_FLOOR, 0.24f + 0.1f * h01(x, y, seed));   /* silt drifting in */
+            if (dk > 0.3f && fbm(x / 4.0f, y / 4.0f, 16, seed + 7) > 0.84f - 0.18f * dk && (c - 1) % 16 < 5) c = sh(R_MOSS, 0.14f + 0.18f * h01(x, y, seed + 1));
+            crawl_tex[t][x * TS + y] = c;
+        }
+}
+
+/* ---- the Catacombs' doors and keys ---- */
+
+static void gen_sluice(int t, uint32_t seed, int metal) {          /* a sluice door, riveted iron, rusted, green with slime where the water stood; a vault's bands and plate in its key's metal */
+    int vault = metal >= 0;
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int p = x / 21, lx = x % 21;
+            float v = 0.34f + 0.06f * h01(p, 0, seed) + 0.07f * (fbm(x / 8.0f, y / 8.0f, 8, seed) - 0.5f) + 0.04f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 1) - 0.5f);
+            if (lx == 0) v = 0.12f; else if (lx == 1) v += 0.1f; else if (lx == 20) v -= 0.06f;
+            uint8_t c = sh(R_IRON, v);
+            if (fbm(x / 2.0f, y / 16.0f, 32, seed + 2) > 0.66f) c = sh(R_WOOD, 0.3f + 0.15f * h01(x, y, seed + 3));   /* rust run down it */
+            float slime = 46.0f + 3.0f * (fbm(x / 16.0f, 0.5f, 4, seed + 8) - 0.5f) * 2.0f;   /* green below where the water stood */
+            if (y > slime && fbm(x / 4.0f, y / 4.0f, 16, seed + 9) > 0.35f - 0.01f * (y - slime)) c = sh(R_MOSS, 0.14f + 0.16f * h01(x, y, seed + 4));
+            else if (y > slime - 1.0f && y <= slime) c = darker(c, 3);
+            tput(t, x, y, c);
+            if ((lx == 3 || lx == 18) && y % 6 == 3) { tput(t, x, y, sh(R_IRON, 0.72f)); tput(t, x + 1, y + 1, sh(R_IRON, 0.15f)); }   /* rivets down the seams */
+        }
+    int band = vault ? metal : R_IRON;
+    float lo = band == R_GOLD ? 0.0f : 0.25f, k = band == R_GOLD ? 1.0f : 0.75f;
+    for (int b = 0; b < 3; b++) {                                     /* three bands across */
+        int y0 = 7 + b * 22;
+        for (int y = y0; y < y0 + 5; y++)
+            for (int x = 0; x < TS; x++) {
+                float v = 0.5f + (y == y0 ? 0.3f : 0.0f) - (y == y0 + 4 ? 0.3f : 0.0f) + 0.06f * (fbm(x / 4.0f, y / 4.0f, 16, seed + 5) - 0.5f);
+                if (x % 8 == 4 && y == y0 + 2) v = 1.0f;
+                uint8_t c = sh(band, lo + v * k);
+                if (!vault && fbm(x / 4.0f, y / 4.0f, 16, seed + 6) > 0.68f) c = sh(R_WOOD, 0.34f);
+                tput(t, x, y, c);
+            }
+    }
+    if (!vault) {                                                    /* a grille to see the water coming, a wheel to wind it */
+        for (int y = 14; y <= 25; y++)
+            for (int x = 24; x <= 39; x++) {
+                int edge = x == 24 || x == 39 || y == 14 || y == 25, bar = x == 28 || x == 32 || x == 36 || y == 20;
+                tput(t, x, y, edge ? sh(R_IRON, 0.45f) : (bar ? sh(R_IRON, 0.62f) : 0));
+            }
+        for (int a = 0; a < 48; a++) {
+            float ang = TAU_F * a / 48;
+            tput(t, 46 + (int)lroundf(6.0f * cosf(ang)), 41 + (int)lroundf(6.0f * sinf(ang)), sh(R_IRON, 0.5f + 0.35f * -sinf(ang)));
+        }
+        for (int s = 0; s < 4; s++) for (int r = 1; r < 6; r++) { float ang = s * TAU_F / 4.0f + 0.4f; tput(t, 46 + (int)lroundf(r * cosf(ang)), 41 + (int)lroundf(r * sinf(ang)), sh(R_IRON, 0.62f)); }
+        tput(t, 46, 41, sh(R_IRON, 0.9f));
+    } else
+        for (int y = 16; y <= 46; y++)
+            for (int x = 22; x <= 41; x++) {                          /* the lock plate, a keyhole, the saint's cross */
+                int edge = x == 22 || y == 16, shade = x == 41 || y == 46;
+                float v = 0.6f + (edge ? 0.3f : 0.0f) - (shade ? 0.35f : 0.0f) + fbm(x / 4.0f, y / 4.0f, 16, seed + 7) * 0.15f;
+                float kx = x + 0.5f - 31.5f, ky = y + 0.5f - 34.0f;
+                if (kx * kx + ky * ky < 7.0f || (fabsf(kx) < 1.2f && ky > 0.0f && ky < 9.0f)) { tput(t, x, y, 0); continue; }
+                if ((fabsf(kx) < 1.0f && y >= 19 && y <= 28) || (y >= 21 && y <= 22 && fabsf(kx) < 3.0f)) v -= 0.35f;
+                tput(t, x, y, sh(metal, lo + v * k));
+            }
+}
+static void gen_slatejamb(int t, uint32_t seed) {                  /* the doorway's side: slate lining cut narrow, the iron slot the door runs in */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int r = y / 5;
+            float v = 0.36f + 0.08f * (h01(r, 1, seed) - 0.5f) + 0.05f * (fbm(x / 8.0f, y / 8.0f, 8, seed) - 0.5f);
+            if (y % 5 == 0 || ((r & 1) ? x == 24 : x == 44)) v = 0.06f;
+            if (y % 5 == 1) v += 0.08f;
+            uint8_t c = sh(R_STONE, v);
+            if (x < 5) c = sh(R_IRON, 0.3f + (x == 0 ? 0.25f : x == 4 ? -0.1f : 0.0f) + (y % 8 == 4 && x == 2 ? 0.4f : 0.0f));
+            tput(t, x, y, c);
+        }
+}
+static void spr_key_ring(int id, float scale, int metal) {         /* a key on a ring, pitted with the wet */
+    cv_begin(cv_sprite, TS, TS);
+    #define KX(x) (32.0f + ((x) - 32.0f) * scale)
+    float ar = fmaxf(fabsf(scale), 0.18f), lo = metal == R_GOLD ? 0.35f : 0.45f;
+    for (int a = 0; a < 64; a++) {                                    /* the ring */
+        float ang = TAU_F * a / 64.0f;
+        for (float w = -0.6f; w <= 0.6f; w += 0.6f) cv_px((int)KX(19.0f + (6.0f + w) * cosf(ang)), (int)(30.0f + (6.0f + w) * sinf(ang)), sh(metal, lo + (1.0f - lo) * (0.55f + 0.4f * -sinf(ang + 0.6f))));
+    }
+    cv_ellipse(KX(24), 36, 4.0f * ar, 4.0f, metal, lo, 1.0f);       /* the bow, through the ring */
+    cv_flat(KX(24), 36, 1.8f * ar, 1.8f, C_CLEAR);
+    cv_capsule(KX(27), 38.5f, KX(44), 49, 1.8f, metal, lo, 1.0f);   /* the shank, hanging */
+    for (int y = 46; y <= 54; y++)
+        for (int x = 42; x <= 48; x++) {
+            float dx = x - 42.0f - (y - 46) * 0.35f;
+            if (dx < 0.0f || dx > 4.0f || (y >= 51 && ((int)dx) == 2)) continue;
+            cv_px((int)KX(x + 0.5f), y, sh(metal, lo + (1.0f - lo) * (dx < 1.0f ? 0.95f : 0.6f)));
+        }
+    for (int y = 0; y < TS; y++)                                     /* pitted */
+        for (int x = 0; x < TS; x++) {
+            uint8_t c = cvp[y * TS + x];
+            if (c == C_CLEAR) continue;
+            if (h01(x, y, 777) > 0.86f) cvp[y * TS + x] = sh(metal, lo * 0.5f);
+            else if (metal != R_GOLD && h01(x, y, 778) > 0.93f) cvp[y * TS + x] = sh(R_GHOST, 0.32f);
+        }
+    #undef KX
+    cv_outline(sh(metal, 0.05f));
+    cv_store(id);
+}
+
+/* ---- the Catacombs' treasure: coin gone black in the silt, a saint's reliquary, pearls; the crown and the
+ * chest as they came out of the water ---- */
+
+static void spr_coins_silt(int id, int frame) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 18, 2.4f, R_WARM + 1);
+    for (int i = 0; i < 34; i++) {
+        float r = h01(i, 1, 40) * 13.0f, a = h01(i, 2, 40) * TAU_F;
+        float x = 32 + cosf(a) * r, y = 60 - (13.0f - r) * 0.55f - h01(i, 3, 40) * 1.5f + sinf(a) * r * 0.18f;
+        int bright = h01(i, 4, 41) < 0.45f;
+        cv_ellipse(x, y, 3.2f, 1.3f, R_GOLD, bright ? 0.35f : 0.05f, bright ? 1.0f : 0.32f);
+        if (bright) cv_px((int)(x - 1), (int)y, sh(R_GOLD, 0.95f));
+    }
+    for (int i = 0; i < 5; i++) {                                    /* silt caked over the heap */
+        float x = 22 + h01(i, 5, 42) * 20, y = 55 + h01(i, 6, 42) * 6;
+        cv_ellipse(x, y, 3.5f, 1.6f, R_FLOOR, 0.15f, 0.4f);
+    }
+    cv_outline(0);
+    static const int G[2][3][2] = { { {27, 52}, {38, 55}, {33, 49} }, { {30, 54}, {24, 57}, {40, 52} } };
+    for (int i = 0; i < 3; i++) if (cvp[G[frame][i][1] * TS + G[frame][i][0]] != C_CLEAR && (cvp[G[frame][i][1] * TS + G[frame][i][0]] >= R_GOLD)) cv_px(G[frame][i][0], G[frame][i][1], C_WHITE);
+    cv_px(G[frame][0][0], G[frame][0][1], C_WHITE);
+    cv_store(id);
+}
+static void spr_reliquary(void) {                                  /* a saint's reliquary: a little gilt house, blue enamel, a bone behind crystal */
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 15, 2.0f, R_WARM + 1);
+    for (int y = 46; y <= 60; y++)
+        for (int x = 19; x <= 45; x++) {
+            int edge = x == 19 || x == 45 || y == 46 || y == 60 || y == 53;
+            float v = 0.5f + 0.35f * (x < 24 ? 0.6f : x > 40 ? -0.4f : 0.0f) + (y == 46 ? 0.3f : 0.0f);
+            uint8_t c = edge ? sh(R_GOLD, 0.85f) : sh(R_GHOST, 0.3f + 0.12f * ((x / 3 + y / 3) & 1));
+            if (!edge && x >= 27 && x <= 37 && y >= 48 && y <= 58) c = (x == 27 || x == 37 || y == 48 || y == 58) ? sh(R_GOLD, 0.7f) : sh(R_GLOW, 0.12f + 0.05f * (y - 48) / 10.0f);
+            (void)v;
+            cv_px(x, y, c);
+        }
+    cv_bone(29, 55, 35, 51, 0.8f, 0.45f, 0.8f);                     /* the relic, behind the crystal */
+    float roof[8] = { 17, 46, 47, 46, 41, 36, 23, 36 };
+    cv_poly(roof, 4, R_GOLD, 1.0f, 0.4f, 36, 10);
+    for (int x = 23; x <= 41; x += 3) cv_px(x, 41, sh(R_GOLD, 0.25f));
+    for (int y = 27; y <= 35; y++) cv_px(32, y, sh(R_GOLD, 0.85f));  /* a cross on the ridge */
+    for (int x = 29; x <= 35; x++) cv_px(x, 30, sh(R_GOLD, 0.85f));
+    for (int k = 0; k < 4; k++) cv_ellipse(19 + k * 8.6f, 61, 1.4f, 1.2f, R_GOLD, 0.4f, 0.9f);   /* its feet */
+    cv_outline(0);
+    cv_px(24, 39, C_WHITE); cv_px(30, 50, C_WHITE);
+    cv_store(SP_CHALICE);
+}
+static void spr_pearls(void) {                                     /* pearls out of a rotted purse, an oyster open beside */
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 15, 2.0f, R_WARM + 1);
+    for (int y = 52; y <= 61; y++)                                   /* the shell */
+        for (int x = 34; x <= 50; x++) {
+            float nx = (x + 0.5f - 42.0f) / 8.0f, ny = (y + 0.5f - 58.0f) / 4.0f;
+            if (nx * nx + ny * ny > 1.0f) continue;
+            cv_px(x, y, nx * nx + ny * ny > 0.65f ? sh(R_STONE, 0.3f + 0.1f * h01(x, y, 43)) : sh(R_GHOST, 0.55f + 0.2f * h01(x / 2, y, 44)));
+        }
+    for (int y = 49; y <= 61; y++) for (int x = 16; x <= 30; x++) {  /* the purse, gone to rags */
+        float nx = (x + 0.5f - 23.0f) / 7.0f, ny = (y + 0.5f - 56.0f) / 6.0f;
+        if (nx * nx + ny * ny <= 1.0f && h01(x, y, 45) > 0.15f) cv_px(x, y, sh(R_WARM, 0.18f + 0.15f * (1.0f - ny)));
+    }
+    static const float P[11][3] = { {26, 56, 2.6f}, {30, 58, 2.4f}, {33, 55, 2.2f}, {28, 52, 2.0f}, {35, 59, 2.0f}, {22, 59, 2.3f}, {38, 56, 1.8f}, {41, 57, 2.8f}, {31, 61, 1.8f}, {25, 61, 1.6f}, {36, 52, 1.6f} };
+    for (int i = 0; i < 11; i++) cv_ellipse(P[i][0], P[i][1], P[i][2], P[i][2], R_BONE, 0.45f, 1.0f);
+    cv_outline(0);
+    cv_px(40, 55, C_WHITE); cv_px(25, 55, C_WHITE); cv_px(32, 54, C_WHITE);
+    cv_store(SP_GEMS);
+}
+static void spr_drown(int id, uint32_t seed) {                     /* the crown or the chest as the water gave it back: tarnished, silted, weed on it */
+    uint8_t *s = crawl_spr[id];
+    int top = TS, bot = 0;
+    for (int x = 0; x < TS; x++) for (int y = 0; y < TS; y++) if (s[x * TS + y] != C_CLEAR && s[x * TS + y] != R_WARM + 1) { if (y < top) top = y; if (y > bot) bot = y; }
+    for (int x = 0; x < TS; x++)
+        for (int y = 0; y < TS; y++) {
+            uint8_t c = s[x * TS + y];
+            if (c == C_CLEAR || c == C_WHITE || c == R_WARM + 1) continue;
+            if (c >= R_GOLD && h01(x, y, seed) > 0.35f) s[x * TS + y] = (uint8_t)(c - 3 >= R_GOLD ? c - 3 : R_GOLD);
+            if (y > bot - 5 && fbm(x / 4.0f, y / 4.0f, 16, seed + 1) > 0.45f) s[x * TS + y] = sh(R_FLOOR, 0.2f + 0.15f * h01(x, y, seed + 2));
+        }
+    for (int k = 0; k < 3; k++) {                                     /* weed hanging off it */
+        int x = 20 + (int)(h01(k, 3, seed) * 24.0f), y = top + (int)(h01(k, 4, seed) * 6.0f);
+        for (int i = 0; i < 9; i++) { int xx = x + (int)(1.4f * sinf(i * 0.8f + k)), yy = y + i; if (yy < TS && s[xx * TS + yy] != C_CLEAR) s[xx * TS + yy] = sh(R_MOSS, 0.3f + 0.25f * h01(k, i, seed)); }
+    }
+}
+/* ---- the Hollows' materials: the caves, the mine cut through them, the timber that held it up, the pit
+ * where the dead went ---- */
+
+/* rough granite: the cave as the water left it, in lumps and joints, crystals in it; vseed runs a band
+ * of pale quartz across */
+static int voro(int x, int y, const float *px, const float *py, int n, float *d1o, float *d2o) {   /* the nearest of n points, wrapping */
+    float d1 = 1e9f, d2 = 1e9f; int k1 = 0;
+    for (int i = 0; i < n; i++) {
+        float dx = wrapd(x + 0.5f - px[i]), dy = wrapd(y + 0.5f - py[i]), d = sqrtf(dx * dx + dy * dy);
+        if (d < d1) { d2 = d1; d1 = d; k1 = i; } else if (d < d2) d2 = d;
+    }
+    *d1o = d1; *d2o = d2;
+    return k1;
+}
+static void gen_granite(int t, int m, uint32_t seed, uint32_t vseed) {
+    float px[8], py[8];
+    static float e[TS * TS];
+    static int k1[TS * TS];
+    for (int i = 0; i < 8; i++) { px[i] = h01(i, 1, seed) * 64.0f; py[i] = h01(i, 2, seed) * 64.0f; }
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float d1, d2;
+            k1[x * TS + y] = voro(x, y, px, py, 8, &d1, &d2);
+            e[x * TS + y] = d2 - d1 + 3.0f * (fbm(x / 8.0f, y / 8.0f, 8, seed + 9) - 0.5f);   /* how far inside its lump, the edges worn */
+        }
+    #define E(xx, yy) e[((xx) & 63) * TS + ((yy) & 63)]
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int k = k1[x * TS + y];
+            float ee = E(x, y), gx = E(x + 1, y) - E(x - 1, y), gy = E(x, y + 1) - E(x, y - 1);   /* each lump's swell, lit from above and the left */
+            float v = 0.46f + 0.08f * (h01(k, 3, seed) - 0.5f) + 0.06f * fminf(1.0f, ee / 8.0f) - 0.035f * gx - 0.05f * gy
+                    + 0.1f * (fbm(x / 8.0f, y / 8.0f, 8, seed + 4) - 0.5f) + 0.05f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 5) - 0.5f);
+            int id = 1 + k;
+            if (ee < 0.9f && fbm(x / 8.0f, y / 8.0f, 8, seed + 10) > 0.42f) { v = 0.12f + 0.06f * h01(x, y, seed + 6); id = 0; }   /* a crack along the joint, here and there */
+            float c = h01(x, y, seed + 7);                            /* its crystals: pale feldspar, dark mica */
+            if (c > 0.95f) v += 0.12f; else if (c < 0.03f) v -= 0.12f;
+            if (vseed) {
+                float vy = 30.0f + 10.0f * sinf(x * TAU_F / 64.0f + h01(1, 1, vseed) * 6.0f), dv = fabsf(y + 0.5f - vy);
+                if (dv < 2.2f + fbm(x / 8.0f, 0.5f, 8, vseed) * 1.5f) v = 0.62f + 0.08f * h01(x, y, vseed) - 0.03f * gy;
+            }
+            GV(x, y) = v;
+            g_mid[m][x * TS + y] = (uint16_t)id;
+        }
+    #undef E
+    for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) tput(t, x, y, sh(R_STONE, GV(x, y)));
+}
+
+/* a face cut with the pick: bands of strokes, one way then the other, drill holes down it; vseed has the
+ * scar of a charge fired */
+static void gen_mineface(int t, int m, uint32_t seed, uint32_t vseed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            GV(x, y) = 0.48f + 0.14f * (fbm(x / 8.0f, y / 8.0f, 8, seed) - 0.5f) + 0.05f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 1) - 0.5f);
+            g_mid[m][x * TS + y] = 0;                                 /* rock: a blend frays it, it doesn't fall away in blocks */
+        }
+    for (int k = 0; k < 48; k++) {                                    /* the pick's work all over it: patches of short strokes */
+        float cx = h01(k, 4, seed) * 64.0f, cy = h01(k, 5, seed) * 64.0f, a = (k & 1 ? 0.95f : 0.55f) + 0.3f * (h01(k, 6, seed) - 0.5f);
+        float rad = 4.0f + h01(k, 7, seed) * 4.0f, ca = cosf(a), sa = sinf(a);
+        for (int yy = -9; yy <= 9; yy++)
+            for (int xx = -9; xx <= 9; xx++) {
+                float d = sqrtf((float)(xx * xx + yy * yy));
+                if (d > rad) continue;
+                float across = xx * -sa + yy * ca, f = 1.0f - d / rad, g = fmodf(across + 30.0f, 2.6f);
+                if (g < 0.8f) GV((int)cx + xx, (int)cy + yy) -= 0.2f * f; else if (g < 1.4f) GV((int)cx + xx, (int)cy + yy) += 0.1f * f;
+            }
+    }
+    for (int k = 0; k < (vseed ? 2 : 1); k++) {                       /* drill holes, half of each left in the face */
+        float dx = 14.0f + k * 30.0f + 8.0f * h01(k, 3, seed), y0 = 6.0f + 20.0f * h01(k, 4, seed), len = 18.0f + 14.0f * h01(k, 5, seed);
+        for (int y = (int)y0; y < (int)(y0 + len); y++) {
+            int x = (int)(dx + (y - y0) * 0.08f);
+            GV(x, y) = 0.08f; GV(x - 1, y) -= 0.1f; GV(x + 1, y) += 0.1f; GV(x + 2, y) += 0.04f;
+        }
+    }
+    if (vseed)                                                        /* a charge's scar: rock blown out, soot round it */
+        for (int y = 0; y < TS; y++)
+            for (int x = 0; x < TS; x++) {
+                float d = hypotf(wrapd(x + 0.5f - 36.0f), wrapd(y + 0.5f - 26.0f)) + 3.0f * fbm(x / 8.0f, y / 8.0f, 8, vseed);
+                if (d < 7.0f) GV(x, y) = 0.12f + 0.08f * (d / 7.0f); else if (d < 12.0f) GV(x, y) -= 0.12f * (1.0f - (d - 7.0f) / 5.0f);
+            }
+    for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) tput(t, x, y, sh(R_STONE, GV(x, y)));
+}
+
+/* timber shoring: boards laid flat against the rock, two to a course, a post at each edge so that two
+ * cells side by side make one post between them; with the rot the boards split and some come down. vseed
+ * has a board gone */
+static void gen_timber(int t, int m, uint32_t seed, uint32_t vseed, float dk) {
+    int gone = vseed ? 1 + (int)(hsh(9, 1, vseed) % 8) : -1;
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int b = y / 8, ly = y & 7, id = 1 + b;
+            float v;
+            uint8_t ramp = R_WOOD;
+            int lost = id == gone || (dk > 0.3f && h01(b, 7, seed + 3) < 0.25f * dk && x > 8 && x < 56 && fbm(x / 16.0f, b * 1.3f, 4, seed + 4) > 0.45f);
+            if (lost) { ramp = R_STONE; v = 0.18f + 0.1f * (fbm(x / 4.0f, y / 4.0f, 16, seed + 5) - 0.5f); id = 0; }   /* the rock behind */
+            else {
+                v = 0.45f + 0.12f * (h01(b, 1, seed) - 0.5f) + 0.06f * sinf(y * 1.7f + x * 0.05f + b) + 0.08f * (fbm(x / 16.0f, y / 2.0f, 4, seed + 2) - 0.5f);   /* the grain */
+                if (ly == 0) v = 0.12f; else if (ly == 1) v += 0.08f; else if (ly == 7) v -= 0.1f;
+                if (((x + b * 11) & 31) == 15 && (ly == 2 || ly == 5)) { ramp = R_IRON; v = 0.6f; }   /* the nails */
+                if (dk > 0.15f && fabsf(fmodf(x * 0.3f + b * 7.0f, 13.0f) - 6.5f) < 0.4f && ly > 1 && ly < 7 && h01(b, (int)(x * 0.3f), seed + 6) < dk) v -= 0.2f;   /* split with the years */
+            }
+            if (x < 5 || x > 58) {                                    /* half a post at each edge */
+                int px = x < 5 ? x : 63 - x;
+                ramp = R_WOOD; id = 0;
+                v = 0.3f + 0.1f * (px / 5.0f) + 0.05f * (fbm(x / 2.0f, y / 8.0f, 32, seed + 7) - 0.5f) + (x == 5 || x == 58 ? -0.1f : 0.0f);
+                if (px == 4) v -= 0.14f;
+            }
+            GV(x, y) = v;
+            tput(t, x, y, sh(ramp, v));
+            g_mid[m][x * TS + y] = (uint16_t)id;
+        }
+}
+
+/* basalt in columns, the joints between them, cracks across, in that ramp (the Hollows' iron-grey); vseed has a column broken */
+static void gen_basalt(int t, int m, uint32_t seed, uint32_t vseed, int ramp) {
+    int cx[8], cw[8], n = 0, x = 0;
+    while (x < 64 && n < 8) { int w = 9 + (int)(h01(n, 1, seed) * 6.0f); if (64 - x - w < 8) w = 64 - x; cx[n] = x; cw[n] = w; x += w; n++; }
+    int broke = vseed ? (int)(hsh(10, 1, vseed) % (uint32_t)n) : -1;
+    for (int y = 0; y < TS; y++)
+        for (int xx = 0; xx < TS; xx++) {
+            int k = 0;
+            while (k + 1 < n && xx >= cx[k + 1]) k++;
+            int px = xx - cx[k], w = cw[k];
+            float facet = px < w / 3 ? 0.08f : (px < 2 * w / 3 ? 0.0f : -0.08f);   /* three of its faces showing */
+            float v = 0.45f + 0.08f * (h01(k, 2, seed) - 0.5f) + facet + 0.06f * (fbm(xx / 4.0f, y / 8.0f, 16, seed + 3) - 0.5f);
+            int seg = (int)((y + 64.0f * h01(k, 4, seed)) / (14.0f + 8.0f * h01(k, 5, seed)));
+            float cy = fmodf(y + 64.0f * h01(k, 4, seed) + (px - w / 2) * 0.3f, 14.0f + 8.0f * h01(k, 5, seed));
+            int id = 1 + k * 6 + (seg % 6);
+            if (px == 0) { v = 0.06f; id = 0; } else if (px == 1) v += 0.06f;
+            if (cy < 0.9f) { v = 0.1f; id = 0; } else if (cy < 1.8f) v += 0.05f;
+            if (k == broke && y > 24 && y < 40) v = 0.05f + 0.06f * h01(xx, y, vseed);   /* a piece of it gone */
+            if (h01(xx, y, seed + 6) > 0.985f) v += 0.12f;
+            tput(t, xx, y, sh(ramp, v));
+            g_mid[m][xx * TS + y] = (uint16_t)id;
+        }
+}
+
+/* packed backfill: earth and broken rock tipped in, and what was tipped with it; vseed shows a skull */
+static void gen_backfill(int t, int m, uint32_t seed, uint32_t vseed) {
+    static uint8_t ramp[TS * TS];
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            GV(x, y) = 0.36f + 0.08f * (fbm(x / 8.0f, y / 8.0f, 8, seed) - 0.5f) + 0.06f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 1) - 0.5f);
+            ramp[x * TS + y] = R_FLOOR; g_mid[m][x * TS + y] = 0;
+        }
+    int n = 0;
+    float px[30], py[30], pr[30];
+    for (int k = 0; k < 90 && n < 30; k++) {                         /* broken rock, every size */
+        float cx = h01(k, 3, seed) * 64.0f, cy = h01(k, 4, seed) * 64.0f, r = 1.8f + h01(k, 5, seed) * 4.5f;
+        int ok = 1;
+        for (int j = 0; j < n && ok; j++) if (hypotf(wrapd(cx - px[j]), wrapd(cy - py[j])) < r + pr[j] + 0.8f) ok = 0;
+        if (!ok) continue;
+        px[n] = cx; py[n] = cy; pr[n] = r; n++;
+        tx_blob(m, n, cx, cy, r * (1.0f + 0.5f * h01(k, 6, seed)), r, 0.34f + 0.22f * h01(k, 7, seed), h01(k, 8, seed) < 0.3f ? R_FLOOR : R_STONE, ramp, 1.0f);
+    }
+    cv_begin(cv_sprite, TS, TS);                                      /* bones in it */
+    for (int k = 0; k < 6; k++) {
+        float x0 = h01(k, 11, seed) * 64.0f, y0 = h01(k, 12, seed) * 64.0f, a = h01(k, 13, seed) * PI_F, len = 8.0f + h01(k, 14, seed) * 8.0f;
+        wrap_draw(0, x0, y0, x0 + cosf(a) * len, y0 + sinf(a) * len, 1.1f, 0.7f);
+    }
+    if (vseed) wrap_draw(1, 20.0f + h01(6, 1, vseed) * 24.0f, 30.0f, 0.85f, 0.8f, 0, 0);
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c = cv_sprite[y * TS + x];
+            if (c != C_CLEAR && fbm(x / 8.0f, y / 8.0f, 8, seed + 2) < 0.62f) { tput(t, x, y, c); continue; }
+            float v = GV(x, y);
+            if (ramp[x * TS + y] == R_FLOOR && !g_mid[m][x * TS + y] && g_mid[m][x * TS + ((y - 1) & 63)]) v -= 0.12f;
+            tput(t, x, y, sh(ramp[x * TS + y], v));
+        }
+}
+
+/* the Hollows' rot: worked, then left. Dust and grime; scree come down at the foot of the wall; claw
+ * marks late, where something went at the stone */
+static void decay_hollows(int t, float dk, uint32_t field, uint32_t own, int marked) {
+    uint8_t *p = crawl_tex[t];
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c = p[x * TS + y];
+            if (c == C_CLEAR || IS_FULLBRIGHT(c)) continue;
+            float n = fbm(x / 8.0f, y / 8.0f, 8, field + 5);
+            if (n < 0.16f + 0.2f * dk) c = darker(c, 1 + (n < 0.12f + 0.1f * dk));
+            float sc = 62.0f - 12.0f * dk - 5.0f * fbm(x / 8.0f, 0.5f, 8, field + 6);   /* the scree banked against it */
+            if (dk > 0.2f && y > sc && h01(x, y, field + 7) > 0.2f) c = sh(h01(x, y, field + 8) < 0.5f ? R_STONE : R_FLOOR, 0.25f + 0.3f * h01(x / 2, y / 2, field + 9));
+            p[x * TS + y] = c;
+        }
+    #define DK(xx, yy, by) do { uint8_t *q_ = &p[((xx) & 63) * TS + ((yy) & 63)]; if (*q_ != C_CLEAR && !IS_FULLBRIGHT(*q_)) *q_ = darker(*q_, by); } while (0)
+    int cracks = (int)(dk * 4.0f + 0.5f);
+    for (int k = 0; k < cracks; k++) {
+        float x = h01(k, 3, own) * 64.0f, y = h01(k, 4, own) * 64.0f, a = h01(k, 5, own) * TAU_F;
+        int len = 8 + (int)(h01(k, 6, own) * 22.0f);
+        for (int i = 0; i < len; i++) { a += (h01(k, i + 10, own) - 0.5f) * 1.2f; x += cosf(a); y += sinf(a); DK((int)x, (int)y, 5); }
+    }
+    if (marked && dk > 0.5f && h01(5, 5, own) < (dk - 0.5f) * 1.4f) {   /* something's claws, four lines dragged down the stone (on one look of each, so they don't repeat) */
+        float x0 = 12.0f + 36.0f * h01(6, 6, own), y0 = 12.0f + 14.0f * h01(7, 7, own), a = 1.2f + 0.5f * h01(8, 8, own);
+        for (int c = 0; c < 4; c++)
+            for (int i = 0; i < 22; i++) {
+                int x = (int)(x0 + c * 3.0f + cosf(a) * i), y = (int)(y0 + sinf(a) * i - 0.04f * (c - 1.5f) * i);
+                DK(x, y, 6); if ((x & 1) == 0) DK(x + 1, y, 2);
+            }
+    }
+    #undef DK
+}
+
+/* ---- what stands on the Hollows' walls ---- */
+
+static void gen_feat_ore(int t, uint32_t seed) {                   /* a seam across the rock: gold in it, copper gone green, the picks' marks about it */
+    cv_begin(cv_sprite, TS, TS);
+    for (int x = 2; x < 62; x++)
+        for (int y = 0; y < TS; y++) {
+            float cy = 22.0f + x * 0.35f + 4.0f * sinf(x * 0.13f + h01(1, 1, seed) * 6.0f), w = 3.0f + 2.5f * fbm(x / 8.0f, 0.5f, 8, seed);
+            float d = fabsf(y + 0.5f - cy);
+            if (d > w) continue;
+            float r = h01(x, y, seed + 2);
+            uint8_t c = sh(R_STONE, 0.18f + 0.1f * h01(x, y, seed + 3));
+            if (r > 0.8f) c = sh(R_GOLD, 0.45f + 0.5f * h01(x, y, seed + 4));
+            else if (r > 0.62f) c = sh(R_MOSS, 0.4f + 0.3f * h01(x, y, seed + 5));
+            if (d > w - 1.0f) c = sh(R_STONE, 0.5f);
+            cv_px(x, y, c);
+        }
+    for (int k = 0; k < 9; k++) {                                     /* the picks' work about it */
+        float x = 6.0f + h01(k, 6, seed) * 52.0f, y = 14.0f + h01(k, 7, seed) * 40.0f;
+        for (int i = 0; i < 4; i++) cv_px((int)x + i, (int)y + i / 2, sh(R_STONE, 0.08f));
+    }
+    for (int k = 0; k < 4; k++) cv_px(8 + (int)(h01(k, 8, seed) * 48.0f), 26 + (int)(h01(k, 9, seed) * 18.0f), C_WHITE);
+    cv_to_tex(t);
+}
+static void gen_feat_fossil(int t, uint32_t seed) {                /* the ribs and spine of something older than the dead, set in the stone */
+    cv_begin(cv_sprite, TS, TS);
+    for (int i = 0; i < 46; i++) {                                    /* the spine, curving */
+        float x = 9.0f + i, y = 20.0f + 6.0f * sinf(i * 0.09f + 0.4f);
+        cv_ellipse(x, y, 1.4f, 2.0f, R_BONE, 0.3f, 0.66f);
+        if ((i % 3) == 0) cv_px((int)x, (int)y - 2, sh(R_BONE, 0.2f));
+    }
+    for (int r = 0; r < 8; r++) {                                     /* its ribs, sweeping down and back */
+        float x0 = 13.0f + r * 5.2f, y0 = 20.0f + 6.0f * sinf((x0 - 9.0f) * 0.09f + 0.4f), len = 22.0f + 6.0f * sinf(r * 0.5f);
+        for (int i = 0; i < (int)len; i++) {
+            float u = i / len, x = x0 - 6.0f * u * u, y = y0 + i;
+            cv_px((int)x, (int)y, sh(R_BONE, 0.62f - 0.25f * u)); cv_px((int)x + 1, (int)y, sh(R_BONE, 0.4f - 0.2f * u)); cv_px((int)x - 1, (int)y, sh(R_STONE, 0.12f));
+        }
+    }
+    cv_ellipse(54, 17, 6.0f, 4.5f, R_BONE, 0.3f, 0.7f);              /* the skull, long and low */
+    cv_flat(55.5f, 16.5f, 1.6f, 1.4f, sh(R_STONE, 0.05f));
+    for (int i = 0; i < 5; i++) cv_px(50 + i * 2, 20, sh(R_BONE, 0.85f));
+    (void)seed;
+    cv_to_tex(t);
+}
+static void gen_feat_frame(int t, uint32_t seed) {                 /* a mine set: two posts and a cap across, wedged tight */
+    cv_begin(cv_sprite, TS, TS);
+    for (int s = 0; s < 2; s++)
+        for (int y = 8; y < TS; y++)
+            for (int x = 0; x < 7; x++) {
+                int xx = s ? 56 + x : 1 + x;
+                float v = 0.3f + 0.04f * x + 0.06f * (fbm(xx / 2.0f, y / 8.0f, 32, seed + s) - 0.5f) + (x == 0 ? -0.1f : x == 6 ? -0.12f : 0.0f);
+                cv_px(xx, y, sh(R_WOOD, v));
+            }
+    for (int y = 3; y < 11; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = 0.38f + 0.06f * sinf(x * 0.25f + y) + 0.05f * (fbm(x / 8.0f, y / 2.0f, 8, seed + 2) - 0.5f) + (y == 3 ? 0.1f : y == 10 ? -0.14f : 0.0f);
+            cv_px(x, y, sh(R_WOOD, v));
+        }
+    for (int s = 0; s < 2; s++) for (int y = 11; y < 15; y++) for (int x = 0; x < 4; x++) cv_px(s ? 52 + x : 8 + x, y, sh(R_WOOD, 0.5f - 0.05f * (y - 11)));   /* the wedges */
+    cv_to_tex(t);
+}
+static void gen_feat_chute(int t, uint32_t seed) {                 /* an ore chute out of the wall, its hatch, the gravel it spilled */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 22; y < 44; y++)
+        for (int x = 18; x < 46; x++) {
+            float drop = (x - 18) * 0.2f;
+            if (y < 22 + drop || y > 34 + drop) continue;
+            int side = y > 31 + drop;
+            float v = side ? 0.28f : 0.42f + 0.05f * sinf(x * 0.6f);
+            if (y < 23 + drop) v = 0.55f;
+            cv_px(x, y, sh(R_WOOD, v + 0.05f * (fbm(x / 4.0f, y / 4.0f, 16, seed) - 0.5f)));
+        }
+    for (int y = 23; y < 32; y++) for (int x = 18; x < 22; x++) cv_px(x, y, sh(R_IRON, 0.35f + (x == 18 ? 0.2f : 0.0f)));   /* the hatch */
+    for (int k = 0; k < 60; k++) {                                     /* spilled gravel down the wall's foot */
+        float x = 40.0f + 10.0f * (h01(k, 1, seed) - 0.5f) * (1.0f + h01(k, 2, seed)), y = 46.0f + h01(k, 3, seed) * 17.0f;
+        if (fabsf(x - 42.0f) > 3.0f + (y - 46.0f) * 0.7f) continue;
+        cv_px((int)x, (int)y, sh(h01(k, 4, seed) < 0.5f ? R_STONE : R_FLOOR, 0.3f + 0.35f * h01(k, 5, seed)));
+    }
+    cv_to_tex(t);
+}
+static void gen_feat_marks(int t, uint32_t seed) {                 /* the cult's marks: an eye in a ring in old blood, charcoal signs about it */
+    cv_begin(cv_sprite, TS, TS);
+    for (int a = 0; a < 120; a++) {
+        float ang = TAU_F * a / 120.0f, r = 15.0f + 0.6f * sinf(ang * 7.0f);
+        for (float w = 0.0f; w < 1.6f; w += 0.8f) cv_px((int)(32.0f + (r + w) * cosf(ang)), (int)(28.0f + (r + w) * sinf(ang)), sh(R_BLOOD, 0.3f + 0.15f * h01(a, 1, seed)));
+    }
+    for (int i = 0; i <= 24; i++) {                                   /* the triangle inside it */
+        float u = i / 24.0f;
+        cv_px((int)(32.0f - 11.0f + 11.0f * u), (int)(36.0f - 17.0f * u), sh(R_BLOOD, 0.35f));
+        cv_px((int)(32.0f + 11.0f * u), (int)(19.0f + 17.0f * u), sh(R_BLOOD, 0.35f));
+        cv_px((int)(21.0f + 22.0f * u), 36, sh(R_BLOOD, 0.35f));
+    }
+    for (int y = 25; y <= 31; y++) for (int x = 26; x <= 38; x++) {   /* the eye */
+        float dx = (x + 0.5f - 32.0f) / 6.0f, dy = (y + 0.5f - 28.0f) / 3.0f;
+        if (dx * dx + dy * dy <= 1.0f) cv_px(x, y, dx * dx + dy * dy < 0.25f ? sh(R_STONE, 0.05f) : sh(R_BONE, 0.55f));
+    }
+    for (int k = 0; k < 6; k++) {                                     /* the drips under the ring */
+        int x = 20 + (int)(h01(k, 2, seed) * 24.0f), len = 4 + (int)(h01(k, 3, seed) * 12.0f);
+        for (int y = 0; y < len; y++) cv_px(x, 43 + y, sh(R_BLOOD, 0.28f));
+    }
+    for (int k = 0; k < 5; k++) {                                     /* charcoal signs */
+        int x = 4 + (int)(h01(k, 4, seed) * 54.0f), y = 48 + (int)(h01(k, 5, seed) * 10.0f);
+        if (x > 18 && x < 46 && y < 52) continue;
+        for (int i = 0; i < 5; i++) { cv_px(x + i, y, sh(R_STONE, 0.06f)); cv_px(x + 2, y - 2 + i, sh(R_STONE, 0.06f)); }
+    }
+    cv_to_tex(t);
+}
+static void gen_feat_lamp(int t, int frame, uint32_t seed) {       /* a miner's oil lamp hung on a spike driven in the rock */
+    cv_begin(cv_sprite, TS, TS);
+    for (int x = 30; x <= 36; x++) cv_px(x, 22, sh(R_IRON, 0.65f));    /* the spike */
+    cv_px(36, 23, sh(R_IRON, 0.5f)); cv_px(36, 24, sh(R_IRON, 0.5f));
+    for (int y = 23; y <= 27; y++) cv_px(33, y, sh(R_IRON, 0.45f));    /* the hanger */
+    for (int y = 28; y <= 36; y++)                                     /* the lamp: a squat brass pot, its spout */
+        for (int x = 27; x <= 39; x++) {
+            float dx = (x + 0.5f - 33.0f) / 6.0f, dy = (y + 0.5f - 33.0f) / 4.5f;
+            if (dx * dx + dy * dy > 1.0f) continue;
+            cv_px(x, y, sh(R_GOLD, 0.22f + 0.45f * lit(dx, dy, sqrtf(fmaxf(0.0f, 1.0f - dx * dx - dy * dy)))));
+        }
+    for (int x = 38; x <= 42; x++) cv_px(x, 30 - (x - 38) / 2, sh(R_GOLD, 0.4f));
+    static const float FH[3] = { 5.0f, 6.0f, 4.0f }, FS[3] = { 0.0f, 0.6f, -0.6f };
+    for (int y = 0; y < 7; y++) {
+        float u = y / FH[frame];
+        if (u > 1.0f) break;
+        int x = (int)(42.5f + FS[frame] * u);
+        cv_px(x, 27 - y, (uint8_t)(R_FLAME + 15 - 2 * y));
+        if (u < 0.5f) cv_px(x + 1, 27 - y, (uint8_t)(R_FLAME + 10));
+    }
+    (void)seed;
+    cv_to_tex(t);
+}
+
+/* ---- the Hollows' floors and ceilings ---- */
+
+static void gen_floor_gravel(int t, uint32_t seed, int scree) {    /* gravel trodden flat; fallen scree on it as the run goes */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = 0.38f + 0.08f * (fbm(x / 8.0f, y / 8.0f, 8, seed) - 0.5f);
+            float r = h01(x, y, seed + 1);
+            uint8_t c = sh(R_FLOOR, v + (r > 0.7f ? 0.1f : r < 0.25f ? -0.08f : 0.0f));
+            if (r > 0.92f) c = sh(R_STONE, 0.45f + 0.2f * h01(x, y, seed + 2));
+            tput(t, x, y, c);
+        }
+    if (scree) {                                                      /* rock come down from the roof */
+        static uint8_t ramp[TS * TS];
+        for (int i = 0; i < TS * TS; i++) { g_v[i] = 0.0f; ramp[i] = 0; }
+        for (int k = 0; k < 9; k++) {
+            float cx = 6.0f + h01(k, 3, seed) * 52.0f, cy = 6.0f + h01(k, 4, seed) * 52.0f, r = 2.5f + 4.0f * h01(k, 5, seed);
+            tx_blob(-1, 0, cx, cy, r * (1.0f + 0.4f * h01(k, 6, seed)), r, 0.3f + 0.25f * h01(k, 7, seed), R_STONE, ramp, 1.0f);
+        }
+        for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) if (ramp[x * TS + y]) tput(t, x, y, sh(R_STONE, GV(x, y)));
+    }
+}
+static void gen_floor_rails(int t, uint32_t seed) {                /* a tramway's rails on their sleepers, laid as laid, along the room */
+    gen_floor_gravel(t, seed, 0);
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int sl = (y & 15) >= 4 && (y & 15) <= 9;
+            if (sl && x >= 10 && x <= 53) tput(t, x, y, sh(R_WOOD, 0.3f + 0.06f * ((y & 15) == 4 ? 1.0f : 0.0f) + 0.05f * (fbm(x / 4.0f, y / 2.0f, 16, seed + 3) - 0.5f) - (x == 10 || x == 53 ? 0.08f : 0.0f)));
+            if ((x >= 18 && x <= 20) || (x >= 43 && x <= 45)) tput(t, x, y, sh(R_IRON, x == 19 || x == 44 ? 0.72f : 0.32f));
+        }
+}
+static void gen_floor_trodden(int t, uint32_t seed) {              /* the halls' floor: earth trodden hard, ruts worn in it */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = 0.4f + 0.12f * (fbm(x / 8.0f, y / 8.0f, 8, seed) - 0.5f) + 0.05f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 1) - 0.5f);
+            if (fbm(x / 4.0f, y / 4.0f, 16, seed + 3) > 0.62f) v -= 0.07f;   /* worn hollows */
+            uint8_t c = sh(R_FLOOR, v + (h01(x, y, seed + 2) > 0.95f ? 0.12f : 0.0f));
+            if (h01(x, y, seed + 4) > 0.985f) { c = sh(R_STONE, 0.5f); tput(t, x + 1, y + 1, sh(R_FLOOR, v - 0.12f)); }   /* a pebble */
+            tput(t, x, y, c);
+        }
+}
+static void gen_ceil_lagging(int t, uint32_t seed) {               /* boards across the roof, a beam every half cell */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int b = x / 8, lx = x & 7;
+            float v = 0.42f + 0.1f * (h01(b, 1, seed) - 0.5f) + 0.06f * sinf(y * 0.5f + b) + 0.05f * (fbm(x / 2.0f, y / 8.0f, 32, seed + 2) - 0.5f);
+            if (lx == 0) v = 0.1f; else if (lx == 1) v += 0.06f;
+            uint8_t c = sh(R_WOOD, v);
+            if ((y & 31) < 6) c = sh(R_WOOD, 0.3f + ((y & 31) == 0 ? 0.12f : (y & 31) == 5 ? -0.12f : 0.0f));   /* a beam */
+            tput(t, x, y, c);
+        }
+}
+static void gen_ceil_roots(int t, uint32_t seed) {                 /* rough rock, roots come through it */
+    gen_ceil_rock(t, seed);
+    for (int k = 0; k < 5; k++) {
+        float x = h01(k, 1, seed) * 64.0f, y = h01(k, 2, seed) * 64.0f, a = h01(k, 3, seed) * TAU_F;
+        for (int i = 0; i < 26; i++) {
+            a += (h01(k, i + 5, seed) - 0.5f) * 0.9f; x += cosf(a); y += sinf(a);
+            tput(t, (int)x, (int)y, sh(R_WOOD, 0.22f + 0.1f * h01(k, i, seed))); tput(t, (int)x + 1, (int)y, sh(R_WOOD, 0.12f));
+            if (i == 12) { float b = a + 1.2f, bx = x, by = y; for (int j = 0; j < 9; j++) { bx += cosf(b); by += sinf(b); tput(t, (int)bx, (int)by, sh(R_WOOD, 0.18f)); } }
+        }
+    }
+}
+
+/* ---- the Hollows' doors, keys and treasure ---- */
+
+static void gen_minedoor(int t, uint32_t seed, int metal) {        /* rough planks braced in a Z; a vault's chained across and locked in its key's metal */
+    int vault = metal >= 0;
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int p = x / 11, lx = x % 11;
+            float v = 0.36f + 0.12f * (h01(p, 0, seed) - 0.5f) + 0.07f * sinf(y * 0.6f + p * 2.0f) + 0.08f * (fbm(x / 4.0f, y / 16.0f, 16, seed) - 0.5f);
+            if (lx == 0) v = 0.06f; else if (lx == 1) v += 0.06f;
+            float d = fabsf((y - 12.0f) - (52.0f - 12.0f) * (1.0f - x / 63.0f));   /* the brace, corner to corner */
+            if ((y >= 8 && y <= 14) || (y >= 50 && y <= 56)) v = 0.48f + (y == 8 || y == 50 ? 0.1f : 0.0f) - (y == 14 || y == 56 ? 0.14f : 0.0f);
+            else if (d < 3.2f) v = 0.46f - (d > 2.4f ? 0.12f : 0.0f);
+            tput(t, x, y, sh(R_WOOD, v));
+        }
+    if (!vault)
+        for (int y = 28; y <= 36; y++) for (int x = 48; x <= 54; x++) tput(t, x, y, sh(R_IRON, 0.35f + (x == 48 || y == 28 ? 0.25f : 0.0f)));   /* the hasp */
+    else {
+        float lo = metal == R_GOLD ? 0.1f : 0.25f;
+        for (int c = 0; c < 2; c++)                                   /* chains across it, a padlock where they meet */
+            for (int i = 0; i < 64; i += 4) {
+                float y = 20.0f + c * 24.0f + 3.0f * sinf(i * 0.1f);
+                for (int a = 0; a < 16; a++) { float ang = TAU_F * a / 16.0f; tput(t, i + 2 + (int)(2.2f * cosf(ang)), (int)y + (int)(1.4f * sinf(ang)), sh(metal, lo + 0.6f + 0.3f * -sinf(ang))); }
+            }
+        for (int y = 30; y <= 44; y++)
+            for (int x = 25; x <= 38; x++) {
+                float dx = (x + 0.5f - 31.5f) / 6.5f, dy = (y + 0.5f - 38.0f) / 6.0f;
+                if (y < 34) { if (fabsf(fabsf(x + 0.5f - 31.5f) - 4.0f) < 1.1f) tput(t, x, y, sh(metal, lo + 0.5f)); continue; }
+                if (dx * dx + dy * dy > 1.0f) continue;
+                float v = lo + 0.55f * lit(dx, dy, sqrtf(1.0f - dx * dx - dy * dy)) + 0.2f;
+                if (fabsf(x + 0.5f - 31.5f) < 1.0f && y > 37 && y < 42) v = 0.0f;
+                tput(t, x, y, v <= 0.0f ? 0 : sh(metal, v));
+            }
+    }
+}
+static void gen_timberjamb(int t, uint32_t seed) {                 /* the doorway's side: the rock, and a post set against it (after the blends: it reuses the granite's blocks) */
+    gen_granite(t, 0, seed + 5, 0);
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < 14; x++) tput(t, x, y, sh(R_WOOD, 0.32f + 0.03f * x - (x == 13 ? 0.12f : 0.0f) + 0.05f * (fbm(x / 2.0f, y / 8.0f, 32, seed) - 0.5f)));
+}
+static void spr_key_tag(int id, float scale, int metal) {          /* a heavy key, a tally tag on its ring */
+    cv_begin(cv_sprite, TS, TS);
+    #define KX(x) (32.0f + ((x) - 32.0f) * scale)
+    float ar = fmaxf(fabsf(scale), 0.18f), lo = metal == R_GOLD ? 0.35f : 0.45f;
+    cv_ellipse(KX(20), 38, 6.0f * ar, 6.0f, metal, lo, 1.0f);       /* the bow, broad */
+    cv_flat(KX(20), 38, 2.6f * ar, 2.6f, C_CLEAR);
+    cv_capsule(KX(25), 38, KX(48), 38, 2.4f, metal, lo, 1.0f);       /* a thick shank */
+    for (int y = 38; y <= 47; y++) for (int x = 42; x <= 49; x++) { if ((x == 44 || x == 47) && y >= 43) continue; cv_px((int)KX(x + 0.5f), y, sh(metal, lo + (1.0f - lo) * (x == 42 || y == 38 ? 0.95f : 0.62f))); }
+    for (int a = 0; a < 20; a++) { float ang = TAU_F * a / 20.0f; cv_px((int)KX(14.0f + 2.5f * cosf(ang)), (int)(44.0f + 2.5f * sinf(ang)), sh(R_IRON, 0.6f)); }   /* the ring */
+    cv_ellipse(KX(12.5f), 51.5f, 4.2f * ar, 4.2f, R_GOLD, 0.25f, 0.7f);   /* its brass tag */
+    for (int i = 0; i < 3; i++) cv_px((int)KX(11.0f + i * 1.5f), 51, sh(R_GOLD, 0.05f));   /* the tally scratched on it */
+    #undef KX
+    cv_outline(sh(metal, 0.05f));
+    cv_store(id);
+}
+static void spr_nuggets(int id, int frame) {                       /* gold as it came out of the rock */
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 16, 2.2f, R_WARM + 1);
+    for (int i = 0; i < 16; i++) {
+        float x = 20.0f + h01(i, 1, 46) * 24.0f, y = 60.0f - h01(i, 2, 46) * 6.0f * (1.0f - fabsf(x - 32.0f) / 14.0f), r = 1.6f + h01(i, 3, 46) * 2.2f;
+        for (int yy = (int)(y - r); yy <= (int)(y + r); yy++)
+            for (int xx = (int)(x - r - 1); xx <= (int)(x + r + 1); xx++) {
+                float dx = (xx + 0.5f - x) / (r + 0.6f * h01(i, xx, 47)), dy = (yy + 0.5f - y) / r;
+                if (dx * dx + dy * dy > 1.0f) continue;
+                cv_px(xx, yy, sh(R_GOLD, 0.3f + 0.65f * lit(dx, dy, sqrtf(fmaxf(0.0f, 1.0f - dx * dx - dy * dy)))));
+            }
+    }
+    cv_outline(0);
+    static const int G[2][3][2] = { { {27, 55}, {37, 57}, {31, 52} }, { {29, 57}, {24, 58}, {39, 55} } };
+    for (int i = 0; i < 3; i++) if (cvp[G[frame][i][1] * TS + G[frame][i][0]] != C_CLEAR) cv_px(G[frame][i][0], G[frame][i][1], C_WHITE);
+    cv_store(id);
+}
+static void spr_rawgems(void) {                                    /* gems still in a lump of their rock */
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 15, 2.0f, R_WARM + 1);
+    for (int y = 46; y <= 61; y++)
+        for (int x = 18; x <= 46; x++) {
+            float dx = (x + 0.5f - 32.0f) / 14.0f, dy = (y + 0.5f - 55.0f) / 8.0f;
+            if (dx * dx + dy * dy * 1.3f > 1.0f) continue;
+            cv_px(x, y, sh(R_STONE, 0.25f + 0.35f * lit(dx, dy, 0.6f) + 0.08f * h01(x, y, 48)));
+        }
+    static const float C[5][4] = { { 24, 52, 3.5f, R_BLOOD }, { 33, 49, 4.5f, R_GLOW }, { 40, 54, 3.0f, R_MOSS }, { 29, 57, 2.6f, R_PURPLE }, { 37, 58, 2.2f, R_BLOOD } };
+    for (int i = 0; i < 5; i++) {                                     /* crystals standing out of it */
+        float cx = C[i][0], cy = C[i][1], r = C[i][2];
+        for (int y = (int)(cy - r * 1.6f); y <= (int)(cy + r * 0.4f); y++)
+            for (int x = (int)(cx - r); x <= (int)(cx + r); x++) {
+                float u = (x + 0.5f - cx) / r, w = 1.0f - (cy + r * 0.4f - y) / (r * 2.0f);
+                if (fabsf(u) > w) continue;
+                cv_px(x, y, sh((int)C[i][3], u < -0.2f ? 0.95f : u < 0.3f ? 0.7f : 0.45f));
+            }
+    }
+    cv_outline(0);
+    cv_px(32, 46, C_WHITE); cv_px(23, 50, C_WHITE);
+    cv_store(SP_GEMS);
+}
+static void spr_strongbox(void) {                                  /* a mine's strongbox, iron, its lid sprung, the take inside */
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 20, 2.2f, R_WARM + 1);
+    float lid[8] = { 15, 44, 49, 44, 46, 32, 18, 32 };
+    cv_poly(lid, 4, R_IRON, 0.5f, 0.2f, 32, 12);
+    for (int i = 0; i < 14; i++) { float x = 18 + h01(i, 6, 49) * 28, y = 45 - h01(i, 7, 49) * 3; cv_ellipse(x, y, 2.6f, 1.6f, R_GOLD, 0.4f, 1.0f); }
+    for (int y = 45; y <= 61; y++)
+        for (int x = 14; x <= 50; x++) {
+            float v = 0.36f + 0.06f * (fbm(x / 4.0f, y / 4.0f, 16, 50) - 0.5f) + (y == 45 ? 0.2f : 0.0f) - (x > 47 ? 0.1f : 0.0f);
+            if ((x - 14) % 9 == 0 || y == 52) v = 0.55f;               /* its bands */
+            if ((x - 14) % 9 == 0 && (y & 3) == 0) v = 0.85f;          /* their rivets */
+            uint8_t c = sh(R_IRON, v);
+            if (x >= 29 && x <= 35 && y >= 48 && y <= 56) c = sh(R_GOLD, (x == 29 || y == 48) ? 0.8f : 0.45f);
+            if (x == 32 && (y == 51 || y == 52)) c = 0;
+            cv_px(x, y, c);
+        }
+    cv_outline(0);
+    cv_px(25, 43, C_WHITE);
+    cv_store(SP_CHEST);
+}
+
+/* ---- the Deep's materials ---- */
+
+/* the Deep's rot runs its own way: glittering as the run begins, burning through its middle, molten late,
+ * and dark at the end, the fire gone out of the rock */
+static float deep_glitter(float dk) { return clampf(1.0f - dk * 2.5f, 0.0f, 1.0f); }
+static float deep_heat(float dk) { return clampf(1.0f - fabsf(dk - 0.62f) / 0.3f, 0.0f, 1.0f); }
+static float deep_dark(float dk) { return clampf((dk - 0.75f) / 0.25f, 0.0f, 1.0f); }
+
+/* obsidian: black glass broken in shells, each facet ribbed about the point it flaked from, the light sliding
+ * over its curve, a hard glint along its upper edge; vseed has a great flake struck off it */
+static void gen_obsidian(int t, int m, uint32_t seed, uint32_t vseed) {
+    float px[9], py[9];
+    static int k1[TS * TS];
+    static float e[TS * TS];
+    for (int i = 0; i < 9; i++) { px[i] = h01(i, 1, seed) * 64.0f; py[i] = h01(i, 2, seed) * 64.0f; }
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float d1, d2;
+            k1[x * TS + y] = voro(x, y, px, py, 9, &d1, &d2);
+            e[x * TS + y] = d2 - d1;
+        }
+    float fx = 40.0f + 8.0f * h01(4, 4, vseed), fy = 26.0f + 8.0f * h01(5, 5, vseed);
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int k = k1[x * TS + y];
+            float ox = px[k] + (h01(k, 3, seed) - 0.5f) * 24.0f, oy = py[k] + (h01(k, 4, seed) - 0.5f) * 24.0f;
+            float r = hypotf(wrapd(x + 0.5f - ox), wrapd(y + 0.5f - oy)), ring = sinf(r * (0.8f + 0.4f * h01(k, 5, seed)));
+            float ang = h01(k, 7, seed) * TAU_F, gx = wrapd(x + 0.5f - px[k]) * (x + 0.5f > px[k] ? 1.0f : -1.0f), gy = wrapd(y + 0.5f - py[k]) * (y + 0.5f > py[k] ? 1.0f : -1.0f);
+            float across = (cosf(ang) * gx + sinf(ang) * gy) / 20.0f - (h01(k, 8, seed) - 0.5f);
+            float sheen = expf(-across * across * 9.0f);
+            float v = 0.12f + 0.07f * (h01(k, 6, seed) - 0.5f) + 0.04f * ring + 0.03f * (fbm(x / 8.0f, y / 8.0f, 8, seed + 8) - 0.5f) + 0.3f * sheen * (0.65f + 0.35f * ring);
+            if (vseed) {                                              /* the flake's scar: ridges close together, bright */
+                float fr = hypotf(wrapd(x + 0.5f - fx), wrapd(y + 0.5f - fy));
+                if (fr < 13.0f) v = 0.1f + 0.22f * (0.5f + 0.5f * sinf(fr * 1.9f)) * (1.0f - fr / 16.0f) + (fr < 2.0f ? 0.2f : 0.0f);
+            }
+            uint8_t c = sh(R_STONE, v);
+            int up = k1[((x - 1) & 63) * TS + ((y - 1) & 63)] != k, down = k1[((x + 1) & 63) * TS + ((y + 1) & 63)] != k;
+            int keen = h01(k, 9, seed) < 0.35f;                       /* some facets' edges catch the light, most don't */
+            if (e[x * TS + y] < 0.9f) c = sh(R_STONE, 0.03f);         /* the break between facets */
+            else if (up && e[x * TS + y] < 2.0f && keen) c = sh(R_STONE, 0.34f + 0.3f * sheen);
+            else if (down && e[x * TS + y] < 2.0f) c = sh(R_STONE, 0.06f);
+            else if (sheen > 0.9f && h01(x, y, seed + 9) > 0.97f) c = sh(R_GHOST, 0.45f);
+            tput(t, x, y, c);
+            g_mid[m][x * TS + y] = (uint16_t)(e[x * TS + y] < 0.9f ? 0 : 1 + k);
+        }
+}
+
+/* rock crusted with ash: grey stone full of the holes its gas left, ash settled on every ledge and run down
+ * from it; vseed has a vent's mouth, sulphur yellow about it */
+static void gen_ashrock(int t, int m, uint32_t seed, uint32_t vseed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float s = y + 9.0f * (fbm(x / 16.0f, y / 32.0f, 4, seed + 1) - 0.5f) * 2.0f + 64.0f;
+            float u = fmodf(s, 12.0f);
+            float v = 0.32f + 0.12f * (fbm(x / 8.0f, y / 8.0f, 8, seed) - 0.5f) + 0.05f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 2) - 0.5f) + 0.012f * u;
+            uint8_t c = sh(R_STONE, v);
+            float lip = 2.2f + 1.6f * fbm(x / 4.0f, s / 12.0f, 16, seed + 3);
+            if (u < lip) c = sh(R_IRON, 0.58f + 0.14f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 4) - 0.5f) + (u < 0.8f ? 0.08f : 0.0f));   /* the ash on the ledge */
+            else if (u < lip + 1.0f) c = sh(R_STONE, 0.08f);          /* the shadow under it */
+            else if (u < lip + 9.0f && fbm(x / 2.0f, y / 16.0f, 32, seed + 5) > 0.68f - 0.02f * (u - lip)) c = sh(R_IRON, 0.42f + 0.1f * h01(x, y, seed + 6));   /* run down the rock */
+            else if (h01(x, y, seed + 7) > 0.975f) c = sh(R_IRON, 0.62f);
+            tput(t, x, y, c);
+            g_mid[m][x * TS + y] = 0;
+        }
+    for (int k = 0; k < 26; k++) {                                    /* the holes the gas left */
+        float cx = h01(k, 11, seed) * 64.0f, cy = h01(k, 12, seed) * 64.0f, r = 0.8f + 1.6f * h01(k, 13, seed);
+        for (int y = (int)(cy - r) - 1; y <= (int)(cy + r) + 1; y++)
+            for (int x = (int)(cx - r * 1.3f) - 1; x <= (int)(cx + r * 1.3f) + 1; x++) {
+                float dx = (x + 0.5f - cx) / (r * 1.3f), dy = (y + 0.5f - cy) / r, d = dx * dx + dy * dy;
+                if (d <= 1.0f) tput(t, x, y, sh(R_STONE, dy > 0.4f ? 0.44f : 0.04f));
+            }
+    }
+    if (vseed) {                                                      /* the vent's mouth, and its sulphur */
+        float cx = 30.0f + 10.0f * h01(6, 1, vseed), cy = 40.0f;
+        for (int y = (int)cy - 12; y <= (int)cy + 8; y++)
+            for (int x = (int)cx - 14; x <= (int)cx + 14; x++) {
+                float dx = (x + 0.5f - cx) / 6.0f, dy = (y + 0.5f - cy) / 3.5f, d = sqrtf(dx * dx + dy * dy) + 0.6f * (fbm(x / 4.0f, y / 4.0f, 16, vseed) - 0.5f);
+                if (d < 1.0f) tput(t, x, y, sh(R_STONE, 0.02f + (dy > 0.5f ? 0.06f : 0.0f)));
+                else if (d < 2.2f && h01(x, y, vseed + 1) < 0.75f - 0.3f * (d - 1.0f)) tput(t, x, y, sh(R_GOLD, 0.3f + 0.25f * h01(x, y, vseed + 2) - 0.1f * (d - 1.0f)));
+            }
+    }
+}
+
+/* crystal crust: the wall grown over with amethyst, point after point, each a pyramid of six faces seen end
+ * on; a light down in the deepest (glow, 0 to 1); vseed has one great crystal */
+static void gen_crystal(int t, int m, uint32_t seed, uint32_t vseed, float glow) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            tput(t, x, y, sh(R_PURPLE, 0.06f + 0.06f * fbm(x / 4.0f, y / 4.0f, 16, seed)));
+            g_mid[m][x * TS + y] = 0;
+        }
+    const float LA = 3.93f;                                           /* the light, from the upper left */
+    for (int k = 0; k < 34; k++) {
+        float cx = h01(k, 1, seed) * 64.0f, cy = h01(k, 2, seed) * 64.0f, r = 5.0f + 5.5f * h01(k, 3, seed), rot = h01(k, 4, seed) * 1.05f;
+        if (vseed && k == 33) { cx = 34.0f + 6.0f * h01(1, 1, vseed); cy = 30.0f; r = 14.0f; }
+        int lit_core = h01(k, 5, seed) < 0.06f + 0.12f * glow;
+        for (int y = (int)(cy - r) - 1; y <= (int)(cy + r) + 1; y++)
+            for (int x = (int)(cx - r) - 1; x <= (int)(cx + r) + 1; x++) {
+                float dx = x + 0.5f - cx, dy = y + 0.5f - cy, d = sqrtf(dx * dx + dy * dy);
+                float a = atan2f(dy, dx) - rot + TAU_F * 2.0f, sec = fmodf(a, PI_F / 3.0f);
+                float rr = r * 0.866f / cosf(sec - PI_F / 6.0f);
+                if (d > rr) continue;
+                float th = rot + (floorf(a / (PI_F / 3.0f)) + 0.5f) * PI_F / 3.0f;
+                float v = 0.42f + 0.3f * cosf(th - LA) + 0.12f * (1.0f - d / rr);
+                uint8_t c = sh(R_PURPLE, v);
+                if (fminf(sec, PI_F / 3.0f - sec) * d < 0.5f && d > 1.0f) c = sh(R_PURPLE, v - 0.16f);   /* the ridge between two faces */
+                if (d > rr - 0.9f) c = sh(R_PURPLE, 0.05f);           /* where it meets the next */
+                else if (d < 1.0f) c = sh(R_PURPLE, 0.95f);           /* the point */
+                else if (lit_core && d < rr * 0.45f && glow > 0.05f) c = (uint8_t)(R_GLOW + clampi((int)(3.0f + 9.0f * glow * (1.0f - d / (rr * 0.45f)) + 2.0f * cosf(th - LA)), 1, 13));
+                tput(t, x, y, c);
+                g_mid[m][(x & 63) * TS + (y & 63)] = (uint16_t)(1 + k);
+            }
+    }
+}
+
+/* bone in glass: the dead the fire caught, fused into the black glass, its sheen running over them; vseed has a
+ * skull pressed into it */
+static void gen_boneglass(int t, int m, uint32_t seed, uint32_t vseed) {
+    gen_obsidian(t, m, seed, 0);
+    cv_begin(cv_sprite, TS, TS);
+    for (int k = 0; k < 9; k++) {
+        float x0 = h01(k, 1, seed + 3) * 64.0f, y0 = h01(k, 2, seed + 3) * 64.0f, a = h01(k, 3, seed + 3) * PI_F, len = 12.0f + h01(k, 4, seed + 3) * 9.0f;
+        wrap_draw(0, x0, y0, x0 + cosf(a) * len, y0 + sinf(a) * len, 1.3f + 0.3f * h01(k, 5, seed + 3), 0.75f);
+    }
+    for (int k = 0; k < (vseed ? 3 : 2); k++)
+        wrap_draw(1, 12.0f + k * 22.0f + 6.0f * h01(k, 7, seed + 3), 14.0f + 36.0f * h01(k, 8, seed + 3), k == 2 ? 1.2f : 0.85f, 0.8f, 0, 0);
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t b = cv_sprite[y * TS + x], g = crawl_tex[t][x * TS + y];
+            if (b == C_CLEAR) continue;
+            int deep = fbm(x / 8.0f, y / 8.0f, 8, seed + 4) > 0.58f;   /* some of it further in, under more glass */
+            uint8_t c = darker(b, deep ? 5 : 2);
+            if (g >= R_GHOST && g < R_GHOST + 16) c = lighter(c, 3);   /* the glass's glint over it */
+            else if (g >= R_STONE && g < R_STONE + 16 && g - R_STONE >= 7) c = lighter(c, 1);
+            tput(t, x, y, c);
+        }
+    for (int i = 0; i < TS * TS; i++) g_mid[m][i] = 0;
+}
+
+/* the Deep's rot: soot and grime from the shared field; glitter early; cracks that heat through the middle of
+ * the run and glow, run molten on one look of each late on, and go out dark at the end */
+static void decay_deep(int t, float dk, uint32_t field, uint32_t own, int marked) {
+    float glit = deep_glitter(dk), heat = deep_heat(dk), dark = deep_dark(dk);
+    uint8_t *p = crawl_tex[t];
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c = p[x * TS + y];
+            if (c == C_CLEAR || IS_FULLBRIGHT(c)) continue;
+            float n = fbm(x / 8.0f, y / 8.0f, 8, field + 5);
+            if (n < 0.12f + 0.2f * dk + 0.12f * dark) c = darker(c, 1 + (n < 0.1f + 0.12f * dk));   /* soot, and the dark coming */
+            if (glit > 0.0f && h01(x, y, own + 3) > 1.0f - 0.002f * glit) c = sh(R_GHOST, 0.6f);   /* mica and glass dust glittering */
+            p[x * TS + y] = c;
+        }
+    int cracks = dk > 0.25f ? 1 + (int)(dk * 4.0f) : 0;
+    for (int k = 0; k < cracks; k++) {
+        float x = h01(k, 3, own) * 64.0f, y = h01(k, 4, own) * 64.0f, a = h01(k, 5, own) * TAU_F;
+        int len = 10 + (int)(h01(k, 6, own) * 24.0f);
+        for (int i = 0; i < len; i++) {
+            a += (h01(k, i + 10, own) - 0.5f) * 1.1f; x += cosf(a); y += sinf(a);
+            uint8_t *q = &p[((int)x & 63) * TS + ((int)y & 63)];
+            if (*q == C_CLEAR) continue;
+            if (heat > 0.15f) {
+                *q = (uint8_t)(R_FLAME + clampi((int)(2.0f + 10.0f * heat), 2, 12));
+                uint8_t *q2 = &p[(((int)x + 1) & 63) * TS + ((int)y & 63)];
+                if (*q2 != C_CLEAR && !IS_FULLBRIGHT(*q2)) *q2 = sh(R_BLOOD, 0.2f + 0.2f * heat);
+            } else *q = dark > 0.0f ? sh(R_BLOOD, 0.1f) : sh(R_STONE, 0.02f);   /* not yet hot; or cooled again, red-black */
+        }
+    }
+    if (marked && heat > 0.4f) {                                      /* the rock running molten down from a crack */
+        int x0 = 10 + (int)(h01(7, 7, own) * 44.0f), y0 = 8 + (int)(h01(8, 8, own) * 18.0f), len = (int)(14.0f + 30.0f * heat);
+        for (int i = 0; i < len && y0 + i < 64; i++) {
+            int x = x0 + (int)(1.5f * sinf(i * 0.3f)), w = i < len - 4 ? 1 : 0;
+            for (int o = -w; o <= w; o++) {
+                uint8_t *q = &p[((x + o) & 63) * TS + (y0 + i)];
+                if (*q != C_CLEAR) *q = (uint8_t)(R_FLAME + clampi(13 - i / 6 - abs(o) * 3, 3, 14));
+            }
+        }
+    }
+}
+
+/* ---- what stands on the Deep's walls ---- */
+
+static void gen_feat_geode(int t, uint32_t seed, float glow) {    /* a geode broken open in the rock: banded rind, crystals grown inward from it, alight */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 4; y < 60; y++)
+        for (int x = 4; x < 60; x++) {
+            float dx = (x + 0.5f - 32.0f) / 17.0f, dy = (y + 0.5f - 31.0f) / 15.0f, a = atan2f(dy, dx);
+            float d = sqrtf(dx * dx + dy * dy) + 0.22f * (fbm(a * 1.6f + 3.0f, 0.5f, 8, seed) - 0.5f) + 0.06f * (fbm(x / 4.0f, y / 4.0f, 16, seed + 1) - 0.5f);
+            if (d > 1.28f) continue;
+            if (d > 1.0f) {                                            /* the rind, banded like agate */
+                int band = (int)((d - 1.0f) * 26.0f);
+                static const int RB[4] = { R_STONE, R_GHOST, R_STONE, R_PURPLE };
+                float v = (band & 1 ? 0.48f : 0.28f) + 0.12f * lit(-dx, -dy, 0.5f) - (d > 1.22f ? 0.16f : 0.0f);
+                cv_px(x, y, sh(RB[band & 3], v));
+                continue;
+            }
+            uint8_t c = sh(R_PURPLE, 0.04f);                          /* the hollow's dark */
+            for (int ring = 0; ring < 2; ring++) {                     /* two courses of crystals, each pointing in from the rind */
+                int nsec = ring ? 19 : 29;
+                float sw = TAU_F / nsec, aa = a + PI_F + h01(ring, 1, seed) * sw + 0.4f * (fbm(d * 3.0f, 0.5f, 4, seed + 2 + ring) - 0.5f);
+                int sec = (int)floorf(aa / sw);
+                float off = aa / sw - sec - 0.5f;                       /* -0.5 .. 0.5 across the crystal */
+                float len = (ring ? 0.88f : 0.5f) * (0.7f + 0.6f * h01(sec, 3 + ring, seed));
+                float in = 1.0f - d;                                    /* how far in from the rind */
+                if (in > len * (1.0f - 2.0f * fabsf(off))) continue;    /* past its point */
+                float side = (off < 0.0f ? 1.0f : -1.0f) * cosf(sec * sw - 3.93f);
+                float f = 0.45f + 0.25f * side + 0.3f * (in / len);    /* the point brightest */
+                c = sh(R_PURPLE, 0.15f + 0.6f * f);                    /* amethyst, the light in its points */
+                if (glow > 0.05f && ring && in > len * 0.55f) c = (uint8_t)(R_GLOW + clampi((int)(2.0f + 11.0f * glow * f), 1, 14));
+                if (fabsf(off) > 0.44f) c = sh(R_PURPLE, 0.06f);
+                break;
+            }
+            if (d > 0.96f) c = sh(R_STONE, 0.05f);                    /* the lip's shadow */
+            cv_px(x, y, c);
+        }
+    cv_to_tex(t);
+}
+static void gen_feat_seam(int t, uint32_t seed, float glow) {     /* a seam across the rock, a few gems in it, some with a fire in them */
+    cv_begin(cv_sprite, TS, TS);
+    for (int x = 2; x < 62; x++)
+        for (int y = 0; y < TS; y++) {
+            float cy = 30.0f - x * 0.25f + 5.0f * sinf(x * 0.11f + h01(1, 1, seed) * 6.0f), w = 2.0f + 1.6f * fbm(x / 8.0f, 0.5f, 8, seed);
+            float d = fabsf(y + 0.5f - cy);
+            if (d > w) continue;
+            uint8_t c = h01(x, y, seed + 2) > 0.75f ? sh(R_BONE, 0.38f + 0.15f * h01(x, y, seed + 3)) : sh(R_STONE, 0.1f + 0.05f * h01(x, y, seed + 4));
+            if (d > w - 0.8f) c = sh(R_STONE, 0.03f);
+            cv_px(x, y, c);
+        }
+    for (int k = 0; k < 7; k++) {                                     /* the gems in it, where they fell */
+        float x = 6.0f + 52.0f * h01(k, 5, seed), cy = 30.0f - x * 0.25f + 5.0f * sinf(x * 0.11f + h01(1, 1, seed) * 6.0f) + 1.5f * (h01(k, 6, seed) - 0.5f);
+        float q = h01(k, 7, seed), r = 1.6f + 2.4f * h01(k, 8, seed) * h01(k, 9, seed);
+        int ramp = q < 0.4f ? R_BLOOD : q < 0.5f ? R_GOLD : -1, fire = ramp < 0 ? (q < 0.8f ? R_GLOW : R_FLAME) : 0;
+        for (int y = (int)(cy - r) - 1; y <= (int)(cy + r) + 1; y++)
+            for (int xx = (int)(x - r) - 1; xx <= (int)(x + r) + 1; xx++) {
+                float dx = xx + 0.5f - x, dy = y + 0.5f - cy;
+                if (fabsf(dx) + fabsf(dy) * 1.2f > r) continue;
+                float f = (dx + dy < 0 ? 0.8f : 0.45f) - 0.15f * (fabsf(dx) + fabsf(dy)) / r;
+                uint8_t c = fire ? (glow > 0.05f ? (uint8_t)(fire + clampi((int)(3.0f + 9.0f * glow * f), 1, 13)) : sh(R_PURPLE, f)) : sh(ramp, f);
+                cv_px(xx, y, c);
+            }
+    }
+    cv_to_tex(t);
+}
+static void gen_feat_gold(int t, uint32_t seed) {                 /* threads of gold through white quartz, forking */
+    cv_begin(cv_sprite, TS, TS);
+    static float bx[8], by[8], ba[8]; static int bl[8];
+    int nb = 1;
+    bx[0] = 4.0f; by[0] = 18.0f + 24.0f * h01(0, 2, seed); ba[0] = 0.15f; bl[0] = 56;
+    for (int b = 0; b < nb; b++) {
+        float x = bx[b], y = by[b], a = ba[b];
+        for (int i = 0; i < bl[b]; i++) {
+            a += (h01(b, i + 9, seed) - 0.5f) * 0.5f + (b ? 0.0f : -0.08f * (a - 0.15f));
+            x += cosf(a); y += sinf(a);
+            if (nb < 8 && b < 3 && i > 4 && h01(b, i + 60, seed) < 0.07f) {   /* a fork */
+                bx[nb] = x; by[nb] = y; ba[nb] = a + (h01(b, i + 70, seed) < 0.5f ? 0.9f : -0.9f); bl[nb] = 8 + (int)(h01(nb, 4, seed) * 12.0f); nb++;
+            }
+            for (int oy = -1; oy <= 1; oy++)
+                for (int ox = -1; ox <= 1; ox++)
+                    if (cvp[(((int)y + oy) & 63) * TS + (((int)x + ox) & 63)] == C_CLEAR && h01((int)x + ox, (int)y + oy, seed + 1) < 0.8f)
+                        cv_px(((int)x + ox) & 63, ((int)y + oy) & 63, sh(R_BONE, 0.42f + 0.16f * h01((int)x + ox, (int)y + oy, seed + 2)));
+            cv_px((int)x & 63, (int)y & 63, sh(R_GOLD, 0.6f + 0.35f * h01(i, b, seed + 3)));
+            if (!b && h01(i, 6, seed) < 0.05f) cv_ellipse(x, y, 1.8f, 1.5f, R_GOLD, 0.35f, 1.0f);   /* a nugget in it */
+        }
+    }
+    cv_to_tex(t);
+}
+static void gen_feat_fused(int t, uint32_t seed) {                /* one of the dead fused into the rock, an arm up as if it clawed at it */
+    cv_begin(cv_sprite, TS, TS);
+    cv_bone(31, 20, 32, 44, 1.1f, 0.35f, 0.75f);                      /* the spine */
+    for (int r = 0; r < 5; r++)
+        for (int sd = -1; sd <= 1; sd += 2)
+            for (int i = 1; i <= 8 - r / 2; i++) {
+                float x = 31.5f + sd * i * 1.1f, y = 23.0f + r * 3.2f + 0.08f * i * i;
+                cv_px((int)x, (int)y, sh(R_BONE, 0.7f - 0.03f * i)); cv_px((int)x, (int)y + 1, sh(R_BONE, 0.35f));
+            }
+    cv_bone(24, 21, 17, 36, 1.2f, 0.35f, 0.8f); cv_bone(17, 36, 21, 50, 1.0f, 0.35f, 0.75f);   /* an arm hanging */
+    cv_bone(39, 21, 46, 10, 1.2f, 0.35f, 0.8f); cv_bone(46, 10, 49, 1, 1.0f, 0.35f, 0.75f);    /* the other, raised */
+    for (int f = 0; f < 3; f++) cv_line(49.0f + (f - 1) * 1.5f, 2.0f, 49.0f + (f - 1) * 2.5f, -2.0f, sh(R_BONE, 0.6f));
+    cv_ellipse(32, 47, 6.0f, 3.0f, R_BONE, 0.35f, 0.75f);             /* the pelvis */
+    cv_bone(28, 49, 25, 63, 1.3f, 0.35f, 0.8f); cv_bone(36, 49, 40, 63, 1.3f, 0.35f, 0.8f);
+    cv_skull(31.0f, 12.0f, 1.0f, 0.35f, 0.85f);
+    static uint8_t keep[TS * TS];
+    memcpy(keep, cv_sprite, sizeof keep);
+    for (int y = 0; y < TS; y++)                                       /* the rock melted about it, and the glaze over it */
+        for (int x = 0; x < TS; x++) {
+            uint8_t b = keep[y * TS + x];
+            if (b != C_CLEAR) { cv_px(x, y, fabsf((x - y) * 0.7f - 4.0f) < 2.0f ? lighter(b, 2) : darker(b, 2)); continue; }
+            int near = 0;
+            for (int k = 0; k < 8 && !near; k++) { int xx = x + (int)(3.0f * cosf(k * 0.785f)), yy = y + (int)(3.0f * sinf(k * 0.785f)); near = xx >= 0 && xx < 64 && yy >= 0 && yy < 64 && keep[yy * TS + xx] != C_CLEAR; }
+            if (near) cv_px(x, y, sh(R_STONE, 0.04f + 0.06f * fbm(x / 4.0f, y / 2.0f, 16, seed)));
+        }
+    cv_to_tex(t);
+}
+static void gen_feat_frieze(int t, uint32_t seed) {               /* the throne's frieze: a crowned dead king carved in the glass, inlaid with gold */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 6; y <= 58; y++)                                     /* the gold border */
+        for (int x = 8; x <= 56; x++) {
+            int edge = x == 8 || x == 56 || y == 6 || y == 58, in = x == 10 || x == 54 || y == 8 || y == 56;
+            if (edge) cv_px(x, y, sh(R_GOLD, 0.5f + (x == 8 || y == 6 ? 0.3f : 0.0f)));
+            else if (in && x >= 10 && x <= 54 && y >= 8 && y <= 56) cv_px(x, y, sh(R_GOLD, 0.35f));
+        }
+    #define CUT(x0, y0, x1, y1) do { cv_line(x0, y0, x1, y1, sh(R_GOLD, 0.45f)); cv_line((x0) + 1, (y0) + 1, (x1) + 1, (y1) + 1, sh(R_STONE, 0.02f)); } while (0)
+    CUT(20, 18, 20, 50); CUT(44, 18, 44, 50); CUT(20, 18, 44, 18); CUT(16, 50, 48, 50);   /* the throne */
+    CUT(24, 38, 40, 38); CUT(24, 38, 22, 50); CUT(40, 38, 42, 50);                        /* the seat, the knees */
+    CUT(27, 30, 24, 38); CUT(37, 30, 40, 38); CUT(27, 30, 37, 30);                        /* the robe */
+    cv_skull(32.0f, 24.5f, 0.62f, 0.3f, 0.7f);
+    for (int i = 0; i < 5; i++) cv_line(28.0f + i * 2.0f, 20.0f, 28.0f + i * 2.0f, 17.0f - (i & 1) * 2.0f, sh(R_GOLD, 0.75f));   /* its crown */
+    cv_line(28, 20, 36, 20, sh(R_GOLD, 0.6f));
+    for (int i = 0; i < 9; i++) cv_px(14 + i * 4 + (i > 4 ? 2 : 0), 54, sh(R_GOLD, 0.6f));   /* the marks below it */
+    #undef CUT
+    (void)seed;
+    cv_to_tex(t);
+}
+static void gen_feat_fissure(int t, int frame, uint32_t seed, float glow) {   /* a fissure in the wall, the molten rock in it, its light (three frames) */
+    cv_begin(cv_sprite, TS, TS);
+    float ph = h01(1, 1, seed) * 6.0f;
+    for (int y = 4; y < 60; y++) {
+        float cx = 32.0f + 5.0f * sinf(y * 0.13f + ph) + 3.0f * (fbm(y / 8.0f, 0.5f, 8, seed) - 0.5f) * 2.0f;
+        float w = (1.2f + 2.6f * sinf(PI_F * (y - 4) / 56.0f)) * (0.75f + 0.5f * fbm(y / 4.0f, 1.5f, 16, seed + 1));
+        for (int x = (int)(cx - w - 6.0f); x <= (int)(cx + w + 6.0f); x++) {
+            float d = fabsf(x + 0.5f - cx);
+            int pulse = sinf(y * 0.37f + frame * 2.1f + ph) > -0.2f;
+            if (d < w * 0.45f) cv_px(x, y, (uint8_t)(R_FLAME + clampi((int)((pulse ? 15.0f : 13.0f) * (0.45f + 0.55f * glow)), 4, 15)));
+            else if (d < w) cv_px(x, y, (uint8_t)(R_FLAME + clampi((int)((9.0f + 3.0f * pulse) * (0.45f + 0.55f * glow)), 3, 12)));
+            else if (d < w + 1.2f) cv_px(x, y, (uint8_t)(R_FLAME + clampi((int)(4.0f * glow), 1, 4)));
+            else if (h01(x, y, seed + 2) < 0.85f - (d - w) * 0.17f) cv_px(x, y, sh(R_BLOOD, 0.18f + 0.25f * (1.0f - (d - w) / 6.0f)));   /* the rock reddened by it */
+        }
+    }
+    int drip = 2 + frame * 2;                                         /* what runs out of its foot */
+    for (int y = 58; y < 58 + drip && y < 64; y++) cv_px(32 + (int)(5.0f * sinf(58 * 0.13f + ph)), y, (uint8_t)(R_FLAME + 12 - (y - 58)));
+    cv_to_tex(t);
+}
+
+/* ---- the Deep's floors, ceilings, doors, keys and treasure ---- */
+
+static void gen_floor_glass(int t, uint32_t seed, int broken, float heat) {   /* black glass underfoot, a crack or two; broken through later, the fire under it */
+    float px[12], py[12];
+    for (int i = 0; i < 12; i++) { px[i] = h01(i, 1, seed) * 64.0f; py[i] = h01(i, 2, seed) * 64.0f; }
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = 0.13f + 0.04f * (fbm(x / 8.0f, y / 8.0f, 8, seed + 3) - 0.5f) + 0.15f * expf(-powf((fbm(x / 16.0f, y / 16.0f, 4, seed + 4) - 0.5f) * 7.0f, 2.0f));
+            uint8_t c = sh(R_STONE, v);
+            if (broken) {                                              /* shattered: each piece a little askew, the gaps between */
+                float d1, d2;
+                int k = voro(x, y, px, py, 12, &d1, &d2);
+                c = sh(R_STONE, v + 0.07f * (h01(k, 5, seed) - 0.5f));
+                if (d2 - d1 < 1.2f) c = heat > 0.15f && h01(k, 6, seed) < 0.5f ? (uint8_t)(R_FLAME + clampi((int)(2.0f + 6.0f * heat), 2, 8)) : sh(R_STONE, 0.02f);
+            }
+            if (h01(x, y, seed + 7) > 0.998f) c = sh(R_GHOST, 0.4f);
+            tput(t, x, y, c);
+        }
+    for (int k = 0; k < (broken ? 1 : 3); k++) {                      /* a crack or two across it, a lit edge along each */
+        float x = h01(k, 11, seed) * 64.0f, y = h01(k, 12, seed) * 64.0f, a = h01(k, 13, seed) * TAU_F;
+        int len = 18 + (int)(h01(k, 14, seed) * 26.0f);
+        for (int i = 0; i < len; i++) {
+            a += (h01(k, i + 20, seed) - 0.5f) * 0.7f; x += cosf(a); y += sinf(a);
+            tput(t, (int)x, (int)y, sh(R_STONE, 0.02f));
+            tput(t, (int)x + 1, (int)y, sh(R_STONE, 0.34f));
+            if (i % 9 == 4) {                                         /* a spur off it */
+                float sa = a + 1.4f, sx = x, sy = y;
+                for (int j = 0; j < 5; j++) { sx += cosf(sa); sy += sinf(sa); tput(t, (int)sx, (int)sy, sh(R_STONE, 0.04f)); }
+            }
+        }
+    }
+}
+static void gen_floor_throne(int t, uint32_t seed) {               /* great flags of black glass, gold laid in their joints */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int lx = x & 31, ly = y & 31, f = (x >> 5) + (y >> 5) * 2;
+            float sd = (float)(lx - ly) + 10.0f * (h01(f, 1, seed) - 0.5f);
+            float v = 0.12f + 0.04f * h01(f, 2, seed) + 0.2f * expf(-sd * sd / 18.0f) + 0.03f * (fbm(x / 4.0f, y / 4.0f, 16, seed) - 0.5f);
+            uint8_t c = sh(R_STONE, v);
+            if (lx == 0 || ly == 0) c = sh(R_GOLD, (lx == 0 && ly == 0) ? 0.85f : 0.32f + 0.12f * h01(x, y, seed + 3));
+            else if (lx == 1 || ly == 1 || lx == 31 || ly == 31) c = sh(R_STONE, 0.04f);
+            if (abs(lx - 16) + abs(ly - 16) == 5) c = sh(R_GOLD, 0.28f);  /* a lozenge inlaid in each */
+            tput(t, x, y, c);
+        }
+}
+static void gen_floor_ash(int t, uint32_t seed) {                  /* ash, drifted in ripples, cinders in it */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = 0.5f + 0.1f * (fbm(x / 8.0f, y / 8.0f, 8, seed) - 0.5f) + 0.05f * sinf(x * 0.3f + y * 0.14f + 7.0f * fbm(x / 16.0f, y / 16.0f, 4, seed + 1)) + 0.04f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 2) - 0.5f);
+            uint8_t c = sh(R_IRON, v);
+            float r = h01(x, y, seed + 3);
+            if (r > 0.965f) c = sh(R_STONE, 0.08f);
+            else if (r < 0.006f) c = sh(R_BONE, 0.55f);
+            tput(t, x, y, c);
+        }
+}
+static void gen_floor_cinder(int t, uint32_t seed, float heat, float dark) {   /* clinker and crust, the seams between alight while the rock burns */
+    float px[16], py[16];
+    for (int i = 0; i < 16; i++) { px[i] = h01(i, 1, seed) * 64.0f; py[i] = h01(i, 2, seed) * 64.0f; }
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float d1, d2;
+            int k = voro(x, y, px, py, 16, &d1, &d2);
+            float gx = wrapd(x + 0.5f - px[k]) * (x + 0.5f > px[k] ? 1.0f : -1.0f), gy = wrapd(y + 0.5f - py[k]) * (y + 0.5f > py[k] ? 1.0f : -1.0f);
+            float v = 0.2f + 0.08f * (h01(k, 3, seed) - 0.5f) - 0.008f * (gx + gy) + 0.06f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 4) - 0.5f);
+            uint8_t c = sh(R_STONE, v);
+            if (d2 - d1 < 1.4f) {
+                if (heat > 0.1f && fbm(x / 8.0f, y / 8.0f, 8, seed + 5) > 0.7f - 0.1f * heat) c = (uint8_t)(R_FLAME + clampi((int)(2.0f + 5.0f * heat), 2, 7));
+                else c = dark > 0.0f ? sh(R_BLOOD, 0.08f) : sh(R_STONE, 0.02f);
+            }
+            float ember = h01(x, y, seed + 6);
+            if (ember > 1.0f - 0.004f * (0.4f + heat) * (1.0f - dark)) c = (uint8_t)(R_FLAME + 12);
+            tput(t, x, y, c);
+        }
+}
+static void gen_ceil_crystal(int t, uint32_t seed, float glow) {   /* the roof hung with crystal, a light far up in some */
+    gen_crystal(t, M4_CRYSTAL, seed, 0, glow * 0.3f);
+    for (int i = 0; i < TS * TS; i++) { uint8_t c = crawl_tex[t][i]; crawl_tex[t][i] = IS_FULLBRIGHT(c) ? (uint8_t)(R_GLOW + 2) : darker(c, 6); }
+}
+static void gen_ceil_glint(int t, uint32_t seed) {                 /* rough rock with mica in it */
+    gen_ceil_rock(t, seed);
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            if (h01(x, y, seed + 5) > 0.996f) tput(t, x, y, sh(R_IRON, 0.5f + 0.2f * h01(x, y, seed + 6)));
+            else crawl_tex[t][x * TS + y] = darker(crawl_tex[t][x * TS + y], 1);
+        }
+}
+static void gen_ceil_soot(int t, uint32_t seed, float heat) {      /* rock blackened by the fires under it, its cracks hot */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float v = 0.28f + 0.16f * (fbm(x / 8.0f, y / 8.0f, 8, seed) - 0.5f) + 0.06f * (fbm(x / 2.0f, y / 2.0f, 32, seed + 1) - 0.5f);
+            if (fbm(x / 8.0f, y / 8.0f, 8, seed + 3) < 0.45f) v -= 0.1f;
+            uint8_t c = sh(R_CEIL, v);
+            if (fabsf(fbm(x / 8.0f, y / 8.0f, 8, seed + 2) - 0.5f) < 0.012f) c = heat > 0.3f && fbm(x / 16.0f, y / 16.0f, 4, seed + 4) > 0.66f ? (uint8_t)(R_FLAME + clampi((int)(1.0f + 3.0f * heat), 1, 4)) : sh(R_CEIL, 0.05f);
+            tput(t, x, y, c);
+        }
+}
+static void decay_flat_deep(int t, float dk, uint32_t seed) {      /* soot on the Deep's floors and roofs; no damp down here */
+    if (dk <= 0.0f) return;
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c = crawl_tex[t][x * TS + y];
+            if (IS_FULLBRIGHT(c)) continue;
+            float n = fbm(x / 8.0f, y / 8.0f, 8, seed + 5);
+            if (n < 0.16f + 0.24f * dk) crawl_tex[t][x * TS + y] = darker(c, 1 + (n < 0.14f + 0.1f * dk));
+        }
+}
+static void gen_irondoor(int t, uint32_t seed, int metal, float glow) {   /* black iron in riveted plates, a grille with the fire behind it; a vault banded in its key's metal */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            int sx = x & 31, sy = y % 21;
+            float v = 0.2f + 0.05f * (fbm(x / 4.0f, y / 4.0f, 16, seed) - 0.5f) + 0.04f * h01(x >> 5, y / 21, seed);
+            if (sx == 0 || sy == 0) v = 0.05f; else if (sx == 1 || sy == 1) v = 0.34f;
+            if ((sx == 3 || sx == 29) && (y % 5) == 2) v = 0.6f;      /* the rivets */
+            tput(t, x, y, sh(R_IRON, v));
+        }
+    for (int y = 8; y <= 22; y++)                                     /* the grille, the glow behind it */
+        for (int x = 20; x <= 43; x++) {
+            uint8_t c;
+            if (x == 20 || x == 43 || y == 8 || y == 22) c = sh(R_IRON, 0.45f);
+            else if ((x - 20) % 4 == 0 || y == 15) c = sh(R_IRON, (x - 20) % 4 == 0 ? 0.32f : 0.4f);
+            else c = (uint8_t)(R_FLAME + clampi((int)((3.0f + 0.5f * (y - 8)) * (0.35f + 0.65f * glow)), 1, 11));
+            tput(t, x, y, c);
+        }
+    if (metal >= 0) {
+        float lo = metal == R_GOLD ? 0.1f : 0.25f;
+        for (int b = 0; b < 2; b++)
+            for (int y = 30 + b * 18; y < 34 + b * 18; y++)
+                for (int x = 0; x < TS; x++) tput(t, x, y, sh(metal, lo + 0.5f + (y == 30 + b * 18 ? 0.3f : 0.0f) - (y == 33 + b * 18 ? 0.25f : 0.0f)));
+        for (int y = 36; y <= 46; y++)
+            for (int x = 26; x <= 37; x++) {
+                float v = lo + 0.45f + (x == 26 || y == 36 ? 0.3f : 0.0f) - (x == 37 || y == 46 ? 0.2f : 0.0f);
+                if (x >= 31 && x <= 32 && y >= 39 && y <= 43) { tput(t, x, y, 0); continue; }
+                tput(t, x, y, sh(metal, v));
+            }
+    }
+}
+static void gen_glassjamb(int t, uint32_t seed) {                  /* the doorway's side: ash on the rock, a basalt column set against it (after the blends) */
+    gen_ashrock(t, M4_ASH, seed + 5, 0);
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < 14; x++) {
+            float v = (x < 5 ? 0.42f : x < 10 ? 0.32f : 0.2f) + 0.05f * (fbm(x / 2.0f, y / 8.0f, 32, seed) - 0.5f);
+            if (x == 13 || (y % 23) == 0) v = 0.06f;
+            tput(t, x, y, sh(R_STONE, v));
+        }
+}
+static void spr_key_glass(int id, float scale, int metal) {        /* a key of black glass, its bow and collar in metal */
+    cv_begin(cv_sprite, TS, TS);
+    #define KX(x) (32.0f + ((x) - 32.0f) * scale)
+    float ar = fmaxf(fabsf(scale), 0.18f), lo = metal == R_GOLD ? 0.35f : 0.45f;
+    cv_ellipse(KX(18), 38, 6.0f * ar, 6.0f, metal, lo, 1.0f);       /* the bow */
+    cv_flat(KX(18), 38, 3.0f * ar, 3.0f, C_CLEAR);
+    cv_ellipse(KX(25), 38, 1.8f * ar, 3.2f, metal, lo, 1.0f);       /* the collar */
+    cv_capsule(KX(27), 38, KX(50), 38, 1.9f, R_GHOST, 0.25f, 0.8f); /* the glass shank */
+    for (int y = 39; y <= 47; y++)
+        for (int x = 43; x <= 50; x++) {
+            if (x == 46 && y >= 43) continue;
+            cv_px((int)KX(x + 0.5f), y, sh(R_GHOST, (x == 43 || y == 47) ? 0.75f : 0.4f - 0.02f * (y - 39)));
+        }
+    cv_px((int)KX(34.0f), 37, sh(R_GHOST, 1.0f)); cv_px((int)KX(35.0f), 37, sh(R_GHOST, 0.9f));   /* a glint along it */
+    #undef KX
+    cv_outline(sh(R_IRON, 0.04f));
+    cv_store(id);
+}
+static void spr_molten(int id, int frame) {                        /* coin run molten in the heat, a few still whole at its edge */
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 16, 2.2f, R_WARM + 1);
+    for (int y = 55; y <= 62; y++)
+        for (int x = 17; x <= 47; x++) {
+            float dx = (x + 0.5f - 32.0f) / 14.5f, dy = (y + 0.5f - 59.0f) / 3.6f;
+            if (dx * dx + dy * dy > 1.0f + 0.2f * (fbm(x / 4.0f, 1.0f, 16, 731) - 0.5f)) continue;
+            float v = 0.35f + 0.5f * lit(dx, dy, 0.7f) + 0.1f * sinf(x * 0.9f + frame * 2.0f);
+            cv_px(x, y, sh(R_GOLD, v));
+        }
+    static const float C[3][3] = { { 21, 56, 0.4f }, { 41, 57, -0.3f }, { 35, 54, 0.1f } };
+    for (int i = 0; i < 3; i++) cv_ellipse(C[i][0], C[i][1], 3.4f, 1.8f + C[i][2], R_GOLD, 0.4f, 1.0f);
+    cv_outline(0);
+    for (int i = 0; i < 6; i++) {                                     /* where it is still molten */
+        int x = 25 + (int)(h01(i, frame, 733) * 7.0f), y = 59 + (int)(h01(i, frame + 3, 733) * 2.0f);
+        cv_px(x, y, (uint8_t)(R_FLAME + 11 + (i & 3)));
+    }
+    cv_px(frame ? 39 : 23, 55, C_WHITE);
+    cv_store(id);
+}
+static void spr_glowgems(void) {                                   /* a cluster of crystal with the light in it */
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 14, 2.0f, R_WARM + 1);
+    for (int y = 54; y <= 62; y++)
+        for (int x = 20; x <= 44; x++) {
+            float dx = (x + 0.5f - 32.0f) / 12.0f, dy = (y + 0.5f - 59.0f) / 4.0f;
+            if (dx * dx + dy * dy <= 1.0f) cv_px(x, y, sh(R_STONE, 0.12f + 0.3f * lit(dx, dy, 0.6f)));
+        }
+    static const float P[5][4] = { { 32, 58, 0.0f, 20 }, { 27, 59, -0.45f, 13 }, { 37, 59, 0.4f, 15 }, { 24, 60, -0.8f, 8 }, { 40, 60, 0.75f, 9 } };
+    for (int i = 0; i < 5; i++) {
+        float bx = P[i][0], by = P[i][1], a = P[i][2], len = P[i][3], w = 2.6f, dx = sinf(a), dy = -cosf(a);
+        for (float s = 0; s < len; s += 0.5f) {
+            float hw = s > len - w * 1.5f ? w * (len - s) / (w * 1.5f) : w;
+            for (float o = -hw; o <= hw; o += 0.5f)
+                cv_px((int)(bx + dx * s - dy * o), (int)(by + dy * s + dx * o), (uint8_t)(R_GLOW + clampi((int)(5.0f + 8.0f * (1.0f - fabsf(o) / (w + 0.01f)) * (0.4f + 0.6f * s / len) + (o < 0 ? 2 : 0)), 3, 15)));
+        }
+    }
+    cv_store(SP_GEMS);
+}
+static void spr_idol(void) {                                       /* an idol of black glass, a seated king, gold for its eyes and crown */
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 12, 2.0f, R_WARM + 1);
+    for (int y = 55; y <= 61; y++) for (int x = 22; x <= 42; x++) cv_px(x, y, sh(R_STONE, x == 22 || y == 55 ? 0.4f : 0.1f));   /* its block */
+    float body[8] = { 25, 55, 39, 55, 37, 40, 27, 40 };
+    cv_poly(body, 4, R_STONE, 0.22f, 0.08f, 40, 15);
+    cv_ellipse(32, 35, 4.6f, 5.0f, R_STONE, 0.06f, 0.5f);             /* the head */
+    cv_capsule(27, 42, 24, 50, 1.6f, R_STONE, 0.08f, 0.45f); cv_capsule(37, 42, 40, 50, 1.6f, R_STONE, 0.08f, 0.45f);   /* arms on the knees */
+    cv_outline(sh(R_STONE, 0.02f));
+    for (int y = 41; y <= 54; y++) cv_px(26 + (54 - y) / 7, y, sh(R_GHOST, 0.5f));   /* the glass's edge, lit */
+    cv_px(30, 35, sh(R_GOLD, 0.95f)); cv_px(34, 35, sh(R_GOLD, 0.95f));
+    for (int i = 0; i < 4; i++) cv_line(29.0f + i * 2.0f, 30.0f, 29.0f + i * 2.0f, 28.0f - (i & 1), sh(R_GOLD, 0.8f));
+    cv_line(29, 30, 35, 30, sh(R_GOLD, 0.6f));
+    cv_store(SP_CHALICE);
+}
+
+static void treasure_plain(void) {                                 /* the treasure as the Crypts have it */
+    spr_coins(SP_COINS_A, 0); spr_coins(SP_COINS_B, 1);
+    spr_chalice(); spr_gems(); spr_crown(); spr_chest();
+}
+
+/* The hall's sign, the Repository and the Portal, and the arenas' gates, fonts and drains, are drawn on
+ * plain stone; on a drawn run they stand in its ashlar instead, wherever the plain stone showed */
+static void rebase(int t, uint32_t stone_seed, int base) {
+    static uint8_t keep[TS * TS];
+    memcpy(keep, crawl_tex[T_STONE], sizeof keep);
+    gen_stone(T_STONE, R_STONE, stone_seed);
+    for (int i = 0; i < TS * TS; i++) if (crawl_tex[t][i] == crawl_tex[T_STONE][i]) crawl_tex[t][i] = crawl_tex[base][i];
+    memcpy(crawl_tex[T_STONE], keep, sizeof keep);
+}
+static void specials_plain(void) {
+    gen_sign(T_SIGN, 91);
+    gen_repository(T_REPOSITORY);
+    for (int f = 0; f < 4; f++) gen_portal(T_PORTAL0 + f, f, 107);
+    gen_gate(T_GATE, 97);
+    gen_font(T_FONT, 101, 1); gen_font(T_FONT_DRY, 101, 0);
+    gen_grate(T_GRATE, 103);
+}
+static void specials_on(int base) {
+    specials_plain();
+    rebase(T_SIGN, 91, base); rebase(T_REPOSITORY, 233, base);
+    for (int f = 0; f < 4; f++) rebase(T_PORTAL0 + f, 107, base);
+    rebase(T_GATE, 97, base); rebase(T_FONT, 101, base); rebase(T_FONT_DRY, 101, base); rebase(T_GRATE, 103, base);
+}
+
+/* The run's own textures and keys, for the level's place in it: made from the level (so each level's
+ * stones differ), with the rot of its step. Called after crawl_art_level, which sets the palette. */
+static void crypts_run(float dk, uint32_t s, uint32_t field) {
+    const RunLook *L = &crawl_looks[0];
+    for (int v = 0; v < NVAR; v++) {
+        uint32_t vs = v ? s + 1u : 0u;
+        gen_ashlar(T_MATV(M1_ASHLAR, v), M1_ASHLAR, s, vs);
+        gen_rubble_c(T_MATV(M1_RUBBLE, v), M1_RUBBLE, s + 10, vs);
+        gen_plaster(T_MATV(M1_PLASTER, v), M1_PLASTER, s + 20, vs);
+        gen_bedrock(T_MATV(M1_BEDROCK, v), M1_BEDROCK, s + 30, vs);
+        gen_bonewall(T_MATV(M1_BONES, v), M1_BONES, s + 40, vs);
+    }
+    for (int v = 0; v < NVAR; v++) plaster_flake(T_MATV(M1_PLASTER, v), T_MATV(M1_RUBBLE, 0), dk, field + 30);
+    for (int m = 0; m < NMAT; m++)
+        for (int v = 0; v < NVAR; v++) decay_wall(T_MATV(m, v), m == M1_BONES ? dk * 0.6f : dk, field, s + 60u + (uint32_t)(m * NVAR + v) * 3u);
+    for (int k = 0; k < NBLEND; k++) gen_blend(T_BLEND + k, L->blend[k][0], L->blend[k][1], L->blend[k][0] == M1_PLASTER, s + 70u + (uint32_t)k);
+    gen_feat_niche(T_FEAT + 0, s + 80);
+    gen_feat_banner(T_FEAT + 1, s + 81, dk);
+    gen_feat_slab(T_FEAT + 2, s + 82);
+    gen_feat_shrine(T_FEAT + 3, s + 83);
+    gen_feat_tablet(T_FEAT + 4, s + 84);
+    for (int f = 0; f < 3; f++) gen_feat_torch(T_FEAT + 5 + f, f, 11);
+    for (int i = 0; i < 5; i++) decay_wall(T_FEAT + i, dk * 0.7f, field, s + 90u + (uint32_t)i * 3u);
+    gen_floor_flags(T_FLOORS + 0, s + 100, 0);
+    gen_floor_chapter(T_FLOORS + 1, s + 101);
+    gen_floor_setts(T_FLOORS + 2, s + 102);
+    gen_floor_earth(T_FLOORS + 3, s + 103);
+    gen_floor_flags(T_FLOORS + 4, s + 100, 1);
+    gen_ceil_rib(T_CEILS + 0, s + 110);
+    gen_ceil_vault(T_CEILS + 1, s + 111);
+    gen_ceil_rock(T_CEILS + 2, s + 112);
+    for (int i = 0; i < NFLOORS; i++) decay_flat(T_FLOORS + i, dk, s + 130u + (uint32_t)i);
+    for (int i = 0; i < NCEILS; i++) decay_flat(T_CEILS + i, dk * 0.7f, s + 140u + (uint32_t)i);
+    gen_rdoor(T_RDOOR, s + 120, -1);
+    gen_rjamb(T_RJAMB, s);
+    gen_rdoor(T_RLOCKED, s + 121, R_GOLD);
+    gen_rdoor(T_RLOCKED_S, s + 121, R_IRON);
+    gen_rdoor(T_RLOCKED_C, s + 121, R_BLOOD);
+    decay_flat(T_RDOOR, dk * 0.5f, s + 150);
+    static const float KS[4] = { 1.0f, 0.5f, 0.12f, -0.5f };
+    for (int f = 0; f < 4; f++) { spr_key_trefoil(SP_KEY0 + f, KS[f], R_GOLD); spr_key_trefoil(SP_KEYS0 + f, KS[f], R_IRON); spr_key_trefoil(SP_KEYC0 + f, KS[f], R_BLOOD); }
+    specials_on(T_MATV(M1_ASHLAR, 0));
+}
+static void hollows_run(float dk, uint32_t s, uint32_t field) {
+    const RunLook *L = &crawl_looks[2];
+    for (int v = 0; v < NVAR; v++) {
+        uint32_t vs = v ? s + 1u : 0u;
+        gen_granite(T_MATV(M3_GRANITE, v), M3_GRANITE, s, vs);
+        gen_mineface(T_MATV(M3_FACE, v), M3_FACE, s + 10, vs);
+        gen_timber(T_MATV(M3_TIMBER, v), M3_TIMBER, s + 20, vs, dk);
+        gen_basalt(T_MATV(M3_BASALT, v), M3_BASALT, s + 30, vs, R_IRON);
+        gen_backfill(T_MATV(M3_FILL, v), M3_FILL, s + 40, vs);
+    }
+    for (int m = 0; m < NMAT; m++)
+        for (int v = 0; v < NVAR; v++) decay_hollows(T_MATV(m, v), dk, field, s + 60u + (uint32_t)(m * NVAR + v) * 3u, v);
+    for (int k = 0; k < NBLEND; k++) gen_blend(T_BLEND + k, L->blend[k][0], L->blend[k][1], 0, s + 70u + (uint32_t)k);
+    gen_feat_ore(T_FEAT + F3_ORE, s + 80);
+    gen_feat_fossil(T_FEAT + F3_FOSSIL, s + 81);
+    gen_feat_frame(T_FEAT + F3_FRAME, s + 82);
+    gen_feat_chute(T_FEAT + F3_CHUTE, s + 83);
+    gen_feat_marks(T_FEAT + F3_MARKS, s + 84);
+    for (int f = 0; f < 3; f++) gen_feat_lamp(T_FEAT + F3_LAMP + f, f, 11);
+    for (int i = 0; i < 5; i++) decay_wall(T_FEAT + i, dk * 0.5f, field, s + 90u + (uint32_t)i * 3u);
+    gen_floor_gravel(T_FLOORS + FL3_GRAVEL, s + 100, 0);
+    gen_floor_rails(T_FLOORS + FL3_RAILS, s + 101);
+    gen_floor_trodden(T_FLOORS + FL3_EARTH, s + 102);
+    gen_floor_earth(T_FLOORS + FL3_CHARNEL, s + 103);
+    gen_floor_gravel(T_FLOORS + FL3_SCREE, s + 100, 1);
+    gen_ceil_lagging(T_CEILS + CE3_LAGGING, s + 110);
+    gen_ceil_rock(T_CEILS + CE3_ROCK, s + 111);
+    gen_ceil_roots(T_CEILS + CE3_ROOTS, s + 112);
+    for (int i = 0; i < NFLOORS; i++) decay_flat(T_FLOORS + i, dk * 0.8f, s + 130u + (uint32_t)i);
+    for (int i = 0; i < NCEILS; i++) decay_flat(T_CEILS + i, dk * 0.6f, s + 140u + (uint32_t)i);
+    gen_minedoor(T_RDOOR, s + 120, -1);
+    gen_timberjamb(T_RJAMB, s);
+    gen_minedoor(T_RLOCKED, s + 121, R_GOLD);
+    gen_minedoor(T_RLOCKED_S, s + 121, R_IRON);
+    gen_minedoor(T_RLOCKED_C, s + 121, R_BLOOD);
+    decay_flat(T_RDOOR, dk * 0.5f, s + 150);
+    static const float KS[4] = { 1.0f, 0.5f, 0.12f, -0.5f };
+    for (int f = 0; f < 4; f++) { spr_key_tag(SP_KEY0 + f, KS[f], R_GOLD); spr_key_tag(SP_KEYS0 + f, KS[f], R_IRON); spr_key_tag(SP_KEYC0 + f, KS[f], R_BLOOD); }
+    spr_nuggets(SP_COINS_A, 0); spr_nuggets(SP_COINS_B, 1);
+    spr_rawgems(); spr_strongbox();
+    specials_on(T_MATV(M3_FACE, 0));
+}
+static void deep_run(float dk, uint32_t s, uint32_t field) {
+    const RunLook *L = &crawl_looks[3];
+    float heat = deep_heat(dk), dark = deep_dark(dk), glow = 1.0f - 0.8f * dark;
+    for (int v = 0; v < NVAR; v++) {
+        uint32_t vs = v ? s + 1u : 0u;
+        gen_obsidian(T_MATV(M4_OBSIDIAN, v), M4_OBSIDIAN, s, vs);
+        gen_basalt(T_MATV(M4_BASALT, v), M4_BASALT, s + 10, vs, R_STONE);
+        gen_ashrock(T_MATV(M4_ASH, v), M4_ASH, s + 20, vs);
+        gen_crystal(T_MATV(M4_CRYSTAL, v), M4_CRYSTAL, s + 30, vs, glow);
+        gen_boneglass(T_MATV(M4_BONES, v), M4_BONES, s + 40, vs);
+    }
+    for (int m = 0; m < NMAT; m++)
+        for (int v = 0; v < NVAR; v++) decay_deep(T_MATV(m, v), dk, field, s + 60u + (uint32_t)(m * NVAR + v) * 3u, v);
+    for (int k = 0; k < NBLEND; k++) gen_blend(T_BLEND + k, L->blend[k][0], L->blend[k][1], 0, s + 70u + (uint32_t)k);
+    gen_feat_geode(T_FEAT + F4_GEODE, s + 80, glow);
+    gen_feat_seam(T_FEAT + F4_SEAM, s + 81, glow);
+    gen_feat_gold(T_FEAT + F4_GOLD, s + 82);
+    gen_feat_fused(T_FEAT + F4_FUSED, s + 83);
+    gen_feat_frieze(T_FEAT + F4_FRIEZE, s + 84);
+    for (int f = 0; f < 3; f++) gen_feat_fissure(T_FEAT + F4_FISSURE + f, f, s + 85, glow);
+    for (int i = 0; i < 5; i++) decay_deep(T_FEAT + i, dk * 0.5f, field, s + 90u + (uint32_t)i * 3u, 0);
+    gen_floor_glass(T_FLOORS + FL4_GLASS, s + 100, 0, heat);
+    gen_floor_throne(T_FLOORS + FL4_THRONE, s + 101);
+    gen_floor_ash(T_FLOORS + FL4_ASH, s + 102);
+    gen_floor_cinder(T_FLOORS + FL4_CINDER, s + 103, heat, dark);
+    gen_floor_glass(T_FLOORS + FL4_SHARDS, s + 100, 1, heat);
+    gen_ceil_crystal(T_CEILS + CE4_CRYSTAL, s + 110, glow);           /* after the blends: it borrows the crust's blocks */
+    gen_ceil_glint(T_CEILS + CE4_ROCK, s + 111);
+    gen_ceil_soot(T_CEILS + CE4_SOOT, s + 112, heat);
+    for (int i = 0; i < NFLOORS; i++) decay_flat_deep(T_FLOORS + i, dk * 0.8f, s + 130u + (uint32_t)i);
+    for (int i = 0; i < NCEILS; i++) decay_flat_deep(T_CEILS + i, dk * 0.6f, s + 140u + (uint32_t)i);
+    gen_irondoor(T_RDOOR, s + 120, -1, glow);
+    gen_glassjamb(T_RJAMB, s);
+    gen_irondoor(T_RLOCKED, s + 121, R_GOLD, glow);
+    gen_irondoor(T_RLOCKED_S, s + 121, R_IRON, glow);
+    gen_irondoor(T_RLOCKED_C, s + 121, R_BLOOD, glow);
+    decay_flat_deep(T_RDOOR, dk * 0.5f, s + 150);
+    static const float KS[4] = { 1.0f, 0.5f, 0.12f, -0.5f };
+    for (int f = 0; f < 4; f++) { spr_key_glass(SP_KEY0 + f, KS[f], R_GOLD); spr_key_glass(SP_KEYS0 + f, KS[f], R_IRON); spr_key_glass(SP_KEYC0 + f, KS[f], R_BLOOD); }
+    spr_molten(SP_COINS_A, 0); spr_molten(SP_COINS_B, 1);
+    spr_glowgems(); spr_idol();
+    specials_on(T_MATV(M4_ASH, 0));
+}
+static void catacombs_run(float dk, uint32_t s, uint32_t field) {
+    const RunLook *L = &crawl_looks[1];
+    for (int v = 0; v < NVAR; v++) {
+        uint32_t vs = v ? s + 1u : 0u;
+        gen_slate(T_MATV(M2_SLATE, v), M2_SLATE, s, vs);
+        gen_lining(T_MATV(M2_LINING, v), M2_LINING, s + 10, vs);
+        gen_silt(T_MATV(M2_SILT, v), M2_SILT, s + 20, vs);
+        gen_flow(T_MATV(M2_FLOW, v), M2_FLOW, s + 30, vs);
+        gen_bonesilt(T_MATV(M2_BONES, v), M2_BONES, s + 40, vs);
+    }
+    for (int m = 0; m < NMAT; m++)
+        for (int v = 0; v < NVAR; v++) decay_catacomb(T_MATV(m, v), dk, field, s + 60u + (uint32_t)(m * NVAR + v) * 3u);
+    for (int k = 0; k < NBLEND; k++) gen_blend(T_BLEND + k, L->blend[k][0], L->blend[k][1], L->blend[k][0] == M2_FLOW, s + 70u + (uint32_t)k);
+    gen_feat_fniche(T_FEAT + F2_NICHE, s + 80);
+    gen_feat_saint(T_FEAT + F2_SAINT, s + 81);
+    gen_feat_culvert(T_FEAT + F2_CULVERT, s + 82);
+    gen_feat_hands(T_FEAT + F2_HANDS, s + 83);
+    gen_feat_web(T_FEAT + F2_WEB, s + 84);
+    for (int f = 0; f < 3; f++) gen_feat_lantern(T_FEAT + F2_LANTERN + f, f, 11);
+    for (int i = 0; i < 4; i++) decay_catacomb(T_FEAT + i, dk * 0.7f, field, s + 90u + (uint32_t)i * 3u);
+    gen_floor_wetflags(T_FLOORS + FL2_FLAGS, s + 100, 0);
+    gen_floor_silt(T_FLOORS + FL2_SILT, s + 101);
+    gen_floor_slateedge(T_FLOORS + FL2_SLATE, s + 102);
+    gen_floor_water(T_FLOORS + FL2_WATER, s + 103);
+    gen_floor_wetflags(T_FLOORS + FL2_PUDDLES, s + 100, 1);
+    gen_ceil_slatevault(T_CEILS + CE2_VAULT, s + 110);
+    gen_ceil_bedded(T_CEILS + CE2_ROCK, s + 111);
+    gen_ceil_drip(T_CEILS + CE2_DRIP, s + 112);
+    for (int i = 0; i < NFLOORS; i++) decay_flat2(T_FLOORS + i, dk, s + 130u + (uint32_t)i, i != FL2_WATER);
+    for (int i = 0; i < NCEILS; i++) decay_flat2(T_CEILS + i, dk * 0.7f, s + 140u + (uint32_t)i, 0);
+    gen_sluice(T_RDOOR, s + 120, -1);
+    gen_slatejamb(T_RJAMB, s);
+    gen_sluice(T_RLOCKED, s + 121, R_GOLD);
+    gen_sluice(T_RLOCKED_S, s + 121, R_IRON);
+    gen_sluice(T_RLOCKED_C, s + 121, R_BLOOD);
+    static const float KS[4] = { 1.0f, 0.5f, 0.12f, -0.5f };
+    for (int f = 0; f < 4; f++) { spr_key_ring(SP_KEY0 + f, KS[f], R_GOLD); spr_key_ring(SP_KEYS0 + f, KS[f], R_IRON); spr_key_ring(SP_KEYC0 + f, KS[f], R_BLOOD); }
+    spr_coins_silt(SP_COINS_A, 0); spr_coins_silt(SP_COINS_B, 1);
+    spr_reliquary(); spr_pearls();
+    spr_crown(); spr_drown(SP_CROWN, s + 160); spr_chest(); spr_drown(SP_CHEST, s + 161);
+    specials_on(T_MATV(M2_LINING, 0));
+    for (int i = 0; i < TS * TS; i++) {                             /* the drains the bile comes from: culverts in the lining */
+        uint8_t o = crawl_tex[T_FEAT + F2_CULVERT][i];
+        crawl_tex[T_GRATE][i] = o != C_CLEAR ? o : crawl_tex[T_MATV(M2_LINING, 0)][i];
+    }
+}
+void crawl_art_run(int level) {
+    float dk = crawl_decay(level);
+    uint32_t s = 7001u + (uint32_t)level * 7u, field = s + 50u;
+    if (crawl_set(level) == 1) catacombs_run(dk, s, field);
+    else if (crawl_set(level) == 2) hollows_run(dk, s, field);
+    else if (crawl_set(level) == 3) deep_run(dk, s, field);
+    else crypts_run(dk, s, field);                                  /* the Crypts, and the runs not drawn yet */
 }
 
 void crawl_art_init(void) {

@@ -524,6 +524,22 @@ static float sfx_sample(Sfx *s) {
         }
         break;
     }
+    case SFX_SPLASH: {                              /* a foot in shallow water: the slap going in, the slosh as it lifts, a few drops falling back */
+        if (t == 0.0f) s->a = 0.85f + 0.3f * (nz(&s->rng) * 0.5f + 0.5f);
+        float slap = svf_band(nz(&s->rng), 1500.0f * s->a, 0.6f, &s->lo1, &s->bp1) * expf(-t * 34.0f) * fminf(1.0f, t / 0.002f);
+        float u = t - 0.08f, slosh = 0.0f;
+        if (u > 0.0f) slosh = svf_band(nz(&s->rng), 480.0f * s->a + 380.0f * expf(-u * 9.0f), 0.22f, &s->lp1, &s->lp2) * expf(-u * 13.0f) * fminf(1.0f, u / 0.025f);
+        s->d -= 1.0f / SR;
+        if (s->d <= 0.0f && t < 0.28f) { s->d = 0.035f + 0.06f * (nz(&s->rng) * 0.5f + 0.5f); s->c = 0.0f; s->b = 1400.0f + 1100.0f * (nz(&s->rng) * 0.5f + 0.5f); }
+        s->c += 1.0f / SR;
+        float drop = 0.0f;
+        if (t > 0.06f && s->c < 0.025f) {
+            s->ph[0] += s->b * (1.0f + 1.6f * s->c / 0.025f) / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+            drop = sin_cyc(s->ph[0]) * expf(-s->c * 110.0f) * 0.22f;
+        }
+        x = slap * 2.3f + slosh * 1.1f + drop * 0.8f;
+        break;
+    }
     case SFX_DRIP: {
         if (t == 0.0f) s->a = 1200.0f + 700.0f * (nz(&s->rng) * 0.5f + 0.5f);
         float f = s->a * (1.0f + 0.5f * expf(-t * 70.0f));
@@ -1543,6 +1559,7 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_MIRRORBELL] = { 0.00f, 1.00f,  0.50f, 0.00f },
     [SFX_DEEPCHIME]  = { 0.00f, 1.00f,  0.50f, 0.00f },
     [SFX_ATONE]      = { 0.00f, 1.00f,  0.50f, 0.00f },
+    [SFX_SPLASH]     = { 0.38f, 0.60f, -0.06f, 0.22f },
 };
 
 void snd_sfx_ex(int id, float gain, float pan) {

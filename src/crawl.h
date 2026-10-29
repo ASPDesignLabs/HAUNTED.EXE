@@ -48,8 +48,47 @@ enum {
     T_PORTAL0, T_PORTAL1, T_PORTAL2, T_PORTAL3,   /* the Accursed Portal: an arch filled with a slow red-violet swirl */
     T_SEALED,                                     /* a chain's doorway shut for the level: dark frames under a cracked red seal */
     T_REPOSITORY,                                 /* the Wretched Repository: iron doors shut in niches, three to a wall */
+    /* each run's own (docs/PLAN-b10.md), made again for its run by crawl_art_run: the materials, two looks
+     * each, on one grid of courses; blends from one material to the next, left to right; what stands on a
+     * wall, drawn over its material (C_CLEAR lets the material show); floors, ceilings and the doors */
+    T_MAT,
+    T_BLEND = T_MAT + 10,                         /* NMAT x NVAR */
+    T_FEAT = T_BLEND + 6,                         /* NBLEND */
+    T_FLOORS = T_FEAT + 8,                        /* NFEAT */
+    T_CEILS = T_FLOORS + 5,                       /* NFLOORS */
+    T_RDOOR = T_CEILS + 3,                        /* NCEILS */
+    T_RJAMB, T_RLOCKED, T_RLOCKED_S, T_RLOCKED_C,
     NTEX
 };
+#define NMAT 5
+#define NVAR 2
+#define NBLEND 6
+#define NFEAT 8
+#define NFLOORS 5
+#define NCEILS 3
+#define T_MATV(m, v) (T_MAT + (m) * NVAR + (v))
+/* run I's slots, by name: its materials, what stands on its walls (the torch's three frames from F1_TORCH),
+ * its floors and its ceilings */
+enum { M1_ASHLAR, M1_RUBBLE, M1_PLASTER, M1_BEDROCK, M1_BONES };
+enum { F1_NICHE, F1_BANNER, F1_SLAB, F1_SHRINE, F1_TABLET, F1_TORCH };
+enum { FL1_FLAGS, FL1_CHAPTER, FL1_SETTS, FL1_EARTH, FL1_BROKEN };
+enum { CE1_RIB, CE1_VAULT, CE1_ROCK };
+/* run II's: the same slots, in the same roles (floor 1 lies as laid, floor 4 is floor 0 gone with the rot,
+ * ceiling 0 the rooms', 1 the halls') */
+enum { M2_SLATE, M2_LINING, M2_SILT, M2_FLOW, M2_BONES };
+enum { F2_NICHE, F2_SAINT, F2_CULVERT, F2_HANDS, F2_WEB, F2_LANTERN };
+enum { FL2_FLAGS, FL2_SILT, FL2_SLATE, FL2_WATER, FL2_PUDDLES };
+enum { CE2_VAULT, CE2_ROCK, CE2_DRIP };
+/* run III's */
+enum { M3_GRANITE, M3_FACE, M3_TIMBER, M3_BASALT, M3_FILL };
+enum { F3_ORE, F3_FOSSIL, F3_FRAME, F3_CHUTE, F3_MARKS, F3_LAMP };
+enum { FL3_GRAVEL, FL3_RAILS, FL3_EARTH, FL3_CHARNEL, FL3_SCREE };
+enum { CE3_LAGGING, CE3_ROCK, CE3_ROOTS };
+/* run IV's (the torch's three frames are the magma fissure's) */
+enum { M4_OBSIDIAN, M4_BASALT, M4_ASH, M4_CRYSTAL, M4_BONES };
+enum { F4_GEODE, F4_SEAM, F4_GOLD, F4_FUSED, F4_FRIEZE, F4_FISSURE };
+enum { FL4_GLASS, FL4_THRONE, FL4_ASH, FL4_CINDER, FL4_SHARDS };
+enum { CE4_CRYSTAL, CE4_ROCK, CE4_SOOT };
 
 enum {
     SP_BONES1, SP_BONES2, SP_SKULLPILE, SP_COBWEB, SP_CHAINS, SP_URN, SP_PILLAR, SP_CANDLES,
@@ -198,6 +237,7 @@ extern const uint8_t crawl_face_eyes[FACE_FRAMES][2][2];
 static inline int crawl_run(int level) { return (level - 1) / RUN_LEN; }     /* 0 run I, 1 run II ..., counting every time down */
 static inline int crawl_set(int level) { return crawl_run(level) % 4; }     /* 0 the Crypts, 1 the Catacombs, 2 the Hollows, 3 the Deep */
 static inline int crawl_step(int level) { return (level - 1) % RUN_LEN; }   /* 0..9 within the run; 9 is its boss's */
+static inline int crawl_drawn(int level) { return crawl_set(level) <= 3; }  /* a run whose own look is drawn (docs/PLAN-b10.md): all four now; kept so one can be held back while it is redrawn */
 static inline int crawl_boss(int level) { return crawl_step(level) == RUN_LEN - 1; }
 static inline int crawl_loop(int level) { return (level - 1) / DESCENT_LEN; }   /* 0 the first time down */
 static inline float crawl_decay(int level) { return (float)crawl_step(level) / (float)(RUN_LEN - 1); }   /* rot and ruin: fresh at a run's start */
@@ -211,5 +251,15 @@ void crawl_art_init(void);                      /* builds everything once */
 void crawl_art_level(int level);                /* that level's palette, ruin and rot (call after init) */
 enum { PT_NONE, PT_BACKROOMS, PT_SEVERANCE };   /* a pocket's theme */
 void crawl_art_theme(int theme, int level);     /* the palette inside a pocket of that theme, or the level's again */
+
+/* Each run's look (docs/PLAN-b10.md): what its materials, blends, features, floors and ceilings are, by
+ * slot. A blend joins two materials, the first on its left and in front (the second lies behind it). */
+typedef struct {
+    const char *name;
+    const char *mat[NMAT], *feat[NFEAT], *floor[NFLOORS], *ceil[NCEILS];
+    signed char blend[NBLEND][2];
+} RunLook;
+extern const RunLook crawl_looks[4];
+void crawl_art_run(int level);                  /* that run's own textures and keys, at the level's rot (after crawl_art_level) */
 
 #endif

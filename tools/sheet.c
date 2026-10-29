@@ -516,6 +516,289 @@ static int draw_b7walls(const char *path, int level) {
     return ok;
 }
 
+/* ---- a run's own look (docs/PLAN-b10.md): its parts, and its rooms laid out as the generator would ---- */
+
+typedef struct { uint8_t tex[NTEX][TS * TS]; uint8_t pal[256][3]; uint8_t cmap[NLIGHT][256]; } Snap;
+static Snap g_snap[2];                                              /* the run's first level and its last */
+static void snap_take(Snap *s, int level) {
+    crawl_art_level(level);
+    crawl_art_run(level);
+    memcpy(s->tex, crawl_tex, sizeof crawl_tex); memcpy(s->pal, crawl_pal, sizeof crawl_pal); memcpy(s->cmap, crawl_cmap, sizeof crawl_cmap);
+}
+static void textk(int x, int y, const char *s, int k, int r, int g, int b) {   /* the VGA font at any scale */
+    for (; *s; s++, x += 8 * k)
+        for (int row = 0; row < 8; row++)
+            for (int col = 0; col < 8; col++)
+                if (font_bios8[(uint8_t)*s][row] >> (7 - col) & 1) rect(x + col * k, y + row * k, k, k, r, g, b);
+}
+/* a texture as the game would draw it near a torch: flip for a wall seen from the other side, an overlay
+ * standing on it (-1 none), rot for a floor cell turned about as the game turns them */
+static void rtex(const Snap *s, int ox, int oy, int t, int scale, int flip, int over, int rot) {
+    for (int y = 0; y < TS * scale; y++)
+        for (int x = 0; x < TS * scale; x++) {
+            int tx = x / scale, ty = y / scale;
+            if (flip) tx = TS - 1 - tx;
+            if (rot & 1) tx = TS - 1 - tx;
+            if (rot & 2) ty = TS - 1 - ty;
+            if (rot & 4) { int q = tx; tx = ty; ty = q; }
+            uint8_t c = s->tex[t][tx * TS + ty];
+            if (over >= 0 && s->tex[over][tx * TS + ty] != C_CLEAR) c = s->tex[over][tx * TS + ty];
+            c = s->cmap[LIGHT][c];
+            put(ox + x, oy + y, s->pal[c][0] * 255 / 63, s->pal[c][1] * 255 / 63, s->pal[c][2] * 255 / 63);
+        }
+}
+static void rfloor(const Snap *s, int ox, int oy, int t, int scale, int n, uint32_t seed, int broken) {   /* n by n cells */
+    for (int j = 0; j < n; j++)
+        for (int i = 0; i < n; i++) {
+            uint32_t h = (uint32_t)(i * 7 + j * 13 + 1) * 2654435761u ^ seed;
+            int tt = broken && ((h >> 9) % 4 == 0) ? T_FLOORS + 4 : t;
+            rtex(s, ox + i * TS * scale, oy + j * TS * scale, tt, scale, 0, -1, t == T_FLOORS + 1 ? 0 : (int)((h >> 5) & 7));   /* a pattern lies as laid */
+        }
+}
+
+typedef struct { int t, flip, over; } Face;                       /* one wall cell in a strip */
+#define MV(m, v) T_MATV(m, v)
+#define F_(t) { (t), 0, -1 }
+#define FO(t, o) { (t), 0, T_FEAT + (o) }
+#define FB(k, fl) { T_BLEND + (k), (fl), -1 }
+typedef struct { const char *name, *what; Face f[8]; int floor, ceil, broken; } RoomMock;
+enum { A_, R_, P_, B_, O_ };                                        /* the Crypts' materials, as crawl_art.c numbers them */
+enum { NI, BA, SL, SR, TA, TO };
+static const RoomMock CRYPT_ROOMS[] = {
+    { "THE HALLS", "ASHLAR, PATCHED WITH RUBBLE, CUT INTO THE ROCK AT THE FAR END; TORCHES",
+      { F_(MV(A_, 0)), FO(MV(A_, 1), TO), F_(MV(A_, 0)), FB(0, 0), F_(MV(R_, 1)), FO(MV(R_, 0), TO), FB(4, 0), F_(MV(B_, 0)) }, 2, 1, 0 },
+    { "OSSUARY", "BONE WALLS FACING IN, DRESSED STONE AT THE ENDS",
+      { F_(MV(A_, 0)), FB(5, 1), F_(MV(O_, 0)), F_(MV(O_, 1)), F_(MV(O_, 0)), F_(MV(O_, 0)), FB(5, 0), F_(MV(A_, 1)) }, 3, 1, 0 },
+    { "BURIAL VAULT", "NICHES IN THE ASHLAR, A TORCH BETWEEN",
+      { F_(MV(A_, 0)), FO(MV(A_, 0), NI), FO(MV(A_, 1), NI), FO(MV(A_, 0), TO), FO(MV(A_, 0), NI), FO(MV(A_, 0), NI), F_(MV(A_, 1)), FO(MV(A_, 0), NI) }, 0, 0, 1 },
+    { "CHAPTER HOUSE", "PLASTERED AND PAINTED, THE ORDER'S BANNERS, A TABLET",
+      { F_(MV(P_, 0)), FO(MV(P_, 0), BA), F_(MV(P_, 1)), FO(MV(P_, 0), TA), FO(MV(P_, 0), TO), FO(MV(P_, 0), BA), FB(1, 0), F_(MV(A_, 0)) }, 1, 0, 0 },
+    { "KNIGHTS' VAULT", "SLABS OF THE ORDER'S KNIGHTS IN THE ASHLAR, A BANNER OVER THEM",
+      { F_(MV(A_, 0)), FO(MV(A_, 0), SL), FO(MV(A_, 1), TO), FO(MV(A_, 0), SL), FO(MV(A_, 0), BA), FO(MV(A_, 1), SL), FO(MV(A_, 0), TO), F_(MV(A_, 1)) }, 0, 0, 1 },
+    { "UNDERCROFT", "RUBBLE GIVING WAY TO THE ROCK, A SHRINE CUT IN IT",
+      { F_(MV(R_, 0)), FO(MV(R_, 1), TO), FB(4, 0), F_(MV(B_, 0)), F_(MV(B_, 1)), FO(MV(B_, 0), SR), FB(3, 1), F_(MV(A_, 0)) }, 2, 2, 0 },
+};
+enum { SL2, LN2, SI2, FW2, BS2 };                                   /* the Catacombs' */
+enum { NC, SA, CU, HA, WE, LA };
+static const RoomMock CATA_ROOMS[] = {
+    { "THE HALLS", "THE SLATE AS IT WAS CUT, LINED IN PLACES, PATCHED WITH SILT; LANTERNS",
+      { F_(MV(SL2, 0)), FO(MV(SL2, 1), LA), F_(MV(SL2, 0)), FB(0, 1), F_(MV(LN2, 0)), FO(MV(LN2, 1), LA), FB(1, 0), F_(MV(SI2, 0)) }, 2, 1, 0 },
+    { "SAINTS' CATACOMB", "SLATE LINING, SAINTS IN THEIR ALCOVES, THE FLOOD STANDING IN THE NICHES",
+      { F_(MV(LN2, 0)), FO(MV(LN2, 0), NC), FO(MV(LN2, 1), SA), FO(MV(LN2, 0), LA), FO(MV(LN2, 0), SA), FO(MV(LN2, 0), NC), F_(MV(LN2, 1)), FO(MV(LN2, 0), SA) }, 0, 0, 1 },
+    { "CISTERN", "FLOWSTONE OVER THE LINING, CULVERTS POURING IN, WATER UNDERFOOT",
+      { F_(MV(LN2, 0)), FB(4, 1), F_(MV(FW2, 0)), F_(MV(FW2, 1)), FB(4, 0), FO(MV(LN2, 0), CU), FO(MV(LN2, 1), LA), FO(MV(LN2, 0), CU) }, 3, 2, 0 },
+    { "SILTED NAVE", "SILT BANKED UP THE SLATE, HANDPRINTS WHERE THE WATER CAME",
+      { F_(MV(SI2, 0)), FO(MV(SI2, 1), HA), F_(MV(SI2, 0)), FB(2, 1), F_(MV(SL2, 0)), FB(0, 1), FO(MV(LN2, 0), HA), F_(MV(LN2, 1)) }, 1, 0, 0 },
+    { "CANAL", "SLATE LINING BOTH SIDES, CULVERTS, LANTERNS OVER THE WATER",
+      { F_(MV(LN2, 0)), FO(MV(LN2, 1), CU), F_(MV(LN2, 0)), FO(MV(LN2, 0), LA), F_(MV(LN2, 1)), FO(MV(LN2, 0), CU), F_(MV(LN2, 0)), FO(MV(LN2, 1), LA) }, 3, 1, 0 },
+    { "SPINNERS' GALLERY", "BONE IN SILT, WEBS ACROSS IT",
+      { F_(MV(SI2, 0)), FB(5, 1), F_(MV(BS2, 0)), FO(MV(BS2, 1), WE), FO(MV(BS2, 0), WE), F_(MV(BS2, 0)), FB(5, 0), FO(MV(SI2, 0), WE) }, 1, 2, 0 },
+};
+enum { GR3, FA3, TI3, BA3, FI3 };                                   /* the Hollows' */
+enum { OR, FS, FR, CH, MK, LP };
+static const RoomMock HOLLOW_ROOMS[] = {
+    { "THE HALLS", "THE CAVE AS IT WAS, CUT THROUGH WITH THE PICK, SHORED IN PLACES; LAMPS",
+      { F_(MV(GR3, 0)), FO(MV(GR3, 1), LP), F_(MV(GR3, 0)), FB(0, 1), FO(MV(FA3, 0), FR), FO(MV(FA3, 1), LP), FB(1, 1), F_(MV(TI3, 0)) }, 2, 1, 0 },
+    { "TIMBERED GALLERY", "SHORED UP IN TIMBER, SETS ALONG IT, LAMPS ON THE POSTS, RAILS DOWN IT",
+      { F_(MV(TI3, 0)), FO(MV(TI3, 1), LP), F_(MV(TI3, 0)), FO(MV(TI3, 0), FR), F_(MV(TI3, 1)), FO(MV(TI3, 0), LP), F_(MV(TI3, 0)), FB(2, 0) }, 1, 0, 0 },
+    { "STOPE", "A FACE WORKED OUT, ORE STILL IN IT, A CHUTE",
+      { F_(MV(FA3, 0)), FO(MV(FA3, 0), OR), F_(MV(FA3, 1)), FO(MV(FA3, 0), CH), FO(MV(FA3, 1), OR), F_(MV(FA3, 0)), FB(0, 0), F_(MV(GR3, 0)) }, 0, 1, 1 },
+    { "CHARNEL PIT", "BACKFILL, AND THE DEAD TIPPED IN WITH IT",
+      { F_(MV(GR3, 0)), FB(5, 1), F_(MV(FI3, 0)), F_(MV(FI3, 1)), F_(MV(FI3, 0)), F_(MV(FI3, 0)), FB(3, 1), F_(MV(FA3, 0)) }, 3, 2, 0 },
+    { "FOSSIL HALL", "THE CAVE LEFT AS IT WAS, SOMETHING OLDER THAN THE DEAD IN IT",
+      { F_(MV(GR3, 0)), FO(MV(GR3, 1), FS), F_(MV(GR3, 0)), FO(MV(GR3, 0), LP), FO(MV(GR3, 0), FS), F_(MV(GR3, 1)), FB(4, 1), F_(MV(BA3, 0)) }, 2, 2, 0 },
+    { "THE CHAPEL", "BASALT, AND THE CULT'S MARKS ON IT",
+      { F_(MV(BA3, 0)), FO(MV(BA3, 0), MK), F_(MV(BA3, 1)), FO(MV(BA3, 0), LP), FO(MV(BA3, 0), MK), F_(MV(BA3, 0)), FB(4, 0), FO(MV(GR3, 0), MK) }, 2, 1, 0 },
+};
+enum { OB4, BA4, AS4, CR4, BG4 };                                   /* the Deep's */
+enum { GE, SE, GO, FU, FZ, FI };
+static const RoomMock DEEP_ROOMS[] = {
+    { "THE HALLS", "BLACK GLASS AND ASH, BASALT IN PLACES; MAGMA IN THE FISSURES FOR LIGHT",
+      { F_(MV(OB4, 0)), FO(MV(OB4, 1), FI), F_(MV(OB4, 0)), FB(0, 0), F_(MV(AS4, 0)), FO(MV(AS4, 1), GO), FB(2, 1), F_(MV(BA4, 0)) }, 2, 1, 0 },
+    { "GEODE", "CRYSTAL CRUST, GEODES ALIGHT IN IT",
+      { F_(MV(OB4, 0)), FB(3, 1), F_(MV(CR4, 0)), FO(MV(CR4, 1), GE), F_(MV(CR4, 0)), FO(MV(CR4, 0), GE), FB(3, 0), F_(MV(OB4, 1)) }, 0, 0, 0 },
+    { "GLASS HALL", "OBSIDIAN, GEM SEAMS, THE DEAD FUSED IN IT",
+      { F_(MV(OB4, 0)), FO(MV(OB4, 0), SE), F_(MV(OB4, 1)), FO(MV(OB4, 0), FI), FO(MV(OB4, 0), FU), F_(MV(OB4, 0)), FO(MV(OB4, 1), SE), F_(MV(OB4, 0)) }, 0, 0, 1 },
+    { "CINDER FIELD", "ASH ON THE ROCK, BONES BURNT INTO IT, CINDERS UNDERFOOT",
+      { F_(MV(AS4, 0)), FO(MV(AS4, 1), FU), F_(MV(AS4, 0)), FO(MV(AS4, 0), FI), F_(MV(AS4, 1)), FO(MV(AS4, 0), FU), F_(MV(AS4, 0)), FB(0, 1) }, 3, 2, 0 },
+    { "MAGMA VENT", "BASALT, FISSURES, GOLD WHERE THE FIRE LEFT IT",
+      { F_(MV(BA4, 0)), FO(MV(BA4, 0), FI), F_(MV(BA4, 1)), FO(MV(BA4, 0), GO), FO(MV(BA4, 0), FI), F_(MV(BA4, 0)), FB(2, 0), F_(MV(AS4, 0)) }, 3, 2, 0 },
+    { "THE THRONE", "BONE IN GLASS, THE FRIEZE OVER ITS SEAT",
+      { F_(MV(OB4, 0)), FB(5, 1), F_(MV(BG4, 0)), FO(MV(BG4, 0), FI), FO(MV(BG4, 0), FZ), FO(MV(BG4, 1), FI), F_(MV(BG4, 0)), FB(5, 0) }, 1, 0, 0 },
+};
+/* each run's sheets: its levels, its title, which material each feature is shown on (first level, last) */
+typedef struct { const char *title, *rooms_title, *treasure; const RoomMock *rooms; int nrooms; int ft[6][3]; } RunSheet;
+static const RunSheet RUNSHEETS[4] = {
+    { "RUN I, THE CRYPTS: THE ORDER'S CRYPTS, FOR APPROVAL", "RUN I'S ROOMS: A STRETCH OF EACH AT LEVEL 1, THEN 10", "AS IT WAS",
+      CRYPT_ROOMS, (int)(sizeof CRYPT_ROOMS / sizeof CRYPT_ROOMS[0]),
+      { { NI, A_, B_ }, { BA, P_, A_ }, { SL, A_, A_ }, { SR, B_, R_ }, { TA, P_, A_ }, { TO, R_, A_ } } },
+    { "RUN II, THE CATACOMBS: THE DROWNED CATACOMBS, FOR APPROVAL", "RUN II'S ROOMS: A STRETCH OF EACH AT LEVEL 11, THEN 20", "SILTED, AS THE WATER LEFT IT",
+      CATA_ROOMS, (int)(sizeof CATA_ROOMS / sizeof CATA_ROOMS[0]),
+      { { NC, LN2, SL2 }, { SA, LN2, LN2 }, { CU, LN2, SL2 }, { HA, SI2, LN2 }, { WE, BS2, SL2 }, { LA, SL2, LN2 } } },
+    { "RUN III, THE HOLLOWS: THE CHARNEL MINE", "RUN III'S ROOMS: A STRETCH OF EACH AT LEVEL 21, THEN 30", "NUGGETS, GEMS, STRONGBOX",
+      HOLLOW_ROOMS, (int)(sizeof HOLLOW_ROOMS / sizeof HOLLOW_ROOMS[0]),
+      { { OR, FA3, GR3 }, { FS, GR3, GR3 }, { FR, GR3, FA3 }, { CH, FA3, FA3 }, { MK, BA3, GR3 }, { LP, TI3, GR3 } } },
+    { "RUN IV, THE DEEP: THE BLACK GLASS", "RUN IV'S ROOMS: A STRETCH OF EACH AT LEVEL 31, THEN 40", "GOLD, CRYSTAL, AN IDOL",
+      DEEP_ROOMS, (int)(sizeof DEEP_ROOMS / sizeof DEEP_ROOMS[0]),
+      { { GE, CR4, CR4 }, { SE, OB4, OB4 }, { GO, AS4, BA4 }, { FU, OB4, AS4 }, { FZ, BG4, OB4 }, { FI, BA4, AS4 } } },
+};
+static int sheet_last(int run) {                                   /* the second level a run's sheets show: its last, or SHEET_LAST */
+    const char *e = getenv("SHEET_LAST");
+    return e && atoi(e) > run * RUN_LEN && atoi(e) <= run * RUN_LEN + RUN_LEN ? atoi(e) : run * RUN_LEN + RUN_LEN;
+}
+
+static void spr_at(const Snap *s, int ox, int oy, int id, int scale) {   /* a sprite as near a torch, on a dark plate */
+    rect(ox, oy, TS * scale, TS * scale, 22, 21, 24);
+    for (int yy = 0; yy < TS * scale; yy++)
+        for (int xx = 0; xx < TS * scale; xx++) {
+            uint8_t k = crawl_spr[id][(xx / scale) * TS + yy / scale];
+            if (k == C_CLEAR) continue;
+            k = s->cmap[LIGHT][k];
+            put(ox + xx, oy + yy, s->pal[k][0] * 255 / 63, s->pal[k][1] * 255 / 63, s->pal[k][2] * 255 / 63);
+        }
+}
+
+static int draw_runlook(const char *path, int run) {
+    const RunLook *L = &crawl_looks[run];
+    const RunSheet *R = &RUNSHEETS[run];
+    int first = run * RUN_LEN + 1, last = sheet_last(run);
+    char lvs[2][16];
+    snprintf(lvs[0], sizeof lvs[0], "LEVEL %d", first); snprintf(lvs[1], sizeof lvs[1], "LEVEL %d", last);
+    snap_take(&g_snap[1], last);
+    snap_take(&g_snap[0], first);                                   /* last, so the keys and treasure are the first level's */
+    const int S2 = 2, T2 = TS * S2, G = 10, x0 = PAD + ROWHEAD, lab = 8 * TXT + 6;
+    iw = x0 + NMAT * (2 * T2 + 3 * G) + PAD;
+    ih = 3200;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    textk(PAD, PAD, R->title, 3, 230, 230, 230);
+    int y = PAD + 24 + 18;
+    #define HEAD(s) textk(PAD, y + 4, (s), TXT, 230, 200, 120)
+    #define SUB(xx, yy, s) textk((xx), (yy), (s), 1, 160, 160, 160)
+    for (int lv = 0; lv < 2; lv++) {                                /* the materials, both looks side by side */
+        HEAD("MATERIALS"); SUB(PAD, y + 24, lvs[lv]); SUB(PAD, y + 36, "TWO LOOKS EACH");
+        for (int m = 0; m < NMAT; m++) {
+            int x = x0 + m * (2 * T2 + 3 * G);
+            rtex(&g_snap[lv], x, y, MV(m, 0), S2, 0, -1, 0); rtex(&g_snap[lv], x + T2, y, MV(m, 1), S2, 0, -1, 0);
+            if (!lv) textk(x, y + T2 + 4, L->mat[m], TXT, 190, 190, 190);
+        }
+        y += T2 + (lv ? G * 2 : lab + G);
+    }
+    y += G;
+    for (int lv = 0; lv < 2; lv++) {                                /* each blend between its two materials */
+        for (int half = 0; half < 2; half++) {
+            if (!half) { HEAD("BLENDS"); SUB(PAD, y + 24, lvs[lv]); SUB(PAD, y + 36, "THE FIRST IN FRONT"); }
+            for (int k = half * 3; k < half * 3 + 3; k++) {
+                int x = x0 + (k - half * 3) * (3 * T2 + 3 * G), a = L->blend[k][0], b = L->blend[k][1];
+                rtex(&g_snap[lv], x, y, MV(a, 0), S2, 0, -1, 0); rtex(&g_snap[lv], x + T2, y, T_BLEND + k, S2, 0, -1, 0); rtex(&g_snap[lv], x + 2 * T2, y, MV(b, 0), S2, 0, -1, 0);
+                if (!lv) {
+                    char s[64]; snprintf(s, sizeof s, "%s INTO %s", L->mat[a], L->mat[b]);
+                    SUB(x, y + T2 + 4, s);
+                }
+            }
+            y += T2 + (lv ? G : 16 + G);
+        }
+        y += G;
+    }
+    HEAD("ON THE WALLS"); SUB(PAD, y + 24, "OVER ANY MATERIAL"); SUB(PAD, y + 36, "FIRST LEVEL, THEN LAST");
+    for (int row = 0; row < 2; row++) {                             /* what stands on the walls, on the materials it would stand on */
+        for (int i = row * 3; i < row * 3 + 3; i++) {
+            int x = x0 + (i - row * 3) * (2 * T2 + 4 * G), f = R->ft[i][0];
+            for (int lv = 0; lv < 2; lv++) rtex(&g_snap[lv], x + lv * T2, y, MV(R->ft[i][1 + lv], 0), S2, 0, T_FEAT + f, 0);
+            SUB(x, y + T2 + 4, L->feat[f]);
+            char s[48]; snprintf(s, sizeof s, "ON %s, %s", L->mat[R->ft[i][1]], L->mat[R->ft[i][2]]);
+            SUB(x, y + T2 + 14, s);
+        }
+        y += T2 + 26 + G;
+    }
+    y += G;
+    HEAD("FLOORS"); SUB(PAD, y + 24, "THREE BY THREE CELLS"); SUB(PAD, y + 36, "TURNED AS IN PLAY");
+    for (int lv = 0; lv < 2; lv++) {
+        for (int i = 0; i < NFLOORS - 1; i++) {
+            int x = x0 + i * (3 * TS + 2 * G);
+            rfloor(&g_snap[lv], x, y, T_FLOORS + i, 1, 3, (uint32_t)(i * 31 + 5), lv && (i == 0));
+            if (!lv) SUB(x, y + 3 * TS + 4, L->floor[i]);
+        }
+        char s[64];
+        if (lv) snprintf(s, sizeof s, "%s: SOME %s", lvs[1], L->floor[0]); else snprintf(s, sizeof s, "%s", lvs[0]);
+        SUB(x0 + 4 * (3 * TS + 2 * G), y + 4, s);
+        if (lv) { snprintf(s, sizeof s, "%s BY THEN", L->floor[NFLOORS - 1]); SUB(x0 + 4 * (3 * TS + 2 * G), y + 16, s); }
+        y += 3 * TS + (lv ? G : 16 + G);
+    }
+    y += G;
+    HEAD("CEILINGS"); SUB(PAD, y + 24, "FIRST LEVEL, THEN LAST");
+    for (int lv = 0; lv < 2; lv++)
+        for (int i = 0; i < NCEILS; i++) {
+            int x = x0 + (lv * NCEILS + i) * (2 * TS + 3 * G) + lv * 3 * G;
+            rfloor(&g_snap[lv], x, y, T_CEILS + i, 1, 2, (uint32_t)(i * 17 + 3), 0);
+            SUB(x, y + 2 * TS + 4, L->ceil[i]);
+        }
+    y += 2 * TS + 16 + 2 * G;
+    HEAD("DOORS"); SUB(PAD, y + 24, "THE VAULTS IN THEIR");  SUB(PAD, y + 36, "KEYS' METALS");
+    static const int DT[6] = { T_RDOOR, T_RJAMB, T_RLOCKED, T_RLOCKED_S, T_RLOCKED_C, T_RDOOR };
+    char dn5[32]; snprintf(dn5, sizeof dn5, "DOOR, %s", lvs[1]);
+    const char *DN[6] = { "DOOR", "ITS JAMB", "GOLD VAULT", "SILVER VAULT", "CRIMSON VAULT", dn5 };
+    for (int i = 0; i < 6; i++) {
+        int x = x0 + i * (T2 + 3 * G);
+        rtex(&g_snap[i == 5], x, y, DT[i], S2, 0, -1, 0);
+        SUB(x, y + T2 + 4, DN[i]);
+    }
+    y += T2 + 16 + 2 * G;
+    HEAD("KEYS"); SUB(PAD, y + 24, "TURNING, FOUR FRAMES");
+    static const int KB[3] = { SP_KEY0, SP_KEYS0, SP_KEYC0 };
+    for (int c = 0; c < 3; c++)
+        for (int f = 0; f < 4; f++) {
+            if (c && f > 1) continue;                              /* every frame of the gold; the others face on and turning */
+            spr_at(&g_snap[0], x0 + (c ? 4 + (c - 1) * 2 + f : f) * (T2 + 6) + c * 2 * G, y, KB[c] + f, S2);
+        }
+    y += T2 + 2 * G;
+    HEAD("TREASURE"); SUB(PAD, y + 24, R->treasure);
+    static const int TR[6] = { SP_COINS_A, SP_CHALICE, SP_GEMS, SP_CROWN, SP_CHEST, SP_POTION };
+    for (int i = 0; i < 5; i++) spr_at(&g_snap[0], x0 + i * (T2 + 6), y, TR[i], S2);
+    y += T2 + 2 * G;
+    #undef HEAD
+    #undef SUB
+    ih = y + PAD;
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
+static int draw_runrooms(const char *path, int run) {
+    const RunLook *L = &crawl_looks[run];
+    const RunSheet *RS = &RUNSHEETS[run];
+    snap_take(&g_snap[1], sheet_last(run));
+    snap_take(&g_snap[0], run * RUN_LEN + 1);
+    const int S2 = 2, T2 = TS * S2, G = 10, x0 = PAD;
+    int nr = RS->nrooms;
+    iw = x0 + 8 * T2 + 2 * G + 2 * TS + G + TS * 2 + PAD;
+    ih = 80 + nr * (2 * T2 + 3 * G + 40);
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    textk(PAD, PAD, RS->rooms_title, 2, 230, 230, 230);
+    int y = PAD + 16 + 20;
+    for (int r = 0; r < nr; r++) {
+        const RoomMock *R = &RS->rooms[r];
+        textk(x0, y, R->name, TXT, 230, 200, 120);
+        textk(x0 + (int)strlen(R->name) * 8 * TXT + 16, y + 6, R->what, 1, 170, 170, 170);
+        y += 22;
+        for (int lv = 0; lv < 2; lv++) {
+            for (int i = 0; i < 8; i++) rtex(&g_snap[lv], x0 + i * T2, y + lv * (T2 + G), R->f[i].t, S2, R->f[i].flip, R->f[i].over, 0);
+            int fx = x0 + 8 * T2 + 2 * G;
+            rfloor(&g_snap[lv], fx, y + lv * (T2 + G), T_FLOORS + R->floor, 1, 2, (uint32_t)(r * 11 + 2), lv && R->broken);
+            rfloor(&g_snap[lv], fx + 2 * TS + G, y + lv * (T2 + G), T_CEILS + R->ceil, 1, 2, (uint32_t)(r * 13 + 7), 0);
+        }
+        int fx = x0 + 8 * T2 + 2 * G;
+        textk(fx, y + 2 * T2 + G + 4, L->floor[R->floor], 1, 170, 170, 170);
+        textk(fx + 2 * TS + G, y + 2 * T2 + G + 4, L->ceil[R->ceil], 1, 170, 170, 170);
+        y += 2 * T2 + G + 18 + 2 * G;
+    }
+    ih = y + PAD;
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && !strcmp(argv[1], "list")) {
         for (int i = 0; i < NGROUPS; i++) printf("%-12s %s\n", GROUPS[i].name, GROUPS[i].title);
@@ -524,6 +807,14 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "backrooms", "THE BACKROOMS: WALLS, FLOOR, CEILING, THE VISPORTAL, THE GLITCH");
         printf("%-12s %s\n", "severance", "SEVERANCE: WALLS, DOORS, FLOOR, CEILING, DESKS, THE WATER COOLER");
         printf("%-12s %s\n", "b7walls", "1.0.0B7: THE PORTAL, A SEALED DOORWAY, THE REPOSITORY");
+        printf("%-12s %s\n", "crypts", "RUN I'S OWN LOOK: MATERIALS, BLENDS, FEATURES, FLOORS, CEILINGS, DOORS, KEYS");
+        printf("%-12s %s\n", "cryptrooms", "RUN I'S ROOMS, LAID AS THE GENERATOR WOULD LAY THEM");
+        printf("%-12s %s\n", "catacombs", "RUN II'S OWN LOOK, THE SAME WAY");
+        printf("%-12s %s\n", "catarooms", "RUN II'S ROOMS");
+        printf("%-12s %s\n", "hollows", "RUN III'S OWN LOOK");
+        printf("%-12s %s\n", "hollowrooms", "RUN III'S ROOMS");
+        printf("%-12s %s\n", "deep", "RUN IV'S OWN LOOK (SHEET_LAST=n SHOWS LEVEL n AS ITS SECOND)");
+        printf("%-12s %s\n", "deeprooms", "RUN IV'S ROOMS");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -566,6 +857,18 @@ int main(int argc, char **argv) {
         if (!draw_b7walls(path, level)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
+    static const char *const RUNSHEET_NAMES[4][2] = { { "crypts", "cryptrooms" }, { "catacombs", "catarooms" }, { "hollows", "hollowrooms" }, { "deep", "deeprooms" } };
+    for (int run = 0; run < 4; run++)
+        for (int k = 0; k < 2; k++) {
+            const char *nm = RUNSHEET_NAMES[run][k];
+            char path[512];
+            if (strcmp(argv[1], "all") && strcmp(argv[1], nm)) continue;
+            if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/%s.png", argv[2], nm);
+            else snprintf(path, sizeof path, "%s", argv[2]);
+            if (!(k ? draw_runrooms(path, run) : draw_runlook(path, run))) { fprintf(stderr, "can't write %s\n", path); return 1; }
+            crawl_art_level(level < 1 ? 1 : level);
+            done++;
+        }
     for (int i = 0; i < NGROUPS; i++) {
         if (strcmp(argv[1], "all") && strcmp(argv[1], GROUPS[i].name)) continue;
         char path[512];
