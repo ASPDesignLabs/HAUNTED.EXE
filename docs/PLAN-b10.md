@@ -1,11 +1,10 @@
 # 1.0.0b10: a look of its own for each run
 
-**Status: all four runs are in the game, tested in the harness only. Run I was approved on its sheets
-(`crypts.png`, `cryptrooms.png`) and in its frames (28 October 2026); run II on its sheets (`catacombs.png`,
-`catarooms.png`, 29 October 2026), with the owner's answers to its questions below. The owner then left runs III
-and IV to my judgement, without sheets or frames to approve first: both are drawn (`hollows.png`,
-`hollowrooms.png`; `deep.png`, `deeprooms.png`) and in the game. What is left is step 6's last checks and the
-release's README, page and previews.** The owner asked for the crypt's
+**Status: all four runs are in the game, tested in the harness only, and released as 1.0.0b10 (29 October 2026,
+at the owner's word). Run I was approved on its sheets (`crypts.png`, `cryptrooms.png`) and in its frames (28
+October 2026); run II on its sheets (`catacombs.png`, `catarooms.png`, 29 October 2026), with the owner's answers
+to its questions below. The owner then left runs III and IV to my judgement, without sheets or frames to approve
+first: both are drawn (`hollows.png`, `hollowrooms.png`; `deep.png`, `deeprooms.png`) and in the game.** The owner asked for the crypt's
 walls to flow together, for floors and ceilings, and for each run of ten to look like its own place.
 This plan sets out a theme for each run, the room types that carry it, and how the generator lays
 them; then the work, one run at a time.
