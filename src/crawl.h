@@ -79,6 +79,11 @@ enum { M2_SLATE, M2_LINING, M2_SILT, M2_FLOW, M2_BONES };
 enum { F2_NICHE, F2_SAINT, F2_CULVERT, F2_HANDS, F2_WEB, F2_LANTERN };
 enum { FL2_FLAGS, FL2_SILT, FL2_SLATE, FL2_WATER, FL2_PUDDLES };
 enum { CE2_VAULT, CE2_ROCK, CE2_DRIP };
+/* run III's */
+enum { M3_GRANITE, M3_FACE, M3_TIMBER, M3_BASALT, M3_FILL };
+enum { F3_ORE, F3_FOSSIL, F3_FRAME, F3_CHUTE, F3_MARKS, F3_LAMP };
+enum { FL3_GRAVEL, FL3_RAILS, FL3_EARTH, FL3_CHARNEL, FL3_SCREE };
+enum { CE3_LAGGING, CE3_ROCK, CE3_ROOTS };
 
 enum {
     SP_BONES1, SP_BONES2, SP_SKULLPILE, SP_COBWEB, SP_CHAINS, SP_URN, SP_PILLAR, SP_CANDLES,
@@ -227,7 +232,7 @@ extern const uint8_t crawl_face_eyes[FACE_FRAMES][2][2];
 static inline int crawl_run(int level) { return (level - 1) / RUN_LEN; }     /* 0 run I, 1 run II ..., counting every time down */
 static inline int crawl_set(int level) { return crawl_run(level) % 4; }     /* 0 the Crypts, 1 the Catacombs, 2 the Hollows, 3 the Deep */
 static inline int crawl_step(int level) { return (level - 1) % RUN_LEN; }   /* 0..9 within the run; 9 is its boss's */
-static inline int crawl_drawn(int level) { return crawl_set(level) <= 1; }  /* a run whose own look is drawn (docs/PLAN-b10.md): the Crypts and the Catacombs so far */
+static inline int crawl_drawn(int level) { return crawl_set(level) <= 2; }  /* a run whose own look is drawn (docs/PLAN-b10.md): the Crypts, the Catacombs, the Hollows so far */
 static inline int crawl_boss(int level) { return crawl_step(level) == RUN_LEN - 1; }
 static inline int crawl_loop(int level) { return (level - 1) / DESCENT_LEN; }   /* 0 the first time down */
 static inline float crawl_decay(int level) { return (float)crawl_step(level) / (float)(RUN_LEN - 1); }   /* rot and ruin: fresh at a run's start */

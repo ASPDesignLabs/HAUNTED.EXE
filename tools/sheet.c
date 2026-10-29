@@ -594,15 +594,34 @@ static const RoomMock CATA_ROOMS[] = {
     { "SPINNERS' GALLERY", "BONE IN SILT, WEBS ACROSS IT",
       { F_(MV(SI2, 0)), FB(5, 1), F_(MV(BS2, 0)), FO(MV(BS2, 1), WE), FO(MV(BS2, 0), WE), F_(MV(BS2, 0)), FB(5, 0), FO(MV(SI2, 0), WE) }, 1, 2, 0 },
 };
+enum { GR3, FA3, TI3, BA3, FI3 };                                   /* the Hollows' */
+enum { OR, FS, FR, CH, MK, LP };
+static const RoomMock HOLLOW_ROOMS[] = {
+    { "THE HALLS", "THE CAVE AS IT WAS, CUT THROUGH WITH THE PICK, SHORED IN PLACES; LAMPS",
+      { F_(MV(GR3, 0)), FO(MV(GR3, 1), LP), F_(MV(GR3, 0)), FB(0, 1), FO(MV(FA3, 0), FR), FO(MV(FA3, 1), LP), FB(1, 1), F_(MV(TI3, 0)) }, 2, 1, 0 },
+    { "TIMBERED GALLERY", "SHORED UP IN TIMBER, SETS ALONG IT, LAMPS ON THE POSTS, RAILS DOWN IT",
+      { F_(MV(TI3, 0)), FO(MV(TI3, 1), LP), F_(MV(TI3, 0)), FO(MV(TI3, 0), FR), F_(MV(TI3, 1)), FO(MV(TI3, 0), LP), F_(MV(TI3, 0)), FB(2, 0) }, 1, 0, 0 },
+    { "STOPE", "A FACE WORKED OUT, ORE STILL IN IT, A CHUTE",
+      { F_(MV(FA3, 0)), FO(MV(FA3, 0), OR), F_(MV(FA3, 1)), FO(MV(FA3, 0), CH), FO(MV(FA3, 1), OR), F_(MV(FA3, 0)), FB(0, 0), F_(MV(GR3, 0)) }, 0, 1, 1 },
+    { "CHARNEL PIT", "BACKFILL, AND THE DEAD TIPPED IN WITH IT",
+      { F_(MV(GR3, 0)), FB(5, 1), F_(MV(FI3, 0)), F_(MV(FI3, 1)), F_(MV(FI3, 0)), F_(MV(FI3, 0)), FB(3, 1), F_(MV(FA3, 0)) }, 3, 2, 0 },
+    { "FOSSIL HALL", "THE CAVE LEFT AS IT WAS, SOMETHING OLDER THAN THE DEAD IN IT",
+      { F_(MV(GR3, 0)), FO(MV(GR3, 1), FS), F_(MV(GR3, 0)), FO(MV(GR3, 0), LP), FO(MV(GR3, 0), FS), F_(MV(GR3, 1)), FB(4, 1), F_(MV(BA3, 0)) }, 2, 2, 0 },
+    { "THE CHAPEL", "BASALT, AND THE CULT'S MARKS ON IT",
+      { F_(MV(BA3, 0)), FO(MV(BA3, 0), MK), F_(MV(BA3, 1)), FO(MV(BA3, 0), LP), FO(MV(BA3, 0), MK), F_(MV(BA3, 0)), FB(4, 0), FO(MV(GR3, 0), MK) }, 2, 1, 0 },
+};
 /* each run's sheets: its levels, its title, which material each feature is shown on (first level, last) */
 typedef struct { const char *title, *rooms_title, *treasure; const RoomMock *rooms; int nrooms; int ft[6][3]; } RunSheet;
-static const RunSheet RUNSHEETS[2] = {
+static const RunSheet RUNSHEETS[3] = {
     { "RUN I, THE CRYPTS: THE ORDER'S CRYPTS, FOR APPROVAL", "RUN I'S ROOMS: A STRETCH OF EACH AT LEVEL 1, THEN 10", "AS IT WAS",
       CRYPT_ROOMS, (int)(sizeof CRYPT_ROOMS / sizeof CRYPT_ROOMS[0]),
       { { NI, A_, B_ }, { BA, P_, A_ }, { SL, A_, A_ }, { SR, B_, R_ }, { TA, P_, A_ }, { TO, R_, A_ } } },
     { "RUN II, THE CATACOMBS: THE DROWNED CATACOMBS, FOR APPROVAL", "RUN II'S ROOMS: A STRETCH OF EACH AT LEVEL 11, THEN 20", "SILTED, AS THE WATER LEFT IT",
       CATA_ROOMS, (int)(sizeof CATA_ROOMS / sizeof CATA_ROOMS[0]),
       { { NC, LN2, SL2 }, { SA, LN2, LN2 }, { CU, LN2, SL2 }, { HA, SI2, LN2 }, { WE, BS2, SL2 }, { LA, SL2, LN2 } } },
+    { "RUN III, THE HOLLOWS: THE CHARNEL MINE", "RUN III'S ROOMS: A STRETCH OF EACH AT LEVEL 21, THEN 30", "NUGGETS, RAW GEMS, A STRONGBOX",
+      HOLLOW_ROOMS, (int)(sizeof HOLLOW_ROOMS / sizeof HOLLOW_ROOMS[0]),
+      { { OR, FA3, GR3 }, { FS, GR3, GR3 }, { FR, GR3, FA3 }, { CH, FA3, FA3 }, { MK, BA3, GR3 }, { LP, TI3, GR3 } } },
 };
 
 static void spr_at(const Snap *s, int ox, int oy, int id, int scale) {   /* a sprite as near a torch, on a dark plate */
@@ -769,6 +788,8 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "cryptrooms", "RUN I'S ROOMS, LAID AS THE GENERATOR WOULD LAY THEM");
         printf("%-12s %s\n", "catacombs", "RUN II'S OWN LOOK, THE SAME WAY");
         printf("%-12s %s\n", "catarooms", "RUN II'S ROOMS");
+        printf("%-12s %s\n", "hollows", "RUN III'S OWN LOOK");
+        printf("%-12s %s\n", "hollowrooms", "RUN III'S ROOMS");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -811,8 +832,8 @@ int main(int argc, char **argv) {
         if (!draw_b7walls(path, level)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
-    static const char *const RUNSHEET_NAMES[2][2] = { { "crypts", "cryptrooms" }, { "catacombs", "catarooms" } };
-    for (int run = 0; run < 2; run++)
+    static const char *const RUNSHEET_NAMES[3][2] = { { "crypts", "cryptrooms" }, { "catacombs", "catarooms" }, { "hollows", "hollowrooms" } };
+    for (int run = 0; run < 3; run++)
         for (int k = 0; k < 2; k++) {
             const char *nm = RUNSHEET_NAMES[run][k];
             char path[512];

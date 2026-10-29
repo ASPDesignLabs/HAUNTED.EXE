@@ -201,9 +201,15 @@ int main(int argc, char **argv) {
         int per = (int)(SND_RATE * dt);
         double next_shot = 0;
         uint8_t *rgb = malloc(FB_MAX_W * FB_MAX_H * 3);
+        int nfx = 0, fx_id[32], fx_done[32] = { 0 };               /* wav: sound effects to play, as id@seconds */
+        double fx_at[32];
+        for (int i = 5; !strcmp(cmd, "wav") && i < argc && nfx < 32; i++)
+            if (sscanf(argv[i], "%d@%lf", &fx_id[nfx], &fx_at[nfx]) == 2) nfx++;
         while (pos + per <= total) {
             input_step(tick * dt);
             app_update(dt);
+            for (int i = 0; i < nfx; i++)
+                if (!fx_done[i] && tick * dt >= fx_at[i]) { snd_sfx(fx_id[i]); fx_done[i] = 1; }
             if (input_quit()) break;
             snd_render(pcm + pos * 2, per);
             pos += per; tick++;

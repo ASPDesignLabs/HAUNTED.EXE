@@ -1,9 +1,10 @@
 # 1.0.0b10: a look of its own for each run
 
-**Status: run I is in the game, approved in its frames (28 October 2026), tested in the harness only. Run
-II's art is drawn and on approval sheets (`make sheets`: `catacombs.png`, `catarooms.png`, 29 October 2026);
-the game doesn't use it yet. Run I's art was approved on its sheets (`crypts.png`, `cryptrooms.png`), and the
-owner took the defaults for the three questions below.** The owner asked for the crypt's
+**Status: runs I, II and III are in the game, tested in the harness only. Run I was approved on its sheets
+(`crypts.png`, `cryptrooms.png`) and in its frames (28 October 2026); run II on its sheets (`catacombs.png`,
+`catarooms.png`, 29 October 2026), with the owner's answers to its questions below. The owner then left runs III
+and IV to my judgement, without sheets or frames to approve first: run III (`hollows.png`, `hollowrooms.png`) is
+drawn and in the game; run IV is next.** The owner asked for the crypt's
 walls to flow together, for floors and ceilings, and for each run of ten to look like its own place.
 This plan sets out a theme for each run, the room types that carry it, and how the generator lays
 them; then the work, one run at a time.
@@ -150,7 +151,8 @@ same way (`catacombs_run` in `crawl_art.c`, each level from its own seed).
 2. **The engine**: faces, overlays, stretches, blends, room types by rule, floors and ceilings, run I's
    doors, keys and torches in play. Frames from the game on levels 1, 5 and 10 for approval. (Built; the
    frames wait for approval. See "Run I in the game" below.)
-3. **Run II**: sheets (drawn, for approval), then frames. 4. **Run III**. 5. **Run IV**, with its glows.
+3. **Run II**: sheets, approved; in the game (see "Run II in the game"). 4. **Run III**: drawn and in the game
+   without approvals, as the owner asked (see "Run III in the game"). 5. **Run IV**, with its glows.
 6. **Checks**: `bench` against 1.0.0b9; ASan; eight-seed dream runs against 1.0.0b9 (the lights move,
    so the autopilot's levels may play a little differently); the README's previews and "What has been
    verified"; the page.
@@ -198,11 +200,85 @@ same way (`catacombs_run` in `crawl_art.c`, each level from its own seed).
   frame against 3.25-3.90 ms. The floor and ceiling now find their cell and texel in fixed point along a row
   (a first version that worked them out per pixel in floats cost a fifth more than 1.0.0b9).
 
-## Questions for the owner on run II
+## Questions for the owner on run II (answered)
 
 1. Water underfoot in the cistern and the canal: only a look, walked through as any floor, or should deep
-   water slow you as the bile does? *Default: only a look.*
+   water slow you as the bile does? *Only a look, but it should splash: a sound that tells you you are walking
+   in water.*
 2. Webs outside the spinners' gallery: from the run's sixth level, more by its tenth, as the descent plan's
-   "then webs" has it? *Default: yes.*
+   "then webs" has it? *Yes.*
 3. The spider's arena on level 20 dressed as the spinners' gallery (bone in silt, webs, the culverts for its
-   bile)? *Default: yes.*
+   bile)? *Yes.*
+
+## Run II in the game
+
+- **Which levels.** Levels 11-20 of each time down. `G.look` says whose stone a level is laid in (`crawl_set`;
+  her hall is always run I's), so the room types, the laying rules and the arena follow it.
+- **Room types**: the saints' catacomb (lining, saints every third cell, flooded niches between; candles at a
+  saint's feet, ten lit a level at most) the commonest, the silted nave likeliest in small or long rooms, the
+  canal only in long rooms (water down its middle, three cells wide in a wide one), the cistern in square rooms
+  of four blocks or more (water wherever no wall or door is next to it, flags round the edge), the spinners'
+  gallery from the run's third level (one, two from the seventh). The saints' catacomb keeps the crypt's
+  residents; the nave keeps its graves but no dwellers; the spinners' gallery is an ossuary's.
+- **The halls** take the slate as cut, the lining and the silt from the same smooth field as run I's; handprints
+  now and then on a stretch that isn't slate. From the run's sixth level, webs on the walls, more each level.
+- **Water**: on the standing water a footstep is `SFX_SPLASH` (a slap, a slosh, a drop or two) in place of the
+  step; it is walked through as any floor.
+- **The spider's arena** is the spinners' gallery, its burrows flooded niches; its outlets are culverts, and the
+  grate the omens open is the culvert drawn over the lining.
+- **Checked** (29 October 2026), in the harness only. AddressSanitizer clean over the dream from level 11, the
+  spider's fight, levels 19 to 21, a pocket on 13, her hall before 11 and a cistern on 15. Eight 50-minute dream
+  runs from level 11 at `CRAWL_GEAR=3` (seeds 1-15 odd) against 1.0.0b9 on the same seeds: a median of 16.5
+  levels reached (16), no deaths in either. Sixty levels gave 45-101 cells of water a level.
+
+## Run III, the Hollows, as drawn
+
+On `hollows.png` and `hollowrooms.png` (`hollows_run` in `crawl_art.c`; slots `M3_*`, `F3_*`, `FL3_*`, `CE3_*`
+in `crawl.h`, in run I's roles).
+
+- **Materials**: **rough granite**, worn lumps lit from above, cracks along some joints, pale feldspar and dark
+  mica, one look with a band of quartz; **a pick-cut face**, the pick's strokes in patches all over it, a drill
+  hole half left in it, one look with the scar of a charge fired; **timber shoring**, boards two to a course
+  nailed against the rock, half a post at each edge so that two cells make one post, one look with a board gone;
+  **basalt columns**, iron grey, three faces of each showing, joints across, one look with a piece broken out (the
+  chapel's); **packed backfill**, earth and broken rock tipped in with bones in it, one look with a skull (rooms
+  only).
+- **Blends**: the face into the granite and into the backfill (it frays), the timber into the face and into the
+  granite (the boards end at a post), the basalt and the backfill into the granite.
+- **On the walls**: an ore vein glinting in its quartz, fossil ribs (some great beast's, in the rock), a timber
+  set (two legs and a cap), an ore chute, the cult's marks (a red eye in a ring), and an oil lamp on its bracket
+  in the torch's place.
+- **Floors**: gravel trodden flat, rails on their sleepers (laid along the gallery), trodden earth with worn
+  hollows (the halls), the charnel floor (bone in the earth), and gravel under fallen scree for the later levels.
+  **Ceilings**: timber lagging over the gallery, rough rock over the halls, the stopes and the chapel, roots
+  through the rock over the charnel pit and the fossil hall.
+- **The rot**, worked then abandoned: dust and grime, scree banked at the foot of every wall and rising through
+  the run, cracks, boards split and fallen, and late in the run claw marks dragged down one look of each stone (so
+  they don't repeat cell after cell).
+- **Doors and keys**: rough mine doors with a Z brace; the vaults chained, the padlock in their key's metal; heavy
+  keys with a tally tag.
+- **Treasure**: nuggets in the coins' place, raw gems still in their rock, a strongbox in the chest's; the
+  chalice and the crown as they are.
+- **Rooms** (`hollowrooms.png`): the halls (the cave as it was, cut through with the pick, shored in places; a
+  timber set every six cells on the rock; lamps), the timbered gallery (timber, sets along it, lamps on the posts,
+  rails down it, carts by them), the stope (a face worked out, ore still in it, a chute; a fire), the charnel pit
+  (backfill and the dead tipped in with it, the rock at its ends), the fossil hall (granite and ribs), the chapel
+  (basalt, the cult's marks, its altars and candles).
+
+## Run III in the game
+
+- **Room types**: the stope the commonest (about two rooms in five), likeliest in the smallest rooms and the
+  largest; the timbered gallery in long rooms (one in five), with its rails along the room's middle (`FL3_RAILS`,
+  drawn along y and turned across for a room that runs along x); a charnel pit once a level (twice from the sixth);
+  a fossil hall in a room of two blocks or more (twice from the seventh); the chapel once, from the seventh level,
+  in a room of four blocks or more. The gallery, the charnel pit, the fossil hall and the chapel keep resident
+  dead (about three rooms in five, as in run I); the stope none.
+- **The halls** are granite, the face and timber from the field; a timber set every six cells along the rock.
+- **The Deacon's arena** is the chapel: basalt, the cult's marks, its burrows ore chutes (`F3_CHUTE`).
+- **Light**: the old Hollows' lights where they were (lanterns hung in the big rooms, the mine lamps), each
+  torch an oil lamp on its wall. The stone was lifted a little after the first frames, so that the levels' average
+  picture level matches 1.0.0b9's on the same seeds (about 10% from level 21 to 25).
+- **Checked** (29 October 2026), in the harness only. AddressSanitizer clean over the dream from level 21, the
+  Deacon's fight and fall, levels 28 to 31 (into run IV, still the old look), a pocket on 23, the chapel walked
+  into and a gallery. `build/host_debug bench crawl 60` from levels 21, 25 and 30: 2.2-2.5 ms a frame, as
+  1.0.0b9.
