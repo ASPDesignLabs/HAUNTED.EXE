@@ -1,10 +1,11 @@
 # 1.0.0b10: a look of its own for each run
 
-**Status: runs I, II and III are in the game, tested in the harness only. Run I was approved on its sheets
+**Status: all four runs are in the game, tested in the harness only. Run I was approved on its sheets
 (`crypts.png`, `cryptrooms.png`) and in its frames (28 October 2026); run II on its sheets (`catacombs.png`,
 `catarooms.png`, 29 October 2026), with the owner's answers to its questions below. The owner then left runs III
-and IV to my judgement, without sheets or frames to approve first: run III (`hollows.png`, `hollowrooms.png`) is
-drawn and in the game; run IV is next.** The owner asked for the crypt's
+and IV to my judgement, without sheets or frames to approve first: both are drawn (`hollows.png`,
+`hollowrooms.png`; `deep.png`, `deeprooms.png`) and in the game. What is left is step 6's last checks and the
+release's README, page and previews.** The owner asked for the crypt's
 walls to flow together, for floors and ceilings, and for each run of ten to look like its own place.
 This plan sets out a theme for each run, the room types that carry it, and how the generator lays
 them; then the work, one run at a time.
@@ -152,7 +153,8 @@ same way (`catacombs_run` in `crawl_art.c`, each level from its own seed).
    doors, keys and torches in play. Frames from the game on levels 1, 5 and 10 for approval. (Built; the
    frames wait for approval. See "Run I in the game" below.)
 3. **Run II**: sheets, approved; in the game (see "Run II in the game"). 4. **Run III**: drawn and in the game
-   without approvals, as the owner asked (see "Run III in the game"). 5. **Run IV**, with its glows.
+   without approvals, as the owner asked (see "Run III in the game"). 5. **Run IV**, with its glows: drawn and in
+   the game the same way (see "Run IV in the game").
 6. **Checks**: `bench` against 1.0.0b9; ASan; eight-seed dream runs against 1.0.0b9 (the lights move,
    so the autopilot's levels may play a little differently); the README's previews and "What has been
    verified"; the page.
@@ -281,4 +283,64 @@ in `crawl.h`, in run I's roles).
 - **Checked** (29 October 2026), in the harness only. AddressSanitizer clean over the dream from level 21, the
   Deacon's fight and fall, levels 28 to 31 (into run IV, still the old look), a pocket on 23, the chapel walked
   into and a gallery. `build/host_debug bench crawl 60` from levels 21, 25 and 30: 2.2-2.5 ms a frame, as
-  1.0.0b9.
+  1.0.0b9. Eight 50-minute dream runs from level 21 at `CRAWL_GEAR=5` (seeds 1-15 odd) against 1.0.0b9 on the same
+  seeds: a median of level 27 reached (27), one death (none; on level 21), 31.5 creatures slain a level of 40 (31
+  of 40), a level's median time 362 s (362).
+
+## Run IV, the Deep, as drawn
+
+On `deep.png` and `deeprooms.png` (`deep_run` in `crawl_art.c`; slots `M4_*`, `F4_*`, `FL4_*`, `CE4_*`). Its rot
+runs its own way, as the plan's table has it: glittering on the run's first levels (mica and glass dust catching
+the light), burning through its middle (cracks heating through every stone and glowing, the floors' seams and
+the shattered glass alight, the iron doors' grilles bright), molten on its seventh and eighth levels (the rock
+running down from a crack on one look of each stone), and dark at the end, the fire gone out of the rock and the
+cracks cooled red-black, the crystal's light nearly out, for the Wraith. `make sheets` shows the first and the last
+level; `SHEET_LAST=37 build/sheet deep out.png` shows the burning.
+
+- **Materials**: **obsidian**, black glass broken in shells, each facet ribbed about the point it flaked from and
+  the light sliding over its curve, one look with a great flake struck off; **basalt columns**, as the Hollows' but
+  in the run's own stone, ash going violet; **ash-crusted rock**, grey and full of gas holes, ash settled on every
+  ledge and run down from it, one look with a vent's mouth gone yellow with sulphur; **crystal crust**, amethyst
+  grown point after point, each a pyramid of six faces seen end on, a light down in a few, one look with a great
+  crystal; **bone in glass**, the dead the fire caught, fused into the obsidian with its sheen across them (rooms
+  only).
+- **Blends**: the obsidian into the ash (facets fall away), the basalt into the obsidian and into the ash (columns
+  fall away), the crust into the obsidian and into the ash (crystals fall away), bone in glass into plain glass.
+- **On the walls**: a geode broken open, its rind banded like agate and its crystals pointing in, their points
+  alight (a light in the room, as the saints' candles are, ten a level at most); a seam of gems, some with a fire in
+  them; threads of gold through white quartz; one of the dead fused into the rock, an arm raised as if it clawed
+  at it; the throne's frieze, a crowned dead king on his seat inlaid in gold; and in the torch's place a fissure
+  with the molten rock in it, its three frames pulsing, which is the run's light ("the walls themselves").
+- **Floors**: black glass with a crack or two (rooms), the throne's great flags with gold in their joints (laid as
+  laid), drifted ash (the halls), cinders and crust with their seams alight while the rock burns, and the glass
+  shattered for the later levels, the fire showing under it. **Ceilings**: crystal over the geode and the throne,
+  glinting rock over the halls and the glass halls, rock sooted black over the cinder fields and the vents.
+- **Doors and keys**: black iron in riveted plates with a grille, the fire behind it; the vaults banded in their
+  key's metal with a lock plate; keys of glass with a bow and collar of their metal.
+- **Treasure**: coin run molten, a few still whole at its edge (the coins); a cluster of crystal with the light in
+  it (the gems); an idol of black glass, a seated king with gold eyes and crown (the chalice). The crown and the
+  chest stay.
+- **Rooms** (`deeprooms.png`): the halls (ash, glass and columns, fissures for light, gold here and there, the
+  dead in the glass), the geode (crystal crust, geodes alight), the glass hall (obsidian, gem seams, the fused
+  dead), the cinder field (ash rock, the dead burnt into it, cinders underfoot), the magma vent (basalt giving way
+  to ash, gold, magma welling up in its corners), the throne (bone in glass, the frieze over its seat; the Wraith's
+  arena).
+
+## Run IV in the game
+
+- **Room types**: the glass hall the commonest; the geode likeliest in small rooms; the cinder field in rooms of two
+  blocks or more, likelier as the run burns; a magma vent once a level (twice from the fifth), with up to three
+  pools of magma (`magma`, the old Deep's prop, lit) in its corners; the throne once, from the fifth level, in a
+  room of four blocks or more. The glass hall and the throne keep the crypt's resident dead, the cinder field the
+  ossuary's (its skull heaps too); the geode and the vent none. The old Deep's crystals, glass shards, altars and
+  gargoyle perches still dress them by their style.
+- **The halls** are ash, obsidian and basalt from the field, with gold veins now and then and, on the glass, one of
+  the dead.
+- **The Wraith's arena** is the throne: bone in glass, its burrows the fused dead (`F4_FUSED`). The geodes' lights
+  are kept out of it, so its darkness is the braziers' to break.
+- **Light**: the torches are fissures; the geodes add a light each (ten a level, with the saints'
+  candles' rule: `wall_lights`); the vents' magma lights itself. The levels' average picture level matches
+  1.0.0b9's on the same seeds (means of 8.4-13.5% against 8.9-14.1% from levels 31, 35 and 39).
+- **Checked** (29 October 2026), in the harness only. AddressSanitizer clean over the dream from level 31, the
+  Wraith's fight and fall, levels 38 and 39, a pocket on 33, the throne walked into and a magma vent. The Windows
+  build compiles without a warning.

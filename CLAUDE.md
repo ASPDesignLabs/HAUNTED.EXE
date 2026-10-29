@@ -75,7 +75,8 @@ ceilings, its doors, keys and torches, her hall), and its frames from levels 1, 
 art (`catacombs_run`, `catacombs.png` and `catarooms.png`) was approved and is in the game, with the owner's
 answers: the water only a look but splashing underfoot, webs from the run's sixth level, the spider's arena the
 spinners' gallery. The owner then left runs III and IV to my judgement without approvals; run III (`hollows_run`,
-`hollows.png`, `hollowrooms.png`) is drawn and in the game, run IV next. Tested in the harness only.
+`hollows.png`, `hollowrooms.png`) and run IV (`deep_run`, `deep.png`, `deeprooms.png`) are drawn and in the game.
+Left: step 6's last checks and the release's README, page and previews. Tested in the harness only.
 
 ## Working with the owner
 
@@ -180,7 +181,7 @@ Cartographer, 8 Lantern of the Dead, 16 Grave Sense),
 `CRAWL_TPROOM=k` (in a corner of the first room of type k, looking across it: run I's 1 ossuary, 2 burial
 vault, 3 chapter house, 4 knights' vault, 5 undercroft; run II's 8 saints' catacomb, 9 cistern, 10 silted nave,
 11 canal, 12 spinners' gallery; run III's 13 timbered gallery, 14 stope, 15 charnel pit, 16 fossil hall, 17 the
-chapel), `CRAWL_RANK=r` (every creature at rank r), `CRAWL_WRAITH=s`
+chapel; run IV's 18 geode, 19 glass hall, 20 cinder field, 21 magma vent, 22 the throne), `CRAWL_RANK=r` (every creature at rank r), `CRAWL_WRAITH=s`
 (the Wraith at s seconds), `CRAWL_MEET=k`
 (one creature of kind k, the `MOB_*` number, a few cells ahead of the caster five seconds into each level,
 and into each pocket).
@@ -596,7 +597,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   comes on a boss level. `level_name` gives each of the forty its name, with a numeral after the first
   time down. `crawl_art_level` regenerates the wall textures with a level seed. Textures
   and sprites are 64x64, column-major.
-- **Each run's look** (1.0.0b10, docs/PLAN-b10.md; runs I-III are drawn and in play, `crawl_drawn`). `crawl_art_run(level)`
+- **Each run's look** (1.0.0b10, docs/PLAN-b10.md; all four runs are drawn and in play; `crawl_drawn` can hold one back). `crawl_art_run(level)`
   (after `crawl_art_level`) makes the run's roles into their slots: `T_MATV(m, v)` (`NMAT` materials, `NVAR` looks
   each, on one 16-pixel course grid, so any two meet without a step; `g_mid` keeps their blocks for the blends),
   `T_BLEND` (`NBLEND`, one material into the next across a cell, the first on the left and in front: whole blocks
@@ -610,9 +611,14 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   (`crypts_run`, `catacombs_run`, `hollows_run`: run II's slots are named `M2_*`, `F2_*`, `FL2_*`, `CE2_*` in
   `crawl.h`, run III's `M3_*` ..., in run I's roles: floor 1 lies as laid, floor 4 is floor 0 with the rot,
   ceiling 0 the rooms', 1 the halls'); run II's rot is `decay_catacomb` (the flood line, `flood_y`) and
-  `decay_flat2`, run III's `decay_hollows` (scree at the foot, claw marks on one look of each); each draws its
-  own keys (`spr_key_ring`, `spr_key_tag`) and treasure (`spr_coins_silt`, `spr_reliquary`, `spr_pearls`,
-  `spr_drown`; `spr_nuggets`, `spr_rawgems`, `spr_strongbox`), which `treasure_plain` puts back at every level. `make sheets` draws any run's pages from `RUNSHEETS` in
+  `decay_flat2`, run III's `decay_hollows` (scree at the foot, claw marks on one look of each), run IV's
+  `decay_deep` and `decay_flat_deep` by `deep_glitter`, `deep_heat` and `deep_dark` (glittering, then cracks
+  glowing, molten runs on one look of each, then dark; the fissures, geodes, gem seams, cinders and the doors'
+  grilles glow in `R_FLAME`/`R_GLOW` by the same curve); each draws its own keys (`spr_key_ring`, `spr_key_tag`,
+  `spr_key_glass`) and treasure (`spr_coins_silt`, `spr_reliquary`, `spr_pearls`, `spr_drown`; `spr_nuggets`,
+  `spr_rawgems`, `spr_strongbox`; `spr_molten`, `spr_glowgems`, `spr_idol`), which `treasure_plain` puts back at
+  every level. Run IV's torch is a magma fissure (`F4_FISSURE`'s three frames). `SHEET_LAST=n` makes a run's sheets
+  show level n as their second (run IV's burning is at 37). `make sheets` draws any run's pages from `RUNSHEETS` in
   `tools/sheet.c` (`draw_runlook`, `draw_runrooms`).
 - **Laying it** (`G.faced`: a drawn run's level, and her hall always; never a pocket; `G.look` whose stone, the
   run's set, her hall 0). A room's type (`RT_*`,
@@ -622,20 +628,22 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   takes its style from it. At the end of `gen_level` (after the arena) and `gen_shop`, `lay_faces` walks each
   straight stretch of wall on each side (`faceable`, `face_open`; a stretch ends where the place it looks into
   changes, `face_key`) in the face's own left-to-right order (+y, -x, -y, +x for faces looking east, south, west,
-  north) and `lay_stretch` gives it materials by its room type (`cell_rtype`: a secret's closet is an undercroft,
-  a silted nave or a stope; the arena the knights' vault, the spinners' gallery or the chapel, its burrows a
-  niche, a flooded niche or an ore chute): the halls, undercrofts and the plot from a smooth field (`mat_field`, six cells),
+  north) and `lay_stretch` gives it materials by its room type (`cell_rtype`: a secret's closet by the run,
+  `CLOSET`, an undercroft, a silted nave, a stope or a cinder field; the arena `ARENA`, the knights' vault, the
+  spinners' gallery, the chapel or the throne, its burrows `BURROW`, a niche, a flooded niche, an ore chute or the
+  fused dead): the halls, undercrofts and the plot from a smooth field (`mat_field`, six cells),
   so whole stretches agree; a blend where two meet (`blend_of`, `Cell.fflip` mirrors it); what stands on the wall
   by rule (niches in rows, banners centred, slabs spaced, a tablet, an undercroft's shrine once). `Cell.face[4]`,
   `fover[4]` (the overlay; a torch's on `ftorch`, its face + 1, set where the torch is placed), `flo`, `cei` (the
   floor and ceiling; flags break with the rot), `fflip` bits 5-7 the floor's turn (4 across), bit 4 laid as it
   is (the lozenges, the gallery's rails along their room). Run II's water (`FL2_WATER`: a cistern's middle, a
   canal's length) is walked as any floor, but `footstep` plays `SFX_SPLASH` on it (`on_water`); a saint carries
-  candles (`saint_lights`, ten a level). `render_walls` takes `face[fd]` for an ordinary wall and mixes the overlay in; a secret's cracked
+  candles and a geode glows (`wall_lights`, ten a level, none in an arena); a magma vent has up to three of the old
+  Deep's magma pools in its corners (`dress_level`). `render_walls` takes `face[fd]` for an ordinary wall and mixes the overlay in; a secret's cracked
   wall carries no overlay, and the sliding box wears the face it shows the hall. `render_floor` steps along a row
   in 16.16 fixed point texels (`U`, `V`: the cell by `>> 22`, the texel by `>> 16`, so `TS` must stay 64) and
   looks the cell up once per change. Debug: `ROOMS level n: ...` (each room's type, then the water's cells and the
-  saints' candles), `CRAWL_TPROOM=k` (in a corner of the
+  lights in the walls), `CRAWL_TPROOM=k` (in a corner of the
   first room of type k, `RT_*`, looking across it, once you take control).
 - **Ranks and the bestiary art.** `crawl_rank_lut[family][rank]` recolours a creature's body ramp
   (`PF_*`, `RK_*` in `crawl.h`). The new creatures' and decorations' sprites are drawn in
@@ -942,8 +950,9 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   room types decide which rooms keep resident skeletons (the ossuary, burial and knights' vaults: about three
   rooms in five, against one in two before), so the dwellers' count moved a little; the runs show no harm.
   Run II in play: eight 50-minute dream runs from level 11 at `CRAWL_GEAR=3` reached a median of level 16.5
-  (16 for 1.0.0b9), no deaths in either. Run III in play: its balance runs from level 21 are in the plan
-  (docs/PLAN-b10.md, "Run III in the game"). None of the runs' looks has been seen on a real screen yet.
+  (16 for 1.0.0b9), no deaths in either. Run III: eight from level 21 at `CRAWL_GEAR=5` reached a median of
+  level 27 (27), one death (none), the same creatures slain a level. Run IV's are in the plan (docs/PLAN-b10.md,
+  "Run IV in the game"). None of the runs' looks has been seen on a real screen yet.
 - 1.0.0b9 (the map, the target's health, Levels of Atonement, Luck, cornerstones, overlevels) has been tested
   in the harness only. Against 1.0.0b8 on the same eight seeds (100-minute dream runs from level 1, seeds 1-15
   odd), the released build (`ATONE_K` 42) cleared a median 9.5 levels (9.5), died 17 times (27; 16 on level 10,
