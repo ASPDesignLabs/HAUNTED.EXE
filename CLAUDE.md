@@ -197,8 +197,11 @@ Cartographer, 8 Lantern of the Dead, 16 Grave Sense),
 for each line, Fire, Frost, Lightning, Poison, Spirit, Physical: 0 closed, 1 open, 2 to its Insight, 3 to its ability,
 a-c path A's nodes in order, x-z path B's, so `c` is A's ultimate and `z` B's), `CRAWL_ALPTS=n` (Alignment Points),
 `CRAWL_TPLAMP=1` (before the Lampstand), `CRAWL_SPECTRES=n` (n spectres a level), `CRAWL_CLASS=k` (the class, 1-6 by
-element, 0 to be asked), `CRAWL_ATONE=n` (the Level of Atonement, nothing bought with it); `CRAWL_ALIGN`, `CRAWL_SOULS` and
-`CRAWL_CLASS` also apply over a run loaded with `HOST_LOAD`,
+element, 0 to be asked), `CRAWL_ATONE=n` (the Level of Atonement, nothing bought with it), `CRAWL_CORRUPT=1` (every level
+corrupted; 2 its secrets shown), `CRAWL_TPBELL=1` / `CRAWL_TPFONT=1` (before the Dead Bell or the Weeping Font),
+`CRAWL_CLEARED=n` (levels 1-n counted cleared, for replays), `CRAWL_LATCH=1` (a rank II bat latched five seconds into each
+level); `CRAWL_ALIGN`, `CRAWL_SOULS`, `CRAWL_CLASS` and `CRAWL_HASMAP`
+also apply over a run loaded with `HOST_LOAD`,
 `CRAWL_TPROOM=k` (in a corner of the first room of type k, looking across it: run I's 1 ossuary, 2 burial
 vault, 3 chapter house, 4 knights' vault, 5 undercroft; run II's 8 saints' catacomb, 9 cistern, 10 silted nave,
 11 canal, 12 spinners' gallery; run III's 13 timbered gallery, 14 stope, 15 charnel pit, 16 fossil hall, 17 the
@@ -242,7 +245,8 @@ count, then each stone, `STONE_BYTES`, 331: when, the level, what took it as a `
 coins, spells and runes, the worn pieces and the bag), `LG_PEDS` (the pedestals bought, a byte) and
 `LG_COMP` (the Compendium: a count for each kind, bracer to bag, and quality, those pieces, then each
 spell's tier), `LG_REPO` (the Repository: places, u32 gold, u16 coins, then each place's piece) and
-`LG_CODEX` (four u32 of bits: abilities, runes, runes at Exquisite, stats; 1.0.0b11 a fifth, the stats past the 32nd), `LG_ELEM` (version 7: the record by
+`LG_CODEX` (four u32 of bits: abilities, runes, runes at Exquisite, stats; 1.0.0b11 a fifth, the stats past the 32nd), `LG_HALL2` (1.0.0b11: the bell and the font cursed, the levels they wait for, the secrets shown, a replay's
+level of origin), `LG_ELEM` (version 7: the record by
 element, a byte each by kind and element for kills, hits landed and harms felt; version 7 leaves the fixed part's kills
 by spell empty, and an older record's go into their elements, a spell learnt staying learnt) and `LG_CASTER` (1.0.0b9,
 `LG_CASTER_BYTES`: a byte of flags (1 the map), u16 the Level of Atonement, u32 the experience since the last
@@ -880,6 +884,22 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `bone_spared`, `hurt_ex` and `windup_blow` (Resist Spirit). `piece_worth` weighs them by the element's share. Tab's
   fifth page (`NINV`, `render_elements`); the Codex's words for them in `stat_does`; Resist Spirit's caster line
   `LN_SPIRIT` (`NLINE_B9` the old count).
+- **Souls** (1.0.0b11 step 12, section 12). `vessel()`, `soul_cap`, `gain_souls` (capped), `soul_add` (whole souls in);
+  `G.vslip_t`, `render_vslip`. Kills leave `SoulMote`s (`G.motes`, `spawn_mote`, `update_motes`, `MOTE_LIFE`, `MOTE_REACH`,
+  `SP_MOTE`; `RANK_SOULS` halved); the dream's `mote_goal` in `pick_goal`. Her `MM_OFFER` (`OFFER_SOULS`, `offer_xp`). The
+  Dead Bell and the Weeping Font (`BELL_X/Y`, `FONT_X/Y`, `SP_DBELL(_C)`, `SP_FONT(_C)`; `RUN.bell_cursed`, `font_cursed`
+  kept through death, `bell_next`, `bell_secrets`, `font_next`; `UI_HALL2`: `hall2_rows`, `update_hall2`, `render_hall2`,
+  `bell_toll`, `wfont_drink`). `start_level` turns them into `G.corrupt`, `G.cshown`, `G.fonted` for one attempt: more
+  wanderers, `xp_gain` halved (a tenth more for the font), gold at pickup, `boss_adds`, the scrip, `fogged`'s green, the
+  card and the tally; `render_wisps` and the map mark the shown secrets. Replays: the Portal's levels row (`PortRow` both
+  -1, `G.port_lvl`, `replay_step`, `replay_begin`, `RUN.replay_from`, `G.replay`; `gain_coin` gives none). Saved in
+  `LG_HALL2`. `SHOP_BEYOND()` is her room's way on, by the door's row. Debug: `EVENT bell_toll`, `bell_corrupted`,
+  `font_cursed`, `font_drink`, `offer_souls`, `corrupted`, `replay`, `souls_slipped`.
+- **Soul Sap** (1.0.0b11 step 13, section 6). Bats of rank II up latch on instead of biting (`latch_begin` from the bat's
+  touching branch, `LATCH_T`); `G.latch` (1 + the bat), `update_latch` (the drain as a seeping Spirit harm, souls, the
+  shaking by the view's turns and the feet's strafes, `SHAKE_NEED`, `G.shake`), `latch_release` (shaken, thrown by Blink
+  or Swift Dodge, or after ten seconds), `sap_slow` in `slow_factor`, `render_latch`. Untargetable while latched. Debug:
+  `CRAWL_LATCH=1`, `EVENT latch`, `latch_off`, `shakes`.
 - **The classes** (1.0.0b11 step 10, docs/PLAN-b11.md section 11; `CLASSES`, `CLASS_SHORT`, `CLASS_MARK` in
   `crawl_art.c`, `RUN.cls` 1 + its element, `cls_el()`). Its line is open free (`align_open`); the gifts sit where their
   numbers are used: `align_sync` (a fifth of Efficiency, the Witchfinder's Power, the Galvanist's Insight), `permafrost`,

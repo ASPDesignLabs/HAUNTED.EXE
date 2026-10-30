@@ -5,7 +5,9 @@
 drawn for the owner and its art in the game until they mark it up, the runes' sockets, the map at a walk), and part
 two's steps 5 (spells as lines), 6 (the new room, the Lampstand on `hall2.png`, Alignment Points and the screen), 7
 (the abilities), 8 (the paths' nodes, the Masteries, spectres), 9 (charging and the twelve ultimates, their sprites
-on `spells.png`), 10 (the classes, their marks on `elements.png`) and 11 (gear's elements), tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+on `spells.png`), 10 (the classes, their marks on `elements.png`), 11 (gear's elements) and 12 (souls: the vessel, motes,
+her offering, the Dead Bell and the Weeping Font on `hall2.png`, replays at the Portal) and 13 (Soul Sap), tested in the
+harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),
@@ -911,3 +913,35 @@ answers, and are first guesses for the runs to tune. Any of them can be changed 
   note). Resist Spirit's line is the thirteenth, Resist All counts for it too, and the screen's rows are eight pixels
   apart to fit it. The page keeps the stats past the 32nd in four bytes more of `LG_CODEX`, and `LG_CASTER` grows by
   the line; a reader takes the lines' count from its length. The Vessel stat does nothing until step 12.
+- **Souls** (step 12). The vessel is 20 and two a Level of Atonement (22 at the first), with the Sin-Eater's 20, the
+  Vessel worn, and ten each for Communion and Spirit Mastery once whole; over it, souls slip away with a pale wisp off
+  the hand and, once a level for a person, *THE VESSEL IS FULL*; a run read with more is brought down to it quietly as
+  a level or her room opens. The status bar's souls go gold when full, with a line under them for how full. A kill's
+  souls: half a soul at rank I, one at II, one and a half at III, two at IV, three at V and gilded, Harvest's on top, as a
+  mote (a pale flame with a face) where it fell, six seconds, fading in the last two, taken within 1.2 cells; urns,
+  the visportal's fifty and the console's hundred come straight in, under the vessel. The dream walks to a mote within
+  three steps of its lane when nothing alerted is within six cells (step 14 may do more). Her *OFFER SOULS* takes ten for
+  twenty experience times the level's weight (25 at level 3, 44 at 21). The bell and the font stand in the new room's
+  east and west halves, each a prop with its own menu (asked twice); the prices are the plan's. On a corrupted level:
+  two in five more of the dead as wanderers (not on a boss's level, whose waves are a third larger instead), two fifths
+  more for every treasure picked up, half of all experience, one scrip more from its boss, the fog dithered with a
+  sickly green, the toll heard as it opens, *CORRUPTED* under its name on the card (*CORRUPTED, ITS SECRETS SHOWN*), and
+  on the tally *HALF* by the experience and *CORRUPTED: HALF EXPERIENCE* across the foot. The shown secrets have a violet
+  wisp each at the cell before the cracked wall and a violet cross on the map. The font's tenth shows as *THE FONT'S
+  TENTH* on the card and *+10%* on the tally. **Replays**: one row of the Portal, *THE LEVELS CLEARED*, A/D through them;
+  the crypt has no fixed layout for a level (each visit builds it afresh), so a replay is the same level by its number,
+  name, run and look, with new walls, creatures and treasure. A replay's level gives no Cursed Coins at all. Back after
+  its tally, or with the scene or a save; a death that costs ends it. The page keeps the bell, the font and a replay in a
+  new section, `LG_HALL2`. **Found while building it:** her room's way on started the next level for anyone east of x
+  22.4, and the room north of hers (step 6's) reaches x 25, so walking into its east end would have left the room;
+  the way on now counts only in the door's own row.
+- **Soul Sap** (step 13). The plan's numbers as they stand. The drain is taken as a seeping harm of Spirit (no dodge, no
+  armour, never breaking a wind-up), a whole point at a time, and the souls go to the tenth. A reversal of the view counts
+  when it turns faster than 2.5 radians a second; of the feet, when they slide sideways faster than 0.9 cells a second.
+  Each adds the time since the last reversal (under 0.4 s), so four quick shakes free a rank II bat. With no reversal for
+  0.6 s the grip comes back at 0.15 a second. The dream shakes at a steady 0.32 a second (two seconds for rank II, five for
+  rank V). The bat is drawn from its own sprite five times over, its body low in the view and its wings from edge to edge,
+  beating, sliding lower as its grip goes and jumping with each shake; the edges of sight are dithered violet; the
+  portrait winces with each drain. The others of its kind circle at two cells while one is latched. Shaken off, it is
+  set to flee for 1.6 s and comes again. `CRAWL_LATCH=1` latches a rank II bat five seconds into each level. Its frames
+  stand in for the sheet's page of it.

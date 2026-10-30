@@ -1429,6 +1429,22 @@ static void spr_rime(void) {                                       /* the Lance'
     cv_store(SP_RIME);
 }
 
+static void spr_mote(void) {                                       /* a soul where the dead fell (section 12) */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 18; y < 44; y++) {
+        float u = (float)(y - 18) / 26.0f, w = 6.0f * sinf(PI_F * fminf(1.0f, 0.15f + u * 0.95f)) * (0.35f + 0.65f * u);
+        for (int x = (int)(32 - w); x <= (int)(32 + w); x++) {
+            float e = fabsf(x + 0.5f - 32) / (w + 0.01f);
+            if (u < 0.35f && h01(x, y, 61) < 0.25f) continue;      /* its tip, wavering */
+            cv_px(x, y, (uint8_t)(R_GHOST + clampi((int)((1.0f - e * 0.7f) * 13.0f + u * 3.0f), 4, 15)));
+        }
+    }
+    cv_px(30, 34, (uint8_t)(R_GHOST + 3)); cv_px(34, 34, (uint8_t)(R_GHOST + 3));   /* two dim eyes */
+    cv_px(31, 37, (uint8_t)(R_GHOST + 5)); cv_px(32, 37, (uint8_t)(R_GHOST + 5)); cv_px(33, 37, (uint8_t)(R_GHOST + 5));   /* a mouth, open */
+    for (int i = 0; i < 6; i++) cv_px((int)(32 + (h01(i, 3, 71) - 0.5f) * 18), (int)(26 + h01(i, 4, 71) * 20), (uint8_t)(R_GHOST + 12));
+    cv_store(SP_MOTE);
+}
+
 static void spr_burn(int id, int frame) {
     cv_begin(cv_sprite, TS, TS);
     for (int i = 0; i < 9; i++) {
@@ -2030,6 +2046,83 @@ static void spr_lampstand(void) {
     cv_capsule(32, 9, 32, 13, 0.9f, R_IRON, 0.1f, 0.38f);          /* a spike at the top */
     cv_outline(0);
     cv_store(SP_LAMPSTAND);
+}
+
+/* The Dead Bell (docs/PLAN-b11.md, section 12): a cracked bronze bell under a beam on two posts. Corrupted it goes
+ * black, and the crack burns a sickly green */
+static void spr_deadbell(int id, int corrupt) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 18, 1.8f, R_WARM + 1);
+    cv_capsule(13, 12, 13, 62, 2.2f, R_WOOD, 0.08f, 0.42f);         /* the posts, */
+    cv_capsule(51, 12, 51, 62, 2.2f, R_WOOD, 0.08f, 0.42f);
+    cv_capsule(10, 11, 54, 11, 2.4f, R_WOOD, 0.1f, 0.5f);           /* the beam, */
+    cv_capsule(16, 18, 13, 14, 1.0f, R_WOOD, 0.08f, 0.35f); cv_capsule(48, 18, 51, 14, 1.0f, R_WOOD, 0.08f, 0.35f);   /* braces */
+    cv_capsule(32, 12, 32, 18, 1.0f, R_IRON, 0.06f, 0.3f);          /* the hanger */
+    for (int y = 18; y <= 47; y++) {                                /* the bell: a crown, a waist, a flared lip */
+        float u = (float)(y - 18) / 29.0f, w = 5.5f + 4.0f * u + 7.5f * u * u * u;
+        for (int x = (int)(32 - w); x <= (int)(32 + w); x++) {
+            float nx = (x + 0.5f - 32) / (w + 0.01f), l = lit(nx, -0.2f, sqrtf(fmaxf(0.0f, 1.0f - nx * nx)));
+            uint8_t c = corrupt ? sh(R_STONE, 0.03f + 0.18f * l) : sh(R_GOLD, 0.22f + 0.6f * l);
+            if (y >= 45 || (y > 20 && (y - 20) % 9 == 0)) c = corrupt ? sh(R_STONE, 0.08f + 0.2f * l) : sh(R_GOLD, 0.35f + 0.6f * l);   /* bands, the lip */
+            cv_px(x, y, c);
+        }
+    }
+    int cx = 27;                                                    /* the crack, down from the shoulder */
+    for (int y = 22; y <= 46; y++) {
+        cx += (int)(h01(y, 7, 13) * 3.0f) - 1;
+        cv_px(cx, y, corrupt ? (uint8_t)(R_MOSS + 13 + (y & 1)) : sh(R_GOLD, 0.05f));
+        if (corrupt && (y & 3) == 0) cv_px(cx + 1, y, (uint8_t)(R_MOSS + 10));
+    }
+    cv_flat(32, 50, 2.0f, 2.2f, corrupt ? sh(R_STONE, 0.1f) : sh(R_IRON, 0.3f));   /* the clapper */
+    if (corrupt)
+        for (int i = 0; i < 10; i++) cv_px((int)(20 + h01(i, 2, 17) * 24), (int)(48 + h01(i, 3, 17) * 10), (uint8_t)(R_MOSS + 9 + (i & 3)));   /* what drips from it */
+    cv_outline(0);
+    cv_store(id);
+}
+/* The Weeping Font: a stone basin on a short pillar, under a carved face on a slab. Dry, its tracks are dust; cursed, it
+ * brims dark red and the face weeps red */
+static void spr_font(int id, int cursed) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 18, 1.8f, R_WARM + 1);
+    for (int y = 4; y <= 46; y++)                                   /* a broad slab, arched, a niche cut in it */
+        for (int x = 8; x <= 56; x++) {
+            float d = hypotf(x + 0.5f - 32, y + 0.5f - 26);
+            if (y < 26 && d > 24.5f) continue;
+            int niche = y >= 12 && x >= 17 && x <= 47 && (y >= 26 || hypotf(x + 0.5f - 32, y + 0.5f - 27) < 15.5f);
+            float v = 0.22f + 0.22f * fbm(x / 4.0f, y / 4.0f, 32, 31) + (niche ? -0.1f : 0.0f) + (x < 11 || (y < 26 && d > 22.5f) ? 0.12f : 0.0f);
+            cv_px(x, y, sh(R_STONE, v));
+        }
+    for (int a = 0; a < 40; a++) {                                  /* a band of carving round the arch */
+        float an = PI_F + (float)a / 39.0f * PI_F;
+        int x = (int)(32 + cosf(an) * 19.5f), y = (int)(26 + sinf(an) * 19.5f);
+        cv_px(x, y, (a & 1) ? sh(R_STONE, 0.5f) : sh(R_STONE, 0.12f));
+    }
+    cv_flat(32, 26, 9.5f, 11.0f, sh(R_STONE, 0.3f));               /* the face in the niche: */
+    cv_flat(28, 23, 2.4f, 1.5f, sh(R_STONE, 0.03f)); cv_flat(36, 23, 2.4f, 1.5f, sh(R_STONE, 0.03f));   /* hollow eyes, */
+    cv_capsule(32, 24, 32, 29, 0.9f, R_STONE, 0.35f, 0.55f);       /* a nose, */
+    cv_capsule(29, 32, 35, 32, 0.8f, R_STONE, 0.02f, 0.1f);        /* a mouth turned down */
+    cv_px(28, 33, sh(R_STONE, 0.05f)); cv_px(36, 33, sh(R_STONE, 0.05f));
+    for (int side = 0; side < 2; side++)                            /* the tears' tracks, down to the basin */
+        for (int y = 25; y <= 41; y++) {
+            int x = (side ? 36 : 28) + (int)(sinf((float)y * 0.5f + side) * 0.8f);
+            cv_px(x, y, cursed ? (uint8_t)(R_BLOOD + 9 + (y & 1) * 2) : sh(R_STONE, 0.45f));
+        }
+    for (int y = 41; y <= 47; y++) {                                /* a shallow basin, wide */
+        float u = (float)(y - 41) / 6.0f, w = 21.0f - 8.0f * u * u;
+        for (int x = (int)(32 - w); x <= (int)(32 + w); x++) {
+            float nx = (x + 0.5f - 32) / w;
+            cv_px(x, y, sh(R_STONE, 0.2f + 0.4f * lit(nx, 0.3f, sqrtf(fmaxf(0.0f, 1.0f - nx * nx)))));
+        }
+    }
+    for (int x = 11; x <= 53; x++) {                                /* its brim, and what is in it */
+        cv_px(x, 41, sh(R_STONE, 0.62f));
+        if (x > 12 && x < 52) cv_px(x, 42, cursed ? (uint8_t)(R_BLOOD + 4 + ((x * 7) % 5 == 0 ? 6 : 0)) : sh(R_STONE, 0.06f));
+    }
+    cv_capsule(32, 48, 32, 57, 5.5f, R_STONE, 0.12f, 0.42f);        /* a short thick stem, */
+    cv_capsule(23, 59, 41, 59, 2.4f, R_STONE, 0.12f, 0.42f);        /* a broad foot */
+    if (cursed) for (int i = 0; i < 5; i++) cv_px(14 + i * 9, 43 + (i & 1), (uint8_t)(R_BLOOD + 6));   /* spilling over the lip */
+    cv_outline(0);
+    cv_store(id);
 }
 
 /* a bowl's flame, in texels from the middle of the bowl's rim (dy up is negative): the step of its element's ramp
@@ -7769,7 +7862,8 @@ void crawl_art_init(void) {
     for (int k = 0; k < 4; k++) spr_tomb(SP_TOMB_ROUND + k, k);
     spr_tomb(SP_TOMB_FRESH, 4);
     spr_lectern(); spr_mapware(); spr_lampstand();
-    spr_orb(SP_ORB_A, 0); spr_orb(SP_ORB_B, 1); spr_lance(); spr_ballista(); spr_fspirit(SP_FSPIRIT_A, 0); spr_fspirit(SP_FSPIRIT_B, 1); spr_rime();
+    spr_orb(SP_ORB_A, 0); spr_orb(SP_ORB_B, 1); spr_lance(); spr_ballista(); spr_fspirit(SP_FSPIRIT_A, 0); spr_fspirit(SP_FSPIRIT_B, 1); spr_rime(); spr_mote();
+    spr_deadbell(SP_DBELL, 0); spr_deadbell(SP_DBELL_C, 1); spr_font(SP_FONT, 0); spr_font(SP_FONT_C, 1);
     for (int f = 0; f < 3; f++) spr_firepit(SP_FIREPIT_A + f, f);
     spr_totem(SP_TOTEM_A, 0); spr_totem(SP_TOTEM_B, 1);
     spr_shambler(SP_SHAMB_A, 1.0f, 0); spr_shambler(SP_SHAMB_B, -1.0f, 0); spr_shambler(SP_SHAMB_GRAB, 0.0f, 1);

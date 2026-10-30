@@ -800,7 +800,7 @@ static void lampstand_at(int ox, int oy, int k, unsigned lit, int rank) {
     }
 }
 static int draw_hall2(const char *path) {
-    iw = 1240; ih = 560;
+    iw = 1240; ih = 1000;
     img = calloc((size_t)iw * ih, 3);
     rect(0, 0, iw, ih, 10, 10, 12);
     text(PAD, PAD, "1.0.0B11: HER HALL'S NEW ROOM, FOR APPROVAL", 230, 230, 230);
@@ -818,8 +818,17 @@ static int draw_hall2(const char *path) {
         text(x, y + 4 * TS + 24 + LABEL_H - 6, V[i].l2, 150, 150, 150);
     }
     y += 4 * TS + 24 + 2 * LABEL_H;
-    text(PAD, y, "THE DEAD BELL AND THE WEEPING FONT COME ON THIS SHEET WITH STEP 12.", 120, 120, 120);
-    ih = y + LABEL_H + PAD;
+    text(PAD, y, "THE DEAD BELL AND THE WEEPING FONT (STEP 12)", 200, 200, 200);
+    y += LABEL_H;
+    snap_take(&g_snap[0], 1);
+    static const struct { int id; const char *l; } BF[4] = { { SP_DBELL, "THE BELL" }, { SP_DBELL_C, "CORRUPTED" }, { SP_FONT, "THE FONT" }, { SP_FONT_C, "CURSED" } };
+    for (int i = 0; i < 4; i++) {
+        int x = PAD + i * 300;
+        spr_at(&g_snap[0], x, y, BF[i].id, 4);
+        text(x, y + 4 * TS + 8, BF[i].l, 190, 190, 190);
+    }
+    y += 4 * TS + 8 + LABEL_H + 8;
+    ih = y + PAD;
     int ok = write_png(path);
     free(img);
     return ok;
