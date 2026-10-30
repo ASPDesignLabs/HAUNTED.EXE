@@ -658,6 +658,218 @@ static void spr_at(const Snap *s, int ox, int oy, int id, int scale) {   /* a sp
         }
 }
 
+/* ---- 1.0.0b11 (docs/PLAN-b11.md): the elements' glyphs, the target's readout in them, the runes' sockets ---- */
+
+static const int EL_RAMP[6] = { R_FLAME, R_GLOW, R_GOLD, R_MOSS, R_PURPLE, R_BONE };
+static const char *const EL_LABEL[6] = { "FIRE", "FROST", "LIGHTNING", "POISON", "SPIRIT", "PHYSICAL" };
+static const int RUNE_RAMP[9] = { R_BONE, R_PURPLE, R_GHOST, R_BLOOD, R_MOSS, R_GLOW, R_PURPLE, R_GOLD, R_GHOST };
+static const char *const RUNE_LABEL[9] = { "BONE WARD", "BLINK", "MIRROR VEIL", "MEND", "PURIFY", "FROST NOVA", "DREAD", "TIME SLIP", "SOUL REAPING" };
+static const int Q_RAMP[5] = { R_BONE, R_MOSS, R_GLOW, R_PURPLE, R_GOLD };
+static void ppx(int x, int y, int k, int c) { rect(x, y, k, k, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63); }
+static int ramp_k(int ramp, int i) { return ramp + (i > (ramp == R_GOLD ? 12 : 15) ? (ramp == R_GOLD ? 12 : 15) : i); }
+/* a mark of n by n at scale k: '#' at the ramp's 11th step, 'o' its brightest; dim: the stone's grey */
+static void pmark(int ox, int oy, int k, const char *const *rows, int n, int ramp, int dim) {
+    for (int y = 0; y < n; y++) for (int x = 0; x < n; x++) {
+        char ch = rows[y][x];
+        if (ch == '#' || ch == 'o') ppx(ox + x * k, oy + y * k, k, dim ? R_STONE + (ch == 'o' ? 9 : 7) : ramp_k(ramp, ch == 'o' ? 15 : 11));
+    }
+}
+static void pplus(int ox, int oy, int k, int minus, int c) {        /* the 3 by 3 marks beside a glyph */
+    for (int i = 0; i < 3; i++) ppx(ox + i * k, oy + k, k, c);
+    if (!minus) { ppx(ox + k, oy, k, c); ppx(ox + k, oy + 2 * k, k, c); }
+}
+static void pstrike(int ox, int oy, int k) { for (int i = 0; i < 9; i++) ppx(ox + (i - 1) * k, oy + (7 - i) * k, k, R_BLOOD + 11); }
+static void psocket(int ox, int oy, int k, int rune, int q, float fill) {   /* 17 by 17, as the boss abilities' */
+    for (int y = 0; y < 17; y++) for (int x = 0; x < 17; x++) {
+        int edge = y == 0 || x == 0 ? 1 : (y == 16 || x == 16 ? 2 : 0);
+        ppx(ox + x * k, oy + y * k, k, edge ? ramp_k(Q_RAMP[q], edge == 1 ? 13 : 7) : 0);
+    }
+    pmark(ox + 3 * k, oy + 2 * k, k, RUNE_MARK[rune], 11, RUNE_RAMP[rune], 0);
+    for (int i = 0; i < 13; i++) ppx(ox + (2 + i) * k, oy + 14 * k, k, i < (int)(fill * 13.0f + 0.5f) ? (fill >= 1.0f ? R_GOLD + 12 : R_STONE + 9) : R_STONE + 3);
+}
+static int draw_elements(const char *path) {
+    iw = 1240; ih = 1200;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "1.0.0B11: THE ELEMENTS' GLYPHS AND THE RUNES' MARKS, FOR APPROVAL", 230, 230, 230);
+    int y = PAD + LABEL_H + 8;
+    text(PAD, y, "THE SIX GLYPHS: AT SIZE, DOUBLED, AT SIX TIMES", 200, 200, 200);
+    y += LABEL_H;
+    for (int e = 0; e < 6; e++) {
+        int x = PAD + e * 196;
+        rect(x, y, 186, 96, 0, 0, 0);
+        pmark(x + 8, y + 8, 1, ELEM_GLYPH[e], 7, EL_RAMP[e], 0);
+        pmark(x + 8, y + 24, 2, ELEM_GLYPH[e], 7, EL_RAMP[e], 0);
+        pmark(x + 40, y + 8, 6, ELEM_GLYPH[e], 7, EL_RAMP[e], 0);
+        pmark(x + 132, y + 8, 2, ELEM_GLYPH[e], 7, EL_RAMP[e], 1);
+        textk(x + 132, y + 26, "DIM", 1, 120, 120, 120);
+        text(x + 4, y + 70, EL_LABEL[e], 190, 190, 190);
+    }
+    y += 112;
+    text(PAD, y, "BESIDE THEM: ++ AT 1.5 OR MORE, + ABOVE PLAIN, - BELOW, -- AT HALF", 200, 200, 200);
+    text(PAD, y + LABEL_H, "OR LESS; STRUCK THROUGH, NOTHING AT ALL", 200, 200, 200);
+    y += 2 * LABEL_H + 8;
+    for (int s = 0; s < 2; s++) {                                   /* at size, then at four times */
+        int k = s ? 4 : 1, x = PAD + (s ? 220 : 12), yy = y + (s ? 4 : 24);
+        rect(x - 4 * k, yy - 4 * k, 66 * k, 15 * k, 0, 0, 0);
+        pmark(x, yy, k, ELEM_GLYPH[1], 7, EL_RAMP[1], 0); pplus(x + 8 * k, yy + 2 * k, k, 0, C_WHITE); pplus(x + 12 * k, yy + 2 * k, k, 0, C_WHITE);
+        pmark(x + 18 * k, yy, k, ELEM_GLYPH[2], 7, EL_RAMP[2], 0); pplus(x + 26 * k, yy + 2 * k, k, 0, C_WHITE);
+        pmark(x + 32 * k, yy, k, ELEM_GLYPH[3], 7, EL_RAMP[3], 0); pplus(x + 40 * k, yy + 2 * k, k, 1, R_STONE + 11);
+        pmark(x + 46 * k, yy, k, ELEM_GLYPH[0], 7, EL_RAMP[0], 0); pplus(x + 54 * k, yy + 2 * k, k, 1, R_STONE + 11); pplus(x + 58 * k, yy + 2 * k, k, 1, R_STONE + 11);
+        pmark(x + 66 * k, yy, k, ELEM_GLYPH[5], 7, EL_RAMP[5], 0); pstrike(x + 66 * k, yy, k);
+    }
+    y += 80;
+    text(PAD, y, "ON THE TARGET, AT SIZE AND TRIPLED: ITS HARM UNDER ITS NAME,", 200, 200, 200);
+    text(PAD, y + LABEL_H, "WHAT IT TAKES MORE FROM ON THE LEFT, LESS FROM ON THE RIGHT", 200, 200, 200);
+    y += LABEL_H;
+    y += LABEL_H;
+    for (int s = 0; s < 2; s++) {
+        int k = s ? 3 : 1, ox = PAD + (s ? 300 : 20), oy = y + (s ? 0 : 30);
+        rect(ox, oy, 230 * k, 40 * k, 34, 30, 30);
+        const char *nm = "COLD BAT";
+        int nw = 8 * 8;
+        int cx = ox + 115 * k;
+        rect(cx - (nw / 2 + 3) * k, oy + 2 * k, (nw + 6) * k, 10 * k, 0, 0, 0);
+        textk(cx - nw / 2 * k, oy + 3 * k, nm, k, 90, 140, 255);
+        rect(cx - 12 * k, oy + 12 * k, 25 * k, 9 * k, 0, 0, 0);
+        pmark(cx - 10 * k, oy + 13 * k, k, ELEM_GLYPH[5], 7, EL_RAMP[5], 0);
+        pmark(cx + 2 * k, oy + 13 * k, k, ELEM_GLYPH[4], 7, EL_RAMP[4], 0);
+        int bx = cx - 60 * k, by = oy + 24 * k;
+        rect(bx - 2 * k, by - 2 * k, 124 * k, 11 * k, 0, 0, 0);
+        for (int i = 0; i < 120; i++) for (int j = 0; j < 7; j++) ppx(bx + i * k, by + j * k, k, i < 68 ? R_BLOOD + 9 + (j == 0 ? 4 : 0) : R_BLOOD + 2);
+        int lx = bx - 36 * k;                                       /* weak: the most nearest the bar */
+        rect(lx - 2 * k, by - 2 * k, 35 * k, 11 * k, 0, 0, 0);
+        textk(lx, by, "?", k, 110, 110, 110);
+        pmark(lx + 6 * k, by, k, ELEM_GLYPH[2], 7, EL_RAMP[2], 0); pplus(lx + 13 * k, by + 2 * k, k, 0, C_WHITE);
+        pmark(lx + 18 * k, by, k, ELEM_GLYPH[1], 7, EL_RAMP[1], 0); pplus(lx + 25 * k, by + 2 * k, k, 0, C_WHITE); pplus(lx + 28 * k, by + 2 * k, k, 0, C_WHITE);
+        int rx = bx + 124 * k;
+        rect(rx, by - 2 * k, 26 * k, 11 * k, 0, 0, 0);
+        pmark(rx + 2 * k, by, k, ELEM_GLYPH[0], 7, EL_RAMP[0], 0); pplus(rx + 10 * k, by + 2 * k, k, 1, R_STONE + 11);
+        textk(rx + 16 * k, by, "?", k, 110, 110, 110);
+    }
+    y += 140;
+    text(PAD, y, "THE RUNES' SOCKETS, AT THE LOWER RIGHT: THE MARK, THE EDGE IN ITS", 200, 200, 200);
+    text(PAD, y + LABEL_H, "QUALITY'S COLOUR, A LINE ALONG ITS FOOT COMING ROUND", 200, 200, 200);
+    y += 2 * LABEL_H;
+    for (int r = 0; r < 9; r++) {
+        int x = PAD + r * 130;
+        rect(x, y, 122, 150, 0, 0, 0);
+        psocket(x + 8, y + 8, 1, r, r % 5, 0.4f);
+        psocket(x + 34, y + 8, 4, r, r % 5, r == 8 ? 1.0f : 0.25f + 0.08f * r);
+        textk(x + 4, y + 82, RUNE_LABEL[r], 1, 190, 190, 190);
+        pmark(x + 8, y + 100, 3, RUNE_MARK[r], 11, RUNE_RAMP[r], 0);
+        pmark(x + 50, y + 100, 1, RUNE_MARK[r], 11, RUNE_RAMP[r], 0);
+    }
+    y += 166;
+    text(PAD, y, "EDGES BY QUALITY: COMMON, UNCOMMON, RARE, ULTRA-RARE, EXQUISITE.", 120, 120, 120);
+    text(PAD, y + LABEL_H, "A FULL LINE IS GOLD: READY.", 120, 120, 120);
+    y += 2 * LABEL_H + 8;
+    static const char *const CLASS_LABEL[6] = { "THE WITCHFINDER", "THE ANATOMIST", "THE GALVANIST", "THE PLAGUE DOCTOR", "THE SIN-EATER", "THE HEADSMAN" };
+    text(PAD, y, "THE CLASSES' MARKS (STEP 10): AT SIX TIMES, DOUBLED, AT SIZE, IN THEIR ELEMENT", 200, 200, 200);
+    y += LABEL_H;
+    for (int c = 0; c < 6; c++) {
+        int x = PAD + c * 196;
+        rect(x, y, 186, 112, 0, 0, 0);
+        pmark(x + 8, y + 8, 6, CLASS_MARK[c], 11, EL_RAMP[c], 0);
+        pmark(x + 84, y + 8, 2, CLASS_MARK[c], 11, EL_RAMP[c], 0);
+        pmark(x + 112, y + 8, 1, CLASS_MARK[c], 11, EL_RAMP[c], 0);
+        textk(x + 4, y + 118, CLASS_LABEL[c], 1, 190, 190, 190);
+    }
+    y += 118 + LABEL_H + 6;
+    text(PAD, y, "THE TREE'S NODES COME ON THE ALIGNMENT SCREEN ITSELF, AS FRAMES.", 120, 120, 120);
+    ih = y + LABEL_H + PAD;
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
+/* 1.0.0b11's new room: the Lampstand with none, three and six bowls lit, at a few ranks */
+static void lampstand_at(int ox, int oy, int k, unsigned lit, int rank) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c = crawl_spr[SP_LAMPSTAND][x * TS + y];
+            if (c != C_CLEAR) { c = crawl_cmap[LIGHT + 8 < NLIGHT ? LIGHT + 8 : NLIGHT - 1][c]; rect(ox + x * k, oy + y * k, k, k, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63); }
+        }
+    for (int b = 0; b < 6; b++) {
+        if (!(lit >> b & 1)) continue;
+        for (int dy = -16; dy <= 0; dy++)
+            for (int dx = -5; dx <= 5; dx++) {
+                int v = crawl_lamp_flame(dx, dy, rank, 0.4f, b);
+                if (v > 0) ppx(ox + (LAMP_BOWL[b][0] + dx) * k, oy + (LAMP_BOWL[b][1] + dy) * k, k, ramp_k(EL_RAMP[b], v));
+            }
+    }
+}
+static int draw_hall2(const char *path) {
+    iw = 1240; ih = 1000;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "1.0.0B11: HER HALL'S NEW ROOM, FOR APPROVAL", 230, 230, 230);
+    int y = PAD + LABEL_H + 8;
+    text(PAD, y, "THE LAMPSTAND: NO LINE, THREE, ALL SIX; THE FLAMES GROW WITH RANK", 200, 200, 200);
+    y += LABEL_H;
+    static const struct { unsigned lit; int rank; const char *l1, *l2; } V[4] = {
+        { 0x01, 1, "FIRE ONLY", "AT RANK 1" }, { 0x0D, 6, "FIRE, LIGHTNING,", "POISON AT RANK 6" },
+        { 0x3F, 12, "ALL SIX", "AT RANK 12" }, { 0x3F, 20, "ALL SIX", "AT RANK 20" } };
+    for (int i = 0; i < 4; i++) {
+        int x = PAD + i * 300;
+        rect(x, y, 4 * TS + 16, 4 * TS + 16, 18, 16, 20);
+        lampstand_at(x + 8, y + 8, 4, V[i].lit, V[i].rank);
+        text(x, y + 4 * TS + 24, V[i].l1, 190, 190, 190);
+        text(x, y + 4 * TS + 24 + LABEL_H - 6, V[i].l2, 150, 150, 150);
+    }
+    y += 4 * TS + 24 + 2 * LABEL_H;
+    text(PAD, y, "THE DEAD BELL AND THE WEEPING FONT (STEP 12)", 200, 200, 200);
+    y += LABEL_H;
+    snap_take(&g_snap[0], 1);
+    static const struct { int id; const char *l; } BF[4] = { { SP_DBELL, "THE BELL" }, { SP_DBELL_C, "CORRUPTED" }, { SP_FONT, "THE FONT" }, { SP_FONT_C, "CURSED" } };
+    for (int i = 0; i < 4; i++) {
+        int x = PAD + i * 300;
+        spr_at(&g_snap[0], x, y, BF[i].id, 4);
+        text(x, y + 4 * TS + 8, BF[i].l, 190, 190, 190);
+    }
+    y += 4 * TS + 8 + LABEL_H + 8;
+    ih = y + PAD;
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
+/* the spells' things in flight and on the floor (1.0.0b11: the Blight Flask, the ultimates); the charging effect and
+ * the beams are drawn by the game, so they come as frames from it */
+static int draw_spells(const char *path) {
+    snap_take(&g_snap[0], 1);
+    const int S3 = 3, T3 = TS * S3;
+    static const struct { int id; const char *l1, *l2; } SP[] = {
+        { SP_FLASK, "THE BLIGHT FLASK", "IN FLIGHT" }, { SP_BURN_A, "FIRESTARTER'S", "FLAMES (LOWER)" },
+        { SP_FSPIRIT_A, "FIREWALL'S", "FLAME SPIRIT" }, { SP_FSPIRIT_B, "THE SAME,", "FLICKERING" },
+        { SP_ORB_A, "AMPERAGE'S ORB", "" }, { SP_ORB_B, "THE SAME,", "CRACKLING" },
+        { SP_LANCE, "WINTER'S LANCE", "GOING" }, { SP_RIME, "ITS RIME", "ON THE FLOOR" },
+        { SP_FROST, "SHATTER'S", "BURST, BRIGHT" }, { SP_BALLISTA, "THE BALLISTA'S", "SPEAR" },
+        { SP_SPEAR, "THE BONE SPEAR", "PHALANX: FIVE" }, { SP_WISP, "WISP HOST'S", "WISPS" } };
+    int n = (int)(sizeof SP / sizeof SP[0]), cols = 4, pitch = T3 + 72;
+    iw = PAD * 2 + cols * pitch; ih = 2000;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "1.0.0B11: THE SPELLS' THINGS, FOR APPROVAL", 230, 230, 230);
+    int y = PAD + LABEL_H + 8;
+    for (int i = 0; i < n; i++) {
+        int x = PAD + (i % cols) * pitch, yy = y + (i / cols) * (T3 + 2 * LABEL_H + 16);
+        spr_at(&g_snap[0], x, yy, SP[i].id, S3);
+        text(x, yy + T3 + 6, SP[i].l1, 190, 190, 190);
+        text(x, yy + T3 + LABEL_H, SP[i].l2, 150, 150, 150);
+    }
+    y += ((n + cols - 1) / cols) * (T3 + 2 * LABEL_H + 16);
+    static const char *const NOTE[4] = { "IN THE GAME THE SPIRITS, THE ORB AND THE RIME ARE DRAWN BRIGHT,",
+                                         "THE POOLS GREEN; A CREATURE ALIGHT, POISONED OR PINNED IS MARKED",
+                                         "OVER ITS OWN SPRITE. THE CHARGING EFFECT, THE ARCS, THE TETHER'S",
+                                         "BEAM AND IONIZATION'S TRAIL ARE DRAWN BY THE GAME: SEE ITS FRAMES." };
+    for (int i = 0; i < 4; i++) text(PAD, y + i * (LABEL_H - 6), NOTE[i], 120, 120, 120);
+    ih = y + 4 * LABEL_H + PAD;
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
 static int draw_runlook(const char *path, int run) {
     const RunLook *L = &crawl_looks[run];
     const RunSheet *R = &RUNSHEETS[run];
@@ -815,6 +1027,9 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "hollowrooms", "RUN III'S ROOMS");
         printf("%-12s %s\n", "deep", "RUN IV'S OWN LOOK (SHEET_LAST=n SHOWS LEVEL n AS ITS SECOND)");
         printf("%-12s %s\n", "deeprooms", "RUN IV'S ROOMS");
+        printf("%-12s %s\n", "elements", "1.0.0B11: THE ELEMENTS' GLYPHS, THE TARGET IN THEM, THE RUNES' SOCKETS");
+        printf("%-12s %s\n", "hall2", "1.0.0B11: HER HALL'S NEW ROOM: THE LAMPSTAND (THE BELL AND THE FONT TO COME)");
+        printf("%-12s %s\n", "spells", "1.0.0B11: THE SPELLS' THINGS: THE FLASK, THE ULTIMATES' SPRITES");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -855,6 +1070,28 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/b7walls.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_b7walls(path, level)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "elements")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/elements.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_elements(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "hall2")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/hall2.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_hall2(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "spells")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/spells.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_spells(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        crawl_art_level(level < 1 ? 1 : level);
         done++;
     }
     static const char *const RUNSHEET_NAMES[4][2] = { { "crypts", "cryptrooms" }, { "catacombs", "catarooms" }, { "hollows", "hollowrooms" }, { "deep", "deeprooms" } };
