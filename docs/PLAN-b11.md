@@ -1,7 +1,8 @@
 # 1.0.0b11: the map at a walk, glyphs, runes in sight, and the elements
 
 **Status: settled (30 October 2026). The owner answered both rounds of questions the same day. Being built on
-`claude/eloquent-carson-1x049c`: step 1 (the elements as data) is built, tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+`claude/eloquent-carson-1x049c`: steps 1 (the elements as data) and 2 (the glyphs; `elements.png` drawn for the
+owner, its art in the game until they mark it up) are built, tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),
@@ -794,3 +795,15 @@ answers, and are first guesses for the runs to tune. Any of them can be changed 
   the next level is one the record shows cleared; a violet wisp at each shut cracked wall and a mark on the map.
 - **The map on the pad**: with the map up, B closes it instead of dodging, and D-pad up pans north.
 - **Debug switches** for the new things (section 14).
+
+## What we set while building (for the owner to see)
+
+- **Old records** (step 1): a 1.0.0b10 record's kills by spell are added into their elements, and a spell that had
+  been learnt (three kills) leaves its element learnt, so nothing a person knew is forgotten.
+- **The glyphs** (step 2, on `elements.png`): the spirit's teardrop flame has two eyes in its glow, since a plain
+  teardrop had the flame's outline and differed only by colour. The marks beside a glyph are 3 by 3 pixels; a side
+  of the target's readout keeps a black plate behind it as the words did. With a harm under its name, the bar sits
+  nine pixels lower and the line of news below it moves down to match.
+- **The Codex's page on the elements** is there from the start, as her claim's is: each glyph, what it does by
+  nature and what deals it to you.
+- **Lightning's colour** stays blue on Chain Lightning until step 5 rebuilds the spells; its glyph is gold already.

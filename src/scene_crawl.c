@@ -11483,11 +11483,11 @@ static void update_repomenu(void) {
  * and hazard does, each written in once you have worn, held, unlocked or met it; and a page on her claim,
  * there from the start. Kept through death, with the page. C opens it; the crypt waits. ---- */
 
-enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_CASTER, CX_CLAIM, NCX };
+enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_CASTER, CX_ELEM, CX_CLAIM, NCX };
 enum { CXC_ATONE, CXC_LUCK, CXC_OVER, CXC_CORNER };                /* the caster's own pages: then a cornerstone each, CXC_CORNER + CS_* */
 typedef struct { int sec, i; } CxEntry;
 static const char *const CX_PART[NCX] = { "AN ABILITY OF WHAT YOU WEAR", "A RUNE", "A BOSS'S GIFT", "A STAT A PIECE CAN ROLL", "A HAZARD", "THE CASTER'S OWN",
-                                          "THE MERCHANT'S LEDGER" };
+                                          "THE ELEMENTS", "THE MERCHANT'S LEDGER" };
 static void codex_note(void) {                                     /* worn, held or met: written in */
     const Gear *g = &RUN.gear;
     uint32_t ab = RUN.cx_abil, st = RUN.cx_stat;
@@ -11515,13 +11515,14 @@ static int codex_entries(CxEntry *e) {
     e[n++] = (CxEntry){ CX_CASTER, CXC_LUCK };
     if (RUN.atone >= ATONE_TOP) e[n++] = (CxEntry){ CX_CASTER, CXC_OVER };
     for (int c = 0; c < NCS; c++) if (RUN.corner >> c & 1) e[n++] = (CxEntry){ CX_CASTER, CXC_CORNER + c };
+    e[n++] = (CxEntry){ CX_ELEM, 0 };
     e[n++] = (CxEntry){ CX_CLAIM, 0 };
     return n;
 }
 /* A/D a page, W/S the next part, C or Esc closes */
 static void update_codex(void) {
     if (IN.hit[KEY_C] || IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
-    CxEntry e[NABIL + NDEF + NBOSS + NSTAT + NHZ + 3 + NCS + 1];
+    CxEntry e[NABIL + NDEF + NBOSS + NSTAT + NHZ + 3 + NCS + 2];
     int n = codex_entries(e), lr = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
     int ud = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
     G.cx_page = clampi(G.cx_page, 0, n - 1);
@@ -12891,6 +12892,27 @@ static void bevel(Frame *f, int x, int y, int w, int h, int fill) {
     for (int i = 0; i < h; i++) { gfx_px(f, x, y + i, R_IRON + 1); gfx_px(f, x + w - 1, y + i, R_IRON + 9); }
 }
 
+/* an element's glyph, 7 by 7, in its colour or dimmed; the + and - marks beside it, 3 by 3; struck through */
+static void elem_glyph(Frame *f, int x, int y, int e, int dim) {
+    for (int r = 0; r < 7; r++) for (int c = 0; c < 7; c++) {
+        char ch = ELEM_GLYPH[e][r][c];
+        if (ch == '#' || ch == 'o') gfx_px(f, x + c, y + r, dim ? (uint8_t)(R_STONE + (ch == 'o' ? 9 : 7)) : ramp_at(ELEM_RAMP[e], ch == 'o' ? 15 : 11));
+    }
+}
+static void plus_mark(Frame *f, int x, int y, int minus, uint8_t c) {
+    for (int i = 0; i < 3; i++) gfx_px(f, x + i, y + 1, c);
+    if (!minus) { gfx_px(f, x + 1, y, c); gfx_px(f, x + 1, y + 2, c); }
+}
+static void strike_mark(Frame *f, int x, int y) { for (int i = 0; i < 9; i++) gfx_px(f, x - 1 + i, y + 7 - i, R_BLOOD + 11); }
+/* What an element does to a kind, as the glyph's marks say it: 2 at 1.5 or more, 1 above plain, -1 below,
+ * -2 at half or less, -3 nothing at all (struck through) */
+static int weak_grade(float w) { return w >= 1.49f ? 2 : w > 1.01f ? 1 : w <= 0.001f ? -3 : w <= 0.51f ? -2 : w < 0.99f ? -1 : 0; }
+static int glyph_width(int g) { return 7 + (g == 0 ? 0 : (g == 2 || g == -2 ? 8 : 4)); }   /* a glyph and its marks */
+static void glyph_marked(Frame *f, int x, int y, int e, int g) {
+    elem_glyph(f, x, y, e, 0);
+    if (g == -3) strike_mark(f, x, y);
+    else if (g) { plus_mark(f, x + 8, y + 2, g < 0, g > 0 ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 11)); if (g == 2 || g == -2) plus_mark(f, x + 12, y + 2, g < 0, g > 0 ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 11)); }
+}
 /* the status bar, in the antechamber only (nothing stays put on an OLED for long) */
 static void key_icon(Frame *f, int kx, int ky, int color);
 static void dead_eye(Frame *f, int x, int y);
@@ -14485,28 +14507,30 @@ static void render_bestiary(Frame *f) {
         int cx = x0 + (j & 1) * 92, cy = 118 + (j / 2) * 9;
         gfx_text8(f, cx, cy, line, done ? (uint8_t)(R_GOLD + 12) : (rk[j] == G.best_rank ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 11)), 1);
     }
-    /* what hurts it, learnt from three kills with each spell */
+    /* what hurts it and what it does, in glyphs (docs/PLAN-b11.md, section 2): each element learnt from five
+     * kills or twelve hits, each harm from three times it has hurt you */
     for (int i = 10; i < W - 10; i++) gfx_px(f, i, 147, R_STONE + 5);
     gfx_text8(f, 14, 151, "WHAT HURTS IT", R_GOLD + 10, 1);
     if (spirit) { gfx_text8(f, 14, 161, "NOTHING YOU CARRY TOUCHES IT", R_STONE + 11, 1); return; }
-    char more[80] = "MORE:", less[80] = "LESS:", same[80] = "AS USUAL:", untried[80] = "NOT YET LEARNT:";
-    int nm = 0, nl = 0, ns = 0, nu = 0;
-    for (int sp = 0; sp < NELEM; sp++) {
-        char *dst; int *cnt;
-        float wv = KINDS[k].weak[sp];
-        if (!el_learnt(k, sp)) { dst = untried; cnt = &nu; }
-        else if (wv > 1.01f) { dst = more; cnt = &nm; }
-        else if (wv < 0.99f) { dst = less; cnt = &nl; }
-        else { dst = same; cnt = &ns; }
-        size_t len = strlen(dst);
-        snprintf(dst + len, sizeof more - len, " %s", ELEM_NAME[sp]);
-        (*cnt)++;
+    static const char *const ROW[4] = { "MORE", "LESS", "AS USUAL", "NOT LEARNT" };
+    static const uint8_t ROWC[4] = { R_MOSS + 13, R_BLOOD + 13, R_STONE + 12, R_STONE + 8 };
+    int at[4] = { 0 };
+    for (int row = 0; row < 4; row++) gfx_text8(f, 14 + (row & 1) * 150, 161 + (row >> 1) * 10, ROW[row], ROWC[row], 1);
+    for (int e = 0; e < NELEM; e++) {
+        int g = weak_grade(KINDS[k].weak[e]), row = !el_learnt(k, e) ? 3 : g > 0 ? 0 : g < 0 ? 1 : 2;
+        int x = 14 + (row & 1) * 150 + gfx_text_width(ROW[row], 1) + 6 + at[row], y = 161 + (row >> 1) * 10;
+        if (row == 3) elem_glyph(f, x, y, e, 1);
+        else glyph_marked(f, x, y, e, g);
+        at[row] += (row == 3 ? 7 : glyph_width(g)) + 4;
     }
-    int y = 161;
-    if (nm) { gfx_text8(f, 14, y, more, R_MOSS + 13, 1); y += 9; }
-    if (nl) { gfx_text8(f, 14, y, less, R_BLOOD + 13, 1); y += 9; }
-    if (ns && y < 186) { gfx_text8(f, 14, y, same, R_STONE + 12, 1); y += 9; }
-    if (nu && y < 186) text_wrap(f, 14, y, untried, 36, R_STONE + 8, (195 - y) / 9);
+    int harms = kind_harms(k, G.best_rank), x = 14 + gfx_text_width("WHAT IT DOES", 1) + 6;
+    gfx_text8(f, 14, 181, "WHAT IT DOES", R_GOLD + 10, 1);
+    if (!harms) gfx_text8(f, x, 181, "NOTHING OF ITS OWN", R_STONE + 11, 1);
+    for (int e = 0; e < NELEM; e++) {
+        if (!(harms >> e & 1)) continue;
+        if (harm_learnt(k, e)) { elem_glyph(f, x, 181, e, 0); gfx_text8(f, x + 10, 181, ELEM_NAME[e], ramp_at(ELEM_RAMP[e], 13), 1); x += 14 + gfx_text_width(ELEM_NAME[e], 1); }
+        else { gfx_text8(f, x, 181, "?", R_STONE + 8, 1); x += 14; }
+    }
 }
 
 /* the L menu: a small plate over the crypt, a wisp of each kind that can be cast now and its price */
@@ -14873,7 +14897,7 @@ static void render_codex(Frame *f) {
         "THE KNIGHT RAISES ITS SWORD, AND ITS SWEEP CUTS ALL BEFORE IT IN AN ARC.",
         "THE FLOOR DARKENS, THEN HANDS OF THE DARK RISE THERE. THEY STRIKE AND HOLD." };
     static const int HZ_BOSS[NHZ] = { BOSS_KNIGHT, BOSS_DEACON, BOSS_SPIDER, BOSS_WRAITH, BOSS_KNIGHT, BOSS_WRAITH };
-    CxEntry e[NABIL + NDEF + NBOSS + NSTAT + NHZ + 3 + NCS + 1];
+    CxEntry e[NABIL + NDEF + NBOSS + NSTAT + NHZ + 3 + NCS + 2];
     int n = codex_entries(e), pg = clampi(G.cx_page, 0, n - 1);
     const CxEntry *c = &e[pg];
     dim_view(f);
@@ -14888,6 +14912,7 @@ static void render_codex(Frame *f) {
     case CX_BOSS: snprintf(name, sizeof name, "%s", BA_NAME[c->i]); break;
     case CX_STAT: snprintf(name, sizeof name, "%s", STAT_NAME[c->i]); break;
     case CX_HAZ: snprintf(name, sizeof name, "%s", HZ_NAME[c->i]); break;
+    case CX_ELEM: snprintf(name, sizeof name, "WHAT HURTS WHAT"); break;
     case CX_CASTER: snprintf(name, sizeof name, "%s", c->i == CXC_ATONE ? "LEVELS OF ATONEMENT" : c->i == CXC_LUCK ? "LUCK" : c->i == CXC_OVER ? "OVERLEVELS"
                                                     : CS_NAME[clampi(c->i - CXC_CORNER, 0, NCS - 1)]); break;
     default: snprintf(name, sizeof name, "HER CLAIM"); break;
@@ -15008,6 +15033,20 @@ static void render_codex(Frame *f) {
             if (cs == CS_WIND) gfx_text8(f, 14, y, RUN.wind_spent ? "YOURS, SPENT FOR THIS RUN" : "YOURS, READY", RUN.wind_spent ? (uint8_t)(R_STONE + 9) : (uint8_t)(R_GOLD + 11), 1);
             else gfx_text8(f, 14, y, "YOURS", R_GOLD + 11, 1);
         }
+        break;
+    }
+    case CX_ELEM: {                                                /* docs/PLAN-b11.md, sections 2 and 4 */
+        static const char *const NATURE[NELEM] = { "IT BURNS", "IT SLOWS", "IT STRIKES AT ONCE", "IT SICKENS OVER TIME", "IT HEALS AS IT HURTS", "IT PIERCES" };
+        static const char *const FROM[NELEM] = { "SKULLS, IMPS, HELLRENT", "THE WRAITH'S TOUCH", "NOTHING YET",
+                                                 "SPIDERS, DROWNED, BILE", "SHADES; BATS FROM II", "BLOWS, BITES, BONES, ROCK" };
+        y -= 2;
+        for (int el = 0; el < NELEM; el++, y += 18) {
+            elem_glyph(f, 14, y + 1, el, 0);
+            gfx_text8(f, 26, y, ELEM_NAME[el], ramp_at(ELEM_RAMP[el], 13), 1);
+            gfx_text8(f, 110, y, NATURE[el], R_STONE + 13, 1);
+            gfx_text8(f, 110, y + 9, FROM[el], R_STONE + 9, 1);
+        }
+        text_wrap(f, 14, y + 1, "LEARNT OF EACH KIND: AN ELEMENT FROM FIVE SLAIN OR TWELVE HITS, ITS HARM TO YOU FROM THREE HURTS.", 36, R_BONE + 11, 3);
         break;
     }
     case CX_HAZ: {
@@ -15183,19 +15222,21 @@ static int target_shown(void) {
     const Mob *m = &G.mobs[clampi(G.look_mob, 0, MAXMOBS - 1)];
     return m->alive && !m->ally && !m->boss;
 }
-static int weak_word(int k, int most, char *buf, int n) {          /* the word, and its element's colour (-1: none) */
-    float best = most ? -1.0f : 1e9f;
-    int unknown = 0, tie[NELEM], nt = 0;
-    for (int sp = 0; sp < NELEM; sp++) {
-        if (!el_learnt(k, sp)) { unknown = 1; continue; }
-        float w = KINDS[k].weak[sp];
-        if (most ? w > best + 1e-3f : w < best - 1e-3f) { best = w; nt = 0; }
-        if (fabsf(w - best) < 1e-3f) tie[nt++] = sp;
+/* One side of the target's readout: what it takes more from (more), or less, learnt, the most nearest the
+ * bar; up to four. Returns how many, with each element in el[] and its grade in gr[]; *unknown if some
+ * element is still to be learnt on this kind */
+static int weak_side(const Mob *m, int more, int *el, int *gr, int *unknown) {
+    int n = 0;
+    *unknown = 0;
+    for (int e = 0; e < NELEM; e++) {
+        if (!el_learnt(m->type, e)) { *unknown = 1; continue; }
+        int g = weak_grade(weak_el(m, e));
+        if (more ? g <= 0 : g >= 0) continue;
+        int i = n++;
+        while (i > 0 && (more ? gr[i - 1] < g : gr[i - 1] > g)) { el[i] = el[i - 1]; gr[i] = gr[i - 1]; i--; }   /* the most first */
+        el[i] = e; gr[i] = g;
     }
-    if (nt == 0 || (most ? best < 1.01f : best > 0.99f)) { snprintf(buf, (size_t)n, "%s", unknown ? "?" : "--"); return -1; }
-    int sp = tie[(int)G.t % nt];
-    snprintf(buf, (size_t)n, "%s", ELEM_NAME[sp]);
-    return ELEM_RAMP[sp];
+    return imin(n, 4);
 }
 static void render_target(Frame *f) {
     if (!target_shown()) return;
@@ -15213,7 +15254,19 @@ static void render_target(Frame *f) {
         gfx_text8(f, (W - tw) / 2, y0 + 12, t, R_STONE + 10, 1);
         return;
     }
-    int bw = 120, bx = (W - bw) / 2, by = y0 + 13;
+    int harms = kind_harms(k, m->rank), nh = 0, hel[NELEM];      /* what it does to you, under its name: up to two */
+    for (int e = 0; e < NELEM && nh < 2; e++) if (harms >> e & 1) hel[nh++] = e;
+    int by = y0 + (nh ? 22 : 13);
+    if (nh) {
+        int hw = nh * 7 + (nh - 1) * 5, hx = (W - hw) / 2;
+        gfx_rect(f, hx - 3, y0 + 10, hw + 6, 10, 0);
+        for (int i = 0; i < nh; i++) {
+            int x = hx + i * 12;
+            if (harm_learnt(k, hel[i])) elem_glyph(f, x, y0 + 11, hel[i], 0);
+            else gfx_text8(f, x, y0 + 11, "?", R_STONE + 8, 1);       /* a dim ? until it has hurt you with it three times */
+        }
+    }
+    int bw = 120, bx = (W - bw) / 2;
     gfx_rect(f, bx - 2, by - 2, bw + 4, 11, 0);
     for (int i = -1; i <= bw; i++) { gfx_px(f, bx + i, by - 1, R_STONE + 9); gfx_px(f, bx + i, by + 7, R_STONE + 5); }
     for (int j = -1; j <= 7; j++) { gfx_px(f, bx - 1, by + j, R_STONE + 9); gfx_px(f, bx + bw, by + j, R_STONE + 5); }
@@ -15229,25 +15282,19 @@ static void render_target(Frame *f) {
         for (int i = 0; i < 5; i++) gfx_px(f, tx + wa + SL[i][0] + sh, by + 1 + SL[i][1] + sh, c);
         small_digits(f, tx + wa + 5 + sh, by + 1 + sh, mx, c);
     }
-    char wl[16], wr[16];
-    int rl = weak_word(k, 1, wl, sizeof wl), rr = weak_word(k, 0, wr, sizeof wr);
-    int lw = gfx_text_width(wl, 1), rw = gfx_text_width(wr, 1);
-    gfx_rect(f, bx - 8 - lw, by - 2, lw + 4, 11, 0); gfx_rect(f, bx + bw + 4, by - 2, rw + 4, 11, 0);
-    gfx_text8(f, bx - 6 - lw, by - 1, wl, rl >= 0 ? ramp_at(rl, 13) : (uint8_t)(R_STONE + 9), 1);
-    gfx_text8(f, bx + bw + 6, by - 1, wr, rr >= 0 ? ramp_at(rr, 13) : (uint8_t)(R_STONE + 9), 1);
-    char hl[40] = "";                                              /* what it does to you, as far as it is learnt */
-    int harms = kind_harms(k, m->rank), unknown = 0;
-    for (int e = 0; e < NELEM; e++) {
-        if (!(harms >> e & 1)) continue;
-        if (!harm_learnt(k, e)) { unknown = 1; continue; }
-        size_t len = strlen(hl);
-        snprintf(hl + len, sizeof hl - len, "%s%s", len ? " " : "", ELEM_NAME[e]);
-    }
-    if (unknown) { size_t len = strlen(hl); snprintf(hl + len, sizeof hl - len, "%s?", len ? " " : ""); }
-    if (hl[0]) {
-        int hw = gfx_text_width(hl, 1);
-        gfx_rect(f, (W - hw) / 2 - 3, by + 9, hw + 6, 10, 0);
-        gfx_text8(f, (W - hw) / 2, by + 10, hl, R_STONE + 10, 1);
+    for (int side = 0; side < 2; side++) {                         /* left what it takes more from, right less */
+        int el[NELEM], gr[NELEM], unknown, n = weak_side(m, side == 0, el, gr, &unknown), w = unknown ? 8 : 0;
+        for (int i = 0; i < n; i++) w += glyph_width(gr[i]) + 3;
+        if (!w) continue;
+        int x0 = side == 0 ? bx - 6 - w : bx + bw + 6, x = side == 0 ? bx - 6 : x0;
+        gfx_rect(f, x0 - 2, by - 2, w + 3, 11, 0);
+        for (int i = 0; i < n; i++) {                              /* outward from the bar, the most first */
+            int gw = glyph_width(gr[i]);
+            if (side == 0) x -= gw + 3;
+            glyph_marked(f, x, by, el[i], gr[i]);
+            if (side == 1) x += gw + 3;
+        }
+        if (unknown) gfx_text8(f, side == 0 ? x0 : x, by, "?", R_STONE + 8, 1);   /* still to be learnt: a dim ? at the outer end */
     }
 }
 
