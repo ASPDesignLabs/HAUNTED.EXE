@@ -196,8 +196,9 @@ Cartographer, 8 Lantern of the Dead, 16 Grave Sense),
 `CRAWL_MEETN=n` (with `CRAWL_MEET`, n of them spread about the line of sight), `CRAWL_ALIGN=s` (1.0.0b11: a letter
 for each line, Fire, Frost, Lightning, Poison, Spirit, Physical: 0 closed, 1 open, 2 to its Insight, 3 to its ability,
 a-c path A's nodes in order, x-z path B's, so `c` is A's ultimate and `z` B's), `CRAWL_ALPTS=n` (Alignment Points),
-`CRAWL_TPLAMP=1` (before the Lampstand), `CRAWL_SPECTRES=n` (n spectres a level); `CRAWL_ALIGN` and `CRAWL_SOULS` also
-apply over a run loaded with `HOST_LOAD`,
+`CRAWL_TPLAMP=1` (before the Lampstand), `CRAWL_SPECTRES=n` (n spectres a level), `CRAWL_CLASS=k` (the class, 1-6 by
+element, 0 to be asked), `CRAWL_ATONE=n` (the Level of Atonement, nothing bought with it); `CRAWL_ALIGN`, `CRAWL_SOULS` and
+`CRAWL_CLASS` also apply over a run loaded with `HOST_LOAD`,
 `CRAWL_TPROOM=k` (in a corner of the first room of type k, looking across it: run I's 1 ossuary, 2 burial
 vault, 3 chapter house, 4 knights' vault, 5 undercroft; run II's 8 saints' catacomb, 9 cistern, 10 silted nave,
 11 canal, 12 spinners' gallery; run III's 13 timbered gallery, 14 stope, 15 charnel pit, 16 fossil hall, 17 the
@@ -873,6 +874,15 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   Wisp Host (in `cast_spell`'s drain), the Phalanx and the Ballista (`SHOT_BALLISTA`, `SP_BALLISTA`). `make sheets`
   draws their sprites on `spells.png`. Debug: `EVENT ultimate`, `orb_hits`, `shatters`, `contagions`, `flamewalks`,
   `wisp_host`, `tether_ticks`, `plague_pit`.
+- **The classes** (1.0.0b11 step 10, docs/PLAN-b11.md section 11; `CLASSES`, `CLASS_SHORT`, `CLASS_MARK` in
+  `crawl_art.c`, `RUN.cls` 1 + its element, `cls_el()`). Its line is open free (`align_open`); the gifts sit where their
+  numbers are used: `align_sync` (a fifth of Efficiency, the Witchfinder's Power, the Galvanist's Insight), `permafrost`,
+  `mob_poison`, `bones_max`, `bone_spared`, `caster_sync` (the Headsman's armour). The Witchfinder's three points for
+  Fire are `RUN.cls_pts` (`align_funds`, spent first; `RUN.cls_spent` so unbinding doesn't pay them back as points). A
+  class given up keeps its line with a gift opening (`RUN.al_gift`). `class_take`; her question `UI_CLASS`
+  (`update_class`, `render_class`, `VOW_COINS`, `VOW_ATONE`), opened by `shop_human` while `RUN.cls` is 0; her menu's
+  `MM_VOW`. The dream takes one at random in `begin_shop`. Saved at the end of `LG_ALIGN`; a stone's class and paths in
+  its spell bytes (`Stone.lined`). Debug: `EVENT class`.
 - **The target's health** (section 2; `look_at`, `look_update`, `G.look_mob/look_t`, `render_target`). The
   creature nearest the view's middle within twelve cells and in sight, for 1.5 s after; anything a person hits
   for 3 s. At the top (under a boss's bar): name and rank, a bar and `small_digits` figures, the spell it takes

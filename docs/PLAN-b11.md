@@ -4,8 +4,8 @@
 `claude/eloquent-carson-1x049c`: part one is built (steps 1-4: the elements as data, the glyphs with `elements.png`
 drawn for the owner and its art in the game until they mark it up, the runes' sockets, the map at a walk), and part
 two's steps 5 (spells as lines), 6 (the new room, the Lampstand on `hall2.png`, Alignment Points and the screen), 7
-(the abilities), 8 (the paths' nodes, the Masteries, spectres) and 9 (charging and the twelve ultimates, their sprites
-on `spells.png`), tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+(the abilities), 8 (the paths' nodes, the Masteries, spectres), 9 (charging and the twelve ultimates, their sprites
+on `spells.png`) and 10 (the classes, their marks on `elements.png`), tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),
@@ -879,3 +879,20 @@ answers, and are first guesses for the runs to tune. Any of them can be changed 
   spider's web, a charged cast goes at the web as an ordinary one does. The dream doesn't charge yet (step 14).
 - **Physical's cost** (found in step 9): the spear was being charged spirit like the other spells since step 5; it
   costs bones only now, as section 7 says.
+- **The classes** (step 10). Her question comes the moment a person stands in her room with no class (a fresh life, a
+  page from before the classes, or a sleepwalked death, since the sleepwalker leaves the vow to the person); Esc there
+  is the question of leaving, and it is asked again after. The dream answers at once, at random. A/D, W/S or 1-6
+  choose, Enter twice takes the vow. Another past is a row of her menu (*ANOTHER PAST*, *WHAT YOU WERE* when there is
+  none yet), from Level of Atonement 20, five Cursed Coins, asked twice. The gifts: a fifth off the class's line's
+  spirit (its Efficiency, under the same nine-tenths cap); the Witchfinder's tenth is Fire's Power and its three points
+  can go only into Fire, spent before the others there; the Galvanist's tenth is Lightning's Insight; the Anatomist's
+  fifth multiplies Permafrost's; the Plague Doctor's makes every dose a fifth longer at the same strength a second;
+  the Headsman's tenth of armour is of what is worn, as Bone Plate's. The Sin-Eater's vessel comes with step 12. A
+  class taken whose line was opened with points gives those three back; one given up keeps its line open with what
+  was bought in it, and unbinding it then closes it and gives back nothing for the opening. A line given up with
+  nothing in it closes at once. A death that costs ends the class with the lines. The marks: on the Alignment screen
+  (at its upper left, and a gold bar under the class's line), Tab's caster page, the question, and the stone. A stone
+  keeps the class where Hellfire's tier was (marked) and each line's path in the top bits of its rank; older stones
+  show their spellbook by the old names. The page keeps the class in `LG_ALIGN` (four bytes more). `CRAWL_CLASS=k`
+  (1-6 by element; 0 asks) and `CRAWL_ATONE=n` for testing. While she asks, the room's fade and toasts wait on it. A 1,500-second dream run of each class from level
+  1 (seed 5) cleared three or four levels with no deaths; the balance runs come in step 16.

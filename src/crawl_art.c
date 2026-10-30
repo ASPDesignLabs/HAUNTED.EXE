@@ -1692,6 +1692,22 @@ const char *const RUNE_MARK[9][11] = {
       ".......#...", "......#....", ".....#.....", "....#......", "...#......." },   /* a scythe */
 };
 
+/* The classes' marks (docs/PLAN-b11.md, section 11), 11 by 11, by the class's element: the same two tones */
+const char *const CLASS_MARK[6][11] = {
+    { ".....#.....", "....###....", ".....#.....", "..#######..", ".....#.....", ".....#.....",
+      ".#...#...#.", ".##.o#o.##.", ".#oo###oo#.", "##ooo#ooo##", "###########" },   /* the Witchfinder: a stake, a pyre */
+    { "..........#", ".........##", "........##.", ".......##..", "......##...", ".....##....",
+      "....##.....", "...#o#.....", "..#oo#.....", ".#oo#......", ".###......." },   /* the Anatomist: a scalpel */
+    { ".#.......#.", ".#.......#.", ".#.......#.", ".#...#...#.", ".#..##...#.", ".#.#oo#..#.",
+      ".#..#oo#.#.", ".#...##..#.", ".#...#...#.", "###.....###", "###.....###" },   /* the Galvanist: two rods, a spark */
+    { "...#####...", "...#####...", ".#########.", "...........", "..####.....", ".#o##o#....",
+      ".#######...", "..#######..", "....######.", "......####.", "........##." },   /* the Plague Doctor: hat, lenses, the beak */
+    { "....ooo....", "...o#o#o...", "....ooo....", "...........", "..#######..", ".##.#.#.##.",
+      "###.#.#.###", "###########", "###########", ".#########.", "..........." },   /* the Sin-Eater: a coin on scored bread */
+    { ".####......", "#####.#....", "######o#...", "#######o#..", "######o#...", "#####.#....",
+      ".####.#....", "......#....", "......#....", "......#....", "......#...." },   /* the Headsman: the axe */
+};
+
 /* The Rune Shrine: a stele with an arched head on two steps, a disc cut in its face. Sanctified, the
  * stone is pale and clean, the disc gilded with a four-pointed star, a white cloth with a gold hem laid
  * over the step and two candles cold. Cursed, the same stone gone dark with soot and cracked, the disc

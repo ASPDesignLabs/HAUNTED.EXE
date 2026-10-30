@@ -688,7 +688,7 @@ static void psocket(int ox, int oy, int k, int rune, int q, float fill) {   /* 1
     for (int i = 0; i < 13; i++) ppx(ox + (2 + i) * k, oy + 14 * k, k, i < (int)(fill * 13.0f + 0.5f) ? (fill >= 1.0f ? R_GOLD + 12 : R_STONE + 9) : R_STONE + 3);
 }
 static int draw_elements(const char *path) {
-    iw = 1240; ih = 900;
+    iw = 1240; ih = 1200;
     img = calloc((size_t)iw * ih, 3);
     rect(0, 0, iw, ih, 10, 10, 12);
     text(PAD, PAD, "1.0.0B11: THE ELEMENTS' GLYPHS AND THE RUNES' MARKS, FOR APPROVAL", 230, 230, 230);
@@ -762,10 +762,22 @@ static int draw_elements(const char *path) {
     }
     y += 166;
     text(PAD, y, "EDGES BY QUALITY: COMMON, UNCOMMON, RARE, ULTRA-RARE, EXQUISITE.", 120, 120, 120);
-    text(PAD, y + LABEL_H, "A FULL LINE IS GOLD: READY. THE TREE'S NODES AND THE CLASSES' MARKS", 120, 120, 120);
-    text(PAD, y + 2 * LABEL_H, "COME ON THIS SHEET WITH THEIR STEPS.", 120, 120, 120);
+    text(PAD, y + LABEL_H, "A FULL LINE IS GOLD: READY.", 120, 120, 120);
+    y += 2 * LABEL_H + 8;
+    static const char *const CLASS_LABEL[6] = { "THE WITCHFINDER", "THE ANATOMIST", "THE GALVANIST", "THE PLAGUE DOCTOR", "THE SIN-EATER", "THE HEADSMAN" };
+    text(PAD, y, "THE CLASSES' MARKS (STEP 10): AT SIX TIMES, DOUBLED, AT SIZE, IN THEIR ELEMENT", 200, 200, 200);
     y += LABEL_H;
-    ih = y + 2 * LABEL_H + PAD;
+    for (int c = 0; c < 6; c++) {
+        int x = PAD + c * 196;
+        rect(x, y, 186, 112, 0, 0, 0);
+        pmark(x + 8, y + 8, 6, CLASS_MARK[c], 11, EL_RAMP[c], 0);
+        pmark(x + 84, y + 8, 2, CLASS_MARK[c], 11, EL_RAMP[c], 0);
+        pmark(x + 112, y + 8, 1, CLASS_MARK[c], 11, EL_RAMP[c], 0);
+        textk(x + 4, y + 118, CLASS_LABEL[c], 1, 190, 190, 190);
+    }
+    y += 118 + LABEL_H + 6;
+    text(PAD, y, "THE TREE'S NODES COME ON THE ALIGNMENT SCREEN ITSELF, AS FRAMES.", 120, 120, 120);
+    ih = y + LABEL_H + PAD;
     int ok = write_png(path);
     free(img);
     return ok;
