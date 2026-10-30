@@ -217,34 +217,22 @@ the last page lists the achievements.
 
 What the autopilot earns in an ordinary screensaver session shows, but isn't kept.
 
-### CATACOMB: the merchant, the spellbook and the wardrobe
+### CATACOMB: the merchant and the wardrobe
 
 Each level begins in the merchant's room. The caster greets the cat (a slow blink back) and looks over
-the pedestals standing in an arc round the back wall: two for a fresh run, a spell and a thing to wear,
-and more bought from her, up to seven (below). One holds an **attack spell** and the rest things to
-**wear**, with now and then a bag among them; runes come from the Rune Shrine (below). The caster may
-buy one ware a visit in the first run, two in the second and three from the third, and level 1's first
-is free. Prices and strength rise with depth: a spell is usually a tier near the level, now and then
-(about 1 in 12) a rare one well ahead of its time, and costs about two levels' gold; a thing to wear
-costs by its quality, from part of a level's gold for something common to several levels' for something
-exquisite. The caster sometimes saves up for a spell it can nearly afford, and sometimes splurges. The
-cat trills when you buy, and a rest while it purrs mends some of your wounds.
+the pedestals standing in an arc round the back wall: two for a fresh run, and more bought from her, up to
+seven (below). Since 1.0.0b11 she sells no spells (they are the Alignment's now, below): every pedestal
+holds a thing to **wear**, with now and then a bag among them, and the first, very rarely, the
+**BFS9000**, which burns 40 to 100 souls to collapse everything in sight into a point of light. Runes come
+from the Rune Shrine (below). The caster may buy one ware a visit in the first run, two in the second and
+three from the third, and level 1's first is free. A thing to wear costs by its quality, from part of a
+level's gold for something common to several levels' for something exquisite. The cat trills when you
+buy, and a rest while it purrs mends some of your wounds.
 
-* **Attack spells** (the caster chooses per target): Fire Bolt (the fireball, splashing from tier II),
-  Frost Shard (slows), Chain Lightning (arcs to others, around shields), Bone Spear (pierces a whole
-  line and shields), Soul Drain (heals you), Hellfire (a big blast that leaves the floor burning),
-  Seeker Wisps (home in around corners), Rapid Sparks (quick and light), and the **BFS9000**:
-  incredibly rare and very dear, it burns 100 souls (fewer at higher tiers) to collapse everything in
-  sight into a point of light.
-* **Spirit.** The souls you take (one to six a kill, by the creature's rank, three times as many under
-  Soul Reaping) are also your spirit, and spells spend it, to the tenth. The Fire Bolt you start with,
-  and any spell cast at its tier-I strength, costs nothing. A stronger cast costs by its damage, from a
-  tenth of a soul to a whole one (Seeker Wisps a soul a wisp), and Soul Drain's healing costs half a soul
-  a point at tier I, down to a quarter. With too little spirit a spell goes out at tier-I strength and
-  heals nothing, and a caption says so. The BFS9000 keeps its own price.
-* **Bones.** Every Bone Spear throws a bone. Skeletons, shield-bearers, knights and bone hounds drop them
-  now and then (about one in eight, more at higher ranks), buying or improving the spear brings six, and
-  you can carry thirty. With none, the spear fizzles.
+* **Bones.** Every Bone Spear throws a bone, and the spear costs no spirit. Skeletons, shield-bearers,
+  knights and bone hounds drop them now and then (about one in eight, more at higher ranks), opening the
+  Physical line brings six, and you can carry thirty (more with the line's Efficiency, or as the Headsman).
+  With none, the spear fizzles.
 * **Defensive runes**, tattooed on the back of the hand and glowing when they fire, each on its own
   cooldown and triggered by the situation, with a human's reaction time (sometimes slow, sometimes
   missed, now and then wasted): Bone Ward (soaks blows), Blink (steps out of trouble), Mirror Veil
@@ -262,10 +250,14 @@ cat trills when you buy, and a rest while it purrs mends some of your wounds.
   stronger it is. The stats: Armor, Dodge, Health, Restores (health back each second), wards against
   poison, burning and slowing, Movement, Quiet (creatures hear your footsteps less), Spell Haste, Spirit
   Cost, Damage, Fire, Frost or Lightning (that much again of the element on every spell, biting hardest
-  on what it hurts), and Spell Effect (Soul Drain's healing, Frost's slow, Hellfire's burning and the
-  runes' strength). The totals are capped (Dodge at 35%, each ward at 75%, and so on), and no piece
-  promises more than a cap allows. A piece is named for its strongest stat: *Rare Boots of Shadows*,
-  *Uncommon Robes of the Bulwark*.
+  on what it hurts), and Spell Effect (Soul Drain's healing, Frost's slow, the burning and the runes'
+  strength). Since 1.0.0b11 pieces roll the elements too: an element's **Power** (more of its damage;
+  rings and robes, 50% at most), **Efficiency** (less spirit, and for Physical a spear that spends no bone;
+  hoods, 40%) and **Insight** (a shorter wind-up; bracers, 30%), a third of them leaning to the lines you
+  feed; **Resist Spirit** (amulets and robes) and **Vessel** (more spirit carried; amulets and hoods). The
+  totals are capped (Dodge at 35%, each ward at 75%, and so on), and no piece promises more than a cap
+  allows. A piece is named for its strongest stat: *Rare Boots of Shadows*, *Uncommon Robes of the
+  Bulwark*, *Ring of the Pyre*, *Hood of the Thin Dose*.
 * **Abilities.** A hood always carries one, other pieces sometimes, graded by quality: **Swift** (more
   Movement), **Arcane** (more Spirit Cost reduction), **Treasure Hunter** (treasure worth more, and a
   whisper from a secret wall within three cells), **Keymaker** (keys within its reach shine through the
@@ -280,8 +272,9 @@ cat trills when you buy, and a rest while it purrs mends some of your wounds.
   a new piece replaces is lost.
 
 The robes colour the sleeve, the right bracer shows as an iron cuff inlaid in its quality's colour, the
-ring's stone takes its colour, and the hood frames the portrait. The autopilot shops by what helps it,
-never buys a bag, and loses whatever a new piece replaces.
+ring's stone takes its colour, and the hood frames the portrait. The autopilot shops by what helps it
+(an element's stats by how much it casts that element), never buys a bag, and loses whatever a new piece
+replaces.
 
 ### CATACOMB: the Rune Shrine and Cursed Coins
 
@@ -303,9 +296,11 @@ keep the rest for next time. The autopilot plays the shrine too, with the coins 
 ### CATACOMB: the merchant's hall
 
 Her room has grown. Press E at the cat for her menu: **sign the ledger** (below), **ascend** (below),
-**another pedestal**, **offer a coin** (for Second Wind, below), **pat her**, or leave. Pedestals cost 500 gold for the third, then 1,250, 3,125, 7,815 and 19,530 for the
+**offer souls** (ten for experience), **another past** (below), **another pedestal**, **offer a coin**
+(for Second Wind, below), **pat her**, or leave. Pedestals cost 500 gold for the third, then 1,250, 3,125, 7,815 and 19,530 for the
 seventh, and each is set out at once with a ware on it. An arch beside her leads to a back room, another
-past the shrine to the grave plot. Nothing in the hall is lost to death.
+past the shrine to the grave plot, and one in her north wall to the room of the Lampstand, the Dead Bell
+and the Weeping Font (below). Nothing in the hall is lost to death.
 
 * **The Hexed Totem**, in the back room. Each boss's scrip hangs on its hooks, and once a boss has fallen
   its row on the Totem's screen teaches you its ability, raised to rank III for one, two and three of its
@@ -334,37 +329,126 @@ past the shrine to the grave plot. Nothing in the hall is lost to death.
   nor her claim touches any of it. The autopilot leaves it alone.
 * **The grave plot**, south of her room: the last ten deaths, a stone each, the newest freshly cut with
   the earth turned. E at a stone opens its page: the epitaph (*HERE LIES A DWELLER OF THE FIRST RUN, TAKEN
-  BY THE DARK ON LEVEL 3, CRYPT OF THE NAMELESS*), when, and what was carried: the spells and runes, the
-  gold, souls and coins, and each worn piece's card. A and D go to the next stone.
+  BY THE DARK ON LEVEL 3, CRYPT OF THE NAMELESS*), when, and what was carried: what the dweller was, each
+  line's rank and path, the runes, the gold, souls and coins, and each worn piece's card. A and D go to the
+  next stone.
 * **The Accursed Portal**, a red-violet swirl turning in a stone arch in the plot's far wall. Its screen
   lists the runs opened, each by beating its boss on the way down, and takes you to the merchant's room
   before any of them, forward or back, as you are. Below them, the challenges: each boss slain, at its
-  step, with what the step brings.
+  step, with what the step brings; and the levels cleared, A and D through them, each replayed for five
+  souls and its number (below).
 
 Press **C**, in the crypt or here, for **the Codex of Affixations**: a page for each ability you have
 worn, each rune you have held (and its Exquisite effect once held so), each boss's gift once it has
-fallen, each stat you have worn, with its cap and the pieces that roll it, each hazard met, and her
-claim, there from the start. What it does, its numbers by quality or rank, where it comes from, and what
+fallen, each stat you have worn, with its cap and the pieces that roll it, each hazard met, the elements,
+each line open with its nodes, what you were, the souls (the vessel, the bell and the font once cursed,
+replays, Soul Sap once met), and her claim, there from the start. What it does, its numbers by quality or rank, where it comes from, and what
 you have of it now. A and D turn the pages, W and S go between the parts. It is kept through death.
+
+### CATACOMB: the Alignment and what you were
+
+**Six elements.** Fire, Frost, Lightning, Poison, Spirit and Physical. Each creature takes more or less from
+each, and does its harm in one or two of them; the target's readout and the bestiary show it in glyphs
+(below). **Spells are lines**, one an element, bought with **Alignment Points**, one a Level of Atonement,
+at **the Lampstand** in the room north of hers, whose six bowls burn as lines open and grow as they rank.
+Three points open a line (Fire comes open), and every point in it after that is a rank. A spell's strength
+follows your Level of Atonement and its rank adds to that. The spells: **Fire Bolt** (the fireball, free at
+rank 1), **Frost Shard** (slows), **the bolt** (strikes at once), **the Blight Flask** (lobbed over what is
+in the way, a splash and poison after), **Soul Drain** (heals you as it hurts, the healing paid in spirit)
+and **the Bone Spear** (through all in a line, a bone a spear, no spirit). 1 to 6 choose them, 7 the BFS9000.
+
+Each line goes: the opening; Efficiency (less spirit) and Insight (a shorter wind-up), a point at a time;
+an ability (Firestarter's flames along the fireball's flight, Deep Chill's freezing third shard, Ionization's
+trail behind lightning, Seep's pool of venom, Harvest's extra souls, Impale's pinned target); then one of
+two paths, the other closing for good, each ending in an **ultimate**:
+
+| Line | Path A | Path B |
+|---|---|---|
+| Fire | Flamewalker: Firestarter's flames lend you half your armour again | Firewall: hold to call three flame spirits that circle you, burning what they touch |
+| Frost | Winter's Lance: hold to charge a lance through all in its line, freezing each and riming the floor | Shatter: a frozen creature struck breaks for double, its shards cutting what stands near |
+| Lightning | Arc: the bolt leaps on, four times | Amperage: hold to charge a slow orb through all it meets, each arcing to one more, all of them dazed |
+| Poison | Plague Pit: hold to charge, and the pool grows to two and a half cells, slowing | Contagion: what dies poisoned passes its poison on |
+| Spirit | Soul Tether: hold to keep the beam on, draining and slowing; it leaps on when its hold dies | Wisp Host: every drain looses three wisps that hunt round corners |
+| Physical | Phalanx: hold to charge a fan of three spears, five at full | Ballista: hold to charge a heavy spear that knocks back and stuns all it passes |
+
+A **charge** builds over a second in a gathering by your hand, in the element's colour, that quickens as
+it fills and lights the crypt round you; a tap casts the ordinary spell. Every spell has a **wind-up** (a
+third of a second at rank 1, more as it ranks and for the ultimates), and you can walk while it gathers;
+a blow that lands then may break it, less often the better your Dodge, Armour, resistance and Luck. The
+Masteries of Lightning, Frost, Poison and Spirit add a share of their element to every other spell (and
+Spirit's lets it harm spectres). Unbinding a
+line costs two Cursed Coins and gives back half its points. Tab's fourth page shows the tree and its fifth
+each element's Power, Efficiency and Insight, the line's and what you wear together. A death that costs
+takes the lines, all but Fire and your class's.
+
+**What you were.** At a fresh start, and after every death that costs, she asks *WHAT WERE YOU?* The
+caster is set to the labour of clearing the crypts, and what it was decides how:
+
+| Class | Line | What it gives |
+|---|---|---|
+| The Witchfinder | Fire | Fire a fifth cheaper and a tenth stronger; three points for Fire |
+| The Anatomist | Frost | Frost open, a fifth cheaper; slowing and freezing a fifth longer |
+| The Galvanist | Lightning | Lightning open, a fifth cheaper and a tenth quicker to gather |
+| The Plague Doctor | Poison | Poison open, a fifth cheaper; poison a fifth longer |
+| The Sin-Eater | Spirit | Spirit open, a fifth cheaper; twenty more souls carried |
+| The Headsman | Physical | Physical open; a fifth more spears spend no bone, ten more bones, a tenth more armour |
+
+Each has a story on her question's screen. A life keeps one; from Level of Atonement 20 she hears another
+past for five Cursed Coins, and the old line keeps what was bought in it. The screensaver takes one at
+random, so every line shows in time. The class's mark is on the Alignment screen, the caster's page and the
+grave's stone.
+
+### CATACOMB: souls
+
+Souls are your spirit, and spells spend them by rank: about a fifth of a soul at rank 1, one at rank 10,
+two and a half at rank 20, less Efficiency and Spirit Cost; a full charge two and a half casts. With too
+little, a spell goes out at rank 1, free, and weak. **The vessel** holds twenty and two a Level of
+Atonement, more from the Sin-Eater, the Vessel worn, Communion and Spirit Mastery; what comes in over it
+slips away in a pale wisp off your hand, and the souls on the status bar turn gold, a line under them
+showing how full. **Motes**: the dead leave about half the souls they used to, where they fell, a pale
+flame hanging six seconds; walk through it. Urns, the visportals and her offering are as before.
+
+* **Her offering.** Ten souls, and she gives you experience for them, more the deeper you are.
+* **The Dead Bell**, a cracked bronze bell in the new room. A Cursed Coin turns it black for good; then
+  souls (three times ten and the level) toll it for the **next level attempt**: two fifths more of the dead
+  and of their gold, half the experience, a boss's waves a third larger and a scrip more, a green cast to
+  the fog, *CORRUPTED* under the level's name. One attempt. On a level you have cleared before, half as many
+  souls again **show its secrets**: a violet wisp at each cracked wall from the start, and a mark on the map.
+* **The Weeping Font**, a stone face over a basin. A coin and it weeps red for good; then once a visit,
+  ten souls and the level for a tenth more experience on the next level.
+* **Replays.** The Accursed Portal lists the levels cleared; five souls and the level's number take you to
+  her room before it, then the level (new walls, creatures and treasure: the crypt builds each visit
+  afresh), then back to the room you came from. Gold, souls and experience as ever, no Cursed Coins.
+* **Soul Sap.** Bats of rank II and above, on your face long enough, latch on instead of biting: across
+  the lower view, wings beating, the edges of sight violet. It feeds on your health and souls and slows you;
+  turn hard one way and back, or strafe left and right, again and again, and it slips and lets go. Blink
+  and Swift Dodge throw it off, and it lets go by itself after ten seconds. Resist Spirit, a new stat and a
+  line of points, takes its share off the feeding and off all harm of Spirit.
+* **Spectres** come on every level now, by your Luck, and with Spirit Mastery your Soul Drain and wisps
+  slay them for their souls.
 
 ### CATACOMB: the map, Levels of Atonement and the cornerstones
 
 **The map.** The merchant sells one, once, for 1,000 gold: a small scroll floating at her left. It outlasts
-death and her claim. **M** (up on a controller's D-pad) unrolls it across the middle of the view, a tenth of
-the crypt showing either side, and the crypt waits while it is open: the level from above, north up, in brown
-ink on a torn and stained parchment. Every wall within about three cells of you is drawn as you go, through
-the stone as well, so a room beside a hall shows before you find its door. Doors are bars, a vault's in its
-key's colour once you have been near it; the exit, the keys you have seen, the Black Altar, opened secrets'
-doorways and a visportal or a cooler have marks of their own, and you are the red arrow. A secret is stone on
-the map until it is opened. W, A, S and D, the mouse dragged or the left stick move it about; Space brings it
-back to you; M, Esc or B rolls it up. A pocket has a map of its own while you are in it.
+death and her claim. **M** (up on a controller's D-pad) unrolls it across the middle of the view, and since
+1.0.0b11 the crypt goes on while it is open: you walk, turn and cast with it up. The level from above, north
+up, in ink on a parchment torn, stained and burnt through in places, where the ink goes on over the holes in
+a ghostly violet. What lies within a cell and a half of you is drawn, through the stone, and what you see out
+to sixteen cells; where you have walked is washed darker. Doors are bars, a vault's in its key's colour once
+you have been near it; the exit, the keys you have seen, the Black Altar, opened secrets' doorways and a
+visportal or a cooler have marks of their own, and you are the red arrow. A secret is stone on the map until
+it is opened. Across its foot the level's numbers: the dead, the gold, the secrets found and the keys. The
+arrow keys (the D-pad) pan it, and it drifts back to you three seconds after; Space brings it back at once;
+M, Esc, Tab or the pad's B rolls it up. A pocket has a map of its own while you are in it.
 
 **The target's health.** Look at a creature within twelve cells and its name and rank show at the top of
 the view with its health as a bar and in figures, for a moment after you look away, and for longer when you
-have hit it. On the left is the spell that hurts it most, on the right the one that hurts it least, as far
-as you have learnt them: a spell is learnt on a kind once it has killed three of them, the same count the
-bestiary keeps. `?` means some spell is still unlearnt and none known stands out; `--` that all are learnt
-and none differs. Bosses keep their own bar, and of a spirit it says only that nothing you carry touches it.
+have hit it. Beside the bar, the elements as glyphs: on the left what it takes worst (with ++ or +), on the
+right what it shrugs off (- or --, struck through when nothing gets through), and under it the elements of
+its harm, as far as you have learnt them: an element from five of the kind slain by it or twelve hits, its
+harm from three hurts. Bosses keep their own bar, and of a spirit it says only that nothing you carry
+touches it. **The runes' sockets**: when a rune fires, its mark comes up in a socket at the lower right, its
+edge in the rune's quality's colour, a line along its foot coming round until it is ready again.
 
 **Experience.** Everything you do down there counts, and each gain is written at the lower left as it
 comes, with what it was for: a kill, by its kind, its rank and the level (a pocket's creatures by the rank
@@ -386,8 +470,8 @@ health and 2% Luck, and the points buy:
 |---|---|---|---|
 | 1 | Health | +5 | none |
 | 3 | Damage | +1% | 100% |
-| 3 | Resist all | +5% to poison, burning and slowing | 75% each |
-| 3 | Resist poison, burn or slow | +15% to the one | 75% |
+| 3 | Resist all | +5% to poison, burning, slowing and Spirit | 75% each |
+| 3 | Resist poison, burn, slow or Spirit | +15% to the one | 75% |
 | 3 | Spell Haste | +1% | 50% |
 | 3 | Dodge | +1% | 35% |
 | 2 | Treasure | +1% | 100% |
@@ -474,14 +558,15 @@ switching until you hand it back. HAUNT.EXE cuts straight to the crypt.
 |---|---|
 | W A S D, or the arrow keys | Walk and strafe (the left and right arrows turn instead). Shift runs |
 | Mouse | Turn, Doom-style; there is no looking up or down |
-| Left click, or Ctrl | Cast the spell in hand where you are looking (lightning and Soul Drain pick the nearest creature near the middle of the view) |
-| 1 to 9, or the wheel | Choose an attack spell from your book: 1 Fire Bolt, 2 Frost Shard, 3 Chain Lightning, 4 Bone Spear, 5 Soul Drain, 6 Hellfire, 7 Seeker Wisps, 8 Rapid Sparks, 9 BFS9000 |
-| E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, step through the exit runes, drink from a boss's font, kindle a brazier, or use the merchant (her menu), the Rune Shrine, the Hexed Totem, the Compendium, the Repository, a gravestone, the Accursed Portal, a Black Altar or its wisp, a visportal or a water cooler. Walking into a door opens it too, and walking into a chain's doorway takes you through |
-| Tab | The wardrobe: W and S choose a place, worn or in the bag, and Enter moves a piece between them. A and D turn to the caster's page: every total, what abilities add (in gold) and what is at its cap (in blue), and the spellbook; then the cornerstones |
+| Left click, or Ctrl | Cast the spell in hand where you are looking (lightning and Soul Drain pick the nearest creature near the middle of the view). Hold it to charge a line's ultimate, or to keep Soul Tether on; a tap casts the spell |
+| 1 to 7, or the wheel | Choose a line's spell: 1 Fire, 2 Frost, 3 Lightning, 4 Poison (the Blight Flask), 5 Spirit (Soul Drain), 6 Physical (the Bone Spear), 7 the BFS9000; the wheel skips lines not open |
+| E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, step through the exit runes, drink from a boss's font, kindle a brazier, or use the merchant (her menu), the Rune Shrine, the Hexed Totem, the Compendium, the Repository, a gravestone, the Accursed Portal, the Lampstand, the Dead Bell, the Weeping Font, a Black Altar or its wisp, a visportal or a water cooler. Walking into a door opens it too, and walking into a chain's doorway takes you through |
+| Tab | The wardrobe: W and S choose a place, worn or in the bag, and Enter moves a piece between them. A and D turn to the caster's page: every total, what abilities add (in gold) and what is at its cap (in blue), and the lines' ranks; then the cornerstones, the Alignment's tree and the elements |
 | B | The bestiary and the achievements. A and D turn the pages, W and S choose a rank or scroll |
 | L | The wisps: a list of what can be summoned now and at what price (see below). W and S choose, Enter casts, Space sets L to cast that one at a tap; then holding L brings the list back |
 | C | The Codex of Affixations. A and D turn the pages, W and S go between its parts |
-| M | The map, once bought from the merchant. W, A, S and D or the mouse dragged move it, Space brings it back to you, M or Esc rolls it up |
+| M | The map, once bought from the merchant, while you walk on. The arrow keys pan it, Space brings it back to you, M, Esc or Tab rolls it up |
+| Turn or strafe hard, back and forth | Shake off a bat that has latched on to your face |
 | Right mouse | Use the boss ability readied (once the Hexed Totem has taught you one) |
 | Q | Ready the next boss ability; at a ware in the merchant's room, hold it |
 | W, A, S or D twice | Swift Dodge, once the Totem has taught it: a dart two to five cells that way |
@@ -501,13 +586,13 @@ settings can turn it off.
 |---|---|---|
 | Left stick | Walk and strafe, slower as it leans less; click it to run until you let go | Up, down, left, right |
 | Right stick | Turn, faster the further it leans | |
-| RT / LT | Cast / use the boss ability readied | |
+| RT / LT | Cast (hold to charge) / use the boss ability readied | |
 | RB / LB | Next / previous spell | Next / previous page |
 | A | Open, use, buy (E) | Choose (Enter) |
 | B | Swift Dodge, the way the left stick leans, else back | Back, close (Esc) |
 | X | Ready the next ability; at a ware, hold it (Q) | |
 | Y | The wisps (L) | Space |
-| D-pad | Up the map, left the bestiary, right the Codex, down the status bar | Up, down, left, right |
+| D-pad | Up the map (then it pans the map), left the bestiary, right the Codex, down the status bar | Up, down, left, right |
 | View / Menu | The wardrobe / the question at Esc | |
 
 Your defensive runes still fire on their own, as quickly (and as fallibly) as they do for the
