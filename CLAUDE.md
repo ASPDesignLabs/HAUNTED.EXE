@@ -80,6 +80,14 @@ Tested in the harness only, and released as 1.0.0b10 at the owner's word, squash
 README's previews of the four runs, the crypt, the merchant and the bosses were taken again; the strips of menus,
 creatures, wisps and pockets still show the old walls, and say so.
 
+1.0.0b11 is planned in [`docs/PLAN-b11.md`](docs/PLAN-b11.md), and waits on the owner's answers: build nothing until
+they are written into its Decided section. Part one: the map at a walk (the crypt runs while it is open, walked
+cells apart from seen ones, the level's numbers on the scroll), the target's weaknesses and harm as glyphs of six
+elements, and sockets for the runes as they fire. Part two: spells out of the shop and into an Alignment screen of
+elemental lines bought with points (the owner wrote Electric and Flame; Frost, Poison, Spirit and Physical are drafts
+for the owner to mark up), Vows as classes, and a soul economy that can run dry. Its questions are gathered in a
+table at its end.
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture
