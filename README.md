@@ -686,6 +686,12 @@ became HAUNTED.EXE, kept so that settings and saves carry over), `Progress` besi
 start from or holds the unsigned run, and `Mark` is the dead's watch; `uninstall.cmd` removes them with
 the settings. They are written the moment the game changes them, and never on quitting.
 
+**1.0.0b11 changes saves one way.** It writes save version 7, which 1.0.0b10 and earlier can't read, and
+the first time it opens a page from before it, that page's spells are forgotten (you are given an Alignment
+Point for each Level of Atonement past the first instead, and told so as she greets you) and you are asked what you were. It
+keeps everything else. **Back up before you upgrade**, from a command prompt:
+`reg export HKCU\Software\HalloweenVGASaver haunted-backup.reg` (double-click the file to restore it).
+
 1.0.0b9 adds a part to each page for the caster's own: the map, the experience, the Level of Atonement,
 the points and what they bought, the overlevels and the cornerstones. 1.0.0b8 and 1.0.0b7 step over it,
 so they still read its pages, without those; a page they wrote opens here at Level of Atonement 1, without
