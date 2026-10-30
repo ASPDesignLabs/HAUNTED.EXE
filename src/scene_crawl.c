@@ -718,6 +718,8 @@ static struct {
     int por_look;                           /* the Accursed Portal, looked at */
     int comp_look, comp_page, comp_arm;     /* the Corpus Compendium: looked at; its page; a purchase awaiting a second Enter */
     int comp_tried;                         /* the autopilot has looked in it this visit */
+    int auto_chg; float auto_hold;          /* the autopilot charging an ultimate (or holding Soul Tether, so long) (1.0.0b11) */
+    int hall_step;                          /* its errand to the bell and the font: 0 none, then which leg of it */
     int rep_look, rep_mode, rep_place, rep_amt;   /* the Repository: looked at; choosing what goes in (1) and where; how much gold */
     int cx_page;                            /* the Codex's page open */
     int mer_look;                           /* the merchant herself, close enough for E */
@@ -2622,7 +2624,7 @@ static void build_lightmap(void) {
         const Wisp *w = &G.wisps[i];
         if (w->on && w->a > 0.0f) light_dynamic_ex(w->x, w->y, 0.6f * w->a * (0.93f + 0.07f * sinf((float)G.t * 7.0f + i)), 4.0f, 1);
     }
-    if (G.chg_on && G.player) {                                    /* a charge: light in its colour, growing with it */
+    if (G.chg_on) {                                                /* a charge: light in its colour, growing with it */
         float k = clampf(G.chg_t, 0.0f, 1.0f);
         light_dynamic_ex(G.px + cosf(G.ang) * 0.4f, G.py + sinf(G.ang) * 0.4f, 0.3f + 1.1f * k, 2.4f + 1.6f * k, 1);
     }
@@ -2931,7 +2933,7 @@ static void windup_blow(int d, float raw, float after, int el) {
     float keep = gear_dodge(g) + 0.6f * (raw > 0.0f ? fmaxf(0.0f, raw - after) / raw : 0.0f) + 0.4f * res + 0.25f * gear_total(g, ST_LUCK) / 100.0f;
     if (rndf() >= chance * (1.0f - fminf(0.9f, keep))) return;
     if (G.player) { G.pc_t = -1.0f; G.cooldown = 0.0f; G.hand_base = fminf(G.hand_base, 0.3f); G.chg_on = 0; G.tether = 0; }   /* begin again at once; a charge lost */
-    else { G.st = G.cast_len; G.fired = 2; }
+    else { G.st = G.cast_len; G.fired = 2; G.auto_chg = 0; G.chg_on = 0; G.tether = 0; }
     snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT windup_broken %s chance %.2f keep %.2f t=%.2f\n", G.player ? "player" : "autopilot", chance, keep, G.t);
@@ -6911,10 +6913,44 @@ static void cast_windup(void) {                                    /* the autopi
     G.cast_wind = spell_windup(&RUN.gear, G.spell, spell_tier(G.spell));
     G.cast_len = G.cast_wind + 0.3f;
 }
+/* The autopilot's ultimates (docs/PLAN-b11.md, section 14): it charges one when three or more are in reach (in sight
+ * within seven cells), or for a boss; calls Firewall when something comes to blows; holds Soul Tether on the strongest it sees. Only
+ * with the spirit for a full charge (or the bones) */
+static int spell_charges(int sp);
+static int spell_tethers(int sp);
+static void auto_charge_pick(void) {
+    G.auto_chg = 0;
+    int sp = G.spell, t = G.target, tier = spell_tier(sp);
+    if (t < 0 || !targetable(&G.mobs[t]) || G.silenced) return;
+    const Mob *m = &G.mobs[t];
+    if (spell_tethers(sp)) {                                       /* Soul Tether: on the strongest in sight */
+        if (spirit() < 3.0f) return;
+        int best = t;
+        for (int i = 0; i < MAXMOBS; i++) {
+            const Mob *o = &G.mobs[i];
+            if (targetable(o) && hypotf(o->x - G.px, o->y - G.py) < 8.0f && line_clear(G.px, G.py, o->x, o->y) && o->hp > G.mobs[best].hp) best = i;
+        }
+        G.target = best; G.auto_chg = 1; G.auto_hold = 2.5f;
+        return;
+    }
+    if (!spell_charges(sp)) return;
+    if (sp == AT_SPEAR ? RUN.gear.bones <= 0 : spirit() < spell_cost(&RUN.gear, sp, tier) * 2.5f) return;
+    int near = 0, blows = 0;
+    for (int i = 0; i < MAXMOBS; i++) {
+        const Mob *o = &G.mobs[i];
+        if (!targetable(o)) continue;
+        float d = hypotf(o->x - G.px, o->y - G.py);
+        if (d < 7.0f && line_clear(G.px, G.py, o->x, o->y)) near++;   /* in reach: in sight within seven cells */
+        if (hypotf(o->x - G.px, o->y - G.py) < 1.7f && !KIND_IS(o, KF_SPIRIT)) blows++;
+    }
+    if (sp == AT_FIRE) G.auto_chg = blows > 0 && G.fwall_t <= 0.0f; /* Firewall: when something has come to blows */
+    else G.auto_chg = near >= 3 || m->boss;
+}
 static void aim_at(int t) {
     G.target = t; G.resume_state = PS_MOVE;
     G.spell = choose_spell(t);
     cast_windup();
+    auto_charge_pick();
     begin_turn(atan2f(G.mobs[t].y - G.py, G.mobs[t].x - G.px));
     G.adur = 0.18f + 0.13f * fabsf(G.ang1 - G.ang0);
     G.state = PS_AIM; G.spd = 0.0f;
@@ -7017,6 +7053,23 @@ static void update_player(float dt) {
     }
     case PS_CAST: {
         G.st += dt;
+        if (G.auto_chg && !G.fired) {                              /* charging an ultimate, or holding the tether */
+            Mob *m = &G.mobs[G.target];
+            G.chg_on = 1; G.chg_sp = G.spell; G.chg_t = G.st;
+            G.hand = fminf(1.0f, G.st / 0.2f);
+            if (targetable(m)) G.ang += wrap_pi(atan2f(m->y - G.py, m->x - G.px) - G.ang) * fminf(1.0f, dt * 8.0f);
+            int done = 0;
+            if (spell_tethers(G.spell)) {
+                if (G.st >= 0.25f) { if (!G.tether && targetable(m)) G.tether = G.target + 1; tether_hold(dt); }
+                done = G.st >= 0.25f + G.auto_hold || (G.st > 0.6f && !G.tether) || !G.chg_on;
+            } else if (G.st >= 1.05f) { cast_charged(G.spell, targetable(m) ? G.target : -1, 1.0f); done = 1; }
+            if (done) {
+                G.chg_on = 0; G.auto_chg = 0; tether_end(); G.fired = 1;
+                G.hand = 0.0f; G.cooldown = spell_cycle(&RUN.gear, G.spell) * 1.5f;
+                begin_turn(heading_angle(G.h)); G.adur = 0.18f + 0.13f * fabsf(G.ang1 - G.ang0); G.state = PS_UNAIM;
+            }
+            break;
+        }
         float L = G.cast_len, fire = G.cast_wind, up = fminf(0.2f, fire), down = fire + 0.1f;   /* up while it gathers */
         G.hand = G.st < up ? G.st / up : (G.st > down ? fmaxf(0.0f, 1.0f - (G.st - down) / fmaxf(0.05f, L - down)) : 1.0f);
         if (!G.fired && G.st >= fire) {
@@ -7046,6 +7099,7 @@ static void update_player(float dt) {
         else if (G.cooldown <= 0.0f) {
             G.spell = choose_spell(G.target);
             cast_windup();
+            auto_charge_pick();
             G.state = PS_CAST; G.st = 0.0f; G.fired = 0;
         }
         break;
@@ -9384,7 +9438,7 @@ static void crawl_update(double dt) {
 #define SHOP_DOOR 21                        /* the east door, and the way on */
 #define SHOP_BEYOND() (G.px > SHOP_DOOR + 1.4f && G.py > 12.0f && G.py < 18.0f)   /* past it, in the way on: not the room north of hers,
                                                                                     which reaches as far east (1.0.0b11) */
-enum { SH_GREET, SH_LOOK, SH_THINK, SH_GO, SH_BUY, SH_THANK, SH_SHRINE_GO, SH_SHRINE, SH_LEAVE };
+enum { SH_GREET, SH_LOOK, SH_THINK, SH_GO, SH_BUY, SH_THANK, SH_SHRINE_GO, SH_SHRINE, SH_HALL, SH_LEAVE };
 static int offer_sprite(const Offer *o) {
     static const int PIECE_SPR[NIK] = { SP_ITEM_RING, SP_ITEM_BRACER, SP_ITEM_BOOTS, SP_ITEM_AMULET, SP_ITEM_HOOD, SP_ITEM_ROBE, SP_ITEM_RING, SP_ITEM_BAG };
     return o->kind == GK_ATK ? SP_ITEM_TOME : (o->kind == GK_DEF ? SP_ITEM_RUNE : PIECE_SPR[o->piece.kind]);
@@ -9456,6 +9510,8 @@ static void gen_shop(void) {
     G.map[9][14].tex = T_TORCH0; light_static(15.08f, 9.5f, 1.0f, 4.0f);
     G.bell_deco = G.ndecos; solid_prop(BELL_X, BELL_Y, RUN.bell_cursed ? SP_DBELL_C : SP_DBELL, 1, K_PROP);   /* the Dead Bell in its east half, */
     G.font_deco = G.ndecos; solid_prop(FONT_X, FONT_Y, RUN.font_cursed ? SP_FONT_C : SP_FONT, 1, K_PROP);    /* the Weeping Font in its west */
+    add_deco(BELL_X + 1.45f, BELL_Y + 0.3f, SP_CANDLES); light_static(BELL_X + 1.4f, BELL_Y + 0.5f, 0.85f, 3.2f);   /* candles by each */
+    add_deco(FONT_X - 0.45f, FONT_Y + 0.3f, SP_CANDLES); light_static(FONT_X - 0.4f, FONT_Y + 0.5f, 0.85f, 3.2f);
     G.ped_n = clampi(RUN.peds, 2, NPED);                           /* the pedestals bought */
     ped_arc();
     for (int i = 0; i < G.ped_n; i++) { G.ped_deco[i] = G.ndecos; add_deco(G.ped_x[i], G.ped_y[i], SP_PEDESTAL); }
@@ -9956,10 +10012,46 @@ static void shop_human(float dt);
 static void update_ui(void);
 
 static void comp_auto(void);
+/* The autopilot at the Dead Bell and the Weeping Font (section 12): a coin curses each, once for good, before the shrine
+ * has them all; it tolls when the price leaves it a fifth of its vessel, never for a boss's level nor for the secrets; it
+ * drinks when it has the souls to spare after the bell. Never on a person's run. Through the arch and back, the bell first,
+ * then the shrine */
+static int bell_price(void);
+static int font_price(void);
+static int bell_tolled(void);
+static void bell_toll(int shown);
+static void wfont_drink(void);
+static int bell_wanted(void) {
+    if (LEDGER.yours || boss_of_level(G.level) >= 0) return 0;
+    if (!RUN.bell_cursed) return RUN.coins >= 1;
+    return !bell_tolled() && spirit() - (float)bell_price() >= (float)vessel() / 5.0f;
+}
+static int font_wanted(void) {
+    if (LEDGER.yours) return 0;
+    if (!RUN.font_cursed) return RUN.coins >= 1 + (!RUN.bell_cursed && boss_of_level(G.level) < 0);
+    float after = spirit() - (bell_wanted() && RUN.bell_cursed ? (float)bell_price() : 0.0f);
+    return !G.font_drunk && RUN.font_next != G.level && after - (float)font_price() >= (float)vessel() / 5.0f;
+}
+static int hall_errand(void) { return bell_wanted() || font_wanted(); }
+static void hall_act(int bell) {                                   /* at the one it went to: a coin, or the souls */
+    if (bell ? !RUN.bell_cursed : !RUN.font_cursed) {
+        RUN.coins--;
+        if (bell) RUN.bell_cursed = 1; else RUN.font_cursed = 1;
+        int dc = bell ? G.bell_deco : G.font_deco;
+        if (dc >= 0 && dc < G.ndecos) G.decos[dc].spr = bell ? SP_DBELL_C : SP_FONT_C;
+        snd_sfx_ex(SFX_COIN, 0.8f, 0.5f); snd_sfx_ex(SFX_WAIL, 0.5f, 0.5f);
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT %s by autopilot t=%.2f\n", bell ? "bell_corrupted" : "font_cursed", G.t);
+#endif
+    }
+    if (bell && bell_wanted()) bell_toll(0);
+    if (!bell && font_wanted()) wfont_drink();
+}
 static void shop_after(void) {                                     /* the wares done with: the shrine, if it has business there */
     G.shop_t = 0.0;
     if (!G.comp_tried) { G.comp_tried = 1; comp_auto(); }          /* and the Compendium, once */
-    if (shrine_errand()) { G.shop_step = SH_SHRINE_GO; G.sh_auto = 0; shop_walk(SHRINE_X, SHRINE_Y - 1.7f, 1.6f); }
+    if (hall_errand()) { G.shop_step = SH_HALL; G.hall_step = 1; shop_walk(20.5f, 12.4f, 1.8f); }   /* to the arch, the bell, the font */
+    else if (shrine_errand()) { G.shop_step = SH_SHRINE_GO; G.sh_auto = 0; shop_walk(SHRINE_X, SHRINE_Y - 1.7f, 1.6f); }
     else { G.shop_step = SH_THANK; shop_turn(face_of(CAT_X, CAT_Y), 0.7f); }
 }
 
@@ -10057,7 +10149,32 @@ static void update_shop(double dt) {
         }
         if (st < 1.0f) break;
         if (shrine_errand()) { G.sh_auto = auto_shrine_act(); G.shop_t = 0.0; break; }
-        G.hand = 0.0f; G.shop_t = 0.0; G.shop_step = SH_THANK; shop_turn(face_of(CAT_X, CAT_Y), 0.7f);
+        G.hand = 0.0f; G.shop_t = 0.0;
+        G.shop_step = SH_THANK; shop_turn(face_of(CAT_X, CAT_Y), 0.7f);
+        break;
+    case SH_HALL:                                                  /* through the arch, to the bell and the font, and back */
+        if (st < G.sdur + 0.15f) break;
+        G.shop_t = 0.0;
+        switch (G.hall_step) {
+        case 1: G.hall_step = 2; shop_walk(20.5f, 8.6f, 1.6f); break;   /* in under the arch */
+        case 2:
+            if (bell_wanted()) { G.hall_step = 3; shop_walk(BELL_X + 0.5f, BELL_Y + 1.9f, 1.4f); }
+            else if (font_wanted()) { G.hall_step = 5; shop_walk(FONT_X + 0.5f, FONT_Y + 1.9f, 1.4f); }
+            else { G.hall_step = 7; shop_walk(20.5f, 8.6f, 1.6f); }
+            break;
+        case 3: G.hall_step = 4; shop_turn(face_of(BELL_X + 0.5f, BELL_Y + 0.5f), 0.4f); break;
+        case 4: G.hand = 0.5f; hall_act(1); G.hand = 0.0f;
+                if (font_wanted()) { G.hall_step = 5; shop_walk(FONT_X + 0.5f, FONT_Y + 1.9f, 1.4f); } else { G.hall_step = 7; shop_walk(20.5f, 8.6f, 1.6f); }
+                break;
+        case 5: G.hall_step = 6; shop_turn(face_of(FONT_X + 0.5f, FONT_Y + 0.5f), 0.4f); break;
+        case 6: hall_act(0); G.hall_step = 7; shop_walk(20.5f, 8.6f, 1.6f); break;
+        case 7: G.hall_step = 8; shop_walk(20.5f, 12.4f, 1.6f); break;   /* and back out under the arch */
+        default:                                                   /* then the shrine, if it has business there */
+            G.hall_step = 0;
+            if (shrine_errand()) { G.shop_step = SH_SHRINE_GO; G.sh_auto = 0; shop_walk(SHRINE_X, SHRINE_Y - 1.7f, 1.6f); }
+            else { G.shop_step = SH_THANK; shop_turn(face_of(CAT_X, CAT_Y), 0.7f); }
+            break;
+        }
         break;
     case SH_THANK:                                                 /* a look back at the merchant */
         if (!G.shop_bought && st > 0.9f && st - fdt <= 0.9f) G.cat_slow = 1.4f;

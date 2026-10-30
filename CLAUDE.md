@@ -900,6 +900,10 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   shaking by the view's turns and the feet's strafes, `SHAKE_NEED`, `G.shake`), `latch_release` (shaken, thrown by Blink
   or Swift Dodge, or after ten seconds), `sap_slow` in `slow_factor`, `render_latch`. Untargetable while latched. Debug:
   `CRAWL_LATCH=1`, `EVENT latch`, `latch_off`, `shakes`.
+- **The autopilot's part in 1.0.0b11** (step 14). `auto_charge_pick` (from `aim_at` and `PS_HOLD`) sets `G.auto_chg`, and
+  `PS_CAST` then charges (`G.chg_on`, as a person's) or holds Soul Tether (`G.auto_hold`); a blow breaks it as any wind-up.
+  Her room: `hall_errand` (`bell_wanted`, `font_wanted`), `SH_HALL` with `G.hall_step` legs through the arch, `hall_act`;
+  then the shrine.
 - **The classes** (1.0.0b11 step 10, docs/PLAN-b11.md section 11; `CLASSES`, `CLASS_SHORT`, `CLASS_MARK` in
   `crawl_art.c`, `RUN.cls` 1 + its element, `cls_el()`). Its line is open free (`align_open`); the gifts sit where their
   numbers are used: `align_sync` (a fifth of Efficiency, the Witchfinder's Power, the Galvanist's Insight), `permafrost`,

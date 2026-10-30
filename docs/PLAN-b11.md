@@ -6,8 +6,8 @@ drawn for the owner and its art in the game until they mark it up, the runes' so
 two's steps 5 (spells as lines), 6 (the new room, the Lampstand on `hall2.png`, Alignment Points and the screen), 7
 (the abilities), 8 (the paths' nodes, the Masteries, spectres), 9 (charging and the twelve ultimates, their sprites
 on `spells.png`), 10 (the classes, their marks on `elements.png`), 11 (gear's elements) and 12 (souls: the vessel, motes,
-her offering, the Dead Bell and the Weeping Font on `hall2.png`, replays at the Portal) and 13 (Soul Sap), tested in the
-harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+her offering, the Dead Bell and the Weeping Font on `hall2.png`, replays at the Portal), 13 (Soul Sap) and 14 (the
+autopilot), tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),
@@ -945,3 +945,12 @@ answers, and are first guesses for the runs to tune. Any of them can be changed 
   portrait winces with each drain. The others of its kind circle at two cells while one is latched. Shaken off, it is
   set to flee for 1.6 s and comes again. `CRAWL_LATCH=1` latches a rank II bat five seconds into each level. Its frames
   stand in for the sheet's page of it.
+- **The autopilot** (step 14). Its class, its points by class, its choice of spell by what the target takes from each
+  element and by cost, its motes and its bats came with steps 8-13. Its ultimates: "three or more in reach" is taken as
+  three in sight within seven cells; it charges for a full second (only with the spirit for it, or a bone), holds Soul
+  Tether 2.5 s on the strongest in sight, and calls Firewall when something is within 1.7 cells and no spirits circle
+  already. It meets one creature at a time so often that outside Firewall, Soul Tether and bosses its ultimates are
+  rare (in 400 s from level 11 on one seed: four Firewalls and no orb; Soul Tether held about 35 s). The bell and the
+  font: it goes to them before the shrine, through the arch (a coin each the first time, since the shrine would take them
+  all), tolls when the price leaves a fifth of the vessel and never for a boss's level, drinks when the souls are spare
+  after that; then the shrine. Never on a person's run. The new room has a pair of candles by each, as section 13 says.
