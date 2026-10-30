@@ -484,6 +484,8 @@ enum { CS_WIND, CS_OMEN, CS_CARTO, CS_LANTERN, CS_SENSE, NCS };
 #define LECTERN_Y 15                        /* the Corpus Compendium, in the back room's middle */
 #define PORTAL_X 16
 #define PORTAL_Y 27                         /* the Accursed Portal, in the grave plot's far wall */
+#define LAMP_X 20
+#define LAMP_Y 3                            /* the Lampstand (1.0.0b11), against the far wall of the room north of hers */
 static const int8_t STONE_AT[10][2] = { { 20, 22 }, { 18, 22 }, { 16, 22 }, { 14, 22 }, { 12, 22 },   /* the plot's stones, */
                                         { 20, 24 }, { 18, 24 }, { 16, 24 }, { 14, 24 }, { 12, 24 } };   /* the newest nearest the arch */
 static struct {
@@ -677,6 +679,7 @@ static struct {
     float sh_qt, sh_glow, sh_flash[SHRINE_SLOTS], sh_note_t;
     char sh_note[80];
     int tot_look, tot_arm, tot_col;         /* the Hexed Totem: looked at; a sale awaiting a second Enter; raise (0) or sell (1) */
+    int lamp_look;                          /* the Lampstand looked at (1.0.0b11) */
     int por_look;                           /* the Accursed Portal, looked at */
     int comp_look, comp_page, comp_arm;     /* the Corpus Compendium: looked at; its page; a purchase awaiting a second Enter */
     int comp_tried;                         /* the autopilot has looked in it this visit */
@@ -700,7 +703,8 @@ static struct {
     int click_spent;                        /* the click went on a ware or the cat: no cast until it is let go */
     char msg[64];
     Gear inv0;                              /* the gear as it was when the inventory opened */
-    int inv_page;                           /* the wardrobe (0) or the caster's numbers and spellbook (1) */
+    int inv_page;                           /* the wardrobe (0), the caster's numbers and spellbook (1), the cornerstones, the Alignment */
+    int al_el, al_node, al_arm;             /* the Alignment's screen: the line, the node, a buy or unbinding awaiting a second Enter */
     float map_cx, map_cy, map_hold;         /* the map: the cell at its middle, a direction held this long */
     int map_on; float map_pan_t;            /* the map up as you walk (docs/PLAN-b11.md, section 1); since it was last panned */
     int asc_buy[NLINE], asc_arm;            /* the caster's screen: steps bought since it opened (they may go back); a buy past a cap awaiting a second press */
@@ -753,7 +757,7 @@ enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword plant
 static float zbuf[W];
 enum { MM_SIGN, MM_ASCEND, MM_PED, MM_WIND, MM_PAT, MM_LEAVE, NMM };   /* the merchant's menu */
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES, UI_ALIGN };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 static double IN_DT;                        /* and how long the step is */
 static struct {                             /* their game controller, if they have one */
@@ -892,6 +896,7 @@ static int passable(int x, int y) {
 }
 static int vault_of_room(int x, int y);
 static Mob *spawn_mob(int x, int y, int type);
+static int align_rank(int e);
 static int may_spawn(int type);
 static int occupied(int x, int y, const Mob *self);
 static void name_newcomers(void);
@@ -2577,6 +2582,11 @@ static void build_lightmap(void) {
         if (G.bones[i].alive && G.bones[i].kind != MIS_BONE) light_dynamic(G.bones[i].x, G.bones[i].y, G.bones[i].kind == MIS_FIRE ? 1.6f : 0.9f, G.bones[i].kind == MIS_FIRE ? 3.6f : 2.6f);
     for (int i = 0; i < MAXBOOMS; i++)
         if (G.booms[i].alive) light_dynamic(G.booms[i].x, G.booms[i].y, (G.booms[i].big ? 3.6f : 2.8f) * (1.0f - G.booms[i].t / 0.6f), G.booms[i].big ? 5.5f : 4.2f);
+    if (G.shop) {                                                  /* the Lampstand's bowls light the room north of hers */
+        float lit = 0.0f;
+        for (int e = 0; e < NELEM; e++) lit += align_rank(e) ? 0.35f + 0.02f * (float)imin(align_rank(e), 20) : 0.0f;
+        if (lit > 0.0f) light_dynamic(LAMP_X + 0.5f, LAMP_Y + 0.9f, lit * (0.94f + 0.06f * sinf((float)G.t * 6.0f)), 3.4f + 0.5f * lit);
+    }
     for (int i = 0; i < MAXBURNS; i++)
         if (G.burns[i].alive) light_dynamic(G.burns[i].x, G.burns[i].y, 1.5f * (1.0f - smoothstepf(1.8f, 2.5f, G.burns[i].t)) * (0.85f + 0.15f * sinf((float)G.t * 17.0f + i)), 3.2f);
     for (int i = 0; i < MAXBEAMS; i++)
@@ -3302,7 +3312,7 @@ static const ALine ALIGN[NELEM] = {
         { "SPIRIT MASTERY", 5, NK_MASTER, 0.25f, 0.10f, "SPIRIT HITS A QUARTER HARDER, A TENTH OF IT GOES WITH EVERY OTHER SPELL, AND IT HARMS SPECTRES." },
         { "WISP HOST", 5, NK_ULT, 0, 0, "EVERY DRAIN LOOSES THREE WISPS THAT HUNT THE NEAREST ROUND CORNERS." } } },
     { "PHYSICAL", { { "PHYSICAL", 3, NK_OPEN, 0, 0, "THE BONE SPEAR: THROUGH ALL IN A LINE, A BONE A SPEAR, NO SPIRIT." },
-        { "PHYSICAL EFFICIENCY", 2, NK_EFF, 0.05f, 0, "5% A POINT THAT A SPEAR SPENDS NO BONE; FIVE MORE BONES CARRIED." },
+        { "EFFICIENCY", 2, NK_EFF, 0.05f, 0, "5% A POINT THAT A SPEAR SPENDS NO BONE; FIVE MORE BONES CARRIED." },
         { "INSIGHT", 2, NK_INS, 0.15f, 0, "THE SPEAR GATHERS 15% QUICKER A POINT." },
         { "IMPALE", 3, NK_ABIL, 0, 0, "THE FIRST A SPEAR STRIKES IS PINNED, AND CAN'T MOVE OR STRIKE, 0.6 S." },
         { "BONE PLATE", 2, NK_STEP, 0.10f, 0, "10% MORE ARMOUR A POINT." },
@@ -3369,7 +3379,7 @@ static int line_capped(int l) {                                    /* more would
 static int ascend(void) {                                          /* every level the experience reaches; how many */
     int to = atone_reach(), n = to - RUN.atone;
     if (n <= 0) return 0;
-    for (int l = RUN.atone + 1; l <= to && l <= ATONE_TOP; l++) RUN.points += 10;
+    for (int l = RUN.atone + 1; l <= to && l <= ATONE_TOP; l++) { RUN.points += 10; RUN.al_points++; }   /* and an Alignment Point (1.0.0b11) */
     RUN.atone = to;
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT ascend to %d (+%d) points %d xp %d by %s t=%.2f\n", to, n, RUN.points, RUN.xp, G.player ? "player" : "autopilot", G.t);
@@ -3391,6 +3401,34 @@ static int over_due(void) {                                        /* overlevels
 }
 static int wind_restorable(void) { return (RUN.corner >> CS_WIND & 1) && RUN.wind_spent; }
 static int ascend_open(void) { return atone_reach() > RUN.atone || RUN.points > 0 || corner_due() > 0 || over_due() > 0; }
+
+/* The dream's Alignment (docs/PLAN-b11.md, section 14): its own line to the end of a path, Fire's ability, then a
+ * second line, then the rest of Fire's; a node at a time in that order, saving for the next. Until it has a class
+ * (step 10), its own line and path come from the run's id */
+static int align_price(int e, int n);
+static void align_buy(int e, int n);
+static int align_next(int e, int path, int stop_at_ability) {     /* the next node on the way down a path, -1 at its end */
+    if (!align_open(e)) return ND_OPEN;
+    for (int n = ND_EFF; n <= ND_ABIL; n++) if (!align_full(e, n)) return n;
+    if (stop_at_ability) return -1;
+    int p0 = align_path(e) ? (align_path(e) == 1 ? ND_A1 : ND_B1) : (path == 1 ? ND_A1 : ND_B1);
+    for (int n = p0; n < p0 + 3; n++) if (!align_full(e, n)) return n;
+    return -1;
+}
+static void auto_align(void) {
+    if (LEDGER.yours) return;                                      /* a person's points are theirs to spend */
+    uint32_t h = RUN.run_id * 2654435761u;
+    int own = (int)(h % NELEM), second = (own + 1 + (int)((h >> 8) % (NELEM - 1))) % NELEM;
+    if (second == EL_FIRE) second = (second + 1) % NELEM;
+    if (second == own) second = (own + 2) % NELEM;
+    const int stage[4][3] = { { own, 1 + (int)(h >> 16 & 1), 0 }, { EL_FIRE, 1, 1 }, { second, 1 + (int)(h >> 17 & 1), 0 }, { EL_FIRE, 1 + (int)(h >> 18 & 1), 0 } };
+    for (int st = 0, guard = 0; st < 4 && guard < 64; guard++) {
+        int e = stage[st][0], n = align_next(e, stage[st][1], stage[st][2]);
+        if (n < 0) { st++; continue; }
+        if (RUN.al_points < align_price(e, n)) break;              /* saving for it */
+        align_buy(e, n);
+    }
+}
 
 static void auto_ascend(void) {                                    /* the autopilot's: a little of everything that keeps it alive */
     if (LEDGER.yours) return;                                      /* a person's run: what it buys is theirs to choose */
@@ -3419,7 +3457,7 @@ static void auto_ascend(void) {                                    /* the autopi
     while (over_due() > 0) {                                       /* overlevels: the first line already at its cap */
         int pick = LN_DAMAGE;
         for (int i = 0; i < (int)(sizeof OVER_PICK / sizeof OVER_PICK[0]); i++) if (line_capped(OVER_PICK[i])) { pick = OVER_PICK[i]; break; }
-        RUN.over[pick]++; caster_sync();
+        RUN.over[pick]++; RUN.al_points++; caster_sync();
 #ifdef CRAWL_DEBUG
         fprintf(stderr, "EVENT overlevel %d by autopilot t=%.2f\n", pick, G.t);
 #endif
@@ -8660,7 +8698,7 @@ static void gen_shop(void) {
     G.map[11][14].tex = G.map[11][16].tex = T_BRICK;
     add_deco(10.4f, 12.4f, SP_CANDLES); light_static(10.45f, 12.45f, 0.9f, 3.0f);
     add_deco(15.5f, 12.3f, SP_CANDLES); light_static(15.5f, 12.35f, 0.8f, 3.2f);   /* under the sign */
-    add_deco(20.55f, 12.45f, SP_URN); add_deco(20.55f, 17.55f, SP_URN);
+    add_deco(20.55f, 17.55f, SP_URN);
     G.sh_deco = G.ndecos;                                          /* the Rune Shrine, across from the wares */
     add_deco(SHRINE_X, SHRINE_Y, RUN.shrine ? SP_SHRINE_C : SP_SHRINE_S);
     G.map[(int)SHRINE_Y][(int)SHRINE_X].kind = K_PROP;
@@ -8683,6 +8721,13 @@ static void gen_shop(void) {
     for (int i = 0; i < RUN.nstones; i++)                          /* a stone a death, the newest clean-cut */
         solid_prop(STONE_AT[i][0], STONE_AT[i][1], i == 0 ? SP_TOMB_FRESH : SP_TOMB_ROUND + (int)((uint64_t)RUN.stones[i].when % 3), 1, K_PROP);
     G.map[21][10].tex = T_TORCH0; light_static(10.92f, 21.5f, 1.1f, 4.2f);
+    for (int y = 3; y <= 9; y++) for (int x = 15; x <= 25; x++) carve(x, y, 4, TH_BRICK);   /* the room north of hers (1.0.0b11), */
+    carve(20, 10, 4, TH_BRICK); carve(20, 11, 4, TH_BRICK);         /* through an arch in her north wall */
+    G.rooms[G.nrooms++] = (Room){ 15, 3, 11, 7, 4, TH_BRICK, RT_MERCHANT };
+    solid_prop(LAMP_X, LAMP_Y, SP_LAMPSTAND, 1, K_PILLAR);          /* the Lampstand against its far wall */
+    add_deco(LAMP_X - 1.6f, LAMP_Y + 0.4f, SP_CANDLES); light_static(LAMP_X - 1.55f, LAMP_Y + 0.5f, 0.9f, 3.4f);
+    add_deco(LAMP_X + 2.6f, LAMP_Y + 0.4f, SP_CANDLES); light_static(LAMP_X + 2.55f, LAMP_Y + 0.5f, 0.9f, 3.4f);
+    G.map[9][14].tex = T_TORCH0; light_static(15.08f, 9.5f, 1.0f, 4.0f);
     G.ped_n = clampi(RUN.peds, 2, NPED);                           /* the pedestals bought */
     ped_arc();
     for (int i = 0; i < G.ped_n; i++) { G.ped_deco[i] = G.ndecos; add_deco(G.ped_x[i], G.ped_y[i], SP_PEDESTAL); }
@@ -9196,7 +9241,7 @@ static void update_shop(double dt) {
         if (st > 0.8f && st - fdt <= 0.8f) G.cat_slow = 1.4f;
         if (st >= 2.4f) {
             if (RUN.peds < NPED && RUN.treasure >= ped_price() + (int)gear_haul(G.level)) ped_buy();   /* another, if a level's haul is left after */
-            auto_ascend();
+            auto_ascend(); auto_align();
             G.shop_step = SH_LOOK; G.shop_look = 0; G.shop_t = 0.0; shop_turn(face_of(G.ped_x[0], G.ped_y[0]), 0.7f);
         }
         break;
@@ -9582,6 +9627,7 @@ static void open_ui(int which) {
     }
     else if (which == UI_CODEX) { snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.3f, 0.5f); }
     else if (which == UI_STONES) { G.cs_arm = -1; snd_sfx_ex(SFX_WHISPER, 0.4f, 0.5f); }
+    else if (which == UI_ALIGN) { G.al_arm = -1; G.al_node = ND_OPEN; snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.35f, 0.5f); }
     else if (which == UI_ASCEND) {
         G.ui_sel = 0; G.asc_arm = -1; memset(G.asc_buy, 0, sizeof G.asc_buy); snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f);
         for (int l = 0; l < NLINE; l++) if (RUN.over[l]) { snd_sfx_ex(SFX_WHISPER, 0.3f, 0.2f); break; }   /* the overlevelled: the dead murmur */
@@ -9755,6 +9801,8 @@ static void shop_human(float dt) {
     G.sh_look = G.shop_look < 0 && sd < 3.0f && fabsf(wrap_pi(atan2f(SHRINE_Y - G.py, SHRINE_X - G.px) - G.ang)) < 0.3f + 0.3f / sd;
     float td = hypotf(TOTEM_X - G.px, TOTEM_Y - G.py);
     G.tot_look = G.shop_look < 0 && !G.sh_look && td < 3.6f && fabsf(wrap_pi(atan2f(TOTEM_Y - G.py, TOTEM_X - G.px) - G.ang)) < 0.3f + 0.3f / td;
+    float lx = LAMP_X + 0.5f - G.px, ly = LAMP_Y + 0.5f - G.py, ld = hypotf(lx, ly);   /* the Lampstand, in the room north of hers */
+    G.lamp_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && ld < 3.4f && fabsf(wrap_pi(atan2f(ly, lx) - G.ang)) < 0.3f + 0.35f / ld;
     float cdx = LECTERN_X + 0.5f - G.px, cdy = LECTERN_Y + 0.5f - G.py, cd = hypotf(cdx, cdy);
     G.comp_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && cd < 2.6f && fabsf(wrap_pi(atan2f(cdy, cdx) - G.ang)) < 0.3f + 0.35f / cd;
     G.rep_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && G.px > 3.9f && G.px < 6.6f && G.py > 12.6f && G.py < 17.4f
@@ -9792,6 +9840,7 @@ static void shop_human(float dt) {
             else { shop_purchase(i); G.grab_t = 1.0f; }
         } else if (G.sh_look) { open_ui(UI_SHRINE); G.click_spent = IN.hit[KEY_MOUSE1]; G.grab_t = 1.0f; }
         else if (G.tot_look) { open_ui(UI_TOTEM); G.click_spent = IN.hit[KEY_MOUSE1]; G.grab_t = 1.0f; }
+        else if (G.lamp_look) { open_ui(UI_ALIGN); G.click_spent = IN.hit[KEY_MOUSE1]; }
         else if (G.comp_look) { open_ui(UI_COMP); G.click_spent = IN.hit[KEY_MOUSE1]; }
         else if (G.rep_look) { open_ui(UI_REPO); G.click_spent = IN.hit[KEY_MOUSE1]; }
         else if (G.por_look) { open_ui(UI_PORTAL); G.click_spent = IN.hit[KEY_MOUSE1]; }
@@ -9895,15 +9944,18 @@ static int inv_action(int r) {
 }
 
 static void update_stones_core(void);
+static void update_align(int view);
+static void render_align(Frame *f, int view);
 static void update_inventory(void) {
     spell_keys();
     if (IN.hit[KEY_TAB] || IN.hit[KEY_ESC]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
     int lr = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
     if (lr) {                                                      /* the wardrobe, the caster, the cornerstones */
-        G.inv_page = (G.inv_page + 3 + lr) % 3; G.cs_arm = -1; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f);
+        G.inv_page = (G.inv_page + 4 + lr) % 4; G.cs_arm = -1; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f);
         if (G.inv_page == 1) for (int l = 0; l < NLINE; l++) if (RUN.over[l]) { snd_sfx_ex(SFX_WHISPER, 0.3f, 0.2f); break; }
     }
     if (G.inv_page == 2) { update_stones_core(); return; }
+    if (G.inv_page == 3) { update_align(1); return; }               /* the Alignment, to look at */
     if (G.inv_page) return;
     int n = inv_rows();
     if (G.ui_sel >= n) G.ui_sel = n - 1;
@@ -10402,8 +10454,8 @@ static void pad_keys(float dt) {
         if (hit[PAD_A]) PRESS(KEY_ENTER);
         if (hit[PAD_B] || hit[PAD_MENU]) PRESS(KEY_ESC);
         if (hit[PAD_Y]) PRESS(KEY_SPACE);
-        if (hit[PAD_RB]) PRESS(KEY_D);
-        if (hit[PAD_LB]) PRESS(KEY_A);
+        if (hit[PAD_RB]) PRESS(G.ui == UI_ALIGN ? KEY_PGDN : KEY_D);   /* at the Lampstand, the lines */
+        if (hit[PAD_LB]) PRESS(G.ui == UI_ALIGN ? KEY_PGUP : KEY_A);
         if (hit[PAD_VIEW]) PRESS(KEY_TAB);
         return;
     }
@@ -10471,6 +10523,7 @@ static void crawl_control(int what) {
     if (getenv("CRAWL_TPREPO") && G.shop) { G.px = 5.5f; G.py = 14.5f; G.ang = PI_F; G.cx = 5; G.cy = 14; }   /* before the Repository's niches */
     if (getenv("CRAWL_TPLECTERN") && G.shop) { G.px = LECTERN_X + 0.5f; G.py = LECTERN_Y - 1.6f; G.ang = PI_F * 0.5f; G.cx = LECTERN_X; G.cy = LECTERN_Y - 2; }   /* before the Compendium */
     if (getenv("CRAWL_TPTOTEM") && G.shop) { G.px = 6.9f; G.py = 14.6f; G.ang = face_of(TOTEM_X, TOTEM_Y); G.cx = 6; G.cy = 14; }   /* before the Totem */
+    if (getenv("CRAWL_TPLAMP") && G.shop) { G.px = LAMP_X + 0.5f; G.py = LAMP_Y + 2.8f; G.ang = face_of(LAMP_X + 0.5f, LAMP_Y + 0.5f); G.cx = LAMP_X; G.cy = LAMP_Y + 2; }   /* before the Lampstand */
     if (getenv("CRAWL_TPBOSS") && !G.shop && !PK.depth && G.boss >= 0 && G.bstart_x >= 0) {   /* in the boss's antechamber, facing the arch */
         G.px = G.bstart_x + 0.5f; G.py = G.bstart_y + 0.5f; G.ang = 0.0f; human_begin();
     }
@@ -11297,6 +11350,84 @@ static void update_stones_core(void) {
     G.cs_arm = -1;
     corner_take(c);
 }
+/* ---- the Alignment's screen (docs/PLAN-b11.md, section 8): at the Lampstand to buy, Tab's fourth page to look ----
+ * The tree: the opening; Efficiency and Insight in either order, both full; the ability; one path, its nodes in
+ * order, the ultimate last. A node is lit when bought, outlined when it can be bought now, dim when it can't yet,
+ * chained over when the other path was taken. The first node of a path asks twice. Unbinding a line costs two
+ * Cursed Coins and gives back half its points; a line that came open stays open. */
+static const int ND_ROW[NNODE] = { 0, 1, 1, 2, 3, 4, 5, 3, 4, 5 };
+static const int ND_COL[NNODE] = { 1, 0, 2, 1, 0, 0, 0, 2, 2, 2 };
+static int align_point(int e, int n) { int k = ALIGN[e].n[n].kind; return k == NK_EFF || k == NK_INS || k == NK_STEP; }   /* bought a point at a time */
+static int align_price(int e, int n) { return align_point(e, n) ? 1 : ALIGN[e].n[n].cost; }
+static int align_other(int e, int n) { return n >= ND_B1 ? ND_A1 : ND_B1; }   /* the first node of the other path */
+static int align_ready(int e, int n) {                             /* may be bought now, points aside */
+    if (n == ND_OPEN) return !align_open(e);
+    if (!align_open(e) || align_full(e, n)) return 0;
+    switch (n) {
+    case ND_EFF: case ND_INS: return 1;
+    case ND_ABIL: return align_full(e, ND_EFF) && align_full(e, ND_INS);
+    case ND_A1: case ND_B1: return align_full(e, ND_ABIL) && !RUN.al[e][align_other(e, n)];
+    default: return align_full(e, n - 1);                          /* the path's nodes in order */
+    }
+}
+static int align_chained(int e, int n) { return n >= ND_A1 && RUN.al[e][align_other(e, n)]; }
+static int align_spent(int e) { int t = 0; for (int n = 0; n < NNODE; n++) t += RUN.al[e][n]; return t; }
+static void align_buy(int e, int n) {
+    int price = align_price(e, n);
+    RUN.al[e][n] = (uint8_t)imin(ALIGN[e].n[n].cost, RUN.al[e][n] + (align_point(e, n) ? 1 : ALIGN[e].n[n].cost));
+    RUN.al_points -= price;
+    if (n == ND_OPEN && e == EL_PHYS) RUN.gear.bones = (int16_t)imin(bones_max(), RUN.gear.bones + SPEAR_BONES);   /* the spear comes with bones */
+    caster_sync();
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT align_buy %s %s %d/%d points %d by %s t=%.2f\n", ALIGN[e].name, ALIGN[e].n[n].name, RUN.al[e][n], ALIGN[e].n[n].cost,
+            RUN.al_points, G.player ? "player" : "autopilot", G.t);
+#endif
+}
+static void align_unbind(int e) {                                  /* every node goes; half the points come back, rounded down */
+    int back = align_spent(e) / 2;
+    memset(RUN.al[e], 0, sizeof RUN.al[e]);
+    RUN.al_points += back; RUN.coins -= 2;
+    caster_sync();
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT align_unbind %s back %d points %d t=%.2f\n", ALIGN[e].name, back, RUN.al_points, G.t);
+#endif
+}
+static void update_align(int view) {
+    if (!view && (IN.hit[KEY_ESC] || IN.hit[KEY_TAB])) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
+    int e = G.al_el = clampi(G.al_el, 0, NELEM - 1), was = e;
+    for (int k = 0; k < NELEM; k++) if (IN.hit[KEY_1 + k]) e = k;
+    e = (e + NELEM + (IN.hit[KEY_PGDN] - IN.hit[KEY_PGUP])) % NELEM;
+    if (e != was) { G.al_el = e; G.al_node = ND_OPEN; G.al_arm = -1; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f); return; }
+    int n = G.al_node = clampi(G.al_node, 0, NNODE - 1), row = ND_ROW[n], col = ND_COL[n];
+    int ud = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]), lr = view ? 0 : (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
+    if (ud || lr) {                                                /* to the nearest node that way */
+        int best = n, bd = 99;
+        for (int m = 0; m < NNODE; m++) {
+            int dr = ND_ROW[m] - row, dc = ND_COL[m] - col;
+            if ((ud && (dr * ud <= 0 || (view && dr * ud > 1))) || (lr && (dc * lr <= 0 || dr))) continue;
+            int d = abs(dr) * 4 + abs(dc) + (ud && ND_COL[m] != col && col != 1 ? 2 : 0);
+            if (d < bd) { bd = d; best = m; }
+        }
+        if (best != n) { G.al_node = best; G.al_arm = -1; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+        return;
+    }
+    if (view) return;
+    if (IN.hit[KEY_SPACE] || IN.hit[KEY_BACK]) {                   /* unbinding, for two coins, asked twice */
+        if (!align_spent(e)) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        if (RUN.coins < 2) { G.al_arm = -3; snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        if (G.al_arm != -2) { G.al_arm = -2; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }
+        G.al_arm = -1; align_unbind(e);
+        snd_sfx_ex(SFX_COIN, 0.8f, 0.5f); snd_sfx_ex(SFX_WAIL, 0.4f, 0.5f);
+        return;
+    }
+    if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_MOUSE1])) return;
+    if (!align_ready(e, n) || RUN.al_points < align_price(e, n)) { G.al_arm = -1; snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+    if ((n == ND_A1 || n == ND_B1) && !RUN.al[e][n] && G.al_arm != n) { G.al_arm = n; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }   /* the other path will close */
+    G.al_arm = -1;
+    align_buy(e, n);
+    snd_sfx_ex(SFX_RUNE, 0.7f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.4f, 0.5f);
+}
+
 static void update_stones(void) {
     if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_ASCEND; G.ui_sel = 0; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
     update_stones_core();
@@ -11326,7 +11457,7 @@ static void update_ascend(void) {
     if (IN.hit[KEY_SPACE] && over_due() > 0) {                     /* an overlevel: past the cap, five more (Luck one), asked twice */
         if (l == LN_HEALTH || l == LN_RESIST) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
         if (G.asc_arm != 100 + l) { G.asc_arm = 100 + l; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }
-        RUN.over[l]++; G.asc_arm = -1; caster_sync();
+        RUN.over[l]++; RUN.al_points++; G.asc_arm = -1; caster_sync();
         snd_sfx_ex(SFX_ATONE, 0.7f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.6f, 0.5f);
 #ifdef CRAWL_DEBUG
         fprintf(stderr, "EVENT overlevel %s %d t=%.2f\n", LINES[l].name, RUN.over[l], G.t);
@@ -11934,6 +12065,7 @@ static void map_follow(float dt) {                                 /* it slides 
 static void update_ui(void) {
     if (IN.hit[KEY_MOUSE1]) G.click_spent = 1;                    /* a click that closes a menu casts nothing */
     if (G.ui == UI_ASCEND) { update_ascend(); return; }
+    if (G.ui == UI_ALIGN) { update_align(0); return; }
     if (G.ui == UI_STONES) { update_stones(); return; }
     if (G.ui == UI_WISPS) { update_wispmenu(); return; }
     if (G.ui == UI_SHRINE) { update_shrinemenu(); return; }
@@ -13071,6 +13203,21 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     f->pix[py * W + px] = grey ? (uint8_t)(R_STONE + 9 + (a & 3)) : (a & 3) ? (uint8_t)C_WHITE : (uint8_t)(R_GHOST + 12);
             }
         }
+        if (d->spr == SP_LAMPSTAND && G.shop)                      /* each line open burning in its bowl, in its colour, */
+            for (int b = 0; b < NELEM; b++) {                      /* taller as it ranks */
+                int r = align_rank(b);
+                if (!r) continue;
+                for (int dy = -16; dy <= 0; dy++)
+                    for (int dx = -5; dx <= 5; dx++) {
+                        int v = crawl_lamp_flame(dx, dy, r, (float)G.t, b);
+                        if (!v) continue;
+                        int x0 = (int)(left + (float)(LAMP_BOWL[b][0] + dx) * size / TS), x1 = (int)(left + (float)(LAMP_BOWL[b][0] + dx + 1) * size / TS);
+                        int y0 = (int)(top + (float)(LAMP_BOWL[b][1] + dy) * size / TS), y1 = (int)(top + (float)(LAMP_BOWL[b][1] + dy + 1) * size / TS);
+                        for (int py = imax(0, y0); py < imin(H, imax(y1, y0 + 1)); py++)
+                            for (int px = imax(0, x0); px < imin(W, imax(x1, x0 + 1)); px++)
+                                if (d->depth < zbuf[px]) f->pix[py * W + px] = ramp_at(ELEM_RAMP[b], v);
+                    }
+            }
         if (d->flags & DR_WEBBED) {                                /* your web over it: strands, fewer as it is torn */
             uint32_t hs = (uint32_t)(int)(d->x * 13.0f) * 2654435761u ^ (uint32_t)(int)(d->y * 7.0f) * 40503u;
             for (int k = 0, ns = 3 + (int)(6.0f * d->web); k < ns; k++) {
@@ -13444,6 +13591,21 @@ static void render_shop_card(Frame *f) {
         if (!known) snprintf(l2, sizeof l2, "IT WANTS A BOSS'S ODIOUS SCRIP");
         else snprintf(l2, sizeof l2, "%d SCRIP HELD", scrip);
         gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
+        hint8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10);
+        return;
+    }
+    if (G.player && G.lamp_look && i < 0) {                        /* the Lampstand, and what E does there */
+        int bw = 264, bx = (W - bw) / 2, ph = 42, open = 0;
+        for (int e = 0; e < NELEM; e++) open += align_open(e);
+        y0 = H - 44 - 4 - ph;
+        gfx_rect(f, bx, y0, bw, ph, 0);
+        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
+        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        gfx_text16(f, bx + 8, y0 + 4, "THE LAMPSTAND", R_GOLD + 12, 1);
+        char l2[48];
+        if (RUN.al_points > 0) snprintf(l2, sizeof l2, "%d POINT%s TO ALIGN", RUN.al_points, RUN.al_points == 1 ? "" : "S");
+        else snprintf(l2, sizeof l2, "%d OF SIX LINES BURNING", open);
+        gfx_text8(f, bx + 8, y0 + 21, l2, RUN.al_points > 0 ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 12), 1);
         hint8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10);
         return;
     }
@@ -14383,6 +14545,7 @@ static void render_inventory(Frame *f) {
     dim_view(f);
     panel(f, 4, 4, W - 8, H - 8);
     if (G.inv_page == 2) { render_stones(f, 1); return; }
+    if (G.inv_page == 3) { render_align(f, 1); return; }
     if (G.inv_page) { render_caster(f); return; }
     gfx_text16(f, 14, 9, "WARDROBE", R_GOLD + 12, 1);
     hint8(f, 14, 26, "W/S PICK  ENTER MOVE  A/D PAGE", R_STONE + 9);
@@ -15686,6 +15849,67 @@ static void render_stones(Frame *f, int tabbed) {
     text_wrap(f, 14, ty, line, 36, G.cs_arm == sel ? R_GOLD + 12 : R_STONE + 12, 4);
 }
 
+/* the Alignment's screen: the six lines across the top, the chosen line's tree, the node's card at the foot */
+static void align_box(Frame *f, int cx, int y, int e, int n, int sel) {
+    const ANode *nd = &ALIGN[e].n[n];
+    int pts = align_point(e, n), tw = gfx_text_width(nd->name, 1), w = tw + 8 + (pts ? 4 * nd->cost + 2 : 0), x = cx - w / 2;
+    int full = align_full(e, n) && (n != ND_OPEN || align_open(e)), chained = align_chained(e, n), ready = align_ready(e, n) && RUN.al_points >= align_price(e, n);
+    int ramp = ELEM_RAMP[e];
+    uint8_t edge = full ? ramp_at(ramp, 12) : ready ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + (chained ? 4 : 6));
+    if (sel) {                                                     /* the one chosen: a gold frame round it */
+        uint8_t gc = (int)(G.ui_t * 3.0f) & 1 ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_GOLD + 8);
+        for (int i = -2; i < w + 2; i++) { gfx_px(f, x + i, y - 4, gc); gfx_px(f, x + i, y + 11, gc); }
+        for (int j = -4; j <= 11; j++) { gfx_px(f, x - 2, y + j, gc); gfx_px(f, x + w + 1, y + j, gc); }
+    }
+    gfx_rect(f, x, y - 2, w, 12, full ? ramp_at(ramp, 2) : 0);
+    for (int i = 0; i < w; i++) { gfx_px(f, x + i, y - 2, edge); gfx_px(f, x + i, y + 9, edge); }
+    for (int j = -2; j <= 9; j++) { gfx_px(f, x, y + j, edge); gfx_px(f, x + w - 1, y + j, edge); }
+    uint8_t tc = full ? ramp_at(ramp, 14) : ready ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + (chained ? 5 : 8));
+    gfx_text8(f, x + 4, y, nd->name, tc, 1);
+    if (pts) for (int k = 0; k < nd->cost; k++)                    /* a pip a point */
+        gfx_rect(f, x + 6 + tw + k * 4, y + 3, 3, 3, k < RUN.al[e][n] ? ramp_at(ramp, 13) : (uint8_t)(R_STONE + 5));
+    if (chained) for (int i = 2; i < w - 2; i += 3) { gfx_px(f, x + i, y + 3 + (i & 1), R_IRON + 9); gfx_px(f, x + i + 1, y + 4 - (i & 1), R_IRON + 6); }   /* a chain across it */
+}
+static void render_align(Frame *f, int view) {
+    char line[200];
+    int e = clampi(G.al_el, 0, NELEM - 1), n = clampi(G.al_node, 0, NNODE - 1);
+    for (int k = 0; k < NELEM; k++) {                              /* the six, lit if open, with their ranks */
+        int x = 12 + k * 40, r = align_rank(k);
+        if (k == e) gfx_rect(f, x - 3, 7, 36, 13, R_IRON + 3);
+        elem_glyph(f, x, 10, k, r == 0);
+        if (r) snprintf(line, sizeof line, "%d", r); else snprintf(line, sizeof line, "-");
+        gfx_text8(f, x + 10, 10, line, r ? ramp_at(ELEM_RAMP[k], 13) : (uint8_t)(R_STONE + 7), 1);
+    }
+    snprintf(line, sizeof line, "%d POINT%s", RUN.al_points, RUN.al_points == 1 ? "" : "S");
+    gfx_text8(f, W - 12 - gfx_text_width(line, 1), 10, line, RUN.al_points > 0 && ((int)(G.ui_t * 2.0f) & 1) ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_GOLD + 9), 1);
+    int r = align_rank(e);
+    if (r) snprintf(line, sizeof line, "%s   RANK %d", ALIGN[e].name, r); else snprintf(line, sizeof line, "%s   NOT OPEN", ALIGN[e].name);
+    gfx_text8(f, (W - gfx_text_width(line, 1)) / 2, 25, line, ramp_at(ELEM_RAMP[e], 13), 1);
+    static const int RY[6] = { 40, 56, 72, 92, 108, 124 }, CX[3] = { 84, 160, 236 };
+    uint8_t lc = R_STONE + 6;                                      /* the tree's lines */
+    gfx_line(f, 160, 50, 84, 54, lc); gfx_line(f, 160, 50, 236, 54, lc);
+    gfx_line(f, 84, 66, 160, 70, lc); gfx_line(f, 236, 66, 160, 70, lc);
+    gfx_line(f, 160, 82, 84, 90, lc); gfx_line(f, 160, 82, 236, 90, lc);
+    for (int c = 0; c < 2; c++) { int x = c ? 236 : 84; gfx_line(f, x, 102, x, 106, lc); gfx_line(f, x, 118, x, 122, lc); }
+    for (int m = 0; m < NNODE; m++) align_box(f, CX[ND_COL[m]], RY[ND_ROW[m]], e, m, m == n);
+    for (int i = 10; i < W - 10; i++) gfx_px(f, i, 138, R_STONE + 5);
+    const ANode *nd = &ALIGN[e].n[n];
+    int price = align_price(e, n);
+    if (G.al_arm == -2) snprintf(line, sizeof line, "UNBIND %s FOR TWO CURSED COINS: EVERY NODE GOES, AND %d POINTS COME BACK. AGAIN TO UNBIND.", ALIGN[e].name, align_spent(e) / 2);
+    else if (G.al_arm == -3) snprintf(line, sizeof line, "UNBINDING A LINE TAKES TWO CURSED COINS. YOU HAVE %d.", RUN.coins);
+    else if (G.al_arm == n) snprintf(line, sizeof line, "THE OTHER PATH WILL CLOSE. AGAIN TO TAKE THIS ONE.");
+    else {
+        char got[24] = "";
+        if (align_point(e, n)) snprintf(got, sizeof got, "  %d OF %d.", RUN.al[e][n], nd->cost);
+        else if (align_full(e, n) && (n != ND_OPEN || align_open(e))) snprintf(got, sizeof got, "  YOURS.");
+        snprintf(line, sizeof line, "%s: %s%s%s", nd->name, nd->does, got, align_full(e, n) && (n != ND_OPEN || align_open(e)) ? "" :
+                 price == 1 ? "  ONE POINT." : price == 2 ? "  TWO POINTS." : price == 3 ? "  THREE POINTS." : "  FIVE POINTS.");
+    }
+    text_wrap(f, 14, 143, line, 36, G.al_arm != -1 ? R_GOLD + 12 : R_STONE + 12, 4);
+    const char *hn = view ? "A/D PAGE  1-6 LINE  W/S NODE  TAB" : "1-6  WASD  ENTER BUYS  SPACE UNBINDS";
+    hint8(f, (W - hint_width(hn)) / 2, H - 16, hn, R_STONE + 9);
+}
+
 /* An overlevelled number (docs/PLAN-b9.md, section 7): pale violet, breathing, now and then slipping a
  * pixel or two with a red ghost the other way, the dead's eye beside it in their colour */
 static int stat_over(int st) {
@@ -16097,6 +16321,7 @@ static void render_map(Frame *f) {
 
 static void render_ui(Frame *f) {
     if (G.ui == UI_ASCEND) { render_ascend(f); return; }
+    if (G.ui == UI_ALIGN) { dim_view(f); panel(f, 4, 4, W - 8, H - 8); render_align(f, 0); return; }
     if (G.ui == UI_STONES) { dim_view(f); panel(f, 4, 4, W - 8, H - 8); render_stones(f, 0); return; }
     if (G.ui == UI_PORTAL) { render_portalmenu(f); return; }
     if (G.ui == UI_COMP) { render_compmenu(f); return; }

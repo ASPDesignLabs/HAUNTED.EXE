@@ -1907,6 +1907,50 @@ static void spr_hextotem(void) {
 
 /* The Corpus Compendium: a great tome open on a lectern of black oak, its pages close-written, a red
  * ribbon hanging from it, and a few motes of light over it from whatever it remembers */
+/* The Lampstand (docs/PLAN-b11.md, section 8): six iron bowls on a black iron stand, fanned out from its stem on
+ * curled arms, the elements' order left to right. Its flames are the game's to draw, each bowl's in its element's
+ * colour once its line is open (LAMP_BOWL: where each sits) */
+const signed char LAMP_BOWL[6][2] = { { 9, 30 }, { 16, 21 }, { 25, 14 }, { 39, 14 }, { 48, 21 }, { 55, 30 } };
+static void spr_lampstand(void) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 13, 1.8f, R_WARM + 1);
+    cv_capsule(32, 53, 20, 62, 1.6f, R_IRON, 0.04f, 0.26f);        /* the feet */
+    cv_capsule(32, 53, 44, 62, 1.6f, R_IRON, 0.04f, 0.26f);
+    cv_capsule(32, 54, 32, 62, 1.4f, R_IRON, 0.04f, 0.22f);
+    cv_capsule(32, 13, 32, 56, 1.9f, R_IRON, 0.05f, 0.3f);         /* the stem */
+    cv_capsule(28, 50, 36, 50, 1.3f, R_IRON, 0.06f, 0.32f);        /* a collar */
+    static const float ARM[3][6] = { { 32, 45, 13, 41, 9, 33 }, { 32, 37, 18, 30, 16, 24 }, { 32, 27, 26, 22, 25, 17 } };
+    for (int i = 0; i < 3; i++)
+        for (int side = 0; side < 2; side++) {                     /* the arms, curling up to their bowls */
+            float m = side ? -1.0f : 1.0f;
+            const float *a = ARM[i];
+            cv_capsule(32 + m * (a[0] - 32), a[1], 32 + m * (a[2] - 32), a[3], 1.1f, R_IRON, 0.05f, 0.28f);
+            cv_capsule(32 + m * (a[2] - 32), a[3], 32 + m * (a[4] - 32), a[5], 1.0f, R_IRON, 0.05f, 0.28f);
+        }
+    for (int b = 0; b < 6; b++) {                                  /* the bowls, shallow, catching a little light on the rim */
+        float bx = LAMP_BOWL[b][0], by = LAMP_BOWL[b][1] + 1;
+        cv_flat(bx, by, 4.6f, 1.9f, sh(R_IRON, 0.12f));
+        for (int x = (int)bx - 4; x <= (int)bx + 4; x++) cv_px(x, (int)by - 1, sh(R_IRON, 0.32f + 0.04f * (x - bx)));
+        cv_px((int)bx, (int)by + 2, sh(R_IRON, 0.1f));
+    }
+    cv_capsule(32, 9, 32, 13, 0.9f, R_IRON, 0.1f, 0.38f);          /* a spike at the top */
+    cv_outline(0);
+    cv_store(SP_LAMPSTAND);
+}
+
+/* a bowl's flame, in texels from the middle of the bowl's rim (dy up is negative): the step of its element's ramp
+ * there, 0 none. Taller and fuller as the line ranks, swaying, the core brightest low down */
+int crawl_lamp_flame(int dx, int dy, int rank, float t, int seed) {
+    float h = 5.0f + 0.25f * (float)(rank < 20 ? rank : 20), u = (float)-dy / h;
+    if (u < 0.0f || u > 1.0f) return 0;
+    float sway = sinf(t * 9.0f + (float)seed * 1.7f) * 0.7f * u + sinf(t * 23.0f + (float)seed) * 0.3f * u;
+    float w = (2.0f + 0.05f * (float)rank) * powf(sinf(3.14159f * (0.15f + 0.85f * u)), 0.7f) * (1.0f - 0.45f * u);
+    float x = fabsf((float)dx - sway);
+    if (x > w) return 0;
+    float k = 1.0f - x / (w + 0.01f) * 0.6f - u * 0.5f;
+    return 6 + (int)(k * 9.0f + 0.5f);
+}
+
 static void spr_lectern(void) {
     cv_begin(cv_sprite, TS, TS);
     float cx = 32;
@@ -7630,7 +7674,7 @@ void crawl_art_init(void) {
     spr_roots(); spr_websheet();
     for (int k = 0; k < 4; k++) spr_tomb(SP_TOMB_ROUND + k, k);
     spr_tomb(SP_TOMB_FRESH, 4);
-    spr_lectern(); spr_mapware();
+    spr_lectern(); spr_mapware(); spr_lampstand();
     for (int f = 0; f < 3; f++) spr_firepit(SP_FIREPIT_A + f, f);
     spr_totem(SP_TOTEM_A, 0); spr_totem(SP_TOTEM_B, 1);
     spr_shambler(SP_SHAMB_A, 1.0f, 0); spr_shambler(SP_SHAMB_B, -1.0f, 0); spr_shambler(SP_SHAMB_GRAB, 0.0f, 1);

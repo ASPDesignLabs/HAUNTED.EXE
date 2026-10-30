@@ -3,7 +3,8 @@
 **Status: settled (30 October 2026). The owner answered both rounds of questions the same day. Being built on
 `claude/eloquent-carson-1x049c`: part one is built (steps 1-4: the elements as data, the glyphs with `elements.png`
 drawn for the owner and its art in the game until they mark it up, the runes' sockets, the map at a walk), and part
-two's step 5 (spells as lines), tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+two's steps 5 (spells as lines) and 6 (the new room, the Lampstand on `hall2.png`, Alignment Points and the screen),
+tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),
@@ -831,3 +832,11 @@ answers, and are first guesses for the runs to tune. Any of them can be changed 
   old Chain Lightning's leaps, four of them). A 1.0.0b10 page keeps its BFS9000 if it had one. Her claim takes the
   last node bought in a line (the highest one with points, so the line keeps its order), never an opening or an
   ultimate; a line ending in its ultimate offers nothing. The old-spells message is a pop-up headed THE ALIGNMENT.
+- **The new room and the Lampstand** (step 6). The room is x 15-25, y 3-9, through an arch in her north wall at x 20,
+  straight across from the Lampstand at (20, 3); the urn in her room's north-east corner moved out of the arch's way.
+  Candles either side of the Lampstand and a torch by the arch; the bowls' light grows as lines open and rank. The
+  screen: 1-6 or PgUp/PgDn (the pad's bumpers) choose a line, W/S/A/D move to the nearest node that way, Enter buys,
+  Space or Backspace unbinds (asked twice). A point-at-a-time node shows a pip a point. Tab's fourth page shows the
+  same tree to look at (W/S only, since A/D turn Tab's pages). The dream spends at her greeting, after it ascends: its
+  own line (from the run's id until classes come) to the end of a path, Fire's ability, a second line, then the rest
+  of Fire's, saving for the next node in that order. Opening Physical brings six bones, as buying the spear did.

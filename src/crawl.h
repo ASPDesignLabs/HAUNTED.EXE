@@ -184,6 +184,7 @@ enum {
     SP_LECTERN,                                 /* the Corpus Compendium: a tome open on a lectern of black oak */
     SP_MAPWARE,                                 /* the merchant's map of the crypt: a scroll half unrolled, floating (1.0.0b9) */
     SP_FLASK,                                   /* the Blight Flask in flight: a stoppered flask of green venom (1.0.0b11) */
+    SP_LAMPSTAND,                               /* the Lampstand: six iron bowls on a black stand, the Alignment's (1.0.0b11) */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
     SP_SKEL_SA, SP_SKEL_SB, SP_SHIELD_SA, SP_SHIELD_SB, SP_BAT_SA, SP_BAT_SB, SP_SPIDER_SA, SP_SPIDER_SB,
     SP_GHOST_SA, SP_GHOST_SB, SP_WSKULL_S,
@@ -250,6 +251,8 @@ static inline float crawl_depth(int level) {                                /* h
 extern const char *const RUNE_GLYPH[9][7];      /* the runes' marks, 5 by 7, by DF_* (the hand's tattoos, the shrine) */
 extern const char *const ELEM_GLYPH[6][7];      /* the elements' glyphs, 7 by 7, by EL_*: '#' the colour, 'o' bright (1.0.0b11) */
 extern const char *const RUNE_MARK[9][11];      /* the runes' marks for their sockets, 11 by 11, by DF_* */
+extern const signed char LAMP_BOWL[6][2];       /* where the Lampstand's bowls sit on its sprite, by EL_* */
+int crawl_lamp_flame(int dx, int dy, int rank, float t, int seed);   /* a bowl's flame: its ramp's step there (0 none) */
 void crawl_art_init(void);                      /* builds everything once */
 void crawl_art_level(int level);                /* that level's palette, ruin and rot (call after init) */
 enum { PT_NONE, PT_BACKROOMS, PT_SEVERANCE };   /* a pocket's theme */

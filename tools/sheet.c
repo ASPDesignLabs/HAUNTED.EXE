@@ -771,6 +771,48 @@ static int draw_elements(const char *path) {
     return ok;
 }
 
+/* 1.0.0b11's new room: the Lampstand with none, three and six bowls lit, at a few ranks */
+static void lampstand_at(int ox, int oy, int k, unsigned lit, int rank) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t c = crawl_spr[SP_LAMPSTAND][x * TS + y];
+            if (c != C_CLEAR) { c = crawl_cmap[LIGHT + 8 < NLIGHT ? LIGHT + 8 : NLIGHT - 1][c]; rect(ox + x * k, oy + y * k, k, k, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63); }
+        }
+    for (int b = 0; b < 6; b++) {
+        if (!(lit >> b & 1)) continue;
+        for (int dy = -16; dy <= 0; dy++)
+            for (int dx = -5; dx <= 5; dx++) {
+                int v = crawl_lamp_flame(dx, dy, rank, 0.4f, b);
+                if (v > 0) ppx(ox + (LAMP_BOWL[b][0] + dx) * k, oy + (LAMP_BOWL[b][1] + dy) * k, k, ramp_k(EL_RAMP[b], v));
+            }
+    }
+}
+static int draw_hall2(const char *path) {
+    iw = 1240; ih = 560;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "1.0.0B11: HER HALL'S NEW ROOM, FOR APPROVAL", 230, 230, 230);
+    int y = PAD + LABEL_H + 8;
+    text(PAD, y, "THE LAMPSTAND: NO LINE, THREE, ALL SIX; THE FLAMES GROW WITH RANK", 200, 200, 200);
+    y += LABEL_H;
+    static const struct { unsigned lit; int rank; const char *l1, *l2; } V[4] = {
+        { 0x01, 1, "FIRE ONLY", "AT RANK 1" }, { 0x0D, 6, "FIRE, LIGHTNING,", "POISON AT RANK 6" },
+        { 0x3F, 12, "ALL SIX", "AT RANK 12" }, { 0x3F, 20, "ALL SIX", "AT RANK 20" } };
+    for (int i = 0; i < 4; i++) {
+        int x = PAD + i * 300;
+        rect(x, y, 4 * TS + 16, 4 * TS + 16, 18, 16, 20);
+        lampstand_at(x + 8, y + 8, 4, V[i].lit, V[i].rank);
+        text(x, y + 4 * TS + 24, V[i].l1, 190, 190, 190);
+        text(x, y + 4 * TS + 24 + LABEL_H - 6, V[i].l2, 150, 150, 150);
+    }
+    y += 4 * TS + 24 + 2 * LABEL_H;
+    text(PAD, y, "THE DEAD BELL AND THE WEEPING FONT COME ON THIS SHEET WITH STEP 12.", 120, 120, 120);
+    ih = y + LABEL_H + PAD;
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
 static int draw_runlook(const char *path, int run) {
     const RunLook *L = &crawl_looks[run];
     const RunSheet *R = &RUNSHEETS[run];
@@ -929,6 +971,7 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "deep", "RUN IV'S OWN LOOK (SHEET_LAST=n SHOWS LEVEL n AS ITS SECOND)");
         printf("%-12s %s\n", "deeprooms", "RUN IV'S ROOMS");
         printf("%-12s %s\n", "elements", "1.0.0B11: THE ELEMENTS' GLYPHS, THE TARGET IN THEM, THE RUNES' SOCKETS");
+        printf("%-12s %s\n", "hall2", "1.0.0B11: HER HALL'S NEW ROOM: THE LAMPSTAND (THE BELL AND THE FONT TO COME)");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -976,6 +1019,13 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/elements.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_elements(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "hall2")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/hall2.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_hall2(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     static const char *const RUNSHEET_NAMES[4][2] = { { "crypts", "cryptrooms" }, { "catacombs", "catarooms" }, { "hollows", "hollowrooms" }, { "deep", "deeprooms" } };
