@@ -480,7 +480,9 @@ typedef struct {
 enum { ND_OPEN, ND_EFF, ND_INS, ND_ABIL, ND_A1, ND_A2, ND_AULT, ND_B1, ND_B2, ND_BULT, NNODE };
 
 /* What points buy (docs/PLAN-b9.md, section 5): a line each; Resist buys all three at once */
-enum { LN_HEALTH, LN_DAMAGE, LN_RESIST, LN_POISON, LN_BURN, LN_SLOW, LN_HASTE, LN_DODGE, LN_TREASURE, LN_MOVE, LN_LUCK, LN_ATTUNE, NLINE };
+enum { LN_HEALTH, LN_DAMAGE, LN_RESIST, LN_POISON, LN_BURN, LN_SLOW, LN_HASTE, LN_DODGE, LN_TREASURE, LN_MOVE, LN_LUCK, LN_ATTUNE,
+       LN_SPIRIT, NLINE };                  /* saved by number: a new line goes at the end */
+#define NLINE_B9 12                         /* the lines a page held before Resist Spirit's */
 /* the cornerstones (section 6): Second Wind, Premonition, Cartographer, Lantern of the Dead, Grave Sense */
 enum { CS_WIND, CS_OMEN, CS_CARTO, CS_LANTERN, CS_SENSE, NCS };
 
@@ -529,7 +531,7 @@ static struct {
     uint8_t ncomp[NIK][NQUAL];
     Piece repo[REPO_MAX];                   /* the Wretched Repository: what lies in each place, */
     int repo_n, repo_gold, repo_coins;      /* the places bought (two at first, the first untaxed), its gold and coins */
-    uint32_t cx_abil, cx_rune, cx_exq, cx_stat;   /* the Codex: what is known, a bit each (hazards are RUN.omens) */
+    uint32_t cx_abil, cx_rune, cx_exq; uint64_t cx_stat;   /* the Codex: what is known, a bit each (hazards are RUN.omens) */
     /* the caster's own (docs/PLAN-b9.md): the merchant's map, kept through death; and, gone with a death, the
        Level of Atonement claimed, the experience earned since the last death (all of it, not only what is
        over), the points not yet spent and the steps bought in each line, the overlevels chosen in each, the
@@ -726,7 +728,8 @@ static struct {
     int click_spent;                        /* the click went on a ware or the cat: no cast until it is let go */
     char msg[64];
     Gear inv0;                              /* the gear as it was when the inventory opened */
-    int inv_page;                           /* the wardrobe (0), the caster's numbers and spellbook (1), the cornerstones, the Alignment */
+    int inv_page;                           /* the wardrobe (0), the caster's numbers and spellbook (1), the cornerstones, the Alignment,
+                                               the elements (1.0.0b11) */
     int al_el, al_node, al_arm;             /* the Alignment's screen: the line, the node, a buy or unbinding awaiting a second Enter */
     int vow_sel, vow_arm, vow_change;       /* her question: the class chosen, awaiting a second Enter, another past (changing) */
     float map_cx, map_cy, map_hold;         /* the map: the cell at its middle, a direction held this long */
@@ -781,6 +784,7 @@ enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword plant
 static float zbuf[W];
 enum { MM_SIGN, MM_ASCEND, MM_VOW, MM_PED, MM_WIND, MM_PAT, MM_LEAVE, NMM };   /* the merchant's menu */
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
+#define NINV 5                              /* Tab's pages */
 enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES, UI_ALIGN, UI_CLASS };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 static double IN_DT;                        /* and how long the step is */
@@ -2898,7 +2902,8 @@ static void windup_blow(int d, float raw, float after, int el) {
     if (G.blame.what == BL_FIRE || (G.blame.what == BL_HAZARD && (G.blame.type == HZ_FIRE || G.blame.type == HZ_BILE || G.blame.type == HZ_VOID))) return;
     const Gear *g = &RUN.gear;
     float share = (float)d / (float)G.max_hp, chance = fminf(0.9f, 0.25f + 2.0f * share);
-    float res = el == EL_FIRE ? gear_magic_resist(g) : el == EL_POISON ? gear_poison_resist(g) : el == EL_FROST ? gear_slow_resist(g) : 0.0f;
+    float res = el == EL_FIRE ? gear_magic_resist(g) : el == EL_POISON ? gear_poison_resist(g) : el == EL_FROST ? gear_slow_resist(g)
+              : el == EL_SPIRIT ? gear_total(g, ST_RES_SPIRIT) / 100.0f : 0.0f;
     float keep = gear_dodge(g) + 0.6f * (raw > 0.0f ? fmaxf(0.0f, raw - after) / raw : 0.0f) + 0.4f * res + 0.25f * gear_total(g, ST_LUCK) / 100.0f;
     if (rndf() >= chance * (1.0f - fminf(0.9f, keep))) return;
     if (G.player) { G.pc_t = -1.0f; G.cooldown = 0.0f; G.hand_base = fminf(G.hand_base, 0.3f); G.chg_on = 0; G.tether = 0; }   /* begin again at once; a charge lost */
@@ -2919,6 +2924,7 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
     if (!seeping) {
         if (kind != HURT_STONE && rndf() < gear_dodge(g)) { snd_sfx_ex(SFX_WHOOSH, 0.5f, 0.5f); DBG_COUNT(dodges); return 0; }   /* it passed through a shadow */
         if (kind == HURT_MAGIC) dmg *= 1.0f - gear_magic_resist(g);
+        if (el == EL_SPIRIT) dmg *= 1.0f - gear_total(g, ST_RES_SPIRIT) / 100.0f;   /* Resist Spirit (1.0.0b11) */
         raw = dmg;
         dmg -= kind == HURT_MAGIC ? gear_armor(g) * 0.5f : (float)gear_armor(g);
         if (dmg < 1.0f) dmg = 1.0f;
@@ -3289,7 +3295,7 @@ typedef struct { const char *name, *does; int cost, stat; float step; } Line;
 static const Line LINES[NLINE] = {
     [LN_HEALTH]   = { "HEALTH", "+5 HEALTH", 1, ST_HP, 5.0f },
     [LN_DAMAGE]   = { "DAMAGE", "+1% TO EVERY SPELL'S DAMAGE", 3, ST_DAMAGE, 1.0f },
-    [LN_RESIST]   = { "RESIST ALL", "+5% TO EACH RESIST: POISON, BURN AND SLOW", 3, -1, 5.0f },
+    [LN_RESIST]   = { "RESIST ALL", "+5% TO EACH RESIST: POISON, BURN, SLOW AND SPIRIT", 3, -1, 5.0f },
     [LN_POISON]   = { "RESIST POISON", "+15%: POISON STINGS LESS, AND NOT AS LONG", 3, ST_RES_POISON, 15.0f },
     [LN_BURN]     = { "RESIST BURN", "+15%: FIRE AND BURNING HURT LESS", 3, ST_RES_BURN, 15.0f },
     [LN_SLOW]     = { "RESIST SLOW", "+15%: GRABS AND FROST SLOW YOU LESS", 3, ST_RES_SLOW, 15.0f },
@@ -3299,6 +3305,7 @@ static const Line LINES[NLINE] = {
     [LN_MOVE]     = { "MOVEMENT", "+1% TO YOUR PACE", 2, ST_MOVE, 1.0f },
     [LN_LUCK]     = { "LUCK", "+0.1%: THE DEAD DROP GOLD MORE OFTEN", 1, ST_LUCK, 0.1f },
     [LN_ATTUNE]   = { "ATTUNEMENT", "+1%: SPELLS COST LESS SPIRIT", 1, ST_THRIFT, 1.0f },
+    [LN_SPIRIT]   = { "RESIST SPIRIT", "+15%: SPIRIT HURTS LESS, AND WHAT DRAINS SOULS TAKES FEWER", 3, ST_RES_SPIRIT, 15.0f },
 };
 #define LUCK_BASE 2.0f                      /* everyone's, at the start */
 static float over_step(int l) { return l == LN_LUCK ? 1.0f : 5.0f; }   /* an overlevel's: Luck 1, the rest 5 */
@@ -3435,7 +3442,9 @@ static float align_add(int e) {                                   /* a Mastery's
 static int spirit_mastery(void) { return align_open(EL_SPIRIT) && align_full(EL_SPIRIT, ND_B2); }   /* Spirit harms spectres */
 static int bones_max(void) { return BONES_MAX + (RUN.al[EL_PHYS][ND_EFF] ? 5 : 0) + (cls_el() == EL_PHYS ? 10 : 0); }   /* Physical Efficiency
                                                                                      carries five more, the Headsman ten */
-static float bone_spared(void) { return align_sum(EL_PHYS, NK_EFF) + (cls_el() == EL_PHYS ? 0.2f : 0.0f); }   /* a spear that spends none */
+static float bone_spared(void) {                                   /* a spear that spends none: the line's, the Headsman's, what is worn */
+    return fminf(0.9f, align_sum(EL_PHYS, NK_EFF) + (cls_el() == EL_PHYS ? 0.2f : 0.0f) + gear_total(&RUN.gear, ST_EFF + EL_PHYS) / 100.0f);
+}
 static int align_has(int e, int n) { return align_open(e) && align_full(e, n) && ALIGN[e].n[n].cost > 0; }   /* an ability, Mastery or ultimate bought */
 static void align_sync(void) {                                     /* each line's spell into the spellbook, at its rank */
     for (int e = 0; e < NELEM; e++) {
@@ -3445,6 +3454,7 @@ static void align_sync(void) {                                     /* each line'
         float eff = e == EL_PHYS ? 0.0f : fminf(0.9f, align_sum(e, NK_EFF) + (mine ? 0.2f : 0.0f));   /* Physical's Efficiency spares bones */
         float ins = align_sum(e, NK_INS) + (mine && e == EL_LIGHT ? 0.1f : 0.0f);   /* the Galvanist's quickness, */
         spell_set_line(e, eff, fminf(0.9f, ins), align_power(e) + (mine && e == EL_FIRE ? 0.1f : 0.0f));   /* the Witchfinder's heat */
+        gear_set_lean(e, (float)r);                                /* the wares lean to the lines fed, and the dream weighs them so */
     }
     RUN.gear.atk[AT_HELL] = RUN.gear.atk[AT_WISPS] = -1;           /* only the abilities let these loose now */
     spell_set_atone(RUN.atone);
@@ -3454,7 +3464,7 @@ static void caster_sync(void) {                                    /* the caster
     float own[NSTAT] = { 0 }, up[NSTAT] = { 0 };
     for (int l = 0; l < NLINE; l++) {
         float v = LINES[l].step * (float)RUN.steps[l], o = over_step(l) * (float)RUN.over[l];
-        if (l == LN_RESIST) { own[ST_RES_POISON] += v; own[ST_RES_BURN] += v; own[ST_RES_SLOW] += v; continue; }
+        if (l == LN_RESIST) { own[ST_RES_POISON] += v; own[ST_RES_BURN] += v; own[ST_RES_SLOW] += v; own[ST_RES_SPIRIT] += v; continue; }
         own[LINES[l].stat] += v + o; up[LINES[l].stat] += o;
     }
     own[ST_LUCK] += LUCK_BASE;
@@ -3467,7 +3477,8 @@ static void caster_sync(void) {                                    /* the caster
 }
 static int line_capped(int l) {                                    /* more would be wasted */
     if (l == LN_HEALTH) return 0;
-    if (l == LN_RESIST) return gear_capped(&RUN.gear, ST_RES_POISON) && gear_capped(&RUN.gear, ST_RES_BURN) && gear_capped(&RUN.gear, ST_RES_SLOW);
+    if (l == LN_RESIST) return gear_capped(&RUN.gear, ST_RES_POISON) && gear_capped(&RUN.gear, ST_RES_BURN) && gear_capped(&RUN.gear, ST_RES_SLOW)
+                               && gear_capped(&RUN.gear, ST_RES_SPIRIT);
     return gear_capped(&RUN.gear, LINES[l].stat);
 }
 static int ascend(void) {                                          /* every level the experience reaches; how many */
@@ -10505,11 +10516,12 @@ static void update_inventory(void) {
     if (IN.hit[KEY_TAB] || IN.hit[KEY_ESC]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
     int lr = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
     if (lr) {                                                      /* the wardrobe, the caster, the cornerstones */
-        G.inv_page = (G.inv_page + 4 + lr) % 4; G.cs_arm = -1; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f);
+        G.inv_page = (G.inv_page + NINV + lr) % NINV; G.cs_arm = -1; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f);
         if (G.inv_page == 1) for (int l = 0; l < NLINE; l++) if (RUN.over[l]) { snd_sfx_ex(SFX_WHISPER, 0.3f, 0.2f); break; }
     }
     if (G.inv_page == 2) { update_stones_core(); return; }
     if (G.inv_page == 3) { update_align(1); return; }               /* the Alignment, to look at */
+    if (G.inv_page == 4) return;                                   /* the elements: only to look at */
     if (G.inv_page) return;
     int n = inv_rows();
     if (G.ui_sel >= n) G.ui_sel = n - 1;
@@ -11291,10 +11303,12 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
  * the bag's size and quality and its pieces. LG_PEDS: the pedestals bought (a byte). LG_COMP: the Corpus
  * Compendium, a count for each kind (bracer to bag) and quality, the pieces in that order, then each
  * spell's tier. LG_REPO: the Repository, its places (a byte), gold (u32) and coins (u16), then each place.
- * LG_CODEX: what the Codex knows, four u32 of bits: abilities, runes, runes at Exquisite, stats.
+ * LG_CODEX: what the Codex knows, four u32 of bits: abilities, runes, runes at Exquisite, stats; then (1.0.0b11)
+ * a u32 of the stats past the 32nd.
  * LG_CASTER (1.0.0b9, docs/PLAN-b9.md): a byte of flags (1 the map), u16 the Level of Atonement, u32 the
  * experience, u16 the points not spent, a u16 of steps bought in each line, a byte of overlevels chosen in each,
- * a byte of cornerstones, a byte for Second Wind spent, u16 the run it last came back on.
+ * a byte of cornerstones, a byte for Second Wind spent, u16 the run it last came back on. Twelve lines before 1.0.0b11,
+ * thirteen since (Resist Spirit's): a reader takes its count from the length.
  * LG_ELEM (version 7, docs/PLAN-b11.md): the record by element, a byte each by kind and element: kills, hits
  * landed, harms felt. LG_ALIGN (version 7): the Alignment, the points in each line's nodes (a byte each, by element
  * and node), then u16 the Alignment Points not spent. A page without one is older: its spells are forgotten and it
@@ -11311,7 +11325,7 @@ enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
 #define COMP_BYTES ((NIK - 1) * NQUAL * (1 + COMP_MAX * PIECE_BYTES) + NATK)   /* at the most */
 #define REPO_BYTES (1 + 4 + 2 + REPO_MAX * PIECE_BYTES)
 #define PAGE_BYTES (save_end(6) + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 3 + COMP_BYTES + 3 + REPO_BYTES \
-                    + 3 + 16 + 3 + LG_CASTER_BYTES + 3 + REC_ELEM_BYTES + 3 + LG_ALIGN_BYTES + 1)   /* the most a page takes so far */
+                    + 3 + 20 + 3 + LG_CASTER_BYTES + 3 + REC_ELEM_BYTES + 3 + LG_ALIGN_BYTES + 1)   /* the most a page takes so far */
 static void stone_pack(uint8_t *p, const Stone *st) {
     uint64_t w = (uint64_t)st->when;
     put32(p, (int32_t)(uint32_t)(w & 0xffffffffu)); put32(p + 4, (int32_t)(uint32_t)(w >> 32)); put16(p + 8, st->level);
@@ -11423,8 +11437,9 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     memcpy(c + 2 * REC_KINDS * NELEM, RUN.rec.harms, sizeof RUN.rec.harms);
     p = section_end(c, c + REC_ELEM_BYTES);
     c = section_begin(p, LG_CODEX);
-    put32(c, (int32_t)RUN.cx_abil); put32(c + 4, (int32_t)RUN.cx_rune); put32(c + 8, (int32_t)RUN.cx_exq); put32(c + 12, (int32_t)RUN.cx_stat);
-    p = section_end(c, c + 16);
+    put32(c, (int32_t)RUN.cx_abil); put32(c + 4, (int32_t)RUN.cx_rune); put32(c + 8, (int32_t)RUN.cx_exq); put32(c + 12, (int32_t)(uint32_t)RUN.cx_stat);
+    put32(c + 16, (int32_t)(uint32_t)(RUN.cx_stat >> 32));         /* the stats past the 32nd (1.0.0b11) */
+    p = section_end(c, c + 20);
     if (RUN.nstones) {
         c = section_begin(p, LG_STONES);
         c[0] = (uint8_t)RUN.nstones;
@@ -11513,18 +11528,21 @@ static void run_unpack(const uint8_t *buf, int len) {
     c = page_section(buf, len, LG_CODEX, &k);
     if (c && k >= 16) {
         RUN.cx_abil = (uint32_t)get32(c) & ((1u << NABIL) - 2); RUN.cx_rune = (uint32_t)get32(c + 4) & ((1u << NDEF) - 1);
-        RUN.cx_exq = (uint32_t)get32(c + 8) & ((1u << NDEF) - 1); RUN.cx_stat = (uint32_t)get32(c + 12) & ((1u << NSTAT) - 1);
+        RUN.cx_exq = (uint32_t)get32(c + 8) & ((1u << NDEF) - 1); RUN.cx_stat = (uint64_t)(uint32_t)get32(c + 12);
+        if (k >= 20) RUN.cx_stat |= (uint64_t)(uint32_t)get32(c + 16) << 32;
+        RUN.cx_stat &= (1ull << NSTAT) - 1;
     }
     c = page_section(buf, len, LG_CASTER, &k);
     RUN.atone = 1;                                                 /* an older page: a fresh caster, and no map */
-    if (c && k >= LG_CASTER_BYTES) {
+    int nl = c && k >= LG_CASTER_BYTES ? NLINE : (c && k >= LG_CASTER_BYTES - 3 * (NLINE - NLINE_B9) ? NLINE_B9 : 0);   /* by its length */
+    if (nl) {
         const uint8_t *q = c;
         RUN.has_map = *q++ & 1;
         RUN.atone = clampi(get16(q), 1, 9999); q += 2;
         RUN.xp = imax(0, get32(q)); q += 4;
         RUN.points = get16(q); q += 2;
-        for (int l = 0; l < NLINE; l++, q += 2) RUN.steps[l] = (uint16_t)get16(q);
-        for (int l = 0; l < NLINE; l++) RUN.over[l] = *q++;
+        for (int l = 0; l < nl; l++, q += 2) RUN.steps[l] = (uint16_t)get16(q);
+        for (int l = 0; l < nl; l++) RUN.over[l] = *q++;
         RUN.corner = *q++; RUN.wind_spent = *q++ != 0;
         RUN.wind_run = get16(q);
     }
@@ -12531,12 +12549,12 @@ static const char *const CX_PART[NCX] = { "AN ABILITY OF WHAT YOU WEAR", "A RUNE
                                           "THE ELEMENTS", "THE MERCHANT'S LEDGER" };
 static void codex_note(void) {                                     /* worn, held or met: written in */
     const Gear *g = &RUN.gear;
-    uint32_t ab = RUN.cx_abil, st = RUN.cx_stat;
+    uint32_t ab = RUN.cx_abil; uint64_t st = RUN.cx_stat;
     for (int s = 0; s < NSLOT; s++) {
         const Piece *p = &g->worn[s];
         if (p->kind == IK_NONE) continue;
         if (p->ability) RUN.cx_abil |= 1u << p->ability;
-        for (int i = 0; i < p->nstat; i++) RUN.cx_stat |= 1u << p->stat[i];
+        for (int i = 0; i < p->nstat; i++) RUN.cx_stat |= 1ull << p->stat[i];
     }
     for (int k = 0; k < NDEF; k++) {
         if (g->def[k] > 0) RUN.cx_rune |= 1u << k;
@@ -15129,6 +15147,7 @@ static void total_text(const Gear *g, int st, char *buf, int n) {
     else if (st == ST_REGEN) snprintf(buf, (size_t)n, "%.2f/S", t);
     else if (st == ST_THRIFT && t >= 0.5f) snprintf(buf, (size_t)n, "-%.0f%%", t);
     else if (st == ST_LUCK) snprintf(buf, (size_t)n, "%.1f%%", t);
+    else if (st == ST_VESSEL) snprintf(buf, (size_t)n, "+%.0f", t);
     else snprintf(buf, (size_t)n, "%.0f%%", t);
 }
 
@@ -15149,11 +15168,12 @@ static int piece_card(Frame *f, int x, int y, int w, const Piece *p, const Gear 
     for (int i = 0; i < p->nstat; i++) {
         piece_stat_text(p->stat[i], p->val[i], line, sizeof line);
         gfx_text8(f, x, y, line, R_STONE + 12, 1);
+        int sw = gfx_text_width(line, 1);
         if (g) {
             float v = gear_total(g, p->stat[i]), v0 = gear_total(g0, p->stat[i]);
             int c = v > v0 + 1e-3f ? R_MOSS + 13 : (v < v0 - 1e-3f ? R_BLOOD + 13 : R_STONE + 9);
             total_text(g, p->stat[i], line, sizeof line);
-            gfx_text8(f, x + w - gfx_text_width(line, 1), y, line, c, 1);
+            if (sw + 6 + gfx_text_width(line, 1) <= w) gfx_text8(f, x + w - gfx_text_width(line, 1), y, line, c, 1);   /* if there is room */
         }
         y += 8;
     }
@@ -15190,24 +15210,47 @@ static void render_letgo(Frame *f) {
     piece_card(f, 120, 54, W - 10 - 120, &g->bag[sel], NULL, NULL);
 }
 
+/* Tab, the fifth page (1.0.0b11): each element's Power, Efficiency and Insight, the line's and what is worn together,
+ * blue where what is worn is at its cap; and what each means */
+static void render_elements(Frame *f) {
+    const Gear *g = &RUN.gear;
+    gfx_text16(f, 14, 9, "THE ELEMENTS", R_GOLD + 12, 1);
+    hint8(f, 14, 26, "A/D PAGE  TAB CLOSE", R_STONE + 9);
+    static const char *const HEAD[3] = { "POWER", "EFFICIENCY", "INSIGHT" };
+    static const int HX[3] = { 160, 244, 306 };
+    for (int c = 0; c < 3; c++) gfx_text8(f, HX[c] - gfx_text_width(HEAD[c], 1), 42, HEAD[c], R_GOLD + 10, 1);
+    char v[24];
+    for (int e = 0; e < NELEM; e++) {
+        int y = 54 + e * 12, r = align_rank(e), worn[3] = { ST_POW + e, ST_EFF + e, ST_INS + e };
+        float val[3] = { (spell_line(e, 2) + gear_total(g, ST_POW + e) / 100.0f) * 100.0f, spell_efficiency(g, e) * 100.0f, spell_insight(g, e) * 100.0f };
+        elem_glyph(f, 14, y, e, r == 0);
+        gfx_text8(f, 26, y, ELEM_NAME[e], r ? ramp_at(ELEM_RAMP[e], 13) : (uint8_t)(R_STONE + 8), 1);
+        for (int c = 0; c < 3; c++) {
+            snprintf(v, sizeof v, c ? "%.0f%%" : "+%.0f%%", val[c]);
+            int capped = gear_capped(g, worn[c]), some = gear_total(g, worn[c]) > 0.0f;
+            gfx_text8(f, HX[c] - gfx_text_width(v, 1), y, v, capped ? (uint8_t)(R_GLOW + 12) : some ? (uint8_t)(R_GOLD + 11) : val[c] > 0.5f ? (uint8_t)(R_STONE + 12) : (uint8_t)(R_STONE + 7), 1);
+        }
+    }
+    for (int i = 10; i < W - 10; i++) gfx_px(f, i, 129, R_STONE + 5);
+    text_wrap(f, 14, 134, "POWER: MORE OF ITS DAMAGE. EFFICIENCY: LESS SPIRIT; PHYSICAL'S, NO BONE SPENT. INSIGHT: A SHORTER "
+                          "WIND-UP. GOLD: PARTLY WORN. BLUE: WHAT IS WORN IS AT ITS CAP.", 36, R_STONE + 11, 5);
+}
+
 /* Tab, the second page: the caster's numbers (what abilities add in gold beside them) and the spellbook */
 static void render_caster(Frame *f) {
-    static const char *const SHORT[NSTAT] = { "ARMOR", "DODGE", "HEALTH", "RESTORES", "POISON WARD", "BURN WARD", "SLOW WARD",
+    static const char *const SHORT[ST_POW] = { "ARMOR", "DODGE", "HEALTH", "RESTORES", "POISON WARD", "BURN WARD", "SLOW WARD",
                                               "MOVEMENT", "QUIET", "SPELL HASTE", "SPIRIT COST", "DAMAGE", "FIRE", "FROST",
-                                              "LIGHTNING", "EFFECT", "TREASURE", "LUCK" };
+                                              "LIGHTNING", "EFFECT", "TREASURE", "LUCK", "SPIRIT WARD", "VESSEL" };
     const Gear *g = &RUN.gear, *g0 = &G.inv0;
     gfx_text16(f, 14, 9, "THE CASTER", R_GOLD + 12, 1);
     {
         char at[24];
         snprintf(at, sizeof at, "ATONEMENT %d", RUN.atone);
-        gfx_text8(f, 14 + gfx_text_width("THE CASTER", 1) + 10, 13, at, R_PURPLE + 13, 1);
+        int ax = 14 + gfx_text_width("THE CASTER", 1) + 10;
+        gfx_text8(f, ax, 13, at, R_PURPLE + 13, 1);
+        if (cls_el() >= 0) class_mark(f, ax + gfx_text_width(at, 1) + 8, 11, cls_el(), 0);   /* what the caster was */
     }
     hint8(f, 14, 26, "A/D PAGE  TAB CLOSE", R_STONE + 9);
-    if (cls_el() >= 0) {                                           /* what the caster was */
-        int cw = gfx_text_width(CLASS_SHORT[cls_el()], 1);
-        class_mark(f, W - 10 - cw - 14, 24, cls_el(), 0);
-        gfx_text8(f, W - 10 - cw, 26, CLASS_SHORT[cls_el()], ramp_at(ELEM_RAMP[cls_el()], 13), 1);
-    }
     {                                                              /* the Cursed Coins, for the shrine */
         char cc[24];
         snprintf(cc, sizeof cc, "%d COIN%s", RUN.coins, RUN.coins == 1 ? "" : "S");
@@ -15217,8 +15260,8 @@ static void render_caster(Frame *f) {
     }
     char v[24], extra[16];
     int capped = 0;
-    for (int st = 0; st < NSTAT; st++) {
-        int x = st < 9 ? 14 : 162, y = 38 + (st % 9) * 9, w = st < 9 ? 140 : 144;
+    for (int st = 0; st < ST_POW; st++) {                          /* the elements' own are on a page of their own */
+        int x = st < 10 ? 14 : 162, y = 38 + (st % 10) * 9, w = st < 10 ? 140 : 144;
         float t = gear_total(g, st), t0 = gear_total(g0, st), add = 0.0f;
         if (st == ST_MOVE || st == ST_THRIFT) add = fminf(gear_total_raw(g, st) * (gear_ability(g, st == ST_MOVE ? AB_SWIFT : AB_ARCANE, 0) / 100.0f), t);   /* Swiftness, Arcane Knowledge */
         total_text(g, st, v, sizeof v);
@@ -15232,7 +15275,7 @@ static void render_caster(Frame *f) {
     }
     if (capped) gfx_text8(f, W - 10 - gfx_text_width("BLUE: AT ITS CAP", 1), 26, "BLUE: AT ITS CAP", R_GLOW + 12, 1);
     /* the abilities, summed and capped */
-    int n = 0, y = 121;
+    int n = 0, y = 130;
     for (int ab = 1; ab < NABIL; ab++) {
         float a = gear_ability(g, ab, 0), b = gear_ability(g, ab, 1);
         if (a <= 0.0f) continue;
@@ -15293,6 +15336,7 @@ static void render_inventory(Frame *f) {
     panel(f, 4, 4, W - 8, H - 8);
     if (G.inv_page == 2) { render_stones(f, 1); return; }
     if (G.inv_page == 3) { render_align(f, 1); return; }
+    if (G.inv_page == 4) { render_elements(f); return; }
     if (G.inv_page) { render_caster(f); return; }
     gfx_text16(f, 14, 9, "WARDROBE", R_GOLD + 12, 1);
     hint8(f, 14, 26, "W/S PICK  ENTER MOVE  A/D PAGE", R_STONE + 9);
@@ -16146,6 +16190,13 @@ static void render_repomenu(Frame *f) {
 /* a page of the Codex: what it is, what it does, its numbers by quality or rank, where it comes from, and
  * what you have of it now */
 static void total_text(const Gear *g, int st, char *buf, int n);
+static void stat_does(int st, char *buf, int n) {                  /* the elements' stats, in the Codex's words */
+    int e = st >= ST_INS ? st - ST_INS : st >= ST_EFF ? st - ST_EFF : st - ST_POW;
+    if (st >= ST_INS) snprintf(buf, (size_t)n, "%s SPELLS GATHER QUICKER, AFTER WHAT THE LINE'S INSIGHT TAKES OFF.", ELEM_NAME[e]);
+    else if (st >= ST_EFF && e == EL_PHYS) snprintf(buf, (size_t)n, "A SPEAR SPENDS NO BONE MORE OFTEN, WITH THE LINE'S EFFICIENCY; NINE TIMES IN TEN AT MOST.");
+    else if (st >= ST_EFF) snprintf(buf, (size_t)n, "%s SPELLS TAKE LESS SPIRIT, WITH THE LINE'S EFFICIENCY; NINE TENTHS AT MOST IN ALL.", ELEM_NAME[e]);
+    else snprintf(buf, (size_t)n, "%s SPELLS HIT HARDER, WITH WHAT THE LINE'S MASTERY GIVES.", ELEM_NAME[e]);
+}
 static void render_codex(Frame *f) {
     static const char *const ABIL_DOES[NABIL] = { "",
         "YOUR MOVEMENT, RAISED ONCE MORE BY THIS SHARE OF IT.",
@@ -16159,7 +16210,7 @@ static void render_codex(Frame *f) {
         "IT SENDS MISSILES HOME TO THEIR THROWER AT TWICE ITS STRENGTH.", "HEALING PAST FULL BECOMES A SMALL WARD.",
         "IT MENDS TWO HUNDREDTHS OF YOUR HEALTH A SECOND WHILE IT LASTS.", "THE FROZEN TAKE DOUBLE.", "IT REACHES THE LIVING TOO.",
         "WHAT IT SLOWS TAKES A QUARTER MORE.", "EACH KILL HEALS A TWENTIETH OF YOUR HEALTH." };
-    static const char *const STAT_DOES[NSTAT] = { "TAKEN OFF EVERY BLOW, HALF OFF FIRE AND MAGIC.", "A CHANCE THAT A BLOW PASSES THROUGH YOU.",
+    static const char *const STAT_DOES[ST_POW] = { "TAKEN OFF EVERY BLOW, HALF OFF FIRE AND MAGIC.", "A CHANCE THAT A BLOW PASSES THROUGH YOU.",
         "MORE HEALTH.", "HEALTH BACK EVERY SECOND.", "POISON LASTS SHORTER AND BITES LESS.", "FIRE AND BURNING HURT LESS.",
         "SLOWING AND BEING HELD LAST SHORTER.", "YOU WALK FASTER.", "YOUR STEPS WAKE FEWER OF THE DEAD.", "YOUR SPELLS COME ROUND SOONER.",
         "YOUR SPELLS TAKE LESS SPIRIT.", "EVERY SPELL HITS HARDER.",
@@ -16167,7 +16218,10 @@ static void render_codex(Frame *f) {
         "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS FROST, AS MUCH AS FROST BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
         "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS LIGHTNING, AS MUCH AS LIGHTNING BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
         "SOUL DRAIN'S HEALING, FROST'S SLOW, HELLFIRE'S BURNING FLOOR AND EVERY RUNE, STRONGER.",
-        "MORE FOR EVERY GOLD PIECE YOU PICK UP.", "THE CHANCE THAT WHAT YOU SLAY DROPS GOLD OF ITS RANK, AND NOW AND THEN SOMETHING MORE." };
+        "MORE FOR EVERY GOLD PIECE YOU PICK UP.", "THE CHANCE THAT WHAT YOU SLAY DROPS GOLD OF ITS RANK, AND NOW AND THEN SOMETHING MORE.",
+        "WHAT IS DONE TO YOU BY SPIRIT HURTS LESS, AND WHAT DRAINS SOULS TAKES FEWER.", "YOUR VESSEL HOLDS MORE SPIRIT." };
+    char does[160];                                                /* an element's Power, Efficiency, Insight */
+    #define STAT_WORDS(st) (st < ST_POW ? STAT_DOES[st] : (stat_does(st, does, sizeof does), does))
     static const char *const HZ_NAME[NHZ] = { "THE KNIGHT'S ROCKFALL", "THE DEACON'S HELLRENT", "THE CISTERN'S BILE", "THE VOID", "THE SUNDERING ARC", "THE GRASPING DARK" };
     static const char *const HZ_DOES[NHZ] = {
         "THE CEILING GROANS AND A SHADOW GROWS ON THE FLOOR, THEN STONE FALLS THERE. IT HURTS ONCE, AND NEVER BLOCKS THE WAY.",
@@ -16267,7 +16321,7 @@ static void render_codex(Frame *f) {
     }
     case CX_STAT: {
         int st = c->i;
-        y += text_wrap(f, 14, y, STAT_DOES[st], 36, R_STONE + 13, 4) * 9 + 4;
+        y += text_wrap(f, 14, y, STAT_WORDS(st), 36, R_STONE + 13, 4) * 9 + 4;
         float cap = gear_stat_cap(st);
         if (cap > 0.0f) snprintf(line, sizeof line, "IT COUNTS TO %.0f%s AT MOST", cap, st == ST_ARMOR || st == ST_HP ? "" : "%");
         else snprintf(line, sizeof line, "NO CAP: AS MUCH AS YOU CAN WEAR");
@@ -16738,7 +16792,7 @@ static void line_total(int l, char *buf, int n, int *capped) {
     *capped = line_capped(l);
     if (l == LN_HEALTH) { snprintf(buf, (size_t)n, "%d", gear_max_hp(g)); return; }
     if (l == LN_RESIST) {
-        snprintf(buf, (size_t)n, "%.0f %.0f %.0f", gear_total(g, ST_RES_POISON), gear_total(g, ST_RES_BURN), gear_total(g, ST_RES_SLOW));
+        snprintf(buf, (size_t)n, "%.0f %.0f %.0f %.0f", gear_total(g, ST_RES_POISON), gear_total(g, ST_RES_BURN), gear_total(g, ST_RES_SLOW), gear_total(g, ST_RES_SPIRIT));
         return;
     }
     int st = LINES[l].stat;
@@ -16767,7 +16821,7 @@ static void render_ascend(Frame *f) {
     gfx_text8(f, 302 - gfx_text_width("TOTAL", 1), 40, "TOTAL", R_GOLD + 10, 1);
     int sel = clampi(G.ui_sel, 0, NLINE - 1);
     for (int l = 0; l < NLINE; l++) {
-        int y = 51 + l * 9, afford = RUN.points >= LINES[l].cost, capped;
+        int y = 51 + l * 8, afford = RUN.points >= LINES[l].cost, capped;   /* eight apart, so thirteen fit (1.0.0b11) */
         if (l == sel) gfx_rect(f, 10, y - 1, W - 20, 9, R_IRON + 3);
         gfx_text8(f, 14, y, LINES[l].name, l == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12), 1);
         snprintf(line, sizeof line, "%d", LINES[l].cost);
@@ -16779,7 +16833,7 @@ static void render_ascend(Frame *f) {
         if (RUN.over[l] > 0) { eerie_text(f, 302 - gfx_text_width(line, 1), y, line); eerie_eye(f, 116, y + 1); }   /* past its cap: the dead see it */
         else gfx_text8(f, 302 - gfx_text_width(line, 1), y, line, capped ? (uint8_t)(R_GLOW + 12) : (uint8_t)(R_STONE + 12), 1);
     }
-    int ty = 51 + NLINE * 9 + 3;
+    int ty = 51 + NLINE * 8 + 3;
     for (int i = 10; i < W - 10; i++) gfx_px(f, i, ty - 2, R_STONE + 5);
     int capped = line_capped(sel);
     int od = over_due();

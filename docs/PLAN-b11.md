@@ -5,7 +5,7 @@
 drawn for the owner and its art in the game until they mark it up, the runes' sockets, the map at a walk), and part
 two's steps 5 (spells as lines), 6 (the new room, the Lampstand on `hall2.png`, Alignment Points and the screen), 7
 (the abilities), 8 (the paths' nodes, the Masteries, spectres), 9 (charging and the twelve ultimates, their sprites
-on `spells.png`) and 10 (the classes, their marks on `elements.png`), tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+on `spells.png`), 10 (the classes, their marks on `elements.png`) and 11 (gear's elements), tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),
@@ -896,3 +896,18 @@ answers, and are first guesses for the runs to tune. Any of them can be changed 
   show their spellbook by the old names. The page keeps the class in `LG_ALIGN` (four bytes more). `CRAWL_CLASS=k`
   (1-6 by element; 0 asks) and `CRAWL_ATONE=n` for testing. While she asks, the room's fade and toasts wait on it. A 1,500-second dream run of each class from level
   1 (seed 5) cleared three or four levels with no deaths; the balance runs come in step 16.
+- **Gear's elements** (step 11). The stats as section 5 has them, with these numbers: Power rolls as the old additions
+  do (a ring's full, a robe's six tenths), Efficiency at 4% and 0.8 a level on a hood, Insight at 3% and 0.6 a level on
+  a bracer, Resist Spirit as the other resists, Vessel at 3 and 1 a level (a hood's seven tenths); the quality raises
+  each as before. Worn Power adds to the line's (the Mastery's and the Witchfinder's); worn Efficiency adds to the
+  line's under the same nine tenths; worn Insight multiplies with the line's, as the plan's wind-up says. Physical's
+  worn Efficiency spares bones. Resist Spirit takes its share off any harm of Spirit, and keeps a blow from breaking a
+  wind-up as the other resists do. The lean: a third of the elemental stats rolled pick an element by the lines' ranks.
+  The autopilot weighs Power at 1.2 and Efficiency and Insight at 0.7 of a stat's worth, times the element's share of
+  the ranks, and Resist Spirit and Vessel at 0.3 and 0.35. The caster's page shows Resist Spirit (SPIRIT WARD) and
+  Vessel among the rest; the elements' three each are on a fifth page of Tab, THE ELEMENTS, each the line's and the
+  worn together, gold where some of it is worn, blue where the worn part is at its cap. A card leaves the caster's total
+  off a stat's line when the two would meet. The caster's page shows the class's mark only (its name would cover the cap
+  note). Resist Spirit's line is the thirteenth, Resist All counts for it too, and the screen's rows are eight pixels
+  apart to fit it. The page keeps the stats past the 32nd in four bytes more of `LG_CODEX`, and `LG_CASTER` grows by
+  the line; a reader takes the lines' count from its length. The Vessel stat does nothing until step 12.

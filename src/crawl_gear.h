@@ -26,7 +26,10 @@ enum { IK_NONE, IK_WRIST, IK_BOOTS, IK_NECK, IK_HOOD, IK_ROBE, IK_RING, IK_BAG, 
 enum { SL_WRIST_L, SL_WRIST_R, SL_BOOTS, SL_NECK, SL_HOOD, SL_ROBE, SL_RING, NSLOT };   /* where it is worn */
 enum { ST_ARMOR, ST_DODGE, ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_MOVE, ST_QUIET,
        ST_HASTE, ST_THRIFT, ST_DAMAGE, ST_FIRE, ST_FROST, ST_SHOCK, ST_EFFECT,
-       ST_TREASURE, ST_LUCK, NSTAT };                   /* the last two never roll on a piece: only the caster's own (1.0.0b9) */
+       ST_TREASURE, ST_LUCK,                            /* these two never roll on a piece: only the caster's own (1.0.0b9) */
+       ST_RES_SPIRIT, ST_VESSEL,                        /* 1.0.0b11: Resist Spirit, and more spirit carried */
+       ST_POW, ST_EFF = ST_POW + NELEM, ST_INS = ST_EFF + NELEM, NSTAT = ST_INS + NELEM };   /* each element's Power,
+                                                           Efficiency and Insight (docs/PLAN-b11.md, section 5): ST_POW + EL_* */
 enum { AB_NONE, AB_SWIFT, AB_ARCANE, AB_TREASURE, AB_KEYMAKER, AB_COMMUNE, AB_THORNS, AB_MIRRORED, NABIL };
 #define PIECE_STATS 6                                   /* five at most, and one an ability may add */
 #define BAG_MAX 5
@@ -107,6 +110,7 @@ float gear_ability_cap(int ability);                     /* the most an ability 
 /* the caster's own (docs/PLAN-b9.md): what Levels of Atonement bought, added to what is worn under one cap,
  * and how far overlevels have raised that cap. Treasure is Treasure Hunter's and the caster's together */
 void  gear_set_own(int stat, float add, float cap_up);
+void  gear_set_lean(int el, float use);                  /* how much the caster uses an element: wares lean to it, the autopilot weighs it */
 float gear_own(int stat);
 float gear_cap_up(int stat);
 
@@ -121,6 +125,8 @@ float spell_damage(const Gear *g, int atk);              /* per hit, with the da
 float spell_damage_at(const Gear *g, int atk, int rank); /* the same at another rank (a weak cast goes at rank 1) */
 float spell_cost(const Gear *g, int atk, int rank);      /* spirit a cast takes at this rank: the fireball and the spear nothing */
 float spell_windup(const Gear *g, int atk, int rank);    /* seconds the hand gathers it before it goes, less Insight */
+float spell_efficiency(const Gear *g, int el);           /* an element's Efficiency, its line's and what is worn (Physical: bones) */
+float spell_insight(const Gear *g, int el);              /* and its Insight, the two together */
 float heal_cost(const Gear *g, int tier);                /* spirit for each point Soul Drain restores */
 int   wisp_count(int tier);                              /* Seeker Wisps a cast sends */
 float spell_cycle(const Gear *g, int atk);               /* seconds between casts */

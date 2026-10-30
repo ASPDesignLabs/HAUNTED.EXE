@@ -24,10 +24,18 @@ const int QUAL_RAMP[NQUAL] = { R_BONE, R_MOSS, R_GLOW, R_PURPLE, R_GOLD };   /* 
 const char *const KIND_NAME[NIK] = { "", "BRACER", "BOOTS", "AMULET", "HOOD", "ROBES", "RING", "BAG" };
 const char *const STAT_NAME[NSTAT] = { "ARMOR", "DODGE", "HEALTH", "RESTORES", "RESIST POISON", "RESIST BURN", "RESIST SLOW",
                                        "MOVEMENT", "QUIET", "SPELL HASTE", "SPIRIT COST", "DAMAGE", "FIRE", "FROST", "LIGHTNING",
-                                       "SPELL EFFECT", "TREASURE", "LUCK" };
+                                       "SPELL EFFECT", "TREASURE", "LUCK", "RESIST SPIRIT", "VESSEL",
+                                       "FIRE POWER", "FROST POWER", "LIGHTNING POWER", "POISON POWER", "SPIRIT POWER", "PHYSICAL POWER",
+                                       "FIRE EFFICIENCY", "FROST EFFICIENCY", "LIGHTNING EFFICIENCY", "POISON EFFICIENCY",
+                                       "SPIRIT EFFICIENCY", "PHYSICAL EFFICIENCY",
+                                       "FIRE INSIGHT", "FROST INSIGHT", "LIGHTNING INSIGHT", "POISON INSIGHT", "SPIRIT INSIGHT", "PHYSICAL INSIGHT" };
 static const char *const STAT_OF[NSTAT] = { "THE BULWARK", "SHADOWS", "VIGOUR", "REJUVENATION", "CLEAN BLOOD", "THE HEARTH",
                                             "THE UNBOUND", "THE LIGHTFOOT", "SILENCE", "QUICKENING", "THE FRUGAL SOUL",
-                                            "SPELLTONGUE", "CINDERS", "RIME", "STORMS", "THE ADEPT", "PLENTY", "FORTUNE" };
+                                            "SPELLTONGUE", "CINDERS", "RIME", "STORMS", "THE ADEPT", "PLENTY", "FORTUNE",
+                                            "THE SHRIVEN", "THE URN",   /* 1.0.0b11's, drafts (docs/PLAN-b11.md, section 5) */
+                                            "THE PYRE", "THE LONG WINTER", "THE THUNDERHEAD", "NIGHTSHADE", "THE UNQUIET", "THE MARROW",
+                                            "THE BANKED COAL", "THE STILL MERE", "THE LODESTONE", "THE THIN DOSE", "THE SPARING SOUL", "THE QUIVER",
+                                            "TINDER", "HOARFROST", "THE SPARK", "THE SWIFT DRAUGHT", "THE WHISPER", "THE SLING" };
 const char *const ABIL_NAME[NABIL] = { "", "SWIFTNESS", "ARCANE KNOWLEDGE", "TREASURE HUNTER", "KEYMAKER", "COMMUNE", "THORNS", "MIRRORED" };
 static const char *const ABIL_WORD[NABIL] = { "", "SWIFT", "ARCANE", "TREASURE HUNTER", "KEYMAKER", "COMMUNING", "THORNED", "MIRRORED" };
 
@@ -38,22 +46,33 @@ static const int QUAL_STATS[NQUAL] = { 1, 2, 3, 4, 99 };                     /* 
 static const int ABIL_CHANCE[NQUAL] = { 0, 10, 25, 50, 100 };                /* percent */
 static const int KIND_SLOTS[NIK] = { 0, 2, 2, 2, 2, 4, 1, 0 };
 static const float KIND_PRICE[NIK] = { 0.0f, 0.45f, 0.6f, 0.7f, 0.7f, 0.9f, 0.8f, 0.5f };
-static const int STAT_SCALE[NSTAT] = { 10, 10, 10, 100, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10 };
-static const float STAT_CAP[NSTAT] = { 0, 35, 0, 0, 75, 75, 75, 40, 80, 50, 60, 100, 50, 50, 50, 50, 100, 25 };   /* on totals; 0 = none */
+static const int STAT_SCALE[NSTAT] = { 10, 10, 10, 100, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
+                                       10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10 };
+static const float STAT_CAP[NSTAT] = { 0, 35, 0, 0, 75, 75, 75, 40, 80, 50, 60, 100, 50, 50, 50, 50, 100, 25, 75, 100,
+                                       50, 50, 50, 50, 50, 50, 40, 40, 40, 40, 40, 40, 30, 30, 30, 30, 30, 30 };   /* on totals; 0 = none */
 static float OWN[NSTAT], CAP_UP[NSTAT];                           /* the caster's own, and the overlevels' raise of each cap */
-#define ST_ELEM ST_FIRE                       /* in the tables below: an element, chosen when it is rolled */
+#define ST_ELEM ST_FIRE                       /* in the tables below: an element, chosen when it is rolled; */
+#define PICK_POW 200                          /* and an element's Power, Efficiency or Insight, the same way (1.0.0b11) */
+#define PICK_EFF 201
+#define PICK_INS 202
 
 /* what each kind can roll; wrists have damage only from Rare up */
-static const int KIND_STATS[NIK][10] = {
+static const int KIND_STATS[NIK][14] = {
     { -1 },
-    { ST_HASTE, ST_THRIFT, ST_ARMOR, ST_DODGE, ST_DAMAGE, -1 },
+    { ST_HASTE, ST_THRIFT, ST_ARMOR, ST_DODGE, ST_DAMAGE, PICK_INS, -1 },
     { ST_MOVE, ST_QUIET, ST_DODGE, -1 },
-    { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, -1 },
-    { ST_ARMOR, ST_EFFECT, ST_HP, -1 },
-    { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_ARMOR, ST_HASTE, ST_ELEM, ST_DAMAGE, -1 },
-    { ST_DAMAGE, ST_ELEM, -1 },
+    { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_RES_SPIRIT, ST_VESSEL, -1 },
+    { ST_ARMOR, ST_EFFECT, ST_HP, PICK_EFF, ST_VESSEL, -1 },
+    { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_ARMOR, ST_HASTE, ST_ELEM, ST_DAMAGE, PICK_POW, ST_RES_SPIRIT, -1 },
+    { ST_DAMAGE, ST_ELEM, PICK_POW, -1 },
     { -1 },
 };
+static int is_pow(int st) { return st >= ST_POW && st < ST_POW + NELEM; }
+static int is_eff(int st) { return st >= ST_EFF && st < ST_EFF + NELEM; }
+static int is_ins(int st) { return st >= ST_INS && st < ST_INS + NELEM; }
+static float g_use[NELEM];                    /* how much each element is cast (gear_set_lean): wares lean to it */
+void gear_set_lean(int el, float use) { if (el >= 0 && el < NELEM) g_use[el] = use < 0.0f ? 0.0f : use; }
+static int lean_elem(uint32_t *rng);
 
 static uint32_t rnext(uint32_t *s) { *s ^= *s << 13; *s ^= *s >> 17; *s ^= *s << 5; return *s; }
 static int rpick(uint32_t *s, int n) { return (int)(rnext(s) % (uint32_t)n); }
@@ -89,14 +108,19 @@ static float stat_base(int st, int kind, int level) {
     case ST_DODGE:  return (3.0f + 0.7f * l) * (kind == IK_BOOTS ? 1.0f : 0.5f);
     case ST_HP:     return 6.0f * l * (kind == IK_ROBE ? 1.0f : (kind == IK_NECK ? 0.85f : 0.7f));
     case ST_REGEN:  return 0.05f * l;
-    case ST_RES_POISON: case ST_RES_BURN: case ST_RES_SLOW: return 4.0f + 1.6f * l;
+    case ST_RES_POISON: case ST_RES_BURN: case ST_RES_SLOW: case ST_RES_SPIRIT: return 4.0f + 1.6f * l;
+    case ST_VESSEL: return (3.0f + 1.0f * l) * (kind == IK_NECK ? 1.0f : 0.7f);
     case ST_MOVE:   return 4.0f + 0.8f * l;
     case ST_QUIET:  return 12.0f + 2.0f * l;
     case ST_HASTE:  return (3.0f + 0.6f * l) * (kind == IK_ROBE ? 1.2f : 1.0f);
     case ST_THRIFT: return 5.0f + 1.0f * l;
     case ST_DAMAGE: return (5.0f + 2.0f * l) * (kind == IK_RING ? 1.0f : (kind == IK_ROBE ? 0.6f : 0.3f));
     case ST_FIRE: case ST_FROST: case ST_SHOCK: return (4.0f + 1.5f * l) * (kind == IK_RING ? 1.0f : 0.6f);
-    default:        return 5.0f + 1.5f * l;     /* ST_EFFECT */
+    default:
+        if (is_pow(st)) return (4.0f + 1.5f * l) * (kind == IK_RING ? 1.0f : 0.6f);
+        if (is_eff(st)) return 4.0f + 0.8f * l;
+        if (is_ins(st)) return 3.0f + 0.6f * l;
+        return 5.0f + 1.5f * l;                 /* ST_EFFECT */
     }
 }
 static float stat_expect(const Piece *p, int st) {           /* what an average roll of it would be */
@@ -132,6 +156,16 @@ int piece_quality_roll(int level, uint32_t *rng) {
     return q;
 }
 
+/* an element for a rolled Power, Efficiency or Insight: a third of the time one the caster uses, by how much (section 5) */
+static int lean_elem(uint32_t *rng) {
+    float tot = 0.0f;
+    for (int e = 0; e < NELEM; e++) tot += g_use[e];
+    if (tot > 0.0f && rpick(rng, 3) == 0) {
+        float r = rfrac(rng) * tot;
+        for (int e = 0; e < NELEM; e++) { if (r < g_use[e]) return e; r -= g_use[e]; }
+    }
+    return rpick(rng, NELEM);
+}
 static int pick_ability(uint32_t *rng) {
     static const int W[NABIL] = { 0, 4, 4, 4, 2, 3, 4, 3 };
     int tot = 0;
@@ -148,7 +182,7 @@ Piece piece_roll(int kind, int level, int quality, uint32_t *rng) {
     p.quality = (uint8_t)(quality >= 0 ? quality : piece_quality_roll(level, rng));
     if (kind == IK_BAG) return p;                                  /* a bag holds; it does nothing else */
     p.anointed = rpick(rng, 10) == 0;
-    int pool[10], n = 0;
+    int pool[14], n = 0;
     for (int i = 0; KIND_STATS[kind][i] >= 0; i++) {
         int st = KIND_STATS[kind][i];
         if (kind == IK_WRIST && st == ST_DAMAGE && p.quality < Q_RARE) continue;
@@ -160,6 +194,9 @@ Piece piece_roll(int kind, int level, int quality, uint32_t *rng) {
         int j = k + rpick(rng, n - k), t = pool[k];
         pool[k] = pool[j]; pool[j] = t;
         int st = pool[k] == ST_ELEM ? ST_FIRE + rpick(rng, 3) : pool[k];
+        if (st == PICK_POW) st = ST_POW + lean_elem(rng);
+        else if (st == PICK_EFF) st = ST_EFF + lean_elem(rng);
+        else if (st == PICK_INS) st = ST_INS + lean_elem(rng);
         add_stat(&p, st, rng);
     }
     if (kind == IK_HOOD || rpick(rng, 100) < ABIL_CHANCE[p.quality]) {   /* hoods always carry one */
@@ -236,6 +273,7 @@ void piece_stat_text(int st, int val, char *buf, int n) {
     case ST_REGEN: snprintf(buf, (size_t)n, "RESTORES %.2f/S", v); break;
     case ST_THRIFT: snprintf(buf, (size_t)n, "SPIRIT COST -%.0f%%", v); break;
     case ST_FIRE: case ST_FROST: case ST_SHOCK: snprintf(buf, (size_t)n, "ADDS %.0f%% %s", v, STAT_NAME[st]); break;
+    case ST_VESSEL: snprintf(buf, (size_t)n, "VESSEL +%.0f", v); break;
     default: snprintf(buf, (size_t)n, "%s +%.0f%%", STAT_NAME[st], v); break;
     }
 }
@@ -289,7 +327,8 @@ float gear_own(int st) { return st >= 0 && st < NSTAT ? OWN[st] : 0.0f; }
 float gear_cap_up(int st) { return st >= 0 && st < NSTAT ? CAP_UP[st] : 0.0f; }
 int stat_on_kind(int st, int kind) {
     if (kind <= IK_NONE || kind >= NIK) return 0;
-    for (const int *k = KIND_STATS[kind]; *k >= 0; k++) if (*k == st || (*k == ST_ELEM && is_elem(st))) return 1;
+    for (const int *k = KIND_STATS[kind]; *k >= 0; k++)
+        if (*k == st || (*k == ST_ELEM && is_elem(st)) || (*k == PICK_POW && is_pow(st)) || (*k == PICK_EFF && is_eff(st)) || (*k == PICK_INS && is_ins(st))) return 1;
     return 0;
 }
 
@@ -345,19 +384,30 @@ float gear_ember(const Gear *g) { return 1.0f + gear_total(g, ST_DAMAGE) / 100.0
 
 /* each stat against what a plain piece of the level would give, weighed by how much it helps */
 float piece_worth(const Piece *p, int level) {
-    static const float W[NSTAT] = { 1.0f, 0.8f, 1.0f, 0.6f, 0.35f, 0.35f, 0.25f, 0.35f, 0.15f, 0.8f, 0.3f, 1.0f, 0.6f, 0.6f, 0.6f, 0.3f, 0.0f, 0.0f };
-    static const int REF[NSTAT] = { IK_ROBE, IK_BOOTS, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_BOOTS, IK_BOOTS,
-                                    IK_WRIST, IK_WRIST, IK_RING, IK_RING, IK_RING, IK_RING, IK_HOOD };
+    static const float W[ST_RES_SPIRIT + 2] = { 1.0f, 0.8f, 1.0f, 0.6f, 0.35f, 0.35f, 0.25f, 0.35f, 0.15f, 0.8f, 0.3f, 1.0f, 0.6f, 0.6f, 0.6f, 0.3f, 0.0f, 0.0f,
+                                                0.3f, 0.35f };
+    static const int REF[ST_RES_SPIRIT + 2] = { IK_ROBE, IK_BOOTS, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_BOOTS, IK_BOOTS,
+                                                IK_WRIST, IK_WRIST, IK_RING, IK_RING, IK_RING, IK_RING, IK_HOOD, 0, 0, IK_ROBE, IK_NECK };
     static const float AW[NABIL] = { 0.0f, 0.15f, 0.3f, 0.4f, 0.0f, 0.0f, 0.4f, 0.5f };
-    /* Keymaker and Commune are for a person's eyes: the autopilot doesn't count them */
-    static const int FELT[NSTAT] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0 };
+    /* Keymaker and Commune are for a person's eyes: the autopilot doesn't count them; nor Treasure or Luck, which
+     * no piece rolls. An element's Power, Efficiency and Insight count by how much that element is cast */
     static const int FELT_AB[NABIL] = { 0, 1, 1, 1, 0, 0, 1, 1 };
     if (p->kind == IK_NONE || p->kind == IK_BAG) return 0.0f;
     if (level < 1) level = 1;
-    float w = 0.0f;
+    float w = 0.0f, tot = 0.0f;
+    for (int e = 0; e < NELEM; e++) tot += g_use[e];
     for (int i = 0; i < p->nstat; i++) {
-        int st = p->stat[i];
-        if (FELT[st]) w += W[st] * ((float)p->val[i] / STAT_SCALE[st]) / fmaxf(1e-3f, stat_base(st, REF[st], level));
+        int st = p->stat[i], ref, el;
+        float wt;
+        if (st == ST_TREASURE || st == ST_LUCK) continue;
+        if (st < ST_POW) { wt = W[st]; ref = REF[st]; }
+        else {
+            el = is_pow(st) ? st - ST_POW : (is_eff(st) ? st - ST_EFF : st - ST_INS);
+            float use = tot > 0.0f ? g_use[el] / tot : 0.0f;
+            wt = (is_pow(st) ? 1.2f : 0.7f) * use;
+            ref = is_pow(st) ? IK_RING : (is_eff(st) ? IK_HOOD : IK_WRIST);
+        }
+        w += wt * ((float)p->val[i] / STAT_SCALE[st]) / fmaxf(1e-3f, stat_base(st, ref, level));
     }
     return w + (FELT_AB[p->ability] ? AW[p->ability] * (1.0f + 0.25f * p->quality) : 0.0f);
 }
@@ -572,11 +622,16 @@ static float rank_mult(int r) {
 float spell_damage_at(const Gear *g, int atk, int r) {
     static const float B[NATK] = { 10.0f, 7.0f, 8.0f, 12.0f, 9.0f, 18.0f, 4.0f, 10.0f, 9999.0f };
     int el = ATK_ELEM[atk];
-    float pow = el >= 0 ? g_pow[el] : 0.0f;
+    float pow = el >= 0 ? g_pow[el] + gear_total(g, ST_POW + el) / 100.0f : 0.0f;   /* the line's Power and what is worn */
     return B[atk] * (1.0f + 0.07f * (float)g_atone) * rank_mult(r) * (gear_ember(g) + pow);
 }
 float spell_damage(const Gear *g, int atk) { return spell_damage_at(g, atk, g->atk[atk]); }
 
+/* an element's Efficiency, the line's and what is worn, nine tenths at most; its Insight, the two multiplied */
+float spell_efficiency(const Gear *g, int el) { return el < 0 || el >= NELEM ? 0.0f : fminf(0.9f, g_eff[el] + gear_total(g, ST_EFF + el) / 100.0f); }
+float spell_insight(const Gear *g, int el) {
+    return el < 0 || el >= NELEM ? 0.0f : 1.0f - (1.0f - g_ins[el]) * (1.0f - gear_total(g, ST_INS + el) / 100.0f);
+}
 /* Spirit (section 12): about 0.2 at rank 1, 1 at rank 10, 2.5 at rank 20, times (1 - Spirit Cost) and (1 -
  * the element's Efficiency), never under 0.1. The fireball (Fire at rank 1) is free; Seeker Wisps 1 a wisp.
  * The BFS9000 keeps its own price in souls (bfs_cost). */
@@ -584,7 +639,7 @@ int wisp_count(int tier) { return 3 + (tier >= 3) + (tier >= 6); }
 float spell_cost(const Gear *g, int atk, int r) {
     if (atk == AT_BFS || atk == AT_SPEAR || (atk == AT_FIRE && r <= 1)) return 0.0f;   /* Physical costs bones, never spirit */
     int el = ATK_ELEM[atk];
-    float keep = (1.0f - gear_total(g, ST_THRIFT) / 100.0f) * (1.0f - (el >= 0 ? g_eff[el] : 0.0f));
+    float keep = (1.0f - gear_total(g, ST_THRIFT) / 100.0f) * (1.0f - (el >= 0 ? spell_efficiency(g, el) : 0.0f));
     if (atk == AT_WISPS) return (float)wisp_count(r) * fmaxf(0.1f, keep);
     if (r < 1) r = 1;
     float c = r <= 10 ? 0.2f + 0.8f * (float)(r - 1) / 9.0f : 1.0f + 0.15f * (float)(r - 10);
@@ -594,15 +649,14 @@ float spell_cost(const Gear *g, int atk, int r) {
  * the element's Insight */
 float spell_windup(const Gear *g, int atk, int r) {
     static const float B[NATK] = { 0.30f, 0.34f, 0.30f, 0.38f, 0.34f, 0.40f, 0.34f, 0.38f, 0.80f };
-    (void)g;
     int el = ATK_ELEM[atk];
     float w = atk == AT_BFS ? B[atk] : B[atk] + 0.3f * (float)((r < 1 ? 1 : (r > 20 ? 20 : r)) - 1) / 19.0f;
-    return w * (1.0f - (el >= 0 ? g_ins[el] : 0.0f));
+    return w * (1.0f - (el >= 0 ? spell_insight(g, el) : 0.0f));
 }
 /* Soul Drain's healing: half a soul for each point restored at rank 1, down to a quarter at rank 11 */
 float heal_cost(const Gear *g, int tier) {
     float f = fmaxf(0.25f, 0.5f - 0.025f * (float)(tier - 1));
-    return f * (1.0f - gear_total(g, ST_THRIFT) / 100.0f) * (1.0f - g_eff[EL_SPIRIT]);
+    return f * (1.0f - gear_total(g, ST_THRIFT) / 100.0f) * (1.0f - spell_efficiency(g, EL_SPIRIT));
 }
 float spell_cycle(const Gear *g, int atk) {
     static const float B[NATK] = { 1.95f, 1.8f, 2.2f, 2.0f, 2.0f, 2.9f, 2.2f, 2.3f, 3.0f };

@@ -242,12 +242,12 @@ count, then each stone, `STONE_BYTES`, 331: when, the level, what took it as a `
 coins, spells and runes, the worn pieces and the bag), `LG_PEDS` (the pedestals bought, a byte) and
 `LG_COMP` (the Compendium: a count for each kind, bracer to bag, and quality, those pieces, then each
 spell's tier), `LG_REPO` (the Repository: places, u32 gold, u16 coins, then each place's piece) and
-`LG_CODEX` (four u32 of bits: abilities, runes, runes at Exquisite, stats), `LG_ELEM` (version 7: the record by
+`LG_CODEX` (four u32 of bits: abilities, runes, runes at Exquisite, stats; 1.0.0b11 a fifth, the stats past the 32nd), `LG_ELEM` (version 7: the record by
 element, a byte each by kind and element for kills, hits landed and harms felt; version 7 leaves the fixed part's kills
 by spell empty, and an older record's go into their elements, a spell learnt staying learnt) and `LG_CASTER` (1.0.0b9,
 `LG_CASTER_BYTES`: a byte of flags (1 the map), u16 the Level of Atonement, u32 the experience since the last
-death, u16 points unspent, a u16 of steps bought in each of the twelve lines, a byte of overlevels in each, a
-byte of cornerstones, a byte for Second Wind spent, u16 the run it last came back on; an older page reads as
+death, u16 points unspent, a u16 of steps bought in each of the lines (twelve, thirteen from 1.0.0b11 with Resist
+Spirit's; a reader counts them from the length), a byte of overlevels in each, a byte of cornerstones, a byte for Second Wind spent, u16 the run it last came back on; an older page reads as
 Level of Atonement 1 with no map): about
 1,800 bytes with a little in the Compendium and the Repository and no stones, under 15.5 KB at the most
 (`PAGE_BYTES`). A
@@ -874,6 +874,12 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   Wisp Host (in `cast_spell`'s drain), the Phalanx and the Ballista (`SHOT_BALLISTA`, `SP_BALLISTA`). `make sheets`
   draws their sprites on `spells.png`. Debug: `EVENT ultimate`, `orb_hits`, `shatters`, `contagions`, `flamewalks`,
   `wisp_host`, `tether_ticks`, `plague_pit`.
+- **Gear's elements** (1.0.0b11 step 11, section 5). `ST_RES_SPIRIT`, `ST_VESSEL`, and `ST_POW`/`ST_EFF`/`ST_INS` + element
+  (`NSTAT` 38); `KIND_STATS`' `PICK_POW/EFF/INS` choose the element as rolled (`lean_elem`: a third by `gear_set_lean`, the
+  lines' ranks, set in `align_sync`). Felt in `spell_damage_at`, `spell_efficiency`, `spell_insight` (`crawl_gear.c`),
+  `bone_spared`, `hurt_ex` and `windup_blow` (Resist Spirit). `piece_worth` weighs them by the element's share. Tab's
+  fifth page (`NINV`, `render_elements`); the Codex's words for them in `stat_does`; Resist Spirit's caster line
+  `LN_SPIRIT` (`NLINE_B9` the old count).
 - **The classes** (1.0.0b11 step 10, docs/PLAN-b11.md section 11; `CLASSES`, `CLASS_SHORT`, `CLASS_MARK` in
   `crawl_art.c`, `RUN.cls` 1 + its element, `cls_el()`). Its line is open free (`align_open`); the gifts sit where their
   numbers are used: `align_sync` (a fifth of Efficiency, the Witchfinder's Power, the Galvanist's Insight), `permafrost`,
