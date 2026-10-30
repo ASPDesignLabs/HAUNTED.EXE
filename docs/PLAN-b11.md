@@ -8,8 +8,8 @@ two's steps 5 (spells as lines), 6 (the new room, the Lampstand on `hall2.png`, 
 on `spells.png`), 10 (the classes, their marks on `elements.png`), 11 (gear's elements) and 12 (souls: the vessel, motes,
 her offering, the Dead Bell and the Weeping Font on `hall2.png`, replays at the Portal), 13 (Soul Sap), 14 (the
 autopilot), 15 (the Codex, the controls card, the README, the page and the release notes) and 16 (the checks): all
-sixteen steps, tested in the harness only, the Windows build compiled and smoke-tested by CI. Not released: that waits
-for the owner's word, and the new art for their eye.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+sixteen steps, tested in the harness only, the Windows build compiled and smoke-tested by CI. Released as 1.0.0b11
+at the owner's word (30 October 2026), squashed onto main as one commit; the new art still waits for their eye.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),

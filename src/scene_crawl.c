@@ -7943,6 +7943,7 @@ static void crawl_enter(uint32_t seed) {
     if (resume && getenv("CRAWL_CLASS")) { RUN.cls = 0; if (atoi(getenv("CRAWL_CLASS")) > 0) class_take(atoi(getenv("CRAWL_CLASS"))); }
     if (resume && getenv("CRAWL_SOULS")) RUN.souls = atoi(getenv("CRAWL_SOULS"));
     if (resume && getenv("CRAWL_HASMAP")) RUN.has_map = 1;
+    if (resume && getenv("CRAWL_LEARNT")) { memset(RUN.rec.el_kills, 5, sizeof RUN.rec.el_kills); memset(RUN.rec.harms, 3, sizeof RUN.rec.harms); }
     if (getenv("CRAWL_SEED")) G.rs = (uint32_t)atoi(getenv("CRAWL_SEED")) | 1u;
 #endif
     G.level = RUN.level; G.hp = RUN.hp;
