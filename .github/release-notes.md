@@ -1,8 +1,12 @@
-The eleventh beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
+The twelfth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
 
-### Before you upgrade: back up your saves
+A small one, from the first look at the eleventh.
 
-**This beta changes saves one way.** It writes a new kind of save that the tenth beta and earlier can't read: go back after playing it and they start again from level 1, and fleeing there writes over what you had. The first time it opens a page from before it, that page's spells are forgotten for good (you are given an Alignment Point for each Level of Atonement past the first instead) and the merchant asks what you were. Everything else on the page is kept. So keep a copy first, from a command prompt:
+### Before you upgrade
+
+**Coming from the eleventh beta:** your saves carry over both ways; nothing in them has changed.
+
+**Coming from the tenth or earlier:** the eleventh beta changed saves one way, and this one keeps that change. The tenth and earlier can't read what this writes, and the first time it opens a page from before the eleventh, that page's spells are forgotten for good (an Alignment Point for each Level of Atonement past the first instead) and the merchant asks what you were. Keep a copy first, from a command prompt:
 
 ```
 reg export HKCU\Software\HalloweenVGASaver haunted-backup.reg
@@ -12,23 +16,12 @@ Double-clicking `haunted-backup.reg` puts it back. Your settings carry over eith
 
 ### New in this beta
 
-**The caster grows by element now, not by what the merchant has on her pedestals.**
+- **Begin a new run, from Esc.** The screensaver takes a class at random for a run it starts, the moment the merchant's room opens, so someone who took over a fresh run was never asked *WHAT WERE YOU?* Esc now has a fifth answer under *OPEN THE LEDGER*: **BEGIN A NEW RUN**. It asks twice, because what you haven't signed is lost, as in fleeing; then you stand in her room before level 1 with nothing, and she asks what you were at once. Your signed pages stay in the ledger, and a page the dead are watching keeps their mark. On a controller, A twice. It works from the crypt, her rooms, or inside a pocket.
+- **The souls' line** on the status bar, which shows how full your vessel is, sits under the number now instead of running through it.
 
-- **Six elements.** Fire, Frost, Lightning, Poison, Spirit and Physical. Every creature takes more or less from each, and does its harm in one or two of them. The target's readout shows it as glyphs: what it takes worst on the left, what it shrugs off on the right, its harm underneath, each as far as you have learnt it.
-- **Spells are lines**, one an element, bought with **Alignment Points** (one a Level of Atonement) at **the Lampstand**, in a new room north of the merchant's. Three points open a line (Fire comes open), every point after is a rank, and a spell's strength follows your Level of Atonement. Each line has Efficiency, Insight, an ability, and two paths that close each other off, each ending in an **ultimate**: Flamewalker or Firewall, Winter's Lance or Shatter, Arc or Amperage, Plague Pit or Contagion, Soul Tether or Wisp Host, Phalanx or Ballista. Two Cursed Coins unbind a line for half its points back. Tab's fourth and fifth pages show the tree and the elements.
-- **Wind-ups and charging.** Every spell gathers for a moment before it goes (shorter with Insight; you can walk meanwhile), and a blow that lands then may break it. Hold the button to charge an ultimate: a light gathers by your hand in the element's colour and lights the crypt round you.
-- **What you were.** At a fresh start, and after every death that costs, she asks *WHAT WERE YOU?* Six classes, each a trade that ended many lives: the Witchfinder, the Anatomist, the Galvanist, the Plague Doctor, the Sin-Eater and the Headsman, each with a line, a gift and a story. From Level of Atonement 20 she hears another past for five Cursed Coins.
-- **Gear rolls the elements**: their Power, Efficiency and Insight, leaning towards the lines you have ranked, and two new stats, Resist Spirit and the Vessel.
-- **Souls can run dry.** Spells spend souls by rank, and with too few a spell goes out at rank 1, weak. A **vessel** holds twenty and two a Level of Atonement; what comes in over it slips away. The dead leave **motes** where they fell, to be walked through. In the new room, **the Dead Bell** corrupts your next level for souls (more of the dead and their gold, less experience; on a level cleared before, more souls show its secrets), and **the Weeping Font** sweetens the next level's experience. She takes an **offering** of ten souls for experience. **The Accursed Portal** replays any level you have cleared. **Spectres** come on every level by your Luck, and Spirit Mastery slays them for their souls.
-- **Soul Sap.** Bats of rank II and up latch onto your face, feeding on health and souls and slowing you, until you shake them off (turn hard one way and back, or strafe) or throw them with Blink or Swift Dodge.
-- **The map at a walk.** The crypt goes on while the map is open: walk, turn and cast with it up. The parchment is torn and burnt through, and the ink goes on over the holes in a ghostly violet. Walked cells are washed darker, and the level's numbers are across its foot.
-- **The runes' sockets.** When a rune fires its mark comes up at the lower right, filling until it is ready again.
-- **Your page is yours.** When the program starts on your page, the screensaver plays it until you take over, as before, but no longer makes its lasting choices for you: what you were, your lines and your Levels of Atonement are left for you.
-- The merchant no longer sells spells (the BFS9000 still turns up now and then). The Codex has pages for the lines, the classes and the souls, and the controls card has the new keys.
+Everything from the eleventh beta is here as it was: the six elements and their glyphs, spells as lines at the Lampstand, wind-ups and charging, what you were, gear that rolls the elements, souls that can run dry, Soul Sap, and the map at a walk. Against the tenth beta the screensaver's caster finds the knight harder; that is unchanged and will be tuned once a person has played it.
 
-**Balance.** Against the tenth beta on the same eight seeds, the screensaver's caster does as well from levels 11, 21 and 31, but from level 1 the knight is harder for it now: it beat him in 3 runs of 8 (5 before) and died 21 times (17), its fights running short of souls and its spells broken as they gather by his heavy blows. This will be tuned once a person has played it.
-
-This is still a beta. Everything new has been tested only in the harness, which draws exactly what the game draws: none of it has been played by hand, run on Windows or under Wine, or seen on a real screen. The four runs' looks from the tenth beta, the map and Levels of Atonement from the ninth, the controller from the eighth and everything in the seventh haven't been played by hand yet either. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
+This is still a beta. Everything new has been tested only in the harness, which draws exactly what the game draws: none of it has been played by hand, run on Windows or under Wine. The Windows build is compiled and smoke-tested by GitHub Actions. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
 
 ### Files
 
