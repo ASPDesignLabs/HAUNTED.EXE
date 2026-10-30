@@ -81,8 +81,8 @@ README's previews of the four runs, the crypt, the merchant and the bosses were 
 creatures, wisps and pockets still show the old walls, and say so.
 
 1.0.0b11 is planned in [`docs/PLAN-b11.md`](docs/PLAN-b11.md), settled: the owner answered both rounds of its
-questions (30 October), and it is ready to build in the steps it gives, part one first, sheets before art. Nothing is
-built yet. Part one: the map at a walk (the crypt runs while it is open, a holed parchment with eerie ink, walked cells apart
+questions (30 October), and it is ready to build in the steps it gives, part one first, sheets before art. It is being
+built on `claude/eloquent-carson-1x049c`; the plan's status line says how far. Part one: the map at a walk (the crypt runs while it is open, a holed parchment with eerie ink, walked cells apart
 from seen ones, the level's numbers on the scroll), the target's weaknesses and harm as glyphs of six elements, and
 sockets for the runes as they fire. Part two: spells out of the shop and into elemental lines bought with Alignment
 Points at a Lampstand in a new room of her hall (the owner wrote Electric and Flame; our Frost, Poison, Spirit and
@@ -212,7 +212,8 @@ log` per seed, four at a time, then a short script over the logs: levels reached
 secrets. Compare against a build of the previous commit (a `git worktree`) on the same seeds; one run
 can spiral, so use at least eight seeds before trusting a balance change.
 
-A save blob (for `HOST_LOAD`) is `"HVS1"` (u32 0x31535648 LE), version 6, then little-endian int32
+A save blob (for `HOST_LOAD`) is `"HVS1"` (u32 0x31535648 LE), version 7 (1.0.0b11; the same shape as version 6,
+its changes in ledger sections), then little-endian int32
 level, hp, gold, souls (in tenths), shop-first flag, then the gear packed field by field (`gear_pack`:
 attack tiers and rune qualities, the seven worn pieces, bag size and quality, five bag places, bones, a held ware;
 a piece is 24 bytes, `PIECE_BYTES`), then the run's `Record` (`rec_pack`: u16 kills by kind and rank,
@@ -235,7 +236,9 @@ count, then each stone, `STONE_BYTES`, 331: when, the level, what took it as a `
 coins, spells and runes, the worn pieces and the bag), `LG_PEDS` (the pedestals bought, a byte) and
 `LG_COMP` (the Compendium: a count for each kind, bracer to bag, and quality, those pieces, then each
 spell's tier), `LG_REPO` (the Repository: places, u32 gold, u16 coins, then each place's piece) and
-`LG_CODEX` (four u32 of bits: abilities, runes, runes at Exquisite, stats) and `LG_CASTER` (1.0.0b9,
+`LG_CODEX` (four u32 of bits: abilities, runes, runes at Exquisite, stats), `LG_ELEM` (version 7: the record by
+element, a byte each by kind and element for kills, hits landed and harms felt; version 7 leaves the fixed part's kills
+by spell empty, and an older record's go into their elements, a spell learnt staying learnt) and `LG_CASTER` (1.0.0b9,
 `LG_CASTER_BYTES`: a byte of flags (1 the map), u16 the Level of Atonement, u32 the experience since the last
 death, u16 points unspent, a u16 of steps bought in each of the twelve lines, a byte of overlevels in each, a
 byte of cornerstones, a byte for Second Wind spent, u16 the run it last came back on; an older page reads as

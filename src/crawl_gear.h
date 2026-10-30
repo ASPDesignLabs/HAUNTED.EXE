@@ -8,6 +8,12 @@
 #include "core.h"
 
 enum { AT_FIRE, AT_FROST, AT_CHAIN, AT_SPEAR, AT_DRAIN, AT_HELL, AT_WISPS, AT_SPARKS, AT_BFS, NATK };
+/* the elements (docs/PLAN-b11.md, section 4): each spell is of one, creatures take more or less from each,
+ * and what they do to you is one or two of them. Kept in saves (the record): new ones go at the end */
+enum { EL_FIRE, EL_FROST, EL_LIGHT, EL_POISON, EL_SPIRIT, EL_PHYS, NELEM };
+extern const int8_t ATK_ELEM[NATK];                     /* each spell's element; -1 for the BFS9000, which is no one's */
+extern const char *const ELEM_NAME[NELEM];
+extern const int ELEM_RAMP[NELEM];                       /* the palette ramp each is drawn in */
 enum { DF_WARD, DF_BLINK, DF_MIRROR, DF_MEND, DF_PURIFY, DF_NOVA, DF_DREAD, DF_SLIP, DF_REAP, NDEF };
 enum { GK_ATK, GK_DEF, GK_PIECE };                     /* what kind of thing an offer is */
 enum { POOL_ATTACK, POOL_GEAR };                         /* the merchant's; runes come from the Rune Shrine */

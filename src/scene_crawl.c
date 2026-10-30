@@ -116,73 +116,77 @@ enum {
 typedef struct {
     const char *name, *plural, *lore;
     int spr, spr2, side, side2, family, debut, top, gild, flags, sfx_die, remains;
-    float hp, speed, scale, rad, weak[NATK];
+    float hp, speed, scale, rad, weak[NELEM];
+    int harm;                               /* what it does to you, a bit an element (H_*); a bat's Soul Sap is by rank */
 } Kind;
-#define W1 { 1, 1, 1, 1, 1, 1, 1, 1, 1 }
+#define H_FIRE (1 << EL_FIRE)
+#define H_FROST (1 << EL_FROST)
+#define H_POISON (1 << EL_POISON)
+#define H_SPIRIT (1 << EL_SPIRIT)
+#define H_PHYS (1 << EL_PHYS)
 static const Kind KINDS[] = {
-    /*                                                   fire   frost  chain  spear  drain  hell   wisps  sparks bfs */
+    /* what each element does to it, in the enum's order (fire, frost, lightning, poison, spirit, physical), then its harm */
     [MOB_SKEL] = { "SKELETON", "SKELETONS", "THE ORDER'S DEAD, STILL AT THEIR POSTS. THEY THROW WHAT THEY ARE MADE OF.",
         SP_SKEL_A, SP_SKEL_B, SP_SKEL_SA, SP_SKEL_SB, PF_BONE, 1, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_DOORS, SFX_BONES, SP_SKEL_D3,
-        20, 0.9f, 1.0f, 0.42f,                          { 1.0f, 0.75f, 1.25f, 1.25f, 0.75f, 1.25f, 1.0f, 1.0f, 1.0f } },
+        20, 0.9f, 1.0f, 0.42f,                          { 1.0f, 0.75f, 1.25f, 0.5f, 0.75f, 1.25f }, H_PHYS },
     [MOB_GHOST] = { "SPECTRE", "SPECTRES", "A CHILL WITH A FACE. IT ONLY WANTS YOU TO KNOW IT IS THERE.",
         SP_GHOST_A, SP_GHOST_B, SP_GHOST_SA, SP_GHOST_SB, -1, 1, RK_I, 0, KF_SPIRIT | KF_PAGE | KF_UNCOUNTED, SFX_GHOST_DIE, -1,
-        1e9f, 0.7f, 1.35f, 0.42f,                       { 0 } },
+        1e9f, 0.7f, 1.35f, 0.42f,                       { 0 }, 0 },
     [MOB_BAT] = { "BAT", "BATS", "THEY COME FOR THE FACE, AND BITE WHEN THEY HAVE IT. DEEP DOWN THEY ARE THE COLOUR OF EMBERS.",
         SP_BAT_A, SP_BAT_B, SP_BAT_SA, SP_BAT_SB, PF_WING, 1, RK_IV, 0, KF_SOLID | KF_PAGE, SFX_BAT, -1,
-        10, 1.7f, 1.0f, 0.30f,                          { 1.0f, 1.5f, 1.25f, 1.0f, 1.0f, 1.0f, 1.25f, 1.25f, 1.0f } },
+        10, 1.7f, 1.0f, 0.30f,                          { 1.0f, 1.5f, 1.25f, 1.5f, 1.0f, 1.0f }, H_PHYS },
     [MOB_WSKULL] = { "WALL SKULL", "WALL SKULLS", "SET IN THE STONE TO WATCH THE HALLS. WALK UP TO ONE AND MEET ITS EYE, AND IT WAKES.",
         SP_WSKULL1, SP_WSKULL1, SP_WSKULL_S, SP_WSKULL_S, PF_BONE, 3, RK_V, 0, KF_PAGE, SFX_SHATTER, -1,
-        1, 0.0f, 0.62f, 0.38f,                          W1 },
+        1, 0.0f, 0.62f, 0.38f,                          { 1.0f, 1.0f, 1.0f, 0.5f, 1.0f, 1.0f }, H_FIRE },
     [MOB_SHIELD] = { "SHIELD-BEARER", "SHIELD-BEARERS", "A SKELETON THAT REMEMBERS ITS DRILL. GO ROUND THE SHIELD, OR THROUGH IT.",
         SP_SHIELD_A, SP_SHIELD_B, SP_SHIELD_SA, SP_SHIELD_SB, PF_BONE, 4, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_DOORS | KF_MELEE, SFX_BONES, SP_SKEL_D3,
-        30, 1.0f, 1.0f, 0.42f,                          { 0.75f, 1.0f, 1.5f, 1.5f, 1.0f, 1.0f, 1.0f, 0.75f, 1.0f } },
+        30, 1.0f, 1.0f, 0.42f,                          { 0.75f, 1.0f, 1.5f, 0.5f, 1.0f, 1.5f }, H_PHYS },
     [MOB_SPIDER] = { "SPIDER", "SPIDERS", "IT WAITS IN A CORNER WEB, AND ALL YOU SEE ARE ITS EYES. THE DEEP ONES ARE PALE.",
         SP_SPIDER_A, SP_SPIDER_B, SP_SPIDER_SA, SP_SPIDER_SB, PF_CHITIN, 6, RK_V, 0, KF_PAGE, SFX_SKITTER, -1,
-        15, 0.0f, 0.42f, 0.38f,                         { 1.25f, 1.5f, 1.0f, 1.0f, 1.0f, 1.25f, 1.25f, 1.0f, 1.0f } },
+        15, 0.0f, 0.42f, 0.38f,                         { 1.25f, 1.5f, 1.0f, 0.5f, 1.0f, 1.0f }, H_POISON },
     [MOB_SHAMBLER] = { "SHAMBLER", "SHAMBLERS", "THE BURIED, UP AGAIN: SLOW, AND HUNGRY, AND IT WILL HOLD ON TO YOU. FIRE TAKES IT WELL.",
         SP_SHAMB_A, SP_SHAMB_B, SP_SHAMB_SA, SP_SHAMB_SB, PF_FLESH, 2, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_DOORS | KF_MELEE, SFX_GROAN, SP_SHAMB_D2,
-        32, 0.6f, 1.0f, 0.42f,                          { 1.5f, 0.75f, 1.0f, 1.0f, 1.25f, 1.5f, 1.0f, 1.0f, 1.0f } },
+        32, 0.6f, 1.0f, 0.42f,                          { 1.5f, 0.75f, 1.0f, 0.75f, 1.25f, 1.0f }, H_PHYS },
     [MOB_DROWNED] = { "DROWNED", "DROWNED", "SWOLLEN WITH THE WATER IT DIED IN. STAND BACK WHEN IT GOES: IT BURSTS.",
         SP_DROWN_A, SP_DROWN_B, SP_DROWN_SA, SP_DROWN_SB, PF_STONE, 7, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_MELEE, SFX_SHATTER, -1,
-        46, 0.55f, 1.1f, 0.46f,                         { 1.5f, 0.5f, 1.25f, 1.0f, 1.0f, 1.5f, 1.0f, 1.0f, 1.0f } },
+        46, 0.55f, 1.1f, 0.46f,                         { 1.5f, 0.5f, 1.25f, 0.75f, 1.0f, 1.0f }, H_PHYS | H_POISON },
     [MOB_HOUND] = { "BONE HOUND", "BONE HOUNDS", "A DOG'S BONES THAT STILL KNOW THEIR WORK. THEY HUNT IN PAIRS, BITE, AND RUN.",
         SP_HOUND_A, SP_HOUND_B, SP_HOUND_SA, SP_HOUND_SB, PF_BONE, 8, RK_V, 0, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_MELEE, SFX_BONES, SP_HOUND_D,
-        14, 2.0f, 0.75f, 0.34f,                         { 1.0f, 1.5f, 1.25f, 1.0f, 0.75f, 1.0f, 1.25f, 1.25f, 1.0f } },
+        14, 2.0f, 0.75f, 0.34f,                         { 1.0f, 1.5f, 1.25f, 0.5f, 0.75f, 1.0f }, H_PHYS },
     [MOB_WRAITH] = { "WRAITH", "WRAITHS", "IT WALKS THE HALLS AS YOU DO, AND IT DOES NOT TIRE. FIRE AND LIGHT DRIVE IT BACK, A WHILE.",
         SP_WRAITH_A, SP_WRAITH_B, SP_WRAITH_SA, SP_WRAITH_SB, -1, 9, RK_I, 0, KF_SPIRIT | KF_SOLID | KF_UNIQUE | KF_PAGE | KF_DOORS | KF_MELEE | KF_UNCOUNTED, SFX_WAIL, -1,
-        1e9f, 0.75f, 1.6f, 0.5f,                        { 0 } },
+        1e9f, 0.75f, 1.6f, 0.5f,                        { 0 }, H_FROST },
     [MOB_HUNTER] = { "HUNTING SPIDER", "HUNTING SPIDERS", "IT DOES NOT WAIT IN A WEB. IT WALKS, ON THE FLOOR OR OVERHEAD, AND IT COMES FOR YOU.",
         SP_HUNTER_A, SP_HUNTER_B, SP_HUNTER_SA, SP_HUNTER_SB, PF_HIDE, 11, RK_V, 0, KF_PAGE | KF_MELEE, SFX_SKITTER, SP_HUNTER_D,
-        22, 1.6f, 0.6f, 0.34f,                          { 1.25f, 1.5f, 1.0f, 1.0f, 1.0f, 1.25f, 1.25f, 1.0f, 1.0f } },
+        22, 1.6f, 0.6f, 0.34f,                          { 1.25f, 1.5f, 1.0f, 0.5f, 1.0f, 1.0f }, H_PHYS | H_POISON },
     [MOB_GHOUL] = { "GHOUL", "GHOULS", "IT EATS WHAT THE OTHERS LEAVE. CATCH IT FEEDING AND IT IS OPEN.",
         SP_GHOUL_A, SP_GHOUL_B, SP_GHOUL_SA, SP_GHOUL_SB, PF_FLESH, 12, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_MELEE, SFX_GROAN, SP_GHOUL_D,
-        30, 1.5f, 0.85f, 0.40f,                         { 1.0f, 1.5f, 1.0f, 1.0f, 1.25f, 1.0f, 1.0f, 1.0f, 1.0f } },
+        30, 1.5f, 0.85f, 0.40f,                         { 1.0f, 1.5f, 1.0f, 0.75f, 1.25f, 1.0f }, H_PHYS },
     [MOB_KNIGHT] = { "SKELETON KNIGHT", "SKELETON KNIGHTS", "PLATE OVER BONE. HIT IT TILL THE ARMOUR FALLS AWAY; IT GETS QUICKER AS IT DOES.",
         SP_KNIGHT_A, SP_KNIGHT_B, SP_KNIGHT_SA, SP_KNIGHT_SB, PF_ARMOUR, 13, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_DOORS | KF_MELEE, SFX_SHATTER, SP_KNIGHT_D,
-        60, 0.8f, 1.2f, 0.46f,                          { 0.75f, 1.0f, 1.5f, 1.5f, 1.0f, 1.0f, 0.75f, 0.75f, 1.0f } },
+        60, 0.8f, 1.2f, 0.46f,                          { 0.75f, 1.0f, 1.5f, 0.25f, 1.0f, 1.5f }, H_PHYS },
     [MOB_BROOD] = { "BROOD MOTHER", "BROOD MOTHERS", "SHE LAYS AS SHE GOES. KILL HER AND THE SACS DIE WITH HER.",
         SP_BROOD_A, SP_BROOD_B, SP_BROOD_SA, SP_BROOD_SB, PF_CHITIN, 14, RK_V, 0, KF_SOLID | KF_PAGE, SFX_SKITTER, SP_BROOD_D,
-        70, 0.6f, 1.0f, 0.5f,                           { 1.5f, 1.0f, 1.25f, 1.0f, 1.0f, 1.5f, 1.0f, 1.0f, 1.0f } },
+        70, 0.6f, 1.0f, 0.5f,                           { 1.5f, 1.0f, 1.25f, 0.5f, 1.0f, 1.0f }, H_PHYS },
     [MOB_LING] = { "SPIDERLING", "SPIDERLINGS", "HER CHILDREN. ONE BITE EACH, AND THERE ARE ALWAYS MORE.",
         SP_LING_A, SP_LING_B, SP_LING_A, SP_LING_B, PF_CHITIN, 14, RK_V, 0, KF_PAGE | KF_MELEE, SFX_SKITTER, -1,
-        4, 2.2f, 0.22f, 0.24f,                          { 1.5f, 1.5f, 1.5f, 1.0f, 1.0f, 1.5f, 1.0f, 1.25f, 1.0f } },
+        4, 2.2f, 0.22f, 0.24f,                          { 1.5f, 1.5f, 1.5f, 0.75f, 1.0f, 1.0f }, H_PHYS },
     [MOB_SAC] = { "EGG SAC", "EGG SACS", "",
         SP_SAC_A, SP_SAC_B, SP_SAC_A, SP_SAC_B, -1, 14, RK_I, 0, KF_UNCOUNTED, SFX_SHATTER, SP_SAC_OPEN,
-        6, 0.0f, 0.5f, 0.30f,                           { 1.5f, 1.0f, 1.0f, 1.0f, 0.0f, 1.5f, 1.0f, 1.0f, 1.0f } },
+        6, 0.0f, 0.5f, 0.30f,                           { 1.5f, 1.0f, 1.0f, 0.5f, 0.0f, 1.0f }, 0 },
     [MOB_SHADE] = { "SHADE", "SHADES", "A SHAPE OF DARK THAT SHOWS ONLY IN LIGHT. ITS TOUCH TAKES SOULS.",
         SP_SHADE_A, SP_SHADE_B, SP_SHADE_SA, SP_SHADE_SB, -1, 16, RK_I, 0, KF_PAGE | KF_MELEE, SFX_GHOST_DIE, -1,
-        30, 1.1f, 1.1f, 0.40f,                          { 1.25f, 0.5f, 1.0f, 0.75f, 1.5f, 1.25f, 1.0f, 1.0f, 1.0f } },
+        30, 1.1f, 1.1f, 0.40f,                          { 1.25f, 0.5f, 1.0f, 0.0f, 1.5f, 0.75f }, H_SPIRIT },
     [MOB_IMP] = { "EMBER IMP", "EMBER IMPS", "BORN OF THE MAGMA, AND IT THROWS IT. COLD IS WHAT IT FEARS.",
         SP_IMP_A, SP_IMP_B, SP_IMP_SA, SP_IMP_SB, PF_CLAY, 17, RK_V, 0, KF_SOLID | KF_PAGE, SFX_SHATTER, SP_IMP_D,
-        18, 1.4f, 0.55f, 0.30f,                         { 0.5f, 1.5f, 1.0f, 1.0f, 1.0f, 0.5f, 1.0f, 1.0f, 1.0f } },
+        18, 1.4f, 0.55f, 0.30f,                         { 0.5f, 1.5f, 1.0f, 1.0f, 1.0f, 1.0f }, H_FIRE },
     [MOB_DEACON] = { "DEACON", "DEACONS", "A PRIEST OF THE DEAD, AND THEY GET UP WHEN HE ASKS. KILL HIM FIRST.",
         SP_DEACON_A, SP_DEACON_B, SP_DEACON_SA, SP_DEACON_SB, PF_ROBE, 18, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_DOORS, SFX_BONES, SP_DEACON_D,
-        40, 0.9f, 1.05f, 0.42f,                         { 1.25f, 1.0f, 1.0f, 1.25f, 0.75f, 1.25f, 1.25f, 1.0f, 1.0f } },
+        40, 0.9f, 1.05f, 0.42f,                         { 1.25f, 1.0f, 1.0f, 0.75f, 0.75f, 1.25f }, 0 },
     [MOB_GARGOYLE] = { "GARGOYLE", "GARGOYLES", "IT IS ONLY A STATUE UNTIL YOU PASS. STONE SHRUGS OFF FIRE AND FROST.",
         SP_GARG_A, SP_GARG_B, SP_GARG_SA, SP_GARG_SB, PF_STONE, 19, RK_V, 0, KF_PAGE | KF_MELEE, SFX_SHATTER, SP_GARG_D,
-        45, 2.2f, 0.9f, 0.42f,                          { 0.5f, 0.5f, 1.5f, 1.5f, 0.0f, 1.0f, 1.0f, 0.75f, 1.0f } },
+        45, 2.2f, 0.9f, 0.42f,                          { 0.5f, 0.5f, 1.5f, 0.0f, 0.0f, 1.5f }, H_PHYS },
 };
-#undef W1
 #define NKINDS ((int)(sizeof KINDS / sizeof KINDS[0]))
 #define KIND_IS(m, f) (KINDS[(m)->type].flags & (f))
 /* the ladder: a rank means about the same strength at any depth; depth shows in which ranks come */
@@ -428,7 +432,9 @@ static void level_name(int level, char *buf, int n) {
 #define ACH_BITS 512                        /* 256 until version 6 */
 typedef struct {
     uint16_t kills[REC_KINDS][NRANK];
-    uint8_t spell_kills[REC_KINDS][NATK];   /* by which spell, to 255: three, and its effect is known */
+    uint8_t el_kills[REC_KINDS][NELEM];     /* slain by each element, to 255 (version 7; by spell before) */
+    uint8_t el_hits[REC_KINDS][NELEM];      /* its hits landed on each kind, to 255: five kills or twelve hits, and known */
+    uint8_t harms[REC_KINDS][NELEM];        /* times each kind has hurt you with each element: three, and known */
     uint8_t seen[REC_KINDS];                /* the ranks of each kind met */
     uint16_t secrets, descents;             /* secrets found; times all the way down (40, 80, 120 ...) */
     uint64_t cleared;                       /* levels 1 to 40 cleared, a bit each */
@@ -436,7 +442,9 @@ typedef struct {
     struct { uint8_t met; uint16_t slain, tries, best, scrip; } boss[BOSS_REC];   /* version 6: each boss met, slain, tried, its
                                                                                  best time in seconds (0: none yet), scrip won */
 } Record;
-#define REC_BYTES (REC_KINDS * NRANK * 2 + REC_KINDS * NATK + REC_KINDS + 2 + 2 + 4 + 256 / 8)   /* as packed since version 2 */
+#define REC_SPELLS 9                        /* the spells the record counted kills by until version 7 (NATK then) */
+#define REC_BYTES (REC_KINDS * NRANK * 2 + REC_KINDS * REC_SPELLS + REC_KINDS + 2 + 2 + 4 + 256 / 8)   /* as packed since version 2 */
+#define REC_ELEM_BYTES (3 * REC_KINDS * NELEM)   /* version 7's LG_ELEM: the record by element */
 #define REC_EXTRA (4 + (ACH_BITS - 256) / 8 + BOSS_REC * 9)   /* version 6: levels 33 to 40 cleared, the achievements past the 256th, the bosses */
 
 /* A stone in the merchant's grave plot: a person's death, when, where and by what, and what was
@@ -2784,7 +2792,23 @@ static int passing(void) { return G.dash_t > 0.0f || G.wwalk_t > 0.0f; }   /* da
 static Blame blame_of(const Mob *m) { Blame b = { (uint8_t)(m->boss ? BL_BOSS : BL_MOB), (uint8_t)(m->boss ? m->boss - 1 : m->type), (uint8_t)m->rank }; return b; }
 static void death_fall(void);
 static void death_wake(void);
+/* The element of a hurt (docs/PLAN-b11.md, section 4): by how it is resisted, unless the one about to deal
+ * it says otherwise (harm_next: the shade's touch is Spirit, the Wraith's Frost). Once it gets through, the
+ * kind that dealt it is learnt to deal it, three times and known (rec_harm) */
+static int harm_next = -1;
+static int harm_of(int kind) {
+    int e = harm_next;
+    harm_next = -1;
+    if (e >= 0) return e;
+    return kind == HURT_POISON ? EL_POISON : kind == HURT_MAGIC ? EL_FIRE : kind == HURT_VOID ? -1 : EL_PHYS;
+}
+static void rec_harm(Blame b, int el) {
+    int k = b.what == BL_MOB || b.what == BL_POISON || b.what == BL_FIRE || b.what == BL_POOL ? b.type : -1;
+    if (k < 0 || k >= REC_KINDS || el < 0 || RUN.rec.harms[k][el] >= 255) return;
+    RUN.rec.harms[k][el]++;
+}
 static int hurt_ex(float dmg, int kind, float sx, float sy) {
+    int el = harm_of(kind);
     if (G.dead || G.ending || G.exiting || G.tally || G.shop || G.level_t < 1.5) return 0;
     if (G.dash_t > 0.0f) return 0;                                 /* Swift Dodge: nothing touches you while you dart */
     if (G.wind_t > 0.0f) return 0;                                 /* a Second Wind: a breath when nothing touches you */
@@ -2806,6 +2830,7 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
     int d = (int)(dmg + 0.5f);
     if (d < 1) d = 1;
     G.hp -= d;
+    rec_harm(G.blame, el);
     if (!seeping) {
         G.hurt = 1.0f;
         G.kick = (rnd(2) ? 1.0f : -1.0f) * 0.07f;
@@ -3030,7 +3055,8 @@ static void rec_kill(const Mob *m) {
     Record *r = &RUN.rec;
     if (m->type >= REC_KINDS) return;
     if (r->kills[m->type][m->rank] < 65535) r->kills[m->type][m->rank]++;
-    if (m->last_atk >= 0 && r->spell_kills[m->type][m->last_atk] < 255) r->spell_kills[m->type][m->last_atk]++;
+    int el = m->last_atk >= 0 ? ATK_ELEM[m->last_atk] : -1;
+    if (el >= 0 && r->el_kills[m->type][el] < 255) r->el_kills[m->type][el]++;
     int need = slayer_need(m->type, m->rank), have = r->kills[m->type][m->rank], bit = m->type * NRANK + m->rank;
     if (!need || ach_has(bit)) return;
     char title[32], desc[32];
@@ -3042,6 +3068,23 @@ static void rec_seen(const Mob *m) {
     if (m->type >= REC_KINDS || m->boss) return;
     RUN.rec.seen[m->type] |= (uint8_t)(1 << m->rank);
     if (m->rank < RK_GILDED && RUN.top_rank[m->type] < m->rank + 1) RUN.top_rank[m->type] = (uint8_t)(m->rank + 1);   /* for a boss's adds */
+}
+/* what is learnt of a kind (docs/PLAN-b11.md, section 2): what an element does to it, from five slain by it
+ * or twelve of its hits landed; and each harm it does, from three times it has hurt you with it */
+static int el_learnt(int k, int el) {
+    const Record *r = &RUN.rec;
+    return k < REC_KINDS && el >= 0 && (r->el_kills[k][el] >= 5 || r->el_hits[k][el] >= 12);
+}
+static int harm_learnt(int k, int el) { return k < REC_KINDS && el >= 0 && RUN.rec.harms[k][el] >= 3; }
+static void rec_hit(const Mob *m, int atk) {                       /* a spell's hit landed */
+    int el = atk >= 0 && atk < NATK ? ATK_ELEM[atk] : -1;
+    if (m->type >= REC_KINDS || m->boss || el < 0 || RUN.rec.el_hits[m->type][el] >= 255) return;
+    RUN.rec.el_hits[m->type][el]++;
+}
+static int kind_harms(int k, int rank) {                           /* what a kind does to you, at a rank */
+    int h = KINDS[k].harm;
+    if (k == MOB_BAT && rank >= RK_II && rank != RK_GILDED) h |= H_SPIRIT;   /* Soul Sap, from rank II */
+    return h;
 }
 static void rec_secret(void) {
     Record *r = &RUN.rec;
@@ -3310,20 +3353,23 @@ static float knight_pace(const Mob *m, int st) {                   /* quicker as
     return KINDS[MOB_KNIGHT].speed * RANK_SPEED[m->rank] * (1.0f + 0.25f * st);
 }
 
-/* How much a spell bites a creature: its weakness to the spell, and each element worn added in by how
- * much that element hurts it (fire as Fire Bolt does, frost as Frost Shard, lightning as Chain
- * Lightning). A knight down to its breastplate has nothing left to keep fire off. */
+/* How much a spell bites a creature: its weakness to the spell's element, and each element worn added in
+ * by how much that element hurts it. A knight down to its breastplate has nothing left to keep fire off.
+ * The BFS9000 is no element's: it hurts anything that can be hurt the same. */
+static float weak_el(const Mob *m, int el) {
+    if (m->type == MOB_KNIGHT && el == EL_FIRE && knight_stage(m) == 2) return 1.0f;
+    if (m->type == MOB_WRAITH && m->boss) return el == EL_FIRE ? 1.2f : 1.0f;   /* the Wraith Unbound, in light */
+    return KINDS[m->type].weak[el];
+}
 static float weak_to(const Mob *m, int atk) {
-    if (m->type == MOB_KNIGHT && atk == AT_FIRE && knight_stage(m) == 2) return 1.0f;
-    if (m->type == MOB_WRAITH && m->boss) return atk == AT_FIRE || atk == AT_HELL ? 1.2f : 1.0f;   /* the Wraith Unbound, in light */
-    return KINDS[m->type].weak[atk];
+    return ATK_ELEM[atk] < 0 ? (KIND_IS(m, KF_SPIRIT) ? 0.0f : 1.0f) : weak_el(m, ATK_ELEM[atk]);
 }
 static float hit_mult(const Mob *m, int atk) {
     const Gear *g = &RUN.gear;
     float k = weak_to(m, atk);
     if (atk == AT_BFS) return k;
-    return k + gear_total(g, ST_FIRE) / 100.0f * weak_to(m, AT_FIRE) + gear_total(g, ST_FROST) / 100.0f * weak_to(m, AT_FROST)
-             + gear_total(g, ST_SHOCK) / 100.0f * weak_to(m, AT_CHAIN);
+    return k + gear_total(g, ST_FIRE) / 100.0f * weak_el(m, EL_FIRE) + gear_total(g, ST_FROST) / 100.0f * weak_el(m, EL_FROST)
+             + gear_total(g, ST_SHOCK) / 100.0f * weak_el(m, EL_LIGHT);
 }
 static float slow_factor(void) {                                   /* slowed, the caster walks at 60%; resisted, less slowly; */
     if (G.web_hp > 0.0f) return 0.0f;                              /* held in the Wandering Spider's web: not at all */
@@ -3379,7 +3425,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
     }
     if ((flags & DM_SLOW) && slow > 0.0f) m->slowed = fmaxf(m->slowed, slow);
     int atk = (flags >> 8) - 1;
-    if (atk >= 0 && atk < NATK) { dmg *= hit_mult(m, atk); m->last_atk = atk; }   /* what it is weak to, or shrugs off */
+    if (atk >= 0 && atk < NATK) { dmg *= hit_mult(m, atk); m->last_atk = atk; rec_hit(m, atk); }   /* what it is weak to, or shrugs off */
     if (m->frozen > 0.0f && RUN.gear.def[DF_NOVA] >= RUNE_EXQ) { dmg *= 2.0f; DBG_COUNT(exq_shatter); }   /* Exquisite runes: the frozen */
     if (G.slip_t > 0.0f && RUN.gear.def[DF_SLIP] >= RUNE_EXQ && hypotf(m->x - G.px, m->y - G.py) < 7.0f) { dmg *= 1.25f; DBG_COUNT(exq_bruise); }   /* shatter, the slowed bruise */
     if (m->type == MOB_GHOUL && m->sub == 4) { dmg *= 2.0f; m->sub = 0; }   /* caught feeding */
@@ -3574,6 +3620,7 @@ static void update_wraith(Mob *m, float dt) {
     if (m->sub == 0 && !G.dead && G.wwalk_t <= 0.0f && pd < 1.1f && m->cool <= 0.0f) {  /* its touch */
         m->cool = 2.0f;
         sfx_at(SFX_SHRIEK, m->x, m->y, 1.0f);
+        harm_next = EL_FROST;
         if (hurt_by(m, mob_damage(m) * 1.5f, HURT_MAGIC) > 0) {
             G.chill = 1.0f; G.slow_t = fmaxf(G.slow_t, 2.0f * (1.0f - gear_slow_resist(&RUN.gear)));
             DBG_COUNT(wraith_touches);
@@ -4072,6 +4119,7 @@ static void wraith_boss(Mob *m, float dt) {
     if (!G.dead && G.wwalk_t <= 0.0f && pd < 1.1f && m->cool <= 0.0f) {   /* its touch */
         m->cool = 2.5f;
         sfx_at(SFX_SHRIEK, m->x, m->y, 1.0f);
+        harm_next = EL_FROST;
         if (hurt_by(m, mob_damage(m) * 1.2f, HURT_MAGIC) > 0) {
             G.chill = 1.0f; G.slow_t = fmaxf(G.slow_t, 2.0f * (1.0f - gear_slow_resist(&RUN.gear)));
             DBG_COUNT(wraith_touches);
@@ -4302,6 +4350,7 @@ static void update_mob(Mob *m, float dt) {
                 if (pd0 < 1.1f) {
                     int take = RUN.souls < 2 + m->rank ? RUN.souls : 2 + m->rank;
                     RUN.souls -= take;
+                    harm_next = EL_SPIRIT;
                     if (hurt_by(m, mob_damage(m) * (take ? 0.5f : 1.0f), HURT_MAGIC) > 0) thorns(m);   /* nothing to take: it takes more of you */
                     snd_sfx_ex(SFX_WHISPER, 0.9f, 0.5f); pop_readout();
                     DBG_COUNT(shade_touches);
@@ -6818,7 +6867,7 @@ static void crawl_enter(uint32_t seed) {
         if (getenv("CRAWL_HASMAP")) RUN.has_map = 1;              /* the map, already bought */
         if (getenv("CRAWL_CORNER")) { RUN.corner = atoi(getenv("CRAWL_CORNER")) & ((1 << NCS) - 1); RUN.wind_run = crawl_run(RUN.level); }   /* cornerstones held, a bit each */
         if (getenv("CRAWL_LUCK")) RUN.steps[LN_LUCK] = (uint16_t)clampi((int)((atof(getenv("CRAWL_LUCK")) - LUCK_BASE) * 10.0f + 0.5f), 0, 1000);   /* Luck at this */
-        if (getenv("CRAWL_LEARNT")) memset(RUN.rec.spell_kills, 3, sizeof RUN.rec.spell_kills);   /* every spell learnt on every kind */
+        if (getenv("CRAWL_LEARNT")) { memset(RUN.rec.el_kills, 5, sizeof RUN.rec.el_kills); memset(RUN.rec.harms, 3, sizeof RUN.rec.harms); }   /* every element and harm learnt on every kind */
 #endif
     }
 #ifdef CRAWL_DEBUG
@@ -7461,7 +7510,7 @@ static void update_boss(float dt) {
                     int cx = (int)(k->x + lx / ld * u), cy = (int)(k->y + ly / ld * u);
                     if (blocks_light(cx, cy) || G.map[cy][cx].kind == K_PILLAR) seen = 0;
                 }
-                if (seen) { G.blame = blame_of(k); hurt_ex((float)G.max_hp * 0.2f, HURT_MAGIC, k->x, k->y); sfx_at(SFX_ZAP, G.px, G.py, 1.2f); DBG_COUNT(litany_hits); }
+                if (seen) { G.blame = blame_of(k); harm_next = EL_SPIRIT; hurt_ex((float)G.max_hp * 0.2f, HURT_MAGIC, k->x, k->y); sfx_at(SFX_ZAP, G.px, G.py, 1.2f); DBG_COUNT(litany_hits); }
                 else { sfx_at(SFX_WHISPER, k->x, k->y, 0.5f); DBG_COUNT(litany_missed); }
             }
         }
@@ -10220,16 +10269,25 @@ static void gear_from_old(const uint8_t *p, Gear *g, uint32_t seed) {
 }
 /* the record, little-endian, field by field: the shape it has had since version 2, then (version 6)
  * the rest of the levels cleared and of the achievements */
-static void rec_pack(uint8_t *p, const Record *r) {
+static void rec_pack(uint8_t *p, const Record *r) {                /* version 7: the kills by spell left empty (LG_ELEM has them) */
     for (int k = 0; k < REC_KINDS; k++) for (int i = 0; i < NRANK; i++, p += 2) put16(p, r->kills[k][i]);
-    memcpy(p, r->spell_kills, sizeof r->spell_kills); p += sizeof r->spell_kills;
+    memset(p, 0, REC_KINDS * REC_SPELLS); p += REC_KINDS * REC_SPELLS;
     memcpy(p, r->seen, sizeof r->seen); p += sizeof r->seen;
     put16(p, r->secrets); put16(p + 2, r->descents); put32(p + 4, (int32_t)(uint32_t)r->cleared); p += 8;
     memcpy(p, r->got, 256 / 8);
 }
 static void rec_unpack(const uint8_t *p, Record *r) {
     for (int k = 0; k < REC_KINDS; k++) for (int i = 0; i < NRANK; i++, p += 2) r->kills[k][i] = (uint16_t)get16(p);
-    memcpy(r->spell_kills, p, sizeof r->spell_kills); p += sizeof r->spell_kills;
+    for (int k = 0; k < REC_KINDS; k++) {                          /* before version 7: by spell, into their elements, */
+        int sum[NELEM] = { 0 }, knew = 0;                          /* and a spell learnt stays learnt */
+        for (int sp = 0; sp < REC_SPELLS; sp++, p++) {
+            int el = sp < NATK ? ATK_ELEM[sp] : -1;
+            if (el < 0) continue;
+            sum[el] += *p;
+            if (*p >= 3) knew |= 1 << el;
+        }
+        for (int el = 0; el < NELEM; el++) if (sum[el]) r->el_kills[k][el] = (uint8_t)imin(255, imax(sum[el], knew >> el & 1 ? 5 : 0));
+    }
     memcpy(r->seen, p, sizeof r->seen); p += sizeof r->seen;
     r->secrets = (uint16_t)get16(p); r->descents = (uint16_t)get16(p + 2); r->cleared = (uint32_t)get32(p + 4); p += 8;
     memcpy(r->got, p, 256 / 8);
@@ -10283,11 +10341,14 @@ static void rec_from_old(Record *r) {
 #define SAVE_V4_EXTRA 4                     /* version 4: the wisp L casts, and the toggle */
 #define SAVE_V5_SHRINE 32                   /* version 5: Cursed Coins and the Rune Shrine */
 #define SAVE_V6_EXT (REC_EXTRA + SAVE_V6_HALL)   /* version 6: runs of ten, the bosses (docs/PLAN-b7.md) */
-static int save_version(const uint8_t *buf, int len) {             /* 1 to 6 if it is a save we can read, else 0 */
+/* Version 7 (1.0.0b11, docs/PLAN-b11.md) keeps version 6's shape: what changed goes in sections (LG_ELEM: the
+ * record by element), and the kills by spell in the fixed part are left empty */
+#define SAVE_VERSION 7
+static int save_version(const uint8_t *buf, int len) {             /* 1 to 7 if it is a save we can read, else 0 */
     if (len < SAVE_V1 || (uint32_t)get32(buf) != SAVE_MAGIC) return 0;
     int v = get32(buf + 4), v5 = SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA + SAVE_V5_SHRINE;
     if (v == 1 || (v == 2 && len >= SAVE_V1 + REC_BYTES) || (v == 3 && len >= SAVE_V3 + REC_BYTES)
-        || (v == 4 && len >= SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA) || (v == 5 && len >= v5) || (v == 6 && len >= v5 + SAVE_V6_EXT)) return v;
+        || (v == 4 && len >= SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA) || (v == 5 && len >= v5) || ((v == 6 || v == 7) && len >= v5 + SAVE_V6_EXT)) return v;
     return 0;
 }
 static int save_end(int v) {                                       /* a grave's time follows */
@@ -10324,18 +10385,21 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
  * LG_CODEX: what the Codex knows, four u32 of bits: abilities, runes, runes at Exquisite, stats.
  * LG_CASTER (1.0.0b9, docs/PLAN-b9.md): a byte of flags (1 the map), u16 the Level of Atonement, u32 the
  * experience, u16 the points not spent, a u16 of steps bought in each line, a byte of overlevels chosen in each,
- * a byte of cornerstones, a byte for Second Wind spent, u16 the run it last came back on. */
+ * a byte of cornerstones, a byte for Second Wind spent, u16 the run it last came back on.
+ * LG_ELEM (version 7, docs/PLAN-b11.md): the record by element, a byte each by kind and element: kills, hits
+ * landed, harms felt. */
 #define LG_CASTER_BYTES (1 + 2 + 4 + 2 + NLINE * 2 + NLINE + 1 + 1 + 2)
 #define LEDGER_MAGIC 0x3147444Cu            /* "LDG1" */
 #define PROGRESS_MAGIC 0x31505648u          /* "HVP1": a progress that names the page to start from */
-enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX, LG_CASTER };
+enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX, LG_CASTER, LG_ELEM };
 enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
 #define LG_PAGE_BYTES 17
 #define LG_VISIT_BYTES (8 + NPED * (2 + OFFER_BYTES))
 #define STONE_BYTES (8 + 2 + 3 + 4 + 4 + 2 + NATK + NDEF + NSLOT * PIECE_BYTES + 2 + BAG_MAX * PIECE_BYTES)
 #define COMP_BYTES ((NIK - 1) * NQUAL * (1 + COMP_MAX * PIECE_BYTES) + NATK)   /* at the most */
 #define REPO_BYTES (1 + 4 + 2 + REPO_MAX * PIECE_BYTES)
-#define PAGE_BYTES (save_end(6) + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 3 + COMP_BYTES + 3 + REPO_BYTES + 3 + 16 + 1)   /* the most a page takes so far */
+#define PAGE_BYTES (save_end(6) + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 3 + COMP_BYTES + 3 + REPO_BYTES \
+                    + 3 + 16 + 3 + LG_CASTER_BYTES + 3 + REC_ELEM_BYTES + 1)   /* the most a page takes so far */
 static void stone_pack(uint8_t *p, const Stone *st) {
     uint64_t w = (uint64_t)st->when;
     put32(p, (int32_t)(uint32_t)(w & 0xffffffffu)); put32(p + 4, (int32_t)(uint32_t)(w >> 32)); put16(p + 8, st->level);
@@ -10360,7 +10424,7 @@ static void stone_unpack(const uint8_t *p, Stone *st) {
 }
 static const uint8_t *page_section(const uint8_t *buf, int len, int tag, int *n) {
     int at = save_end(6);
-    if (save_version(buf, len) != 6 || len < at + 4 || (uint32_t)get32(buf + at) != LEDGER_MAGIC) return NULL;
+    if (save_version(buf, len) < 6 || len < at + 4 || (uint32_t)get32(buf + at) != LEDGER_MAGIC) return NULL;
     for (at += 4; at + 3 <= len && buf[at] != LG_END; at += 3 + get16(buf + at + 1)) {
         int k = get16(buf + at + 1);
         if (at + 3 + k > len) return NULL;
@@ -10381,7 +10445,7 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     else if (G.shop) shop = 1;                                     /* her room, with the visit as it stands */
     else { gold -= G.level_treasure; souls -= G.level_souls; }
     put32(buf, (int32_t)SAVE_MAGIC);
-    put32(buf + 4, 6);                                             /* version */
+    put32(buf + 4, SAVE_VERSION);
     put32(buf + 8, level); put32(buf + 12, hp); put32(buf + 16, gold); put32(buf + 24, shop);
     put32(buf + 20, souls * 10 + clampi((int)(RUN.soul_frac * 10.0f), 0, 9));   /* spirit, in tenths */
     gear_pack(buf + 28, &RUN.gear);
@@ -10425,6 +10489,10 @@ static int run_pack(uint8_t *buf, int cap, int why) {
         put16(q, clampi(RUN.wind_run, 0, 65535)); q += 2;
         p = section_end(c, q);
     }
+    c = section_begin(p, LG_ELEM);
+    memcpy(c, RUN.rec.el_kills, sizeof RUN.rec.el_kills); memcpy(c + REC_KINDS * NELEM, RUN.rec.el_hits, sizeof RUN.rec.el_hits);
+    memcpy(c + 2 * REC_KINDS * NELEM, RUN.rec.harms, sizeof RUN.rec.harms);
+    p = section_end(c, c + REC_ELEM_BYTES);
     c = section_begin(p, LG_CODEX);
     put32(c, (int32_t)RUN.cx_abil); put32(c + 4, (int32_t)RUN.cx_rune); put32(c + 8, (int32_t)RUN.cx_exq); put32(c + 12, (int32_t)RUN.cx_stat);
     p = section_end(c, c + 16);
@@ -10498,6 +10566,11 @@ static void run_unpack(const uint8_t *buf, int len) {
         }
         if (q + NATK <= end) for (int a = 0; a < NATK; a++) RUN.comp_atk[a] = (int8_t)clampi((int8_t)*q++, 0, 15);
     } else comp_note(RUN.level);                                   /* an old save: what it wears and knows goes in as it loads */
+    c = page_section(buf, len, LG_ELEM, &k);
+    if (c && k >= REC_ELEM_BYTES) {                                /* version 7: the record by element */
+        memcpy(RUN.rec.el_kills, c, sizeof RUN.rec.el_kills); memcpy(RUN.rec.el_hits, c + REC_KINDS * NELEM, sizeof RUN.rec.el_hits);
+        memcpy(RUN.rec.harms, c + 2 * REC_KINDS * NELEM, sizeof RUN.rec.harms);
+    }
     c = page_section(buf, len, LG_CODEX, &k);
     if (c && k >= 16) {
         RUN.cx_abil = (uint32_t)get32(c) & ((1u << NABIL) - 2); RUN.cx_rune = (uint32_t)get32(c + 4) & ((1u << NDEF) - 1);
@@ -13729,7 +13802,7 @@ static void render_messages(Frame *f) {
     if (G.msg_t > 0.0f && G.msg[0] && !(G.player && G.ui)) {
         if (G.msg_t > 0.3f || ((int)(G.msg_t * 20.0f) & 1)) {
             int w = gfx_text_width(G.msg, 1), x = (W - w) / 2, y = toast_showing() ? 50 : (boss_fighting() ? 34 : 14);   /* below a pop-up, or a boss's bar */
-            if (target_shown()) y = imax(y, target_y() + 26);         /* or what you are looking at */
+            if (target_shown()) y = imax(y, target_y() + 34);         /* or what you are looking at, and what it does */
             gfx_rect(f, x - 5, y, w + 10, 14, 0);
             gfx_text8(f, x, y + 3, G.msg, R_GOLD + 11, 1);
         }
@@ -14418,15 +14491,15 @@ static void render_bestiary(Frame *f) {
     if (spirit) { gfx_text8(f, 14, 161, "NOTHING YOU CARRY TOUCHES IT", R_STONE + 11, 1); return; }
     char more[80] = "MORE:", less[80] = "LESS:", same[80] = "AS USUAL:", untried[80] = "NOT YET LEARNT:";
     int nm = 0, nl = 0, ns = 0, nu = 0;
-    for (int sp = 0; sp < AT_BFS; sp++) {
+    for (int sp = 0; sp < NELEM; sp++) {
         char *dst; int *cnt;
         float wv = KINDS[k].weak[sp];
-        if (r->spell_kills[k][sp] < 3) { dst = untried; cnt = &nu; }
+        if (!el_learnt(k, sp)) { dst = untried; cnt = &nu; }
         else if (wv > 1.01f) { dst = more; cnt = &nm; }
         else if (wv < 0.99f) { dst = less; cnt = &nl; }
         else { dst = same; cnt = &ns; }
         size_t len = strlen(dst);
-        snprintf(dst + len, sizeof more - len, " %s", ATK_SHORT[sp]);
+        snprintf(dst + len, sizeof more - len, " %s", ELEM_NAME[sp]);
         (*cnt)++;
     }
     int y = 161;
@@ -15110,20 +15183,19 @@ static int target_shown(void) {
     const Mob *m = &G.mobs[clampi(G.look_mob, 0, MAXMOBS - 1)];
     return m->alive && !m->ally && !m->boss;
 }
-static int weak_word(int k, int most, char *buf, int n) {          /* the word, and its spell's colour (-1: none) */
-    const Record *r = &RUN.rec;
+static int weak_word(int k, int most, char *buf, int n) {          /* the word, and its element's colour (-1: none) */
     float best = most ? -1.0f : 1e9f;
-    int unknown = 0, tie[NATK], nt = 0;
-    for (int sp = 0; sp < AT_BFS; sp++) {
-        if (k >= REC_KINDS || r->spell_kills[k][sp] < 3) { unknown = 1; continue; }
+    int unknown = 0, tie[NELEM], nt = 0;
+    for (int sp = 0; sp < NELEM; sp++) {
+        if (!el_learnt(k, sp)) { unknown = 1; continue; }
         float w = KINDS[k].weak[sp];
         if (most ? w > best + 1e-3f : w < best - 1e-3f) { best = w; nt = 0; }
         if (fabsf(w - best) < 1e-3f) tie[nt++] = sp;
     }
     if (nt == 0 || (most ? best < 1.01f : best > 0.99f)) { snprintf(buf, (size_t)n, "%s", unknown ? "?" : "--"); return -1; }
     int sp = tie[(int)G.t % nt];
-    snprintf(buf, (size_t)n, "%s", ATK_SHORT[sp]);
-    return gear_color(GK_ATK, sp);
+    snprintf(buf, (size_t)n, "%s", ELEM_NAME[sp]);
+    return ELEM_RAMP[sp];
 }
 static void render_target(Frame *f) {
     if (!target_shown()) return;
@@ -15163,6 +15235,20 @@ static void render_target(Frame *f) {
     gfx_rect(f, bx - 8 - lw, by - 2, lw + 4, 11, 0); gfx_rect(f, bx + bw + 4, by - 2, rw + 4, 11, 0);
     gfx_text8(f, bx - 6 - lw, by - 1, wl, rl >= 0 ? ramp_at(rl, 13) : (uint8_t)(R_STONE + 9), 1);
     gfx_text8(f, bx + bw + 6, by - 1, wr, rr >= 0 ? ramp_at(rr, 13) : (uint8_t)(R_STONE + 9), 1);
+    char hl[40] = "";                                              /* what it does to you, as far as it is learnt */
+    int harms = kind_harms(k, m->rank), unknown = 0;
+    for (int e = 0; e < NELEM; e++) {
+        if (!(harms >> e & 1)) continue;
+        if (!harm_learnt(k, e)) { unknown = 1; continue; }
+        size_t len = strlen(hl);
+        snprintf(hl + len, sizeof hl - len, "%s%s", len ? " " : "", ELEM_NAME[e]);
+    }
+    if (unknown) { size_t len = strlen(hl); snprintf(hl + len, sizeof hl - len, "%s?", len ? " " : ""); }
+    if (hl[0]) {
+        int hw = gfx_text_width(hl, 1);
+        gfx_rect(f, (W - hw) / 2 - 3, by + 9, hw + 6, 10, 0);
+        gfx_text8(f, (W - hw) / 2, by + 10, hl, R_STONE + 10, 1);
+    }
 }
 
 /* ---- the cornerstones' screen ---- */

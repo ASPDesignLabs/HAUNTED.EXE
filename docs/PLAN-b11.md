@@ -1,7 +1,7 @@
 # 1.0.0b11: the map at a walk, glyphs, runes in sight, and the elements
 
-**Status: settled (30 October 2026). The owner answered both rounds of questions the same day; nothing is built
-yet.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+**Status: settled (30 October 2026). The owner answered both rounds of questions the same day. Being built on
+`claude/eloquent-carson-1x049c`: step 1 (the elements as data) is built, tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),

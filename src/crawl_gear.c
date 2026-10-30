@@ -8,6 +8,10 @@ const char *const ATK_NAME[NATK] = { "FIRE BOLT", "FROST SHARD", "CHAIN LIGHTNIN
                                      "HELLFIRE", "SEEKER WISPS", "RAPID SPARKS", "BFS9000" };
 const char *const DEF_NAME[NDEF] = { "BONE WARD", "BLINK", "MIRROR VEIL", "MEND", "PURIFY", "FROST NOVA",
                                      "DREAD", "TIME SLIP", "SOUL REAPING" };
+/* Hellfire burns, the wisps are spirit, the sparks lightning, as their lines will have them */
+const int8_t ATK_ELEM[NATK] = { EL_FIRE, EL_FROST, EL_LIGHT, EL_PHYS, EL_SPIRIT, EL_FIRE, EL_SPIRIT, EL_LIGHT, -1 };
+const char *const ELEM_NAME[NELEM] = { "FIRE", "FROST", "LIGHTNING", "POISON", "SPIRIT", "PHYSICAL" };
+const int ELEM_RAMP[NELEM] = { R_FLAME, R_GLOW, R_GOLD, R_MOSS, R_PURPLE, R_BONE };
 static const char *const ATK_BLURB[NATK] = { "THE FIREBALL, HOTTER", "SLOWS WHAT IT HITS", "ARCS TO NEARBY FOES", "PIERCES ALL IN A LINE",
                                              "HEALS YOU AS IT HURTS", "HEAVY BLAST, FLOOR BURNS", "HOMING, ROUND CORNERS",
                                              "QUICK AND LIGHT", "SPENDS SOULS. KILLS ALL." };
