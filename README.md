@@ -667,7 +667,7 @@ The autopilot uses them too: it wakes an altar it passes with 25 spirit or more 
 wisp while it has time, calls it home and sends it on when that leaves it 15 spirit, blesses with 40 or
 more when the level has undead, and anoints. It casts an exit wisp as it sets off for the way out.
 
-Esc offers four answers:
+Esc offers five answers:
 
 * **Flee to the surface** ends the screensaver. Nothing is written: the next start, autopilot or not,
   opens the page you last signed (or the unsigned run as it was last written), at the merchant's. If
@@ -679,6 +679,10 @@ Esc offers four answers:
   and a half).
 * **Open the ledger** shows the three pages, with each one's level, gold and when it was signed, and
   opens one, asking twice, because whatever you haven't signed is lost.
+* **Begin a new run** starts again from nothing, in her room before level 1, and she asks what you were
+  at once. It asks twice: what you haven't signed is lost, as in fleeing. Your signed pages stay in the
+  ledger, and a page the dead are watching keeps their mark. (The screensaver takes a class at random
+  for a run it starts, so this is how a person chooses one from a fresh start.)
 
 In the ledger, W and S (or 1 to 3) choose, Enter signs or opens, and Esc goes back.
 
@@ -880,6 +884,22 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b12** (a new run from Esc, and the souls' line). Tested in the harness only, by scripted
+players: not yet played by hand or run on Windows. The Windows build was compiled without warnings and
+smoke-tested by CI on the work branch.
+
+* **Why.** The screensaver takes a class at random for a run it starts, the moment her room opens, so a
+  person who took over a fresh run was never asked what they were. *Begin a new run* gives a person a run
+  of their own from nothing, and her question at once.
+* **Scripted sessions:** a fresh run taken over (the screensaver's class already chosen), then Esc, the
+  new row, the red second asking, her question, a vow and walking on into level 1; the same by the
+  controller (A twice, the hints in its words); and from inside a Backrooms pocket, which comes out cleanly
+  to her room and a level 1 with no pocket left behind.
+* **The souls' line** on the status bar sits under the figures now; seen filling (blue) and full (gold).
+* **AddressSanitizer and UBSan**, clean: those sessions and a ten-minute autopilot run.
+* **Not tested at all:** by hand, on Windows. Opening a ledger page from inside a pocket was not changed
+  and not tested; it may leave the same pocket state behind that the new run had at first.
 
 **New in 1.0.0b11** (the map at a walk, the target's glyphs and the runes' sockets; the Alignment, the
 classes, gear's elements, souls and Soul Sap). Tested in the harness only, by the autopilot and scripted
