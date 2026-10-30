@@ -81,8 +81,10 @@ README's previews of the four runs, the crypt, the merchant and the bosses were 
 creatures, wisps and pockets still show the old walls, and say so.
 
 1.0.0b11 is planned in [`docs/PLAN-b11.md`](docs/PLAN-b11.md), settled: the owner answered both rounds of its
-questions (30 October), and it is ready to build in the steps it gives, part one first, sheets before art. It is being
-built on `claude/eloquent-carson-1x049c`; the plan's status line says how far. Part one: the map at a walk (the crypt runs while it is open, a holed parchment with eerie ink, walked cells apart
+questions (30 October). All sixteen steps were built on `claude/eloquent-carson-1x049c`, tested in the harness only
+(the Windows build compiled and smoke-tested by CI on the branch, by a run started by hand), and wait for the owner's
+word to be released and for their eye on the new art; `.github/release-notes.md` is written for it, `VERSION` is not
+bumped. Part one: the map at a walk (the crypt runs while it is open, a holed parchment with eerie ink, walked cells apart
 from seen ones, the level's numbers on the scroll), the target's weaknesses and harm as glyphs of six elements, and
 sockets for the runes as they fire. Part two: spells out of the shop and into elemental lines bought with Alignment
 Points at a Lampstand in a new room of her hall (the owner wrote Electric and Flame; our Frost, Poison, Spirit and
@@ -692,7 +694,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   game changed after each step (the registry's `Slot1`-`Slot3`, `Progress` and `Mark`; `SLOT_MAX`
   16 KB). Nothing is written on quitting: fleeing keeps only what is signed. `LEDGER` lasts while the
   program runs: `yours` (a person has taken over: the screensaver's dream is over; sleepwalking doesn't
-  end it), `page` (opened from or last signed onto; 0 for the unsigned run), and a page's visit
+  end it), `kept` (1.0.0b11: the run was read from the ledger as the program started, so the dream makes
+  none of its lasting choices for it: no class, Alignment, ascending, bell or font), `page` (opened from or last signed onto; 0 for the unsigned run), and a page's visit
   (`Visit`, set out again by `begin_shop`). `ledger_first` reads the progress at the first
   `crawl_enter`. E at the cat opens her menu (`UI_MERCHANT`: sign, another pedestal, pat, leave); signing (`UI_LEDGER`, `led_mode` 0: `ledger_sign`) picks the page you came from first and
   asks twice over another run's (`RUN.run_id`, born at a fresh start, kept through death); opening
@@ -1065,5 +1068,14 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   newcomers came); it can seldom afford anything there. The Hollows at tier 1 died 12 times in eight
   50-minute runs from level 11 (18 at 1.0.0b3, 9 before their newcomers). `CRAWL_GEAR` gives different
   pieces than it did at 1.0.0b3, so those compare only roughly. Tune by hand.
+- 1.0.0b11 has been tested in the harness only. Against 1.0.0b10 on the same eight seeds (seeds 1-15 odd; deep starts
+  with `CRAWL_XPBANK` so the dream ascends and aligns at its first greeting): from levels 11, 21 and 31 (50 minutes, gear
+  3, 5, 8) a median of level 16, 26.5 and 36 (16.5, 27, 36.5), no deaths (one); from level 1 (100 minutes) a median of
+  9 levels cleared (11), 21 deaths (17; 19 on level 10, against 13), the knight beaten in 3 runs of 8 (5) in 22 tries
+  (19). Souls run short in his fights (16% of casts weak from level 1, 4-6% deeper; under 1% before) and his blows break
+  wind-ups. A change that sent the dream after motes mid-fight did worse and was reverted. The levers are in
+  docs/PLAN-b11.md's step-16 note. The first runs found two stalls (a key at a block's corner past the dream's 1.5-cell
+  reach, now 1.6; a Wraith fired at in a dead end, now let be once driven back); a look over a new batch's
+  state lines for a minute or more spent within a cell of one place is worth the minute it takes.
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.

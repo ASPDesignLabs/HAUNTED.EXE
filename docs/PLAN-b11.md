@@ -6,9 +6,10 @@ drawn for the owner and its art in the game until they mark it up, the runes' so
 two's steps 5 (spells as lines), 6 (the new room, the Lampstand on `hall2.png`, Alignment Points and the screen), 7
 (the abilities), 8 (the paths' nodes, the Masteries, spectres), 9 (charging and the twelve ultimates, their sprites
 on `spells.png`), 10 (the classes, their marks on `elements.png`), 11 (gear's elements) and 12 (souls: the vessel, motes,
-her offering, the Dead Bell and the Weeping Font on `hall2.png`, replays at the Portal), 13 (Soul Sap) and 14 (the
-autopilot); and of 15, the Codex's new parts and the controls card (the README and the page wait for step 16's numbers),
-tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+her offering, the Dead Bell and the Weeping Font on `hall2.png`, replays at the Portal), 13 (Soul Sap), 14 (the
+autopilot), 15 (the Codex, the controls card, the README, the page and the release notes) and 16 (the checks): all
+sixteen steps, tested in the harness only, the Windows build compiled and smoke-tested by CI. Not released: that waits
+for the owner's word, and the new art for their eye.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),
@@ -968,4 +969,20 @@ answers, and are first guesses for the runs to tune. Any of them can be changed 
   up to 0.11 of jitter on the diagonal's 1.41), so it walked to the lane, didn't take it, turned for its next goal and
   came back, for good; it reaches 1.6 now (the first cause is older than this beta). And a Wraith driven back into a
   dead end stayed in sight, so the dream fired at it again and again, each bolt holding it there: the dream now lets a
-  Wraith already driven back be. @STEP16@
+  Wraith already driven back be. Run again on the same seeds (the numbers the README gives): one such stretch in 32 runs.
+  From levels 11, 21 and 31 the dream goes as far as 1.0.0b10's within half a level, without deaths; from level 1 a
+  median of 9 levels cleared (11), 21 deaths (17), the knight beaten in 3 runs of 8 (5). Its souls a level: about 27,
+  56, 76 and 105 in from levels 1, 11, 21 and 31 (65, 132, 169, 244), nearly as many out, a median of 26 to 96 held at
+  a level's end (112 to 609); 16% of its casts weak from level 1, 4-6% deeper. Counting the motes on four of those
+  runs, a quarter to a third of the souls the dead left faded before it took them; letting it go after motes in a
+  fight took in no more and did worse at the knight (2 of 8, 29 deaths), so that was taken back. **The knight is the
+  wall again, harder than in 1.0.0b10**; the levers, for the owner: the motes' souls (half of 1.0.0b10's kills now),
+  the cost by rank, the vessel, or how often a blow breaks a wind-up. Each class, a 50-minute run from level 1 (seed
+  5): all reached level 7 without a death; the Witchfinder, whose points go into Fire so that even its fireball costs,
+  cast weak in 129 of 419 casts, the rest almost never. Corrupted from 10, 20 and 30 (two seeds each): the knight won
+  both, the spider and the Deacon fell in both, with the larger waves and a scrip more. **Found while checking:** a
+  page opened as the program starts is played by the dream until someone takes over, and the dream made its lasting
+  choices for it (a class at random, so a page from before the classes never heard her question; its points; the bell
+  and the font with its coins; its ascending, since 1.0.0b9). A run read from the ledger at the start is now kept
+  (`LEDGER.kept`): the dream plays it as it is, and the person who takes over is asked. The old spells' notice waits
+  for the person in her room.

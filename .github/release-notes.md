@@ -23,9 +23,10 @@ Double-clicking `haunted-backup.reg` puts it back. Your settings carry over eith
 - **Soul Sap.** Bats of rank II and up latch onto your face, feeding on health and souls and slowing you, until you shake them off (turn hard one way and back, or strafe) or throw them with Blink or Swift Dodge.
 - **The map at a walk.** The crypt goes on while the map is open: walk, turn and cast with it up. The parchment is torn and burnt through, and the ink goes on over the holes in a ghostly violet. Walked cells are washed darker, and the level's numbers are across its foot.
 - **The runes' sockets.** When a rune fires its mark comes up at the lower right, filling until it is ready again.
+- **Your page is yours.** When the program starts on your page, the screensaver plays it until you take over, as before, but no longer makes its lasting choices for you: what you were, your lines and your Levels of Atonement are left for you.
 - The merchant no longer sells spells (the BFS9000 still turns up now and then). The Codex has pages for the lines, the classes and the souls, and the controls card has the new keys.
 
-**Balance.** @BALANCE@
+**Balance.** Against the tenth beta on the same eight seeds, the screensaver's caster does as well from levels 11, 21 and 31, but from level 1 the knight is harder for it now: it beat him in 3 runs of 8 (5 before) and died 21 times (17), its fights running short of souls and its spells broken as they gather by his heavy blows. This will be tuned once a person has played it.
 
 This is still a beta. Everything new has been tested only in the harness, which draws exactly what the game draws: none of it has been played by hand, run on Windows or under Wine, or seen on a real screen. The four runs' looks from the tenth beta, the map and Levels of Atonement from the ninth, the controller from the eighth and everything in the seventh haven't been played by hand yet either. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
 

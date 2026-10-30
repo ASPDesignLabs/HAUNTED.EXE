@@ -879,6 +879,58 @@ The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.p
 
 ## What has been verified
 
+**New in 1.0.0b11** (the map at a walk, the target's glyphs and the runes' sockets; the Alignment, the
+classes, gear's elements, souls and Soul Sap). Tested in the harness only, by the autopilot and scripted
+players: none of it has been played by hand, run on Windows or under Wine, or seen on a real screen.
+The Windows build was compiled without warnings (`-Wall -Wextra`) and smoke-tested by CI on the work
+branch; this session had no cross-compiler, so it wasn't compiled here.
+
+* **The art.** The glyphs, the classes' marks, the charging and the ultimates' sprites, the Lampstand, the
+  Dead Bell and the Weeping Font were drawn on sheets first (`elements.png`, `spells.png`, `hall2.png` from
+  `make sheets`) and then seen in frames from the game. They wait for the owner's eye; none has been
+  approved yet.
+* **Scripted sessions:** the map open while walking, turning and casting, panned by the keys and the
+  D-pad and drifting back; the target's glyphs with every element learnt and with none; a rune's socket
+  coming up as it fires; the Lampstand, a line opened, ranked, a path taken and the other closed, a line
+  unbound for two coins; every ultimate charged and let go (the frames are the evidence for each one's
+  look); her question, a vow taken and another past heard; the vessel filling and souls slipping; motes
+  gathered; her offering; the bell cursed and tolled, with and without the secrets shown; the font; a
+  level replayed through the Portal and back; a bat latched on and shaken off by the mouse, by strafing
+  and by Blink; the Codex's new parts; an old page opening with its spells forgotten for points.
+* **The autopilot, against 1.0.0b10** on the same eight seeds (seeds 1 to 15 odd). From level 1, over
+  100 minutes: a median of 9 levels cleared (11), 21 deaths (17; 19 of them on the knight's level, against
+  13), the knight beaten in 3 runs of 8 (5) in 22 tries (19). **The knight is harder for it now**: the
+  fights run short of souls, and a heavy blow can break a spell as it gathers. From level 11 (gear of tier
+  3, and the experience it would have by then, so that it ascends and aligns at its first greeting), over
+  50 minutes: a median of level 16 reached (16.5); from level 21, 26.5 (27); from level 31, 36 (36.5); no
+  deaths in any of them (one from 21 before).
+* **Souls**, a level, from levels 1, 11, 21 and 31: about 27, 56, 76 and 105 come in (65, 132, 169 and 244
+  for 1.0.0b10) and nearly as many go out, so it ends a level with a median of 26, 51, 71 and 96 (112, 257,
+  391 and 609). A spell went out weak for want of souls in 16% of its casts from level 1, and 6%, 4% and 4%
+  from 11, 21 and 31 (under 1% in 1.0.0b10). It tolled the bell once in the 32 runs and drank at the font
+  24 times. A blow broke a spell's wind-up 130 times.
+* **Stalls.** The first of these runs found the dream standing in one place for a minute or more 58 times
+  in 32 runs (11 for 1.0.0b10): a key in a block's corner a hair past its reach, and a Wraith it kept
+  firing at in a dead end. Both are fixed (the first was older than this beta); the runs above had one
+  such stretch. A change that sent it after motes in the middle of fights did worse, and was taken out.
+* **Each class**, a 50-minute run from level 1 on one seed: all six reached level 7 without a death. The
+  Witchfinder, whose three points go into Fire so that even its fireball costs souls, cast weak in 129 of
+  its 419 casts; the other five hardly ever (none to six).
+* **Corrupted levels** from 10, 20 and 30 (two seeds each, 25 minutes, every level corrupted): the toll
+  heard, the larger waves and a scrip more from each boss that fell. The knight, corrupted, beat the
+  autopilot in both runs (two deaths each); the spider fell in both (in 154 and 247 seconds) and the Deacon
+  in both (249 and 253), and those runs went on into the next levels, corrupted too.
+* **A person's page.** As the program starts it opens the page the progress names, and the dream plays it
+  until someone takes over. It used to choose for that run first: a class at random (so a page from
+  before the classes never heard her question), its Alignment Points, the bell and the font with its
+  coins, and its Levels of Atonement. Now a run read from the ledger at the start is left as it is, and
+  the person who takes over is asked what they were. Seen on a save of the oldest kind: no class taken by the
+  dream, her question on taking over, then *THE OLD SPELLS ARE FORGOTTEN*.
+* **Not tested at all:** how a person's souls hold out against the autopilot's; charging with a real
+  controller's trigger; how the eerie ink and the latched bat look on a real screen; the new sounds
+  through real speakers.
+@ASAN@
+
 **New in 1.0.0b10** (a look of its own for each run). Tested in the harness only, by the autopilot and
 scripted players: none of it has been played by hand, run on Windows or under Wine, or seen on a real
 screen. The Windows build was compiled here without warnings, and by CI.
