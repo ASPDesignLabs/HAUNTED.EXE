@@ -6547,7 +6547,6 @@ static int chain_goal(int x, int y, int *gx, int *gy) {
 /* the autopilot in a boss's arena: its scrip once it falls; a full font when badly hurt; otherwise a
  * crossing of lanes three to six cells from the boss and away from its adds, changed every few seconds
  * so that what is thrown or swung finds nothing standing */
-static int mote_goal(int fight, int *gx, int *gy);
 static int boss_goal(int x, int y, int *gx, int *gy) {
     if (G.boss < 0 || PK.depth || !in_arena(x + 0.5f, y + 0.5f)) return 0;
     if (G.bstate == BS_DEAD) {
@@ -6589,8 +6588,6 @@ static int boss_goal(int x, int y, int *gx, int *gy) {
             if (bc >= 0) return 0;                                 /* there: stand and kindle it */
         }
     }
-    bfs_from(x, y);
-    if (mote_goal(1, gx, gy)) return 1;                            /* an add's souls, close by */
     static int keep_x = -1, keep_y = -1; static double keep_t = -1.0;
     if (keep_x >= 0 && G.t < keep_t && apass(keep_x, keep_y) && in_arena(keep_x + 0.5f, keep_y + 0.5f)
         && fabsf(hypotf(keep_x + 0.5f - bx, keep_y + 0.5f - by) - 4.5f) < 2.0f && (keep_x != x || keep_y != y)) { *gx = keep_x; *gy = keep_y; return 1; }
@@ -6610,14 +6607,11 @@ static int boss_goal(int x, int y, int *gx, int *gy) {
     return 1;
 }
 
-/* the autopilot's motes (section 12): one within three steps of its lane, while nothing is on it; in a boss's
- * fight, any not by the boss (the adds' souls) */
-static int mote_goal(int fight, int *gx, int *gy) {
-    const Mob *b = fight ? boss_mob() : NULL;
-    if (b && hypotf(b->x - G.px, b->y - G.py) < 2.5f) return 0;
-    for (int i = 0; i < MAXMOBS && !fight; i++) {
+/* the autopilot's motes (section 12): one within three steps of its lane, while nothing hunts it near */
+static int mote_goal(int *gx, int *gy) {
+    for (int i = 0; i < MAXMOBS; i++) {
         const Mob *m = &G.mobs[i];
-        if (m->alive && m->state == MS_WALK && m->alert > 0.0f && !KIND_IS(m, KF_SPIRIT) && !m->ally && hypotf(m->x - G.px, m->y - G.py) < 2.5f) return 0;
+        if (m->alive && m->state == MS_WALK && m->alert > 0.0f && !KIND_IS(m, KF_SPIRIT) && !m->ally && hypotf(m->x - G.px, m->y - G.py) < 6.0f) return 0;
     }
     int best = 4, bx = -1, by = -1;
     for (int i = 0; i < MAXMOTES; i++) {
@@ -6627,7 +6621,6 @@ static int mote_goal(int fight, int *gx, int *gy) {
         for (int yy = my - 1; yy <= my + 1; yy++)
             for (int xx = mx - 1; xx <= mx + 1; xx++) {
                 if (!apass(xx, yy) || hypotf(xx + 0.5f - m->x, yy + 0.5f - m->y) > MOTE_REACH - 0.1f) continue;
-                if (b && (!in_arena(xx + 0.5f, yy + 0.5f) || hypotf(b->x - xx - 0.5f, b->y - yy - 0.5f) < 2.5f)) continue;
                 int d = bfs_dist[yy][xx];
                 if (d >= 1 && d < best) { best = d; bx = xx; by = yy; }
             }
@@ -6670,7 +6663,7 @@ static int pick_goal(int x, int y, int *gx, int *gy) {
             return 1;
         }
     bfs_from(x, y);
-    if (mote_goal(0, gx, gy)) return 1;                            /* souls lying close by */
+    if (mote_goal(gx, gy)) return 1;                               /* souls lying close by */
     int ax, ay;
     if (altar_wanted() && altar_spot(&ax, &ay) && bfs_dist[ay][ax] > 0
         && bfs_dist[ay][ax] <= (G.altar_state == ALTAR_READY ? 30 : 24)) { *gx = ax; *gy = ay; return 1; }   /* the altar, when it passes */
