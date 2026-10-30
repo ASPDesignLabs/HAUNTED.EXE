@@ -15887,7 +15887,7 @@ static void render_caster(Frame *f) {
     for (int k = 0; k < 7; k++) {                                  /* by their keys: each line open, at its rank */
         int sp = KEY_SPELL[k];
         if (g->atk[sp] < 0) continue;
-        char e[16];
+        char e[24];
         if (sp == AT_BFS) snprintf(e, sizeof e, "%d BFS", k + 1); else snprintf(e, sizeof e, "%d   %d", k + 1, g->atk[sp]);
         int w = gfx_text_width(e, 1);
         if (x + w > W - 10) { x = 66; y += 9; }
