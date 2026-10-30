@@ -3,8 +3,8 @@
 **Status: settled (30 October 2026). The owner answered both rounds of questions the same day. Being built on
 `claude/eloquent-carson-1x049c`: part one is built (steps 1-4: the elements as data, the glyphs with `elements.png`
 drawn for the owner and its art in the game until they mark it up, the runes' sockets, the map at a walk), and part
-two's steps 5 (spells as lines), 6 (the new room, the Lampstand on `hall2.png`, Alignment Points and the screen) and 7
-(the abilities), tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+two's steps 5 (spells as lines), 6 (the new room, the Lampstand on `hall2.png`, Alignment Points and the screen), 7
+(the abilities) and 8 (the paths' nodes, the Masteries, spectres), tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),
@@ -847,3 +847,13 @@ answers, and are first guesses for the runs to tune. Any of them can be changed 
   Harvest's extra soul goes through the soul count as kills' souls do. Impale's pinned creature shows a bone shaft
   through it. Poison's bubbles and burning's flames are drawn in the creature's own texels, so they scale with it.
   Permafrost and Burning Intensity, path nodes of step 8, already lengthen what they should, being simple.
+- **Paths and Masteries** (step 8). An Addition adds its share of its element, by what that element does to the
+  creature, to every spell of another element, as the worn elements are added. Frost Mastery's other spells slow a
+  little (0.6 s); Poison Mastery's add a dose of a tenth of the hit as poison over four seconds, which only takes if
+  stronger than what is left, as any dose. Bone Plate and Ossified's points join the caster's own armour (so Tab
+  shows them, under the cap). Spirit drives the ordinary Wraith back with or without the Mastery.
+- **Spectres** (step 8). They come by their own count now, not as wanderers: one drifts in 15 to 60 s into a level,
+  the next 40 to 90 s after, from 6 to 16 steps away. The Luck curve is straight between the plan's points (about half
+  a spectre at 2%, two at 10%, four at 25%, six at the most). A spectre has health 20 (raised by level and rank as any)
+  that only Spirit Mastery's Soul Drain and wisps reach; slain, it melts as it always did. In a pocket they come only
+  the first time into its link, so the slain stay slain and the rest don't come back either.

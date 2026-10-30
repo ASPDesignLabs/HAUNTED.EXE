@@ -135,7 +135,7 @@ static const Kind KINDS[] = {
         20, 0.9f, 1.0f, 0.42f,                          { 1.0f, 0.75f, 1.25f, 0.5f, 0.75f, 1.25f }, H_PHYS },
     [MOB_GHOST] = { "SPECTRE", "SPECTRES", "A CHILL WITH A FACE. IT ONLY WANTS YOU TO KNOW IT IS THERE.",
         SP_GHOST_A, SP_GHOST_B, SP_GHOST_SA, SP_GHOST_SB, -1, 1, RK_I, 0, KF_SPIRIT | KF_PAGE | KF_UNCOUNTED, SFX_GHOST_DIE, -1,
-        1e9f, 0.7f, 1.35f, 0.42f,                       { 0 }, 0 },
+        20, 0.7f, 1.35f, 0.42f,                         { 0 }, 0 },   /* only Spirit Mastery's Spirit reaches it (weak_el) */
     [MOB_BAT] = { "BAT", "BATS", "THEY COME FOR THE FACE, AND BITE WHEN THEY HAVE IT. DEEP DOWN THEY ARE THE COLOUR OF EMBERS.",
         SP_BAT_A, SP_BAT_B, SP_BAT_SA, SP_BAT_SB, PF_WING, 1, RK_IV, 0, KF_SOLID | KF_PAGE, SFX_BAT, -1,
         10, 1.7f, 1.0f, 0.30f,                          { 1.0f, 1.5f, 1.25f, 1.5f, 1.0f, 1.0f }, H_PHYS },
@@ -605,7 +605,8 @@ static struct {
     Venom venoms[MAXVENOM];
     Pool pools[MAXPOOLS];
     Remains remains[MAXREMAINS]; int nremains;                     /* the newest remains, round and round */
-    int wraith_done, wraith_now; float wraith_try;   /* the Wraith has come this level (or is called now); when to look for a place for it */
+    int wraith_done, wraith_now; float wraith_try;
+    int spec_n; float spec_t;               /* spectres still to come this level (docs/PLAN-b11.md, SP2), and when the next drifts in */   /* the Wraith has come this level (or is called now); when to look for a place for it */
     int pilgrim;                            /* the feet follow the wisp: 1 by a code, till a key is touched; 2 the test player */
     Item items[MAXITEMS]; int nitems, items_total, items_got, value_total, value_got;
     int nvaults, vault_room[NKEYS], vault_door[NKEYS];   /* one locked room per key colour, in order */
@@ -627,6 +628,7 @@ static struct {
     Blame blame, poison_by;             /* what last hurt the caster, and what poisoned it */
     float ward_hp, ward_t, mirror_t, slip_t, reap_t, mend_t, mend_rate, mirror_flash;   /* mirror_flash: Mirrored just sent one back */
     float ward_shards, decoy_x, decoy_y, decoy_t;   /* Exquisite runes: the Bone Ward's burst when it breaks; Blink's double */
+    float oss_t[10];                    /* Ossified (1.0.0b11): a point of armour for each spear that struck, six seconds each */
     float whisper_t, commune_t, commune_show, commune_len, commune_r;   /* Treasure Hunter's whisper; Commune's clock and showing */
     int altar_x, altar_y, altar_state, altar_seek;   /* the Black Altar (x -1: none); the secret its wisp seeks */
     int altar_wisp, altar_inside;                    /* where its wisp is (AW_*); whether you have been into the secret it shows */
@@ -2734,12 +2736,29 @@ static Mob *spawn_mob(int x, int y, int type) {
     return NULL;
 }
 
+/* Spectres (docs/PLAN-b11.md, SP2): on every level, one or two on a run's first three; after that their number rests
+ * on Luck: about one level in two at the 2% everyone starts with, two a level at 10%, four at 25%. A boss's level has
+ * none below 10% Luck, then one or two. They drift in one at a time through the level, so they are met */
+static int spectre_count(void) {
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_SPECTRES")) return atoi(getenv("CRAWL_SPECTRES"));
+#endif
+    float luck = gear_total(&RUN.gear, ST_LUCK);
+    if (crawl_boss(G.level)) return luck < 10.0f ? 0 : 1 + rnd(2);
+    if (crawl_step(G.level) < 3) return 1 + rnd(2);
+    float e = luck <= 10.0f ? 0.5f + (luck - 2.0f) * 0.1875f : fminf(6.0f, 2.0f + (luck - 10.0f) * 2.0f / 15.0f);
+    int n = (int)e;
+    return n + (rndf() < e - (float)n);
+}
+static void spectres_set(void) { G.spec_n = spectre_count(); G.spec_t = 15.0f + 45.0f * rndf(); }
+static float spectre_souls(void) { int set = crawl_set(G.level); return set == 0 ? 2.0f : set == 1 ? 1.5f : 1.0f; }   /* thinning deeper */
+
 /* what wanders the halls: skeletons, spectres and bats, shield-bearers from level 4; the spectres
  * give way to the Wraith after the first run, and bats grow rare in the Deep */
 static int random_type(void) {
     int w[NKINDS] = { 0 }, total = 0;
     w[MOB_SKEL] = 10;
-    w[MOB_GHOST] = G.level <= 10 ? 5 : 0;
+    w[MOB_GHOST] = 0;                                              /* spectres come by their own count now (spectre_count) */
     w[MOB_BAT] = crawl_set(G.level) == 3 ? 2 : 5;
     w[MOB_SHIELD] = may_spawn(MOB_SHIELD) ? 4 : 0;
     w[MOB_SHAMBLER] = may_spawn(MOB_SHAMBLER) ? (crawl_set(G.level) <= 1 ? 5 : 3) : 0;
@@ -3355,6 +3374,12 @@ static float align_power(int e) {                                  /* a Mastery,
     for (int n = 0; n < NNODE; n++) if (ALIGN[e].n[n].kind == NK_MASTER && align_full(e, n)) v += ALIGN[e].n[n].val;
     return v;
 }
+static float align_add(int e) {                                   /* a Mastery's Addition: its element added to every other spell */
+    float v = 0.0f;
+    for (int n = 0; n < NNODE; n++) if (ALIGN[e].n[n].kind == NK_MASTER && align_full(e, n)) v += ALIGN[e].n[n].add;
+    return align_open(e) ? v : 0.0f;
+}
+static int spirit_mastery(void) { return align_open(EL_SPIRIT) && align_full(EL_SPIRIT, ND_B2); }   /* Spirit harms spectres */
 static int bones_max(void) { return BONES_MAX + (RUN.al[EL_PHYS][ND_EFF] ? 5 : 0); }   /* Physical Efficiency carries five more */
 static int align_has(int e, int n) { return align_open(e) && align_full(e, n) && ALIGN[e].n[n].cost > 0; }   /* an ability, Mastery or ultimate bought */
 static void align_sync(void) {                                     /* each line's spell into the spellbook, at its rank */
@@ -3376,6 +3401,8 @@ static void caster_sync(void) {                                    /* the caster
         own[LINES[l].stat] += v + o; up[LINES[l].stat] += o;
     }
     own[ST_LUCK] += LUCK_BASE;
+    own[ST_ARMOR] += gear_total_raw(&RUN.gear, ST_ARMOR) * ALIGN[EL_PHYS].n[ND_A1].val * (float)RUN.al[EL_PHYS][ND_A1];   /* Bone Plate */
+    for (int i = 0; i < 10; i++) own[ST_ARMOR] += G.oss_t[i] > 0.0f;   /* Ossified's points */
     for (int st = 0; st < NSTAT; st++) gear_set_own(st, own[st], up[st]);
     align_sync();
 }
@@ -3492,6 +3519,13 @@ static void kill_mob(Mob *m) {
         if (!others) for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && G.mobs[i].type == MOB_SAC && G.mobs[i].state == MS_WALK) { G.mobs[i].state = MS_DIE; G.mobs[i].t = 0.0f; }
     }
     if (m->boss) return;                                           /* a boss leaves only its scrip */
+    if (m->type == MOB_GHOST) {                                    /* a spectre, slain by Spirit: its souls, nothing more */
+        gain_souls(spectre_souls());
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT spectre slain t=%.2f\n", G.t);
+#endif
+        return;
+    }
     xp_kill(m);
     gain_souls((float)RANK_SOULS[m->rank]);
     if (m->last_atk == AT_DRAIN && align_has(EL_SPIRIT, ND_ABIL)) gain_souls(m->rank >= RK_III ? 2.0f : 1.0f);   /* Harvest */
@@ -3556,7 +3590,9 @@ static float knight_pace(const Mob *m, int st) {                   /* quicker as
 /* How much a spell bites a creature: its weakness to the spell's element, and each element worn added in
  * by how much that element hurts it. A knight down to its breastplate has nothing left to keep fire off.
  * The BFS9000 is no element's: it hurts anything that can be hurt the same. */
+static int spirit_mastery(void);
 static float weak_el(const Mob *m, int el) {
+    if (m->type == MOB_GHOST) return el == EL_SPIRIT && spirit_mastery() ? 1.0f : 0.0f;   /* a spectre: Spirit Mastery's alone */
     if (m->type == MOB_KNIGHT && el == EL_FIRE && knight_stage(m) == 2) return 1.0f;
     if (m->type == MOB_WRAITH && m->boss) return el == EL_FIRE ? 1.2f : 1.0f;   /* the Wraith Unbound, in light */
     return KINDS[m->type].weak[el];
@@ -3568,8 +3604,11 @@ static float hit_mult(const Mob *m, int atk) {
     const Gear *g = &RUN.gear;
     float k = weak_to(m, atk);
     if (atk == AT_BFS) return k;
-    return k + gear_total(g, ST_FIRE) / 100.0f * weak_el(m, EL_FIRE) + gear_total(g, ST_FROST) / 100.0f * weak_el(m, EL_FROST)
-             + gear_total(g, ST_SHOCK) / 100.0f * weak_el(m, EL_LIGHT);
+    k += gear_total(g, ST_FIRE) / 100.0f * weak_el(m, EL_FIRE) + gear_total(g, ST_FROST) / 100.0f * weak_el(m, EL_FROST)
+       + gear_total(g, ST_SHOCK) / 100.0f * weak_el(m, EL_LIGHT);
+    for (int e = 0; e < NELEM; e++)                                /* the Masteries' Additions (docs/PLAN-b11.md, sections 9-10) */
+        if (e != ATK_ELEM[atk] && e != EL_POISON) k += align_add(e) * weak_el(m, e);
+    return k;
 }
 static float slow_factor(void) {                                   /* slowed, the caster walks at 60%; resisted, less slowly; */
     if (G.web_hp > 0.0f) return 0.0f;                              /* held in the Wandering Spider's web: not at all */
@@ -3580,6 +3619,7 @@ static float spell_effect(void) { return 1.0f + gear_total(&RUN.gear, ST_EFFECT)
 /* A hit on a creature, from (fx, fy) (shields only stop what comes from in front). Returns 1 if it died. */
 static int boss_hurt(Mob *m, float dmg);
 static int wraith_open(const Mob *m);
+static void mob_poison(Mob *m, float total, float secs);
 static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float slow) {
     if (m->ally) return 0;                                         /* yours: your spells pass it by */
     if (m->boss && m->alive && m->state == MS_WALK && dmg > 0.0f) {   /* a boss: its weaknesses, then its marks */
@@ -3606,11 +3646,12 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
     }
     if (m->type == MOB_WRAITH && m->alive && m->state == MS_WALK) {   /* fire won't kill it, but it drives it back */
         int a = (flags >> 8) - 1;
-        if (a == AT_FIRE || a == AT_HELL) wraith_back(m);
+        if (a == AT_FIRE || a == AT_HELL || a == AT_DRAIN || a == AT_WISPS) wraith_back(m);   /* fire, and spirit */
         m->misses = 0;
         return 0;
     }
-    if (!m->alive || m->state != MS_WALK || KIND_IS(m, KF_SPIRIT) || dmg <= 0.0f || buried(m)) return 0;
+    int spectre = m->type == MOB_GHOST && spirit_mastery() && ((flags >> 8) - 1 == AT_DRAIN || (flags >> 8) - 1 == AT_WISPS);   /* Spirit slays spectres */
+    if (!m->alive || m->state != MS_WALK || (KIND_IS(m, KF_SPIRIT) && !spectre) || dmg <= 0.0f || buried(m)) return 0;
     if (G.player && !(flags & DM_TICK)) { G.look_mob = (int)(m - G.mobs); G.look_t = fmaxf(G.look_t, 3.0f); }   /* what you hit is your target a while */
     if (m->type == MOB_SHIELD && m->shield > 0.0f && !(flags & (DM_PIERCE | DM_ARC))) {
         float a = atan2f(fy - m->y, fx - m->x);
@@ -3625,6 +3666,10 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
     }
     if ((flags & DM_SLOW) && slow > 0.0f) m->slowed = fmaxf(m->slowed, slow);
     int atk = (flags >> 8) - 1;
+    if (atk >= 0 && atk < NATK && !(flags & DM_TICK) && atk != AT_BFS) {   /* the Masteries' Additions that aren't damage */
+        if (ATK_ELEM[atk] != EL_FROST && align_add(EL_FROST) > 0.0f) m->slowed = fmaxf(m->slowed, 0.6f);   /* Frost's: a little slowing */
+        if (ATK_ELEM[atk] != EL_POISON && align_add(EL_POISON) > 0.0f) mob_poison(m, dmg * align_add(EL_POISON), 4.0f);   /* Poison's: a dose */
+    }
     if (atk >= 0 && atk < NATK) { dmg *= hit_mult(m, atk); m->last_atk = atk; if (!(flags & DM_TICK)) rec_hit(m, atk); }   /* what it is weak to, or shrugs off */
     if (m->frozen > 0.0f && RUN.gear.def[DF_NOVA] >= RUNE_EXQ) { dmg *= 2.0f; DBG_COUNT(exq_shatter); }   /* Exquisite runes: the frozen */
     if (G.slip_t > 0.0f && RUN.gear.def[DF_SLIP] >= RUNE_EXQ && hypotf(m->x - G.px, m->y - G.py) < 7.0f) { dmg *= 1.25f; DBG_COUNT(exq_bruise); }   /* shatter, the slowed bruise */
@@ -4916,6 +4961,7 @@ static void cast_spell(int sp, int t) {
     }
     if (sp == AT_SPEAR && rndf() >= align_sum(EL_PHYS, NK_EFF)) RUN.gear.bones--;   /* Physical Efficiency: now and then none */
     float dmg = spell_damage_at(g, sp, tier);
+    if (sp == AT_SPEAR && align_has(EL_PHYS, ND_A2)) dmg += 0.5f * (float)gear_armor(g);   /* Ossified: half your armour behind it */
     if (web_strike(sp, dmg * (sp == AT_WISPS ? (float)wisp_count(tier) : 1.0f))) return;   /* held: it strikes the web */
     float hx = G.px + cosf(a) * 0.35f, hy = G.py + sinf(a) * 0.35f;
     int bat = have && m->type == MOB_BAT && !G.player;
@@ -4932,7 +4978,8 @@ static void cast_spell(int sp, int t) {
             float before = m->hp;
             damage_mob(m, dmg, DM_ARC | DM_ATK(AT_DRAIN), G.px, G.py, 0.0f);
             float dealt = before - fmaxf(m->hp, 0.0f);
-            float heal = fminf(dealt * fminf(0.8f, 0.5f + 0.05f * tier) * spell_effect(), (float)(G.max_hp - G.hp));
+            float heal = fminf(dealt * fminf(0.8f, 0.5f + 0.05f * tier) * spell_effect() * (1.0f + ALIGN[EL_SPIRIT].n[ND_A2].val * (float)RUN.al[EL_SPIRIT][ND_A2]),
+                               (float)(G.max_hp - G.hp));                  /* Communion heals more */
             if (heal > 0.0f && (weak || !spend_spirit(heal * heal_cost(g, tier)))) {   /* healing costs spirit too */
                 heal = 0.0f;
                 if (!G.spirit_said) { G.spirit_said = 1; say("LOW ON SPIRIT: SPELLS CAST WEAK"); }
@@ -5072,6 +5119,11 @@ static void update_shots(float dt) {
                     }
                     s->pierced |= 1u << mi;
                     damage_mob(mb, s->dmg, DM_PIERCE | DM_ATK(AT_SPEAR), fx, fy, 0.0f);
+                    if (align_has(EL_PHYS, ND_A2)) {                   /* Ossified: a point of armour, six seconds */
+                        int o = 0;
+                        for (int k = 1; k < 10; k++) if (G.oss_t[k] < G.oss_t[o]) o = k;
+                        G.oss_t[o] = 6.0f;
+                    }
                     sfx_at(SFX_BONES, mb->x, mb->y, 0.5f);
                     continue;
                 case AT_HELL:
@@ -5359,6 +5411,7 @@ static void update_status(float dt) {
     G.mirror_t = fmaxf(0.0f, G.mirror_t - dt); G.mirror_flash = fmaxf(0.0f, G.mirror_flash - dt);
     G.slip_t = fmaxf(0.0f, G.slip_t - dt);
     G.reap_t = fmaxf(0.0f, G.reap_t - dt);
+    for (int i = 0; i < 10; i++) G.oss_t[i] = fmaxf(0.0f, G.oss_t[i] - dt);
     for (int k = 0; k < NDEF; k++) G.rune_glow[k] = fmaxf(0.0f, G.rune_glow[k] - dt);
     G.rune_lift = fmaxf(0.0f, G.rune_lift - dt);
     if (G.nova_t > 0.0f && (G.nova_t += dt) > 0.6f) G.nova_t = 0.0f;
@@ -6247,7 +6300,7 @@ static void begin_turn(float target) {
 /* can the caster pick this one out? a spider in its web shows only its eyes, and a wall skull
  * asleep is only a carving: neither, until it stirs */
 static int targetable(const Mob *m) {
-    if (!m->alive || m->state != MS_WALK || m->type == MOB_GHOST || buried(m) || shade_hidden(m) || m->ally) return 0;
+    if (!m->alive || m->state != MS_WALK || (m->type == MOB_GHOST && !spirit_mastery()) || buried(m) || shade_hidden(m) || m->ally) return 0;
     if (m->type == MOB_GARGOYLE && m->sub == 0) return 0;          /* only a statue, as far as anyone can tell */
     if ((m->type == MOB_SPIDER || m->type == MOB_WSKULL) && m->sub == 0) return 0;
     if (m->boss && G.bstate != BS_FIGHT) return 0;                 /* untouchable: its adds first */
@@ -6285,6 +6338,7 @@ static int choose_spell(int t) {
     const Gear *g = &RUN.gear;
     const Mob *m = &G.mobs[t];
     if (m->type == MOB_WRAITH && !m->boss) return AT_FIRE;        /* only fire turns it */
+    if (m->type == MOB_GHOST) return AT_DRAIN;                     /* only Spirit reaches a spectre */
     float hpf = (float)G.hp / (float)G.max_hp;
     int vis = 0, close = 0, near = 0, packed = 0;
     for (int i = 0; i < MAXMOBS; i++) {
@@ -6717,6 +6771,7 @@ static void start_level(void) {
     place_altar();
     G.level_treasure = 0; G.level_souls = 0; G.dead = 0; G.dead_t = 0.0; G.spirit_said = 0;
     G.wraith_done = G.wraith_now = 0; G.wraith_try = 0.0f;          /* the Wraith comes once a level, and again after a death */
+    spectres_set();
     memset(G.wisps, 0, sizeof G.wisps);                            /* wisps don't go down the stairs with you */
     G.hurt = G.gold = G.kick = G.chill = 0.0f; G.pvx = G.pvy = 0.0f;
     G.px = G.cx + 0.5f; G.py = G.cy + 0.5f;
@@ -7158,6 +7213,8 @@ static void pocket_build(int link, int from_deeper) {
     G.altar_x = G.altar_y = -1; G.altar_seek = -1; G.slide = G.seek_secret = -1;
     for (int k = 0; k < NKEYS; k++) G.vault_room[k] = G.vault_door[k] = -1;
     gen_pocket(&G_LEVEL.secrets[PK.chain], link);
+    spectres_set();                                                /* a pocket's, as on its level, the first time in: */
+    if (link <= PK.reached[PK.chain]) G.spec_n = 0;                /* the slain stay slain, the rest gone */
     crawl_art_theme(G.ptheme, G.level);
     snd_set_room(G.ptheme == PT_BACKROOMS ? 1 : G.ptheme == PT_SEVERANCE ? 2 : 0);   /* no music, a hum, an echo; Severance's muzak */
     PK.depth = link; PK.since = 0.0f; G.use_kind = 0;
@@ -8595,6 +8652,16 @@ static void crawl_update(double dt) {
         && meet_creature(clampi(atoi(getenv("CRAWL_MEET")), 0, NKINDS - 1))) meet_level = G.level * 16 + PK.depth;
 #endif
     for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive) { mob_afflict(&G.mobs[i], fdt); if (G.mobs[i].alive) update_mob(&G.mobs[i], fdt); }
+    if (G.spec_n > 0 && !G.tally && !G.exiting && !G.dead && (G.spec_t -= fdt) <= 0.0f) {   /* a spectre drifts in */
+        int x, y;
+        G.spec_t = 5.0f;
+        if (pick_cell_at_depth(G.cx, G.cy, 6, 16, 1, &x, &y) && spawn_mob(x, y, MOB_GHOST)) {
+            G.spec_n--; G.spec_t = 40.0f + 50.0f * rndf();
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT spectre comes, %d to come t=%.1f\n", G.spec_n, G.level_t);
+#endif
+        }
+    }
     update_pools(fdt);
     /* the Wraith comes, once, after about four minutes on a level, from the far end of it */
     float wraith_at = 240.0f;
