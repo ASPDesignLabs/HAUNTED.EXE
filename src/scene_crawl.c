@@ -6844,6 +6844,7 @@ static int find_target(void) {
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *m = &G.mobs[i];
         if (!targetable(m)) continue;
+        if (m->type == MOB_WRAITH && !m->boss && m->sub) continue;    /* driven back already: more fire only holds it */
         float vx = m->x - G.px, vy = m->y - G.py, dist = sqrtf(vx * vx + vy * vy);
         float depth = vx * dx + vy * dy, lat = vx * rx + vy * ry, score;
         if (depth >= 0.35f && depth <= 7.5f && fabsf(lat) <= fmaxf(depth * 0.42f, 0.3f)) score = depth;
@@ -8842,7 +8843,7 @@ static void update_items(void) {
         float d = hypotf(it->x - G.px, it->y - G.py);
         if (!it->seen && d < (it->type == IT_KEY ? 13.0f : 8.5f) && line_clear(G.px, G.py, it->x, it->y)) it->seen = 1;
         if (it->type == IT_BONE && RUN.gear.bones >= bones_max()) continue;   /* no room for it */
-        if (d < (G.player ? 0.5f : 1.5f) && G.level_t > 1.0 && !G.ending) collect(it);   /* the autopilot reaches out */
+        if (d < (G.player ? 0.5f : 1.6f) && G.level_t > 1.0 && !G.ending) collect(it);   /* the autopilot reaches out, to a corner */
     }
 }
 
