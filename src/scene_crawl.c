@@ -576,7 +576,7 @@ static struct {
     Deco decos[MAXDECO]; int ndecos;
     uint8_t bulky[MAPN][MAPN];          /* cells holding something big to walk around */
     float fog[MAPN][MAPN];                  /* fog banks, 0..1, thicker the deeper the level */
-    uint8_t mapped[MAPN][MAPN];             /* the map: 1 its shape known, 2 been near it (docs/PLAN-b9.md) */
+    uint8_t mapped[MAPN][MAPN];             /* the map: 1 its shape known, 2 been near it (docs/PLAN-b9.md); 4 seen, 8 walked (1.0.0b11) */
     Mob mobs[MAXMOBS];
     Shot shots[MAXSHOTS];
     Boom booms[MAXBOOMS];
@@ -690,7 +690,8 @@ static struct {
     char msg[64];
     Gear inv0;                              /* the gear as it was when the inventory opened */
     int inv_page;                           /* the wardrobe (0) or the caster's numbers and spellbook (1) */
-    float map_cx, map_cy, map_hold;         /* the map open: the cell at its middle, a direction held this long */
+    float map_cx, map_cy, map_hold;         /* the map: the cell at its middle, a direction held this long */
+    int map_on; float map_pan_t;            /* the map up as you walk (docs/PLAN-b11.md, section 1); since it was last panned */
     int asc_buy[NLINE], asc_arm;            /* the caster's screen: steps bought since it opened (they may go back); a buy past a cap awaiting a second press */
     int cs_sel, cs_arm;                     /* the cornerstones' screen: the one looked at; one awaiting a second Enter */
     /* the boss abilities: each one's wait; Swift Dodge's dart (its clock and its way) and the direction last
@@ -741,7 +742,7 @@ enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword plant
 static float zbuf[W];
 enum { MM_SIGN, MM_ASCEND, MM_PED, MM_WIND, MM_PAT, MM_LEAVE, NMM };   /* the merchant's menu */
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_MAP, UI_ASCEND, UI_STONES };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 static double IN_DT;                        /* and how long the step is */
 static struct {                             /* their game controller, if they have one */
@@ -6331,9 +6332,13 @@ static void place_altar(void) {
 
 static void pocket_reset_level(void);
 static void map_carto(void);
+static void map_up(void);
+static void map_keys(float dt);
+static void map_follow(float dt);
 static void start_level(void) {
     pocket_reset_level();
     G.rooms_in = 0;                                                /* a new level's rooms, each worth finding */
+    G.map_on = 0;                                                  /* rolled up between levels */
     memset(G.has_key, 0, sizeof G.has_key);
     G.shop = 0;
     hz_clear(); snd_set_boss(0, 0);
@@ -7779,15 +7784,36 @@ static void update_abilities(float dt) {
 #define MAP_PRICE 1000
 #define MAP_X 10.75f
 #define MAP_Y 14.1f                         /* where it floats in her room, at her left */
-#define MAP_REACH 3.2f                      /* what lies this near the caster fills in, through walls */
+#define MAP_REACH 1.5f                      /* what lies this near the caster fills in, through walls (3.2 until 1.0.0b11) */
+#define MAP_SIGHT 16.0f                     /* and what is seen, out to where the dark closes */
 static void map_carto(void) {                                      /* the Cartographer: the shape of it all, known at once */
     if (RUN.corner >> CS_CARTO & 1) for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) G.mapped[y][x] |= 1;
 }
-static void map_note(void) {                                       /* its shape known, and been near it */
+static void map_note(void) {                                       /* its shape known, been near it, and walked */
     int cx = (int)G.px, cy = (int)G.py;
-    for (int y = cy - 4; y <= cy + 4; y++)
-        for (int x = cx - 4; x <= cx + 4; x++)
+    for (int y = cy - 2; y <= cy + 2; y++)
+        for (int x = cx - 2; x <= cx + 2; x++)
             if (x >= 0 && y >= 0 && x < MAPN && y < MAPN && hypotf(x + 0.5f - G.px, y + 0.5f - G.py) <= MAP_REACH) G.mapped[y][x] |= 3;
+    for (int k = 0; k < 4; k++) {                                  /* every cell the body passes through */
+        int x = (int)(G.px + (k & 1 ? BODY : -BODY)), y = (int)(G.py + (k & 2 ? BODY : -BODY));
+        if (x >= 0 && y >= 0 && x < MAPN && y < MAPN && G.map[y][x].kind != K_WALL) G.mapped[y][x] |= 8;
+    }
+    for (int r = 0; r < 64; r++) {                                 /* and what is seen: the cells the view's rays cross */
+        float cam = 2.0f * ((float)r + 0.5f) / 64.0f - 1.0f, dx = cosf(G.ang), dy = sinf(G.ang);
+        float rdx = dx - dy * PLANE_LEN * cam, rdy = dy + dx * PLANE_LEN * cam, l = hypotf(rdx, rdy);
+        rdx /= l; rdy /= l;
+        int mx = (int)G.px, my = (int)G.py, sx = rdx < 0 ? -1 : 1, sy = rdy < 0 ? -1 : 1;
+        float ddx = rdx == 0.0f ? 1e30f : fabsf(1.0f / rdx), ddy = rdy == 0.0f ? 1e30f : fabsf(1.0f / rdy);
+        float sdx = rdx < 0 ? (G.px - mx) * ddx : (mx + 1.0f - G.px) * ddx, sdy = rdy < 0 ? (G.py - my) * ddy : (my + 1.0f - G.py) * ddy;
+        while (fminf(sdx, sdy) < MAP_SIGHT) {
+            if (sdx < sdy) { sdx += ddx; mx += sx; } else { sdy += ddy; my += sy; }
+            if (mx < 0 || my < 0 || mx >= MAPN || my >= MAPN) break;
+            const Cell *c = &G.map[my][mx];
+            if (c->kind == K_WALL || (G.slide >= 0 && slide_covers(mx, my))) break;   /* a shut secret still looks like stone */
+            G.mapped[my][mx] |= 5;
+            if (c->kind == K_DOOR && c->door >= 0 && G.doors[c->door].open < 0.9f) break;   /* a shut door stops sight */
+        }
+    }
 }
 
 static void update_items(void) {
@@ -8239,7 +8265,7 @@ static void crawl_update(double dt) {
         wisp_level = G.level;
     }
 #endif
-    if (!G.dead) { map_note(); xp_rooms(); update_items(); update_abilities(fdt); ab_update(fdt); update_altar(); update_status(fdt); if (G.level_t > 1.0) update_defense(fdt); }
+    if (!G.dead) { map_note(); map_follow(fdt); xp_rooms(); update_items(); update_abilities(fdt); ab_update(fdt); update_altar(); update_status(fdt); if (G.level_t > 1.0) update_defense(fdt); }
     update_boss(fdt);
     update_hazards(fdt);
     update_omens(fdt);
@@ -9256,8 +9282,9 @@ static void spell_keys(void) {
 static float pad_turn(float dt) { return IN.rx * (0.4f + 0.6f * IN.rx * IN.rx) * PAD_TURN * dt; }   /* gentle near the middle */
 static void human_walk(float dt) {
     float run = IN.down[KEY_SHIFT] || PADX.run ? 1.5f : 1.0f;
-    G.ang = wrap_pi(G.ang + IN.mdx * MOUSE_TURN + ((float)IN.down[KEY_RIGHT] - (float)IN.down[KEY_LEFT]) * KEY_TURN * run * dt + pad_turn(dt));
-    float fwd = (float)(IN.down[KEY_W] || IN.down[KEY_UP]) - (float)(IN.down[KEY_S] || IN.down[KEY_DOWN]) + IN.ly;
+    int ar = !G.map_on;                                            /* the arrows pan the map while it is up */
+    G.ang = wrap_pi(G.ang + IN.mdx * MOUSE_TURN + ((float)(ar && IN.down[KEY_RIGHT]) - (float)(ar && IN.down[KEY_LEFT])) * KEY_TURN * run * dt + pad_turn(dt));
+    float fwd = (float)(IN.down[KEY_W] || (ar && IN.down[KEY_UP])) - (float)(IN.down[KEY_S] || (ar && IN.down[KEY_DOWN])) + IN.ly;
     float side = (float)IN.down[KEY_D] - (float)IN.down[KEY_A] + IN.lx;
     float len = sqrtf(fwd * fwd + side * side), moved = 0.0f;
     if (len > 0.0f) {                                              /* the stick part way over: slower */
@@ -9295,7 +9322,7 @@ static void best_default_rank(void);
 static void update_bestiary(void);
 static int toast_showing(void);
 static void open_ui(int which) {
-    G.ui = which;
+    G.ui = which; G.map_on = 0;                                    /* another screen takes the map's place */
     show_bar();                                                    /* and it is there when the menu closes */
     if (which == UI_INVENTORY) { G.ui_sel = 0; G.inv_page = 0; G.inv0 = RUN.gear; snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); }
     else if (which == UI_BESTIARY) { best_default_rank(); snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); }
@@ -9332,7 +9359,6 @@ static void open_ui(int which) {
         G.ui_sel = 0; G.asc_arm = -1; memset(G.asc_buy, 0, sizeof G.asc_buy); snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f);
         for (int l = 0; l < NLINE; l++) if (RUN.over[l]) { snd_sfx_ex(SFX_WHISPER, 0.3f, 0.2f); break; }   /* the overlevelled: the dead murmur */
     }
-    else if (which == UI_MAP) { G.map_cx = G.px; G.map_cy = G.py; G.map_hold = 0.0f; snd_sfx_ex(SFX_WHOOSH, 0.35f, 0.5f); snd_sfx_ex(SFX_CREAK, 0.2f, 0.5f); }
     else if (which == UI_REPO) { G.ui_sel = 0; G.rep_mode = 0; G.sh_note_t = 0.0f; snd_sfx_ex(SFX_UNLOCK, 0.6f, 0.5f); snd_sfx_ex(SFX_CREAK, 0.5f, 0.5f); }
     else if (which == UI_COMP) { G.ui_sel = 0; G.comp_arm = -1; G.sh_note_t = 0.0f; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.4f, 0.5f); }
     else if (which == UI_STONE) { G.ui_sel = 0; snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f); snd_sfx_ex(SFX_WIND, 0.4f, 0.5f); }
@@ -9439,13 +9465,14 @@ static void update_human(float dt) {
     if (G.pilgrim) pilgrim_step(dt);
     look_update(dt);
     spell_keys();
+    if (G.map_on) map_keys(dt);                                    /* its own keys; the rest play on */
     if (IN.hit[KEY_TAB]) { open_ui(UI_INVENTORY); return; }
     if (IN.hit[KEY_B]) { open_ui(UI_BESTIARY); return; }
     if (IN.hit[KEY_C]) { open_ui(UI_CODEX); return; }
     if (IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
     if (IN.hit[KEY_M]) {
-        if (RUN.has_map) { open_ui(UI_MAP); return; }
-        say("YOU HAVE NO MAP. THE MERCHANT SELLS ONE");
+        if (RUN.has_map) map_up();
+        else say("YOU HAVE NO MAP. THE MERCHANT SELLS ONE");
     }
     if (IN.hit[KEY_L]) {
         if (RUN.wisp_auto) { G.l_down = 1; G.l_t = 0.0f; }
@@ -9595,7 +9622,7 @@ static void human_begin(void) {
 
 /* back to the autopilot: the merchant's routine picks up where it fits; in the crypt, settle into the grid */
 static void human_end(void) {
-    G.player = 0; G.ui = UI_NONE; G.status_ret = PLAY_AUTO; G.pc_t = -1.0f; G.dash_t = 0.0f;
+    G.player = 0; G.ui = UI_NONE; G.status_ret = PLAY_AUTO; G.pc_t = -1.0f; G.dash_t = 0.0f; G.map_on = 0;
     if (G.shop) {
         if (G.shop_left <= 0) { G.shop_step = SH_LEAVE; G.shop_t = 0.0; shop_walk(SHOP_DOOR - 0.8f, 15.5f, 1.8f); }
         else { G.shop_step = SH_THINK; G.shop_t = 0.0; shop_turn(face_of(SHOP_MID, 13.0f), 0.5f); }
@@ -10152,6 +10179,14 @@ static void pad_keys(float dt) {
         return;
     }
     PADX.menu = 0;
+    if (G.map_on && G.player && !G.shop) {                         /* the map up: the D-pad pans it, B closes it */
+        if (hit[PAD_UP]) PRESS(KEY_UP);
+        if (hit[PAD_DOWN]) PRESS(KEY_DOWN);
+        if (hit[PAD_LEFT]) PRESS(KEY_LEFT);
+        if (hit[PAD_RIGHT]) PRESS(KEY_RIGHT);
+        if (hit[PAD_B]) PRESS(KEY_M);
+        hit[PAD_UP] = hit[PAD_DOWN] = hit[PAD_LEFT] = hit[PAD_RIGHT] = hit[PAD_B] = 0;
+    }
     if (hit[PAD_A]) PRESS(KEY_E);
     if (hit[PAD_X]) PRESS(KEY_Q);
     if (hit[PAD_VIEW]) PRESS(KEY_TAB);
@@ -11628,7 +11663,7 @@ static void update_portalmenu(void) {
 #define MAP_VX0 44
 #define MAP_VY0 24
 #define MAP_VW 232
-#define MAP_VH 150                          /* the part of the scroll the map is drawn in */
+#define MAP_VH 132                          /* the part of the scroll the map is drawn in; the level's numbers below */
 static void map_clamp(void) {
     int x0 = MAPN, y0 = MAPN, x1 = -1, y1 = -1;
     for (int y = 0; y < MAPN; y++)
@@ -11640,28 +11675,40 @@ static void map_clamp(void) {
     G.map_cx = bx - ax <= 2.0f * hw ? (ax + bx) * 0.5f : clampf(G.map_cx, ax + hw, bx - hw);
     G.map_cy = by - ay <= 2.0f * hh ? (ay + by) * 0.5f : clampf(G.map_cy, ay + hh, by - hh);
 }
-static void update_mapmenu(float dt) {
-    if (IN.hit[KEY_ESC] || IN.hit[KEY_M] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; snd_sfx_ex(SFX_WHOOSH, 0.3f, 0.5f); return; }
-    if (IN.hit[KEY_SPACE] || IN.hit[KEY_ENTER] || IN.hit[KEY_E]) { G.map_cx = G.px; G.map_cy = G.py; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
-    float vx, vy;
-    if (IN.pad && IN.lx * IN.lx + IN.ly * IN.ly > 0.04f) { vx = IN.lx; vy = -IN.ly; }   /* the stick, as far as it leans */
-    else {
-        int hx = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
-        int hy = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
-        vx = (float)((IN.down[KEY_D] || IN.down[KEY_RIGHT]) - (IN.down[KEY_A] || IN.down[KEY_LEFT]));
-        vy = (float)((IN.down[KEY_S] || IN.down[KEY_DOWN]) - (IN.down[KEY_W] || IN.down[KEY_UP]));
-        if (hx || hy) { G.map_cx += (float)hx; G.map_cy += (float)hy; G.map_hold = 0.0f; }
-        if (vx != 0.0f || vy != 0.0f) G.map_hold += dt; else G.map_hold = 0.0f;
-        if (G.map_hold < 0.25f) vx = vy = 0.0f;
-    }
-    G.map_cx += vx * 14.0f * dt; G.map_cy += vy * 14.0f * dt;
-    if (IN.down[KEY_MOUSE1]) { G.map_cx -= IN.mdx * 0.03f; G.map_cy -= IN.mdy * 0.03f; }
+/* The map up as you walk (docs/PLAN-b11.md, section 1): the arrow keys pan it, a cell a tap and smoothly while
+ * held (the pad's D-pad a cell a press); three seconds after the last pan it drifts back to you, or at once on
+ * Space; M, Esc or Tab close it (B on the pad). W/A/S/D and the mouse play on. */
+static void map_up(void) {
+    G.map_on = 1; G.map_cx = G.px; G.map_cy = G.py; G.map_hold = 0.0f; G.map_pan_t = 99.0f;
     map_clamp();
+    snd_sfx_ex(SFX_WHOOSH, 0.35f, 0.5f); snd_sfx_ex(SFX_CREAK, 0.2f, 0.5f);
+}
+static void map_keys(float dt) {
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_M] || IN.hit[KEY_TAB]) {
+        G.map_on = 0; snd_sfx_ex(SFX_WHOOSH, 0.3f, 0.5f);
+        IN.hit[KEY_ESC] = IN.hit[KEY_M] = IN.hit[KEY_TAB] = 0;      /* only the map goes */
+        return;
+    }
+    if (IN.hit[KEY_SPACE]) { G.map_pan_t = 99.0f; G.map_cx = G.px; G.map_cy = G.py; IN.hit[KEY_SPACE] = 0; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    int hx = IN.hit[KEY_RIGHT] - IN.hit[KEY_LEFT], hy = IN.hit[KEY_DOWN] - IN.hit[KEY_UP];
+    float vx = (float)(IN.down[KEY_RIGHT] - IN.down[KEY_LEFT]), vy = (float)(IN.down[KEY_DOWN] - IN.down[KEY_UP]);
+    if (hx || hy) { G.map_cx += (float)hx; G.map_cy += (float)hy; G.map_hold = 0.0f; G.map_pan_t = 0.0f; }
+    if (vx != 0.0f || vy != 0.0f) { G.map_hold += dt; G.map_pan_t = 0.0f; } else G.map_hold = 0.0f;
+    if (G.map_hold >= 0.25f) { G.map_cx += vx * 14.0f * dt; G.map_cy += vy * 14.0f * dt; }
+    map_clamp();
+}
+static void map_follow(float dt) {                                 /* it slides after you, unless panned a moment ago */
+    if (!G.map_on) return;
+    G.map_pan_t += dt;
+    if (G.map_pan_t < 3.0f) return;
+    float k = 1.0f - expf(-dt * 5.0f), cx = G.map_cx, cy = G.map_cy;
+    G.map_cx = G.px; G.map_cy = G.py;
+    map_clamp();                                                   /* where it would rest */
+    G.map_cx = cx + (G.map_cx - cx) * k; G.map_cy = cy + (G.map_cy - cy) * k;
 }
 
 static void update_ui(void) {
     if (IN.hit[KEY_MOUSE1]) G.click_spent = 1;                    /* a click that closes a menu casts nothing */
-    if (G.ui == UI_MAP) { update_mapmenu((float)IN_DT); return; }
     if (G.ui == UI_ASCEND) { update_ascend(); return; }
     if (G.ui == UI_STONES) { update_stones(); return; }
     if (G.ui == UI_WISPS) { update_wispmenu(); return; }
@@ -15293,7 +15340,7 @@ static void render_wind(Frame *f) {
  * every one is learnt and none differs. A tie takes turns, a second each. */
 static int target_y(void) { return boss_fighting() ? 30 : 2; }
 static int target_shown(void) {
-    if (!G.player || G.shop || G.ui || G.dead || G.tally || G.look_t <= 0.0f) return 0;
+    if (!G.player || G.shop || G.ui || G.dead || G.tally || G.look_t <= 0.0f || G.map_on) return 0;
     const Mob *m = &G.mobs[clampi(G.look_mob, 0, MAXMOBS - 1)];
     return m->alive && !m->ally && !m->boss;
 }
@@ -15526,25 +15573,29 @@ static float map_noise2(float x, float y, int s) {
 }
 #define SCROLL_X0 40
 #define SCROLL_X1 279
+/* The parchment, made once a level from its seed (docs/PLAN-b11.md, section 1): solid, but torn in from its
+ * edges and burnt through near its middle, about a quarter of it in all; the crypt shows through the holes */
 static void map_scroll_make(int seed) {
     memset(g_scroll, 0, sizeof g_scroll);
-    int top[W], bot[W], tx[4], tw[4], td[4], hx[2], hy[2], hr[2];
-    for (int k = 0; k < 4; k++) {                                  /* two tears at the top, two at the bottom */
-        tx[k] = SCROLL_X0 + 14 + (int)(hash2(k, seed + 11) % 212u);
-        if (k < 2 && abs(tx[k] - W / 2) < 56) tx[k] += tx[k] < W / 2 ? -56 : 56;   /* the name stays whole */
-        tw[k] = 4 + (int)(hash2(k, seed + 12) % 8u); td[k] = 4 + (int)(hash2(k, seed + 13) % 6u);
+    int top[W], bot[W], tx[6], tw[6], td[6], hx[2], hy[2], hr[2], nb = 1 + (int)(hash2(3, seed + 9) & 1u);
+    for (int k = 0; k < 6; k++) {                                  /* three tears from the top, three from the bottom */
+        tx[k] = SCROLL_X0 + 10 + (int)(hash2(k, seed + 11) % 220u);
+        if (k < 3 && abs(tx[k] - W / 2) < 66) tx[k] += tx[k] < W / 2 ? -66 : 66;   /* the name stays whole */
+        tw[k] = 9 + (int)(hash2(k, seed + 12) % 14u); td[k] = 18 + (int)(hash2(k, seed + 13) % 26u);
     }
-    for (int k = 0; k < 2; k++) {                                  /* and two burns */
-        hx[k] = k ? 214 + (int)(hash2(k, seed + 14) % 50u) : 56 + (int)(hash2(k, seed + 14) % 50u);
-        hy[k] = k ? 30 + (int)(hash2(k, seed + 15) % 30u) : 140 + (int)(hash2(k, seed + 15) % 30u);
-        hr[k] = 2 + (int)(hash2(k, seed + 16) % 3u);
+    for (int k = 0; k < 2; k++) {                                  /* and a burn or two near the middle */
+        hx[k] = W / 2 + (k ? 1 : -1) * (24 + (int)(hash2(k, seed + 14) % 44u));
+        hy[k] = 70 + (int)(hash2(k, seed + 15) % 50u);
+        hr[k] = 13 + (int)(hash2(k, seed + 16) % 9u);
     }
     for (int x = SCROLL_X0; x <= SCROLL_X1; x++) {
         float t = 8.0f + 3.0f * map_noise((float)x / 7.0f, seed) + 1.2f * map_noise((float)x / 2.0f, seed + 1);
         float b = 180.0f - 3.0f * map_noise((float)x / 7.0f, seed + 2) - 1.2f * map_noise((float)x / 2.0f, seed + 3);
-        for (int k = 0; k < 4; k++) {
+        for (int k = 0; k < 6; k++) {
             int d = abs(x - tx[k]);
-            if (d < tw[k]) { float v = (float)td[k] * (1.0f - (float)d / (float)tw[k]); if (k < 2) t += v; else b -= v; }
+            if (d >= tw[k]) continue;
+            float v = (float)td[k] * powf(1.0f - (float)d / (float)tw[k], 0.8f) + 3.0f * map_noise((float)x / 1.7f, seed + 20 + k);   /* jagged */
+            if (k < 3) t = fmaxf(t, 8.0f + v); else b = fminf(b, 180.0f - v);
         }
         top[x] = (int)t; bot[x] = (int)b;
     }
@@ -15552,7 +15603,11 @@ static void map_scroll_make(int seed) {
         for (int x = SCROLL_X0; x <= SCROLL_X1; x++) {
             if (y < top[x] || y > bot[x]) continue;
             float hole = 99.0f;
-            for (int k = 0; k < 2; k++) hole = fminf(hole, hypotf((float)(x - hx[k]), (float)(y - hy[k]) * 1.2f) - (float)hr[k]);
+            for (int k = 0; k < nb; k++) {                         /* a ragged ring of char round each burn */
+                float a = atan2f((float)(y - hy[k]), (float)(x - hx[k]));
+                float r = (float)hr[k] * (1.0f + 0.28f * (map_noise(a * 2.2f + 9.0f, seed + 30 + k) - 0.5f) + 0.12f * (map_noise(a * 6.0f + 3.0f, seed + 40 + k) - 0.5f));
+                hole = fminf(hole, hypotf((float)(x - hx[k]), (float)(y - hy[k]) * 1.15f) - r);
+            }
             if (hole < 0.0f) continue;
             int edge = imin(y - top[x], bot[x] - y);
             float v = 0.68f + 0.16f * (map_noise2((float)x / 23.0f, (float)y / 17.0f, seed + 5) - 0.5f) + 0.05f * ((float)(hash2(x, y + seed) & 255u) / 255.0f - 0.5f);
@@ -15563,6 +15618,7 @@ static void map_scroll_make(int seed) {
             uint8_t c = ramp_at(R_BONE, (int)(v * 15.0f + 0.5f));
             if (edge < 1 || hole < 1.0f) c = R_WOOD + 2;           /* scorched and frayed at the edges */
             else if (edge < 3 || hole < 2.2f) c = R_WOOD + 7;
+            else if (hole < 3.5f) c = ramp_at(R_BONE, (int)(v * 15.0f + 0.5f) - 4);   /* browned near the burn */
             g_scroll[y][x] = c;
         }
     g_scroll_for = seed;
@@ -15602,8 +15658,35 @@ static int map_open(int x, int y) {
     return (k == K_FLOOR || k == K_DOOR || k == K_PROP) && !map_hidden(x, y);
 }
 static int map_bx, map_by;                                          /* where cell (0, 0) falls on the screen */
-static void map_px(Frame *f, int x, int y, uint8_t c) {            /* only on the scroll, and inside its margin */
-    if (x >= MAP_VX0 && x < MAP_VX0 + MAP_VW && y >= MAP_VY0 && y < MAP_VY0 + MAP_VH && g_scroll[y][x]) f->pix[y * W + x] = c;
+static uint8_t map_ghost[H][W];                                     /* ink over a hole in the parchment, drawn last, eerie */
+static void ink_px(Frame *f, int x, int y, uint8_t c, int x0, int y0, int x1, int y1) {   /* ink on the paper, ghost-light over a hole */
+    if (x < x0 || x >= x1 || y < y0 || y >= y1) return;
+    if (g_scroll[y][x]) f->pix[y * W + x] = c; else map_ghost[y][x] = 1;
+}
+static void map_px(Frame *f, int x, int y, uint8_t c) { ink_px(f, x, y, c, MAP_VX0, MAP_VY0, MAP_VX0 + MAP_VW, MAP_VY0 + MAP_VH); }   /* the map's part */
+static int map_text(Frame *f, int x, int y, const char *t, uint8_t c) {   /* the font, inked; returns the width */
+    int x0 = x;
+    for (; *t; t++, x += 8)
+        for (int r = 0; r < 8; r++)
+            for (int k = 0; k < 8; k++)
+                if (font_bios8[(uint8_t)*t][r] >> (7 - k) & 1) ink_px(f, x + k, y + r, c, SCROLL_X0 + 4, 0, SCROLL_X1 - 3, H);
+    return x - x0;
+}
+static void map_ghostly(Frame *f) {                                /* the ink crossing a hole: pale ghost-light, a faint violet edge, adrift */
+    float t = G.ui_t;
+    int pulse = (int)(1.5f + 1.5f * sinf(t * 1.7f));
+    for (int pass = 0; pass < 2; pass++)                           /* the edge first, then the light over it */
+        for (int y = 1; y < H - 1; y++) {
+            int slip = fmodf(t + (float)(y >> 3) * 0.37f, 2.6f) < 0.1f ? 1 : 0;   /* now and then a band of it drifts a pixel */
+            for (int x = SCROLL_X0; x <= SCROLL_X1; x++) {
+                if (!map_ghost[y][x]) continue;
+                if (pass == 1) { if (!g_scroll[y][x + slip]) f->pix[y * W + x + slip] = (uint8_t)(R_GHOST + 12 + pulse); continue; }
+                for (int d = 0; d < 4; d++) {
+                    int nx = x + DX[d], ny = y + DY[d];
+                    if (!map_ghost[ny][nx] && !g_scroll[ny][nx + slip]) f->pix[ny * W + nx + slip] = (uint8_t)(R_PURPLE + 5);
+                }
+            }
+        }
 }
 static void map_face(Frame *f, int wx, int wy, uint8_t c) {        /* a mark on a wall's face, two thick, where it meets the floor */
     for (int d = 0; d < 4; d++) {
@@ -15619,16 +15702,85 @@ static void map_face(Frame *f, int wx, int wy, uint8_t c) {        /* a mark on 
             }
     }
 }
+/* the level's numbers (section 1), across the scroll's foot: the creatures the tally counts still about, the
+ * treasure still lying (rounded, the Treasure bonus in it), the secrets found of all, and the keys */
+static int map_creatures(void) {
+    int n = 0;
+    for (int i = 0; i < MAXMOBS; i++) {
+        const Mob *m = &G.mobs[i];
+        n += m->alive && m->state != MS_DIE && !KIND_IS(m, KF_UNCOUNTED) && !m->boss && !m->add && !m->ally;
+    }
+    return n;
+}
+static int map_gold(void) {
+    int v = 0;
+    if (PK.depth) { for (int i = 0; i < G.nitems; i++) if (G.items[i].alive && G.items[i].type < IT_KEY) v += G.items[i].value ? G.items[i].value : treasure_value(G.items[i].type); }
+    else v = imax(0, G.value_total - G.value_got);
+    float g = (float)v * (1.0f + gear_total(&RUN.gear, ST_TREASURE) / 100.0f);
+    if (g <= 0.0f) return 0;
+    return g < 1000.0f ? imax(50, (int)(g / 50.0f + 0.5f) * 50) : (int)(g / 100.0f + 0.5f) * 100;
+}
+static void map_key_mark(Frame *f, int x, int y, int color, int held) {   /* solid if held, an outline if still lying */
+    static const char *const KEYM[5] = { ".##......", "####.....", "#########", "####...#.", ".##....#." };
+    static const uint8_t KC[NKEYS] = { R_GOLD + 6, R_IRON + 10, R_BLOOD + 10 };
+    for (int r = 0; r < 5; r++)
+        for (int k = 0; k < 9; k++) {
+            if (KEYM[r][k] != '#') continue;
+            int edge = held;
+            for (int d = 0; d < 4 && !edge; d++) {
+                int nr = r + DY[d], nk = k + DX[d];
+                edge = nr < 0 || nr > 4 || nk < 0 || nk > 8 || KEYM[nr][nk] != '#';
+            }
+            if (edge) ink_px(f, x + k, y + r, KC[color], SCROLL_X0 + 4, 0, SCROLL_X1 - 3, H);
+        }
+}
+static void map_numbers(Frame *f) {
+    const uint8_t ink = R_WOOD + 2;
+    char t[48], v[16];
+    int y = MAP_VY0 + MAP_VH + 4, xl = SCROLL_X0 + 10, xr = SCROLL_X1 - 10;
+    snprintf(t, sizeof t, "CREATURES %d", map_creatures());
+    map_text(f, xl, y, t, ink);
+    int found = G.links_found, all = G.nlinks;
+    if (PK.depth) { found = PK.reached[PK.chain]; all = G_LEVEL.secrets[clampi(PK.chain, 0, MAXSECRETS - 1)].links; }
+    if (all > 0) snprintf(t, sizeof t, "SECRETS %d OF %d", imin(found, all), all); else snprintf(t, sizeof t, "NO SECRETS");
+    map_text(f, xr - gfx_text_width(t, 1), y, t, ink);
+    y += 10;
+    int g = map_gold();
+    if (g > 0) { commas(g, v, sizeof v); snprintf(t, sizeof t, "GOLD ABOUT %s", v); } else snprintf(t, sizeof t, "NO GOLD LEFT");
+    map_text(f, xl, y, t, ink);
+    int has[NKEYS] = { 0 }, nk = 0;                                /* the colours this level has: a vault door of each */
+    for (int k = 0; k < G.nvaults && !PK.depth; k++) if (G.vault_door[k] >= 0) { int c = clampi(G.doors[G.vault_door[k]].color, 0, NKEYS - 1); if (!has[c]) nk++; has[c] = 1; }
+    if (nk) {
+        int x = xr - nk * 12 + 3;
+        map_text(f, x - 40, y, "KEYS", ink);
+        for (int c = 0; c < NKEYS; c++) if (has[c]) { map_key_mark(f, x, y + 1, c, G.has_key[c] > 0); x += 12; }
+    }
+}
+static int map_shown(void) { return G.map_on && G.player && !G.shop && !G.dead && !G.tally && !G.ui && RUN.has_map; }
+/* the map over the crypt as it goes on: the scroll across the middle, holes and all */
 static void render_map(Frame *f) {
     static const uint8_t KEY_INK[NKEYS] = { R_GOLD + 5, R_IRON + 9, R_BLOOD + 9 };
     const uint8_t ink = R_WOOD + 2;
-    dim_view(f);
     int seed = G.level * 131 + PK.depth * 17 + 7;
     if (g_scroll_for != seed) map_scroll_make(seed);
+    memset(map_ghost, 0, sizeof map_ghost);
     for (int y = 0; y < H; y++) for (int x = SCROLL_X0; x <= SCROLL_X1; x++) if (g_scroll[y][x]) f->pix[y * W + x] = g_scroll[y][x];
     map_roller(f, 37); map_roller(f, 282);
     map_bx = (int)floorf(MAP_VX0 + MAP_VW * 0.5f - G.map_cx * MAP_PX);
     map_by = (int)floorf(MAP_VY0 + MAP_VH * 0.5f - G.map_cy * MAP_PX);
+    for (int y = 0; y < MAPN; y++)                                 /* where you have walked: washed a shade darker, faintly hatched */
+        for (int x = 0; x < MAPN; x++) {
+            if (!(G.mapped[y][x] & 8) || !map_open(x, y)) continue;
+            int px = map_bx + x * MAP_PX, py = map_by + y * MAP_PX;
+            for (int j = 1; j < MAP_PX; j++)
+                for (int i = 1; i < MAP_PX; i++) {
+                    int sx = px + i, sy = py + j;
+                    if (sx < MAP_VX0 || sx >= MAP_VX0 + MAP_VW || sy < MAP_VY0 || sy >= MAP_VY0 + MAP_VH) continue;
+                    uint8_t c = g_scroll[sy][sx];
+                    if (c < R_BONE || c >= R_BONE + 16) continue;  /* paper only: a scorch or a hole stays as it is */
+                    f->pix[sy * W + sx] = (uint8_t)imax(R_BONE, c - (((sx + sy) % 3) == 0 ? 4 : 2));
+                }
+        }
     for (int y = 0; y < MAPN; y++)                                 /* the walls: a line wherever floor meets stone */
         for (int x = 0; x < MAPN; x++) {
             if (!(G.mapped[y][x] & 1) || !map_open(x, y)) continue;
@@ -15707,16 +15859,17 @@ static void render_map(Frame *f) {
     char name[48];                                                 /* where it is, across the top */
     if (PK.depth) snprintf(name, sizeof name, "%s", G.ptheme == PT_SEVERANCE ? "THE SEVERED FLOOR" : "THE BACKROOMS");
     else level_name(G.level, name, sizeof name);
-    gfx_text8(f, (W - gfx_text_width(name, 1)) / 2, 13, name, R_WOOD + 3, 1);
-    for (int y = 12; y <= 20; y++) gfx_px(f, 266, y, R_WOOD + 3);  /* north */
-    gfx_px(f, 265, 13, R_WOOD + 3); gfx_px(f, 267, 13, R_WOOD + 3); gfx_px(f, 264, 14, R_WOOD + 3); gfx_px(f, 268, 14, R_WOOD + 3);
-    gfx_text8(f, 255, 13, "N", R_WOOD + 3, 1);
-    const char *hint = "WASD MOVES IT  SPACE: BACK TO YOU  ESC";
+    map_text(f, (W - gfx_text_width(name, 1)) / 2, 13, name, R_WOOD + 3);
+    for (int y = 12; y <= 20; y++) ink_px(f, 266, y, R_WOOD + 3, 0, 0, W, H);   /* north */
+    ink_px(f, 265, 13, R_WOOD + 3, 0, 0, W, H); ink_px(f, 267, 13, R_WOOD + 3, 0, 0, W, H); ink_px(f, 264, 14, R_WOOD + 3, 0, 0, W, H); ink_px(f, 268, 14, R_WOOD + 3, 0, 0, W, H);
+    map_text(f, 255, 13, "N", R_WOOD + 3);
+    map_numbers(f);
+    map_ghostly(f);
+    const char *hint = PADX.used ? "D-PAD MOVES IT  \1B CLOSES" : "ARROWS MOVE IT  SPACE RETURNS  M CLOSES";
     hint8(f, (W - hint_width(hint)) / 2, 190, hint, R_STONE + 11);
 }
 
 static void render_ui(Frame *f) {
-    if (G.ui == UI_MAP) { render_map(f); return; }
     if (G.ui == UI_ASCEND) { render_ascend(f); return; }
     if (G.ui == UI_STONES) { dim_view(f); panel(f, 4, 4, W - 8, H - 8); render_stones(f, 0); return; }
     if (G.ui == UI_PORTAL) { render_portalmenu(f); return; }
@@ -15758,8 +15911,9 @@ static void crawl_render(Frame *f) {
     if (G.web_hp > 0.0f && !G.dead && !G.shop) render_web(f);
     if (G.shop) render_shop_tags(f, dx, dy, horizon);
     if (!G.dead) { render_wards(f); render_hand(f); }
+    if (map_shown()) render_map(f);                                /* the map, as the crypt goes on under it */
     if (G.shop && G.ui != UI_MERCHANT) render_shop_card(f);   /* her own card would show under her menu */
-    if ((G.shop || G.player) && G.ui != UI_MAP) render_statusbar(f);   /* a person gets the Wolfenstein bar, */
+    if (G.shop || G.player) render_statusbar(f);                  /* a person gets the Wolfenstein bar, */
     render_sockets(f);
     render_runesockets(f);
     render_dash(f);

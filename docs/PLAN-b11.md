@@ -1,8 +1,9 @@
 # 1.0.0b11: the map at a walk, glyphs, runes in sight, and the elements
 
 **Status: settled (30 October 2026). The owner answered both rounds of questions the same day. Being built on
-`claude/eloquent-carson-1x049c`: steps 1 (the elements as data), 2 (the glyphs; `elements.png` drawn for the
-owner, its art in the game until they mark it up) and 3 (the runes' sockets) are built, tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+`claude/eloquent-carson-1x049c`: part one is built (steps 1-4: the elements as data, the glyphs with `elements.png`
+drawn for the owner and its art in the game until they mark it up, the runes' sockets, the map at a walk), tested in
+the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),
@@ -810,3 +811,9 @@ answers, and are first guesses for the runs to tune. Any of them can be changed 
 - **The runes' sockets** (step 3): a socket that slides away during the cooldown gives up its place, and comes
   back two seconds before the rune is ready as the newest, outermost. The Frost Nova and Dread are done as they go
   off, so theirs show the three seconds only. In the dream the experience lines rise six pixels while one shows.
+- **The map at a walk** (step 4): what is seen is marked by 64 rays of its own each step, out to 16 cells, rather than
+  by the renderer's columns, so it does not depend on the frames drawn. Space recentres it while it is up (E still
+  uses). Esc and Tab close only the map. The target's readout waits while it is up, since it would cover the
+  level's name. On a level narrower than the scroll it pans only north and south, as the old map did. The level's
+  numbers take two lines (creatures and secrets, then gold and keys), and the map's own part of the scroll is 18
+  pixels shorter to make room. A pocket's gold is the treasure still lying in it.
