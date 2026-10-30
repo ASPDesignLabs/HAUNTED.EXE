@@ -962,3 +962,10 @@ answers, and are first guesses for the runs to tune. Any of them can be changed 
   now says she takes the last node bought in a line. The controls card gains, when they apply, *HOLD A SPELL TO CHARGE
   ITS ULTIMATE*, *TURN OR STRAFE HARD TO SHAKE OFF A BAT* (from level 5) and *THE LAMPSTAND NORTH OF HER: THE LINES* (in
   her room, or with points to spend), each in the pad's words when the pad was touched last.
+- **The checks** (step 16). The first balance runs found the dream standing in one place for minutes, far more often
+  than 1.0.0b10's (58 stretches of a minute or more in its 32 runs, against 11). Two causes, both fixed: a key or
+  treasure in a block's corner, at a diagonal from its lane, could lie a hair past the dream's reach (1.5 cells, with
+  up to 0.11 of jitter on the diagonal's 1.41), so it walked to the lane, didn't take it, turned for its next goal and
+  came back, for good; it reaches 1.6 now (the first cause is older than this beta). And a Wraith driven back into a
+  dead end stayed in sight, so the dream fired at it again and again, each bolt holding it there: the dream now lets a
+  Wraith already driven back be. @STEP16@
