@@ -3,8 +3,8 @@
 **Status: settled (30 October 2026). The owner answered both rounds of questions the same day. Being built on
 `claude/eloquent-carson-1x049c`: part one is built (steps 1-4: the elements as data, the glyphs with `elements.png`
 drawn for the owner and its art in the game until they mark it up, the runes' sockets, the map at a walk), and part
-two's steps 5 (spells as lines) and 6 (the new room, the Lampstand on `hall2.png`, Alignment Points and the screen),
-tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+two's steps 5 (spells as lines), 6 (the new room, the Lampstand on `hall2.png`, Alignment Points and the screen) and 7
+(the abilities), tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),
@@ -840,3 +840,10 @@ answers, and are first guesses for the runs to tune. Any of them can be changed 
   same tree to look at (W/S only, since A/D turn Tab's pages). The dream spends at her greeting, after it ascends: its
   own line (from the run's id until classes come) to the end of a path, Fire's ability, a second line, then the rest
   of Fire's, saving for the next node in that order. Opening Physical brings six bones, as buying the spear did.
+- **The abilities** (step 7). Ionization's trail runs from the hand to what the bolt struck, its leaps along it,
+  hurting what crosses it once each for half the bolt's last blow; what the bolt struck isn't hurt by it again.
+  Firestarter drops a low flame every 0.6 cells of the fireball's flight, each 1.5 s. Deep Chill counts shards on a
+  creature in four seconds from the first. Seep's pool is a cell across and renews the splash's dose twice a second.
+  Harvest's extra soul goes through the soul count as kills' souls do. Impale's pinned creature shows a bone shaft
+  through it. Poison's bubbles and burning's flames are drawn in the creature's own texels, so they scale with it.
+  Permafrost and Burning Intensity, path nodes of step 8, already lengthen what they should, being simple.

@@ -99,6 +99,7 @@ typedef struct {
     int rank0;                                                     /* in a pocket: 1 + the rank it would have had on the level */
     float pois_t, pois_dps, pois_acc;                              /* poisoned (docs/PLAN-b11.md: the Blight Flask): time left, harm a second */
     float burn_t, burn_dps, burn_acc;                              /* alight: time left, harm a second (Firestarter, Firewall) */
+    float pin, chill_t; int chill_n;                               /* Impale: pinned; Deep Chill: shards on it since chill_t */
 } Mob;
 /* What each kind of creature is (docs/PLAN-bestiary.md): its names, a line for the bestiary, its
  * pictures there (walking towards you, and from the side), the ramp its rank recolours (-1: off the
@@ -360,7 +361,10 @@ typedef struct { int alive, type, cx, cy, seen, color, lx, ly, secret, gen; floa
                                                                                                    gen: 1 + its place among a pocket's things (0: not a pocket's) */
 typedef struct { int alive; float x, y, t, r; int big; } Boom;           /* big 2: the Blight Flask's green splash */
 typedef struct { int alive, kind; float x0, y0, z0, x1, y1, z1, t; } Beam;   /* lightning and soul drain, for a moment */
-typedef struct { int alive; float x, y, t, dps; int foe; } Burn;           /* hellfire on the floor; foe: an ember's, which burns the caster */
+typedef struct { int alive; float x, y, t, dps; int foe; float life; } Burn;   /* fire on the floor; foe 1: an ember's, which burns the caster;
+                                                                                 2: Firestarter's, which sets creatures alight */
+typedef struct { int alive; float x0, y0, x1, y1, t, dmg; uint32_t hit; } Trail;   /* Ionization: lightning's trail, hanging */
+typedef struct { int alive; float x, y, r, t, life, dose, slow; } Venom;   /* Seep: a pool of venom where a flask burst */
 typedef struct { int alive; float x, y, t; } Pool;                         /* what a drowned one leaves: foul, a few seconds */
 #define MAXPOOLS 4
 typedef struct { int deco, type, rank; float t; } Remains;         /* what something you slew left: for Grave Call to raise */
@@ -398,7 +402,9 @@ typedef struct {
 #define MAXBONES 10
 #define MAXITEMS 96
 #define MAXBEAMS 8
-#define MAXBURNS 8
+#define MAXBURNS 40
+#define MAXTRAILS 12
+#define MAXVENOM 10
 #define BONE_SPEED 5.5f
 #define FIRE_SPEED 4.5f
 #define EMBER_SPEED 4.0f
@@ -595,6 +601,8 @@ static struct {
     Bone bones[MAXBONES];
     Beam beams[MAXBEAMS];
     Burn burns[MAXBURNS];
+    Trail trails[MAXTRAILS];
+    Venom venoms[MAXVENOM];
     Pool pools[MAXPOOLS];
     Remains remains[MAXREMAINS]; int nremains;                     /* the newest remains, round and round */
     int wraith_done, wraith_now; float wraith_try;   /* the Wraith has come this level (or is called now); when to look for a place for it */
@@ -2588,7 +2596,7 @@ static void build_lightmap(void) {
         if (lit > 0.0f) light_dynamic(LAMP_X + 0.5f, LAMP_Y + 0.9f, lit * (0.94f + 0.06f * sinf((float)G.t * 6.0f)), 3.4f + 0.5f * lit);
     }
     for (int i = 0; i < MAXBURNS; i++)
-        if (G.burns[i].alive) light_dynamic(G.burns[i].x, G.burns[i].y, 1.5f * (1.0f - smoothstepf(1.8f, 2.5f, G.burns[i].t)) * (0.85f + 0.15f * sinf((float)G.t * 17.0f + i)), 3.2f);
+        if (G.burns[i].alive) light_dynamic(G.burns[i].x, G.burns[i].y, (G.burns[i].foe == 2 ? 0.8f : 1.5f) * (1.0f - smoothstepf(G.burns[i].life - 0.7f, G.burns[i].life, G.burns[i].t)) * (0.85f + 0.15f * sinf((float)G.t * 17.0f + i)), 3.2f);
     for (int i = 0; i < MAXBEAMS; i++)
         if (G.beams[i].alive) light_dynamic((G.beams[i].x0 + G.beams[i].x1) * 0.5f, (G.beams[i].y0 + G.beams[i].y1) * 0.5f, 1.6f * (1.0f - G.beams[i].t / 0.3f), 3.5f);
     for (int i = 0; i < MAXMOBS; i++) {                            /* a wall skull gathering its fire; the bones a deacon calls */
@@ -2943,7 +2951,7 @@ static void say(const char *fmt, ...);
 
 static void ember_land(const Bone *b) {
     for (int i = 0; i < MAXBURNS; i++)
-        if (!G.burns[i].alive) { G.burns[i] = (Burn){ 1, b->x, b->y, 0.0f, b->dmg * 0.8f, 1 }; break; }
+        if (!G.burns[i].alive) { G.burns[i] = (Burn){ 1, b->x, b->y, 0.0f, b->dmg * 0.8f, 1, 2.5f }; break; }
     sfx_at(SFX_EXPLODE, b->x, b->y, 0.4f);
     DBG_COUNT(ember_burns);
 }
@@ -3486,6 +3494,7 @@ static void kill_mob(Mob *m) {
     if (m->boss) return;                                           /* a boss leaves only its scrip */
     xp_kill(m);
     gain_souls((float)RANK_SOULS[m->rank]);
+    if (m->last_atk == AT_DRAIN && align_has(EL_SPIRIT, ND_ABIL)) gain_souls(m->rank >= RK_III ? 2.0f : 1.0f);   /* Harvest */
     if (G.reap_t > 0.0f && RUN.gear.def[DF_REAP] >= RUNE_EXQ && !G.dead && !KIND_IS(m, KF_UNCOUNTED)) {   /* Exquisite: a little life back */
         G.hp = clampi(G.hp + (G.max_hp + 19) / 20, 0, G.max_hp);
         DBG_COUNT(exq_reaped);
@@ -3659,6 +3668,67 @@ static void mob_afflict(Mob *m, float dt) {                        /* what wears
     }
 }
 
+/* The lines' abilities (docs/PLAN-b11.md, sections 9-10, step 7) */
+static float burning_time(void) {                                  /* Firestarter's burning: two seconds, Burning Intensity more, Spell Effect */
+    return 2.0f * (1.0f + ALIGN[EL_FIRE].n[ND_A2].val * (float)RUN.al[EL_FIRE][ND_A2]) * spell_effect();
+}
+static float permafrost(void) { return 1.0f + ALIGN[EL_FROST].n[ND_A2].val * (float)RUN.al[EL_FROST][ND_A2]; }   /* slowing and freezing longer */
+static void deep_chill(Mob *m) {                                   /* Deep Chill: the third shard in four seconds freezes it a second */
+    if (!align_has(EL_FROST, ND_ABIL) || !m->alive || m->state != MS_WALK) return;
+    if ((float)G.t - m->chill_t > 4.0f) { m->chill_n = 0; m->chill_t = (float)G.t; }
+    if (++m->chill_n < 3) return;
+    m->chill_n = 0;
+    if (m->boss) m->slowed = fmaxf(m->slowed, 3.0f * permafrost());   /* a boss is slowed harder instead */
+    else { m->frozen = fmaxf(m->frozen, 1.0f * permafrost()); m->swing = 0.0f; m->throw_t = 0.0f; }
+    sfx_at(SFX_FROST, m->x, m->y, 1.2f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT deep_chill %s t=%.2f\n", KINDS[m->type].name, G.t);
+#endif
+}
+static void ionize(float x0, float y0, float x1, float y1, float dmg, uint32_t struck) {   /* Ionization: a trail half a second */
+    if (!align_has(EL_LIGHT, ND_ABIL)) return;
+    for (int i = 0; i < MAXTRAILS; i++)
+        if (!G.trails[i].alive) { G.trails[i] = (Trail){ 1, x0, y0, x1, y1, 0.0f, dmg * 0.5f, struck }; return; }
+}
+static void update_trails(float dt) {                              /* what crosses a trail is hurt once by it */
+    for (int i = 0; i < MAXTRAILS; i++) {
+        Trail *tr = &G.trails[i];
+        if (!tr->alive) continue;
+        if ((tr->t += dt) >= 0.5f) { tr->alive = 0; continue; }
+        float vx = tr->x1 - tr->x0, vy = tr->y1 - tr->y0, l2 = vx * vx + vy * vy + 1e-4f;
+        for (int k = 0; k < MAXMOBS; k++) {
+            Mob *m = &G.mobs[k];
+            if ((tr->hit >> k & 1) || !m->alive || m->state != MS_WALK || KIND_IS(m, KF_SPIRIT) || m->ally || buried(m)) continue;
+            float u = clampf(((m->x - tr->x0) * vx + (m->y - tr->y0) * vy) / l2, 0.0f, 1.0f);
+            if (hypotf(tr->x0 + vx * u - m->x, tr->y0 + vy * u - m->y) > 0.25f + KINDS[m->type].rad) continue;
+            tr->hit |= 1u << k;
+            damage_mob(m, tr->dmg, DM_ARC | DM_ATK(AT_CHAIN), m->x, m->y, 0.0f);
+        }
+    }
+}
+static void seep(float x, float y, float dose) {                   /* Seep: the splash leaves a pool two seconds, Lingering longer */
+    if (!align_has(EL_POISON, ND_ABIL)) return;
+    float life = 2.0f * (1.0f + ALIGN[EL_POISON].n[ND_A2].val * (float)RUN.al[EL_POISON][ND_A2]);
+    for (int i = 0; i < MAXVENOM; i++)
+        if (!G.venoms[i].alive) { G.venoms[i] = (Venom){ 1, x, y, 0.55f, 0.0f, life, dose, 0.0f }; return; }
+}
+static void update_venoms(float dt) {                              /* what wades in it is poisoned again */
+    for (int i = 0; i < MAXVENOM; i++) {
+        Venom *v = &G.venoms[i];
+        if (!v->alive) continue;
+        float pt = v->t;
+        if ((v->t += dt) >= v->life) { v->alive = 0; continue; }
+        if ((int)(pt * 2.0f) == (int)(v->t * 2.0f)) continue;      /* twice a second */
+        for (int k = 0; k < MAXMOBS; k++) {
+            Mob *m = &G.mobs[k];
+            if (!m->alive || m->state != MS_WALK || KIND_IS(m, KF_SPIRIT) || m->ally || buried(m) || m->type == MOB_GARGOYLE) continue;
+            if (hypotf(m->x - v->x, m->y - v->y) > v->r + KINDS[m->type].rad * 0.5f) continue;
+            mob_poison(m, v->dose, 4.0f);
+            if (v->slow > 0.0f) m->slowed = fmaxf(m->slowed, v->slow);
+        }
+    }
+}
+
 static void thorns(Mob *m) {
     int t = gear_thorns(&RUN.gear);
     if (t > 0 && m->alive) damage_mob(m, (float)t, DM_ARC, G.px, G.py, 0.0f);
@@ -3805,6 +3875,7 @@ static void footstep(void) {
 /* how fast a creature's clock runs: frozen stops it, frost slows it, Time Slip slows everything near */
 static float mob_time(Mob *m, float dt) {
     if (m->frozen > 0.0f) { m->frozen -= dt; return 0.0f; }
+    if (m->pin > 0.0f) { m->pin -= dt; return 0.0f; }              /* Impale: pinned where it stands */
     float k = 1.0f;
     if (m->slowed > 0.0f) { m->slowed -= dt; k *= 0.5f; }
     if (G.slip_t > 0.0f && hypotf(m->x - G.px, m->y - G.py) < 7.0f) k *= 0.3f;
@@ -4757,6 +4828,7 @@ static void chain_lightning(int t, float dmg, int tier) {
     float hx = G.px + cosf(G.ang) * 0.35f, hy = G.py + sinf(G.ang) * 0.35f;
     add_beam(AT_CHAIN, hx, hy, 0.42f, m->x, m->y, m->z + 0.5f);
     hit |= 1u << t;
+    float tx0 = hx, ty0 = hy;
     damage_mob(m, dmg, DM_ARC | DM_ATK(AT_CHAIN), G.px, G.py, 0.0f);
     int hops = align_has(EL_LIGHT, ND_AULT) ? 4 : 0;
     (void)tier;
@@ -4777,6 +4849,8 @@ static void chain_lightning(int t, float dmg, int tier) {
         damage_mob(o, dmg, DM_ARC | DM_ATK(AT_CHAIN), cx, cy, 0.0f);
         cx = o->x; cy = o->y; cz = o->z;
     }
+    ionize(tx0, ty0, m->x, m->y, dmg, hit);                        /* Ionization: the way it went hangs a moment */
+    cx = m->x; cy = m->y;
     snd_sfx_ex(SFX_ZAP, 1.2f, 0.5f);
 }
 
@@ -4815,6 +4889,7 @@ static void flask_burst(Shot *s) {
         if (damage_mob(m, s->dmg * 0.25f, DM_ARC | DM_ATK(AT_FLASK), s->x, s->y, 0.0f)) continue;
         mob_poison(m, s->dmg * 0.75f, 4.0f);
     }
+    seep(s->x, s->y, s->dmg * 0.75f);
 }
 
 /* let the chosen spell go at target t (or straight ahead if it is gone) */
@@ -4949,6 +5024,14 @@ static void update_shots(float dt) {
             }
         }
         if (s->arc > 0.0f) { float u = clampf(1.0f - s->life / s->arc, 0.0f, 1.0f); s->z = (0.3f + 0.06f * s->arc * 7.0f) * 4.0f * u * (1.0f - u) - 0.42f * u; }   /* a lob */
+        if (s->kind == AT_FIRE && s->tier >= 0 && align_has(EL_FIRE, ND_ABIL)) {   /* Firestarter: the floor alight along its flight */
+            int step = (int)((1.6f - s->life) * 8.0f / 0.6f);
+            if (step > (int)s->pierced && G.map[clampi((int)s->y, 0, MAPN - 1)][clampi((int)s->x, 0, MAPN - 1)].kind == K_FLOOR) {
+                s->pierced = (uint32_t)step;
+                for (int b = 0; b < MAXBURNS; b++)
+                    if (!G.burns[b].alive) { G.burns[b] = (Burn){ 1, s->x, s->y, 0.0f, s->dmg * 0.25f, 2, 1.5f }; break; }
+            }
+        }
         float sdt = G.bslip_t > 0.0f && hypotf(s->x - G.bslip_x, s->y - G.bslip_y) < 3.0f ? dt * 0.2f : dt;   /* the Wraith's Time Slip */
         int n = 1 + (int)(sqrtf(s->vx * s->vx + s->vy * s->vy) * sdt / 0.08f);
         for (int k = 0; k < n && s->alive; k++) {
@@ -4984,6 +5067,9 @@ static void update_shots(float dt) {
                 float fx = s->x - s->vx * 0.1f, fy = s->y - s->vy * 0.1f;
                 switch (s->kind) {
                 case AT_SPEAR:                                     /* through everything in the line, shields too */
+                    if (!s->pierced && align_has(EL_PHYS, ND_ABIL) && mb->alive) {   /* Impale: the first it strikes, pinned */
+                        if (mb->boss) mb->stagger = fmaxf(mb->stagger, 0.4f); else mb->pin = fmaxf(mb->pin, 0.6f);
+                    }
                     s->pierced |= 1u << mi;
                     damage_mob(mb, s->dmg, DM_PIERCE | DM_ATK(AT_SPEAR), fx, fy, 0.0f);
                     sfx_at(SFX_BONES, mb->x, mb->y, 0.5f);
@@ -4992,7 +5078,7 @@ static void update_shots(float dt) {
                     s->alive = 0; explode_big(s->x, s->y, 1.6f);
                     damage_mob(mb, s->dmg, DM_ATK(AT_HELL), fx, fy, 0.0f); splash(s->x, s->y, 1.5f, s->dmg, mb, AT_HELL);
                     for (int b = 0; b < MAXBURNS; b++)
-                        if (!G.burns[b].alive) { G.burns[b] = (Burn){ 1, s->x, s->y, 0.0f, (4.0f + s->tier) * spell_effect(), 0 }; break; }
+                        if (!G.burns[b].alive) { G.burns[b] = (Burn){ 1, s->x, s->y, 0.0f, (4.0f + s->tier) * spell_effect(), 0, 2.5f }; break; }
                     break;
                 case AT_FIRE:
                     s->alive = 0; explode(s->x, s->y);
@@ -5001,7 +5087,7 @@ static void update_shots(float dt) {
                     break;
                 case AT_FROST:
                     s->alive = 0; sfx_at(SFX_FROST, s->x, s->y, 0.8f);
-                    damage_mob(mb, s->dmg, DM_SLOW | DM_ATK(AT_FROST), fx, fy, (2.5f + 0.25f * s->tier) * spell_effect());
+                    if (!damage_mob(mb, s->dmg, DM_SLOW | DM_ATK(AT_FROST), fx, fy, (2.5f + 0.25f * s->tier) * spell_effect() * permafrost())) deep_chill(mb);
                     break;
                 case SHOT_WEB: web_land(s, mb); break;             /* your Tangled Web */
                 default:                                           /* sparks, wisps, reflected missiles */
@@ -5018,11 +5104,21 @@ static void update_shots(float dt) {
     }
     for (int i = 0; i < MAXBOOMS; i++) if (G.booms[i].alive && (G.booms[i].t += dt) >= 0.6f) G.booms[i].alive = 0;
     for (int i = 0; i < MAXBEAMS; i++) if (G.beams[i].alive && (G.beams[i].t += dt) >= 0.3f) G.beams[i].alive = 0;
-    for (int i = 0; i < MAXBURNS; i++) {                           /* the floor burns a while after hellfire */
+    update_trails(dt);
+    update_venoms(dt);
+    for (int i = 0; i < MAXBURNS; i++) {                           /* the floor burns a while: hellfire, embers, Firestarter */
         Burn *b = &G.burns[i];
         if (!b->alive) continue;
         float pt = b->t; b->t += dt;
-        if (b->t >= 2.5f) { b->alive = 0; continue; }
+        if (b->t >= b->life) { b->alive = 0; continue; }
+        if (b->foe == 2) {                                         /* Firestarter's: what walks through catches fire */
+            for (int k = 0; k < MAXMOBS; k++) {
+                Mob *m = &G.mobs[k];
+                if (m->alive && m->state == MS_WALK && !KIND_IS(m, KF_SPIRIT) && m->type != MOB_WSKULL && !m->ally && !buried(m)
+                    && hypotf(m->x - b->x, m->y - b->y) < 0.45f + KINDS[m->type].rad * 0.5f) mob_burn(m, b->dps, burning_time());
+            }
+            continue;
+        }
         if (b->foe) {                                              /* an ember's: it burns whoever stands in it */
             if ((int)(pt * 2.0f) != (int)(b->t * 2.0f) && hypotf(G.px - b->x, G.py - b->y) < 0.6f) {
                 G.blame = (Blame){ BL_FIRE, MOB_IMP, 0 };
@@ -6606,7 +6702,7 @@ static void start_level(void) {
     memset(G.booms, 0, sizeof G.booms);
     memset(G.bones, 0, sizeof G.bones);
     memset(G.beams, 0, sizeof G.beams);
-    memset(G.burns, 0, sizeof G.burns);
+    memset(G.burns, 0, sizeof G.burns); memset(G.trails, 0, sizeof G.trails); memset(G.venoms, 0, sizeof G.venoms);
     memset(G.remains, 0, sizeof G.remains); G.nremains = 0;
     reset_caster_state();
     const Room *R = &G.rooms[0];
@@ -6709,6 +6805,7 @@ static void align_debug(const char *s) {
         int p0 = to >= ND_B1 ? ND_B1 : ND_A1;
         for (int n = p0; n <= to && to >= ND_A1; n++) RUN.al[e][n] = (uint8_t)ALIGN[e].n[n].cost;
     }
+    if (align_open(EL_PHYS)) RUN.gear.bones = (int16_t)bones_max();   /* and the spear's bones */
 }
 #endif
 static void give_gear(int t) {
@@ -8794,6 +8891,7 @@ static void begin_shop(void) {
     gen_shop();
     memset(G.mobs, 0, sizeof G.mobs); memset(G.shots, 0, sizeof G.shots); memset(G.booms, 0, sizeof G.booms);
     memset(G.bones, 0, sizeof G.bones); memset(G.beams, 0, sizeof G.beams); memset(G.burns, 0, sizeof G.burns);
+    memset(G.trails, 0, sizeof G.trails); memset(G.venoms, 0, sizeof G.venoms);
     reset_caster_state();
     if (G.hp <= 0) G.hp = G.max_hp;
     G.tally = 0; G.dead = 0; G.exiting = G.leaving = 0; G.readout = 0.0f; G.card = 99.0f;
@@ -12530,7 +12628,7 @@ typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int
                                                                                                    ramp, for Keymaker's sparkle; web: how much of yours holds it */
 enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_SWAY = 32, DR_FLIPV = 64, DR_COMMUNE = 128, DR_GLINT = 256, DR_EDGE = 512,
        DR_GLITCH = 1024, DR_CLIP = 2048, DR_LOOPED = 4096, DR_LIT = 8192, DR_SHINE = 16384, DR_MEND = 32768,
-       DR_RIPPLE = 65536, DR_ALLY = 131072, DR_WEBBED = 262144, DR_VENOM = 524288, DR_POISONED = 1048576, DR_BURNING = 2097152 };
+       DR_RIPPLE = 65536, DR_ALLY = 131072, DR_WEBBED = 262144, DR_VENOM = 524288, DR_POISONED = 1048576, DR_BURNING = 2097152, DR_PINNED = 4194304 };
 /* VENOM: fire's colours turned green (the flask's splash); POISONED: green bubbles rising off it; BURNING: flames licking up it */   /* ALLY: risen by your Grave Call, a violet edge; WEBBED: held in yours */                                         /* RIPPLE: the Wraith's Time Slip, grey, going out */   /* SHINE: polished plate, a glint
                                                                                                  sliding over it */
 /* GLITCH: rows torn sideways and colours slipping, now and then (the Backrooms), more often when LOOPED; CLIP: cut at
@@ -12573,8 +12671,21 @@ static void line3d(Frame *f, float dx, float dy, float horizon, float x0, float 
     }
 }
 
-/* lightning and the soul drain, a moment each */
+/* lightning and the soul drain, a moment each; Ionization's trails, fainter, crackling */
 static void render_beams(Frame *f, float dx, float dy, float horizon) {
+    for (int i = 0; i < MAXTRAILS; i++) {
+        const Trail *tr = &G.trails[i];
+        if (!tr->alive) continue;
+        uint32_t r = (uint32_t)(G.t * 20.0) * 2654435761u + (uint32_t)i * 977u;
+        float px = tr->x0, py = tr->y0, pz = 0.42f, ox = -(tr->y1 - tr->y0), oy = tr->x1 - tr->x0, ol = hypotf(ox, oy) + 1e-4f;
+        ox /= ol; oy /= ol;
+        for (int s = 1; s <= 9; s++) {
+            float t = (float)s / 9, j = s == 9 ? 0.0f : (rng_f(&r) - 0.5f) * 0.25f;
+            float nx = lerpf(tr->x0, tr->x1, t) + ox * j, ny = lerpf(tr->y0, tr->y1, t) + oy * j, nz = lerpf(0.42f, 0.5f, t) + j * 0.3f;
+            if ((rng_next(&r) & 3) != 0) line3d(f, dx, dy, horizon, px, py, pz, nx, ny, nz, (uint8_t)(R_GOLD + 9), (uint8_t)(R_GOLD + 5), 1);
+            px = nx; py = ny; pz = nz;
+        }
+    }
     for (int i = 0; i < MAXBEAMS; i++) {
         const Beam *b = &G.beams[i];
         if (!b->alive) continue;
@@ -12901,6 +13012,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         }
         if (m->boss == 1 + BOSS_SPIDER && G.bmend_t > 0.0f && m->state == MS_WALK) d->flags |= DR_MEND;   /* its Mend Rune */
         if (m->pois_t > 0.0f && m->state == MS_WALK) d->flags |= DR_POISONED;
+        if (m->pin > 0.0f && m->state == MS_WALK) d->flags |= DR_PINNED;
         if (m->burn_t > 0.0f && m->state == MS_WALK) d->flags |= DR_BURNING;
         if (m->boss == 1 + BOSS_WRAITH && G.bslip_t > 0.9f) d->flags |= DR_RIPPLE;
         if (m->boss == 1 + BOSS_DEACON) {
@@ -12983,8 +13095,15 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         const Burn *b = &G.burns[i];
         if (!b->alive) continue;
         int n0 = n;
-        ADD(b->x, b->y, 0.0f, ((int)(G.t * 9.0) + i) & 1 ? SP_BURN_B : SP_BURN_A, 1.0f - smoothstepf(1.6f, 2.5f, b->t));
-        if (n > n0) list[n - 1].scale = 0.9f;
+        ADD(b->x, b->y, 0.0f, ((int)(G.t * 9.0) + i) & 1 ? SP_BURN_B : SP_BURN_A, 1.0f - smoothstepf(b->life - 0.9f, b->life, b->t));
+        if (n > n0) list[n - 1].scale = b->foe == 2 ? 0.55f : 0.9f;   /* Firestarter's: lower flames, in a line */
+    }
+    for (int i = 0; i < MAXVENOM; i++) {                           /* Seep's pools, green */
+        const Venom *v = &G.venoms[i];
+        if (!v->alive) continue;
+        int n0 = n;
+        ADD(v->x, v->y, 0.0f, SP_DROWN_POOL, 1.0f - smoothstepf(v->life - 0.6f, v->life, v->t));
+        if (n > n0) { list[n - 1].scale = 0.8f * v->r / 0.55f; list[n - 1].flags |= DR_VENOM; }
     }
     for (int i = 0; i < MAXBONES; i++) {
         const Bone *b = &G.bones[i];
@@ -13179,9 +13298,9 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     c = (uint8_t)(R_IRON + imin(15, v + 2 + v / 4));
                 }
                 if ((d->flags & DR_MEND) && ((x + y + (int)(G.t * 8.0)) & 3) == 0) { f->pix[y * W + x] = (uint8_t)(R_MOSS + 12 + ((x >> 1) & 3)); continue; }   /* mending: green */
-                if ((d->flags & DR_POISONED) && hash2(x >> 1, (y + (int)(G.t * 18.0)) >> 1) % 19u == 0) { f->pix[y * W + x] = (uint8_t)(R_MOSS + 11 + ((y >> 2) & 3)); continue; }   /* bubbles rising */
-                if ((d->flags & DR_BURNING) && (float)y - top > size * 0.35f
-                    && (hash2(x, (y + (int)(G.t * 40.0)) >> 1) & 7) == 0) { f->pix[y * W + x] = (uint8_t)(R_FLAME + 9 + (int)(hash2(y, x) & 6)); continue; }   /* flames licking up it */
+                if ((d->flags & DR_POISONED) && hash2(tx >> 1, (tyi + (int)(G.t * 9.0)) >> 1) % 23u == 0) { f->pix[y * W + x] = (uint8_t)(R_MOSS + 11 + ((tyi >> 2) & 3)); continue; }   /* bubbles rising */
+                if ((d->flags & DR_BURNING) && tyi > TS / 3
+                    && (hash2(tx >> 1, (tyi + (int)(G.t * 24.0)) >> 1) & 7) == 0) { f->pix[y * W + x] = (uint8_t)(R_FLAME + 9 + (int)(hash2(tyi, tx) & 6)); continue; }   /* flames licking up it */
                 if ((d->flags & DR_VENOM) && ((c >= R_FLAME && c < R_FLAME + 16) || (c >= R_GLOW && c < R_GLOW + 16) || c == C_WHITE)) c = (uint8_t)(R_MOSS + (c == C_WHITE ? 15 : (c & 15)));
                 if (d->remap && c >= R_PURPLE && c < R_PURPLE + 16) c = ramp_at(d->remap, c - R_PURPLE);
                 if (d->flags & DR_IMPLODE) { f->pix[y * W + x] = c == 0 ? 0 : (uint8_t)(R_GLOW + clampi(6 + (int)((c & 15) * 0.6f), 6, 15)); continue; }
@@ -13203,6 +13322,11 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     f->pix[py * W + px] = grey ? (uint8_t)(R_STONE + 9 + (a & 3)) : (a & 3) ? (uint8_t)C_WHITE : (uint8_t)(R_GHOST + 12);
             }
         }
+        if (d->flags & DR_PINNED)                                  /* Impale: a bone shaft through it */
+            for (int i = 0; i <= (int)(size * 0.8f); i++) {
+                int px = (int)(left + size * 0.1f) + i, py = (int)(top + size * (0.42f + 0.12f * (float)i / (size * 0.8f + 1.0f)));
+                if (px >= 0 && px < W && py >= 0 && py + 1 < H && d->depth < zbuf[px]) { f->pix[py * W + px] = R_BONE + 13; f->pix[(py + 1) * W + px] = R_BONE + 8; }
+            }
         if (d->spr == SP_LAMPSTAND && G.shop)                      /* each line open burning in its bowl, in its colour, */
             for (int b = 0; b < NELEM; b++) {                      /* taller as it ranks */
                 int r = align_rank(b);
