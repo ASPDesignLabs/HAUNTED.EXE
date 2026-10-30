@@ -600,6 +600,8 @@ typedef struct {
 } Visit;
 static struct {
     int read, yours, page;
+    int kept;                               /* the run came from the ledger as the program started: a person's, so the */
+                                            /* dream makes none of its lasting choices for it (what it was, its lines) */
     int has_visit; Visit visit;             /* the page's visit, set out when its room is entered */
     int marked, claim_due;                  /* this run's page is marked in danger; one opened marked: her claim is due */
     float calm_t;                           /* how long the danger has been over, counting down to the mark's clearing */
@@ -3622,8 +3624,13 @@ static void class_take(int c) {
     fprintf(stderr, "EVENT class %s from %s by %s t=%.2f\n", CLASSES[e].name, old >= 0 ? CLASSES[old].name : "nothing", G.player ? "player" : "autopilot", G.t);
 #endif
 }
+static void old_spells_said(void) {                               /* to a person: as she greets them, or as they take over there */
+    if (!RUN.old_spells || !LEDGER.yours || !G.shop) return;
+    RUN.old_spells = 0;
+    toast(SP_ITEM_TOME, -1, RK_I, 0, "THE OLD SPELLS ARE FORGOTTEN", "ALIGN AT THE LAMPSTAND");
+}
 static void auto_align(void) {
-    if (LEDGER.yours) return;                                      /* a person's points are theirs to spend */
+    if (LEDGER.yours || LEDGER.kept) return;                       /* a person's points are theirs to spend */
     uint32_t h = RUN.run_id * 2654435761u;
     int own = cls_el() >= 0 ? cls_el() : (int)(h % NELEM), second = (own + 1 + (int)((h >> 8) % (NELEM - 1))) % NELEM;
     if (second == EL_FIRE) second = (second + 1) % NELEM;
@@ -3638,7 +3645,7 @@ static void auto_align(void) {
 }
 
 static void auto_ascend(void) {                                    /* the autopilot's: a little of everything that keeps it alive */
-    if (LEDGER.yours) return;                                      /* a person's run: what it buys is theirs to choose */
+    if (LEDGER.yours || LEDGER.kept) return;                       /* a person's run: what it buys is theirs to choose */
     ascend();
     static const int ORDER[] = { LN_HASTE, LN_DAMAGE, LN_HEALTH, LN_HEALTH, LN_DODGE, LN_RESIST, LN_ATTUNE, LN_HEALTH, LN_LUCK };
     for (int guard = 0; guard < 4000 && RUN.points > 0; guard++) {
@@ -9592,8 +9599,8 @@ static void begin_shop(void) {
     G.px = 13.6f; G.py = 16.2f; G.cx = 13; G.cy = 16;              /* close by the merchant, the wares before you */
     G.ang = face_of(CAT_X, CAT_Y);
     G.camz = 0.5f; G.hand = 0.0f; G.spd = 0.0f; G.bob = 0.0f; G.bar = 1.0f;
-    if (RUN.old_spells) { RUN.old_spells = 0; toast(SP_ITEM_TOME, -1, RK_I, 0, "THE OLD SPELLS ARE FORGOTTEN", "ALIGN AT THE LAMPSTAND"); }   /* a page from before the Alignment */
-    if (!RUN.cls && !LEDGER.yours) class_take(1 + rnd(NELEM));    /* the dream: what it was, at random, so every line shows in time */
+    old_spells_said();                                             /* a page from before the Alignment */
+    if (!RUN.cls && !LEDGER.yours && !LEDGER.kept) class_take(1 + rnd(NELEM));   /* the dream: what it was, at random, so every line shows in time */
     int bag_up = 0;
     for (int p = 0; p < G.ped_n; p++) {                            /* now and then the BFS9000, the rest to wear; one bag at most */
         int pool = p == 0 ? POOL_ATTACK : POOL_GEAR;               /* runes are the Rune Shrine's, spells the lines' */
@@ -10027,12 +10034,12 @@ static int bell_tolled(void);
 static void bell_toll(int shown);
 static void wfont_drink(void);
 static int bell_wanted(void) {
-    if (LEDGER.yours || boss_of_level(G.level) >= 0) return 0;
+    if (LEDGER.yours || LEDGER.kept || boss_of_level(G.level) >= 0) return 0;
     if (!RUN.bell_cursed) return RUN.coins >= 1;
     return !bell_tolled() && spirit() - (float)bell_price() >= (float)vessel() / 5.0f;
 }
 static int font_wanted(void) {
-    if (LEDGER.yours) return 0;
+    if (LEDGER.yours || LEDGER.kept) return 0;
     if (!RUN.font_cursed) return RUN.coins >= 1 + (!RUN.bell_cursed && boss_of_level(G.level) < 0);
     float after = spirit() - (bell_wanted() && RUN.bell_cursed ? (float)bell_price() : 0.0f);
     return !G.font_drunk && RUN.font_next != G.level && after - (float)font_price() >= (float)vessel() / 5.0f;
@@ -11431,7 +11438,7 @@ static void crawl_control(int what) {
     PADX.fresh = 1;                                                /* the button that took over isn't a press */
     LEDGER.yours = 1;                                              /* the dream is over: from now on the run is yours */
     if (!G.quit_line) G.quit_line = 1 + rnd(97);                    /* the crypt's arguments, from somewhere new each time */
-    if (G.shop) { G.sdur = 0.0f; G.shop_look = -1; G.pc_t = -1.0f; }   /* no cast left half-made */
+    if (G.shop) { G.sdur = 0.0f; G.shop_look = -1; G.pc_t = -1.0f; old_spells_said(); }   /* no cast left half-made */
     else if (!G.exiting && !G.tally && !G.dead) human_begin();
     G.hint_t = 6.0f;
     snd_sfx_ex(SFX_RUNE, 1.0f, 0.5f); snd_sfx_ex(SFX_WHOOSH, 0.6f, 0.5f);
@@ -12000,6 +12007,7 @@ static void ledger_first(void) {
         run_unpack(buf, n); LEDGER.page = pg;
     } else run_unpack(buf, n);
     LEDGER.claim_due = RUN.active && !CON.used && mark_fits();
+    LEDGER.kept = RUN.active;
 #ifdef CRAWL_DEBUG
     if (RUN.active) fprintf(stderr, "LEDGER start from %s%s: level %d gold %d run %08x signs %u\n", LEDGER.page ? "page " : "the unsigned run",
                             LEDGER.page ? RUN_ROMAN[LEDGER.page - 1] : "", RUN.level, RUN.treasure, RUN.run_id, RUN.signs);
