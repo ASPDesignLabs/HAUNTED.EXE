@@ -1,17 +1,18 @@
 # 1.0.0b11: the map at a walk, glyphs, runes in sight, and the elements
 
-**Status: the owner answered the first round of questions (30 October 2026); a second, shorter round is at the
-end. Nothing built.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+**Status: settled (30 October 2026). The owner answered both rounds of questions the same day; nothing is built
+yet.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),
 gear that rolls the elements, a bell that corrupts the next level for souls, a font that sweetens the next level's
-experience, and classes with a past.
+experience, levels replayed at the Accursed Portal, spectres on every level by Luck, and classes with a past.
 
-**Whoever builds this: build nothing until the second round is answered and written into Decided** (a question left
-alone takes its starred answer). Read it with `CLAUDE.md`, [`PLAN-items.md`](PLAN-items.md) (spirit, bones, the
-stats) and [`PLAN-b9.md`](PLAN-b9.md) (the map, the target's readout, Levels of Atonement). Names marked *(a draft)*
-are ours, for the owner to keep or change.
+**Whoever builds this:** read it with `CLAUDE.md`, [`PLAN-items.md`](PLAN-items.md) (spirit, bones, the stats) and
+[`PLAN-b9.md`](PLAN-b9.md) (the map, the target's readout, Levels of Atonement), then build it in the steps under
+*Building it*, art sheets before art in the game. Names marked *(a draft)* are ours; the owner let them stand, and
+can still change them on the sheets. What we set ourselves while writing up the answers is listed at the end, so
+the owner can see it.
 
 ## Decided (30 October 2026, the first round)
 
@@ -49,12 +50,31 @@ are ours, for the owner to keep or change.
 - **Classes.** **V1** (a), and more thematic: the caster is set to the labour of clearing the crypts of their
   unbound, weary souls, and each class is what they were before: a master of a trade that ended many lives or
   horrified those it was done to, with a story that hints at its spells (section 11). **V2** (a): nothing but the
-  choice. **V3** (c): changed with her for **five Cursed Coins**, from level 20 (round two, V4).
+  choice. **V3** (c): changed with her for **five Cursed Coins**, from Level of Atonement 20 (V4).
 - **Souls.** **S1** (a): a vessel, 20 and two a Level of Atonement. **S2** (a): costs by rank. **S3** (b) and (c):
   souls are gathered as motes, and fewer come a kill. **S4** (a), her *OFFER SOULS*, and the owner added **a cursed
   bell** that corrupts the next level attempt for souls, and **a font** that adds a tenth to the next level's
   experience (section 12). **S5** (a): no tithe. **O1** (a): old spells forgotten, points for the Levels of
   Atonement.
+
+## Decided (30 October 2026, the second round)
+
+- **SP2**, the owner's: spectres haunt **every level**, fewer deeper so the free souls thin out. After the first
+  three levels of each run, how many come rests mostly on **Luck**, and with Luck enough they come to **a boss's
+  level** too (section 10).
+- **B1**, the owner's: no wisps for clearing a corrupted level. **Every secret is shown from the moment a corrupted
+  level opens, if you have cleared that level before and pay more souls for it.** Levels already cleared can be
+  **replayed** for a fair offering of souls, **at the Accursed Portal** (section 12).
+- **F1** (a): the font's tenth is for **the next level**.
+- **M7**, the owner's: on the pad, **B closes the map**; the D-pad only pans it.
+- **K3**, the owner's: a blow **can** break a wind-up, and the caster's stats make that less likely, **Dodge** most,
+  then **Armour**, then the **resistance** to the blow's element, then **Luck** (section 7).
+- **V4** (a): **Level of Atonement 20** to change class.
+- The rest take the recommended answers: **E7** (a) Resist Spirit on amulets and robes, in the points' Resist all,
+  and a line of its own; **N1a** (a) turning or strafing shakes a bat off; **N2** (a) Soul Sap only this release, the
+  other candidates later; **K4** (a) the ultimates and the BFS9000 wind up to 0.8 s, the boss abilities stay
+  instant; **B2** (a) a corrupted boss's waves a third larger, and one scrip more; **F2** (a) her *OFFER SOULS* stays
+  beside the font.
 
 ## What the owner asked for (30 October 2026)
 
@@ -149,9 +169,11 @@ turn, open doors and cast as in play; the map stays centred on you, sliding afte
 B, L, Esc) close it as they open. The dream never opens it.
 
 **Panning** (M1). The arrow keys pan it, a cell a tap and smoothly while held; three seconds after the last pan it
-drifts back to you, or at once on Space. On the pad the D-pad pans it, a cell a press, and it comes back to you the
-same way; the sticks walk and turn. (Closing it on the pad: round two, M7.) W/A/S/D and the mouse play as without the
-map.
+drifts back to you, or at once on Space. On the pad the D-pad pans it, all four ways, a cell a press, and it comes
+back to you the same way; the sticks walk and turn. W/A/S/D and the mouse play as without the map.
+
+**Closing it**: M, Esc or Tab on the keyboard; **B** on the pad (M7). While the map is up, B closes it instead of
+dodging (the keyboard's double tap still dodges); D-pad up pans north rather than closing it.
 
 **The parchment** (M2, the owner's). The scroll stays solid, but torn through and burnt through in places, a hole or
 two near its middle and tears from its edges, about a quarter of it in all, made once a level from its seed as the
@@ -293,8 +315,9 @@ casts. Damage (worn and bought) and Power add to each other.
 
 **The caster's resists** (E5): as they are (Armour for Physical, Resist Burn for Fire, Resist Poison, Resist Slow for
 any slowing), and a new one, **Resist Spirit**: it takes its share off Soul Sap's drain and slowing, and off the
-shade's touch, souls and health alike (round two, E7, asks where it comes from). Lightning has none while nothing
-deals it. The void still can't be resisted.
+shade's touch, souls and health alike. It comes from amulets and robes (section 5), from the points' *RESIST ALL*
+(now +5 to each of four), and from a line of its own beside the other three (+15 for 3 points) (E7). Lightning has
+none while nothing deals it. The void still can't be resisted.
 
 ## 5. Gear and the elements
 
@@ -337,7 +360,7 @@ ranks of their own.
   wincing. While it holds it saps: a fifth of its bite's health each second and half a soul a second (a soul at rank
   V), and you walk at 70% (*defaults*). Resist Spirit takes its share off the drain and the slowing.
 - **Shaking it off**: turn the view hard one way and back, again and again (the mouse or the right stick), or strafe
-  left and right (round two, N1a). Each reversal within 0.4 s, at a fair speed, loosens its grip; it lets go when the
+  left and right; either counts (N1a). Each reversal within 0.4 s, at a fair speed, loosens its grip; it lets go when the
   shaking adds up to its rank's need: about 0.6 s of it at rank II, 0.9 at III, 1.2 at IV, 1.6 at V. Stop, and the
   grip creeps back slowly. A meter isn't drawn: the bat's wings slip and it shrieks as it loosens.
 - So as not to wear a person out (*defaults*): one bat latched at a time (the others wait off your face); it lets go by
@@ -347,8 +370,8 @@ ranks of their own.
 - A latched bat can't be hit by spells. Shaken off, it flies off a few cells and comes again. Death to it is blamed
   on it. The pad rumbles with each shake.
 
-**Candidates** (proposals only; round two, N2, asks which to build now). They give the new resist and Lightning a
-use, and the glyphs something to tell:
+**Candidates for later** (not this release, N2: only Soul Sap is built now). They would give the new resist and
+Lightning a use, and the glyphs something to tell:
 
 - **Static** (Lightning): gargoyles from rank III swoop charged; the blow is Lightning and stops your casting for half
   a second.
@@ -370,12 +393,25 @@ all the way is rank 17 to 20, by its path).
 **The wind-up** (K1). The hand gathers a spell before it goes, and you can walk while it does:
 
 - 0.3 s for a light spell at rank 1 (the fireball, the bolt), rising with rank to 0.6 s at the highest;
-- up to 0.8 s for the most powerful: the ultimates' casts and the BFS9000 (round two, K4, asks about the boss
-  abilities);
+- up to 0.8 s for the most powerful: the ultimates' casts and the BFS9000; the boss abilities (Swift Dodge, Tangled
+  Web, Grave Call, Wraithwalk) stay instant (K4);
 - Insight shortens it (each line's Insight, the class's, the bracers'), multiplied;
 - Spell Haste still shortens the wait between casts.
 
-The autopilot waits the wind-up too. Whether a blow breaks it is round two, K3.
+The autopilot waits the wind-up too.
+
+**A blow breaks it** (K3, the owner's). A blow that lands while the hand is gathering a spell (or charging one) may
+break it: the spell is lost, no spirit or bone is spent, the hand drops, and you may begin again at once. The
+caster's stats make it less likely, in the owner's order of weight: Dodge, then Armour, then the resistance to the
+blow's element, then Luck. *Defaults*, for the runs to tune:
+
+- The blow's chance: 25%, and twice the share of your health it took (a tenth: 45%; a fifth: 65%), at most 90%.
+- Kept back by: Dodge in full, three fifths of the share of the blow your Armour took off, two fifths of your
+  resistance to its element (Resist Burn for Fire, Resist Poison, Resist Spirit, Resist Slow for Frost; Physical has
+  only Armour), and a quarter of Luck. All of that together keeps back at most nine tenths of the chance.
+- A dodged blow touches nothing, as now. What seeps (poison, Soul Sap's drain, the void) and burning underfoot
+  never break it; a rock, a claw, a thrown bone or a fireball can.
+- A broken charge loses all it had gathered. The autopilot's casts break the same way. Debug: `EVENT windup_broken`.
 
 **Charging** (K2). Once a line has a charging ultimate, holding its spell's button charges it over a second; letting go
 releases it; a tap (let go within a quarter of a second) casts the ordinary spell. Repeating by holding is lost for
@@ -503,9 +539,18 @@ soul economy.
 - Path B, the reaper: Insight II (-20% a point, 2) > **Spirit Mastery** (+25% Spirit; 10% Spirit added to every other
   spell; with it, Spirit harms spectres: SP1; 5) > **Wisp Host** (5): every drain also looses three wisps that hunt the
   nearest creatures round corners, each for 40% of the drain.
-- **Spectres** (SP1), with Spirit Mastery: Spirit damage hurts them; one slain leaves two souls' motes, no experience,
-  nothing in the tally or the slayer counts; in a pocket it stays dead (its slain bit set). Spectres come only on
-  levels 1-10 today (round two, SP2). The Wraith still can't be killed; Spirit drives it back, as fire does.
+- **Spectres** (SP1), with Spirit Mastery: Spirit damage hurts them; one slain leaves its souls as motes, no
+  experience, nothing in the tally or the slayer counts; in a pocket it stays dead (its slain bit set, which also
+  ends the old loose end of pocket spectres coming back). The Wraith still can't be killed; Spirit drives it back, as
+  fire does.
+- **Where spectres come** (SP2, the owner's): on every level now, not only levels 1-10, but fewer and poorer deeper
+  so the free souls thin out. *Defaults*, for the runs to tune:
+  - On the first three levels of each run, a spectre or two, as run I has now.
+  - From the fourth level of each run, their number rests mostly on Luck: about one level in two at the 2% everyone
+    starts with, two a level at 10%, four at 25%.
+  - On a boss's level, none below 10% Luck; from 10%, one or two drift through it, the arena too (they pass through
+    walls, and harm nothing).
+  - Souls a spectre: two in run I, one and a half in run II, one from run III. In a pocket, as on its level.
 
 **Physical**: the Bone Spear, through everything in a line, a bone a spear, no spirit.
 - **Physical Efficiency** (2): +5% a point that a spear spends no bone, and five more bones carried.
@@ -568,7 +613,7 @@ Their stories, as the screen gives them (each hints at its line):
 - **When** (V3): at a fresh start and after every death that costs, in her room before level 1, before the wares. A
   life keeps one class. The dream chooses at random each time it starts fresh, so the screensaver shows every line in
   time. An old page chooses at its next visit.
-- **Changing** (V3 c): with her, for five Cursed Coins, from level 20 (V4). *Default*: the old class's line keeps
+- **Changing** (V3 c): with her, for five Cursed Coins, from Level of Atonement 20 (V4). *Default*: the old class's line keeps
   what was bought in it but stops being free (unbinding it no longer leaves it open); the new class's line opens free
   and its gifts move over.
 - Its mark shows on the caster's page, the Alignment screen and the grave's stone.
@@ -606,17 +651,39 @@ of its lane when nothing is on it.
   76 and 120 at the dream's pace. A corrupted level:
   - more creatures (*default* +40%) and more gold (*default* +40% on its treasure);
   - half the experience, on everything there;
-  - once it is cleared (round two, B1), a wisp lighting each shut secret's entry;
-  - on a boss's level, its waves (round two, B2);
+  - on a boss's level, its waves a third larger and one scrip more when it falls (B2);
   - a mark by its name, a sickly cast to its fog, the bell heard as you arrive, and the tally's row *CORRUPTED: HALF
     EXPERIENCE*;
   - one attempt: a death or fleeing ends it, the souls spent.
-  The autopilot tolls it when the cost leaves it a fifth of its vessel, and never for a boss.
+
+  **Its secrets shown** (B1, the owner's). When the level the bell would corrupt is one you have cleared before
+  (the record's cleared levels, which outlast death), its menu offers a second toll: *AND SHOW ITS SECRETS*, for more
+  souls (*default*: half the corruption's price again). Paid, every secret on that level is shown from the moment it
+  opens: a violet wisp hangs at each cracked wall still shut, as the altar's waits at its secret, and the map marks
+  each. Nothing is shown on a level you have never cleared, and nothing comes of clearing a corrupted level.
+
+  The autopilot tolls it when the cost leaves it a fifth of its vessel, never for a boss and never for the secrets.
 - **The Weeping Font** *(a draft name)*, the owner's fountain (in the new room). Cursed with one Cursed Coin the first
   time it is used (kept through death). Then E drinks, with an offering of souls (*default*: 10 + the crypt's level),
-  for a tenth more experience on the next level (round two, F1); once a visit. The autopilot drinks when it has the
-  souls to spare after the bell.
+  for a tenth more experience on the next level (F1); once a visit. The autopilot drinks when it has the souls to
+  spare after the bell.
+- Her *OFFER SOULS* stays beside the font (F2): one turns souls into experience at once, the other makes the next
+  level's worth more.
 - Wisps, the altars and the BFS9000, as now.
+
+**Replaying a level at the Accursed Portal** (B1, the owner's). The Portal (`UI_PORTAL`) lists the runs opened and
+the challenges; it gains a third part, *LEVELS CLEARED*: every level the record shows cleared, by run, each with its
+price in souls (*defaults* below, tuned by runs).
+
+- Choosing one and paying takes you, as you are, to her room before that level (as a run's row does), marked a replay.
+  From there the bell, its second toll and the font work on it as on any next level, since it is the next level.
+- The way on leads into it: the same level, built from its own seed, its creatures, treasure and secrets fresh.
+- Its price, a fair offering: 5 + the level's number in souls (6 for level 1, 45 for level 40).
+- What it pays: gold, souls and experience as any level (halved if corrupted); secrets count in the record. No Cursed
+  Coins come from it, from chains' ends or from finding every secret, so coins can't be farmed.
+- When it is done (the tally, a death or fleeing), you go back to her room before the level you came from, as a
+  challenge does (`RUN.chal_from`). A death in a person's run still costs, as anywhere.
+- The autopilot never replays.
 
 ## 13. Her hall: a new room
 
@@ -643,13 +710,16 @@ after the shrine when it means to toll, drink or spend points.
   are in reach, or for a boss; calls Firewall when something comes to blows; holds Soul Tether on the strongest; tolls
   and drinks as above. It never spends a person's points.
 - **Debug switches**: `CRAWL_CLASS=k`, `CRAWL_ALIGN=` (lines opened to a node and path), `CRAWL_ALPTS=n`,
-  `CRAWL_CORRUPT=1` (every level corrupted), `CRAWL_LATCH=1` (a rank-II bat latched five seconds into each level);
+  `CRAWL_CORRUPT=1` (every level corrupted; 2 with its secrets shown), `CRAWL_LATCH=1` (a rank-II bat latched five
+  seconds into each level), `CRAWL_TPBELL=1` / `CRAWL_TPFONT=1` / `CRAWL_TPLAMP=1` (before each in the new room),
+  `CRAWL_SPECTRES=n` (n spectres a level, whatever the Luck);
   `CRAWL_GEAR` loses its spells; `CRAWL_LEARNT` learns the elements and the harms.
 - **The Codex**: the elements, each line and node, the classes, Soul Sap, the bell and the font. **The controls
   card**: charging, shaking a bat off, the Lampstand.
 - **Save version 7**: the gear's spell tiers go; the record's spell columns become elements, with hits landed and
   harms learnt; the new stats; ledger sections `LG_ALIGN` (the class, points, each line's nodes and path) and
-  `LG_HALL2` (the bell and the font corrupted); `LG_CASTER` gains Resist Spirit's line.
+  `LG_HALL2` (the bell and the font corrupted, a replay under way and the level it came from); `LG_CASTER` gains
+  Resist Spirit's line.
 
 ## 15. Art, for the owner's sheets first
 
@@ -683,44 +753,44 @@ Each step a commit, tested in the harness.
 **Part two**
 
 5. **Spells as lines**: tiers out of the shop, the Compendium, the claim and the save; strength and ranks; the
-   wind-up and Insight; Efficiency; each line's spell, the Blight Flask with it (a lob, a splash, poison on
-   creatures); burning on creatures; the bolt; the BFS9000 alone at the merchant's.
+   wind-up, Insight, and blows that break it; Efficiency; each line's spell, the Blight Flask with it (a lob, a
+   splash, poison on creatures); burning on creatures; the bolt; the BFS9000 alone at the merchant's.
 6. **The new room and the Lampstand**, Alignment Points, the screen, Tab's page, unbinding, death, the claim, old saves.
 7. **The abilities**: Ionization, Firestarter, Deep Chill, Seep, Harvest, Impale.
-8. **The paths' nodes and Masteries**, with the Additions; spectres slain by Spirit.
+8. **The paths' nodes and Masteries**, with the Additions; spectres slain by Spirit, and spectres on every level by
+   Luck, boss levels included.
 9. **Charging** on the mouse and the pad, its effect and light, then the ultimates a line at a time: Arc and Amperage;
    Flamewalker and Firewall; Winter's Lance and Shatter; Plague Pit and Contagion; Soul Tether and Wisp Host; Phalanx
    and Ballista.
 10. **The classes**: her question, the gifts, the stories, changing.
 11. **Gear's elements**: the new stats, names and caps, Resist Spirit, Vessel; the autopilot's values.
 12. **Souls**: the vessel, costs by rank, motes and fewer of them, *OFFER SOULS*, the Dead Bell and the corrupted
-    level, the Weeping Font; set from the measurements and tuned by runs.
-13. **Soul Sap**, and whichever candidates the owner picks (N2).
+    level with its secrets shown, the Weeping Font, replays at the Accursed Portal; set from the measurements and
+    tuned by runs.
+13. **Soul Sap** (the other candidates wait).
 14. **The autopilot**: classes, spending, choosing by element and cost, motes, bats, ultimates, the bell and the font.
 15. **The Codex, the controls card, the hints, the README and the page.**
 16. **Checks**: ASan over the dream and a scripted session through every new screen and ultimate; the Windows build;
     eight 100-minute dream runs from level 1 (seeds 1-15 odd) and eight 50-minute runs from 11, 21 and 31 against
     1.0.0b10 on the same seeds, with souls gained, spent and carried a level; a dream run with each class; corrupted
-    levels from 10, 20 and 30.
+    levels from 10, 20 and 30; a scripted replay through the Portal, corrupted with its secrets shown.
 
 As always, all of it tested in the harness only until the owner plays it.
 
-## Round two (30 October 2026): questions the answers raised
+## What we set ourselves (30 October 2026)
 
-Answer by number; anything left alone takes the starred answer. Names marked *(a draft)* above can be changed too:
-the Lampstand, the Dead Bell, the Weeping Font, the classes and their stories, the gear's stat names.
+The owner took the recommended answers for the rest; these numbers and rules are ours, written up with their
+answers, and are first guesses for the runs to tune. Any of them can be changed without asking again.
 
-| | Question | (a*) | (b) |
-|---|---|---|---|
-| M7 | Closing the map on the pad, now that the D-pad pans | View closes it (as Tab does on the keyboard); D-pad up pans | D-pad up held half a second closes it; a tap pans |
-| E7 | Where Resist Spirit comes from | amulets and robes roll it; the points' Resist all covers it; a line of its own (+15 for 3) | gear only |
-| N1a | Shaking a bat off | turning the view back and forth, or strafing left and right | turning only |
-| N2 | The candidate creatures' ways (section 6) to build now | none yet: Soul Sap only, the rest later | name the ones to build |
-| K3 | A blow during a wind-up | doesn't break it | a blow of a fifth of your health or more breaks it, the spirit not spent |
-| K4 | "Abilities" up to 0.8 s of wind-up | the ultimates and the BFS9000; the boss abilities stay instant | the boss abilities too, but Swift Dodge |
-| SP2 | Spectres come only on levels 1-10 of the first descent, so few would meet Spirit Mastery | they haunt every level, one or two, fewer deeper | as now |
-| V4 | "Level 20" to change class | Level of Atonement 20 | the crypt's level 20 |
-| B1 | The bell: "once a level has been marked as cleared" | once every creature on the corrupted level is slain, a wisp hangs at each shut secret's entry | secrets' entries lit from the start on a corrupted level you have cleared before in this life |
-| B2 | The bell on a boss's level | its waves a third larger, and one scrip more | its waves a third larger only |
-| F1 | The font's "next run" | the next level | the next run of ten |
-| F2 | Her *OFFER SOULS* beside the font | both | the font replaces her row |
+- **Spectres** (section 10): one or two on a run's first three levels; after that, about one level in two at 2%
+  Luck, two a level at 10%, four at 25%; on a boss's level from 10% Luck; two souls each in run I, one and a half in
+  run II, one after.
+- **A broken wind-up** (section 7): a blow's chance of 25% plus twice its share of your health, at most 90%, kept back
+  by Dodge in full, three fifths of what Armour took off, two fifths of the element's resistance and a quarter of
+  Luck, at most nine tenths of it; seeping harm never breaks it; nothing is spent.
+- **Replays** (section 12): 5 + the level's number in souls; the same level from its own seed, fresh; no Cursed Coins
+  from a replay; back to the room you came from after it; the autopilot never replays.
+- **The secrets shown** (section 12): a second toll at the bell, half the corruption's price again, offered only when
+  the next level is one the record shows cleared; a violet wisp at each shut cracked wall and a mark on the map.
+- **The map on the pad**: with the map up, B closes it instead of dodging, and D-pad up pans north.
+- **Debug switches** for the new things (section 14).
