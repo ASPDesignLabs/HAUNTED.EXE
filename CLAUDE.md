@@ -103,6 +103,14 @@ person's, and her question comes at once) and the souls' line on the status bar 
 refused), tested in the harness only, squashed onto main as one commit. Opening a ledger page from inside a pocket
 may leave the pocket's state behind, as the new run did before `run_new` called `pocket_reset_level`; untried.
 
+1.0.0b13 and 1.0.0b14 are planned in [`docs/PLAN-b13.md`](docs/PLAN-b13.md), settled with the owner over two rounds
+(30 October). It was written as 1.0.0b12's plan on `claude/pensive-bardeen-71ke4e`; since 1.0.0b12 went out as the small
+release above, the owner moved it on a number, staged as its G2 (a) says: 1.0.0b13 the runs' hazards (fixed and arising,
+every sample, soul-sappers from each run's sixth level, Resist Lightning), logic puzzles worked with things in the world
+behind a sealed wing (a hidden message, a Black Shrine, Tab's documents), timed trials behind skull-marked doors, and a
+reckoning of what is left before a person leaves a level; 1.0.0b14 the lower storey, its edges, stairs and ladders. Being
+built on `claude/epic-dirac-n8uosr` from main at 1.0.0b12, in the plan's steps, sheets before art in the game.
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture
