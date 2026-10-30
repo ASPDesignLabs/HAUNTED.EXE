@@ -1,19 +1,20 @@
 # 1.0.0b12: the lower storey, the runs' hazards, puzzles and trials
 
-**Status: the owner answered the first round (30 October 2026); a short second round is at the end. Nothing
-built.** The owner asked for five things: a lower
+**Status: settled (30 October 2026). The owner answered both rounds the same day, and added a sixth thing: a
+reckoning of what is left on a level before you leave it. Nothing built.** The owner asked for five things: a lower
 storey under each level from run II, growing run by run; art that shows an edge can't be crossed; more hazards of
 each run's own, using the elements; logic puzzles played with things in the world, with no screen of their own;
 and timed trials behind marked doors. This plan maps that onto the game as it stands on
 `claude/eloquent-carson-1x049c` (1.0.0b11, steps 1-13 built: elements, lines, classes, souls, Soul Sap), says where
 it rubs, drafts the samples the owner asked for, and asks what only the owner can answer.
 
-Each question has a recommended answer (*); a question the owner leaves alone takes it. Answers go into **Decided**
-below, as 1.0.0b9's and 1.0.0b11's did. **Whoever builds this: build nothing until the owner's answers are written
-there, and not before 1.0.0b11 is finished and released.** Read it with `CLAUDE.md`, [`PLAN-b7.md`](PLAN-b7.md)
+The answers are in **Decided** below; the sections after it describe what was chosen, and the options left in them
+are the record of the question. **Whoever builds this: begin after 1.0.0b11 is finished and released**, in the steps
+under *Building it*, sheets before art in the game. What we set ourselves while writing the answers up is listed at
+the end, so the owner can see it and overrule it. Read it with `CLAUDE.md`, [`PLAN-b7.md`](PLAN-b7.md)
 (hazards and omens, the boss arena's seal), [`PLAN-b10.md`](PLAN-b10.md) (each run's look, room types, how walls are
 laid) and [`PLAN-b11.md`](PLAN-b11.md) (the elements, the map at a walk, souls, replays). The questions are gathered
-at the end. When this plan lands beside 1.0.0b11's work, `CLAUDE.md` should point to it as it does to the others.
+at the end of each round. When this plan lands beside 1.0.0b11's work, `CLAUDE.md` should point to it as it does to the others.
 
 ## Decided (30 October 2026, the first round)
 
@@ -31,7 +32,7 @@ at the end. When this plan lands beside 1.0.0b11's work, `CLAUDE.md` should poin
   puzzle level in three the exit lies inside it**. **P3** (a): every way to touch the world **but push**. **P4** (b):
   **you can cast while carrying**; what you carry shows small in a corner. **P5** (a), and the owner added **a hidden
   message**: a scroll or sheet themed to the run, hidden in a decorative thing somewhere on the level, holding the
-  puzzle's answer; **a Black Shrine can show from afar where it lies** (round two, P10); once found it is kept in **a
+  puzzle's answer; **a Black Shrine can show from afar where it lies** (section 6a); once found it is kept in **a
   new part of Tab for documents**, which holds every document and empties with each level. **P6** (a): the dream solves
   them, slowly. **P7** (a), **without the Cursed Coin**: the wing's hoard and the experience. **P8**, the owner's: **all
   the kinds are used**. **P9** (a): harder deeper.
@@ -39,6 +40,20 @@ at the end. When this plan lands beside 1.0.0b11's work, `CLAUDE.md` should poin
   **T2**, the owner's: **a trial on every level from level 3, one a level**. **T3** (b): **the hourglass only**, its sand
   running, no numbers. **D1** (a): the doors as drafted. **T4** (b): **every trial is used**. **T5** (a): the record
   counts them, with achievements.
+
+## Decided (30 October 2026, the second round)
+
+- **H6** (a): run IV keeps all seven hazards, the void and six new.
+- **P10** (b), the owner's: **a Black Shrine of its own on every puzzle level**. For souls it shows where the message is
+  hidden, through the walls, and **puts a mark on the map**, for **at least two minutes**; the shrine itself is marked
+  on the map once found (section 6a).
+- **P11** (a): Tab's *DOCUMENTS* holds the message and **every clue read** on the level.
+- **P12** (b), the owner's: **a faint glint within two cells, for everyone, and more with Treasure Hunter**.
+- **T6** (a): trials on a boss's level too, outside the arena.
+- **T7** (a): a trial won restores **health and bones in full, and spirit to half the vessel** (or keeps it, if more).
+- **New, the owner's: what is left behind.** Going to leave a level with anything left on it (creatures, secrets, the
+  puzzle, treasure, the trial: whichever apply), a person is shown what is left, on a screen of its own, and must
+  choose *DESCEND BELOW* to go on (section 10a).
 
 ## What the owner asked for (30 October 2026)
 
@@ -60,6 +75,9 @@ at the end. When this plan lands beside 1.0.0b11's work, `CLAUDE.md` should poin
    door it shuts behind you and the room turns into something else, a challenge of the run's own, sixty seconds to
    finish it. Falling there is a death. The reward: full health, full spirit and bones, and a boon for the rest of the
    level, a fifth more experience from combat. The dream should almost always win, but close to the time.
+6. **A reckoning before leaving** (added with the second round). Going to leave a level with creatures, secrets, the
+   puzzle, treasure or the trial still left on it, the player is told which, on a screen of its own, and must choose
+   *DESCEND BELOW* to go on.
 
 ## What it touches in the game as it is
 
@@ -295,8 +313,8 @@ keep one or one a run.
 - **The Black Mirror** (Spirit, fixed, **soul-sapping**): a sheet of obsidian set in a wall; while you stand in its
   sight within three cells, your reflection in it grows clearer as it drinks your souls.
 
-**Every sample is used** (H3): each run's whole list, the old omen among them. Run IV's list holds seven (the void
-and six new), the others six (round two, H6).
+**Every sample is used** (H3): each run's whole list, the old omen among them. Run IV keeps seven (the void and six
+new; H6), the others six.
 
 **Resist Lightning** (H4, decided). The Galvanic Pool, the Lodestone Seam and Singing Crystal are the first Lightning
 to hurt you, so it gets a resist as the others have: rolled on amulets and robes, counted in the points' *RESIST ALL*
@@ -381,14 +399,29 @@ the run.
   | IV | a strip of beaten gold leaf scratched with a stylus | a broken geode, an idol's base, under a fused corpse's hand |
 
 - **Finding it**: E held a second at the thing searches it (a rustle, the hand reaching in); the message comes out with
-  a turn of a page's sound and a pop-up, *A DOCUMENT*. How hidden it is: round two, P12.
+  a turn of a page's sound and a pop-up, *A DOCUMENT*.
+- **How hidden** (P12, the owner's): within two cells, for everyone, the thing that hides it gives a faint glint now and
+  then, a pale point of light catching on its edge. **Treasure Hunter** makes more of it, by its grade: the glint shows
+  from three cells at Common to six at Exquisite, through walls within half that, brighter and more often, and its
+  whisper (the one it gives near a secret wall) sounds near the message too (*defaults*).
 - **What it says**: the puzzle's answer, plainly, in the run's voice: *THE SKULLS: THE MITRE IN THE FIRST NICHE ...*,
   *POUR THE GREAT INTO THE MIDDLE, THE MIDDLE INTO THE LEAST ...*; where words won't do (the culverts, the prisms, the
   glass floor), a small drawing of the answer in ink.
-- **The Black Shrine** (the owner's) shows where it lies, from afar (round two, P10, asks what it is).
+- **The Black Shrine** (P10, the owner's). A small shrine of its own on every puzzle level: a block of black stone with
+  a niche, a skull in it whose eye-sockets hold two points of violet light, a stub of candle before it (*a draft* of its
+  look). It stands in a room or hall off the main way, away from the wing's door and the message, never in a vault.
+  - Once found (seen within its light, or passed within three cells), it is marked on the map: a small black shrine glyph.
+  - E opens its one row: *SHOW WHERE IT IS HIDDEN*, for souls (*default*: 10 and one for every two levels, 15 at
+    level 10, 30 at level 40), asked twice.
+  - Paid, the skull's eyes flare, a whisper goes out, and for **two and a half minutes** (*default*; the owner asked for
+    at least two): the thing that hides the message shows through the walls, as Keymaker's keys do (a violet glint and
+    its outline), and the map marks it with a violet cross. Both fade in their last ten seconds. Paid again while it
+    shows, it starts over.
+  - Once the message is found, the shrine has nothing more to show and says so.
 - **Tab's documents** (the owner's): a new page of Tab, *DOCUMENTS*, holding every document found on the level: the
-  hidden message, drawn on its own parchment, and (round two, P11) the clues read. All of it is gone when the level ends.
-  W/S choose a document, its page shown whole.
+  hidden message, drawn on its own parchment, and every clue read with E (P11), each as a short entry headed by where
+  it was read (*THE BANNER IN THE CHAPTER HOUSE*). All of it is gone when the level ends. W/S choose a document, its
+  page shown whole; the newest comes first.
 - **The dream** never searches for the message (it knows the answer); a person who takes over finds the page empty.
 
 ## 7. Puzzles, by run
@@ -495,17 +528,17 @@ fewer clues given outright.
 
 - **The door**: a skull and crossbones on it, the run's own (D1). It is seen from down the hall: two red candles or
   their like stand by it.
-- **Where** (T2, the owner's): **one on every level from level 3**. *Default*: a room of two to four blocks off the
-  main way, never the only way to the exit (on a boss's level: round two, T6). From 1.0.0b13 it may be on the lower
-  storey.
+- **Where** (T2, the owner's): **one on every level from level 3**, a boss's level included, outside its arena and its
+  band (T6). *Default*: a room of two to four blocks off the main way, never the only way to the exit. From 1.0.0b13 it
+  may be on the lower storey.
 - **Going in**: one cell past the door it shuts and seals behind you, as a boss's arch does, and the room turns: its
   light changes to the trial's colour, the fog thickens or clears, the walls take on the trial's look (the run's), the
   music gives way to a quicker, driving version of the run's march, and **an hourglass** stands at the top of the view,
   where a boss's bar goes, its sand running for sixty seconds, with no numbers (T3). In the last ten, a ticking.
 - **Falling** inside is a death (as asked): in a person's run it costs, as any death; in the dream the old mercy.
   Second Wind works as anywhere.
-- **Winning**: the hourglass breaks, the room turns back, the door opens, and you are restored: full health, full
-  spirit (to your vessel), bones to the most you carry; and **THE TRIAL'S BOON** for the rest of the level, a fifth
+- **Winning**: the hourglass breaks, the room turns back, the door opens, and you are restored (T7): full health, bones
+  to the most you carry, and spirit to half your vessel (or kept, if you have more); and **THE TRIAL'S BOON** for the rest of the level, a fifth
   more experience from combat (creatures slain and a boss). It shows on the experience lines and the tally, and ends
   with the level or a death.
 - **The dream** (as asked): it takes every trial it finds with two thirds of its health or more, and the trials are
@@ -581,16 +614,46 @@ puzzles; a first, ten and thirty trials; every trial of a run won once.
 
 ---
 
+# Part E: what is left behind
+
+## 10a. A reckoning before you leave
+
+The owner's: going to leave a level with things still left on it, a person is told what, on a screen of its own, and
+must choose *DESCEND BELOW* to go on.
+
+- **When**: a person (not the dream, not a sleepwalker) takes the way out: E at the exit, or walking into its open
+  doorway. If nothing is left, they leave as now. If something is, the crypt waits and the screen comes up.
+- **What it lists**, each only if it applies, each with its glyph:
+  - **Creatures**: those the tally counts still alive, *14 CREATURES STILL WALK*.
+  - **Secrets**: links not yet found, *3 OF 5 SECRETS STILL HIDDEN*.
+  - **The puzzle**: on a puzzle level, unsolved, *THE SEALED WING IS STILL SHUT*.
+  - **Treasure**: the level's treasure still lying, *ABOUT 1,400 GOLD STILL LIES HERE* (with your Treasure bonus in it,
+    as the map has it).
+  - **The trial**: not yet tried, *THE TRIAL STILL WAITS*.
+- **Its choices**: *DESCEND BELOW* and *NOT YET*. The cursor starts on *NOT YET*, so a quick E at the exit never leaves
+  by mistake; W/S choose and Enter or E takes it; Esc, or B on the pad, is *NOT YET*. Choosing *NOT YET* steps you back
+  a pace from the doorway.
+- **Its look** (*a draft*): a slip of parchment pinned to the exit's door, the lines written in the run's ink, the
+  choices at its foot; *THE DEAD KEEP COUNT* as its heading.
+- **Where it doesn't come** (*defaults*): a pocket's way back (that is not leaving the level), a trial's door, her room,
+  a challenge's or a replay's way out (the tally comes at once, as now), and a boss's level counts only what lies outside
+  the arena once the boss has fallen.
+- It counts what the game knows, whether or not the map is bought; a person who hasn't seen a thing is still told it is
+  there.
+
+---
+
 ## 11. What else changes
 
 - **The Codex** gains the hazards met (as it has the omens), the puzzle kinds solved, and the trials.
 - **Premonition** marks the new hazards; Grave Sense and the map's numbers count trial rooms' creatures only once the
   room is entered.
-- **The map at a walk** marks a puzzle wing's door and a trial's door once seen, and the wing once open.
+- **The map at a walk** marks a puzzle wing's door and a trial's door once seen, the wing once open, the Black Shrine once
+  found, and while its showing lasts the message's hiding place.
 - **Tab** gains *DOCUMENTS* (section 6a); its totals and the caster's screen gain Resist Lightning.
 - **Debug switches** (*defaults*): `CRAWL_HZ=k` (hazard k on every level, often), `CRAWL_PUZZLE=k` (puzzle kind k on every
   level, `CRAWL_TPPUZZLE=1` before its first piece, `CRAWL_TPMSG=1` before the thing hiding its message,
-  `CRAWL_WINGEXIT=1` the exit in the wing every time), `CRAWL_TRIAL=k` (trial k on every level, `CRAWL_TPTRIAL=1` before
+  `CRAWL_WINGEXIT=1` the exit in the wing every time, `CRAWL_TPBSHRINE=1` before the Black Shrine), `CRAWL_TRIAL=k` (trial k on every level, `CRAWL_TPTRIAL=1` before
   its door), `CRAWL_LOWER=f` (a lower storey of that share on any level), `CRAWL_TPSTAIR=1` (before the first stair down,
   or a ladder in the Hollows).
 - **Saves**: puzzles and trials belong to their level and aren't saved; the record's new counts go in a ledger section
@@ -605,7 +668,8 @@ puzzles; a first, ten and thirty trials; every trial of a run won once.
   cisterns and sluices, saints and emblems, culverts, stepping stones, rails and levers, the hoist, the tally board, the
   fossil, the ring of stones, lamps, prisms and the beam, the court's statues, the glass floor, crystals, gold veins,
   vents), the wing's doors, a carried thing small in the corner, and each run's hidden message with the things it hides in.
-- `documents.png`: Tab's *DOCUMENTS* page, with a message of each run drawn on its own parchment.
+- `documents.png`: Tab's *DOCUMENTS* page, with a message of each run drawn on its own parchment and a clue's entry; the
+  Black Shrine dark and with its eyes lit; the reckoning's parchment on an exit door.
 - `trials.png`: the four doors, each run's turned room, the hourglass full, running and cracked.
 - `storeys.png` (1.0.0b13): edges, balustrades and stairs for runs II-IV, the Hollows' ladders, a gallery and a well seen
   from above and below, and the low ceiling of a passage under the floor.
@@ -622,28 +686,29 @@ As two releases (G2 a); each step a commit, tested in the harness.
 2. **Ways to touch the world**: take and set, turn, pull, light, strike, step, read; carrying, shown in the corner.
 3. **Puzzles**: the sealed wing (the exit inside it one puzzle level in three), every kind with its maker, its clues and
    its check, the whisper, the dream solving them; their sheet.
-4. **The hidden message and Tab's documents**, and the Black Shrine's showing (P10).
+4. **The hidden message and Tab's documents**: the glint and Treasure Hunter's share of it, the clues read, the Black
+   Shrine and its showing, their marks on the map.
 5. **Trials**: the doors, the seal, the room's turn, the hourglass, the reward and the boon, the curse; every trial with
    the dream's way through it; tuning runs to the target.
-6. **The record, the Codex, the README and the page.**
-7. **Checks**: ASan; the Windows build; eight dream runs from levels 1, 11, 21 and 31 against 1.0.0b11 on the same
+6. **The reckoning before you leave** (section 10a).
+7. **The record, the Codex, the README and the page.**
+8. **Checks**: ASan; the Windows build; eight dream runs from levels 1, 11, 21 and 31 against 1.0.0b11 on the same
    seeds; the trials' win rate and time left a run; puzzles solved by the dream.
 
 **1.0.0b13**
 
-8. **The test**: the two-storey renderer on a hand-made level; frames and its time a frame, for the owner.
-9. **Two storeys**: the generator (galleries, wells, passages under, stairs), collision and edges, the hunt field and
+9. **The test**: the two-storey renderer on a hand-made level; frames and its time a frame, for the owner.
+10. **Two storeys**: the generator (galleries, wells, passages under, stairs), collision and edges, the hunt field and
    fliers across storeys, missiles with a height (L5), the lightmap and fog for each storey, sprites clipped.
-10. **Edges, stairs and the Hollows' ladders**, a run at a time, sheets first.
-11. **The autopilot on two storeys**, the map's two storeys, secrets, vaults and the exit below, its danger.
-12. **Checks**, as above, and the frame time on the deepest levels.
+11. **Edges, stairs and the Hollows' ladders**, a run at a time, sheets first.
+12. **The autopilot on two storeys**, the map's two storeys, secrets, vaults and the exit below, its danger.
+13. **Checks**, as above, and the frame time on the deepest levels.
 
 As always, all of it tested in the harness only until the owner plays it.
 
-## Round two (30 October 2026): questions the answers raised
+## Round two (30 October 2026, answered): the questions as they were asked
 
-Answer by number; anything left alone takes the starred answer. The drafts (the hidden messages and their hiding
-places, Resist Lightning's name) can be marked up too.
+Kept as asked; the answers are in Decided.
 
 | | Question | (a*) | (b) |
 |---|---|---|---|
@@ -653,3 +718,21 @@ places, Resist Lightning's name) can be marked up too.
 | P12 | How hidden the message is | nothing shows it but the shrine's showing and, within three cells, Treasure Hunter's whisper | a faint glint within two cells, for everyone |
 | T6 | A trial on a boss's level ("every level from level 3") | yes, outside the arena | not on a boss's level |
 | T7 | A trial won on every level restores health, spirit and bones in full; full spirit every level undoes much of 1.0.0b11's lean soul economy (the vessel would seldom stay low past a level) | health and bones in full, spirit to half the vessel (or kept, if more) | in full, as asked, the souls retuned by runs around it |
+
+## What we set ourselves (30 October 2026)
+
+First guesses, for the owner to see and overrule, and for the runs to tune:
+
+- **The Black Shrine**: its look; its price (10 souls and one for every two levels); its showing two and a half minutes,
+  restarted if paid again; it is found when seen in its light or passed within three cells.
+- **The glint**: a faint point of light within two cells for everyone; with Treasure Hunter, three cells at Common to six
+  at Exquisite, through walls within half that, and its whisper near the message.
+- **Documents**: every clue read, headed by where it was read, newest first; all gone with the level.
+- **The reckoning**: only for a person; the cursor on *NOT YET*; stepping back a pace; not at a pocket's way back, a
+  challenge's or a replay's way out; on a boss's level, only what lies outside the arena once it has fallen; it tells
+  what is there whether or not the map is bought.
+- **A trial won**: spirit to half the vessel or kept if more; health and bones full.
+- **Ladders**: one or two a level in the Hollows, never the only way to the exit; climbed at half pace.
+- **The soul-sappers**: two or three a level from each run's sixth level.
+- **Puzzle kinds**: each puzzle level draws a kind of its run not yet met on this way down; *The Magic Square* and *The
+  Sealed Letters* one puzzle level in eight in any run.
