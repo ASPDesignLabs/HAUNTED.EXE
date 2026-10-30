@@ -1,6 +1,7 @@
 # 1.0.0b12: the lower storey, the runs' hazards, puzzles and trials
 
-**Status: questions for the owner (30 October 2026); nothing built.** The owner asked for five things: a lower
+**Status: the owner answered the first round (30 October 2026); a short second round is at the end. Nothing
+built.** The owner asked for five things: a lower
 storey under each level from run II, growing run by run; art that shows an edge can't be crossed; more hazards of
 each run's own, using the elements; logic puzzles played with things in the world, with no screen of their own;
 and timed trials behind marked doors. This plan maps that onto the game as it stands on
@@ -14,9 +15,30 @@ there, and not before 1.0.0b11 is finished and released.** Read it with `CLAUDE.
 laid) and [`PLAN-b11.md`](PLAN-b11.md) (the elements, the map at a walk, souls, replays). The questions are gathered
 at the end. When this plan lands beside 1.0.0b11's work, `CLAUDE.md` should point to it as it does to the others.
 
-## Decided
+## Decided (30 October 2026, the first round)
 
-*Nothing yet.*
+- **G1** (a): 1.0.0b12, built after 1.0.0b11 is released. **G2** (a): two releases. 1.0.0b12 brings the hazards, the
+  puzzles and the trials; 1.0.0b13 the lower storey.
+- **The lower storey** (1.0.0b13). **L1** (a): two storeys on one grid, a test level first. **L2** (a): none on a
+  boss's level. **L3** (a): a rank higher, a third more creatures, hazards twice as often. **L4** (a): walkers by
+  stairs, fliers by wells, spirits through floors. **L5** (a): spells and throws cross between storeys. **L6** (b):
+  **ladders too, in the Hollows**: E climbs, slowly, and nothing is cast on one. **E1** (a): the edges as drafted.
+- **Hazards.** **H1** (a): fixed and arising, more as the run goes. **H2** (a): a quarter of your health a stroke at
+  most. **H3**, the owner's: **every sample is used**, all of each run's. **H4** (b): **Resist Lightning** is added,
+  rolled where the other resists roll, with a line in the points. **H5**, the owner's: the soul-sapping hazards are
+  **scattered, a few a level, from the sixth level of each run**.
+- **Puzzles.** **P1** (a): even levels from 6, never a boss's. **P2** (b), the owner's: a sealed wing, and **on one
+  puzzle level in three the exit lies inside it**. **P3** (a): every way to touch the world **but push**. **P4** (b):
+  **you can cast while carrying**; what you carry shows small in a corner. **P5** (a), and the owner added **a hidden
+  message**: a scroll or sheet themed to the run, hidden in a decorative thing somewhere on the level, holding the
+  puzzle's answer; **a Black Shrine can show from afar where it lies** (round two, P10); once found it is kept in **a
+  new part of Tab for documents**, which holds every document and empties with each level. **P6** (a): the dream solves
+  them, slowly. **P7** (a), **without the Cursed Coin**: the wing's hoard and the experience. **P8**, the owner's: **all
+  the kinds are used**. **P9** (a): harder deeper.
+- **Trials.** **T1** (c): time running out lays **the trial's curse**, a fifth less experience for the rest of the level.
+  **T2**, the owner's: **a trial on every level from level 3, one a level**. **T3** (b): **the hourglass only**, its sand
+  running, no numbers. **D1** (a): the doors as drafted. **T4** (b): **every trial is used**. **T5** (a): the record
+  counts them, with achievements.
 
 ## What the owner asked for (30 October 2026)
 
@@ -69,11 +91,11 @@ are made with their level and kept in nothing but it.
 
 ## Decide first
 
-**G1. Which release.**
+**G1. Which release.** *Decided: (a).*
 - (a*) 1.0.0b12, built after 1.0.0b11 is released.
 - (b) Folded into 1.0.0b11 before it goes out.
 
-**G2. One release or two.** The lower storey means a new renderer and every system that moves learning stairs; the
+**G2. One release or two.** *Decided: (a).* The lower storey means a new renderer and every system that moves learning stairs; the
 hazards, puzzles and trials fit the engine as it is.
 - (a*) Two. 1.0.0b12: the hazards, the puzzles and the trials. 1.0.0b13: the lower storey and its edges, once a first
   test of the new renderer has been seen and timed. Puzzles and trials can use the lower storey when it comes.
@@ -86,7 +108,7 @@ hazards, puzzles and trials fit the engine as it is.
 
 ## 1. How it can be drawn
 
-**L1. The engine.**
+**L1. The engine.** *Decided: (a).*
 - (a*) **Two storeys on one grid.** Each cell keeps two storeys: the level's, and one beneath. A cell of the level is
   floor with rock beneath it, floor with a lower passage beneath it, or open (a well or a gallery: no floor, looking
   down into the lower storey). The renderer becomes a column renderer with clip windows, as Doom draws its sectors,
@@ -112,7 +134,7 @@ level's floor its ceiling is low: the underside of the floor, beams and slabs.
 **How much** (as asked): run II a quarter of the level's floor again, run III half, run IV three quarters, counted in
 floor cells. Not in run I, not in pockets, her hall or (L2) on a boss's level.
 
-**L2. A boss's level.** (a*) No lower storey: the arena and its band keep the south of the map, and the fight stays
+**L2. A boss's level.** *Decided: (a).* (a*) No lower storey: the arena and its band keep the south of the map, and the fight stays
 as it is. (b) A lower storey outside the arena, as on any level.
 
 **Its shapes** (*defaults*, laid on the same plan of blocks as the level):
@@ -124,7 +146,7 @@ as it is. (b) A lower storey outside the arena, as on any level.
 - **Stairs**: a straight flight two cells long, each a half-storey; or a flight turning a corner of a room or hall, an
   L of two cells. Every lower part has at least one stair, and most have two, so a branch can come back up elsewhere.
 
-**L3. What makes it more dangerous.**
+**L3. What makes it more dangerous.** *Decided: (a).*
 - (a*) Its creatures come a rank higher than the level's mix (as a pocket's first link does), a third more of them, and
   the run's hazards twice as often there.
 - (b) Only more of them.
@@ -134,12 +156,12 @@ as it is. (b) A lower storey outside the arena, as on any level.
 in three from run II, more often in run IV; vaults and secrets lie below in proportion to its size; Black Altars stay
 on the level's own storey; a key can lie on the other storey from its door.
 
-**L4. Between storeys, for things that aren't you.**
+**L4. Between storeys, for things that aren't you.** *Decided: (a).*
 - (a*) Walkers use the stairs (the hunt field runs through them); bats and gargoyles fly up and down wells and
   galleries; spectres and the Wraith pass through floors as they pass through walls.
 - (b) Every creature keeps to its storey.
 
-**L5. Striking across storeys.**
+**L5. Striking across storeys.** *Decided: (a).*
 - (a*) Spells, missiles and creatures' throws cross between storeys through wells and galleries, at what can be seen;
   a spell aimed down at a creature below flies down to it. Missiles gain a height.
 - (b) What is on the other storey can be seen but not struck. Simpler, but odd to look at.
@@ -151,8 +173,10 @@ treats the lower storey's danger as it treats a pocket's (it goes below with two
 stairs as hatched steps, wells and galleries as dashed edges; the level's numbers count both storeys. Seen and walked
 cells are kept per storey.
 
-**L6. Ladders.** The owner asked for a surface made for travel between storeys. (a*) Stairs only. (b) Ladders too, in
-the Hollows (a mine has them): E climbs, slowly, and nothing can be cast on one.
+**Ladders** (L6, decided): in the Hollows, as well as stairs, a mine's ladders: a cell of wall with rungs, down from a
+gallery's edge or a well. E at its foot or head climbs it, at half walking pace; nothing can be cast while on it, and a
+blow doesn't knock you off. Creatures that walk use them too, slowly; the autopilot uses them as stairs. *Default*: one
+or two a level, never the only way to the exit. Art: timber rails with worn rungs, a rope lashed at the top.
 
 ## 3. Edges that say no
 
@@ -180,7 +204,7 @@ included, but not to sight, missiles or fliers. Stairs are the only way down.
 pegged into the rock with a handrope; run IV, steps cut in black glass with gold at their edges and ash drifted in the
 corners.
 
-**E1. The edges.** (a*) As the table, the owner marking up; (b) one plain kind for every run.
+**E1. The edges.** *Decided: (a).* (a*) As the table, the owner marking up; (b) one plain kind for every run.
 
 ---
 
@@ -202,9 +226,9 @@ corners.
 - **Elements**: each hazard's harm is an element, resisted as that element is; Premonition warns of every one a second
   sooner; the autopilot keeps out of their warnings and harm (`hz_dmap`).
 
-**H1. The rhythm.** (a*) As above. (b) Only arising hazards, as omens are. (c) Only fixed ones.
+**H1. The rhythm.** *Decided: (a).* (a*) As above. (b) Only arising hazards, as omens are. (c) Only fixed ones.
 
-**H2. The cap.** (a*) A quarter of your health a stroke at most. (b) A fifth. (c) Another (say which).
+**H2. The cap.** *Decided: (a).* (a*) A quarter of your health a stroke at most. (b) A fifth. (c) Another (say which).
 
 ## 5. Samples, by run
 
@@ -271,13 +295,19 @@ keep one or one a run.
 - **The Black Mirror** (Spirit, fixed, **soul-sapping**): a sheet of obsidian set in a wall; while you stand in its
   sight within three cells, your reflection in it grows clearer as it drinks your souls.
 
-**H3. The samples.** (a*) The owner marks up the list: keep, change, cut, or add. (b) We pick four a run.
+**Every sample is used** (H3): each run's whole list, the old omen among them. Run IV's list holds seven (the void
+and six new), the others six (round two, H6).
 
-**H4. Lightning's resist.** The Galvanic Pool, the Lodestone Seam and Singing Crystal would be the first Lightning to
-hurt you. (a*) Leave it unresisted, as 1.0.0b11 has it. (b) Add Resist Lightning, rolled where the others roll, with a
-line in the points.
+**Resist Lightning** (H4, decided). The Galvanic Pool, the Lodestone Seam and Singing Crystal are the first Lightning
+to hurt you, so it gets a resist as the others have: rolled on amulets and robes, counted in the points' *RESIST ALL*
+(now +5 to each of five), and a line of its own (+15 for 3 points). It takes its share off any harm of Lightning and,
+as the other resists do, keeps a blow from breaking a wind-up. Its name on a piece *(a draft)*: *of the Grounded*. The
+Codex, Tab's totals and the caster's screen gain it; `LG_CASTER` grows a line, as Resist Spirit's did.
 
-**H5. Soul-sapping.** (a*) One a run, as drafted. (b) One in all (say which run).
+**The soul-sappers** (H5, the owner's): each run's own (the Hungry Reliquary, the Weeping Saint, the Tithe Circle, the
+Black Mirror) comes **two or three to a level, scattered, from the run's sixth level** (*default* number), none before.
+An earlier run's soul-sapper can come back by the same small chances as any of its hazards, but never before the sixth
+level of a run either.
 
 ---
 
@@ -285,17 +315,18 @@ line in the points.
 
 ## 6. How they work
 
-**When** (P1).
+**When** (P1). *Decided: (a).*
 - (a*) Even levels from level 6, never a boss's: 6 and 8, 12 to 18, 22 to 28, 32 to 38, and round again. One puzzle
   a level.
 - (b) Only the sixth and eighth level of each run.
 - (c) Odd levels from 7: 7 and 9, 11 to 19, and so on.
 
-**What it opens** (P2).
-- (a*) A sealed wing of the level, two to six blocks of rooms and halls, behind a great door, a portcullis or a fallen
-  passage: a hoard as rich as a vault's, and now and then something more (a font of health, a Cursed Coin, a Black
-  Altar of its own). It is never the only way to the exit, so a level can always be left without it.
-- (b) As (a), and one level in four the exit itself lies inside the wing.
+**What it opens** (P2, decided). A sealed wing of the level, two to six blocks of rooms and halls, behind a great
+door, a portcullis or a fallen passage, with a hoard as rich as a vault's, and now and then a font of health. **On one
+puzzle level in three the exit lies inside the wing**, so the puzzle must be solved to leave (*defaults* for those
+levels): the exit wisp leads to the wing's sealed door and waits there; on reaching that door a caption says *THE WAY
+ON LIES BEYOND*; the map's exit mark is the sealed door until it opens. On the other two in three the wing is a reward
+and the level can be left without it.
 
 **No screen of its own, and no spell as a key** (as asked). Everything is done with E and the body, and read in the
 world: carvings, banners, epitaphs, murals and stained glass give the clues, read with E as a caption at the top of
@@ -314,23 +345,51 @@ door grinding open. Nothing about it depends on what you carry, what you have le
 - **Push**: walk into a block, a sarcophagus or a cart to shove it a cell along.
 - **Read**: a carving or a plaque, as above.
 
-**P3. Which ways to build.** (a*) All but push: pushing can wall the autopilot in, and a stuck block needs undoing. (b)
-All of them. (c) Take, turn, pull and read only.
+**Which ways** (P3, decided): all of them **but push**. Pushing could wall the autopilot in, and a stuck block would
+need undoing.
 
-**P4. Carrying.** (a*) The thing is held in the hand, drawn where the hand rises; nothing can be cast while it is held,
-and a cast sets it down first, where you stand. (b) You can cast; what you carry shows small in a corner.
+**Carrying** (P4, decided). One thing at a time. **You can cast while carrying**: the thing shows small in the lower
+right, above the runes' sockets, in its own colours, and the hand is free. E sets it down on a place that takes it, or
+on the floor where you stand. *Default*: a death, a pocket or the level's end drops it where it was taken from.
 
-**P5. Help.** (a*) After three wrong tries a whisper gives a nudge, once, as a caption. (b) None.
+**Help** (P5, decided). After three wrong tries a whisper gives a nudge, once, as a caption. And **the hidden
+message** (section 6a): the answer, written down and hidden on the level.
 
-**P6. The dream.** (a*) The dream solves them, slowly and with a wrong try now and then, when it has time on the level:
-the screensaver shows a puzzle being worked out. It reads the answer from the game, never the clues. (b) The dream
-leaves them.
+**The dream** (P6, decided) solves them, slowly and with a wrong try now and then, when it has time on the level, so
+the screensaver shows a puzzle being worked out. It reads the answer from the game, never the clues. On a level whose
+exit lies in the wing it solves the puzzle before it leaves, whatever its clock says.
 
-**What a puzzle pays** (P7). (a*) The wing's hoard, experience as a chain's end at the level (60 times the level's
-weight), and a Cursed Coin once a level for solving. (b) Only what lies in the wing.
+**What a puzzle pays** (P7, decided): the wing's hoard, and experience as a chain's end at the level (60 times the
+level's weight). No Cursed Coin.
 
 Every puzzle is made with its level from the level's seed: its answer chosen, its pieces and clues laid near the
 wing's door (never in a vault, a pocket or behind a secret), and checked to be solvable before the level opens.
+
+## 6a. The hidden message, and Tab's documents
+
+The owner's: on every puzzle level the answer is written down somewhere, hidden in something on the level, themed to
+the run.
+
+- **What it is and where** *(drafts)*. It is hidden in one of the level's own decorative things, away from the wing's
+  door, never in a vault, a pocket or behind a secret:
+
+  | Run | The message | Hidden in |
+  |---|---|---|
+  | I | a leaf torn from the Order's book of hours, rubricated in red | a skull's jaw in an ossuary, a burial urn, a niche's candle-box, a reliquary on a shrine |
+  | II | a letter sealed in a stoppered bottle, the ink run a little | the silt of a cistern's edge, a saint's sleeve, a drowned satchel by a canal |
+  | III | a foreman's note pencilled on a scrap of sacking | a dead miner's boot, a mine lamp's base, a cart's toolbox, a crack behind a prop |
+  | IV | a strip of beaten gold leaf scratched with a stylus | a broken geode, an idol's base, under a fused corpse's hand |
+
+- **Finding it**: E held a second at the thing searches it (a rustle, the hand reaching in); the message comes out with
+  a turn of a page's sound and a pop-up, *A DOCUMENT*. How hidden it is: round two, P12.
+- **What it says**: the puzzle's answer, plainly, in the run's voice: *THE SKULLS: THE MITRE IN THE FIRST NICHE ...*,
+  *POUR THE GREAT INTO THE MIDDLE, THE MIDDLE INTO THE LEAST ...*; where words won't do (the culverts, the prisms, the
+  glass floor), a small drawing of the answer in ink.
+- **The Black Shrine** (the owner's) shows where it lies, from afar (round two, P10, asks what it is).
+- **Tab's documents** (the owner's): a new page of Tab, *DOCUMENTS*, holding every document found on the level: the
+  hidden message, drawn on its own parchment, and (round two, P11) the clues read. All of it is gone when the level ends.
+  W/S choose a document, its page shown whole.
+- **The dream** never searches for the message (it knows the answer); a person who takes over finds the page empty.
 
 ## 7. Puzzles, by run
 
@@ -420,12 +479,13 @@ the way it is worked, what lies in the world, and where its clue is.
 - **The Sealed Letters** (turn): dials of letters set to a word cut into the wall in pieces round the room.
 - **Sokoban** (push, if push is built): sarcophagi pushed onto the marked flags.
 
-**P8. The kinds, a run.** (a*) The owner picks one a run from the list (or two that go together), and the rest wait.
-Our suggestion: run I *The Ossuary Ledger* (with *The Knell* as a second), run II *Three Cisterns*, run III *The
-Points*, run IV *Prisms*. (b) We pick.
+**All the kinds** (P8, decided). Every kind on each run's list is used, but Sokoban (no push). *Default*: each puzzle
+level draws one kind from its run's list, one not yet met on this way down, so a descent shows as many kinds as it has
+puzzle levels (two in run I, four in each of the others) and the next descent the rest; *The Magic Square* and *The
+Sealed Letters* can come in any run, one puzzle level in eight. A person's run and the dream draw alike.
 
-**P9. Harder deeper.** (a*) Within a run, the kind grows harder level by level: more pieces, a longer order, fewer
-clues given outright; and a run's later levels may draw on the run's second kind. (b) Each kind at one difficulty.
+**Harder deeper** (P9, decided): within a run each kind grows harder level by level: more pieces, a longer order,
+fewer clues given outright.
 
 ---
 
@@ -435,12 +495,13 @@ clues given outright; and a run's later levels may draw on the run's second kind
 
 - **The door**: a skull and crossbones on it, the run's own (D1). It is seen from down the hall: two red candles or
   their like stand by it.
-- **Where** (*default*): a room of two to four blocks off the main way, never the only way to the exit; at most one a
-  level, from level 3, about one level in three, never on a boss's level. From run II it may be on the lower storey.
+- **Where** (T2, the owner's): **one on every level from level 3**. *Default*: a room of two to four blocks off the
+  main way, never the only way to the exit (on a boss's level: round two, T6). From 1.0.0b13 it may be on the lower
+  storey.
 - **Going in**: one cell past the door it shuts and seals behind you, as a boss's arch does, and the room turns: its
   light changes to the trial's colour, the fog thickens or clears, the walls take on the trial's look (the run's), the
-  music gives way to a quicker, driving version of the run's march, and an hourglass with sixty seconds stands at the top
-  of the view (T3). In the last ten, a ticking.
+  music gives way to a quicker, driving version of the run's march, and **an hourglass** stands at the top of the view,
+  where a boss's bar goes, its sand running for sixty seconds, with no numbers (T3). In the last ten, a ticking.
 - **Falling** inside is a death (as asked): in a person's run it costs, as any death; in the dream the old mercy.
   Second Wind works as anywhere.
 - **Winning**: the hourglass breaks, the room turns back, the door opens, and you are restored: full health, full
@@ -451,15 +512,10 @@ clues given outright; and a run's later levels may draw on the run's second kind
   tuned so that it wins nearly all of them (at least nineteen in twenty) with a few seconds to spare (a median of five
   to fifteen left). Each run's trials tuned by runs of the dream, with the numbers kept in the plan.
 
-**T1. Time running out.** (a*) The hourglass empties, the door opens, the room turns back, and nothing is gained; its
-creatures crumble; the room is spent for the level. (b) As (a), and the room's creatures stay, hunting. (c) The trial's
-curse: the rest of the level pays a fifth less experience.
-
-**T2. How often.** (a*) About one level in three from level 3, as above. (b) One a level from run II. (c) Rarer: one
-level in five.
-
-**T3. The clock.** (a*) An hourglass glyph and the seconds at the top of the view, where a boss's bar goes. (b) Only the
-hourglass, its sand running; no numbers.
+**Time running out** (T1, decided): **the trial's curse**. The hourglass empties and cracks, the door opens, the room
+turns back, its creatures crumble (*default*), and the rest of the level pays a fifth less experience, from everything.
+It shows where the boon would (*THE TRIAL'S CURSE* on the experience lines and the tally), and ends with the level or a
+death. The room is spent.
 
 ## 9. The doors, by run (D1)
 
@@ -469,7 +525,7 @@ hourglass, its sand running; no numbers.
   a red lamp hung on a nail.
 - **Run IV**: a skull in black glass over crossed bones of gold, glowing from within, set in the iron door.
 
-**D1. The doors.** (a*) As drafted, the owner marking up. (b) One door for all, the run's colour only.
+**D1. The doors.** *Decided: (a).* (a*) As drafted, the owner marking up. (b) One door for all, the run's colour only.
 
 ## 10. Trials, by run
 
@@ -517,11 +573,11 @@ the room turns.
 4. **Singing Glass** (reach). Crystals light one after another; strike each before its light goes out, while the glass
    spikes under you.
 
-**T4. Which trials.** (a*) The owner picks two to four a run; our suggestion: I *The Ossuary Wakes* and *The Vigil*; II
-*Rising Water* and *The Brood*; III *The Cave-In* and *The Rite*; IV *The Molten Rise* and *Dark Hours*. (b) All of them.
+**Every trial is used** (T4, decided). *Default*: each level's trial is drawn from its run's list, one not yet met on
+this way down until all have come, then round again.
 
-**T5. A record of them.** (a*) The record counts puzzles solved and trials won, with achievements (a first, five, twenty
-puzzles; a first, ten, thirty trials; every trial of a run won once). (b) Not counted.
+**The record** (T5, decided) counts puzzles solved and trials won, with achievements: a first, five and twenty
+puzzles; a first, ten and thirty trials; every trial of a run won once.
 
 ---
 
@@ -531,9 +587,12 @@ puzzles; a first, ten, thirty trials; every trial of a run won once). (b) Not co
 - **Premonition** marks the new hazards; Grave Sense and the map's numbers count trial rooms' creatures only once the
   room is entered.
 - **The map at a walk** marks a puzzle wing's door and a trial's door once seen, and the wing once open.
+- **Tab** gains *DOCUMENTS* (section 6a); its totals and the caster's screen gain Resist Lightning.
 - **Debug switches** (*defaults*): `CRAWL_HZ=k` (hazard k on every level, often), `CRAWL_PUZZLE=k` (puzzle kind k on every
-  level, `CRAWL_TPPUZZLE=1` before its first piece), `CRAWL_TRIAL=k` (trial k on every level, `CRAWL_TPTRIAL=1` before its
-  door), `CRAWL_LOWER=f` (a lower storey of that share on any level), `CRAWL_TPSTAIR=1` (before the first stair down).
+  level, `CRAWL_TPPUZZLE=1` before its first piece, `CRAWL_TPMSG=1` before the thing hiding its message,
+  `CRAWL_WINGEXIT=1` the exit in the wing every time), `CRAWL_TRIAL=k` (trial k on every level, `CRAWL_TPTRIAL=1` before
+  its door), `CRAWL_LOWER=f` (a lower storey of that share on any level), `CRAWL_TPSTAIR=1` (before the first stair down,
+  or a ladder in the Hollows).
 - **Saves**: puzzles and trials belong to their level and aren't saved; the record's new counts go in a ledger section
   (`LG_DEEDS`, *a draft name*), so the version needn't move. The lower storey needs nothing saved.
 - **Housekeeping on the 1.0.0b11 branch**: two debug logs (`b.txt`, `dream.txt`) were committed at the top of the tree
@@ -542,11 +601,14 @@ puzzles; a first, ten, thirty trials; every trial of a run won once). (b) Not co
 ## 12. Art, for the owner's sheets first
 
 - `hazards.png`: each chosen hazard warning, harming and fading.
-- `puzzles.png`: each chosen kind's pieces and places (niches and skulls, bells, effigies, cisterns and sluices, rails
-  and levers, prisms and the beam), the wing's doors, and the hand holding a carried thing.
-- `trials.png`: the four doors, each run's turned room, the hourglass.
-- `storeys.png` (1.0.0b13): edges, balustrades and stairs for runs II-IV, a gallery and a well seen from above and below,
-  and the low ceiling of a passage under the floor.
+- `puzzles.png`: every kind's pieces and places (niches and skulls, bells, effigies, the scale, candles, urns, the dial,
+  cisterns and sluices, saints and emblems, culverts, stepping stones, rails and levers, the hoist, the tally board, the
+  fossil, the ring of stones, lamps, prisms and the beam, the court's statues, the glass floor, crystals, gold veins,
+  vents), the wing's doors, a carried thing small in the corner, and each run's hidden message with the things it hides in.
+- `documents.png`: Tab's *DOCUMENTS* page, with a message of each run drawn on its own parchment.
+- `trials.png`: the four doors, each run's turned room, the hourglass full, running and cracked.
+- `storeys.png` (1.0.0b13): edges, balustrades and stairs for runs II-IV, the Hollows' ladders, a gallery and a well seen
+  from above and below, and the low ceiling of a passage under the floor.
 - Frames: a hazard in each run, a puzzle solved, a trial won and one lost, and, for the lower storey, the test level.
 
 ## Building it
@@ -555,61 +617,39 @@ As two releases (G2 a); each step a commit, tested in the harness.
 
 **1.0.0b12**
 
-1. **Hazards**: fixed and arising hazards, the run's mix with earlier runs', the cap, the chosen samples with their
-   elements; Premonition and the autopilot; their sheet.
-2. **Ways to touch the world**: take and set, turn, pull, light, strike, step, read (as P3 chooses); the hand carrying.
-3. **Puzzles**: the sealed wing, each chosen kind with its maker, its clues and its check, the help, the dream solving
-   them; their sheet.
-4. **Trials**: the doors, the seal, the room's turn, the hourglass, the reward and the boon; each chosen trial with the
-   dream's way through it; tuning runs to the target.
-5. **The record, the Codex, the README and the page.**
-6. **Checks**: ASan; the Windows build; eight dream runs from levels 1, 11, 21 and 31 against 1.0.0b11 on the same
+1. **Hazards**: fixed and arising hazards, the run's mix with earlier runs', the cap, every sample with its element,
+   the soul-sappers from each run's sixth level; Resist Lightning; Premonition and the autopilot; their sheet.
+2. **Ways to touch the world**: take and set, turn, pull, light, strike, step, read; carrying, shown in the corner.
+3. **Puzzles**: the sealed wing (the exit inside it one puzzle level in three), every kind with its maker, its clues and
+   its check, the whisper, the dream solving them; their sheet.
+4. **The hidden message and Tab's documents**, and the Black Shrine's showing (P10).
+5. **Trials**: the doors, the seal, the room's turn, the hourglass, the reward and the boon, the curse; every trial with
+   the dream's way through it; tuning runs to the target.
+6. **The record, the Codex, the README and the page.**
+7. **Checks**: ASan; the Windows build; eight dream runs from levels 1, 11, 21 and 31 against 1.0.0b11 on the same
    seeds; the trials' win rate and time left a run; puzzles solved by the dream.
 
 **1.0.0b13**
 
-7. **The test**: the two-storey renderer on a hand-made level; frames and its time a frame, for the owner.
-8. **Two storeys**: the generator (galleries, wells, passages under, stairs), collision and edges, the hunt field and
+8. **The test**: the two-storey renderer on a hand-made level; frames and its time a frame, for the owner.
+9. **Two storeys**: the generator (galleries, wells, passages under, stairs), collision and edges, the hunt field and
    fliers across storeys, missiles with a height (L5), the lightmap and fog for each storey, sprites clipped.
-9. **Edges and stairs**, a run at a time, sheets first.
-10. **The autopilot on two storeys**, the map's two storeys, secrets, vaults and the exit below, its danger.
-11. **Checks**, as above, and the frame time on the deepest levels.
+10. **Edges, stairs and the Hollows' ladders**, a run at a time, sheets first.
+11. **The autopilot on two storeys**, the map's two storeys, secrets, vaults and the exit below, its danger.
+12. **Checks**, as above, and the frame time on the deepest levels.
 
 As always, all of it tested in the harness only until the owner plays it.
 
-## The questions, together
+## Round two (30 October 2026): questions the answers raised
 
-Answer by number; anything left alone takes the starred answer. The samples (hazards, edges, doors, puzzles, trials)
-can be marked up line by line.
+Answer by number; anything left alone takes the starred answer. The drafts (the hidden messages and their hiding
+places, Resist Lightning's name) can be marked up too.
 
-| | Question | Recommended |
-|---|---|---|
-| G1 | Which release | (a) 1.0.0b12, after 1.0.0b11 |
-| G2 | One release or two | (a) two: hazards, puzzles and trials first; the lower storey in 1.0.0b13 |
-| L1 | How the lower storey is drawn | (a) two storeys on one grid, a test first |
-| L2 | A boss's level | (a) no lower storey |
-| L3 | What makes it more dangerous | (a) a rank higher, a third more, hazards twice as often |
-| L4 | Creatures between storeys | (a) walkers by stairs, fliers by wells, spirits through floors |
-| L5 | Striking across storeys | (a) yes, through wells and galleries |
-| L6 | Ladders | (a) stairs only |
-| E1 | The edges | (a) as the table, marked up |
-| H1 | The rhythm of hazards | (a) fixed and arising, more as the run goes |
-| H2 | The most a stroke takes | (a) a quarter of your health |
-| H3 | The hazard samples | (a) the owner marks them up |
-| H4 | Lightning's resist | (a) none, as now |
-| H5 | Soul-sapping hazards | (a) one a run |
-| P1 | When puzzles come | (a) even levels from 6, never a boss's |
-| P2 | What a puzzle opens | (a) a sealed wing, never needed for the exit |
-| P3 | Ways to touch the world | (a) all but push |
-| P4 | Carrying | (a) in the hand; casting sets it down |
-| P5 | Help | (a) a whisper after three wrong tries |
-| P6 | The dream and puzzles | (a) it solves them, slowly |
-| P7 | What a puzzle pays | (a) the hoard, experience, a Cursed Coin |
-| P8 | Puzzle kinds a run | (a) the owner picks; ours: Ledger, Cisterns, Points, Prisms |
-| P9 | Harder deeper | (a) yes, within the run |
-| T1 | Time running out | (a) the door opens, nothing gained |
-| T2 | How often trials come | (a) one level in three from level 3 |
-| T3 | The clock | (a) an hourglass and the seconds |
-| D1 | The doors | (a) as drafted |
-| T4 | Trials a run | (a) the owner picks; ours: two a run as listed |
-| T5 | A record of them | (a) counts and achievements |
+| | Question | (a*) | (b) |
+|---|---|---|---|
+| H6 | Run IV's list holds seven hazards (the void and six new), the others six | all seven | drop one (say which) |
+| P10 | "A Black Shrine can point out the hidden message" | the Black Altar (on every level from 6, as the puzzles are): a new row of its menu sends its violet wisp to the message for 15 souls, and it waits there as it waits at a secret | a small shrine of its own on every puzzle level that, for souls, shows the message's place through the walls for a while |
+| P11 | What Tab's *DOCUMENTS* holds | the hidden message, and every clue read with E on the level (so a person needn't walk back to reread a carving) | the hidden message only |
+| P12 | How hidden the message is | nothing shows it but the shrine's showing and, within three cells, Treasure Hunter's whisper | a faint glint within two cells, for everyone |
+| T6 | A trial on a boss's level ("every level from level 3") | yes, outside the arena | not on a boss's level |
+| T7 | A trial won on every level restores health, spirit and bones in full; full spirit every level undoes much of 1.0.0b11's lean soul economy (the vessel would seldom stay low past a level) | health and bones in full, spirit to half the vessel (or kept, if more) | in full, as asked, the souls retuned by runs around it |
