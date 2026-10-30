@@ -193,6 +193,11 @@ challenge at step s), `CRAWL_GOALS=1`
 readout), `CRAWL_XP=n` (n experience banked as a person takes over: the autopilot never ascends a person's run),
 `CRAWL_LUCK=x` (Luck at x%), `CRAWL_CORNER=b` (the cornerstones held, a bit each: 1 Second Wind, 2 Premonition, 4
 Cartographer, 8 Lantern of the Dead, 16 Grave Sense),
+`CRAWL_MEETN=n` (with `CRAWL_MEET`, n of them spread about the line of sight), `CRAWL_ALIGN=s` (1.0.0b11: a letter
+for each line, Fire, Frost, Lightning, Poison, Spirit, Physical: 0 closed, 1 open, 2 to its Insight, 3 to its ability,
+a-c path A's nodes in order, x-z path B's, so `c` is A's ultimate and `z` B's), `CRAWL_ALPTS=n` (Alignment Points),
+`CRAWL_TPLAMP=1` (before the Lampstand), `CRAWL_SPECTRES=n` (n spectres a level); `CRAWL_ALIGN` and `CRAWL_SOULS` also
+apply over a run loaded with `HOST_LOAD`,
 `CRAWL_TPROOM=k` (in a corner of the first room of type k, looking across it: run I's 1 ossuary, 2 burial
 vault, 3 chapter house, 4 knights' vault, 5 undercroft; run II's 8 saints' catacomb, 9 cistern, 10 silted nave,
 11 canal, 12 spinners' gallery; run III's 13 timbered gallery, 14 stope, 15 charnel pit, 16 fossil hall, 17 the
@@ -852,6 +857,22 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   bar comes up over its foot as it does without it; the target's readout waits. The merchant sells it for `MAP_PRICE`
   (1,000) as a floating `SP_MAPWARE` at `MAP_X/Y`, her left (`G.map_look`, a card and a tag; not one of the visit's
   wares; the autopilot never buys it). Debug: `EVENT map_bought`.
+- **The Alignment** (1.0.0b11, docs/PLAN-b11.md sections 7-10; being built). `ALIGN[NELEM]` (each line's nodes, `ND_*`:
+  the opening, Efficiency, Insight, the ability, path A's three, path B's three; costs and values), `RUN.al[e][n]` the
+  points in each node, `RUN.al_points`; `align_open`, `align_full`, `align_has`, `align_rank`, `align_sum`, `align_add`
+  (a Mastery's share of its element added to other spells); `align_sync` hands the lines to `crawl_gear.c`
+  (`spell_set_line`, `spell_set_atone`). Bought at the Lampstand (`LAMP_X/Y`, the room north of hers; `UI_ALIGN`), shown
+  on Tab's fourth page, saved as `LG_ALIGN`. A spell is its line's (`LINE_ATK`, keys `KEY_SPELL`): strength by the Level
+  of Atonement and rank (`spell_damage_at`), spirit by rank (`spell_cost`; the spear none), a wind-up (`spell_windup`)
+  a blow may break (`EVENT windup_broken`). Charging (`G.chg_on/chg_sp/chg_t` in `human_cast`; `spell_charges`,
+  `spell_tethers`, `cast_charged`; `render_charge` left of the palm and a light in the element's colour) and the
+  ultimates: Firewall (`G.fwall_t`, `FWALL_R`, `SP_FSPIRIT_*`), Flamewalker (`G.fwalk_t/fwalk_cd`, armour in
+  `caster_sync`), Winter's Lance (`SHOT_LANCE`; `rime`, a `Venom` with `rime` set, `SP_RIME`), Shatter (in
+  `damage_mob`), Arc (`chain_lightning`), Amperage (`SHOT_ORB`, `daze`, `SP_ORB_*`), Plague Pit (a flask whose
+  `target` is 1000 + the charge), Contagion (`kill_mob`), Soul Tether (`G.tether`, 1 + the creature, `tether_hold`),
+  Wisp Host (in `cast_spell`'s drain), the Phalanx and the Ballista (`SHOT_BALLISTA`, `SP_BALLISTA`). `make sheets`
+  draws their sprites on `spells.png`. Debug: `EVENT ultimate`, `orb_hits`, `shatters`, `contagions`, `flamewalks`,
+  `wisp_host`, `tether_ticks`, `plague_pit`.
 - **The target's health** (section 2; `look_at`, `look_update`, `G.look_mob/look_t`, `render_target`). The
   creature nearest the view's middle within twelve cells and in sight, for 1.5 s after; anything a person hits
   for 3 s. At the top (under a boss's bar): name and rank, a bar and `small_digits` figures, the spell it takes

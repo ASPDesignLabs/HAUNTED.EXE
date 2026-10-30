@@ -1351,6 +1351,84 @@ static void spr_flask(void) {
     cv_store(SP_FLASK);
 }
 
+/* the ultimates (docs/PLAN-b11.md, sections 9-10) */
+static void spr_orb(int id, int frame) {                           /* Amperage: a ball of lightning, threads crackling off it */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float dx = x + 0.5f - 32, dy = y + 0.5f - 32, d = sqrtf(dx * dx + dy * dy);
+            float n = fbm(x / 2.5f + frame * 7.0f, y / 2.5f, 32, 83) * 0.35f, rr = 9.0f * (0.9f + n);
+            if (d > rr) continue;
+            if (d < 3.2f) { cv_px(x, y, C_WHITE); continue; }
+            float sw = sinf(atan2f(dy, dx) * 3.0f + d * 0.7f + frame * 2.0f + n * 9.0f);   /* swirling */
+            cv_px(x, y, sh(R_GOLD, clampf(1.0f - d / rr * 0.55f + 0.2f * sw, 0.35f, 1.0f)));
+        }
+    for (int k = 0; k < 6; k++) {                                  /* the threads, jagged */
+        float a = h01(k, frame, 41) * TAU_F, x = 32 + cosf(a) * 7.0f, y = 32 + sinf(a) * 7.0f, l = 9.0f + 10.0f * h01(k, frame, 43);
+        for (int s = 0; s < 5; s++) {
+            float b = a + (h01(k * 5 + s, frame, 47) - 0.5f) * 1.4f, nx = x + cosf(b) * l / 5.0f, ny = y + sinf(b) * l / 5.0f;
+            cv_line(x, y, nx, ny, s < 2 ? C_WHITE : sh(R_GOLD, 0.9f - 0.1f * s));
+            x = nx; y = ny;
+        }
+    }
+    cv_store(id);
+}
+static void spr_lance(void) {                                      /* Winter's Lance: a long star of ice */
+    cv_begin(cv_sprite, TS, TS);
+    for (int k = 0; k < 6; k++) {
+        float a = k * TAU_F / 6.0f + 0.26f, l = k & 1 ? 11.0f : 17.0f;
+        float tri[6] = { 32 + cosf(a) * l, 32 + sinf(a) * l, 32 + cosf(a + 0.42f) * 3.5f, 32 + sinf(a + 0.42f) * 3.5f,
+                         32 + cosf(a - 0.42f) * 3.5f, 32 + sinf(a - 0.42f) * 3.5f };
+        cv_poly(tri, 3, R_GLOW, 0.45f, 1.0f, 32 - l, 2 * l);
+    }
+    cv_flat(32, 32, 4.0f, 4.0f, sh(R_GLOW, 0.95f));
+    cv_flat(32, 32, 2.2f, 2.2f, C_WHITE);
+    for (int i = 0; i < 14; i++) {                                 /* frost streaming off it */
+        float a = h01(i, 1, 51) * TAU_F, l = 6.0f + 16.0f * h01(i, 2, 51);
+        cv_px((int)(32 + cosf(a) * l), (int)(32 + sinf(a) * l), i & 1 ? C_WHITE : sh(R_GLOW, 0.7f));
+    }
+    cv_store(SP_LANCE);
+}
+static void spr_ballista(void) {                                   /* the Ballista's spear, point first, its head bound in iron */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float dx = (x + 0.5f - 32) / 7.5f, dy = (y + 0.5f - 32) / 7.5f, d = dx * dx + dy * dy;
+            if (d < 0.55f) cv_px(x, y, sh(R_BONE, 0.5f + 0.5f * lit(dx, dy, sqrtf(1.0f - d))));
+            else if (d < 1.0f) cv_px(x, y, sh(R_IRON, 0.25f + 0.6f * lit(dx, dy, sqrtf(1.0f - d)) + 0.1f * ((x + y) & 1)));   /* the binding */
+            else if (d < 2.4f && h01(x, y, 5) < 0.4f) cv_px(x, y, sh(R_BONE, 0.3f));   /* the wind of it */
+        }
+    for (int k = 0; k < 4; k++) cv_px(32 + (k & 1 ? 5 : -5), 32 + (k & 2 ? 5 : -5), sh(R_IRON, 0.9f));   /* rivets */
+    cv_flat(31.5f, 31.5f, 1.5f, 1.5f, sh(R_BONE, 1.0f));
+    cv_store(SP_BALLISTA);
+}
+static void spr_fspirit(int id, int frame) {                       /* Firewall's flame spirits */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 16; y < 50; y++) {
+        float u = (float)(y - 16) / 34.0f, w = 9.0f * sinf(PI_F * fminf(1.0f, u * 1.15f)) * (0.5f + 0.5f * u);
+        float wob = sinf(u * 9.0f + frame * 2.6f) * 2.0f * (1.0f - u);
+        for (int x = (int)(32 + wob - w); x <= (int)(32 + wob + w); x++) {
+            float e = fabsf(x + 0.5f - 32 - wob) / (w + 0.01f), heat = (1.0f - e) * 0.7f + u * 0.35f;
+            if (u < 0.3f && h01(x, y + frame * 13, 9) < 0.3f * (1.0f - u / 0.3f)) continue;   /* its tip, licking */
+            cv_px(x, y, (uint8_t)(R_FLAME + clampi((int)(heat * 15.0f), 3, 15)));
+        }
+    }
+    cv_flat(29.0f, 36.0f, 1.4f, 2.2f, (uint8_t)(R_BLOOD + 1)); cv_flat(35.0f, 36.0f, 1.4f, 2.2f, (uint8_t)(R_BLOOD + 1));   /* hollow eyes */
+    cv_store(id);
+}
+static void spr_rime(void) {                                       /* the Lance's rime: frost feathering out on the floor */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 54; y <= 63; y++)
+        for (int x = 6; x < 58; x++) {
+            float nx = (x + 0.5f - 32) / 25.0f, ny = (y + 0.5f - 59.0f) / 4.5f, d = sqrtf(nx * nx + ny * ny);
+            if (d > 1.0f) continue;
+            float f = fbm(x / 3.0f, y / 1.5f, 32, 97);
+            if (f > 0.42f + 0.25f * d) cv_px(x, y, f > 0.62f ? C_WHITE : sh(R_GLOW, 0.35f + 0.5f * f));
+            else if (h01(x, y, 99) < 0.12f * (1.0f - d)) cv_px(x, y, sh(R_GLOW, 0.8f));
+        }
+    cv_store(SP_RIME);
+}
+
 static void spr_burn(int id, int frame) {
     cv_begin(cv_sprite, TS, TS);
     for (int i = 0; i < 9; i++) {
@@ -7675,6 +7753,7 @@ void crawl_art_init(void) {
     for (int k = 0; k < 4; k++) spr_tomb(SP_TOMB_ROUND + k, k);
     spr_tomb(SP_TOMB_FRESH, 4);
     spr_lectern(); spr_mapware(); spr_lampstand();
+    spr_orb(SP_ORB_A, 0); spr_orb(SP_ORB_B, 1); spr_lance(); spr_ballista(); spr_fspirit(SP_FSPIRIT_A, 0); spr_fspirit(SP_FSPIRIT_B, 1); spr_rime();
     for (int f = 0; f < 3; f++) spr_firepit(SP_FIREPIT_A + f, f);
     spr_totem(SP_TOTEM_A, 0); spr_totem(SP_TOTEM_B, 1);
     spr_shambler(SP_SHAMB_A, 1.0f, 0); spr_shambler(SP_SHAMB_B, -1.0f, 0); spr_shambler(SP_SHAMB_GRAB, 0.0f, 1);

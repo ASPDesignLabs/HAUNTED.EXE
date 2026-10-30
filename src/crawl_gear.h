@@ -119,7 +119,7 @@ void  spell_set_line(int el, float eff, float ins, float power);   /* a line's E
 float spell_line(int el, int which);                     /* and what was set: 0 Efficiency, 1 Insight, 2 Power */
 float spell_damage(const Gear *g, int atk);              /* per hit, with the damage worn */
 float spell_damage_at(const Gear *g, int atk, int rank); /* the same at another rank (a weak cast goes at rank 1) */
-float spell_cost(const Gear *g, int atk, int rank);      /* spirit a cast takes at this rank: the fireball nothing */
+float spell_cost(const Gear *g, int atk, int rank);      /* spirit a cast takes at this rank: the fireball and the spear nothing */
 float spell_windup(const Gear *g, int atk, int rank);    /* seconds the hand gathers it before it goes, less Insight */
 float heal_cost(const Gear *g, int tier);                /* spirit for each point Soul Drain restores */
 int   wisp_count(int tier);                              /* Seeker Wisps a cast sends */

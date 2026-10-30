@@ -185,6 +185,11 @@ enum {
     SP_MAPWARE,                                 /* the merchant's map of the crypt: a scroll half unrolled, floating (1.0.0b9) */
     SP_FLASK,                                   /* the Blight Flask in flight: a stoppered flask of green venom (1.0.0b11) */
     SP_LAMPSTAND,                               /* the Lampstand: six iron bowls on a black stand, the Alignment's (1.0.0b11) */
+    SP_ORB_A, SP_ORB_B,                         /* Amperage's orb: a slow ball of lightning, threads crackling off it */
+    SP_LANCE,                                   /* Winter's Lance going: a long star of ice, frost streaming off */
+    SP_BALLISTA,                                /* the Ballista's spear, point first: a heavy bone, its head bound in iron */
+    SP_FSPIRIT_A, SP_FSPIRIT_B,                 /* Firewall's flame spirits, two hollow eyes in each */
+    SP_RIME,                                    /* the Lance's rime on the floor, feathering out */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
     SP_SKEL_SA, SP_SKEL_SB, SP_SHIELD_SA, SP_SHIELD_SB, SP_BAT_SA, SP_BAT_SB, SP_SPIDER_SA, SP_SPIDER_SB,
     SP_GHOST_SA, SP_GHOST_SB, SP_WSKULL_S,

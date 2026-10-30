@@ -4,7 +4,8 @@
 `claude/eloquent-carson-1x049c`: part one is built (steps 1-4: the elements as data, the glyphs with `elements.png`
 drawn for the owner and its art in the game until they mark it up, the runes' sockets, the map at a walk), and part
 two's steps 5 (spells as lines), 6 (the new room, the Lampstand on `hall2.png`, Alignment Points and the screen), 7
-(the abilities) and 8 (the paths' nodes, the Masteries, spectres), tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+(the abilities), 8 (the paths' nodes, the Masteries, spectres) and 9 (charging and the twelve ultimates, their sprites
+on `spells.png`), tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),
@@ -857,3 +858,24 @@ answers, and are first guesses for the runs to tune. Any of them can be changed 
   a spectre at 2%, two at 10%, four at 25%, six at the most). A spectre has health 20 (raised by level and rank as any)
   that only Spirit Mastery's Soul Drain and wisps reach; slain, it melts as it always did. In a pocket they come only
   the first time into its link, so the slain stay slain and the rest don't come back either.
+- **Charging and the ultimates** (step 9). The charge counts from the press: let go before a quarter of a second and
+  the ordinary spell goes, wind-up and all; after, the charge is the share of a second held (a full second, full). A
+  full charge costs two and a half casts (a cast and one and a half more for each whole charge); the wait after a
+  charged cast is one and a half casts'. A screen opened over a charge, or a death, lets it fall without a cast. The
+  effect sits left of the palm, under the fingers, where the controls card doesn't cover it. **Firewall's spirits
+  circle 1.2 cells out, not half a cell**: creatures that come to blows stand about a cell and a half off, so at half a
+  cell the spirits never touched them. Amperage's orb flies at 3.5 cells a second for up to six seconds, its arc
+  reaches 3.5 cells for half the orb's blow, and both daze (no blow or throw for 1.5 s); its trail is laid each 0.7
+  cells. Winter's Lance flies at 14 cells a second, its blow up to twice the shard's, and rimes the floor each 0.7
+  cells (a patch of 0.45 cells, four seconds, slowing). Plague Pit's pool is 0.55 to 1.25 cells in radius (so two and
+  a half across at full), slows while it lasts, and doses as Seep's. The Phalanx's fan is 0.16 radians a spear. The
+  Ballista's spear flies at 24 cells a second, knocks back up to a cell short of the stone, and pins a second (a boss
+  staggers half a second). Soul Tether drains a quarter of a cast's spirit each tick for three tenths of the drain,
+  healing with Communion as the drain does; it holds to ten cells in sight. Shatter's shards cut for half a Frost
+  Shard and chill 1.5 s; one shatter can't set off another. Contagion's dose is three fifths of the dead one's full
+  dose, to everything within two cells. Wisp Host's wisps go out in a fan of three and find the nearest themselves;
+  with the Mastery under them they reach spectres. Flamewalker's armour is half the caster's armour (worn and own),
+  under the cap. The knight's Mirror Rune doesn't turn the orb, the lance or the Ballista's spear. Held in the
+  spider's web, a charged cast goes at the web as an ordinary one does. The dream doesn't charge yet (step 14).
+- **Physical's cost** (found in step 9): the spear was being charged spirit like the other spells since step 5; it
+  costs bones only now, as section 7 says.

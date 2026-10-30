@@ -813,6 +813,42 @@ static int draw_hall2(const char *path) {
     return ok;
 }
 
+/* the spells' things in flight and on the floor (1.0.0b11: the Blight Flask, the ultimates); the charging effect and
+ * the beams are drawn by the game, so they come as frames from it */
+static int draw_spells(const char *path) {
+    snap_take(&g_snap[0], 1);
+    const int S3 = 3, T3 = TS * S3;
+    static const struct { int id; const char *l1, *l2; } SP[] = {
+        { SP_FLASK, "THE BLIGHT FLASK", "IN FLIGHT" }, { SP_BURN_A, "FIRESTARTER'S", "FLAMES (LOWER)" },
+        { SP_FSPIRIT_A, "FIREWALL'S", "FLAME SPIRIT" }, { SP_FSPIRIT_B, "THE SAME,", "FLICKERING" },
+        { SP_ORB_A, "AMPERAGE'S ORB", "" }, { SP_ORB_B, "THE SAME,", "CRACKLING" },
+        { SP_LANCE, "WINTER'S LANCE", "GOING" }, { SP_RIME, "ITS RIME", "ON THE FLOOR" },
+        { SP_FROST, "SHATTER'S", "BURST, BRIGHT" }, { SP_BALLISTA, "THE BALLISTA'S", "SPEAR" },
+        { SP_SPEAR, "THE BONE SPEAR", "PHALANX: FIVE" }, { SP_WISP, "WISP HOST'S", "WISPS" } };
+    int n = (int)(sizeof SP / sizeof SP[0]), cols = 4, pitch = T3 + 72;
+    iw = PAD * 2 + cols * pitch; ih = 2000;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "1.0.0B11: THE SPELLS' THINGS, FOR APPROVAL", 230, 230, 230);
+    int y = PAD + LABEL_H + 8;
+    for (int i = 0; i < n; i++) {
+        int x = PAD + (i % cols) * pitch, yy = y + (i / cols) * (T3 + 2 * LABEL_H + 16);
+        spr_at(&g_snap[0], x, yy, SP[i].id, S3);
+        text(x, yy + T3 + 6, SP[i].l1, 190, 190, 190);
+        text(x, yy + T3 + LABEL_H, SP[i].l2, 150, 150, 150);
+    }
+    y += ((n + cols - 1) / cols) * (T3 + 2 * LABEL_H + 16);
+    static const char *const NOTE[4] = { "IN THE GAME THE SPIRITS, THE ORB AND THE RIME ARE DRAWN BRIGHT,",
+                                         "THE POOLS GREEN; A CREATURE ALIGHT, POISONED OR PINNED IS MARKED",
+                                         "OVER ITS OWN SPRITE. THE CHARGING EFFECT, THE ARCS, THE TETHER'S",
+                                         "BEAM AND IONIZATION'S TRAIL ARE DRAWN BY THE GAME: SEE ITS FRAMES." };
+    for (int i = 0; i < 4; i++) text(PAD, y + i * (LABEL_H - 6), NOTE[i], 120, 120, 120);
+    ih = y + 4 * LABEL_H + PAD;
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
 static int draw_runlook(const char *path, int run) {
     const RunLook *L = &crawl_looks[run];
     const RunSheet *R = &RUNSHEETS[run];
@@ -972,6 +1008,7 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "deeprooms", "RUN IV'S ROOMS");
         printf("%-12s %s\n", "elements", "1.0.0B11: THE ELEMENTS' GLYPHS, THE TARGET IN THEM, THE RUNES' SOCKETS");
         printf("%-12s %s\n", "hall2", "1.0.0B11: HER HALL'S NEW ROOM: THE LAMPSTAND (THE BELL AND THE FONT TO COME)");
+        printf("%-12s %s\n", "spells", "1.0.0B11: THE SPELLS' THINGS: THE FLASK, THE ULTIMATES' SPRITES");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -1026,6 +1063,14 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/hall2.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_hall2(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "spells")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/spells.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_spells(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        crawl_art_level(level < 1 ? 1 : level);
         done++;
     }
     static const char *const RUNSHEET_NAMES[4][2] = { { "crypts", "cryptrooms" }, { "catacombs", "catarooms" }, { "hollows", "hollowrooms" }, { "deep", "deeprooms" } };

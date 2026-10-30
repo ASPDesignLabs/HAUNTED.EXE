@@ -582,7 +582,7 @@ float spell_damage(const Gear *g, int atk) { return spell_damage_at(g, atk, g->a
  * The BFS9000 keeps its own price in souls (bfs_cost). */
 int wisp_count(int tier) { return 3 + (tier >= 3) + (tier >= 6); }
 float spell_cost(const Gear *g, int atk, int r) {
-    if (atk == AT_BFS || (atk == AT_FIRE && r <= 1)) return 0.0f;
+    if (atk == AT_BFS || atk == AT_SPEAR || (atk == AT_FIRE && r <= 1)) return 0.0f;   /* Physical costs bones, never spirit */
     int el = ATK_ELEM[atk];
     float keep = (1.0f - gear_total(g, ST_THRIFT) / 100.0f) * (1.0f - (el >= 0 ? g_eff[el] : 0.0f));
     if (atk == AT_WISPS) return (float)wisp_count(r) * fmaxf(0.1f, keep);
