@@ -80,13 +80,16 @@ Tested in the harness only, and released as 1.0.0b10 at the owner's word, squash
 README's previews of the four runs, the crypt, the merchant and the bosses were taken again; the strips of menus,
 creatures, wisps and pockets still show the old walls, and say so.
 
-1.0.0b11 is planned in [`docs/PLAN-b11.md`](docs/PLAN-b11.md), and waits on the owner's answers: build nothing until
-they are written into its Decided section. Part one: the map at a walk (the crypt runs while it is open, walked
-cells apart from seen ones, the level's numbers on the scroll), the target's weaknesses and harm as glyphs of six
-elements, and sockets for the runes as they fire. Part two: spells out of the shop and into an Alignment screen of
-elemental lines bought with points (the owner wrote Electric and Flame; Frost, Poison, Spirit and Physical are drafts
-for the owner to mark up), Vows as classes, and a soul economy that can run dry. Its questions are gathered in a
-table at its end.
+1.0.0b11 is planned in [`docs/PLAN-b11.md`](docs/PLAN-b11.md). The owner answered its first round (30 October);
+a second, shorter round waits at its end: build nothing until it is answered and written into its Decided section.
+Part one: the map at a walk (the crypt runs while it is open, a holed parchment with eerie ink, walked cells apart
+from seen ones, the level's numbers on the scroll), the target's weaknesses and harm as glyphs of six elements, and
+sockets for the runes as they fire. Part two: spells out of the shop and into elemental lines bought with Alignment
+Points at a Lampstand in a new room of her hall (the owner wrote Electric and Flame; our Frost, Poison, Spirit and
+Physical were accepted), a wind-up and charging, gear that rolls the elements, Resist Spirit and bats that latch on
+and sap souls, six classes with a past (the Witchfinder, the Anatomist, the Galvanist, the Plague Doctor, the
+Sin-Eater, the Headsman), and a soul economy that can run dry: a vessel, motes to gather, a bell that corrupts the
+next level, a font for experience.
 
 ## Working with the owner
 
