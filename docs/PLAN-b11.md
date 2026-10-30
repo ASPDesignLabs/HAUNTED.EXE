@@ -2,8 +2,8 @@
 
 **Status: settled (30 October 2026). The owner answered both rounds of questions the same day. Being built on
 `claude/eloquent-carson-1x049c`: part one is built (steps 1-4: the elements as data, the glyphs with `elements.png`
-drawn for the owner and its art in the game until they mark it up, the runes' sockets, the map at a walk), tested in
-the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+drawn for the owner and its art in the game until they mark it up, the runes' sockets, the map at a walk), and part
+two's step 5 (spells as lines), tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),
@@ -817,3 +817,17 @@ answers, and are first guesses for the runs to tune. Any of them can be changed 
   level's name. On a level narrower than the scroll it pans only north and south, as the old map did. The level's
   numbers take two lines (creatures and secrets, then gold and keys), and the map's own part of the scroll is 18
   pixels shorter to make room. A pocket's gold is the treasure still lying in it.
+- **Spells as lines** (step 5). A spell's damage is its base times (1 + 0.07 a Level of Atonement) times its rank's
+  (1 + 0.04 a rank to 11, then 0.08 a rank), times Damage and Power added: at the dream's pace (Level of Atonement 14
+  by level 10, 27 by 20, 42 by 30) a line fed all the way about matches what 1.0.0b10's dream bought (tiers about the
+  level). A cast costs 0.2 at rank 1 rising evenly to 1 at rank 10 and then 0.15 a rank (2.5 at rank 20); the
+  fireball at rank 1 is free, and so is any cast with too little (at rank 1). The wind-up at rank 1 is 0.30 s for
+  Fire and Lightning, 0.34 for Frost and Soul Drain, 0.38 for the spear and the flask, rising 0.3 s by rank 20; the
+  BFS9000's is 0.8. A node is bought whole, but Efficiency, Insight and the per-point nodes (Burning Intensity,
+  Permafrost, Lingering, Communion, Bone Plate) a point at a time. Physical Efficiency's five more bones come with
+  the node. The lines are named by their element in the game (FIRE ... PHYSICAL; LIGHTNING MASTERY and so on).
+  The Blight Flask flies at seven cells a second to where you aim (1.2 to 9 cells), over creatures, and bursts there
+  or at a wall: a quarter of its harm at once, three quarters as poison over four seconds. Arc is in already (the
+  old Chain Lightning's leaps, four of them). A 1.0.0b10 page keeps its BFS9000 if it had one. Her claim takes the
+  last node bought in a line (the highest one with points, so the line keeps its order), never an opening or an
+  ultimate; a line ending in its ultimate offers nothing. The old-spells message is a pop-up headed THE ALIGNMENT.

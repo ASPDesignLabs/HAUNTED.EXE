@@ -7,7 +7,10 @@
 
 #include "core.h"
 
-enum { AT_FIRE, AT_FROST, AT_CHAIN, AT_SPEAR, AT_DRAIN, AT_HELL, AT_WISPS, AT_SPARKS, AT_BFS, NATK };
+/* the spells: a line's own (docs/PLAN-b11.md: Fire Bolt, Frost Shard, the lightning bolt, Bone Spear, Soul Drain, the Blight
+ * Flask), the BFS9000, and two that only the lines' abilities let loose now (Hellfire's burning floor, Seeker Wisps).
+ * The Blight Flask took Rapid Sparks' place, so a save's spells keep their shape */
+enum { AT_FIRE, AT_FROST, AT_CHAIN, AT_SPEAR, AT_DRAIN, AT_HELL, AT_WISPS, AT_FLASK, AT_BFS, NATK };
 /* the elements (docs/PLAN-b11.md, section 4): each spell is of one, creatures take more or less from each,
  * and what they do to you is one or two of them. Kept in saves (the record): new ones go at the end */
 enum { EL_FIRE, EL_FROST, EL_LIGHT, EL_POISON, EL_SPIRIT, EL_PHYS, NELEM };
@@ -37,7 +40,7 @@ typedef struct {
 typedef struct { int kind, id, tier, price, rare; Piece piece; } Offer;   /* a piece: id its kind, tier its level; a rune: tier its quality, 1-5 */
 
 typedef struct {
-    int8_t atk[NATK];                   /* tier known, -1 if not; Fire Bolt starts at tier 0 (the fireball) */
+    int8_t atk[NATK];                   /* each spell's rank, -1 if its line is closed (set from the Alignment each step); the BFS9000's tier */
     int8_t def[NDEF];                   /* quality held: 0 none, 1 Common to 5 Exquisite (RUNE_EXQ) */
     Piece worn[NSLOT];
     Piece bag[BAG_MAX];
@@ -107,12 +110,17 @@ void  gear_set_own(int stat, float add, float cap_up);
 float gear_own(int stat);
 float gear_cap_up(int stat);
 
-/* spells, and the spirit (souls) and bones they cost */
+/* spells, and the spirit (souls) and bones they cost. A spell's strength follows the Level of Atonement and its
+ * line's rank adds to that (docs/PLAN-b11.md, section 7); the game says what they are each step */
 #define BONES_MAX 30                                     /* bones the caster can carry */
 #define SPEAR_BONES 6                                    /* what buying or improving the spear brings */
+void  spell_set_atone(int atone);                        /* the Level of Atonement spells follow */
+void  spell_set_line(int el, float eff, float ins, float power);   /* a line's Efficiency, Insight and Power (fractions) */
+float spell_line(int el, int which);                     /* and what was set: 0 Efficiency, 1 Insight, 2 Power */
 float spell_damage(const Gear *g, int atk);              /* per hit, with the damage worn */
-float spell_damage_at(const Gear *g, int atk, int tier); /* the same at another tier (a weak cast) */
-float spell_cost(const Gear *g, int atk, int tier);      /* spirit a cast takes at this tier: 0 at tier 1 and below */
+float spell_damage_at(const Gear *g, int atk, int rank); /* the same at another rank (a weak cast goes at rank 1) */
+float spell_cost(const Gear *g, int atk, int rank);      /* spirit a cast takes at this rank: the fireball nothing */
+float spell_windup(const Gear *g, int atk, int rank);    /* seconds the hand gathers it before it goes, less Insight */
 float heal_cost(const Gear *g, int tier);                /* spirit for each point Soul Drain restores */
 int   wisp_count(int tier);                              /* Seeker Wisps a cast sends */
 float spell_cycle(const Gear *g, int atk);               /* seconds between casts */

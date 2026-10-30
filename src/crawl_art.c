@@ -1331,6 +1331,26 @@ static void spr_spark(void) {
     cv_store(SP_SPARK);
 }
 
+/* the Blight Flask (docs/PLAN-b11.md, section 10): a squat stoppered flask, green venom behind the glass, turning
+ * as it flies */
+static void spr_flask(void) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            float dx = (x + 0.5f - 32) / 6.5f, dy = (y + 0.5f - 34) / 6.0f, d = dx * dx + dy * dy;
+            if (d < 1.0f) {                                         /* the belly: glass over the venom */
+                float l = lit(dx, dy, sqrtf(1.0f - d));
+                uint8_t c = dy > -0.35f ? sh(R_MOSS, 0.35f + 0.55f * l) : sh(R_GHOST, 0.25f + 0.4f * l);
+                if (dx < -0.3f && dy < -0.1f && d > 0.35f && d < 0.6f) c = (uint8_t)(R_GHOST + 14);   /* a gleam */
+                if (dy > 0.1f && h01(x, y, 5) < 0.08f) c = (uint8_t)(R_MOSS + 14);                     /* a bubble */
+                cv_px(x, y, c);
+            } else if (d < 1.25f) cv_px(x, y, sh(R_GHOST, 0.2f));
+        }
+    for (int y = 23; y < 28; y++) for (int x = 30; x < 35; x++) cv_px(x, y, sh(R_GHOST, 0.3f + 0.1f * (x - 30)));   /* the neck */
+    for (int y = 20; y < 24; y++) for (int x = 29; x < 36; x++) cv_px(x, y, sh(R_WOOD, 0.35f + 0.08f * (x - 29)));   /* the stopper */
+    cv_store(SP_FLASK);
+}
+
 static void spr_burn(int id, int frame) {
     cv_begin(cv_sprite, TS, TS);
     for (int i = 0; i < 9; i++) {
@@ -7584,7 +7604,7 @@ void crawl_art_init(void) {
     spr_spider(SP_SPIDER_D, 3);
     spr_ball(SP_SKULLFIRE_A, 10.0f, R_FLAME, R_BLOOD, 0, 1); spr_ball(SP_SKULLFIRE_B, 10.5f, R_FLAME, R_BLOOD, 1, 1);
     spr_ball(SP_HELL_A, 12.0f, R_FLAME, R_BLOOD, 0, 0); spr_ball(SP_HELL_B, 12.5f, R_FLAME, R_BLOOD, 1, 0);
-    spr_frost(); spr_spear(); spr_wisp(); spr_spark();
+    spr_frost(); spr_spear(); spr_wisp(); spr_spark(); spr_flask();
     spr_burn(SP_BURN_A, 0); spr_burn(SP_BURN_B, 1);
     spr_soulurn(); spr_ringitem(); spr_pedestal(); spr_items(); spr_black_altar(); spr_double();
     spr_shrine_body(0); spr_shrine_body(1); spr_shrine_glow(0); spr_shrine_glow(1);

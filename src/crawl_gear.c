@@ -4,17 +4,17 @@
 #include <stdio.h>
 #include <string.h>
 
-const char *const ATK_NAME[NATK] = { "FIRE BOLT", "FROST SHARD", "CHAIN LIGHTNING", "BONE SPEAR", "SOUL DRAIN",
-                                     "HELLFIRE", "SEEKER WISPS", "RAPID SPARKS", "BFS9000" };
+const char *const ATK_NAME[NATK] = { "FIRE BOLT", "FROST SHARD", "LIGHTNING", "BONE SPEAR", "SOUL DRAIN",
+                                     "HELLFIRE", "SEEKER WISPS", "BLIGHT FLASK", "BFS9000" };
 const char *const DEF_NAME[NDEF] = { "BONE WARD", "BLINK", "MIRROR VEIL", "MEND", "PURIFY", "FROST NOVA",
                                      "DREAD", "TIME SLIP", "SOUL REAPING" };
 /* Hellfire burns, the wisps are spirit, the sparks lightning, as their lines will have them */
-const int8_t ATK_ELEM[NATK] = { EL_FIRE, EL_FROST, EL_LIGHT, EL_PHYS, EL_SPIRIT, EL_FIRE, EL_SPIRIT, EL_LIGHT, -1 };
+const int8_t ATK_ELEM[NATK] = { EL_FIRE, EL_FROST, EL_LIGHT, EL_PHYS, EL_SPIRIT, EL_FIRE, EL_SPIRIT, EL_POISON, -1 };
 const char *const ELEM_NAME[NELEM] = { "FIRE", "FROST", "LIGHTNING", "POISON", "SPIRIT", "PHYSICAL" };
 const int ELEM_RAMP[NELEM] = { R_FLAME, R_GLOW, R_GOLD, R_MOSS, R_PURPLE, R_BONE };
-static const char *const ATK_BLURB[NATK] = { "THE FIREBALL, HOTTER", "SLOWS WHAT IT HITS", "ARCS TO NEARBY FOES", "PIERCES ALL IN A LINE",
-                                             "HEALS YOU AS IT HURTS", "HEAVY BLAST, FLOOR BURNS", "HOMING, ROUND CORNERS",
-                                             "QUICK AND LIGHT", "SPENDS SOULS. KILLS ALL." };
+static const char *const ATK_BLURB[NATK] = { "THE FIREBALL, HOTTER", "SLOWS WHAT IT HITS", "STRIKES AT ONCE", "PIERCES ALL IN A LINE",
+                                             "HEALS YOU AS IT HURTS", "THE FLOOR BURNS", "HOMING, ROUND CORNERS",
+                                             "LOBBED; IT SICKENS", "SPENDS SOULS. KILLS ALL." };
 static const char *const DEF_BLURB[NDEF] = { "ABSORBS THE NEXT BLOWS", "STEP AWAY FROM HARM", "SENDS MISSILES BACK", "HEALS OVER TIME",
                                              "CURES POISON AND SLOW", "FREEZES ALL AROUND", "THE DEAD FLEE",
                                              "SLOWS ALL BUT YOU", "TRIPLE SOULS A WHILE" };
@@ -511,14 +511,9 @@ Offer gear_offer(int pool, int level, const Gear *g, uint32_t *rng) {
         o.price = piece_price(&o.piece);
         return o;
     }
-    int r = rpick(rng, 12);
-    if (r == 0) { o.rare = 1; o.tier = level + 2 + rpick(rng, 2); }    /* a jackpot: well ahead of its time */
-    else o.tier = level + (r < 3 ? -1 : (r < 10 ? 0 : 1));
-    if (o.tier < 1) o.tier = 1;
-    o.kind = GK_ATK;
-    if (level >= 3 && rpick(rng, 22) == 0) { o.id = AT_BFS; o.rare = 1; o.tier = 1 + level / 4; }   /* incredibly rare */
-    else o.id = rpick(rng, AT_BFS);
-    o.price = gear_price(o.kind, o.id, o.tier, o.rare);
+    if (level < 3 || rpick(rng, 22) != 0) return gear_offer(POOL_GEAR, level, g, rng);   /* spells are the lines' now (1.0.0b11): */
+    o.kind = GK_ATK; o.id = AT_BFS; o.rare = 1; o.tier = 1 + level / 4;   /* her first pedestal sells a piece, or, */
+    o.price = gear_price(o.kind, o.id, o.tier, o.rare);                   /* incredibly rarely, the BFS9000 */
     return o;
 }
 
@@ -548,7 +543,7 @@ const char *gear_blurb(const Offer *o) {
 }
 
 int gear_color(int kind, int id) {
-    static const int A[NATK] = { R_FLAME, R_GLOW, R_GLOW, R_BONE, R_PURPLE, R_FLAME, R_GHOST, R_GOLD, R_MOSS };
+    static const int A[NATK] = { R_FLAME, R_GLOW, R_GOLD, R_BONE, R_PURPLE, R_FLAME, R_PURPLE, R_MOSS, R_PURPLE };   /* by element (1.0.0b11) */
     static const int D[NDEF] = { R_BONE, R_PURPLE, R_GHOST, R_BLOOD, R_MOSS, R_GLOW, R_PURPLE, R_GOLD, R_GHOST };
     return kind == GK_DEF ? D[id] : A[id];
 }
@@ -559,31 +554,58 @@ int offer_color(const Offer *o) {
 
 /* ---- spells ---- */
 
-float spell_damage_at(const Gear *g, int atk, int t) {
-    static const float B[NATK] = { 10.0f, 7.0f, 8.0f, 12.0f, 9.0f, 18.0f, 4.0f, 4.0f, 9999.0f };
-    if (t < 0) t = 0;
-    return B[atk] * (1.0f + 0.25f * t) * gear_ember(g);
+/* A spell's strength (docs/PLAN-b11.md, section 7): its base, times 1 + 0.07 a Level of Atonement (as a tier once
+ * followed the crypt's level), times its rank's: +4% a rank at first, +8% a rank from rank 12; Damage worn and
+ * bought and the element's Power added together */
+static int g_atone = 1;
+static float g_eff[NELEM], g_ins[NELEM], g_pow[NELEM];
+void spell_set_atone(int atone) { g_atone = atone < 1 ? 1 : atone; }
+void spell_set_line(int el, float eff, float ins, float power) {
+    if (el < 0 || el >= NELEM) return;
+    g_eff[el] = eff; g_ins[el] = ins; g_pow[el] = power;
+}
+float spell_line(int el, int which) { return el < 0 || el >= NELEM ? 0.0f : (which == 0 ? g_eff[el] : which == 1 ? g_ins[el] : g_pow[el]); }
+static float rank_mult(int r) {
+    if (r < 1) r = 1;
+    return 1.0f + 0.04f * (float)(r < 11 ? r : 11) + 0.08f * (float)(r > 11 ? r - 11 : 0);
+}
+float spell_damage_at(const Gear *g, int atk, int r) {
+    static const float B[NATK] = { 10.0f, 7.0f, 8.0f, 12.0f, 9.0f, 18.0f, 4.0f, 10.0f, 9999.0f };
+    int el = ATK_ELEM[atk];
+    float pow = el >= 0 ? g_pow[el] : 0.0f;
+    return B[atk] * (1.0f + 0.07f * (float)g_atone) * rank_mult(r) * (gear_ember(g) + pow);
 }
 float spell_damage(const Gear *g, int atk) { return spell_damage_at(g, atk, g->atk[atk]); }
 
-/* Spirit: free at tier 1 and below (and the fireball you start with); above, a cast costs its damage
- * over SPIRIT_REF (a tier-2 Fire Bolt about 0.1), at most 1 and never under 0.1, less Spirit Cost
- * Reduction. Seeker Wisps cost 1 a wisp. The BFS9000 keeps its own price in souls (bfs_cost). */
-#define SPIRIT_REF 150.0f
+/* Spirit (section 12): about 0.2 at rank 1, 1 at rank 10, 2.5 at rank 20, times (1 - Spirit Cost) and (1 -
+ * the element's Efficiency), never under 0.1. The fireball (Fire at rank 1) is free; Seeker Wisps 1 a wisp.
+ * The BFS9000 keeps its own price in souls (bfs_cost). */
 int wisp_count(int tier) { return 3 + (tier >= 3) + (tier >= 6); }
-float spell_cost(const Gear *g, int atk, int tier) {
-    if (tier <= 1 || atk == AT_BFS) return 0.0f;
-    float keep = 1.0f - gear_total(g, ST_THRIFT) / 100.0f;
-    if (atk == AT_WISPS) return (float)wisp_count(tier) * fmaxf(0.1f, keep);
-    return fmaxf(0.1f, fminf(1.0f, spell_damage_at(g, atk, tier) / SPIRIT_REF) * keep);
+float spell_cost(const Gear *g, int atk, int r) {
+    if (atk == AT_BFS || (atk == AT_FIRE && r <= 1)) return 0.0f;
+    int el = ATK_ELEM[atk];
+    float keep = (1.0f - gear_total(g, ST_THRIFT) / 100.0f) * (1.0f - (el >= 0 ? g_eff[el] : 0.0f));
+    if (atk == AT_WISPS) return (float)wisp_count(r) * fmaxf(0.1f, keep);
+    if (r < 1) r = 1;
+    float c = r <= 10 ? 0.2f + 0.8f * (float)(r - 1) / 9.0f : 1.0f + 0.15f * (float)(r - 10);
+    return fmaxf(0.1f, c * keep);
 }
-/* Soul Drain's healing: half a soul for each point restored at tier 1, down to a quarter at tier 11 */
+/* the wind-up (section 7): 0.3 s for a light spell at rank 1, rising with rank to 0.6 s; the BFS9000 0.8; less
+ * the element's Insight */
+float spell_windup(const Gear *g, int atk, int r) {
+    static const float B[NATK] = { 0.30f, 0.34f, 0.30f, 0.38f, 0.34f, 0.40f, 0.34f, 0.38f, 0.80f };
+    (void)g;
+    int el = ATK_ELEM[atk];
+    float w = atk == AT_BFS ? B[atk] : B[atk] + 0.3f * (float)((r < 1 ? 1 : (r > 20 ? 20 : r)) - 1) / 19.0f;
+    return w * (1.0f - (el >= 0 ? g_ins[el] : 0.0f));
+}
+/* Soul Drain's healing: half a soul for each point restored at rank 1, down to a quarter at rank 11 */
 float heal_cost(const Gear *g, int tier) {
     float f = fmaxf(0.25f, 0.5f - 0.025f * (float)(tier - 1));
-    return f * (1.0f - gear_total(g, ST_THRIFT) / 100.0f);
+    return f * (1.0f - gear_total(g, ST_THRIFT) / 100.0f) * (1.0f - g_eff[EL_SPIRIT]);
 }
 float spell_cycle(const Gear *g, int atk) {
-    static const float B[NATK] = { 1.95f, 1.8f, 2.2f, 2.0f, 2.0f, 2.9f, 2.2f, 0.7f, 3.0f };
+    static const float B[NATK] = { 1.95f, 1.8f, 2.2f, 2.0f, 2.0f, 2.9f, 2.2f, 2.3f, 3.0f };
     int t = g->atk[atk] < 0 ? 0 : g->atk[atk];
     return B[atk] / (1.0f + 0.07f * t) / (1.0f + gear_total(g, ST_HASTE) / 100.0f);
 }
