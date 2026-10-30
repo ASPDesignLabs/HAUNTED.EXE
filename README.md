@@ -667,7 +667,7 @@ The autopilot uses them too: it wakes an altar it passes with 25 spirit or more 
 wisp while it has time, calls it home and sends it on when that leaves it 15 spirit, blesses with 40 or
 more when the level has undead, and anoints. It casts an exit wisp as it sets off for the way out.
 
-Esc offers four answers:
+Esc offers five answers:
 
 * **Flee to the surface** ends the screensaver. Nothing is written: the next start, autopilot or not,
   opens the page you last signed (or the unsigned run as it was last written), at the merchant's. If
@@ -679,6 +679,10 @@ Esc offers four answers:
   and a half).
 * **Open the ledger** shows the three pages, with each one's level, gold and when it was signed, and
   opens one, asking twice, because whatever you haven't signed is lost.
+* **Begin a new run** starts again from nothing, in her room before level 1, and she asks what you were
+  at once. It asks twice: what you haven't signed is lost, as in fleeing. Your signed pages stay in the
+  ledger, and a page the dead are watching keeps their mark. (The screensaver takes a class at random
+  for a run it starts, so this is how a person chooses one from a fresh start.)
 
 In the ledger, W and S (or 1 to 3) choose, Enter signs or opens, and Esc goes back.
 

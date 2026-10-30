@@ -460,7 +460,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
 - **Player mode** (`update_human`, `human_walk`, `human_use`, `human_cast`) after holding H. The hand
   is out of sight but for a cast or a ware reached for, and stays up 0.9 s after (`G.hand_base`,
   `G.ready_t`). Esc opens
-  the question (flee, stay, sleepwalk, open the ledger); Tab the wardrobe (the
+  the question (flee, stay, sleepwalk, open the ledger, begin a new run: `Q_NEW`, asked twice by `G.quit_arm`,
+  `run_new`: a fresh `RUN` as a person's, out of any pocket, page 0, so her question comes at once; `EVENT new_run`); Tab the wardrobe (the
   seven worn slots and the bag, Enter moves a piece between them; A/D turns to the caster's totals and
   the spellbook); B the
   bestiary (`render_bestiary`: a page a kind, A/D through them, W/S through its ranks, then the

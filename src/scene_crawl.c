@@ -732,6 +732,7 @@ static struct {
 
     /* a person at the controls */
     int player, ui, ui_sel, quit_line, status_ret;
+    int quit_arm;                           /* Esc's BEGIN A NEW RUN, asked once already */
     int led_mode, led_arm, led_msg;             /* the ledger: signing (0) or opening (1); a second Enter's page; why */
     int best_page, best_rank, best_scroll;      /* the bestiary: which creature (or the achievements), which rank, how far down */
     float ui_t;                                 /* a clock that runs while a menu holds the crypt still */
@@ -10538,7 +10539,7 @@ static void open_ui(int which) {
         int n = wisp_choices(c), i = wisp_choice_at(c, n, RUN.wisp_kind, RUN.wisp_color);
         G.ui_sel = i < 0 ? 0 : i; snd_sfx_ex(SFX_SHIMMER, 0.5f, 0.5f);
     }
-    else { G.ui_sel = 1; G.quit_line++; snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); }
+    else { G.ui_sel = 1; G.quit_arm = 0; G.quit_line++; snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); }
 }
 
 /* the hand and the spell in it, the way a person casts: click (or Ctrl) and it goes where you look */
@@ -10913,18 +10914,41 @@ static void update_inventory(void) {
 
 /* ---- Esc: leave the crypt? ---- */
 
-enum { Q_FLEE, Q_STAY, Q_SLEEP, Q_OPEN, Q_OPTIONS };
+enum { Q_FLEE, Q_STAY, Q_SLEEP, Q_OPEN, Q_NEW, Q_OPTIONS };
 static void open_ledger(int mode);
+/* a new run from nothing, a person's from the start, so she asks what you were; the pages stay in the ledger,
+ * and what was not signed is lost, as in fleeing */
+static void run_new(void) {
+    uint32_t seed = G.rs * 1664525u + 1013904223u;
+    int ql = G.quit_line;
+    RUN.active = 0;                                                /* crawl_enter makes it fresh */
+    pocket_reset_level();                                          /* out of any pocket, its hum with it */
+    LEDGER.page = 0; LEDGER.has_visit = 0; LEDGER.kept = 0; LEDGER.claim_due = 0;
+    LEDGER.marked = 0;                                             /* a page left behind keeps its own mark */
+    crawl_enter(seed);
+    G.player = 1; G.status_ret = PLAY_PLAYER; G.ui = UI_NONE; G.quit_line = ql;
+    G.sdur = 0.0f; G.shop_look = -1; G.pc_t = -1.0f;               /* her room; no cast left half-made */
+    say("A NEW RUN BEGINS");
+    snd_sfx_ex(SFX_WHOOSH, 0.8f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.8f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT new_run run %08x level %d shop %d t=%.2f\n", RUN.run_id, G.level, G.shop, G.t);
+#endif
+}
 static void quit_choose(int c) {
     if (c == Q_OPEN) { open_ledger(1); return; }
+    if (c == Q_NEW) {                                              /* asked twice: what is unsigned is lost */
+        if (!G.quit_arm) { G.quit_arm = 1; snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return; }
+        run_new();
+        return;
+    }
     if (c == Q_FLEE) { G.status_ret = PLAY_QUIT; snd_sfx_ex(SFX_GHOST_DIE, 0.8f, 0.5f); }
     else if (c == Q_STAY) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
     else { G.ui = UI_NONE; human_end(); snd_sfx_ex(SFX_WHISPER, 0.7f, 0.5f); }
 }
 static void update_quit(void) {
     if (G.status_ret == PLAY_QUIT) return;
-    if (IN.hit[KEY_W] || IN.hit[KEY_UP]) { G.ui_sel = (G.ui_sel + Q_OPTIONS - 1) % Q_OPTIONS; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
-    if (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) { G.ui_sel = (G.ui_sel + 1) % Q_OPTIONS; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    if (IN.hit[KEY_W] || IN.hit[KEY_UP]) { G.ui_sel = (G.ui_sel + Q_OPTIONS - 1) % Q_OPTIONS; G.quit_arm = 0; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    if (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) { G.ui_sel = (G.ui_sel + 1) % Q_OPTIONS; G.quit_arm = 0; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
     if (IN.hit[KEY_ENTER] || IN.hit[KEY_SPACE] || IN.hit[KEY_E] || IN.hit[KEY_MOUSE1]) { quit_choose(G.ui_sel); return; }
     if (IN.hit[KEY_Y]) { quit_choose(Q_FLEE); return; }
     if (IN.hit[KEY_N] || IN.hit[KEY_ESC]) { quit_choose(Q_STAY); return; }
@@ -14587,12 +14611,12 @@ static void render_statusbar(Frame *f) {
         case 0: snprintf(num, sizeof num, "%d", G.level); break;
         case 1: snprintf(num, sizeof num, "$%d", G.shop ? G.shop_gold : RUN.treasure); col = R_GOLD + 12; break;
         case 2: snprintf(num, sizeof num, "%d%%", G.max_hp ? G.hp * 100 / G.max_hp : 0); col = G.hp * 4 <= G.max_hp ? R_BLOOD + 13 : (G.poison_t > 0.0f ? R_MOSS + 13 : C_WHITE); break;
-        case 3: {                                                  /* and how full the vessel is, a line under them */
+        case 3: {                                                  /* and how full the vessel is, a line under them, clear of the figures */
             spirit_text(num, sizeof num);
             int cap = vessel(), full = RUN.souls >= cap;
             col = full ? R_GOLD + 12 : R_GLOW + 12;
             int gw = P[i].w - 8, fill = cap > 0 ? clampi((int)((float)gw * spirit() / (float)cap + 0.5f), 0, gw) : 0;
-            for (int k = 0; k < gw; k++) gfx_px(f, P[i].x + 4 + k, y0 + 29, k < fill ? (full ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_GLOW + 10)) : (uint8_t)(R_IRON + 4));
+            for (int k = 0; k < gw; k++) gfx_px(f, P[i].x + 4 + k, y0 + 36, k < fill ? (full ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_GLOW + 10)) : (uint8_t)(R_IRON + 4));
             break;
         }
         default: {                                                 /* the spell in hand: its element's glyph and its rank */
@@ -15985,7 +16009,7 @@ static void render_quit(Frame *f) {
     };
     enum { NLINE = (int)(sizeof LINE / sizeof LINE[0]) };
     dim_view(f);
-    int bw = 280, bh = 158, bx = (W - bw) / 2, by = (H - bh) / 2 - 6;
+    int bw = 280, bh = 176, bx = (W - bw) / 2, by = (H - bh) / 2 - 6;
     panel(f, bx, by, bw, bh);
     gfx_text16(f, (W - gfx_text_width("LEAVE THE CRYPT?", 1)) / 2, by + 8, "LEAVE THE CRYPT?", R_BLOOD + 13, 1);
     char msg[96];
@@ -15999,10 +16023,10 @@ static void render_quit(Frame *f) {
         gfx_text8(f, (W - gfx_text_width(ln, 1)) / 2, y, ln, R_STONE + 13, 1);
         p += n; while (*p == ' ') p++;
     }
-    static const char *const OPT[Q_OPTIONS] = { "FLEE TO THE SURFACE", "STAY IN THE DARK", "SLEEPWALK", "OPEN THE LEDGER" };
+    static const char *const OPT[Q_OPTIONS] = { "FLEE TO THE SURFACE", "STAY IN THE DARK", "SLEEPWALK", "OPEN THE LEDGER", "BEGIN A NEW RUN" };
     static const char *const NOTE[Q_OPTIONS] = { "NOTHING IS KEPT BUT WHAT IS SIGNED", "BACK TO THE CRYPT", "THE AUTOPILOT WALKS ON WITHOUT YOU",
-                                                 "A RUN FROM A PAGE SHE HAS SIGNED" };
-    for (int i = 10 + bx; i < bx + bw - 10; i += 2) gfx_px(f, i, by + 120, R_STONE + 5);   /* leaving, then the ledger */
+                                                 "A RUN FROM A PAGE SHE HAS SIGNED", "FROM NOTHING. SIGNED PAGES STAY" };
+    for (int i = 10 + bx; i < bx + bw - 10; i += 2) gfx_px(f, i, by + 120, R_STONE + 5);   /* leaving, then the ledger and a new run */
     for (int i = 0; i < Q_OPTIONS; i++) {
         int oy = by + 66 + i * 18 + (i >= Q_OPEN ? 4 : 0), sel = i == G.ui_sel;
         int w = gfx_text_width(OPT[i], 1), ox = (W - w) / 2;
@@ -16019,9 +16043,10 @@ static void render_quit(Frame *f) {
     }
     const char *note = NOTE[clampi(G.ui_sel, 0, Q_OPTIONS - 1)];
     int ncol = R_GOLD + 9;
-    if (LEDGER.marked && (G.ui_sel == Q_FLEE || G.ui_sel == Q_OPEN)) { note = "THE DEAD ARE WATCHING"; ncol = R_BLOOD + 13; }
+    if (LEDGER.marked && (G.ui_sel == Q_FLEE || G.ui_sel == Q_OPEN || G.ui_sel == Q_NEW)) { note = "THE DEAD ARE WATCHING"; ncol = R_BLOOD + 13; }
     if (CON.used && G.ui_sel == Q_FLEE) note = "THE DEAD TOOK NOTE: NOTHING KEPT";
-    gfx_text8(f, (W - gfx_text_width(note, 1)) / 2, by + bh - 14, note, (uint8_t)ncol, 1);
+    if (G.ui_sel == Q_NEW && G.quit_arm) { note = "ENTER AGAIN: THE UNSIGNED IS LOST"; ncol = R_BLOOD + 13; }
+    hint8(f, (W - hint_width(note)) / 2, by + bh - 14, note, ncol);
 }
 
 /* a page of the ledger, 24 wide and 27 tall, its corner turned down and its numeral at the foot; gold for
