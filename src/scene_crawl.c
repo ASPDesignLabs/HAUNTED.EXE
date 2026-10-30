@@ -612,6 +612,8 @@ static struct {
     int altar_wisp, altar_inside;                    /* where its wisp is (AW_*); whether you have been into the secret it shows */
     int blessed;                                     /* the altar's blessing: exit wisps turn the undead, this level */
     float def_cd[NDEF], def_wait[NDEF], def_hush[NDEF], rune_glow[NDEF];   /* cooldown; a cast on its way; a missed cue; glow on the hand */
+    float rs_since[NDEF], rs_a[NDEF];   /* the runes' sockets (docs/PLAN-b11.md, section 3): since it fired; how far up it has slid */
+    uint8_t rs_on[NDEF], rs_slot[NDEF]; /* going round since it fired; its place in the row + 1 (0: none) */
     float bfs_t;                        /* the BFS9000's implosion, playing */
     float nova_t, dread_t, rune_lift;   /* rune_lift: the hand comes up to show a rune burning */              /* the frost nova bursting; Dread's shadow going out */
     float face_t, grin_t; int face_side;    /* the portrait popping in, the grin, which way it flinched */
@@ -4909,6 +4911,7 @@ static void cast_defense(int k) {
     if (q <= 0) return;
     G.def_cd[k] = def_cooldown(q);
     G.rune_glow[k] = 1.4f; G.rune_lift = 1.4f;
+    G.rs_on[k] = 1; G.rs_since[k] = 0.0f;                          /* its socket comes up */
     snd_sfx_ex(SFX_RUNE, 0.9f, 0.5f);
 #ifdef CRAWL_DEBUG
     defs[k]++;
@@ -4946,6 +4949,42 @@ static void cast_defense(int k) {
     }
 }
 
+/* The runes in sight (docs/PLAN-b11.md, section 3): fired, a rune's socket comes up for three seconds, or
+ * while its work lasts if that is longer, the mark glowing until it ends; two seconds before it is ready it
+ * comes back, flashing; ready, it holds a second, its line bright, and goes. The newest stands outermost,
+ * and each keeps its place while it shows. */
+enum { RS_HIDDEN, RS_FIRED, RS_FLASH, RS_READY };
+static float rune_work(int k) {                                    /* how long the rune's work still lasts */
+    switch (k) {
+    case DF_WARD: return G.ward_hp > 0.0f ? G.ward_t : 0.0f;
+    case DF_BLINK: return G.decoy_t;
+    case DF_MIRROR: return G.mirror_t;
+    case DF_MEND: return G.mend_t;
+    case DF_PURIFY: return G.purify_t;
+    case DF_SLIP: return G.slip_t;
+    case DF_REAP: return G.reap_t;
+    default: return 0.0f;                                          /* the nova and Dread are done as they go off */
+    }
+}
+static int rune_phase(int k) {
+    if (!G.rs_on[k] || RUN.gear.def[k] <= 0) return RS_HIDDEN;
+    if (G.rs_since[k] < 3.0f || rune_work(k) > 0.0f) return RS_FIRED;
+    if (G.def_cd[k] > 0.0f) return G.def_cd[k] <= 2.0f ? RS_FLASH : RS_HIDDEN;
+    return G.def_cd[k] > -1.0f ? RS_READY : RS_HIDDEN;
+}
+static void rune_sockets_tick(float dt) {
+    int top = 0;
+    for (int k = 0; k < NDEF; k++) top = imax(top, G.rs_slot[k]);
+    for (int k = 0; k < NDEF; k++) {
+        if (!G.rs_on[k]) { G.rs_a[k] = 0.0f; G.rs_slot[k] = 0; continue; }
+        G.rs_since[k] += dt;
+        int ph = rune_phase(k);
+        G.rs_a[k] = ph ? fminf(1.0f, G.rs_a[k] + dt * 6.0f) : fmaxf(0.0f, G.rs_a[k] - dt * 4.0f);
+        if (G.rs_a[k] > 0.0f && !G.rs_slot[k]) G.rs_slot[k] = (uint8_t)++top;   /* the newest outermost */
+        if (G.rs_a[k] <= 0.0f && !ph) { G.rs_slot[k] = 0; if (G.def_cd[k] <= -1.0f) G.rs_on[k] = 0; }
+    }
+}
+
 /* each rune watches for its moment; the caster is only human: sometimes slow, sometimes not at all */
 static void update_defense(float dt) {
     const Gear *g = &RUN.gear;
@@ -4964,6 +5003,7 @@ static void update_defense(float dt) {
             G.def_wait[k] = 0.15f + 0.55f * rndf() + (rndf() < 0.1f ? 0.8f : 0.0f);
         } else if (fighting && rndf() < dt * 0.004f) cast_defense(k);   /* a nervous, wasted cast */
     }
+    rune_sockets_tick(dt);
 }
 
 /* poison, slow and the timed spells wearing off; mending and blessed regeneration */
@@ -13778,6 +13818,41 @@ static void render_sockets(Frame *f) {
     }
 }
 
+/* the runes' sockets, at the lower right (section 3): a bevel edged in the rune's quality, its mark in its
+ * colour, a line along its foot coming round; struck through in the void. Over the status bar for a person,
+ * in the corner when it is away and in the dream */
+static int runes_shown(void) {
+    if (G.shop || G.tally || G.dead || (G.player && G.ui)) return 0;
+    for (int k = 0; k < NDEF; k++) if (G.rs_slot[k] && G.rs_a[k] > 0.0f) return 1;
+    return 0;
+}
+static void render_runesockets(Frame *f) {
+    if (!runes_shown()) return;
+    int bar_top = H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f);
+    int y0 = G.player ? imin(bar_top - 20, H - 21) : H - 21 - (int)(G.lift * 40.0f + 0.5f);
+    for (int k = 0; k < NDEF; k++) {
+        if (!G.rs_slot[k] || G.rs_a[k] <= 0.0f) continue;
+        int q = clampi(RUN.gear.def[k], 1, RUNE_EXQ), ph = rune_phase(k), ramp = gear_color(GK_DEF, k), qr = QUAL_RAMP[q - 1];
+        int x = W - 21 - (G.rs_slot[k] - 1) * SOCK, y = y0 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.rs_a[k])) * 24.0f + 0.5f);
+        gfx_rect(f, x, y, 17, 17, 0);
+        for (int i = 0; i < 17; i++) {                             /* the edge in its quality's colour */
+            gfx_px(f, x + i, y, ramp_at(qr, 13)); gfx_px(f, x, y + i, ramp_at(qr, 13));
+            gfx_px(f, x + i, y + 16, ramp_at(qr, 7)); gfx_px(f, x + 16, y + i, ramp_at(qr, 7));
+        }
+        int glow = ph == RS_FIRED && rune_work(k) > 0.0f, lit = ph == RS_READY || (ph == RS_FLASH && ((int)(G.t * 8.0) & 1));
+        for (int r = 0; r < 11; r++) for (int c = 0; c < 11; c++) {
+            char ch = RUNE_MARK[k][r][c];
+            if (ch != '#' && ch != 'o') continue;
+            int v = G.silenced ? 6 : glow ? (ch == 'o' ? 15 : 13 + (int)(1.5f * sinf((float)G.t * 9.0f))) : (ch == 'o' ? 14 : (lit ? 12 : 10));
+            gfx_px(f, x + 3 + c, y + 2 + r, G.silenced ? (uint8_t)(R_STONE + v) : ramp_at(ramp, v));
+        }
+        float wait = def_cooldown(q), fill = wait > 0.0f ? 1.0f - clampf(G.def_cd[k] / wait, 0.0f, 1.0f) : 1.0f;
+        for (int i = 0; i < 13; i++)                               /* coming round */
+            gfx_px(f, x + 2 + i, y + 14, i < (int)(fill * 13.0f + 0.5f) ? (fill >= 1.0f && !G.silenced ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 9)) : (uint8_t)(R_STONE + 3));
+        if (G.silenced) for (int i = 1; i < 16; i++) gfx_px(f, x + i, y + 16 - i, R_BLOOD + 11);   /* the void: no rune fires */
+    }
+}
+
 /* Swift Dodge, seen from inside it: streaks at the edges of sight */
 static void render_dash(Frame *f) {
     if (G.dash_t <= 0.0f || !G.player) return;
@@ -15169,7 +15244,7 @@ static void render_xp(Frame *f) {
     if (G.tally || (G.player && G.ui)) return;
     int bar = (G.shop || G.player) ? H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f) : H;
     int dream = !G.player && !G.shop;                              /* the dream: at the lower right, clear of the face */
-    int base = dream ? H - 30 - (int)(G.lift * 40.0f + 0.5f) : imin(bar, H - 24) - 12 - (sockets_shown() && bar < H ? 14 : 0);
+    int base = dream ? H - 30 - (int)(G.lift * 40.0f + 0.5f) - (runes_shown() ? 6 : 0) : imin(bar, H - 24) - 12 - (sockets_shown() && bar < H ? 14 : 0);
     for (int i = 0; i < XPF.n; i++) {
         float a = XPF.t[i];
         int y = base - i * 10;
@@ -15686,6 +15761,7 @@ static void crawl_render(Frame *f) {
     if (G.shop && G.ui != UI_MERCHANT) render_shop_card(f);   /* her own card would show under her menu */
     if ((G.shop || G.player) && G.ui != UI_MAP) render_statusbar(f);   /* a person gets the Wolfenstein bar, */
     render_sockets(f);
+    render_runesockets(f);
     render_dash(f);
     if (G.player && !G.shop && G.bar <= 0.0f) render_readout(f);   /* and the small one while it is away */
     if (!G.shop && !G.player) { render_readout(f); render_face_popup(f); }

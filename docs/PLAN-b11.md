@@ -1,8 +1,8 @@
 # 1.0.0b11: the map at a walk, glyphs, runes in sight, and the elements
 
 **Status: settled (30 October 2026). The owner answered both rounds of questions the same day. Being built on
-`claude/eloquent-carson-1x049c`: steps 1 (the elements as data) and 2 (the glyphs; `elements.png` drawn for the
-owner, its art in the game until they mark it up) are built, tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+`claude/eloquent-carson-1x049c`: steps 1 (the elements as data), 2 (the glyphs; `elements.png` drawn for the
+owner, its art in the game until they mark it up) and 3 (the runes' sockets) are built, tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),
@@ -807,3 +807,6 @@ answers, and are first guesses for the runs to tune. Any of them can be changed 
 - **The Codex's page on the elements** is there from the start, as her claim's is: each glyph, what it does by
   nature and what deals it to you.
 - **Lightning's colour** stays blue on Chain Lightning until step 5 rebuilds the spells; its glyph is gold already.
+- **The runes' sockets** (step 3): a socket that slides away during the cooldown gives up its place, and comes
+  back two seconds before the rune is ready as the newest, outermost. The Frost Nova and Dread are done as they go
+  off, so theirs show the three seconds only. In the dream the experience lines rise six pixels while one shows.
