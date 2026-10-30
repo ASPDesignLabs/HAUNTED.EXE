@@ -414,6 +414,7 @@ typedef struct {
 typedef struct { int alive; float x, y, t, souls; } SoulMote;   /* a soul where it fell: six seconds, taken within 1.2 cells */
 #define MOTE_LIFE 6.0f
 #define MOTE_REACH 1.2f
+enum { CXM_SAP = 1 };                       /* RUN.cx_more: what else the Codex has met (1.0.0b11): Soul Sap */
 #define BONE_SPEED 5.5f
 #define FIRE_SPEED 4.5f
 #define EMBER_SPEED 4.0f
@@ -540,6 +541,7 @@ static struct {
     Piece repo[REPO_MAX];                   /* the Wretched Repository: what lies in each place, */
     int repo_n, repo_gold, repo_coins;      /* the places bought (two at first, the first untaxed), its gold and coins */
     uint32_t cx_abil, cx_rune, cx_exq; uint64_t cx_stat;   /* the Codex: what is known, a bit each (hazards are RUN.omens) */
+    uint32_t cx_more;                       /* and what else has been met (1.0.0b11): CXM_* bits */
     /* the caster's own (docs/PLAN-b9.md): the merchant's map, kept through death; and, gone with a death, the
        Level of Atonement claimed, the experience earned since the last death (all of it, not only what is
        over), the points not yet spent and the steps bought in each line, the overlevels chosen in each, the
@@ -5905,6 +5907,7 @@ static int latch_begin(Mob *m) {
     m->contact = 0.0f;
     sfx_at(SFX_BAT, m->x, m->y, 1.3f); snd_sfx_ex(SFX_WHISPER, 0.7f, 0.5f);
     if (G.player && !RUN.latch_said) { RUN.latch_said = 1; say("THE BAT FEEDS. SHAKE IT OFF."); }
+    RUN.cx_more |= CXM_SAP;                                        /* and into the Codex */
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT latch rank %d by %s t=%.2f\n", m->rank, G.player ? "player" : "autopilot", G.t);
 #endif
@@ -7484,6 +7487,7 @@ static void debug_gear(void) {
     if (getenv("CRAWL_ALPTS")) RUN.al_points = atoi(getenv("CRAWL_ALPTS"));
     if (getenv("CRAWL_CLASS")) { RUN.cls = 0; if (atoi(getenv("CRAWL_CLASS")) > 0) class_take(atoi(getenv("CRAWL_CLASS"))); }   /* 0: asked */
     if (getenv("CRAWL_ATONE")) RUN.atone = clampi(atoi(getenv("CRAWL_ATONE")), 1, 999);   /* the Level of Atonement, nothing bought with it */
+    if (getenv("CRAWL_XPBANK")) RUN.xp = imax(0, atoi(getenv("CRAWL_XPBANK")));   /* experience banked at a fresh start: the dream ascends on it */
     if (getenv("CRAWL_CLEARED")) for (int l = 1; l <= imin(atoi(getenv("CRAWL_CLEARED")), DESCENT_LEN); l++) RUN.rec.cleared |= 1ull << (l - 1);   /* levels 1-n cleared */
     if (getenv("CRAWL_RUNES")) for (int i = 0; i < NDEF; i++) RUN.gear.def[i] = (int8_t)clampi(atoi(getenv("CRAWL_RUNES")), 0, RUNE_EXQ);
     if (getenv("CRAWL_COINS")) RUN.coins = atoi(getenv("CRAWL_COINS"));
@@ -11661,7 +11665,7 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
  * Compendium, a count for each kind (bracer to bag) and quality, the pieces in that order, then each
  * spell's tier. LG_REPO: the Repository, its places (a byte), gold (u32) and coins (u16), then each place.
  * LG_CODEX: what the Codex knows, four u32 of bits: abilities, runes, runes at Exquisite, stats; then (1.0.0b11)
- * a u32 of the stats past the 32nd.
+ * a u32 of the stats past the 32nd, and one of what else has been met (CXM_*).
  * LG_CASTER (1.0.0b9, docs/PLAN-b9.md): a byte of flags (1 the map), u16 the Level of Atonement, u32 the
  * experience, u16 the points not spent, a u16 of steps bought in each line, a byte of overlevels chosen in each,
  * a byte of cornerstones, a byte for Second Wind spent, u16 the run it last came back on. Twelve lines before 1.0.0b11,
@@ -11683,7 +11687,7 @@ enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
 #define COMP_BYTES ((NIK - 1) * NQUAL * (1 + COMP_MAX * PIECE_BYTES) + NATK)   /* at the most */
 #define REPO_BYTES (1 + 4 + 2 + REPO_MAX * PIECE_BYTES)
 #define PAGE_BYTES (save_end(6) + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 3 + COMP_BYTES + 3 + REPO_BYTES \
-                    + 3 + 20 + 3 + LG_CASTER_BYTES + 3 + REC_ELEM_BYTES + 3 + LG_ALIGN_BYTES + 3 + LG_HALL2_BYTES + 1)   /* the most a page takes so far */
+                    + 3 + 24 + 3 + LG_CASTER_BYTES + 3 + REC_ELEM_BYTES + 3 + LG_ALIGN_BYTES + 3 + LG_HALL2_BYTES + 1)   /* the most a page takes so far */
 static void stone_pack(uint8_t *p, const Stone *st) {
     uint64_t w = (uint64_t)st->when;
     put32(p, (int32_t)(uint32_t)(w & 0xffffffffu)); put32(p + 4, (int32_t)(uint32_t)(w >> 32)); put16(p + 8, st->level);
@@ -11803,7 +11807,8 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     c = section_begin(p, LG_CODEX);
     put32(c, (int32_t)RUN.cx_abil); put32(c + 4, (int32_t)RUN.cx_rune); put32(c + 8, (int32_t)RUN.cx_exq); put32(c + 12, (int32_t)(uint32_t)RUN.cx_stat);
     put32(c + 16, (int32_t)(uint32_t)(RUN.cx_stat >> 32));         /* the stats past the 32nd (1.0.0b11) */
-    p = section_end(c, c + 20);
+    put32(c + 20, (int32_t)RUN.cx_more);                           /* and what else has been met */
+    p = section_end(c, c + 24);
     if (RUN.nstones) {
         c = section_begin(p, LG_STONES);
         c[0] = (uint8_t)RUN.nstones;
@@ -11900,6 +11905,7 @@ static void run_unpack(const uint8_t *buf, int len) {
         RUN.cx_abil = (uint32_t)get32(c) & ((1u << NABIL) - 2); RUN.cx_rune = (uint32_t)get32(c + 4) & ((1u << NDEF) - 1);
         RUN.cx_exq = (uint32_t)get32(c + 8) & ((1u << NDEF) - 1); RUN.cx_stat = (uint64_t)(uint32_t)get32(c + 12);
         if (k >= 20) RUN.cx_stat |= (uint64_t)(uint32_t)get32(c + 16) << 32;
+        if (k >= 24) RUN.cx_more = (uint32_t)get32(c + 20);
         RUN.cx_stat &= (1ull << NSTAT) - 1;
     }
     c = page_section(buf, len, LG_CASTER, &k);
@@ -12995,11 +13001,13 @@ static void update_repomenu(void) {
  * and hazard does, each written in once you have worn, held, unlocked or met it; and a page on her claim,
  * there from the start. Kept through death, with the page. C opens it; the crypt waits. ---- */
 
-enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_CASTER, CX_ELEM, CX_CLAIM, NCX };
+enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_CASTER, CX_ELEM, CX_LINE, CX_CLASS, CX_SOUL, CX_CLAIM, NCX };
+enum { CXS_VESSEL, CXS_BELL, CXS_FONT, CXS_REPLAY, CXS_SAP, NCXS };   /* the souls' pages */
+#define CX_MAX (NABIL + NDEF + NBOSS + NSTAT + NHZ + 3 + NCS + 2 + NELEM + 1 + NCXS)
 enum { CXC_ATONE, CXC_LUCK, CXC_OVER, CXC_CORNER };                /* the caster's own pages: then a cornerstone each, CXC_CORNER + CS_* */
 typedef struct { int sec, i; } CxEntry;
 static const char *const CX_PART[NCX] = { "AN ABILITY OF WHAT YOU WEAR", "A RUNE", "A BOSS'S GIFT", "A STAT A PIECE CAN ROLL", "A HAZARD", "THE CASTER'S OWN",
-                                          "THE ELEMENTS", "THE MERCHANT'S LEDGER" };
+                                          "THE ELEMENTS", "A LINE OF THE ALIGNMENT", "WHAT YOU WERE", "SOULS", "THE MERCHANT'S LEDGER" };
 static void codex_note(void) {                                     /* worn, held or met: written in */
     const Gear *g = &RUN.gear;
     uint32_t ab = RUN.cx_abil; uint64_t st = RUN.cx_stat;
@@ -13028,13 +13036,20 @@ static int codex_entries(CxEntry *e) {
     if (RUN.atone >= ATONE_TOP) e[n++] = (CxEntry){ CX_CASTER, CXC_OVER };
     for (int c = 0; c < NCS; c++) if (RUN.corner >> c & 1) e[n++] = (CxEntry){ CX_CASTER, CXC_CORNER + c };
     e[n++] = (CxEntry){ CX_ELEM, 0 };
+    for (int el = 0; el < NELEM; el++) if (align_open(el)) e[n++] = (CxEntry){ CX_LINE, el };   /* the lines open */
+    if (cls_el() >= 0) e[n++] = (CxEntry){ CX_CLASS, cls_el() };   /* what you were */
+    e[n++] = (CxEntry){ CX_SOUL, CXS_VESSEL };                     /* the souls, as each is met */
+    if (RUN.bell_cursed) e[n++] = (CxEntry){ CX_SOUL, CXS_BELL };
+    if (RUN.font_cursed) e[n++] = (CxEntry){ CX_SOUL, CXS_FONT };
+    if (RUN.rec.cleared) e[n++] = (CxEntry){ CX_SOUL, CXS_REPLAY };
+    if (RUN.cx_more & CXM_SAP) e[n++] = (CxEntry){ CX_SOUL, CXS_SAP };
     e[n++] = (CxEntry){ CX_CLAIM, 0 };
     return n;
 }
 /* A/D a page, W/S the next part, C or Esc closes */
 static void update_codex(void) {
     if (IN.hit[KEY_C] || IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
-    CxEntry e[NABIL + NDEF + NBOSS + NSTAT + NHZ + 3 + NCS + 2];
+    CxEntry e[CX_MAX];
     int n = codex_entries(e), lr = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
     int ud = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
     G.cx_page = clampi(G.cx_page, 0, n - 1);
@@ -15675,10 +15690,15 @@ static void render_messages(Frame *f) {
                                              "L WISPS  C THE CODEX  H THE STATUS BAR" };
         static const char *const PADHINT[4] = { "L-STICK WALK  R-STICK TURN  RT CASTS", "LB RB SPELLS  \1A OPENS  VIEW INVENTORY",
                                                 "MENU LEAVE OR SLEEPWALK  \1Y WISPS", "D-PAD: BESTIARY, CODEX, STATUS BAR" };
-        const char *more[3] = { RUN.abil[BOSS_KNIGHT] ? (PADX.used ? "\1B DODGES THE WAY THE STICK LEANS" : "TAP A DIRECTION TWICE TO DODGE") : NULL,
+        int charges = 0, bats = G.level >= 5;                      /* bats of rank II come in from the first run's fifth level */
+        for (int sp = 0; sp < AT_BFS; sp++) charges |= RUN.gear.atk[sp] >= 0 && spell_holds(sp);
+        const char *more[6] = { RUN.abil[BOSS_KNIGHT] ? (PADX.used ? "\1B DODGES THE WAY THE STICK LEANS" : "TAP A DIRECTION TWICE TO DODGE") : NULL,
                                 ab_readied() >= 0 ? (PADX.used ? "LT AN ABILITY  \1X THE NEXT" : "RIGHT CLICK AN ABILITY  Q THE NEXT") : NULL,
-                                RUN.has_map ? (PADX.used ? "D-PAD UP THE MAP" : "M THE MAP") : NULL };
-        for (int i = 0, row = 0; i < 7; i++) {
+                                RUN.has_map ? (PADX.used ? "D-PAD UP THE MAP" : "M THE MAP") : NULL,
+                                charges ? (PADX.used ? "HOLD RT TO CHARGE AN ULTIMATE" : "HOLD A SPELL TO CHARGE ITS ULTIMATE") : NULL,   /* 1.0.0b11 */
+                                bats ? (PADX.used ? "SWING THE R-STICK TO SHAKE OFF A BAT" : "TURN OR STRAFE HARD TO SHAKE OFF A BAT") : NULL,
+                                G.shop || RUN.al_points > 0 ? "THE LAMPSTAND NORTH OF HER: THE LINES" : NULL };
+        for (int i = 0, row = 0; i < 10; i++) {
             const char *h = i < 4 ? (PADX.used ? PADHINT[i] : HINT[i]) : more[i - 4];
             if (!h) continue;
             int w = hint_width(h), x = (W - w) / 2, y = 34 + row++ * 11;
@@ -16801,7 +16821,7 @@ static void render_codex(Frame *f) {
         "THE KNIGHT RAISES ITS SWORD, AND ITS SWEEP CUTS ALL BEFORE IT IN AN ARC.",
         "THE FLOOR DARKENS, THEN HANDS OF THE DARK RISE THERE. THEY STRIKE AND HOLD." };
     static const int HZ_BOSS[NHZ] = { BOSS_KNIGHT, BOSS_DEACON, BOSS_SPIDER, BOSS_WRAITH, BOSS_KNIGHT, BOSS_WRAITH };
-    CxEntry e[NABIL + NDEF + NBOSS + NSTAT + NHZ + 3 + NCS + 2];
+    CxEntry e[CX_MAX];
     int n = codex_entries(e), pg = clampi(G.cx_page, 0, n - 1);
     const CxEntry *c = &e[pg];
     dim_view(f);
@@ -16817,6 +16837,13 @@ static void render_codex(Frame *f) {
     case CX_STAT: snprintf(name, sizeof name, "%s", STAT_NAME[c->i]); break;
     case CX_HAZ: snprintf(name, sizeof name, "%s", HZ_NAME[c->i]); break;
     case CX_ELEM: snprintf(name, sizeof name, "WHAT HURTS WHAT"); break;
+    case CX_LINE: snprintf(name, sizeof name, "%s", ALIGN[c->i].name); break;
+    case CX_CLASS: snprintf(name, sizeof name, "%s", CLASSES[c->i].name); break;
+    case CX_SOUL: {
+        static const char *const SN[NCXS] = { "THE VESSEL", "THE DEAD BELL", "THE WEEPING FONT", "LEVELS REPLAYED", "SOUL SAP" };
+        snprintf(name, sizeof name, "%s", SN[clampi(c->i, 0, NCXS - 1)]);
+        break;
+    }
     case CX_CASTER: snprintf(name, sizeof name, "%s", c->i == CXC_ATONE ? "LEVELS OF ATONEMENT" : c->i == CXC_LUCK ? "LUCK" : c->i == CXC_OVER ? "OVERLEVELS"
                                                     : CS_NAME[clampi(c->i - CXC_CORNER, 0, NCS - 1)]); break;
     default: snprintf(name, sizeof name, "HER CLAIM"); break;
@@ -16953,6 +16980,46 @@ static void render_codex(Frame *f) {
         text_wrap(f, 14, y + 1, "LEARNT OF EACH KIND: AN ELEMENT FROM FIVE SLAIN OR TWELVE HITS, ITS HARM TO YOU FROM THREE HURTS.", 36, R_BONE + 11, 3);
         break;
     }
+    case CX_LINE: {                                                /* its nodes in order, those bought in gold, the closed path chained */
+        int el = c->i;
+        for (int nd = 0; nd < NNODE; nd++, y += 9) {
+            const ANode *a = &ALIGN[el].n[nd];
+            int got = align_full(el, nd) && (nd != ND_OPEN || align_open(el)), chained = align_chained(el, nd);
+            snprintf(line, sizeof line, "%s%s", nd >= ND_B1 ? "B  " : nd >= ND_A1 ? "A  " : "", a->name);
+            gfx_text8(f, 14, y, line, got ? (uint8_t)(R_GOLD + 11) : chained ? (uint8_t)(R_STONE + 6) : ramp_at(ELEM_RAMP[el], 11), 1);
+            if (align_point(el, nd)) snprintf(line, sizeof line, "%d OF %d", RUN.al[el][nd], a->cost);
+            else if (nd == ND_OPEN && align_open(el) && RUN.al[el][nd] < a->cost) snprintf(line, sizeof line, "OPEN");   /* Fire's, or the class's */
+            else snprintf(line, sizeof line, "%d", a->cost);
+            gfx_text8(f, W - 14 - gfx_text_width(line, 1), y, line, got ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 9), 1);
+        }
+        snprintf(line, sizeof line, "RANK %d. THE LAMPSTAND, NORTH OF HER ROOM, SAYS WHAT EACH DOES.", align_rank(el));
+        text_wrap(f, 14, y + 4, line, 36, R_BONE + 11, 2);
+        break;
+    }
+    case CX_CLASS: {
+        int n2 = text_wrap_ex(f, 14, y, CLASSES[c->i].story, 36, R_STONE + 13, 10, 8);
+        y += n2 * 8 + 6;
+        y += text_wrap_ex(f, 14, y, CLASSES[c->i].gift, 36, R_GOLD + 11, 3, 8) * 8 + 6;
+        text_wrap(f, 14, y, "A LIFE KEEPS ONE. FROM LEVEL OF ATONEMENT 20 SHE WILL HEAR ANOTHER PAST, FOR FIVE CURSED COINS.", 36, R_BONE + 11, 3);
+        break;
+    }
+    case CX_SOUL: {
+        static const char *const SD[NCXS] = {
+            "SOULS ARE YOUR SPIRIT, AND SPELLS SPEND IT BY THEIR RANK. THE VESSEL HOLDS TWENTY AND TWO A LEVEL OF ATONEMENT, MORE "
+            "FROM THE SIN-EATER, THE VESSEL WORN, COMMUNION AND SPIRIT MASTERY; WHAT IS OVER IT SLIPS AWAY. THE DEAD LEAVE THEIR SOULS "
+            "WHERE THEY FALL, FOR SIX SECONDS: WALK THROUGH THEM. SHE TAKES TEN FOR EXPERIENCE.",
+            "A CURSED COIN TURNS IT BLACK, FOR GOOD. THEN SOULS TOLL IT FOR THE NEXT LEVEL: TWO FIFTHS MORE OF THE DEAD AND OF THEIR "
+            "GOLD, HALF THE EXPERIENCE, A BOSS'S WAVES A THIRD LARGER AND A SCRIP MORE. ONE ATTEMPT. ON A LEVEL CLEARED BEFORE, MORE "
+            "SOULS SHOW ITS SECRETS FROM THE START.",
+            "A CURSED COIN AND IT WEEPS RED, FOR GOOD. THEN, ONCE A VISIT, SOULS FOR A TENTH MORE EXPERIENCE ON THE NEXT LEVEL.",
+            "AT THE ACCURSED PORTAL, A LEVEL CLEARED BEFORE, AGAIN, FOR FIVE SOULS AND ITS NUMBER: HER ROOM BEFORE IT, THE LEVEL NEW, "
+            "THEN BACK. GOLD, SOULS AND EXPERIENCE AS EVER; NO CURSED COINS.",
+            "BATS FROM RANK II LATCH ON INSTEAD OF BITING, AND FEED: HEALTH AND SOULS, AND YOU WALK SLOWER. TURN HARD ONE WAY AND BACK, "
+            "OR STRAFE LEFT AND RIGHT, AGAIN AND AGAIN, TO SHAKE IT OFF. BLINK AND SWIFT DODGE THROW IT OFF. RESIST SPIRIT TAKES ITS SHARE." };
+        y += text_wrap(f, 14, y, SD[clampi(c->i, 0, NCXS - 1)], 36, R_STONE + 13, 12) * 9 + 4;
+        if (c->i == CXS_VESSEL) { snprintf(line, sizeof line, "YOURS: %d.%d OF %d", RUN.souls, clampi((int)(RUN.soul_frac * 10.0f), 0, 9), vessel()); gfx_text8(f, 14, y, line, R_GLOW + 12, 1); }
+        break;
+    }
     case CX_HAZ: {
         int h = c->i;
         y += text_wrap(f, 14, y, HZ_DOES[h], 36, R_STONE + 13, 6) * 9 + 4;
@@ -16965,7 +17032,7 @@ static void render_codex(Frame *f) {
         text_wrap(f, 14, y, "ONLY SHE SIGNS THE LEDGER. WHILE YOU ARE IN DANGER (A CREATURE HUNTING YOU, A MISSILE COMING, HEALTH UNDER A QUARTER, "
                   "POISON, FIRE, SOMETHING HOLDING YOU, A HAZARD, A BOSS'S HALL) YOUR PAGE IS MARKED, AND A RED EYE SHOWS BY YOUR KEYS. "
                   "IT CLEARS EIGHT SECONDS AFTER. OPEN A MARKED PAGE, OR START AGAIN FROM ONE, AND SHE TAKES THE DEAD'S CLAIM: A QUARTER "
-                  "TO A HALF OF YOUR GOLD, AND ONE THING YOU WEAR OR A TIER OF A SPELL. WHATEVER YOU MEANT BY IT.", 36, R_STONE + 13, 15);
+                  "TO A HALF OF YOUR GOLD, AND ONE THING YOU WEAR OR THE LAST NODE BOUGHT IN A LINE. WHATEVER YOU MEANT BY IT.", 36, R_STONE + 13, 15);
         break;
     }
     hint8(f, 14, H - 18, "A/D PAGES  W/S PARTS  C CLOSES", R_STONE + 9);

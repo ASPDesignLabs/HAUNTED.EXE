@@ -7,7 +7,8 @@ two's steps 5 (spells as lines), 6 (the new room, the Lampstand on `hall2.png`, 
 (the abilities), 8 (the paths' nodes, the Masteries, spectres), 9 (charging and the twelve ultimates, their sprites
 on `spells.png`), 10 (the classes, their marks on `elements.png`), 11 (gear's elements) and 12 (souls: the vessel, motes,
 her offering, the Dead Bell and the Weeping Font on `hall2.png`, replays at the Portal), 13 (Soul Sap) and 14 (the
-autopilot), tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
+autopilot); and of 15, the Codex's new parts and the controls card (the README and the page wait for step 16's numbers),
+tested in the harness only.** The owner asked for three adjustments (a map that moves with the caster while the crypt goes
 on, the target's weaknesses as glyphs, and a sign of a rune firing) and a review of how the caster grows: elements in
 place of a list of spells, an Alignment of elemental lines bought with points, classes, and a soul economy that can
 run dry. Their answers added creatures that deal the new elements (the first: bats that latch on and sap souls),
@@ -954,3 +955,10 @@ answers, and are first guesses for the runs to tune. Any of them can be changed 
   font: it goes to them before the shrine, through the arch (a coin each the first time, since the shrine would take them
   all), tolls when the price leaves a fifth of the vessel and never for a boss's level, drinks when the souls are spare
   after that; then the shrine. Never on a person's run. The new room has a pair of candles by each, as section 13 says.
+- **The Codex and the controls card** (step 15). Three new parts: *A LINE OF THE ALIGNMENT* (each line open: its nodes in
+  order with their points, those bought in gold, the closed path dimmed), *WHAT YOU WERE* (the class taken: its story and
+  gifts) and *SOULS* (the vessel and motes always; the Dead Bell and the Weeping Font once cursed; levels replayed once
+  any level is cleared; Soul Sap once a bat has fed on you, kept as a bit in the page's `LG_CODEX`). Her claim's page
+  now says she takes the last node bought in a line. The controls card gains, when they apply, *HOLD A SPELL TO CHARGE
+  ITS ULTIMATE*, *TURN OR STRAFE HARD TO SHAKE OFF A BAT* (from level 5) and *THE LAMPSTAND NORTH OF HER: THE LINES* (in
+  her room, or with points to spend), each in the pad's words when the pad was touched last.

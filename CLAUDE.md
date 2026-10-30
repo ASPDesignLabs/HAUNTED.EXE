@@ -199,7 +199,8 @@ a-c path A's nodes in order, x-z path B's, so `c` is A's ultimate and `z` B's), 
 `CRAWL_TPLAMP=1` (before the Lampstand), `CRAWL_SPECTRES=n` (n spectres a level), `CRAWL_CLASS=k` (the class, 1-6 by
 element, 0 to be asked), `CRAWL_ATONE=n` (the Level of Atonement, nothing bought with it), `CRAWL_CORRUPT=1` (every level
 corrupted; 2 its secrets shown), `CRAWL_TPBELL=1` / `CRAWL_TPFONT=1` (before the Dead Bell or the Weeping Font),
-`CRAWL_CLEARED=n` (levels 1-n counted cleared, for replays), `CRAWL_LATCH=1` (a rank II bat latched five seconds into each
+`CRAWL_CLEARED=n` (levels 1-n counted cleared, for replays), `CRAWL_XPBANK=n` (experience banked at a fresh start; the
+dream ascends and aligns on it at its first greeting, for deep starts), `CRAWL_LATCH=1` (a rank II bat latched five seconds into each
 level); `CRAWL_ALIGN`, `CRAWL_SOULS`, `CRAWL_CLASS` and `CRAWL_HASMAP`
 also apply over a run loaded with `HOST_LOAD`,
 `CRAWL_TPROOM=k` (in a corner of the first room of type k, looking across it: run I's 1 ossuary, 2 burial
@@ -900,6 +901,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   shaking by the view's turns and the feet's strafes, `SHAKE_NEED`, `G.shake`), `latch_release` (shaken, thrown by Blink
   or Swift Dodge, or after ten seconds), `sap_slow` in `slow_factor`, `render_latch`. Untargetable while latched. Debug:
   `CRAWL_LATCH=1`, `EVENT latch`, `latch_off`, `shakes`.
+- **The Codex in 1.0.0b11** (step 15): `CX_LINE`, `CX_CLASS`, `CX_SOUL` (`CXS_*` pages; `RUN.cx_more`'s `CXM_SAP`, saved at the
+  end of `LG_CODEX`), `CX_MAX`. The controls card's new lines are in `render_hud`'s `more[]`.
 - **The autopilot's part in 1.0.0b11** (step 14). `auto_charge_pick` (from `aim_at` and `PS_HOLD`) sets `G.auto_chg`, and
   `PS_CAST` then charges (`G.chg_on`, as a person's) or holds Soul Tether (`G.auto_hold`); a blow breaks it as any wind-up.
   Her room: `hall_errand` (`bell_wanted`, `font_wanted`), `SH_HALL` with `G.hall_step` legs through the arch, `hall_act`;
