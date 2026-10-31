@@ -1673,32 +1673,149 @@ static void wskull_dress(int id) {
     }
 }
 
-/* A big black spider: the red eyes are all you see of it in its web until it drops */
+/* a small skull by hand, for the deacon's hood (dim, in shadow) and his staff, and the web spider's mark at rank V: hex R_BONE, @ the eyes */
+static const char *const SKULL_SMALL[10] = {
+    "..56775..", ".5799975.", "4799a9974", "40@090@04", "450090054", ".5770775.", ".4a0a0a4.", "..30003..", "..4a0a4..", "...353...",
+};
+
+/* The web spider's head from the front (docs/InitialArtPass.md, section 8): a cluster of eight eyes like coals, two
+ * great ones low in front, two above them, two smaller still, two at the sides. Chitin in R_IRON (hex), the eyes fire. */
+static const char *const SPIDER_HEAD[8] = {
+    "...2345432...", "..34H676H43..", ".3456J7J6543.", "2H567888765H2",
+    "3567@N7N@7653", "2456NM6MN6542", ".34567876543.", "..345666543..",
+};
+
+/* a spider's leg in two long joints, from its body to the knee and down to the foot: banded paler where the joints'
+ * plates meet, bristles standing out at the knee */
+static void chitin_leg(float ax, float ay, float kx, float ky, float fx, float fy, float r, int ramp, float lo, float hi, int band, uint32_t seed) {
+    cv_capsule(ax, ay, kx, ky, r, ramp, lo, hi);
+    cv_capsule(kx, ky, fx, fy, r * 0.75f, ramp, lo, hi * 0.9f);
+    for (int seg = 0; seg < 2; seg++) {                              /* bands across each joint */
+        float x0 = seg ? kx : ax, y0 = seg ? ky : ay, x1 = seg ? fx : kx, y1 = seg ? fy : ky, L = hypotf(x1 - x0, y1 - y0);
+        float nx = -(y1 - y0) / L, ny = (x1 - x0) / L;
+        for (int k = 1; k <= 2; k++) {
+            float t = k / 3.0f, bx = x0 + (x1 - x0) * t, by = y0 + (y1 - y0) * t;
+            for (int q = -1; q <= 1; q++) cv_px((int)(bx + nx * q * 0.8f), (int)(by + ny * q * 0.8f), band >= 0 ? (uint8_t)(band + 6 + (q == 0) * 2) : sh(ramp, hi + 0.12f));
+        }
+    }
+    for (int q = 0; q < 4; q++) {                                    /* bristles at the knee */
+        float an = h01(q, 1, seed) * TAU_F, l = 1.5f + 1.5f * h01(q, 2, seed);
+        cv_line(kx, ky, kx + cosf(an) * l, ky + sinf(an) * l, sh(ramp, hi * 0.8f));
+    }
+    cv_px((int)kx, (int)ky, sh(ramp, hi + 0.15f));
+}
+
+/* a spider's abdomen: a swollen shell pitted all over, bristles round its rim, lit from above */
+static void spider_abdomen(float cx, float cy, float rx, float ry, int ramp, uint32_t seed) {
+    for (int y = (int)(cy - ry) - 1; y <= (int)(cy + ry) + 1; y++)
+        for (int x = (int)(cx - rx) - 1; x <= (int)(cx + rx) + 1; x++) {
+            float nx = (x + 0.5f - cx) / rx, ny = (y + 0.5f - cy) / ry, d = nx * nx + ny * ny;
+            if (d > 1.0f) continue;
+            float v = 0.05f + 0.3f * (1.0f - d) * (0.6f + 0.4f * (-nx * 0.5f - ny * 0.7f + 0.5f));
+            int gx = (int)floorf((x + 64) / 4.0f), gy = (int)floorf((y + 64) / 4.0f);   /* pits, one to a few pixels */
+            float px = gx * 4.0f - 64.0f + 1.0f + 2.0f * h01(gx, gy, seed), py = gy * 4.0f - 64.0f + 1.0f + 2.0f * h01(gx, gy, seed + 1);
+            float pd = hypotf(x + 0.5f - px, y + 0.5f - py);
+            if (pd < 0.9f) v -= 0.12f; else if (pd < 1.7f && x + 0.5f > px && y + 0.5f > py) v += 0.06f;
+            cv_px(x, y, sh(ramp, v));
+        }
+    for (int q = 0; q < 30; q++) {                                   /* bristles round its rim */
+        float an = TAU_F * q / 30.0f + h01(q, 3, seed) * 0.15f, l = 1.0f + 1.6f * h01(q, 4, seed);
+        float ex = cx + cosf(an) * rx, ey = cy + sinf(an) * ry;
+        cv_line(ex, ey, ex + cosf(an) * l, ey + sinf(an) * l, sh(ramp, 0.28f));
+    }
+}
+
+/* fangs: curved down and in from the jaws' bulges, pale at the tips, a drop of venom on each (falling, biting) */
+static void spider_fangs(float cx, float y0, float len, int biting) {
+    for (int s = -1; s <= 1; s += 2) {
+        cv_ellipse(cx + s * 2.2f, y0, 1.8f, 2.2f, R_IRON, 0.12f, 0.34f);   /* the jaw's bulge */
+        float spread = biting ? 1.8f : 0.0f, px = cx + s * (2.4f + spread), py = y0 + 1.0f;
+        for (int k = 0; k <= (int)len; k++) {
+            float t = k / len, x = cx + s * (2.4f + spread - t * (1.6f + spread * 0.6f) + sinf(t * PI_F) * 0.8f), y = y0 + 1.0f + k;
+            cv_px((int)x, (int)y, sh(R_BONE, 0.45f + 0.45f * t)); px = x; py = y;
+        }
+        cv_px((int)px, (int)py + 1, (uint8_t)(R_MOSS + 13)); cv_px((int)px, (int)py + 2, (uint8_t)(R_MOSS + 10));   /* the drop */
+        cv_px((int)px - s, (int)py + 1, (uint8_t)C_WHITE);
+        if (biting) cv_px((int)px, (int)py + 5, (uint8_t)(R_MOSS + 11));   /* another falling */
+    }
+}
+
+/* The web spider: a black shell pitted all over and a red mark, the head before it with its eight coals of eyes, pale
+ * fangs with venom on them, banded legs bristling at the knee. Its red eyes are all you see of it in its web until it
+ * drops. frame 0-1 walking, 2 biting (the front legs up), 3 dead on its back. Chitin R_IRON (PF_CHITIN). */
 static void spr_spider(int id, int frame) {
     cv_begin(cv_sprite, TS, TS);
-    float cx = 32, cy = 36;
-    if (frame == 3) cy = 52;                                       /* dead on its back */
-    for (int s = -1; s <= 1; s += 2)
-        for (int l = 0; l < 4; l++) {                              /* legs: up, out and down, in two joints */
-            float a = (l - 1.5f) * 0.42f + (frame == 1 ? (l & 1 ? 0.18f : -0.18f) : 0.0f) + (frame == 2 ? -0.35f : 0.0f);
-            float kx = cx + s * (9 + l * 1.5f), ky = cy - 4 + l * 3;
-            float mx = cx + s * (17 + 3 * cosf(a)), my = cy - 12 + l * 4 + 6 * sinf(a);
-            float fx = cx + s * (23 + l * 1.2f), fy = cy + 8 + l * 4 - (frame == 2 && l == 0 ? 14 : 0);
-            if (frame == 3) { mx = cx + s * (8 + l * 2); my = cy - 10 - l * 2; fx = cx + s * (5 + l); fy = cy - 14 - l; }
-            cv_capsule(kx, ky, mx, my, 1.2f, R_IRON, 0.05f, 0.35f);
-            cv_capsule(mx, my, fx, fy, 0.9f, R_IRON, 0.05f, 0.3f);
-        }
-    cv_ellipse(cx, cy + 6, 9.5f, 9.0f, R_IRON, 0.04f, 0.38f);     /* abdomen, with a red mark */
-    cv_flat(cx, cy + 7, 2.2f, 3.0f, (uint8_t)(R_BLOOD + 9)); cv_flat(cx, cy + 3, 1.4f, 1.4f, (uint8_t)(R_BLOOD + 7));
-    cv_ellipse(cx, cy - 4, 6.0f, 5.0f, R_IRON, 0.05f, 0.42f);     /* head */
-    if (frame != 3) {
-        static const int EYE[8][2] = { {-3, -6}, {3, -6}, {-1, -7}, {1, -7}, {-4, -4}, {4, -4}, {-2, -5}, {2, -5} };
-        for (int i = 0; i < 8; i++) (i < 2 ? cv_eye : cv_px)((int)cx + EYE[i][0], (int)cy + EYE[i][1], i < 4 ? (uint8_t)(R_FLAME + 3) : (uint8_t)(R_FLAME + 1));
-        cv_capsule(cx - 2, cy - 1, cx - 3, cy + (frame == 2 ? 4 : 2), 0.8f, R_BONE, 0.4f, 0.8f);   /* fangs */
-        cv_capsule(cx + 2, cy - 1, cx + 3, cy + (frame == 2 ? 4 : 2), 0.8f, R_BONE, 0.4f, 0.8f);
+    if (frame == 3) {                                              /* dead on its back, its legs curled over it */
+        spider_abdomen(32, 52, 10.0f, 7.0f, R_IRON, 421);
+        for (int s = -1; s <= 1; s += 2)
+            for (int l = 0; l < 4; l++)
+                chitin_leg(32 + s * (3 + l), 48, 32 + s * (9 + l * 2.5f), 38 - l * 2.0f, 32 + s * (5 + l * 1.5f), 33 - l, 1.1f, R_IRON, 0.05f, 0.3f, -1, 423 + (uint32_t)(l * 2 + s + 1));
+        cv_ellipse(32, 46, 6.0f, 4.0f, R_IRON, 0.06f, 0.3f);
+        cv_outline(0);
+        cv_store(id);
+        return;
     }
+    float bob = frame == 1 ? 1.0f : 0.0f;
+    spider_abdomen(32, 28 + bob, 10.5f, 9.5f, R_IRON, 431);         /* the abdomen, looming behind */
+    for (int k = 0; k < 7; k++) {                                   /* its mark: an hourglass in blood */
+        int w = k < 3 ? 3 - k : (k > 3 ? k - 3 : 0);
+        for (int q = -w; q <= w; q++) cv_px(32 + q, (int)(24 + bob) + k, (uint8_t)(R_BLOOD + 8 + (q == 0) * 2));
+    }
+    for (int s = -1; s <= 1; s += 2)
+        for (int l = 3; l >= 0; l--) {                              /* legs: up to a high knee and down, the back ones first */
+            float sw = frame == 1 ? (((l + (s > 0)) & 1) ? 2.0f : -2.0f) : 0.0f;
+            float ax = 32 + s * (4.0f + l * 0.8f), ay = 40 + l * 0.6f;
+            float kx = 32 + s * (12.0f + l * 4.0f) + sw, ky = 29 - l * 0.8f + sw * 0.5f;
+            float fx = 32 + s * (14.0f + l * 5.0f) + sw * 1.5f, fy = 59 - l * 2.5f;
+            if (frame == 2 && l == 0) { kx = 32 + s * 11.0f; ky = 22; fx = 32 + s * 7.0f; fy = 14; }   /* the front legs raised */
+            if (frame == 2 && l == 1) { ky -= 4; fy -= 6; }
+            chitin_leg(ax, ay, kx, ky, fx, fy, 1.25f, R_IRON, 0.05f, 0.36f, -1, 441 + (uint32_t)(l * 2 + s + 1));
+        }
+    cv_ellipse(32, 40, 7.0f, 5.0f, R_IRON, 0.06f, 0.4f);            /* the head's shell */
+    grid_stamp(SPIDER_HEAD, 13, 8, 26, 35, R_IRON, R_IRON, (uint8_t)(R_FLAME + 14), 0);
+    spider_fangs(32, 44, frame == 2 ? 6.0f : 4.0f, frame == 2);
     cv_outline(0);
     cv_store(id);
+}
+
+/* the web spider's dressing by rank: II silk clinging in strands and mould on its shell, III frost and its shell
+ * cracked, IV old blood on its fangs and a pale scar across its back, V charred, the pale skull on its back as the
+ * Wandering Spider wears it, gilded gold in its bands and along its shell */
+static void spider_dress(int id) {
+    for (int r = RK_II; r < NRANK; r++) {
+        g_dress_ramp2 = r == RK_V ? R_BLOOD : R_BONE;               /* its fangs too; at V over its mark, which the skull takes */
+        dress_begin(id);
+        if (r == RK_II) {
+            kit_moss(0.25f, 0, 451);
+            for (int q = 0; q < 5; q++) {                            /* silk, clinging */
+                float x0 = 10 + 44 * h01(q, 1, 453), y0 = 24 + 10 * h01(q, 2, 453), x1 = x0 + (h01(q, 3, 453) - 0.5f) * 16, y1 = y0 + 6 + 10 * h01(q, 4, 453);
+                for (int k = 0; k <= 12; k++) { float t = k / 12.0f; int x = (int)(x0 + (x1 - x0) * t), y = (int)(y0 + (y1 - y0) * t + sinf(t * PI_F) * 2.0f); if (base_on(x, y) || (k & 1)) cv_px(x, y, sh(R_GHOST, 0.65f)); }
+            }
+        }
+        if (r == RK_III) {
+            kit_frost(0.7f, 455);
+            float x = 26, y = 22;                                    /* the shell cracked */
+            for (int k = 0; k < 12; k++) { cv_px((int)x, (int)y, 0); cv_px((int)x + 1, (int)y, sh(R_IRON, 0.5f)); x += h01(k, 1, 457) < 0.5f ? 1.0f : 0.0f; y += 1.0f; }
+        }
+        if (r >= RK_IV && r != RK_GILDED) {
+            kit_blood(30, 45, 6, 2, 459); kit_blood(34, 45, 6, 2, 461);
+            for (int k = 0; k < 13; k++) cv_px(24 + k, 31 - k / 3 + (k & 1), sh(R_BONE, 0.7f - 0.2f * (k & 1)));   /* a scar */
+        }
+        if (r == RK_V) {
+            kit_char(0.3f, 463);
+            cv_flat(32.5f, 25.8f, 6.2f, 6.6f, 0);                 /* the skull's ground, dark */
+            grid_stamp(SKULL_SMALL, 9, 10, 28, 21, R_BONE, R_BONE, 0, 0);
+        }
+        if (r == RK_GILDED)
+            for (int y = 0; y < TS; y++)
+                for (int x = 0; x < TS; x++) {
+                    uint8_t b = base_c(x, y);
+                    if (b >= R_IRON + 6 && b < R_IRON + 16 && h01(x, y, 465) < 0.8f) cv_px(x, y, (uint8_t)(R_GOLD + clampi(b - R_IRON, 4, NGOLD - 1)));
+                    else if (b >= R_IRON + 4 && b < R_IRON + 6 && !base_on(x, y - 1)) cv_px(x, y, (uint8_t)(R_GOLD + 6));
+                }
+        dress_store(id, r, R_IRON);
+    }
+    g_dress_ramp2 = -1;
 }
 
 /* projectiles and the floor burning */
@@ -4925,10 +5042,6 @@ static void spr_knight_dead(int id) {
 
 /* The deacon: a skeleton priest in a hooded violet robe (PF_ROBE) with a red stole, a staff with a
  * skull on it. pose 0-1 walking, 2 raising the dead, 3 fallen. */
-/* a small skull by hand, for the deacon's hood (dim, in shadow) and his staff: hex R_BONE, @ the eyes */
-static const char *const SKULL_SMALL[10] = {
-    "..56775..", ".5799975.", "4799a9974", "40@090@04", "450090054", ".5770775.", ".4a0a0a4.", "..30003..", "..4a0a4..", "...353...",
-};
 static void spr_deacon(int id, float w, int pose) {
     cv_begin(cv_sprite, TS, TS);
     if (pose == 3) {
@@ -6145,27 +6258,29 @@ static void spr_bat_side(int id, int up) {
     cv_store(id);
 }
 
-/* a spider from the side: the abdomen behind, the head in front, legs either side of it */
+/* the web spider from the side: the pitted abdomen behind with its mark on top, the head in front with three of its
+ * eyes showing, a fang with its drop, banded legs either side bristling at the knee */
 static void spr_spider_side(int id, int frame) {
     cv_begin(cv_sprite, TS, TS);
     cv_flat(32, 62, 24, 1.8f, R_WARM + 1);
-    for (int pass = 0; pass < 2; pass++)                           /* the far legs, then the body, then the near */
-        for (int l = 0; l < 4; l++) {
-            if (pass == 1) break;
-            float k = ((l + frame) & 1) ? 2.5f : -2.5f, ax = 34 + l * 1.5f, fx = 14 + l * 11.0f + k, kx = (ax + fx) * 0.5f + (l < 2 ? -3 : 3);
-            cv_capsule(ax, 44, kx, 33 + l * 0.6f, 1.1f, R_IRON, 0.02f, 0.2f);
-            cv_capsule(kx, 33 + l * 0.6f, fx, 61, 0.8f, R_IRON, 0.02f, 0.18f);
-        }
-    cv_ellipse(23, 42, 10.0f, 8.0f, R_IRON, 0.04f, 0.38f);         /* the abdomen, its red mark on top */
-    cv_flat(22, 36, 2.6f, 1.6f, (uint8_t)(R_BLOOD + 9));
-    cv_ellipse(37, 45, 6.5f, 4.6f, R_IRON, 0.06f, 0.42f);          /* the head */
-    for (int i = 0; i < 3; i++) cv_px(41 + i, 43 - (i & 1), (uint8_t)(R_FLAME + (i ? 2 : 4)));
-    cv_capsule(42, 47, 43, 51, 0.8f, R_BONE, 0.4f, 0.8f);          /* a fang */
-    for (int l = 0; l < 4; l++) {
-        float k = ((l + frame + 1) & 1) ? 2.5f : -2.5f, ax = 35 + l * 1.5f, fx = 12 + l * 12.0f + k, kx = (ax + fx) * 0.5f + (l < 2 ? -4 : 4);
-        cv_capsule(ax, 46, kx, 31 + l * 0.8f, 1.3f, R_IRON, 0.06f, 0.38f);
-        cv_capsule(kx, 31 + l * 0.8f, fx, 61.5f, 0.95f, R_IRON, 0.05f, 0.32f);
+    for (int l = 0; l < 4; l++) {                                   /* the far legs */
+        float k = ((l + frame) & 1) ? 2.5f : -2.5f, ax = 34 + l * 1.5f, fx = 14 + l * 11.0f + k, kx = (ax + fx) * 0.5f + (l < 2 ? -3 : 3);
+        chitin_leg(ax, 44, kx, 33 + l * 0.6f, fx, 61, 1.1f, R_IRON, 0.02f, 0.2f, -1, 471 + (uint32_t)l);
     }
+    spider_abdomen(23, 42, 10.0f, 8.0f, R_IRON, 473);               /* the abdomen, its mark on top */
+    for (int q = -2; q <= 2; q++) cv_px(22 + q, 34 + (q == 0), (uint8_t)(R_BLOOD + 8 + (q == 0) * 2));
+    cv_px(22, 35, (uint8_t)(R_BLOOD + 7));
+    cv_ellipse(37, 45, 6.5f, 4.6f, R_IRON, 0.06f, 0.42f);          /* the head */
+    for (int l = 0; l < 4; l++) {                                   /* the near legs */
+        float k = ((l + frame + 1) & 1) ? 2.5f : -2.5f, ax = 35 + l * 1.5f, fx = 12 + l * 12.0f + k, kx = (ax + fx) * 0.5f + (l < 2 ? -4 : 4);
+        chitin_leg(ax, 46, kx, 31 + l * 0.8f, fx, 61.5f, 1.3f, R_IRON, 0.06f, 0.38f, -1, 477 + (uint32_t)l);
+    }
+    cv_ellipse(41.5f, 44.5f, 3.2f, 2.8f, R_IRON, 0.1f, 0.42f);     /* its face, before the legs */
+    cv_px(41, 42, (uint8_t)(R_FLAME + 9)); cv_px(40, 43, (uint8_t)(R_FLAME + 7));   /* three of its eyes */
+    cv_eye(43, 43, (uint8_t)(R_FLAME + 13)); cv_px(43, 44, (uint8_t)(R_FLAME + 10));
+    cv_ellipse(42.5f, 47.5f, 1.6f, 1.8f, R_IRON, 0.12f, 0.34f);    /* the jaw, and its fang */
+    for (int k = 0; k <= 4; k++) cv_px(43 - (k > 2), 48 + k, sh(R_BONE, 0.45f + 0.1f * k));
+    cv_px(42, 53, (uint8_t)(R_MOSS + 13)); cv_px(42, 54, (uint8_t)(R_MOSS + 10)); cv_px(41, 53, (uint8_t)C_WHITE);
     cv_outline(0);
     cv_store(id);
 }
@@ -9811,7 +9926,7 @@ void crawl_art_init(void) {
     spr_shieldskel(SP_SHIELD_A, 1.0f, 0, 1); spr_shieldskel(SP_SHIELD_B, -1.0f, 0, 1); spr_shieldskel(SP_SHIELD_S, 0.2f, 1, 1);
     spr_shieldskel(SP_SHIELD_XA, 1.0f, 0, 0); spr_shieldskel(SP_SHIELD_XB, -1.0f, 0, 0); spr_shieldskel(SP_SHIELD_XS, 0.2f, 1, 0);
     for (int h = 0; h < 4; h++) { spr_wskull(SP_WSKULL0 + h, h); if (h < 3) wskull_dress(SP_WSKULL0 + h); }
-    for (int f = 0; f < 3; f++) spr_spider(SP_SPIDER_A + f, f);
+    for (int f = 0; f < 3; f++) { spr_spider(SP_SPIDER_A + f, f); spider_dress(SP_SPIDER_A + f); }
     spr_spider(SP_SPIDER_D, 3);
     spr_ball(SP_SKULLFIRE_A, 10.0f, R_FLAME, R_BLOOD, 0, 1); spr_ball(SP_SKULLFIRE_B, 10.5f, R_FLAME, R_BLOOD, 1, 1);
     spr_ball(SP_HELL_A, 12.0f, R_FLAME, R_BLOOD, 0, 0); spr_ball(SP_HELL_B, 12.5f, R_FLAME, R_BLOOD, 1, 0);
