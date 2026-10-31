@@ -1,16 +1,46 @@
 # The first art pass: faces, eyes, wear and spirit (1.0.0b14)
 
-**Status: a plan, written 31 October 2026, with its questions open. Nothing is built, no asset has been drawn and no
-code has been touched.** The owner looked at the creatures in 1.0.0b13 and found many of them basic: the skeletons'
-bones are good, but their skulls, the wall skulls, the heads of the imps and gargoyles look "almost like a child's
-drawing", and the Drowned look goofy where they should frighten. This plan is the art direction for putting that right,
-written for whoever builds it (it is meant to give them something firmer to work from than "make it more gothic"), and
-the questions at its end are the owner's to answer before any of it starts. Read it with `CLAUDE.md`,
-[`PLAN-bestiary.md`](PLAN-bestiary.md) (the creatures, their ranks and the colour ladder) and
-[`PLAN-b10.md`](PLAN-b10.md) (how each run's look was drawn and approved: sheets first, then frames from the game).
+**Status: settled (31 October 2026): the owner answered every question the same day (see *Decided* below), and work has
+begun on `claude/dazzling-dirac-20cr2y`. Section 13, *Where it stands*, is the log of what is built and the notes for
+whoever picks it up next; read that first.** The owner looked at the creatures in 1.0.0b13 and found many of them basic:
+the skeletons' bones are good, but their skulls, the wall skulls, the heads of the imps and gargoyles look "almost like a
+child's drawing", and the Drowned look goofy where they should frighten. This plan is the art direction for putting that
+right, written for whoever builds it (it is meant to give them something firmer to work from than "make it more
+gothic"). Read it with `CLAUDE.md`, [`PLAN-bestiary.md`](PLAN-bestiary.md) (the creatures, their ranks and the colour
+ladder) and [`PLAN-b10.md`](PLAN-b10.md) (how each run's look was drawn and approved: sheets first, then frames from the
+game).
 
 **Numbering.** This pass takes the place of 1.0.0b14. The lower storey, its edges, stairs and ladders (steps 9-13 of
 [`PLAN-b13.md`](PLAN-b13.md), which still calls it 1.0.0b14) move to **1.0.0b15**, untouched. `CLAUDE.md` says so.
+
+## Decided (31 October 2026)
+
+The owner's answers to section 12's questions. Where an answer differs from the recommendation, the sections that
+follow are read in its light (the differences are in bold).
+
+- **A1** (b): every skull the game draws: the wall skull creature, the piles, heaps, totems, niches and the ossuary's
+  bone walls.
+- **A2 (c): all four bosses get bespoke redraws in this pass**, not only the Deacon and the Wraith; their new art is
+  drawn after their kind's own (section 9).
+- **A3** (a): no dressing by run in this pass; the kit and the table of points are built so it can come later.
+- **A4 (c): every creature is re-proportioned**, not only the Drowned, the imp and the gargoyle. The skeletons' bone
+  work (the owner's "pretty good") is kept in spirit: limbs may lengthen and the stance change, but the bones are drawn
+  as they are drawn now.
+- **A5** (a): heads may grow by up to a quarter.
+- **A6** (b): a rank tints the shadows and mid-tones; the highlights keep the material.
+- **A7** (a): vapour from rank III (a thread), IV a plume, V a cloak, gilded motes.
+- **A8** (a): breakage, rot, rust, frost and old stains; no wet viscera.
+- **A9** (a): the gilded are the Order's honoured dead: gold leaf and a death-mask over the same body, gold motes.
+- **A10** (a): eyes are hidden by walls. **A11** (a): sleepers and statues are dark or ember until they wake.
+  **A12** (a): the kind's own colour at rank I, the rank's from II. **A13** (a): eyes flare when alerted and striking.
+- **A14** (a): a setting, *CREATURE EFFECTS: FULL, CALM, OFF*; the eyes are not touched by it.
+- **A15** (a), the owner's: **sheets for each step, then frames in the game, and the work done creature by creature,
+  then each run's assets**, so that updates and reviews stay small and the work can be handed on between sessions if
+  usage runs out mid-way. Each creature is one unit: drawn, put in the game, committed and pushed, and logged in
+  section 13 before the next begins.
+- **A16**: greyscale legibility is enough for now.
+- **A17**, the owner's: 1.0.0b13's content was built; **the lower storey moves to 1.0.0b15 and this pass is 1.0.0b14**.
+  `PLAN-b13.md` was renumbered to match (a note at its head says so) and `CLAUDE.md` points here.
 
 ## What the owner asked for (31 October 2026)
 
@@ -538,32 +568,39 @@ free.
 
 ## 9. Building it
 
-In steps, sheets before art in the game, each step ending with a sheet or frames for the owner. The new sheet groups
-(for `make sheets`, `tools/sheet.c`): `skulls.png` (every head, front, profile, broken, at 1x, 3x and far), `eyes.png`
-(eye forms by rank, at six distances, over lit, dark and fogged stone), `ranks.png` (every creature across six ranks, in
-colour and in greyscale), `vapour.png` and the extended line-up.
+Sheets before art in the game, each unit ending with a sheet or frames for the owner. Sheet groups (`make sheets`,
+`tools/sheet.c`): `artpass.png` (every creature across its ranks, front and side, at 1x and 3x, with a greyscale strip),
+then each creature's own as it is drawn, and `eyes.png` (eye forms by rank over lit, dark and fogged stone). Frames from
+the game are taken with `CRAWL_MEET`, `CRAWL_MEETN` and `CRAWL_RANK`.
 
-1. **Baseline and bench.** Freeze "before": the line-up at levels 1, 11, 21, 31; a frame of every kind at rank I and V
-   at three distances and in light, dark and fog (with `CRAWL_MEET` and `CRAWL_RANK`); the bench numbers; the
-   start-up and level-load times; the event logs of four dream runs. Add the greyscale and the far-dark-fog strips to
-   the sheet tool. **No game change.**
-2. **Eyes.** The table of points, the eye pass for every creature, eye forms by rank and the exceptions of 5.3; the
-   old baked eyes kept for the pages. **Releasable by itself**; the owner sees a frame strip of every kind in the dark
-   at six distances.
-3. **The skull.** The master and its views; the skeleton, the shield-bearer, the hound's profile, the knight's
-   broken-helm stage, the deacon's hood; the props (piles, heaps, totems). Sheet, then game. *Decides A1, A5.*
-4. **The wall skull** (and the ossuary's walls, if A1 says so): the hero asset, in its four states.
-5. **The imp and the gargoyle.** Redraws; the gargoyle's wake. Sheet, then game.
-6. **The Drowned**, then the shambler and ghoul. Redraws with rise and burst. Sheet, then game.
-7. **The wear ladder.** The kit and the layer (6.4) first, on the skeleton alone, for the owner's eye; then each
-   kind, most numerous first: the skeleton family, the shambler, ghoul, hound, knight, deacon, imp, gargoyle, Drowned,
-   spiders and bats. The sheet is `ranks.png`.
-8. **Spirit vapour.** The emitters by kind and rank; the death gathering into the mote; the cap, the setting and its
-   words. Sheet (`vapour.png`), then game.
-9. **The rest.** The spectre, the Wraith, the bats and spiders, the brood; the Deacon's and the Wraith's new art if A2
-   says so; the bestiary's rank lines; the previews and README strips retaken.
-10. **The checks and the release** as 1.0.0b14, at the owner's word, squashed onto main as one commit like the
-    betas before it.
+**Part one: the groundwork** (shared by every creature, built once)
+
+1. **Baseline.** Freeze "before": the review sheet of every creature at rank I and V, frames of each in light and
+   dark, the bench numbers (`build/host bench crawl 60`). The before-pictures are kept in `docs/artpass/before/` so
+   that the owner and the next session can compare. **No game change.**
+2. **Eyes for everyone.** The table of points, the eye pass, forms and colours by rank, the alert flare and the
+   exceptions of 5.3, for every creature as it stands today (their points found from today's sprites), so the owner's
+   one constant holds from the first commit. A frame strip in the dark at six distances.
+3. **The rank's tint** (A6 b): the LUT that keeps the highlights' material.
+4. **The dressing layer and the vapour** (6.4 option B, section 7), built with the skeleton as the pilot, and the
+   *CREATURE EFFECTS* setting.
+
+**Part two: creature by creature** (each one: re-proportioned body, head, side view, eye points, dressing for II to V
+and gilded, vapour emitters; its sheet, then the game; committed, pushed and logged in section 13 as one unit)
+
+5. The skeleton (and with it the skull master), 6. the shield-bearer, 7. the wall skull, 8. the imp, 9. the gargoyle,
+10. the Drowned, 11. the shambler, 12. the ghoul, 13. the bone hound, 14. the skeleton knight, 15. the deacon, 16. the
+spectre, 17. the Wraith, 18. the bat, 19. the web spider, 20. the hunting spider, 21. the brood mother, spiderling and
+sac, 22. the shade (its eyes stay the exception).
+
+**Part three: the bosses** (A2 c), each after its kind: 23. the Ill-Fated Knight (its three stages and its planted
+pose), 24. the Wandering Spider, 25. the Black Deacon, 26. the Wraith Unbound.
+
+**Part four: each run's assets** (A1 b): 27. the skull's props (piles, heaps, totems, the Hexed Totem, the Black
+Shrine, the trial doors' skulls); 28-31. the niches and bone walls of runs I, II, III and IV, one run at a time.
+
+**Part five:** 32. the bestiary's rank lines, the previews and README strips retaken; 33. the checks (section 10) and
+the release as 1.0.0b14, at the owner's word, squashed onto main as one commit like the betas before it.
 
 **How to work on the art.** Draw heads as hand-placed pixel grids, view them at 1x, 3x and a third; compare *before and
 after* side by side; run the child's-drawing checklist on every head; look at each sprite in the real sizes of 4.2,
@@ -670,3 +707,26 @@ Anything you can say in a sentence or two helps more than a rule does:
    the cat. I can describe a pixel grid from it; I cannot put a face in it that nobody has shown me.
 7. **Anything that already feels right** that I should not touch (I have kept the skeleton's bones, the web spider's
    eyes and the imp's cracks of fire for now).
+
+## 13. Where it stands, and notes for whoever continues
+
+This section is the hand-off. It is updated in the same commit as each unit of work, so that a session that runs out
+of usage leaves the next one a true account. **Read it before anything else in this plan.**
+
+### Log
+
+| Unit | State | Where | Notes |
+|---|---|---|---|
+| Plan settled | done | `docs/InitialArtPass.md`, `docs/PLAN-b13.md` renumbered, `CLAUDE.md` | 31 October |
+
+### How to pick it up
+
+1. `git log --oneline` on `claude/dazzling-dirac-20cr2y`, then this log: the last row that is not *done* is where to
+   start; a row marked *in progress* says what was left half-made.
+2. `make host build/host_debug build/sheet` (about a minute), then `make sheets` and look at `build/sheets/artpass.png`
+   (or the creature's own sheet) with the before-picture in `docs/artpass/before/` beside it.
+3. Each creature is a unit: its sprite functions in `src/crawl_art.c` (named in section 8 and the log), its eye points
+   recorded as it is drawn, its dressing and vapour from the kit; then `make smoke`, a frame from the game with
+   `CRAWL_MEET=k` (the `MOB_*` number) and `CRAWL_RANK=r`, and the sheet sent to the owner.
+4. Commit and push after each unit with this log updated; never leave the branch with a creature half in the game.
+

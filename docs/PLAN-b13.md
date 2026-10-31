@@ -1,15 +1,19 @@
-# 1.0.0b13 and 1.0.0b14: the runs' hazards, puzzles and trials, then the lower storey
+# 1.0.0b13 and 1.0.0b15: the runs' hazards, puzzles and trials, then the lower storey
+
+**Renumbered (31 October 2026), at the owner's word:** the lower storey is now **1.0.0b15**, and every "1.0.0b15"
+below was "1.0.0b14" when this plan was settled. 1.0.0b14 is the first art pass, planned in
+[`InitialArtPass.md`](InitialArtPass.md). 1.0.0b13's content (steps 1-8) was built and released as before.
 
 **Status: settled (30 October 2026). The owner answered both rounds the same day, and added a sixth thing: a
 reckoning of what is left on a level before you leave it. Written as 1.0.0b12's plan; 1.0.0b12 went out instead as a
 small release from the owner's first look at 1.0.0b11, so at the owner's word this is now 1.0.0b13 (the hazards, the
-puzzles, the trials and the reckoning) and 1.0.0b14 (the lower storey), staged as G2 (a) has it. Being built on
+puzzles, the trials and the reckoning) and 1.0.0b15 (the lower storey), staged as G2 (a) has it. Being built on
 `claude/epic-dirac-n8uosr`, from main at 1.0.0b12: 1.0.0b13's eight steps are built (the runs' hazards and Resist
 Lightning, the ways to touch the world, the sealed wing and every puzzle, the hidden message, Tab's documents and the
 Black Shrine, all seventeen trials, tuned once: see *The trials, as tuned* at the end, the reckoning before leaving, the
 record and the Codex, and the checks: see *The checks* at the end), tested in the harness only, and released as
 1.0.0b13 at the owner's word (31 October); `hazards.png`, `puzzles.png`, `documents.png` and `trials.png` wait for the
-owner's eye. 1.0.0b14 (steps 9-13) is not begun.** The owner asked for five things: a lower
+owner's eye. 1.0.0b15 (steps 9-13) is not begun.** The owner asked for five things: a lower
 storey under each level from run II, growing run by run; art that shows an edge can't be crossed; more hazards of
 each run's own, using the elements; logic puzzles played with things in the world, with no screen of their own;
 and timed trials behind marked doors. This plan maps that onto the game as it stood on
@@ -27,8 +31,8 @@ at the end of each round. When this plan lands beside 1.0.0b11's work, `CLAUDE.m
 ## Decided (30 October 2026, the first round)
 
 - **G1** (a): 1.0.0b13, built after 1.0.0b11 is released. **G2** (a): two releases. 1.0.0b13 brings the hazards, the
-  puzzles and the trials; 1.0.0b14 the lower storey.
-- **The lower storey** (1.0.0b14). **L1** (a): two storeys on one grid, a test level first. **L2** (a): none on a
+  puzzles and the trials; 1.0.0b15 the lower storey.
+- **The lower storey** (1.0.0b15). **L1** (a): two storeys on one grid, a test level first. **L2** (a): none on a
   boss's level. **L3** (a): a rank higher, a third more creatures, hazards twice as often. **L4** (a): walkers by
   stairs, fliers by wells, spirits through floors. **L5** (a): spells and throws cross between storeys. **L6** (b):
   **ladders too, in the Hollows**: E climbs, slowly, and nothing is cast on one. **E1** (a): the edges as drafted.
@@ -123,7 +127,7 @@ are made with their level and kept in nothing but it.
 
 **G2. One release or two.** *Decided: (a).* The lower storey means a new renderer and every system that moves learning stairs; the
 hazards, puzzles and trials fit the engine as it is.
-- (a*) Two. 1.0.0b13: the hazards, the puzzles and the trials. 1.0.0b14: the lower storey and its edges, once a first
+- (a*) Two. 1.0.0b13: the hazards, the puzzles and the trials. 1.0.0b15: the lower storey and its edges, once a first
   test of the new renderer has been seen and timed. Puzzles and trials can use the lower storey when it comes.
 - (b) One release, the lower storey first.
 - (c) One release, the lower storey last.
@@ -537,7 +541,7 @@ fewer clues given outright.
 - **The door**: a skull and crossbones on it, the run's own (D1). It is seen from down the hall: two red candles or
   their like stand by it.
 - **Where** (T2, the owner's): **one on every level from level 3**, a boss's level included, outside its arena and its
-  band (T6). *Default*: a room of two to four blocks off the main way, never the only way to the exit. From 1.0.0b14 it
+  band (T6). *Default*: a room of two to four blocks off the main way, never the only way to the exit. From 1.0.0b15 it
   may be on the lower storey.
 - **Going in**: one cell past the door it shuts and seals behind you, as a boss's arch does, and the room turns: its
   light changes to the trial's colour, the fog thickens or clears, the walls take on the trial's look (the run's), the
@@ -680,7 +684,7 @@ must choose *DESCEND BELOW* to go on.
 - `documents.png`: Tab's *DOCUMENTS* page, with a message of each run drawn on its own parchment and a clue's entry; the
   Black Shrine dark and with its eyes lit; the reckoning's parchment on an exit door.
 - `trials.png`: the four doors, each run's turned room, the hourglass full, running and cracked.
-- `storeys.png` (1.0.0b14): edges, balustrades and stairs for runs II-IV, the Hollows' ladders, a gallery and a well seen
+- `storeys.png` (1.0.0b15): edges, balustrades and stairs for runs II-IV, the Hollows' ladders, a gallery and a well seen
   from above and below, and the low ceiling of a passage under the floor.
 - Frames: a hazard in each run, a puzzle solved, a trial won and one lost, and, for the lower storey, the test level.
 
@@ -704,7 +708,7 @@ As two releases (G2 a); each step a commit, tested in the harness.
 8. **Checks**: ASan; the Windows build; eight dream runs from levels 1, 11, 21 and 31 against 1.0.0b12 on the same
    seeds; the trials' win rate and time left a run; puzzles solved by the dream.
 
-**1.0.0b14**
+**1.0.0b15**
 
 9. **The test**: the two-storey renderer on a hand-made level; frames and its time a frame, for the owner.
 10. **Two storeys**: the generator (galleries, wells, passages under, stairs), collision and edges, the hunt field and
