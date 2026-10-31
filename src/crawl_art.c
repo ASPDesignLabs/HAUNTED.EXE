@@ -956,6 +956,38 @@ static void cv_skull(float cx, float cy, float s, float lo, float hi) {
     for (int i = -2; i <= 2; i++) cv_px((int)(cx + i * 1.3f * s), (int)(cy + 5.3f * s), R_BONE + 1);
 }
 
+/* The skull, drawn by hand (docs/InitialArtPass.md section 4.1): a character a pixel, a step of the bone ramp in hex,
+ * 0 black, @ an eye, . clear. The key light is up and to the left; the cavities are the darkest things on it; the jaw
+ * hangs a pixel open and a tooth is gone. Front, and the profile facing right. */
+#define SKULL_W 15
+#define SKULL_H 16
+_Static_assert(SKULL_H == 16, "the skulls' grids are sixteen rows: keep them so when redrawing");
+static const char *const SKULL_FRONT[SKULL_H] = {
+    ".....7aa97.....", "...7bdeedcb8...", "..8ceffeedcb8..", ".9dffeeeeddcb8.", ".7cdeeedddccb7.",
+    ".5acdddddccb95.", ".6deeedbdeeda6.", ".800009c900006.", ".b0@01ad910@08.", "5d1003908200194", ".bedc90208bba6.",
+    "..7cb60706a95..", "...8e3f4e3c6...", "...400000003...", "...7d2c0b2a5...", "....5acba84....",
+};
+static const char *const SKULL_SIDE[SKULL_H] = {
+    "...68abbba86...", ".6acdeeeedcb7..", "6bdeeffeeddca6.", "8ceeffeeeddcb8.", "7bcdeeeedddccb7",
+    "6abcdddddddccde", "59abccddddcb00a", "489abbccdcb0@0b", ".789abbccb9000d", ".6890abdeedcb0c", "..789a8bccdcb9b",
+    "...789637bdccdb", "....8a5.9e3f3fd", "....79400000...", "....69ac2b2b2a.", ".....589abba96.",
+};
+/* a skull with its middle at cx, cy (its eyes a row above the middle); side: the profile, mirror: facing left;
+ * eye: the eyes' colour (recorded for the eye pass), 0 dark sockets */
+static int g_skbox[4] = { -1, -1, -1, -1 };             /* where the last skull went: the grime goes lightly on it */
+static void skull_stamp(float cx, float cy, int side, int mirror, uint8_t eye) {
+    const char *const *g = side ? SKULL_SIDE : SKULL_FRONT;
+    int x0 = (int)floorf(cx - SKULL_W / 2.0f + 0.5f), y0 = (int)floorf(cy - SKULL_H / 2.0f + 0.5f);
+    g_skbox[0] = x0; g_skbox[1] = y0; g_skbox[2] = x0 + SKULL_W; g_skbox[3] = y0 + SKULL_H;
+    for (int y = 0; y < SKULL_H; y++)
+        for (int x = 0; x < SKULL_W; x++) {
+            char ch = g[y][mirror ? SKULL_W - 1 - x : x];
+            if (ch == '.') continue;
+            if (ch == '@') { if (eye) cv_eye(x0 + x, y0 + y, eye); else cv_px(x0 + x, y0 + y, 0); continue; }
+            cv_px(x0 + x, y0 + y, ch == '0' ? 0 : (uint8_t)(R_BONE + (ch <= '9' ? ch - '0' : ch - 'a' + 10)));
+        }
+}
+
 /* ------------------------------------------------------------------ */
 /* Sprites                                                             */
 /* ------------------------------------------------------------------ */
@@ -1100,24 +1132,25 @@ static float g_decay;                                   /* 0 on the first level,
 static void gem(float cx, float cy, float r, int ramp);
 static void skel_draw(float walk, float k, uint32_t seed, int raise) {
     Part P[32]; int n = 0;
+    g_skbox[0] = g_skbox[2] = -1;
     #define BONE(a, b, c, d, r) (P[n++] = (Part){ 0, a, b, c, d, r })
     float w = walk;
     BONE(29, 42, 27 + w * 3, 52, 1.6f); BONE(27 + w * 3, 52, 27 + w * 4.5f, 61, 1.4f); BONE(27 + w * 4.5f, 62, 23 + w * 4.5f, 62.5f, 1.0f);
     BONE(35, 42, 37 - w * 3, 52, 1.6f); BONE(37 - w * 3, 52, 37 - w * 4.5f, 61, 1.4f); BONE(37 - w * 4.5f, 62, 41 - w * 4.5f, 62.5f, 1.0f);
     P[n++] = (Part){ 2, 32, 40, 0, 0, 0 };
-    BONE(32, 18, 32, 38, 1.4f);
+    BONE(32, 19, 32, 38, 1.4f);
     for (int i = 0; i < 4; i++) {
-        float y = 21 + i * 3.6f;
+        float y = 23.5f + i * 3.2f;
         BONE(31, y, 25 + i * 0.6f, y + 2, 0.9f); BONE(25 + i * 0.6f, y + 2, 27 + i * 0.5f, y + 4.2f, 0.8f);
         BONE(33, y, 39 - i * 0.6f, y + 2, 0.9f); BONE(39 - i * 0.6f, y + 2, 37 - i * 0.5f, y + 4.2f, 0.8f);
     }
-    BONE(24, 19, 40, 19, 1.1f);
-    BONE(24, 19, 21, 30, 1.3f); BONE(21, 30, 19 - w * 2, 40, 1.1f);
-    if (raise == 1) { BONE(40, 19, 46, 11, 1.3f); BONE(46, 11, 44, 3, 1.1f); BONE(38, 4, 50, 1, 1.0f); }   /* bone held high */
-    else if (raise == 2) { BONE(40, 19, 47, 12, 1.3f); BONE(47, 12, 48, 4, 1.1f); }   /* arm up, to strike */
-    else { BONE(40, 19, 43, 29, 1.3f); BONE(43, 29, 48, 22, 1.1f); }
-    BONE(32, 15, 32, 18, 1.2f);
-    P[n++] = (Part){ 1, 32, 9, 0, 0, 1.0f };
+    BONE(24.5f, 21, 39.5f, 21.5f, 1.1f);
+    BONE(24.5f, 21, 21, 31, 1.3f); BONE(21, 31, 19 - w * 2, 41, 1.1f);
+    if (raise == 1) { BONE(39.5f, 21.5f, 46, 13, 1.3f); BONE(46, 13, 45, 5, 1.1f); BONE(39, 6, 51, 3, 1.0f); }   /* bone held high */
+    else if (raise == 2) { BONE(39.5f, 21.5f, 47, 14, 1.3f); BONE(47, 14, 48, 6, 1.1f); }   /* arm up, to strike */
+    else { BONE(39.5f, 21.5f, 43, 31, 1.3f); BONE(43, 31, 48, 24, 1.1f); }
+    BONE(32, 17, 32, 20, 1.2f);
+    P[n++] = (Part){ 1, 32, 10, 0, 0, 1.0f };
     #undef BONE
 
     cv_begin(cv_sprite, TS, TS);
@@ -1138,10 +1171,9 @@ static void skel_draw(float walk, float k, uint32_t seed, int raise) {
             if (p.r >= 1.3f) cv_bone(x0, y0, x1, y1, p.r * 0.9f, 0.25f, 0.95f);
             else cv_capsule(x0, y0, x1, y1, p.r, R_BONE, 0.25f, 0.9f);
         } else if (p.kind == 1) {
-            cv_skull(ncx, ncy - (kk > 0.9f ? 1.5f : 0.0f), 1.0f, 0.3f, 1.0f);
-            if (g_decay > 0.3f) { cv_line(ncx + 1, ncy - 5, ncx + 3, ncy - 1, R_BONE + 2); cv_px((int)ncx + 4, (int)ncy - 2, R_BONE + 1); }   /* a cracked skull */
             uint8_t eye = g_decay > 0.55f ? (uint8_t)(R_GLOW + 13) : (uint8_t)(R_FLAME + 10);   /* the eyes go cold */
-            if (k < 0.3f) { cv_eye((int)ncx - 2, (int)ncy + 1, eye); cv_eye((int)ncx + 2, (int)ncy + 1, eye); }
+            skull_stamp(ncx, ncy - (kk > 0.9f ? 1.5f : 0.0f), kk > 0.6f, 0, k < 0.3f ? eye : 0);   /* fallen, it rolls aside */
+            if (g_decay > 0.3f) { cv_line(ncx + 2, ncy - 8, ncx + 3, ncy - 3, R_BONE + 3); cv_px((int)ncx + 4, (int)ncy - 3, R_BONE + 2); }   /* a cracked skull */
         } else {
             cv_ellipse(ncx, ncy, 7, 3.4f, R_BONE, 0.25f, 0.9f);
             cv_flat(ncx - 3, ncy, 1.2f, 1.2f, R_BONE); cv_flat(ncx + 3, ncy, 1.2f, 1.2f, R_BONE);
@@ -1153,6 +1185,10 @@ static void skel_draw(float walk, float k, uint32_t seed, int raise) {
                 uint8_t c = cv_sprite[y * TS + x];
                 if (c < R_BONE || c >= R_BONE + 16) continue;
                 float n = fbm(x / 5.0f, y / 5.0f, 16, seed + 31);
+                if (x >= g_skbox[0] && x < g_skbox[2] && y >= g_skbox[1] && y < g_skbox[3]) {   /* the skull keeps its face */
+                    if (n < 0.2f + 0.25f * g_decay && c > R_BONE + 4) cv_sprite[y * TS + x] = (uint8_t)(c - 1);
+                    continue;
+                }
                 if (n < 0.28f + 0.32f * g_decay) cv_sprite[y * TS + x] = (uint8_t)(c - 3 < R_BONE + 1 ? R_BONE + 1 : c - 3);
                 if (g_decay > 0.35f && n > 0.78f - 0.12f * g_decay) cv_sprite[y * TS + x] = sh(R_MOSS, 0.3f + 0.3f * n);
             }
@@ -1168,15 +1204,15 @@ static void spr_skeleton(int id, float walk, float k, uint32_t seed, int raise) 
 static void spr_shieldskel(int id, float walk, int swing, int shield) {
     skel_draw(walk, 0.0f, 13, swing ? 2 : 0);
     if (swing) {                                                   /* the blade raised over its head */
-        cv_capsule(48, 4, 46, -20, 1.0f, R_IRON, 0.5f, 1.0f);
-        cv_capsule(44, 5, 52, 3, 0.9f, R_WOOD, 0.3f, 0.6f);
+        cv_capsule(48, 6, 46, -18, 1.0f, R_IRON, 0.5f, 1.0f);
+        cv_capsule(44, 7, 52, 5, 0.9f, R_WOOD, 0.3f, 0.6f);
     } else {                                                       /* held low and forward */
-        cv_capsule(48, 22, 55, 7, 1.0f, R_IRON, 0.5f, 1.0f);
-        cv_capsule(45, 24, 51, 20, 0.9f, R_WOOD, 0.3f, 0.6f);
+        cv_capsule(48, 24, 55, 9, 1.0f, R_IRON, 0.5f, 1.0f);
+        cv_capsule(45, 26, 51, 22, 0.9f, R_WOOD, 0.3f, 0.6f);
     }
     if (shield) {                                                  /* the shield on the left arm, in front of the ribs */
-        float cx = 22.5f, cy = 30.0f;
-        for (int y = 15; y < 46; y++)
+        float cx = 22.5f, cy = 32.0f;
+        for (int y = 17; y < 48; y++)
             for (int x = 7; x < 39; x++) {
                 float nx = (x + 0.5f - cx) / 13.0f, ny = (y + 0.5f - cy) / 14.5f, d = nx * nx + ny * ny;
                 if (d > 1.0f) continue;
@@ -1191,10 +1227,10 @@ static void spr_shieldskel(int id, float walk, int swing, int shield) {
                 }
                 cv_px(x, y, c);
             }
-        cv_px(18, 24, sh(R_IRON, 0.9f)); cv_px(27, 36, sh(R_IRON, 0.9f));
+        cv_px(18, 26, sh(R_IRON, 0.9f)); cv_px(27, 38, sh(R_IRON, 0.9f));
     } else {                                                       /* what is left of it: a splintered strap */
-        cv_capsule(19, 26, 26, 33, 1.0f, R_WOOD, 0.2f, 0.45f);
-        cv_line(24, 27, 21, 22, sh(R_WOOD, 0.4f)); cv_line(26, 31, 29, 27, sh(R_WOOD, 0.35f));
+        cv_capsule(19, 28, 26, 35, 1.0f, R_WOOD, 0.2f, 0.45f);
+        cv_line(24, 29, 21, 24, sh(R_WOOD, 0.4f)); cv_line(26, 33, 29, 29, sh(R_WOOD, 0.35f));
     }
     cv_outline(0);
     cv_store(id);
@@ -5116,7 +5152,7 @@ static void skel_side(float w, int arm) {
         cv_capsule(36, 23, 42, 21, 0.9f, R_WOOD, 0.3f, 0.6f);      /* the guard */
     }
     cv_capsule(31.5f, 14 + bob, 31, 17 + bob, 1.1f, R_BONE, 0.3f, 0.9f);
-    skull_side(33, 9 + bob, 1.0f, 0.0f, g_decay > 0.55f ? (uint8_t)(R_GLOW + 13) : (uint8_t)(R_FLAME + 10));
+    skull_stamp(33, 9.5f + bob, 1, 0, g_decay > 0.55f ? (uint8_t)(R_GLOW + 13) : (uint8_t)(R_FLAME + 10));
     if (arm) {                                                     /* the shield, held out in front, seen at a slant */
         for (int y = 17; y < 48; y++)
             for (int x = 36; x < 46; x++) {
@@ -5675,6 +5711,11 @@ static void build_rank_luts(void) {
             if (f == PF_WING && r == RK_V) to = R_BLOOD;           /* a black bat is lost in the dark: they stop at red */
             lut_ramp(lut, BODY[f], to);
             if (to == R_MOSS) lut_ramp(lut, R_MOSS, R_WARM);       /* moss on a green body would vanish: grime instead */
+            /* the rank takes the shadows and the middle; the lights keep the stuff it is made of, so bone still looks
+             * like bone (docs/InitialArtPass.md, A6). The black keep less of it, the gilded a little more gold. */
+            static const int KEEP[NRANK] = { 16, 11, 11, 11, 13, 12 };
+            if (to != R_BONE || BODY[f] == R_BONE)
+                for (int k = KEEP[r]; k < 16; k++) lut[BODY[f] + k] = (uint8_t)(BODY[f] + k);
         }
 }
 

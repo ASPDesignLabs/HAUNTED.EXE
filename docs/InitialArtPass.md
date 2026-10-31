@@ -722,6 +722,10 @@ of usage leaves the next one a true account. **Read it before anything else in t
 | 1. Baseline | done | `docs/artpass/before/` (every creature's sheet and the line-up, before; `eyes_dark_skeleton.png`) | bench 2.104 ms a frame (`build/host bench crawl 60`) |
 | Test stage | done | `CRAWL_STAGE=k` (+ `CRAWL_STAGEDIST`, `CRAWL_STAGEDARK`, `CRAWL_STAGEFOG`, `CRAWL_STAGESUB`) in `src/scene_crawl.c`; `tools/stage.py` makes strips | the caster goes straight into the level, still; the kind stands frozen down the longest hall |
 | 2. Eyes for everyone | done, for the owner's eye | `EyeAt crawl_eyes[]` (`src/crawl.h`), `cv_eye`/`cv_eye_mark` in each creature's sprite function, `render_eyes` and `EYE_*` tables in `src/scene_crawl.c`; review: `docs/artpass/review/eyes_*.png` | every kind's eyes on today's sprites; frame time 2.014 ms; a 15-minute dream run's 390 events identical to 1.0.0b13's; smoke passes. Not yet: the harness check of 10 (it is done by eye with `tools/stage.py --dark 0.15 --fog`) |
+| 3. The rank's tint | done, for the owner's eye | `build_rank_luts` in `src/crawl_art.c` (`KEEP[]`: the step from which a rank leaves the material alone) | every family at once: bone stays bone in its lights, the rank in its hollows (rotten, cold, bloody, charred, gilt) |
+| 4. Dressing layer, vapour, the setting | not begun | | to be built with the skeleton as the pilot (6.4 B, section 7, A14) |
+| 5. The skeleton, with the skull master | in progress: head and frame done | `SKULL_FRONT`, `SKULL_SIDE` (15 by 16, hex steps of the bone ramp, `@` an eye) and `skull_stamp` in `src/crawl_art.c`; `skel_draw` (a neck, the shoulders two pixels lower, the right a pixel lower still), `skel_side`; review: `docs/artpass/review/skeleton.png`, `skeleton_game.png`, `sides.png` | the skull keeps its face through the level's grime (`g_skbox`); fallen, it lies in profile. Still to do for the unit: its dressing for II to V and gilded, and its vapour, once step 4 is built |
+| 6. The shield-bearer | in progress: head and frame done | `spr_shieldskel` (shares `skel_draw`; blade, guard and shield moved down with the arm) | as the skeleton |
 
 ### How to pick it up
 
