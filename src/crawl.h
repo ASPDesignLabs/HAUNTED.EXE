@@ -226,6 +226,15 @@ enum {
     SP_PZ_SPOUT, SP_PZ_MILL0, SP_PZ_MILL1,      /* the culverts' spout, and the mill wheel turning */
     SP_PZ_IDOL, SP_PZ_LOCK,                     /* the gold veins' idol, and the door's lock */
     SP_PZ_WHEEL,                                /* a sluice wheel, a saint's sign on its hub */
+    SP_PZ_BOARD, SP_PZ_BOX, SP_PZ_SACK,         /* the Hollows': a chalk board; the hoist's counterweight box; a sack of ore */
+    SP_PZ_HOOK, SP_PZ_TAG,                      /* a hook on the tally board; a miner's tag */
+    SP_PZ_SOCKET, SP_PZ_FOSSIL,                 /* a socket in the rock; a fossil's bone */
+    SP_PZ_STONE, SP_PZ_LAMP0, SP_PZ_LAMP1,      /* a standing stone; a miner's lamp, dark and lit */
+    SP_PZ_PRISM0, SP_PZ_GEODE = SP_PZ_PRISM0 + 4,   /* the Deep's: a prism, its face away, to your right, to you, to your left; */
+    SP_PZ_GEODE1, SP_PZ_THRONE, SP_PZ_STATUE,   /* a geode, dark and lit; the throne; a statue of the dead court */
+    SP_PZ_VENT0, SP_PZ_VENT1,                   /* a vent, shut and open */
+    SP_PZ_SLAB, SP_PZ_NUMSTONE,                 /* a square of the grid; a numbered stone */
+    SP_PZ_LETTER0, SP_PZ_LETTER_END = SP_PZ_LETTER0 + 26,   /* the letters, A to Z, for the dials */
     SP_MARK0, SP_PIP1 = SP_MARK0 + 16,          /* the marks carved on things (PZ_MARKS in crawl_art.c), */
     SP_PZ_LAST = SP_PIP1 + 9,                   /* and one to nine pips */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
