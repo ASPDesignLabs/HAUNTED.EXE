@@ -19937,6 +19937,8 @@ static void render_latch(Frame *f) {
         }
     int fr = ((int)(t * 11.0f)) & 1, spr = fr ? SP_BAT_B : SP_BAT_A, sc = 5;   /* wings from edge to edge */
     const uint8_t *img = crawl_spr[spr], *lut = m->rank != RK_I && KINDS[m->type].family >= 0 ? crawl_rank_lut[KINDS[m->type].family][m->rank] : NULL;
+    int dix = crawl_dress_ix[spr][clampi(m->rank, 0, NRANK - 1)];
+    const uint8_t *ov = dix >= 0 ? crawl_dress[dix] : NULL;        /* its rank's marks, as in the crypt */
     int ox = W / 2 - TS * sc / 2 + (int)(sinf(t * 37.0f) * 7.0f * G.slip_k) + (int)(sinf(t * 2.1f) * 4.0f);
     int oy = view - 26 - (TS / 2) * sc + (int)(k * 34.0f + G.slip_k * 8.0f);   /* its body low in the view, lower as its grip goes */
     for (int xx = 0; xx < TS * sc; xx++) {
@@ -19945,9 +19947,10 @@ static void render_latch(Frame *f) {
         for (int yy = 0; yy < TS * sc; yy++) {
             int sy = oy + yy;
             if (sy < 0 || sy >= view) continue;
-            uint8_t c = img[(xx / sc) * TS + yy / sc];
-            if (c == C_CLEAR) continue;
-            if (lut) c = lut[c];
+            uint8_t c = img[(xx / sc) * TS + yy / sc], o = ov ? ov[(xx / sc) * TS + yy / sc] : (uint8_t)C_CLEAR;
+            if (o != C_CLEAR) c = o;
+            else if (c == C_CLEAR) continue;
+            else if (lut) c = lut[c];
             f->pix[sy * W + sx] = shade(c, 0.95f, sx, sy);        /* lit by your own glow, this close */
         }
     }
