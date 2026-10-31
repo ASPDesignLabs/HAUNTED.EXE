@@ -237,6 +237,9 @@ enum {
     SP_PZ_LETTER0, SP_PZ_LETTER_END = SP_PZ_LETTER0 + 26,   /* the letters, A to Z, for the dials */
     SP_MARK0, SP_PIP1 = SP_MARK0 + 16,          /* the marks carved on things (PZ_MARKS in crawl_art.c), */
     SP_PZ_LAST = SP_PIP1 + 9,                   /* and one to nine pips */
+    SP_HIDE0,                                   /* where the hidden message lies (1.0.0b13): a candle-box, a drowned */
+    SP_BSHRINE = SP_HIDE0 + 4,                  /* satchel, a miner's boot, a broken geode, a run each; the Black Shrine, */
+    SP_BSHRINE_E0, SP_BSHRINE_E1,               /* and its skull's eyes, faint and flaring (drawn at full brightness) */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
     SP_SKEL_SA, SP_SKEL_SB, SP_SHIELD_SA, SP_SHIELD_SB, SP_BAT_SA, SP_BAT_SB, SP_SPIDER_SA, SP_SPIDER_SB,
     SP_GHOST_SA, SP_GHOST_SB, SP_WSKULL_S,
@@ -322,5 +325,13 @@ typedef struct {
 } RunLook;
 extern const RunLook crawl_looks[4];
 void crawl_art_run(int level);                  /* that run's own textures and keys, at the level's rot (after crawl_art_level) */
+
+/* A document's page (1.0.0b13, docs/PLAN-b13.md section 6a), a run each: a leaf of the Order's vellum, a letter's paper,
+ * a scrap of sacking, beaten gold leaf. Drawn into pix (stride across) at x0, y0, w by h, left as it was where it is torn
+ * away; returns the colour to write on it in. crawl_doc_ink finishes what was written on it: the letter's ink runs, the
+ * gold's scratches catch the light. crawl_doc_paper says whether a colour is the page's own, for the writer. */
+unsigned char crawl_doc_page(unsigned char *pix, int stride, int x0, int y0, int w, int h, int run, unsigned seed);
+void crawl_doc_ink(unsigned char *pix, int stride, int x0, int y0, int w, int h, int run, unsigned char ink, unsigned seed);
+int crawl_doc_paper(int run, unsigned char c);
 
 #endif

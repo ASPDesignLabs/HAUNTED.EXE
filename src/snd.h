@@ -77,6 +77,8 @@ enum {
     SFX_CRACKLE,        /* lightning gathering: a buzz and snapping sparks */
     SFX_RUMBLE,         /* a cart on the rails: a low rolling rumble, the wheels clacking */
     SFX_HUM,            /* a crystal singing, higher and brighter */
+    SFX_RUSTLE,         /* a hand searching: dry rustling and a scrape */
+    SFX_PAGE,           /* a page taken out and turned: a crisp flick */
     SFX_COUNT
 };
 

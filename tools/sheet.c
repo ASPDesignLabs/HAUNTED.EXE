@@ -626,6 +626,93 @@ static int draw_puzzles(const char *path) {
     return ok;
 }
 
+/* ---- 1.0.0b13: the hidden message on each run's page, a clue as Tab's documents shows it, the things that hide it,
+ * and the Black Shrine dark and showing (docs/PLAN-b13.md section 6a) ---- */
+static void ptext(uint8_t *buf, int stride, int x, int y, const char *s, uint8_t c, int tall) {   /* into a page, in its ink */
+    for (; *s; s++, x += 8)
+        for (int row = 0; row < 8 * (tall ? 2 : 1); row++)
+            for (int col = 0; col < 8; col++)
+                if (font_bios8[(uint8_t)*s][tall ? row / 2 : row] >> (7 - col) & 1) buf[(y + row) * stride + x + col] = c;
+}
+static int pwrap(const char *s, int cols0, int cols1, int nfirst, char out[][48], int max) {   /* as the game wraps a page */
+    int n = 0;
+    while (*s && n < max) {
+        int cols = n < nfirst ? cols0 : cols1, len = (int)strlen(s), cut = len;
+        if (len > cols) { cut = cols; while (cut > 0 && s[cut] != ' ') cut--; if (!cut) cut = cols; }
+        snprintf(out[n++], 48, "%.*s", cut, s);
+        s += cut;
+        while (*s == ' ') s++;
+    }
+    return n;
+}
+static void spr_shaded(int ox, int oy, int id, int k, int bright) {
+    for (int sy = 0; sy < TS * k; sy++)
+        for (int sx = 0; sx < TS * k; sx++) {
+            uint8_t c = crawl_spr[id][(sx / k) * TS + sy / k];
+            if (c == C_CLEAR) continue;
+            if (!bright) c = crawl_cmap[LIGHT][c];
+            put(ox + sx, oy + sy, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+        }
+}
+static int draw_documents(const char *path) {
+    static const char *const NAME[4] = { "I: A LEAF OF HOURS", "II: A LETTER", "III: A FOREMAN'S NOTE", "IV: GOLD LEAF" };
+    static const char *const TEXT[4] = {
+        "BROTHER, LEST IT BE FORGOT: THE SKULLS, EACH TO THE NICHE CUT WITH ITS MARK: THE STAR IN THE FIRST, THE HELM IN THE SECOND, THE CROWN IN THE THIRD.",
+        "TO WHOEVER THE WATER BRINGS THIS. THE REST OF US ARE GONE. THE WAY IS THIS: POUR GREAT TO MIDDLE, MIDDLE TO LEAST, LEAST TO GREAT, AND ROUND AGAIN, TILL ONE HOLDS FOUR.",
+        "FOR THE NEXT SHIFT, AND NOT A WORD TO THE GANGER: THE HEAD SWITCH DOWN, THE LEFT SWITCH UP, THEN LET OFF THE BRAKE.",
+        "THE COURT KEEPS THIS, CUT IN GOLD: TURN THE PRISMS SO THE BEAM GOES EAST, TURNS SOUTH AT THE SECOND COLUMN, AND TURNS EAST AGAIN INTO THE GEODE." };
+    enum { PW = 198, PH = 156, K = 2 };
+    static uint8_t pg[PH * PW];
+    int colw = PW * K + 20;
+    iw = PAD + 4 * colw + PAD;
+    ih = PAD + LABEL_H + 8 + LABEL_H + PH * K + 20 + LABEL_H + TS * 2 + 30 + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    crawl_art_level(6); crawl_art_run(6);
+    text(PAD, PAD, "1.0.0B13: THE HIDDEN MESSAGE, TAB'S DOCUMENTS AND THE BLACK SHRINE, FOR APPROVAL", 230, 230, 230);
+    int y0 = PAD + LABEL_H + 8;
+    for (int run = 0; run < 4; run++) {
+        int x0 = PAD + run * colw;
+        text(x0, y0, NAME[run], 200, 200, 200);
+        memset(pg, C_CLEAR, sizeof pg);
+        unsigned seed = (unsigned)(6 * 977 + run * 31 + 5);
+        uint8_t ink = crawl_doc_page(pg, PW, 0, 0, PW, PH, run, seed);
+        const char *s = TEXT[run];
+        int first = 0, y = 12;
+        if (run == 0) { char c[2] = { *s, 0 }; ptext(pg, PW, 14, 9, c, R_BLOOD + 11, 1); s++; first = 2; }
+        char ln[16][48];
+        int n = pwrap(s, (PW - 40) / 8, (PW - 22) / 8, first, ln, 15);
+        for (int i = 0; i < n && y < PH - 12; i++, y += 9) ptext(pg, PW, i < first ? 28 : 12, y, ln[i], ink, 0);
+        crawl_doc_ink(pg, PW, 0, 0, PW, PH, run, ink, seed);
+        for (int py = 0; py < PH; py++)
+            for (int px = 0; px < PW; px++) {
+                uint8_t c = pg[py * PW + px];
+                if (c == C_CLEAR) continue;
+                rect(x0 + px * K, y0 + LABEL_H + py * K, K, K, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+            }
+    }
+    int y = y0 + LABEL_H + PH * K + 20;
+    text(PAD, y, "WHERE IT HIDES, A RUN EACH; THE BLACK SHRINE, DARK AND SHOWING; A CLUE AS TAB'S DOCUMENTS SHOWS IT", 200, 200, 200);
+    y += LABEL_H;
+    for (int k = 0; k < 4; k++) spr_shaded(PAD + k * (TS * 2 + 16), y, SP_HIDE0 + k, 2, 0);
+    int sx = PAD + 4 * (TS * 2 + 16) + 24;
+    for (int k = 0; k < 2; k++) { spr_shaded(sx + k * (TS * 2 + 16), y, SP_BSHRINE, 2, 0); spr_shaded(sx + k * (TS * 2 + 16), y, k ? SP_BSHRINE_E1 : SP_BSHRINE_E0, 2, 1); }
+    int cx = sx + 2 * (TS * 2 + 16) + 24, cw = iw - PAD - cx;
+    rect(cx, y, cw, TS * 2, 22, 21, 24);
+    {                                                              /* a clue: where it was read, gold, and what it said */
+        char ln[8][48];
+        int n = pwrap("THE BANNER, IN THE CHAPTER HOUSE", cw / 16 - 1, cw / 16 - 1, 0, ln, 2), ty = y + 6;
+        for (int i = 0; i < n; i++, ty += 18) text(cx + 6, ty, ln[i], 200, 160, 40);
+        ty += 6;
+        n = pwrap("THE BROTHERS RANG THE KNELL AS THEY WERE TAUGHT: THE TREBLE, THE TENOR, THE GREAT BELL, THE TENOR.", cw / 16 - 1, cw / 16 - 1, 0, ln, 5);
+        for (int i = 0; i < n; i++, ty += 18) text(cx + 6, ty, ln[i], 220, 220, 220);
+    }
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
 /* ---- a run's own look (docs/PLAN-b10.md): its parts, and its rooms laid out as the generator would ---- */
 
 typedef struct { uint8_t tex[NTEX][TS * TS]; uint8_t pal[256][3]; uint8_t cmap[NLIGHT][256]; } Snap;
@@ -1209,6 +1296,13 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/puzzles.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_puzzles(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "documents")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/documents.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_documents(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     if (!strcmp(argv[1], "all") || !strcmp(argv[1], "hazards")) {

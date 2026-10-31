@@ -556,6 +556,24 @@ static float sfx_sample(Sfx *s) {
         x = (sin_cyc(s->ph[0]) * 0.5f + sin_cyc(s->ph[1]) * (0.15f + 0.3f * u) + sin_cyc(s->ph[2]) * 0.15f * u) * e * 0.3f;
         break;
     }
+    case SFX_RUSTLE: {                              /* a hand among dry things: crinkling grains, and a scrape under them */
+        float u = t / s->dur;
+        s->a -= 1.0f / SR;
+        if (s->a <= 0.0f) { s->a = 0.012f + 0.05f * (nz(&s->rng) * 0.5f + 0.5f); s->b = 0.4f + 0.6f * (nz(&s->rng) * 0.5f + 0.5f); }
+        s->b *= expf(-1.0f / (SR * 0.006f));
+        float grain = svf_band(nz(&s->rng), 3400.0f, 0.35f, &s->lo1, &s->bp1) * s->b;
+        s->lp1 += 0.05f * (nz(&s->rng) - s->lp1);
+        float scrape = s->lp1 * (0.5f + 0.5f * sinf(t * 23.0f)) * sinf(PI_F * u);
+        x = (grain * 0.8f + scrape * 1.4f) * fminf(1.0f, (s->dur - t) / 0.1f) * fminf(1.0f, t / 0.02f);
+        break;
+    }
+    case SFX_PAGE: {                                /* a page: a quick rising flick of paper, and the soft slap of it settling */
+        float f = 1400.0f + 4200.0f * fminf(1.0f, t / 0.12f);
+        float flick = svf_band(nz(&s->rng), f, 0.3f, &s->lo1, &s->bp1) * sinf(PI_F * fminf(1.0f, t / 0.16f)) * (t < 0.16f);
+        float u = t - 0.2f, slap = u > 0.0f ? svf_band(nz(&s->rng), 900.0f, 0.5f, &s->lo2, &s->bp2) * expf(-u * 40.0f) : 0.0f;
+        x = flick * 0.7f + slap * 0.9f;
+        break;
+    }
     case SFX_SPLASH: {                              /* a foot in shallow water: the slap going in, the slosh as it lifts, a few drops falling back */
         if (t == 0.0f) s->a = 0.85f + 0.3f * (nz(&s->rng) * 0.5f + 0.5f);
         float slap = svf_band(nz(&s->rng), 1500.0f * s->a, 0.6f, &s->lo1, &s->bp1) * expf(-t * 34.0f) * fminf(1.0f, t / 0.002f);
@@ -1596,6 +1614,8 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_CRACKLE]    = { 1.20f, 0.60f,  0.50f, 0.30f },
     [SFX_RUMBLE]     = { 2.00f, 0.80f,  0.50f, 0.40f },
     [SFX_HUM]        = { 1.60f, 0.55f,  0.50f, 0.50f },
+    [SFX_RUSTLE]     = { 0.95f, 0.55f,  0.50f, 0.25f },
+    [SFX_PAGE]       = { 0.40f, 0.55f,  0.50f, 0.25f },
 };
 
 void snd_tone(int glass, int midi, float gain, float pan) {      /* a struck bell or a singing crystal, at its own note */

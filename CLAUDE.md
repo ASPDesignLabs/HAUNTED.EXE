@@ -109,7 +109,8 @@ release above, the owner moved it on a number, staged as its G2 (a) says: 1.0.0b
 every sample, soul-sappers from each run's sixth level, Resist Lightning), logic puzzles worked with things in the world
 behind a sealed wing (a hidden message, a Black Shrine, Tab's documents), timed trials behind skull-marked doors, and a
 reckoning of what is left before a person leaves a level; 1.0.0b14 the lower storey, its edges, stairs and ladders. Being
-built on `claude/epic-dirac-n8uosr` from main at 1.0.0b12, in the plan's steps, sheets before art in the game.
+built on `claude/epic-dirac-n8uosr` from main at 1.0.0b12, in the plan's steps, sheets before art in the game. Steps 1-4
+are built (harness only; the plan's status line says where it stands): see *1.0.0b13 so far* below.
 
 ## Working with the owner
 
@@ -978,6 +979,22 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   caster's screen, asked twice: +5 past the cap and the cap with it (Luck 1), not health or resist all. An
   overlevelled number is drawn by `eerie_text` with `eerie_eye` beside it (`stat_over`). The Codex has THE
   CASTER'S OWN part (`CX_CASTER`). Debug: `EVENT overlevel`.
+- **1.0.0b13 so far** (docs/PLAN-b13.md, steps 1-4). *Hazards*: each run's own, fixed (`HzSite` in `G.site`, `place_sites`,
+  `update_sites`) and arising (`update_arising`), older runs' now and then, by element (`hz_seep`, `G.hz_el_acc`), the
+  sappers (`hz_sap`, `HZ_SAPPER`) from each run's sixth level; `hz_dmap`'s `HZ_SOFT` marks what is always there, which the
+  dream walks round only when another way is as short (`decide`). Resist Lightning is `ST_RES_LIGHT`. *Things*: `Thing`
+  in `G.thing` (`TR_*` roles, `thing_new`, `thing_use`, `thing_facing`, carrying in `G.carry`, `render_carry`); the dream
+  uses them from `use_spot`. *Puzzles*: even levels from 6 but a boss's (`pz_level`, `pz_kind_of`, `PZ_RUN`); `pz_make`
+  lays the kind's things near the sealed wing's door (`Door.locked` `WINGED`, `G.pz_room`, `in_wing`), the exit inside one
+  puzzle level in three (`G.pz_exit`); `pz_touched` answers, `pz_next` and `pz_goal` are the dream's way. *The hidden
+  message* (`pz_hide`): `G.msg_deco` among things of the run's kind (`HIDES`, `SP_HIDE0`), searched with E in a second
+  (`hide_facing`, `search_begin`, `update_search`), its glint (`msg_glint`, `Draw.mg`); Tab's sixth page *DOCUMENTS*
+  (`DOCS`, `doc_add`, `render_documents`, the pages from `crawl_doc_page` and `crawl_doc_ink`); the Black Shrine
+  (`G.bsh_*`, `SP_BSHRINE`, `UI_BSHRINE`, `bsh_price`, its showing `msg_shown` through the walls and on the map). Debug:
+  `CRAWL_HZ=k`, `CRAWL_TPHZ=1`, `CRAWL_THINGS=1`, `CRAWL_PUZZLE=k`, `CRAWL_TPPUZZLE=1`, `CRAWL_WINGEXIT=1`, `CRAWL_TPMSG=1`,
+  `CRAWL_TPBSHRINE=1`, `CRAWL_BSHOW=1` (the showing from the start); `SITES`, `PUZZLE` and `MESSAGE` lines, `EVENT
+  pz_solved`, `thing`, `msg_found`, `bshrine_found`, `bshrine_show`. `make sheets` draws `hazards.png`, `puzzles.png`
+  and `documents.png`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

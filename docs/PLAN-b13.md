@@ -4,7 +4,9 @@
 reckoning of what is left on a level before you leave it. Written as 1.0.0b12's plan; 1.0.0b12 went out instead as a
 small release from the owner's first look at 1.0.0b11, so at the owner's word this is now 1.0.0b13 (the hazards, the
 puzzles, the trials and the reckoning) and 1.0.0b14 (the lower storey), staged as G2 (a) has it. Being built on
-`claude/epic-dirac-n8uosr`, from main at 1.0.0b12.** The owner asked for five things: a lower
+`claude/epic-dirac-n8uosr`, from main at 1.0.0b12: steps 1-4 are built (the runs' hazards and Resist Lightning, the ways
+to touch the world, the sealed wing and every puzzle, the hidden message, Tab's documents and the Black Shrine), tested
+in the harness only; `hazards.png`, `puzzles.png` and `documents.png` wait for the owner's eye.** The owner asked for five things: a lower
 storey under each level from run II, growing run by run; art that shows an edge can't be crossed; more hazards of
 each run's own, using the elements; logic puzzles played with things in the world, with no screen of their own;
 and timed trials behind marked doors. This plan maps that onto the game as it stood on
@@ -740,3 +742,12 @@ First guesses, for the owner to see and overrule, and for the runs to tune:
 - **The soul-sappers**: two or three a level from each run's sixth level.
 - **Puzzle kinds**: each puzzle level draws a kind of its run not yet met on this way down; *The Magic Square* and *The
   Sealed Letters* one puzzle level in eight in any run.
+- **Searching** (step 4): E at a thing starts it and it takes a second; walking off or turning away stops it (a press,
+  not a hold, is kinder to hands and pads). What may hold the message, about ten to twenty a level, three to five of them
+  the run's own laid for it: a candle-box, an urn or a niche's candles in the Crypts; a drowned satchel or an urn in the
+  Catacombs; a miner's boot, a cart's toolbox or a mine lamp's base in the Hollows; a broken geode or the fused dead in the
+  Deep. A search that finds nothing says so (*NOTHING IN THE URN BUT DUST*) and the thing is not searched twice. Every
+  answer reads well in words, so none is drawn. The Black Shrine's price stops at 40 souls past level 60. Tab's
+  *DOCUMENTS* is its sixth page, sixteen documents at most (the oldest clue goes first, never the message).
+- **The dream's walk** (found in step 4): a pile or a sapper's soft mark now only chooses between ways on, and never
+  turns it back; before, it could pace for minutes before a doorway a reliquary sat behind.

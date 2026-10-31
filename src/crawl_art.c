@@ -2518,6 +2518,183 @@ static void spr_pz_letter(int id, int ch) {                        /* a letter i
     cv_store(id);
 }
 
+/* where the hidden message lies (1.0.0b13, docs/PLAN-b13.md section 6a), a run each: a niche's candle-box, a satchel
+ * drowned in the silt, a miner's boot on its side, a geode broken open */
+static void spr_hide(int id, int run) {
+    cv_begin(cv_sprite, TS, TS);
+    if (run == 0) {                                                /* oak, its lid lifted at one end, two stubs and their wax */
+        cv_flat(32, 62, 13, 1.6f, R_WARM + 1);
+        for (int y = 48; y < 62; y++)
+            for (int x = 21; x < 43; x++)
+                cv_px(x, y, sh(R_WOOD, 0.28f + 0.22f * (x < 24) - 0.1f * (y > 59) + 0.08f * h01(x, y / 3, 41) + 0.1f * ((y - 48) % 5 == 0)));
+        for (int x = 20; x < 44; x++) {
+            int top = 45 - (x > 31 ? (x - 31) / 4 : 0);
+            for (int y = top; y < 48; y++) cv_px(x, y, y == top ? sh(R_WOOD, 0.68f) : (y < top + 2 ? sh(R_WOOD, 0.46f) : sh(R_WOOD, 0.04f)));   /* and the dark under it */
+        }
+        for (int y = 51; y < 55; y++) for (int x = 30; x < 34; x++) cv_px(x, y, sh(R_IRON, 0.25f + 0.3f * (x == 30)));   /* its hasp */
+        for (int k = 0; k < 2; k++) {
+            int cx = 25 + k * 7, h = 6 + 3 * k;
+            for (int y = 45 - h; y < 45; y++) for (int x = cx - 1; x <= cx + 1; x++) cv_px(x, y, sh(R_BONE, 0.55f + 0.2f * (x == cx - 1)));
+            cv_px(cx, 44 - h, sh(R_WOOD, 0.05f));
+            for (int y = 48; y < 50 + 3 * k; y++) cv_px(cx + 1, y, sh(R_BONE, 0.5f));
+        }
+        cv_outline(sh(R_WOOD, 0.02f));
+    } else if (run == 1) {                                         /* black with water, its strap trailing, half sunk */
+        cv_flat(32, 61, 17, 2.6f, sh(R_STONE, 0.14f));
+        cv_ellipse(32, 54, 12, 8, R_WOOD, 0.08f, 0.35f);
+        float flap[8] = { 21, 49, 43, 49, 40, 57, 24, 57 };
+        cv_poly(flap, 4, R_WOOD, 0.38f, 0.16f, 49, 8);
+        for (int y = 54; y < 58; y++) for (int x = 31; x < 34; x++) cv_px(x, y, sh(R_IRON, 0.4f + 0.3f * (y == 54)));   /* the buckle */
+        for (int t = 0; t < 2; t++) { cv_line(22, 51 + t, 17, 44 + t, sh(R_WOOD, 0.3f)); cv_line(17, 44 + t, 24, 39 + t, sh(R_WOOD, 0.3f)); cv_line(24, 39 + t, 30, 43 + t, sh(R_WOOD, 0.25f)); }
+        for (int x = 24; x < 41; x += 3) cv_px(x, 49 + (x & 1), sh(R_GHOST, 0.55f));   /* wet */
+        for (int y = 58; y < 63; y++)                              /* the silt over its foot */
+            for (int x = 16; x < 49; x++) if (h01(x, y, 43) < 0.25f + 0.18f * (float)(y - 58)) cv_px(x, y, sh(R_STONE, 0.18f + 0.12f * h01(x, y, 44)));
+        cv_outline(sh(R_WOOD, 0.01f));
+    } else if (run == 2) {                                         /* hobnailed, its laces loose, the shaft's mouth open */
+        cv_capsule(42, 52, 27, 52, 5.0f, R_WOOD, 0.18f, 0.5f);     /* the foot */
+        cv_capsule(23, 50, 19, 38, 6.0f, R_WOOD, 0.15f, 0.48f);    /* the shaft */
+        cv_ellipse(44, 52, 4.5f, 4.6f, R_WOOD, 0.25f, 0.62f);      /* the toe cap */
+        cv_flat(19, 34, 5.0f, 2.2f, sh(R_WOOD, 0.02f));
+        for (int x = 17; x < 48; x++) for (int y = 57; y < 60; y++) cv_px(x, y, sh(R_IRON, 0.08f + 0.04f * (y == 57)));   /* the sole */
+        for (int x = 19; x < 47; x += 4) cv_px(x, 60, sh(R_IRON, 0.6f));   /* its nails */
+        for (int k = 0; k < 4; k++) { cv_line(27 + k * 3, 47, 29 + k * 3, 50, sh(R_BONE, 0.35f)); cv_line(29 + k * 3, 47, 27 + k * 3, 50, sh(R_BONE, 0.3f)); }
+        cv_line(28, 47, 25, 42, sh(R_BONE, 0.3f)); cv_line(25, 42, 27, 39, sh(R_BONE, 0.3f));   /* a lace undone */
+        cv_outline(sh(R_WOOD, 0.01f));
+    } else {                                                       /* two halves, the crystals inside it dull without light */
+        cv_ellipse(28, 51, 11, 10, R_STONE, 0.15f, 0.45f);
+        for (int y = 43; y < 60; y++)
+            for (int x = 20; x < 37; x++) {
+                float d = hypotf(x + 0.5f - 28.5f, (y + 0.5f - 51.0f) * 1.05f);
+                if (d < 6.6f) cv_px(x, y, sh(R_PURPLE, 0.25f + 0.5f * h01(x / 2, y / 2, 47) + 0.15f * (d > 5.4f)));
+                else if (d < 7.6f) cv_px(x, y, sh(R_BONE, 0.45f));
+            }
+        cv_ellipse(45, 58, 7, 5, R_STONE, 0.12f, 0.4f);
+        for (int x = 40; x < 51; x++) cv_px(x, 53 + abs(x - 45) / 3, sh(R_PURPLE, 0.55f));
+        for (int i = 0; i < 6; i++) cv_px(18 + (int)(h01(i, 1, 48) * 32.0f), 61 + (int)(h01(i, 2, 48) * 2.0f), sh(R_PURPLE, 0.5f));   /* shards */
+        cv_outline(sh(R_STONE, 0.02f));
+    }
+    cv_store(id);
+}
+/* the Black Shrine: a block of black stone, a niche, a skull in it, a stub of candle before it; its eyes are drawn
+ * over it at full brightness, faint, or flaring when it shows */
+static void spr_bshrine(void) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 12; y < 64; y++)
+        for (int x = 19; x < 45; x++) {
+            float top = 19.0f - (12.0f - fabsf(x + 0.5f - 32.0f)) * 0.42f;
+            if (y < top) continue;
+            int edge = y < top + 1.5f || x == 19 || x == 44;
+            cv_px(x, y, sh(R_IRON, (edge ? 0.2f : 0.03f + 0.05f * h01(x, y / 2, 51)) + 0.05f * (x < 22) + 0.03f * (y > 59)));
+        }
+    for (int y = 23; y < 48; y++)
+        for (int x = 24; x < 40; x++) {
+            float dx = x + 0.5f - 32.0f, top = 31.0f - sqrtf(fmaxf(0.0f, 64.0f - dx * dx));
+            if (y < top) continue;
+            cv_px(x, y, (y < top + 1.0f || x == 24 || x == 39) ? sh(R_IRON, 0.22f) : sh(R_PURPLE, 0.02f));
+        }
+    cv_skull(32, 37, 0.85f, 0.3f, 0.62f);
+    for (int k = -1; k <= 1; k += 2) cv_flat(32 + k * 2.1f, 37.8f, 1.5f, 1.7f, sh(R_IRON, 0.0f));   /* the sockets, black */
+    for (int x = 18; x < 46; x++) for (int y = 60; y < 64; y++) cv_px(x, y, sh(R_IRON, 0.12f + 0.08f * (y == 60)));   /* its step */
+    cv_flat(32, 59.5f, 4.0f, 1.0f, sh(R_BONE, 0.45f));            /* the candle's wax pool, and the stub */
+    for (int y = 54; y < 59; y++) for (int x = 31; x < 34; x++) cv_px(x, y, sh(R_BONE, 0.55f + 0.2f * (x == 31)));
+    cv_px(32, 53, sh(R_WOOD, 0.05f));
+    cv_px(32, 52, R_FLAME + 12); cv_px(32, 51, R_FLAME + 15);
+    cv_outline(sh(R_IRON, 0.0f));
+    cv_store(SP_BSHRINE);
+}
+static void spr_bshrine_eyes(int id, int flare) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int k = -1; k <= 1; k += 2) {
+        int ex = 32 + k * 2 - (k < 0), ey = 38;
+        if (!flare) { cv_px(ex, ey, R_PURPLE + 13); cv_px(ex, ey - 1, R_PURPLE + 8); continue; }
+        for (int r = 1; r <= 5; r++) {                             /* rays, thinning */
+            uint8_t c = (uint8_t)(R_PURPLE + 15 - r * 2);
+            cv_px(ex - r, ey, c); cv_px(ex + r, ey, c);
+            if (r <= 3) { cv_px(ex, ey - r, c); cv_px(ex, ey + r, c); }
+            if (r <= 2) { cv_px(ex - r, ey - r, c); cv_px(ex + r, ey - r, c); }
+        }
+        cv_px(ex, ey, C_WHITE); cv_px(ex + 1, ey, R_PURPLE + 15); cv_px(ex, ey - 1, R_PURPLE + 15);
+    }
+    cv_store(id);
+}
+
+/* ---- a document's page (1.0.0b13): a leaf of the Order's book of hours, a letter come in a bottle, a foreman's
+ * scrap of sacking, a strip of beaten gold leaf ---- */
+static uint8_t doc_shade(int run, float v) {
+    if (run == 3) return sh(R_GOLD, v);
+    return sh(run == 2 ? R_WOOD : R_BONE, v);
+}
+int crawl_doc_paper(int run, unsigned char c) {
+    if (run == 3) return c >= R_GOLD && c < R_GOLD + NGOLD;
+    if (run == 0 && c >= R_BLOOD && c < R_BLOOD + 16) return 1;   /* the vellum's red rules are page too */
+    int base = run == 2 ? R_WOOD : R_BONE;
+    return c >= base && c < base + 16;
+}
+unsigned char crawl_doc_page(unsigned char *pix, int stride, int x0, int y0, int w, int h, int run, unsigned seed) {
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++) {
+            float e = 99.0f;                                       /* how far in from a ragged edge */
+            float rag = run == 0 ? 2.5f : run == 1 ? 1.0f : run == 2 ? 2.0f : 1.6f;
+            float dl = x - rag * (run == 0 ? 2.0f * fbm(y / 3.0f, 1.0f, 64, seed) + 1.0f : fbm(y / 4.0f, 2.0f, 64, seed));   /* torn from its binding */
+            float dr = (w - 1 - x) - rag * fbm(y / 4.0f, 3.0f, 64, seed + 1);
+            float dt = y - rag * fbm(x / 4.0f, 4.0f, 64, seed + 2), db = (h - 1 - y) - rag * fbm(x / 4.0f, 5.0f, 64, seed + 3);
+            e = fminf(fminf(dl, dr), fminf(dt, db));
+            if (e < 0.0f) continue;
+            if (run == 2 && e < 3.0f && h01(x, y, seed + 9) < 0.35f) continue;   /* frayed */
+            if (run == 3 && fbm(x / 16.0f, y / 12.0f, 64, seed + 5) > 0.7f) continue;   /* beaten through */
+            float v;
+            uint8_t c;
+            if (run == 0) {
+                v = 0.66f + 0.12f * (fbm(x / 13.0f, y / 11.0f, 64, seed + 6) - 0.5f) + 0.03f * (h01(x, y, seed) - 0.5f);
+                if (e < 2.0f) v -= 0.18f;
+                c = doc_shade(0, v);
+                int ix = x - 8, iy = y - 6, rx = w - 7 - x, ry = h - 7 - y;
+                if ((ix == 0 || ix == 2 || rx == 0 || rx == 2 || iy == 0 || iy == 2 || ry == 0 || ry == 2) && ix >= 0 && iy >= 0 && rx >= 0 && ry >= 0) c = sh(R_BLOOD, 0.5f);   /* ruled in red */
+                if (x < 4 && (y % 22) == 11) c = sh(R_WOOD, 0.1f);  /* its sewing */
+            } else if (run == 1) {
+                v = 0.86f + 0.06f * (fbm(x / 17.0f, y / 13.0f, 64, seed + 6) - 0.5f);
+                float tide = (0.14f + 0.12f * fbm(x / 40.0f, 9.0f, 64, seed + 7)) * (float)h, wet = (float)(h - y) - tide;   /* where the water came up to */
+                if (wet < 0.0f) v -= 0.08f + 0.06f * fbm(x / 9.0f, y / 7.0f, 64, seed + 10);
+                else if (wet < 1.2f) v -= 0.2f;
+                else if (wet > 6.0f && wet < 7.0f && h01(x, 0, seed + 11) < 0.6f) v -= 0.08f;   /* and once higher, fainter */
+                if (x == w / 2 || y == h / 3) v += 0.05f; else if (x == w / 2 + 1 || y == h / 3 + 1) v -= 0.07f;   /* its folds */
+                c = doc_shade(1, v);
+                float sx = (float)(x - (w - 22)), sy = (float)(y - (h - 20));
+                float sd = hypotf(sx, sy) + 1.4f * (fbm(atan2f(sy, sx) * 1.5f + 3.0f, 1.0f, 64, seed + 8) - 0.5f);
+                if (sd < 9.0f) c = sh(R_BLOOD, 0.35f + 0.25f * (sd < 6.5f && sd > 5.0f) + 0.15f * (sx < -1 && sy < -1));   /* the seal */
+            } else if (run == 2) {
+                int warp = (x & 1) ^ (y & 1), thread = (y % 3 == 0) || (x % 3 == 0);
+                v = 0.52f + 0.1f * warp + 0.06f * thread + 0.1f * (fbm(x / 9.0f, y / 9.0f, 64, seed + 6) - 0.5f);
+                if (hypotf((float)(x - w * 0.7f), (float)(y - h * 0.25f) * 1.3f) < 11.0f + 3.0f * fbm(x / 5.0f, y / 5.0f, 64, seed + 7)) v -= 0.12f;   /* grease */
+                c = doc_shade(2, v);
+            } else {
+                float r = fbm(x / 5.0f, y / 3.0f, 64, seed + 6), ridge = 1.0f - fabsf(r - 0.5f) * 2.0f;   /* crinkled */
+                v = 0.55f + 0.3f * ridge + 0.08f * (h01(x, y, seed) - 0.5f);
+                if (e < 1.5f) v -= 0.2f;
+                c = doc_shade(3, v);
+            }
+            pix[(y0 + y) * stride + x0 + x] = c;
+        }
+    if (run == 0)                                                  /* a gilt square for the first letter */
+        for (int y = 10; y < 22 && y < h; y++) for (int x = 12; x < 24 && x < w; x++) pix[(y0 + y) * stride + x0 + x] = sh(R_GOLD, 0.55f + 0.25f * ((x + y) % 5 == 0));
+    return run == 0 ? sh(R_WOOD, 0.03f) : run == 1 ? sh(R_IRON, 0.12f) : run == 2 ? sh(R_STONE, 0.08f) : sh(R_GOLD, 0.2f);
+}
+void crawl_doc_ink(unsigned char *pix, int stride, int x0, int y0, int w, int h, int run, unsigned char ink, unsigned seed) {
+    if (run != 1 && run != 3) return;
+    for (int y = h - 2; y >= 0; y--)
+        for (int x = w - 2; x >= 0; x--) {
+            uint8_t *p = &pix[(y0 + y) * stride + x0 + x];
+            if (*p != ink) continue;
+            if (run == 1) {                                        /* run a little, downward, where it was wet */
+                uint8_t *q = p + stride;
+                if (*q != ink && crawl_doc_paper(1, *q) && h01(x, y, seed) < 0.3f) *q = sh(R_IRON, 0.4f);
+            } else {                                               /* scratched: a bright edge below and to the right */
+                uint8_t *q = p + stride + 1;
+                if (*q != ink && crawl_doc_paper(3, *q)) *q = sh(R_GOLD, 1.0f);
+            }
+        }
+}
+
 /* a rock, broken from the vault: drawn at the bottom of its square, so it can be dropped from above */
 static void spr_rock(void) {
     cv_begin(cv_sprite, TS, TS);
@@ -8531,6 +8708,8 @@ void crawl_art_init(void) {
     spr_pz_lamp(SP_PZ_LAMP0, 0); spr_pz_lamp(SP_PZ_LAMP1, 1); for (int k = 0; k < 4; k++) spr_pz_prism(SP_PZ_PRISM0 + k, k);
     spr_pz_geode(SP_PZ_GEODE, 0); spr_pz_geode(SP_PZ_GEODE1, 1); spr_pz_throne(); spr_pz_statue(); spr_pz_vent(SP_PZ_VENT0, 0); spr_pz_vent(SP_PZ_VENT1, 1);
     spr_pz_slab(); spr_pz_numstone(); for (int k = 0; k < 26; k++) spr_pz_letter(SP_PZ_LETTER0 + k, k);
+    for (int k = 0; k < 4; k++) spr_hide(SP_HIDE0 + k, k);
+    spr_bshrine(); spr_bshrine_eyes(SP_BSHRINE_E0, 0); spr_bshrine_eyes(SP_BSHRINE_E1, 1);
     for (int f = 0; f < 3; f++) spr_firepit(SP_FIREPIT_A + f, f);
     spr_totem(SP_TOTEM_A, 0); spr_totem(SP_TOTEM_B, 1);
     spr_shambler(SP_SHAMB_A, 1.0f, 0); spr_shambler(SP_SHAMB_B, -1.0f, 0); spr_shambler(SP_SHAMB_GRAB, 0.0f, 1);

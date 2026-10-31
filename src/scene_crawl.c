@@ -857,14 +857,20 @@ static struct {
     int pz_seq[16], pz_nseq, pz_step, pz_a[32], use_thing, pz_stepx, pz_stepy;   /* pz_step*: a stone the dream steps to, off the lanes */
     float pz_t, pz_wait;
     char pz_answer[200], pz_hint[100];
+    /* the hidden message (section 6a): the decoration it lies in (-1 none), found; a search under way (the decoration, -1
+       none, and its second) and those searched; the Black Shrine (its cell, -1 none, and decoration), found, its showing
+       left, its eyes' flare, its menu asking twice */
+    int msg_deco, msg_found, srch_deco, nsearched, bsh_x, bsh_y, bsh_deco, bsh_found, bsh_arm;
+    int16_t searched[32];
+    float srch_t, bsh_show, bsh_flare;
 } G;
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
        BP_LITANY };                                 /* the Deacon's censer raised, the green light growing */
 static float zbuf[W];
 enum { MM_SIGN, MM_ASCEND, MM_OFFER, MM_VOW, MM_PED, MM_WIND, MM_PAT, MM_LEAVE, NMM };   /* the merchant's menu */
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
-#define NINV 5                              /* Tab's pages */
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES, UI_ALIGN, UI_CLASS, UI_HALL2 };   /* the menus a person can open */
+#define NINV 6                              /* Tab's pages */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES, UI_ALIGN, UI_CLASS, UI_HALL2, UI_BSHRINE };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 static double IN_DT;                        /* and how long the step is */
 static struct {                             /* their game controller, if they have one */
@@ -6801,7 +6807,9 @@ static int decide(int x, int y, int h) {
         for (int d = 0; d < 4; d++) {
             int nx = x + DX[d], ny = y + DY[d];
             if (!apass(nx, ny) || bfs_dist[ny][nx] < 0) continue;
-            int sc = bfs_dist[ny][nx] * 4 + (d == h ? 0 : 1) + (d == ((h + 2) & 3) ? 2 : 0) + (G.bulky[ny][nx] ? 5 : 0) + 400 * hz_danger(nx, ny) + 9 * hz_soft(nx, ny);   /* not into a warning */
+            int sc = bfs_dist[ny][nx] * 4 + (d == h ? 0 : 1) + (d == ((h + 2) & 3) ? 2 : 0) + (G.bulky[ny][nx] ? 5 : 0) + 400 * hz_danger(nx, ny) + 9 * hz_soft(nx, ny)
+                   + (bfs_dist[ny][nx] >= bfs_dist[y][x] ? 40 : 0);   /* not into a warning; a pile or a soft mark only chooses between ways on,
+                                                                       never turns it back (it paced before a sapper's doorway) */
             if (sc < gs) { gs = sc; gbest = d; }
         }
         if (gbest >= 0 && bfs_dist[y][x] > 0) return gbest;
@@ -7411,6 +7419,8 @@ static void place_altar(void) {
 static void pocket_reset_level(void);
 static void place_sites(void);
 static void pz_make(void);
+static void pz_hide(void);
+static void docs_clear(void);
 #ifdef CRAWL_DEBUG
 static void things_test(void);
 #endif
@@ -7465,7 +7475,9 @@ static void start_level(void) {
     place_altar();
     place_sites();                                                 /* the run's fixed hazards (1.0.0b13) */
     G.nthing = 0; G.carry = 0; G.read_t = 0.0f;                    /* a puzzle's things are its level's */
+    docs_clear();                                                  /* and what was read on the last */
     pz_make();
+    pz_hide();                                                     /* its answer, written down and hidden; the Black Shrine */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_THINGS")) things_test();
 #endif
@@ -7922,6 +7934,7 @@ static void pocket_build(int link, int from_deeper) {
     G.level = G_KEEP.level; G.retries = G_KEEP.retries; G.blessed = 0;
     G.exit_fx = G.exit_fy = G.exit_wx = G.exit_wy = -1; G.exit_in_vault = -1;
     G.altar_x = G.altar_y = -1; G.altar_seek = -1; G.slide = G.seek_secret = -1;
+    G.pz = G.pz_room = G.pz_door = -1; G.msg_deco = G.srch_deco = G.bsh_x = -1;   /* the level's puzzle stays on the level */
     for (int k = 0; k < NKEYS; k++) G.vault_room[k] = G.vault_door[k] = -1;
     gen_pocket(&G_LEVEL.secrets[PK.chain], link);
     spectres_set();                                                /* a pocket's, as on its level, the first time in: */
@@ -9279,7 +9292,6 @@ static void things_test(void) {
 }
 #endif
 
-static void doc_add(const char *where, const char *text, int msg) { (void)where; (void)text; (void)msg; }   /* the documents (step 4) */
 static void rec_puzzle(void) { }                                     /* the record (step 7) */
 
 /* ---- puzzles (1.0.0b13, docs/PLAN-b13.md, part C) ----
@@ -11008,6 +11020,267 @@ static void tp_puzzle(void) {                                      /* testing: b
 }
 #endif
 
+/* ---- the hidden message, Tab's documents and the Black Shrine (1.0.0b13, docs/PLAN-b13.md section 6a) ----
+ * On a puzzle level the answer is written down and hidden in one of the level's own things of the run's kind, away
+ * from the wing's door, and a few more of the run's own stand about holding nothing. E at one searches it, a second's
+ * work. Within two cells the one that holds it glints now and then; Treasure Hunter makes more of that, and whispers
+ * near it. A Black Shrine of its own stands off the way: for souls it shows where the message lies, through the walls
+ * and on the map, for two and a half minutes. What is found and every clue read go into Tab's DOCUMENTS until the
+ * level ends. The dream never searches (it knows the answer), and a person who takes over finds the page empty. */
+#define MAXDOC 16
+#define BSH_SHOW 150.0f
+static struct { int n, sel; struct { char where[64], text[320]; uint8_t msg, run; } d[MAXDOC]; } DOCS;
+static const int16_t HIDES[4][4] = { { SP_HIDE0, SP_URN, SP_CANDLES, -1 },          /* a candle-box, a burial urn, a niche's candles */
+                                     { SP_HIDE0 + 1, SP_URN, -1, -1 },             /* a drowned satchel, an urn */
+                                     { SP_HIDE0 + 2, SP_CART, SP_MINELAMP_A, -1 }, /* a miner's boot, a cart's toolbox, a lamp's base */
+                                     { SP_HIDE0 + 3, SP_SKULLPILE, -1, -1 } };     /* a broken geode, the fused dead */
+static const char *const DOC_NAME[4] = { "A LEAF FROM THE ORDER'S BOOK OF HOURS", "A LETTER, SEALED IN A STOPPERED BOTTLE",
+                                         "A FOREMAN'S NOTE ON A SCRAP OF SACKING", "A STRIP OF GOLD LEAF, SCRATCHED WITH A STYLUS" };
+static const char *const DOC_SHORT[4] = { "THE LEAF", "THE LETTER", "THE NOTE", "GOLD LEAF" };
+static const char *const DOC_TOAST[4] = { "A LEAF OF THE BOOK OF HOURS", "A LETTER IN A BOTTLE", "A FOREMAN'S NOTE", "A STRIP OF GOLD LEAF" };
+static const char *const DOC_OPEN[4] = { "BROTHER, LEST IT BE FORGOT:", "TO WHOEVER THE WATER BRINGS THIS. THE REST OF US ARE GONE. THE WAY IS THIS:",
+                                         "FOR THE NEXT SHIFT, AND NOT A WORD TO THE GANGER:", "THE COURT KEEPS THIS, CUT IN GOLD:" };
+static const char *const DOC_DUST[4] = { "DUST", "SILT", "GRIT", "ASH" };
+static int doc_run(void) { return crawl_set(G.level) & 3; }
+static int hide_kind(int spr) {                                    /* a thing of the run's kind that may hold it */
+    const int16_t *h = HIDES[doc_run()];
+    for (int k = 0; h[k] >= 0; k++) if (h[k] == spr) return 1;
+    return 0;
+}
+static const char *hide_name(int spr) {
+    switch (spr) {
+    case SP_HIDE0: return "THE CANDLE-BOX";
+    case SP_HIDE0 + 1: return "THE DROWNED SATCHEL";
+    case SP_HIDE0 + 2: return "THE MINER'S BOOT";
+    case SP_HIDE0 + 3: return "THE BROKEN GEODE";
+    case SP_URN: return "THE URN";
+    case SP_SKULLPILE: return "THE FUSED DEAD";
+    case SP_CANDLES: return "THE CANDLES";
+    case SP_CART: return "THE CART'S TOOLBOX";
+    default: return "THE LAMP'S BASE";
+    }
+}
+static void docs_clear(void) { DOCS.n = DOCS.sel = 0; }
+/* into Tab's documents, the newest first: a clue headed by where it was read, or the message by what it is */
+static void doc_add(const char *where, const char *text, int msg) {
+    if (!G.player || !text || !text[0] || G.shop) return;          /* the dream writes nothing down */
+    for (int i = 0; i < DOCS.n; i++) if (!strcmp(DOCS.d[i].text, text)) return;   /* read before */
+    if (DOCS.n == MAXDOC) {                                        /* full: the oldest clue goes */
+        int o = 0;
+        while (o < DOCS.n - 1 && DOCS.d[o].msg) o++;
+        memmove(&DOCS.d[o], &DOCS.d[o + 1], sizeof DOCS.d[0] * (size_t)(DOCS.n - 1 - o));
+        DOCS.n--;
+    }
+    int k = DOCS.n++;
+    DOCS.d[k].msg = (uint8_t)msg; DOCS.d[k].run = (uint8_t)doc_run();
+    if (msg) snprintf(DOCS.d[k].where, sizeof DOCS.d[k].where, "%s", where);
+    else {
+        const char *room = RTYPES[cell_rtype((int)G.px, (int)G.py)].name;
+        snprintf(DOCS.d[k].where, sizeof DOCS.d[k].where, "%s, IN %s%s", where, strncmp(room, "THE ", 4) ? "THE " : "", room);
+    }
+    snprintf(DOCS.d[k].text, sizeof DOCS.d[k].text, "%s", text);
+    DOCS.sel = 0;
+}
+static int abil_grade(int ab) {                                    /* the best quality worn with an ability: 1 Common to 5 Exquisite, 0 none */
+    int q = 0;
+    for (int s = 0; s < NSLOT; s++) if (RUN.gear.worn[s].kind != IK_NONE && RUN.gear.worn[s].ability == ab) q = imax(q, RUN.gear.worn[s].quality + 1);
+    return q;
+}
+/* a cell for something laid on the level: open floor off the lanes and the ways, not in the wing, a vault, a secret or
+ * the arena, nor within near steps of the wing's door, nor by the exit or a puzzle's thing */
+static int hide_cell_ok(int x, int y, int near) {
+    if (!hz_floor(x, y) || lane(x, y) || by_way(x, y) || G.bulky[y][x] || item_at(x, y) || in_band(y) || in_wing(x, y) || vault_of_room(x, y) >= 0) return 0;
+    if (G.map[y][x].region == ARENA_REGION) return 0;
+    if (G.pz_door >= 0 && abs(x - G.doors[G.pz_door].x) + abs(y - G.doors[G.pz_door].y) < near) return 0;
+    if (G.exit_fx >= 0 && abs(x - G.exit_fx) + abs(y - G.exit_fy) < 2) return 0;
+    if (G.altar_x >= 0 && abs(x - G.altar_x) + abs(y - G.altar_y) < 3) return 0;
+    for (int i = 0; i < G.nthing; i++) if (abs(G.thing[i].cx - x) + abs(G.thing[i].cy - y) < 2) return 0;
+    return 1;
+}
+static int reached(int x, int y) {                                 /* on a lane walked to from the start, or beside one */
+    if (bfs_dist[y][x] >= 0) return 1;
+    for (int d = 0; d < 4; d++) if (bfs_dist[y + DY[d]][x + DX[d]] >= 0 && G.map[y + DY[d]][x + DX[d]].kind == K_FLOOR) return 1;
+    return 0;
+}
+static void pz_hide(void) {
+    G.msg_deco = G.srch_deco = G.bsh_x = G.bsh_y = G.bsh_deco = -1; G.msg_found = G.bsh_found = G.nsearched = G.bsh_arm = 0;
+    G.bsh_show = G.bsh_flare = G.srch_t = 0.0f;
+    if (G.pz < 0 || G.pz_door < 0 || !G.pz_answer[0]) return;
+    int run = doc_run(), want = 3 + rnd(3);
+    const Door *dr = &G.doors[G.pz_door];
+    for (int tries = 0; tries < 500 && want > 0; tries++) {         /* a few of the run's own, holding nothing (but one may) */
+        int x = 1 + rnd(MAPN - 2), y = 1 + rnd(MAPN - 2);
+        if (!hide_cell_ok(x, y, 6)) continue;
+        add_deco(x + 0.5f + (rndf() - 0.5f) * 0.3f, y + 0.5f + (rndf() - 0.5f) * 0.3f, SP_HIDE0 + run);
+        G.bulky[y][x] = 1;
+        want--;
+    }
+    bfs_from(G.cx, G.cy);
+    int cand[96], nc = 0;
+    for (int i = 0; i < G.ndecos && nc < 96; i++) {
+        const Deco *dc = &G.decos[i];
+        int x = (int)dc->x, y = (int)dc->y;
+        if (dc->spr < 0 || !hide_kind(dc->spr) || x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1) continue;
+        if (in_wing(x, y) || vault_of_room(x, y) >= 0 || G.map[y][x].secret || in_band(y) || G.map[y][x].region == ARENA_REGION) continue;
+        if (abs(x - dr->x) + abs(y - dr->y) < 8 || !reached(x, y)) continue;
+        cand[nc++] = i;
+    }
+    if (!nc) {                                                     /* none of the level's own: one of the run's, laid for it */
+        for (int tries = 0; tries < 800 && !nc; tries++) {
+            int x = 1 + rnd(MAPN - 2), y = 1 + rnd(MAPN - 2);
+            if (!hide_cell_ok(x, y, 8) || !reached(x, y)) continue;
+            cand[nc++] = G.ndecos;
+            add_deco(x + 0.5f, y + 0.5f, SP_HIDE0 + run);
+            G.bulky[y][x] = 1;
+        }
+        if (!nc || cand[0] >= G.ndecos) return;
+    }
+    G.msg_deco = cand[rnd(nc)];
+    const Deco *md = &G.decos[G.msg_deco];
+    for (int tries = 0; tries < 800; tries++) {                    /* the shrine: off the way, away from the door and the message */
+        int x = 1 + rnd(MAPN - 2), y = 1 + rnd(MAPN - 2);
+        if (!hide_cell_ok(x, y, 8) || !block_corner(x, y) || !reached(x, y)) continue;
+        if (hypotf(md->x - x - 0.5f, md->y - y - 0.5f) < 6.0f) continue;
+        G.bsh_deco = G.ndecos; G.bsh_x = x; G.bsh_y = y;
+        solid_prop(x, y, SP_BSHRINE, 1, K_PROP);
+        light_static(x + 0.5f, y + 0.5f, 0.5f, 2.4f);              /* its candle */
+        break;
+    }
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_BSHOW")) G.bsh_show = BSH_SHOW;               /* testing: the shrine's showing from the start */
+    fprintf(stderr, "MESSAGE level %d: in %s at (%.1f,%.1f) of %d places; shrine at (%d,%d), %d souls\n", G.level, hide_name(md->spr), md->x, md->y, nc,
+            G.bsh_x, G.bsh_y, imin(40, 10 + G.level / 2));
+#endif
+}
+static int bsh_price(void) { return imin(40, 10 + G.level / 2); }  /* 15 at level 10, 30 at 40 */
+static float msg_shown(void) {                                     /* the shrine's showing: 1, fading in its last ten seconds, 0 done */
+    if (G.bsh_show <= 0.0f || G.msg_found || G.msg_deco < 0) return 0.0f;
+    return fminf(1.0f, G.bsh_show / 10.0f);
+}
+/* the glint on the thing that holds it, now and then: within two cells, or with Treasure Hunter three (Common) to six
+ * (Exquisite), and through the walls within half that. How bright, 0 none; through: whether the walls hide it */
+static float msg_glint(int *through) {
+    *through = 0;
+    if (G.msg_deco < 0 || G.msg_found || G.shop || PK.depth) return 0.0f;
+    const Deco *dc = &G.decos[G.msg_deco];
+    int q = abil_grade(AB_TREASURE);
+    float d = hypotf(dc->x - G.px, dc->y - G.py), reach = q ? 3.0f + 0.75f * (float)(q - 1) : 2.0f;
+    if (d > reach) return 0.0f;
+    *through = q && d <= reach * 0.5f;
+    float per = q ? 1.7f : 3.4f, u = fmodf((float)G.t + dc->phase * 7.0f, per) / per;
+    return u < 0.16f ? sinf(u / 0.16f * PI_F) * (q ? 1.0f : 0.7f) : 0.0f;
+}
+/* what E would search: one of the run's kind within reach, near the middle of the view, in sight */
+static int hide_facing(void) {
+    if (G.msg_deco < 0 || G.msg_found || G.shop || PK.depth) return -1;
+    int best = -1;
+    float bs = 1e9f;
+    for (int i = 0; i < G.ndecos; i++) {
+        const Deco *dc = &G.decos[i];
+        if (dc->spr < 0 || !hide_kind(dc->spr)) continue;
+        float d = hypotf(dc->x - G.px, dc->y - G.py);
+        if (d > 1.8f) continue;
+        float a = fabsf(wrap_pi(atan2f(dc->y - G.py, dc->x - G.px) - G.ang));
+        if (a > 0.45f + 0.35f / fmaxf(d, 0.4f)) continue;
+        float k = fminf(0.75f / fmaxf(d, 0.1f), 0.9f);              /* a point on its near side, for one that fills its cell */
+        if (!line_clear(G.px, G.py, dc->x + (G.px - dc->x) * k, dc->y + (G.py - dc->y) * k)) continue;
+        float sc = d + a * 1.5f;
+        if (sc < bs) { bs = sc; best = i; }
+    }
+    return best;
+}
+static int was_searched(int i) { for (int k = 0; k < G.nsearched; k++) if (G.searched[k] == i) return 1; return 0; }
+static void search_begin(int i) {
+    const Deco *dc = &G.decos[i];
+    if (was_searched(i)) { say("YOU HAVE SEARCHED %s", hide_name(dc->spr)); sfx_at(SFX_KNOCK, dc->x, dc->y, 0.3f); return; }
+    G.srch_deco = i; G.srch_t = 1.0f;
+    say("SEARCHING %s", hide_name(dc->spr));
+    sfx_at(SFX_RUSTLE, dc->x, dc->y, 0.8f);
+}
+static void msg_take(void) {
+    int run = doc_run();
+    char text[320];
+    snprintf(text, sizeof text, "%s %s", DOC_OPEN[run], G.pz_answer);
+    size_t n = strlen(text);
+    while (n && (text[n - 1] == ' ' || text[n - 1] == ',' || text[n - 1] == ':')) text[--n] = 0;   /* the list's last, closed */
+    if (n && n + 1 < sizeof text && text[n - 1] != '.') { text[n] = '.'; text[n + 1] = 0; }
+    G.msg_found = 1; G.bsh_show = 0.0f;
+    doc_add(DOC_NAME[run], text, 1);
+    toast(SP_HIDE0 + run, -1, RK_I, 0, DOC_TOAST[run], "TAB: DOCUMENTS");
+    say("%s", DOC_NAME[run]);
+    snd_sfx_ex(SFX_PAGE, 0.9f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT msg_found level %d t=%.2f\n", G.level, G.t);
+#endif
+}
+/* a search under way: a second with the hand in it; walking off or turning away stops it */
+static void update_search(float dt) {
+    if (G.srch_deco < 0) return;
+    const Deco *dc = &G.decos[G.srch_deco];
+    float d = hypotf(dc->x - G.px, dc->y - G.py), a = fabsf(wrap_pi(atan2f(dc->y - G.py, dc->x - G.px) - G.ang));
+    if (!G.player || G.dead || G.ui || d > 2.0f || a > 1.2f) { G.srch_deco = -1; return; }
+    G.grab_t = fmaxf(G.grab_t, 0.4f);
+    if ((G.srch_t -= dt) > 0.0f) return;
+    int i = G.srch_deco;
+    G.srch_deco = -1;
+    if (G.nsearched < (int)(sizeof G.searched / sizeof G.searched[0])) G.searched[G.nsearched++] = (int16_t)i;
+    if (i == G.msg_deco) { msg_take(); return; }
+    say("NOTHING IN %s BUT %s", hide_name(dc->spr), DOC_DUST[doc_run()]);
+    sfx_at(SFX_KNOCK, dc->x, dc->y, 0.25f);
+}
+/* the Black Shrine: found once seen within its light or passed within three cells; its showing runs down */
+static void update_bshrine_t(float dt) {
+    if (G.shop || PK.depth || G.bsh_x < 0) return;
+    G.bsh_flare = fmaxf(0.0f, G.bsh_flare - dt);
+    if (G.bsh_show > 0.0f && (G.bsh_show -= dt) <= 0.0f) { G.bsh_show = 0.0f; if (G.player && !G.msg_found) say("THE SHRINE'S SHOWING FADES"); }
+    if (G.bsh_found || G.dead) return;
+    float sx = G.bsh_x + 0.5f, sy = G.bsh_y + 0.5f, d = hypotf(sx - G.px, sy - G.py);
+    int seen = d < 7.0f && fabsf(wrap_pi(atan2f(sy - G.py, sx - G.px) - G.ang)) < 0.6f && line_clear(G.px, G.py, sx, sy) && lm_at(sx, sy) > 0.08f;
+    if (d >= 3.0f && !seen) return;
+    G.bsh_found = 1;
+    if (G.player) say("A BLACK SHRINE");
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT bshrine_found t=%.2f\n", G.t);
+#endif
+}
+static int bshrine_facing(void) {
+    if (G.shop || PK.depth || G.bsh_x < 0) return 0;
+    float sx = G.bsh_x + 0.5f, sy = G.bsh_y + 0.5f;
+    return hypotf(sx - G.px, sy - G.py) < 1.6f && fabsf(wrap_pi(atan2f(sy - G.py, sx - G.px) - G.ang)) < 0.7f;
+}
+/* its one row: show where it is hidden, for souls, asked twice */
+static void update_bshrine(void) {
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; return; }
+    if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) return;
+    if (G.msg_found || G.msg_deco < 0) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+    if (spirit() + 1e-4f < (float)bsh_price()) { G.bsh_arm = 0; snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return; }
+    if (!G.bsh_arm) { G.bsh_arm = 1; snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return; }
+    spend_spirit((float)bsh_price());
+    G.bsh_show = BSH_SHOW; G.bsh_flare = 2.0f; G.bsh_arm = 0; G.ui = UI_NONE;
+    say("THE SHRINE SHOWS WHERE IT IS HIDDEN");
+    snd_sfx_ex(SFX_WHISPER, 1.0f, 0.5f); sfx_at(SFX_SHIMMER, G.bsh_x + 0.5f, G.bsh_y + 0.5f, 0.9f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT bshrine_show price=%d t=%.2f\n", bsh_price(), G.t);
+#endif
+}
+static void docs_keys(void) {                                      /* Tab's documents: W/S choose */
+    if (DOCS.n < 2) return;
+    int ud = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
+    if (ud) { DOCS.sel = (DOCS.sel + DOCS.n + ud) % DOCS.n; snd_sfx_ex(SFX_PAGE, 0.35f, 0.5f); }
+}
+#ifdef CRAWL_DEBUG
+static void tp_near(float tx, float ty) {                          /* testing: a cell or two from a thing, facing it */
+    for (int r = 1; r <= 2; r++)
+        for (int d = 0; d < 4; d++) {
+            int x = (int)tx + DX[d] * r, y = (int)ty + DY[d] * r;
+            float k = 0.75f / (float)r;                            /* to its near side: it may fill its cell */
+            if (!hz_floor(x, y) || in_wing(x, y) || !line_clear(x + 0.5f, y + 0.5f, tx + (x + 0.5f - tx) * k, ty + (y + 0.5f - ty) * k)) continue;
+            G.px = x + 0.5f; G.py = y + 0.5f; G.ang = atan2f(ty - G.py, tx - G.px); human_begin();
+            return;
+        }
+}
+#endif
+
 
 /* the omens: in the three levels before a boss, and in its own level's halls, its hazard comes by
  * itself near the dweller, at half the harm: a stone from the ceiling in the Crypts, bile from a drain in
@@ -11539,8 +11812,14 @@ static void update_abilities(float dt) {
             float d = hypotf(G.secrets[i].sx + 0.5f - G.px, G.secrets[i].sy + 0.5f - G.py);
             if (d < best) { best = d; bi = i; }
         }
+        float wx = bi >= 0 ? G.secrets[bi].sx + 0.5f : 0.0f, wy = bi >= 0 ? G.secrets[bi].sy + 0.5f : 0.0f;
+        if (G.msg_deco >= 0 && !G.msg_found && !G.shop && !PK.depth) {   /* and near the hidden message (1.0.0b13) */
+            const Deco *dc = &G.decos[G.msg_deco];
+            float d = hypotf(dc->x - G.px, dc->y - G.py);
+            if (d < best) { best = d; bi = 0; wx = dc->x; wy = dc->y; }
+        }
         if (bi >= 0) {
-            sfx_at(SFX_WHISPER, G.secrets[bi].sx + 0.5f, G.secrets[bi].sy + 0.5f, 0.35f + 0.9f * (1.0f - best / 3.5f));
+            sfx_at(SFX_WHISPER, wx, wy, 0.35f + 0.9f * (1.0f - best / 3.5f));
             G.whisper_t = 1.6f + best * 0.5f;                       /* quicker, the nearer */
         }
     }
@@ -12077,6 +12356,8 @@ static void crawl_update(double dt) {
     update_sites(fdt);
     update_things(fdt);
     pz_update(fdt);
+    update_search(fdt);
+    update_bshrine_t(fdt);
     update_omens(fdt);
     update_arising(fdt);
     if (G.bfs_t > 0.0f && (G.bfs_t += fdt) > 1.6f) G.bfs_t = 0.0f;
@@ -12339,6 +12620,7 @@ static int shop_choose(void) {
 static void begin_shop(void) {
     hz_clear(); snd_set_boss(0, 0);
     G.pz = -1; G.nthing = 0; G.carry = 0;                          /* nor a puzzle */
+    G.msg_deco = G.srch_deco = G.bsh_x = -1; docs_clear();
     G.bchallenge = 0;
     G.shop = 1; G.state = PS_SHOP;
     memset(G.wisps, 0, sizeof G.wisps);                            /* nor into the merchant's room */
@@ -13100,6 +13382,8 @@ static int human_use(void) {
     }
     if (!G.shop && G.altar_x >= 0 && hypotf(G.altar_x + 0.5f - G.px, G.altar_y + 0.5f - G.py) < 1.6f
         && fabsf(wrap_pi(atan2f(G.altar_y + 0.5f - G.py, G.altar_x + 0.5f - G.px) - G.ang)) < 0.7f) { open_ui(UI_ALTAR); G.grab_t = 1.0f; return 1; }
+    if (bshrine_facing()) { open_ui(UI_BSHRINE); G.grab_t = 1.0f; return 1; }   /* the Black Shrine (1.0.0b13) */
+    if (G.srch_deco < 0) { int k = hide_facing(); if (k >= 0) { search_begin(k); return 1; } }   /* a thing that may hold the message */
     if (!G.shop && !PK.depth && G.carry && c->kind != K_DOOR) return thing_set_down();   /* nothing to put it in: on the floor */
     return 0;
 }
@@ -13262,6 +13546,7 @@ static void open_ui(int which) {
         for (int i = 2; i >= 0; i--) if (r[i].ok && spirit() + 1e-4f >= (float)r[i].price) G.ui_sel = i;
         snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f);
     }
+    else if (which == UI_BSHRINE) { G.bsh_arm = 0; snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f); }
     else if (which == UI_SHRINE) {                                 /* on a pull, with what coins you have */
         G.sh_mode = SM_MENU; G.ui_sel = 0; G.sh_arm = -1;
         G.sh_coins = clampi(RUN.coins, 1, 3);
@@ -13654,6 +13939,7 @@ static void update_inventory(void) {
     if (G.inv_page == 2) { update_stones_core(); return; }
     if (G.inv_page == 3) { update_align(1); return; }               /* the Alignment, to look at */
     if (G.inv_page == 4) return;                                   /* the elements: only to look at */
+    if (G.inv_page == 5) { docs_keys(); return; }                  /* the documents (1.0.0b13) */
     if (G.inv_page) return;
     int n = inv_rows();
     if (G.ui_sel >= n) G.ui_sel = n - 1;
@@ -14254,6 +14540,8 @@ static void crawl_control(int what) {
     if (getenv("CRAWL_TPALTAR") && !G.shop) tp_altar();
     if (getenv("CRAWL_TPHZ") && !G.shop) tp_hz();                  /* before the first fixed hazard (1.0.0b13) */
     if (getenv("CRAWL_TPPUZZLE") && !G.shop) tp_puzzle();          /* before the puzzle's first piece */
+    if (getenv("CRAWL_TPMSG") && !G.shop && G.msg_deco >= 0) tp_near(G.decos[G.msg_deco].x, G.decos[G.msg_deco].y);   /* before what hides its message */
+    if (getenv("CRAWL_TPBSHRINE") && !G.shop && G.bsh_x >= 0) tp_near(G.bsh_x + 0.5f, G.bsh_y + 0.5f);   /* before the Black Shrine */
     if (getenv("CRAWL_THINGS") && !G.shop && G.nthing) {           /* among the test's things, facing the first */
         float tx = G.thing[0].x, ty = G.thing[0].y;
         for (int d = 0; d < 4; d++) {
@@ -16026,6 +16314,7 @@ static void update_ui(void) {
     }
 #endif
     if (G.ui == UI_ALTAR) { update_altarmenu(); return; }
+    if (G.ui == UI_BSHRINE) { update_bshrine(); return; }
     if (G.ui == UI_INVENTORY) update_inventory();
     else if (G.ui == UI_LEDGER) update_ledger();
     else if (G.ui == UI_MERCHANT) update_merchantmenu();
@@ -16654,7 +16943,8 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
 
 /* alpha < 1: dithered see-through. remap: the ramp R_PURPLE turns into. flags: how it is drawn.
  * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
-typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; float web; } Draw;   /* glint: a key's
+typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; float web, mg; int mgw; } Draw;   /* mg: the hidden
+                                                                                                   message's glint, mgw through the walls; glint: a key's
                                                                                                    ramp, for Keymaker's sparkle; web: how much of yours holds it */
 enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_SWAY = 32, DR_FLIPV = 64, DR_COMMUNE = 128, DR_GLINT = 256, DR_EDGE = 512,
        DR_GLITCH = 1024, DR_CLIP = 2048, DR_LOOPED = 4096, DR_LIT = 8192, DR_SHINE = 16384, DR_MEND = 32768,
@@ -16961,7 +17251,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
-        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f }; } while (0)
+        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0 }; } while (0)
     for (int i = 0; i < G.ndecos; i++) {
         const Deco *dc = &G.decos[i];
         static const float FPS[4] = { 0.0f, 0.0f, 3.0f, 9.0f };    /* by frame count: candles flicker, fire roars */
@@ -16985,6 +17275,16 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             list[n - 1].flags = DR_SWAY;
             list[n - 1].sway = 2.6f * sinf((float)G.t * 0.9f + dc->phase) + 0.6f * sinf((float)G.t * 2.3f + dc->phase * 1.7f);
         }
+        if (n > n0 && i == G.msg_deco) {                           /* what holds the hidden message (1.0.0b13): its glint; the shrine's showing */
+            list[n - 1].mg = msg_glint(&list[n - 1].mgw);
+            float sh = msg_shown();
+            if (sh > 0.0f && (sh >= 1.0f || fmodf((float)G.t * 3.0f, 1.0f) < sh)) { list[n - 1].flags |= DR_GLINT; list[n - 1].glint = R_PURPLE; }
+        }
+    }
+    if (!G.shop && !PK.depth && G.bsh_x >= 0) {                    /* the Black Shrine's eyes: faint, or flaring while it shows */
+        int n0 = n;
+        ADD(G.bsh_x + 0.5f, G.bsh_y + 0.5f, 0.0f, G.bsh_flare > 0.0f || msg_shown() > 0.0f ? SP_BSHRINE_E1 : SP_BSHRINE_E0, 0);
+        if (n > n0) { list[n - 1].flags = DR_BRIGHT; list[n - 1].depth -= 0.02f; }
     }
     if (!G.shop && G.altar_x >= 0 && (G.altar_state == ALTAR_AWAKE || G.altar_state == ALTAR_READY || G.blessed)) {   /* the altar's fire, at full brightness */
         int n0 = n, fr = ((int)(G.t * 8.0)) & 1;
@@ -17518,6 +17818,15 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                 int px[4] = { cx + k, cx, cx + k / 2, cx + k / 2 }, py[4] = { cy, cy + k, cy + k / 2, cy - k / 2 };
                 for (int j = 0; j < (a <= arm / 2 ? 4 : 2); j++)
                     if (px[j] >= 0 && px[j] < W && py[j] >= 0 && py[j] < H) f->pix[py[j] * W + px[j]] = c;
+            }
+        }
+        if (d->mg > 0.0f) {                                        /* the hidden message: a pale point catching on its edge */
+            int gx = (int)(left + size * 0.6f), gy = (int)(top + size * 0.73f), arm = (int)(d->mg * fmaxf(1.0f, size / 20.0f) + 0.5f);
+            for (int k = -arm; k <= arm; k++) {
+                int xs[2] = { gx + k, gx }, ys[2] = { gy, gy + k };
+                for (int j = 0; j < 2; j++)
+                    if (xs[j] >= 0 && xs[j] < W && ys[j] >= 0 && ys[j] < H && (d->mgw || d->depth < zbuf[xs[j]]))
+                        f->pix[ys[j] * W + xs[j]] = abs(k) <= arm / 3 ? (uint8_t)C_WHITE : (uint8_t)(R_GHOST + 13);
             }
         }
         if (d->twinkle > 0.0f && crawl_glint[d->spr][0] >= 0) {     /* a glint off the gold */
@@ -19061,6 +19370,87 @@ static void render_caster(Frame *f) {
     if (!any) gfx_text8(f, x, y, "NONE YET", R_STONE + 8, 1);
 }
 
+/* Tab's sixth page (1.0.0b13): what has been read and found on the level, the newest first; the message on its own page */
+static int doc_wrap(const char *s, int cols0, int cols1, int nfirst, char out[][48], int max) {   /* lines, the first few narrower */
+    int n = 0;
+    while (*s && n < max) {
+        int cols = n < nfirst ? cols0 : cols1, len = (int)strlen(s), cut = len;
+        if (len > cols) { cut = cols; while (cut > 0 && s[cut] != ' ') cut--; if (!cut) cut = cols; }
+        snprintf(out[n++], 48, "%.*s", cut, s);
+        s += cut;
+        while (*s == ' ') s++;
+    }
+    return n;
+}
+static void render_documents(Frame *f) {
+    gfx_text16(f, 14, 9, "DOCUMENTS", R_GOLD + 12, 1);
+    hint8(f, 14, 26, DOCS.n > 1 ? "W/S CHOOSE  A/D PAGE  TAB CLOSE" : "A/D PAGE  TAB CLOSE", R_STONE + 9);
+    if (!DOCS.n) {
+        text_wrap(f, 14, 46, "NOTHING READ OR FOUND ON THIS LEVEL. WHAT IS READ WITH E, AND WHAT IS FOUND, IS KEPT HERE UNTIL THE LEVEL ENDS.", 36, R_STONE + 10, 6);
+        return;
+    }
+    int sel = clampi(DOCS.sel, 0, DOCS.n - 1);
+    for (int r = 0; r < DOCS.n && r < 15; r++) {                   /* the newest first */
+        int k = DOCS.n - 1 - r, y = 40 + r * 10;
+        char nm[16];
+        if (DOCS.d[k].msg) snprintf(nm, sizeof nm, "%s", DOC_SHORT[DOCS.d[k].run & 3]);
+        else { snprintf(nm, sizeof nm, "%.12s", DOCS.d[k].where); char *c = strchr(nm, ','); if (c) *c = 0; }
+        if (r == sel) gfx_rect(f, 10, y - 1, 96, 10, R_IRON + 3);
+        gfx_text8(f, 14, y, nm, DOCS.d[k].msg ? (uint8_t)(R_GOLD + 11) : r == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 11), 1);
+    }
+    const int k = DOCS.n - 1 - sel, px = 112, py = 36, pw = 198, ph = 156;
+    char ln[16][48];
+    if (!DOCS.d[k].msg) {                                          /* a clue: where it was read, and what it said */
+        int n = doc_wrap(DOCS.d[k].where, 23, 23, 0, ln, 3), y = py + 4;
+        for (int i = 0; i < n; i++, y += 9) gfx_text8(f, px + 4, y, ln[i], R_GOLD + 10, 1);
+        y += 5;
+        n = doc_wrap(DOCS.d[k].text, 23, 23, 0, ln, 13);
+        for (int i = 0; i < n; i++, y += 9) gfx_text8(f, px + 4, y, ln[i], R_STONE + 13, 1);
+        return;
+    }
+    int run = DOCS.d[k].run & 3;
+    unsigned seed = (unsigned)(G.level * 977 + run * 31 + 5);
+    uint8_t ink = crawl_doc_page(f->pix, W, px, py, pw, ph, run, seed);
+    const char *s = DOCS.d[k].text;
+    int y = py + 12, x = px + 12, first = 0;
+    if (run == 0 && *s) {                                          /* the first letter rubricated, in the gilt square */
+        char c[2] = { *s, 0 };
+        gfx_text16(f, px + 14, py + 9, c, R_BLOOD + 11, 1);
+        s++; first = 2;
+    }
+    int n = doc_wrap(s, (pw - 40) / 8, (pw - 22) / 8, first, ln, 15);
+    for (int i = 0; i < n && y < py + ph - 12; i++, y += 9) gfx_text8(f, i < first ? x + 16 : x, y, ln[i], ink, 1);
+    crawl_doc_ink(f->pix, W, px, py, pw, ph, run, ink, seed);
+}
+
+/* the Black Shrine's one row */
+static void render_bshrine(Frame *f) {
+    dim_view(f);
+    int pw = 296, ph = 92, px = (W - pw) / 2, py = 30;
+    panel(f, px, py, pw, ph);
+    gfx_text16(f, px + 10, py + 6, "THE BLACK SHRINE", R_GOLD + 12, 1);
+    char sp[24], line[48];
+    spirit_text(sp, sizeof sp);
+    snprintf(line, sizeof line, "SPIRIT %s", sp);
+    gfx_text8(f, px + pw - 10 - gfx_text_width(line, 1), py + 10, line, R_GLOW + 12, 1);
+    hint8(f, px + 10, py + 24, "ENTER PAYS  ESC CLOSES", R_STONE + 9);
+    int done = G.msg_found || G.msg_deco < 0, price = bsh_price(), pay = spirit() + 1e-4f >= (float)price, y = py + 40;
+    gfx_rect(f, px + 6, y - 3, pw - 12, 13, R_IRON + 3);
+    for (int e = 0; e < 2; e++) { gfx_px(f, px + 14 + e * 5, y + 3, done ? (uint8_t)(R_PURPLE + 6) : (uint8_t)(R_PURPLE + 13)); gfx_px(f, px + 14 + e * 5, y + 2, R_PURPLE + 8); }
+    gfx_text8(f, px + 28, y, "SHOW WHERE IT IS HIDDEN", done ? (uint8_t)(R_STONE + 8) : (uint8_t)C_WHITE, 1);
+    snprintf(line, sizeof line, "%d SOULS", price);
+    if (!done) gfx_text8(f, px + pw - 12 - gfx_text_width(line, 1), y, line, pay ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_BLOOD + 13), 1);
+    for (int i = px + 10; i < px + pw - 10; i++) gfx_px(f, i, y + 15, R_STONE + 5);
+    const char *note = done ? "IT HAS NOTHING MORE TO SHOW" : !pay ? "IT WANTS MORE SOULS THAN YOU HAVE"
+                     : G.bsh_arm ? "ENTER AGAIN TO PAY" : G.bsh_show > 0.0f ? "IT IS SHOWING NOW. PAYING AGAIN STARTS IT OVER"
+                     : "FOR TWO AND A HALF MINUTES: THROUGH THE WALLS, AND ON THE MAP";
+    text_wrap(f, px + 10, y + 21, note, 34, G.bsh_arm ? R_GOLD + 12 : R_STONE + 12, 2);
+    if (G.bsh_show > 0.0f && !done) {
+        snprintf(line, sizeof line, "%d:%02d LEFT", (int)G.bsh_show / 60, (int)G.bsh_show % 60);
+        gfx_text8(f, px + pw - 10 - gfx_text_width(line, 1), y + 39, line, R_PURPLE + 12, 1);
+    }
+}
+
 /* Tab: what you wear and the bag (Enter moves between them) and the selected piece; A/D turns the page */
 static void render_stones(Frame *f, int tabbed);
 static void render_inventory(Frame *f) {
@@ -19069,6 +19459,7 @@ static void render_inventory(Frame *f) {
     if (G.inv_page == 2) { render_stones(f, 1); return; }
     if (G.inv_page == 3) { render_align(f, 1); return; }
     if (G.inv_page == 4) { render_elements(f); return; }
+    if (G.inv_page == 5) { render_documents(f); return; }
     if (G.inv_page) { render_caster(f); return; }
     gfx_text16(f, 14, 9, "WARDROBE", R_GOLD + 12, 1);
     hint8(f, 14, 26, "W/S PICK  ENTER MOVE  A/D PAGE", R_STONE + 9);
@@ -19416,7 +19807,8 @@ static void render_toasts(Frame *f) {
         while (cut > 0 && a[cut] != ' ') cut--;
         if (cut > 0) { snprintf(b, sizeof b, "%s", a + cut + 1); a[cut] = 0; }
     }
-    const char *head = t->spr == SP_CCOIN ? "FOR THE SHRINE" : t->spr == SP_ITEM_TOME ? "THE ALIGNMENT" : t->progress ? "PROGRESS" : "ACHIEVEMENT";
+    const char *head = t->spr == SP_CCOIN ? "FOR THE SHRINE" : t->spr == SP_ITEM_TOME ? "THE ALIGNMENT" : t->spr >= SP_HIDE0 && t->spr < SP_HIDE0 + 4 ? "A DOCUMENT"
+                     : t->progress ? "PROGRESS" : "ACHIEVEMENT";
     int tw = (int)strlen(head);
     if ((int)strlen(a) > tw) tw = (int)strlen(a);
     if ((int)strlen(b) > tw) tw = (int)strlen(b);
@@ -20969,6 +21361,7 @@ static void render_map(Frame *f) {
             if (G.map[y][x].kind == K_DOOR && G.map[y][x].door >= 0) {   /* a door: a bar across the way */
                 const Door *dr = &G.doors[G.map[y][x].door];
                 uint8_t c = dr->locked == SEALED ? (uint8_t)(R_BLOOD + 8)
+                          : dr->locked == WINGED && (G.mapped[y][x] & 4) ? (uint8_t)(R_PURPLE + 9)   /* the sealed wing's, once seen */
                           : dr->locked == 1 && (G.mapped[y][x] & 2) && dr->color >= 0 && dr->color < NKEYS ? KEY_INK[dr->color] : ink;
                 int across = !map_open(x - 1, y) && !map_open(x + 1, y);   /* stone east and west: the way runs north and south */
                 for (int i = 1; i < MAP_PX; i++)
@@ -20991,6 +21384,15 @@ static void render_map(Frame *f) {
     if (G.altar_x >= 0 && (G.mapped[G.altar_y][G.altar_x] & 1)) {   /* the Black Altar */
         int px = map_bx + G.altar_x * MAP_PX, py = map_by + G.altar_y * MAP_PX;
         for (int k = 1; k < 4; k++) for (int j = 1; j < 4; j++) map_px(f, px + k, py + j, k == 2 && j == 2 ? (uint8_t)(R_PURPLE + 10) : (uint8_t)(R_IRON + 1));
+    }
+    if (!PK.depth && !G.shop && G.bsh_x >= 0 && G.bsh_found) {    /* the Black Shrine, once found: black, two violet eyes */
+        int px = map_bx + G.bsh_x * MAP_PX, py = map_by + G.bsh_y * MAP_PX;
+        for (int k = 1; k < 4; k++) for (int j = 1; j < 5; j++) map_px(f, px + k, py + j, R_IRON + 1);
+        map_px(f, px + 1, py + 2, R_PURPLE + 13); map_px(f, px + 3, py + 2, R_PURPLE + 13);
+    }
+    if (!PK.depth && msg_shown() > 0.0f && (msg_shown() >= 1.0f || fmodf(G.ui_t * 3.0f, 1.0f) < msg_shown())) {   /* where the message lies */
+        int px = map_bx + (int)(G.decos[G.msg_deco].x * MAP_PX), py = map_by + (int)(G.decos[G.msg_deco].y * MAP_PX);
+        for (int k = -2; k <= 2; k++) { map_px(f, px + k, py + k, R_PURPLE + 12); map_px(f, px + k, py - k, R_PURPLE + 12); }
     }
     for (int i = 0; i < G.nitems; i++) {                           /* the keys you have seen, until taken */
         const Item *it = &G.items[i];
@@ -21065,6 +21467,7 @@ static void render_ui(Frame *f) {
     if (G.ui == UI_TOTEM) { render_totemmenu(f); return; }
     if (G.ui == UI_WISPS) { render_wispmenu(f); return; }
     if (G.ui == UI_ALTAR) { render_altarmenu(f); return; }
+    if (G.ui == UI_BSHRINE) { render_bshrine(f); return; }
     if (G.ui == UI_INVENTORY) render_inventory(f);
     else if (G.ui == UI_QUIT) render_quit(f);
     else if (G.ui == UI_LEDGER) render_ledger(f);
