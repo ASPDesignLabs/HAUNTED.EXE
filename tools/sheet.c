@@ -573,6 +573,59 @@ static int draw_hazards(const char *path) {
     return ok;
 }
 
+/* 1.0.0b13 (docs/PLAN-b13.md, section 12): every puzzle's pieces, the marks cut on them, and the wing's door */
+static int draw_puzzles(const char *path) {
+    static const struct { int id; const char *l; } P[] = {
+        { SP_PZ_SKULL, "SKULL" }, { SP_PZ_NICHE, "NICHE" }, { SP_BELL, "BELL" }, { SP_PZ_BANNER, "BANNER" }, { SP_PZ_EFFIGY0, "EFFIGY AWAY" },
+        { SP_PZ_EFFIGY0 + 1, "TO YOUR RIGHT" }, { SP_PZ_EFFIGY0 + 2, "TO YOU" }, { SP_PZ_EFFIGY0 + 3, "TO YOUR LEFT" }, { SP_PZ_SCALE0 + 1, "SCALE" },
+        { SP_PZ_PAN, "PAN" }, { SP_PZ_CASKET, "RELIQUARY" }, { SP_PZ_CANDLE0, "CANDLE" }, { SP_PZ_CANDLE1, "LIT" }, { SP_URN, "URN" },
+        { SP_PZ_PLINTH, "PLINTH" }, { SP_PZ_DIAL0 + 3, "DIAL" }, { SP_PZ_LEVER0, "LEVER" }, { SP_PZ_LEVER1, "PULLED" }, { SP_PZ_TABLET, "TABLET" },
+        { SP_PZ_CISTERN0 + 3, "CISTERN" }, { SP_PZ_CISTERN0 + 8, "FULL" }, { SP_PZ_SAINT, "SAINT" }, { SP_PZ_EMBLEM, "EMBLEM" }, { SP_PZ_SPOUT, "SPOUT" },
+        { SP_PZ_MILL0, "MILL WHEEL" }, { SP_PZ_WHEEL, "SLUICE WHEEL" }, { SP_PZ_BOARD, "CHALK BOARD" }, { SP_PZ_BOX, "HOIST BOX" }, { SP_PZ_SACK, "ORE SACK" },
+        { SP_PZ_HOOK, "HOOK" }, { SP_PZ_TAG, "TAG" }, { SP_PZ_SOCKET, "SOCKET" }, { SP_PZ_FOSSIL, "FOSSIL BONE" }, { SP_PZ_STONE, "STANDING STONE" },
+        { SP_PZ_LAMP0, "LAMP" }, { SP_PZ_LAMP1, "LIT" }, { SP_PZ_PRISM0 + 2, "PRISM" }, { SP_PZ_GEODE, "GEODE" }, { SP_PZ_GEODE1, "LIT" },
+        { SP_PZ_THRONE, "THRONE" }, { SP_PZ_STATUE, "STATUE" }, { SP_PZ_VENT0, "VENT" }, { SP_PZ_VENT1, "OPEN" }, { SP_PZ_SLAB, "GRID SQUARE" },
+        { SP_PZ_NUMSTONE, "NUMBER STONE" }, { SP_PZ_IDOL, "IDOL" }, { SP_PZ_LOCK, "LOCK" } };
+    int n = (int)(sizeof P / sizeof P[0]), k = 2, cols = 8, cw = TS * k + 24, row = TS * k + LABEL_H + 12;
+    iw = PAD + cols * cw + PAD;
+    ih = PAD + LABEL_H + 8 + ((n + cols - 1) / cols) * row + 2 * row + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    crawl_art_level(6); crawl_art_run(6);
+    text(PAD, PAD, "1.0.0B13: THE PUZZLES' PIECES, FOR APPROVAL", 230, 230, 230);
+    int y0 = PAD + LABEL_H + 8;
+    for (int i = 0; i < n; i++) {
+        int x = PAD + (i % cols) * cw, y = y0 + (i / cols) * row;
+        rect(x, y, TS * k, TS * k, 22, 21, 24);
+        for (int sy = 0; sy < TS * k; sy++)
+            for (int sx = 0; sx < TS * k; sx++) {
+                uint8_t c = crawl_spr[P[i].id][(sx / k) * TS + sy / k];
+                if (c == C_CLEAR) continue;
+                c = crawl_cmap[LIGHT][c];
+                put(x + sx, y + sy, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+            }
+        text(x, y + TS * k + 4, P[i].l, 190, 190, 190);
+    }
+    int y = y0 + ((n + cols - 1) / cols) * row;
+    text(PAD, y, "THE MARKS CUT ON THEM, THE PIPS, A FEW LETTERS, AND THE WING'S DOOR", 200, 200, 200);
+    y += LABEL_H;
+    for (int i = 0; i < 16 + 9 + 4; i++) {
+        int id = i < 16 ? SP_MARK0 + i : i < 25 ? SP_PIP1 + i - 16 : SP_PZ_LETTER0 + (i - 25) * 6;
+        int x = PAD + i * 40;
+        for (int sy = 20; sy < 40; sy++) for (int sx = 24; sx < 40; sx++) {
+            uint8_t c = crawl_spr[id][sx * TS + sy];
+            if (c == C_CLEAR) continue;
+            c = crawl_cmap[LIGHT][c];
+            rect(x + (sx - 24) * 2, y + (sy - 20) * 2, 2, 2, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+        }
+    }
+    tex(PAD + 29 * 40 > iw - TS * 2 - PAD ? iw - TS * 2 - PAD : PAD + 29 * 40, y, T_WINGDOOR, 2, LIGHT);
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
 /* ---- a run's own look (docs/PLAN-b10.md): its parts, and its rooms laid out as the generator would ---- */
 
 typedef struct { uint8_t tex[NTEX][TS * TS]; uint8_t pal[256][3]; uint8_t cmap[NLIGHT][256]; } Snap;
@@ -1149,6 +1202,13 @@ int main(int argc, char **argv) {
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_spells(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         crawl_art_level(level < 1 ? 1 : level);
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "puzzles")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/puzzles.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_puzzles(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     if (!strcmp(argv[1], "all") || !strcmp(argv[1], "hazards")) {

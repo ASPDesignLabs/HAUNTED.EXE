@@ -8670,7 +8670,8 @@ static int site_near(int x, int y, int d) {
     return 0;
 }
 static int site_ok(int x, int y) {                                 /* a floor cell a fixed hazard may hold */
-    if (!hz_floor(x, y) || in_band(y) || vault_of_room(x, y) >= 0 || G.bulky[y][x] || item_at(x, y)) return 0;
+    if (!hz_floor(x, y) || in_band(y) || vault_of_room(x, y) >= 0 || in_wing(x, y) || G.bulky[y][x] || item_at(x, y)) return 0;
+    if (G.pz_door >= 0 && abs(x - G.doors[G.pz_door].x) + abs(y - G.doors[G.pz_door].y) < 5) return 0;   /* nor at a puzzle's door */
     int near = 8;
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_HZ")) near = 3;                              /* testing: close by */
@@ -8968,7 +8969,7 @@ static void update_sites(float dt) {
             if (!G.dead && mirror_sees(s)) { drink = 1; hz_sap(HZ_MIRROR, 1.0f, 0.0f, dt, s->ax, s->ay, &s->took); }
             break;
         case HZ_RELIQ:                                             /* shut; its lid lifting; open and drinking; shut again a while */
-            hz_mark_disc(cx, cy, 2.0f, s->state ? 1 : HZ_SOFT);    /* open, it warns */
+            hz_mark_disc(cx, cy, 2.0f, HZ_SOFT);                   /* it drinks, it doesn't strike: hurried past, not fled */
             if (s->state == 0) {
                 if ((s->wait -= dt) <= 0.0f && !G.dead && d < 2.0f && line_clear(G.px, G.py, cx, cy)) { s->state = 1; s->k = 0.0f; sfx_at(SFX_CREAK, cx, cy, 0.8f); sfx_at(SFX_WHISPER, cx, cy, 0.6f); }
             } else if (s->state == 1) {
@@ -9995,8 +9996,7 @@ static int pz_goal(int x, int y, int *gx, int *gy) {
         if (G.thing[k].role != TR_ITEM && G.thing[k].role != TR_PLATE && G.thing[k].role != TR_READ && G.thing[k].grp) a = k;
     }
     const Thing *t = &G.thing[a];
-    int sx, sy, tx = t->cx, ty = t->cy;
-    if (t->wall) { tx = t->cx + DX[t->wall - 1]; ty = t->cy + DY[t->wall - 1]; }
+    int sx, sy, tx = t->cx, ty = t->cy;                            /* from the floor it stands on (a wall's thing: the cell before the wall) */
     if (!use_spot(tx, ty, &sx, &sy) && !(apass(t->cx, t->cy) && (sx = t->cx, sy = t->cy, 1))) return 0;
     bfs_from(x, y);
     if (bfs_dist[sy][sx] < 0) return 0;
