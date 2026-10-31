@@ -48,6 +48,15 @@ enum {
     T_PORTAL0, T_PORTAL1, T_PORTAL2, T_PORTAL3,   /* the Accursed Portal: an arch filled with a slow red-violet swirl */
     T_SEALED,                                     /* a chain's doorway shut for the level: dark frames under a cracked red seal */
     T_REPOSITORY,                                 /* the Wretched Repository: iron doors shut in niches, three to a wall */
+    /* the runs' hazards (1.0.0b13, docs/PLAN-b13.md section 5): drawn on plain stone, set in the run's own */
+    T_HZ_SLAB, T_HZ_SLAB_OPEN,                    /* the Embalmers' Breath: a burial slab; cracked, a seam of light round it */
+    T_HZ_COLD,                                    /* the Cold Vault: a crack furred with rime */
+    T_HZ_SLUICE, T_HZ_SLUICE_OPEN,                /* a sluice gate shut; and thrown up on the surge */
+    T_HZ_SAINT, T_HZ_SAINT_LIT,                   /* the Weeping Saint in her alcove; her eyes alight as she drinks */
+    T_HZ_SEAM, T_HZ_SEAM_LIT,                     /* the Lodestone Seam, green veins in the rock; and crackling */
+    T_HZ_FISSURE0, T_HZ_FISSURE1,                 /* Fissure Breath: a crack in the glass rock, glowing; then white-hot */
+    T_HZ_MIRROR, T_HZ_MIRROR_SEEN,                /* the Black Mirror; and your reflection come into it */
+    T_WINGDOOR,                                   /* a puzzle's sealed wing (1.0.0b13): a great door, its seal carved over it */
     /* each run's own (docs/PLAN-b10.md), made again for its run by crawl_art_run: the materials, two looks
      * each, on one grid of courses; blends from one material to the next, left to right; what stands on a
      * wall, drawn over its material (C_CLEAR lets the material show); floors, ceilings and the doors */
@@ -58,6 +67,7 @@ enum {
     T_CEILS = T_FLOORS + 5,                       /* NFLOORS */
     T_RDOOR = T_CEILS + 3,                        /* NCEILS */
     T_RJAMB, T_RLOCKED, T_RLOCKED_S, T_RLOCKED_C,
+    T_TRDOOR,                                     /* a trial's door (1.0.0b13): the run's own, its skull and crossed bones */
     NTEX
 };
 #define NMAT 5
@@ -193,6 +203,48 @@ enum {
     SP_MOTE,                                    /* a soul's mote where the dead fell: a pale flame with a face in it */
     SP_DBELL, SP_DBELL_C,                       /* the Dead Bell in its frame: cracked bronze; corrupted, black, the crack alight */
     SP_FONT, SP_FONT_C,                         /* the Weeping Font: a basin under a weeping face, dry; cursed, brimming red */
+    /* the runs' hazards (1.0.0b13, docs/PLAN-b13.md section 5) */
+    SP_CENSER,                                  /* the Swinging Censer: an iron bowl on its chain, smoking */
+    SP_SMOKE, SP_VAPOUR, SP_GAS,                /* a puff of smoke; the embalmers' grey-green breath; silt gas and firedamp, sallow */
+    SP_VOTIVE,                                  /* a votive rack gone over, its cups spilling */
+    SP_RELIQ, SP_RELIQ_O,                       /* the Hungry Reliquary on its plinth; and its lid up, violet inside */
+    SP_SNARE,                                   /* a web across a doorway, all but unseen */
+    SP_SPIKES,                                  /* Shatterglass: spikes of black glass stood up from the floor */
+    SP_ASHFALL,                                 /* ash coming down */
+    /* puzzles' things (1.0.0b13, docs/PLAN-b13.md sections 6 and 7) */
+    SP_PZ_SKULL,                                /* a skull to carry, its brow scratched with a mark */
+    SP_PZ_PLINTH,                               /* a low stone plinth that takes a thing */
+    SP_PZ_DIAL0, SP_PZ_LEVER0 = SP_PZ_DIAL0 + 8,   /* a dial on a post in its eight turns; */
+    SP_PZ_LEVER1, SP_PZ_CANDLE0, SP_PZ_CANDLE1, /* a lever up and down; a candle dark and lit */
+    SP_PZ_TABLET,                               /* a carved tablet on its stand */
+    SP_PZ_NICHE,                                /* a niche cut in the wall, a mark over it (the Ossuary Ledger) */
+    SP_PZ_EFFIGY0, SP_PZ_EFFIGY3 = SP_PZ_EFFIGY0 + 3,   /* a knight on his tomb, his head turned away, to your right, to you, to your left */
+    SP_PZ_PAN, SP_PZ_SCALE0, SP_PZ_SCALE2 = SP_PZ_SCALE0 + 2,   /* a pan on its stand; the great scale, left down, level, right down */
+    SP_PZ_CASKET,                               /* a small reliquary, beads on its lid */
+    SP_PZ_BANNER,                               /* the Order's banner on its pole */
+    SP_PZ_CISTERN0, SP_PZ_SAINT = SP_PZ_CISTERN0 + 9,   /* a cistern in the wall, its water from dry to full; a saint, her hands out empty */
+    SP_PZ_EMBLEM,                               /* an emblem to give her, its sign on it */
+    SP_PZ_SPOUT, SP_PZ_MILL0, SP_PZ_MILL1,      /* the culverts' spout, and the mill wheel turning */
+    SP_PZ_IDOL, SP_PZ_LOCK,                     /* the gold veins' idol, and the door's lock */
+    SP_PZ_WHEEL,                                /* a sluice wheel, a saint's sign on its hub */
+    SP_PZ_BOARD, SP_PZ_BOX, SP_PZ_SACK,         /* the Hollows': a chalk board; the hoist's counterweight box; a sack of ore */
+    SP_PZ_HOOK, SP_PZ_TAG,                      /* a hook on the tally board; a miner's tag */
+    SP_PZ_SOCKET, SP_PZ_FOSSIL,                 /* a socket in the rock; a fossil's bone */
+    SP_PZ_STONE, SP_PZ_LAMP0, SP_PZ_LAMP1,      /* a standing stone; a miner's lamp, dark and lit */
+    SP_PZ_PRISM0, SP_PZ_GEODE = SP_PZ_PRISM0 + 4,   /* the Deep's: a prism, its face away, to your right, to you, to your left; */
+    SP_PZ_GEODE1, SP_PZ_THRONE, SP_PZ_STATUE,   /* a geode, dark and lit; the throne; a statue of the dead court */
+    SP_PZ_VENT0, SP_PZ_VENT1,                   /* a vent, shut and open */
+    SP_PZ_SLAB, SP_PZ_NUMSTONE,                 /* a square of the grid; a numbered stone */
+    SP_PZ_LETTER0, SP_PZ_LETTER_END = SP_PZ_LETTER0 + 26,   /* the letters, A to Z, for the dials */
+    SP_MARK0, SP_PIP1 = SP_MARK0 + 16,          /* the marks carved on things (PZ_MARKS in crawl_art.c), */
+    SP_PZ_LAST = SP_PIP1 + 9,                   /* and one to nine pips */
+    SP_HIDE0,                                   /* where the hidden message lies (1.0.0b13): a candle-box, a drowned */
+    SP_BSHRINE = SP_HIDE0 + 4,                  /* satchel, a miner's boot, a broken geode, a run each; the Black Shrine, */
+    SP_BSHRINE_E0, SP_BSHRINE_E1,               /* and its skull's eyes, faint and flaring (drawn at full brightness) */
+    SP_TRLIGHT0,                                /* by a trial's door (1.0.0b13), a run each: a red candle on a stand, a */
+    SP_TR_BIER = SP_TRLIGHT0 + 4,               /* drowned lantern, a red lamp, a brazier of red glass; a bier of stone */
+    SP_TR_PROP0, SP_TR_PROP1,                   /* a loose prop under the roof, and braced */
+    SP_TR_BRAZ0, SP_TR_BRAZ1,                   /* a brazier, out and burning (the Wraith's, as a trial's thing) */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
     SP_SKEL_SA, SP_SKEL_SB, SP_SHIELD_SA, SP_SHIELD_SB, SP_BAT_SA, SP_BAT_SB, SP_SPIDER_SA, SP_SPIDER_SB,
     SP_GHOST_SA, SP_GHOST_SB, SP_WSKULL_S,
@@ -260,6 +312,8 @@ extern const char *const RUNE_GLYPH[9][7];      /* the runes' marks, 5 by 7, by 
 extern const char *const ELEM_GLYPH[6][7];      /* the elements' glyphs, 7 by 7, by EL_*: '#' the colour, 'o' bright (1.0.0b11) */
 extern const char *const RUNE_MARK[9][11];      /* the runes' marks for their sockets, 11 by 11, by DF_* */
 extern const char *const CLASS_MARK[6][11];     /* the classes' marks, 11 by 11, by the class's element */
+extern const char *const PZ_MARKS[16][7];       /* the marks carved on puzzles' things, 7 by 7 (1.0.0b13): mitre, helm, tonsure, crown,
+                                                   key, wheel, arrows, tower, lamb, lamp, eye, hand, picks, moon, star, skull */
 extern const signed char LAMP_BOWL[6][2];       /* where the Lampstand's bowls sit on its sprite, by EL_* */
 int crawl_lamp_flame(int dx, int dy, int rank, float t, int seed);   /* a bowl's flame: its ramp's step there (0 none) */
 void crawl_art_init(void);                      /* builds everything once */
@@ -276,5 +330,17 @@ typedef struct {
 } RunLook;
 extern const RunLook crawl_looks[4];
 void crawl_art_run(int level);                  /* that run's own textures and keys, at the level's rot (after crawl_art_level) */
+
+/* A document's page (1.0.0b13, docs/PLAN-b13.md section 6a), a run each: a leaf of the Order's vellum, a letter's paper,
+ * a scrap of sacking, beaten gold leaf. Drawn into pix (stride across) at x0, y0, w by h, left as it was where it is torn
+ * away (run + 4: a slip, without the vellum's square for a first letter); returns the colour to write on it in.
+ * crawl_doc_ink finishes what was written on it: the letter's ink runs, the gold's scratches catch the light.
+ * crawl_doc_paper says whether a colour is the page's own, for the writer. */
+unsigned char crawl_doc_page(unsigned char *pix, int stride, int x0, int y0, int w, int h, int run, unsigned seed);
+void crawl_doc_ink(unsigned char *pix, int stride, int x0, int y0, int w, int h, int run, unsigned char ink, unsigned seed);
+int crawl_doc_paper(int run, unsigned char c);
+/* a trial's hourglass (1.0.0b13, section 8), 21 by 33, into pix (stride across) at x0, y0: sand the share still above
+ * (1 full, 0 run out), state 0 running, 1 broken (won), 2 cracked and empty (lost); t a clock for the falling grains */
+void crawl_hourglass(unsigned char *pix, int stride, int x0, int y0, float sand, int state, float t);
 
 #endif

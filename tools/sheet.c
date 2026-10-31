@@ -516,6 +516,269 @@ static int draw_b7walls(const char *path, int level) {
     return ok;
 }
 
+/* 1.0.0b13 (docs/PLAN-b13.md, section 12): the runs' hazards, what stands in their walls on each run's own stone,
+ * and the things they set on the floor; warning, harming and fading are drawn by the game, so they come as frames */
+static int draw_hazards(const char *path) {
+    typedef struct { int id, is_tex; const char *l1, *l2; } HzPic;
+    static const struct { int level; const char *title; HzPic p[7]; } RUNS[4] = {
+        { 3, "RUN I, THE CRYPTS", { { T_HZ_SLAB, 1, "EMBALMERS' BREATH", "THE SLAB" }, { T_HZ_SLAB_OPEN, 1, "ITS SEAM", "ABOUT TO BREATHE" },
+            { T_HZ_COLD, 1, "THE COLD VAULT", "ITS CRACK" }, { SP_CENSER, 0, "THE SWINGING", "CENSER" }, { SP_VAPOUR, 0, "THE BREATH", "OVER THE FLOOR" },
+            { SP_VOTIVE, 0, "VOTIVE SPILL", "THE RACK GONE OVER" }, { SP_RELIQ_O, 0, "HUNGRY RELIQUARY", "OPEN (SHUT BELOW)" } } },
+        { 13, "RUN II, THE CATACOMBS", { { T_HZ_SLUICE, 1, "SLUICE BURST", "THE GATE" }, { T_HZ_SLUICE_OPEN, 1, "THROWN UP", "ON THE SURGE" },
+            { T_HZ_SAINT, 1, "THE WEEPING SAINT", "" }, { T_HZ_SAINT_LIT, 1, "DRINKING", "HER EYES ALIGHT" }, { SP_SNARE, 0, "WEB SNARE", "ACROSS A DOORWAY" },
+            { SP_GAS, 0, "SILT GAS", "HANGING" }, { SP_RELIQ, 0, "THE RELIQUARY", "SHUT" } } },
+        { 23, "RUN III, THE HOLLOWS", { { T_HZ_SEAM, 1, "LODESTONE SEAM", "" }, { T_HZ_SEAM_LIT, 1, "ABOUT TO ARC", "" },
+            { SP_CART, 0, "RUNAWAY CART", "ON THE RAILS" }, { SP_TIMBER, 0, "TIMBER COLLAPSE", "THE PROPS GO" }, { SP_GAS, 0, "FIREDAMP", "(AS SILT GAS)" },
+            { -1, 0, 0, 0 } } },
+        { 33, "RUN IV, THE DEEP", { { T_HZ_FISSURE0, 1, "FISSURE BREATH", "GLOWING" }, { T_HZ_FISSURE1, 1, "WHITE-HOT", "ABOUT TO BREATHE" },
+            { T_HZ_MIRROR, 1, "THE BLACK MIRROR", "" }, { T_HZ_MIRROR_SEEN, 1, "DRINKING", "YOU, IN IT" }, { SP_CRYSTAL_B, 0, "SINGING CRYSTAL", "" },
+            { SP_SPIKES, 0, "SHATTERGLASS", "THE SPIKES" }, { SP_ASHFALL, 0, "ASHFALL", "" } } },
+    };
+    int k = 3, cw = TS * k + PAD + 24, row = TS * k + 2 * LABEL_H + PAD + LABEL_H;
+    iw = PAD + 7 * cw + PAD;
+    ih = PAD + LABEL_H + 8 + 4 * row + LABEL_H + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "1.0.0B13: THE RUNS' HAZARDS, FOR APPROVAL", 230, 230, 230);
+    int y = PAD + LABEL_H + 8;
+    for (int r = 0; r < 4; r++) {
+        crawl_art_level(RUNS[r].level);
+        crawl_art_run(RUNS[r].level);
+        text(PAD, y, RUNS[r].title, 200, 200, 200);
+        int yy = y + LABEL_H;
+        for (int i = 0; i < 7 && RUNS[r].p[i].id >= 0; i++) {
+            const HzPic *h = &RUNS[r].p[i];
+            int x = PAD + i * cw;
+            if (h->l1 == 0) break;
+            if (h->is_tex) tex(x, yy, h->id, k, LIGHT);
+            else {
+                rect(x, yy, TS * k, TS * k, 22, 21, 24);
+                for (int sy = 0; sy < TS * k; sy++)
+                    for (int sx = 0; sx < TS * k; sx++) {
+                        uint8_t c = crawl_spr[h->id][(sx / k) * TS + sy / k];
+                        if (c == C_CLEAR) continue;
+                        c = crawl_cmap[LIGHT][c];
+                        put(x + sx, yy + sy, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+                    }
+            }
+            text(x, yy + TS * k + 4, h->l1, 190, 190, 190);
+            text(x, yy + TS * k + 4 + LABEL_H - 6, h->l2, 150, 150, 150);
+        }
+        y += row;
+    }
+    text(PAD, ih - PAD - 8 * TXT, "SHADED AS NEAR A TORCH. THE FLOOR'S MARKS COME AS FRAMES FROM THE GAME.", 120, 120, 120);
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
+/* 1.0.0b13 (docs/PLAN-b13.md, section 12): every puzzle's pieces, the marks cut on them, and the wing's door */
+static int draw_puzzles(const char *path) {
+    static const struct { int id; const char *l; } P[] = {
+        { SP_PZ_SKULL, "SKULL" }, { SP_PZ_NICHE, "NICHE" }, { SP_BELL, "BELL" }, { SP_PZ_BANNER, "BANNER" }, { SP_PZ_EFFIGY0, "EFFIGY AWAY" },
+        { SP_PZ_EFFIGY0 + 1, "TO YOUR RIGHT" }, { SP_PZ_EFFIGY0 + 2, "TO YOU" }, { SP_PZ_EFFIGY0 + 3, "TO YOUR LEFT" }, { SP_PZ_SCALE0 + 1, "SCALE" },
+        { SP_PZ_PAN, "PAN" }, { SP_PZ_CASKET, "RELIQUARY" }, { SP_PZ_CANDLE0, "CANDLE" }, { SP_PZ_CANDLE1, "LIT" }, { SP_URN, "URN" },
+        { SP_PZ_PLINTH, "PLINTH" }, { SP_PZ_DIAL0 + 3, "DIAL" }, { SP_PZ_LEVER0, "LEVER" }, { SP_PZ_LEVER1, "PULLED" }, { SP_PZ_TABLET, "TABLET" },
+        { SP_PZ_CISTERN0 + 3, "CISTERN" }, { SP_PZ_CISTERN0 + 8, "FULL" }, { SP_PZ_SAINT, "SAINT" }, { SP_PZ_EMBLEM, "EMBLEM" }, { SP_PZ_SPOUT, "SPOUT" },
+        { SP_PZ_MILL0, "MILL WHEEL" }, { SP_PZ_WHEEL, "SLUICE WHEEL" }, { SP_PZ_BOARD, "CHALK BOARD" }, { SP_PZ_BOX, "HOIST BOX" }, { SP_PZ_SACK, "ORE SACK" },
+        { SP_PZ_HOOK, "HOOK" }, { SP_PZ_TAG, "TAG" }, { SP_PZ_SOCKET, "SOCKET" }, { SP_PZ_FOSSIL, "FOSSIL BONE" }, { SP_PZ_STONE, "STANDING STONE" },
+        { SP_PZ_LAMP0, "LAMP" }, { SP_PZ_LAMP1, "LIT" }, { SP_PZ_PRISM0 + 2, "PRISM" }, { SP_PZ_GEODE, "GEODE" }, { SP_PZ_GEODE1, "LIT" },
+        { SP_PZ_THRONE, "THRONE" }, { SP_PZ_STATUE, "STATUE" }, { SP_PZ_VENT0, "VENT" }, { SP_PZ_VENT1, "OPEN" }, { SP_PZ_SLAB, "GRID SQUARE" },
+        { SP_PZ_NUMSTONE, "NUMBER STONE" }, { SP_PZ_IDOL, "IDOL" }, { SP_PZ_LOCK, "LOCK" } };
+    int n = (int)(sizeof P / sizeof P[0]), k = 2, cols = 8, cw = TS * k + 24, row = TS * k + LABEL_H + 12;
+    iw = PAD + cols * cw + PAD;
+    ih = PAD + LABEL_H + 8 + ((n + cols - 1) / cols) * row + 2 * row + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    crawl_art_level(6); crawl_art_run(6);
+    text(PAD, PAD, "1.0.0B13: THE PUZZLES' PIECES, FOR APPROVAL", 230, 230, 230);
+    int y0 = PAD + LABEL_H + 8;
+    for (int i = 0; i < n; i++) {
+        int x = PAD + (i % cols) * cw, y = y0 + (i / cols) * row;
+        rect(x, y, TS * k, TS * k, 22, 21, 24);
+        for (int sy = 0; sy < TS * k; sy++)
+            for (int sx = 0; sx < TS * k; sx++) {
+                uint8_t c = crawl_spr[P[i].id][(sx / k) * TS + sy / k];
+                if (c == C_CLEAR) continue;
+                c = crawl_cmap[LIGHT][c];
+                put(x + sx, y + sy, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+            }
+        text(x, y + TS * k + 4, P[i].l, 190, 190, 190);
+    }
+    int y = y0 + ((n + cols - 1) / cols) * row;
+    text(PAD, y, "THE MARKS CUT ON THEM, THE PIPS, A FEW LETTERS, AND THE WING'S DOOR", 200, 200, 200);
+    y += LABEL_H;
+    for (int i = 0; i < 16 + 9 + 4; i++) {
+        int id = i < 16 ? SP_MARK0 + i : i < 25 ? SP_PIP1 + i - 16 : SP_PZ_LETTER0 + (i - 25) * 6;
+        int x = PAD + i * 40;
+        for (int sy = 20; sy < 40; sy++) for (int sx = 24; sx < 40; sx++) {
+            uint8_t c = crawl_spr[id][sx * TS + sy];
+            if (c == C_CLEAR) continue;
+            c = crawl_cmap[LIGHT][c];
+            rect(x + (sx - 24) * 2, y + (sy - 20) * 2, 2, 2, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+        }
+    }
+    tex(PAD + 29 * 40 > iw - TS * 2 - PAD ? iw - TS * 2 - PAD : PAD + 29 * 40, y, T_WINGDOOR, 2, LIGHT);
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
+/* ---- 1.0.0b13: the hidden message on each run's page, a clue as Tab's documents shows it, the things that hide it,
+ * and the Black Shrine dark and showing (docs/PLAN-b13.md section 6a) ---- */
+static void ptext(uint8_t *buf, int stride, int x, int y, const char *s, uint8_t c, int tall) {   /* into a page, in its ink */
+    for (; *s; s++, x += 8)
+        for (int row = 0; row < 8 * (tall ? 2 : 1); row++)
+            for (int col = 0; col < 8; col++)
+                if (font_bios8[(uint8_t)*s][tall ? row / 2 : row] >> (7 - col) & 1) buf[(y + row) * stride + x + col] = c;
+}
+static int pwrap(const char *s, int cols0, int cols1, int nfirst, char out[][48], int max) {   /* as the game wraps a page */
+    int n = 0;
+    while (*s && n < max) {
+        int cols = n < nfirst ? cols0 : cols1, len = (int)strlen(s), cut = len;
+        if (len > cols) { cut = cols; while (cut > 0 && s[cut] != ' ') cut--; if (!cut) cut = cols; }
+        snprintf(out[n++], 48, "%.*s", cut, s);
+        s += cut;
+        while (*s == ' ') s++;
+    }
+    return n;
+}
+static void spr_shaded(int ox, int oy, int id, int k, int bright) {
+    for (int sy = 0; sy < TS * k; sy++)
+        for (int sx = 0; sx < TS * k; sx++) {
+            uint8_t c = crawl_spr[id][(sx / k) * TS + sy / k];
+            if (c == C_CLEAR) continue;
+            if (!bright) c = crawl_cmap[LIGHT][c];
+            put(ox + sx, oy + sy, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+        }
+}
+static int draw_documents(const char *path) {
+    static const char *const NAME[4] = { "I: A LEAF OF HOURS", "II: A LETTER", "III: A FOREMAN'S NOTE", "IV: GOLD LEAF" };
+    static const char *const TEXT[4] = {
+        "BROTHER, LEST IT BE FORGOT: THE SKULLS, EACH TO THE NICHE CUT WITH ITS MARK: THE STAR IN THE FIRST, THE HELM IN THE SECOND, THE CROWN IN THE THIRD.",
+        "TO WHOEVER THE WATER BRINGS THIS. THE REST OF US ARE GONE. THE WAY IS THIS: POUR GREAT TO MIDDLE, MIDDLE TO LEAST, LEAST TO GREAT, AND ROUND AGAIN, TILL ONE HOLDS FOUR.",
+        "FOR THE NEXT SHIFT, AND NOT A WORD TO THE GANGER: THE HEAD SWITCH DOWN, THE LEFT SWITCH UP, THEN LET OFF THE BRAKE.",
+        "THE COURT KEEPS THIS, CUT IN GOLD: TURN THE PRISMS SO THE BEAM GOES EAST, TURNS SOUTH AT THE SECOND COLUMN, AND TURNS EAST AGAIN INTO THE GEODE." };
+    enum { PW = 198, PH = 156, K = 2 };
+    static uint8_t pg[PH * PW];
+    int colw = PW * K + 20;
+    iw = PAD + 4 * colw + PAD;
+    ih = PAD + LABEL_H + 8 + LABEL_H + PH * K + 20 + LABEL_H + TS * 2 + 30 + LABEL_H + 112 * K + 20 + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    crawl_art_level(6); crawl_art_run(6);
+    text(PAD, PAD, "1.0.0B13: THE HIDDEN MESSAGE, TAB'S DOCUMENTS AND THE BLACK SHRINE, FOR APPROVAL", 230, 230, 230);
+    int y0 = PAD + LABEL_H + 8;
+    for (int run = 0; run < 4; run++) {
+        int x0 = PAD + run * colw;
+        text(x0, y0, NAME[run], 200, 200, 200);
+        memset(pg, C_CLEAR, sizeof pg);
+        unsigned seed = (unsigned)(6 * 977 + run * 31 + 5);
+        uint8_t ink = crawl_doc_page(pg, PW, 0, 0, PW, PH, run, seed);
+        const char *s = TEXT[run];
+        int first = 0, y = 12;
+        if (run == 0) { char c[2] = { *s, 0 }; ptext(pg, PW, 14, 9, c, R_BLOOD + 11, 1); s++; first = 2; }
+        char ln[16][48];
+        int n = pwrap(s, (PW - 40) / 8, (PW - 22) / 8, first, ln, 15);
+        for (int i = 0; i < n && y < PH - 12; i++, y += 9) ptext(pg, PW, i < first ? 28 : 12, y, ln[i], ink, 0);
+        crawl_doc_ink(pg, PW, 0, 0, PW, PH, run, ink, seed);
+        for (int py = 0; py < PH; py++)
+            for (int px = 0; px < PW; px++) {
+                uint8_t c = pg[py * PW + px];
+                if (c == C_CLEAR) continue;
+                rect(x0 + px * K, y0 + LABEL_H + py * K, K, K, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+            }
+    }
+    int y = y0 + LABEL_H + PH * K + 20;
+    text(PAD, y, "WHERE IT HIDES, A RUN EACH; THE BLACK SHRINE, DARK AND SHOWING; A CLUE AS TAB'S DOCUMENTS SHOWS IT", 200, 200, 200);
+    y += LABEL_H;
+    for (int k = 0; k < 4; k++) spr_shaded(PAD + k * (TS * 2 + 16), y, SP_HIDE0 + k, 2, 0);
+    int sx = PAD + 4 * (TS * 2 + 16) + 24;
+    for (int k = 0; k < 2; k++) { spr_shaded(sx + k * (TS * 2 + 16), y, SP_BSHRINE, 2, 0); spr_shaded(sx + k * (TS * 2 + 16), y, k ? SP_BSHRINE_E1 : SP_BSHRINE_E0, 2, 1); }
+    int cx = sx + 2 * (TS * 2 + 16) + 24, cw = iw - PAD - cx;
+    rect(cx, y, cw, TS * 2, 22, 21, 24);
+    {                                                              /* a clue: where it was read, gold, and what it said */
+        char ln[8][48];
+        int n = pwrap("THE BANNER, IN THE CHAPTER HOUSE", cw / 16 - 1, cw / 16 - 1, 0, ln, 2), ty = y + 6;
+        for (int i = 0; i < n; i++, ty += 18) text(cx + 6, ty, ln[i], 200, 160, 40);
+        ty += 6;
+        n = pwrap("THE BROTHERS RANG THE KNELL AS THEY WERE TAUGHT: THE TREBLE, THE TENOR, THE GREAT BELL, THE TENOR.", cw / 16 - 1, cw / 16 - 1, 0, ln, 5);
+        for (int i = 0; i < n; i++, ty += 18) text(cx + 6, ty, ln[i], 220, 220, 220);
+    }
+    y += TS * 2 + 30;                                              /* the reckoning's slip, on the Catacombs' paper and the Crypts' */
+    text(PAD, y, "THE RECKONING, PINNED TO THE EXIT'S DOOR", 200, 200, 200);
+    y += LABEL_H;
+    static const char *const RK[6] = { "THE DEAD KEEP COUNT", "13 CREATURES STILL WALK", "2 OF 5 SECRETS STILL HIDDEN", "ABOUT 1,400 GOLD STILL LIES HERE",
+                                      "DESCEND BELOW", "> NOT YET <" };
+    for (int run = 0; run < 2; run++) {
+        enum { SW = 296, SH = 112 };
+        static uint8_t slip[SH * SW];
+        memset(slip, C_CLEAR, sizeof slip);
+        uint8_t ink = crawl_doc_page(slip, SW, 0, 0, SW, SH, (1 - run) + 4, 99u + (unsigned)run);
+        for (int i = 0; i < 6; i++) {
+            int w = (int)strlen(RK[i]) * 8, x = i == 0 || i >= 4 ? (SW - w) / 2 : 26, yy = i == 0 ? 12 : i < 4 ? 30 + (i - 1) * 11 : 70 + (i - 4) * 11;
+            ptext(slip, SW, x, yy, RK[i], i == 0 || i == 5 ? (uint8_t)(R_BLOOD + 9) : ink, 0);
+        }
+        crawl_doc_ink(slip, SW, 0, 0, SW, SH, 1 - run, ink, 99u + (unsigned)run);
+        for (int py = 0; py < SH; py++)
+            for (int px = 0; px < SW; px++) {
+                uint8_t c = slip[py * SW + px];
+                if (c == C_CLEAR) continue;
+                rect(PAD + run * (SW * K + 30) + px * K, y + py * K, K, K, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+            }
+    }
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
+/* ---- 1.0.0b13: the trials' doors, a run each, the lights by them, their things, and the hourglass (docs/PLAN-b13.md part D) ---- */
+static int draw_trials(const char *path) {
+    static const int LV[4] = { 3, 13, 23, 33 };
+    static const char *const RUNNAME[4] = { "I: IRON", "II: VERDIGRIS", "III: OCHRE", "IV: GLASS" };
+    int colw = TS * 3 + 40;
+    iw = PAD + 9 * (TS * 2 + 12) + PAD;
+    ih = PAD + LABEL_H + 8 + LABEL_H + TS * 3 + 16 + LABEL_H + TS * 2 + 30 + LABEL_H + 33 * 4 + 20 + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "1.0.0B13: THE TRIALS, FOR APPROVAL", 230, 230, 230);
+    int y = PAD + LABEL_H + 8;
+    for (int run = 0; run < 4; run++) {                            /* each run's door, as its level makes it */
+        crawl_art_level(LV[run]); crawl_art_run(LV[run]);
+        int x = PAD + run * colw;
+        text(x, y, RUNNAME[run], 200, 200, 200);
+        tex(x, y + LABEL_H, T_TRDOOR, 3, LIGHT);
+    }
+    y += LABEL_H + TS * 3 + 16;
+    crawl_art_level(6); crawl_art_run(6);
+    text(PAD, y, "BY THE DOORS; THE BIER; A PROP, LOOSE, BRACED; A BRAZIER, OUT, LIT", 200, 200, 200);
+    y += LABEL_H;
+    static const int SPR[] = { SP_TRLIGHT0, SP_TRLIGHT0 + 1, SP_TRLIGHT0 + 2, SP_TRLIGHT0 + 3, SP_TR_BIER, SP_TR_PROP0, SP_TR_PROP1, SP_TR_BRAZ0, SP_TR_BRAZ1 };
+    for (int k = 0; k < 9; k++) spr_shaded(PAD + k * (TS * 2 + 12), y, SPR[k], 2, 0);
+    y += TS * 2 + 30;
+    text(PAD, y, "THE HOURGLASS: FULL, HALF, NEARLY OUT, BROKEN (WON), CRACKED (RUN OUT)", 200, 200, 200);
+    y += LABEL_H;
+    static const float SAND[5] = { 1.0f, 0.5f, 0.08f, 0.0f, 0.0f };
+    for (int k = 0; k < 5; k++) {
+        static uint8_t buf[33 * 21];
+        memset(buf, C_CLEAR, sizeof buf);
+        crawl_hourglass(buf, 21, 0, 0, SAND[k], k == 3 ? 1 : k == 4 ? 2 : 0, 0.3f);
+        for (int py = 0; py < 33; py++)
+            for (int px = 0; px < 21; px++) {
+                uint8_t c = buf[py * 21 + px];
+                if (c == C_CLEAR) continue;
+                rect(PAD + k * 120 + px * 4, y + py * 4, 4, 4, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+            }
+    }
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
 /* ---- a run's own look (docs/PLAN-b10.md): its parts, and its rooms laid out as the generator would ---- */
 
 typedef struct { uint8_t tex[NTEX][TS * TS]; uint8_t pal[256][3]; uint8_t cmap[NLIGHT][256]; } Snap;
@@ -1092,6 +1355,34 @@ int main(int argc, char **argv) {
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_spells(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         crawl_art_level(level < 1 ? 1 : level);
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "puzzles")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/puzzles.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_puzzles(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "trials")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/trials.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_trials(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "documents")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/documents.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_documents(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "hazards")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/hazards.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_hazards(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     static const char *const RUNSHEET_NAMES[4][2] = { { "crypts", "cryptrooms" }, { "catacombs", "catarooms" }, { "hollows", "hollowrooms" }, { "deep", "deeprooms" } };

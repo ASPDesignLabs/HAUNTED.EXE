@@ -28,8 +28,10 @@ enum { ST_ARMOR, ST_DODGE, ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_S
        ST_HASTE, ST_THRIFT, ST_DAMAGE, ST_FIRE, ST_FROST, ST_SHOCK, ST_EFFECT,
        ST_TREASURE, ST_LUCK,                            /* these two never roll on a piece: only the caster's own (1.0.0b9) */
        ST_RES_SPIRIT, ST_VESSEL,                        /* 1.0.0b11: Resist Spirit, and more spirit carried */
-       ST_POW, ST_EFF = ST_POW + NELEM, ST_INS = ST_EFF + NELEM, NSTAT = ST_INS + NELEM };   /* each element's Power,
-                                                           Efficiency and Insight (docs/PLAN-b11.md, section 5): ST_POW + EL_* */
+       ST_POW, ST_EFF = ST_POW + NELEM, ST_INS = ST_EFF + NELEM,   /* each element's Power, Efficiency and Insight
+                                                           (docs/PLAN-b11.md, section 5): ST_POW + EL_* */
+       ST_RES_LIGHT = ST_INS + NELEM,                   /* 1.0.0b13: Resist Lightning, for the runs' hazards (docs/PLAN-b13.md, H4) */
+       NSTAT };
 enum { AB_NONE, AB_SWIFT, AB_ARCANE, AB_TREASURE, AB_KEYMAKER, AB_COMMUNE, AB_THORNS, AB_MIRRORED, NABIL };
 #define PIECE_STATS 6                                   /* five at most, and one an ability may add */
 #define BAG_MAX 5
@@ -101,6 +103,7 @@ int   gear_thorns(const Gear *g);                        /* damage back to whate
 float gear_regen(const Gear *g);                         /* HP per second */
 float gear_poison_resist(const Gear *g);                 /* poison lasts this much less */
 float gear_slow_resist(const Gear *g);                   /* and slowing */
+float gear_light_resist(const Gear *g);                  /* fraction of lightning shrugged off (1.0.0b13) */
 int   gear_max_hp(const Gear *g);
 float gear_haste(const Gear *g);                         /* walking speed factor */
 float gear_ember(const Gear *g);                         /* spell damage factor */

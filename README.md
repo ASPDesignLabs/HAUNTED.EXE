@@ -32,9 +32,10 @@ Two scenes are included. They alternate every few minutes (configurable) with a 
 | Scene | VGA mode | What it is |
 |---|---|---|
 | **HAUNT.EXE** | 80x25 text mode, 720x400 | A possessed 486 PC: BIOS POST, a DOS prompt, and a ghost that types back. Between the gags it runs DOS programs that have been got at: EDIT rewriting AUTOEXEC.BAT for a seance, DEFRAG consuming souls and moving the remains to the front of the disk, a modem call to a BBS on the other side, a virus scan that cannot clean a dead host, MSD finding GHOST.SYS on IRQ 13, a thirteen-disk SETUP, a QBasic program that writes itself, and a file manager moving the dead from GRAVES to SOULS, until a file with your name turns up. Art materialises in between, seven full-screen half-block ANSI scenes with their own stories: the jack-o'-lantern in the pumpkin patch, the talking skull in the ossuary, the manor in a thunderstorm, the spider in the candle-lit corner, zombies digging out of a graveyard, skeletons dancing out of their coffins, and a ghost that rushes down a hallway to say boo. It ends in a fatal error and a CRT power-off, then reboots. |
-| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Forty levels in four runs of ten, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its tenth level, where a boss waits in an arena of its own: the Ill-Fated Skeleton Knight, the Wandering Hunting Spider, the Black Deacon and the Wraith Unbound; then the runs come round again. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and chooses among the wares on her pedestals for the gold it carries: spells, and things to wear that are rolled like loot, each in its quality's colour. Her room has grown into a hall: a back room with the Hexed Totem, where a beaten boss's scrip buys its ability, the Corpus Compendium and the Wretched Repository, and a grave plot with the Accursed Portal in its far wall. Runes come from the Rune Shrine across her room, for Cursed Coins. She sells a map that fills in as you walk, and turns what you have slain and found into Levels of Atonement: points to spend on the caster, and at every tenth a cornerstone. Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, walked with quick 90-degree turns. Each run is a place of its own, built in its own stone with its own rooms, doors, keys, light and treasure: the Order's burial vaults in dressed ashlar and bone, the drowned catacombs in wet slate under a climbing flood line, a mine the dead were tipped into, and black glass and magma at the bottom. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides three to six secrets behind cracked walls, some of them chains whose deeper links lead out of the crypt altogether: into the Backrooms in the first two runs, and Severance in the next two. Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. From level 6 a Black Altar stands deep in each level: for souls it sends its wisp to a secret, one at a time, or blesses your wisps against the dead, and once every secret is found it anoints something you wear. Will-o'-wisps, a soul each, fly ahead through the halls to the way out or a key and leave a trail of light to follow. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. Twenty kinds of creature come in over the first two runs, about one new kind a level, each in ranks you can tell by its colour, and on the last levels of each run its boss's hazards come into the halls as omens. Your face, Wolfenstein-style, pops up when you are hurt. Hold H, or any button on a game controller, for three seconds to play it yourself: then death costs, and only the merchant's ledger keeps what you have (see below). |
+| **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Forty levels in four runs of ten, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its tenth level, where a boss waits in an arena of its own: the Ill-Fated Skeleton Knight, the Wandering Hunting Spider, the Black Deacon and the Wraith Unbound; then the runs come round again. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and chooses among the wares on her pedestals for the gold it carries: spells, and things to wear that are rolled like loot, each in its quality's colour. Her room has grown into a hall: a back room with the Hexed Totem, where a beaten boss's scrip buys its ability, the Corpus Compendium and the Wretched Repository, and a grave plot with the Accursed Portal in its far wall. Runes come from the Rune Shrine across her room, for Cursed Coins. She sells a map that fills in as you walk, and turns what you have slain and found into Levels of Atonement: points to spend on the caster, and at every tenth a cornerstone. Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, walked with quick 90-degree turns. Each run is a place of its own, built in its own stone with its own rooms, doors, keys, light and treasure: the Order's burial vaults in dressed ashlar and bone, the drowned catacombs in wet slate under a climbing flood line, a mine the dead were tipped into, and black glass and magma at the bottom. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides three to six secrets behind cracked walls, some of them chains whose deeper links lead out of the crypt altogether: into the Backrooms in the first two runs, and Severance in the next two. Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. From level 6 a Black Altar stands deep in each level: for souls it sends its wisp to a secret, one at a time, or blesses your wisps against the dead, and once every secret is found it anoints something you wear. Will-o'-wisps, a soul each, fly ahead through the halls to the way out or a key and leave a trail of light to follow. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. Twenty kinds of creature come in over the first two runs, about one new kind a level, each in ranks you can tell by its colour, and on the last levels of each run its boss's hazards come into the halls as omens. Each run has hazards of its own besides, in its walls and rooms; on its even levels a sealed wing opens only to a puzzle worked out with things in the world, its answer hidden somewhere on the level; and from the third level a door marked with skull and bones holds a trial against an hourglass. Your face, Wolfenstein-style, pops up when you are hurt. Hold H, or any button on a game controller, for three seconds to play it yourself: then death costs, and only the merchant's ledger keeps what you have (see below). |
 
 ![CATACOMB's four runs: a chapter house with its plaster falling away and a knight's slab with candles in the Crypts; a shield-bearer wading through a cistern and a spinners' gallery of bone and webs in the Catacombs; a timbered gallery with mine carts and a lamp, and a fossil hall with a fire, in the Hollows; a geode under a roof of amethyst, and a glass hall with its cracks alight, in the Deep](docs/preview_catacomb_runs.png)
+![CATACOMB's trials and puzzles: a trial's door marked with skull and crossed bones in the Catacombs, Rising Water under way with its hourglass and the drowned wading in, the magma's beam through two glass prisms in a Deep puzzle, the hidden message found in a candle-box, the documents page with the leaf's text, and the reckoning's slip at the exit, THE DEAD KEEP COUNT](docs/preview_catacomb_trials.png)
 ![CATACOMB's Alignment and souls: the Lampstand's screen with Fire at rank 20 and Firewall bought, a flame spirit circling the caster's hand, her question WHAT WERE YOU? at the Witchfinder, the map open while walking with violet ink across a hole burnt in the parchment, a shield-bearer's health with the glyphs of what hurts it, and a bat latched across the view](docs/preview_catacomb_alignment.png)
 ![CATACOMB's map and Levels of Atonement: the map floating beside the merchant with its card, the map unrolled in the Ossuary, a shield-bearer's health with the spells that hurt it most and least, a Level of Atonement banked as it falls, the caster's screen, and the cornerstones](docs/preview_catacomb_atonement.png)
 ![CATACOMB with a game controller: holding a button over HAUNT.EXE's pumpkin patch, the controls in the pad's words, the merchant's prompt, the wardrobe, the bestiary and the Codex with their buttons in colour](docs/preview_catacomb_pad.png)
@@ -549,6 +550,45 @@ eye shows under your keys and in the readout, and FLEE and OPEN THE LEDGER say *
 This catches a closed window, a crash or a power cut as well. Nothing in a pocket or her room counts as
 danger.
 
+### CATACOMB: hazards, puzzles and trials
+
+**Each run's own hazards** (1.0.0b13). The Crypts, the Catacombs, the Hollows and the Deep each have six or seven
+things of their own that hurt: some fixed in the walls and rooms, keeping a rhythm that can be learnt (a censer on
+its chain, a burial slab breathing, a sluice gate, a lodestone seam, a fissure, a black mirror), some arising near
+you (falling votive racks, silt, choking ash, glass that spikes), more of both as the run goes on, and now and then
+an earlier run's. Each harms by an element, never more than a quarter of your health at a stroke, and always warns
+first. From the sixth level of each run, two or three on a level drink your souls while you stand in them (a
+reliquary, a weeping saint, a tithe box, the mirror). **Resist Lightning** is a new stat and a line of points.
+
+**Puzzles.** On the even levels from the sixth, a sealed wing behind a great door, a hoard inside, and on one
+puzzle level in three the way on. Only thought opens it, never a spell: skulls carried to their niches, bells rung
+in order, knights' heads turned, a scale balanced, cisterns poured, stepping stones, rails switched, a fossil's
+bones fitted, prisms, a glass floor, singing crystals, a magic square, twenty-seven kinds in all, a run's own and
+two of any run. Everything is done with E and your feet, and read in the world; you can carry one thing at a time
+and still cast. After three wrong tries a whisper gives a nudge. **The answer is written down** somewhere on the
+level, hidden in one of the run's things (a candle-box, a satchel in the silt, a miner's boot, a broken geode):
+E searches one, a second's work, and the right one glints when you are close, more with Treasure Hunter. A **Black
+Shrine** on each puzzle level will, for souls, show where it lies through the walls and on the map. What you find,
+and every clue you read, goes into a new page of Tab, **DOCUMENTS**, until the level ends.
+
+**Trials.** On every level from the third, a door marked with the run's skull and crossed bones, two red lights by
+it. A cell inside it seals, the room turns (its walls, its light, a quicker march), and an hourglass stands at the
+top of the view with a minute of sand and no numbers. Seventeen trials, four or five a run: the ossuary's bones
+standing up in waves, a vigil over three candles, relics carried to a bier, a knight's wager, a toll whose small
+bells answer only under the great one; rising water, a brood of sacs, sluice wheels, saints' lamps in the dark; a
+cave-in, a charnel feast, a rite of four deacons, firedamp; the molten rise, the dark hours, the glass court and
+singing glass. Won, the hourglass breaks, you are made whole (spirit to half the vessel), and **the trial's boon**
+gives a fifth more experience from what you slay for the rest of the level. Let the sand run out and its creatures
+crumble, and **the trial's curse** takes a fifth from everything instead. Falling there is a death as anywhere.
+
+**The reckoning.** Going out by the exit with anything still left on the level (creatures, secrets, the sealed
+wing, gold, the trial), a slip pinned to the exit's door says what, under *THE DEAD KEEP COUNT*, and you choose
+*DESCEND BELOW* to go on. It starts on *NOT YET*, so a quick E never leaves by mistake.
+
+The record counts puzzles solved and trials won, with achievements for them, and the Codex has a page for each
+hazard met, each kind of puzzle solved and each trial won. The screensaver works the puzzles out slowly, a wrong
+try now and then, and takes every trial it finds.
+
 ### Playing CATACOMB yourself
 
 Hold **H** for three seconds, in either scene, or any button on a game controller. A bar fills at the
@@ -562,8 +602,8 @@ switching until you hand it back. HAUNT.EXE cuts straight to the crypt.
 | Mouse | Turn, Doom-style; there is no looking up or down |
 | Left click, or Ctrl | Cast the spell in hand where you are looking (lightning and Soul Drain pick the nearest creature near the middle of the view). Hold it to charge a line's ultimate, or to keep Soul Tether on; a tap casts the spell |
 | 1 to 7, or the wheel | Choose a line's spell: 1 Fire, 2 Frost, 3 Lightning, 4 Poison (the Blight Flask), 5 Spirit (Soul Drain), 6 Physical (the Bone Spear), 7 the BFS9000; the wheel skips lines not open |
-| E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, step through the exit runes, drink from a boss's font, kindle a brazier, or use the merchant (her menu), the Rune Shrine, the Hexed Totem, the Compendium, the Repository, a gravestone, the Accursed Portal, the Lampstand, the Dead Bell, the Weeping Font, a Black Altar or its wisp, a visportal or a water cooler. Walking into a door opens it too, and walking into a chain's doorway takes you through |
-| Tab | The wardrobe: W and S choose a place, worn or in the bag, and Enter moves a piece between them. A and D turn to the caster's page: every total, what abilities add (in gold) and what is at its cap (in blue), and the lines' ranks; then the cornerstones, the Alignment's tree and the elements |
+| E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, step through the exit runes, drink from a boss's font, kindle a brazier, take, set down, turn, pull, light, strike or read a puzzle's or a trial's things, search a thing that may hold the hidden message, use a Black Shrine, or use the merchant (her menu), the Rune Shrine, the Hexed Totem, the Compendium, the Repository, a gravestone, the Accursed Portal, the Lampstand, the Dead Bell, the Weeping Font, a Black Altar or its wisp, a visportal or a water cooler. Walking into a door opens it too, and walking into a chain's doorway takes you through |
+| Tab | The wardrobe: W and S choose a place, worn or in the bag, and Enter moves a piece between them. A and D turn to the caster's page: every total, what abilities add (in gold) and what is at its cap (in blue), and the lines' ranks; then the cornerstones, the Alignment's tree, the elements, and the documents found and read on the level |
 | B | The bestiary and the achievements. A and D turn the pages, W and S choose a rank or scroll |
 | L | The wisps: a list of what can be summoned now and at what price (see below). W and S choose, Enter casts, Space sets L to cast that one at a tap; then holding L brings the list back |
 | C | The Codex of Affixations. A and D turn the pages, W and S go between its parts |
@@ -884,6 +924,42 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b13** (each run's hazards, puzzles behind a sealed wing, the hidden message and the Black Shrine, trials,
+the reckoning). Built on the work branch and tested in the harness only, by the autopilot and scripted players: not
+yet played by hand or run on Windows. The Windows build was compiled without warnings and smoke-tested by CI on the
+work branch.
+
+* **Hazards:** each of the twenty-one placed and fired in the harness (`CRAWL_HZ`), the dream walking round what is
+  always there and through it when it must; AddressSanitizer and UBSan clean.
+* **Puzzles:** the dream works every kind; on one seed it solved twenty-three of the twenty-seven within its time
+  (the slow ones are the singing crystals, the square and the letters, and the urns can outlast it). A balance it
+  left undone turned out to be the dream pacing before a doorway, now fixed. Clean under ASan and UBSan, all
+  twenty-seven.
+* **The hidden message, Tab's documents and the Black Shrine:** found by scripted players on each run's levels,
+  the page of each run drawn; the shrine's showing seen through the walls and on the map. Clean under ASan.
+* **Trials:** each run by the dream on eight seeds at three levels of its run, with experience banked so it
+  ascends as it would: 383 of 408 won. The plan asks for nineteen in twenty with five to fifteen seconds left;
+  Rising Water, the Brood and the Sluices are there, the others are won with more time to spare and lose a few
+  for reasons other than difficulty (the full table is in docs/PLAN-b13.md). Clean under ASan and UBSan.
+* **The reckoning:** opened, answered both ways, by scripted players on each run. Clean under ASan.
+* **Eight dream runs against 1.0.0b12** on the same seeds (1-15 odd): from level 1 for 100 minutes, and from levels
+  11, 21 and 31 for 50 with every spell at tier 3, 5 and 8 and experience banked as it would have it. From level 1, a
+  median of level 9 cleared (9 for 1.0.0b12), 79 levels cleared in all (77), 22 deaths (26), 19 of them on level 10
+  (24), and the knight beaten three times (twice); three of the deaths came in trials, on levels 3, 4 and 10. From 11,
+  21 and 31, a median of level 16.5, 25.5 and 36 cleared (16, 26, 36), no deaths in either build, and 52, 42 and 47
+  levels cleared (49, 49, 48). A level takes a little longer, a median of 360 to 385 seconds against 350 to 361: the
+  trials and puzzles take their time.
+* **The trials in those runs:** the dream went into 163 and won 150, lost 10 to the sand and died in 3, with a median
+  of 14 seconds left from level 11 and 20 to 29 from the others. It passed 74 by, nearly all because it never came
+  near the door: it takes a trial only once it has seen the door or is within sixteen steps of it (a person sees the
+  red lights), and from level 1 it was often hurt as well.
+* **Puzzles in those runs:** 83 solved on the 95 puzzle levels reached (18 of 21 from level 1, then 25 of 28, 20 of 22
+  and 20 of 24).
+* **A fault the runs found:** the first trial of each run came on its first two trial levels. Fixed before the numbers
+  above were taken.
+* **AddressSanitizer and UBSan:** four 25-minute dream runs, one from each run of ten, clean.
+* **Not tested at all:** by hand, on Windows; none of the new art has been seen on a real screen.
 
 **New in 1.0.0b12** (a new run from Esc, and the souls' line). Tested in the harness only, by scripted
 players: not yet played by hand or run on Windows. The Windows build was compiled without warnings and

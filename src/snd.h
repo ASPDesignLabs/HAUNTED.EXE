@@ -73,6 +73,12 @@ enum {
     SFX_DEEPCHIME,      /* the Wraith's Time Slip: a deep chime, slow to fade */
     SFX_ATONE,          /* a Level of Atonement banked: a low choir, a bell, a whisper */
     SFX_SPLASH,         /* a footstep in shallow water: the slap, the slosh, a drop or two */
+    SFX_HISS,           /* gas escaping: a hiss swelling and dying (1.0.0b13's hazards) */
+    SFX_CRACKLE,        /* lightning gathering: a buzz and snapping sparks */
+    SFX_RUMBLE,         /* a cart on the rails: a low rolling rumble, the wheels clacking */
+    SFX_HUM,            /* a crystal singing, higher and brighter */
+    SFX_RUSTLE,         /* a hand searching: dry rustling and a scrape */
+    SFX_PAGE,           /* a page taken out and turned: a crisp flick */
     SFX_COUNT
 };
 
@@ -91,9 +97,11 @@ void snd_start_program(int prog);           /* hard reset into a program */
 void snd_set_mood(float m);                 /* HAUNT: intensity; CRAWL: nearby torches (crackle) */
 void snd_sfx(int id);
 void snd_sfx_ex(int id, float gain, float pan); /* pan 0..1, or < 0 for the effect's default */
+void snd_tone(int glass, int midi, float gain, float pan);   /* a struck bell (0) or a singing crystal (1) at a MIDI note (1.0.0b13's puzzles) */
 void snd_hold(int on);                      /* effects and the torches' crackle wait; the music plays on */
 void snd_set_room(int room);                /* CRAWL: 1 the Backrooms (no music, a hum, more echo), 2 Severance (muzak too), 0 the crypt */
 void snd_set_muffle(int on);                /* CRAWL: the void's silence, everything dulled */
+void snd_set_trial(int on);                 /* CRAWL: a trial under way (1.0.0b13), the march quicker, its drums driving */
 void snd_set_boss(int theme, int wave);     /* CRAWL: a boss's waltz, 1-4 (0 fades it out); wave 1 while its adds are out */
 void snd_boss_fall(void);                   /* the waltz fades and the bell tolls three times */
 void snd_set_latency(int frames);           /* device latency, for visual sync */

@@ -279,6 +279,7 @@ typedef struct Sfx {
 static Sfx g_s[NS];
 static uint32_t g_rng = 12345;
 static int g_hold;                  /* the console is open: the game's effects and the crackle wait; the music and its drums play */
+static int g_trial;                 /* a trial under way: the march a quarter quicker, its drums driving */
 static float g_fx_gain = 1.0f;      /* the game's effects fade out and back in over a fiftieth of a second, so nothing clicks */
 static int g_room;                  /* 1 the Backrooms: the music gone, a hum, more echo on the game's sounds; 2 Severance: muzak too */
 static int g_muffle;                /* the void: everything as if heard through cloth */
@@ -522,6 +523,56 @@ static float sfx_sample(Sfx *s) {
             s->ph[0] += f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
             x = sin_cyc(s->ph[0]) * sinf(PI_F * u / 0.03f) * 0.22f;
         }
+        break;
+    }
+    case SFX_HISS: {                                /* gas escaping through a crack: noise, high, swelling and dying */
+        float u = t / s->dur, w = sinf(PI_F * fminf(1.0f, u * 1.6f)) * (1.0f - u * 0.4f);
+        x = svf_band(nz(&s->rng), 4200.0f + 1800.0f * sinf(t * 3.0f), 0.35f, &s->lo1, &s->bp1) * w * w * 0.55f;
+        break;
+    }
+    case SFX_CRACKLE: {                             /* a buzz under it, and sparks snapping, closer together as it builds */
+        float u = t / s->dur;
+        s->a -= 1.0f / SR;
+        if (s->a <= 0.0f) { s->a = (0.05f - 0.04f * u) * (0.3f + 0.7f * (nz(&s->rng) * 0.5f + 0.5f)); s->b = 1.0f; }
+        s->b *= expf(-1.0f / (SR * 0.003f));
+        s->ph[0] += 120.0f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        float buzz = (s->ph[0] < 0.5f ? 1.0f : -1.0f) * 0.06f * u;
+        x = (svf_band(nz(&s->rng), 2600.0f, 0.3f, &s->lo1, &s->bp1) * s->b * 0.9f + buzz) * fminf(1.0f, (s->dur - t) / 0.05f);
+        break;
+    }
+    case SFX_RUMBLE: {                              /* the cart: a low rolling rumble growing, the wheels clacking on the joins */
+        float u = t / s->dur, w = fminf(1.0f, u * 2.5f) * fminf(1.0f, (s->dur - t) / 0.2f);
+        s->lp1 += 0.02f * (nz(&s->rng) - s->lp1);
+        s->ph[0] += 38.0f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        float clack = fmodf(t * (5.0f + 6.0f * u), 1.0f), k = clack < 0.02f ? svf_band(nz(&s->rng), 1800.0f, 0.4f, &s->lo2, &s->bp2) : 0.0f;
+        x = (s->lp1 * 3.2f + sin_cyc(s->ph[0]) * 0.25f + k * 0.6f) * w * 0.7f;
+        break;
+    }
+    case SFX_HUM: {                                 /* a crystal singing: a glassy tone sliding up, beating, growing bright */
+        float u = t / s->dur, f = 520.0f * (1.0f + 0.9f * u * u);
+        s->ph[0] += f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        s->ph[1] += f * 2.003f / SR; if (s->ph[1] >= 1.0f) s->ph[1] -= 1.0f;
+        s->ph[2] += f * 3.01f / SR; if (s->ph[2] >= 1.0f) s->ph[2] -= 1.0f;
+        float e = fminf(1.0f, t / 0.1f) * fminf(1.0f, (s->dur - t) / 0.08f);
+        x = (sin_cyc(s->ph[0]) * 0.5f + sin_cyc(s->ph[1]) * (0.15f + 0.3f * u) + sin_cyc(s->ph[2]) * 0.15f * u) * e * 0.3f;
+        break;
+    }
+    case SFX_RUSTLE: {                              /* a hand among dry things: crinkling grains, and a scrape under them */
+        float u = t / s->dur;
+        s->a -= 1.0f / SR;
+        if (s->a <= 0.0f) { s->a = 0.012f + 0.05f * (nz(&s->rng) * 0.5f + 0.5f); s->b = 0.4f + 0.6f * (nz(&s->rng) * 0.5f + 0.5f); }
+        s->b *= expf(-1.0f / (SR * 0.006f));
+        float grain = svf_band(nz(&s->rng), 3400.0f, 0.35f, &s->lo1, &s->bp1) * s->b;
+        s->lp1 += 0.05f * (nz(&s->rng) - s->lp1);
+        float scrape = s->lp1 * (0.5f + 0.5f * sinf(t * 23.0f)) * sinf(PI_F * u);
+        x = (grain * 0.8f + scrape * 1.4f) * fminf(1.0f, (s->dur - t) / 0.1f) * fminf(1.0f, t / 0.02f);
+        break;
+    }
+    case SFX_PAGE: {                                /* a page: a quick rising flick of paper, and the soft slap of it settling */
+        float f = 1400.0f + 4200.0f * fminf(1.0f, t / 0.12f);
+        float flick = svf_band(nz(&s->rng), f, 0.3f, &s->lo1, &s->bp1) * sinf(PI_F * fminf(1.0f, t / 0.16f)) * (t < 0.16f);
+        float u = t - 0.2f, slap = u > 0.0f ? svf_band(nz(&s->rng), 900.0f, 0.5f, &s->lo2, &s->bp2) * expf(-u * 40.0f) : 0.0f;
+        x = flick * 0.7f + slap * 0.9f;
         break;
     }
     case SFX_SPLASH: {                              /* a foot in shallow water: the slap going in, the slosh as it lifts, a few drops falling back */
@@ -1206,7 +1257,7 @@ static void crawl_step(uint32_t step) {
     int third = ch->minor ? 3 : 4;
     int sps = (int)g_sps;
 
-    int dm = crawl_drums(sec, s);
+    int dm = g_trial ? crawl_drums(8 + (sec & 7), s) | ((s & 1) ? D_HAT : 0) : crawl_drums(sec, s);   /* a trial's: the march's, harder */
     if (dm & D_KICK)  sfx_start(X_KICK, 0.4f, 0.65f, 0.5f, 0.05f);
     if (dm & D_SNARE) sfx_start(X_SNARE, 0.3f, 0.70f, 0.5f, 0.22f);
     if (dm & D_GHOST) sfx_start(X_SNARE, 0.2f, 0.28f, 0.52f, 0.15f);
@@ -1463,6 +1514,7 @@ void snd_set_mood(float m) { LOCK(); g_mood_target = clampf(m, 0.0f, 1.0f); UNLO
 void snd_hold(int on) { LOCK(); g_hold = on != 0; UNLOCK(); }
 void snd_set_room(int room) { LOCK(); g_room = room; UNLOCK(); }
 void snd_set_muffle(int on) { LOCK(); g_muffle = on != 0; UNLOCK(); }
+void snd_set_trial(int on) { LOCK(); g_trial = on != 0; UNLOCK(); }
 
 void snd_set_boss(int theme, int wave) {
     LOCK();
@@ -1560,8 +1612,21 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_DEEPCHIME]  = { 0.00f, 1.00f,  0.50f, 0.00f },
     [SFX_ATONE]      = { 0.00f, 1.00f,  0.50f, 0.00f },
     [SFX_SPLASH]     = { 0.38f, 0.60f, -0.06f, 0.22f },
+    [SFX_HISS]       = { 1.40f, 0.55f,  0.50f, 0.35f },
+    [SFX_CRACKLE]    = { 1.20f, 0.60f,  0.50f, 0.30f },
+    [SFX_RUMBLE]     = { 2.00f, 0.80f,  0.50f, 0.40f },
+    [SFX_HUM]        = { 1.60f, 0.55f,  0.50f, 0.50f },
+    [SFX_RUSTLE]     = { 0.95f, 0.55f,  0.50f, 0.25f },
+    [SFX_PAGE]       = { 0.40f, 0.55f,  0.50f, 0.25f },
 };
 
+void snd_tone(int glass, int midi, float gain, float pan) {      /* a struck bell or a singing crystal, at its own note */
+    LOCK();
+    g_vbus = BUS_SFX;
+    voice_on(glass ? PAT_VIBES : PAT_BELL, midi, gain, clampf(pan, 0.0f, 1.0f), (int)((glass ? 1.4f : 2.2f) * SND_RATE));
+    if (glass) voice_on(PAT_BELL, midi + 12, gain * 0.35f, clampf(pan, 0.0f, 1.0f), (int)(1.0f * SND_RATE));
+    UNLOCK();
+}
 void snd_sfx_ex(int id, float gain, float pan) {
     if (id < 0 || id >= SFX_COUNT) return;
     LOCK();
@@ -1625,8 +1690,9 @@ static void render_locked(int16_t *out, int frames) {
         /* sequencer clock */
         if (g_prog != SND_PROG_NONE) {
             g_step_acc += 1.0;
-            if (g_step_acc >= g_sps) {
-                g_step_acc -= g_sps;
+            double sps = g_trial && g_prog == SND_PROG_CRAWL ? g_sps * 0.78 : g_sps;
+            if (g_step_acc >= sps) {
+                g_step_acc -= sps;
                 if (g_prog == SND_PROG_HAUNT) haunt_step(g_step);
                 else crawl_step(g_step);
                 g_step++;
