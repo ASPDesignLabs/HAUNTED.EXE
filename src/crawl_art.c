@@ -988,6 +988,24 @@ static void skull_stamp(float cx, float cy, int side, int mirror, uint8_t eye) {
         }
 }
 
+/* A hand-drawn grid of any size (docs/InitialArtPass.md): hex 1-f a step of the body's ramp r1, g-v a step of a second
+ * ramp r2 (g the darkest), A-P a step of the fire (full-bright), 0 black, @ an eye (recorded; drawn in eye), . clear.
+ * Its top left at x0, y0; mirror flips it. */
+static void grid_stamp(const char *const *g, int w, int h, int x0, int y0, int r1, int r2, uint8_t eye, int mirror) {
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++) {
+            char ch = g[y][mirror ? w - 1 - x : x];
+            int px = x0 + x, py = y0 + y;
+            if (ch == '.') continue;
+            if (ch == '@') { cv_eye(px, py, eye); continue; }
+            if (ch == '0') cv_px(px, py, 0);
+            else if (ch >= '1' && ch <= '9') cv_px(px, py, (uint8_t)(r1 + ch - '0'));
+            else if (ch >= 'a' && ch <= 'f') cv_px(px, py, (uint8_t)(r1 + ch - 'a' + 10));
+            else if (ch >= 'g' && ch <= 'v') cv_px(px, py, (uint8_t)(r2 + ch - 'g'));
+            else if (ch >= 'A' && ch <= 'P') cv_px(px, py, (uint8_t)(R_FLAME + ch - 'A'));
+        }
+}
+
 /* ------------------------------------------------------------------ */
 /* Sprites                                                             */
 /* ------------------------------------------------------------------ */
@@ -4764,69 +4782,137 @@ static void spr_shade(int id, float ph, int pose) {
     cv_store(id);
 }
 
-/* The ember imp: squat, red clay skin cracked over fire inside, horns, a grin full of coals.
- * Skin R_BRICK (PF_CLAY); the cracks are full-bright and keep burning whatever its rank. Drawn to be
- * shown at half size. pose 0-1 hopping, 2 throwing, 3 crumbling. */
+/* The ember imp (docs/InitialArtPass.md section 8): a sinewy, soot-dark thing still cooling, its crust (R_BRICK, PF_CLAY)
+ * split by fissures of fire; a narrow head with a long muzzle, horns swept back (the right one broken, an ember in its
+ * stump), torn bat's ears, slit eyes and a grin full of needles lit from inside; wiry arms to the knee with talons,
+ * reverse-jointed legs, ragged wings behind, a tail with an ember at its tip. The fire keeps burning whatever its rank.
+ * pose 0-1 hopping, 2 throwing, 3 crumbled. */
+static const char *const IMP_HEAD[17] = {
+    ".N...............", ".Mr..............", "..qr..........J..", "...pq........qo..", "4...op23F32po...4", "34.23345G54332.43",
+    ".45234566G6532.54", "3453456a8a6543543", ".3424896769842.43", "..31K@A676A@K13..", "...2H5606065H2...", "...13678987631...",
+    "...2u0uJJJu0u2...", "....3LvLKLvL3....", ".....3689863.....", "......36863......", ".......242.......",
+};
+static const char *const IMP_SIDE[15] = {
+    "N..............", "Mq.............", ".pq............", "..pq.2343......", "4..op346F42....", "45.2345G65432..",
+    ".56345678a7542.", "..4568aK@A6764.", "...35789879877.", "...2468998a9H96", "....357H7896580", "....24uJuJuJu4.",
+    ".....3vLvLvL3..", "......3678763..", ".......24642...",
+};
+static void imp_crust(float y0, float y1, int cracks, uint32_t seed) {   /* the crust darkened unevenly, and split by fire */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t *p = &cv_sprite[y * TS + x];
+            if (*p <= R_BRICK || *p >= R_BRICK + 16) continue;
+            float n = fbm(x / 3.0f, y / 3.0f, 16, seed);
+            if (n < 0.45f) *p = (uint8_t)(*p - 2 < R_BRICK + 1 ? R_BRICK + 1 : *p - 2);
+        }
+    for (int k = 0; k < cracks; k++) {
+        float x = 22 + 20 * h01(k, 1, seed), y = y0 + (y1 - y0) * h01(k, 2, seed), a = h01(k, 3, seed) * TAU_F;
+        for (int i = 0; i < 9; i++) {
+            a += (h01(k, i + 4, seed) - 0.5f) * 1.3f; x += cosf(a); y += sinf(a);
+            if (x < 0 || y < 0 || x >= TS || y >= TS) break;
+            uint8_t c = cv_sprite[(int)y * TS + (int)x];
+            if (c > R_BRICK && c < R_BRICK + 16) cv_px((int)x, (int)y, (uint8_t)(R_FLAME + 6 + (int)(4.0f * (1.0f - fabsf(4.0f - (float)i) / 4.0f))));
+        }
+    }
+}
 static void spr_imp(int id, int pose) {
     cv_begin(cv_sprite, TS, TS);
-    if (pose == 3) {
+    if (pose == 3) {                                               /* crumbled: crust and ash, the fire going out */
         cv_flat(32, 61.5f, 20, 2.5f, R_WARM + 1);
         for (int i = 0; i < 30; i++) {
             float x = 32 + (h01(i, 1, 521) - 0.5f) * 34, y = 52 + 10 * h01(i, 2, 521);
-            cv_ellipse(x, y, 1.0f + 2.0f * h01(i, 3, 521), 1.0f + 1.4f * h01(i, 4, 521), i % 3 ? R_IRON : R_BRICK, 0.1f, 0.45f);
+            cv_ellipse(x, y, 1.0f + 2.0f * h01(i, 3, 521), 1.0f + 1.4f * h01(i, 4, 521), i % 3 ? R_IRON : R_BRICK, 0.05f, 0.3f);
         }
-        for (int i = 0; i < 8; i++) cv_px((int)(20 + 24 * h01(i, 5, 521)), (int)(40 + 20 * h01(i, 6, 521)), (uint8_t)(R_FLAME + 8 + (i & 3)));
+        cv_capsule(20, 56, 12, 50, 1.0f, R_BONE, 0.2f, 0.6f);      /* a horn, fallen */
+        for (int i = 0; i < 8; i++) cv_px((int)(20 + 24 * h01(i, 5, 521)), (int)(46 + 14 * h01(i, 6, 521)), (uint8_t)(R_FLAME + 5 + (i & 3)));
         cv_outline(0); cv_store(id); return;
     }
-    float up = pose == 0 ? -3.0f : 0.0f;
+    float up = pose == 0 ? -3.0f : 0.0f, hy = 3.0f + up;            /* the head's top row */
+    float wl = pose == 0 ? -4.0f : (pose == 2 ? -1.0f : 2.0f);      /* the wings up, or down */
     cv_flat(32, 62, 12, 1.6f, R_WARM + 1);
-    cv_capsule(40, 50 + up, 50, 54 + up, 1.3f, R_BRICK, 0.15f, 0.5f);   /* the tail, an ember at its tip */
-    cv_capsule(50, 54 + up, 55, 46 + up, 1.1f, R_BRICK, 0.15f, 0.5f);
-    cv_flat(56, 45 + up, 1.8f, 1.8f, (uint8_t)(R_FLAME + 12));
-    for (int s = -1; s <= 1; s += 2) {                              /* little wings, leathery */
-        float wv[8] = { 32 + s * 7, 34 + up, 32 + s * 22, 24 + up, 32 + s * 20, 36 + up, 32 + s * 12, 40 + up };
-        cv_poly(wv, 4, R_BRICK, 0.08f, 0.3f, 24 + up, 16);
-    }
-    for (int s = -1; s <= 1; s += 2) {                              /* legs, bent */
-        float kx = 32 + s * 8, ky = 52 + up * 0.5f;
-        cv_capsule(32 + s * 5, 46 + up, kx, ky, 2.6f, R_BRICK, 0.2f, 0.75f);
-        cv_capsule(kx, ky, 32 + s * 6, 61, 2.0f, R_BRICK, 0.2f, 0.7f);
-        cv_ellipse(32 + s * 7, 61.5f, 3.0f, 1.4f, R_BRICK, 0.15f, 0.6f);
-    }
-    cv_ellipse(32, 44 + up, 9.0f, 8.5f, R_BRICK, 0.25f, 0.9f);    /* pot belly */
-    for (int s = -1; s <= 1; s += 2) {                              /* arms: one up with a coal, or both out */
-        float hx = pose == 2 && s > 0 ? 46.0f : 32 + s * 13.0f, hy = pose == 2 && s > 0 ? 22.0f + up : 46.0f + up;
-        cv_capsule(32 + s * 7, 38 + up, hx, hy, 2.0f, R_BRICK, 0.25f, 0.85f);
-        cv_ellipse(hx, hy, 2.4f, 2.2f, R_BRICK, 0.25f, 0.85f);
-        if (pose == 2 && s > 0) { cv_flat(hx + 1, hy - 3, 3.0f, 3.0f, (uint8_t)(R_FLAME + 10)); cv_flat(hx + 1, hy - 3, 1.6f, 1.6f, (uint8_t)(R_FLAME + 14)); }
-    }
-    float hy = 28 + up;                                             /* the head: big, horned, grinning */
-    for (int s = -1; s <= 1; s += 2) {
-        cv_capsule(32 + s * 6, hy - 6, 32 + s * 10, hy - 12, 1.8f, R_BONE, 0.15f, 0.55f);
-        cv_capsule(32 + s * 10, hy - 12, 32 + s * 9, hy - 17, 1.1f, R_BONE, 0.15f, 0.5f);
-        float e[6] = { 32 + s * 8, hy - 2, 32 + s * 15, hy - 5, 32 + s * 9, hy + 2 };   /* pointed ears */
-        cv_poly(e, 3, R_BRICK, 0.2f, 0.7f, hy - 5, 7);
-    }
-    cv_ellipse(32, hy, 9.5f, 8.5f, R_BRICK, 0.3f, 1.0f);
-    for (int s = -1; s <= 1; s += 2) {
-        cv_flat(32 + s * 3.5f, hy - 1.5f, 2.0f, 1.5f, 0);
-        cv_eye(32 + s * 3 + (s < 0 ? -1 : 0), (int)(hy - 2), (uint8_t)(R_FLAME + 14)); cv_px(32 + s * 3 + (s < 0 ? 0 : 1), (int)(hy - 1), (uint8_t)(R_FLAME + 10));
-    }
-    for (int x = 26; x <= 38; x++) {                                /* the grin, wide and lit from inside */
-        int y = (int)(hy + 3 + (x - 32) * (x - 32) * -0.04f + 1.5f);
-        cv_px(x, y, (uint8_t)(R_FLAME + 9)); cv_px(x, y + 1, (uint8_t)(R_FLAME + ((x & 1) ? 13 : 6)));
-        if (!(x & 1)) cv_px(x, y - 1, sh(R_BONE, 0.8f));
-    }
-    for (int k = 0; k < 7; k++) {                                   /* cracks with the fire showing through */
-        float x = 24 + 16 * h01(k, 1, 523), y = 36 + 14 * h01(k, 2, 523) + up, a = h01(k, 3, 523) * TAU_F;
-        for (int i = 0; i < 5; i++) {
-            a += (h01(k, i + 4, 523) - 0.5f) * 1.4f; x += cosf(a); y += sinf(a);
-            uint8_t c = cv_sprite[(int)y * TS + (int)x];
-            if (c >= R_BRICK && c < R_BRICK + 16) cv_px((int)x, (int)y, (uint8_t)(R_FLAME + 6 + (i & 1) * 3));
+    for (int s = -1; s <= 1; s += 2) {                              /* the wings, behind: bone struts, the leather ragged */
+        float bx = 32 + s * 5.0f, by = hy + 20.0f, wx = 32 + s * 21.0f, wy = hy + 5.0f + wl;
+        float tips[3][2] = { { 32 + s * 30.0f, hy + 18.0f + wl * 0.5f }, { 32 + s * 26.0f, hy + 27.0f }, { 32 + s * 17.0f, hy + 30.0f } };
+        for (int f = 0; f < 3; f++) {
+            float m[8] = { wx, wy, tips[f][0], tips[f][1], f < 2 ? tips[f + 1][0] : bx, f < 2 ? tips[f + 1][1] : by + 6.0f, bx, by };
+            cv_poly(m, 4, R_BRICK, 0.04f, 0.2f, wy, 30);
         }
+        for (int f = 0; f < 3; f++)                                 /* scallops torn in the hem */
+            cv_flat((tips[f][0] + (f < 2 ? tips[f + 1][0] : bx)) * 0.5f, (tips[f][1] + (f < 2 ? tips[f + 1][1] : by + 6.0f)) * 0.5f + 1.5f, 2.2f, 2.0f, C_CLEAR);
+        cv_capsule(bx, by, wx, wy, 1.2f, R_BRICK, 0.1f, 0.4f);
+        for (int f = 0; f < 3; f++) cv_capsule(wx, wy, tips[f][0], tips[f][1], 0.7f, R_BRICK, 0.08f, 0.35f);
+        cv_px((int)wx, (int)wy - 1, sh(R_BONE, 0.6f));             /* the claw at the wing's wrist */
     }
+    cv_capsule(35, hy + 33, 47, hy + 42, 1.2f, R_BRICK, 0.1f, 0.4f);   /* the tail, its ember */
+    cv_capsule(47, hy + 42, 52, hy + 33, 1.0f, R_BRICK, 0.1f, 0.4f);
+    cv_flat(52.5f, hy + 32, 1.6f, 1.8f, (uint8_t)(R_FLAME + 11)); cv_px(52, (int)hy + 31, (uint8_t)(R_FLAME + 15));
+    for (int s = -1; s <= 1; s += 2) {                              /* legs, reverse-jointed, sprung */
+        float hx = 32 + s * 4.0f, hipy = hy + 35.0f, kx = 32 + s * 9.0f, ky = 46 + up * 0.5f, ax = 32 + s * 6.0f, ay = 55.0f;
+        cv_capsule(hx, hipy, kx, ky, 2.3f, R_BRICK, 0.1f, 0.5f);
+        cv_capsule(kx, ky, ax, ay, 1.5f, R_BRICK, 0.1f, 0.45f);
+        cv_capsule(ax, ay, 32 + s * 9.0f, 61, 1.2f, R_BRICK, 0.1f, 0.45f);
+        for (int c = -1; c <= 1; c++) cv_line(32 + s * 9.0f, 61, 32 + s * 9.0f + s * 2.0f + c * 1.5f, 62, sh(R_BONE, 0.5f));
+    }
+    cv_ellipse(32, hy + 23, 6.5f, 5.5f, R_BRICK, 0.15f, 0.6f);     /* the chest, narrow, ribs under the crust */
+    cv_ellipse(32, hy + 31, 4.5f, 5.0f, R_BRICK, 0.1f, 0.45f);     /* the waist, drawn in */
+    for (int r = 0; r < 3; r++) for (int s = -1; s <= 1; s += 2) cv_line(32 + s * 1.5f, hy + 21 + r * 2.5f, 32 + s * 5.5f, hy + 22.5f + r * 2.5f, sh(R_BRICK, 0.08f));
+    for (int s = -1; s <= 1; s += 2) {                              /* arms: long, wiry, to the knees; one up with a coal */
+        float sx = 32 + s * 6.5f, sy = hy + 19.0f, ex, ey, hx2, hy2;
+        if (pose == 2 && s > 0) { ex = 44; ey = hy + 13; hx2 = 46; hy2 = hy + 4; }
+        else { ex = 32 + s * 12.0f; ey = hy + 28; hx2 = 32 + s * 11.0f; hy2 = hy + 37; }
+        cv_capsule(sx, sy, ex, ey, 1.6f, R_BRICK, 0.15f, 0.55f);
+        cv_capsule(ex, ey, hx2, hy2, 1.3f, R_BRICK, 0.15f, 0.5f);
+        for (int c = -1; c <= 1; c++) cv_line(hx2, hy2, hx2 + c * 1.6f + s * 0.8f, hy2 + (pose == 2 && s > 0 ? -3.0f : 3.0f), sh(R_BONE, 0.6f));   /* talons */
+        cv_ellipse(sx, sy, 2.4f, 2.0f, R_BRICK, 0.2f, 0.6f);        /* knobbed shoulders */
+        if (pose == 2 && s > 0) { cv_flat(hx2 + 1, hy2 - 3, 3.0f, 3.0f, (uint8_t)(R_FLAME + 10)); cv_flat(hx2 + 1, hy2 - 3, 1.6f, 1.6f, (uint8_t)(R_FLAME + 14)); }
+    }
+    imp_crust(hy + 17, hy + 52, 8, 523);
+    grid_stamp(IMP_HEAD, 17, 17, 24, (int)hy, R_BRICK, R_BONE, (uint8_t)(R_FLAME + 15), 0);
     cv_outline(0);
     cv_store(id);
+}
+
+/* the imp's dressing by rank: II a sulphurous mould and its wings torn, III frost on the crust and a chipped horn, IV the
+ * fissures opened and a wound in its chest, V nearly all fire under an iron collar and its chain, gilded gold in every
+ * crack (docs/InitialArtPass.md 6.1, section 8) */
+static void imp_dress(int id) {
+    for (int r = RK_II; r < NRANK; r++) {
+        dress_begin(id);
+        if (r == RK_GILDED) {
+            for (int y = 0; y < TS; y++)
+                for (int x = 0; x < TS; x++) {
+                    uint8_t b = base_c(x, y);
+                    if (b >= R_FLAME + 5 && b < R_FLAME + 13) cv_px(x, y, (uint8_t)(R_GOLD + clampi(b - R_FLAME, 6, NGOLD - 1)));   /* gold in the cracks */
+                    else if (b > R_BRICK + 3 && b < R_BRICK + 16 && fbm(x / 3.0f, y / 3.0f, 16, 431) > 0.68f) cv_px(x, y, (uint8_t)(R_GOLD + 5));
+                }
+            kit_chain(26, 22, 38, 22, 1.5f, R_GOLD);
+            dress_store(id, r, R_BRICK);
+            continue;
+        }
+        for (int y = 0; y < TS && r >= RK_II; y++)                 /* torn wings: dark rents along the hem */
+            for (int x = 0; x < TS; x++)
+                if ((x < 22 || x > 42) && y < 36 && base_on(x, y) && !base_on(x, y + 1) && h01(x, y, 433) < 0.25f) { cv_px(x, y, 0); cv_px(x, y - 1, 0); }
+        if (r == RK_II) kit_moss(0.2f, 0, 435);
+        if (r == RK_III) kit_frost(0.65f, 437);
+        if (r >= RK_III) { cv_px(26, 3, 0); cv_px(27, 4, 0); }     /* a chip out of the left horn */
+        if (r >= RK_IV) {                                          /* the fissures opened, a wound in the chest */
+            for (int k = 0; k < 6; k++) {
+                float x = 26 + 12 * h01(k, 1, 439), y = 24 + 18 * h01(k, 2, 439), a = h01(k, 3, 439) * TAU_F;
+                for (int i = 0; i < 7; i++) { a += (h01(k, i + 4, 439) - 0.5f) * 1.2f; x += cosf(a); y += sinf(a); if (base_on((int)x, (int)y)) cv_px((int)x, (int)y, (uint8_t)(R_FLAME + 9 + (i & 3))); }
+            }
+            cv_line(29, 25, 35, 28, (uint8_t)(R_FLAME + 14)); cv_line(29, 26, 35, 29, (uint8_t)(R_FLAME + 10));
+        }
+        if (r == RK_V) {                                           /* nearly all fire, an iron collar and its chain */
+            for (int y = 0; y < TS; y++)
+                for (int x = 0; x < TS; x++) {
+                    uint8_t b = base_c(x, y);
+                    if (b > R_BRICK && b < R_BRICK + 16 && fabsf(fbm(x / 3.5f, y / 3.5f, 16, 441) - 0.5f) < 0.06f) cv_px(x, y, (uint8_t)(R_FLAME + 5 + (int)(h01(x, y, 443) * 6.0f)));   /* veins of fire: the noise's ridges */
+                }
+            for (int x = 27; x <= 37; x++) { cv_px(x, 21, sh(R_IRON, 0.55f)); cv_px(x, 22, sh(R_IRON, 0.25f)); }
+            kit_chain(36, 22, 41, 36, 2.0f, R_IRON);
+        }
+        dress_store(id, r, R_BRICK);
+    }
 }
 
 /* an ember in flight: a coal and its sparks */
@@ -5752,47 +5838,31 @@ static void spr_shade_side(int id, float ph) {
     cv_store(id);
 }
 
-/* the imp from the side: a hop, the tail and its ember behind, a wing up, the grin ahead */
+/* the imp from the side: a hop, the tail and its ember behind, a wing up, the long muzzle ahead (IMP_SIDE) */
 static void spr_imp_side(int id, int pose) {
     cv_begin(cv_sprite, TS, TS);
-    float up = pose == 0 ? -3.0f : 0.0f;
+    float up = pose == 0 ? -3.0f : 0.0f, hy = 5.0f + up;
     cv_flat(32, 62, 11, 1.6f, R_WARM + 1);
-    cv_capsule(26, 50 + up, 16, 54 + up, 1.3f, R_BRICK, 0.15f, 0.5f);   /* the tail */
-    cv_capsule(16, 54 + up, 10, 46 + up, 1.1f, R_BRICK, 0.15f, 0.5f);
-    cv_flat(9, 45 + up, 1.8f, 1.8f, (uint8_t)(R_FLAME + 12));
-    float fw[8] = { 30, 33 + up, 15, 19 + up, 17, 31 + up, 24, 38 + up };   /* the far wing */
-    cv_poly(fw, 4, R_BRICK, 0.04f, 0.18f, 19 + up, 19);
-    cv_capsule(30, 46 + up, 35, 52 + up * 0.5f, 2.4f, R_BRICK, 0.1f, 0.45f);   /* the far leg */
-    cv_capsule(35, 52 + up * 0.5f, 31, 61, 1.8f, R_BRICK, 0.1f, 0.45f);
-    cv_ellipse(32, 44 + up, 8.0f, 8.5f, R_BRICK, 0.25f, 0.9f);     /* pot belly */
-    cv_capsule(33, 46 + up, 38, 53 + up * 0.5f, 2.6f, R_BRICK, 0.2f, 0.75f);   /* the near leg */
-    cv_capsule(38, 53 + up * 0.5f, 34, 61, 2.0f, R_BRICK, 0.2f, 0.7f);
-    cv_ellipse(36, 61.5f, 3.4f, 1.4f, R_BRICK, 0.15f, 0.6f);
-    float nw[8] = { 31, 34 + up, 18, 22 + up, 18, 31 + up, 24, 39 + up };   /* the near wing */
-    cv_poly(nw, 4, R_BRICK, 0.08f, 0.32f, 22 + up, 17);
-    cv_capsule(35, 38 + up, 42, 45 + up, 2.0f, R_BRICK, 0.25f, 0.85f);   /* an arm, out ahead */
-    cv_ellipse(43, 46 + up, 2.3f, 2.1f, R_BRICK, 0.25f, 0.85f);
-    float hy = 28 + up;
-    cv_capsule(33, hy - 6, 28, hy - 11, 1.8f, R_BONE, 0.15f, 0.55f);   /* a horn, swept back */
-    cv_capsule(28, hy - 11, 27, hy - 16, 1.1f, R_BONE, 0.15f, 0.5f);
-    float e[6] = { 31, hy - 2, 23, hy - 5, 30, hy + 2 };            /* the ear, laid back */
-    cv_poly(e, 3, R_BRICK, 0.2f, 0.7f, hy - 5, 7);
-    cv_ellipse(36, hy, 8.5f, 8.0f, R_BRICK, 0.3f, 1.0f);
-    cv_flat(40, hy - 1.5f, 1.8f, 1.5f, 0);
-    cv_px(40, (int)(hy - 2), (uint8_t)(R_FLAME + 14)); cv_px(41, (int)(hy - 1), (uint8_t)(R_FLAME + 10));
-    for (int x = 37; x <= 44; x++) {                                /* the grin, from the side */
-        int y = (int)(hy + 4 - (x - 37) * 0.35f);
-        cv_px(x, y, (uint8_t)(R_FLAME + 9)); cv_px(x, y + 1, (uint8_t)(R_FLAME + ((x & 1) ? 13 : 6)));
-        if (!(x & 1)) cv_px(x, y - 1, sh(R_BONE, 0.8f));
-    }
-    for (int k = 0; k < 6; k++) {                                   /* cracks with the fire showing through */
-        float x = 26 + 12 * h01(k, 1, 525), y = 37 + 13 * h01(k, 2, 525) + up, a = h01(k, 3, 525) * TAU_F;
-        for (int i = 0; i < 5; i++) {
-            a += (h01(k, i + 4, 525) - 0.5f) * 1.4f; x += cosf(a); y += sinf(a);
-            uint8_t c = cv_sprite[(int)y * TS + (int)x];
-            if (c >= R_BRICK && c < R_BRICK + 16) cv_px((int)x, (int)y, (uint8_t)(R_FLAME + 6 + (i & 1) * 3));
-        }
-    }
+    cv_capsule(28, hy + 33, 16, hy + 40, 1.2f, R_BRICK, 0.1f, 0.4f);   /* the tail, its ember */
+    cv_capsule(16, hy + 40, 10, hy + 31, 1.0f, R_BRICK, 0.1f, 0.4f);
+    cv_flat(9.5f, hy + 30, 1.6f, 1.8f, (uint8_t)(R_FLAME + 11));
+    float fw[8] = { 30, hy + 20, 12, hy + 2 + up, 10, hy + 18, 22, hy + 27 };   /* the far wing */
+    cv_poly(fw, 4, R_BRICK, 0.03f, 0.15f, hy + 2 + up, 26);
+    cv_capsule(30, hy + 35, 36, hy + 43, 2.2f, R_BRICK, 0.08f, 0.4f);   /* the far leg */
+    cv_capsule(36, hy + 43, 32, 55, 1.4f, R_BRICK, 0.08f, 0.4f); cv_capsule(32, 55, 35, 61, 1.1f, R_BRICK, 0.08f, 0.4f);
+    cv_ellipse(32, hy + 24, 5.0f, 6.0f, R_BRICK, 0.15f, 0.6f);     /* chest, hunched forward */
+    cv_ellipse(31, hy + 32, 4.0f, 4.5f, R_BRICK, 0.1f, 0.45f);
+    cv_capsule(32, hy + 35, 39, hy + 44, 2.4f, R_BRICK, 0.12f, 0.55f);   /* the near leg */
+    cv_capsule(39, hy + 44, 35, 55, 1.6f, R_BRICK, 0.12f, 0.5f); cv_capsule(35, 55, 39, 61, 1.2f, R_BRICK, 0.12f, 0.5f);
+    for (int c = -1; c <= 1; c++) cv_line(39, 61, 42 + c * 1.5f, 62, sh(R_BONE, 0.5f));
+    float nw[8] = { 31, hy + 20, 16, hy + 4 + up, 13, hy + 20, 24, hy + 29 };   /* the near wing */
+    cv_poly(nw, 4, R_BRICK, 0.06f, 0.26f, hy + 4 + up, 25);
+    cv_capsule(31, hy + 20, 16, hy + 4 + up, 0.9f, R_BRICK, 0.1f, 0.4f);
+    cv_capsule(34, hy + 21, 40, hy + 29, 1.5f, R_BRICK, 0.15f, 0.55f);   /* an arm, out ahead, talons */
+    cv_capsule(40, hy + 29, 45, hy + 33, 1.2f, R_BRICK, 0.15f, 0.5f);
+    for (int c = -1; c <= 1; c++) cv_line(45, hy + 33, 47 + c * 0.8f, hy + 36, sh(R_BONE, 0.6f));
+    imp_crust(hy + 17, hy + 45, 6, 525);
+    grid_stamp(IMP_SIDE, 15, 15, 28, (int)hy, R_BRICK, R_BONE, (uint8_t)(R_FLAME + 15), 0);
     cv_outline(0);
     cv_store(id);
 }
@@ -9150,7 +9220,7 @@ void crawl_art_init(void) {
     spr_ling(SP_LING_A, 0); spr_ling(SP_LING_B, 1);
     spr_wraith_big(SP_WRAITH_A, 0.0f, 0); spr_wraith_big(SP_WRAITH_B, PI_F, 1); spr_wraith_big(SP_WRAITH_REACH, 1.0f, 2); spr_wraith_big(SP_WRAITH_BACK, 2.0f, 3);
     spr_shade(SP_SHADE_A, 0.0f, 0); spr_shade(SP_SHADE_B, PI_F, 1); spr_shade(SP_SHADE_TOUCH, 1.0f, 2); spr_shade(SP_SHADE_D, 2.0f, 3);
-    for (int f = 0; f < 4; f++) spr_imp(SP_IMP_A + f, f);
+    for (int f = 0; f < 4; f++) { spr_imp(SP_IMP_A + f, f); if (f < 3) imp_dress(SP_IMP_A + f); }
     spr_ember(SP_EMBER_A, 0); spr_ember(SP_EMBER_B, 1);
     for (int f = 0; f < 5; f++) spr_gargoyle(SP_GARG_PERCH + f, f);
     spr_candlestand(SP_CANDLESTAND_A, 0); spr_candlestand(SP_CANDLESTAND_B, 1);
