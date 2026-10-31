@@ -289,6 +289,11 @@ extern int8_t crawl_glint[NSPR][2];             /* brightest gold pixel of a spr
  * for the pass that puts them on the screen whatever the light and fog: n eyes (0 none), at x, y in the sprite */
 typedef struct { int8_t n, x[2], y[2]; } EyeAt;
 extern EyeAt crawl_eyes[NSPR];
+/* each creature's dressing by rank (docs/InitialArtPass.md section 6): a layer over its sprite, C_CLEAR where the body
+ * shows, drawn in its own stuff (cloth, iron, frost, blood, gold) and left alone by the rank's tint; ix -1 none */
+#define NDRESS 768
+extern uint8_t crawl_dress[NDRESS][TS * TS];            /* column-major, as the sprites */
+extern int16_t crawl_dress_ix[NSPR][NRANK];
 /* the merchant (cat_img.c): the owner's cat draped over a chest, with what the game needs to animate it */
 extern const uint8_t crawl_cat_img[CAT_H * CAT_W];
 extern const uint8_t crawl_cat_eye[2][4], crawl_cat_eyecol[5], crawl_cat_lid[2], crawl_cat_ear[2][4], crawl_cat_tail[2];

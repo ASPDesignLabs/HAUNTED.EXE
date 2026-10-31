@@ -126,13 +126,18 @@ static void text(int x, int y, const char *s, int r, int g, int b) {
 }
 
 /* a sprite, shaded as the game shades it, through a rank's table */
+static int g_rank;                          /* the rank being drawn, for its dressing (docs/InitialArtPass.md) */
 static void sprite(int ox, int oy, int spr, const uint8_t *lut) {
     rect(ox, oy, CELL, CELL, 22, 21, 24);
+    int dx = crawl_dress_ix[spr][g_rank];
     for (int y = 0; y < CELL; y++)
         for (int x = 0; x < CELL; x++) {
             uint8_t c = crawl_spr[spr][(x / SC) * TS + y / SC];
+            uint8_t o = dx >= 0 ? crawl_dress[dx][(x / SC) * TS + y / SC] : (uint8_t)C_CLEAR;
+            if (o != C_CLEAR) c = o;                /* the dressing, in its own colours */
+            else if (c != C_CLEAR && lut) c = lut[c];
             if (c == C_CLEAR) continue;
-            c = crawl_cmap[LIGHT][lut ? lut[c] : c];
+            c = crawl_cmap[LIGHT][c];
             put(ox + x, oy + y, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
         }
 }
@@ -246,7 +251,9 @@ static int draw_group(const Group *g, const char *path, int level) {
     for (int r = 0; r < NRANK; r++) {
         if (!(g->ranks >> r & 1)) continue;
         if (g->family >= 0) text(PAD, y + CELL / 2 - 4 * TXT, RANK_NAME[r], 190, 190, 190);
+        g_rank = r;
         for (int f = 0; f < nf; f++) sprite(PAD + ROWHEAD + f * (CELL + PAD), y, g->fr[f].spr, g->family >= 0 ? crawl_rank_lut[g->family][r] : NULL);
+        g_rank = 0;
         y += CELL + PAD;
     }
     text(PAD, y, "SHADED AS NEAR A TORCH. SIZES ARE NOT TO SCALE.", 120, 120, 120);

@@ -18062,7 +18062,8 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
 /* alpha < 1: dithered see-through. remap: the ramp R_PURPLE turns into. flags: how it is drawn.
  * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
 typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; float web, mg; int mgw;
-                 int eye, etype, erank, estate; } Draw;   /* eye: a creature's eyes go on after it (render_eyes), as its kind, rank and state */   /* mg: the hidden
+                 int eye, etype, erank, estate; const uint8_t *ov; float vap; } Draw;   /* ov: its rank's dressing (crawl_dress);
+                                                                                                vap: its spirit vapour, 0 none, 1 full */   /* eye: a creature's eyes go on after it (render_eyes), as its kind, rank and state */   /* mg: the hidden
                                                                                                    message's glint, mgw through the walls; glint: a key's
                                                                                                    ramp, for Keymaker's sparkle; web: how much of yours holds it */
 enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_SWAY = 32, DR_FLIPV = 64, DR_COMMUNE = 128, DR_GLINT = 256, DR_EDGE = 512,
@@ -18146,6 +18147,84 @@ static void render_eyes(Frame *f, const Draw *d, float left, float top, float si
         }
         for (int y = 0; y < cs; y++) for (int x = 0; x < cs; x++) eye_px(f, x0 + x, y0 + y, core, d->depth);
     }
+}
+
+/* Spirit vapour (docs/InitialArtPass.md section 7): the soul showing, more of it the higher the rank. III a thread from the
+ * eyes, cold; IV a plume from the eyes and the chest, red, embers falling; V a cloak of dark smoke about it, a violet rim and
+ * a white spark now and then; gilded, gold motes going round its head. Dithered, slow, fogged with the body, hidden by
+ * walls, drawn before the eyes so it never covers them; its randomness the renderer's own (hash2), never the game's.
+ * g_fx: 0 full, 1 calm (half of it, slower), 2 none (the CREATURE EFFECTS setting). */
+static int g_fx;
+static void vap_px(Frame *f, int x, int y, int ps, uint8_t c, float depth, float fog, int dark) {
+    for (int j = 0; j < ps; j++)
+        for (int i = 0; i < ps; i++) {
+            int px = x + i, py = y + j;
+            if (px < 0 || px >= W || py < 0 || py >= H || depth >= zbuf[px] || fog * 16.0f > BAYER[py & 3][px & 3] + 0.5f) continue;
+            uint8_t *p = &f->pix[py * W + px];
+            if (dark) { if (!IS_FULLBRIGHT(*p)) *p = crawl_cmap[6][*p]; }   /* smoke that eats the light behind it */
+            else *p = c;
+        }
+}
+static void render_vapour(Frame *f, const Draw *d, float left, float top, float size, float fog) {
+    int rank = d->erank;
+    if (d->vap <= 0.0f || g_fx >= 2 || rank < RK_III) return;
+    float es = size / TS, k = d->vap * (g_fx ? 0.5f : 1.0f), slow = g_fx ? 0.6f : 1.0f;
+    int ps = es >= 1.6f ? 2 : 1;
+    uint32_t seed = (uint32_t)(int)(d->x * 13.0f) * 2654435761u ^ (uint32_t)(int)(d->y * 7.0f) * 40503u;
+    const EyeAt *e = &crawl_eyes[d->spr];
+    float ex[3], ey[3]; int ne = 0;
+    for (int i = 0; i < e->n; i++) { ex[ne] = e->x[i]; ey[ne] = (d->flags & DR_FLIPV) ? TS - 1 - e->y[i] : e->y[i]; ne++; }
+    if (!ne) { ex[ne] = 32.0f; ey[ne] = 16.0f; ne++; }
+    float t = (float)G.t * slow;
+    #define VX(fx) ((int)floorf(left + (fx) * es))
+    #define VY(fy) ((int)floorf(top + (fy) * es))
+    if (rank == RK_GILDED) {                                       /* gold motes going round its head */
+        float cx = 0.0f, cy = 0.0f;
+        for (int i = 0; i < ne; i++) { cx += ex[i]; cy += ey[i]; }
+        cx /= (float)ne; cy /= (float)ne;
+        int nm = k >= 1.0f ? 4 : 2;
+        for (int m = 0; m < nm; m++) {
+            float a = t * 1.1f + (float)m * TAU_F / (float)nm, x = cx + cosf(a) * 11.0f, y = cy - 3.0f + sinf(a) * 3.5f + sinf(t * 2.0f + (float)m) * 1.0f;
+            int glint = fmodf(t * 0.7f + (float)m * 0.37f, 1.0f) < 0.06f;
+            vap_px(f, VX(x), VY(y), ps, glint ? (uint8_t)C_WHITE : (uint8_t)(R_GOLD + 11 - (m & 1) * 3), d->depth, fog, 0);
+        }
+        return;
+    }
+    if (rank == RK_V) {                                            /* a cloak of dark smoke about it */
+        int np = (int)(30.0f * k);
+        for (int i = 0; i < np; i++) {
+            uint32_t h = hash2((int)(seed % 9973u) + i * 7, 11);
+            float p = fmodf(t * 0.22f + (float)(h % 1000) / 1000.0f, 1.0f);
+            float bx = 14.0f + (float)((h >> 10) % 36), by = 14.0f + (float)((h >> 16) % 44);
+            const uint8_t *col = &crawl_spr[d->spr][clampi((int)bx, 0, TS - 1) * TS];
+            int sy = (d->flags & DR_FLIPV) ? TS - 1 - (int)by : (int)by;
+            if (col[clampi(sy, 0, TS - 1)] == C_CLEAR) continue;   /* it rises off the body */
+            float x = bx + sinf(p * 6.0f + (float)i) * 2.0f, y = by - p * 22.0f;
+            if (BAYER[i & 3][(i >> 2) & 3] < (int)(p * 16.0f)) continue;   /* thinning as it rises */
+            int rim = (h >> 24) % 5 == 0, spark = (h >> 24) % 61 == 0 && p < 0.4f;
+            vap_px(f, VX(x), VY(y), ps, spark ? (uint8_t)C_WHITE : (uint8_t)(R_PURPLE + 12), d->depth, fog, !rim && !spark);
+        }
+    }
+    for (int s = 0; s < ne + (rank >= RK_IV); s++) {                /* threads or a plume from the eyes, and the chest */
+        float sx = s < ne ? ex[s] : 32.0f, sy = s < ne ? ey[s] : (ey[0] + 16.0f);
+        int np = (int)((rank == RK_III ? 5.0f : 8.0f) * k + 0.5f);
+        float rise = rank == RK_III ? 14.0f : 20.0f, amp = rank == RK_III ? 1.2f : 2.6f;
+        for (int i = 0; i < np; i++) {
+            float p = fmodf(t * (rank == RK_III ? 0.32f : 0.42f) + (float)i / (float)np + (float)((seed >> (s * 3)) & 7) * 0.13f, 1.0f);
+            float x = sx + sinf(p * 5.0f + (float)i * 1.3f + (float)s) * amp * p, y = sy - p * rise;
+            if (p > 0.55f && ((i + (int)(p * 8.0f)) & 1)) continue;   /* fraying at the top */
+            uint8_t c = rank == RK_III ? (uint8_t)(p < 0.5f ? R_GLOW + 13 : R_GHOST + 12) : (uint8_t)(p < 0.3f ? R_FLAME + 9 : p < 0.65f ? R_BLOOD + 13 : R_BLOOD + 9);
+            if (rank == RK_V) c = p < 0.3f ? (uint8_t)C_WHITE : (uint8_t)(R_PURPLE + 13);
+            vap_px(f, VX(x), VY(y), ps, c, d->depth, fog, 0);
+        }
+        if (rank == RK_IV && s == ne)                              /* embers falling off it */
+            for (int i = 0; i < 3; i++) {
+                float p = fmodf(t * 0.5f + (float)i * 0.33f, 1.0f);
+                vap_px(f, VX(sx + (float)(i - 1) * 4.0f + sinf(p * 9.0f) * 1.5f), VY(sy + p * 18.0f), 1, (uint8_t)(R_FLAME + 6 + (i & 1) * 3), d->depth, fog, 0);
+            }
+    }
+    #undef VX
+    #undef VY
 }
 
 static int cmp_draw(const void *a, const void *b) {
@@ -18444,7 +18523,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
-        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0, 0, 0, 0, 0 }; } while (0)
+        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0, 0, 0, 0, 0, NULL, 0.0f }; } while (0)
     for (int i = 0; i < G.ndecos; i++) {
         const Deco *dc = &G.decos[i];
         static const float FPS[4] = { 0.0f, 0.0f, 3.0f, 9.0f };    /* by frame count: candles flicker, fire roars */
@@ -18568,6 +18647,9 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (commune) d->flags = (d->flags & ~DR_EYES) | DR_COMMUNE;   /* Commune: its shape, wherever it is */
         if (m->state == MS_WALK && !statue && m->type != MOB_SHADE && crawl_eyes[s].n && !(d->flags & (DR_EYES | DR_IMPLODE))) {
             d->eye = 1; d->etype = m->type; d->erank = m->boss ? RK_V : m->rank;   /* its eyes, after it (render_eyes) */
+            int dx = crawl_dress_ix[s][m->rank];
+            if (m->rank != RK_I && dx >= 0 && !m->boss) d->ov = crawl_dress[dx];   /* its rank's dressing */
+            if (!m->boss && m->rank >= RK_III && !KIND_IS(m, KF_SPIRIT)) d->vap = 1.0f;   /* and its spirit, showing */
             d->estate = m->type == MOB_WSKULL ? (m->sub == 0 ? 3 : 2) : (m->swing > 0.0f || m->throw_t > 0.0f ? 2 : (m->alert ? 1 : 0));
         }
         if (m->state == MS_DIE && m->sub == 77) {                  /* drawn in to a point */
@@ -18830,6 +18912,8 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     }
     #undef ADD
     qsort(list, (size_t)n, sizeof list[0], cmp_draw);
+    for (int i = n - 1, nv = 0; i >= 0; i--)                       /* the nearest four carry their full vapour, the rest a thread */
+        if (list[i].vap > 0.0f && (nv++ >= 4 || list[i].depth > 12.0f)) list[i].vap = 0.5f;
     float bfs_dark = G.bfs_t > 0.0f ? 1.0f - smoothstepf(0.3f, 1.4f, G.bfs_t) : 0.0f;
     for (int i = 0; i < n; i++) {
         Draw *d = &list[i];
@@ -18923,6 +19007,11 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                         continue;
                     }
                 }
+                int ovr = 0;                                       /* its rank's dressing, in its own colours */
+                if (d->ov) {
+                    int ox = glitch ? tx - gshift[tyi] : tx;
+                    if (ox >= 0 && ox < TS && d->ov[ox * TS + sy] != C_CLEAR) { c = d->ov[ox * TS + sy]; ovr = 1; }
+                }
                 if (c == C_CLEAR) {
                     if ((d->flags & (DR_EDGE | DR_ALLY)) && !behind && ((x + y + (int)(G.t * 10.0)) & 1)
                         && ((tyi < TS - 1 && col[tyi + 1] != C_CLEAR) || (tx > 0 && img[(tx - 1) * TS + tyi] != C_CLEAR)
@@ -18938,7 +19027,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     continue;
                 }
                 if (faded) continue;
-                if (d->lut) c = d->lut[c];
+                if (d->lut && !ovr) c = d->lut[c];
                 if ((d->flags & DR_SHINE) && c >= R_IRON && c < R_IRON + 16) {   /* polished: brighter, and the glint going by */
                     int v = c - R_IRON;
                     if (G.bmirror_t > 0.0f) { f->pix[y * W + x] = ((x + y) & 1) ? (uint8_t)C_WHITE : (uint8_t)(R_GHOST + 14); continue; }   /* the Mirror Rune */
@@ -19035,6 +19124,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     if (xs[j] >= 0 && xs[j] < W && ys[j] >= 0 && ys[j] < H && d->depth < zbuf[xs[j]]) f->pix[ys[j] * W + xs[j]] = abs(k) == arm && arm > 1 ? (uint8_t)(R_GOLD + 11) : (uint8_t)C_WHITE;
             }
         }
+        if (d->vap > 0.0f) render_vapour(f, d, left, top, size, fog_amount(d->x, d->y, 1.0f - expf(-d->depth * 0.28f)));
         if (d->eye) render_eyes(f, d, left, top, size);           /* its eyes, whatever the light (docs/InitialArtPass.md) */
     }
     for (int i = 0; i < MAXMOBS; i++) {                            /* spiders hang by a thread */

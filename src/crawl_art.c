@@ -1194,10 +1194,196 @@ static void skel_draw(float walk, float k, uint32_t seed, int raise) {
             }
 }
 
+/* ---- the dressing (docs/InitialArtPass.md section 6): what a rank has done to a creature, as a layer over its sprite ----
+ * The marks add up rank by rank: rags from II, damage from III, wounds from IV, regalia at V; the condition is the
+ * rank's own: II moss and mould, III frost, IV old blood, V char; the gilded are dressed, not hurt. A creature's
+ * function draws its sprite, stores it, then for each rank begins a layer (dress_begin), draws its kit and stores it. */
+uint8_t crawl_dress[NDRESS][TS * TS];
+int16_t crawl_dress_ix[NSPR][NRANK];
+static int g_dress_n;
+static const uint8_t *g_base;                           /* the body being dressed, column-major, for the kit's masks */
+static int base_on(int x, int y) { return (unsigned)x < (unsigned)TS && (unsigned)y < (unsigned)TS && g_base[x * TS + y] != C_CLEAR; }
+static uint8_t base_c(int x, int y) { return base_on(x, y) ? g_base[x * TS + y] : (uint8_t)C_CLEAR; }
+static void dress_begin(int id) { g_base = crawl_spr[id]; cv_begin(cv_sprite, TS, TS); }
+/* keep the layer where it shows the body (ramp) or hangs in the air, not over what the creature carries; a dark rim
+ * where it stands out of the body */
+static void dress_store(int id, int rank, int ramp) {
+    static uint8_t tmp[TS * TS];
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t b = base_c(x, y);
+            if (b != C_CLEAR && b != 0 && (b < ramp || b >= ramp + 16)) cv_sprite[y * TS + x] = C_CLEAR;
+        }
+    memcpy(tmp, cv_sprite, sizeof tmp);
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            if (tmp[y * TS + x] != C_CLEAR || base_on(x, y)) continue;
+            int n = (x > 0 && tmp[y * TS + x - 1] != C_CLEAR && !IS_FULLBRIGHT(tmp[y * TS + x - 1]))
+                  + (x < TS - 1 && tmp[y * TS + x + 1] != C_CLEAR && !IS_FULLBRIGHT(tmp[y * TS + x + 1]))
+                  + (y < TS - 1 && tmp[(y + 1) * TS + x] != C_CLEAR && !IS_FULLBRIGHT(tmp[(y + 1) * TS + x]));
+            if (n) cv_sprite[y * TS + x] = 0;
+        }
+    int ix = crawl_dress_ix[id][rank];
+    if (ix < 0) { if (g_dress_n >= NDRESS) return; ix = g_dress_n++; crawl_dress_ix[id][rank] = (int16_t)ix; }
+    for (int x = 0; x < TS; x++) for (int y = 0; y < TS; y++) crawl_dress[ix][x * TS + y] = cv_sprite[y * TS + x];
+}
+/* rags hanging from a line, len long, ragged and torn, swung by w; behind: only where the body isn't (a cloak) */
+static void kit_rags(float x0, float y0, float x1, float y1, float len, float w, int ramp, float lo, float hi, int behind, uint32_t seed) {
+    int n = (int)hypotf(x1 - x0, y1 - y0) + 1;
+    for (int i = 0; i <= n; i++) {
+        float t = (float)i / (float)n, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t;
+        float l = len * (0.5f + 0.5f * h01(i, 1, seed));
+        if (h01(i, 2, seed) < 0.15f) l *= 0.35f;                    /* torn away */
+        for (int k = 0; k < (int)l; k++) {
+            float u = (float)k / len;
+            int px = (int)(x + w * u * 1.6f + sinf((float)k * 0.6f + (float)i) * 0.35f), py = (int)(y + (float)k);
+            if (behind && base_on(px, py)) continue;
+            float v = lo + (hi - lo) * (1.0f - 0.7f * u) * (0.65f + 0.35f * h01(i, k, seed + 3)) - (((i + (int)(seed & 3)) % 4) == 0 ? 0.07f : 0.0f);
+            cv_px(px, py, sh(ramp, v));
+        }
+    }
+}
+/* frost along the tops of the body and icicles under it; amount 0-1 */
+static void kit_frost(float amount, uint32_t seed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            if (!base_on(x, y) || base_c(x, y) == 0) continue;
+            float r = h01(x, y, seed);
+            if (!base_on(x, y - 1) && r < amount) cv_px(x, y, r < amount * 0.15f ? (uint8_t)C_WHITE : (uint8_t)(R_GHOST + 12 + (int)(r * 7.0f) % 4));
+            else if (!base_on(x, y + 1) && r < amount * 0.5f) {   /* an icicle */
+                int l = 1 + (int)(h01(x, y, seed + 1) * 3.5f * amount);
+                for (int k = 1; k <= l; k++) cv_px(x, y + k, (uint8_t)(R_GHOST + 14 - k * 2));
+            } else if (r < amount * 0.12f) cv_px(x, y, (uint8_t)(R_GHOST + 10));   /* rime */
+        }
+}
+/* moss and mould on the body, and a few pale caps of fungus */
+static void kit_moss(float amount, int caps, uint32_t seed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            if (!base_on(x, y) || base_c(x, y) == 0) continue;
+            float n = fbm(x / 4.0f, y / 4.0f, 16, seed);
+            if (n > 1.0f - amount) cv_px(x, y, sh(R_MOSS, 0.15f + 0.5f * (n - 1.0f + amount) / amount + 0.15f * h01(x, y, seed)));
+        }
+    for (int i = 0, made = 0; i < 200 && made < caps; i++) {
+        int x = 16 + (int)(h01(i, 1, seed) * 32.0f), y = 20 + (int)(h01(i, 2, seed) * 30.0f);
+        if (!base_on(x, y) || base_on(x, y - 1)) continue;          /* on a top edge */
+        cv_px(x, y - 1, sh(R_SKIN, 0.85f)); cv_px(x + 1, y - 1, sh(R_SKIN, 0.7f)); cv_px(x, y, sh(R_SKIN, 0.4f));
+        made++;
+    }
+}
+/* old blood run down from a wound, following the body */
+static void kit_blood(float cx, float cy, int len, int width, uint32_t seed) {
+    for (int c = 0; c < width; c++) {
+        int x = (int)cx + c - width / 2, l = (int)((float)len * (0.5f + 0.5f * h01(c, 1, seed)));
+        for (int k = 0; k < l; k++) {
+            int y = (int)cy + k;
+            if (!base_on(x, y)) { if (k > 2) break; continue; }
+            cv_px(x, y, (uint8_t)(R_BLOOD + 2 + (int)(4.0f * (1.0f - (float)k / (float)(l + 1))) + (int)(h01(x, y, seed) * 2.0f)));
+        }
+    }
+}
+/* char and soot on the body, an ember or two still in it */
+static void kit_char(float amount, uint32_t seed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            if (!base_on(x, y) || base_c(x, y) == 0) continue;
+            float n = fbm(x / 3.0f, y / 3.0f, 16, seed);
+            if (n < amount) cv_px(x, y, (uint8_t)(R_IRON + 1 + (int)(n / amount * 4.0f)));
+            else if (h01(x, y, seed + 5) > 0.992f) cv_px(x, y, (uint8_t)(R_FLAME + 4));
+        }
+}
+/* gold leaf laid on the body's lit edges */
+static void kit_gold(int ramp, float amount, uint32_t seed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t b = base_c(x, y);
+            if (b < ramp || b >= ramp + 16) continue;
+            int v = b - ramp;
+            if (v >= 9 && fbm(x / 3.0f, y / 3.0f, 16, seed) > 1.0f - amount) cv_px(x, y, (uint8_t)(R_GOLD + clampi(v - 3, 4, NGOLD - 1)));
+        }
+}
+/* an arrow in it: the shaft out at angle a, fletched */
+static void kit_arrow(float x, float y, float a, float len) {
+    float dx = cosf(a), dy = sinf(a);
+    for (int k = 0; k <= (int)len; k++) cv_px((int)(x + dx * k), (int)(y + dy * k), sh(R_WOOD, 0.55f - 0.2f * (float)k / len));
+    float ex = x + dx * len, ey = y + dy * len;
+    for (int k = 0; k < 3; k++) { cv_px((int)(ex - dx * k - dy), (int)(ey - dy * k + dx), sh(R_GHOST, 0.75f)); cv_px((int)(ex - dx * k + dy), (int)(ey - dy * k - dx), sh(R_GHOST, 0.55f)); }
+}
+/* an iron circlet, broken: a band with spikes, one snapped */
+static void kit_crown(float cx, float cy, float w, uint32_t seed) {
+    for (int x = (int)(cx - w / 2); x <= (int)(cx + w / 2); x++) {
+        float u = (x - cx) / (w / 2);
+        cv_px(x, (int)cy, sh(R_IRON, 0.55f - 0.25f * u)); cv_px(x, (int)cy + 1, sh(R_IRON, 0.3f - 0.15f * u));
+    }
+    for (int k = 0; k < 4; k++) {
+        float x = cx - w / 2 + 1.5f + (float)k * (w - 3.0f) / 3.0f;
+        int h = k == 2 ? 1 : 3 + (k == 1);
+        for (int j = 1; j <= h; j++) cv_px((int)x, (int)cy - j, sh(R_IRON, 0.7f - 0.1f * j - 0.15f * (x > cx)));
+    }
+    cv_px((int)(cx + 1), (int)cy + 1, sh(R_BRICK, 0.45f));               /* rust */
+}
+/* a chain sagging from (x0,y0) to (x1,y1), links light and dark; a shackle at the first end */
+static void kit_chain(float x0, float y0, float x1, float y1, float sag, int ramp) {
+    int n = (int)(hypotf(x1 - x0, y1 - y0) * 1.2f) + 1;
+    for (int i = 0; i <= n; i++) {
+        float t = (float)i / (float)n;
+        int x = (int)(x0 + (x1 - x0) * t), y = (int)(y0 + (y1 - y0) * t + sag * 4.0f * t * (1.0f - t));
+        cv_px(x, y, ramp == R_GOLD ? (uint8_t)(R_GOLD + ((i & 1) ? 11 : 6)) : sh(ramp, (i & 1) ? 0.7f : 0.3f));
+    }
+    if (ramp != R_GOLD) { cv_flat(x0, y0, 1.6f, 1.6f, sh(ramp, 0.5f)); cv_px((int)x0, (int)y0, 0); }
+}
+/* the skull's face turned to gold: a death-mask, the sockets left dark */
+static void kit_mask(int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; y++)
+        for (int x = x0; x < x1; x++) {
+            uint8_t b = base_c(x, y);
+            if (b > R_BONE && b < R_BONE + 16) cv_px(x, y, (uint8_t)(R_GOLD + clampi((b - R_BONE) - 2, 2, NGOLD - 1)));
+        }
+}
+
+/* the skeleton's dressing (and the shield-bearer's): hx, hy its right hand, w its stride */
+static void skel_dress(int id, float w, float hx, float hy) {
+    uint32_t sd = (uint32_t)id * 7u + 101u;
+    for (int r = RK_II; r < NRANK; r++) {
+        dress_begin(id);
+        int gild = r == RK_GILDED;
+        if (gild) {                                                /* the honoured dead: a clean shroud, gold on it */
+            kit_rags(26, 42, 38, 42.5f, 8, w * 0.3f, R_WARM, 0.45f, 0.8f, 0, sd);
+            for (int x = 26; x <= 38; x++) cv_px(x, 42, (uint8_t)(R_GOLD + 9 + (x & 1)));
+            kit_gold(R_BONE, 0.55f, sd + 1);
+            kit_mask(25, 3, 40, 14);
+            kit_chain(26, 24, 38, 25, 2.5f, R_GOLD);
+        } else {
+            /* rags from II, longer each rank; the dead's cloak at V, behind them */
+            float len = r == RK_II ? 9.0f : r == RK_III ? 10.0f : 11.0f;
+            int cr = r == RK_IV ? R_BLOOD : r == RK_V ? R_IRON : R_WARM;
+            kit_rags(26, 42, 38, 43, len, w * (r == RK_III ? 0.25f : 1.0f), cr, cr == R_WARM ? 0.2f : 0.08f, cr == R_WARM ? 0.55f : 0.35f, 0, sd);
+            kit_rags(23, 20.5f, 28, 21.5f, r == RK_II ? 5.0f : 7.0f, w * 0.5f, cr, cr == R_WARM ? 0.2f : 0.08f, cr == R_WARM ? 0.5f : 0.3f, 0, sd + 9);
+            if (r == RK_V) kit_rags(22, 20, 42, 21, 30, w * 0.6f, R_IRON, 0.03f, 0.2f, 1, sd + 17);
+            /* the condition: the rank's own */
+            if (r == RK_II) kit_moss(0.3f, 3, sd + 2);
+            if (r == RK_III) kit_frost(0.75f, sd + 3);
+            if (r == RK_V) kit_char(0.32f, sd + 4);
+            /* damage from III: a notch out of the crown, the crack wider */
+            if (r >= RK_III) { cv_px(35, 3, 0); cv_px(36, 4, 0); cv_px(36, 3, 0); cv_line(35, 5, 34, 9, sh(R_BONE, 0.15f)); }
+            /* wounds from IV: an arrow in the ribs, a cut across the brow, and what ran from them */
+            if (r >= RK_IV) {
+                kit_blood(34, 29, 12, 2, sd + 5); kit_blood(28, 8, 5, 1, sd + 6);
+                kit_arrow(34, 28, -0.6f, 9.0f);
+                cv_line(27, 6, 30, 8, 0); cv_px(28, 6, sh(R_BLOOD, 0.3f));
+            }
+            /* regalia at V: an iron crown, broken, and a shackle on the wrist with its chain */
+            if (r == RK_V) { kit_crown(32, 3, 12, sd); kit_chain(hx, hy, hx + 3, hy + 14, 1.5f, R_IRON); }
+        }
+        dress_store(id, r, R_BONE);
+    }
+}
+
 static void spr_skeleton(int id, float walk, float k, uint32_t seed, int raise) {
     skel_draw(walk, k, seed, raise);
     cv_outline(0);
     cv_store(id);
+    if (k < 0.3f) skel_dress(id, walk, raise == 1 ? 46.0f : raise == 2 ? 48.0f : 48.0f, raise == 1 ? 13.0f : raise == 2 ? 6.0f : 24.0f);
 }
 
 /* A skeleton with a round wooden shield on its arm and a sword: it closes in and strikes */
@@ -1234,6 +1420,7 @@ static void spr_shieldskel(int id, float walk, int swing, int shield) {
     }
     cv_outline(0);
     cv_store(id);
+    skel_dress(id, walk, 48.0f, swing ? 6.0f : 24.0f);
 }
 
 /* The wall skull: a great skull set into the stone. Asleep it is only bone; woken, fire gathers in
@@ -8770,6 +8957,7 @@ void crawl_art_init(void) {
     static int done;
     if (done) return;
     done = 1;
+    memset(crawl_dress_ix, 0xFF, sizeof crawl_dress_ix);           /* no dressing until a creature draws its own */
     build_palette();
     build_colormap();
     build_rank_luts();
