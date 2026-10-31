@@ -7,9 +7,9 @@ puzzles, the trials and the reckoning) and 1.0.0b14 (the lower storey), staged a
 `claude/epic-dirac-n8uosr`, from main at 1.0.0b12: 1.0.0b13's eight steps are built (the runs' hazards and Resist
 Lightning, the ways to touch the world, the sealed wing and every puzzle, the hidden message, Tab's documents and the
 Black Shrine, all seventeen trials, tuned once: see *The trials, as tuned* at the end, the reckoning before leaving, the
-record and the Codex, and the checks: see *The checks* at the end), tested in the harness only, and wait for the owner's
-word to be released; `hazards.png`, `puzzles.png`, `documents.png` and `trials.png` wait for the owner's eye. 1.0.0b14
-(steps 9-13) is not begun.** The owner asked for five things: a lower
+record and the Codex, and the checks: see *The checks* at the end), tested in the harness only, and released as
+1.0.0b13 at the owner's word (31 October); `hazards.png`, `puzzles.png`, `documents.png` and `trials.png` wait for the
+owner's eye. 1.0.0b14 (steps 9-13) is not begun.** The owner asked for five things: a lower
 storey under each level from run II, growing run by run; art that shows an edge can't be crossed; more hazards of
 each run's own, using the elements; logic puzzles played with things in the world, with no screen of their own;
 and timed trials behind marked doors. This plan maps that onto the game as it stood on
