@@ -1006,7 +1006,11 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   (step 6): `human_leave` in place of `human_exit` for a person at the exit; `reckon_lines` (creatures, secrets, the wing,
   `map_gold`, the trial; on a boss's level only outside the arena), `UI_RECKON`, `update_reckon` (NOT YET steps back a
   pace; `G.rk_fresh` spends the press that opened it), `render_reckon` on `crawl_doc_page`'s slip (run + 4). Not in a
-  challenge, a replay or a pocket. Debug: `EVENT reckon`, `reckon_stay`, `reckon_descend`.
+  challenge, a replay or a pocket. Debug: `EVENT reckon`, `reckon_stay`, `reckon_descend`. *The record* (step 7):
+  `RUN.deed_pz`, `deed_tri`, `deed_lost`, `pz_kinds`, `tri_kinds` (kept through death; `LG_DEEDS` grew to 18 bytes after
+  the hazards' four, an older one read as none), `rec_puzzle`, the trial's in `tri_end`; achievements from `ACH_DEED0`
+  (324: puzzles at 1, 5, 20, trials at 1, 10, 30, each run's trials all won) in `ach_lines`; the Codex's `CX_PUZZLE` and
+  `CX_TRIAL` parts (`PZ_DOES`, `tri_run_of`).
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

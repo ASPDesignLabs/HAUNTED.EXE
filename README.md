@@ -549,6 +549,45 @@ eye shows under your keys and in the readout, and FLEE and OPEN THE LEDGER say *
 This catches a closed window, a crash or a power cut as well. Nothing in a pocket or her room counts as
 danger.
 
+### CATACOMB: hazards, puzzles and trials
+
+**Each run's own hazards** (1.0.0b13). The Crypts, the Catacombs, the Hollows and the Deep each have six or seven
+things of their own that hurt: some fixed in the walls and rooms, keeping a rhythm that can be learnt (a censer on
+its chain, a burial slab breathing, a sluice gate, a lodestone seam, a fissure, a black mirror), some arising near
+you (falling votive racks, silt, choking ash, glass that spikes), more of both as the run goes on, and now and then
+an earlier run's. Each harms by an element, never more than a quarter of your health at a stroke, and always warns
+first. From the sixth level of each run, two or three on a level drink your souls while you stand in them (a
+reliquary, a weeping saint, a tithe box, the mirror). **Resist Lightning** is a new stat and a line of points.
+
+**Puzzles.** On the even levels from the sixth, a sealed wing behind a great door, a hoard inside, and on one
+puzzle level in three the way on. Only thought opens it, never a spell: skulls carried to their niches, bells rung
+in order, knights' heads turned, a scale balanced, cisterns poured, stepping stones, rails switched, a fossil's
+bones fitted, prisms, a glass floor, singing crystals, a magic square, twenty-seven kinds in all, a run's own and
+two of any run. Everything is done with E and your feet, and read in the world; you can carry one thing at a time
+and still cast. After three wrong tries a whisper gives a nudge. **The answer is written down** somewhere on the
+level, hidden in one of the run's things (a candle-box, a satchel in the silt, a miner's boot, a broken geode):
+E searches one, a second's work, and the right one glints when you are close, more with Treasure Hunter. A **Black
+Shrine** on each puzzle level will, for souls, show where it lies through the walls and on the map. What you find,
+and every clue you read, goes into a new page of Tab, **DOCUMENTS**, until the level ends.
+
+**Trials.** On every level from the third, a door marked with the run's skull and crossed bones, two red lights by
+it. A cell inside it seals, the room turns (its walls, its light, a quicker march), and an hourglass stands at the
+top of the view with a minute of sand and no numbers. Seventeen trials, four or five a run: the ossuary's bones
+standing up in waves, a vigil over three candles, relics carried to a bier, a knight's wager, a toll whose small
+bells answer only under the great one; rising water, a brood of sacs, sluice wheels, saints' lamps in the dark; a
+cave-in, a charnel feast, a rite of four deacons, firedamp; the molten rise, the dark hours, the glass court and
+singing glass. Won, the hourglass breaks, you are made whole (spirit to half the vessel), and **the trial's boon**
+gives a fifth more experience from what you slay for the rest of the level. Let the sand run out and its creatures
+crumble, and **the trial's curse** takes a fifth from everything instead. Falling there is a death as anywhere.
+
+**The reckoning.** Going out by the exit with anything still left on the level (creatures, secrets, the sealed
+wing, gold, the trial), a slip pinned to the exit's door says what, under *THE DEAD KEEP COUNT*, and you choose
+*DESCEND BELOW* to go on. It starts on *NOT YET*, so a quick E never leaves by mistake.
+
+The record counts puzzles solved and trials won, with achievements for them, and the Codex has a page for each
+hazard met, each kind of puzzle solved and each trial won. The screensaver works the puzzles out slowly, a wrong
+try now and then, and takes every trial it finds.
+
 ### Playing CATACOMB yourself
 
 Hold **H** for three seconds, in either scene, or any button on a game controller. A bar fills at the
@@ -562,8 +601,8 @@ switching until you hand it back. HAUNT.EXE cuts straight to the crypt.
 | Mouse | Turn, Doom-style; there is no looking up or down |
 | Left click, or Ctrl | Cast the spell in hand where you are looking (lightning and Soul Drain pick the nearest creature near the middle of the view). Hold it to charge a line's ultimate, or to keep Soul Tether on; a tap casts the spell |
 | 1 to 7, or the wheel | Choose a line's spell: 1 Fire, 2 Frost, 3 Lightning, 4 Poison (the Blight Flask), 5 Spirit (Soul Drain), 6 Physical (the Bone Spear), 7 the BFS9000; the wheel skips lines not open |
-| E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, step through the exit runes, drink from a boss's font, kindle a brazier, or use the merchant (her menu), the Rune Shrine, the Hexed Totem, the Compendium, the Repository, a gravestone, the Accursed Portal, the Lampstand, the Dead Bell, the Weeping Font, a Black Altar or its wisp, a visportal or a water cooler. Walking into a door opens it too, and walking into a chain's doorway takes you through |
-| Tab | The wardrobe: W and S choose a place, worn or in the bag, and Enter moves a piece between them. A and D turn to the caster's page: every total, what abilities add (in gold) and what is at its cap (in blue), and the lines' ranks; then the cornerstones, the Alignment's tree and the elements |
+| E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, step through the exit runes, drink from a boss's font, kindle a brazier, take, set down, turn, pull, light, strike or read a puzzle's or a trial's things, search a thing that may hold the hidden message, use a Black Shrine, or use the merchant (her menu), the Rune Shrine, the Hexed Totem, the Compendium, the Repository, a gravestone, the Accursed Portal, the Lampstand, the Dead Bell, the Weeping Font, a Black Altar or its wisp, a visportal or a water cooler. Walking into a door opens it too, and walking into a chain's doorway takes you through |
+| Tab | The wardrobe: W and S choose a place, worn or in the bag, and Enter moves a piece between them. A and D turn to the caster's page: every total, what abilities add (in gold) and what is at its cap (in blue), and the lines' ranks; then the cornerstones, the Alignment's tree, the elements, and the documents found and read on the level |
 | B | The bestiary and the achievements. A and D turn the pages, W and S choose a rank or scroll |
 | L | The wisps: a list of what can be summoned now and at what price (see below). W and S choose, Enter casts, Space sets L to cast that one at a tap; then holding L brings the list back |
 | C | The Codex of Affixations. A and D turn the pages, W and S go between its parts |
@@ -884,6 +923,25 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b13** (each run's hazards, puzzles behind a sealed wing, the hidden message and the Black Shrine, trials,
+the reckoning). Built on the work branch and tested in the harness only, by the autopilot and scripted players: not
+yet played by hand or run on Windows.
+
+* **Hazards:** each of the twenty-one placed and fired in the harness (`CRAWL_HZ`), the dream walking round what is
+  always there and through it when it must; AddressSanitizer and UBSan clean.
+* **Puzzles:** the dream works every kind; on one seed it solved twenty-three of the twenty-seven within its time
+  (the slow ones are the singing crystals, the square and the letters, and the urns can outlast it). A balance it
+  left undone turned out to be the dream pacing before a doorway, now fixed. Clean under ASan and UBSan, all
+  twenty-seven.
+* **The hidden message, Tab's documents and the Black Shrine:** found by scripted players on each run's levels,
+  the page of each run drawn; the shrine's showing seen through the walls and on the map. Clean under ASan.
+* **Trials:** each run by the dream on eight seeds at three levels of its run, with experience banked so it
+  ascends as it would: 383 of 408 won. The plan asks for nineteen in twenty with five to fifteen seconds left;
+  Rising Water, the Brood and the Sluices are there, the others are won with more time to spare and lose a few
+  for reasons other than difficulty (the full table is in docs/PLAN-b13.md). Clean under ASan and UBSan.
+* **The reckoning:** opened, answered both ways, by scripted players on each run. Clean under ASan.
+* **Not tested at all:** by hand, on Windows; none of the new art has been seen on a real screen.
 
 **New in 1.0.0b12** (a new run from Esc, and the souls' line). Tested in the harness only, by scripted
 players: not yet played by hand or run on Windows. The Windows build was compiled without warnings and

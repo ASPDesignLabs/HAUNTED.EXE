@@ -573,6 +573,8 @@ static struct {
     int scrip[BOSS_REC], bstep[BOSS_REC];   /* each boss's Named Odious Scrip, held at the Hexed Totem; its challenge's step, 0-5 */
     uint8_t top_rank[REC_KINDS];            /* 1 + the highest rank of each kind met since the last death (0: none yet) */
     int omens;                              /* the hazards met, a bit each (HZ_*): the first of each is named */
+    int deed_pz, deed_tri, deed_lost;       /* 1.0.0b13's record: puzzles solved, trials won and lost; the kinds of each, */
+    uint32_t pz_kinds, tri_kinds;           /* a bit each (saved in LG_DEEDS, kept through death) */
     uint8_t abil[BOSS_REC];                 /* each boss's ability for the caster, from the Hexed Totem: its rank, 0-3 */
     int abil_sel;                           /* the one the right mouse uses (a boss's number) */
     int run_top;                            /* the furthest run opened at the Accursed Portal: its boss's level over ten */
@@ -3291,7 +3293,12 @@ static int spend_spirit(float c) {
 /* ---- the record and its achievements (PLAN-bestiary, section 11): the autopilot earns them too ---- */
 
 enum { ACH_SECRET0 = REC_KINDS * NRANK, ACH_LEVEL0 = ACH_SECRET0 + 16, ACH_DESCENT0 = ACH_LEVEL0 + 20,   /* bits: slayers by kind and rank, then the rest; */
-       ACH_LEVEL21 = 256, ACH_BOSS0 = ACH_LEVEL21 + 20 };       /* from version 6: levels 21 to 40, then the bosses */
+       ACH_LEVEL21 = 256, ACH_BOSS0 = ACH_LEVEL21 + 20,          /* from version 6: levels 21 to 40, then the bosses */
+       ACH_DEED0 = ACH_BOSS0 + 6 * 8 };                          /* 1.0.0b13: puzzles at 1, 5, 20; trials at 1, 10, 30; each run's trials all won */
+static const int PZ_STEP[3] = { 1, 5, 20 }, TRI_STEP[3] = { 1, 10, 30 };
+static const char *const PZ_ACH[3] = { "A KEY OF THOUGHT", "THE PATIENT MIND", "NOTHING SEALED FOR LONG" };
+static const char *const TRI_ACH[3] = { "AGAINST THE SAND", "THE HOURGLASS, BROKEN", "TIME'S OWN ENEMY" };
+static const char *const TRI_RUN_ACH[4] = { "THE CRYPTS' TRIALS", "THE CATACOMBS' TRIALS", "THE HOLLOWS' TRIALS", "THE DEEP'S TRIALS" };
 #define NSECRET_STEPS 7
 static const int SECRET_STEP[NSECRET_STEPS] = { 1, 5, 10, 20, 30, 40, 50 };
 static const char *const SECRET_NAME[NSECRET_STEPS] = { "A HOLLOW KNOCK", "LISTENING WALLS", "THE STONE GIVES WAY", "NOTHING STAYS HIDDEN",
@@ -9359,7 +9366,13 @@ static void things_test(void) {
 }
 #endif
 
-static void rec_puzzle(void) { }                                     /* the record (step 7) */
+static void ach_earn(int bit, int spr, int family, int rank, const char *title, const char *desc);
+static void rec_puzzle(void) {                                     /* the record: a puzzle solved, and its kind */
+    if (RUN.deed_pz < 65535) RUN.deed_pz++;
+    RUN.pz_kinds |= 1u << G.pz;
+    char d[32];
+    for (int k = 0; k < 3; k++) if (RUN.deed_pz >= PZ_STEP[k]) { snprintf(d, sizeof d, "%d PUZZLE%s SOLVED", PZ_STEP[k], PZ_STEP[k] > 1 ? "S" : ""); ach_earn(ACH_DEED0 + k, SP_PZ_LEVER1, -1, 0, PZ_ACH[k], d); }
+}
 
 /* ---- puzzles (1.0.0b13, docs/PLAN-b13.md, part C) ----
  * On even levels from the sixth, never a boss's, one puzzle: a sealed wing (a room with one way in, its door
@@ -11369,6 +11382,7 @@ static const int8_t TRI_RUN[4][5] = { { TRI_OSSUARY, TRI_VIGIL, TRI_RITES, TRI_W
                                       { TRI_WATER, TRI_BROOD, TRI_SLUICES, TRI_LAMPS, -1 },
                                       { TRI_CAVEIN, TRI_FEAST, TRI_RITE, TRI_FIREDAMP, -1 },
                                       { TRI_MOLTEN, TRI_DARK, TRI_COURT, TRI_SINGING, -1 } };
+static int tri_run_of(int kind) { for (int r = 0; r < 4; r++) for (int k = 0; k < 5; k++) if (TRI_RUN[r][k] == kind) return r; return 0; }
 static const uint8_t TRI_FOG[NTRI] = { R_MOSS, R_WARM, R_PURPLE, R_BLOOD, R_GHOST, R_GHOST, R_MOSS, R_GHOST, R_IRON, R_WARM, R_BLOOD, R_PURPLE,
                                        R_MOSS, R_BRICK, R_PURPLE, R_IRON, R_GHOST };   /* the room's light, while it is turned */
 static const uint8_t TRI_HOLD[NTRI] = { [TRI_VIGIL] = 1, [TRI_DARK] = 1 };   /* won by holding to the end, not by finishing */
@@ -11740,7 +11754,16 @@ static void tri_end(int won) {
         if (!KIND_IS(m, KF_UNCOUNTED)) G.kills_total--;
         sfx_at(SFX_BONES, m->x, m->y, 0.5f);
     }
-    if (won) {
+    if (won) {                                                     /* the record: a trial won, and its kind */
+        if (RUN.deed_tri < 65535) RUN.deed_tri++;
+        RUN.tri_kinds |= 1u << G.tri;
+        char d[32];
+        for (int k = 0; k < 3; k++) if (RUN.deed_tri >= TRI_STEP[k]) { snprintf(d, sizeof d, "%d TRIAL%s WON", TRI_STEP[k], TRI_STEP[k] > 1 ? "S" : ""); ach_earn(ACH_DEED0 + 3 + k, SP_TRLIGHT0, -1, 0, TRI_ACH[k], d); }
+        for (int r = 0; r < 4; r++) {
+            int all = 1;
+            for (int k = 0; k < 5 && TRI_RUN[r][k] >= 0; k++) all &= (int)(RUN.tri_kinds >> TRI_RUN[r][k] & 1);
+            if (all) ach_earn(ACH_DEED0 + 6 + r, SP_TRLIGHT0 + r, -1, 0, TRI_RUN_ACH[r], "EVERY ONE WON");
+        }
         G.tri_boon = 1;
         G.hp = G.max_hp; G.poison_t = 0.0f;
         RUN.gear.bones = imax(RUN.gear.bones, bones_max());
@@ -11750,6 +11773,7 @@ static void tri_end(int won) {
         snd_sfx_ex(SFX_SHATTER, 1.0f, 0.5f); snd_sfx_ex(SFX_FANFARE, 0.6f, 0.5f); snd_sfx_ex(SFX_POTION, 0.7f, 0.5f);
         show_bar();
     } else {
+        if (RUN.deed_lost < 65535) RUN.deed_lost++;
         G.tri_boon = -1;
         say("THE SAND HAS RUN OUT: THE TRIAL'S CURSE, A FIFTH LESS OF EVERYTHING");
         snd_sfx_ex(SFX_SHATTER, 0.5f, 0.5f); snd_sfx_ex(SFX_GHOST_DIE, 0.8f, 0.5f);
@@ -15799,7 +15823,8 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
 #define LEDGER_MAGIC 0x3147444Cu            /* "LDG1" */
 #define PROGRESS_MAGIC 0x31505648u          /* "HVP1": a progress that names the page to start from */
 enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX, LG_CASTER, LG_ELEM, LG_ALIGN, LG_HALL2, LG_DEEDS };
-#define LG_DEEDS_BYTES 4                    /* 1.0.0b13 (docs/PLAN-b13.md): every hazard met, a bit each (the hall keeps only eight) */
+#define LG_DEEDS_BYTES 18                   /* 1.0.0b13 (docs/PLAN-b13.md): every hazard met, a bit each (the hall keeps only eight);
+                                               puzzles solved, trials won and lost (u16 each); the kinds of puzzle solved, of trial won */
 #define LG_HALL2_BYTES 12                   /* the bell and the font cursed, the levels they wait for, the secrets, a replay */
 #define LG_ALIGN_BYTES (NELEM * NNODE + 2 + 4)   /* the nodes, the points; the class, the Witchfinder's points and those spent, the gifts */
 enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
@@ -15922,8 +15947,9 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     c[0] = (uint8_t)(RUN.bell_cursed != 0); c[1] = (uint8_t)(RUN.font_cursed != 0); put16(c + 2, clampi(RUN.bell_next, 0, 65535));
     c[4] = (uint8_t)(RUN.bell_secrets != 0); put16(c + 5, clampi(RUN.font_next, 0, 65535)); put16(c + 7, clampi(RUN.replay_from, 0, 65535));
     p = section_end(c, c + LG_HALL2_BYTES);
-    c = section_begin(p, LG_DEEDS);                                /* the runs' hazards met (1.0.0b13) */
+    c = section_begin(p, LG_DEEDS);                                /* the runs' hazards met, the puzzles and trials (1.0.0b13) */
     put32(c, RUN.omens);
+    put16(c + 4, RUN.deed_pz); put16(c + 6, RUN.deed_tri); put16(c + 8, RUN.deed_lost); put32(c + 10, RUN.pz_kinds); put32(c + 14, RUN.tri_kinds);
     p = section_end(c, c + LG_DEEDS_BYTES);
     c = section_begin(p, LG_ELEM);
     memcpy(c, RUN.rec.el_kills, sizeof RUN.rec.el_kills); memcpy(c + REC_KINDS * NELEM, RUN.rec.el_hits, sizeof RUN.rec.el_hits);
@@ -16021,6 +16047,10 @@ static void run_unpack(const uint8_t *buf, int len) {
     } else RUN.old_spells = 1;                                     /* older: points for its Levels of Atonement, below */
     c = page_section(buf, len, LG_DEEDS, &k);
     if (c && k >= 4) RUN.omens |= get32(c) & ((1 << NHZ) - 1);
+    if (c && k >= 18) {
+        RUN.deed_pz = get16(c + 4); RUN.deed_tri = get16(c + 6); RUN.deed_lost = get16(c + 8);
+        RUN.pz_kinds = get32(c + 10) & ((1u << NPZK) - 1); RUN.tri_kinds = get32(c + 14) & ((1u << NTRI) - 1);
+    }
     c = page_section(buf, len, LG_HALL2, &k);
     if (c && k >= 7) {
         RUN.bell_cursed = c[0] != 0; RUN.font_cursed = c[1] != 0; RUN.bell_next = get16(c + 2);
@@ -17134,12 +17164,13 @@ static void update_repomenu(void) {
  * and hazard does, each written in once you have worn, held, unlocked or met it; and a page on her claim,
  * there from the start. Kept through death, with the page. C opens it; the crypt waits. ---- */
 
-enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_CASTER, CX_ELEM, CX_LINE, CX_CLASS, CX_SOUL, CX_CLAIM, NCX };
+enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_PUZZLE, CX_TRIAL, CX_CASTER, CX_ELEM, CX_LINE, CX_CLASS, CX_SOUL, CX_CLAIM, NCX };
 enum { CXS_VESSEL, CXS_BELL, CXS_FONT, CXS_REPLAY, CXS_SAP, NCXS };   /* the souls' pages */
-#define CX_MAX (NABIL + NDEF + NBOSS + NSTAT + NHZ + 3 + NCS + 2 + NELEM + 1 + NCXS)
+#define CX_MAX (NABIL + NDEF + NBOSS + NSTAT + NHZ + NPZK + NTRI + 3 + NCS + 2 + NELEM + 1 + NCXS)
 enum { CXC_ATONE, CXC_LUCK, CXC_OVER, CXC_CORNER };                /* the caster's own pages: then a cornerstone each, CXC_CORNER + CS_* */
 typedef struct { int sec, i; } CxEntry;
-static const char *const CX_PART[NCX] = { "AN ABILITY OF WHAT YOU WEAR", "A RUNE", "A BOSS'S GIFT", "A STAT A PIECE CAN ROLL", "A HAZARD", "THE CASTER'S OWN",
+static const char *const CX_PART[NCX] = { "AN ABILITY OF WHAT YOU WEAR", "A RUNE", "A BOSS'S GIFT", "A STAT A PIECE CAN ROLL", "A HAZARD", "A PUZZLE SOLVED",
+                                          "A TRIAL WON", "THE CASTER'S OWN",
                                           "THE ELEMENTS", "A LINE OF THE ALIGNMENT", "WHAT YOU WERE", "SOULS", "THE MERCHANT'S LEDGER" };
 static void codex_note(void) {                                     /* worn, held or met: written in */
     const Gear *g = &RUN.gear;
@@ -17164,6 +17195,8 @@ static int codex_entries(CxEntry *e) {
     for (int b = 0; b < NBOSS; b++) if (boss_beaten(b)) e[n++] = (CxEntry){ CX_BOSS, b };
     for (int t = 0; t < NSTAT; t++) if (RUN.cx_stat >> t & 1) e[n++] = (CxEntry){ CX_STAT, t };
     for (int h = 0; h < NHZ; h++) if (RUN.omens >> h & 1) e[n++] = (CxEntry){ CX_HAZ, h };
+    for (int k = 0; k < NPZK; k++) if (RUN.pz_kinds >> k & 1) e[n++] = (CxEntry){ CX_PUZZLE, k };   /* 1.0.0b13 */
+    for (int k = 0; k < NTRI; k++) if (RUN.tri_kinds >> k & 1) e[n++] = (CxEntry){ CX_TRIAL, k };
     e[n++] = (CxEntry){ CX_CASTER, CXC_ATONE };
     e[n++] = (CxEntry){ CX_CASTER, CXC_LUCK };
     if (RUN.atone >= ATONE_TOP) e[n++] = (CxEntry){ CX_CASTER, CXC_OVER };
@@ -20952,6 +20985,21 @@ static int ach_lines(AchLine *L, int max) {
         snprintf(l->title, sizeof l->title, "THE %s DESCENT", NTH[k]);
         snprintf(l->prog, sizeof l->prog, "L%d", k * DESCENT_LEN);
     }
+    for (int k = 0; k < 6 && n < max; k++) {                       /* 1.0.0b13: puzzles solved, trials won */
+        AchLine *l = &L[n++];
+        int have = k < 3 ? RUN.deed_pz : RUN.deed_tri, need = k < 3 ? PZ_STEP[k] : TRI_STEP[k - 3];
+        l->done = ach_has(ACH_DEED0 + k); l->known = 1;
+        snprintf(l->title, sizeof l->title, "%s", k < 3 ? PZ_ACH[k] : TRI_ACH[k - 3]);
+        snprintf(l->prog, sizeof l->prog, "%d/%d", have < need ? have : need, need);
+    }
+    for (int r = 0; r < 4 && n < max; r++) {                       /* and each run's trials, every one won */
+        AchLine *l = &L[n++];
+        int got = 0, all = 0;
+        for (int k = 0; k < 5 && TRI_RUN[r][k] >= 0; k++) { all++; got += (int)(RUN.tri_kinds >> TRI_RUN[r][k] & 1); }
+        l->done = ach_has(ACH_DEED0 + 6 + r); l->known = 1;
+        snprintf(l->title, sizeof l->title, "%s", TRI_RUN_ACH[r]);
+        snprintf(l->prog, sizeof l->prog, "%d/%d", got, all);
+    }
     return n;
 }
 #define ACH_ROWS 15
@@ -21471,6 +21519,8 @@ static void render_codex(Frame *f) {
     case CX_BOSS: snprintf(name, sizeof name, "%s", BA_NAME[c->i]); break;
     case CX_STAT: snprintf(name, sizeof name, "%s", STAT_NAME[c->i]); break;
     case CX_HAZ: snprintf(name, sizeof name, "%s", HZ_NAME[c->i]); break;
+    case CX_PUZZLE: snprintf(name, sizeof name, "%s", PZ_NAME[c->i]); break;
+    case CX_TRIAL: snprintf(name, sizeof name, "%s", TRI_NAME[c->i]); break;
     case CX_ELEM: snprintf(name, sizeof name, "WHAT HURTS WHAT"); break;
     case CX_LINE: snprintf(name, sizeof name, "%s", ALIGN[c->i].name); break;
     case CX_CLASS: snprintf(name, sizeof name, "%s", CLASSES[c->i].name); break;
@@ -21653,6 +21703,40 @@ static void render_codex(Frame *f) {
             "OR STRAFE LEFT AND RIGHT, AGAIN AND AGAIN, TO SHAKE IT OFF. BLINK AND SWIFT DODGE THROW IT OFF. RESIST SPIRIT TAKES ITS SHARE." };
         y += text_wrap(f, 14, y, SD[clampi(c->i, 0, NCXS - 1)], 36, R_STONE + 13, 12) * 9 + 4;
         if (c->i == CXS_VESSEL) { snprintf(line, sizeof line, "YOURS: %d.%d OF %d", RUN.souls, clampi((int)(RUN.soul_frac * 10.0f), 0, 9), vessel()); gfx_text8(f, 14, y, line, R_GLOW + 12, 1); }
+        break;
+    }
+    case CX_PUZZLE: {                                              /* 1.0.0b13: what it asks, and the tally */
+        static const char *const PZ_DOES[NPZK] = {
+            "SKULLS MARKED WITH THE ORDER'S RANKS, EACH TO THE NICHE CUT WITH ITS OWN.", "FOUR BELLS, RUNG IN THE ORDER THE BANNER GIVES.",
+            "FIVE KNIGHTS ON THEIR TOMBS, EACH HEAD TURNED TO WHOM ITS EPITAPH SAYS.", "RELIQUARIES OF BEADS ON A GREAT SCALE, LAID UNTIL IT HANGS LEVEL.",
+            "NINE VOTIVE CANDLES, LIT AS THE WINDOW SHOWS THEM.", "THREE URNS MOVED PLINTH TO PLINTH, NEVER A LARGER ON A SMALLER.",
+            "A DIAL OF THE CANONICAL HOURS, SET TO THE HOUR THE BOOK NAMES.", "THREE CISTERNS POURED ONE INTO ANOTHER UNTIL THE MEASURE IS RIGHT.",
+            "SAINTS WITH EMPTY HANDS, EACH GIVEN HER OWN EMBLEM.", "CULVERTS TURNED TO CARRY THE WATER FROM THE SPOUT TO THE MILL WHEEL.",
+            "STEPPING STONES OVER THE FLOOD: SOME HOLD, SOME SINK.", "THREE WHEELS OF SAINTS' SIGNS, TURNED IN THE ORDER THEY DIED.",
+            "BELLS AT THE WATER LINE, RUNG DEEPEST OR SHALLOWEST AS THE CARVING SAYS.", "SWITCH LEVERS SET SO THE CART RUNS TO THE RIGHT BUFFER.",
+            "SACKS OF ORE IN THE HOIST'S BOX, TO THE WEIGHT THE BOARD ASKS.", "THE MINERS' TAGS HUNG FOR THOSE WHO CAME UP FROM THE LAST SHIFT.",
+            "A FOSSIL'S BONES, EACH TO THE SOCKET OF ITS SHAPE.", "SEVEN STANDING STONES, THEIR MARKS TURNED AS THE CULT'S LITANY RUNS.",
+            "LAMPS DOWN A SHAFT, LIT FOR THE GALLERIES THAT LOST MEN.", "PRISMS TURNED TO BEND A BEAM OF THE MAGMA'S LIGHT INTO A GEODE.",
+            "STATUES OF A DEAD COURT, EACH SET IN ITS PLACE FROM THE THRONE.", "A FLOOR OF GLASS: EVERY TILE LIT, NONE STEPPED ON TWICE.",
+            "CRYSTALS THAT SING A PHRASE, STRUCK BACK IN THE SAME ORDER.", "TILES OF GOLD VEIN TURNED TO JOIN THE IDOL'S EYES TO THE LOCK.",
+            "VENTS OPENED QUICKLY, IN AN ORDER THAT CRUSTS A PATH OVER THE MAGMA.", "NINE NUMBERED STONES LAID SO EVERY LINE ADDS TO THE SAME.",
+            "DIALS OF LETTERS SET TO A WORD CUT IN PIECES ROUND THE ROOM." };
+        y += text_wrap(f, 14, y, PZ_DOES[c->i], 36, R_STONE + 13, 4) * 9 + 4;
+        y += text_wrap(f, 14, y, "IT OPENS A SEALED WING, A HOARD BEHIND IT; ON ONE PUZZLE LEVEL IN THREE, THE WAY ON. ONLY THOUGHT OPENS IT, "
+                       "NEVER A SPELL. THE ANSWER IS WRITTEN DOWN SOMEWHERE ON THE LEVEL.", 36, R_STONE + 11, 7) * 9 + 4;
+        snprintf(line, sizeof line, "PUZZLES SOLVED: %d", RUN.deed_pz);
+        text_wrap(f, 14, y, line, 36, R_BONE + 11, 1);
+        break;
+    }
+    case CX_TRIAL: {
+        static const char *const RUN_OF[4] = { "THE CRYPTS", "THE CATACOMBS", "THE HOLLOWS", "THE DEEP" };
+        snprintf(line, sizeof line, "%s. %s.", RUN_OF[tri_run_of(c->i)], TRI_TASK[c->i]);
+        y += text_wrap(f, 14, y, line, 36, R_STONE + 13, 4) * 9 + 4;
+        y += text_wrap(f, 14, y, TRI_HOLD[c->i] ? "HELD TO THE END OF THE SAND, IT IS WON." : "DONE BEFORE THE SAND RUNS OUT, IT IS WON.", 36, R_STONE + 11, 2) * 9 + 4;
+        y += text_wrap(f, 14, y, "A SKULL AND CROSSED BONES ON THE DOOR. A CELL INSIDE, IT SEALS: SIXTY SECONDS. WON, YOU ARE MADE WHOLE (SPIRIT TO "
+                       "HALF THE VESSEL) AND THE BOON GIVES A FIFTH MORE FROM WHAT YOU SLAY; RUN OUT, THE CURSE TAKES A FIFTH OF EVERYTHING.", 36, R_STONE + 11, 9) * 9 + 4;
+        snprintf(line, sizeof line, "TRIALS WON: %d   LOST: %d", RUN.deed_tri, RUN.deed_lost);
+        text_wrap(f, 14, y, line, 36, R_BONE + 11, 1);
         break;
     }
     case CX_HAZ: {
