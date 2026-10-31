@@ -4272,8 +4272,15 @@ static void drowned_dress(int id, int grab) {
 }
 
 
-/* The ghoul: low, on all fours, grey and starved, a ridge of spine over its back. Skin R_WARM.
+/* The ghoul (docs/InitialArtPass.md section 8): starved, low, on all fours, skin tight over a beaded spine and ribs, long
+ * thin arms with long claws; a long-muzzled face (GHOUL_HEAD: close-set eyes deep in their sockets, slit nostrils at the
+ * muzzle's tip, lips peeled back from fangs, the jaw hanging open), long ears swept up and torn. Skin R_WARM (PF_FLESH).
  * pose: 0-1 loping, 2 leaping, 3 feeding on bones, 4 dead. */
+static const char *const GHOUL_HEAD[15] = {
+    "....4678764....", "...59abcba95...", "..48abdddba74..", ".36a900c009a63.", ".359@0aca0@953.", "..48900a00984..",
+    "..37abcdcba73..", "...59bcecb95...", "...4a0dcd0a4...", "..2u2u0u0u2u2..", "..2u1000001u2..", "..3s0000000s3..",
+    "...3s0s0s0s3...", "....3589853....", ".....36663.....",
+};
 static void spr_ghoul(int id, float w, int pose) {
     cv_begin(cv_sprite, TS, TS);
     if (pose == 4) {
@@ -4297,49 +4304,73 @@ static void spr_ghoul(int id, float w, int pose) {
     /* hind legs, behind, folded */
     for (int s = -1; s <= 1; s += 2) {
         float kx = 32 + s * 13, ky = 44 + lift * 0.6f;
-        cv_capsule(32 + s * 6, 34 + lift, kx, ky, 2.6f, R_WARM, 0.2f, 0.6f);
-        cv_capsule(kx, ky, 32 + s * 9 + (pose == 2 ? s * 6 : 0), 58 + lift * 0.3f, 2.0f, R_WARM, 0.2f, 0.55f);
+        cv_capsule(32 + s * 6, 34 + lift, kx, ky, 2.0f, R_WARM, 0.15f, 0.55f);
+        cv_ellipse(kx, ky, 2.2f, 2.0f, R_WARM, 0.2f, 0.6f);                       /* a knobbed knee */
+        cv_capsule(kx, ky, 32 + s * 9 + (pose == 2 ? s * 6 : 0), 58 + lift * 0.3f, 1.5f, R_WARM, 0.15f, 0.5f);
     }
     /* the back, arched high, with the spine standing out */
-    cv_ellipse(32, 33 + lift + feed * 4, 12, 8, R_WARM, 0.3f, 0.9f);
-    for (int i = 0; i < 4; i++) cv_ellipse(32, 26.5f + lift + feed * 4 + i * 2.6f, 1.8f - i * 0.2f, 1.2f, R_WARM, 0.5f, 1.0f);   /* knuckles of spine */
-    for (int s2 = -1; s2 <= 1; s2 += 2) cv_ellipse(32 + s2 * 6.5f, 29 + lift + feed * 4, 3.0f, 2.2f, R_WARM, 0.35f, 0.95f);   /* shoulder blades */
-    for (int i = 0; i < 4; i++) {                                   /* ribs down the flanks */
-        float y = 31 + lift + feed * 4 + i * 2.5f;
-        cv_line(22, y, 26, y + 1.5f, sh(R_WARM, 0.2f)); cv_line(42, y, 38, y + 1.5f, sh(R_WARM, 0.2f));
+    cv_ellipse(32, 33 + lift + feed * 4, 9.5f, 7.0f, R_WARM, 0.2f, 0.8f);   /* the back, arched, starved */
+    for (int i = 0; i < 6; i++) cv_ellipse(32, 25.5f + lift + feed * 4 + i * 2.2f, 1.6f - i * 0.12f, 1.0f, R_WARM, 0.55f, 1.0f);   /* the spine, beaded */
+    for (int s2 = -1; s2 <= 1; s2 += 2) {                           /* shoulder blades jutting */
+        cv_ellipse(32 + s2 * 6.0f, 28.5f + lift + feed * 4, 3.2f, 2.0f, R_WARM, 0.35f, 0.95f);
+        cv_line(32 + s2 * 3.5f, 27 + lift + feed * 4, 32 + s2 * 8.5f, 30 + lift + feed * 4, sh(R_WARM, 0.1f));
+    }
+    for (int i = 0; i < 5; i++) {                                   /* ribs down the flanks, the skin sunk between them */
+        float y = 30 + lift + feed * 4 + i * 2.0f;
+        cv_line(24, y, 28, y + 1.5f, sh(R_WARM, 0.08f)); cv_line(40, y, 36, y + 1.5f, sh(R_WARM, 0.08f));
+        cv_line(24, y + 1, 27, y + 2.2f, sh(R_WARM, 0.55f)); cv_line(40, y + 1, 37, y + 2.2f, sh(R_WARM, 0.55f));
     }
     /* front arms: long, bony, planted wide, or flung out in the leap */
     for (int s = -1; s <= 1; s += 2) {
         float ex = 32 + s * 15, ey = 38 + lift, fx, fy;
         if (pose == 2) { ex = 32 + s * 17; ey = 26 + lift; fx = 32 + s * 24; fy = 18 + lift; }
         else { float step = s * w * 3.0f; fx = 32 + s * 17 + step * 0.3f; fy = 60 - fmaxf(0.0f, step) * 1.5f; }
-        cv_capsule(32 + s * 9, 32 + lift + feed * 4, ex, ey, 2.4f, R_WARM, 0.3f, 0.85f);
-        cv_capsule(ex, ey, fx, fy, 2.0f, R_WARM, 0.28f, 0.8f);
-        for (int c = -1; c <= 1; c++) {                             /* claws */
+        cv_capsule(32 + s * 8, 32 + lift + feed * 4, ex, ey, 1.8f, R_WARM, 0.25f, 0.8f);
+        cv_ellipse(ex, ey, 2.1f, 2.0f, R_WARM, 0.3f, 0.85f);                     /* a knobbed elbow */
+        cv_capsule(ex, ey, fx, fy, 1.5f, R_WARM, 0.22f, 0.75f);
+        for (int c = -1; c <= 1; c++) {                             /* claws, long and hooked */
             float ca = (pose == 2 ? (s < 0 ? -2.3f : -0.8f) : 1.57f + s * 0.3f) + c * 0.35f;
-            cv_line(fx, fy, fx + cosf(ca) * 4.0f, fy + sinf(ca) * 4.0f, sh(R_BONE, 0.65f));
+            cv_line(fx, fy, fx + cosf(ca) * 6.0f, fy + sinf(ca) * 6.0f, sh(R_BONE, 0.7f));
+            cv_px((int)(fx + cosf(ca) * 6.0f + s), (int)(fy + sinf(ca) * 6.0f), sh(R_BONE, 0.5f));
         }
     }
-    /* the head: long skull-like face, bat ears, a mouth of needles */
-    for (int s = -1; s <= 1; s += 2) {                              /* the ears, standing out past the shoulders */
-        float e[6] = { hx + s * 4.0f, hy - 4, hx + s * 16, hy - 14, hx + s * 6.5f, hy + 0.5f };
-        cv_poly(e, 3, R_WARM, 0.45f, 0.95f, hy - 14, 14);
-        float in[6] = { hx + s * 5.5f, hy - 3, hx + s * 13.5f, hy - 11, hx + s * 6.5f, hy - 0.5f };
-        cv_poly(in, 3, R_BLOOD, 0.1f, 0.3f, hy - 11, 10);
-    }
-    cv_ellipse(hx, hy, 7.0f, 6.2f, R_WARM, 0.35f, 1.0f);
-    cv_ellipse(hx, hy + 4.5f, 4.8f, 3.2f, R_WARM, 0.25f, 0.75f);
+    /* the head: long ears swept up and torn, then the face (GHOUL_HEAD) */
     for (int s = -1; s <= 1; s += 2) {
-        cv_flat(hx + s * 2.8f, hy - 0.8f, 1.8f, 1.4f, 0);
-        cv_eye((int)(hx + s * 2.8f), (int)(hy - 0.8f), (uint8_t)(R_FLAME + 9));
+        float e[6] = { hx + s * 3.0f, hy - 6, hx + s * 16, hy - 15, hx + s * 8.5f, hy + 1.0f };   /* broad, leathery */
+        cv_poly(e, 3, R_WARM, 0.25f, 0.75f, hy - 15, 16);
+        float in[6] = { hx + s * 5.0f, hy - 4.5f, hx + s * 13.5f, hy - 12.5f, hx + s * 8.0f, hy - 1.0f };
+        cv_poly(in, 3, R_WARM, 0.06f, 0.16f, hy - 12.5f, 11);
+        cv_px((int)(hx + s * 12.0f), (int)(hy - 9), C_CLEAR); cv_px((int)(hx + s * 12.5f), (int)(hy - 8), C_CLEAR);   /* a tear in each */
     }
-    float mo = pose == 2 ? 2.8f : (pose == 3 ? 1.0f : 1.6f);
-    cv_flat(hx, hy + 5.0f, 3.4f, mo, 0);
-    for (int i = -3; i <= 3; i++) { if (i & 1) continue; cv_px((int)hx + i, (int)(hy + 5.0f - mo + 0.5f), sh(R_BONE, 0.9f)); cv_px((int)hx + i + 1, (int)(hy + 5.0f + mo - 0.5f), sh(R_BONE, 0.75f)); }
-    if (pose == 3) cv_line(hx - 1, hy + 6, hx + 2, hy + 12, sh(R_BLOOD, 0.3f));
+    grid_stamp(GHOUL_HEAD, 15, 15, (int)(hx - 7.0f), (int)(hy - 7.0f), R_WARM, R_BONE, (uint8_t)(R_FLAME + 13), 0);
+    if (pose == 3) { cv_line(hx - 1, hy + 4, hx + 1, hy + 11, sh(R_BLOOD, 0.3f)); cv_line(hx + 2, hy + 4, hx + 3, hy + 9, sh(R_BLOOD, 0.22f)); }   /* feeding */
     cv_rot(R_WARM, 0.3f, 253);
     cv_outline(0);
     cv_store(id);
+}
+
+/* the ghoul's dressing by rank: II loose skin hanging and mould, III frost and an ear torn through, IV a gash down its
+ * back and its claws and mouth bloodied, V charred in a chained beast's collar, gilded gold leaf and gilt fangs */
+static void ghoul_dress(int id, float lift, float feed) {
+    float hx = 32, hy = 40 + lift + feed * 10.0f;
+    for (int r = RK_II; r < NRANK; r++) {
+        dress_begin(id);
+        if (r != RK_GILDED) { kit_rags(25, 36 + lift + feed * 4, 30, 38 + lift + feed * 4, 6, 0.0f, R_WARM, 0.1f, 0.3f, 0, 511); kit_rags(35, 37 + lift + feed * 4, 39, 36 + lift + feed * 4, 5, 0.0f, R_WARM, 0.1f, 0.3f, 0, 513); }
+        if (r == RK_II) kit_moss(0.32f, 2, 515);
+        if (r == RK_III) kit_frost(0.75f, 517);
+        if (r >= RK_III && r != RK_GILDED) { cv_line(hx + 13, hy - 13, hx + 15, hy - 10, 0); cv_line(hx + 14, hy - 13, hx + 16, hy - 11, 0); }   /* an ear torn through */
+        if (r >= RK_IV && r != RK_GILDED) {
+            cv_line(27, 27 + lift + feed * 4, 36, 36 + lift + feed * 4, sh(R_BLOOD, 0.15f)); cv_line(28, 27 + lift + feed * 4, 37, 36 + lift + feed * 4, sh(R_BLOOD, 0.35f));   /* a gash down its back */
+            kit_blood(hx, hy + 6, 6, 3, 519);
+            for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) { uint8_t b = base_c(x, y); if (b >= R_BONE && b < R_BONE + 16 && y > hy + 8 && h01(x, y, 521) < 0.5f) cv_px(x, y, sh(R_BLOOD, 0.3f)); }   /* bloodied claws */
+        }
+        if (r == RK_V) { kit_char(0.3f, 523); for (int x = (int)hx - 7; x <= (int)hx + 7; x++) { cv_px(x, (int)hy + 8, sh(R_IRON, 0.55f)); cv_px(x, (int)hy + 9, sh(R_IRON, 0.25f)); } kit_chain(hx + 6, hy + 9, hx + 14, hy + 20, 2.0f, R_IRON); }
+        if (r == RK_GILDED) {
+            kit_gold(R_WARM, 0.5f, 525);
+            for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) { uint8_t b = base_c(x, y); if (b >= R_BONE + 11 && b < R_BONE + 16 && y < hy + 8 && y > hy) cv_px(x, y, (uint8_t)(R_GOLD + 11)); }   /* gilt fangs */
+        }
+        dress_store(id, r, R_WARM);
+    }
 }
 
 /* grime and moss on bones, deeper down, as on the skeletons */
@@ -9377,6 +9408,7 @@ void crawl_art_init(void) {
     drowned_dress(SP_DROWN_A, 0); drowned_dress(SP_DROWN_B, 0); drowned_dress(SP_DROWN_GRAB, 1);
     spr_drowned(SP_DROWN_RISE, 0.0f, 3); spr_drowned(SP_DROWN_BURST, 0.0f, 4); spr_drowned(SP_DROWN_POOL, 0.0f, 5);
     spr_ghoul(SP_GHOUL_A, 1.0f, 0); spr_ghoul(SP_GHOUL_B, -1.0f, 1); spr_ghoul(SP_GHOUL_LEAP, 0.0f, 2); spr_ghoul(SP_GHOUL_FEED, 0.0f, 3); spr_ghoul(SP_GHOUL_D, 0.0f, 4);
+    ghoul_dress(SP_GHOUL_A, 0.0f, 0.0f); ghoul_dress(SP_GHOUL_B, 0.0f, 0.0f); ghoul_dress(SP_GHOUL_LEAP, -10.0f, 0.0f); ghoul_dress(SP_GHOUL_FEED, 0.0f, 1.0f);
     spr_bestiary_bones();
     for (int f = 0; f < 4; f++) { spr_hunter(SP_HUNTER_A + f, f); spr_brood(SP_BROOD_A + f, f); }
     for (int f = 0; f < 3; f++) {                                  /* the Wandering Spider: a pale skull on its back */
