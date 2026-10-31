@@ -4,9 +4,10 @@
 reckoning of what is left on a level before you leave it. Written as 1.0.0b12's plan; 1.0.0b12 went out instead as a
 small release from the owner's first look at 1.0.0b11, so at the owner's word this is now 1.0.0b13 (the hazards, the
 puzzles, the trials and the reckoning) and 1.0.0b14 (the lower storey), staged as G2 (a) has it. Being built on
-`claude/epic-dirac-n8uosr`, from main at 1.0.0b12: steps 1-4 are built (the runs' hazards and Resist Lightning, the ways
-to touch the world, the sealed wing and every puzzle, the hidden message, Tab's documents and the Black Shrine), tested
-in the harness only; `hazards.png`, `puzzles.png` and `documents.png` wait for the owner's eye.** The owner asked for five things: a lower
+`claude/epic-dirac-n8uosr`, from main at 1.0.0b12: steps 1-5 are built (the runs' hazards and Resist Lightning, the ways
+to touch the world, the sealed wing and every puzzle, the hidden message, Tab's documents and the Black Shrine, and all
+seventeen trials, tuned once: see *The trials, as tuned* at the end), tested in the harness only; `hazards.png`,
+`puzzles.png`, `documents.png` and `trials.png` wait for the owner's eye.** The owner asked for five things: a lower
 storey under each level from run II, growing run by run; art that shows an edge can't be crossed; more hazards of
 each run's own, using the elements; logic puzzles played with things in the world, with no screen of their own;
 and timed trials behind marked doors. This plan maps that onto the game as it stood on
@@ -751,3 +752,50 @@ First guesses, for the owner to see and overrule, and for the runs to tune:
   *DOCUMENTS* is its sixth page, sixteen documents at most (the oldest clue goes first, never the message).
 - **The dream's walk** (found in step 4): a pile or a sapper's soft mark now only chooses between ways on, and never
   turns it back; before, it could pace for minutes before a doorway a reliquary sat behind.
+
+## The trials, as tuned (step 5, 31 October 2026)
+
+Each trial was run by the dream on eight seeds (1-15 odd) at three levels of its run (3, 6, 9; 11, 15, 19; 21, 25, 29;
+31, 35, 39), started at its door (`CRAWL_TPTRIAL=2`), with every spell at the run's tier (`CRAWL_GEAR` 2-3, 4, 6, 8) and
+experience banked for about the Level of Atonement it would have by then (`CRAWL_XPBANK`: it ascends and aligns at its
+first greeting). An earlier round that gave it a Level of Atonement with nothing bought (`CRAWL_ATONE`) left it far
+weaker than it is, and lost most of the Hollows' and the Deep's trials; those numbers are not the ones below.
+
+In all, 383 of 408 won (94%), one death. The plan asks for nineteen in twenty (95%) with five to fifteen seconds left;
+by trial, won of 24 and the median time left when won (the hold trials always run to the end):
+
+| Run | Trial | Won | Left | | Run | Trial | Won | Left |
+|---|---|---|---|---|---|---|---|---|
+| I | The Ossuary Wakes | 22 | 17.5 s | | III | The Cave-In | 21 | 28.9 s |
+| I | The Vigil (hold) | 24 | | | III | The Charnel Feast | 23 | 18.1 s |
+| I | Last Rites | 23 | 24.9 s | | III | The Rite | 21 | 27.1 s |
+| I | The Knight's Wager | 22 | 28.1 s | | III | Firedamp | 24 | 30.2 s |
+| I | The Toll | 23 | 21.3 s | | IV | The Molten Rise | 21 | 37.0 s |
+| II | Rising Water | 23 | 10.0 s | | IV | Dark Hours (hold) | 21 | |
+| II | The Brood | 22 | 11.8 s | | IV | The Glass Court | 23 | 35.6 s |
+| II | Shut the Sluices | 24 | 15.5 s | | IV | Singing Glass | 22 | 22.7 s |
+| II | The Saints' Lamps | 24 | 31.9 s | | | | | |
+
+Rising Water, the Brood and the Sluices are where the plan wants them; the rest are won with more time to spare, and
+their losses are scattered rather than close calls: a creature whose element the dream's class can't touch (its class is
+drawn at random), or its first seconds spent at the door. Closing that gap is left for the checks (step 8). The harness
+parts ways between runs of different lengths, so one run moves by a few seconds from batch to batch.
+
+What we set ourselves while tuning, for the owner to see and overrule:
+
+- **The Toll**: a small bell answers only while the great bell's toll hangs in the air (three and a half seconds,
+  every nine), so the trial is one of timing; the dead stand still for the toll as the plan has it.
+- **A moment's work**: the sluice wheels take three and a half seconds of E held, the cave-in's props three, Firedamp's
+  vents five, the saints' lamps a second and a half, the Dark Hours' braziers a second.
+- **What the trials let loose** strike at seven tenths of their usual weight, since the room can't be left; the
+  knight of the Wager has three times his health; the Rite's deacons four times, and each raises one skeleton only;
+  the Glass Court's crowned one five times, its three black-rank dead seven tenths; the Molten Rise has five imps at
+  two and a half times.
+- **Waves**: the Ossuary's four, of three to five; Rising Water's three of the drowned with each rise of the water,
+  every fourteen seconds, to the last at forty-two; the Brood's sacs in four lots, thirteen seconds apart; the Feast's
+  ghouls in three; the Saints' Lamps' four shades put lamps out, and all five must burn at once.
+- **The roof** of the Cave-In holds fifteen seconds, then comes down a strip at a time; no prop stands where it comes
+  first. **Firedamp's** gas only chokes: a spell won't set it off, and the dream crosses it when it must.
+- **Entering**: a trial starts on the first cell inside its room. The dream takes one it has seen the door of, or
+  whose red lights are within sixteen steps.
+

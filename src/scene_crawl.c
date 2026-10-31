@@ -8495,7 +8495,8 @@ static int hz_covers(const Hazard *h, int x, int y) {
             switch (h->kind) {
             case HZ_SAINT: return ph < 2 && hz_bile_wet(h, k - 1) > 0.0f ? 1 : 0;
             case HZ_CART: { if (ph == 0) return 1; if (ph != 1) return 0; float dk = (float)h->cd[k - 1] - cart_at(h); return dk >= -0.6f && dk < 2.5f ? 2 : (dk >= -0.6f ? 1 : 0); }
-            case HZ_DAMP: return ph == 1 ? 2 : (ph == 0 && h->t > h->warn * 0.5f ? 1 : 0);
+            case HZ_DAMP: if (h->src == -7) return HZ_SOFT;        /* a trial's gas only chokes: crossed when it must be */
+                return ph == 1 ? 2 : (ph == 0 && h->t > h->warn * 0.5f ? 1 : 0);
             default: return ph == 1 ? 2 : (ph == 0 ? 1 : 0);
             }
         }
@@ -9237,8 +9238,8 @@ static int thing_use(int i) {
     Thing *t = &G.thing[i];
     float x = t->x, y = t->y;
     if (t->slow && G.work_i != i + 1) {                            /* a second's work first (a wheel, a prop): update_work */
-        G.work_i = i + 1; G.work_t = 1.0f;
-        thing_say(t, "%s: A SECOND'S WORK");
+        G.work_i = i + 1; G.work_t = t->slow >= 5 ? (float)t->slow / 10.0f : 1.0f;   /* (in tenths of a second) */
+        thing_say(t, "%s: A MOMENT'S WORK");
         sfx_at(SFX_PUSHWALL, x, y, 0.3f);
         return 1;
     }
@@ -11513,7 +11514,7 @@ static void tri_wave(void) {
     switch (G.tri) {
     case TRI_OSSUARY: {                                            /* the bones in the walls come down, a wave at a time; the half
                                                                       of them that stand up whole grapple rather than throw */
-        int n = 2 + G.tri_a[0] + lv / 12;
+        int n = 3 + G.tri_a[0] / 2 + lv / 12;
         for (int k = 0; k < n; k++) tri_spawn(k & 1 ? MOB_SHAMBLER : k % 4 == 2 && may_spawn(MOB_SHIELD) ? MOB_SHIELD : MOB_SKEL, 3.0f);
         G.tri_a[0]++; G.tri_f[0] = 0.0f;
         snd_sfx_ex(SFX_BONES, 0.9f, 0.5f);
@@ -11529,11 +11530,11 @@ static void tri_wave(void) {
         for (int k = 0; k < 3 + lv / 5; k++) tri_spawn(MOB_SKEL, 3.0f);
         break;
     case TRI_WATER: case TRI_SLUICES:                              /* the drowned, out of the water */
-        for (int k = 0; k < (G.tri == TRI_WATER ? (G.tri_a[0] ? 2 : 3) : 1); k++) { Mob *m = tri_spawn(MOB_DROWNED, 3.0f); if (m) { m->sub = 2; m->sub_t = 0.0f; } }
+        for (int k = 0; k < (G.tri == TRI_WATER ? 3 : 1); k++) { Mob *m = tri_spawn(MOB_DROWNED, 3.0f); if (m) { m->sub = 2; m->sub_t = 0.0f; } }
         G.tri_f[2] = 0.0f;
         break;
     case TRI_LAMPS:                                                /* shades, seen only in light */
-        for (int k = 0; k < 2 + lv / 15; k++) tri_spawn(MOB_SHADE, 4.0f);
+        for (int k = 0; k < 4; k++) tri_spawn(MOB_SHADE, 4.0f);
         break;
     case TRI_FEAST: {                                              /* ghouls at their meal on the heap */
         for (int k = 0; k < 3; k++) {
@@ -11551,7 +11552,8 @@ static void tri_wave(void) {
             if (!hz_floor(x, y)) continue;
             Mob *m = spawn_mob(x, y, MOB_DEACON);
             if (!m) break;
-            m->tri = 1; m->alert = 999.0f; m->home = -1; m->dmgk *= 0.7f;
+            m->tri = 1; m->alert = 999.0f; m->home = -1; m->dmgk *= 0.7f; m->raised = 3;   /* one each, then only its chant */
+            m->hp = m->maxhp = m->maxhp * 4.0f;
             add_deco(x + 0.5f + (c & 1 ? -0.6f : 0.6f), y + 0.5f, SP_BONES2);
         }
         break;
@@ -11565,7 +11567,9 @@ static void tri_wave(void) {
             if (!m) break;
             G.tri_a[4 + k] = (int)(m - G.mobs) + 1;
             G.tri_f[4 + (k & 3)] = 0.0f;
+            m->hp = m->maxhp = m->maxhp * 2.5f;
         }
+        for (int k = 0; k < 2; k++) { Mob *m = tri_spawn(MOB_IMP, 3.5f); if (m) m->hp = m->maxhp = m->maxhp * 2.5f; }
         break;
     case TRI_DARK:                                                 /* a shade of the Wraith, after the braziers */
         { Mob *m = tri_spawn(MOB_SHADE, 4.0f); if (m) m->tri = 2; }
@@ -11574,7 +11578,7 @@ static void tri_wave(void) {
         for (int k = 0; k < 3; k++) { Mob *m = tri_spawn(MOB_SKEL, 3.0f); if (m) { set_rank(m, RK_V); m->hp = m->maxhp = m->maxhp * 0.7f; m->dmgk *= 0.7f; } }
         Mob *c = tri_spawn(MOB_DEACON, 5.0f);
         if (!c) c = tri_spawn(MOB_DEACON, 2.0f);
-        if (c) { c->tri = 3; set_rank(c, RK_GILDED); add_deco(c->x + 0.6f, c->y, SP_BONES2); add_deco(c->x - 0.6f, c->y, SP_BONES2); }
+        if (c) { c->tri = 3; set_rank(c, RK_GILDED); c->raised = 0; c->hp = c->maxhp = c->maxhp * 5.0f; add_deco(c->x + 0.6f, c->y, SP_BONES2); add_deco(c->x - 0.6f, c->y, SP_BONES2); }
         else G.tri_a[1] = 1;                                       /* no room for it: the court has nobody to raise them */
         break;
     }
@@ -11626,36 +11630,37 @@ static void tri_begin(void) {
         int best = 0;
         for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && !G.mobs[i].tri && KINDS[G.mobs[i].type].family >= 0) best = imax(best, imin(G.mobs[i].rank, RK_V));
         Mob *m = tri_spawn(MOB_KNIGHT, 4.0f);
-        if (m) { set_rank(m, imin(RK_V, best + 1)); m->hp = m->maxhp = m->maxhp * 1.3f; }
+        if (m) { set_rank(m, imin(RK_V, best + 1)); m->hp = m->maxhp = m->maxhp * 3.0f; }
         break;
     }
     case TRI_WATER: tri_wave(); break;
     case TRI_BROOD: {                                              /* sacs on the walls, each ripening on its own time */
-        int n = 8;
-        for (int k = 0; k < n; k++) {
-            Mob *m = tri_spawn(MOB_SAC, 2.0f);
-            if (m) m->sub_t = -2.0f - 26.0f * (float)k / (float)n - 4.0f * rndf();   /* (a sac hatches at eight) */
-        }
+        for (int k = 0; k < 4; k++) { Mob *m = tri_spawn(MOB_SAC, 2.0f); if (m) m->sub_t = -2.0f - 4.0f * rndf(); }   /* (a sac hatches at eight) */
         break;
     }
     case TRI_SLUICES:
         for (int k = 0; k < 5; k++) {
             int i = tri_thing(TR_TURN, SP_PZ_WHEEL, "A SLUICE WHEEL", 1.5f);
-            if (i >= 0) { G.thing[i].slow = 1; G.thing[i].nstate = 2; G.thing[i].scale = 0.8f; }
+            if (i >= 0) { G.thing[i].slow = 35; G.thing[i].nstate = 2; G.thing[i].scale = 0.8f; }   /* a long heave */
         }
         tri_wave();
         break;
     case TRI_LAMPS:
         for (int k = 0; k < 5; k++) {
             int i = tri_thing(TR_LIGHT, SP_PZ_LAMP0, "A SAINT'S LAMP", 1.5f);
-            if (i >= 0) { G.thing[i].frames = 2; G.thing[i].scale = 0.8f; }
+            if (i >= 0) { G.thing[i].frames = 2; G.thing[i].scale = 0.8f; G.thing[i].slow = 15; }
         }
         tri_wave();
         break;
     case TRI_CAVEIN:
         for (int k = 0; k < 4; k++) {
             int i = tri_thing(TR_TURN, SP_TR_PROP0, "A LOOSE PROP", 1.5f);
-            if (i >= 0) { G.thing[i].slow = 1; G.thing[i].nstate = 2; G.thing[i].frames = 2; }
+            if (i < 0) continue;
+            G.thing[i].slow = 30; G.thing[i].nstate = 2; G.thing[i].frames = 2;   /* hammered home */
+            if (tri_strip_of(G.thing[i].cx, G.thing[i].cy) < tri_strips() / 3) {   /* not where the roof comes first */
+                int x, y;
+                for (int t = 0; t < 40; t++) if (tri_spot(&x, &y, 1.0f) && tri_strip_of(x, y) >= tri_strips() / 3) { G.thing[i].x = x + 0.5f; G.thing[i].y = y + 0.5f; G.thing[i].cx = x; G.thing[i].cy = y; break; }
+            }
         }
         tri_wave();
         break;
@@ -11671,7 +11676,7 @@ static void tri_begin(void) {
         for (int k = 0; k < 3; k++) {
             int i = tri_thing(TR_LEVER, SP_PZ_VENT0, "A VENT", 1.5f);
             if (i < 0) continue;
-            G.thing[i].frames = 2; G.thing[i].slow = 1; G.thing[i].scale = 0.8f;
+            G.thing[i].frames = 2; G.thing[i].slow = 50; G.thing[i].scale = 0.8f;   /* rusted shut */
             int s = tri_strip_of(G.thing[i].cx, G.thing[i].cy);   /* not in the first strips the gas takes */
             if (s >= 0 && s < tri_strips() / 2) { int x, y; for (int t = 0; t < 30; t++) if (tri_spot(&x, &y, 1.0f) && tri_strip_of(x, y) >= tri_strips() / 2) { G.thing[i].x = x + 0.5f; G.thing[i].y = y + 0.5f; G.thing[i].cx = x; G.thing[i].cy = y; break; } }
         }
@@ -11713,7 +11718,10 @@ static int tri_done(int *n) {                                      /* of the tri
 #endif
 static void tri_end(int won) {
 #ifdef CRAWL_DEBUG
-    { int n, d = tri_done(&n); fprintf(stderr, "TRIAL end %s: %d of %d done, %d standing, hp %d/%d, hold %.1f\n", won ? "won" : "lost", d, n, tri_alive(0), G.hp, G.max_hp, G.tri_hold); }
+    { int n, d = tri_done(&n); fprintf(stderr, "TRIAL end %s: %d of %d done, %d standing, hp %d/%d, hold %.1f at (%.1f,%.1f)", won ? "won" : "lost", d, n, tri_alive(0), G.hp, G.max_hp, G.tri_hold, G.px, G.py);
+      for (int i = 0; i < MAXMOBS; i++) { const Mob *m = &G.mobs[i]; if (m->alive && m->tri && m->state == MS_WALK) fprintf(stderr, " [%d at (%.1f,%.1f) hp %.0f/%.0f %s%s]", m->type, m->x, m->y, m->hp, m->maxhp,
+          in_trial(m->cx, m->cy) ? "" : "OUT ", line_clear(G.px, G.py, m->x, m->y) ? "seen" : "hid"); }
+      fprintf(stderr, "\n"); }
 #endif
     G.tri_state = won ? TRS_WON : TRS_LOST; G.tri_end = 0.0f; G.work_i = 0;
     Door *d = &G.doors[G.tri_door];
@@ -11786,8 +11794,8 @@ static void tri_run(float dt) {
     switch (G.tri) {
     case TRI_OSSUARY:
         G.tri_f[0] += dt;
-        if (G.tri_a[0] < 3 && ((tri_alive(0) <= 1 && G.tri_f[0] > 5.0f) || G.tri_f[0] > 20.0f)) tri_wave();
-        if (G.tri_a[0] >= 3 && !tri_alive(0)) tri_end(1);
+        if (G.tri_a[0] < 4 && ((tri_alive(0) <= 1 && G.tri_f[0] > 5.0f) || G.tri_f[0] > 15.0f)) tri_wave();
+        if (G.tri_a[0] >= 4 && !tri_alive(0)) tri_end(1);
         break;
     case TRI_VIGIL: {
         int lit = 0;
@@ -11832,28 +11840,44 @@ static void tri_run(float dt) {
         break;
     }
     case TRI_WATER: case TRI_SLUICES: {
-        if ((G.tri_f[0] += dt) >= 15.0f && G.tri_a[0] < 4) {     /* the water: a step higher */
+        if ((G.tri_f[0] += dt) >= 14.0f && G.tri_a[0] < 4) {     /* the water: a step higher */
             G.tri_f[0] = 0.0f; G.tri_a[0]++;
             if (G.tri_a[0] == 1) tri_floor(T_FLOORS + FL2_WATER);
-            if (G.tri == TRI_WATER && G.tri_a[0] <= 2) tri_wave();     /* more of the drowned with the water */
+            if (G.tri == TRI_WATER && G.tri_a[0] <= 3) tri_wave();     /* more of the drowned with the water */
             snd_sfx_ex(SFX_SPLASH, 1.0f, 0.5f); snd_sfx_ex(SFX_DRIP, 0.8f, 0.5f);
             if (G.player && G.tri_a[0] < 4) say("THE WATER RISES");
         }
-        if (G.tri == TRI_WATER) { if (!tri_alive(0)) tri_end(1); break; }
+        if (G.tri == TRI_WATER) { if (!tri_alive(0) && G.tri_a[0] >= 3) tri_end(1); break; }   /* (the last of them come at forty-five) */
         if ((G.tri_f[2] += dt) > 12.0f && tri_alive(0) < 2) tri_wave();
         int turned = 0, n = 0;
         for (int i = G.tri_n0; i < G.nthing; i++) if (G.thing[i].role == TR_TURN) { n++; turned += G.thing[i].state; }
         if (n && turned >= n) tri_end(1);
         break;
     }
-    case TRI_BROOD:
-        if (!tri_alive(0)) tri_end(1);                             /* the sacs, and whatever has hatched from them */
+    case TRI_BROOD:                                                /* more sacs on the walls every fifteen seconds, to forty-five */
+        if ((G.tri_f[0] += dt) >= 13.0f && G.tri_a[0] < 3) {
+            G.tri_f[0] = 0.0f; G.tri_a[0]++;
+            for (int k = 0; k < 3; k++) { Mob *m = tri_spawn(MOB_SAC, 2.0f); if (m) m->sub_t = -2.0f - 4.0f * rndf(); }
+            sfx_at(SFX_SKITTER, G.px, G.py, 0.7f);
+        }
+        if (!tri_alive(0) && G.tri_a[0] >= 3) tri_end(1);         /* the sacs, and whatever has hatched from them */
         for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && G.mobs[i].type == MOB_LING && !G.mobs[i].tri && in_trial(G.mobs[i].cx, G.mobs[i].cy)) G.mobs[i].tri = 1;
         break;
-    case TRI_LAMPS: {
+    case TRI_LAMPS: {                                              /* all five burning at once; the shades put them out */
         int lit = 0, n = 0;
         for (int i = G.tri_n0; i < G.nthing; i++) if (G.thing[i].role == TR_LIGHT) { n++; lit += G.thing[i].state; }
-        if (n && lit >= n) tri_end(1);
+        if (n && lit >= n) { tri_end(1); break; }
+        for (int i = 0; i < MAXMOBS; i++) {
+            Mob *m = &G.mobs[i];
+            if (!m->alive || m->state != MS_WALK || !m->tri) continue;
+            int best = -1; float bd = 1e9f;
+            for (int j = G.tri_n0; j < G.nthing; j++) { const Thing *c = &G.thing[j]; float dd = hypotf(c->x - m->x, c->y - m->y); if (c->role == TR_LIGHT && c->state && dd < bd) { bd = dd; best = j; } }
+            m->lure = best >= 0 && hypotf(G.px - m->x, G.py - m->y) > 2.2f;
+            if (!m->lure) continue;
+            m->lx = G.thing[best].x; m->ly = G.thing[best].y;
+            if (bd >= 1.1f) m->sub_t = 0.0f;
+            else if ((m->sub_t += dt) > 1.8f) { G.thing[best].state = 0; m->sub_t = 0.0f; sfx_at(SFX_WHOOSH, m->lx, m->ly, 0.6f); }
+        }
         break;
     }
     case TRI_CAVEIN: {                                             /* the roof comes down from the far end, a strip at a time */
@@ -11873,8 +11897,9 @@ static void tri_run(float dt) {
         if (n && braced >= n) tri_end(1);
         break;
     }
-    case TRI_FEAST:
-        if (!tri_alive(0)) tri_end(1);
+    case TRI_FEAST:                                                /* more come to the feast */
+        if ((G.tri_f[0] += dt) >= 18.0f && G.tri_a[0] < 2) { G.tri_f[0] = 0.0f; G.tri_a[0]++; tri_wave(); }
+        if (!tri_alive(0) && G.tri_a[0] >= 2) tri_end(1);
         break;
     case TRI_RITE:                                                 /* the deacons: when they are silent, what they raised falls */
         {
@@ -11961,7 +11986,7 @@ static void tri_run(float dt) {
             if (G.tri_a[2] >= 0) { G.thing[G.tri_a[2]].state = 0; sfx_at(SFX_KNOCK, G.thing[G.tri_a[2]].x, G.thing[G.tri_a[2]].y, 0.3f); }   /* gone out, unstruck */
             int k = G.tri_n0 + rnd(n), j = 0;
             for (int i = G.tri_n0; i < G.nthing; i++) if (G.thing[i].role == TR_STRIKE && j++ == k - G.tri_n0) { k = i; break; }
-            G.tri_a[2] = k; G.thing[k].state = 1; G.tri_f[2] = 5.0f;
+            G.tri_a[2] = k; G.thing[k].state = 1; G.tri_f[2] = 8.0f;
             snd_tone(1, 76 + G.thing[k].val * 2, 0.4f, 0.5f);
         }
         if ((G.tri_f[1] += dt) > 6.0f) {                           /* the glass spikes under you */
@@ -11992,7 +12017,7 @@ static void update_trial(float dt) {
     if (G.tri_state == TRS_SHUT) {
         const Door *d = &G.doors[G.tri_door];
         int x = (int)G.px, y = (int)G.py;
-        if (!G.dead && in_trial(x, y) && abs(x - d->x) + abs(y - d->y) >= 2) tri_begin();   /* a cell past the door */
+        if (!G.dead && in_trial(x, y) && abs(x - d->x) + abs(y - d->y) >= 1) tri_begin();   /* a cell past the door */
         return;
     }
     if (G.tri_state != TRS_ON) { G.tri_end += dt; return; }
@@ -12030,6 +12055,9 @@ static void tri_place(void) {
         add_deco(x + 0.5f - ox * 0.3f + oy * s * 0.35f, y + 0.5f - oy * 0.3f + ox * s * 0.35f, SP_TRLIGHT0 + run);
     }
     light_static(G.tri_wx + 0.5f, G.tri_wy + 0.5f, 0.75f, 3.6f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "TRIAL lights at (%.2f,%.2f) and (%.2f,%.2f)\n", G.decos[G.ndecos - 2].x, G.decos[G.ndecos - 2].y, G.decos[G.ndecos - 1].x, G.decos[G.ndecos - 1].y);
+#endif
     const Room *R = &G.rooms[G.tri_room];                          /* inside, two steps past the door, on a lane */
     int bd = 1 << 20;
     for (int y = R->y; y < R->y + R->h; y++)
@@ -12128,16 +12156,20 @@ static int tri_goal(int x, int y, int *gx, int *gy) {
             if (bfs_dist[sy][sx] >= 0) { G.use_x = t->cx; G.use_y = t->cy; G.use_kind = USE_THING; G.use_thing = a; *gx = sx; *gy = sy; return 1; }
         }
     }
-    int best = -1; float bd = 1e9f;                                /* the nearest of the trial's dead, or the room's middle */
-    for (int i = 0; i < MAXMOBS; i++) {
-        const Mob *m = &G.mobs[i];
-        if (!m->alive || !m->tri || m->state != MS_WALK) continue;
-        float d = hypotf(m->x - G.px, m->y - G.py);
-        if (d < bd) { bd = d; best = i; }
-    }
+    int best = -1, hunt = 0; float bd = 1e9f;                      /* the nearest of the trial's dead, or the room's middle; what
+                                                                      keeps its distance (deacons, imps, the crowned one) first */
+    for (int pass = 0; pass < 2 && best < 0; pass++)
+        for (int i = 0; i < MAXMOBS; i++) {
+            const Mob *m = &G.mobs[i];
+            if (!m->alive || !m->tri || m->state != MS_WALK) continue;
+            int far = m->type == MOB_DEACON || m->type == MOB_IMP;
+            if (pass == 0 && !(G.tri == TRI_COURT ? m->tri == 3 : far)) continue;
+            float d = hypotf(m->x - G.px, m->y - G.py);
+            if (d < bd) { bd = d; best = i; hunt = pass == 0; }
+        }
     const Room *R = &G.rooms[G.tri_room];
     float tx = best >= 0 ? G.mobs[best].x : R->x + R->w * 0.5f, ty = best >= 0 ? G.mobs[best].y : R->y + R->h * 0.5f;
-    if (best >= 0 && bd < 3.5f) return 0;                          /* close enough: it fights from here */
+    if (best >= 0 && bd < (hunt ? 2.0f : 3.5f)) return 0;           /* close enough: it fights from here */
     int bx = -1, by = -1, bs = 1 << 20;
     for (int yy = R->y; yy < R->y + R->h; yy++)
         for (int xx = R->x; xx < R->x + R->w; xx++) {
@@ -19754,9 +19786,12 @@ static void render_bossbar(Frame *f) {
 
 /* a trial's hourglass at the top of the view, where a boss's bar goes: its name over it, how it stands under it; it
  * breaks when won, cracks when the sand runs out, and goes a few seconds after */
+static int trial_shown(void) {
+    if (G.tri < 0 || PK.depth || G.shop || G.tri_state == TRS_SHUT || (G.tri_state != TRS_ON && G.tri_end > 3.0f)) return 0;
+    return G.tri_state != TRS_ON || in_trial((int)G.px, (int)G.py);
+}
 static void render_trial(Frame *f) {
-    if (G.tri < 0 || PK.depth || G.shop || G.tri_state == TRS_SHUT || (G.tri_state != TRS_ON && G.tri_end > 3.0f)) return;
-    if (G.tri_state == TRS_ON && !in_trial((int)G.px, (int)G.py)) return;
+    if (!trial_shown()) return;
     const char *nm = TRI_NAME[G.tri];
     int nw = gfx_text_width(nm, 1), x0 = W / 2 - 10, y0 = 13;
     gfx_rect(f, (W - nw) / 2 - 3, 2, nw + 6, 10, 0);
@@ -20064,7 +20099,8 @@ static void render_messages(Frame *f) {
     render_read(f);
     if (G.msg_t > 0.0f && G.msg[0] && !(G.player && G.ui)) {
         if (G.msg_t > 0.3f || ((int)(G.msg_t * 20.0f) & 1)) {
-            int w = gfx_text_width(G.msg, 1), x = (W - w) / 2, y = toast_showing() ? 50 : (boss_fighting() ? 34 : 14);   /* below a pop-up, or a boss's bar */
+            int w = gfx_text_width(G.msg, 1), x = (W - w) / 2, y = toast_showing() ? 50 : (trial_shown() ? 60 : boss_fighting() ? 34 : 14);   /* below a pop-up,
+                                                                      the hourglass, or a boss's bar */
             if (target_shown()) y = imax(y, target_y() + 34);         /* or what you are looking at, and what it does */
             gfx_rect(f, x - 5, y, w + 10, 14, 0);
             gfx_text8(f, x, y + 3, G.msg, R_GOLD + 11, 1);
@@ -21713,7 +21749,8 @@ static void render_wind(Frame *f) {
  * spell it is learnt to take worst on the left and the one it shrugs off on the right. ? while some spell
  * is still to be learnt on it (three kills each, as the bestiary has it) and none learnt says more; -- when
  * every one is learnt and none differs. A tie takes turns, a second each. */
-static int target_y(void) { return boss_fighting() ? 30 : 2; }
+static int trial_shown(void);
+static int target_y(void) { return trial_shown() ? 60 : boss_fighting() ? 30 : 2; }   /* under the hourglass, or a boss's bar */
 static int target_shown(void) {
     if (!G.player || G.shop || G.ui || G.dead || G.tally || G.look_t <= 0.0f || G.map_on) return 0;
     const Mob *m = &G.mobs[clampi(G.look_mob, 0, MAXMOBS - 1)];

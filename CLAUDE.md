@@ -109,7 +109,7 @@ release above, the owner moved it on a number, staged as its G2 (a) says: 1.0.0b
 every sample, soul-sappers from each run's sixth level, Resist Lightning), logic puzzles worked with things in the world
 behind a sealed wing (a hidden message, a Black Shrine, Tab's documents), timed trials behind skull-marked doors, and a
 reckoning of what is left before a person leaves a level; 1.0.0b14 the lower storey, its edges, stairs and ladders. Being
-built on `claude/epic-dirac-n8uosr` from main at 1.0.0b12, in the plan's steps, sheets before art in the game. Steps 1-4
+built on `claude/epic-dirac-n8uosr` from main at 1.0.0b12, in the plan's steps, sheets before art in the game. Steps 1-5
 are built (harness only; the plan's status line says where it stands): see *1.0.0b13 so far* below.
 
 ## Working with the owner
@@ -994,7 +994,15 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `CRAWL_HZ=k`, `CRAWL_TPHZ=1`, `CRAWL_THINGS=1`, `CRAWL_PUZZLE=k`, `CRAWL_TPPUZZLE=1`, `CRAWL_WINGEXIT=1`, `CRAWL_TPMSG=1`,
   `CRAWL_TPBSHRINE=1`, `CRAWL_BSHOW=1` (the showing from the start); `SITES`, `PUZZLE` and `MESSAGE` lines, `EVENT
   pz_solved`, `thing`, `msg_found`, `bshrine_found`, `bshrine_show`. `make sheets` draws `hazards.png`, `puzzles.png`
-  and `documents.png`.
+  and `documents.png`. *Trials* (step 5): `G.tri` (`TRI_*`, `TRI_RUN`, `tri_kind_of`) in a one-door room chosen as the wing is
+  (`mz_vault`, `mz_max`; `G.tri_room`, `G.tri_door`, drawn `T_TRDOOR`, `SP_TRLIGHT0` by it, `in_trial`), placed by `tri_place`;
+  `update_trial`: a cell inside, `tri_begin` (`Door.locked` `TRIALED`, `tri_turn`'s faces, `tri_floor`'s water, `fog_tint`,
+  `snd_set_trial`, the kind's creatures `tri_spawn`/`tri_wave` with `Mob.tri`, things `tri_thing` with `Thing.tri`),
+  `tri_run`, `tri_end` (`G.tri_boon`: the boon in `xp_kill`, the curse in `xp_gain`, the tally's note). Slow things:
+  `Thing.slow` in tenths of a second, `G.work_i`, `update_work`. The hourglass: `crawl_hourglass`, `render_trial`,
+  `trial_shown`. The dream: `tri_goal` (after `boss_goal`), `tri_next` (sticky on its choice, `G.tri_a[12]`), `G.tri_hold`.
+  Debug: `CRAWL_TRIAL=k`, `CRAWL_TPTRIAL=1` (before its door; 2 the dream started there), `TRIAL` lines, `EVENT trial_begin`,
+  `trial_won`, `trial_lost`, `trial_died`, `TRIAL end` (what was left); `make sheets` draws `trials.png`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

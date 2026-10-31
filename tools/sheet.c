@@ -713,6 +713,50 @@ static int draw_documents(const char *path) {
     return ok;
 }
 
+/* ---- 1.0.0b13: the trials' doors, a run each, the lights by them, their things, and the hourglass (docs/PLAN-b13.md part D) ---- */
+static int draw_trials(const char *path) {
+    static const int LV[4] = { 3, 13, 23, 33 };
+    static const char *const RUNNAME[4] = { "I: IRON", "II: VERDIGRIS", "III: OCHRE", "IV: GLASS" };
+    int colw = TS * 3 + 40;
+    iw = PAD + 9 * (TS * 2 + 12) + PAD;
+    ih = PAD + LABEL_H + 8 + LABEL_H + TS * 3 + 16 + LABEL_H + TS * 2 + 30 + LABEL_H + 33 * 4 + 20 + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "1.0.0B13: THE TRIALS, FOR APPROVAL", 230, 230, 230);
+    int y = PAD + LABEL_H + 8;
+    for (int run = 0; run < 4; run++) {                            /* each run's door, as its level makes it */
+        crawl_art_level(LV[run]); crawl_art_run(LV[run]);
+        int x = PAD + run * colw;
+        text(x, y, RUNNAME[run], 200, 200, 200);
+        tex(x, y + LABEL_H, T_TRDOOR, 3, LIGHT);
+    }
+    y += LABEL_H + TS * 3 + 16;
+    crawl_art_level(6); crawl_art_run(6);
+    text(PAD, y, "BY THE DOORS; THE BIER; A PROP, LOOSE, BRACED; A BRAZIER, OUT, LIT", 200, 200, 200);
+    y += LABEL_H;
+    static const int SPR[] = { SP_TRLIGHT0, SP_TRLIGHT0 + 1, SP_TRLIGHT0 + 2, SP_TRLIGHT0 + 3, SP_TR_BIER, SP_TR_PROP0, SP_TR_PROP1, SP_TR_BRAZ0, SP_TR_BRAZ1 };
+    for (int k = 0; k < 9; k++) spr_shaded(PAD + k * (TS * 2 + 12), y, SPR[k], 2, 0);
+    y += TS * 2 + 30;
+    text(PAD, y, "THE HOURGLASS: FULL, HALF, NEARLY OUT, BROKEN (WON), CRACKED (RUN OUT)", 200, 200, 200);
+    y += LABEL_H;
+    static const float SAND[5] = { 1.0f, 0.5f, 0.08f, 0.0f, 0.0f };
+    for (int k = 0; k < 5; k++) {
+        static uint8_t buf[33 * 21];
+        memset(buf, C_CLEAR, sizeof buf);
+        crawl_hourglass(buf, 21, 0, 0, SAND[k], k == 3 ? 1 : k == 4 ? 2 : 0, 0.3f);
+        for (int py = 0; py < 33; py++)
+            for (int px = 0; px < 21; px++) {
+                uint8_t c = buf[py * 21 + px];
+                if (c == C_CLEAR) continue;
+                rect(PAD + k * 120 + px * 4, y + py * 4, 4, 4, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+            }
+    }
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
 /* ---- a run's own look (docs/PLAN-b10.md): its parts, and its rooms laid out as the generator would ---- */
 
 typedef struct { uint8_t tex[NTEX][TS * TS]; uint8_t pal[256][3]; uint8_t cmap[NLIGHT][256]; } Snap;
@@ -1296,6 +1340,13 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/puzzles.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_puzzles(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "trials")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/trials.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_trials(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     if (!strcmp(argv[1], "all") || !strcmp(argv[1], "documents")) {
