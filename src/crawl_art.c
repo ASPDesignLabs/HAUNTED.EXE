@@ -5065,36 +5065,83 @@ static void spr_ling(int id, int frame) {
     cv_store(id);
 }
 
-/* The Wraith: tall, solid and dark, a cold light along its edges and frost falling off its hem.
- * Drawn to be shown half as tall again as a man. Off the rank ladder. pose 0-1 gliding, 2 reaching
- * for you, 3 driven back, arms over its face. */
+/* a long thin hand at hx, hy: a palm gone grey, four fingers of three joints each curling as they go,
+ * knuckles catching the light, nails rimed with frost; a reaches the way the fingers point, sc sizes it */
+static void wraith_hand(float hx, float hy, float a, int s, float sc) {
+    cv_ellipse(hx, hy, 1.9f * sc, 1.6f * sc, R_IRON, 0.25f, 0.5f);
+    for (int f = 0; f < 4; f++) {
+        float ang = a + (f - 1.5f) * 0.3f, x0 = hx, y0 = hy, L = (4.2f + (f == 1 || f == 2) * 0.9f) * sc;
+        for (int j = 0; j < 3; j++) {
+            float x1 = x0 + cosf(ang) * L, y1 = y0 + sinf(ang) * L;
+            cv_line(x0, y0, x1, y1, sh(R_IRON, 0.48f - j * 0.06f));
+            if (j < 2) cv_px((int)x1, (int)y1, sh(R_IRON, 0.72f));       /* a knuckle */
+            x0 = x1; y0 = y1; ang += 0.24f * s; L *= 0.82f;
+        }
+        cv_px((int)x0, (int)y0, sh(R_GHOST, 0.85f));                    /* the nail, frosted */
+    }
+    float ta = a - 0.95f * s;                                        /* the thumb, from the side of the palm */
+    cv_line(hx, hy, hx + cosf(ta) * 3.5f * sc, hy + sinf(ta) * 3.5f * sc, sh(R_IRON, 0.42f));
+}
+
+/* The Wraith (docs/InitialArtPass.md, section 8): a peaked hood over a void that is nothing but two lights, a body of
+ * black cerements wound about it and torn through, coming loose below into strips that end in wisps, rags hanging from
+ * the sleeves, long thin hands. Drawn to be shown half as tall again as a man; off the rank ladder. pose 0-1 gliding,
+ * 2 reaching for you, 3 driven back, its arms over its face. */
 static void spr_wraith_big(int id, float ph, int pose) {
     cv_begin(cv_sprite, TS, TS);
     float flare = pose == 3 ? 1.0f : 0.0f;
-    for (int y = 6; y < TS; y++)                                    /* the robe, from the shoulders to rags that trail */
+    for (int y = 6; y < TS; y++)                                    /* the body, wound in its cerements */
         for (int x = 0; x < TS; x++) {
             float dx = x + 0.5f - 32.0f, t = (y - 6) / 57.0f;
             float hw = (y < 16 ? 9.0f + (y - 6) * 0.55f : 14.5f + (y - 16) * (0.12f + 0.12f * flare)) + sinf(y * 0.21f + ph) * 0.8f * t;
             if (fabsf(dx) > hw) continue;
-            float hem = 52.0f + 5.0f * sinf(dx * 0.7f + ph) + 4.0f * sinf(dx * 1.9f - ph * 1.3f);
-            if (y > hem && h01(x / 2, y, 501 + (int)(ph * 3)) > (63.0f - y) / (63.0f - hem + 0.01f) * 0.9f) continue;   /* rags */
-            float u = dx / hw, v = 0.03f + 0.13f * (1.0f - u * u) - t * 0.05f;
-            if (sinf(dx * 0.75f + sinf(y * 0.08f + ph) * 1.2f) > 0.75f) v -= 0.04f;   /* deep folds */
-            if (fabsf(u) > 0.86f) { cv_px(x, y, sh(R_GHOST, 0.25f + 0.35f * (fabsf(u) - 0.86f) / 0.14f)); continue; }   /* the cold rim */
+            if (y > 40) {                                            /* below, coming loose: strips, each its own length */
+                float sw = sinf(ph + y * 0.15f) * (y - 40) * 0.06f, at = x + 64.0f - sw;
+                int sid = (int)floorf(at / 3.0f);
+                float within = at - sid * 3.0f, end = 49.0f + 12.0f * h01(sid, 7, 511) + 2.0f * sinf(ph * 1.3f + sid);
+                if (y > end || (y > end - 3.0f && (within < 0.9f || within > 2.1f))) continue;   /* its pointed end */
+                if (y > 44.0f + 6.0f * h01(sid, 9, 511) && within < 0.6f) continue;   /* parted from the next */
+            }
+            float u = dx / hw, v = 0.07f + 0.13f * (1.0f - u * u) - t * 0.05f;
+            float b = (y + dx * 0.28f - u * u * 3.0f + 3.0f * (fbm(x / 7.0f, y / 7.0f, 16, 521) - 0.45f)) / 4.8f, fb = b - floorf(b);   /* the wrappings, wound round it, loosely */
+            if (fb < 0.13f) { cv_px(x, y, 0); continue; }           /* the black between two turns */
+            if (fb < 0.23f && fabsf(u) > 0.35f && h01((int)floorf(b), 1, 523) < 0.45f) { cv_px(x, y, sh(R_GHOST, 0.1f + 0.06f * fabsf(u))); continue; }   /* an edge turning to the cold */
+            if (fb > 0.45f && fb < 0.72f) v += 0.07f;
+            if (sinf(dx * 0.75f + sinf(y * 0.08f + ph) * 1.2f) > 0.82f) v -= 0.04f;   /* deep folds */
+            if (y > 18 && fabsf(u) < 0.8f && fbm(x / 3.5f, y / 3.5f, 32, 513) > 0.7f) { cv_px(x, y, 0); continue; }   /* torn through */
+            if (fabsf(u) > 0.88f) { cv_px(x, y, sh(R_GHOST, 0.22f + 0.3f * (fabsf(u) - 0.88f) / 0.12f)); continue; }   /* the cold rim */
             cv_px(x, y, sh(R_IRON, v));
         }
-    /* the hood: high and pointed, its mouth black, two eyes like stars in it */
-    for (int y = 0; y < 20; y++)
-        for (int x = 18; x < 46; x++) {
-            float dx = x + 0.5f - 32.0f, top = 1.0f + dx * dx * 0.06f;
-            float hw = y < 8 ? (y - 0.5f) * 1.0f : 8.0f + (y - 8) * 0.25f;
-            if (y < top || fabsf(dx) > hw) continue;
-            float u = dx / (hw + 0.01f), v = 0.05f + 0.14f * (1.0f - u * u);
-            if (fabsf(u) > 0.8f) v = 0.3f;
-            cv_px(x, y, fabsf(u) > 0.8f ? sh(R_GHOST, v) : sh(R_IRON, v));
+    for (int sid = 0; sid < 43; sid++) {                            /* wisps curling off the strips' ends */
+        float end = 49.0f + 12.0f * h01(sid, 7, 511) + 2.0f * sinf(ph * 1.3f + sid);
+        float cx = sid * 3.0f - 64.0f + 1.5f + sinf(ph + end * 0.15f) * (end - 40.0f) * 0.06f;
+        float hw = 14.5f + (end - 16.0f) * (0.12f + 0.12f * flare);
+        if (fabsf(cx + 0.5f - 32.0f) > hw - 1.0f) continue;
+        for (int k = 1; k <= 5; k += 2) {
+            int wx = (int)(cx + sinf(ph * 1.7f + sid + k * 0.9f) * k * 0.5f), wy = (int)(end + k * 1.2f);
+            if (wy < TS && cv_sprite[wy * TS + wx] == C_CLEAR && h01(sid, k, 525) < 0.6f) cv_px(wx, wy, sh(R_GHOST, 0.3f - k * 0.04f));
         }
-    cv_flat(32, 12.5f, 5.0f, 6.0f, 0);
-    float ey = 11.5f, gap = pose == 2 ? 3.0f : 2.5f;
+    }
+    for (int y = 0; y < 25; y++)                                    /* the hood: high and peaked, falling to the shoulders */
+        for (int x = 14; x < 50; x++) {
+            float dx = x + 0.5f - 32.0f, ad = fabsf(dx);
+            float hw = y < 10 ? (y + 0.6f) * 1.0f : 10.6f + (y - 10) * 0.32f;
+            if (ad > hw) continue;
+            float lip = 20.0f + 4.0f * h01((int)(dx + 40.0f) / 2, 3, 517) + (ad > 9.0f ? 1.5f : 0.0f);   /* ragged over the shoulders */
+            if (y > lip) continue;
+            float u = dx / hw, v = 0.08f + 0.16f * (1.0f - u * u);
+            if (sinf(atan2f(dx, y + 3.0f) * 10.0f) > 0.6f) v -= 0.07f;   /* folds from the peak */
+            if (fabsf(u) > 0.84f || y < 2) { cv_px(x, y, sh(R_GHOST, 0.3f + (y < 2) * 0.1f)); continue; }
+            cv_px(x, y, sh(R_IRON, v));
+        }
+    for (int y = 4; y < 21; y++)                                    /* its mouth: a lancet of nothing */
+        for (int x = 24; x < 41; x++) {
+            float ad = fabsf(x + 0.5f - 32.0f);
+            float w = y < 10 ? 5.4f * powf(fmaxf(0.0f, (y - 4.0f) / 6.0f), 0.7f) : 5.4f - (y > 17 ? (y - 17) * 0.9f : 0.0f);
+            if (ad <= w) cv_px(x, y, 0);
+            else if (ad <= w + 1.0f) cv_px(x, y, sh(R_IRON, 0.0f));   /* the lining, a shade off black */
+        }
+    float ey = 12.5f, gap = pose == 2 ? 3.0f : 2.5f;                /* two lights, and nothing else */
     for (int k = -1; k <= 1; k += 2) {
         int ex = (int)(32 + k * gap - (k < 0));
         if (pose == 3) { cv_eye(ex, (int)ey, (uint8_t)(R_GLOW + 12)); cv_px(ex + k, (int)ey, (uint8_t)(R_GLOW + 9)); continue; }   /* narrowed */
@@ -5102,26 +5149,30 @@ static void spr_wraith_big(int id, float ph, int pose) {
         cv_px(ex + k, (int)ey, (uint8_t)(R_GLOW + 11)); cv_px(ex, (int)ey - 1, (uint8_t)(R_GLOW + 9));
         if (pose == 2) { cv_px(ex - k, (int)ey, (uint8_t)(R_GLOW + 11)); cv_px(ex, (int)ey + 2, (uint8_t)(R_GLOW + 8)); }
     }
-    /* arms: long sleeves, and longer fingers */
-    for (int s = -1; s <= 1; s += 2) {
-        float sx = 32 + s * 12.0f, sy = 17, hx, hy;
-        if (pose == 3) { hx = 32 + s * 4.0f; hy = 8; }             /* over its face */
-        else if (pose == 2 && s > 0) { hx = 44; hy = 22; }          /* reaching out at you */
-        else { hx = 32 + s * 17.0f + sinf(ph + s) * 1.0f; hy = 44 + cosf(ph * 0.7f + s) * 1.5f; }
+    for (int s = -1; s <= 1; s += 2) {                              /* the arms: long sleeves, rags, longer fingers */
+        float sx = 32 + s * 12.0f, sy = 18, hx, hy;
+        if (pose == 3) { hx = 32 + s * 4.0f; hy = 9; }             /* over its face */
+        else if (pose == 2 && s > 0) { hx = 45; hy = 22; }          /* reaching out at you */
+        else { hx = 32 + s * 17.0f + sinf(ph + s) * 1.0f; hy = 43 + cosf(ph * 0.7f + s) * 1.5f; }
         float ex = (sx + hx) * 0.5f + s * 3.0f, ey2 = (sy + hy) * 0.5f;
-        cv_capsule(sx, sy, ex, ey2, 4.0f, R_IRON, 0.04f, 0.22f);
-        cv_capsule(ex, ey2, hx, hy - 2, 3.4f, R_IRON, 0.04f, 0.2f);
-        cv_line(ex + s * 3.5f, ey2, hx + s * 3.0f, hy - 2, sh(R_GHOST, 0.4f));   /* the rim catching the sleeve */
-        float sc = pose == 2 && s > 0 ? 1.5f : 1.0f, base = pose == 3 ? -1.57f - s * 0.4f : (pose == 2 && s > 0 ? -0.3f : 1.57f + s * 0.15f);
-        cv_ellipse(hx, hy, 2.0f * sc, 1.8f * sc, R_BONE, 0.15f, 0.5f);
-        for (int f = 0; f < 4; f++) {                               /* five-inch fingers, frost at the tips */
-            float a = base + (f - 1.5f) * 0.32f, l = (7.0f + (f == 1 || f == 2) * 2.0f) * sc;
-            float mx = hx + cosf(a) * l * 0.55f, my = hy + sinf(a) * l * 0.55f, tx = hx + cosf(a + 0.25f * s) * l, ty = hy + sinf(a + 0.25f * s) * l;
-            cv_line(hx, hy, mx, my, sh(R_BONE, 0.45f)); cv_line(mx, my, tx, ty, sh(R_BONE, 0.35f));
-            cv_px((int)tx, (int)ty, sh(R_GHOST, 0.9f));
+        cv_capsule(sx, sy, ex, ey2, 4.0f, R_IRON, 0.06f, 0.3f);
+        cv_capsule(ex, ey2, hx, hy - 2, 3.2f, R_IRON, 0.06f, 0.28f);
+        cv_line(ex + s * 3.5f, ey2, hx + s * 3.0f, hy - 2, sh(R_GHOST, 0.38f));   /* the rim catching the sleeve */
+        cv_line(ex - s * 3.0f, ey2 + 1.0f, hx - s * 2.6f, hy - 1, 0);   /* and its shadow on the body */
+        for (int j = 0; j < 3; j++) {                               /* rags hanging from the sleeve */
+            float k01 = 0.2f + 0.28f * j, px = ex + (hx - ex) * k01, py = ey2 + (hy - 2 - ey2) * k01 + 2.0f;
+            int len = 6 + (int)(6.0f * h01(j, s + 2, 519));
+            for (int q = 0; q < len; q++) {
+                float rx = px + sinf(ph * 1.4f + q * 0.3f + j) * q * 0.14f;
+                cv_px((int)rx, (int)(py + q), sh(R_IRON, 0.1f - q * 0.008f));
+                if (q < len / 2) cv_px((int)rx + 1, (int)(py + q), sh(R_IRON, 0.05f));
+            }
+            cv_px((int)(px + sinf(ph * 1.4f + len * 0.3f + j) * len * 0.14f), (int)(py + len + 1), sh(R_GHOST, 0.32f));   /* a wisp off its end */
         }
+        float sc = pose == 2 && s > 0 ? 1.5f : 1.0f, base = pose == 3 ? -1.57f - s * 0.4f : (pose == 2 && s > 0 ? -0.3f : 1.57f + s * 0.15f);
+        wraith_hand(hx, hy, base, s, sc);
     }
-    for (int i = 0; i < 40; i++) {                                  /* frost falling from the hem */
+    for (int i = 0; i < 12; i++) {                                  /* frost falling from it */
         float x = 32 + (h01(i, 1, 503) - 0.5f) * 44, y = 50 + 13 * h01(i, (int)(ph * 2) + 2, 503);
         if (cv_sprite[(int)y * TS + (int)x] == C_CLEAR) cv_px((int)x, (int)y, sh(R_GHOST, 0.45f + 0.4f * h01(i, 3, 503)));
     }
@@ -6167,8 +6218,8 @@ static void spr_hound_side(int id, float w) {
     cv_store(id);
 }
 
-/* the Wraith from the side: leaning on, its hood ahead of it, the robe streaming back, one long hand
- * held out low */
+/* the Wraith from the side: leaning on, its peaked hood ahead of it, the void in its mouth and one light, the cerements
+ * wound slantwise and streaming back into strips, one long hand held out low */
 static void spr_wraith_side(int id, float ph) {
     cv_begin(cv_sprite, TS, TS);
     for (int y = 4; y < TS; y++)
@@ -6177,29 +6228,44 @@ static void spr_wraith_side(int id, float ph) {
             float front = 40.0f + lean - (y < 16 ? (16 - y) * 0.7f : 0.0f) + sinf(y * 0.25f + ph) * 0.6f;
             float back = 26.0f + lean - t * 20.0f + sinf(y * 0.18f + ph) * 2.0f;
             if (x > front || x < back) continue;
-            float hem = 53.0f + 5.0f * sinf(x * 0.45f + ph) + 3.0f * sinf(x * 1.3f - ph);
-            if (y > hem && h01(x / 2, y, 977 + (int)(ph * 3)) > (63.0f - y) / (63.0f - hem + 0.01f) * 0.9f) continue;
-            float u = (x - back) / (front - back + 0.01f), v = 0.03f + 0.12f * sinf(u * PI_F) - t * 0.04f;
+            if (y > 42) {                                            /* coming loose into strips, streaming back */
+                float at = y * 0.9f + x * 0.45f + sinf(ph + y * 0.2f) * 1.5f + 64.0f;
+                int sid = (int)floorf(at / 3.0f);
+                float within = at - sid * 3.0f, end = 50.0f + 11.0f * h01(sid, 3, 981);
+                if (y > end || within < 0.7f) continue;
+            }
+            float u = (x - back) / (front - back + 0.01f), v = 0.07f + 0.14f * sinf(u * PI_F) - t * 0.05f;
+            float b = (y - x * 0.35f + 3.0f * (fbm(x / 7.0f, y / 7.0f, 16, 983) - 0.45f)) / 4.8f, fb = b - floorf(b);   /* wound slantwise */
             if (u > 0.9f || u < 0.06f) { cv_px(x, y, sh(R_GHOST, 0.28f + 0.3f * (u > 0.9f))); continue; }   /* the cold rim */
+            if (fb < 0.13f) { cv_px(x, y, 0); continue; }
+            if (fb < 0.23f && u > 0.6f && h01((int)floorf(b), 1, 985) < 0.45f) { cv_px(x, y, sh(R_GHOST, 0.14f)); continue; }
+            if (fb > 0.45f && fb < 0.72f) v += 0.07f;
+            if (y > 18 && fbm(x / 3.5f, y / 3.5f, 32, 987) > 0.7f) { cv_px(x, y, 0); continue; }   /* torn through */
             cv_px(x, y, sh(R_IRON, v));
         }
-    for (int y = 0; y < 18; y++)                                    /* the hood, peaked forward */
-        for (int x = 30; x < 50; x++) {
-            float top = 3.0f + (x - 44) * (x - 44) * 0.08f;
-            if (y < top || x > 47 - (y > 10 ? (y - 10) * 0.6f : 0) || x < 33 + y * 0.1f) continue;
-            cv_px(x, y, x > 45 || y < top + 1.0f ? sh(R_GHOST, 0.35f) : sh(R_IRON, 0.08f + 0.06f * (x - 33) / 14.0f));
+    for (int y = 0; y < 22; y++)                                    /* the hood, peaked forward, ragged at the shoulder */
+        for (int x = 28; x < 50; x++) {
+            float top = 2.0f + (x - 43) * (x - 43) * 0.07f;
+            float fr = 47.5f - (y > 10 ? (y - 10) * 0.55f : 0.0f), bk = 31.0f + y * 0.05f - (y > 12 ? (y - 12) * 0.5f : 0.0f);
+            if (y < top || x > fr || x < bk || y > 18.0f + 3.0f * h01(x / 2, 5, 989)) continue;
+            float u = (x - bk) / (fr - bk);
+            uint8_t c = x > fr - 1.5f || y < top + 1.0f ? sh(R_GHOST, 0.32f) : sh(R_IRON, 0.08f + 0.12f * u - (sinf((x - 43) * 0.9f + y * 0.3f) > 0.6f ? 0.06f : 0.0f));
+            cv_px(x, y, c);
         }
-    cv_flat(44, 11, 2.6f, 4.0f, 0);                                  /* the hood's mouth, and one star of an eye */
-    cv_px(45, 10, C_WHITE); cv_px(45, 11, (uint8_t)(R_GLOW + 13)); cv_px(44, 10, (uint8_t)(R_GLOW + 10));
-    cv_capsule(38, 18, 46, 32, 3.8f, R_IRON, 0.04f, 0.2f);          /* the sleeve */
+    for (int y = 5; y < 18; y++)                                    /* its mouth, from the side: a deep notch of nothing */
+        for (int x = 40; x < 48; x++) {
+            float w = y < 9 ? 3.2f * powf((y - 4.5f) / 4.5f, 0.7f) : 3.2f - (y > 15 ? (y - 15) * 0.8f : 0.0f);
+            if (x + 0.5f > 47.0f - (y > 10 ? (y - 10) * 0.55f : 0.0f) - 2.0f * w) cv_px(x, y, 0);
+        }
+    cv_eye(45, 11, C_WHITE); cv_px(45, 12, (uint8_t)(R_GLOW + 13)); cv_px(44, 11, (uint8_t)(R_GLOW + 10));   /* one light */
+    cv_capsule(38, 18, 46, 32, 3.8f, R_IRON, 0.06f, 0.3f);          /* the sleeve */
     cv_line(41, 17, 49, 31, sh(R_GHOST, 0.4f));
-    cv_ellipse(48, 35, 2.0f, 1.8f, R_BONE, 0.15f, 0.5f);            /* the hand, and fingers too long for it */
-    for (int f = 0; f < 4; f++) {
-        float a = 0.6f + f * 0.25f, l = 8.0f + (f == 1) * 2.0f;
-        float mx = 48 + cosf(a) * l * 0.55f, my = 35 + sinf(a) * l * 0.55f;
-        cv_line(48, 35, mx, my, sh(R_BONE, 0.45f)); cv_line(mx, my, 48 + cosf(a + 0.3f) * l, 35 + sinf(a + 0.3f) * l, sh(R_BONE, 0.35f));
+    for (int j = 0; j < 3; j++) {                                   /* rags off it, streaming back */
+        float px = 40.0f + j * 2.5f, py = 22.0f + j * 4.0f;
+        for (int q = 0; q < 7 + j * 2; q++) cv_px((int)(px - q * 0.6f + sinf(ph * 1.4f + q * 0.4f + j) * 0.8f), (int)(py + q * 0.7f), sh(R_IRON, 0.1f));
     }
-    for (int i = 0; i < 30; i++) {                                  /* frost falling off the hem */
+    wraith_hand(48, 35, 0.75f, 1, 1.0f);                            /* the hand, and fingers too long for it */
+    for (int i = 0; i < 14; i++) {                                  /* frost falling off it */
         float x = 8 + 40 * h01(i, 1, 979), y = 50 + 13 * h01(i, (int)(ph * 2) + 2, 979);
         if (cv_sprite[(int)y * TS + (int)x] == C_CLEAR) cv_px((int)x, (int)y, sh(R_GHOST, 0.45f + 0.4f * h01(i, 3, 979)));
     }
