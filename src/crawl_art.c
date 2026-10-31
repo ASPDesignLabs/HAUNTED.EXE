@@ -1685,8 +1685,8 @@ static const char *const SPIDER_HEAD[8] = {
     "3567@N7N@7653", "2456NM6MN6542", ".34567876543.", "..345666543..",
 };
 
-/* a spider's leg in two long joints, from its body to the knee and down to the foot: banded paler where the joints'
- * plates meet, bristles standing out at the knee */
+/* a spider's leg in two long joints, from its body to the knee and down to the foot: banded where the joints' plates
+ * meet (paler, or dark in the band ramp if one is given), bristles standing out at the knee */
 static void chitin_leg(float ax, float ay, float kx, float ky, float fx, float fy, float r, int ramp, float lo, float hi, int band, uint32_t seed) {
     cv_capsule(ax, ay, kx, ky, r, ramp, lo, hi);
     cv_capsule(kx, ky, fx, fy, r * 0.75f, ramp, lo, hi * 0.9f);
@@ -1695,7 +1695,7 @@ static void chitin_leg(float ax, float ay, float kx, float ky, float fx, float f
         float nx = -(y1 - y0) / L, ny = (x1 - x0) / L;
         for (int k = 1; k <= 2; k++) {
             float t = k / 3.0f, bx = x0 + (x1 - x0) * t, by = y0 + (y1 - y0) * t;
-            for (int q = -1; q <= 1; q++) cv_px((int)(bx + nx * q * 0.8f), (int)(by + ny * q * 0.8f), band >= 0 ? (uint8_t)(band + 6 + (q == 0) * 2) : sh(ramp, hi + 0.12f));
+            for (int q = -1; q <= 1; q++) cv_px((int)(bx + nx * q * 0.8f), (int)(by + ny * q * 0.8f), band >= 0 ? (uint8_t)(band + 1 + (q == 0)) : sh(ramp, hi + 0.12f));
         }
     }
     for (int q = 0; q < 4; q++) {                                    /* bristles at the knee */
@@ -1734,8 +1734,7 @@ static void spider_fangs(float cx, float y0, float len, int biting) {
             float t = k / len, x = cx + s * (2.4f + spread - t * (1.6f + spread * 0.6f) + sinf(t * PI_F) * 0.8f), y = y0 + 1.0f + k;
             cv_px((int)x, (int)y, sh(R_BONE, 0.45f + 0.45f * t)); px = x; py = y;
         }
-        cv_px((int)px, (int)py + 1, (uint8_t)(R_MOSS + 13)); cv_px((int)px, (int)py + 2, (uint8_t)(R_MOSS + 10));   /* the drop */
-        cv_px((int)px - s, (int)py + 1, (uint8_t)C_WHITE);
+        cv_px((int)px, (int)py + 1, (uint8_t)(R_MOSS + 14)); cv_px((int)px, (int)py + 2, (uint8_t)(R_MOSS + 10));   /* the drop (no glint: a pale pair there reads as a second pair of eyes) */
         if (biting) cv_px((int)px, (int)py + 5, (uint8_t)(R_MOSS + 11));   /* another falling */
     }
 }
@@ -5169,43 +5168,117 @@ static void spider_leg(float kx, float ky, float mx, float my, float fx, float f
     }
 }
 
-/* The hunting spider: a big brown wolf spider, hairy, low and wide, its two great front eyes shining
- * back at you. Body R_WOOD (PF_HIDE), dark bands. pose 0-1 running, 2 leaping, 3 dead. */
-static void spr_hunter(int id, int frame) {
+/* The hunting spider's face (docs/InitialArtPass.md, section 8), a wolf spider's: two great eyes shining in front, two
+ * more above them, a row of four small ones below, all fire; fur in R_WOOD (hex) */
+static const char *const HUNTER_HEAD[10] = {
+    "....4567654....", "..356J898J653..", ".3567aaaaa7653.", "3560FNF7FNF0653", "3570N@N8N@N0753",
+    "3460FMF7FMF0643", ".3567898987653.", ".35H6H787H6H53.", "..34567876543..", "...345565543...",
+};
+
+/* a hairy abdomen: fur in short strokes, paler at its rim, bristles; mark 0 a dark stripe down it and chevrons either
+ * side, 1 the Wandering Spider's skull, 2 nothing (the side view draws its own) */
+static void hunter_abdomen(float cx, float cy, float rx, float ry, int ramp, int mark, uint32_t seed) {
+    for (int y = (int)(cy - ry) - 1; y <= (int)(cy + ry) + 1; y++)
+        for (int x = (int)(cx - rx) - 1; x <= (int)(cx + rx) + 1; x++) {
+            float nx = (x + 0.5f - cx) / rx, ny = (y + 0.5f - cy) / ry, d = nx * nx + ny * ny;
+            if (d > 1.0f) continue;
+            float v = 0.12f + 0.4f * (1.0f - d) * (0.65f + 0.35f * (-ny * 0.8f + 0.4f)) + (h01(x, y, seed) - 0.5f) * 0.16f;
+            if (h01(x / 2, y, seed + 1) > 0.8f) v += 0.12f;            /* a lighter stroke of hair */
+            if (mark == 0 && fabsf(nx) < 0.12f) v -= 0.18f;            /* the stripe down its back */
+            if (mark == 0 && fabsf(fabsf(nx) - 0.45f + ny * 0.35f) < 0.08f && ny > -0.6f) v -= 0.15f;   /* chevrons */
+            cv_px(x, y, sh(ramp, v));
+        }
+    for (int q = 0; q < 36; q++) {                                   /* bristles round its rim */
+        float an = TAU_F * q / 36.0f + h01(q, 3, seed) * 0.15f, l = 1.2f + 1.8f * h01(q, 4, seed);
+        float ex = cx + cosf(an) * rx, ey = cy + sinf(an) * ry;
+        cv_line(ex, ey, ex + cosf(an) * l, ey + sinf(an) * l, sh(ramp, 0.42f));
+    }
+    if (mark == 1) {                                                  /* the Wandering Spider's: a pale skull on its back */
+        cv_flat(cx + 0.5f, cy - 0.2f, 6.2f, 6.6f, 0);
+        grid_stamp(SKULL_SMALL, 9, 10, (int)cx - 4, (int)cy - 5, R_BONE, R_BONE, 0, 0);
+    }
+}
+
+/* The hunting spider: a big brown wolf spider, hairy, low and wide, its two great front eyes shining back at you, its
+ * legs banded dark and bristling at the knees, fangs with venom on them. Body R_WOOD (PF_HIDE). pose 0-1 running,
+ * 2 leaping, 3 dead. marked: the Wandering Spider's, with the skull on its back. */
+static void spr_hunter(int id, int frame, int marked) {
     cv_begin(cv_sprite, TS, TS);
     float cx = 32, cy = frame == 3 ? 54 : 44;
     if (frame != 2 && frame != 3) cv_flat(32, 62, 24, 2.0f, R_WARM + 1);
+    if (frame == 3) {                                                /* dead on its back, its legs curled over it */
+        hunter_abdomen(cx, cy - 2, 10.0f, 6.5f, R_WOOD, 0, 481);
+        for (int s = -1; s <= 1; s += 2)
+            for (int l = 0; l < 4; l++)
+                chitin_leg(cx + s * (3 + l), cy - 5, cx + s * (8 + l * 2), cy - 10 - l * 2, cx + s * (4 + l), cy - 16 - l * 1.5f, 1.4f, R_WOOD, 0.12f, 0.55f, R_IRON, 483 + (uint32_t)(l * 2 + s + 1));
+        cv_ellipse(cx, cy - 6, 7.0f, 4.5f, R_WOOD, 0.12f, 0.5f);
+        cv_outline(0);
+        cv_store(id);
+        return;
+    }
+    float ay = frame == 2 ? cy - 6 : cy - 5;
+    hunter_abdomen(cx, ay, 10.5f, 7.5f, R_WOOD, marked, 485);       /* the abdomen, behind and above */
     for (int s = -1; s <= 1; s += 2)
-        for (int l = 0; l < 4; l++) {                               /* legs: up into a high knee, then out and down */
+        for (int l = 3; l >= 0; l--) {                              /* legs: up into a high knee, then out and down */
             float k = (frame == 1 ? (l & 1 ? 1.0f : -1.0f) : (frame == 0 ? (l & 1 ? -1.0f : 1.0f) : 0.0f)) * s;
             float kx = cx + s * (5 + l * 1.2f), ky = cy - 2 + l * 2.0f;
             float mx = cx + s * (14 + l * 3.0f), my = cy - 14 + l * 3.0f + k * 2.0f;
             float fx = cx + s * (20 + l * 4.0f) + k, fy = 61 - (l == 0 ? 2.0f : 0.0f);
             if (frame == 2) { mx = cx + s * (12 + l * 2); my = cy - 16 - (3 - l) * 2.0f; fx = cx + s * (16 + l * 4); fy = cy - 24 + l * 6.0f; }
-            if (frame == 3) { mx = cx + s * (8 + l * 2); my = cy - 10 - l * 2; fx = cx + s * (4 + l); fy = cy - 16 - l * 1.5f; }
-            spider_leg(kx, ky, mx, my, fx, fy, 1.5f, R_WOOD, R_IRON);
+            chitin_leg(kx, ky, mx, my, fx, fy, 1.5f, R_WOOD, 0.12f, 0.6f, R_IRON, 487 + (uint32_t)(l * 2 + s + 1));
         }
-    cv_ellipse(cx, cy - 3, 10.0f, 7.0f, R_WOOD, 0.1f, 0.55f);     /* the abdomen, behind and above */
-    for (int i = 0; i < 4; i++) cv_line(cx - 6 + i * 4, cy - 8, cx - 5 + i * 3.4f, cy + 1, sh(R_IRON, 0.12f));   /* chevrons */
-    cv_ellipse(cx, cy + 4, 8.0f, 6.0f, R_WOOD, 0.15f, 0.65f);     /* the head and fore-body */
-    for (int y = (int)cy - 10; y < (int)cy + 10; y++)               /* hair: a fringe of lighter flecks round the edge */
-        for (int x = (int)cx - 12; x < (int)cx + 12; x++) {
+    cv_ellipse(cx, cy + 4, 8.0f, 6.0f, R_WOOD, 0.15f, 0.62f);       /* the head and fore-body */
+    for (int y = (int)cy - 2; y < (int)cy + 11; y++)                /* fur on it */
+        for (int x = (int)cx - 9; x < (int)cx + 9; x++) {
             uint8_t c = cv_sprite[y * TS + x];
-            if (c >= R_WOOD && c < R_WOOD + 16 && h01(x, y, 401) > 0.82f) cv_px(x, y, (uint8_t)(c + 3 > R_WOOD + 15 ? R_WOOD + 15 : c + 3));
+            if (c >= R_WOOD && c < R_WOOD + 16 && h01(x, y, 489) > 0.8f) cv_px(x, y, (uint8_t)(c + 3 > R_WOOD + 15 ? R_WOOD + 15 : c + 3));
         }
-    if (frame != 3) {
-        for (int k = -1; k <= 1; k += 2) {                          /* the two great eyes, shining */
-            cv_flat(cx + k * 2.6f, cy + 2.5f, 2.0f, 2.0f, 0);
-            cv_eye((int)(cx + k * 2.6f), (int)(cy + 2), (uint8_t)(R_FLAME + 14)); cv_px((int)(cx + k * 2.6f) + (k > 0 ? -1 : 1), (int)(cy + 3), (uint8_t)(R_FLAME + 9));
-        }
-        static const int EYE[6][2] = { {-5, 0}, {5, 0}, {-2, -1}, {2, -1}, {-4, 6}, {4, 6} };
-        for (int i = 0; i < 6; i++) cv_px((int)cx + EYE[i][0], (int)cy + EYE[i][1], (uint8_t)(R_FLAME + 4));
-        float open = frame == 2 ? 3.0f : 1.0f;
-        for (int k = -1; k <= 1; k += 2) cv_capsule(cx + k * 2.0f, cy + 7, cx + k * (2.0f + open * 0.5f), cy + 10 + open, 0.9f, R_IRON, 0.1f, 0.4f);   /* fangs */
-        for (int k = -1; k <= 1; k += 2) cv_capsule(cx + k * 6.0f, cy + 6, cx + k * 7.0f, cy + 11, 1.2f, R_WOOD, 0.15f, 0.5f);   /* palps */
+    grid_stamp(HUNTER_HEAD, 15, 10, (int)cx - 7, (int)cy - 1, R_WOOD, R_WOOD, (uint8_t)(R_FLAME + 15), 0);
+    float open = frame == 2 ? 3.0f : 1.0f;
+    for (int k = -1; k <= 1; k += 2) {                              /* palps, then fangs with a drop on each */
+        cv_capsule(cx + k * 6.0f, cy + 7, cx + k * 7.0f, cy + 12, 1.2f, R_WOOD, 0.15f, 0.5f);
+        cv_ellipse(cx + k * 2.0f, cy + 9, 1.7f, 1.8f, R_WOOD, 0.1f, 0.35f);
+        float tx = cx + k * (2.0f + open * 0.5f), ty = cy + 11 + open;
+        cv_line(cx + k * 2.0f, cy + 9, tx, ty, sh(R_IRON, 0.35f)); cv_px((int)tx, (int)ty, sh(R_BONE, 0.85f));
+        cv_px((int)tx, (int)ty + 1, (uint8_t)(R_MOSS + 14)); cv_px((int)tx, (int)ty + 2, (uint8_t)(R_MOSS + 9));
     }
     cv_outline(0);
     cv_store(id);
+}
+
+/* the hunting spider's dressing by rank: II silk on it and mould, III frost and a leg's end snapped, IV old blood on
+ * its fangs and a bald scar torn in its fur, V charred and the pale skull on its back, gilded gold in its fur */
+static void hunter_dress(int id, int frame) {
+    float cx = 32, cy = 44, ay = frame == 2 ? cy - 6 : cy - 5;
+    for (int r = RK_II; r < NRANK; r++) {
+        g_dress_ramp2 = R_IRON;                                     /* its bands and fangs */
+        dress_begin(id);
+        if (r == RK_II) {
+            kit_moss(0.25f, 0, 491);
+            for (int q = 0; q < 4; q++) {
+                float x0 = 12 + 40 * h01(q, 1, 493), y0 = 30 + 10 * h01(q, 2, 493), x1 = x0 + (h01(q, 3, 493) - 0.5f) * 14, y1 = y0 + 8 + 8 * h01(q, 4, 493);
+                for (int k = 0; k <= 12; k++) { float t = k / 12.0f; int x = (int)(x0 + (x1 - x0) * t), y = (int)(y0 + (y1 - y0) * t + sinf(t * PI_F) * 2.0f); if (base_on(x, y) || (k & 1)) cv_px(x, y, sh(R_GHOST, 0.65f)); }
+            }
+        }
+        if (r == RK_III) {
+            kit_frost(0.65f, 495);
+            float x = cx - 5, y = ay - 6;                            /* its back cracked */
+            for (int k = 0; k < 11; k++) { cv_px((int)x, (int)y, 0); cv_px((int)x + 1, (int)y, sh(R_WOOD, 0.75f)); x += h01(k, 1, 497) < 0.5f ? 1.0f : 0.0f; y += 1.0f; }
+        }
+        if (r >= RK_IV && r != RK_GILDED) {
+            kit_blood(cx - 2, cy + 10, 5, 2, 499); kit_blood(cx + 2, cy + 10, 5, 2, 501);
+            for (int y = 0; y < 5; y++) for (int x = 0; x < 7 - y; x++) cv_px((int)cx + 3 + x, (int)ay - 3 + y, (x + y) & 1 ? (uint8_t)(R_SKIN + 6) : (uint8_t)(R_BLOOD + 5));   /* torn bald */
+        }
+        if (r == RK_V) {
+            g_dress_ramp2 = R_BONE;
+            kit_char(0.3f, 503);
+            cv_flat(cx + 0.5f, ay - 0.2f, 6.2f, 6.6f, 0);
+            grid_stamp(SKULL_SMALL, 9, 10, (int)cx - 4, (int)ay - 5, R_BONE, R_BONE, 0, 0);
+        }
+        if (r == RK_GILDED) kit_gold(R_WOOD, 0.55f, 505);
+        dress_store(id, r, R_WOOD);
+    }
+    g_dress_ramp2 = -1;
 }
 
 /* The brood mother: a black spider the size of a dog, her abdomen swollen with eggs that show pale
@@ -6280,7 +6353,7 @@ static void spr_spider_side(int id, int frame) {
     cv_eye(43, 43, (uint8_t)(R_FLAME + 13)); cv_px(43, 44, (uint8_t)(R_FLAME + 10));
     cv_ellipse(42.5f, 47.5f, 1.6f, 1.8f, R_IRON, 0.12f, 0.34f);    /* the jaw, and its fang */
     for (int k = 0; k <= 4; k++) cv_px(43 - (k > 2), 48 + k, sh(R_BONE, 0.45f + 0.1f * k));
-    cv_px(42, 53, (uint8_t)(R_MOSS + 13)); cv_px(42, 54, (uint8_t)(R_MOSS + 10)); cv_px(41, 53, (uint8_t)C_WHITE);
+    cv_px(42, 53, (uint8_t)(R_MOSS + 14)); cv_px(42, 54, (uint8_t)(R_MOSS + 10));
     cv_outline(0);
     cv_store(id);
 }
@@ -6499,31 +6572,36 @@ static void spr_wraith_side(int id, float ph) {
     cv_store(id);
 }
 
-/* a spider from the side, in a body ramp: legs banded or not, the abdomen as big as it is, eggs in it */
+/* a spider from the side, in a body ramp: legs banded dark (band) or plain, bristling at the knee; the abdomen as big as
+ * it is, furred with chevrons (banded) or pitted, eggs in it; the face drawn over the near legs, one great eye or three
+ * small ones showing, a fang with its drop */
 static void spider_side(int frame, int ramp, int band, float ab, int eggs, int big_eyes) {
     cv_flat(32, 62, 24, 1.8f, R_WARM + 1);
     for (int l = 0; l < 4; l++) {                                   /* far legs */
         float k = ((l + frame) & 1) ? 2.5f : -2.5f, ax = 34 + l * 1.5f, fx = 14 + l * 11.0f + k, kx = (ax + fx) * 0.5f + (l < 2 ? -3 : 3);
-        cv_capsule(ax, 44, kx, 33 + l * 0.6f, 1.1f, ramp, 0.02f, 0.2f);
-        cv_capsule(kx, 33 + l * 0.6f, fx, 61, 0.8f, ramp, 0.02f, 0.18f);
+        chitin_leg(ax, 44, kx, 33 + l * 0.6f, fx, 61, 1.1f, ramp, 0.02f, 0.22f, band, 961 + (uint32_t)l);
     }
-    cv_ellipse(25 - (ab - 1.0f) * 6, 42 - (ab - 1.0f) * 6, 10.0f * ab, 8.0f * ab, ramp, 0.04f, 0.42f);   /* the abdomen */
+    float acx = 25 - (ab - 1.0f) * 6, acy = 42 - (ab - 1.0f) * 6;
+    if (band >= 0) {                                                /* furred, chevrons along it */
+        hunter_abdomen(acx, acy, 10.0f * ab, 8.0f * ab, ramp, 2, 963);
+        for (int i = 0; i < 3; i++) cv_line(18 + i * 5, 35, 20 + i * 5, 49, sh(band, 0.12f));
+    } else spider_abdomen(acx, acy, 10.0f * ab, 8.0f * ab, ramp, 965);
     if (eggs) for (int i = 0; i < 10; i++) {
         float a = h01(i, 1, 981) * TAU_F, r = 8.0f * ab * sqrtf(h01(i, 2, 981));
-        cv_ellipse(25 - (ab - 1.0f) * 6 + cosf(a) * r, 42 - (ab - 1.0f) * 6 + sinf(a) * r * 0.75f, 2.0f, 1.7f, R_BONE, 0.15f, 0.45f);
+        cv_ellipse(acx + cosf(a) * r, acy + sinf(a) * r * 0.75f, 2.0f, 1.7f, R_BONE, 0.15f, 0.45f);
     }
-    if (band >= 0) for (int i = 0; i < 3; i++) cv_line(18 + i * 5, 35, 20 + i * 5, 49, sh(band, 0.12f));   /* chevrons */
-    else cv_flat(22, 36, 2.6f, 1.6f, (uint8_t)(R_BLOOD + 9));
+    if (band < 0) cv_flat(22, 36, 2.6f, 1.6f, (uint8_t)(R_BLOOD + 9));
     cv_ellipse(37, 45, 6.5f, 4.6f, ramp, 0.06f, 0.45f);            /* the head */
-    if (big_eyes) { cv_flat(42, 43, 1.6f, 1.6f, 0); cv_px(42, 43, (uint8_t)(R_FLAME + 14)); }
-    else for (int i = 0; i < 3; i++) cv_px(41 + i, 43 - (i & 1), (uint8_t)(R_FLAME + (i ? 2 : 4)));
-    cv_capsule(42, 47, 43, 51, 0.8f, eggs ? R_BONE : R_IRON, 0.3f, 0.7f);   /* a fang */
     for (int l = 0; l < 4; l++) {                                   /* near legs */
         float k = ((l + frame + 1) & 1) ? 2.5f : -2.5f, ax = 35 + l * 1.5f, fx = 12 + l * 12.0f + k, kx = (ax + fx) * 0.5f + (l < 2 ? -4 : 4);
-        cv_capsule(ax, 46, kx, 31 + l * 0.8f, 1.3f, ramp, 0.06f, 0.42f);
-        cv_capsule(kx, 31 + l * 0.8f, fx, 61.5f, 0.95f, ramp, 0.05f, 0.36f);
-        if (band >= 0) cv_ellipse(kx, 31 + l * 0.8f, 1.5f, 1.5f, band, 0.02f, 0.2f);
+        chitin_leg(ax, 46, kx, 31 + l * 0.8f, fx, 61.5f, 1.3f, ramp, 0.06f, 0.42f, band, 967 + (uint32_t)l);
     }
+    cv_ellipse(41.5f, 44.5f, 3.2f, 2.8f, ramp, 0.1f, 0.45f);       /* its face, before the legs */
+    if (big_eyes) { cv_flat(42.5f, 43.5f, 1.8f, 1.8f, 0); cv_eye(42, 43, (uint8_t)(R_FLAME + 14)); cv_px(43, 43, (uint8_t)(R_FLAME + 11)); cv_px(42, 44, (uint8_t)(R_FLAME + 10)); cv_px(40, 46, (uint8_t)(R_FLAME + 6)); }
+    else { cv_px(41, 42, (uint8_t)(R_FLAME + 9)); cv_px(40, 43, (uint8_t)(R_FLAME + 7)); cv_eye(43, 43, (uint8_t)(R_FLAME + 13)); }
+    cv_ellipse(42.5f, 47.5f, 1.6f, 1.8f, ramp, 0.12f, 0.36f);      /* the jaw, and its fang */
+    for (int k = 0; k <= 4; k++) cv_px(43 - (k > 2), 48 + k, eggs ? sh(R_BONE, 0.45f + 0.1f * k) : sh(R_IRON, 0.3f + 0.08f * k));
+    cv_px(42, 53, (uint8_t)(R_MOSS + 14)); cv_px(42, 54, (uint8_t)(R_MOSS + 10));
     cv_outline(0);
 }
 static void spr_hunter_side(int id, int frame) { cv_begin(cv_sprite, TS, TS); spider_side(frame, R_WOOD, R_IRON, 1.0f, 0, 1); cv_store(id); }
@@ -9991,16 +10069,8 @@ void crawl_art_init(void) {
     spr_ghoul(SP_GHOUL_A, 1.0f, 0); spr_ghoul(SP_GHOUL_B, -1.0f, 1); spr_ghoul(SP_GHOUL_LEAP, 0.0f, 2); spr_ghoul(SP_GHOUL_FEED, 0.0f, 3); spr_ghoul(SP_GHOUL_D, 0.0f, 4);
     ghoul_dress(SP_GHOUL_A, 0.0f, 0.0f); ghoul_dress(SP_GHOUL_B, 0.0f, 0.0f); ghoul_dress(SP_GHOUL_LEAP, -10.0f, 0.0f); ghoul_dress(SP_GHOUL_FEED, 0.0f, 1.0f);
     spr_bestiary_bones();
-    for (int f = 0; f < 4; f++) { spr_hunter(SP_HUNTER_A + f, f); spr_brood(SP_BROOD_A + f, f); }
-    for (int f = 0; f < 3; f++) {                                  /* the Wandering Spider: a pale skull on its back */
-        static const char *const SK[6] = { ".XXXXX.", "XXXXXXX", "XooXooX", "XXXXXXX", ".XXoXX.", ".X.X.X." };
-        uint8_t *d = crawl_spr[SP_BSPIDER_A + f];
-        memcpy(d, crawl_spr[SP_HUNTER_A + f], TS * TS);
-        crawl_eyes[SP_BSPIDER_A + f] = crawl_eyes[SP_HUNTER_A + f];
-        for (int y = 0; y < 6; y++)
-            for (int x = 0; x < 7; x++)
-                if (SK[y][x] != '.') d[(29 + x) * TS + 35 + y] = SK[y][x] == 'X' ? (uint8_t)(R_BONE + 13 - (y > 3)) : (uint8_t)(R_BONE + 1);
-    }
+    for (int f = 0; f < 4; f++) { spr_hunter(SP_HUNTER_A + f, f, 0); if (f < 3) hunter_dress(SP_HUNTER_A + f, f); spr_brood(SP_BROOD_A + f, f); }
+    for (int f = 0; f < 3; f++) spr_hunter(SP_BSPIDER_A + f, f, 1);  /* the Wandering Spider: a pale skull on its back */
     for (int f = 0; f < 3; f++) spr_sac(SP_SAC_A + f, f);
     spr_ling(SP_LING_A, 0); spr_ling(SP_LING_B, 1);
     spr_wraith_big(SP_WRAITH_A, 0.0f, 0); spr_wraith_big(SP_WRAITH_B, PI_F, 1); spr_wraith_big(SP_WRAITH_REACH, 1.0f, 2); spr_wraith_big(SP_WRAITH_BACK, 2.0f, 3);
