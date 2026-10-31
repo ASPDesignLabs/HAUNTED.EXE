@@ -108,14 +108,24 @@ may leave the pocket's state behind, as the new run did before `run_new` called 
 release above, the owner moved it on a number, staged as its G2 (a) says: 1.0.0b13 the runs' hazards (fixed and arising,
 every sample, soul-sappers from each run's sixth level, Resist Lightning), logic puzzles worked with things in the world
 behind a sealed wing (a hidden message, a Black Shrine, Tab's documents), timed trials behind skull-marked doors, and a
-reckoning of what is left before a person leaves a level; 1.0.0b14 the lower storey, its edges, stairs and ladders. Being
+reckoning of what is left before a person leaves a level; the lower storey, its edges, stairs and ladders, which the plan
+calls 1.0.0b14 and which is now **1.0.0b15** (see below). Being
 built on `claude/epic-dirac-n8uosr` from main at 1.0.0b12, in the plan's steps, sheets before art in the game. 1.0.0b13's
 steps 1-8 were built (harness only; the Windows build compiled and smoke-tested by CI on the branch, by a run started by
 hand) and released as 1.0.0b13 at the owner's word, squashed onto main as one commit like the betas before it; the squash
 also took out `b.txt` and `dream.txt`, debug logs that had come onto main with 1.0.0b11. The new art (`hazards.png`,
 `puzzles.png`, `documents.png`, `trials.png`) still waits for the owner's eye. The README's new strip,
 `preview_catacomb_trials.png`, was taken for the release (no hazard shows well in a still frame, so it has none).
-1.0.0b14 (steps 9-13) is not begun. See *1.0.0b13 so far* below, and the numbers under *Known issues*.
+The lower storey (steps 9-13, which `docs/PLAN-b13.md` still calls 1.0.0b14) is not begun, and has moved to 1.0.0b15. See
+*1.0.0b13 so far* below, and the numbers under *Known issues*.
+
+1.0.0b14 is now the first art pass, planned in [`docs/InitialArtPass.md`](docs/InitialArtPass.md) (31 October 2026; the
+owner found many creatures basic, the skulls, the wall skulls, the imps' and gargoyles' heads "like a child's drawing",
+the Drowned goofy): hand-pixelled skulls and faces in a gothic hand, **eyes bright and visible from anywhere, in any
+light and fog, for every creature that has them (the Shade alone excepted)**, rank told by tatters, battle damage and
+spirit vapour as well as colour, and the Drowned redrawn. A plan only: its questions (A1-A17) are open, nothing is built,
+no asset is drawn. Read it before touching a creature's sprite or the sprite loop, and ask the owner its questions
+before starting; it is visual only, so nothing in the simulation, the saves or the autopilot's numbers may move.
 
 ## Working with the owner
 

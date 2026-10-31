@@ -1,0 +1,672 @@
+# The first art pass: faces, eyes, wear and spirit (1.0.0b14)
+
+**Status: a plan, written 31 October 2026, with its questions open. Nothing is built, no asset has been drawn and no
+code has been touched.** The owner looked at the creatures in 1.0.0b13 and found many of them basic: the skeletons'
+bones are good, but their skulls, the wall skulls, the heads of the imps and gargoyles look "almost like a child's
+drawing", and the Drowned look goofy where they should frighten. This plan is the art direction for putting that right,
+written for whoever builds it (it is meant to give them something firmer to work from than "make it more gothic"), and
+the questions at its end are the owner's to answer before any of it starts. Read it with `CLAUDE.md`,
+[`PLAN-bestiary.md`](PLAN-bestiary.md) (the creatures, their ranks and the colour ladder) and
+[`PLAN-b10.md`](PLAN-b10.md) (how each run's look was drawn and approved: sheets first, then frames from the game).
+
+**Numbering.** This pass takes the place of 1.0.0b14. The lower storey, its edges, stairs and ladders (steps 9-13 of
+[`PLAN-b13.md`](PLAN-b13.md), which still calls it 1.0.0b14) move to **1.0.0b15**, untouched. `CLAUDE.md` says so.
+
+## What the owner asked for (31 October 2026)
+
+1. **Better artistic direction for the builder** around adjusting many of the art assets. The NPCs "look pretty basic".
+   What is good: the bony structure of the skeletons. What is not: their skulls, the wall skulls, the heads on the
+   imps and the gargoyles ("incredibly primitive"). The Drowned look "incredibly goofy, not at all scary".
+2. **A more gothic presentation, throughout.**
+3. **One constant: eyes bright and visible from anywhere, whatever the light around them, for every NPC that has
+   them. Shades are the only exception.**
+4. **Rank told in more than colour.** Tattered appearances, battle damage, "some kind of spirit vapour emanating from
+   higher ranks, coloured if it helps add variety".
+5. **No code and no assets in this document**: a plan, structured, with questions, and rich enough in its
+   descriptions to draw from. Flavour text is welcome wherever the plan runs short (the last section asks for some).
+
+## 1. What the game does today
+
+Read from `src/crawl_art.c`, `src/crawl.h` and `render_sprites` in `src/scene_crawl.c` at 1.0.0b13, and from the
+frames in `docs/preview_catacomb_creatures.png` and `docs/preview_catacomb_bestiary.png`.
+
+### 1.1 Why the faces look like a child's drawing
+
+- **Heads are built from the same few primitives.** The shared skull (`cv_skull`, used 29 times: skeletons,
+  shield-bearers, the deacon and his staff, bone heaps, skull piles, totems) is two smooth ellipses (dome and jaw), two
+  flat ellipses for sockets, one pixel for a nose and a row of five for teeth. On a standing skeleton it is about 12
+  pixels across in a 64-pixel sprite. The imp's head is one ellipse about 19 pixels wide, two eyes of two pixels each
+  and a parabola for a grin. The gargoyle's is an ellipse 13 pixels wide with a smaller one for a muzzle, and **one
+  pixel per eye** (none at all when it is perched). The wall skull is a dome, a jaw, two flat sockets and a triangle.
+- **Nothing has a brow, a cheekbone, a temple, a nostril or a chin.** The shapes are filled with smooth gradients, so
+  two planes never meet at an edge for the light to catch; the result is plastic and egg-like. And every pair is
+  mirrored exactly about the middle. That is what a child's face is: a list of features set on a blank oval.
+- **At the sizes in play the head is 6 to 20 screen pixels.** A feature that is not placed by hand at that scale is
+  lost, and a feature built from a procedural ellipse is never quite where it should be.
+- **The Drowned are goofy because of their proportions**, not their rank colour: a belly 29 pixels across (over 40% of
+  the sprite's width), short thick legs, a navel, a small round head sunk between the shoulders, puffed lids with
+  "milky" patches, barnacles as scattered dots and weed for hair. It reads as a toddler or a balloon figure. And it
+  is drawn in the walls' own stone ramp, so it is also the colour of the wall it stands against.
+- **Heads are the same size at every rank and in every set.** Nothing about a face says how old, how hurt or how
+  hungry it is.
+
+### 1.2 Why eyes are lost
+
+- They are baked into the sprite as one or two pixels: a skeleton's two single pixels (`R_FLAME + 10`, or cold blue
+  `R_GLOW + 13` past a decay of 0.55: "the eyes go cold"), the gargoyle's one, the imp's two, the deacon's one each in
+  his hood. The Drowned's are not bright at all: patches of the ghost ramp, which darkens with the light.
+- Full-bright ramps (`R_FLAME`, `R_GLOW`, `C_WHITE`) escape the lightmap, but not the rest. **Fog** dithers any pixel,
+  bright or not, into haze (up to 70% of them). **Minification** samples the sprite by nearest texel, so at a distance
+  a one-pixel eye falls between samples and goes. **Translucency** (the spectre, the Wraith in the dark) dithers them
+  with the body, and **frost** and the **Backrooms glitch** overdraw them.
+- The only creature with a proper eye pass is the web spider waiting in its web: `DR_EYES` draws two red points in
+  screen space, straight into the frame, behind nothing but the z-buffer, blinking out for a moment every few seconds.
+  **That is the precedent, and it works; it is simply special to one creature.**
+- Rank does not touch the eyes. PLAN-bestiary left "rank shown in the eyes" for the renderer; it was never done.
+
+### 1.3 What a rank is today
+
+A rank is a recolour: `crawl_rank_lut` redraws a creature's whole body ramp in another (II **ROTTEN** green, III
+**COLD** pale teal-grey, IV **BLOODY** red, V **BLACK** near-black, **GILDED** gold; bone that is already dark goes
+pale instead, plate darkens), and `RANK_SIZE` makes it 4% bigger a rank (V 16%, gilded 8%): "a second cue, for eyes
+that mix up the colours". The strength behind it:
+
+| Rank | Health | Blow | Pace | Souls |
+|---|---|---|---|---|
+| I | x1 | x1 | x1 | x0.5 |
+| II | x1.6 | x1.15 | x1.05 | x1 |
+| III | x2.4 | x1.3 | x1.1 | x1.5 |
+| IV | x3.5 | x1.5 | x1.15 | x2 |
+| V | x5 | x1.7 | x1.15 | x3 |
+| Gilded | x3 | x1.2 | x1 | x3 |
+
+Every kind ranks except the spectre, the Wraith, the shade and the egg sac (rank I only); bats stop at IV; gilded ones
+come from level 7, about one level in three. So a rank V skeleton is the same drawing as a rank I skeleton, poured
+into a darker ramp and a sixth larger. The previews show the result: a red shambler like a flayed doll, a green
+ghoul like a puppet, a blue-grey Drowned like a balloon. The word on the tin is right (rotten, cold, bloody, black,
+gilded) but nothing is *done* to the picture to earn it.
+
+### 1.4 How a creature reaches the screen (for the builder)
+
+- Sprites are 64 by 64, column-major, drawn procedurally at start-up (`crawl_art_init`). The skeleton family, the
+  shield-bearer, the bestiary's bones and the side views are **drawn again at every level** with `g_decay` (bones go
+  missing, crack, yellow and gather moss deeper down), so any new skull must keep taking `g_decay`.
+- Per frame, each creature becomes an entry in a depth-sorted list; each pixel is sampled (through the rank LUT),
+  shaded by the lightmap and distance, then fogged. Flags change how: `DR_EYES`, `DR_BRIGHT`, `DR_EDGE` (a dithered
+  outline), `DR_ICE`, `DR_GLITCH` (the Backrooms), `DR_LIT` (Severance), `DR_FLIPV` (the hunting spider on the
+  ceiling), `DR_SHINE` (the knight boss's polish), `DR_COMMUNE`, `DR_ALLY` and others. Several write straight to the
+  frame, which is how something glows without a palette entry.
+- **The palette has no free entries**: 256, in 16-step ramps (`R_STONE ... R_GLOW`), a gold ramp of 13, white and the
+  clear colour. `R_FLAME` (dark red to orange to pale yellow) and `R_GLOW` (deep blue to azure to pale cyan) are
+  full-bright. `R_STONE`, `R_FLOOR`, `R_CEIL` are tinted per run and `R_BONE` yellows with depth, so a creature
+  drawn in them changes colour with the level. Anything new uses these ramps.
+- Eighteen kinds have **side views** (`SP_*_SA`, `SP_*_SB`): the bestiary page draws them large, and
+  PLAN-bestiary meant creatures to face the way they walk one day. A new head is therefore **two drawings** (front and
+  profile), and the bestiary page is where the new art will be judged most closely.
+
+## 2. Rules for the whole pass
+
+1. **Visual only.** Nothing the simulation reads may move: hit radii, `scale`, speed, health, damage, saves, the
+   autopilot's numbers, or the game's random stream (effects take their randomness from the renderer's own hashing, as
+   the glitch does, never from the game's `rng`). **Proof**: a same-seed dream run's event log matches 1.0.0b13's.
+2. **Keep what works.** The skeletons' bone work and walking silhouettes; every creature's poses and frame counts
+   (death, rise, burst, leap, feed, perch and wake); the web spider's eyes-only ambush; `g_decay`'s ageing.
+3. **No new palette entries.** Vapour, glints and halos use the existing ramps and are written straight to the frame
+   where they must glow.
+4. **Sprites stay 64 by 64.** The VGA look is the point; the cure for 12-pixel heads is to spend the pixels better
+   (hand-placed, a little larger) and not to add resolution.
+5. **Eyes follow section 5**, without exceptions beyond those listed there.
+6. **Rank is legible without colour** (section 6): a rank can be told from the next one in greyscale, by the marks
+   on the creature and how it moves.
+7. **A sensory budget** (section 7.6): slow, low-contrast motion; nothing flashing more than three times a second; a
+   cap on how much glows at once; and a setting. Eyes are legibility, not effect, and stay on.
+8. **Sheets before art in the game**, each one for the owner's eye, as since 1.0.0b5. New sheet groups for
+   `tools/sheet.c` are proposed in section 9.
+9. **Honest status.** Tested in the harness only until the owner has played it; `README.md`, the page's *Beta status*
+   table and the previews say so, and the two creature previews are taken again for the release.
+10. **An initial pass.** Dressing by run (miners' helmets in the Hollows, glass-crusted dead in the Deep), bespoke boss
+    redraws beyond the Deacon and the Wraith, and the decorations beyond the skull are questions below, not promises.
+
+## 3. The gothic brief
+
+**What gothic means here.** Not cobwebs and bats. Cathedral and charnel: the Order's crypt as a place made to hold
+the dead *beautifully*, and the dead as what became of that care. Thin, vertical, pointed; ornamented and ruined at
+once; memento mori carved on the very stone. The creatures should look like they belong in the same building as the
+niches, the banners and the Order's marks, as though they were *carved and then neglected*.
+
+**Shape.** Verticals, lancets and spikes: tall hoods with a peak, horns that sweep rather than curl, long fingers,
+pointed ears, narrow shoulders under a heavy head. **Nothing is symmetrical**: a dropped shoulder, a head canted,
+one arm longer, one eye socket deeper, a tooth gone. Give every creature a line of action (a lean, a hang or a
+stoop) so that its silhouette reads at ten pixels tall.
+
+**Light.** One key light from the upper left on every sprite (the walls' lighting is ambient, so this is baked). The
+darkest values on a creature belong to its **cavities**: sockets, under the brow, inside the hood, between the ribs,
+under the jaw. The brightest belong to a few edges: a cheekbone, a brow ridge, a horn tip. Shade in **bands of four
+or five values per material** and break between them with a dither, not a smooth gradient: smooth gradient fills are
+what make the current heads look inflated.
+
+**Material.** Each stuff has its own rules, so that bone no longer looks like plastic:
+
+| Stuff | What it looks like |
+|---|---|
+| Bone | pitted, porous at the ends, stained brown in its cracks, the colour of old teeth; never a clean white |
+| Flesh | dead grey and wax, drawn tight over the cheek and brow, loose at the throat; no saturated reds |
+| Cloth | a woven edge, frayed hems, stiff folds, stains at the bottom; the Order's colours bleached |
+| Iron and plate | dented, rust blooming at the joints, a dull edge-light; a few bright scratches |
+| Stone | chipped at edges, mineral stains running down from every recess, lichen in the shade |
+| Chitin | glossy only at the highlights, banded joints, hair at the knees |
+| Water and damp | dark wet runs, a sheen on the lowest folds, drips |
+
+**Ornament.** The Order is already in the game: the mitre, helm, tonsure, crown, key, wheel, arrows, tower, lamb, lamp,
+eye, hand, picks, moon, star and skull (`PZ_MARKS`, 7 by 7 pixels each, carved on the puzzle things). The dead may
+wear them, as a tabard's device, a medal, a scratched pauldron or a brand on a brow: it gives them a past and ties
+them to the walls. Add prayer-strips tied on with wax, rusted rosaries, funeral coins, manacles and chains.
+
+**Mood.** Dread rather than gore. Damage is shown as breakage, rot, rust, frost and old dark stains, not wet viscera
+(question A8). This is a Halloween screensaver that people leave running in a room.
+
+**Restraint.** Bodies keep their own material colours; hue is for the **accents**: eyes, vapour, trim, a crown. That
+is what makes a coloured thing worth looking at.
+
+### The child's-drawing checklist
+
+Every head, in every sheet, answers these before anyone shows it to the owner:
+
+1. Is it perfectly symmetrical? Break it somewhere.
+2. Is there a brow, with a shadow under it?
+3. Are there at least three planes (forehead and brow, cheek, jaw) catching the light differently?
+4. Are the cavities the darkest pixels on the sprite?
+5. Does the silhouette of the head differ from the body's (a neck, a gap, a crest, a horn) and survive at eight
+   pixels tall?
+6. Do the eyes sit *in* shadow (a socket, a brow, a hood), not on the surface?
+7. Is there one detail that tells a story (a notched crown, a chipped tooth, a stitched lip, a rusted rivet)?
+8. At three times, once and a third of the size: still a face?
+
+## 4. Faces
+
+### 4.1 One skull, drawn by hand
+
+Replace the shared skull with a **hand-pixelled master**, drawn as grids of characters in the source in the way
+`RUNE_GLYPH`, `PZ_MARKS` and `CLASS_MARK` already are, and stamped in the body's ramp. The reasons are practical: the
+artist can *see and edit every pixel*, and at 12 to 16 pixels a hand-placed pixel beats an ellipse every time.
+Views: **front** (standing, hunting, throwing), **profile** (side views, the hound), **broken** (jaw hanging, jaw
+gone, cracked open, a hole in the brow) and **helmed** (the knight's visor, the deacon's hood). The skull piles, bone
+heaps, totems and niches take the same master at their own sizes so that the whole building agrees.
+
+**Size.** A skeleton's skull is about 12 by 12 today. Let it grow by about a quarter (to 15 or 16 pixels tall): a
+heavy head on narrow shoulders is the gothic proportion, and the extra pixels are what make a nose and a tooth row
+possible. The body's frames are unchanged (question A5).
+
+**Anatomy, as direction** (front view, key light upper left):
+
+- The cranium: a broad dome with a visible brow ridge and **recessed temples**, narrowing to the cheekbones; the
+  widest point is the cheekbone, not the dome.
+- **Orbits**: squarish with rounded corners, 3 to 4 pixels across at this size, set under the ridge so the top third
+  of each is in shadow; the left orbit's rim catches the light, the right is deeper. Nowhere in the skull is darker.
+- **Nasal opening**: an inverted pear or heart, two pixels wide and three tall, with a bright bridge above it.
+- **Cheek planes**: a lit ridge under each orbit sloping to a dark hollow before the jaw.
+- **Teeth**: the upper row set in the maxilla as a lit band, individual teeth 1 pixel wide with dark gaps; **the lower
+  jaw is a separate piece with a one-pixel dark seam** between them, and may hang a pixel or two open. Break the
+  row somewhere: a missing tooth, a chip.
+- One **suture or crack**, from the brow across the crown or down through a socket, stained dark; one chip out of the
+  rim. Deeper levels add more through `g_decay`, as the old skull's cracks do.
+
+### 4.2 What each size must show
+
+| Head on screen | What it must carry |
+|---|---|
+| 6 pixels or fewer (far) | the silhouette, a dark brow band, two dark sockets and **two bright eye points** (the eye pass, section 5, not the body) |
+| 7 to 14 (mid) | and the nasal hollow, the tooth band and the jaw's seam |
+| 15 to 30 (near) | and cheek planes, cracks, stains, the chipped tooth |
+| 40 and up (the bestiary page) | and pitting, sutures and the ornament; the page is where the owner will look hardest |
+
+### 4.3 The other heads
+
+Section 8 has the brief for each. In all of them, **the head leads**: the imp, the gargoyle and the wall skull each
+become a *design* (a face with a character) rather than a body with a ball on it.
+
+## 5. Eyes
+
+**The rule.** Every creature with eyes shows them **bright, at least two pixels wide each, from any distance the
+creature is drawn at, in any light and through any fog**, for as long as it is present. The Shade is the only
+exception, and a few states below (sleepers, the dead) are not exceptions but the moments the eyes begin and end.
+
+### 5.1 How the eyes are made (design, not code)
+
+1. **Two layers.** The sprite keeps eye pixels, in full-bright ramps, so that pages that draw a sprite directly
+   (the bestiary, sheets, the previews) still show them. **In the world, a separate eye pass puts them on the screen
+   a second time**, in screen space, after the body is drawn and after fog, as `DR_EYES` does for the web spider. So
+   a pixel lost to minification, fog, frost, glitch or alpha dither is simply drawn again on top.
+2. **A table of eye points per sprite**, not per kind, because a head moves between poses (the skeleton's throw, the
+   imp's lob, the gargoyle's swoop, the Drowned's rise). The sprite generators, which know where they put the head,
+   record the points as they draw, as `find_glints` finds the gold's brightest pixel today; the table also holds the
+   crown of the head, the mouth and the shoulders, which the vapour and the dressing in sections 6 and 7 need.
+3. **A floor of two screen pixels** for each eye at any distance up to the draw limit (24 cells); beyond about 60
+   screen pixels' height the eye grows with the sprite and gains a **one-pixel halo**, dithered, of its own colour.
+4. **Never dimmed** by the lightmap, fog, depth, the rank LUT or frost. **Hidden only** by walls, doors and other
+   solid things (the z-buffer), and by the creature's own absence.
+5. **Follows the body's presence, not its light**: a spectre's eyes fade as it fades out, a Wraithwalking boss's go
+   when it goes into the stone; but a boss Wraith drawn at a third of its strength in the dark keeps eyes at full. In
+   the dark it will be **two lights and a faint shape**, which is wanted.
+6. **Rides with the sprite's flags**: flipped with `DR_FLIPV`; shifted with the boss's scale and `RANK_SIZE`; turned
+   off under `DR_COMMUNE` (red through walls); left alone by the Backrooms glitch (or nudged a pixel; the builder's
+   call, but never sheared away).
+7. **A blink** may be kept: no more than a tenth of a second dark, no more than once in four seconds, and not on
+   creatures that are hunting you.
+8. **Cost**: a handful of pixel writes per creature; the existing 20-creature cap bounds it.
+
+### 5.2 Eye form tells rank (so it survives a small screen)
+
+Colour is the weak cue at two pixels; **form** is the strong one when the eye is big enough to show it, and colour
+carries when it is not.
+
+| Rank | Eye form | Eye colour (from II up) |
+|---|---|---|
+| I | two bare points, the kind's own colour | the kind's own |
+| II | a point with a one-pixel glow beside it | sick green |
+| III | a short vertical glint, a "cold" slit | cold white-blue |
+| IV | a point with a **streak** back along the brow towards the temple, like a guttering flame | red-orange |
+| V | a white-hot centre with a **four-armed flare**, slowly flickering | white, a violet rim |
+| Gilded | a bright point with a small gold cross-glint | gold |
+
+**The kinds' own colours at rank I** (proposal): the dead's amber (skeletons, shield-bearers, hounds, the knight's
+visor in crimson), cold white-blue for spirits and the drowned (spectre, Wraith, Drowned), sulphur for the buried
+(shamblers, ghouls), ember red for the eight-eyed and the winged (spiders, bats), white-gold for the fire and the
+stone once awake (imp, gargoyle), pale lights in shadow for the priest (deacon). The bestiary pages draw the rank's
+eye beside its name.
+
+**State** (optional, A13): an alerted creature's eyes gain one pixel of halo and a steadiness (no blink); one that
+strikes flares for a moment. They are never *less* visible when it is calm, only less loud.
+
+### 5.3 Exceptions and edges
+
+| Case | Eyes |
+|---|---|
+| **Shade** | none in the dark: its eyes show only where the light shows it (the one exception the owner named) |
+| Gargoyle on its plinth or in an alcove | **dark, stone**: the statue trick depends on it; they **ignite when it wakes**, with a shed of dust |
+| Wall skull asleep | a low ember pair, still visible; they flare as it wakes, fire gathers in them while it charges |
+| Shambler and Drowned buried or rising | none while buried; they open as the head clears the ground |
+| A creature dying | the eyes **snuff out first**, then the body falls: a clean, readable beat |
+| Held in a web, frozen | stay lit; the ice may rime the body but not them |
+| Spectre, Wraith | hollow eyes in a pale face / hood, lit; a spectre's follow its fade |
+| Spiders | eight-eye cluster, the brood mother's larger; spiderlings' two points; egg sacs none |
+| Web spider waiting | unchanged: it is the template |
+
+## 6. Rank beyond colour
+
+### 6.1 The idea
+
+**Each rank adds to the one below it**, so rank can be read by counting what has been done to a creature, in
+shape and in motion, as well as by hue. The story to draw from: *the longer a dead thing stands, the more it has
+been through, and the more of what keeps it standing is showing.* The five words are already the instruction: rotten,
+cold, bloody, black, gilded. Make each literal.
+
+| Rank | The word | Dressing and growth | Damage | Silhouette | Eyes | Vapour |
+|---|---|---|---|---|---|---|
+| I | (none) | whole, a little grime, a scrap of the Order's cloth or a rusted buckle | a chip or a crack | the kind's own | bare points | none |
+| II | **ROTTEN** | + rags hanging from hem and shoulder, grave-dirt, moss and pale fungus in the hollows, a cobweb | + a deeper crack, a missing piece | ragged lower edge | + glow (green) | none (a few spores, optional) |
+| III | **COLD** | + frost on every upper edge, icicles under jaw and ribs, the cloth stiff and glittering | + a notch, a split plate | spiked with rime | + slit glint (white-blue) | a **thread** from the eyes, pale blue, rising |
+| IV | **BLOODY** | + old blood soaked down the cloth and bone, rust, a torn tabard bleeding colour | + **wounds**: a cleaved brow, an arrow shaft, a hacked limb, a pierced chest | + spurs, bone spikes, a chain | + streaks (red) | a **plume** from the eyes and chest, red-orange, with embers falling off |
+| V | **BLACK** | + charred, scorched cloth in streamers, tar, a **broken crown or iron halo**, shackles with a length of chain | + heavy: half a jaw, ribs broken out | tallest and widest; a great torn cloak | + flare (white-hot) | a **cloak** of violet-black smoke, a pale rim, a few white sparks |
+| Gilded | **GILDED** | **not wounded: dressed**: gold leaf over the body, a gilt death-mask or collar, a fine chain | clean, polished | ornate, balanced | gold cross-glint | **gold motes** circling, a glint now and then |
+
+Gilded is a branch, not the top of the ladder (its health lies between III's and IV's and its blow between II's and
+III's; it runs when hurt and drops treasure): it is the Order's
+**honoured dead**, dressed rather than ruined. Its tell is *neatness* in a place where every other rank is messier.
+
+### 6.2 The kit, translated for each material
+
+Each creature draws from one shared kit, so that all of them agree about what "bloody" means.
+
+| Kit | Bone (skeletons, hounds) | Flesh (shambler, ghoul) | Stone and clay (gargoyle, imp) | Chitin (spiders) | Robe (deacon) | Plate (knight) | Drowned |
+|---|---|---|---|---|---|---|---|
+| Tatters | tabard scraps, strips of shroud | burial linen shreds, loose skin | none (moss ribbons) | torn web trailing | frayed hem, torn sleeve | torn tabard, mantle | sodden shroud, weed |
+| Ruin | cracks, chips, lost teeth | gaping jaw, sunken belly | chipped horn, cracked brow | a broken leg, a dented carapace | burnt sleeve | dents, holed plate | splitting skin |
+| Wounds | cleaved brow, a rib out | a stitched wound, a bolt | a fractured wing | gouged eye | a slit cowl | a broken blade lodged | the rope's mark |
+| Grave-goods | chain, funeral coin, rosary | a coin on the tongue, a wedding band | an iron collar | none | a skull-topped staff, chain | the Order's device | an anchor-weight, rope |
+| Growth | moss, mushrooms, frost | roots, mould | lichen, frost, mineral crust | spores, mould | mildew | rust, moss | barnacles, weed, shells |
+| Gold | mask, leaf on the ribs | gilt teeth | gold in the cracks | gilt-dusted legs | gold thread, gold stole | gilt trim | gold in the weed |
+
+### 6.3 Reading it
+
+Three kinds of cue, so that no one of them is load-bearing: **shape** (how many marks and how spiked the
+silhouette), **motion** (vapour's speed, the eyes' flicker) and **colour** (the vapour, the eyes, the trim). The
+test in section 10 is that a rank V creature and a rank II creature of any kind can be told apart in greyscale at a
+glance, and that a rank III and a rank IV can be told apart with their colour taken out. The existing `RANK_SIZE`
+cue stays.
+
+### 6.4 How it is layered (options for the builder)
+
+- **A. Bake it into the sprite**, through a `wear` parameter beside `g_decay`, for every pose and rank. Simplest to
+  draw; but the skeleton family is redrawn at every level, so five more variants of it would multiply that
+  load-time cost, and body decay and rank wear would run together.
+- **B. A dressing layer**: for each kind and pose, a second 64 by 64 picture per rank (II, III, IV, V, Gilded), `C_CLEAR`
+  where the body shows, composited by the sprite loop at the same texel. This is how `T_FEAT` works on walls and
+  how the marks on the puzzles' things work. The base keeps its per-level decay; the dressing is drawn once, at
+  start-up. About 15 ranking kinds x 6 poses x 5 ranks is ~450 layers, ~1.8 MB.
+- **C. Hybrid**: B for cloth, gold, growth and wounds; baked into the base only what changes the body itself (a jaw
+  lost, a horn broken).
+
+**Recommendation: B**, with the layers drawn cumulatively by one kit per kind, so rank V draws everything rank IV
+does and more, and a rule that the rank-I base stays clean. Measure `crawl_art_init` and the per-level reload before
+and after (section 10), and fall back to C if the reload grows.
+
+### 6.5 What happens to the body colour (question A6)
+
+The current LUT turns a bone skeleton green, blue, red, black or gold *all over*, which is why they look like
+painted figures. If the dressing, the eyes and the vapour carry the hue, the body does not need to: the options are
+to keep it, to let only the shadows and mid-tones take the rank's tint so the bone still looks like bone (the
+recommended middle), or to drop it. Whatever is chosen, `RANK_SIZE` stays and the bestiary's rank word keeps naming
+the colour.
+
+### 6.6 In the bestiary
+
+Each rank gets one line under its name, in the plain dry voice, naming its marks, so the ladder can be learnt:
+for instance **ROTTEN**: *RAGS, MOULD AND A GREEN LIGHT IN THE EYE.* **COLD**: *FROST ON THE BONE, AND A BREATH OF
+IT.* **BLOODY**: *OLD WOUNDS, AND A RED SMOKE FROM THEM.* **BLACK**: *BURNT, CROWNED IN IRON, SMOKING.* **GILDED**: *THE
+ORDER'S HONOURED DEAD. THEY RUN WHEN HURT.* These are samples to be written properly in step 9.
+
+## 7. Spirit vapour
+
+### 7.1 What it is
+
+**The soul showing.** A creature with more spirit in it than its body can hold lets it out. This agrees with the game:
+rank decides the souls a kill gives (x0.5 at I to x3 at V and gilded), a kill leaves a mote ("a pale flame with a
+face in it"), and the soul economy of 1.0.0b11 makes how much spirit a thing carries worth knowing at a glance.
+So vapour grows with rank, and **at the creature's death it gathers into the mote** (a short beat: the eyes snuff,
+the vapour streams to a point at its chest and the mote lifts out).
+
+### 7.2 When it starts and how it grows
+
+| Rank | Vapour | Colour |
+|---|---|---|
+| I, II | none (II may leak a few green spores) | green |
+| III | a **thread**: one slow wisp from the eyes | pale blue, a frost glitter at its tip |
+| IV | a **plume** from eyes and chest, with falling embers | red-orange |
+| V | a **cloak**: a standing column behind and around it, a pale rim, a few white sparks | violet-black with a violet edge |
+| Gilded | **motes** circling, a glint now and then | gold |
+
+(The question is whether it should begin at II: A7.) A black vapour is invisible against a dark crypt, so it is drawn
+as **a darkening of what is behind it** (pixels pulled down a few steps within its shape) with a bright violet rim, so
+it reads against both lit and unlit stone. Its colour is shown over ramps that are written straight to the frame, so
+a coloured vapour in a dark room glows without needing a palette entry.
+
+### 7.3 Where it comes from, by kind (the variety)
+
+| Kind | Emission | Style |
+|---|---|---|
+| Skeleton, shield-bearer | the eye sockets and the ribcage | rising threads, curling |
+| Bone hound | eyes and jaws | a breath plume streaming back as it runs; eye-trails |
+| Shambler | mouth and any wound | damp steam, slow, clinging low |
+| Ghoul | mouth | hunger-smoke curling forward when it leaps and feeds |
+| Drowned | the mouth, the skin's seams, the feet | water and gas: vapour that **drips and bubbles** |
+| Knight | the visor slit, the gorget and plate joins | **jets** of steam, pulsing with its stride |
+| Deacon | the cowl and his staff's skull | a slow cowl-smoke, motes circling the staff; thick when he chants |
+| Imp | shoulders and back | heat-shimmer and sparks (it *is* the fire; its vapour is heat) |
+| Gargoyle | the cracks in the stone | a **dust-and-light seep** rather than smoke, coming from fissures |
+| Spiders, brood mother | joints and fangs | spores and venom-drips, thickest on the brood mother |
+| Bats | wing-tips (to rank IV) | a trailing mist behind the wings |
+| Spectre, Wraith | (they are spirit) | none; a rank-less creature needs nothing added |
+
+### 7.4 Drawing it
+
+- **Dithered translucency**, the engine's own idiom (the Bayer matrix), so it matches everything else on screen.
+- **Written after the body, with the eye pass above it**, so vapour never covers an eye.
+- **Slow**: drift under about half a cell a second, nothing sudden; the same few hundred hashed particles each frame
+  from a seed per creature, no state to keep and no game randomness.
+- **Fogged as the body is** (it dims with distance), never drawn through a wall.
+- **Anchored to the table of points** (section 5.1.2), so it comes from the right place in every pose and follows a
+  swoop, a leap, a lob or a rise.
+
+### 7.5 What it is not
+
+It does not hide the creature, change what a spell hits, or count as a hazard. It is never a cue the simulation reads.
+
+### 7.6 The sensory budget
+
+This game is looked at by one person in a dim room for a long time, and may be left running. So:
+
+- Motion is **slow and low in contrast**. No pattern flashes more than three times a second, ever.
+- **A cap on what glows at once**: the nearest handful of creatures get full vapour; farther ones thin to a thread,
+  then to nothing, and ten creatures in a hall do not become ten bonfires.
+- **A setting** in the existing settings dialog (question A14): *CREATURE EFFECTS: FULL, CALM, OFF*. CALM halves the
+  vapour and slows it; OFF draws none. **The eyes are not an effect and stay on at every setting**: they are the
+  game's legibility.
+- Vapour and glow must not carry meaning that nothing else carries. Rank is also shape (6.3); a creature that is
+  about to strike is also its pose.
+
+## 8. The creatures, one by one
+
+Each entry: what is there now, what is wanted, and what is special about its ranks, eyes and vapour. They are
+proposals for the owner's eye. Tier A is what the owner named; tier B is the rest of the faces; tier C is the lighter
+touch.
+
+### Tier A: what the owner named
+
+**The skeleton and the shield-bearer** (and their remains, `SP_SKEL_D*`). *Now*: good bones, a plastic skull.
+*Wanted*: **keep every bone, change the head**: the master skull of 4.1, bigger, brow-heavy, a chipped tooth, the
+jaw a little open when it throws; the *hang* of the body kept. A shield-bearer's helm-less head sits lower under the
+shield. *Dressing at I*: a scrap of the Order's tabard on one hip, an iron buckle, one hand with a ring-bone. The
+walking pair, the winding-up throw and the three-frame collapse all carry it. *Ranks*: as table 6.1: moss in the
+ribs (II); frost on the shoulders and a rimed shroud (III); a cleaved brow and blood down the tabard (IV); burnt,
+crowned in a broken iron band, a shackle's chain trailing (V); a gold death-mask and leaf on the ribs (Gilded).
+*Eyes*: amber, from sockets so deep that only the points are seen; the vapour leaves through them.
+
+**The wall skull.** *Now*: a dome, a jaw, flat sockets and a triangle; drawn at 0.62 of a body. *Wanted*: a **hero
+asset**. It never moves, so it can have more detail than anything else in the crypt: **a carved skull in a pointed
+arch**, half bone and half the Order's masonry, a keystone for a brow, tracery on its frame, a crack that runs like a
+vein. It should read as *something built to watch* (the Order's watcher). Its states, which exist already: asleep
+(embers deep in the sockets), woken (the fire gathers in the eyes and mouth), blazing (**light along its cracks and
+through its teeth**) and shattering. The scale may grow if the owner agrees (A4), though its hit radius cannot.
+*Ranks*: the stone and bone around it age (moss, frost, blood on the keystone, soot, gilding on the frame); its
+eyes' fire colour is the rank's. *Vapour*: smoke from the nasal hollow and the cracks, as it charges.
+
+**The imp.** *Now*: a pot-bellied cartoon with a big round head and a lit grin; its cracks showing fire are the one
+good idea. *Wanted*: **a sinewy, soot-black thing that is still cooling**: a crust of black over lava, the fissures
+glowing orange and white, wiry limbs ending in talons, a narrow skull-like head with a long muzzle, needle teeth, and
+**swept-back horns that glow at the tips**, large bat ears with a torn edge, ragged leather wings and a tail whose
+tip is an ember. The grin stays: it is the only friendly thing about it, and it should look *hungry*. A hunched,
+sprung stance; asymmetry (one horn broken). Its eyes are white-gold slits. *Ranks*: more of it glows and less of it
+is crust; V is nearly all fissure, a body about to come apart into fire. *Vapour*: heat-shimmer and sparks.
+
+**The gargoyle.** *Now*: an ellipse head, a muzzle ellipse and one pixel per eye. *Wanted*: **a true grotesque**:
+heavy overhanging brow slab, deep-set eyes, a broad flat snout with flared nostrils, a wide lipless mouth set in a
+snarl with two tusks, swept-back fin ears, horns that curve *forward and down* like a bull's, a thick neck and
+hunched, slab-like shoulders. Wings of bat bones with the membrane **torn at the edges and stained**. The stone
+should look *weathered*: dark streaks running from the eyes and mouth like rain-stain, lichen in the recesses,
+chipped claws, a cracked horn. A rainspout's mouth, because that is what it was. *The wake*: perched, it is a
+statue with blank stone eyes (and **must stay indistinguishable from the decorative statues**); as it wakes, dust
+sheds off, the cracks light, and the eyes ignite. *Ranks as stone*: II mossy limestone; III frost-glazed granite; IV
+red sandstone with rust-coloured streaks; V black basalt with veins of light; Gilded marble with gold in the
+fissures (a stone creature changes its *material*, not its paint). Drawn so that it stands out from the wall behind
+it, which today it does not. *Vapour*: a dust-and-light seep.
+
+**The Drowned.** *Now*: a pot-bellied giant baby in the colour of the wall. *Wanted*: **the body the water made of
+a man**, long and wrong. Keep the one true idea (**the swollen belly, tight as a drum, the skin at its seams**) but
+put it on a **gaunt, too-tall frame**: sloping shoulders, thin arms that hang past the knees, long wrinkled hands
+(the fingertips washerwoman-white), a head that hangs forward on a slack neck, **the hair plastered flat and dark**
+in strands, the mouth a black slack hole, **the skin waxen green-white** (flesh and ghost ramps, never the wall's
+stone; the wall ramp is what made it vanish), veins showing, a dark bruise at the throat where something held it.
+Clothes: the Order's sodden shroud or a rotted tunic dragged on one side; a rope round the ankle with a stone or an
+anchor's weight; weed, shells and a crab or two. Eyes **small and cold** and *bright* (pale cyan-white): a dead fish's,
+that follow you. It **drips**: from the fingers, the hair, the mouth; and a dark patch of wet on the floor where it
+stands. *Rise* (from a puddle, `SP_DROWN_RISE`): a hand, then the hair, then the face. *Burst*: the shroud splits and
+a cloud of gas and water goes out, the skin hanging in strips. *Ranks*: II mould and weed; III frost-furred, ice in
+the hair; IV waterlogged and bleeding from the seams; V black, a thing of the deep, a crown of rope and a chain;
+Gilded sodden, with the Order's gold gone green. *Vapour*: gas from the seams and drips from the fingers.
+
+### Tier B: the other faces
+
+- **Shambler.** Now a red flayed doll with an orange orb. Wanted: the *buried*: grave-dirt clotted on a grey-yellow
+  body, a burial linen in rags, roots through the ribs, the jaw dropped, hair in clumps; arms always reaching.
+  Ranks as the kit. Eyes: sulphur. Vapour: damp steam.
+- **Ghoul.** Now a bulky green puppet with red horns. Wanted: *starved*: **long, grey-green, skin tight over ribs and
+  spine**, a hunched ape stance, a jaw that unhinges, claws, loose lips, a ridge of vertebrae, long ears. Less bulk,
+  more hunger. The feeding pose gets a mess of bone.
+- **Bone hound.** Now good bones; the skull is the shared one. Wanted: the *dog's* skull (long snout, a hinged jaw
+  with canine teeth), a studded iron collar and a broken chain, ribs and a hanging tail. Vapour from jaws like breath.
+- **Skeleton knight.** Now a black helmed figure with a blue sword. Wanted: a **great helm with a Y-slit and breath
+  holes**, a stump of plume, rivets, the Order's device on a tabard, a visor-slit glow in crimson; the three stages
+  of plate hacked away stay (a breastplate, half, none): with the skull *visible under the broken helm* in the last
+  stage. Steam jets at the joints. The blade keeps its steel colour at every rank.
+- **Deacon.** Now a green-robed priest with a skull staff. Wanted: a **taller, thinner** robe with a peaked hood
+  in the lancet shape, the skull face a pale gleam deep in shadow, **two lights for eyes**, the stole and the staff's
+  skull given the master skull's detail, a rosary of knuckle-bones. The robe's colours bleached by rank, as the kit
+  has it. The chant pose brings the vapour up.
+- **Spectre.** A long drawn face in a trailing shroud, mouth open in a wail, hollow eyes lit, hands of mist; it is
+  translucent and has no rank.
+- **Wraith.** A peaked hood over a void that is nothing but **two lights**, a body of tattered black cerements that
+  end in wisps, long thin hands. Its boss is the same, larger.
+
+### Tier C: lighter touch
+
+- **Bat.** A pointed, tiny face, large ears, fine fangs, red eyes; wings with a bone structure and torn membrane.
+- **Web spider and hunting spider.** Pitted carapace, banded legs, hair at the joints, a cluster of eight eyes, fangs
+  with a drop on them. The spider boss's pale skull-mark is the template for a rank-V mark.
+- **Brood mother, spiderling, sac.** The brood mother heavier and more pitted, a marked abdomen; the sacs glisten.
+- **Shade.** Unchanged and eyeless in the dark; the rank-less exception. Check it still shows only in light.
+- **The bosses.** They are scaled forms of these sprites and inherit the new heads, eyes and layers. The Deacon and the
+  Wraith were to get **new art** (`CLAUDE.md`, 1.0.0b7's leftovers): the heavy-gothic subjects here, so they are the
+  first candidates to fold in (A2). Bespoke boss vapour, beyond what rank V gives, is a later pass.
+
+### Tier D: what shares the skull
+
+Skull piles, bone heaps, hung skulls on totems (`SP_TOTEM_*`, the Hexed Totem), the Black Shrine's skull, the trial
+doors' skulls, the niches and the bone walls (`T_SKULLS` and the runs' bone walls, which show rows of the same flat
+skull in cream). Whether the walls are in scope is the first question (A1); the props that take the master skull come
+free.
+
+## 9. Building it
+
+In steps, sheets before art in the game, each step ending with a sheet or frames for the owner. The new sheet groups
+(for `make sheets`, `tools/sheet.c`): `skulls.png` (every head, front, profile, broken, at 1x, 3x and far), `eyes.png`
+(eye forms by rank, at six distances, over lit, dark and fogged stone), `ranks.png` (every creature across six ranks, in
+colour and in greyscale), `vapour.png` and the extended line-up.
+
+1. **Baseline and bench.** Freeze "before": the line-up at levels 1, 11, 21, 31; a frame of every kind at rank I and V
+   at three distances and in light, dark and fog (with `CRAWL_MEET` and `CRAWL_RANK`); the bench numbers; the
+   start-up and level-load times; the event logs of four dream runs. Add the greyscale and the far-dark-fog strips to
+   the sheet tool. **No game change.**
+2. **Eyes.** The table of points, the eye pass for every creature, eye forms by rank and the exceptions of 5.3; the
+   old baked eyes kept for the pages. **Releasable by itself**; the owner sees a frame strip of every kind in the dark
+   at six distances.
+3. **The skull.** The master and its views; the skeleton, the shield-bearer, the hound's profile, the knight's
+   broken-helm stage, the deacon's hood; the props (piles, heaps, totems). Sheet, then game. *Decides A1, A5.*
+4. **The wall skull** (and the ossuary's walls, if A1 says so): the hero asset, in its four states.
+5. **The imp and the gargoyle.** Redraws; the gargoyle's wake. Sheet, then game.
+6. **The Drowned**, then the shambler and ghoul. Redraws with rise and burst. Sheet, then game.
+7. **The wear ladder.** The kit and the layer (6.4) first, on the skeleton alone, for the owner's eye; then each
+   kind, most numerous first: the skeleton family, the shambler, ghoul, hound, knight, deacon, imp, gargoyle, Drowned,
+   spiders and bats. The sheet is `ranks.png`.
+8. **Spirit vapour.** The emitters by kind and rank; the death gathering into the mote; the cap, the setting and its
+   words. Sheet (`vapour.png`), then game.
+9. **The rest.** The spectre, the Wraith, the bats and spiders, the brood; the Deacon's and the Wraith's new art if A2
+   says so; the bestiary's rank lines; the previews and README strips retaken.
+10. **The checks and the release** as 1.0.0b14, at the owner's word, squashed onto main as one commit like the
+    betas before it.
+
+**How to work on the art.** Draw heads as hand-placed pixel grids, view them at 1x, 3x and a third; compare *before and
+after* side by side; run the child's-drawing checklist on every head; look at each sprite in the real sizes of 4.2,
+and against lit stone, dark and fog; ask for reference or flavour text where this document runs dry rather than fill
+the gap with a default. A sheet is not finished when it looks right large.
+
+## 10. The checks
+
+- **Eyes from anywhere.** For every kind that has them, at rank I and V, standing in an unlit, fogged corridor at 2, 4, 8,
+  12, 16, 20 and 23 cells: the harness counts the eye-coloured pixels and fails if there are fewer than two for each
+  eye. It stays in `make smoke` so that it cannot regress. Shades are asserted *not* to show.
+- **Rank without colour.** The `ranks.png` sheet in greyscale, and with colours confused for the usual forms of
+  colour-vision difference: each rank must be distinguishable from its neighbours by shape or mark. *Question A16.*
+- **Nothing in the simulation moved.** The event logs of the baseline's four dream runs, run again on the same seeds
+  for ten minutes, are identical; the saves still load; `make smoke` passes.
+- **Cost.** Frame time with ten creatures in sight within 5% of the baseline; `crawl_art_init` and the per-level
+  reload no slower than the baseline plus a figure agreed in step 1 (fall back to option C of 6.4 if the reload
+  grows); the ASan build clean.
+- **The pages.** Every bestiary page, at every rank, front and side, draws without a gap.
+- **The settings.** FULL, CALM and OFF each look as described; the eyes the same in all three.
+- **Windows.** The cross-compiled build builds and runs the smoke test in CI. The art has not been seen on a real
+  screen, nor under Wine, until the owner says so; `README.md` and the page say that.
+
+## 11. Risks
+
+- **Ambush changes.** Eyes that show from anywhere make the dark a place where things look back at you. That is the
+  request; but the web spider's waiting, the risers, the statues and the shade rely on *not* being seen, and 5.3
+  keeps each of them. Check them by eye in the dark.
+- **Load time.** Option B is about 450 extra layers; measure before trusting it (section 10).
+- **Colour is still the long-range cue.** Past about twenty cells nothing but the eyes' colour reaches the screen;
+  that is why the eyes take the rank's colour from II (A12), with the body's marks as the short-range cue.
+- **The bestiary pages** will show every flaw: the sprites are drawn large there.
+- **One look is not a style.** Eight heads drawn by hand can still disagree: the master skull's rules (4.1) and the
+  checklist are what hold them together.
+- **Reference.** The hand, the face and the cat were traced from the owner's photographs and are the best-looking art
+  in the game; the creatures have no such source. Reference from the owner (a sketch, a photograph of a carving) is
+  worth more than any rule here.
+
+## 12. Questions
+
+Each has a recommended answer (*). The first five change the work most.
+
+**Scope**
+
+- **A1. Which skulls?** (a) the wall skull creature only; **(b)\* every skull the game draws: the creature, the piles,
+  heaps, totems, niches and the ossuary's bone walls (`T_SKULLS` and the runs' bone walls), so the whole building
+  agrees**;
+  (c) creatures and props, but leave the walls' textures.
+- **A2. The bosses and 1.0.0b7's leftovers.** (a) leave them out; **(b)\* the bosses inherit the new heads, eyes and
+  layers, and the Deacon's and the Wraith's new art (which 1.0.0b7 promised) is folded in at step 9**; (c) all four
+  bosses get bespoke redraws now.
+- **A3. Dressing by run** (miners' helmets and lamps in the Hollows, silt and weed in the Catacombs, glass and cinder in
+  the Deep). (a)\* not in this pass, but the kit and the table of points are built so it can come later; (b) in this
+  pass (it multiplies the sprites by four); (c) never.
+
+**Direction**
+
+- **A4. How far may a silhouette change?** (a) heads only; **(b)\* heads, and the Drowned, the imp and the gargoyle
+  re-proportioned, since their bodies are part of what reads as childish**; (c) every creature re-proportioned.
+- **A5. May heads grow?** A skeleton's skull from about 12 pixels to 15 or 16. **(a)\* yes, up to a quarter**; (b) keep
+  today's sizes.
+- **A6. How much of the body takes the rank's colour?** (a) all of it, as now, with the new layers on top; **(b)\* the
+  shadows and mid-tones, so bone still looks like bone**; (c) none: the eyes, vapour and trim carry the hue.
+- **A7. Where does vapour begin?** **(a)\* III a thread, IV a plume, V a cloak, gilded motes**; (b) at II;
+  (c) only at IV.
+- **A8. How much damage on show?** **(a)\* breakage, rot, rust, frost and old stains, no wet viscera**; (b) frank
+  wounds; (c) cleaner than that.
+- **A9. Gilded.** (a)\* the Order's honoured dead: gold leaf and a death-mask over the same body, gold motes;
+  (b) gold-plated bone and armour; (c) your picture of it (flavour wanted).
+
+**Eyes**
+
+- **A10. Through walls?** **(a)\* no, only past darkness and fog**; (b) a faint glimmer through a wall within a few cells,
+  like Commune's.
+- **A11. Sleepers and statues** (the wall skull asleep, the gargoyle on its plinth, a riser under its mound).
+  **(a)\* dark or embers until they wake, then they ignite**; (b) lit always.
+- **A12. Eye colour.** **(a)\* the kind's own at rank I, the rank's colour from II**; (b) always the kind's own.
+- **A13. State.** Eyes gain a pixel of halo and a steadiness when alerted, and flare as it strikes. **(a)\* yes**; (b) no.
+
+**Settings and process**
+
+- **A14. A setting** in the settings dialog, *CREATURE EFFECTS: FULL, CALM, OFF*, which does not touch the eyes.
+  **(a)\* yes**; (b) no; (c) CALM and OFF only if you find FULL tiring.
+- **A15. Approvals.** **(a)\* a sheet for each step, then frames in the game, as for each run's look**; (b) approve
+  steps 2 to 5 and leave the rest to my judgement, as you did for runs III and IV; (c) one look at the end.
+- **A16. Colour vision.** `RANK_SIZE`'s comment says the ladder was meant for "eyes that mix up the colours". Is
+  greyscale legibility enough, or is there a particular form of colour-vision difference I should test the sheets for?
+- **A17. Housekeeping.** (a)\* `CLAUDE.md` records that the lower storey is now 1.0.0b15 and `PLAN-b13.md` is left alone;
+  (b) `PLAN-b13.md` is edited too, so that its "1.0.0b14" reads 1.0.0b15.
+
+### Flavour wanted (open, in your own words)
+
+Anything you can say in a sentence or two helps more than a rule does:
+
+1. **Touchstones.** Games, films, paintings, carvings or sprites whose creatures you love or loathe (the Doom, Heretic
+   and Hexen sprites, Castlevania, Dark Souls, Bloodborne, Darkest Dungeon, Hammer films, Doré's engravings, the
+   medieval *danse macabre* and the carved memento mori are the sort of thing I mean).
+2. **How frightening.** Spooky and wry, or properly dreadful? Where is your line on faces that look *hurt*?
+3. **The Drowned.** What do you want to feel when one stands up out of the water? Pity, disgust, or plain fear?
+4. **The gargoyle's temper.** Smug, furious, patient, sorrowful?
+5. **The Order.** Who were they to the dead who wear their marks, jailers, saints, a guild? (It decides which marks
+   go on which creature and whether the gilded dead are honoured or condemned.)
+6. **Reference.** A sketch, a photograph of a skull, a stone carving or a gargoyle, as with the hand, the face and
+   the cat. I can describe a pixel grid from it; I cannot put a face in it that nobody has shown me.
+7. **Anything that already feels right** that I should not touch (I have kept the skeleton's bones, the web spider's
+   eyes and the imp's cracks of fire for now).
