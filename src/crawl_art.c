@@ -997,7 +997,7 @@ static void grid_stamp(const char *const *g, int w, int h, int x0, int y0, int r
             char ch = g[y][mirror ? w - 1 - x : x];
             int px = x0 + x, py = y0 + y;
             if (ch == '.') continue;
-            if (ch == '@') { cv_eye(px, py, eye); continue; }
+            if (ch == '@') { if (eye) cv_eye(px, py, eye); else cv_px(px, py, (uint8_t)(r1 + 4)); continue; }   /* eye 0: blank, a statue's */
             if (ch == '0') cv_px(px, py, 0);
             else if (ch >= '1' && ch <= '9') cv_px(px, py, (uint8_t)(r1 + ch - '0'));
             else if (ch >= 'a' && ch <= 'f') cv_px(px, py, (uint8_t)(r1 + ch - 'a' + 10));
@@ -4929,83 +4929,164 @@ static void spr_ember(int id, int frame) {
     cv_store(id);
 }
 
-/* The gargoyle: carved stone (R_STONE, PF_STONE: it is the same stone as the walls), winged and
- * horned. pose 0 perched on its plinth, asleep (the statue in an alcove looks just like it); 1-2
- * flying, wings up and down; 3 swooping, claws first; 4 broken. */
+/* The gargoyle (docs/InitialArtPass.md section 8): a grotesque in the walls' own stone (R_STONE, PF_STONE), weathered: a
+ * heavy brow over deep-set eyes, a flat snout, a lipless snarl with tusks, the mouth a rainspout's; fin ears swept back,
+ * bull's horns curving forward; slab shoulders, wings of bat's bones, torn. Rain has stained it from the eyes and mouth
+ * down, lichen sits in its hollows. pose 0 perched on its plinth, asleep, its eyes blank stone (and the statues in the
+ * alcoves are this); 1-2 flying, wings up and down, its cracks alight; 3 swooping, claws first; 4 broken. */
+static const char *const GARG_FACE[17] = {
+    "...4567d7654...", "..45799d99875..", ".356ab989ba653.", "36bcddc8cddcb63", "245677666776542", ".310@04340@013.",
+    ".4628347438264.", "..57289998275..", "..46289a98264..", ".3462708072643.", ".3a635787536a3.", ".3e20d0d0d02e3.",
+    ".2d000000000d2.", ".3c06b0b0b60c3.", "..4a789a987a4..", "...357898753...", "....2456542....",
+};
+static const char *const GARG_SIDE[15] = {
+    "....45676.....", "..4689ab976...", ".469bcddcb975.", "3579bcddddddc8", "35789988776542", "2468a7420@0431",
+    ".3579a8742373.", "..468a98778a96", "..3579a9889ab7", "...4689753e00.", "...3578d0d0d0.", "...3570000000.",
+    "...3586b6b6b4.", "....4789a9864.", ".....3566543..",
+};
+static void garg_head(float hy, int awake) {                      /* horns, fin ears, then the face */
+    for (int s = -1; s <= 1; s += 2) {
+        float ex[6] = { 32 + s * 6.0f, hy + 5, 32 + s * 13.0f, hy + 1, 32 + s * 7.0f, hy + 10 };   /* a fin ear, swept back */
+        cv_poly(ex, 3, R_STONE, 0.15f, 0.55f, hy + 1, 9);
+        cv_line(32 + s * 7.0f, hy + 6, 32 + s * 11.0f, hy + 3, sh(R_STONE, 0.1f));
+        cv_capsule(32 + s * 5.0f, hy + 2, 32 + s * 10.0f, hy - 2, 1.7f, R_STONE, 0.2f, 0.8f);   /* a bull's horn, out and forward */
+        cv_capsule(32 + s * 10.0f, hy - 2, 32 + s * 13.0f, hy + 1, 1.3f, R_STONE, 0.2f, 0.75f);
+        if (s < 0) cv_capsule(32 + s * 13.0f, hy + 1, 32 + s * 12.5f, hy + 4, 0.9f, R_STONE, 0.25f, 0.8f);   /* the right one broken short */
+    }
+    grid_stamp(GARG_FACE, 15, 17, 25, (int)hy, R_STONE, R_STONE, awake ? (uint8_t)(R_FLAME + 12) : 0, 0);
+}
+static void garg_wing_front(int s, float sx, float sy, float wx, float wy, float tips[3][2], float lo, float hi) {   /* membrane, struts, a torn hem */
+    for (int f = 0; f < 3; f++) {
+        float nx = f < 2 ? tips[f + 1][0] : sx, ny = f < 2 ? tips[f + 1][1] : sy + 6.0f;
+        float m[8] = { wx, wy, tips[f][0], tips[f][1], nx, ny, sx, sy };
+        cv_poly(m, 4, R_STONE, lo, hi, wy < tips[f][1] ? wy : tips[f][1], 34);
+        cv_flat((tips[f][0] + nx) * 0.5f, (tips[f][1] + ny) * 0.5f + 1.2f, 1.8f, 1.6f, C_CLEAR);   /* a scallop torn out */
+    }
+    cv_capsule(sx, sy, wx, wy, 1.6f, R_STONE, lo + 0.1f, hi + 0.2f);
+    for (int f = 0; f < 3; f++) cv_capsule(wx, wy, tips[f][0], tips[f][1], 0.8f, R_STONE, lo + 0.05f, hi + 0.1f);
+    cv_line(wx, wy, wx + s * 1.0f, wy - 3.0f, sh(R_STONE, 0.7f));   /* the claw at its wrist */
+}
+static void garg_weather(int awake, uint32_t seed) {               /* rain stains, lichen, chips; and awake, its cracks lit */
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t *p = &cv_sprite[y * TS + x];
+            if (*p <= R_STONE || *p >= R_STONE + 16 || y >= 52) continue;
+            float n = fbm(x / 4.0f, y / 4.0f, 16, seed);
+            int face = x >= 25 && x < 40 && y >= 2 && y < 34;
+            if (n < (face ? 0.18f : 0.3f)) *p = (uint8_t)(*p - 2 < R_STONE + 1 ? R_STONE + 1 : *p - 2);
+            else if (!face && h01(x, y, seed + 2) > 0.965f) *p = (uint8_t)(*p - 4 < R_STONE + 1 ? R_STONE + 1 : *p - 4);
+            if (*p <= R_STONE + 4 && h01(x, y, seed + 4) > 0.86f) *p = sh(R_MOSS, 0.12f + 0.12f * h01(x, y, seed + 5));   /* lichen in the hollows */
+        }
+    for (int k = 0; k < 4; k++) {                                  /* rain, run down from the eyes and the mouth's corners */
+        static const int SRC[4] = { 29, 35, 27, 37 };
+        int x = SRC[k], y = 5;
+        while (y < TS && cv_sprite[y * TS + x] != 0) y++;          /* below the first dark of the face */
+        for (int j = 1; j < 9 + (k & 1) * 4 && y + j < TS; j++) {
+            uint8_t *p = &cv_sprite[(y + j) * TS + x];
+            if (*p > R_STONE && *p < R_STONE + 16) *p = (uint8_t)(*p - 3 < R_STONE + 1 ? R_STONE + 1 : *p - 3);
+        }
+    }
+    if (awake)
+        for (int k = 0; k < 4; k++) {                              /* the cracks alight, dimly, as it wakes */
+            float x = 20 + 24 * h01(k, 1, seed + 7), y = 30 + 16 * h01(k, 2, seed + 7), a = h01(k, 3, seed + 7) * TAU_F;
+            for (int i = 0; i < 7; i++) {
+                a += (h01(k, i + 4, seed + 7) - 0.5f) * 1.2f; x += cosf(a); y += sinf(a);
+                uint8_t c = cv_sprite[(int)y * TS + (int)x];
+                if (c > R_STONE && c < R_STONE + 16) cv_px((int)x, (int)y, (uint8_t)(R_FLAME + 3 + (i & 1) * 2));
+            }
+        }
+}
 static void spr_gargoyle(int id, int pose) {
     cv_begin(cv_sprite, TS, TS);
-    if (pose == 4) {
+    if (pose == 4) {                                               /* broken: rubble, a wing, the face looking up */
         cv_flat(32, 61.5f, 24, 2.5f, R_WARM + 1);
-        for (int i = 0; i < 9; i++) {
-            float x = 32 + (h01(i, 1, 541) - 0.5f) * 40, y = 56 + 6 * h01(i, 2, 541);
-            cv_ellipse(x, y, 2.5f + 3.0f * h01(i, 3, 541), 2.0f + 2.0f * h01(i, 4, 541), R_STONE, 0.1f, 0.65f);
+        for (int i = 0; i < 10; i++) {
+            float x = 32 + (h01(i, 1, 541) - 0.5f) * 44, y = 56 + 6 * h01(i, 2, 541);
+            cv_ellipse(x, y, 2.5f + 3.0f * h01(i, 3, 541), 2.0f + 2.0f * h01(i, 4, 541), R_STONE, 0.1f, 0.6f);
         }
-        float wv[8] = { 34, 50, 52, 44, 50, 54, 38, 57 };          /* a broken wing */
-        cv_poly(wv, 4, R_STONE, 0.15f, 0.55f, 44, 13);
-        cv_ellipse(18, 53, 5.5f, 5.0f, R_STONE, 0.15f, 0.7f);      /* the head, face up */
-        cv_capsule(15, 48, 13, 44, 1.2f, R_STONE, 0.2f, 0.6f);
+        float wv[8] = { 34, 50, 54, 42, 52, 54, 38, 57 };
+        cv_poly(wv, 4, R_STONE, 0.12f, 0.5f, 42, 15);
+        grid_stamp(GARG_FACE, 15, 17, 4, 44, R_STONE, R_STONE, 0, 0);
         cv_outline(0); cv_store(id); return;
     }
     int perch = pose == 0, swoop = pose == 3;
-    float by = perch ? 0.0f : -6.0f;                                /* it rides higher when it flies */
-    if (perch) {                                                    /* the plinth */
+    float hy = perch ? 13.0f : 3.0f;                               /* the head's top: lowered asleep, up awake */
+    if (perch) {                                                   /* the plinth */
         for (int y = 52; y < 64; y++)
-            for (int x = 18; x <= 46; x++) {
-                float nx = (x + 0.5f - 32) / 14.0f;
-                stone_px(x, y, nx, y < 54 ? 0.15f : 0.0f, 543);
-            }
-    }
-    /* wings: folded round it, or spread */
-    for (int s = -1; s <= 1; s += 2) {
-        if (perch) {
-            float wv[8] = { 32 + s * 8, 26, 32 + s * 17, 18, 32 + s * 16, 46, 32 + s * 9, 50 };
-            cv_poly(wv, 4, R_STONE, 0.1f, 0.5f, 18, 32);
-        } else {
-            float tip = pose == 1 ? -2.0f : (pose == 2 ? 26.0f : 6.0f), out = swoop ? 22.0f : 30.0f;
-            float wv[12] = { 32 + s * 6, 30 + by, 32 + s * 14, 16 + by + tip * 0.4f, 32 + s * out, 6 + by + tip, 32 + s * (out - 3), 22 + by + tip * 0.6f,
-                             32 + s * (out - 6), 30 + by + tip * 0.4f, 32 + s * 10, 40 + by };
-            cv_poly(wv, 6, R_STONE, 0.1f, 0.6f, 6 + by + tip, 34);
-            for (int r = 0; r < 3; r++)                             /* ribs of the wing */
-                cv_line(32 + s * 8, 30 + by, 32 + s * (out - r * 4), 8 + by + tip + r * 6, sh(R_STONE, 0.15f));
+            for (int x = 18; x <= 46; x++) stone_px(x, y, (x + 0.5f - 32) / 14.0f, y < 54 ? 0.15f : 0.0f, 543);
+        for (int s = -1; s <= 1; s += 2) {                         /* wings folded up round it, high as a cloak */
+            float wv[10] = { 32 + s * 9.0f, hy + 20, 32 + s * 17.0f, hy - 6, 32 + s * 20.0f, hy + 6, 32 + s * 17.0f, 51, 32 + s * 10.0f, 51 };
+            cv_poly(wv, 5, R_STONE, 0.08f, 0.45f, hy - 6, 50);
+            cv_line(32 + s * 17.0f, hy - 6, 32 + s * 16.0f, 50, sh(R_STONE, 0.12f));
+            cv_line(32 + s * 18.0f, hy + 2, 32 + s * 12.0f, 50, sh(R_STONE, 0.15f));
+        }
+        cv_ellipse(32, hy + 21, 11.0f, 4.0f, R_STONE, 0.2f, 0.75f);   /* slab shoulders, a hunched back */
+        cv_ellipse(32, hy + 29, 8.0f, 8.0f, R_STONE, 0.15f, 0.65f);
+        for (int s = -1; s <= 1; s += 2) {                         /* haunches folded, claws over the plinth's edge, hands on it */
+            cv_ellipse(32 + s * 8.0f, 45, 4.5f, 5.0f, R_STONE, 0.15f, 0.7f);
+            cv_capsule(32 + s * 8.0f, 48, 32 + s * 8.5f, 52, 2.2f, R_STONE, 0.15f, 0.6f);
+            for (int c = -1; c <= 1; c++) cv_line(32 + s * 8.5f + c * 1.4f, 52, 32 + s * 8.5f + c * 1.8f, 55, sh(R_STONE, 0.3f));
+            cv_capsule(32 + s * 9.0f, hy + 22, 32 + s * 4.0f, 46, 2.2f, R_STONE, 0.2f, 0.7f);
+            for (int c = -1; c <= 1; c++) cv_line(32 + s * 4.0f, 46, 32 + s * 4.0f + c * 1.3f, 50, sh(R_STONE, 0.3f));
+        }
+    } else {
+        float tip = pose == 1 ? -4.0f : (pose == 2 ? 14.0f : 4.0f), out = swoop ? 22.0f : 30.0f;
+        for (int s = -1; s <= 1; s += 2) {                         /* the wings, spread (swept back in a swoop) */
+            float tips[3][2] = { { 32 + s * out, hy + 6 + tip }, { 32 + s * (out - 4.0f), hy + 20 + tip * 0.5f }, { 32 + s * (out - 12.0f), hy + 28 } };
+            garg_wing_front(s, 32 + s * 8.0f, hy + 20, 32 + s * (out - 10.0f), hy + tip * 0.6f, tips, 0.08f, 0.4f);
+        }
+        for (int s = -1; s <= 1; s += 2) {                         /* legs: hanging, or thrust forward with the talons out */
+            float kx = 32 + s * 8.0f, ky = swoop ? hy + 33 : hy + 40, fx = 32 + s * (swoop ? 11.0f : 7.0f), fy = swoop ? hy + 42 : hy + 50;
+            cv_capsule(32 + s * 5.0f, hy + 33, kx, ky, 3.0f, R_STONE, 0.15f, 0.7f);
+            cv_capsule(kx, ky, fx, fy, 2.2f, R_STONE, 0.15f, 0.65f);
+            for (int c = -1; c <= 1; c++) cv_line(fx, fy, fx + c * 2.0f, fy + 3.5f, sh(R_STONE, 0.35f));
+        }
+        cv_ellipse(32, hy + 21, 11.0f, 4.0f, R_STONE, 0.2f, 0.8f);  /* slab shoulders, the chest */
+        cv_ellipse(32, hy + 28, 8.0f, 8.5f, R_STONE, 0.15f, 0.7f);
+        for (int r = 0; r < 3; r++) cv_line(27, hy + 25 + r * 3, 37, hy + 25 + r * 3, sh(R_STONE, 0.12f));
+        for (int s = -1; s <= 1; s += 2) {                         /* arms: claws ahead in a swoop, else low */
+            float ex = 32 + s * (swoop ? 15.0f : 13.0f), ey = swoop ? hy + 16 : hy + 29, hx2 = 32 + s * (swoop ? 14.0f : 11.0f), hy2 = swoop ? hy + 8 : hy + 37;
+            cv_capsule(32 + s * 10.0f, hy + 21, ex, ey, 2.3f, R_STONE, 0.2f, 0.75f);
+            cv_capsule(ex, ey, hx2, hy2, 1.9f, R_STONE, 0.2f, 0.7f);
+            for (int c = -1; c <= 1; c++) cv_line(hx2, hy2, hx2 + c * 1.6f, hy2 + (swoop ? -3.5f : 3.5f), sh(R_STONE, 0.35f));
         }
     }
-    /* legs and claws */
-    for (int s = -1; s <= 1; s += 2) {
-        float kx = 32 + s * 8, ky = perch ? 46.0f : 46.0f + by, fx = 32 + s * 7, fy = perch ? 52.0f : (swoop ? 40.0f + by : 56.0f + by);
-        if (swoop) { kx = 32 + s * 6; ky = 38 + by; fx = 32 + s * 9; fy = 48 + by; }
-        cv_capsule(32 + s * 5, 40 + by * (perch ? 0 : 1), kx, ky, 3.0f, R_STONE, 0.2f, 0.75f);
-        cv_capsule(kx, ky, fx, fy, 2.2f, R_STONE, 0.2f, 0.7f);
-        for (int c = -1; c <= 1; c++) cv_line(fx, fy, fx + c * 2.0f, fy + 3.5f, sh(R_STONE, 0.35f));
-    }
-    cv_ellipse(32, 36 + (perch ? 0 : by), 9.0f, 10.0f, R_STONE, 0.2f, 0.85f);   /* the body, hunched */
-    for (int s = -1; s <= 1; s += 2) {                              /* arms: on its knees, or reaching */
-        float hx = swoop ? 32 + s * 12.0f : 32 + s * 6.0f, hy = swoop ? 30.0f + by : (perch ? 44.0f : 42.0f + by);
-        cv_capsule(32 + s * 8, 30 + (perch ? 0 : by), hx, hy, 2.2f, R_STONE, 0.25f, 0.8f);
-        for (int c = -1; c <= 1; c++) cv_line(hx, hy, hx + c * 1.5f + s * 1.0f, hy + (swoop ? -3.0f : 3.0f), sh(R_STONE, 0.35f));
-    }
-    float hx = 32, hy = (perch ? 22.0f : 20.0f + by) + (perch ? 2.0f : 0.0f);   /* the head: lowered asleep, up awake */
-    for (int s = -1; s <= 1; s += 2) {                              /* horns, curling back */
-        cv_capsule(hx + s * 4, hy - 4, hx + s * 8, hy - 9, 1.6f, R_STONE, 0.2f, 0.75f);
-        cv_capsule(hx + s * 8, hy - 9, hx + s * 7, hy - 13, 1.1f, R_STONE, 0.2f, 0.7f);
-    }
-    cv_ellipse(hx, hy, 6.5f, 6.0f, R_STONE, 0.25f, 0.95f);
-    cv_ellipse(hx, hy + 4, 4.5f, 2.8f, R_STONE, 0.2f, 0.8f);       /* muzzle */
-    for (int s = -1; s <= 1; s += 2) {
-        cv_flat(hx + s * 2.5f, hy - 1, 1.5f, 1.0f, perch ? sh(R_STONE, 0.1f) : 0);
-        if (!perch) cv_eye((int)(hx + s * 2.5f), (int)(hy - 1), (uint8_t)(R_FLAME + 12));
-    }
-    cv_flat(hx, hy + 5, swoop ? 3.0f : 2.0f, swoop ? 1.6f : 0.6f, 0);
-    if (swoop) for (int i = -1; i <= 1; i += 2) cv_px((int)hx + i * 2, (int)hy + 4, sh(R_STONE, 0.9f));
-    for (int y = 0; y < TS; y++)                                    /* weathering on the stone */
-        for (int x = 0; x < TS; x++) {
-            uint8_t *p = &cv_sprite[y * TS + x];
-            if (*p < R_STONE || *p >= R_STONE + 16 || (perch && y >= 52)) continue;
-            float n = fbm(x / 4.0f, y / 4.0f, 16, 545);
-            if (n < 0.3f) *p = (uint8_t)(*p - 2 < R_STONE + 1 ? R_STONE + 1 : *p - 2);
-            else if (h01(x, y, 547) > 0.96f) *p = (uint8_t)(*p - 4 < R_STONE + 1 ? R_STONE + 1 : *p - 4);
-        }
+    garg_head(hy, !perch);
+    garg_weather(!perch, 545);
     cv_outline(0);
     cv_store(id);
+}
+
+/* the gargoyle's ranks are its stone (docs/InitialArtPass.md section 8): II moss on limestone and its wings torn, III
+ * frost-glazed and a horn chipped, IV red with rust run down it and a wing cracked, V black basalt veined with a cold
+ * light under an iron collar, gilded marble with gold in its veins. Not on the statue: a statue's rank doesn't show. */
+static void garg_dress(int id) {
+    for (int r = RK_II; r < NRANK; r++) {
+        dress_begin(id);
+        for (int y = 0; y < 40; y++)                               /* torn wings from II: dark rents in the hem */
+            for (int x = 0; x < TS; x++)
+                if ((x < 20 || x > 44) && base_on(x, y) && !base_on(x, y + 1) && h01(x, y, 451) < 0.3f) { cv_px(x, y, 0); cv_px(x, y - 1, 0); }
+        if (r == RK_II) kit_moss(0.38f, 3, 453);
+        if (r == RK_III) kit_frost(0.85f, 455);
+        if (r >= RK_III && r != RK_GILDED) { cv_px(42, 3, 0); cv_px(43, 2, 0); cv_px(43, 3, 0); }   /* a chip off the horn */
+        if (r == RK_IV)                                            /* rust run down it */
+            for (int k = 0; k < 7; k++) {
+                int x = 22 + (int)(h01(k, 1, 457) * 20.0f), y0 = 18 + (int)(h01(k, 2, 457) * 14.0f);
+                for (int j = 0; j < 6 + (int)(h01(k, 3, 457) * 10.0f); j++) if (base_on(x, y0 + j)) cv_px(x, y0 + j, (uint8_t)(R_BRICK + 4 + (j < 3 ? 2 : 0)));
+            }
+        if (r >= RK_IV && r != RK_GILDED) { cv_line(8, 14, 16, 22, 0); cv_line(16, 22, 13, 28, 0); }   /* a wing cracked through */
+        if (r == RK_V || r == RK_GILDED)                           /* veins: a cold light in the basalt, or gold in the marble */
+            for (int y = 0; y < 52; y++)
+                for (int x = 0; x < TS; x++) {
+                    uint8_t b = base_c(x, y);
+                    if (b <= R_STONE || b >= R_STONE + 16) continue;
+                    if (fabsf(fbm(x / 5.0f, y / 5.0f, 16, 459) - 0.5f) < 0.022f)   /* the noise's ridges: thin veins, most of them dim */
+                        cv_px(x, y, r == RK_V ? (uint8_t)(R_GLOW + (h01(x, y, 461) < 0.25f ? 12 : 6 + (int)(h01(x, y, 465) * 3.0f))) : (uint8_t)(R_GOLD + 8 + (int)(h01(x, y, 461) * 4.0f)));
+                }
+        if (r == RK_V) { for (int x = 26; x <= 38; x++) { cv_px(x, 21, sh(R_IRON, 0.55f)); cv_px(x, 22, sh(R_IRON, 0.25f)); } kit_chain(37, 22, 44, 36, 2.0f, R_IRON); }
+        if (r == RK_GILDED) { kit_gold(R_STONE, 0.45f, 463); kit_chain(26, 22, 38, 22, 1.5f, R_GOLD); }
+        dress_store(id, r, R_STONE);
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -5926,12 +6007,10 @@ static void spr_garg_side(int id, int down) {
     cv_capsule(38, 31, 45, 38, 2.2f, R_STONE, 0.25f, 0.8f);        /* an arm, claws ahead */
     for (int c = -1; c <= 1; c++) cv_line(45, 38, 47.5f, 40.0f + c * 1.5f, sh(R_STONE, 0.35f));
     garg_wing(down, 0.0f, 0.0f, 0.12f, 0.6f);                       /* the near wing */
-    cv_capsule(41, 21, 37, 16, 1.6f, R_STONE, 0.2f, 0.75f);        /* a horn, curling back */
-    cv_capsule(37, 16, 38, 12, 1.1f, R_STONE, 0.2f, 0.7f);
-    cv_ellipse(43, 24, 5.5f, 5.0f, R_STONE, 0.25f, 0.95f);         /* the head, and its muzzle */
-    cv_ellipse(47.5f, 26.5f, 3.2f, 2.3f, R_STONE, 0.2f, 0.8f);
-    cv_flat(45, 23, 1.2f, 1.0f, 0); cv_px(45, 23, (uint8_t)(R_FLAME + 12));
-    cv_flat(48.5f, 28, 2.0f, 0.6f, 0);
+    { float ev[6] = { 41, 19, 34, 15, 40, 23 }; cv_poly(ev, 3, R_STONE, 0.15f, 0.55f, 15, 8); }   /* a fin ear, swept back */
+    cv_capsule(42, 15, 40, 10, 1.7f, R_STONE, 0.2f, 0.8f);         /* a bull's horn, up and forward */
+    cv_capsule(40, 10, 44, 7, 1.2f, R_STONE, 0.2f, 0.75f);
+    grid_stamp(GARG_SIDE, 14, 15, 38, 14, R_STONE, R_STONE, (uint8_t)(R_FLAME + 12), 0);
     for (int y = 0; y < TS; y++)                                    /* weathering on the stone */
         for (int x = 0; x < TS; x++) {
             uint8_t *p = &cv_sprite[y * TS + x];
@@ -9222,7 +9301,7 @@ void crawl_art_init(void) {
     spr_shade(SP_SHADE_A, 0.0f, 0); spr_shade(SP_SHADE_B, PI_F, 1); spr_shade(SP_SHADE_TOUCH, 1.0f, 2); spr_shade(SP_SHADE_D, 2.0f, 3);
     for (int f = 0; f < 4; f++) { spr_imp(SP_IMP_A + f, f); if (f < 3) imp_dress(SP_IMP_A + f); }
     spr_ember(SP_EMBER_A, 0); spr_ember(SP_EMBER_B, 1);
-    for (int f = 0; f < 5; f++) spr_gargoyle(SP_GARG_PERCH + f, f);
+    for (int f = 0; f < 5; f++) { spr_gargoyle(SP_GARG_PERCH + f, f); if (f >= 1 && f <= 3) garg_dress(SP_GARG_PERCH + f); }
     spr_candlestand(SP_CANDLESTAND_A, 0); spr_candlestand(SP_CANDLESTAND_B, 1);
     spr_broken_arms(); spr_mound(SP_MOUND, 0); spr_mound(SP_PIT, 1);
     spr_puddle(SP_PUDDLE_A, 0); spr_puddle(SP_PUDDLE_B, 1); spr_stalag();
