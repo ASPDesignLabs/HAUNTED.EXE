@@ -28,14 +28,16 @@ const char *const STAT_NAME[NSTAT] = { "ARMOR", "DODGE", "HEALTH", "RESTORES", "
                                        "FIRE POWER", "FROST POWER", "LIGHTNING POWER", "POISON POWER", "SPIRIT POWER", "PHYSICAL POWER",
                                        "FIRE EFFICIENCY", "FROST EFFICIENCY", "LIGHTNING EFFICIENCY", "POISON EFFICIENCY",
                                        "SPIRIT EFFICIENCY", "PHYSICAL EFFICIENCY",
-                                       "FIRE INSIGHT", "FROST INSIGHT", "LIGHTNING INSIGHT", "POISON INSIGHT", "SPIRIT INSIGHT", "PHYSICAL INSIGHT" };
+                                       "FIRE INSIGHT", "FROST INSIGHT", "LIGHTNING INSIGHT", "POISON INSIGHT", "SPIRIT INSIGHT", "PHYSICAL INSIGHT",
+                                       "RESIST LIGHTNING" };
 static const char *const STAT_OF[NSTAT] = { "THE BULWARK", "SHADOWS", "VIGOUR", "REJUVENATION", "CLEAN BLOOD", "THE HEARTH",
                                             "THE UNBOUND", "THE LIGHTFOOT", "SILENCE", "QUICKENING", "THE FRUGAL SOUL",
                                             "SPELLTONGUE", "CINDERS", "RIME", "STORMS", "THE ADEPT", "PLENTY", "FORTUNE",
                                             "THE SHRIVEN", "THE URN",   /* 1.0.0b11's, drafts (docs/PLAN-b11.md, section 5) */
                                             "THE PYRE", "THE LONG WINTER", "THE THUNDERHEAD", "NIGHTSHADE", "THE UNQUIET", "THE MARROW",
                                             "THE BANKED COAL", "THE STILL MERE", "THE LODESTONE", "THE THIN DOSE", "THE SPARING SOUL", "THE QUIVER",
-                                            "TINDER", "HOARFROST", "THE SPARK", "THE SWIFT DRAUGHT", "THE WHISPER", "THE SLING" };
+                                            "TINDER", "HOARFROST", "THE SPARK", "THE SWIFT DRAUGHT", "THE WHISPER", "THE SLING",
+                                            "THE GROUNDED" };   /* 1.0.0b13's, a draft (docs/PLAN-b13.md, H4) */
 const char *const ABIL_NAME[NABIL] = { "", "SWIFTNESS", "ARCANE KNOWLEDGE", "TREASURE HUNTER", "KEYMAKER", "COMMUNE", "THORNS", "MIRRORED" };
 static const char *const ABIL_WORD[NABIL] = { "", "SWIFT", "ARCANE", "TREASURE HUNTER", "KEYMAKER", "COMMUNING", "THORNED", "MIRRORED" };
 
@@ -47,9 +49,9 @@ static const int ABIL_CHANCE[NQUAL] = { 0, 10, 25, 50, 100 };                /* 
 static const int KIND_SLOTS[NIK] = { 0, 2, 2, 2, 2, 4, 1, 0 };
 static const float KIND_PRICE[NIK] = { 0.0f, 0.45f, 0.6f, 0.7f, 0.7f, 0.9f, 0.8f, 0.5f };
 static const int STAT_SCALE[NSTAT] = { 10, 10, 10, 100, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
-                                       10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10 };
+                                       10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10 };
 static const float STAT_CAP[NSTAT] = { 0, 35, 0, 0, 75, 75, 75, 40, 80, 50, 60, 100, 50, 50, 50, 50, 100, 25, 75, 100,
-                                       50, 50, 50, 50, 50, 50, 40, 40, 40, 40, 40, 40, 30, 30, 30, 30, 30, 30 };   /* on totals; 0 = none */
+                                       50, 50, 50, 50, 50, 50, 40, 40, 40, 40, 40, 40, 30, 30, 30, 30, 30, 30, 75 };   /* on totals; 0 = none */
 static float OWN[NSTAT], CAP_UP[NSTAT];                           /* the caster's own, and the overlevels' raise of each cap */
 #define ST_ELEM ST_FIRE                       /* in the tables below: an element, chosen when it is rolled; */
 #define PICK_POW 200                          /* and an element's Power, Efficiency or Insight, the same way (1.0.0b11) */
@@ -61,9 +63,9 @@ static const int KIND_STATS[NIK][14] = {
     { -1 },
     { ST_HASTE, ST_THRIFT, ST_ARMOR, ST_DODGE, ST_DAMAGE, PICK_INS, -1 },
     { ST_MOVE, ST_QUIET, ST_DODGE, -1 },
-    { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_RES_SPIRIT, ST_VESSEL, -1 },
+    { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_RES_SPIRIT, ST_VESSEL, ST_RES_LIGHT, -1 },
     { ST_ARMOR, ST_EFFECT, ST_HP, PICK_EFF, ST_VESSEL, -1 },
-    { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_ARMOR, ST_HASTE, ST_ELEM, ST_DAMAGE, PICK_POW, ST_RES_SPIRIT, -1 },
+    { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_ARMOR, ST_HASTE, ST_ELEM, ST_DAMAGE, PICK_POW, ST_RES_SPIRIT, ST_RES_LIGHT, -1 },
     { ST_DAMAGE, ST_ELEM, PICK_POW, -1 },
     { -1 },
 };
@@ -108,7 +110,7 @@ static float stat_base(int st, int kind, int level) {
     case ST_DODGE:  return (3.0f + 0.7f * l) * (kind == IK_BOOTS ? 1.0f : 0.5f);
     case ST_HP:     return 6.0f * l * (kind == IK_ROBE ? 1.0f : (kind == IK_NECK ? 0.85f : 0.7f));
     case ST_REGEN:  return 0.05f * l;
-    case ST_RES_POISON: case ST_RES_BURN: case ST_RES_SLOW: case ST_RES_SPIRIT: return 4.0f + 1.6f * l;
+    case ST_RES_POISON: case ST_RES_BURN: case ST_RES_SLOW: case ST_RES_SPIRIT: case ST_RES_LIGHT: return 4.0f + 1.6f * l;
     case ST_VESSEL: return (3.0f + 1.0f * l) * (kind == IK_NECK ? 1.0f : 0.7f);
     case ST_MOVE:   return 4.0f + 0.8f * l;
     case ST_QUIET:  return 12.0f + 2.0f * l;
@@ -376,6 +378,7 @@ int   gear_thorns(const Gear *g) { return (int)gear_ability(g, AB_THORNS, 0); }
 float gear_regen(const Gear *g) { return gear_total(g, ST_REGEN); }
 float gear_poison_resist(const Gear *g) { return gear_total(g, ST_RES_POISON) / 100.0f; }
 float gear_slow_resist(const Gear *g) { return gear_total(g, ST_RES_SLOW) / 100.0f; }
+float gear_light_resist(const Gear *g) { return gear_total(g, ST_RES_LIGHT) / 100.0f; }
 int   gear_max_hp(const Gear *g) { return 100 + (int)gear_total(g, ST_HP); }
 float gear_haste(const Gear *g) { return 1.0f + gear_total(g, ST_MOVE) / 100.0f; }
 float gear_ember(const Gear *g) { return 1.0f + gear_total(g, ST_DAMAGE) / 100.0f; }
@@ -400,7 +403,8 @@ float piece_worth(const Piece *p, int level) {
         int st = p->stat[i], ref, el;
         float wt;
         if (st == ST_TREASURE || st == ST_LUCK) continue;
-        if (st < ST_POW) { wt = W[st]; ref = REF[st]; }
+        if (st == ST_RES_LIGHT) { wt = 0.25f; ref = IK_ROBE; }          /* as Resist Slow: only hazards deal it */
+        else if (st < ST_POW) { wt = W[st]; ref = REF[st]; }
         else {
             el = is_pow(st) ? st - ST_POW : (is_eff(st) ? st - ST_EFF : st - ST_INS);
             float use = tot > 0.0f ? g_use[el] / tot : 0.0f;

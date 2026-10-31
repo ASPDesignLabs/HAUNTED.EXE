@@ -516,6 +516,63 @@ static int draw_b7walls(const char *path, int level) {
     return ok;
 }
 
+/* 1.0.0b13 (docs/PLAN-b13.md, section 12): the runs' hazards, what stands in their walls on each run's own stone,
+ * and the things they set on the floor; warning, harming and fading are drawn by the game, so they come as frames */
+static int draw_hazards(const char *path) {
+    typedef struct { int id, is_tex; const char *l1, *l2; } HzPic;
+    static const struct { int level; const char *title; HzPic p[7]; } RUNS[4] = {
+        { 3, "RUN I, THE CRYPTS", { { T_HZ_SLAB, 1, "EMBALMERS' BREATH", "THE SLAB" }, { T_HZ_SLAB_OPEN, 1, "ITS SEAM", "ABOUT TO BREATHE" },
+            { T_HZ_COLD, 1, "THE COLD VAULT", "ITS CRACK" }, { SP_CENSER, 0, "THE SWINGING", "CENSER" }, { SP_VAPOUR, 0, "THE BREATH", "OVER THE FLOOR" },
+            { SP_VOTIVE, 0, "VOTIVE SPILL", "THE RACK GONE OVER" }, { SP_RELIQ_O, 0, "HUNGRY RELIQUARY", "OPEN (SHUT BELOW)" } } },
+        { 13, "RUN II, THE CATACOMBS", { { T_HZ_SLUICE, 1, "SLUICE BURST", "THE GATE" }, { T_HZ_SLUICE_OPEN, 1, "THROWN UP", "ON THE SURGE" },
+            { T_HZ_SAINT, 1, "THE WEEPING SAINT", "" }, { T_HZ_SAINT_LIT, 1, "DRINKING", "HER EYES ALIGHT" }, { SP_SNARE, 0, "WEB SNARE", "ACROSS A DOORWAY" },
+            { SP_GAS, 0, "SILT GAS", "HANGING" }, { SP_RELIQ, 0, "THE RELIQUARY", "SHUT" } } },
+        { 23, "RUN III, THE HOLLOWS", { { T_HZ_SEAM, 1, "LODESTONE SEAM", "" }, { T_HZ_SEAM_LIT, 1, "ABOUT TO ARC", "" },
+            { SP_CART, 0, "RUNAWAY CART", "ON THE RAILS" }, { SP_TIMBER, 0, "TIMBER COLLAPSE", "THE PROPS GO" }, { SP_GAS, 0, "FIREDAMP", "(AS SILT GAS)" },
+            { -1, 0, 0, 0 } } },
+        { 33, "RUN IV, THE DEEP", { { T_HZ_FISSURE0, 1, "FISSURE BREATH", "GLOWING" }, { T_HZ_FISSURE1, 1, "WHITE-HOT", "ABOUT TO BREATHE" },
+            { T_HZ_MIRROR, 1, "THE BLACK MIRROR", "" }, { T_HZ_MIRROR_SEEN, 1, "DRINKING", "YOU, IN IT" }, { SP_CRYSTAL_B, 0, "SINGING CRYSTAL", "" },
+            { SP_SPIKES, 0, "SHATTERGLASS", "THE SPIKES" }, { SP_ASHFALL, 0, "ASHFALL", "" } } },
+    };
+    int k = 3, cw = TS * k + PAD + 24, row = TS * k + 2 * LABEL_H + PAD + LABEL_H;
+    iw = PAD + 7 * cw + PAD;
+    ih = PAD + LABEL_H + 8 + 4 * row + LABEL_H + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "1.0.0B13: THE RUNS' HAZARDS, FOR APPROVAL", 230, 230, 230);
+    int y = PAD + LABEL_H + 8;
+    for (int r = 0; r < 4; r++) {
+        crawl_art_level(RUNS[r].level);
+        crawl_art_run(RUNS[r].level);
+        text(PAD, y, RUNS[r].title, 200, 200, 200);
+        int yy = y + LABEL_H;
+        for (int i = 0; i < 7 && RUNS[r].p[i].id >= 0; i++) {
+            const HzPic *h = &RUNS[r].p[i];
+            int x = PAD + i * cw;
+            if (h->l1 == 0) break;
+            if (h->is_tex) tex(x, yy, h->id, k, LIGHT);
+            else {
+                rect(x, yy, TS * k, TS * k, 22, 21, 24);
+                for (int sy = 0; sy < TS * k; sy++)
+                    for (int sx = 0; sx < TS * k; sx++) {
+                        uint8_t c = crawl_spr[h->id][(sx / k) * TS + sy / k];
+                        if (c == C_CLEAR) continue;
+                        c = crawl_cmap[LIGHT][c];
+                        put(x + sx, yy + sy, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+                    }
+            }
+            text(x, yy + TS * k + 4, h->l1, 190, 190, 190);
+            text(x, yy + TS * k + 4 + LABEL_H - 6, h->l2, 150, 150, 150);
+        }
+        y += row;
+    }
+    text(PAD, ih - PAD - 8 * TXT, "SHADED AS NEAR A TORCH. THE FLOOR'S MARKS COME AS FRAMES FROM THE GAME.", 120, 120, 120);
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
 /* ---- a run's own look (docs/PLAN-b10.md): its parts, and its rooms laid out as the generator would ---- */
 
 typedef struct { uint8_t tex[NTEX][TS * TS]; uint8_t pal[256][3]; uint8_t cmap[NLIGHT][256]; } Snap;
@@ -1092,6 +1149,13 @@ int main(int argc, char **argv) {
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_spells(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         crawl_art_level(level < 1 ? 1 : level);
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "hazards")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/hazards.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_hazards(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     static const char *const RUNSHEET_NAMES[4][2] = { { "crypts", "cryptrooms" }, { "catacombs", "catarooms" }, { "hollows", "hollowrooms" }, { "deep", "deeprooms" } };

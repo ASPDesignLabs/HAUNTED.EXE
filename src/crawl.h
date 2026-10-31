@@ -48,6 +48,14 @@ enum {
     T_PORTAL0, T_PORTAL1, T_PORTAL2, T_PORTAL3,   /* the Accursed Portal: an arch filled with a slow red-violet swirl */
     T_SEALED,                                     /* a chain's doorway shut for the level: dark frames under a cracked red seal */
     T_REPOSITORY,                                 /* the Wretched Repository: iron doors shut in niches, three to a wall */
+    /* the runs' hazards (1.0.0b13, docs/PLAN-b13.md section 5): drawn on plain stone, set in the run's own */
+    T_HZ_SLAB, T_HZ_SLAB_OPEN,                    /* the Embalmers' Breath: a burial slab; cracked, a seam of light round it */
+    T_HZ_COLD,                                    /* the Cold Vault: a crack furred with rime */
+    T_HZ_SLUICE, T_HZ_SLUICE_OPEN,                /* a sluice gate shut; and thrown up on the surge */
+    T_HZ_SAINT, T_HZ_SAINT_LIT,                   /* the Weeping Saint in her alcove; her eyes alight as she drinks */
+    T_HZ_SEAM, T_HZ_SEAM_LIT,                     /* the Lodestone Seam, green veins in the rock; and crackling */
+    T_HZ_FISSURE0, T_HZ_FISSURE1,                 /* Fissure Breath: a crack in the glass rock, glowing; then white-hot */
+    T_HZ_MIRROR, T_HZ_MIRROR_SEEN,                /* the Black Mirror; and your reflection come into it */
     /* each run's own (docs/PLAN-b10.md), made again for its run by crawl_art_run: the materials, two looks
      * each, on one grid of courses; blends from one material to the next, left to right; what stands on a
      * wall, drawn over its material (C_CLEAR lets the material show); floors, ceilings and the doors */
@@ -193,6 +201,14 @@ enum {
     SP_MOTE,                                    /* a soul's mote where the dead fell: a pale flame with a face in it */
     SP_DBELL, SP_DBELL_C,                       /* the Dead Bell in its frame: cracked bronze; corrupted, black, the crack alight */
     SP_FONT, SP_FONT_C,                         /* the Weeping Font: a basin under a weeping face, dry; cursed, brimming red */
+    /* the runs' hazards (1.0.0b13, docs/PLAN-b13.md section 5) */
+    SP_CENSER,                                  /* the Swinging Censer: an iron bowl on its chain, smoking */
+    SP_SMOKE, SP_VAPOUR, SP_GAS,                /* a puff of smoke; the embalmers' grey-green breath; silt gas and firedamp, sallow */
+    SP_VOTIVE,                                  /* a votive rack gone over, its cups spilling */
+    SP_RELIQ, SP_RELIQ_O,                       /* the Hungry Reliquary on its plinth; and its lid up, violet inside */
+    SP_SNARE,                                   /* a web across a doorway, all but unseen */
+    SP_SPIKES,                                  /* Shatterglass: spikes of black glass stood up from the floor */
+    SP_ASHFALL,                                 /* ash coming down */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
     SP_SKEL_SA, SP_SKEL_SB, SP_SHIELD_SA, SP_SHIELD_SB, SP_BAT_SA, SP_BAT_SB, SP_SPIDER_SA, SP_SPIDER_SB,
     SP_GHOST_SA, SP_GHOST_SB, SP_WSKULL_S,

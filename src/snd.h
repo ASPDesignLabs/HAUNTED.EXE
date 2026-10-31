@@ -73,6 +73,10 @@ enum {
     SFX_DEEPCHIME,      /* the Wraith's Time Slip: a deep chime, slow to fade */
     SFX_ATONE,          /* a Level of Atonement banked: a low choir, a bell, a whisper */
     SFX_SPLASH,         /* a footstep in shallow water: the slap, the slosh, a drop or two */
+    SFX_HISS,           /* gas escaping: a hiss swelling and dying (1.0.0b13's hazards) */
+    SFX_CRACKLE,        /* lightning gathering: a buzz and snapping sparks */
+    SFX_RUMBLE,         /* a cart on the rails: a low rolling rumble, the wheels clacking */
+    SFX_HUM,            /* a crystal singing, higher and brighter */
     SFX_COUNT
 };
 

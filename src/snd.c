@@ -524,6 +524,38 @@ static float sfx_sample(Sfx *s) {
         }
         break;
     }
+    case SFX_HISS: {                                /* gas escaping through a crack: noise, high, swelling and dying */
+        float u = t / s->dur, w = sinf(PI_F * fminf(1.0f, u * 1.6f)) * (1.0f - u * 0.4f);
+        x = svf_band(nz(&s->rng), 4200.0f + 1800.0f * sinf(t * 3.0f), 0.35f, &s->lo1, &s->bp1) * w * w * 0.55f;
+        break;
+    }
+    case SFX_CRACKLE: {                             /* a buzz under it, and sparks snapping, closer together as it builds */
+        float u = t / s->dur;
+        s->a -= 1.0f / SR;
+        if (s->a <= 0.0f) { s->a = (0.05f - 0.04f * u) * (0.3f + 0.7f * (nz(&s->rng) * 0.5f + 0.5f)); s->b = 1.0f; }
+        s->b *= expf(-1.0f / (SR * 0.003f));
+        s->ph[0] += 120.0f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        float buzz = (s->ph[0] < 0.5f ? 1.0f : -1.0f) * 0.06f * u;
+        x = (svf_band(nz(&s->rng), 2600.0f, 0.3f, &s->lo1, &s->bp1) * s->b * 0.9f + buzz) * fminf(1.0f, (s->dur - t) / 0.05f);
+        break;
+    }
+    case SFX_RUMBLE: {                              /* the cart: a low rolling rumble growing, the wheels clacking on the joins */
+        float u = t / s->dur, w = fminf(1.0f, u * 2.5f) * fminf(1.0f, (s->dur - t) / 0.2f);
+        s->lp1 += 0.02f * (nz(&s->rng) - s->lp1);
+        s->ph[0] += 38.0f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        float clack = fmodf(t * (5.0f + 6.0f * u), 1.0f), k = clack < 0.02f ? svf_band(nz(&s->rng), 1800.0f, 0.4f, &s->lo2, &s->bp2) : 0.0f;
+        x = (s->lp1 * 3.2f + sin_cyc(s->ph[0]) * 0.25f + k * 0.6f) * w * 0.7f;
+        break;
+    }
+    case SFX_HUM: {                                 /* a crystal singing: a glassy tone sliding up, beating, growing bright */
+        float u = t / s->dur, f = 520.0f * (1.0f + 0.9f * u * u);
+        s->ph[0] += f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        s->ph[1] += f * 2.003f / SR; if (s->ph[1] >= 1.0f) s->ph[1] -= 1.0f;
+        s->ph[2] += f * 3.01f / SR; if (s->ph[2] >= 1.0f) s->ph[2] -= 1.0f;
+        float e = fminf(1.0f, t / 0.1f) * fminf(1.0f, (s->dur - t) / 0.08f);
+        x = (sin_cyc(s->ph[0]) * 0.5f + sin_cyc(s->ph[1]) * (0.15f + 0.3f * u) + sin_cyc(s->ph[2]) * 0.15f * u) * e * 0.3f;
+        break;
+    }
     case SFX_SPLASH: {                              /* a foot in shallow water: the slap going in, the slosh as it lifts, a few drops falling back */
         if (t == 0.0f) s->a = 0.85f + 0.3f * (nz(&s->rng) * 0.5f + 0.5f);
         float slap = svf_band(nz(&s->rng), 1500.0f * s->a, 0.6f, &s->lo1, &s->bp1) * expf(-t * 34.0f) * fminf(1.0f, t / 0.002f);
@@ -1560,6 +1592,10 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_DEEPCHIME]  = { 0.00f, 1.00f,  0.50f, 0.00f },
     [SFX_ATONE]      = { 0.00f, 1.00f,  0.50f, 0.00f },
     [SFX_SPLASH]     = { 0.38f, 0.60f, -0.06f, 0.22f },
+    [SFX_HISS]       = { 1.40f, 0.55f,  0.50f, 0.35f },
+    [SFX_CRACKLE]    = { 1.20f, 0.60f,  0.50f, 0.30f },
+    [SFX_RUMBLE]     = { 2.00f, 0.80f,  0.50f, 0.40f },
+    [SFX_HUM]        = { 1.60f, 0.55f,  0.50f, 0.50f },
 };
 
 void snd_sfx_ex(int id, float gain, float pan) {
