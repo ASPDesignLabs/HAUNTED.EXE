@@ -279,6 +279,7 @@ typedef struct Sfx {
 static Sfx g_s[NS];
 static uint32_t g_rng = 12345;
 static int g_hold;                  /* the console is open: the game's effects and the crackle wait; the music and its drums play */
+static int g_trial;                 /* a trial under way: the march a quarter quicker, its drums driving */
 static float g_fx_gain = 1.0f;      /* the game's effects fade out and back in over a fiftieth of a second, so nothing clicks */
 static int g_room;                  /* 1 the Backrooms: the music gone, a hum, more echo on the game's sounds; 2 Severance: muzak too */
 static int g_muffle;                /* the void: everything as if heard through cloth */
@@ -1256,7 +1257,7 @@ static void crawl_step(uint32_t step) {
     int third = ch->minor ? 3 : 4;
     int sps = (int)g_sps;
 
-    int dm = crawl_drums(sec, s);
+    int dm = g_trial ? crawl_drums(8 + (sec & 7), s) | ((s & 1) ? D_HAT : 0) : crawl_drums(sec, s);   /* a trial's: the march's, harder */
     if (dm & D_KICK)  sfx_start(X_KICK, 0.4f, 0.65f, 0.5f, 0.05f);
     if (dm & D_SNARE) sfx_start(X_SNARE, 0.3f, 0.70f, 0.5f, 0.22f);
     if (dm & D_GHOST) sfx_start(X_SNARE, 0.2f, 0.28f, 0.52f, 0.15f);
@@ -1513,6 +1514,7 @@ void snd_set_mood(float m) { LOCK(); g_mood_target = clampf(m, 0.0f, 1.0f); UNLO
 void snd_hold(int on) { LOCK(); g_hold = on != 0; UNLOCK(); }
 void snd_set_room(int room) { LOCK(); g_room = room; UNLOCK(); }
 void snd_set_muffle(int on) { LOCK(); g_muffle = on != 0; UNLOCK(); }
+void snd_set_trial(int on) { LOCK(); g_trial = on != 0; UNLOCK(); }
 
 void snd_set_boss(int theme, int wave) {
     LOCK();
@@ -1688,8 +1690,9 @@ static void render_locked(int16_t *out, int frames) {
         /* sequencer clock */
         if (g_prog != SND_PROG_NONE) {
             g_step_acc += 1.0;
-            if (g_step_acc >= g_sps) {
-                g_step_acc -= g_sps;
+            double sps = g_trial && g_prog == SND_PROG_CRAWL ? g_sps * 0.78 : g_sps;
+            if (g_step_acc >= sps) {
+                g_step_acc -= sps;
                 if (g_prog == SND_PROG_HAUNT) haunt_step(g_step);
                 else crawl_step(g_step);
                 g_step++;

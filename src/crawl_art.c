@@ -8581,6 +8581,126 @@ static void catacombs_run(float dk, uint32_t s, uint32_t field) {
         crawl_tex[T_GRATE][i] = o != C_CLEAR ? o : crawl_tex[T_MATV(M2_LINING, 0)][i];
     }
 }
+/* ---- the trials (1.0.0b13, docs/PLAN-b13.md part D): each run's door, the lights by it, a bier, the hourglass ---- */
+static const char *const TR_SKULL[9] = { "  #####  ", " ####### ", "#########", "##oo#oo##", "##oo#oo##", "#########", " ###o### ", "  #####  ", "  # # #  " };
+/* a trial's door: the run's own, with its skull and crossed things on it (D1): the Crypts' iron plate and thighbones,
+ * the Catacombs' verdigris plate and oars, the Hollows' red ochre and picks, the Deep's black glass skull, lit from
+ * within, over gold bones */
+static void gen_trdoor(int run) {
+    memcpy(crawl_tex[T_TRDOOR], crawl_tex[T_RDOOR], sizeof crawl_tex[0]);
+    int t = T_TRDOOR;
+    if (run == 0 || run == 1)                                       /* the plate, riveted */
+        for (int y = 12; y < 40; y++)
+            for (int x = 18; x < 46; x++) {
+                int rim = x == 18 || x == 45 || y == 12 || y == 39, rivet = (x == 20 || x == 43) && (y == 14 || y == 37);
+                tput(t, x, y, run ? sh(R_MOSS, rim ? 0.3f : 0.45f + 0.12f * h01(x, y, 61)) : sh(R_IRON, rim ? 0.2f : 0.38f + 0.1f * h01(x, y, 61)));
+                if (rivet) tput(t, x, y, run ? sh(R_MOSS, 0.75f) : sh(R_IRON, 0.75f));
+            }
+    for (int k = 0; k < 2; k++)                                     /* the crossed things, behind the skull */
+        for (int i = 0; i <= 22; i++) {
+            int x = k ? 43 - i : 21 + i, y = 15 + i * 21 / 22;
+            uint8_t c = run == 0 ? sh(R_BONE, 0.65f) : run == 1 ? sh(R_WOOD, 0.4f) : run == 2 ? sh(R_BRICK, 0.55f) : sh(R_GOLD, 0.7f);
+            tput(t, x, y, c); tput(t, x + (k ? -1 : 1), y, c);
+            int end = i < 3 || i > 19;
+            if (run == 0 || run == 3) { if (end) { tput(t, x, y - 1, c); tput(t, x, y + 1, c); tput(t, x + (k ? 1 : -1), y, c); } }   /* knobbed ends */
+            else if (run == 1 && i > 16) { tput(t, x, y - 1, c); tput(t, x, y + 1, c); tput(t, x, y + 2, c); }   /* the oars' blades */
+            else if (run == 2 && i < 4) for (int j = -3; j <= 3; j++) tput(t, x + j * (k ? 1 : -1) / 2 + j, y - abs(j) / 2, c);   /* the picks' heads */
+        }
+    for (int r = 0; r < 9; r++)
+        for (int c = 0; c < 9; c++) {
+            char ch = TR_SKULL[r][c];
+            if (ch == ' ') continue;
+            uint8_t v = ch == 'o' ? (run == 3 ? (uint8_t)(R_FLAME + 4) : sh(R_IRON, 0.02f))
+                      : run == 0 ? sh(R_BONE, 0.7f - 0.04f * r) : run == 1 ? sh(R_BONE, 0.55f - 0.03f * r) : run == 2 ? sh(R_BRICK, 0.6f) : sh(R_IRON, 0.1f + 0.05f * (c < 3));
+            tput(t, 28 + c, 20 + r, v);
+        }
+}
+/* the lights by a trial's door, a run each: a red candle on an iron stand; a drowned lantern on a post, burning red;
+ * a red lamp hung on a nail; a brazier of black glass, red embers in it. The flames are drawn full bright */
+static void spr_trlight(int id, int run) {
+    cv_begin(cv_sprite, TS, TS);
+    if (run == 3) {
+        cv_flat(32, 62, 9, 1.4f, R_WARM + 1);
+        for (int y = 46; y < 62; y++) for (int x = 24; x < 41; x++) {
+            float w = 8.0f - (float)(61 - y) * 0.15f;
+            if (fabsf(x + 0.5f - 32.5f) > w) continue;
+            cv_px(x, y, sh(R_IRON, 0.05f + 0.1f * (x < 27) + 0.05f * h01(x, y, 3)));
+        }
+        for (int x = 25; x < 40; x++) { cv_px(x, 45, (uint8_t)(R_FLAME + 3 + (int)(h01(x, 1, 7) * 4.0f))); if (h01(x, 2, 7) < 0.5f) cv_px(x, 44, (uint8_t)(R_FLAME + 2)); }
+        cv_store(id);
+        return;
+    }
+    for (int y = 18; y < 63; y++) { cv_px(31, y, sh(R_IRON, 0.25f)); cv_px(32, y, sh(R_IRON, 0.45f)); }   /* the stand, or post */
+    cv_flat(32, 62, 6, 1.2f, sh(R_IRON, 0.2f));
+    if (run == 0) {
+        cv_flat(32, 19, 5, 1.5f, sh(R_IRON, 0.4f));
+        for (int y = 10; y < 19; y++) for (int x = 30; x < 35; x++) cv_px(x, y, sh(R_BLOOD, 0.35f + 0.2f * (x == 30)));
+        cv_flat(32, 7, 1.6f, 2.6f, R_FLAME + 3); cv_px(32, 8, R_FLAME + 8);
+    } else {
+        for (int x = 32; x < 40; x++) cv_px(x, 18, sh(R_IRON, 0.4f));   /* an arm, or a nail */
+        int lx = 39;
+        cv_line(lx, 18, lx, 22, sh(R_IRON, 0.3f));
+        for (int y = 22; y < 33; y++) for (int x = lx - 4; x <= lx + 4; x++) {
+            int frame = x == lx - 4 || x == lx + 4 || y == 22 || y == 32;
+            cv_px(x, y, frame ? (run == 1 ? sh(R_MOSS, 0.45f) : sh(R_IRON, 0.3f)) : (uint8_t)(R_FLAME + 2 + ((x + y) & 1)));
+        }
+        if (run == 1) for (int x = lx - 5; x <= lx + 5; x++) cv_px(x, 21, sh(R_MOSS, 0.55f));   /* its cap, gone green */
+    }
+    cv_store(id);
+}
+static void spr_tr_prop(int id, int braced) {                      /* a pit prop: leaning loose, or upright and wedged under its cap */
+    cv_begin(cv_sprite, TS, TS);
+    float lean = braced ? 0.0f : 9.0f;
+    cv_capsule(32 - lean * 0.5f, 62, 32 + lean * 0.5f, 10, 2.6f, R_WOOD, 0.2f, 0.55f);
+    for (int x = 20; x < 45; x++) for (int y = 6; y < 10; y++) cv_px(x, y, sh(R_WOOD, 0.3f + 0.15f * (y == 6)));   /* its cap */
+    if (braced) { float w[6] = { 27, 10, 37, 10, 34, 14 }; cv_poly(w, 3, R_WOOD, 0.6f, 0.4f, 10, 4); cv_line(30, 61, 35, 61, sh(R_STONE, 0.4f)); }
+    else for (int k = 0; k < 6; k++) cv_px(24 + k * 3, 12 + (k & 1), sh(R_STONE, 0.4f));   /* grit sifting down */
+    cv_outline(sh(R_WOOD, 0.02f));
+    cv_store(id);
+}
+static void spr_tr_bier(void) {                                    /* a bier of grey stone, a pall over it */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 46; y < 64; y++)
+        for (int x = 8; x < 56; x++) {
+            int top = y < 50, leg = y >= 56 && (x < 13 || x > 50);
+            if (y >= 56 && !leg) continue;
+            cv_px(x, y, top ? sh(R_BLOOD, 0.2f + 0.1f * (y == 46)) : sh(R_STONE, 0.3f + 0.12f * (x < 11) + 0.05f * h01(x, y, 5)));
+        }
+    for (int x = 10; x < 54; x += 6) for (int y = 50; y < 54; y++) cv_px(x, y, sh(R_BLOOD, 0.15f));   /* the pall's folds */
+    cv_outline(sh(R_STONE, 0.02f));
+    cv_store(SP_TR_BIER);
+}
+void crawl_hourglass(unsigned char *pix, int stride, int x0, int y0, float sand, int state, float t) {
+    #define HG(x, y, c) (pix[(y0 + (y)) * stride + x0 + (x)] = (unsigned char)(c))
+    sand = state ? 0.0f : clampf(sand, 0.0f, 1.0f);
+    for (int x = 0; x < 21; x++) { HG(x, 0, sh(R_WOOD, 0.55f)); HG(x, 1, sh(R_WOOD, 0.35f)); HG(x, 31, sh(R_WOOD, 0.55f)); HG(x, 32, sh(R_WOOD, 0.35f)); }
+    for (int y = 2; y < 31; y++) { HG(1, y, sh(R_WOOD, 0.45f)); HG(19, y, sh(R_WOOD, 0.3f)); }   /* its posts */
+    for (int r = 0; r < 29; r++) {                                  /* the glass: two bulbs and a neck */
+        int y = 2 + r, top = r < 14, d = top ? 13 - r : r - 15;
+        float hw = r == 14 ? 0.5f : 0.8f + (float)d * 0.55f;
+        if (hw > 7.0f) hw = 7.0f - (float)(d > 11) * 1.5f;
+        int w = (int)hw;
+        for (int x = 10 - w; x <= 10 + w; x++) {
+            int edge = x == 10 - w || x == 10 + w;
+            if (state == 1 && edge && ((y * 7 + x) % 5 < 2)) continue;   /* broken: the glass gone in places */
+            uint8_t c = edge ? sh(R_GHOST, 0.55f) : sh(R_STONE, 0.06f);
+            if (!edge && top && r >= 14 - (int)(sand * 12.0f + 0.5f)) c = sh(R_GOLD, 0.55f + 0.1f * ((x + y) & 1));
+            if (!edge && !top && r != 14) {
+                float fill = (1.0f - sand) * 12.0f, mound = fill - (float)abs(x - 10) * 0.35f;
+                if (state == 1) mound = 1.5f - (float)abs(x - 10) * 0.2f;   /* spilled: a little left in the bottom */
+                if ((float)(28 - r) < mound) c = sh(R_GOLD, 0.5f + 0.1f * ((x + y) & 1));
+            }
+            HG(x, y, c);
+        }
+    }
+    if (state == 0 && sand > 0.0f && sand < 1.0f)                   /* the stream, grains in it */
+        for (int y = 16; y < 30; y++) if (((y + (int)(t * 24.0f)) & 3) != 0) HG(10, y, sh(R_GOLD, 0.75f));
+    if (state == 2) { HG(7, 8, sh(R_GHOST, 0.9f)); HG(8, 9, sh(R_GHOST, 0.9f)); HG(8, 10, sh(R_GHOST, 0.9f)); HG(9, 11, sh(R_GHOST, 0.9f)); HG(11, 22, sh(R_GHOST, 0.9f)); HG(12, 23, sh(R_GHOST, 0.9f)); }   /* cracked */
+    if (state == 1)                                                 /* shards below it */
+        for (int k = 0; k < 7; k++) HG(3 + k * 2 + (k & 1), 30 - (k % 3), sh(R_GHOST, 0.7f));
+    #undef HG
+}
+
 void crawl_art_run(int level) {
     float dk = crawl_decay(level);
     uint32_t s = 7001u + (uint32_t)level * 7u, field = s + 50u;
@@ -8588,6 +8708,7 @@ void crawl_art_run(int level) {
     else if (crawl_set(level) == 2) hollows_run(dk, s, field);
     else if (crawl_set(level) == 3) deep_run(dk, s, field);
     else crypts_run(dk, s, field);                                  /* the Crypts, and the runs not drawn yet */
+    gen_trdoor(crawl_set(level));                                   /* a trial's door, on the run's own */
 }
 
 void crawl_art_init(void) {
@@ -8710,6 +8831,9 @@ void crawl_art_init(void) {
     spr_pz_slab(); spr_pz_numstone(); for (int k = 0; k < 26; k++) spr_pz_letter(SP_PZ_LETTER0 + k, k);
     for (int k = 0; k < 4; k++) spr_hide(SP_HIDE0 + k, k);
     spr_bshrine(); spr_bshrine_eyes(SP_BSHRINE_E0, 0); spr_bshrine_eyes(SP_BSHRINE_E1, 1);
+    for (int k = 0; k < 4; k++) spr_trlight(SP_TRLIGHT0 + k, k);
+    spr_tr_bier();
+    spr_tr_prop(SP_TR_PROP0, 0); spr_tr_prop(SP_TR_PROP1, 1);
     for (int f = 0; f < 3; f++) spr_firepit(SP_FIREPIT_A + f, f);
     spr_totem(SP_TOTEM_A, 0); spr_totem(SP_TOTEM_B, 1);
     spr_shambler(SP_SHAMB_A, 1.0f, 0); spr_shambler(SP_SHAMB_B, -1.0f, 0); spr_shambler(SP_SHAMB_GRAB, 0.0f, 1);
@@ -8749,6 +8873,7 @@ void crawl_art_init(void) {
     spr_minelamp(SP_MINELAMP_A, 0); spr_minelamp(SP_MINELAMP_B, 1); spr_cart(); spr_fungus();
     spr_crystal(SP_CRYSTAL_A, 0); spr_crystal(SP_CRYSTAL_B, 1); spr_obsidian();
     spr_altar(SP_ALTAR_A, 0); spr_altar(SP_ALTAR_B, 1);
+    memcpy(crawl_spr[SP_TR_BRAZ0], crawl_spr[SP_BRAZIER_OUT], TS * TS); memcpy(crawl_spr[SP_TR_BRAZ1], crawl_spr[SP_BRAZIER_A], TS * TS);   /* a trial's, out and lit */
     spr_sides();
     find_glints();
 }

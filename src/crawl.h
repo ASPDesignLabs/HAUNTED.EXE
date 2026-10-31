@@ -67,6 +67,7 @@ enum {
     T_CEILS = T_FLOORS + 5,                       /* NFLOORS */
     T_RDOOR = T_CEILS + 3,                        /* NCEILS */
     T_RJAMB, T_RLOCKED, T_RLOCKED_S, T_RLOCKED_C,
+    T_TRDOOR,                                     /* a trial's door (1.0.0b13): the run's own, its skull and crossed bones */
     NTEX
 };
 #define NMAT 5
@@ -240,6 +241,10 @@ enum {
     SP_HIDE0,                                   /* where the hidden message lies (1.0.0b13): a candle-box, a drowned */
     SP_BSHRINE = SP_HIDE0 + 4,                  /* satchel, a miner's boot, a broken geode, a run each; the Black Shrine, */
     SP_BSHRINE_E0, SP_BSHRINE_E1,               /* and its skull's eyes, faint and flaring (drawn at full brightness) */
+    SP_TRLIGHT0,                                /* by a trial's door (1.0.0b13), a run each: a red candle on a stand, a */
+    SP_TR_BIER = SP_TRLIGHT0 + 4,               /* drowned lantern, a red lamp, a brazier of red glass; a bier of stone */
+    SP_TR_PROP0, SP_TR_PROP1,                   /* a loose prop under the roof, and braced */
+    SP_TR_BRAZ0, SP_TR_BRAZ1,                   /* a brazier, out and burning (the Wraith's, as a trial's thing) */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
     SP_SKEL_SA, SP_SKEL_SB, SP_SHIELD_SA, SP_SHIELD_SB, SP_BAT_SA, SP_BAT_SB, SP_SPIDER_SA, SP_SPIDER_SB,
     SP_GHOST_SA, SP_GHOST_SB, SP_WSKULL_S,
@@ -333,5 +338,8 @@ void crawl_art_run(int level);                  /* that run's own textures and k
 unsigned char crawl_doc_page(unsigned char *pix, int stride, int x0, int y0, int w, int h, int run, unsigned seed);
 void crawl_doc_ink(unsigned char *pix, int stride, int x0, int y0, int w, int h, int run, unsigned char ink, unsigned seed);
 int crawl_doc_paper(int run, unsigned char c);
+/* a trial's hourglass (1.0.0b13, section 8), 21 by 33, into pix (stride across) at x0, y0: sand the share still above
+ * (1 full, 0 run out), state 0 running, 1 broken (won), 2 cracked and empty (lost); t a clock for the falling grains */
+void crawl_hourglass(unsigned char *pix, int stride, int x0, int y0, float sand, int state, float t);
 
 #endif
