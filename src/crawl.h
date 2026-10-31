@@ -272,9 +272,10 @@ enum {                                          /* which ramp a creature's body 
     PF_HIDE,                                    /* R_WOOD: hunting spiders */
     PF_WING,                                    /* R_PURPLE: bats, which stop at rank IV */
     PF_CLAY,                                    /* R_BRICK: ember imps */
-    PF_STONE,                                   /* R_STONE: the Drowned, gargoyles */
+    PF_STONE,                                   /* R_STONE: gargoyles */
     PF_ARMOUR,                                  /* R_IRON: a knight's plate (its blade is R_GHOST, and stays steel); rank V darkens it */
     PF_ROBE,                                    /* R_PURPLE: the deacon's robe */
+    PF_DROWN,                                   /* R_GHOST: the Drowned's waxen skin (docs/InitialArtPass.md: never the walls' stone) */
     NPF
 };
 extern uint8_t crawl_rank_lut[NPF][NRANK][256];
