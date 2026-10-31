@@ -1423,49 +1423,106 @@ static void spr_shieldskel(int id, float walk, int swing, int shield) {
     skel_dress(id, walk, 48.0f, swing ? 6.0f : 24.0f);
 }
 
-/* The wall skull: a great skull set into the stone. Asleep it is only bone; woken, fire gathers in
- * its eyes and mouth; then it blazes. */
+/* The wall skull (docs/InitialArtPass.md section 8): the master skull three times over (Scale3x keeps its corners), grain
+ * and cracks at the finer scale, set in the stone to watch the halls. Asleep, embers deep in its sockets; woken, fire
+ * gathers in them; blazing, it shows through the teeth and the cracks; broken, it splits and the right half falls. */
+static uint8_t g_big[64 * 64];
+static int g_bigw, g_bigh;
+static void grid_scale3(const char *const *g, int w, int h, int mirror) {   /* into g_big: palette indices, C_CLEAR, 0 the sockets */
+    uint8_t src[SKULL_H][SKULL_W];
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++) {
+            char ch = g[y][mirror ? w - 1 - x : x];
+            src[y][x] = ch == '.' ? (uint8_t)C_CLEAR : (ch == '0' || ch == '@') ? 0 : (uint8_t)(R_BONE + (ch <= '9' ? ch - '0' : ch - 'a' + 10));
+        }
+    #define S3(yy, xx) ((yy) < 0 || (yy) >= h || (xx) < 0 || (xx) >= w ? (uint8_t)C_CLEAR : src[yy][xx])
+    g_bigw = w * 3; g_bigh = h * 3;
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++) {
+            uint8_t A = S3(y - 1, x - 1), B = S3(y - 1, x), C = S3(y - 1, x + 1), D = S3(y, x - 1), E = src[y][x], F = S3(y, x + 1);
+            uint8_t G = S3(y + 1, x - 1), H = S3(y + 1, x), I = S3(y + 1, x + 1), o[9];
+            int db = D == B && D != H && B != F, bf = B == F && B != D && F != H, dh = D == H && D != B && H != F, hf = H == F && D != H && B != F;
+            o[0] = db ? D : E; o[1] = (db && E != C) || (bf && E != A) ? B : E; o[2] = bf ? F : E;
+            o[3] = (db && E != G) || (dh && E != A) ? D : E; o[4] = E; o[5] = (bf && E != I) || (hf && E != C) ? F : E;
+            o[6] = dh ? D : E; o[7] = (dh && E != I) || (hf && E != G) ? H : E; o[8] = hf ? F : E;
+            for (int k = 0; k < 9; k++) g_big[(y * 3 + k / 3) * 64 + x * 3 + k % 3] = o[k];
+        }
+    #undef S3
+}
 static void spr_wskull(int id, int heat) {
     cv_begin(cv_sprite, TS, TS);
-    if (heat == 3) {                                               /* broken, falling */
-        cv_ellipse(24, 40, 12, 10, R_BONE, 0.25f, 0.9f); cv_ellipse(43, 46, 10, 8, R_BONE, 0.2f, 0.8f);
-        cv_line(24, 31, 30, 46, R_BONE + 1); cv_line(40, 40, 46, 52, R_BONE + 1);
-        cv_ellipse(22, 40, 3.5f, 4.0f, R_BONE, 0.0f, 0.05f);
+    grid_scale3(SKULL_FRONT, SKULL_W, SKULL_H, 0);
+    int x0 = 32 - g_bigw / 2, y0 = 6;
+    for (int y = 0; y < g_bigh; y++)                               /* the bone, with a grain finer than its pixels */
+        for (int x = 0; x < g_bigw; x++) {
+            uint8_t c = g_big[y * 64 + x];
+            if (c == C_CLEAR) continue;
+            if (c > R_BONE && c < R_BONE + 16) {
+                float r = h01(x, y, 71), n = fbm(x / 5.0f, y / 5.0f, 16, 73);
+                int v = c - R_BONE + (r < 0.12f ? -1 : r > 0.93f ? 1 : 0) - (n < 0.3f ? 1 : 0);
+                c = (uint8_t)(R_BONE + clampi(v, 1, 15));
+            }
+            cv_px(x0 + x, y0 + y, c);
+        }
+    static const float CR[3][4] = { { 33, 6, 1.1f, 13 }, { 15, 18, 0.5f, 9 }, { 40, 34, 1.9f, 8 } };   /* cracks wandering through it */
+    for (int k = 0; k < 3; k++) {
+        float x = CR[k][0], y = CR[k][1], a = CR[k][2];
+        for (int i = 0; i < (int)CR[k][3]; i++) {
+            a += (h01(k, i, 79) - 0.5f) * 0.9f; x += cosf(a); y += sinf(a);
+            uint8_t c = cv_sprite[(int)y * TS + (int)x];
+            if (c > R_BONE && c < R_BONE + 16) cv_px((int)x, (int)y, heat == 2 ? (uint8_t)(R_FLAME + 8 + (i & 3)) : (uint8_t)(R_BONE + 1));
+        }
+    }
+    /* its eyes: the sockets' middles, 3 by 3 from the grid's @ */
+    float ex[2], ey[2]; int ne = 0;
+    for (int y = 0; y < SKULL_H; y++) for (int x = 0; x < SKULL_W && ne < 2; x++) if (SKULL_FRONT[y][x] == '@') { ex[ne] = x0 + x * 3 + 1.5f; ey[ne] = y0 + y * 3 + 1.5f; ne++; }
+    if (heat == 3) {                                               /* broken: split, the right half falling away */
+        static uint8_t tmp[TS * TS];
+        memcpy(tmp, cv_sprite, sizeof tmp);
+        for (int y = 0; y < TS; y++)
+            for (int x = 0; x < TS; x++) {
+                int jag = 33 + (int)(3.0f * sinf(y * 0.7f)) + (y & 1);
+                if (x >= jag - 1 && x <= jag) { cv_sprite[y * TS + x] = C_CLEAR; continue; }
+                if (x > jag) { cv_sprite[y * TS + x] = C_CLEAR; int sy = y - 6, sx = x - 3; if (sy >= 0 && sx > jag) cv_sprite[y * TS + x] = tmp[sy * TS + sx]; }
+            }
+        for (int i = 0; i < 7; i++) cv_ellipse(14 + h01(i, 1, 81) * 36, 57 + h01(i, 2, 81) * 5, 1.5f + h01(i, 3, 81) * 2, 1.2f, R_BONE, 0.2f, 0.8f);   /* shards */
         cv_outline(0); cv_store(id); return;
     }
-    cv_ellipse(32, 27, 21, 20, R_BONE, 0.22f, 0.95f);              /* the dome */
-    cv_ellipse(32, 44, 14, 9, R_BONE, 0.2f, 0.8f);                 /* the jaw */
-    for (int y = 0; y < TS; y++)                                   /* cracks and grime */
-        for (int x = 0; x < TS; x++) {
-            uint8_t *p = &cv_sprite[y * TS + x];
-            if (*p == C_CLEAR) continue;
-            if (fbm(x / 6.0f, y / 6.0f, 16, 71) < 0.3f) *p = (uint8_t)(*p - 2 < R_BONE ? R_BONE : *p - 2);
-        }
-    cv_line(22, 9, 27, 20, R_BONE + 2); cv_line(27, 20, 25, 24, R_BONE + 2);
-    for (int k = -1; k <= 1; k += 2) {                             /* sockets */
-        float ex = 32 + k * 8.5f, ey = 29;
-        cv_flat(ex, ey, 6.0f, 6.5f, 0);
-        cv_eye_mark((int)ex, (int)ey);
-        if (heat) {
-            float r = heat == 1 ? 2.5f : 4.6f;
-            for (int y = (int)(ey - 7); y <= (int)(ey + 7); y++)
-                for (int x = (int)(ex - 7); x <= (int)(ex + 7); x++) {
-                    float d = hypotf(x + 0.5f - ex, (y + 0.5f - ey) * 0.9f) / r;
-                    if (d < 1.0f) cv_px(x, y, (uint8_t)(R_FLAME + clampi((int)((1.1f - d * 0.8f) * 15), 2, 15)));
-                }
-            if (heat == 2) for (int i = 0; i < 6; i++) cv_px((int)(ex + (h01(i, k + 2, 73) - 0.5f) * 8), (int)(ey - 6 - h01(i, k + 5, 73) * 6), (uint8_t)(R_FLAME + 9 + (i & 3)));
-        } else cv_px((int)ex, (int)ey + 1, R_FLAME + 3);           /* a last ember */
+    for (int k = 0; k < ne; k++) {
+        cv_eye_mark((int)ex[k], (int)ey[k]);
+        if (!heat) { cv_px((int)ex[k], (int)ey[k], (uint8_t)(R_FLAME + 3)); continue; }   /* a last ember */
+        float r = heat == 1 ? 3.0f : 5.5f;
+        for (int y = (int)(ey[k] - 7); y <= (int)(ey[k] + 7); y++)   /* fire gathering in the socket, and only there */
+            for (int x = (int)(ex[k] - 7); x <= (int)(ex[k] + 7); x++) {
+                if ((unsigned)x >= TS || (unsigned)y >= TS || cv_sprite[y * TS + x] != 0) continue;
+                float d = hypotf(x + 0.5f - ex[k], (y + 0.5f - ey[k]) * 0.9f) / r;
+                if (d < 1.0f) cv_px(x, y, (uint8_t)(R_FLAME + clampi((int)((1.1f - d * 0.8f) * 15), 2, 15)));
+            }
+        if (heat == 2) for (int i = 0; i < 6; i++) cv_px((int)(ex[k] + (h01(i, k + 2, 83) - 0.5f) * 7), (int)(ey[k] - 5 - h01(i, k + 5, 83) * 6), (uint8_t)(R_FLAME + 9 + (i & 3)));
     }
-    float nose[6] = { 32, 34, 29, 40, 35, 40 };                    /* nose */
-    cv_poly(nose, 3, R_BONE, 0.0f, 0.0f, 34, 6);
-    for (int y = 34; y < 41; y++) for (int x = 29; x < 36; x++) if (cv_sprite[y * TS + x] == R_BONE) cv_sprite[y * TS + x] = 0;
-    for (int i = -4; i <= 4; i++) {                                /* teeth over a dark mouth */
-        int x = 32 + i * 2;
-        cv_px(x, 45, 0); cv_px(x, 46, heat ? (uint8_t)(R_FLAME + 6 + heat * 3) : 0);
-        cv_px(x - 1, 44, sh(R_BONE, 0.9f)); cv_px(x - 1, 47, sh(R_BONE, 0.7f));
-    }
+    if (heat)                                                      /* and in its mouth, and up its nose when it blazes */
+        for (int y = y0 + 27; y < y0 + 48; y++)
+            for (int x = x0; x < x0 + g_bigw; x++) {
+                if (cv_sprite[y * TS + x] != 0) continue;
+                int mouth = y >= y0 + 39, nose = y < y0 + 39 && x > x0 + 15 && x < x0 + 30;
+                if (mouth) cv_px(x, y, (uint8_t)(R_FLAME + (heat == 2 ? 7 + (int)(h01(x, y, 85) * 6.0f) : 2 + (int)(h01(x, y, 85) * 3.0f))));
+                else if (nose && heat == 2) cv_px(x, y, (uint8_t)(R_FLAME + 4 + (int)(h01(x, y, 87) * 4.0f)));
+            }
     cv_outline(0);
     cv_store(id);
+}
+
+/* the wall skull's dressing: what its rank has done to it, as the skeletons' */
+static void wskull_dress(int id) {
+    for (int r = RK_II; r < NRANK; r++) {
+        dress_begin(id);
+        if (r == RK_II) kit_moss(0.35f, 2, 401);
+        if (r == RK_III) kit_frost(0.8f, 403);
+        if (r == RK_IV) { kit_blood(23, 37, 14, 2, 405); kit_blood(41, 37, 12, 2, 407); }   /* tears of old blood */
+        if (r == RK_V) { kit_char(0.35f, 409); kit_crown(32, 7, 26, 411); }
+        if (r == RK_GILDED) { kit_gold(R_BONE, 0.6f, 413); kit_mask(10, 6, 55, 42); }
+        dress_store(id, r, R_BONE);
+    }
 }
 
 /* A big black spider: the red eyes are all you see of it in its web until it drops */
@@ -5299,17 +5356,6 @@ static void cv_curve(float x0, float y0, float cx, float cy, float x1, float y1,
     }
 }
 
-/* a skull in profile, looking right: crown, brow, the long face, a hinged jaw */
-static void skull_side(float x, float y, float s, float jaw, uint8_t eye) {
-    cv_ellipse(x - 1.0f * s, y, 6.0f * s, 5.6f * s, R_BONE, 0.3f, 1.0f);
-    cv_capsule(x + 1.5f * s, y + 2.5f * s, x + 5.5f * s, y + 3.5f * s, 2.2f * s, R_BONE, 0.3f, 0.9f);   /* the upper jaw */
-    cv_capsule(x - 1.0f * s, y + 5.0f * s, x + 5.0f * s, y + 5.5f * s + jaw, 1.4f * s, R_BONE, 0.25f, 0.8f);   /* the lower */
-    cv_flat(x + 2.6f * s, y - 0.2f * s, 1.8f * s, 1.9f * s, 0);    /* the socket */
-    if (eye) cv_px((int)(x + 2.8f * s), (int)y, eye);
-    cv_flat(x + 5.6f * s, y + 1.4f * s, 0.7f * s, 0.9f * s, 0);    /* the nose */
-    for (int i = 0; i < 4; i++) cv_px((int)(x + (2.5f + i * 1.0f) * s), (int)(y + 4.4f * s), sh(R_BONE, 0.95f));
-    cv_flat(x - 3.0f * s, y + 2.5f * s, 1.0f * s, 0.8f * s, sh(R_BONE, 0.3f));   /* the ear hole */
-}
 
 /* a skeleton walking right. w: the stride, +1 or -1; arm: 0 swinging, 1 a sword up and a shield on */
 static void skel_side(float w, int arm) {
@@ -5434,15 +5480,20 @@ static void spr_ghost_side(int id, float ph) {
 }
 
 /* the wall skull turned to show its side: a great skull in profile, a coal in its eye */
-static void spr_wskull_side(void) {
+static void spr_wskull_side(void) {                         /* the master profile three times over, its eye alight */
     cv_begin(cv_sprite, TS, TS);
-    skull_side(30, 26, 3.2f, 1.0f, 0);
-    for (int y = 0; y < TS; y++)
-        for (int x = 0; x < TS; x++) {
-            uint8_t *p = &cv_sprite[y * TS + x];
-            if (*p >= R_BONE && *p < R_BONE + 16 && fbm(x / 6.0f, y / 6.0f, 16, 71) < 0.3f) *p = (uint8_t)(*p - 2 < R_BONE ? R_BONE : *p - 2);
+    grid_scale3(SKULL_SIDE, SKULL_W, SKULL_H, 0);
+    int x0 = 32 - g_bigw / 2, y0 = 6;
+    for (int y = 0; y < g_bigh; y++)
+        for (int x = 0; x < g_bigw; x++) {
+            uint8_t c = g_big[y * 64 + x];
+            if (c == C_CLEAR) continue;
+            if (c > R_BONE && c < R_BONE + 16) { float r = h01(x, y, 71); c = (uint8_t)(R_BONE + clampi(c - R_BONE + (r < 0.12f ? -1 : r > 0.93f ? 1 : 0), 1, 15)); }
+            cv_px(x0 + x, y0 + y, c);
         }
-    cv_flat(38.5f, 26, 4.2f, 4.6f, (uint8_t)(R_FLAME + 8)); cv_flat(38.5f, 26, 2.2f, 2.4f, (uint8_t)(R_FLAME + 13));
+    for (int y = 0; y < SKULL_H; y++)
+        for (int x = 0; x < SKULL_W; x++)
+            if (SKULL_SIDE[y][x] == '@') { cv_flat(x0 + x * 3 + 1.5f, y0 + y * 3 + 1.5f, 2.6f, 2.8f, (uint8_t)(R_FLAME + 8)); cv_flat(x0 + x * 3 + 1.5f, y0 + y * 3 + 1.5f, 1.2f, 1.3f, (uint8_t)(R_FLAME + 13)); }
     cv_outline(0);
     cv_store(SP_WSKULL_S);
 }
@@ -9022,7 +9073,7 @@ void crawl_art_init(void) {
     spr_skeleton(SP_SKEL_T, 0.3f, 0.0f, 3, 1);
     spr_shieldskel(SP_SHIELD_A, 1.0f, 0, 1); spr_shieldskel(SP_SHIELD_B, -1.0f, 0, 1); spr_shieldskel(SP_SHIELD_S, 0.2f, 1, 1);
     spr_shieldskel(SP_SHIELD_XA, 1.0f, 0, 0); spr_shieldskel(SP_SHIELD_XB, -1.0f, 0, 0); spr_shieldskel(SP_SHIELD_XS, 0.2f, 1, 0);
-    for (int h = 0; h < 4; h++) spr_wskull(SP_WSKULL0 + h, h);
+    for (int h = 0; h < 4; h++) { spr_wskull(SP_WSKULL0 + h, h); if (h < 3) wskull_dress(SP_WSKULL0 + h); }
     for (int f = 0; f < 3; f++) spr_spider(SP_SPIDER_A + f, f);
     spr_spider(SP_SPIDER_D, 3);
     spr_ball(SP_SKULLFIRE_A, 10.0f, R_FLAME, R_BLOOD, 0, 1); spr_ball(SP_SKULLFIRE_B, 10.5f, R_FLAME, R_BLOOD, 1, 1);

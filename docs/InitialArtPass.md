@@ -730,6 +730,8 @@ of usage leaves the next one a true account. **Read it before anything else in t
 | 4. Dressing layer, vapour, the setting | in progress: the layer and the vapour done; the setting not yet | the layer: `crawl_dress`, `crawl_dress_ix` (`src/crawl.h`), `dress_begin`/`dress_store` and the kit (`kit_rags`, `kit_frost`, `kit_moss`, `kit_blood`, `kit_char`, `kit_gold`, `kit_arrow`, `kit_crown`, `kit_chain`, `kit_mask`) in `src/crawl_art.c`; composited in `render_sprites` (`Draw.ov`, untinted) and in `tools/sheet.c`. The vapour: `render_vapour`, `vap_px`, `g_fx` in `src/scene_crawl.c` (`Draw.vap`; the nearest four full, the rest half) | **Still to do**: the *CREATURE EFFECTS* setting (A14): `g_fx` is fixed at 0 (full). It wants `AppConfig` (`src/app.h`), the registry and the settings dialog (`src/win_main.c`, which this container cannot compile: no mingw; CI builds it), and `tools/host.c` (an env var). And the vapour gathering into the mote at a death (7.1). |
 | 5. The skeleton, with the skull master | done, for the owner's eye (but the death's vapour into the mote) | `SKULL_FRONT`, `SKULL_SIDE` (15 by 16, hex steps of the bone ramp, `@` an eye) and `skull_stamp` in `src/crawl_art.c`; `skel_draw` (a neck, the shoulders two pixels lower, the right a pixel lower still), `skel_side`; review: `docs/artpass/review/skeleton.png`, `skeleton_game.png`, `sides.png` | the skull keeps its face through the level's grime (`g_skbox`); fallen, it lies in profile. Dressing (`skel_dress`): II rags and mould, III frosted rags and a notch out of the crown, IV bloodied rags, an arrow in the ribs and a cut brow, V charred, an iron crown broken, a shackle and chain, a torn cloak behind; gilded a death-mask, gold leaf, a clean shroud, a gold chain. Vapour in the game: `docs/artpass/review/skeleton_vapour_game.png`. Frame time 2.03-2.06 ms; a dream run's events unchanged |
 | 6. The shield-bearer | done, for the owner's eye | `spr_shieldskel` (shares `skel_draw` and `skel_dress`; blade, guard and shield moved down with the arm; the dressing keeps off the shield and blade) | as the skeleton |
+| 7. The wall skull | done, for the owner's eye | `spr_wskull` (the master skull three times over by `grid_scale3`, Scale3x; grain and cracks at the finer scale; fire filling the sockets, then the mouth, the nose and the cracks; broken, split with the right half dropped), `wskull_dress` (II moss, III frost, IV tears of old blood, V char and an iron crown, gilded gold and a mask), `spr_wskull_side`; review `docs/artpass/review/wskull.png`, `wskull_game.png` | asleep, ember eyes (A11), seen at 13 cells in the dark. The old `skull_side` is gone. Frame time unchanged (benched back to back against the commit before); events unchanged |
+| 8. The imp | next | `spr_imp`, `spr_imp_side` | the brief is in section 8: soot-black crust over fire, a narrow long-muzzled head, swept horns with glowing tips, slit eyes, ragged wings; re-proportioned (A4 c) |
 
 ### How to pick it up
 
@@ -744,6 +746,22 @@ of usage leaves the next one a true account. **Read it before anything else in t
 5. Frames: `python3 tools/stage.py <MOB_* number> out.png --dists 2.5,6,13,23 --dark 0.15 --fog` (one creature at each
    distance, in the dark and the thickest fog; `--rank r`, `--level n`, `--sub s` for a state, such as a wall skull
    charging). The level's seed is 5 unless `--seed` says otherwise, so frames are comparable between sessions.
-6. A sprite's eyes are wherever its function calls `cv_eye` (or `cv_eye_mark` for an eye drawn as a shape); a redrawn
+7. **Lessons from the first units** (31 October):
+   - Keep a head to about a quarter of the body's height or less: at 1 to 3.4 the skeleton read as a cartoon, so the
+     skull was cut to 16 rows.
+   - The level's grime (`g_decay`) darkens two in five bone pixels by three steps and erased the hand shading, so faces
+     are spared (`g_skbox`); do the same for any hand-drawn face that is aged by the level.
+   - A face drawn by hand at 15 pixels can be used bigger with `grid_scale3` (Scale3x), as the wall skull is, and then
+     given grain at the finer scale, so that every skull in the game is the same skull.
+   - A grid declared `[SKULL_H]` with a row missing reads past its end and crashes `build/sheet`: count the rows.
+   - A creature's dressing is a function beside its sprite's (`skel_dress`, `wskull_dress`), called after `cv_store`,
+     drawing ranks II to gilded with the kit and storing each with `dress_store(id, rank, body ramp)`. The layer is not
+     tinted by the rank, and is kept off whatever is not the body (a shield, a blade).
+   - Vapour comes from the eye points by itself; a creature with none vapours from (32, 16) of its sprite.
+   - The bench varies by a fifth between runs in this container: compare against the commit before, back to back, with
+     a `git worktree`.
+   - The settings dialog is in `src/win_main.c`, which only CI can compile here (no mingw in the container); push and
+     read the build's result before calling the setting done.
+8. A sprite's eyes are wherever its function calls `cv_eye` (or `cv_eye_mark` for an eye drawn as a shape); a redrawn
    creature must call it for each eye, in each pose that has them open, or it will lose its eyes in the game.
 
