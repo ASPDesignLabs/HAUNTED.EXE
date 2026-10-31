@@ -11396,7 +11396,7 @@ static int tri_kind_of(int level) {                                /* T4: the ru
     for (int k = 0; k < 5 && TRI_RUN[set][k] >= 0; k++) order[n++] = TRI_RUN[set][k];
     uint32_t h = (uint32_t)crawl_run(level) * 2654435761u ^ RUN.run_id * 40503u;
     for (int i = n - 1; i > 0; i--) { h = h * 1664525u + 1013904223u; int j = (int)((h >> 8) % (uint32_t)(i + 1)), t = order[i]; order[i] = order[j]; order[j] = t; }
-    int first = set == 0 && crawl_loop(level) == 0 ? 3 : 1;
+    int first = set == 0 && crawl_loop(level) == 0 ? 2 : 0;          /* the step its first trial falls on (steps count from 0) */
     return order[imax(0, crawl_step(level) - first) % n];
 }
 static int tri_alive(int which) {                                  /* the trial's creatures standing (which: 0 all, else that mark) */
@@ -13378,6 +13378,11 @@ static void crawl_update(double dt) {
             summon_wisp(WK_EXIT, 0, WISP_COST);                    /* a soul to spare: a wisp to light the way out */
 #ifdef CRAWL_DEBUG
         fprintf(stderr, "EVENT leaving t=%.2f in_vault=%d got=%.2f\n", G.t, G.exit_in_vault, got);
+        if (G.tri >= 0 && G.tri_state == TRS_SHUT && G.tri_ix >= 0) {     /* a trial left untried: why */
+            const Door *td = &G.doors[G.tri_door];
+            fprintf(stderr, "EVENT trial_passed %d %s level %d seen=%d cells=%.0f hp=%d/%d\n", G.tri, TRI_NAME[G.tri], G.level,   /* no bfs here: it would move the dream */
+                    !!(G.mapped[td->y][td->x] & 4), hypotf(G.tri_ix + 0.5f - G.px, G.tri_iy + 0.5f - G.py), G.hp, G.max_hp);
+        }
 #endif
     }
     if (!G.tally && !G.dead && !G.player && !PK.depth && (G.exit_fx < 0 || G.level_t > (boss_sealed() ? 1500.0 : 600.0))) {   /* no exit, or hopelessly lost: call it done (a boss gets longer) */
