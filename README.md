@@ -926,7 +926,8 @@ The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.p
 
 **New in 1.0.0b13** (each run's hazards, puzzles behind a sealed wing, the hidden message and the Black Shrine, trials,
 the reckoning). Built on the work branch and tested in the harness only, by the autopilot and scripted players: not
-yet played by hand or run on Windows.
+yet played by hand or run on Windows. The Windows build was compiled without warnings and smoke-tested by CI on the
+work branch.
 
 * **Hazards:** each of the twenty-one placed and fired in the harness (`CRAWL_HZ`), the dream walking round what is
   always there and through it when it must; AddressSanitizer and UBSan clean.

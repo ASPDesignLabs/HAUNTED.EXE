@@ -109,8 +109,10 @@ release above, the owner moved it on a number, staged as its G2 (a) says: 1.0.0b
 every sample, soul-sappers from each run's sixth level, Resist Lightning), logic puzzles worked with things in the world
 behind a sealed wing (a hidden message, a Black Shrine, Tab's documents), timed trials behind skull-marked doors, and a
 reckoning of what is left before a person leaves a level; 1.0.0b14 the lower storey, its edges, stairs and ladders. Being
-built on `claude/epic-dirac-n8uosr` from main at 1.0.0b12, in the plan's steps, sheets before art in the game. Steps 1-6
-are built (harness only; the plan's status line says where it stands): see *1.0.0b13 so far* below.
+built on `claude/epic-dirac-n8uosr` from main at 1.0.0b12, in the plan's steps, sheets before art in the game. 1.0.0b13's
+steps 1-8 are built (harness only; the Windows build compiled and smoke-tested by CI on the branch, by a run started by
+hand) and wait for the owner's word to be released; 1.0.0b14 (steps 9-13) is not begun. See *1.0.0b13 so far* below, and
+the numbers under *Known issues*.
 
 ## Working with the owner
 
@@ -979,7 +981,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   caster's screen, asked twice: +5 past the cap and the cap with it (Luck 1), not health or resist all. An
   overlevelled number is drawn by `eerie_text` with `eerie_eye` beside it (`stat_over`). The Codex has THE
   CASTER'S OWN part (`CX_CASTER`). Debug: `EVENT overlevel`.
-- **1.0.0b13 so far** (docs/PLAN-b13.md, steps 1-4). *Hazards*: each run's own, fixed (`HzSite` in `G.site`, `place_sites`,
+- **1.0.0b13 so far** (docs/PLAN-b13.md, steps 1-7). *Hazards*: each run's own, fixed (`HzSite` in `G.site`, `place_sites`,
   `update_sites`) and arising (`update_arising`), older runs' now and then, by element (`hz_seep`, `G.hz_el_acc`), the
   sappers (`hz_sap`, `HZ_SAPPER`) from each run's sixth level; `hz_dmap`'s `HZ_SOFT` marks what is always there, which the
   dream walks round only when another way is as short (`decide`). Resist Lightning is `ST_RES_LIGHT`. *Things*: `Thing`
