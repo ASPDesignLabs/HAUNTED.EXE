@@ -2792,7 +2792,21 @@ static void build_lightmap(void) {
     hz_lights();
 }
 
+#ifdef CRAWL_DEBUG
+/* CRAWL_STAGE=k: one kind stood still down the longest straight hall, at set distances, the caster still and looking
+ * at them; CRAWL_STAGEDARK=f scales the light (0 none), CRAWL_STAGEFOG=1 thickens the fog to its most, CRAWL_STAGESUB=s
+ * puts them in that state, CRAWL_STAGEDIST=d just one at d cells. For frames of the art pass (docs/InitialArtPass.md). */
+static int g_stage = -1, g_stage_fog;
+static float g_stage_lm = 1.0f;
+#endif
 static float lm_at(float x, float y) {
+#ifdef CRAWL_DEBUG
+    if (g_stage_lm < 1.0f) {
+        float f0 = x * LMR - 0.5f, f1 = y * LMR - 0.5f; int i0 = (int)floorf(f0), i1 = (int)floorf(f1);
+        if (i0 < 0 || i1 < 0 || i0 >= LMN - 1 || i1 >= LMN - 1) return 0.0f;
+        return G.lm[i1 * LMN + i0] * g_stage_lm;
+    }
+#endif
     float fx = x * LMR - 0.5f, fy = y * LMR - 0.5f;
     int ix = (int)floorf(fx), iy = (int)floorf(fy);
     float ax = fx - ix, ay = fy - iy;
@@ -4830,6 +4844,9 @@ static void ally_hurt(Mob *a, float dmg);
 static int latch_begin(Mob *m);
 static void update_latch(float dt);
 static void update_mob(Mob *m, float dt) {
+#ifdef CRAWL_DEBUG
+    if (g_stage >= 0 && m->state == MS_WALK) { m->t += dt; m->anim += dt * 1.5f; m->sub_t += dt; return; }   /* stood still for frames */
+#endif
     if (m->state == MS_DIE && m->sub == 77) { if ((m->t += dt) >= 0.9f) m->alive = 0; return; }   /* gone into the BFS9000 */
     if (m->ally && m->state == MS_WALK) { update_ally(m, dt); return; }   /* raised by your Grave Call: it fights for you */
     if (m->boss && m->state == MS_WALK && (G.bstate != BS_FIGHT || G.bpose_t > 0.0f)) {   /* waiting, holding while its wave
@@ -8115,6 +8132,7 @@ static void crawl_enter(uint32_t seed) {
         gear_reset(&RUN.gear);
 #ifdef CRAWL_DEBUG
         if (getenv("CRAWL_LEVEL")) RUN.level = atoi(getenv("CRAWL_LEVEL"));
+        if (getenv("CRAWL_STAGE")) RUN.shop_next = 0;              /* straight into the level */
         debug_gear();
         if (getenv("CRAWL_HASMAP")) RUN.has_map = 1;              /* the map, already bought */
         if (getenv("CRAWL_CORNER")) { RUN.corner = atoi(getenv("CRAWL_CORNER")) & ((1 << NCS) - 1); RUN.wind_run = crawl_run(RUN.level); }   /* cornerstones held, a bit each */
@@ -13179,6 +13197,44 @@ static int meet_creature(int k, int n) {
     return made > 0;
 }
 
+#ifdef CRAWL_DEBUG
+static void stage_set(int k) {                                     /* CRAWL_STAGE (see g_stage) */
+    static const int DX[4] = { 1, 0, -1, 0 }, DY[4] = { 0, 1, 0, -1 };
+    int bx = -1, by = -1, bd = 0, blen = 0;
+    for (int y = 1; y < MAPN - 1; y++)
+        for (int x = 1; x < MAPN - 1; x++) {
+            if (G.map[y][x].kind != K_FLOOR) continue;
+            for (int d = 0; d < 4; d++) {
+                int n = 0;
+                for (;;) {
+                    int cx = x + DX[d] * (n + 1), cy = y + DY[d] * (n + 1);
+                    if (n >= 24 || cx < 0 || cy < 0 || cx >= MAPN || cy >= MAPN || G.map[cy][cx].kind != K_FLOOR) break;
+                    n++;
+                }
+                if (n > blen) { blen = n; bx = x; by = y; bd = d; }
+            }
+        }
+    if (bx < 0) return;
+    G.px = bx + 0.5f; G.py = by + 0.5f; G.ang = atan2f((float)DY[bd], (float)DX[bd]);
+    for (int i = 0; i < MAXMOBS; i++) G.mobs[i].alive = 0;
+    float D[7] = { 2.5f, 4.0f, 6.0f, 9.0f, 13.0f, 18.0f, 23.0f };
+    int nd = 7;
+    if (getenv("CRAWL_STAGEDIST")) { D[0] = (float)atof(getenv("CRAWL_STAGEDIST")); nd = 1; }   /* just one, at that distance */
+    for (int i = 0; i < nd && D[i] <= blen + 0.4f; i++) {
+        float x = G.px + DX[bd] * D[i], y = G.py + DY[bd] * D[i];
+        Mob *m = spawn_mob((int)x, (int)y, k);
+        if (!m) break;
+        m->x = x; m->y = y; m->face = G.ang + PI_F; m->t = 0.0f;
+        if (k == MOB_GARGOYLE) m->sub = 2;
+        if (k == MOB_HUNTER) m->sub = 2;
+        if (getenv("CRAWL_STAGESUB")) m->sub = atoi(getenv("CRAWL_STAGESUB"));
+    }
+    if (getenv("CRAWL_STAGEDARK")) g_stage_lm = (float)atof(getenv("CRAWL_STAGEDARK"));
+    g_stage_fog = getenv("CRAWL_STAGEFOG") != NULL;
+    fprintf(stderr, "EVENT stage kind=%d hall=%d at %.1f,%.1f\n", k, blen, G.px, G.py);
+}
+#endif
+
 static int con_update(float dt);
 static void challenge_begin(int b);
 static void update_mark(float dt);
@@ -13225,7 +13281,11 @@ static void crawl_update(double dt) {
         return;
     }
     float ox = G.px, oy = G.py;
-    if (G.level_t > 1.0 && !G.dead) { if (G.player && !G.exiting) update_human(fdt); else update_player(fdt); }
+    int still = 0;
+#ifdef CRAWL_DEBUG
+    still = g_stage >= 0;                                          /* CRAWL_STAGE: the caster stands and looks */
+#endif
+    if (G.level_t > 1.0 && !G.dead && !still) { if (G.player && !G.exiting) update_human(fdt); else update_player(fdt); }
     if (fdt > 0.0f) { G.pvx = (G.px - ox) / fdt; G.pvy = (G.py - oy) / fdt; }
     build_hunt(fdt);
     pick_hunters();
@@ -13233,6 +13293,11 @@ static void crawl_update(double dt) {
     if (getenv("CRAWL_KILLAT") && !G.dead && G.t >= atof(getenv("CRAWL_KILLAT")) && G.t - dt < atof(getenv("CRAWL_KILLAT"))) {   /* testing: struck down */
         G.level_t = fmax(G.level_t, 2.0); G.blame = (Blame){ BL_NONE, 0, 0 }; hurt_ex(99999.0f, HURT_MAGIC, G.px, G.py);
     }
+    static int stage_level = -1;                                   /* CRAWL_STAGE: a kind stood down a hall */
+    if (getenv("CRAWL_STAGE") && !G.shop && !PK.depth && stage_level != G.level && G.level_t > 0.3) {
+        g_stage = clampi(atoi(getenv("CRAWL_STAGE")), 0, NKINDS - 1); stage_set(g_stage); stage_level = G.level;
+    }
+    if (g_stage >= 0) for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && G.mobs[i].type != g_stage) G.mobs[i].alive = 0;
     static int meet_level = -1;                                    /* one of a kind, ahead, once the level's card has gone (and in each pocket) */
     if (getenv("CRAWL_MEET") && meet_level != G.level * 16 + PK.depth && G.level_t > 5.0 && !G.dead
         && meet_creature(clampi(atoi(getenv("CRAWL_MEET")), 0, NKINDS - 1), getenv("CRAWL_MEETN") ? atoi(getenv("CRAWL_MEETN")) : 1)) meet_level = G.level * 16 + PK.depth;
@@ -17395,6 +17460,9 @@ static inline float fog_at(float x, float y) {
     return lerpf(lerpf(G.fog[iy][ix], G.fog[iy][ix + 1], ax), lerpf(G.fog[iy + 1][ix], G.fog[iy + 1][ix + 1], ax), ay);
 }
 static inline float fog_amount(float x, float y, float depth_k) {   /* depth_k: 1 - exp(-distance * 0.28) */
+#ifdef CRAWL_DEBUG
+    if (g_stage_fog) return fminf(depth_k * 1.4f, 0.7f);
+#endif
     return fminf((fog_at(x, y) * 0.6f + g_camfog * 0.4f) * depth_k, 0.7f);
 }
 static int fog_tint;                                               /* a trial's room, turned: its fog's colour (0 none), set each frame */
@@ -17993,7 +18061,8 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
 
 /* alpha < 1: dithered see-through. remap: the ramp R_PURPLE turns into. flags: how it is drawn.
  * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
-typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; float web, mg; int mgw; } Draw;   /* mg: the hidden
+typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; float web, mg; int mgw;
+                 int eye, etype, erank, estate; } Draw;   /* eye: a creature's eyes go on after it (render_eyes), as its kind, rank and state */   /* mg: the hidden
                                                                                                    message's glint, mgw through the walls; glint: a key's
                                                                                                    ramp, for Keymaker's sparkle; web: how much of yours holds it */
 enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_SWAY = 32, DR_FLIPV = 64, DR_COMMUNE = 128, DR_GLINT = 256, DR_EDGE = 512,
@@ -18004,6 +18073,80 @@ enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_S
 /* GLITCH: rows torn sideways and colours slipping, now and then (the Backrooms), more often when LOOPED; CLIP: cut at
  * the floor and ceiling; LIT: brighter than the light it stands in (Severance's creatures, under the panels) */
 /* FLIPV: upside down, on the ceiling; COMMUNE: red through walls; GLINT: a key glinting through walls (Keymaker) */
+
+/* The eyes (docs/InitialArtPass.md section 5). Every creature with eyes has them put on the screen again after its body,
+ * after the fog, hidden only by walls (and by whatever stands nearer, drawn after it): never dimmed by the light or the fog,
+ * never lost to a far-off sprite's sampling, at least a point each with a pixel between. The kind's own colour at rank I,
+ * the rank's from II, and a form for each rank: II a glow beside, III a cold slit, IV a streak to the temple, V a white
+ * flare, gilded a small gold cross. Alerted they gain a halo and stop blinking; striking they flare. The Shade has none. */
+enum { EC_AMBER, EC_COLD, EC_SULPHUR, EC_EMBER, EC_WGOLD, EC_CRIMSON, EC_PALE, EC_ROT, EC_CHILL, EC_BLOOD, EC_HOT, EC_GILT, EC_ASH, NEC };
+static const uint8_t EYE_CORE[NEC] = { R_FLAME + 12, R_GLOW + 15, R_FLAME + 15, R_BLOOD + 15, C_WHITE, R_BLOOD + 15, C_WHITE,
+                                       R_MOSS + 15, R_GLOW + 15, R_FLAME + 8, C_WHITE, R_GOLD + 12, R_FLAME + 5 };
+static const uint8_t EYE_GLOW[NEC] = { R_FLAME + 7, R_GLOW + 10, R_MOSS + 13, R_BLOOD + 10, R_FLAME + 12, R_BLOOD + 11, R_GHOST + 11,
+                                       R_MOSS + 11, R_GLOW + 11, R_BLOOD + 13, R_PURPLE + 14, R_GOLD + 8, R_FLAME + 1 };
+static const int8_t EYE_OWN[NKINDS] = {                            /* each kind's own, at rank I */
+    [MOB_SKEL] = EC_AMBER, [MOB_GHOST] = EC_COLD, [MOB_BAT] = EC_EMBER, [MOB_WSKULL] = EC_AMBER, [MOB_SHIELD] = EC_AMBER,
+    [MOB_SPIDER] = EC_EMBER, [MOB_SHAMBLER] = EC_SULPHUR, [MOB_DROWNED] = EC_COLD, [MOB_HOUND] = EC_AMBER, [MOB_WRAITH] = EC_COLD,
+    [MOB_HUNTER] = EC_EMBER, [MOB_GHOUL] = EC_SULPHUR, [MOB_KNIGHT] = EC_CRIMSON, [MOB_BROOD] = EC_EMBER, [MOB_LING] = EC_EMBER,
+    [MOB_SAC] = EC_EMBER, [MOB_SHADE] = EC_COLD, [MOB_IMP] = EC_WGOLD, [MOB_DEACON] = EC_PALE, [MOB_GARGOYLE] = EC_WGOLD };
+static const int8_t EYE_RANK[NRANK] = { -1, EC_ROT, EC_CHILL, EC_BLOOD, EC_HOT, EC_GILT };
+
+static void eye_px(Frame *f, int x, int y, uint8_t c, float depth) {
+    if (x >= 0 && x < W && y >= 0 && y < H && depth < zbuf[x]) f->pix[y * W + x] = c;
+}
+static void render_eyes(Frame *f, const Draw *d, float left, float top, float size) {
+    const EyeAt *e = &crawl_eyes[d->spr];
+    if (!e->n || d->alpha < 0.3f) return;
+    int st = d->estate, rank = d->erank, ec = EYE_OWN[d->etype];
+    if (st == 3) ec = EC_ASH;                                      /* asleep: an ember */
+    else if (rank > RK_I && EYE_RANK[rank] >= 0) ec = EYE_RANK[rank];
+    else if ((d->etype == MOB_SKEL || d->etype == MOB_SHIELD || d->etype == MOB_HOUND)
+             && fmaxf(crawl_decay(G.level), crawl_depth(G.level)) > 0.55f) ec = EC_COLD;   /* the old dead's eyes go cold */
+    float ph = d->x * 3.1f + d->y * 1.7f;
+    if (st == 0 && fmodf((float)G.t * 0.37f + ph, 5.0f) < 0.08f) return;   /* a blink, now and then, while it is calm */
+    uint8_t core = EYE_CORE[ec], glow = EYE_GLOW[ec];
+    if (st == 2) core = C_WHITE;                                   /* striking: they flare */
+    float es = size / TS;
+    int sx[2], sy[2], n = e->n;
+    for (int i = 0; i < n; i++) {
+        int ty = (d->flags & DR_FLIPV) ? TS - 1 - e->y[i] : e->y[i];
+        sx[i] = (int)floorf(left + (e->x[i] + 0.5f) * es); sy[i] = (int)floorf(top + (ty + 0.5f) * es);
+    }
+    if (n == 2 && abs(sx[1] - sx[0]) < 2) {                        /* far off: two points with a pixel between */
+        int c = (sx[0] + sx[1]) / 2, l = sx[0] <= sx[1] ? 0 : 1;
+        sx[l] = c - 1; sx[1 - l] = c + 1; sy[1] = sy[0] = (sy[0] + sy[1]) / 2;
+    }
+    int near = es >= 0.85f, cs = near ? imin(4, imax(2, (int)(es * 0.8f + 0.6f))) : 1, arm = cs + (st == 2) + (int)(es > 3.0f);
+    for (int i = 0; i < n; i++) {
+        int x0 = sx[i] - cs / 2, y0 = sy[i] - cs / 2, out = n == 2 ? (sx[i] < sx[1 - i] ? -1 : 1) : 1;
+        if (near) {
+            if (st >= 1)                                           /* alerted: a halo, dithered */
+                for (int y = y0 - 1; y <= y0 + cs; y++)
+                    for (int x = x0 - 1; x <= x0 + cs; x++)
+                        if ((x + y) & 1) eye_px(f, x, y, glow, d->depth);
+            switch (rank) {
+            case RK_II: for (int k = 0; k < cs; k++) eye_px(f, out > 0 ? x0 + cs : x0 - 1, y0 + k, glow, d->depth); break;   /* a glow beside */
+            case RK_III: for (int k = 1; k <= cs; k++) { eye_px(f, x0 + cs / 2, y0 - k, glow, d->depth); eye_px(f, x0 + cs / 2, y0 + cs - 1 + k, glow, d->depth); } break;   /* a slit */
+            case RK_IV: for (int k = 1; k <= arm + 1; k++) eye_px(f, (out > 0 ? x0 + cs - 1 : x0) + out * k, y0 - (k + 1) / 2, k > arm ? (uint8_t)(R_BLOOD + 9) : glow, d->depth); break;   /* to the temple */
+            case RK_V: {                                           /* a white flare, slowly breathing */
+                int a = arm + (int)(1.5f + 1.5f * sinf((float)G.t * 1.7f + ph));
+                for (int k = 1; k <= a; k++) {
+                    uint8_t c = k == a ? (uint8_t)(R_PURPLE + 11) : glow;
+                    eye_px(f, x0 + cs / 2, y0 - k, c, d->depth); eye_px(f, x0 + cs / 2, y0 + cs - 1 + k, c, d->depth);
+                    eye_px(f, x0 - k, y0 + cs / 2, c, d->depth); eye_px(f, x0 + cs - 1 + k, y0 + cs / 2, c, d->depth);
+                }
+                break;
+            }
+            case RK_GILDED:
+                eye_px(f, x0 + cs / 2, y0 - 1, glow, d->depth); eye_px(f, x0 + cs / 2, y0 + cs, glow, d->depth);
+                eye_px(f, x0 - 1, y0 + cs / 2, glow, d->depth); eye_px(f, x0 + cs, y0 + cs / 2, glow, d->depth);
+                break;
+            default: break;
+            }
+        }
+        for (int y = 0; y < cs; y++) for (int x = 0; x < cs; x++) eye_px(f, x0 + x, y0 + y, core, d->depth);
+    }
+}
 
 static int cmp_draw(const void *a, const void *b) {
     float da = ((const Draw *)a)->depth, db = ((const Draw *)b)->depth;
@@ -18301,7 +18444,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
-        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0 }; } while (0)
+        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0, 0, 0, 0, 0 }; } while (0)
     for (int i = 0; i < G.ndecos; i++) {
         const Deco *dc = &G.decos[i];
         static const float FPS[4] = { 0.0f, 0.0f, 3.0f, 9.0f };    /* by frame count: candles flicker, fire roars */
@@ -18423,6 +18566,10 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         }
         if (m->webbed > 0.0f && m->state == MS_WALK) { d->flags |= DR_WEBBED; d->web = m->webbed / fmaxf(1.0f, m->webmax); }
         if (commune) d->flags = (d->flags & ~DR_EYES) | DR_COMMUNE;   /* Commune: its shape, wherever it is */
+        if (m->state == MS_WALK && !statue && m->type != MOB_SHADE && crawl_eyes[s].n && !(d->flags & (DR_EYES | DR_IMPLODE))) {
+            d->eye = 1; d->etype = m->type; d->erank = m->boss ? RK_V : m->rank;   /* its eyes, after it (render_eyes) */
+            d->estate = m->type == MOB_WSKULL ? (m->sub == 0 ? 3 : 2) : (m->swing > 0.0f || m->throw_t > 0.0f ? 2 : (m->alert ? 1 : 0));
+        }
         if (m->state == MS_DIE && m->sub == 77) {                  /* drawn in to a point */
             float k = smoothstepf(0.1f, 0.75f, m->t);
             d->z += sc * 0.5f * k; d->scale = sc * (1.0f - k) + 0.02f; d->flags = DR_IMPLODE;
@@ -18888,6 +19035,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     if (xs[j] >= 0 && xs[j] < W && ys[j] >= 0 && ys[j] < H && d->depth < zbuf[xs[j]]) f->pix[ys[j] * W + xs[j]] = abs(k) == arm && arm > 1 ? (uint8_t)(R_GOLD + 11) : (uint8_t)C_WHITE;
             }
         }
+        if (d->eye) render_eyes(f, d, left, top, size);           /* its eyes, whatever the light (docs/InitialArtPass.md) */
     }
     for (int i = 0; i < MAXMOBS; i++) {                            /* spiders hang by a thread */
         const Mob *m = &G.mobs[i];

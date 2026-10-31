@@ -285,6 +285,10 @@ extern uint8_t crawl_tex[NTEX][TS * TS];        /* column-major: [x * TS + y] */
 extern uint8_t crawl_spr[NSPR][TS * TS];        /* column-major, C_CLEAR = transparent */
 extern const uint8_t crawl_hand_img[HAND_H * HAND_W];  /* the caster's hand, row-major, C_CLEAR = transparent (hand_img.c) */
 extern int8_t crawl_glint[NSPR][2];             /* brightest gold pixel of a sprite, for twinkles; -1 if none */
+/* where a creature's eyes are on its sprite (docs/InitialArtPass.md section 5), recorded as the sprite is drawn (cv_eye),
+ * for the pass that puts them on the screen whatever the light and fog: n eyes (0 none), at x, y in the sprite */
+typedef struct { int8_t n, x[2], y[2]; } EyeAt;
+extern EyeAt crawl_eyes[NSPR];
 /* the merchant (cat_img.c): the owner's cat draped over a chest, with what the game needs to animate it */
 extern const uint8_t crawl_cat_img[CAT_H * CAT_W];
 extern const uint8_t crawl_cat_eye[2][4], crawl_cat_eyecol[5], crawl_cat_lid[2], crawl_cat_ear[2][4], crawl_cat_tail[2];

@@ -271,8 +271,9 @@ exception, and a few states below (sleepers, the dead) are not exceptions but th
    imp's lob, the gargoyle's swoop, the Drowned's rise). The sprite generators, which know where they put the head,
    record the points as they draw, as `find_glints` finds the gold's brightest pixel today; the table also holds the
    crown of the head, the mouth and the shoulders, which the vapour and the dressing in sections 6 and 7 need.
-3. **A floor of two screen pixels** for each eye at any distance up to the draw limit (24 cells); beyond about 60
-   screen pixels' height the eye grows with the sprite and gains a **one-pixel halo**, dithered, of its own colour.
+3. **A floor**: far off (under about 0.85 screen pixels a texel) each eye is one pixel, and a pair is never closer than
+   two pixels apart, so it reads as two points with a gap; nearer, each eye is a square of 2 to 4 pixels and the rank's
+   form shows round it (5.2). *As built: `render_eyes` in `src/scene_crawl.c`.*
 4. **Never dimmed** by the lightmap, fog, depth, the rank LUT or frost. **Hidden only** by walls, doors and other
    solid things (the z-buffer), and by the creature's own absence.
 5. **Follows the body's presence, not its light**: a spectre's eyes fade as it fades out, a Wraithwalking boss's go
@@ -718,6 +719,9 @@ of usage leaves the next one a true account. **Read it before anything else in t
 | Unit | State | Where | Notes |
 |---|---|---|---|
 | Plan settled | done | `docs/InitialArtPass.md`, `docs/PLAN-b13.md` renumbered, `CLAUDE.md` | 31 October |
+| 1. Baseline | done | `docs/artpass/before/` (every creature's sheet and the line-up, before; `eyes_dark_skeleton.png`) | bench 2.104 ms a frame (`build/host bench crawl 60`) |
+| Test stage | done | `CRAWL_STAGE=k` (+ `CRAWL_STAGEDIST`, `CRAWL_STAGEDARK`, `CRAWL_STAGEFOG`, `CRAWL_STAGESUB`) in `src/scene_crawl.c`; `tools/stage.py` makes strips | the caster goes straight into the level, still; the kind stands frozen down the longest hall |
+| 2. Eyes for everyone | done, for the owner's eye | `EyeAt crawl_eyes[]` (`src/crawl.h`), `cv_eye`/`cv_eye_mark` in each creature's sprite function, `render_eyes` and `EYE_*` tables in `src/scene_crawl.c`; review: `docs/artpass/review/eyes_*.png` | every kind's eyes on today's sprites; frame time 2.014 ms; a 15-minute dream run's 390 events identical to 1.0.0b13's; smoke passes. Not yet: the harness check of 10 (it is done by eye with `tools/stage.py --dark 0.15 --fog`) |
 
 ### How to pick it up
 
@@ -729,4 +733,9 @@ of usage leaves the next one a true account. **Read it before anything else in t
    recorded as it is drawn, its dressing and vapour from the kit; then `make smoke`, a frame from the game with
    `CRAWL_MEET=k` (the `MOB_*` number) and `CRAWL_RANK=r`, and the sheet sent to the owner.
 4. Commit and push after each unit with this log updated; never leave the branch with a creature half in the game.
+5. Frames: `python3 tools/stage.py <MOB_* number> out.png --dists 2.5,6,13,23 --dark 0.15 --fog` (one creature at each
+   distance, in the dark and the thickest fog; `--rank r`, `--level n`, `--sub s` for a state, such as a wall skull
+   charging). The level's seed is 5 unless `--seed` says otherwise, so frames are comparable between sessions.
+6. A sprite's eyes are wherever its function calls `cv_eye` (or `cv_eye_mark` for an eye drawn as a shape); a redrawn
+   creature must call it for each eye, in each pose that has them open, or it will lose its eyes in the game.
 

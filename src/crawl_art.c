@@ -848,8 +848,14 @@ static uint8_t *cvp;
 static int cvw, cvh;
 static uint8_t cv_sprite[TS * TS];
 
-static void cv_begin(uint8_t *buf, int w, int h) { cvp = buf; cvw = w; cvh = h; memset(buf, C_CLEAR, (size_t)w * h); }
+EyeAt crawl_eyes[NSPR];
+static EyeAt g_eyes;                                    /* the eyes drawn on the sprite being made, for cv_store */
+static void cv_begin(uint8_t *buf, int w, int h) { cvp = buf; cvw = w; cvh = h; memset(buf, C_CLEAR, (size_t)w * h); memset(&g_eyes, 0, sizeof g_eyes); }
 static void cv_px(int x, int y, uint8_t c) { if ((unsigned)x < (unsigned)cvw && (unsigned)y < (unsigned)cvh) cvp[y * cvw + x] = c; }
+static void cv_eye_mark(int x, int y) {                 /* an eye here, for the eye pass (the first two count) */
+    if (g_eyes.n < 2 && (unsigned)x < (unsigned)TS && (unsigned)y < (unsigned)TS) { g_eyes.x[g_eyes.n] = (int8_t)x; g_eyes.y[g_eyes.n] = (int8_t)y; g_eyes.n++; }
+}
+static void cv_eye(int x, int y, uint8_t c) { cv_px(x, y, c); cv_eye_mark(x, y); }
 
 static float lit(float nx, float ny, float nz) {
     float d = nx * -0.45f + ny * -0.65f + nz * 0.62f;
@@ -926,6 +932,7 @@ static void cv_outline(uint8_t c) {                    /* dark rim around the si
 }
 
 static void cv_store(int id) {
+    crawl_eyes[id] = g_eyes;
     for (int x = 0; x < TS; x++)
         for (int y = 0; y < TS; y++) crawl_spr[id][x * TS + y] = cv_sprite[y * TS + x];
 }
@@ -1134,7 +1141,7 @@ static void skel_draw(float walk, float k, uint32_t seed, int raise) {
             cv_skull(ncx, ncy - (kk > 0.9f ? 1.5f : 0.0f), 1.0f, 0.3f, 1.0f);
             if (g_decay > 0.3f) { cv_line(ncx + 1, ncy - 5, ncx + 3, ncy - 1, R_BONE + 2); cv_px((int)ncx + 4, (int)ncy - 2, R_BONE + 1); }   /* a cracked skull */
             uint8_t eye = g_decay > 0.55f ? (uint8_t)(R_GLOW + 13) : (uint8_t)(R_FLAME + 10);   /* the eyes go cold */
-            if (k < 0.3f) { cv_px((int)ncx - 2, (int)ncy + 1, eye); cv_px((int)ncx + 2, (int)ncy + 1, eye); }
+            if (k < 0.3f) { cv_eye((int)ncx - 2, (int)ncy + 1, eye); cv_eye((int)ncx + 2, (int)ncy + 1, eye); }
         } else {
             cv_ellipse(ncx, ncy, 7, 3.4f, R_BONE, 0.25f, 0.9f);
             cv_flat(ncx - 3, ncy, 1.2f, 1.2f, R_BONE); cv_flat(ncx + 3, ncy, 1.2f, 1.2f, R_BONE);
@@ -1215,6 +1222,7 @@ static void spr_wskull(int id, int heat) {
     for (int k = -1; k <= 1; k += 2) {                             /* sockets */
         float ex = 32 + k * 8.5f, ey = 29;
         cv_flat(ex, ey, 6.0f, 6.5f, 0);
+        cv_eye_mark((int)ex, (int)ey);
         if (heat) {
             float r = heat == 1 ? 2.5f : 4.6f;
             for (int y = (int)(ey - 7); y <= (int)(ey + 7); y++)
@@ -1257,7 +1265,7 @@ static void spr_spider(int id, int frame) {
     cv_ellipse(cx, cy - 4, 6.0f, 5.0f, R_IRON, 0.05f, 0.42f);     /* head */
     if (frame != 3) {
         static const int EYE[8][2] = { {-3, -6}, {3, -6}, {-1, -7}, {1, -7}, {-4, -4}, {4, -4}, {-2, -5}, {2, -5} };
-        for (int i = 0; i < 8; i++) cv_px((int)cx + EYE[i][0], (int)cy + EYE[i][1], i < 4 ? (uint8_t)(R_FLAME + 3) : (uint8_t)(R_FLAME + 1));
+        for (int i = 0; i < 8; i++) (i < 2 ? cv_eye : cv_px)((int)cx + EYE[i][0], (int)cy + EYE[i][1], i < 4 ? (uint8_t)(R_FLAME + 3) : (uint8_t)(R_FLAME + 1));
         cv_capsule(cx - 2, cy - 1, cx - 3, cy + (frame == 2 ? 4 : 2), 0.8f, R_BONE, 0.4f, 0.8f);   /* fangs */
         cv_capsule(cx + 2, cy - 1, cx + 3, cy + (frame == 2 ? 4 : 2), 0.8f, R_BONE, 0.4f, 0.8f);
     }
@@ -3128,7 +3136,7 @@ static void spr_wraith(int id, float phase, int recoil) {
     int ey = (int)(14.0f + lift);                                   /* eyes */
     for (int k = -1; k <= 1; k += 2) {
         int ex = 32 + k * 3 - (k < 0 ? 1 : 0);
-        cv_px(ex, ey, C_WHITE); cv_px(ex + 1, ey, (uint8_t)(R_GLOW + 15));
+        cv_eye(ex, ey, C_WHITE); cv_px(ex + 1, ey, (uint8_t)(R_GLOW + 15));
         cv_px(ex, ey + 1, (uint8_t)(R_GLOW + 13)); cv_px(ex + 1, ey + 1, (uint8_t)(R_GLOW + 12));
     }
     if (recoil) for (int y = ey + 4; y < ey + 9; y++) for (int x = 30; x < 35; x++) cv_px(x, y, 0);   /* the shriek */
@@ -3165,7 +3173,7 @@ static void spr_bat(int id, int frame) {
     cv_ellipse(32, 30, 3.6f, 5.0f, R_IRON, 0.05f, 0.35f);
     cv_ellipse(32, 24, 2.8f, 2.6f, R_IRON, 0.08f, 0.4f);
     cv_px(30, 21, R_IRON + 3); cv_px(34, 21, R_IRON + 3); cv_px(30, 20, R_IRON + 2); cv_px(34, 20, R_IRON + 2);
-    cv_px(31, 24, R_FLAME + 6); cv_px(33, 24, R_FLAME + 6);
+    cv_eye(31, 24, R_FLAME + 6); cv_eye(33, 24, R_FLAME + 6);
     cv_store(id);
 }
 
@@ -3647,6 +3655,10 @@ static void spr_totem(int id, int frame) {
 
 /* move the drawing down by dy and cut it off at the ground, for things climbing out of it */
 static void cv_sink(int dy, int ground) {
+    EyeAt e = { 0 };
+    for (int i = 0; i < g_eyes.n; i++)
+        if (g_eyes.y[i] + dy < ground) { e.x[e.n] = g_eyes.x[i]; e.y[e.n] = (int8_t)(g_eyes.y[i] + dy); e.n++; }
+    g_eyes = e;
     for (int y = TS - 1; y >= 0; y--)
         for (int x = 0; x < TS; x++) {
             int sy = y - dy;
@@ -3774,7 +3786,7 @@ static void spr_shambler(int id, float w, int pose) {
     cv_ellipse(hx + 0.3f, hy + 4.3f, 4.0f, 2.8f, R_WARM, 0.25f, 0.75f);
     for (int k = -1; k <= 1; k += 2) {
         cv_flat(hx + k * 2.3f, hy - 0.5f, 1.6f, 1.5f, 0);
-        cv_px((int)(hx + k * 2.3f), (int)(hy - 0.5f), (uint8_t)(R_FLAME + (grab ? 7 : 4)));
+        cv_eye((int)(hx + k * 2.3f), (int)(hy - 0.5f), (uint8_t)(R_FLAME + (grab ? 7 : 4)));
     }
     float mo = grab ? 2.2f : 1.2f;                                  /* the mouth, wider when it lunges */
     cv_flat(hx + 0.4f, hy + 3.6f, 2.0f, mo, 0);
@@ -3860,7 +3872,7 @@ static void spr_drowned(int id, float w, int pose) {
     for (int k = -1; k <= 1; k += 2) {                              /* milky eyes in puffed lids */
         cv_ellipse(hx + k * 3.2f, hy - 0.5f, 2.6f, 2.0f, R_STONE, 0.2f, 0.7f);
         cv_flat(hx + k * 3.2f, hy, 1.8f, 1.3f, sh(R_GHOST, 0.9f));
-        cv_px((int)(hx + k * 3.2f), (int)hy, sh(R_GHOST, 0.6f));
+        cv_eye((int)(hx + k * 3.2f), (int)hy, sh(R_GHOST, 0.6f));
     }
     cv_flat(hx, hy + 5.0f, grab ? 3.0f : 2.0f, grab ? 2.4f : 1.3f, 0);   /* the mouth, and water out of it */
     for (int y = (int)(hy + 5); y < (int)(hy + 14); y++) if (h01(y, 1, 239) > 0.3f) cv_px((int)hx + (y & 1), y, sh(R_GHOST, 0.5f + 0.3f * h01(y, 2, 239)));
@@ -3941,7 +3953,7 @@ static void spr_ghoul(int id, float w, int pose) {
     cv_ellipse(hx, hy + 4.5f, 4.8f, 3.2f, R_WARM, 0.25f, 0.75f);
     for (int s = -1; s <= 1; s += 2) {
         cv_flat(hx + s * 2.8f, hy - 0.8f, 1.8f, 1.4f, 0);
-        cv_px((int)(hx + s * 2.8f), (int)(hy - 0.8f), (uint8_t)(R_FLAME + 9));
+        cv_eye((int)(hx + s * 2.8f), (int)(hy - 0.8f), (uint8_t)(R_FLAME + 9));
     }
     float mo = pose == 2 ? 2.8f : (pose == 3 ? 1.0f : 1.6f);
     cv_flat(hx, hy + 5.0f, 3.4f, mo, 0);
@@ -3978,7 +3990,7 @@ static void dog_skull(float x, float y, float jaw, int eye) {
     if (jaw > 1.0f) cv_flat(x - 2, y + 7 + jaw * 0.5f, 3.0f, jaw * 0.5f, 0);   /* the gape */
     cv_flat(x - 7, y + 5, 1.0f, 0.8f, 0);                          /* nostril */
     cv_flat(x + 2.5f, y - 0.5f, 2.0f, 1.8f, 0);                    /* the eye socket */
-    if (eye) cv_px((int)(x + 2.5f), (int)(y - 0.5f), (uint8_t)(R_FLAME + 11));
+    if (eye) cv_eye((int)(x + 2.5f), (int)(y - 0.5f), (uint8_t)(R_FLAME + 11));
 }
 
 static void spr_hound(int id, float w, int pose) {
@@ -4124,10 +4136,10 @@ static void spr_knight(int id, float w, int pose, int state) {
                 if (y > 11 && (x & 1) && fabsf(nx) < 0.5f && y < 15) v -= 0.3f;   /* breaths */
                 cv_px(x, y, sh(R_IRON, v));
             }
-        cv_px(29, 9, (uint8_t)(R_FLAME + 11)); cv_px(34, 9, (uint8_t)(R_FLAME + 11));
+        cv_eye(29, 9, (uint8_t)(R_FLAME + 11)); cv_eye(34, 9, (uint8_t)(R_FLAME + 11));
     } else {
         cv_skull(32, 9, 1.0f, 0.3f, 1.0f);
-        cv_px(30, 10, (uint8_t)(R_FLAME + 10)); cv_px(34, 10, (uint8_t)(R_FLAME + 10));
+        cv_eye(30, 10, (uint8_t)(R_FLAME + 10)); cv_eye(34, 10, (uint8_t)(R_FLAME + 10));
         if (state == 1) for (int x = 26; x <= 38; x++) cv_px(x, 3 + (x - 32) * (x - 32) / 12, sh(R_IRON, 0.5f));   /* the helm's rim, all that is left */
     }
     cv_bone_decay(313);
@@ -4221,7 +4233,7 @@ static void spr_deacon(int id, float w, int pose) {
     cv_ellipse(32, 12, 8.0f, 8.5f, R_PURPLE, 0.15f, 0.6f);
     cv_flat(32, 13.5f, 5.6f, 6.4f, 0);
     cv_skull(32, 13, 0.82f, 0.25f, 0.85f);
-    cv_px(30, 14, (uint8_t)(chant ? R_GLOW + 14 : R_FLAME + 8)); cv_px(34, 14, (uint8_t)(chant ? R_GLOW + 14 : R_FLAME + 8));
+    cv_eye(30, 14, (uint8_t)(chant ? R_GLOW + 14 : R_FLAME + 8)); cv_eye(34, 14, (uint8_t)(chant ? R_GLOW + 14 : R_FLAME + 8));
     cv_bone_decay(339);
     cv_outline(0);
     cv_store(id);
@@ -4276,7 +4288,7 @@ static void spr_hunter(int id, int frame) {
     if (frame != 3) {
         for (int k = -1; k <= 1; k += 2) {                          /* the two great eyes, shining */
             cv_flat(cx + k * 2.6f, cy + 2.5f, 2.0f, 2.0f, 0);
-            cv_px((int)(cx + k * 2.6f), (int)(cy + 2), (uint8_t)(R_FLAME + 14)); cv_px((int)(cx + k * 2.6f) + (k > 0 ? -1 : 1), (int)(cy + 3), (uint8_t)(R_FLAME + 9));
+            cv_eye((int)(cx + k * 2.6f), (int)(cy + 2), (uint8_t)(R_FLAME + 14)); cv_px((int)(cx + k * 2.6f) + (k > 0 ? -1 : 1), (int)(cy + 3), (uint8_t)(R_FLAME + 9));
         }
         static const int EYE[6][2] = { {-5, 0}, {5, 0}, {-2, -1}, {2, -1}, {-4, 6}, {4, 6} };
         for (int i = 0; i < 6; i++) cv_px((int)cx + EYE[i][0], (int)cy + EYE[i][1], (uint8_t)(R_FLAME + 4));
@@ -4316,7 +4328,7 @@ static void spr_brood(int id, int frame) {
     cv_ellipse(cx, cy + 3, 9.0f, 7.0f, R_IRON, 0.06f, 0.45f);     /* head */
     if (frame != 3) {
         static const int EYE[10][2] = { {-3, 0}, {3, 0}, {-1, -1}, {1, -1}, {-5, 1}, {5, 1}, {-2, 2}, {2, 2}, {-4, -2}, {4, -2} };
-        for (int i = 0; i < 10; i++) cv_px((int)cx + EYE[i][0], (int)cy + EYE[i][1], (uint8_t)(R_FLAME + (i < 4 ? 5 : 2)));
+        for (int i = 0; i < 10; i++) (i < 2 ? cv_eye : cv_px)((int)cx + EYE[i][0], (int)cy + EYE[i][1], (uint8_t)(R_FLAME + (i < 4 ? 5 : 2)));
         for (int k = -1; k <= 1; k += 2) cv_capsule(cx + k * 2.5f, cy + 7, cx + k * 3.5f, cy + 12, 1.1f, R_BONE, 0.3f, 0.75f);
     }
     cv_outline(0);
@@ -4366,7 +4378,7 @@ static void spr_ling(int id, int frame) {
         }
     cv_ellipse(32, 38, 12, 10, R_IRON, 0.06f, 0.45f);
     cv_ellipse(32, 48, 8, 7, R_IRON, 0.08f, 0.5f);
-    for (int k = -1; k <= 1; k += 2) cv_flat(32 + k * 3.5f, 47, 2.2f, 2.2f, (uint8_t)(R_FLAME + 5));
+    for (int k = -1; k <= 1; k += 2) { cv_flat(32 + k * 3.5f, 47, 2.2f, 2.2f, (uint8_t)(R_FLAME + 5)); cv_eye_mark((int)(32 + k * 3.5f), 47); }
     cv_outline(0);
     cv_store(id);
 }
@@ -4403,8 +4415,8 @@ static void spr_wraith_big(int id, float ph, int pose) {
     float ey = 11.5f, gap = pose == 2 ? 3.0f : 2.5f;
     for (int k = -1; k <= 1; k += 2) {
         int ex = (int)(32 + k * gap - (k < 0));
-        if (pose == 3) { cv_px(ex, (int)ey, (uint8_t)(R_GLOW + 12)); cv_px(ex + k, (int)ey, (uint8_t)(R_GLOW + 9)); continue; }   /* narrowed */
-        cv_px(ex, (int)ey, C_WHITE); cv_px(ex, (int)ey + 1, (uint8_t)(R_GLOW + 13));
+        if (pose == 3) { cv_eye(ex, (int)ey, (uint8_t)(R_GLOW + 12)); cv_px(ex + k, (int)ey, (uint8_t)(R_GLOW + 9)); continue; }   /* narrowed */
+        cv_eye(ex, (int)ey, C_WHITE); cv_px(ex, (int)ey + 1, (uint8_t)(R_GLOW + 13));
         cv_px(ex + k, (int)ey, (uint8_t)(R_GLOW + 11)); cv_px(ex, (int)ey - 1, (uint8_t)(R_GLOW + 9));
         if (pose == 2) { cv_px(ex - k, (int)ey, (uint8_t)(R_GLOW + 11)); cv_px(ex, (int)ey + 2, (uint8_t)(R_GLOW + 8)); }
     }
@@ -4518,7 +4530,7 @@ static void spr_imp(int id, int pose) {
     cv_ellipse(32, hy, 9.5f, 8.5f, R_BRICK, 0.3f, 1.0f);
     for (int s = -1; s <= 1; s += 2) {
         cv_flat(32 + s * 3.5f, hy - 1.5f, 2.0f, 1.5f, 0);
-        cv_px(32 + s * 3 + (s < 0 ? -1 : 0), (int)(hy - 2), (uint8_t)(R_FLAME + 14)); cv_px(32 + s * 3 + (s < 0 ? 0 : 1), (int)(hy - 1), (uint8_t)(R_FLAME + 10));
+        cv_eye(32 + s * 3 + (s < 0 ? -1 : 0), (int)(hy - 2), (uint8_t)(R_FLAME + 14)); cv_px(32 + s * 3 + (s < 0 ? 0 : 1), (int)(hy - 1), (uint8_t)(R_FLAME + 10));
     }
     for (int x = 26; x <= 38; x++) {                                /* the grin, wide and lit from inside */
         int y = (int)(hy + 3 + (x - 32) * (x - 32) * -0.04f + 1.5f);
@@ -4614,7 +4626,7 @@ static void spr_gargoyle(int id, int pose) {
     cv_ellipse(hx, hy + 4, 4.5f, 2.8f, R_STONE, 0.2f, 0.8f);       /* muzzle */
     for (int s = -1; s <= 1; s += 2) {
         cv_flat(hx + s * 2.5f, hy - 1, 1.5f, 1.0f, perch ? sh(R_STONE, 0.1f) : 0);
-        if (!perch) cv_px((int)(hx + s * 2.5f), (int)(hy - 1), (uint8_t)(R_FLAME + 12));
+        if (!perch) cv_eye((int)(hx + s * 2.5f), (int)(hy - 1), (uint8_t)(R_FLAME + 12));
     }
     cv_flat(hx, hy + 5, swoop ? 3.0f : 2.0f, swoop ? 1.6f : 0.6f, 0);
     if (swoop) for (int i = -1; i <= 1; i += 2) cv_px((int)hx + i * 2, (int)hy + 4, sh(R_STONE, 0.9f));
@@ -8849,6 +8861,7 @@ void crawl_art_init(void) {
         static const char *const SK[6] = { ".XXXXX.", "XXXXXXX", "XooXooX", "XXXXXXX", ".XXoXX.", ".X.X.X." };
         uint8_t *d = crawl_spr[SP_BSPIDER_A + f];
         memcpy(d, crawl_spr[SP_HUNTER_A + f], TS * TS);
+        crawl_eyes[SP_BSPIDER_A + f] = crawl_eyes[SP_HUNTER_A + f];
         for (int y = 0; y < 6; y++)
             for (int x = 0; x < 7; x++)
                 if (SK[y][x] != '.') d[(29 + x) * TS + 35 + y] = SK[y][x] == 'X' ? (uint8_t)(R_BONE + 13 - (y > 3)) : (uint8_t)(R_BONE + 1);
