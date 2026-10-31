@@ -3401,54 +3401,82 @@ static void spr_double(void) {
     cv_store(SP_DOUBLE);
 }
 
-/* The wraith: a tall hooded shape, nothing inside the hood but two cold eyes, bone hands reaching
- * out of the sleeves, the hem of its robe dissolving into wisps. recoil: thrown back, shrieking. */
-static void spr_wraith(int id, float phase, int recoil) {
+/* The spectre's face (docs/InitialArtPass.md, section 8): long and drawn, the brow heavy over hollow sockets with a
+ * light deep in each, the cheeks fallen in, the mouth dragged open in a wail down to a narrow chin. In the ghost's ramp. */
+static const char *const SPECTRE_FACE[21] = {
+    "..789999987..", ".79abbbbba97.", "69bcccdcccb96", "7acdde8eddca7", "7bdca7c7acdb7",
+    "6ca317c713ac6", "5b2005b5002b5", "590016b610095", "470@16a61@074", "320148a841023",
+    "3436938396343", "379ba575ab973", "2689462649862", "2478320238742", "1367300037631",
+    ".35720002753.", ".34620002643.", ".24630003642.", "..464101464..", "..356303653..",
+    "...4687864...",
+};
+/* and turned to the right: the brow and nose at the front, the jaw hanging open */
+static const char *const SPECTRE_SIDE[21] = {
+    "....789a.", "...79bcc.", "..79bcdd.", "..8bcdee.", "..9cdeed.",
+    "..acdcbd9", "..bc7214.", "..bb20@1.", "..ab5125.", "..acb89b.",
+    "..9cdcbc8", "..9bccba7", "..8ab964.", "..79720..", "..7850000",
+    "..6840000", "..674000.", "..57510..", "..567423.", "...57876.",
+    "....566..",
+};
+
+/* a hand of mist at hx, hy: a pale palm, long fingers fanned towards a (radians, 0 = out to side s), their tips
+ * trailing off into wisps, and a few motes falling from it */
+static void mist_hand(float hx, float hy, int s, float a, float ph, uint32_t seed) {
+    cv_ellipse(hx, hy, 2.2f, 1.9f, R_GHOST, 0.5f, 0.85f);
+    for (int f = 0; f < 4; f++) {
+        float fa = a + (f - 1.5f) * 0.32f, len = 6.0f + (f == 1 || f == 2 ? 1.5f : 0.0f);
+        float tx = hx + s * cosf(fa) * len, ty = hy + sinf(fa) * len;
+        cv_line(hx, hy, tx, ty, sh(R_GHOST, 0.8f));
+        for (int k = 1; k <= 4; k++) {                              /* the tip going to mist, drifting down */
+            float wx = tx + s * cosf(fa) * k * 1.2f, wy = ty + sinf(fa) * k * 1.2f + k * k * 0.25f;
+            if ((k & 1) || h01(f, k, seed) < 0.4f) cv_px((int)wx, (int)wy, sh(R_GHOST, 0.62f - k * 0.08f));
+        }
+    }
+    for (int k = 0; k < 5; k++) {                                   /* motes falling from the hand */
+        float d = fmodf(h01(k, 1, seed) * 9.0f + ph * 1.3f, 9.0f);
+        cv_px((int)(hx + (h01(k, 2, seed) - 0.5f) * 7.0f), (int)(hy + 3.0f + d), sh(R_GHOST, 0.55f - d * 0.04f));
+    }
+}
+
+/* The spectre: the long face pale in the mouth of a hood, a shroud trailing to a tail that sways and frays, hands of
+ * mist held out. recoil: thrown back, its arms flung up, the shroud flaring (the shriek as it goes). */
+static void spr_spectre(int id, float ph, int recoil) {
     cv_begin(cv_sprite, TS, TS);
-    float lift = recoil ? -3.0f : 0.0f;
-    for (int y = 1; y < TS; y++)                                    /* the robe */
+    float lift = recoil ? -3.0f : 0.0f, oy = 17.0f + lift;          /* the hood's opening, about the face */
+    for (int y = 1; y < TS; y++)
         for (int x = 0; x < TS; x++) {
-            float dx = x + 0.5f - 32.0f, yy = y + 0.5f - lift;
-            float hw;
-            if (yy < 14.0f) {                                         /* a tall, pointed hood */
-                float hy = (yy - 11.0f) / 9.5f; hw = 10.0f * sqrtf(fmaxf(0.0f, 1.0f - hy * hy));
-                if (yy < 7.0f) hw *= (yy - 0.5f) / 6.5f;
-                if (yy < 1.0f) continue;
-            }
-            else hw = 11.0f + (yy - 14.0f) * (recoil ? 0.42f : 0.36f);
-            float hem = 54.0f + 4.0f * sinf(dx * 0.55f + phase) + 3.0f * sinf(dx * 1.3f - phase * 1.7f);
-            if (fabsf(dx) > hw || yy > hem + 6.0f) continue;
-            if (yy > hem && h01(x, y, 19 + (int)(phase * 3.0f)) > (hem + 6.0f - yy) / 6.0f) continue;   /* frays into wisps */
-            float u = dx / hw;
-            float v = 0.06f + 0.16f * (1.0f - u * u) - (yy - 14.0f) * 0.002f;
-            if (fmodf(dx * 0.35f + 20.0f + sinf(yy * 0.1f + phase) * 0.6f, 2.0f) < 0.35f) v -= 0.05f;   /* folds */
-            if (fabsf(u) > 0.88f) v += 0.3f;                        /* a cold rim of light */
-            if (yy < 14.0f && yy < 11.0f - 9.5f * sqrtf(fmaxf(0.0f, 1.0f - (dx / 10.0f) * (dx / 10.0f))) + 2.5f) v += 0.3f;   /* the hood's crown */
+            float yy = y + 0.5f - lift, t = (yy - 26.0f) / 37.0f;
+            float sway = t > 0.0f ? sinf(ph + t * 2.6f) * 4.5f * t : 0.0f;   /* the tail drifts */
+            float dx = x + 0.5f - 32.0f - sway, hw, flare = recoil ? 0.36f : 0.2f;
+            if (yy < 2.0f) continue;
+            if (yy < 12.0f) hw = 10.8f * sqrtf((yy - 2.0f) / 10.0f);  /* the hood's crown */
+            else if (yy < 26.0f) hw = 10.8f + (yy - 12.0f) * 0.1f;   /* falling past the face */
+            else if (yy < 40.0f) hw = 12.2f + (yy - 26.0f) * flare;   /* the shoulders, the breast */
+            else hw = (12.2f + 14.0f * flare) * (1.0f - (yy - 40.0f) / 31.0f);   /* narrowing to the tail */
+            if (fabsf(dx) > hw) continue;
+            if (yy > 30.0f && fabsf(dx) > hw - 2.0f && h01(dx > 0.0f, (int)(yy / 2.0f), 967) < 0.3f) continue;   /* torn at its edges */
+            if (yy > 44.0f && h01(x, (int)(yy / 3.0f), 961 + (int)(ph * 3.0f)) * 0.7f + h01(x, y, 963) * 0.3f < (yy - 44.0f) / 22.0f) continue;   /* fraying in streaks */
+            float u = dx / hw, v = 0.1f + 0.2f * (1.0f - u * u) - fmaxf(0.0f, t) * 0.07f;
+            if (fmodf(dx * 0.42f + 20.0f + sinf(yy * 0.08f + ph) * 0.8f, 2.2f) < 0.4f) v -= 0.06f;   /* folds */
+            if (fabsf(u) > 0.86f) v += 0.28f;                       /* a cold rim of light */
+            float ox = (x + 0.5f - 32.0f) / 7.8f, oyy = (y + 0.5f - oy) / 11.2f, o = ox * ox + oyy * oyy;
+            if (o <= 1.0f) v = 0.02f;                               /* the hood's mouth, all shadow */
+            else if (o <= 1.35f && y < oy + 9.0f) v += 0.22f;       /* its lip */
             cv_px(x, y, sh(R_GHOST, v));
         }
-    for (int y = 6; y < 24; y++)                                    /* the hood's dark mouth */
-        for (int x = 23; x < 42; x++) {
-            float nx = (x + 0.5f - 32.0f) / 6.2f, ny = (y + 0.5f - 15.5f - lift) / (recoil ? 8.0f : 7.0f);
-            if (nx * nx + ny * ny <= 1.0f) cv_px(x, y, 0);
-        }
-    int ey = (int)(14.0f + lift);                                   /* eyes */
-    for (int k = -1; k <= 1; k += 2) {
-        int ex = 32 + k * 3 - (k < 0 ? 1 : 0);
-        cv_eye(ex, ey, C_WHITE); cv_px(ex + 1, ey, (uint8_t)(R_GLOW + 15));
-        cv_px(ex, ey + 1, (uint8_t)(R_GLOW + 13)); cv_px(ex + 1, ey + 1, (uint8_t)(R_GLOW + 12));
+    grid_stamp(SPECTRE_FACE, 13, 21, 26, (int)(7.0f + lift), R_GHOST, R_GHOST, C_WHITE, 0);
+    for (int x = 25; x <= 39; x++) {                                /* the hood's brim over the brow */
+        float ox = (x + 0.5f - 32.0f) / 7.8f;
+        if (fabsf(ox) >= 1.0f) continue;
+        int ye = (int)(oy - 11.2f * sqrtf(1.0f - ox * ox));
+        cv_px(x, ye, sh(R_GHOST, 0.42f)); cv_px(x, ye + 1, sh(R_GHOST, 0.3f));
     }
-    if (recoil) for (int y = ey + 4; y < ey + 9; y++) for (int x = 30; x < 35; x++) cv_px(x, y, 0);   /* the shriek */
-    for (int s = -1; s <= 1; s += 2) {                              /* sleeves and bone hands */
-        float sx = 32.0f + s * 9.0f, sy = 20.0f + lift;
-        float hx = recoil ? 32.0f + s * 25.0f : 32.0f + s * 19.0f, hy = recoil ? 6.0f + lift : 30.0f + 2.0f * sinf(phase + s);
-        cv_capsule(sx, sy, hx - s * 2.0f, hy, 3.4f, R_GHOST, 0.15f, 0.55f);
-        for (int f = -1; f <= 1; f++) {
-            float fa = (recoil ? -1.6f : 0.1f) + f * 0.35f;
-            float tx = hx + s * cosf(fa) * 5.0f, ty = hy + sinf(fa) * 5.0f + (recoil ? 0.0f : 2.0f);
-            cv_line(hx, hy, tx, ty, sh(R_BONE, 0.75f));
-            cv_px((int)tx, (int)ty, sh(R_BONE, 0.95f));
-        }
-        cv_ellipse(hx, hy, 1.8f, 1.6f, R_BONE, 0.4f, 0.9f);
+    for (int s = -1; s <= 1; s += 2) {                              /* sleeves, and the hands of mist */
+        float sx = 32.0f + s * 10.0f, sy = 25.0f + lift;
+        float hx = recoil ? 32.0f + s * 22.0f : 32.0f + s * 19.0f, hy = recoil ? 11.0f + lift : 33.0f + 2.0f * sinf(ph + s);
+        cv_capsule(sx, sy, hx - s * 2.5f, hy + (recoil ? 2.0f : -1.0f), 3.3f, R_GHOST, 0.12f, 0.48f);
+        cv_ellipse(hx - s * 2.5f, hy + (recoil ? 2.0f : -1.0f), 3.4f, 2.6f, R_GHOST, 0.15f, 0.5f);   /* the sleeve's mouth */
+        mist_hand(hx, hy, s, recoil ? -1.15f : 0.75f, ph, 971 + (uint32_t)(s + 1));
     }
     cv_store(id);
 }
@@ -5851,25 +5879,43 @@ static void spr_spider_side(int id, int frame) {
 }
 
 /* the spectre from the side: leaning on, its hem streaming back, a hand held out */
-static void spr_ghost_side(int id, float ph) {
+static void spr_ghost_side(int id, float ph) {             /* the spectre turned: the long face forward, its shroud streaming behind */
     cv_begin(cv_sprite, TS, TS);
     for (int y = 2; y < TS; y++)
         for (int x = 0; x < TS; x++) {
-            float t = (y - 2) / 60.0f, lean = 8.0f * (1.0f - t);     /* the head forward of the hem */
-            float front = 36.0f + lean + (y < 14 ? -(14 - y) * 0.6f : 0.0f), back = 26.0f + lean - t * 18.0f + sinf(y * 0.2f + ph) * 2.0f;
-            if (y < 4 && x > front - 3) continue;
-            if (x > front || x < back) continue;
-            float hem = 52.0f + 4.0f * sinf(x * 0.5f + ph);
-            if (y > hem && h01(x, y, 941 + (int)(ph * 3.0f)) > (hem + 8.0f - y) / 8.0f) continue;
-            float u = (x - back) / (front - back + 0.01f), v = 0.08f + 0.18f * sinf(u * PI_F) - t * 0.05f;
-            if (u > 0.9f) v += 0.25f;                              /* the cold rim along its front */
+            float yy = y + 0.5f, xx = x + 0.5f, front, back;
+            if (yy < 15.0f) {                                         /* the hood's crown, round, bulging back */
+                float k = (yy - 15.0f) / 12.5f;
+                if (fabsf(k) >= 1.0f) continue;
+                float r = 10.5f * sqrtf(1.0f - k * k);
+                front = 35.0f + r * 0.95f; back = 35.0f - r * 1.15f;
+            } else if (yy < 28.0f) {                                  /* and falling to the shoulders */
+                float k = (yy - 15.0f) / 13.0f;
+                front = 45.0f - 2.0f * k; back = 22.9f + 1.6f * k;
+            } else {                                                  /* the shroud streaming back and down */
+                float t = (yy - 28.0f) / 35.0f;
+                front = 43.0f - 13.0f * t; back = 24.5f - 12.0f * t + sinf(yy * 0.18f + ph) * 2.5f * t;
+            }
+            if (xx > front || xx < back) continue;
+            if (yy > 46.0f && h01((int)(xx * 0.7f), (int)(yy / 3.0f), 981 + (int)(ph * 3.0f)) * 0.7f + h01(x, y, 983) * 0.3f < (yy - 46.0f) / 20.0f) continue;
+            float u = (xx - back) / (front - back + 0.01f), v = 0.09f + 0.2f * sinf(u * PI_F) - (yy > 28.0f ? (yy - 28.0f) * 0.002f : 0.0f);
+            if (fmodf(yy * 0.3f - xx * 0.25f + sinf(xx * 0.1f + ph) + 20.0f, 2.4f) < 0.4f) v -= 0.05f;   /* folds, streaming */
+            if (u > 0.9f || u < 0.06f) v += 0.25f;                 /* the cold rim */
+            float ox = (xx - 40.0f) / 4.6f, oyy = (yy - 17.0f) / 11.0f;
+            if (ox * ox + oyy * oyy <= 1.0f) v = 0.02f;             /* the hood's mouth */
             cv_px(x, y, sh(R_GHOST, v));
         }
-    cv_flat(40, 11, 3.0f, 4.0f, 0);                                 /* the hood's mouth, turned away a little */
-    cv_px(41, 10, C_WHITE); cv_px(41, 11, (uint8_t)(R_GLOW + 13));
-    cv_capsule(36, 20, 47, 25 + sinf(ph), 3.2f, R_GHOST, 0.15f, 0.5f);   /* the sleeve */
-    for (int f = -1; f <= 1; f++) cv_line(48, 25 + sinf(ph), 52, 24 + f * 1.5f + sinf(ph), sh(R_BONE, 0.8f));
-    cv_ellipse(48, 25 + sinf(ph), 1.6f, 1.5f, R_BONE, 0.4f, 0.9f);
+    grid_stamp(SPECTRE_SIDE, 9, 21, 36, 7, R_GHOST, R_GHOST, C_WHITE, 0);
+    for (int x = 35; x <= 45; x++) {                                /* the brim over the brow */
+        float ox = (x + 0.5f - 40.0f) / 5.2f;
+        if (fabsf(ox) >= 1.0f) continue;
+        int ye = (int)(17.0f - 11.0f * sqrtf(1.0f - ox * ox));
+        cv_px(x, ye, sh(R_GHOST, 0.42f)); cv_px(x, ye + 1, sh(R_GHOST, 0.3f));
+    }
+    float hy = 29.0f + 1.5f * sinf(ph);
+    cv_capsule(34, 26, 47, hy - 1.0f, 3.2f, R_GHOST, 0.12f, 0.48f);   /* the sleeve */
+    cv_ellipse(47, hy - 1.0f, 3.0f, 2.6f, R_GHOST, 0.15f, 0.5f);
+    mist_hand(50, hy, 1, 0.35f, ph, 991);
     cv_store(id);
 }
 
@@ -9443,10 +9489,10 @@ void crawl_art_init(void) {
     spr_skeleton(SP_SKEL_D1, 0.0f, 0.35f, 3, 0);
     spr_skeleton(SP_SKEL_D2, 0.0f, 0.7f, 3, 0);
     spr_skeleton(SP_SKEL_D3, 0.0f, 1.0f, 3, 0);
-    spr_wraith(SP_GHOST_A, 0.0f, 0);
-    spr_wraith(SP_GHOST_B, PI_F, 0);
-    spr_wraith(SP_GHOST_D1, 1.0f, 1);
-    spr_wraith(SP_GHOST_D2, 2.5f, 1);
+    spr_spectre(SP_GHOST_A, 0.0f, 0);
+    spr_spectre(SP_GHOST_B, PI_F, 0);
+    spr_spectre(SP_GHOST_D1, 1.0f, 1);
+    spr_spectre(SP_GHOST_D2, 2.5f, 1);
     spr_bat(SP_BAT_A, 0);
     spr_bat(SP_BAT_B, 1);
     spr_bat(SP_BAT_D, 2);
