@@ -4386,21 +4386,35 @@ static void cv_bone_decay(uint32_t seed) {
         }
 }
 
-/* The bone hound: a dog's skeleton in a spiked collar, coming at you a little from the side.
+/* The bone hound: a dog's skeleton in a spiked collar, a broken chain hung from it, coming at you a little from the side.
  * pose: 0-1 running, 2 biting, 3 a heap. All bone (PF_BONE). */
-static void dog_skull(float x, float y, float jaw, int eye) {
-    cv_ellipse(x + 3, y - 1, 6.0f, 5.0f, R_BONE, 0.3f, 1.0f);      /* the crown, behind */
-    cv_capsule(x + 1, y + 1, x - 7, y + 6, 2.8f, R_BONE, 0.3f, 0.95f);   /* the long snout, towards you */
-    cv_capsule(x + 2, y + 4, x - 6, y + 8 + jaw, 1.6f, R_BONE, 0.25f, 0.8f);   /* the jaw */
-    for (int i = 0; i < 4; i++) {                                   /* teeth, top and bottom */
-        cv_px((int)(x - 6 + i * 2.0f), (int)(y + 8.0f - (3 - i) * 0.6f), sh(R_BONE, 1.0f));
-        cv_px((int)(x - 5 + i * 2.0f), (int)(y + 7.5f + jaw - (3 - i) * 0.6f), sh(R_BONE, 0.9f));
-    }
-    if (jaw > 1.0f) cv_flat(x - 2, y + 7 + jaw * 0.5f, 3.0f, jaw * 0.5f, 0);   /* the gape */
-    cv_flat(x - 7, y + 5, 1.0f, 0.8f, 0);                          /* nostril */
-    cv_flat(x + 2.5f, y - 0.5f, 2.0f, 1.8f, 0);                    /* the eye socket */
-    if (eye) cv_eye((int)(x + 2.5f), (int)(y - 0.5f), (uint8_t)(R_FLAME + 11));
+/* the dog's skull, by hand (docs/InitialArtPass.md section 8), facing left: a long muzzle, the nasal opening at its tip,
+ * a deep orbit, the cheekbone's arch, a canine hanging; the lower jaw apart, hinged under the orbit, its front dropping
+ * by jaw pixels. x, y as before: the eye a little right of x, the snout's tip nine to the left. */
+static const char *const DOG_UPPER[8] = {
+    "...........68a986", ".........59bccdb8", ".....3679abcddcb7", "..4689abcdb00@0b8", ".0789aab9a9800ba7",
+    "0689a9887ab9cba96", ".4e5e7e67789a9864", "...f.............",
+};
+static const char *const DOG_JAW[4] = { ".e5e5e5e6789a9.", ".46789aa9a9a985", "..3567788898642", "....23445555432" };
+static void dog_skull_at(int x0, int y0, float jaw, int eye, int mirror) {   /* top left at x0, y0; mirror: facing right */
+    #define DX(c) (mirror ? x0 + 16 - (c) : x0 + (c))
+    if (jaw > 1.5f)                                                 /* the gape, dark behind the teeth */
+        for (int c = 1; c < 13; c++) {
+            int d = (int)(jaw * (1.0f - (float)c / 14.0f));
+            for (int k = 0; k < d; k++) cv_px(DX(c), y0 + 7 + k, 0);
+        }
+    for (int r = 0; r < 4; r++)                                     /* the jaw, its front dropped further than its back */
+        for (int c = 0; c < 15; c++) {
+            char ch = DOG_JAW[r][c];
+            if (ch == '.') continue;
+            int d = (int)(jaw * (1.0f - (float)c / 14.0f) + 0.5f);
+            cv_px(DX(1 + c), y0 + 7 + r + d, (uint8_t)(R_BONE + (ch <= '9' ? ch - '0' : ch - 'a' + 10)));
+        }
+    grid_stamp(DOG_UPPER, 17, 8, x0, y0, R_BONE, R_BONE, eye ? (uint8_t)(R_FLAME + 11) : 0, mirror);
+    if (!eye) cv_px(DX(13), y0 + 3, 0);                            /* a dead one's socket, empty */
+    #undef DX
 }
+static void dog_skull(float x, float y, float jaw, int eye) { dog_skull_at((int)x - 9, (int)y - 5, jaw, eye, 0); }
 
 static void spr_hound(int id, float w, int pose) {
     cv_begin(cv_sprite, TS, TS);
@@ -4444,10 +4458,30 @@ static void spr_hound(int id, float w, int pose) {
         cv_px(x, y, sh(R_IRON, 0.3f + 0.4f * sz)); cv_px(x, y + 1, sh(R_IRON, 0.2f));
         if (a % 4 == 1 && sz > 0.2f) cv_px(x, y + 2, sh(R_IRON, 0.85f));
     }
-    dog_skull(hx, hy, bite ? 6.0f : 1.0f + (w > 0 ? 0.6f : 0.0f), 1);
+    for (int k = 0; k < 4; k++)                                     /* a chain from the collar, broken off */
+        cv_px(24 + k / 2, (int)(hy + 8 + k * 1.6f), sh(R_IRON, (k & 1) ? 0.65f : 0.3f)), cv_px(25 + k / 2, (int)(hy + 9 + k * 1.6f), sh(R_IRON, 0.2f));
+    dog_skull(hx, hy, bite ? 7.0f : 1.0f + (w > 0 ? 0.6f : 0.0f), 1);
     cv_bone_decay(305);
     cv_outline(0);
     cv_store(id);
+}
+
+/* the bone hound's dressing by rank: II a strip of hide from its collar and moss in its bones, III frost and its skull
+ * cracked, IV an arrow in its ribs and old blood about its jaws, V charred under a spiked iron muzzle-strap and its
+ * master's chain, gilded a gold collar and gold leaf */
+static void hound_dress(int id, float w, int pose) {
+    float bob = (pose == 0 ? 1.0f : 0.0f) * w, hy = 26 + bob + (pose == 2 ? 6.0f : 0.0f);
+    for (int r = RK_II; r < NRANK; r++) {
+        dress_begin(id);
+        if (r != RK_GILDED) kit_rags(21, hy + 6, 26, hy + 7, r == RK_II ? 6.0f : 8.0f, w * 0.5f, R_WOOD, 0.1f, 0.35f, 0, 531);
+        if (r == RK_II) kit_moss(0.3f, 2, 533);
+        if (r == RK_III) kit_frost(0.8f, 535);
+        if (r >= RK_III && r != RK_GILDED) { cv_line(21, hy - 4, 23, hy, 0); cv_px(24, (int)hy - 1, 0); }   /* the skull cracked */
+        if (r >= RK_IV && r != RK_GILDED) { kit_arrow(33, 33 + bob, -1.2f, 8.0f); kit_blood(12, hy + 2, 6, 4, 537); kit_blood(33, 34 + bob, 7, 1, 539); }
+        if (r == RK_V) { kit_char(0.3f, 541); cv_line(10, hy, 18, hy - 3, sh(R_IRON, 0.55f)); cv_line(10, hy + 1, 18, hy - 2, sh(R_IRON, 0.25f)); kit_chain(24, hy + 8, 30, hy + 22, 3.0f, R_IRON); }
+        if (r == RK_GILDED) { kit_gold(R_BONE, 0.5f, 543); for (int a = 0; a < 20; a++) { float ang = TAU_F * a / 20.0f, sz = sinf(ang); if (sz >= -0.3f) cv_px((int)(23 + 4.5f * cosf(ang)), (int)(hy + 5 + 2.0f * sz), (uint8_t)(R_GOLD + 8 + (int)(3.0f * sz))); } }
+        dress_store(id, r, R_BONE);
+    }
 }
 
 /* The skeleton knight: plate over bone, a two-handed sword with a steel blade (R_GHOST, so the
@@ -4651,6 +4685,7 @@ static void spr_deacon(int id, float w, int pose) {
 /* the bestiary's bones age with the level, like the skeletons' */
 static void spr_bestiary_bones(void) {
     spr_hound(SP_HOUND_A, 1.0f, 0); spr_hound(SP_HOUND_B, -1.0f, 1); spr_hound(SP_HOUND_BITE, 0.0f, 2); spr_hound(SP_HOUND_D, 0.0f, 3);
+    hound_dress(SP_HOUND_A, 1.0f, 0); hound_dress(SP_HOUND_B, -1.0f, 1); hound_dress(SP_HOUND_BITE, 0.0f, 2);
     for (int st = 0; st < 3; st++) {
         int base = SP_KNIGHT_A + st * 4;
         spr_knight(base, 1.0f, 0, st); spr_knight(base + 1, -1.0f, 1, st); spr_knight(base + 2, 0.0f, 2, st); spr_knight(base + 3, 0.0f, 3, st);
@@ -5870,11 +5905,7 @@ static void spr_hound_side(int id, float w) {
     for (int y = 26; y < 35; y++) cv_px(46 + (y & 1), y + (int)bob, sh(R_IRON, 0.35f + 0.3f * (y & 1)));   /* the collar */
     cv_px(48, 27 + (int)bob, sh(R_IRON, 0.9f)); cv_px(48, 31 + (int)bob, sh(R_IRON, 0.9f));
     float hx = 51, hy = 28 + bob;                                   /* the skull, long in the snout */
-    cv_ellipse(hx, hy, 5.0f, 4.4f, R_BONE, 0.3f, 1.0f);
-    cv_capsule(hx + 2, hy + 1, hx + 10, hy + 3, 2.3f, R_BONE, 0.3f, 0.95f);
-    cv_capsule(hx, hy + 4, hx + 9, hy + 6, 1.4f, R_BONE, 0.25f, 0.8f);
-    for (int i = 0; i < 4; i++) cv_px((int)(hx + 4 + i * 1.6f), (int)(hy + 4.5f), sh(R_BONE, 1.0f));
-    cv_flat(hx + 1.5f, hy - 1.0f, 1.8f, 1.6f, 0); cv_px((int)(hx + 1.5f), (int)(hy - 1), (uint8_t)(R_FLAME + 11));
+    dog_skull_at((int)hx - 5, (int)hy - 4, 1.0f, 1, 1);             /* the hand-drawn skull, facing right */
     cv_bone_decay(975);
     cv_outline(0);
     cv_store(id);
