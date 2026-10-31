@@ -209,6 +209,14 @@ enum {
     SP_SNARE,                                   /* a web across a doorway, all but unseen */
     SP_SPIKES,                                  /* Shatterglass: spikes of black glass stood up from the floor */
     SP_ASHFALL,                                 /* ash coming down */
+    /* puzzles' things (1.0.0b13, docs/PLAN-b13.md sections 6 and 7) */
+    SP_PZ_SKULL,                                /* a skull to carry, its brow scratched with a mark */
+    SP_PZ_PLINTH,                               /* a low stone plinth that takes a thing */
+    SP_PZ_DIAL0, SP_PZ_LEVER0 = SP_PZ_DIAL0 + 8,   /* a dial on a post in its eight turns; */
+    SP_PZ_LEVER1, SP_PZ_CANDLE0, SP_PZ_CANDLE1, /* a lever up and down; a candle dark and lit */
+    SP_PZ_TABLET,                               /* a carved tablet on its stand */
+    SP_MARK0, SP_PIP1 = SP_MARK0 + 16,          /* the marks carved on things (PZ_MARKS in crawl_art.c), */
+    SP_PZ_LAST = SP_PIP1 + 9,                   /* and one to nine pips */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
     SP_SKEL_SA, SP_SKEL_SB, SP_SHIELD_SA, SP_SHIELD_SB, SP_BAT_SA, SP_BAT_SB, SP_SPIDER_SA, SP_SPIDER_SB,
     SP_GHOST_SA, SP_GHOST_SB, SP_WSKULL_S,
@@ -276,6 +284,8 @@ extern const char *const RUNE_GLYPH[9][7];      /* the runes' marks, 5 by 7, by 
 extern const char *const ELEM_GLYPH[6][7];      /* the elements' glyphs, 7 by 7, by EL_*: '#' the colour, 'o' bright (1.0.0b11) */
 extern const char *const RUNE_MARK[9][11];      /* the runes' marks for their sockets, 11 by 11, by DF_* */
 extern const char *const CLASS_MARK[6][11];     /* the classes' marks, 11 by 11, by the class's element */
+extern const char *const PZ_MARKS[16][7];       /* the marks carved on puzzles' things, 7 by 7 (1.0.0b13): mitre, helm, tonsure, crown,
+                                                   key, wheel, arrows, tower, lamb, lamp, eye, hand, picks, moon, star, skull */
 extern const signed char LAMP_BOWL[6][2];       /* where the Lampstand's bowls sit on its sprite, by EL_* */
 int crawl_lamp_flame(int dx, int dy, int rank, float t, int seed);   /* a bowl's flame: its ramp's step there (0 none) */
 void crawl_art_init(void);                      /* builds everything once */

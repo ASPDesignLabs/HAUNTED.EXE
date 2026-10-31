@@ -362,6 +362,20 @@ typedef struct {
     float t, wait, k, took, hit_t, ax, ay;
     int8_t cx[HZ_CELLS], cy[HZ_CELLS]; uint8_t cd[HZ_CELLS];
 } HzSite;
+/* a thing a puzzle lays out (1.0.0b13, docs/PLAN-b13.md section 6): what it is (TR_*), drawn as a sprite (one frame a state
+ * when it has frames) with a mark carved on it, or on the floor; an item sits in a place (in), and was taken from one (home)
+ * or from the floor (hx, hy); a place holds an item so high (hold); its value (a mark, a weight, a note) and what it wants */
+enum { TR_ITEM, TR_PLACE, TR_TURN, TR_LEVER, TR_LIGHT, TR_STRIKE, TR_PLATE, TR_READ };
+enum { PZ_TAKE, PZ_SET, PZ_TURN, PZ_PULL, PZ_LIGHT, PZ_STRIKE, PZ_STEP, PZ_READ };
+#define MAXTHING 48
+typedef struct {
+    uint8_t role, nstate, state, wall, on, frames;
+    int16_t spr, mark, ramp;
+    int8_t in, home;
+    int cx, cy, val, want, grp;
+    float x, y, z, hold, scale, t, hx, hy, mz;
+    char name[40], text[160];
+} Thing;
 static int boss_sealed(void);
 static int boss_fighting(void);
 static int in_arena(float x, float y);
@@ -825,6 +839,9 @@ static struct {
     HzSite site[MAXSITE]; int nsite;
     float arise_t, hz_el_acc[NELEM], snare_t;
     uint8_t hz_el_by[NELEM];
+    /* puzzles' things (1.0.0b13, section 6): what is laid out, what is carried (1 + it), what was read last and how long it shows */
+    Thing thing[MAXTHING]; int nthing, carry;
+    float read_t; char read_text[160];
 } G;
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
        BP_LITANY };                                 /* the Deacon's censer raised, the green light growing */
@@ -2929,6 +2946,7 @@ static int passing(void) { return G.dash_t > 0.0f || G.wwalk_t > 0.0f; }   /* da
 static Blame blame_of(const Mob *m) { Blame b = { (uint8_t)(m->boss ? BL_BOSS : BL_MOB), (uint8_t)(m->boss ? m->boss - 1 : m->type), (uint8_t)m->rank }; return b; }
 static void death_fall(void);
 static void death_wake(void);
+static void thing_drop_home(void);
 /* The element of a hurt (docs/PLAN-b11.md, section 4): by how it is resisted, unless the one about to deal
  * it says otherwise (harm_next: the shade's touch is Spirit, the Wraith's Frost). Once it gets through, the
  * kind that dealt it is learnt to deal it, three times and known (rec_harm) */
@@ -7346,6 +7364,9 @@ static void place_altar(void) {
 
 static void pocket_reset_level(void);
 static void place_sites(void);
+#ifdef CRAWL_DEBUG
+static void things_test(void);
+#endif
 static void map_carto(void);
 static void map_up(void);
 static void map_keys(float dt);
@@ -7396,6 +7417,10 @@ static void start_level(void) {
     if (G.boss < 0) place_exit(G.cx, G.cy);                        /* a boss level's way out is beyond its boss */
     place_altar();
     place_sites();                                                 /* the run's fixed hazards (1.0.0b13) */
+    G.nthing = 0; G.carry = 0; G.read_t = 0.0f;                    /* a puzzle's things are its level's */
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_THINGS")) things_test();
+#endif
     G.level_treasure = 0; G.level_souls = 0; G.dead = 0; G.dead_t = 0.0; G.spirit_said = 0;
     G.wraith_done = G.wraith_now = 0; G.wraith_try = 0.0f;          /* the Wraith comes once a level, and again after a death */
     spectres_set();
@@ -7921,6 +7946,7 @@ static int pocket_go(int x, int y) {
 #ifdef CRAWL_DEBUG
                 fprintf(stderr, "EVENT pocket_in chain %d level_t=%.2f t=%.2f\n", i, G.level_t, G.t);
 #endif
+                thing_drop_home();                                 /* what you carried stays on the level */
                 G_LEVEL = G; PK.chain = i;
                 pocket_build(2, 0);
                 return 1;
@@ -9013,7 +9039,197 @@ static void hz_lights(void) {
         else if (s->kind == HZ_TITHE && s->drink) light_dynamic(s->x + 0.5f, s->y + 0.5f, 0.7f + 0.2f * sinf((float)G.t * 6.0f), 2.4f);
         else if (s->kind == HZ_LODE && ph <= 1) light_dynamic(s->ax - DX[s->d] * 0.3f, s->ay - DY[s->d] * 0.3f, 0.4f + 1.4f * k, 3.0f);
     }
+    for (int i = 0; i < G.nthing; i++) {                           /* a puzzle's lights, lit */
+        const Thing *t = &G.thing[i];
+        if (t->role == TR_LIGHT && t->state) light_dynamic(t->x, t->y, 0.8f + 0.1f * sinf((float)G.t * 7.0f + i), 2.6f);
+        else if (t->role == TR_STRIKE && t->t < 1.2f) light_dynamic(t->x, t->y, 0.9f * (1.0f - t->t / 1.2f), 2.4f);   /* a note's glow */
+    }
 }
+
+
+static int pz_takes(int place, int item);
+static void pz_touched(int i, int how);
+static void doc_add(const char *where, const char *text, int msg);
+/* ---- ways to touch the world (1.0.0b13, docs/PLAN-b13.md section 6) ----
+ * What a puzzle lays out: things taken and set down, places that take them, what turns, levers, lights,
+ * what is struck, flagstones that sink, carvings to read. All with E but the stepping, and nothing a spell
+ * or an ability does ever works them. One thing is carried at a time, and you may cast while you carry it;
+ * a death, a pocket or the level's end puts it back where it was taken from. */
+static int thing_new(int role, float x, float y, int spr) {
+    if (G.nthing >= MAXTHING) return -1;
+    Thing *t = &G.thing[G.nthing];
+    memset(t, 0, sizeof *t);
+    t->role = (uint8_t)role; t->x = x; t->y = y; t->spr = (int16_t)spr; t->in = t->home = -1; t->wall = 0; t->nstate = 2;
+    t->cx = (int)x; t->cy = (int)y; t->scale = 1.0f; t->t = 9.0f; t->ramp = -1;
+    return G.nthing++;
+}
+static int thing_wall(int role, int cx, int cy, int d, int spr) {  /* against the wall to the d of (cx, cy), facing into it */
+    int i = thing_new(role, cx + 0.5f + DX[d] * 0.4f, cy + 0.5f + DY[d] * 0.4f, spr);
+    if (i >= 0) { G.thing[i].wall = (uint8_t)(d + 1); G.thing[i].cx = cx; G.thing[i].cy = cy; }
+    return i;
+}
+static void thing_put(int item, int place) {                       /* an item into a place: drawn where the place holds it */
+    Thing *it = &G.thing[item], *p = &G.thing[place];
+    it->in = (int8_t)place; p->in = (int8_t)item;
+    it->x = p->x; it->y = p->y; it->cx = p->cx; it->cy = p->cy; it->z = p->z + p->hold;
+}
+static void thing_drop_home(void) {                                /* what was carried goes back where it was taken from */
+    if (!G.carry) return;
+    int i = G.carry - 1;
+    Thing *t = &G.thing[i];
+    G.carry = 0;
+    if (t->home >= 0 && G.thing[t->home].in < 0) thing_put(i, t->home);
+    else { t->x = t->hx; t->y = t->hy; t->cx = (int)t->hx; t->cy = (int)t->hy; t->z = 0.0f; t->in = -1; }
+}
+/* what E would touch: a thing within reach, near the middle of the view, in sight */
+static int thing_facing(void) {
+    int best = -1;
+    float bs = 1e9f;
+    for (int i = 0; i < G.nthing; i++) {
+        const Thing *t = &G.thing[i];
+        if (t->role == TR_PLATE || G.carry == i + 1 || (t->role == TR_ITEM && t->in >= 0)) continue;   /* an item in its place: through the place */
+        float d = hypotf(t->x - G.px, t->y - G.py);
+        if (d > 1.7f) continue;
+        float a = fabsf(wrap_pi(atan2f(t->y - G.py, t->x - G.px) - G.ang));
+        if (a > 0.45f + 0.35f / fmaxf(d, 0.4f)) continue;
+        float ex = t->x, ey = t->y;
+        if (t->wall) { ex -= DX[t->wall - 1] * 0.15f; ey -= DY[t->wall - 1] * 0.15f; }
+        if (!line_clear(G.px, G.py, ex, ey)) continue;
+        float sc = d + a * 1.5f;
+        if (sc < bs) { bs = sc; best = i; }
+    }
+    return best;
+}
+static void thing_say(const Thing *t, const char *fmt) {           /* a caption with the thing's name in it */
+    if (t->name[0]) say(fmt, t->name);
+}
+/* E at a thing: by what it is. Returns 1 if anything happened */
+static int thing_use(int i) {
+    Thing *t = &G.thing[i];
+    float x = t->x, y = t->y;
+    t->t = 0.0f;
+    switch (t->role) {
+    case TR_ITEM:
+        if (G.carry) { say("YOUR HANDS ARE FULL"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); return 1; }
+        G.carry = i + 1; t->home = t->in; t->hx = x; t->hy = y; t->in = -1;
+        thing_say(t, "YOU TAKE %s");
+        sfx_at(SFX_BONES, x, y, 0.4f);
+        pz_touched(i, PZ_TAKE);
+        return 1;
+    case TR_PLACE:
+        if (G.carry) {
+            int it = G.carry - 1;
+            if (t->in >= 0) { say("THERE IS SOMETHING THERE ALREADY"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); return 1; }
+            if (!pz_takes(i, it)) { say("IT WILL NOT GO THERE"); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 1; }
+            G.carry = 0;
+            thing_put(it, i);
+            sfx_at(SFX_KNOCK, x, y, 0.5f); sfx_at(SFX_BONES, x, y, 0.3f);
+            pz_touched(it, PZ_SET);
+            return 1;
+        }
+        if (t->in >= 0) {                                          /* take back what it holds */
+            int it = t->in;
+            Thing *o = &G.thing[it];
+            t->in = -1; o->in = -1; o->home = (int8_t)i; o->hx = o->x; o->hy = o->y;
+            G.carry = it + 1;
+            thing_say(o, "YOU TAKE %s");
+            sfx_at(SFX_BONES, x, y, 0.4f);
+            pz_touched(it, PZ_TAKE);
+            return 1;
+        }
+        thing_say(t, "%s, EMPTY");
+        return 1;
+    case TR_TURN:
+        t->state = (uint8_t)((t->state + 1) % imax(1, t->nstate));
+        sfx_at(SFX_PUSHWALL, x, y, 0.25f); sfx_at(SFX_KNOCK, x, y, 0.4f);
+        pz_touched(i, PZ_TURN);
+        return 1;
+    case TR_LEVER:
+        t->state ^= 1;
+        sfx_at(SFX_UNLOCK, x, y, 0.6f);
+        pz_touched(i, PZ_PULL);
+        return 1;
+    case TR_LIGHT:
+        t->state ^= 1;
+        sfx_at(t->state ? SFX_IGNITE : SFX_WHOOSH, x, y, 0.5f);
+        pz_touched(i, PZ_LIGHT);
+        return 1;
+    case TR_STRIKE:
+        sfx_at(SFX_MIRRORBELL, x, y, 0.35f + 0.1f * (float)(t->val % 4));
+        pz_touched(i, PZ_STRIKE);
+        return 1;
+    case TR_READ:
+        snprintf(G.read_text, sizeof G.read_text, "%s", t->text);
+        G.read_t = 6.0f + 0.04f * (float)strlen(t->text);
+        doc_add(t->name, t->text, 0);
+        sfx_at(SFX_WHISPER, x, y, 0.15f);
+        pz_touched(i, PZ_READ);
+        return 1;
+    default: return 0;
+    }
+}
+/* E with something in your hands and nothing to put it in: set down on the floor before you */
+static int thing_set_down(void) {
+    if (!G.carry) return 0;
+    int i = G.carry - 1;
+    float x = G.px + cosf(G.ang) * 0.45f, y = G.py + sinf(G.ang) * 0.45f;
+    if (cell((int)x, (int)y)->kind != K_FLOOR) { x = G.px; y = G.py; }
+    Thing *t = &G.thing[i];
+    G.carry = 0;
+    t->x = x; t->y = y; t->cx = (int)x; t->cy = (int)y; t->z = 0.0f; t->in = -1;
+    sfx_at(SFX_BONES, x, y, 0.3f);
+    pz_touched(i, PZ_SET);
+    return 1;
+}
+static void update_things(float dt) {
+    if (G.read_t > 0.0f) G.read_t -= dt;
+    if (!G.nthing || PK.depth || G.shop) return;
+    int px = (int)G.px, py = (int)G.py;
+    for (int i = 0; i < G.nthing; i++) {
+        Thing *t = &G.thing[i];
+        t->t += dt;
+        if (G.carry == i + 1) { t->x = G.px; t->y = G.py; t->cx = px; t->cy = py; }
+        if (t->role == TR_PLATE) {                                 /* a flagstone sinks under whoever stands on it */
+            int on = !G.dead && px == t->cx && py == t->cy;
+            if (on && !t->on) { t->on = 1; t->t = 0.0f; pz_touched(i, PZ_STEP); }
+            else if (!on) t->on = 0;
+        }
+    }
+}
+#ifdef CRAWL_DEBUG
+/* testing: one of each, near the start, to touch by hand (CRAWL_THINGS=1) */
+static void things_test(void) {
+    int sx = G.cx, sy = G.cy, k = 0;
+    static const int ROLES[] = { TR_ITEM, TR_PLACE, TR_TURN, TR_LEVER, TR_LIGHT, TR_STRIKE, TR_PLATE, TR_READ };
+    for (int r = 1; r < 5 && k < 8; r++)
+        for (int d = 0; d < 4 && k < 8; d++) {
+            int x = sx + DX[d] * r, y = sy + DY[d] * r;
+            if (!hz_floor(x, y)) continue;
+            int i = thing_new(ROLES[k], x + 0.5f, y + 0.5f, -1);
+            Thing *t = &G.thing[i];
+            static const char *const NM[] = { "A SKULL", "A PLINTH", "A DIAL", "A LEVER", "A CANDLE", "A BELL", "A FLAGSTONE", "A CARVING" };
+            snprintf(t->name, sizeof t->name, "%s", NM[k]);
+            t->spr = (int16_t)(k == 0 ? SP_PZ_SKULL : k == 1 ? SP_PZ_PLINTH : k == 2 ? SP_PZ_DIAL0 : k == 3 ? SP_PZ_LEVER0 : k == 4 ? SP_PZ_CANDLE0 : k == 5 ? SP_BELL : k == 6 ? -1 : SP_PZ_TABLET);
+            t->frames = (uint8_t)(k == 2 ? 8 : k == 3 || k == 4 ? 2 : 1);
+            if (k == 0) t->mark = 1;
+            if (k == 1) t->hold = 0.18f;
+            if (k == 2) t->nstate = 8;
+            if (k == 7) snprintf(t->text, sizeof t->text, "HERE LIE THE BROTHERS OF THE ORDER, WHO KEPT THE BELLS AND THE BONES");
+            k++;
+        }
+}
+#endif
+
+/* the puzzles (step 3) and the documents (step 4) fill these in */
+static int pz_takes(int place, int item) { return G.thing[place].want < 0 || G.thing[place].want == G.thing[item].val; }
+static void pz_touched(int i, int how) {
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT thing %d role %d how %d state %d by %s t=%.2f\n", i, G.thing[i].role, how, G.thing[i].state, G.player ? "player" : "autopilot", G.t);
+#else
+    (void)i; (void)how;
+#endif
+}
+static void doc_add(const char *where, const char *text, int msg) { (void)where; (void)text; (void)msg; }
 
 /* the omens: in the three levels before a boss, and in its own level's halls, its hazard comes by
  * itself near the dweller, at half the harm: a stone from the ceiling in the Crypts, bile from a drain in
@@ -10080,6 +10296,7 @@ static void crawl_update(double dt) {
     update_boss(fdt);
     update_hazards(fdt);
     update_sites(fdt);
+    update_things(fdt);
     update_omens(fdt);
     update_arising(fdt);
     if (G.bfs_t > 0.0f && (G.bfs_t += fdt) > 1.6f) G.bfs_t = 0.0f;
@@ -11072,6 +11289,10 @@ static int visportal_use(void) {
 static int human_use(void) {
     int cx = (int)floorf(G.px + cosf(G.ang) * 0.8f), cy = (int)floorf(G.py + sinf(G.ang) * 0.8f);
     Cell *c = cell(cx, cy);
+    if (!G.shop && !PK.depth) {                                    /* a puzzle's things (1.0.0b13) */
+        int ti = thing_facing();
+        if (ti >= 0) { thing_use(ti); G.grab_t = 0.6f; return 1; }
+    }
     if (c->kind == K_DOOR) { open_door(&G.doors[c->door]); return 1; }
     if (c->kind == K_WALL && c->secret == 3 && pocket_door(cx, cy)) return 1;   /* a secret's doorway */
     if (PK.depth && cx == G.vis_x && cy == G.vis_y) return visportal_use();
@@ -11094,6 +11315,7 @@ static int human_use(void) {
     }
     if (!G.shop && G.altar_x >= 0 && hypotf(G.altar_x + 0.5f - G.px, G.altar_y + 0.5f - G.py) < 1.6f
         && fabsf(wrap_pi(atan2f(G.altar_y + 0.5f - G.py, G.altar_x + 0.5f - G.px) - G.ang)) < 0.7f) { open_ui(UI_ALTAR); G.grab_t = 1.0f; return 1; }
+    if (!G.shop && !PK.depth && G.carry && c->kind != K_DOOR) return thing_set_down();   /* nothing to put it in: on the floor */
     return 0;
 }
 
@@ -12244,6 +12466,15 @@ static void crawl_control(int what) {
     if (getenv("CRAWL_TPSECRET") && !G.shop && G.nsecrets) tp_secret(atoi(getenv("CRAWL_TPSECRET")) % G.nsecrets);
     if (getenv("CRAWL_TPALTAR") && !G.shop) tp_altar();
     if (getenv("CRAWL_TPHZ") && !G.shop) tp_hz();                  /* before the first fixed hazard (1.0.0b13) */
+    if (getenv("CRAWL_THINGS") && !G.shop && G.nthing) {           /* among the test's things, facing the first */
+        float tx = G.thing[0].x, ty = G.thing[0].y;
+        for (int d = 0; d < 4; d++) {
+            int x = (int)tx + DX[d] * 2, y = (int)ty + DY[d] * 2;
+            if (!hz_floor(x, y)) continue;
+            G.px = x + 0.5f; G.py = y + 0.5f; G.ang = atan2f(ty - G.py, tx - G.px); human_begin();
+            break;
+        }
+    }
     if (getenv("CRAWL_TPDOOR") && !G.shop) tp_door();              /* before a secret's doorway, its room open */
     if (getenv("CRAWL_TPROOM") && !G.shop) tp_room(atoi(getenv("CRAWL_TPROOM")));   /* at the end of the first room of that type, RT_* */
     if (getenv("CRAWL_TPPORTAL") && G.shop) { G.px = PORTAL_X + 0.5f; G.py = PORTAL_Y - 1.4f; G.ang = PI_F * 0.5f; G.cx = PORTAL_X; G.cy = PORTAL_Y - 2; }   /* before the Portal */
@@ -12933,6 +13164,7 @@ static void death_write(void) {                                    /* the page i
 /* the fall: a stone for the plot with what was carried, then all of it gone but the runes and what the hall
  * keeps, and the page written before the haze has cleared */
 static void death_fall(void) {
+    thing_drop_home();                                             /* a puzzle's thing back where it was taken from */
     G.dcost = death_costs(); G.dcard_done = 0; G.dcard_t = 0.0f; G.dlost[0] = 0;
     if (!G.dcost) return;
     Gear *g = &RUN.gear;
@@ -14152,7 +14384,8 @@ static void build_cracks(void) {
 enum { FM_NONE, FM_SHADOW, FM_CRACK, FM_FIRE, FM_EMBER, FM_SHEEN, FM_BILE, FM_VRING, FM_VOID, FM_ARC, FM_GRASP,
        FM_OMEN, FM_OMEN_CELL, FM_OMEN_ARC,                      /* Premonition's zones: round, a cell's worth, a blade's fan */
        FM_VAPOUR, FM_WAX, FM_RIME, FM_SURGE, FM_SPARK, FM_BUBBLE, FM_POOL, FM_DUST, FM_SHIMMER, FM_SRING, FM_ASH, FM_STAR,
-       FM_CHALK, FM_HAZE };                                     /* the runs' own (1.0.0b13) */
+       FM_CHALK, FM_HAZE,                                       /* the runs' own (1.0.0b13) */
+       FM_PLATE };                                              /* a puzzle's flagstone (1.0.0b13): sunk or not */
 typedef struct { uint8_t kind, prio; float k, ax, ay, r, ang; } FMark;
 static FMark fmark[MAPN][MAPN];
 static void fm_set(int x, int y, int kind, int prio, float k, float ax, float ay, float r, float ang) {
@@ -14300,6 +14533,8 @@ static int hz_marks(void) {
         }
     }
     if (G.nsite && !PK.depth) { site_marks(); any = 1; }
+    for (int i = 0; i < G.nthing && !PK.depth; i++)               /* a puzzle's flagstones */
+        if (G.thing[i].role == TR_PLATE) { const Thing *t = &G.thing[i]; fm_set(t->cx, t->cy, FM_PLATE, 1, t->on ? 1.0f : 0.0f, (float)t->val, (float)t->mark, (float)t->state, 0.0f); any = 1; }
     return any;
 }
 /* one floor pixel under a mark: returns a colour drawn as it is (bright, or the void's dark), or -1 to
@@ -14427,6 +14662,19 @@ static int fm_pixel(const FMark *m, float wx, float wy, float fx, float fy, int 
             if (k > 0.5f) return R_PURPLE + clampi((int)(11.0f + 4.0f * sinf((float)G.t * 6.0f)), 0, 15);
             *base = R_BONE + 13;
         }
+        return -1;
+    }
+    case FM_PLATE: {                                               /* a flagstone set in the floor, its edge cut deep; sunk, darker */
+        float ex = fminf(fx, 1.0f - fx), ey = fminf(fy, 1.0f - fy), e = fminf(ex, ey);
+        if (e < 0.06f) { *base = R_STONE + 1; return -1; }
+        if (e < 0.1f) { *base = (uint8_t)(R_STONE + (k > 0.5f ? 4 : 10)); return -1; }
+        *lmul *= k > 0.5f ? 0.65f : 1.0f;
+        int mk = (int)m->ay;                                       /* a mark cut in it */
+        if (mk > 0 && mk <= 16) {
+            int gx = (int)((fx - 0.25f) * 14.0f), gy = (int)((fy - 0.25f) * 14.0f);
+            if (gx >= 0 && gy >= 0 && gx < 7 && gy < 7 && PZ_MARKS[mk - 1][gy][gx] == '#') *base = R_STONE + 2;
+        }
+        if (m->r > 0.5f) *base = (uint8_t)(R_GLOW + 6 + (b & 3));  /* lit (the glass floor) */
         return -1;
     }
     case FM_OMEN: case FM_OMEN_CELL: case FM_OMEN_ARC: {          /* Premonition: a dashed purple edge, pulsing, and a faint haze */
@@ -15077,6 +15325,22 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             if (ph > 0) { float k = clampf((h->t - h->warn) / 0.25f, 0.0f, 1.0f); ADD(h->x, h->y, -0.45f * (1.0f - k), SP_HANDS, fmaxf(0.05f, kf)); }
             break;
         default: break;
+        }
+    }
+    for (int i = 0; i < G.nthing && !PK.depth && !G.shop; i++) {  /* a puzzle's things (1.0.0b13) */
+        const Thing *t = &G.thing[i];
+        if (t->spr < 0 || G.carry == i + 1) continue;
+        int n0 = n, spr = t->spr + (t->frames > 1 ? t->state % t->frames : 0);
+        ADD(t->x, t->y, t->z, spr, 0);
+        if (n > n0) {
+            list[n - 1].scale = t->scale;
+            if (t->t < 0.35f || (t->role == TR_STRIKE && t->t < 1.2f)) list[n - 1].flags = DR_EDGE;   /* just touched */
+            if (t->ramp >= 0) list[n - 1].remap = t->ramp;
+        }
+        if (t->mark && n > n0) {                                   /* its mark, carved on it */
+            int n1 = n;
+            ADD(t->x, t->y, t->z + t->mz, t->mark > 16 ? SP_PIP1 + t->mark - 17 : SP_MARK0 + t->mark - 1, 0);
+            if (n > n1) { list[n - 1].depth -= 0.01f; list[n - 1].scale = t->scale; }
         }
     }
     for (int i = 0; i < G.nsite && !PK.depth && !G.shop; i++) {   /* the fixed hazards' own things (1.0.0b13) */
@@ -16694,10 +16958,31 @@ static void tint(Frame *f) {
     }
 }
 
+/* what is carried (1.0.0b13): small at the lower right, above the runes' sockets, in its own colours; and what
+ * was read last, a panel under the news */
+static void ui_sprite(Frame *f, int spr, int x0, int y0, int size, const uint8_t *lut, int shadow);
+static void render_carry(Frame *f) {
+    if (!G.carry || !G.player || G.ui || G.shop || G.dead || G.tally) return;
+    const Thing *t = &G.thing[G.carry - 1];
+    int bar_top = H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f);
+    int x = W - 34, y = imin(bar_top - 20, H - 21) - 34;
+    gfx_rect(f, x - 2, y - 2, 32, 32, 0);
+    bevel(f, x - 2, y - 2, 32, 32, 0);
+    if (t->spr >= 0) ui_sprite(f, t->spr, x, y, 28, NULL, 0);
+    if (t->mark > 0) ui_sprite(f, t->mark > 16 ? SP_PIP1 + t->mark - 17 : SP_MARK0 + t->mark - 1, x, y + (int)(t->mz * -28.0f), 28, NULL, 0);
+}
+static void render_read(Frame *f) {
+    if (G.read_t <= 0.0f || !G.read_text[0] || (G.player && G.ui)) return;
+    int y = toast_showing() ? 66 : 30;
+    gfx_rect(f, 14, y, W - 28, 40, 0);
+    bevel(f, 14, y, W - 28, 40, 0);
+    text_wrap(f, 20, y + 4, G.read_text, 35, R_BONE + 13, 4);
+}
 /* a line of news at the top of the view, and the first-time hints */
 static int target_shown(void);
 static int target_y(void);
 static void render_messages(Frame *f) {
+    render_read(f);
     if (G.msg_t > 0.0f && G.msg[0] && !(G.player && G.ui)) {
         if (G.msg_t > 0.3f || ((int)(G.msg_t * 20.0f) & 1)) {
             int w = gfx_text_width(G.msg, 1), x = (W - w) / 2, y = toast_showing() ? 50 : (boss_fighting() ? 34 : 14);   /* below a pop-up, or a boss's bar */
@@ -18981,6 +19266,7 @@ static void crawl_render(Frame *f) {
     if (G.shop || G.player) render_statusbar(f);                  /* a person gets the Wolfenstein bar, */
     render_sockets(f);
     render_runesockets(f);
+    render_carry(f);
     render_dash(f);
     if (G.player && !G.shop && G.bar <= 0.0f) render_readout(f);   /* and the small one while it is away */
     if (!G.shop && !G.player) { render_readout(f); render_face_popup(f); }

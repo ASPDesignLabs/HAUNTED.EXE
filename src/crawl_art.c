@@ -2134,6 +2134,100 @@ static void spr_ashfall(void) {
     cv_store(SP_ASHFALL);
 }
 
+/* ---- puzzles' things (1.0.0b13, docs/PLAN-b13.md sections 6 and 7) ---- */
+const char *const PZ_MARKS[16][7] = {
+    { "...#...", "..###..", ".#####.", ".##.##.", ".#####.", ".#####.", "#######" },   /* a mitre */
+    { ".#####.", "#######", "#.....#", "#.###.#", "#.###.#", "#######", ".#...#." },   /* a helm */
+    { "..###..", ".#...#.", "#.....#", "#.....#", ".#...#.", "..###..", "......." },   /* a tonsure */
+    { "#..#..#", "#.###.#", "#######", "#######", ".#####.", "#######", "......." },   /* a crown */
+    { ".##....", "#..#...", "#..####", ".##..#.", ".....#.", "....##.", "......." },   /* a key */
+    { "..###..", ".#.#.#.", "#..#..#", "#######", "#..#..#", ".#.#.#.", "..###.." },   /* a wheel */
+    { "#.....#", ".#...#.", "..#.#..", "...#...", "..#.#..", ".#...#.", "#.....#" },   /* arrows, crossed */
+    { "#.#.#.#", "#######", ".#####.", ".##.##.", ".#####.", ".#####.", "#######" },   /* a tower */
+    { "..##...", ".####..", "#######", ".#####.", ".#...#.", ".#...#.", "......." },   /* a lamb */
+    { "...#...", "..#.#..", "...#...", ".#####.", "..###..", "...#...", "..###.." },   /* a lamp */
+    { "..###..", ".#...#.", "#..#..#", "#.###.#", "#..#..#", ".#...#.", "..###.." },   /* an eye */
+    { ".#.#.#.", ".#.#.#.", ".#####.", "#######", ".#####.", "..###..", "..###.." },   /* a hand */
+    { "#.....#", ".#...#.", "..#.#..", "...#...", "..#.#..", ".##.##.", "##...##" },   /* picks */
+    { "..###..", ".##....", "##.....", "##.....", "##.....", ".##....", "..###.." },   /* a moon */
+    { "...#...", "...#...", "#######", ".#####.", "..###..", ".##.##.", "#.....#" },   /* a star */
+    { ".#####.", "#######", "#.#.#.#", "#######", ".#####.", ".#.#.#.", "......." },   /* a skull */
+};
+static void spr_pz_mark(int id, int k) {                           /* a mark, carved dark and edged pale, centred at (32, 30) */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 0; y < 7; y++)
+        for (int x = 0; x < 7; x++)
+            if (PZ_MARKS[k][y][x] == '#') { cv_px(29 + x, 27 + y, sh(R_BLOOD, 0.25f)); cv_px(30 + x, 28 + y, sh(R_BONE, 0.85f)); }
+    cv_store(id);
+}
+static void spr_pz_pips(int id, int n) {                           /* one to nine pips, as on a die, centred at (32, 30) */
+    static const char *const P[9] = { "....#....", "#.......#", "#...#...#", "#.#...#.#", "#.#.#.#.#", "#.##.##.#", "#.######.", "####.####", "#########" };
+    cv_begin(cv_sprite, TS, TS);
+    for (int k = 0; k < 9; k++)
+        if (P[n - 1][k] == '#') { int x = 27 + (k % 3) * 4, y = 25 + (k / 3) * 4; cv_px(x, y, sh(R_GOLD, 0.9f)); cv_px(x + 1, y, sh(R_GOLD, 0.7f)); cv_px(x, y + 1, sh(R_GOLD, 0.6f)); cv_px(x + 1, y + 1, sh(R_GOLD, 0.4f)); }
+    cv_store(id);
+}
+static void spr_pz_skull(void) {                                   /* a skull on the floor, its brow toward you (the mark goes there) */
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 61, 9, 1.8f, R_WARM + 1);
+    cv_skull(32, 52, 1.15f, 0.25f, 0.85f);
+    cv_outline(sh(R_BONE, 0.05f));
+    cv_store(SP_PZ_SKULL);
+}
+static void spr_pz_plinth(void) {                                  /* a low plinth: what it takes stands on its top */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 46; y < 64; y++)
+        for (int x = 20; x < 44; x++) cv_px(x, y, sh(R_STONE, 0.3f + 0.2f * (x < 23) + 0.15f * (y == 46) - 0.1f * (y > 60) + 0.06f * h01(x, y, 5)));
+    for (int x = 18; x < 46; x++) { cv_px(x, 45, sh(R_STONE, 0.6f)); cv_px(x, 46, sh(R_STONE, 0.45f)); }
+    cv_outline(sh(R_STONE, 0.02f));
+    cv_store(SP_PZ_PLINTH);
+}
+static void spr_pz_dial(int id, int turn) {                        /* a bronze dial on a post, its pointer at one of eight */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 40; y < 64; y++) for (int x = 30; x < 34; x++) cv_px(x, y, sh(R_IRON, 0.3f + 0.2f * (x == 30)));
+    cv_ellipse(32, 30, 11, 11, R_GOLD, 0.3f, 0.75f);
+    cv_flat(32, 30, 8, 8, sh(R_GOLD, 0.2f));
+    for (int k = 0; k < 8; k++) cv_px(32 + (int)lroundf(9.5f * sinf(k * 0.7854f)), 30 - (int)lroundf(9.5f * cosf(k * 0.7854f)), sh(R_BONE, 0.9f));
+    float a = turn * 0.7854f;
+    cv_line(32, 30, 32 + 7.0f * sinf(a), 30 - 7.0f * cosf(a), sh(R_BLOOD, 0.7f));
+    cv_px(32, 30, sh(R_GOLD, 0.95f));
+    cv_outline(sh(R_IRON, 0.02f));
+    cv_store(id);
+}
+static void spr_pz_lever(int id, int down) {                       /* an iron lever in a slot in its stone block */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 48; y < 64; y++) for (int x = 24; x < 40; x++) cv_px(x, y, sh(R_STONE, 0.35f + 0.15f * (x < 27)));
+    for (int x = 30; x < 34; x++) cv_px(x, 48, sh(R_STONE, 0.05f));
+    float tx = down ? 42.0f : 22.0f, ty = down ? 44.0f : 30.0f;
+    cv_capsule(32, 49, tx, ty, 1.4f, R_IRON, 0.25f, 0.65f);
+    cv_ellipse(tx, ty, 2.6f, 2.6f, R_WOOD, 0.3f, 0.7f);
+    cv_outline(sh(R_IRON, 0.02f));
+    cv_store(id);
+}
+static void spr_pz_candle(int id, int lit) {                       /* a tall candle in an iron pricket */
+    cv_begin(cv_sprite, TS, TS);
+    cv_line(26, 63, 32, 52, sh(R_IRON, 0.35f)); cv_line(38, 63, 32, 52, sh(R_IRON, 0.35f));
+    for (int y = 30; y < 52; y++) for (int x = 30; x < 34; x++) cv_px(x, y, sh(R_BONE, 0.6f + 0.25f * (x == 30)));
+    for (int x = 28; x < 36; x++) cv_px(x, 52, sh(R_IRON, 0.5f));
+    cv_px(32, 29, sh(R_IRON, 0.1f));
+    if (lit) { cv_flat(32, 25, 2.2f, 4.0f, R_FLAME + 11); cv_flat(32, 26, 1.0f, 2.2f, R_FLAME + 15); }
+    cv_store(id);
+}
+static void spr_pz_tablet(void) {                                  /* a carved tablet on a stand: something to read */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 54; y < 64; y++) for (int x = 28; x < 36; x++) cv_px(x, y, sh(R_STONE, 0.3f));
+    for (int y = 22; y < 54; y++)
+        for (int x = 18; x < 46; x++) {
+            float top = 26.0f - sqrtf(fmaxf(0.0f, 14.0f * 14.0f - (x - 32.0f) * (x - 32.0f))) * 0.3f;
+            if (y < top) continue;
+            uint8_t c = sh(R_STONE, 0.45f + 0.1f * h01(x, y, 9));
+            if (y > 30 && y < 50 && x > 21 && x < 43 && (y % 4) == 0 && h01(x, y, 3) > 0.35f) c = sh(R_STONE, 0.15f);   /* its lines */
+            cv_px(x, y, c);
+        }
+    cv_outline(sh(R_STONE, 0.02f));
+    cv_store(SP_PZ_TABLET);
+}
+
 /* a rock, broken from the vault: drawn at the bottom of its square, so it can be dropped from above */
 static void spr_rock(void) {
     cv_begin(cv_sprite, TS, TS);
@@ -8113,6 +8207,11 @@ void crawl_art_init(void) {
     spr_deadbell(SP_DBELL, 0); spr_deadbell(SP_DBELL_C, 1); spr_font(SP_FONT, 0); spr_font(SP_FONT_C, 1);
     spr_censer(); spr_puff(SP_SMOKE, R_STONE, 0.25f, 0.6f, 81); spr_puff(SP_VAPOUR, R_MOSS, 0.2f, 0.55f, 83); spr_puff(SP_GAS, R_WARM, 0.35f, 0.75f, 87);
     spr_votive(); spr_hz_reliq(SP_RELIQ, 0); spr_hz_reliq(SP_RELIQ_O, 1); spr_snare(); spr_spikes(); spr_ashfall();
+    spr_pz_skull(); spr_pz_plinth(); spr_pz_tablet();             /* puzzles' things (1.0.0b13) */
+    for (int k = 0; k < 8; k++) spr_pz_dial(SP_PZ_DIAL0 + k, k);
+    spr_pz_lever(SP_PZ_LEVER0, 0); spr_pz_lever(SP_PZ_LEVER1, 1); spr_pz_candle(SP_PZ_CANDLE0, 0); spr_pz_candle(SP_PZ_CANDLE1, 1);
+    for (int k = 0; k < 16; k++) spr_pz_mark(SP_MARK0 + k, k);
+    for (int n = 1; n <= 9; n++) spr_pz_pips(SP_PIP1 + n - 1, n);
     for (int f = 0; f < 3; f++) spr_firepit(SP_FIREPIT_A + f, f);
     spr_totem(SP_TOTEM_A, 0); spr_totem(SP_TOTEM_B, 1);
     spr_shambler(SP_SHAMB_A, 1.0f, 0); spr_shambler(SP_SHAMB_B, -1.0f, 0); spr_shambler(SP_SHAMB_GRAB, 0.0f, 1);
