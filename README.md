@@ -942,6 +942,22 @@ work branch.
   Rising Water, the Brood and the Sluices are there, the others are won with more time to spare and lose a few
   for reasons other than difficulty (the full table is in docs/PLAN-b13.md). Clean under ASan and UBSan.
 * **The reckoning:** opened, answered both ways, by scripted players on each run. Clean under ASan.
+* **Eight dream runs against 1.0.0b12** on the same seeds (1-15 odd): from level 1 for 100 minutes, and from levels
+  11, 21 and 31 for 50 with every spell at tier 3, 5 and 8 and experience banked as it would have it. From level 1, a
+  median of level 9 cleared (9 for 1.0.0b12), 79 levels cleared in all (77), 22 deaths (26), 19 of them on level 10
+  (24), and the knight beaten three times (twice); three of the deaths came in trials, on levels 3, 4 and 10. From 11,
+  21 and 31, a median of level 16.5, 25.5 and 36 cleared (16, 26, 36), no deaths in either build, and 52, 42 and 47
+  levels cleared (49, 49, 48). A level takes a little longer, a median of 360 to 385 seconds against 350 to 361: the
+  trials and puzzles take their time.
+* **The trials in those runs:** the dream went into 163 and won 150, lost 10 to the sand and died in 3, with a median
+  of 14 seconds left from level 11 and 20 to 29 from the others. It passed 74 by, nearly all because it never came
+  near the door: it takes a trial only once it has seen the door or is within sixteen steps of it (a person sees the
+  red lights), and from level 1 it was often hurt as well.
+* **Puzzles in those runs:** 83 solved on the 95 puzzle levels reached (18 of 21 from level 1, then 25 of 28, 20 of 22
+  and 20 of 24).
+* **A fault the runs found:** the first trial of each run came on its first two trial levels. Fixed before the numbers
+  above were taken.
+* **AddressSanitizer and UBSan:** four 25-minute dream runs, one from each run of ten, clean.
 * **Not tested at all:** by hand, on Windows; none of the new art has been seen on a real screen.
 
 **New in 1.0.0b12** (a new run from Esc, and the souls' line). Tested in the harness only, by scripted

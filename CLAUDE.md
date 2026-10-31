@@ -1129,5 +1129,16 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   docs/PLAN-b11.md's step-16 note. The first runs found two stalls (a key at a block's corner past the dream's 1.5-cell
   reach, now 1.6; a Wraith fired at in a dead end, now let be once driven back); a look over a new batch's
   state lines for a minute or more spent within a cell of one place is worth the minute it takes.
+- 1.0.0b13 has been tested in the harness only. Against 1.0.0b12 on the same eight seeds (seeds 1-15 odd; from 11, 21 and
+  31 at gear 3, 5, 8 with `CRAWL_XPBANK` 9450, 35322, 77658): from level 1 (100 minutes) a median of 9 levels cleared (9),
+  22 deaths (26; 19 on level 10, against 24), the knight beaten three times (twice), three deaths in trials (the Toll, the
+  Wager, the Ossuary); from 11, 21 and 31 (50 minutes) a median of 16.5, 25.5 and 36 (16, 26, 36), no deaths in either. A
+  level takes 10 to 35 s longer (median 360-385 s). The dream went into 163 trials and won 150 (10 lost, 3 died), 14 s
+  left at the median from 11 and 20-29 s elsewhere, and solved 83 puzzles on 95 puzzle levels. It passed 74 trials by,
+  67 of them unseen (`EVENT trial_passed`): `tri_goal` waits for the door to be seen or the room within sixteen steps.
+  The table is in docs/PLAN-b13.md's *The checks*. A fault found there: `crawl_step` counts from 0, and the trials' picker
+  had taken it as from 1, so each run's first trial came twice; whatever indexes by a run's step, check which it means.
+  Runs started in the same second in the harness share a run id (`new_run_id` is the clock and the app's seed), so
+  their trials come in the same order.
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.

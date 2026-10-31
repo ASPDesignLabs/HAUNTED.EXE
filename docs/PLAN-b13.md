@@ -809,5 +809,29 @@ What we set ourselves while tuning, for the owner to see and overrule:
 - **The Windows build**: compiled with every warning on and smoke-tested by CI on the work branch, by a run started by
   hand, without a warning.
 - **A fault found**: a run's step counts from 0 and the trials' picker took it as counting from 1, so the first trial of
-  each run came on its first two trial levels (3 and 4, 11 and 12, ...). Fixed; the long runs against 1.0.0b12 are being
-  made again with the fix, and their numbers go here when they are in.
+  each run came on its first two trial levels (3 and 4, 11 and 12, ...). Fixed before the runs below.
+- **Eight dream runs against 1.0.0b12** on the same seeds (1-15 odd): from level 1 for 100 minutes; from 11, 21 and 31
+  for 50, with `CRAWL_GEAR` 3, 5 and 8 and `CRAWL_XPBANK` 9,450, 35,322 and 77,658. In brackets, 1.0.0b12:
+
+| From | Median level cleared | Levels cleared | Deaths | Median level time | Trials won / lost / died / passed | Median left | Puzzles solved |
+|---|---|---|---|---|---|---|---|
+| 1 | 9 (9) | 79 (77) | 22, 19 on level 10 (26, 24) | 360 s (351) | 50 / 1 / 3 / 31 | 19.9 s | 18 of 21 |
+| 11 | 16.5 (16) | 52 (49) | 0 (0) | 363 s (351) | 38 / 5 / 0 / 10 | 14.0 s | 25 of 28 |
+| 21 | 25.5 (26) | 42 (49) | 0 (0) | 385 s (350) | 30 / 0 / 0 / 18 | 28.6 s | 20 of 22 |
+| 31 | 36 (36) | 47 (48) | 0 (0) | 378 s (361) | 32 / 4 / 0 / 15 | 29.1 s | 20 of 24 |
+
+  From level 1 the knight fell three times (twice). The three deaths in trials were the Toll on level 3, the Wager on 4
+  and the Ossuary on 10 (outside the arena); the trials lost were the Sluices three times, the Brood and the Glass Court
+  twice, the Toll, the Molten Rise and Singing Glass once. A first batch, before the fault was fixed, gave much the same
+  (28 deaths from level 1, 7 of them in trials; 52, 40, 28 and 27 trials won from each start), so one batch's deaths
+  move by a few either way. Levels cleared from 21 moved from 48 to 42 between the two batches; the harness parts ways
+  between runs, so that is as likely noise as the fix.
+- **The time left**: still more than the plan's five to fifteen seconds outside the Catacombs (a median of 20 s from
+  level 1, 29 s in the Hollows and the Deep). *The trials, as tuned* left that gap for these checks; it is not closed. The
+  dream is the only measure so far and a person's pace is unknown, so they are left as they are until the owner has
+  played some.
+- **Trials passed by**: 74 of the 237 trial levels reached. The debug build logs each as `EVENT trial_passed` when the
+  dream sets off for the exit: in 67 it had never seen the door, and the room's way in lay 4 to 46 cells off; from level
+  1, 18 of 31 were under two thirds of its health as well, and one deeper. `tri_goal` takes a trial only once its door
+  has been seen or its red lights are within sixteen steps, as a person would come on it. Left so; letting the dream know
+  where every trial is would show more of them in the screensaver, for the owner to say.
