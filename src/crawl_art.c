@@ -4655,6 +4655,10 @@ static void spr_knight_dead(int id) {
 
 /* The deacon: a skeleton priest in a hooded violet robe (PF_ROBE) with a red stole, a staff with a
  * skull on it. pose 0-1 walking, 2 raising the dead, 3 fallen. */
+/* a small skull by hand, for the deacon's hood (dim, in shadow) and his staff: hex R_BONE, @ the eyes */
+static const char *const SKULL_SMALL[10] = {
+    "..56775..", ".5799975.", "4799a9974", "40@090@04", "450090054", ".5770775.", ".4a0a0a4.", "..30003..", "..4a0a4..", "...353...",
+};
 static void spr_deacon(int id, float w, int pose) {
     cv_begin(cv_sprite, TS, TS);
     if (pose == 3) {
@@ -4663,7 +4667,7 @@ static void spr_deacon(int id, float w, int pose) {
         cv_poly(m, 6, R_PURPLE, 0.45f, 0.1f, 48, 14);
         cv_capsule(20, 60, 50, 55, 1.2f, R_BLOOD, 0.15f, 0.45f);
         cv_capsule(6, 61, 58, 59, 1.1f, R_WOOD, 0.2f, 0.6f);        /* the staff, across */
-        cv_skull(30, 50, 0.95f, 0.3f, 1.0f);
+        grid_stamp(SKULL_SMALL, 9, 10, 26, 45, R_BONE, R_BONE, 0, 0);
         cv_bone_decay(331);
         cv_outline(0); cv_store(id); return;
     }
@@ -4677,17 +4681,17 @@ static void spr_deacon(int id, float w, int pose) {
     /* the staff, in its right hand */
     float stx = chant ? 47.0f : 45.0f + w * 0.5f, sty = chant ? 0.0f : 6.0f;
     cv_capsule(stx, sty + 6, stx - 1, 62, 1.2f, R_WOOD, 0.2f, 0.65f);
-    cv_skull(stx, sty + 3, 0.7f, 0.3f, 1.0f);
-    cv_px((int)stx - 1, (int)sty + 4, (uint8_t)(chant ? R_GLOW + 14 : R_FLAME + 6)); cv_px((int)stx + 2, (int)sty + 4, (uint8_t)(chant ? R_GLOW + 14 : R_FLAME + 6));
+    grid_stamp(SKULL_SMALL, 9, 10, (int)stx - 4, (int)sty - 2, R_BONE, R_BONE, 0, 0);   /* the staff's skull, its eyes its own (not the deacon's) */
+    cv_px((int)stx - 2, (int)sty + 1, (uint8_t)(chant ? R_GLOW + 14 : R_FLAME + 6)); cv_px((int)stx + 2, (int)sty + 1, (uint8_t)(chant ? R_GLOW + 14 : R_FLAME + 6));
     /* the robe, falling from the shoulders to a hem that drags */
     for (int y = 16; y < 63; y++) {
-        float t = (y - 16) / 46.0f, hw = 8.5f + 7.0f * t, sway = w * 1.2f * t;
+        float t = (y - 16) / 46.0f, hw = 6.5f + 6.0f * t, sway = w * 1.2f * t;   /* taller and thinner */
         for (int x = (int)(32 - hw + sway) - 1; x <= (int)(32 + hw + sway) + 1; x++) {
             float dx = x + 0.5f - 32 - sway;
             if (fabsf(dx) > hw) continue;
             if (y > 58 && h01(x, y, 335 + (w > 0)) < (y - 58) / 5.0f) continue;   /* ragged hem */
             float u = dx / hw, v = 0.15f + 0.4f * (1.0f - u * u) * (1.0f - 0.3f * t);
-            if (sinf(dx * 1.1f + y * 0.05f) > 0.6f) v -= 0.08f;     /* folds */
+            if (sinf(dx * 1.7f + y * 0.02f) > 0.55f) v -= 0.12f;    /* long folds, falling straight */
             cv_px(x, y, sh(R_PURPLE, v));
         }
     }
@@ -4699,7 +4703,7 @@ static void spr_deacon(int id, float w, int pose) {
         }
     /* arms: sleeves, and bone hands out of them */
     for (int s = -1; s <= 1; s += 2) {
-        float sx = 32 + s * 8, sy = 20, hx, hy;
+        float sx = 32 + s * 7, sy = 20, hx, hy;
         if (chant) { hx = 32 + s * 17; hy = 6; }
         else if (s > 0) { hx = stx - 1; hy = 34; }
         else { hx = 21 - w; hy = 38; }
@@ -4711,14 +4715,50 @@ static void spr_deacon(int id, float w, int pose) {
         for (int f = 0; f < 3; f++) cv_line(hx, hy, hx + s * (1.0f + f) * (chant ? 0.6f : 0.4f), hy + (chant ? -3.0f : 3.0f) + f * (chant ? 0.0f : 0.5f), sh(R_BONE, 0.8f));
         if (chant) for (int k = 0; k < 6; k++) cv_px((int)(hx + (h01(k, s + 2, 337) - 0.5f) * 8), (int)(hy - 2 - 6 * h01(k, s + 5, 337)), (uint8_t)(R_GLOW + 10 + (k & 3)));
     }
+    if (!chant)                                                     /* a rosary of knuckle-bones on its cord, a small cross at its end */
+        for (int k = 0; k < 9; k++) {
+            float x = 25.0f - w * 0.5f + sinf((float)k * 0.5f) * 1.5f, y = 33.0f + (float)k * 1.5f;
+            cv_px((int)x, (int)y, (k & 1) ? sh(R_BONE, 0.85f) : sh(R_BONE, 0.55f));
+            if (k == 8) { cv_px((int)x, (int)y + 1, sh(R_BONE, 0.8f)); cv_px((int)x, (int)y + 2, sh(R_BONE, 0.7f)); cv_px((int)x - 1, (int)y + 1, sh(R_BONE, 0.7f)); cv_px((int)x + 1, (int)y + 1, sh(R_BONE, 0.7f)); }
+        }
     /* the hood, and the skull in its shadow */
-    cv_ellipse(32, 12, 8.0f, 8.5f, R_PURPLE, 0.15f, 0.6f);
-    cv_flat(32, 13.5f, 5.6f, 6.4f, 0);
-    cv_skull(32, 13, 0.82f, 0.25f, 0.85f);
-    cv_eye(30, 14, (uint8_t)(chant ? R_GLOW + 14 : R_FLAME + 8)); cv_eye(34, 14, (uint8_t)(chant ? R_GLOW + 14 : R_FLAME + 8));
+    for (int y = 0; y <= 21; y++)                                   /* the hood, peaked in a lancet, its rim catching the light */
+        for (int x = 20; x <= 44; x++) {
+            float dx = x + 0.5f - 32, hw = y < 13 ? 8.5f * sqrtf(fmaxf(0.0f, (float)y / 13.0f)) : 8.5f + (y - 13) * 0.25f;
+            if (fabsf(dx) > hw) continue;
+            float u = dx / (hw + 0.01f), v = 0.12f + 0.32f * (1.0f - u * u) - (u > 0.0f ? 0.06f : 0.0f);
+            if (fabsf(u) > 0.82f) v += 0.18f;
+            cv_px(x, y, sh(R_PURPLE, v));
+        }
+    for (int y = 6; y <= 19; y++)                                   /* its mouth, deep */
+        for (int x = 26; x <= 38; x++) { float nx = (x + 0.5f - 32) / 5.2f, ny = (y + 0.5f - 13.0f) / 7.0f; if (nx * nx + ny * ny <= 1.0f) cv_px(x, y, 0); }
+    grid_stamp(SKULL_SMALL, 9, 10, 28, 9, R_BONE, R_BONE, (uint8_t)(chant ? R_GLOW + 14 : C_WHITE), 0);   /* the skull, a pale gleam in there, two lights */
+    for (int y = 9; y < 19; y++) for (int x = 28; x < 37; x++) { uint8_t c = cv_sprite[y * TS + x]; if (c > R_BONE + 2 && c < R_BONE + 16) cv_px(x, y, (uint8_t)(c - 2)); }   /* in shadow */
     cv_bone_decay(339);
     cv_outline(0);
     cv_store(id);
+}
+
+/* the deacon's dressing by rank: II mildew on the robe, its hem more torn, III frost, IV blood soaked up the hem and the
+ * stole, V the robe charred and a black chain of office, gilded gold thread at the robe's edges (the stole, not being the robe,
+ * keeps its red: the layer stays off what is not the body) */
+static void deacon_dress(int id) {
+    for (int r = RK_II; r < NRANK; r++) {
+        dress_begin(id);
+        if (r == RK_II) kit_moss(0.3f, 0, 571);
+        if (r != RK_GILDED) for (int x = 18; x < 47; x++) if (base_on(x, 60) && h01(x, r, 573) < 0.35f) for (int y = 56 + (int)(h01(x, 1, 573) * 4.0f); y < 64; y++) if (base_on(x, y)) cv_px(x, y, 0);   /* the hem torn */
+        if (r == RK_III) kit_frost(0.8f, 575);
+        if (r >= RK_IV && r != RK_GILDED)
+            for (int y = 48; y < 64; y++) for (int x = 16; x < 48; x++) { uint8_t b = base_c(x, y); if (b > R_PURPLE && b < R_PURPLE + 16 && fbm(x / 3.0f, y / 2.0f, 16, 577) > 0.62f - (y - 48) * 0.012f) cv_px(x, y, sh(R_BLOOD, 0.12f + 0.12f * h01(x, y, 579))); }   /* blood soaked up the hem */
+        if (r == RK_V) { kit_char(0.3f, 581); kit_chain(24, 21, 40, 21, 4.0f, R_IRON); }
+        if (r == RK_GILDED) {
+            for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) {
+                uint8_t b = base_c(x, y);
+                if (b > R_PURPLE && b < R_PURPLE + 16 && (!base_on(x - 1, y) || !base_on(x + 1, y))) cv_px(x, y, (uint8_t)(R_GOLD + 8 + (int)(h01(x, y, 583) * 3.0f)));   /* gold thread at the edges */
+            }
+        }
+        dress_store(id, r, R_PURPLE);
+    }
 }
 
 /* the bestiary's bones age with the level, like the skeletons' */
@@ -4733,6 +4773,7 @@ static void spr_bestiary_bones(void) {
     }
     spr_knight_dead(SP_KNIGHT_D);
     spr_deacon(SP_DEACON_A, 1.0f, 0); spr_deacon(SP_DEACON_B, -1.0f, 1); spr_deacon(SP_DEACON_CHANT, 0.0f, 2); spr_deacon(SP_DEACON_D, 0.0f, 3);
+    deacon_dress(SP_DEACON_A); deacon_dress(SP_DEACON_B); deacon_dress(SP_DEACON_CHANT);
 }
 
 /* a spider's leg in two joints from the body at (kx, ky) out to the foot, banded if band >= 0 */
