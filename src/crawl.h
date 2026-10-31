@@ -285,6 +285,10 @@ extern uint8_t crawl_cmap[NLIGHT][256];         /* colour at a light level */
 extern uint8_t crawl_tex[NTEX][TS * TS];        /* column-major: [x * TS + y] */
 extern uint8_t crawl_spr[NSPR][TS * TS];        /* column-major, C_CLEAR = transparent */
 extern const uint8_t crawl_hand_img[HAND_H * HAND_W];  /* the caster's hand, row-major, C_CLEAR = transparent (hand_img.c) */
+enum { HF_REST, HF_IDLE1, HF_IDLE2, HF_GATHER, HF_CLAW, HF_LOOSE, HF_AFTER, NHF };   /* the hand's frames: at rest, idling, a cast */
+extern const int8_t crawl_hand_shift[NHF][2];      /* where each frame is drawn, against the hand at rest */
+/* frame k of the hand from src (and its labels, lab: 0 none), into dst and dlab; tip: where a spell forms in it */
+void crawl_hand_frame(int k, const uint8_t *src, const uint8_t *lab, uint8_t *dst, uint8_t *dlab, int tip[2]);
 extern int8_t crawl_glint[NSPR][2];             /* brightest gold pixel of a sprite, for twinkles; -1 if none */
 /* where a creature's eyes are on its sprite (docs/InitialArtPass.md section 5), recorded as the sprite is drawn (cv_eye),
  * for the pass that puts them on the screen whatever the light and fog: n eyes (0 none), at x, y in the sprite */

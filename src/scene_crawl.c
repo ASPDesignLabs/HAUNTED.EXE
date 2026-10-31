@@ -13283,7 +13283,7 @@ static void crawl_update(double dt) {
     float ox = G.px, oy = G.py;
     int still = 0;
 #ifdef CRAWL_DEBUG
-    still = g_stage >= 0;                                          /* CRAWL_STAGE: the caster stands and looks */
+    still = g_stage >= 0 && !G.player;                            /* CRAWL_STAGE: the caster stands and looks (a person may act) */
 #endif
     if (G.level_t > 1.0 && !G.dead && !still) { if (G.player && !G.exiting) update_human(fdt); else update_player(fdt); }
     if (fdt > 0.0f) { G.pvx = (G.px - ox) / fdt; G.pvy = (G.py - oy) / fdt; }
@@ -19658,6 +19658,8 @@ static void render_wards(Frame *f) {
  * back of the hand for each defensive spell it knows. Rebuilt when any of that changes. */
 static uint8_t hand_buf[HAND_H * HAND_W], hand_rune[HAND_H * HAND_W];   /* hand_rune: 1 + spell for tattoo ink */
 static Piece hand_worn[NSLOT]; static int8_t hand_def[NDEF]; static int hand_built;
+static uint8_t hand_fr[NHF][HAND_H * HAND_W], hand_frl[NHF][HAND_H * HAND_W];   /* its frames, bent from it (crawl_hand_frame) */
+static int hand_tip[NHF][2], hand_fr_ok[NHF];                      /* each made when first wanted, after a change */
 
 static const int RING_AT[2] = { 55, 32 };                          /* on the ring finger (back of the hand, fingers up-left) */
 static const int RUNE_AT[NDEF][2] = { { 40, 50 }, { 56, 49 }, { 72, 50 }, { 45, 61 }, { 61, 61 }, { 77, 62 }, { 51, 72 }, { 67, 73 }, { 83, 74 } };
@@ -19745,6 +19747,23 @@ static void build_hand(void) {
             }
     }
     memcpy(hand_worn, g->worn, sizeof hand_worn); memcpy(hand_def, g->def, sizeof hand_def); hand_built = 1;
+    memset(hand_fr_ok, 0, sizeof hand_fr_ok);
+}
+
+/* which frame the hand is in: drawn in as a cast begins, a claw while it gathers (or a charge is held), flung open as it
+ * goes, easing after; otherwise idling, the fingers settling and lifting a little */
+static int hand_frame(void) {
+    float ct = -1.0f, fire = 0.0f, len = 0.0f, up = 0.0f;
+    if (G.chg_on) return HF_CLAW;
+    if (G.state == PS_CAST) { ct = G.st; fire = G.cast_wind; len = G.cast_len; up = fminf(0.2f, fire); }
+    else if (G.player && G.pc_t >= 0.0f) { ct = G.pc_t; fire = G.pc_wind; len = G.pc_len; up = fminf(0.18f, fire); }
+    if (ct >= 0.0f) {
+        if (ct < fire) return ct < up ? HF_GATHER : HF_CLAW;
+        if (ct < fire + 0.1f) return HF_LOOSE;
+        if (ct < len) return HF_AFTER;
+    }
+    static const int8_t IDLE[4] = { HF_REST, HF_IDLE1, HF_IDLE2, HF_IDLE1 };
+    return IDLE[(int)(G.t / 0.34) & 3];
 }
 
 /* The charging effect (docs/PLAN-b11.md, section 7): by the hand, a gathering in the element's colour, turning slowly
@@ -19839,9 +19858,15 @@ static void render_hand(Frame *f) {
 #endif
     if (hand <= 0.0f) return;
     if (!hand_built || memcmp(hand_worn, RUN.gear.worn, sizeof hand_worn) || memcmp(hand_def, RUN.gear.def, sizeof hand_def)) build_hand();
+    int hf = hand_frame();
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_HANDFRAME")) hf = clampi(atoi(getenv("CRAWL_HANDFRAME")), 0, NHF - 1);
+#endif
+    if (!hand_fr_ok[hf]) { crawl_hand_frame(hf, hand_buf, hand_rune, hand_fr[hf], hand_frl[hf], hand_tip[hf]); hand_fr_ok[hf] = 1; }
+    const uint8_t *hbuf = hand_fr[hf], *hrune = hand_frl[hf];
     float fox, foy;
     hand_origin(hand, &fox, &foy);
-    int ox = (int)fox, oy = (int)foy;
+    int ox = (int)fox + crawl_hand_shift[hf][0], oy = (int)foy + crawl_hand_shift[hf][1];
     float light = fminf(lm_at(G.px, G.py) + 0.6f * hand, 1.25f);
     static uint8_t grey[256]; static int grey_built;
     if (!grey_built) {                                             /* each colour as a grey of its brightness */
@@ -19854,11 +19879,11 @@ static void render_hand(Frame *f) {
         int sy = oy + y;
         if (sy < 0 || sy >= H) continue;
         for (int x = 0; x < HAND_W; x++) {
-            uint8_t c = hand_buf[y * HAND_W + x];
+            uint8_t c = hbuf[y * HAND_W + x];
             if (c == C_CLEAR) continue;
             int sx = ox + x;
             if (sx < 0 || sx >= W) continue;
-            int rk = hand_rune[y * HAND_W + x];
+            int rk = hrune[y * HAND_W + x];
             if (rk && G.rune_glow[rk - 1] > 0.0f) {                    /* the rune burning as its spell goes off */
                 static const int GLOW[NDEF] = { R_GLOW, R_GLOW, R_GLOW, R_GOLD, R_MOSS, R_GLOW, R_FLAME, R_GLOW, R_GLOW };
                 float k = fminf(1.0f, G.rune_glow[rk - 1] / 0.8f);
@@ -19879,7 +19904,7 @@ static void render_hand(Frame *f) {
         static const float SIZE[NATK] = { 1.0f, 0.8f, 0.8f, 0.7f, 0.9f, 1.35f, 0.75f, 0.85f, 1.2f };
         int sp = clampi(G.spell, 0, NATK - 1), ramp = RAMP[sp];
         float r = (3.0f + 7.0f * clampf(ct / (fire * 0.8f), 0.0f, 1.0f)) * SIZE[sp];
-        int cx = ox + 32, cy = oy + 1;                             /* between the first two fingertips */
+        int cx = ox + hand_tip[hf][0], cy = oy + hand_tip[hf][1];  /* between the tallest fingertips, as this frame has them */
         uint32_t jr = (uint32_t)(G.t * 40.0) * 2246822519u;
         for (int y = (int)(cy - r - 2); y <= (int)(cy + r + 2); y++)
             for (int x = (int)(cx - r - 2); x <= (int)(cx + r + 2); x++) {

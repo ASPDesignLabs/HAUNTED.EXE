@@ -1007,6 +1007,135 @@ static void grid_stamp(const char *const *g, int w, int h, int x0, int y0, int r
 }
 
 /* ------------------------------------------------------------------ */
+/* The caster's hand in motion                                         */
+/* ------------------------------------------------------------------ */
+/* The traced hand bent at its knuckles, for an idle and a cast. Each finger and the thumb has an axis from knuckle to
+ * tip, through the middle of the finger as traced; a frame turns each about its knuckle (anticlockwise on the screen
+ * for a positive turn) and draws it in along its length, which is a curl seen from behind. The bend comes in over the
+ * finger's base, so the back of the hand stays as traced, and a curled finger's tip darkens, turned from the light.
+ * Each pixel goes with the finger nearest it, blended a pixel or so either side of the line between two. */
+static const float HAND_AXIS[5][4] = {                     /* knuckle x, y; tip x, y: index to little, then the thumb */
+    { 28, 46, 19.2f, 11 }, { 48, 44, 25.2f, 1.5f }, { 67, 45, 43.5f, 7 }, { 83, 47, 64.5f, 19 }, { 30, 86, 3, 67 } };
+static const float HAND_POSE[NHF][5][2] = {               /* each one's turn (radians) and length */
+    [HF_REST]   = { { 0, 1 }, { 0, 1 }, { 0, 1 }, { 0, 1 }, { 0, 1 } },
+    [HF_IDLE1]  = { { -0.02f, 0.97f }, { -0.01f, 0.96f }, { 0.01f, 0.955f }, { 0.03f, 0.95f }, { -0.03f, 0.99f } },
+    [HF_IDLE2]  = { { -0.04f, 0.93f }, { -0.015f, 0.92f }, { 0.025f, 0.9f }, { 0.05f, 0.88f }, { -0.06f, 0.97f } },
+    [HF_GATHER] = { { -0.07f, 0.85f }, { -0.02f, 0.82f }, { 0.04f, 0.8f }, { 0.09f, 0.78f }, { -0.14f, 0.92f } },   /* drawn in */
+    [HF_CLAW]   = { { -0.08f, 0.72f }, { -0.02f, 0.68f }, { 0.05f, 0.66f }, { 0.1f, 0.64f }, { -0.2f, 0.86f } },     /* a claw */
+    [HF_LOOSE]  = { { 0.1f, 1.03f }, { 0.035f, 1.04f }, { -0.035f, 1.03f }, { -0.1f, 1.02f }, { 0.12f, 1.0f } },      /* flung open */
+    [HF_AFTER]  = { { 0.05f, 0.98f }, { 0.017f, 0.97f }, { -0.017f, 0.96f }, { -0.05f, 0.95f }, { 0.05f, 0.99f } },   /* easing */
+};
+const int8_t crawl_hand_shift[NHF][2] = { [HF_LOOSE] = { -3, -5 }, [HF_AFTER] = { -1, -2 } };   /* thrust up and out as it goes */
+enum { HWX = 112, HWY = 108 };                             /* the part of the hand that bends: fingers and thumb */
+static struct { float kx, ky, ux, uy, L, c, s, len, curl; } hbone[5];
+
+static void hand_pose(int k) {                             /* the frame's bones, worked out once */
+    for (int f = 0; f < 5; f++) {
+        const float *a = HAND_AXIS[f];
+        float ux = a[2] - a[0], uy = a[3] - a[1], L = sqrtf(ux * ux + uy * uy);
+        hbone[f].kx = a[0]; hbone[f].ky = a[1]; hbone[f].ux = ux / L; hbone[f].uy = uy / L; hbone[f].L = L;
+        hbone[f].c = cosf(HAND_POSE[k][f][0]); hbone[f].s = sinf(HAND_POSE[k][f][0]); hbone[f].len = HAND_POSE[k][f][1];
+        hbone[f].curl = clampf((1.0f - HAND_POSE[k][f][1]) / 0.34f, 0.0f, 1.0f);
+    }
+}
+
+static void hand_disp(float px, float py, float *dx, float *dy, float *curl) {
+    float w[5], d[5][2], wa[5], frac[5], dmin = 1e9f, sum = 0.0f;
+    for (int f = 0; f < 5; f++) {
+        const float kx = hbone[f].kx, ky = hbone[f].ky, ux = hbone[f].ux, uy = hbone[f].uy, L = hbone[f].L;
+        float rx = px - kx, ry = py - ky, along = rx * ux + ry * uy, perp = -rx * uy + ry * ux;
+        float dist = fabsf(perp) + (along > L ? along - L : 0.0f);
+        w[f] = dist;                                          /* no reach: past the tips it is air, and goes with them */
+        if (dist < dmin) dmin = dist;
+        wa[f] = smoothstepf(-3.0f, 9.0f, along);
+        frac[f] = along / L;
+        float al = along > 0.0f ? along * hbone[f].len : along;
+        float qx = ux * al - uy * perp, qy = uy * al + ux * perp;   /* drawn in along it, then turned about the knuckle */
+        d[f][0] = kx + qx * hbone[f].c + qy * hbone[f].s - px; d[f][1] = ky - qx * hbone[f].s + qy * hbone[f].c - py;
+    }
+    *dx = *dy = *curl = 0.0f;
+    for (int f = 0; f < 5; f++) {                             /* the nearest finger leads, the next blends in over a few pixels */
+        float e = (w[f] - dmin) / 2.8f;
+        w[f] = 1.0f / (1.0f + e * e);
+        sum += w[f];
+    }
+    for (int f = 0; f < 5; f++) {
+        float k01 = w[f] / sum;
+        *dx += k01 * wa[f] * d[f][0]; *dy += k01 * wa[f] * d[f][1];
+        *curl += k01 * hbone[f].curl * clampf((frac[f] - 0.5f) * 2.0f, 0.0f, 1.0f);
+    }
+}
+
+static int hand_ramp(uint8_t c) { return c >= R_GOLD && c < R_GOLD + 13 ? 100 : (c - 1) >> 4; }
+
+void crawl_hand_frame(int k, const uint8_t *src, const uint8_t *lab, uint8_t *dst, uint8_t *dlab, int tip[2]) {
+    memcpy(dst, src, HAND_W * HAND_H); memcpy(dlab, lab, HAND_W * HAND_H);
+    hand_pose(k);
+    float tx, ty, tc;
+    hand_disp(32.0f, 1.0f, &tx, &ty, &tc);                         /* where the spell forms, between the tallest fingertips */
+    tip[0] = (int)lroundf(32.0f + tx); tip[1] = (int)lroundf(1.0f + ty);
+    if (k == HF_REST) return;
+    static uint8_t dark[HWY * HWX];                                /* the darkening of a curled tip, by source pixel */
+    static float mx[(HWY + 2) * (HWX + 2)], my[(HWY + 2) * (HWX + 2)];   /* where each pixel's middle came from */
+    for (int y = 0; y < HWY; y++)
+        for (int x = 0; x < HWX; x++) {
+            float a, b, c;
+            hand_disp(x + 0.5f, y + 0.5f, &a, &b, &c);
+            dark[y * HWX + x] = (uint8_t)lroundf(c * 2.5f);
+        }
+    for (int y = -1; y <= HWY; y++)
+        for (int x = -1; x <= HWX; x++) {
+            float qx = x + 0.5f, qy = y + 0.5f, px = qx, py = qy, a, b, c;
+            for (int it = 0; it < 6; it++) { hand_disp(px, py, &a, &b, &c); px = qx - a; py = qy - b; }
+            mx[(y + 1) * (HWX + 2) + x + 1] = px; my[(y + 1) * (HWX + 2) + x + 1] = py;
+        }
+    for (int y = 0; y < HWY; y++)
+        for (int x = 0; x < HWX; x++) {
+            int m = (y + 1) * (HWX + 2) + x + 1, ctr = -1, n = 0;
+            float px = mx[m], py = my[m];                          /* and its neighbours', for the samples between */
+            float ax = (mx[m + 1] - mx[m - 1]) * 0.5f, ay = (my[m + 1] - my[m - 1]) * 0.5f;
+            float bx = (mx[m + HWX + 2] - mx[m - HWX - 2]) * 0.5f, by = (my[m + HWX + 2] - my[m - HWX - 2]) * 0.5f;
+            if (fabsf(ax) + fabsf(ay) > 2.0f || fabsf(bx) + fabsf(by) > 2.0f) { ax = 1.0f; ay = 0.0f; bx = 0.0f; by = 1.0f; }   /* a fold: plain samples */
+            uint8_t cs[9];
+            for (int sy = -1; sy <= 1; sy++)
+                for (int sx = -1; sx <= 1; sx++) {
+                    int ix = (int)floorf(px + (ax * sx + bx * sy) / 3.0f), iy = (int)floorf(py + (ay * sx + by * sy) / 3.0f);
+                    if (ix < 0 || iy < 0 || ix >= HAND_W || iy >= HAND_H) continue;
+                    uint8_t col = src[iy * HAND_W + ix];
+                    if (col == C_CLEAR) continue;
+                    if (col >= R_SKIN && col < R_SKIN + 16 && ix < HWX && iy < HWY)
+                        col = (uint8_t)(R_SKIN + clampi(col - R_SKIN - dark[iy * HWX + ix], 1, 15));
+                    if (!sx && !sy) ctr = iy * HAND_W + ix;
+                    cs[n++] = col;
+                }
+            int at = y * HAND_W + x;
+            if (n < 5) { dst[at] = C_CLEAR; dlab[at] = 0; continue; }
+            int best = -1, bn = 0;                                 /* the ramp most of it fell in, at its middling step */
+            for (int i = 0; i < n; i++) {
+                int c = 0;
+                for (int j = 0; j < n; j++) c += hand_ramp(cs[j]) == hand_ramp(cs[i]);
+                if (c > bn) { bn = c; best = hand_ramp(cs[i]); }
+            }
+            uint8_t v[9]; int nv = 0;
+            for (int i = 0; i < n; i++) if (hand_ramp(cs[i]) == best) {
+                int j = nv++;
+                while (j > 0 && v[j - 1] > cs[i]) { v[j] = v[j - 1]; j--; }
+                v[j] = cs[i];
+            }
+            dst[at] = v[nv / 2];
+            dlab[at] = ctr >= 0 ? lab[ctr] : 0;
+        }
+    for (int y = 0; y < HWY; y++)                                  /* the outline again, where the bend has moved it */
+        for (int x = 0; x < HWX; x++) {
+            uint8_t *p = &dst[y * HAND_W + x];
+            if (*p < R_SKIN + 4 || *p >= R_SKIN + 16) continue;
+            int edge = x == 0 || y == 0 || dst[y * HAND_W + x - 1] == C_CLEAR || dst[y * HAND_W + x + 1] == C_CLEAR
+                    || dst[(y - 1) * HAND_W + x] == C_CLEAR || dst[(y + 1) * HAND_W + x] == C_CLEAR;
+            if (edge) *p = (uint8_t)(R_SKIN + 1);
+        }
+}
+
+/* ------------------------------------------------------------------ */
 /* Sprites                                                             */
 /* ------------------------------------------------------------------ */
 

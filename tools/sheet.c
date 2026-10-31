@@ -742,6 +742,57 @@ static int draw_documents(const char *path) {
     return ok;
 }
 
+/* ---- the caster's hand: its idle and its cast, bent from the traced hand (crawl_hand_frame) ---- */
+static int draw_hand(const char *path) {
+    static const char *const NAME[NHF] = { "AT REST (AS TRACED)", "IDLE 2", "IDLE 3", "CAST 1: DRAWN IN", "CAST 2: THE CLAW", "CAST 3: FLUNG OPEN", "CAST 4: EASING" };
+    static const int ROW[2][4] = { { HF_REST, HF_IDLE1, HF_IDLE2, -1 }, { HF_GATHER, HF_CLAW, HF_LOOSE, HF_AFTER } };
+    static uint8_t fr[HAND_W * HAND_H], fl[HAND_W * HAND_H], lab[HAND_W * HAND_H];
+    enum { K = 2, M = 12 };
+    int colw = HAND_W * K + 24, boxh = (HAND_H + M - 6) * K;   /* the sleeve's cut end, off the screen in play, left out */
+    iw = PAD + 4 * colw + PAD;
+    ih = PAD + LABEL_H + 8 + 2 * (LABEL_H + LABEL_H + boxh + 16) + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "THE CASTER'S HAND: AN IDLE OF THREE FRAMES AND A CAST OF FOUR", 230, 230, 230);
+    int y = PAD + LABEL_H + 8;
+    for (int r = 0; r < 2; r++) {
+        text(PAD, y, r ? "THE CAST: AS IT RISES, AS IT GATHERS (OR HOLDS A CHARGE), AS IT GOES, AFTER"
+                       : "IDLING BETWEEN CASTS: 1-2-3-2, A THIRD OF A SECOND EACH", 200, 200, 200);
+        y += LABEL_H;
+        for (int c = 0; c < 4; c++) {
+            int k = ROW[r][c], x0 = PAD + c * colw;
+            if (k < 0) continue;
+            int tip[2];
+            crawl_hand_frame(k, crawl_hand_img, lab, fr, fl, tip);
+            text(x0, y, NAME[k], 170, 170, 170);
+            rect(x0, y + LABEL_H, HAND_W * K, boxh, 26, 25, 30);
+            int ox = crawl_hand_shift[k][0], oy = M + crawl_hand_shift[k][1];
+            for (int py = 0; py < HAND_H; py++)
+                for (int px = 0; px < HAND_W; px++) {
+                    uint8_t col = fr[py * HAND_W + px];
+                    int sx = px + ox, sy = py + oy;
+                    if (col == C_CLEAR || sx < 0 || sy < 0 || sx >= HAND_W || sy >= HAND_H + M - 6) continue;
+                    rect(x0 + sx * K, y + LABEL_H + sy * K, K, K, crawl_pal[col][0] * 255 / 63, crawl_pal[col][1] * 255 / 63, crawl_pal[col][2] * 255 / 63);
+                }
+            if (k == HF_GATHER || k == HF_CLAW) {                      /* the fire bolt forming, as the game draws it */
+                float rr = k == HF_CLAW ? 8.0f : 4.0f;
+                int cx = tip[0] + ox, cy = tip[1] + oy;
+                for (int qy = (int)(cy - rr); qy <= (int)(cy + rr); qy++)
+                    for (int qx = (int)(cx - rr); qx <= (int)(cx + rr); qx++) {
+                        float d = hypotf(qx + 0.5f - cx, qy + 0.5f - cy) / rr;
+                        if (d > 1.0f || qx < 0 || qy < 0 || qx >= HAND_W || qy >= HAND_H + M) continue;
+                        uint8_t col = (uint8_t)(R_FLAME + (int)((1.05f - d * 0.8f) * 15));
+                        rect(x0 + qx * K, y + LABEL_H + qy * K, K, K, crawl_pal[col][0] * 255 / 63, crawl_pal[col][1] * 255 / 63, crawl_pal[col][2] * 255 / 63);
+                    }
+            }
+        }
+        y += LABEL_H + boxh + 16;
+    }
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
 /* ---- 1.0.0b13: the trials' doors, a run each, the lights by them, their things, and the hourglass (docs/PLAN-b13.md part D) ---- */
 static int draw_trials(const char *path) {
     static const int LV[4] = { 3, 13, 23, 33 };
@@ -1369,6 +1420,13 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/puzzles.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_puzzles(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "hand")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/hand.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_hand(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     if (!strcmp(argv[1], "all") || !strcmp(argv[1], "trials")) {

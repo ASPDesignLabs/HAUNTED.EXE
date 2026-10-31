@@ -492,7 +492,10 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   hurts by share, death, a rock within 4 cells, a secret's slide, a boss's fall, the BFS9000.
 - **Player mode** (`update_human`, `human_walk`, `human_use`, `human_cast`) after holding H. The hand
   is out of sight but for a cast or a ware reached for, and stays up 0.9 s after (`G.hand_base`,
-  `G.ready_t`). Esc opens
+  `G.ready_t`). It moves (1.0.0b14, at the owner's word): `hand_frame` picks one of `NHF` frames (`HF_*`: an idle of
+  three while it is up, a cast of four by the cast's phase, the claw while a charge is held), each bent from the
+  dressed traced hand by `crawl_hand_frame` (`HAND_AXIS`, `HAND_POSE` in `crawl_art.c`) when first wanted; the spell
+  forms at the frame's fingertips (`hand_tip`). `CRAWL_HANDFRAME=k` holds one. Esc opens
   the question (flee, stay, sleepwalk, open the ledger, begin a new run: `Q_NEW`, asked twice by `G.quit_arm`,
   `run_new`: a fresh `RUN` as a person's, out of any pocket, page 0, so her question comes at once; `EVENT new_run`); Tab the wardrobe (the
   seven worn slots and the bag, Enter moves a piece between them; A/D turns to the caster's totals and
