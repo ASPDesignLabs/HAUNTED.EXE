@@ -2631,6 +2631,8 @@ int crawl_doc_paper(int run, unsigned char c) {
     return c >= base && c < base + 16;
 }
 unsigned char crawl_doc_page(unsigned char *pix, int stride, int x0, int y0, int w, int h, int run, unsigned seed) {
+    int plain = run & 4;                                           /* (a slip: no square for a first letter) */
+    run &= 3;
     for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++) {
             float e = 99.0f;                                       /* how far in from a ragged edge */
@@ -2675,7 +2677,7 @@ unsigned char crawl_doc_page(unsigned char *pix, int stride, int x0, int y0, int
             }
             pix[(y0 + y) * stride + x0 + x] = c;
         }
-    if (run == 0)                                                  /* a gilt square for the first letter */
+    if (run == 0 && !plain)                                        /* a gilt square for the first letter */
         for (int y = 10; y < 22 && y < h; y++) for (int x = 12; x < 24 && x < w; x++) pix[(y0 + y) * stride + x0 + x] = sh(R_GOLD, 0.55f + 0.25f * ((x + y) % 5 == 0));
     return run == 0 ? sh(R_WOOD, 0.03f) : run == 1 ? sh(R_IRON, 0.12f) : run == 2 ? sh(R_STONE, 0.08f) : sh(R_GOLD, 0.2f);
 }

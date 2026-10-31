@@ -878,6 +878,7 @@ static struct {
        it) and its second; the room's faces while it is turned */
     int tri, tri_room, tri_door, tri_wx, tri_wy, tri_ix, tri_iy, tri_state, tri_boon, tri_n0, tri_a[16], work_i, tri_nface;
     float tri_t, tri_end, tri_f[8], work_t, tri_hold;
+    int rk_fresh;                                                  /* the reckoning (section 10a) just opened */
     int16_t tri_fx[160], tri_fy[160]; uint8_t tri_fd[160], tri_face[160], tri_fover[160], tri_flo[256], tri_floored;
 } G;
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
@@ -886,7 +887,7 @@ static float zbuf[W];
 enum { MM_SIGN, MM_ASCEND, MM_OFFER, MM_VOW, MM_PED, MM_WIND, MM_PAT, MM_LEAVE, NMM };   /* the merchant's menu */
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
 #define NINV 6                              /* Tab's pages */
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES, UI_ALIGN, UI_CLASS, UI_HALL2, UI_BSHRINE };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES, UI_ALIGN, UI_CLASS, UI_HALL2, UI_BSHRINE, UI_RECKON };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 static double IN_DT;                        /* and how long the step is */
 static struct {                             /* their game controller, if they have one */
@@ -14233,6 +14234,100 @@ static void human_exit(void) {                                    /* into the ru
     G.state = PS_EXIT; G.spd = 0.0f;
 }
 
+static int map_gold(void);
+static void dim_view(Frame *f);
+/* ---- the reckoning before you leave (1.0.0b13, docs/PLAN-b13.md section 10a) ----
+ * A person going out by the exit with anything still left on the level is shown what, on a slip pinned to the
+ * exit's door in the run's ink, and must choose DESCEND BELOW to go; NOT YET (where it starts) steps back a pace.
+ * It counts what the game knows, map or no map; on a boss's level only what lies outside the arena. Not for the
+ * dream, nor a challenge's or a replay's way out. */
+enum { RK_MOBS, RK_SECRETS, RK_WING, RK_GOLD, RK_TRIAL, NRK };
+static int reckon_lines(char out[NRK][48], int glyph[NRK]) {
+    int n = 0;
+    int mobs = 0;
+    for (int i = 0; i < MAXMOBS; i++) {
+        const Mob *m = &G.mobs[i];
+        if (m->alive && m->state != MS_DIE && !KIND_IS(m, KF_UNCOUNTED) && !m->boss && !m->add && !m->ally && !(G.boss >= 0 && in_arena(m->x, m->y))) mobs++;
+    }
+    if (mobs) { snprintf(out[n], 48, "%d CREATURE%s STILL WALK%s", mobs, mobs == 1 ? "" : "S", mobs == 1 ? "S" : ""); glyph[n++] = RK_MOBS; }
+    if (G.nlinks > G.links_found) { snprintf(out[n], 48, "%d OF %d SECRETS STILL HIDDEN", G.nlinks - G.links_found, G.nlinks); glyph[n++] = RK_SECRETS; }
+    if (G.pz >= 0 && !G.pz_solved) { snprintf(out[n], 48, "THE SEALED WING IS STILL SHUT"); glyph[n++] = RK_WING; }
+    int gold = map_gold();
+    if (gold > 0) {
+        char num[16];
+        if (gold >= 1000) snprintf(num, sizeof num, "%d,%03d", gold / 1000, gold % 1000); else snprintf(num, sizeof num, "%d", gold);
+        snprintf(out[n], 48, "ABOUT %s GOLD STILL LIES HERE", num); glyph[n++] = RK_GOLD;
+    }
+    if (G.tri >= 0 && G.tri_state == TRS_SHUT) { snprintf(out[n], 48, "THE TRIAL STILL WAITS"); glyph[n++] = RK_TRIAL; }
+    return n;
+}
+/* E at the exit, or walking into it: the reckoning first, if anything is left */
+static void human_leave(void) {
+    char l[NRK][48]; int g[NRK];
+    if (G.bchallenge || G.replay || PK.depth || !reckon_lines(l, g)) { human_exit(); return; }
+    open_ui(UI_RECKON);
+    G.ui_sel = 1; G.rk_fresh = 1;                                  /* on NOT YET; the press that opened it is spent */
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT reckon %d lines t=%.2f\n", reckon_lines(l, g), G.t);
+#endif
+}
+static void update_reckon(void) {
+    if (G.rk_fresh) { G.rk_fresh = 0; return; }
+    if (IN.hit[KEY_W] || IN.hit[KEY_UP] || IN.hit[KEY_S] || IN.hit[KEY_DOWN]) { G.ui_sel ^= 1; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    int take = IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1];
+    if (IN.hit[KEY_ESC] || (take && G.ui_sel == 1)) {               /* not yet: a pace back from the doorway */
+        G.ui = UI_NONE;
+        float bx = G.px - DX[G.exit_dir] * 0.6f, by = G.py - DY[G.exit_dir] * 0.6f;
+        if (passable((int)bx, (int)by)) { G.px = bx; G.py = by; }
+        snd_sfx_ex(SFX_STEP, 0.8f, 0.5f);
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT reckon_stay t=%.2f\n", G.t);
+#endif
+        return;
+    }
+    if (!take) return;
+    G.ui = UI_NONE;
+    snd_sfx_ex(SFX_PAGE, 0.7f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT reckon_descend t=%.2f\n", G.t);
+#endif
+    human_exit();
+}
+static void reckon_glyph(Frame *f, int x, int y, int k, uint8_t c) {   /* the dead, a crack, a seal, coins, an hourglass */
+    static const char *const GL[NRK][7] = {
+        { ".###.", "#####", "#.#.#", "#####", ".#.#.", ".###.", "....." },
+        { "..#..", "..#..", ".#...", ".##..", "...#.", "..#..", "..#.." },
+        { ".###.", "#...#", "#.#.#", "#.#.#", "#...#", ".###.", "..#.." },
+        { ".###.", "#...#", ".###.", "#...#", ".###.", "#...#", ".###." },
+        { "#####", ".#.#.", "..#..", "..#..", ".#.#.", "#.#.#", "#####" } };
+    for (int r = 0; r < 7; r++) for (int q = 0; q < 5; q++) if (GL[k][r][q] == '#') gfx_px(f, x + q, y + r, c);
+}
+static void render_reckon(Frame *f) {
+    char l[NRK][48]; int g[NRK];
+    int n = reckon_lines(l, g), run = crawl_set(G.level) & 3, pw = 296, ph = 52 + n * 11 + 26, px = (W - pw) / 2, py = imax(4, (H - 44 - ph) / 2 - 6);
+    dim_view(f);
+    uint8_t ink = crawl_doc_page(f->pix, W, px, py, pw, ph, run + 4, (unsigned)(G.level * 131 + 9));
+    gfx_px(f, px + pw / 2, py + 3, R_IRON + 2); gfx_px(f, px + pw / 2 + 1, py + 3, R_IRON + 10); gfx_px(f, px + pw / 2, py + 4, R_IRON + 6);   /* the nail */
+    const char *head = "THE DEAD KEEP COUNT";
+    gfx_text8(f, px + (pw - gfx_text_width(head, 1)) / 2, py + 12, head, run == 0 ? (uint8_t)(R_BLOOD + 9) : ink, 1);
+    for (int i = 0; i < n; i++) {
+        int y = py + 30 + i * 11;
+        reckon_glyph(f, px + 14, y, g[i], ink);
+        gfx_text8(f, px + 26, y, l[i], ink, 1);
+    }
+    static const char *const OPT[2] = { "DESCEND BELOW", "NOT YET" };
+    for (int k = 0; k < 2; k++) {
+        int y = py + 36 + n * 11 + k * 11, w = gfx_text_width(OPT[k], 1), x = px + (pw - w) / 2;
+        if (G.ui_sel == k) { gfx_text8(f, x - 12, y, ">", R_BLOOD + 10, 1); gfx_text8(f, x + w + 4, y, "<", R_BLOOD + 10, 1); }
+        gfx_text8(f, x, y, OPT[k], G.ui_sel == k ? (uint8_t)(R_BLOOD + 9) : ink, 1);
+    }
+    crawl_doc_ink(f->pix, W, px, py, pw, ph, run, ink, (unsigned)(G.level * 131 + 9));
+    const char *hint = "W/S CHOOSE  ENTER TAKES  ESC NOT YET";
+    int hw = hint_width(hint);
+    gfx_rect(f, (W - hw) / 2 - 4, py + ph + 2, hw + 8, 11, 0);
+    hint8(f, (W - hw) / 2, py + ph + 4, hint, R_STONE + 11);
+}
+
 /* walking into something: a door opens (if it can), the exit takes you */
 static void human_bump(int cx, int cy) {
     Cell *c = cell(cx, cy);
@@ -14241,7 +14336,7 @@ static void human_bump(int cx, int cy) {
     else if (c->kind == K_WALL && c->secret == 3) pocket_door(cx, cy);   /* a secret's doorway: walked through */
     else if (G.exit_fx >= 0 && cx == G.exit_wx && cy == G.exit_wy && (int)G.px == G.exit_fx && (int)G.py == G.exit_fy) {
         if (boss_sealed()) { if (G.msg_t <= 0.0f) { say("THE WAY IS SHUT WHILE IT LIVES"); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); } }
-        else human_exit();
+        else human_leave();
     }
 }
 
@@ -14291,7 +14386,7 @@ static int human_use(void) {
     }
     if (!G.shop && G.exit_fx >= 0 && cx == G.exit_wx && cy == G.exit_wy && hypotf(G.exit_fx + 0.5f - G.px, G.exit_fy + 0.5f - G.py) < 1.0f) {
         if (boss_sealed()) { say("THE WAY IS SHUT WHILE IT LIVES"); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 1; }
-        human_exit(); return 1;
+        human_leave(); return 1;
     }
     if (!G.shop && G.altar_x >= 0 && hypotf(G.altar_x + 0.5f - G.px, G.altar_y + 0.5f - G.py) < 1.6f
         && fabsf(wrap_pi(atan2f(G.altar_y + 0.5f - G.py, G.altar_x + 0.5f - G.px) - G.ang)) < 0.7f) { open_ui(UI_ALTAR); G.grab_t = 1.0f; return 1; }
@@ -14460,6 +14555,7 @@ static void open_ui(int which) {
         snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f);
     }
     else if (which == UI_BSHRINE) { G.bsh_arm = 0; snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f); }
+    else if (which == UI_RECKON) { G.ui_sel = 1; snd_sfx_ex(SFX_PAGE, 0.6f, 0.5f); }   /* on NOT YET */
     else if (which == UI_SHRINE) {                                 /* on a pull, with what coins you have */
         G.sh_mode = SM_MENU; G.ui_sel = 0; G.sh_arm = -1;
         G.sh_coins = clampi(RUN.coins, 1, 3);
@@ -17229,6 +17325,7 @@ static void update_ui(void) {
 #endif
     if (G.ui == UI_ALTAR) { update_altarmenu(); return; }
     if (G.ui == UI_BSHRINE) { update_bshrine(); return; }
+    if (G.ui == UI_RECKON) { update_reckon(); return; }
     if (G.ui == UI_INVENTORY) update_inventory();
     else if (G.ui == UI_LEDGER) update_ledger();
     else if (G.ui == UI_MERCHANT) update_merchantmenu();
@@ -22441,6 +22538,7 @@ static void render_ui(Frame *f) {
     if (G.ui == UI_WISPS) { render_wispmenu(f); return; }
     if (G.ui == UI_ALTAR) { render_altarmenu(f); return; }
     if (G.ui == UI_BSHRINE) { render_bshrine(f); return; }
+    if (G.ui == UI_RECKON) { render_reckon(f); return; }
     if (G.ui == UI_INVENTORY) render_inventory(f);
     else if (G.ui == UI_QUIT) render_quit(f);
     else if (G.ui == UI_LEDGER) render_ledger(f);

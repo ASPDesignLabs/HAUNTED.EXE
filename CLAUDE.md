@@ -109,7 +109,7 @@ release above, the owner moved it on a number, staged as its G2 (a) says: 1.0.0b
 every sample, soul-sappers from each run's sixth level, Resist Lightning), logic puzzles worked with things in the world
 behind a sealed wing (a hidden message, a Black Shrine, Tab's documents), timed trials behind skull-marked doors, and a
 reckoning of what is left before a person leaves a level; 1.0.0b14 the lower storey, its edges, stairs and ladders. Being
-built on `claude/epic-dirac-n8uosr` from main at 1.0.0b12, in the plan's steps, sheets before art in the game. Steps 1-5
+built on `claude/epic-dirac-n8uosr` from main at 1.0.0b12, in the plan's steps, sheets before art in the game. Steps 1-6
 are built (harness only; the plan's status line says where it stands): see *1.0.0b13 so far* below.
 
 ## Working with the owner
@@ -1002,7 +1002,11 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `Thing.slow` in tenths of a second, `G.work_i`, `update_work`. The hourglass: `crawl_hourglass`, `render_trial`,
   `trial_shown`. The dream: `tri_goal` (after `boss_goal`), `tri_next` (sticky on its choice, `G.tri_a[12]`), `G.tri_hold`.
   Debug: `CRAWL_TRIAL=k`, `CRAWL_TPTRIAL=1` (before its door; 2 the dream started there), `TRIAL` lines, `EVENT trial_begin`,
-  `trial_won`, `trial_lost`, `trial_died`, `TRIAL end` (what was left); `make sheets` draws `trials.png`.
+  `trial_won`, `trial_lost`, `trial_died`, `TRIAL end` (what was left); `make sheets` draws `trials.png`. *The reckoning*
+  (step 6): `human_leave` in place of `human_exit` for a person at the exit; `reckon_lines` (creatures, secrets, the wing,
+  `map_gold`, the trial; on a boss's level only outside the arena), `UI_RECKON`, `update_reckon` (NOT YET steps back a
+  pace; `G.rk_fresh` spends the press that opened it), `render_reckon` on `crawl_doc_page`'s slip (run + 4). Not in a
+  challenge, a replay or a pocket. Debug: `EVENT reckon`, `reckon_stay`, `reckon_descend`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

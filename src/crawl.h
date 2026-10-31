@@ -333,8 +333,9 @@ void crawl_art_run(int level);                  /* that run's own textures and k
 
 /* A document's page (1.0.0b13, docs/PLAN-b13.md section 6a), a run each: a leaf of the Order's vellum, a letter's paper,
  * a scrap of sacking, beaten gold leaf. Drawn into pix (stride across) at x0, y0, w by h, left as it was where it is torn
- * away; returns the colour to write on it in. crawl_doc_ink finishes what was written on it: the letter's ink runs, the
- * gold's scratches catch the light. crawl_doc_paper says whether a colour is the page's own, for the writer. */
+ * away (run + 4: a slip, without the vellum's square for a first letter); returns the colour to write on it in.
+ * crawl_doc_ink finishes what was written on it: the letter's ink runs, the gold's scratches catch the light.
+ * crawl_doc_paper says whether a colour is the page's own, for the writer. */
 unsigned char crawl_doc_page(unsigned char *pix, int stride, int x0, int y0, int w, int h, int run, unsigned seed);
 void crawl_doc_ink(unsigned char *pix, int stride, int x0, int y0, int w, int h, int run, unsigned char ink, unsigned seed);
 int crawl_doc_paper(int run, unsigned char c);
