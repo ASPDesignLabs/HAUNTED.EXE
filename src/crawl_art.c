@@ -3998,6 +3998,13 @@ static void soil(float cx, float w, int ground, uint32_t seed) {
     for (int i = 0; i < 5; i++) cv_px((int)(cx + (h01(i, 5, seed) - 0.5f) * w * 1.6f), ground - 3 - (int)(5 * h01(i, 6, seed)), sh(R_WOOD, 0.3f));   /* flung earth */
 }
 
+/* the shambler's face (docs/InitialArtPass.md section 8): sunken sockets, the nose rotted to two holes, the jaw dropped
+ * open on yellowed teeth, hair in clumps; hex R_WARM (PF_FLESH), g-v R_IRON for the hair */
+static const char *const SHAMB_HEAD[16] = {
+    "...hjjhj.h...", "..hj6787jh...", ".hj689a986j..", ".j6789aa9875.", ".5679aaa9865.", ".46000900064.", ".460@797@064.",
+    "..520696025..", "..47a0a0a74..", "..4589a9854..", "..3e0e00e03..", "...2000002...", "...3000003...", "...4d00d04...",
+    "....57975....", ".....363.....",
+};
 /* The shambler: a corpse in rags out of its grave, one arm reaching, the other hanging.
  * pose: 0 walking, 1 grabbing, 2-3 climbing out (head and hands, then to the waist), 4 sinking to
  * its knees, 5 down. Its skin is R_WARM (PF_FLESH). */
@@ -4006,9 +4013,9 @@ static void spr_shambler(int id, float w, int pose) {
     int grab = pose == 1 || pose == 2 || pose == 3;
     if (pose == 5) {                                               /* down: lying along the floor, an arm flung out */
         cv_flat(32, 61.5f, 26, 2.5f, R_WARM + 1);
-        cv_capsule(40, 58, 56, 60, 2.6f, R_WOOD, 0.08f, 0.35f);    /* legs */
-        cv_capsule(40, 60, 55, 62, 2.4f, R_WOOD, 0.06f, 0.3f);
-        cv_ellipse(30, 57.5f, 11, 4.2f, R_IRON, 0.08f, 0.4f);      /* the shroud-rag over the chest */
+        cv_capsule(40, 58, 56, 60, 2.6f, R_STONE, 0.1f, 0.4f);     /* legs, bound */
+        cv_capsule(40, 60, 55, 62, 2.4f, R_STONE, 0.08f, 0.35f);
+        cv_ellipse(30, 57.5f, 11, 4.2f, R_STONE, 0.12f, 0.5f);     /* the shroud over the chest */
         cv_capsule(24, 55, 18, 47, 1.8f, R_WARM, 0.35f, 0.9f);      /* an arm up off the floor */
         dead_hand(17, 46, -1.9f, 0.35f, R_WARM, 1.0f);
         cv_ellipse(14, 58, 5.0f, 4.4f, R_WARM, 0.2f, 0.8f);        /* the head, on its side */
@@ -4027,14 +4034,14 @@ static void spr_shambler(int id, float w, int pose) {
         dead_hand(21 + w * 2.5f, sy + 19, 1.7f, 0.25f, R_WARM, 0.9f);
     }
     if (pose == 4) {                                                /* on its knees, shins under it */
-        cv_capsule(27, 50, 22, 61, 2.6f, R_WOOD, 0.08f, 0.35f);
-        cv_capsule(37, 50, 42, 61, 2.6f, R_WOOD, 0.08f, 0.35f);
+        cv_capsule(27, 50, 22, 61, 2.6f, R_STONE, 0.1f, 0.4f);
+        cv_capsule(37, 50, 42, 61, 2.6f, R_STONE, 0.1f, 0.4f);
         cv_capsule(22, 61, 14, 62, 2.0f, R_WARM, 0.3f, 0.75f);
         cv_capsule(42, 61, 50, 62, 2.0f, R_WARM, 0.3f, 0.75f);
     } else {
         for (int s = -1; s <= 1; s += 2) {                          /* legs: rags to the knee, bare shins, a dragging foot */
             float k = s * w, kx = 32 + s * 4.5f - k * 2.0f, fx = 32 + s * 5.0f - k * 3.5f;
-            cv_capsule(32 + s * 3.5f, 42, kx, 52, 2.8f, R_WOOD, 0.06f, 0.33f);
+            cv_capsule(32 + s * 3.5f, 42, kx, 52, 2.8f, R_STONE, 0.12f, 0.42f);   /* bound in linen strips */
             cv_capsule(kx, 51, fx, 60.5f, 2.0f, R_WARM, 0.3f, 0.85f);
             cv_ellipse(fx + s * 1.5f, 61.5f, 3.2f, 1.6f, R_WARM, 0.3f, 0.75f);
         }
@@ -4053,7 +4060,7 @@ static void spr_shambler(int id, float w, int pose) {
             if (y > bot - 1 && h01(x, 7, 215) < 0.3f) continue;     /* ragged hem */
             float fold = 0.5f + 0.5f * sinf((x - cx) * 0.9f + y * 0.15f);
             float v = 0.22f + 0.3f * (1.0f - fabsf(x + 0.5f - cx) / 12.0f) + 0.1f * fold;
-            cv_px(x, y, sh(R_IRON, v));
+            cv_px(x, y, sh(R_STONE, v - 0.02f - (((int)(y + x * 0.5f)) % 5 == 0 ? 0.12f : 0.0f)));   /* burial linen, wound round it, gone grey */
         }
     for (int i = 0; i < 2; i++) {                                   /* ribs showing in the tear, and the rot inside */
         float y = sy + 6 + i * 3.5f;
@@ -4079,28 +4086,58 @@ static void spr_shambler(int id, float w, int pose) {
         cv_capsule(45 + sway, sy + 3, 49 + sway - w * 0.5f, sy + 0, 1.9f, R_WARM, 0.4f, 0.95f);
         dead_hand(50 + sway - w * 0.5f, sy - 1, 0.9f, 0.3f, R_WARM, 1.1f);
     }
-    /* the head: sunken eyes with a dull light in them, a slack jaw, a few strands of hair */
-    cv_ellipse(hx, hy, 6.0f, 6.6f, R_WARM, 0.35f, 1.0f);
-    cv_ellipse(hx + 0.3f, hy + 4.3f, 4.0f, 2.8f, R_WARM, 0.25f, 0.75f);
-    for (int k = -1; k <= 1; k += 2) {
-        cv_flat(hx + k * 2.3f, hy - 0.5f, 1.6f, 1.5f, 0);
-        cv_eye((int)(hx + k * 2.3f), (int)(hy - 0.5f), (uint8_t)(R_FLAME + (grab ? 7 : 4)));
-    }
-    float mo = grab ? 2.2f : 1.2f;                                  /* the mouth, wider when it lunges */
-    cv_flat(hx + 0.4f, hy + 3.6f, 2.0f, mo, 0);
-    for (int i = -1; i <= 1; i++) cv_px((int)(hx + 0.4f + i * 1.2f), (int)(hy + 3.6f - mo + 1), sh(R_BONE, 0.7f));
+    /* the head (SHAMB_HEAD): sunken sockets with a sulphur light in them, the jaw dropped, hair in clumps */
+    grid_stamp(SHAMB_HEAD, 13, 16, (int)(hx - 6.0f), (int)(hy - 7.0f), R_WARM, R_IRON, (uint8_t)(R_FLAME + (grab ? 15 : 13)), 0);
     for (int i = 0; i < 7; i++) {                                   /* lank hair over the crown and down the sides */
-        float a = PI_F * (1.05f + 0.9f * i / 6.0f), x = hx + cosf(a) * 5.6f, y = hy + sinf(a) * 6.2f;
+        float a = PI_F * (1.05f + 0.9f * i / 6.0f), x = hx + cosf(a) * 6.0f, y = hy - 1.0f + sinf(a) * 6.5f;
         float drop = (i == 0 || i == 6) ? 6.0f + 3.0f * h01(i, 2, 219) : 1.5f;
         cv_line(x, y, x + (x < hx ? -0.8f : 0.8f), y + drop, sh(R_IRON, 0.18f + 0.12f * h01(i, 1, 219)));
     }
     cv_rot(R_WARM, 0.6f, 211);
+    for (int y = 0; y < TS; y++)                                    /* grave-dirt clotted on it, more of it lower down */
+        for (int x = 0; x < TS; x++) {
+            uint8_t c = cv_sprite[y * TS + x];
+            if (!((c > R_WARM && c < R_WARM + 16) || (c > R_STONE && c < R_STONE + 16))) continue;
+            float n = fbm(x / 3.0f, y / 3.0f, 16, 213);
+            if (n > 0.74f - (float)y * 0.004f) cv_px(x, y, sh(R_WOOD, 0.06f + 0.14f * h01(x, y, 214)));
+        }
+    if (pose <= 1)                                                  /* roots out of the tear in its chest, from the grave */
+        for (int k = 0; k < 3; k++) {
+            float x = cx - 3.0f + k * 1.5f, y = sy + 8.0f + k * 2.0f, a = 2.2f + k * 0.5f;
+            for (int i = 0; i < 6 + k * 2; i++) { a += (h01(k, i, 217) - 0.5f) * 0.9f; x += cosf(a) * 0.9f; y += sinf(a) * 0.9f; cv_px((int)x, (int)y, sh(R_WOOD, 0.3f + 0.15f * (i & 1))); }
+        }
     if (pose == 2 || pose == 3) {                                   /* climbing out of the grave */
         cv_sink(pose == 2 ? 30 : 14, 58);
         soil(32, 17, 58, 221);
     }
     cv_outline(0);
     cv_store(id);
+}
+
+/* the shambler's dressing by rank (docs/InitialArtPass.md 6.1): II more of its linen hanging, grave-mould; III frost and
+ * an ear torn away; IV an arrow in its shoulder and old blood from the tear and the mouth; V charred, an iron circlet and a
+ * grave's shackle on its wrist; gilded gold leaf and gilt teeth */
+static void shambler_dress(int id, float w, int grab) {
+    float sway = w * 0.8f, hx = 30 + sway, hy = 13 + (grab ? 1.0f : 0.0f), sy = 23, cx = 31.0f + sway * 0.7f;
+    for (int r = RK_II; r < NRANK; r++) {
+        dress_begin(id);
+        if (r != RK_GILDED) {
+            kit_rags(24 + sway, 43, 38 + sway, 44, 9, w, R_STONE, 0.1f, 0.35f, 0, 491);
+            kit_rags(22 + sway, sy, 26 + sway, sy + 1, 6, w * 0.5f, R_STONE, 0.1f, 0.35f, 0, 493);
+        }
+        if (r == RK_II) kit_moss(0.3f, 3, 495);
+        if (r == RK_III) kit_frost(0.75f, 497);
+        if (r >= RK_III && r != RK_GILDED) { cv_px((int)hx + 6, (int)hy - 2, 0); cv_px((int)hx + 6, (int)hy - 1, 0); cv_px((int)hx + 5, (int)hy - 3, 0); }   /* an ear gone */
+        if (r >= RK_IV && r != RK_GILDED) { kit_arrow(38 + sway, sy + 2, -0.9f, 8.0f); kit_blood(cx - 3, sy + 12, 10, 2, 499); kit_blood(hx, hy + 6, 7, 2, 501); }
+        if (r == RK_V) { kit_char(0.3f, 503); kit_crown(hx, hy - 7, 11, 505); if (!grab) kit_chain(21 + w * 2.5f, sy + 19, 19 + w * 2.0f, sy + 33, 1.5f, R_IRON); }
+        if (r == RK_GILDED) {
+            kit_gold(R_WARM, 0.5f, 507);
+            for (int y = (int)hy + 2; y < (int)hy + 8; y++)                                   /* gilt teeth */
+                for (int x = (int)hx - 5; x <= (int)hx + 5; x++) { uint8_t b = base_c(x, y); if (b >= R_WARM + 12 && b < R_WARM + 16) cv_px(x, y, (uint8_t)(R_GOLD + 11)); }
+            kit_chain(24 + sway, sy + 2, 38 + sway, sy + 2, 2.5f, R_GOLD);
+        }
+        dress_store(id, r, R_WARM);
+    }
 }
 
 /* the water a drowned one rises from, or the foul pool it leaves when it bursts */
@@ -5712,7 +5749,7 @@ static void spr_wskull_side(void) {                         /* the master profil
 static void spr_shambler_side(int id, float w) {
     cv_begin(cv_sprite, TS, TS);
     cv_flat(32, 62, 14, 1.8f, R_WARM + 1);
-    cv_capsule(31, 42, 31 - 3 * w, 52, 2.6f, R_WOOD, 0.04f, 0.25f);   /* the far leg */
+    cv_capsule(31, 42, 31 - 3 * w, 52, 2.6f, R_STONE, 0.05f, 0.28f);  /* the far leg, bound in linen */
     cv_capsule(31 - 3 * w, 52, 30 - 6 * w, 60.5f, 1.8f, R_WARM, 0.15f, 0.5f);
     cv_capsule(30 - 6 * w, 61.5f, 34 - 6 * w, 61.5f, 1.4f, R_WARM, 0.15f, 0.5f);
     cv_capsule(35, 22, 48, 21, 1.8f, R_WARM, 0.15f, 0.55f);        /* the far arm, out ahead */
@@ -5723,20 +5760,28 @@ static void spr_shambler_side(int id, float w) {
         for (int x = 24; x <= 40; x++) {
             uint8_t c = cv_sprite[y * TS + x];
             if (c < R_WARM || c >= R_WARM + 16 || (y > 41 && h01(x, 7, 961) < 0.35f)) continue;
-            cv_px(x, y, sh(R_IRON, 0.22f + 0.25f * (x - 24) / 16.0f + 0.08f * sinf(y * 0.8f)));
+            cv_px(x, y, sh(R_STONE, 0.2f + 0.25f * (x - 24) / 16.0f - (((int)(y + x * 0.5f)) % 5 == 0 ? 0.12f : 0.0f)));   /* burial linen, wound */
         }
-    cv_capsule(31, 42, 31 + 3 * w, 52, 2.8f, R_WOOD, 0.06f, 0.33f);   /* the near leg */
+    cv_capsule(31, 42, 31 + 3 * w, 52, 2.8f, R_STONE, 0.1f, 0.4f);    /* the near leg, bound */
     cv_capsule(31 + 3 * w, 52, 32 + 5 * w, 60.5f, 2.0f, R_WARM, 0.3f, 0.8f);
     cv_capsule(32 + 5 * w, 61.5f, 37 + 5 * w, 61.5f, 1.5f, R_WARM, 0.3f, 0.8f);
     cv_capsule(37, 21, 39, 16, 2.2f, R_WARM, 0.3f, 0.75f);         /* the neck, craned */
     cv_ellipse(41, 13, 5.2f, 6.0f, R_WARM, 0.35f, 1.0f);            /* the head, hung forward */
-    cv_ellipse(44, 17, 3.0f, 2.2f, R_WARM, 0.25f, 0.7f);           /* the slack jaw */
-    cv_flat(44, 12, 1.4f, 1.3f, 0); cv_px(44, 12, (uint8_t)(R_FLAME + 4));
-    cv_flat(46, 16.5f, 1.2f, 1.0f, 0);
+    cv_ellipse(43, 19, 3.0f, 2.6f, R_WARM, 0.2f, 0.6f);            /* the jaw, dropped */
+    cv_flat(44.5f, 17, 1.8f, 1.8f, 0);                              /* the mouth hanging open, a tooth or two */
+    cv_px(45, 16, sh(R_WARM, 0.95f)); cv_px(44, 19, sh(R_WARM, 0.9f));
+    cv_flat(44, 11.5f, 1.6f, 1.5f, 0); cv_eye(44, 12, (uint8_t)(R_FLAME + 13));   /* a sunken socket, its sulphur light */
+    cv_px(46, 14, 0);                                               /* the nose, rotted to a hole */
     for (int i = 0; i < 5; i++) cv_line(37 + i, 8, 34 + i * 0.8f, 13 + i * 1.5f, sh(R_IRON, 0.2f));   /* hair, down the back */
     cv_capsule(37, 23, 52, 25, 2.0f, R_WARM, 0.35f, 0.9f);         /* the near arm, reaching */
     dead_hand(54, 26, 0.6f, 0.35f, R_WARM, 1.1f);
     cv_rot(R_WARM, 0.6f, 963);
+    for (int y = 0; y < TS; y++)                                    /* grave-dirt clotted on it */
+        for (int x = 0; x < TS; x++) {
+            uint8_t c = cv_sprite[y * TS + x];
+            if (((c > R_WARM && c < R_WARM + 16) || (c > R_STONE && c < R_STONE + 16)) && fbm(x / 3.0f, y / 3.0f, 16, 213) > 0.74f - (float)y * 0.004f)
+                cv_px(x, y, sh(R_WOOD, 0.06f + 0.14f * h01(x, y, 214)));
+        }
     cv_outline(0);
     cv_store(id);
 }
@@ -9326,6 +9371,7 @@ void crawl_art_init(void) {
     for (int f = 0; f < 3; f++) spr_firepit(SP_FIREPIT_A + f, f);
     spr_totem(SP_TOTEM_A, 0); spr_totem(SP_TOTEM_B, 1);
     spr_shambler(SP_SHAMB_A, 1.0f, 0); spr_shambler(SP_SHAMB_B, -1.0f, 0); spr_shambler(SP_SHAMB_GRAB, 0.0f, 1);
+    shambler_dress(SP_SHAMB_A, 1.0f, 0); shambler_dress(SP_SHAMB_B, -1.0f, 0); shambler_dress(SP_SHAMB_GRAB, 0.0f, 1);
     spr_shambler(SP_SHAMB_RISE1, 0.0f, 2); spr_shambler(SP_SHAMB_RISE2, 0.0f, 3); spr_shambler(SP_SHAMB_D1, 0.0f, 4); spr_shambler(SP_SHAMB_D2, 0.0f, 5);
     spr_drowned(SP_DROWN_A, 1.0f, 0); spr_drowned(SP_DROWN_B, -1.0f, 1); spr_drowned(SP_DROWN_GRAB, 0.0f, 2);
     drowned_dress(SP_DROWN_A, 0); drowned_dress(SP_DROWN_B, 0); drowned_dress(SP_DROWN_GRAB, 1);
