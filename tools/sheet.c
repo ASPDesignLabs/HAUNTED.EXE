@@ -665,7 +665,7 @@ static int draw_documents(const char *path) {
     static uint8_t pg[PH * PW];
     int colw = PW * K + 20;
     iw = PAD + 4 * colw + PAD;
-    ih = PAD + LABEL_H + 8 + LABEL_H + PH * K + 20 + LABEL_H + TS * 2 + 30 + PAD;
+    ih = PAD + LABEL_H + 8 + LABEL_H + PH * K + 20 + LABEL_H + TS * 2 + 30 + LABEL_H + 112 * K + 20 + PAD;
     img = calloc((size_t)iw * ih, 3);
     rect(0, 0, iw, ih, 10, 10, 12);
     crawl_art_level(6); crawl_art_run(6);
@@ -706,6 +706,28 @@ static int draw_documents(const char *path) {
         ty += 6;
         n = pwrap("THE BROTHERS RANG THE KNELL AS THEY WERE TAUGHT: THE TREBLE, THE TENOR, THE GREAT BELL, THE TENOR.", cw / 16 - 1, cw / 16 - 1, 0, ln, 5);
         for (int i = 0; i < n; i++, ty += 18) text(cx + 6, ty, ln[i], 220, 220, 220);
+    }
+    y += TS * 2 + 30;                                              /* the reckoning's slip, on the Catacombs' paper and the Crypts' */
+    text(PAD, y, "THE RECKONING, PINNED TO THE EXIT'S DOOR", 200, 200, 200);
+    y += LABEL_H;
+    static const char *const RK[6] = { "THE DEAD KEEP COUNT", "13 CREATURES STILL WALK", "2 OF 5 SECRETS STILL HIDDEN", "ABOUT 1,400 GOLD STILL LIES HERE",
+                                      "DESCEND BELOW", "> NOT YET <" };
+    for (int run = 0; run < 2; run++) {
+        enum { SW = 296, SH = 112 };
+        static uint8_t slip[SH * SW];
+        memset(slip, C_CLEAR, sizeof slip);
+        uint8_t ink = crawl_doc_page(slip, SW, 0, 0, SW, SH, (1 - run) + 4, 99u + (unsigned)run);
+        for (int i = 0; i < 6; i++) {
+            int w = (int)strlen(RK[i]) * 8, x = i == 0 || i >= 4 ? (SW - w) / 2 : 26, yy = i == 0 ? 12 : i < 4 ? 30 + (i - 1) * 11 : 70 + (i - 4) * 11;
+            ptext(slip, SW, x, yy, RK[i], i == 0 || i == 5 ? (uint8_t)(R_BLOOD + 9) : ink, 0);
+        }
+        crawl_doc_ink(slip, SW, 0, 0, SW, SH, 1 - run, ink, 99u + (unsigned)run);
+        for (int py = 0; py < SH; py++)
+            for (int px = 0; px < SW; px++) {
+                uint8_t c = slip[py * SW + px];
+                if (c == C_CLEAR) continue;
+                rect(PAD + run * (SW * K + 30) + px * K, y + py * K, K, K, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+            }
     }
     int ok = write_png(path);
     free(img);
