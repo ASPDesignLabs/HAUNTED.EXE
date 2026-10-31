@@ -850,7 +850,8 @@ static uint8_t cv_sprite[TS * TS];
 
 EyeAt crawl_eyes[NSPR];
 static EyeAt g_eyes;                                    /* the eyes drawn on the sprite being made, for cv_store */
-static void cv_begin(uint8_t *buf, int w, int h) { cvp = buf; cvw = w; cvh = h; memset(buf, C_CLEAR, (size_t)w * h); memset(&g_eyes, 0, sizeof g_eyes); }
+static int g_skbox[4] = { -1, -1, -1, -1 };             /* where the last hand-drawn skull went: the grime goes lightly on it */
+static void cv_begin(uint8_t *buf, int w, int h) { cvp = buf; cvw = w; cvh = h; memset(buf, C_CLEAR, (size_t)w * h); memset(&g_eyes, 0, sizeof g_eyes); g_skbox[0] = g_skbox[2] = -1; }
 static void cv_px(int x, int y, uint8_t c) { if ((unsigned)x < (unsigned)cvw && (unsigned)y < (unsigned)cvh) cvp[y * cvw + x] = c; }
 static void cv_eye_mark(int x, int y) {                 /* an eye here, for the eye pass (the first two count) */
     if (g_eyes.n < 2 && (unsigned)x < (unsigned)TS && (unsigned)y < (unsigned)TS) { g_eyes.x[g_eyes.n] = (int8_t)x; g_eyes.y[g_eyes.n] = (int8_t)y; g_eyes.n++; }
@@ -974,7 +975,6 @@ static const char *const SKULL_SIDE[SKULL_H] = {
 };
 /* a skull with its middle at cx, cy (its eyes a row above the middle); side: the profile, mirror: facing left;
  * eye: the eyes' colour (recorded for the eye pass), 0 dark sockets */
-static int g_skbox[4] = { -1, -1, -1, -1 };             /* where the last skull went: the grime goes lightly on it */
 static void skull_stamp(float cx, float cy, int side, int mirror, uint8_t eye) {
     const char *const *g = side ? SKULL_SIDE : SKULL_FRONT;
     int x0 = (int)floorf(cx - SKULL_W / 2.0f + 0.5f), y0 = (int)floorf(cy - SKULL_H / 2.0f + 0.5f);
@@ -4381,6 +4381,10 @@ static void cv_bone_decay(uint32_t seed) {
             uint8_t c = cv_sprite[y * TS + x];
             if (c < R_BONE || c >= R_BONE + 16) continue;
             float n = fbm(x / 5.0f, y / 5.0f, 16, seed);
+            if (x >= g_skbox[0] && x < g_skbox[2] && y >= g_skbox[1] && y < g_skbox[3]) {   /* a hand-drawn skull keeps its face */
+                if (n < 0.2f + 0.25f * g_decay && c > R_BONE + 4) cv_sprite[y * TS + x] = (uint8_t)(c - 1);
+                continue;
+            }
             if (n < 0.28f + 0.32f * g_decay) cv_sprite[y * TS + x] = (uint8_t)(c - 3 < R_BONE + 1 ? R_BONE + 1 : c - 3);
             if (g_decay > 0.35f && n > 0.78f - 0.12f * g_decay) cv_sprite[y * TS + x] = sh(R_MOSS, 0.3f + 0.3f * n);
         }
@@ -4503,6 +4507,13 @@ static void sword(float gx, float gy, float a) {
         }
     }
 }
+/* the great helm, by hand (docs/InitialArtPass.md section 8): a ridged crest and a plume's stump (R_BLOOD), rivets, a
+ * slit in a cross with a crimson light in it, breath-holes below; hex R_IRON (PF_ARMOUR) */
+static const char *const KNIGHT_HELM[16] = {
+    "......mpm......", ".....mrqrm.....", "....59bdb95....", "...69bcecb96...", "..68abcecba86..", ".578abbdbba875.",
+    ".6fa7bbdbb7af6.", ".6f0@00c00@0f6.", ".589a9a0a9a985.", ".57898a0a89875.", ".5680908090865.", ".5679a9a9a9765.",
+    ".4680908090864.", ".3f6789a9876f3.", "..24567876542..", "...234565432...",
+};
 static void spr_knight(int id, float w, int pose, int state) {
     cv_begin(cv_sprite, TS, TS);
     float gx, gy, ga;                                               /* where the hands grip, and where the blade points */
@@ -4540,6 +4551,19 @@ static void spr_knight(int id, float w, int pose, int state) {
                 for (int yy = 0; yy < 3; yy++) cv_px(x, (int)y + yy, sh(R_IRON, 0.3f + 0.5f * lit(nx, -0.2f, sqrtf(fmaxf(0, 1 - nx * nx))) - yy * 0.08f));
             }
         }
+    if (state < 2) {                                                /* the Order's tabard below the plate, its cross on it; torn once hacked */
+        for (int y = 41; y < 55; y++) {
+            float hw = 5.0f + (y - 41) * 0.15f;
+            for (int x = (int)(32 - hw); x <= (int)(32 + hw); x++) {
+                if (y > 51 && h01(x, y, 315) < (y - 51) / 4.0f) continue;   /* the hem frayed */
+                if (state == 1 && x > 32 - (y - 41) * 0.5f + 4) continue;   /* hacked away on the one side */
+                float fold = sinf((x - 32) * 1.3f) * 0.06f;
+                cv_px(x, y, sh(R_BLOOD, 0.22f + fold - (y - 41) * 0.006f));
+            }
+        }
+        for (int k = -2; k <= 2; k++) { cv_px(32 + k, 46, sh(R_BONE, 0.75f)); cv_px(32, 46 + k, sh(R_BONE, 0.75f)); }   /* the cross */
+        cv_px(30, 44, sh(R_BONE, 0.6f)); cv_px(34, 44, sh(R_BONE, 0.6f)); cv_px(30, 48, sh(R_BONE, 0.6f)); cv_px(34, 48, sh(R_BONE, 0.6f));
+    }
     /* the breastplate, with a ridge down it; hacked and split as the knight is worn down */
     for (int y = 18; y <= 37; y++) {
         float hw = 9.0f + 1.5f * sinf((y - 18) / 19.0f * PI_F) - (y > 31 ? (y - 31) * 0.6f : 0.0f);
@@ -4553,6 +4577,7 @@ static void spr_knight(int id, float w, int pose, int state) {
         }
     }
     if (state == 2) cv_line(30, 19, 33, 33, sh(R_IRON, 0.05f));
+    for (int k = 0; k < 4; k++) { cv_px(24, 21 + k * 4, (uint8_t)(R_IRON + 14)); if (state < 2) cv_px(40, 21 + k * 4, (uint8_t)(R_IRON + 13)); }   /* rivets down the plate's edges */
     /* arms: both hands on the grip */
     for (int s = -1; s <= 1; s += 2) {
         float sx = 32 + s * 9.0f, sy = 20;
@@ -4561,33 +4586,47 @@ static void spr_knight(int id, float w, int pose, int state) {
         cv_bone(sx, sy, ex, ey, 1.3f, 0.25f, 0.9f);
         cv_bone(ex, ey, gx + s * 1.0f, gy, 1.1f, 0.25f, 0.9f);
         int keep = state == 0 || (state == 1 && s > 0) || (state == 2 && s > 0);
-        if (keep) cv_ellipse(sx, sy - 0.5f, 5.0f, 4.0f, R_IRON, 0.3f, 1.0f);   /* pauldron */
+        if (keep) { cv_ellipse(sx, sy - 0.5f, 5.0f, 4.0f, R_IRON, 0.3f, 1.0f); cv_px((int)sx - 2, (int)sy - 3, (uint8_t)(R_IRON + 15)); cv_px((int)sx + 2, (int)sy - 3, (uint8_t)(R_IRON + 15)); cv_px((int)sx, (int)sy + 2, (uint8_t)(R_IRON + 14)); }   /* pauldron, riveted */
         if (state < 2) plate(ex, ey, gx + s * 1.0f, gy, 2.0f, 0.05f);          /* vambrace */
     }
     if (pose != 2) sword(gx, gy, ga);
     for (int s = -1; s <= 1; s += 2) cv_ellipse(gx + s * 1.2f, gy + 0.5f, 2.2f, 2.0f, state < 2 ? R_IRON : R_BONE, 0.3f, 0.9f);   /* gauntlets, or bare bone */
     /* the head: a great helm with a slit, and two embers in it; or the bare skull once the helm is off */
     cv_capsule(32, 15, 32, 18, 1.2f, R_BONE, 0.3f, 0.9f);
-    if (state == 0) {
-        for (int y = 2; y <= 16; y++)
-            for (int x = 25; x <= 39; x++) {
-                float nx = (x + 0.5f - 32) / 7.0f, top = 2 + 3.0f * nx * nx;
-                if (fabsf(nx) > 1.0f || y < top) continue;
-                float v = 0.25f + 0.6f * lit(nx, (y - 9) / 9.0f, sqrtf(fmaxf(0, 1 - nx * nx)));
-                if (fabsf(x + 0.5f - 32) < 0.8f && y < 9) v += 0.25f;
-                if (y == 9 || (y == 10 && fabsf(nx) < 0.85f)) v = 0.0f;   /* the eye slit */
-                if (y > 11 && (x & 1) && fabsf(nx) < 0.5f && y < 15) v -= 0.3f;   /* breaths */
-                cv_px(x, y, sh(R_IRON, v));
-            }
-        cv_eye(29, 9, (uint8_t)(R_FLAME + 11)); cv_eye(34, 9, (uint8_t)(R_FLAME + 11));
-    } else {
-        cv_skull(32, 9, 1.0f, 0.3f, 1.0f);
-        cv_eye(30, 10, (uint8_t)(R_FLAME + 10)); cv_eye(34, 10, (uint8_t)(R_FLAME + 10));
-        if (state == 1) for (int x = 26; x <= 38; x++) cv_px(x, 3 + (x - 32) * (x - 32) / 12, sh(R_IRON, 0.5f));   /* the helm's rim, all that is left */
+    if (state == 0) grid_stamp(KNIGHT_HELM, 15, 16, 25, 1, R_IRON, R_BLOOD, (uint8_t)(R_FLAME + 9), 0);   /* the great helm */
+    else {                                                          /* the helm hacked off: the skull under it */
+        skull_stamp(32, 10, 0, 0, (uint8_t)(R_FLAME + 9));
+        if (state == 1) for (int x = 25; x <= 39; x++) { cv_px(x, 2 + (x - 32) * (x - 32) / 12, sh(R_IRON, 0.5f)); cv_px(x, 3 + (x - 32) * (x - 32) / 12, sh(R_IRON, 0.25f)); }   /* the helm's rim, all that is left */
     }
     cv_bone_decay(313);
     cv_outline(0);
     cv_store(id);
+}
+
+/* the knight's dressing by rank: II rust and moss on the plate, III frost on it and dents, IV a broken blade in the
+ * breastplate and an arrow in the pauldron, old blood from them, V charred plate under an iron crown and a chain,
+ * gilded gilt on the plate's edges and rivets (docs/InitialArtPass.md 6.2) */
+static void knight_dress(int id, int state) {
+    for (int r = RK_II; r < NRANK; r++) {
+        dress_begin(id);
+        if (r == RK_II) {
+            kit_moss(0.28f, 0, 551);
+            for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) { uint8_t b = base_c(x, y); if (b > R_IRON && b < R_IRON + 16 && fbm(x / 3.0f, y / 3.0f, 16, 553) > 0.7f) cv_px(x, y, sh(R_BRICK, 0.3f + 0.2f * h01(x, y, 555))); }   /* rust */
+        }
+        if (r == RK_III) kit_frost(0.8f, 557);
+        if (r >= RK_III && r != RK_GILDED) for (int k = 0; k < 5; k++) cv_px(26 + (int)(h01(k, 1, 559) * 12.0f), 20 + (int)(h01(k, 2, 559) * 14.0f), sh(R_IRON, 0.05f));   /* dents */
+        if (r >= RK_IV && r != RK_GILDED) {
+            if (state < 2) { cv_line(35, 24, 41, 18, sh(R_GHOST, 0.7f)); cv_line(36, 25, 42, 19, sh(R_GHOST, 0.45f)); cv_line(41, 18, 44, 15, sh(R_WOOD, 0.4f)); kit_blood(35, 26, 9, 2, 561); }   /* a broken blade lodged */
+            kit_arrow(22, 18, -2.3f, 7.0f);
+        }
+        if (r == RK_V) { kit_char(0.3f, 563); kit_crown(32, state == 0 ? 3 : 2, 13, 565); kit_chain(23, 22, 20, 36, 1.5f, R_IRON); }
+        if (r == RK_GILDED)
+            for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) {
+                uint8_t b = base_c(x, y);
+                if (b > R_IRON && b < R_IRON + 16 && (b - R_IRON >= 12 || (!base_on(x - 1, y) || !base_on(x + 1, y) || !base_on(x, y - 1)))) cv_px(x, y, (uint8_t)(R_GOLD + clampi(b - R_IRON - 2, 5, NGOLD - 1)));   /* gilt edges */
+            }
+        dress_store(id, r, R_IRON);
+    }
 }
 
 static void spr_knight_dead(int id) {
@@ -4689,6 +4728,7 @@ static void spr_bestiary_bones(void) {
     for (int st = 0; st < 3; st++) {
         int base = SP_KNIGHT_A + st * 4;
         spr_knight(base, 1.0f, 0, st); spr_knight(base + 1, -1.0f, 1, st); spr_knight(base + 2, 0.0f, 2, st); spr_knight(base + 3, 0.0f, 3, st);
+        for (int k = 0; k < 4; k++) knight_dress(base + k, st);
         spr_knight(SP_KNIGHT_P0 + st, 0.0f, 4, st);
     }
     spr_knight_dead(SP_KNIGHT_D);
