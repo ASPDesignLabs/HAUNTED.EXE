@@ -1598,6 +1598,13 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_HUM]        = { 1.60f, 0.55f,  0.50f, 0.50f },
 };
 
+void snd_tone(int glass, int midi, float gain, float pan) {      /* a struck bell or a singing crystal, at its own note */
+    LOCK();
+    g_vbus = BUS_SFX;
+    voice_on(glass ? PAT_VIBES : PAT_BELL, midi, gain, clampf(pan, 0.0f, 1.0f), (int)((glass ? 1.4f : 2.2f) * SND_RATE));
+    if (glass) voice_on(PAT_BELL, midi + 12, gain * 0.35f, clampf(pan, 0.0f, 1.0f), (int)(1.0f * SND_RATE));
+    UNLOCK();
+}
 void snd_sfx_ex(int id, float gain, float pan) {
     if (id < 0 || id >= SFX_COUNT) return;
     LOCK();

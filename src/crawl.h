@@ -56,6 +56,7 @@ enum {
     T_HZ_SEAM, T_HZ_SEAM_LIT,                     /* the Lodestone Seam, green veins in the rock; and crackling */
     T_HZ_FISSURE0, T_HZ_FISSURE1,                 /* Fissure Breath: a crack in the glass rock, glowing; then white-hot */
     T_HZ_MIRROR, T_HZ_MIRROR_SEEN,                /* the Black Mirror; and your reflection come into it */
+    T_WINGDOOR,                                   /* a puzzle's sealed wing (1.0.0b13): a great door, its seal carved over it */
     /* each run's own (docs/PLAN-b10.md), made again for its run by crawl_art_run: the materials, two looks
      * each, on one grid of courses; blends from one material to the next, left to right; what stands on a
      * wall, drawn over its material (C_CLEAR lets the material show); floors, ceilings and the doors */
@@ -215,6 +216,11 @@ enum {
     SP_PZ_DIAL0, SP_PZ_LEVER0 = SP_PZ_DIAL0 + 8,   /* a dial on a post in its eight turns; */
     SP_PZ_LEVER1, SP_PZ_CANDLE0, SP_PZ_CANDLE1, /* a lever up and down; a candle dark and lit */
     SP_PZ_TABLET,                               /* a carved tablet on its stand */
+    SP_PZ_NICHE,                                /* a niche cut in the wall, a mark over it (the Ossuary Ledger) */
+    SP_PZ_EFFIGY0, SP_PZ_EFFIGY3 = SP_PZ_EFFIGY0 + 3,   /* a knight on his tomb, his head turned away, to your right, to you, to your left */
+    SP_PZ_PAN, SP_PZ_SCALE0, SP_PZ_SCALE2 = SP_PZ_SCALE0 + 2,   /* a pan on its stand; the great scale, left down, level, right down */
+    SP_PZ_CASKET,                               /* a small reliquary, beads on its lid */
+    SP_PZ_BANNER,                               /* the Order's banner on its pole */
     SP_MARK0, SP_PIP1 = SP_MARK0 + 16,          /* the marks carved on things (PZ_MARKS in crawl_art.c), */
     SP_PZ_LAST = SP_PIP1 + 9,                   /* and one to nine pips */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */

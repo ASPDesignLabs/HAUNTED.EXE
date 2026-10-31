@@ -2228,6 +2228,88 @@ static void spr_pz_tablet(void) {                                  /* a carved t
     cv_store(SP_PZ_TABLET);
 }
 
+/* a niche cut in the wall: an arched recess with a sill, a mark cut over it (drawn as a mark by the game) */
+static void spr_pz_niche(void) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 14; y < 52; y++)
+        for (int x = 18; x < 46; x++) {
+            float dx = x + 0.5f - 32.0f, top = 26.0f - sqrtf(fmaxf(0.0f, 14.0f * 14.0f - dx * dx)) * 0.6f;
+            if (y < top - 3.0f) continue;
+            int edge = y < top || x < 21 || x > 42;
+            cv_px(x, y, edge ? sh(R_STONE, 0.5f + 0.1f * (x < 24)) : sh(R_STONE, 0.04f + 0.03f * h01(x, y, 3)));
+        }
+    for (int x = 16; x < 48; x++) { cv_px(x, 52, sh(R_STONE, 0.65f)); cv_px(x, 53, sh(R_STONE, 0.4f)); cv_px(x, 54, sh(R_STONE, 0.2f)); }   /* its sill */
+    cv_store(SP_PZ_NICHE);
+}
+/* a knight on his tomb, his helmed head turned: away, to the right, toward you, to the left */
+static void spr_pz_effigy(int id, int turn) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 44; y < 64; y++) for (int x = 6; x < 58; x++) cv_px(x, y, sh(R_STONE, 0.3f + 0.15f * (y < 47) + 0.1f * (x < 9) - 0.12f * (y > 60) + 0.05f * h01(x, y, 7)));   /* the tomb chest */
+    for (int x = 10; x < 54; x += 9) for (int y = 50; y < 60; y++) cv_px(x, y, sh(R_STONE, 0.12f));   /* its panels */
+    cv_capsule(16, 40, 44, 40, 4.5f, R_IRON, 0.2f, 0.6f);             /* the knight lying */
+    cv_capsule(40, 38, 50, 38, 2.0f, R_IRON, 0.25f, 0.55f);           /* his feet, and a hound under them */
+    cv_ellipse(51, 41, 3.0f, 2.2f, R_STONE, 0.3f, 0.6f);
+    cv_line(24, 38, 30, 34, sh(R_GHOST, 0.5f));                       /* the sword on his breast */
+    float hx = 13.0f, hy = 35.0f;                                     /* the helm on its pillow */
+    cv_ellipse(hx, hy + 3.0f, 5.0f, 2.0f, R_BLOOD, 0.25f, 0.5f);
+    cv_ellipse(hx, hy, 4.2f, 4.4f, R_IRON, 0.25f, 0.75f);
+    if (turn == 2) { cv_line(hx - 3, hy, hx + 3, hy, sh(R_IRON, 0.02f)); cv_line(hx, hy - 1, hx, hy + 3, sh(R_IRON, 0.02f)); }   /* the visor, at you */
+    else if (turn == 1) { cv_line(hx + 1, hy, hx + 4, hy, sh(R_IRON, 0.02f)); cv_px((int)hx + 4, (int)hy + 1, sh(R_IRON, 0.02f)); }
+    else if (turn == 3) { cv_line(hx - 4, hy, hx - 1, hy, sh(R_IRON, 0.02f)); cv_px((int)hx - 4, (int)hy + 1, sh(R_IRON, 0.02f)); }
+    else { cv_line(hx - 2, hy - 3, hx + 2, hy - 3, sh(R_IRON, 0.85f)); }   /* the back of the helm, its crest */
+    cv_outline(sh(R_STONE, 0.02f));
+    cv_store(id);
+}
+/* a pan of bronze on its stand; and the great scale, its beam tipped left, level, or right */
+static void spr_pz_pan(void) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 46; y < 64; y++) for (int x = 30; x < 34; x++) cv_px(x, y, sh(R_IRON, 0.3f + 0.2f * (x == 30)));
+    cv_flat(32, 63, 8, 1.5f, sh(R_IRON, 0.2f));
+    cv_ellipse(32, 45, 13, 3.5f, R_GOLD, 0.3f, 0.75f);
+    cv_flat(32, 44, 11, 2.0f, sh(R_GOLD, 0.25f));
+    cv_outline(sh(R_IRON, 0.02f));
+    cv_store(SP_PZ_PAN);
+}
+static void spr_pz_scale(int id, int tilt) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 14; y < 64; y++) for (int x = 30; x < 34; x++) cv_px(x, y, sh(R_IRON, 0.3f + 0.25f * (x == 30)));
+    cv_flat(32, 63, 10, 1.6f, sh(R_IRON, 0.2f));
+    float d = (float)(tilt - 1) * 5.0f;
+    cv_line(10, 16 + d, 54, 16 - d, sh(R_GOLD, 0.8f)); cv_line(10, 17 + d, 54, 17 - d, sh(R_GOLD, 0.45f));
+    for (int k = 0; k < 2; k++) {
+        float ex = k ? 54.0f : 10.0f, ey = k ? 16.0f - d : 16.0f + d;
+        cv_line(ex, ey, ex - 5, ey + 16, sh(R_GOLD, 0.4f)); cv_line(ex, ey, ex + 5, ey + 16, sh(R_GOLD, 0.4f));
+        cv_ellipse(ex, ey + 17, 7.0f, 2.2f, R_GOLD, 0.3f, 0.7f);
+    }
+    cv_ellipse(32, 14, 3, 3, R_GOLD, 0.4f, 0.9f);
+    cv_outline(sh(R_IRON, 0.02f));
+    cv_store(id);
+}
+/* a small reliquary: a gilt casket, a purple stone in its front (a red one on the judged), beads on its lid */
+static void spr_pz_casket(void) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 10, 1.6f, R_WARM + 1);
+    for (int y = 48; y < 62; y++) for (int x = 23; x < 41; x++) cv_px(x, y, sh(R_GOLD, 0.4f + 0.3f * (x < 27) + 0.15f * ((x + y) % 6 == 0)));
+    for (int x = 22; x < 42; x++) { cv_px(x, 47, sh(R_GOLD, 0.85f)); cv_px(x, 46, sh(R_GOLD, 0.6f)); }
+    cv_flat(32, 54, 2.0f, 2.0f, sh(R_PURPLE, 0.6f));
+    cv_outline(sh(R_GOLD, 0.05f));
+    cv_store(SP_PZ_CASKET);
+}
+/* the Order's banner on a pole: a cross on black, its foot ragged */
+static void spr_pz_banner(void) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 4; y < 64; y++) cv_px(31, y, sh(R_WOOD, 0.35f)), cv_px(32, y, sh(R_WOOD, 0.55f));
+    cv_line(18, 8, 46, 8, sh(R_WOOD, 0.5f));
+    for (int y = 9; y < 46; y++)
+        for (int x = 19; x < 46; x++) {
+            if (x == 31 || x == 32) continue;
+            if (y > 40 && h01(x, y, 13) < (float)(y - 40) / 6.0f) continue;   /* ragged */
+            int cross = (x >= 30 && x <= 33) || (y >= 20 && y <= 23);
+            cv_px(x, y, cross ? sh(R_BONE, 0.65f) : sh(R_BLOOD, 0.12f + 0.08f * h01(x, y, 2)));
+        }
+    cv_store(SP_PZ_BANNER);
+}
+
 /* a rock, broken from the vault: drawn at the bottom of its square, so it can be dropped from above */
 static void spr_rock(void) {
     cv_begin(cv_sprite, TS, TS);
@@ -7894,6 +7976,25 @@ static void rebase(int t, uint32_t stone_seed, int base) {
     for (int i = 0; i < TS * TS; i++) if (crawl_tex[t][i] == crawl_tex[T_STONE][i]) crawl_tex[t][i] = crawl_tex[base][i];
     memcpy(crawl_tex[T_STONE], keep, sizeof keep);
 }
+/* a puzzle's sealed wing: a great iron-banded door, a round seal carved in the stone over it */
+static void gen_wingdoor(int t, uint32_t seed) {
+    gen_stone(t, R_STONE, seed);
+    for (int y = 14; y < 64; y++)
+        for (int x = 10; x < 54; x++) {
+            float dx = x + 0.5f - 32.0f, top = 24.0f - sqrtf(fmaxf(0.0f, 22.0f * 22.0f - dx * dx)) * 0.45f;
+            if (y < top) continue;
+            int frame = y < top + 2.0f || x < 12 || x > 51;
+            uint8_t c = frame ? sh(R_STONE, 0.7f) : sh(R_WOOD, 0.2f + 0.12f * fbm(x / 3.0f, y / 9.0f, 16, seed) + 0.08f * ((x - 12) % 7 == 0 ? -1.0f : 0.0f));
+            if (!frame && ((y - 14) % 14 < 2)) c = sh(R_IRON, 0.35f + 0.2f * ((x & 3) == 0));   /* the bands */
+            tput(t, x, y, c);
+        }
+    for (int a = 0; a < 40; a++) {                                    /* the seal: a ring with a cross of bars through it */
+        float an = a * 0.157f;
+        tput(t, 32 + (int)lroundf(7.0f * cosf(an)), 11 + (int)lroundf(5.5f * sinf(an)), sh(R_BLOOD, 0.55f));
+    }
+    for (int k = -4; k <= 4; k++) { tput(t, 32 + k, 11, sh(R_BLOOD, 0.4f)); tput(t, 32, 11 + k * 5 / 7, sh(R_BLOOD, 0.4f)); }
+    for (int y = 36; y < 44; y++) { tput(t, 31, y, sh(R_IRON, 0.6f)); tput(t, 33, y, sh(R_IRON, 0.6f)); }   /* a lockless ring */
+}
 static void hz_walls(void) {                                       /* the runs' hazards (1.0.0b13) */
     gen_hz_slab(T_HZ_SLAB, 109, 0); gen_hz_slab(T_HZ_SLAB_OPEN, 109, 1); gen_hz_cold(T_HZ_COLD, 113);
     gen_hz_sluice(T_HZ_SLUICE, 127, 0); gen_hz_sluice(T_HZ_SLUICE_OPEN, 127, 1);
@@ -7901,6 +8002,7 @@ static void hz_walls(void) {                                       /* the runs' 
     gen_hz_seam(T_HZ_SEAM, 137, 0); gen_hz_seam(T_HZ_SEAM_LIT, 137, 1);
     gen_hz_fissure(T_HZ_FISSURE0, 139, 0); gen_hz_fissure(T_HZ_FISSURE1, 139, 1);
     gen_hz_mirror(T_HZ_MIRROR, 149, 0); gen_hz_mirror(T_HZ_MIRROR_SEEN, 149, 1);
+    gen_wingdoor(T_WINGDOOR, 151);
 }
 static void specials_plain(void) {
     gen_sign(T_SIGN, 91);
@@ -7916,8 +8018,8 @@ static void specials_on(int base) {
     rebase(T_SIGN, 91, base); rebase(T_REPOSITORY, 233, base);
     for (int f = 0; f < 4; f++) rebase(T_PORTAL0 + f, 107, base);
     rebase(T_GATE, 97, base); rebase(T_FONT, 101, base); rebase(T_FONT_DRY, 101, base); rebase(T_GRATE, 103, base);
-    static const uint32_t HZS[] = { 109, 109, 113, 127, 127, 131, 131, 137, 137, 139, 139, 149, 149 };
-    for (int i = 0; i < 13; i++) rebase(T_HZ_SLAB + i, HZS[i], base);
+    static const uint32_t HZS[] = { 109, 109, 113, 127, 127, 131, 131, 137, 137, 139, 139, 149, 149, 151 };
+    for (int i = 0; i < 14; i++) rebase(T_HZ_SLAB + i, HZS[i], base);
 }
 
 /* The run's own textures and keys, for the level's place in it: made from the level (so each level's
@@ -8212,6 +8314,9 @@ void crawl_art_init(void) {
     spr_pz_lever(SP_PZ_LEVER0, 0); spr_pz_lever(SP_PZ_LEVER1, 1); spr_pz_candle(SP_PZ_CANDLE0, 0); spr_pz_candle(SP_PZ_CANDLE1, 1);
     for (int k = 0; k < 16; k++) spr_pz_mark(SP_MARK0 + k, k);
     for (int n = 1; n <= 9; n++) spr_pz_pips(SP_PIP1 + n - 1, n);
+    spr_pz_niche(); for (int k = 0; k < 4; k++) spr_pz_effigy(SP_PZ_EFFIGY0 + k, k);
+    spr_pz_pan(); for (int k = 0; k < 3; k++) spr_pz_scale(SP_PZ_SCALE0 + k, k);
+    spr_pz_casket(); spr_pz_banner();
     for (int f = 0; f < 3; f++) spr_firepit(SP_FIREPIT_A + f, f);
     spr_totem(SP_TOTEM_A, 0); spr_totem(SP_TOTEM_B, 1);
     spr_shambler(SP_SHAMB_A, 1.0f, 0); spr_shambler(SP_SHAMB_B, -1.0f, 0); spr_shambler(SP_SHAMB_GRAB, 0.0f, 1);

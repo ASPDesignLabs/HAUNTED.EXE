@@ -95,6 +95,7 @@ void snd_start_program(int prog);           /* hard reset into a program */
 void snd_set_mood(float m);                 /* HAUNT: intensity; CRAWL: nearby torches (crackle) */
 void snd_sfx(int id);
 void snd_sfx_ex(int id, float gain, float pan); /* pan 0..1, or < 0 for the effect's default */
+void snd_tone(int glass, int midi, float gain, float pan);   /* a struck bell (0) or a singing crystal (1) at a MIDI note (1.0.0b13's puzzles) */
 void snd_hold(int on);                      /* effects and the torches' crackle wait; the music plays on */
 void snd_set_room(int room);                /* CRAWL: 1 the Backrooms (no music, a hum, more echo), 2 Severance (muzak too), 0 the crypt */
 void snd_set_muffle(int on);                /* CRAWL: the void's silence, everything dulled */
