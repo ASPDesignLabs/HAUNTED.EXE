@@ -251,6 +251,11 @@ enum {
     SP_SHAMB_SA, SP_SHAMB_SB, SP_DROWN_SA, SP_DROWN_SB, SP_HOUND_SA, SP_HOUND_SB, SP_WRAITH_SA, SP_WRAITH_SB,
     SP_HUNTER_SA, SP_HUNTER_SB, SP_GHOUL_SA, SP_GHOUL_SB, SP_KNIGHT_SA, SP_KNIGHT_SB, SP_BROOD_SA, SP_BROOD_SB,
     SP_SHADE_SA, SP_SHADE_SB, SP_IMP_SA, SP_IMP_SB, SP_DEACON_SA, SP_DEACON_SB, SP_GARG_SA, SP_GARG_SB,
+    /* the bosses' own (docs/InitialArtPass.md, part three) */
+    SP_BKNIGHT_A, SP_BKNIGHT_B, SP_BKNIGHT_W, SP_BKNIGHT_S,     /* the Ill-Fated Knight, a fallen paladin: in full plate, */
+    SP_BKNIGHT2_A, SP_BKNIGHT2_B, SP_BKNIGHT2_W, SP_BKNIGHT2_S, /* ... half of it hacked off, */
+    SP_BKNIGHT3_A, SP_BKNIGHT3_B, SP_BKNIGHT3_W, SP_BKNIGHT3_S, /* ... the breastplate cracked and the helm gone */
+    SP_BKNIGHT_P0, SP_BKNIGHT_P1, SP_BKNIGHT_P2,                /* planting its sword, in each state */
     NSPR
 };
 

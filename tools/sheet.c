@@ -57,6 +57,9 @@ static const Group GROUPS[] = {
     { "knight", "SKELETON KNIGHT (FROM LEVEL 13)", PF_ARMOUR, ALL_RANKS,
       { { SP_KNIGHT_A, "WALK" }, { SP_KNIGHT_W, "WIND-UP" }, { SP_KNIGHT_S, "STRIKE" }, { SP_KNIGHT2_A, "HALF PLATE" }, { SP_KNIGHT2_W, "WIND-UP" },
         { SP_KNIGHT3_A, "STRIPPED" }, { SP_KNIGHT3_S, "STRIKE" }, { SP_KNIGHT_D, "DEAD" }, { -1, 0 } } },
+    { "bknight", "THE ILL-FATED KNIGHT (THE BOSS OF LEVEL 10): FULL, HALF, HELM GONE", -1, 1,
+      { { SP_BKNIGHT_A, "WALK" }, { SP_BKNIGHT_W, "WIND-UP" }, { SP_BKNIGHT_S, "STRIKE" }, { SP_BKNIGHT_P0, "PLANTED" },
+        { SP_BKNIGHT2_A, "HALF" }, { SP_BKNIGHT2_W, "WIND-UP" }, { SP_BKNIGHT3_A, "HELM GONE" }, { SP_BKNIGHT3_S, "STRIKE" }, { SP_BKNIGHT_P2, "PLANTED" }, { -1, 0 } } },
     { "deacon", "DEACON (FROM LEVEL 18)", PF_ROBE, ALL_RANKS,
       { { SP_DEACON_A, "WALK A" }, { SP_DEACON_B, "WALK B" }, { SP_DEACON_CHANT, "RAISING" }, { SP_DEACON_D, "DEAD" }, { -1, 0 } } },
     { "hunter", "HUNTING SPIDER (FROM LEVEL 11)", PF_HIDE, ALL_RANKS,
@@ -98,7 +101,7 @@ static const Group GROUPS[] = {
     { "b6", "1.0.0B6: FOR APPROVAL", -1, 1,
       { { SP_DOUBLE, "BLINK'S DOUBLE" }, { -1, 0 } } },
     { "b7", "1.0.0B7: FOR APPROVAL", -1, 1,
-      { { SP_HEXTOTEM, "TOTEM" }, { SP_SCRIP, "SCRIP" }, { SP_BSPIDER_A, "SPIDER" }, { SP_KNIGHT_P0, "KNIGHT" },
+      { { SP_HEXTOTEM, "TOTEM" }, { SP_SCRIP, "SCRIP" }, { SP_BSPIDER_A, "SPIDER" }, { SP_BKNIGHT_P0, "KNIGHT" },
         { SP_BRAZIER_OUT, "PUT OUT" }, { SP_TOMB_FRESH, "NEWEST" }, { SP_TOMB_ROUND, "OLDER" }, { SP_LECTERN, "COMPENDIUM" }, { -1, 0 } } },
 };
 #define NGROUPS ((int)(sizeof GROUPS / sizeof GROUPS[0]))

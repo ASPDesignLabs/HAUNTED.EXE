@@ -2795,7 +2795,8 @@ static void build_lightmap(void) {
 #ifdef CRAWL_DEBUG
 /* CRAWL_STAGE=k: one kind stood still down the longest straight hall, at set distances, the caster still and looking
  * at them; CRAWL_STAGEDARK=f scales the light (0 none), CRAWL_STAGEFOG=1 thickens the fog to its most, CRAWL_STAGESUB=s
- * puts them in that state, CRAWL_STAGEDIST=d just one at d cells. For frames of the art pass (docs/InitialArtPass.md). */
+ * puts them in that state, CRAWL_STAGEDIST=d just one at d cells, CRAWL_STAGEBOSS=b each drawn as that boss (BOSS_*, of its
+ * kind). For frames of the art pass (docs/InitialArtPass.md). */
 static int g_stage = -1, g_stage_fog;
 static float g_stage_lm = 1.0f;
 #endif
@@ -13228,6 +13229,7 @@ static void stage_set(int k) {                                     /* CRAWL_STAG
         if (k == MOB_GARGOYLE) m->sub = 2;
         if (k == MOB_HUNTER) m->sub = 2;
         if (getenv("CRAWL_STAGESUB")) m->sub = atoi(getenv("CRAWL_STAGESUB"));
+        if (getenv("CRAWL_STAGEBOSS")) m->boss = (uint8_t)(1 + atoi(getenv("CRAWL_STAGEBOSS")));   /* drawn as that boss, for its frames */
     }
     if (getenv("CRAWL_STAGEDARK")) g_stage_lm = (float)atof(getenv("CRAWL_STAGEDARK"));
     g_stage_fog = getenv("CRAWL_STAGEFOG") != NULL;
@@ -18432,9 +18434,9 @@ static int mob_sprite(const Mob *m, float *scale) {
         return m->sub == 3 ? SP_GHOUL_LEAP : (m->sub == 4 ? SP_GHOUL_FEED : (fr ? SP_GHOUL_B : SP_GHOUL_A));
     case MOB_KNIGHT: {
         if (m->state == MS_DIE) return SP_KNIGHT_D;
-        int base = SP_KNIGHT_A + knight_stage(m) * 4;
+        int base = (m->boss ? SP_BKNIGHT_A : SP_KNIGHT_A) + knight_stage(m) * 4;   /* the Ill-Fated Knight has its own */
         if (m->boss && G.bpose_t > 0.0f && G.bpose != BP_NONE && m->state == MS_WALK)   /* the Ill-Fated Knight casting */
-            return G.bpose == BP_PLANT ? SP_KNIGHT_P0 + knight_stage(m) : base + (G.bpose == BP_RAISE ? 2 : 3);
+            return G.bpose == BP_PLANT ? SP_BKNIGHT_P0 + knight_stage(m) : base + (G.bpose == BP_RAISE ? 2 : 3);
         return base + (m->swing > 0.0f ? 2 : (m->throw_t > 0.0f ? 3 : fr));
     }
     case MOB_BROOD:
@@ -18599,7 +18601,11 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (n == n0) continue;
         Draw *d = &list[n - 1];
         d->scale = statue ? 1.0f : sc * RANK_SIZE[m->rank];       /* a statue like the others: its rank doesn't show yet */
-        if (m->boss) { d->scale *= BOSSES[m->boss - 1].scale; if (G.bstate != BS_FIGHT && m->state == MS_WALK) d->flags |= DR_EDGE; }   /* untouchable: a pale shell */
+        int waits = m->boss && G.bstate != BS_FIGHT && m->state == MS_WALK;   /* untouchable: a pale shell */
+#ifdef CRAWL_DEBUG
+        if (g_stage >= 0) waits = 0;                                /* a boss stood for its frames shows as in the fight */
+#endif
+        if (m->boss) { d->scale *= BOSSES[m->boss - 1].scale; if (waits) d->flags |= DR_EDGE; }
         if (m->small) d->scale *= 0.62f;
         if (m->rank != RK_I && KINDS[m->type].family >= 0 && !statue) d->lut = crawl_rank_lut[KINDS[m->type].family][m->rank];
         if (m->type == MOB_SPIDER && m->state == MS_WALK && m->sub == 0) d->flags = DR_EYES;
@@ -18607,7 +18613,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (m->frozen > 0.0f && m->state == MS_WALK) d->flags |= DR_ICE;   /* only its eyes, in the dark of the web */
         if (G.ptheme == PT_BACKROOMS) d->flags |= DR_GLITCH;           /* nothing here is quite right */
         if (G.ptheme == PT_SEVERANCE) d->flags |= DR_LIT;              /* nor here: everything is too clean */
-        if (m->boss && G.bstate != BS_FIGHT && m->state == MS_WALK) d->flags |= DR_EDGE;
+        if (waits) d->flags |= DR_EDGE;
         if (m->boss == 1 + BOSS_KNIGHT && m->state == MS_WALK) {
             d->flags |= DR_SHINE;
             if (G.bdash_age < 0.8f) {                              /* Swift Dodge: where it was a moment ago, fading */

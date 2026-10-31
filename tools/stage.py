@@ -13,6 +13,7 @@ ap.add_argument("kind", type=int); ap.add_argument("out")
 ap.add_argument("--rank"); ap.add_argument("--level", default="5"); ap.add_argument("--seed", default="5")
 ap.add_argument("--dark"); ap.add_argument("--fog", action="store_true"); ap.add_argument("--sub")
 ap.add_argument("--dists", default="2.5,4,6,9,13,18"); ap.add_argument("--t", default="6")
+ap.add_argument("--boss")                                   # the BOSS_* number: drawn as that boss
 a = ap.parse_args()
 host = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "build", "host_debug")
 frames = []
@@ -23,6 +24,7 @@ with tempfile.TemporaryDirectory() as d:
         if a.dark is not None: env["CRAWL_STAGEDARK"] = a.dark
         if a.fog: env["CRAWL_STAGEFOG"] = "1"
         if a.sub is not None: env["CRAWL_STAGESUB"] = a.sub
+        if a.boss is not None: env["CRAWL_STAGEBOSS"] = a.boss
         subprocess.run([host, "shot", "crawl", a.t, os.path.join(d, "f%d" % i), "2"], env=env, cwd=d,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         name = [f for f in os.listdir(d) if f.startswith("f%d_" % i)][0]
