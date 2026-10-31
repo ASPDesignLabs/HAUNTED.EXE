@@ -376,7 +376,7 @@ enum { PZ_LEDGER, PZ_KNELL, PZ_EFFIGY, PZ_BALANCE, PZ_VOTIVES, PZ_URNS, PZ_HOURS
        PZ_SQUARE, PZ_LETTERS, NPZK };
 #define WINGED 4                            /* a Door's lock: the sealed wing's, until its puzzle is solved */
 typedef struct {
-    uint8_t role, nstate, state, wall, on, frames, cap, facing;   /* cap: a place that piles more than one; facing: drawn by
+    uint8_t role, nstate, state, wall, on, frames, cap, facing, look;   /* cap: a place that piles more than one; facing: drawn by
                                                                      which way it points from where you stand */
     int16_t spr, mark, ramp;
     int8_t in, home, below;                                        /* below: in a pile, the item under it */
@@ -854,7 +854,7 @@ static struct {
        whisper given; the cell before the door; an order to follow and how far it has come; its own numbers; clocks; the
        answer (the hidden message's) and the nudge; the thing the dream means to touch */
     int pz, pz_room, pz_door, pz_exit, pz_solved, pz_tries, pz_hinted, pz_wx, pz_wy;
-    int pz_seq[16], pz_nseq, pz_step, pz_a[32], use_thing;
+    int pz_seq[16], pz_nseq, pz_step, pz_a[32], use_thing, pz_stepx, pz_stepy;   /* pz_step*: a stone the dream steps to, off the lanes */
     float pz_t, pz_wait;
     char pz_answer[200], pz_hint[100];
 } G;
@@ -6783,12 +6783,18 @@ static int pick_goal(int x, int y, int *gx, int *gy) {
 /* which way to leave (x,y): towards a goal if there is one, else new ground first,
  * otherwise towards the nearest unexplored cell */
 static int hz_danger(int x, int y);
+static int pz_plate_at(int x, int y) {                             /* a puzzle's stone or tile there */
+    for (int i = 0; i < G.nthing; i++) if (G.thing[i].role == TR_PLATE && G.thing[i].cx == x && G.thing[i].cy == y) return 1;
+    return 0;
+}
 static int decide(int x, int y, int h) {
     int gx, gy;
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_GOALS")) { int ok = pick_goal(x, y, &gx, &gy); fprintf(stderr, "GOAL at (%d,%d) -> %d (%d,%d) t=%.2f\n", x, y, ok, ok ? gx : -1, ok ? gy : -1, G.t); }
 #endif
     if (pick_goal(x, y, &gx, &gy)) {
+        if (!G.player && G.pz_stepx >= 0)                          /* a puzzle's stone beside it: off the lane, onto it */
+            for (int d = 0; d < 4; d++) if (x + DX[d] == G.pz_stepx && y + DY[d] == G.pz_stepy && passable(G.pz_stepx, G.pz_stepy)) return d;
         bfs_from(gx, gy);
         int gbest = -1, gs = 1 << 30;
         for (int d = 0; d < 4; d++) {
@@ -6816,7 +6822,7 @@ static int decide(int x, int y, int h) {
 
 static void start_move(void) {
     G.tx = G.cx + DX[G.h]; G.ty = G.cy + DY[G.h];
-    if (!apass(G.tx, G.ty)) {                                   /* should not happen: turn instead */
+    if (!apass(G.tx, G.ty) && !(pz_plate_at(G.tx, G.ty) && passable(G.tx, G.ty))) {   /* should not happen: turn instead (a puzzle's stones may be off the lanes) */
         G.next_h = decide(G.cx, G.cy, G.h);
         G.tx = G.cx; G.ty = G.cy; G.u = 1.0f;
         G.state = PS_MOVE;
@@ -9869,6 +9875,15 @@ static void pz_touch_run4(int i, int how);
 static int pz_next_run2(int *a);
 static int pz_next_run3(int *a);
 static int pz_next_run4(int *a);
+static int pz_wants(void);
+static int pz_atx = -1, pz_aty = -1;                               /* where the dream will stand when it next moves: it decides a cell ahead */
+static void pz_return(float x, float y) {                          /* sent back (a stone sank): a person, or the dream set going again */
+    G.px = x; G.py = y;
+    if (G.player) return;
+    G.cx = G.tx = (int)x; G.cy = G.ty = (int)y; G.u = 1.0f; G.pz_stepx = -1;
+    G.next_h = decide(G.cx, G.cy, G.h);
+    begin_turn(heading_angle(G.next_h)); G.state = PS_TURN;
+}
 static int pz_set_of(int kind) { for (int s = 0; s < 4; s++) for (int k = 0; k < 7; k++) if (PZ_RUN[s][k] == kind) return s; return 3; }
 /* the level's puzzle, laid out once the level is made: its pieces near the wing's door, its hoard behind it */
 static void pz_make(void) {
@@ -9884,7 +9899,7 @@ static void pz_make(void) {
     int diff = pz_diff(), set = pz_set_of(G.pz);
     int n0 = G.nthing;
     if (G.pz == PZ_SQUARE || G.pz == PZ_LETTERS) pz_make_run4(G.pz, diff);
-    else if (set == 0) pz_make_run1(G.pz, diff);
+    else if (set == 0 || G.pz == PZ_DBELLS) pz_make_run1(G.pz, diff);
     else if (set == 1) pz_make_run2(G.pz, diff);
     else if (set == 2) pz_make_run3(G.pz, diff);
     else pz_make_run4(G.pz, diff);
@@ -9937,6 +9952,13 @@ static int pz_next(int *a) {
 }
 static void pz_update(float dt) {                                  /* what runs by itself: a phrase playing, a crust cooling */
     if (G.pz < 0 || G.pz_solved || PK.depth || G.shop) return;
+    for (int i = 0; i < G.nthing; i++) {                           /* the dream keeps off stones that sink and glass already lit */
+        const Thing *t = &G.thing[i];
+        if (t->role != TR_PLATE) continue;
+        if (pz_wants()) break;                                     /* working it: it goes by the way it knows */
+        if ((G.pz == PZ_FERRY && !t->want) || (G.pz == PZ_GLASS && t->state)) hz_mark(t->cx, t->cy, 2);
+        else if (G.pz == PZ_GLASS) hz_mark(t->cx, t->cy, 1);
+    }
     if (G.pz_wait > 0.0f) G.pz_wait -= dt;
     if (pz_set_of(G.pz) == 3 || G.pz == PZ_SQUARE || G.pz == PZ_LETTERS) pz_touch_run4(-1, -1);   /* their clocks */
     else if (pz_set_of(G.pz) == 1) pz_touch_run2(-1, -1);
@@ -9950,11 +9972,14 @@ static int pz_wants(void) {
     return G.level_t < 210.0 && G.hp * 3 >= G.max_hp * 2;
 }
 static int pz_goal(int x, int y, int *gx, int *gy) {
+    G.pz_stepx = -1;
     if (!pz_wants() || G.pz_wait > 0.0f) return 0;
+    pz_atx = x; pz_aty = y;
     int a, act = pz_next(&a);
+    pz_atx = pz_aty = -1;
     if (act == PA_NONE || act == PA_WAIT) { if (G.pz_exit && act == PA_WAIT) { *gx = G.pz_wx; *gy = G.pz_wy; return apass(*gx, *gy); } return 0; }
     if (act == PA_DROP) { thing_set_down(); G.pz_wait = 0.6f; return 0; }
-    if (act == PA_STEP) { *gx = a % MAPN; *gy = a / MAPN; G.use_kind = USE_NONE; return 1; }
+    if (act == PA_STEP) { *gx = a % MAPN; *gy = a / MAPN; G.use_kind = USE_NONE; G.pz_stepx = *gx; G.pz_stepy = *gy; return 1; }
     if (a < 0) return 0;
     if (rnd(7) == 0 && !G.carry) {                                 /* now and then, a wrong one */
         int k = rnd(G.nthing);
@@ -9970,15 +9995,379 @@ static int pz_goal(int x, int y, int *gx, int *gy) {
     *gx = sx; *gy = sy;
     return 1;
 }
-static void pz_make_run2(int kind, int diff) { (void)kind; (void)diff; }
 static void pz_make_run3(int kind, int diff) { (void)kind; (void)diff; }
 static void pz_make_run4(int kind, int diff) { (void)kind; (void)diff; }
-static void pz_touch_run2(int i, int how) { (void)i; (void)how; }
 static void pz_touch_run3(int i, int how) { (void)i; (void)how; }
 static void pz_touch_run4(int i, int how) { (void)i; (void)how; }
-static int pz_next_run2(int *a) { (void)a; return PA_NONE; }
 static int pz_next_run3(int *a) { (void)a; return PA_NONE; }
 static int pz_next_run4(int *a) { (void)a; return PA_NONE; }
+
+/* ---- the Catacombs' ---- */
+/* channels set in the floor, turning a quarter (the Culverts, and the Deep's Gold Veins): open sides as bits, east 1, south 2,
+ * west 4, north 8 (DX/DY's order); a straight piece or an elbow, turned */
+static int pipe_mask(int shape, int rot) { int m = shape ? 3 : 5; for (int r = 0; r < (rot & 3); r++) m = ((m << 1) | (m >> 3)) & 15; return m; }
+/* water (or gold) from the spout into the first piece, along whatever joins, out of the last to the wheel: how far it gets */
+static int pipe_flow(uint32_t *wet) {
+    int w = G.pz_a[0], h = G.pz_a[1], r = G.pz_a[2], x = 0, y = r, from = 2, n = 0;   /* in from the west */
+    if (wet) *wet = 0;
+    while (x >= 0 && y >= 0 && x < w && y < h && n < 16) {
+        const Thing *t = &G.thing[G.pz_a[4 + y * w + x]];
+        int m = pipe_mask(t->val, t->state);
+        if (!(m >> from & 1)) return 0;
+        if (wet) *wet |= 1u << (y * w + x);
+        int out = -1;
+        for (int d = 0; d < 4; d++) if (d != from && (m >> d & 1)) out = d;
+        if (out < 0) return 0;
+        x += DX[out]; y += DY[out]; from = (out + 2) & 3; n++;
+        if (x == w && y == G.pz_a[3] && out == 0) return 1;       /* out to the wheel */
+    }
+    return 0;
+}
+static int pipe_ok(int i) { const Thing *t = &G.thing[i]; return t->want < 0 || pipe_mask(t->val, t->state) == pipe_mask(t->val, t->want); }
+static int pipes_next(int *a) {
+    for (int k = 0; k < G.pz_a[0] * G.pz_a[1]; k++) { int i = G.pz_a[4 + k]; if (!pipe_ok(i)) { *a = i; return PA_USE; } }
+    return PA_NONE;
+}
+/* the grid and its path: from the spout's row on the west to the wheel's on the east, wandering; each piece of the path is
+ * the shape its turns want, the rest any */
+static int pipes_lay(int w, int h, int look) {
+    int bx = -1, by = -1, bd = 1 << 20;
+    for (int y = 1; y < MAPN - h - 1; y++)
+        for (int x = 2; x < MAPN - w - 2; x++) {
+            if (pz_dist[y][x] < 1 || pz_dist[y][x] >= bd) continue;
+            int ok = 1;
+            for (int k = 0; k < w * h && ok; k++) ok = pz_free(x + k % w, y + k / w) && room_kind_at(x + k % w, y + k / w) >= 0;
+            for (int k = 0; k < h && ok; k++) ok = hz_floor(x - 1, y + k) && hz_floor(x + w, y + k);   /* room for the spout and the wheel */
+            if (ok) { bx = x; by = y; bd = pz_dist[y][x]; }
+        }
+    if (bx < 0) return 0;
+    int path[16], np = 0, cx = 0, cy = rnd(h), seen = 0;
+    path[np++] = cy * w;
+    seen |= 1 << (cy * w);
+    while (cx < w - 1 || (np > 1 && rnd(3) == 0 && 0)) {          /* east, with a turn up or down now and then */
+        int dirs[3] = { 0, 1, 3 }, ok = 0;
+        shuffle_int(dirs, 3);
+        if (rnd(2)) dirs[0] = 0;
+        for (int k = 0; k < 3 && !ok; k++) {
+            int nx = cx + DX[dirs[k]], ny = cy + DY[dirs[k]];
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h || (seen >> (ny * w + nx) & 1)) continue;
+            cx = nx; cy = ny; ok = 1;
+        }
+        if (!ok) break;
+        path[np++] = cy * w + cx; seen |= 1 << (cy * w + cx);
+    }
+    G.pz_a[0] = w; G.pz_a[1] = h; G.pz_a[2] = path[0] / w; G.pz_a[3] = path[np - 1] / w;
+    for (int k = 0; k < w * h; k++) {
+        int x = bx + k % w, y = by + k / w;
+        pz_claim(x, y);
+        int i = thing_new(TR_TURN, x + 0.5f, y + 0.5f, -1);
+        if (i < 0) return 0;
+        Thing *t = &G.thing[i];
+        t->grp = 1; t->nstate = 4; t->val = rnd(2); t->want = -1; t->state = (uint8_t)rnd(4); t->look = look;
+        snprintf(t->name, sizeof t->name, "%s", look ? "A TILE OF GOLD VEINS" : "A CULVERT");
+        G.pz_a[4 + k] = i;
+    }
+    for (int p = 0; p < np; p++) {                                 /* the path's pieces: the shape and turn its ends need */
+        int k = path[p], x = k % w, y = k / w;
+        int in = p == 0 ? 2 : -1, out = p == np - 1 ? 0 : -1;
+        for (int d = 0; d < 4; d++) {
+            if (p > 0 && path[p - 1] == (y + DY[d]) * w + x + DX[d] && x + DX[d] >= 0 && x + DX[d] < w) in = d;
+            if (p < np - 1 && path[p + 1] == (y + DY[d]) * w + x + DX[d] && x + DX[d] >= 0 && x + DX[d] < w) out = d;
+        }
+        int need = (1 << in) | (1 << out), shape = (in + 2) % 4 == out ? 0 : 1, rot = 0;
+        while (pipe_mask(shape, rot) != need && rot < 4) rot++;
+        Thing *t = &G.thing[G.pz_a[4 + k]];
+        t->val = shape; t->want = rot;
+        if (pipe_mask(shape, t->state) == need) t->state = (uint8_t)((rot + 1) & 3);   /* never set right to begin with */
+    }
+    int sp = thing_new(TR_READ, bx - 0.5f + 0.35f, by + G.pz_a[2] + 0.5f, look ? SP_PZ_IDOL : SP_PZ_SPOUT);   /* the spout (or the idol) on the west */
+    if (sp >= 0) { snprintf(G.thing[sp].name, sizeof G.thing[sp].name, "%s", look ? "THE IDOL'S EYES" : "THE SPOUT"); snprintf(G.thing[sp].text, sizeof G.thing[sp].text, "%s", look ? "GOLD RUNS FROM THE IDOL'S EYES INTO THE VEINS, AND MUST REACH THE LOCK." : "WATER POURS FROM THE SPOUT INTO THE CULVERTS. IT MUST REACH THE MILL WHEEL."); G.thing[sp].scale = 0.7f; }
+    int wh = thing_new(TR_READ, bx + w + 0.5f - 0.35f, by + G.pz_a[3] + 0.5f, look ? SP_PZ_LOCK : SP_PZ_MILL0);
+    if (wh >= 0) { snprintf(G.thing[wh].name, sizeof G.thing[wh].name, "%s", look ? "THE DOOR'S LOCK" : "THE MILL WHEEL"); snprintf(G.thing[wh].text, sizeof G.thing[wh].text, "%s", look ? "A LOCK WITH A CHANNEL CUT INTO IT, DRY." : "A MILL WHEEL THAT LIFTS THE SLUICE GATE, WAITING ON THE WATER."); G.thing[wh].frames = 2; G.thing[wh].scale = 0.8f; G.pz_a[30] = wh; }
+    return 1;
+}
+/* the Three Cisterns: eight, five and three measures, the first full; three sluices pour round */
+static int cis_cap(int k) { static const int C[3] = { 8, 5, 3 }; return C[k]; }
+static void cis_show(void) {                                       /* what each says, read */
+    static const char *const NUM[9] = { "NOTHING", "ONE MEASURE", "TWO MEASURES", "THREE MEASURES", "FOUR MEASURES", "FIVE MEASURES", "SIX MEASURES", "SEVEN MEASURES", "EIGHT MEASURES" };
+    static const char *const NM[3] = { "THE GREAT CISTERN, OF EIGHT", "THE MIDDLE CISTERN, OF FIVE", "THE LEAST CISTERN, OF THREE" };
+    for (int k = 0; k < 3; k++) {
+        Thing *t = &G.thing[G.pz_a[k]];
+        snprintf(t->text, sizeof t->text, "%s, HOLDS %s.", NM[k], NUM[clampi(G.pz_a[3 + k], 0, 8)]);
+        t->state = (uint8_t)clampi((G.pz_a[3 + k] * 8 + cis_cap(k) / 2) / cis_cap(k), 0, 8);
+    }
+}
+static int cis_goal(const int *v) { return G.pz_a[6] ? v[0] == 4 && v[1] == 4 : v[0] == 4 || v[1] == 4; }   /* harder: four and four */
+static int cisterns_next(int *a) {
+    int seen[9 * 6 * 4], q[200], qh = 0, qt = 0, first[200];
+    memset(seen, -1, sizeof seen);
+    int s0 = G.pz_a[3] * 24 + G.pz_a[4] * 4 + G.pz_a[5];
+    seen[s0] = 0; q[qt] = s0; first[qt++] = -1;
+    while (qh < qt) {
+        int st = q[qh], f = first[qh++], v[3] = { st / 24, (st / 4) % 6, st % 4 };
+        if (cis_goal(v)) { if (f < 0) return PA_NONE; *a = G.pz_a[7 + f]; return PA_USE; }
+        for (int l = 0; l < 3; l++) {
+            int from = l, to = (l + 1) % 3, w[3] = { v[0], v[1], v[2] }, m = imin(w[from], cis_cap(to) - w[to]);
+            w[from] -= m; w[to] += m;
+            int ns = w[0] * 24 + w[1] * 4 + w[2];
+            if (seen[ns] >= 0 || qt >= 200) continue;
+            seen[ns] = 1; q[qt] = ns; first[qt++] = f < 0 ? l : f;
+        }
+    }
+    return PA_NONE;
+}
+/* the saints and their emblems */
+static const char *const SAINT_LINE[6] = { "SHE KEPT THE GATE, AND ITS KEY", "BROKEN ON THE WHEEL", "SHOT FOR THE FAITH", "SHUT IN A TOWER",
+                                           "SHE WENT AS GENTLY AS THE LAMB TO HER DEATH", "SHE KEPT HER LAMP TRIMMED THROUGH THE NIGHT" };
+static const char *const SAINT_NAME[6] = { "SAINT AGNES", "SAINT CATHERINE", "SAINT SEBASTIAN", "SAINT BARBARA", "SAINT AGATHA", "SAINT URSULA" };
+/* a strip of floor three across and some long, on a lane, for stepping on */
+static int strip_find(int len, int *ox, int *oy, int *oax) {
+    int best = -1, bd = 1 << 20, bax = 0;
+    for (int y = 2; y < MAPN - 2; y++)
+        for (int x = 2; x < MAPN - 2; x++) {
+            if (pz_dist[y][x] < 2 || pz_dist[y][x] >= bd || !lane(x, y)) continue;
+            for (int ax = 0; ax < 2; ax++) {                       /* ax: the way along it */
+                int bxx = ax ^ 1, ok = 1;
+                if (ax == 0 ? (y & 3) != 2 : (x & 3) != 2) continue;   /* its middle row on a lane */
+                for (int i = 0; i < len && ok; i++)
+                    for (int j = -1; j <= 1 && ok; j++) { int sx = x + DX[ax] * i + DX[bxx] * j, sy = y + DY[ax] * i + DY[bxx] * j; ok = pz_free(sx, sy) && room_kind_at(sx, sy) >= 0; }
+                int ex = x - DX[ax], ey = y - DY[ax], fx = x + DX[ax] * len, fy = y + DY[ax] * len;   /* a way on and off at each end */
+                ok = ok && hz_floor(ex, ey) && apass(ex, ey) && hz_floor(fx, fy) && apass(fx, fy);
+                if (ok) { best = y * MAPN + x; bd = pz_dist[y][x]; bax = ax; }
+            }
+        }
+    if (best < 0) return 0;
+    *ox = best % MAPN; *oy = best / MAPN; *oax = bax;
+    return 1;
+}
+static void pz_make_run2(int kind, int diff) {
+    char *ans = G.pz_answer, *hint = G.pz_hint;
+    switch (kind) {
+    case PZ_CISTERNS: {
+        static const char *const NM[3] = { "THE GREAT CISTERN", "THE MIDDLE CISTERN", "THE LEAST CISTERN" };
+        static const char *const LN[3] = { "THE SLUICE FROM THE GREAT TO THE MIDDLE", "THE SLUICE FROM THE MIDDLE TO THE LEAST", "THE SLUICE FROM THE LEAST TO THE GREAT" };
+        for (int k = 0; k < 3; k++) {
+            int c = pz_wallthing(TR_READ, SP_PZ_CISTERN0, 1, NM[k]);
+            if (c < 0) return;
+            G.thing[c].frames = 9; G.thing[c].grp = 0; G.thing[c].mark = (int16_t)(17 + cis_cap(k) - 1); G.thing[c].mz = 0.3f;
+            G.pz_a[k] = c;
+        }
+        for (int k = 0; k < 3; k++) {
+            int l = pz_wallthing(TR_LEVER, SP_PZ_LEVER0, 1, LN[k]);
+            if (l < 0) return;
+            G.thing[l].frames = 2; G.thing[l].grp = 0; G.pz_a[7 + k] = l;
+        }
+        G.pz_a[3] = 8; G.pz_a[4] = G.pz_a[5] = 0; G.pz_a[6] = diff >= 2;
+        cis_show();
+        pz_reading(SP_PZ_TABLET, 1, "A CARVING BY THE CULVERT", G.pz_a[6] ? "THE CULVERT OPENS WHEN THE GREAT CISTERN AND THE MIDDLE EACH HOLD FOUR MEASURES."
+                                                                                : "THE CULVERT OPENS WHEN A CISTERN HOLDS FOUR MEASURES, NEITHER MORE NOR LESS.");
+        snprintf(ans, 200, "%s", G.pz_a[6] ? "POUR GREAT TO MIDDLE, MIDDLE TO LEAST, LEAST TO GREAT, AND ROUND AGAIN, TILL THE GREAT AND THE MIDDLE HOLD FOUR EACH."
+                                         : "POUR GREAT TO MIDDLE, MIDDLE TO LEAST, LEAST TO GREAT, AND ROUND AGAIN, TILL ONE HOLDS FOUR.");
+        snprintf(hint, 100, "EACH SLUICE POURS TILL ONE IS FULL OR THE OTHER EMPTY");
+        break;
+    }
+    case PZ_SAINTS: {
+        int ord[6] = { 0, 1, 2, 3, 4, 5 }, n = imin(6, 3 + diff);
+        shuffle_int(ord, 6);
+        snprintf(ans, 200, "EACH SAINT HER EMBLEM:");
+        for (int k = 0; k < n; k++) {
+            int e = ord[k], p = pz_wallthing(TR_PLACE, SP_PZ_SAINT, 1, SAINT_NAME[e]);
+            if (p < 0) break;
+            Thing *t = &G.thing[p];
+            t->grp = 1; t->want = e; t->hold = 0.32f;
+            snprintf(t->text, sizeof t->text, "%s: %s", SAINT_NAME[e], SAINT_LINE[e]);
+            char nm[40];
+            snprintf(nm, sizeof nm, "AN EMBLEM: A %s", MARK_WORD[4 + e]);
+            int it = pz_lying(TR_ITEM, SP_PZ_EMBLEM, 4, nm);
+            if (it < 0) break;
+            G.thing[it].grp = 2; G.thing[it].val = e; G.thing[it].mark = (int16_t)(4 + e + 1); G.thing[it].mz = -0.28f;
+            pz_append(ans, 200, " THE %s TO %s,", MARK_WORD[4 + e], SAINT_NAME[e] + 6);
+        }
+        snprintf(hint, 100, "READ HOW EACH SAINT DIED; THE EMBLEM SAYS THE SAME");
+        break;
+    }
+    case PZ_CULVERTS: case PZ_VEINS: {
+        int veins = kind == PZ_VEINS;
+        if (!pipes_lay(3 + (diff >= 2), 3, veins)) return;
+        snprintf(ans, 200, "%s", veins ? "TURN THE TILES SO ONE VEIN OF GOLD RUNS UNBROKEN FROM THE IDOL'S EYES TO THE LOCK. A GLINT SHOWS WHERE THE GOLD HAS REACHED."
+                                       : "TURN THE CULVERTS SO ONE CHANNEL RUNS UNBROKEN FROM THE SPOUT TO THE MILL WHEEL. THE WATER SHOWS HOW FAR IT HAS COME.");
+        snprintf(hint, 100, "FOLLOW THE WATER: TURN THE PIECE WHERE IT STOPS");
+        if (veins) snprintf(hint, 100, "FOLLOW THE GOLD: TURN THE TILE WHERE IT STOPS");
+        break;
+    }
+    case PZ_FERRY: case PZ_GLASS: {
+        int glass = kind == PZ_GLASS, len = glass ? 3 + (diff >= 2) : 4 + diff, x0, y0, ax;
+        if (!strip_find(len, &x0, &y0, &ax)) return;
+        int bxx = ax ^ 1, path[24], np = 0, j = 0;
+        G.pz_a[0] = len; G.pz_a[1] = ax; G.pz_a[2] = x0; G.pz_a[3] = y0;
+        if (glass) {                                               /* a snake through it all, from the near middle */
+            int order[24], no = 0;
+            for (int i = 0; i < len; i++) for (int k = 0; k < 3; k++) { int jj = (i & 1) ? 1 - k : k - 1; order[no++] = i * 3 + jj + 1; }
+            for (int k = 0; k < no; k++) path[np++] = order[k];
+        } else {                                                   /* a way across, stepping aside now and then */
+            for (int i = 0; i < len; i++) {
+                path[np++] = i * 3 + j + 1;
+                if (i < len - 1 && rnd(2)) { int nj = clampi(j + (rnd(2) ? 1 : -1), -1, 1); if (nj != j) { j = nj; path[np++] = i * 3 + j + 1; } }
+            }
+        }
+        for (int i = 0; i < len; i++)
+            for (int k = 0; k < 3; k++) {
+                int x = x0 + DX[ax] * i + DX[bxx] * (k - 1), y = y0 + DY[ax] * i + DY[bxx] * (k - 1);
+                pz_claim(x, y);
+                int s = thing_new(TR_PLATE, x + 0.5f, y + 0.5f, -1);
+                if (s < 0) return;
+                Thing *t = &G.thing[s];
+                t->grp = 1; t->val = i * 3 + k; t->look = glass ? 2 : 1;
+                t->want = 0;
+                for (int p = 0; p < np; p++) if (path[p] == i * 3 + k) t->want = 1 + p;   /* safe, and its place on the way */
+                t->mark = glass ? 0 : (int16_t)(1 + (4 + rnd(6)));
+                G.pz_a[4 + i * 3 + k] = s;
+            }
+        G.pz_a[29] = np; for (int p = 0; p < np && p < 24; p++) G.pz_seq[p % 16] = path[p];
+        G.pz_nseq = imin(np, 16); G.pz_step = 0;
+        if (glass) {
+            snprintf(ans, 200, "STEP ON EVERY TILE ONCE: GO UP ONE ROW AND DOWN THE NEXT, AS A PLOUGH GOES.");
+            pz_reading(SP_PZ_TABLET, 1, "A GOLD TABLET", "EVERY TILE OF THE GLASS FLOOR LIT, AND NONE TROD TWICE: SO THE COURT WALKED BEFORE ITS KING.");
+            snprintf(hint, 100, "PLAN THE WHOLE WALK BEFORE THE FIRST STEP");
+        } else {
+            char txt[160];
+            snprintf(txt, sizeof txt, "THE FERRYMAN'S WAY, STONE BY STONE:");
+            snprintf(ans, 200, "THE STONES THAT HOLD, FROM THE NEAR SIDE:");
+            for (int p = 0; p < np; p++) {
+                int s = G.pz_a[4 + path[p]];
+                pz_append(txt, 160, " %s", MARK_WORD[G.thing[s].mark - 1]);
+                pz_append(ans, 200, " %s", MARK_WORD[G.thing[s].mark - 1]);
+            }
+            pz_reading(SP_PZ_TABLET, 1, "A DROWNED TABLET", txt);
+            snprintf(hint, 100, "ONLY THE SIGNS ON THE TABLET HOLD, IN ITS ORDER");
+        }
+        break;
+    }
+    case PZ_SLUICELOCK: {                                          /* three wheels of the saints' signs, set by the flood line */
+        int ord[6] = { 0, 1, 2, 3, 4, 5 };
+        shuffle_int(ord, 6);
+        char txt[160];
+        snprintf(txt, sizeof txt, "THE FLOOD LINES ON THE SAINTS' ALCOVES, THE HIGHEST WATER FIRST:");
+        snprintf(ans, 200, "THE WHEELS, FIRST TO LAST:");
+        for (int k = 0; k < 3; k++) {
+            char nm[40];
+            snprintf(nm, sizeof nm, "THE %s WHEEL", NTH[k]);
+            int w = pz_wallthing(TR_TURN, SP_PZ_WHEEL, 1, nm);
+            if (w < 0) return;
+            Thing *t = &G.thing[w];
+            t->grp = 1; t->nstate = 6; t->want = ord[k]; t->state = (uint8_t)((ord[k] + 1 + rnd(5)) % 6); t->mark = (int16_t)(4 + t->state + 1); t->mz = 0.0f;
+            pz_append(txt, 160, " %s%s", MARK_WORD[4 + ord[k]], k < 2 ? "," : ".");
+            pz_append(ans, 200, " %s", MARK_WORD[4 + ord[k]]);
+        }
+        if (diff >= 1) {                                           /* deeper: the saints' marks, not their signs */
+            snprintf(txt, sizeof txt, "THE FLOOD LINES, THE HIGHEST WATER FIRST:");
+            for (int k = 0; k < 3; k++) pz_append(txt, 160, " %s%s", SAINT_NAME[G.thing[G.nthing - 3 + k].want], k < 2 ? "," : ".");
+        }
+        pz_reading(SP_PZ_TABLET, 1, "THE FLOOD LINES", txt);
+        if (diff >= 1) pz_reading(SP_PZ_TABLET, 1, "THE SAINTS' SIGNS", "AGNES THE KEY, CATHERINE THE WHEEL, SEBASTIAN THE ARROWS, BARBARA THE TOWER, AGATHA THE LAMB, URSULA THE LAMP.");
+        snprintf(hint, 100, "THE WHEELS GO IN THE ORDER OF THE WATER, HIGHEST FIRST");
+        break;
+    }
+    default: break;
+    }
+}
+static void pz_touch_run2(int i, int how) {
+    if (i < 0) {                                                   /* each frame: the stepping puzzles' lights, the water */
+        if (G.pz == PZ_CULVERTS && G.pz_a[30] && pipe_flow(NULL)) { G.thing[G.pz_a[30]].state = (uint8_t)(((int)(G.t * 3.0)) & 1); }
+        return;
+    }
+    Thing *t = &G.thing[i];
+    switch (G.pz) {
+    case PZ_CISTERNS:
+        for (int l = 0; l < 3; l++) if (i == G.pz_a[7 + l] && how == TU_PULL) {
+            int from = l, to = (l + 1) % 3, m = imin(G.pz_a[3 + from], cis_cap(to) - G.pz_a[3 + to]);
+            G.pz_a[3 + from] -= m; G.pz_a[3 + to] += m;
+            sfx_at(SFX_SPLASH, t->x, t->y, 1.2f); sfx_at(SFX_DRIP, t->x, t->y, 0.8f);
+            cis_show();
+            int v[3] = { G.pz_a[3], G.pz_a[4], G.pz_a[5] };
+            if (cis_goal(v)) pz_solve();
+            t->state = 0;
+        }
+        break;
+    case PZ_SAINTS:
+        if (how == TU_SET && t->grp == 2) { if (match_done()) pz_solve(); else if (match_full()) { say("THE SAINTS DO NOT STIR"); pz_wrong(); } }
+        break;
+    case PZ_CULVERTS:
+        if (how == TU_TURN && pipe_flow(NULL)) { sfx_at(SFX_SPLASH, t->x, t->y, 1.4f); pz_solve(); }
+        break;
+    case PZ_SLUICELOCK:
+        if (how == TU_TURN) {
+            t->mark = (int16_t)(4 + t->state + 1);
+            say("%s: THE %s", t->name, MARK_WORD[4 + t->state]);
+            if (settings_done()) pz_solve();
+        }
+        break;
+    case PZ_FERRY:
+        if (how == TU_STEP && t->grp == 1) {
+            if (!t->want) {                                        /* it sinks: back to the near side, cold but unhurt */
+                say("THE STONE SINKS UNDER YOU");
+                sfx_at(SFX_SPLASH, t->x, t->y, 1.6f);
+                int ax = G.pz_a[1];
+                float bx = G.pz_a[2] - DX[ax] + 0.5f, by = G.pz_a[3] - DY[ax] + 0.5f;
+                pz_return(bx, by);
+                G.slow_t = fmaxf(G.slow_t, 1.5f);
+                pz_wrong();
+            } else if (t->val / 3 == G.pz_a[0] - 1) pz_solve();    /* the far row reached */
+        }
+        break;
+    case PZ_GLASS:
+        if (how == TU_STEP && t->grp == 1) {
+            if (t->state) {                                        /* a lit tile again: it cracks, and the floor goes dark */
+                say("THE GLASS CRACKS, AND THE FLOOR GOES DARK");
+                sfx_at(SFX_SHATTER, t->x, t->y, 1.0f);
+                for (int k = 0; k < G.nthing; k++) if (G.thing[k].role == TR_PLATE) G.thing[k].state = 0;
+                pz_wrong();
+            } else {
+                t->state = 1;
+                snd_tone(1, 72 + (t->val % 12), 0.4f, 0.5f);
+                int all = 1;
+                for (int k = 0; k < G.nthing; k++) if (G.thing[k].role == TR_PLATE && !G.thing[k].state) all = 0;
+                if (all) pz_solve();
+            }
+        }
+        break;
+    default: break;
+    }
+}
+/* the next stone on the way, from where the dream stands; off the strip, the first */
+static int strip_next(int *a, int glass) {
+    int px = pz_atx >= 0 ? pz_atx : (int)G.px, py = pz_atx >= 0 ? pz_aty : (int)G.py, at = -1;
+    for (int k = 0; k < G.nthing; k++) if (G.thing[k].role == TR_PLATE && G.thing[k].cx == px && G.thing[k].cy == py) at = k;
+    int ex = G.pz_a[2] - DX[G.pz_a[1]], ey = G.pz_a[3] - DY[G.pz_a[1]];   /* the near end, off the stones */
+    if (at < 0 && (px != ex || py != ey)) {
+        int lit = 0;
+        if (glass) for (int k = 0; k < G.nthing; k++) lit += G.thing[k].role == TR_PLATE && G.thing[k].state;
+        if (!lit) { *a = ey * MAPN + ex; return PA_STEP; }
+    }
+    int step = at >= 0 ? G.thing[at].want : 0, lit = 0, stray = -1;
+    if (glass) for (int k = 0; k < G.nthing; k++) if (G.thing[k].role == TR_PLATE && G.thing[k].state) { lit++; if (G.thing[k].want > 0 && G.thing[k].want > lit + 1) stray = k; }
+    if (glass && stray >= 0 && at != stray) { *a = G.thing[stray].cy * MAPN + G.thing[stray].cx; return PA_STEP; }   /* out of order: start again */
+    if (glass) step = lit;
+    if (at >= 0 && !G.thing[at].want && !glass) step = 0;
+    for (int k = 0; k < G.nthing; k++)
+        if (G.thing[k].role == TR_PLATE && G.thing[k].want == step + 1) {
+            if (glass && G.thing[k].state) continue;
+            *a = G.thing[k].cy * MAPN + G.thing[k].cx;
+            return PA_STEP;
+        }
+    return PA_NONE;
+}
+static int pz_next_run2(int *a) {
+    switch (G.pz) {
+    case PZ_CISTERNS: return cisterns_next(a);
+    case PZ_SAINTS: return match_next(a);
+    case PZ_CULVERTS: return pipes_next(a);
+    case PZ_SLUICELOCK: return settings_next(a);
+    case PZ_FERRY: return strip_next(a, 0);
+    default: return PA_NONE;
+    }
+}
+
 #ifdef CRAWL_DEBUG
 static void tp_puzzle(void) {                                      /* testing: before the puzzle's first piece, facing it */
     for (int i = 0; i < G.nthing; i++) {
@@ -15158,7 +15547,7 @@ enum { FM_NONE, FM_SHADOW, FM_CRACK, FM_FIRE, FM_EMBER, FM_SHEEN, FM_BILE, FM_VR
        FM_OMEN, FM_OMEN_CELL, FM_OMEN_ARC,                      /* Premonition's zones: round, a cell's worth, a blade's fan */
        FM_VAPOUR, FM_WAX, FM_RIME, FM_SURGE, FM_SPARK, FM_BUBBLE, FM_POOL, FM_DUST, FM_SHIMMER, FM_SRING, FM_ASH, FM_STAR,
        FM_CHALK, FM_HAZE,                                       /* the runs' own (1.0.0b13) */
-       FM_PLATE };                                              /* a puzzle's flagstone (1.0.0b13): sunk or not */
+       FM_PLATE, FM_PIPE };                                     /* a puzzle's flagstone, stone or glass, and its channels (1.0.0b13) */
 typedef struct { uint8_t kind, prio; float k, ax, ay, r, ang; } FMark;
 static FMark fmark[MAPN][MAPN];
 static void fm_set(int x, int y, int kind, int prio, float k, float ax, float ay, float r, float ang) {
@@ -15306,8 +15695,11 @@ static int hz_marks(void) {
         }
     }
     if (G.nsite && !PK.depth) { site_marks(); any = 1; }
-    for (int i = 0; i < G.nthing && !PK.depth; i++)               /* a puzzle's flagstones */
-        if (G.thing[i].role == TR_PLATE) { const Thing *t = &G.thing[i]; fm_set(t->cx, t->cy, FM_PLATE, 1, t->on ? 1.0f : 0.0f, (float)t->val, (float)t->mark, (float)t->state, 0.0f); any = 1; }
+    for (int i = 0; i < G.nthing && !PK.depth; i++) {             /* a puzzle's flagstones, stepping stones, glass and channels */
+        const Thing *t = &G.thing[i];
+        if (t->role == TR_PLATE) { fm_set(t->cx, t->cy, FM_PLATE, 1, t->on ? 1.0f : 0.0f, (float)t->look, (float)t->mark, (float)t->state, 0.0f); any = 1; }
+        else if (t->role == TR_TURN && t->spr < 0) { fm_set(t->cx, t->cy, FM_PIPE, 1, (float)t->look, (float)pipe_mask(t->val, t->state), (float)i, 0.0f, 0.0f); any = 1; }
+    }
     return any;
 }
 /* one floor pixel under a mark: returns a colour drawn as it is (bright, or the void's dark), or -1 to
@@ -15437,8 +15829,45 @@ static int fm_pixel(const FMark *m, float wx, float wy, float fx, float fy, int 
         }
         return -1;
     }
+    case FM_PIPE: {                                                /* a channel cut in the floor (or gold in the stone), wet where the water has come */
+        int mask = (int)m->ax, wet = 0, look = (int)m->k;
+        if (G.pz == PZ_CULVERTS || G.pz == PZ_VEINS) { uint32_t wm; pipe_flow(&wm); for (int k = 0; k < 16; k++) if ((wm >> k & 1) && G.pz_a[4 + k] == (int)m->ay) wet = 1; }
+        float cx = fx - 0.5f, cy = fy - 0.5f, wdt = 0.13f;
+        int in = 0;
+        if (fabsf(cx) < wdt && fabsf(cy) < wdt) in = 1;
+        if ((mask & 1) && cx > 0.0f && fabsf(cy) < wdt) in = 1;
+        if ((mask & 4) && cx < 0.0f && fabsf(cy) < wdt) in = 1;
+        if ((mask & 2) && cy > 0.0f && fabsf(cx) < wdt) in = 1;
+        if ((mask & 8) && cy < 0.0f && fabsf(cx) < wdt) in = 1;
+        float ex = fminf(fx, 1.0f - fx), ey = fminf(fy, 1.0f - fy);
+        if (fminf(ex, ey) < 0.04f) { *base = R_STONE + 2; return -1; }   /* the tile's edge */
+        if (!in) return -1;
+        if (look) return wet ? R_GOLD + 9 + (b & 3) : (int)(R_GOLD + 3 + (b & 1));   /* the veins: dull, then bright */
+        if (wet) return R_GLOW + 6 + ((b + (int)(G.t * 8.0)) & 3);               /* the water, moving */
+        *base = R_STONE + 3;
+        return -1;
+    }
     case FM_PLATE: {                                               /* a flagstone set in the floor, its edge cut deep; sunk, darker */
         float ex = fminf(fx, 1.0f - fx), ey = fminf(fy, 1.0f - fy), e = fminf(ex, ey);
+        if ((int)m->ax == 1) {                                     /* a stepping stone in dark water */
+            float r = hypotf(fx - 0.5f, fy - 0.5f);
+            if (r > 0.36f) { *base = (uint8_t)(R_GHOST + 2 + ((b + (int)(G.t * 3.0)) & 1)); *lmul *= 0.7f; return -1; }
+            if (r > 0.32f) { *base = R_STONE + 3; return -1; }
+            int mk = (int)m->ay;
+            if (mk > 0 && mk <= 16) {
+                int gx = (int)((fx - 0.25f) * 14.0f), gy = (int)((fy - 0.25f) * 14.0f);
+                if (gx >= 0 && gy >= 0 && gx < 7 && gy < 7 && PZ_MARKS[mk - 1][gy][gx] == '#') { *base = R_STONE + 13; return -1; }
+            }
+            *base = (uint8_t)(R_STONE + 7 + (k > 0.5f ? -3 : 0));
+            return -1;
+        }
+        if ((int)m->ax == 2) {                                     /* a tile of the glass floor: dark, or lit from below */
+            if (e < 0.05f) { *base = R_IRON + 1; return -1; }
+            if (m->r > 0.5f) return R_GLOW + 5 + (b & 3);
+            *base = (uint8_t)(R_IRON + 3 + ((int)((fx + fy) * 6.0f) & 1));
+            if (fabsf(fx - fy) < 0.02f) *base = R_GHOST + 9;      /* a glint across it */
+            return -1;
+        }
         if (e < 0.06f) { *base = R_STONE + 1; return -1; }
         if (e < 0.1f) { *base = (uint8_t)(R_STONE + (k > 0.5f ? 4 : 10)); return -1; }
         *lmul *= k > 0.5f ? 0.65f : 1.0f;

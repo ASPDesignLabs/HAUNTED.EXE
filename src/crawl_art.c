@@ -2310,6 +2310,84 @@ static void spr_pz_banner(void) {
     cv_store(SP_PZ_BANNER);
 }
 
+/* a cistern let into the wall: a stone tank, its flood lines cut, water to a height (0 dry to 8 full) */
+static void spr_pz_cistern(int id, int lvl) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 18; y < 64; y++)
+        for (int x = 14; x < 50; x++) {
+            int wall = x < 17 || x > 46 || y > 60;
+            float wl = 60.0f - (float)lvl * 5.0f;
+            uint8_t c = wall ? sh(R_STONE, 0.4f + 0.15f * (x < 16)) : (y >= wl ? sh(R_GHOST, 0.25f + 0.1f * ((x + y) & 1) + (y == (int)wl ? 0.4f : 0.0f)) : sh(R_STONE, 0.05f));
+            if (!wall && (y - 20) % 5 == 0 && x < 21) c = sh(R_BONE, 0.6f);   /* the flood lines */
+            cv_px(x, y, c);
+        }
+    cv_outline(sh(R_STONE, 0.02f));
+    cv_store(id);
+}
+static void spr_pz_saint(void) {                                   /* a saint in grey stone, her hands held out for her emblem */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 56; y < 64; y++) for (int x = 20; x < 44; x++) cv_px(x, y, sh(R_STONE, 0.35f + 0.1f * (x < 23)));
+    float robe[8] = { 24, 56, 40, 56, 37, 22, 27, 22 };
+    cv_poly(robe, 4, R_STONE, 0.55f, 0.25f, 22, 34);
+    cv_ellipse(32, 16, 4.5f, 5.0f, R_STONE, 0.3f, 0.7f);
+    cv_capsule(28, 26, 22, 34, 1.6f, R_STONE, 0.3f, 0.6f); cv_capsule(36, 26, 42, 34, 1.6f, R_STONE, 0.3f, 0.6f);   /* arms out */
+    cv_ellipse(32, 11, 6.5f, 2.0f, R_GOLD, 0.3f, 0.6f);               /* a halo, dull */
+    cv_outline(sh(R_STONE, 0.02f));
+    cv_store(SP_PZ_SAINT);
+}
+static void spr_pz_emblem(void) {                                  /* a small bronze emblem on the floor: its sign goes on its face */
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 8, 1.4f, R_WARM + 1);
+    cv_ellipse(32, 55, 7.0f, 6.0f, R_GOLD, 0.25f, 0.65f);
+    cv_outline(sh(R_GOLD, 0.05f));
+    cv_store(SP_PZ_EMBLEM);
+}
+static void spr_pz_spout(void) {                                   /* a lion's-head spout, water from its mouth */
+    cv_begin(cv_sprite, TS, TS);
+    cv_ellipse(32, 36, 9, 9, R_STONE, 0.25f, 0.65f);
+    cv_flat(32, 40, 3, 2, sh(R_STONE, 0.02f));
+    for (int y = 42; y < 64; y++) cv_px(32 + (y & 1), y, sh(R_GHOST, 0.6f + 0.2f * (y & 1)));
+    cv_outline(sh(R_STONE, 0.02f));
+    cv_store(SP_PZ_SPOUT);
+}
+static void spr_pz_mill(int id, int turn) {                        /* a wooden mill wheel on its axle, paddles round it */
+    cv_begin(cv_sprite, TS, TS);
+    for (int a = 0; a < 40; a++) { float an = a * 0.157f; cv_px(32 + (int)lroundf(16.0f * cosf(an)), 40 + (int)lroundf(16.0f * sinf(an)), sh(R_WOOD, 0.4f)); }
+    for (int k = 0; k < 8; k++) {
+        float an = k * 0.785f + turn * 0.39f;
+        cv_line(32, 40, 32 + 16.0f * cosf(an), 40 + 16.0f * sinf(an), sh(R_WOOD, 0.3f));
+        cv_capsule(32 + 15.0f * cosf(an), 40 + 15.0f * sinf(an), 32 + 20.0f * cosf(an), 40 + 20.0f * sinf(an), 1.5f, R_WOOD, 0.3f, 0.6f);
+    }
+    cv_ellipse(32, 40, 2.5f, 2.5f, R_IRON, 0.3f, 0.6f);
+    cv_outline(sh(R_WOOD, 0.02f));
+    cv_store(id);
+}
+static void spr_pz_idol(void) {                                    /* a squat idol of black glass, gold in its eyes */
+    cv_begin(cv_sprite, TS, TS);
+    float body[8] = { 22, 63, 42, 63, 38, 30, 26, 30 };
+    cv_poly(body, 4, R_IRON, 0.35f, 0.08f, 30, 33);
+    cv_ellipse(32, 24, 8, 8, R_IRON, 0.1f, 0.45f);
+    cv_px(29, 23, R_GOLD + 12); cv_px(35, 23, R_GOLD + 12); cv_px(29, 24, R_GOLD + 9); cv_px(35, 24, R_GOLD + 9);
+    cv_outline(sh(R_IRON, 0.02f));
+    cv_store(SP_PZ_IDOL);
+}
+static void spr_pz_lock(void) {                                    /* a great lock plate, a channel cut into its keyhole */
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 28; y < 52; y++) for (int x = 22; x < 42; x++) cv_px(x, y, sh(R_IRON, 0.3f + 0.25f * (x < 25 || y < 31)));
+    cv_flat(32, 38, 2.5f, 2.5f, sh(R_IRON, 0.02f)); for (int y = 38; y < 46; y++) cv_px(32, y, sh(R_IRON, 0.02f));
+    for (int x = 10; x < 22; x++) cv_px(x, 38, sh(R_GOLD, 0.35f));
+    cv_outline(sh(R_IRON, 0.02f));
+    cv_store(SP_PZ_LOCK);
+}
+static void spr_pz_wheel(void) {                                   /* an iron sluice wheel on the wall, spoked; a sign on its hub */
+    cv_begin(cv_sprite, TS, TS);
+    for (int a = 0; a < 48; a++) { float an = a * 0.131f; cv_px(32 + (int)lroundf(14.0f * cosf(an)), 30 + (int)lroundf(14.0f * sinf(an)), sh(R_IRON, 0.5f)); cv_px(32 + (int)lroundf(13.0f * cosf(an)), 30 + (int)lroundf(13.0f * sinf(an)), sh(R_IRON, 0.3f)); }
+    for (int k = 0; k < 6; k++) { float an = k * 1.047f; cv_line(32 + 6.0f * cosf(an), 30 + 6.0f * sinf(an), 32 + 13.0f * cosf(an), 30 + 13.0f * sinf(an), sh(R_IRON, 0.35f)); }
+    cv_flat(32, 30, 6, 6, sh(R_STONE, 0.5f));
+    cv_outline(sh(R_IRON, 0.02f));
+    cv_store(SP_PZ_WHEEL);
+}
+
 /* a rock, broken from the vault: drawn at the bottom of its square, so it can be dropped from above */
 static void spr_rock(void) {
     cv_begin(cv_sprite, TS, TS);
@@ -8317,6 +8395,8 @@ void crawl_art_init(void) {
     spr_pz_niche(); for (int k = 0; k < 4; k++) spr_pz_effigy(SP_PZ_EFFIGY0 + k, k);
     spr_pz_pan(); for (int k = 0; k < 3; k++) spr_pz_scale(SP_PZ_SCALE0 + k, k);
     spr_pz_casket(); spr_pz_banner();
+    for (int k = 0; k < 9; k++) spr_pz_cistern(SP_PZ_CISTERN0 + k, k);
+    spr_pz_saint(); spr_pz_emblem(); spr_pz_spout(); spr_pz_mill(SP_PZ_MILL0, 0); spr_pz_mill(SP_PZ_MILL1, 1); spr_pz_idol(); spr_pz_lock(); spr_pz_wheel();
     for (int f = 0; f < 3; f++) spr_firepit(SP_FIREPIT_A + f, f);
     spr_totem(SP_TOTEM_A, 0); spr_totem(SP_TOTEM_B, 1);
     spr_shambler(SP_SHAMB_A, 1.0f, 0); spr_shambler(SP_SHAMB_B, -1.0f, 0); spr_shambler(SP_SHAMB_GRAB, 0.0f, 1);

@@ -221,6 +221,11 @@ enum {
     SP_PZ_PAN, SP_PZ_SCALE0, SP_PZ_SCALE2 = SP_PZ_SCALE0 + 2,   /* a pan on its stand; the great scale, left down, level, right down */
     SP_PZ_CASKET,                               /* a small reliquary, beads on its lid */
     SP_PZ_BANNER,                               /* the Order's banner on its pole */
+    SP_PZ_CISTERN0, SP_PZ_SAINT = SP_PZ_CISTERN0 + 9,   /* a cistern in the wall, its water from dry to full; a saint, her hands out empty */
+    SP_PZ_EMBLEM,                               /* an emblem to give her, its sign on it */
+    SP_PZ_SPOUT, SP_PZ_MILL0, SP_PZ_MILL1,      /* the culverts' spout, and the mill wheel turning */
+    SP_PZ_IDOL, SP_PZ_LOCK,                     /* the gold veins' idol, and the door's lock */
+    SP_PZ_WHEEL,                                /* a sluice wheel, a saint's sign on its hub */
     SP_MARK0, SP_PIP1 = SP_MARK0 + 16,          /* the marks carved on things (PZ_MARKS in crawl_art.c), */
     SP_PZ_LAST = SP_PIP1 + 9,                   /* and one to nine pips */
     /* side views, walking, facing right (drawn mirrored for left): the bestiary turns them about */
