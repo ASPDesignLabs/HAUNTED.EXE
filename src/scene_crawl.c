@@ -4616,12 +4616,15 @@ static int pack_new(int kind) {
     p->kind = kind; p->leader = p->caller = p->last = -1; p->on[0] = p->on[1] = -1;
     return G.npacks++;
 }
-static void pack_join(int pk, Mob *m) {
+static void pack_join(int pk, Mob *m) {                           /* a pack has a rank: its leader's, the rest that or one under */
     if (pk < 0 || !m) return;
     Pack *p = &G.packs[pk];
     int i = (int)(m - G.mobs);
     m->pack = pk + 1; p->mem |= 1ull << i; p->n0++;
-    if (p->leader < 0) p->leader = i;
+    if (p->leader < 0) { p->leader = i; return; }
+    const Mob *L = &G.mobs[p->leader];
+    int top = KINDS[m->type].top < RK_GILDED ? KINDS[m->type].top : RK_V;
+    if (L->rank < RK_GILDED) set_rank(m, clampi(L->rank - rnd(2), RK_I, top));
 }
 static void pack_tell(const Pack *p, float x, float y) {          /* its kind's call, as it sets on you */
     switch (p->kind) {
