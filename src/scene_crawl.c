@@ -14701,7 +14701,11 @@ static void crawl_update(double dt) {
     if (G.calm > (G.player ? 35.0f : 11.0f) && !PK.depth) {        /* a person clears a level for good, mostly */
         int x, y, alive = 0;
         for (int i = 0; i < MAXMOBS; i++) { const Mob *m = &G.mobs[i]; alive += m->alive && !m->guard && !m->ally && !KIND_IS(m, KF_UNCOUNTED) && m->type != MOB_WSKULL && m->type != MOB_SPIDER && m->type != MOB_GARGOYLE && m->type != MOB_LING; }
-        if (!mind_on()) { if (alive < 8 && pick_cell_at_depth(G.cx, G.cy, 4, 8, 1, &x, &y)) spawn_wanderer(x, y); }
+        int old_calm = !mind_on();
+#ifdef CRAWL_DEBUG
+        if (getenv("CRAWL_OLDCALM")) old_calm = 1;                 /* the calm as it was, for comparing */
+#endif
+        if (old_calm) { if (alive < 8 && pick_cell_at_depth(G.cx, G.cy, 4, 8, 1, &x, &y)) spawn_wanderer(x, y); }
         else if (!G.player && alive < 8 && pick_cell_at_depth(G.cx, G.cy, 16, 30, 1, &x, &y)) {   /* H2: for a person the hunt stands in
                                                                       for this; the dream's comes from beyond sixteen steps and walks in */
             uint64_t was = 0;
