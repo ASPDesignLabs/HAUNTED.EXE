@@ -1298,5 +1298,15 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   death (the knight's first-wave shield-bearers at rank III or above in 22 runs of 28, against 14 of 26). Whatever adds
   creatures feeds the adds' ranks too. The runs also found a brood mother held by the cap laying sacs without end (one
   seed's level 33 filled all 64 places with spiderlings); fixed after them, checked on that seed (2 sacs, against 32).
+- 1.0.0b15's step 4 (callers and scavengers; harness only), against the old minds' sixteen runs from step 3 (nothing on
+  their path changed; and no two harness runs started at different times are alike anyway, since a run's id, which orders
+  its trials, comes from the clock): from level 1 a median of 10.5 levels cleared (9), 36 deaths (48), 28 on level 10 (39)
+  and 8 elsewhere (9), the knight felled 10 times (8); from 11, 21 and 31 the same medians, no deaths either way, a
+  level's median time 367-373 s (365-369). From level 1 there were 301 alarms, heard 71 times, 17 scavengers set off and
+  one fed; deeper, 218-417 alarms a start, heard 87-231 times, 93-149 scavengers and 10-26 meals. So callers and
+  scavengers make no fight harder yet; the gap at the knight is the noisiest number here (his level's deaths have run
+  from 28 to 48 between builds that don't touch his fight, whose adds come as high as before: shield-bearers at a mean
+  rank of 3.2-3.3). The challenge is still to come (hunters, ambushes, cunning). One run from 11 filled the forty places
+  for the dream's own rime in a fight with seven hunting it; only the newest rime is lost.
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.

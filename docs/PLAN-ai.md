@@ -15,7 +15,9 @@ median of 9 levels cleared and 30 deaths with either mind; neutral, within the e
 is built (harness only): packs, their turns and morale, the cap on a fight, and the file, the hounds, the roost and the
 wake; its check, on sixteen seeds: from level 1 a median of 10 levels cleared (9), 46 deaths (48), 13 of them off the
 knight's level (9), the knight felled 9 times (8); from 11, 21 and 31 no deaths either way. Harder on ordinary levels, no
-harder at the knight.** Written on
+harder at the knight. Step 4 is built (harness only): callers and scavengers; on the same sixteen seeds from level 1 a
+median of 10.5 levels cleared (9), 36 deaths (48), 8 off the knight's level (9), the knight felled 10 times (8); from 11,
+21 and 31 no deaths either way. No harder yet: the challenge is to come with hunters, ambushes and cunning (steps 5-7).** Written on
 `claude/laughing-cori-a3jk29` from 1.0.0b13; brought onto its work branch, `claude/youthful-mayer-deaa11`, from main
 once the art pass so far had been merged there (1 November). The art pass is visual only, and the numbers below were
 checked again on main: none has moved. The owner asked for creatures
