@@ -1,6 +1,9 @@
 # How the dead think: packs, hunters and ambushes
 
-**Status: a draft for the owner, first round (1 November 2026). Nothing is built.** The owner asked for creatures
+**Status: a draft for the owner, first round (1 November 2026). Nothing is built.** Written on
+`claude/laughing-cori-a3jk29` from 1.0.0b13; brought onto its work branch, `claude/youthful-mayer-deaa11`, from main
+once the art pass so far had been merged there (1 November). The art pass is visual only, and the numbers below were
+checked again on main: none has moved. The owner asked for creatures
 that are a little cleverer and more alive: quicker to answer what a person does, like kinds working in packs, some
 that hunt, others that lead a person into an ambush laid by their own kind or another, rules for the generator to
 place all this, and a difficulty curve that allows for the dead thinking harder. This plan sets out what the
@@ -10,8 +13,9 @@ offers concepts that fit the game as it is: the hunt field, the ranks, the room 
 Questions are asked where they arise, with letters and numbers as in the other plans; the recommended answer is
 marked \*. They are gathered at the end so the owner can answer them in one go, as "all recommended but S2 (b),
 P6 (c)" if that suits. Read it with `CLAUDE.md`, [`PLAN-bestiary.md`](PLAN-bestiary.md) (the kinds, the ranks and
-the rules every creature keeps), [`PLAN-b10.md`](PLAN-b10.md) (room types) and [`PLAN-b13.md`](PLAN-b13.md) (the
-hazards; the lower storey, which this work has to agree with).
+the rules every creature keeps), [`PLAN-b10.md`](PLAN-b10.md) (room types), [`PLAN-b13.md`](PLAN-b13.md) (the
+hazards; the lower storey, which this work has to agree with) and [`InitialArtPass.md`](InitialArtPass.md) (the
+creatures redrawn, creature by creature; any art this plan asks for is drawn in its hand).
 
 ## What the owner asked for (1 November 2026)
 
@@ -108,12 +112,13 @@ passes, and bats and hounds can't open them.
   art for each.
 - (c) Lighter: senses and memory, packs that share what they see, the hunt; no lures or ambushes.
 
-**A2. Where it goes.** 1.0.0b14 is the lower storey (settled, not begun). *Recommended: (a).*
-- (a\*) **This is 1.0.0b14 and the lower storey moves to 1.0.0b15**, as 1.0.0b12's plan moved on a number before.
+**A2. Where it goes.** Since this draft was written, 1.0.0b14 became the first art pass (merged into main unreleased,
+to be taken up again) and the lower storey 1.0.0b15 (settled, not begun). *Recommended: (a).*
+- (a\*) **This is 1.0.0b15 and the lower storey moves to 1.0.0b16**, as 1.0.0b12's plan moved on a number before.
   The minds touch every level and the dream's balance; the storey adds stairs to the fields, "a third more
   creatures" on the lower storey (its L3), and ambushes from below are a gift to it. Building the storey on minds
   that already know packs and budgets is easier than teaching both at once.
-- (b) The lower storey stays 1.0.0b14; this follows as 1.0.0b15 and has to make every new field run between storeys
+- (b) The lower storey stays 1.0.0b15; this follows as 1.0.0b16 and has to make every new field run between storeys
   from the start.
 - (c) One release with both.
 
@@ -128,6 +133,12 @@ passes, and bats and hounds can't open them.
 **A4. Keep the old minds behind a switch?** *Recommended: (a).* (a\*) Yes, `CRAWL_MIND=0` in the debug build, so the
 balance runs compare the same build on the same seeds. (b) No; compare against a worktree of 1.0.0b13 as before.
 
+**A5. The art pass and this.** Main carries the art pass so far, so whatever is released next takes it with it unless
+1.0.0b14 goes out on its own first. *Recommended: (a).* (a\*) The art pass goes on as it was handed on (runs III and
+IV's props, then the Wraith Unbound), in its own steps and commits, between or alongside these; it moves nothing in the
+simulation, so the balance runs here aren't disturbed by it. (b) 1.0.0b14 is released as it stands before this
+begins. (c) The art pass waits until this is done.
+
 # Part A: senses and memory
 
 ## 1. Sight
@@ -136,14 +147,19 @@ Today's sight is nine cells all round. Two changes would give a person something
 
 - **A facing.** Every creature looks where it walks (`m->face`, which shield-bearers and wall skulls already have),
   and turns its head now and then while it stands. It sees nine cells within about 120 degrees of its facing, and
-  only two and a half behind and to the sides ("felt", the way you know someone is in the room). The sprites
-  already have front and side views, so a person can tell which way one is looking.
+  only two and a half behind and to the sides ("felt", the way you know someone is in the room). Every kind has a
+  front view and a side view (`Kind.side`, `side2`), but only the bestiary draws the side; in the crypt every creature
+  faces you whichever way it looks. For a person to tell where one is looking, the crypt has to draw the side view
+  (mirrored for the other side) when it faces across your line, and something when it faces away: there is no back
+  view. Part H's art grows by that: a back view for each kind that can turn its back, in the art pass's hand, or
+  the side view standing in for it.
 - **The dark.** Out of the light (the lightmap at the caster under about a third), it sees you at five cells instead
   of nine. The caster's own faint glow (`light_dynamic(G.px, G.py, 0.62, 2.8)`) is what it sees; a cast flares it
   for a second, so casting in the dark is seen at nine again, and the Lantern of the Dead, a wisp or a burning floor
   near you light you up.
 
-**S1. A facing.** *Recommended: (a).* (a\*) As above. (b) A facing only for posts and patrols; hunting creatures see
+**S1. A facing.** *Recommended: (a).* (a\*) As above, the crypt drawing side views and new back views (no eyes from
+behind: the one exception to the art pass's rule). (b) A facing only for posts and patrols; hunting creatures see
 all round, as now. (c) No facing.
 
 **S2. The dark.** *Recommended: (a).* (a\*) As above, for everything but the kinds that live by other senses: bats
@@ -631,7 +647,11 @@ as the runs show a need.
   hunts shaken off (lost the trail in water or behind a door), packs broken by their leader's fall, a caller silenced
   before it called, a file of the Order beaten without being touched.
 - **Art**, sheets first for the owner's eye: a roosting bat (folded, upside down), the ambushes' signs for each run
-  (raked bones, a snuffed torch, scree, warm cinders, eyes in the dark), and a wary pose for the skeleton family (a head turned) if the side view doesn't serve.
+  (raked bones, a snuffed torch, scree, warm cinders, eyes in the dark), a wary pose for the skeleton family (a head
+  turned) if the side view doesn't serve, and for S1 the side views drawn in the crypt and a back view for each kind
+  that can turn its back (section 1), in the art pass's hand. The art pass keeps every creature's eyes visible from
+  anywhere; a back view would hide them, which is what tells a person it is looking away, so S1 (a) asks the owner to
+  allow that one exception.
 
 **V1. Showing it.** *Recommended: (a).* (a\*) All of it. (b) Sounds and captions now; the bestiary lines, the Codex
 part and achievements later.
@@ -665,7 +685,8 @@ colour), `CRAWL_BUDGET=f` (the budget times f). Logging: `EVENT pack_call`, `pac
 wary, hunting and searching, and `SETS level n: ...` lists the set pieces placed, as `SECRETS` and `ROOMS` do.
 
 What it touches: `update_mob` (most of all), `spawn_wanderer_type`, `start_level`'s placements, `pick_hunters`,
-`alert_near` and `footstep`, `damage_mob` and `kill_mob` (noise, caught unaware, morale), `gen_level` (loops near
+`alert_near` and `footstep`, `damage_mob` and `kill_mob` (noise, caught unaware, morale), `render_sprites` (the side
+and back views by facing), `gen_level` (loops near
 packs' rooms), `update_hazards` (D3), `find_target` and `decide` (the dream), `snd.c` (sounds), the record and the
 Codex. `Mob` grows a few fields; nothing about a creature is saved, so the save version moves only for the record's
 new counts and the omens' new field, as a ledger section of its own.
@@ -674,8 +695,8 @@ new counts and the omens' new field, as a ledger section of its own.
 
 The recommended answer for each is (a). In short:
 
-- **Decide first.** A1 what this is; A2 1.0.0b14, the lower storey to 1.0.0b15; A3 the same minds for the dream; A4
-  `CRAWL_MIND=0` kept.
+- **Decide first.** A1 what this is; A2 1.0.0b15, the lower storey to 1.0.0b16; A3 the same minds for the dream; A4
+  `CRAWL_MIND=0` kept; A5 the art pass goes on alongside.
 - **Senses.** S1 a facing; S2 the dark (the shade and the Wraith the other way about); S3 noise with a place; S4
   memory and searching; S5 caught unaware, half again.
 - **Packs.** P1 shared sight after a call; P2 turns; P3 morale by kind; P4 every pack of a kind; P5 every mixed band;
