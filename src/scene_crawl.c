@@ -15157,7 +15157,8 @@ static void tp_prop(int spr) {
             for (int a = 0; a < 24; a++) {
                 float ang = TAU_F * (float)((a * 7) % 24) / 24.0f, d = want * (pass == 0 ? 1.0f : pass == 1 ? 0.7f : 1.4f);
                 float x = dc->x + cosf(ang) * d, y = dc->y + sinf(ang) * d;
-                if (x < 1.0f || y < 1.0f || x >= MAPN - 1 || y >= MAPN - 1 || G.map[(int)y][(int)x].kind != K_FLOOR || !line_clear(x, y, dc->x, dc->y)) continue;
+                if (x < 1.0f || y < 1.0f || x >= MAPN - 1 || y >= MAPN - 1 || G.map[(int)y][(int)x].kind != K_FLOOR
+                    || !line_clear(x, y, dc->x + cosf(ang) * 0.6f, dc->y + sinf(ang) * 0.6f)) continue;   /* to just short of it: a pillar is solid */
                 G.px = x; G.py = y; G.cx = (int)x; G.cy = (int)y; G.ang = atan2f(dc->y - y, dc->x - x);
                 human_begin();
                 fprintf(stderr, "TPPROP spr %d at %.2f,%.2f from %.2f,%.2f\n", spr, dc->x, dc->y, x, y);

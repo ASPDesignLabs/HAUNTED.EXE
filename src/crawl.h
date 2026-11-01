@@ -263,6 +263,7 @@ enum {
     SP_CANDLES_2, SP_CANDLES_3,
     SP_TOMB_ROUND_2, SP_TOMB_CROSS_2, SP_TOMB_OBELISK_2, SP_TOMB_BROKEN_2,
     SP_CHAINS_2, SP_ROOTS_2, SP_COBWEB_2, SP_WEBSHEET_2,   /* what hangs, their other looks */
+    SP_PILLAR_2, SP_URN_2, SP_URN_3,            /* stone and floor, their other looks */
     NSPR
 };
 
