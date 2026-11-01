@@ -2796,7 +2796,8 @@ static void build_lightmap(void) {
 /* CRAWL_STAGE=k: one kind stood still down the longest straight hall, at set distances, the caster still and looking
  * at them; CRAWL_STAGEDARK=f scales the light (0 none), CRAWL_STAGEFOG=1 thickens the fog to its most, CRAWL_STAGESUB=s
  * puts them in that state, CRAWL_STAGEDIST=d just one at d cells, CRAWL_STAGEBOSS=b each drawn as that boss (BOSS_*, of its
- * kind), CRAWL_STAGEREAR=1 the Wandering Spider rearing to spit. For frames of the art pass (docs/InitialArtPass.md). */
+ * kind), CRAWL_STAGEREAR=1 the Wandering Spider rearing to spit, CRAWL_STAGECHANT=1 a deacon chanting. For frames of the
+ * art pass (docs/InitialArtPass.md). */
 static int g_stage = -1, g_stage_fog;
 static float g_stage_lm = 1.0f;
 #endif
@@ -13234,6 +13235,8 @@ static void stage_set(int k) {                                     /* CRAWL_STAG
             m->z = 1.0f - KINDS[k].scale * (m->boss ? BOSSES[m->boss - 1].scale : RANK_SIZE[m->rank]);
     }
     if (getenv("CRAWL_STAGEREAR")) G.web_rear = 1e6f;              /* the Wandering Spider rearing to spit, held */
+    if (getenv("CRAWL_STAGECHANT"))                                /* a deacon chanting, held */
+        for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive) G.mobs[i].swing = DEACON_CHANT * 0.5f;
     if (getenv("CRAWL_STAGEDARK")) g_stage_lm = (float)atof(getenv("CRAWL_STAGEDARK"));
     g_stage_fog = getenv("CRAWL_STAGEFOG") != NULL;
     fprintf(stderr, "EVENT stage kind=%d hall=%d at %.1f,%.1f\n", k, blen, G.px, G.py);
@@ -18067,7 +18070,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
 /* alpha < 1: dithered see-through. remap: the ramp R_PURPLE turns into. flags: how it is drawn.
  * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
 typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; float web, mg; int mgw;
-                 int eye, etype, erank, estate; const uint8_t *ov; float vap; } Draw;   /* ov: its rank's dressing (crawl_dress);
+                 int eye, etype, erank, estate; const uint8_t *ov; float vap; int ecol; } Draw;   /* ecol: 1 + EC_*, its eyes' colour whatever its rank */   /* ov: its rank's dressing (crawl_dress);
                                                                                                 vap: its spirit vapour, 0 none, 1 full */   /* eye: a creature's eyes go on after it (render_eyes), as its kind, rank and state */   /* mg: the hidden
                                                                                                    message's glint, mgw through the walls; glint: a key's
                                                                                                    ramp, for Keymaker's sparkle; web: how much of yours holds it */
@@ -18085,11 +18088,11 @@ enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_S
  * never lost to a far-off sprite's sampling, at least a point each with a pixel between. The kind's own colour at rank I,
  * the rank's from II, and a form for each rank: II a glow beside, III a cold slit, IV a streak to the temple, V a white
  * flare, gilded a small gold cross. Alerted they gain a halo and stop blinking; striking they flare. The Shade has none. */
-enum { EC_AMBER, EC_COLD, EC_SULPHUR, EC_EMBER, EC_WGOLD, EC_CRIMSON, EC_PALE, EC_ROT, EC_CHILL, EC_BLOOD, EC_HOT, EC_GILT, EC_ASH, NEC };
+enum { EC_AMBER, EC_COLD, EC_SULPHUR, EC_EMBER, EC_WGOLD, EC_CRIMSON, EC_PALE, EC_ROT, EC_CHILL, EC_BLOOD, EC_HOT, EC_GILT, EC_ASH, EC_FIRE, NEC };
 static const uint8_t EYE_CORE[NEC] = { R_FLAME + 12, R_GLOW + 15, R_FLAME + 15, R_BLOOD + 15, C_WHITE, R_BLOOD + 15, C_WHITE,
-                                       R_MOSS + 15, R_GLOW + 15, R_FLAME + 8, C_WHITE, R_GOLD + 12, R_FLAME + 5 };
+                                       R_MOSS + 15, R_GLOW + 15, R_FLAME + 8, C_WHITE, R_GOLD + 12, R_FLAME + 5, R_FLAME + 15 };
 static const uint8_t EYE_GLOW[NEC] = { R_FLAME + 7, R_GLOW + 10, R_MOSS + 13, R_BLOOD + 10, R_FLAME + 12, R_BLOOD + 11, R_GHOST + 11,
-                                       R_MOSS + 11, R_GLOW + 11, R_BLOOD + 13, R_PURPLE + 14, R_GOLD + 8, R_FLAME + 1 };
+                                       R_MOSS + 11, R_GLOW + 11, R_BLOOD + 13, R_PURPLE + 14, R_GOLD + 8, R_FLAME + 1, R_FLAME + 9 };
 static const int8_t EYE_OWN[NKINDS] = {                            /* each kind's own, at rank I */
     [MOB_SKEL] = EC_AMBER, [MOB_GHOST] = EC_COLD, [MOB_BAT] = EC_EMBER, [MOB_WSKULL] = EC_AMBER, [MOB_SHIELD] = EC_AMBER,
     [MOB_SPIDER] = EC_EMBER, [MOB_SHAMBLER] = EC_SULPHUR, [MOB_DROWNED] = EC_COLD, [MOB_HOUND] = EC_AMBER, [MOB_WRAITH] = EC_COLD,
@@ -18105,6 +18108,7 @@ static void render_eyes(Frame *f, const Draw *d, float left, float top, float si
     if (!e->n || d->alpha < 0.3f) return;
     int st = d->estate, rank = d->erank, ec = EYE_OWN[d->etype];
     if (st == 3) ec = EC_ASH;                                      /* asleep: an ember */
+    else if (d->ecol) ec = d->ecol - 1;                            /* its own, whatever its rank (the Wandering Spider's fire) */
     else if (rank > RK_I && EYE_RANK[rank] >= 0) ec = EYE_RANK[rank];
     else if ((d->etype == MOB_SKEL || d->etype == MOB_SHIELD || d->etype == MOB_HOUND)
              && fmaxf(crawl_decay(G.level), crawl_depth(G.level)) > 0.55f) ec = EC_COLD;   /* the old dead's eyes go cold */
@@ -18137,7 +18141,7 @@ static void render_eyes(Frame *f, const Draw *d, float left, float top, float si
             case RK_V: {                                           /* a white flare, slowly breathing */
                 int a = arm + (int)(1.5f + 1.5f * sinf((float)G.t * 1.7f + ph));
                 for (int k = 1; k <= a; k++) {
-                    uint8_t c = k == a ? (uint8_t)(R_PURPLE + 11) : glow;
+                    uint8_t c = k == a ? (ec == EC_FIRE ? (uint8_t)(R_FLAME + 3) : (uint8_t)(R_PURPLE + 11)) : glow;
                     eye_px(f, x0 + cs / 2, y0 - k, c, d->depth); eye_px(f, x0 + cs / 2, y0 + cs - 1 + k, c, d->depth);
                     eye_px(f, x0 - k, y0 + cs / 2, c, d->depth); eye_px(f, x0 + cs - 1 + k, y0 + cs / 2, c, d->depth);
                 }
@@ -18453,8 +18457,8 @@ static int mob_sprite(const Mob *m, float *scale) {
         if (m->state == MS_DIE) return SP_IMP_D;
         return m->throw_t > 0.0f ? SP_IMP_THROW : (((int)(m->t * 8.0f)) & 1 ? SP_IMP_B : SP_IMP_A);
     case MOB_DEACON:
-        if (m->state == MS_DIE) return SP_DEACON_D;
-        if (m->boss && G.bpose == BP_LITANY && G.bpose_t > 0.0f) return SP_DEACON_CHANT;
+        if (m->state == MS_DIE) return m->boss ? SP_BDEACON_D : SP_DEACON_D;   /* the Black Deacon has his own */
+        if (m->boss) return (G.bpose == BP_LITANY && G.bpose_t > 0.0f) || m->swing > 0.0f ? SP_BDEACON_CHANT : (fr ? SP_BDEACON_B : SP_BDEACON_A);
         return m->swing > 0.0f ? SP_DEACON_CHANT : (fr ? SP_DEACON_B : SP_DEACON_A);
     case MOB_GARGOYLE:
         if (m->state == MS_DIE) return SP_GARG_D;
@@ -18528,7 +18532,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
-        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0, 0, 0, 0, 0, NULL, 0.0f }; } while (0)
+        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0, 0, 0, 0, 0, NULL, 0.0f, 0 }; } while (0)
     for (int i = 0; i < G.ndecos; i++) {
         const Deco *dc = &G.decos[i];
         static const float FPS[4] = { 0.0f, 0.0f, 3.0f, 9.0f };    /* by frame count: candles flicker, fire roars */
@@ -18636,7 +18640,6 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (m->burn_t > 0.0f && m->state == MS_WALK) d->flags |= DR_BURNING;
         if (m->boss == 1 + BOSS_WRAITH && G.bslip_t > 0.9f) d->flags |= DR_RIPPLE;
         if (m->boss == 1 + BOSS_DEACON) {
-            d->lut = crawl_rank_lut[KINDS[MOB_DEACON].family][RK_V];   /* black robes */
             if (G.bpose == BP_LITANY && G.bpose_t > 0.0f && m->state == MS_WALK) d->flags |= DR_MEND;   /* the Litany's green light */
             if (G.bward > 0.0f && G.bstate == BS_FIGHT && m->state == MS_WALK) {   /* his Bone Ward, wheeling about him */
                 for (int k = 0; k < 6; k++) {
@@ -18656,6 +18659,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (commune) d->flags = (d->flags & ~DR_EYES) | DR_COMMUNE;   /* Commune: its shape, wherever it is */
         if (m->state == MS_WALK && !statue && m->type != MOB_SHADE && crawl_eyes[s].n && !(d->flags & (DR_EYES | DR_IMPLODE))) {
             d->eye = 1; d->etype = m->type; d->erank = m->boss ? RK_V : m->rank;   /* its eyes, after it (render_eyes) */
+            if (m->boss == 1 + BOSS_SPIDER) d->ecol = 1 + EC_FIRE;     /* her two great eyes keep their fire (the owner's word) */
             int dx = crawl_dress_ix[s][m->rank];
             if (m->rank != RK_I && dx >= 0 && !m->boss) d->ov = crawl_dress[dx];   /* its rank's dressing */
             if (!m->boss && m->rank >= RK_III && !KIND_IS(m, KF_SPIRIT)) d->vap = 1.0f;   /* and its spirit, showing */

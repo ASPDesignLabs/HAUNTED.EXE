@@ -5297,6 +5297,198 @@ static void spr_bknight(int id, float w, int pose, int state) {
     cv_store(id);
 }
 
+/* ---- The Black Deacon's own (docs/InitialArtPass.md, part three; the owner chose a profane bishop) ---- */
+
+/* a bone hand at (hx, hy), its fingers closed round something going up and down (grip) or reaching (a: the way) */
+static void bishop_hand(float hx, float hy, int s) {
+    cv_ellipse(hx, hy, 1.9f, 1.7f, R_BONE, 0.25f, 0.85f);
+    for (int f = 0; f < 3; f++) cv_px((int)(hx - (float)s * 1.5f), (int)(hy - 1.0f + (float)f), sh(R_BONE, 0.7f - 0.1f * (float)f));   /* knuckles round the grip */
+}
+
+/* the mitre over a brow at (cx, by): tall and pointed, black, a crimson band up its front and another round its foot,
+ * worn gilt at its edges, an inverted cross on its front; tilt leans it (the fallen one) */
+static void bishop_mitre(float cx, float by, float h, float hw) {
+    for (int y = (int)(by - h); y <= (int)by + 2; y++)
+        for (int x = (int)(cx - hw) - 1; x <= (int)(cx + hw) + 1; x++) {
+            float t = clampf(((float)y - (by - h)) / h, 0.0f, 1.0f), w = hw * powf(t, 0.65f) + 0.4f;
+            float dx = (float)x + 0.5f - cx;
+            if (fabsf(dx) > w) continue;
+            float u = dx / (w + 0.01f), v = 0.1f + 0.22f * (1.0f - u * u) * (0.6f + 0.4f * (1.0f - t)) - (u > 0.3f ? 0.05f : 0.0f);
+            uint8_t c = sh(R_IRON, v);
+            if (fabsf(dx) < 1.6f && t > 0.12f) c = sh(R_BLOOD, 0.22f + 0.12f * (dx < 0));   /* the band up its front */
+            if (y >= (int)by) c = sh(R_BLOOD, 0.2f + 0.12f * (1.0f - fabsf(u)) + (y == (int)by ? 0.08f : 0.0f));   /* the band round its foot */
+            if (fabsf(u) > 0.84f && ((x + y) & 1) == 0) c = (uint8_t)(R_GOLD + 3 + (int)(3.0f * (1.0f - t) * (dx < 0)));   /* the gilt, worn */
+            if (y == (int)by - 1 || y == (int)by + 3) { if ((x & 1) == 0) c = (uint8_t)(R_GOLD + 4); }
+            cv_px(x, y, c);
+        }
+    int cy = (int)(by - h * 0.62f);                                  /* the cross on its front, upside down */
+    for (int k = -3; k <= 2; k++) cv_px((int)cx, cy + k, (uint8_t)(R_GOLD + 7 + (k < 0)));
+    for (int k = -2; k <= 2; k++) cv_px((int)cx + k, cy + 1, (uint8_t)(R_GOLD + 6 + (k == 0) * 3));
+}
+
+/* his crozier: a staff of black iron banded in gilt from (x0, y0) up to (x1, y1), crowned with a skull, its crook
+ * arched over it, chains hung from the crook's end */
+static void bishop_crozier(float x0, float y0, float x1, float y1, float sway) {
+    cv_capsule(x0, y0, x1, y1, 1.1f, R_IRON, 0.12f, 0.55f);
+    float L = hypotf(x1 - x0, y1 - y0);
+    for (int b = 1; b <= 4; b++) {                                   /* gilt bands */
+        float t = (float)b / 5.0f, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t;
+        cv_px((int)x - 1, (int)y, (uint8_t)(R_GOLD + 5)); cv_px((int)x, (int)y, (uint8_t)(R_GOLD + 8)); cv_px((int)x + 1, (int)y, (uint8_t)(R_GOLD + 4));
+    }
+    (void)L;
+    float sx = x1, sy = y1 - 4.0f;                                   /* the skull on its head */
+    for (int k = 0; k <= 40; k++) {                                  /* the crook: a thick volute, up from behind the skull, over it, curling in */
+        float t = (float)k / 40.0f, a = PI_F * 0.95f + t * PI_F * 1.75f, r = 6.6f - 3.4f * t * t;
+        float x = sx + 1.0f + cosf(a) * r, y = sy - 0.5f + sinf(a) * r;
+        float lv = 0.35f + 0.35f * (-cosf(a) * 0.5f - sinf(a) * 0.6f);
+        cv_px((int)x, (int)y, sh(R_IRON, lv)); cv_px((int)(x - cosf(a)), (int)(y - sinf(a)), sh(R_IRON, lv * 0.6f));
+        if (k % 8 == 4) cv_px((int)(x + cosf(a) * 0.8f), (int)(y + sinf(a) * 0.8f), (uint8_t)(R_GOLD + 6));   /* crockets of gilt along it */
+    }
+    grid_stamp(SKULL_SMALL, 9, 10, (int)sx - 4, (int)sy - 4, R_BONE, R_BONE, 0, 0);
+    cv_px((int)sx - 2, (int)sy - 1, (uint8_t)(R_MOSS + 9)); cv_px((int)sx + 2, (int)sy - 1, (uint8_t)(R_MOSS + 8));   /* a green spark in its sockets */
+    for (int c = 0; c < 2; c++) {                                    /* chains hung from the crook, links light and dark */
+        float cx0 = c ? sx - 5.5f : sx + 5.0f, cy0 = c ? sy + 2.0f : sy + 3.0f;
+        for (int k = 0; k < 9 - 2 * c; k++) cv_px((int)(cx0 + sway * 0.12f * (float)k), (int)cy0 + k, sh(R_IRON, (k & 1) ? 0.62f : 0.25f));
+    }
+}
+
+/* his censer on its chains from a hand at (hx, hy), the bowl at (cx, cy): brass gone dark, its pierced holes glowing green,
+ * the smoke going up from it in strands (more: how much) */
+static void bishop_censer(float hx, float hy, float cx, float cy, float more) {   /* more: unused, the smoke is bishop_smoke's */
+    for (int c = -1; c <= 1; c++) cv_line(hx, hy, cx + (float)c * 2.2f, cy - 3.0f, sh(R_IRON, 0.45f + 0.15f * (float)c));
+    cv_ellipse(cx, cy - 3.5f, 2.0f, 1.4f, R_GOLD, 0.2f, 0.6f);         /* its lid */
+    cv_px((int)cx, (int)cy - 5, (uint8_t)(R_GOLD + 6));
+    cv_ellipse(cx, cy, 3.4f, 3.0f, R_GOLD, 0.08f, 0.5f);              /* the bowl */
+    for (int k = 0; k < 5; k++) cv_px((int)(cx - 2.0f + (float)k), (int)cy - (k & 1), (uint8_t)(R_MOSS + 13 + (k & 1) * 2));   /* holes, green inside */
+    cv_px((int)cx, (int)cy + 3, (uint8_t)(R_GOLD + 3));
+    (void)more;
+}
+
+/* the censer's smoke going up from a bowl at (cx, cy) in thin puffs, drifting off as it climbs and thinning (more: how
+ * much). Drawn after the outline, so that it has none */
+static void bishop_smoke(float cx, float cy, float more) {
+    int n = (int)(18.0f * more);
+    for (int s = 0; s < 2; s++)
+        for (int k = 0; k < n; k++) {
+            float t = (float)k / 18.0f, x = cx + 1.0f + sinf(t * 4.5f + (float)s * 2.6f) * (0.8f + 2.5f * t) + (5.0f + 3.0f * (float)s) * t * t * 1.4f;
+            float y = cy - 5.0f - (float)k * 1.5f, r = 0.9f + 1.8f * t;
+            for (int j = (int)(-r); j <= (int)r; j++)
+                for (int i = (int)(-r); i <= (int)r; i++) {
+                    int px = (int)x + i, py = (int)y + j;
+                    if ((float)(i * i + j * j) > r * r || h01(px, py, 601 + (uint32_t)s) > 0.6f - 0.45f * t) continue;
+                    cv_px(px, py, sh(R_MOSS, 0.55f - 0.3f * t + (j < 0 ? 0.06f : 0.0f)));
+                }
+        }
+}
+
+/* The Black Deacon's own (docs/InitialArtPass.md, part three; the owner chose a profane bishop): the Order's bishop gone
+ * to bone and kept on saying the rites. Towering in black vestments with a crimson orphrey and an inverted cross, a tall
+ * mitre, crimson lappets; a skull face lit green from below; a crozier crowned with a skull and hung with chains in one
+ * hand, a censer swinging green smoke from the other. His bone ward is drawn by the game, wheeling about him. pose 0-1
+ * walking (the censer swinging), 2 chanting (the crozier and censer raised, the smoke billowing), 3 fallen. */
+static void spr_bdeacon(int id, float w, int pose) {
+    cv_begin(cv_sprite, TS, TS);
+    if (pose == 3) {                                                 /* fallen: the vestments in a heap, the mitre rolled off */
+        cv_flat(32, 61.5f, 26, 2.5f, R_WARM + 1);
+        float m[12] = { 6, 62, 12, 51, 26, 46, 42, 48, 54, 55, 58, 62 };
+        cv_poly(m, 6, R_IRON, 0.3f, 0.05f, 46, 16);
+        for (int y = 47; y < 63; y++) for (int k = -2; k <= 2; k++) cv_px(30 + (y - 47) / 3 + k, y, sh(R_BLOOD, 0.25f - 0.03f * (float)abs(k)));   /* the orphrey, twisted */
+        bishop_crozier(4, 61, 50, 49, 1.0f);
+        skull_stamp(24, 50, 1, 1, 0);                                /* the skull on its side, its light gone */
+        bishop_mitre(49, 58, 9, 5.5f);
+        float cx = 14, cy = 58;                                      /* the censer spilled, its coals still green */
+        cv_ellipse(cx, cy, 3.2f, 2.4f, R_GOLD, 0.08f, 0.45f);
+        for (int k = 0; k < 6; k++) cv_px((int)(cx + 3 + (float)k * 1.3f), (int)cy + 1 + (k & 1), (uint8_t)(R_MOSS + 10 + (k % 3) * 2));
+        cv_bone_decay(589);
+        cv_outline(0);
+        cv_store(id);
+        return;
+    }
+    int chant = pose == 2;
+    cv_flat(32, 62, 17, 1.8f, R_WARM + 1);
+    for (int s = -1; s <= 1; s += 2)                                 /* the lappets, hanging behind from the mitre */
+        for (int y = 11; y < 30; y++) {
+            float x = 32 + (float)s * (5.5f + (float)(y - 11) * 0.12f) + w * 0.3f * (float)(y - 11) / 19.0f;
+            cv_px((int)x, y, sh(R_BLOOD, 0.18f + 0.08f * (s < 0))); cv_px((int)x + s, y, sh(R_BLOOD, 0.12f));
+            if (y >= 27) { cv_px((int)x, y + 1, (uint8_t)(R_GOLD + 4)); cv_px((int)x + s, y + 2, (uint8_t)(R_GOLD + 3)); }   /* gilt fringe */
+        }
+    for (int y = 20; y < 63; y++) {                                  /* the chasuble: black, belled, its folds falling straight */
+        float t = (float)(y - 20) / 42.0f, hw = 9.5f + 8.0f * t, sway = w * 1.4f * t;
+        for (int x = (int)(32 - hw + sway) - 1; x <= (int)(32 + hw + sway) + 1; x++) {
+            float dx = (float)x + 0.5f - 32.0f - sway;
+            if (fabsf(dx) > hw) continue;
+            if (y > 59 && h01(x, y, 591 + (w > 0)) < (float)(y - 59) / 4.0f) continue;   /* the hem dragging, frayed */
+            float u = dx / hw, v = 0.05f + 0.26f * (1.0f - u * u) * (1.0f - 0.25f * t) + (u < -0.3f ? 0.04f : 0.0f);
+            if (sinf(dx * 1.5f + (float)y * 0.03f) > 0.6f) v -= 0.07f;
+            uint8_t c = sh(R_IRON, v);
+            if (fabsf(u) > 0.93f) c = sh(R_BLOOD, 0.22f);           /* its crimson lining, turned at the edge */
+            if (y >= 59 && ((x + y) & 1) == 0 && y <= 60) c = (uint8_t)(R_GOLD + 3);   /* the hem's gilt, worn */
+            cv_px(x, y, c);
+        }
+    }
+    for (int y = 21; y < 62; y++) {                                  /* the orphrey: a crimson Y from the shoulders, gilt at its edges */
+        float sway = w * 1.4f * (float)(y - 20) / 42.0f;
+        if (y < 33) {
+            for (int s = -1; s <= 1; s += 2) {
+                float cx = 32.0f + (float)s * (8.0f - (float)(y - 21) * 0.62f) + sway;
+                for (int k = -1; k <= 1; k++) cv_px((int)cx + k, y, sh(R_BLOOD, 0.3f + 0.08f * (s < 0) - 0.04f * (float)abs(k)));
+                cv_px((int)cx + 2 * s, y, (uint8_t)(R_GOLD + 4)); 
+            }
+        } else {
+            for (int k = -2; k <= 2; k++) cv_px((int)(32.0f + sway) + k, y, abs(k) == 2 ? (((y & 1) == 0) ? (uint8_t)(R_GOLD + 4) : sh(R_BLOOD, 0.15f)) : sh(R_BLOOD, 0.3f + 0.06f * (k < 0)));
+        }
+    }
+    {                                                                /* the inverted cross on it, in bone */
+        int cx = (int)(32.0f + w * 1.4f * 0.45f);
+        for (int y = 37; y <= 47; y++) cv_px(cx, y, sh(R_BONE, 0.8f - 0.02f * (float)(y - 37)));
+        for (int k = -2; k <= 2; k++) cv_px(cx + k, 44, sh(R_BONE, 0.75f - 0.08f * (float)abs(k)));
+    }
+    for (int x = 25; x <= 39; x++)                                   /* the amice: a high dark collar, crimson in its fold */
+        for (int y = 20; y <= 23; y++) {
+            float u = ((float)x + 0.5f - 32.0f) / 7.5f;
+            if (u * u + ((float)y - 23.5f) * ((float)y - 23.5f) / 12.0f > 1.0f) continue;
+            cv_px(x, y, y == 20 ? sh(R_BLOOD, 0.2f) : sh(R_IRON, 0.1f + 0.1f * (1.0f - fabsf(u))));
+        }
+    /* the crozier in his right hand (to our left), the censer in his left */
+    float chx = chant ? 15.0f : 16.0f, chy = chant ? 22.0f : 35.0f;
+    float sx = chant ? 12.0f : 13.5f, sy0 = chant ? 50.0f : 61.0f, sy1 = chant ? 4.0f : 12.0f;
+    bishop_crozier(sx, sy0, sx + (chant ? 1.0f : 0.0f), sy1, w);
+    float hx = chant ? 51.0f : 46.0f, hy = chant ? 10.0f : 31.0f;
+    float bx = chant ? 55.0f : 46.0f + 4.0f * w, by = chant ? 24.0f : 46.0f;
+    for (int s = -1; s <= 1; s += 2) {                               /* sleeves, belled, black lined with crimson */
+        float shx = 32.0f + (float)s * 9.0f, shy = 23.0f, tx = s < 0 ? chx : hx, ty = s < 0 ? chy : hy;
+        float ex = (shx + tx) * 0.5f + (float)s * 2.5f, ey = (shy + ty) * 0.5f + (chant ? 2.0f : 3.0f);
+        if (chant) { cv_bone(ex, ey, tx, ty + 1.5f, 1.0f, 0.25f, 0.85f); }   /* raised: the sleeve fallen back from the bone */
+        cv_capsule(shx, shy, ex, ey, 3.4f, R_IRON, 0.06f, 0.36f);
+        if (!chant) {
+            cv_capsule(ex, ey, tx + (float)s * 0.5f, ty - 2.0f, 3.2f, R_IRON, 0.06f, 0.34f);
+            cv_ellipse(tx + (float)s * 0.6f, ty - 1.5f, 3.6f, 2.0f, R_BLOOD, 0.12f, 0.3f);   /* the cuff's lining */
+        } else cv_ellipse(ex, ey + 1.0f, 3.8f, 2.4f, R_BLOOD, 0.12f, 0.3f);
+        bishop_hand(tx, ty, s);
+    }
+    if (chant) cv_capsule(sx - 1.0f, chy - 3.0f, sx + 2.0f, chy + 3.0f, 0.9f, R_IRON, 0.12f, 0.55f);   /* the staff again, in front of the hand */
+    bishop_censer(hx, hy + 1.0f, bx, by, 0.0f);
+    bishop_mitre(32, 10, 11, 7.5f);
+    skull_stamp(32, 17, 0, 0, (uint8_t)(chant ? R_GLOW + 14 : C_WHITE));   /* his face, under it */
+    static uint8_t face[TS * TS];                                   /* lit green from below: the lower planes catch it, the brow and dome stay dark */
+    memcpy(face, cv_sprite, sizeof face);
+    for (int y = 11; y < 25; y++)
+        for (int x = 24; x < 41; x++) {
+            uint8_t c = face[y * TS + x];
+            if (c <= R_BONE || c >= R_BONE + 16) continue;
+            float f = clampf(((float)y - 13.0f) / 10.0f, 0.0f, 1.0f), b = (float)(c - R_BONE) / 15.0f;
+            int below = y + 1 < TS && (face[(y + 1) * TS + x] == 0 || face[(y + 1) * TS + x] == C_CLEAR);   /* a lower edge, over a hollow: the light's catch */
+            float g = 0.06f + 0.8f * f * b * b + (below ? 0.3f : 0.0f) + (chant ? 0.08f : 0.0f);
+            cv_px(x, y, f > 0.25f || below ? sh(R_MOSS, g) : sh(R_BONE, 0.12f + b * 0.3f));
+        }
+    if (chant)                                                       /* the green rising round him */
+        for (int i = 0; i < 18; i++) cv_px((int)(32.0f + (h01(i, 1, 595) - 0.5f) * 40.0f), (int)(28.0f + 30.0f * h01(i, 2, 595)), (uint8_t)(R_MOSS + 10 + (i % 5)));
+    cv_bone_decay(597);
+    cv_outline(0);
+    bishop_smoke(bx, by, chant ? 1.4f : 0.85f);
+    cv_store(id);
+}
+
 /* the bestiary's bones age with the level, like the skeletons' */
 static void spr_bestiary_bones(void) {
     spr_hound(SP_HOUND_A, 1.0f, 0); spr_hound(SP_HOUND_B, -1.0f, 1); spr_hound(SP_HOUND_BITE, 0.0f, 2); spr_hound(SP_HOUND_D, 0.0f, 3);
@@ -5315,6 +5507,7 @@ static void spr_bestiary_bones(void) {
     }
     spr_deacon(SP_DEACON_A, 1.0f, 0); spr_deacon(SP_DEACON_B, -1.0f, 1); spr_deacon(SP_DEACON_CHANT, 0.0f, 2); spr_deacon(SP_DEACON_D, 0.0f, 3);
     deacon_dress(SP_DEACON_A); deacon_dress(SP_DEACON_B); deacon_dress(SP_DEACON_CHANT);
+    spr_bdeacon(SP_BDEACON_A, 1.0f, 0); spr_bdeacon(SP_BDEACON_B, -1.0f, 1); spr_bdeacon(SP_BDEACON_CHANT, 0.0f, 2); spr_bdeacon(SP_BDEACON_D, 0.0f, 3);   /* the Black Deacon's own */
 }
 
 /* The hunting spider's face (docs/InitialArtPass.md, section 8), a wolf spider's: two great eyes shining in front, two

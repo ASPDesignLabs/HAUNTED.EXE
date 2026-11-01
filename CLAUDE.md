@@ -373,7 +373,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   a wall in your sight that hatches four small hunters 5 s later. Every 15 s one small hunter comes out of a
   burrow (`Mob.add` 2, four at most; only `add` 1 counts for a wave). Debug: `EVENT spider_ups`,
   `spider_mends`, `webbed`, `web_torn`, `egg_shots`. The BFS9000 takes 8% of a boss's health.
-- **The Black Deacon** (step 7). Drawn with the deacon's rank-V (black) colours at twice the size. Bone
+- **The Black Deacon** (step 7). Drawn in his own sprites at twice a deacon's size (`SP_BDEACON_A/B/CHANT/D`, 1.0.0b14's
+  art pass: `spr_bdeacon`, a profane bishop). Bone
   Ward (`G.bward`, 4% of his health, `G.bward_cd` the Rare rune's cooldown to grow back): blows go to it
   first; six bone shards wheel about him while it holds. Grave Call is the deacon's chant from the
   chapel's heaps (`SP_BONES2` in his arena): one at a time, 12 s apart, three of his (`Mob.add` 3) about

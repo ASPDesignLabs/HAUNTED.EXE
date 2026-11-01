@@ -257,6 +257,7 @@ enum {
     SP_BKNIGHT3_A, SP_BKNIGHT3_B, SP_BKNIGHT3_W, SP_BKNIGHT3_S, /* ... the breastplate cracked and the helm gone */
     SP_BKNIGHT_P0, SP_BKNIGHT_P1, SP_BKNIGHT_P2,                /* planting its sword, in each state */
     SP_BSPIDER_REAR, SP_BSPIDER_D,                              /* the Wandering Spider, an old matriarch: rearing to spit, dead */
+    SP_BDEACON_A, SP_BDEACON_B, SP_BDEACON_CHANT, SP_BDEACON_D, /* the Black Deacon, a profane bishop: walking, chanting, fallen */
     NSPR
 };
 
