@@ -143,7 +143,7 @@ interaction every two levels (the plan's section 23 tallies them and drafts a ro
 a sprint with a meter and a recovery that quickens with health, a line multiplying what a potion restores, and the
 Lantern of the Dead shuttered on a long press of L. The second round settled it (1 November): the art pass waits until
 this is done; new kinds (the Whipper-In, the Sexton, the Lightless); places to mend in the walls; doors that sound like
-their run; `MAXMOBS` to grow. **Step 0, the caster's side, is built** (harness only, the Windows shell not compiled here):
+their run; `MAXMOBS` to grow. **Step 0, the caster's side, is built** (harness only; the Windows build compiled and smoke-tested by CI on the branch, by a run started by hand):
 see *The sprint, PHYSIC and the lantern* below. Step 1, the senses and memory, is next.
 
 ## Working with the owner
