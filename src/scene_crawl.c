@@ -13542,7 +13542,9 @@ static void boss_adds(void) {
     G.badds = n;
     snd_sfx_ex(SFX_DOOR, 0.9f, 0.5f);
 #ifdef CRAWL_DEBUG
-    fprintf(stderr, "EVENT boss_adds %d wave %d t=%.2f\n", n, G.bwave, G.t);
+    fprintf(stderr, "EVENT boss_adds %d wave %d t=%.2f ranks", n, G.bwave, G.t);   /* each add's kind and rank, I as 1 */
+    for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && G.mobs[i].add == 1 && G.mobs[i].state == MS_WALK) fprintf(stderr, " %d/%d", G.mobs[i].type, G.mobs[i].rank + 1);
+    fputc('\n', stderr);
 #endif
 }
 
