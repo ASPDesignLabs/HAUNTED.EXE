@@ -260,6 +260,7 @@ enum {
     SP_BDEACON_A, SP_BDEACON_B, SP_BDEACON_CHANT, SP_BDEACON_D, /* the Black Deacon, a profane bishop: walking, chanting, fallen */
     /* the props' other looks (docs/InitialArtPass.md section 14; crawl_alt) */
     SP_BONES1_2, SP_BONES1_3, SP_BONES2_2, SP_SKULLPILE_2, SP_SKULLPILE_3, SP_TOTEM2_A, SP_TOTEM2_B,
+    SP_CANDLES_2, SP_CANDLES_3,
     NSPR
 };
 
