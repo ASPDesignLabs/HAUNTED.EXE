@@ -1,7 +1,8 @@
 # How the dead think: packs, hunters and ambushes
 
-**Status: the owner answered most of the first round (1 November 2026) and added a sprint and a line for potions;
-the second round is open (the end of the plan). Nothing is built.** Written on
+**Status: settled (1 November 2026). The owner answered both rounds the same day, and added a sprint, a line for
+potions, places to mend, doors that sound like their run and four fights from other games. Being built on
+`claude/youthful-mayer-deaa11`, step 0 first.** Written on
 `claude/laughing-cori-a3jk29` from 1.0.0b13; brought onto its work branch, `claude/youthful-mayer-deaa11`, from main
 once the art pass so far had been merged there (1 November). The art pass is visual only, and the numbers below were
 checked again on main: none has moved. The owner asked for creatures
@@ -134,7 +135,7 @@ to be taken up again) and the lower storey 1.0.0b15 (settled, not begun). *Recom
 **A4. Keep the old minds behind a switch?** **The owner: (a).** *Recommended: (a).* (a\*) Yes, `CRAWL_MIND=0` in the debug build, so the
 balance runs compare the same build on the same seeds. (b) No; compare against a worktree of 1.0.0b13 as before.
 
-**A5. The art pass and this.** Main carries the art pass so far, so whatever is released next takes it with it unless
+**A5. The art pass and this.** **The owner: (c)**: the art pass waits until this is done. Main carries the art pass so far, so whatever is released next takes it with it unless
 1.0.0b14 goes out on its own first. *Recommended: (a).* (a\*) The art pass goes on as it was handed on (runs III and
 IV's props, then the Wraith Unbound), in its own steps and commits, between or alongside these; it moves nothing in the
 simulation, so the balance runs here aren't disturbed by it. (b) 1.0.0b14 is released as it stands before this
@@ -400,16 +401,16 @@ The owner's "lead the player into an ambush". A set piece in three parts: the **
 - **First of each.** The first time each set piece is sprung on a run, a caption names it once, as the omens are:
   *AN AMBUSH*, *THE HOUNDS HAVE YOUR SCENT*, *THE ORDER HOLDS THE ROOM*.
 
-**L1. Lures and ambushes.** *Recommended: (a).* (a\*) As drafted: kill rooms, teeth, baits, the three answers.
+**L1. Lures and ambushes.** **The owner: (a).** *Recommended: (a).* (a\*) As drafted: kill rooms, teeth, baits, the three answers.
 (b) Ambushes only (the teeth waiting by a door), no baits. (c) Baits and ambushes only from run II.
 
-**L2. The gilded as bait.** *Recommended: (a).* (a\*) Yes, one gilded in two from level 7 runs to a kill room if
+**L2. The gilded as bait.** **The owner: (a).** *Recommended: (a).* (a\*) Yes, one gilded in two from level 7 runs to a kill room if
 one is near; its treasure is still there to be had. (b) No; the gilded stay a prize.
 
-**L3. The spectres as a tell.** *Recommended: (a).* (a\*) They drift to set pieces now and then (not always). (b)
+**L3. The spectres as a tell.** **The owner: (a).** *Recommended: (a).* (a\*) They drift to set pieces now and then (not always). (b)
 No; spectres stay as they are.
 
-**L4. How many.** *Recommended: (a).* (a\*) At most one ambush a level from level 5, two from run III; never on a
+**L4. How many.** **The owner: (a).** *Recommended: (a).* (a\*) At most one ambush a level from level 5, two from run III; never on a
 boss's level; none in a pocket. (b) One a level from level 3. (c) One level in two.
 
 # Part D: answering the player
@@ -432,10 +433,10 @@ what the ranks below it do.
 Flanking needs loops, which the halls seldom have (one opening in twelve, and dead ends filled). Part E's rules ask
 the generator for a second door into the rooms that hold packs, and a few more loops in the stretches between them.
 
-**D1. Cunning by rank.** *Recommended: (a).* (a\*) As in the table. (b) Cunning by the run's step, the same for
+**D1. Cunning by rank.** **The owner: (a).** *Recommended: (a).* (a\*) As in the table. (b) Cunning by the run's step, the same for
 every rank. (c) Cunning by kind only (each kind its own tricks, no ladder).
 
-**D2. Flanking's loops.** *Recommended: (a).* (a\*) A pack's room gets a second door where the plan allows, and the
+**D2. Flanking's loops.** **The owner: (a).** *Recommended: (a).* (a\*) A pack's room gets a second door where the plan allows, and the
 generator's extra loops go from one in twelve to about one in six near those rooms only. (b) More loops everywhere.
 (c) No change to the halls; flanking only where a loop happens to be.
 
@@ -460,7 +461,7 @@ wins outright.
 
 Today hazards hurt only the caster and the dead ignore them.
 
-**D3. Hazards and the dead.** *Recommended: (a).*
+**D3. Hazards and the dead.** **The owner: (a).** *Recommended: (a).*
 - (a\*) **Hazards hurt creatures too** (at half the share), ranks I and II blunder into them, rank III and up walk
   round them. A person can draw a pack through Hellrent or into bile; a red bait can lead a person into it (run
   IV's imp).
@@ -495,7 +496,7 @@ little above the last run's first, and the cunning of section 13 paid for by few
 as it climbs, so a run of red packs has fewer of them). These numbers are first guesses for the balance runs to
 settle; the rule that counts is that the creatures on a level end up near today's numbers (section 21).
 
-**G1. A budget.** *Recommended: (a).* (a\*) One budget spent on set pieces, today's placements among them. (b) Keep
+**G1. A budget.** **The owner: (a).** *Recommended: (a).* (a\*) One budget spent on set pieces, today's placements among them. (b) Keep
 today's placements and add packs, patrols and ambushes on top, with fewer wanderers. (c) Today's placements, with
 the wanderers made into packs and nothing else.
 
@@ -508,15 +509,16 @@ the wanderers made into packs and nothing else.
    door (they have their own).
 3. **A way out.** A kill room never has the exit, a key or the level's only way on behind it; the door you came in
    by is never shut on you.
-4. **Within the cap.** No set piece needs more engaged at once than the run allows (P6).
+4. **Within the cap, mostly.** No set piece needs more engaged at once than the run allows (P6), but when a person is
+   doing exceptionally well the cap may go one over, now and then (section 27).
 5. **Room types choose.** A room's type (`RTYPES`, section 18) says which set pieces may live there.
 6. **Signs ahead.** Every set piece carries its tell (section 12); a run's first ambush carries two.
-7. **Thirty-two.** The level's creatures stay within `MAXMOBS`, with room kept for what is raised, hatched and
-   called (eight places at least).
+7. **Room to spare.** The level's creatures stay within 48 of `MAXMOBS`' 64, with sixteen places kept for what is
+   raised, hatched, called and summoned (section 27).
 8. **The dream walks lanes.** Every set piece must be one the dream can come through on its lanes; one that can't
    is put elsewhere (the dream's counters are in Part G).
 
-**G2. The rules.** *Recommended: (a).* (a\*) All eight. (b) The owner's changes to them.
+**G2. The rules.** **The owner: (a), with rule 4 changed**: the cap may be passed now and then when a person is doing exceptionally well; and `MAXMOBS` may grow, so that nothing a spell makes is refused or vanishes (section 27). *Recommended: (a).* (a\*) All eight. (b) The owner's changes to them.
 
 ## 18. Where they live, by run and room type
 
@@ -541,7 +543,7 @@ the wanderers made into packs and nothing else.
 | | The throne | a band |
 | Any | Halls | patrols, wanderers, baits, hunts |
 
-**G3. Room types choose.** *Recommended: (a).* (a\*) As in the table. (b) Room types choose only posts, as today;
+**G3. Room types choose.** **The owner: (a).** *Recommended: (a).* (a\*) As in the table. (b) Room types choose only posts, as today;
 packs and ambushes go anywhere that fits.
 
 ## 19. Special places
@@ -559,7 +561,7 @@ packs and ambushes go anywhere that fits.
 - **After a death on the level** (`G.retries`): today the blow softens 15% a death. Proposed: the same, and the set
   pieces that killed you come back a head short, so a person isn't put through the same trap word for word.
 
-**G4. Special places.** *Recommended: (a).* (a\*) As above. (b) Packs and cunning in pockets too, with ambushes. (c)
+**G4. Special places.** **The owner: (a).** *Recommended: (a).* (a\*) As above. (b) Packs and cunning in pockets too, with ambushes. (c)
 The new minds on the level only; pockets, wings and trials as today.
 
 # Part F: the curve
@@ -599,7 +601,7 @@ so cunning climbs with it; from run to run the set pieces widen.
 Since runs III and IV bring no new kinds, their novelty becomes how the old kinds work together: a hunting spider
 pack that drops round you as a deacon's dead come through the door.
 
-**D4. The rollout.** *Recommended: (a).* (a\*) As in the table. (b) Everything from run II on, run I as today but for
+**D4. The rollout.** **The owner: (a)**, read as section 23's rollout, which the owner also took (O1a). *Recommended: (a).* (a\*) As in the table. (b) Everything from run II on, run I as today but for
 the senses. (c) The owner's changes.
 
 ## 21. Keeping it fair, and the numbers to hold
@@ -617,7 +619,7 @@ the senses. (c) The owner's changes.
 - **No death loop.** A set piece that kills the dweller twice on a level comes back two heads short the third time;
   a hunt that killed you isn't set loose again on that level.
 
-**D5. The dream's margin.** *Recommended: (a).* (a\*) As above. (b) Tighter: no more deaths than 1.0.0b13. (c) Looser:
+**D5. The dream's margin.** **The owner: (a).** *Recommended: (a).* (a\*) As above. (b) Tighter: no more deaths than 1.0.0b13. (c) Looser:
 the dream may die a third more, for a harder game.
 
 # Part G: the dream
@@ -637,7 +639,7 @@ corners. What it needs:
   fights from there (a corner halves the ways in).
 - **Its own cap.** P6's engaged cap is the dream's main safety; it is one less while the dream plays (A3).
 
-**Y1. The dream's counters.** *Recommended: (a).* (a\*) All six. (b) The glance back and leaders first only, the rest
+**Y1. The dream's counters.** **The owner: (a).** *Recommended: (a).* (a\*) All six. (b) The glance back and leaders first only, the rest
 as the runs show a need.
 
 # Part H: showing it
@@ -660,7 +662,7 @@ as the runs show a need.
   anywhere; a back view would hide them, which is what tells a person it is looking away, so S1 (a) asks the owner to
   allow that one exception.
 
-**V1. Showing it.** *Recommended: (a).* (a\*) All of it. (b) Sounds and captions now; the bestiary lines, the Codex
+**V1. Showing it.** **The owner: (a).** *Recommended: (a).* (a\*) All of it. (b) Sounds and captions now; the bestiary lines, the Codex
 part and achievements later.
 
 # Part I: added in the first round
@@ -692,7 +694,7 @@ ranks, a bestiary page and new art in the art pass's hand, sheets first.
   light suits every room. Shuttering the lantern (section 26) is its answer. Tell: a glassy chime as it moves, and its
   edges catching what light there is.
 
-**K1. The new kinds.** *Recommended: (a).* (a\*) As drafted. (b) The owner's changes to their names, runs or ways. (c)
+**K1. The new kinds.** **The owner: (a).** *Recommended: (a).* (a\*) As drafted. (b) The owner's changes to their names, runs or ways. (c)
 Others of the owner's.
 
 ## 23. The tally, and a rollout by twos (O1)
@@ -756,7 +758,7 @@ level 9. Run I is thin in packs (the roost and the wake wait for run II), becaus
 the file, the ambush and the hounds. And the hunts: with H3's chance from 5, the Order's hunt comes with the file, and
 each later hunt joins when its hunters do.
 
-**O1a. The rollout.** *Recommended: (a).* (a\*) As in the draft, with the owner's changes. (b) The owner's own order.
+**O1a. The rollout.** **The owner: (a).** *Recommended: (a).* (a\*) As in the draft, with the owner's changes. (b) The owner's own order.
 
 ## 24. Sprint
 
@@ -793,18 +795,18 @@ long as you like. It becomes a sprint with a meter. The owner's numbers, and def
 - **Loud.** A sprint's footsteps carry five steps, not three (S3).
 - **A person's.** The dream keeps its own pace and never sprints.
 
-**SP1. Sprint.** *Recommended: (a).* (a\*) As above. (b) In any direction, as running is today.
+**SP1. Sprint.** **The owner: (a).** *Recommended: (a).* (a\*) As above. (b) In any direction, as running is today.
 
-**SP2. Recovery's curve.** *Recommended: (a).* (a\*) A quarter off what is left above the floor (the table). (b) A
+**SP2. Recovery's curve.** **The owner: (b)**: a quarter off the whole each hundred, until the floor. *Recommended: (a).* (a\*) A quarter off what is left above the floor (the table). (b) A
 quarter off the whole each hundred, until the floor.
 
-**SP3. The pad's sprint button.** The game has no settings screen of its own; the settings dialog (`/c`) holds the
+**SP3. The pad's sprint button.** **The owner: (a).** The game has no settings screen of its own; the settings dialog (`/c`) holds the
 rest. *Recommended: (a).* (a\*) In the game: a row in Esc's question while a pad is in play, *SPRINT: LEFT STICK*; A,
 then the button wanted. Any button may be taken, and the job it had moves to the left stick click, so nothing is lost.
 Kept with the settings in the registry (`PadSprint`), and shown in the settings dialog too. (b) In the settings dialog
 only. (c) The left or the right stick click, nothing else.
 
-**SP4. Showing the meter.** *Recommended: (a).* (a\*) A slim bar low in the view, centred on the status bar's top edge
+**SP4. Showing the meter.** **The owner: (a).** *Recommended: (a).* (a\*) A slim bar low in the view, centred on the status bar's top edge
 (or the screen's foot while the bar is away), shown only while it is less than full: dull through the delay, bright as
 it fills; and its numbers on Tab's caster page. (b) On the status bar only.
 
@@ -815,7 +817,7 @@ A potion restores 25 health, flat: a quarter of 100, an eighth of 200, a twentie
 +400% (five times, 125 health, for eighty points). It acts on the potion only; the fonts, the visportal's gift and Soul
 Drain go by shares or by their spells already.
 
-**SP5. The two lines.** *Recommended: (a).* (a\*) SPRINT and PHYSIC as above: the caster's own, never rolled on a piece
+**SP5. The two lines.** **The owner: (b)**: they roll on pieces too, sprint on boots, physic on robes and amulets. *Recommended: (a).* (a\*) SPRINT and PHYSIC as above: the caster's own, never rolled on a piece
 (as Treasure and Luck), no overlevels; new stats (`ST_SPRINT`, `ST_PHYSIC`) and new lines at the end of `LINES`, so the
 ledger's caster section, which counts its lines by its length, takes them with no new version. (b) They roll on pieces
 too: sprint on boots, physic on robes and amulets. (c) The owner's numbers for the step and the cap.
@@ -831,11 +833,81 @@ from level to level, and is kept with the caster (a bit in `LG_CASTER`'s flags, 
 The L key already does two things: a tap opens the wisps' menu at once, and with *L ALWAYS CASTS THIS* on, a tap casts
 and a hold of 0.6 s opens the menu. A long press for the lantern has to take the hold from one of them.
 
-**S6. The L key.** *Recommended: (a).* (a\*) A hold of 0.6 s shutters or lights the lantern, for whoever holds the
+**S6. The L key.** **The owner: (a).** *Recommended: (a).* (a\*) A hold of 0.6 s shutters or lights the lantern, for whoever holds the
 Lantern of the Dead (for anyone else the key is as now); a tap opens the menu (as you let go, now) or, with the toggle
 on, casts, and the menu is then a double tap; the menu gains a row for the lantern as well. (b) With the toggle on, the
 hold opens the menu as now and the lantern is a row in it; with the toggle off, the hold shutters it. (c) The lantern
 on a key of its own on the keyboard (K), and the long press of Y on the pad.
+
+## 27. The cap passed, and room for everything (G2)
+
+**Doing exceptionally well.** A person's last two minutes are kept as they go: health lost, kills, and how long since
+the last hurt. When they have lost under a fifth of their health in that time, slain six or more, are above three
+quarters now and haven't been hurt for twenty seconds, the next fight may take one more engaged than the run allows
+(P6), one fight in three, until they are hurt or a minute passes. The dream keeps the cap as it is. Debug: `EVENT
+cap_over`.
+
+**Room.** `MAXMOBS` goes from 32 to 64, and what counts creatures in 32 bits (a pocket's `PK.slain`, `Mob.gen`'s 32,
+the lightning's and Ionization's `hit`) in 64. Rule 7 becomes *room to spare*: the creatures placed stay within 48,
+sixteen places kept for what is raised, hatched, called and summoned. Nothing in the game removes one creature to make
+room for another today; a spawn that finds the places full is simply refused (`spawn_mob` returns nothing), so a deacon's
+raise, a sac's hatching or a Grave Call can fail without a word. The effect pools do the same when full (the burning
+floor, 40; Seep's venom, 40; shots, 16; blasts, 8; Ionization's trails, 12) and the motes give up their oldest. Before
+any pool is sized, the debug build counts every refusal by pool (`FULL pool n` on the state line) over the long dream
+runs and a scripted player's heaviest fights; a pool that refuses is doubled until it doesn't.
+
+## 28. Places to mend (O2)
+
+The owner's own: a place in the wall where a person can stand and mend, slowly, while the dead come.
+
+- **What it is.** One a level (two from run III), on a room's wall, never in a pocket, an arena, a wing or a trial, nor
+  the start's or the exit's room. Always on the wall facing the room's way in, so a person using it has their back to
+  the door. A look by run, sheets first: a votive niche of candles and a saint's skull (run I), a stoup fed by a clean
+  seep (run II), a miners' rest, a lamp-hook and a cask (run III), a basin of cold black glass (run IV).
+- **Using it.** E held facing it (as a brazier is kindled): the view settles lower, facing the wall, and health rises
+  towards three quarters of the whole, from nothing in twenty seconds. Moving, casting, letting go or being struck ends
+  it. It keeps no store: it can be used as often as wanted, and its price is the time and who comes.
+- **Who comes.** While it is used, every second, a noise at the caster's own cell that reaches sixteen steps; what hears
+  it knows where you are and hunts (not wary: it comes straight). A person hears them coming by the doors (section 29)
+  and by S3's footsteps.
+- **PHYSIC.** Raises both: the cap by a point for every 16% of Physic (three quarters to the whole at +400%), the pace by
+  half of Physic (three times as fast at +400%).
+- **The dream** uses one under 40% health when nothing within its sight is alert, and turns to fight what comes (Y1's
+  glance back).
+- **When.** From level 1, with the foundation: the first levels are where a person learns its price cheaply.
+
+Debug: `CRAWL_TPMEND=1` (before one), `EVENT mend_begin`, `mend_end` (why, and health), `mend_called`.
+
+## 29. Doors that sound like their run
+
+With the senses, a door is how a person with their back to the room knows something is coming. Today every door, of
+every run, opens with one sound (`SFX_DOOR`, a heavy grinding) and shuts with none. Each run gets a pair, opening and
+shutting, positional as now (`sfx_at`):
+
+| Run | Opening | Shutting |
+|---|---|---|
+| I, the Crypts | iron-bound oak groaning on its pins | a heavy thud, the latch dropping |
+| II, the Catacombs | swollen wood dragged through water, a slosh | a sodden slap, drips |
+| III, the Hollows | planks creaking on rope hinges, dust falling | a hollow knock of timber |
+| IV, the Deep | a slab of black glass grinding, ringing as it goes | a glassy chime, a hiss of heat |
+
+Her hall's doors are run I's. A vault's door, the boss's seal, a trial's and a wing's keep the sounds they have where
+they have their own, and use their run's otherwise. A door opened by a creature makes the same sound, heard by the dead
+as S3 has it (four steps). Four new pairs in `snd.c`'s list, at the end.
+
+## 30. From other games (O2's picks)
+
+- **The throw over a corner** (4). A skeleton or an imp of rank II and up, out of sight of the caster but having seen
+  them within six cells in the last few seconds, lobs over the corner to where they were last seen, if the arc's cell
+  is open. Their missiles are physical and fire as now; giving the dead's missiles elements of their own is the owner's
+  later combat upgrade, not this.
+- **The dog at your back** (7). In a hound pack, the one that goes in is the one you aren't facing, if any is behind
+  you; the rest circle at the edge of sight.
+- **They remember where you hid** (8). A level keeps the rooms where a search lost you. The next search on the level,
+  by anything, looks there first.
+- **Round a corner, and a glint as bait** (10). A shield-bearer may wait at a post just round a corner with its shield
+  already up (from rank I). And a kill room may be baited with treasure instead of a creature: a hoard or a potion lying
+  in plain view of its door, the teeth waiting beside it.
 
 # Building it
 
@@ -843,18 +915,21 @@ In steps, sheets before art in the game, each step checked on the eight seeds ag
 The order of the steps is the building's; what a person meets, and where, is section 23's.
 
 0. **The caster's side** (sections 24-26): sprint and its meter, its recovery by health, the pad's chosen button,
-   PHYSIC, the lantern shuttered and the L key. Apart from the minds, so it can go first, and S2's dark and S3's loud
+   SPRINT and PHYSIC as lines and on pieces, the lantern shuttered and the L key. Apart from the minds, so it can go first, and S2's dark and S3's loud
    sprint then have something to answer.
-1. **Senses and memory** (Part A): facing, the dark, noise with a place, the four states, searching, caught unaware.
-   The old minds behind `CRAWL_MIND=0`.
+1. **Senses and memory** (Part A): facing, the dark, noise with a place, the four states, searching, caught unaware,
+   and the rooms where they lost you (section 30). The old minds behind `CRAWL_MIND=0`. Room for 64 creatures and the
+   pools counted (section 27); the doors' sounds by run (section 29); the places to mend (section 28).
 2. **Posts and patrols** (section 9): the generator's routes; residents as posts.
 3. **Packs** (sections 5-6): `Pack`, shared sight, the file, turns, morale; the Order's file, the hounds, the roost,
    the wake. The engaged cap (P6) in place of `pick_hunters`' three.
 4. **Callers and scavengers** (section 10).
 5. **Hunters** (section 11): the scent trail, the hunt, the shade's stalking; the calm's change (H2).
-6. **Lures and ambushes** (section 12): kill rooms, teeth, baits, tells; the spectres' drift.
+6. **Lures and ambushes** (section 12): kill rooms, teeth, baits (treasure among them, section 30), tells; the
+   spectres' drift.
 7. **Cunning by rank** (sections 13-15): dodging, cover, doorways, flanking and the loops it needs, spreading, the
-   charge, hazards and the dead.
+   charge, hazards and the dead; the throw over a corner and the dog at your back (section 30); the cap passed when a
+   person is doing well (section 27).
 8. **The budget** (Part E): set pieces, the rules, room types, the special places; the mixed bands (section 7).
 9. **The new kinds** (section 22): sheets first, for the owner's eye, then the Whipper-In, the Sexton and the Lightless
    in the game, with their pages.
@@ -892,9 +967,11 @@ before a rollout is settled (section 23). O2: to be made more specific (below). 
 And two things of the owner's own: a sprint with a meter and a recovery that quickens with health (section 24), and a
 line that multiplies what a potion restores (section 25).
 
-### The second round
+### The second round, answered (1 November)
 
-The recommended answer for each is (a).
+Every one (a), but: A5 (c), the art pass waits until this is done; G2 (a) with rule 4 changed and `MAXMOBS` to grow
+(section 27); D4 read as section 23's rollout; SP2 (b); SP5 (b). From O2: 4, 7, 8 and 10 (section 30), and the owner's
+own places to mend (section 28), with doors that sound like their run (section 29). As asked then:
 
 - **Still open from the first round.** A5 the art pass goes on alongside. L1 the ambushes as drafted (O1 settles that
   they come, from level 7); L2 the gilded as bait; L3 the spectres as a tell; L4 how many (one a level, two from run
