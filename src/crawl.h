@@ -258,6 +258,8 @@ enum {
     SP_BKNIGHT_P0, SP_BKNIGHT_P1, SP_BKNIGHT_P2,                /* planting its sword, in each state */
     SP_BSPIDER_REAR, SP_BSPIDER_D,                              /* the Wandering Spider, an old matriarch: rearing to spit, dead */
     SP_BDEACON_A, SP_BDEACON_B, SP_BDEACON_CHANT, SP_BDEACON_D, /* the Black Deacon, a profane bishop: walking, chanting, fallen */
+    /* the props' other looks (docs/InitialArtPass.md section 14; crawl_alt) */
+    SP_BONES1_2, SP_BONES1_3, SP_BONES2_2, SP_SKULLPILE_2, SP_SKULLPILE_3, SP_TOTEM2_A, SP_TOTEM2_B,
     NSPR
 };
 
@@ -287,6 +289,8 @@ enum {                                          /* which ramp a creature's body 
 };
 extern uint8_t crawl_rank_lut[NPF][NRANK][256];
 
+#define NALT 4
+extern int16_t crawl_alt[NSPR][NALT];          /* a prop's looks: [0] itself, then others, -1 after; [1] -1: one look */
 extern uint8_t crawl_pal[256][3];               /* 6-bit DAC values */
 extern uint8_t crawl_cmap[NLIGHT][256];         /* colour at a light level */
 extern uint8_t crawl_tex[NTEX][TS * TS];        /* column-major: [x * TS + y] */

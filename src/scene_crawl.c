@@ -2796,8 +2796,9 @@ static void build_lightmap(void) {
 /* CRAWL_STAGE=k: one kind stood still down the longest straight hall, at set distances, the caster still and looking
  * at them; CRAWL_STAGEDARK=f scales the light (0 none), CRAWL_STAGEFOG=1 thickens the fog to its most, CRAWL_STAGESUB=s
  * puts them in that state, CRAWL_STAGEDIST=d just one at d cells, CRAWL_STAGEBOSS=b each drawn as that boss (BOSS_*, of its
- * kind), CRAWL_STAGEREAR=1 the Wandering Spider rearing to spit, CRAWL_STAGECHANT=1 a deacon chanting. For frames of the
- * art pass (docs/InitialArtPass.md). */
+ * kind), CRAWL_STAGEREAR=1 the Wandering Spider rearing to spit, CRAWL_STAGECHANT=1 a deacon chanting; with CRAWL_PROPROOM=k
+ * no creature at all, and the caster in a corner of the first room of type k (RT_*), for the props. For frames of the art
+ * pass (docs/InitialArtPass.md). */
 static int g_stage = -1, g_stage_fog;
 static float g_stage_lm = 1.0f;
 #endif
@@ -13245,6 +13246,9 @@ static void stage_set(int k) {                                     /* CRAWL_STAG
 
 static int con_update(float dt);
 static void challenge_begin(int b);
+#ifdef CRAWL_DEBUG
+static void tp_room(int k);
+#endif
 static void update_mark(float dt);
 static void comp_note(int level);
 static void crawl_update(double dt) {
@@ -13303,7 +13307,11 @@ static void crawl_update(double dt) {
     }
     static int stage_level = -1;                                   /* CRAWL_STAGE: a kind stood down a hall */
     if (getenv("CRAWL_STAGE") && !G.shop && !PK.depth && stage_level != G.level && G.level_t > 0.3) {
-        g_stage = clampi(atoi(getenv("CRAWL_STAGE")), 0, NKINDS - 1); stage_set(g_stage); stage_level = G.level;
+        g_stage = clampi(atoi(getenv("CRAWL_STAGE")), 0, NKINDS - 1); stage_level = G.level;
+        if (getenv("CRAWL_PROPROOM")) {                            /* for the props: no one about, and you in a room of that type */
+            for (int i = 0; i < MAXMOBS; i++) G.mobs[i].alive = 0;
+            tp_room(atoi(getenv("CRAWL_PROPROOM")));
+        } else stage_set(g_stage);
     }
     if (g_stage >= 0) for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && G.mobs[i].type != g_stage) G.mobs[i].alive = 0;
     static int meet_level = -1;                                    /* one of a kind, ahead, once the level's card has gone (and in each pocket) */
@@ -18537,7 +18545,13 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         const Deco *dc = &G.decos[i];
         static const float FPS[4] = { 0.0f, 0.0f, 3.0f, 9.0f };    /* by frame count: candles flicker, fire roars */
         if (dc->spr < 0) continue;                                 /* gone: risen, or never a statue */
-        int spr = dc->spr + (dc->nfr > 1 ? (int)((float)G.t * FPS[dc->nfr & 3] + dc->phase) % dc->nfr : 0), n0 = n;
+        int look = dc->spr;                                        /* a prop with other looks: one by where it stands (crawl_alt) */
+        if (crawl_alt[look][1] >= 0) {
+            int na = 1;
+            while (na < NALT && crawl_alt[look][na] >= 0) na++;
+            look = crawl_alt[look][hash2((int)(dc->x * 8.0f), (int)(dc->y * 8.0f)) % (uint32_t)na];
+        }
+        int spr = look + (dc->nfr > 1 ? (int)((float)G.t * FPS[dc->nfr & 3] + dc->phase) % dc->nfr : 0), n0 = n;
         float zx = 0.0f, ox = 0.0f, oy = 0.0f;
         if (dc->flags & (DF_FLIP | DF_FLOAT | DF_SINK | DF_LOOP)) {   /* out of place */
             if (dc->flags & DF_FLOAT) zx = 0.40f + 0.05f * sinf((float)G.t * 1.3f + dc->phase);

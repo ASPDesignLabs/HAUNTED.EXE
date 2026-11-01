@@ -1139,33 +1139,6 @@ void crawl_hand_frame(int k, const uint8_t *src, const uint8_t *lab, uint8_t *ds
 /* Sprites                                                             */
 /* ------------------------------------------------------------------ */
 
-static void spr_bones(int id, int heap, uint32_t seed) {
-    cv_begin(cv_sprite, TS, TS);
-    cv_flat(32, 61.5f, heap ? 26 : 20, heap ? 3.5f : 2.5f, R_WARM + 1);
-    int n = heap ? 10 : 5;
-    for (int i = 0; i < n; i++) {
-        float cx = 32 + (h01(i, 1, seed) - 0.5f) * (heap ? 38 : 30);
-        float cy = (heap ? 60 - 14 * h01(i, 2, seed) * (1.0f - fabsf(cx - 32) / 24) : 59 - 3 * h01(i, 2, seed));
-        float a = (h01(i, 3, seed) - 0.5f) * (heap ? 2.4f : 0.9f);
-        float l = 7 + 5 * h01(i, 4, seed);
-        cv_bone(cx - cosf(a) * l, cy - sinf(a) * l, cx + cosf(a) * l, cy + sinf(a) * l, 1.4f, 0.25f, 0.92f);
-    }
-    if (heap) { cv_skull(23, 48, 1.0f, 0.3f, 0.95f); cv_skull(41, 50, 1.0f, 0.3f, 0.95f); cv_skull(32, 41, 0.9f, 0.3f, 1.0f); }
-    else cv_skull(42, 54, 0.95f, 0.3f, 0.95f);
-    cv_outline(0);
-    cv_store(id);
-}
-
-static void spr_skullpile(void) {
-    cv_begin(cv_sprite, TS, TS);
-    cv_flat(32, 62, 26, 2.5f, R_WARM + 1);
-    static const float ROWS[4][5] = { {56, 14, 26, 38, 50}, {47, 20, 32, 44, 0}, {38, 26, 38, 0, 0}, {29, 32, 0, 0, 0} };
-    for (int r = 0; r < 4; r++)
-        for (int i = 1; i < 5 && ROWS[r][i] > 0; i++) cv_skull(ROWS[r][i], ROWS[r][0], 0.98f, 0.28f, 0.95f - r * 0.02f);
-    cv_outline(0);
-    cv_store(SP_SKULLPILE);
-}
-
 static void spr_cobweb(void) {
     cv_begin(cv_sprite, TS, TS);
     uint8_t c = R_STONE + 12, c2 = R_STONE + 9;
@@ -4307,28 +4280,6 @@ static void spr_firepit(int id, int frame) {
         cv_ellipse(x, y, 4.2f, 3.3f, R_STONE, 0.15f + 0.1f * h01(i, 1, 85), 0.75f + 0.15f * sinf(ang));
     }
     cv_flat(cx, 62, 19, 1.6f, R_WARM + 1);
-    cv_store(id);
-}
-
-static void spr_totem(int id, int frame) {
-    cv_begin(cv_sprite, TS, TS);
-    float cx = 32;
-    cv_flat(cx, 62, 9, 1.6f, R_WARM + 1);
-    cv_capsule(cx, 20, cx, 62, 2.2f, R_WOOD, 0.15f, 0.7f);         /* the pole */
-    cv_capsule(cx - 13, 30, cx + 13, 30, 1.3f, R_WOOD, 0.15f, 0.6f);   /* the crossbar */
-    for (int k = 0; k < 3; k++) cv_skull(cx, 52 - k * 10.5f, 0.85f, 0.28f, 0.92f);   /* stacked skulls */
-    for (int k = 0; k < 3; k++) {                                  /* their eyes, lit from within */
-        float y = 52 - k * 10.5f + 0.8f;
-        int c = R_FLAME + 9 + ((frame + k) & 1) * 3;
-        cv_px((int)(cx - 2.0f), (int)y, (uint8_t)c); cv_px((int)(cx + 2.0f), (int)y, (uint8_t)c);
-    }
-    for (int s = -1; s <= 1; s += 2) {                             /* candles on the crossbar ends, and one on top */
-        float x = cx + s * 12;
-        for (int y = 22; y <= 29; y++) { cv_px((int)x, y, sh(R_BONE, 0.6f)); cv_px((int)x + 1, y, sh(R_BONE, 0.4f)); }
-        flame(x + 1, 21, 6.0f + (float)((frame + (s > 0)) & 1), 1.8f, (frame ? 0.7f : -0.7f) * s);
-    }
-    for (int y = 13; y <= 20; y++) { cv_px((int)cx, y, sh(R_BONE, 0.65f)); cv_px((int)cx + 1, y, sh(R_BONE, 0.45f)); }
-    flame(cx + 1, 12, 7.0f + frame, 2.0f, frame ? 0.8f : -0.6f);
     cv_store(id);
 }
 
@@ -7646,6 +7597,316 @@ void crawl_art_theme(int theme, int level) {
 
 static void specials_plain(void);
 static void treasure_plain(void);
+/* ---- The props (docs/InitialArtPass.md, section 14): drawn with each level, so that its age and run II's water reach
+ * them; the common ones have several looks (crawl_alt), picked where they are drawn by where each stands ---- */
+int16_t crawl_alt[NSPR][NALT];
+
+/* the prop skull: the master skull cut down to 11 by 12, for piles, heaps and totems (hex R_BONE, 0 the hollows) */
+static const char *const PROP_SKULL[12] = {
+    "...7abba8..", ".7ceffedc8.", "8dfffeeddb7", "7cdeeeddcb6", "6aeedbdeda5", "8000bc70005",
+    "a1009081005", "6dcb020bba5", ".9b60706a8.", "..8e3f3d6..", "..4000003..", "...7cbba5..",
+};
+/* a prop skull with its top left at (x0, y0): mirror flips it, jaw 0 leaves its jaw off, dim darkens it (deeper in a pile),
+ * glow fills its sockets with a candle's light inside (a step of the fire, 0 none) */
+static void prop_skull(int x0, int y0, int mirror, int jaw, int dim, int glow) {
+    for (int y = 0; y < (jaw ? 12 : 10); y++)
+        for (int x = 0; x < 11; x++) {
+            int gx = mirror ? 10 - x : x;
+            char ch = PROP_SKULL[y][gx];
+            if (ch == '.') continue;
+            if (ch == '0') {
+                int sock = (y == 5 || y == 6) && ((gx >= 1 && gx <= 3) || (gx >= 7 && gx <= 9));
+                cv_px(x0 + x, y0 + y, glow && sock ? (uint8_t)(R_FLAME + glow - (y == 5)) : 0);
+                continue;
+            }
+            int v = ch <= '9' ? ch - '0' : ch - 'a' + 10;
+            cv_px(x0 + x, y0 + y, (uint8_t)(R_BONE + clampi(v - dim, 1, 15)));
+        }
+}
+/* a long bone from (x0, y0) to (x1, y1), knuckled as the skeletons' bones are: a femur's ball at its head (femur), or
+ * snapped off at the far end, the marrow dark in it (broken); old stains down it; dim darkens it */
+static void prop_long(float x0, float y0, float x1, float y1, float r, int femur, int broken, float dim, uint32_t seed) {
+    float L = hypotf(x1 - x0, y1 - y0) + 0.01f, ux = (x1 - x0) / L, uy = (y1 - y0) / L, px = -uy, py = ux;
+    float lo = fmaxf(0.04f, 0.24f - dim * 0.5f), hi = 0.92f - dim;
+    if (broken) {
+        cv_capsule(x0, y0, x1, y1, r * 0.85f, R_BONE, lo, hi);
+        for (int e = -1; e <= 1; e += 2) cv_ellipse(x0 + px * r * 0.7f * (float)e, y0 + py * r * 0.7f * (float)e, r * 1.05f, r * 1.05f, R_BONE, lo, hi);
+        for (int k = -1; k <= 1; k++)                               /* splintered */
+            cv_px((int)(x1 + px * (float)k * r * 0.7f + ux * (k == 0 ? 1.4f : 0.3f)), (int)(y1 + py * (float)k * r * 0.7f + uy * (k == 0 ? 1.4f : 0.3f)), sh(R_BONE, hi * 0.75f));
+        cv_px((int)x1, (int)y1, sh(R_WARM, 0.08f));
+    } else cv_bone(x0, y0, x1, y1, r, lo, hi);
+    if (femur) {                                                    /* its head, on a neck off to one side */
+        cv_capsule(x0, y0, x0 - ux * r * 0.8f + px * r * 1.4f, y0 - uy * r * 0.8f + py * r * 1.4f, r * 0.7f, R_BONE, lo, hi);
+        cv_ellipse(x0 - ux * r * 1.1f + px * r * 1.9f, y0 - uy * r * 1.1f + py * r * 1.9f, r * 1.2f, r * 1.2f, R_BONE, lo + 0.06f, hi);
+    }
+    for (int k = 0; k < 3; k++) {                                   /* old stains */
+        float t = 0.2f + 0.6f * h01(k, 1, seed);
+        cv_px((int)(x0 + (x1 - x0) * t), (int)(y0 + (y1 - y0) * t), sh(R_BONE, lo + 0.1f));
+    }
+}
+/* a rib: a thin arc about (cx, cy) from angle a0 to a1, lit along its top, darker as it goes */
+static void prop_rib(float cx, float cy, float rx, float ry, float a0, float a1, float dim) {
+    int n = (int)(fabsf(a1 - a0) * fmaxf(rx, ry)) + 2;
+    for (int i = 0; i <= n; i++) {
+        float a = a0 + (a1 - a0) * (float)i / (float)n, x = cx + cosf(a) * rx, y = cy + sinf(a) * ry;
+        cv_px((int)x, (int)y, sh(R_BONE, 0.82f - dim - 0.25f * (float)i / (float)n)); cv_px((int)x, (int)y + 1, sh(R_BONE, fmaxf(0.05f, 0.35f - dim)));
+    }
+}
+static void prop_vertebra(float x, float y, float dim) {
+    cv_ellipse(x, y, 2.0f, 1.4f, R_BONE, fmaxf(0.05f, 0.3f - dim), 0.85f - dim);
+    cv_px((int)x, (int)y - 2, sh(R_BONE, 0.72f - dim)); cv_px((int)x - 2, (int)y - 1, sh(R_BONE, 0.6f - dim)); cv_px((int)x + 2, (int)y - 1, sh(R_BONE, 0.5f - dim));
+    cv_px((int)x, (int)y, sh(R_WARM, 0.1f));                        /* the hole for the cord */
+}
+/* a jaw fallen from its skull, lying open: a U of bone, the teeth along it */
+static void prop_jaw(float x, float y) {
+    for (int i = -5; i <= 5; i++) {
+        float yy = y - 0.11f * (float)(25 - i * i);
+        cv_px((int)x + i, (int)yy, sh(R_BONE, 0.78f - 0.04f * (float)(i + 5))); cv_px((int)x + i, (int)yy + 1, sh(R_BONE, 0.35f));
+        if (abs(i) < 4 && (i & 1)) cv_px((int)x + i, (int)yy - 1, sh(R_BONE, 0.9f));   /* teeth, one gone */
+    }
+    cv_px((int)x - 5, (int)y - 3, sh(R_BONE, 0.7f)); cv_px((int)x + 5, (int)y - 3, sh(R_BONE, 0.5f));   /* its ends, rising */
+}
+static void prop_fingers(float x, float y, uint32_t seed) {
+    for (int k = 0; k < 4; k++) {
+        float a = h01(k, 1, seed) * PI_F, l = 2.0f + h01(k, 2, seed) * 1.5f, bx = x + (float)k * 2.2f, by = y + h01(k, 3, seed) * 2.0f;
+        cv_line(bx, by, bx + cosf(a) * l, by + sinf(a) * l * 0.4f, sh(R_BONE, 0.7f)); cv_px((int)bx, (int)by, sh(R_BONE, 0.85f));
+    }
+}
+/* the level's age on a prop: stains in the bone, and moss low down once its decay is far on */
+static void prop_age(uint32_t seed) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t *c = &cv_sprite[y * TS + x];
+            if (*c <= R_BONE + 2 || *c >= R_BONE + 16) continue;
+            if (h01(x, y, seed) < g_decay * 0.14f) *c = (uint8_t)(*c - 2);
+            else if (g_decay > 0.45f && y > 46 && fbm((float)x / 4.0f, (float)y / 3.0f, 16, seed + 1) > 1.18f - g_decay * 0.45f) *c = sh(R_MOSS, 0.2f + 0.25f * h01(x, y, seed + 2));
+        }
+}
+/* the run's water on a finished prop (docs/InitialArtPass.md section 14, B3): what stands gets a silt line, darker and
+ * duller below it, weed hanging at it; iron rusts; everything drips under its overhangs; a wet sheen low down. Lights'
+ * flames and wax are left dry. Over crawl_spr[id] as stored, column-major */
+static void prop_wash(int id, int hangs, uint32_t seed) {
+    uint8_t *sp = crawl_spr[id];
+    int top = TS, foot = -1;
+    for (int x = 0; x < TS; x++) for (int y = 0; y < TS; y++) if (sp[x * TS + y] != C_CLEAR) { if (y < top) top = y; if (y > foot) foot = y; }
+    if (foot < 0) return;
+    int line = foot - (int)((float)(foot - top) * 0.28f) - 1;
+    #define WP(x, y) sp[(x) * TS + (y)]
+    #define WON(x, y) ((unsigned)(x) < (unsigned)TS && (unsigned)(y) < (unsigned)TS && WP(x, y) != C_CLEAR)
+    for (int x = 0; x < TS; x++)
+        for (int y = 0; y < TS; y++) {
+            uint8_t c = WP(x, y);
+            if (c == C_CLEAR || c == 0 || IS_FULLBRIGHT(c) || (c >= R_WARM && c <= R_WARM + 1)) continue;
+            int ramp = (c - 1) / 16 * 16 + 1, v = c - ramp;
+            if (ramp == R_IRON && h01(x, y, seed) < 0.35f) { WP(x, y) = sh(R_BRICK, 0.15f + 0.04f * (float)v); continue; }   /* rust */
+            if (!hangs && y > line) {                               /* below the silt line: dulled, a silt bloom */
+                WP(x, y) = h01(x, y, seed + 1) < 0.55f ? sh(R_WARM, 0.12f + 0.025f * (float)v) : (uint8_t)(ramp + clampi(v - 3, 1, 15));
+                if (y < foot - 1 && !WON(x - 1, y - 1) && h01(x, y, seed + 2) < 0.4f) WP(x, y) = sh(R_GHOST, 0.42f);   /* a wet sheen */
+            } else if (!hangs && y == line) WP(x, y) = sh(R_WARM, 0.55f);   /* the tide line */
+        }
+    if (!hangs)
+        for (int x = 0; x < TS; x++)                                /* weed hanging at the line */
+            if (WON(x, line) && h01(x, 7, seed + 3) < 0.18f)
+                for (int k = 1; k <= 2 + (int)(h01(x, 8, seed + 3) * 4.0f); k++) if (WON(x, line + k)) WP(x, line + k) = sh(R_MOSS, 0.32f - 0.04f * (float)k);
+    for (int x = 0; x < TS; x++)                                    /* drips under the overhangs */
+        for (int y = top; y < TS - 3; y++)
+            if (WON(x, y) && !WON(x, y + 1) && !IS_FULLBRIGHT(WP(x, y)) && h01(x, y, seed + 4) < 0.07f) {
+                WP(x, y + 1) = sh(R_GHOST, 0.62f);
+                if (!WON(x, y + 3) && h01(x, y, seed + 5) < 0.5f) WP(x, y + 3) = sh(R_GHOST, 0.75f);
+            }
+    #undef WP
+    #undef WON
+}
+
+/* P1: bones and skulls. Litter by a hall's wall: a femur across a snapped shin, ribs, a jaw; a ribcage open on its spine and
+ * a skull; two femurs crossed under a skull, the Order's memento mori. look 0-2 */
+static void spr_bonelitter(int id, int look) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 61.5f, 21, 2.4f, R_WARM + 1);
+    if (look == 0) {
+        prop_long(30, 61, 52, 54, 1.6f, 0, 1, 0.12f, 13);           /* a shin, snapped */
+        prop_long(10, 55, 40, 60, 2.0f, 1, 0, 0.0f, 11);            /* a femur across it */
+        for (int k = 0; k < 2; k++) prop_rib(22.0f + (float)k * 5.0f, 63.0f, 6.0f, 7.0f, PI_F * 1.1f, PI_F * 1.75f, 0.0f);
+        prop_jaw(51, 62); prop_vertebra(44, 61, 0.05f);
+    } else if (look == 1) {
+        for (int k = 0; k < 4; k++) prop_rib(17.0f + (float)k * 4.5f, 60.0f, 4.5f, 8.0f - (float)k * 0.8f, PI_F * 1.02f, PI_F * 1.98f, 0.04f * (float)k);   /* a ribcage open on its back */
+        for (int k = 0; k < 6; k++) prop_vertebra(12.0f + (float)k * 4.0f, 60.0f, 0.04f * (float)k);   /* its spine */
+        prop_skull(37, 49, 1, 1, 0, 0);
+        prop_long(48, 61, 58, 58, 1.3f, 0, 1, 0.15f, 17);
+    } else {
+        prop_long(17, 60, 46, 50, 1.5f, 1, 0, 0.12f, 19);
+        prop_long(17, 50, 46, 60, 1.5f, 1, 0, 0.0f, 21);
+        prop_skull(26, 45, 0, 1, 0, 0);
+        prop_vertebra(52, 61, 0.1f); prop_fingers(8, 60, 23);
+    }
+    prop_age(25 + (uint32_t)look);
+    cv_outline(0);
+    cv_store(id);
+}
+
+/* a charnel heap: a mound of long bones laid every way over the dark between them, skulls sunk in it, one crowning it; look
+ * 1 has a ribcage arching out of its side and a skull rolled off at its foot */
+static void spr_boneheap(int id, int look) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 61.5f, 28, 3.5f, R_WARM + 1);
+    for (int y = 34; y < 62; y++)                                   /* the dark of the heap, between the bones */
+        for (int x = 4; x < 60; x++) {
+            float dx = ((float)x + 0.5f - 32.0f) / 27.0f, h = 61.0f - 25.0f * (1.0f - dx * dx) * (0.85f + 0.15f * h01(x / 3, look, 27));
+            if ((float)y < h) continue;
+            cv_px(x, y, h01(x, y, 29) < 0.3f ? sh(R_BONE, 0.14f) : sh(R_WARM, 0.08f));
+        }
+    for (int layer = 0; layer < 3; layer++)                         /* the bones, the far ones dim */
+        for (int i = 0; i < 9; i++) {
+            uint32_t sd = 31u + (uint32_t)(layer * 17 + i + look * 101);
+            float cx = 8.0f + 48.0f * h01(i, 1, sd), dx = (cx - 32.0f) / 27.0f, top = 61.0f - 25.0f * (1.0f - dx * dx);
+            float cy = top + 3.0f + (60.0f - top - 3.0f) * h01(i, 2, sd), a = (h01(i, 3, sd) - 0.5f) * 2.4f, l = 6.0f + 6.0f * h01(i, 4, sd);
+            if (cy > 60.5f) cy = 60.5f;
+            prop_long(cx - cosf(a) * l, cy - sinf(a) * l, cx + cosf(a) * l, cy + sinf(a) * l, 1.25f, h01(i, 5, sd) < 0.3f, h01(i, 6, sd) < 0.25f, 0.32f - 0.14f * (float)layer, sd);
+        }
+    prop_skull(9, 47, 1, 0, 3, 0);                                  /* skulls sunk in it */
+    prop_skull(41, 48, 0, 0, 2, 0);
+    if (look == 1) {
+        for (int k = 0; k < 4; k++) prop_rib(50.0f, 50.0f + (float)k * 2.5f, 7.0f, 4.0f, PI_F * 1.15f, PI_F * 1.95f, 0.05f * (float)k);   /* a ribcage arching out */
+        prop_skull(2, 51, 1, 1, 0, 0);                              /* one rolled off */
+    }
+    prop_skull(26, 28, look, 1, 0, 0);                              /* and one crowning it */
+    prop_age(33 + (uint32_t)look);
+    cv_outline(0);
+    cv_store(id);
+}
+
+/* skulls as an ossuary keeps them. look 0: stacked in courses against the wall, femurs' ends between, stepping in to one on
+ * top; 1: a loose pyramid, some jawless, one rolled off, a cross painted on one; 2: a pile with a candle burnt out on
+ * it, its wax run down over them */
+static void femur_ends(int x0, int x1, int y) {                    /* a course of femurs laid end out: knuckles in two rows, bonded */
+    for (int r = 0; r < 2; r++)
+        for (int x = x0 + (r ? 2 : 0); x <= x1; x += 4) {
+            cv_ellipse((float)x + 1.5f, (float)y + 1.2f + (float)r * 2.6f, 1.9f, 1.5f, R_BONE, 0.2f, 0.78f - 0.06f * (float)r);
+            cv_px(x + 1, y + 1 + r * 3, sh(R_BONE, 0.28f));
+        }
+}
+static void spr_skullstack(int id, int look) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 28, 2.5f, R_WARM + 1);
+    if (look == 0) {
+        femur_ends(5, 57, 56);
+        for (int k = 0; k < 5; k++) prop_skull(5 + k * 11, 44, k & 1, k != 3, (k * 3) % 2, 0);
+        femur_ends(9, 53, 39);
+        for (int k = 0; k < 4; k++) prop_skull(10 + k * 11, 27, (k + 1) & 1, k != 0, 1, 0);
+        femur_ends(15, 47, 22);
+        prop_skull(26, 10, 0, 1, 0, 0);
+        for (int k = 0; k < 5; k++) cv_px(37, 28 + k, sh(R_BLOOD, 0.4f - 0.03f * (float)k));   /* a cross painted on one's brow, in red ochre */
+        for (int k = -2; k <= 2; k++) cv_px(37 + k, 30, sh(R_BLOOD, 0.4f));
+    } else {
+        static const int ROW[4][5] = { { 4, 15, 26, 37, 48 }, { 9, 20, 31, 42, -1 }, { 15, 26, 37, -1, -1 }, { 21, 32, -1, -1, -1 } };
+        for (int r = 0; r < 4; r++)
+            for (int k = 0; k < 5 && ROW[r][k] >= 0; k++) {
+                int x = ROW[r][k] + (int)(h01(r, k, 43 + (uint32_t)look) * 3.0f) - 1, y = 50 - r * 10 + (int)(h01(k, r, 45) * 2.0f);
+                prop_skull(x, y, (r + k + look) & 1, r == 0 || h01(r, k, 47) < 0.5f, r == 0 ? 0 : 1 + (k & 1), 0);
+            }
+        if (look == 1) {
+            prop_skull(51, 51, 1, 1, 0, 0);                         /* rolled off */
+            for (int k = 0; k < 4; k++) cv_px(27, 31 + k, sh(R_BLOOD, 0.42f));   /* a cross painted on one's brow, in red ochre */
+            for (int k = -1; k <= 1; k++) cv_px(27 + k, 32, sh(R_BLOOD, 0.42f));
+        } else {
+            for (int y = 9; y < 21; y++) for (int x = 31; x < 34; x++) cv_px(x, y, sh(R_BONE, 0.55f + 0.2f * (x == 31) - 0.01f * (float)(y - 9)));   /* a candle burnt low */
+            cv_px(32, 8, 0); cv_px(32, 7, sh(R_IRON, 0.3f));                                            /* its wick, out */
+            for (int k = 0; k < 7; k++) {                           /* its wax run down over the skulls */
+                int x = 27 + (int)(h01(k, 1, 49) * 11.0f), l = 4 + (int)(h01(k, 2, 49) * 14.0f);
+                for (int j = 0; j < l; j++) if (cv_sprite[(20 + j) * TS + x] != C_CLEAR) cv_px(x, 20 + j, sh(R_BONE, 0.82f - 0.02f * (float)j));
+            }
+            for (int x = 28; x < 37; x++) cv_px(x, 21, sh(R_BONE, 0.78f));
+        }
+    }
+    prop_age(51 + (uint32_t)look);
+    cv_outline(0);
+    cv_store(id);
+}
+
+/* a candle at (x, by), h tall, its flame in a frame; wax run down it */
+static void prop_candle(float x, float by, float h, int frame, int seed) {
+    for (int y = (int)(by - h); y <= (int)by; y++) { cv_px((int)x, y, sh(R_BONE, 0.72f)); cv_px((int)x + 1, y, sh(R_BONE, 0.48f)); }
+    cv_px((int)x - 1, (int)(by - h) + 2 + (seed & 1), sh(R_BONE, 0.8f)); cv_px((int)x + 2, (int)(by - h) + 3, sh(R_BONE, 0.6f));   /* runs of wax */
+    flame(x + 1.0f, by - h - 1.0f, 5.5f + (float)((frame + seed) & 1), 1.7f, (frame ? 0.7f : -0.6f) * (seed & 1 ? 1.0f : -1.0f));
+}
+/* the totem: a black post bound in iron and rope, skulls threaded on it with a candle's light inside each, a crossbar of iron
+ * with candles at its ends and one on top, their wax run down. look 1: a great skull on top crowned with candles, two
+ * smaller ones hung below it on chains, a strip of the Order's banner nailed to the post. frame 0-1, the flames */
+static void spr_totempost(int id, int look, int frame) {
+    cv_begin(cv_sprite, TS, TS);
+    float cx = 32;
+    cv_flat(cx, 62, 10, 1.7f, R_WARM + 1);
+    cv_capsule(cx, look ? 20.0f : 14.0f, cx, 62, 2.4f, R_WOOD, 0.06f, 0.42f);   /* the post, black with age */
+    for (int b = 0; b < 3; b++) {                                   /* iron bands, and rope lashed below them */
+        int y = 58 - b * (look ? 13 : 15);
+        for (int x = (int)cx - 3; x <= (int)cx + 3; x++) cv_px(x, y, sh(R_IRON, 0.55f - 0.07f * (float)abs(x - (int)cx + 1)));
+        cv_px((int)cx + 1, y, sh(R_IRON, 0.85f));
+        for (int k = 1; k <= 2; k++) for (int x = (int)cx - 2; x <= (int)cx + 2; x++) cv_px(x, y + k, ((x + k) & 1) ? sh(R_WARM, 0.55f) : sh(R_WARM, 0.32f));
+    }
+    if (!look) {
+        for (int k = 0; k < 3; k++) prop_skull((int)cx - 5, 47 - k * 12, k & 1, k == 0, k, 4 + ((frame + k) & 1));   /* threaded on it, lit inside */
+        cv_capsule(cx - 13, 23, cx + 13, 23, 1.1f, R_IRON, 0.15f, 0.6f);   /* the crossbar */
+        for (int s = -1; s <= 1; s += 2) prop_candle(cx + (float)s * 12.0f, 22, 6, frame, s > 0);
+        prop_candle(cx - 0.5f, 13, 6, frame, 2);
+        for (int k = 0; k < 5; k++) {                               /* wax run down the skulls from above */
+            int x = (int)cx - 3 + (int)(h01(k, 1, 53) * 7.0f), y0 = 24, l = 3 + (int)(h01(k, 2, 53) * 8.0f);
+            for (int j = 0; j < l; j++) if (cv_sprite[(y0 + j) * TS + x] != C_CLEAR) cv_px(x, y0 + j, sh(R_BONE, 0.8f - 0.02f * (float)j));
+        }
+    } else {
+        for (int s = -1; s <= 1; s += 2) {                          /* two hung on chains from a bar */
+            float hx = cx + (float)s * 10.0f;
+            for (int y = 25; y < 33; y++) cv_px((int)hx, y, sh(R_IRON, (y & 1) ? 0.6f : 0.25f));
+            prop_skull((int)hx - 5, 32, s > 0, 0, 1, 0);
+        }
+        cv_capsule(cx - 11, 24, cx + 11, 24, 1.0f, R_IRON, 0.15f, 0.55f);
+        for (int y = 30; y < 44; y++)                               /* a strip of the Order's banner, nailed on and torn */
+            for (int x = (int)cx - 2; x <= (int)cx + 3; x++) {
+                if (y > 40 && h01(x, y, 55) < (float)(y - 40) / 4.0f) continue;
+                cv_px(x, y, sh(R_BLOOD, 0.2f + 0.08f * (float)(x < (int)cx + 1)));
+            }
+        cv_px((int)cx, 31, sh(R_IRON, 0.8f)); cv_px((int)cx + 1, 35, (uint8_t)(R_GOLD + 5)); cv_px((int)cx + 1, 36, (uint8_t)(R_GOLD + 4)); cv_px((int)cx, 36, (uint8_t)(R_GOLD + 4)); cv_px((int)cx + 2, 36, (uint8_t)(R_GOLD + 3)); cv_px((int)cx + 1, 37, (uint8_t)(R_GOLD + 4));
+        skull_stamp(cx, 13, 0, 0, 0);                               /* the great skull on top */
+        for (int y = 9; y < 14; y++) for (int x = (int)cx - 4; x <= (int)cx + 4; x++) {   /* candlelight in its sockets */
+            uint8_t c = cv_sprite[y * TS + x];
+            if (c == 0) cv_px(x, y, (uint8_t)(R_FLAME + 3 + ((frame + x) & 1)));
+        }
+        for (int k = -1; k <= 1; k++) prop_candle(cx + (float)k * 4.5f - 0.5f, 6.0f + (float)abs(k), 4 + (k == 0), frame, k + 1);   /* candles in its crown */
+        for (int k = 0; k < 6; k++) {                               /* their wax run down its face */
+            int x = (int)cx - 6 + (int)(h01(k, 1, 57) * 12.0f), l = 2 + (int)(h01(k, 2, 57) * 9.0f);
+            for (int j = 0; j < l; j++) if (cv_sprite[(7 + j) * TS + x] != C_CLEAR && cv_sprite[(7 + j) * TS + x] != 0) cv_px(x, 7 + j, sh(R_BONE, 0.85f - 0.02f * (float)j));
+        }
+    }
+    prop_age(59 + (uint32_t)look);
+    cv_outline(0);
+    cv_store(id);
+}
+
+/* every prop drawn so far, at the level's age, and washed in run II */
+static void props_level(int level) {
+    int wet = crawl_set(level) == 1;
+    spr_bonelitter(SP_BONES1, 0); spr_bonelitter(SP_BONES1_2, 1); spr_bonelitter(SP_BONES1_3, 2);
+    spr_boneheap(SP_BONES2, 0); spr_boneheap(SP_BONES2_2, 1);
+    spr_skullstack(SP_SKULLPILE, 0); spr_skullstack(SP_SKULLPILE_2, 1); spr_skullstack(SP_SKULLPILE_3, 2);
+    for (int f = 0; f < 2; f++) { spr_totempost(SP_TOTEM_A + f, 0, f); spr_totempost(SP_TOTEM2_A + f, 1, f); }
+    if (wet) {
+        static const int16_t STANDS[] = { SP_BONES1, SP_BONES1_2, SP_BONES1_3, SP_BONES2, SP_BONES2_2, SP_SKULLPILE, SP_SKULLPILE_2, SP_SKULLPILE_3,
+                                          SP_TOTEM_A, SP_TOTEM_B, SP_TOTEM2_A, SP_TOTEM2_B };
+        for (int i = 0; i < (int)(sizeof STANDS / sizeof STANDS[0]); i++) {
+            int id = STANDS[i], first = id == SP_TOTEM_B ? SP_TOTEM_A : (id == SP_TOTEM2_B ? SP_TOTEM2_A : id);   /* a prop's frames wash alike */
+            prop_wash(id, 0, 61u + (uint32_t)first * 7u);
+        }
+    }
+}
+/* which props have other looks: each base's looks, in order (crawl_alt) */
+static void props_alts(void) {
+    memset(crawl_alt, 0xFF, sizeof crawl_alt);
+    static const int16_t ALTS[][NALT] = {
+        { SP_BONES1, SP_BONES1_2, SP_BONES1_3, -1 }, { SP_BONES2, SP_BONES2_2, -1, -1 }, { SP_SKULLPILE, SP_SKULLPILE_2, SP_SKULLPILE_3, -1 },
+        { SP_TOTEM_A, SP_TOTEM2_A, -1, -1 },
+    };
+    for (int i = 0; i < (int)(sizeof ALTS / sizeof ALTS[0]); i++) memcpy(crawl_alt[ALTS[i][0]], ALTS[i], sizeof ALTS[i]);
+}
+
 void crawl_art_level(int level) {
     float dk = crawl_decay(level), depth = crawl_depth(level);
     g_decay = fmaxf(dk, depth);                                     /* the dead themselves only get older going down */
@@ -7674,6 +7935,7 @@ void crawl_art_level(int level) {
     spr_shieldskel(SP_SHIELD_XA, 1.0f, 0, 0); spr_shieldskel(SP_SHIELD_XB, -1.0f, 0, 0); spr_shieldskel(SP_SHIELD_XS, 0.2f, 1, 0);
     spr_bestiary_bones();
     spr_sides();
+    props_level(level);                                             /* the props, at its age, washed in run II */
     treasure_plain();
     if (crawl_drawn(level)) crawl_art_run(level);                  /* the run's own look (docs/PLAN-b10.md) */
     else {                                                          /* not drawn yet: the look as it was */
@@ -10636,9 +10898,7 @@ void crawl_art_init(void) {
     gen_scarpet(T_SCARPET, 407);
     gen_sceiling(T_SCEIL, 0, 411); gen_sceiling(T_SCEILLAMP, 1, 411);
 
-    spr_bones(SP_BONES1, 0, 5);
-    spr_bones(SP_BONES2, 1, 9);
-    spr_skullpile();
+    props_alts();
     spr_cobweb();
     spr_chains();
     spr_urn();
@@ -10719,7 +10979,6 @@ void crawl_art_init(void) {
     spr_tr_bier();
     spr_tr_prop(SP_TR_PROP0, 0); spr_tr_prop(SP_TR_PROP1, 1);
     for (int f = 0; f < 3; f++) spr_firepit(SP_FIREPIT_A + f, f);
-    spr_totem(SP_TOTEM_A, 0); spr_totem(SP_TOTEM_B, 1);
     spr_shambler(SP_SHAMB_A, 1.0f, 0); spr_shambler(SP_SHAMB_B, -1.0f, 0); spr_shambler(SP_SHAMB_GRAB, 0.0f, 1);
     shambler_dress(SP_SHAMB_A, 1.0f, 0); shambler_dress(SP_SHAMB_B, -1.0f, 0); shambler_dress(SP_SHAMB_GRAB, 0.0f, 1);
     spr_shambler(SP_SHAMB_RISE1, 0.0f, 2); spr_shambler(SP_SHAMB_RISE2, 0.0f, 3); spr_shambler(SP_SHAMB_D1, 0.0f, 4); spr_shambler(SP_SHAMB_D2, 0.0f, 5);
