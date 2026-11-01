@@ -2797,8 +2797,8 @@ static void build_lightmap(void) {
  * at them; CRAWL_STAGEDARK=f scales the light (0 none), CRAWL_STAGEFOG=1 thickens the fog to its most, CRAWL_STAGESUB=s
  * puts them in that state, CRAWL_STAGEDIST=d just one at d cells, CRAWL_STAGEBOSS=b each drawn as that boss (BOSS_*, of its
  * kind), CRAWL_STAGEREAR=1 the Wandering Spider rearing to spit, CRAWL_STAGECHANT=1 a deacon chanting; with CRAWL_PROPROOM=k
- * no creature at all, and the caster in a corner of the first room of type k (RT_*), for the props. For frames of the art
- * pass (docs/InitialArtPass.md). */
+ * no creature at all, and the caster in a corner of the first room of type k (RT_*), for the props, or with CRAWL_TPPROP=spr
+ * before the first prop drawn as that sprite (tp_prop). For frames of the art pass (docs/InitialArtPass.md). */
 static int g_stage = -1, g_stage_fog;
 static float g_stage_lm = 1.0f;
 #endif
@@ -13248,6 +13248,8 @@ static int con_update(float dt);
 static void challenge_begin(int b);
 #ifdef CRAWL_DEBUG
 static void tp_room(int k);
+static void tp_prop(int spr);
+static int deco_look(const Deco *dc);
 #endif
 static void update_mark(float dt);
 static void comp_note(int level);
@@ -13308,9 +13310,9 @@ static void crawl_update(double dt) {
     static int stage_level = -1;                                   /* CRAWL_STAGE: a kind stood down a hall */
     if (getenv("CRAWL_STAGE") && !G.shop && !PK.depth && stage_level != G.level && G.level_t > 0.3) {
         g_stage = clampi(atoi(getenv("CRAWL_STAGE")), 0, NKINDS - 1); stage_level = G.level;
-        if (getenv("CRAWL_PROPROOM")) {                            /* for the props: no one about, and you in a room of that type */
+        if (getenv("CRAWL_PROPROOM") || getenv("CRAWL_TPPROP")) {  /* for the props: no one about, and you in a room of that type, or before one */
             for (int i = 0; i < MAXMOBS; i++) G.mobs[i].alive = 0;
-            tp_room(atoi(getenv("CRAWL_PROPROOM")));
+            if (getenv("CRAWL_TPPROP")) tp_prop(atoi(getenv("CRAWL_TPPROP"))); else tp_room(atoi(getenv("CRAWL_PROPROOM")));
         } else stage_set(g_stage);
     }
     if (g_stage >= 0) for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && G.mobs[i].type != g_stage) G.mobs[i].alive = 0;
@@ -15142,6 +15144,27 @@ static void tp_room(int k) {                                       /* in the fir
             return;
         }
     }
+}
+/* before the first decoration drawn as spr (a look counts as itself), CRAWL_TPPROPD cells off (2.2), facing it; CRAWL_TPPROPN=n
+ * the n-th such (from 0) */
+static void tp_prop(int spr) {
+    float want = getenv("CRAWL_TPPROPD") ? (float)atof(getenv("CRAWL_TPPROPD")) : 2.2f;
+    int nth = getenv("CRAWL_TPPROPN") ? atoi(getenv("CRAWL_TPPROPN")) : 0;
+    for (int i = 0; i < G.ndecos; i++) {
+        const Deco *dc = &G.decos[i];
+        if (dc->spr < 0 || deco_look(dc) != spr || nth-- > 0) continue;
+        for (int pass = 0; pass < 3; pass++)                       /* the distance asked, then nearer, then further */
+            for (int a = 0; a < 24; a++) {
+                float ang = TAU_F * (float)((a * 7) % 24) / 24.0f, d = want * (pass == 0 ? 1.0f : pass == 1 ? 0.7f : 1.4f);
+                float x = dc->x + cosf(ang) * d, y = dc->y + sinf(ang) * d;
+                if (x < 1.0f || y < 1.0f || x >= MAPN - 1 || y >= MAPN - 1 || G.map[(int)y][(int)x].kind != K_FLOOR || !line_clear(x, y, dc->x, dc->y)) continue;
+                G.px = x; G.py = y; G.cx = (int)x; G.cy = (int)y; G.ang = atan2f(dc->y - y, dc->x - x);
+                human_begin();
+                fprintf(stderr, "TPPROP spr %d at %.2f,%.2f from %.2f,%.2f\n", spr, dc->x, dc->y, x, y);
+                return;
+            }
+    }
+    fprintf(stderr, "TPPROP spr %d: none\n", spr);
 }
 static void tp_door(void) {                                        /* a chained room opened, and you before its doorway */
     for (int i = 0; i < G.nsecrets; i++) {
@@ -18535,6 +18558,16 @@ static int glitch_rows(const Draw *d, int8_t *shift, uint8_t *slip) {
     return 1;
 }
 
+/* the look a decoration is drawn in: a prop with other looks takes one by where it stands (crawl_alt) */
+static int deco_look(const Deco *dc) {
+    int look = dc->spr;
+    if (crawl_alt[look][1] >= 0) {
+        int na = 1;
+        while (na < NALT && crawl_alt[look][na] >= 0) na++;
+        look = crawl_alt[look][hash2((int)(dc->x * 8.0f), (int)(dc->y * 8.0f)) % (uint32_t)na];
+    }
+    return look;
+}
 static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     static Draw list[MAXDECO + MAXMOBS + MAXSHOTS + MAXBOOMS + MAXBONES + MAXITEMS + MAXBURNS + MAXPOOLS + MAXHAZ * 4 + MAXSITE * 4 + 16];   /* and wisps, a double, after-images */
     int n = 0;
@@ -18545,12 +18578,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         const Deco *dc = &G.decos[i];
         static const float FPS[4] = { 0.0f, 0.0f, 3.0f, 9.0f };    /* by frame count: candles flicker, fire roars */
         if (dc->spr < 0) continue;                                 /* gone: risen, or never a statue */
-        int look = dc->spr;                                        /* a prop with other looks: one by where it stands (crawl_alt) */
-        if (crawl_alt[look][1] >= 0) {
-            int na = 1;
-            while (na < NALT && crawl_alt[look][na] >= 0) na++;
-            look = crawl_alt[look][hash2((int)(dc->x * 8.0f), (int)(dc->y * 8.0f)) % (uint32_t)na];
-        }
+        int look = deco_look(dc);
         int spr = look + (dc->nfr > 1 ? (int)((float)G.t * FPS[dc->nfr & 3] + dc->phase) % dc->nfr : 0), n0 = n;
         float zx = 0.0f, ox = 0.0f, oy = 0.0f;
         if (dc->flags & (DF_FLIP | DF_FLOAT | DF_SINK | DF_LOOP)) {   /* out of place */
