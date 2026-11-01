@@ -117,6 +117,11 @@ also took out `b.txt` and `dream.txt`, debug logs that had come onto main with 1
 `preview_catacomb_trials.png`, was taken for the release (no hazard shows well in a still frame, so it has none).
 1.0.0b14 (steps 9-13) is not begun. See *1.0.0b13 so far* below, and the numbers under *Known issues*.
 
+How the dead think is planned in [`docs/PLAN-ai.md`](docs/PLAN-ai.md), a first draft for the owner (1 November): senses
+and memory, packs of a kind and mixed bands, posts, patrols, callers, scavengers, hunters on the caster's trail, lures
+and ambushes, cunning by rank, and an encounter budget for the generator. Its questions are unanswered and nothing is
+built; it proposes going in as 1.0.0b14 with the lower storey moved to 1.0.0b15 (its A2), which is the owner's call.
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture
