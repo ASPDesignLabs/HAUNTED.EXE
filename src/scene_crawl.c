@@ -37,7 +37,7 @@
 
 enum { K_FLOOR, K_WALL, K_DOOR, K_PILLAR, K_PROP };   /* K_PROP: low and solid (a grave, a fire pit): walked round, seen and cast over */
 enum { TH_CORRIDOR, TH_OSSUARY, TH_CRYPT, TH_BRICK, TH_MOSS, TH_COUNT };
-enum { PS_MOVE, PS_TURN, PS_DOOR, PS_AIM, PS_CAST, PS_UNAIM, PS_HOLD, PS_EXIT, PS_SHOP, PS_PLAYER, PS_SETTLE, PS_PUSH, PS_ALTAR, PS_USE };
+enum { PS_MOVE, PS_TURN, PS_DOOR, PS_AIM, PS_CAST, PS_UNAIM, PS_HOLD, PS_EXIT, PS_SHOP, PS_PLAYER, PS_SETTLE, PS_PUSH, PS_ALTAR, PS_USE, PS_MEND };
 enum { MOB_SKEL, MOB_GHOST, MOB_BAT, MOB_WSKULL, MOB_SHIELD, MOB_SPIDER,
        MOB_SHAMBLER, MOB_DROWNED, MOB_HOUND, MOB_WRAITH, MOB_HUNTER, MOB_GHOUL, MOB_KNIGHT, MOB_BROOD, MOB_LING, MOB_SAC,
        MOB_SHADE, MOB_IMP, MOB_DEACON, MOB_GARGOYLE };   /* kept in saves (the record): new kinds go at the end */
@@ -700,6 +700,9 @@ static struct {
     int ncells, explored;
     float lit_here, glow_here, flare_t;     /* the light at the caster but its own glow; a cast's flare (docs/PLAN-ai.md, S2) */
     int lost_rg[8], lost_n;                 /* the rooms where a search lost the caster this level, newest first (section 30) */
+    int nrest, rest_x[2], rest_y[2], rest_fx[2], rest_fy[2], rest_on, rest_goal, rest_said;   /* the places to mend (section 28): the
+                                                                      wall, the floor before it; 1 + the one in use; the dream's goal */
+    float rest_acc, rest_beat;
 
     /* player */
     float px, py, ang, spd, bob, bobph, camz;
@@ -2836,6 +2839,8 @@ static void build_lightmap(void) {
     if (!G.shop && G.altar_x >= 0 && (G.altar_state == ALTAR_AWAKE || G.altar_state == ALTAR_READY || G.blessed))   /* the altar's fire */
         light_dynamic(G.altar_x + 0.5f, G.altar_y + 0.5f, 1.1f + 0.15f * sinf((float)G.t * 9.0f), 3.6f);
     hz_lights();
+    if (G.rest_on && G.rest_on <= G.nrest)                         /* a place to mend, in use: it glows */
+        light_dynamic(G.rest_fx[G.rest_on - 1] + 0.5f, G.rest_fy[G.rest_on - 1] + 0.5f, 0.9f + 0.25f * sinf((float)G.t * 2.4f), 3.0f);
     G.lit_here = lm_at(G.px, G.py) - G.glow_here;
 }
 
@@ -3128,12 +3133,14 @@ static void windup_blow(int d, float raw, float after, int el) {
     fprintf(stderr, "EVENT windup_broken %s chance %.2f keep %.2f t=%.2f\n", G.player ? "player" : "autopilot", chance, keep, G.t);
 #endif
 }
+static void rest_end(const char *why);
 static int hurt_ex(float dmg, int kind, float sx, float sy) {
     int el = harm_of(kind);
     float raw = dmg, armoured = dmg;
     if (G.dead || G.ending || G.exiting || G.tally || G.shop || G.level_t < 1.5) return 0;
     if (G.dash_t > 0.0f) return 0;                                 /* Swift Dodge: nothing touches you while you dart */
     if (G.wind_t > 0.0f) return 0;                                 /* a Second Wind: a breath when nothing touches you */
+    if (G.rest_on) rest_end("struck");                             /* a blow ends the mending */
     const Gear *g = &RUN.gear;
     int seeping = kind == HURT_POISON || kind == HURT_VOID;        /* nothing turns these: no dodge, armour or ward */
     if (!seeping) {
@@ -5670,6 +5677,7 @@ static void say(const char *fmt, ...);
 static void cast_spell(int sp, int t) {
     const Gear *g = &RUN.gear;
     Mob *m = t >= 0 ? &G.mobs[t] : &G.mobs[0];
+    if (G.rest_on) rest_end("cast");                                /* a cast gets you up */
     int have = t >= 0 && m->alive && m->state == MS_WALK;
     float tx = have ? m->x : G.px + cosf(G.ang) * 4, ty = have ? m->y : G.py + sinf(G.ang) * 4;
     float a = atan2f(ty - G.py, tx - G.px);
@@ -7149,11 +7157,124 @@ static int mote_goal(int *gx, int *gy) {
 }
 static int pz_goal(int x, int y, int *gx, int *gy);
 static int tri_goal(int x, int y, int *gx, int *gy);
+/* ---- Places to mend (docs/PLAN-ai.md, section 28; "rests" in the code, since the Mend rune has G.mend_*): one a level,
+ * two from run III, in a room's wall facing its way in, so whoever mends there has their back to the door; never the
+ * start's room or the exit's, a vault, the wing, a trial's room, an arena or a pocket. E facing one begins; standing
+ * there, health rises towards three quarters of the whole, from nothing in twenty seconds; moving, turning away,
+ * casting, E again or a blow ends it. PHYSIC raises how far (a point for each 16%) and how fast (by half of it). Every
+ * second of it is a noise sixteen steps off, and what hears it knows where you are. ---- */
+#define REST_T 20.0f
+static float rest_cap(void) { return fminf(1.0f, 0.75f + gear_total(&RUN.gear, ST_PHYSIC) / 1600.0f); }
+static int rest_facing(float reach) {                              /* the one the caster stands before and faces */
+    for (int i = 0; i < G.nrest; i++) {
+        if (hypotf(G.rest_fx[i] + 0.5f - G.px, G.rest_fy[i] + 0.5f - G.py) > reach) continue;
+        if (fabsf(wrap_pi(atan2f(G.rest_y[i] + 0.5f - G.py, G.rest_x[i] + 0.5f - G.px) - G.ang)) < 0.7f) return i;
+    }
+    return -1;
+}
+static void rest_end(const char *why) {
+    if (!G.rest_on) return;
+    G.rest_on = 0;
+    snd_sfx_ex(SFX_WIND, 0.35f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT mend_end %s hp=%d/%d t=%.2f\n", why, G.hp, G.max_hp, G.t);
+#else
+    (void)why;
+#endif
+}
+static int rest_begin(int i) {
+    if (G.hp >= (int)(rest_cap() * (float)G.max_hp)) { say("IT CAN MEND YOU NO FURTHER"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return 1; }
+    G.rest_on = i + 1; G.rest_acc = 0.0f; G.rest_beat = 0.0f;
+    snd_sfx_ex(SFX_WHISPER, 0.6f, 0.5f); sfx_at(SFX_DRIP, G.rest_x[i] + 0.5f, G.rest_y[i] + 0.5f, 0.8f);
+    if (!G.rest_said) { G.rest_said = 1; say("YOU KNEEL AND MEND. THE DEAD WILL HEAR IT"); }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT mend_begin %d hp=%d/%d by %s t=%.2f\n", i, G.hp, G.max_hp, G.player ? "player" : "autopilot", G.t);
+#endif
+    return 1;
+}
+static void rest_tick(float dt) {                                  /* every frame, whoever plays */
+    if (!G.rest_on) return;
+    int i = G.rest_on - 1;
+    if (G.dead || G.shop || PK.depth || i >= G.nrest) { rest_end("gone"); return; }
+    if (G.player && G.spd > 0.2f) { rest_end("moved"); return; }
+    if (G.player && rest_facing(1.5f) != i) { rest_end("turned"); return; }
+    float phys = gear_total(&RUN.gear, ST_PHYSIC), cap = rest_cap() * (float)G.max_hp;
+    G.rest_acc += 0.75f * (float)G.max_hp / REST_T * (1.0f + phys / 200.0f) * dt;
+    while (G.rest_acc >= 1.0f && G.hp < (int)cap) { G.hp++; G.rest_acc -= 1.0f; }
+    if ((G.rest_beat -= dt) <= 0.0f) {                              /* the dead hear it */
+        G.rest_beat = 1.0f;
+        noise(G.px, G.py, 16, NZ_MEND, -1);
+        sfx_at(SFX_DRIP, G.rest_x[i] + 0.5f, G.rest_y[i] + 0.5f, 0.5f);
+    }
+    if (G.hp >= (int)cap) { rest_end("full"); say("IT CAN MEND YOU NO FURTHER"); }
+}
+static void place_rests(void) {
+    G.nrest = 0; G.rest_on = 0; G.rest_goal = -1;
+    if (G.shop || PK.depth || G.nrooms <= 0) return;
+    int want = crawl_set(G.level) >= 2 ? 2 : 1;
+    uint32_t seed = hash2(G.level * 31 + 7, 977);
+    int start_rg = cell((int)G.px, (int)G.py)->region, exit_rg = G.exit_fx >= 0 ? cell(G.exit_fx, G.exit_fy)->region : -1000;
+    for (int pass = 0; pass < G.nrooms && G.nrest < want; pass++) {
+        int r = (pass + (int)(seed % (uint32_t)G.nrooms)) % G.nrooms, vault = 0;
+        const Room *R = &G.rooms[r];
+        for (int k = 0; k < G.nvaults; k++) vault |= G.vault_room[k] == r;
+        if (vault || R->region == start_rg || R->region == exit_rg || r == G.pz_room || r == G.tri_room || in_band(R->y + R->h)) continue;
+        float ex = 0.0f, ey = 0.0f; int ne = 0;                    /* the way in: what is open on the ring about it */
+        for (int y = R->y - 1; y <= R->y + R->h; y++)
+            for (int x = R->x - 1; x <= R->x + R->w; x++) {
+                if (y > R->y - 1 && y < R->y + R->h && x > R->x - 1 && x < R->x + R->w) continue;
+                int k = cell(x, y)->kind;
+                if (k == K_FLOOR || k == K_DOOR) { ex += (float)x; ey += (float)y; ne++; }
+            }
+        if (!ne) continue;
+        ex /= (float)ne; ey /= (float)ne;
+        float cx = (float)R->x + (float)R->w * 0.5f - 0.5f, cy = (float)R->y + (float)R->h * 0.5f - 0.5f, bs = -1e9f;
+        int bx = -1, by = -1, bfx = 0, bfy = 0;
+        for (int y = R->y - 1; y <= R->y + R->h; y++)               /* the wall it faces: as far from the way in as can be */
+            for (int x = R->x - 1; x <= R->x + R->w; x++) {
+                const Cell *w = cell(x, y);
+                if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1) continue;   /* the map's rim is stone */
+                if (w->kind != K_WALL || w->secret || w->ftorch || !plain_tex(w->tex)) continue;
+                int open = 0, fx = 0, fy = 0;
+                for (int d = 0; d < 4; d++) if (face_open(x, y, d)) { open++; fx = x + DX[d]; fy = y + DY[d]; }
+                if (open != 1 || cell(fx, fy)->kind != K_FLOOR || cell(fx, fy)->region != R->region) continue;
+                float s = -((float)x - cx) * (ex - cx) - ((float)y - cy) * (ey - cy) + 0.3f * (float)(hash2(x, y + (int)seed) & 7);
+                if (s > bs) { bs = s; bx = x; by = y; bfx = fx; bfy = fy; }
+            }
+        if (bx < 0) continue;
+        G.map[by][bx].tex = T_REST;
+        G.rest_x[G.nrest] = bx; G.rest_y[G.nrest] = by; G.rest_fx[G.nrest] = bfx; G.rest_fy[G.nrest] = bfy; G.nrest++;
+    }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "MEND level %d:", G.level);
+    for (int i = 0; i < G.nrest; i++) fprintf(stderr, " (%d,%d) before (%d,%d)", G.rest_x[i], G.rest_y[i], G.rest_fx[i], G.rest_fy[i]);
+    fprintf(stderr, "\n");
+#endif
+}
+/* the dream: under two fifths of its health, nothing after it, one within thirty steps: there, and it mends */
+static int rest_wanted(void) {
+    return !G.player && !G.shop && !PK.depth && G.nrest > 0 && !G.rest_on && G.hp * 5 < G.max_hp * 2 && !in_combat()
+        && G.hp < (int)(rest_cap() * (float)G.max_hp);
+}
+static int rest_goal(int x, int y, int *gx, int *gy) {
+    G.rest_goal = -1;
+    if (!rest_wanted()) return 0;
+    bfs_from(x, y);
+    int bd = 31;
+    for (int i = 0; i < G.nrest; i++) {
+        int sx, sy;
+        if (!use_spot(G.rest_x[i], G.rest_y[i], &sx, &sy)) continue;
+        int d = bfs_dist[sy][sx];
+        if (d >= 0 && d < bd) { bd = d; G.rest_goal = i; *gx = sx; *gy = sy; }
+    }
+    return G.rest_goal >= 0;
+}
 static int pick_goal(int x, int y, int *gx, int *gy) {
     if (boss_goal(x, y, gx, gy)) return 1;
     if (tri_goal(x, y, gx, gy)) return 1;                          /* a trial: in, and through it */
     if (chain_goal(x, y, gx, gy)) return 1;
     if (pz_goal(x, y, gx, gy)) return 1;                           /* a puzzle, when there is time or the way on lies beyond */
+    if (rest_goal(x, y, gx, gy)) return 1;                         /* hurt and nothing after it: a place to mend */
     int saving = RUN.goal > RUN.treasure;
     if (G.leaving && G.exit_fx >= 0) {                              /* time to go: the exit, by way of key and vault if need be */
         if (G.exit_in_vault >= 0 && key_goal(G.exit_in_vault, 0, gx, gy)) return 1;
@@ -7313,6 +7434,15 @@ static int at_use(void) {
     if (G.use_kind == USE_NONE || G.player || !use_spot(G.use_x, G.use_y, &sx, &sy) || G.cx != sx || G.cy != sy) return 0;
     begin_turn(atan2f(G.use_y + 0.5f - G.py, G.use_x + 0.5f - G.px));
     G.state = PS_USE; G.spd = 0.0f; G.fired = 0; G.u = 1.0f;
+    return 1;
+}
+
+/* beside a place to mend, hurt and nothing after it: face it, and kneel */
+static int at_rest(void) {
+    int sx, sy, i = G.rest_goal;
+    if (i < 0 || i >= G.nrest || !rest_wanted() || !use_spot(G.rest_x[i], G.rest_y[i], &sx, &sy) || G.cx != sx || G.cy != sy) return 0;
+    begin_turn(atan2f(G.rest_y[i] + 0.5f - G.py, G.rest_x[i] + 0.5f - G.px));
+    G.state = PS_MEND; G.spd = 0.0f; G.fired = 0; G.u = 1.0f;
     return 1;
 }
 
@@ -7543,7 +7673,7 @@ static void update_player(float dt) {
             break;
         }
         if (G.u >= 1.0f) {
-            if (arrive() || at_secret() || at_altar() || at_use()) break;
+            if (arrive() || at_secret() || at_altar() || at_use() || at_rest()) break;
             if (G.next_h != G.h) {
                 begin_turn(heading_angle(G.next_h));
                 G.state = PS_TURN;
@@ -7559,12 +7689,12 @@ static void update_player(float dt) {
         G.st += dt;
         if (G.u < 1.0f) {                                         /* still finishing the step into the corner */
             advance(fmaxf(G.spd, CRUISE * 0.4f) * dt);
-            if (G.u >= 1.0f && (arrive() || at_secret() || at_altar() || at_use())) break;
+            if (G.u >= 1.0f && (arrive() || at_secret() || at_altar() || at_use() || at_rest())) break;
         } else G.spd *= 0.85f;
         float k = smoothstepf(0.0f, 1.0f, G.st / G.adur);
         G.ang = lerpf(G.ang0, G.ang1, k);
         if (G.st >= G.adur) {
-            if (G.u < 1.0f) { advance(1.0f - G.u); if (arrive() || at_secret() || at_altar() || at_use()) break; }
+            if (G.u < 1.0f) { advance(1.0f - G.u); if (arrive() || at_secret() || at_altar() || at_use() || at_rest()) break; }
             G.ang = wrap_pi(G.ang1);
             G.h = G.next_h;
             G.spd = CRUISE * 0.6f;
@@ -7715,6 +7845,20 @@ static void update_player(float dt) {
         }
         if (k >= 1.2f) {
             G.ang = wrap_pi(G.ang1); G.hand = 0.0f;
+            G.next_h = decide(G.cx, G.cy, G.h);
+            begin_turn(heading_angle(G.next_h));
+            G.state = PS_TURN;
+        }
+        break;
+    }
+    case PS_MEND: {                                                /* kneeling: up when it can mend no further, struck, or something comes */
+        G.st += dt;
+        G.ang = lerpf(G.ang0, G.ang1, smoothstepf(0.0f, 1.0f, fminf(1.0f, G.st / G.adur)));
+        if (!G.fired && G.st >= G.adur) { G.fired = 1; if (G.rest_goal >= 0) rest_begin(G.rest_goal); }
+        int come = in_combat();
+        if ((G.fired && (!G.rest_on || come)) || G.st > 40.0f) {
+            rest_end(come ? "something came" : "done");
+            G.ang = wrap_pi(G.ang1);
             G.next_h = decide(G.cx, G.cy, G.h);
             begin_turn(heading_angle(G.next_h));
             G.state = PS_TURN;
@@ -7906,6 +8050,7 @@ static void start_level(void) {
     pz_make();
     pz_hide();                                                     /* its answer, written down and hidden; the Black Shrine */
     tri_place(); snd_set_trial(0);                                 /* the trial's door, its lights */
+    place_rests();                                                 /* the places to mend (1.0.0b15) */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_THINGS")) things_test();
 #endif
@@ -13754,6 +13899,7 @@ static void crawl_update(double dt) {
     if (G.readout > 0.0f) G.readout -= fdt;
     if (G.flare_t > 0.0f) G.flare_t -= fdt;
     mind_frame();
+    rest_tick(fdt);
     if (G.hp <= G.max_hp / 4 && !G.dead && (G.heartbeat -= fdt) <= 0.0f) { snd_sfx_ex(SFX_HEART, 0.9f, 0.5f); G.heartbeat = 1.1f; }
 
     name_newcomers();
@@ -14857,6 +15003,10 @@ static int human_use(void) {
     if (c->kind == K_WALL && c->secret == 2)                       /* a cracked wall: it gives */
         for (int i = 0; i < G.nsecrets; i++) if (G.secrets[i].sx == cx && G.secrets[i].sy == cy && !G.secrets[i].state) { open_secret(i); G.grab_t = 1.0f; return 1; }
     if (!G.shop && font_facing() >= 0) return font_drink(font_facing());
+    if (!G.shop && !PK.depth && rest_facing(1.3f) >= 0) {         /* a place to mend: to kneel there, or to get up */
+        if (G.rest_on) { rest_end("let go"); return 1; }
+        return rest_begin(rest_facing(1.3f));
+    }
     if (!G.shop && G.boss == BOSS_WRAITH && brazier_facing() >= 0) {   /* a second's work to kindle it again */
         G.bbz_at = brazier_facing(); G.bbz_t = 1.0f;
         say("KINDLING THE BRAZIER"); snd_sfx_ex(SFX_IGNITE, 0.5f, 0.5f);
@@ -15040,6 +15190,7 @@ static void human_walk(float dt) {
     G.bobph += moved * TAU_F;
     if (floorf(ph0 / PI_F) != floorf(G.bobph / PI_F)) footstep();
     G.camz = 0.5f + 0.014f * clampf(G.spd / CRUISE, 0.0f, 1.0f) * sinf(G.bobph);
+    if (G.rest_on) G.camz -= 0.1f;                                 /* kneeling at a place to mend */
     int ncx = (int)G.px, ncy = (int)G.py;
     if (ncx != G.cx || ncy != G.cy) {
         G.cx = G.tx = ncx; G.cy = G.ty = ncy; G.u = 1.0f;
@@ -16152,6 +16303,11 @@ static void crawl_control(int what) {
     if (getenv("CRAWL_TPMSG") && !G.shop && G.msg_deco >= 0) tp_near(G.decos[G.msg_deco].x, G.decos[G.msg_deco].y);   /* before what hides its message */
     if (getenv("CRAWL_TPBSHRINE") && !G.shop && G.bsh_x >= 0) tp_near(G.bsh_x + 0.5f, G.bsh_y + 0.5f);   /* before the Black Shrine */
     if (getenv("CRAWL_TPTRIAL") && !G.shop) tp_trial();            /* before a trial's door */
+    if (getenv("CRAWL_HP")) G.hp = clampi(atoi(getenv("CRAWL_HP")), 1, G.max_hp);   /* hurt, for testing (1.0.0b15) */
+    if (getenv("CRAWL_TPMEND") && !G.shop && G.nrest) {            /* before a place to mend, facing it (1.0.0b15) */
+        G.px = G.rest_fx[0] + 0.5f; G.py = G.rest_fy[0] + 0.5f;
+        G.ang = atan2f((float)(G.rest_y[0] - G.rest_fy[0]), (float)(G.rest_x[0] - G.rest_fx[0])); human_begin();
+    }
     if (getenv("CRAWL_THINGS") && !G.shop && G.nthing) {           /* among the test's things, facing the first */
         float tx = G.thing[0].x, ty = G.thing[0].y;
         for (int d = 0; d < 4; d++) {

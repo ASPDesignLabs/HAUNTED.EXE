@@ -68,6 +68,7 @@ enum {
     T_RDOOR = T_CEILS + 3,                        /* NCEILS */
     T_RJAMB, T_RLOCKED, T_RLOCKED_S, T_RLOCKED_C,
     T_TRDOOR,                                     /* a trial's door (1.0.0b13): the run's own, its skull and crossed bones */
+    T_REST,                                       /* a place to mend (1.0.0b15, docs/PLAN-ai.md, 28): the run's own, set in its stone */
     NTEX
 };
 #define NMAT 5

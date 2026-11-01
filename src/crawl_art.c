@@ -12179,6 +12179,95 @@ void crawl_hourglass(unsigned char *pix, int stride, int x0, int y0, float sand,
     #undef HG
 }
 
+/* A place to mend (docs/PLAN-ai.md, section 28), set in the run's own stone: a votive niche with candles and a saint's
+ * skull; a stoup fed by a clean seep; a miners' rest, a lamp on a hook over a cask and a cup; a basin of cold black
+ * glass. The flames are drawn full bright. */
+static void gen_rest(int run) {
+    static const int BASE[4] = { T_MATV(M1_ASHLAR, 0), T_MATV(M2_LINING, 0), T_MATV(M3_FACE, 0), T_MATV(M4_ASH, 0) };
+    int t = T_REST;
+    run = run < 0 ? 0 : run > 3 ? 3 : run;
+    memcpy(crawl_tex[t], crawl_tex[BASE[run]], sizeof crawl_tex[0]);
+    if (run == 0) {
+        for (int y = 8; y < 52; y++)                                /* the niche, arched */
+            for (int x = 16; x < 48; x++) {
+                float dx = (x + 0.5f - 32.0f) / 16.0f, dy = (y + 0.5f - 22.0f) / 14.0f;
+                if (y < 22 && dx * dx + dy * dy > 1.0f) continue;
+                int rim = (y < 22 && dx * dx + dy * dy > 0.82f) || x == 16 || x == 47;
+                tput(t, x, y, rim ? sh(R_STONE, 0.42f) : sh(R_STONE, 0.04f + 0.07f * (float)(y - 8) / 44.0f + 0.03f * h01(x, y, 5)));
+            }
+        for (int x = 15; x < 49; x++) for (int y = 44; y < 48; y++) tput(t, x, y, sh(R_STONE, y == 44 ? 0.62f : 0.4f));   /* the ledge */
+        static const char *SK[9] = { "..#####..", ".#######.", "#########", "##o###o##", "##o###o##", "####.####", ".#######.", "..#.#.#..", "..#####.." };
+        for (int r = 0; r < 9; r++) for (int c = 0; c < 9; c++) {
+            char ch = SK[r][c];
+            if (ch == '.') continue;
+            tput(t, 28 + c, 35 + r, ch == 'o' ? sh(R_STONE, 0.02f) : sh(R_BONE, 0.72f - 0.03f * r - 0.04f * (c > 5)));
+        }
+        static const int CX[3] = { 21, 41, 45 }, CH[3] = { 9, 6, 4 };
+        for (int k = 0; k < 3; k++) {                               /* candles, and their wax down the ledge */
+            for (int y = 44 - CH[k]; y < 44; y++) { tput(t, CX[k], y, sh(R_BONE, 0.85f)); tput(t, CX[k] + 1, y, sh(R_BONE, 0.6f)); }
+            tput(t, CX[k], 43 - CH[k], (uint8_t)(R_FLAME + 15)); tput(t, CX[k], 42 - CH[k], (uint8_t)(R_FLAME + 12));
+            tput(t, CX[k] + 1, 43 - CH[k], (uint8_t)(R_FLAME + 11));
+            for (int y = 48; y < 48 + 2 + k * 2; y++) tput(t, CX[k] + (k & 1), y, sh(R_BONE, 0.75f));
+        }
+    } else if (run == 1) {
+        for (int y = 2; y < 40; y++) {                              /* the seep: a dark wet streak down from a crack */
+            int w = 3 + (y > 20) + (int)(h01(y, 1, 9) * 2.0f);
+            for (int x = 32 - w / 2; x < 32 + (w + 1) / 2; x++) {
+                uint8_t c = crawl_tex[t][x * TS + y];
+                tput(t, x, y, (h01(x, y, 11) > 0.8f) ? (uint8_t)(R_GLOW + 7) : (uint8_t)(c > 2 ? c - 2 : c));
+            }
+        }
+        for (int x = 29; x < 36; x++) tput(t, x, 3, sh(R_STONE, 0.02f));
+        for (int y = 38; y < 58; y++)                               /* the stoup, a half bowl out of the wall */
+            for (int x = 12; x < 52; x++) {
+                float dx = (x + 0.5f - 32.0f) / 20.0f, dy = (y + 0.5f - 38.0f) / 18.0f;
+                if (dx * dx + dy * dy > 1.0f) continue;
+                float v = 0.36f + 0.25f * (-dx * 0.5f) + 0.25f * (1.0f - dy) + 0.1f * h01(x / 3, y / 3, 13);
+                tput(t, x, y, y < 40 ? sh(R_STONE, 0.78f) : sh(R_STONE, v));
+            }
+        for (int x = 15; x < 49; x++)                               /* clean water over its lip */
+            for (int y = 34; y < 38; y++) {
+                float dx = (x + 0.5f - 32.0f) / 17.0f, dy = (y + 0.5f - 37.5f) / 3.5f;
+                if (dx * dx + dy * dy > 1.0f) continue;
+                tput(t, x, y, h01(x, y, 17) > 0.85f ? (uint8_t)(R_GLOW + 12) : sh(R_GLOW, 0.45f + 0.2f * (float)(y - 34) / 4.0f));
+            }
+    } else if (run == 2) {
+        for (int x = 0; x < 64; x++) for (int y = 10; y < 17; y++)  /* a timber across the face */
+            tput(t, x, y, sh(R_WOOD, (y == 10 || y == 16) ? 0.18f : 0.32f + 0.12f * h01(x / 5, y, 19) + ((x + 3 * y) % 11 == 0 ? -0.08f : 0.0f)));
+        for (int y = 17; y < 24; y++) tput(t, 31, y, sh(R_IRON, 0.55f));   /* the hook, and the lamp on it */
+        for (int y = 24; y < 26; y++) for (int x = 28; x < 36; x++) tput(t, x, y, sh(R_IRON, 0.5f));
+        for (int y = 26; y < 33; y++) for (int x = 28; x < 36; x++) {
+            int frame = x == 28 || x == 35 || y == 32;
+            tput(t, x, y, frame ? sh(R_IRON, 0.4f) : (uint8_t)(R_FLAME + 9 + (y > 28 && x > 30 && x < 33 ? 6 : (y > 27 ? 3 : 0))));
+        }
+        for (int y = 40; y < 60; y++)                               /* a cask on its side */
+            for (int x = 14; x < 40; x++) {
+                float dx = (x + 0.5f - 27.0f) / 13.0f, dy = (y + 0.5f - 50.0f) / 10.0f;
+                if (dx * dx + dy * dy > 1.0f) continue;
+                int hoop = x == 18 || x == 19 || x == 35 || x == 36;
+                tput(t, x, y, hoop ? sh(R_IRON, 0.35f) : sh(R_WOOD, 0.3f + 0.25f * (1.0f - dy * dy) - 0.08f * ((y & 3) == 0)));
+            }
+        for (int y = 50; y < 58; y++) for (int x = 44; x < 50; x++)  /* a tin cup */
+            tput(t, x, y, (x == 44 || y == 50) ? sh(R_IRON, 0.75f) : sh(R_IRON, 0.5f + 0.1f * (x == 45)));
+        for (int y = 52; y < 56; y++) tput(t, 50, y, sh(R_IRON, 0.6f));
+    } else {
+        for (int y = 30; y < 58; y++)                               /* a basin of black glass */
+            for (int x = 10; x < 54; x++) {
+                float dx = (x + 0.5f - 32.0f) / 22.0f, dy = (y + 0.5f - 34.0f) / 22.0f;
+                if (dx * dx + dy * dy > 1.0f || y < 34) continue;
+                float g = h01(x / 2, y / 2, 23);
+                uint8_t c = g > 0.93f ? (uint8_t)(R_PURPLE + 9) : sh(R_STONE, 0.03f + 0.05f * (1.0f - dy));
+                if ((x + y) % 9 == 0 && y < 46) c = (uint8_t)(R_GLOW + 6);   /* a cold glint */
+                tput(t, x, y, y < 36 ? (uint8_t)(R_GLOW + 11) : c);
+            }
+        for (int x = 14; x < 50; x++)                               /* what is in it: still and cold */
+            for (int y = 31; y < 34; y++) tput(t, x, y, ((x * 7 + y) % 13 == 0) ? (uint8_t)(R_GLOW + 13) : sh(R_STONE, 0.02f));
+        for (int k = 0; k < 18; k++) {                              /* the cold standing off it */
+            int x = 14 + (int)(h01(k, 3, 29) * 36.0f), y = 18 + (int)(h01(k, 5, 29) * 12.0f);
+            tput(t, x, y, (uint8_t)(R_GHOST + 9 + (int)(h01(k, 7, 29) * 4.0f)));
+        }
+    }
+}
 void crawl_art_run(int level) {
     float dk = crawl_decay(level);
     uint32_t s = 7001u + (uint32_t)level * 7u, field = s + 50u;
@@ -12187,6 +12276,7 @@ void crawl_art_run(int level) {
     else if (crawl_set(level) == 3) deep_run(dk, s, field);
     else crypts_run(dk, s, field);                                  /* the Crypts, and the runs not drawn yet */
     gen_trdoor(crawl_set(level));                                   /* a trial's door, on the run's own */
+    gen_rest(crawl_set(level));                                     /* a place to mend, on the run's own (1.0.0b15) */
 }
 
 void crawl_art_init(void) {

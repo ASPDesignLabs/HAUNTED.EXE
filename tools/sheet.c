@@ -835,6 +835,30 @@ static int draw_hand(const char *path) {
     return ok;
 }
 
+/* ---- 1.0.0b15: the places to mend, a run each (docs/PLAN-ai.md, section 28), and a skeleton's side views as the crypt
+ * now draws them (section 1) ---- */
+static int draw_rests(const char *path) {
+    static const int LV[4] = { 3, 13, 23, 33 };
+    static const char *const RUNNAME[4] = { "I: VOTIVE NICHE", "II: STOUP", "III: MINERS' REST", "IV: BLACK GLASS" };
+    int colw = TS * 3 + 40;
+    iw = PAD + 4 * colw + PAD;
+    ih = PAD + LABEL_H + 8 + LABEL_H + TS * 3 + 20 + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "1.0.0B15: THE PLACES TO MEND, FOR APPROVAL", 230, 230, 230);
+    int y = PAD + LABEL_H + 8;
+    for (int run = 0; run < 4; run++) {
+        crawl_art_level(LV[run]); crawl_art_run(LV[run]);
+        int x = PAD + run * colw;
+        text(x, y, RUNNAME[run], 200, 200, 200);
+        tex(x, y + LABEL_H, T_REST, 3, LIGHT);
+    }
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
 /* ---- 1.0.0b13: the trials' doors, a run each, the lights by them, their things, and the hourglass (docs/PLAN-b13.md part D) ---- */
 static int draw_trials(const char *path) {
     static const int LV[4] = { 3, 13, 23, 33 };
@@ -1476,6 +1500,13 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/trials.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_trials(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "rests")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/rests.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_rests(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     if (!strcmp(argv[1], "all") || !strcmp(argv[1], "documents")) {
