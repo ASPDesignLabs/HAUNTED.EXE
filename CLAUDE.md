@@ -144,7 +144,9 @@ a sprint with a meter and a recovery that quickens with health, a line multiplyi
 Lantern of the Dead shuttered on a long press of L. The second round settled it (1 November): the art pass waits until
 this is done; new kinds (the Whipper-In, the Sexton, the Lightless); places to mend in the walls; doors that sound like
 their run; `MAXMOBS` to grow. **Step 0, the caster's side, is built** (harness only; the Windows build compiled and smoke-tested by CI on the branch, by a run started by hand):
-see *The sprint, PHYSIC and the lantern* below. Step 1, the senses and memory, is next.
+see *The sprint, PHYSIC and the lantern* below. **Step 1 is built** (harness only): the senses and memory, room for 64
+creatures, doors that sound like their run, the places to mend; see *How the dead think* below. Step 2, posts and
+patrols, is next.
 
 ## Working with the owner
 
@@ -1066,6 +1068,35 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `lantern_toggle`, `lantern_mark` on the portrait's corner): with it, L held 0.6 s shutters or lights it, a tap opens
   the list (on letting go), or with *L ALWAYS CASTS THIS* casts after `G.l_tap` and a double tap opens the list; the
   list has a lantern row. Debug: `EVENT sprint_on`, `sprint_dry`, `sprint_full`, `pad_sprint`, `lantern`.
+- **How the dead think** (1.0.0b15 step 1, docs/PLAN-ai.md Part A and sections 27-30; `CRAWL_MIND=0` in the debug build
+  keeps the old minds, for the balance runs). `minded` (everything but spectres, wall skulls, web spiders, the Wraith,
+  sacs, spiderlings, bosses and their adds, allies and a trial's) and `mind_on`. Sight (`mind_sees`): a facing (`Mob.face`,
+  turned by `mind_face`: to you while it sees you, to a sound while wary, the way it walks, its head `Mob.look` sweeping
+  while calm or searching), nine cells within `in_view`'s 120 degrees and 2.5 behind (a hound smells 4; bats see all
+  round); in the dark (`caster_dark`: `G.lit_here`, the light at the caster without its own glow, measured in
+  `build_lightmap`, under a third, and no cast's `G.flare_t`) five cells, but not for bats and hounds, and the shade the
+  other way about. Hearing (`noise`, `NZ_*`): a footstep 3 (5 sprinting or in water; Quiet less), a cast 8 (the spear 5,
+  Hellfire and the ultimates 10, the BFS9000 the level), a blast where it lands 6 (`mind_frame`), a door opening 4, a
+  secret wall 8, a death 4 (8 to its own kind), a blow on you 5, a place to mend 16; distances down `mind_field` (a few
+  cached fields to a place, a second each) or the hunt field for the caster's own. States (`Mob.aware`, `MA_*`, with
+  `aw_t`): calm; wary (`mind_wary`, its tell `mind_tell`; stops, turns, goes to look at half pace, calm after 8 s);
+  hunting (the live field while `alert`, refreshed to `MIND_LIVE` 3 s while seen; a blow gives 6); tracking
+  (`mind_track`: to where you were, three cells on the way you went, `kx/ky/kh`); searching (`mind_arrived`,
+  `search_point`: places six to ten steps round, a room in `G.lost_rg` first; 15-25 s, then calm and `edgy` 30 s, hearing
+  half as far again). A calm resident out of its room walks back to its post (`hx/hy`). `mind_goal` and the `going`
+  branch of `update_mob` move it; `chase` needs the live field. Caught unaware (in `damage_mob`): calm or wary, struck
+  from outside its view, half again and a stagger. Side views in play (`mob_side`, `DR_FLIPH` mirroring the body, its
+  dressing, eyes and vapour): facing across your line, its side; away, its side too until backs are drawn.
+  `MAXMOBS` is 64 (the masks that count them 64 bits: `Shot.pierced`, `Trail.hit`, the lightning's). Doors by run
+  (`door_sfx`, `SFX_DOOR1_OPEN` ... `SFX_DOOR4_SHUT`, played in `update_doors` as one starts to open and as it shuts).
+  **Places to mend** ("rests" in the code, as `G.mend_*` is the Mend rune's: `place_rests`, `T_REST` drawn per run by
+  `gen_rest`, `G.rest_*`, `rest_facing`, `rest_begin`, `rest_tick`, `rest_end`, `rest_cap`, `REST_T`): one a level, two
+  from run III, on a room's wall facing its way in; E begins (not held: a pad's A is a press), standing still facing it
+  keeps on, moving, turning away, casting, E again or a blow ends it; the dream's `rest_goal` (under two fifths, not
+  `in_combat`, within 30 steps) and `PS_MEND` (`at_rest`). Debug: `EVENT noticed`, `wary`, `lost_you`, `tracked`,
+  `searches`, `gave_up`, `unaware_hits`, `pool_full`, `mend_begin`, `mend_end`; `MEND level n: ...`; `CRAWL_TPMEND=1`,
+  `CRAWL_HP=n` (health as you take over), `CRAWL_STAGEFACE=deg` (the stage's creatures turned). `make sheets` draws
+  `rests.png`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

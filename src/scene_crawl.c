@@ -5510,6 +5510,8 @@ static void update_mob(Mob *m, float dt) {
         else if (m->aware == MA_TRACK) mind_arrived(m);            /* no way after you: it searches from here */
         else if (m->aware == MA_WARY) m->aw_t = 8.0f;              /* nor to the sound: it lets it be */
     }
+    if (mind && !going && !hunting && !chase && !afraid && !lured && m->alert <= 0.0f
+        && ((m->aware == MA_WARY && (m->aw_t < 0.8f || ghere == 0)) || (m->aware == MA_SEARCH && m->wait > 0.0f))) return;   /* it stands and listens, or looks about */
     int best = -1; float bs = -1e9f;
     for (int k = 0; k < 4; k++) {
         int nx = m->cx + DX[k], ny = m->cy + DY[k];
