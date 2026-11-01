@@ -5878,7 +5878,7 @@ static void update_mob(Mob *m, float dt) {
         }
         int sacs = 0;
         for (int i = 0; i < MAXMOBS; i++) sacs += G.mobs[i].alive && G.mobs[i].type == MOB_SAC && G.mobs[i].state == MS_WALK;
-        if (m->alert > 0.0f && sacs < 4 && (m->contact -= dt) <= 0.0f) {
+        if (m->alert > 0.0f && !hold && sacs < 4 && (m->contact -= dt) <= 0.0f) {   /* held at the fight's edge, she waits too */
             m->contact = 7.0f; m->swing = 1.0f;
             Mob *e = spawn_mob(m->cx, m->cy, MOB_SAC);
             if (e) { e->rank = m->rank; DBG_COUNT(sacs_laid); }

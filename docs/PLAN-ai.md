@@ -11,7 +11,11 @@ smells four cells behind it; a creature looking away shows its side until backs 
 `make sheets`' rests.png, for approval. Step 2 is built (harness only): posts, patrols and roamers. Step 1's check, against the old minds on the
 eight seeds: from level 1 a median of 10.5 levels cleared (9), 16 deaths (23), the knight felled 5 times (3); from 11, 21
 and 31 no deaths (2 from 11); level times within 10 s. The dream is better off for now (CLAUDE.md has the numbers). Step 2's, the same way: from level 1 a
-median of 9 levels cleared and 30 deaths with either mind; neutral, within the eight seeds' noise (about a quarter).** Written on
+median of 9 levels cleared and 30 deaths with either mind; neutral, within the eight seeds' noise (about a quarter). Step 3
+is built (harness only): packs, their turns and morale, the cap on a fight, and the file, the hounds, the roost and the
+wake; its check, on sixteen seeds: from level 1 a median of 10 levels cleared (9), 46 deaths (48), 13 of them off the
+knight's level (9), the knight felled 9 times (8); from 11, 21 and 31 no deaths either way. Harder on ordinary levels, no
+harder at the knight.** Written on
 `claude/laughing-cori-a3jk29` from 1.0.0b13; brought onto its work branch, `claude/youthful-mayer-deaa11`, from main
 once the art pass so far had been merged there (1 November). The art pass is visual only, and the numbers below were
 checked again on main: none has moved. The owner asked for creatures
@@ -944,7 +948,10 @@ The order of the steps is the building's; what a person meets, and where, is sec
    more creatures than it did (level 13, with two wakes, a file and a roost, the most). The knight's hounds and the
    deacon's dead are not packs yet: they are mixed bands, step 8. The tells use three new sounds (a howl, bones clacked in
    time, a rout) and three old (the roost's rustle and squeak, the wake's earth and water); step 11 is where they are
-   heard properly.
+   heard properly. Two more, from the check: a pack has a rank (its leader's roll, the rest that or one under), since
+   when each member rolled its own a level offered more chances of a high rank, and a boss's adds take the highest met
+   (the knight's level killed the dream 48 times against 39, and it was felled 3 times against 8); and a brood mother held
+   at the fight's edge lays nothing, since one sat there laying until spiderlings filled every place.
 4. **Callers and scavengers** (section 10).
 5. **Hunters** (section 11): the scent trail, the hunt, the shade's stalking; the calm's change (H2).
 6. **Lures and ambushes** (section 12): kill rooms, teeth, baits (treasure among them, section 30), tells; the

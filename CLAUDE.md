@@ -1106,7 +1106,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   creatures; `Mob.route`, `wp`), pausing 1.5-3 s at each, one that came with another on its round. In `mind_goal`'s
   calm case, `mind_arrived` and the hold in `update_mob`. Debug: `EVENT routes`, `posted`. **Step 3** (sections 5, 6, 8):
   packs (`Pack` in `G.packs`, eight a level, `G.npacks`; `Mob.pack` 1 + its index; `PACK_*` kinds, `PAS_*` states;
-  `pack_new`, `pack_join`, `pack_of`). A member that sees you (or is struck) calls (`pack_call`: the kind's tell,
+  `pack_new`, `pack_join`, `pack_of`). A pack has a rank: its leader's roll, the rest that or one under (`pack_join`). A member that sees you (or is struck) calls (`pack_call`: the kind's tell,
   `pack_tell`, and 0.4 s); the call heard, all of it hunts from wherever it is (`pack_hunt`); the caller slain first, the
   call dies with it. While hunting, what one sees all know (`pack_frame` refreshes the live field). Turns (`pack_turns`):
   its melee members engage one at a time, two when its leader is rank III or more, each for 4-6 s or until hurt by an
@@ -1116,7 +1116,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   there; the wake doesn't notice. The cap (P6 a; `engage_pick`, `engage_cap`, called from `minds_frame` after
   `pick_hunters`, which now lets any number of the new minds hunt): within eight cells and in sight, the nearest 3, 4, 5,
   6 by run (one more for a person) are `Mob.engage`; those in stay in while they are, and a blow or throw under way is
-  let finish; the rest hold (`Mob.hold` 1) at three and a half cells, throwing nothing. The buried are outside it.
+  let finish; the rest hold (`Mob.hold` 1) at three and a half cells, throwing nothing (a brood mother held lays nothing
+  either: she had sat at the edge laying sacs until spiderlings filled the 64 places). The buried are outside it.
   Packs placed (only with the new minds): the file of the Order (`place_file`, from 5, always on 5 and one level in two
   after: three, four, four or five by run, one or two shields leading; on a round, the rest following in a line,
   `RL_FOLLOW`, `follow_of`, or two times in five holding a room as residents; its throwers keep a cell behind its
@@ -1274,5 +1275,17 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   and 37. Neutral, then. But the old minds died 30 times on this build and 23 on step 1's, where nothing in their path
   changed but the size of the blasts' pool: one small difference and the runs part ways, so eight seeds carry noise of
   about that size (a quarter either way). Weigh a balance change against that, and use more seeds when it matters.
+- 1.0.0b15's step 3 (packs, turns, morale, the cap; harness only), against `CRAWL_MIND=0` on the same build and on sixteen
+  seeds this time (1-31 odd; deep starts as before): from level 1 (100 minutes) a median of 10 levels cleared (9), 46
+  deaths (48), 33 of them on level 10 (39) and 13 elsewhere (9), the knight felled 9 times (8); from 11, 21 and 31 (50
+  minutes) the same medians (levels 17, 27, 37), no deaths either way, a level's median time 362-366 s (365-369). Harder
+  on ordinary levels, then, as the owner asked (O3), and no harder at the knight. In the sixteen runs from level 1 the
+  packs called 319 times, hunted 297, were cut short 5, took 677 turns, broke 299 times and fetched help 76; 18 roosts
+  woke and 16 wakes rose. Levels hold one to four more creatures (six seeds, levels 5-25; level 13 the most). The first
+  version, where each member rolled its own rank, died 62 times (48 on level 10) and felled the knight 3 times: a level
+  with packs offered more chances of a high rank, and a boss's adds come at the highest of each kind met since the last
+  death (the knight's first-wave shield-bearers at rank III or above in 22 runs of 28, against 14 of 26). Whatever adds
+  creatures feeds the adds' ranks too. The runs also found a brood mother held by the cap laying sacs without end (one
+  seed's level 33 filled all 64 places with spiderlings); fixed after them, checked on that seed (2 sacs, against 32).
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.
