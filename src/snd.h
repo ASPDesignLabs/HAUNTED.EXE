@@ -84,6 +84,9 @@ enum {
     SFX_DOOR2_OPEN, SFX_DOOR2_SHUT,   /* run II's swollen wood dragged through water; a sodden slap and drips */
     SFX_DOOR3_OPEN, SFX_DOOR3_SHUT,   /* run III's planks on rope hinges, dust falling; a hollow knock of timber */
     SFX_DOOR4_OPEN, SFX_DOOR4_SHUT,   /* run IV's slab of black glass grinding and ringing; a glassy chime and a hiss */
+    SFX_HOWL,           /* a hound's pack set on the hunt: a long rising howl, a second voice under it (1.0.0b15) */
+    SFX_DRUM,           /* the file of the Order: bones clacked in time, like a drum */
+    SFX_ROUT,           /* a pack broken: a yelp, a clatter, things scattering */
     SFX_COUNT
 };
 

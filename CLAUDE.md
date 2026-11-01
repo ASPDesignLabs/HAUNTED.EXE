@@ -146,7 +146,9 @@ this is done; new kinds (the Whipper-In, the Sexton, the Lightless); places to m
 their run; `MAXMOBS` to grow. **Step 0, the caster's side, is built** (harness only; the Windows build compiled and smoke-tested by CI on the branch, by a run started by hand):
 see *The sprint, PHYSIC and the lantern* below. **Step 1 is built** (harness only): the senses and memory, room for 64
 creatures, doors that sound like their run, the places to mend; see *How the dead think* below. **Step 2 is built**
-(harness only): posts, patrols and roamers. Step 3, packs, is next.
+(harness only): posts, patrols and roamers. **Step 3 is built** (harness only): packs, their turns and morale, and the cap
+on how many are in a fight at once; the file of the Order, the hounds, the roost, the wake. Step 4, callers and
+scavengers, is next.
 
 ## Working with the owner
 
@@ -1102,7 +1104,33 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   (`roam_next`, a pause in each); the rest walk a round (`route_make`: three or four lane cells five to sixteen steps
   about where they came, spread apart and taken in order of their bearing; `G.route`, `G.nroute`, reset with a level's
   creatures; `Mob.route`, `wp`), pausing 1.5-3 s at each, one that came with another on its round. In `mind_goal`'s
-  calm case, `mind_arrived` and the hold in `update_mob`. Debug: `EVENT routes`, `posted`.
+  calm case, `mind_arrived` and the hold in `update_mob`. Debug: `EVENT routes`, `posted`. **Step 3** (sections 5, 6, 8):
+  packs (`Pack` in `G.packs`, eight a level, `G.npacks`; `Mob.pack` 1 + its index; `PACK_*` kinds, `PAS_*` states;
+  `pack_new`, `pack_join`, `pack_of`). A member that sees you (or is struck) calls (`pack_call`: the kind's tell,
+  `pack_tell`, and 0.4 s); the call heard, all of it hunts from wherever it is (`pack_hunt`); the caller slain first, the
+  call dies with it. While hunting, what one sees all know (`pack_frame` refreshes the live field). Turns (`pack_turns`):
+  its melee members engage one at a time, two when its leader is rank III or more, each for 4-6 s or until hurt by an
+  eighth; the rest hold off (`Mob.hold` 2) and circle at three cells, a hound at four. Broken (its leader down, or half of
+  it: `pack_break`, `SFX_ROUT`): the file only loses its order; the roost scatters (`Mob.flee`, then a roamer); a hound
+  runs to the nearest other creature that thinks (`Mob.fetch`, `fetch_tick`), tells it where you were and both go
+  there; the wake doesn't notice. The cap (P6 a; `engage_pick`, `engage_cap`, called from `minds_frame` after
+  `pick_hunters`, which now lets any number of the new minds hunt): within eight cells and in sight, the nearest 3, 4, 5,
+  6 by run (one more for a person) are `Mob.engage`; those in stay in while they are, and a blow or throw under way is
+  let finish; the rest hold (`Mob.hold` 1) at three and a half cells, throwing nothing. The buried are outside it.
+  Packs placed (only with the new minds): the file of the Order (`place_file`, from 5, always on 5 and one level in two
+  after: three, four, four or five by run, one or two shields leading; on a round, the rest following in a line,
+  `RL_FOLLOW`, `follow_of`, or two times in five holding a room as residents; its throwers keep a cell behind its
+  shields; `SFX_DRUM`), the hounds (`spawn_wanderer_type`: a pair becomes a pack of two, three in run III, four in IV;
+  `SFX_HOWL`), the roost (`place_roost`, from 11, always on 11 and one level in two after: three to six bats asleep on the
+  ceiling of the dimmest room, `Mob.sleep`, `roost_doze`, drawn `DR_FLIPV`; a noise reaching it, a step within 2.5 cells,
+  you in its room in the light, or a blow, and it calls; all of it drops and comes), the wake (`place_wake` in
+  `place_risers`, from 13 where the buried are: three or four under one room's graves or puddles; one rising stirs the
+  rest, nearest you first, 0.6-1.2 s apart, `wake_stir`; earth and water heard now and then near it). The file and the
+  roost each take a wanderer's place; a level holds one to four more creatures than it did. Debug: `CRAWL_PACK=k` (1 a
+  file, 2 hounds, 3 a roost asleep, 4 a wake, a few cells ahead five seconds into each level), `PACKS level n: ...`,
+  `EVENT pack_calls`, `pack_cuts`, `pack_hunts`, `pack_broken`, `packs_broken`, `fetches`, `roosts_woken`, `wakes_rise`,
+  `turns`; the state line's third line counts the minds (calm, wary, hunting, tracking, searching, engaged of the cap,
+  held, asleep, packs).
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

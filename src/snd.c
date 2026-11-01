@@ -642,6 +642,46 @@ static float sfx_sample(Sfx *s) {
         x = (grind * 0.45f + ring * 0.22f) * w + hiss * 0.25f;
         break;
     }
+    case SFX_HOWL: {                                /* a long howl rising and falling, a second voice a fifth under it, joining late */
+        float u = t / s->dur;
+        float f = 330.0f + 260.0f * sinf(PI_F * fminf(1.0f, u * 1.3f)) - 90.0f * u * u;
+        f *= 1.0f + 0.018f * sinf(t * 29.0f);
+        s->ph[0] += f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        s->ph[1] += f * 0.667f / SR; if (s->ph[1] >= 1.0f) s->ph[1] -= 1.0f;
+        float a1 = sinf(PI_F * u); a1 *= a1;
+        float u2 = (u - 0.25f) / 0.75f, a2 = u2 > 0.0f ? sinf(PI_F * u2) * sinf(PI_F * u2) : 0.0f;
+        float v1 = s->ph[0] * 2.0f - 1.0f, v2 = s->ph[1] * 2.0f - 1.0f;
+        float b1 = svf_band(v1, 900.0f + 300.0f * u, 0.22f, &s->lo1, &s->bp1), b2 = svf_band(v2, 620.0f, 0.25f, &s->lo2, &s->bp2);
+        float breath = nz(&s->rng) * 0.08f;
+        x = (b1 * 0.7f + breath) * a1 * 0.7f + b2 * a2 * 0.4f;
+        break;
+    }
+    case SFX_DRUM: {                                /* bones struck together in time: four clacks, the first the loudest */
+        float beat = 0.16f, u = fmodf(t, beat); int k = (int)(t / beat);
+        if (k < 4) {
+            float g = k == 0 ? 1.0f : (k == 2 ? 0.8f : 0.6f);
+            float clack = (sin_cyc((1650.0f - 120.0f * (float)(k & 1)) * u) * 0.5f + sin_cyc(2730.0f * u) * 0.25f) * expf(-u * 70.0f);
+            float knock = sin_cyc(240.0f * u) * expf(-u * 40.0f) * 0.4f;
+            float rattle = svf_band(nz(&s->rng), 3200.0f, 0.5f, &s->lo1, &s->bp1) * expf(-u * 55.0f) * 0.5f;
+            x = (clack + knock + rattle) * g;
+        }
+        break;
+    }
+    case SFX_ROUT: {                                /* a pack broken: a yelp falling away, a clatter, scattering steps */
+        float u = t / s->dur;
+        float yelp = 0.0f;
+        if (t < 0.28f) {
+            float f = 1150.0f - 1900.0f * t;
+            s->ph[0] += f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+            yelp = svf_band(s->ph[0] * 2.0f - 1.0f, 1500.0f, 0.3f, &s->lo1, &s->bp1) * sinf(PI_F * t / 0.28f) * 0.8f;
+        }
+        s->a -= 1.0f / SR;
+        if (s->a <= 0.0f) { s->a = 0.05f + 0.07f * (nz(&s->rng) * 0.5f + 0.5f); s->b = 1.0f; }
+        s->b *= expf(-1.0f / (SR * 0.012f));
+        float scatter = svf_band(nz(&s->rng), 2400.0f, 0.5f, &s->lo2, &s->bp2) * s->b * (u > 0.15f ? 1.0f - u : 0.0f);
+        x = yelp + scatter * 0.6f;
+        break;
+    }
     case SFX_DOOR4_SHUT: {                          /* a glassy chime, and the heat's hiss */
         float chime = (sin_cyc(1210.0f * t) * 0.6f + sin_cyc(1873.0f * t) * 0.4f + sin_cyc(2711.0f * t) * 0.25f) * expf(-t * 4.5f);
         float hiss = svf_band(nz(&s->rng), 6000.0f, 0.6f, &s->lo1, &s->bp1) * expf(-t * 9.0f);
@@ -1708,6 +1748,9 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_DOOR3_SHUT] = { 0.50f, 0.90f,  0.50f, 0.30f },
     [SFX_DOOR4_OPEN] = { 1.20f, 0.80f,  0.50f, 0.40f },
     [SFX_DOOR4_SHUT] = { 0.90f, 0.80f,  0.50f, 0.40f },
+    [SFX_HOWL]       = { 2.20f, 0.75f, -0.40f, 0.70f },
+    [SFX_DRUM]       = { 0.75f, 0.70f,  0.50f, 0.35f },
+    [SFX_ROUT]       = { 0.90f, 0.70f,  0.50f, 0.35f },
 };
 
 void snd_tone(int glass, int midi, float gain, float pan) {      /* a struck bell or a singing crystal, at its own note */

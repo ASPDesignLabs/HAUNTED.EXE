@@ -932,6 +932,19 @@ The order of the steps is the building's; what a person meets, and where, is sec
 2. **Posts and patrols** (section 9): the generator's routes; residents as posts.
 3. **Packs** (sections 5-6): `Pack`, shared sight, the file, turns, morale; the Order's file, the hounds, the roost,
    the wake. The engaged cap (P6) in place of `pick_hunters`' three.
+   *Built* (harness only). Choices of mine: a turn ends after four to six seconds or when the one engaged loses an eighth
+   of its health, and the one relieved goes to the back; those waiting their turn hold at three cells (a hound at four)
+   and circle, those the cap keeps out hold at three and a half and throw nothing; the cap counts what is within eight
+   cells and in sight, and lets a blow or a throw under way finish; the buried come as they will, outside it. The file
+   holds a room as its residents two times in five, otherwise it walks a round, the rest a step or two behind the one
+   before; its throwers keep a cell behind its shields. Every room has a light, so the roost takes the dimmest, and wakes
+   to a noise reaching it, a step within two and a half cells, you in its room in the light, or a blow. The wake is three
+   or four under one room's graves or puddles, so it lives where the buried do (run II, and the descents after). The file
+   and the roost each take a wanderer's place, and a pack is bigger than the one it replaces: a level holds one to four
+   more creatures than it did (level 13, with two wakes, a file and a roost, the most). The knight's hounds and the
+   deacon's dead are not packs yet: they are mixed bands, step 8. The tells use three new sounds (a howl, bones clacked in
+   time, a rout) and three old (the roost's rustle and squeak, the wake's earth and water); step 11 is where they are
+   heard properly.
 4. **Callers and scavengers** (section 10).
 5. **Hunters** (section 11): the scent trail, the hunt, the shade's stalking; the calm's change (H2).
 6. **Lures and ambushes** (section 12): kill rooms, teeth, baits (treasure among them, section 30), tells; the
