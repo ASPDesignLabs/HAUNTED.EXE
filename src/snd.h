@@ -80,6 +80,10 @@ enum {
     SFX_RUSTLE,         /* a hand searching: dry rustling and a scrape */
     SFX_PAGE,           /* a page taken out and turned: a crisp flick */
     SFX_BREATH,         /* run out of breath: two ragged breaths, out and in (1.0.0b15's sprint) */
+    SFX_DOOR1_OPEN, SFX_DOOR1_SHUT,   /* doors by run (1.0.0b15): run I's iron-bound oak groaning on its pins; a thud and the latch */
+    SFX_DOOR2_OPEN, SFX_DOOR2_SHUT,   /* run II's swollen wood dragged through water; a sodden slap and drips */
+    SFX_DOOR3_OPEN, SFX_DOOR3_SHUT,   /* run III's planks on rope hinges, dust falling; a hollow knock of timber */
+    SFX_DOOR4_OPEN, SFX_DOOR4_SHUT,   /* run IV's slab of black glass grinding and ringing; a glassy chime and a hiss */
     SFX_COUNT
 };
 

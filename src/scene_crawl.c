@@ -4660,7 +4660,7 @@ static void update_wraith(Mob *m, float dt) {
     const Cell *c = cell(nx, ny);
     if (c->kind == K_DOOR && G.doors[c->door].open < 0.9f) {        /* a door opening by itself: it is coming */
         Door *dr = &G.doors[c->door];
-        if (!dr->opening) { dr->opening = 1; sfx_at(SFX_DOOR, nx + 0.5f, ny + 0.5f, 1.0f); }
+        if (!dr->opening) dr->opening = 1;                          /* its sound in update_doors, by the run */
         return;
     }
     m->tx = nx; m->ty = ny;
@@ -5536,7 +5536,7 @@ static void update_mob(Mob *m, float dt) {
         const Cell *c = cell(nx, ny);
         if (c->kind == K_DOOR && G.doors[c->door].open < 0.9f) {    /* a door in the way: it pulls it open, and waits */
             Door *dr = &G.doors[c->door];
-            if (!dr->opening) { dr->opening = 1; sfx_at(SFX_DOOR, nx + 0.5f, ny + 0.5f, 0.8f); }
+            if (!dr->opening) dr->opening = 1;
             return;
         }
         m->tx = nx; m->ty = ny;
@@ -6817,11 +6817,20 @@ static void ab_update(float dt) {
     if (G.wwalk_t > 0.0f && (G.wwalk_t -= dt) <= 0.0f) { G.wwalk_t = 0.0f; snd_sfx_ex(SFX_WHOOSH, 0.45f, 0.5f); }
 }
 
+/* a door's sound, opening or shut, by the run (docs/PLAN-ai.md, section 29); her hall's are run I's */
+static int door_sfx(int shut) {
+    static const int S[4][2] = { { SFX_DOOR1_OPEN, SFX_DOOR1_SHUT }, { SFX_DOOR2_OPEN, SFX_DOOR2_SHUT },
+                                 { SFX_DOOR3_OPEN, SFX_DOOR3_SHUT }, { SFX_DOOR4_OPEN, SFX_DOOR4_SHUT } };
+    return S[G.shop ? 0 : clampi(crawl_set(G.level), 0, 3)][shut != 0];
+}
 static void update_doors(float dt) {
     for (int i = 0; i < G.ndoors; i++) {
         Door *d = &G.doors[i];
         float pdist = hypotf(d->x + 0.5f - G.px, d->y + 0.5f - G.py);
-        if (d->opening && !d->was) noise(d->x + 0.5f, d->y + 0.5f, 4, NZ_DOOR, -1);   /* a door opening is heard (S3) */
+        if (d->opening && !d->was) {                               /* a door opening is heard (S3), and sounds like its run */
+            noise(d->x + 0.5f, d->y + 0.5f, 4, NZ_DOOR, -1);
+            sfx_at(door_sfx(0), d->x + 0.5f, d->y + 0.5f, 0.95f);
+        }
         d->was = d->opening;
         if (d->opening) {
             d->open = fminf(1.0f, d->open + dt / 0.85f);
@@ -6833,8 +6842,8 @@ static void update_doors(float dt) {
                 if (G.mobs[m].alive && ((G.mobs[m].cx == d->x && G.mobs[m].cy == d->y) || (G.mobs[m].tx == d->x && G.mobs[m].ty == d->y))) busy = 1;
             d->idle = busy ? 0.0f : d->idle + dt;
             if (d->idle > 2.5f) {
-                if (d->open >= 1.0f) sfx_at(SFX_DOOR, d->x + 0.5f, d->y + 0.5f, 0.6f);
                 d->open = fmaxf(0.0f, d->open - dt / 0.85f);
+                if (d->open <= 0.0f) sfx_at(door_sfx(1), d->x + 0.5f, d->y + 0.5f, 0.8f);   /* shut */
             }
         }
     }
@@ -7258,7 +7267,7 @@ static void start_move(void) {
     if (c->kind == K_DOOR && G.doors[c->door].open < 0.95f) {
         Door *d = &G.doors[c->door];
         if (d->locked == 1) { d->locked = 2; G.has_key[d->color] = 0; G.unlock_t = G.level_t; snd_sfx(SFX_UNLOCK); pop_readout(); }
-        if (!d->opening) { d->opening = 1; sfx_at(SFX_DOOR, d->x + 0.5f, d->y + 0.5f, 1.0f); }
+        if (!d->opening) d->opening = 1;
         G.state = PS_DOOR;
         G.spd = 0.0f;
         return;
@@ -14691,7 +14700,7 @@ static int open_door(Door *d) {
         if (!G.has_key[d->color]) { say("THE %s DOOR IS LOCKED", KEY_COLOR[d->color]); return 0; }
         d->locked = 2; G.has_key[d->color] = 0; G.unlock_t = G.level_t; snd_sfx(SFX_UNLOCK); pop_readout();
     }
-    if (!d->opening && d->open < 0.95f) { d->opening = 1; sfx_at(SFX_DOOR, d->x + 0.5f, d->y + 0.5f, 1.0f); }
+    if (!d->opening && d->open < 0.95f) d->opening = 1;
     return 1;
 }
 

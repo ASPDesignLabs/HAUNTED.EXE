@@ -575,6 +575,80 @@ static float sfx_sample(Sfx *s) {
         x = flick * 0.7f + slap * 0.9f;
         break;
     }
+    case SFX_DOOR1_OPEN: {                          /* iron-bound oak: the latch lifted, then the pins groaning */
+        float u = t / s->dur, w = sinf(PI_F * fminf(1.0f, u * 1.15f));
+        float latch = t < 0.05f ? svf_band(nz(&s->rng), 2600.0f, 0.4f, &s->lo2, &s->bp2) * (1.0f - t / 0.05f) : 0.0f;
+        float f = 92.0f + 30.0f * sinf(t * 5.5f) + 18.0f * sinf(t * 1.9f + 1.0f);
+        s->ph[0] += f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        s->a += (9.0f + 6.0f * sinf(t * 2.9f)) / SR; if (s->a >= 1.0f) s->a -= 1.0f;
+        float stick = 0.3f + 0.7f * (s->a < 0.6f ? 1.0f : 0.1f);
+        float groan = svf_band((s->ph[0] * 2.0f - 1.0f) + nz(&s->rng) * 0.15f, 520.0f + 160.0f * sinf(t * 3.3f), 0.3f, &s->lo1, &s->bp1);
+        x = groan * stick * w * 0.6f + latch * 0.5f;
+        break;
+    }
+    case SFX_DOOR1_SHUT: {                          /* a heavy thud of oak, and the latch dropping */
+        float thud = sin_cyc(64.0f * t) * expf(-t * 11.0f) + svf_band(nz(&s->rng), 220.0f, 0.6f, &s->lo1, &s->bp1) * expf(-t * 22.0f) * 0.8f;
+        float u = t - 0.16f, latch = u > 0.0f ? svf_band(nz(&s->rng), 3100.0f, 0.35f, &s->lo2, &s->bp2) * expf(-u * 60.0f) * 0.7f : 0.0f;
+        x = thud * 0.8f + latch;
+        break;
+    }
+    case SFX_DOOR2_OPEN: {                          /* swollen wood dragged through water: a wet scrape, a slosh, drips */
+        float u = t / s->dur, w = sinf(PI_F * fminf(1.0f, u * 1.1f));
+        s->lp1 += 0.04f * (nz(&s->rng) - s->lp1);
+        float drag = s->lp1 * 2.4f * (0.55f + 0.45f * sinf(t * 31.0f) * sinf(t * 7.0f));
+        float slosh = svf_band(nz(&s->rng), 430.0f + 140.0f * sinf(t * 6.0f), 0.25f, &s->lo1, &s->bp1) * (0.5f + 0.5f * sinf(t * 9.0f + 1.3f));
+        s->a -= 1.0f / SR;
+        if (s->a <= 0.0f) { s->a = 0.12f + 0.25f * (nz(&s->rng) * 0.5f + 0.5f); s->b = 1.0f; s->c = 1400.0f + 900.0f * (nz(&s->rng) * 0.5f + 0.5f); }
+        s->b *= expf(-1.0f / (SR * 0.03f));
+        float drip = sinf(2.0f * PI_F * s->c * (s->a)) * s->b * 0.35f;
+        x = (drag * 0.5f + slosh * 0.6f) * w + drip * (u > 0.3f);
+        break;
+    }
+    case SFX_DOOR2_SHUT: {                          /* a sodden slap, and drips after */
+        float slap = svf_band(nz(&s->rng), 760.0f, 0.5f, &s->lo1, &s->bp1) * expf(-t * 26.0f) + sin_cyc(70.0f * t) * expf(-t * 16.0f) * 0.5f;
+        s->a -= 1.0f / SR;
+        if (s->a <= 0.0f) { s->a = 0.1f + 0.2f * (nz(&s->rng) * 0.5f + 0.5f); s->b = 1.0f; s->c = 1500.0f + 900.0f * (nz(&s->rng) * 0.5f + 0.5f); }
+        s->b *= expf(-1.0f / (SR * 0.03f));
+        x = slap * 0.9f + (t > 0.15f ? sinf(2.0f * PI_F * s->c * s->a) * s->b * 0.3f : 0.0f);
+        break;
+    }
+    case SFX_DOOR3_OPEN: {                          /* planks on rope hinges: a dry creak, and dust pattering down */
+        float u = t / s->dur, w = sinf(PI_F * fminf(1.0f, u * 1.1f));
+        float f = 210.0f + 90.0f * sinf(t * 8.0f) + 40.0f * sinf(t * 3.1f);
+        s->ph[0] += f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        s->a += (17.0f + 9.0f * sinf(t * 4.3f)) / SR; if (s->a >= 1.0f) s->a -= 1.0f;
+        float stick = 0.25f + 0.75f * (s->a < 0.5f ? 1.0f : 0.1f);
+        float creak = svf_band(s->ph[0] * 2.0f - 1.0f, 1100.0f + 400.0f * sinf(t * 5.0f), 0.25f, &s->lo1, &s->bp1);
+        float dust = (nz(&s->rng) > 0.93f ? 1.0f : 0.0f) * svf_band(nz(&s->rng), 5200.0f, 0.5f, &s->lo2, &s->bp2) * 3.0f;
+        x = creak * stick * w * 0.5f + dust * 0.12f * (u > 0.2f);
+        break;
+    }
+    case SFX_DOOR3_SHUT: {                          /* a hollow knock of timber, a rattle of the frame */
+        float knock = (sin_cyc(180.0f * t) * 0.8f + sin_cyc(415.0f * t) * 0.5f) * expf(-t * 24.0f);
+        float u = t - 0.09f, knock2 = u > 0.0f ? (sin_cyc(170.0f * u) * 0.5f + sin_cyc(400.0f * u) * 0.3f) * expf(-u * 30.0f) : 0.0f;
+        float rattle = svf_band(nz(&s->rng), 1800.0f, 0.4f, &s->lo1, &s->bp1) * expf(-t * 14.0f) * (0.5f + 0.5f * sinf(t * 90.0f));
+        x = knock + knock2 + rattle * 0.25f;
+        break;
+    }
+    case SFX_DOOR4_OPEN: {                          /* a slab of black glass grinding, ringing as it goes, a hiss of heat */
+        float u = t / s->dur, w = sinf(PI_F * fminf(1.0f, u * 1.1f));
+        s->lp1 += 0.05f * (nz(&s->rng) - s->lp1);
+        float grind = s->lp1 * 2.2f * (0.6f + 0.4f * sinf(t * 47.0f) * sinf(t * 13.0f));
+        float f = 610.0f + 150.0f * u;
+        s->ph[0] += f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        s->ph[1] += f * 2.76f / SR; if (s->ph[1] >= 1.0f) s->ph[1] -= 1.0f;
+        float ring = (sin_cyc(s->ph[0]) + 0.4f * sin_cyc(s->ph[1])) * (0.4f + 0.6f * u);
+        float hiss = svf_band(nz(&s->rng), 6500.0f, 0.6f, &s->lo1, &s->bp1) * (u > 0.6f ? (u - 0.6f) * 2.5f : 0.0f);
+        x = (grind * 0.45f + ring * 0.22f) * w + hiss * 0.25f;
+        break;
+    }
+    case SFX_DOOR4_SHUT: {                          /* a glassy chime, and the heat's hiss */
+        float chime = (sin_cyc(1210.0f * t) * 0.6f + sin_cyc(1873.0f * t) * 0.4f + sin_cyc(2711.0f * t) * 0.25f) * expf(-t * 4.5f);
+        float hiss = svf_band(nz(&s->rng), 6000.0f, 0.6f, &s->lo1, &s->bp1) * expf(-t * 9.0f);
+        float thud = sin_cyc(90.0f * t) * expf(-t * 20.0f);
+        x = chime * 0.35f + hiss * 0.2f + thud * 0.5f;
+        break;
+    }
     case SFX_BREATH: {                              /* winded: a breath out and a breath in, breathy noise through a moving mouth */
         float u = t / s->dur, hump = u < 0.45f ? sinf(PI_F * u / 0.45f) : (u > 0.52f ? sinf(PI_F * (u - 0.52f) / 0.48f) * 0.7f : 0.0f);
         float f = u < 0.5f ? 1300.0f - 500.0f * u : 700.0f + 900.0f * (u - 0.5f);   /* out falls, in rises */
@@ -1626,6 +1700,14 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_RUSTLE]     = { 0.95f, 0.55f,  0.50f, 0.25f },
     [SFX_PAGE]       = { 0.40f, 0.55f,  0.50f, 0.25f },
     [SFX_BREATH]     = { 0.90f, 0.45f,  0.50f, 0.15f },
+    [SFX_DOOR1_OPEN] = { 1.00f, 0.90f,  0.50f, 0.30f },
+    [SFX_DOOR1_SHUT] = { 0.55f, 0.95f,  0.50f, 0.30f },
+    [SFX_DOOR2_OPEN] = { 1.10f, 0.85f,  0.50f, 0.35f },
+    [SFX_DOOR2_SHUT] = { 0.70f, 0.85f,  0.50f, 0.35f },
+    [SFX_DOOR3_OPEN] = { 0.90f, 0.80f,  0.50f, 0.30f },
+    [SFX_DOOR3_SHUT] = { 0.50f, 0.90f,  0.50f, 0.30f },
+    [SFX_DOOR4_OPEN] = { 1.20f, 0.80f,  0.50f, 0.40f },
+    [SFX_DOOR4_SHUT] = { 0.90f, 0.80f,  0.50f, 0.40f },
 };
 
 void snd_tone(int glass, int midi, float gain, float pan) {      /* a struck bell or a singing crystal, at its own note */
