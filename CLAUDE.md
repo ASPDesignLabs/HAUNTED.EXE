@@ -1237,6 +1237,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   runs from level 1 the dead noticed the dream about 2,300 times, heard it 1,400, lost it 170, searched 75 times and gave
   up 51; 328 blows landed on creatures caught unaware. So the dream is better off: the dead now forget it, and it catches
   them unaware. The challenge is meant to come with packs, hunts, ambushes and cunning (steps 3-8). Blasts filled their
-  eight places four times and the dead's missiles their ten once; both doubled (16, 20).
+  eight places four times and the dead's missiles their ten once. Blasts are doubled (16: only their look and the noise
+  of a landing). The dead's missiles stay at ten: doubled, the knight's level killed the dream more with either mind (the
+  old minds 26 deaths against 23 on the same seeds), since throws a full pool refused had been part of its balance.
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.
