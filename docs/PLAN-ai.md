@@ -2,7 +2,9 @@
 
 **Status: settled (1 November 2026). The owner answered both rounds the same day, and added a sprint, a line for
 potions, places to mend, doors that sound like their run and four fights from other games. Being built on
-`claude/youthful-mayer-deaa11`, step 0 first.** Written on
+`claude/youthful-mayer-deaa11`, step 0 first. Step 0 is built (harness only; the Windows shell's new setting not yet
+compiled), with two choices of mine: the ascend screen shows fourteen lines and scrolls, since sixteen don't fit; and
+running dry needs Shift pressed again.** Written on
 `claude/laughing-cori-a3jk29` from 1.0.0b13; brought onto its work branch, `claude/youthful-mayer-deaa11`, from main
 once the art pass so far had been merged there (1 November). The art pass is visual only, and the numbers below were
 checked again on main: none has moved. The owner asked for creatures

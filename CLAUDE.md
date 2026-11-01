@@ -141,7 +141,10 @@ answered most of the first round the same day: it is **1.0.0b15**, ahead of the 
 same minds for the dream and a person, the old ones behind `CRAWL_MIND=0`; ambushes from level 7 and a new kind of
 interaction every two levels (the plan's section 23 tallies them and drafts a rollout); and the owner's own additions,
 a sprint with a meter and a recovery that quickens with health, a line multiplying what a potion restores, and the
-Lantern of the Dead shuttered on a long press of L. The second round is open (the plan's end); nothing is built.
+Lantern of the Dead shuttered on a long press of L. The second round settled it (1 November): the art pass waits until
+this is done; new kinds (the Whipper-In, the Sexton, the Lightless); places to mend in the walls; doors that sound like
+their run; `MAXMOBS` to grow. **Step 0, the caster's side, is built** (harness only, the Windows shell not compiled here):
+see *The sprint, PHYSIC and the lantern* below. Step 1, the senses and memory, is next.
 
 ## Working with the owner
 
@@ -209,7 +212,7 @@ Environment for the harness: `HOST_INPUT="1:+H;4.3:-H;5:+W;7:-W;8:m400,0;9:+MOUS
 as in `core.h` without `KEY_`, so `CONSOLE`, `BACK`, `PGUP`, `PGDN` too),
 `HOST_LOAD=file` (the progress to start from: a run, or the page it names; stands in for the registry),
 `HOST_SAVE=file` (the progress, each time the game writes it), `HOST_SLOTS=dir` (the ledger's pages as
-`slot1.bin`..`slot3.bin`, the dead's mark as `mark.bin`), `BOTH=1` (scene rotation), `STAY=n`. A game
+`slot1.bin`..`slot3.bin`, the dead's mark as `mark.bin`, the pad's sprint button as `prefs.bin`), `BOTH=1` (scene rotation), `STAY=n`. A game
 controller in `HOST_INPUT`: buttons `+PAD_A` ... `-PAD_RT` (names as `PAD_*` in `core.h`), sticks `aLX0.8`,
 `aLY1`, `aRX-0.5`, `aRY0` (y up); any of them makes a pad plugged in. The harness prints `RUMBLE lo hi`
 and `RUMBLE off` as the motors start and stop. `M` is the map's key (1.0.0b9).
@@ -300,7 +303,7 @@ spell's tier), `LG_REPO` (the Repository: places, u32 gold, u16 coins, then each
 level of origin), `LG_ELEM` (version 7: the record by
 element, a byte each by kind and element for kills, hits landed and harms felt; version 7 leaves the fixed part's kills
 by spell empty, and an older record's go into their elements, a spell learnt staying learnt) and `LG_CASTER` (1.0.0b9,
-`LG_CASTER_BYTES`: a byte of flags (1 the map), u16 the Level of Atonement, u32 the experience since the last
+`LG_CASTER_BYTES`: a byte of flags (1 the map, 2 the lantern shuttered), u16 the Level of Atonement, u32 the experience since the last
 death, u16 points unspent, a u16 of steps bought in each of the lines (twelve, thirteen from 1.0.0b11 with Resist
 Spirit's; a reader counts them from the length), a byte of overlevels in each, a byte of cornerstones, a byte for Second Wind spent, u16 the run it last came back on; an older page reads as
 Level of Atonement 1 with no map): about
@@ -497,7 +500,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   place reads, by context: in a menu the D-pad and stick are W/S/A/D with repeat, A Enter, B and Menu
   Esc, Y Space, the bumpers A/D, View Tab; in play A is E, X Q, Y L, D-pad up M (the map, 1.0.0b9), View Tab, Menu Esc,
   D-pad left/right/down B/C/H, RT and LT the mouse buttons, the bumpers the wheel, B Swift Dodge by the
-  stick's lean (`PADX.dodge`, done in `update_human`), the stick click runs (`PADX.run`); `human_walk`
+  stick's lean (`PADX.dodge`, done in `update_human`), the sprint's button toggles the sprint (`PADX.run`; the left
+  stick click unless a person chose another, below); `human_walk`
   adds the sticks (`pad_turn`, `PAD_TURN`). What was held at the takeover counts once let go
   (`PADX.held`), and a direction that opened a menu isn't its first move (`PADX.menu`). `PADX.used` (the
   pad touched last, a key or the mouse turning it back) makes `pk` turn a hint's keys into buttons
@@ -743,7 +747,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   format above; the gear is packed field by field, so adding to `Gear` means adding to
   `gear_pack`/`gear_unpack` and a new version that still loads the old ones; `REC_KINDS` is fixed at 24
   because the record is packed by it). The app keeps `SLOT_ALL` slots (`core.h`): the three pages, then
-  `SLOT_PROGRESS` and `SLOT_MARK`; the platform loads them all before the first scene and writes any the
+  `SLOT_PROGRESS`, `SLOT_MARK` and `SLOT_PREFS` (1.0.0b15: a byte, the pad's sprint button; the registry's DWORD
+  `PadSprint`, which the settings dialog shows too); the platform loads them all before the first scene and writes any the
   game changed after each step (the registry's `Slot1`-`Slot3`, `Progress` and `Mark`; `SLOT_MAX`
   16 KB). Nothing is written on quitting: fleeing keeps only what is signed. `LEDGER` lasts while the
   program runs: `yours` (a person has taken over: the screensaver's dream is over; sleepwalking doesn't
@@ -1046,6 +1051,21 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   the hazards' four, an older one read as none), `rec_puzzle`, the trial's in `tri_end`; achievements from `ACH_DEED0`
   (324: puzzles at 1, 5, 20, trials at 1, 10, 30, each run's trials all won) in `ach_lines`; the Codex's `CX_PUZZLE` and
   `CX_TRIAL` parts (`PZ_DOES`, `tri_run_of`).
+- **The sprint, PHYSIC and the lantern** (1.0.0b15 step 0, docs/PLAN-ai.md sections 24-26). The sprint: Shift held, or
+  the pad's sprint button as a toggle that ends when the stick stops leaning forward (`PADX.run`); forward only, half
+  again the pace, `SPRINT_BASE` 2.5 s and SPRINT's (`sprint_max`); `sprint_tick` drains it while it carries you, then
+  waits and fills the whole meter (`sprint_recovery`: 1.5 s and 3.5 s, a quarter off each for each whole hundred of
+  health past 200, to 0.25 and 0.75; the owner's SP2 b); run dry, `G.spr_dry` until Shift is let go, and
+  `SFX_BREATH`; the arrow keys' quicker turn with Shift stays free; `render_sprint` (a slim bar over the status bar's
+  edge while it isn't full). Esc's question has `Q_PAD` while a pad is in (`quit_rows`; `PADX.bind`: every button let
+  go, then the one pressed, `pad_sprint_set`); in play that button and the left stick click trade jobs (`pad_keys`).
+  Two new stats at the end, `ST_SPRINT` (seconds, on boots, cap 7.5 over the base) and `ST_PHYSIC` (on robes and
+  amulets, cap 400: `potion_heal`, 25 times one and it), and two lines at the end of `LINES` (`LN_SPRINT`, `LN_PHYSIC`, a
+  point a step, no overlevels: `line_overs`); the ascend screen shows fourteen lines and scrolls; Tab's caster page
+  has twelve rows down the left. The Lantern of the Dead (`lantern_held`, `lantern_lit`, `RUN.lantern_off`,
+  `lantern_toggle`, `lantern_mark` on the portrait's corner): with it, L held 0.6 s shutters or lights it, a tap opens
+  the list (on letting go), or with *L ALWAYS CASTS THIS* casts after `G.l_tap` and a double tap opens the list; the
+  list has a lantern row. Debug: `EVENT sprint_on`, `sprint_dry`, `sprint_full`, `pad_sprint`, `lantern`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

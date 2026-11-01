@@ -575,6 +575,13 @@ static float sfx_sample(Sfx *s) {
         x = flick * 0.7f + slap * 0.9f;
         break;
     }
+    case SFX_BREATH: {                              /* winded: a breath out and a breath in, breathy noise through a moving mouth */
+        float u = t / s->dur, hump = u < 0.45f ? sinf(PI_F * u / 0.45f) : (u > 0.52f ? sinf(PI_F * (u - 0.52f) / 0.48f) * 0.7f : 0.0f);
+        float f = u < 0.5f ? 1300.0f - 500.0f * u : 700.0f + 900.0f * (u - 0.5f);   /* out falls, in rises */
+        float air = svf_band(nz(&s->rng), f, 0.45f, &s->lo1, &s->bp1) + 0.4f * svf_band(nz(&s->rng), f * 2.3f, 0.6f, &s->lo2, &s->bp2);
+        x = air * hump * hump * (0.8f + 0.2f * sinf(t * 37.0f));   /* a little ragged */
+        break;
+    }
     case SFX_SPLASH: {                              /* a foot in shallow water: the slap going in, the slosh as it lifts, a few drops falling back */
         if (t == 0.0f) s->a = 0.85f + 0.3f * (nz(&s->rng) * 0.5f + 0.5f);
         float slap = svf_band(nz(&s->rng), 1500.0f * s->a, 0.6f, &s->lo1, &s->bp1) * expf(-t * 34.0f) * fminf(1.0f, t / 0.002f);
@@ -1618,6 +1625,7 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_HUM]        = { 1.60f, 0.55f,  0.50f, 0.50f },
     [SFX_RUSTLE]     = { 0.95f, 0.55f,  0.50f, 0.25f },
     [SFX_PAGE]       = { 0.40f, 0.55f,  0.50f, 0.25f },
+    [SFX_BREATH]     = { 0.90f, 0.45f,  0.50f, 0.15f },
 };
 
 void snd_tone(int glass, int midi, float gain, float pan) {      /* a struck bell or a singing crystal, at its own note */

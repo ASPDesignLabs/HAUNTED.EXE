@@ -31,6 +31,7 @@
 #define PLANE_LEN 0.75f
 #define FOCAL ((W / 2) / PLANE_LEN)
 #define CRUISE 2.1f                         /* cells per second */
+#define SPRINT_BASE 2.5f                    /* seconds of sprint everyone has (docs/PLAN-ai.md, 24); SPRINT adds to it */
 #define WALK 3.0f                           /* cells a second, for a person at the keys */
 #define BODY 0.24f                          /* the caster's girth, against walls */
 
@@ -531,7 +532,8 @@ enum { ND_OPEN, ND_EFF, ND_INS, ND_ABIL, ND_A1, ND_A2, ND_AULT, ND_B1, ND_B2, ND
 
 /* What points buy (docs/PLAN-b9.md, section 5): a line each; Resist buys every resist at once */
 enum { LN_HEALTH, LN_DAMAGE, LN_RESIST, LN_POISON, LN_BURN, LN_SLOW, LN_HASTE, LN_DODGE, LN_TREASURE, LN_MOVE, LN_LUCK, LN_ATTUNE,
-       LN_SPIRIT, LN_LIGHT, NLINE };        /* saved by number: a new line goes at the end (Resist Lightning, 1.0.0b13) */
+       LN_SPIRIT, LN_LIGHT, LN_SPRINT, LN_PHYSIC, NLINE };   /* saved by number: a new line goes at the end (Resist Lightning,
+                                                                1.0.0b13; Sprint and Physic, 1.0.0b15) */
 #define NLINE_B9 12                         /* the lines a page held before Resist Spirit's */
 /* the cornerstones (section 6): Second Wind, Premonition, Cartographer, Lantern of the Dead, Grave Sense */
 enum { CS_WIND, CS_OMEN, CS_CARTO, CS_LANTERN, CS_SENSE, NCS };
@@ -594,6 +596,7 @@ static struct {
        over), the points not yet spent and the steps bought in each line, the overlevels chosen in each, the
        cornerstones held (a bit each, CS_*), Second Wind spent, and the run it last came back on */
     int has_map;
+    int lantern_off;                        /* the Lantern of the Dead shuttered (1.0.0b15, docs/PLAN-ai.md, 26): flag 2 beside the map's */
     uint8_t al[NELEM][NNODE];               /* the Alignment (docs/PLAN-b11.md, section 8): the points in each line's nodes */
     int al_points;                          /* Alignment Points not spent: one a Level of Atonement */
     int cls, cls_pts, cls_spent;            /* the class (docs/PLAN-b11.md, section 11): 1 + its element, 0 not yet asked;
@@ -608,6 +611,8 @@ static struct {
     uint16_t steps[NLINE]; uint8_t over[NLINE];
     int corner, wind_spent, wind_run;
 } RUN;
+static int lantern_held(void) { return RUN.corner >> CS_LANTERN & 1; }   /* the Lantern of the Dead (docs/PLAN-ai.md, 26) */
+static int lantern_lit(void) { return lantern_held() && !RUN.lantern_off; }
 
 /* The caster's boss abilities (docs/PLAN-b7.md, section 8): one a boss, unlocked at the Hexed Totem with a
  * scrip of that boss and raised with more, to rank III. Swift Dodge (the knight's): tap a direction twice
@@ -705,6 +710,8 @@ static struct {
     float ward_hp, ward_t, mirror_t, slip_t, reap_t, mend_t, mend_rate, mirror_flash;   /* mirror_flash: Mirrored just sent one back */
     float ward_shards, decoy_x, decoy_y, decoy_t;   /* Exquisite runes: the Bone Ward's burst when it breaks; Blink's double */
     float oss_t[10];                    /* Ossified (1.0.0b11): a point of armour for each spear that struck, six seconds each */
+    float spr, spr_wait, spr_show;      /* the sprint (1.0.0b15, docs/PLAN-ai.md, 24): seconds left, the wait before it fills, the meter's fade */
+    int spr_set, spr_on, spr_dry;       /* the meter filled for the level; sprinting now; run dry, Shift not yet let go */
     float whisper_t, commune_t, commune_show, commune_len, commune_r;   /* Treasure Hunter's whisper; Commune's clock and showing */
     int altar_x, altar_y, altar_state, altar_seek;   /* the Black Altar (x -1: none); the secret its wisp seeks */
     int altar_wisp, altar_inside;                    /* where its wisp is (AW_*); whether you have been into the secret it shows */
@@ -791,7 +798,9 @@ static struct {
     float fwall_t, fwalk_t, fwalk_cd, fwall_dps;   /* Firewall's spirits circling, and their burn; Flamewalker's armour, and its wait */
     float bar, bar_t, peek, lift;           /* the status bar shown (0..1), time before it goes; H held; the readout raised */
     float hand_base, ready_t;               /* a person's hand: how far up between casts, and how long it stays */
-    float l_t; int l_down;                  /* L held this long (a tap casts, a hold opens the menu) */
+    float l_t; int l_down;                  /* L held this long (a tap casts, a hold opens the menu, or with the Lantern of
+                                               the Dead shutters it) */
+    float l_tap;                            /* with the lantern and L casting at a tap: a first tap waiting for a second */
     int pc_fired, spirit_said;              /* spirit_said: the caption for a weak cast, once a level */
     int click_spent;                        /* the click went on a ware or the cat: no cast until it is let go */
     char msg[64];
@@ -899,10 +908,34 @@ static struct {                             /* their game controller, if they ha
     float rep[4];                           /* a direction held in a menu: when it repeats (up, down, left, right) */
     uint8_t on[4];
     int menu;                               /* a menu was open last step */
-    int run;                                /* the left stick clicked: running until it is let go */
+    int run;                                /* the sprint's button pressed: sprinting until pressed again, the stick
+                                               stops leaning forward or the meter runs dry */
     int dodge;                              /* B: Swift Dodge, at dodge_a */
     float dodge_a;
+    int sprint, sprint_read;                /* the button the sprint is on (PAD_*; a person's own, SLOT_PREFS), and read */
+    int bind;                               /* Esc's question choosing it: 1 waiting for every button let go, 2 for the one */
 } PADX;
+/* the pad's sprint button (docs/PLAN-ai.md, SP3): kept as a person's own setting beside the ledger */
+static const char *const PAD_WORD[PAD_COUNT] = { "\1A", "\1B", "\1X", "\1Y", "LB", "RB", "VIEW", "MENU", "L-STICK", "R-STICK",
+                                                 "D-PAD UP", "D-PAD DOWN", "D-PAD LEFT", "D-PAD RIGHT", "LT", "RT" };
+static int pad_sprint(void) {
+    if (!PADX.sprint_read) {
+        uint8_t b = PAD_LS;
+        PADX.sprint = slot_read(SLOT_PREFS, &b, 1) == 1 && b < PAD_COUNT ? b : PAD_LS;
+        PADX.sprint_read = 1;
+    }
+    return PADX.sprint;
+}
+static void pad_sprint_set(int b) {
+    uint8_t v = (uint8_t)b;
+    PADX.sprint = b; PADX.sprint_read = 1;
+    slot_write(SLOT_PREFS, &v, 1);
+}
+static const char *pad_sprint_hint(void) {
+    static char h[48];
+    snprintf(h, sizeof h, "%s SPRINTS FORWARD, A WHILE", PAD_WORD[pad_sprint()]);
+    return h;
+}
 #define PAD_TURN 3.0f                       /* radians a second with the right stick all the way over */
 
 /* The hints in the pad's words, when it was touched last: each key a hint names becomes its button, a
@@ -2734,7 +2767,7 @@ static void build_lightmap(void) {
     }
     tri_dark();                                                    /* a trial's room gone dark (1.0.0b13) */
     light_dynamic(G.px, G.py, 0.62f, 2.8f);                        /* the caster's own faint glow */
-    if ((RUN.corner >> CS_LANTERN & 1) && !G.shop) light_dynamic_ex(G.px, G.py, 0.9f + 0.06f * sinf((float)G.t * 3.1f), 2.6f, 1);   /* the Lantern of the Dead */
+    if (lantern_lit() && !G.shop) light_dynamic_ex(G.px, G.py, 0.9f + 0.06f * sinf((float)G.t * 3.1f), 2.6f, 1);   /* the Lantern of the Dead */
     for (int b = 0; b < G.bbz_n && G.boss == BOSS_WRAITH && !PK.depth && !G.shop; b++)   /* the Wraith's braziers, those still lit */
         if (G.bbz_lit[b]) light_dynamic(G.bbz_x[b] + 0.5f, G.bbz_y[b] + 0.5f, 1.5f * (0.92f + 0.08f * sinf((float)G.t * 9.0f + b)), 5.2f);
     if (G.shop) light_dynamic(PORTAL_X + 0.5f, PORTAL_Y - 0.3f, 1.0f + 0.15f * sinf((float)G.t * 2.3f), 4.6f);   /* the Portal's glow */
@@ -3293,6 +3326,7 @@ static void update_motes(float dt) {
 /* Spirit is the souls, spent on spells to the tenth (PLAN-items: spirit and bones). Spending never
  * touches what the level has given (G.level_souls), so the wisp still comes after ten gained. */
 static float spirit(void) { return (float)RUN.souls + RUN.soul_frac; }
+static int potion_heal(void) { return (int)(25.0f * (1.0f + gear_total(&RUN.gear, ST_PHYSIC) / 100.0f) + 0.5f); }   /* PHYSIC (docs/PLAN-ai.md, 25) */
 static void spirit_text(char *buf, int n) {                         /* to the tenth, while it fits */
     if (RUN.souls < 1000) snprintf(buf, (size_t)n, "%d.%d", RUN.souls, clampi((int)(RUN.soul_frac * 10.0f), 0, 9));
     else snprintf(buf, (size_t)n, "%d", RUN.souls);
@@ -3537,7 +3571,10 @@ static const Line LINES[NLINE] = {
     [LN_ATTUNE]   = { "ATTUNEMENT", "+1%: SPELLS COST LESS SPIRIT", 1, ST_THRIFT, 1.0f },
     [LN_SPIRIT]   = { "RESIST SPIRIT", "+15%: SPIRIT HURTS LESS, AND WHAT DRAINS SOULS TAKES FEWER", 3, ST_RES_SPIRIT, 15.0f },
     [LN_LIGHT]    = { "RESIST LIGHTNING", "+15%: LIGHTNING HURTS LESS, AND BREAKS A SPELL LESS OFTEN", 3, ST_RES_LIGHT, 15.0f },
+    [LN_SPRINT]   = { "SPRINT", "+0.5 S: YOU SPRINT LONGER, TO TEN SECONDS", 1, ST_SPRINT, 0.5f },   /* docs/PLAN-ai.md, 24 */
+    [LN_PHYSIC]   = { "PHYSIC", "+5%: A POTION RESTORES MORE, TO FIVE TIMES", 1, ST_PHYSIC, 5.0f },
 };
+static int line_overs(int l) { return l != LN_HEALTH && l != LN_RESIST && l != LN_SPRINT && l != LN_PHYSIC; }   /* past its cap? */
 #define LUCK_BASE 2.0f                      /* everyone's, at the start */
 static float over_step(int l) { return l == LN_LUCK ? 1.0f : 5.0f; }   /* an overlevel's: Luck 1, the rest 5 */
 static float line_own(int l) { return LINES[l].step * (float)RUN.steps[l] + over_step(l) * (float)RUN.over[l]; }
@@ -4328,7 +4365,7 @@ static void update_wraith(Mob *m, float dt) {
     if (rnd(900) == 0) sfx_at(SFX_WAIL, m->x, m->y, 0.9f);
     float gx = m->tx + 0.5f, gy = m->ty + 0.5f, dx = gx - m->x, dy = gy - m->y, d = sqrtf(dx * dx + dy * dy);
     float step = m->speed * dt * (m->sub == 1 ? 1.6f : 1.0f);
-    if ((RUN.corner >> CS_LANTERN & 1) && m->sub == 0 && pd < 2.1f && hypotf(gx - G.px, gy - G.py) < pd) return;   /* the Lantern: it keeps a cell further off */
+    if (lantern_lit() && m->sub == 0 && pd < 2.1f && hypotf(gx - G.px, gy - G.py) < pd) return;   /* the Lantern: it keeps a cell further off */
     if (d > step) { m->x += dx / d * step; m->y += dy / d * step; return; }
     m->x = gx; m->y = gy; m->cx = m->tx; m->cy = m->ty;
     if (G.dead || G.exiting) return;
@@ -8168,7 +8205,7 @@ static void collect(Item *it) {
         fprintf(stderr, "EVENT key%d t=%.2f path=%d\n", it->color, G.t, bfs_dist[G.cy][G.cx]);
 #endif
         break;
-    case IT_POTION: G.hp = G.hp + 25 > G.max_hp ? G.max_hp : G.hp + 25; snd_sfx(SFX_POTION); break;
+    case IT_POTION: G.hp = imin(G.max_hp, G.hp + potion_heal()); snd_sfx(SFX_POTION); break;
     case IT_SCRIP: {                                               /* a boss's: to the Hexed Totem's account at once */
         int b = clampi(it->color, 0, BOSS_REC - 1), n = (G.bstep >= 3 ? 2 : 1) + (G.corrupt != 0);   /* the bell's one more */
         RUN.scrip[b] += n; RUN.rec.boss[b].scrip = (uint16_t)imin(65535, RUN.rec.boss[b].scrip + n);
@@ -13029,6 +13066,16 @@ static int summon_wisp(int kind, int color, float cost) {
 /* the L menu: what can be cast now, and what each costs */
 typedef struct { int kind, color; float cost; } WispChoice;
 #define WISP_CHOICES (2 + NKEYS)
+/* the Lantern of the Dead, shuttered or lit (docs/PLAN-ai.md, 26): its light and the Wraith kept off go together */
+static void lantern_toggle(void) {
+    RUN.lantern_off ^= 1;
+    say(RUN.lantern_off ? "THE LANTERN SHUTTERED" : "THE LANTERN LIT");
+    if (RUN.lantern_off) snd_sfx_ex(SFX_KNOCK, 0.45f, 0.5f); else snd_sfx_ex(SFX_IGNITE, 0.6f, 0.5f);
+    show_bar();
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT lantern %s t=%.2f\n", RUN.lantern_off ? "shuttered" : "lit", G.t);
+#endif
+}
 static int wisp_choices(WispChoice *c) {
     int n = 0;
     c[n++] = (WispChoice){ WK_EXIT, 0, WISP_COST };
@@ -14611,20 +14658,64 @@ static void spell_keys(void) {
     }
 }
 
+/* the sprint (docs/PLAN-ai.md, 24): two and a half seconds and what SPRINT adds; once it stops, a wait and then the
+ * whole meter fills, both shorter by a quarter for each whole hundred of health past 200, to a quarter second and
+ * three quarters (the owner's SP2 b) */
+static float sprint_max(void) { return SPRINT_BASE + gear_total(&RUN.gear, ST_SPRINT); }
+static void sprint_recovery(float *wait, float *fill) {
+    int n = G.max_hp >= 300 ? imin((G.max_hp - 200) / 100, 40) : 0;
+    float k = powf(0.75f, (float)n);
+    *wait = fmaxf(0.25f, 1.5f * k); *fill = fmaxf(0.75f, 3.5f * k);
+}
+static void sprint_tick(float dt, int on, int moved) {
+    float mx = sprint_max(), wait, fill;
+    sprint_recovery(&wait, &fill);
+    if (!G.spr_set) { G.spr = mx; G.spr_set = 1; }
+    if (on && moved) {
+        if ((G.spr -= dt) <= 0.0f) {                                /* run dry: a walk until it is asked for again */
+            G.spr = 0.0f; G.spr_dry = 1; PADX.run = 0; on = 0;
+            snd_sfx_ex(SFX_BREATH, 0.5f, 0.5f);
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT sprint_dry max %.2f wait %.2f fill %.2f hp %d t=%.2f\n", mx, wait, fill, G.max_hp, G.t);
+#endif
+        }
+    }
+    if (G.spr_on && !on) G.spr_wait = wait;                        /* it stopped: the wait begins */
+    if (!on) {                                                     /* held against a wall it neither drains nor fills */
+        if (G.spr_wait > 0.0f) G.spr_wait -= dt;
+        else if (G.spr < mx) {
+            G.spr = fminf(mx, G.spr + mx / fill * dt);
+#ifdef CRAWL_DEBUG
+            if (G.spr >= mx) fprintf(stderr, "EVENT sprint_full t=%.2f\n", G.t);
+#endif
+        }
+    }
+#ifdef CRAWL_DEBUG
+    if (on && !G.spr_on) fprintf(stderr, "EVENT sprint_on left %.2f t=%.2f\n", G.spr, G.t);
+#endif
+    G.spr_on = on;                                                 /* asked for and able, moving or not */
+    G.spr_show = G.spr < mx - 1e-3f ? 0.6f : fmaxf(0.0f, G.spr_show - dt);   /* the meter lingers a moment once full */
+}
+
 /* turning and walking, shared by the crypt and the merchant's room */
 static float pad_turn(float dt) { return IN.rx * (0.4f + 0.6f * IN.rx * IN.rx) * PAD_TURN * dt; }   /* gentle near the middle */
 static void human_walk(float dt) {
-    float run = IN.down[KEY_SHIFT] || PADX.run ? 1.5f : 1.0f;
+    int want = IN.down[KEY_SHIFT] || PADX.run;
+    if (!IN.down[KEY_SHIFT]) G.spr_dry = 0;                        /* Shift let go: it may be asked for again */
+    float turn = want ? 1.5f : 1.0f;                               /* the arrows turn quicker with it, for nothing */
     int ar = !G.map_on;                                            /* the arrows pan the map while it is up */
-    G.ang = wrap_pi(G.ang + IN.mdx * MOUSE_TURN + ((float)(ar && IN.down[KEY_RIGHT]) - (float)(ar && IN.down[KEY_LEFT])) * KEY_TURN * run * dt + pad_turn(dt));
+    G.ang = wrap_pi(G.ang + IN.mdx * MOUSE_TURN + ((float)(ar && IN.down[KEY_RIGHT]) - (float)(ar && IN.down[KEY_LEFT])) * KEY_TURN * turn * dt + pad_turn(dt));
     float fwd = (float)(IN.down[KEY_W] || (ar && IN.down[KEY_UP])) - (float)(IN.down[KEY_S] || (ar && IN.down[KEY_DOWN])) + IN.ly;
     float side = (float)IN.down[KEY_D] - (float)IN.down[KEY_A] + IN.lx;
+    int on = want && !G.spr_dry && G.spr > 0.0f && fwd > 0.33f && fwd >= fabsf(side);   /* a sprint goes forward */
+    float run = on ? 1.5f : 1.0f;
     float len = sqrtf(fwd * fwd + side * side), moved = 0.0f;
     if (len > 0.0f) {                                              /* the stick part way over: slower */
         float sp = WALK * run * gear_haste(&RUN.gear) * slow_factor() * dt / fmaxf(len, 1.0f);
         float c = cosf(G.ang), s = sinf(G.ang);
         moved = human_move((c * fwd - s * side) * sp, (s * fwd + c * side) * sp);
     }
+    sprint_tick(dt, on, moved > 1e-4f);
     G.spd = dt > 0.0f ? moved / dt : 0.0f;
     float ph0 = G.bobph;
     G.bobph += moved * TAU_F;
@@ -14847,16 +14938,35 @@ static void update_human(float dt) {
         if (RUN.has_map) map_up();
         else say("YOU HAVE NO MAP. THE MERCHANT SELLS ONE");
     }
-    if (IN.hit[KEY_L]) {
-        if (RUN.wisp_auto) { G.l_down = 1; G.l_t = 0.0f; }
-        else { open_ui(UI_WISPS); return; }
-    }
-    if (G.l_down) {                                                /* the toggle is on: a tap casts, a hold opens the menu */
-        WispChoice c[WISP_CHOICES];
-        int n = wisp_choices(c), i = wisp_choice_at(c, n, RUN.wisp_kind, RUN.wisp_color);
-        if (IN.down[KEY_L] && (G.l_t += dt) < 0.6f) { }
-        else if (IN.down[KEY_L] || i < 0) { G.l_down = 0; open_ui(UI_WISPS); return; }
-        else { G.l_down = 0; cast_choice(&c[i]); }
+    if (lantern_held()) {                                          /* a hold shutters or lights it; a tap is the wisps' (S6 a) */
+        if (IN.hit[KEY_L]) { G.l_down = 1; G.l_t = 0.0f; }
+        if (G.l_down && IN.down[KEY_L]) {
+            if ((G.l_t += dt) >= 0.6f) { G.l_down = 0; lantern_toggle(); }
+        } else if (G.l_down) {                                     /* let go: a tap */
+            G.l_down = 0;
+            if (!RUN.wisp_auto) { open_ui(UI_WISPS); return; }
+            if (G.l_tap > 0.0f) { G.l_tap = 0.0f; open_ui(UI_WISPS); return; }   /* tapped twice: the list */
+            G.l_tap = 0.3f;                                        /* once: it casts, unless a second tap comes */
+        }
+        if (G.l_tap > 0.0f && (G.l_tap -= dt) <= 0.0f) {
+            WispChoice c[WISP_CHOICES];
+            int n = wisp_choices(c), i = wisp_choice_at(c, n, RUN.wisp_kind, RUN.wisp_color);
+            G.l_tap = 0.0f;
+            if (i < 0) { open_ui(UI_WISPS); return; }
+            cast_choice(&c[i]);
+        }
+    } else {
+        if (IN.hit[KEY_L]) {
+            if (RUN.wisp_auto) { G.l_down = 1; G.l_t = 0.0f; }
+            else { open_ui(UI_WISPS); return; }
+        }
+        if (G.l_down) {                                            /* the toggle is on: a tap casts, a hold opens the menu */
+            WispChoice c[WISP_CHOICES];
+            int n = wisp_choices(c), i = wisp_choice_at(c, n, RUN.wisp_kind, RUN.wisp_color);
+            if (IN.down[KEY_L] && (G.l_t += dt) < 0.6f) { }
+            else if (IN.down[KEY_L] || i < 0) { G.l_down = 0; open_ui(UI_WISPS); return; }
+            else { G.l_down = 0; cast_choice(&c[i]); }
+        }
     }
     if (IN.hit[KEY_H]) show_bar();                                 /* a look at where things stand */
     if (IN.hit[KEY_Q]) ready_next();                               /* the boss abilities: Q readies the next, */
@@ -15084,7 +15194,8 @@ static void update_inventory(void) {
 
 /* ---- Esc: leave the crypt? ---- */
 
-enum { Q_FLEE, Q_STAY, Q_SLEEP, Q_OPEN, Q_NEW, Q_OPTIONS };
+enum { Q_FLEE, Q_STAY, Q_SLEEP, Q_OPEN, Q_NEW, Q_PAD, Q_OPTIONS };   /* Q_PAD only while a pad is in play */
+static int quit_rows(void) { return IN.pad ? Q_OPTIONS : Q_PAD; }
 static void open_ledger(int mode);
 /* a new run from nothing, a person's from the start, so she asks what you were; the pages stay in the ledger,
  * and what was not signed is lost, as in fleeing */
@@ -15106,6 +15217,7 @@ static void run_new(void) {
 }
 static void quit_choose(int c) {
     if (c == Q_OPEN) { open_ledger(1); return; }
+    if (c == Q_PAD) { PADX.bind = 1; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }   /* then the button wanted */
     if (c == Q_NEW) {                                              /* asked twice: what is unsigned is lost */
         if (!G.quit_arm) { G.quit_arm = 1; snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return; }
         run_new();
@@ -15117,8 +15229,26 @@ static void quit_choose(int c) {
 }
 static void update_quit(void) {
     if (G.status_ret == PLAY_QUIT) return;
-    if (IN.hit[KEY_W] || IN.hit[KEY_UP]) { G.ui_sel = (G.ui_sel + Q_OPTIONS - 1) % Q_OPTIONS; G.quit_arm = 0; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
-    if (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) { G.ui_sel = (G.ui_sel + 1) % Q_OPTIONS; G.quit_arm = 0; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    int nq = quit_rows();
+    if (PADX.bind) {                                               /* choosing the sprint's button: every one let go, then the one pressed */
+        if (!IN.pad || (IN.hit[KEY_ESC] && !IN.pad_hit[PAD_B] && !IN.pad_hit[PAD_MENU])) { PADX.bind = 0; return; }   /* Esc on the keys gives up */
+        int any = 0;
+        for (int b = 0; b < PAD_COUNT; b++) any |= IN.pad_down[b];
+        if (PADX.bind == 1) { if (!any) PADX.bind = 2; return; }
+        for (int b = 0; b < PAD_COUNT; b++)
+            if (IN.pad_hit[b]) {
+                pad_sprint_set(b); PADX.bind = 0; PADX.run = 0;
+                snd_sfx_ex(SFX_RUNE, 0.6f, 0.5f);
+#ifdef CRAWL_DEBUG
+                fprintf(stderr, "EVENT pad_sprint %d t=%.2f\n", b, G.t);
+#endif
+                break;
+            }
+        return;
+    }
+    G.ui_sel = clampi(G.ui_sel, 0, nq - 1);
+    if (IN.hit[KEY_W] || IN.hit[KEY_UP]) { G.ui_sel = (G.ui_sel + nq - 1) % nq; G.quit_arm = 0; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    if (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) { G.ui_sel = (G.ui_sel + 1) % nq; G.quit_arm = 0; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
     if (IN.hit[KEY_ENTER] || IN.hit[KEY_SPACE] || IN.hit[KEY_E] || IN.hit[KEY_MOUSE1]) { quit_choose(G.ui_sel); return; }
     if (IN.hit[KEY_Y]) { quit_choose(Q_FLEE); return; }
     if (IN.hit[KEY_N] || IN.hit[KEY_ESC]) { quit_choose(Q_STAY); return; }
@@ -15612,7 +15742,7 @@ static void pad_keys(float dt) {
     }
     pads |= IN.lx * IN.lx + IN.ly * IN.ly > 0.09f || IN.rx * IN.rx + IN.ry * IN.ry > 0.09f;
     if (pads) PADX.used = 1; else if (keys) PADX.used = 0;
-    if (IN.lx * IN.lx + IN.ly * IN.ly < 0.06f) PADX.run = 0;      /* running ends with the stick let go */
+    if (IN.ly < 0.33f) PADX.run = 0;                               /* the sprint ends as the stick stops leaning forward */
     if (CON.open) return;
 #define PRESS(k) (IN.hit[k] = IN.down[k] = 1)
     if (G.ui != UI_NONE) {
@@ -15636,6 +15766,13 @@ static void pad_keys(float dt) {
         return;
     }
     PADX.menu = 0;
+    {                                                              /* the sprint's button and the left stick click trade jobs */
+        int sb = pad_sprint();
+        if (sb != PAD_LS) {
+            uint8_t t = dn[sb]; dn[sb] = dn[PAD_LS]; dn[PAD_LS] = t;
+            t = hit[sb]; hit[sb] = hit[PAD_LS]; hit[PAD_LS] = t;
+        }
+    }
     if (G.map_on && G.player && !G.shop) {                         /* the map up: the D-pad pans it, B closes it */
         if (hit[PAD_UP]) PRESS(KEY_UP);
         if (hit[PAD_DOWN]) PRESS(KEY_DOWN);
@@ -15659,7 +15796,7 @@ static void pad_keys(float dt) {
     if (hit[PAD_LT]) PRESS(KEY_MOUSE2);
     if (hit[PAD_RB]) IN.wheel -= 1;                                 /* the next spell */
     if (hit[PAD_LB]) IN.wheel += 1;                                 /* the one before */
-    if (hit[PAD_LS]) PADX.run = 1;
+    if (hit[PAD_LS]) PADX.run = !PADX.run;                         /* a toggle (docs/PLAN-ai.md, 24) */
     if (hit[PAD_B]) {                                              /* Swift Dodge: the way the stick leans, else back */
         PADX.dodge = 1;
         PADX.dodge_a = G.ang + (IN.lx * IN.lx + IN.ly * IN.ly > 0.09f ? atan2f(IN.lx, IN.ly) : PI_F);
@@ -16047,7 +16184,7 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     c = section_begin(p, LG_CASTER);
     {
         uint8_t *q = c;
-        *q++ = (uint8_t)(RUN.has_map ? 1 : 0);
+        *q++ = (uint8_t)((RUN.has_map ? 1 : 0) | (RUN.lantern_off ? 2 : 0));   /* 2: the lantern shuttered (1.0.0b15) */
         put16(q, clampi(RUN.atone, 1, 65535)); q += 2;
         put32(q, imax(0, RUN.xp)); q += 4;
         put16(q, clampi(RUN.points, 0, 65535)); q += 2;
@@ -16190,7 +16327,7 @@ static void run_unpack(const uint8_t *buf, int len) {
     int nl = c && k >= LG_CASTER_BYTES - 3 * (NLINE - NLINE_B9) ? imin(NLINE, (k - (LG_CASTER_BYTES - 3 * NLINE)) / 3) : 0;   /* the lines, by its length */
     if (nl) {
         const uint8_t *q = c;
-        RUN.has_map = *q++ & 1;
+        RUN.has_map = *q & 1; RUN.lantern_off = *q++ >> 1 & 1;
         RUN.atone = clampi(get16(q), 1, 9999); q += 2;
         RUN.xp = imax(0, get32(q)); q += 4;
         RUN.points = get16(q); q += 2;
@@ -16578,7 +16715,7 @@ static const char *const CS_DOES[NCS] = {
     "WHEN A BLOW WOULD KILL YOU, YOU RISE AGAIN AT HALF YOUR HEALTH. ONCE A RUN OF TEN LEVELS; A CURSED COIN TO THE MERCHANT RESTORES IT SOONER.",
     "A PURPLE ZONE ON THE FLOOR WARNS OF WHAT THE PLACE WILL DO BEFORE IT DOES IT: FALLING STONE, FIRE, BILE, THE VOID, WHERE AN EMBER WILL LAND.",
     "YOUR MAP COMES DRAWN WHOLE, BUT FOR KEYS AND SECRETS. A LOCKED DOOR OR A SECRET SHOWS ON IT AS YOU PASS, SEEN OR NOT.",
-    "A FAINT LIGHT OF YOUR OWN, TWO CELLS ROUND YOU. SHADES SHOW IN IT, AND THE WRAITH KEEPS A CELL FURTHER OFF.",
+    "A FAINT LIGHT OF YOUR OWN, TWO CELLS ROUND YOU. SHADES SHOW IN IT, AND THE WRAITH KEEPS A CELL FURTHER OFF. HOLD L TO SHUTTER IT.",
     "WHILE THE MAP IS OPEN, THE DEAD WITHIN TEN CELLS OF YOU SHOW ON IT AS RED MARKS." };
 static int cs_takeable(int c) {
     if (RUN.corner >> c & 1 || corner_due() <= 0) return 0;
@@ -16809,7 +16946,7 @@ static void update_ascend(void) {
     if (ud) { G.ui_sel = (G.ui_sel + NLINE + ud) % NLINE; G.asc_arm = -1; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
     int l = G.ui_sel = clampi(G.ui_sel, 0, NLINE - 1);
     if (IN.hit[KEY_SPACE] && over_due() > 0) {                     /* an overlevel: past the cap, five more (Luck one), asked twice */
-        if (l == LN_HEALTH || l == LN_RESIST) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        if (!line_overs(l)) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
         if (G.asc_arm != 100 + l) { G.asc_arm = 100 + l; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }
         RUN.over[l]++; RUN.al_points++; G.asc_arm = -1; caster_sync();
         snd_sfx_ex(SFX_ATONE, 0.7f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.6f, 0.5f);
@@ -16900,11 +17037,15 @@ static void update_stonemenu(void) {
 /* the L menu: W/S choose, Enter casts, Space the toggle, Esc or L closes */
 static void update_wispmenu(void) {
     WispChoice c[WISP_CHOICES];
-    int n = wisp_choices(c);
+    int n = wisp_choices(c), rows = n + lantern_held();             /* the lantern's row under the wisps */
     if (IN.hit[KEY_ESC] || IN.hit[KEY_L]) { G.ui = UI_NONE; return; }
-    if (IN.hit[KEY_W] || IN.hit[KEY_UP]) { G.ui_sel = (G.ui_sel + n - 1) % n; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
-    if (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) { G.ui_sel = (G.ui_sel + 1) % n; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
-    G.ui_sel = clampi(G.ui_sel, 0, n - 1);
+    if (IN.hit[KEY_W] || IN.hit[KEY_UP]) { G.ui_sel = (G.ui_sel + rows - 1) % rows; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    if (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) { G.ui_sel = (G.ui_sel + 1) % rows; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    G.ui_sel = clampi(G.ui_sel, 0, rows - 1);
+    if (G.ui_sel == n) {                                           /* the lantern: Enter shutters or lights it */
+        if (IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_MOUSE1] || IN.hit[KEY_SPACE]) lantern_toggle();
+        return;
+    }
     if (IN.hit[KEY_SPACE]) {
         RUN.wisp_auto ^= 1;
         if (RUN.wisp_auto) { RUN.wisp_kind = c[G.ui_sel].kind; RUN.wisp_color = c[G.ui_sel].color; }
@@ -19327,6 +19468,16 @@ static void glyph_marked(Frame *f, int x, int y, int e, int g) {
 static void key_icon(Frame *f, int kx, int ky, int color);
 static void dead_eye(Frame *f, int x, int y);
 static void draw_coin(Frame *f, int x, int y);
+static void lantern_mark(Frame *f, int x, int y, int lit) {        /* a little lantern, 5 by 8: a flame in it when lit */
+    static const char *const L[8] = { ".###.", "..#..", "#####", "#...#", "#.o.#", "#.o.#", "#...#", "#####" };
+    for (int r = 0; r < 8; r++)
+        for (int c = 0; c < 5; c++) {
+            char ch = L[r][c];
+            if (ch == '#') gfx_px(f, x + c, y + r, lit ? (uint8_t)(R_GOLD + 9) : (uint8_t)(R_STONE + 7));
+            else if (ch == 'o') gfx_px(f, x + c, y + r, lit ? (uint8_t)(R_FLAME + 13 + (r == 4)) : (uint8_t)(R_STONE + 3));
+            else if (r >= 3 && r <= 6 && lit) gfx_px(f, x + c, y + r, R_FLAME + 8);
+        }
+}
 static int small_digits(Frame *f, int x, int y, int n, uint8_t c) {   /* 3 by 5 figures, for the keys' box; returns the width */
     static const char *const D[10] = { "####.##.##.####", ".#.##..#..#.###", "###..#####..###", "###..#.##..####", "#.##.####..#..#",
                                        "####..###..####", "####..####.####", "###..#..#.#..#.", "####.#####.####", "####.####..####" };
@@ -19403,6 +19554,7 @@ static void render_statusbar(Frame *f) {
     }
     bevel(f, 162, y0 + 1, 40, 43, 0);
     draw_face(f, 166, y0 + 3, face_sub());
+    if (lantern_held()) lantern_mark(f, 195, y0 + 34, lantern_lit());   /* the Lantern of the Dead, lit or shuttered */
 }
 
 /* 8x8 type wrapped at spaces to cols a line, lh px apart; returns the lines it took (no frame: only counts) */
@@ -20442,6 +20594,22 @@ static int sockets_shown(void) {                                   /* how many: 
     for (int b = 0; b < NBOSS; b++) n += RUN.abil[b] > 0;
     return n;
 }
+/* the sprint's meter (docs/PLAN-ai.md, SP4): a slim bar over the middle of the status bar's top edge, or the screen's
+ * foot while it is away, only while it isn't full: dull through the wait, bright as it fills */
+static void render_sprint(Frame *f) {
+    if (!G.player || G.dead || G.ui || G.tally || G.spr_show <= 0.0f) return;
+    int bar_top = H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f);
+    int w = 64, x = (W - w) / 2, y = imin(bar_top, H) - 5;
+    float k = clampf(G.spr / fmaxf(0.1f, sprint_max()), 0.0f, 1.0f);
+    int fill = (int)(k * (float)(w - 2) + 0.5f), waiting = G.spr_wait > 0.0f && !G.spr_on;
+    uint8_t lit = G.spr_on ? (uint8_t)(R_BONE + 14) : waiting ? (uint8_t)(R_STONE + 8) : (uint8_t)(R_BONE + 12);
+    if (G.spr_show < 0.6f && ((int)(G.spr_show * 20.0f) & 1)) return;   /* full: it flickers out */
+    gfx_rect(f, x, y, w, 4, 0);
+    for (int i = 0; i < w - 2; i++) {
+        gfx_px(f, x + 1 + i, y + 1, i < fill ? lit : (uint8_t)(R_STONE + 3));
+        gfx_px(f, x + 1 + i, y + 2, i < fill ? (uint8_t)(lit - 2) : (uint8_t)(R_STONE + 2));
+    }
+}
 static void render_sockets(Frame *f) {
     if (!sockets_shown()) return;
     int bar_top = H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f);
@@ -20580,13 +20748,13 @@ static void render_messages(Frame *f) {
                                                 "MENU LEAVE OR SLEEPWALK  \1Y WISPS", "D-PAD: BESTIARY, CODEX, STATUS BAR" };
         int charges = 0, bats = G.level >= 5;                      /* bats of rank II come in from the first run's fifth level */
         for (int sp = 0; sp < AT_BFS; sp++) charges |= RUN.gear.atk[sp] >= 0 && spell_holds(sp);
-        const char *more[6] = { RUN.abil[BOSS_KNIGHT] ? (PADX.used ? "\1B DODGES THE WAY THE STICK LEANS" : "TAP A DIRECTION TWICE TO DODGE") : NULL,
+        const char *more[7] = { PADX.used ? pad_sprint_hint() : "SHIFT SPRINTS FORWARD, A WHILE", RUN.abil[BOSS_KNIGHT] ? (PADX.used ? "\1B DODGES THE WAY THE STICK LEANS" : "TAP A DIRECTION TWICE TO DODGE") : NULL,
                                 ab_readied() >= 0 ? (PADX.used ? "LT AN ABILITY  \1X THE NEXT" : "RIGHT CLICK AN ABILITY  Q THE NEXT") : NULL,
                                 RUN.has_map ? (PADX.used ? "D-PAD UP THE MAP" : "M THE MAP") : NULL,
                                 charges ? (PADX.used ? "HOLD RT TO CHARGE AN ULTIMATE" : "HOLD A SPELL TO CHARGE ITS ULTIMATE") : NULL,   /* 1.0.0b11 */
                                 bats ? (PADX.used ? "SWING THE R-STICK TO SHAKE OFF A BAT" : "TURN OR STRAFE HARD TO SHAKE OFF A BAT") : NULL,
                                 G.shop || RUN.al_points > 0 ? "THE LAMPSTAND NORTH OF HER: THE LINES" : NULL };
-        for (int i = 0, row = 0; i < 10; i++) {
+        for (int i = 0, row = 0; i < 11; i++) {
             const char *h = i < 4 ? (PADX.used ? PADHINT[i] : HINT[i]) : more[i - 4];
             if (!h) continue;
             int w = hint_width(h), x = (W - w) / 2, y = 34 + row++ * 11;
@@ -20620,6 +20788,7 @@ static void total_text(const Gear *g, int st, char *buf, int n) {
     else if (st == ST_THRIFT && t >= 0.5f) snprintf(buf, (size_t)n, "-%.0f%%", t);
     else if (st == ST_LUCK) snprintf(buf, (size_t)n, "%.1f%%", t);
     else if (st == ST_VESSEL) snprintf(buf, (size_t)n, "+%.0f", t);
+    else if (st == ST_SPRINT) snprintf(buf, (size_t)n, "%.1fS", SPRINT_BASE + t);   /* the whole of it */
     else snprintf(buf, (size_t)n, "%.0f%%", t);
 }
 
@@ -20710,6 +20879,8 @@ static void render_elements(Frame *f) {
 
 /* a stat's name, short enough for a column of the caster's numbers */
 static const char *stat_short(int st) {
+    if (st == ST_PHYSIC) return "PHYSIC";
+    if (st == ST_SPRINT) return "SPRINT";
     static const char *const SHORT[ST_POW] = { "ARMOR", "DODGE", "HEALTH", "RESTORES", "POISON WARD", "BURN WARD", "SLOW WARD",
                                               "MOVEMENT", "QUIET", "SPELL HASTE", "SPIRIT COST", "DAMAGE", "FIRE", "FROST",
                                               "LIGHTNING", "EFFECT", "TREASURE", "LUCK", "SPIRIT WARD", "VESSEL" };
@@ -20717,9 +20888,10 @@ static const char *stat_short(int st) {
 }
 /* Tab, the second page: the caster's numbers (what abilities add in gold beside them) and the spellbook */
 static void render_caster(Frame *f) {
-    static const int ROWS[ST_POW + 1] = { ST_ARMOR, ST_DODGE, ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_RES_SPIRIT,
-                                         ST_RES_LIGHT, ST_MOVE, ST_QUIET, ST_HASTE, ST_THRIFT, ST_DAMAGE, ST_FIRE, ST_FROST, ST_SHOCK,
-                                         ST_EFFECT, ST_TREASURE, ST_LUCK, ST_VESSEL };   /* eleven down the left, ten down the right */
+    static const int ROWS[] = { ST_ARMOR, ST_DODGE, ST_HP, ST_REGEN, ST_PHYSIC, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_RES_SPIRIT,
+                                ST_RES_LIGHT, ST_MOVE, ST_SPRINT, ST_QUIET, ST_HASTE, ST_THRIFT, ST_DAMAGE, ST_FIRE, ST_FROST, ST_SHOCK,
+                                ST_EFFECT, ST_TREASURE, ST_LUCK, ST_VESSEL };   /* twelve down the left, eleven down the right */
+    enum { NROWS = sizeof ROWS / sizeof ROWS[0], LEFT = 12 };
     const Gear *g = &RUN.gear, *g0 = &G.inv0;
     gfx_text16(f, 14, 9, "THE CASTER", R_GOLD + 12, 1);
     {
@@ -20739,8 +20911,8 @@ static void render_caster(Frame *f) {
     }
     char v[24], extra[16];
     int capped = 0;
-    for (int i = 0; i <= ST_POW; i++) {                            /* the elements' own are on a page of their own */
-        int st = ROWS[i], x = i < 11 ? 14 : 162, y = 38 + (i % 11) * 8, w = i < 11 ? 140 : 144;
+    for (int i = 0; i < NROWS; i++) {                              /* the elements' own are on a page of their own */
+        int st = ROWS[i], x = i < LEFT ? 14 : 162, y = 36 + (i % LEFT) * 8, w = i < LEFT ? 140 : 144;
         float t = gear_total(g, st), t0 = gear_total(g0, st), add = 0.0f;
         if (st == ST_MOVE || st == ST_THRIFT) add = fminf(gear_total_raw(g, st) * (gear_ability(g, st == ST_MOVE ? AB_SWIFT : AB_ARCANE, 0) / 100.0f), t);   /* Swiftness, Arcane Knowledge */
         total_text(g, st, v, sizeof v);
@@ -20754,7 +20926,7 @@ static void render_caster(Frame *f) {
     }
     if (capped) gfx_text8(f, W - 10 - gfx_text_width("BLUE: AT ITS CAP", 1), 26, "BLUE: AT ITS CAP", R_GLOW + 12, 1);
     /* the abilities, summed and capped */
-    int n = 0, y = 130;
+    int n = 0, y = 133;
     for (int ab = 1; ab < NABIL; ab++) {
         float a = gear_ability(g, ab, 0), b = gear_ability(g, ab, 1);
         if (a <= 0.0f) continue;
@@ -20966,12 +21138,16 @@ static void render_quit(Frame *f) {
         gfx_text8(f, (W - gfx_text_width(ln, 1)) / 2, y, ln, R_STONE + 13, 1);
         p += n; while (*p == ' ') p++;
     }
-    static const char *const OPT[Q_OPTIONS] = { "FLEE TO THE SURFACE", "STAY IN THE DARK", "SLEEPWALK", "OPEN THE LEDGER", "BEGIN A NEW RUN" };
+    char padrow[40];
+    snprintf(padrow, sizeof padrow, PADX.bind ? (((int)(G.t * 3.0) & 1) ? "PRESS A BUTTON" : "") : "SPRINT: %s", PAD_WORD[pad_sprint()] + (pad_sprint() < PAD_LB));
+    const char *OPT[Q_OPTIONS] = { "FLEE TO THE SURFACE", "STAY IN THE DARK", "SLEEPWALK", "OPEN THE LEDGER", "BEGIN A NEW RUN", padrow };
     static const char *const NOTE[Q_OPTIONS] = { "NOTHING IS KEPT BUT WHAT IS SIGNED", "BACK TO THE CRYPT", "THE AUTOPILOT WALKS ON WITHOUT YOU",
-                                                 "A RUN FROM A PAGE SHE HAS SIGNED", "FROM NOTHING. SIGNED PAGES STAY" };
-    for (int i = 10 + bx; i < bx + bw - 10; i += 2) gfx_px(f, i, by + 120, R_STONE + 5);   /* leaving, then the ledger and a new run */
-    for (int i = 0; i < Q_OPTIONS; i++) {
-        int oy = by + 66 + i * 18 + (i >= Q_OPEN ? 4 : 0), sel = i == G.ui_sel;
+                                                 "A RUN FROM A PAGE SHE HAS SIGNED", "FROM NOTHING. SIGNED PAGES STAY",
+                                                 "\1A, THEN THE BUTTON. ITS JOB GOES TO THE L-STICK" };
+    int nq = quit_rows(), step = nq > Q_PAD ? 15 : 18, top = nq > Q_PAD ? 62 : 66;   /* the pad's row: closer together */
+    for (int i = 10 + bx; i < bx + bw - 10; i += 2) gfx_px(f, i, by + top + Q_OPEN * step - 1, R_STONE + 5);   /* leaving, then the ledger and a new run */
+    for (int i = 0; i < nq; i++) {
+        int oy = by + top + i * step + (i >= Q_OPEN ? 4 : 0), sel = i == G.ui_sel;
         int w = gfx_text_width(OPT[i], 1), ox = (W - w) / 2;
         gfx_text16(f, ox, oy, OPT[i], sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 9), 1);
         if (sel) {                                                 /* a candle flame for a cursor */
@@ -20984,7 +21160,8 @@ static void render_quit(Frame *f) {
             }
         }
     }
-    const char *note = NOTE[clampi(G.ui_sel, 0, Q_OPTIONS - 1)];
+    const char *note = NOTE[clampi(G.ui_sel, 0, nq - 1)];
+    if (PADX.bind) note = "THE BUTTON THE SPRINT GOES ON";
     int ncol = R_GOLD + 9;
     if (LEDGER.marked && (G.ui_sel == Q_FLEE || G.ui_sel == Q_OPEN || G.ui_sel == Q_NEW)) { note = "THE DEAD ARE WATCHING"; ncol = R_BLOOD + 13; }
     if (CON.used && G.ui_sel == Q_FLEE) note = "THE DEAD TOOK NOTE: NOTHING KEPT";
@@ -21455,9 +21632,9 @@ static void render_bestiary(Frame *f) {
 static void render_wispmenu(Frame *f) {
     static const char *const KEYW[NKEYS] = { "THE GOLD KEY", "THE SILVER KEY", "THE CRIMSON KEY" };
     WispChoice c[WISP_CHOICES];
-    int n = wisp_choices(c), sel = clampi(G.ui_sel, 0, n - 1);
+    int n = wisp_choices(c), rows = n + lantern_held(), sel = clampi(G.ui_sel, 0, rows - 1);
     dim_view(f);
-    int pw = 296, ph = 48 + n * 13 + (RUN.wisp_auto ? 26 : 16), px = (W - pw) / 2, py = 24;
+    int pw = 296, ph = 48 + rows * 13 + (RUN.wisp_auto ? 26 : 16), px = (W - pw) / 2, py = 24;
     panel(f, px, py, pw, ph);
     gfx_text16(f, px + 10, py + 6, "WISPS", R_GOLD + 12, 1);
     char sp[24], line[40];
@@ -21478,11 +21655,19 @@ static void render_wispmenu(Frame *f) {
         const char *cost = c[r].cost <= 0.0f ? "FREE" : "1 SOUL";
         gfx_text8(f, px + pw - 12 - gfx_text_width(cost, 1), y, cost, ok ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_BLOOD + 13), 1);
     }
-    int ty = py + 44 + n * 13 + 4;
+    if (lantern_held()) {                                          /* the lantern's row */
+        int y = py + 40 + n * 13;
+        if (sel == n) gfx_rect(f, px + 6, y - 3, pw - 12, 13, R_IRON + 3);
+        lantern_mark(f, px + 14, y - 1, lantern_lit());
+        gfx_text8(f, px + 28, y, lantern_lit() ? "THE LANTERN: LIT" : "THE LANTERN: SHUTTERED", sel == n ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12), 1);
+        const char *hold = PADX.used ? "HOLD Y" : "HOLD L";
+        gfx_text8(f, px + pw - 12 - gfx_text_width(hold, 1), y, hold, R_STONE + 9, 1);
+    }
+    int ty = py + 44 + rows * 13 + 4;
     for (int i = px + 10; i < px + pw - 10; i++) gfx_px(f, i, ty - 5, R_STONE + 5);
     gfx_text8(f, px + 10, ty, RUN.wisp_auto ? "[X]" : "[ ]", RUN.wisp_auto ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 10), 1);
     hint8(f, px + 38, ty, "L ALWAYS CASTS THIS  (SPACE)", R_STONE + 12);
-    if (RUN.wisp_auto) gfx_text8(f, px + 38, ty + 10, "HOLD L FOR THIS LIST", R_STONE + 9, 1);
+    if (RUN.wisp_auto) gfx_text8(f, px + 38, ty + 10, lantern_held() ? "TAP L TWICE FOR THIS LIST" : "HOLD L FOR THIS LIST", R_STONE + 9, 1);
 }
 
 /* the altar's menu: its gifts, a little fire of each one's colour, the price, and a note on the one chosen */
@@ -21776,6 +21961,8 @@ static void render_repomenu(Frame *f) {
 static void total_text(const Gear *g, int st, char *buf, int n);
 static void stat_does(int st, char *buf, int n) {                  /* the elements' stats, in the Codex's words */
     if (st == ST_RES_LIGHT) { snprintf(buf, (size_t)n, "LIGHTNING HURTS LESS, AND A BOLT OF IT BREAKS A SPELL BEING GATHERED LESS OFTEN."); return; }
+    if (st == ST_SPRINT) { snprintf(buf, (size_t)n, "MORE SECONDS OF SPRINT, PAST THE TWO AND A HALF EVERYONE HAS, TO TEN IN ALL."); return; }
+    if (st == ST_PHYSIC) { snprintf(buf, (size_t)n, "A POTION RESTORES MORE THAN ITS TWENTY-FIVE: HALF AS MUCH AGAIN AT FIFTY, FIVE TIMES AT FOUR HUNDRED."); return; }
     int e = st >= ST_INS ? st - ST_INS : st >= ST_EFF ? st - ST_EFF : st - ST_POW;
     if (st >= ST_INS) snprintf(buf, (size_t)n, "%s SPELLS GATHER QUICKER, AFTER WHAT THE LINE'S INSIGHT TAKES OFF.", ELEM_NAME[e]);
     else if (st >= ST_EFF && e == EL_PHYS) snprintf(buf, (size_t)n, "A SPEAR SPENDS NO BONE MORE OFTEN, WITH THE LINE'S EFFICIENCY; NINE TIMES IN TEN AT MOST.");
@@ -22538,6 +22725,7 @@ static void eerie_eye(Frame *f, int x, int y) {
 static void line_value(int l, float v, char *buf, int n) {        /* a step's worth or a total, in its units */
     if (l == LN_HEALTH) snprintf(buf, (size_t)n, "%+.0f", v);
     else if (l == LN_LUCK) snprintf(buf, (size_t)n, "%+.1f%%", v);
+    else if (l == LN_SPRINT) snprintf(buf, (size_t)n, "%+.1fS", v);
     else snprintf(buf, (size_t)n, "%+.0f%%", v);
 }
 static void line_total(int l, char *buf, int n, int *capped) {
@@ -22553,6 +22741,7 @@ static void line_total(int l, char *buf, int n, int *capped) {
     }
     int st = LINES[l].stat;
     if (l == LN_LUCK) snprintf(buf, (size_t)n, "%.1f/%.0f%%", gear_total(g, st), gear_stat_cap(st));
+    else if (l == LN_SPRINT) snprintf(buf, (size_t)n, "%.1f/%.0fS", SPRINT_BASE + gear_total(g, st), SPRINT_BASE + gear_stat_cap(st));
     else snprintf(buf, (size_t)n, "%.0f/%.0f%%", gear_total(g, st), gear_stat_cap(st));
 }
 static void render_ascend(Frame *f) {
@@ -22576,8 +22765,14 @@ static void render_ascend(Frame *f) {
     gfx_text8(f, 210 - gfx_text_width("YOURS", 1), 39, "YOURS", R_GOLD + 10, 1);
     gfx_text8(f, 302 - gfx_text_width("TOTAL", 1), 39, "TOTAL", R_GOLD + 10, 1);
     int sel = clampi(G.ui_sel, 0, NLINE - 1);
-    for (int l = 0; l < NLINE; l++) {
-        int y = 49 + l * 8, afford = RUN.points >= LINES[l].cost, capped;   /* eight apart, so fourteen fit (1.0.0b13) */
+    enum { SHOWN = 14 };                                           /* fourteen at a time; the list scrolls (1.0.0b15) */
+    int first = clampi(sel - SHOWN / 2, 0, NLINE - SHOWN);
+    for (int k = 0; k < 3; k++) {                                  /* more above, more below */
+        if (first > 0) for (int i = -k; i <= k; i++) gfx_px(f, 6 + i, 50 + k, R_GOLD + 10);
+        if (first + SHOWN < NLINE) for (int i = -k; i <= k; i++) gfx_px(f, 6 + i, 49 + SHOWN * 8 - 4 - k, R_GOLD + 10);
+    }
+    for (int l = first; l < first + SHOWN; l++) {
+        int y = 49 + (l - first) * 8, afford = RUN.points >= LINES[l].cost, capped;   /* eight apart */
         if (l == sel) gfx_rect(f, 10, y - 1, W - 20, 9, R_IRON + 3);
         gfx_text8(f, 14, y, LINES[l].name, l == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12), 1);
         snprintf(line, sizeof line, "%d", LINES[l].cost);
@@ -22589,13 +22784,13 @@ static void render_ascend(Frame *f) {
         if (RUN.over[l] > 0) { eerie_text(f, 302 - gfx_text_width(line, 1), y, line); eerie_eye(f, 116, y + 1); }   /* past its cap: the dead see it */
         else gfx_text8(f, 302 - gfx_text_width(line, 1), y, line, capped ? (uint8_t)(R_GLOW + 12) : (uint8_t)(R_STONE + 12), 1);
     }
-    int ty = 49 + NLINE * 8 + 3;
+    int ty = 49 + SHOWN * 8 + 3;
     for (int i = 10; i < W - 10; i++) gfx_px(f, i, ty - 2, R_STONE + 5);
     int capped = line_capped(sel);
     int od = over_due();
     if (G.asc_arm == sel) snprintf(line, sizeof line, "IT IS AT ITS CAP: MORE IS WASTED. AGAIN TO BUY IT ANYWAY.");
     else if (G.asc_arm == 100 + sel) snprintf(line, sizeof line, "%s PAST ITS CAP, FOR GOOD: %s AGAIN TO OVERLEVEL IT.", LINES[sel].name, PADX.used ? "Y" : "SPACE");
-    else if (od > 0 && (sel == LN_HEALTH || sel == LN_RESIST)) snprintf(line, sizeof line, "%d OVERLEVEL%s TO CHOOSE, BUT NOT FOR THIS LINE.", od, od == 1 ? "" : "S");
+    else if (od > 0 && !line_overs(sel)) snprintf(line, sizeof line, "%d OVERLEVEL%s TO CHOOSE, BUT NOT FOR THIS LINE.", od, od == 1 ? "" : "S");
     else if (od > 0) snprintf(line, sizeof line, "%d OVERLEVEL%s TO CHOOSE: %s PUTS %s %s PAST ITS CAP.", od, od == 1 ? "" : "S", PADX.used ? "Y" : "SPACE",
                               sel == LN_LUCK ? "ONE" : "FIVE", LINES[sel].name);
     else snprintf(line, sizeof line, "%d POINT%s: %s.%s", LINES[sel].cost, LINES[sel].cost == 1 ? "" : "S", LINES[sel].does, capped ? " AT ITS CAP." : "");
@@ -22995,6 +23190,7 @@ static void crawl_render(Frame *f) {
     if (map_shown()) render_map(f);                                /* the map, as the crypt goes on under it */
     if (G.shop && G.ui != UI_MERCHANT) render_shop_card(f);   /* her own card would show under her menu */
     if (G.shop || G.player) render_statusbar(f);                  /* a person gets the Wolfenstein bar, */
+    render_sprint(f);
     render_sockets(f);
     render_runesockets(f);
     render_carry(f);

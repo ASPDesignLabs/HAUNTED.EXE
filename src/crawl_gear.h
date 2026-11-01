@@ -31,6 +31,7 @@ enum { ST_ARMOR, ST_DODGE, ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_S
        ST_POW, ST_EFF = ST_POW + NELEM, ST_INS = ST_EFF + NELEM,   /* each element's Power, Efficiency and Insight
                                                            (docs/PLAN-b11.md, section 5): ST_POW + EL_* */
        ST_RES_LIGHT = ST_INS + NELEM,                   /* 1.0.0b13: Resist Lightning, for the runs' hazards (docs/PLAN-b13.md, H4) */
+       ST_SPRINT, ST_PHYSIC,                            /* 1.0.0b15: seconds more of sprint; more from a potion (docs/PLAN-ai.md, 24-25) */
        NSTAT };
 enum { AB_NONE, AB_SWIFT, AB_ARCANE, AB_TREASURE, AB_KEYMAKER, AB_COMMUNE, AB_THORNS, AB_MIRRORED, NABIL };
 #define PIECE_STATS 6                                   /* five at most, and one an ability may add */

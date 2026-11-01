@@ -29,7 +29,7 @@ const char *const STAT_NAME[NSTAT] = { "ARMOR", "DODGE", "HEALTH", "RESTORES", "
                                        "FIRE EFFICIENCY", "FROST EFFICIENCY", "LIGHTNING EFFICIENCY", "POISON EFFICIENCY",
                                        "SPIRIT EFFICIENCY", "PHYSICAL EFFICIENCY",
                                        "FIRE INSIGHT", "FROST INSIGHT", "LIGHTNING INSIGHT", "POISON INSIGHT", "SPIRIT INSIGHT", "PHYSICAL INSIGHT",
-                                       "RESIST LIGHTNING" };
+                                       "RESIST LIGHTNING", "SPRINT", "PHYSIC" };
 static const char *const STAT_OF[NSTAT] = { "THE BULWARK", "SHADOWS", "VIGOUR", "REJUVENATION", "CLEAN BLOOD", "THE HEARTH",
                                             "THE UNBOUND", "THE LIGHTFOOT", "SILENCE", "QUICKENING", "THE FRUGAL SOUL",
                                             "SPELLTONGUE", "CINDERS", "RIME", "STORMS", "THE ADEPT", "PLENTY", "FORTUNE",
@@ -37,7 +37,8 @@ static const char *const STAT_OF[NSTAT] = { "THE BULWARK", "SHADOWS", "VIGOUR", 
                                             "THE PYRE", "THE LONG WINTER", "THE THUNDERHEAD", "NIGHTSHADE", "THE UNQUIET", "THE MARROW",
                                             "THE BANKED COAL", "THE STILL MERE", "THE LODESTONE", "THE THIN DOSE", "THE SPARING SOUL", "THE QUIVER",
                                             "TINDER", "HOARFROST", "THE SPARK", "THE SWIFT DRAUGHT", "THE WHISPER", "THE SLING",
-                                            "THE GROUNDED" };   /* 1.0.0b13's, a draft (docs/PLAN-b13.md, H4) */
+                                            "THE GROUNDED",   /* 1.0.0b13's, a draft (docs/PLAN-b13.md, H4) */
+                                            "THE CHASE", "THE APOTHECARY" };   /* 1.0.0b15's */
 const char *const ABIL_NAME[NABIL] = { "", "SWIFTNESS", "ARCANE KNOWLEDGE", "TREASURE HUNTER", "KEYMAKER", "COMMUNE", "THORNS", "MIRRORED" };
 static const char *const ABIL_WORD[NABIL] = { "", "SWIFT", "ARCANE", "TREASURE HUNTER", "KEYMAKER", "COMMUNING", "THORNED", "MIRRORED" };
 
@@ -49,9 +50,10 @@ static const int ABIL_CHANCE[NQUAL] = { 0, 10, 25, 50, 100 };                /* 
 static const int KIND_SLOTS[NIK] = { 0, 2, 2, 2, 2, 4, 1, 0 };
 static const float KIND_PRICE[NIK] = { 0.0f, 0.45f, 0.6f, 0.7f, 0.7f, 0.9f, 0.8f, 0.5f };
 static const int STAT_SCALE[NSTAT] = { 10, 10, 10, 100, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
-                                       10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10 };
+                                       10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 100, 10 };
 static const float STAT_CAP[NSTAT] = { 0, 35, 0, 0, 75, 75, 75, 40, 80, 50, 60, 100, 50, 50, 50, 50, 100, 25, 75, 100,
-                                       50, 50, 50, 50, 50, 50, 40, 40, 40, 40, 40, 40, 30, 30, 30, 30, 30, 30, 75 };   /* on totals; 0 = none */
+                                       50, 50, 50, 50, 50, 50, 40, 40, 40, 40, 40, 40, 30, 30, 30, 30, 30, 30, 75,
+                                       7.5f, 400 };   /* on totals; 0 = none. Sprint's is what is added to the 2.5 s everyone has */
 static float OWN[NSTAT], CAP_UP[NSTAT];                           /* the caster's own, and the overlevels' raise of each cap */
 #define ST_ELEM ST_FIRE                       /* in the tables below: an element, chosen when it is rolled; */
 #define PICK_POW 200                          /* and an element's Power, Efficiency or Insight, the same way (1.0.0b11) */
@@ -62,10 +64,10 @@ static float OWN[NSTAT], CAP_UP[NSTAT];                           /* the caster'
 static const int KIND_STATS[NIK][14] = {
     { -1 },
     { ST_HASTE, ST_THRIFT, ST_ARMOR, ST_DODGE, ST_DAMAGE, PICK_INS, -1 },
-    { ST_MOVE, ST_QUIET, ST_DODGE, -1 },
-    { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_RES_SPIRIT, ST_VESSEL, ST_RES_LIGHT, -1 },
+    { ST_MOVE, ST_QUIET, ST_DODGE, ST_SPRINT, -1 },
+    { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_RES_SPIRIT, ST_VESSEL, ST_RES_LIGHT, ST_PHYSIC, -1 },
     { ST_ARMOR, ST_EFFECT, ST_HP, PICK_EFF, ST_VESSEL, -1 },
-    { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_ARMOR, ST_HASTE, ST_ELEM, ST_DAMAGE, PICK_POW, ST_RES_SPIRIT, ST_RES_LIGHT, -1 },
+    { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_ARMOR, ST_HASTE, ST_ELEM, ST_DAMAGE, PICK_POW, ST_RES_SPIRIT, ST_RES_LIGHT, ST_PHYSIC, -1 },
     { ST_DAMAGE, ST_ELEM, PICK_POW, -1 },
     { -1 },
 };
@@ -112,6 +114,8 @@ static float stat_base(int st, int kind, int level) {
     case ST_REGEN:  return 0.05f * l;
     case ST_RES_POISON: case ST_RES_BURN: case ST_RES_SLOW: case ST_RES_SPIRIT: case ST_RES_LIGHT: return 4.0f + 1.6f * l;
     case ST_VESSEL: return (3.0f + 1.0f * l) * (kind == IK_NECK ? 1.0f : 0.7f);
+    case ST_SPRINT: return 0.4f + 0.05f * l;
+    case ST_PHYSIC: return (6.0f + 1.8f * l) * (kind == IK_ROBE ? 1.0f : 0.85f);
     case ST_MOVE:   return 4.0f + 0.8f * l;
     case ST_QUIET:  return 12.0f + 2.0f * l;
     case ST_HASTE:  return (3.0f + 0.6f * l) * (kind == IK_ROBE ? 1.2f : 1.0f);
@@ -276,6 +280,7 @@ void piece_stat_text(int st, int val, char *buf, int n) {
     case ST_THRIFT: snprintf(buf, (size_t)n, "SPIRIT COST -%.0f%%", v); break;
     case ST_FIRE: case ST_FROST: case ST_SHOCK: snprintf(buf, (size_t)n, "ADDS %.0f%% %s", v, STAT_NAME[st]); break;
     case ST_VESSEL: snprintf(buf, (size_t)n, "VESSEL +%.0f", v); break;
+    case ST_SPRINT: snprintf(buf, (size_t)n, "SPRINT +%.1fS", v); break;
     default: snprintf(buf, (size_t)n, "%s +%.0f%%", STAT_NAME[st], v); break;
     }
 }
@@ -402,7 +407,8 @@ float piece_worth(const Piece *p, int level) {
     for (int i = 0; i < p->nstat; i++) {
         int st = p->stat[i], ref, el;
         float wt;
-        if (st == ST_TREASURE || st == ST_LUCK) continue;
+        if (st == ST_TREASURE || st == ST_LUCK || st == ST_SPRINT) continue;   /* the dream never sprints */
+        if (st == ST_PHYSIC) { w += 0.2f * ((float)p->val[i] / STAT_SCALE[st]) / fmaxf(1e-3f, stat_base(st, IK_ROBE, level)); continue; }
         if (st == ST_RES_LIGHT) { wt = 0.25f; ref = IK_ROBE; }          /* as Resist Slow: only hazards deal it */
         else if (st < ST_POW) { wt = W[st]; ref = REF[st]; }
         else {

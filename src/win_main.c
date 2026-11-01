@@ -39,7 +39,14 @@
 /* Settings                                                            */
 /* ------------------------------------------------------------------ */
 
-typedef struct { AppConfig app; int largest_monitor; } Settings;
+typedef struct { AppConfig app; int largest_monitor, pad_sprint; } Settings;   /* pad_sprint: a row of PAD_SPRINT_ORDER */
+/* the buttons the pad's sprint may be put on (docs/PLAN-ai.md, SP3), as the settings dialog lists them; the game
+ * keeps the choice as PadSprint, a PAD_* number */
+static const int PAD_SPRINT_ORDER[PAD_COUNT] = { PAD_LS, PAD_RS, PAD_A, PAD_B, PAD_X, PAD_Y, PAD_LB, PAD_RB, PAD_LT, PAD_RT,
+                                                 PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT, PAD_VIEW, PAD_MENU };
+static const char *const PAD_SPRINT_NAME[PAD_COUNT] = { "Left stick, clicked (as it was)", "Right stick, clicked", "A", "B", "X", "Y",
+                                                        "Left bumper", "Right bumper", "Left trigger", "Right trigger", "D-pad up",
+                                                        "D-pad down", "D-pad left", "D-pad right", "View", "Menu" };
 
 static DWORD reg_get(HKEY k, const char *name, DWORD def) {
     DWORD v, sz = sizeof v, type = 0;
@@ -64,6 +71,11 @@ static void settings_load(Settings *s) {
     s->app.scene_enabled[1] = (int)reg_get(k, "SceneDemo", 1);
     s->largest_monitor = (int)reg_get(k, "LargestMonitor", 1);
     s->app.pad = (int)reg_get(k, "Controller", 1);
+    {                                                              /* the pad's sprint button, as the game keeps it */
+        DWORD b = reg_get(k, "PadSprint", PAD_LS);
+        s->pad_sprint = 0;
+        for (int i = 0; i < PAD_COUNT; i++) if ((DWORD)PAD_SPRINT_ORDER[i] == b) s->pad_sprint = i;
+    }
     RegCloseKey(k);
     if (s->app.volume < 0) s->app.volume = 0;
     if (s->app.volume > 100) s->app.volume = 100;
@@ -84,7 +96,10 @@ static const char *slot_name(int i, char *buf, int n) {
 static void slots_load(void) {
     HKEY k;
     if (RegOpenKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, KEY_READ, &k) != ERROR_SUCCESS) return;
+    DWORD ps = reg_get(k, "PadSprint", 0xff);                     /* the prefs: a setting of its own, so the dialog shows it */
+    if (ps < PAD_COUNT) { uint8_t b = (uint8_t)ps; app_slot_load(SLOT_PREFS, &b, 1); }
     for (int i = 0; i < SLOT_ALL; i++) {
+        if (i == SLOT_PREFS) continue;
         static uint8_t buf[SLOT_MAX];
         char name[8];
         DWORD sz = sizeof buf, type = 0;
@@ -98,6 +113,7 @@ static void slots_flush(void) {
         int n = app_slot_take(i, buf, sizeof buf);
         HKEY k;
         if (n <= 0 || RegCreateKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, NULL, 0, KEY_WRITE, NULL, &k, NULL) != ERROR_SUCCESS) continue;
+        if (i == SLOT_PREFS) { reg_set(k, "PadSprint", (DWORD)buf[0]); RegCloseKey(k); continue; }
         char name[8];
         RegSetValueExA(k, slot_name(i, name, sizeof name), 0, REG_BINARY, buf, (DWORD)n);
         RegCloseKey(k);
@@ -116,6 +132,7 @@ static void settings_save(const Settings *s) {
     reg_set(k, "SceneDemo", (DWORD)s->app.scene_enabled[1]);
     reg_set(k, "LargestMonitor", (DWORD)s->largest_monitor);
     reg_set(k, "Controller", (DWORD)s->app.pad);
+    if (s->pad_sprint >= 0 && s->pad_sprint < PAD_COUNT) reg_set(k, "PadSprint", (DWORD)PAD_SPRINT_ORDER[s->pad_sprint]);
     RegCloseKey(k);
 }
 
@@ -783,7 +800,7 @@ static int run_preview(HINSTANCE hi, HWND parent) {
 /* ------------------------------------------------------------------ */
 
 enum { ID_SOUND = 100, ID_VOL, ID_VOLTXT, ID_BRIGHT, ID_BRIGHTTXT, ID_SC0, ID_SC1, ID_STAY, ID_STAYTXT,
-       ID_SHIFT, ID_MON, ID_PAD };
+       ID_SHIFT, ID_MON, ID_PAD, ID_PADSPRINT };
 
 static Settings g_cfg;
 static HWND g_cfgwnd, g_cfgparent;
@@ -817,6 +834,7 @@ static void cfg_apply_and_close(void) {
     g_cfg.app.pixel_shift = IsDlgButtonChecked(g_cfgwnd, ID_SHIFT) == BST_CHECKED;
     g_cfg.largest_monitor = (int)SendDlgItemMessageA(g_cfgwnd, ID_MON, CB_GETCURSEL, 0, 0) == 1;
     g_cfg.app.pad = IsDlgButtonChecked(g_cfgwnd, ID_PAD) == BST_CHECKED;
+    g_cfg.pad_sprint = (int)SendDlgItemMessageA(g_cfgwnd, ID_PADSPRINT, CB_GETCURSEL, 0, 0);
     settings_save(&g_cfg);
     DestroyWindow(g_cfgwnd);
 }
@@ -850,7 +868,7 @@ static int run_config(HINSTANCE hi, HWND parent) {
     wc.hCursor = LoadCursorA(NULL, IDC_ARROW); wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
     RegisterClassA(&wc);
 
-    const int W = 440, H = 402;
+    const int W = 440, H = 436;
     RECT r = { 0, 0, W, H };
     AdjustWindowRect(&r, WS_CAPTION | WS_SYSMENU, FALSE);
     int ww = r.right - r.left, wh = r.bottom - r.top;
@@ -898,6 +916,11 @@ static int run_config(HINSTANCE hi, HWND parent) {
     ctl("BUTTON", "Game controller (Xbox and compatible): hold any button to play", BS_AUTOCHECKBOX | WS_TABSTOP, 16, y, 408, 20, ID_PAD);
     CheckDlgButton(g_cfgwnd, ID_PAD, g_cfg.app.pad ? BST_CHECKED : BST_UNCHECKED);
     y += 30;
+    ctl("STATIC", "Sprint on", 0, 16, y + 4, 80, 18, 0);
+    HWND sc = ctl("COMBOBOX", "", CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL, 100, y, 320, 200, ID_PADSPRINT);
+    for (int i = 0; i < PAD_COUNT; i++) SendMessageA(sc, CB_ADDSTRING, 0, (LPARAM)PAD_SPRINT_NAME[i]);
+    SendMessageA(sc, CB_SETCURSEL, g_cfg.pad_sprint, 0);
+    y += 34;
     ctl("STATIC", "Show on", 0, 16, y + 4, 60, 18, 0);
     HWND cb = ctl("COMBOBOX", "", CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL, 100, y, 320, 100, ID_MON);
     SendMessageA(cb, CB_ADDSTRING, 0, (LPARAM)"The primary monitor");

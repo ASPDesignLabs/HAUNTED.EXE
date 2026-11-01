@@ -79,6 +79,7 @@ enum {
     SFX_HUM,            /* a crystal singing, higher and brighter */
     SFX_RUSTLE,         /* a hand searching: dry rustling and a scrape */
     SFX_PAGE,           /* a page taken out and turned: a crisp flick */
+    SFX_BREATH,         /* run out of breath: two ragged breaths, out and in (1.0.0b15's sprint) */
     SFX_COUNT
 };
 
