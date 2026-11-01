@@ -108,14 +108,30 @@ may leave the pocket's state behind, as the new run did before `run_new` called 
 release above, the owner moved it on a number, staged as its G2 (a) says: 1.0.0b13 the runs' hazards (fixed and arising,
 every sample, soul-sappers from each run's sixth level, Resist Lightning), logic puzzles worked with things in the world
 behind a sealed wing (a hidden message, a Black Shrine, Tab's documents), timed trials behind skull-marked doors, and a
-reckoning of what is left before a person leaves a level; 1.0.0b14 the lower storey, its edges, stairs and ladders. Being
+reckoning of what is left before a person leaves a level; then the lower storey, its edges, stairs and ladders, now
+**1.0.0b15** (renumbered at the owner's word; a note at the plan's head says so). Being
 built on `claude/epic-dirac-n8uosr` from main at 1.0.0b12, in the plan's steps, sheets before art in the game. 1.0.0b13's
 steps 1-8 were built (harness only; the Windows build compiled and smoke-tested by CI on the branch, by a run started by
 hand) and released as 1.0.0b13 at the owner's word, squashed onto main as one commit like the betas before it; the squash
 also took out `b.txt` and `dream.txt`, debug logs that had come onto main with 1.0.0b11. The new art (`hazards.png`,
 `puzzles.png`, `documents.png`, `trials.png`) still waits for the owner's eye. The README's new strip,
 `preview_catacomb_trials.png`, was taken for the release (no hazard shows well in a still frame, so it has none).
-1.0.0b14 (steps 9-13) is not begun. See *1.0.0b13 so far* below, and the numbers under *Known issues*.
+The lower storey (steps 9-13, now 1.0.0b15) is not begun. See
+*1.0.0b13 so far* below, and the numbers under *Known issues*.
+
+1.0.0b14 is now the first art pass, planned in [`docs/InitialArtPass.md`](docs/InitialArtPass.md) (31 October 2026; the
+owner found many creatures basic, the skulls, the wall skulls, the imps' and gargoyles' heads "like a child's drawing",
+the Drowned goofy): hand-pixelled skulls and faces in a gothic hand, **eyes bright and visible from anywhere, in any
+light and fog, for every creature that has them (the Shade alone excepted)**, rank told by tatters, battle damage and
+spirit vapour as well as colour, and the Drowned redrawn. Settled the same day: the owner answered A1-A17 (every creature
+re-proportioned, all four bosses redrawn, every skull in the game including the bone walls), and asked for the work to go
+**creature by creature, then each run's assets, each one committed, pushed and logged** so that it can be handed on between
+sessions. Built on `claude/dazzling-dirac-20cr2y` and `claude/stoic-allen-sok1pe`, and merged into main, unreleased, at the
+owner's word on 1 November, to be taken up again later (VERSION stays 1.0.0b13, so main now carries art the released build
+lacks). **Its section 13 is the hand-off log: read it first.** It is
+visual only, so nothing in the simulation, the saves or the autopilot's numbers may move. After the Black Deacon the owner
+turned to the props and pickups of runs I and II (its section 14, with their answers): P1-P6 are done; runs III and IV's own
+props (P7, P8) come next when the pass resumes, then the Wraith Unbound.
 
 ## Working with the owner
 
@@ -349,19 +365,20 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `MIS_TURNED` (`Bone.atk` the spell, drawn as it) at half damage, capped at a fifth of your health, with
   `SFX_MIRRORBELL`. The autopilot values missiles at 0.8 against it. Debug: `EVENT knight_dash close|flee|
   dodge`, `knight_turned`, `turned_hits`. A boss's hit radius grows with its scale.
-- **The Wandering Spider** (step 6; `spider_boss`, `web_strike`, `egg_shot`). Sprites `SP_BSPIDER_A/B/LEAP`
-  (the hunter's, a pale skull stamped on the back in `crawl_art.c`). Up to the ceiling every 4-7 s
+- **The Wandering Spider** (step 6; `spider_boss`, `web_strike`, `egg_shot`). Sprites `SP_BSPIDER_A/B/LEAP`,
+  `_REAR`, `_D` (her own since 1.0.0b14's art pass: `spr_bspider`, an old matriarch). Up to the ceiling every 4-7 s
   (`G.bsp_t`; `sub` 5 climbing, 0 overhead: out of reach, shots pass under, not `targetable`), across it to
   two cells short of you, down (`sub` 1) and a leap. Mend Rune: an eighth over 4 s (`G.bmend_t`) after a
   fifth lost since `G.bmend_base`, every 20 s at most, capped at the last wave mark, drawn `DR_MEND` (green).
-  Tangled Web: rears 0.6 s (`G.web_rear`, the leap sprite), spits `MIS_WEB`; held, `slow_factor` is 0 and
+  Tangled Web: rears 0.6 s (`G.web_rear`, `SP_BSPIDER_REAR`), spits `MIS_WEB`; held, `slow_factor` is 0 and
   `cast_spell` sends each spell's damage into `G.web_hp` (a third of your health, fire double) instead;
   `render_web` draws the strands; next 12 s after you are free; the autopilot casts a fire bolt at nothing
   every 1.2 s while held and idle (`G.web_idle`). Egg Shot every 14-18 s (`G.bz2_t`): a sac (`Mob.small`) by
   a wall in your sight that hatches four small hunters 5 s later. Every 15 s one small hunter comes out of a
   burrow (`Mob.add` 2, four at most; only `add` 1 counts for a wave). Debug: `EVENT spider_ups`,
   `spider_mends`, `webbed`, `web_torn`, `egg_shots`. The BFS9000 takes 8% of a boss's health.
-- **The Black Deacon** (step 7). Drawn with the deacon's rank-V (black) colours at twice the size. Bone
+- **The Black Deacon** (step 7). Drawn in his own sprites at twice a deacon's size (`SP_BDEACON_A/B/CHANT/D`, 1.0.0b14's
+  art pass: `spr_bdeacon`, a profane bishop). Bone
   Ward (`G.bward`, 4% of his health, `G.bward_cd` the Rare rune's cooldown to grow back): blows go to it
   first; six bone shards wheel about him while it holds. Grave Call is the deacon's chant from the
   chapel's heaps (`SP_BONES2` in his arena): one at a time, 12 s apart, three of his (`Mob.add` 3) about
@@ -480,7 +497,10 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   hurts by share, death, a rock within 4 cells, a secret's slide, a boss's fall, the BFS9000.
 - **Player mode** (`update_human`, `human_walk`, `human_use`, `human_cast`) after holding H. The hand
   is out of sight but for a cast or a ware reached for, and stays up 0.9 s after (`G.hand_base`,
-  `G.ready_t`). Esc opens
+  `G.ready_t`). It moves (1.0.0b14, at the owner's word): `hand_frame` picks one of `NHF` frames (`HF_*`: an idle of
+  three while it is up, a cast of four by the cast's phase, the claw while a charge is held), each bent from the
+  dressed traced hand by `crawl_hand_frame` (`HAND_AXIS`, `HAND_POSE` in `crawl_art.c`) when first wanted; the spell
+  forms at the frame's fingertips (`hand_tip`). `CRAWL_HANDFRAME=k` holds one. Esc opens
   the question (flee, stay, sleepwalk, open the ledger, begin a new run: `Q_NEW`, asked twice by `G.quit_arm`,
   `run_new`: a fresh `RUN` as a person's, out of any pocket, page 0, so her question comes at once; `EVENT new_run`); Tab the wardrobe (the
   seven worn slots and the bag, Enter moves a piece between them; A/D turns to the caster's totals and

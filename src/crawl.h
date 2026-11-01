@@ -187,7 +187,7 @@ enum {
     SP_VOIDCOL,                                 /* the void's column of purple dark, drawn see-through */
     SP_HANDS,                                   /* hands of the dark rising from the floor */
     SP_KNIGHT_P0, SP_KNIGHT_P1, SP_KNIGHT_P2,   /* the Ill-Fated Knight plants its sword, in each state of its plate */
-    SP_BSPIDER_A, SP_BSPIDER_B, SP_BSPIDER_LEAP, /* the Wandering Spider: a hunting spider with a pale skull on its back */
+    SP_BSPIDER_A, SP_BSPIDER_B, SP_BSPIDER_LEAP, /* the Wandering Spider: walking, and its leap (the rest at the end) */
     SP_BRAZIER_OUT,                             /* a brazier the Wraith has put out: the cold bowl and a little ash */
     SP_HEXTOTEM,                                /* the Hexed Totem: a black pole of skulls, hooks for the bosses' scrip */
     SP_TOMB_FRESH,                              /* the newest stone in the merchant's plot: clean-cut, the earth still turned */
@@ -251,6 +251,19 @@ enum {
     SP_SHAMB_SA, SP_SHAMB_SB, SP_DROWN_SA, SP_DROWN_SB, SP_HOUND_SA, SP_HOUND_SB, SP_WRAITH_SA, SP_WRAITH_SB,
     SP_HUNTER_SA, SP_HUNTER_SB, SP_GHOUL_SA, SP_GHOUL_SB, SP_KNIGHT_SA, SP_KNIGHT_SB, SP_BROOD_SA, SP_BROOD_SB,
     SP_SHADE_SA, SP_SHADE_SB, SP_IMP_SA, SP_IMP_SB, SP_DEACON_SA, SP_DEACON_SB, SP_GARG_SA, SP_GARG_SB,
+    /* the bosses' own (docs/InitialArtPass.md, part three) */
+    SP_BKNIGHT_A, SP_BKNIGHT_B, SP_BKNIGHT_W, SP_BKNIGHT_S,     /* the Ill-Fated Knight, a fallen paladin: in full plate, */
+    SP_BKNIGHT2_A, SP_BKNIGHT2_B, SP_BKNIGHT2_W, SP_BKNIGHT2_S, /* ... half of it hacked off, */
+    SP_BKNIGHT3_A, SP_BKNIGHT3_B, SP_BKNIGHT3_W, SP_BKNIGHT3_S, /* ... the breastplate cracked and the helm gone */
+    SP_BKNIGHT_P0, SP_BKNIGHT_P1, SP_BKNIGHT_P2,                /* planting its sword, in each state */
+    SP_BSPIDER_REAR, SP_BSPIDER_D,                              /* the Wandering Spider, an old matriarch: rearing to spit, dead */
+    SP_BDEACON_A, SP_BDEACON_B, SP_BDEACON_CHANT, SP_BDEACON_D, /* the Black Deacon, a profane bishop: walking, chanting, fallen */
+    /* the props' other looks (docs/InitialArtPass.md section 14; crawl_alt) */
+    SP_BONES1_2, SP_BONES1_3, SP_BONES2_2, SP_SKULLPILE_2, SP_SKULLPILE_3, SP_TOTEM2_A, SP_TOTEM2_B,
+    SP_CANDLES_2, SP_CANDLES_3,
+    SP_TOMB_ROUND_2, SP_TOMB_CROSS_2, SP_TOMB_OBELISK_2, SP_TOMB_BROKEN_2,
+    SP_CHAINS_2, SP_ROOTS_2, SP_COBWEB_2, SP_WEBSHEET_2,   /* what hangs, their other looks */
+    SP_PILLAR_2, SP_URN_2, SP_URN_3,            /* stone and floor, their other looks */
     NSPR
 };
 
@@ -272,19 +285,35 @@ enum {                                          /* which ramp a creature's body 
     PF_HIDE,                                    /* R_WOOD: hunting spiders */
     PF_WING,                                    /* R_PURPLE: bats, which stop at rank IV */
     PF_CLAY,                                    /* R_BRICK: ember imps */
-    PF_STONE,                                   /* R_STONE: the Drowned, gargoyles */
+    PF_STONE,                                   /* R_STONE: gargoyles */
     PF_ARMOUR,                                  /* R_IRON: a knight's plate (its blade is R_GHOST, and stays steel); rank V darkens it */
     PF_ROBE,                                    /* R_PURPLE: the deacon's robe */
+    PF_DROWN,                                   /* R_GHOST: the Drowned's waxen skin (docs/InitialArtPass.md: never the walls' stone) */
     NPF
 };
 extern uint8_t crawl_rank_lut[NPF][NRANK][256];
 
+#define NALT 4
+extern int16_t crawl_alt[NSPR][NALT];          /* a prop's looks: [0] itself, then others, -1 after; [1] -1: one look */
 extern uint8_t crawl_pal[256][3];               /* 6-bit DAC values */
 extern uint8_t crawl_cmap[NLIGHT][256];         /* colour at a light level */
 extern uint8_t crawl_tex[NTEX][TS * TS];        /* column-major: [x * TS + y] */
 extern uint8_t crawl_spr[NSPR][TS * TS];        /* column-major, C_CLEAR = transparent */
 extern const uint8_t crawl_hand_img[HAND_H * HAND_W];  /* the caster's hand, row-major, C_CLEAR = transparent (hand_img.c) */
+enum { HF_REST, HF_IDLE1, HF_IDLE2, HF_GATHER, HF_CLAW, HF_LOOSE, HF_AFTER, NHF };   /* the hand's frames: at rest, idling, a cast */
+extern const int8_t crawl_hand_shift[NHF][2];      /* where each frame is drawn, against the hand at rest */
+/* frame k of the hand from src (and its labels, lab: 0 none), into dst and dlab; tip: where a spell forms in it */
+void crawl_hand_frame(int k, const uint8_t *src, const uint8_t *lab, uint8_t *dst, uint8_t *dlab, int tip[2]);
 extern int8_t crawl_glint[NSPR][2];             /* brightest gold pixel of a sprite, for twinkles; -1 if none */
+/* where a creature's eyes are on its sprite (docs/InitialArtPass.md section 5), recorded as the sprite is drawn (cv_eye),
+ * for the pass that puts them on the screen whatever the light and fog: n eyes (0 none), at x, y in the sprite */
+typedef struct { int8_t n, x[2], y[2]; } EyeAt;
+extern EyeAt crawl_eyes[NSPR];
+/* each creature's dressing by rank (docs/InitialArtPass.md section 6): a layer over its sprite, C_CLEAR where the body
+ * shows, drawn in its own stuff (cloth, iron, frost, blood, gold) and left alone by the rank's tint; ix -1 none */
+#define NDRESS 768
+extern uint8_t crawl_dress[NDRESS][TS * TS];            /* column-major, as the sprites */
+extern int16_t crawl_dress_ix[NSPR][NRANK];
 /* the merchant (cat_img.c): the owner's cat draped over a chest, with what the game needs to animate it */
 extern const uint8_t crawl_cat_img[CAT_H * CAT_W];
 extern const uint8_t crawl_cat_eye[2][4], crawl_cat_eyecol[5], crawl_cat_lid[2], crawl_cat_ear[2][4], crawl_cat_tail[2];

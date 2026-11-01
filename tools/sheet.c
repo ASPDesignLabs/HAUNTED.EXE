@@ -42,12 +42,12 @@ static const Group GROUPS[] = {
       { { SP_SPIDER_A, "A" }, { SP_SPIDER_B, "B" }, { SP_SPIDER_BITE, "BITE" }, { SP_SPIDER_D, "DEAD" }, { -1, 0 } } },
     { "bat", "BATS (TODAY)", PF_WING, NO_V,
       { { SP_BAT_A, "UP" }, { SP_BAT_B, "DOWN" }, { SP_BAT_D, "DEAD" }, { -1, 0 } } },
-    { "spectre", "SPECTRES (TODAY'S WRAITHS)", -1, 1,
+    { "spectre", "SPECTRE (A SPIRIT: NO RANK)", -1, 1,
       { { SP_GHOST_A, "A" }, { SP_GHOST_B, "B" }, { SP_GHOST_D1, "SHRIEK" }, { SP_GHOST_D2, "SHRIEK" }, { -1, 0 } } },
     { "shambler", "SHAMBLER (ZOMBIE, FROM LEVEL 2)", PF_FLESH, ALL_RANKS,
       { { SP_SHAMB_A, "WALK A" }, { SP_SHAMB_B, "WALK B" }, { SP_SHAMB_GRAB, "GRAB" }, { SP_SHAMB_RISE1, "RISE 1" },
         { SP_SHAMB_RISE2, "RISE 2" }, { SP_SHAMB_D1, "DIE 1" }, { SP_SHAMB_D2, "DIE 2" }, { -1, 0 } } },
-    { "drowned", "THE DROWNED (FROM LEVEL 7)", PF_STONE, ALL_RANKS,
+    { "drowned", "THE DROWNED (FROM LEVEL 7)", PF_DROWN, ALL_RANKS,
       { { SP_DROWN_A, "WADE A" }, { SP_DROWN_B, "WADE B" }, { SP_DROWN_GRAB, "GRAB" }, { SP_DROWN_RISE, "RISE" },
         { SP_DROWN_BURST, "BURST" }, { SP_DROWN_POOL, "FOUL POOL" }, { -1, 0 } } },
     { "ghoul", "GHOUL (FROM LEVEL 12)", PF_FLESH, ALL_RANKS,
@@ -57,6 +57,13 @@ static const Group GROUPS[] = {
     { "knight", "SKELETON KNIGHT (FROM LEVEL 13)", PF_ARMOUR, ALL_RANKS,
       { { SP_KNIGHT_A, "WALK" }, { SP_KNIGHT_W, "WIND-UP" }, { SP_KNIGHT_S, "STRIKE" }, { SP_KNIGHT2_A, "HALF PLATE" }, { SP_KNIGHT2_W, "WIND-UP" },
         { SP_KNIGHT3_A, "STRIPPED" }, { SP_KNIGHT3_S, "STRIKE" }, { SP_KNIGHT_D, "DEAD" }, { -1, 0 } } },
+    { "bknight", "THE ILL-FATED KNIGHT (THE BOSS OF LEVEL 10): FULL, HALF, HELM GONE", -1, 1,
+      { { SP_BKNIGHT_A, "WALK" }, { SP_BKNIGHT_W, "WIND-UP" }, { SP_BKNIGHT_S, "STRIKE" }, { SP_BKNIGHT_P0, "PLANTED" },
+        { SP_BKNIGHT2_A, "HALF" }, { SP_BKNIGHT2_W, "WIND-UP" }, { SP_BKNIGHT3_A, "HELM GONE" }, { SP_BKNIGHT3_S, "STRIKE" }, { SP_BKNIGHT_P2, "PLANTED" }, { -1, 0 } } },
+    { "bspider", "THE WANDERING SPIDER (THE BOSS OF LEVEL 20): AN OLD MATRIARCH", -1, 1,
+      { { SP_BSPIDER_A, "WALK A" }, { SP_BSPIDER_B, "WALK B" }, { SP_BSPIDER_LEAP, "LEAP" }, { SP_BSPIDER_REAR, "REARING" }, { SP_BSPIDER_D, "DEAD" }, { -1, 0 } } },
+    { "bdeacon", "THE BLACK DEACON (THE BOSS OF LEVEL 30): A PROFANE BISHOP", -1, 1,
+      { { SP_BDEACON_A, "WALK A" }, { SP_BDEACON_B, "WALK B" }, { SP_BDEACON_CHANT, "CHANTING" }, { SP_BDEACON_D, "FALLEN" }, { -1, 0 } } },
     { "deacon", "DEACON (FROM LEVEL 18)", PF_ROBE, ALL_RANKS,
       { { SP_DEACON_A, "WALK A" }, { SP_DEACON_B, "WALK B" }, { SP_DEACON_CHANT, "RAISING" }, { SP_DEACON_D, "DEAD" }, { -1, 0 } } },
     { "hunter", "HUNTING SPIDER (FROM LEVEL 11)", PF_HIDE, ALL_RANKS,
@@ -72,6 +79,41 @@ static const Group GROUPS[] = {
       { { SP_IMP_A, "HOP A" }, { SP_IMP_B, "HOP B" }, { SP_IMP_THROW, "THROW" }, { SP_IMP_D, "CRUMBLED" }, { SP_EMBER_A, "EMBER" }, { -1, 0 } } },
     { "gargoyle", "GARGOYLE (FROM LEVEL 19)", PF_STONE, ALL_RANKS,
       { { SP_GARG_PERCH, "PERCHED" }, { SP_GARG_A, "FLY A" }, { SP_GARG_B, "FLY B" }, { SP_GARG_SWOOP, "SWOOP" }, { SP_GARG_D, "BROKEN" }, { -1, 0 } } },
+    { "props1", "PROPS IN RUNS I AND II: THE HALLS AND LIGHTS", -1, 1,
+      { { SP_COBWEB, "COBWEB" }, { SP_BONES1, "BONES" }, { SP_BONES2, "BONE HEAP" }, { SP_SKULLPILE, "SKULL PILE" }, { SP_URN, "URN" },
+        { SP_CHAINS, "CHAINS" }, { SP_HOOKS, "HOOKS" }, { SP_ROOTS, "ROOTS" }, { SP_WEBSHEET, "WEB SHEET" }, { SP_BROKEN_ARMS, "BROKEN ARMS" },
+        { SP_CANDLES, "CANDLES" }, { SP_CANDLESTAND_A, "CANDLE STAND" }, { SP_TOTEM_A, "TOTEM" }, { SP_CHANDELIER_A, "CHANDELIER" },
+        { SP_FIREPIT_A, "FIRE PIT" }, { SP_PILLAR, "PILLAR" } } },
+    { "p1", "PROPS P1: BONES AND SKULLS, EVERY LOOK", -1, 1,
+      { { SP_BONES1, "LITTER" }, { SP_BONES1_2, "LITTER 2" }, { SP_BONES1_3, "LITTER 3" }, { SP_BONES2, "HEAP" }, { SP_BONES2_2, "HEAP 2" },
+        { SP_SKULLPILE, "OSSUARY STACK" }, { SP_SKULLPILE_2, "SKULL PILE" }, { SP_SKULLPILE_3, "BURNT OUT" }, { SP_TOTEM_A, "TOTEM" }, { SP_TOTEM2_A, "TOTEM 2" }, { -1, 0 } } },
+    { "p2", "PROPS P2: THE LIGHTS, EVERY LOOK", -1, 1,
+      { { SP_CANDLES, "CANDLES" }, { SP_CANDLES_2, "ON A SKULL" }, { SP_CANDLES_3, "ON A DISH" }, { SP_CANDLESTAND_A, "STAND (I)" }, { SP_CHANDELIER_A, "CHANDELIER" },
+        { SP_FIREPIT_A, "FIRE PIT" }, { SP_FIREPIT_B, "FIRE PIT B" }, { SP_BRAZIER_A, "BRAZIER" }, { SP_BRAZIER_OUT, "PUT OUT" }, { SP_LANTERN_A, "LANTERN (II)" }, { -1, 0 } } },
+    { "p3", "PROPS P3: THE GRAVES, EVERY LOOK", -1, 1,
+      { { SP_TOMB_ROUND, "LANCET" }, { SP_TOMB_ROUND_2, "ROUND" }, { SP_TOMB_CROSS, "RINGED" }, { SP_TOMB_CROSS_2, "TREFOIL" }, { SP_TOMB_OBELISK, "OBELISK" },
+        { SP_TOMB_OBELISK_2, "URN" }, { SP_TOMB_BROKEN, "BROKEN" }, { SP_TOMB_BROKEN_2, "LEDGER" }, { SP_MOUND, "TURNED EARTH" }, { SP_PIT, "OPEN GRAVE" }, { -1, 0 } } },
+    { "p4", "PROPS P4: WHAT HANGS, EVERY LOOK", -1, 1,
+      { { SP_CHAINS, "CHAINS" }, { SP_CHAINS_2, "LEG IRONS" }, { SP_HOOKS, "HOOKS" }, { SP_GIBBET, "GIBBET" }, { SP_GIBBET_SKEL, "OCCUPIED" },
+        { SP_BELL, "BELL" }, { SP_ROOTS, "ROOTS" }, { SP_ROOTS_2, "BEARDED" }, { SP_COBWEB, "COBWEB" }, { SP_COBWEB_2, "OLD WEB" },
+        { SP_WEBSHEET, "WEB SHEET" }, { SP_WEBSHEET_2, "VEIL" }, { SP_ICICLES, "ICICLES" }, { -1, 0 } } },
+    { "p5", "PROPS P5: STONE AND FLOOR, EVERY LOOK", -1, 1,
+      { { SP_PILLAR, "PILLAR" }, { SP_PILLAR_2, "BROKEN" }, { SP_STALAG, "FLOWSTONE" }, { SP_BALTAR, "BLACK ALTAR" }, { SP_BFLAME_V0, "ITS FIRE" },
+        { SP_URN, "URN" }, { SP_URN_2, "ASHES" }, { SP_URN_3, "OSSUARY JAR" }, { SP_BROKEN_ARMS, "BROKEN ARMS" }, { SP_COLLAR, "COLLAR" },
+        { SP_PUDDLE_A, "PUDDLE" }, { SP_PUDDLE_B, "STIRRING" }, { -1, 0 } } },
+    { "p6", "PROPS P6: WHAT IS PICKED UP", -1, 1,
+      { { SP_COINS_A, "COINS" }, { SP_COINS_B, "GLINTING" }, { SP_CHALICE, "CHALICE" }, { SP_GEMS, "GEMS" }, { SP_CROWN, "CROWN" }, { SP_CHEST, "CHEST" },
+        { SP_KEY0, "KEY" }, { SP_POTION, "PHIAL" }, { SP_SOULURN, "SOUL URN" }, { SP_RINGITEM, "RING" }, { SP_ITEM_BONE, "BONE" }, { -1, 0 } } },
+    { "props1b", "PROPS IN RUNS I AND II: THE ROOMS", -1, 1,
+      { { SP_TOMB_ROUND, "TOMB" }, { SP_TOMB_CROSS, "CROSS" }, { SP_TOMB_OBELISK, "OBELISK" }, { SP_TOMB_BROKEN, "BROKEN" }, { SP_MOUND, "TURNED EARTH" },
+        { SP_PIT, "OPEN GRAVE" }, { SP_GIBBET, "GIBBET" }, { SP_GIBBET_SKEL, "OCCUPIED" }, { SP_ICICLES, "ICICLES" }, { SP_BRAZIER_A, "BRAZIER" },
+        { SP_BALTAR, "BLACK ALTAR" }, { SP_BFLAME_V0, "ITS FIRE" }, { -1, 0 } } },
+    { "props2", "PROPS IN RUN II ONLY", -1, 1,
+      { { SP_PUDDLE_A, "PUDDLE" }, { SP_PUDDLE_B, "STIRRING" }, { SP_STALAG, "FLOWSTONE" }, { SP_LANTERN_A, "LANTERN" }, { SP_COLLAR, "COLLAR" },
+        { SP_BELL, "BELL" }, { -1, 0 } } },
+    { "pickups", "WHAT IS PICKED UP (THE RUN'S OWN TREASURE AND KEY)", -1, 1,
+      { { SP_COINS_A, "COINS" }, { SP_CHALICE, "CHALICE" }, { SP_GEMS, "GEMS" }, { SP_CROWN, "CROWN" }, { SP_CHEST, "CHEST" }, { SP_KEY0, "KEY" },
+        { SP_POTION, "POTION" }, { SP_SOULURN, "SOUL URN" }, { SP_RINGITEM, "RING" }, { SP_ITEM_BONE, "BONE" }, { -1, 0 } } },
     { "dress1", "DRESSING, SET I: THE CRYPTS", -1, 1,
       { { SP_CANDLESTAND_A, "CANDLE STAND" }, { SP_BROKEN_ARMS, "BROKEN ARMS" }, { SP_MOUND, "TURNED EARTH" }, { SP_PIT, "OPEN GRAVE" }, { -1, 0 } } },
     { "dress2", "DRESSING, SET II: THE CATACOMBS", -1, 1,
@@ -98,7 +140,7 @@ static const Group GROUPS[] = {
     { "b6", "1.0.0B6: FOR APPROVAL", -1, 1,
       { { SP_DOUBLE, "BLINK'S DOUBLE" }, { -1, 0 } } },
     { "b7", "1.0.0B7: FOR APPROVAL", -1, 1,
-      { { SP_HEXTOTEM, "TOTEM" }, { SP_SCRIP, "SCRIP" }, { SP_BSPIDER_A, "SPIDER" }, { SP_KNIGHT_P0, "KNIGHT" },
+      { { SP_HEXTOTEM, "TOTEM" }, { SP_SCRIP, "SCRIP" }, { SP_BSPIDER_A, "SPIDER" }, { SP_BKNIGHT_P0, "KNIGHT" },
         { SP_BRAZIER_OUT, "PUT OUT" }, { SP_TOMB_FRESH, "NEWEST" }, { SP_TOMB_ROUND, "OLDER" }, { SP_LECTERN, "COMPENDIUM" }, { -1, 0 } } },
 };
 #define NGROUPS ((int)(sizeof GROUPS / sizeof GROUPS[0]))
@@ -126,13 +168,18 @@ static void text(int x, int y, const char *s, int r, int g, int b) {
 }
 
 /* a sprite, shaded as the game shades it, through a rank's table */
+static int g_rank;                          /* the rank being drawn, for its dressing (docs/InitialArtPass.md) */
 static void sprite(int ox, int oy, int spr, const uint8_t *lut) {
     rect(ox, oy, CELL, CELL, 22, 21, 24);
+    int dx = crawl_dress_ix[spr][g_rank];
     for (int y = 0; y < CELL; y++)
         for (int x = 0; x < CELL; x++) {
             uint8_t c = crawl_spr[spr][(x / SC) * TS + y / SC];
+            uint8_t o = dx >= 0 ? crawl_dress[dx][(x / SC) * TS + y / SC] : (uint8_t)C_CLEAR;
+            if (o != C_CLEAR) c = o;                /* the dressing, in its own colours */
+            else if (c != C_CLEAR && lut) c = lut[c];
             if (c == C_CLEAR) continue;
-            c = crawl_cmap[LIGHT][lut ? lut[c] : c];
+            c = crawl_cmap[LIGHT][c];
             put(ox + x, oy + y, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
         }
 }
@@ -246,7 +293,9 @@ static int draw_group(const Group *g, const char *path, int level) {
     for (int r = 0; r < NRANK; r++) {
         if (!(g->ranks >> r & 1)) continue;
         if (g->family >= 0) text(PAD, y + CELL / 2 - 4 * TXT, RANK_NAME[r], 190, 190, 190);
+        g_rank = r;
         for (int f = 0; f < nf; f++) sprite(PAD + ROWHEAD + f * (CELL + PAD), y, g->fr[f].spr, g->family >= 0 ? crawl_rank_lut[g->family][r] : NULL);
+        g_rank = 0;
         y += CELL + PAD;
     }
     text(PAD, y, "SHADED AS NEAR A TORCH. SIZES ARE NOT TO SCALE.", 120, 120, 120);
@@ -732,6 +781,57 @@ static int draw_documents(const char *path) {
     int ok = write_png(path);
     free(img);
     crawl_art_level(1);
+    return ok;
+}
+
+/* ---- the caster's hand: its idle and its cast, bent from the traced hand (crawl_hand_frame) ---- */
+static int draw_hand(const char *path) {
+    static const char *const NAME[NHF] = { "AT REST (AS TRACED)", "IDLE 2", "IDLE 3", "CAST 1: DRAWN IN", "CAST 2: THE CLAW", "CAST 3: FLUNG OPEN", "CAST 4: EASING" };
+    static const int ROW[2][4] = { { HF_REST, HF_IDLE1, HF_IDLE2, -1 }, { HF_GATHER, HF_CLAW, HF_LOOSE, HF_AFTER } };
+    static uint8_t fr[HAND_W * HAND_H], fl[HAND_W * HAND_H], lab[HAND_W * HAND_H];
+    enum { K = 2, M = 12 };
+    int colw = HAND_W * K + 24, boxh = (HAND_H + M - 6) * K;   /* the sleeve's cut end, off the screen in play, left out */
+    iw = PAD + 4 * colw + PAD;
+    ih = PAD + LABEL_H + 8 + 2 * (LABEL_H + LABEL_H + boxh + 16) + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "THE CASTER'S HAND: AN IDLE OF THREE FRAMES AND A CAST OF FOUR", 230, 230, 230);
+    int y = PAD + LABEL_H + 8;
+    for (int r = 0; r < 2; r++) {
+        text(PAD, y, r ? "THE CAST: AS IT RISES, AS IT GATHERS (OR HOLDS A CHARGE), AS IT GOES, AFTER"
+                       : "IDLING BETWEEN CASTS: 1-2-3-2, A THIRD OF A SECOND EACH", 200, 200, 200);
+        y += LABEL_H;
+        for (int c = 0; c < 4; c++) {
+            int k = ROW[r][c], x0 = PAD + c * colw;
+            if (k < 0) continue;
+            int tip[2];
+            crawl_hand_frame(k, crawl_hand_img, lab, fr, fl, tip);
+            text(x0, y, NAME[k], 170, 170, 170);
+            rect(x0, y + LABEL_H, HAND_W * K, boxh, 26, 25, 30);
+            int ox = crawl_hand_shift[k][0], oy = M + crawl_hand_shift[k][1];
+            for (int py = 0; py < HAND_H; py++)
+                for (int px = 0; px < HAND_W; px++) {
+                    uint8_t col = fr[py * HAND_W + px];
+                    int sx = px + ox, sy = py + oy;
+                    if (col == C_CLEAR || sx < 0 || sy < 0 || sx >= HAND_W || sy >= HAND_H + M - 6) continue;
+                    rect(x0 + sx * K, y + LABEL_H + sy * K, K, K, crawl_pal[col][0] * 255 / 63, crawl_pal[col][1] * 255 / 63, crawl_pal[col][2] * 255 / 63);
+                }
+            if (k == HF_GATHER || k == HF_CLAW) {                      /* the fire bolt forming, as the game draws it */
+                float rr = k == HF_CLAW ? 8.0f : 4.0f;
+                int cx = tip[0] + ox, cy = tip[1] + oy;
+                for (int qy = (int)(cy - rr); qy <= (int)(cy + rr); qy++)
+                    for (int qx = (int)(cx - rr); qx <= (int)(cx + rr); qx++) {
+                        float d = hypotf(qx + 0.5f - cx, qy + 0.5f - cy) / rr;
+                        if (d > 1.0f || qx < 0 || qy < 0 || qx >= HAND_W || qy >= HAND_H + M) continue;
+                        uint8_t col = (uint8_t)(R_FLAME + (int)((1.05f - d * 0.8f) * 15));
+                        rect(x0 + qx * K, y + LABEL_H + qy * K, K, K, crawl_pal[col][0] * 255 / 63, crawl_pal[col][1] * 255 / 63, crawl_pal[col][2] * 255 / 63);
+                    }
+            }
+        }
+        y += LABEL_H + boxh + 16;
+    }
+    int ok = write_png(path);
+    free(img);
     return ok;
 }
 
@@ -1362,6 +1462,13 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/puzzles.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_puzzles(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "hand")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/hand.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_hand(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     if (!strcmp(argv[1], "all") || !strcmp(argv[1], "trials")) {
