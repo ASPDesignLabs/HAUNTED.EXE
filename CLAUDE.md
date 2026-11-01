@@ -1240,5 +1240,11 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   eight places four times and the dead's missiles their ten once. Blasts are doubled (16: only their look and the noise
   of a landing). The dead's missiles stay at ten: doubled, the knight's level killed the dream more with either mind (the
   old minds 26 deaths against 23 on the same seeds), since throws a full pool refused had been part of its balance.
+- 1.0.0b15's step 2 (posts, patrols, roamers), against `CRAWL_MIND=0` on the same build and seeds, from level 1 (100
+  minutes): a median of 9 levels cleared (9), 30 deaths (30; 26 on level 10, against 24), the knight felled twice
+  (never). From 11, 21 and 31 (50 minutes, with step 2 but the dead's missiles doubled): no deaths, levels reached 17, 26.5
+  and 37. Neutral, then. But the old minds died 30 times on this build and 23 on step 1's, where nothing in their path
+  changed but the size of the blasts' pool: one small difference and the runs part ways, so eight seeds carry noise of
+  about that size (a quarter either way). Weigh a balance change against that, and use more seeds when it matters.
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.
