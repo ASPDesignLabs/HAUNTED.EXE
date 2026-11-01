@@ -128,7 +128,8 @@ re-proportioned, all four bosses redrawn, every skull in the game including the 
 **creature by creature, then each run's assets, each one committed, pushed and logged** so that it can be handed on between
 sessions. Being built on `claude/dazzling-dirac-20cr2y`. **Its section 13 is the hand-off log: read it first.** It is
 visual only, so nothing in the simulation, the saves or the autopilot's numbers may move. After the Black Deacon the owner
-turned to the props and pickups of runs I and II (its section 14, with their answers); the Wraith Unbound waits.
+turned to the props and pickups of runs I and II (its section 14, with their answers): P1-P6 are done; runs III and IV's own
+props (P7, P8) come next, then the Wraith Unbound.
 
 ## Working with the owner
 

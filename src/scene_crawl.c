@@ -13310,9 +13310,9 @@ static void crawl_update(double dt) {
     static int stage_level = -1;                                   /* CRAWL_STAGE: a kind stood down a hall */
     if (getenv("CRAWL_STAGE") && !G.shop && !PK.depth && stage_level != G.level && G.level_t > 0.3) {
         g_stage = clampi(atoi(getenv("CRAWL_STAGE")), 0, NKINDS - 1); stage_level = G.level;
-        if (getenv("CRAWL_PROPROOM") || getenv("CRAWL_TPPROP")) {  /* for the props: no one about, and you in a room of that type, or before one */
+        if (getenv("CRAWL_PROPROOM") || getenv("CRAWL_TPPROP") || getenv("CRAWL_TPITEM")) {   /* for the props: no one about, and you in a room of that type, or before one */
             for (int i = 0; i < MAXMOBS; i++) G.mobs[i].alive = 0;
-            if (getenv("CRAWL_TPPROP")) tp_prop(atoi(getenv("CRAWL_TPPROP"))); else tp_room(atoi(getenv("CRAWL_PROPROOM")));
+            if (getenv("CRAWL_TPPROP") || getenv("CRAWL_TPITEM")) tp_prop(getenv("CRAWL_TPPROP") ? atoi(getenv("CRAWL_TPPROP")) : -1); else tp_room(atoi(getenv("CRAWL_PROPROOM")));
         } else stage_set(g_stage);
     }
     if (g_stage >= 0) for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && G.mobs[i].type != g_stage) G.mobs[i].alive = 0;
@@ -15145,27 +15145,37 @@ static void tp_room(int k) {                                       /* in the fir
         }
     }
 }
-/* before the first decoration drawn as spr (a look counts as itself), CRAWL_TPPROPD cells off (2.2), facing it; CRAWL_TPPROPN=n
- * the n-th such (from 0) */
-static void tp_prop(int spr) {
+/* stand CRAWL_TPPROPD cells (2.2) from (tx, ty), facing it, on floor with a clear line to just short of it (a pillar is solid):
+ * the distance asked, then nearer, then further */
+static int tp_before(float tx, float ty) {
     float want = getenv("CRAWL_TPPROPD") ? (float)atof(getenv("CRAWL_TPPROPD")) : 2.2f;
-    int nth = getenv("CRAWL_TPPROPN") ? atoi(getenv("CRAWL_TPPROPN")) : 0;
-    for (int i = 0; i < G.ndecos; i++) {
-        const Deco *dc = &G.decos[i];
-        if (dc->spr < 0 || deco_look(dc) != spr || nth-- > 0) continue;
-        for (int pass = 0; pass < 3; pass++)                       /* the distance asked, then nearer, then further */
-            for (int a = 0; a < 24; a++) {
-                float ang = TAU_F * (float)((a * 7) % 24) / 24.0f, d = want * (pass == 0 ? 1.0f : pass == 1 ? 0.7f : 1.4f);
-                float x = dc->x + cosf(ang) * d, y = dc->y + sinf(ang) * d;
-                if (x < 1.0f || y < 1.0f || x >= MAPN - 1 || y >= MAPN - 1 || G.map[(int)y][(int)x].kind != K_FLOOR
-                    || !line_clear(x, y, dc->x + cosf(ang) * 0.6f, dc->y + sinf(ang) * 0.6f)) continue;   /* to just short of it: a pillar is solid */
-                G.px = x; G.py = y; G.cx = (int)x; G.cy = (int)y; G.ang = atan2f(dc->y - y, dc->x - x);
-                human_begin();
-                fprintf(stderr, "TPPROP spr %d at %.2f,%.2f from %.2f,%.2f\n", spr, dc->x, dc->y, x, y);
-                return;
-            }
-    }
-    fprintf(stderr, "TPPROP spr %d: none\n", spr);
+    for (int pass = 0; pass < 3; pass++)
+        for (int a = 0; a < 24; a++) {
+            float ang = TAU_F * (float)((a * 7) % 24) / 24.0f, d = want * (pass == 0 ? 1.0f : pass == 1 ? 0.7f : 1.4f);
+            float x = tx + cosf(ang) * d, y = ty + sinf(ang) * d;
+            if (x < 1.0f || y < 1.0f || x >= MAPN - 1 || y >= MAPN - 1 || G.map[(int)y][(int)x].kind != K_FLOOR
+                || !line_clear(x, y, tx + cosf(ang) * 0.6f, ty + sinf(ang) * 0.6f)) continue;
+            G.px = x; G.py = y; G.cx = (int)x; G.cy = (int)y; G.ang = atan2f(ty - y, tx - x);
+            human_begin();
+            fprintf(stderr, "TPPROP at %.2f,%.2f from %.2f,%.2f\n", tx, ty, x, y);
+            return 1;
+        }
+    return 0;
+}
+/* before the first decoration drawn as spr (a look counts as itself), or with CRAWL_TPITEM=k the first thing to pick up of type
+ * k (IT_*); CRAWL_TPPROPN=n the n-th such (from 0) */
+static void tp_prop(int spr) {
+    int nth = getenv("CRAWL_TPPROPN") ? atoi(getenv("CRAWL_TPPROPN")) : 0, item = getenv("CRAWL_TPITEM") ? atoi(getenv("CRAWL_TPITEM")) : -1;
+    if (item >= 0) {
+        for (int i = 0; i < G.nitems; i++)
+            if (G.items[i].alive && G.items[i].type == item && nth-- <= 0 && tp_before(G.items[i].x, G.items[i].y)) return;
+    } else
+        for (int i = 0; i < G.ndecos; i++) {
+            const Deco *dc = &G.decos[i];
+            if (dc->spr < 0 || deco_look(dc) != spr || nth-- > 0) continue;
+            if (tp_before(dc->x, dc->y)) return;
+        }
+    fprintf(stderr, "TPPROP spr %d item %d: none\n", spr, item);
 }
 static void tp_door(void) {                                        /* a chained room opened, and you before its doorway */
     for (int i = 0; i < G.nsecrets; i++) {
