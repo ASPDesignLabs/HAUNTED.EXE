@@ -147,8 +147,9 @@ their run; `MAXMOBS` to grow. **Step 0, the caster's side, is built** (harness o
 see *The sprint, PHYSIC and the lantern* below. **Step 1 is built** (harness only): the senses and memory, room for 64
 creatures, doors that sound like their run, the places to mend; see *How the dead think* below. **Step 2 is built**
 (harness only): posts, patrols and roamers. **Step 3 is built** (harness only): packs, their turns and morale, and the cap
-on how many are in a fight at once; the file of the Order, the hounds, the roost, the wake. Step 4, callers and
-scavengers, is next.
+on how many are in a fight at once; the file of the Order, the hounds, the roost, the wake. **Step 4 is built** (harness
+only): callers (the wall skull's scream, the gargoyle's shriek, the deacon's call, the roost's cry) and scavengers (ghouls
+drawn to deaths, in packs of one to three). Step 5, hunters, is next.
 
 ## Working with the owner
 
@@ -1131,7 +1132,17 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   file, 2 hounds, 3 a roost asleep, 4 a wake, a few cells ahead five seconds into each level), `PACKS level n: ...`,
   `EVENT pack_calls`, `pack_cuts`, `pack_hunts`, `pack_broken`, `packs_broken`, `fetches`, `roosts_woken`, `wakes_rise`,
   `turns`; the state line's third line counts the minds (calm, wary, hunting, tracking, searching, engaged of the cap,
-  held, asleep, packs).
+  held, asleep, packs). **Step 4** (section 10): callers and scavengers. A caller's alarm (`alarm_at`, once a creature,
+  `Mob.called`; `NZ_CALL` through `noise`, which only the new minds hear): whatever hears it is wary of the place, a pack
+  (or one already about) goes there tracking. The wall skull's scream 0.6 s after it wakes, ten steps (kill it first
+  and nothing hears); the gargoyle's shriek as it comes loose (`SFX_SHRIEK`), eight; the deacon's call the first time he
+  sees you (`Mob.call_t`, 0.8 s standing to chant it, a moan and a whisper), fourteen; the roost's cry as it drops, eight
+  (from `pack_hunt`). Scavengers: a ghoul hears a death three times as far (twelve steps) and, while it isn't hunting,
+  goes there (`Mob.scav`, `scx/scy`, the goal before any other in `mind_goal`); beside it it feeds (`scav_feed`: the old
+  feeding, `sub` 4, 5-8 s, bent over the remains, mending and taking double), until it sees you within six cells. Seeing
+  you on the way, it forgets the meal. A ghoul past its first level comes with none, one or two more (`PACK_SCAV`; a
+  groan and bones for its tell); broken, they scatter as the living do. Debug: `EVENT alarm <kind> steps n`, `alarms`,
+  `alarms_heard`, `scavenge`, `feeds`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

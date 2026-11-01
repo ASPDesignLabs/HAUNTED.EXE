@@ -120,6 +120,8 @@ typedef struct {
                                                                       (1 the fight is full, 2 waiting its pack's turn); a roost's bat asleep
                                                                       (1) or dropping (2); a broken pack's hound gone for help (1 + whom);
                                                                       scattering; how long it has looked for help */
+    int called, scav; float call_t, scx, scy;                      /* step 4: a caller has called (or is about to, call_t); a ghoul
+                                                                      gone to where something died, (scx, scy), to feed */
 } Mob;
 /* a pack (docs/PLAN-ai.md, sections 5-6): its kind (PA_*), its members, the one that leads it, how many it began with; its
  * state (PAS_*), the one calling and how long the call has to run; when one of it last saw the caster, and where; its
@@ -130,7 +132,7 @@ typedef struct {
     float call_t, seen_t, kx, ky, turn_t;
     int on[2]; float on_hp[2];
 } Pack;
-enum { PACK_NONE, PACK_FILE, PACK_HOUNDS, PACK_ROOST, PACK_WAKE };
+enum { PACK_NONE, PACK_FILE, PACK_HOUNDS, PACK_ROOST, PACK_WAKE, PACK_SCAV };
 enum { PAS_CALM, PAS_CALL, PAS_HUNT };
 /* What each kind of creature is (docs/PLAN-bestiary.md): its names, a line for the bestiary, its
  * pictures there (walking towards you, and from the side), the ramp its rank recolours (-1: off the
@@ -3086,7 +3088,8 @@ static int random_type(void) {
  * and a deacon walks with its dead */
 static void spawn_wanderer_type(int x, int y, int type) {
     Mob *m = spawn_mob(x, y, type);
-    int escort = type == MOB_HOUND && G.level > KINDS[MOB_HOUND].debut ? 1
+    int escort = type == MOB_GHOUL && mind_on() && G.level > KINDS[MOB_GHOUL].debut ? rnd(3)   /* scavengers, one to three */
+               : type == MOB_HOUND && G.level > KINDS[MOB_HOUND].debut ? 1
                : type == MOB_KNIGHT && G.level > KINDS[MOB_KNIGHT].debut ? 2
                : type == MOB_DEACON ? (G.level > KINDS[MOB_DEACON].debut ? 3 : 2) : 0;
     int pk = -1;
@@ -3095,14 +3098,15 @@ static void spawn_wanderer_type(int x, int y, int type) {
         escort = 1 + (set >= 2) + (set >= 3);
         pack_join(pk, m);
     }
+    if (type == MOB_GHOUL && escort && m && (pk = pack_new(PACK_SCAV)) >= 0) pack_join(pk, m);
     for (int d = 0; m && d < 4 && escort; d++)
         if (G.map[y + DY[d]][x + DX[d]].kind == K_FLOOR && !occupied(x + DX[d], y + DY[d], NULL)) {
-            Mob *e = spawn_mob(x + DX[d], y + DY[d], type == MOB_DEACON ? MOB_SKEL : MOB_HOUND);
+            Mob *e = spawn_mob(x + DX[d], y + DY[d], type == MOB_DEACON ? MOB_SKEL : type == MOB_GHOUL ? MOB_GHOUL : MOB_HOUND);
             if (pk >= 0) pack_join(pk, e);
             escort--;
         }
 #ifdef CRAWL_DEBUG
-    if (pk >= 0) fprintf(stderr, "PACKS level %d: hounds %d at (%d,%d)\n", G.level, G.packs[pk].n0, x, y);
+    if (pk >= 0) fprintf(stderr, "PACKS level %d: %s %d at (%d,%d)\n", G.level, type == MOB_GHOUL ? "scavengers" : "hounds", G.packs[pk].n0, x, y);
 #endif
 }
 
@@ -3346,14 +3350,16 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
     return d;
 }
 enum { MA_CALM, MA_WARY, MA_HUNT, MA_TRACK, MA_SEARCH };          /* how the dead think (docs/PLAN-ai.md, Part A) */
-enum { NZ_STEP, NZ_CAST, NZ_FIGHT, NZ_MEND, NZ_LAND, NZ_DOOR, NZ_SECRET, NZ_DEATH, NNZ };   /* the first four are the caster's own, where it stands */
+enum { NZ_STEP, NZ_CAST, NZ_FIGHT, NZ_MEND, NZ_LAND, NZ_DOOR, NZ_SECRET, NZ_DEATH, NZ_CALL, NNZ };   /* the first four are the caster's own, where it stands */
 static void noise(float x, float y, int steps, int what, int kind);
+static void alarm_at(Mob *m, int steps);
 static int minded(const Mob *m);
 static int in_view(const Mob *m, float px, float py);
 #ifdef CRAWL_DEBUG
 static int g_mind = -1;
 static int wary, noticed, searches, gave_up, unaware_hits, tracked, lost_you, routes, posted;
 static int pack_calls, pack_cuts, pack_hunts, packs_broken, fetches, roosts_woken, wakes_rise, turns;
+static int alarms, alarms_heard, scavenge, feeds;
 #endif
 static int hurt_by(const Mob *m, float dmg, int kind) {
     G.blame = blame_of(m);
@@ -4603,10 +4609,10 @@ static void mind_track(Mob *m, float x, float y) {                 /* where you 
 /* ---- Packs (docs/PLAN-ai.md, sections 5-6; step 3). Kinds that live together: what one of them sees, all of it knows
  * after its call (cut short if the caller dies first); its melee members take turns, one at a time (two from rank III),
  * the rest circling just out of reach; when its leader falls or half of it is down it breaks, by its kind: the Order's
- * dead fight on, the living scatter, hounds run for help, the buried don't notice. Four packs so far: the file of the
+ * dead fight on, the living scatter (and the scavengers), hounds run for help, the buried don't notice. The packs: the file of the
  * Order (from 5), the hounds (from 8), the roost (from 11), the wake (from 13). ---- */
 #ifdef CRAWL_DEBUG
-static const char *PACK_NAME[] = { "none", "file", "hounds", "roost", "wake" };
+static const char *PACK_NAME[] = { "none", "file", "hounds", "roost", "wake", "scavengers" };
 #endif
 static Pack *pack_of(const Mob *m) { return m->pack > 0 && m->pack <= G.npacks ? &G.packs[m->pack - 1] : NULL; }
 static int pack_new(int kind) {
@@ -4630,6 +4636,7 @@ static void pack_tell(const Pack *p, float x, float y) {          /* its kind's 
     switch (p->kind) {
     case PACK_FILE: sfx_at(SFX_DRUM, x, y, 1.0f); break;
     case PACK_HOUNDS: sfx_at(SFX_HOWL, x, y, 1.1f); break;
+    case PACK_SCAV: sfx_at(SFX_GROAN, x, y, 1.0f); sfx_at(SFX_BONES, x, y, 0.6f); break;
     case PACK_ROOST: sfx_at(SFX_RUSTLE, x, y, 0.8f); sfx_at(SFX_BAT, x, y, 0.7f); break;
     default: break;
     }
@@ -4651,7 +4658,7 @@ static void pack_hunt(Pack *p) {                                   /* the call h
         if (o->sleep == 1) { o->sleep = 2; o->sub_t = 0.0f; }      /* the roost drops from the ceiling */
         o->aware = MA_HUNT; o->aw_t = 0.0f; o->alert = fmaxf(o->alert, MIND_LIVE); o->kx = G.px; o->ky = G.py;
     }
-    if (p->kind == PACK_ROOST) DBG_COUNT(roosts_woken);
+    if (p->kind == PACK_ROOST) { DBG_COUNT(roosts_woken); if (p->caller >= 0) alarm_at(&G.mobs[p->caller], 8); }   /* its cry */
     DBG_COUNT(pack_hunts);
 }
 /* broken: the leader down, or half of it. By kind (P3): the file holds its drill (it only loses its order); the roost
@@ -4664,7 +4671,8 @@ static void pack_break(Pack *p) {
         if (!(p->mem >> i & 1) || !o->alive || o->state != MS_WALK) continue;
         o->hold = 0;
         if (!told) { sfx_at(SFX_ROUT, o->x, o->y, 1.0f); told = 1; }
-        if (p->kind == PACK_ROOST) { o->flee = 5.0f + 2.0f * rndf(); o->sleep = 0; o->attacking = 0; continue; }
+        if (p->kind == PACK_ROOST || p->kind == PACK_SCAV) { o->flee = 5.0f + 2.0f * rndf(); o->sleep = 0; o->attacking = 0; continue; }   /* the
+                                                                      living, and the scavengers, scatter */
         if (p->kind != PACK_HOUNDS) continue;
         int16_t (*f)[MAPN] = mind_field(o->cx, o->cy);
         int best = -1, bh = 31;
@@ -4961,13 +4969,37 @@ static void noise(float x, float y, int steps, int what, int kind) {
             continue;
         }
         int reach = what == NZ_DEATH && m->type == kind ? steps * 2 : steps;
+        if (what == NZ_DEATH && m->type == MOB_GHOUL) reach = steps * 3;   /* a scavenger hears a death from far off */
         if (m->edgy > 0.0f) reach += reach / 2;                    /* after a search it listens harder */
         if (h < 0 || h > reach) continue;
+        if (what == NZ_DEATH && m->type == MOB_GHOUL && m->alert <= 0.0f && m->sub != 4 && h > 1) {   /* it goes to feed */
+            if (!m->scav) DBG_COUNT(scavenge);
+            m->scav = 1; m->scx = x; m->scy = y; m->wait = 0.0f;
+            continue;
+        }
+        if (what == NZ_CALL && m->alert <= 0.0f) {                 /* an alarm: a pack goes there hunting, the rest to look */
+            const Pack *p = pack_of(m);
+            if ((p && !p->broken) || m->aware != MA_CALM) mind_track(m, x, y); else mind_wary(m, x, y);
+            DBG_COUNT(alarms_heard);
+            continue;
+        }
         if (what == NZ_MEND) { m->aware = MA_HUNT; m->alert = fmaxf(m->alert, MIND_LIVE); continue; }   /* it knows where you are */
         if (m->alert > 0.0f) continue;                             /* it already has you */
         if (m->aware == MA_HUNT || m->aware == MA_TRACK || m->aware == MA_SEARCH) { mind_track(m, x, y); DBG_COUNT(tracked); }
         else mind_wary(m, x, y);
     }
+}
+
+/* A caller (docs/PLAN-ai.md, section 10): its alarm, heard so many steps off; whatever hears it is wary of the place, a
+ * pack goes there hunting. With the old minds nothing hears it. */
+static void alarm_at(Mob *m, int steps) {
+    if (m->called || G.shop || G.dead) return;
+    m->called = 1;
+    noise(m->x, m->y, steps, NZ_CALL, m->type);
+    DBG_COUNT(alarms);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT alarm %s steps %d t=%.2f\n", KINDS[m->type].name, steps, G.t);
+#endif
 }
 
 /* the rooms where a search lost you, which the next search looks into first (section 30) */
@@ -5004,6 +5036,7 @@ static void mind_tick(Mob *m, float dt, int sees) {
     if (m->fetch) { fetch_tick(m, dt); return; }                   /* a broken pack's hound, gone for help */
     if (sees && G.level_t > 1.5) {
         if (m->pack) pack_call(m);                                 /* what one sees, all of it will know (step 3) */
+        m->scav = 0;
         if (m->aware != MA_HUNT) DBG_COUNT(noticed);
         m->aware = MA_HUNT; m->aw_t = 0.0f;
         m->alert = fmaxf(m->alert, MIND_LIVE);
@@ -5040,6 +5073,7 @@ static void mind_tick(Mob *m, float dt, int sees) {
 /* where it means to go, if anywhere: 1 and the cell, or 0 to wander as before */
 static int mind_goal(Mob *m, int *gx, int *gy) {
     if (m->fetch) { const Mob *o = &G.mobs[m->fetch - 1]; *gx = o->cx; *gy = o->cy; return 1; }
+    if (m->scav) { *gx = (int)m->scx; *gy = (int)m->scy; return 1; }   /* to where something died */
     switch (m->aware) {
     case MA_WARY:
         if (m->aw_t < 0.8f) return 0;                              /* it stops and listens first */
@@ -5070,7 +5104,13 @@ static int mind_goal(Mob *m, int *gx, int *gy) {
         return 0;
     }
 }
+static void scav_feed(Mob *m) {                                    /* the scavenger at its meal: it mends, and is open to a blow */
+    m->scav = 0; m->sub = 4; m->sub_t = 5.0f + 3.0f * rndf();
+    m->face = atan2f(m->scy - m->y, m->scx - m->x) + (rndf() - 0.5f);   /* bent over it */
+    DBG_COUNT(feeds);
+}
 static void mind_arrived(Mob *m) {                                 /* at the place it meant to go */
+    if (m->scav) { scav_feed(m); return; }
     if (m->aware == MA_WARY) { m->look = 0.0f; return; }          /* it looks about, and settles if nothing comes */
     if (m->aware == MA_TRACK) {
         lost_note(cell((int)m->kx, (int)m->ky)->region);
@@ -5253,6 +5293,7 @@ static void update_wskull(Mob *m, float dt) {
         break;
     }
     case 1:                                                        /* the fire gathers: three seconds */
+        if (m->sub_t >= 0.6f) alarm_at(m, 10);                     /* its scream down the halls: the watch (docs/PLAN-ai.md, 10) */
         if (m->sub_t >= 3.0f) {
             if (seen && d < 9.0f) throw_missile(m, MIS_FIRE);
             m->sub = 2; m->sub_t = 0.0f;
@@ -5922,6 +5963,10 @@ static void update_mob(Mob *m, float dt) {
         if (fights && sees && pd0 > 1.5f && pd0 < 8.0f && m->cool <= 0.0f && G.level_t > 1.5) { m->throw_t = 0.4f; return; }
     }
     if (m->type == MOB_DEACON && !G.dead) {                        /* it keeps back, and calls the fallen up again */
+        if (mind && !m->called) {                                  /* the first time he sees you he calls the level's dead */
+            if (m->call_t > 0.0f) { if ((m->call_t -= dt) <= 0.0f) alarm_at(m, 14); return; }
+            if (sees && G.level_t > 1.5) { m->call_t = 0.8f; sfx_at(SFX_MOAN, m->x, m->y, 1.3f); sfx_at(SFX_WHISPER, m->x, m->y, 1.1f); return; }
+        }
         if (m->swing > 0.0f) {                                     /* chanting over the bones */
             if ((m->swing -= dt) > 0.0f) return;
             m->swing = 0.0f; m->contact = m->boss ? 12.0f : 6.0f;      /* the Black Deacon calls one at a time, with a pause */
@@ -5964,7 +6009,10 @@ static void update_mob(Mob *m, float dt) {
         }
         if (m->sub == 1) {                                         /* it shakes itself loose */
             m->sub_t += dt; m->z = GARG_Z * smoothstepf(0.2f, 0.8f, m->sub_t);
-            if (m->sub_t >= 0.8f) { m->sub = 2; m->alert = 12.0f; }
+            if (m->sub_t >= 0.8f) {
+                m->sub = 2; m->alert = 12.0f;
+                if (minded(m)) { sfx_at(SFX_SHRIEK, m->x, m->y, 0.8f); alarm_at(m, 8); }   /* loose, it shrieks */
+            }
             return;
         }
         if (update_leap(m, dt)) return;
@@ -6051,8 +6099,9 @@ static void update_mob(Mob *m, float dt) {
     if (mind && !hunting && !chase && !afraid && !lured && !G.dead && m->alert <= 0.0f && mind_goal(m, &gcx, &gcy)) {
         gf = mind_field(clampi(gcx, 0, MAPN - 1), clampi(gcy, 0, MAPN - 1));
         ghere = gf[m->cy][m->cx];
-        if (ghere == 0) mind_arrived(m);
+        if (ghere == 0 || (m->scav && ghere == 1)) mind_arrived(m);
         else if (ghere > 0) going = 1;
+        else if (m->scav) m->scav = 0;                             /* no way to the meal */
         else if (m->aware == MA_SEARCH) m->wn = 0;                 /* no way there: somewhere else */
         else if (m->aware == MA_TRACK) mind_arrived(m);            /* no way after you: it searches from here */
         else if (m->aware == MA_WARY) m->aw_t = 8.0f;              /* nor to the sound: it lets it be */

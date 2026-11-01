@@ -953,6 +953,13 @@ The order of the steps is the building's; what a person meets, and where, is sec
    (the knight's level killed the dream 48 times against 39, and it was felled 3 times against 8); and a brood mother held
    at the fight's edge lays nothing, since one sat there laying until spiderlings filled every place.
 4. **Callers and scavengers** (section 10).
+   *Built* (harness only). Choices of mine: an alarm is heard as a place, by the new minds only; what hears it and is
+   calm goes to look (wary), what is in a pack or already about goes there at a walk (tracking). The wall skull calls 0.6 s
+   after it wakes, so a blow in time silences it; the gargoyle as it comes loose; the deacon stands 0.8 s to call, once;
+   the roost as it drops. A ghoul hears a death three times as far as the rest (twelve steps), goes to it unless it is
+   hunting, and feeds 5-8 s, open to a blow, until it sees you near; scavengers come in packs of one to three past the
+   ghoul's first level, and scatter when broken, as the living do. The remains aren't eaten away (Grave Call and the
+   deacon's chant still find them). Gargoyles on a hall don't wake each other yet: that is the sentinels, at 27.
 5. **Hunters** (section 11): the scent trail, the hunt, the shade's stalking; the calm's change (H2).
 6. **Lures and ambushes** (section 12): kill rooms, teeth, baits (treasure among them, section 30), tells; the
    spectres' drift.
