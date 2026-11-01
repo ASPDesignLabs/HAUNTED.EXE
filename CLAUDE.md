@@ -361,12 +361,12 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `MIS_TURNED` (`Bone.atk` the spell, drawn as it) at half damage, capped at a fifth of your health, with
   `SFX_MIRRORBELL`. The autopilot values missiles at 0.8 against it. Debug: `EVENT knight_dash close|flee|
   dodge`, `knight_turned`, `turned_hits`. A boss's hit radius grows with its scale.
-- **The Wandering Spider** (step 6; `spider_boss`, `web_strike`, `egg_shot`). Sprites `SP_BSPIDER_A/B/LEAP`
-  (the hunter's, a pale skull stamped on the back in `crawl_art.c`). Up to the ceiling every 4-7 s
+- **The Wandering Spider** (step 6; `spider_boss`, `web_strike`, `egg_shot`). Sprites `SP_BSPIDER_A/B/LEAP`,
+  `_REAR`, `_D` (her own since 1.0.0b14's art pass: `spr_bspider`, an old matriarch). Up to the ceiling every 4-7 s
   (`G.bsp_t`; `sub` 5 climbing, 0 overhead: out of reach, shots pass under, not `targetable`), across it to
   two cells short of you, down (`sub` 1) and a leap. Mend Rune: an eighth over 4 s (`G.bmend_t`) after a
   fifth lost since `G.bmend_base`, every 20 s at most, capped at the last wave mark, drawn `DR_MEND` (green).
-  Tangled Web: rears 0.6 s (`G.web_rear`, the leap sprite), spits `MIS_WEB`; held, `slow_factor` is 0 and
+  Tangled Web: rears 0.6 s (`G.web_rear`, `SP_BSPIDER_REAR`), spits `MIS_WEB`; held, `slow_factor` is 0 and
   `cast_spell` sends each spell's damage into `G.web_hp` (a third of your health, fire double) instead;
   `render_web` draws the strands; next 12 s after you are free; the autopilot casts a fire bolt at nothing
   every 1.2 s while held and idle (`G.web_idle`). Egg Shot every 14-18 s (`G.bz2_t`): a sac (`Mob.small`) by

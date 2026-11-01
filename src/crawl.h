@@ -187,7 +187,7 @@ enum {
     SP_VOIDCOL,                                 /* the void's column of purple dark, drawn see-through */
     SP_HANDS,                                   /* hands of the dark rising from the floor */
     SP_KNIGHT_P0, SP_KNIGHT_P1, SP_KNIGHT_P2,   /* the Ill-Fated Knight plants its sword, in each state of its plate */
-    SP_BSPIDER_A, SP_BSPIDER_B, SP_BSPIDER_LEAP, /* the Wandering Spider: a hunting spider with a pale skull on its back */
+    SP_BSPIDER_A, SP_BSPIDER_B, SP_BSPIDER_LEAP, /* the Wandering Spider: walking, and its leap (the rest at the end) */
     SP_BRAZIER_OUT,                             /* a brazier the Wraith has put out: the cold bowl and a little ash */
     SP_HEXTOTEM,                                /* the Hexed Totem: a black pole of skulls, hooks for the bosses' scrip */
     SP_TOMB_FRESH,                              /* the newest stone in the merchant's plot: clean-cut, the earth still turned */
@@ -256,6 +256,7 @@ enum {
     SP_BKNIGHT2_A, SP_BKNIGHT2_B, SP_BKNIGHT2_W, SP_BKNIGHT2_S, /* ... half of it hacked off, */
     SP_BKNIGHT3_A, SP_BKNIGHT3_B, SP_BKNIGHT3_W, SP_BKNIGHT3_S, /* ... the breastplate cracked and the helm gone */
     SP_BKNIGHT_P0, SP_BKNIGHT_P1, SP_BKNIGHT_P2,                /* planting its sword, in each state */
+    SP_BSPIDER_REAR, SP_BSPIDER_D,                              /* the Wandering Spider, an old matriarch: rearing to spit, dead */
     NSPR
 };
 

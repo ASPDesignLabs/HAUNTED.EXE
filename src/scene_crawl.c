@@ -2796,7 +2796,7 @@ static void build_lightmap(void) {
 /* CRAWL_STAGE=k: one kind stood still down the longest straight hall, at set distances, the caster still and looking
  * at them; CRAWL_STAGEDARK=f scales the light (0 none), CRAWL_STAGEFOG=1 thickens the fog to its most, CRAWL_STAGESUB=s
  * puts them in that state, CRAWL_STAGEDIST=d just one at d cells, CRAWL_STAGEBOSS=b each drawn as that boss (BOSS_*, of its
- * kind). For frames of the art pass (docs/InitialArtPass.md). */
+ * kind), CRAWL_STAGEREAR=1 the Wandering Spider rearing to spit. For frames of the art pass (docs/InitialArtPass.md). */
 static int g_stage = -1, g_stage_fog;
 static float g_stage_lm = 1.0f;
 #endif
@@ -13230,7 +13230,10 @@ static void stage_set(int k) {                                     /* CRAWL_STAG
         if (k == MOB_HUNTER) m->sub = 2;
         if (getenv("CRAWL_STAGESUB")) m->sub = atoi(getenv("CRAWL_STAGESUB"));
         if (getenv("CRAWL_STAGEBOSS")) m->boss = (uint8_t)(1 + atoi(getenv("CRAWL_STAGEBOSS")));   /* drawn as that boss, for its frames */
+        if (k == MOB_HUNTER && m->sub == 0)                         /* on the ceiling, as it hangs there */
+            m->z = 1.0f - KINDS[k].scale * (m->boss ? BOSSES[m->boss - 1].scale : RANK_SIZE[m->rank]);
     }
+    if (getenv("CRAWL_STAGEREAR")) G.web_rear = 1e6f;              /* the Wandering Spider rearing to spit, held */
     if (getenv("CRAWL_STAGEDARK")) g_stage_lm = (float)atof(getenv("CRAWL_STAGEDARK"));
     g_stage_fog = getenv("CRAWL_STAGEFOG") != NULL;
     fprintf(stderr, "EVENT stage kind=%d hall=%d at %.1f,%.1f\n", k, blen, G.px, G.py);
@@ -18426,8 +18429,8 @@ static int mob_sprite(const Mob *m, float *scale) {
         if (m->state == MS_DIE) return SP_HOUND_D;
         return m->swing > 0.0f ? SP_HOUND_BITE : (fr ? SP_HOUND_B : SP_HOUND_A);
     case MOB_HUNTER:
-        if (m->state == MS_DIE) return SP_HUNTER_D;
-        if (m->boss) return m->sub == 3 || G.web_rear > 0.0f ? SP_BSPIDER_LEAP : (((int)(m->t * 10.0f)) & 1 ? SP_BSPIDER_B : SP_BSPIDER_A);
+        if (m->state == MS_DIE) return m->boss ? SP_BSPIDER_D : SP_HUNTER_D;   /* the Wandering Spider has its own */
+        if (m->boss) return m->sub == 3 ? SP_BSPIDER_LEAP : (G.web_rear > 0.0f ? SP_BSPIDER_REAR : (((int)(m->t * 10.0f)) & 1 ? SP_BSPIDER_B : SP_BSPIDER_A));
         return m->sub == 3 ? SP_HUNTER_LEAP : (((int)(m->t * 10.0f)) & 1 ? SP_HUNTER_B : SP_HUNTER_A);
     case MOB_GHOUL:
         if (m->state == MS_DIE) return SP_GHOUL_D;

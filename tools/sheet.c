@@ -60,6 +60,8 @@ static const Group GROUPS[] = {
     { "bknight", "THE ILL-FATED KNIGHT (THE BOSS OF LEVEL 10): FULL, HALF, HELM GONE", -1, 1,
       { { SP_BKNIGHT_A, "WALK" }, { SP_BKNIGHT_W, "WIND-UP" }, { SP_BKNIGHT_S, "STRIKE" }, { SP_BKNIGHT_P0, "PLANTED" },
         { SP_BKNIGHT2_A, "HALF" }, { SP_BKNIGHT2_W, "WIND-UP" }, { SP_BKNIGHT3_A, "HELM GONE" }, { SP_BKNIGHT3_S, "STRIKE" }, { SP_BKNIGHT_P2, "PLANTED" }, { -1, 0 } } },
+    { "bspider", "THE WANDERING SPIDER (THE BOSS OF LEVEL 20): AN OLD MATRIARCH", -1, 1,
+      { { SP_BSPIDER_A, "WALK A" }, { SP_BSPIDER_B, "WALK B" }, { SP_BSPIDER_LEAP, "LEAP" }, { SP_BSPIDER_REAR, "REARING" }, { SP_BSPIDER_D, "DEAD" }, { -1, 0 } } },
     { "deacon", "DEACON (FROM LEVEL 18)", PF_ROBE, ALL_RANKS,
       { { SP_DEACON_A, "WALK A" }, { SP_DEACON_B, "WALK B" }, { SP_DEACON_CHANT, "RAISING" }, { SP_DEACON_D, "DEAD" }, { -1, 0 } } },
     { "hunter", "HUNTING SPIDER (FROM LEVEL 11)", PF_HIDE, ALL_RANKS,
