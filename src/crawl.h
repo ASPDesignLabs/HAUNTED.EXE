@@ -261,6 +261,7 @@ enum {
     /* the props' other looks (docs/InitialArtPass.md section 14; crawl_alt) */
     SP_BONES1_2, SP_BONES1_3, SP_BONES2_2, SP_SKULLPILE_2, SP_SKULLPILE_3, SP_TOTEM2_A, SP_TOTEM2_B,
     SP_CANDLES_2, SP_CANDLES_3,
+    SP_TOMB_ROUND_2, SP_TOMB_CROSS_2, SP_TOMB_OBELISK_2, SP_TOMB_BROKEN_2,
     NSPR
 };
 

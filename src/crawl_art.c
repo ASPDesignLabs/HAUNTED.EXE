@@ -4124,11 +4124,6 @@ static void spr_websheet(void) {
     cv_store(SP_WEBSHEET);
 }
 
-/* a grave: a stone on its mound */
-static void mound(float cx, float w) {
-    cv_ellipse(cx, 61.5f, w, 3.0f, R_WARM, 0.08f, 0.35f);
-    for (int i = 0; i < 6; i++) cv_px((int)(cx - w + 2 * w * h01(i, 1, 51)), 59 + (int)(2 * h01(i, 2, 51)), sh(R_MOSS, 0.3f + 0.3f * h01(i, 3, 51)));
-}
 static void stone_px(int x, int y, float nx, float shade_v, int seed) {
     float v = 0.2f + 0.55f * lit(nx, 0.0f, sqrtf(fmaxf(0.0f, 1.0f - nx * nx))) + shade_v + (fbm(x / 4.0f, y / 4.0f, 16, (uint32_t)seed) - 0.5f) * 0.22f;
     if (h01(x, y, seed + 5) > 0.97f) v -= 0.2f;                    /* pits */
@@ -4136,54 +4131,9 @@ static void stone_px(int x, int y, float nx, float shade_v, int seed) {
     cv_px(x, y, sh(R_STONE, v));
 }
 static void soil(float cx, float w, int ground, uint32_t seed);
-static void spr_tomb(int id, int kind) {
+static void spr_tomb(int id, int kind) {                           /* her plot's newest stone (the graves of the runs are spr_grave's) */
     cv_begin(cv_sprite, TS, TS);
     switch (kind) {
-    case 0: {                                                      /* round-topped headstone */
-        float cx = 32, hw = 11, top = 26;
-        mound(cx, 17);
-        for (int y = (int)top; y <= 60; y++)
-            for (int x = (int)(cx - hw); x <= (int)(cx + hw); x++) {
-                float nx = (x + 0.5f - cx) / hw, dy = y + 0.5f - (top + hw);
-                if (dy < 0 && (x + 0.5f - cx) * (x + 0.5f - cx) + dy * dy > hw * hw) continue;
-                float e = 0.0f;
-                if ((fabsf(x + 0.5f - cx) < 1.0f && y > 32 && y < 46) || (fabsf(y + 0.5f - 37) < 1.0f && fabsf(x + 0.5f - cx) < 5)) e = -0.25f;   /* a cross cut in it */
-                if (y > 49 && y < 55 && (x & 3) == 0 && fabsf(x + 0.5f - cx) < 7) e = -0.18f;               /* worn letters */
-                stone_px(x, y, nx, e, 61);
-            }
-        cv_line(cx + 6, top + 4, cx + 2, top + 13, sh(R_STONE, 0.05f));     /* a crack */
-        break;
-    }
-    case 1: {                                                      /* a stone cross */
-        float cx = 32;
-        mound(cx, 14);
-        for (int y = 18; y <= 60; y++)
-            for (int x = 20; x <= 44; x++) {
-                int upright = fabsf(x + 0.5f - cx) < 4.0f, arm = y >= 27 && y <= 33 && fabsf(x + 0.5f - cx) < 12.0f;
-                if (!upright && !arm) continue;
-                float nx = upright && !arm ? (x + 0.5f - cx) / 4.0f : (y + 0.5f - 30.0f) / 3.5f * 0.6f;
-                stone_px(x, y, nx, (y == 18 || y == 27) ? 0.12f : 0.0f, 67);
-            }
-        for (int a = 0; a < 40; a++) {                             /* a ring at the crossing, celtic style */
-            float ang = TAU_F * a / 40.0f;
-            cv_px((int)(cx + 7.5f * cosf(ang)), (int)(30 + 7.5f * sinf(ang)), sh(R_STONE, 0.35f + 0.3f * -sinf(ang)));
-        }
-        break;
-    }
-    case 2: {                                                      /* an obelisk */
-        float cx = 32;
-        mound(cx, 13);
-        for (int y = 8; y <= 60; y++) {
-            float hw = y < 16 ? (y - 8) * 0.75f : 6.0f + (y - 16) * 0.05f;
-            for (int x = (int)(cx - hw - 1); x <= (int)(cx + hw + 1); x++) {
-                if (fabsf(x + 0.5f - cx) > hw) continue;
-                float nx = (x + 0.5f - cx) / (hw + 0.01f);
-                stone_px(x, y, nx > 0 ? 0.6f : -0.6f, (y < 16 ? 0.15f : 0.0f) + (y == 52 ? -0.2f : 0.0f), 71);   /* two faces, one lit */
-            }
-        }
-        cv_skull(cx, 40, 0.55f, 0.3f, 0.9f);                       /* a carved death's head */
-        break;
-    }
     case 4: {                                                      /* the newest: clean-cut and pale, the earth before it still turned */
         float cx = 32, hw = 11, top = 25;
         for (int y = (int)top; y <= 59; y++)
@@ -4199,23 +4149,7 @@ static void spr_tomb(int id, int kind) {
         soil(cx, 17, 59, 89);
         break;
     }
-    default: {                                                     /* broken: the stump, the top fallen beside it */
-        float cx = 28, hw = 10;
-        mound(32, 19);
-        for (int y = 40; y <= 60; y++)
-            for (int x = (int)(cx - hw); x <= (int)(cx + hw); x++) {
-                float edge = 40 + (x - (cx - hw)) * 0.45f;               /* a slanting break */
-                if (y < edge) continue;
-                stone_px(x, y, (x + 0.5f - cx) / hw, y < edge + 1.5f ? 0.15f : 0.0f, 73);
-            }
-        for (int y = 52; y <= 60; y++)                             /* the fallen top, on its side */
-            for (int x = 38; x <= 56; x++) {
-                float dx = x + 0.5f - 47.0f, dy = y + 0.5f - 60.0f;
-                if (dx * dx / 81.0f + dy * dy / 64.0f > 1.0f) continue;
-                stone_px(x, y, dx / 9.0f, -0.05f, 79);
-            }
-        break;
-    }
+    default: break;
     }
     cv_outline(0);
     cv_store(id);
@@ -6402,25 +6336,6 @@ static void spr_broken_arms(void) {
     cv_store(SP_BROKEN_ARMS);
 }
 
-/* a grave's earth turned over from below; and the grave open, the coffin's lid split */
-static void spr_mound(int id, int open) {
-    cv_begin(cv_sprite, TS, TS);
-    if (!open) {
-        cv_ellipse(32, 59, 20, 7.5f, R_WOOD, 0.08f, 0.45f);        /* heaved up from underneath */
-        soil(32, 18, 56, 611);
-        for (int i = 0; i < 4; i++) cv_line(20 + i * 8, 58, 23 + i * 7, 52, sh(R_WOOD, 0.02f));   /* cracks across it */
-        cv_store(id); return;
-    }
-    soil(14, 10, 58, 613); soil(50, 10, 58, 615);
-    cv_flat(32, 59.5f, 14, 3.6f, 0);                                /* the hole */
-    for (int x = 19; x <= 45; x++) cv_px(x, 57, sh(R_WOOD, 0.08f));
-    cv_capsule(22, 59, 30, 54, 1.4f, R_WOOD, 0.15f, 0.55f);        /* the lid, split, boards up */
-    cv_capsule(34, 54, 43, 60, 1.4f, R_WOOD, 0.15f, 0.5f);
-    cv_line(30, 54, 31, 51, sh(R_WOOD, 0.4f)); cv_line(34, 54, 33, 50, sh(R_WOOD, 0.35f));   /* splinters */
-    cv_outline(0);
-    cv_store(id);
-}
-
 /* standing water: still, a glint on it; or stirred, rings and bubbles (something under it) */
 static void spr_puddle(int id, int stir) {
     cv_begin(cv_sprite, TS, TS);
@@ -8024,6 +7939,293 @@ static void spr_hornlantern(int id, int frame) {
     cv_store(id);
 }
 
+/* P3: the graves. A carving is a mask over the stone: 1 raised (lit, its shadow below and to the right), 2 cut in (dark, its
+ * lower lip catching the light) */
+static uint8_t g_carve[TS * TS];
+static void cmark(int x, int y, int k) { if ((unsigned)x < (unsigned)TS && (unsigned)y < (unsigned)TS) g_carve[y * TS + x] = (uint8_t)k; }
+static void carve_apply(void) {
+    for (int y = 0; y < TS; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t *p = &cv_sprite[y * TS + x];
+            if (*p <= R_STONE || *p >= R_STONE + 16) continue;
+            int k = g_carve[y * TS + x], up = y > 0 ? g_carve[(y - 1) * TS + x] : 0, ul = x > 0 && y > 0 ? g_carve[(y - 1) * TS + x - 1] : 0, v = *p - R_STONE;
+            if (k == 1) v += 3; else if (k == 2) v -= 5; else if (ul == 1) v -= 3; else if (up == 2) v += 2;
+            *p = (uint8_t)(R_STONE + clampi(v, 1, 15));
+        }
+    memset(g_carve, 0, sizeof g_carve);
+}
+/* lines of worn lettering cut between x0 and x1, from y0, three rows apart */
+static void carve_lines(int x0, int x1, int y0, int n, uint32_t seed) {
+    for (int i = 0; i < n; i++) {
+        int y = y0 + i * 3, a = x0 + (i == n - 1 ? 2 : 0), b = x1 - (i == n - 1 ? 3 : (int)(h01(i, 1, seed) * 2.0f));
+        for (int x = a; x <= b; x++) {
+            float r = h01(x, i, seed);
+            if (r < 0.28f) continue;                                /* between the letters */
+            if (r > 0.92f) continue;                                /* worn away */
+            cmark(x, y, 2);
+            if (r > 0.72f) cmark(x, y - 1, 2);                      /* an upstroke */
+        }
+    }
+}
+/* a winged skull in relief, the Order's memento mori, its middle at (cx, cy) */
+static void carve_wskull(int cx, int cy) {
+    static const char *const SK[6] = { ".###.", "#####", "#o#o#", "##.##", ".###.", ".#.#." };
+    for (int y = 0; y < 6; y++) for (int x = 0; x < 5; x++) { char c = SK[y][x]; if (c == '#') cmark(cx - 2 + x, cy - 3 + y, 1); else if (c == 'o') cmark(cx - 2 + x, cy - 3 + y, 2); }
+    for (int s = -1; s <= 1; s += 2)
+        for (int f = 0; f < 4; f++) {                               /* feathers, fanned out and up */
+            float a = (s < 0 ? PI_F : 0.0f) - (float)s * (0.15f + 0.22f * (float)f), l = 6.0f - (float)f * 0.8f;
+            for (int k = 0; k <= (int)l; k++) cmark(cx + s * 3 + (int)(cosf(a) * (float)k), cy - 1 + f - (int)(sinf(fabsf(a - (s < 0 ? PI_F : 0.0f))) * (float)k * 0.9f), 1);
+        }
+}
+static void carve_hourglass(int cx, int cy) {
+    for (int k = 0; k < 4; k++) for (int x = -3 + k; x <= 3 - k; x++) { cmark(cx + x, cy - 4 + k, 2); cmark(cx + x, cy + 4 - k, 2); }
+    cmark(cx, cy, 2);
+    for (int x = -4; x <= 4; x++) { cmark(cx + x, cy - 5, 1); cmark(cx + x, cy + 5, 1); }
+}
+static void carve_wreath(int cx, int cy, float r) {
+    for (int a = 0; a < 28; a++) { float an = TAU_F * (float)a / 28.0f; cmark(cx + (int)roundf(cosf(an) * r), cy + (int)roundf(sinf(an) * r), 1); if (a % 3 == 0) cmark(cx + (int)roundf(cosf(an) * (r + 1.2f)), cy + (int)roundf(sinf(an) * (r + 1.2f)), 1); }
+    cmark(cx - 1, cy + (int)r + 1, 1); cmark(cx + 1, cy + (int)r + 2, 1);   /* its ribbon */
+}
+/* a slab of the grave's stone, cx its middle at the foot, from top to bottom, hw either side: shape 0 a round top, 1 a lancet,
+ * 2 shouldered; lean tips it (a pixel every so many rows); lit from the left, a bevel round its edge catching the light on
+ * the left and top, weathered, rain-streaked, the soil splashed up its foot */
+static int slab_in(float dx, float ady, float hw, int shape) {
+    if (fabsf(dx) > hw) return 0;
+    if (shape == 0 && ady < hw) return dx * dx + (hw - ady) * (hw - ady) <= hw * hw;
+    if (shape == 1) { float sp = hw * 1.7f; if (ady < sp) { float h = sp - ady, c = dx < 0.0f ? hw : -hw; return (dx - c) * (dx - c) + h * h <= 4.0f * hw * hw; } }
+    if (shape == 2 && ady < 3.0f) return fabsf(dx) <= hw - 2.5f;
+    return 1;
+}
+static void slab(float cx, int top, int bottom, float hw, int shape, float lean, uint32_t seed) {
+    for (int y = top; y <= bottom; y++) {
+        float ox = (float)(bottom - y) * lean;
+        for (int x = (int)(cx - hw - 3.0f + ox); x <= (int)(cx + hw + 3.0f + ox); x++) {
+            float dx = (float)x + 0.5f - cx - ox, ady = (float)(y - top) + 0.5f;
+            if (!slab_in(dx, ady, hw, shape)) continue;
+            float v = 0.4f - 0.08f * dx / hw + (fbm((float)x / 3.0f, (float)y / 3.0f, 16, seed) - 0.5f) * 0.14f;
+            if (!slab_in(dx - 1.2f, ady, hw, shape)) v += 0.17f;   /* its left bevel, lit */
+            else if (!slab_in(dx + 1.2f, ady, hw, shape)) v -= 0.14f;
+            if (!slab_in(dx, ady - 1.2f, hw, shape)) v += 0.14f;   /* its top */
+            if (h01(x, y, seed + 1) > 0.965f) v -= 0.15f;           /* pitted */
+            if (h01(x, 0, seed + 2) < 0.12f && h01(x, y / 3, seed + 3) < 0.7f) v -= 0.06f;   /* rain streaks */
+            if (y > bottom - 2) v -= 0.12f;                         /* soil splashed up its foot */
+            cv_px(x, y, sh(R_STONE, v));
+        }
+    }
+}
+/* lichen in pale crusts and moss low down, over the stone (after the carvings) */
+static void weather(int top, int bottom, float amount, uint32_t seed) {
+    for (int y = top; y <= bottom; y++)
+        for (int x = 0; x < TS; x++) {
+            uint8_t *p = &cv_sprite[y * TS + x];
+            if (*p <= R_STONE || *p >= R_STONE + 16) continue;
+            if (fbm((float)x / 2.5f, (float)y / 2.5f, 32, seed) > 0.78f - 0.1f * amount) *p = sh(R_BONE, 0.42f + 0.18f * h01(x, y, seed + 1));
+            else if (y > bottom - 7 && fbm((float)x / 3.0f, (float)y / 2.0f, 32, seed + 5) > 0.64f - 0.1f * amount) *p = sh(R_MOSS, 0.18f + 0.3f * h01(x, y, seed + 2));
+        }
+}
+/* the grave's earth: a mound of clotted soil with pebbles and moss in it, w either side of cx */
+static void grave_earth(float cx, float w, float h, uint32_t seed) {
+    for (int y = (int)(61.0f - h); y <= 63; y++)
+        for (int x = (int)(cx - w); x <= (int)(cx + w); x++) {
+            float nx = ((float)x + 0.5f - cx) / w, top = 61.0f - h * (1.0f - nx * nx) + 1.2f * (h01(x / 2, 1, seed) - 0.5f);
+            if ((float)y < top || fabsf(nx) > 1.0f) continue;
+            float v = 0.1f + 0.22f * ((float)y < top + 1.5f ? 1.0f : 0.4f) - 0.1f * nx + 0.1f * (h01(x, y, seed) - 0.5f);
+            uint8_t c = sh(R_WOOD, v);
+            float r = h01(x, y, seed + 1);
+            if (r > 0.93f) c = sh(R_STONE, 0.45f + 0.2f * h01(x, y, seed + 2));   /* a pebble */
+            else if (r < 0.08f && (float)y < top + 2.0f) c = sh(R_MOSS, 0.25f + 0.2f * h01(x, y, seed + 3));
+            cv_px(x, y, c);
+        }
+}
+/* The graves of runs I and II (and the Deacon's chapel): four kinds, two looks each. kind 0 a headstone (a lancet slab with a
+ * winged skull and a dried wreath at its foot; a round-topped one with an hourglass, a corner broken, a candle stub burnt
+ * out), 1 a cross (ringed, on two steps, furred with lichen; a trefoil cross on a plinth, one arm broken off and lying at
+ * its foot), 2 an obelisk (on a stepped plinth with a wreath; a draped urn on a pedestal with an inscription panel), 3
+ * broken (the stump, its top fallen beside it; a ledger stone flat in heaved earth, cracked across) */
+static void spr_grave(int id, int kind, int look) {
+    cv_begin(cv_sprite, TS, TS);
+    memset(g_carve, 0, sizeof g_carve);
+    uint32_t sd = 751u + (uint32_t)(kind * 2 + look) * 13u;
+    if (kind == 0) {
+        grave_earth(32, 17, 3.5f, sd);
+        if (!look) {
+            slab(32, 19, 59, 10.0f, 1, 0.04f, sd);
+            carve_wskull(33, 32); carve_lines(25, 39, 41, 4, sd);
+            carve_apply();
+            cv_line(38, 22, 34, 31, sh(R_STONE, 0.06f)); cv_line(34, 31, 35, 36, sh(R_STONE, 0.08f));   /* a crack down through it */
+            weather(19, 59, 0.6f, sd + 7);
+            for (int a = 0; a < 22; a++) {                          /* a wreath of dried flowers leant at its foot */
+                float an = TAU_F * (float)a / 22.0f;
+                int x = 32 + (int)(cosf(an) * 5.5f), y = 55 + (int)(sinf(an) * 3.6f);
+                cv_px(x, y, (a & 1) ? sh(R_WOOD, 0.35f) : sh(R_BONE, 0.5f + 0.2f * (float)(a % 3 == 0)));
+                if (a % 4 == 0) cv_px(x, y - 1, sh(R_BRICK, 0.35f));   /* a petal's old red */
+            }
+        } else {
+            slab(32, 23, 59, 11.0f, 0, -0.03f, sd);
+            for (int y = 23; y < 30; y++) for (int x = 38; x < 46; x++) if (y - 23 < (x - 38) - 1) cv_px(x, y, C_CLEAR);   /* a corner broken off */
+            carve_hourglass(32, 34); carve_lines(24, 39, 45, 3, sd);
+            carve_apply();
+            weather(23, 59, 0.4f, sd + 7);
+            for (int y = 54; y <= 59; y++) { cv_px(23, y, sh(R_BONE, 0.7f)); cv_px(24, y, sh(R_BONE, 0.45f)); }   /* a candle stub, out */
+            cv_px(23, 53, sh(R_IRON, 0.15f)); cv_px(25, 59, sh(R_BONE, 0.75f)); cv_px(22, 60, sh(R_BONE, 0.6f));
+        }
+    } else if (kind == 1) {
+        grave_earth(32, 15, 3.0f, sd);
+        if (!look) {
+            slab(32, 54, 60, 9.0f, 2, 0.0f, sd); slab(32, 49, 54, 6.0f, 2, 0.0f, sd + 1);
+            for (int a = 0; a < 64; a++) {                          /* the ring, behind the cross, open between its arms */
+                float an = TAU_F * (float)a / 64.0f;
+                for (float rr = 7.2f; rr <= 9.0f; rr += 0.5f) {
+                    int x = 32 + (int)roundf(cosf(an) * rr), y = 29 + (int)roundf(sinf(an) * rr);
+                    cv_px(x, y, sh(R_STONE, 0.3f + 0.26f * (-sinf(an) * 0.6f - cosf(an) * 0.4f) + (rr > 8.4f ? -0.1f : 0.05f)));
+                }
+            }
+            slab(32, 15, 49, 2.6f, 2, 0.0f, sd + 2);                /* the shaft */
+            slab(32, 27, 31, 12.0f, 2, 0.0f, sd + 3);               /* its arms */
+            for (int y = 34; y < 48; y += 3) { cmark(31, y, 2); cmark(33, y + 1, 2); cmark(32, y + 2, 1); }   /* knotwork down the shaft */
+            carve_lines(26, 38, 56, 1, sd);
+            carve_apply();
+            weather(16, 60, 1.0f, sd + 7);
+        } else {
+            slab(32, 50, 59, 7.5f, 2, 0.0f, sd);                    /* the plinth */
+            slab(32, 17, 50, 2.5f, 2, 0.0f, sd + 1);                /* the shaft */
+            slab(29, 27, 31, 8.5f, 2, 0.0f, sd + 2);                /* the arms, the right one snapped short */
+            for (int y = 27; y <= 31; y++) for (int x = 36; x <= 38; x++) if (x > 36 + (y & 1) - (y == 29)) cv_px(x, y, C_CLEAR);
+            for (int y = 27; y <= 31; y++) cv_px(36 + (y & 1) - (y == 29), y, sh(R_STONE, 0.2f));   /* its raw end */
+            static const float TOPL[3][2] = { { 30.0f, 17.2f }, { 32.0f, 15.0f }, { 34.0f, 17.2f } }, LEFT[3][2] = { { 21.6f, 27.2f }, { 19.4f, 29.0f }, { 21.6f, 30.8f } };
+            for (int k = 0; k < 3; k++) {                           /* trefoil ends at the left and the top */
+                cv_ellipse(TOPL[k][0], TOPL[k][1], 1.7f, 1.7f, R_STONE, 0.22f, 0.72f);
+                cv_ellipse(LEFT[k][0], LEFT[k][1], 1.7f, 1.7f, R_STONE, 0.22f, 0.72f);
+            }
+            static const float TRE[3][2] = { { 0.0f, -2.2f }, { -2.2f, 0.0f }, { 0.0f, 2.2f } };
+            slab(48, 57, 60, 4.5f, 2, 0.0f, sd + 3);                /* the broken end, lying at its foot */
+            for (int k = 0; k < 3; k++) cv_ellipse(53.5f, 58.5f + TRE[k][1] * 0.8f, 1.5f, 1.4f, R_STONE, 0.22f, 0.62f);
+            carve_lines(27, 37, 53, 2, sd);
+            carve_apply();
+            weather(17, 60, 0.5f, sd + 7);
+        }
+    } else if (kind == 2) {
+        grave_earth(32, 16, 3.0f, sd);
+        if (!look) {
+            slab(32, 54, 60, 11.0f, 2, 0.0f, sd); slab(32, 48, 54, 8.5f, 2, 0.0f, sd + 1);
+            for (int y = 8; y <= 48; y++) {                         /* the shaft, tapering, its pyramidion; two faces, one lit */
+                float hw = y < 14 ? (float)(y - 8) * 0.8f + 0.5f : 5.4f - (float)(y - 14) * 0.035f;
+                for (int x = (int)(32.0f - hw) - 1; x <= (int)(32.0f + hw) + 1; x++) {
+                    float dx = (float)x + 0.5f - 32.0f;
+                    if (fabsf(dx) > hw) continue;
+                    float v = (dx < 0.0f ? 0.5f : 0.26f) + (fbm((float)x / 3.0f, (float)y / 3.0f, 16, sd + 2) - 0.5f) * 0.12f + (y < 14 ? 0.1f : 0.0f);
+                    if (fabsf(dx) < 0.6f) v -= 0.08f;               /* the arris */
+                    cv_px(x, y, sh(R_STONE, v));
+                }
+            }
+            carve_wreath(32, 27, 3.6f); carve_lines(25, 39, 51, 1, sd);
+            carve_apply();
+            weather(8, 60, 0.5f, sd + 7);
+        } else {
+            slab(32, 54, 60, 10.0f, 2, 0.0f, sd); slab(32, 40, 54, 7.5f, 2, 0.0f, sd + 1); slab(32, 36, 40, 9.0f, 2, 0.0f, sd + 2);
+            for (int x = 27; x <= 37; x++) { cmark(x, 43, 2); cmark(x, 52, 2); }   /* its panel */
+            for (int y = 43; y <= 52; y++) { cmark(27, y, 2); cmark(37, y, 2); }
+            carve_lines(29, 35, 46, 2, sd);
+            for (int y = 16; y < 36; y++)                           /* the urn */
+                for (int x = 22; x <= 42; x++) {
+                    float t = (float)(y - 16) / 20.0f, hw = y < 19 ? 3.0f : (y < 22 ? 5.5f : 8.5f * sinf(PI_F * (0.15f + 0.85f * (float)(y - 22) / 14.0f)) + 1.5f);
+                    if (y >= 33) hw = 3.5f + (float)(y - 33);
+                    float dx = (float)x + 0.5f - 32.0f;
+                    if (fabsf(dx) > hw) continue;
+                    float nx = dx / hw, v = 0.2f + 0.55f * lit(nx, 0.0f, sqrtf(fmaxf(0.0f, 1.0f - nx * nx))) + (fbm((float)x / 3.0f, (float)y / 3.0f, 16, sd + 4) - 0.5f) * 0.1f;
+                    (void)t;
+                    cv_px(x, y, sh(R_STONE, v));
+                }
+            cv_ellipse(32, 14.5f, 2.2f, 1.6f, R_STONE, 0.3f, 0.75f);   /* its finial */
+            for (int s = -1; s <= 1; s += 2)                        /* its handles, at the shoulder */
+                for (int a = 0; a < 10; a++) { float an = PI_F * 0.5f + (float)s * (PI_F * 0.5f) * ((float)a / 9.0f) * -1.0f; cv_px(32 + s * 9 + (int)roundf(cosf(an) * 2.0f * (float)s), 25 + (int)roundf(sinf(an) * 3.0f), sh(R_STONE, s < 0 ? 0.6f : 0.3f)); }
+            for (int y = 21; y < 34; y++) {                         /* a cloth draped over it, in folds down its left */
+                int x0 = 23 + (y - 21) / 4, x1 = 30 - (y - 21) / 2;
+                for (int x = x0; x <= x1; x++) {
+                    if (cv_sprite[y * TS + x] == C_CLEAR) continue;
+                    float fold = sinf((float)(x - x0) * 1.6f + (float)y * 0.2f);
+                    cv_px(x, y, sh(R_STONE, 0.42f + 0.14f * fold + (y == 33 && (x & 1) ? -0.1f : 0.0f)));
+                }
+            }
+            carve_apply();
+            weather(14, 60, 0.6f, sd + 7);
+        }
+    } else {
+        if (!look) {
+            grave_earth(32, 20, 3.0f, sd);
+            slab(26, 30, 59, 9.0f, 2, 0.0f, sd);
+            for (int y = 30; y < 59; y++) for (int x = 15; x <= 37; x++) if ((float)y < 36.0f + (float)(x - 17) * 0.45f + 1.5f * (h01(x, 1, sd) - 0.5f)) cv_px(x, y, C_CLEAR);   /* snapped on a slant */
+            carve_lines(19, 32, 47, 3, sd);
+            for (int y = 51; y <= 59; y++)                          /* its top, fallen on its side */
+                for (int x = 37; x <= 58; x++) {
+                    float dx = (float)x + 0.5f - 47.0f, dy = (float)y + 0.5f - 59.0f, r = 10.0f;
+                    if (dx * dx / (r * r) + dy * dy / 64.0f > 1.0f || dy > 0.5f) continue;
+                    float v = 0.38f + 0.14f * (-dy / 8.0f) - 0.06f * dx / r + (fbm((float)x / 3.0f, (float)y / 3.0f, 16, sd + 3) - 0.5f) * 0.12f;
+                    if (dx < -8.6f) v -= 0.12f;                     /* its broken face */
+                    cv_px(x, y, sh(R_STONE, v));
+                }
+            carve_lines(41, 53, 54, 1, sd + 1);
+            carve_apply();
+            for (int k = 0; k < 6; k++) cv_ellipse(20.0f + (float)k * 5.0f + h01(k, 1, sd) * 3.0f, 60.5f, 1.2f, 0.9f, R_STONE, 0.25f, 0.55f);   /* chips of it */
+            weather(30, 60, 0.6f, sd + 7);
+        } else {
+            grave_earth(32, 24, 4.5f, sd);                          /* heaved earth round it */
+            for (int y = 50; y <= 60; y++) {                        /* a ledger stone, flat, its far edge narrower */
+                float t = (float)(y - 50) / 10.0f, x0 = 19.0f - 6.0f * t, x1 = 45.0f + 6.0f * t;
+                int sunk = 0;
+                for (int x = (int)x0; x <= (int)x1; x++) {
+                    float crack = 20.0f + 2.4f * (float)(y - 50);    /* cracked across; the left half sunk a little */
+                    sunk = (float)x < crack;
+                    int yy = y + sunk;
+                    float v = 0.48f - 0.12f * t + (fbm((float)x / 3.0f, (float)y / 2.0f, 16, sd + 2) - 0.5f) * 0.12f;
+                    if (fabsf((float)x - crack) < 0.8f) v = 0.06f;
+                    cv_px(x, yy, sh(R_STONE, v));
+                }
+                (void)sunk;
+            }
+            for (int x = 13; x <= 51; x++) { cv_px(x, 61, sh(R_STONE, 0.18f)); }   /* its near edge */
+            static const char *const SB[5] = { "..###..", ".#####.", ".#o#o#.", "#.###.#", ".#.#.#." };
+            for (int y = 0; y < 5; y++) for (int x = 0; x < 7; x++) { char c = SB[y][x]; if (c == '#') cmark(34 + x, 51 + y, 1); else if (c == 'o') cmark(34 + x, 51 + y, 2); }
+            for (int k = 0; k < 9; k++) { cmark(31 + k, 52 + k / 2, 1); cmark(43 - k, 52 + k / 2, 1); }   /* crossbones */
+            carve_lines(22, 30, 53, 2, sd);
+            carve_apply();
+            weather(49, 61, 0.4f, sd + 7);
+        }
+    }
+    cv_outline(0);
+    cv_store(id);
+}
+/* a riser's grave: the earth heaved up from below and cracking, a marker of two sticks bound into a cross leaning at its head,
+ * a rag on it; open: the earth torn back both sides of a black hole, the coffin's lid split and its boards up, roots hanging in */
+static void spr_riser_grave(int id, int open) {
+    cv_begin(cv_sprite, TS, TS);
+    if (!open) {
+        grave_earth(30, 20, 7.0f, 761);
+        for (int i = 0; i < 4; i++) {                               /* cracks across it, the earth lifting */
+            float x = 18.0f + (float)i * 7.0f;
+            cv_line(x, 59, x + 3.0f, 54.0f + h01(i, 1, 763) * 2.0f, sh(R_WOOD, 0.02f));
+            cv_px((int)x + 1, 56, sh(R_WOOD, 0.4f));
+        }
+        cv_capsule(46, 61, 49, 44, 1.0f, R_WOOD, 0.15f, 0.5f);      /* the marker, leaning */
+        cv_capsule(43, 49, 53, 48, 0.9f, R_WOOD, 0.15f, 0.5f);
+        for (int k = 0; k < 4; k++) cv_px(47 + (k & 1), 48 + k / 2, sh(R_WARM, 0.2f));   /* bound with cord */
+        for (int y = 49; y < 55; y++) { cv_px(51, y, sh(R_WARM, 0.45f - 0.03f * (float)(y - 49))); if (y < 53) cv_px(52, y, sh(R_WARM, 0.35f)); }   /* a rag */
+    } else {
+        grave_earth(14, 11, 6.0f, 765); grave_earth(50, 11, 6.0f, 767);
+        for (int y = 54; y <= 61; y++) {                            /* the hole */
+            float t = (float)(y - 54) / 7.0f, x0 = 21.0f - 3.0f * t, x1 = 43.0f + 3.0f * t;
+            for (int x = (int)x0; x <= (int)x1; x++) cv_px(x, y, y == 54 ? sh(R_WOOD, 0.12f) : 0);
+        }
+        for (int k = 0; k < 5; k++) cv_line(23.0f + (float)k * 4.5f, 55, 23.5f + (float)k * 4.5f, 57.0f + h01(k, 1, 769) * 3.0f, sh(R_WOOD, 0.25f));   /* roots hanging in */
+        cv_capsule(24, 60, 31, 50, 1.6f, R_WOOD, 0.12f, 0.5f);      /* the lid, split, its boards up */
+        cv_capsule(33, 50, 41, 59, 1.6f, R_WOOD, 0.12f, 0.45f);
+        cv_line(31, 50, 32, 46, sh(R_WOOD, 0.45f)); cv_line(33, 50, 33, 47, sh(R_WOOD, 0.4f));   /* splinters */
+        cv_px(27, 55, sh(R_IRON, 0.6f)); cv_px(37, 54, sh(R_IRON, 0.6f));   /* nails */
+    }
+    cv_outline(0);
+    cv_store(id);
+}
+
 /* every prop drawn so far, at the level's age, and washed in run II */
 static void props_level(int level) {
     int wet = crawl_set(level) == 1;
@@ -8034,6 +8236,13 @@ static void props_level(int level) {
     spr_candlecluster(SP_CANDLES, 0); spr_candlecluster(SP_CANDLES_2, 1); spr_candlecluster(SP_CANDLES_3, 2);
     for (int f = 0; f < 2; f++) { spr_prickstand(SP_CANDLESTAND_A + f, f); spr_corona(SP_CHANDELIER_A + f, f); spr_hornlantern(SP_LANTERN_A + f, f); }
     for (int f = 0; f < 3; f++) { spr_hearth(SP_FIREPIT_A + f, f); spr_gbrazier(SP_BRAZIER_A + f, f); }
+    static const int16_t GRAVES[4][2] = { { SP_TOMB_ROUND, SP_TOMB_ROUND_2 }, { SP_TOMB_CROSS, SP_TOMB_CROSS_2 }, { SP_TOMB_OBELISK, SP_TOMB_OBELISK_2 }, { SP_TOMB_BROKEN, SP_TOMB_BROKEN_2 } };
+    for (int k = 0; k < 4; k++) for (int l = 0; l < 2; l++) spr_grave(GRAVES[k][l], k, l);
+    spr_riser_grave(SP_MOUND, 0); spr_riser_grave(SP_PIT, 1);
+    if (wet) {
+        for (int k = 0; k < 4; k++) for (int l = 0; l < 2; l++) prop_wash(GRAVES[k][l], 0, 771u + (uint32_t)(k * 2 + l));
+        prop_wash(SP_MOUND, 0, 781); prop_wash(SP_PIT, 0, 783);
+    }
     if (wet) {
         for (int f = 0; f < 2; f++) prop_wash(SP_CHANDELIER_A + f, 1, 743);   /* iron overhead: rust and drips */
         for (int f = 0; f < 3; f++) { prop_wash(SP_FIREPIT_A + f, 0, 745); prop_wash(SP_BRAZIER_A + f, 0, 747); }
@@ -8060,6 +8269,8 @@ static void props_alts(void) {
     static const int16_t ALTS[][NALT] = {
         { SP_BONES1, SP_BONES1_2, SP_BONES1_3, -1 }, { SP_BONES2, SP_BONES2_2, -1, -1 }, { SP_SKULLPILE, SP_SKULLPILE_2, SP_SKULLPILE_3, -1 },
         { SP_TOTEM_A, SP_TOTEM2_A, -1, -1 }, { SP_CANDLES, SP_CANDLES_2, SP_CANDLES_3, -1 },
+        { SP_TOMB_ROUND, SP_TOMB_ROUND_2, -1, -1 }, { SP_TOMB_CROSS, SP_TOMB_CROSS_2, -1, -1 }, { SP_TOMB_OBELISK, SP_TOMB_OBELISK_2, -1, -1 },
+        { SP_TOMB_BROKEN, SP_TOMB_BROKEN_2, -1, -1 },
     };
     for (int i = 0; i < (int)(sizeof ALTS / sizeof ALTS[0]); i++) memcpy(crawl_alt[ALTS[i][0]], ALTS[i], sizeof ALTS[i]);
 }
@@ -11107,8 +11318,7 @@ void crawl_art_init(void) {
     spr_hooks();
     spr_gibbet(SP_GIBBET, 0); spr_gibbet(SP_GIBBET_SKEL, 1);
     spr_roots(); spr_websheet();
-    for (int k = 0; k < 4; k++) spr_tomb(SP_TOMB_ROUND + k, k);
-    spr_tomb(SP_TOMB_FRESH, 4);
+    spr_tomb(SP_TOMB_FRESH, 4);                                     /* her plot's newest (the four kinds are props_level's) */
     spr_lectern(); spr_mapware(); spr_lampstand();
     spr_orb(SP_ORB_A, 0); spr_orb(SP_ORB_B, 1); spr_lance(); spr_ballista(); spr_fspirit(SP_FSPIRIT_A, 0); spr_fspirit(SP_FSPIRIT_B, 1); spr_rime(); spr_mote();
     spr_deadbell(SP_DBELL, 0); spr_deadbell(SP_DBELL_C, 1); spr_font(SP_FONT, 0); spr_font(SP_FONT_C, 1);
@@ -11152,7 +11362,7 @@ void crawl_art_init(void) {
     for (int f = 0; f < 4; f++) { spr_imp(SP_IMP_A + f, f); if (f < 3) imp_dress(SP_IMP_A + f); }
     spr_ember(SP_EMBER_A, 0); spr_ember(SP_EMBER_B, 1);
     for (int f = 0; f < 5; f++) { spr_gargoyle(SP_GARG_PERCH + f, f); if (f >= 1 && f <= 3) garg_dress(SP_GARG_PERCH + f); }
-    spr_broken_arms(); spr_mound(SP_MOUND, 0); spr_mound(SP_PIT, 1);
+    spr_broken_arms();
     spr_puddle(SP_PUDDLE_A, 0); spr_puddle(SP_PUDDLE_B, 1); spr_stalag();
     for (int f = 0; f < 3; f++) spr_magma(SP_MAGMA_A + f, f);
     spr_collar(); spr_icicles(); spr_bell(); spr_carcass(); spr_armourstand(); spr_helm(); spr_timber();
