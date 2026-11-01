@@ -1329,5 +1329,17 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   from 28 to 48 between builds that don't touch his fight, whose adds come as high as before: shield-bearers at a mean
   rank of 3.2-3.3). The challenge is still to come (hunters, ambushes, cunning). One run from 11 filled the forty places
   for the dream's own rime in a fight with seven hunting it; only the newest rime is lost.
+- 1.0.0b15's step 5 (hunters, the shade's stalk, the calm; harness only), against the old minds' sixteen runs (seeds 1-31
+  odd): from level 1 a median of 9 levels cleared (9), 60 deaths (48), 43 on level 10 (39) and 17 elsewhere (9), the knight
+  felled 4 times (8); from 11, 21 and 31 the same medians, no deaths either way, a level's median time 363-368 s (365-369).
+  Hunts were let loose on 25 levels in the runs from level 1 and 35-63 levels a deeper start; 5 of the 17 deaths off the
+  knight's level came on a level whose hunt was loose, about twice the rate of the rest. Hunters seldom reach the dream
+  by its trail alone (once in all the runs; their pack mostly sees it first) and lost the trail twice. The shade faded
+  back 60-103 times a deeper start and never struck: the dream seldom stands still, so to it the shade is now almost
+  harmless; to a person who stops to look about it is not. The calm's change makes the dream's life easier: with the old
+  calm put back (`CRAWL_OLDCALM=1`) the new minds died 74 times on the same seeds, 27 of them off level 10. So 60 is a
+  quarter above today's 48, the edge of D5's margin; steps 6 and 7 add to it, and step 8's budget is where to give some
+  back. A death count "on a level whose hunt was loose" needs the flag kept until the level changes, not reset at a death:
+  the first count here said 2, not 5.
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.

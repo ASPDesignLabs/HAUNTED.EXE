@@ -17,7 +17,10 @@ wake; its check, on sixteen seeds: from level 1 a median of 10 levels cleared (9
 knight's level (9), the knight felled 9 times (8); from 11, 21 and 31 no deaths either way. Harder on ordinary levels, no
 harder at the knight. Step 4 is built (harness only): callers and scavengers; on the same sixteen seeds from level 1 a
 median of 10.5 levels cleared (9), 36 deaths (48), 8 off the knight's level (9), the knight felled 10 times (8); from 11,
-21 and 31 no deaths either way. No harder yet: the challenge is to come with hunters, ambushes and cunning (steps 5-7).** Written on
+21 and 31 no deaths either way. No harder yet: the challenge is to come with hunters, ambushes and cunning (steps 5-7). Step 5
+is built (harness only): the trail, the hunts, the shade's stalk, the calm's change; from level 1 a median of 9 levels
+cleared (9), 60 deaths (48), 17 off the knight's level (9); from 11, 21 and 31 no deaths either way. A quarter harder: the
+edge of D5's margin, with ambushes and cunning still to come, so step 8's budget will have to give some back.** Written on
 `claude/laughing-cori-a3jk29` from 1.0.0b13; brought onto its work branch, `claude/youthful-mayer-deaa11`, from main
 once the art pass so far had been merged there (1 November). The art pass is visual only, and the numbers below were
 checked again on main: none has moved. The owner asked for creatures
