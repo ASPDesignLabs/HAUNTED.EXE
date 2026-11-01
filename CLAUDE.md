@@ -145,8 +145,8 @@ Lantern of the Dead shuttered on a long press of L. The second round settled it 
 this is done; new kinds (the Whipper-In, the Sexton, the Lightless); places to mend in the walls; doors that sound like
 their run; `MAXMOBS` to grow. **Step 0, the caster's side, is built** (harness only; the Windows build compiled and smoke-tested by CI on the branch, by a run started by hand):
 see *The sprint, PHYSIC and the lantern* below. **Step 1 is built** (harness only): the senses and memory, room for 64
-creatures, doors that sound like their run, the places to mend; see *How the dead think* below. Step 2, posts and
-patrols, is next.
+creatures, doors that sound like their run, the places to mend; see *How the dead think* below. **Step 2 is built**
+(harness only): posts, patrols and roamers. Step 3, packs, is next.
 
 ## Working with the owner
 
@@ -1096,7 +1096,13 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `in_combat`, within 30 steps) and `PS_MEND` (`at_rest`). Debug: `EVENT noticed`, `wary`, `lost_you`, `tracked`,
   `searches`, `gave_up`, `unaware_hits`, `pool_full`, `mend_begin`, `mend_end`; `MEND level n: ...`; `CRAWL_TPMEND=1`,
   `CRAWL_HP=n` (health as you take over), `CRAWL_STAGEFACE=deg` (the stage's creatures turned). `make sheets` draws
-  `rests.png`.
+  `rests.png`. **Step 2** (section 9): a calm creature's part (`Mob.role`, `RL_*`, given by `role_give` the first time
+  it thinks): a resident or a vault's guard keeps a post (`hx/hy`, facing `pf`, the room's way in by `room_way_in`; it
+  stands there, its head turning, and walks back after a search); bats and hunting spiders roam room to room
+  (`roam_next`, a pause in each); the rest walk a round (`route_make`: three or four lane cells five to sixteen steps
+  about where they came, spread apart and taken in order of their bearing; `G.route`, `G.nroute`, reset with a level's
+  creatures; `Mob.route`, `wp`), pausing 1.5-3 s at each, one that came with another on its round. In `mind_goal`'s
+  calm case, `mind_arrived` and the hold in `update_mob`. Debug: `EVENT routes`, `posted`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

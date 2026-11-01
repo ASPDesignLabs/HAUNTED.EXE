@@ -114,6 +114,8 @@ typedef struct {
     float aw_t, kx, ky, kh, look, edgy, wait;                      /* time in the state; where it means to look and the way you were
                                                                       going; its head turned from its facing; listening harder a while;
                                                                       a pause to look round */
+    int role, route, wp; float pf;                                 /* step 2: RL_* (0 not yet given); a patrol's route and the
+                                                                      waypoint it makes for; a post's facing */
 } Mob;
 /* What each kind of creature is (docs/PLAN-bestiary.md): its names, a line for the bestiary, its
  * pictures there (walking towards you, and from the side), the ramp its rank recolours (-1: off the
@@ -700,6 +702,7 @@ static struct {
     int ncells, explored;
     float lit_here, glow_here, flare_t;     /* the light at the caster but its own glow; a cast's flare (docs/PLAN-ai.md, S2) */
     int lost_rg[8], lost_n;                 /* the rooms where a search lost the caster this level, newest first (section 30) */
+    int nroute; struct { int n, x[5], y[5]; } route[24];  /* patrols' rounds (docs/PLAN-ai.md, section 9) */
     int nrest, rest_x[2], rest_y[2], rest_fx[2], rest_fy[2], rest_on, rest_goal, rest_said;   /* the places to mend (section 28): the
                                                                       wall, the floor before it; 1 + the one in use; the dream's goal */
     float rest_acc, rest_beat;
@@ -3205,7 +3208,7 @@ static int minded(const Mob *m);
 static int in_view(const Mob *m, float px, float py);
 #ifdef CRAWL_DEBUG
 static int g_mind = -1;
-static int wary, noticed, searches, gave_up, unaware_hits, tracked, lost_you;
+static int wary, noticed, searches, gave_up, unaware_hits, tracked, lost_you, routes, posted;
 #endif
 static int hurt_by(const Mob *m, float dmg, int kind) {
     G.blame = blame_of(m);
@@ -4449,6 +4452,90 @@ static void mind_track(Mob *m, float x, float y) {                 /* where you 
     m->aware = MA_TRACK; m->aw_t = 0.0f; m->kx = x; m->ky = y;
 }
 
+/* Posts, patrols and roamers (docs/PLAN-ai.md, section 9): what a calm creature does. Given the first time it thinks:
+ * one that keeps to a room (a resident, a vault's guard) has a post where it stands, facing the room's way in, its head
+ * turning now and then; the living that wander (bats, hunting spiders) go from room to room with a purpose; the rest
+ * walk a round of three or four waypoints near where they came, pausing at each, one come with another on its round. */
+enum { RL_NONE, RL_POST, RL_PATROL, RL_ROAM };
+static int room_of_region(int rg) { for (int r = 0; r < G.nrooms; r++) if (G.rooms[r].region == rg) return r; return -1; }
+static int room_way_in(int r, float *ex, float *ey) {             /* where what is open on the ring about a room lies, on average */
+    if (r < 0 || r >= G.nrooms) return 0;
+    const Room *R = &G.rooms[r];
+    float sx = 0.0f, sy = 0.0f; int n = 0;
+    for (int y = R->y - 1; y <= R->y + R->h; y++)
+        for (int x = R->x - 1; x <= R->x + R->w; x++) {
+            if (y > R->y - 1 && y < R->y + R->h && x > R->x - 1 && x < R->x + R->w) continue;
+            int k = cell(x, y)->kind;
+            if (k == K_FLOOR || k == K_DOOR) { sx += (float)x + 0.5f; sy += (float)y + 0.5f; n++; }
+        }
+    if (!n) return 0;
+    *ex = sx / (float)n; *ey = sy / (float)n;
+    return 1;
+}
+static int route_make(int sx, int sy) {                            /* a round of lane cells five to sixteen steps about (sx, sy) */
+    if (G.nroute >= 24) return -1;
+    int16_t (*f)[MAPN] = mind_field(sx, sy);
+    int cx[64], cy[64], nc = 0;
+    for (int tries = 0; tries < 400 && nc < 64; tries++) {
+        int x = clampi(sx + rnd(33) - 16, 1, MAPN - 2), y = clampi(sy + rnd(33) - 16, 1, MAPN - 2);
+        int h = f[y][x];
+        if (h < 5 || h > 16 || !apass(x, y) || in_band(y)) continue;
+        cx[nc] = x; cy[nc] = y; nc++;
+    }
+    if (nc < 2) return -1;
+    int r = G.nroute, n = 0, used[64] = { 0 };
+    for (int k = 0; k < 4 && k < nc; k++) {                        /* spread about it: each the farthest from those already chosen */
+        int best = -1; float bd = -1.0f;
+        for (int i = 0; i < nc; i++) {
+            if (used[i]) continue;
+            float d = 1e9f;
+            for (int j = 0; j < n; j++) d = fminf(d, hypotf((float)(cx[i] - G.route[r].x[j]), (float)(cy[i] - G.route[r].y[j])));
+            if (!n) d = (float)rnd(100);
+            if (d > bd) { bd = d; best = i; }
+        }
+        if (best < 0 || (n && bd < 3.0f)) break;
+        used[best] = 1; G.route[r].x[n] = cx[best]; G.route[r].y[n] = cy[best]; n++;
+    }
+    for (int i = 1; i < n; i++)                                    /* round about the place: in order of their bearing from it */
+        for (int j = i; j > 0 && atan2f((float)(G.route[r].y[j] - sy), (float)(G.route[r].x[j] - sx))
+                                  < atan2f((float)(G.route[r].y[j - 1] - sy), (float)(G.route[r].x[j - 1] - sx)); j--) {
+            int tx = G.route[r].x[j], ty = G.route[r].y[j];
+            G.route[r].x[j] = G.route[r].x[j - 1]; G.route[r].y[j] = G.route[r].y[j - 1]; G.route[r].x[j - 1] = tx; G.route[r].y[j - 1] = ty;
+        }
+    if (n < 2) return -1;
+    G.route[r].n = n; G.nroute++;
+    DBG_COUNT(routes);
+    return r;
+}
+static void roam_next(Mob *m) {                                    /* the middle of another room */
+    for (int tries = 0; tries < 8 && G.nrooms > 0; tries++) {
+        const Room *R = &G.rooms[rnd(G.nrooms)];
+        int x = R->x + R->w / 2, y = R->y + R->h / 2;
+        if (R->region == cell(m->cx, m->cy)->region || cell(x, y)->kind != K_FLOOR || in_band(y)) continue;
+        m->wx = x; m->wy = y; return;
+    }
+    m->wx = m->cx; m->wy = m->cy;
+}
+static void role_give(Mob *m) {                                    /* the first time it thinks */
+    m->route = -1;
+    if (m->home >= 0 || m->guard) {                                /* it keeps a room: a post, facing the way in */
+        m->role = RL_POST; m->hx = m->cx; m->hy = m->cy;
+        float ex, ey;
+        int r = room_of_region(m->home >= 0 ? m->home : cell(m->cx, m->cy)->region);
+        m->pf = room_way_in(r, &ex, &ey) ? atan2f(ey - m->y, ex - m->x) : m->face;
+        DBG_COUNT(posted);
+        return;
+    }
+    if (m->type == MOB_BAT || m->type == MOB_HUNTER) { m->role = RL_ROAM; roam_next(m); return; }
+    m->role = RL_PATROL;
+    for (int i = 0; i < MAXMOBS; i++) {                            /* one come with another walks its round */
+        const Mob *o = &G.mobs[i];
+        if (o != m && o->alive && o->role == RL_PATROL && o->route >= 0 && hypotf(o->x - m->x, o->y - m->y) < 1.6f) { m->route = o->route; m->wp = o->wp; return; }
+    }
+    m->route = route_make(m->cx, m->cy);
+    m->wp = 0;
+}
+
 /* A noise at a place, heard so many steps off down the halls (S3). The caster's own come from where it stands; a
  * creature's death is heard twice as far by its own kind; Wraithwalk makes no sound of you. With the old minds, only
  * the caster's own are heard, and they tell where it is (alert_near). */
@@ -4507,7 +4594,7 @@ static void mind_tick(Mob *m, float dt, int sees) {
     m->aw_t += dt;
     if (m->edgy > 0.0f) m->edgy -= dt;
     if (m->wait > 0.0f) m->wait -= dt;
-    if (m->home >= 0 && !m->hx && cell(m->cx, m->cy)->region == m->home) { m->hx = m->cx; m->hy = m->cy; }   /* its post */
+    if (!m->role) role_give(m);                                    /* its post, its round, or its roaming (step 2) */
     if (sees && G.level_t > 1.5) {
         if (m->aware != MA_HUNT) DBG_COUNT(noticed);
         m->aware = MA_HUNT; m->aw_t = 0.0f;
@@ -4557,7 +4644,15 @@ static int mind_goal(Mob *m, int *gx, int *gy) {
             m->wn = 1;
         }
         *gx = m->wx; *gy = m->wy; return 1;
-    default: return 0;
+    default:                                                       /* calm: its post, its round, its roaming */
+        if (m->wait > 0.0f) return 0;
+        if (m->role == RL_POST) { if (m->cx == m->hx && m->cy == m->hy) return 0; *gx = m->hx; *gy = m->hy; return 1; }
+        if (m->role == RL_PATROL && m->route >= 0 && m->route < G.nroute) {
+            int n = G.route[m->route].n, w = m->wp % n;
+            *gx = G.route[m->route].x[w]; *gy = G.route[m->route].y[w]; return 1;
+        }
+        if (m->role == RL_ROAM) { *gx = m->wx; *gy = m->wy; return 1; }
+        return 0;
     }
 }
 static void mind_arrived(Mob *m) {                                 /* at the place it meant to go */
@@ -4568,13 +4663,16 @@ static void mind_arrived(Mob *m) {                                 /* at the pla
         DBG_COUNT(searches);
         return;
     }
-    if (m->aware == MA_SEARCH) { m->wn = 0; m->wait = 1.0f + rndf(); }   /* a look round, and on */
+    if (m->aware == MA_SEARCH) { m->wn = 0; m->wait = 1.0f + rndf(); return; }   /* a look round, and on */
+    if (m->role == RL_PATROL) { m->wp++; m->wait = 1.5f + 1.5f * rndf(); }   /* a pause at each waypoint */
+    else if (m->role == RL_ROAM) { roam_next(m); m->wait = 1.0f + 2.0f * rndf(); }
 }
 /* the head: towards you while it sees you, towards a sound while wary, about it while searching, idly while calm */
 static void mind_face(Mob *m, float dt, int sees, int moving, float mdx, float mdy) {
     if (sees) { m->face = turn_to(m->face, atan2f(G.py - m->y, G.px - m->x), 6.0f * dt); m->look *= 1.0f - fminf(1.0f, dt * 4.0f); return; }
     if (moving) { m->face = turn_to(m->face, atan2f(mdy, mdx), 5.0f * dt); m->look *= 1.0f - fminf(1.0f, dt * 3.0f); return; }
     if (m->aware == MA_WARY) { m->face = turn_to(m->face, atan2f(m->ky - m->y, m->kx - m->x), 3.0f * dt); m->look *= 1.0f - fminf(1.0f, dt * 3.0f); return; }
+    if (m->aware == MA_CALM && m->role == RL_POST && m->cx == m->hx && m->cy == m->hy) m->face = turn_to(m->face, m->pf, 2.0f * dt);   /* at its post */
     float sweep = m->aware == MA_SEARCH ? 1.1f : 0.8f, rate = m->aware == MA_SEARCH ? 1.4f : 0.45f;
     m->look = sweep * sinf(m->t * rate + (float)(m - G.mobs));    /* turning its head */
 }
@@ -5511,7 +5609,8 @@ static void update_mob(Mob *m, float dt) {
         else if (m->aware == MA_WARY) m->aw_t = 8.0f;              /* nor to the sound: it lets it be */
     }
     if (mind && !going && !hunting && !chase && !afraid && !lured && m->alert <= 0.0f
-        && ((m->aware == MA_WARY && (m->aw_t < 0.8f || ghere == 0)) || (m->aware == MA_SEARCH && m->wait > 0.0f))) return;   /* it stands and listens, or looks about */
+        && ((m->aware == MA_WARY && (m->aw_t < 0.8f || ghere == 0)) || (m->aware == MA_SEARCH && m->wait > 0.0f)
+            || (m->aware == MA_CALM && (m->wait > 0.0f || (m->role == RL_POST && m->cx == m->hx && m->cy == m->hy))))) return;   /* it stands and listens, looks about, or keeps its post */
     int best = -1; float bs = -1e9f;
     for (int k = 0; k < 4; k++) {
         int nx = m->cx + DX[k], ny = m->cy + DY[k];
@@ -8027,7 +8126,7 @@ static void start_level(void) {
     G.bstep = G.bchallenge && G.boss >= 0 ? RUN.bstep[G.boss] : 0;
     crawl_art_level(G.level);
     gen_level();
-    memset(G.mobs, 0, sizeof G.mobs);
+    memset(G.mobs, 0, sizeof G.mobs); G.nroute = 0;                 /* and the patrols' rounds */
     memset(G.shots, 0, sizeof G.shots);
     memset(G.booms, 0, sizeof G.booms);
     memset(G.bones, 0, sizeof G.bones);
@@ -14165,7 +14264,7 @@ static void begin_shop(void) {
     memset(G.wisps, 0, sizeof G.wisps);                            /* nor into the merchant's room */
     crawl_art_level(1);                                            /* the antechamber looks the same every time */
     gen_shop();
-    memset(G.mobs, 0, sizeof G.mobs); memset(G.shots, 0, sizeof G.shots); memset(G.booms, 0, sizeof G.booms);
+    memset(G.mobs, 0, sizeof G.mobs); G.nroute = 0; memset(G.shots, 0, sizeof G.shots); memset(G.booms, 0, sizeof G.booms);
     memset(G.bones, 0, sizeof G.bones); memset(G.beams, 0, sizeof G.beams); memset(G.burns, 0, sizeof G.burns);
     memset(G.trails, 0, sizeof G.trails); memset(G.venoms, 0, sizeof G.venoms); memset(G.motes, 0, sizeof G.motes);
     soul_cap(1);

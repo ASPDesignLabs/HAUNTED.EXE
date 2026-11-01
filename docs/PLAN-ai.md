@@ -8,7 +8,7 @@ running dry needs Shift pressed again. Step 1 is built (harness only): the sense
 places to mend. Choices of mine there: a place to mend is begun with E and kept by standing still facing it (not E held,
 since a pad's A is a press); a blow gives a creature the live field 6 s, not today's 12; bats see all round and a hound
 smells four cells behind it; a creature looking away shows its side until backs are drawn; the places to mend's art is on
-`make sheets`' rests.png, for approval.** Written on
+`make sheets`' rests.png, for approval. Step 2 is built (harness only): posts, patrols and roamers.** Written on
 `claude/laughing-cori-a3jk29` from 1.0.0b13; brought onto its work branch, `claude/youthful-mayer-deaa11`, from main
 once the art pass so far had been merged there (1 November). The art pass is visual only, and the numbers below were
 checked again on main: none has moved. The owner asked for creatures
