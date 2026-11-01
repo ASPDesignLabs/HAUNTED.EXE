@@ -765,7 +765,8 @@ of usage leaves the next one a true account. **Read it before anything else in t
 ### How to pick it up
 
 1. `git log --oneline` on `claude/dazzling-dirac-20cr2y`, then this log: the last row that is not *done* is where to
-   start; a row marked *in progress* says what was left half-made.
+   start; a row marked *in progress* says what was left half-made. Unit 24 on was pushed to `claude/stoic-allen-sok1pe`
+   (the session's own branch, carrying all of dazzling-dirac's history), so start from whichever of the two is ahead.
 2. `make host build/host_debug build/sheet` (about a minute), then `make sheets` and look at `build/sheets/artpass.png`
    (or the creature's own sheet) with the before-picture in `docs/artpass/before/` beside it.
 3. Each creature is a unit: its sprite functions in `src/crawl_art.c` (named in section 8 and the log), its eye points
