@@ -1230,5 +1230,13 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   had taken it as from 1, so each run's first trial came twice; whatever indexes by a run's step, check which it means.
   Runs started in the same second in the harness share a run id (`new_run_id` is the clock and the app's seed), so
   their trials come in the same order.
+- 1.0.0b15's step 1 (the senses and memory, the places to mend; harness only), against `CRAWL_MIND=0` on the same build and
+  the same eight seeds (seeds 1-15 odd; deep starts as 1.0.0b13's): from level 1 (100 minutes) a median of 10.5 levels
+  cleared (9), 16 deaths (23; 15 on level 10, against 18), the knight felled 5 times (3); from 11, 21 and 31 (50 minutes)
+  the same medians (levels 17, 27, 37) and no deaths (2 from 11); a level's median time 356-375 s (363-372). In the eight
+  runs from level 1 the dead noticed the dream about 2,300 times, heard it 1,400, lost it 170, searched 75 times and gave
+  up 51; 328 blows landed on creatures caught unaware. So the dream is better off: the dead now forget it, and it catches
+  them unaware. The challenge is meant to come with packs, hunts, ambushes and cunning (steps 3-8). Blasts filled their
+  eight places four times and the dead's missiles their ten once; both doubled (16, 20).
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.

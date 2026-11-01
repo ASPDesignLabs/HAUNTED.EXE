@@ -457,8 +457,8 @@ typedef struct {
 #define MAXDECO 900
 #define MAXMOBS 64                          /* 1.0.0b15: room for what is raised, hatched and called (docs/PLAN-ai.md, 27) */
 #define MAXSHOTS 16
-#define MAXBOOMS 8
-#define MAXBONES 10
+#define MAXBOOMS 16                         /* doubled in 1.0.0b15: the dream's runs filled eight (docs/PLAN-ai.md, 27) */
+#define MAXBONES 20                         /* and the dead's missiles, ten */
 #define MAXITEMS 96
 #define MAXBEAMS 8
 #define MAXBURNS 40
