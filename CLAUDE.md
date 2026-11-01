@@ -133,6 +133,11 @@ visual only, so nothing in the simulation, the saves or the autopilot's numbers 
 turned to the props and pickups of runs I and II (its section 14, with their answers): P1-P6 are done; runs III and IV's own
 props (P7, P8) come next when the pass resumes, then the Wraith Unbound.
 
+How the dead think is planned in [`docs/PLAN-ai.md`](docs/PLAN-ai.md), a first draft for the owner (1 November): senses
+and memory, packs of a kind and mixed bands, posts, patrols, callers, scavengers, hunters on the caster's trail, lures
+and ambushes, cunning by rank, and an encounter budget for the generator. Its questions are unanswered and nothing is
+built; it proposes going in as 1.0.0b14 with the lower storey moved to 1.0.0b15 (its A2), which is the owner's call.
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture
