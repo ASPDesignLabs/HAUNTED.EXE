@@ -149,7 +149,9 @@ creatures, doors that sound like their run, the places to mend; see *How the dea
 (harness only): posts, patrols and roamers. **Step 3 is built** (harness only): packs, their turns and morale, and the cap
 on how many are in a fight at once; the file of the Order, the hounds, the roost, the wake. **Step 4 is built** (harness
 only): callers (the wall skull's scream, the gargoyle's shriek, the deacon's call, the roost's cry) and scavengers (ghouls
-drawn to deaths, in packs of one to three). Step 5, hunters, is next.
+drawn to deaths, in packs of one to three). **Step 5 is built** (harness only): the caster's trail, hunts let loose on it
+(the Order's watch, hounds, hunting spiders), the shade's stalk, and the calm's change (H2). Step 6, lures and ambushes,
+is next.
 
 ## Working with the owner
 
@@ -1142,7 +1144,26 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   feeding, `sub` 4, 5-8 s, bent over the remains, mending and taking double), until it sees you within six cells. Seeing
   you on the way, it forgets the meal. A ghoul past its first level comes with none, one or two more (`PACK_SCAV`; a
   groan and bones for its tell); broken, they scatter as the living do. Debug: `EVENT alarm <kind> steps n`, `alarms`,
-  `alarms_heard`, `scavenge`, `feeds`.
+  `alarms_heard`, `scavenge`, `feeds`. **Step 5** (section 11): hunters. The trail (`G.scent`, the level's clock when the
+  caster was in each cell, stamped each frame, none on water; `SCENT_LIFE` 120 s; `on_trail`). The hunt (`place_hunt` in
+  `start_level`, in a wanderer's place; `HK_*`; H4's chance: a quarter of run I's levels from 5, a third of II's, half of
+  III's, two thirds of IV's, every corrupted level, never a boss's or a pocket): a band at the far end (24 steps or more
+  from the start), waiting at its post (`Mob.hunter` 1), let loose at `G.hunt_at` (150 s less 10 a step of the run, give
+  or take 15) by `hunt_tick` with a far-off tell (`hunt_sfx`). The watch (`HK_WATCH`, from 5: a file) goes to the last loud
+  noise (`G.noise_x/y/t`: any of the caster's but a step) and to each new one (`hunter` 3); hounds (`HK_HOUNDS`, from 9) and
+  hunting spiders (`HK_SPIDERS`, from 15, along the ceiling: `PACK_SPIDERS`, scattering when broken) go to where the caster
+  was a minute ago (`G.hunt_nx/ny`) and follow the trail (`hunter` 2; the `trailing` branch of `update_mob`: the freshest
+  neighbour, a tenth quicker; a shut door or one of its own ahead, it waits), and within four seconds of you hunt as anything
+  does (`hunter_tick`, the nearer tell once); losing you, they take the trail again, not a search; a trail that ends (water,
+  a pocket, gone cold) ends a hunter's hunt (`hunter_lost`: it searches there). `MF_FAR` is 160, so a field to a place
+  reaches across the level. The shade's stalk (from 16): while it has you it holds five cells off, behind you
+  (`update_mob`'s hold 3), and strikes only while you stand still 1.5 s, fight something else within six cells or have a bat
+  on your face (`shade_may_strike`, `G.still_t`); lit and in front of you it fades back (`Mob.shy`, 1.5-2.5 s, afraid). The
+  calm (H2): with the new minds a person gets no calm wanderer (the hunt is its stand-in); the dream's comes from 16-30
+  steps and tracks you in. Debug: `CRAWL_HUNT=s` (a hunt on every level from 5 that can have one, let loose at s seconds),
+  `CRAWL_HUNTK=k` (its kind: 1 the watch, 2 hounds, 3 spiders), `CRAWL_HUNTTRACE=1` (each hunter and shade once a second:
+  where, how it knows you, the scent under it, the steps to you and to the pick-up), `PACKS level n: hunt of ...`, `EVENT
+  hunt_begin`, `hunt_scent`, `hunt_lost`, `shade_fades`, `shade_strikes`; the minds line's `hunt=kind/loose/trailing`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

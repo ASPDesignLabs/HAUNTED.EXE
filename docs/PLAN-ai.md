@@ -963,6 +963,15 @@ The order of the steps is the building's; what a person meets, and where, is sec
    ghoul's first level, and scatter when broken, as the living do. The remains aren't eaten away (Grave Call and the
    deacon's chant still find them). Gargoyles on a hall don't wake each other yet: that is the sentinels, at 27.
 5. **Hunters** (section 11): the scent trail, the hunt, the shade's stalking; the calm's change (H2).
+   *Built* (harness only). Choices of mine: the hunt waits at the far end as part of the level's count (a pack that was
+   always there), in a wanderer's place, and is let loose at 150 s less ten a step of the run (give or take fifteen); the
+   watch goes to your last noise but a footstep; the hunters pick up the trail where you were a minute ago, follow it a
+   tenth quicker than their pace, have you within four seconds of your scent, and take the trail again when they lose
+   you; a trail that ends, in water or gone cold, ends that hunter's hunt and it searches there. The shade holds five cells
+   off and behind you, strikes once you have stood 1.5 s or something else is at you within six cells, and fades back for
+   1.5-2.5 s whenever it is lit and in front of you. A person gets no calm wanderer at all with the new minds (H2 (a), read
+   strictly: on a level with no hunt, a person who has cleared it is left alone). The fields to a place now reach across
+   the whole level (they stopped at 48 steps, too short for a hunt from the far end).
 6. **Lures and ambushes** (section 12): kill rooms, teeth, baits (treasure among them, section 30), tells; the
    spectres' drift.
 7. **Cunning by rank** (sections 13-15): dodging, cover, doorways, flanking and the loops it needs, spreading, the
