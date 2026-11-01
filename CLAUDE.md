@@ -109,14 +109,14 @@ release above, the owner moved it on a number, staged as its G2 (a) says: 1.0.0b
 every sample, soul-sappers from each run's sixth level, Resist Lightning), logic puzzles worked with things in the world
 behind a sealed wing (a hidden message, a Black Shrine, Tab's documents), timed trials behind skull-marked doors, and a
 reckoning of what is left before a person leaves a level; then the lower storey, its edges, stairs and ladders, now
-**1.0.0b15** (renumbered at the owner's word; a note at the plan's head says so). Being
+**1.0.0b16** (renumbered twice at the owner's word; a note at the plan's head says so). Being
 built on `claude/epic-dirac-n8uosr` from main at 1.0.0b12, in the plan's steps, sheets before art in the game. 1.0.0b13's
 steps 1-8 were built (harness only; the Windows build compiled and smoke-tested by CI on the branch, by a run started by
 hand) and released as 1.0.0b13 at the owner's word, squashed onto main as one commit like the betas before it; the squash
 also took out `b.txt` and `dream.txt`, debug logs that had come onto main with 1.0.0b11. The new art (`hazards.png`,
 `puzzles.png`, `documents.png`, `trials.png`) still waits for the owner's eye. The README's new strip,
 `preview_catacomb_trials.png`, was taken for the release (no hazard shows well in a still frame, so it has none).
-The lower storey (steps 9-13, now 1.0.0b15) is not begun. See
+The lower storey (steps 9-13, now 1.0.0b16) is not begun. See
 *1.0.0b13 so far* below, and the numbers under *Known issues*.
 
 1.0.0b14 is now the first art pass, planned in [`docs/InitialArtPass.md`](docs/InitialArtPass.md) (31 October 2026; the
@@ -133,12 +133,15 @@ visual only, so nothing in the simulation, the saves or the autopilot's numbers 
 turned to the props and pickups of runs I and II (its section 14, with their answers): P1-P6 are done; runs III and IV's own
 props (P7, P8) come next when the pass resumes, then the Wraith Unbound.
 
-How the dead think is planned in [`docs/PLAN-ai.md`](docs/PLAN-ai.md), a first draft for the owner (1 November, written
-on `claude/laughing-cori-a3jk29`): senses and memory, packs of a kind and mixed bands, posts, patrols, callers,
-scavengers, hunters on the caster's trail, lures and ambushes, cunning by rank, and an encounter budget for the
-generator. Its work branch is `claude/youthful-mayer-deaa11`, from main with the art pass so far. Its questions are
-unanswered and nothing is built; it proposes going in before the lower storey, as 1.0.0b15 with the storey moved to
-1.0.0b16 (its A2), which is the owner's call.
+How the dead think is planned in [`docs/PLAN-ai.md`](docs/PLAN-ai.md) (1 November; the draft written on
+`claude/laughing-cori-a3jk29`, the work branch `claude/youthful-mayer-deaa11`, from main with the art pass so far):
+senses and memory, packs of a kind and mixed bands, posts, patrols, callers, scavengers, hunters on the caster's trail,
+lures and ambushes, cunning by rank, an encounter budget for the generator, and three new kinds for the roles. The owner
+answered most of the first round the same day: it is **1.0.0b15**, ahead of the lower storey (now 1.0.0b16), with the
+same minds for the dream and a person, the old ones behind `CRAWL_MIND=0`; ambushes from level 7 and a new kind of
+interaction every two levels (the plan's section 23 tallies them and drafts a rollout); and the owner's own additions,
+a sprint with a meter and a recovery that quickens with health, a line multiplying what a potion restores, and the
+Lantern of the Dead shuttered on a long press of L. The second round is open (the plan's end); nothing is built.
 
 ## Working with the owner
 

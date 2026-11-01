@@ -1,6 +1,7 @@
 # How the dead think: packs, hunters and ambushes
 
-**Status: a draft for the owner, first round (1 November 2026). Nothing is built.** Written on
+**Status: the owner answered most of the first round (1 November 2026) and added a sprint and a line for potions;
+the second round is open (the end of the plan). Nothing is built.** Written on
 `claude/laughing-cori-a3jk29` from 1.0.0b13; brought onto its work branch, `claude/youthful-mayer-deaa11`, from main
 once the art pass so far had been merged there (1 November). The art pass is visual only, and the numbers below were
 checked again on main: none has moved. The owner asked for creatures
@@ -104,7 +105,7 @@ passes, and bats and hounds can't open them.
 
 ## Decide first
 
-**A1. What this is.** *Recommended: (a).*
+**A1. What this is.** **The owner: (b)**: the three new kinds are in section 22. *Recommended: (a).*
 - (a\*) **A rework of how the dead think, plus set pieces for the generator**: senses and memory for everything,
   packs, roles (posts, patrols, callers, scavengers, hunters, lures, ambushers), cunning that comes with rank, and an
   encounter budget in place of today's wanderers and the calm's respawn. No new kinds.
@@ -112,7 +113,7 @@ passes, and bats and hounds can't open them.
   art for each.
 - (c) Lighter: senses and memory, packs that share what they see, the hunt; no lures or ambushes.
 
-**A2. Where it goes.** Since this draft was written, 1.0.0b14 became the first art pass (merged into main unreleased,
+**A2. Where it goes.** **The owner: (a)**: this matters more than the lower storey, which moves on again, to 1.0.0b16. Since this draft was written, 1.0.0b14 became the first art pass (merged into main unreleased,
 to be taken up again) and the lower storey 1.0.0b15 (settled, not begun). *Recommended: (a).*
 - (a\*) **This is 1.0.0b15 and the lower storey moves to 1.0.0b16**, as 1.0.0b12's plan moved on a number before.
   The minds touch every level and the dream's balance; the storey adds stairs to the fields, "a third more
@@ -122,7 +123,7 @@ to be taken up again) and the lower storey 1.0.0b15 (settled, not begun). *Recom
   from the start.
 - (c) One release with both.
 
-**A3. The same minds for the dream and for a person?** *Recommended: (a).*
+**A3. The same minds for the dream and for a person?** **The owner: (a).** *Recommended: (a).*
 - (a\*) **The same minds**, with the dream given counters (Part G) and the caps tuned so its deaths stay within a
   margin (section 21). A few things already differ by who plays (the calm waits 35 s for a person, 11 for the dream)
   and may go on differing.
@@ -130,7 +131,7 @@ to be taken up again) and the lower storey 1.0.0b15 (settled, not begun). *Recom
 - (c) A setting, *THE DEAD: DULL / WARY / CUNNING*, in the settings dialog and Esc's question, saved; the dream
   always WARY.
 
-**A4. Keep the old minds behind a switch?** *Recommended: (a).* (a\*) Yes, `CRAWL_MIND=0` in the debug build, so the
+**A4. Keep the old minds behind a switch?** **The owner: (a).** *Recommended: (a).* (a\*) Yes, `CRAWL_MIND=0` in the debug build, so the
 balance runs compare the same build on the same seeds. (b) No; compare against a worktree of 1.0.0b13 as before.
 
 **A5. The art pass and this.** Main carries the art pass so far, so whatever is released next takes it with it unless
@@ -158,11 +159,11 @@ Today's sight is nine cells all round. Two changes would give a person something
   for a second, so casting in the dark is seen at nine again, and the Lantern of the Dead, a wisp or a burning floor
   near you light you up.
 
-**S1. A facing.** *Recommended: (a).* (a\*) As above, the crypt drawing side views and new back views (no eyes from
+**S1. A facing.** **The owner: (a).** *Recommended: (a).* (a\*) As above, the crypt drawing side views and new back views (no eyes from
 behind: the one exception to the art pass's rule). (b) A facing only for posts and patrols; hunting creatures see
 all round, as now. (c) No facing.
 
-**S2. The dark.** *Recommended: (a).* (a\*) As above, for everything but the kinds that live by other senses: bats
+**S2. The dark.** **The owner: (a)**, and the Lantern of the Dead's light shuttered on a long press of L (the pad's Y): section 26. *Recommended: (a).* (a\*) As above, for everything but the kinds that live by other senses: bats
 and hounds (they hear and smell; see section 11), and the shade and the Wraith (the dark is theirs: they see you at
 nine in the dark and five in light, the other way about). (b) The dark shortens sight for everything alike. (c) No
 change.
@@ -184,7 +185,7 @@ knows that something happened **there**, not where you are now. A first table of
 | A wall skull's scream, a gargoyle's shriek, a deacon's call | 10 | the callers (section 10) |
 | A fight (blows exchanged, a bite) | 5 | |
 
-**S3. Noise with a place.** *Recommended: (a).* (a\*) As above. (b) Keep today's three noises, but give them a
+**S3. Noise with a place.** **The owner: (a).** *Recommended: (a).* (a\*) As above. (b) Keep today's three noises, but give them a
 place. (c) Keep hearing as it is.
 
 ## 3. Awareness, memory and searching
@@ -205,7 +206,7 @@ Four states for each creature (`Mob.aware`), each with a tell, so a person can r
 What this changes: a person who breaks sight and moves on can lose the dead; a person who stands still behind a
 door is found. Hunters (section 11) don't search: they follow your trail.
 
-**S4. Memory.** *Recommended: (a).* (a\*) As above, for every kind but the hunters, the spiderlings (a swarm, all at
+**S4. Memory.** **The owner: (b)**: the live field for 3 s after sight is lost. *Recommended: (a).* (a\*) As above, for every kind but the hunters, the spiderlings (a swarm, all at
 once, as now) and the boss's fights (all at once, as now). (b) As above but the hunting state keeps today's live
 field for the first 3 s after sight is lost, so a person can't break off by stepping round one corner. (c) Keep
 today's alert clock.
@@ -216,7 +217,7 @@ A creature that is unaware or wary, struck from where it isn't looking, takes **
 caught feeding already takes double), staggers 0.6 s if it is one that staggers, and its tell is cut off. It rewards
 sneaking and the dark without a stealth meter on the screen.
 
-**S5. Caught unaware.** *Recommended: (a).* (a\*) Half again, unaware or wary, from outside its sight. (b) Double,
+**S5. Caught unaware.** **The owner: (a).** *Recommended: (a).* (a\*) Half again, unaware or wary, from outside its sight. (b) Double,
 unaware only. (c) None.
 
 # Part B: packs
@@ -242,13 +243,13 @@ ambush, broken), what it knows (where you were last seen and when), its post or 
   wanderers; hounds run to the nearest other pack or hunter and bring it (a mixed band, made in play); the buried
   don't notice. A broken pack's tell is a sound of its own, so a person learns that killing the leader matters.
 
-**P1. Shared sight.** *Recommended: (a).* (a\*) With the call and its 0.4 s, so it can be cut short. (b) Shared at
+**P1. Shared sight.** **The owner: (a).** *Recommended: (a).* (a\*) With the call and its 0.4 s, so it can be cut short. (b) Shared at
 once, no call. (c) Packs share nothing; they only move together.
 
-**P2. Taking turns.** *Recommended: (a).* (a\*) One engages, the rest circle and hold, changing every few seconds or
+**P2. Taking turns.** **The owner: (b)**: turns as in (a), and from rank III two engage at once. *Recommended: (a).* (a\*) One engages, the rest circle and hold, changing every few seconds or
 when the one engaged is hurt. (b) Two engage at once from rank III. (c) All engage, as now.
 
-**P3. Morale.** *Recommended: (a).* (a\*) By kind, as above. (b) Every pack breaks at half. (c) No morale.
+**P3. Morale.** **The owner: (a).** *Recommended: (a).* (a\*) By kind, as above. (b) Every pack breaks at half. (c) No morale.
 
 ## 6. Packs of a kind
 
@@ -267,7 +268,7 @@ Each kind gets a pack it lives in, drawn from what it already does and what its 
 | Shades | **Alone**, always | A stalker (section 11) | Footsteps with no one there, as now |
 | Deacons | **A congregation** (a deacon and his dead) | He keeps behind them, raises the fallen, and calls the level's dead when he first sees you (section 10) | A whispered chant |
 
-**P4. Packs of a kind.** *Recommended: (a).* (a\*) All of them as drafted. (b) The skeletons' file, the hounds and
+**P4. Packs of a kind.** **The owner: (a).** *Recommended: (a).* (a\*) All of them as drafted. (b) The skeletons' file, the hounds and
 the roost first, the rest later. (c) The owner's pick from the table.
 
 ## 7. Mixed bands
@@ -284,7 +285,7 @@ Unlike kinds working together, each pairing chosen so that one covers the other'
 | **The brood's guard** | 14 | A brood mother with two hunting spiders that never stray far from her and come back if she is hurt. |
 | **The Wraith's chill** | 9 | When the Wraith comes, packs that hear its wail stop hunting and fall back to their posts: the dead fear it too. A small mercy, and a tell that it is near. |
 
-**P5. Mixed bands.** *Recommended: (a).* (a\*) All seven, from the levels shown. (b) The knight's, the deacon's and
+**P5. Mixed bands.** **The owner: (a).** *Recommended: (a).* (a\*) All seven, from the levels shown. (b) The knight's, the deacon's and
 the watch only. (c) None; packs of a kind only.
 
 ## 8. How many come at once
@@ -292,7 +293,7 @@ the watch only. (c) None; packs of a kind only.
 Today's cap (three hunters, the nearest) is the dream's main protection and the reason fights come one at a time.
 With packs it has to count differently.
 
-**P6. The cap.** *Recommended: (a).*
+**P6. The cap.** **The owner: (a).** *Recommended: (a).*
 - (a\*) **Engaged, not alert.** Any number may hunt; at most so many may be *engaged* (within striking or throwing
   reach and in sight) at once: 3 in run I, 4 in run II, 5 in run III, 6 in run IV, +1 for a person. The rest hold at
   the edge of a fight (circling, waiting round a corner, keeping a throw back). A pack counts its members.
@@ -313,7 +314,7 @@ Every creature placed has a role as well as a kind; the generator gives it (Part
 - **A wanderer** stays for the living that wander (bats, hunting spiders in run III), but goes from room to room
   with a purpose (to a room it hasn't been in for a while), not a random step.
 
-**R1. Posts and patrols.** *Recommended: (a).* (a\*) As above, patrols in place of random wandering. (b) Patrols
+**R1. Posts and patrols.** **The owner: (a).** *Recommended: (a).* (a\*) As above, patrols in place of random wandering. (b) Patrols
 for packs only; lone wanderers wander as now. (c) No change.
 
 ## 10. Callers and scavengers
@@ -326,7 +327,7 @@ for packs only; lone wanderers wander as now. (c) No change.
   person who fights for long in one place draws them; one who moves on finds them feeding there later, open to a
   blow.
 
-**R2. Callers and scavengers.** *Recommended: (a).* (a\*) Both. (b) Callers only. (c) Neither.
+**R2. Callers and scavengers.** **The owner: (a).** *Recommended: (a).* (a\*) Both. (b) Callers only. (c) Neither.
 
 ## 11. Hunters
 
@@ -349,16 +350,20 @@ The owner's "some should hunt". A hunter doesn't wait to be found and doesn't se
 - **Run I** has no hunters before the hounds; its hunts are the Order's watch: a file of skeletons that comes to the
   last noise you made, not your trail.
 
-**H1. The trail.** *Recommended: (a).* (a\*) As above. (b) Hunters use today's live hunt field, always knowing where
+**H1. The trail.** **The owner: (a).** *Recommended: (a).* (a\*) As above. (b) Hunters use today's live hunt field, always knowing where
 you are, but are released late. (c) No hunters.
 
-**H2. The hunt in place of the calm.** *Recommended: (a).* (a\*) A hunt replaces the calm's respawn for a person;
+**H2. The hunt in place of the calm.** **The owner: (a).** *Recommended: (a).* (a\*) A hunt replaces the calm's respawn for a person;
 the dream keeps the calm (it needs the action to keep the screen alive) but its wanderer comes from beyond sixteen
 steps and walks in, instead of appearing at four to eight. (b) A hunt on top of the calm, as it is. (c) Keep the calm
 alone.
 
-**H3. How often.** *Recommended: (a).* (a\*) A hunt on one level in three from level 8, two in three in runs III and
+**H3. How often.** **The owner: a chance on every level from level 5, never a boss's** (H4 asks how much of one). *Recommended: (a).* (a\*) A hunt on one level in three from level 8, two in three in runs III and
 IV, never on a boss's level. (b) Every level from 8. (c) Only on corrupted levels and replays.
+
+**H4. The hunt's chance** (from the owner's H3). *Recommended: (a).* (a\*) A quarter on run I's levels from 5, a third
+in run II, a half in run III, two thirds in run IV, and always on a corrupted level (G4); never on a boss's. (b) A third
+on every level from 5. (c) The owner's numbers.
 
 ## 12. Lures and ambushes
 
@@ -561,6 +566,8 @@ The new minds on the level only; pockets, wings and trials as today.
 
 ## 20. Three dials, and the rollout
 
+*The rollout's table here is replaced by section 23's, at the owner's word (O1); D4 with it.*
+
 Difficulty has three dials: **numbers** (the budget), **strength** (health, blow, rank: as today), and **cunning**
 (section 13, carried by rank). The proposal is that cunning rises as numbers fall a little, so that a level feels
 harder because of what the dead do, not because more of them come. Within a run the rank mix climbs as it does now,
@@ -656,10 +663,188 @@ as the runs show a need.
 **V1. Showing it.** *Recommended: (a).* (a\*) All of it. (b) Sounds and captions now; the bestiary lines, the Codex
 part and achievements later.
 
+# Part I: added in the first round
+
+## 22. Three new kinds (A1 b)
+
+The owner chose new kinds made for the roles. Runs III and IV bring no new kinds today, so these go there, on even
+levels, where nothing else comes in (section 23). Each comes alone on its first level as every kind does, and has its
+ranks, a bestiary page and new art in the art pass's hand, sheets first.
+
+- **The Whipper-In** (the Hollows, from 22). The Order's huntsman: a tall skeleton in the rags of a hunting coat, a
+  horn on a cord and a whip of knotted sinew, never without three or four bone hounds, and always behind them. His
+  horn is a caller: it sets his hounds on you and makes everything within ten steps wary of the place. His whip's
+  crack holds them at bay or sends them in, so his pack keeps its turns closely (two at a time from rank III, as P2
+  has it). Struck down, his hounds go wild: quicker, careless, each for itself, no longer sharing what they see. He
+  hunts by his hounds' noses (section 11's trail), and a hunt in the Hollows is often his. Tell: a hunting horn, far
+  off. Weak where the Order's dead are.
+- **The Sexton** (the Hollows, from 26). The bell-ringer: a stooped keeper of the dead with a handbell on a rope, who
+  walks a patrol of the halls and rings it once at each waypoint, so a person always knows roughly where he is. When
+  he sees you he rings it hard: the widest call on the level, fourteen steps, and everything that hears it hunts, to
+  his place, not yours. He doesn't fight. He keeps his distance as the deacon does and rings again from his next
+  waypoint. To silence him: kill him before he rings, catch him unaware (S5), or freeze the bell (a frost hit stops it
+  for six seconds). Tell: the bell itself.
+- **The Lightless** (the Deep, from 32). The stalker of the deep: a tall, thin thing of black glass with no eyes, that
+  feels light. It knows where any light near you is, within sixteen cells (the Lantern of the Dead, a cast's flare, a
+  wisp, a burning floor; the caster's own glow at five) and walks there quickly and without a sound, and strikes what
+  is lit. In the dark it is lost: it stops, turns its head, and listens at half the reach the others hear. It is the
+  shade's opposite (the shade sees you in the dark, it in the light), and the Deep's later levels hold both, so no one
+  light suits every room. Shuttering the lantern (section 26) is its answer. Tell: a glassy chime as it moves, and its
+  edges catching what light there is.
+
+**K1. The new kinds.** *Recommended: (a).* (a\*) As drafted. (b) The owner's changes to their names, runs or ways. (c)
+Others of the owner's.
+
+## 23. The tally, and a rollout by twos (O1)
+
+The owner: ambushes are used throughout but come in at level 7, and each new kind of interaction comes two levels
+after the last. Counted, the plan as answered holds forty-three things.
+
+| | What | How many |
+|---|---|---|
+| The foundation | facing, the dark, noise with a place, wary-hunting-searching, caught unaware, posts, patrols | 7 |
+| A pack's rules | the call and shared sight, turns (two from rank III), morale by kind, the engaged cap | 4 |
+| Packs of a kind | the file of the Order, the roost, the wake, the hound pack, the nest, scavengers, the imps' brood, sentinels, the congregation | 9 |
+| Mixed bands | the knight and his hounds, the watch and the dead, the roost and the shade, the brood's guard, the Wraith's chill | 5 |
+| Hunts | the Order's (to your last noise), the hounds' (by scent), the spiders' (overhead), the shade's stalk | 4 |
+| Ambushes | the ambush itself (five baits and eight kinds of teeth, by run), the gilded as bait, the spectres as a tell | 3 |
+| Cunning by rank | green, blue, red, black | 4 |
+| Hazards and the dead | | 1 |
+| New kinds | the Whipper-In, the Sexton, the Lightless | 3 |
+| The deep's combinations | bands of every kind met, bands of three kinds, a hunt that drives you into an ambush | 3 |
+
+The foundation and a pack's rules are how every creature works rather than something met once: they come at level 1
+and with the first pack. That leaves thirty-two. One every two levels from level 1 gives twenty in the first descent
+(1, 3 ... 39: odd levels, so never a boss's, and level 7 is one of them). The other twelve need no slot: they come as a
+kind's own way on the level it first appears (the hounds' circling and turns at 8, scavenging with the ghoul at 12, the
+shade's stalk at 16, the congregation and the deacon's call at 18, the three new kinds' ways at 22, 26 and 32, the
+Wraith's chill at 9), or with something else new (the gilded's bait and the spectres' drift with the first ambush;
+the greens' and the blues' cunning with their colours at 5 and 15).
+
+**A draft, for the owner to aim.**
+
+| Level | The new way | Also new there |
+|---|---|---|
+| 1 | The foundation: facing, the dark, noise, memory and searching, caught unaware, posts and patrols | the skeleton, the bat, the spectre; the sprint |
+| 3 | The watch: a wall skull's scream brings the Order's dead | the wall skull |
+| 5 | The file of the Order (and a pack's rules); from here the Order's hunt may come (H3) | the greens, and their cunning |
+| 7 | **The ambush**; the gilded may bait; the spectres drift to it | the Drowned; the gilded |
+| 9 | The hounds' hunt by scent | the Wraith, and its chill |
+| 11 | The roost | the hunting spider |
+| 13 | The wake | the skeleton knight |
+| 15 | The nest, and the spiders' hunt overhead | the blues, and their cunning |
+| 17 | The knight and his hounds | ember imps |
+| 19 | The brood's guard | the gargoyle |
+| 21 | The roost and the shade | |
+| 23 | The imps' brood, and an imp's bait over a vent | |
+| 25 | Flanking: the reds' cunning, with D2's loops | the reds |
+| 27 | Sentinels | |
+| 29 | Bands of every kind met | |
+| 31 | Hazards and the dead (D3) | |
+| 33 | Bands of three kinds | |
+| 35 | Feints and reading the charge: the blacks' cunning | the blacks |
+| 37 | A hunt that drives you into an ambush | |
+| 39 | Open. A suggestion: what you passed by gathers in the exit's room once you have seen it | |
+
+The even levels keep their faces as now (the shambler 2, the shield-bearer 4, the web spider 6, the hounds 8, the ghoul
+12, the brood mother 14, the shade 16, the deacon 18) and gain the three new kinds (22, 26, 32). Past 40 the descent
+comes round with everything and a rung more cunning, as the ranks do.
+
+Where it rubs. **Level 7** is the one crowded level: the owner's ambush, the Drowned's first level and the first
+gilded. The first ambush there could take run I's teeth and a straggler for its bait, and the gilded's bait wait for
+level 9. Run I is thin in packs (the roost and the wake wait for run II), because the early odd levels go to the watch,
+the file, the ambush and the hounds. And the hunts: with H3's chance from 5, the Order's hunt comes with the file, and
+each later hunt joins when its hunters do.
+
+**O1a. The rollout.** *Recommended: (a).* (a\*) As in the draft, with the owner's changes. (b) The owner's own order.
+
+## 24. Sprint
+
+Running is Shift held today (the pad: the left stick clicked, until the stick is let go): half again the pace, for as
+long as you like. It becomes a sprint with a meter. The owner's numbers, and defaults where they left a gap:
+
+- **The meter.** 2.5 s of sprint to begin with. A new line of points, *SPRINT*, adds half a second a point, to 10 s
+  (fifteen points). It drains only while the sprint carries you forward.
+- **Recovery.** When a sprint stops (let go, run dry, or no longer going forward) the meter waits 1.5 s, then fills:
+  the whole meter in 3.5 s, whatever its length. Health past 200 shortens both. Each whole hundred past 200 takes a
+  quarter off what is left above the floor (0.25 s and 0.75 s, a second in all), so each hundred gives less than the
+  last and the floor is never quite reached: the delay is 0.25 + 1.25 x 0.75^n, the refill 0.75 + 2.75 x 0.75^n, n the
+  whole hundreds past 200.
+
+| Health | Delay | Refill | In all |
+|---|---|---|---|
+| under 300 | 1.50 s | 3.50 s | 5.00 s |
+| 300 | 1.19 | 2.81 | 4.00 |
+| 400 | 0.95 | 2.30 | 3.25 |
+| 500 | 0.78 | 1.91 | 2.69 |
+| 600 | 0.65 | 1.62 | 2.27 |
+| 800 | 0.47 | 1.24 | 1.71 |
+| 1,000 | 0.38 | 1.03 | 1.40 |
+| 1,500 | 0.28 | 0.82 | 1.10 |
+
+  The other reading, a quarter off the whole each hundred until the floor, gives 3.75 s at 300, 2.11 at 500 and 1.02 at
+  800, and reaches the floor at about 900 health.
+- **The keyboard.** Shift held, as now. Run dry, Shift has to be pressed again; a sprint may begin on any part of the
+  meter.
+- **The pad.** A toggle, on a button the person chooses (the left stick click until they do). Pressed, it sprints; it
+  ends, back to a walk, when the stick stops leaning forward (under about a third) or the meter runs dry.
+- **Forward only.** A sprint carries you forward (W, or the stick leant more forward than aside); strafing and backing
+  go at a walk. The arrow keys' quicker turn with Shift stays, and costs nothing.
+- **Loud.** A sprint's footsteps carry five steps, not three (S3).
+- **A person's.** The dream keeps its own pace and never sprints.
+
+**SP1. Sprint.** *Recommended: (a).* (a\*) As above. (b) In any direction, as running is today.
+
+**SP2. Recovery's curve.** *Recommended: (a).* (a\*) A quarter off what is left above the floor (the table). (b) A
+quarter off the whole each hundred, until the floor.
+
+**SP3. The pad's sprint button.** The game has no settings screen of its own; the settings dialog (`/c`) holds the
+rest. *Recommended: (a).* (a\*) In the game: a row in Esc's question while a pad is in play, *SPRINT: LEFT STICK*; A,
+then the button wanted. Any button may be taken, and the job it had moves to the left stick click, so nothing is lost.
+Kept with the settings in the registry (`PadSprint`), and shown in the settings dialog too. (b) In the settings dialog
+only. (c) The left or the right stick click, nothing else.
+
+**SP4. Showing the meter.** *Recommended: (a).* (a\*) A slim bar low in the view, centred on the status bar's top edge
+(or the screen's foot while the bar is away), shown only while it is less than full: dull through the delay, bright as
+it fills; and its numbers on Tab's caster page. (b) On the status bar only.
+
+## 25. Physic: what a potion gives
+
+A potion restores 25 health, flat: a quarter of 100, an eighth of 200, a twentieth of 500. The owner keeps the potion's
+25 and adds a multiplier to it, as a line of points: *PHYSIC*, +5% to what a potion restores a point, a point a step, to
++400% (five times, 125 health, for eighty points). It acts on the potion only; the fonts, the visportal's gift and Soul
+Drain go by shares or by their spells already.
+
+**SP5. The two lines.** *Recommended: (a).* (a\*) SPRINT and PHYSIC as above: the caster's own, never rolled on a piece
+(as Treasure and Luck), no overlevels; new stats (`ST_SPRINT`, `ST_PHYSIC`) and new lines at the end of `LINES`, so the
+ledger's caster section, which counts its lines by its length, takes them with no new version. (b) They roll on pieces
+too: sprint on boots, physic on robes and amulets. (c) The owner's numbers for the step and the cap.
+
+## 26. The lantern shuttered (S2)
+
+With S2's dark, the Lantern of the Dead's light shows you at nine cells to everything that sees by light (and to the
+Lightless from anywhere within sixteen). The owner: a toggle, on a long press of L (the pad's Y). Shuttered, both its
+gifts go, its light and the ordinary Wraith kept a cell off; the caster's own faint glow stays. A small lantern on the
+status bar, lit or dark, and a caption each way: *THE LANTERN SHUTTERED*, *THE LANTERN LIT*. It stays as it was left
+from level to level, and is kept with the caster (a bit in `LG_CASTER`'s flags, beside the map's: no new version).
+
+The L key already does two things: a tap opens the wisps' menu at once, and with *L ALWAYS CASTS THIS* on, a tap casts
+and a hold of 0.6 s opens the menu. A long press for the lantern has to take the hold from one of them.
+
+**S6. The L key.** *Recommended: (a).* (a\*) A hold of 0.6 s shutters or lights the lantern, for whoever holds the
+Lantern of the Dead (for anyone else the key is as now); a tap opens the menu (as you let go, now) or, with the toggle
+on, casts, and the menu is then a double tap; the menu gains a row for the lantern as well. (b) With the toggle on, the
+hold opens the menu as now and the lantern is a row in it; with the toggle off, the hold shutters it. (c) The lantern
+on a key of its own on the keyboard (K), and the long press of Y on the pad.
+
 # Building it
 
 In steps, sheets before art in the game, each step checked on the eight seeds against `CRAWL_MIND=0` before the next.
+The order of the steps is the building's; what a person meets, and where, is section 23's.
 
+0. **The caster's side** (sections 24-26): sprint and its meter, its recovery by health, the pad's chosen button,
+   PHYSIC, the lantern shuttered and the L key. Apart from the minds, so it can go first, and S2's dark and S3's loud
+   sprint then have something to answer.
 1. **Senses and memory** (Part A): facing, the dark, noise with a place, the four states, searching, caught unaware.
    The old minds behind `CRAWL_MIND=0`.
 2. **Posts and patrols** (section 9): the generator's routes; residents as posts.
@@ -671,9 +856,11 @@ In steps, sheets before art in the game, each step checked on the eight seeds ag
 7. **Cunning by rank** (sections 13-15): dodging, cover, doorways, flanking and the loops it needs, spreading, the
    charge, hazards and the dead.
 8. **The budget** (Part E): set pieces, the rules, room types, the special places; the mixed bands (section 7).
-9. **The dream's counters** (Part G).
-10. **Showing it** (Part H): sounds, captions, the bestiary, the Codex, the record, achievements; the art.
-11. **The checks**: the balance runs (D5), ASan on long dream and scripted sessions, `bench` (the new fields must not
+9. **The new kinds** (section 22): sheets first, for the owner's eye, then the Whipper-In, the Sexton and the Lightless
+   in the game, with their pages.
+10. **The dream's counters** (Part G).
+11. **Showing it** (Part H): sounds, captions, the bestiary, the Codex, the record, achievements; the art.
+12. **The checks**: the balance runs (D5), ASan on long dream and scripted sessions, `bench` (the new fields must not
     show: a few breadth-first searches a second over 2,025 cells, and one scent stamp a step).
 
 Debug switches, as the others: `CRAWL_MIND=0` (today's minds), `CRAWL_PACK=k` (set piece k a few cells ahead five
@@ -693,30 +880,61 @@ new counts and the omens' new field, as a ledger section of its own.
 
 ## The questions, gathered
 
-The recommended answer for each is (a). In short:
+### The first round, answered (1 November)
 
-- **Decide first.** A1 what this is; A2 1.0.0b15, the lower storey to 1.0.0b16; A3 the same minds for the dream; A4
-  `CRAWL_MIND=0` kept; A5 the art pass goes on alongside.
-- **Senses.** S1 a facing; S2 the dark (the shade and the Wraith the other way about); S3 noise with a place; S4
-  memory and searching; S5 caught unaware, half again.
-- **Packs.** P1 shared sight after a call; P2 turns; P3 morale by kind; P4 every pack of a kind; P5 every mixed band;
-  P6 an engaged cap of 3, 4, 5, 6 by run, +1 for a person.
-- **Roles.** R1 posts and patrols; R2 callers and scavengers.
-- **Hunters.** H1 the trail; H2 the hunt in place of the calm for a person, the dream's calm walking in from afar; H3
-  one level in three from 8, two in three from run III.
-- **Ambushes.** L1 as drafted; L2 the gilded as bait; L3 the spectres as a tell; L4 one a level from 5, two from run
-  III.
-- **The curve.** D1 cunning by rank; D2 loops near packs' rooms; D3 hazards hurt creatures, the low ranks blunder; D4
-  the rollout; D5 deaths at most a quarter above 1.0.0b13's.
-- **Generation.** G1 one budget; G2 the eight rules; G3 room types choose; G4 the special places.
-- **The dream.** Y1 all six counters.
-- **Showing it.** V1 all of it.
+A1 (b): three new kinds (section 22). A2 (a): this matters more than the lower storey, which moves on again, to
+1.0.0b16. A3 (a). A4 (a). S1 (a). S2 (a), with the lantern's light shuttered on a long press of L, Y on the pad
+(section 26). S3 (a). S4 (b): the live field for 3 s after sight is lost. S5 (a). P1 (a). P2 (b): from rank III two
+engage at once. P3, P4, P5, P6 (a). R1, R2 (a). H1, H2 (a). H3: a chance on every level from level 5, never a boss's.
+O1: ambushes throughout, from level 7, and each new kind of interaction two levels after the last; the variety tallied
+before a rollout is settled (section 23). O2: to be made more specific (below). O3: a little harder than today.
 
-And three that are only the owner's:
+And two things of the owner's own: a sprint with a meter and a recovery that quickens with health (section 24), and a
+line that multiplies what a potion restores (section 25).
 
-- **O1.** Of everything here, what would you most like to meet first by hand? The plan's order puts senses and packs
-  first and ambushes sixth; if ambushes are the heart of it, they can come third, after packs.
-- **O2.** Is there a fight from another game you'd like the dead to remember (a Wolfenstein guard turning at a
-  door, a Thief guard's search, a pack of something that frightened you once)? A sample or two would set the tone.
-- **O3.** How hard should a person's first run feel after this: as hard as it is now, with the dead more alive; a
-  little harder (the plan's aim); or a good deal harder, with the dream given more help to keep up?
+### The second round
+
+The recommended answer for each is (a).
+
+- **Still open from the first round.** A5 the art pass goes on alongside. L1 the ambushes as drafted (O1 settles that
+  they come, from level 7); L2 the gilded as bait; L3 the spectres as a tell; L4 how many (one a level, two from run
+  III). D1 cunning by rank; D2 loops near packs' rooms; D3 hazards hurt creatures, the low ranks blunder. D4 is replaced
+  by section 23. D5 the dream's margin: deaths at most a quarter above 1.0.0b13's (O3's "a little harder" is what it
+  aims at). G1 one budget; G2 the eight rules; G3 room types choose; G4 the special places. Y1 all six of the dream's
+  counters. V1 all of the showing.
+- **New.** K1 the three new kinds as drafted. O1a the rollout as drafted, with your changes. H4 the hunt's chance: a
+  quarter in run I, a third in II, a half in III, two thirds in IV, always on a corrupted level. S6 the L key: a hold
+  for the lantern, a tap for the menu, a double tap for the menu when L casts at a tap. SP1 a sprint forward only. SP2
+  recovery's curve, a quarter off what is left above the floor. SP3 the pad's sprint button chosen in Esc's question.
+  SP4 the meter as a slim bar while it isn't full. SP5 SPRINT and PHYSIC as lines of the caster's own.
+
+### O2, made specific
+
+A fight from another game the dead might remember. Say which ring true and which feel wrong for HAUNTED.EXE. Each
+says what it would be here; the five marked *new* aren't in the plan yet, and would come in only if chosen.
+
+1. **Wolfenstein 3D's guards.** One behind a door turns at a shot and shouts, and the room comes. Here: posts that
+   face doors, the call (P1), noise with a place.
+2. **Thief's guards.** One hears a footstep and says so, comes to look, searches, gives up muttering and stays wary a
+   while; tile is louder than carpet. Here: wary and searching (S4). *New*: floors by noise (bone and gravel loud,
+   silt and the Backrooms' carpet soft).
+3. **Doom's demons.** A shot wakes rooms you haven't seen, and a demon struck by another's fire turns on it. Here:
+   noise with a place. *New*: infighting, a creature hurt by another kind's throw or ember turning on it a while.
+4. **Half-Life's soldiers.** They flush you out with a grenade and come round the other side. Here: flanking (rank
+   IV). *New*: a throw that arcs over a corner to where you were last seen, for skeletons and imps.
+5. **F.E.A.R.'s squads.** They call out where you are, take cover, and fall back once broken. Here: the call and
+   morale (P1, P3).
+6. **Diablo's little devils.** A pack scatters shrieking when one of it dies and creeps back, and a shaman raises the
+   fallen. Here: the living's morale (P3), the deacon.
+7. **S.T.A.L.K.E.R.'s blind dogs.** They circle at the edge of sight, and one comes at your back while you face
+   another. Here: the hound pack's turns (P2).
+8. **Alien: Isolation's creature.** It knows roughly where you are, comes back to look where you hid last, goes away
+   and returns. Here: the hunt, the Whipper-In's, the Lightless. *New*: the dead remember a room you hid in, and look
+   there first next time on the level.
+9. **Left 4 Dead's director.** A lull after a hard fight, a horde when you've been comfortable too long. Here: the hunt
+   in place of the calm (H2). *New*: the hunt's timing following how the level has gone (held back after a hard
+   fight, sooner on a quiet one).
+10. **Dark Souls.** A hollow round a corner with its shield up; a glint on a ledge with something waiting by it. Here:
+    the ambush and the gilded as bait.
+
+O3's answer, a little harder than today, is D5 (a)'s target, and stays the measure for the balance runs.
