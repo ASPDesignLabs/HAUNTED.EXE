@@ -134,6 +134,7 @@ typedef struct {
                                                                       beside a doorway you hold (below 0: tired of it); where and when it
                                                                       last saw you; how long it has been falling back */
     int set;                                                       /* step 8: the set piece it came with (SET_*) */
+    int cov_n; float cov_t;                                        /* its covers running, and when the last was: three, then it stays out */
 } Mob;
 /* a pack (docs/PLAN-ai.md, sections 5-6): its kind (PA_*), its members, the one that leads it, how many it began with; its
  * state (PAS_*), the one calling and how long the call has to run; when one of it last saw the caster, and where; its
@@ -5185,7 +5186,8 @@ static void wake_stir(Mob *m) {
  * three in run I, four in II, five in III, six in IV, one more for a person. The nearest come in, and those in stay in
  * while they are; a blow or a throw under way is let finish. The rest hold at the fight's edge. The buried come as they
  * will, outside it. */
-static int engage_cap(void) { return 3 + imin(crawl_set(G.level), 3) + (G.player != 0); }
+static int engage_cap(void) { return 2 + imin(crawl_set(G.level), 3) + 2 * (G.player != 0); }   /* the dream's one less (A3, Part G):
+                                                                      the cap gives way before the minds do (D5) */
 /* G2 (section 27): a person doing exceptionally well (in the last two minutes under a fifth of their health lost and six or
  * more slain, above three quarters now, unhurt twenty seconds) may find one fight in three takes one more than the cap, until
  * they are hurt or a minute passes. The dream keeps the cap */
@@ -6667,12 +6669,14 @@ static Mob *fall_mate(const Mob *m) {
 /* green's throwers: between throws, a step behind a corner if one is a step away */
 static int cover_near(Mob *m) {
     int bx = (int)m->x, by = (int)m->y;
+    if ((float)G.level_t - m->cov_t > 15.0f) m->cov_n = 0;          /* three covers running, then it stays out a while: no endless */
+    if (m->cov_n >= 3) return 0;                                   /* peeping, which held the dream in a corner for minutes */
     if (!line_clear(G.px, G.py, bx + 0.5f, by + 0.5f)) return 0;  /* out of your sight already */
     for (int k = 0; k < 4; k++) {
         int nx = bx + DX[k], ny = by + DY[k];
         if (!open_step(m, nx, ny) || cell(nx, ny)->kind == K_DOOR || hz_shuns(m, nx, ny)) continue;
         if (line_clear(G.px, G.py, nx + 0.5f, ny + 0.5f)) continue;
-        m->cvx = nx; m->cvy = ny;
+        m->cvx = nx; m->cvy = ny; m->cov_n++; m->cov_t = (float)G.level_t;
         return 1;
     }
     return 0;
@@ -11574,7 +11578,7 @@ static int mirror_sees(const HzSite *s) {                          /* you, withi
 static void update_sites(float dt) {
     if (G.snare_t > 0.0f) G.snare_t = fmaxf(0.0f, G.snare_t - dt);
     if (PK.depth || G.shop || G.tally || !G.nsite) return;
-    int px = (int)G.px, py = (int)G.py, pre = RUN.corner >> CS_OMEN & 1;
+    int px = (int)G.px, py = (int)G.py;
     for (int i = 0; i < G.nsite; i++) {
         HzSite *s = &G.site[i];
         float cx = s->x + 0.5f, cy = s->y + 0.5f, wx = s->wx >= 0 ? s->ax : cx, wy = s->wx >= 0 ? s->ay : cy;
@@ -11590,7 +11594,9 @@ static void update_sites(float dt) {
             censer_bob(s, s->t, &bx, &by, &v);
             if ((s->k > 0.0f) != (v > 0.0f)) sfx_at(SFX_CREAK, bx, by, 0.5f);   /* at each end of its swing */
             s->k = v;
-            for (float u = 0.0f; u <= (pre ? 1.9f : 0.9f); u += 0.15f) { float ux, uy; censer_bob(s, s->t + u, &ux, &uy, NULL); hz_mark((int)ux, (int)uy, u < 0.3f ? 2 : 1); }
+            for (float u = 0.0f; u <= 0.9f; u += 0.15f) { float ux, uy; censer_bob(s, s->t + u, &ux, &uy, NULL); hz_mark((int)ux, (int)uy, u < 0.3f ? 2 : 1); }   /* the
+                                                                      dream's map: not Premonition's further second, which kept the lane
+                                                                      under it marked the whole swing, so the dream never crossed */
             if (!G.dead && G.level_t > 2.0 && s->hit_t <= 0.0f && hypotf(G.px - bx, G.py - by) < 0.55f) {
                 s->hit_t = 1.2f;
                 sfx_at(SFX_BOOM, bx, by, 0.5f);

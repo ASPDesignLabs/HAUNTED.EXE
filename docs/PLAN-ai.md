@@ -27,7 +27,13 @@ an ambush adds little to its deaths; it is a person's trial more than the dream'
 by rank, the hazards that hurt the dead, the throw over a corner, the dog at your back, the cap passed; from level 1 a median
 of 9 levels cleared (9), 60 deaths (48), 17 off the knight's level (9), the knight felled 5 times (8); from 11, 21 and 31 no
 deaths either way. A quarter harder, D5's edge, as after step 5: step 8's budget is where to give some back. Cunning shows
-deeper, where the higher ranks are: from level 31 the dead stepped aside from 625 spells and spread out in 391 seconds.** Written on
+deeper, where the higher ranks are: from level 31 the dead stepped aside from 625 spells and spread out in 391 seconds. Step 8
+is built (harness only): one budget spent on set pieces, the rules, room types, the special places, the mixed bands, the
+nest, the imps' brood, sentinels and the deep's combinations; the heads on a level within about a tenth of today's. From
+level 1 the new minds died 58, 68 and 60 times in three batches of sixteen against the old minds' 53 and 47: about a fifth to
+a quarter more, inside D5's margin with nothing to spare, and the last batch, as committed, has the dream's engaged cap one
+less (A3, from Part G, taken now). From 11, 21 and 31 one death each way. The steps after this one add no difficulty for the
+dream but the new kinds (9), and step 10's counters help it.** Written on
 `claude/laughing-cori-a3jk29` from 1.0.0b13; brought onto its work branch, `claude/youthful-mayer-deaa11`, from main
 once the art pass so far had been merged there (1 November). The art pass is visual only, and the numbers below were
 checked again on main: none has moved. The owner asked for creatures
@@ -1030,7 +1036,11 @@ The order of the steps is the building's; what a person meets, and where, is sec
    within four cells of, still calm, goes to the exit's room when you first see the exit. Pockets get packs of a kind from what
    is already there (no more heads). One fault found on the way and mended for both minds: a stope's firedamp, which hangs
    until fire sets it off, was marked as harm, so the dream waited at the doorway it filled until it gave the level up; it is
-   marked as what is always there now, crossed when it must be.
+   marked as what is always there now, crossed when it must be. Two more from the checks: a censer's swing marks the dream's
+   map only 0.9 s ahead (with Premonition its marks had covered the lane the whole swing), and a green thrower takes cover
+   three times running at most, then stays out fifteen seconds (one peeped at the dream from a corner for ten minutes). The
+   budget alone left D5's margin spent (from level 1, 58 and 68 deaths against 53 and 47), so the dream's engaged cap is one
+   less now (A3, from Part G); with it, 60.
 9. **The new kinds** (section 22): sheets first, for the owner's eye, then the Whipper-In, the Sexton and the Lightless
    in the game, with their pages.
 10. **The dream's counters** (Part G).

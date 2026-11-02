@@ -1123,8 +1123,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   it: `pack_break`, `SFX_ROUT`): the file only loses its order; the roost scatters (`Mob.flee`, then a roamer); a hound
   runs to the nearest other creature that thinks (`Mob.fetch`, `fetch_tick`), tells it where you were and both go
   there; the wake doesn't notice. The cap (P6 a; `engage_pick`, `engage_cap`, called from `minds_frame` after
-  `pick_hunters`, which now lets any number of the new minds hunt): within eight cells and in sight, the nearest 3, 4, 5,
-  6 by run (one more for a person) are `Mob.engage`; those in stay in while they are, and a blow or throw under way is
+  `pick_hunters`, which now lets any number of the new minds hunt): within eight cells and in sight, the nearest 2, 3, 4,
+  5 by run for the dream and 4, 5, 6, 7 for a person (the dream's one less since step 8, A3) are `Mob.engage`; those in stay in while they are, and a blow or throw under way is
   let finish; the rest hold (`Mob.hold` 1) at three and a half cells, throwing nothing (a brood mother held lays nothing
   either: she had sat at the edge laying sacs until spiderlings filled the 64 places). The buried are outside it.
   Packs placed (only with the new minds): the file of the Order (`place_file`, from 5, always on 5 and one level in two
@@ -1200,7 +1200,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   minds). Green: alone and hurt to a quarter, it falls back once to the nearest of its pack beyond three cells (`fall_mate`,
   `Mob.fell` 1 + whom, `fall_t`, ten seconds at most; it strikes nothing while it goes and isn't counted in the fight); a
   skeleton or an imp, after a throw, steps behind a corner a cell off if there is one (`cover_near`, `Mob.cover`, `cvx/cvy`)
-  and out again a step's time before its next. Blue: sees a slow spell coming (the fireball, Hellfire, the flask, the orb, a
+  and out again a step's time before its next; three times running at most, then it stays out fifteen seconds (`cov_n`,
+  `cov_t`; step 8's checks found one peeping at the dream from a corner for ten minutes). Blue: sees a slow spell coming (the fireball, Hellfire, the flask, the orb, a
   spear from beyond five cells; `mind_dodge`: within its view, 0.15-0.8 s from passing it, or a flask's landing within 1.6
   cells) and steps a cell aside at 3.4 cells a second (`Mob.dodge_t`), once in four seconds (`dodge_cd`); keeps out of what
   warns or harms (`hz_shuns` 1: it waits) and walks round what is always there when another step is as good (2: 2.5 off the
@@ -1265,7 +1266,12 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   the dimmest; a nest a gallery or stope's webs first; a knights' vault's posts are shield-bearers (knights once the descent
   comes round). Pockets: their creatures near one another of a kind join a pack, ranks kept (`pack_add`). Debug:
   `CRAWL_BUDGET=f` (the budget times f), `SETS level n: budget, spent, heads, each set piece's heads and cost`, `PACKS` lines
-  for each new piece, `GATHER level n`, `EVENT nest_calls`, `chills`, `sentinels_woke`, `leashed`, `gathered`.
+  for each new piece, `GATHER level n`, `EVENT nest_calls`, `chills`, `sentinels_woke`, `leashed`, `gathered`. Two faults of
+  the dream's found in its checks and mended for both minds: a stope's firedamp (`HZ_DAMP`, which hangs till fire sets it off)
+  is marked as what is always there, not harm, so the dream crosses it when it must (it had waited at the doorway it filled
+  till it gave the level up); and a censer's swing marks the dream's map only 0.9 s ahead whatever is held (Premonition's
+  further second had kept the lane under it marked the whole swing, and the dream never crossed). `hz_dput` keeps the worse
+  of two marks, a warning or harm over what is always there.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are
@@ -1465,5 +1471,20 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   Of 450 lairs made from level 1, 144 had one way in and were given another (about a third deeper too). The dream seldom
   stands to hold a doorway or charges an ultimate, so those two are a person's more than the dream's; the cap passed was
   tried only with `CRAWL_WELL`.
+- 1.0.0b15's step 8 (the budget, the bands, the deep's combinations; harness only). The heads on a level are within about a
+  tenth of the old minds' on every level (six seeds, levels 1-39), a boss's level half. Against the old minds on the same
+  build, sixteen seeds (1-31 odd) from level 1: three batches of the new minds died 58, 68 and 60 times (37, 49 and 33 on level
+  10; median 9 levels cleared each), two of the old 53 and 47 (37 and 36): 62 against 50 a batch, a quarter's margin all but
+  used; the knight's level went from 37 deaths to 49 between two batches whose difference doesn't touch his fight. The knight was felled 6, 3 and
+  4 times (old 5 and 6). From 11, 21 and 31: one death in all the new minds' runs, one in the old's. The last batch (60) is the
+  build as committed, with the dream's engaged cap one less (Part G's A3, taken early since the budget alone left the margin
+  spent); the two before it had the old cap. Deaths off the knight's level ran 21, 19 and 27 (old 16 and 11): ordinary levels
+  are harder, as the owner asked. In the first batch eight of the 128 runs (five of the new minds', three of the old's) spent
+  over 200 s within a cell of one place: a censer's marks in five (both minds; mended), a green thrower peeping from a corner
+  in one (now three covers running at most), a sluice in one and one not found; before it, a stope's firedamp had held a test run the same way (mended). After the
+  mends the new minds' longest such wait was 217 s once (by a sluice, near a run's end) and under 90 s otherwise; the old
+  minds' 256 and 299 s (one by a sluice), untouched. Of the new pieces, from level 31: 172 nest calls, 72
+  sentinel wakings, 532 times a brood's guard went back to her, 482 packs chilled by the Wraith's wail. Mixed bands placed from
+  level 1 (sixteen runs): 72 watches with their dead; the others come deeper.
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.
