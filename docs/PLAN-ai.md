@@ -993,6 +993,21 @@ The order of the steps is the building's; what a person meets, and where, is sec
 7. **Cunning by rank** (sections 13-15): dodging, cover, doorways, flanking and the loops it needs, spreading, the
    charge, hazards and the dead; the throw over a corner and the dog at your back (section 30); the cap passed when a
    person is doing well (section 27).
+   *Built* (harness only). Choices of mine: a slow spell is the fireball, Hellfire, the flask, Amperage's orb and a spear
+   from beyond five cells (the frost shard and the lightning are too quick to see), seen in the creature's view between 0.15
+   and 0.8 s before it would pass, and the step aside is a cell at 3.4 cells a second; falling back is once, for ten seconds
+   at most, and strikes nothing on the way; a thrower's corner must be the next cell, and it steps out a step's time before
+   its next throw. A doorway is a door or a gap a cell wide where one place gives onto another; you hold it standing (under
+   1.2 cells a second), looking at it within 25 degrees from 1.6 to 7 cells, with a spell ready; what waits beside it opens
+   a door that swings shut again, and comes after eight seconds near it, then won't wait again for six. The flank blocks the
+   lead's way from two steps out to ten and a cell either side, and is taken only by those more than four steps off. Two lairs
+   a level, three from run III (rooms of two blocks or more), get the second way in and the loops near them; the roost and a
+   file holding a room take a lair first. Spreading is a refusal to step within a cell and a half of another, so a file in a
+   hall comes two cells apart. Feints are one wind-up in three, never two running, and leave the hound's bite alone (too
+   quick to read). Reading the charge holds black at four and a half cells, off the line you face, while a charge is held
+   past a quarter of a second. Hazards hurt the dead at half the share as harm, not a blow, so it tells them nothing of you;
+   the runs' own that hurt them already (at one and a half times the share) were left as they were. The cap is passed for a
+   fight begun after five quiet seconds.
 8. **The budget** (Part E): set pieces, the rules, room types, the special places; the mixed bands (section 7).
 9. **The new kinds** (section 22): sheets first, for the owner's eye, then the Whipper-In, the Sexton and the Lightless
    in the game, with their pages.

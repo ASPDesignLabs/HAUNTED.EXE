@@ -152,7 +152,9 @@ only): callers (the wall skull's scream, the gargoyle's shriek, the deacon's cal
 drawn to deaths, in packs of one to three). **Step 5 is built** (harness only): the caster's trail, hunts let loose on it
 (the Order's watch, hounds, hunting spiders), the shade's stalk, and the calm's change (H2). **Step 6 is built** (harness
 only): lures and ambushes (kill rooms, teeth by run and room type, baits of three sorts, the gilded as bait, the signs, the
-spectres' drift). Step 7, cunning by rank, is next.
+spectres' drift). **Step 7 is built** (harness only): cunning by rank (falling back, cover, dodging, doorways, flanking and
+the loops it needs, spreading, feints, the charge read), hazards that hurt the dead, the throw over a corner, the dog at
+your back, the cap passed for a person doing well. Step 8, the budget and the mixed bands, is next.
 
 ## Working with the owner
 
@@ -1191,7 +1193,44 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   (`update_ghost`'s `sub` 7), and hangs there harmless. Debug: `CRAWL_AMBUSH=1` (one on every level that can have one,
   from level 1), `CRAWL_AMBT=k` (its teeth, `TEETH_*`), `AMBUSH level n: ...` (the room, the way in, the teeth, the bait, the
   signs; or why none fitted), `EVENT ambush_sprung <teeth> <why>`, `ambushes_out`, `ambushes_refused`, `bait_seen`,
-  `bait_run`.
+  `bait_run`. **Step 7** (sections 13-15, 27, 30): cunning by rank (`cunning`: the rank, the gilded as white; only the new
+  minds). Green: alone and hurt to a quarter, it falls back once to the nearest of its pack beyond three cells (`fall_mate`,
+  `Mob.fell` 1 + whom, `fall_t`, ten seconds at most; it strikes nothing while it goes and isn't counted in the fight); a
+  skeleton or an imp, after a throw, steps behind a corner a cell off if there is one (`cover_near`, `Mob.cover`, `cvx/cvy`)
+  and out again a step's time before its next. Blue: sees a slow spell coming (the fireball, Hellfire, the flask, the orb, a
+  spear from beyond five cells; `mind_dodge`: within its view, 0.15-0.8 s from passing it, or a flask's landing within 1.6
+  cells) and steps a cell aside at 3.4 cells a second (`Mob.dodge_t`), once in four seconds (`dodge_cd`); keeps out of what
+  warns or harms (`hz_shuns` 1: it waits) and walks round what is always there when another step is as good (2: 2.5 off the
+  score); won't step into a doorway you hold (`doorway`: a door, or a gap a cell wide where the region changes;
+  `held_door`: you stand, under 1.2 cells a second, looking at it within 25 degrees, 1.6 to 7 cells off, a spell ready, for a
+  person no cast under way and the wait under 0.35 s), but steps aside out of your sight and waits (`door_wait`,
+  `door_beside`, `Mob.dwx/dwy` the doorway, `door_t` its patience: eight seconds near it, shut or open, then it comes and
+  won't wait again for six; while it waits it knows where you are). Red: the second and later of a hunting pack take another
+  way to you (`pack_flank`, `FL[pack]`, `flank_field`: the lead's way from two steps out to ten blocked with a cell either
+  side, the steps to you round it, made each second; taken by a red or black member more than four steps off when it is at
+  most six longer; `Mob.flank` 1 + the pack); with a splash in hand (`splash_in_hand`: Hellfire, the flask, the frost
+  spell with Shatter, lightning with Arc) none steps within a cell and a half of another (`spreads`, `crowded`). Black:
+  feints one wind-up in three, never two running (`feint_roll` as it begins, `feint_held` as it ends: no blow, and the next
+  0.35 s on; the shield-bearer, the shambler and the Drowned, the knight, the gargoyle, the shade, the skeleton's and the
+  imp's throws; not the hound's quick bite); reads the charge (`charge_read`: a charging ultimate held past 0.25 s, within
+  six cells: it holds at 4.5, `hold` 4, off the line you face). D2: with the new minds `gen_level` makes two lairs a level,
+  three from run III (`G.lairs`, rooms of two blocks or more), gives each a second way in where the plan allows (`con_carve`,
+  the old opening code made a function) and opens the extra loops within two blocks of them one time in six, not twelve
+  (`lairnear`); the roost takes the dimmest lair, a file holding a room a lair. D3: the hazards that hurt only the caster now
+  hurt the dead at half the share (`hz_mobs`, `hz_harm`: rocks, Hellrent, bile, the void, the gases, the wax and the
+  fissure, the cold, the sluice, the ash; harm, not a blow, so nothing learns where you are from it; not bosses, their adds,
+  allies, spirits, the buried, a roost asleep, nor what is over a floor's harm); the runs' own that hurt them already keep
+  their 1.5 x share. The throw over a corner (`corner_aim`, `throw_to` with `lob`; `Mob.lsx/lsy/lst` where and when it last
+  saw you): a green or better skeleton or imp out of your sight, having seen you within six cells in the last three
+  seconds, lobs to that place and up to a cell and a half on the way you went while it can see there; a lobbed bone comes
+  down there (`bone_land`, within 0.9 cells) and arcs as an ember does. The dog at your back: in a hound pack's turns, one
+  more than 110 degrees from your facing goes in first. The cap passed (section 27; `WELL`, a person's last two minutes in
+  tens of seconds, `doing_well`, `well_tick`): a fight begun after five quiet seconds, while doing well, takes one more one
+  time in three, for a minute or until a hurt. Debug: `CRAWL_CUNNING=r` (every creature thinks as rank r, 1-5),
+  `CRAWL_TPHOLD=k` (once you take control: in a room three cells in from an open door, facing it, and a creature of kind k
+  three cells beyond it, after you; `TPHOLD` line), `CRAWL_SPLASH=1` (as if a splash were always in hand), `CRAWL_WELL=1`
+  (as if a person were doing well), `LAIRS level n: ...`, `EVENT dodged`, `flank`, `spread` (at most once a second),
+  `feints`, `fell_back`, `covers`, `corner_throws`, `door_waits`, `charge_reads`, `hz_mob_hits`, `cap_over`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are
