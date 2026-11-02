@@ -40,7 +40,8 @@ enum { TH_CORRIDOR, TH_OSSUARY, TH_CRYPT, TH_BRICK, TH_MOSS, TH_COUNT };
 enum { PS_MOVE, PS_TURN, PS_DOOR, PS_AIM, PS_CAST, PS_UNAIM, PS_HOLD, PS_EXIT, PS_SHOP, PS_PLAYER, PS_SETTLE, PS_PUSH, PS_ALTAR, PS_USE, PS_MEND };
 enum { MOB_SKEL, MOB_GHOST, MOB_BAT, MOB_WSKULL, MOB_SHIELD, MOB_SPIDER,
        MOB_SHAMBLER, MOB_DROWNED, MOB_HOUND, MOB_WRAITH, MOB_HUNTER, MOB_GHOUL, MOB_KNIGHT, MOB_BROOD, MOB_LING, MOB_SAC,
-       MOB_SHADE, MOB_IMP, MOB_DEACON, MOB_GARGOYLE };   /* kept in saves (the record): new kinds go at the end */
+       MOB_SHADE, MOB_IMP, MOB_DEACON, MOB_GARGOYLE,
+       MOB_WHIPPER, MOB_SEXTON, MOB_LIGHTLESS };   /* kept in saves (the record): new kinds go at the end (REC_KINDS 24 at most) */
 enum { MS_WALK, MS_DIE, MS_RECOIL, MS_FLEE };   /* the last two: wraiths only */
 enum { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_KEY, IT_POTION, IT_URN, IT_RING, IT_BONE, IT_SCRIP };   /* IT_SCRIP: color is its boss */
 static const int ITEM_VALUE[] = { 10, 25, 50, 100, 250, 0, 0, 0, 0, 0, 0 };
@@ -135,6 +136,10 @@ typedef struct {
                                                                       last saw you; how long it has been falling back */
     int set;                                                       /* step 8: the set piece it came with (SET_*) */
     int cov_n; float cov_t;                                        /* its covers running, and when the last was: three, then it stays out */
+    int wild, rings; float ring_t, ring_cd, ice_t, seen_t, blocked;         /* step 9: a hound whose huntsman fell; the Sexton's rings since he saw
+                                                                      you, his bell ringing (and how hard), the wait to ring hard again,
+                                                                      frozen; when he last saw you; how long its way somewhere has been
+                                                                      stood in */
 } Mob;
 /* a pack (docs/PLAN-ai.md, sections 5-6): its kind (PA_*), its members, the one that leads it, how many it began with; its
  * state (PAS_*), the one calling and how long the call has to run; when one of it last saw the caster, and where; its
@@ -147,7 +152,7 @@ typedef struct {
     float chill_t;                                                 /* step 8: the Wraith's wail heard; it keeps to its posts a while */
 } Pack;
 #define MAXPACKS 12
-enum { PACK_NONE, PACK_FILE, PACK_HOUNDS, PACK_ROOST, PACK_WAKE, PACK_SCAV, PACK_SPIDERS, PACK_IMPS, PACK_SENTINELS, PACK_BAND };
+enum { PACK_NONE, PACK_FILE, PACK_HOUNDS, PACK_ROOST, PACK_WAKE, PACK_SCAV, PACK_SPIDERS, PACK_IMPS, PACK_SENTINELS, PACK_BAND, PACK_WHIP };
 /* an ambush (docs/PLAN-ai.md, section 12): its kill room, the way in (outside, inside), the far side; its teeth; whether sprung (1;
  * 2 the teeth out searching, 3 come hunting); how often refused; 1 + its bait; 1 + a torch snuffed by its door */
 typedef struct { int room, ox, oy, ix, iy, fx, fy, teeth, sprung, teases, bait, snuff; } Ambush;
@@ -242,7 +247,18 @@ static const Kind KINDS[] = {
     [MOB_GARGOYLE] = { "GARGOYLE", "GARGOYLES", "IT IS ONLY A STATUE UNTIL YOU PASS. STONE SHRUGS OFF FIRE AND FROST.",
         SP_GARG_A, SP_GARG_B, SP_GARG_SA, SP_GARG_SB, PF_STONE, 19, RK_V, 0, KF_PAGE | KF_MELEE, SFX_SHATTER, SP_GARG_D,
         45, 2.2f, 0.9f, 0.42f,                          { 0.5f, 0.5f, 1.5f, 0.0f, 0.0f, 1.5f }, H_PHYS },
+    /* the new kinds made for the minds' roles (1.0.0b15, docs/PLAN-ai.md section 22) */
+    [MOB_WHIPPER] = { "WHIPPER-IN", "WHIPPERS-IN", "THE ORDER'S HUNTSMAN, BEHIND HIS HOUNDS. HIS HORN SETS THEM ON YOU; FELL HIM AND THEY RUN WILD.",
+        SP_WHIP_A, SP_WHIP_B, SP_WHIP_SA, SP_WHIP_SB, PF_BONE, 22, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_DOORS, SFX_BONES, SP_WHIP_D,
+        36, 1.0f, 1.15f, 0.42f,                         { 1.0f, 0.75f, 1.25f, 0.5f, 0.75f, 1.25f }, H_PHYS },
+    [MOB_SEXTON] = { "SEXTON", "SEXTONS", "HE RINGS AT EVERY TURN OF HIS ROUND, AND FOR ALL OF THEM WHEN HE SEES YOU. FROST STOPS THE BELL.",
+        SP_SEXTON_A, SP_SEXTON_B, SP_SEXTON_SA, SP_SEXTON_SB, PF_HIDE, 26, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_DOORS, SFX_GROAN, SP_SEXTON_D,
+        30, 0.8f, 1.0f, 0.42f,                          { 1.5f, 1.0f, 1.0f, 0.75f, 1.0f, 1.0f }, 0 },
+    [MOB_LIGHTLESS] = { "LIGHTLESS", "LIGHTLESS", "BLACK GLASS, AND NO EYES. IT FEELS LIGHT, AND COMES TO IT WITHOUT A SOUND. SHUTTER THE LANTERN.",
+        SP_LIGHT_A, SP_LIGHT_B, SP_LIGHT_SA, SP_LIGHT_SB, PF_CHITIN, 32, RK_V, 1, KF_SOLID | KF_PAGE | KF_DOORS | KF_MELEE, SFX_SHATTER, SP_LIGHT_D,
+        50, 1.3f, 1.2f, 0.40f,                          { 0.75f, 1.25f, 1.0f, 0.0f, 0.75f, 1.5f }, H_PHYS },
 };
+_Static_assert(MOB_LIGHTLESS < 24, "the record keeps 24 kinds (REC_KINDS)");
 #define NKINDS ((int)(sizeof KINDS / sizeof KINDS[0]))
 #define KIND_IS(m, f) (KINDS[(m)->type].flags & (f))
 /* the ladder: a rank means about the same strength at any depth; depth shows in which ranks come */
@@ -746,7 +762,7 @@ static struct {
     float scent[MAPN][MAPN];                /* the caster's trail: when it was last in each cell, by the level's clock (section 11) */
     float still_t, noise_x, noise_y, noise_t;   /* how long the caster has stood; its last loud noise, and when */
     int namb; Ambush amb[2];                /* the level's ambushes (section 12) */
-    int hunt_kind, hunt_on, hunt_said, hunt_nx, hunt_ny; float hunt_at, hunt_heard;   /* the level's hunt: HK_*, let loose, its
+    int hunt_kind, hunt_on, hunt_said, hunt_nx, hunt_ny, hunt_whip; float hunt_at, hunt_heard;   /* the level's hunt: HK_*, let loose, its
                                                                       nearer tell given; where it picks up the trail; when; the last noise
                                                                       the watch went to */
     int nrest, rest_x[2], rest_y[2], rest_fx[2], rest_fy[2], rest_on, rest_goal, rest_said;   /* the places to mend (section 28): the
@@ -3249,12 +3265,16 @@ static int random_type(void) {
     w[MOB_SHADE] = may_spawn(MOB_SHADE) ? 3 : 0;
     w[MOB_IMP] = may_spawn(MOB_IMP) ? 1 : 0;
     w[MOB_DEACON] = may_spawn(MOB_DEACON) ? 2 : 0;
+    w[MOB_WHIPPER] = mind_on() && may_spawn(MOB_WHIPPER) ? 1 : 0;   /* the new kinds (step 9): only with the new minds, for they */
+    w[MOB_SEXTON] = mind_on() && may_spawn(MOB_SEXTON) ? 2 : 0;     /* are made for them */
+    w[MOB_LIGHTLESS] = mind_on() && may_spawn(MOB_LIGHTLESS) ? 2 : 0;
     for (int i = 0; i < NKINDS; i++) total += w[i];
     int r = rnd(total), k = 0;
     while (r >= w[k]) r -= w[k++];
     return k;
 }
 
+static int free_near(int x, int y, int *ox, int *oy);
 /* a wanderer, or a few: hounds hunt in pairs (except the first, which comes alone), a knight keeps two,
  * and a deacon walks with its dead */
 static void spawn_wanderer_type(int x, int y, int type) {
@@ -3262,8 +3282,10 @@ static void spawn_wanderer_type(int x, int y, int type) {
     int escort = type == MOB_GHOUL && mind_on() && G.level > KINDS[MOB_GHOUL].debut ? rnd(3)   /* scavengers, one to three */
                : type == MOB_HOUND && G.level > KINDS[MOB_HOUND].debut ? 1
                : type == MOB_KNIGHT && G.level > KINDS[MOB_KNIGHT].debut ? 2
-               : type == MOB_DEACON ? (G.level > KINDS[MOB_DEACON].debut ? 3 : 2) : 0;
+               : type == MOB_DEACON ? (G.level > KINDS[MOB_DEACON].debut ? 3 : 2)
+               : type == MOB_WHIPPER ? 3 + (crawl_set(G.level) >= 3) : 0;   /* never without three or four hounds */
     int pk = -1;
+    if (type == MOB_WHIPPER && m && (pk = pack_new(PACK_WHIP)) >= 0) pack_join(pk, m);
     if (type == MOB_HOUND && escort && m && (pk = pack_new(PACK_HOUNDS)) >= 0) {   /* the new minds: a pack, two to four by the run */
         int set = crawl_set(G.level);
         escort = 1 + (set >= 2) + (set >= 3);
@@ -3275,16 +3297,20 @@ static void spawn_wanderer_type(int x, int y, int type) {
         if (m && (pk = pack_new(PACK_BAND)) >= 0) pack_join(pk, m);
     }
     int shield = type == MOB_DEACON && pk >= 0 && may_spawn(MOB_SHIELD);   /* a shield-bearer in front of his dead */
-    for (int d = 0; m && d < 4 && escort; d++)
-        if (G.map[y + DY[d]][x + DX[d]].kind == K_FLOOR && !occupied(x + DX[d], y + DY[d], NULL)) {
-            Mob *e = spawn_mob(x + DX[d], y + DY[d], type == MOB_DEACON ? (shield ? MOB_SHIELD : MOB_SKEL) : type == MOB_GHOUL ? MOB_GHOUL : MOB_HOUND);
+    for (int d = 0; m && d < (type == MOB_WHIPPER ? 12 : 4) && escort; d++) {   /* the huntsman's, a step further if need be */
+        int ex = x + DX[d & 3], ey = y + DY[d & 3];
+        if (d >= 4 && !free_near(x, y, &ex, &ey)) break;
+        if (G.map[ey][ex].kind == K_FLOOR && !occupied(ex, ey, NULL)) {
+            Mob *e = spawn_mob(ex, ey, type == MOB_DEACON ? (shield ? MOB_SHIELD : MOB_SKEL) : type == MOB_GHOUL ? MOB_GHOUL : MOB_HOUND);   /* the
+                                                                      huntsman's are hounds */
             shield = 0;
             if (pk >= 0) pack_join(pk, e);
             escort--;
         }
+    }
 #ifdef CRAWL_DEBUG
     if (pk >= 0) fprintf(stderr, "PACKS level %d: %s %d at (%d,%d)\n", G.level, type == MOB_GHOUL ? "scavengers" : type == MOB_KNIGHT ? "the knight and his hounds"
-                         : type == MOB_DEACON ? "the deacon's congregation" : "hounds", G.packs[pk].n0, x, y);
+                         : type == MOB_DEACON ? "the deacon's congregation" : type == MOB_WHIPPER ? "the huntsman and his hounds" : "hounds", G.packs[pk].n0, x, y);
 #endif
 }
 
@@ -3566,9 +3592,11 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
     return d;
 }
 enum { MA_CALM, MA_WARY, MA_HUNT, MA_TRACK, MA_SEARCH };          /* how the dead think (docs/PLAN-ai.md, Part A) */
-enum { NZ_STEP, NZ_CAST, NZ_FIGHT, NZ_MEND, NZ_LAND, NZ_DOOR, NZ_SECRET, NZ_DEATH, NZ_CALL, NNZ };   /* the first four are the caster's own, where it stands */
+enum { NZ_STEP, NZ_CAST, NZ_FIGHT, NZ_MEND, NZ_LAND, NZ_DOOR, NZ_SECRET, NZ_DEATH, NZ_CALL, NZ_BELL, NNZ };   /* the first four are the caster's own, where it stands */
 static void noise(float x, float y, int steps, int what, int kind);
 static void alarm_at(Mob *m, int steps);
+static void sexton_ring(Mob *m, int hard);
+static void wisp_out(Wisp *w);
 static void hunt_tick(void);
 static void amb_tick(void);
 static int shade_hidden(const Mob *m);
@@ -3586,6 +3614,7 @@ static int hunt_scent, hunt_lost, shade_fades, shade_strikes;
 static int ambushes_sprung, ambushes_out, ambushes_refused, bait_seen, bait_run;
 static int dodged, flank, spread, feints, fell_back, covers, corner_throws, door_waits, charge_reads, hz_mob_hits, cap_over;
 static int sentinels_woke, chills, nest_calls, gathered, leashed;
+static int ways_blocked, lantern_felt, horns, whip_cracks, whip_lashes, wild_hounds, bell_rounds, bell_alarms, bell_heard, bells_frozen, light_felt, lightless_lost, lightless_hits, wisps_struck;
 #endif
 static int hurt_by(const Mob *m, float dmg, int kind) {
     G.blame = blame_of(m); last_set = m->set;
@@ -3921,7 +3950,7 @@ static const int KIND_XP[] = {
     [MOB_SKEL] = 8, [MOB_GHOST] = 0, [MOB_BAT] = 5, [MOB_WSKULL] = 6, [MOB_SHIELD] = 12, [MOB_SPIDER] = 7,
     [MOB_SHAMBLER] = 12, [MOB_DROWNED] = 16, [MOB_HOUND] = 8, [MOB_WRAITH] = 0, [MOB_HUNTER] = 12, [MOB_GHOUL] = 14,
     [MOB_KNIGHT] = 24, [MOB_BROOD] = 26, [MOB_LING] = 1, [MOB_SAC] = 0, [MOB_SHADE] = 16, [MOB_IMP] = 12,
-    [MOB_DEACON] = 20, [MOB_GARGOYLE] = 18 };
+    [MOB_DEACON] = 20, [MOB_GARGOYLE] = 18, [MOB_WHIPPER] = 22, [MOB_SEXTON] = 16, [MOB_LIGHTLESS] = 26 };
 static const float RANK_XP[NRANK] = { 1.0f, 1.4f, 1.9f, 2.5f, 3.2f, 4.0f };
 static const int BOSS_XP[NBOSS] = { 24, 22, 22, 26 };              /* forty of these, at the boss's level */
 #define ATONE_TOP 50                        /* past it, overlevels */
@@ -4498,6 +4527,15 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
             m->stagger = fmaxf(m->stagger, 0.6f); m->throw_t = 0.0f; m->swing = 0.0f;
         }
         DBG_COUNT(unaware_hits);
+        if (m->type == MOB_SEXTON) { m->ring_cd = fmaxf(m->ring_cd, 2.5f); if (m->rings == 1) { m->ring_t = 0.0f; m->rings = 0; } }   /* caught
+                                                                      unaware, the bell is lowered a moment */
+    }
+    if (m->type == MOB_SEXTON) {
+        if (atk >= 0 && atk < NATK && ATK_ELEM[atk] == EL_FROST && !(flags & DM_TICK)) {   /* a frost hit: the bell frozen six seconds */
+            if (m->ice_t <= 0.0f) DBG_COUNT(bells_frozen);
+            m->ice_t = 6.0f; m->ring_t = 0.0f; m->rings = 0;
+        } else if (minded(m) && m->ring_cd <= 0.0f && m->stagger <= 0.0f) { m->seen_t = (float)G.level_t; sexton_ring(m, 1); }   /* struck: he
+                                                                      rings for them */
     }
     m->alert = fmaxf(m->alert, minded(m) ? 6.0f : 12.0f);          /* hurt, it knows where you are (a while, as the dead think now) */
     if (m->sleep == 1) { m->sleep = 2; m->sub_t = 0.0f; }          /* a roost's bat, struck: down it comes */
@@ -4796,9 +4834,10 @@ static int cunning(const Mob *m) {
     if (forced == -2) forced = getenv("CRAWL_CUNNING") ? clampi(atoi(getenv("CRAWL_CUNNING")) - 1, RK_I, RK_V) : -1;
     if (forced >= 0) return forced;
 #endif
-    return m->rank == RK_GILDED ? RK_I : m->rank;
+    return m->rank == RK_GILDED || m->wild ? RK_I : m->rank;       /* a hound whose huntsman fell: careless */
 }
-static int has_facing(const Mob *m) { return m->type != MOB_BAT; }   /* bats hear their way round: all about them */
+static int has_facing(const Mob *m) { return m->type != MOB_BAT && m->type != MOB_LIGHTLESS; }   /* bats hear their way round, all about
+                                                                      them; the Lightless feels light, and has no eyes to turn */
 static float turn_to(float a, float target, float rate) { return a + clampf(wrap_pi(target - a), -rate, rate); }
 static int caster_dark(void) { return G.lit_here < 0.33f && G.flare_t <= 0.0f; }
 static float sight_reach(const Mob *m) {                           /* S2: the dark shortens sight, but not a bat's or a hound's */
@@ -4856,6 +4895,8 @@ static void mind_tell(Mob *m) {                                    /* a wary cre
     case MOB_BAT: sfx = SFX_BAT; break;
     case MOB_SHADE: sfx = SFX_WHISPER; break;
     case MOB_IMP: case MOB_GARGOYLE: sfx = SFX_SHATTER; break;
+    case MOB_SEXTON: sfx = SFX_GROAN; break;
+    case MOB_LIGHTLESS: sfx_at(SFX_GLASS, m->x, m->y, 0.25f); return;   /* it makes no sound but its glass */
     default: break;
     }
     sfx_at(sfx, m->x, m->y, 0.45f);
@@ -4874,7 +4915,7 @@ static void mind_track(Mob *m, float x, float y) {                 /* where you 
  * dead fight on, the living scatter (and the scavengers), hounds run for help, the buried don't notice. The packs: the file of the
  * Order (from 5), the hounds (from 8), the roost (from 11), the wake (from 13). ---- */
 #ifdef CRAWL_DEBUG
-static const char *PACK_NAME[] = { "none", "file", "hounds", "roost", "wake", "scavengers", "spiders", "imps", "sentinels", "band" };
+static const char *PACK_NAME[] = { "none", "file", "hounds", "roost", "wake", "scavengers", "spiders", "imps", "sentinels", "band", "huntsman" };
 #endif
 static Pack *pack_of(const Mob *m) { return m->pack > 0 && m->pack <= G.npacks ? &G.packs[m->pack - 1] : NULL; }
 static int pack_new(int kind) {
@@ -4915,6 +4956,12 @@ static void pack_tell(const Pack *p, float x, float y) {          /* its kind's 
     }
     case PACK_FILE: sfx_at(SFX_DRUM, x, y, 1.0f); break;
     case PACK_HOUNDS: sfx_at(SFX_HOWL, x, y, 1.1f); break;
+    case PACK_WHIP: {                                              /* a hound gives tongue, and his horn answers */
+        const Mob *L = p->leader >= 0 ? &G.mobs[p->leader] : NULL;
+        if (L && G.mobs[p->caller >= 0 ? p->caller : p->leader].type == MOB_HOUND) sfx_at(SFX_HOWL, x, y, 0.8f);
+        if (L && L->alive) sfx_at(SFX_HORN, L->x, L->y, 1.2f);
+        break;
+    }
     case PACK_SCAV: sfx_at(SFX_GROAN, x, y, 1.0f); sfx_at(SFX_BONES, x, y, 0.6f); break;
     case PACK_SPIDERS: sfx_at(SFX_SKITTER, x, y, 1.1f); break;
     case PACK_ROOST: sfx_at(SFX_RUSTLE, x, y, 0.8f); sfx_at(SFX_BAT, x, y, 0.7f); break;
@@ -4927,6 +4974,9 @@ static void pack_call(Mob *m) {                                    /* one of it 
     p->seen_t = (float)G.t; p->kx = G.px; p->ky = G.py;
     if (p->state != PAS_CALM || p->kind == PACK_WAKE) return;
     p->state = PAS_CALL; p->call_t = 0.4f; p->caller = (int)(m - G.mobs);
+    if (p->kind == PACK_WHIP && p->leader >= 0 && G.mobs[p->leader].alive && G.mobs[p->leader].state == MS_WALK) {   /* the horn: */
+        p->call_t = 1.1f; G.mobs[p->leader].call_t = 1.1f; DBG_COUNT(horns);   /* his hounds wait on it */
+    }
     pack_tell(p, m->x, m->y);
     DBG_COUNT(pack_calls);
 }
@@ -4939,6 +4989,8 @@ static void pack_hunt(Pack *p) {                                   /* the call h
         o->aware = MA_HUNT; o->aw_t = 0.0f; o->alert = fmaxf(o->alert, MIND_LIVE); o->kx = G.px; o->ky = G.py;
     }
     if (p->kind == PACK_ROOST) { DBG_COUNT(roosts_woken); if (p->caller >= 0) alarm_at(&G.mobs[p->caller], 8); }   /* its cry */
+    if (p->kind == PACK_WHIP && p->leader >= 0 && G.mobs[p->leader].alive) alarm_at(&G.mobs[p->leader], 10);   /* the horn, heard ten
+                                                                      steps off: everything there is wary of the place */
     DBG_COUNT(pack_hunts);
 }
 /* broken: the leader down, or half of it. By kind (P3): the file holds its drill (it only loses its order); the roost
@@ -4951,6 +5003,14 @@ static void pack_break(Pack *p) {
         if (!(p->mem >> i & 1) || !o->alive || o->state != MS_WALK) continue;
         o->hold = 0;
         if (!told) { sfx_at(SFX_ROUT, o->x, o->y, 1.0f); told = 1; }
+        if (p->kind == PACK_WHIP) {                                /* the huntsman down: his hounds run wild, quicker, careless, each */
+            if (o->type == MOB_HOUND && !o->wild) {               /* for itself, sharing nothing */
+                o->wild = 1; o->speed *= 1.3f; o->pack = 0; o->engage = 0; o->flank = 0;
+                sfx_at(SFX_HOWL, o->x, o->y, 0.7f);
+                DBG_COUNT(wild_hounds);
+            }
+            continue;
+        }
         int living = o->type == MOB_BAT || o->type == MOB_HUNTER || o->type == MOB_IMP || o->type == MOB_GHOUL || o->type == MOB_BROOD;
         if (living) { o->flee = 5.0f + 2.0f * rndf(); o->sleep = 0; o->attacking = 0; continue; }   /* the living, and the scavengers,
                                                                       scatter */
@@ -5029,6 +5089,10 @@ static void pack_turns(Pack *p, float dt) {
         }
         if (best < 0) break;
         p->on[s] = best; p->on_hp[s] = G.mobs[best].hp;
+        if (p->kind == PACK_WHIP) {                                /* his whip sends it in */
+            Mob *hm = &G.mobs[p->leader];
+            if (hm->alive && hm->state == MS_WALK && hm->swing <= 0.0f && hm->call_t <= 0.0f) { hm->throw_t = 0.35f; sfx_at(SFX_WHIPCRACK, hm->x, hm->y, 0.9f); DBG_COUNT(whip_cracks); }
+        }
         DBG_COUNT(turns);
     }
     for (int i = 0; i < MAXMOBS; i++) {
@@ -5107,7 +5171,8 @@ static void pack_frame(float dt) {
         p->mem = live;
         if (!n) continue;
         if (p->chill_t > 0.0f) { p->chill_t -= dt; p->state = PAS_CALM; continue; }   /* the Wraith near: it keeps to its posts */
-        if (!p->broken && p->kind != PACK_WAKE && (p->leader < 0 || !(live >> p->leader & 1) || n * 2 <= p->n0)) { pack_break(p); continue; }
+        if (!p->broken && p->kind != PACK_WAKE && (p->leader < 0 || !(live >> p->leader & 1) || (n * 2 <= p->n0 && p->kind != PACK_WHIP))) { pack_break(p); continue; }   /* the
+                                                                      huntsman's hounds break only when he falls */
         if (p->broken) continue;
         if (p->state == PAS_CALL) {
             if (!(live >> p->caller & 1)) { p->state = PAS_CALM; DBG_COUNT(pack_cuts); }   /* the caller slain: the call dies with it */
@@ -5355,7 +5420,7 @@ static void role_give(Mob *m) {                                    /* the first 
         DBG_COUNT(posted);
         return;
     }
-    if (m->type == MOB_BAT || m->type == MOB_HUNTER) { m->role = RL_ROAM; roam_next(m); return; }
+    if (m->type == MOB_BAT || m->type == MOB_HUNTER || m->type == MOB_LIGHTLESS) { m->role = RL_ROAM; roam_next(m); return; }
     const Pack *p = pack_of(m);
     if (p && p->leader != (int)(m - G.mobs) && follow_of(m)) { m->role = RL_FOLLOW; return; }   /* a pack walks its leader's round */
     m->role = RL_PATROL;
@@ -5379,9 +5444,9 @@ enum { HK_NONE, HK_WATCH, HK_HOUNDS, HK_SPIDERS };
 static const char *HK_NAME[] = { "none", "watch", "hounds", "spiders" };
 #endif
 static int on_trail(const Mob *m) { float s = G.scent[m->cy][m->cx]; return s > 0.0f && (float)G.level_t - s < SCENT_LIFE; }
-static int hunt_sfx(int kind) { return kind == HK_HOUNDS ? SFX_HOWL : kind == HK_SPIDERS ? SFX_SKITTER : SFX_DRUM; }
+static int hunt_sfx(int kind) { return kind == HK_HOUNDS ? (G.hunt_whip ? SFX_HORN : SFX_HOWL) : kind == HK_SPIDERS ? SFX_SKITTER : SFX_DRUM; }
 static int place_hunt(void) {
-    G.hunt_kind = G.hunt_on = G.hunt_said = 0;
+    G.hunt_kind = G.hunt_on = G.hunt_said = G.hunt_whip = 0;
     if (!mind_on() || PK.depth || G.boss >= 0 || G.level < 5) return 0;
     int set = crawl_set(G.level), lv = G.level > DESCENT_LEN ? 99 : G.level;
     float chance = G.corrupt ? 1.0f : set == 0 ? 0.25f : set == 1 ? 0.334f : set == 2 ? 0.5f : 0.667f;
@@ -5404,23 +5469,25 @@ static int place_hunt(void) {
     }
     if (!behind && !pick_cell_at_depth(G.cx, G.cy, 24, 400, 1, &x, &y) && !pick_cell_at_depth(G.cx, G.cy, 16, 400, 1, &x, &y)) return 0;
     if (in_band(y) || in_wing(x, y) || in_trial(x, y) || vault_of_room(x, y) >= 0) return 0;
-    int pk = pack_new(kind == HK_WATCH ? PACK_FILE : kind == HK_HOUNDS ? PACK_HOUNDS : PACK_SPIDERS);
+    int whip = kind == HK_HOUNDS && set >= 2 && may_spawn(MOB_WHIPPER) && rnd(5) < 3;   /* a hunt in the Hollows is often the
+                                                                      Whipper-In's, his hounds on the trail before him (step 9) */
+    int pk = pack_new(kind == HK_WATCH ? PACK_FILE : kind == HK_HOUNDS ? (whip ? PACK_WHIP : PACK_HOUNDS) : PACK_SPIDERS);
     if (pk < 0) return 0;
-    int n = imin(kind == HK_WATCH ? 3 + (set >= 1) : kind == HK_HOUNDS ? 2 + (set >= 2) + (set >= 3) : 2 + (set >= 2), set_cap), made = 0;
+    int n = imin(kind == HK_WATCH ? 3 + (set >= 1) : kind == HK_HOUNDS ? 2 + (set >= 2) + (set >= 3) + whip : 2 + (set >= 2), set_cap), made = 0;
     if (n < 2) { G.npacks--; return 0; }
     for (int i = 0; i < n; i++) {
         int mx = x, my = y;
         if (i && !free_near(x, y, &mx, &my)) break;
-        int type = kind == HK_HOUNDS ? MOB_HOUND : kind == HK_SPIDERS ? MOB_HUNTER : (i == 0 && may_spawn(MOB_SHIELD) ? MOB_SHIELD : MOB_SKEL);
+        int type = kind == HK_HOUNDS ? (whip && i == 0 ? MOB_WHIPPER : MOB_HOUND) : kind == HK_SPIDERS ? MOB_HUNTER : (i == 0 && may_spawn(MOB_SHIELD) ? MOB_SHIELD : MOB_SKEL);
         Mob *m = spawn_mob(mx, my, type);
         if (!m) break;
         m->hunter = 1; m->home = G.map[my][mx].region;             /* it waits where it is till the hunt */
         pack_join(pk, m); made++;
     }
     if (!made) return 0;
-    G.hunt_kind = kind; G.hunt_at = fmaxf(at, 0.0f);
+    G.hunt_kind = kind; G.hunt_at = fmaxf(at, 0.0f); G.hunt_whip = whip;
 #ifdef CRAWL_DEBUG
-    fprintf(stderr, "PACKS level %d: hunt of %d %s at (%d,%d), loose at %.0f s%s\n", G.level, made, HK_NAME[kind], x, y, G.hunt_at, behind ? ", behind you, to drive you on" : "");
+    fprintf(stderr, "PACKS level %d: hunt of %d %s%s at (%d,%d), loose at %.0f s%s\n", G.level, made, HK_NAME[kind], whip ? " and their huntsman" : "", x, y, G.hunt_at, behind ? ", behind you, to drive you on" : "");
 #endif
     return 1;
 }
@@ -5808,12 +5875,17 @@ static void noise(float x, float y, int steps, int what, int kind) {
             continue;
         }
         int reach = what == NZ_DEATH && m->type == kind ? steps * 2 : steps;
+        if (m->type == MOB_LIGHTLESS) reach /= 2;                  /* it hears at half the reach the others do */
         if (what == NZ_DEATH && m->type == MOB_GHOUL) reach = steps * 3;   /* a scavenger hears a death from far off */
         if (m->edgy > 0.0f) reach += reach / 2;                    /* after a search it listens harder */
         if (h < 0 || h > reach) continue;
         if (what == NZ_DEATH && m->type == MOB_GHOUL && m->alert <= 0.0f && m->sub != 4 && h > 1) {   /* it goes to feed */
             if (!m->scav) DBG_COUNT(scavenge);
             m->scav = 1; m->scx = x; m->scy = y; m->wait = 0.0f;
+            continue;
+        }
+        if (what == NZ_BELL) {                                     /* the Sexton's bell rung hard: all of them, to his place */
+            if (m->alert <= 0.0f && m->type != MOB_SEXTON) { mind_track(m, x, y); DBG_COUNT(bell_heard); }
             continue;
         }
         if (what == NZ_CALL && m->alert <= 0.0f) {                 /* an alarm: a pack goes there hunting, the rest to look */
@@ -5838,6 +5910,20 @@ static void alarm_at(Mob *m, int steps) {
     DBG_COUNT(alarms);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT alarm %s steps %d t=%.2f\n", KINDS[m->type].name, steps, G.t);
+#endif
+}
+
+/* The Sexton's bell (section 22): one stroke at each turn of his round, so a person knows about where he is; hard, when he sees
+ * you or comes on round having seen you lately: raised half a second (kill him then, and nothing hears it), then rung: the
+ * widest call on the level, fourteen steps, and everything that hears it goes to his place. Frost stops it six seconds */
+static void sexton_ring(Mob *m, int hard) {
+    if (m->ice_t > 0.0f) { sfx_at(SFX_SHATTER, m->x, m->y, 0.3f); return; }   /* frozen: a dull clink */
+    if (m->ring_t > 0.0f) return;
+    m->rings = hard ? 1 : 0;
+    m->ring_t = hard ? 1.7f : 0.45f;
+    if (!hard) { sfx_at(SFX_HANDBELL, m->x, m->y, 0.7f); DBG_COUNT(bell_rounds); }
+#ifdef CRAWL_DEBUG
+    else fprintf(stderr, "EVENT bell_raised t=%.2f\n", G.t);
 #endif
 }
 
@@ -5866,6 +5952,22 @@ static int search_point(Mob *m, int *wx, int *wy) {                 /* somewhere
     return 0;
 }
 
+/* The Lightless (section 22): where light is near you, within sixteen cells of it. 2 your own (the Lantern of the Dead lit,
+ * a cast's flare): it knows where you are; 1 a wisp or a fire on the floor, within ten cells of you: somewhere to go */
+static int light_feel(const Mob *m, float *lx, float *ly) {
+    if (G.dead || G.wwalk_t > 0.0f || G.shop) return 0;
+    float d = hypotf(G.px - m->x, G.py - m->y), best = 16.0f;
+    if (d < 16.0f && (lantern_lit() || G.flare_t > 0.0f)) { *lx = G.px; *ly = G.py; return 2; }
+    int k = 0;
+    const Wisp *w = &G.wisps[0];
+    if (w->on && w->state != WS_GONE && hypotf(G.px - w->x, G.py - w->y) < 10.0f && (d = hypotf(w->x - m->x, w->y - m->y)) < best) { best = d; *lx = w->x; *ly = w->y; k = 1; }
+    for (int i = 0; i < MAXBURNS; i++) {
+        const Burn *b = &G.burns[i];
+        if (!b->alive || hypotf(G.px - b->x, G.py - b->y) > 10.0f || (d = hypotf(b->x - m->x, b->y - m->y)) >= best) continue;
+        best = d; *lx = b->x; *ly = b->y; k = 1;
+    }
+    return k;
+}
 /* each frame, for a creature that thinks this way: what it knows of the caster, by its sight */
 static void mind_tick(Mob *m, float dt, int sees) {
     m->aw_t += dt;
@@ -5875,6 +5977,20 @@ static void mind_tick(Mob *m, float dt, int sees) {
     const Pack *cp = pack_of(m);
     if (cp && cp->chill_t > 0.0f && !m->hunter) { m->alert = 0.0f; if (m->aware != MA_CALM) { m->aware = MA_CALM; m->wait = 0.0f; } return; }   /* the
                                                                       Wraith's wail: back to its post */
+    if (m->type == MOB_SEXTON) {                                   /* he never hunts: he rings, and walks on round (step 9) */
+        if (sees && G.level_t > 1.5) { m->seen_t = (float)G.level_t; m->kx = G.px; m->ky = G.py; }
+        m->alert = 0.0f; m->aware = MA_CALM;
+        return;
+    }
+    if (m->type == MOB_LIGHTLESS && !sees) {                       /* it feels light: your lantern or a cast's flare within sixteen */
+        float lx, ly;                                              /* cells is as good as sight; a wisp or a fire, a place to go */
+        int k = light_feel(m, &lx, &ly);
+        if (k == 2) { if (m->aware != MA_HUNT) DBG_COUNT(lantern_felt); sees = 1; }
+        else if (k == 1 && m->alert <= 0.0f && (m->aware != MA_TRACK || hypotf(m->kx - lx, m->ky - ly) > 1.5f)) {
+            if (m->aware != MA_TRACK) DBG_COUNT(light_felt);
+            mind_track(m, lx, ly); m->wait = 0.0f;
+        }
+    }
     if (m->fetch) { fetch_tick(m, dt); return; }                   /* a broken pack's hound, gone for help */
     hunter_tick(m);                                                /* a hunter come up on you by the trail */
     if (m->bait_st >= B_WAIT && m->bait_st <= B_LURE && bait_tick(m, dt, sees)) return;   /* a bait leads, it doesn't hunt */
@@ -5966,11 +6082,15 @@ static void mind_arrived(Mob *m) {                                 /* at the pla
     if (m->aware == MA_TRACK) {
         lost_note(cell((int)m->kx, (int)m->ky)->region);
         m->aware = MA_SEARCH; m->aw_t = 0.0f; m->wn = 0; m->wait = 1.0f;
+        if (m->type == MOB_LIGHTLESS) { m->wait = 5.0f + 2.0f * rndf(); DBG_COUNT(lightless_lost); }   /* in the dark, lost: it stops
+                                                                      and turns its head, and listens */
         DBG_COUNT(searches);
         return;
     }
     if (m->aware == MA_SEARCH) { m->wn = 0; m->wait = 1.0f + rndf(); return; }   /* a look round, and on */
     if (m->role == RL_PATROL) { m->wp++; m->wait = 1.5f + 1.5f * rndf(); }   /* a pause at each waypoint */
+    if (m->type == MOB_SEXTON && m->role == RL_PATROL)            /* his bell at every turn; hard again, if he saw you lately */
+        sexton_ring(m, m->seen_t > 0.0f && (float)G.level_t - m->seen_t < 25.0f && m->ring_cd <= 0.0f);
     else if (m->role == RL_ROAM) { roam_next(m); m->wait = 1.0f + 2.0f * rndf(); }
 }
 /* the head: towards you while it sees you, towards a sound while wary, about it while searching, idly while calm */
@@ -6847,7 +6967,7 @@ static void update_mob(Mob *m, float dt) {
         return;
     }
     if (mind && !G.dead && cunning(m) >= RK_III && m->dodge_cd <= 0.0f && m->swing <= 0.0f && m->throw_t <= 0.0f && m->alert > 0.0f && mind_dodge(m)) return;
-    int keeps_off = (m->type == MOB_IMP || m->type == MOB_DEACON) && !m->boss && !m->add;   /* they fight from further off, and back
+    int keeps_off = (m->type == MOB_IMP || m->type == MOB_DEACON || m->type == MOB_WHIPPER || m->type == MOB_SEXTON) && !m->boss && !m->add;   /* they fight from further off, and back
                                                                                     away (not in a boss's fight: they hold the floor) */
     int cowed = m->feared > 0.0f && (undead || m->dreaded);       /* Dread */
     int lured = !cowed && G.decoy_t > 0.0f && hypotf(m->x - G.decoy_x, m->y - G.decoy_y) < 6.0f;   /* Blink's double draws it */
@@ -7131,6 +7251,63 @@ static void update_mob(Mob *m, float dt) {
             }
         }
     }
+    if (m->type == MOB_WHIPPER && !G.dead) {                       /* the huntsman: behind his hounds, his horn and his whip */
+        if (m->call_t > 0.0f) { m->call_t -= dt; m->face = atan2f(pdy0, pdx0); return; }   /* winding his horn: his hounds wait on it */
+        if (m->throw_t > 0.0f) m->throw_t -= dt;                   /* the crack, still showing */
+        m->cool -= dt;
+        if (m->swing > 0.0f) {                                     /* the lash, come too close */
+            if ((m->swing -= dt) > 0.0f) return;
+            m->swing = 0.0f;
+            if (feint_held(m)) return;
+            m->cool = 1.8f; m->throw_t = 0.3f;
+            sfx_at(SFX_WHIPCRACK, m->x, m->y, 1.2f);
+            if (pd0 < 2.6f && hurt_by(m, mob_damage(m) * 0.9f, HURT_BLOW) > 0) { thorns(m); DBG_COUNT(whip_lashes); }
+            return;
+        }
+        if (fights && sees && pd0 < 2.4f && m->cool <= 0.0f && G.level_t > 1.5) { m->swing = 0.4f; feint_roll(m); return; }
+        if (mind && !m->called && !pack_of(m) && sees && G.level_t > 1.5) {   /* his hounds gone: the horn, for whatever hears it */
+            m->call_t = 1.1f; sfx_at(SFX_HORN, m->x, m->y, 1.2f); alarm_at(m, 10); DBG_COUNT(horns);
+            return;
+        }
+    }
+    if (m->type == MOB_SEXTON && !G.dead) {                        /* he doesn't fight: he rings */
+        if (m->ice_t > 0.0f) { m->ice_t -= dt; if (m->ring_t > 0.0f) { m->ring_t = 0.0f; m->rings = 0; } }   /* frozen: it can't */
+        if (m->ring_cd > 0.0f) m->ring_cd -= dt;
+        if (m->ring_t > 0.0f) {
+            m->ring_t -= dt;
+            if (m->rings == 1 && m->ring_t <= 1.2f) {              /* raised, and rung: the widest call on the level, to his place */
+                m->rings = 2; m->ring_cd = 8.0f; m->contact = 0.0f;
+                noise(m->x, m->y, 14, NZ_BELL, m->type);
+                DBG_COUNT(bell_alarms);
+            }
+            if (m->rings == 2 && (m->contact -= dt) <= 0.0f) { m->contact = 0.16f; sfx_at(SFX_HANDBELL, m->x, m->y, 1.25f); }
+            if (m->ring_t <= 0.0f) m->rings = 0;
+            if (m->rings) { m->face = atan2f(pdy0, pdx0); return; }   /* he stands to ring it */
+        }
+        if (mind && sees && G.level_t > 1.5 && m->ring_cd <= 0.0f && m->ice_t <= 0.0f && m->stagger <= 0.0f) { sexton_ring(m, 1); return; }
+    }
+    if (m->type == MOB_LIGHTLESS && !G.dead) {                     /* quick to the light, without a sound; it strikes what is lit */
+        m->speed = KINDS[MOB_LIGHTLESS].speed * RANK_SPEED[m->rank] * (m->wild ? 1.3f : 1.0f)
+                 * (m->alert > 0.0f || m->aware == MA_TRACK ? 1.4f : 0.6f);
+        m->cool -= dt;
+        if (m->swing > 0.0f) {
+            if ((m->swing -= dt) > 0.0f) return;
+            m->swing = 0.0f;
+            if (feint_held(m)) return;
+            m->cool = 1.6f;
+            sfx_at(SFX_GLASS, m->x, m->y, 1.0f);
+            if (pd0 < 1.5f && hurt_by(m, mob_damage(m) * 1.3f, HURT_BLOW) > 0) { thorns(m); DBG_COUNT(lightless_hits); }
+            return;
+        }
+        Wisp *w = &G.wisps[0];
+        if (w->on && w->state != WS_GONE && hypotf(w->x - m->x, w->y - m->y) < 1.3f) {   /* at a wisp: it puts it out */
+            m->swing = 0.4f; wisp_out(w); sfx_at(SFX_GLASS, m->x, m->y, 1.0f);
+            DBG_COUNT(wisps_struck);
+            return;
+        }
+        if (fights && !afraid && sees && pd0 < 1.3f && m->cool <= 0.0f) { m->swing = 0.4f; feint_roll(m); return; }
+        if ((m->tx != m->cx || m->ty != m->cy) && pd0 < 9.0f && rnd(110) == 0) sfx_at(SFX_GLASS, m->x, m->y, 0.4f);   /* its glass, as it goes */
+    }
     if (m->type == MOB_GARGOYLE) {                                 /* stone till you pass; then wings */
         if (m->sub == 0) {
             if (m->pack && !G.dead && pd0 < 8.0f && rnd(500) == 0) sfx_at(SFX_DIRT, m->x, m->y, 0.3f);   /* grit falling from a statue */
@@ -7261,6 +7438,12 @@ static void update_mob(Mob *m, float dt) {
         else if (m->aware == MA_TRACK) mind_arrived(m);            /* no way after you: it searches from here */
         else if (m->aware == MA_WARY) m->aw_t = 8.0f;              /* nor to the sound: it lets it be */
     }
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_KINDTRACE") && m->type == atoi(getenv("CRAWL_KINDTRACE")) && rnd(30) == 0)
+    {   fprintf(stderr, "KIND move going %d ghere %d goal (%d,%d) hunting %d chase %d afraid %d lured %d hold %d falling %d at (%d,%d):", going, ghere, gcx, gcy, hunting, chase, afraid, lured, hold, falling, m->cx, m->cy);
+        for (int k = 0; k < 4 && gf; k++) { int nx = m->cx + DX[k], ny = m->cy + DY[k]; fprintf(stderr, " [h %d occ %d hz %d kind %d]", gf[ny][nx], occupied(nx, ny, m), hz_shuns(m, nx, ny), cell(nx, ny)->kind); }
+        fprintf(stderr, "\n"); }
+#endif
     int trailing = mind && !going && !hunting && !chase && !afraid && !lured && !G.dead && m->alert <= 0.0f && m->hunter == 2 && on_trail(m);
     float trail_here = G.scent[m->cy][m->cx];
     int trail_wait = 0;                                            /* a fresher cell ahead, but a shut door or one of its own in it */
@@ -7314,6 +7497,9 @@ static void update_mob(Mob *m, float dt) {
         if (s > bs) { bs = s; best = k; }
     }
     if (trailing && best < 0 && !trail_wait) hunter_lost(m);       /* the trail ends here: water, or it went cold */
+    if (going && best < 0 && !falling) {                           /* its way stood in (one on its post in a narrow hall, a statue): */
+        if ((m->blocked += dt) > 3.0f) { m->blocked = 0.0f; mind_arrived(m); DBG_COUNT(ways_blocked); }   /* it gives the place up */
+    } else m->blocked = 0.0f;
     if (spread_skip && G.t - spread_said > 1.0) { spread_said = G.t; DBG_COUNT(spread); }
     if (best >= 0 && (hunting || going || trailing)) {
         int nx = m->cx + DX[best], ny = m->cy + DY[best];
@@ -9295,7 +9481,7 @@ static int find_target(void) {
                  || ((m->boss || m->add) && dist < 9.0f)) score = dist + 1.5f;   /* in a boss's fight, whatever is in it */
         else continue;
         if (m->type == MOB_WSKULL) score -= m->sub == 1 ? 4.0f : 1.5f;   /* one hit ends it: first, before it fires */
-        if (m->type == MOB_DEACON) score -= 2.0f;                  /* the priest first, before it raises more */
+        if (m->type == MOB_DEACON || m->type == MOB_SEXTON) score -= 2.0f;   /* the priest first, before it raises more; the bell-ringer */
         if (m->ignore > (float)G.t || !shot_clear(m->x, m->y)) continue;
         if (score < bd) { bd = score; best = i; }
     }
@@ -9880,7 +10066,7 @@ static const char *PIECE_NAME[NSET] = { "none", "wanderers", "newcomer", "posts"
 static const float KIND_COST[NKINDS] = { [MOB_SKEL] = 1.0f, [MOB_BAT] = 0.75f, [MOB_WSKULL] = 0.75f, [MOB_SHIELD] = 1.25f,
     [MOB_SPIDER] = 0.5f, [MOB_SHAMBLER] = 0.75f, [MOB_DROWNED] = 1.0f, [MOB_HOUND] = 1.0f, [MOB_HUNTER] = 1.0f, [MOB_GHOUL] = 1.25f,
     [MOB_KNIGHT] = 2.0f, [MOB_BROOD] = 2.0f, [MOB_SAC] = 0.25f, [MOB_SHADE] = 1.5f, [MOB_IMP] = 1.0f, [MOB_DEACON] = 1.5f,
-    [MOB_GARGOYLE] = 1.25f };
+    [MOB_GARGOYLE] = 1.25f, [MOB_WHIPPER] = 1.5f, [MOB_SEXTON] = 1.0f, [MOB_LIGHTLESS] = 2.0f };
 static float rank_cost(int rank) { return rank == RK_GILDED ? 1.4f : 1.0f + 0.2f * (float)imin(rank, RK_V); }
 static float set_spent(int *heads) {
     float c = 0.0f; int n = 0;
@@ -9929,7 +10115,8 @@ static void place_creatures(void) {
     if (short_lv != G.level) { memset(short_n, 0, sizeof short_n); short_hunt = 0; short_lv = G.level; }
     set_cap = 1 << 20;
     place_guardians(); set_tag(SET_GUARD);                         /* the vaults keep their guards */
-    static const int WANDERS[] = { MOB_SHIELD, MOB_SHAMBLER, MOB_HOUND, MOB_HUNTER, MOB_GHOUL, MOB_KNIGHT, MOB_SHADE, MOB_IMP, MOB_DEACON };
+    static const int WANDERS[] = { MOB_SHIELD, MOB_SHAMBLER, MOB_HOUND, MOB_HUNTER, MOB_GHOUL, MOB_KNIGHT, MOB_SHADE, MOB_IMP, MOB_DEACON,
+                                   MOB_WHIPPER, MOB_SEXTON, MOB_LIGHTLESS };   /* the new kinds too (step 9): with the new minds only */
     for (int i = 0; i < (int)(sizeof WANDERS / sizeof WANDERS[0]); i++)   /* a newcomer's first level always brings one, alone */
         if (G.level == KINDS[WANDERS[i]].debut && !G.spawned[WANDERS[i]] && pick_cell_at_depth(G.cx, G.cy, 8, 30, 1, &x, &y)) spawn_wanderer_type(x, y, WANDERS[i]);
     set_tag(SET_NEW);
@@ -15777,10 +15964,11 @@ static int meet_creature(int k, int n) {
 }
 
 #ifdef CRAWL_DEBUG
-/* CRAWL_PACK=k: a pack a few cells ahead, five seconds in: 1 a file of the Order, 2 hounds, 3 a roost asleep, 4 a wake */
+/* CRAWL_PACK=k: a pack a few cells ahead, five seconds in: 1 a file of the Order, 2 hounds, 3 a roost asleep, 4 a wake, 5 the
+ * Whipper-In and his hounds */
 static int pack_meet(int k) {
-    static const int KIND[5] = { 0, PACK_FILE, PACK_HOUNDS, PACK_ROOST, PACK_WAKE };
-    if (k < 1 || k > 4) return 1;
+    static const int KIND[6] = { 0, PACK_FILE, PACK_HOUNDS, PACK_ROOST, PACK_WAKE, PACK_WHIP };
+    if (k < 1 || k > 5) return 1;
     int far = 0;
     for (int d = 1; d <= 7; d++) {
         int mx = (int)(G.px + cosf(G.ang) * d), my = (int)(G.py + sinf(G.ang) * d);
@@ -15794,7 +15982,7 @@ static int pack_meet(int k) {
     for (int i = 0; i < n; i++) {
         int mx = x, my = y;
         if (i && !free_near(x, y, &mx, &my)) break;
-        int type = k == 1 ? (i == 0 ? MOB_SHIELD : MOB_SKEL) : k == 2 ? MOB_HOUND : k == 3 ? MOB_BAT : MOB_SHAMBLER;
+        int type = k == 1 ? (i == 0 ? MOB_SHIELD : MOB_SKEL) : k == 2 ? MOB_HOUND : k == 3 ? MOB_BAT : k == 5 ? (i == 0 ? MOB_WHIPPER : MOB_HOUND) : MOB_SHAMBLER;
         Mob *m = k == 4 ? riser_make(type, mx, my, -1) : spawn_mob(mx, my, type);
         if (!m) break;
         if (k == 3) { m->sleep = 1; m->home = G.map[my][mx].region; }
@@ -15924,6 +16112,19 @@ static void crawl_update(double dt) {
     static int meet_level = -1;                                    /* one of a kind, ahead, once the level's card has gone (and in each pocket) */
     if (getenv("CRAWL_MEET") && meet_level != G.level * 16 + PK.depth && G.level_t > 5.0 && !G.dead
         && meet_creature(clampi(atoi(getenv("CRAWL_MEET")), 0, NKINDS - 1), getenv("CRAWL_MEETN") ? atoi(getenv("CRAWL_MEETN")) : 1)) meet_level = G.level * 16 + PK.depth;
+    static double ktrace_t;                                        /* CRAWL_KINDTRACE=k: each of kind k once a second */
+    if (getenv("CRAWL_KINDTRACE") && G.t - ktrace_t >= 1.0) {
+        ktrace_t = G.t;
+        int k = atoi(getenv("CRAWL_KINDTRACE"));
+        for (int i = 0; i < MAXMOBS; i++) {
+            const Mob *m = &G.mobs[i];
+            if (!m->alive || m->type != k) continue;
+            if (m->route >= 0 && m->route < G.nroute) { int w = m->wp % G.route[m->route].n; fprintf(stderr, "KIND waypoint (%d,%d) occupied %d h %d\n", G.route[m->route].x[w], G.route[m->route].y[w], occupied(G.route[m->route].x[w], G.route[m->route].y[w], m), mind_field(G.route[m->route].x[w], G.route[m->route].y[w])[m->cy][m->cx]); }
+            fprintf(stderr, "KIND %s #%d at (%d,%d) %s aware %d alert %.1f role %d route %d wp %d wait %.1f hp %.0f/%.0f pack %d ring %.1f/%d ice %.1f wild %d dist %.1f t=%.1f\n",
+                    KINDS[k].name, i, m->cx, m->cy, m->state == MS_WALK ? "walking" : "dying", m->aware, m->alert, m->role, m->route, m->wp, m->wait,
+                    m->hp, m->maxhp, m->pack, m->ring_t, m->rings, m->ice_t, m->wild, hypotf(m->x - G.px, m->y - G.py), G.level_t);
+        }
+    }
     static int pack_level = -1;                                    /* a pack ahead, five seconds into each level (and pocket) */
     if (getenv("CRAWL_PACK") && pack_level != G.level * 16 + PK.depth && G.level_t > 5.0 && !G.dead && pack_meet(atoi(getenv("CRAWL_PACK")))) pack_level = G.level * 16 + PK.depth;
     static int latch_level = -1;                                   /* a rank-II bat latched five seconds into each level (and pocket) */
@@ -20921,7 +21122,8 @@ static const int8_t EYE_OWN[NKINDS] = {                            /* each kind'
     [MOB_SKEL] = EC_AMBER, [MOB_GHOST] = EC_COLD, [MOB_BAT] = EC_EMBER, [MOB_WSKULL] = EC_AMBER, [MOB_SHIELD] = EC_AMBER,
     [MOB_SPIDER] = EC_EMBER, [MOB_SHAMBLER] = EC_SULPHUR, [MOB_DROWNED] = EC_COLD, [MOB_HOUND] = EC_AMBER, [MOB_WRAITH] = EC_COLD,
     [MOB_HUNTER] = EC_EMBER, [MOB_GHOUL] = EC_SULPHUR, [MOB_KNIGHT] = EC_CRIMSON, [MOB_BROOD] = EC_EMBER, [MOB_LING] = EC_EMBER,
-    [MOB_SAC] = EC_EMBER, [MOB_SHADE] = EC_COLD, [MOB_IMP] = EC_WGOLD, [MOB_DEACON] = EC_PALE, [MOB_GARGOYLE] = EC_WGOLD };
+    [MOB_SAC] = EC_EMBER, [MOB_SHADE] = EC_COLD, [MOB_IMP] = EC_WGOLD, [MOB_DEACON] = EC_PALE, [MOB_GARGOYLE] = EC_WGOLD,
+    [MOB_WHIPPER] = EC_AMBER, [MOB_SEXTON] = EC_WGOLD };   /* the Lightless has none */
 static const int8_t EYE_RANK[NRANK] = { -1, EC_ROT, EC_CHILL, EC_BLOOD, EC_HOT, EC_GILT };
 
 static void eye_px(Frame *f, int x, int y, uint8_t c, float depth) {
@@ -21288,6 +21490,20 @@ static int mob_sprite(const Mob *m, float *scale) {
         if (m->state == MS_DIE) return SP_GARG_D;
         if (m->sub == 0 || (m->sub == 1 && m->sub_t < 0.4f && ((int)(m->sub_t * 20.0f) & 1))) return SP_GARG_PERCH;
         return m->sub == 3 || m->swing > 0.0f ? SP_GARG_SWOOP : (((int)(m->t * 7.0f)) & 1 ? SP_GARG_B : SP_GARG_A);
+    case MOB_WHIPPER:
+        if (m->state == MS_DIE) return SP_WHIP_D;
+        if (m->call_t > 0.0f) return SP_WHIP_HORN;                 /* the horn to his jaw */
+        return m->swing > 0.0f || m->throw_t > 0.0f ? SP_WHIP_CRACK : (fr ? SP_WHIP_B : SP_WHIP_A);
+    case MOB_SEXTON:
+        if (m->state == MS_DIE) return SP_SEXTON_D;
+        if (m->ice_t > 0.0f) return SP_SEXTON_ICE;                 /* the bell frozen */
+        if (m->ring_t > 0.0f) return m->rings ? (((int)(m->ring_t * 9.0f)) & 1 ? SP_SEXTON_RING_B : SP_SEXTON_RING_A) : SP_SEXTON_RING_B;
+        return fr ? SP_SEXTON_B : SP_SEXTON_A;
+    case MOB_LIGHTLESS:
+        if (m->state == MS_DIE) return SP_LIGHT_D;
+        if (m->swing > 0.0f) return SP_LIGHT_STRIKE;
+        if (m->wait > 0.0f && m->alert <= 0.0f && m->aware != MA_CALM) return SP_LIGHT_LISTEN;   /* lost in the dark, listening */
+        return fr ? SP_LIGHT_B : SP_LIGHT_A;
     case MOB_SAC: return m->state == MS_DIE ? SP_SAC_OPEN : (m->sub_t > 5.0f && ((int)(m->t * 6.0f) & 1) ? SP_SAC_B : SP_SAC_A);
     case MOB_WRAITH:
         if (m->sub == 1) return SP_WRAITH_BACK;
@@ -21514,6 +21730,9 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             if (m->rank != RK_I && dx >= 0 && !m->boss) d->ov = crawl_dress[dx];   /* its rank's dressing */
             if (!m->boss && m->rank >= RK_III && !KIND_IS(m, KF_SPIRIT)) d->vap = 1.0f;   /* and its spirit, showing */
             d->estate = m->type == MOB_WSKULL ? (m->sub == 0 ? 3 : 2) : (m->swing > 0.0f || m->throw_t > 0.0f ? 2 : (m->alert ? 1 : 0));
+        } else if (m->state == MS_WALK && m->type == MOB_LIGHTLESS && !(d->flags & (DR_EYES | DR_IMPLODE))) {   /* no eyes, but its rank's marks */
+            int dx = crawl_dress_ix[s][m->rank];
+            if (m->rank != RK_I && dx >= 0) d->ov = crawl_dress[dx];
         }
         if (m->state == MS_DIE && m->sub == 77) {                  /* drawn in to a point */
             float k = smoothstepf(0.1f, 0.75f, m->t);
@@ -24105,7 +24324,7 @@ static void render_toasts(Frame *f) {
 /* the bestiary's pages: the kinds in the order you meet them, then the achievements */
 static int best_kinds(int *out) {
     int n = 0;
-    for (int lv = 1; lv <= 20; lv++) for (int k = 0; k < NKINDS; k++) if (KINDS[k].debut == lv && (KINDS[k].flags & KF_PAGE)) out[n++] = k;
+    for (int lv = 1; lv <= DESCENT_LEN; lv++) for (int k = 0; k < NKINDS; k++) if (KINDS[k].debut == lv && (KINDS[k].flags & KF_PAGE)) out[n++] = k;   /* by first level, to the Deep's */
     return n;
 }
 static int kind_ranks(int k, int *out) {                           /* the ranks a kind comes in */

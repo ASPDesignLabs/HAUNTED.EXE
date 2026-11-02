@@ -33,9 +33,9 @@ nest, the imps' brood, sentinels and the deep's combinations; the heads on a lev
 level 1 the new minds died 58, 68 and 60 times in three batches of sixteen against the old minds' 53 and 47: about a fifth to
 a quarter more, inside D5's margin with nothing to spare, and the last batch, as committed, has the dream's engaged cap one
 less (A3, from Part G, taken now). From 11, 21 and 31 one death each way. The steps after this one add no difficulty for the
-dream but the new kinds (9), and step 10's counters help it. Step 9's sheets are drawn, for the owner's eye, before the
-kinds go into the game: `make sheets`' whipper.png, sexton.png, lightless.png and sides5.png (copies in
-`docs/artpass/review/`).** Written on
+dream but the new kinds (9), and step 10's counters help it. Step 9 is built (harness only): the three new kinds,
+their sheets approved by the owner (`make sheets`' whipper.png, sexton.png, lightless.png and sides5.png), in the game
+with their ways and their bestiary pages.** Written on
 `claude/laughing-cori-a3jk29` from 1.0.0b13; brought onto its work branch, `claude/youthful-mayer-deaa11`, from main
 once the art pass so far had been merged there (1 November). The art pass is visual only, and the numbers below were
 checked again on main: none has moved. The owner asked for creatures
@@ -1071,6 +1071,26 @@ The order of the steps is the building's; what a person meets, and where, is sec
    dried on its fingers, V soot and an iron collar on a chain, gilded mended with gold as broken pots are. Choices of
    mine: the bell in the gold's dark steps (the only bronze the palette has; the wares and the gilded use the bright
    ones); the Lightless records no eyes, so the eye pass will leave it be, as the plan has it.
+   *Built* (2 November, harness only), after the owner approved the sheets as drawn. The kinds come only with the new minds.
+   The Whipper-In: his hounds (three, four in run IV) in a pack of his (`PACK_WHIP`); a hound or he that sees you calls, and
+   the call is his horn, 1.1 s with the horn to his jaw, then the pack is on you and the horn is heard ten steps off (the
+   alarm: whatever hears it is wary of the place, a pack goes there); his turns send in one hound at a time, two from rank III,
+   and each is sent with the whip's crack; he keeps four cells off and lashes what comes within two and a half; the pack
+   breaks only when he falls, and then his hounds run wild: out of the pack (nothing shared), a third quicker, thinking as the
+   lowest rank. Three hunts of hounds in five from run III are his, and their tell is the horn. The Sexton: calm whatever he
+   knows, on his round, a stroke of the bell at each turn of it; seeing you, struck, or come round to a turn having seen you
+   within 25 s, he raises the bell half a second and rings it hard (fourteen steps; everything that hears it, but what is
+   already after you, goes to his place), eight seconds between; killed while it is raised, caught unaware (the bell lowered
+   2.5 s) or struck by frost (six seconds, the bell drawn rimed) and it isn't rung. The Lightless: no facing; sight all round,
+   nine cells lit and five in the dark; your lantern lit or a cast's flare within sixteen cells as good as sight; a wisp or a
+   fire within ten cells of you, a place to go; 1.4 times its pace while it knows, 0.6 roaming; half the hearing; a chime now
+   and then for its only sound; at a place with nothing it stands and listens five to seven seconds; a wisp it reaches goes
+   out. Choices of mine: the Whipper-In's horn sounds the alarm once a level, as the other callers do (his later calls set
+   only his own pack on you); the Sexton's ring goes to everything that hears it, not only packs; "light near you" is taken
+   as within ten cells of you, and the torches you stand by count as being lit (sight at nine cells), not as felt from
+   sixteen; the Lightless puts out only your wisp, never the altar's. A fault found on the way: a creature whose way
+   somewhere was stood in waited there for ever (the first Sexton on his level stood fourteen steps from his first turn the
+   whole level, behind one on its post in a hall a cell wide); after three seconds it now gives the place up.
 10. **The dream's counters** (Part G).
 11. **Showing it** (Part H): sounds, captions, the bestiary, the Codex, the record, achievements; the art.
 12. **The checks**: the balance runs (D5), ASan on long dream and scripted sessions, `bench` (the new fields must not

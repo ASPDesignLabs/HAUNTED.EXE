@@ -87,6 +87,10 @@ enum {
     SFX_HOWL,           /* a hound's pack set on the hunt: a long rising howl, a second voice under it (1.0.0b15) */
     SFX_DRUM,           /* the file of the Order: bones clacked in time, like a drum */
     SFX_ROUT,           /* a pack broken: a yelp, a clatter, things scattering */
+    SFX_HORN,           /* the Whipper-In's horn: a brassy note slurred up and held, wavering (1.0.0b15's new kinds) */
+    SFX_HANDBELL,       /* the Sexton's handbell: one stroke of the clapper, bright and beating */
+    SFX_GLASS,          /* the Lightless moving: a faint, high, glassy chime */
+    SFX_WHIPCRACK,      /* a whip's crack: a sharp snap, a hiss of the thong */
     SFX_COUNT
 };
 

@@ -156,9 +156,9 @@ spectres' drift). **Step 7 is built** (harness only): cunning by rank (falling b
 the loops it needs, spreading, feints, the charge read), hazards that hurt the dead, the throw over a corner, the dog at
 your back, the cap passed for a person doing well. **Step 8 is built** (harness only): one encounter budget spent on set
 pieces in place of today's placements, the rules, room types choosing, the special places, the mixed bands and the packs
-still to come (the nest, the imps' brood, sentinels), and the deep's combinations, by section 23's rollout. Step 9, the
-three new kinds, has its sheets drawn (`whipper.png`, `sexton.png`, `lightless.png`, `sides5.png` on `make sheets`; copies in
-`docs/artpass/review/`), waiting for the owner's eye before the kinds go into the game.
+still to come (the nest, the imps' brood, sentinels), and the deep's combinations, by section 23's rollout. **Step 9 is built**
+(harness only): the three new kinds, their sheets approved by the owner (`whipper.png`, `sexton.png`, `lightless.png`,
+`sides5.png` on `make sheets`), in the game with their ways and bestiary pages. Step 10, the dream's counters, is next.
 
 ## Working with the owner
 
@@ -1273,6 +1273,31 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   till it gave the level up); and a censer's swing marks the dream's map only 0.9 s ahead whatever is held (Premonition's
   further second had kept the lane under it marked the whole swing, and the dream never crossed). `hz_dput` keeps the worse
   of two marks, a warning or harm over what is always there.
+  **Step 9** (section 22): the three new kinds made for the minds' roles, at the end of `KINDS` (`MOB_WHIPPER` 20, `MOB_SEXTON`
+  21, `MOB_LIGHTLESS` 22; `REC_KINDS` 24 leaves room for one more), and with the new minds only (`random_type`, the newcomers'
+  list, the hunts). Sprites `SP_WHIP_*`, `SP_SEXTON_*`, `SP_LIGHT_*` (docs/InitialArtPass.md's log); sounds `SFX_HORN`,
+  `SFX_HANDBELL`, `SFX_GLASS`, `SFX_WHIPCRACK`. The Whipper-In (from 22): never without three hounds (four from run IV) in his
+  pack (`PACK_WHIP`, from `spawn_wanderer_type`); its call is his horn (`pack_call` gives it 1.1 s, `Mob.call_t` his pose,
+  `pack_tell`), and as the pack sets on you it is heard ten steps off (`alarm_at`); each hound his turns send in gets the whip's
+  crack (`pack_turns`); he keeps off (`keeps_off`) and lashes what comes within two and a half cells; the pack breaks only when
+  he falls, and then his hounds run wild (`Mob.wild`: out of the pack, a third quicker, careless: `cunning` RK_I). Three hunts of
+  hounds in five from run III are his (`place_hunt`, `G.hunt_whip`; the hunt's tell is the horn). The Sexton (from 26;
+  `sexton_ring`, `Mob.ring_t`, `rings`, `ring_cd`, `ice_t`, `seen_t`): never hunts (`mind_tick` keeps him calm), walks his round
+  and rings once at each turn of it (`mind_arrived`); seeing you, struck, or come round having seen you within 25 s, he raises the
+  bell half a second, then rings it (`NZ_BELL` through `noise`, fourteen steps: everything that hears goes to his place), every
+  eight seconds at most; killed while it is raised, caught unaware (2.5 s) or a frost hit (`ice_t` 6 s, `SP_SEXTON_ICE`) and it
+  isn't rung; he keeps off, and the dream aims at him first as at the deacon. The Lightless (from 32; `light_feel`): no eyes
+  (`has_facing` 0), so it sees all round, nine cells in the light and five in the dark (the caster's own glow); your lantern lit
+  or a cast's flare within sixteen cells is as good as sight, a wisp or a fire on the floor within ten cells of you somewhere to
+  go; quick while it knows (1.4 times its pace, 0.6 calm), a roamer (`RL_ROAM`), hearing at half the reach, silent but for a
+  glassy chime now and then; finding nothing where it went it stands and listens five to seven seconds (`SP_LIGHT_LISTEN`); it
+  puts out a wisp it reaches (`wisp_out`). A fault found on the way and mended for the new minds: a creature whose way somewhere
+  was stood in (a post in a hall a cell wide, a statue) had waited there for ever; after three seconds it now gives the place up
+  (`Mob.blocked`, `EVENT ways_blocked`). The bestiary's pages run to the Deep's kinds (`best_kinds`, to `DESCENT_LEN`). Debug:
+  `CRAWL_PACK=5` (the Whipper-In and his hounds), `CRAWL_KINDTRACE=k` (each of kind k once a second, and now and then its way
+  somewhere), `PACKS level n: the huntsman and his hounds ...`, `EVENT horns`, `whip_cracks`, `whip_lashes`, `wild_hounds`,
+  `bell_rounds`, `bell_raised`, `bell_alarms`, `bell_heard`, `bells_frozen`, `light_felt`, `lantern_felt`, `lightless_lost`,
+  `lightless_hits`, `wisps_struck`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

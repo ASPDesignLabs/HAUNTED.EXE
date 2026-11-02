@@ -682,6 +682,38 @@ static float sfx_sample(Sfx *s) {
         x = yelp + scatter * 0.6f;
         break;
     }
+    case SFX_HORN: {                                /* a hunting horn: a brassy note slurred up a fourth and held, wavering, then let go */
+        float u = t / s->dur;
+        float f = t < 0.18f ? 233.0f + (311.0f - 233.0f) * (t / 0.18f) * (t / 0.18f) : 311.0f * (1.0f + 0.006f * sinf(t * 31.0f));
+        if (u > 0.82f) f *= 1.0f - 0.08f * (u - 0.82f) / 0.18f;   /* the breath going out of it */
+        s->ph[0] += f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        float amp = fminf(1.0f, t / 0.06f) * (u > 0.75f ? (1.0f - u) / 0.25f : 1.0f);
+        float saw = s->ph[0] * 2.0f - 1.0f;
+        float brass = svf_band(saw, 700.0f + 1500.0f * amp, 0.35f, &s->lo1, &s->bp1) * 0.8f + s->lo1 * 0.35f;
+        float breath = svf_band(nz(&s->rng), 1900.0f, 0.5f, &s->lo2, &s->bp2) * 0.12f;
+        x = (brass + breath) * amp * 0.75f;
+        break;
+    }
+    case SFX_HANDBELL: {                            /* a handbell: the clapper's stroke, bronze partials beating, ringing on */
+        static const float P[5] = { 1.0f, 2.06f, 2.47f, 3.01f, 4.18f }, A[5] = { 0.6f, 0.45f, 0.35f, 0.28f, 0.18f }, D[5] = { 2.4f, 3.3f, 4.6f, 6.0f, 9.0f };
+        float base = 880.0f, ring = 0.0f;
+        for (int i = 0; i < 5; i++) ring += sin_cyc(base * P[i] * t + (i == 1 ? 0.004f * sinf(t * 21.0f) : 0.0f)) * A[i] * expf(-t * D[i]);
+        float strike = svf_band(nz(&s->rng), 4200.0f, 0.5f, &s->lo1, &s->bp1) * expf(-t * 90.0f);
+        x = ring * 0.55f + strike * 0.35f;
+        break;
+    }
+    case SFX_GLASS: {                               /* a faint high chime, as of glass touching glass */
+        float c = (sin_cyc(2420.0f * t) * 0.5f + sin_cyc(3615.0f * t) * 0.35f + sin_cyc(5180.0f * t) * 0.2f) * expf(-t * 7.0f);
+        float tick = svf_band(nz(&s->rng), 7000.0f, 0.5f, &s->lo1, &s->bp1) * expf(-t * 120.0f);
+        x = c * 0.45f + tick * 0.2f;
+        break;
+    }
+    case SFX_WHIPCRACK: {                           /* the thong hissing through the air, and the crack */
+        float hiss = t < 0.12f ? svf_band(nz(&s->rng), 2500.0f + 9000.0f * t, 0.5f, &s->lo1, &s->bp1) * (t / 0.12f) * 0.5f : 0.0f;
+        float u = t - 0.12f, snap = u > 0.0f ? (nz(&s->rng) * 0.8f + sin_cyc(1200.0f * u) * 0.4f) * expf(-u * 80.0f) * 1.6f : 0.0f;
+        x = hiss + snap;
+        break;
+    }
     case SFX_DOOR4_SHUT: {                          /* a glassy chime, and the heat's hiss */
         float chime = (sin_cyc(1210.0f * t) * 0.6f + sin_cyc(1873.0f * t) * 0.4f + sin_cyc(2711.0f * t) * 0.25f) * expf(-t * 4.5f);
         float hiss = svf_band(nz(&s->rng), 6000.0f, 0.6f, &s->lo1, &s->bp1) * expf(-t * 9.0f);
@@ -1751,6 +1783,10 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_HOWL]       = { 2.20f, 0.75f, -0.40f, 0.70f },
     [SFX_DRUM]       = { 0.75f, 0.70f,  0.50f, 0.35f },
     [SFX_ROUT]       = { 0.90f, 0.70f,  0.50f, 0.35f },
+    [SFX_HORN]       = { 1.60f, 0.70f, -0.40f, 0.75f },
+    [SFX_HANDBELL]   = { 1.40f, 0.60f,  0.50f, 0.55f },
+    [SFX_GLASS]      = { 0.60f, 0.45f, -0.50f, 0.50f },
+    [SFX_WHIPCRACK]  = { 0.40f, 0.85f,  0.50f, 0.30f },
 };
 
 void snd_tone(int glass, int midi, float gain, float pan) {      /* a struck bell or a singing crystal, at its own note */
