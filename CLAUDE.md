@@ -1418,5 +1418,17 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   or sees the teeth first, so the ambush is a person's trial more than the dream's. Ten of the 20 were on level 3, where
   nothing of step 6 can be (seven of them to rank-I skeletons, spread over five seeds; step 5's build had three there):
   the noise of sixteen seeds on any one level is that large. About a fifth harder in all, inside D5's margin.
+- 1.0.0b15's step 7 (cunning by rank, hazards that hurt the dead, the corner throw, the dog at your back, the cap passed;
+  harness only), against the old minds' sixteen runs: from level 1 a median of 9 levels cleared (9), 60 deaths (48), 43 on
+  level 10 (39) and 17 elsewhere (9), the knight felled 5 times (8); from 11, 21 and 31 the same medians, no deaths either
+  way, a level's median time 359-367 s (356-369). So a quarter harder, D5's edge again (step 6 had 57; the difference is
+  inside the noise, and the extra fell at the knight, whose fight step 7 doesn't touch). Cunning shows by rank, so mostly
+  deeper: from levels 1, 11, 21 and 31 the dead stepped aside from 278, 82, 383 and 625 spells, spread out against a splash
+  in 0, 8, 34 and 391 seconds, flanked 5, 2, 12 and 38 times, feinted 2, 1, 8 and 48 times, waited by a doorway 0, 1, 9 and
+  26 times and read a charge 0, 3, 4 and 29 times; throwers took cover 244, 96, 113 and 100 times and threw over a corner
+  47, 17, 26 and 91 times; 25-86 fell back to their packs. Hazards harmed the dead 707 times from level 1 (172-413 deeper).
+  Of 450 lairs made from level 1, 144 had one way in and were given another (about a third deeper too). The dream seldom
+  stands to hold a doorway or charges an ultimate, so those two are a person's more than the dream's; the cap passed was
+  tried only with `CRAWL_WELL`.
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.
