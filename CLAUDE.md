@@ -133,6 +133,14 @@ visual only, so nothing in the simulation, the saves or the autopilot's numbers 
 turned to the props and pickups of runs I and II (its section 14, with their answers): P1-P6 are done; runs III and IV's own
 props (P7, P8) come next when the pass resumes, then the Wraith Unbound.
 
+The owner's words are planned in [`docs/PLAN-words.md`](docs/PLAN-words.md) (2 November 2026): they find the wording too
+much mine and are putting their own in place of it, CATACOMB first, the project to be renamed after. Every string a player
+sees is in an editor page (an artifact, private to the owner: its link, the database it saves to and how to republish it
+are in the plan), with profiles of the creatures, bosses, classes, spells, runes and gifts whose traits are to become
+mechanics. `make words` (`tools/words/`) gathers the strings. Nothing in the game has changed yet; after the owner's first
+pass the strings move into a catalogue the build reads. While the pass is open, don't reword strings without saying so,
+and after adding any, run `make words` and republish the editor.
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture
@@ -162,6 +170,7 @@ props (P7, P8) come next when the pass resumes, then the Wraith Unbound.
 | `src/crawl_art.c`, `src/crawl.h` | CATACOMB's palette, colormap, procedural wall textures (`T_*`) and sprites (`SP_*`), `crawl_art_level()` per-level tint and decay |
 | `src/crawl_gear.c/.h` | Spells by tier and runes by quality (`rune_tier`, `rune_from_tier`, `RUNE_EXQ`); pieces to wear (`Piece`: kind, quality, level, anointed, ability, rolled stats) and bags; rolls, names, prices, the caster's totals and their caps |
 | `tools/items.c` | `make items`: a hundred rolled wares a level as `build/items.json`, for checking names and numbers |
+| `tools/words/` | `make words`: every string CATACOMB shows a player and the profiles, as JSON for the words editor (`editor.html`, docs/PLAN-words.md) |
 | `src/hand_img.c`, `src/face_img.c`, `src/cat_img.c` | Traced bitmaps (data) |
 | `tools/host.c` | The headless test harness (Linux): PNG frames, WAV audio, benchmarks, scripted input |
 | `tools/build_site.sh` | Assembles the Pages site from `site/` and `docs/*.png`, fills `@VERSION@` and the title card |

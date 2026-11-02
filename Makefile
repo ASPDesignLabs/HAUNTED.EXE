@@ -6,6 +6,7 @@
 #   make cards  - the project page's title cards in site/cards (needs Pillow)
 #   make sheets - CATACOMB's sprite sheets in build/sheets, by rank, for approval
 #   make items  - a hundred rolled wares a level as build/items.json, for checking names and numbers
+#   make words  - every string CATACOMB shows a player, for the words editor (docs/PLAN-words.md)
 VERSION := $(shell cat VERSION)
 FILEVER := $(shell sed -E 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*/\1,\2,\3,0/' VERSION)
 PKG      = dist/HAUNTED-$(VERSION)-win64.zip
@@ -82,6 +83,9 @@ build/items: src/crawl_gear.c src/crawl_gear.h src/crawl.h tools/items.c
 items: build/items
 	./build/items > build/items.json
 
+words:
+	python3 tools/words/extract.py build/words
+
 clean:
 	rm -rf build dist/HAUNTED.scr dist/HAUNTED.EXE dist/*.zip
-.PHONY: all host scr zip smoke cards sheets items clean
+.PHONY: all host scr zip smoke cards sheets items words clean
