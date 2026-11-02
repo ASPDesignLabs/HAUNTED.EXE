@@ -1369,5 +1369,15 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   quarter above today's 48, the edge of D5's margin; steps 6 and 7 add to it, and step 8's budget is where to give some
   back. A death count "on a level whose hunt was loose" needs the flag kept until the level changes, not reset at a death:
   the first count here said 2, not 5.
+- 1.0.0b15's step 6 (lures and ambushes; harness only), against the old minds' sixteen runs: from level 1 a median of 9
+  levels cleared (9), 57 deaths (48), 37 on level 10 (39) and 20 elsewhere (9), the knight felled 7 times (8); from 11, 21
+  and 31 the same medians, no deaths either way, a level's median time 366-377 s (365-369). An ambush was built on 40 of
+  the levels played from level 1 (275 in all the starts); there 13 sprang (7 as the dream walked in, 6 as it saw the teeth)
+  and 19 went out to search because the dream shot the bait at range. Deeper, the teeth were also sprung by a gargoyle
+  come near, a tooth struck, the bait slain in the room, and once a refused set piece came hunting. 4 of the 20 deaths off
+  the knight's level came on a level with an ambush, about the rate elsewhere: the dream mostly kills the bait from afar
+  or sees the teeth first, so the ambush is a person's trial more than the dream's. Ten of the 20 were on level 3, where
+  nothing of step 6 can be (seven of them to rank-I skeletons, spread over five seeds; step 5's build had three there):
+  the noise of sixteen seeds on any one level is that large. About a fifth harder in all, inside D5's margin.
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.
