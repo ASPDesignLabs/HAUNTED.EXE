@@ -154,7 +154,10 @@ drawn to deaths, in packs of one to three). **Step 5 is built** (harness only): 
 only): lures and ambushes (kill rooms, teeth by run and room type, baits of three sorts, the gilded as bait, the signs, the
 spectres' drift). **Step 7 is built** (harness only): cunning by rank (falling back, cover, dodging, doorways, flanking and
 the loops it needs, spreading, feints, the charge read), hazards that hurt the dead, the throw over a corner, the dog at
-your back, the cap passed for a person doing well. Step 8, the budget and the mixed bands, is next.
+your back, the cap passed for a person doing well. **Step 8 is built** (harness only): one encounter budget spent on set
+pieces in place of today's placements, the rules, room types choosing, the special places, the mixed bands and the packs
+still to come (the nest, the imps' brood, sentinels), and the deep's combinations, by section 23's rollout. Step 9, the
+three new kinds (sheets first), is next.
 
 ## Working with the owner
 
@@ -1231,6 +1234,38 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   three cells beyond it, after you; `TPHOLD` line), `CRAWL_SPLASH=1` (as if a splash were always in hand), `CRAWL_WELL=1`
   (as if a person were doing well), `LAIRS level n: ...`, `EVENT dodged`, `flank`, `spread` (at most once a second),
   `feints`, `fell_back`, `covers`, `corner_throws`, `door_waits`, `charge_reads`, `hz_mob_hits`, `cap_over`.
+  **Step 8** (Part E, sections 7, 16-19, 21, 23): with the new minds `start_level` calls `place_creatures` (today's placements
+  are `place_creatures_old`, for `CRAWL_MIND=0`). A level's budget (`budget_of`, a table by run and step fitted to what the old
+  minds' levels held, so the heads on a level stay near today's; a boss's level half, outside its arena; a corrupted one two
+  in five more, in place of the extra wanderers) is spent on set pieces (`SET_*`, tagged on `Mob.set` by `set_tag`): the vaults'
+  guards and a newcomer's first showing first, then the watch, the webs, the buried, the imps, the gargoyles, the brood, the
+  file, the roost, the ambush, the hunt and the band in a shuffled order (the one this level shows first, `set_first`, at the
+  front; the ambush always before the hunt), each told how many heads it may place (`set_cap`, from what is left at the
+  level's usual rank; every placement takes `imin` of it), then posts and wanderers with the rest. A head costs by kind
+  (`KIND_COST`) and a fifth more a rank (`rank_cost`; `set_spent`). Rules: 48 heads at most; nothing set within six steps of
+  the altar, a puzzle's or a trial's door or a place to mend (`set_clear`); what killed you on a level (`last_set`, from
+  `hurt_by` and a thrower's bone) comes back a head short each time (`short_n`, by the level), and a hunt that killed you isn't
+  let loose again (`short_hunt`). Rollout gates (section 23): D2's lairs from 25, D3's harm to the dead from 31. Mixed bands
+  and packs (`PACK_IMPS`, `PACK_SENTINELS`, `PACK_BAND`; `MAXPACKS` 12; a broken pack's members go by their kind now: the
+  living scatter, hounds run for help, the dead hold their drill): the watch and the dead (from 3, `watch_dead`: two or three
+  skeletons holding the nearest room within three to nine steps of a wall skull, which its scream reaches); the nest (15,
+  `nest_make`: two or three hunting spiders overhead by a web spider's corner, which is its tripwire, `pack_call` when it
+  drops); the knight and his hounds (17, a band from `spawn_wanderer_type`: the hounds hold at four cells, not biting, till he
+  is within four of you, `pack_turns`; kill him and they run for help); the deacon's congregation (18, a band, a
+  shield-bearer in front); the brood's guard (19, two hunting spiders with her, leashed through the falling-back path: six
+  cells, two and a half once she is hurt); the roost and the shade (21, a shade keeping the roost's room); the imps' brood
+  (23, by one vent, splitting to either side to lob and falling back into the vent's heat); sentinels (27, `garg_wake` wakes
+  the others within twelve cells; grit falls from them now and then); the Wraith's chill (9, `wraith_chill` at its coming and
+  each wail: packs within sixteen cells keep to their posts fifteen seconds, `Pack.chill_t`, till struck); bands of every kind
+  met (29, `place_band`: a knight, deacon or ghoul with escorts of another kind, in a fossil hall or the throne if there is one,
+  holding it one time in two) and of three kinds (33); a hunt that drives you into an ambush (37: with an ambush on the level,
+  hounds or spiders wait ten to eighteen steps behind the start and are let loose at a minute or so); and what you passed by
+  gathers in the exit's room once you see it (39, `gather_exit`, `G.gathered`). Room types choose (section 18): a file holding
+  a room takes an ossuary, chapter house or fossil hall first, then a lair; a roost an undercroft or geode, then a lair, then
+  the dimmest; a nest a gallery or stope's webs first; a knights' vault's posts are shield-bearers (knights once the descent
+  comes round). Pockets: their creatures near one another of a kind join a pack, ranks kept (`pack_add`). Debug:
+  `CRAWL_BUDGET=f` (the budget times f), `SETS level n: budget, spent, heads, each set piece's heads and cost`, `PACKS` lines
+  for each new piece, `GATHER level n`, `EVENT nest_calls`, `chills`, `sentinels_woke`, `leashed`, `gathered`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

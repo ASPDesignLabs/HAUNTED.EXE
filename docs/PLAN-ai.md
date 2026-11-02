@@ -1013,6 +1013,24 @@ The order of the steps is the building's; what a person meets, and where, is sec
    the runs' own that hurt them already (at one and a half times the share) were left as they were. The cap is passed for a
    fight begun after five quiet seconds.
 8. **The budget** (Part E): set pieces, the rules, room types, the special places; the mixed bands (section 7).
+   *Built* (harness only). Choices of mine: the budget is a table by run and step fitted to what the old minds' levels held
+   (a head's cost by its kind, a fifth more a rank), not section 16's first guesses (10 rising to 24), since the rule that
+   counts is the heads on a level; with it they are within about a tenth of today's on every level, and a boss's level holds
+   half outside its arena. The set pieces go in a shuffled order each level, the one the rollout shows first at the front and
+   the ambush before the hunt; each is told how many heads it may place, and posts and wanderers take what is left. The rollout
+   of section 23 gates what was built before it: D2's lairs and loops from 25, D3's harm to the dead from 31. The packs still to
+   come from section 6 came here with the bands: the nest (its web spider the tripwire; the webs hang in the halls' corners, so
+   the nest is a hall's as often as a gallery's), the imps' brood (all by one vent), sentinels (they wake each other within
+   twelve cells). The bands: the knight's hounds hold at four cells till he is within four of you; the congregation puts a
+   shield-bearer before his dead; the brood's guard is leashed at six cells, two and a half once she is hurt; the shade keeps
+   the roost's room from 21; the Wraith's wail calms packs within sixteen cells for fifteen seconds, till one is struck. Bands of
+   every kind met (29) are a knight, a deacon or a ghoul with two or three of another kind met, of two others from 33, in a
+   fossil hall or the throne when there is one. The hunt that drives you (37) waits behind you near the start, on a level with
+   an ambush, and comes on your trail after a minute or so. Level 39's open place takes the suggestion: what your trail came
+   within four cells of, still calm, goes to the exit's room when you first see the exit. Pockets get packs of a kind from what
+   is already there (no more heads). One fault found on the way and mended for both minds: a stope's firedamp, which hangs
+   until fire sets it off, was marked as harm, so the dream waited at the doorway it filled until it gave the level up; it is
+   marked as what is always there now, crossed when it must be.
 9. **The new kinds** (section 22): sheets first, for the owner's eye, then the Whipper-In, the Sexton and the Lightless
    in the game, with their pages.
 10. **The dream's counters** (Part G).
