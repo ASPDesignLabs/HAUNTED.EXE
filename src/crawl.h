@@ -265,6 +265,11 @@ enum {
     SP_TOMB_ROUND_2, SP_TOMB_CROSS_2, SP_TOMB_OBELISK_2, SP_TOMB_BROKEN_2,
     SP_CHAINS_2, SP_ROOTS_2, SP_COBWEB_2, SP_WEBSHEET_2,   /* what hangs, their other looks */
     SP_PILLAR_2, SP_URN_2, SP_URN_3,            /* stone and floor, their other looks */
+    /* the three new kinds (1.0.0b15, docs/PLAN-ai.md section 22) */
+    SP_WHIP_A, SP_WHIP_B, SP_WHIP_HORN, SP_WHIP_CRACK, SP_WHIP_D,     /* the Whipper-In: walking, the horn, the whip's crack, fallen */
+    SP_SEXTON_A, SP_SEXTON_B, SP_SEXTON_RING_A, SP_SEXTON_RING_B, SP_SEXTON_ICE, SP_SEXTON_D,   /* the Sexton: walking, ringing (up, down), the bell frozen, fallen */
+    SP_LIGHT_A, SP_LIGHT_B, SP_LIGHT_STRIKE, SP_LIGHT_LISTEN, SP_LIGHT_D,   /* the Lightless: walking, the strike, listening, shattered */
+    SP_WHIP_SA, SP_WHIP_SB, SP_SEXTON_SA, SP_SEXTON_SB, SP_LIGHT_SA, SP_LIGHT_SB,   /* their side views, walking, facing right */
     NSPR
 };
 

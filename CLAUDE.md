@@ -157,7 +157,8 @@ the loops it needs, spreading, feints, the charge read), hazards that hurt the d
 your back, the cap passed for a person doing well. **Step 8 is built** (harness only): one encounter budget spent on set
 pieces in place of today's placements, the rules, room types choosing, the special places, the mixed bands and the packs
 still to come (the nest, the imps' brood, sentinels), and the deep's combinations, by section 23's rollout. Step 9, the
-three new kinds (sheets first), is next.
+three new kinds, has its sheets drawn (`whipper.png`, `sexton.png`, `lightless.png`, `sides5.png` on `make sheets`; copies in
+`docs/artpass/review/`), waiting for the owner's eye before the kinds go into the game.
 
 ## Working with the owner
 

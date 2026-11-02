@@ -33,7 +33,9 @@ nest, the imps' brood, sentinels and the deep's combinations; the heads on a lev
 level 1 the new minds died 58, 68 and 60 times in three batches of sixteen against the old minds' 53 and 47: about a fifth to
 a quarter more, inside D5's margin with nothing to spare, and the last batch, as committed, has the dream's engaged cap one
 less (A3, from Part G, taken now). From 11, 21 and 31 one death each way. The steps after this one add no difficulty for the
-dream but the new kinds (9), and step 10's counters help it.** Written on
+dream but the new kinds (9), and step 10's counters help it. Step 9's sheets are drawn, for the owner's eye, before the
+kinds go into the game: `make sheets`' whipper.png, sexton.png, lightless.png and sides5.png (copies in
+`docs/artpass/review/`).** Written on
 `claude/laughing-cori-a3jk29` from 1.0.0b13; brought onto its work branch, `claude/youthful-mayer-deaa11`, from main
 once the art pass so far had been merged there (1 November). The art pass is visual only, and the numbers below were
 checked again on main: none has moved. The owner asked for creatures
@@ -1043,6 +1045,32 @@ The order of the steps is the building's; what a person meets, and where, is sec
    less now (A3, from Part G); with it, 60.
 9. **The new kinds** (section 22): sheets first, for the owner's eye, then the Whipper-In, the Sexton and the Lightless
    in the game, with their pages.
+   *The sheets are drawn* (2 November), in the art pass's hand (`docs/InitialArtPass.md`), waiting for the owner's eye; nothing
+   of the three is in the game yet. The Whipper-In (`spr_whipper`, `whipper_dress`, `spr_whip_side`; `PF_BONE`): a tall
+   skeleton, the small skull under a black velvet hunting cap with its peak, a pale stock at the throat, what is left of a
+   scarlet hunting coat (faded, stained, holed, open over the ribs, its skirts parted and its tails behind), top boots with
+   brown cuffs and a spur, an ox horn banded in brass on a cord across his chest, and a whip of knotted sinew trailing from
+   its stock; poses: walking, the horn to his jaw, the whip thrown out overhead and cracking, fallen. His eyes ember. Ranks:
+   II mould and the coat in strips, III frost and a notch out of the skull, IV an arrow in the ribs and old blood dried
+   black on the scarlet, V char, the dead's cloak, an iron chain of office and a stag's antlers grown through the cap,
+   gilded gold braid at the coat's edges and a death-mask. The Sexton (`spr_sexton`, `sexton_dress`, `spr_sexton_side`;
+   `PF_HIDE`, the coat taking the rank): bent under a hump, a battered slouch hat with a torn brim, a hand-drawn face (an
+   old man long dead: a long nose, the cheeks fallen in, a candle's light low in each sunken socket, a lipless mouth and a
+   few teeth, grey hair), a long coat with a caped collar scalloped at its edge, black stockings and buckled shoes, his
+   spade over his shoulder with its blade rusted and caked behind him, and a bronze handbell on a rope (in the gold's dark
+   steps, verdigris on it); poses: walking, ringing hard (the bell swung up, then down, with its ring drawn either side),
+   walking with the bell frozen (rime and icicles), fallen. Ranks: II mould and the hem torn, III frost, IV blood soaked
+   up the hem, V the coat charred and the keys of the dead on an iron ring at his belt, gilded gold thread at the edges
+   and gold buttons. The Lightless (`glass_shard`, `glass_head`, `spr_lightless`, `lightless_dress`, `spr_light_side`;
+   `PF_CHITIN`, so its dark takes the rank and rank V goes pale): black glass cut in facets (each shard a lit facet, a
+   face and a dark one, creased between), its edges catching the light in pale cyan with a white glint here and there,
+   no eyes and no face, a crest of shards swept back off its crown, a spike off each shoulder, a broad keel of a chest
+   narrowing to a waist a hand could close round, arms to the knee with fingers of three long spikes, a spur behind each
+   knee; poses: walking, the strike (both arms up), listening (still, the head turned and tilted, a hand up feeling the
+   air), shattered. Ranks: II a dull film and scuffed edges, III rime and a crack across the chest, IV more cracks and blood
+   dried on its fingers, V soot and an iron collar on a chain, gilded mended with gold as broken pots are. Choices of
+   mine: the bell in the gold's dark steps (the only bronze the palette has; the wares and the gilded use the bright
+   ones); the Lightless records no eyes, so the eye pass will leave it be, as the plan has it.
 10. **The dream's counters** (Part G).
 11. **Showing it** (Part H): sounds, captions, the bestiary, the Codex, the record, achievements; the art.
 12. **The checks**: the balance runs (D5), ASan on long dream and scripted sessions, `bench` (the new fields must not
