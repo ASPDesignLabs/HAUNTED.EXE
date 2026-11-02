@@ -977,6 +977,16 @@ The order of the steps is the building's; what a person meets, and where, is sec
    the whole level (they stopped at 48 steps, too short for a hunt from the far end).
 6. **Lures and ambushes** (section 12): kill rooms, teeth, baits (treasure among them, section 30), tells; the
    spectres' drift.
+   *Built* (harness only). Choices of mine: how often (L4 gave only the most): from level 7, half of run I's and II's levels,
+   two thirds of III's and IV's, a second one time in four from run III, when a room fits (about seven levels in ten have
+   one); a kill room is clear of the start by ten steps and of the exit by eight (the plan's twelve, measured from the
+   room's nearest cell, left too few rooms), never the wing, a trial's room, a vault, or holding the exit, a key, the altar
+   or a place to mend, and shutting it must leave the exit and every key reachable. The bait is a creature two times in
+   three and treasure (a chest, or a potion one time in three) the rest; it backs away at 1.8 cells a second; it is lost
+   after eight seconds out of its sight (six while leading), and goes back to tease from where it last saw you. The signs
+   are the decorations there are (run I bones, II a puddle, III and IV rubble) until step 11 draws better ones; the torch is
+   snuffed in its light only (its flame still shows). Gargoyles among the teeth look like statues, so they spring a trap
+   only within 2.5 cells, not by being seen. A spectre drifts to a waiting ambush's door one time in two.
 7. **Cunning by rank** (sections 13-15): dodging, cover, doorways, flanking and the loops it needs, spreading, the
    charge, hazards and the dead; the throw over a corner and the dog at your back (section 30); the cap passed when a
    person is doing well (section 27).

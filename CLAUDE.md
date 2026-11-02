@@ -150,8 +150,9 @@ creatures, doors that sound like their run, the places to mend; see *How the dea
 on how many are in a fight at once; the file of the Order, the hounds, the roost, the wake. **Step 4 is built** (harness
 only): callers (the wall skull's scream, the gargoyle's shriek, the deacon's call, the roost's cry) and scavengers (ghouls
 drawn to deaths, in packs of one to three). **Step 5 is built** (harness only): the caster's trail, hunts let loose on it
-(the Order's watch, hounds, hunting spiders), the shade's stalk, and the calm's change (H2). Step 6, lures and ambushes,
-is next.
+(the Order's watch, hounds, hunting spiders), the shade's stalk, and the calm's change (H2). **Step 6 is built** (harness
+only): lures and ambushes (kill rooms, teeth by run and room type, baits of three sorts, the gilded as bait, the signs, the
+spectres' drift). Step 7, cunning by rank, is next.
 
 ## Working with the owner
 
@@ -1164,6 +1165,33 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `CRAWL_HUNTK=k` (its kind: 1 the watch, 2 hounds, 3 spiders), `CRAWL_HUNTTRACE=1` (each hunter and shade once a second:
   where, how it knows you, the scent under it, the steps to you and to the pick-up), `PACKS level n: hunt of ...`, `EVENT
   hunt_begin`, `hunt_scent`, `hunt_lost`, `shade_fades`, `shade_strikes`; the minds line's `hunt=kind/loose/trailing`.
+  **Step 6** (section 12, and section 30's glint): ambushes (`Ambush` in `G.amb`, two a level at most, `G.namb`; `place_ambushes`
+  in `start_level`, in a wanderer's place; from level 7, half of run I's and II's levels and two thirds of III's and IV's,
+  a second one time in four from run III; never a boss's or a pocket). A kill room (`amb_make`): not a vault, the wing or
+  the trial's room, no exit, key, altar or place to mend in it, its nearest cell ten steps from the start and eight from
+  the exit, one or two ways in, and with it shut (`amb_bfs`) the exit and every key still reachable (rule 3); its way in
+  the opening nearest the start (`ox/oy` outside, `ix/iy` inside), its far side (`fx/fy`). Its teeth (`TEETH_*` by run and
+  room type, `amb_teeth`: run I shield-bearers, or the buried in a burial vault; II the Drowned in a cistern or canal (a
+  puddle each), a knight and a shield-bearer past 13, or shield-bearers; III hunting spiders overhead (a gallery or stope)
+  or ghouls (a charnel pit); IV gargoyles on plinths (a glass hall) or shades), along the wall either side of the way in,
+  `Mob.amb` 1 + the ambush, posted and turned to the doorway, in a pack: they wait doing nothing (`update_mob`'s early
+  return; the buried don't rise of themselves) until it springs (`amb_tick`: you two cells in, a tooth in your sight
+  within nine cells, a gargoyle within 2.5; or a tooth struck, or the bait slain in the room: `amb_spring`, `amb_release`
+  (out of the earth, off the plinth, down from the ceiling), `SFX_STINGER`, *AN AMBUSH* once a run of ten, `RUN.amb_runs`,
+  not saved). The bait (two times in three; `Mob.bait_st`, `B_*`): the run's straggler (a skeleton that throws once,
+  `Mob.bthrew`), a hound (a yelp), a bat, an imp, in a hall six to twelve steps from the way in; seeing you it shows itself
+  (`B_SHOW`, its tell) and waits; come within six cells or strike it and it backs away (`B_LURE`: to the far side at 1.8
+  cells a second, facing you) and turns there (`B_HOME`, the fight). Lose it for eight seconds (or six while it leads)
+  and it goes back to tease from where it saw you last (`Ambush.teases`); the third time the whole set piece comes hunting
+  (`amb_out` with hunting). Slain outside the room, the teeth come out to search where it fell (`amb_out`). Else a glint:
+  a chest or a potion two cells in from the way in, out of the level's totals. The level's gilded, one time in two
+  (`amb_gild`, `B_GILD`), runs to the kill room when hurt instead of away. The sign (`TELL`: run I bones, II a puddle, III
+  and IV rubble) by the door outside; a run's first ambush a torch by its door snuffed (`Ambush.snuff`, a tenth of its
+  light in `build_lightmap`) or a second sign. A spectre drifts to an unsprung ambush's door first, one time in two
+  (`update_ghost`'s `sub` 7), and hangs there harmless. Debug: `CRAWL_AMBUSH=1` (one on every level that can have one,
+  from level 1), `CRAWL_AMBT=k` (its teeth, `TEETH_*`), `AMBUSH level n: ...` (the room, the way in, the teeth, the bait, the
+  signs; or why none fitted), `EVENT ambush_sprung <teeth> <why>`, `ambushes_out`, `ambushes_refused`, `bait_seen`,
+  `bait_run`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are
