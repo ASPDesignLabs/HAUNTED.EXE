@@ -1091,6 +1091,12 @@ The order of the steps is the building's; what a person meets, and where, is sec
    sixteen; the Lightless puts out only your wisp, never the altar's. A fault found on the way: a creature whose way
    somewhere was stood in waited there for ever (the first Sexton on his level stood fourteen steps from his first turn the
    whole level, behind one on its post in a hall a cell wide); after three seconds it now gives the place up.
+   *Checked* (sixteen seeds each start, the new minds): from level 1, 64 deaths (44 on level 10), against step 8's 58, 68 and
+   60; from 11, 2; from 21 and 31, none, a level's median time 371 s. From 21 the Whipper-In was met on 22 levels of 113 and the
+   Sexton on 17; from 31 the Lightless on 16 of 107. Horns 116, whip cracks 395, hounds run wild 56; the Sexton's bell 579 times
+   at his turns and 107 hard, frozen 11 times; the Lightless led by the dream's lantern 1,844 times, struck it 35 times. No harder
+   for the dream than step 8: it kills the huntsman and the bell-ringer from afar, as it does the deacon. They are a person's
+   trial more than the dream's, as the ambush was.
 10. **The dream's counters** (Part G).
 11. **Showing it** (Part H): sounds, captions, the bestiary, the Codex, the record, achievements; the art.
 12. **The checks**: the balance runs (D5), ASan on long dream and scripted sessions, `bench` (the new fields must not

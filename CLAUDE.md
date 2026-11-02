@@ -1512,5 +1512,19 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   minds' 256 and 299 s (one by a sluice), untouched. Of the new pieces, from level 31: 172 nest calls, 72
   sentinel wakings, 532 times a brood's guard went back to her, 482 packs chilled by the Wraith's wail. Mixed bands placed from
   level 1 (sixteen runs): 72 watches with their dead; the others come deeper.
+- 1.0.0b15's step 9 (the Whipper-In, the Sexton and the Lightless; harness only), the new minds on sixteen seeds (1-31 odd) from
+  each start: from level 1 a median of 9 levels cleared, 64 deaths (44 on level 10, 20 elsewhere), the knight felled 4 times,
+  against step 8's batches of 58, 68 and 60 (21, 19 and 27 off level 10): nothing new comes before 22, so the change there is the
+  blocked-way mend and the noise. From 11: 2 deaths, median level 17 reached. From 21 and 31: no deaths, median levels 27 and 37,
+  a level's median time 371 s (359-367 at step 8). From 21 the Whipper-In was met on 22 of 113 levels and the Sexton on 17; from
+  31 the Lightless on 16 of 107, the Whipper-In on 9. In those starts the huntsman sounded his horn 116 times, cracked his whip 395
+  times and lashed 6, and 56 hounds ran wild; the Sexton rang at his turns 579 times and hard 107, heard 140 times, and his bell was
+  frozen 11 times; the Lightless felt the dream's lantern (it takes the Lantern of the Dead with its deep starts' cornerstones)
+  1,844 times, went to a wisp or a fire 6, stood lost 4, struck 35 times and put out 2 wisps. The new kinds come mostly as
+  wanderers (and the respawns), so how often each is met follows the budget's remainder; untuned. The blocked-way mend fired about
+  9,300 times in the runs from level 1 and 10,000 from 31: a creature stood in its way had been common, not rare. Two of the 64
+  runs (from 11) spent over 200 s within a cell of one place, 337 s on level 11 and 206 s on level 14, both levels with a sluice,
+  as step 8's longest were; a rerun of the first seed didn't reproduce it (harness runs part ways by their clock-born run ids).
+  Still open. ASan clean on three sessions with the new kinds (the huntsman's pack, the Sexton met, a rank V Lightless).
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.
