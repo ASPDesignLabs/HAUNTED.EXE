@@ -1085,7 +1085,7 @@ The order of the steps is the building's; what a person meets, and where, is sec
    nine cells lit and five in the dark; your lantern lit or a cast's flare within sixteen cells as good as sight; a wisp or a
    fire within ten cells of you, a place to go; 1.4 times its pace while it knows, 0.6 roaming; half the hearing; a chime now
    and then for its only sound; at a place with nothing it stands and listens five to seven seconds; a wisp it reaches goes
-   out. Choices of mine: the Whipper-In's horn sounds the alarm once a level, as the other callers do (his later calls set
+   out. Choices of mine: the Whipper-In's horn sounds the alarm once a huntsman, as each caller's does (his later calls set
    only his own pack on you); the Sexton's ring goes to everything that hears it, not only packs; "light near you" is taken
    as within ten cells of you, and the torches you stand by count as being lit (sight at nine cells), not as felt from
    sixteen; the Lightless puts out only your wisp, never the altar's. A fault found on the way: a creature whose way
