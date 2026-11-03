@@ -10,6 +10,9 @@
 
 enum { SND_PROG_NONE = 0, SND_PROG_HAUNT, SND_PROG_CRAWL };
 
+/* CATACOMB's pieces (docs/PLAN-music.md): the old march, a piece for each run, her hall's, the menus' */
+enum { MU_MARCH, MU_CRYPTS, MU_CATACOMBS, MU_HOLLOWS, MU_DEEP, MU_MERCHANT, MU_MENU, MU_COUNT };
+
 enum {
     SFX_BEEP_POST,      /* PC-speaker POST beep                      */
     SFX_BEEP_ERR,       /* low double beep                           */
@@ -116,6 +119,12 @@ void snd_set_muffle(int on);                /* CRAWL: the void's silence, everyt
 void snd_set_trial(int on);                 /* CRAWL: a trial under way (1.0.0b13), the march quicker, its drums driving */
 void snd_set_boss(int theme, int wave);     /* CRAWL: a boss's waltz, 1-4 (0 fades it out); wave 1 while its adds are out */
 void snd_boss_fall(void);                   /* the waltz fades and the bell tolls three times */
+void snd_set_track(int mu);                 /* CRAWL: the run's piece, MU_MARCH..MU_DEEP; the same one again runs on */
+void snd_set_place(int place);              /* CRAWL: 0 the crypt, 1 her room, 2 her back rooms (her piece, thinned) */
+void snd_set_menu(int on);                  /* CRAWL: a menu open (2: a short look, after half a second); the run's piece waits */
+void snd_set_fight(int level);              /* CRAWL: 0 calm, 1-3 a fight, growing (layers, the pace) */
+void snd_set_frail(int on);                 /* CRAWL: failing: the music muffled and thinned, a heartbeat */
+void snd_set_mix(float music, float effects); /* the Music and Effects volumes, 0..1, under the master */
 void snd_set_latency(int frames);           /* device latency, for visual sync */
 void snd_render(int16_t *out, int frames);  /* interleaved stereo */
 void snd_advance(double seconds);           /* run the clock with no audio device */

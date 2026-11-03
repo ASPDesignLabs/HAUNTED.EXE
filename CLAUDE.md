@@ -197,6 +197,14 @@ release from main without a bump, and Pages serves `/play/` from it). The link i
 beside the download panel's small print, where the owner asked. Only 1.0.0b14 is
 built and tested for the browser. Its *What was built* says what was checked and what wasn't.
 
+The music is planned in [`docs/PLAN-music.md`](docs/PLAN-music.md) (3 November, settled with the owner the same day; on
+`claude/vibrant-keller-bdeun7` from main at 1.0.0b14 with the browser's build): a piece for each run, her hall's, the menus'
+lullaby in each run's guise, a fight's layers and quickening, the failing's muffle and heartbeat, Music and Effects sliders;
+the march retired. To go out as **1.0.0b15** (a default the owner is to confirm), the minds' showing and the rest of the art
+pass moving up one. Steps 1-2 (the engine and the pieces, in `src/snd.c` after the bosses' waltzes) are built, harness only;
+the game still plays the march until the owner has heard them (`sh tools/music.sh` renders them into `build/music/`). Its
+*hand-off log* says where it stands.
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture
@@ -231,6 +239,7 @@ built and tested for the browser. Its *What was built* says what was checked and
 | `tools/gallery.sh`, `docs/gallery/` | The page's *Then and now*: the same moments in 1.0.0b1, 1.0.0b13 and this build, each from its own build of the harness (old ones in worktrees under `build/gallery/`), as single 320x200 frames; `build_site.sh` copies them to `img/gallery/` |
 | `tools/uisheet.c`, `tools/uishots.sh` | The screens' sheet for approval (`make sheets`; `build/uisheet fit` checks the pane's text fits), and every screen from the harness as contact sheets |
 | `tools/host.c` | The headless test harness (Linux): PNG frames, WAV audio, benchmarks, scripted input |
+| `tools/music.sh` | CATACOMB's pieces for the ear (docs/PLAN-music.md): each piece, and each run's through a fight, the failing and a menu, into `build/music/` |
 | `src/web_main.c`, `web/` | The browser's shell (docs/PLAN-web.md): the game's exported door, and the play page, its script and the sound worklet; `make web` (Emscripten) builds `build/web`, `make webzip` the release's `HAUNTED-<version>-web.zip`; `HVS_WEB` makes Space the cast key in `scene_crawl.c` |
 | `tools/web_smoke.js` | The browser build's smoke test in Playwright's Chromium (`node tools/web_smoke.js <site> [secs] [shots]`; CI runs it) |
 | `tools/build_site.sh` | Assembles the Pages site from `site/` and `docs/*.png`, fills `@VERSION@` and the title card |
@@ -261,6 +270,9 @@ build/host shot  <haunt|crawl> <t1,t2,...> <prefix> [scale]   # PNGs; default sc
 build/host wav   <scene> <seconds> out.wav [sfx_id@time ...]   # sfx_id: the SFX_* number (SFX_SPLASH is 61)
 build/host dump  <scene> <seconds> <prefix> <every_n_s>       # frames and audio together
 build/host bench <scene> <seconds>                            # ms per frame, every frame drawn
+build/host music <piece> <seconds> out.wav [event@t ...]    # a piece alone (march, crypts, catacombs, hollows, deep, merchant,
+                                                              # menu1-4) through fight0-3, frail/well, menu/back, trial/untrial,
+                                                              # place0-2, run1-4 (docs/PLAN-music.md)
 build/host apl   <scene> <seconds>                            # average picture level; fast (draws twice a second), good for long sims;
                                                               # plays HOST_INPUT (it didn't before step 6 of PLAN-ui), but writes no slots
 ```
