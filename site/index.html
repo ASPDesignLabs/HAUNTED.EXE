@@ -254,6 +254,34 @@
   details > .fold { display: flex; flex-direction: column; gap: 14px; padding: 2px 0 22px 22px; min-width: 0; }
   @media (max-width: 520px) { details > .fold { padding-left: 0; } }
   @media (prefers-reduced-motion: reduce) { summary::before { transition: none; } }
+  /* the gallery: thumbnails at the game's own pixels, a viewer that opens one large */
+  .set { display: flex; flex-direction: column; gap: 12px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tabs button { font-family: var(--font-bios); font-size: 16px; background: var(--surface); color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 6px 14px; cursor: pointer; }
+  .tabs button[aria-selected="true"] { color: var(--gold); border-color: var(--gold); }
+  .tabs button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .set[hidden] { display: none; }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .set h3 { margin: 8px 0 0; font-family: var(--font-bios); font-size: 18px; font-weight: 400; letter-spacing: .03em; color: var(--fg); }
+  .set > p { margin: 0; }
+  .cmp { display: flex; flex-direction: column; gap: 6px; }
+  .cmp-cap { margin: 0; font-size: 15px; color: var(--muted); }
+  .cmp-row { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .shot { all: unset; cursor: zoom-in; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .shot img { display: block; width: 100%; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; border-radius: 4px; background: var(--scr-black); border: 1px solid var(--line); }
+  .shot span { font-family: var(--font-bios); font-size: 14px; color: var(--muted); letter-spacing: .02em; overflow-wrap: anywhere; }
+  .shot:hover img, .shot:focus-visible img { border-color: var(--gold); }
+  .shot:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
+  figure img.zoom { cursor: zoom-in; }
+  .viewer { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); padding: 12px; max-width: min(96vw, 1300px); width: 100%; }
+  .viewer::backdrop { background: rgba(5, 4, 8, .88); }
+  .viewer img { display: block; width: 100%; height: auto; max-height: 76vh; object-fit: contain; image-rendering: pixelated; image-rendering: crisp-edges; background: var(--scr-black); }
+  .viewer .v-cap { margin: 10px 2px 0; font-size: 15px; color: var(--muted); }
+  .viewer .v-nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; }
+  .viewer button { font-family: var(--font-bios); font-size: 16px; background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 6px 14px; cursor: pointer; }
+  .viewer button:hover, .viewer button:focus-visible { border-color: var(--gold); outline: none; }
+  @media (max-width: 520px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .shot span { font-size: 12px; } }
 </style>
 </head>
 <body>
@@ -320,7 +348,7 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
         <img src="img/catacomb_fight.png" width="320" height="200" alt="CATACOMB: a fireball strikes a skeleton down a hall of dressed ashlar with a vault of small stones overhead and bones on the setts; the caster's hand is raised in the foreground and the hooded portrait shows at the lower left">
         <h3>CATACOMB</h3>
         <p class="spec">Mode 13h, 320&times;200, 256 colours</p>
-        <p>A Catacomb 3-D style crawl through crypts generated for each level: halls two and three cells wide, big chambers and colonnades, hung with chains, hooks, gibbet cages and chandeliers. Forty named levels come in four runs of ten, from the Crypts down to the Deep, each a place of its own in its own stone, rotting further towards its tenth, where a boss waits in an arena of its own. The caster shops at the merchant, a cat on a treasure chest, for spells and things to wear that are rolled like loot, and takes its runes from a shrine across the room, for Cursed Coins. She also sells a map that fills in as you walk, and turns what you have slain and found into Levels of Atonement, points to spend on the caster. Then it fights twenty kinds of creature with nine attack spells and nine runes, opening colour-coded vaults and hidden walls on the way to a rune-sealed exit. Some of those walls open on chains of places that shouldn't be under a crypt at all: the Backrooms, and Severance. Will-o'-wisps fly ahead to the way out; Black Altars send their own to the secrets. Each run has hazards of its own in its walls and rooms; on its even levels a sealed wing opens only to a puzzle worked out in the world, and from the third level a door marked with skull and bones holds a trial against an hourglass. Play it yourself and death costs: only the merchant's ledger keeps what you have, and her hall, with the bosses' gifts in it, is what you keep when you fall.</p>
+        <p>A Catacomb 3-D style crawl through crypts generated for each level: halls two and three cells wide, big chambers and colonnades, hung with chains, hooks, gibbet cages and chandeliers. Forty named levels come in four runs of ten, from the Crypts down to the Deep, each a place of its own in its own stone, rotting further towards its tenth, where a boss waits in an arena of its own. The caster shops at the merchant, a cat on a treasure chest, for spells and things to wear that are rolled like loot, and takes its runes from a shrine across the room, for Cursed Coins. She also sells a map that fills in as you walk, and turns what you have slain and found into Levels of Atonement, points to spend on the caster. Then it fights twenty-three kinds of creature, every one drawn by hand and every one thinking for itself, with nine attack spells and nine runes, opening colour-coded vaults and hidden walls on the way to a rune-sealed exit. Some of those walls open on chains of places that shouldn't be under a crypt at all: the Backrooms, and Severance. Will-o'-wisps fly ahead to the way out; Black Altars send their own to the secrets. Each run has hazards of its own in its walls and rooms; on its even levels a sealed wing opens only to a puzzle worked out in the world, and from the third level a door marked with skull and bones holds a trial against an hourglass. Play it yourself and death costs: only the merchant's ledger keeps what you have, and her hall, with the bosses' gifts in it, is what you keep when you fall.</p>
       </div>
     </div>
   </section>
@@ -367,19 +395,19 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
       <table>
         <thead><tr><th>Keys</th><th>What they do</th></tr></thead>
         <tbody>
-          <tr><td class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td><td>Walk and strafe. The arrow keys work too; left and right turn. Shift runs. Tap one twice for Swift Dodge, once the Hexed Totem has taught it.</td></tr>
+          <tr><td class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td><td>Walk and strafe. The arrow keys work too; left and right turn. Hold Shift to sprint forward while its meter lasts. Tap one twice for Swift Dodge, once the Hexed Totem has taught it.</td></tr>
           <tr><td class="keys"><kbd>MOUSE</kbd></td><td>Turn, the way Doom does. There is no looking up or down.</td></tr>
           <tr><td class="keys"><kbd>CLICK</kbd><kbd>CTRL</kbd></td><td>Cast the spell in hand where you look. Lightning and Soul Drain catch the nearest creature near the middle of the view. Hold it to charge a line's ultimate, or to keep Soul Tether on; a tap casts the spell.</td></tr>
           <tr><td class="keys"><kbd>RIGHT CLICK</kbd></td><td>Use the boss ability readied: Tangled Web, Grave Call or Wraithwalk.</td></tr>
           <tr><td class="keys"><kbd>1</kbd>&ndash;<kbd>7</kbd></td><td>Choose a line's spell: Fire, Frost, Lightning, Poison, Spirit, Physical, and the BFS9000. The wheel works too, and skips lines not open.</td></tr>
-          <tr><td class="keys"><kbd>E</kbd><kbd>SPACE</kbd></td><td>Open the door ahead, unlock a vault, press a cracked wall, step through the exit runes, drink at a boss's font, kindle a brazier, buy from the merchant or open her menu, or use whatever is before you: the Rune Shrine, the Hexed Totem, the Compendium, the Repository, a gravestone, the Accursed Portal, the Lampstand, the Dead Bell, the Weeping Font, a Black Altar or its wisp, a visportal or a water cooler. Take, set down, turn, pull, light, strike or read a puzzle's or a trial's things; search a thing that may hide the level's written answer; use a Black Shrine.</td></tr>
+          <tr><td class="keys"><kbd>E</kbd><kbd>SPACE</kbd></td><td>Open the door ahead, unlock a vault, press a cracked wall, step through the exit runes, drink at a boss's font, kindle a brazier, buy from the merchant or open her menu, or use whatever is before you: the Rune Shrine, the Hexed Totem, the Compendium, the Repository, a gravestone, the Accursed Portal, the Lampstand, the Dead Bell, the Weeping Font, a Black Altar or its wisp, a visportal or a water cooler, or a place to mend in the wall (keep still while it mends you). Take, set down, turn, pull, light, strike or read a puzzle's or a trial's things; search a thing that may hide the level's written answer; use a Black Shrine.</td></tr>
           <tr><td class="keys"><kbd>Q</kbd></td><td>Ready the next boss ability. At a ware in the merchant's room, hold it for your next visit, for a quarter of its price.</td></tr>
           <tr><td class="keys"><kbd>TAB</kbd></td><td>Your wardrobe: W and S pick a place, worn or in the bag, and Enter moves a piece between them. A and D turn to your totals and your lines, then the cornerstones, the Alignment's tree, the elements, and the documents found and read on the level.</td></tr>
           <tr><td class="keys"><kbd>B</kbd></td><td>The bestiary and your achievements. A and D turn the pages, W and S choose a rank.</td></tr>
           <tr><td class="keys"><kbd>C</kbd></td><td>The Codex of Affixations: what everything you have known does.</td></tr>
           <tr><td class="keys"><kbd>M</kbd></td><td>The map, once you have bought it, while you walk on. The arrow keys pan it; Space brings it back to you.</td></tr>
           <tr><td class="keys"><kbd>MOUSE</kbd>&harr;</td><td>Turn hard one way and back, again and again (or strafe left and right) to shake off a bat that has latched on.</td></tr>
-          <tr><td class="keys"><kbd>L</kbd></td><td>The wisps you can summon now, and their price. W and S choose, Enter casts, Space sets a tap of L to cast that one; then holding L brings the list back.</td></tr>
+          <tr><td class="keys"><kbd>L</kbd></td><td>The wisps you can summon now, and their price. W and S choose, Enter casts, Space sets a tap of L to cast that one; then holding L brings the list back. With the Lantern of the Dead, holding L shutters or lights it, and the list has a row for it.</td></tr>
           <tr><td class="keys"><kbd>H</kbd></td><td>A look at the status bar while it is tucked away.</td></tr>
           <tr><td class="keys"><kbd>ESC</kbd></td><td>Ask to leave. The crypt will argue. From here you can also sleepwalk, open the ledger, or begin a new run from nothing, when she asks what you were.</td></tr>
         </tbody>
@@ -395,7 +423,7 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
             <table>
               <thead><tr><th>Pad</th><th>In the crypt</th><th>In a menu</th></tr></thead>
               <tbody>
-                <tr><td class="keys"><kbd>L-STICK</kbd></td><td>Walk and strafe, slower as it leans less. Click it to run until you let go.</td><td>Up, down, left, right</td></tr>
+                <tr><td class="keys"><kbd>L-STICK</kbd></td><td>Walk and strafe, slower as it leans less. Click it to sprint until it stops leaning forward; another button can be chosen from the question at Esc.</td><td>Up, down, left, right</td></tr>
                 <tr><td class="keys"><kbd>R-STICK</kbd></td><td>Turn, faster the further it leans.</td><td></td></tr>
                 <tr><td class="keys"><kbd>RT</kbd><kbd>LT</kbd></td><td>Cast (hold to charge); use the boss ability readied.</td><td></td></tr>
                 <tr><td class="keys"><kbd>RB</kbd><kbd>LB</kbd></td><td>Next and previous spell.</td><td>Next and previous page</td></tr>
@@ -413,7 +441,7 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
       <details>
         <summary>What you wear <span class="hint">seven places, five qualities</span></summary>
         <div class="fold">
-          <p>Seven places: a bracer on each wrist, boots, an amulet, a hood, robes and a ring. Every piece is rolled, and its quality shows in its colour: Common in white, Uncommon in green, Rare in blue, Ultra-Rare in purple, Exquisite in gold. The better the quality, the more stats and the stronger: armour, dodge, health, health restored, wards against poison, burning and slowing, movement, quiet footsteps, spell haste, spirit cost, damage, fire, frost or lightning, and spell effect; and since 1.0.0b11 an element's Power, Efficiency or Insight, a third of them leaning to the lines you feed, Resist Spirit, and Vessel, which carries more souls. A hood always carries an ability, other pieces sometimes: Swift, Arcane, Treasure Hunter (a whisper near secret walls), Keymaker (keys shine through the stone), Communing (creatures as red shapes through the walls), Thorned and Mirrored. About one piece in ten comes Anointed, a little stronger. The robes colour your sleeve, the bracer shows as a cuff, the ring's stone takes its colour and the hood frames your face.</p>
+          <p>Seven places: a bracer on each wrist, boots, an amulet, a hood, robes and a ring. Every piece is rolled, and its quality shows in its colour: Common in white, Uncommon in green, Rare in blue, Ultra-Rare in purple, Exquisite in gold. The better the quality, the more stats and the stronger: armour, dodge, health, health restored, wards against poison, burning and slowing, movement, quiet footsteps, spell haste, spirit cost, damage, fire, frost or lightning, and spell effect; and since 1.0.0b11 an element's Power, Efficiency or Insight, a third of them leaning to the lines you feed, Resist Spirit, and Vessel, which carries more souls; and since 1.0.0b14 Sprint on boots, for a longer run, and Physic on robes and amulets, which multiplies what a potion restores, up to five times. A hood always carries an ability, other pieces sometimes: Swift, Arcane, Treasure Hunter (a whisper near secret walls), Keymaker (keys shine through the stone), Communing (creatures as red shapes through the walls), Thorned and Mirrored. About one piece in ten comes Anointed, a little stronger. The robes colour your sleeve, the bracer shows as a cuff, the ring's stone takes its colour and the hood frames your face.</p>
         </div>
       </details>
       <details>
@@ -456,16 +484,60 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
         </div>
       </details>
       <details>
-        <summary>Who lives down there <span class="hint">twenty kinds, five ranks</span></summary>
+        <summary>Who lives down there <span class="hint">twenty-three kinds, five ranks</span></summary>
         <div class="fold">
-          <p>About one new kind of creature a level over the first two runs, each a level or two after its sign, and alone the first time. In the Crypts, skeletons, bats and spectres, shamblers climbing out of turned graves, skulls in the walls, shield-bearers, spiders in their webs, the Drowned rising from puddles, bone hounds in pairs, and from level 9 the Wraith, once a level, which nothing kills: fire and a wisp's light only drive it back. In the Catacombs, hunting spiders on the ceiling, ghouls that feed on the dead, skeleton knights whose plate comes off as you hurt them, brood mothers with their egg sacs, shades you see only in light, which take your souls, ember imps by the magma, deacons that raise the dead (kill them first), and gargoyles that are statues until you pass. The Hollows and the Deep have all of them, higher in rank.</p>
-          <p>Each creature comes in its own colour or in green, blue, red or black, each tougher, quicker and worth more souls than the last, and the mix climbs over each run. Now and then one is gilded: it runs when hurt, and carries treasure.</p>
+          <p>About one new kind of creature a level over the first two runs, each a level or two after its sign, and alone the first time. In the Crypts, skeletons, bats and spectres, shamblers climbing out of turned graves, skulls in the walls, shield-bearers, spiders in their webs, the Drowned rising from puddles, bone hounds in pairs, and from level 9 the Wraith, once a level, which nothing kills: fire and a wisp's light only drive it back. In the Catacombs, hunting spiders on the ceiling, ghouls that feed on the dead, skeleton knights whose plate comes off as you hurt them, brood mothers with their egg sacs, shades you see only in light, which take your souls, ember imps by the magma, deacons that raise the dead (kill them first), and gargoyles that are statues until you pass. The Hollows and the Deep have all of them, higher in rank, and three of their own: from level 22 the Whipper-In, the Order's huntsman, with his horn, his whip and three or four hounds that run wild when he falls; from 26 the Sexton, who rings his handbell at each turn of his round and hard when he sees you, calling everything near to him; and from 32 the Lightless, black glass with no eyes, which feels your light instead and puts out wisps.</p>
+          <p>All of them were drawn again by hand for this beta, face first: one skull for every skull in the game, eyes that stay bright in any light and the thickest fog (the shade alone shows only in light), a side view for walking across your line. The Drowned, the imps and the gargoyles are new from the ground up.</p>
+          <p>Each creature comes in its own colour or in green, blue, red or black, each tougher, quicker and worth more souls than the last, and the mix climbs over each run. The rank shows on the body as well as in its colour: rags and mould, then frost and a notch, old blood and an arrow, char, an iron crown and a shackle, and from the third rank a spirit's vapour rising off it. Now and then one is gilded: it runs when hurt, and carries treasure.</p>
         </div>
       </details>
       <details>
         <summary>Achievements and the bestiary</summary>
         <div class="fold">
           <p>Each run keeps a record of what it has killed, the secrets it has found, the levels it has cleared and the bosses it has slain, kept on its page in the ledger and never lost to death. Achievements come for 60 of a creature's lowest rank and fewer for each rank up, for secrets from the first to the fiftieth, for each of the forty levels, for each boss slain and slain again at each step of its challenge, and for each time down after; they slide in at the upper right. Press <kbd>B</kbd> for the bestiary: a page for each creature, turning on the spot in each rank you have met, with your kills and what hurts it, learnt from three kills with each spell. The bosses have no pages yet. What the autopilot earns in an ordinary screensaver session isn't kept.</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section aria-labelledby="minds">
+    <h2 id="minds">How the dead think</h2>
+    <p>The dead see and hear now, and they remember and forget. Sight has a facing, so a creature can be passed behind, and in the dark the living see less; one caught unaware takes half again and staggers. Footsteps, spells, doors, blows and deaths carry along the halls, not through the walls, and sprinting or splashing carries further. A creature that notices something grows wary and goes to look. Once it has you it hunts, then tracks you to where you were and a little on, then searches the rooms about, and at last gives up. So you can lose them.</p>
+    <div class="folds" data-folds>
+      <details>
+        <summary>Posts, rounds and packs <span class="hint">and only so many at once</span></summary>
+        <div class="fold">
+          <p>Calm, the dead keep posts facing a room's way in, walk rounds of three or four places, or roam room to room. Many come in packs: the Order's file with its shields in front and throwers a cell behind, to a drum; hounds in twos to fours; bats asleep upside down on a dim room's ceiling, woken by a noise, a step or your light; the buried rising one after another from a room of graves. One that sees you calls, and all of it comes. Its fighters take turns while the rest circle, and only so many fight you at once. Fell the leader, or half the pack, and it breaks: the living scatter, the hounds run for help, the dead keep their drill.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Callers, scavengers and hunters <span class="hint">and your trail</span></summary>
+        <div class="fold">
+          <p>The wall skull screams as it wakes (kill it first and nothing hears), the gargoyle shrieks as it comes loose, the deacon calls the first time he sees you, the roost cries as it drops, and whatever hears goes to look. Ghouls hear a death from far off and come to feed, mending as they do. You leave a trail that goes cold in two minutes and is lost in water. On some levels a band waits at the far end and is let loose after a while, with a far-off sound: the Order's watch goes to your last loud noise, and hounds and hunting spiders take up your trail. The shade stalks behind you and strikes when you stand still.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Ambushes <span class="hint">from level 7</span></summary>
+        <div class="fold">
+          <p>A kill room, its teeth waiting along the wall either side of its door, doing nothing until you are inside or see them. Each run has its own: shields or the buried in the Crypts, the Drowned in a cistern or a knight with his shield in the Catacombs, spiders overhead or ghouls in the Hollows, gargoyles or shades in the Deep. Often a bait shows itself, a straggler, a hound, a bat or an imp, and backs away before you towards it; else a chest glints just inside. The careful will find signs by the door: bones, a puddle or rubble, and the first time each run a torch snuffed.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Cunning by rank <span class="hint">green to black</span></summary>
+        <div class="fold">
+          <p>The higher the rank, the more it knows. Green ones fall back to their pack when hurt, and throwers duck behind a corner after a throw. Blue ones step aside from a slow spell, keep out of a hazard, and won't walk into a doorway you hold with a spell ready, but wait beside it out of sight. Red packs send their second and third round another way, and spread out when you have a splash in hand. Black ones feint and read a charge. Throwers lob over a corner to where they last saw you. From the Deep on, hazards hurt the dead too.</p>
+        </div>
+      </details>
+      <details>
+        <summary>New company as you go down <span class="hint">about one every two levels</span></summary>
+        <div class="fold">
+          <p>The watch and its dead, skeletons that hear a wall skull's scream; the nest, spiders over a web spider's corner; the knight and his hounds; the deacon's congregation; the brood mother's guard; the roost with a shade; the imps' brood at a vent; sentinels, gargoyles that wake each other; packs that keep to their posts while the Wraith wails; bands of two kinds and then three; a hunt that drives you into an ambush; and, near the bottom, what you passed by gathering at the exit. Each level spends one budget on all of it, so a level holds about as many as it did. Doors sound like their run.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Your legs, and places to mend</summary>
+        <div class="fold">
+          <p>Hold <kbd>SHIFT</kbd> to sprint forward at half again your pace while a slim meter lasts; run it dry and it waits before it fills, sooner the more health you have past 200. A place to mend is set in a room's wall, one a level and two from the Hollows: press <kbd>E</kbd> facing it and keep still, and your health comes back to three quarters, or all of it with Physic at its cap. It is heard far off, and the dead may come to see.</p>
         </div>
       </details>
     </div>
@@ -516,19 +588,19 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
       <details>
         <summary>The Ill-Fated Skeleton Knight <span class="hint">level 10</span></summary>
         <div class="fold">
-          <p><em>He rode down to fetch the order's dead, and never rode back up.</em> Polished plate with a glint sliding across it, shed at the first and third waves, quicker each time. Swift Dodge carries it two to five cells in half a second, untouchable: to close on you, to get away when hurt, or aside from a shot. Its Mirror Rune turns about one missile in seven back at you, with a silver ring and a struck bell. It plants its sword and the ceiling comes down round you, and raises it for the Sundering Arc, a pale quarter-circle on the floor before it that it sweeps a moment later.</p>
+          <p><em>He rode down to fetch the order's dead, and never rode back up.</em> A fallen paladin in a crown of iron spikes. Polished plate with a glint sliding across it, shed at the first and third waves, quicker each time. Swift Dodge carries it two to five cells in half a second, untouchable: to close on you, to get away when hurt, or aside from a shot. Its Mirror Rune turns about one missile in seven back at you, with a silver ring and a struck bell. It plants its sword and the ceiling comes down round you, and raises it for the Sundering Arc, a pale quarter-circle on the floor before it that it sweeps a moment later.</p>
         </div>
       </details>
       <details>
         <summary>The Wandering Hunting Spider <span class="hint">level 20</span></summary>
         <div class="fold">
-          <p><em>It has walked these cisterns since before the order came. All of them are its.</em> Up to the ceiling every few seconds, out of reach, across it and down near you with a leap. Its Mend Rune knits it back together, glowing green. It spits a web that holds you until your spells have torn a third of your health out of it (fire tears twice as fast), fires egg sacs onto the walls that hatch four small spiders, and opens outlets in the cistern's floor that spill bile, which poisons and slows. One small spider more comes out of a burrow every fifteen seconds.</p>
+          <p><em>It has walked these cisterns since before the order came. All of them are its.</em> An old matriarch, grizzled, a skull in raised bone on her back. Up to the ceiling every few seconds, out of reach, across it and down near you with a leap. Its Mend Rune knits it back together, glowing green. It spits a web that holds you until your spells have torn a third of your health out of it (fire tears twice as fast), fires egg sacs onto the walls that hatch four small spiders, and opens outlets in the cistern's floor that spill bile, which poisons and slows. One small spider more comes out of a burrow every fifteen seconds.</p>
         </div>
       </details>
       <details>
         <summary>The Black Deacon <span class="hint">level 30</span></summary>
         <div class="fold">
-          <p>Black robes at twice a deacon's size, his Bone Ward wheeling about him as six shards; it takes the blows first, and grows back. He chants skeletons up from the chapel's heaps of bone, one at a time, unless a tenth of his health in damage breaks the chant. His Litany is two seconds of green light, then a fifth of your health if he can see you: the timber props hide you, the pews don't. Cracks run across the floor, glowing, until fire bursts from them.</p>
+          <p>A profane bishop at twice a deacon's size, in a black chasuble and a tall mitre, with a crozier and a censer, his Bone Ward wheeling about him as six shards; it takes the blows first, and grows back. He chants skeletons up from the chapel's heaps of bone, one at a time, unless a tenth of his health in damage breaks the chant. His Litany is two seconds of green light, then a fifth of your health if he can see you: the timber props hide you, the pews don't. Cracks run across the floor, glowing, until fire bursts from them.</p>
         </div>
       </details>
       <details>
@@ -693,6 +765,201 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
     </div>
   </section>
 
+  <section aria-labelledby="then">
+    <h2 id="then">Then and now</h2>
+    <p>Single frames from the first beta (21 October), the thirteenth (31 October) and this one, each from its own build and drawn by the game itself, at its own 320 by 200. Click one to see it large; the arrows step through the set.</p>
+    <p>In this beta every menu, card and the tally is cut in weathered marble, in faces of our own at the old sizes, with the crypt dimmed round the edge; the same words and the same keys. The Alignment is a skill tree, each node a socket with an icon in its line's colour and a pane beside it saying what it does. The wardrobe is the seven places on a carved figure, the bestiary a niche for each creature, Esc's question and the cards headstones, the tally a memorial tablet, and the status bar and every word over the crypt are set in the run's own stone in place of black boxes.</p>
+    <div class="tabs" role="tablist" aria-label="The sets" hidden>
+      <button type="button" role="tab" data-for="crypt" aria-selected="true">The crypt</button>
+      <button type="button" role="tab" data-for="screens" aria-selected="false">The screens</button>
+      <button type="button" role="tab" data-for="dead" aria-selected="false">The dead</button>
+      <button type="button" role="tab" data-for="new" aria-selected="false">New</button>
+    </div>
+    <div class="set" data-set="crypt">
+      <h3>The crypt</h3>
+      <p class="muted">The same seed and the same moment in each build; the level each makes from it has changed, and so has nearly everything in it.</p>
+      <div class="cmp">
+        <p class="cmp-cap">Level 1, forty-six seconds into the dream</p>
+        <div class="cmp-row" style="--n: 3">
+          <button class="shot" type="button" data-cap="Level 1, forty-six seconds into the dream: 1.0.0b1"><img src="img/gallery/crypt-level1-b1.png" loading="lazy" width="320" height="200" alt="Level 1, forty-six seconds into the dream, in 1.0.0b1"><span>1.0.0b1</span></button>
+          <button class="shot" type="button" data-cap="Level 1, forty-six seconds into the dream: 1.0.0b13"><img src="img/gallery/crypt-level1-b13.png" loading="lazy" width="320" height="200" alt="Level 1, forty-six seconds into the dream, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="Level 1, forty-six seconds into the dream: @VERSION@"><img src="img/gallery/crypt-level1-now.png" loading="lazy" width="320" height="200" alt="Level 1, forty-six seconds into the dream, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">Further in, a minute and a quarter on</p>
+        <div class="cmp-row" style="--n: 3">
+          <button class="shot" type="button" data-cap="Further in, a minute and a quarter on: 1.0.0b1"><img src="img/gallery/crypt-ossuary-b1.png" loading="lazy" width="320" height="200" alt="Further in, a minute and a quarter on, in 1.0.0b1"><span>1.0.0b1</span></button>
+          <button class="shot" type="button" data-cap="Further in, a minute and a quarter on: 1.0.0b13"><img src="img/gallery/crypt-ossuary-b13.png" loading="lazy" width="320" height="200" alt="Further in, a minute and a quarter on, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="Further in, a minute and a quarter on: @VERSION@"><img src="img/gallery/crypt-ossuary-now.png" loading="lazy" width="320" height="200" alt="Further in, a minute and a quarter on, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The merchant's room as the dream comes in</p>
+        <div class="cmp-row" style="--n: 3">
+          <button class="shot" type="button" data-cap="The merchant's room as the dream comes in: 1.0.0b1"><img src="img/gallery/crypt-shop-b1.png" loading="lazy" width="320" height="200" alt="The merchant's room as the dream comes in, in 1.0.0b1"><span>1.0.0b1</span></button>
+          <button class="shot" type="button" data-cap="The merchant's room as the dream comes in: 1.0.0b13"><img src="img/gallery/crypt-shop-b13.png" loading="lazy" width="320" height="200" alt="The merchant's room as the dream comes in, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The merchant's room as the dream comes in: @VERSION@"><img src="img/gallery/crypt-shop-now.png" loading="lazy" width="320" height="200" alt="The merchant's room as the dream comes in, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">Taking over and casting the first fireball</p>
+        <div class="cmp-row" style="--n: 3">
+          <button class="shot" type="button" data-cap="Taking over and casting the first fireball: 1.0.0b1"><img src="img/gallery/crypt-cast-b1.png" loading="lazy" width="320" height="200" alt="Taking over and casting the first fireball, in 1.0.0b1"><span>1.0.0b1</span></button>
+          <button class="shot" type="button" data-cap="Taking over and casting the first fireball: 1.0.0b13"><img src="img/gallery/crypt-cast-b13.png" loading="lazy" width="320" height="200" alt="Taking over and casting the first fireball, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="Taking over and casting the first fireball: @VERSION@"><img src="img/gallery/crypt-cast-now.png" loading="lazy" width="320" height="200" alt="Taking over and casting the first fireball, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">Level 33, in the Deep</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="Level 33, in the Deep: 1.0.0b13"><img src="img/gallery/crypt-deep-b13.png" loading="lazy" width="320" height="200" alt="Level 33, in the Deep, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="Level 33, in the Deep: @VERSION@"><img src="img/gallery/crypt-deep-now.png" loading="lazy" width="320" height="200" alt="Level 33, in the Deep, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="set" data-set="screens">
+      <h3>The screens</h3>
+      <p class="muted">The pass over the screens: each menu cut in weathered marble, with its rows in wells and its keys on caps; the same words, the same keys.</p>
+      <div class="cmp">
+        <p class="cmp-cap">Esc's question: in the first beta, the thirteenth, and now a headstone</p>
+        <div class="cmp-row" style="--n: 3">
+          <button class="shot" type="button" data-cap="Esc's question: in the first beta, the thirteenth, and now a headstone: 1.0.0b1"><img src="img/gallery/screens-quit-b1.png" loading="lazy" width="320" height="200" alt="Esc's question: in the first beta, the thirteenth, and now a headstone, in 1.0.0b1"><span>1.0.0b1</span></button>
+          <button class="shot" type="button" data-cap="Esc's question: in the first beta, the thirteenth, and now a headstone: 1.0.0b13"><img src="img/gallery/screens-quit-b13.png" loading="lazy" width="320" height="200" alt="Esc's question: in the first beta, the thirteenth, and now a headstone, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="Esc's question: in the first beta, the thirteenth, and now a headstone: @VERSION@"><img src="img/gallery/screens-quit-now.png" loading="lazy" width="320" height="200" alt="Esc's question: in the first beta, the thirteenth, and now a headstone, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The wardrobe: a list, then sockets on a carved figure</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The wardrobe: a list, then sockets on a carved figure: 1.0.0b13"><img src="img/gallery/screens-wardrobe-b13.png" loading="lazy" width="320" height="200" alt="The wardrobe: a list, then sockets on a carved figure, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The wardrobe: a list, then sockets on a carved figure: @VERSION@"><img src="img/gallery/screens-wardrobe-now.png" loading="lazy" width="320" height="200" alt="The wardrobe: a list, then sockets on a carved figure, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The merchant's menu</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The merchant's menu: 1.0.0b13"><img src="img/gallery/screens-merchant-b13.png" loading="lazy" width="320" height="200" alt="The merchant's menu, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The merchant's menu: @VERSION@"><img src="img/gallery/screens-merchant-now.png" loading="lazy" width="320" height="200" alt="The merchant's menu, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The Alignment at the Lampstand: a list of nodes, then a tree with a pane beside it</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The Alignment at the Lampstand: a list of nodes, then a tree with a pane beside it: 1.0.0b13"><img src="img/gallery/screens-lamp-b13.png" loading="lazy" width="320" height="200" alt="The Alignment at the Lampstand: a list of nodes, then a tree with a pane beside it, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The Alignment at the Lampstand: a list of nodes, then a tree with a pane beside it: @VERSION@"><img src="img/gallery/screens-lamp-now.png" loading="lazy" width="320" height="200" alt="The Alignment at the Lampstand: a list of nodes, then a tree with a pane beside it, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">A page of the Codex</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="A page of the Codex: 1.0.0b13"><img src="img/gallery/screens-codex-b13.png" loading="lazy" width="320" height="200" alt="A page of the Codex, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="A page of the Codex: @VERSION@"><img src="img/gallery/screens-codex-now.png" loading="lazy" width="320" height="200" alt="A page of the Codex, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The tally: a plain box, then a memorial tablet</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The tally: a plain box, then a memorial tablet: 1.0.0b13"><img src="img/gallery/screens-tally-b13.png" loading="lazy" width="320" height="200" alt="The tally: a plain box, then a memorial tablet, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The tally: a plain box, then a memorial tablet: @VERSION@"><img src="img/gallery/screens-tally-now.png" loading="lazy" width="320" height="200" alt="The tally: a plain box, then a memorial tablet, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">Death's cost: in the thirteenth beta the controls card lay over it; now a headstone, and nothing over it</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="Death's cost: in the thirteenth beta the controls card lay over it; now a headstone, and nothing over it: 1.0.0b13"><img src="img/gallery/screens-death-b13.png" loading="lazy" width="320" height="200" alt="Death's cost: in the thirteenth beta the controls card lay over it; now a headstone, and nothing over it, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="Death's cost: in the thirteenth beta the controls card lay over it; now a headstone, and nothing over it: @VERSION@"><img src="img/gallery/screens-death-now.png" loading="lazy" width="320" height="200" alt="Death's cost: in the thirteenth beta the controls card lay over it; now a headstone, and nothing over it, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="set" data-set="dead">
+      <h3>The dead</h3>
+      <p class="muted">The first art pass, seen in the bestiary: skulls and faces pixelled by hand, eyes that show in any light, and the Drowned drawn again.</p>
+      <div class="cmp">
+        <p class="cmp-cap">The skeleton</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The skeleton: 1.0.0b13"><img src="img/gallery/dead-skeleton-b13.png" loading="lazy" width="320" height="200" alt="The skeleton, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The skeleton: @VERSION@"><img src="img/gallery/dead-skeleton-now.png" loading="lazy" width="320" height="200" alt="The skeleton, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The wall skull</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The wall skull: 1.0.0b13"><img src="img/gallery/dead-wallskull-b13.png" loading="lazy" width="320" height="200" alt="The wall skull, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The wall skull: @VERSION@"><img src="img/gallery/dead-wallskull-now.png" loading="lazy" width="320" height="200" alt="The wall skull, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The shambler</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The shambler: 1.0.0b13"><img src="img/gallery/dead-shambler-b13.png" loading="lazy" width="320" height="200" alt="The shambler, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The shambler: @VERSION@"><img src="img/gallery/dead-shambler-now.png" loading="lazy" width="320" height="200" alt="The shambler, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The Drowned</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The Drowned: 1.0.0b13"><img src="img/gallery/dead-drowned-b13.png" loading="lazy" width="320" height="200" alt="The Drowned, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The Drowned: @VERSION@"><img src="img/gallery/dead-drowned-now.png" loading="lazy" width="320" height="200" alt="The Drowned, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The bone hound</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The bone hound: 1.0.0b13"><img src="img/gallery/dead-hound-b13.png" loading="lazy" width="320" height="200" alt="The bone hound, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The bone hound: @VERSION@"><img src="img/gallery/dead-hound-now.png" loading="lazy" width="320" height="200" alt="The bone hound, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The ghoul</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The ghoul: 1.0.0b13"><img src="img/gallery/dead-ghoul-b13.png" loading="lazy" width="320" height="200" alt="The ghoul, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The ghoul: @VERSION@"><img src="img/gallery/dead-ghoul-now.png" loading="lazy" width="320" height="200" alt="The ghoul, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The skeleton knight</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The skeleton knight: 1.0.0b13"><img src="img/gallery/dead-knight-b13.png" loading="lazy" width="320" height="200" alt="The skeleton knight, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The skeleton knight: @VERSION@"><img src="img/gallery/dead-knight-now.png" loading="lazy" width="320" height="200" alt="The skeleton knight, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The ember imp</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The ember imp: 1.0.0b13"><img src="img/gallery/dead-imp-b13.png" loading="lazy" width="320" height="200" alt="The ember imp, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The ember imp: @VERSION@"><img src="img/gallery/dead-imp-now.png" loading="lazy" width="320" height="200" alt="The ember imp, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The gargoyle</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The gargoyle: 1.0.0b13"><img src="img/gallery/dead-gargoyle-b13.png" loading="lazy" width="320" height="200" alt="The gargoyle, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The gargoyle: @VERSION@"><img src="img/gallery/dead-gargoyle-now.png" loading="lazy" width="320" height="200" alt="The gargoyle, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="set" data-set="new">
+      <h3>New in this beta</h3>
+      <p class="muted">The new kinds of the dead, and more of the new stone.</p>
+      <div class="grid">
+        <button class="shot" type="button" data-cap="The Whipper-In, the Order's huntsman, new in this beta: never without his hounds"><img src="img/gallery/new-whipper-now.png" loading="lazy" width="320" height="200" alt="The Whipper-In, the Order's huntsman, new in this beta: never without his hounds"><span>The Whipper-In</span></button>
+        <button class="shot" type="button" data-cap="The Sexton, who rings his bell when he sees you and brings everything near"><img src="img/gallery/new-sexton-now.png" loading="lazy" width="320" height="200" alt="The Sexton, who rings his bell when he sees you and brings everything near"><span>The Sexton</span></button>
+        <button class="shot" type="button" data-cap="The Lightless, black glass with no eyes, which feels your light"><img src="img/gallery/new-lightless-now.png" loading="lazy" width="320" height="200" alt="The Lightless, black glass with no eyes, which feels your light"><span>The Lightless</span></button>
+        <button class="shot" type="button" data-cap="A boss's fight, its bar on a band of the run's stone, the status bar a tablet"><img src="img/gallery/new-bossfight-now.png" loading="lazy" width="320" height="200" alt="A boss's fight, its bar on a band of the run's stone, the status bar a tablet"><span>A boss's fight</span></button>
+        <button class="shot" type="button" data-cap="The Hexed Totem: its abilities and their rank sockets, the words in a band"><img src="img/gallery/new-totem-now.png" loading="lazy" width="320" height="200" alt="The Hexed Totem: its abilities and their rank sockets, the words in a band"><span>The Hexed Totem</span></button>
+        <button class="shot" type="button" data-cap="Another past: the six classes as medallions over their story"><img src="img/gallery/new-class-now.png" loading="lazy" width="320" height="200" alt="Another past: the six classes as medallions over their story"><span>Another past</span></button>
+        <button class="shot" type="button" data-cap="A stone's page in the grave plot, cut as a headstone"><img src="img/gallery/new-stone-now.png" loading="lazy" width="320" height="200" alt="A stone's page in the grave plot, cut as a headstone"><span>A stone's page in the grave plot</span></button>
+        <button class="shot" type="button" data-cap="The Backrooms, behind a secret"><img src="img/gallery/new-pocket-now.png" loading="lazy" width="320" height="200" alt="The Backrooms, behind a secret"><span>The Backrooms</span></button>
+      </div>
+    </div>
+    <dialog class="viewer" aria-label="A frame, large">
+      <img alt="">
+      <p class="v-cap"></p>
+      <div class="v-nav"><button type="button" class="v-prev" aria-label="The one before">&larr;</button><button type="button" class="v-close" aria-label="Close">CLOSE</button><button type="button" class="v-next" aria-label="The next">&rarr;</button></div>
+    </dialog>
+  </section>
+
   <section aria-labelledby="screens">
     <h2 id="screens">Screens</h2>
     <figure>
@@ -700,15 +967,15 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
       <figcaption>A trial's door, Rising Water, the Prisms, the hidden message found and read, and the reckoning at the exit.</figcaption>
     </figure>
     <figure>
-      <img src="img/preview_catacomb_alignment.png" loading="lazy" width="1932" height="806" alt="Six frames of the Alignment and souls: the Lampstand's screen, FIRE RANK 20, its nodes from FIRE through FIRESTARTER and FIRE MASTERY to FIREWALL, the other path dimmed; a flame spirit with a face circling by the caster's hand in a saints' catacomb; her question, WHAT WERE YOU?, THE WITCHFINDER, with the six classes' marks and the Witchfinder's story; the map open on torn parchment while walking, its ink running on in pale violet across a hole burnt through it; a shield-bearer's health, 38/38, with the glyphs of what hurts it most and least; and a bat latched across the lower view, its wings from edge to edge and the edges of sight violet">
-      <figcaption>The Lampstand, Firewall's spirits, her question, the map at a walk, a target's glyphs, and a bat that has latched on.</figcaption>
+      <img src="img/preview_catacomb_alignment.png" loading="lazy" width="1932" height="806" alt="Six frames of the Alignment and souls: the Lampstand's screen, FIRE RANK 17, its nodes laid out as a tree in carved sockets with Firestarter chosen and the pane beside it; a flame spirit with a face circling by the caster's hand in a saints' catacomb; her question of another past, THE ANATOMIST, with the six classes' marks in medallions and the Anatomist's story; the map open on torn parchment while walking, its ink running on in pale violet across a hole burnt through it; a shield-bearer's health, 38/38, with the glyphs of what hurts it most and least; and a bat latched across the lower view, its wings from edge to edge and the edges of sight violet">
+      <figcaption>The Lampstand's tree, Firewall's spirits, her question of another past, the map at a walk, a target's glyphs, and a bat that has latched on.</figcaption>
     </figure>
     <figure>
-      <img src="img/preview_catacomb_atonement.png" loading="lazy" width="1932" height="806" alt="Six frames of the map and Levels of Atonement: a small scroll floating beside the merchant over its card, A MAP OF THE CRYPT, $1000, IT FILLS IN AS YOU WALK; the map unrolled on torn parchment, THE OSSUARY, its halls and rooms in brown ink and a red arrow; a shield-bearer with its health, 23/30, between CHAIN and FIRE; LEVEL OF ATONEMENT 2, THE MERCHANT WILL HEAR IT, over a fireball, +12 EXP SHIELD-BEARER at the lower left; the caster's screen, LEVEL OF ATONEMENT 17, 115 POINTS, with damage and spell haste bought; and CORNERSTONES, 1 TO CHOOSE, from Second Wind to Grave Sense">
+      <img src="img/preview_catacomb_atonement.png" loading="lazy" width="1932" height="806" alt="Six frames of the map and Levels of Atonement: a small scroll floating beside the merchant over its card, A MAP OF THE CRYPT, $1000, IT FILLS IN AS YOU WALK; the map unrolled on torn parchment, THE OSSUARY, its halls and rooms in brown ink and a red arrow; a shield-bearer with its health, 23/30, between CHAIN and FIRE; LEVEL OF ATONEMENT 2, THE MERCHANT WILL HEAR IT, over a fireball, +12 EXP SHIELD-BEARER at the lower left; the ascend screen in carved marble, LEVEL OF ATONEMENT 22, 210 POINTS, its lines down the left with their marks and the chosen one's pane; and CORNERSTONES, 2 OF 5 HELD, five sockets down a carved bow from Second Wind to Grave Sense">
       <figcaption>The map at the merchant's and unrolled, a target's health, a Level of Atonement banked, the caster's screen and the cornerstones (the map and the target's readout as they were before the eleventh beta).</figcaption>
     </figure>
     <figure>
-      <img src="img/preview_catacomb_pad.png" loading="lazy" width="1932" height="806" alt="Six frames with a game controller: HOLD ANY BUTTON TO ENTER THE CRYPT over HAUNT.EXE's grinning jack-o'-lantern; THE CONTROLS ARE YOURS in the pad's words, L-STICK WALK, R-STICK TURN, RT CASTS, A OPENS in green, above a ware's card, A BUYS, X HOLDS; the merchant's prompt, A: SIGN HER LEDGER, OR PAT HER; the wardrobe, D-PAD PICK, A MOVE, LB/RB PAGE; the bestiary, B CLOSE in red; and the Codex's page for Swift Dodge, B, AND THE WAY THE LEFT STICK LEANS">
+      <img src="img/preview_catacomb_pad.png" loading="lazy" width="1932" height="806" alt="Six frames with a game controller: HOLD ANY BUTTON TO ENTER THE CRYPT over HAUNT.EXE's grinning jack-o'-lantern; the controls in the pad's words on a band of stone, L-STICK WALK, R-STICK TURN, RT CASTS, A OPENS in green; the merchant's prompt, A: SIGN HER LEDGER, OR PAT HER; the wardrobe as sockets on a carved figure, D-PAD PICK, A MOVE, LB/RB PAGE on key caps; the bestiary's page for the shambler, standing in an arched niche, B CLOSE in red; and the Codex's page for Treasure Hunter, its keys on caps along the foot">
       <figcaption>With a controller: holding a button over the pumpkin patch, the controls and the cards in the pad's words, the wardrobe, the bestiary and the Codex.</figcaption>
     </figure>
     <figure>
@@ -716,16 +983,16 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
       <figcaption>The four bosses in their own rooms: the knight's card and its blade, the spider's card, the Deacon in his chapel, and the Wraith struck on its throne beside a void.</figcaption>
     </figure>
     <figure>
-      <img src="img/preview_catacomb_ledger.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB's ledger and death: the merchant's menu, SIGN THE LEDGER, ANOTHER PEDESTAL, PAT HER, LEAVE, with a red warning that the run is unsigned; SIGN THE LEDGER with two signed pages and a blank one; a red card, YOU DIED ON LEVEL 12, TAKEN BY A ROTTEN SHIELD-BEARER; a gravestone's page, HERE LIES A DWELLER, with its spellbook and runes; THE DWELLER FAILED THIS TRIAL over a sealed doorway; and the card CAUGHT CHEATING THE DEAD">
+      <img src="img/preview_catacomb_ledger.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB's ledger and death, cut in marble: the merchant's menu, SIGN THE LEDGER, ANOTHER PEDESTAL, PAT HER, LEAVE, with a red warning that the run is unsigned; SIGN THE LEDGER, three blank pages on a ledger stone with her paw in its corners; a headstone over the red haze, YOU DIED ON LEVEL 21, and what went with you; a gravestone's page as a headstone, HERE LIES A DWELLER, with its lines and runes; THE DWELLER FAILED THIS TRIAL over a sealed doorway; and the headstone CAUGHT CHEATING THE DEAD">
       <figcaption>Her menu, signing the ledger, a death and its stone, a trial failed, and her claim.</figcaption>
     </figure>
     <div class="folds">
       <details>
         <summary>Earlier screens <span class="hint">the crypt, the creatures, HAUNT.EXE</span></summary>
         <div class="fold">
-          <p>The strips of menus, creatures, wisps and pockets were made before the tenth beta, and show the crypt's old walls behind them.</p>
+          <p>Every menu in these strips was taken again for the pass over the screens. The frames of creatures, wisps and pockets, and some of the crypt's, are older: made before the tenth beta, they show the crypt's old walls and the old status bar.</p>
           <figure>
-            <img src="img/preview_catacomb_hall.png" loading="lazy" width="1932" height="806" alt="Six frames of the merchant's hall: the Accursed Portal, a red-violet swirl set in the grave plot's wall of ashlar and rubble; the Portal's screen with three runs and four challenges; the Hexed Totem's screen with Swift Dodge, Tangled Web, Grave Call and Wraithwalk; the Corpus Compendium's page of spells and prices; the Wretched Repository's places, gold and coins; and the Codex of Affixations' page on her claim">
+            <img src="img/preview_catacomb_hall.png" loading="lazy" width="1932" height="806" alt="Six frames of the merchant's hall: the Accursed Portal, a red-violet swirl set in the grave plot's wall of ashlar and rubble; the Portal's screen in marble with three runs and four challenges in a well; the Hexed Totem's screen, its four abilities with their rank sockets and the chosen one's words in a band; the Corpus Compendium's page of bracers and prices; the Wretched Repository's places, gold and coins; and the Codex of Affixations' page on Treasure Hunter">
             <figcaption>The Accursed Portal and its screen, the Hexed Totem, the Corpus Compendium, the Wretched Repository and the Codex.</figcaption>
           </figure>
           <figure>
@@ -737,27 +1004,27 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
             <figcaption>Severance: the doorway from the crypt, a white hall, a ward door, an office, a skeleton under the panels, and the water cooler.</figcaption>
           </figure>
           <figure>
-            <img src="img/preview_catacomb_shrine.png" loading="lazy" width="1932" height="806" alt="Six frames: the Rune Shrine, a pale stone with a gold ring and cross, sanctified, with E: CURSE IT WITH A CURSED COIN; its screen of nine empty slots, cursed and giving Common runes; the slots filling, THREE COMMON MEND BECOME ONE UNCOMMON; the caster's page with two Cursed Coins and the runes held; A CURSED COIN AT THE END OF A CHAIN sliding in for the shrine; and the Black Altar offering to send its wisp on for 20 souls">
-            <figcaption>The Rune Shrine sanctified, cursed and pulled, three runes combining, the caster's runes and coins, a coin found, and the altar sending its wisp on.</figcaption>
+            <img src="img/preview_catacomb_shrine.png" loading="lazy" width="1932" height="806" alt="Six frames: the Rune Shrine, a pale stone with a gold ring and cross, sanctified, with E: CURSE IT WITH A CURSED COIN; its screen in marble, nine slots cut as cups, cursed and giving Uncommon runes; the runes of a pull coming into the slots; the caster's page with its totals and the runes held; A CURSED COIN AT THE END OF A CHAIN sliding in for the shrine; and the Black Altar's three gifts on a tablet, WAKE ITS WISP for 10 souls">
+            <figcaption>The Rune Shrine sanctified and its screen, a pull's runes coming in, the caster's totals and runes, a coin found, and the altar's gifts.</figcaption>
           </figure>
           <figure>
             <img src="img/preview_catacomb_creatures.png" loading="lazy" width="2578" height="1212" alt="Twelve frames of CATACOMB's newer creatures in the crypt: a red shambler with a fireball coming at it, one of the Drowned in a burning hall, a bone hound, the Wraith struck by fire, a hunting spider, a ghoul, a skeleton knight with his sword, a brood mother, a shade glimpsed in a skull-lined hall, an ember imp, a deacon in green robes beyond a burning floor, and a gargoyle on its plinth">
             <figcaption>Shambler, Drowned, bone hound, the Wraith; hunting spider, ghoul, knight, brood mother; shade, ember imp, deacon and gargoyle.</figcaption>
           </figure>
           <figure>
-            <img src="img/preview_catacomb_bestiary.png" loading="lazy" width="1932" height="806" alt="Six frames: an achievement, A HOLLOW KNOCK, sliding in as a secret wall grinds back; the bestiary's pages for a blue skeleton, a skeleton knight, a green deacon and a red gargoyle, each with its kills and what hurts it; and the list of achievements, 16 of 112 earned">
+            <img src="img/preview_catacomb_bestiary.png" loading="lazy" width="1932" height="806" alt="Six frames: an achievement, A HOLLOW KNOCK, sliding in as a secret wall grinds back; the bestiary's pages, each creature standing in an arched niche: a skeleton, a rotten bat of rank II, the Whipper-In and the Sexton, each with its kills and what hurts it; and the list of achievements in a well with its scroll's groove">
             <figcaption>An achievement, four pages of the bestiary in four ranks, and the achievements.</figcaption>
           </figure>
           <figure>
-            <img src="img/preview_catacomb_wisps.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB's wisps: the WISPS list with the way out and the gold, silver and crimson keys at a soul each; a wisp kindling, bright, for the silver key; an exit wisp's blue trail down a hall; THE BLACK ALTAR's three gifts and their prices; a green skeleton beside a blessed wisp's trail; and the blessed wisp, haloed in pale gold, waiting at the rune-sealed exit">
-            <figcaption>The wisps, the keys' wisps and the Black Altar's gifts; a blessed wisp at the way out.</figcaption>
+            <img src="img/preview_catacomb_wisps.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB's wisps: the WISPS list on a tablet, the way out for a soul, its toggle a cup cut in the stone; a wisp kindling, bright, for the silver key; an exit wisp's blue trail down a hall; THE BLACK ALTAR's three gifts on a tablet; a green skeleton beside a blessed wisp's trail; and the blessed wisp, haloed in pale gold, waiting at the rune-sealed exit">
+            <figcaption>The wisps, a key's wisp and the Black Altar's gifts; a blessed wisp at the way out.</figcaption>
           </figure>
           <figure>
-            <img src="img/preview_catacomb_play.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB played by hand: the HOLD H TO TAKE CONTROL bar, with the small readout raised above it, in an ossuary; the controls listed over a clear view and the status bar; the merchant's card for a pair of Rare Boots of Shadows, free on the first visit; a fireball leaving the hand and bursting on a skeleton; the wardrobe, with Uncommon Robes of the Bulwark chosen and three spares in the bag; and the LEAVE THE CRYPT? question, with OPEN THE LEDGER below the rule">
+            <img src="img/preview_catacomb_play.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB played by hand: the HOLD H TO TAKE CONTROL bar in the merchant's room; the controls listed on a band of stone over a skeleton's health; the merchant's card for Uncommon Robes of Quickening at 7,425 gold, on a band of stone; a fireball leaving the hand and bursting on a skeleton; the wardrobe as sockets on a carved figure, a bracer chosen and its card in the pane; and the LEAVE THE CRYPT? headstone, OPEN THE LEDGER below the rule">
             <figcaption>Taking over, shopping, casting, the wardrobe and the question at Esc.</figcaption>
           </figure>
           <figure>
-            <img src="img/preview_catacomb_items.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB's wares: the merchant's card for an Anointed Exquisite Communing Hood of the Bulwark in gold; the caster's page of totals, with what abilities add and the spellbook; THE BAG IS FULL, asking which spare to let go; a spectre and a shield-bearer shown as red shapes through the wall by Commune; a Black Altar woken, a violet flame in its bowl and its violet wisp's motes going off down the hall; and the altar burning gold">
+            <img src="img/preview_catacomb_items.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB's wares: the merchant's card for an Anointed Exquisite Communing Hood of the Bulwark in gold; the caster's page of totals in a well of marble, with what abilities add and the runes held; THE BAG IS FULL, the bag's places and a spare's card in wells; a spectre and a shield-bearer shown as red shapes through the wall by Commune; a Black Altar woken, a violet flame in its bowl and its violet wisp's motes going off down the hall; and the altar burning gold">
             <figcaption>An Exquisite hood, the caster's totals, a full bag, Commune, and a Black Altar woken and burning gold.</figcaption>
           </figure>
           <figure>
@@ -818,7 +1085,7 @@ make smoke    # both scenes and a scripted player in the test harness</pre>
 
   <section aria-labelledby="beta">
     <h2 id="beta">Beta status</h2>
-    <p>This is the thirteenth beta. The third was played by hand on the author's own Windows PC, on top of the automated tests, as were the ones before it. The fourth added things to wear rolled like loot, spirit and bones and the Black Altars; the fifth wisps that fly through the crypt and the status bar that steps aside; the sixth chains of secrets into the Backrooms and Severance and the Rune Shrine; the seventh, the biggest change the game has had, runs of ten levels with four bosses, death that costs, the merchant's ledger and her hall; the eighth a game controller; the ninth the map, the target's health, and Levels of Atonement with their cornerstones; the tenth a look of its own for each run of ten; the eleventh changed how the caster grows: spells as six elemental lines bought at the Lampstand, what the caster was, gear that rolls the elements, and souls that can run dry; the twelfth a new run from Esc, so that a person chooses what they were. This one gives each run hazards of its own, puzzles behind a sealed wing with their answers hidden on the level, trials against an hourglass, and a reckoning before you leave. Nothing from the fourth beta on has been played by hand yet, and the seventh to the thirteenth haven't been run under Wine either: they have been tested in the harness, and the Windows build compiled and smoke-tested by GitHub Actions.</p>
+    <p>This is the fourteenth beta. The third was played by hand on the author's own Windows PC, on top of the automated tests, as were the ones before it. The fourth added things to wear rolled like loot, spirit and bones and the Black Altars; the fifth wisps that fly through the crypt and the status bar that steps aside; the sixth chains of secrets into the Backrooms and Severance and the Rune Shrine; the seventh, the biggest change the game has had, runs of ten levels with four bosses, death that costs, the merchant's ledger and her hall; the eighth a game controller; the ninth the map, the target's health, and Levels of Atonement with their cornerstones; the tenth a look of its own for each run of ten; the eleventh changed how the caster grows: spells as six elemental lines bought at the Lampstand, what the caster was, gear that rolls the elements, and souls that can run dry; the twelfth a new run from Esc, so that a person chooses what they were. The thirteenth gave each run hazards of its own, puzzles behind a sealed wing with their answers hidden on the level, trials against an hourglass, and a reckoning before you leave. This one draws every creature again by hand, teaches the dead to think, gives the caster a sprint and places to mend, and cuts every screen in stone. Nothing from the fourth beta on has been played by hand yet, and the seventh to the fourteenth haven't been run under Wine either: they have been tested in the harness, and the Windows build compiled and smoke-tested by GitHub Actions.</p>
     <div class="folds">
       <details>
         <summary>What has been tested, and how <span class="hint">area by area</span></summary>
@@ -827,6 +1094,10 @@ make smoke    # both scenes and a scripted player in the test harness</pre>
       <table>
         <thead><tr><th>Area</th><th>Evidence</th><th>Confidence</th></tr></thead>
         <tbody>
+          <tr><td>How the dead think</td><td>Built in ten steps, each weighed against the old ways of thinking (kept in this build for the comparison) on the same sixteen seeds, the autopilot playing. Every sense, state, pack, caller, hunt, ambush and kind of cunning seen at work in the event logs, by the hundred or the thousand deeper down; the three new kinds met from levels 21 and 31. Faults found in those runs were mended: a brood mother laying without end, the dead waiting for ever where their way was stood in, a pack still calling once broken. In two long runs the autopilot still stood about four minutes in one place; one cause was mended, and whether it was the only one isn't known. The autopilot seldom stands still or holds a doorway, so some of it (the shade's stalk, the wait by a held door) is a person's trial more than its own. Not yet played by hand.</td><td><span class="tag low">LOW</span></td></tr>
+          <tr><td>The dead, drawn again</td><td>Every creature, three of the bosses, the caster's hand and the props and pickups of the first two runs, each drawn on a sheet and then seen in frames from the harness, which draws exactly what the game draws; the autopilot, run with the same seed before and after each one, logged the same events, so nothing but the look moved. The Wraith Unbound and the props of the Hollows and the Deep are still the old ones. The new art waits for the author's eye on a real screen.</td><td><span class="tag mid">MEDIUM</span></td></tr>
+          <tr><td>The screens in stone</td><td>Every screen taken in the harness at each run's colours, with the keys and with a pretend controller, and checked by the debug build for any word running into another or off its stone: none at the end. The autopilot and scripted sessions of a person logged the same events as before the work began, line for line. Frames take about a tenth of a millisecond longer. Not yet seen on a real screen.</td><td><span class="tag mid">MEDIUM</span></td></tr>
+          <tr><td>The sprint, Physic, the lantern and places to mend</td><td>Scripted sessions in the harness, with the keys and with a pretend controller: sprinting dry and filling, the sprint's button chosen, a potion with Physic, the lantern shuttered and lit, mending broken off by a step, a turn, a cast and a blow. Not yet played by hand, so how the meter feels is unknown.</td><td><span class="tag mid">MEDIUM</span></td></tr>
           <tr><td>Hazards, puzzles, trials and the reckoning</td><td>In the harness: every hazard placed and fired, each run's, with the autopilot walking round what is always there; every one of the twenty-seven puzzles solved by the autopilot, and a hidden message found, read on the documents page and shown by a Black Shrine, by scripted players in each run; each of the seventeen trials run by the autopilot on eight seeds at three levels of its run, 383 won of 408; the reckoning answered both ways. Clean under AddressSanitizer. The trials are mostly won with more time to spare than planned (five to fifteen seconds), and will be tuned once a person has played them. The new art waits for the author's eye. Not yet played by hand or seen on a real screen.</td><td><span class="tag low">LOW</span></td></tr>
           <tr><td>The Alignment, what you were, and souls</td><td>In the harness: the Lampstand, a line opened and ranked, a path taken and the other closed, a line unbound; every ultimate charged and let go; her question and another past; the vessel filling and spilling, motes gathered, her offering, the bell tolled with and without the secrets shown, the font, a level replayed through the Portal; a bat latched on and shaken off. The new art waits for the author's eye. Against the tenth beta on the same seeds, the autopilot does as well from levels 11, 21 and 31, but from level 1 the knight is harder for it now: it beat him in 3 runs of 8 (5) and died 21 times (17), its fights running short of souls. Each class reached level 7 in 50 minutes from level 1 without a death. Not yet played by hand, so how a person's souls hold out is unknown.</td><td><span class="tag low">LOW</span></td></tr>
           <tr><td>The map at a walk, glyphs and sockets</td><td>Scripted sessions: walking, turning and casting with the map up, panning it by the keys and the D-pad, the holes and the eerie ink; the target's glyphs with every element learnt and with none; a rune's socket as it fires, in play and in the screensaver. Not yet seen on a real screen.</td><td><span class="tag mid">MEDIUM</span></td></tr>
@@ -838,15 +1109,15 @@ make smoke    # both scenes and a scripted player in the test harness</pre>
           <tr><td>Death and the ledger</td><td>Scripted sessions in the harness: a death written the moment it falls, its card, waking before level 1 with the runes and the hall kept, the stone and its page, a death in a pocket and its sealed doorway, signing and opening pages, a page keeping the merchant's visit, signing over another run's page, and the sixth beta's graves and progress opening as pages. The screensaver's own deaths cost nothing, as before. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
           <tr><td>Her claim</td><td>A run marked as it met a black skeleton, the program closed while marked, and the next start paying (740 gold and a tier of Rapid Sparks), then nothing on the start after. The mark is a registry value written from the main loop a few times a minute; that has been compiled for Windows but not run there.</td><td><span class="tag low">LOW</span></td></tr>
           <tr><td>The merchant's hall</td><td>In scripted sessions: all seven pedestals bought and kept on a page; the Totem teaching and raising each ability, and scrip sold; Swift Dodge, a web, the dead raised, Wraithwalk; the Portal's run starts and challenges; buying from the Compendium, and the autopilot buying back a lost tier; the Repository's places, gold and coins, kept through a death; every page of the Codex. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
-          <tr><td>The autopilot</td><td>Against the twelfth beta on the same eight seeds. From level 1, over 100 minutes: a median of 9 levels cleared (9), 22 deaths (26; 19 on the knight's level), the knight beaten three times (twice), three of the deaths in trials. From levels 11, 21 and 31, over 50 minutes: as far as before within half a level, and no deaths; a level takes 10 to 35 seconds longer for the trials and puzzles. It went into 163 trials and won 150, and solved 83 puzzles on 95 puzzle levels. It takes a trial only once it has found the door, and passed 74 by, nearly all of them never found. The knight is still the wall. This will be tuned.</td><td><span class="tag mid">MEDIUM</span></td></tr>
-          <tr><td>Saves on Windows</td><td>Pages of up to 16 KB, the progress and the mark, written to the registry the moment the game changes them and never on quitting. This beta's pages can't be read by the tenth or earlier, and an old page's spells are forgotten for points the first time it opens here: back up first. Tested in the harness, which stands in for the registry; the Windows side compiles but hasn't been run, by hand or under Wine.</td><td><span class="tag low">LOW</span></td></tr>
-          <tr><td>Memory safety</td><td>AddressSanitizer and UBSan after every step of the work and once more over the whole beta: the autopilot from levels 1 and 21, every boss's fight, scene switches with the ledger's pages, and scripted sessions of the ledger, deaths, the claim and the hall; for the ninth beta, a long autopilot run with everything new on, every new screen, a pocket with Cartographer and the Deacon's fight with Premonition; for the tenth, the autopilot in every run, all four boss fights in their new rooms, pockets, her hall, a challenge, and the crossings from each run into the next; for this one, after every step and over the finished build, the autopilot with every level corrupted, bats latching and spectres coming, the Wraith driven back again and again, every ultimate charged, the Lampstand, and a level replayed through the Portal. All clean.</td><td><span class="tag ok">HIGH</span></td></tr>
+          <tr><td>The autopilot</td><td>Against the old ways of thinking on the same sixteen seeds. From level 1, over 100 minutes: a median of 9 levels cleared either way; 56 deaths (47 to 53 a batch), 33 of them on the knight's level and 23 elsewhere (11 to 16), the knight beaten 7 times (5 or 6). So it is harder for the autopilot, the ordinary levels most of all, as was meant. From levels 11, 21 and 31, over 50 minutes: no deaths, and as far as before (levels 17, 27 and 37). A level takes about six minutes, as before. The knight is still the wall; the numbers on any one level move a good deal from batch to batch. This will be tuned once a person has played it.</td><td><span class="tag mid">MEDIUM</span></td></tr>
+          <tr><td>Saves on Windows</td><td>Pages of up to 16 KB, the progress and the mark, written to the registry the moment the game changes them and never on quitting. The thirteenth drops a piece with this beta's Sprint or Physic and forgets their lines' steps, the tenth and earlier can't read these pages at all, and an old page's spells are forgotten for points the first time it opens here: back up first. Tested in the harness, which stands in for the registry; the Windows side compiles but hasn't been run, by hand or under Wine.</td><td><span class="tag low">LOW</span></td></tr>
+          <tr><td>Memory safety</td><td>AddressSanitizer and UBSan after every step of the work and once more over the whole beta: the autopilot from levels 1 and 21, every boss's fight, scene switches with the ledger's pages, and scripted sessions of the ledger, deaths, the claim and the hall; for the ninth beta, a long autopilot run with everything new on, every new screen, a pocket with Cartographer and the Deacon's fight with Premonition; for the tenth, the autopilot in every run, all four boss fights in their new rooms, pockets, her hall, a challenge, and the crossings from each run into the next; for the eleventh, after every step and over the finished build, the autopilot with every level corrupted, bats latching and spectres coming, the Wraith driven back again and again, every ultimate charged, the Lampstand, and a level replayed through the Portal; for this one, after every step of the art, the minds and the screens, sessions with packs, hunts, ambushes and the three new kinds, and every screen at two runs' colours with the keys and one with a controller (113 sessions). All clean.</td><td><span class="tag ok">HIGH</span></td></tr>
           <tr><td>Chains, the Backrooms and Severance</td><td>In the harness: going in and out, the level waiting, every link of chains in both, the visportal's and the cooler's gift once a chain, what is taken and killed staying so, and the menus inside a pocket. The hum, the echo and the muzak were rendered in the harness only. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
           <tr><td>Runes and the Rune Shrine</td><td>Every Exquisite rune's second effect seen in the harness. The shrine by a scripted person: the curse, pulls, three runes combining, a take, letting one go, and both questions. Exquisite runes are very strong and haven't been tuned. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
           <tr><td>Wisps and Black Altars</td><td>A test player that only follows a wisp cleared 18 of 18 levels, fetching up to three keys on the way. A test player woke an altar, followed its wisp to a secret and back, and sent it on. The blessing and its halo in scripted sessions. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
           <tr><td>Things to wear, spirit and bones</td><td>In the harness: buying with no bag and with a full one, holding a ware, the wardrobe and the bag, the caster's totals, each ability at work; anointing checked on 72,000 rolled pieces. About 10,700 spells cast by the autopilot in the fourth beta's runs, 51 of them weak for want of spirit. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
           <tr><td>The creatures, achievements and the bestiary</td><td>Each creature seen at work in long autopilot runs; every bestiary page drawn from a full record. Run by hand on Windows in the third beta, not yet played through creature by creature.</td><td><span class="tag mid">MEDIUM</span></td></tr>
-          <tr><td>Input on Windows</td><td>Played by hand on real Windows: holding H, the keys, raw mouse turning and keeping the mouse inside the window all work flawlessly. The C key is new to the Windows shell, and the right mouse button had no use before this beta; neither has been pressed there yet.</td><td><span class="tag ok">HIGH</span></td></tr>
+          <tr><td>Input on Windows</td><td>Played by hand on real Windows: holding H, the keys, raw mouse turning and keeping the mouse inside the window all work flawlessly. The C key is new to the Windows shell, and the right mouse button had no use before the seventh beta; neither has been pressed there yet.</td><td><span class="tag ok">HIGH</span></td></tr>
           <tr><td>Mouse feel</td><td>Tried by hand: the fixed speed of 0.0015 radians per count feels spot-on.</td><td><span class="tag ok">HIGH</span></td></tr>
           <tr><td>Sound</td><td>Heard through real speakers in the earlier betas, where the music and effects play as intended. The four waltzes were measured in the harness: none clips, and each sits within two decibels of the march.</td><td><span class="tag ok">HIGH</span></td></tr>
           <tr><td>Real Windows</td><td>The earlier betas run on the author's Windows PC in a few different configurations. This one is built and smoke-tested by GitHub Actions, but hasn't been run by hand yet. Other PCs and graphics cards haven't been tried.</td><td><span class="tag mid">MEDIUM</span></td></tr>
@@ -968,6 +1239,42 @@ make smoke    # both scenes and a scripted player in the test harness</pre>
     })
     .catch(function () { /* the links above already point at this version */ });
 })();
+  /* the gallery's viewer: a frame large, its caption, the arrows (and the keys) through its set; the strips too */
+  (function () {
+    const dlg = document.querySelector(".viewer");
+    if (!dlg || !dlg.showModal) return;
+    const big = dlg.querySelector("img"), cap = dlg.querySelector(".v-cap");
+    let list = [], at = 0;
+    function show(i) {
+      at = (i + list.length) % list.length;
+      const el = list[at], img = el.tagName === "IMG" ? el : el.querySelector("img");
+      big.src = img.currentSrc || img.src; big.alt = img.alt;
+      cap.textContent = el.dataset.cap || (el.closest("figure") && el.closest("figure").querySelector("figcaption") ? el.closest("figure").querySelector("figcaption").textContent : img.alt);
+    }
+    function open(el, group) { list = Array.from(group); show(list.indexOf(el)); if (!dlg.open) dlg.showModal(); }
+    const tabs = document.querySelector(".tabs");                 /* one set at a time, when there is script to choose */
+    if (tabs) {
+      tabs.hidden = false;
+      document.querySelectorAll(".set h3").forEach(h => h.classList.add("vh"));
+      const pick = key => {
+        tabs.querySelectorAll("button").forEach(t => t.setAttribute("aria-selected", t.dataset.for === key ? "true" : "false"));
+        document.querySelectorAll(".set").forEach(set => { set.hidden = set.dataset.set !== key; });
+      };
+      tabs.querySelectorAll("button").forEach(t => t.addEventListener("click", () => pick(t.dataset.for)));
+      pick("crypt");
+    }
+    document.querySelectorAll(".set").forEach(set => {
+      const shots = set.querySelectorAll(".shot");
+      shots.forEach(b => b.addEventListener("click", () => open(b, shots)));
+    });
+    const strips = document.querySelectorAll('section[aria-labelledby="screens"] figure img');
+    strips.forEach(img => { img.classList.add("zoom"); img.addEventListener("click", () => open(img, strips)); });
+    dlg.querySelector(".v-prev").addEventListener("click", () => show(at - 1));
+    dlg.querySelector(".v-next").addEventListener("click", () => show(at + 1));
+    dlg.querySelector(".v-close").addEventListener("click", () => dlg.close());
+    dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+    dlg.addEventListener("keydown", e => { if (e.key === "ArrowLeft") show(at - 1); else if (e.key === "ArrowRight") show(at + 1); });
+  })();
 </script>
 </body>
 </html>

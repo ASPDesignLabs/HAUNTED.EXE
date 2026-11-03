@@ -50,7 +50,11 @@ void gfx_pal_ramp(Frame *f, int first, int last,
 
 void gfx_pal_black(Frame *f) { memset(f->pal, 0, sizeof f->pal); }
 
+void (*gfx_hook8)(Frame *f, int x, int y, uint8_t ch, int fg, int scale);
+void (*gfx_hook16)(Frame *f, int x, int y, uint8_t ch, int fg, int scale);
+
 void gfx_glyph16(Frame *f, int x, int y, uint8_t ch, int fg, int bg, int scale) {
+    if (gfx_hook16 && bg < 0) { gfx_hook16(f, x, y, ch, fg, scale); return; }
     const unsigned char *g = font_vga16[ch];
     for (int row = 0; row < 16; row++) {
         unsigned bits = g[row];
@@ -65,6 +69,7 @@ void gfx_glyph16(Frame *f, int x, int y, uint8_t ch, int fg, int bg, int scale) 
 }
 
 void gfx_glyph8(Frame *f, int x, int y, uint8_t ch, int fg, int bg, int scale) {
+    if (gfx_hook8 && bg < 0) { gfx_hook8(f, x, y, ch, fg, scale); return; }
     const unsigned char *g = font_bios8[ch];
     for (int row = 0; row < 8; row++) {
         unsigned bits = g[row];

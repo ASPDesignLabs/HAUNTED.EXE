@@ -7,6 +7,7 @@ on:
     paths:
       - "site/**"
       - "docs/*.png"
+      - "docs/gallery/*.png"
       - "VERSION"
       - "tools/build_site.sh"
       - ".github/workflows/pages.yml"
