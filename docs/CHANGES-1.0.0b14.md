@@ -1,10 +1,11 @@
 # HAUNTED.EXE 1.0.0b14: everything since 1.0.0b13
 
-**A draft, for the owner to read before anything is posted.** It sets down every change on main and on the work
+**The full record**, kept for whoever works on this next. It sets down every change on main and on the work
 branches since the thirteenth beta went out on 31 October: the first art pass, how the dead think, the caster's new
 legs, and the pass over the screens, with the faults found and mended on the way, what was tested and how, and what is
-still to come. The release notes (`.github/release-notes.md`) will be cut from it once you have marked it up; the page
-and the README take their share at the same time. The number is yours to choose (see *Questions* at the end).
+still to come. The owner read it on 3 November and chose the number (1.0.0b14), a pre-release as before with nothing
+pinned as Latest, and release notes cut to what a player needs to know (`.github/release-notes.md`); the page and the
+README took their share in the release commit.
 
 Nothing in it has been played by hand, run on Windows or under Wine, or seen on a real screen. Everything was tested in
 the harness, which draws exactly what the game draws; the Windows build was compiled and smoke-tested by GitHub Actions
@@ -479,15 +480,10 @@ Everything in the harness only. The Windows build compiled and smoke-tested by G
 
 ---
 
-## Questions for the owner
+## The owner's answers (3 November)
 
-1. **The number.** (a) **1.0.0b14** (mine): the next one released; the art pass was planned as 1.0.0b14 and the minds as
-   1.0.0b15, and this carries both and the screens, so the plans' later numbers move down one (the minds' showing and the
-   rest of the art come next; the lower storey stays 1.0.0b16 or becomes 1.0.0b15). (b) **1.0.0b15**: keep the plans'
-   numbers and skip 1.0.0b14.
-2. **Latest.** GitHub's *Latest* badge never goes on a pre-release, and every beta so far has gone out as one (the page
-   finds the newest itself, pre-releases included, so downloads work either way). (a) **Publish this one as a full
-   release marked Latest** (mine): the workflow gets a switch for it, and the page's line *A pre-release built by GitHub
-   Actions* changes to match. (b) Keep it a pre-release, as before, and pin nothing.
-3. **This document.** Cut it to release notes in the usual shape (*Before you upgrade*, *New in this beta*, *Files*), or
-   post more of it: as a CHANGES file in the release's zip, or linked from the notes.
+1. **The number:** 1.0.0b14. The plans' later numbers move down one: the minds' showing and the rest of the art come
+   next, and the lower storey stays planned as 1.0.0b16 until it is renumbered.
+2. **Latest:** a pre-release, as before, with nothing pinned; the workflow is unchanged.
+3. **This document:** release notes cut to what a player needs to know, without the background work, the technicals or
+   the debug switches; this record stays in `docs/`.
