@@ -165,6 +165,7 @@ static void tree_case(const Case *k, float t) {
         UiNode *n = &tr.n[m];
         n->name = LINES_[k->e][m].name; n->does = LINES_[k->e][m].does; n->kind = KIND[m];
         n->cost = LINES_[k->e][m].cost < 1 ? 1 : LINES_[k->e][m].cost;
+        n->steps = LINES_[k->e][m].cost == 2;                       /* every node bought a point at a time costs two */
         int held = k->held >> m & 1, up = m == 0 ? 1 : m == 3 ? ((k->held >> 1 & 1) || (k->held >> 2 & 1)) : (k->held >> UP[m] & 1);
         if (k->closed >> m & 1) { n->state = SK_CLOSED; n->note = "THE OTHER PATH IS CHOSEN."; }
         else if (held) { n->state = SK_HELD; n->got = n->cost; }
