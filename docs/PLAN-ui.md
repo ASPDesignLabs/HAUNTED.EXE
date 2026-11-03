@@ -464,6 +464,6 @@ My answer is marked **(mine)**; the owner's take it over.
   after the menus (toasts, the console), so a toast over a menu's title (seen in a Backrooms pocket's wardrobe) is for
   step 8. Checked: a 900 s dream run (seed 5, `CRAWL_RUNID=77`) and a person's session through the reckoning, the tally,
   Tab, Esc and the bestiary give the same `EVENT` lines as step 1's build, line for line; ASan clean over the menus, the
-  tally and a 400 s dream; `make smoke` 1.39 ms a frame, 1.6-1.7 ms with a menu up. The Windows build is not compiled here
-  (no MinGW in this container); CI on the branch will be its first compile. The after sheets are
+  tally and a 400 s dream; `make smoke` 1.39 ms a frame, 1.6-1.7 ms with a menu up. The Windows build was compiled and
+  smoke-tested by CI on the branch (run 81, started by hand). The after sheets are
   `docs/uipass/step2-L*.png`. Nothing played by hand. Next: step 3, the Alignment.
