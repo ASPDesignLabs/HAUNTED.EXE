@@ -37,7 +37,8 @@
 
 enum { K_FLOOR, K_WALL, K_DOOR, K_PILLAR, K_PROP };   /* K_PROP: low and solid (a grave, a fire pit): walked round, seen and cast over */
 enum { TH_CORRIDOR, TH_OSSUARY, TH_CRYPT, TH_BRICK, TH_MOSS, TH_COUNT };
-enum { PS_MOVE, PS_TURN, PS_DOOR, PS_AIM, PS_CAST, PS_UNAIM, PS_HOLD, PS_EXIT, PS_SHOP, PS_PLAYER, PS_SETTLE, PS_PUSH, PS_ALTAR, PS_USE, PS_MEND };
+enum { PS_MOVE, PS_TURN, PS_DOOR, PS_AIM, PS_CAST, PS_UNAIM, PS_HOLD, PS_EXIT, PS_SHOP, PS_PLAYER, PS_SETTLE, PS_PUSH, PS_ALTAR, PS_USE, PS_MEND,
+       PS_LOOK, PS_PROBE, PS_GUARD };   /* the dream's counters (1.0.0b15 step 10): a glance back, a spell at a door, a corner held */
 enum { MOB_SKEL, MOB_GHOST, MOB_BAT, MOB_WSKULL, MOB_SHIELD, MOB_SPIDER,
        MOB_SHAMBLER, MOB_DROWNED, MOB_HOUND, MOB_WRAITH, MOB_HUNTER, MOB_GHOUL, MOB_KNIGHT, MOB_BROOD, MOB_LING, MOB_SAC,
        MOB_SHADE, MOB_IMP, MOB_DEACON, MOB_GARGOYLE,
@@ -967,6 +968,11 @@ static struct {
     float tri_t, tri_end, tri_f[8], work_t, tri_hold;
     int rk_fresh;                                                  /* the reckoning (section 10a) just opened */
     int16_t tri_fx[160], tri_fy[160]; uint8_t tri_fd[160], tri_face[160], tri_fover[160], tri_flo[256], tri_floored;
+    /* the dream's counters (1.0.0b15 step 10, docs/PLAN-ai.md Part G): a sound behind it to glance back at (pending, where, when
+       last); a corner to fight from (held, the cell, how long, when it may take one again); the ambushes whose sign it has read
+       and those it has cast into (a bit each) */
+    int glance, corner_on, corner_x, corner_y, amb_read, amb_probed;
+    float glance_x, glance_y, glance_last, guard_t, corner_cd;
 } G;
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
        BP_LITANY };                                 /* the Deacon's censer raised, the green light growing */
@@ -3596,6 +3602,7 @@ enum { NZ_STEP, NZ_CAST, NZ_FIGHT, NZ_MEND, NZ_LAND, NZ_DOOR, NZ_SECRET, NZ_DEAT
 static void noise(float x, float y, int steps, int what, int kind);
 static void alarm_at(Mob *m, int steps);
 static void sexton_ring(Mob *m, int hard);
+static void dream_glance(float x, float y);
 static void wisp_out(Wisp *w);
 static void hunt_tick(void);
 static void amb_tick(void);
@@ -3614,6 +3621,7 @@ static int hunt_scent, hunt_lost, shade_fades, shade_strikes;
 static int ambushes_sprung, ambushes_out, ambushes_refused, bait_seen, bait_run;
 static int dodged, flank, spread, feints, fell_back, covers, corner_throws, door_waits, charge_reads, hz_mob_hits, cap_over;
 static int sentinels_woke, chills, nest_calls, gathered, leashed;
+static int glances, glance_finds, amb_read, amb_probes, corners, corners_held;
 static int ways_blocked, lantern_felt, horns, whip_cracks, whip_lashes, wild_hounds, bell_rounds, bell_alarms, bell_heard, bells_frozen, light_felt, lightless_lost, lightless_hits, wisps_struck;
 #endif
 static int hurt_by(const Mob *m, float dmg, int kind) {
@@ -4974,6 +4982,7 @@ static void pack_call(Mob *m) {                                    /* one of it 
     p->seen_t = (float)G.t; p->kx = G.px; p->ky = G.py;
     if (p->state != PAS_CALM || p->kind == PACK_WAKE) return;
     p->state = PAS_CALL; p->call_t = 0.4f; p->caller = (int)(m - G.mobs);
+    dream_glance(m->x, m->y);                                      /* a call behind the dream: it looks round */
     if (p->kind == PACK_WHIP && p->leader >= 0 && G.mobs[p->leader].alive && G.mobs[p->leader].state == MS_WALK) {   /* the horn: */
         p->call_t = 1.1f; G.mobs[p->leader].call_t = 1.1f; DBG_COUNT(horns);   /* his hounds wait on it */
     }
@@ -5536,7 +5545,7 @@ static void hunter_tick(Mob *m) {
     float sc = G.scent[m->cy][m->cx];
     if (sc > 0.0f && (float)G.level_t - sc < 4.0f) {
         m->alert = MIND_LIVE; m->aware = MA_HUNT; m->kx = G.px; m->ky = G.py;
-        if (!G.hunt_said) { G.hunt_said = 1; sfx_at(hunt_sfx(G.hunt_kind ? G.hunt_kind : HK_HOUNDS), m->x, m->y, 1.0f); }   /* nearer */
+        if (!G.hunt_said) { G.hunt_said = 1; sfx_at(hunt_sfx(G.hunt_kind ? G.hunt_kind : HK_HOUNDS), m->x, m->y, 1.0f); dream_glance(m->x, m->y); }   /* nearer */
         DBG_COUNT(hunt_scent);
     }
 }
@@ -6072,6 +6081,7 @@ static int mind_goal(Mob *m, int *gx, int *gy) {
 }
 static void scav_feed(Mob *m) {                                    /* the scavenger at its meal: it mends, and is open to a blow */
     m->scav = 0; m->sub = 4; m->sub_t = 5.0f + 3.0f * rndf();
+    dream_glance(m->x, m->y);                                      /* its chewing, heard */
     m->face = atan2f(m->scy - m->y, m->scx - m->x) + (rndf() - 0.5f);   /* bent over it */
     DBG_COUNT(feeds);
 }
@@ -9236,9 +9246,119 @@ static int rest_goal(int x, int y, int *gx, int *gy) {
     }
     return G.rest_goal >= 0;
 }
+static void begin_turn(float target);
+static int targetable(const Mob *m);
+/* ---- The dream's counters (docs/PLAN-ai.md, Part G; step 10). What the dead do from behind and round corners, the dream
+ * answers: a glance back at a sound behind it (a hunt come up on its trail, a pack's call, a scavenger at its meal); an
+ * ambush's sign read, its way in taken only if there is no other, and a spell sent through it first; callers and leaders
+ * aimed at first (find_target); and hurt, with a pack on it, a corner it has walked, to fight from. Never a person's. ---- */
+static void dream_glance(float x, float y) {
+    if (G.player || G.dead || G.shop || G.tally || G.level_t - G.glance_last < 6.0) return;
+    float vx = x - G.px, vy = y - G.py, d = hypotf(vx, vy);
+    if (d > 12.0f || d < 0.5f || vx * cosf(G.ang) + vy * sinf(G.ang) > -0.2f * d) return;   /* ahead or beside: it sees to that */
+    G.glance = 1; G.glance_x = x; G.glance_y = y;
+}
+static int amb_soft(int x, int y) {                                /* by the way into an ambush whose sign it has read */
+    for (int k = 0; k < G.namb; k++) {
+        const Ambush *a = &G.amb[k];
+        if (!(G.amb_read >> k & 1) || a->sprung) continue;
+        if ((abs(x - a->ox) <= 1 && abs(y - a->oy) <= 1) || (abs(x - a->ix) <= 1 && abs(y - a->iy) <= 1)) return 1;
+    }
+    return 0;
+}
+static void amb_read_tick(void) {                                  /* the sign by a door, seen within seven cells */
+    for (int k = 0; k < G.namb && !G.player; k++) {
+        const Ambush *a = &G.amb[k];
+        if ((G.amb_read >> k & 1) || a->sprung) continue;
+        if (hypotf(a->ox + 0.5f - G.px, a->oy + 0.5f - G.py) < 7.0f && line_clear(G.px, G.py, a->ox + 0.5f, a->oy + 0.5f)) { G.amb_read |= 1 << k; DBG_COUNT(amb_read); }
+    }
+}
+static int pack_on_me(void) {                                      /* a pack hunting it, one of it within ten cells */
+    for (int k = 0; k < G.npacks; k++) {
+        const Pack *p = &G.packs[k];
+        if (p->broken || p->state != PAS_HUNT) continue;
+        for (int i = 0; i < MAXMOBS; i++) {
+            const Mob *o = &G.mobs[i];
+            if ((p->mem >> i & 1) && o->alive && o->state == MS_WALK && o->alert > 0.0f && hypotf(o->x - G.px, o->y - G.py) < 10.0f) return 1;
+        }
+    }
+    return 0;
+}
+static int lane_corner(int x, int y) {                             /* a bend or a dead end in the lanes: half the ways in */
+    int n = 0, m = 0;
+    for (int d = 0; d < 4; d++) if (apass(x + DX[d], y + DY[d])) { n++; m |= 1 << d; }
+    return n == 1 || (n == 2 && m != 5 && m != 10);
+}
+static int corner_goal(int x, int y, int *gx, int *gy) {           /* hurt, a pack on it: the nearest corner it has walked */
+    if (!G.corner_on) {
+        if (G.player || G.dead || G.shop || PK.depth || boss_fighting() || in_trial(G.cx, G.cy) || G.corner_cd > (float)G.level_t
+            || G.hp >= G.max_hp / 2 || !pack_on_me()) return 0;
+        bfs_from(x, y);
+        int best = -1, bd = 9;
+        for (int cy = 1; cy < MAPN - 1; cy++)
+            for (int cx = 1; cx < MAPN - 1; cx++) {
+                int d = bfs_dist[cy][cx];
+                if (d < 0 || d >= bd || !apass(cx, cy) || !G.map[cy][cx].visits || !lane_corner(cx, cy) || hz_danger(cx, cy)) continue;
+                bd = d; best = cy * MAPN + cx;
+            }
+        if (best < 0) { G.corner_cd = (float)G.level_t + 10.0f; return 0; }
+        G.corner_on = 1; G.corner_x = best % MAPN; G.corner_y = best / MAPN; G.guard_t = 0.0f;
+        DBG_COUNT(corners);
+    }
+    if (x == G.corner_x && y == G.corner_y) return 0;
+    *gx = G.corner_x; *gy = G.corner_y;
+    return 1;
+}
+static int corner_keep(void) {                                     /* it holds the corner while it is hurt and the pack is on it */
+    return !G.dead && G.guard_t < 30.0f && G.hp < G.max_hp * 0.6f && !hz_danger(G.cx, G.cy) && pack_on_me();
+}
+static void corner_leave(void) {
+    G.corner_on = 0; G.corner_cd = (float)G.level_t + 20.0f;
+    G.next_h = decide(G.cx, G.cy, G.h);
+    begin_turn(heading_angle(G.next_h)); G.state = PS_TURN;
+}
+static int guard_target(void) {                                    /* from the corner: the nearest that knows it is there */
+    int best = -1; float bd = 9.0f;
+    for (int i = 0; i < MAXMOBS; i++) {
+        const Mob *m = &G.mobs[i];
+        if (!targetable(m) || (m->alert <= 0.0f && !m->seen) || m->ignore > (float)G.t) continue;
+        float d = hypotf(m->x - G.px, m->y - G.py);
+        if (d < bd && line_clear(G.px, G.py, m->x, m->y) && shot_clear(m->x, m->y)) { bd = d; best = i; }
+    }
+    return best;
+}
+static int at_corner(void) {
+    if (!G.corner_on || G.player || G.cx != G.corner_x || G.cy != G.corner_y) return 0;
+    G.state = PS_GUARD; G.st = 0.0f; G.spd = 0.0f; G.u = 1.0f; G.hand = 0.0f;
+    DBG_COUNT(corners_held);
+    return 1;
+}
+static int dream_looks(void) {                                     /* at a lane cell: a glance back, or a spell through a door */
+    if (G.player) return 0;
+    if (G.glance) {
+        G.glance = 0; G.glance_last = (float)G.level_t;
+        begin_turn(atan2f(G.glance_y - G.py, G.glance_x - G.px));
+        G.state = PS_LOOK; G.st = 0.0f; G.spd = 0.0f; G.u = 1.0f;
+        DBG_COUNT(glances);
+        return 1;
+    }
+    for (int k = 0; k < G.namb; k++) {
+        const Ambush *a = &G.amb[k];
+        if (!(G.amb_read >> k & 1) || (G.amb_probed >> k & 1) || a->sprung || G.silenced) continue;
+        if (abs(G.cx - a->ix) > 2 || abs(G.cy - a->iy) > 2 || in_room(&G.rooms[a->room], G.cx, G.cy)) continue;
+        G.amb_probed |= 1 << k;
+        begin_turn(atan2f(a->fy + 0.5f - G.py, a->fx + 0.5f - G.px));
+        G.state = PS_PROBE; G.st = 0.0f; G.spd = 0.0f; G.u = 1.0f; G.fired = 0;
+        DBG_COUNT(amb_probes);
+        return 1;
+    }
+    return 0;
+}
+
 static int pick_goal(int x, int y, int *gx, int *gy) {
     if (boss_goal(x, y, gx, gy)) return 1;
     if (tri_goal(x, y, gx, gy)) return 1;                          /* a trial: in, and through it */
+    if (corner_goal(x, y, gx, gy)) return 1;                       /* hurt, a pack on it: a corner to fight from */
     if (chain_goal(x, y, gx, gy)) return 1;
     if (pz_goal(x, y, gx, gy)) return 1;                           /* a puzzle, when there is time or the way on lies beyond */
     if (rest_goal(x, y, gx, gy)) return 1;                         /* hurt and nothing after it: a place to mend */
@@ -9319,7 +9439,7 @@ static int decide(int x, int y, int h) {
         for (int d = 0; d < 4; d++) {
             int nx = x + DX[d], ny = y + DY[d];
             if (!apass(nx, ny) || bfs_dist[ny][nx] < 0) continue;
-            int sc = bfs_dist[ny][nx] * 4 + (d == h ? 0 : 1) + (d == ((h + 2) & 3) ? 2 : 0) + (G.bulky[ny][nx] ? 5 : 0) + 400 * hz_danger(nx, ny) + 9 * hz_soft(nx, ny)
+            int sc = bfs_dist[ny][nx] * 4 + (d == h ? 0 : 1) + (d == ((h + 2) & 3) ? 2 : 0) + (G.bulky[ny][nx] ? 5 : 0) + 400 * hz_danger(nx, ny) + 9 * (hz_soft(nx, ny) | amb_soft(nx, ny))
                    + (bfs_dist[ny][nx] >= bfs_dist[y][x] ? 40 : 0);   /* not into a warning; a pile or a soft mark only chooses between ways on,
                                                                        never turns it back (it paced before a sapper's doorway) */
             if (sc < gs) { gs = sc; gbest = d; }
@@ -9335,7 +9455,7 @@ static int decide(int x, int y, int h) {
         if (G.map[ny][nx].visits == 0) s = 100.0f + (d == h ? 1.3f : 0.0f) + rndf() * 1.6f;
         else s = -(float)dist_to_unexplored(nx, ny, x, y) + (d == h ? 0.4f : 0.0f) + rndf() * 0.8f;
         if (G.bulky[ny][nx]) s -= 2.5f;                           /* walk past piles, not through them */
-        s -= 400.0f * (float)hz_danger(nx, ny) + 2.0f * (float)hz_soft(nx, ny);
+        s -= 400.0f * (float)hz_danger(nx, ny) + 2.0f * (float)(hz_soft(nx, ny) | amb_soft(nx, ny));
         if (s > bs) { bs = s; best = d; }
     }
     return best < 0 ? ((h + 2) & 3) : best;
@@ -9474,7 +9594,11 @@ static int find_target(void) {
         if (m->type == MOB_WRAITH && !m->boss && m->sub) continue;    /* driven back already: more fire only holds it */
         float vx = m->x - G.px, vy = m->y - G.py, dist = sqrtf(vx * vx + vy * vy);
         float depth = vx * dx + vy * dy, lat = vx * rx + vy * ry, score;
+        const Pack *mp = pack_of(m);                               /* about to call (step 10): the caller first, from any side */
+        int calling = m->call_t > 0.0f || (m->type == MOB_SEXTON && m->rings == 1) || (mp && mp->state == PAS_CALL && mp->caller == i);
+        int leads = mp && !mp->broken && mp->state == PAS_HUNT && mp->leader == i;
         if (depth >= 0.35f && depth <= 7.5f && fabsf(lat) <= fmaxf(depth * 0.42f, 0.3f)) score = depth;
+        else if (calling && dist < 9.0f && line_clear(G.px, G.py, m->x, m->y)) score = dist + 1.5f;
         else if ((m->type == MOB_SKEL && m->seen && dist < 8.0f) || (m->type == MOB_BAT && dist < 1.4f) || (m->type == MOB_SHIELD && m->seen && dist < 3.0f)
                  || (m->type == MOB_SPIDER && m->sub >= 1 && dist < 2.0f) || (m->type == MOB_WSKULL && m->sub >= 1 && dist < 9.0f)
                  || (m->type == MOB_WRAITH && m->sub == 0 && dist < 7.0f) || (KIND_IS(m, KF_MELEE) && m->alert > 0.0f && dist < 4.0f)
@@ -9482,6 +9606,7 @@ static int find_target(void) {
         else continue;
         if (m->type == MOB_WSKULL) score -= m->sub == 1 ? 4.0f : 1.5f;   /* one hit ends it: first, before it fires */
         if (m->type == MOB_DEACON || m->type == MOB_SEXTON) score -= 2.0f;   /* the priest first, before it raises more; the bell-ringer */
+        if (calling) score -= 3.0f; else if (leads) score -= 1.5f;   /* a caller before it calls; a pack's leader, and it breaks */
         if (m->ignore > (float)G.t || !shot_clear(m->x, m->y)) continue;
         if (score < bd) { bd = score; best = i; }
     }
@@ -9609,6 +9734,7 @@ static void update_player(float dt) {
     }
     G.cooldown -= dt;
     G.calm += dt;
+    amb_read_tick();                                               /* an ambush's sign, read in passing (step 10) */
     if ((G.state == PS_AIM || G.state == PS_HOLD || G.state == PS_UNAIM || (G.state == PS_CAST && G.fired) || (G.state == PS_CAST && G.silenced))
         && hz_danger((int)G.px, (int)G.py)) {                      /* the floor warns: it stops aiming and goes on */
         G.hand = 0.0f; G.state = PS_MOVE; G.ang = wrap_pi(G.ang);
@@ -9640,7 +9766,7 @@ static void update_player(float dt) {
             break;
         }
         if (G.u >= 1.0f) {
-            if (arrive() || at_secret() || at_altar() || at_use() || at_rest()) break;
+            if (arrive() || at_secret() || at_altar() || at_use() || at_rest() || at_corner() || dream_looks()) break;
             if (G.next_h != G.h) {
                 begin_turn(heading_angle(G.next_h));
                 G.state = PS_TURN;
@@ -9656,12 +9782,12 @@ static void update_player(float dt) {
         G.st += dt;
         if (G.u < 1.0f) {                                         /* still finishing the step into the corner */
             advance(fmaxf(G.spd, CRUISE * 0.4f) * dt);
-            if (G.u >= 1.0f && (arrive() || at_secret() || at_altar() || at_use() || at_rest())) break;
+            if (G.u >= 1.0f && (arrive() || at_secret() || at_altar() || at_use() || at_rest() || at_corner())) break;
         } else G.spd *= 0.85f;
         float k = smoothstepf(0.0f, 1.0f, G.st / G.adur);
         G.ang = lerpf(G.ang0, G.ang1, k);
         if (G.st >= G.adur) {
-            if (G.u < 1.0f) { advance(1.0f - G.u); if (arrive() || at_secret() || at_altar() || at_use() || at_rest()) break; }
+            if (G.u < 1.0f) { advance(1.0f - G.u); if (arrive() || at_secret() || at_altar() || at_use() || at_rest() || at_corner()) break; }
             G.ang = wrap_pi(G.ang1);
             G.h = G.next_h;
             G.spd = CRUISE * 0.6f;
@@ -9829,6 +9955,33 @@ static void update_player(float dt) {
             G.next_h = decide(G.cx, G.cy, G.h);
             begin_turn(heading_angle(G.next_h));
             G.state = PS_TURN;
+        }
+        break;
+    }
+    case PS_LOOK: {                                                /* a glance back: a look, and on, unless something is there */
+        G.st += dt;
+        G.ang = lerpf(G.ang0, G.ang1, smoothstepf(0.0f, 1.0f, fminf(1.0f, G.st / G.adur)));
+        if (G.st < G.adur) break;
+        int t = G.cooldown <= 0.0f && !G.silenced ? find_target() : -1;
+        if (t >= 0) { aim_at(t); DBG_COUNT(glance_finds); break; }
+        if (G.st >= G.adur + 0.5f) { begin_turn(heading_angle(G.next_h)); G.state = PS_TURN; }
+        break;
+    }
+    case PS_PROBE: {                                               /* a spell through an ambush's door before going by it */
+        G.st += dt;
+        G.ang = lerpf(G.ang0, G.ang1, smoothstepf(0.0f, 1.0f, fminf(1.0f, G.st / G.adur)));
+        if (G.st >= G.adur + 0.1f && !G.fired) { G.fired = 1; G.hand = 1.0f; cast_spell(AT_FIRE, -1); G.calm = 0.0f; }
+        if (G.fired) G.hand = fmaxf(0.0f, G.hand - dt * 2.0f);
+        if (G.st >= G.adur + 0.7f) { G.hand = 0.0f; begin_turn(heading_angle(G.next_h)); G.state = PS_TURN; }
+        break;
+    }
+    case PS_GUARD: {                                               /* a corner held: what comes, it fights from here */
+        G.st += dt; G.guard_t += dt; G.spd = 0.0f;
+        if (!corner_keep()) { corner_leave(); break; }
+        int t = guard_target();
+        if (t >= 0) {
+            if (G.cooldown <= 0.0f && !G.silenced) { aim_at(t); G.resume_state = PS_GUARD; break; }
+            G.ang += wrap_pi(atan2f(G.mobs[t].y - G.py, G.mobs[t].x - G.px) - G.ang) * fminf(1.0f, dt * 6.0f);   /* facing it */
         }
         break;
     }
@@ -10218,6 +10371,7 @@ static void start_level(void) {
     if (G.corrupt || G.fonted) fprintf(stderr, "EVENT corrupted level %d shown %d fonted %d t=%.2f\n", G.level, G.cshown, G.fonted, G.t);
 #endif
     G.rooms_in = 0;                                                /* a new level's rooms, each worth finding */
+    G.glance = G.corner_on = G.amb_read = G.amb_probed = 0; G.glance_last = -99.0f; G.corner_cd = 0.0f;   /* the dream's counters */
     G.map_on = 0;                                                  /* rolled up between levels */
     memset(G.has_key, 0, sizeof G.has_key);
     G.shop = 0;

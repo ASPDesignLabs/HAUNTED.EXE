@@ -1098,6 +1098,18 @@ The order of the steps is the building's; what a person meets, and where, is sec
    for the dream than step 8: it kills the huntsman and the bell-ringer from afar, as it does the deacon. They are a person's
    trial more than the dream's, as the ambush was.
 10. **The dream's counters** (Part G).
+   *Built* (3 November, harness only). The six, as the owner took them (Y1 a). The glance back: a pack's call, a hunter's nearer
+   tell or a scavenger starting its meal, behind the dream (more than a little behind its shoulder) within twelve cells, once
+   in six seconds; at its next lane cell it turns to the sound, fights what it finds there, or turns back after half a second.
+   Reading tells: an ambush's sign seen within seven cells makes the cells about its way in soft (a way on chosen against, never
+   turned back from), and passing within two cells of the way in it sends a fire bolt through to the far side first, once.
+   Never chasing bait: it never chased; nothing changed. Leaders first: a caller about to call (the deacon's chant, the
+   huntsman's horn, the Sexton's raised bell, a pack's call under way) is aimed at from any side within nine cells, before
+   anything; a hunting pack's leader before the rest. Corners: hurt under half with a pack hunting it within ten cells, it goes
+   to the nearest bend or dead end in the lanes it has walked within eight steps and holds it, facing and fighting what knows it
+   is there, while it is under three fifths and the pack is on it, thirty seconds at most, then twenty before another. Its own
+   cap: one less, since step 8. Choices of mine: the corner's numbers; the spell at the door is the fire bolt, whatever is in
+   hand; the glance answers only sounds behind it, since it sees to what is ahead.
 11. **Showing it** (Part H): sounds, captions, the bestiary, the Codex, the record, achievements; the art.
 12. **The checks**: the balance runs (D5), ASan on long dream and scripted sessions, `bench` (the new fields must not
     show: a few breadth-first searches a second over 2,025 cells, and one scent stamp a step).

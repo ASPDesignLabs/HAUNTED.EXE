@@ -158,7 +158,9 @@ your back, the cap passed for a person doing well. **Step 8 is built** (harness 
 pieces in place of today's placements, the rules, room types choosing, the special places, the mixed bands and the packs
 still to come (the nest, the imps' brood, sentinels), and the deep's combinations, by section 23's rollout. **Step 9 is built**
 (harness only): the three new kinds, their sheets approved by the owner (`whipper.png`, `sexton.png`, `lightless.png`,
-`sides5.png` on `make sheets`), in the game with their ways and bestiary pages. Step 10, the dream's counters, is next.
+`sides5.png` on `make sheets`), in the game with their ways and bestiary pages. **Step 10 is built** (harness only): the
+dream's counters (a glance back, ambush signs read and a spell through the door, callers and leaders first, a corner held).
+Step 11, showing it (sounds, captions, the bestiary's lines, the Codex, achievements, art), is next.
 
 ## Working with the owner
 
@@ -1298,6 +1300,20 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   somewhere), `PACKS level n: the huntsman and his hounds ...`, `EVENT horns`, `whip_cracks`, `whip_lashes`, `wild_hounds`,
   `bell_rounds`, `bell_raised`, `bell_alarms`, `bell_heard`, `bells_frozen`, `light_felt`, `lantern_felt`, `lightless_lost`,
   `lightless_hits`, `wisps_struck`.
+  **Step 10** (Part G): the dream's counters, never a person's. A glance back (`dream_glance`, from `pack_call`, `hunter_tick`'s
+  nearer tell and `scav_feed`: a sound behind it within twelve cells, once in six seconds; `G.glance`, then at the next lane cell
+  `dream_looks` turns it to face the sound, `PS_LOOK`, and it fights what `find_target` finds there or turns back after half a
+  second). An ambush's sign read (`amb_read_tick`: within seven cells of its way in and in sight; `G.amb_read`) makes the cells by
+  its way in soft to `decide` (`amb_soft`, as `hz_soft`: chosen against only between ways on), and within two cells of the way in,
+  outside the room, it turns and sends a fire bolt through to the far side first (`PS_PROBE`, `G.amb_probed`, once an ambush).
+  `find_target` takes a caller about to call from any side within nine cells (`Mob.call_t`, the Sexton's raised bell, a pack's
+  caller while its call is under way), first of all, and a hunting pack's leader before the rest. Hurt under half with a pack
+  hunting it within ten cells (`pack_on_me`), it makes for the nearest lane corner it has walked within eight steps (`corner_goal`
+  in `pick_goal` after the trial's; `lane_corner`: a bend or a dead end) and holds it (`at_corner`, from a step's end or a turn's;
+  `PS_GUARD`: it faces and fights the nearest that knows it is there, `guard_target`, the aim coming back to the guard) while it is
+  under three fifths and the pack is on it, thirty seconds at most (`corner_keep`, `corner_leave`: twenty seconds before another;
+  `G.corner_*`). It never chased bait, and its engaged cap is one less since step 8. Debug: `EVENT glances`, `glance_finds`,
+  `amb_read`, `amb_probes`, `corners`, `corners_held`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are
