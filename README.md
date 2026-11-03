@@ -25,6 +25,24 @@ from this repository by GitHub Actions and carries three files:
 `SHA256SUMS.txt` beside them lists their checksums. The files aren't code-signed, so Windows may show a
 SmartScreen warning the first time; choose *More info -> Run anyway*.
 
+### In the browser
+
+The same game plays on [its own page](https://aspdesignlabs.github.io/HAUNTED.EXE/play/), with nothing to
+download: both scenes take turns as they do on Windows, and holding H (or a controller's button) for three seconds
+takes the crypt. It is the same code compiled to WebAssembly, and a browser keeps a few keys for itself, so:
+
+* **Space casts**, as a click does, and **Ctrl does nothing**: Ctrl+W and Ctrl+1-9 are the browser's. E alone opens
+  and takes things.
+* **Esc** opens the question in play and goes back in a menu, as on Windows. In full screen on Chrome and Edge it is
+  the game's; elsewhere the first press gives you the mouse back, which counts as Esc, and a click takes it again.
+* **The ledger is kept in the browser**, not the registry, and is lost if the site's data is cleared (Safari clears
+  it after a week without a visit). Settings writes it to a file and reads it back. Pages don't cross between the
+  browser and Windows.
+* Phones and tablets can watch; playing needs a keyboard and mouse, or a controller.
+* Fleeing to the surface goes back to the dream. One tab at a time keeps the ledger.
+
+Releases from 1.0.0b14 carry the page as `HAUNTED-<version>-web.zip`, to serve yourself from any web server.
+
 ## The scenes
 
 Two scenes are included. They alternate every few minutes (configurable) with a fade to black and a fade of the sound.
@@ -904,7 +922,11 @@ make host         # Linux test harness (needs zlib): renders PNG frames and WAV 
 make smoke        # a short headless run of both scenes, a scripted player and a CPU benchmark
 make cards        # the project page's five title cards, from real frames (needs Pillow)
 make sheets       # CATACOMB's creatures and dressing, rank by rank, in build/sheets
+make web          # the browser's build in build/web (needs Emscripten's emcc); make webzip for its zip
 ```
+
+`node tools/web_smoke.js <site>` (with Playwright) boots the browser's build in Chromium and plays it a little;
+`WEB=build/web sh tools/build_site.sh /tmp/site` puts it at `play/` in a local copy of the page.
 
 Layout:
 
@@ -980,6 +1002,15 @@ mend, and the screens in stone). Tested in the harness only, by the autopilot an
 played by hand, run on Windows or under Wine, or seen on a real screen. The Windows build was compiled and
 smoke-tested by CI on the work branches.
 
+* **In the browser** (added to 1.0.0b14 after its release). Run by a script in Playwright's Chromium on a machine
+  with no graphics card, locally and in CI: booting, both scenes, taking over by H and by a pretend controller,
+  walking, casting with Space, signing page I and finding it after a reload, Esc's question, fleeing back to the
+  dream. The page's own work is 6 to 8 ms a frame there (the game 4.5 ms under Node, against 2.7 natively), and
+  frames came at 30 to 60 a second, the rest of the time going to Chromium's compositing in software; a browser
+  with a graphics card does that part itself. In the harness, a build with the browser's switch casts on Space and
+  not Ctrl, the Windows build the other way. Not yet played by hand in any browser: the mouse's feel, the sound,
+  full screen, Esc's two ways and the rumble are each browser's own and untried, and Firefox and Safari haven't been
+  tried at all. The download is 2.2 MB, about 0.7 MB as served.
 * **The art and the screens move nothing but the look.** For every creature, boss and prop redrawn, and every
   step of the screens, the autopilot (and for the screens, scripted sessions of a person) logged the same events,
   line for line, as the build before; the screens whole give the same as the build they began from, in three

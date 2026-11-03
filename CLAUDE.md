@@ -187,6 +187,16 @@ technicals or debug switches: keep later notes that way). The plans' numbers mov
 and the rest of the art pass come next.
 Its section 10 is the hand-off log: read it first.
 
+A browser build for the page is planned in [`docs/PLAN-web.md`](docs/PLAN-web.md), settled, **built** and deployed (3 November,
+on `claude/vibrant-mccarthy-9hk3fi`, squashed onto main as one commit at the owner's word; tested in headless Chromium and
+the harness only, and by CI's smoke test): Emscripten and a
+JavaScript shell (`src/web_main.c`, `web/`) beside `win_main.c` and `tools/host.c`, at `/play/` on the page, saves in
+`localStorage`. The owner took every recommended answer but W3 (Space casts in the browser, Ctrl does nothing: a few
+lines behind `HVS_WEB`, the only change to the game's code) and W7 (it goes out as part of 1.0.0b14: CI uploads the web zip to that
+release from main without a bump, and Pages serves `/play/` from it). The link is the *BROWSER* cell under *EVERYTHING*,
+beside the download panel's small print, where the owner asked. Only 1.0.0b14 is
+built and tested for the browser. Its *What was built* says what was checked and what wasn't.
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture
@@ -221,13 +231,15 @@ Its section 10 is the hand-off log: read it first.
 | `tools/gallery.sh`, `docs/gallery/` | The page's *Then and now*: the same moments in 1.0.0b1, 1.0.0b13 and this build, each from its own build of the harness (old ones in worktrees under `build/gallery/`), as single 320x200 frames; `build_site.sh` copies them to `img/gallery/` |
 | `tools/uisheet.c`, `tools/uishots.sh` | The screens' sheet for approval (`make sheets`; `build/uisheet fit` checks the pane's text fits), and every screen from the harness as contact sheets |
 | `tools/host.c` | The headless test harness (Linux): PNG frames, WAV audio, benchmarks, scripted input |
+| `src/web_main.c`, `web/` | The browser's shell (docs/PLAN-web.md): the game's exported door, and the play page, its script and the sound worklet; `make web` (Emscripten) builds `build/web`, `make webzip` the release's `HAUNTED-<version>-web.zip`; `HVS_WEB` makes Space the cast key in `scene_crawl.c` |
+| `tools/web_smoke.js` | The browser build's smoke test in Playwright's Chromium (`node tools/web_smoke.js <site> [secs] [shots]`; CI runs it) |
 | `tools/build_site.sh` | Assembles the Pages site from `site/` and `docs/*.png`, fills `@VERSION@` and the title card |
 | `tools/make_cards.py`, `site/card.txt`, `site/cards/` | X/Open Graph title cards; `card.txt` picks one per version (`* a-boot` is the default) |
 | `tools/package.py` | Builds the release zip |
 | `site/index.html` | The project page (always dark; describes the **released** build) |
 | `docs/*.png` | Preview strips used by the README and the page (`preview_catacomb_creatures.png` and `preview_catacomb_bestiary.png` were rendered with `CRAWL_MEET`, and with a save whose record had met everything) |
 | `.github/workflows/build.yml` | Builds on every push/PR, runs the smoke test, and **publishes a release when `VERSION` on main has none yet** |
-| `.github/workflows/pages.yml` | Deploys the page on changes to `site/`, `docs/*.png`, `VERSION` |
+| `.github/workflows/pages.yml` | Deploys the page after each successful Build of a push to main, with `/play/` from the web zip on the release named in `VERSION` |
 | `.github/release-notes.md` | The release body CI uses; rewrite it for each release |
 
 ## Building and testing
@@ -238,6 +250,7 @@ make build/host_debug     # with -DHAUNT_DEBUG -DCRAWL_DEBUG: debug switches and
 make smoke                # both scenes, a scripted player, a 60 s benchmark (CI runs this)
 make scr                  # dist/HAUNTED.scr (needs x86_64-w64-mingw32-gcc); make zip for the package
 make cards                # title cards (needs Pillow)
+make web                  # the browser's build in build/web (needs emcc: Emscripten 6.0.13, as CI pins)
 sh tools/build_site.sh /tmp/site   # the page, as Pages will publish it
 ```
 

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en" data-version="@VERSION@">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#000000">
+<title>HAUNTED.EXE &middot; Play</title>
+<meta name="description" content="HAUNTED.EXE @VERSION@ in the browser: a possessed 486 PC and a crypt crawl in real VGA modes. Hold H for three seconds and the crypt is yours.">
+<link rel="canonical" href="https://aspdesignlabs.github.io/HAUNTED.EXE/play/">
+<link rel="icon" type="image/png" href="../favicon.png">
+<style>
+  /* The game fills the window on black, in whole device pixels; the page around it is the project page's:
+     crypt-stone neutrals, pumpkin orange for actions, the VGA fonts. Always dark. */
+  @font-face { font-family: "Px437 IBM VGA 8x16"; src: url("fonts/Px437_IBM_VGA_8x16.ttf") format("truetype"); font-display: swap; }
+  @font-face { font-family: "Px437 IBM BIOS"; src: url("fonts/Px437_IBM_BIOS.ttf") format("truetype"); font-display: swap; }
+  :root {
+    --bg: #000; --surface: #17151c; --fg: #e4e2ea; --muted: #9c99ad; --line: #2d2a37;
+    --accent: #f08a24; --accent-ink: #160b02; --vga-grey: #aaaaaa;
+    --font-vga: "Px437 IBM VGA 8x16", ui-monospace, monospace;
+    --font-bios: "Px437 IBM BIOS", ui-monospace, monospace;
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); overflow: hidden; }
+  body { font: 16px/1.5 var(--font-vga); -webkit-font-smoothing: none; }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; background: #000; touch-action: none; }
+  #screen { image-rendering: pixelated; image-rendering: crisp-edges; display: block; background: #000; }
+  body.locked #stage { cursor: none; }
+
+  /* the boot plate: the page's DOS prompt */
+  #plate { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: #000; z-index: 3; }
+  #plate .box { max-width: 44rem; width: 100%; color: var(--vga-grey); }
+  #plate .prompt { font-size: clamp(16px, 4vw, 28px); color: #fff; margin: 0 0 1.2em; }
+  #plate .cursor { display: inline-block; width: .6em; height: .12em; background: #fff; vertical-align: -.1em; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  #plate p { margin: .4em 0; }
+  #plate .press { color: var(--accent); }
+  #plate.ready .press { animation: blink 1.6s steps(1) infinite; }
+  #plate .note { color: var(--fg); }
+  #plate details { margin-top: 1.6em; color: var(--muted); font-size: 14px; }
+  #plate summary { cursor: pointer; color: var(--fg); }
+  #plate dl { display: grid; grid-template-columns: max-content 1fr; gap: .1em 1.2em; margin: .8em 0 0; }
+  #plate dt { color: var(--fg); }
+  #plate dd { margin: 0; }
+
+  /* the bar along the top, out of the way while a person plays */
+  #bar { position: fixed; top: 0; left: 0; right: 0; display: flex; gap: 8px; align-items: center; padding: 8px 16px;
+         z-index: 2; font-size: 14px; opacity: 0; transition: opacity .4s; }
+  body.booted #bar { opacity: .35; }
+  body.booted #bar:hover, body.booted #bar:focus-within { opacity: 1; }
+  body.playing #bar { opacity: 0 !important; pointer-events: none; }
+  #bar a, #bar button { font: inherit; color: var(--fg); background: rgba(23, 21, 28, .85); border: 1px solid var(--line);
+                        padding: 4px 10px; text-decoration: none; cursor: pointer; }
+  #bar a:hover, #bar button:hover { border-color: var(--accent); color: #fff; }
+  #bar .gap { flex: 1; }
+
+  #needmouse { position: fixed; left: 50%; top: 14%; transform: translateX(-50%); z-index: 2; pointer-events: none;
+               background: rgba(0, 0, 0, .8); color: var(--accent); padding: 6px 14px; border: 1px solid var(--line); }
+
+  /* the settings: the Windows dialog's, and the ledger */
+  dialog { background: var(--surface); color: var(--fg); border: 1px solid var(--line); max-width: min(34rem, calc(100vw - 32px));
+           padding: 20px; font-size: 15px; }
+  dialog::backdrop { background: rgba(0, 0, 0, .7); }
+  dialog h2 { font: inherit; color: #fff; margin: 0 0 12px; }
+  dialog h3 { font: inherit; color: var(--accent); margin: 18px 0 6px; }
+  dialog label { display: flex; gap: 10px; align-items: center; margin: 6px 0; }
+  dialog .range { display: grid; grid-template-columns: 9rem 1fr 6rem; gap: 10px; align-items: center; }
+  dialog input[type=range] { accent-color: var(--accent); }
+  dialog input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+  dialog select { font: inherit; background: #000; color: var(--fg); border: 1px solid var(--line); padding: 2px 4px; }
+  dialog .muted { color: var(--muted); font-size: 13px; margin: 4px 0; }
+  dialog .buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; flex-wrap: wrap; }
+  dialog button { font: inherit; color: var(--fg); background: #000; border: 1px solid var(--line); padding: 4px 12px; cursor: pointer; }
+  dialog button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  dialog button:hover { border-color: var(--accent); }
+  @media (max-width: 480px) { dialog .range { grid-template-columns: 1fr 5rem; } dialog .range input { grid-column: 1 / -1; grid-row: 2; } }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="screen" width="320" height="200" aria-label="HAUNTED.EXE"></canvas></div>
+
+<div id="plate">
+  <div class="box">
+    <p class="prompt">C:\&gt;HAUNTED.EXE<span class="cursor"></span></p>
+    <p id="fled" class="note" hidden>YOU FLED TO THE SURFACE. THE LEDGER KEEPS WHAT YOU SIGNED.</p>
+    <p id="busy" class="note" hidden>HAUNTED.EXE is already open in another tab of this browser. Its ledger can be kept by one
+      at a time, so close the other first.</p>
+    <p id="watch" class="note" hidden>On this device you can watch. To play, you need a keyboard and mouse, or a controller.</p>
+    <p class="press" id="press">Loading...</p>
+    <details>
+      <summary>Controls</summary>
+      <dl>
+        <dt>Hold H</dt><dd>for three seconds, and the crypt is yours (or any button on a controller)</dd>
+        <dt>W A S D</dt><dd>walk; the mouse turns; Shift sprints</dd>
+        <dt>Space, click</dt><dd>cast; right click an ability</dd>
+        <dt>E</dt><dd>open, take, use</dd>
+        <dt>1-9</dt><dd>spells</dd>
+        <dt>Tab B C L M</dt><dd>the wardrobe, the bestiary, the Codex, the wisps, the map</dd>
+        <dt>Esc</dt><dd>flee, stay or sleepwalk. In full screen on Chrome and Edge, Esc is the game's; elsewhere the
+          first press gives you the mouse back, which asks the same</dd>
+        <dt>Ctrl</dt><dd>nothing: here the browser keeps it</dd>
+      </dl>
+      <p>The ledger is kept in this browser. Clearing the site's data loses it, and Safari clears a site's data after a
+        week without a visit; Settings writes it to a file and reads it back.</p>
+    </details>
+  </div>
+</div>
+
+<div id="bar">
+  <a href="../">&larr; HAUNTED.EXE @VERSION@</a>
+  <span class="gap"></span>
+  <button type="button" id="open-settings">Settings</button>
+  <button type="button" id="full">Full screen</button>
+</div>
+
+<div id="needmouse" hidden>CLICK TO TAKE THE MOUSE</div>
+
+<dialog id="panel">
+  <form id="settings" method="dialog">
+    <h2>HAUNTED.EXE Settings</h2>
+    <label><input type="checkbox" name="sound"> Play sound (FM synth music and effects)</label>
+    <div class="range"><span>Volume</span><input type="range" name="volume" min="0" max="100" step="1"><span id="volume-v"></span></div>
+    <div class="range"><span>Brightness</span><input type="range" name="brightness" min="30" max="100" step="1"><span id="brightness-v"></span></div>
+    <h3>Scenes</h3>
+    <label><input type="checkbox" name="haunt"> HAUNT.EXE: a possessed PC (80x25 text mode)</label>
+    <label><input type="checkbox" name="crawl"> CATACOMB: a crypt crawl (mode 13h)</label>
+    <div class="range"><span>Switch every</span><input type="range" name="stay" min="1" max="15" step="1"><span id="stay-v"></span></div>
+    <label><input type="checkbox" name="shift"> Slowly drift the picture (helps prevent OLED burn-in)</label>
+    <h3>Controls</h3>
+    <div class="range"><span>Mouse</span><input type="range" name="sens" min="0.25" max="3" step="0.05"><span id="sens-v"></span></div>
+    <label><input type="checkbox" name="pad"> Game controller: hold any button to play</label>
+    <label>Sprint on <select name="sprint"></select></label>
+    <p class="muted">Changes take effect as it boots again.</p>
+    <h3>The ledger</h3>
+    <p class="muted">Every page, the progress and the dead's mark, kept in this browser. Write them to a file to keep them
+      safe or carry them to another browser.</p>
+    <div class="buttons" style="justify-content: flex-start">
+      <button type="button" id="export">Write to a file</button>
+      <button type="button" id="import">Read from a file</button>
+      <input type="file" id="import-file" accept=".json,application/json" hidden>
+    </div>
+    <p class="muted" id="ledger-note" role="status"></p>
+    <div class="buttons">
+      <button type="button" id="cancel">Cancel</button>
+      <button type="submit" class="primary">Save and boot again</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="haunted-core.js"></script>
+<script src="haunted.js"></script>
+</body>
+</html>

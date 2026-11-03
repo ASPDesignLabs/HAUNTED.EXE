@@ -1033,6 +1033,17 @@ static void rumble(float low, float high, float secs) {
     if (!G.player || !PADX.used) return;
     pad_rumble(low, high, secs);
 }
+/* The browser's build (docs/PLAN-web.md): Space casts, as the left button does, since Ctrl+W and Ctrl+1-9 are the
+ * browser's; E alone uses things in play. The Windows build keeps Ctrl. */
+#ifdef HVS_WEB
+#define WEB 1
+#define KEY_CAST KEY_SPACE
+#else
+#define WEB 0
+#define KEY_CAST KEY_CTRL
+#endif
+#define CAST_HIT (IN.hit[KEY_MOUSE1] || (WEB && IN.hit[KEY_SPACE]))     /* what spends a press: no cast till it is let go */
+#define CAST_UP (!IN.down[KEY_MOUSE1] && !(WEB && IN.down[KEY_SPACE]))
 static const char *const PK_KEY[] = { "ENTER", "ESC", "E", "W/S", "WASD", "A/D", "TAB", "SPACE", "Q", "B", "C", "L", "1-9", "CLICK", "M" };
 static const char *const PK_PAD[] = { "\1A", "\1B", "\1A", "D-PAD", "D-PAD", "LB/RB", "VIEW", "\1Y", "\1X", "\1B", "\1B", "\1Y", "LB/RB", "RT", "D-PAD UP" };
 static const char *pk(const char *s) {
@@ -16261,7 +16272,7 @@ static void crawl_update(double dt) {
     if (G.claim_card) {                                            /* her card: nothing moves until it is read */
         G.claim_t += fdt;
         if ((G.player && G.claim_t > 1.0f && (IN.hit[KEY_E] || IN.hit[KEY_ENTER] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) || (!G.player && G.claim_t > 9.0f)) {
-            G.claim_card = 0; G.click_spent = IN.hit[KEY_MOUSE1];
+            G.claim_card = 0; G.click_spent = CAST_HIT;
         }
         if (G.player) return;
     }
@@ -17832,11 +17843,11 @@ static void tether_end(void);
 static void cast_charged(int sp, int t, float k);
 static void human_cast(float dt, int may) {
     G.cooldown -= dt;
-    int trig = may && (IN.down[KEY_MOUSE1] || IN.down[KEY_CTRL]);
-    if (trig && G.silenced) { if (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CTRL]) { say("THE VOID TAKES THE WORDS FROM YOU"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); } trig = 0; }
+    int trig = may && (IN.down[KEY_MOUSE1] || (IN.down[KEY_CAST] && !(WEB && G.map_on)));   /* the map keeps the browser's Space */
+    if (trig && G.silenced) { if (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CAST]) { say("THE VOID TAKES THE WORDS FROM YOU"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); } trig = 0; }
     if (!may && G.chg_on) { G.chg_on = 0; tether_end(); }          /* a screen opened over it: the charge is let fall */
     if (spell_holds(G.spell) || G.chg_on) {                        /* a charging ultimate's spell, or Soul Tether's: held, not repeated */
-        if (!G.chg_on && trig && G.pc_t < 0.0f && G.cooldown <= 0.0f && !G.dead && (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CTRL])) {
+        if (!G.chg_on && trig && G.pc_t < 0.0f && G.cooldown <= 0.0f && !G.dead && (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CAST])) {
             G.chg_on = 1; G.chg_sp = G.spell; G.chg_t = 0.0f;
         }
         if (G.chg_on) {
@@ -17862,7 +17873,7 @@ static void human_cast(float dt, int may) {
     }
     if (trig && G.pc_t < 0.0f && G.cooldown <= 0.0f && !G.dead) {
         if (G.spell == AT_BFS && RUN.souls < bfs_cost(RUN.gear.atk[AT_BFS])) {
-            if (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CTRL]) { say("THE BFS9000 NEEDS %d SOULS", bfs_cost(RUN.gear.atk[AT_BFS])); snd_sfx_ex(SFX_ZAP, 0.4f, 0.5f); }
+            if (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CAST]) { say("THE BFS9000 NEEDS %d SOULS", bfs_cost(RUN.gear.atk[AT_BFS])); snd_sfx_ex(SFX_ZAP, 0.4f, 0.5f); }
         } else {
             float cyc = spell_cycle(&RUN.gear, G.spell);
             G.pc_wind = spell_windup(&RUN.gear, G.spell, spell_tier(G.spell));
@@ -18002,9 +18013,9 @@ static void update_human(float dt) {
     }
     if (PADX.dodge) { PADX.dodge = 0; if (G.dash_t <= 0.0f) swift_dodge(PADX.dodge_a); }   /* or B on a controller */
     if (G.dash_t > 0.0f) dash_step(dt); else human_walk(dt);
-    if (IN.hit[KEY_E] || IN.hit[KEY_SPACE]) human_use();
+    if (IN.hit[KEY_E] || (!WEB && IN.hit[KEY_SPACE])) human_use();
     if (G.exiting) return;
-    if (!IN.down[KEY_MOUSE1]) G.click_spent = 0;
+    if (CAST_UP) G.click_spent = 0;
     human_cast(dt, !G.click_spent);
 }
 
@@ -18056,10 +18067,10 @@ static void shop_human(float dt) {
     if (G.shop_look != was) fprintf(stderr, "EVENT shop_look %d t=%.2f at (%.2f,%.2f) ang %.3f\n", G.shop_look, G.t, G.px, G.py, G.ang);
 #endif
     int i = G.shop_look;
-    if (!IN.down[KEY_MOUSE1]) G.click_spent = 0;
+    if (CAST_UP) G.click_spent = 0;
     if (IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1]) {
         if (i >= 0) {
-            G.click_spent = IN.hit[KEY_MOUSE1];
+            G.click_spent = CAST_HIT;
             const Offer *o = &G.offers[i];
             int worn = -1;                                         /* buying for a slot already worn */
             if (o->kind == GK_PIECE && o->piece.kind != IK_BAG) {
@@ -18071,16 +18082,16 @@ static void shop_human(float dt) {
             else if (worn >= 0 && !RUN.gear.bag_size && G.shop_confirm != i) { G.shop_confirm = i; snd_sfx_ex(SFX_KNOCK, 0.7f, 0.5f); }   /* the card warns; a second E buys */
             else if (worn >= 0 && RUN.gear.bag_size && !gear_bag_free(&RUN.gear)) { G.shop_letgo = i; G.ui = UI_LETGO; G.ui_sel = 0; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); }
             else { shop_purchase(i); G.grab_t = 1.0f; }
-        } else if (G.sh_look) { open_ui(UI_SHRINE); G.click_spent = IN.hit[KEY_MOUSE1]; G.grab_t = 1.0f; }
-        else if (G.tot_look) { open_ui(UI_TOTEM); G.click_spent = IN.hit[KEY_MOUSE1]; G.grab_t = 1.0f; }
-        else if (G.lamp_look) { open_ui(UI_ALIGN); G.click_spent = IN.hit[KEY_MOUSE1]; }
-        else if (G.bell_look || G.font_look) { G.h2_obj = G.font_look; open_ui(UI_HALL2); G.click_spent = IN.hit[KEY_MOUSE1]; }
-        else if (G.comp_look) { open_ui(UI_COMP); G.click_spent = IN.hit[KEY_MOUSE1]; }
-        else if (G.rep_look) { open_ui(UI_REPO); G.click_spent = IN.hit[KEY_MOUSE1]; }
-        else if (G.por_look) { open_ui(UI_PORTAL); G.click_spent = IN.hit[KEY_MOUSE1]; }
-        else if (G.stone_look >= 0) { G.stone_sel = G.stone_look; open_ui(UI_STONE); G.click_spent = IN.hit[KEY_MOUSE1]; }
+        } else if (G.sh_look) { open_ui(UI_SHRINE); G.click_spent = CAST_HIT; G.grab_t = 1.0f; }
+        else if (G.tot_look) { open_ui(UI_TOTEM); G.click_spent = CAST_HIT; G.grab_t = 1.0f; }
+        else if (G.lamp_look) { open_ui(UI_ALIGN); G.click_spent = CAST_HIT; }
+        else if (G.bell_look || G.font_look) { G.h2_obj = G.font_look; open_ui(UI_HALL2); G.click_spent = CAST_HIT; }
+        else if (G.comp_look) { open_ui(UI_COMP); G.click_spent = CAST_HIT; }
+        else if (G.rep_look) { open_ui(UI_REPO); G.click_spent = CAST_HIT; }
+        else if (G.por_look) { open_ui(UI_PORTAL); G.click_spent = CAST_HIT; }
+        else if (G.stone_look >= 0) { G.stone_sel = G.stone_look; open_ui(UI_STONE); G.click_spent = CAST_HIT; }
         else if (G.map_look) {
-            G.click_spent = IN.hit[KEY_MOUSE1];
+            G.click_spent = CAST_HIT;
             if (RUN.treasure < MAP_PRICE) { say("YOU CAN'T AFFORD THAT"); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); }
             else {
                 RUN.treasure -= MAP_PRICE; RUN.has_map = 1; G.map_look = 0; G.grab_t = 1.0f;
@@ -18092,7 +18103,7 @@ static void shop_human(float dt) {
 #endif
             }
         }
-        else if (!human_use() && G.mer_look) { open_ui(UI_MERCHANT); G.click_spent = IN.hit[KEY_MOUSE1]; }   /* her menu: the ledger, a pat */
+        else if (!human_use() && G.mer_look) { open_ui(UI_MERCHANT); G.click_spent = CAST_HIT; }   /* her menu: the ledger, a pat */
     }
     if (IN.hit[KEY_Q] && i >= 0) {                                 /* hold it for the next visit, for a quarter of its price */
         const Offer *o = &G.offers[i];
@@ -20670,7 +20681,7 @@ static void map_follow(float dt) {                                 /* it slides 
 }
 
 static void update_ui(void) {
-    if (IN.hit[KEY_MOUSE1]) G.click_spent = 1;                    /* a click that closes a menu casts nothing */
+    if (CAST_HIT) G.click_spent = 1;                              /* a click that closes a menu casts nothing */
     if (G.ui == UI_ASCEND) { update_ascend(); return; }
     if (G.ui == UI_ALIGN) { update_align(0); return; }
     if (G.ui == UI_CLASS) { update_class(); return; }
@@ -23866,7 +23877,7 @@ static void render_messages(Frame *f) {
         }
     }
     if (G.hint_t > 0.0f && G.player && !G.ui && !G.dead && !G.claim_card && !shop_carded()) {   /* never over death's card, hers, or a ware's */
-        static const char *const HINT[4] = { "WASD WALK  MOUSE TURN  CLICK CASTS", "1-9 SPELLS  E OPENS  TAB INVENTORY", "B BESTIARY  ESC LEAVE OR SLEEPWALK",
+        static const char *const HINT[4] = { WEB ? "WASD WALK  MOUSE TURN  SPACE CASTS" : "WASD WALK  MOUSE TURN  CLICK CASTS", "1-9 SPELLS  E OPENS  TAB INVENTORY", "B BESTIARY  ESC LEAVE OR SLEEPWALK",
                                              "L WISPS  C THE CODEX  H THE STATUS BAR" };
         static const char *const PADHINT[4] = { "L-STICK WALK  R-STICK TURN  RT CASTS", "LB RB SPELLS  \1A OPENS  VIEW INVENTORY",
                                                 "MENU LEAVE OR SLEEPWALK  \1Y WISPS", "D-PAD: BESTIARY, CODEX, STATUS BAR" };
