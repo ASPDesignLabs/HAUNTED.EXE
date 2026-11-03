@@ -12,6 +12,40 @@
 /* ---- the marble ---- */
 
 static uint8_t g_mshade[MW * MH];                  /* the slab's shade at each pixel of the screen, 0..15 */
+int ui_mr = R_CEIL, ui_wr = R_FLOOR;
+void ui_ramps(int marble) { ui_mr = marble ? R_CEIL : R_STONE; ui_wr = marble ? R_FLOOR : R_STONE; }
+
+/* ---- the fit checks ---- */
+int ui_check;
+const char *ui_where = "?";
+static uint16_t g_ink[MW * MH], g_ink_id = 1;      /* which frame's glyph last inked each pixel */
+static int box_x0, box_y0, box_x1, box_y1, box_on;  /* the inside of the last stone cut, its moulding left out */
+void ui_check_frame(void) { if (++g_ink_id == 0) { memset(g_ink, 0, sizeof g_ink); g_ink_id = 1; } box_on = 0; }
+void ui_box_none(void) { box_on = 0; }
+static void box_set(int x, int y, int w, int h) { box_x0 = x + 4; box_y0 = y + 3; box_x1 = x + w - 4; box_y1 = y + h - 3; box_on = 1; }
+/* a glyph just drawn at x, y, w by h with its ink in g (rows of 8 bits, sc to a pixel): stamped, and told if it
+ * lands on another's ink or leaves its stone */
+static void ink(int x, int y, const unsigned char *g, int rows, int sc, uint8_t ch) {
+    if (!ui_check) return;
+    int over = 0, out = 0;
+    for (int r = 0; r < rows; r++) for (int c = 0; c < 8; c++) {
+        if (!(g[r] >> (7 - c) & 1)) continue;
+        for (int j = 0; j < sc; j++) for (int i = 0; i < sc; i++) {
+            int px = x + c * sc + i, py = y + r * sc + j;
+            if ((unsigned)px >= MW || (unsigned)py >= MH) { out = 1; continue; }
+            if (box_on && (px < box_x0 || px >= box_x1 || py < box_y0 || py >= box_y1)) out = 1;
+            if (g_ink[py * MW + px] == g_ink_id) over = 1;
+            g_ink[py * MW + px] = g_ink_id;
+        }
+    }
+    if (over || out) {                                              /* told once a row of text */
+        char w[64];
+        snprintf(w, sizeof w, "%s %s on row %d", ui_where, over ? "overlap" : "outside", y);
+        char what[24];
+        snprintf(what, sizeof what, "x %d '%c'", x, ch >= 32 && ch < 127 ? ch : '?');
+        ui_overflow(w, what, 0);
+    }
+}
 
 static void ramp3(uint8_t pal[256][3], int first, const float a[3], const float b[3], float gamma) {
     for (int i = 0; i < 16; i++) {
@@ -122,12 +156,16 @@ static int in_shape(int kind, int x, int y, int w, int h) {   /* a headstone's a
 }
 
 void ui_slab(Frame *f, int x, int y, int w, int h, int kind, int orn, float t) {
+    int calm = kind & SLAB_CALM;
+    kind &= ~SLAB_CALM;
+    box_set(x, y, w, h);
     for (int j = 0; j < h; j++)
         for (int i = 0; i < w; i++) {
             if (!in_shape(kind, i, j, w, h)) continue;
             int s = mshade(x + i, y + j);
             int edge = 0;                                      /* how far in from the shape's edge, up to 5 */
-            for (int d = 1; d <= 5 && !edge; d++)
+            int inner = i >= 5 && j >= (kind == SLAB_HEAD ? 30 : 5) && i < w - 5 && j < h - 5;   /* well inside: no edge to look for */
+            for (int d = 1; d <= 5 && !edge && !inner; d++)
                 if (!in_shape(kind, i - d, j, w, h) || !in_shape(kind, i + d, j, w, h) || !in_shape(kind, i, j - d, w, h) || !in_shape(kind, i, j + d, w, h)) edge = d;
             if (edge) {
                 int lit = !in_shape(kind, i - edge, j, w, h) || !in_shape(kind, i, j - edge, w, h);   /* the moulding, lit from above left */
@@ -136,7 +174,7 @@ void ui_slab(Frame *f, int x, int y, int w, int h, int kind, int orn, float t) {
                 else if (edge == 2 || edge == 3) s = lit && !shad ? (edge == 2 ? 12 : 10) : shad && !lit ? (edge == 2 ? 3 : 4) : 7;
                 else if (edge == 4) s = lit && !shad ? 2 : shad && !lit ? 9 : 4;   /* the groove inside the moulding */
                 else s = s > 8 ? 8 : s;
-            }
+            } else if (calm) s = 2 + (s * 5 + 4) / 9;                /* 1..11 to 2..8: the veins soft, dim words still read */
             gfx_px(f, x + i, y + j, UI_M(s));
         }
     if (orn && kind != SLAB_TABLET) {                          /* the owner's sign in the top corners */
@@ -199,7 +237,12 @@ int ui_overflows;
 void ui_overflow(const char *where, const char *what, int by) {
     ui_overflows++;
 #ifdef CRAWL_DEBUG
-    fprintf(stderr, "UI overflow %s \"%s\" by %d\n", where, what, by);
+    static uint32_t seen[512];                                      /* each told once a session */
+    uint32_t h = 2166136261u;
+    for (const char *p = where; *p; p++) h = (h ^ (uint8_t)*p) * 16777619u;
+    for (int i = 0; i < 512; i++) { if (seen[i] == h) return; if (!seen[i]) { seen[i] = h; break; } }
+    fprintf(stderr, "UI overflow %s%s%s%s\n", where, *what ? " \"" : "", what, *what ? "\"" : "");
+    (void)by;
 #else
     (void)where; (void)what; (void)by;
 #endif
@@ -215,30 +258,36 @@ static const unsigned char *glyph8(uint8_t ch, int face) {
     if (face > FACE_BIOS && face < NFACE && ch < 128 && ui_has8[face][ch]) return ui_face8[face][ch];
     return font_bios8[ch];
 }
-static void plot8(Frame *f, int x, int y, const unsigned char *g, int col) {
-    for (int r = 0; r < 8; r++) for (int c = 0; c < 8; c++) if (g[r] >> (7 - c) & 1) gfx_px(f, x + c, y + r, (uint8_t)col);
+static void plot8(Frame *f, int x, int y, const unsigned char *g, int col, int sc) {
+    for (int r = 0; r < 8; r++) for (int c = 0; c < 8; c++)
+        if (g[r] >> (7 - c) & 1) { if (sc == 1) gfx_px(f, x + c, y + r, (uint8_t)col); else gfx_rect(f, x + c * sc, y + r * sc, sc, sc, (uint8_t)col); }
 }
-void ui_glyph8(Frame *f, int x, int y, uint8_t ch, int face, int col, int style) {
+void ui_glyph8x(Frame *f, int x, int y, uint8_t ch, int face, int col, int style, int sc) {
     const unsigned char *g = glyph8(ch, face);
-    if (style == TX_CUT) { plot8(f, x + 1, y + 1, g, UI_M(13)); plot8(f, x, y, g, UI_M(1)); }
-    else if (style == TX_INLAID) { plot8(f, x + 1, y + 1, g, UI_M(0)); plot8(f, x, y, g, col); }
-    else plot8(f, x, y, g, col);
+    if (sc < 1) sc = 1;
+    if (style == TX_CUT) { plot8(f, x + sc, y + sc, g, UI_M(13), sc); plot8(f, x, y, g, UI_M(1), sc); }
+    else if (style == TX_INLAID) { plot8(f, x + sc, y + sc, g, UI_M(0), sc); plot8(f, x, y, g, col, sc); }
+    else plot8(f, x, y, g, col, sc);
+    if (ch != ' ') ink(x, y, g, 8, sc, ch);
 }
+void ui_glyph8(Frame *f, int x, int y, uint8_t ch, int face, int col, int style) { ui_glyph8x(f, x, y, ch, face, col, style, 1); }
 void ui_text8(Frame *f, int x, int y, const char *s, int face, int col, int style) {
     for (; *s; s++, x += 8) ui_glyph8(f, x, y, (uint8_t)*s, face, col, style);
 }
 static void plot16(Frame *f, int x, int y, const unsigned char *g, int col, int sc) {
     for (int r = 0; r < 16; r++) for (int c = 0; c < 8; c++) if (g[r] >> (7 - c) & 1) gfx_rect(f, x + c * sc, y + r * sc, sc, sc, (uint8_t)col);
 }
+void ui_glyph16x(Frame *f, int x, int y, uint8_t ch, int face, int col, int style, int sc) {
+    const unsigned char *g = face == FACE_INSC && ch < 128 && ui_has16[ch] ? ui_face16[ch] : font_vga16[ch];
+    if (sc < 1) sc = 1;
+    if (style == TX_CUT) { plot16(f, x + sc, y + sc, g, UI_M(12), sc); plot16(f, x, y, g, UI_M(1), sc); }
+    else if (style == TX_INLAID) { plot16(f, x + sc, y + sc, g, UI_M(0), sc); plot16(f, x, y, g, col, sc); }
+    else plot16(f, x, y, g, col, sc);
+    if (ch != ' ') ink(x, y, g, 16, sc, ch);
+}
 void ui_text16(Frame *f, int x, int y, const char *s, int face, int col, int style, int sc) {
     if (sc < 1) sc = 1;
-    for (; *s; s++, x += 8 * sc) {
-        uint8_t ch = (uint8_t)*s;
-        const unsigned char *g = face == FACE_INSC && ch < 128 && ui_has16[ch] ? ui_face16[ch] : font_vga16[ch];
-        if (style == TX_CUT) { plot16(f, x + 1, y + 1, g, UI_M(12), sc); plot16(f, x, y, g, UI_M(1), sc); }
-        else if (style == TX_INLAID) { plot16(f, x + sc, y + sc, g, UI_M(0), sc); plot16(f, x, y, g, col, sc); }
-        else plot16(f, x, y, g, col, sc);
-    }
+    for (; *s; s++, x += 8 * sc) ui_glyph16x(f, x, y, (uint8_t)*s, face, col, style, sc);
 }
 
 /* word-wrapped lines of s, cols to a line: each line's start and length; how many */

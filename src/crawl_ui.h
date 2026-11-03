@@ -6,14 +6,16 @@
 #include "core.h"
 #include "crawl.h"
 
-#define UI_M(k) ((uint8_t)(R_CEIL + (k)))          /* the slab's sixteen greys, groove to vein */
-#define UI_W(k) ((uint8_t)(R_FLOOR + (k)))         /* the wells' darker stone */
+extern int ui_mr, ui_wr;                           /* the ramps the stone is cut from: the marble's, or the run's stone */
+#define UI_M(k) ((uint8_t)(ui_mr + (k)))           /* the slab's sixteen greys, groove to vein */
+#define UI_W(k) ((uint8_t)(ui_wr + (k)))           /* the wells' darker stone */
+void ui_ramps(int marble);                         /* 1: R_CEIL and R_FLOOR, lent; 0: R_STONE, for what lies over the live crypt */
 
 void ui_marble_pal(uint8_t pal[256][3], const uint8_t stone_mid[3]);   /* the two ramps, a tenth towards the run's stone */
 void ui_marble_make(unsigned seed);                /* the whole screen's marble, once a level */
 void ui_lend(Frame *f);                            /* the crypt drawn so far keeps its looks in R_STONE; the marble takes R_FLOOR, R_CEIL */
 
-enum { SLAB_LEDGER, SLAB_HEAD, SLAB_TABLET };
+enum { SLAB_LEDGER, SLAB_HEAD, SLAB_TABLET, SLAB_CALM = 16 };   /* CALM: or'ed in, the inside quieter for text set on it */
 enum { ORN_NONE, ORN_CANDLE, ORN_PAW, ORN_BONES, ORN_KEY, ORN_ROSE, ORN_EYE, NORN };
 void ui_slab(Frame *f, int x, int y, int w, int h, int kind, int orn, float t);
 void ui_well(Frame *f, int x, int y, int w, int h);
@@ -26,12 +28,20 @@ enum { FACE_BIOS, FACE_INSC, FACE_BODY, NFACE };   /* the 8x8 faces; the 8x16 on
 enum { TX_PLAIN, TX_CUT, TX_INLAID };
 void ui_face_init(void);
 void ui_glyph8(Frame *f, int x, int y, uint8_t ch, int face, int col, int style);
+void ui_glyph8x(Frame *f, int x, int y, uint8_t ch, int face, int col, int style, int scale);
+void ui_glyph16x(Frame *f, int x, int y, uint8_t ch, int face, int col, int style, int scale);
 void ui_text8(Frame *f, int x, int y, const char *s, int face, int col, int style);
 void ui_text16(Frame *f, int x, int y, const char *s, int face, int col, int style, int scale);
 int  ui_wrap(Frame *f, int x, int y, const char *s, int cols, int lh, int maxl, int face, int col, int style);   /* lines used */
 int  ui_wrap_count(const char *s, int cols);
-extern int ui_overflows;                           /* the fit checks' count; the debug build prints each */
+extern int ui_overflows;                           /* the fit checks' count; the debug build prints each, once */
 void ui_overflow(const char *where, const char *what, int by);
+/* the fit checks on what is drawn (section 2.4): set ui_check, name the screen, and each frame's glyphs are stamped;
+ * a glyph's ink over another's, or outside the last stone cut (ui_box), is told */
+extern int ui_check;
+extern const char *ui_where;
+void ui_check_frame(void);                         /* a new frame: nothing stamped yet, no stone */
+void ui_box_none(void);
 
 /* the icons, 16 by 16 (section 5.4), in ui_art.c's order; UI_NODE_ICON gives each line's ten */
 enum { IC_EFF, IC_INS, IC_EFF2, IC_INS2, IC_FIRE, IC_FIRESTARTER, IC_INTENSITY, IC_FLAMEWALKER, IC_FIREMASTER,

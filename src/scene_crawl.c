@@ -17,11 +17,17 @@
 #include "crawl_gear.h"
 #include "gfx.h"
 #include "snd.h"
+#include "crawl_ui.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <time.h>
 #include "../build/version.h"
+
+/* a thing of paper or ink inside a menu keeps its own letters */
+#define UI_PLAIN_BEGIN void (*hk8_)(Frame *, int, int, uint8_t, int, int) = gfx_hook8, (*hk16_)(Frame *, int, int, uint8_t, int, int) = gfx_hook16; gfx_hook8 = 0; gfx_hook16 = 0
+#define UI_PLAIN_END gfx_hook8 = hk8_; gfx_hook16 = hk16_
+static int ui_marble_lv = -1;                                      /* the level the menus' marble was made for */
 
 #define W 320
 #define H 200
@@ -10388,6 +10394,7 @@ static void start_level(void) {
     if (G.boss < 0) G.bchallenge = 0;
     G.bstep = G.bchallenge && G.boss >= 0 ? RUN.bstep[G.boss] : 0;
     crawl_art_level(G.level);
+    ui_marble_make(0x51ABu ^ (unsigned)G.level * 7919u); ui_marble_lv = G.level;   /* the menus' marble, made now, not on a frame in play */
     gen_level();
     memset(G.mobs, 0, sizeof G.mobs); G.nroute = 0; G.npacks = 0; G.gathered = 0;   /* and the patrols' rounds, the packs */
     memset(G.scent, 0, sizeof G.scent); G.namb = 0; G.hunt_kind = G.hunt_on = G.hunt_said = 0; G.noise_t = -1.0f; G.still_t = 0.0f;   /* the trail */
@@ -17445,7 +17452,9 @@ static void reckon_glyph(Frame *f, int x, int y, int k, uint8_t c) {   /* the de
         { "#####", ".#.#.", "..#..", "..#..", ".#.#.", "#.#.#", "#####" } };
     for (int r = 0; r < 7; r++) for (int q = 0; q < 5; q++) if (GL[k][r][q] == '#') gfx_px(f, x + q, y + r, c);
 }
-static void render_reckon(Frame *f) {
+static void render_reckon_in(Frame *f);
+static void render_reckon(Frame *f) { UI_PLAIN_BEGIN; ui_box_none(); render_reckon_in(f); UI_PLAIN_END; }   /* a slip of paper, in its own ink */
+static void render_reckon_in(Frame *f) {
     char l[NRK][48]; int g[NRK];
     int n = reckon_lines(l, g), run = crawl_set(G.level) & 3, pw = 296, ph = 52 + n * 11 + 26, px = (W - pw) / 2, py = imax(4, (H - 44 - ph) / 2 - 6);
     dim_view(f);
@@ -23327,13 +23336,32 @@ static void render_wisps(Frame *f, float dx, float dy, float horizon) {
     }
 }
 
+/* ---- the carved stone (docs/PLAN-ui.md): menus, cards and the tally cut from marble ----
+ * A menu lends the frame's floor and ceiling ramps to the marble (ui_lend: the crypt drawn so far keeps its look in
+ * the run's stone); a card over the live crypt is cut from the run's stone instead, so nothing behind it changes.
+ * While the stone is up every glyph goes through the kit: the faces of our own, inlaid, the run's stone greys turned
+ * to the marble's. */
+static int ui_lent;
+static void ui_hook8(Frame *f, int x, int y, uint8_t ch, int fg, int sc) {
+    if (fg >= R_STONE && fg < R_STONE + 16) fg = UI_M(fg - R_STONE);
+    ui_glyph8x(f, x, y, ch, FACE_BODY, fg, TX_INLAID, sc);
+}
+static void ui_hook16(Frame *f, int x, int y, uint8_t ch, int fg, int sc) {
+    if (fg >= R_STONE && fg < R_STONE + 16) fg = UI_M(fg - R_STONE);
+    ui_glyph16x(f, x, y, ch, FACE_INSC, fg, TX_INLAID, sc);
+}
+static void ui_on(Frame *f, int marble, const char *where) {
+    ui_face_init();
+    if (ui_marble_lv != G.level) { ui_marble_make(0x51ABu ^ (unsigned)G.level * 7919u); ui_marble_lv = G.level; }
+    if (marble && !ui_lent) { ui_lend(f); ui_lent = 1; }
+    ui_ramps(marble && ui_lent);
+    ui_where = where;
+    gfx_hook8 = ui_hook8; gfx_hook16 = ui_hook16;
+}
+static void ui_off(void) { gfx_hook8 = 0; gfx_hook16 = 0; ui_box_none(); }
+
 static void card_box(Frame *f, int bw, int bh, int by) {
-    int bx = (W - bw) / 2;
-    gfx_rect(f, bx, by, bw, bh, 0);
-    for (int i = 0; i < bw; i++) { gfx_px(f, bx + i, by, R_STONE + 11); gfx_px(f, bx + i, by + bh - 1, R_STONE + 11);
-                                   gfx_px(f, bx + i, by + 2, R_STONE + 6); gfx_px(f, bx + i, by + bh - 3, R_STONE + 6); }
-    for (int i = 0; i < bh; i++) { gfx_px(f, bx, by + i, R_STONE + 11); gfx_px(f, bx + bw - 1, by + i, R_STONE + 11);
-                                   if (i >= 2 && i < bh - 2) { gfx_px(f, bx + 2, by + i, R_STONE + 6); gfx_px(f, bx + bw - 3, by + i, R_STONE + 6); } }
+    ui_slab(f, (W - bw) / 2, by, bw, bh, SLAB_LEDGER | SLAB_CALM, ORN_NONE, G.ui_t);
 }
 
 static void card_text(Frame *f, int y, const char *s, int c) { gfx_text16(f, (W - gfx_text_width(s, 1)) / 2, y, s, c, 1); }
@@ -23341,7 +23369,9 @@ static void card_text(Frame *f, int y, const char *s, int c) { gfx_text16(f, (W 
 /* her card, when a page marked in danger was opened */
 static void dim_view(Frame *f);
 static int text_centred(Frame *f, int y, const char *s, int cols, int col, int maxlines);
-static void render_claim(Frame *f) {
+static void render_claim_in(Frame *f);
+static void render_claim(Frame *f) { ui_on(f, 1, "claim"); render_claim_in(f); ui_off(); }
+static void render_claim_in(Frame *f) {
     dim_view(f);
     card_box(f, 292, 124, 34);
     card_text(f, 42, "CAUGHT CHEATING THE DEAD", R_BLOOD + 13);
@@ -23365,7 +23395,9 @@ static int text_centred(Frame *f, int y, const char *s, int cols, int col, int m
     return lines;
 }
 
-static void render_card(Frame *f) {
+static void render_card_in(Frame *f);
+static void render_card(Frame *f) { ui_on(f, 0, "card"); render_card_in(f); ui_off(); }
+static void render_card_in(Frame *f) {
     char line[48];
     if (G.dead && G.dcost) {                                       /* a death that costs: what took you, what went with you */
         if (G.dead_t < 1.6 || G.dead_t > 4.6) return;
@@ -23514,14 +23546,15 @@ static void render_trial(Frame *f) {
 }
 
 /* Wolfenstein-style intermission: the numbers run up one row at a time */
-static void render_tally(Frame *f) {
+static void render_tally_in(Frame *f);
+static void render_tally(Frame *f) { ui_on(f, 1, "tally"); render_tally_in(f); ui_off(); }
+static void render_tally_in(Frame *f) {
     memset(f->pix, 0, (size_t)W * H);
     float t = (float)G.tally_t;
     card_box(f, 304, 164, 18);
     char line[48];
     snprintf(line, sizeof line, "LEVEL %d COMPLETE!", G.level);
     int flash = t < 0.6f && ((int)(t * 12.0f) & 1);
-    gfx_text16(f, (W - gfx_text_width(line, 2)) / 2 + 1, 29, line, R_GOLD + 2, 2);          /* drop shadow */
     gfx_text16(f, (W - gfx_text_width(line, 2)) / 2, 28, line, flash ? C_WHITE : R_GOLD + 12, 2);
     char name[48];
     level_name(G.level, name, sizeof name);
@@ -23829,11 +23862,7 @@ static void dim_view(Frame *f) {                                   /* the crypt 
         for (int x = (y & 1); x < W; x += 2) f->pix[y * W + x] = 0;
 }
 
-static void panel(Frame *f, int x, int y, int w, int h) {
-    gfx_rect(f, x, y, w, h, 0);
-    for (int i = 0; i < w; i++) { gfx_px(f, x + i, y, R_STONE + 11); gfx_px(f, x + i, y + h - 1, R_STONE + 6); gfx_px(f, x + i, y + 2, R_STONE + 6); gfx_px(f, x + i, y + h - 3, R_STONE + 4); }
-    for (int i = 0; i < h; i++) { gfx_px(f, x, y + i, R_STONE + 11); gfx_px(f, x + w - 1, y + i, R_STONE + 6); if (i >= 2 && i < h - 2) { gfx_px(f, x + 2, y + i, R_STONE + 6); gfx_px(f, x + w - 3, y + i, R_STONE + 4); } }
-}
+static void panel(Frame *f, int x, int y, int w, int h) { ui_slab(f, x, y, w, h, SLAB_LEDGER | SLAB_CALM, ORN_NONE, G.ui_t); }
 
 static int stat_over(int st);
 static void eerie_text(Frame *f, int x, int y, const char *s);
@@ -24080,6 +24109,7 @@ static void render_documents(Frame *f) {
     }
     int run = DOCS.d[k].run & 3;
     unsigned seed = (unsigned)(G.level * 977 + run * 31 + 5);
+    UI_PLAIN_BEGIN;                                                /* the page in its own ink */
     uint8_t ink = crawl_doc_page(f->pix, W, px, py, pw, ph, run, seed);
     const char *s = DOCS.d[k].text;
     int y = py + 12, x = px + 12, first = 0;
@@ -24091,6 +24121,7 @@ static void render_documents(Frame *f) {
     int n = doc_wrap(s, (pw - 40) / 8, (pw - 22) / 8, first, ln, 15);
     for (int i = 0; i < n && y < py + ph - 12; i++, y += 9) gfx_text8(f, i < first ? x + 16 : x, y, ln[i], ink, 1);
     crawl_doc_ink(f->pix, W, px, py, pw, ph, run, ink, seed);
+    UI_PLAIN_END;
 }
 
 /* the Black Shrine's one row */
@@ -26199,7 +26230,16 @@ static void render_map(Frame *f) {
     hint8(f, (W - hint_width(hint)) / 2, 190, hint, R_STONE + 11);
 }
 
+static void render_ui_in(Frame *f);
 static void render_ui(Frame *f) {
+    static const char *const NAME[] = { "none", "wardrobe", "quit", "ledger", "bestiary", "letgo", "wisps", "altar", "shrine", "totem",
+                                        "portal", "merchant", "stone", "compendium", "repository", "codex", "ascend", "cornerstones",
+                                        "alignment", "class", "hall2", "bshrine", "reckon" };
+    ui_on(f, 1, G.ui >= 0 && G.ui < (int)(sizeof NAME / sizeof NAME[0]) ? NAME[G.ui] : "?");
+    render_ui_in(f);
+    ui_off();
+}
+static void render_ui_in(Frame *f) {
     if (G.ui == UI_ASCEND) { render_ascend(f); return; }
     if (G.ui == UI_ALIGN) { dim_view(f); panel(f, 4, 4, W - 8, H - 8); render_align(f, 0); return; }
     if (G.ui == UI_CLASS) { render_class(f); return; }
@@ -26228,6 +26268,10 @@ static void crawl_render(Frame *f) {
     f->w = W; f->h = H;
     memcpy(f->pal, crawl_pal, sizeof crawl_pal);
     f->fade = G.fade;
+    ui_lent = 0; ui_ramps(1);
+#ifdef CRAWL_DEBUG
+    ui_check = 1; ui_check_frame();
+#endif
     if (G.tally) { render_tally(f); if (G.player && G.ui) render_ui(f); render_toasts(f); con_render(f); return; }
     g_camfog = fog_at(G.px, G.py);
     fog_tint = G.tri >= 0 && G.tri_state == TRS_ON && in_trial((int)G.px, (int)G.py) ? TRI_FOG[G.tri] : 0;   /* a trial's room, turned */

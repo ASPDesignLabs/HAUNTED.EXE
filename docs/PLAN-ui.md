@@ -3,7 +3,8 @@
 **Status: settled (3 November 2026). The owner took my answer to every question but two: U7 (b), this pass whole
 before PLAN-ai's step 11, and U10 (b), full screens keep the crypt dimmed in a 4 px margin round them. Being built on
 `claude/gifted-rubin-q8up37` from main (1.0.0b13 with the art pass so far and PLAN-ai's steps 0-10). Step 0 is done (the
-before sheets in `docs/uipass/`). Step 1's sheet is drawn and waits for the owner (`docs/uipass/sheet-ui.png`). Like the art pass, it is visual only: nothing in the simulation, the saves or the
+before sheets in `docs/uipass/`). Step 1's sheet was approved by the owner (3 November). Step 2 is built (harness only): every menu, card and the tally
+wear the stone. Like the art pass, it is visual only: nothing in the simulation, the saves or the
 autopilot's numbers may move.**
 
 ## Decided (3 November 2026)
@@ -364,11 +365,11 @@ Each step committed, pushed and logged at the end of this plan, so it can be han
    the Totem, her hall, the bestiary with everything met, the tally with every note, Esc with a pad), at each run's palette
    (levels 1, 11, 21, 31), and lays them out as contact sheets in `docs/uipass/`. Run now for the *before*, and after each
    step.
-1. **The sheet** (drawn, waiting for the owner). `make sheets` draws `ui.png`: the two marble ramps (and the run's stone beside, for U1), the slab, well,
+1. **The sheet** (approved). `make sheets` draws `ui.png`: the two marble ramps (and the run's stone beside, for U1), the slab, well,
    headstone and tablet with their mouldings and ornaments, the three faces in each way of setting them beside the BIOS
    ones at 1x and 2x, the kit's pieces, the Alignment laid out for all six lines in every socket state, and the forty
    icons cut and inlaid. **For the owner's approval before anything goes in the game.** Tuning happens here.
-2. **The kit and the faces in the game.** `crawl_ui.c`, `font_ui.c`, the palette borrowed while a menu is up, `panel` and
+2. **The kit and the faces in the game** (built). `crawl_ui.c`, `font_ui.c`, the palette borrowed while a menu is up, `panel` and
    `card_box` rerouted to `ui_slab`: every menu wears the marble at once, laid as it is today. The fit checks.
 3. **The Alignment**, both its screens, from the approved sheet.
 4. **Cornerstones, the Totem, ascend, the class**, on the same pattern.
@@ -443,3 +444,26 @@ My answer is marked **(mine)**; the owner's take it over.
   the icons (Arc, Ionization and Soul Tether are thin at 16 px), and the 8x16 face, which is the 8x8 stretched and is to be
   drawn by hand once the look is settled. The three 8x8 faces differ little at a glance: the body face is kept as heavy as
   the BIOS one so it reads. Next: the owner's word on the sheet, then step 2.
+- 3 November 2026: the owner approved the sheet.
+- 3 November 2026, step 2: the kit in the game. `gfx.c` has two hooks (`gfx_hook8`, `gfx_hook16`): while set, a glyph with no
+  background goes through them. `ui_on(f, marble, where)` sets them, makes the level's marble if it hasn't been (it is made
+  in `start_level` after `crawl_art_level`, 9 ms, so never on a frame in play) and, for a menu, lends the floor and
+  ceiling ramps once a frame (`ui_lent`); `ui_off` clears them. `render_ui`, `render_tally` and `render_claim` are wrapped
+  in it with the marble; `render_card` (the level's card, a boss's, a death's) with the run's stone (`ui_ramps(0)`: `UI_M`
+  and `UI_W` are then `R_STONE`), since it lies over the live crypt and lending would recolour the floor behind it for
+  three seconds. Through the hooks every `gfx_text8` is the body face inlaid and every `gfx_text16` the inscription face
+  inlaid, and a colour from the run's stone becomes the marble's grey of the same rank, so greys read alike in every run.
+  `panel` and `card_box` are `ui_slab` with `SLAB_CALM` (the inside's shades pressed into 2-8, so words greyed for
+  black still read; a choice of mine, until each screen gets its own wells); no owners' signs yet, since today's titles sit
+  where they would go. Paper keeps its own ink: the document's page and the reckoning's slip turn the hooks off
+  (`UI_PLAIN_BEGIN`/`END`). The tally's hand-drawn drop shadow went (the inlay is its shadow). The fit checks in the game:
+  in the debug build every glyph the kit draws is stamped (`ui_check`, `ink`) and one landing on another's ink or outside
+  the last stone cut is told, once a row, as `UI overflow <screen> overlap|outside on row y`; `tools/uishots.sh` gathers
+  them into `build/uishots/<label>/L<level>/fit.txt`. At all four palettes the eighteen screens gave one: the tally's
+  CORRUPTED line, which sits under its card on purpose (step 7 lays the tally anew). The checks do not see what is drawn
+  after the menus (toasts, the console), so a toast over a menu's title (seen in a Backrooms pocket's wardrobe) is for
+  step 8. Checked: a 900 s dream run (seed 5, `CRAWL_RUNID=77`) and a person's session through the reckoning, the tally,
+  Tab, Esc and the bestiary give the same `EVENT` lines as step 1's build, line for line; ASan clean over the menus, the
+  tally and a 400 s dream; `make smoke` 1.39 ms a frame, 1.6-1.7 ms with a menu up. The Windows build is not compiled here
+  (no MinGW in this container); CI on the branch will be its first compile. The after sheets are
+  `docs/uipass/step2-L*.png`. Nothing played by hand. Next: step 3, the Alignment.

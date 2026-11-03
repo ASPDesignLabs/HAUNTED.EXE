@@ -4,7 +4,8 @@
 #
 #   sh tools/uishots.sh <label> [levels]     e.g. sh tools/uishots.sh before "1 11 21 31"
 #
-# Frames go to build/uishots/<label>/, the sheets to docs/uipass/<label>-L<level>.png.
+# Frames go to build/uishots/<label>/, the sheets to docs/uipass/<label>-L<level>.png; what the fit checks found
+# (text over text, or out of its stone) to build/uishots/<label>/L<level>/fit.txt.
 set -e
 LABEL=${1:-now}
 LEVELS=${2:-"1 11 21 31"}
@@ -39,9 +40,11 @@ for L in $LEVELS; do
     mkdir -p "$D"
     rm -f "$D"/*.png
     echo "$RECIPES" | { while IFS='|' read -r NAME ENVS INPUT AT; do
-        ( cd "$D" && env CRAWL_LEVEL=$L $ENVS HOST_INPUT="$INPUT" "$HOST" shot crawl "$AT" "$NAME" 2 >/dev/null 2>&1 \
+        ( cd "$D" && env CRAWL_LEVEL=$L $ENVS HOST_INPUT="$INPUT" "$HOST" shot crawl "$AT" "$NAME" 2 >/dev/null 2>"$NAME.log" \
               && for f in "$NAME"_*.png; do mv "$f" "$NAME.png"; done ) &
     done; wait; }
+    cat "$D"/*.log | grep "^UI overflow" | sort -u > "$D/fit.txt" || true   # the fit checks' findings
+    echo "L$L: $(wc -l < "$D/fit.txt") fit findings (build/uishots/$LABEL/L$L/fit.txt)"
     montage -label '%t' "$D"/*.png -tile 4x -geometry 640x400+6+18 -pointsize 14 -fill '#ccc' -background '#161616' \
         "$ROOT/docs/uipass/$LABEL-L$L.png"
     echo "docs/uipass/$LABEL-L$L.png"

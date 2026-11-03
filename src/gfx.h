@@ -21,6 +21,9 @@ void gfx_pal_ramp(Frame *f, int first, int last,
 void gfx_pal_black(Frame *f);
 
 /* Glyph drawing; bg < 0 means transparent.  scale is an integer multiplier. */
+/* while set, gfx_glyph8/16 with no background go through these (CATACOMB's menus: docs/PLAN-ui.md) */
+extern void (*gfx_hook8)(Frame *f, int x, int y, uint8_t ch, int fg, int scale);
+extern void (*gfx_hook16)(Frame *f, int x, int y, uint8_t ch, int fg, int scale);
 void gfx_glyph16(Frame *f, int x, int y, uint8_t ch, int fg, int bg, int scale);
 void gfx_glyph8(Frame *f, int x, int y, uint8_t ch, int fg, int bg, int scale);
 void gfx_text16(Frame *f, int x, int y, const char *s, int fg, int scale);

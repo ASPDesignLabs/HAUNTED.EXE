@@ -170,7 +170,10 @@ three faces of our own at today's sizes, a kit of structured pieces (`src/crawl_
 tree with an icon to each node and a pane beside it, and the other screens after it. Visual only. Settled the same day (the
 owner took every answer marked but U7, this pass whole before PLAN-ai's step 11, and U10, full screens keeping the dimmed
 crypt in a 4 px margin); step 0 is done (`tools/uishots.sh`, the before sheets in `docs/uipass/`), and step 1's sheet is
-drawn (`src/crawl_ui.c`, `src/ui_art.c`, `tools/uisheet.c`; `docs/uipass/sheet-ui.png`) and waits for the owner's word.
+drawn (`src/crawl_ui.c`, `src/ui_art.c`, `tools/uisheet.c`; `docs/uipass/sheet-ui.png`) and approved. Step 2 is built
+(harness only): every menu, card and the tally cut in the stone through `gfx_hook8/16` and `ui_on`/`ui_off` (menus lend
+the floor's and ceiling's ramps for the frame; cards over the live crypt use the run's stone), with the fit checks'
+`UI overflow` lines in the debug build. Step 3, the Alignment, is next.
 Its section 10 is the hand-off log: read it first.
 
 ## Working with the owner
