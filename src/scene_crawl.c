@@ -5006,6 +5006,7 @@ static void pack_hunt(Pack *p) {                                   /* the call h
  * scatters to other rooms, to come back as wanderers; hounds run to the nearest other creature and bring it */
 static void pack_break(Pack *p) {
     p->broken = 1; p->on[0] = p->on[1] = -1;
+    p->state = PAS_CALM;                                           /* a call under way dies with it */
     int told = 0;
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *o = &G.mobs[i];
@@ -9595,7 +9596,7 @@ static int find_target(void) {
         float vx = m->x - G.px, vy = m->y - G.py, dist = sqrtf(vx * vx + vy * vy);
         float depth = vx * dx + vy * dy, lat = vx * rx + vy * ry, score;
         const Pack *mp = pack_of(m);                               /* about to call (step 10): the caller first, from any side */
-        int calling = m->call_t > 0.0f || (m->type == MOB_SEXTON && m->rings == 1) || (mp && mp->state == PAS_CALL && mp->caller == i);
+        int calling = m->call_t > 0.0f || (m->type == MOB_SEXTON && m->rings == 1) || (mp && !mp->broken && mp->state == PAS_CALL && mp->caller == i);
         int leads = mp && !mp->broken && mp->state == PAS_HUNT && mp->leader == i;
         if (depth >= 0.35f && depth <= 7.5f && fabsf(lat) <= fmaxf(depth * 0.42f, 0.3f)) score = depth;
         else if (calling && dist < 9.0f && line_clear(G.px, G.py, m->x, m->y)) score = dist + 1.5f;
@@ -16434,6 +16435,27 @@ static void crawl_update(double dt) {
                 fprintf(stderr, "   minds calm=%d wary=%d hunting=%d tracking=%d searching=%d engaged=%d/%d held=%d asleep=%d packs=%d hunt=%d/%d/%d\n",
                         aw[MA_CALM], aw[MA_WARY], aw[MA_HUNT], aw[MA_TRACK], aw[MA_SEARCH], eng, engage_cap(), held, asleep, G.npacks, G.hunt_kind, G.hunt_on, trail);
             }
+            {                                                      /* the dream stood within a cell of one place 40 s: what is about */
+                static float sx, sy; static double st0; static int told, slvl;
+                if (G.level != slvl || hypotf(G.px - sx, G.py - sy) > 1.0f || G.player) { sx = G.px; sy = G.py; st0 = G.t; told = 0; slvl = G.level; }
+                else if (G.t - st0 > 40.0 + 80.0 * told && told < 2 && !PK.depth) {
+                    told++;
+                    fprintf(stderr, "STALL level %d at (%.1f,%.1f) %.0f s: state %d resume %d target %d blocked %.1f cooldown %.1f leaving %d\n",
+                            G.level, G.px, G.py, G.t - st0, G.state, G.resume_state, G.target, G.blocked, G.cooldown, G.leaving);
+                    for (int i = 0; i < MAXMOBS; i++) {
+                        const Mob *o = &G.mobs[i];
+                        float d = hypotf(o->x - G.px, o->y - G.py);
+                        if (!o->alive || d > 12.0f) continue;
+                        const Pack *op = pack_of(o);
+                        fprintf(stderr, "   STALL #%d %s r%d at (%.1f,%.1f) %.1f cells st%d sub%d aw%d alert%.1f hold%d eng%d hp%.0f/%.0f solid%d tgt%d clear%d/%d "
+                                "misses%d ign%.1f call%.1f pack%d/%d/%d/%d amb%d hunter%d role%d face%.2f\n",
+                                i, KINDS[o->type].name, o->rank, o->x, o->y, d, o->state, o->sub, o->aware, o->alert, o->hold, o->engage, o->hp, o->maxhp,
+                                solid_mob(o), targetable(o), line_clear(G.px, G.py, o->x, o->y), shot_clear(o->x, o->y), o->misses,
+                                o->ignore - (float)G.t, o->call_t, op ? op->kind : -1, op ? op->state : -1, op ? op->broken : -1, op ? op->caller : -1,
+                                o->amb, o->hunter, o->role, o->face);
+                    }
+                }
+            }
         }
     }
 #endif
@@ -19230,7 +19252,14 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     return (int)(p - buf);
 }
 
-static uint32_t new_run_id(uint32_t seed) { uint32_t id = (uint32_t)time(NULL) * 2654435761u ^ seed * 40503u; return id ? id : 1u; }
+static uint32_t new_run_id(uint32_t seed) {
+    uint32_t id = (uint32_t)time(NULL) * 2654435761u ^ seed * 40503u;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_RUNID")) id = (uint32_t)strtoul(getenv("CRAWL_RUNID"), NULL, 0);   /* the same run again, for a fault found */
+    fprintf(stderr, "RUNID %u\n", id ? id : 1u);
+#endif
+    return id ? id : 1u;
+}
 
 static void run_unpack(const uint8_t *buf, int len) {
     int v = save_version(buf, len), k;

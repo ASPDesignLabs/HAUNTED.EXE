@@ -160,6 +160,8 @@ still to come (the nest, the imps' brood, sentinels), and the deep's combination
 (harness only): the three new kinds, their sheets approved by the owner (`whipper.png`, `sexton.png`, `lightless.png`,
 `sides5.png` on `make sheets`), in the game with their ways and bestiary pages. **Step 10 is built** (harness only): the
 dream's counters (a glance back, ambush signs read and a spell through the door, callers and leaders first, a corner held).
+Steps 0-10 were folded into main, unreleased, at the owner's word on 3 November (VERSION stays 1.0.0b13, so main carries minds
+the released build lacks), squashed as one commit as the art pass was; the work goes on on `claude/youthful-mayer-deaa11`.
 Step 11, showing it (sounds, captions, the bestiary's lines, the Codex, achievements, art), is next.
 
 ## Working with the owner
@@ -1313,7 +1315,10 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `PS_GUARD`: it faces and fights the nearest that knows it is there, `guard_target`, the aim coming back to the guard) while it is
   under three fifths and the pack is on it, thirty seconds at most (`corner_keep`, `corner_leave`: twenty seconds before another;
   `G.corner_*`). It never chased bait, and its engaged cap is one less since step 8. Debug: `EVENT glances`, `glance_finds`,
-  `amb_read`, `amb_probes`, `corners`, `corners_held`.
+  `amb_read`, `amb_probes`, `corners`, `corners_held`. For any fault in the dream's runs: `STALL level n ...` lines (each
+  creature within twelve cells, what it is doing and whether the dream can aim at it) once the dream has stood 40 s within a
+  cell of one place, and again at 120 s; `CRAWL_RUNID=n` gives a fresh run that id (each run prints `RUNID n`; otherwise it
+  comes from the clock, and the trials' order with it), so a run that went wrong can be run again.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are
@@ -1542,5 +1547,17 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   runs (from 11) spent over 200 s within a cell of one place, 337 s on level 11 and 206 s on level 14, both levels with a sluice,
   as step 8's longest were; a rerun of the first seed didn't reproduce it (harness runs part ways by their clock-born run ids).
   Still open. ASan clean on three sessions with the new kinds (the huntsman's pack, the Sexton met, a rank V Lightless).
+- 1.0.0b15's step 10 (the dream's counters; harness only), the new minds on sixteen seeds (1-31 odd) from each start: from level
+  1 a median of 9 levels cleared, 56 deaths (33 on level 10, 23 elsewhere), the knight felled 7 times (step 9: 64, 44 and 20, 4);
+  from 11, 21 and 31 no deaths, median levels reached 17, 27 and 37, a level's median time 356-363 s (371 at step 9). From levels
+  1, 11, 21 and 31 the dream glanced back 25, 38, 50 and 39 times (finding something 9, 15, 22 and 20 times), read an ambush's
+  sign 9, 11, 11 and 8 times and sent a bolt through 6, 4, 4 and 3 times, and took a corner 5, 0, 0 and 5 times (held 5, 0, 0
+  and 6). Easier for the dream, as Part G meant; how much is inside the noise of sixteen seeds. Two runs (one from level 1, one
+  from 31) stood within a cell of one place about four minutes (236 s on level 9, 262 s on level 32), aiming and casting a fire
+  bolt about once a second at nothing it killed while its souls ran down; in both a Wraith had just been driven back nearby.
+  One cause found by reading the code: a pack broken while its call was under way stayed calling, and the leaders-first rule
+  aimed at its caller from any side for ever; mended (`pack_break` ends the call). Whether that was all of it isn't known yet:
+  the `STALL` lines and `CRAWL_RUNID` were added to catch the next one. ASan clean on three sessions (corners held, an ambush
+  read and probed).
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.

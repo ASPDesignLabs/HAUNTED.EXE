@@ -35,7 +35,8 @@ a quarter more, inside D5's margin with nothing to spare, and the last batch, as
 less (A3, from Part G, taken now). From 11, 21 and 31 one death each way. The steps after this one add no difficulty for the
 dream but the new kinds (9), and step 10's counters help it. Step 9 is built (harness only): the three new kinds,
 their sheets approved by the owner (`make sheets`' whipper.png, sexton.png, lightless.png and sides5.png), in the game
-with their ways and their bestiary pages.** Written on
+with their ways and their bestiary pages. Step 10 is built and checked (harness only): the dream's counters; from level 1
+it died 56 times on sixteen seeds. Steps 0-10 were folded into main, unreleased, at the owner's word (3 November).** Written on
 `claude/laughing-cori-a3jk29` from 1.0.0b13; brought onto its work branch, `claude/youthful-mayer-deaa11`, from main
 once the art pass so far had been merged there (1 November). The art pass is visual only, and the numbers below were
 checked again on main: none has moved. The owner asked for creatures
@@ -1110,6 +1111,13 @@ The order of the steps is the building's; what a person meets, and where, is sec
    is there, while it is under three fifths and the pack is on it, thirty seconds at most, then twenty before another. Its own
    cap: one less, since step 8. Choices of mine: the corner's numbers; the spell at the door is the fire bolt, whatever is in
    hand; the glance answers only sounds behind it, since it sees to what is ahead.
+   *Checked* (3 November, sixteen seeds from each start, the new minds). From level 1: 56 deaths (33 on level 10, 23 elsewhere),
+   a median of 9 levels cleared, the knight felled 7 times, against step 9's 64 (44 and 20) and 4. From 11, 21 and 31: no
+   deaths, levels 17, 27 and 37 reached at the median, a level's median time 356-363 s. Glances 25-50 a start (a third to a
+   half found something), signs read 8-11 and bolts sent through 3-6, corners taken only from 1 and 31 (5 each). Two runs stood
+   still about four minutes casting at nothing they killed, a Wraith driven back nearby; a broken pack's call that never ended
+   was found and mended, and `STALL` lines and `CRAWL_RUNID` were added to catch the rest if there is a rest.
+   Folded into main with steps 0-9, unreleased, at the owner's word (3 November).
 11. **Showing it** (Part H): sounds, captions, the bestiary, the Codex, the record, achievements; the art.
 12. **The checks**: the balance runs (D5), ASan on long dream and scripted sessions, `bench` (the new fields must not
     show: a few breadth-first searches a second over 2,025 cells, and one scent stamp a step).
