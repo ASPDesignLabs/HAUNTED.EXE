@@ -187,10 +187,12 @@ technicals or debug switches: keep later notes that way). The plans' numbers mov
 and the rest of the art pass come next.
 Its section 10 is the hand-off log: read it first.
 
-A browser build for the page is planned in [`docs/PLAN-web.md`](docs/PLAN-web.md) (3 November, a draft on
-`claude/vibrant-mccarthy-9hk3fi`; discovery only, nothing built, questions W1-W9 unanswered): Emscripten and a
-JavaScript shell beside `win_main.c` and `tools/host.c`, no change to the game's code; Esc and Ctrl belong to the
-browser, saves to its storage. Step 0, a probe compile, is the go/no-go (the Emscripten SDK couldn't be fetched in
+A browser build for the page is planned in [`docs/PLAN-web.md`](docs/PLAN-web.md), settled (3 November, on
+`claude/vibrant-mccarthy-9hk3fi`; nothing built): Emscripten and a JavaScript shell beside `win_main.c` and
+`tools/host.c`, at `/play/` on the page, saves in `localStorage`. The owner took every recommended answer but W3
+(Space casts in the browser, Ctrl does nothing: some ten lines behind `HVS_WEB`, the only change to the game's
+code) and W7 (it goes out as part of 1.0.0b14, uploaded to that release from main without a bump). Only 1.0.0b14 is
+built and tested for the browser. Step 0, a probe compile, comes first (the Emscripten SDK couldn't be fetched in
 the session that wrote it).
 
 ## Working with the owner

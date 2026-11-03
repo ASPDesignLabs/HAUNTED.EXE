@@ -1,10 +1,52 @@
 # HAUNTED.EXE in the browser
 
-**Status: a draft (3 November 2026); discovery only, nothing built.** The owner asked whether HAUNTED could
-be offered as something to play in the browser, on the project page, and what the work would be. The answer
-is yes, and for less than it sounds. The game was written against a narrow platform boundary, so a browser
-build is a third shell beside the Windows program and the test harness, with no change to the game itself.
-The questions at the end (W1-W9) carry a recommended answer each.
+**Status: settled (3 November 2026); nothing built yet.** The owner asked whether HAUNTED could be offered
+as something to play in the browser, on the project page, and what the work would be. The answer was yes, and
+for less than it sounds: the game was written against a narrow platform boundary, so a browser build is a third
+shell beside the Windows program and the test harness. The owner answered W1-W9 the same day: the recommended
+answer to each but W3 (Space casts in the browser) and W7 (it goes out as part of 1.0.0b14, the current beta).
+Only 1.0.0b14 is built and tested for the browser; the thirteen betas before it are left alone. See *Decided*.
+
+## Decided
+
+1. **Its own page at `/play/`** (W1 a), filling the window, linked from the download bar.
+2. **Esc as well as the browser allows** (W2 a): the mouse unlocking counts as Esc; in full screen on Chrome
+   and Edge, Keyboard Lock gives Esc back whole.
+3. **Space casts in the browser; Ctrl does nothing** (W3, the owner's answer). The shell never passes Ctrl on,
+   so Ctrl+W and Ctrl+1-9 stay the browser's and are never part of the game. That needs a little of the game's
+   code, behind a switch the Windows build never sets (`HVS_WEB`), since Space has jobs of its own today:
+   - In play, Space is a second *use* key beside E (`update_human`, `IN.hit[KEY_E] || IN.hit[KEY_SPACE]`). In
+     the browser E alone uses, and Space is held to cast as the left button is (`human_cast`, which reads
+     `KEY_CTRL` today in the same place).
+   - At the merchant's, Space buys as E and the left button do (`shop_human`); a Space that buys casts nothing
+     until it is let go, as a click that buys does (`G.click_spent`).
+   - On the map, Space brings it back to you and eats the press (`map_keys`), so there a tap of Space doesn't
+     cast; a click still does. Holding Space to charge while the map is up is the one thing that differs.
+   - In every menu Space keeps its jobs (it confirms, as Enter does; it unbinds, overlevels and turns *L ALWAYS
+     CASTS THIS*), since casting is only read in play.
+   - The controls card's first line, *WASD WALK  MOUSE TURN  CLICK CASTS*, reads *... CLICK OR SPACE CASTS*.
+     No hint names E/SPACE together for using things, and none names Ctrl.
+   - The pad is untouched: RT casts, Y is Space in menus as now.
+   So the game's code isn't quite untouched after all: some ten lines behind `HVS_WEB`. Nothing in the
+   simulation, the saves or the dream's numbers moves, and the Windows build compiles as it does now.
+4. **Saves in `localStorage`** (W4 a), persistent storage asked for, the ledger exported and imported as a file.
+   No Windows import.
+5. **Fleeing goes back to the dream** (W5 a), with a line that you fled.
+6. **Phones and tablets watch** (W6 a), with a note that playing needs a keyboard and mouse or a controller.
+7. **It goes out as part of 1.0.0b14** (W7, the owner's answer), the current beta: no new version, no
+   renumbering. Main is 1.0.0b14's game today, and the browser's shell joins it without a bump of `VERSION`. So
+   CI can't wait for a new release to build it: a job on main builds the browser version and uploads
+   `HAUNTED-1.0.0b14-web.zip` to the release `v1.0.0b14` if that release hasn't one yet, and adds a line about
+   it to the release's notes (`gh release edit`). Later releases get theirs in the release job as they are made.
+   The Pages job takes `/play/` from the release of the version in `VERSION`, so main carrying unreleased work
+   later can't reach the page. The page's download bar and *Beta status* table, and the README, change in the
+   same commit.
+8. **The page starts with a plate in its DOS prompt style** (W8 a): *C:\>HAUNTED.EXE*, click or press a key to
+   boot, which unlocks sound; then the BIOS POST.
+9. **The settings panel has the `/c` dialog's settings and mouse sensitivity** (W9 a).
+10. **Only 1.0.0b14 is tested** (the owner's word): no browser builds of earlier betas, no checks against them
+    (the harness's balance runs and the gallery's old builds don't apply here), and a browser's ledger starts
+    fresh.
 
 ## What was asked
 
@@ -66,8 +108,9 @@ stand-in:
 | Losing focus mid-game: it waits at the menu | `blur` and `visibilitychange` call `app_focus(0)`, the same path |
 | FLEE TO THE SURFACE exits the program | Nothing to exit to: back to the dream, or a title (W5) |
 
-So the game's own code needn't change at all. Dropping Ctrl (below) is done in the shell by not passing the
-key on, and so is fleeing. Nothing in the simulation, the saves or the dream's numbers moves.
+So the game's own code needs almost nothing. Dropping Ctrl is done in the shell by not passing the key on, and
+so is fleeing; Space casting needs some ten lines behind `HVS_WEB` (*Decided* 3). Nothing in the simulation, the
+saves or the dream's numbers moves.
 
 ## Where the browser gets in the way
 
@@ -84,8 +127,8 @@ These are the real work, and where the owner's answers are wanted.
 2. **Ctrl is a cast key** (with the left button), and the browser owns Ctrl+W (close the tab), Ctrl+T,
    Ctrl+N and Ctrl+1-9 (switch tabs). With W walking forward and 1-9 choosing spells, a person casting with
    Ctrl would close or leave the game within a minute. The page can't stop those combinations, except under
-   Keyboard Lock in full screen on Chromium. No on-screen text names Ctrl (checked), so taking it away
-   costs no words (W3).
+   Keyboard Lock in full screen on Chromium. No on-screen text names Ctrl (checked). Settled: Space casts
+   instead (*Decided* 3).
 3. **Taking the mouse needs a click.** Pointer lock must be asked for from a fresh click or key press. After
    three seconds of holding H the press may count or may not, depending on the browser. If it doesn't, the
    game is yours with the mouse still free, and a plate reads *CLICK TO TAKE THE MOUSE*. Sound has the same
@@ -135,22 +178,24 @@ These are the real work, and where the owner's answers are wanted.
 1. **The picture and the loop.** `src/web_main.c`, `web/index.html`, `web/haunted.js`, `make web`: both
    scenes rotating, the dream, integer scaling, full screen.
 2. **Sound.** The worklet and its queue, the click to begin, quiet in a hidden tab.
-3. **Keys, mouse and the takeover.** Pointer lock, the Esc and Ctrl rules as W2 and W3 settle them, the pause
-   on losing focus, fleeing (W5).
+3. **Keys, mouse and the takeover.** Pointer lock, Esc as *Decided* 2, Space casting and Ctrl dropped
+   (*Decided* 3, the only change to the game's code), the pause on losing focus, fleeing back to the dream.
 4. **Saves and settings.** `localStorage`, persistent storage, export and import (W4), one tab at a time, the
    settings panel.
 5. **The controller.** The Gamepad API, dead zones as `win_main.c` has them, rumble where there is any, the
    wake lock.
-6. **CI and the page.** The release asset, the Pages job, `/play/`, the download bar's cell, the README and
-   the beta table.
-7. **The checks.** Playwright in CI; by hand in Chrome, Edge, Firefox and Safari (the owner's, as Windows is
-   now); the harness and ASan runs unaffected, since no game code moved.
+6. **CI and the page.** The web zip uploaded to `v1.0.0b14` from main and a line added to its notes, the
+   release job doing the same for later versions, the Pages job, `/play/`, the download bar's cell, the README
+   and the beta table (*Decided* 7).
+7. **The checks**, on 1.0.0b14 only. Playwright in CI; by hand in Chrome, Edge, Firefox and Safari (the
+   owner's, as Windows is now); `make smoke` and an ASan session with `HVS_WEB` set in the harness, since that
+   is the one place the game's code moved.
 
 As a size: the C side some 150 lines, the page's script some 600-800 lines of JavaScript, a little HTML and
 CSS, and some 60 lines of CI. That is smaller than `win_main.c`, and about the size of 1.0.0b8's controller
 work.
 
-## Questions
+## Questions (answered 3 November; kept for the record)
 
 **W1. Where does it live?**
 (a) its own page at `/play/`, filling the window, linked from the download bar *(recommended: the main page
@@ -165,7 +210,7 @@ already closes some screens); (c) leave Esc to the browser and use another key f
 **W3. Ctrl.**
 (a) not a cast key in the browser; the left button casts *(recommended: no way to lose the tab by
 accident)*; (b) a cast key only in full screen under Keyboard Lock, where the browser lets it be; (c) as on
-Windows, with a warning.
+Windows, with a warning. **Answered: Space casts in the browser** (*Decided* 3).
 
 **W4. Saves.**
 (a) `localStorage`, persistent storage asked for, and the ledger exported and imported as a file
@@ -183,7 +228,7 @@ controls as a plan of their own, later.
 **W7. Which release?**
 (a) with the next release, whatever it carries, since it moves no game code and so no numbers *(recommended)*;
 (b) a beta of its own, moving the plans' numbers again; (c) on the page before a release, marked as a preview
-of the released build.
+of the released build. **Answered: in 1.0.0b14, the current beta** (*Decided* 7).
 
 **W8. How the page starts.**
 (a) a dark plate in the page's DOS prompt style (*C:\>HAUNTED.EXE*, click or press a key to boot) that
