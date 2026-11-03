@@ -137,6 +137,14 @@ static const Group GROUPS[] = {
     { "sides4", "SIDE VIEWS: SET IV", -1, 1,
       { { SP_SHADE_SA, "SHADE A" }, { SP_SHADE_SB, "B" }, { SP_IMP_SA, "IMP A" }, { SP_IMP_SB, "B" }, { SP_DEACON_SA, "DEACON A" }, { SP_DEACON_SB, "B" },
         { SP_GARG_SA, "GARGOYLE A" }, { SP_GARG_SB, "B" }, { -1, 0 } } },
+    { "whipper", "THE WHIPPER-IN (FROM LEVEL 22)", PF_BONE, ALL_RANKS,
+      { { SP_WHIP_A, "WALK A" }, { SP_WHIP_B, "WALK B" }, { SP_WHIP_HORN, "THE HORN" }, { SP_WHIP_CRACK, "THE WHIP" }, { SP_WHIP_D, "FALLEN" }, { -1, 0 } } },
+    { "sexton", "THE SEXTON (FROM LEVEL 26)", PF_HIDE, ALL_RANKS,
+      { { SP_SEXTON_A, "WALK A" }, { SP_SEXTON_B, "WALK B" }, { SP_SEXTON_RING_A, "RINGING" }, { SP_SEXTON_RING_B, "RINGING" }, { SP_SEXTON_ICE, "BELL FROZEN" }, { SP_SEXTON_D, "FALLEN" }, { -1, 0 } } },
+    { "lightless", "THE LIGHTLESS (FROM LEVEL 32)", PF_CHITIN, ALL_RANKS,
+      { { SP_LIGHT_A, "WALK A" }, { SP_LIGHT_B, "WALK B" }, { SP_LIGHT_STRIKE, "STRIKE" }, { SP_LIGHT_LISTEN, "LISTENING" }, { SP_LIGHT_D, "SHATTERED" }, { -1, 0 } } },
+    { "sides5", "SIDE VIEWS: THE NEW KINDS", -1, 1,
+      { { SP_WHIP_SA, "WHIPPER-IN A" }, { SP_WHIP_SB, "B" }, { SP_SEXTON_SA, "SEXTON A" }, { SP_SEXTON_SB, "B" }, { SP_LIGHT_SA, "LIGHTLESS A" }, { SP_LIGHT_SB, "B" }, { -1, 0 } } },
     { "b6", "1.0.0B6: FOR APPROVAL", -1, 1,
       { { SP_DOUBLE, "BLINK'S DOUBLE" }, { -1, 0 } } },
     { "b7", "1.0.0B7: FOR APPROVAL", -1, 1,
@@ -835,6 +843,30 @@ static int draw_hand(const char *path) {
     return ok;
 }
 
+/* ---- 1.0.0b15: the places to mend, a run each (docs/PLAN-ai.md, section 28), and a skeleton's side views as the crypt
+ * now draws them (section 1) ---- */
+static int draw_rests(const char *path) {
+    static const int LV[4] = { 3, 13, 23, 33 };
+    static const char *const RUNNAME[4] = { "I: VOTIVE NICHE", "II: STOUP", "III: MINERS' REST", "IV: BLACK GLASS" };
+    int colw = TS * 3 + 40;
+    iw = PAD + 4 * colw + PAD;
+    ih = PAD + LABEL_H + 8 + LABEL_H + TS * 3 + 20 + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "1.0.0B15: THE PLACES TO MEND, FOR APPROVAL", 230, 230, 230);
+    int y = PAD + LABEL_H + 8;
+    for (int run = 0; run < 4; run++) {
+        crawl_art_level(LV[run]); crawl_art_run(LV[run]);
+        int x = PAD + run * colw;
+        text(x, y, RUNNAME[run], 200, 200, 200);
+        tex(x, y + LABEL_H, T_REST, 3, LIGHT);
+    }
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
 /* ---- 1.0.0b13: the trials' doors, a run each, the lights by them, their things, and the hourglass (docs/PLAN-b13.md part D) ---- */
 static int draw_trials(const char *path) {
     static const int LV[4] = { 3, 13, 23, 33 };
@@ -1476,6 +1508,13 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/trials.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_trials(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "rests")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/rests.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_rests(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     if (!strcmp(argv[1], "all") || !strcmp(argv[1], "documents")) {

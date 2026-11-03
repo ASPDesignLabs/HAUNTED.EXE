@@ -11,7 +11,7 @@
  * PAD_RT ("12:+PAD_A"), its sticks aLX, aLY, aRX, aRY with a value ("13:aLY1;15:aLY0"). It stops when
  * the player chooses to leave. HOST_LOAD=file is the progress to start from (a run, or the ledger page to open) and HOST_SAVE=file
  * gets it whenever the game writes it; HOST_SLOTS=dir keeps the ledger's pages as dir/slot1.bin to
- * slot3.bin, and the dead's mark as dir/mark.bin.
+ * slot3.bin, the dead's mark as dir/mark.bin, and a person's own settings (the pad's sprint button) as dir/prefs.bin.
  */
 #include <stdio.h>
 #include <time.h>
@@ -142,12 +142,13 @@ static void slots_flush(void) {
         if (n <= 0) continue;
         char path[512];
         if (i == SLOT_PROGRESS) snprintf(path, sizeof path, "%s", save ? save : "");
-        else if (dir) snprintf(path, sizeof path, i == SLOT_MARK ? "%s/mark.bin" : "%s/slot%d.bin", dir, i + 1);
+        else if (dir) snprintf(path, sizeof path, i == SLOT_MARK ? "%s/mark.bin" : i == SLOT_PREFS ? "%s/prefs.bin" : "%s/slot%d.bin", dir, i + 1);
         else path[0] = 0;
         FILE *f = path[0] ? fopen(path, "wb") : NULL;
         if (f) { fwrite(buf, 1, (size_t)n, f); fclose(f); }
         if (i == SLOT_PROGRESS) fprintf(stderr, "PROGRESS: saved %d bytes%s%s\n", n, save ? " to " : "", save ? save : "");
         else if (i == SLOT_MARK) fprintf(stderr, "MARK: saved %d bytes\n", n);
+        else if (i == SLOT_PREFS) fprintf(stderr, "PREFS: saved %d bytes (pad sprint %d)\n", n, buf[0]);
         else fprintf(stderr, "SLOT %d: saved %d bytes\n", i + 1, n);
     }
 }
@@ -168,10 +169,10 @@ static void input_init(void) {
     app_set_input(&g_in);
     if (getenv("HOST_LOAD")) slot_file(SLOT_PROGRESS, getenv("HOST_LOAD"));
     const char *dir = getenv("HOST_SLOTS");
-    for (int i = 0; dir && i < SLOT_COUNT + 1; i++) {
+    for (int i = 0; dir && i < SLOT_COUNT + 2; i++) {
         char p[512];
-        snprintf(p, sizeof p, i == SLOT_COUNT ? "%s/mark.bin" : "%s/slot%d.bin", dir, i + 1);
-        slot_file(i == SLOT_COUNT ? SLOT_MARK : i, p);
+        snprintf(p, sizeof p, i == SLOT_COUNT ? "%s/mark.bin" : i == SLOT_COUNT + 1 ? "%s/prefs.bin" : "%s/slot%d.bin", dir, i + 1);
+        slot_file(i == SLOT_COUNT ? SLOT_MARK : i == SLOT_COUNT + 1 ? SLOT_PREFS : i, p);
     }
 }
 

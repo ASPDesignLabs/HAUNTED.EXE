@@ -79,6 +79,18 @@ enum {
     SFX_HUM,            /* a crystal singing, higher and brighter */
     SFX_RUSTLE,         /* a hand searching: dry rustling and a scrape */
     SFX_PAGE,           /* a page taken out and turned: a crisp flick */
+    SFX_BREATH,         /* run out of breath: two ragged breaths, out and in (1.0.0b15's sprint) */
+    SFX_DOOR1_OPEN, SFX_DOOR1_SHUT,   /* doors by run (1.0.0b15): run I's iron-bound oak groaning on its pins; a thud and the latch */
+    SFX_DOOR2_OPEN, SFX_DOOR2_SHUT,   /* run II's swollen wood dragged through water; a sodden slap and drips */
+    SFX_DOOR3_OPEN, SFX_DOOR3_SHUT,   /* run III's planks on rope hinges, dust falling; a hollow knock of timber */
+    SFX_DOOR4_OPEN, SFX_DOOR4_SHUT,   /* run IV's slab of black glass grinding and ringing; a glassy chime and a hiss */
+    SFX_HOWL,           /* a hound's pack set on the hunt: a long rising howl, a second voice under it (1.0.0b15) */
+    SFX_DRUM,           /* the file of the Order: bones clacked in time, like a drum */
+    SFX_ROUT,           /* a pack broken: a yelp, a clatter, things scattering */
+    SFX_HORN,           /* the Whipper-In's horn: a brassy note slurred up and held, wavering (1.0.0b15's new kinds) */
+    SFX_HANDBELL,       /* the Sexton's handbell: one stroke of the clapper, bright and beating */
+    SFX_GLASS,          /* the Lightless moving: a faint, high, glassy chime */
+    SFX_WHIPCRACK,      /* a whip's crack: a sharp snap, a hiss of the thong */
     SFX_COUNT
 };
 
