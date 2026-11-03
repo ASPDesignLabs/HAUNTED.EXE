@@ -5,7 +5,7 @@ before PLAN-ai's step 11, and U10 (b), full screens keep the crypt dimmed in a 4
 `claude/gifted-rubin-q8up37` from main (1.0.0b13 with the art pass so far and PLAN-ai's steps 0-10). Step 0 is done (the
 before sheets in `docs/uipass/`). Step 1's sheet was approved by the owner (3 November). Step 2 is built (harness only): every menu, card and the tally
 wear the stone. Step 3 is built (harness only): the Alignment, at the Lampstand and on Tab's fourth page, is the
-approved stone. Step 4 is built (harness only): the cornerstones, the Hexed Totem, ascend and her question of what you were. Step 5 is built (harness only): Tab's pages, the bestiary and the Codex. Step 6 is built (harness only): her hall's screens. Like the art pass, it is visual only: nothing in the simulation, the saves or the
+approved stone. Step 4 is built (harness only): the cornerstones, the Hexed Totem, ascend and her question of what you were. Step 5 is built (harness only): Tab's pages, the bestiary and the Codex. Step 6 is built (harness only): her hall's screens. Step 7 is built (harness only): the crypt's screens, the cards and the tally. Like the art pass, it is visual only: nothing in the simulation, the saves or the
 autopilot's numbers may move.**
 
 ## Decided (3 November 2026)
@@ -378,7 +378,7 @@ Each step committed, pushed and logged at the end of this plan, so it can be han
 5. **Tab:** the wardrobe and its icons, the caster, the elements, documents; **the bestiary; the Codex.** (built).
 6. **Her hall:** her menu, the Compendium, the Repository, the Portal, the shrine, the bell and font, the ledger, a stone's
    page, the full bag (built).
-7. **The crypt's:** Esc's question, the L list, the altar, the Black Shrine, the cards, the tally.
+7. **The crypt's:** Esc's question, the L list, the altar, the Black Shrine, the cards, the tally (built).
 8. **The HUD.**
 9. **The checks:** every screen at each run's palette, with keys and with a pad, at the darkest and brightest crypt behind;
    the fit script clean; a dream run with `CRAWL_RUNID` gives the same `EVENT` lines before and after (nothing in the
@@ -569,3 +569,32 @@ My answer is marked **(mine)**; the owner's take it over.
   the progress are the same bytes; a 900 s dream the same; ASan clean over the ten and a 300 s dream from level 21. Frames:
   `docs/uipass/step6-L*.png` (and `before6-L1.png`, the newly reached screens as they were). Nothing played by hand. Next: step 7,
   the crypt's screens.
+- 3 November 2026, step 7: the crypt's screens. *Esc's question*: a headstone, LEAVE THE CRYPT? in its arch, her line under it,
+  the rows in a well (seventeen pixels apart, fifteen with the pad's sixth), the chosen one lit with its two candles, a rule
+  with a lozenge between leaving and the ledger, the note on its own line inside the stone. The headstone's own candles in
+  its shoulders were tried and taken off: they sat on her line. *The L list*, *the altar*, *the Black Shrine*: tablets, the
+  rows in a well, what the chosen one means in another (the altar's, the shrine's) or the toggle under it (the list's: a
+  cup cut in the stone with a gold cross in it when on, for `[X]`), the keys on caps along the foot (`hall_keys`). *The
+  cards* (a level's, a boss's, death's cost, the old mercy's, her claim): headstones (`card_box` is `SLAB_HEAD`), their
+  first line moved down a few pixels into the arch. A level's and a boss's stay over the live crypt, not dimmed, my choice
+  against the plan's "over the dimmed crypt": they come while you walk, and dimming the view for three seconds would hide
+  what is coming; death's and her claim's were dimmed already. *The tally*: a memorial tablet, LEVEL n COMPLETE! on a smooth
+  plate at its head, the level's name under it, CORRUPTED: HALF EXPERIENCE under that (it had sat below the stone, the
+  fit checks' one finding since step 2); each row's label and figure as they were with a line cut in the stone between them
+  for the leader dots, and each row's notes (HALF, +10%, BOON +20%, CURSE -20%, n TRIALS FAILED) on a line of their own under
+  it, each part in its colour; the rows spaced to fit (fifteen pixels to twelve), checked at the worst case (a boss's row,
+  the bell, the font, a boon and two trials failed, with a copy of the source patched for it). The labels stay inlaid in
+  their colours rather than cut, so EXPERIENCE keeps its violet.
+  Two faults found and mended, both drawing: the controls card shown as you take over was drawn over death's card and her
+  claim's (a person dying in the first seconds); and a level's card went on being drawn under a menu opened in its first
+  seconds, its letters through the menu's (the fit checks found it on the altar's screen). Neither card shows now while the
+  other or a menu is up. Two debug switches for the shots: `CRAWL_HOLDCARD=1` (a level's card and a boss's held up once
+  shown) and `CRAWL_CLAIM=1` (her card as you take over, with a claim's words and nothing taken); `tools/uishots.sh` now
+  opens the L list, the altar and the Black Shrine (on a level of the sheet's run with an altar and a puzzle), a level's card,
+  a boss's, death's cost, the old mercy's and her claim's. At level 31 the altar's recipe dies before it reaches the altar;
+  levels 1, 11 and 21 show it.
+  Checked: the fit checks at four palettes find nothing, the first time since step 2; nine sessions of a person (Esc's rows
+  and back; sleepwalking; the L list with its toggle and a cast; the altar woken; the Black Shrine; a death and the waking;
+  her claim read; the tally and the reckoning; a boss's antechamber) and a 900 s dream give the same `EVENT` lines as step 6's
+  build (given the same two switches); ASan clean over the nine. Frames: `docs/uipass/step7-L*.png` (and `before7-L1.png`,
+  `before7-L21.png`). Nothing played by hand. Next: step 8, the HUD.

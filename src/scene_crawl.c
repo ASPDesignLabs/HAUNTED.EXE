@@ -15494,6 +15494,9 @@ static void update_boss(float dt) {
         else G.bpose = BP_NONE;
     }
     if (G.bcard > 0.0f) G.bcard += dt;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_HOLDCARD") && G.bcard > 1.0f) G.bcard = 1.0f;   /* and a boss's */
+#endif
     G.bstate_t += dt;
     Mob *m = boss_mob();
     if (m && m->maxhp > 0.0f) G.bbar += (m->hp / m->maxhp - G.bbar) * fminf(1.0f, dt * 6.0f);
@@ -16240,6 +16243,9 @@ static void crawl_update(double dt) {
     if (G.player && (G.tally || G.dead) && IN.hit[KEY_B]) { open_ui(UI_BESTIARY); return; }
     if (G.player && (G.tally || G.dead) && IN.hit[KEY_C]) { open_ui(UI_CODEX); return; }
     G.t += dt; G.level_t += dt; G.card += fdt;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_HOLDCARD") && G.card > 1.0f && G.card < 90.0f) G.card = 1.0f;   /* the level's card held up, for the shots */
+#endif
     if (G.shop || G.dead || G.tally) G.bar_t = BAR_T;               /* always up at the merchant's, and at the end */
     else G.bar_t = fmaxf(0.0f, G.bar_t - fdt);
     G.bar = G.bar_t > 0.0f ? fminf(1.0f, G.bar + fdt / BAR_SLIDE) : fmaxf(0.0f, G.bar - fdt / BAR_SLIDE);
@@ -18883,6 +18889,11 @@ static void crawl_control(int what) {
     if (getenv("CRAWL_TPHOLD") && !G.shop) tp_hold(atoi(getenv("CRAWL_TPHOLD")));   /* holding a doorway (step 7) */
     if (getenv("CRAWL_TPPORTAL") && G.shop) { G.px = PORTAL_X + 0.5f; G.py = PORTAL_Y - 1.4f; G.ang = PI_F * 0.5f; G.cx = PORTAL_X; G.cy = PORTAL_Y - 2; }   /* before the Portal */
     if (getenv("CRAWL_TPSTONE") && G.shop) { G.px = STONE_AT[0][0] + 0.5f; G.py = STONE_AT[0][1] + 1.6f; G.ang = -PI_F * 0.5f; G.cx = STONE_AT[0][0]; G.cy = STONE_AT[0][1] + 1; }   /* before the newest stone */
+    if (getenv("CRAWL_CLAIM")) {                                    /* her card as it would read, nothing taken: for the shots */
+        snprintf(G.claim_text, sizeof G.claim_text, "YOU TRIED TO CHEAT THE DEAD OF THEIR BOUNTY. WHATEVER YOU MEANT BY IT, SHE HAS TAKEN THEIR CLAIM: "
+                 "1,250 GOLD, AND THE UNCOMMON TREASURE HUNTER BRACER OF SHADOWS. THE LEDGER IS SIGNED.");
+        G.claim_card = 1; G.claim_t = 0.0f;
+    }
     if (getenv("CRAWL_TPSHRINE") && G.shop) { G.px = SHRINE_X; G.py = SHRINE_Y - 1.6f; G.ang = PI_F * 0.5f; G.cx = (int)G.px; G.cy = (int)G.py; }   /* before the Rune Shrine */
     if (getenv("CRAWL_LETGO") && G.shop && RUN.gear.bag_size) {    /* the full bag's question, over the first ware for a worn slot */
         uint32_t rs = 0x2545f491u;
@@ -23381,8 +23392,8 @@ static void ui_on(Frame *f, int marble, const char *where) {
 }
 static void ui_off(void) { gfx_hook8 = 0; gfx_hook16 = 0; ui_box_none(); }
 
-static void card_box(Frame *f, int bw, int bh, int by) {
-    ui_slab(f, (W - bw) / 2, by, bw, bh, SLAB_LEDGER | SLAB_CALM, ORN_NONE, G.ui_t);
+static void card_box(Frame *f, int bw, int bh, int by) {           /* a headstone (docs/PLAN-ui.md section 6.2) */
+    ui_slab(f, (W - bw) / 2, by, bw, bh, SLAB_HEAD | SLAB_CALM, ORN_NONE, G.ui_t);
 }
 
 static void card_text(Frame *f, int y, const char *s, int c) { gfx_text16(f, (W - gfx_text_width(s, 1)) / 2, y, s, c, 1); }
@@ -23394,10 +23405,10 @@ static void render_claim_in(Frame *f);
 static void render_claim(Frame *f) { ui_on(f, 1, "claim"); render_claim_in(f); ui_off(); }
 static void render_claim_in(Frame *f) {
     dim_view(f);
-    card_box(f, 292, 124, 34);
-    card_text(f, 42, "CAUGHT CHEATING THE DEAD", R_BLOOD + 13);
-    text_centred(f, 64, G.claim_text, 34, R_STONE + 13, 7);
-    if (G.player && G.claim_t > 1.0f) text_centred(f, 144, pkp("E: SO BE IT"), 34, R_STONE + 9, 1);
+    card_box(f, 292, 128, 32);
+    card_text(f, 44, "CAUGHT CHEATING THE DEAD", R_BLOOD + 13);
+    text_centred(f, 66, G.claim_text, 34, R_STONE + 13, 7);
+    if (G.player && G.claim_t > 1.0f) text_centred(f, 145, pkp("E: SO BE IT"), 34, R_STONE + 9, 1);
 }
 
 /* small text centred on the screen, wrapped at word ends; the lines it took */
@@ -23424,15 +23435,15 @@ static void render_card_in(Frame *f) {
         if (G.dead_t < 1.6 || G.dead_t > 4.6) return;
         char by[64], tk[96];
         blame_text(&G.killer, by, sizeof by);
-        card_box(f, 284, 108, 44);
+        card_box(f, 284, 112, 42);
         snprintf(line, sizeof line, "YOU DIED ON LEVEL %d", G.level);
-        card_text(f, 52, line, R_BLOOD + 13);
+        card_text(f, 54, line, R_BLOOD + 13);
         snprintf(tk, sizeof tk, "TAKEN BY %s", by);
-        int y = 74;
+        int y = 76;
         y += text_centred(f, y, tk, 33, C_WHITE, 2) * 10 + 4;
         y += text_centred(f, y, G.dlost, 33, R_STONE + 12, 2) * 10 + 4;
         text_centred(f, y, "A NEW STONE IN THE PLOT", 33, R_GOLD + 11, 1);
-        if (G.player && G.dcard_t > 0.8f) text_centred(f, 138, pkp("E: WAKE BY THE MERCHANT"), 33, R_STONE + 9, 1);
+        if (G.player && G.dcard_t > 0.8f) text_centred(f, 140, pkp("E: WAKE BY THE MERCHANT"), 33, R_STONE + 9, 1);
         return;
     }
     if (G.dead && G.dead_t > 1.1 && G.dead_t < 4.6) {
@@ -23445,8 +23456,8 @@ static void render_card_in(Frame *f) {
     if (G.boss >= 0 && !PK.depth && G.bcard > 0.3f && G.bcard < 4.6f) {   /* a boss's name, and a line about it */
         const BossDef *B = &BOSSES[G.boss];
         int bw = gfx_text_width(B->name, 1) + 32;
-        card_box(f, bw > 250 ? bw : 250, 74, 62);
-        card_text(f, 72, B->name, R_BLOOD + 13);
+        card_box(f, bw > 250 ? bw : 250, 78, 60);
+        card_text(f, 73, B->name, R_BLOOD + 13);
         text_wrap(f, (W - 236) / 2, 98, B->lore, 29, R_STONE + 13, 3);
         return;
     }
@@ -23572,52 +23583,62 @@ static void render_tally(Frame *f) { ui_on(f, 1, "tally"); render_tally_in(f); u
 static void render_tally_in(Frame *f) {
     memset(f->pix, 0, (size_t)W * H);
     float t = (float)G.tally_t;
-    card_box(f, 304, 164, 18);
+    ui_slab(f, 4, 4, 312, 192, SLAB_TABLET, ORN_NONE, G.ui_t);       /* a memorial tablet (docs/PLAN-ui.md section 6.2) */
     char line[48];
     snprintf(line, sizeof line, "LEVEL %d COMPLETE!", G.level);
-    int flash = t < 0.6f && ((int)(t * 12.0f) & 1);
-    gfx_text16(f, (W - gfx_text_width(line, 2)) / 2, 28, line, flash ? C_WHITE : R_GOLD + 12, 2);
+    int flash = t < 0.6f && ((int)(t * 12.0f) & 1), tw = gfx_text_width(line, 2);
+    ui_plate(f, (W - tw) / 2 - 8, 6, tw + 16, 36);                   /* its head on a smooth plate */
+    gfx_text16(f, (W - tw) / 2, 8, line, flash ? C_WHITE : R_GOLD + 12, 2);
     char name[48];
     level_name(G.level, name, sizeof name);
-    card_text(f, 64, name, R_FLAME + 9);
+    card_text(f, 43, name, R_FLAME + 9);                            /* the level's name for its epitaph */
+    int top = 62;
+    if (G.corrupt) {                                               /* the bell's row (section 12), under the epitaph */
+        const char *c = "CORRUPTED: HALF EXPERIENCE";
+        gfx_text8(f, (W - gfx_text_width(c, 1)) / 2, 61, c, R_MOSS + 13, 1);
+        top = 72;
+    }
     static const char *LABEL[TALLY_ROWS] = { "TIME", "KILLS", "TREASURE", "SOULS", "SECRETS", "EXPERIENCE", "BOSS" };
     int totals[TALLY_ROWS] = { 0, G.kills_total, G.items_total, 0, G.nlinks, 0, 0 }, nr = tally_rows();
+    char note[TALLY_ROWS][48];                                     /* each row's note, on a line of its own under it */
+    int nn = 0;
     for (int r = 0; r < nr; r++) {
-        if (t < TALLY_ROW0 + r * TALLY_ROW_GAP - 0.3f) continue;
-        int y = nr > 6 ? 74 + r * 13 : 80 + r * 14, v = G.tally_shown[r];
-        gfx_text16(f, 52, y, LABEL[r], r == 5 ? (uint8_t)(R_PURPLE + 13) : (uint8_t)C_WHITE, 1);
-        if (r == 0 || r == 6) snprintf(line, sizeof line, "%d:%02d", v / 60, v % 60);
-        else if (r == 3 || r == 5) snprintf(line, sizeof line, "+%d", v);
-        else snprintf(line, sizeof line, "%d / %d", v, totals[r]);
-        int done = t >= TALLY_ROW0 + r * TALLY_ROW_GAP + TALLY_COUNT, x0 = 52 + gfx_text_width(LABEL[r], 1) + 6;
-        gfx_text16(f, 268 - gfx_text_width(line, 1), y, line, done ? R_GOLD + 12 : R_GOLD + 8, 1);
-        if (r == 5 && (G.corrupt || G.fonted)) {                   /* the bell's half, the font's tenth */
-            const char *c = G.corrupt && G.fonted ? "HALF, +10%" : G.corrupt ? "HALF" : "+10%";
-            gfx_text8(f, x0, y + 5, c, G.corrupt ? (uint8_t)(R_MOSS + 12) : (uint8_t)(R_BLOOD + 12), 1);
-            x0 += gfx_text_width(c, 1) + 4;
+        note[r][0] = 0;
+        if (r == 5) {                                              /* the bell's half, the font's tenth, the trial's boon or curse */
+            const char *a = G.corrupt && G.fonted ? "HALF, +10%" : G.corrupt ? "HALF" : G.fonted ? "+10%" : "";
+            const char *b = G.tri_boon > 0 ? "BOON +20%" : G.tri_boon < 0 ? "CURSE -20%" : "";
+            snprintf(note[r], sizeof note[r], "%s%s%s", a, *a && *b ? "  " : "", b);
         }
-        if (r == 5 && G.tri_boon) {                                /* the trial's boon, or its curse */
-            const char *c = G.tri_boon > 0 ? "BOON +20%" : "CURSE -20%";
-            gfx_text8(f, x0, y + 5, c, G.tri_boon > 0 ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_BLOOD + 12), 1);
-            x0 += gfx_text_width(c, 1) + 4;
+        if (r == 4 && G.trials_failed) snprintf(note[r], sizeof note[r], "%d TRIAL%s FAILED", G.trials_failed, G.trials_failed > 1 ? "S" : "");
+        nn += note[r][0] != 0;
+    }
+    int pitch = clampi((176 - top - nn * 9) / imax(1, nr), 12, 15), y = top;   /* spaced to fit, closer with more rows and notes */
+    for (int r = 0; r < nr; r++) {
+        int shown = t >= TALLY_ROW0 + r * TALLY_ROW_GAP - 0.3f, v = G.tally_shown[r];
+        if (shown) {
+            gfx_text16(f, 30, y, LABEL[r], r == 5 ? (uint8_t)(R_PURPLE + 13) : (uint8_t)C_WHITE, 1);
+            if (r == 0 || r == 6) snprintf(line, sizeof line, "%d:%02d", v / 60, v % 60);
+            else if (r == 3 || r == 5) snprintf(line, sizeof line, "+%d", v);
+            else snprintf(line, sizeof line, "%d / %d", v, totals[r]);
+            int done = t >= TALLY_ROW0 + r * TALLY_ROW_GAP + TALLY_COUNT, lw = gfx_text_width(line, 1);
+            gfx_text16(f, 290 - lw, y, line, done ? R_GOLD + 12 : R_GOLD + 8, 1);
+            int x0 = 30 + gfx_text_width(LABEL[r], 1) + 6, x1 = 290 - lw - 6;   /* the leader: a line cut in the stone */
+            for (int x = x0; x < x1; x++) { gfx_px(f, x, y + 11, UI_M(1)); gfx_px(f, x, y + 12, UI_M(11)); }
+            if (r == 4 && note[r][0]) gfx_text8(f, 46, y + 13, note[r], R_BLOOD + 12, 1);   /* under the label's foot, each part its colour */
+            if (r == 5 && note[r][0]) {
+                const char *a = G.corrupt && G.fonted ? "HALF, +10%" : G.corrupt ? "HALF" : G.fonted ? "+10%" : "";
+                int nx = 46;
+                if (*a) { gfx_text8(f, nx, y + 13, a, G.corrupt ? (uint8_t)(R_MOSS + 12) : (uint8_t)(R_BLOOD + 12), 1); nx += gfx_text_width(a, 1) + 16; }
+                if (G.tri_boon) gfx_text8(f, nx, y + 13, G.tri_boon > 0 ? "BOON +20%" : "CURSE -20%", G.tri_boon > 0 ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_BLOOD + 12), 1);
+            }
         }
-        if (r == 4 && G.trials_failed) {                           /* a chain sealed after a death in it */
-            char tf[24];
-            snprintf(tf, sizeof tf, "%d TRIAL%s FAILED", G.trials_failed, G.trials_failed > 1 ? "S" : "");
-            gfx_text8(f, x0, y + 5, tf, R_BLOOD + 12, 1);
-            x0 += gfx_text_width(tf, 1) + 4;
-        }
-        for (int x = x0; x < 262 - gfx_text_width(line, 1); x += 4) gfx_px(f, x, y + 12, R_STONE + 7);   /* leader dots */
+        y += note[r][0] ? imax(pitch, 13) + 8 : pitch;
     }
     if (t > TALLY_ROW0 + nr * TALLY_ROW_GAP + 0.2f) {
         int perfect = G.items_total > 0 && G.items_got == G.items_total;
         int all_dead = G.kills_total > 0 && G.kills == G.kills_total;
         const char *msg = perfect && all_dead ? "PERFECT!" : (perfect ? "ALL TREASURE!" : (all_dead ? "NONE LEFT STANDING" : ""));
-        if (*msg && ((int)(t * 3.0f) & 1)) card_text(f, 168, msg, perfect ? R_GOLD + 12 : R_BLOOD + 13);
-    }
-    if (G.corrupt) {                                               /* the bell's row (section 12) */
-        const char *c = "CORRUPTED: HALF EXPERIENCE";
-        gfx_text8(f, (W - gfx_text_width(c, 1)) / 2, 188, c, R_MOSS + 13, 1);
+        if (*msg && ((int)(t * 3.0f) & 1)) card_text(f, imin(y + 2, 174), msg, perfect ? R_GOLD + 12 : R_BLOOD + 13);
     }
 }
 
@@ -23855,7 +23876,7 @@ static void render_messages(Frame *f) {
             gfx_text8(f, x, y + 3, G.msg, R_GOLD + 11, 1);
         }
     }
-    if (G.hint_t > 0.0f && G.player && !G.ui) {
+    if (G.hint_t > 0.0f && G.player && !G.ui && !G.dead && !G.claim_card) {   /* never over death's card or hers */
         static const char *const HINT[4] = { "WASD WALK  MOUSE TURN  CLICK CASTS", "1-9 SPELLS  E OPENS  TAB INVENTORY", "B BESTIARY  ESC LEAVE OR SLEEPWALK",
                                              "L WISPS  C THE CODEX  H THE STATUS BAR" };
         static const char *const PADHINT[4] = { "L-STICK WALK  R-STICK TURN  RT CASTS", "LB RB SPELLS  \1A OPENS  VIEW INVENTORY",
@@ -23883,7 +23904,6 @@ static void dim_view(Frame *f) {                                   /* the crypt 
         for (int x = (y & 1); x < W; x += 2) f->pix[y * W + x] = 0;
 }
 
-static void panel(Frame *f, int x, int y, int w, int h) { ui_slab(f, x, y, w, h, SLAB_LEDGER | SLAB_CALM, ORN_NONE, G.ui_t); }
 /* a page of Tab's, or the bestiary's (docs/PLAN-ui.md section 6): the slab, its title, a figure at the right, and its keys
  * on caps under the title, where they were; its wells are the page's own */
 static void tab_frame(Frame *f, const char *title, int title_col, const char *right, int right_col, const char *keys) {
@@ -24169,29 +24189,30 @@ static void render_documents(Frame *f) {
 /* the Black Shrine's one row */
 static void render_bshrine(Frame *f) {
     dim_view(f);
-    int pw = 296, ph = 92, px = (W - pw) / 2, py = 30;
-    panel(f, px, py, pw, ph);
+    int pw = 296, ph = 104, px = (W - pw) / 2, py = 30;
+    ui_slab(f, px, py, pw, ph, SLAB_TABLET, ORN_NONE, G.ui_t);       /* a tablet: its one gift in a well, what it means under it */
     gfx_text16(f, px + 10, py + 6, "THE BLACK SHRINE", R_GOLD + 12, 1);
     char sp[24], line[48];
     spirit_text(sp, sizeof sp);
     snprintf(line, sizeof line, "SPIRIT %s", sp);
     gfx_text8(f, px + pw - 10 - gfx_text_width(line, 1), py + 10, line, R_GLOW + 12, 1);
-    hint8(f, px + 10, py + 24, "ENTER PAYS  ESC CLOSES", R_STONE + 9);
-    int done = G.msg_found || G.msg_deco < 0, price = bsh_price(), pay = spirit() + 1e-4f >= (float)price, y = py + 40;
-    gfx_rect(f, px + 6, y - 3, pw - 12, 13, R_IRON + 3);
+    int done = G.msg_found || G.msg_deco < 0, price = bsh_price(), pay = spirit() + 1e-4f >= (float)price, y = py + 29;
+    ui_well(f, px + 6, py + 24, pw - 12, 18);
+    ui_well(f, px + 6, py + 45, pw - 12, 40);
+    ui_row(f, px + 8, y - 3, pw - 16, 13, 1);
     for (int e = 0; e < 2; e++) { gfx_px(f, px + 14 + e * 5, y + 3, done ? (uint8_t)(R_PURPLE + 6) : (uint8_t)(R_PURPLE + 13)); gfx_px(f, px + 14 + e * 5, y + 2, R_PURPLE + 8); }
     gfx_text8(f, px + 28, y, "SHOW WHERE IT IS HIDDEN", done ? (uint8_t)(R_STONE + 8) : (uint8_t)C_WHITE, 1);
     snprintf(line, sizeof line, "%d SOULS", price);
     if (!done) gfx_text8(f, px + pw - 12 - gfx_text_width(line, 1), y, line, pay ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_BLOOD + 13), 1);
-    for (int i = px + 10; i < px + pw - 10; i++) gfx_px(f, i, y + 15, R_STONE + 5);
     const char *note = done ? "IT HAS NOTHING MORE TO SHOW" : !pay ? "IT WANTS MORE SOULS THAN YOU HAVE"
                      : G.bsh_arm ? "ENTER AGAIN TO PAY" : G.bsh_show > 0.0f ? "IT IS SHOWING NOW. PAYING AGAIN STARTS IT OVER"
                      : "FOR TWO AND A HALF MINUTES: THROUGH THE WALLS, AND ON THE MAP";
-    text_wrap(f, px + 10, y + 21, note, 34, G.bsh_arm ? R_GOLD + 12 : R_STONE + 12, 2);
+    text_wrap(f, px + 12, py + 50, note, 34, G.bsh_arm ? R_GOLD + 12 : R_STONE + 12, 2);
     if (G.bsh_show > 0.0f && !done) {
         snprintf(line, sizeof line, "%d:%02d LEFT", (int)G.bsh_show / 60, (int)G.bsh_show % 60);
-        gfx_text8(f, px + pw - 10 - gfx_text_width(line, 1), y + 39, line, R_PURPLE + 12, 1);
+        gfx_text8(f, px + pw - 12 - gfx_text_width(line, 1), py + 72, line, R_PURPLE + 12, 1);
     }
+    hall_keys(f, py + ph - 14, "ENTER PAYS  ESC CLOSES");
 }
 
 /* Tab: what you wear and the bag (Enter moves between them) and the selected piece; A/D turns the page */
@@ -24269,14 +24290,14 @@ static void render_quit(Frame *f) {
     };
     enum { NLINE = (int)(sizeof LINE / sizeof LINE[0]) };
     dim_view(f);
-    int bw = 280, bh = 176, bx = (W - bw) / 2, by = (H - bh) / 2 - 6;
-    panel(f, bx, by, bw, bh);
-    gfx_text16(f, (W - gfx_text_width("LEAVE THE CRYPT?", 1)) / 2, by + 8, "LEAVE THE CRYPT?", R_BLOOD + 13, 1);
+    int bw = 280, bh = 180, bx = (W - bw) / 2, by = (H - bh) / 2 - 4;   /* a headstone: the question in its arch */
+    ui_slab(f, bx, by, bw, bh, SLAB_HEAD, ORN_NONE, G.ui_t);
+    gfx_text16(f, (W - gfx_text_width("LEAVE THE CRYPT?", 1)) / 2, by + 10, "LEAVE THE CRYPT?", R_BLOOD + 13, 1);
     char msg[96];
     int li = G.quit_line % NLINE, arg = li == 2 ? RUN.treasure : (li == 10 ? G.level : RUN.souls);
     snprintf(msg, sizeof msg, LINE[li], arg);
-    int y = by + 30;                                               /* wrapped at word ends, 32 to a line */
-    for (const char *p = msg; *p && y < by + 60; y += 10) {
+    int y = by + 32;                                               /* wrapped at word ends, 32 to a line */
+    for (const char *p = msg; *p && y < by + 52; y += 10) {
         int n = (int)strlen(p);
         if (n > 32) { n = 32; while (n > 0 && p[n] != ' ') n--; if (n == 0) n = 32; }
         char ln[40]; memcpy(ln, p, (size_t)n); ln[n] = 0;
@@ -24289,11 +24310,13 @@ static void render_quit(Frame *f) {
     static const char *const NOTE[Q_OPTIONS] = { "NOTHING IS KEPT BUT WHAT IS SIGNED", "BACK TO THE CRYPT", "THE AUTOPILOT WALKS ON WITHOUT YOU",
                                                  "A RUN FROM A PAGE SHE HAS SIGNED", "FROM NOTHING. SIGNED PAGES STAY",
                                                  "\1A, THEN THE BUTTON. ITS JOB GOES TO THE L-STICK" };
-    int nq = quit_rows(), step = nq > Q_PAD ? 15 : 18, top = nq > Q_PAD ? 62 : 66;   /* the pad's row: closer together */
-    for (int i = 10 + bx; i < bx + bw - 10; i += 2) gfx_px(f, i, by + top + Q_OPEN * step - 1, R_STONE + 5);   /* leaving, then the ledger and a new run */
+    int nq = quit_rows(), step = nq > Q_PAD ? 15 : 17, top = 62;    /* the rows in a well, spaced to fit the pad's sixth */
+    ui_well(f, bx + 10, by + 56, bw - 20, 104);
+    ui_rule(f, bx + 22, bx + bw - 23, by + top + Q_OPEN * step, 1);   /* leaving, then the ledger and a new run */
     for (int i = 0; i < nq; i++) {
-        int oy = by + top + i * step + (i >= Q_OPEN ? 4 : 0), sel = i == G.ui_sel;
+        int oy = by + top + i * step + (i >= Q_OPEN ? 4 : 0) - (i < Q_OPEN ? 1 : 0), sel = i == G.ui_sel;
         int w = gfx_text_width(OPT[i], 1), ox = (W - w) / 2;
+        ui_row(f, bx + 12, oy - 1, bw - 24, 16, sel);
         gfx_text16(f, ox, oy, OPT[i], sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 9), 1);
         if (sel) {                                                 /* a candle flame for a cursor */
             int fl = (int)(G.t * 10.0) & 1;
@@ -24311,7 +24334,7 @@ static void render_quit(Frame *f) {
     if (LEDGER.marked && (G.ui_sel == Q_FLEE || G.ui_sel == Q_OPEN || G.ui_sel == Q_NEW)) { note = "THE DEAD ARE WATCHING"; ncol = R_BLOOD + 13; }
     if (CON.used && G.ui_sel == Q_FLEE) note = "THE DEAD TOOK NOTE: NOTHING KEPT";
     if (G.ui_sel == Q_NEW && G.quit_arm) { note = "ENTER AGAIN: THE UNSIGNED IS LOST"; ncol = R_BLOOD + 13; }
-    hint8(f, (W - hint_width(note)) / 2, by + bh - 14, note, ncol);
+    hint8(f, (W - hint_width(note)) / 2, by + bh - 15, note, ncol);   /* its own line, inside the stone */
 }
 
 /* a page of the ledger, 24 wide and 27 tall, its corner turned down and its numeral at the foot; gold for
@@ -24791,40 +24814,41 @@ static void render_wispmenu(Frame *f) {
     WispChoice c[WISP_CHOICES];
     int n = wisp_choices(c), rows = n + lantern_held(), sel = clampi(G.ui_sel, 0, rows - 1);
     dim_view(f);
-    int pw = 296, ph = 48 + rows * 13 + (RUN.wisp_auto ? 26 : 16), px = (W - pw) / 2, py = 24;
-    panel(f, px, py, pw, ph);
+    int pw = 296, ph = 24 + rows * 13 + 5 + (RUN.wisp_auto ? 26 : 16) + 18, px = (W - pw) / 2, py = 24;
+    ui_slab(f, px, py, pw, ph, SLAB_TABLET, ORN_NONE, G.ui_t);       /* a tablet: the wisps in a well, the choice under it, the keys at its foot */
     gfx_text16(f, px + 10, py + 6, "WISPS", R_GOLD + 12, 1);
     char sp[24], line[40];
     spirit_text(sp, sizeof sp);
     snprintf(line, sizeof line, "SPIRIT %s", sp);
     gfx_text8(f, px + pw - 10 - gfx_text_width(line, 1), py + 10, line, R_GLOW + 12, 1);
-    hint8(f, px + 10, py + 24, "W/S CHOOSE  ENTER CASTS  ESC CLOSES", R_STONE + 9);
+    ui_well(f, px + 6, py + 24, pw - 12, rows * 13 + 5);
     for (int r = 0; r < n; r++) {
-        int y = py + 40 + r * 13, ok = c[r].cost <= 0.0f || spirit() + 1e-4f >= c[r].cost;
-        if (r == sel) gfx_rect(f, px + 6, y - 3, pw - 12, 13, R_IRON + 3);
+        int y = py + 29 + r * 13, ok = c[r].cost <= 0.0f || spirit() + 1e-4f >= c[r].cost;
+        ui_row(f, px + 8, y - 3, pw - 16, 13, r == sel);
         Wisp probe;
         probe.kind = c[r].kind; probe.color = c[r].color;
         wisp_ramp = wisp_ramp_of(&probe);                          /* a little wisp of its colour */
         float t = (float)G.t * 9.0f + r;
-        for (int pass = 0; pass < 2; pass++) wisp_ball(f, px + 16, y + 3.5f, 3.2f + 0.3f * sinf(t), 0.8f, pass, 0.0f);
+        for (int pass = 0; pass < 2; pass++) wisp_ball(f, px + 17, y + 3.5f, 3.2f + 0.3f * sinf(t), 0.8f, pass, 0.0f);
         const char *what = c[r].kind == WK_EXIT ? "THE WAY OUT" : (c[r].kind == WK_KEY ? KEYW[c[r].color] : "WHAT THE ALTAR HIDES");
         gfx_text8(f, px + 28, y, what, r == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12), 1);
         const char *cost = c[r].cost <= 0.0f ? "FREE" : "1 SOUL";
         gfx_text8(f, px + pw - 12 - gfx_text_width(cost, 1), y, cost, ok ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_BLOOD + 13), 1);
     }
     if (lantern_held()) {                                          /* the lantern's row */
-        int y = py + 40 + n * 13;
-        if (sel == n) gfx_rect(f, px + 6, y - 3, pw - 12, 13, R_IRON + 3);
+        int y = py + 29 + n * 13;
+        ui_row(f, px + 8, y - 3, pw - 16, 13, sel == n);
         lantern_mark(f, px + 14, y - 1, lantern_lit());
         gfx_text8(f, px + 28, y, lantern_lit() ? "THE LANTERN: LIT" : "THE LANTERN: SHUTTERED", sel == n ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12), 1);
         const char *hold = PADX.used ? "HOLD Y" : "HOLD L";
         gfx_text8(f, px + pw - 12 - gfx_text_width(hold, 1), y, hold, R_STONE + 9, 1);
     }
-    int ty = py + 44 + rows * 13 + 4;
-    for (int i = px + 10; i < px + pw - 10; i++) gfx_px(f, i, ty - 5, R_STONE + 5);
-    gfx_text8(f, px + 10, ty, RUN.wisp_auto ? "[X]" : "[ ]", RUN.wisp_auto ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 10), 1);
-    hint8(f, px + 38, ty, "L ALWAYS CASTS THIS  (SPACE)", R_STONE + 12);
-    if (RUN.wisp_auto) gfx_text8(f, px + 38, ty + 10, lantern_held() ? "TAP L TWICE FOR THIS LIST" : "HOLD L FOR THIS LIST", R_STONE + 9, 1);
+    int ty = py + 24 + rows * 13 + 5 + 6;
+    ui_well(f, px + 11, ty - 1, 10, 10);                           /* the toggle: a cup cut in the stone, a gold cross in it when on */
+    if (RUN.wisp_auto) for (int k = 1; k < 7; k++) { gfx_px(f, px + 12 + k, ty + k, R_GOLD + 12); gfx_px(f, px + 19 - k, ty + k, R_GOLD + 12); }
+    hint8(f, px + 28, ty, "L ALWAYS CASTS THIS  (SPACE)", R_STONE + 12);
+    if (RUN.wisp_auto) gfx_text8(f, px + 28, ty + 10, lantern_held() ? "TAP L TWICE FOR THIS LIST" : "HOLD L FOR THIS LIST", R_STONE + 9, 1);
+    hall_keys(f, py + ph - 14, "W/S CHOOSE  ENTER CASTS  ESC CLOSES");
 }
 
 /* the altar's menu: its gifts, a little fire of each one's colour, the price, and a note on the one chosen */
@@ -24834,30 +24858,30 @@ static void render_altarmenu(Frame *f) {
     altar_rows(r);
     int sel = clampi(G.ui_sel, 0, 2);
     dim_view(f);
-    int pw = 296, ph = 112, px = (W - pw) / 2, py = 24;
-    panel(f, px, py, pw, ph);
+    int pw = 296, ph = 122, px = (W - pw) / 2, py = 24;
+    ui_slab(f, px, py, pw, ph, SLAB_TABLET, ORN_NONE, G.ui_t);       /* a tablet: the gifts in a well, the chosen one's note in another */
     gfx_text16(f, px + 10, py + 6, "THE BLACK ALTAR", R_GOLD + 12, 1);
     char sp[24], line[40];
     spirit_text(sp, sizeof sp);
     snprintf(line, sizeof line, "SPIRIT %s", sp);
     gfx_text8(f, px + pw - 10 - gfx_text_width(line, 1), py + 10, line, R_GLOW + 12, 1);
-    hint8(f, px + 10, py + 24, "W/S CHOOSE  ENTER TAKES  ESC CLOSES", R_STONE + 9);
+    ui_well(f, px + 6, py + 24, pw - 12, 3 * 13 + 5);
+    ui_well(f, px + 6, py + 72, pw - 12, 30);
     for (int i = 0; i < 3; i++) {
-        int y = py + 40 + i * 13, pay = r[i].price <= 0 || spirit() + 1e-4f >= (float)r[i].price;
-        if (i == sel) gfx_rect(f, px + 6, y - 3, pw - 12, 13, R_IRON + 3);
+        int y = py + 29 + i * 13, pay = r[i].price <= 0 || spirit() + 1e-4f >= (float)r[i].price;
+        ui_row(f, px + 8, y - 3, pw - 16, 13, i == sel);
         float t = (float)G.t * 9.0f + i;
-        if (i == 1) { wisp_ramp = R_GOLD + 4; wisp_ball(f, px + 16, y + 3.5f, 3.4f, 0.6f, 0, 0.0f); }   /* the blessing's halo */
+        if (i == 1) { wisp_ramp = R_GOLD + 4; wisp_ball(f, px + 17, y + 3.5f, 3.4f, 0.6f, 0, 0.0f); }   /* the blessing's halo */
         wisp_ramp = RAMP[i];
-        for (int pass = 0; pass < 2; pass++) wisp_ball(f, px + 16, y + 3.5f, (r[i].ok ? 3.2f : 2.2f) + 0.3f * sinf(t), 0.8f, pass, 0.0f);
+        for (int pass = 0; pass < 2; pass++) wisp_ball(f, px + 17, y + 3.5f, (r[i].ok ? 3.2f : 2.2f) + 0.3f * sinf(t), 0.8f, pass, 0.0f);
         uint8_t c = !r[i].ok ? (uint8_t)(R_STONE + 8) : (i == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12));
         gfx_text8(f, px + 28, y, r[i].what, c, 1);
         if (r[i].cost[0])
             gfx_text8(f, px + pw - 12 - gfx_text_width(r[i].cost, 1), y, r[i].cost, pay ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_BLOOD + 13), 1);
     }
-    int ty = py + 40 + 3 * 13 + 6;
-    for (int i = px + 10; i < px + pw - 10; i++) gfx_px(f, i, ty - 4, R_STONE + 5);
-    gfx_text8(f, px + 10, ty + 2, r[sel].note, r[sel].ok ? (uint8_t)(R_STONE + 12) : (uint8_t)(R_STONE + 10), 1);
-    if (G.blessed) gfx_text8(f, px + 10, ty + 14, "YOUR EXIT WISPS ARE BLESSED", R_GOLD + 10, 1);
+    gfx_text8(f, px + 12, py + 77, r[sel].note, r[sel].ok ? (uint8_t)(R_STONE + 12) : (uint8_t)(R_STONE + 10), 1);
+    if (G.blessed) gfx_text8(f, px + 12, py + 89, "YOUR EXIT WISPS ARE BLESSED", R_GOLD + 10, 1);
+    hall_keys(f, py + ph - 14, "W/S CHOOSE  ENTER TAKES  ESC CLOSES");
 }
 
 /* the shrine's screen: the nine slots on the left, its actions (or a question) on the right with a note
@@ -26430,7 +26454,7 @@ static void crawl_render(Frame *f) {
     render_dash(f);
     if (G.player && !G.shop && G.bar <= 0.0f) render_readout(f);   /* and the small one while it is away */
     if (!G.shop && !G.player) { render_readout(f); render_face_popup(f); }
-    if (!G.shop) { render_bossbar(f); render_trial(f); render_target(f); render_card(f); }
+    if (!G.shop) { render_bossbar(f); render_trial(f); render_target(f); if (!(G.player && G.ui)) render_card(f); }   /* a menu covers a card */
     render_xp(f);
     render_wind(f);
     render_messages(f);

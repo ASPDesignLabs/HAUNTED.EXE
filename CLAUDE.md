@@ -177,7 +177,8 @@ the floor's and ceiling's ramps for the frame; cards over the live crypt use the
 fourth page is `ui_tree`, filled by `render_align` from the line's state. Step 4 is built (harness only; CI compiled the Windows build): the cornerstones, the Totem, ascend and the class
 (`ui_screen`, `ui_pane`, `ui_pane_wide`, `ui_socket_mark`). Step 5 is built (harness only; CI compiled the Windows build): Tab's pages (`tab_frame`; the wardrobe as sockets on a figure,
 icons for the kinds of piece), the bestiary (`ui_niche`) and the Codex. Step 6 is built (harness only; CI compiled the Windows
-build): her hall's screens (`hall_frame`, `hall_keys`, `ui_row`, `ui_scroll`). Step 7 (the crypt's screens) is next.
+build): her hall's screens (`hall_frame`, `hall_keys`, `ui_row`, `ui_scroll`). Step 7 is built (harness only; CI compiled the Windows build):
+the crypt's screens, the cards as headstones (`card_box`), the tally as a memorial tablet. Step 8 (the HUD) is next.
 Its section 10 is the hand-off log: read it first.
 
 ## Working with the owner
@@ -276,7 +277,8 @@ put there as the level opens, already leaving), `CRAWL_BOSSHP=f` (a boss's healt
 level's omens on any level, every s seconds, the first at once), `CRAWL_TOTEM=dddd` (each boss ability's rank, a digit
 each in boss order, and that boss counted beaten), `CRAWL_SCRIP=n` (n scrip of each boss, all four counted beaten),
 `CRAWL_PEDS=n` (the merchant's pedestals), `CRAWL_TPCAT=1` (before the merchant herself), `CRAWL_TPSTONE=1` (before the plot's newest stone), `CRAWL_STONE=n` (n stones in the plot, from what is held), `CRAWL_TPSHRINE=1`
-(before the Rune Shrine), `CRAWL_LETGO=1` (the full bag's question as you take over in her room, with a bag), `CRAWL_TPLECTERN=1` (before the Compendium), `CRAWL_TPREPO=1` (before the Repository), `CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_TPPORTAL=1` (in the
+(before the Rune Shrine), `CRAWL_LETGO=1` (the full bag's question as you take over in her room, with a bag), `CRAWL_HOLDCARD=1` (a level's card and a boss's held
+up once shown), `CRAWL_CLAIM=1` (her claim's card as you take over, its words only, nothing taken), `CRAWL_TPLECTERN=1` (before the Compendium), `CRAWL_TPREPO=1` (before the Repository), `CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_TPPORTAL=1` (in the
 grave plot facing the Accursed Portal), `CRAWL_RUNTOP=n` (the runs it opens: 0 only run I), `CRAWL_BSTEP=s` (every
 challenge at step s), `CRAWL_GOALS=1`
 (the autopilot's goal at every step, as `GOAL` lines),

@@ -43,12 +43,21 @@ documents|CRAWL_GEAR=3|$T;5:+TAB;5.1:-TAB;5.5:+A;5.6:-A|6.8
 achieve||$T;5:+B;5.1:-B;5.4:+A;5.5:-A|6.5
 codex|CRAWL_GEAR=3|$T;5:+C;5.1:-C|6.5
 controls||$T|5.5
+wisps|CRAWL_SEED=3|60:+H;63.3:-H;65:+L;65.1:-L|66.5
+altar|CRAWL_LEVEL=AT+6 CRAWL_SEED=3 CRAWL_TPALTAR=1 CRAWL_SOULS=40|60:+H;63.3:-H;65:+E;65.1:-E|66.5
+bshrine|CRAWL_LEVEL=AT+7 CRAWL_SEED=3 CRAWL_TPBSHRINE=1 CRAWL_SOULS=40|60:+H;63.3:-H;65:+E;65.1:-E|66.5
+levelcard|CRAWL_SEED=3 CRAWL_HOLDCARD=1||60
+bosscard|CRAWL_LEVEL=AT+9 CRAWL_TPBOSS=2 CRAWL_HOLDCARD=1||80
+death|CRAWL_SEED=3 CRAWL_KILLAT=64|60:+H;63.3:-H|67.5
+perished|CRAWL_SEED=3 CRAWL_KILLAT=64||66.5
+claim|CRAWL_SEED=3 CRAWL_CLAIM=1|60:+H;63.3:-H|65
 tally|CRAWL_SEED=3 CRAWL_TPEXIT=1 CRAWL_CORRUPT=1|60:+H;63.3:-H;65:+E;65.1:-E;66:+S;66.1:-S;66.5:+E;66.6:-E|77.5"
 for L in $LEVELS; do
     D=$OUT/L$L
     mkdir -p "$D"
     rm -f "$D"/*.png
     echo "$RECIPES" | { while IFS='|' read -r NAME ENVS INPUT AT; do
+        ENVS=$(echo "$ENVS" | sed "s/AT+6/$((L + 6))/; s/AT+7/$((L + 7))/; s/AT+9/$((L + 9))/")   # this run's levels with an altar, a puzzle, its boss
         ( cd "$D" && env CRAWL_LEVEL=$L $ENVS HOST_INPUT="$INPUT" "$HOST" shot crawl "$AT" "$NAME" 2 >/dev/null 2>"$NAME.log" \
               && for f in "$NAME"_*.png; do mv "$f" "$NAME.png"; done ) &
     done; wait; }
