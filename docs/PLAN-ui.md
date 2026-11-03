@@ -511,5 +511,5 @@ My answer is marked **(mine)**; the owner's take it over.
   palettes (`tools/uishots.sh` now opens the class question too, and gives the Totem scrip); a 900 s dream and a person's
   sessions (ascending and buying steps, another past for five coins, a rank raised and scrip sold at the Totem, a
   cornerstone chosen) give the same `EVENT` lines as step 3's build; ASan clean over those, an overlevel and the Totem with
-  nothing to teach. Frames: `docs/uipass/step4-L*.png`. Nothing played by hand. Next: step 5, Tab's wardrobe and pages, the
+  nothing to teach; the Windows build compiled and smoke-tested by CI on the branch (run 83). Frames: `docs/uipass/step4-L*.png`. Nothing played by hand. Next: step 5, Tab's wardrobe and pages, the
   bestiary, the Codex.
