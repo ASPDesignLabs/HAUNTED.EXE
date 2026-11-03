@@ -169,8 +169,9 @@ A pass over the screens is planned in [`docs/PLAN-ui.md`](docs/PLAN-ui.md) (3 No
 three faces of our own at today's sizes, a kit of structured pieces (`src/crawl_ui.c`), the Alignment redrawn as a skill
 tree with an icon to each node and a pane beside it, and the other screens after it. Visual only. Settled the same day (the
 owner took every answer marked but U7, this pass whole before PLAN-ai's step 11, and U10, full screens keeping the dimmed
-crypt in a 4 px margin); step 0 is done (`tools/uishots.sh`, the before sheets in `docs/uipass/`). Its section 10 is the
-hand-off log: read it first.
+crypt in a 4 px margin); step 0 is done (`tools/uishots.sh`, the before sheets in `docs/uipass/`), and step 1's sheet is
+drawn (`src/crawl_ui.c`, `src/ui_art.c`, `tools/uisheet.c`; `docs/uipass/sheet-ui.png`) and waits for the owner's word.
+Its section 10 is the hand-off log: read it first.
 
 ## Working with the owner
 
@@ -202,6 +203,8 @@ hand-off log: read it first.
 | `src/crawl_gear.c/.h` | Spells by tier and runes by quality (`rune_tier`, `rune_from_tier`, `RUNE_EXQ`); pieces to wear (`Piece`: kind, quality, level, anointed, ability, rolled stats) and bags; rolls, names, prices, the caster's totals and their caps |
 | `tools/items.c` | `make items`: a hundred rolled wares a level as `build/items.json`, for checking names and numbers |
 | `src/hand_img.c`, `src/face_img.c`, `src/cat_img.c` | Traced bitmaps (data) |
+| `src/crawl_ui.c/.h`, `src/ui_art.c` | The carved stone (docs/PLAN-ui.md): the marble, slabs, wells, the faces and their ways, icons, sockets, the Alignment's stone; the faces and icons as strings |
+| `tools/uisheet.c`, `tools/uishots.sh` | The screens' sheet for approval (`make sheets`; `build/uisheet fit` checks the pane's text fits), and every screen from the harness as contact sheets |
 | `tools/host.c` | The headless test harness (Linux): PNG frames, WAV audio, benchmarks, scripted input |
 | `tools/build_site.sh` | Assembles the Pages site from `site/` and `docs/*.png`, fills `@VERSION@` and the title card |
 | `tools/make_cards.py`, `site/card.txt`, `site/cards/` | X/Open Graph title cards; `card.txt` picks one per version (`* a-boot` is the default) |

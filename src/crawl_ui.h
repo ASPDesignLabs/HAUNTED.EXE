@@ -1,0 +1,71 @@
+/* The carved stone: CATACOMB's screens cut from one marble (docs/PLAN-ui.md). Everything here draws on a Frame
+ * whose R_CEIL and R_FLOOR ramps are the marble's (ui_marble_pal); the game lends them while a menu is up. */
+#ifndef CRAWL_UI_H
+#define CRAWL_UI_H
+
+#include "core.h"
+#include "crawl.h"
+
+#define UI_M(k) ((uint8_t)(R_CEIL + (k)))          /* the slab's sixteen greys, groove to vein */
+#define UI_W(k) ((uint8_t)(R_FLOOR + (k)))         /* the wells' darker stone */
+
+void ui_marble_pal(uint8_t pal[256][3], const uint8_t stone_mid[3]);   /* the two ramps, a tenth towards the run's stone */
+void ui_marble_make(unsigned seed);                /* the whole screen's marble, once a level */
+void ui_lend(Frame *f);                            /* the crypt drawn so far keeps its looks in R_STONE; the marble takes R_FLOOR, R_CEIL */
+
+enum { SLAB_LEDGER, SLAB_HEAD, SLAB_TABLET };
+enum { ORN_NONE, ORN_CANDLE, ORN_PAW, ORN_BONES, ORN_KEY, ORN_ROSE, ORN_EYE, NORN };
+void ui_slab(Frame *f, int x, int y, int w, int h, int kind, int orn, float t);
+void ui_well(Frame *f, int x, int y, int w, int h);
+void ui_rule(Frame *f, int x0, int x1, int y, int orn);
+void ui_orn(Frame *f, int x, int y, int orn, float t);
+void ui_plate(Frame *f, int x, int y, int w, int h);
+void ui_keys(Frame *f, int x, int y, const char *s, int col);   /* a hint, each group's first word on a cap */
+
+enum { FACE_BIOS, FACE_INSC, FACE_BODY, NFACE };   /* the 8x8 faces; the 8x16 ones are the BIOS's VGA and FACE_INSC's */
+enum { TX_PLAIN, TX_CUT, TX_INLAID };
+void ui_face_init(void);
+void ui_glyph8(Frame *f, int x, int y, uint8_t ch, int face, int col, int style);
+void ui_text8(Frame *f, int x, int y, const char *s, int face, int col, int style);
+void ui_text16(Frame *f, int x, int y, const char *s, int face, int col, int style, int scale);
+int  ui_wrap(Frame *f, int x, int y, const char *s, int cols, int lh, int maxl, int face, int col, int style);   /* lines used */
+int  ui_wrap_count(const char *s, int cols);
+extern int ui_overflows;                           /* the fit checks' count; the debug build prints each */
+void ui_overflow(const char *where, const char *what, int by);
+
+/* the icons, 16 by 16 (section 5.4), in ui_art.c's order; UI_NODE_ICON gives each line's ten */
+enum { IC_EFF, IC_INS, IC_EFF2, IC_INS2, IC_FIRE, IC_FIRESTARTER, IC_INTENSITY, IC_FLAMEWALKER, IC_FIREMASTER,
+      IC_FIREWALL, IC_FROST, IC_DEEPCHILL, IC_PERMAFROST, IC_LANCE, IC_FROSTMASTER, IC_SHATTER, IC_LIGHTNING,
+      IC_IONIZATION, IC_LMASTERA, IC_ARC, IC_LMASTERB, IC_AMPERAGE, IC_POISON, IC_SEEP, IC_LINGERING, IC_PLAGUEPIT,
+      IC_PMASTER, IC_CONTAGION, IC_SPIRIT, IC_HARVEST, IC_COMMUNION, IC_TETHER, IC_SMASTER, IC_WISPHOST, IC_SPEAR,
+      IC_IMPALE, IC_BONEPLATE, IC_OSSIFIED, IC_PHALANX, IC_PHMASTER, IC_BALLISTA, NICON };
+extern const int UI_NODE_ICON[6][10];
+const char *ui_icon_row(int icon, int r);
+const char *ui_icon_name(int icon);
+enum { IM_CUT, IM_DIM, IM_GLOW, IM_HALF, IM_INLAID };
+void ui_icon(Frame *f, int x, int y, int icon, int ramp, int mode, int scale);
+
+/* a socket and its states (section 5.3) */
+enum { SK_REACH, SK_READY, SK_SHORT, SK_PART, SK_HELD, SK_CLOSED };
+void ui_socket(Frame *f, int cx, int cy, int r, int icon, int ramp, int state, int sel, int ult, float t);
+void ui_groove(Frame *f, int x0, int y0, int x1, int y1, int ramp, float fill);
+
+/* the Alignment's stone (section 5): what the game or the sheet knows of a line, laid out */
+typedef struct {
+    const char *name, *kind, *does;
+    int cost, got, state;                          /* got: points in it; state SK_* */
+    const char *note;                              /* its state's words at the pane's foot, or 0 */
+} UiNode;
+typedef struct {
+    const char *title;                             /* the line and its rank */
+    int ramp, elem, cls;                           /* the element's ramp, which, the class's element or -1 */
+    int ranks[6], ramps[6], sel_el, points;        /* the six seals */
+    UiNode n[10];
+    int sel;                                       /* the chosen node, ND_* order */
+    const char *warn;                              /* gold words that take the pane's foot, or 0 */
+    const char *keys;                              /* the hint line */
+    float t;
+} UiTree;
+void ui_tree(Frame *f, const UiTree *tr);
+
+#endif

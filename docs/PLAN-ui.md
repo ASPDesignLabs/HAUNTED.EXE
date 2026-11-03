@@ -3,7 +3,7 @@
 **Status: settled (3 November 2026). The owner took my answer to every question but two: U7 (b), this pass whole
 before PLAN-ai's step 11, and U10 (b), full screens keep the crypt dimmed in a 4 px margin round them. Being built on
 `claude/gifted-rubin-q8up37` from main (1.0.0b13 with the art pass so far and PLAN-ai's steps 0-10). Step 0 is done (the
-before sheets in `docs/uipass/`). Like the art pass, it is visual only: nothing in the simulation, the saves or the
+before sheets in `docs/uipass/`). Step 1's sheet is drawn and waits for the owner (`docs/uipass/sheet-ui.png`). Like the art pass, it is visual only: nothing in the simulation, the saves or the
 autopilot's numbers may move.**
 
 ## Decided (3 November 2026)
@@ -364,7 +364,7 @@ Each step committed, pushed and logged at the end of this plan, so it can be han
    the Totem, her hall, the bestiary with everything met, the tally with every note, Esc with a pad), at each run's palette
    (levels 1, 11, 21, 31), and lays them out as contact sheets in `docs/uipass/`. Run now for the *before*, and after each
    step.
-1. **The sheet.** `make sheets` draws `ui.png`: the two marble ramps (and the run's stone beside, for U1), the slab, well,
+1. **The sheet** (drawn, waiting for the owner). `make sheets` draws `ui.png`: the two marble ramps (and the run's stone beside, for U1), the slab, well,
    headstone and tablet with their mouldings and ornaments, the three faces in each way of setting them beside the BIOS
    ones at 1x and 2x, the kit's pieces, the Alignment laid out for all six lines in every socket state, and the forty
    icons cut and inlaid. **For the owner's approval before anything goes in the game.** Tuning happens here.
@@ -426,4 +426,20 @@ My answer is marked **(mine)**; the owner's take it over.
   (frames in `build/uishots/`). The *before* sheets are `docs/uipass/before-L*.png`. Not reached by it yet: the shrine
   (no switch stands you before it), a stone's page (a fresh run has none), the ledger, the class question, the L list,
   the altar, the Black Shrine, the full bag and the cards; they are added as their steps come. They showed three faults
-  more (section 1.2: ascend's rows, the controls card over the shop's, a toast over the tally). Next: step 1, the sheet.
+  more (section 1.2: ascend's rows, the controls card over the shop's, a toast over the tally).
+- 3 November 2026, step 1: the kit is `src/crawl_ui.c` (`crawl_ui.h`: the marble's ramps and picture, `ui_lend`, slabs,
+  wells, plates, rules, ornaments, the faces' ways, wrapping, key caps, icons, sockets, grooves, and `ui_tree`, the
+  Alignment's stone laid from a `UiTree` the game or the sheet fills) and `src/ui_art.c` (the two 8x8 faces and the icons
+  as strings; `ui_face_init` builds the tables and stretches the inscription face to 8x16). Both are in the game's build,
+  not yet called. `make sheets` now also runs `build/uisheet all`, drawing `ui.png` (six Alignments in their states, the
+  faces, the stones and sockets, the icons cut and inlaid, the marble) and `ui_runs.png` (the marble's lean at levels 1,
+  15, 25 and 38); copies are `docs/uipass/sheet-ui.png` and `sheet-ui-runs.png`. `build/uisheet fit` lays every node of
+  every line in the pane with its longest note and each warning and fails on any line that doesn't fit (0 now). Choices
+  of mine, for the owner to overrule: words cut into the stone read only at 16 px on a smooth plate (`ui_plate`), so the
+  8x8 is always inlaid and cutting is kept for titles; a warning takes the description's place in the pane, as it does
+  today, rather than squeezing under it; an ultimate's kind reads ULTIMATE (its side of the tree says which path);
+  Physical's first node on path A is Bone Plate, not Efficiency II, so there are forty-one icons, not forty; Lightning's
+  two Masteries share a name (their numbers differ), and their icons tell them apart (one bolt, two). Still first drafts:
+  the icons (Arc, Ionization and Soul Tether are thin at 16 px), and the 8x16 face, which is the 8x8 stretched and is to be
+  drawn by hand once the look is settled. The three 8x8 faces differ little at a glance: the body face is kept as heavy as
+  the BIOS one so it reads. Next: the owner's word on the sheet, then step 2.
