@@ -131,7 +131,8 @@
     color: var(--hud-text);
   }
   .hud .strip { display: block; width: 100%; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; border-bottom: 2px solid var(--hud-cell-lo); }
-  .cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding-inline: 12px; }
+  .cells { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding-inline: 12px; }
+  @media (max-width: 900px) { .cells { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 620px) { .cells { grid-template-columns: minmax(0, 1fr); } }
   a.cell {
     display: flex; flex-direction: column; gap: 4px; min-width: 0;
@@ -327,6 +328,12 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
           <span class="name">HAUNTED-@VERSION@-win64.zip &#x2193;</span>
           <span class="what">Both, with install scripts, previews and the source.</span>
           <span class="size">zip</span>
+        </a>
+        <a class="cell" href="play/">
+          <span class="label">IN THE BROWSER</span>
+          <span class="name">Play it here &#x2192;</span>
+          <span class="what">The same game on a page of its own, nothing to download. A keyboard and mouse, or a controller.</span>
+          <span class="size">web</span>
         </a>
       </div>
       <p class="meta" id="dl-meta">For Windows 10 and 11. A pre-release built by GitHub Actions from tag v@VERSION@. <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE/releases/download/v@VERSION@/SHA256SUMS.txt" id="sums">Checksums</a> &middot; <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE/releases">All releases</a></p>
@@ -1117,6 +1124,7 @@ make smoke    # both scenes and a scripted player in the test harness</pre>
           <tr><td>Wisps and Black Altars</td><td>A test player that only follows a wisp cleared 18 of 18 levels, fetching up to three keys on the way. A test player woke an altar, followed its wisp to a secret and back, and sent it on. The blessing and its halo in scripted sessions. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
           <tr><td>Things to wear, spirit and bones</td><td>In the harness: buying with no bag and with a full one, holding a ware, the wardrobe and the bag, the caster's totals, each ability at work; anointing checked on 72,000 rolled pieces. About 10,700 spells cast by the autopilot in the fourth beta's runs, 51 of them weak for want of spirit. Not yet played by hand.</td><td><span class="tag mid">MEDIUM</span></td></tr>
           <tr><td>The creatures, achievements and the bestiary</td><td>Each creature seen at work in long autopilot runs; every bestiary page drawn from a full record. Run by hand on Windows in the third beta, not yet played through creature by creature.</td><td><span class="tag mid">MEDIUM</span></td></tr>
+          <tr><td>In the browser</td><td>The same game compiled to WebAssembly, with Space casting where Ctrl would be the browser's. Run by a script in Chromium on a machine without a graphics card: booting, the dream in both scenes, taking over by H and by a pretend controller, walking, casting, signing a page of the ledger and finding it kept after a reload, Esc's question, fleeing back to the dream. Its own work was 6 to 8 milliseconds a frame there. Not yet played by hand in any browser, so the mouse's feel, the sound, full screen and Esc's two ways are untried, and Firefox and Safari haven't been tried at all.</td><td><span class="tag low">LOW</span></td></tr>
           <tr><td>Input on Windows</td><td>Played by hand on real Windows: holding H, the keys, raw mouse turning and keeping the mouse inside the window all work flawlessly. The C key is new to the Windows shell, and the right mouse button had no use before the seventh beta; neither has been pressed there yet.</td><td><span class="tag ok">HIGH</span></td></tr>
           <tr><td>Mouse feel</td><td>Tried by hand: the fixed speed of 0.0015 radians per count feels spot-on.</td><td><span class="tag ok">HIGH</span></td></tr>
           <tr><td>Sound</td><td>Heard through real speakers in the earlier betas, where the music and effects play as intended. The four waltzes were measured in the harness: none clips, and each sits within two decibels of the march.</td><td><span class="tag ok">HIGH</span></td></tr>

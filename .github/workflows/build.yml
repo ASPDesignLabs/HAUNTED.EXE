@@ -4,6 +4,11 @@
 # Releases: when main carries a VERSION that has no release yet, the build is published as release
 # v<VERSION>, creating that tag on the commit. Pushing a tag v<VERSION> yourself does the same.
 # A version with a, b or rc in it becomes a pre-release.
+#
+# The browser's build (docs/PLAN-web.md) is made beside it by the web job, with a pinned Emscripten, and
+# smoke-tested in Playwright's Chromium; its zip goes on the release with the rest. A release made before it
+# had one (1.0.0b14) is given it once, from main, with a line added to its notes; the Pages workflow serves
+# /play/ from the zip on the release named in VERSION, so unreleased work on main never reaches the page.
 name: Build
 
 on:
@@ -65,8 +70,51 @@ jobs:
           path: build/smoke/*.png
           retention-days: 14
 
+  web:
+    runs-on: ubuntu-24.04
+    env:
+      EMSDK_VERSION: "6.0.13"
+      PLAYWRIGHT_VERSION: "1.63.0"
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Emscripten
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          "$RUNNER_TEMP/emsdk/emsdk" install "$EMSDK_VERSION"
+          "$RUNNER_TEMP/emsdk/emsdk" activate "$EMSDK_VERSION"
+
+      - name: Build the browser's version
+        run: |
+          . "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          make webzip
+          ls -l build/web dist
+          echo "VERSION=$(cat VERSION)" >> "$GITHUB_ENV"
+
+      - name: Smoke test in Chromium
+        run: |
+          sh tools/build_site.sh _site
+          mkdir -p _site/play build/webshots
+          cp -R build/web/. _site/play/
+          npm install --no-save --no-audit --no-fund "playwright@$PLAYWRIGHT_VERSION"
+          npx playwright install --with-deps chromium
+          node tools/web_smoke.js _site 20 build/webshots
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: HAUNTED-${{ env.VERSION }}-web
+          path: dist/HAUNTED-*-web.zip
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: web-smoke-frames
+          path: build/webshots/*.png
+          retention-days: 14
+
   release:
-    needs: build
+    needs: [build, web]
     if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     permissions:
@@ -87,14 +135,26 @@ jobs:
           tag="v$(cat VERSION)"
           pre=""
           case "$tag" in *a[0-9]*|*b[0-9]*|*rc[0-9]*) pre="--prerelease" ;; esac
+          web="dist/HAUNTED-${tag#v}-web.zip"
           ls -l dist
           if gh release view "$tag" >/dev/null 2>&1; then
             if [ "$GITHUB_REF_TYPE" = tag ]; then
+              (cd dist && rm -f SHA256SUMS.txt && sha256sum HAUNTED.EXE HAUNTED.scr HAUNTED-*.zip > SHA256SUMS.txt)
               gh release upload "$tag" dist/* --clobber      # a re-run of the tag's build
+            elif ! gh release view "$tag" --json assets -q '.assets[].name' | grep -q -- '-web\.zip$'; then
+              # a release from before the browser's build: given it once, its checksums and notes added to
+              gh release download "$tag" --pattern SHA256SUMS.txt --dir old
+              (cat old/SHA256SUMS.txt; cd dist && sha256sum "$(basename "$web")") > SHA256SUMS.txt
+              gh release upload "$tag" "$web" SHA256SUMS.txt --clobber
+              gh release view "$tag" --json body -q .body > notes.md
+              printf '\n\n%s\n' "**Play it in the browser:** https://aspdesignlabs.github.io/HAUNTED.EXE/play/ (added after the release: the same game, built for the browser from main, where nothing of the game has changed but the browser's own controls; \`$(basename "$web")\` is that page, to serve yourself)." >> notes.md
+              gh release edit "$tag" --notes-file notes.md
+              echo "Release $tag given its browser build."
             else
               echo "Release $tag already exists; bump VERSION to publish a new one."
             fi
           else
+            (cd dist && rm -f SHA256SUMS.txt && sha256sum HAUNTED.EXE HAUNTED.scr HAUNTED-*.zip > SHA256SUMS.txt)
             gh release create "$tag" dist/* --target "$GITHUB_SHA" $pre \
               --title "HAUNTED.EXE ${tag#v}" --notes-file .github/release-notes.md
           fi

@@ -102,17 +102,19 @@ build/web/haunted-core.js: $(SRC) src/web_main.c src/*.h build/version.h
 	@mkdir -p build/web
 	$(EMCC) $(WEBFLAGS) -o $@ $(SRC) src/web_main.c
 
-build/web/index.html: web/index.html web/haunted.js web/audio.js VERSION
+build/web/index.html: web/index.html web/haunted.js web/audio.js VERSION third_party/font/*
 	@mkdir -p build/web
 	sed -e "s/@VERSION@/$(VERSION)/g" web/index.html > $@
 	cp web/haunted.js web/audio.js build/web/
+	mkdir -p build/web/fonts
+	cp third_party/font/Px437_IBM_VGA_8x16.ttf third_party/font/Px437_IBM_BIOS.ttf third_party/font/LICENSE-oldschool-pc-font-pack.txt build/web/fonts/
 
 web: build/web/haunted-core.js build/web/index.html
 
 $(WEBPKG): web
 	@mkdir -p dist
 	rm -f $@
-	cd build/web && zip -q -9 ../../$@ index.html haunted.js audio.js haunted-core.js haunted-core.wasm
+	cd build/web && zip -q -9 -r ../../$@ index.html haunted.js audio.js haunted-core.js haunted-core.wasm fonts
 
 webzip: $(WEBPKG)
 

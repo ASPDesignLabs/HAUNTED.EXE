@@ -369,8 +369,12 @@
     const coarse = matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches;
     if (coarse) $("watch").hidden = false;
     $("press").textContent = coarse ? "Tap to boot" : "Press a key or click to boot";
-    const go = (e) => { if (e.target.closest && e.target.closest("#bar, #panel")) return; boot(); };
-    window.addEventListener("keydown", (e) => { if (!e.ctrlKey && !e.metaKey && !e.altKey && !$("panel").open) go(e); });
+    const go = (e) => { if (e.target.closest && e.target.closest("#bar, #panel, #plate details")) return; boot(); };
+    window.addEventListener("keydown", (e) => {                  // a key boots it, but not Tab and Enter about the controls
+      if (e.ctrlKey || e.metaKey || e.altKey || $("panel").open) return;
+      if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#plate details") && /^(Tab|Enter|Space)$/.test(e.code)) return;
+      go(e);
+    });
     window.addEventListener("pointerdown", go);
     const padWait = () => {                                      // a pad can boot it too, though the sound waits for a key or a click
       if (booted) return;

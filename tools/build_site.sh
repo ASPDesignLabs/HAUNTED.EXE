@@ -24,4 +24,7 @@ mkdir -p "$OUT/img/gallery" && cp docs/gallery/*.png "$OUT/img/gallery/"   # the
 cp third_party/font/Px437_IBM_VGA_8x16.ttf third_party/font/Px437_IBM_BIOS.ttf \
    third_party/font/LICENSE-oldschool-pc-font-pack.txt "$OUT/fonts/"
 sed -e "s/@VERSION@/$VERSION/g" -e "s/@CARD@/$CARD/g" -e "s|@CARD_ALT@|$ALT|g" site/index.html > "$OUT/index.html"
+if [ -n "${WEB:-}" ] && [ -d "$WEB" ]; then                         # WEB=build/web: the browser's build at play/, to try it
+  mkdir -p "$OUT/play" && cp -R "$WEB"/. "$OUT/play/"              # (Pages takes it from the release instead)
+fi
 echo "site for $VERSION in $OUT, title card $CARD"

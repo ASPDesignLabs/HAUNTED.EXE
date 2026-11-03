@@ -1,11 +1,12 @@
 # HAUNTED.EXE in the browser
 
-**Status: settled (3 November 2026); nothing built yet.** The owner asked whether HAUNTED could be offered
-as something to play in the browser, on the project page, and what the work would be. The answer was yes, and
-for less than it sounds: the game was written against a narrow platform boundary, so a browser build is a third
-shell beside the Windows program and the test harness. The owner answered W1-W9 the same day: the recommended
-answer to each but W3 (Space casts in the browser) and W7 (it goes out as part of 1.0.0b14, the current beta).
-Only 1.0.0b14 is built and tested for the browser; the thirteen betas before it are left alone. See *Decided*.
+**Status: built (3 November 2026), tested in headless Chromium and the harness only; not yet merged or deployed.**
+The owner asked whether HAUNTED could be offered as something to play in the browser, on the project page, and what
+the work would be. The answer was yes, and for less than it sounds: the game was written against a narrow platform
+boundary, so a browser build is a third shell beside the Windows program and the test harness. The owner answered
+W1-W9 the same day: the recommended answer to each but W3 (Space casts in the browser) and W7 (it goes out as part
+of 1.0.0b14, the current beta). Only 1.0.0b14 is built and tested for the browser; the thirteen betas before it are
+left alone. Steps 0-7 are built on `claude/vibrant-mccarthy-9hk3fi`; see *Decided*, then *What was built*.
 
 ## Decided
 
@@ -24,8 +25,9 @@ Only 1.0.0b14 is built and tested for the browser; the thirteen betas before it 
      cast; a click still does. Holding Space to charge while the map is up is the one thing that differs.
    - In every menu Space keeps its jobs (it confirms, as Enter does; it unbinds, overlevels and turns *L ALWAYS
      CASTS THIS*), since casting is only read in play.
-   - The controls card's first line, *WASD WALK  MOUSE TURN  CLICK CASTS*, reads *... CLICK OR SPACE CASTS*.
-     No hint names E/SPACE together for using things, and none names Ctrl.
+   - The controls card's first line, *WASD WALK  MOUSE TURN  CLICK CASTS*, reads *WASD WALK  MOUSE TURN  SPACE
+     CASTS* (the hint font is 8 px, so *CLICK OR SPACE CASTS* runs past the screen; a click still casts, and the
+     page's controls say so). No hint names E/SPACE together for using things, and none names Ctrl.
    - The pad is untouched: RT casts, Y is Space in menus as now.
    So the game's code isn't quite untouched after all: some ten lines behind `HVS_WEB`. Nothing in the
    simulation, the saves or the dream's numbers moves, and the Windows build compiles as it does now.
@@ -154,6 +156,49 @@ These are the real work, and where the owner's answers are wanted.
    takes over. The plate's words (*HOLD H TO TAKE CONTROL*) stand.
 10. **The console** works as on Windows. Its codes stay hashed inside the wasm as they are inside the exe, and
     nothing about the browser build may name them.
+
+## What was built
+
+- **Step 0, the probe.** Emscripten 6.0.13 compiled the fourteen sources unchanged (one warning the gcc build
+  gives too). Under Node: the crypt 4.5 ms a frame (2.7 natively) and 0.5 ms of sound, HAUNT.EXE 0.5 ms; 0.36 s
+  to start; 2.15 MB of wasm, 0.73 MB gzipped. The worst frame, a level being made, 175 ms.
+- **The game's side** (`HVS_WEB` in `scene_crawl.c`): `KEY_CAST` (Space on the web, Ctrl on Windows), `CAST_HIT` and
+  `CAST_UP` for `G.click_spent` wherever a click spends itself, E alone using things in play, Space not casting
+  while the map is up, the card's line. A harness build with `HVS_WEB` casts on Space and not Ctrl; the Windows
+  build the other way (checked on the same input).
+- **`src/web_main.c`**: exported functions over `app.h` (`web_config`, `web_slot_load/take` through one buffer,
+  `web_start`, `web_key/mouse/wheel/text/pad`, `web_step`, `web_frame`, `web_audio`, `web_motor`), and the keys' and
+  buttons' names in `core.h`'s order, so the page finds their numbers by name.
+- **`web/`**: `index.html` (the plate, the bar, the settings dialog, the controls), `haunted.js` (the shell),
+  `audio.js` (the worklet: a queue of chunks, linear resampling when the device isn't at 44.1 kHz, its fill
+  reported every 8 quanta; the page keeps 0.1 s queued). Esc: pointer lock released while a person plays, not by
+  the page and not by leaving the window, counts as Esc unless an Esc keydown came first; full screen asks
+  Keyboard Lock for Escape. The takeover asks for the mouse on H's repeating keydown once the game says a person
+  has it, else *CLICK TO TAKE THE MOUSE*, and that click casts nothing. Slots as base64 under `haunted.exe/` in
+  `localStorage`, written the frame the game changes them; `navigator.storage.persist()`; the ledger written to and
+  read from a JSON file; Web Locks for one tab; the Screen Wake Lock while visible; fleeing writes, sets a flag in
+  `sessionStorage` and reloads to the plate. `window.HAUNTED` has the frame's timings and the last frame's darkness
+  for the smoke test.
+- **`make web`, `make webzip`** (the zip carries the fonts, so it serves on its own), **`tools/web_smoke.js`**
+  (Playwright's Chromium: the dream sampled every two seconds, the takeover by H, walking, Space at the merchant,
+  page I signed and found after a reload, Esc's question, and a scripted pad taking over), and `WEB=build/web` for
+  `tools/build_site.sh`.
+- **CI**: the `web` job in `build.yml` (Emscripten pinned to 6.0.13, Playwright to 1.63.0); the release job takes
+  the web zip into a new release, and gives an existing release without one (1.0.0b14) its zip once from main,
+  with its checksum added to `SHA256SUMS.txt` and a line added to the notes; `pages.yml` now follows a successful
+  Build of a push to main and unpacks the zip from the release named in `VERSION` into `/play/`.
+- **The page, the README, the release notes**: a fourth download cell (*IN THE BROWSER*), a *Beta status* row, a
+  section in the README's *Download* and *What has been verified*, the web zip in the release notes' table.
+
+**The checks.** In this container (Chromium headless, no GPU): the page's own work 6-8 ms a frame in the crypt, the
+dream at 60 frames a second, play at 30-60. A trace put the missing time in the compositor's commit and the
+browser process (software compositing), not the page: its frame callback was about a tenth of the time. The
+smoke test reads its picture from the frame it drew, since `getImageData` moves a canvas off the GPU in Chrome.
+`make smoke` passes; two AddressSanitizer sessions with `HVS_WEB` (Space casting in and out of the map, buying,
+Tab, the merchant's menu) are clean. The Windows build is left to CI (no MinGW in this container). Not tried:
+pointer lock and Esc's two ways (headless Chromium has no real pointer lock), Keyboard Lock, real sound through a
+device, a real controller and its rumble, Firefox, Safari, a phone, and the release and Pages jobs themselves
+(they run only on main).
 
 ## The page and CI
 
