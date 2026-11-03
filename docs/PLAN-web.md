@@ -1,6 +1,7 @@
 # HAUNTED.EXE in the browser
 
-**Status: built (3 November 2026), tested in headless Chromium and the harness only; not yet merged or deployed.**
+**Status: built and deployed (3 November 2026), tested in headless Chromium, the harness and CI only.** Squashed onto
+main at the owner's word, with the link as the *BROWSER* cell under *EVERYTHING*, beside the download panel's small print.
 The owner asked whether HAUNTED could be offered as something to play in the browser, on the project page, and what
 the work would be. The answer was yes, and for less than it sounds: the game was written against a narrow platform
 boundary, so a browser build is a third shell beside the Windows program and the test harness. The owner answered
@@ -187,7 +188,8 @@ These are the real work, and where the owner's answers are wanted.
   the web zip into a new release, and gives an existing release without one (1.0.0b14) its zip once from main,
   with its checksum added to `SHA256SUMS.txt` and a line added to the notes; `pages.yml` now follows a successful
   Build of a push to main and unpacks the zip from the release named in `VERSION` into `/play/`.
-- **The page, the README, the release notes**: a fourth download cell (*IN THE BROWSER*), a *Beta status* row, a
+- **The page, the README, the release notes**: the *BROWSER* cell in the download panel (under *EVERYTHING*, beside the
+  small print, where the owner asked), a *Beta status* row, a
   section in the README's *Download* and *What has been verified*, the web zip in the release notes' table.
 
 **The checks.** In this container (Chromium headless, no GPU): the page's own work 6-8 ms a frame in the crypt, the

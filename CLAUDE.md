@@ -187,12 +187,14 @@ technicals or debug switches: keep later notes that way). The plans' numbers mov
 and the rest of the art pass come next.
 Its section 10 is the hand-off log: read it first.
 
-A browser build for the page is planned in [`docs/PLAN-web.md`](docs/PLAN-web.md), settled and **built** (3 November,
-on `claude/vibrant-mccarthy-9hk3fi`; tested in headless Chromium and the harness only; not merged): Emscripten and a
+A browser build for the page is planned in [`docs/PLAN-web.md`](docs/PLAN-web.md), settled, **built** and deployed (3 November,
+on `claude/vibrant-mccarthy-9hk3fi`, squashed onto main as one commit at the owner's word; tested in headless Chromium and
+the harness only, and by CI's smoke test): Emscripten and a
 JavaScript shell (`src/web_main.c`, `web/`) beside `win_main.c` and `tools/host.c`, at `/play/` on the page, saves in
 `localStorage`. The owner took every recommended answer but W3 (Space casts in the browser, Ctrl does nothing: a few
-lines behind `HVS_WEB`, the only change to the game's code) and W7 (it goes out as part of 1.0.0b14: once merged, CI
-uploads the web zip to that release from main without a bump, and Pages serves `/play/` from it). Only 1.0.0b14 is
+lines behind `HVS_WEB`, the only change to the game's code) and W7 (it goes out as part of 1.0.0b14: CI uploads the web zip to that
+release from main without a bump, and Pages serves `/play/` from it). The link is the *BROWSER* cell under *EVERYTHING*,
+beside the download panel's small print, where the owner asked. Only 1.0.0b14 is
 built and tested for the browser. Its *What was built* says what was checked and what wasn't.
 
 ## Working with the owner

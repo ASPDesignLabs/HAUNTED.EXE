@@ -131,9 +131,15 @@
     color: var(--hud-text);
   }
   .hud .strip { display: block; width: 100%; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; border-bottom: 2px solid var(--hud-cell-lo); }
-  .cells { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding-inline: 12px; }
-  @media (max-width: 900px) { .cells { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding-inline: 12px; }
   @media (max-width: 620px) { .cells { grid-template-columns: minmax(0, 1fr); } }
+  /* under the cells: the small print in the first two columns, the browser's cell in the third, on the cells' edges */
+  .hud .foot { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding-inline: 12px; align-items: stretch; }
+  .hud .foot .notes { grid-column: 1 / 3; display: flex; flex-direction: column; justify-content: flex-start; gap: 12px; padding-top: 4px; }
+  .hud .foot .notes .meta { padding-inline: 0; margin: 0; }
+  .hud .foot .cell { grid-column: 3; }
+  .cell.web .name { color: var(--accent); }
+  @media (max-width: 620px) { .hud .foot { grid-template-columns: minmax(0, 1fr); } .hud .foot .notes, .hud .foot .cell { grid-column: 1; } }
   a.cell {
     display: flex; flex-direction: column; gap: 4px; min-width: 0;
     background: var(--hud-cell);
@@ -329,15 +335,18 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
           <span class="what">Both, with install scripts, previews and the source.</span>
           <span class="size">zip</span>
         </a>
-        <a class="cell" href="play/">
-          <span class="label">IN THE BROWSER</span>
+      </div>
+      <div class="foot">
+        <div class="notes">
+        <p class="meta" id="dl-meta">For Windows 10 and 11. A pre-release built by GitHub Actions from tag v@VERSION@. <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE/releases/download/v@VERSION@/SHA256SUMS.txt" id="sums">Checksums</a> &middot; <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE/releases">All releases</a></p>
+        <p class="meta" id="dl-status" role="status" aria-live="polite">The files aren't code-signed, so Windows may warn you the first time. Choose More info, then Run anyway.</p>
+        </div>
+        <a class="cell web" href="play/">
+          <span class="label">BROWSER</span>
           <span class="name">Play it here &#x2192;</span>
-          <span class="what">The same game on a page of its own, nothing to download. A keyboard and mouse, or a controller.</span>
-          <span class="size">web</span>
+          <span class="what">The same game, nothing to download. A keyboard and mouse, or a controller.</span>
         </a>
       </div>
-      <p class="meta" id="dl-meta">For Windows 10 and 11. A pre-release built by GitHub Actions from tag v@VERSION@. <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE/releases/download/v@VERSION@/SHA256SUMS.txt" id="sums">Checksums</a> &middot; <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE/releases">All releases</a></p>
-      <p class="meta" id="dl-status" role="status" aria-live="polite">The files aren't code-signed, so Windows may warn you the first time. Choose More info, then Run anyway.</p>
     </section>
   </header>
 
