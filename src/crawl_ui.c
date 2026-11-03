@@ -324,21 +324,27 @@ void ui_plate(Frame *f, int x, int y, int w, int h) {
 }
 
 /* a hint line: in each group (two spaces apart) its first word is the key, set on a raised cap behind the 8 px cells,
- * so the line is as wide as ever */
+ * so the line is as wide as ever; a '\1' before a letter marks a pad's face button, drawn in the button's colour */
+int ui_keys_width(const char *s) { int n = 0; for (; *s; s++) n += *s != '\1'; return n * 8; }
 void ui_keys(Frame *f, int x, int y, const char *s, int col) {
+    char t[160]; uint8_t mark[160];                                /* the line without its marks, and which letters were marked */
+    int n = 0;
+    for (int m = 0; *s && n < 159; s++) { if (*s == '\1') { m = 1; continue; } t[n] = *s; mark[n++] = (uint8_t)m; m = 0; }
+    t[n] = 0;
     int key = 1;
-    for (int i = 0; s[i]; i++) {
+    for (int i = 0; t[i]; i++) {
         int cx = x + i * 8;
-        if (s[i] == ' ') { if (s[i + 1] == ' ') key = 1; else if (key == 1 && i > 0 && s[i - 1] != ' ') key = 0; continue; }
+        if (t[i] == ' ') { if (t[i + 1] == ' ') key = 1; else if (key == 1 && i > 0 && t[i - 1] != ' ') key = 0; continue; }
         if (key) {
-            int first = i == 0 || s[i - 1] == ' ', last = s[i + 1] == 0 || s[i + 1] == ' ';
+            int first = i == 0 || t[i - 1] == ' ', last = t[i + 1] == 0 || t[i + 1] == ' ';
             for (int yy = -1; yy < 9; yy++)
                 for (int xx = first ? -2 : 0; xx < (last ? 9 : 8); xx++) {
                     int edge_t = yy == -1, edge_b = yy == 8, edge_l = first && xx == -2, edge_r = last && xx == 8;
                     gfx_px(f, cx + xx, y + yy, edge_t || edge_l ? UI_M(12) : edge_b || edge_r ? UI_M(2) : UI_M(8));
                 }
-            ui_glyph8(f, cx, y, (uint8_t)s[i], FACE_BODY, UI_W(1), TX_PLAIN);
-        } else ui_glyph8(f, cx, y, (uint8_t)s[i], FACE_BODY, col, TX_INLAID);
+            int c = !mark[i] ? UI_W(1) : t[i] == 'A' ? R_MOSS + 9 : t[i] == 'B' ? R_BLOOD + 9 : t[i] == 'X' ? R_GLOW + 8 : R_GOLD + 6;
+            ui_glyph8(f, cx, y, (uint8_t)t[i], FACE_BODY, c, TX_PLAIN);
+        } else ui_glyph8(f, cx, y, (uint8_t)t[i], FACE_BODY, col, TX_INLAID);
     }
 }
 
@@ -462,7 +468,7 @@ static void seal(Frame *f, int x, int y, int e, int rank, int ramp, int chosen, 
     for (int r = 0; r < 7; r++) for (int c = 0; c < 7; c++) {
         char ch = ELEM_GLYPH[e][r][c];
         if (ch != '#' && ch != 'o') continue;
-        uint8_t col = rank ? (uint8_t)(ramp + (ch == 'o' ? (ramp == R_GOLD ? 12 : 15) : 11)) : UI_M(ch == 'o' ? 4 : 2);
+        uint8_t col = rank ? (uint8_t)(ramp + (ch == 'o' ? (ramp == R_GOLD ? 12 : 15) : 11)) : UI_M(ch == 'o' ? 9 : 7);   /* a line not open: its mark cut pale */
         gfx_px(f, cx - 3 + c, cy - 3 + r, col);
     }
     char b[8];
@@ -492,7 +498,7 @@ void ui_tree(Frame *f, const UiTree *tr) {
     ui_text8(f, tx, 34, tr->title, FACE_INSC, tr->ramp + (tr->ramp == R_GOLD ? 12 : 13), TX_INLAID);
     for (int m = 1; m < 10; m++) {                                 /* the grooves first, the sockets over them */
         int u = TREE_UP[m];
-        float fill = tr->n[m].state == SK_HELD ? 1.0f : tr->n[m].state == SK_PART ? 0.5f : 0.0f;
+        float fill = tr->n[m].grow > 0.0f ? tr->n[m].grow : tr->n[m].state == SK_HELD ? 1.0f : tr->n[m].state == SK_PART ? 0.5f : 0.0f;
         if (m == 3) {
             ui_groove(f, TREE_X[1] + 6, TREE_Y[1] + 6, TREE_X[3] - 7, TREE_Y[3] - 6, tr->ramp, fill);
             ui_groove(f, TREE_X[2] - 7, TREE_Y[2] + 6, TREE_X[3] + 6, TREE_Y[3] - 6, tr->ramp, fill);
@@ -506,7 +512,7 @@ void ui_tree(Frame *f, const UiTree *tr) {
         const UiNode *nd = &tr->n[m];
         int icon = UI_NODE_ICON[tr->elem][m];
         ui_socket(f, TREE_X[m], TREE_Y[m], TREE_R[m], icon, tr->ramp, nd->state, m == tr->sel, m == 6 || m == 9, t);
-        if (nd->cost > 1 && nd->state != SK_HELD) {                   /* its points as pips under it */
+        if (nd->steps && nd->cost > 1 && nd->state != SK_HELD) {      /* its points as pips under it */
             int px = TREE_X[m] - (nd->cost * 4 - 2) / 2, py = TREE_Y[m] + TREE_R[m] + 2;
             for (int k = 0; k < nd->cost; k++) {
                 uint8_t c = k < nd->got ? (uint8_t)(tr->ramp + 13) : UI_W(1);
@@ -520,9 +526,10 @@ void ui_tree(Frame *f, const UiTree *tr) {
     int m = tr->sel;
     int icon = UI_NODE_ICON[tr->elem][m];
     ui_socket(f, 199, 53, 19, icon, tr->ramp, nd->state, 0, 0, t);
-    int nl = ui_wrap_count(nd->name, 11);
-    ui_wrap(f, 223, nl > 1 ? 36 : 40, nd->name, 11, 9, 2, FACE_INSC, tr->ramp + (tr->ramp == R_GOLD ? 12 : 14), TX_INLAID);
-    ui_text8(f, 223, 56, nd->kind, FACE_BODY, UI_M(10), TX_PLAIN);
+    int nl = ui_wrap_count(nd->name, 10);                          /* ten letters: the eleventh would touch the well's lip */
+    ui_wrap(f, 222, nl > 1 ? 36 : 40, nd->name, 10, 9, 2, FACE_INSC, tr->ramp + (tr->ramp == R_GOLD ? 12 : 14), TX_INLAID);
+    if (nl > 2) ui_overflow("tree name", nd->name, nl - 2);
+    ui_text8(f, 222, 56, nd->kind, FACE_BODY, UI_M(10), TX_PLAIN);
     if (nd->state == SK_HELD) snprintf(b, sizeof b, "YOURS");
     else if (nd->cost > 1 && nd->got > 0) snprintf(b, sizeof b, "%d OF %d POINTS", nd->got, nd->cost);
     else snprintf(b, sizeof b, "%d POINT%s", nd->cost, nd->cost == 1 ? "" : "S");
@@ -540,5 +547,5 @@ void ui_tree(Frame *f, const UiTree *tr) {
         if (need > dl) ui_overflow("tree", nd->name, need - dl);
         if (foot) ui_wrap(f, 182, fy, foot, 16, 9, fl, FACE_BODY, UI_M(11), TX_INLAID);
     }
-    if (tr->keys) ui_keys(f, 160 - 4 * (int)strlen(tr->keys), 183, tr->keys, UI_M(13));
+    if (tr->keys) ui_keys(f, 160 - ui_keys_width(tr->keys) / 2, 183, tr->keys, UI_M(13));
 }

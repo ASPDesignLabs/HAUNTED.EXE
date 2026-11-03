@@ -19779,6 +19779,8 @@ static void update_stones_core(void) {
  * chained over when the other path was taken. The first node of a path asks twice. Unbinding a line costs two
  * Cursed Coins and gives back half its points; a line that came open stays open. */
 static const int ND_ROW[NNODE] = { 0, 1, 1, 2, 3, 4, 5, 3, 4, 5 };
+static float al_buy_t = -9.0f;                                     /* the last node bought, for its groove to fill */
+static int al_buy_e = -1, al_buy_n = -1;
 static const int ND_COL[NNODE] = { 1, 0, 2, 1, 0, 0, 0, 2, 2, 2 };
 static int align_point(int e, int n) { int k = ALIGN[e].n[n].kind; return k == NK_EFF || k == NK_INS || k == NK_STEP; }   /* bought a point at a time */
 static int align_price(int e, int n) { return align_point(e, n) ? 1 : ALIGN[e].n[n].cost; }
@@ -19855,6 +19857,7 @@ static void update_align(int view) {
     if ((n == ND_A1 || n == ND_B1) && !RUN.al[e][n] && G.al_arm != n) { G.al_arm = n; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }   /* the other path will close */
     G.al_arm = -1;
     align_buy(e, n);
+    al_buy_t = G.ui_t; al_buy_e = e; al_buy_n = n;                 /* its groove fills (render_align) */
     snd_sfx_ex(SFX_RUNE, 0.7f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.4f, 0.5f);
 }
 
@@ -25669,66 +25672,54 @@ static void render_stones(Frame *f, int tabbed) {
 }
 
 /* the Alignment's screen: the six lines across the top, the chosen line's tree, the node's card at the foot */
-static void align_box(Frame *f, int cx, int y, int e, int n, int sel) {
-    const ANode *nd = &ALIGN[e].n[n];
-    int pts = align_point(e, n), tw = gfx_text_width(nd->name, 1), w = tw + 8 + (pts ? 4 * nd->cost + 2 : 0), x = cx - w / 2;
-    int full = align_full(e, n) && (n != ND_OPEN || align_open(e)), chained = align_chained(e, n), ready = align_ready(e, n) && RUN.al_points >= align_price(e, n);
-    int ramp = ELEM_RAMP[e];
-    uint8_t edge = full ? ramp_at(ramp, 12) : ready ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + (chained ? 4 : 6));
-    if (sel) {                                                     /* the one chosen: a gold frame round it */
-        uint8_t gc = (int)(G.ui_t * 3.0f) & 1 ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_GOLD + 8);
-        for (int i = -2; i < w + 2; i++) { gfx_px(f, x + i, y - 4, gc); gfx_px(f, x + i, y + 11, gc); }
-        for (int j = -4; j <= 11; j++) { gfx_px(f, x - 2, y + j, gc); gfx_px(f, x + w + 1, y + j, gc); }
-    }
-    gfx_rect(f, x, y - 2, w, 12, full ? ramp_at(ramp, 2) : 0);
-    for (int i = 0; i < w; i++) { gfx_px(f, x + i, y - 2, edge); gfx_px(f, x + i, y + 9, edge); }
-    for (int j = -2; j <= 9; j++) { gfx_px(f, x, y + j, edge); gfx_px(f, x + w - 1, y + j, edge); }
-    uint8_t tc = full ? ramp_at(ramp, 14) : ready ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + (chained ? 5 : 8));
-    gfx_text8(f, x + 4, y, nd->name, tc, 1);
-    if (pts) for (int k = 0; k < nd->cost; k++)                    /* a pip a point */
-        gfx_rect(f, x + 6 + tw + k * 4, y + 3, 3, 3, k < RUN.al[e][n] ? ramp_at(ramp, 13) : (uint8_t)(R_STONE + 5));
-    if (chained) for (int i = 2; i < w - 2; i += 3) { gfx_px(f, x + i, y + 3 + (i & 1), R_IRON + 9); gfx_px(f, x + i + 1, y + 4 - (i & 1), R_IRON + 6); }   /* a chain across it */
-}
+/* the Alignment's stone (docs/PLAN-ui.md section 5): the kit lays it, from what the line holds now */
 static void render_align(Frame *f, int view) {
-    char line[200];
-    int e = clampi(G.al_el, 0, NELEM - 1), n = clampi(G.al_node, 0, NNODE - 1);
-    for (int k = 0; k < NELEM; k++) {                              /* the six, lit if open, with their ranks */
-        int x = 12 + k * 40, r = align_rank(k);
-        if (k == e) gfx_rect(f, x - 3, 7, 36, 13, R_IRON + 3);
-        elem_glyph(f, x, 10, k, r == 0);
-        if (k == cls_el()) for (int i = 0; i < 7; i++) gfx_px(f, x + i, 18, R_GOLD + 11);   /* the class's own, free */
-        if (r) snprintf(line, sizeof line, "%d", r); else snprintf(line, sizeof line, "-");
-        gfx_text8(f, x + 10, 10, line, r ? ramp_at(ELEM_RAMP[k], 13) : (uint8_t)(R_STONE + 7), 1);
-    }
-    snprintf(line, sizeof line, "%d POINT%s", align_funds(e), align_funds(e) == 1 ? "" : "S");   /* the Witchfinder's count for Fire */
-    gfx_text8(f, W - 12 - gfx_text_width(line, 1), 10, line, align_funds(e) > 0 && ((int)(G.ui_t * 2.0f) & 1) ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_GOLD + 9), 1);
-    if (cls_el() >= 0) class_mark(f, 12, 23, cls_el(), 0);         /* what you were */
+    static const char *const KIND[NNODE] = { "OPENING", "PASSIVE", "PASSIVE", "ABILITY", "PATH A", "PATH A", "ULTIMATE",
+                                             "PATH B", "PATH B", "ULTIMATE" };
+    static char title[40], note[NNODE][56], warn[200];
+    int e = clampi(G.al_el, 0, NELEM - 1), n = clampi(G.al_node, 0, NNODE - 1), funds = align_funds(e);
+    UiTree tr;
+    memset(&tr, 0, sizeof tr);
     int r = align_rank(e);
-    if (r) snprintf(line, sizeof line, "%s   RANK %d", ALIGN[e].name, r); else snprintf(line, sizeof line, "%s   NOT OPEN", ALIGN[e].name);
-    gfx_text8(f, (W - gfx_text_width(line, 1)) / 2, 25, line, ramp_at(ELEM_RAMP[e], 13), 1);
-    static const int RY[6] = { 40, 56, 72, 92, 108, 124 }, CX[3] = { 84, 160, 236 };
-    uint8_t lc = R_STONE + 6;                                      /* the tree's lines */
-    gfx_line(f, 160, 50, 84, 54, lc); gfx_line(f, 160, 50, 236, 54, lc);
-    gfx_line(f, 84, 66, 160, 70, lc); gfx_line(f, 236, 66, 160, 70, lc);
-    gfx_line(f, 160, 82, 84, 90, lc); gfx_line(f, 160, 82, 236, 90, lc);
-    for (int c = 0; c < 2; c++) { int x = c ? 236 : 84; gfx_line(f, x, 102, x, 106, lc); gfx_line(f, x, 118, x, 122, lc); }
-    for (int m = 0; m < NNODE; m++) align_box(f, CX[ND_COL[m]], RY[ND_ROW[m]], e, m, m == n);
-    for (int i = 10; i < W - 10; i++) gfx_px(f, i, 138, R_STONE + 5);
-    const ANode *nd = &ALIGN[e].n[n];
-    int price = align_price(e, n);
-    if (G.al_arm == -2) snprintf(line, sizeof line, "UNBIND %s FOR TWO CURSED COINS: EVERY NODE GOES, AND %d POINTS COME BACK. AGAIN TO UNBIND.", ALIGN[e].name, align_refund(e));
-    else if (G.al_arm == -3) snprintf(line, sizeof line, "UNBINDING A LINE TAKES TWO CURSED COINS. YOU HAVE %d.", RUN.coins);
-    else if (G.al_arm == n) snprintf(line, sizeof line, "THE OTHER PATH WILL CLOSE. AGAIN TO TAKE THIS ONE.");
-    else {
-        char got[24] = "";
-        if (align_point(e, n)) snprintf(got, sizeof got, "  %d OF %d.", RUN.al[e][n], nd->cost);
-        else if (align_full(e, n) && (n != ND_OPEN || align_open(e))) snprintf(got, sizeof got, "  YOURS.");
-        snprintf(line, sizeof line, "%s: %s%s%s", nd->name, nd->does, got, align_full(e, n) && (n != ND_OPEN || align_open(e)) ? "" :
-                 price == 1 ? "  ONE POINT." : price == 2 ? "  TWO POINTS." : price == 3 ? "  THREE POINTS." : "  FIVE POINTS.");
+    if (r) snprintf(title, sizeof title, "%s  RANK %d", ALIGN[e].name, r); else snprintf(title, sizeof title, "%s  NOT OPEN", ALIGN[e].name);
+    tr.title = title; tr.ramp = ELEM_RAMP[e]; tr.elem = e; tr.cls = cls_el();
+    for (int k = 0; k < NELEM; k++) { tr.ranks[k] = align_rank(k); tr.ramps[k] = ELEM_RAMP[k]; }
+    tr.sel_el = e; tr.points = funds; tr.sel = n; tr.t = G.ui_t;
+    for (int m = 0; m < NNODE; m++) {
+        const ANode *nd = &ALIGN[e].n[m];
+        UiNode *u = &tr.n[m];
+        u->name = nd->name; u->does = nd->does; u->kind = KIND[m];
+        u->cost = imax(1, nd->cost); u->got = RUN.al[e][m]; u->steps = align_point(e, m);
+        note[m][0] = 0;
+        int held = m == ND_OPEN ? align_open(e) : align_full(e, m);
+        if (held) {
+            u->state = SK_HELD; u->got = u->cost;
+            if (m == ND_OPEN && RUN.al[e][m] < nd->cost && e != EL_FIRE) snprintf(note[m], sizeof note[m], "YOURS BY WHAT YOU WERE.");
+        } else if (align_chained(e, m)) { u->state = SK_CLOSED; snprintf(note[m], sizeof note[m], "THE OTHER PATH IS CHOSEN."); }
+        else if (align_ready(e, m)) {
+            int short_by = align_price(e, m) - funds;
+            u->state = u->got ? SK_PART : short_by > 0 ? SK_SHORT : SK_READY;
+            if (view) snprintf(note[m], sizeof note[m], "BOUGHT AT THE LAMPSTAND.");
+            else if (short_by == 1) snprintf(note[m], sizeof note[m], "ONE POINT SHORT.");
+            else if (short_by > 1) snprintf(note[m], sizeof note[m], "%d POINTS SHORT.", short_by);
+        } else {
+            u->state = u->got ? SK_PART : SK_REACH;
+            if (!align_open(e)) snprintf(note[m], sizeof note[m], "OPEN %s FIRST.", ALIGN[e].name);
+            else if (m == ND_ABIL) snprintf(note[m], sizeof note[m], "NEEDS EFFICIENCY AND INSIGHT, BOTH FULL.");
+            else if (m == ND_A1 || m == ND_B1) snprintf(note[m], sizeof note[m], "NEEDS %s.", ALIGN[e].n[ND_ABIL].name);
+            else snprintf(note[m], sizeof note[m], "NEEDS %s.", ALIGN[e].n[m - 1].name);
+        }
+        u->note = note[m][0] ? note[m] : 0;
+        if (e == al_buy_e && m == al_buy_n && G.ui_t - al_buy_t < 0.33f && G.ui_t >= al_buy_t)
+            u->grow = fmaxf(0.02f, (G.ui_t - al_buy_t) / 0.33f);   /* the colour runs down its groove */
     }
-    text_wrap(f, 14, 143, line, 36, G.al_arm != -1 ? R_GOLD + 12 : R_STONE + 12, 4);
-    const char *hn = view ? "A/D PAGE  1-6 LINE  W/S NODE  TAB" : "1-6  WASD  ENTER BUYS  SPACE UNBINDS";
-    hint8(f, (W - hint_width(hn)) / 2, H - 16, hn, R_STONE + 9);
+    if (!view && G.al_arm == -2) snprintf(warn, sizeof warn, "UNBIND %s FOR TWO CURSED COINS: EVERY NODE GOES, AND %d POINTS COME BACK. AGAIN TO UNBIND.", ALIGN[e].name, align_refund(e));
+    else if (!view && G.al_arm == -3) snprintf(warn, sizeof warn, "UNBINDING A LINE TAKES TWO CURSED COINS. YOU HAVE %d.", RUN.coins);
+    else if (!view && G.al_arm == n) snprintf(warn, sizeof warn, "THE OTHER PATH WILL CLOSE. AGAIN TO TAKE THIS ONE.");
+    else warn[0] = 0;
+    tr.warn = warn[0] ? warn : 0;
+    tr.keys = pk(view ? "A/D PAGE  1-6 LINE  W/S NODE  TAB" : "1-6  WASD  ENTER BUYS  SPACE UNBINDS");   /* a pad's buttons marked */
+    ui_tree(f, &tr);
 }
 
 /* the bell's or the font's menu: what it is now, its rows and their prices, the second Enter's warning */
@@ -26241,7 +26232,7 @@ static void render_ui(Frame *f) {
 }
 static void render_ui_in(Frame *f) {
     if (G.ui == UI_ASCEND) { render_ascend(f); return; }
-    if (G.ui == UI_ALIGN) { dim_view(f); panel(f, 4, 4, W - 8, H - 8); render_align(f, 0); return; }
+    if (G.ui == UI_ALIGN) { dim_view(f); render_align(f, 0); return; }
     if (G.ui == UI_CLASS) { render_class(f); return; }
     if (G.ui == UI_HALL2) { render_hall2(f); return; }
     if (G.ui == UI_STONES) { dim_view(f); panel(f, 4, 4, W - 8, H - 8); render_stones(f, 0); return; }

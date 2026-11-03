@@ -173,7 +173,9 @@ crypt in a 4 px margin); step 0 is done (`tools/uishots.sh`, the before sheets i
 drawn (`src/crawl_ui.c`, `src/ui_art.c`, `tools/uisheet.c`; `docs/uipass/sheet-ui.png`) and approved. Step 2 is built
 (harness only; the Windows build compiled and smoke-tested by CI on the branch): every menu, card and the tally cut in the stone through `gfx_hook8/16` and `ui_on`/`ui_off` (menus lend
 the floor's and ceiling's ramps for the frame; cards over the live crypt use the run's stone), with the fit checks'
-`UI overflow` lines in the debug build. Step 3, the Alignment, is next.
+`UI overflow` lines in the debug build. Step 3 is built (harness only): the Alignment at the Lampstand and on Tab's
+fourth page is `ui_tree`, filled by `render_align` from the line's state. Step 4 (cornerstones, the Totem, ascend, the
+class) is next.
 Its section 10 is the hand-off log: read it first.
 
 ## Working with the owner

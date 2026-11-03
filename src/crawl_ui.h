@@ -23,6 +23,7 @@ void ui_rule(Frame *f, int x0, int x1, int y, int orn);
 void ui_orn(Frame *f, int x, int y, int orn, float t);
 void ui_plate(Frame *f, int x, int y, int w, int h);
 void ui_keys(Frame *f, int x, int y, const char *s, int col);   /* a hint, each group's first word on a cap */
+int  ui_keys_width(const char *s);
 
 enum { FACE_BIOS, FACE_INSC, FACE_BODY, NFACE };   /* the 8x8 faces; the 8x16 ones are the BIOS's VGA and FACE_INSC's */
 enum { TX_PLAIN, TX_CUT, TX_INLAID };
@@ -64,6 +65,8 @@ void ui_groove(Frame *f, int x0, int y0, int x1, int y1, int ramp, float fill);
 typedef struct {
     const char *name, *kind, *does;
     int cost, got, state;                          /* got: points in it; state SK_* */
+    int steps;                                     /* bought a point at a time: its points as pips under it */
+    float grow;                                    /* 0: its groove by its state; else filled this far, 0..1 (a purchase) */
     const char *note;                              /* its state's words at the pane's foot, or 0 */
 } UiNode;
 typedef struct {

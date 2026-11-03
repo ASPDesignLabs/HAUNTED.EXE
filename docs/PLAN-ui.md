@@ -4,7 +4,8 @@
 before PLAN-ai's step 11, and U10 (b), full screens keep the crypt dimmed in a 4 px margin round them. Being built on
 `claude/gifted-rubin-q8up37` from main (1.0.0b13 with the art pass so far and PLAN-ai's steps 0-10). Step 0 is done (the
 before sheets in `docs/uipass/`). Step 1's sheet was approved by the owner (3 November). Step 2 is built (harness only): every menu, card and the tally
-wear the stone. Like the art pass, it is visual only: nothing in the simulation, the saves or the
+wear the stone. Step 3 is built (harness only): the Alignment, at the Lampstand and on Tab's fourth page, is the
+approved stone. Like the art pass, it is visual only: nothing in the simulation, the saves or the
 autopilot's numbers may move.**
 
 ## Decided (3 November 2026)
@@ -371,7 +372,7 @@ Each step committed, pushed and logged at the end of this plan, so it can be han
    icons cut and inlaid. **For the owner's approval before anything goes in the game.** Tuning happens here.
 2. **The kit and the faces in the game** (built). `crawl_ui.c`, `font_ui.c`, the palette borrowed while a menu is up, `panel` and
    `card_box` rerouted to `ui_slab`: every menu wears the marble at once, laid as it is today. The fit checks.
-3. **The Alignment**, both its screens, from the approved sheet.
+3. **The Alignment**, both its screens, from the approved sheet (built).
 4. **Cornerstones, the Totem, ascend, the class**, on the same pattern.
 5. **Tab:** the wardrobe and its icons, the caster, the elements, documents; **the bestiary; the Codex.**
 6. **Her hall:** her menu, the Compendium, the Repository, the Portal, the shrine, the bell and font, the ledger, a stone's
@@ -467,3 +468,21 @@ My answer is marked **(mine)**; the owner's take it over.
   tally and a 400 s dream; `make smoke` 1.39 ms a frame, 1.6-1.7 ms with a menu up. The Windows build was compiled and
   smoke-tested by CI on the branch (run 81, started by hand). The after sheets are
   `docs/uipass/step2-L*.png`. Nothing played by hand. Next: step 3, the Alignment.
+- 3 November 2026, step 3: the Alignment. `render_align(f, view)` fills a `UiTree` from the line as it stands and hands it
+  to `ui_tree`; `align_box` and the old tree are gone. A node's state comes from the functions the old screen used: held
+  (the opening by `align_open`, so Fire and the class's line show bought), closed (`align_chained`, the other path taken),
+  part bought (points in it, not full), ready or short (`align_ready`, against `align_funds`), else out of reach. The
+  pane's foot says why: `ONE POINT SHORT.`, `NEEDS EFFICIENCY AND INSIGHT, BOTH FULL.`, `NEEDS <the node above>.`, `OPEN
+  <line> FIRST.`, `THE OTHER PATH IS CHOSEN.`, `YOURS BY WHAT YOU WERE.` (an opening a class or a past gave), and on Tab's
+  page, where nothing is bought, `BOUGHT AT THE LAMPSTAND.` The three warnings (`G.al_arm`: the other path closing,
+  unbinding, too few coins to unbind) take the description's place, in gold, as they did. The hint line goes through `pk`,
+  so a pad's words and its face buttons' colours come out on the caps (`ui_keys` reads the `\1` marks;
+  `ui_keys_width`). The kit gained `UiNode.steps` (pips only under nodes bought a point at a time: `align_point`; the
+  ultimates had shown five pips for a price paid at once) and `UiNode.grow` (a node just bought runs its colour down its
+  groove in a third of a second: `al_buy_t/e/n`, set in `update_align`). Names wrap at ten letters, not eleven (SOUL TETHER
+  touched the well's lip); a line not open has its seal's mark cut pale, not near black. The moving keys are as they were
+  (`update_align` already went by row and column). Checked: the fit check at four palettes finds nothing new (the tally's
+  line, as at step 2); `build/uisheet fit` still 0 over the sixty nodes; a person buying an opening and Efficiency's two
+  points, then unbinding the line (with `CRAWL_ALPTS=200`, `CRAWL_COINS=3`), and a 900 s dream give the same `EVENT` lines
+  as step 2's build; ASan clean over that session and 200 s of the dream from level 21. Frames: `docs/uipass/step3-L*.png`
+  (`lamp` and `alignment`). Nothing played by hand. Next: step 4, the cornerstones, the Totem, ascend and the class.
