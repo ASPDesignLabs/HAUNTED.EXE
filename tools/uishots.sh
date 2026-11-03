@@ -33,6 +33,9 @@ caster|CRAWL_GEAR=3|$T;5:+TAB;5.1:-TAB;5.5:+D;5.6:-D|6.5
 cornerstones|CRAWL_GEAR=3 CRAWL_CORNER=5|$T;5:+TAB;5.1:-TAB;5.5:+D;5.6:-D;5.8:+D;5.9:-D|6.5
 alignment|CRAWL_GEAR=3|$T;5:+TAB;5.1:-TAB;5.5:+A;5.6:-A;5.8:+A;5.9:-A;6.1:+A;6.2:-A|6.8
 bestiary||$T;5:+B;5.1:-B|6.5
+elements|CRAWL_GEAR=3|$T;5:+TAB;5.1:-TAB;5.5:+A;5.6:-A;5.8:+A;5.9:-A|6.8
+documents|CRAWL_GEAR=3|$T;5:+TAB;5.1:-TAB;5.5:+A;5.6:-A|6.8
+achieve||$T;5:+B;5.1:-B;5.4:+A;5.5:-A|6.5
 codex|CRAWL_GEAR=3|$T;5:+C;5.1:-C|6.5
 controls||$T|5.5
 tally|CRAWL_SEED=3 CRAWL_TPEXIT=1 CRAWL_CORRUPT=1|60:+H;63.3:-H;65:+E;65.1:-E;66:+S;66.1:-S;66.5:+E;66.6:-E|77.5"

@@ -195,6 +195,21 @@ void ui_well(Frame *f, int x, int y, int w, int h) {
         }
 }
 
+void ui_niche(Frame *f, int x, int y, int w, int h) {
+    int ah = w / 4;                                                 /* the arch: an ellipse across the top */
+    for (int j = 0; j < h; j++)
+        for (int i = 0; i < w; i++) {
+            float dx = (i - (w - 1) * 0.5f) / (w * 0.5f), dy = j < ah ? (ah - j) / (float)ah : 0.0f;
+            float d = dx * dx + dy * dy;
+            if (d > 1.0f) continue;                                 /* outside the arch: the slab stays */
+            int rim = d > 0.86f || i == 0 || i == w - 1 || j == h - 1;
+            int s;
+            if (rim) s = (i < w / 2 && j < h - 1) || (j < ah && dy > 0.5f) ? -1 : -2;   /* shadow up and left, the lit lip below */
+            else s = mshade(x + i, y + j) - 1 + (j < h / 3 ? (h / 3 - j) * 4 / (h / 3 + 1) : 0);   /* light falls in from above */
+            gfx_px(f, x + i, y + j, s == -1 ? UI_W(0) : s == -2 ? UI_M(10) : UI_W(s < 1 ? 1 : s > 9 ? 9 : s));
+        }
+}
+
 void ui_rule(Frame *f, int x0, int x1, int y, int orn) {
     int mid = (x0 + x1) / 2;
     for (int x = x0; x <= x1; x++) {

@@ -5,7 +5,7 @@ before PLAN-ai's step 11, and U10 (b), full screens keep the crypt dimmed in a 4
 `claude/gifted-rubin-q8up37` from main (1.0.0b13 with the art pass so far and PLAN-ai's steps 0-10). Step 0 is done (the
 before sheets in `docs/uipass/`). Step 1's sheet was approved by the owner (3 November). Step 2 is built (harness only): every menu, card and the tally
 wear the stone. Step 3 is built (harness only): the Alignment, at the Lampstand and on Tab's fourth page, is the
-approved stone. Step 4 is built (harness only): the cornerstones, the Hexed Totem, ascend and her question of what you were. Like the art pass, it is visual only: nothing in the simulation, the saves or the
+approved stone. Step 4 is built (harness only): the cornerstones, the Hexed Totem, ascend and her question of what you were. Step 5 is built (harness only): Tab's pages, the bestiary and the Codex. Like the art pass, it is visual only: nothing in the simulation, the saves or the
 autopilot's numbers may move.**
 
 ## Decided (3 November 2026)
@@ -375,7 +375,7 @@ Each step committed, pushed and logged at the end of this plan, so it can be han
 3. **The Alignment**, both its screens, from the approved sheet (built).
 4. **Cornerstones, the Totem, ascend, the class**, on the same pattern (built; the Totem and the class with their words
    in a band below, see the log).
-5. **Tab:** the wardrobe and its icons, the caster, the elements, documents; **the bestiary; the Codex.**
+5. **Tab:** the wardrobe and its icons, the caster, the elements, documents; **the bestiary; the Codex.** (built).
 6. **Her hall:** her menu, the Compendium, the Repository, the Portal, the shrine, the bell and font, the ledger, a stone's
    page, the full bag.
 7. **The crypt's:** Esc's question, the L list, the altar, the Black Shrine, the cards, the tally.
@@ -513,3 +513,25 @@ My answer is marked **(mine)**; the owner's take it over.
   cornerstone chosen) give the same `EVENT` lines as step 3's build; ASan clean over those, an overlevel and the Totem with
   nothing to teach; the Windows build compiled and smoke-tested by CI on the branch (run 83). Frames: `docs/uipass/step4-L*.png`. Nothing played by hand. Next: step 5, Tab's wardrobe and pages, the
   bestiary, the Codex.
+- 3 November 2026, step 5: Tab's pages, the bestiary and the Codex. Tab's six pages share a frame (`tab_frame`: the slab,
+  the page's title and its figure across the top, the hint on caps under them, where the hints were, since these pages are
+  full to the foot). *The wardrobe*: the seven worn places as sockets on a figure (the hood, the amulet, the robes at the
+  heart, the bracers either side, the ring on the right hand, the boots), joined by grooves in bone, a held socket's piece
+  drawn in its quality's colour, an anointed one ringed as an ultimate is; the bag's places in a row of small sockets along
+  the well's foot (or *NO BAG*); the portrait in a bevel by the hood; on the right the chosen place large in a socket, its
+  name and what Enter does there, and the piece's card as it was, under a rule. The kit gained seven icons, one for each kind
+  of piece (bracer, boots, amulet, hood, robes, ring, bag), so the sockets aren't empty when nothing is worn. *The caster*, *the
+  elements*: their rows as they were, in a well; the dotted line between the elements' parts a rule. *Documents*: the list in a
+  well on the left, the chosen row lit; the page in a well on the right, the paper and its ink untouched (`UI_PLAIN`). *The
+  bestiary*: the creature stands in an arched niche (`ui_niche`, new: a well with a rounded head, lit a little from above), its
+  ranks as lozenges at the niche's foot, its words in a well beside it and what hurts it in a well across the foot; the
+  achievements in a well with a groove and thumb for the scroll in place of the dots. *The Codex*: `ui_screen` with the
+  entry's name as the title and its place in the part on the right, the part's name under it and the parts as small lozenges
+  at the right of that line (the gold one yours; at 9 px apart they had run under the longest part's name), the keys on caps
+  along the foot. What each key does and every word are as they were. The caster's runes, when more of them are held than the
+  well has room for, stop and tell the fit checks (`caster runes`) rather than run off the stone; none did in the shots.
+  Checked: the fit checks at four palettes find only the tally's line, as before (`tools/uishots.sh` now opens the elements,
+  documents and achievements pages too); a 900 s dream and a person's session through every Tab page, the wardrobe's moves,
+  the bestiary's creatures and ranks, the achievements and the Codex's parts give the same `EVENT` lines as step 4's build;
+  ASan clean over three such sessions (levels 1, 21 and 31). Frames: `docs/uipass/step5-L*.png`. Nothing played by hand.
+  Next: step 6, her hall's menus.

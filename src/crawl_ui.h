@@ -19,6 +19,7 @@ enum { SLAB_LEDGER, SLAB_HEAD, SLAB_TABLET, SLAB_CALM = 16 };   /* CALM: or'ed i
 enum { ORN_NONE, ORN_CANDLE, ORN_PAW, ORN_BONES, ORN_KEY, ORN_ROSE, ORN_EYE, NORN };
 void ui_slab(Frame *f, int x, int y, int w, int h, int kind, int orn, float t);
 void ui_well(Frame *f, int x, int y, int w, int h);
+void ui_niche(Frame *f, int x, int y, int w, int h);       /* a well with an arched top, lit a little from above */
 void ui_rule(Frame *f, int x0, int x1, int y, int orn);
 void ui_orn(Frame *f, int x, int y, int orn, float t);
 void ui_plate(Frame *f, int x, int y, int w, int h);
@@ -49,7 +50,8 @@ enum { IC_EFF, IC_INS, IC_EFF2, IC_INS2, IC_FIRE, IC_FIRESTARTER, IC_INTENSITY, 
       IC_FIREWALL, IC_FROST, IC_DEEPCHILL, IC_PERMAFROST, IC_LANCE, IC_FROSTMASTER, IC_SHATTER, IC_LIGHTNING,
       IC_IONIZATION, IC_LMASTERA, IC_ARC, IC_LMASTERB, IC_AMPERAGE, IC_POISON, IC_SEEP, IC_LINGERING, IC_PLAGUEPIT,
       IC_PMASTER, IC_CONTAGION, IC_SPIRIT, IC_HARVEST, IC_COMMUNION, IC_TETHER, IC_SMASTER, IC_WISPHOST, IC_SPEAR,
-      IC_IMPALE, IC_BONEPLATE, IC_OSSIFIED, IC_PHALANX, IC_PHMASTER, IC_BALLISTA, NICON };
+      IC_IMPALE, IC_BONEPLATE, IC_OSSIFIED, IC_PHALANX, IC_PHMASTER, IC_BALLISTA,
+      IC_BRACER, IC_BOOTS, IC_AMULET, IC_HOOD, IC_ROBES, IC_RING, IC_BAG, NICON };   /* the last seven: the kinds of piece */
 extern const int UI_NODE_ICON[6][10];
 const char *ui_icon_row(int icon, int r);
 const char *ui_icon_name(int icon);

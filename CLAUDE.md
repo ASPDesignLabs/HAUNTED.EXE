@@ -175,7 +175,8 @@ drawn (`src/crawl_ui.c`, `src/ui_art.c`, `tools/uisheet.c`; `docs/uipass/sheet-u
 the floor's and ceiling's ramps for the frame; cards over the live crypt use the run's stone), with the fit checks'
 `UI overflow` lines in the debug build. Step 3 is built (harness only; CI compiled the Windows build): the Alignment at the Lampstand and on Tab's
 fourth page is `ui_tree`, filled by `render_align` from the line's state. Step 4 is built (harness only; CI compiled the Windows build): the cornerstones, the Totem, ascend and the class
-(`ui_screen`, `ui_pane`, `ui_pane_wide`, `ui_socket_mark`). Step 5 (Tab's pages, the bestiary, the Codex) is next.
+(`ui_screen`, `ui_pane`, `ui_pane_wide`, `ui_socket_mark`). Step 5 is built (harness only; CI compiled the Windows build): Tab's pages (`tab_frame`; the wardrobe as sockets on a figure,
+icons for the kinds of piece), the bestiary (`ui_niche`) and the Codex. Step 6 (her hall's menus) is next.
 Its section 10 is the hand-off log: read it first.
 
 ## Working with the owner

@@ -23866,6 +23866,14 @@ static void dim_view(Frame *f) {                                   /* the crypt 
 }
 
 static void panel(Frame *f, int x, int y, int w, int h) { ui_slab(f, x, y, w, h, SLAB_LEDGER | SLAB_CALM, ORN_NONE, G.ui_t); }
+/* a page of Tab's, or the bestiary's (docs/PLAN-ui.md section 6): the slab, its title, a figure at the right, and its keys
+ * on caps under the title, where they were; its wells are the page's own */
+static void tab_frame(Frame *f, const char *title, int title_col, const char *right, int right_col, const char *keys) {
+    ui_slab(f, 4, 4, 312, 192, SLAB_LEDGER, ORN_NONE, G.ui_t);
+    ui_text16(f, 12, 8, title, FACE_INSC, title_col, TX_INLAID, 1);
+    if (right) ui_text8(f, 308 - 8 * (int)strlen(right), 12, right, FACE_INSC, right_col, TX_INLAID);
+    if (keys) ui_keys(f, 15, 27, pk(keys), UI_M(13));
+}
 
 static int stat_over(int st);
 static void eerie_text(Frame *f, int x, int y, const char *s);
@@ -23947,8 +23955,8 @@ static void render_letgo(Frame *f) {
  * blue where what is worn is at its cap; and what each means */
 static void render_elements(Frame *f) {
     const Gear *g = &RUN.gear;
-    gfx_text16(f, 14, 9, "THE ELEMENTS", R_GOLD + 12, 1);
-    hint8(f, 14, 26, "A/D PAGE  TAB CLOSE", R_STONE + 9);
+    tab_frame(f, "THE ELEMENTS", R_GOLD + 12, 0, 0, "A/D PAGE  TAB CLOSE");
+    ui_well(f, 9, 37, 302, 154);
     static const char *const HEAD[3] = { "POWER", "EFFICIENCY", "INSIGHT" };
     static const int HX[3] = { 160, 244, 306 };
     for (int c = 0; c < 3; c++) gfx_text8(f, HX[c] - gfx_text_width(HEAD[c], 1), 42, HEAD[c], R_GOLD + 10, 1);
@@ -23964,7 +23972,7 @@ static void render_elements(Frame *f) {
             gfx_text8(f, HX[c] - gfx_text_width(v, 1), y, v, capped ? (uint8_t)(R_GLOW + 12) : some ? (uint8_t)(R_GOLD + 11) : val[c] > 0.5f ? (uint8_t)(R_STONE + 12) : (uint8_t)(R_STONE + 7), 1);
         }
     }
-    for (int i = 10; i < W - 10; i++) gfx_px(f, i, 129, R_STONE + 5);
+    ui_rule(f, 14, 305, 129, 0);
     text_wrap(f, 14, 134, "POWER: MORE OF ITS DAMAGE. EFFICIENCY: LESS SPIRIT; PHYSICAL'S, NO BONE SPENT. INSIGHT: A SHORTER "
                           "WIND-UP. GOLD: PARTLY WORN. BLUE: WHAT IS WORN IS AT ITS CAP.", 36, R_STONE + 11, 5);
 }
@@ -23985,26 +23993,26 @@ static void render_caster(Frame *f) {
                                 ST_EFFECT, ST_TREASURE, ST_LUCK, ST_VESSEL };   /* twelve down the left, eleven down the right */
     enum { NROWS = sizeof ROWS / sizeof ROWS[0], LEFT = 12 };
     const Gear *g = &RUN.gear, *g0 = &G.inv0;
-    gfx_text16(f, 14, 9, "THE CASTER", R_GOLD + 12, 1);
+    tab_frame(f, "THE CASTER", R_GOLD + 12, 0, 0, "A/D PAGE  TAB CLOSE");
+    ui_well(f, 9, 37, 302, 154);
     {
         char at[24];
         snprintf(at, sizeof at, "ATONEMENT %d", RUN.atone);
-        int ax = 14 + gfx_text_width("THE CASTER", 1) + 10;
-        gfx_text8(f, ax, 13, at, R_PURPLE + 13, 1);
-        if (cls_el() >= 0) class_mark(f, ax + gfx_text_width(at, 1) + 8, 11, cls_el(), 0);   /* what the caster was */
+        int ax = 12 + gfx_text_width("THE CASTER", 1) + 10;
+        gfx_text8(f, ax, 12, at, R_PURPLE + 13, 1);
+        if (cls_el() >= 0) class_mark(f, ax + gfx_text_width(at, 1) + 8, 10, cls_el(), 0);   /* what the caster was */
     }
-    hint8(f, 14, 26, "A/D PAGE  TAB CLOSE", R_STONE + 9);
     {                                                              /* the Cursed Coins, for the shrine */
         char cc[24];
         snprintf(cc, sizeof cc, "%d COIN%s", RUN.coins, RUN.coins == 1 ? "" : "S");
         int cw = gfx_text_width(cc, 1);
-        draw_coin(f, W - 10 - cw - 10, 12);
-        gfx_text8(f, W - 10 - cw, 12, cc, RUN.coins ? (uint8_t)(R_GOLD + 10) : (uint8_t)(R_STONE + 8), 1);
+        draw_coin(f, 308 - cw - 10, 12);
+        gfx_text8(f, 308 - cw, 12, cc, RUN.coins ? (uint8_t)(R_GOLD + 10) : (uint8_t)(R_STONE + 8), 1);
     }
     char v[24], extra[16];
     int capped = 0;
     for (int i = 0; i < NROWS; i++) {                              /* the elements' own are on a page of their own */
-        int st = ROWS[i], x = i < LEFT ? 14 : 162, y = 36 + (i % LEFT) * 8, w = i < LEFT ? 140 : 144;
+        int st = ROWS[i], x = i < LEFT ? 14 : 162, y = 39 + (i % LEFT) * 8, w = i < LEFT ? 140 : 144;
         float t = gear_total(g, st), t0 = gear_total(g0, st), add = 0.0f;
         if (st == ST_MOVE || st == ST_THRIFT) add = fminf(gear_total_raw(g, st) * (gear_ability(g, st == ST_MOVE ? AB_SWIFT : AB_ARCANE, 0) / 100.0f), t);   /* Swiftness, Arcane Knowledge */
         total_text(g, st, v, sizeof v);
@@ -24016,9 +24024,9 @@ static void render_caster(Frame *f) {
         gfx_text8(f, x + w - vw, y, v, c, 1);
         if (add >= 0.5f) { snprintf(extra, sizeof extra, "+%.0f", add); gfx_text8(f, x + w - vw - 4 - gfx_text_width(extra, 1), y, extra, R_GOLD + 11, 1); }
     }
-    if (capped) gfx_text8(f, W - 10 - gfx_text_width("BLUE: AT ITS CAP", 1), 26, "BLUE: AT ITS CAP", R_GLOW + 12, 1);
+    if (capped) gfx_text8(f, 308 - gfx_text_width("BLUE: AT ITS CAP", 1), 27, "BLUE: AT ITS CAP", R_GLOW + 12, 1);
     /* the abilities, summed and capped */
-    int n = 0, y = 133;
+    int n = 0, y = 136;
     for (int ab = 1; ab < NABIL; ab++) {
         float a = gear_ability(g, ab, 0), b = gear_ability(g, ab, 1);
         if (a <= 0.0f) continue;
@@ -24063,7 +24071,7 @@ static void render_caster(Frame *f) {
         any = 1;
         int w = gfx_text_width(DEF_SHORT[k], 1), wt = gfx_text_width(Q_TAG[q - 1], 1);
         if (x + w + 5 + wt > W - 10) { x = 66; y += 9; }
-        if (y > H - 14) break;
+        if (y > H - 17) { ui_overflow("caster runes", DEF_SHORT[k], 1); break; }   /* the well's foot */
         int ramp = QUAL_RAMP[q - 1], cool = G.def_cd[k] > 0.0f;   /* dimmer while it comes round again */
         gfx_text8(f, x, y, DEF_SHORT[k], (uint8_t)(ramp + (cool ? 7 : 12)), 1);
         gfx_text8(f, x + w + 5, y, Q_TAG[q - 1], (uint8_t)(ramp + (cool ? 5 : 9)), 1);
@@ -24085,9 +24093,9 @@ static int doc_wrap(const char *s, int cols0, int cols1, int nfirst, char out[][
     return n;
 }
 static void render_documents(Frame *f) {
-    gfx_text16(f, 14, 9, "DOCUMENTS", R_GOLD + 12, 1);
-    hint8(f, 14, 26, DOCS.n > 1 ? "W/S CHOOSE  A/D PAGE  TAB CLOSE" : "A/D PAGE  TAB CLOSE", R_STONE + 9);
+    tab_frame(f, "DOCUMENTS", R_GOLD + 12, 0, 0, DOCS.n > 1 ? "W/S CHOOSE  A/D PAGE  TAB CLOSE" : "A/D PAGE  TAB CLOSE");
     if (!DOCS.n) {
+        ui_well(f, 9, 37, 302, 154);
         text_wrap(f, 14, 46, "NOTHING READ OR FOUND ON THIS LEVEL. WHAT IS READ WITH E, AND WHAT IS FOUND, IS KEPT HERE UNTIL THE LEVEL ENDS.", 36, R_STONE + 10, 6);
         return;
     }
@@ -24097,12 +24105,14 @@ static void render_documents(Frame *f) {
         char nm[16];
         if (DOCS.d[k].msg) snprintf(nm, sizeof nm, "%s", DOC_SHORT[DOCS.d[k].run & 3]);
         else { snprintf(nm, sizeof nm, "%.12s", DOCS.d[k].where); char *c = strchr(nm, ','); if (c) *c = 0; }
-        if (r == sel) gfx_rect(f, 10, y - 1, 96, 10, R_IRON + 3);
+        if (r == 0) ui_well(f, 9, 37, 99, 154);                     /* the list's well, the page beside it on the slab */
+        if (r == sel) for (int yy = y - 1; yy < y + 9; yy++) for (int x = 11; x < 106; x++) if ((x + yy) & 1) gfx_px(f, x, yy, UI_W(6));
         gfx_text8(f, 14, y, nm, DOCS.d[k].msg ? (uint8_t)(R_GOLD + 11) : r == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 11), 1);
     }
-    const int k = DOCS.n - 1 - sel, px = 112, py = 36, pw = 198, ph = 156;
+    const int k = DOCS.n - 1 - sel, px = 112, py = 36, pw = 198, ph = 154;
     char ln[16][48];
     if (!DOCS.d[k].msg) {                                          /* a clue: where it was read, and what it said */
+        ui_well(f, 110, 37, 201, 154);
         int n = doc_wrap(DOCS.d[k].where, 23, 23, 0, ln, 3), y = py + 4;
         for (int i = 0; i < n; i++, y += 9) gfx_text8(f, px + 4, y, ln[i], R_GOLD + 10, 1);
         y += 5;
@@ -24159,41 +24169,53 @@ static void render_bshrine(Frame *f) {
 static void render_stones(Frame *f, int tabbed);
 static void render_inventory(Frame *f) {
     dim_view(f);
-    panel(f, 4, 4, W - 8, H - 8);
     if (G.inv_page == 2) { render_stones(f, 1); return; }
     if (G.inv_page == 3) { render_align(f, 1); return; }
     if (G.inv_page == 4) { render_elements(f); return; }
     if (G.inv_page == 5) { render_documents(f); return; }
     if (G.inv_page) { render_caster(f); return; }
-    gfx_text16(f, 14, 9, "WARDROBE", R_GOLD + 12, 1);
-    hint8(f, 14, 26, "W/S PICK  ENTER MOVE  A/D PAGE", R_STONE + 9);
-    bevel(f, 274, 8, 38, 46, 0);
-    draw_face(f, 277, 11, 0);
+    /* the wardrobe (section 6.1): the seven worn as sockets on a carved figure, the bag's places under it, the piece in the pane */
+    static const int KIND_ICON[NIK] = { -1, IC_BRACER, IC_BOOTS, IC_AMULET, IC_HOOD, IC_ROBES, IC_RING, IC_BAG };
+    static const int SLOT_KIND[NSLOT] = { IK_WRIST, IK_WRIST, IK_BOOTS, IK_NECK, IK_HOOD, IK_ROBE, IK_RING };
+    static const int SX[NSLOT] = { 32, 108, 70, 70, 70, 70, 124 }, SY[NSLOT] = { 104, 104, 152, 76, 52, 104, 130 };
     const Gear *g = &RUN.gear;
     int n = inv_rows(), sel = G.ui_sel < n ? G.ui_sel : n - 1;
-    for (int r = 0; r < n; r++) {
-        int y = r < NSLOT ? 40 + r * 10 : 124 + (r - NSLOT) * 10;
-        const Piece *p = inv_piece(r);
-        char nm[24];
-        if (r < NSLOT) snprintf(nm, sizeof nm, "%s", SLOT_NAME[r]);
-        else snprintf(nm, sizeof nm, "%s", p->kind ? KIND_NAME[p->kind] : "-");
-        if (r == sel) gfx_rect(f, 10, y - 1, 102, 10, R_IRON + 3);
-        int col = p->kind ? qual_text(p->quality) : R_STONE + 7;
-        gfx_text8(f, 14, y, nm, col, 1);
-        if (p->anointed) gfx_glyph8(f, 14 + gfx_text_width(nm, 1), y, '*', R_GOLD + 12, -1, 1);
-    }
     char line[48];
-    if (g->bag_size) snprintf(line, sizeof line, "BAG %d/%d", g->bag_size - gear_bag_free(g), g->bag_size);
-    else snprintf(line, sizeof line, "NO BAG");
-    gfx_text8(f, 14, 113, line, R_GOLD + 10, 1);
-    /* the selected piece */
+    if (g->bag_size) snprintf(line, sizeof line, "BAG %d/%d", g->bag_size - gear_bag_free(g), g->bag_size); else snprintf(line, sizeof line, "NO BAG");
+    tab_frame(f, "WARDROBE", R_GOLD + 12, line, R_GOLD + 10, "W/S PICK  ENTER MOVE  A/D PAGE");
+    ui_well(f, 9, 37, 150, 154);
+    ui_well(f, 163, 37, 148, 154);
+    bevel(f, 118, 40, 38, 46, 0);                                  /* the hood frames the face */
+    draw_face(f, 121, 43, 0);
+    static const int UP[NSLOT] = { SL_ROBE, SL_ROBE, SL_ROBE, SL_HOOD, -1, SL_NECK, SL_WRIST_R };   /* the figure's grooves */
+    for (int r = 0; r < NSLOT; r++) {
+        int u = UP[r];
+        if (u < 0) continue;
+        int dx = SX[r] - SX[u], dy = SY[r] - SY[u];
+        float len = sqrtf((float)(dx * dx + dy * dy));
+        int ox = (int)(dx / len * 11.0f), oy = (int)(dy / len * 11.0f);
+        ui_groove(f, SX[u] + ox, SY[u] + oy, SX[r] - ox, SY[r] - oy, R_BONE, g->worn[r].kind && g->worn[u].kind ? 1.0f : 0.0f);
+    }
+    for (int r = 0; r < n; r++) {
+        const Piece *p = inv_piece(r);
+        int worn = r < NSLOT, kind = p->kind ? p->kind : worn ? SLOT_KIND[r] : IK_NONE;
+        int cx = worn ? SX[r] : 24 + (r - NSLOT) * 20, cy = worn ? SY[r] : 176, rad = worn ? 10 : 7;
+        int ramp = p->kind ? QUAL_RAMP[p->quality] : R_BONE;
+        ui_socket(f, cx, cy, rad, worn || p->kind ? KIND_ICON[kind] : -1, ramp, p->kind ? SK_HELD : SK_REACH, r == sel, p->kind && p->anointed, G.ui_t);
+    }
+    if (!g->bag_size) ui_text8(f, 16, 172, "NO BAG", FACE_BODY, UI_M(9), TX_PLAIN);
+    /* the pane: the slot, what Enter does, the piece's card */
+    const Piece *p = inv_piece(sel);
+    int kind = p->kind ? p->kind : sel < NSLOT ? SLOT_KIND[sel] : IK_NONE;
+    ui_socket(f, 186, 62, 19, kind ? KIND_ICON[kind] : -1, p->kind ? QUAL_RAMP[p->quality] : R_BONE, p->kind ? SK_HELD : SK_REACH, 0, p->kind && p->anointed, G.ui_t);
     snprintf(line, sizeof line, "%s", sel < NSLOT ? SLOT_NAME[sel] : "IN THE BAG");
-    gfx_text8(f, 120, 40, line, R_STONE + 10, 1);
+    ui_wrap(f, 210, 46, line, 12, 9, 2, FACE_INSC, UI_M(13), TX_INLAID);
     static const char *const WHY[] = { "", "NOTHING THERE", "NO BAG TO HOLD IT", "THE BAG IS FULL" };
     int act = inv_action(sel);
     const char *what = act == INV_TO_BAG ? "ENTER: INTO THE BAG" : (act == INV_TO_WEAR ? "ENTER: WEAR IT" : WHY[-act]);
-    hint8(f, 120, 49, what, act > 0 ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 8));
-    piece_card(f, 120, 62, W - 10 - 120, inv_piece(sel), g, &G.inv0);
+    ui_wrap(f, 210, 66, pkp(what), 12, 9, 2, FACE_BODY, act > 0 ? R_GOLD + 11 : UI_M(9), TX_INLAID);
+    ui_rule(f, 168, 305, 87, 0);
+    piece_card(f, 168, 92, 138, p, g, &G.inv0);
 }
 
 /* Esc: the crypt makes its case for staying */
@@ -24642,20 +24664,16 @@ static void update_bestiary(void) {
 
 static void render_bestiary(Frame *f) {
     dim_view(f);
-    panel(f, 4, 4, W - 8, H - 8);
     int order[NKINDS], nk = best_kinds(order), pages = nk + 1;
-    char line[64];
-    gfx_text16(f, 14, 9, G.best_page < nk ? "BESTIARY" : "ACHIEVEMENTS", R_GOLD + 12, 1);
-    hint8(f, 14, 26, G.best_page < nk ? "A/D CREATURE  W/S RANK  B CLOSE" : "A/D PAGE  W/S SCROLL  B CLOSE", R_STONE + 9);
-    snprintf(line, sizeof line, "%d / %d", G.best_page + 1, pages);
-    if (G.best_page < nk) gfx_text8(f, W - 14 - gfx_text_width(line, 1), 13, line, R_STONE + 11, 1);
+    static char line[64];
     const Record *r = &RUN.rec;
     if (G.best_page >= nk) {                                       /* the achievements, earned and not */
         static AchLine L[256];
         int n = ach_lines(L, 256), got = 0;
         for (int i = 0; i < n; i++) got += L[i].done;
         snprintf(line, sizeof line, "%d OF %d EARNED", got, n);    /* in the page count's place: it is the last page */
-        gfx_text8(f, W - 14 - gfx_text_width(line, 1), 13, line, R_GOLD + 10, 1);
+        tab_frame(f, "ACHIEVEMENTS", R_GOLD + 12, line, R_GOLD + 10, "A/D PAGE  W/S SCROLL  B CLOSE");
+        ui_well(f, 9, 37, 302, 154);
         for (int i = 0; i < ACH_ROWS && G.best_scroll + i < n; i++) {
             const AchLine *l = &L[G.best_scroll + i];
             int y = 40 + i * 10;
@@ -24663,15 +24681,20 @@ static void render_bestiary(Frame *f) {
             gfx_text8(f, 26, y, l->title, l->done ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + (l->known ? 11 : 8)), 1);
             gfx_text8(f, W - 14 - gfx_text_width(l->prog, 1), y, l->prog, l->done ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 10), 1);
         }
-        if (n > ACH_ROWS) {                                        /* where in the list */
-            int bar = 150 * ACH_ROWS / n, at = 150 * G.best_scroll / n;
-            for (int y = 0; y < bar; y++) gfx_px(f, W - 8, 40 + at + y, R_STONE + 9);
+        if (n > ACH_ROWS) {                                        /* where in the list: a groove and its thumb */
+            int bar = 148 * ACH_ROWS / n, at = 148 * G.best_scroll / n;
+            for (int y = 0; y < 148; y++) { gfx_px(f, 307, 40 + y, UI_W(0)); gfx_px(f, 308, 40 + y, UI_M(10)); }
+            for (int y = 0; y < bar; y++) { gfx_px(f, 307, 40 + at + y, UI_M(12)); gfx_px(f, 308, 40 + at + y, UI_M(6)); }
         }
         return;
     }
+    snprintf(line, sizeof line, "%d / %d", G.best_page + 1, pages);
+    tab_frame(f, "BESTIARY", R_GOLD + 12, line, UI_M(11), "A/D CREATURE  W/S RANK  B CLOSE");
     int k = order[G.best_page], met = kind_met(k), seen = r->seen[k] >> G.best_rank & 1 || r->kills[k][G.best_rank] > 0;
     int spirit = (KINDS[k].flags & KF_SPIRIT) != 0;                /* the spectre and the Wraith: no rank, and nothing kills them */
-    bevel(f, 12, 38, 104, 104, 0);
+    ui_niche(f, 12, 38, 104, 104);                                /* it stands in a niche, lit from above */
+    ui_well(f, 120, 37, 191, 106);
+    ui_well(f, 9, 146, 302, 45);
     const uint8_t *lut = KINDS[k].family >= 0 && G.best_rank != RK_I ? crawl_rank_lut[KINDS[k].family][G.best_rank] : NULL;
     /* it walks on the spot and turns about: towards you, its right side, towards you, its left */
     float ph = fmodf(G.ui_t, 6.4f);
@@ -24686,8 +24709,15 @@ static void render_bestiary(Frame *f) {
     gfx_text8(f, x0, 57, line, seen || spirit ? (uint8_t)RANK_COL[G.best_rank] : (uint8_t)(R_STONE + 8), 1);
     if (met) text_wrap(f, x0, 70, KINDS[k].lore, 23, R_STONE + 12, 4);
     else text_wrap(f, x0, 70, "NOT YET MET. IT IS DOWN THERE SOMEWHERE.", 23, R_STONE + 8, 4);
-    /* slain, rank by rank, against what each achievement asks */
+    /* slain, rank by rank, against what each achievement asks; its ranks as lozenges at the niche's foot, the one shown lit */
     int rk[NRANK], nr = kind_ranks(k, rk);
+    if (!spirit) for (int j = 0; j < nr; j++) {
+        int lx = 64 - nr * 6 + j * 12, on = rk[j] == G.best_rank, ly = 135;
+        for (int d = 0; d < 4; d++) for (int q = -d; q <= d; q++) {
+            uint8_t c = on ? (uint8_t)RANK_COL[rk[j]] : UI_W(d == 3 || abs(q) == d ? 0 : 3);
+            gfx_px(f, lx + q, ly - 3 + d, c); gfx_px(f, lx + q, ly + 3 - d, c);
+        }
+    }
     gfx_text8(f, x0, 108, "SLAIN", R_GOLD + 10, 1);
     if (spirit) gfx_text8(f, x0 + 48, 108, "IT CANNOT BE", R_STONE + 9, 1);
     else for (int j = 0; j < nr; j++) {
@@ -24698,7 +24728,6 @@ static void render_bestiary(Frame *f) {
     }
     /* what hurts it and what it does, in glyphs (docs/PLAN-b11.md, section 2): each element learnt from five
      * kills or twelve hits, each harm from three times it has hurt you */
-    for (int i = 10; i < W - 10; i++) gfx_px(f, i, 147, R_STONE + 5);
     gfx_text8(f, 14, 151, "WHAT HURTS IT", R_GOLD + 10, 1);
     if (spirit) { gfx_text8(f, 14, 161, "NOTHING YOU CARRY TOUCHES IT", R_STONE + 11, 1); return; }
     static const char *const ROW[4] = { "MORE", "LESS", "AS USUAL", "NOT LEARNT" };
@@ -25126,11 +25155,9 @@ static void render_codex(Frame *f) {
     int n = codex_entries(e), pg = clampi(G.cx_page, 0, n - 1);
     const CxEntry *c = &e[pg];
     dim_view(f);
-    panel(f, 4, 4, W - 8, H - 8);
     char line[240], name[48];
-    gfx_text8(f, 14, 10, CX_PART[c->sec], R_STONE + 10, 1);
-    snprintf(line, sizeof line, "%d OF %d", pg + 1, n);
-    gfx_text8(f, W - 14 - gfx_text_width(line, 1), 10, line, R_STONE + 10, 1);
+    static char count[24];
+    snprintf(count, sizeof count, "%d OF %d", pg + 1, n);
     switch (c->sec) {
     case CX_ABIL: snprintf(name, sizeof name, "%s", ABIL_NAME[c->i]); break;
     case CX_RUNE: snprintf(name, sizeof name, "%s", DEF_NAME[c->i]); break;
@@ -25151,7 +25178,20 @@ static void render_codex(Frame *f) {
                                                     : CS_NAME[clampi(c->i - CXC_CORNER, 0, NCS - 1)]); break;
     default: snprintf(name, sizeof name, "HER CLAIM"); break;
     }
-    gfx_text16(f, 14, 21, name, R_GOLD + 12, 1);
+    /* the stone (docs/PLAN-ui.md section 6.2): the entry's name across the top, its part and the parts as lozenges, the page in a well */
+    ui_screen(f, name, R_GOLD + 12, count, UI_M(11), 0, G.ui_t);
+    gfx_text8(f, 14, 31, CX_PART[c->sec], R_STONE + 10, 1);
+    {
+        int has[NCX] = { 0 };
+        for (int i = 0; i < n; i++) has[e[i].sec] = 1;
+        for (int sct = 0; sct < NCX; sct++) {                       /* small, so the longest part's name (to x 230) clears them */
+            int lx = 305 - (NCX - 1 - sct) * 5, ly = 34, on = sct == c->sec;
+            for (int d = 0; d < 2; d++) for (int q = -d; q <= d; q++) {
+                uint8_t col = on ? (uint8_t)(R_GOLD + 12) : has[sct] ? UI_M(9) : UI_W(1);
+                gfx_px(f, lx + q, ly - 1 + d, col); gfx_px(f, lx + q, ly + 1 - d, col);
+            }
+        }
+    }
     int y = 40;
     const Gear *g = &RUN.gear;
     switch (c->sec) {
@@ -25381,7 +25421,8 @@ static void render_codex(Frame *f) {
                   "TO A HALF OF YOUR GOLD, AND ONE THING YOU WEAR OR THE LAST NODE BOUGHT IN A LINE. WHATEVER YOU MEANT BY IT.", 36, R_STONE + 13, 15);
         break;
     }
-    hint8(f, 14, H - 18, "A/D PAGES  W/S PARTS  C CLOSES", R_STONE + 9);
+    const char *keys = pk("A/D PAGES  W/S PARTS  C CLOSES");
+    ui_keys(f, 160 - ui_keys_width(keys) / 2, 183, keys, UI_M(13));
 }
 
 /* the Hexed Totem's stone (docs/PLAN-ui.md section 6.1): a row a boss in a well across the top, its mark, its three ranks as
