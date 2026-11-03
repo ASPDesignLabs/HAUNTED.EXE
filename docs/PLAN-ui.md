@@ -5,7 +5,7 @@ before PLAN-ai's step 11, and U10 (b), full screens keep the crypt dimmed in a 4
 `claude/gifted-rubin-q8up37` from main (1.0.0b13 with the art pass so far and PLAN-ai's steps 0-10). Step 0 is done (the
 before sheets in `docs/uipass/`). Step 1's sheet was approved by the owner (3 November). Step 2 is built (harness only): every menu, card and the tally
 wear the stone. Step 3 is built (harness only): the Alignment, at the Lampstand and on Tab's fourth page, is the
-approved stone. Like the art pass, it is visual only: nothing in the simulation, the saves or the
+approved stone. Step 4 is built (harness only): the cornerstones, the Hexed Totem, ascend and her question of what you were. Like the art pass, it is visual only: nothing in the simulation, the saves or the
 autopilot's numbers may move.**
 
 ## Decided (3 November 2026)
@@ -373,7 +373,8 @@ Each step committed, pushed and logged at the end of this plan, so it can be han
 2. **The kit and the faces in the game** (built). `crawl_ui.c`, `font_ui.c`, the palette borrowed while a menu is up, `panel` and
    `card_box` rerouted to `ui_slab`: every menu wears the marble at once, laid as it is today. The fit checks.
 3. **The Alignment**, both its screens, from the approved sheet (built).
-4. **Cornerstones, the Totem, ascend, the class**, on the same pattern.
+4. **Cornerstones, the Totem, ascend, the class**, on the same pattern (built; the Totem and the class with their words
+   in a band below, see the log).
 5. **Tab:** the wardrobe and its icons, the caster, the elements, documents; **the bestiary; the Codex.**
 6. **Her hall:** her menu, the Compendium, the Repository, the Portal, the shrine, the bell and font, the ledger, a stone's
    page, the full bag.
@@ -487,3 +488,28 @@ My answer is marked **(mine)**; the owner's take it over.
   as step 2's build; ASan clean over that session and 200 s of the dream from level 21; the Windows build compiled and smoke-tested by CI on
   the branch (run 82, started by hand). Frames: `docs/uipass/step3-L*.png`
   (`lamp` and `alignment`). Nothing played by hand. Next: step 4, the cornerstones, the Totem, ascend and the class.
+- 3 November 2026, step 4: the cornerstones, the Totem, ascend and the class. The kit gained `ui_screen` (the slab, a title
+  and a figure across the top, a well and the pane's well from a split), `ui_pane` (the pane taken out of `ui_tree`, which
+  now uses it; its width sets its columns; a name with a word too long to sit beside the socket goes under it), its wide
+  form `ui_pane_wide` (a band across the stone: the mark, the name, the kind on the same line when it fits, the cost at the
+  right), `ui_socket_mark` and `ui_mark` (the game's own marks, cut or inlaid like the icons, doubled when the socket has
+  room) and `UI_LMARK` (eleven seven-square marks for ascend's lines; the five resists take the elements' glyphs). No new
+  art otherwise: the sockets hold the marks the screens had (`CS_MARK`, `BA_MARK`, `CLASS_MARK`). *Cornerstones* (`UI_STONES`
+  and Tab's third page): five sockets down a carved bow in a narrow well, their groove lit between two held, the pane wide
+  (227 px) since their words run to 140 letters; the state on the cost line (YOURS, ENTER CHOOSES IT, NEEDS THE MAP, AT
+  ATONEMENT n), Second Wind spent told at the foot, the asking twice in the description's place. *Ascend*: the sixteen lines
+  down the left, nine pixels apart (they had been eight, drawn over one another), each its mark (the dead's eye once
+  overlevelled), a dot for a step bought this visit, a scroll's groove and thumb; the pane the line's cost, what is yours,
+  what it does, and its total with the next step's worth; an overlevel's word or a warning stands in for what it does, as it
+  did; the EXP line drops the next level's need once the figures reach the millions. *The Totem* and *the class* depart
+  from the plan's left and right, my choice, since their words would not fit a pane at the side: Tangled Web's next rank
+  with whose scrip it wants is twelve lines at nineteen columns, a past and its gifts over thirty. The Totem: its four
+  abilities in rows across a well at the top (the mark, the name, three rank sockets along a groove, the scrip held, a SELL tag
+  lit while A/D has the sale), an ability not yet won dim with NOT FALLEN; under them the band. The class: the six marks
+  in medallions across the top (the one you are inlaid, the chosen glowing), the past's name in the title's band, its
+  story and gifts across a well. Keys and what each does are as they were. Checked: the fit checks find nothing new at four
+  palettes (`tools/uishots.sh` now opens the class question too, and gives the Totem scrip); a 900 s dream and a person's
+  sessions (ascending and buying steps, another past for five coins, a rank raised and scrip sold at the Totem, a
+  cornerstone chosen) give the same `EVENT` lines as step 3's build; ASan clean over those, an overlevel and the Totem with
+  nothing to teach. Frames: `docs/uipass/step4-L*.png`. Nothing played by hand. Next: step 5, Tab's wardrobe and pages, the
+  bestiary, the Codex.

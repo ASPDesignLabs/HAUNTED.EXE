@@ -371,13 +371,33 @@ void ui_icon(Frame *f, int x, int y, int icon, int ramp, int mode, int sc) {
         }
 }
 
+void ui_mark(Frame *f, int x, int y, const char *const *mark, int ramp, int mode, int sc) {
+    if (!mark || !mark[0]) return;
+    static const int CUT[2] = { 9, 12 }, DIM[2] = { 6, 9 }, INL[2] = { 11, 15 }, HALF[2] = { 8, 11 };
+    int top = ramp == R_GOLD ? 12 : 15, n = (int)strlen(mark[0]);
+    for (int r = 0; r < n; r++) for (int c = 0; mark[r][c]; c++) {
+        char ch = mark[r][c];
+        if (ch != '#' && ch != 'o') continue;
+        int k = ch == 'o';
+        uint8_t col = mode == IM_CUT ? UI_M(CUT[k]) : mode == IM_DIM ? UI_M(DIM[k]) : mode == IM_GLOW ? (uint8_t)(ramp + (k ? 9 : 6))
+                    : mode == IM_HALF ? (uint8_t)(ramp + HALF[k]) : (uint8_t)(ramp + (INL[k] > top ? top : INL[k]));
+        if (mode == IM_CUT || mode == IM_DIM) gfx_rect(f, x + c * sc + sc, y + r * sc + sc, sc, sc, UI_M(1));   /* cut: its shadow */
+        gfx_rect(f, x + c * sc, y + r * sc, sc, sc, col);
+    }
+}
+
 static int chamfer_in(int i, int j, int s, int c) {         /* inside a square of side s with its corners cut by c */
     if (i < 0 || j < 0 || i >= s || j >= s) return 0;
     int a = i < c ? c - i : i >= s - c ? i - (s - 1 - c) : 0, b = j < c ? c - j : j >= s - c ? j - (s - 1 - c) : 0;
     return a + b <= c;
 }
 
-void ui_socket(Frame *f, int cx, int cy, int r, int icon, int ramp, int state, int sel, int ult, float t) {
+static void socket_ex(Frame *f, int cx, int cy, int r, int icon, const char *const *mark, int ramp, int state, int sel, int ult, float t);
+void ui_socket(Frame *f, int cx, int cy, int r, int icon, int ramp, int state, int sel, int ult, float t) { socket_ex(f, cx, cy, r, icon, 0, ramp, state, sel, ult, t); }
+void ui_socket_mark(Frame *f, int cx, int cy, int r, const char *const *mark, int ramp, int state, int sel, int ult, float t) {
+    socket_ex(f, cx, cy, r, -1, mark, ramp, state, sel, ult, t);
+}
+static void socket_ex(Frame *f, int cx, int cy, int r, int icon, const char *const *mark, int ramp, int state, int sel, int ult, float t) {
     int s = r * 2, x0 = cx - r, y0 = cy - r, c = r / 3 + 1;
     float br = 0.5f + 0.5f * sinf(t * 3.2f);
     int top = ramp == R_GOLD ? 12 : 15;
@@ -413,7 +433,10 @@ void ui_socket(Frame *f, int cx, int cy, int r, int icon, int ramp, int state, i
     int sc = s >= 34 ? 2 : 1, iw = 16 * sc;
     int mode = state == SK_HELD ? IM_INLAID : state == SK_PART ? IM_HALF : state == SK_READY ? IM_GLOW : state == SK_CLOSED ? IM_DIM
              : state == SK_REACH ? IM_DIM : IM_CUT;
-    ui_icon(f, cx - iw / 2, cy - iw / 2, icon, ramp, mode, sc);
+    if (mark) {                                                    /* a mark of the game's own, doubled when it fits */
+        int n = (int)strlen(mark[0]), ms = n * 2 <= s - 4 ? 2 : 1;
+        ui_mark(f, cx - n * ms / 2, cy - n * ms / 2, mark, ramp, mode, ms);
+    } else ui_icon(f, cx - iw / 2, cy - iw / 2, icon, ramp, mode, sc);
     if (state == SK_CLOSED) {                                          /* cracked across, a chain over the socket */
         for (int i = 1; i < s - 1; i++) {
             int yy = cy - 1 + ((i / 3) & 1);
@@ -521,31 +544,89 @@ void ui_tree(Frame *f, const UiTree *tr) {
             }
         }
     }
-    /* the pane: the chosen node, large; its name and kind; its cost; what it does; its state */
+    /* the pane: the chosen node */
     const UiNode *nd = &tr->n[tr->sel < 0 || tr->sel > 9 ? 0 : tr->sel];
     int m = tr->sel;
-    int icon = UI_NODE_ICON[tr->elem][m];
-    ui_socket(f, 199, 53, 19, icon, tr->ramp, nd->state, 0, 0, t);
-    int nl = ui_wrap_count(nd->name, 10);                          /* ten letters: the eleventh would touch the well's lip */
-    ui_wrap(f, 222, nl > 1 ? 36 : 40, nd->name, 10, 9, 2, FACE_INSC, tr->ramp + (tr->ramp == R_GOLD ? 12 : 14), TX_INLAID);
-    if (nl > 2) ui_overflow("tree name", nd->name, nl - 2);
-    ui_text8(f, 222, 56, nd->kind, FACE_BODY, UI_M(10), TX_PLAIN);
     if (nd->state == SK_HELD) snprintf(b, sizeof b, "YOURS");
     else if (nd->cost > 1 && nd->got > 0) snprintf(b, sizeof b, "%d OF %d POINTS", nd->got, nd->cost);
     else snprintf(b, sizeof b, "%d POINT%s", nd->cost, nd->cost == 1 ? "" : "S");
-    ui_text8(f, 182, 74, b, FACE_INSC, nd->state == SK_HELD ? R_GOLD + 12 : R_GOLD + 10, TX_INLAID);
-    ui_rule(f, 182, 304, 85, 0);
-    if (tr->warn) {                                                /* a warning stands in the description's place, as it always has */
-        int need = ui_wrap_count(tr->warn, 16);
-        ui_wrap(f, 182, 90, tr->warn, 16, 9, 9, FACE_BODY, R_GOLD + 12, TX_INLAID);
-        if (need > 9) ui_overflow("tree warning", tr->warn, need - 9);
-    } else {
-        const char *foot = nd->note;
-        int fl = foot ? ui_wrap_count(foot, 16) : 0, fy = 176 - fl * 9;
-        int dl = (fy - 3 - 90) / 9, need = ui_wrap_count(nd->does, 16);
-        ui_wrap(f, 182, 90, nd->does, 16, 9, dl, FACE_BODY, UI_M(14), TX_INLAID);
-        if (need > dl) ui_overflow("tree", nd->name, need - dl);
-        if (foot) ui_wrap(f, 182, fy, foot, 16, 9, fl, FACE_BODY, UI_M(11), TX_INLAID);
-    }
+    UiPane pn = { UI_NODE_ICON[tr->elem][m], 0, tr->ramp, nd->state, 0, nd->name, nd->kind, b, nd->state == SK_HELD ? R_GOLD + 12 : R_GOLD + 10,
+                  nd->does, 0, 0, nd->note, tr->warn, 0 };
+    ui_pane(f, 176, 28, 135, 152, &pn, t);
     if (tr->keys) ui_keys(f, 160 - ui_keys_width(tr->keys) / 2, 183, tr->keys, UI_M(13));
 }
+
+/* ---- a screen and its pane ---- */
+
+void ui_screen(Frame *f, const char *title, int title_col, const char *right, int right_col, int split, float t) {
+    ui_slab(f, 4, 4, 312, 192, SLAB_LEDGER, ORN_NONE, t);
+    if (title) ui_text16(f, 12, 8, title, FACE_INSC, title_col, TX_INLAID, 1);
+    if (right) ui_text8(f, 308 - 8 * (int)strlen(right), 12, right, FACE_INSC, right_col, TX_INLAID);
+    if (split > 0) { ui_well(f, 9, 28, split - 13, 152); ui_well(f, split, 28, 311 - split, 152); }
+    else ui_well(f, 9, 28, 302, 152);
+}
+
+static int longest_word(const char *s) {
+    int best = 0, run = 0;
+    for (; *s; s++) { run = *s == ' ' ? 0 : run + 1; if (run > best) best = run; }
+    return best;
+}
+
+void ui_pane(Frame *f, int x, int y, int w, int h, const UiPane *p, float t) {
+    int cols = (w - 7) / 8, ncols = (w - 55) / 8, lx = x + 6;
+    int col = p->ramp + (p->ramp == R_GOLD ? 12 : 14);
+    socket_ex(f, x + 23, y + 25, 19, p->icon, p->mark, p->ramp, p->state, 0, p->ult, t);
+    int under = longest_word(p->name) > ncols, dy = 0;               /* a long word: the name goes under the socket, full width */
+    if (!under) {
+        int nl = ui_wrap_count(p->name, ncols);
+        ui_wrap(f, x + 46, nl > 1 ? y + 8 : y + 12, p->name, ncols, 9, 2, FACE_INSC, col, TX_INLAID);
+        if (nl > 2) ui_overflow("pane name", p->name, nl - 2);
+        if (p->kind) ui_text8(f, x + 46, y + 28, p->kind, FACE_BODY, UI_M(10), TX_PLAIN);
+    } else {
+        if (p->kind) ui_text8(f, x + 46, y + 20, p->kind, FACE_BODY, UI_M(10), TX_PLAIN);
+        int nl = ui_wrap(f, lx, y + 47, p->name, cols, 9, 2, FACE_INSC, col, TX_INLAID);
+        dy = nl * 9 + 1;
+    }
+    if (p->cost) ui_text8(f, lx, y + 46 + dy, p->cost, FACE_INSC, p->cost_col ? p->cost_col : R_GOLD + 10, TX_INLAID);
+    ui_rule(f, lx, x + w - 7, y + 57 + dy, 0);
+    int top = y + 62 + dy, bottom = y + h - 4;
+    if (p->warn) {                                                    /* a warning stands in the description's place */
+        int lines = (bottom - top) / 9, need = ui_wrap_count(p->warn, cols);
+        ui_wrap(f, lx, top, p->warn, cols, 9, lines, FACE_BODY, p->warn_col ? p->warn_col : R_GOLD + 12, TX_INLAID);
+        if (need > lines) ui_overflow("pane warning", p->warn, need - lines);
+        return;
+    }
+    int fl = p->note ? ui_wrap_count(p->note, cols) : 0, fy = bottom - fl * 9;
+    int el = p->extra ? ui_wrap_count(p->extra, cols) : 0, ey = el ? fy - (fl ? 3 : 0) - el * 9 : fy;
+    int dl = (ey - 3 - top) / 9, need = p->does ? ui_wrap_count(p->does, cols) : 0;
+    if (p->does) ui_wrap(f, lx, top, p->does, cols, 9, dl, FACE_BODY, UI_M(14), TX_INLAID);
+    if (need > dl) ui_overflow("pane", p->name, need - dl);
+    if (p->extra) ui_wrap(f, lx, ey, p->extra, cols, 9, el, FACE_BODY, p->extra_col ? p->extra_col : UI_M(12), TX_INLAID);
+    if (p->note) ui_wrap(f, lx, fy, p->note, cols, 9, fl, FACE_BODY, UI_M(11), TX_INLAID);
+}
+
+void ui_pane_wide(Frame *f, int x, int y, int w, int h, const UiPane *p) {
+    int cols = (w - 12) / 8, lx = x + 6;
+    int col = p->ramp + (p->ramp == R_GOLD ? 12 : 14);
+    if (p->mark) ui_mark(f, lx, y + 5, p->mark, p->ramp, p->state == SK_HELD || p->state == SK_PART ? IM_INLAID : IM_CUT, 1);
+    int nx = p->mark ? lx + 16 : lx;
+    if (p->name) ui_text8(f, nx, y + 5, p->name, FACE_INSC, col, TX_INLAID);
+    if (p->cost) ui_text8(f, x + w - 6 - 8 * (int)strlen(p->cost), y + 5, p->cost, FACE_INSC, p->cost_col ? p->cost_col : R_GOLD + 10, TX_INLAID);
+    int nlen = p->name ? (int)strlen(p->name) : 0, klen = p->kind ? (int)strlen(p->kind) : 0, clen = p->cost ? (int)strlen(p->cost) : 0;
+    int one = !p->kind || nx + 8 * (nlen + 1 + klen + 1 + clen) <= x + w - 6, hy = one ? 0 : 10;   /* the kind on the name's line if it fits */
+    if (p->kind) ui_text8(f, one ? nx + 8 * (nlen + 1) : nx, y + 5 + hy, p->kind, FACE_BODY, UI_M(10), TX_PLAIN);
+    ui_rule(f, lx, x + w - 7, y + 15 + hy, 0);
+    int top = y + 20 + hy, bottom = y + h - 4;
+    if (p->warn) {
+        int lines = (bottom - top) / 9, need = ui_wrap_count(p->warn, cols);
+        ui_wrap(f, lx, top, p->warn, cols, 9, lines, FACE_BODY, p->warn_col ? p->warn_col : R_GOLD + 12, TX_INLAID);
+        if (need > lines) ui_overflow("pane warning", p->warn, need - lines);
+        return;
+    }
+    int fl = p->note ? ui_wrap_count(p->note, cols) : 0, fy = bottom - fl * 9;
+    int dl = (fy - (fl ? 3 : 0) - top) / 9, need = p->does ? ui_wrap_count(p->does, cols) : 0;
+    if (p->does) ui_wrap(f, lx, top, p->does, cols, 9, dl, FACE_BODY, UI_M(14), TX_INLAID);
+    if (need > dl) ui_overflow("pane", p->name ? p->name : "?", need - dl);
+    if (p->note) ui_wrap(f, lx, fy, p->note, cols, 9, fl, FACE_BODY, UI_M(11), TX_INLAID);
+}
+

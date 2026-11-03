@@ -59,6 +59,31 @@ void ui_icon(Frame *f, int x, int y, int icon, int ramp, int mode, int scale);
 /* a socket and its states (section 5.3) */
 enum { SK_REACH, SK_READY, SK_SHORT, SK_PART, SK_HELD, SK_CLOSED };
 void ui_socket(Frame *f, int cx, int cy, int r, int icon, int ramp, int state, int sel, int ult, float t);
+/* the same with a mark of the game's own in it (rows of '#' and 'o', 7 or 11 square), twice its size when there is room */
+void ui_socket_mark(Frame *f, int cx, int cy, int r, const char *const *mark, int ramp, int state, int sel, int ult, float t);
+void ui_mark(Frame *f, int x, int y, const char *const *mark, int ramp, int mode, int scale);
+extern const char *const UI_LMARK[11][7];         /* the caster's lines' small marks (ui_art.c), by UI_LM_* */
+enum { UI_LM_HEALTH, UI_LM_DAMAGE, UI_LM_RESIST, UI_LM_HASTE, UI_LM_DODGE, UI_LM_TREASURE, UI_LM_MOVE, UI_LM_LUCK,
+       UI_LM_ATTUNE, UI_LM_SPRINT, UI_LM_PHYSIC };
+
+/* a screen of the kit's: the slab, a title across the top and a figure at its right, a well on the left and the pane's
+ * well from split on (split 0: one well across) */
+void ui_screen(Frame *f, const char *title, int title_col, const char *right, int right_col, int split, float t);
+/* the pane (section 5.1): the chosen thing large in its socket, its name and kind, a cost line, what it does, a figure of its
+ * own, its note at the foot; a warning takes the description's place */
+typedef struct {
+    int icon;                                      /* an icon, or -1 and a mark */
+    const char *const *mark;
+    int ramp, state, ult;
+    const char *name, *kind, *cost;
+    int cost_col;                                  /* 0: gold */
+    const char *does;
+    const char *extra; int extra_col;              /* a line or two under what it does, or 0 */
+    const char *note, *warn;
+    int warn_col;                                  /* 0: gold */
+} UiPane;
+void ui_pane(Frame *f, int x, int y, int w, int h, const UiPane *p, float t);
+void ui_pane_wide(Frame *f, int x, int y, int w, int h, const UiPane *p);   /* a band across the stone: no socket, the words wide */
 void ui_groove(Frame *f, int x0, int y0, int x1, int y1, int ramp, float fill);
 
 /* the Alignment's stone (section 5): what the game or the sheet knows of a line, laid out */

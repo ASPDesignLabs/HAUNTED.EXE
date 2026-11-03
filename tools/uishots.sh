@@ -18,7 +18,8 @@ T="1:+H;4.3:-H"                                   # take over, then the key that
 E="$T;5:+E;5.1:-E"
 # name | environment | input | time of the shot
 RECIPES="lamp|CRAWL_TPLAMP=1 CRAWL_ALPTS=6|$E|6.5
-totem|CRAWL_TPTOTEM=1 CRAWL_TOTEM=2100|$E|6.5
+totem|CRAWL_TPTOTEM=1 CRAWL_TOTEM=2130 CRAWL_SCRIP=2|$E|6.5
+class|CRAWL_TPCAT=1 CRAWL_COINS=6 CRAWL_ATONE=25|$E;5.6:+S;5.7:-S;5.9:+S;6:-S;6.2:+S;6.3:-S;6.6:+E;6.7:-E;7.2:+D;7.3:-D|8
 portal|CRAWL_TPPORTAL=1|$E|6.5
 compendium|CRAWL_TPLECTERN=1 CRAWL_GEAR=3|$E|6.5
 repository|CRAWL_TPREPO=1|$E|6.5
