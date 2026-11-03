@@ -21,6 +21,8 @@ void ui_slab(Frame *f, int x, int y, int w, int h, int kind, int orn, float t);
 void ui_well(Frame *f, int x, int y, int w, int h);
 void ui_niche(Frame *f, int x, int y, int w, int h);       /* a well with an arched top, lit a little from above */
 void ui_rule(Frame *f, int x0, int x1, int y, int orn);
+void ui_row(Frame *f, int x, int y, int w, int h, int sel);  /* a list's row in a well: chosen, the stone pressed paler, gold notches at its ends */
+void ui_scroll(Frame *f, int x, int y, int h, int first, int shown, int n);   /* a groove down a list, and its thumb (nothing when all show) */
 void ui_orn(Frame *f, int x, int y, int orn, float t);
 void ui_plate(Frame *f, int x, int y, int w, int h);
 void ui_keys(Frame *f, int x, int y, const char *s, int col);   /* a hint, each group's first word on a cap */

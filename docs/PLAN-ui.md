@@ -5,7 +5,7 @@ before PLAN-ai's step 11, and U10 (b), full screens keep the crypt dimmed in a 4
 `claude/gifted-rubin-q8up37` from main (1.0.0b13 with the art pass so far and PLAN-ai's steps 0-10). Step 0 is done (the
 before sheets in `docs/uipass/`). Step 1's sheet was approved by the owner (3 November). Step 2 is built (harness only): every menu, card and the tally
 wear the stone. Step 3 is built (harness only): the Alignment, at the Lampstand and on Tab's fourth page, is the
-approved stone. Step 4 is built (harness only): the cornerstones, the Hexed Totem, ascend and her question of what you were. Step 5 is built (harness only): Tab's pages, the bestiary and the Codex. Like the art pass, it is visual only: nothing in the simulation, the saves or the
+approved stone. Step 4 is built (harness only): the cornerstones, the Hexed Totem, ascend and her question of what you were. Step 5 is built (harness only): Tab's pages, the bestiary and the Codex. Step 6 is built (harness only): her hall's screens. Like the art pass, it is visual only: nothing in the simulation, the saves or the
 autopilot's numbers may move.**
 
 ## Decided (3 November 2026)
@@ -377,7 +377,7 @@ Each step committed, pushed and logged at the end of this plan, so it can be han
    in a band below, see the log).
 5. **Tab:** the wardrobe and its icons, the caster, the elements, documents; **the bestiary; the Codex.** (built).
 6. **Her hall:** her menu, the Compendium, the Repository, the Portal, the shrine, the bell and font, the ledger, a stone's
-   page, the full bag.
+   page, the full bag (built).
 7. **The crypt's:** Esc's question, the L list, the altar, the Black Shrine, the cards, the tally.
 8. **The HUD.**
 9. **The checks:** every screen at each run's palette, with keys and with a pad, at the darkest and brightest crypt behind;
@@ -535,3 +535,37 @@ My answer is marked **(mine)**; the owner's take it over.
   the bestiary's creatures and ranks, the achievements and the Codex's parts give the same `EVENT` lines as step 4's build;
   ASan clean over three such sessions (levels 1, 21 and 31). Frames: `docs/uipass/step5-L*.png`. Nothing played by hand.
   Next: step 6, her hall's menus.
+- 3 November 2026, step 6: her hall's screens. The kit gained `ui_row` (a list's chosen row: the well's stone pressed paler, gold
+  notches at its ends, as ascend's had been) and `ui_scroll` (a groove and its thumb). The game has `hall_frame` (the slab, its
+  title and a figure at the right) and `hall_keys`/`hall_word` (the keys on caps along the foot, or a word of hers in their
+  place). *Her menu*: its eight rows in one well, what the chosen one means in a well under it. *The ledger*: her book on a
+  ledger stone with her paw in its corners, the three pages in a well. *A stone's page*: a headstone, as the plot's stones
+  are, with roses in its shoulders; the epitaph centred under the arch, the date and which stone at either end of a line,
+  what was carried in a well on the left and the chosen thing on the right. Its runes' column moved right: WITCHFINDER had run
+  into it (the fit checks found it, the first time a stone was shown). *The Compendium*: the entries in a well with a thumb
+  for the scroll in place of `n MORE`, the card in a well under it, the price's factor or a passing word at the foot. *The
+  Repository*: the places in a well on the left, the money and its rows on the right; the keys at the foot, a passing word
+  in their place as it already did when choosing what goes in. *The Portal*: its rows and headings as one list of nine lines
+  that scrolls by the chosen row, and what the chosen one does in a fixed well under it. With three runs open and the
+  levels' row its words had had one line (cut off), and with more runs none; now five. Its long rows (RUN II with HERE) had
+  run into their figures by 4 px; they are moved apart. *The shrine*: the nine slots as cups cut in a well (the chosen one or
+  one filling ringed as it was), the rows and the note in another, what you hold across the foot. *The bell and the font*: a
+  tablet, the rows in one well, what the chosen one does in another. *The full bag*: the bag's places in a well, the spare's
+  card beside it. Words and keys are as they were, but for `n MORE` in the Compendium, now its thumb.
+  Three debug switches so the shots reach what they hadn't: `CRAWL_TPSHRINE=1` (before the Rune Shrine), `CRAWL_STONE=n` (n
+  stones in the plot from what is held) and `CRAWL_LETGO=1` (the full bag's question over the first ware for a worn slot, as
+  you take over in her room); `tools/uishots.sh` opens the shrine, the ledger, a stone's page (and a piece on it) and the full
+  bag, and the Portal with three runs, the challenges and the levels' row.
+  A fault in the harness, found here: `host apl` didn't play `HOST_INPUT` (only `shot`, `wav`, `dump` and `bench` did), so
+  step 5's "person's session" had been run under `apl` and compared two dreams; step 2's to 4's were made with `shot` and
+  stand. `apl` now plays it. Step 5's check was made again: a session in her room through every Tab page with two pieces
+  moved into a full bag and out, the bestiary, the achievements and the Codex, then her ledger signed, gives the same `EVENT`
+  lines and the same signed page, byte for byte, as step 4's build. ASan's two `apl` sessions at step 5 were dreams too; the
+  `shot` one wasn't, and this step's ASan sessions all take over.
+  Checked: the fit checks at four palettes find only the tally's line; ten sessions of a person in her hall (her menu and the
+  ledger signed, a pedestal bought; the Compendium twice bought from; a piece and a coin put in the Repository, a place bought;
+  the Portal to run III, and a level replayed; a pull and a take at the shrine; the bell corrupted, the font cursed; a stone's
+  page; a spare let go) give the same `EVENT` lines as step 5's build (given the same three switches), and the signed page and
+  the progress are the same bytes; a 900 s dream the same; ASan clean over the ten and a 300 s dream from level 21. Frames:
+  `docs/uipass/step6-L*.png` (and `before6-L1.png`, the newly reached screens as they were). Nothing played by hand. Next: step 7,
+  the crypt's screens.

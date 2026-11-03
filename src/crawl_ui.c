@@ -225,6 +225,20 @@ void ui_rule(Frame *f, int x0, int x1, int y, int orn) {
     }
 }
 
+void ui_row(Frame *f, int x, int y, int w, int h, int sel) {
+    if (!sel) return;
+    for (int j = 0; j < h; j++) for (int i = 0; i < w; i++) if ((x + i + y + j) & 1) gfx_px(f, x + i, y + j, UI_W(6));
+    for (int k = 0; k * 3 < h - 1; k++) { gfx_px(f, x, y + 1 + k * 3, R_GOLD + 11); gfx_px(f, x + w - 1, y + 1 + k * 3, R_GOLD + 11); }
+}
+
+void ui_scroll(Frame *f, int x, int y, int h, int first, int shown, int n) {
+    if (n <= shown || h <= 0) return;
+    for (int j = 0; j < h; j++) { gfx_px(f, x, y + j, UI_W(0)); gfx_px(f, x + 1, y + j, UI_M(10)); }
+    int th = h * shown / n, ty = y + (h - th) * first / (n - shown > 0 ? n - shown : 1);
+    if (th < 3) th = 3;
+    for (int j = ty; j < ty + th && j < y + h; j++) { gfx_px(f, x, j, UI_M(12)); gfx_px(f, x + 1, j, UI_M(6)); }
+}
+
 /* the owners' signs, 8 by 8, cut in the stone: '#' groove, '+' lit edge, 'f' a flame */
 static const char *const ORN_ART[NORN][8] = {
     { 0 },

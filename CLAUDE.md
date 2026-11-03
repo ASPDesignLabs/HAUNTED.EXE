@@ -176,7 +176,8 @@ the floor's and ceiling's ramps for the frame; cards over the live crypt use the
 `UI overflow` lines in the debug build. Step 3 is built (harness only; CI compiled the Windows build): the Alignment at the Lampstand and on Tab's
 fourth page is `ui_tree`, filled by `render_align` from the line's state. Step 4 is built (harness only; CI compiled the Windows build): the cornerstones, the Totem, ascend and the class
 (`ui_screen`, `ui_pane`, `ui_pane_wide`, `ui_socket_mark`). Step 5 is built (harness only; CI compiled the Windows build): Tab's pages (`tab_frame`; the wardrobe as sockets on a figure,
-icons for the kinds of piece), the bestiary (`ui_niche`) and the Codex. Step 6 (her hall's menus) is next.
+icons for the kinds of piece), the bestiary (`ui_niche`) and the Codex. Step 6 is built (harness only; CI compiled the Windows
+build): her hall's screens (`hall_frame`, `hall_keys`, `ui_row`, `ui_scroll`). Step 7 (the crypt's screens) is next.
 Its section 10 is the hand-off log: read it first.
 
 ## Working with the owner
@@ -239,7 +240,8 @@ build/host shot  <haunt|crawl> <t1,t2,...> <prefix> [scale]   # PNGs; default sc
 build/host wav   <scene> <seconds> out.wav [sfx_id@time ...]   # sfx_id: the SFX_* number (SFX_SPLASH is 61)
 build/host dump  <scene> <seconds> <prefix> <every_n_s>       # frames and audio together
 build/host bench <scene> <seconds>                            # ms per frame, every frame drawn
-build/host apl   <scene> <seconds>                            # average picture level; fast (draws twice a second), good for long sims
+build/host apl   <scene> <seconds>                            # average picture level; fast (draws twice a second), good for long sims;
+                                                              # plays HOST_INPUT (it didn't before step 6 of PLAN-ui), but writes no slots
 ```
 
 Environment for the harness: `HOST_INPUT="1:+H;4.3:-H;5:+W;7:-W;8:m400,0;9:+MOUSE1;9.2:-MOUSE1"`
@@ -273,7 +275,8 @@ wisp, follows it home and sends it on from the altar's menu; it can't be hurt), 
 put there as the level opens, already leaving), `CRAWL_BOSSHP=f` (a boss's health times f), `CRAWL_OMEN=s` (the
 level's omens on any level, every s seconds, the first at once), `CRAWL_TOTEM=dddd` (each boss ability's rank, a digit
 each in boss order, and that boss counted beaten), `CRAWL_SCRIP=n` (n scrip of each boss, all four counted beaten),
-`CRAWL_PEDS=n` (the merchant's pedestals), `CRAWL_TPCAT=1` (before the merchant herself), `CRAWL_TPSTONE=1` (before the plot's newest stone), `CRAWL_TPLECTERN=1` (before the Compendium), `CRAWL_TPREPO=1` (before the Repository), `CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_TPPORTAL=1` (in the
+`CRAWL_PEDS=n` (the merchant's pedestals), `CRAWL_TPCAT=1` (before the merchant herself), `CRAWL_TPSTONE=1` (before the plot's newest stone), `CRAWL_STONE=n` (n stones in the plot, from what is held), `CRAWL_TPSHRINE=1`
+(before the Rune Shrine), `CRAWL_LETGO=1` (the full bag's question as you take over in her room, with a bag), `CRAWL_TPLECTERN=1` (before the Compendium), `CRAWL_TPREPO=1` (before the Repository), `CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_TPPORTAL=1` (in the
 grave plot facing the Accursed Portal), `CRAWL_RUNTOP=n` (the runs it opens: 0 only run I), `CRAWL_BSTEP=s` (every
 challenge at step s), `CRAWL_GOALS=1`
 (the autopilot's goal at every step, as `GOAL` lines),

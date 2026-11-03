@@ -256,6 +256,7 @@ int main(int argc, char **argv) {
         int frames = (int)(secs / dt), n = 0, w, h;
         static double hist[101];
         for (int i = 1; i <= frames; i++) {
+            input_step((i - 1) * dt);                              /* HOST_INPUT plays here too */
             app_update(dt);
             if (i % 35) continue;
             app_present_rgb(rgb, &w, &h);
