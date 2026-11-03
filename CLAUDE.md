@@ -164,6 +164,12 @@ Steps 0-10 were folded into main, unreleased, at the owner's word on 3 November 
 the released build lacks), squashed as one commit as the art pass was; the work goes on on `claude/youthful-mayer-deaa11`.
 Step 11, showing it (sounds, captions, the bestiary's lines, the Codex, achievements, art), is next.
 
+A pass over the screens is planned in [`docs/PLAN-ui.md`](docs/PLAN-ui.md) (3 November, a draft on
+`claude/gifted-rubin-q8up37`; nothing built): every menu cut in weathered marble (ledger stones, headstones, tablets),
+three faces of our own at today's sizes, a kit of structured pieces (`src/crawl_ui.c`), the Alignment redrawn as a skill
+tree with an icon to each node and a pane beside it, and the other screens after it. Visual only. Its questions U1-U13 wait
+for the owner; its section 10 is the hand-off log.
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture

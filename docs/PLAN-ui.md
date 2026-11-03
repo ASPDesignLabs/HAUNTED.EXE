@@ -1,0 +1,396 @@
+# The carved stone: a pass over CATACOMB's screens
+
+**Status: a draft (3 November 2026), written on `claude/gifted-rubin-q8up37` from main (1.0.0b13 with the art pass so far and
+PLAN-ai's steps 0-10). Nothing is built. The questions at the end (U1-U13) wait for the owner; each has the answer I would
+take marked. Like the art pass, it is visual only: nothing in the simulation, the saves or the autopilot's numbers may move.**
+
+## What the owner asked for (3 November 2026)
+
+- A pass over the UI. Most of it is plain, with little theming, and the screens are a place to tell the story.
+- Much of it set in carved tombstone and marble, keeping the coloured elements. *Too much black.*
+- Letter sizes and spacing kept as they are. New fonts of our own are welcome, but the sizes and the text budgets are right.
+- Some screens overhauled, a polish that shows structured UI elements. The skill tree (the Alignment at the Lampstand) is
+  the example and the main focus: it looks legacy and should look like a skill tree of today. Each slot its own icon,
+  coloured by its line; the whole thing in one frame, the tree on the left, and on the right the title, description, cost
+  and other text of whichever slot is chosen.
+- The Alignment is where the carved marble look gets tuned, before it goes anywhere else.
+
+Five screenshots came with the request: the Alignment (Spirit, rank 12), level 11's tally, the shade's page of the
+bestiary, the Compendium's spells, and Esc's question.
+
+## 1. What the screens are now
+
+### 1.1 How they are drawn
+
+- **Two frames for everything.** Every menu draws `dim_view` (every other pixel of the crypt set to 0), then `panel`
+  (a black rectangle with two grey lines, `R_STONE + 4..11`) or `card_box` (the same, for cards and the tally). There is no
+  other furniture: no wells, no headers, no list rows, no dividers but a dotted line drawn by hand in each screen.
+- **Black.** Both fill with palette index 0. The tally clears the whole frame to 0. A full menu is
+  mostly black: its text and two lines are all that is not.
+- **Two fonts.** `gfx_text8` (the IBM BIOS 8x8) and `gfx_text16` (the IBM VGA 8x16), both from `tools/gen_font.py`, 8 px
+  advance, lines 8, 9, 10 or 16 px apart, and `gfx_text16` at scale 2 for the tally's title. `hint8` colours the keys in a
+  hint; `small_digits` draws 3x5 figures; `eerie_text` an overlevelled number.
+- **Layout by hand.** Each of the two dozen screens places its text by pixel, so each has its own margins, line gaps and wraps
+  (`text_wrap` at 36, 34, 32 columns...). Nothing checks that text stays in its box.
+- **The palette** is full: sixteen ramps of 16 and the golds. `R_STONE` is tinted and dimmed by run (`level_palette`: blue-grey
+  limestone yellowing in the Crypts, damp green to slate in the Catacombs, sandstone to rust in the Hollows, ash to violet in
+  the Deep, a tenth darker each run). No menu uses `R_FLOOR` or `R_CEIL`. `tint()` works on the palette, so it touches the
+  menus too.
+
+### 1.2 What is wrong, screen by screen (from the screenshots and the code)
+
+- **The Alignment** (`render_align`, `align_box`). Boxes as wide as their names, so the tree is ragged; the chained nodes
+  have a chain drawn through their text and can hardly be read; points as pips glued to the names; the element tabs a
+  glyph and a figure; the description at the foot, far from the node it describes. No icons.
+- **The tally** (`render_tally`). A black card. The EXPERIENCE row's notes run into its figure when the font's +10% and a
+  trial's boon both show (in the screenshot, `BOON +20%` under `+2030`): the notes start after the label and the figure
+  is right-aligned, and nothing stops them meeting.
+- **The bestiary** (`render_bestiary`). The creature stands in a black box; the page is text in four colours.
+- **The Compendium** (`render_compmenu`). A list of names and red prices, `1 MORE` as the only sign of scrolling, an empty
+  pane under it for most of the page.
+- **Esc's question** (`render_quit`). Five or six rows crowded into a box 176 high; the note under the chosen row sits on
+  the frame's lower edge.
+- And generally: no sense of where you are. The Lampstand's screen, her ledger, the bell and the font, the altar and the
+  shrine all wear the same two grey lines.
+
+### 1.3 The screens, all of them
+
+| Screen | Where | What it needs |
+|---|---|---|
+| The Alignment (`UI_ALIGN`, Tab's fourth page) | the Lampstand | **overhaul**: the tree with icons, the pane (section 5) |
+| Cornerstones (`UI_STONES`, Tab's third page) | at each tenth level | **overhaul** on the same pattern: five sockets and the pane |
+| The Hexed Totem (`UI_TOTEM`) | her back room | **overhaul**: four abilities by rank, sockets and the pane |
+| Ascend (`UI_ASCEND`) | her menu | **overhaul**: fourteen lines as carved rows with pips, the pane for the chosen one |
+| The class (`UI_CLASS`) | her question | **overhaul**: six marks as medallions, the chosen one's past and gifts beside |
+| The wardrobe (`UI_INVENTORY` page 0) | Tab | **overhaul**: seven worn sockets and the bag as sockets with icons, the card in the pane |
+| The caster, the elements, documents (Tab pages 1, 4, 5) | Tab | restyle: wells and rows |
+| The bestiary (`UI_BESTIARY`) | B | **overhaul**: a niche for the creature, ranks as tabs, its weaknesses as inlaid glyphs |
+| The Codex (`UI_CODEX`) | C | restyle: parts as tabs, entries as rows, the page in a well |
+| The tally | each level's end | **overhaul**: a memorial tablet; the overlap mended |
+| Esc's question (`UI_QUIT`) | Esc | **overhaul**: a headstone, the rows spaced as they fit |
+| Her menu, the ledger, a stone's page (`UI_MERCHANT`, `UI_LEDGER`, `UI_STONE`) | her room | restyle; the stone's page on a headstone |
+| The Compendium, the Repository, the Portal, the shrine, the bell and font (`UI_COMP`, `UI_REPO`, `UI_PORTAL`, `UI_SHRINE`, `UI_HALL2`) | her hall | restyle: list rows, a scroll mark, the pane filled |
+| The L list, the altar, the Black Shrine, the full bag (`UI_WISPS`, `UI_ALTAR`, `UI_BSHRINE`, `UI_LETGO`) | the crypt | restyle |
+| The cards: a level's card, death's cost, her claim (`render_card`, `render_claim`) | the crypt | restyle on a headstone |
+| The shop's cards over the pedestals (`render_shop_card`) | her room | restyle: a small tablet |
+| The HUD: the status bar, the readout, toasts, the target, the boss's bar, sockets, the XP line | in play | light restyle in the run's stone (section 7) |
+| The map, a document's page, the reckoning's slip | | already things in the world (parchment, paper, a slip): keep; frame only where they have a frame |
+| The console | the key left of 1 | keep as it is: a plain plate in the BIOS font is right for it |
+| HAUNT.EXE | | not touched |
+
+## 2. The look
+
+### 2.1 The idea
+
+Every screen is a stone in the crypt, cut for its purpose. A full screen is a **ledger stone**: a slab laid flat in a
+floor, its edge a moulding. A question or a card is a **headstone**: arched at the top. A toast is a small **tablet**.
+Text is cut into the stone; what is coloured is inlaid (enamel, gilt, or a light in the groove, the element's own ramp,
+kept full-bright as now). Wells are sunk where lists and pages sit, a step darker than the slab, so there is somewhere
+quiet to read. Black is left for the deepest grooves, a shadow under a moulding, and the crypt seen dimly behind a small
+menu.
+
+The marble is **weathered grey**, mid-dark (its body at about a quarter to a third of white), with paler veins, hairline
+cracks, chips at the corners, and a little lichen low on the slab (two or three `R_MOSS` pixels, not more). Light text
+reads on it; the elements' full-bright colours glow out of it.
+
+Each stone carries a small sign of whose it is: the Lampstand's corners a candle each, her stones a cat's paw, the
+bestiary bones, the Codex a key, the Portal its violet. Small (an 8x8 ornament at the corners or in the title's
+plate), never in the way of text.
+
+### 2.2 The palette (U1)
+
+The menus can't simply use `R_STONE`: it changes colour and darkens run by run (the Deep's is about two thirds as bright
+as the Crypts'), and the walls behind use it. Three ways:
+
+- **(a) Her marble, borrowed for the menus (my choice).** While a menu is up, the frame's `R_FLOOR` and `R_CEIL` ramps
+  become two marble ramps of our own: the slab (`R_CEIL`: sixteen greys from groove to vein) and the wells and shadows
+  (`R_FLOOR`: a darker, cooler stone, never quite black). The crypt already drawn behind is first remapped, each floor
+  and ceiling pixel to the `R_STONE` or `R_WARM` entry nearest its brightness (one pass over the frame, cheap, and hidden
+  under the dimming). No menu uses those two ramps today, so nothing else changes. The marble leans a tenth towards the
+  run's stone, so a menu in the Hollows is a warmer grey than one in the Crypts, but always as bright. The HUD, drawn
+  without a menu, keeps the run's stone.
+- **(b) The run's own stone.** Draw everything in `R_STONE`. No palette work; the menus darken and change colour with
+  the run (the Deep's violet ash is dim and muddy for text).
+- **(c) A fixed ramp taken from elsewhere.** Free sixteen entries by merging two ramps the game uses. That touches the
+  art everywhere; no.
+
+### 2.3 Text (U3, U4)
+
+Sizes and spacing stay exactly: every glyph on an 8 px advance, 8x8 and 8x16 cells, the line gaps each screen has now, the
+tally's title at scale 2. What changes is the faces and how they are cut.
+
+- **Three faces of our own**, drawn by hand in `src/font_ui.c` (as the art is: original, no font licence needed), capitals,
+  figures and the punctuation the game uses, plus the hint's button codes (`\1`...):
+  - **Inscription 8x16**: Roman capitals with serifs and thick and thin strokes, as cut on a headstone. Titles, the
+    tally, big figures.
+  - **Inscription 8x8**: the same in small, for headers, tabs and labels.
+  - **Body 8x8**: a plain serif small capital, stroked a little lighter than the BIOS face but still two pixels where it
+    must be, for the reading text. It must read at 320x200 on a real screen: the BIOS face reads because it is bold, so
+    this one is drawn and checked against it before it replaces it anywhere.
+  - Each face leaves its eighth column and eighth (or sixteenth) row empty, so a cut letter's highlight stays in its cell
+    and widths don't move.
+- **Ways to set them** (`ui_text`): *cut* (the letter in shadow, a pixel of the slab's highlight below and right of each
+  stroke: incised), *inlaid* (the letter in its colour with a dark rim: for every coloured word, so a gold price or an
+  element's name stays its colour), *plain* (as now, for small print and figures). The default is cut for the slab's own
+  words (titles, labels) and inlaid for anything coloured.
+- The BIOS and VGA faces stay for the console, HAUNT.EXE and anything not yet moved.
+- A face is chosen by a switch (`gfx_face8`, `gfx_face16`) that `render_ui` sets and puts back, so the many
+  `gfx_text8` calls in the menus pick up the new faces without each being touched, and the HUD and console keep theirs.
+
+### 2.4 The kit (`src/crawl_ui.c`)
+
+The structured elements the owner asked for, one file, used by every screen, so that each screen is laid from the same
+pieces and no screen draws its own lines again:
+
+- `ui_slab(x, y, w, h, kind)`: the marble cut to a shape (`SLAB_LEDGER` square-cornered, `SLAB_HEAD` arched, `SLAB_TABLET`
+  small), with a bevelled moulding (light above and left, shadow below and right), chipped corners and the owner's
+  ornament. The marble is one picture of the whole screen (`g_marble`, made once a level from its seed: veins by a
+  turbulent field, cracks by a few random walks, chips), so two stones side by side are one stone cut twice, not a
+  pattern repeated.
+- `ui_well(x, y, w, h)`: a sunk panel, a step darker, a pixel of shadow along its top and left and of light along its foot
+  and right.
+- `ui_rule(x0, x1, y, orn)`: a carved line, with an ornament at its middle if asked.
+- `ui_title(y, text, plate)`: a title cut in the inscription face, on a raised plate if asked.
+- `ui_tabs(...)`: a row of tabs (the six elements, the Codex's parts, Tab's pages, the bestiary's ranks): the chosen one
+  raised and lit, the rest sunk.
+- `ui_list(...)`: rows in a well with one height, the chosen row lit (a warm wash in the groove and a gilt bracket at
+  either end, in place of today's candle, gold frame or grey bar by screen), a scroll mark (a carved thumb on a groove)
+  where today it says `1 MORE`.
+- `ui_socket(x, y, size, icon, state)`: a round or square socket with an icon in it, in the states of section 5.3.
+- `ui_pane(...)`: the right-hand pane (section 5.2), its parts in order, each wrapped in its own space.
+- `ui_meter(...)`: a groove that fills (health, the sprint, a boss, experience, a slow thing's work).
+- `ui_keys(...)`: the hint line, its keys on small raised caps behind the letters (the caps fit behind the 8 px cells, so
+  `hint_width` is unchanged), in the pad's colours as now.
+- **Fit checks.** In the debug build every `ui_text` knows the box it was set in and logs `UI overflow <screen> <text>`
+  when a line runs out of it or over another; a script opens every screen with long values (gold in millions, the longest
+  names, every note at once) and fails on any such line. The tally's overlap would have been caught by it.
+
+## 3. Motion and sound
+
+Small and in keeping: a candle at the Lampstand's corners flickers; a node that can be bought breathes a faint glow; buying
+one runs its colour along the grooves from the node it hangs from (a third of a second) with the sound buying makes now; a
+chosen tab or row eases in over two frames. Nothing that holds up the hand of a person in a hurry: every key does what it
+did the frame it is pressed.
+
+## 4. Ground rules
+
+- Visual only. The keys, the pad's buttons, the order of rows and what Enter does on each stay as they are, unless a
+  question below changes one.
+- Every word on a screen today is on it after, at its size; a description may wrap differently in a narrower pane, never
+  be cut. Where a screen's text wouldn't fit its new layout, the layout gives way.
+- 320x200 and the 8-bit palette, nothing else. No new ramps but the two borrowed while a menu is up.
+- The HUD and every card must still read over the crypt at its darkest (the Deep's last levels) and brightest (a geode's
+  glow, the Backrooms' yellow, Severance's white).
+- Works with the pad: every layout below is walked by the D-pad and stick in the directions it shows.
+
+## 5. The Alignment (the focus)
+
+### 5.1 The layout
+
+One ledger stone, the whole screen (U10). Sizes in pixels at 320x200:
+
+```
+  0   8                                   172 178                                311 319
+  4 +-----------------------------------------------------------------------------------+  moulding, 4 px
+ 10 |  (F)17  (C)20  (L)-   (P)-   (S)12  (X)-                         0 POINTS        |  the six seals, y 10-24
+ 28 |---------------------------------------- rule ------------------------------------|
+ 32 | SPIRIT  RANK 12   [mark]             | [ICON ] SOUL TETHER                          |
+    |                                      | [32x32] ULTIMATE . PATH A                    |
+ 40 |               (o)                    |         5 POINTS                             |  row 0  the opening
+    |              /   \                   |-------------------------------------------- |
+ 64 |          (o)       (o)               | HOLD TO KEEP THE BEAM ON,                    |  row 1  Efficiency, Insight
+    |              \   /                   | DRAINING AND SLOWING; IT                     |
+ 88 |               (O)                    | LEAPS ON WHEN WHAT IT                        |  row 2  the ability
+    |              /   \                   | HOLDS DIES.                                  |
+112 |          (o)       (o)               |                                              |  row 3  Efficiency II, Insight II
+    |           |         |                |                                              |
+136 |          (O)       (O)               |                                              |  row 4  path A's, path B's
+    |           |         |                |-------------------------------------------- |
+162 |         ((*))     ((*))              | THE OTHER PATH WILL CLOSE.                   |  row 5  the ultimates
+    |                                      | AGAIN TO TAKE THIS ONE.                      |  (the state, or the warning)
+182 | [1-6]  [WASD]  [ENTER] BUYS  [SPACE] UNBINDS                                       |  the keys, y 182-190
+195 +-----------------------------------------------------------------------------------+
+```
+
+- **The seals** (y 10-24, across the top): each element's mark as a carved medallion 14 across (today's 7x7 glyph,
+  redrawn at 12x12), its rank beside it inlaid in its colour, or a cut dash if the line isn't open. The chosen one raised
+  and lit, the class's own with a gilt ring. Points at the right, gold, breathing while there are any to spend (the
+  Witchfinder's Fire count as now).
+- **The tree** (x 8-172): in a well. Its title line (the line and its rank, the class's mark) at the top. Ten sockets in
+  six rows on three columns (x 52, 90, 128): the opening; Efficiency and Insight; the ability; then path A down the left
+  (Efficiency II, its second, its ultimate) and path B down the right (Insight II, the Mastery, its ultimate). The common
+  nodes 20 across, the ability and the paths' seconds 22, the ultimates 26 with a double ring. **No names in the tree**
+  (U6): the icons, and the pane says what the chosen one is. Under a node of more than one point, its points as pips cut in
+  the stone (filled in its colour as bought). The grooves between them are cut channels; a groove fills with the element's
+  colour once the node above it is held, so a line's progress reads at a glance from across the room.
+- **The pane** (x 178-311, 16 columns): in its own well.
+  1. The node's icon at twice its size (32x32) in a socket, and beside it (12 columns) its name in the inscription face,
+     wrapping to two lines (`BURNING INTENSITY`), and under it its kind: `OPENING`, `PASSIVE`, `ABILITY`, `PATH A`,
+     `PATH B`, `ULTIMATE . PATH A`.
+  2. Its cost: `5 POINTS`, or `2 OF 3` with pips, or `YOURS`, inlaid gold.
+  3. A rule, then its description (the `does` text as now), 16 columns, up to ten lines at 9 px; the longest today is 121
+     letters, about eight lines.
+  4. At its foot, its state, one line or two: `NEEDS COMMUNION`, `THE OTHER PATH IS CHOSEN`, `TWO POINTS SHORT`, or the
+     warnings that today replace the description (the other path closing, unbinding and its two coins), in gold; a
+     warning takes lines from the description if it must, never the other way.
+- **The keys** (y 182-190): today's hint lines, on caps (`1-6  WASD  ENTER BUYS  SPACE UNBINDS`; Tab's view `A/D PAGE
+  1-6 LINE  W/S NODE  TAB`).
+- Moving: as now (`update_align` already goes by row and column: W/S up and down, A/D across, the pad's D-pad and stick
+  the same, 1-6 the lines); the sockets keep today's rows and columns, so nothing about it changes.
+
+### 5.2 Tab's view
+
+Tab's fourth page shows the same stone, smaller in nothing: the same tree and pane inside Tab's own frame (its page tabs
+across the top, so the seals move down 4 px and the tree's rows close up by 2 px each). Nothing can be bought there, so
+the pane's foot says where it is bought (`AT THE LAMPSTAND`).
+
+### 5.3 A socket's states
+
+The story of a socket is a carving filled in. Unbought, the icon is **cut into the stone**: the slab's own greys, a
+relief. Bought, it is **inlaid**: the carving filled with its element's colour, lit from within, a gilt ring round the
+socket.
+
+| State | Socket | Icon | Groove into it |
+|---|---|---|---|
+| Out of reach (the node above it not held) | sunk, plain rim | cut in stone, dim | cut, empty |
+| Can be bought now (held above, points enough) | rim in its colour, breathing | cut, a glow in the cut | cut, empty |
+| Held above but too few points | rim pale | cut | cut, empty |
+| Part bought (some of its points) | rim in its colour | inlaid at half light | filling |
+| Bought (yours) | gilt ring, a soft halo for an ultimate | inlaid, full colour | filled in its colour |
+| Closed (the other path taken) | cracked, a chain across the **socket, not the icon** | cut, very dim | cracked |
+| Chosen | a gilt bracket at four corners, pulsing gently | as its state | |
+
+A Witchfinder's free Fire and a line kept from a class given up (`RUN.al_gift`) show as bought, with the class's mark in
+the pane.
+
+### 5.4 The icons (U5)
+
+Sixteen pixels square, drawn by hand in the art's way (an `ICON_ART` of strings, each letter a tone of the element's ramp
+or the stone's), ten a line:
+
+- **Shared shapes, tinted by line:** Efficiency (a drop poured, less), Insight (an eye half-open, opening), Efficiency II
+  and Insight II (the same with a second mark).
+- **Each line's own:** its opening (the spell's form: the fireball, the shard, the bolt, the flask, the wisp, the spear),
+  its ability (Firestarter, Deep Chill, Ionization, Seep, Harvest, Impale), path A's second and ultimate (Burning
+  Intensity and Firewall, Permafrost and Shatter...), path B's second and ultimate (the Masteries and Flamewalker, Winter's
+  Lance, Amperage, Contagion, Wisp Host, the Ballista).
+
+That is four shared and thirty-six of the lines' own: forty icons. The same icons serve Tab's view, the Codex's lines and the
+sockets of section 6 where an ultimate appears.
+
+Each is drawn in five tones (`ICON_ART` letters a-e), mapped to the stone's greys when cut and to the element's ramp when
+inlaid, so one drawing makes every state.
+
+## 6. The other screens
+
+### 6.1 The same pattern: sockets on the left, the pane on the right
+
+- **Cornerstones** (`UI_STONES` and Tab's third page): the five as large sockets on a carved arc (Second Wind,
+  Premonition, Cartographer, Lantern of the Dead, Grave Sense), each its icon; the pane as section 5's: what it does, when
+  it comes (at each tenth level), whether Second Wind is spent and its coin.
+- **The Hexed Totem** (`UI_TOTEM`): four columns, a boss each (the knight, the spider, the Deacon, the Wraith), three
+  sockets a column for the ranks; the scrip hanging on the totem's hooks as the column's head; the pane its rank's numbers,
+  its price in that boss's scrip, and the readied one.
+- **Ascend** (`UI_ASCEND`): its fourteen lines as carved rows down the left, each its small icon, its steps as pips, the
+  overlevelled with `eerie_eye`; the pane the chosen line's numbers now and after one more step, its cap, the points left.
+  It keeps its scroll, now shown by a thumb.
+- **The class** (`UI_CLASS`): six medallions in two rows of three (today's `class_mark` redrawn at 24x24), the chosen
+  one's name, past and gifts in the pane, her question at the top.
+- **The wardrobe** (Tab's first page): the seven worn slots as sockets round a carved figure (hood at the head, amulet at
+  the throat, robes, bracer and ring at the hands, boots at the feet), each with its piece's icon in its quality's colour;
+  the bag's places as a row of sockets under it; the pane the chosen piece's card (`piece_card` as now). Pieces need
+  icons: one per kind (seven), tinted by quality, at first; a look per ability later if wanted.
+
+### 6.2 Restyled on the kit
+
+- **The bestiary:** the creature stands in a carved niche (a well with an arched top and a little light from above, so its
+  eyes show as the art pass wants), its ranks as tabs above the niche, `SLAIN` as a meter in the well, *what hurts it* as
+  the six elements' glyphs inlaid (more, as usual, less, not learnt), the words beside.
+- **The tally:** a memorial tablet. `LEVEL 11 COMPLETE!` cut in the inscription face across its head, the level's name
+  under it as an epitaph, inlaid; each row a label cut in the stone, leader dots as a carved line, the figure inlaid gold.
+  The notes (`HALF`, `+10%`, `BOON +20%`, `CURSE -20%`, `1 TRIAL FAILED`) go on a line of their own under their row, so
+  they can't meet the figure.
+- **Esc's question:** a headstone, arched, `LEAVE THE CRYPT?` cut in its arch, her line under it; the rows in a well,
+  spaced to fit (so a sixth row for the pad doesn't crowd them), the chosen one lit with its two candles (they suit a
+  headstone); the note on its own line inside the frame.
+- **Her hall's lists** (the Compendium, the Repository, the Portal, the shrine, the bell and the font, her menu): their
+  rows on `ui_list`, a scroll thumb, prices inlaid gold or blood, and the pane under or beside the list always holding
+  something (the chosen thing's card, or what the place is for, in her voice) so it is never a black space.
+- **The ledger and a stone's page:** her book stays a book where it is one; the stone's page is a headstone, as the plot's
+  stones are.
+- **The cards** (a level's card, death's cost, her claim): headstones over the dimmed crypt.
+- **The L list, the altar, the Black Shrine, the full bag:** tablets with `ui_list`.
+- **The Codex:** its parts as tabs, the entries as rows, the page in a well, each entry's glyph (the elements', the
+  abilities') inlaid.
+
+## 7. The HUD (U11)
+
+Drawn over the crypt with no menu, so in the run's own stone (`R_STONE`), not the marble. A light pass: the status bar
+keeps its Wolfenstein layout and its figures, its plates cut and bevelled in the run's stone in place of the flat grey, the
+portrait in a carved frame, the souls' line in a groove; toasts as small tablets; the target's readout and the boss's bar on
+a carved band; the sockets of the boss abilities and runes as `ui_socket`. Nothing moves or grows; every figure stays where
+it is.
+
+## 8. Steps
+
+Each step committed, pushed and logged at the end of this plan, so it can be handed on between sessions.
+
+0. **Before.** A script (`tools/uishots.sh`) that opens every screen in the harness with the debug switches (the Lampstand,
+   the Totem, her hall, the bestiary with everything met, the tally with every note, Esc with a pad), at each run's palette
+   (levels 1, 11, 21, 31), and lays them out as contact sheets in `docs/uipass/`. Run now for the *before*, and after each
+   step.
+1. **The sheet.** `make sheets` draws `ui.png`: the two marble ramps (and the run's stone beside, for U1), the slab, well,
+   headstone and tablet with their mouldings and ornaments, the three faces in each way of setting them beside the BIOS
+   ones at 1x and 2x, the kit's pieces, the Alignment laid out for all six lines in every socket state, and the forty
+   icons cut and inlaid. **For the owner's approval before anything goes in the game.** Tuning happens here.
+2. **The kit and the faces in the game.** `crawl_ui.c`, `font_ui.c`, the palette borrowed while a menu is up, `panel` and
+   `card_box` rerouted to `ui_slab`: every menu wears the marble at once, laid as it is today. The fit checks.
+3. **The Alignment**, both its screens, from the approved sheet.
+4. **Cornerstones, the Totem, ascend, the class**, on the same pattern.
+5. **Tab:** the wardrobe and its icons, the caster, the elements, documents; **the bestiary; the Codex.**
+6. **Her hall:** her menu, the Compendium, the Repository, the Portal, the shrine, the bell and font, the ledger, a stone's
+   page, the full bag.
+7. **The crypt's:** Esc's question, the L list, the altar, the Black Shrine, the cards, the tally.
+8. **The HUD.**
+9. **The checks:** every screen at each run's palette, with keys and with a pad, at the darkest and brightest crypt behind;
+   the fit script clean; a dream run with `CRAWL_RUNID` gives the same `EVENT` lines before and after (nothing in the
+   simulation moved); ASan over sessions that open every screen; the README's previews retaken where they show a menu.
+
+Steps 3-8 each end with a sheet or frames from the game for the owner, as the art pass did.
+
+## 9. Questions for the owner
+
+My answer is marked **(mine)**; the owner's take it over.
+
+- **U1. The marble's colour.** (a) **(mine)** a marble of our own for every menu, borrowed into the floor and ceiling ramps
+  while a menu is up and leaning a tenth to the run's stone; the HUD in the run's stone. (b) Everything in the run's own
+  stone, darkening by run. (c) Something else.
+- **U2. Which stone.** (a) **(mine)** a weathered grey marble, mid-dark, pale veins, light text cut in it, the colours
+  inlaid. (b) A pale white marble with dark text cut in it (closest to a new headstone, but coloured text loses contrast on
+  it). (c) A black marble veined in gold (rich, but it is the black the owner wants less of).
+- **U3. The faces.** (a) **(mine)** all three new (inscription 8x16, inscription 8x8, body 8x8), the body face only once it
+  reads as well as the BIOS one on a real screen. (b) New title faces only; the BIOS face kept for reading text. (c) Keep
+  both old faces and only cut them (shadow and highlight).
+- **U4. How text is cut.** (a) **(mine)** the slab's own words cut, anything coloured inlaid with a dark rim, small print
+  plain. (b) Everything inlaid. (c) Everything plain on the marble.
+- **U5. The icons.** (a) **(mine)** 16x16, drawn by hand, forty of them, cut when unbought and inlaid when bought. (b) 12x12,
+  quicker to draw, less to say. (c) 16x16 but each line's own only, the shared four as plain marks.
+- **U6. Names in the tree.** (a) **(mine)** no: icons only, the name in the pane. (b) The chosen node's name under it as
+  well. (c) Every name under its socket in the small face (there is room for about ten letters).
+- **U7. When.** PLAN-ai's step 11 (showing the minds: captions, the bestiary's lines, the Codex, achievements) is next, and
+  the art pass waits after it. (a) **(mine)** this pass's steps 0-2 now (the kit), then PLAN-ai's step 11 built on the kit,
+  then the rest of this pass. (b) This pass whole, then step 11. (c) Step 11 first, then this.
+- **U8. Its number.** (a) **(mine)** part of 1.0.0b15 with the minds. (b) A release of its own after it.
+- **U9. Shapes.** (a) **(mine)** ledger stones for full screens, headstones for questions and cards, tablets for small
+  menus and toasts. (b) One shape for all.
+- **U10. Full screens.** (a) **(mine)** to the edge of the screen, the moulding at its rim (no crypt peeping round a full
+  menu). (b) As now, the crypt dimmed in a 4 px margin.
+- **U11. The HUD.** (a) **(mine)** a light pass in the run's stone, nothing moved. (b) Leave it as it is. (c) Redraw it in
+  the marble's manner too (it would need the borrowed ramps in play, which the floor and ceiling use).
+- **U12. The owners' signs** (a candle, a paw, bones, a key on each stone). (a) **(mine)** yes, small. (b) No.
+- **U13. The mouse in menus** (hover to choose, click to buy). (a) **(mine)** not in this pass. (b) Yes, while the screens are
+  being redone.
+
+## 10. Hand-off log
+
+- 3 November 2026: the plan drafted on `claude/gifted-rubin-q8up37`. Nothing built.
