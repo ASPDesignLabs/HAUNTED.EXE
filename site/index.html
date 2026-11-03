@@ -254,6 +254,34 @@
   details > .fold { display: flex; flex-direction: column; gap: 14px; padding: 2px 0 22px 22px; min-width: 0; }
   @media (max-width: 520px) { details > .fold { padding-left: 0; } }
   @media (prefers-reduced-motion: reduce) { summary::before { transition: none; } }
+  /* the gallery: thumbnails at the game's own pixels, a viewer that opens one large */
+  .set { display: flex; flex-direction: column; gap: 12px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tabs button { font-family: var(--font-bios); font-size: 16px; background: var(--surface); color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 6px 14px; cursor: pointer; }
+  .tabs button[aria-selected="true"] { color: var(--gold); border-color: var(--gold); }
+  .tabs button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .set[hidden] { display: none; }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .set h3 { margin: 8px 0 0; font-family: var(--font-bios); font-size: 18px; font-weight: 400; letter-spacing: .03em; color: var(--fg); }
+  .set > p { margin: 0; }
+  .cmp { display: flex; flex-direction: column; gap: 6px; }
+  .cmp-cap { margin: 0; font-size: 15px; color: var(--muted); }
+  .cmp-row { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .shot { all: unset; cursor: zoom-in; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .shot img { display: block; width: 100%; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; border-radius: 4px; background: var(--scr-black); border: 1px solid var(--line); }
+  .shot span { font-family: var(--font-bios); font-size: 14px; color: var(--muted); letter-spacing: .02em; overflow-wrap: anywhere; }
+  .shot:hover img, .shot:focus-visible img { border-color: var(--gold); }
+  .shot:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
+  figure img.zoom { cursor: zoom-in; }
+  .viewer { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); padding: 12px; max-width: min(96vw, 1300px); width: 100%; }
+  .viewer::backdrop { background: rgba(5, 4, 8, .88); }
+  .viewer img { display: block; width: 100%; height: auto; max-height: 76vh; object-fit: contain; image-rendering: pixelated; image-rendering: crisp-edges; background: var(--scr-black); }
+  .viewer .v-cap { margin: 10px 2px 0; font-size: 15px; color: var(--muted); }
+  .viewer .v-nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; }
+  .viewer button { font-family: var(--font-bios); font-size: 16px; background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 6px 14px; cursor: pointer; }
+  .viewer button:hover, .viewer button:focus-visible { border-color: var(--gold); outline: none; }
+  @media (max-width: 520px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .shot span { font-size: 12px; } }
 </style>
 </head>
 <body>
@@ -693,6 +721,200 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
     </div>
   </section>
 
+  <section aria-labelledby="then">
+    <h2 id="then">Then and now</h2>
+    <p>Single frames from the first beta (21 October), the thirteenth (31 October) and this one, each from its own build and drawn by the game itself, at its own 320 by 200. Click one to see it large; the arrows step through the set.</p>
+    <div class="tabs" role="tablist" aria-label="The sets" hidden>
+      <button type="button" role="tab" data-for="crypt" aria-selected="true">The crypt</button>
+      <button type="button" role="tab" data-for="screens" aria-selected="false">The screens</button>
+      <button type="button" role="tab" data-for="dead" aria-selected="false">The dead</button>
+      <button type="button" role="tab" data-for="new" aria-selected="false">New</button>
+    </div>
+    <div class="set" data-set="crypt">
+      <h3>The crypt</h3>
+      <p class="muted">The same seed and the same moment in each build; the level each makes from it has changed, and so has nearly everything in it.</p>
+      <div class="cmp">
+        <p class="cmp-cap">Level 1, forty-six seconds into the dream</p>
+        <div class="cmp-row" style="--n: 3">
+          <button class="shot" type="button" data-cap="Level 1, forty-six seconds into the dream: 1.0.0b1"><img src="img/gallery/crypt-level1-b1.png" loading="lazy" width="320" height="200" alt="Level 1, forty-six seconds into the dream, in 1.0.0b1"><span>1.0.0b1</span></button>
+          <button class="shot" type="button" data-cap="Level 1, forty-six seconds into the dream: 1.0.0b13"><img src="img/gallery/crypt-level1-b13.png" loading="lazy" width="320" height="200" alt="Level 1, forty-six seconds into the dream, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="Level 1, forty-six seconds into the dream: @VERSION@"><img src="img/gallery/crypt-level1-now.png" loading="lazy" width="320" height="200" alt="Level 1, forty-six seconds into the dream, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">Further in, a minute and a quarter on</p>
+        <div class="cmp-row" style="--n: 3">
+          <button class="shot" type="button" data-cap="Further in, a minute and a quarter on: 1.0.0b1"><img src="img/gallery/crypt-ossuary-b1.png" loading="lazy" width="320" height="200" alt="Further in, a minute and a quarter on, in 1.0.0b1"><span>1.0.0b1</span></button>
+          <button class="shot" type="button" data-cap="Further in, a minute and a quarter on: 1.0.0b13"><img src="img/gallery/crypt-ossuary-b13.png" loading="lazy" width="320" height="200" alt="Further in, a minute and a quarter on, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="Further in, a minute and a quarter on: @VERSION@"><img src="img/gallery/crypt-ossuary-now.png" loading="lazy" width="320" height="200" alt="Further in, a minute and a quarter on, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The merchant's room as the dream comes in</p>
+        <div class="cmp-row" style="--n: 3">
+          <button class="shot" type="button" data-cap="The merchant's room as the dream comes in: 1.0.0b1"><img src="img/gallery/crypt-shop-b1.png" loading="lazy" width="320" height="200" alt="The merchant's room as the dream comes in, in 1.0.0b1"><span>1.0.0b1</span></button>
+          <button class="shot" type="button" data-cap="The merchant's room as the dream comes in: 1.0.0b13"><img src="img/gallery/crypt-shop-b13.png" loading="lazy" width="320" height="200" alt="The merchant's room as the dream comes in, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The merchant's room as the dream comes in: @VERSION@"><img src="img/gallery/crypt-shop-now.png" loading="lazy" width="320" height="200" alt="The merchant's room as the dream comes in, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">Taking over and casting the first fireball</p>
+        <div class="cmp-row" style="--n: 3">
+          <button class="shot" type="button" data-cap="Taking over and casting the first fireball: 1.0.0b1"><img src="img/gallery/crypt-cast-b1.png" loading="lazy" width="320" height="200" alt="Taking over and casting the first fireball, in 1.0.0b1"><span>1.0.0b1</span></button>
+          <button class="shot" type="button" data-cap="Taking over and casting the first fireball: 1.0.0b13"><img src="img/gallery/crypt-cast-b13.png" loading="lazy" width="320" height="200" alt="Taking over and casting the first fireball, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="Taking over and casting the first fireball: @VERSION@"><img src="img/gallery/crypt-cast-now.png" loading="lazy" width="320" height="200" alt="Taking over and casting the first fireball, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">Level 33, in the Deep</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="Level 33, in the Deep: 1.0.0b13"><img src="img/gallery/crypt-deep-b13.png" loading="lazy" width="320" height="200" alt="Level 33, in the Deep, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="Level 33, in the Deep: @VERSION@"><img src="img/gallery/crypt-deep-now.png" loading="lazy" width="320" height="200" alt="Level 33, in the Deep, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="set" data-set="screens">
+      <h3>The screens</h3>
+      <p class="muted">The pass over the screens: each menu cut in weathered marble, with its rows in wells and its keys on caps; the same words, the same keys.</p>
+      <div class="cmp">
+        <p class="cmp-cap">Esc's question: in the first beta, the thirteenth, and now a headstone</p>
+        <div class="cmp-row" style="--n: 3">
+          <button class="shot" type="button" data-cap="Esc's question: in the first beta, the thirteenth, and now a headstone: 1.0.0b1"><img src="img/gallery/screens-quit-b1.png" loading="lazy" width="320" height="200" alt="Esc's question: in the first beta, the thirteenth, and now a headstone, in 1.0.0b1"><span>1.0.0b1</span></button>
+          <button class="shot" type="button" data-cap="Esc's question: in the first beta, the thirteenth, and now a headstone: 1.0.0b13"><img src="img/gallery/screens-quit-b13.png" loading="lazy" width="320" height="200" alt="Esc's question: in the first beta, the thirteenth, and now a headstone, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="Esc's question: in the first beta, the thirteenth, and now a headstone: @VERSION@"><img src="img/gallery/screens-quit-now.png" loading="lazy" width="320" height="200" alt="Esc's question: in the first beta, the thirteenth, and now a headstone, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The wardrobe: a list, then sockets on a carved figure</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The wardrobe: a list, then sockets on a carved figure: 1.0.0b13"><img src="img/gallery/screens-wardrobe-b13.png" loading="lazy" width="320" height="200" alt="The wardrobe: a list, then sockets on a carved figure, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The wardrobe: a list, then sockets on a carved figure: @VERSION@"><img src="img/gallery/screens-wardrobe-now.png" loading="lazy" width="320" height="200" alt="The wardrobe: a list, then sockets on a carved figure, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The merchant's menu</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The merchant's menu: 1.0.0b13"><img src="img/gallery/screens-merchant-b13.png" loading="lazy" width="320" height="200" alt="The merchant's menu, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The merchant's menu: @VERSION@"><img src="img/gallery/screens-merchant-now.png" loading="lazy" width="320" height="200" alt="The merchant's menu, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The Alignment at the Lampstand: a list of nodes, then a tree with a pane beside it</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The Alignment at the Lampstand: a list of nodes, then a tree with a pane beside it: 1.0.0b13"><img src="img/gallery/screens-lamp-b13.png" loading="lazy" width="320" height="200" alt="The Alignment at the Lampstand: a list of nodes, then a tree with a pane beside it, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The Alignment at the Lampstand: a list of nodes, then a tree with a pane beside it: @VERSION@"><img src="img/gallery/screens-lamp-now.png" loading="lazy" width="320" height="200" alt="The Alignment at the Lampstand: a list of nodes, then a tree with a pane beside it, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">A page of the Codex</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="A page of the Codex: 1.0.0b13"><img src="img/gallery/screens-codex-b13.png" loading="lazy" width="320" height="200" alt="A page of the Codex, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="A page of the Codex: @VERSION@"><img src="img/gallery/screens-codex-now.png" loading="lazy" width="320" height="200" alt="A page of the Codex, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The tally: a plain box, then a memorial tablet</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The tally: a plain box, then a memorial tablet: 1.0.0b13"><img src="img/gallery/screens-tally-b13.png" loading="lazy" width="320" height="200" alt="The tally: a plain box, then a memorial tablet, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The tally: a plain box, then a memorial tablet: @VERSION@"><img src="img/gallery/screens-tally-now.png" loading="lazy" width="320" height="200" alt="The tally: a plain box, then a memorial tablet, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">Death's cost: in the thirteenth beta the controls card lay over it; now a headstone, and nothing over it</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="Death's cost: in the thirteenth beta the controls card lay over it; now a headstone, and nothing over it: 1.0.0b13"><img src="img/gallery/screens-death-b13.png" loading="lazy" width="320" height="200" alt="Death's cost: in the thirteenth beta the controls card lay over it; now a headstone, and nothing over it, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="Death's cost: in the thirteenth beta the controls card lay over it; now a headstone, and nothing over it: @VERSION@"><img src="img/gallery/screens-death-now.png" loading="lazy" width="320" height="200" alt="Death's cost: in the thirteenth beta the controls card lay over it; now a headstone, and nothing over it, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="set" data-set="dead">
+      <h3>The dead</h3>
+      <p class="muted">The first art pass, seen in the bestiary: skulls and faces pixelled by hand, eyes that show in any light, and the Drowned drawn again.</p>
+      <div class="cmp">
+        <p class="cmp-cap">The skeleton</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The skeleton: 1.0.0b13"><img src="img/gallery/dead-skeleton-b13.png" loading="lazy" width="320" height="200" alt="The skeleton, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The skeleton: @VERSION@"><img src="img/gallery/dead-skeleton-now.png" loading="lazy" width="320" height="200" alt="The skeleton, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The wall skull</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The wall skull: 1.0.0b13"><img src="img/gallery/dead-wallskull-b13.png" loading="lazy" width="320" height="200" alt="The wall skull, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The wall skull: @VERSION@"><img src="img/gallery/dead-wallskull-now.png" loading="lazy" width="320" height="200" alt="The wall skull, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The shambler</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The shambler: 1.0.0b13"><img src="img/gallery/dead-shambler-b13.png" loading="lazy" width="320" height="200" alt="The shambler, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The shambler: @VERSION@"><img src="img/gallery/dead-shambler-now.png" loading="lazy" width="320" height="200" alt="The shambler, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The Drowned</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The Drowned: 1.0.0b13"><img src="img/gallery/dead-drowned-b13.png" loading="lazy" width="320" height="200" alt="The Drowned, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The Drowned: @VERSION@"><img src="img/gallery/dead-drowned-now.png" loading="lazy" width="320" height="200" alt="The Drowned, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The bone hound</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The bone hound: 1.0.0b13"><img src="img/gallery/dead-hound-b13.png" loading="lazy" width="320" height="200" alt="The bone hound, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The bone hound: @VERSION@"><img src="img/gallery/dead-hound-now.png" loading="lazy" width="320" height="200" alt="The bone hound, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The ghoul</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The ghoul: 1.0.0b13"><img src="img/gallery/dead-ghoul-b13.png" loading="lazy" width="320" height="200" alt="The ghoul, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The ghoul: @VERSION@"><img src="img/gallery/dead-ghoul-now.png" loading="lazy" width="320" height="200" alt="The ghoul, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The skeleton knight</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The skeleton knight: 1.0.0b13"><img src="img/gallery/dead-knight-b13.png" loading="lazy" width="320" height="200" alt="The skeleton knight, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The skeleton knight: @VERSION@"><img src="img/gallery/dead-knight-now.png" loading="lazy" width="320" height="200" alt="The skeleton knight, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The ember imp</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The ember imp: 1.0.0b13"><img src="img/gallery/dead-imp-b13.png" loading="lazy" width="320" height="200" alt="The ember imp, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The ember imp: @VERSION@"><img src="img/gallery/dead-imp-now.png" loading="lazy" width="320" height="200" alt="The ember imp, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+      <div class="cmp">
+        <p class="cmp-cap">The gargoyle</p>
+        <div class="cmp-row" style="--n: 2">
+          <button class="shot" type="button" data-cap="The gargoyle: 1.0.0b13"><img src="img/gallery/dead-gargoyle-b13.png" loading="lazy" width="320" height="200" alt="The gargoyle, in 1.0.0b13"><span>1.0.0b13</span></button>
+          <button class="shot" type="button" data-cap="The gargoyle: @VERSION@"><img src="img/gallery/dead-gargoyle-now.png" loading="lazy" width="320" height="200" alt="The gargoyle, in this beta"><span>THIS BETA</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="set" data-set="new">
+      <h3>New in this beta</h3>
+      <p class="muted">The new kinds of the dead, and more of the new stone.</p>
+      <div class="grid">
+        <button class="shot" type="button" data-cap="The Whipper-In, the Order's huntsman, new in this beta: never without his hounds"><img src="img/gallery/new-whipper-now.png" loading="lazy" width="320" height="200" alt="The Whipper-In, the Order's huntsman, new in this beta: never without his hounds"><span>The Whipper-In</span></button>
+        <button class="shot" type="button" data-cap="The Sexton, who rings his bell when he sees you and brings everything near"><img src="img/gallery/new-sexton-now.png" loading="lazy" width="320" height="200" alt="The Sexton, who rings his bell when he sees you and brings everything near"><span>The Sexton</span></button>
+        <button class="shot" type="button" data-cap="The Lightless, black glass with no eyes, which feels your light"><img src="img/gallery/new-lightless-now.png" loading="lazy" width="320" height="200" alt="The Lightless, black glass with no eyes, which feels your light"><span>The Lightless</span></button>
+        <button class="shot" type="button" data-cap="A boss's fight, its bar on a band of the run's stone, the status bar a tablet"><img src="img/gallery/new-bossfight-now.png" loading="lazy" width="320" height="200" alt="A boss's fight, its bar on a band of the run's stone, the status bar a tablet"><span>A boss's fight</span></button>
+        <button class="shot" type="button" data-cap="The Hexed Totem: its abilities and their rank sockets, the words in a band"><img src="img/gallery/new-totem-now.png" loading="lazy" width="320" height="200" alt="The Hexed Totem: its abilities and their rank sockets, the words in a band"><span>The Hexed Totem</span></button>
+        <button class="shot" type="button" data-cap="Another past: the six classes as medallions over their story"><img src="img/gallery/new-class-now.png" loading="lazy" width="320" height="200" alt="Another past: the six classes as medallions over their story"><span>Another past</span></button>
+        <button class="shot" type="button" data-cap="A stone's page in the grave plot, cut as a headstone"><img src="img/gallery/new-stone-now.png" loading="lazy" width="320" height="200" alt="A stone's page in the grave plot, cut as a headstone"><span>A stone's page in the grave plot</span></button>
+        <button class="shot" type="button" data-cap="The Backrooms, behind a secret"><img src="img/gallery/new-pocket-now.png" loading="lazy" width="320" height="200" alt="The Backrooms, behind a secret"><span>The Backrooms</span></button>
+      </div>
+    </div>
+    <dialog class="viewer" aria-label="A frame, large">
+      <img alt="">
+      <p class="v-cap"></p>
+      <div class="v-nav"><button type="button" class="v-prev" aria-label="The one before">&larr;</button><button type="button" class="v-close" aria-label="Close">CLOSE</button><button type="button" class="v-next" aria-label="The next">&rarr;</button></div>
+    </dialog>
+  </section>
+
   <section aria-labelledby="screens">
     <h2 id="screens">Screens</h2>
     <figure>
@@ -701,7 +923,7 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
     </figure>
     <figure>
       <img src="img/preview_catacomb_alignment.png" loading="lazy" width="1932" height="806" alt="Six frames of the Alignment and souls: the Lampstand's screen, FIRE RANK 17, its nodes laid out as a tree in carved sockets with Firestarter chosen and the pane beside it; a flame spirit with a face circling by the caster's hand in a saints' catacomb; her question of another past, THE ANATOMIST, with the six classes' marks in medallions and the Anatomist's story; the map open on torn parchment while walking, its ink running on in pale violet across a hole burnt through it; a shield-bearer's health, 38/38, with the glyphs of what hurts it most and least; and a bat latched across the lower view, its wings from edge to edge and the edges of sight violet">
-      <figcaption>The Lampstand, Firewall's spirits, her question, the map at a walk, a target's glyphs, and a bat that has latched on.</figcaption>
+      <figcaption>The Lampstand's tree, Firewall's spirits, her question of another past, the map at a walk, a target's glyphs, and a bat that has latched on.</figcaption>
     </figure>
     <figure>
       <img src="img/preview_catacomb_atonement.png" loading="lazy" width="1932" height="806" alt="Six frames of the map and Levels of Atonement: a small scroll floating beside the merchant over its card, A MAP OF THE CRYPT, $1000, IT FILLS IN AS YOU WALK; the map unrolled on torn parchment, THE OSSUARY, its halls and rooms in brown ink and a red arrow; a shield-bearer with its health, 23/30, between CHAIN and FIRE; LEVEL OF ATONEMENT 2, THE MERCHANT WILL HEAR IT, over a fireball, +12 EXP SHIELD-BEARER at the lower left; the ascend screen in carved marble, LEVEL OF ATONEMENT 22, 210 POINTS, its lines down the left with their marks and the chosen one's pane; and CORNERSTONES, 2 OF 5 HELD, five sockets down a carved bow from Second Wind to Grave Sense">
@@ -738,7 +960,7 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
           </figure>
           <figure>
             <img src="img/preview_catacomb_shrine.png" loading="lazy" width="1932" height="806" alt="Six frames: the Rune Shrine, a pale stone with a gold ring and cross, sanctified, with E: CURSE IT WITH A CURSED COIN; its screen in marble, nine slots cut as cups, cursed and giving Uncommon runes; the runes of a pull coming into the slots; the caster's page with its totals and the runes held; A CURSED COIN AT THE END OF A CHAIN sliding in for the shrine; and the Black Altar's three gifts on a tablet, WAKE ITS WISP for 10 souls">
-            <figcaption>The Rune Shrine sanctified, cursed and pulled, three runes combining, the caster's runes and coins, a coin found, and the altar sending its wisp on.</figcaption>
+            <figcaption>The Rune Shrine sanctified and its screen, a pull's runes coming in, the caster's totals and runes, a coin found, and the altar's gifts.</figcaption>
           </figure>
           <figure>
             <img src="img/preview_catacomb_creatures.png" loading="lazy" width="2578" height="1212" alt="Twelve frames of CATACOMB's newer creatures in the crypt: a red shambler with a fireball coming at it, one of the Drowned in a burning hall, a bone hound, the Wraith struck by fire, a hunting spider, a ghoul, a skeleton knight with his sword, a brood mother, a shade glimpsed in a skull-lined hall, an ember imp, a deacon in green robes beyond a burning floor, and a gargoyle on its plinth">
@@ -750,7 +972,7 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
           </figure>
           <figure>
             <img src="img/preview_catacomb_wisps.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB's wisps: the WISPS list on a tablet, the way out for a soul, its toggle a cup cut in the stone; a wisp kindling, bright, for the silver key; an exit wisp's blue trail down a hall; THE BLACK ALTAR's three gifts on a tablet; a green skeleton beside a blessed wisp's trail; and the blessed wisp, haloed in pale gold, waiting at the rune-sealed exit">
-            <figcaption>The wisps, the keys' wisps and the Black Altar's gifts; a blessed wisp at the way out.</figcaption>
+            <figcaption>The wisps, a key's wisp and the Black Altar's gifts; a blessed wisp at the way out.</figcaption>
           </figure>
           <figure>
             <img src="img/preview_catacomb_play.png" loading="lazy" width="1932" height="806" alt="Six frames of CATACOMB played by hand: the HOLD H TO TAKE CONTROL bar in the merchant's room; the controls listed on a band of stone over a skeleton's health; the merchant's card for Uncommon Robes of Quickening at 7,425 gold, on a band of stone; a fireball leaving the hand and bursting on a skeleton; the wardrobe as sockets on a carved figure, a bracer chosen and its card in the pane; and the LEAVE THE CRYPT? headstone, OPEN THE LEDGER below the rule">
@@ -968,6 +1190,42 @@ make smoke    # both scenes and a scripted player in the test harness</pre>
     })
     .catch(function () { /* the links above already point at this version */ });
 })();
+  /* the gallery's viewer: a frame large, its caption, the arrows (and the keys) through its set; the strips too */
+  (function () {
+    const dlg = document.querySelector(".viewer");
+    if (!dlg || !dlg.showModal) return;
+    const big = dlg.querySelector("img"), cap = dlg.querySelector(".v-cap");
+    let list = [], at = 0;
+    function show(i) {
+      at = (i + list.length) % list.length;
+      const el = list[at], img = el.tagName === "IMG" ? el : el.querySelector("img");
+      big.src = img.currentSrc || img.src; big.alt = img.alt;
+      cap.textContent = el.dataset.cap || (el.closest("figure") && el.closest("figure").querySelector("figcaption") ? el.closest("figure").querySelector("figcaption").textContent : img.alt);
+    }
+    function open(el, group) { list = Array.from(group); show(list.indexOf(el)); if (!dlg.open) dlg.showModal(); }
+    const tabs = document.querySelector(".tabs");                 /* one set at a time, when there is script to choose */
+    if (tabs) {
+      tabs.hidden = false;
+      document.querySelectorAll(".set h3").forEach(h => h.classList.add("vh"));
+      const pick = key => {
+        tabs.querySelectorAll("button").forEach(t => t.setAttribute("aria-selected", t.dataset.for === key ? "true" : "false"));
+        document.querySelectorAll(".set").forEach(set => { set.hidden = set.dataset.set !== key; });
+      };
+      tabs.querySelectorAll("button").forEach(t => t.addEventListener("click", () => pick(t.dataset.for)));
+      pick("crypt");
+    }
+    document.querySelectorAll(".set").forEach(set => {
+      const shots = set.querySelectorAll(".shot");
+      shots.forEach(b => b.addEventListener("click", () => open(b, shots)));
+    });
+    const strips = document.querySelectorAll('section[aria-labelledby="screens"] figure img');
+    strips.forEach(img => { img.classList.add("zoom"); img.addEventListener("click", () => open(img, strips)); });
+    dlg.querySelector(".v-prev").addEventListener("click", () => show(at - 1));
+    dlg.querySelector(".v-next").addEventListener("click", () => show(at + 1));
+    dlg.querySelector(".v-close").addEventListener("click", () => dlg.close());
+    dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+    dlg.addEventListener("keydown", e => { if (e.key === "ArrowLeft") show(at - 1); else if (e.key === "ArrowRight") show(at + 1); });
+  })();
 </script>
 </body>
 </html>
