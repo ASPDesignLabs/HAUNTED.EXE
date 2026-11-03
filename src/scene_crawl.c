@@ -3852,7 +3852,8 @@ static void toast(int spr, int family, int rank, int progress, const char *title
 static int boss_fighting(void);
 static void update_toasts(float dt) {
     if (!TOASTS.n || boss_fighting()) return;                      /* they wait out a boss's fight, */
-    if (G.hint_t > 0.0f && G.player && !G.ui && !G.dead) return;   /* and the controls card, which they would cover */
+    if (G.hint_t > 0.0f && G.player && !G.ui && !G.dead) return;   /* and the controls card, which they would cover, */
+    if ((G.player && G.ui) || G.tally) return;                     /* and a menu or the tally, over whose corner they had come */
     if (TOASTS.t < 0.0f) { TOASTS.t = 0.0f; snd_sfx_ex(TOASTS.q[0].progress ? SFX_TICK : SFX_KEYGET, TOASTS.q[0].progress ? 0.6f : 0.9f, 0.5f); }
     TOASTS.t += dt;
     if (TOASTS.t >= toast_len(&TOASTS.q[0])) {
@@ -10542,6 +10543,10 @@ static void debug_gear(void) {
     if (getenv("CRAWL_ABIL")) give_ability(atoi(getenv("CRAWL_ABIL")));
     if (getenv("CRAWL_BAG")) give_bag(atoi(getenv("CRAWL_BAG")));
     if (getenv("CRAWL_GOLD")) RUN.treasure = atoi(getenv("CRAWL_GOLD"));
+    if (getenv("CRAWL_SEENALL")) for (int k = 0; k < NKINDS && k < REC_KINDS; k++) {   /* every kind met, and some slain, for the shots */
+        RUN.rec.seen[k] = 0x1f;
+        for (int r = 0; r < NRANK; r++) RUN.rec.kills[k][r] = (uint16_t)((k * 7 + r * 5) % 23 + (r == 0 ? 30 : 0));
+    }
     if (getenv("CRAWL_STONE")) for (int k = 0; k < atoi(getenv("CRAWL_STONE")) && k < STONES; k++) {   /* stones in the plot, from what is held */
         Stone *st = &RUN.stones[k];
         memset(st, 0, sizeof *st);
@@ -26411,7 +26416,7 @@ static void crawl_render(Frame *f) {
 #ifdef CRAWL_DEBUG
     ui_check = 1; ui_check_frame();
 #endif
-    if (G.tally) { render_tally(f); if (G.player && G.ui) render_ui(f); render_toasts(f); con_render(f); return; }
+    if (G.tally) { render_tally(f); if (G.player && G.ui) render_ui(f); con_render(f); return; }   /* toasts wait for the next level */
     g_camfog = fog_at(G.px, G.py);
     fog_tint = G.tri >= 0 && G.tri_state == TRS_ON && in_trial((int)G.px, (int)G.py) ? TRI_FOG[G.tri] : 0;   /* a trial's room, turned */
     float ang = G.ang + G.kick;
@@ -26446,7 +26451,7 @@ static void crawl_render(Frame *f) {
     render_messages(f);
     if (G.claim_card) render_claim(f);
     if (G.player && G.ui) render_ui(f);
-    if (!(G.player && G.ui == UI_CLASS)) render_toasts(f);
+    if (!(G.player && G.ui)) render_toasts(f);                     /* never over a menu: they wait for it */
     tint(f);
     con_render(f);
 }

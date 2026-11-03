@@ -5,7 +5,7 @@ before PLAN-ai's step 11, and U10 (b), full screens keep the crypt dimmed in a 4
 `claude/gifted-rubin-q8up37` from main (1.0.0b13 with the art pass so far and PLAN-ai's steps 0-10). Step 0 is done (the
 before sheets in `docs/uipass/`). Step 1's sheet was approved by the owner (3 November). Step 2 is built (harness only): every menu, card and the tally
 wear the stone. Step 3 is built (harness only): the Alignment, at the Lampstand and on Tab's fourth page, is the
-approved stone. Step 4 is built (harness only): the cornerstones, the Hexed Totem, ascend and her question of what you were. Step 5 is built (harness only): Tab's pages, the bestiary and the Codex. Step 6 is built (harness only): her hall's screens. Step 7 is built (harness only): the crypt's screens, the cards and the tally. Step 8 is built (harness only): the HUD in the run's stone. Like the art pass, it is visual only: nothing in the simulation, the saves or the
+approved stone. Step 4 is built (harness only): the cornerstones, the Hexed Totem, ascend and her question of what you were. Step 5 is built (harness only): Tab's pages, the bestiary and the Codex. Step 6 is built (harness only): her hall's screens. Step 7 is built (harness only): the crypt's screens, the cards and the tally. Step 8 is built (harness only): the HUD in the run's stone. Step 9, the checks, is done: the pass is built. Like the art pass, it is visual only: nothing in the simulation, the saves or the
 autopilot's numbers may move.**
 
 ## Decided (3 November 2026)
@@ -380,7 +380,7 @@ Each step committed, pushed and logged at the end of this plan, so it can be han
    page, the full bag (built).
 7. **The crypt's:** Esc's question, the L list, the altar, the Black Shrine, the cards, the tally (built).
 8. **The HUD** (built).
-9. **The checks:** every screen at each run's palette, with keys and with a pad, at the darkest and brightest crypt behind;
+9. **The checks** (done): every screen at each run's palette, with keys and with a pad, at the darkest and brightest crypt behind;
    the fit script clean; a dream run with `CRAWL_RUNID` gives the same `EVENT` lines before and after (nothing in the
    simulation moved); ASan over sessions that open every screen; the README's previews retaken where they show a menu.
 
@@ -623,3 +623,20 @@ My answer is marked **(mine)**; the owner's take it over.
   up 1.74-1.82 ms against 1.61-1.67 (two runs of `bench` each), the dream 1.52-1.55 against 1.41-1.44. Frames:
   `docs/uipass/step8-L*.png`. Nothing played by hand. Next: step 9, the checks, with keys and with a pad, and the README's
   previews where they show a menu.
+- 3 November 2026, step 9: the checks. `tools/uishots.sh` gained `PAD=1` (every recipe played on a pad: the takeover held on X, E and
+  Enter on A, Esc on Menu, Tab on View, Space and L on Y, the D-pad for W/S/A/D in menus and for B, C and H in play; the recipes
+  that walk are left out) and `HOST=` (another build, an ASan one), and a recipe for the wardrobe in a Backrooms pocket, the
+  brightest crypt behind a menu. Every screen at the four palettes, with keys (`docs/uipass/step9-L*.png`) and with a pad
+  (`step9pad-L*.png`): the fit checks find nothing. In a pocket the menu reads, the yellow carpet and paper go grey in the 4 px
+  margin while the marble is lent, and come back as the menu closes. One more fault, mended: a toast went on being drawn over a
+  menu's corner and over the tally's title (section 1.2 had found it there at step 0); toasts now wait while a menu or the tally is
+  up, as they wait for a boss's fight and the controls card. ASan clean over every recipe at levels 1 and 31 with keys and at 21
+  with a pad (113 sessions). The pass whole, against the build it began from (main at the minds' steps 0-10, its `apl` given the
+  harness's fix for `HOST_INPUT`): two 900 s dreams, a 600 s dream from level 21 and six sessions of a person (the ledger signed,
+  Tab's pages and pieces moved, the Lampstand bought from, the tally and the reckoning, Esc and the L list, a pad through Tab and
+  the bestiary) give the same `EVENT` lines, line for line. A debug switch, `CRAWL_SEENALL=1` (every kind met, some slain), for
+  the bestiary's shots.
+  The README's previews that show a menu were taken again (ten strips: trials, alignment, atonement, pad, ledger, hall, shrine,
+  bestiary, wisps, play, items): their menus are new frames of the same screens, the frames without a menu kept from the old
+  strips; the old strips are in the history. The page's descriptions of them say what they now show, and its note says which
+  frames are older. Nothing played by hand. The pass is built; what is left is the owner's look, and the release.
