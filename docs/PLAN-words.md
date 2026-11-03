@@ -1,6 +1,8 @@
 # The owner's words (2 November 2026)
 
-Status: the editor is published and empty, waiting for the owner's first pass. Nothing in the game has changed.
+Status: the owner's first pass is under way (433 strings touched by 3 November: 214 in their words, 214 kept, 3 flagged).
+Their notes on the classes' spell lines are gathered in [`PENDING-class-updates.md`](PENDING-class-updates.md). Nothing in
+the game has changed.
 
 The owner finds the game's wording "a bit too Claude-ish" and wants to put their own words in place of mine, with a way
 to manage about two thousand strings. This plan treats their voice as a translation of mine: every string a player sees
@@ -78,6 +80,34 @@ CRACKS, AND THE FLOOR GOES DARK` (10448), `THE CART CLANGS INTO A DEAD END AND R
 SILENT, THEN SING AGAIN` (11068), `SHE SETS OUT THE SEVENTH PEDESTAL, THE LAST` (13755), the trial's boon and curse
 (11793, 11799, 67 letters) and `IT ANSWERS ONLY WHILE THE GREAT BELL TOLLS` (11832). Left as they are: the owner is
 rewording them, and the editor flags the width.
+
+## The first pass so far (read 3 November)
+
+433 rows: 214 in the owner's words, 214 kept, 3 flagged (the Rune Shrine's notes on cursing and raising it), 2 opened and
+left. Most of it is the classes and their lines (106), gear and stats (84), what is said in play (98), the altars (44),
+the bosses' gifts (47) and the creatures' names and lore (23). No profile traits yet.
+
+- **Notes.** Eight, all on the lines' abilities: Part 1 of [`PENDING-class-updates.md`](PENDING-class-updates.md). That
+  file's Part 2 lists the classes' and lines' rewrites that describe a game other than this one.
+- **Checks.** Two fail. *HOLD THIS ITEM FOR NEXT LEVEL* (for *HELD FOR NEXT TIME: ${1}*, a caption after Q holds a ware)
+  drops the price and reads as an instruction where the caption confirms the hold. *MIRRORED: {1}% OF PROJECTILES RET AT
+  {2}%* is about 41 letters (a gear card's line; its space isn't stated), and RET reads as cut short.
+- **Spelling**, to pass on: IGNIGHTING, PASTER (Poison Insight), OFFEERING, EMSURING, PHISICAL, PLAUGE, AMD and APROACH
+  (the claim's Codex page), GUARDSMEM, DISAPEARING, HOMONICULOUS (homunculus), OPPORTUNTY, USUALY, RELEALS (reveals),
+  WISPERS, THOUGH for THROUGH (Amperage, Keymaker), WALLS AN OBSTACLES, ALEADY, REPELL, EMBUED, CONTEMPT for CONTENT (the
+  hunting spider), WINTERS for WINTER'S, CHAMPIONS for CHAMPION'S. ARMOR is the owner's spelling in five places; the
+  house rule has been British (armour), though the stat itself has always read ARMOR. Theirs to settle.
+- **Meaning outside the classes**, to confirm with the owner before these go in:
+  - The shambler is renamed UNDEAD (singular and plural), a word the game also uses for a whole family (Dread, the
+    blessing's *turn the undead*); the shield-bearer is SKELETON GUARD.
+  - Commune: *VIEW ALL UNDEAD*; it shows every creature now. Thorns: *WHEN AN ENEMY ATTACKS YOU WITH PHYSICAL DAMAGE*,
+    *BASED ON YOUR ARMOR*; it answers any blow or bite now. Mirrored: *HIGHER RANKS ALLOW FOR HOMING*; every return homes
+    now.
+  - The Wraith's lore: *CANNOT BE STOPPED*; fire, a wisp's light and Dread drive it back.
+  - *ONLY ONE HELD ITEM PER LEVEL*: the rule is one ware held at a time.
+  - The claim's Codex page and the souls' page drop the rules they explained (what marks a page, what she takes; the
+    vessel's size, the motes' six seconds). The souls' page names cairns and haunted remains, which the game doesn't have.
+  - The altar's *THIS CURSE REQUIRES {1} SOULS* is the blessing's price.
 
 ## After the first pass
 

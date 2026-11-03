@@ -139,7 +139,9 @@ sees is in an editor page (an artifact, private to the owner: its link, the data
 are in the plan), with profiles of the creatures, bosses, classes, spells, runes and gifts whose traits are to become
 mechanics. `make words` (`tools/words/`) gathers the strings. Nothing in the game has changed yet; after the owner's first
 pass the strings move into a catalogue the build reads. While the pass is open, don't reword strings without saying so,
-and after adding any, run `make words` and republish the editor.
+and after adding any, run `make words` and republish the editor. The owner's notes from the first pass, changes to the
+classes' spell lines and questions about them, wait in [`docs/PENDING-class-updates.md`](docs/PENDING-class-updates.md)
+for a later update; build none of it before the owner has answered them.
 
 ## Working with the owner
 
