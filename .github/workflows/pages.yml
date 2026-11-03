@@ -1,0 +1,58 @@
+# Publishes the project page (site/, assembled by tools/build_site.sh) to GitHub Pages, with the browser's build
+# at /play/ taken from the release named in VERSION (docs/PLAN-web.md), never from main itself. It follows a
+# successful Build of a push to main, so a new release's files are there before the page asks for them.
+name: Pages
+
+on:
+  workflow_run:
+    workflows: [Build]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/configure-pages@v6
+      - name: Assemble the site
+        run: ./tools/build_site.sh _site
+      - name: The browser's build, from the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="$(cat VERSION)"
+          if gh release download "v$v" --repo "$GITHUB_REPOSITORY" --pattern "HAUNTED-$v-web.zip" --dir "$RUNNER_TEMP/web"; then
+            mkdir -p _site/play
+            unzip -q "$RUNNER_TEMP/web/HAUNTED-$v-web.zip" -d _site/play
+            ls -l _site/play
+          else
+            echo "::warning::v$v has no browser build on its release yet, so /play/ is left out"
+          fi
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
