@@ -6,6 +6,7 @@
 #   make cards  - the project page's title cards in site/cards (needs Pillow)
 #   make sheets - CATACOMB's sprite sheets in build/sheets, by rank, for approval
 #   make items  - a hundred rolled wares a level as build/items.json, for checking names and numbers
+#   make web    - the browser's build in build/web and dist/HAUNTED-<version>-web.zip (needs Emscripten's emcc)
 VERSION := $(shell cat VERSION)
 FILEVER := $(shell sed -E 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*/\1,\2,\3,0/' VERSION)
 PKG      = dist/HAUNTED-$(VERSION)-win64.zip
@@ -89,6 +90,32 @@ build/items: src/crawl_gear.c src/crawl_gear.h src/crawl.h tools/items.c
 items: build/items
 	./build/items > build/items.json
 
+# The browser's build (docs/PLAN-web.md): the same sources with Space casting (HVS_WEB) and src/web_main.c, as
+# haunted-core.js and .wasm, beside the page and its script. Served from /play/ on the project page.
+EMCC     ?= emcc
+WEBPKG    = dist/HAUNTED-$(VERSION)-web.zip
+WEBFLAGS  = -O2 -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Wno-misleading-indentation -DHVS_WEB -I. \
+            -sMODULARIZE=1 -sEXPORT_NAME=HauntedCore -sENVIRONMENT=web -sINITIAL_MEMORY=64MB -sSTACK_SIZE=1MB \
+            -sFILESYSTEM=0 -sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPF32,UTF8ToString
+
+build/web/haunted-core.js: $(SRC) src/web_main.c src/*.h build/version.h
+	@mkdir -p build/web
+	$(EMCC) $(WEBFLAGS) -o $@ $(SRC) src/web_main.c
+
+build/web/index.html: web/index.html web/haunted.js web/audio.js VERSION
+	@mkdir -p build/web
+	sed -e "s/@VERSION@/$(VERSION)/g" web/index.html > $@
+	cp web/haunted.js web/audio.js build/web/
+
+web: build/web/haunted-core.js build/web/index.html
+
+$(WEBPKG): web
+	@mkdir -p dist
+	rm -f $@
+	cd build/web && zip -q -9 ../../$@ index.html haunted.js audio.js haunted-core.js haunted-core.wasm
+
+webzip: $(WEBPKG)
+
 clean:
 	rm -rf build dist/HAUNTED.scr dist/HAUNTED.EXE dist/*.zip
-.PHONY: all host scr zip smoke cards sheets items clean
+.PHONY: all host scr zip smoke cards sheets items web webzip clean
