@@ -180,7 +180,9 @@ icons for the kinds of piece), the bestiary (`ui_niche`) and the Codex. Step 6 i
 build): her hall's screens (`hall_frame`, `hall_keys`, `ui_row`, `ui_scroll`). Step 7 is built (harness only; CI compiled the Windows build):
 the crypt's screens, the cards as headstones (`card_box`), the tally as a memorial tablet. Step 8 is built (harness only; CI compiled the
 Windows build): the HUD in the run's stone (the bar a tablet, `bevel` a well, `ui_band` behind words over the crypt). Step 9, the checks, is done
-(`PAD=1` and `HOST=` for `tools/uishots.sh`; the README's menu previews taken again): the pass is built, harness only.
+(`PAD=1` and `HOST=` for `tools/uishots.sh`; the README's menu previews taken again): the pass is built, harness only. The page has *Then and now* (`tools/gallery.sh`, `docs/gallery/`), on the
+branch for the release. The release (this pass, the art pass and the minds' steps 0-10 together) waits on the owner's reading of
+`docs/CHANGES-1.0.0b14.md`, everything since 1.0.0b13, and their answers to its three questions (the number, *Latest*, the notes' shape).
 Its section 10 is the hand-off log: read it first.
 
 ## Working with the owner
