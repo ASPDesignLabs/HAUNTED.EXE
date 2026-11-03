@@ -484,5 +484,6 @@ My answer is marked **(mine)**; the owner's take it over.
   (`update_align` already went by row and column). Checked: the fit check at four palettes finds nothing new (the tally's
   line, as at step 2); `build/uisheet fit` still 0 over the sixty nodes; a person buying an opening and Efficiency's two
   points, then unbinding the line (with `CRAWL_ALPTS=200`, `CRAWL_COINS=3`), and a 900 s dream give the same `EVENT` lines
-  as step 2's build; ASan clean over that session and 200 s of the dream from level 21. Frames: `docs/uipass/step3-L*.png`
+  as step 2's build; ASan clean over that session and 200 s of the dream from level 21; the Windows build compiled and smoke-tested by CI on
+  the branch (run 82, started by hand). Frames: `docs/uipass/step3-L*.png`
   (`lamp` and `alignment`). Nothing played by hand. Next: step 4, the cornerstones, the Totem, ascend and the class.
