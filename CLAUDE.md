@@ -187,6 +187,12 @@ technicals or debug switches: keep later notes that way). The plans' numbers mov
 and the rest of the art pass come next.
 Its section 10 is the hand-off log: read it first.
 
+A browser build for the page is planned in [`docs/PLAN-web.md`](docs/PLAN-web.md) (3 November, a draft on
+`claude/vibrant-mccarthy-9hk3fi`; discovery only, nothing built, questions W1-W9 unanswered): Emscripten and a
+JavaScript shell beside `win_main.c` and `tools/host.c`, no change to the game's code; Esc and Ctrl belong to the
+browser, saves to its storage. Step 0, a probe compile, is the go/no-go (the Emscripten SDK couldn't be fetched in
+the session that wrote it).
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture
