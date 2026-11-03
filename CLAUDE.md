@@ -162,13 +162,15 @@ still to come (the nest, the imps' brood, sentinels), and the deep's combination
 dream's counters (a glance back, ambush signs read and a spell through the door, callers and leaders first, a corner held).
 Steps 0-10 were folded into main, unreleased, at the owner's word on 3 November (VERSION stays 1.0.0b13, so main carries minds
 the released build lacks), squashed as one commit as the art pass was; the work goes on on `claude/youthful-mayer-deaa11`.
-Step 11, showing it (sounds, captions, the bestiary's lines, the Codex, achievements, art), is next.
+Step 11, showing it (sounds, captions, the bestiary's lines, the Codex, achievements, art), comes after the pass over the screens below, at the owner's word.
 
 A pass over the screens is planned in [`docs/PLAN-ui.md`](docs/PLAN-ui.md) (3 November, a draft on
 `claude/gifted-rubin-q8up37`; nothing built): every menu cut in weathered marble (ledger stones, headstones, tablets),
 three faces of our own at today's sizes, a kit of structured pieces (`src/crawl_ui.c`), the Alignment redrawn as a skill
-tree with an icon to each node and a pane beside it, and the other screens after it. Visual only. Its questions U1-U13 wait
-for the owner; its section 10 is the hand-off log.
+tree with an icon to each node and a pane beside it, and the other screens after it. Visual only. Settled the same day (the
+owner took every answer marked but U7, this pass whole before PLAN-ai's step 11, and U10, full screens keeping the dimmed
+crypt in a 4 px margin); step 0 is done (`tools/uishots.sh`, the before sheets in `docs/uipass/`). Its section 10 is the
+hand-off log: read it first.
 
 ## Working with the owner
 

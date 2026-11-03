@@ -1,8 +1,28 @@
 # The carved stone: a pass over CATACOMB's screens
 
-**Status: a draft (3 November 2026), written on `claude/gifted-rubin-q8up37` from main (1.0.0b13 with the art pass so far and
-PLAN-ai's steps 0-10). Nothing is built. The questions at the end (U1-U13) wait for the owner; each has the answer I would
-take marked. Like the art pass, it is visual only: nothing in the simulation, the saves or the autopilot's numbers may move.**
+**Status: settled (3 November 2026). The owner took my answer to every question but two: U7 (b), this pass whole
+before PLAN-ai's step 11, and U10 (b), full screens keep the crypt dimmed in a 4 px margin round them. Being built on
+`claude/gifted-rubin-q8up37` from main (1.0.0b13 with the art pass so far and PLAN-ai's steps 0-10). Step 0 is done (the
+before sheets in `docs/uipass/`). Like the art pass, it is visual only: nothing in the simulation, the saves or the
+autopilot's numbers may move.**
+
+## Decided (3 November 2026)
+
+| | Answer |
+|---|---|
+| U1 | (a) a marble of our own for every menu, borrowed into `R_FLOOR` and `R_CEIL` while a menu is up, leaning a tenth to the run's stone; the HUD in the run's stone |
+| U2 | (a) weathered grey marble, mid-dark, pale veins, light text cut in it, the colours inlaid |
+| U3 | (a) three new faces; the body face only once it reads as well as the BIOS one |
+| U4 | (a) the slab's own words cut, anything coloured inlaid with a dark rim, small print plain |
+| U5 | (a) forty 16x16 icons by hand, cut when unbought, inlaid when bought |
+| U6 | (a) no names in the tree; the pane names the chosen node |
+| U7 | **(b) this pass whole first, then PLAN-ai's step 11** |
+| U8 | (a) part of 1.0.0b15, with the minds |
+| U9 | (a) ledger stones, headstones, tablets |
+| U10 | **(b) full screens as now: the crypt dimmed in a 4 px margin round them** (so the remap of the crypt's floor and ceiling in section 2.2 covers every menu, full or small; the slab's moulding sits 4 px in from the edge) |
+| U11 | (a) a light pass over the HUD in the run's stone |
+| U12 | (a) the owners' signs, small |
+| U13 | (a) no mouse in menus this pass |
 
 ## What the owner asked for (3 November 2026)
 
@@ -50,6 +70,11 @@ bestiary, the Compendium's spells, and Esc's question.
   pane under it for most of the page.
 - **Esc's question** (`render_quit`). Five or six rows crowded into a box 176 high; the note under the chosen row sits on
   the frame's lower edge.
+- **Ascend** (`render_ascend`). Its fourteen lines are set 7 px apart in an 8 px face, so each row's foot is drawn over
+  by the next (step 0's sheets).
+- **Overlaps between screens** (step 0's sheets): the controls card, shown as a person takes over in her room, is drawn
+  over the shop's card; an achievement's toast is drawn over the tally's title. Section 2.4's fit checks are to catch
+  these too: a toast or card waits for room, or goes where it doesn't cover a title.
 - And generally: no sense of where you are. The Lampstand's screen, her ledger, the bell and the font, the altar and the
   shrine all wear the same two grey lines.
 
@@ -187,7 +212,7 @@ did the frame it is pressed.
 
 ### 5.1 The layout
 
-One ledger stone, the whole screen (U10). Sizes in pixels at 320x200:
+One ledger stone over the whole screen but a 4 px margin of the dimmed crypt (U10). Sizes in pixels at 320x200:
 
 ```
   0   8                                   172 178                                311 319
@@ -393,4 +418,12 @@ My answer is marked **(mine)**; the owner's take it over.
 
 ## 10. Hand-off log
 
-- 3 November 2026: the plan drafted on `claude/gifted-rubin-q8up37`. Nothing built.
+- 3 November 2026: the plan drafted on `claude/gifted-rubin-q8up37`, and settled the same day (the table at the top).
+- 3 November 2026, step 0: `tools/uishots.sh <label> [levels]` opens eighteen screens in the debug harness (the
+  Lampstand, the Totem, the Portal, the Compendium, the Repository, her menu, ascend, the bell, the font, Esc's question,
+  Tab's wardrobe, caster, cornerstones and Alignment pages, the bestiary, the Codex, the controls card, the tally on a
+  corrupted level) at the palettes of levels 1, 11, 21 and 31, and lays them out as `docs/uipass/<label>-L<level>.png`
+  (frames in `build/uishots/`). The *before* sheets are `docs/uipass/before-L*.png`. Not reached by it yet: the shrine
+  (no switch stands you before it), a stone's page (a fresh run has none), the ledger, the class question, the L list,
+  the altar, the Black Shrine, the full bag and the cards; they are added as their steps come. They showed three faults
+  more (section 1.2: ascend's rows, the controls card over the shop's, a toast over the tally). Next: step 1, the sheet.
