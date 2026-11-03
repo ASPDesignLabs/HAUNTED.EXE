@@ -195,6 +195,17 @@ void ui_well(Frame *f, int x, int y, int w, int h) {
         }
 }
 
+void ui_band(Frame *f, int x, int y, int w, int h) {
+    for (int j = 0; j < h; j++)
+        for (int i = 0; i < w; i++) {
+            int s;
+            if (j == 0 || i == 0) s = 9;                            /* its lit edge, top and left */
+            else if (j == h - 1 || i == w - 1) s = 1;               /* its shadow */
+            else s = 2 + mshade(x + i, y + j) * 2 / 11;             /* dark, the veins only just there, so any colour reads on it */
+            gfx_px(f, x + i, y + j, UI_M(s));
+        }
+}
+
 void ui_niche(Frame *f, int x, int y, int w, int h) {
     int ah = w / 4;                                                 /* the arch: an ellipse across the top */
     for (int j = 0; j < h; j++)

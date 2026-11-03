@@ -3851,7 +3851,8 @@ static void toast(int spr, int family, int rank, int progress, const char *title
 }
 static int boss_fighting(void);
 static void update_toasts(float dt) {
-    if (!TOASTS.n || boss_fighting()) return;                      /* they wait out a boss's fight */
+    if (!TOASTS.n || boss_fighting()) return;                      /* they wait out a boss's fight, */
+    if (G.hint_t > 0.0f && G.player && !G.ui && !G.dead) return;   /* and the controls card, which they would cover */
     if (TOASTS.t < 0.0f) { TOASTS.t = 0.0f; snd_sfx_ex(TOASTS.q[0].progress ? SFX_TICK : SFX_KEYGET, TOASTS.q[0].progress ? 0.6f : 0.9f, 0.5f); }
     TOASTS.t += dt;
     if (TOASTS.t >= toast_len(&TOASTS.q[0])) {
@@ -18889,6 +18890,7 @@ static void crawl_control(int what) {
     if (getenv("CRAWL_TPHOLD") && !G.shop) tp_hold(atoi(getenv("CRAWL_TPHOLD")));   /* holding a doorway (step 7) */
     if (getenv("CRAWL_TPPORTAL") && G.shop) { G.px = PORTAL_X + 0.5f; G.py = PORTAL_Y - 1.4f; G.ang = PI_F * 0.5f; G.cx = PORTAL_X; G.cy = PORTAL_Y - 2; }   /* before the Portal */
     if (getenv("CRAWL_TPSTONE") && G.shop) { G.px = STONE_AT[0][0] + 0.5f; G.py = STONE_AT[0][1] + 1.6f; G.ang = -PI_F * 0.5f; G.cx = STONE_AT[0][0]; G.cy = STONE_AT[0][1] + 1; }   /* before the newest stone */
+    if (getenv("CRAWL_TOAST")) toast(SP_SKEL_A, PF_BONE, RK_II, 0, "SLAYER OF THE ORDER", "40 GREEN SKELETONS");   /* a pop-up, for the shots */
     if (getenv("CRAWL_CLAIM")) {                                    /* her card as it would read, nothing taken: for the shots */
         snprintf(G.claim_text, sizeof G.claim_text, "YOU TRIED TO CHEAT THE DEAD OF THEIR BOUNTY. WHATEVER YOU MEANT BY IT, SHE HAS TAKEN THEIR CLAIM: "
                  "1,250 GOLD, AND THE UNCOMMON TREASURE HUNTER BRACER OF SHADOWS. THE LEDGER IS SIGNED.");
@@ -22532,10 +22534,9 @@ static int face_sub(void) {
     return h % 10 < 6 ? 0 : (h % 10 < 8 ? 1 : 2);
 }
 
-static void bevel(Frame *f, int x, int y, int w, int h, int fill) {
-    gfx_rect(f, x, y, w, h, fill);
-    for (int i = 0; i < w; i++) { gfx_px(f, x + i, y, R_IRON + 1); gfx_px(f, x + i, y + h - 1, R_IRON + 9); }
-    for (int i = 0; i < h; i++) { gfx_px(f, x, y + i, R_IRON + 1); gfx_px(f, x + w - 1, y + i, R_IRON + 9); }
+static void bevel(Frame *f, int x, int y, int w, int h, int fill) {   /* a plate sunk in the stone (docs/PLAN-ui.md section 7) */
+    (void)fill;
+    ui_well(f, x, y, w, h);
 }
 
 /* an element's glyph, 7 by 7, in its colour or dimmed; the + and - marks beside it, 3 by 3; struck through */
@@ -22592,7 +22593,8 @@ static int small_digits(Frame *f, int x, int y, int n, uint8_t c) {   /* 3 by 5 
 static void render_statusbar(Frame *f) {
     int y0 = H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f);   /* it slides down out of sight */
     if (y0 >= H) return;
-    gfx_rect(f, 0, y0, W, 44, R_IRON + 4);
+    ui_slab(f, 0, y0, W, 44 + 4, SLAB_TABLET | SLAB_CALM, ORN_NONE, G.ui_t);   /* a tablet of the run's stone, its foot below the screen */
+    ui_box_none();
     {                                                              /* its top edge: the experience towards the next level, gold when one waits */
         int reach = atone_reach(), lo = atone_need(reach), hi = atone_need(reach + 1), waits = reach > RUN.atone;
         int fill = hi > lo ? (int)((float)(RUN.xp - lo) / (float)(hi - lo) * W) : 0;
@@ -22617,7 +22619,11 @@ static void render_statusbar(Frame *f) {
             int cap = vessel(), full = RUN.souls >= cap;
             col = full ? R_GOLD + 12 : R_GLOW + 12;
             int gw = P[i].w - 8, fill = cap > 0 ? clampi((int)((float)gw * spirit() / (float)cap + 0.5f), 0, gw) : 0;
-            for (int k = 0; k < gw; k++) gfx_px(f, P[i].x + 4 + k, y0 + 36, k < fill ? (full ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_GLOW + 10)) : (uint8_t)(R_IRON + 4));
+            for (int k = 0; k < gw; k++) {                         /* in a groove cut along the plate's foot */
+                gfx_px(f, P[i].x + 4 + k, y0 + 35, UI_M(0));
+                gfx_px(f, P[i].x + 4 + k, y0 + 36, k < fill ? (full ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_GLOW + 10)) : UI_M(1));
+                gfx_px(f, P[i].x + 4 + k, y0 + 37, UI_M(9));
+            }
             break;
         }
         default: {                                                 /* the spell in hand: its element's glyph and its rank */
@@ -22633,7 +22639,7 @@ static void render_statusbar(Frame *f) {
                 char bn[8];
                 snprintf(bn, sizeof bn, "%d", RUN.gear.bones);
                 int bw = gfx_text_width(bn, 1), bx = P[i].x + (P[i].w - bw - 12) / 2, by = y0 + 7;
-                gfx_rect(f, P[i].x + 2, by - 1, P[i].w - 4, 9, R_IRON + 2);
+                gfx_rect(f, P[i].x + 2, by - 1, P[i].w - 4, 9, UI_M(3));
                 uint8_t bc = RUN.gear.bones > 0 ? (uint8_t)(R_BONE + 14) : (uint8_t)(R_BLOOD + 13);
                 static const char *BONE[3] = { "##.....##", ".#######.", "##.....##" };   /* a bone */
                 for (int r = 0; r < 3; r++) for (int k = 0; k < 9; k++) if (BONE[r][k] == '#') gfx_px(f, bx + k, by + 2 + r, bc);
@@ -22694,6 +22700,10 @@ static void draw_coin(Frame *f, int x, int y) {                    /* a Cursed C
             else if (r == 2 && c == 4) gfx_px(f, x + c, y + r, R_BLOOD + 14);   /* its red eye */
             else if (r == 2 || r == 4) gfx_px(f, x + c, y + r, 0);
 }
+static int shop_carded(void) {                                     /* a person looking at something in her room: its card is up */
+    return G.shop && G.player && (G.shop_look >= 0 || G.rep_look || G.comp_look || G.stone_look >= 0 || G.map_look || G.mer_look || G.por_look
+                                  || G.tot_look || G.bell_look || G.font_look || G.lamp_look || G.sh_look);
+}
 static void render_shop_card(Frame *f) {
     int i = G.shop_step == SH_LOOK || G.shop_step == SH_GO || (G.shop_step == SH_BUY && G.shop_pick >= 0 && !G.offer_gone[G.shop_pick]) ? G.shop_look : -1;
     if (G.shop_step == SH_LOOK && G.shop_t < 0.35) i = -1;
@@ -22703,9 +22713,7 @@ static void render_shop_card(Frame *f) {
         int bw = 264, bx = (W - bw) / 2, ph = 42, full = 0;
         for (int k = 0; k < RUN.repo_n; k++) full += RUN.repo[k].kind != IK_NONE;
         y0 = H - 44 - 4 - ph;
-        gfx_rect(f, bx, y0, bw, ph, 0);
-        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
-        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
         gfx_text16(f, bx + 8, y0 + 4, "THE WRETCHED REPOSITORY", R_IRON + 13, 1);
         char l2[48];
         snprintf(l2, sizeof l2, "%d OF %d FULL, $%d, %d COINS", full, RUN.repo_n, RUN.repo_gold, RUN.repo_coins);
@@ -22716,9 +22724,7 @@ static void render_shop_card(Frame *f) {
     if (G.player && G.comp_look && i < 0) {                        /* the Compendium, and what E does there */
         int bw = 264, bx = (W - bw) / 2, ph = 42;
         y0 = H - 44 - 4 - ph;
-        gfx_rect(f, bx, y0, bw, ph, 0);
-        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
-        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
         gfx_text16(f, bx + 8, y0 + 4, "THE CORPUS COMPENDIUM", R_BONE + 13, 1);
         char l2[48];
         snprintf(l2, sizeof l2, "%d PIECES WRITTEN IN IT", comp_count());
@@ -22730,9 +22736,7 @@ static void render_shop_card(Frame *f) {
         const Stone *st = &RUN.stones[clampi(G.stone_look, 0, STONES - 1)];
         int bw = 264, bx = (W - bw) / 2, ph = 42;
         y0 = H - 44 - 4 - ph;
-        gfx_rect(f, bx, y0, bw, ph, 0);
-        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
-        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
         gfx_text16(f, bx + 8, y0 + 4, "A DWELLER'S STONE", R_STONE + 13, 1);
         char by[64], l2[96];
         blame_text(&st->by, by, sizeof by);
@@ -22745,9 +22749,7 @@ static void render_shop_card(Frame *f) {
     if (G.player && G.map_look && i < 0) {                         /* the map, and what it does */
         int bw = 264, bx = (W - bw) / 2, ph = 42;
         y0 = H - 44 - 4 - ph;
-        gfx_rect(f, bx, y0, bw, ph, 0);
-        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
-        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
         gfx_text16(f, bx + 8, y0 + 4, "A MAP OF THE CRYPT", R_BONE + 13, 1);
         char pr[16];
         snprintf(pr, sizeof pr, "$%d", MAP_PRICE);
@@ -22759,9 +22761,7 @@ static void render_shop_card(Frame *f) {
     if (G.player && G.mer_look && i < 0) {                         /* the merchant, and what E does with her */
         int bw = 264, bx = (W - bw) / 2, ph = 42;
         y0 = H - 44 - 4 - ph;
-        gfx_rect(f, bx, y0, bw, ph, 0);
-        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
-        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
         gfx_text16(f, bx + 8, y0 + 4, "THE MERCHANT", R_GOLD + 12, 1);
         char l2[48];
         if (LEDGER.page) snprintf(l2, sizeof l2, "FROM PAGE %s OF HER LEDGER", RUN_ROMAN[LEDGER.page - 1]);
@@ -22774,9 +22774,7 @@ static void render_shop_card(Frame *f) {
         int bw = 264, bx = (W - bw) / 2, ph = 42, ch = 0;
         for (int b = 0; b < NBOSS; b++) ch += RUN.rec.boss[b].slain > 0;
         y0 = H - 44 - 4 - ph;
-        gfx_rect(f, bx, y0, bw, ph, 0);
-        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
-        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
         gfx_text16(f, bx + 8, y0 + 4, "THE ACCURSED PORTAL", R_PURPLE + 13, 1);
         char l2[48];
         snprintf(l2, sizeof l2, "%d RUN%s OPEN, %d CHALLENGE%s", RUN.run_top + 1, RUN.run_top ? "S" : "", ch, ch == 1 ? "" : "S");
@@ -22788,9 +22786,7 @@ static void render_shop_card(Frame *f) {
         int bw = 264, bx = (W - bw) / 2, ph = 42, known = 0, scrip = 0;
         for (int b = 0; b < NBOSS; b++) { known += boss_beaten(b); scrip += RUN.scrip[b]; }
         y0 = H - 44 - 4 - ph;
-        gfx_rect(f, bx, y0, bw, ph, 0);
-        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
-        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
         gfx_text16(f, bx + 8, y0 + 4, "THE HEXED TOTEM", R_GOLD + 12, 1);
         char l2[48];
         if (!known) snprintf(l2, sizeof l2, "IT WANTS A BOSS'S ODIOUS SCRIP");
@@ -22802,9 +22798,7 @@ static void render_shop_card(Frame *f) {
     if (G.player && (G.bell_look || G.font_look) && i < 0) {       /* the Dead Bell or the Weeping Font */
         int bw = 264, bx = (W - bw) / 2, ph = 42, bell = G.bell_look;
         y0 = H - 44 - 4 - ph;
-        gfx_rect(f, bx, y0, bw, ph, 0);
-        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
-        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
         gfx_text16(f, bx + 8, y0 + 4, bell ? "THE DEAD BELL" : "THE WEEPING FONT", bell ? (uint8_t)(R_MOSS + 12) : (uint8_t)(R_BLOOD + 12), 1);
         char l2[56];
         if (bell && !RUN.bell_cursed) snprintf(l2, sizeof l2, "DORMANT. IT WANTS A CURSED COIN");
@@ -22821,9 +22815,7 @@ static void render_shop_card(Frame *f) {
         int bw = 264, bx = (W - bw) / 2, ph = 42, open = 0;
         for (int e = 0; e < NELEM; e++) open += align_open(e);
         y0 = H - 44 - 4 - ph;
-        gfx_rect(f, bx, y0, bw, ph, 0);
-        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
-        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
         gfx_text16(f, bx + 8, y0 + 4, "THE LAMPSTAND", R_GOLD + 12, 1);
         char l2[48];
         if (RUN.al_points > 0) snprintf(l2, sizeof l2, "%d POINT%s TO ALIGN", RUN.al_points, RUN.al_points == 1 ? "" : "S");
@@ -22835,9 +22827,7 @@ static void render_shop_card(Frame *f) {
     if (G.player && G.sh_look && i < 0) {                          /* the shrine, and what E does there */
         int bw = 264, bx = (W - bw) / 2, ph = 42;
         y0 = H - 44 - 4 - ph;
-        gfx_rect(f, bx, y0, bw, ph, 0);
-        for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
-        for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
         char l1[48], l2[48];
         if (!RUN.shrine) { snprintf(l1, sizeof l1, "SANCTIFIED. IT GIVES NOTHING."); snprintf(l2, sizeof l2, RUN.coins ? "E: CURSE IT WITH A CURSED COIN" : "IT WANTS A CURSED COIN"); }
         else {
@@ -22857,7 +22847,7 @@ static void render_shop_card(Frame *f) {
         if (!G.player && G.shop_step == SH_THANK && !G.shop_bought) {
             const char *msg = G.shop_saving ? "SAVING UP FOR SOMETHING BETTER" : "NOTHING TAKES ITS FANCY";
             int w = gfx_text_width(msg, 1);
-            gfx_rect(f, (W - w) / 2 - 6, y0 + 22, w + 12, 16, 0);
+            ui_band(f, (W - w) / 2 - 6, y0 + 22, w + 12, 16);
             gfx_text8(f, (W - w) / 2, y0 + 26, msg, R_GOLD + 10, 1);
         }
         return;
@@ -22904,9 +22894,7 @@ static void render_shop_card(Frame *f) {
     }
     ph = body + (fl ? 9 * fl + 2 : 0);
     y0 = H - 44 - 4 - ph;
-    gfx_rect(f, bx, y0, bw, ph, 0);
-    for (int x = 0; x < bw; x++) { gfx_px(f, bx + x, y0, R_STONE + 10); gfx_px(f, bx + x, y0 + ph - 1, R_STONE + 6); }
-    for (int y = 0; y < ph; y++) { gfx_px(f, bx, y0 + y, R_STONE + 10); gfx_px(f, bx + bw - 1, y0 + y, R_STONE + 6); }
+    ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
     for (int k = 0, fy = y0 + body; k < 2; k++)                    /* the footer, at the bottom of the card */
         if (foot[k][0]) { hint8(f, bx + 8, fy, foot[k], warn ? (uint8_t)(R_BLOOD + 13) : (k ? (uint8_t)(R_GOLD + 10) : (uint8_t)(R_STONE + 10))); fy += 9; }
     if (o->kind == GK_PIECE) {
@@ -23502,9 +23490,9 @@ static void render_bossbar(Frame *f) {
     const BossDef *B = &BOSSES[G.boss];
     int off = G.bstate != BS_FIGHT, bw = 180, bx = (W - bw) / 2, by = 13;
     int nw = gfx_text_width(B->name, 1);
-    gfx_rect(f, (W - nw) / 2 - 3, 2, nw + 6, 10, 0);
+    ui_band(f, (W - nw) / 2 - 3, 2, nw + 6, 10);
     gfx_text8(f, (W - nw) / 2, 3, B->name, off ? (uint8_t)(R_STONE + 12) : (uint8_t)(R_BLOOD + 13), 1);
-    gfx_rect(f, bx - 2, by - 2, bw + 4, 9, 0);
+    ui_band(f, bx - 2, by - 2, bw + 4, 9);
     for (int i = -1; i <= bw; i++) { gfx_px(f, bx + i, by - 1, R_STONE + 9); gfx_px(f, bx + i, by + 5, R_STONE + 5); }
     for (int j = -1; j <= 5; j++) { gfx_px(f, bx - 1, by + j, R_STONE + 9); gfx_px(f, bx + bw, by + j, R_STONE + 5); }
     int fill = (int)(clampf(G.bbar, 0.0f, 1.0f) * bw + 0.5f), ring = G.bring > 0.0f && ((int)(G.t * 20.0) & 1);
@@ -23522,7 +23510,7 @@ static void render_bossbar(Frame *f) {
     if (G.bstate == BS_WAVE) {
         if (G.badds < 0) snprintf(line, sizeof line, "IT CALLS"); else snprintf(line, sizeof line, "%d REMAIN", G.badds);
         int lw = gfx_text_width(line, 1);
-        gfx_rect(f, (W - lw) / 2 - 3, by + 7, lw + 6, 10, 0);
+        ui_band(f, (W - lw) / 2 - 3, by + 7, lw + 6, 10);
         gfx_text8(f, (W - lw) / 2, by + 8, line, R_GOLD + 11, 1);
     }
 }
@@ -23537,9 +23525,9 @@ static void render_trial(Frame *f) {
     if (!trial_shown()) return;
     const char *nm = TRI_NAME[G.tri];
     int nw = gfx_text_width(nm, 1), x0 = W / 2 - 10, y0 = 13;
-    gfx_rect(f, (W - nw) / 2 - 3, 2, nw + 6, 10, 0);
+    ui_band(f, (W - nw) / 2 - 3, 2, nw + 6, 10);
     gfx_text8(f, (W - nw) / 2, 3, nm, G.tri_state == TRS_LOST ? (uint8_t)(R_STONE + 11) : (uint8_t)(R_GOLD + 12), 1);
-    gfx_rect(f, x0 - 2, y0 - 1, 25, 35, 0);
+    ui_band(f, x0 - 2, y0 - 1, 25, 35);
     crawl_hourglass(f->pix, W, x0, y0, G.tri_t / TRI_TIME, G.tri_state == TRS_WON ? 1 : G.tri_state == TRS_LOST ? 2 : 0, (float)G.t);
     char line[40];
     line[0] = 0;
@@ -23572,7 +23560,7 @@ static void render_trial(Frame *f) {
     }
     if (line[0]) {
         int lw = gfx_text_width(line, 1);
-        gfx_rect(f, (W - lw) / 2 - 3, y0 + 35, lw + 6, 10, 0);
+        ui_band(f, (W - lw) / 2 - 3, y0 + 35, lw + 6, 10);
         gfx_text8(f, (W - lw) / 2, y0 + 36, line, G.tri_state == TRS_LOST ? (uint8_t)(R_BLOOD + 12) : (uint8_t)(R_GOLD + 11), 1);
     }
 }
@@ -23676,9 +23664,7 @@ static void render_readout(Frame *f) {
     snprintf(coins, sizeof coins, "%d", RUN.coins);
     int ex = kx + nk * 11 + (nk ? 2 : 0), cx = ex + (LEDGER.marked ? 11 : 0);
     int pw = cx + (RUN.coins > 0 ? 10 + gfx_text_width(coins, 1) + 6 : 0) + 4, ph = 18, px = 6 + sockets_shown() * SOCK, py = H - 4 - (int)(k * (ph + 4)) + 4 - (int)(G.lift * 40.0f + 0.5f);   /* raised over HOLD H */
-    gfx_rect(f, px, py, pw, ph, 0);
-    for (int i = 0; i < pw; i++) { gfx_px(f, px + i, py, R_STONE + 9); gfx_px(f, px + i, py + ph - 1, R_STONE + 5); }
-    for (int i = 0; i < ph; i++) { gfx_px(f, px, py + i, R_STONE + 9); gfx_px(f, px + pw - 1, py + i, R_STONE + 5); }
+    ui_band(f, px, py, pw, ph);                                    /* a band of the run's stone */
     int low = G.hp <= G.max_hp / 4 && ((int)(G.t * 4.0) & 1);
     uint8_t hcol = G.poison_t > 0.0f ? (uint8_t)(R_MOSS + 13) : (low ? (uint8_t)(R_BLOOD + 15) : (uint8_t)(R_BLOOD + 12));
     gfx_glyph8(f, px + 5, py + 5, 3, hcol, -1, 1);
@@ -23784,7 +23770,7 @@ static void render_runesockets(Frame *f) {
         if (!G.rs_slot[k] || G.rs_a[k] <= 0.0f) continue;
         int q = clampi(RUN.gear.def[k], 1, RUNE_EXQ), ph = rune_phase(k), ramp = gear_color(GK_DEF, k), qr = QUAL_RAMP[q - 1];
         int x = W - 21 - (G.rs_slot[k] - 1) * SOCK, y = y0 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.rs_a[k])) * 24.0f + 0.5f);
-        gfx_rect(f, x, y, 17, 17, 0);
+        ui_well(f, x, y, 17, 17);                                  /* a socket sunk in the stone */
         for (int i = 0; i < 17; i++) {                             /* the edge in its quality's colour */
             gfx_px(f, x + i, y, ramp_at(qr, 13)); gfx_px(f, x, y + i, ramp_at(qr, 13));
             gfx_px(f, x + i, y + 16, ramp_at(qr, 7)); gfx_px(f, x + 16, y + i, ramp_at(qr, 7));
@@ -23850,7 +23836,6 @@ static void render_carry(Frame *f) {
     const Thing *t = &G.thing[G.carry - 1];
     int bar_top = H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f);
     int x = W - 34, y = imin(bar_top - 20, H - 21) - 34;
-    gfx_rect(f, x - 2, y - 2, 32, 32, 0);
     bevel(f, x - 2, y - 2, 32, 32, 0);
     if (t->spr >= 0) ui_sprite(f, t->spr, x, y, 28, NULL, 0);
     if (t->mark > 0) ui_sprite(f, t->mark >= 100 ? SP_PZ_LETTER0 + t->mark - 100 : t->mark > 16 ? SP_PIP1 + t->mark - 17 : SP_MARK0 + t->mark - 1, x, y + (int)(t->mz * -28.0f), 28, NULL, 0);
@@ -23858,8 +23843,7 @@ static void render_carry(Frame *f) {
 static void render_read(Frame *f) {
     if (G.read_t <= 0.0f || !G.read_text[0] || (G.player && G.ui)) return;
     int y = toast_showing() ? 66 : 30;
-    gfx_rect(f, 14, y, W - 28, 40, 0);
-    bevel(f, 14, y, W - 28, 40, 0);
+    ui_band(f, 14, y, W - 28, 40);
     text_wrap(f, 20, y + 4, G.read_text, 35, R_BONE + 13, 4);
 }
 /* a line of news at the top of the view, and the first-time hints */
@@ -23872,11 +23856,11 @@ static void render_messages(Frame *f) {
             int w = gfx_text_width(G.msg, 1), x = (W - w) / 2, y = toast_showing() ? 50 : (trial_shown() ? 60 : boss_fighting() ? 34 : 14);   /* below a pop-up,
                                                                       the hourglass, or a boss's bar */
             if (target_shown()) y = imax(y, target_y() + 34);         /* or what you are looking at, and what it does */
-            gfx_rect(f, x - 5, y, w + 10, 14, 0);
+            ui_band(f, x - 5, y, w + 10, 14);
             gfx_text8(f, x, y + 3, G.msg, R_GOLD + 11, 1);
         }
     }
-    if (G.hint_t > 0.0f && G.player && !G.ui && !G.dead && !G.claim_card) {   /* never over death's card or hers */
+    if (G.hint_t > 0.0f && G.player && !G.ui && !G.dead && !G.claim_card && !shop_carded()) {   /* never over death's card, hers, or a ware's */
         static const char *const HINT[4] = { "WASD WALK  MOUSE TURN  CLICK CASTS", "1-9 SPELLS  E OPENS  TAB INVENTORY", "B BESTIARY  ESC LEAVE OR SLEEPWALK",
                                              "L WISPS  C THE CODEX  H THE STATUS BAR" };
         static const char *const PADHINT[4] = { "L-STICK WALK  R-STICK TURN  RT CASTS", "LB RB SPELLS  \1A OPENS  VIEW INVENTORY",
@@ -23889,11 +23873,13 @@ static void render_messages(Frame *f) {
                                 charges ? (PADX.used ? "HOLD RT TO CHARGE AN ULTIMATE" : "HOLD A SPELL TO CHARGE ITS ULTIMATE") : NULL,   /* 1.0.0b11 */
                                 bats ? (PADX.used ? "SWING THE R-STICK TO SHAKE OFF A BAT" : "TURN OR STRAFE HARD TO SHAKE OFF A BAT") : NULL,
                                 G.shop || RUN.al_points > 0 ? "THE LAMPSTAND NORTH OF HER: THE LINES" : NULL };
+        int rows = 0, widest = 0;                                  /* one band of stone behind them all */
+        for (int i = 0; i < 11; i++) { const char *h = i < 4 ? (PADX.used ? PADHINT[i] : HINT[i]) : more[i - 4]; if (h) { rows++; widest = imax(widest, hint_width(h)); } }
+        ui_band(f, (W - widest) / 2 - 6, 30, widest + 12, rows * 11 + 5);
         for (int i = 0, row = 0; i < 11; i++) {
             const char *h = i < 4 ? (PADX.used ? PADHINT[i] : HINT[i]) : more[i - 4];
             if (!h) continue;
             int w = hint_width(h), x = (W - w) / 2, y = 34 + row++ * 11;
-            gfx_rect(f, x - 4, y - 2, w + 8, 11, 0);
             hint8(f, x, y, h, R_STONE + 13);
         }
     }
@@ -24604,9 +24590,9 @@ static void render_toasts(Frame *f) {
     int lines = 3 + (b[0] != 0), bw = 38 + tw * 8 + 6, bh = lines * 9 + 8 > 36 ? lines * 9 + 8 : 36;
     int x = W - (int)((float)(bw + 3) * k), y = 3;
     int edge = t->progress ? R_STONE + 9 : R_GOLD + 9;
-    gfx_rect(f, x, y, bw, bh, 0);
-    for (int i = 0; i < bw; i++) { gfx_px(f, x + i, y, (uint8_t)edge); gfx_px(f, x + i, y + bh - 1, (uint8_t)(edge - 4)); }
-    for (int i = 0; i < bh; i++) { gfx_px(f, x, y + i, (uint8_t)edge); gfx_px(f, x + bw - 1, y + i, (uint8_t)(edge - 4)); }
+    ui_band(f, x, y, bw, bh);                                      /* a small tablet of the run's stone, edged in gold for an achievement */
+    for (int i = 1; i < bw - 1; i++) { gfx_px(f, x + i, y + 1, (uint8_t)edge); gfx_px(f, x + i, y + bh - 2, (uint8_t)(edge - 4)); }
+    for (int i = 1; i < bh - 1; i++) { gfx_px(f, x + 1, y + i, (uint8_t)edge); gfx_px(f, x + bw - 2, y + i, (uint8_t)(edge - 4)); }
     bevel(f, x + 4, y + 4, 30, 28, R_IRON + 2);
     const uint8_t *lut = t->family >= 0 && t->rank != RK_I ? crawl_rank_lut[t->family][t->rank] : NULL;
     ui_sprite(f, t->spr, x + 6, y + 5, 26, lut, 0);
@@ -25632,7 +25618,7 @@ static void render_xp(Frame *f) {
         char v[16];
         snprintf(v, sizeof v, "+%d EXP", XPF.v[i]);
         int vw = gfx_text_width(v, 1), ww = gfx_text_width(XPF.what[i], 1), dim = a > 2.4f, x = dream ? W - 10 - vw - ww - 6 : 7;
-        gfx_rect(f, x - 3, y - 1, vw + ww + 14, 10, 0);
+        ui_band(f, x - 3, y - 1, vw + ww + 14, 10);
         gfx_text8(f, x, y, v, dim ? (uint8_t)(R_PURPLE + 9) : (uint8_t)(R_PURPLE + 13), 1);
         gfx_text8(f, x + vw + 6, y, XPF.what[i], dim ? (uint8_t)(R_STONE + 8) : (uint8_t)(R_STONE + 12), 1);
     }
@@ -25643,7 +25629,7 @@ static void render_xp(Frame *f) {
         snprintf(l1, sizeof l1, "LEVEL OF ATONEMENT %d", XPF.banner_lvl);
         const char *l2 = "THE MERCHANT WILL HEAR IT";
         int w1 = gfx_text_width(l1, 1), w2 = gfx_text_width(l2, 1), wb = imax(w1, w2) + 12, y = 62;
-        gfx_rect(f, (W - wb) / 2, y - 4, wb, 34, 0);
+        ui_band(f, (W - wb) / 2, y - 4, wb, 34);
         for (int i = 0; i < wb; i++) { gfx_px(f, (W - wb) / 2 + i, y - 4, R_PURPLE + 8); gfx_px(f, (W - wb) / 2 + i, y + 29, R_PURPLE + 5); }
         int sway = (int)(1.5f * sinf(k * 5.0f));
         gfx_text16(f, (W - w1) / 2 + sway + 1, y + 1, l1, R_PURPLE + 4, 1);
@@ -25701,12 +25687,12 @@ static void render_target(Frame *f) {
     char name[48];
     snprintf(name, sizeof name, "%s%s", m->rank == RK_I || spirit ? "" : rank_word(k, m->rank), KINDS[k].name);
     int nw = gfx_text_width(name, 1);
-    gfx_rect(f, (W - nw) / 2 - 3, y0, nw + 6, 10, 0);
+    ui_band(f, (W - nw) / 2 - 3, y0, nw + 6, 10);
     gfx_text8(f, (W - nw) / 2, y0 + 1, name, spirit ? (uint8_t)(R_STONE + 12) : (uint8_t)RANK_COL[clampi(m->rank, 0, NRANK - 1)], 1);
     if (spirit) {
         const char *t = "NOTHING YOU CARRY TOUCHES IT";
         int tw = gfx_text_width(t, 1);
-        gfx_rect(f, (W - tw) / 2 - 3, y0 + 11, tw + 6, 10, 0);
+        ui_band(f, (W - tw) / 2 - 3, y0 + 11, tw + 6, 10);
         gfx_text8(f, (W - tw) / 2, y0 + 12, t, R_STONE + 10, 1);
         return;
     }
@@ -25715,7 +25701,7 @@ static void render_target(Frame *f) {
     int by = y0 + (nh ? 22 : 13);
     if (nh) {
         int hw = nh * 7 + (nh - 1) * 5, hx = (W - hw) / 2;
-        gfx_rect(f, hx - 3, y0 + 10, hw + 6, 10, 0);
+        ui_band(f, hx - 3, y0 + 10, hw + 6, 10);
         for (int i = 0; i < nh; i++) {
             int x = hx + i * 12;
             if (harm_learnt(k, hel[i])) elem_glyph(f, x, y0 + 11, hel[i], 0);
@@ -25723,7 +25709,7 @@ static void render_target(Frame *f) {
         }
     }
     int bw = 120, bx = (W - bw) / 2;
-    gfx_rect(f, bx - 2, by - 2, bw + 4, 11, 0);
+    ui_band(f, bx - 2, by - 2, bw + 4, 11);
     for (int i = -1; i <= bw; i++) { gfx_px(f, bx + i, by - 1, R_STONE + 9); gfx_px(f, bx + i, by + 7, R_STONE + 5); }
     for (int j = -1; j <= 7; j++) { gfx_px(f, bx - 1, by + j, R_STONE + 9); gfx_px(f, bx + bw, by + j, R_STONE + 5); }
     float frac = m->state == MS_WALK && m->maxhp > 0.0f ? clampf(m->hp / m->maxhp, 0.0f, 1.0f) : 0.0f;
@@ -25743,7 +25729,7 @@ static void render_target(Frame *f) {
         for (int i = 0; i < n; i++) w += glyph_width(gr[i]) + 3;
         if (!w) continue;
         int x0 = side == 0 ? bx - 6 - w : bx + bw + 6, x = side == 0 ? bx - 6 : x0;
-        gfx_rect(f, x0 - 2, by - 2, w + 3, 11, 0);
+        ui_band(f, x0 - 2, by - 2, w + 3, 11);
         for (int i = 0; i < n; i++) {                              /* outward from the bar, the most first */
             int gw = glyph_width(gr[i]);
             if (side == 0) x -= gw + 3;
@@ -26421,7 +26407,7 @@ static void crawl_render(Frame *f) {
     f->w = W; f->h = H;
     memcpy(f->pal, crawl_pal, sizeof crawl_pal);
     f->fade = G.fade;
-    ui_lent = 0; ui_ramps(1);
+    ui_lent = 0; ui_ramps(0);                                     /* the HUD in the run's stone; a menu lends the marble (ui_on) */
 #ifdef CRAWL_DEBUG
     ui_check = 1; ui_check_frame();
 #endif

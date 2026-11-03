@@ -5,7 +5,7 @@ before PLAN-ai's step 11, and U10 (b), full screens keep the crypt dimmed in a 4
 `claude/gifted-rubin-q8up37` from main (1.0.0b13 with the art pass so far and PLAN-ai's steps 0-10). Step 0 is done (the
 before sheets in `docs/uipass/`). Step 1's sheet was approved by the owner (3 November). Step 2 is built (harness only): every menu, card and the tally
 wear the stone. Step 3 is built (harness only): the Alignment, at the Lampstand and on Tab's fourth page, is the
-approved stone. Step 4 is built (harness only): the cornerstones, the Hexed Totem, ascend and her question of what you were. Step 5 is built (harness only): Tab's pages, the bestiary and the Codex. Step 6 is built (harness only): her hall's screens. Step 7 is built (harness only): the crypt's screens, the cards and the tally. Like the art pass, it is visual only: nothing in the simulation, the saves or the
+approved stone. Step 4 is built (harness only): the cornerstones, the Hexed Totem, ascend and her question of what you were. Step 5 is built (harness only): Tab's pages, the bestiary and the Codex. Step 6 is built (harness only): her hall's screens. Step 7 is built (harness only): the crypt's screens, the cards and the tally. Step 8 is built (harness only): the HUD in the run's stone. Like the art pass, it is visual only: nothing in the simulation, the saves or the
 autopilot's numbers may move.**
 
 ## Decided (3 November 2026)
@@ -379,7 +379,7 @@ Each step committed, pushed and logged at the end of this plan, so it can be han
 6. **Her hall:** her menu, the Compendium, the Repository, the Portal, the shrine, the bell and font, the ledger, a stone's
    page, the full bag (built).
 7. **The crypt's:** Esc's question, the L list, the altar, the Black Shrine, the cards, the tally (built).
-8. **The HUD.**
+8. **The HUD** (built).
 9. **The checks:** every screen at each run's palette, with keys and with a pad, at the darkest and brightest crypt behind;
    the fit script clean; a dream run with `CRAWL_RUNID` gives the same `EVENT` lines before and after (nothing in the
    simulation moved); ASan over sessions that open every screen; the README's previews retaken where they show a menu.
@@ -598,3 +598,28 @@ My answer is marked **(mine)**; the owner's take it over.
   her claim read; the tally and the reckoning; a boss's antechamber) and a 900 s dream give the same `EVENT` lines as step 6's
   build (given the same two switches); ASan clean over the nine. Frames: `docs/uipass/step7-L*.png` (and `before7-L1.png`,
   `before7-L21.png`). Nothing played by hand. Next: step 8, the HUD.
+- 3 November 2026, step 8: the HUD, a light pass in the run's stone (U11), nothing moved and no figure changed. The frame starts
+  with the kit's ramps on the run's stone (`ui_ramps(0)` in `crawl_render`; a menu lends the marble as before), so whatever the
+  HUD cuts is `R_STONE`. *The status bar*: a tablet of the run's stone (`ui_slab`, `SLAB_TABLET`, its foot below the screen) in
+  place of the flat grey, its plates sunk in it as wells (`bevel` is now `ui_well`, which also gives the face's frame, the
+  keys' box, the ability sockets, the carried thing's box, and the wardrobe's portrait in the marble), the souls' line in a
+  groove cut along its plate's foot; the labels, figures and their places as they were, in the VGA type (the kit's faces are
+  for the stone's own words). *Words over the crypt* (the target's readout, a boss's bar and its name, the hourglass's, the
+  news line, the read panel, the readout, the experience lines and the banner, a ware's card and her room's other cards, the
+  toasts) sit on `ui_band`, new in the kit: a narrow band of dark stone lit along its top and left, the veins only just there,
+  in place of the black boxes; a toast keeps its gold (or grey) edge inside the band. The controls card is one band behind all
+  its lines, not a box a line. *The runes' sockets*: wells, edged in the rune's quality as before. The plan's `ui_socket` for
+  the sockets was not taken: a round socket has no room for the line along the foot that shows the wait, so they stay square,
+  cut as wells. The sprint's slim bar and the HOLD H plate (the app's, not the game's) are as they were.
+  Two faults from section 1.2 mended, both drawing: a toast came over the controls card's first lines (it now waits while the
+  card is up, as it waits out a boss's fight: `update_toasts`; its chime comes when it shows); and the controls card lay over a
+  ware's card in her room (it gives way while a person looks at something there: `shop_carded`). A debug switch for the shots,
+  `CRAWL_TOAST=1` (a pop-up as you take over); `tools/uishots.sh` now takes the HUD with the sockets, the runes, a toast and the
+  lantern; a boss's fight at each run's boss (seed 7, the person walking in); the target's readout (`CRAWL_TPHOLD=0`); the dream's
+  readout raised over HOLD H; a ware's card.
+  Checked: the fit checks at four palettes find nothing; four sessions of a person (the HUD with its sockets, casting and an
+  ability; a boss's fight; her room at the start; a target struck) and a 900 s dream give the same `EVENT` lines as step 7's
+  build; ASan clean over the four and a 300 s dream from level 31. A frame costs a little more: a person walking with the bar
+  up 1.74-1.82 ms against 1.61-1.67 (two runs of `bench` each), the dream 1.52-1.55 against 1.41-1.44. Frames:
+  `docs/uipass/step8-L*.png`. Nothing played by hand. Next: step 9, the checks, with keys and with a pad, and the README's
+  previews where they show a menu.

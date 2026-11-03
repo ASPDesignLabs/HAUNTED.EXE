@@ -19,6 +19,7 @@ enum { SLAB_LEDGER, SLAB_HEAD, SLAB_TABLET, SLAB_CALM = 16 };   /* CALM: or'ed i
 enum { ORN_NONE, ORN_CANDLE, ORN_PAW, ORN_BONES, ORN_KEY, ORN_ROSE, ORN_EYE, NORN };
 void ui_slab(Frame *f, int x, int y, int w, int h, int kind, int orn, float t);
 void ui_well(Frame *f, int x, int y, int w, int h);
+void ui_band(Frame *f, int x, int y, int w, int h);        /* a narrow band of dark stone for words over the crypt: lit above, shadowed below */
 void ui_niche(Frame *f, int x, int y, int w, int h);       /* a well with an arched top, lit a little from above */
 void ui_rule(Frame *f, int x0, int x1, int y, int orn);
 void ui_row(Frame *f, int x, int y, int w, int h, int sel);  /* a list's row in a well: chosen, the stone pressed paler, gold notches at its ends */
