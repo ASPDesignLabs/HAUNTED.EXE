@@ -120,7 +120,8 @@ more in the vessel, the Headsman's ten bones and tenth of armour), which can sta
   over time, died 35 times on eight seeds where 1.0.0b15's died 6). Their poison now bites half again as hard each tick
   (`PLAGUE_BITE` in `mob_poison`), and still lasts a fifth longer; everyone else's is as it was. The class's gift says so.
   Then (the owner, after step 5) their flask's blow as it bursts strikes a quarter harder too (`PLAGUE_STRIKE` in
-  `flask_burst`); anyone else on the Poison line has neither.
+  `flask_burst`); anyone else on the Poison line has neither. Eight seeds after it (50 minutes from level 1, with step 5's things): 20 deaths, against
+  29 on the same seeds just before it and 6 for 1.0.0b15's Plague Doctor with the fireball.
 - **A line lent** (N4, N5). Her question already reopens every frame in her room while `RUN.cls` is 0, so a person can't
   walk on without a class. The dream may not choose for a page it reads from the ledger (`LEDGER.kept`), and a run met in
   the crypt with no class has no spell at all; for those `line_lend` lends a line at random (`LEDGER.lent`, never saved)
