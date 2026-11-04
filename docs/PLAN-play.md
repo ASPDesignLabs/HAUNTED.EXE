@@ -134,6 +134,28 @@ more in the vessel, the Headsman's ten bones and tenth of armour), which can sta
 - **Balance.** The dream will be weaker on levels 1-4 with one line, and the spear's class weakest of all. Sixteen seeds from
   level 1 against main, by class (`CRAWL_CLASS`), before anything else in this plan is built on it.
 
+### The checks so far (steps 1 and 2, harness only)
+
+The dream from level 1, 50 minutes, eight seeds (1-15 odd) for each of the five pasts a life may begin with, against 1.0.0b15
+(`95f2a24`) on the same seeds and pasts (`CRAWL_CLASS`); levels cleared and deaths:
+
+| Past | 1.0.0b15 | Step 1 | Step 2 (gifts) | Step 2, poison x1.5 |
+|---|---|---|---|---|
+| Witchfinder (Fire) | 55, 0 | 54, 2 | 53, 3 | |
+| Anatomist (Frost) | 52, 7 | 47, 15 | 48, 13 | |
+| Galvanist (Lightning) | 51, 11 | 52, 8 | 51, 8 | |
+| Plague Doctor (Poison) | 50, 6 | 37, 35 | 44, 25 | 43, 28 |
+| Sin-Eater (Spirit) | 53, 8 | 51, 6 | 52, 8 | |
+| All five | 261, 32 | 241, 66 | 248, 57 | |
+
+The Headsman, before Physical was shut (four seeds, 20 minutes): 1.0.0b15 cleared 11 levels with no deaths; with 6 bones and
+splinters 6 and 13; with 40 bones at the start 10 and 3. With the gifts, Fire, Lightning and Spirit are about where they were.
+The Plague Doctor is the gap: its deaths fall on levels 1-7, the flask alone being a slow lob that hurts over time, and a
+stronger poison a tick (the owner's) changed nothing the runs can see. Weak casts rose (the dream raises its own line with
+its first points, and ranks past the first cost spirit), but a weak cast is about as strong as the free first rank, so they
+are not the cause. A level's median time is unchanged (331-363 s against 339-355 s). ASan clean on three sessions (a Headsman's
+dream with 88 splinters, gifts at level 13, a person taking Physical as the first gift).
+
 ## 4. Things that want a spell
 
 ### 4.1 How they look

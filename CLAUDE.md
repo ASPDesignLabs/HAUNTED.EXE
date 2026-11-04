@@ -1655,5 +1655,10 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   aimed at its caller from any side for ever; mended (`pack_break` ends the call). Whether that was all of it isn't known yet:
   the `STALL` lines and `CRAWL_RUNID` were added to catch the next one. ASan clean on three sessions (corners held, an ambush
   read and probed).
+- 1.0.0b16's steps 1 and 2 (one line to begin with, splinters, Physical shut till the first gift, the gifts; harness only),
+  the dream from level 1 for 50 minutes on eight seeds for each of the five pasts against 1.0.0b15: 248 levels cleared and 57
+  deaths against 261 and 32 (without the gifts 241 and 66). Fire, Lightning and Spirit are about where they were; the
+  Anatomist died 13 times (7) and the Plague Doctor 25 (6), on levels 1-7, and its poison a tick half again as hard (the
+  owner's) didn't move it (28). The table is in docs/PLAN-play.md, *The checks so far*.
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.
