@@ -71,7 +71,8 @@ typedef struct { uint8_t what, type, rank; } Blame;
 #define SHOT_ORB (NATK + 2)                 /* the ultimates' (docs/PLAN-b11.md, section 9-10): Amperage's orb, */
 #define SHOT_LANCE (NATK + 3)               /* Winter's Lance, */
 #define SHOT_BALLISTA (NATK + 4)            /* the Ballista's heavy spear */
-#define NSHOTKIND (NATK + 5)
+#define SHOT_SPLINTER (NATK + 5)            /* and a splinter, thrown when the bones are gone (1.0.0b16) */
+#define NSHOTKIND (NATK + 6)
 #define NPED 7                              /* the merchant's pedestals, at most */
 enum { ALTAR_DORMANT, ALTAR_AWAKE, ALTAR_READY, ALTAR_SPENT };   /* a Black Altar: asleep, seeking, gold, given */
 enum { AW_NONE, AW_SEEK, AW_HOME, AW_REST };   /* its wisp: not woken, at a secret's door, on its way home, resting over it */
@@ -669,6 +670,7 @@ static struct {
     int cls, cls_pts, cls_spent;            /* the class (docs/PLAN-b11.md, section 11): 1 + its element, 0 not yet asked;
                                                the Witchfinder's points for Fire, and those of them spent there */
     uint8_t al_gift;                        /* lines opened by a class given up: a bit each, their opening never paid */
+    int gifts;                              /* the Lampstand's gifts taken this life (1.0.0b16, docs/PLAN-play.md section 3) */
     int bell_cursed, font_cursed;           /* the Dead Bell corrupted, the Weeping Font cursed: a coin each, once, kept through death */
     int bell_next, bell_secrets, font_next; /* the level the bell has corrupted (and its secrets shown), the font sweetened; 0 none */
     int replay_from;                        /* a level replayed through the Portal: the level whose room it was begun from; 0 none */
@@ -678,6 +680,8 @@ static struct {
     uint16_t steps[NLINE]; uint8_t over[NLINE];
     int corner, wind_spent, wind_run;
     unsigned amb_runs;                      /* the runs of ten whose first ambush has been sprung (not saved: named again after a load) */
+    int splint_used; float splint_t;        /* splinters thrown and not yet grown back, and the growing (1.0.0b16; not saved:
+                                               a load starts with all eight) */
 } RUN;
 static int lantern_held(void) { return RUN.corner >> CS_LANTERN & 1; }   /* the Lantern of the Dead (docs/PLAN-ai.md, 26) */
 static int lantern_lit(void) { return lantern_held() && !RUN.lantern_off; }
@@ -725,6 +729,8 @@ static struct {
     int has_visit; Visit visit;             /* the page's visit, set out when its room is entered */
     int marked, claim_due;                  /* this run's page is marked in danger; one opened marked: her claim is due */
     float calm_t;                           /* how long the danger has been over, counting down to the mark's clearing */
+    int lent;                               /* 1 + a line lent to the dream for a run with no class (an old page it may not
+                                               choose for): never saved, ended by a class taken */
 } LEDGER;
 
 static struct {
@@ -884,7 +890,7 @@ static struct {
     float l_t; int l_down;                  /* L held this long (a tap casts, a hold opens the menu, or with the Lantern of
                                                the Dead shutters it) */
     float l_tap;                            /* with the lantern and L casting at a tap: a first tap waiting for a second */
-    int pc_fired, spirit_said;              /* spirit_said: the caption for a weak cast, once a level */
+    int pc_fired, spirit_said, splint_said; /* spirit_said: the caption for a weak cast, once a level; splint_said a splinter's */
     int click_spent;                        /* the click went on a ware or the cat: no cast until it is let go */
     char msg[64];
     Gear inv0;                              /* the gear as it was when the inventory opened */
@@ -3083,7 +3089,7 @@ static void build_lightmap(void) {
     }
     for (int i = 0; i < MAXSHOTS; i++)
         if (G.shots[i].alive) {
-            static const float POW[NSHOTKIND] = { 1.7f, 1.1f, 1.2f, 0.4f, 1.0f, 2.3f, 0.8f, 0.7f, 0.0f, 1.4f, 0.0f, 2.4f, 1.3f, 0.4f };
+            static const float POW[NSHOTKIND] = { 1.7f, 1.1f, 1.2f, 0.4f, 1.0f, 2.3f, 0.8f, 0.7f, 0.0f, 1.4f, 0.0f, 2.4f, 1.3f, 0.4f, 0.2f };
             light_dynamic(G.shots[i].x, G.shots[i].y, POW[G.shots[i].kind], G.shots[i].kind == AT_HELL ? 4.4f : 3.4f);
         }
     for (int i = 0; i < MAXBONES; i++)
@@ -3968,6 +3974,7 @@ static void rec_cleared(void) {
 static Item *add_item(int x, int y, int type);
 static void add_pool(float x, float y);
 static void wraith_back(Mob *m);
+static void wraith_back_for(Mob *m, float secs);
 /* ---- experience (docs/PLAN-b9.md, section 3): banked as it comes, claimed as Levels of Atonement with
  * the merchant. A kill pays its kind's worth by the level and its rank; in a pocket, the rank it would have
  * had on the level, and a quarter more for the first link and a tenth for each after, 1.6 at most. Secrets,
@@ -4058,13 +4065,13 @@ static float over_step(int l) { return l == LN_LUCK ? 1.0f : 5.0f; }   /* an ove
 static float line_own(int l) { return LINES[l].step * (float)RUN.steps[l] + over_step(l) * (float)RUN.over[l]; }
 /* ---- the Alignment (docs/PLAN-b11.md, sections 7-10): a line for each element, its spell opened and raised with
  * Alignment Points. A node is bought whole, but Efficiency, Insight and the like a point at a time; every point in
- * a line after its opening is a rank more. Fire comes open. ---- */
+ * a line after its opening is a rank more. Only the class's line comes open (1.0.0b16; Fire did before). ---- */
 enum { NK_OPEN, NK_EFF, NK_INS, NK_ABIL, NK_STEP, NK_MASTER, NK_ULT };   /* what a node is */
 typedef struct { const char *name; int cost, kind; float val, add; const char *does; } ANode;   /* val: a point's, or the Mastery's Power; add: its Addition */
 typedef struct { const char *name; ANode n[NNODE]; } ALine;
 static const int LINE_ATK[NELEM] = { AT_FIRE, AT_FROST, AT_CHAIN, AT_FLASK, AT_DRAIN, AT_SPEAR };
 static const ALine ALIGN[NELEM] = {
-    { "FIRE", { { "FIRE", 0, NK_OPEN, 0, 0, "THE FIREBALL, YOURS FROM THE START." },
+    { "FIRE", { { "FIRE", 3, NK_OPEN, 0, 0, "THE FIREBALL: A BOLT OF FIRE THAT BURSTS WHERE IT STRIKES." },
         { "EFFICIENCY", 2, NK_EFF, 0.05f, 0, "FIRE COSTS 5% LESS SPIRIT A POINT." },
         { "INSIGHT", 2, NK_INS, 0.15f, 0, "FIRE GATHERS 15% QUICKER A POINT." },
         { "FIRESTARTER", 3, NK_ABIL, 0, 0, "THE FIREBALL SETS THE FLOOR ALIGHT ALONG ITS FLIGHT; WHAT WALKS THROUGH IT CATCHES FIRE." },
@@ -4155,7 +4162,14 @@ static const ClassDef CLASSES[NELEM] = {
 };
 static const char *const CLASS_SHORT[NELEM] = { "WITCHFINDER", "ANATOMIST", "GALVANIST", "PLAGUE DOCTOR", "SIN-EATER", "HEADSMAN" };
 static int cls_el(void) { return RUN.cls >= 1 && RUN.cls <= NELEM ? RUN.cls - 1 : -1; }
-static int align_open(int e) { return e == EL_FIRE || e == cls_el() || RUN.al[e][ND_OPEN] >= ALIGN[e].n[ND_OPEN].cost; }
+/* a line is open by the class, by a lending (the dream on a page with no class yet), or by its opening paid; since
+ * 1.0.0b16 no line is open to everyone, not even Fire (docs/PLAN-play.md, 3a) */
+static int align_open(int e) { return e == cls_el() || LEDGER.lent == e + 1 || RUN.al[e][ND_OPEN] >= ALIGN[e].n[ND_OPEN].cost; }
+/* Physical is shut until the Lampstand's first gift (the owner, 4 November): no Headsman to begin a life with, and no
+ * spear bought with points before it; a Headsman already sworn keeps their past */
+static int phys_locked(void) { return RUN.gifts < 1 && cls_el() != EL_PHYS && !align_open(EL_PHYS); }
+static int class_offered(int k) { return k != EL_PHYS || !phys_locked(); }
+static int class_random(void) { int k; do k = rnd(NELEM); while (!class_offered(k)); return k; }   /* 0-based */
 static int align_rank(int e) {                                     /* 0: closed; 1 opened; a rank a point after */
     if (!align_open(e)) return 0;
     int r = 1;
@@ -4203,6 +4217,7 @@ static void align_sync(void) {                                     /* each line'
         gear_set_lean(e, (float)r);                                /* the wares lean to the lines fed, and the dream weighs them so */
     }
     RUN.gear.atk[AT_HELL] = RUN.gear.atk[AT_WISPS] = -1;           /* only the abilities let these loose now */
+    spell_set_own(cls_el() >= 0 ? LINE_ATK[cls_el()] : LEDGER.lent ? LINE_ATK[LEDGER.lent - 1] : -1);   /* its first rank free */
     spell_set_atone(RUN.atone);
 }
 
@@ -4259,6 +4274,7 @@ static int ascend_open(void) { return atone_reach() > RUN.atone || RUN.points > 
 static int align_price(int e, int n);
 static void align_buy(int e, int n);
 static int align_funds(int e);
+static int align_ready(int e, int n);
 static int align_next(int e, int path, int stop_at_ability) {     /* the next node on the way down a path, -1 at its end */
     if (!align_open(e)) return ND_OPEN;
     for (int n = ND_EFF; n <= ND_ABIL; n++) if (!align_full(e, n)) return n;
@@ -4271,7 +4287,7 @@ static int align_next(int e, int path, int stop_at_ability) {     /* the next no
  * Fire; a class given up keeps what was bought in its line, no longer free */
 static void class_take(int c) {
     int old = cls_el(), e = clampi(c, 1, NELEM) - 1;
-    if (old >= 0 && old != e && old != EL_FIRE) {
+    if (old >= 0 && old != e) {
         int kept = 0;
         for (int n = ND_EFF; n < NNODE; n++) kept |= RUN.al[old][n] != 0;
         if (kept && RUN.al[old][ND_OPEN] < ALIGN[old].n[ND_OPEN].cost) { RUN.al[old][ND_OPEN] = (uint8_t)ALIGN[old].n[ND_OPEN].cost; RUN.al_gift |= (uint8_t)(1u << old); }
@@ -4280,6 +4296,7 @@ static void class_take(int c) {
         if (!(RUN.al_gift >> e & 1)) RUN.al_points += RUN.al[e][ND_OPEN];
         RUN.al[e][ND_OPEN] = 0; RUN.al_gift &= (uint8_t)~(1u << e);
     }
+    LEDGER.lent = 0;                                               /* a lending ends with a past of its own */
     int was_open = align_open(e);
     RUN.cls = e + 1;
     RUN.cls_pts = e == EL_FIRE ? 3 : 0;
@@ -4287,6 +4304,17 @@ static void class_take(int c) {
     caster_sync();
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT class %s from %s by %s t=%.2f\n", CLASSES[e].name, old >= 0 ? CLASSES[old].name : "nothing", G.player ? "player" : "autopilot", G.t);
+#endif
+}
+/* No line open and no past (a page older than the classes, played by the dream, which may not choose for it; or a run
+ * met in the crypt before her question): a line is lent at random till a class is taken, so nothing goes down unarmed */
+static void line_lend(void) {
+    if (RUN.cls) return;
+    for (int e = 0; e < NELEM; e++) if (align_open(e)) return;
+    LEDGER.lent = 1 + class_random();
+    caster_sync();
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT line_lent %s t=%.2f\n", ALIGN[LEDGER.lent - 1].name, G.t);
 #endif
 }
 static void old_spells_said(void) {                               /* to a person: as she greets them, or as they take over there */
@@ -4303,7 +4331,7 @@ static void auto_align(void) {
     const int stage[4][3] = { { own, 1 + (int)(h >> 16 & 1), 0 }, { EL_FIRE, 1, 1 }, { second, 1 + (int)(h >> 17 & 1), 0 }, { EL_FIRE, 1 + (int)(h >> 18 & 1), 0 } };
     for (int st = 0, guard = 0; st < 4 && guard < 64; guard++) {
         int e = stage[st][0], n = align_next(e, stage[st][1], stage[st][2]);
-        if (n < 0) { st++; continue; }
+        if (n < 0 || (n == ND_OPEN && !align_ready(e, n))) { st++; continue; }   /* done, or shut to it yet */
         if (align_funds(e) < align_price(e, n)) break;             /* saving for it */
         align_buy(e, n);
     }
@@ -4510,9 +4538,10 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
         if (G.bstate == BS_FIGHT) G.bhurt += dmg;
         return boss_hurt(m, dmg);
     }
-    if (m->type == MOB_WRAITH && m->alive && m->state == MS_WALK) {   /* fire won't kill it, but it drives it back */
+    if (m->type == MOB_WRAITH && m->alive && m->state == MS_WALK) {   /* nothing kills it, but a spell drives it back */
         int a = (flags >> 8) - 1;
-        if (a == AT_FIRE || a == AT_HELL || a == AT_DRAIN || a == AT_WISPS) wraith_back(m);   /* fire, and spirit */
+        if (a == AT_FIRE || a == AT_HELL || a == AT_DRAIN || a == AT_WISPS) wraith_back(m);   /* fire, and spirit, five seconds; */
+        else if (a >= 0) wraith_back_for(m, 3.0f);                 /* any other spell three (1.0.0b16: no one has fire by right) */
         m->misses = 0;
         return 0;
     }
@@ -6175,13 +6204,16 @@ static float mob_time(Mob *m, float dt) {
  * the halls as you do, solid, down the hunt field, and pulls doors open. It can't be killed: fire,
  * the wisp's light close by, and Dread drive it back for a while; then it comes on again. Its touch
  * drains and chills. Torches gutter as it passes (build_lightmap). */
-static void wraith_back(Mob *m) {
-    if (m->sub == 1) { m->sub_t = 0.0f; return; }
-    m->sub = 1; m->sub_t = 0.0f;
+#define WRAITH_BACK_T 5.0f                  /* how long a drive lasts at most */
+static void wraith_back_for(Mob *m, float secs) {
+    float t0 = WRAITH_BACK_T - secs;                               /* it counts up to WRAITH_BACK_T */
+    if (m->sub == 1) { m->sub_t = fminf(m->sub_t, t0); return; }
+    m->sub = 1; m->sub_t = t0;
     sfx_at(SFX_SHRIEK, m->x, m->y, 1.3f);
     G.chill = fmaxf(G.chill, 0.4f);
     DBG_COUNT(wraith_drives);
 }
+static void wraith_back(Mob *m) { wraith_back_for(m, WRAITH_BACK_T); }
 static void update_wraith(Mob *m, float dt) {
     m->t += dt;
     dt = mob_time(m, dt);
@@ -6191,7 +6223,7 @@ static void update_wraith(Mob *m, float dt) {
     if (m->feared > 0.0f) { m->feared = 0.0f; wraith_back(m); }    /* Dread */
     for (int i = 0; i < MAXWISPS && m->sub != 1; i++)              /* a wisp's light, close by */
         if (G.wisps[i].on && G.wisps[i].a > 0.5f && hypotf(G.wisps[i].x - m->x, G.wisps[i].y - m->y) < 3.0f) wraith_back(m);
-    if (m->sub == 1 && m->sub_t > 5.0f) m->sub = 0;
+    if (m->sub == 1 && m->sub_t > WRAITH_BACK_T) m->sub = 0;
     if (m->sub == 0 && !G.dead && G.wwalk_t <= 0.0f && pd < 1.1f && m->cool <= 0.0f) {  /* its touch */
         m->cool = 2.0f;
         sfx_at(SFX_SHRIEK, m->x, m->y, 1.0f);
@@ -7573,7 +7605,7 @@ static Shot *new_shot(int kind, float x, float y, float a, float speed, float dm
     for (int i = 0; i < MAXSHOTS; i++) {
         Shot *s = &G.shots[i];
         if (s->alive) continue;
-        *s = (Shot){ 1, kind, -1, x, y, 0.0f, cosf(a) * speed, sinf(a) * speed, kind == AT_SPEAR ? 1.0f : 1.6f, dmg, 0, 1, 0.0f };
+        *s = (Shot){ 1, kind, -1, x, y, 0.0f, cosf(a) * speed, sinf(a) * speed, kind == AT_SPEAR || kind == SHOT_SPLINTER ? 1.0f : 1.6f, dmg, 0, 1, 0.0f };
         G.lay_x[i] = x; G.lay_y[i] = y;
         return s;
     }
@@ -7586,6 +7618,42 @@ static void add_beam(int kind, float x0, float y0, float z0, float x1, float y1,
 }
 
 static int spell_tier(int sp) { return RUN.gear.atk[sp] < 0 ? 0 : RUN.gear.atk[sp]; }
+
+/* Splinters (docs/PLAN-play.md, N2): with the bones gone the spear's line throws splinters, its own ammunition: eight
+ * at most, one growing back every six seconds, thrown slower and striking lighter, through nothing. Bones are where
+ * the line's strength is. */
+#define SPLINTER_MAX 8
+#define SPLINTER_T 6.0f                     /* a splinter grows back */
+#define SPLINTER_DMG 0.4f                   /* of the spear's blow, at its rank */
+#define SPLINTER_SLOW 1.6f                  /* times the spear's time between throws */
+static int splint_left(void) { return SPLINTER_MAX - clampi(RUN.splint_used, 0, SPLINTER_MAX); }
+static int spear_bare(void) { return RUN.gear.bones <= 0; }       /* the next throw a splinter */
+static int spear_ready(void) { return !spear_bare() || splint_left() > 0; }
+static float cast_cycle(int sp) { float c = spell_cycle(&RUN.gear, sp); return sp == AT_SPEAR && spear_bare() ? c * SPLINTER_SLOW : c; }
+static void splint_tick(float dt) {
+    if (RUN.splint_used <= 0 || RUN.gear.atk[AT_SPEAR] < 0) { RUN.splint_t = 0.0f; return; }
+    if ((RUN.splint_t += dt) >= SPLINTER_T) { RUN.splint_t -= SPLINTER_T; RUN.splint_used--; }
+}
+/* the caster's own spell, for whatever reaches for one without choosing: the class's line, else the line lent, else
+ * the first open one that can go now (1.0.0b16: the fireball is no longer everyone's) */
+static int own_spell(void) {
+    int e = cls_el() >= 0 ? cls_el() : LEDGER.lent - 1;
+    if (e >= 0 && RUN.gear.atk[LINE_ATK[e]] >= 0 && (LINE_ATK[e] != AT_SPEAR || spear_ready())) return LINE_ATK[e];
+    for (int k = 0; k < NELEM; k++) {
+        int a = LINE_ATK[k];
+        if (RUN.gear.atk[a] >= 0 && (a != AT_SPEAR || spear_ready())) return a;
+    }
+    return e >= 0 ? LINE_ATK[e] : AT_FIRE;                         /* nothing to throw: it fizzles and says why */
+}
+static int own_missile(void) {                                     /* the same, but something that flies with no target */
+    int a = own_spell();
+    if (a != AT_CHAIN && a != AT_DRAIN) return a;
+    for (int k = 0; k < NELEM; k++) {
+        int b = LINE_ATK[k];
+        if (b != AT_CHAIN && b != AT_DRAIN && RUN.gear.atk[b] >= 0 && (b != AT_SPEAR || spear_ready())) return b;
+    }
+    return a;
+}
 
 /* lightning: a bolt that strikes the target at once; with Arc it leaps on to the nearest, up to four leaps,
  * each a quarter weaker (docs/PLAN-b11.md, section 9) */
@@ -7681,7 +7749,8 @@ static void cast_spell(int sp, int t) {
     if (G.player && sp != AT_CHAIN && sp != AT_DRAIN) a = G.ang;   /* a person's shots go where they look */
     /* what it costs: a bone for every spear; spirit above tier 1, and with too little, it goes at tier-1
      * strength (and heals nothing) */
-    if (sp == AT_SPEAR && RUN.gear.bones <= 0) { say("NO BONES FOR THE SPEAR"); fizzle(sp); return; }
+    int splinter = sp == AT_SPEAR && spear_bare();                 /* no bones: a splinter, if one has grown */
+    if (splinter && splint_left() <= 0) { say("NO BONES, AND NO SPLINTERS YET"); fizzle(sp); return; }
     int tier = spell_tier(sp), weak = 0;
     if (sp != AT_BFS && !((sp == AT_CHAIN || sp == AT_DRAIN) && !have) && !spend_spirit(spell_cost(g, sp, tier))) {
         tier = 1; weak = 1;
@@ -7691,18 +7760,28 @@ static void cast_spell(int sp, int t) {
         dbg_weak++;
 #endif
     }
-    if (sp == AT_SPEAR && rndf() >= bone_spared()) RUN.gear.bones--;   /* Physical Efficiency: now and then none */
+    if (sp == AT_SPEAR && !splinter && rndf() >= bone_spared()) RUN.gear.bones--;   /* Physical Efficiency: now and then none */
     float dmg = spell_damage_at(g, sp, tier);
-    if (sp == AT_SPEAR && align_has(EL_PHYS, ND_A2)) dmg += 0.5f * (float)gear_armor(g);   /* Ossified: half your armour behind it */
+    if (sp == AT_SPEAR && !splinter && align_has(EL_PHYS, ND_A2)) dmg += 0.5f * (float)gear_armor(g);   /* Ossified: half your armour behind it */
+    if (splinter) {
+        dmg *= SPLINTER_DMG; RUN.splint_used++;
+        if (!G.splint_said) { G.splint_said = 1; say("NO BONES: SPLINTERS THROWN"); }
+    }
     if (web_strike(sp, dmg * (sp == AT_WISPS ? (float)wisp_count(tier) : 1.0f))) return;   /* held: it strikes the web */
     float hx = G.px + cosf(a) * 0.35f, hy = G.py + sinf(a) * 0.35f;
     int bat = have && m->type == MOB_BAT && !G.player;
-    noise(G.px, G.py, sp == AT_BFS ? HUNT_FAR : (sp == AT_SPEAR ? 5 : (sp == AT_HELL ? 10 : 8)), NZ_CAST, -1);   /* a spell is heard down the halls */
+    noise(G.px, G.py, sp == AT_BFS ? HUNT_FAR : (sp == AT_SPEAR ? (splinter ? 4 : 5) : (sp == AT_HELL ? 10 : 8)), NZ_CAST, -1);   /* a spell is heard down the halls */
     G.flare_t = 1.0f;                                              /* and it lights the caster a moment (S2) */
 #ifdef CRAWL_DEBUG
     casts[sp]++;
-    fprintf(stderr, "EVENT cast_%s t=%.2f\n", ATK_NAME[sp], G.t);
+    fprintf(stderr, "EVENT cast_%s t=%.2f\n", splinter ? "SPLINTER" : ATK_NAME[sp], G.t);
 #endif
+    if (splinter) {
+        Shot *s = new_shot(SHOT_SPLINTER, hx, hy, a + (bat ? (rndf() - 0.5f) * 0.6f : 0.0f), 11.0f, dmg);
+        if (s) s->tier = tier;
+        snd_sfx_ex(SFX_WHOOSH, 0.45f, 0.5f);
+        return;
+    }
     switch (sp) {
     case AT_CHAIN: if (have) chain_lightning(t, dmg, tier); else fizzle(sp); return;
     case AT_DRAIN:
@@ -7787,7 +7866,7 @@ static void cast_charged(int sp, int t, float k) {
     int have = m && m->alive && m->state == MS_WALK, tier = spell_tier(sp);
     if ((sp == AT_FIRE && k < 0.98f) || G.web_hp > 0.0f) { cast_spell(sp, t); return; }   /* Firewall let go early: an ordinary fireball;
                                                                                               held in a web: it goes at the web */
-    if (sp == AT_SPEAR && RUN.gear.bones <= 0) { say("NO BONES FOR THE SPEAR"); fizzle(sp); return; }
+    if (sp == AT_SPEAR && spear_bare()) { cast_spell(sp, t); return; }   /* no bones for the Phalanx or the Ballista: a splinter */
     if (!spend_spirit(spell_cost(g, sp, tier) * (1.0f + 1.5f * k))) { cast_spell(sp, t); return; }   /* a full charge, two and a half casts */
     float a = G.player || !have ? G.ang : atan2f(m->y - G.py, m->x - G.px), dmg = spell_damage_at(g, sp, tier);
     float hx = G.px + cosf(a) * 0.35f, hy = G.py + sinf(a) * 0.35f;
@@ -7979,6 +8058,7 @@ static void update_shots(float dt) {
                 }
                 else if (s->kind == SHOT_LANCE) sfx_at(SFX_SHATTER, s->x, s->y, 0.7f);
                 else if (s->kind == SHOT_BALLISTA) sfx_at(SFX_BONES, s->x, s->y, 0.9f);
+                else if (s->kind == SHOT_SPLINTER) sfx_at(SFX_BONES, s->x, s->y, 0.25f);
                 else if (s->kind != AT_SPEAR) explode(s->x, s->y);
                 break;
             }
@@ -8026,6 +8106,11 @@ static void update_shots(float dt) {
                     if (!damage_mob(mb, s->dmg, DM_SLOW | DM_ATK(AT_FROST), fx, fy, (2.5f + 0.25f * s->tier) * spell_effect() * permafrost())) deep_chill(mb);
                     break;
                 case SHOT_WEB: web_land(s, mb); break;             /* your Tangled Web */
+                case SHOT_SPLINTER:                                /* a splinter: the first it meets, and a shield stops it */
+                    s->alive = 0;
+                    damage_mob(mb, s->dmg, DM_ATK(AT_SPEAR), fx, fy, 0.0f);
+                    sfx_at(SFX_BONES, mb->x, mb->y, 0.3f);
+                    break;
                 case SHOT_ORB: {                                   /* Amperage: through it, and an arc to one more not yet struck */
                     s->pierced |= 1ull << mi;
                     damage_mob(mb, s->dmg, DM_ARC | DM_ATK(AT_CHAIN), fx, fy, 0.0f);
@@ -8342,6 +8427,7 @@ static void update_defense(float dt) {
 
 /* poison, slow and the timed spells wearing off; mending and blessed regeneration */
 static void update_status(float dt) {
+    splint_tick(dt);                                               /* splinters grow back */
     if (G.poison_t > 0.0f) {
         G.poison_t -= dt;
         G.poison_acc += G.poison_dps * dt;
@@ -9637,7 +9723,8 @@ static int find_target(void) {
 static int choose_spell(int t) {
     const Gear *g = &RUN.gear;
     const Mob *m = &G.mobs[t];
-    if (m->type == MOB_WRAITH && !m->boss) return AT_FIRE;        /* only fire turns it */
+    if (m->type == MOB_WRAITH && !m->boss)                         /* nothing kills it: fire or spirit drive it longest */
+        return g->atk[AT_FIRE] >= 0 ? AT_FIRE : g->atk[AT_DRAIN] >= 0 ? AT_DRAIN : own_spell();
     if (m->type == MOB_GHOST) return AT_DRAIN;                     /* only Spirit reaches a spectre */
     float hpf = (float)G.hp / (float)G.max_hp;
     int vis = 0, close = 0, near = 0, packed = 0;
@@ -9652,21 +9739,22 @@ static int choose_spell(int t) {
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_BFSANY") && g->atk[AT_BFS] >= 0 && RUN.souls >= bfs_cost(g->atk[AT_BFS]) && vis >= 2) return AT_BFS;
 #endif
-    int owned[NATK], no = 0, pick = AT_FIRE;
+    int owned[NATK], no = 0, pick = own_spell();
     float best = -1.0f;
     int shielded = m->type == MOB_SHIELD && m->shield > 0.0f;
     float have = spirit();
     for (int sp = 0; sp < AT_BFS; sp++) {
-        if (g->atk[sp] < 0 || (sp == AT_SPEAR && g->bones <= 0)) continue;   /* no bones, no spears */
+        if (g->atk[sp] < 0 || (sp == AT_SPEAR && !spear_ready())) continue;   /* no bones nor splinters, no spears */
         owned[no++] = sp;
         int tier = g->atk[sp];
         float cost = spell_cost(g, sp, tier);
         if (cost > have) { tier = 1; cost = 0.0f; }                 /* what it would really get */
-        float v = spell_damage_at(g, sp, tier) / spell_cycle(g, sp);
+        float v = spell_damage_at(g, sp, tier) / cast_cycle(sp);
+        if (sp == AT_SPEAR && spear_bare()) v *= SPLINTER_DMG;     /* a splinter: lighter, and through nothing */
         if (sp == AT_WISPS) v *= (float)wisp_count(tier);
         if (m->type == MOB_WSKULL) v = 1.0f / spell_cycle(g, sp);   /* any hit will do: the quickest */
         switch (sp) {
-        case AT_SPEAR: if (shielded) v *= 2.2f; if (near) v *= 1.3f; break;
+        case AT_SPEAR: if (!spear_bare()) { if (shielded) v *= 2.2f; if (near) v *= 1.3f; } else if (shielded) v *= 0.5f; break;
         case AT_CHAIN: v *= 1.0f + 0.6f * (float)(near < 3 ? near : 3); if (shielded) v *= 1.8f; break;
         case AT_FLASK: v *= 1.0f + 0.6f * (float)(packed < 3 ? packed : 3); break;   /* a splash, and the poison after */
         case AT_DRAIN: if (hpf < 0.45f && have > 5.0f) v *= 2.2f; break;   /* the healing costs spirit too */
@@ -9750,7 +9838,7 @@ static void update_player(float dt) {
     if (G.dash_t > 0.0f) return;
     if (G.web_hp > 0.0f && !G.dead && (G.web_idle += dt) > 1.2f) {   /* held, and nothing to aim at: it tears at the web */
         G.web_idle = 0.0f;
-        cast_spell(AT_FIRE, -1);
+        cast_spell(own_spell(), -1);
     }
     G.cooldown -= dt;
     G.calm += dt;
@@ -9842,7 +9930,7 @@ static void update_player(float dt) {
             } else if (G.st >= 1.05f) { cast_charged(G.spell, targetable(m) ? G.target : -1, 1.0f); done = 1; }
             if (done) {
                 G.chg_on = 0; G.auto_chg = 0; tether_end(); G.fired = 1;
-                G.hand = 0.0f; G.cooldown = spell_cycle(&RUN.gear, G.spell) * 1.5f;
+                G.hand = 0.0f; G.cooldown = cast_cycle(G.spell) * 1.5f;
                 begin_turn(heading_angle(G.h)); G.adur = 0.18f + 0.13f * fabsf(G.ang1 - G.ang0); G.state = PS_UNAIM;
             }
             break;
@@ -9851,13 +9939,13 @@ static void update_player(float dt) {
         G.hand = G.st < up ? G.st / up : (G.st > down ? fmaxf(0.0f, 1.0f - (G.st - down) / fmaxf(0.05f, L - down)) : 1.0f);
         if (!G.fired && G.st >= fire) {
             G.fired = 1;
-            if (G.spell == AT_BFS && RUN.souls < bfs_cost(RUN.gear.atk[AT_BFS])) G.spell = AT_FIRE;
+            if (G.spell == AT_BFS && RUN.souls < bfs_cost(RUN.gear.atk[AT_BFS])) G.spell = own_spell();
             cast_spell(G.spell, G.target);
             G.calm = 0.0f;
         }
         if (G.st >= L) {
             Mob *m = &G.mobs[G.target];
-            G.hand = 0.0f; G.cooldown = G.fired == 2 ? 0.1f : fmaxf(0.15f, spell_cycle(&RUN.gear, G.spell) - L);   /* 2: a blow broke it */
+            G.hand = 0.0f; G.cooldown = G.fired == 2 ? 0.1f : fmaxf(0.15f, cast_cycle(G.spell) - L);   /* 2: a blow broke it */
             if (m->alive && ++m->misses >= 3) m->ignore = (float)G.t + 5.0f;   /* three throws and no hit: leave it */
             int stand = m->type == MOB_SKEL || m->type == MOB_SHIELD || m->type == MOB_WSKULL || (m->type == MOB_SPIDER && m->sub >= 1)
                         || m->type == MOB_SHAMBLER || m->type == MOB_DROWNED;   /* the slow ones: stand and finish them */
@@ -9990,7 +10078,7 @@ static void update_player(float dt) {
     case PS_PROBE: {                                               /* a spell through an ambush's door before going by it */
         G.st += dt;
         G.ang = lerpf(G.ang0, G.ang1, smoothstepf(0.0f, 1.0f, fminf(1.0f, G.st / G.adur)));
-        if (G.st >= G.adur + 0.1f && !G.fired) { G.fired = 1; G.hand = 1.0f; cast_spell(AT_FIRE, -1); G.calm = 0.0f; }
+        if (G.st >= G.adur + 0.1f && !G.fired) { G.fired = 1; G.hand = 1.0f; cast_spell(own_missile(), -1); G.calm = 0.0f; }
         if (G.fired) G.hand = fmaxf(0.0f, G.hand - dt * 2.0f);
         if (G.st >= G.adur + 0.7f) { G.hand = 0.0f; begin_turn(heading_angle(G.next_h)); G.state = PS_TURN; }
         break;
@@ -10382,6 +10470,7 @@ static void place_creatures(void) {
 }
 
 static void start_level(void) {
+    line_lend();
     pocket_reset_level();
     G.replay = RUN.replay_from != 0;                               /* a level replayed through the Portal */
     G.corrupt = RUN.bell_next == G.level; G.cshown = G.corrupt && RUN.bell_secrets; G.fonted = RUN.font_next == G.level;   /* the bell's and */
@@ -10439,7 +10528,7 @@ static void start_level(void) {
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_THINGS")) things_test();
 #endif
-    G.level_treasure = 0; G.level_souls = 0; G.dead = 0; G.dead_t = 0.0; G.spirit_said = 0;
+    G.level_treasure = 0; G.level_souls = 0; G.dead = 0; G.dead_t = 0.0; G.spirit_said = G.splint_said = 0;
     G.wraith_done = G.wraith_now = 0; G.wraith_try = 0.0f;          /* the Wraith comes once a level, and again after a death */
     spectres_set();
     memset(G.wisps, 0, sizeof G.wisps);                            /* wisps don't go down the stairs with you */
@@ -16737,7 +16826,8 @@ static void begin_shop(void) {
     G.ang = face_of(CAT_X, CAT_Y);
     G.camz = 0.5f; G.hand = 0.0f; G.spd = 0.0f; G.bob = 0.0f; G.bar = 1.0f;
     old_spells_said();                                             /* a page from before the Alignment */
-    if (!RUN.cls && !LEDGER.yours && !LEDGER.kept) class_take(1 + rnd(NELEM));   /* the dream: what it was, at random, so every line shows in time */
+    if (!RUN.cls && !LEDGER.yours && !LEDGER.kept) class_take(1 + class_random());   /* the dream: what it was, at random, so every line shows in time */
+    line_lend();
     int bag_up = 0;
     for (int p = 0; p < G.ped_n; p++) {                            /* now and then the BFS9000, the rest to wear; one bag at most */
         int pool = p == 0 ? POOL_ATTACK : POOL_GEAR;               /* runes are the Rune Shrine's, spells the lines' */
@@ -17845,6 +17935,7 @@ static void tether_end(void);
 static void cast_charged(int sp, int t, float k);
 static void human_cast(float dt, int may) {
     G.cooldown -= dt;
+    if (G.spell < 0 || G.spell >= NATK || RUN.gear.atk[G.spell] < 0) G.spell = own_spell();   /* a line gone (a new past after a death) */
     int trig = may && (IN.down[KEY_MOUSE1] || (IN.down[KEY_CAST] && !(WEB && G.map_on)));   /* the map keeps the browser's Space */
     if (trig && G.silenced) { if (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CAST]) { say("THE VOID TAKES THE WORDS FROM YOU"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); } trig = 0; }
     if (!may && G.chg_on) { G.chg_on = 0; tether_end(); }          /* a screen opened over it: the charge is let fall */
@@ -17861,13 +17952,13 @@ static void human_cast(float dt, int may) {
                 G.chg_on = 0;
                 if (G.tether) tether_end();
                 else if (G.chg_t < 0.25f || !spell_charges(G.chg_sp)) {   /* a tap: the ordinary spell, wind-up and all */
-                    float cyc = spell_cycle(&RUN.gear, G.chg_sp);
+                    float cyc = cast_cycle(G.chg_sp);
                     G.pc_wind = spell_windup(&RUN.gear, G.chg_sp, spell_tier(G.chg_sp));
                     G.pc_t = 0.0f; G.pc_fired = 0; G.pc_len = G.pc_wind + 0.25f; G.cooldown = fmaxf(cyc, G.pc_len);
                 } else {                                           /* the charge goes: it took the wind-up's place */
                     cast_charged(G.chg_sp, aim_target(), clampf(G.chg_t, 0.0f, 1.0f));
                     G.pc_t = 0.3f; G.pc_fired = 1; G.pc_wind = 0.3f; G.pc_len = 0.55f; G.calm = 0.0f;
-                    G.cooldown = spell_cycle(&RUN.gear, G.chg_sp) * 1.5f;
+                    G.cooldown = cast_cycle(G.chg_sp) * 1.5f;
                 }
             }
         }
@@ -17877,7 +17968,7 @@ static void human_cast(float dt, int may) {
         if (G.spell == AT_BFS && RUN.souls < bfs_cost(RUN.gear.atk[AT_BFS])) {
             if (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CAST]) { say("THE BFS9000 NEEDS %d SOULS", bfs_cost(RUN.gear.atk[AT_BFS])); snd_sfx_ex(SFX_ZAP, 0.4f, 0.5f); }
         } else {
-            float cyc = spell_cycle(&RUN.gear, G.spell);
+            float cyc = cast_cycle(G.spell);
             G.pc_wind = spell_windup(&RUN.gear, G.spell, spell_tier(G.spell));
             G.pc_t = 0.0f; G.pc_fired = 0; G.pc_len = G.pc_wind + 0.25f; G.cooldown = fmaxf(cyc, G.pc_len);
         }
@@ -18142,7 +18233,7 @@ static void update_letgo(void) {
 static void human_begin(void) {
     G.state = PS_PLAYER; G.pc_t = -1.0f; G.u = 1.0f; G.spd = 0.0f; G.seek_secret = -1; G.dash_t = 0.0f; G.tap_key = -1;
     G.cx = G.tx = (int)G.px; G.cy = G.ty = (int)G.py;
-    if (RUN.gear.atk[G.spell] < 0) G.spell = AT_FIRE;
+    if (RUN.gear.atk[G.spell] < 0) G.spell = own_spell();
 }
 
 /* back to the autopilot: the merchant's routine picks up where it fits; in the crypt, settle into the grid */
@@ -19158,7 +19249,8 @@ enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX
 #define LG_DEEDS_BYTES 18                   /* 1.0.0b13 (docs/PLAN-b13.md): every hazard met, a bit each (the hall keeps only eight);
                                                puzzles solved, trials won and lost (u16 each); the kinds of puzzle solved, of trial won */
 #define LG_HALL2_BYTES 12                   /* the bell and the font cursed, the levels they wait for, the secrets, a replay */
-#define LG_ALIGN_BYTES (NELEM * NNODE + 2 + 4)   /* the nodes, the points; the class, the Witchfinder's points and those spent, the gifts */
+#define LG_ALIGN_B11 (NELEM * NNODE + 2 + 4)     /* the nodes, the points; the class, the Witchfinder's points and those spent, the gift openings */
+#define LG_ALIGN_BYTES (LG_ALIGN_B11 + 1)         /* 1.0.0b16: the Lampstand's gifts taken */
 enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
 #define LG_PAGE_BYTES 17
 #define LG_VISIT_BYTES (8 + NPED * (2 + OFFER_BYTES))
@@ -19273,6 +19365,7 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     memcpy(c, RUN.al, sizeof RUN.al); put16(c + NELEM * NNODE, clampi(RUN.al_points, 0, 65535));
     c[NELEM * NNODE + 2] = (uint8_t)RUN.cls; c[NELEM * NNODE + 3] = (uint8_t)clampi(RUN.cls_pts, 0, 255);
     c[NELEM * NNODE + 4] = (uint8_t)clampi(RUN.cls_spent, 0, 255); c[NELEM * NNODE + 5] = RUN.al_gift;
+    c[LG_ALIGN_B11] = (uint8_t)clampi(RUN.gifts, 0, 255);
     p = section_end(c, c + LG_ALIGN_BYTES);
     c = section_begin(p, LG_HALL2);                                /* the Dead Bell and the Weeping Font (1.0.0b11, step 12) */
     memset(c, 0, LG_HALL2_BYTES);
@@ -19378,11 +19471,17 @@ static void run_unpack(const uint8_t *buf, int len) {
     if (c && k >= NELEM * NNODE + 2) {                             /* version 7: the Alignment */
         for (int e = 0; e < NELEM; e++) for (int n = 0; n < NNODE; n++) RUN.al[e][n] = (uint8_t)imin(c[e * NNODE + n], ALIGN[e].n[n].cost);
         RUN.al_points = get16(c + NELEM * NNODE);
-        if (k >= LG_ALIGN_BYTES) {                                 /* and the class (step 10); before it, asked at the next visit */
+        if (k >= LG_ALIGN_BYTES) RUN.gifts = c[LG_ALIGN_B11];      /* 1.0.0b16: the gifts taken */
+        if (k >= LG_ALIGN_B11) {                                   /* and the class (step 10); before it, asked at the next visit */
             RUN.cls = c[NELEM * NNODE + 2] <= NELEM ? c[NELEM * NNODE + 2] : 0;
             RUN.cls_pts = c[NELEM * NNODE + 3]; RUN.cls_spent = c[NELEM * NNODE + 4]; RUN.al_gift = c[NELEM * NNODE + 5] & ((1u << NELEM) - 1);
         }
         RUN.old_spells = 0;
+        int fire_more = 0;                                         /* before 1.0.0b16 Fire was open to all, its opening never paid: */
+        for (int n = ND_EFF; n < NNODE; n++) fire_more |= RUN.al[EL_FIRE][n] != 0;   /* what was bought in it stays, as a gift */
+        if (fire_more && RUN.cls != 1 + EL_FIRE && RUN.al[EL_FIRE][ND_OPEN] < ALIGN[EL_FIRE].n[ND_OPEN].cost) {
+            RUN.al[EL_FIRE][ND_OPEN] = (uint8_t)ALIGN[EL_FIRE].n[ND_OPEN].cost; RUN.al_gift |= (uint8_t)(1u << EL_FIRE);
+        }
     } else RUN.old_spells = 1;                                     /* older: points for its Levels of Atonement, below */
     c = page_section(buf, len, LG_DEEDS, &k);
     if (c && k >= 4) RUN.omens |= get32(c) & ((1 << NHZ) - 1);
@@ -19636,7 +19735,7 @@ static void death_fall(void) {
     int pieces = g->bag_size > 0, spells = g->atk[AT_BFS] >= 0, lines = 0;
     for (int i = 0; i < NSLOT; i++) pieces += g->worn[i].kind != IK_NONE;
     for (int i = 0; i < g->bag_size; i++) pieces += g->bag[i].kind != IK_NONE;
-    for (int e = 0; e < NELEM; e++) lines += align_rank(e) > 1 || (e != EL_FIRE && align_open(e));
+    for (int e = 0; e < NELEM; e++) lines += align_open(e);
     char *d = G.dlost;
     int left = (int)sizeof G.dlost;
     #define LOST(...) do { int w_ = snprintf(d, (size_t)left, __VA_ARGS__); if (w_ > 0 && w_ < left) { d += w_; left -= w_; } } while (0)
@@ -19656,7 +19755,7 @@ static void death_fall(void) {
     RUN.treasure = 0; RUN.souls = 0; RUN.soul_frac = 0.0f; RUN.coins = 0; RUN.goal = 0;
     g->atk[AT_BFS] = -1;                                           /* the lines' spells follow them (align_sync) */
     memset(RUN.al, 0, sizeof RUN.al); RUN.al_points = 0;           /* the lines go; Fire stays open, at rank 1; */
-    RUN.cls = RUN.cls_pts = RUN.cls_spent = 0; RUN.al_gift = 0;    /* the next life is asked what it was */
+    RUN.cls = RUN.cls_pts = RUN.cls_spent = 0; RUN.al_gift = 0; RUN.gifts = 0;   /* the next life is asked what it was, and given again */
     RUN.replay_from = 0; RUN.latch_said = 0;
     memset(g->worn, 0, sizeof g->worn); memset(g->bag, 0, sizeof g->bag); g->bag_size = g->bag_quality = 0;
     g->bones = 0; g->has_held = 0; memset(&g->held, 0, sizeof g->held);
@@ -19835,7 +19934,7 @@ static int align_point(int e, int n) { int k = ALIGN[e].n[n].kind; return k == N
 static int align_price(int e, int n) { return align_point(e, n) ? 1 : ALIGN[e].n[n].cost; }
 static int align_other(int e, int n) { return n >= ND_B1 ? ND_A1 : ND_B1; }   /* the first node of the other path */
 static int align_ready(int e, int n) {                             /* may be bought now, points aside */
-    if (n == ND_OPEN) return !align_open(e);
+    if (n == ND_OPEN) return !align_open(e) && !(e == EL_PHYS && phys_locked());
     if (!align_open(e) || align_full(e, n)) return 0;
     switch (n) {
     case ND_EFF: case ND_INS: return 1;
@@ -19926,6 +20025,7 @@ static void update_class(void) {
     int c = G.vow_sel = clampi(G.vow_sel, 0, NELEM - 1);
     if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) return;
     if (G.vow_change && (c == cls_el() || RUN.coins < VOW_COINS)) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); G.vow_arm = -1; return; }
+    if (!class_offered(c)) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); G.vow_arm = -1; return; }   /* the Headsman, before the first gift */
     if (G.vow_arm != c) { G.vow_arm = c; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }
     if (G.vow_change) RUN.coins -= VOW_COINS;
     class_take(c + 1);
@@ -21805,6 +21905,7 @@ static int shot_sprite(const Shot *s, float *scale) {
     case SHOT_ORB: *scale = 0.8f; return fl ? SP_ORB_B : SP_ORB_A;
     case SHOT_LANCE: *scale = 0.9f; return SP_LANCE;
     case SHOT_BALLISTA: *scale = 0.9f; return SP_BALLISTA;
+    case SHOT_SPLINTER: *scale = 0.45f; return SP_SPEAR;
     default: return fl ? SP_FIRE_B : SP_FIRE_A;
     }
 }
@@ -22655,12 +22756,14 @@ static void render_statusbar(Frame *f) {
             else snprintf(num, sizeof num, "RANK %d", imax(t, 1));
             if (sp == AT_SPEAR) {                                  /* the bones to throw, over the label */
                 char bn[8];
-                snprintf(bn, sizeof bn, "%d", RUN.gear.bones);
+                int bare = spear_bare();                           /* no bones: the splinters left, a sliver for its mark */
+                snprintf(bn, sizeof bn, "%d", bare ? splint_left() : RUN.gear.bones);
                 int bw = gfx_text_width(bn, 1), bx = P[i].x + (P[i].w - bw - 12) / 2, by = y0 + 7;
                 gfx_rect(f, P[i].x + 2, by - 1, P[i].w - 4, 9, UI_M(3));
-                uint8_t bc = RUN.gear.bones > 0 ? (uint8_t)(R_BONE + 14) : (uint8_t)(R_BLOOD + 13);
+                uint8_t bc = !bare ? (uint8_t)(R_BONE + 14) : splint_left() > 0 ? (uint8_t)(R_BONE + 9) : (uint8_t)(R_BLOOD + 13);
                 static const char *BONE[3] = { "##.....##", ".#######.", "##.....##" };   /* a bone */
-                for (int r = 0; r < 3; r++) for (int k = 0; k < 9; k++) if (BONE[r][k] == '#') gfx_px(f, bx + k, by + 2 + r, bc);
+                static const char *SLIV[3] = { ".......##", "...####..", "##......." };   /* a splinter */
+                for (int r = 0; r < 3; r++) for (int k = 0; k < 9; k++) if ((bare ? SLIV : BONE)[r][k] == '#') gfx_px(f, bx + k, by + 2 + r, bc);
                 gfx_text8(f, bx + 12, by, bn, bc, 1);
             }
             gfx_text8(f, P[i].x + (P[i].w - gfx_text_width(num, 1)) / 2, y0 + 30, num, R_IRON + 13, 1);
@@ -25830,8 +25933,9 @@ static void render_align(Frame *f, int view) {
         int held = m == ND_OPEN ? align_open(e) : align_full(e, m);
         if (held) {
             u->state = SK_HELD; u->got = u->cost;
-            if (m == ND_OPEN && RUN.al[e][m] < nd->cost && e != EL_FIRE) snprintf(note[m], sizeof note[m], "YOURS BY WHAT YOU WERE.");
+            if (m == ND_OPEN && RUN.al[e][m] < nd->cost) snprintf(note[m], sizeof note[m], LEDGER.lent == e + 1 ? "LENT, TILL YOU SAY WHAT YOU WERE." : "YOURS BY WHAT YOU WERE.");
         } else if (align_chained(e, m)) { u->state = SK_CLOSED; snprintf(note[m], sizeof note[m], "THE OTHER PATH IS CHOSEN."); }
+        else if (m == ND_OPEN && e == EL_PHYS && phys_locked()) { u->state = SK_CLOSED; snprintf(note[m], sizeof note[m], "SHUT TILL THE LAMPSTAND'S FIRST GIFT."); }
         else if (align_ready(e, m)) {
             int short_by = align_price(e, m) - funds;
             u->state = u->got ? SK_PART : short_by > 0 ? SK_SHORT : SK_READY;
@@ -25905,7 +26009,7 @@ static void render_class(Frame *f) {
     const char *title = G.vow_change ? "ANOTHER PAST" : "WHAT WERE YOU?";
     ui_screen(f, title, R_GOLD + 12, CLASSES[c].name, ramp_at(ELEM_RAMP[c], 13), 0, G.ui_t);
     for (int k = 0; k < NELEM; k++) {
-        int state = k == mine ? SK_HELD : k == c ? (G.vow_change && RUN.coins < VOW_COINS ? SK_SHORT : SK_READY) : SK_REACH;
+        int state = k == mine ? SK_HELD : !class_offered(k) ? SK_CLOSED : k == c ? (G.vow_change && RUN.coins < VOW_COINS ? SK_SHORT : SK_READY) : SK_REACH;
         ui_socket_mark(f, 35 + k * 50, 46, 13, CLASS_MARK[k], ELEM_RAMP[k], state, k == c, 0, G.ui_t);
     }
     ui_rule(f, 14, 305, 65, 1);
@@ -25919,6 +26023,7 @@ static void render_class(Frame *f) {
     char buf[96];
     int keys = 0;
     if (G.vow_change && c == mine) note = "WHAT YOU ARE NOW";
+    else if (!class_offered(c)) note = "SHUT TILL THE LAMPSTAND'S FIRST GIFT";
     else if (G.vow_change && RUN.coins < VOW_COINS) { snprintf(buf, sizeof buf, "FIVE CURSED COINS. YOU HAVE %d", RUN.coins); note = buf; }
     else if (G.vow_arm == c) note = G.vow_change ? "ENTER AGAIN: FIVE COINS, AND THE VOW" : "ENTER AGAIN TO TAKE THE VOW";
     else { note = pk(G.vow_change ? "A/D CHOOSE  ENTER TAKES  ESC KEEPS" : "A/D CHOOSE  ENTER TAKES THE VOW"); keys = 1; }

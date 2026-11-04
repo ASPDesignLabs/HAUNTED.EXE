@@ -3,7 +3,8 @@
 **The first round is answered** (4 November 2026): the owner's answers are in section 10, with what they change. Q1 went
 further than asked: no class starts with the fireball any more (section 3a). That opens a short second round (section 11),
 each with a default. It is **1.0.0b16**, ahead of the minds' showing and the rest of the art pass (now 1.0.0b17) and the
-lower storey (now 1.0.0b18). Nothing is built.
+lower storey (now 1.0.0b18). The second round was answered the same day (section 11: every default, and N2 as splinters,
+an ammunition of their own). Step 1 is being built.
 
 *The brief, as first drafted (ideas only). Written on `claude/modest-knuth-gd9u51` from main at
 1.0.0b15. The owner's brief: early levels have long stretches where the caster isn't doing much; fill them with things in
@@ -87,12 +88,27 @@ more in the vessel, the Headsman's ten bones and tenth of armour), which can sta
   below" becomes the class's line, never below rank 1.
 - **Old pages.** A page whose Fire nodes were bought on top of the free opening keeps Fire open, marked as a gift opening
   (`RUN.al_gift`, as `class_take` does for a class given up), so nothing bought is lost. A page with no class is asked.
-- **The spear with no bones** (N2). A Headsman, or anyone with only Physical, out of bones has nothing to cast today
-  ("NO BONES FOR THE SPEAR"); before, the fireball was always there. Proposed: as spirit does, a spear with no bones goes
-  weak: a splinter at tier 1, no pierce, free.
-- **The Wraith** (N3). Only fire, Soul Drain, Hellfire and wisps drive the ordinary Wraith back today (`damage_mob`,
-  `wraith_back`; the dream "turns fire on it" in `choose_spell`). A Frost or Lightning caster who took neither as a gift
-  could only spend souls on wisps. Proposed: any spell drives it back for 3 s; fire and spirit for 5 s as now.
+- **Splinters** (N2, the owner's). A Headsman, or anyone with only Physical, out of bones had nothing to cast ("NO BONES
+  FOR THE SPEAR"); before, the fireball was always there. Splinters are the line's second ammunition: thrown when the bones
+  are gone, eight at most, one growing back every six seconds (`SPLINTER_MAX`, `SPLINTER_T`), thrown at 1.6 times the
+  spear's interval (`cast_cycle`), striking at two fifths of the spear's blow at its rank (`SPLINTER_DMG`), through nothing
+  and stopped by a shield, with no Impale or Ossified (`SHOT_SPLINTER`). Bones stay the way to the line's strength. The
+  spear's place on the status bar shows the splinters left, under a sliver, while the bones are out. The Phalanx and the
+  Ballista without bones throw a splinter. Not saved: a load starts with all eight.
+- **The Wraith** (N3 a). Only fire, Soul Drain, Hellfire and wisps drove the ordinary Wraith back (`damage_mob`,
+  `wraith_back`). Now any spell drives it back for 3 s (`wraith_back_for`); fire, spirit and wisps for 5 s as before. The
+  dream turns fire on it if it has fire, else Soul Drain, else its own line.
+- **Physical shut till the first gift** (the owner, 4 November, after the first runs: the Headsman, with only the spear,
+  6 bones and splinters, cleared 6 levels and died 13 times on four seeds where 1.0.0b15's cleared 11 with none; 40 bones at
+  the start still left 3 deaths). Her question offers five pasts, the Headsman's socket shut with *SHUT TILL THE
+  LAMPSTAND'S FIRST GIFT* (`class_offered`); the Lampstand won't sell Physical's opening before it (`phys_locked` in
+  `align_ready`); the dream and a lending choose among the five (`class_random`). A Headsman already sworn on an old page
+  keeps their past. The gifts taken are `RUN.gifts`, a byte at the end of `LG_ALIGN` (`LG_ALIGN_BYTES`; an older page reads
+  as none), cleared by a death.
+- **A line lent** (N4, N5). Her question already reopens every frame in her room while `RUN.cls` is 0, so a person can't
+  walk on without a class. The dream may not choose for a page it reads from the ledger (`LEDGER.kept`), and a run met in
+  the crypt with no class has no spell at all; for those `line_lend` lends a line at random (`LEDGER.lent`, never saved)
+  till a class is taken, and the Lampstand marks it *LENT, TILL YOU SAY WHAT YOU WERE*.
 - **The dream's fallbacks.** It reaches for the fireball in six places: `choose_spell`'s default and its Wraith rule, tearing
   at the Wandering Spider's web, the probe through an ambush's door, and the spell it falls back to when one is closed or
   the BFS9000 can't be paid for (`G.spell`). Each becomes "the caster's own line" (a small `own_spell()`).
@@ -375,15 +391,23 @@ The owner's answers follow each, in bold.
   **The owner: first; the others move on a number.** This is 1.0.0b16, the minds' showing and the rest of the art
   pass 1.0.0b17, the lower storey 1.0.0b18.
 
-## 11. The second round (from Q1), each with a default
+## 11. The second round (from Q1), answered 4 November
+
+The owner took every default but N2, where splinters became an ammunition of their own (3a).
 
 - **N1. The class's first rank free.** (a\*) The class's own line costs nothing at rank 1, as the fireball did; (b) every
   first rank costs 0.2, the fireball's too.
+  **The owner: (a).**
 - **N2. The spear with no bones.** (a\*) It goes weak, as a spell without spirit does: a splinter at tier 1, no pierce, no
   bone spent; (b) bones grow back, one every six seconds under three; (c) as now, nothing.
+  **The owner: splinters, but as their own ammunition: thrown moderately slowly, light damage, growing back as (b) says,
+  eight at most; bones the way to the line's full strength.**
 - **N3. What drives the Wraith back.** (a\*) Any spell, 3 s; fire, spirit and wisps 5 s as now; (b) as now (fire, spirit,
   wisps, Dread and the blessing only).
+  **The owner: (a).**
 - **N4. The way on before a class is chosen.** (a\*) Barred until her question is answered, for anyone (it can be closed and
   come back to, but not walked past).
+  **The owner: (a).**
 - **N5. The fireball's first rank for old pages.** (a\*) A page that only ever had the free fireball loses it and is asked
   for a class if it has none; what was bought in Fire stays open as a gift.
+  **The owner: (a).**

@@ -620,6 +620,8 @@ int offer_color(const Offer *o) {
 static int g_atone = 1;
 static float g_eff[NELEM], g_ins[NELEM], g_pow[NELEM];
 void spell_set_atone(int atone) { g_atone = atone < 1 ? 1 : atone; }
+static int g_own = -1;                                  /* the class's spell (1.0.0b16: the fireball is no longer everyone's) */
+void spell_set_own(int atk) { g_own = atk; }
 void spell_set_line(int el, float eff, float ins, float power) {
     if (el < 0 || el >= NELEM) return;
     g_eff[el] = eff; g_ins[el] = ins; g_pow[el] = power;
@@ -647,7 +649,8 @@ float spell_insight(const Gear *g, int el) {
  * The BFS9000 keeps its own price in souls (bfs_cost). */
 int wisp_count(int tier) { return 3 + (tier >= 3) + (tier >= 6); }
 float spell_cost(const Gear *g, int atk, int r) {
-    if (atk == AT_BFS || atk == AT_SPEAR || (atk == AT_FIRE && r <= 1)) return 0.0f;   /* Physical costs bones, never spirit */
+    if (atk == AT_BFS || atk == AT_SPEAR || (atk == g_own && r <= 1)) return 0.0f;   /* Physical costs bones, never spirit; the
+                                                                                         class's first rank nothing */
     int el = ATK_ELEM[atk];
     float keep = (1.0f - gear_total(g, ST_THRIFT) / 100.0f) * (1.0f - (el >= 0 ? spell_efficiency(g, el) : 0.0f));
     if (atk == AT_WISPS) return (float)wisp_count(r) * fmaxf(0.1f, keep);

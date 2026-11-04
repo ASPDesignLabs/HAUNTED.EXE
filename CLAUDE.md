@@ -1399,6 +1399,16 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   creature within twelve cells, what it is doing and whether the dream can aim at it) once the dream has stood 40 s within a
   cell of one place, and again at 120 s; `CRAWL_RUNID=n` gives a fresh run that id (each run prints `RUNID n`; otherwise it
   comes from the clock, and the trials' order with it), so a run that went wrong can be run again.
+- **One line to begin with** (1.0.0b16, docs/PLAN-play.md section 3a; step 1). No line is open to everyone: `align_open` is
+  the class's line, a line lent (`LEDGER.lent`, `line_lend`: the dream on a kept page with no class, or a run met in the crypt
+  without one; never saved) or an opening paid; Fire's opening costs 3 like the rest. The class's first rank costs nothing
+  (`spell_set_own`, in `spell_cost`). Physical is shut till the Lampstand's first gift (`RUN.gifts`, `phys_locked`,
+  `class_offered`, `class_random`). Whatever reached for the fireball takes `own_spell()` (or `own_missile()`, something that
+  flies with no target). Splinters (`SHOT_SPLINTER`, `SPLINTER_*`, `splint_left`, `spear_bare`, `spear_ready`, `cast_cycle`,
+  `splint_tick`, `RUN.splint_used/splint_t`, not saved): the spear's line with no bones throws them, eight at most, one back
+  every six seconds, at 1.6 times its interval and two fifths of its blow, through nothing; the status bar shows them under a
+  sliver. Any spell drives the ordinary Wraith back 3 s (`wraith_back_for`), fire, spirit and wisps 5 s. An old page's Fire
+  bought on the free opening stays open as a gift (in `LG_ALIGN`'s reading). Debug: `EVENT cast_SPLINTER`, `line_lent`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are
