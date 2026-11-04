@@ -207,14 +207,15 @@ tools/music.sh` renders them into `build/music/`) were sent to the owner, who sa
 smoke-tested the Windows and browser builds on the branch), and it was released as **1.0.0b15** at the owner's word (4 November),
 squashed onto main as one commit. Its *hand-off log* says where it stands.
 
-**1.0.0b16** is planned in [`docs/PLAN-play.md`](docs/PLAN-play.md) (4 November, on `claude/modest-knuth-gd9u51`; steps 1-3
+**1.0.0b16** is planned in [`docs/PLAN-play.md`](docs/PLAN-play.md) (4 November, on `claude/modest-knuth-gd9u51`; steps 1-6
 built, harness only, with the pad's wheels), for the early levels' quiet stretches: no class starts with the fireball any more (each begins with its own line), a
 second and third line given free at the Lampstand after levels 4 and 12, things in the crypt struck by the right spell (only
 the lines held), creatures warded against a held line (60% to 90%, cracking), and the Mirror rune raised by hand on the right
 mouse as a parry (Q turns between it and the boss gifts), a Common one free with the shrine's first curse. The owner answered
 the first round the same day and put it first: the minds' showing and the rest of the art pass are now **1.0.0b17**, the lower
-storey **1.0.0b18**. The second round (N1-N5, from the fireball's going) was answered the same day; steps 1-3 and the
-wheels are built (harness only), the Plague Doctor still the weakest past in the dream's runs.
+storey **1.0.0b18**. The second round (N1-N5, from the fireball's going) was answered the same day; steps 1-6 and the
+wheels are built (harness only): one line each, the gifts, the Mirror by hand, and things that want a spell in every run (their
+sheets approved). The Plague Doctor is still the weakest past in the dream's runs; its flask strikes a quarter harder.
 
 ## Working with the owner
 
@@ -1425,12 +1426,18 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   (`rune_by_hand`), its first `MIRROR_TRUE` 0.6 s a parry (`G.mirror_true`: home, twice as hard); the dream's runes as before.
   The shrine's first curse gives a Common Mirror if none is held. Debug: `EVENT wheel_open`, `wheel_take`, `parries`,
   `shrine_mirror`, `CRAWL_PARRYT=s`.
-- **Things that want a spell** (1.0.0b16 steps 4-5, docs/PLAN-play.md section 4; run I so far). `crawl_mark` (`crawl_art.c`:
+- **Things that want a spell** (1.0.0b16 steps 4-6, docs/PLAN-play.md section 4; every run, section 4.3's from a run's fifth level). `crawl_mark` (`crawl_art.c`:
   the seal, its motes, pips; `MK_WAIT/HIT/WRONG/DONE`), the sprites `SP_MK_*` (each waiting and done; `make sheets`' `marked.png`,
   approved). In play: `Marked` in `G.mk`, the kinds `MKK`, `place_marked` (the way from the start to the exit, `MK_STRETCH`,
   `mk_spot`, `mk_pick`), `mk_shot`, `mk_burst`, `mk_aimed` (lightning and Soul Drain with no creature), `mk_strike`,
   `mk_finish`, `mk_reward`, `mk_tick`, `render_marks`, the lights in `build_lightmap`; the dream's in `dream_looks` and
-  `PS_PROBE` (`G.probe_mk`). Debug: `MARKED level n`, `EVENT mk_dream`, `mk_hit`, `mk_wrong`, `mk_done`, `CRAWL_TPMARK=k`.
+  `PS_PROBE` (`G.probe_mk`). Step 6 (`marked2.png`, approved): `MkKind.tier/runs/own`, `mk_can`, `mk_place`; moving things
+  (the corpse-light, the rolling skull, run III's cart: `Marked.x/y` move and `mk_deco` moves the decoration), the
+  heat-and-shatter seal (`st` hot, its `el` turning to frost), three bells (`grp`, `BELL_RING`; `Shot.mkhit` lets the spear
+  pierce them, a ringing one lets other shots under), the gates (`GATED`, a door's lock: `mk_gated` finds a short cut by
+  `mk_flood`; the winch's `mk_gate_up` for `GATE_UP`, the hearth's for good), the steam vent (`VENT_*`, `mk_dmarks` for the
+  dream), run II's web, run III's lodestone, run IV's prism and geode. Debug: `MARKED level n`, `EVENT mk_dream`, `mk_hit`,
+  `mk_wrong`, `mk_done`, `mk_heat`, `mk_gate up`, `mk_lost`, `CRAWL_TPMARK=k` (and its line readied), `CRAWL_MARKK=k`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

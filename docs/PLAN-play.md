@@ -280,6 +280,45 @@ winch (still, wound: the portcullis's in run I, a sluice's in run II), the dying
 iced), run II's ice for the crossing, run III's ore cart (two) and lodestone (dull, charged); run IV's prism and geode are
 1.0.0b13's puzzle things, and its seal the run I one in the Deep's colours. A timed thing's seal counts down in its pips.
 
+**In the game** (step 6, harness only; frames in `docs/play/frames-step6.png`, each thing waiting and answered). Every run now
+(`mk_level_ok`: not a boss's level, a pocket or a challenge), and section 4.3's things from a run's fifth level (`MK_FROM`;
+`MkKind.tier`). `mk_pick` takes the run's own half the time (`MkKind.own`) and a 4.3 thing three times in five once they may
+come; section 4.2's come in every run, in the run's stone. `MAXMK` is 12; three bells count as one thing (`mk_count`).
+
+- **The corpse-light** (`MKK_CLIGHT`, any line held): drifts about where it was set, and shies off at a cell and a half a
+  second when you come within three cells; a missile has to lead it, lightning finds it if it is aimed at. Two motes.
+- **The rolling skull** (`MKK_RSKULL`, any line): seen within seven cells, it rolls away from you a cell and a half a second,
+  never back the way it came, and seven cells on drops into a crack and is gone (`done` 2, *THE SKULL DROPS INTO A CRACK*).
+  Gold. The dream seldom catches one: it sees it at the same distance, and it is off.
+- **The heat-and-shatter seal** (`MKK_HSEAL`, only with fire and frost both held): fire heats it (its sprite glowing, its
+  seal turned to frost, *IT GLOWS: NOW FROST*) for four seconds (`HSEAL_HOT`), fire again keeps it hot, frost while it glows
+  breaks it; frost when cold is the wrong spell (*IT WANTS FIRE FIRST*). Gems or a chalice. In run IV it is *AN OBSIDIAN SEAL*.
+- **Three bells** (`MKK_BELL`, any line, one for all three): three on the way in a straight hall, a `Marked` each with `grp`.
+  A bell struck rings for 6.5 seconds (`BELL_RING`); all three at once answers them. The plan's two seconds were the spear's
+  alone, since a spell comes round about every two seconds; the spear pierces all three in one throw (`Shot.mkhit`), and a
+  bell already ringing lets any other missile pass under it, else the first would take every shot meant for those behind.
+- **The portcullis winch** (`MKK_WINCH`, lightning; *A SLUICE WINCH* in run II): set by a door that is a short cut (`mk_gated`:
+  shut, every cell is still reached the long way round, `mk_flood`), on the side nearer the start; the door is barred
+  (`GATED`, drawn `T_GATE`) and neither you, the dream nor the dead go through it. Lightning raises it for eight seconds
+  (`GATE_UP`, the seal's pips counting down; lightning again tops it up); it drops once nothing stands in it. Its gift the
+  first time only. The dream winds it once at most.
+- **The dying hearth** (`MKK_HEARTH`, fire, four hits): the same kind of gate; each hit feeds it, and a pip falls back every
+  ten seconds left. Fed full, the door goes up for good (*THE DOOR IS UP*). Gold, and its light while it burns.
+- **The steam vent** (`MKK_VENT`, frost): beside the way, every five seconds a hiss (`VENT_WARN`) then steam (`VENT_ON`) that
+  scalds the caster within a cell, 6% of health less what resists fire (as the fissure's breath). The dream's map
+  marks it (`mk_dmarks` in `update_hazards`) and it waits it out. Frost ices it for fifteen seconds (`VENT_ICE`), then it
+  vents again; its gift the first time.
+- **Run II's webbed niche** (`MKK_WEB`, fire, two hits): a sheet of web; burnt away, a find behind (gold or a potion).
+- **Run III's ore cart** (`MKK_CART`, any line): to and fro on five cells of a straight hall; struck, its wheel breaks (gems).
+  **The lodestone** (`MKK_LODE`, lightning, three hits; a pip falls back every six seconds): charged, gems.
+- **Run IV's prism** (`MKK_PRISM`, lightning, three hits; the light and two motes) and **geode** (`MKK_GEODE`, physical, two
+  hits, with two bones beside it as the barricade has; gems twice).
+
+Not built: the frozen bridge (13), since the Catacombs' water is walked as any floor and a bridge over it would mean nothing
+until water hinders; the swinging censer (17), not drawn; bile over a grate (20), which the flask's burst already answers
+anywhere. Debug: `CRAWL_MARKK=k` (things of kind k, `MKK_*`, where they can be), `CRAWL_TPMARK=k` now readies the thing's line,
+`MARKED level n` marks a gated one, `EVENT mk_heat`, `mk_gate up`, `mk_lost`.
+
 ### 4.4 Sequences (from level 13: three lines or more)
 
 22. **The tablet's order.** A carved tablet shows three glyphs; three things down the hall each want their own element,
@@ -467,7 +506,7 @@ letting go, B, a tap of up for the map, Q tapped and held, RB and LB; ASan clean
 3. The wheels (7a) and the Mirror by hand (the parry, then the veil), its place among the right mouse's gifts, and the shrine's free Mirror. *Built.*
 4. The look of a marked thing (motes, glyph, pips, the dull ring), on a sheet first, as the art has gone. *Drawn; approved by the owner.*
 5. Section 4.2's things and the stretch budget (section 5), run I only; frames from levels 1-4 for the owner. *Built, frames sent.*
-6. Section 4.3's, and runs II-IV's flavours.
+6. Section 4.3's, and runs II-IV's flavours. *Built, frames sent.*
 7. Warded creatures, with sixteen-seed runs against `CRAWL_WARD=0`.
 8. Sequences (4.4) and the fight things (4.5).
 9. The lull's watch.
