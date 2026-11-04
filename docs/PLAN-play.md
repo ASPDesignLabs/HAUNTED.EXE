@@ -174,6 +174,16 @@ drawn *in* towards it, slowly, as if it were breathing them: it wants that. Lit 
 The same colours mark warded creatures (section 6), so the two languages must not cross: a thing *draws motes in*; a
 warded creature *wears a hard rim* of the colour and its glyph is barred.
 
+**Drawn** (step 4, for the owner's eye: `docs/play/marked.png`, `make sheets`' `marked.png`). The mark is `crawl_mark` in
+`crawl_art.c` (row-major, at full brightness, so the game and the sheet draw it alike): a seal of dark iron eleven pixels
+across with the element's glyph (`ELEM_GLYPH`) in its colour, eight motes of that colour spiralling in to it, a row of pips
+under it for a thing that wants more than one hit, lit as they land; just struck, the glyph white-hot and a ring of its
+colour round it; the wrong spell, the glyph grey, a dull dotted ring and grey sparks thrown out; done, the seal dark and no
+motes (`MK_WAIT`, `MK_HIT`, `MK_WRONG`, `MK_DONE`). Nine things are drawn, each waiting and done (`SP_MK_*`): the cold
+pricket and the votive rack (fire), the bound coffer and the hanging cage (any line), the keeper's urn (frost, quenched), the
+galvanic coil (lightning, woken), the withered vine (poison), the bound soul in its lantern (spirit, drawn out) and the bone
+barricade (physical, brought down). None of it is in the game yet.
+
 ### 4.2 Single spell, standing still (levels 1-4: the class's line)
 
 The first ones should be quick and generous: one or two hits, something in it every time. With one line to begin with
@@ -418,7 +428,7 @@ letting go, B, a tap of up for the map, Q tapped and held, RB and LB; ASan clean
 1. One line to begin with (3a), with the bare spear (N2) and the Wraith (N3), and its balance runs by class. *Built.*
 2. The gifts at the Lampstand (section 3). *Built.*
 3. The wheels (7a) and the Mirror by hand (the parry, then the veil), its place among the right mouse's gifts, and the shrine's free Mirror. *Built.*
-4. The look of a marked thing (motes, glyph, pips, the dull ring), on a sheet first, as the art has gone.
+4. The look of a marked thing (motes, glyph, pips, the dull ring), on a sheet first, as the art has gone. *Drawn, waiting for the owner.*
 5. Section 4.2's things and the stretch budget (section 5), run I only; frames from levels 1-4 for the owner.
 6. Section 4.3's, and runs II-IV's flavours.
 7. Warded creatures, with sixteen-seed runs against `CRAWL_WARD=0`.

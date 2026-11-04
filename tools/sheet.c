@@ -1406,6 +1406,80 @@ static int draw_runrooms(const char *path, int run) {
     return ok;
 }
 
+
+/* ---- 1.0.0b16: things that want a spell, and their mark (docs/PLAN-play.md section 4.1) ---- */
+static void mk_frame(int ox, int oy, int spr, int sx, int sy, int el, int state, int pips, int lit_n, float t, int k) {
+    enum { FW = 96, FH = 88 };
+    static uint8_t buf[FH * FW], over[FH * FW];
+    memset(buf, C_CLEAR, sizeof buf); memset(over, C_CLEAR, sizeof over);
+    for (int x = 0; x < TS; x++) for (int y = 0; y < TS; y++) {
+        uint8_t c = crawl_spr[spr][x * TS + y];
+        if (c != C_CLEAR) buf[(y + 20) * FW + x + 16] = crawl_cmap[LIGHT][c];
+    }
+    crawl_mark(over, FW, FH, sx + 16, sy + 20, el, state, pips, lit_n, t);
+    for (int y = 0; y < FH; y++) for (int x = 0; x < FW; x++) {
+        uint8_t c = over[y * FW + x] != C_CLEAR ? over[y * FW + x] : buf[y * FW + x];
+        int r = 22, g = 20, b = 24;                                    /* a dark ground for it to stand on */
+        if (c != C_CLEAR) { r = crawl_pal[c][0] * 255 / 63; g = crawl_pal[c][1] * 255 / 63; b = crawl_pal[c][2] * 255 / 63; }
+        rect(ox + x * k, oy + y * k, k, k, r, g, b);
+    }
+}
+static int draw_marked(const char *path) {
+    typedef struct { const char *name; int s0, s1, sx, sy, el, pips, dx, dy; } Mk;
+    static const Mk MK[] = {
+        { "COLD PRICKET  (FIRE)", SP_MK_PRICKET0, SP_MK_PRICKET1, 32, -6, 0, 1, 32, -6 },
+        { "VOTIVE RACK  (FIRE, A CANDLE A HIT)", SP_MK_RACK0, SP_MK_RACK1, 32, 22, 0, 3, 32, 22 },
+        { "BOUND COFFER  (ANY LINE: HERE FROST)", SP_MK_COFFER0, SP_MK_COFFER1, 32, 44, 1, 3, 32, 50 },
+        { "HANGING CAGE  (ANY LINE: HERE LIGHTNING)", SP_MK_CAGE0, SP_MK_CAGE1, 32, -6, 2, 1, 32, 46 },
+        { "THE KEEPER'S URN  (FROST: QUENCH IT)", SP_MK_URN0, SP_MK_URN1, 32, 14, 1, 2, 32, 14 },
+        { "GALVANIC COIL  (LIGHTNING: WAKE IT)", SP_MK_COIL0, SP_MK_COIL1, 32, 58, 2, 2, 32, 58 },
+        { "WITHERED VINE  (POISON: WITHER IT)", SP_MK_VINE0, SP_MK_VINE1, 32, 30, 3, 2, 32, 30 },
+        { "THE BOUND SOUL  (SPIRIT: DRAW IT OUT)", SP_MK_LANTERN0, SP_MK_LANTERN1, 38, 48, 4, 1, 38, 48 },
+        { "BONE BARRICADE  (PHYSICAL: BRING IT DOWN)", SP_MK_BARRICADE0, SP_MK_BARRICADE1, 32, 30, 5, 3, 32, 52 },
+    };
+    enum { N = sizeof MK / sizeof MK[0], K = 2, FW = 96 * K, FH = 88 * K };
+    static const char *const COL[4] = { "WAITING", "STRUCK", "WRONG SPELL", "DONE" };
+    iw = PAD + 4 * (FW + 10) + PAD;
+    ih = PAD + LABEL_H + 8 + LABEL_H + 40 * 3 + 16 + LABEL_H + N * (LABEL_H + FH + 14) + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    crawl_art_level(3); crawl_art_run(3);
+    text(PAD, PAD, "1.0.0B16: THINGS THAT WANT A SPELL", 230, 230, 230);
+    int y = PAD + LABEL_H + 8;
+    text(PAD, y, "THE SIX SEALS, MOTES DRAWN IN", 200, 200, 200);
+    y += LABEL_H;
+    for (int e = 0; e < 6; e++) {                                      /* the seals alone, on the dark */
+        static uint8_t ob[40 * 40];
+        memset(ob, C_CLEAR, sizeof ob);
+        crawl_mark(ob, 40, 40, 20, 18, e, MK_WAIT, e == 5 ? 3 : 1, 2, 0.9f + e * 0.37f);
+        for (int py = 0; py < 40; py++) for (int px = 0; px < 40; px++) {
+            uint8_t c = ob[py * 40 + px];
+            int r = 22, g = 20, b = 24;
+            if (c != C_CLEAR) { r = crawl_pal[c][0] * 255 / 63; g = crawl_pal[c][1] * 255 / 63; b = crawl_pal[c][2] * 255 / 63; }
+            rect(PAD + e * (40 * 3 + 12) + px * 3, y + py * 3, 3, 3, r, g, b);
+        }
+    }
+    y += 40 * 3 + 16;
+    for (int c = 0; c < 4; c++) text(PAD + c * (FW + 10), y, COL[c], 160, 160, 160);
+    y += LABEL_H;
+    for (int i = 0; i < N; i++) {
+        const Mk *m = &MK[i];
+        text(PAD, y, m->name, 220, 210, 190);
+        y += LABEL_H;
+        for (int c = 0; c < 4; c++) {
+            int x = PAD + c * (FW + 10);
+            int st = c == 0 ? MK_WAIT : c == 1 ? MK_HIT : c == 2 ? MK_WRONG : MK_DONE;
+            int pips = m->pips > 1 ? m->pips : (c == 1 ? 3 : 1);
+            mk_frame(x, y, c == 3 ? m->s1 : m->s0, c == 3 ? m->dx : m->sx, c == 3 ? m->dy : m->sy, m->el, st, c == 3 ? 0 : pips, c == 1 ? 1 : 0, 0.4f + 0.6f * c + 0.2f * i, K);
+        }
+        y += FH + 14;
+    }
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && !strcmp(argv[1], "list")) {
         for (int i = 0; i < NGROUPS; i++) printf("%-12s %s\n", GROUPS[i].name, GROUPS[i].title);
@@ -1425,6 +1499,7 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "elements", "1.0.0B11: THE ELEMENTS' GLYPHS, THE TARGET IN THEM, THE RUNES' SOCKETS");
         printf("%-12s %s\n", "hall2", "1.0.0B11: HER HALL'S NEW ROOM: THE LAMPSTAND (THE BELL AND THE FONT TO COME)");
         printf("%-12s %s\n", "spells", "1.0.0B11: THE SPELLS' THINGS: THE FLASK, THE ULTIMATES' SPRITES");
+        printf("%-12s %s\n", "marked", "1.0.0B16: THINGS THAT WANT A SPELL, AND THEIR MARK");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -1522,6 +1597,13 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/documents.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_documents(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "marked")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/marked.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_marked(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     if (!strcmp(argv[1], "all") || !strcmp(argv[1], "hazards")) {

@@ -270,6 +270,10 @@ enum {
     SP_SEXTON_A, SP_SEXTON_B, SP_SEXTON_RING_A, SP_SEXTON_RING_B, SP_SEXTON_ICE, SP_SEXTON_D,   /* the Sexton: walking, ringing (up, down), the bell frozen, fallen */
     SP_LIGHT_A, SP_LIGHT_B, SP_LIGHT_STRIKE, SP_LIGHT_LISTEN, SP_LIGHT_D,   /* the Lightless: walking, the strike, listening, shattered */
     SP_WHIP_SA, SP_WHIP_SB, SP_SEXTON_SA, SP_SEXTON_SB, SP_LIGHT_SA, SP_LIGHT_SB,   /* their side views, walking, facing right */
+    /* things that want a spell (1.0.0b16, docs/PLAN-play.md section 4), each waiting and done */
+    SP_MK_PRICKET0, SP_MK_PRICKET1, SP_MK_COFFER0, SP_MK_COFFER1, SP_MK_CAGE0, SP_MK_CAGE1, SP_MK_RACK0, SP_MK_RACK1,
+    SP_MK_URN0, SP_MK_URN1, SP_MK_COIL0, SP_MK_COIL1, SP_MK_VINE0, SP_MK_VINE1, SP_MK_LANTERN0, SP_MK_LANTERN1,
+    SP_MK_BARRICADE0, SP_MK_BARRICADE1,
     NSPR
 };
 
@@ -345,6 +349,8 @@ static inline float crawl_depth(int level) {                                /* h
 
 extern const char *const RUNE_GLYPH[9][7];      /* the runes' marks, 5 by 7, by DF_* (the hand's tattoos, the shrine) */
 extern const char *const ELEM_GLYPH[6][7];      /* the elements' glyphs, 7 by 7, by EL_*: '#' the colour, 'o' bright (1.0.0b11) */
+enum { MK_WAIT, MK_HIT, MK_WRONG, MK_DONE };      /* a marked thing's mark (1.0.0b16): waiting, just struck, the wrong spell, done */
+void crawl_mark(uint8_t *buf, int w, int h, int cx, int cy, int el, int state, int pips, int lit_n, float t);   /* row-major, at full brightness */
 extern const char *const RUNE_MARK[9][11];      /* the runes' marks for their sockets, 11 by 11, by DF_* */
 extern const char *const CLASS_MARK[6][11];     /* the classes' marks, 11 by 11, by the class's element */
 extern const char *const PZ_MARKS[16][7];       /* the marks carved on puzzles' things, 7 by 7 (1.0.0b13): mitre, helm, tonsure, crown,

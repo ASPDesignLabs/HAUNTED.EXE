@@ -3195,6 +3195,277 @@ static void spr_hextotem(void) {
     cv_store(SP_HEXTOTEM);
 }
 
+/* ---- Things that want a spell (1.0.0b16, docs/PLAN-play.md section 4): run I's, and one for each line ---- */
+/* a pricket stand of black iron with a thick candle, cold or burning (fire) */
+static void spr_mk_pricket(int id, int on) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 9, 1.6f, R_WARM + 1);
+    cv_capsule(32, 55, 25, 62, 1.3f, R_IRON, 0.04f, 0.28f); cv_capsule(32, 55, 39, 62, 1.3f, R_IRON, 0.04f, 0.28f);   /* three feet */
+    cv_capsule(32, 56, 32, 62, 1.1f, R_IRON, 0.04f, 0.22f);
+    cv_capsule(32, 26, 32, 56, 1.5f, R_IRON, 0.05f, 0.32f);         /* the stem, a knop halfway */
+    cv_ellipse(32, 41, 2.8f, 1.9f, R_IRON, 0.08f, 0.4f);
+    cv_flat(32, 26, 7.5f, 1.8f, sh(R_IRON, 0.18f));                 /* the drip-pan */
+    for (int x = 25; x <= 39; x++) cv_px(x, 25, sh(R_IRON, 0.38f + 0.02f * (x - 25)));
+    for (int y = 13; y <= 25; y++)                                   /* the candle, tallow-grey, guttered down one side */
+        for (int x = 29; x <= 35; x++) cv_px(x, y, sh(R_BONE, 0.45f + 0.35f * (x < 32) - 0.12f * (x == 35)));
+    for (int y = 19; y <= 26; y++) cv_px(28, y, sh(R_BONE, 0.55f));
+    cv_px(28, 27, sh(R_BONE, 0.4f));
+    cv_line(32, 11, 32, 13, sh(R_STONE, 0.15f));                     /* the wick */
+    if (on) {
+        cv_ellipse(32, 7.5f, 2.3f, 4.5f, R_FLAME, 0.55f, 1.0f);
+        cv_flat(32, 9, 1.0f, 1.8f, (uint8_t)(R_FLAME + 15));
+    }
+    cv_outline(0);
+    cv_store(id);
+}
+/* a coffer of black oak bound in three chains and a lock; done, the chains fallen and the lid up on gold */
+static void spr_mk_coffer(int id, int open) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 20, 2.0f, R_WARM + 1);
+    for (int y = 42; y <= 61; y++)                                   /* the box */
+        for (int x = 15; x <= 49; x++) {
+            int plank = (y - 42) / 5;
+            float v = 0.24f + 0.08f * h01(plank, 1, 611) + 0.1f * fbm((float)x / 7.0f, (float)y / 1.4f, 16, 613) - (y == 42 + plank * 5 ? 0.12f : 0.0f) - 0.08f * (x > 46);
+            uint8_t c = sh(R_WOOD, v);
+            if (x <= 16 || x >= 48 || y >= 60) c = sh(R_IRON, 0.32f - 0.1f * (x >= 48));
+            cv_px(x, y, c);
+        }
+    if (!open) {
+        float lid[8] = { 14, 42, 50, 42, 47, 33, 17, 33 };               /* the lid, shut, curved */
+        cv_poly(lid, 4, R_WOOD, 0.42f, 0.2f, 33, 9);
+        for (int x = 15; x <= 49; x++) cv_px(x, 42, sh(R_IRON, 0.5f));
+        static const float CH[3][4] = { { 21, 31, 19, 62 }, { 32, 31, 32, 62 }, { 43, 31, 45, 62 } };   /* the chains, over lid and box */
+        for (int c = 0; c < 3; c++)
+            for (int k = 0; k < 16; k++) {
+                float u = (float)k / 15.0f, x = CH[c][0] + (CH[c][2] - CH[c][0]) * u, y = CH[c][1] + (CH[c][3] - CH[c][1]) * u;
+                if (k & 1) cv_flat(x, y, 1.6f, 1.0f, sh(R_IRON, 0.62f)); else cv_flat(x, y, 1.0f, 1.6f, sh(R_IRON, 0.48f));
+            }
+        cv_capsule(28, 44, 36, 44, 3.0f, R_IRON, 0.25f, 0.75f);          /* the lock, heavy */
+        cv_flat(32, 45, 1.0f, 1.6f, sh(R_STONE, 0.02f));
+    } else {
+        for (int y = 30; y <= 41; y++)                                   /* the lid, thrown back: its inside, planks and two straps */
+            for (int x = 15; x <= 49; x++) {
+                float u = (float)(y - 30) / 11.0f;
+                if (x < 17 - 2 * u || x > 47 + 2 * u) continue;
+                int strap = abs(x - 22) <= 1 || abs(x - 42) <= 1;
+                cv_px(x, y, strap ? sh(R_IRON, 0.35f + 0.2f * (x == 21 || x == 41)) : sh(R_WOOD, 0.2f + 0.08f * h01(x, y, 619) + 0.1f * u - ((y - 30) % 4 == 0 ? 0.06f : 0.0f)));
+            }
+        for (int x = 17; x <= 47; x++) cv_px(x, 30, sh(R_IRON, 0.6f));
+        for (int i = 0; i < 22; i++) cv_flat(18 + h01(i, 3, 617) * 28, 41.5f - h01(i, 4, 617) * 3, 2.2f, 1.2f, sh(R_GOLD, 0.5f + 0.45f * h01(i, 5, 617)));   /* gold, heaped to the brim */
+        for (int k = 0; k < 3; k++)                                      /* the chains, in a heap at its foot */
+            for (int j = 0; j < 7; j++) cv_flat(14 + k * 15 + j * 2.2f, 61.5f - (j & 1), 1.3f, 0.9f, sh(R_IRON, 0.4f + 0.2f * (j & 1)));
+        cv_capsule(48, 60, 54, 60, 2.2f, R_IRON, 0.2f, 0.6f);            /* the lock, broken off */
+    }
+    cv_outline(0);
+    cv_store(id);
+}
+/* a gibbet cage on a chain from the roof, a hand through its bars and a glint inside; done, fallen and burst */
+static void spr_mk_cage(int id, int down) {
+    cv_begin(cv_sprite, TS, TS);
+    float top = down ? 40.0f : 10.0f, bot = down ? 62.0f : 40.0f;
+    if (!down) for (int y = 0; y < 10; y += 2) cv_flat(32, (float)y + 1, (y & 2) ? 1.5f : 0.9f, (y & 2) ? 0.9f : 1.5f, sh(R_IRON, 0.5f));   /* its chain */
+    else cv_flat(32, 62, 14, 1.8f, R_WARM + 1);
+    for (int b = 0; b < 7; b++) {                                    /* the bars, bellied */
+        float u = (float)b / 6.0f, x = 22 + 20 * u;
+        if (down && (b == 2 || b == 3)) {                              /* sprung where it hit */
+            cv_line(x, top + 4, x - 6 + 4 * b - 8, bot, sh(R_IRON, 0.45f));
+            continue;
+        }
+        float bulge = 3.0f * sinf(u * PI_F);
+        cv_line(x, top + 2, x + (u - 0.5f) * bulge, (top + bot) * 0.5f, sh(R_IRON, 0.35f + 0.25f * (b < 3)));
+        cv_line(x + (u - 0.5f) * bulge, (top + bot) * 0.5f, x, bot, sh(R_IRON, 0.35f + 0.25f * (b < 3)));
+    }
+    for (int x = 21; x <= 43; x++) { cv_px(x, (int)top + 2, sh(R_IRON, 0.55f)); cv_px(x, (int)bot, sh(R_IRON, 0.4f)); }
+    cv_ellipse(32, top + 1, 4, 2, R_IRON, 0.2f, 0.6f);                 /* its cap and ring */
+    if (!down) {
+        cv_flat(31, bot - 3, 4, 2, sh(R_GOLD, 0.8f)); cv_px(30, (int)bot - 4, (uint8_t)(R_GOLD + 12));   /* something worth having */
+        cv_bone(24, 28, 15, 33, 0.9f, 0.4f, 0.8f); cv_bone(15, 33, 13, 37, 0.7f, 0.4f, 0.8f);          /* a hand out between the bars */
+        for (int f = 0; f < 3; f++) cv_line(13, 37, 11 + f * 1.5f, 40, sh(R_BONE, 0.6f));
+    } else {
+        for (int i = 0; i < 10; i++) cv_flat(18 + h01(i, 1, 621) * 30, 58 + h01(i, 2, 621) * 4, 2.0f, 1.0f, sh(R_GOLD, 0.45f + 0.5f * h01(i, 3, 621)));
+        cv_skull(44, 58, 0.55f, 0.2f, 0.7f);
+    }
+    cv_outline(0);
+    cv_store(id);
+}
+/* a votive rack: three tiers of an oak frame, a dozen candles, dead or lit (fire) */
+static void spr_mk_rack(int id, int on) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 20, 1.8f, R_WARM + 1);
+    for (int t = 0; t < 3; t++) {
+        float y = 58 - t * 11.0f, x0 = 14 + t * 4.0f, x1 = 50 - t * 4.0f;
+        for (int x = (int)x0; x <= (int)x1; x++) { cv_px(x, (int)y, sh(R_WOOD, 0.42f)); cv_px(x, (int)y + 1, sh(R_WOOD, 0.22f)); cv_px(x, (int)y + 2, sh(R_WOOD, 0.12f)); }
+        int n = 5 - t;
+        for (int k = 0; k < n; k++) {
+            float x = x0 + 3 + (x1 - x0 - 6) * (float)k / (float)(n - 1 > 0 ? n - 1 : 1), hgt = 4 + 3 * h01(k, t, 623);
+            for (int yy = (int)(y - hgt); yy < (int)y; yy++) { cv_px((int)x, yy, sh(R_BONE, 0.7f)); cv_px((int)x + 1, yy, sh(R_BONE, 0.45f)); }
+            if (on) { cv_px((int)x, (int)(y - hgt) - 1, (uint8_t)(R_FLAME + 15)); cv_px((int)x, (int)(y - hgt) - 2, (uint8_t)(R_FLAME + 11)); cv_px((int)x, (int)(y - hgt) - 3, (uint8_t)(R_FLAME + 7)); }
+            else cv_px((int)x, (int)(y - hgt) - 1, sh(R_STONE, 0.1f));
+        }
+    }
+    cv_capsule(13, 38, 13, 62, 1.0f, R_WOOD, 0.1f, 0.4f); cv_capsule(51, 38, 51, 62, 1.0f, R_WOOD, 0.1f, 0.4f);   /* its uprights */
+    cv_outline(0);
+    cv_store(id);
+}
+/* the keeper's urn: a bronze urn on an iron tripod, full of coals that never go out; quenched, rimed grey (frost) */
+static void spr_mk_urn(int id, int out) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 14, 1.8f, R_WARM + 1);
+    cv_capsule(32, 50, 21, 62, 1.2f, R_IRON, 0.05f, 0.3f); cv_capsule(32, 50, 43, 62, 1.2f, R_IRON, 0.05f, 0.3f); cv_capsule(32, 50, 32, 62, 1.0f, R_IRON, 0.05f, 0.24f);
+    for (int y = 30; y <= 50; y++) {                                 /* the urn: a wide belly, a narrow foot */
+        float u = (float)(y - 30) / 20.0f, w = 4 + 9.5f * sinf(u * PI_F * 0.9f + 0.25f);
+        for (int x = (int)(32 - w); x <= (int)(32 + w); x++) {
+            float nx = (x + 0.5f - 32) / (w + 0.01f);
+            cv_px(x, y, sh(R_WARM, 0.18f + 0.5f * lit(nx, -0.2f, sqrtf(fmaxf(0.0f, 1.0f - nx * nx)))));
+        }
+    }
+    for (int x = 20; x <= 44; x++) cv_px(x, 30, sh(R_WARM, 0.6f));    /* its lip */
+    for (int i = 0; i < 26; i++) {                                    /* the coals heaped in it */
+        float x = 22 + h01(i, 1, 627) * 20, y = 29 - h01(i, 2, 627) * 5 * (1.0f - fabsf(x - 32) / 11);
+        if (out) cv_flat(x, y, 1.6f, 1.1f, i % 4 ? sh(R_STONE, 0.15f + 0.1f * h01(i, 3, 627)) : sh(R_GHOST, 0.85f));
+        else cv_flat(x, y, 1.6f, 1.1f, (uint8_t)(i % 3 ? R_FLAME + 6 + (i % 5) : R_FLAME + 12));
+    }
+    if (!out) for (int k = 0; k < 4; k++) cv_px((int)(26 + k * 4), (int)(20 - 2 * (k & 1)), (uint8_t)(R_FLAME + 9));   /* sparks rising */
+    else for (int k = 0; k < 9; k++) cv_px((int)(21 + h01(k, 5, 629) * 22), (int)(31 + h01(k, 6, 629) * 14), sh(R_GHOST, 0.95f));   /* rime on the bronze */
+    cv_outline(0);
+    cv_store(id);
+}
+/* a galvanic coil: an iron frame, a copper winding round a core, a lamp-globe on top, dead or burning gold (lightning) */
+static void spr_mk_coil(int id, int on) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 16, 1.8f, R_WARM + 1);
+    for (int y = 56; y <= 62; y++) for (int x = 18; x <= 46; x++) cv_px(x, y, sh(R_STONE, 0.3f + 0.12f * (y == 56)));   /* its plinth */
+    cv_capsule(21, 24, 21, 56, 1.3f, R_IRON, 0.05f, 0.35f); cv_capsule(43, 24, 43, 56, 1.3f, R_IRON, 0.05f, 0.35f);   /* the frame */
+    cv_capsule(21, 24, 43, 24, 1.3f, R_IRON, 0.05f, 0.35f);
+    cv_capsule(32, 28, 32, 54, 3.0f, R_IRON, 0.1f, 0.4f);              /* the core */
+    for (int y = 30; y <= 52; y += 2)                                  /* the winding, copper */
+        for (int x = 27; x <= 37; x++) cv_px(x, y + ((x + y) & 1), sh(R_WARM, 0.35f + 0.4f * (x < 31)));
+    cv_capsule(32, 16, 32, 24, 0.9f, R_IRON, 0.1f, 0.4f);
+    cv_ellipse(32, 12, 5, 5, on ? R_GOLD : R_STONE, on ? 0.6f : 0.12f, on ? 1.0f : 0.4f);   /* the globe */
+    if (on) {
+        cv_flat(32, 12, 1.6f, 1.6f, C_WHITE);
+        static const float ARC[5][4] = { { 21, 30, 27, 33 }, { 43, 36, 37, 40 }, { 21, 46, 27, 44 }, { 27, 12, 22, 8 }, { 37, 12, 43, 6 } };
+        for (int k = 0; k < 5; k++) { cv_line(ARC[k][0], ARC[k][1], (ARC[k][0] + ARC[k][2]) * 0.5f + 1, (ARC[k][1] + ARC[k][3]) * 0.5f - 1, (uint8_t)(R_GOLD + 12)); cv_line((ARC[k][0] + ARC[k][2]) * 0.5f + 1, (ARC[k][1] + ARC[k][3]) * 0.5f - 1, ARC[k][2], ARC[k][3], (uint8_t)(R_GOLD + 9)); }
+    }
+    cv_outline(0);
+    cv_store(id);
+}
+/* roots grown over a small stone box in a niche, green and fat; done, withered black and fallen back (poison) */
+static void spr_mk_vine(int id, int dead) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 18, 1.8f, R_WARM + 1);
+    for (int y = 44; y <= 61; y++) for (int x = 22; x <= 42; x++) cv_px(x, y, sh(R_STONE, 0.28f + 0.14f * (y == 44) - 0.08f * (x > 39)));   /* the box */
+    for (int x = 22; x <= 42; x++) cv_px(x, 52, sh(R_STONE, 0.12f));
+    if (dead) cv_flat(32, 49, 2.5f, 1.4f, sh(R_GOLD, 0.8f));             /* what it kept, showing */
+    int n = dead ? 9 : 16;
+    for (int r = 0; r < n; r++) {                                    /* the roots: down from above, round the box, into the floor */
+        float x0 = 14 + h01(r, 1, 631) * 36, y0 = dead ? 40 + h01(r, 2, 631) * 8 : 6 + h01(r, 2, 631) * 12;
+        float x = x0, y = y0;
+        for (int s = 0; s < 40; s++) {
+            float nx = x + (h01(r, s, 633) - 0.5f) * 2.2f + (x < 32 ? 0.12f : -0.12f) * (dead ? -1 : 1), ny = y + (dead ? 0.6f : 1.3f);
+            if (ny > 62) break;
+            uint8_t c = dead ? sh(R_WOOD, 0.08f + 0.06f * (s & 1)) : (s % 7 == 3 ? sh(R_MOSS, 0.75f) : sh(R_MOSS, 0.3f + 0.15f * h01(r, s, 635)));
+            cv_capsule(x, y, nx, ny, dead ? 0.6f : 1.1f - 0.4f * (float)s / 40.0f, dead ? R_WOOD : R_MOSS, dead ? 0.04f : 0.2f, dead ? 0.18f : 0.6f);
+            if (!dead && s % 9 == 4) cv_px((int)nx + 1, (int)ny, c);
+            x = nx; y = ny;
+        }
+    }
+    if (!dead) for (int k = 0; k < 6; k++) cv_flat(18 + h01(k, 7, 637) * 28, 18 + h01(k, 8, 637) * 30, 1.4f, 1.1f, sh(R_MOSS, 0.85f));   /* buds */
+    cv_outline(0);
+    cv_store(id);
+}
+/* a soul in a lantern on an iron post, a face in a violet smoke pressing at the glass; done, the door open and dark (spirit) */
+static void spr_mk_lantern(int id, int freed) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 8, 1.6f, R_WARM + 1);
+    cv_capsule(26, 10, 26, 62, 1.4f, R_IRON, 0.05f, 0.32f);            /* the post and its arm */
+    cv_capsule(26, 12, 38, 12, 1.0f, R_IRON, 0.05f, 0.32f);
+    cv_capsule(38, 12, 38, 18, 0.7f, R_IRON, 0.1f, 0.4f);
+    for (int y = 20; y <= 40; y++)                                     /* the lantern: a frame round dark glass */
+        for (int x = 31; x <= 45; x++) {
+            int frame = x == 31 || x == 45 || y == 20 || y == 40 || x == 38;
+            cv_px(x, y, frame ? sh(R_IRON, 0.38f + 0.2f * (x == 31)) : sh(R_GHOST, freed ? 0.08f : 0.18f));
+        }
+    for (int x = 30; x <= 46; x++) { cv_px(x, 19, sh(R_IRON, 0.5f)); cv_px(x, 41, sh(R_IRON, 0.4f)); }
+    cv_ellipse(38, 17, 5, 2, R_IRON, 0.15f, 0.5f);
+    if (!freed) {
+        for (int i = 0; i < 30; i++) { float a = i * 0.7f, r = 1.0f + 0.22f * i; cv_px((int)(38 + cosf(a) * r * 0.9f), (int)(30 + sinf(a) * r * 1.1f), (uint8_t)(R_PURPLE + 8 + (i % 5))); }
+        cv_px(36, 28, (uint8_t)(R_GLOW + 14)); cv_px(40, 28, (uint8_t)(R_GLOW + 14));   /* its eyes */
+        for (int x = 36; x <= 40; x++) cv_px(x, 33, (uint8_t)(R_PURPLE + 5));            /* its mouth, open */
+    } else {
+        for (int y = 21; y <= 39; y++) cv_px(46 + (y - 21) / 4, y, sh(R_IRON, 0.35f));    /* the door hanging open */
+    }
+    cv_outline(0);
+    cv_store(id);
+}
+/* the Order's dead heaped across a way, skulls in among the long bones, to a man's height; done, brought down (physical) */
+static void spr_mk_barricade(int id, int down) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 28, 2.0f, R_WARM + 1);
+    int n = down ? 26 : 46;
+    float H = down ? 12.0f : 44.0f;
+    for (int i = 0; i < n; i++) {
+        float y = 61 - h01(i, 1, 641) * H * (1.0f - 0.3f * h01(i, 9, 641)), x = 6 + h01(i, 2, 641) * 52;
+        if (!down && fabsf(x - 32) > 24 - (61 - y) * 0.25f) continue;
+        float a = h01(i, 3, 641) * PI_F, l = 6 + 5 * h01(i, 4, 641);
+        cv_bone(x - cosf(a) * l, y - sinf(a) * l * 0.4f, x + cosf(a) * l, y + sinf(a) * l * 0.4f, 0.9f, 0.25f, 0.75f);
+    }
+    for (int i = 0; i < (down ? 4 : 9); i++) cv_skull(10 + h01(i, 5, 643) * 44, 61 - h01(i, 6, 643) * H * 0.9f, 0.6f, 0.2f, 0.8f);
+    if (!down) cv_capsule(8, 22, 56, 26, 1.4f, R_WOOD, 0.08f, 0.35f);  /* a beam across it */
+    cv_outline(0);
+    cv_store(id);
+}
+
+/* The mark on a thing that wants a spell (section 4.1): a seal of dark iron with the element's glyph, motes of its
+ * colour drawn in towards it (t, in seconds, turns them), a row of pips for the hits it wants (lit as they land); just
+ * struck, the seal flares; struck by the wrong spell, a dull ring and sparks thrown back; done, the seal dark. Into a
+ * row-major buffer w by h; it is drawn at full brightness, as the eyes are, so it shows through dark and fog */
+static const int MK_RAMP[6] = { R_FLAME, R_GLOW, R_GOLD, R_MOSS, R_PURPLE, R_BONE };
+static int mkc(int ramp, int v) { v = v < 0 ? 0 : v > 15 ? 15 : v; return ramp == R_GOLD ? R_GOLD + v * (NGOLD - 1) / 15 : ramp + v; }   /* gold has thirteen */
+void crawl_mark(uint8_t *buf, int w, int h, int cx, int cy, int el, int state, int pips, int lit_n, float t) {
+#define MKPX(x, y, c) do { int x_ = (x), y_ = (y); if ((unsigned)x_ < (unsigned)w && (unsigned)y_ < (unsigned)h) buf[y_ * w + x_] = (uint8_t)(c); } while (0)
+    int ramp = MK_RAMP[el < 0 || el > 5 ? 0 : el];
+    if (state == MK_WAIT || state == MK_HIT)                          /* the motes, spiralling in */
+        for (int k = 0; k < 8; k++) {
+            float p = t * 0.35f + (float)k / 8.0f; p -= floorf(p);
+            float r = 4.5f + 15.0f * (1.0f - p), a = (float)k * 0.785f + p * 2.4f;
+            int x = cx + (int)lroundf(cosf(a) * r), y = cy + (int)lroundf(sinf(a) * r * 0.8f);
+            int tx = cx + (int)lroundf(cosf(a - 0.25f) * (r + 2.0f)), ty = cy + (int)lroundf(sinf(a - 0.25f) * (r + 2.0f) * 0.8f);
+            MKPX(tx, ty, mkc(ramp, 5 + (int)(4 * p)));
+            MKPX(x, y, mkc(ramp, 9 + (int)(6 * p)));
+        }
+    for (int y = -6; y <= 6; y++)                                     /* the seal */
+        for (int x = -6; x <= 6; x++) {
+            float d = sqrtf((float)(x * x + y * y));
+            if (d > 6.0f) continue;
+            int c = d > 4.9f ? R_IRON + (x + y < 0 ? 9 : 4) : R_IRON + 1;
+            if (state == MK_DONE) c = d > 4.9f ? R_IRON + 3 : R_IRON;
+            MKPX(cx + x, cy + y, c);
+        }
+    for (int r = 0; r < 7; r++)                                       /* its glyph */
+        for (int c = 0; c < 7; c++) {
+            char ch = ELEM_GLYPH[el < 0 || el > 5 ? 0 : el][r][c];
+            if (ch != '#' && ch != 'o') continue;
+            int col = state == MK_DONE ? R_STONE + 3 : state == MK_WRONG ? R_STONE + (ch == 'o' ? 9 : 7)
+                    : state == MK_HIT ? (ch == 'o' ? C_WHITE : mkc(ramp, 15)) : mkc(ramp, ch == 'o' ? 15 : 11);
+            MKPX(cx - 3 + c, cy - 3 + r, col);
+        }
+    if (state == MK_HIT)                                              /* a flare round it */
+        for (int k = 0; k < 24; k++) { float a = (float)k * 0.2618f; if (k & 1) MKPX(cx + (int)lroundf(cosf(a) * 9), cy + (int)lroundf(sinf(a) * 9), mkc(ramp, 13)); }
+    if (state == MK_WRONG) {                                          /* a dull ring, and the sparks thrown back */
+        for (int k = 0; k < 28; k++) { float a = (float)k * 0.2244f; if (k % 3) MKPX(cx + (int)lroundf(cosf(a) * 9), cy + (int)lroundf(sinf(a) * 9), R_STONE + 8); }
+        static const int SP[6][2] = { { -13, -6 }, { 12, -8 }, { -11, 7 }, { 14, 5 }, { -3, -14 }, { 4, 13 } };
+        for (int k = 0; k < 6; k++) { MKPX(cx + SP[k][0], cy + SP[k][1], R_BONE + 12); MKPX(cx + SP[k][0] * 9 / 10, cy + SP[k][1] * 9 / 10, R_STONE + 7); }
+    }
+    for (int k = 0; k < pips && pips > 1; k++) {                      /* the hits it wants, a row under it */
+        int x = cx - (pips - 1) * 2 + k * 4, y = cy + 9;
+        int on = k < lit_n;
+        MKPX(x, y, on ? mkc(ramp, 15) : R_STONE + 5); MKPX(x + 1, y, on ? mkc(ramp, 12) : R_STONE + 3);
+        MKPX(x, y + 1, on ? mkc(ramp, 12) : R_STONE + 3); MKPX(x + 1, y + 1, on ? mkc(ramp, 9) : R_STONE + 2);
+    }
+#undef MKPX
+}
+
 /* The Corpus Compendium: a great tome open on a lectern of black oak, its pages close-written, a red
  * ribbon hanging from it, and a few motes of light over it from whatever it remembers */
 /* The Lampstand (docs/PLAN-b11.md, section 8): six iron bowls on a black iron stand, fanned out from its stem on
@@ -13190,6 +13461,11 @@ void crawl_art_init(void) {
     spr_phial();
     spr_tomb(SP_TOMB_FRESH, 4);                                     /* her plot's newest (the four kinds are props_level's) */
     spr_lectern(); spr_mapware(); spr_lampstand();
+    spr_mk_pricket(SP_MK_PRICKET0, 0); spr_mk_pricket(SP_MK_PRICKET1, 1); spr_mk_coffer(SP_MK_COFFER0, 0); spr_mk_coffer(SP_MK_COFFER1, 1);   /* 1.0.0b16 */
+    spr_mk_cage(SP_MK_CAGE0, 0); spr_mk_cage(SP_MK_CAGE1, 1); spr_mk_rack(SP_MK_RACK0, 0); spr_mk_rack(SP_MK_RACK1, 1);
+    spr_mk_urn(SP_MK_URN0, 0); spr_mk_urn(SP_MK_URN1, 1); spr_mk_coil(SP_MK_COIL0, 0); spr_mk_coil(SP_MK_COIL1, 1);
+    spr_mk_vine(SP_MK_VINE0, 0); spr_mk_vine(SP_MK_VINE1, 1); spr_mk_lantern(SP_MK_LANTERN0, 0); spr_mk_lantern(SP_MK_LANTERN1, 1);
+    spr_mk_barricade(SP_MK_BARRICADE0, 0); spr_mk_barricade(SP_MK_BARRICADE1, 1);
     spr_orb(SP_ORB_A, 0); spr_orb(SP_ORB_B, 1); spr_lance(); spr_ballista(); spr_fspirit(SP_FSPIRIT_A, 0); spr_fspirit(SP_FSPIRIT_B, 1); spr_rime(); spr_mote();
     spr_deadbell(SP_DBELL, 0); spr_deadbell(SP_DBELL_C, 1); spr_font(SP_FONT, 0); spr_font(SP_FONT_C, 1);
     spr_censer(); spr_puff(SP_SMOKE, R_STONE, 0.25f, 0.6f, 81); spr_puff(SP_VAPOUR, R_MOSS, 0.2f, 0.55f, 83); spr_puff(SP_GAS, R_WARM, 0.35f, 0.75f, 87);
