@@ -4,7 +4,7 @@
 further than asked: no class starts with the fireball any more (section 3a). That opens a short second round (section 11),
 each with a default. It is **1.0.0b16**, ahead of the minds' showing and the rest of the art pass (now 1.0.0b17) and the
 lower storey (now 1.0.0b18). The second round was answered the same day (section 11: every default, and N2 as splinters,
-an ammunition of their own). Step 1 is being built.
+an ammunition of their own). Steps 1 and 2 are built (harness only).
 
 *The brief, as first drafted (ideas only). Written on `claude/modest-knuth-gd9u51` from main at
 1.0.0b15. The owner's brief: early levels have long stretches where the caster isn't doing much; fill them with things in
@@ -69,6 +69,17 @@ a line behind.
 opens another (a third), and the one after (a fourth). Only when every line is open does a gift pay the opening's points back.
 
 **The dream.** `auto_align` already picks a second line; it takes the gift the same way, at once, at its greeting.
+
+**As built** (step 2). `gifts_owed(level)` is one from level 5 and two from 13, by the level her room leads to; `gift_due()`
+while she is owed more than `RUN.gifts`. The dream's are taken in `begin_shop` (`gift_settle`: Fire if it isn't open, then
+the second line `auto_align` would buy, then any), never on a page it may not choose for. For a person the Lampstand
+breathes brighter, a caption says *THE LAMPSTAND IS LIT FOR YOU: A GIFT WAITS*, and the way on holds at the door (*NOT YET*)
+till it is taken. Its screen opens on the first closed line; a closed line's opening reads *A GIFT* and Enter twice takes it
+(`gift_take`, `AL_GIFT`); Physical may be taken as the first gift. A gifted line is marked (`RUN.gifted`, saved after
+`RUN.gifts` at the end of `LG_ALIGN`): its opening was never paid, so unbinding keeps it open and pays nothing back for it,
+and if a later vow makes it the class's line the gift is owed again. With every line open a gift comes as three points.
+Esc may close the screen; the door still holds. Debug: `EVENT gift`, `CRAWL_NOGIFT=1` (the dream leaves the gift for a
+person, to test it).
 
 ## 3a. One line to begin with (Q1)
 

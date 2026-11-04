@@ -1409,6 +1409,12 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   every six seconds, at 1.6 times its interval and two fifths of its blow, through nothing; the status bar shows them under a
   sliver. Any spell drives the ordinary Wraith back 3 s (`wraith_back_for`), fire, spirit and wisps 5 s. An old page's Fire
   bought on the free opening stays open as a gift (in `LG_ALIGN`'s reading). Debug: `EVENT cast_SPLINTER`, `line_lent`.
+- **The Lampstand's gifts** (1.0.0b16 step 2, docs/PLAN-play.md section 3). `gifts_owed` (one from level 5, two from 13, by
+  the level her room leads to), `gift_due`, `gift_take`, `gift_settle` (in `begin_shop`: a gift with every line open comes as
+  points; the dream takes its own), `RUN.gifts` and `RUN.gifted` (a byte each at the end of `LG_ALIGN`); a person's way on
+  holds at her door till it is taken (`shop_human`), the Lampstand breathes (`build_lightmap`, `G.gift_glow`), and its screen
+  takes a closed line's opening free on two Enters (`AL_GIFT`; the pane's cost reads *A GIFT*). Debug: `EVENT gift`,
+  `CRAWL_NOGIFT=1`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

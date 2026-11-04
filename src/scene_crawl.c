@@ -670,7 +670,8 @@ static struct {
     int cls, cls_pts, cls_spent;            /* the class (docs/PLAN-b11.md, section 11): 1 + its element, 0 not yet asked;
                                                the Witchfinder's points for Fire, and those of them spent there */
     uint8_t al_gift;                        /* lines opened by a class given up: a bit each, their opening never paid */
-    int gifts;                              /* the Lampstand's gifts taken this life (1.0.0b16, docs/PLAN-play.md section 3) */
+    int gifts;                              /* the Lampstand's gifts taken this life (1.0.0b16, docs/PLAN-play.md section 3), */
+    uint8_t gifted;                         /* and the lines they opened, a bit each: their opening never paid, nor lost to unbinding */
     int bell_cursed, font_cursed;           /* the Dead Bell corrupted, the Weeping Font cursed: a coin each, once, kept through death */
     int bell_next, bell_secrets, font_next; /* the level the bell has corrupted (and its secrets shown), the font sweetened; 0 none */
     int replay_from;                        /* a level replayed through the Portal: the level whose room it was begun from; 0 none */
@@ -890,6 +891,7 @@ static struct {
     float l_t; int l_down;                  /* L held this long (a tap casts, a hold opens the menu, or with the Lantern of
                                                the Dead shutters it) */
     float l_tap;                            /* with the lantern and L casting at a tap: a first tap waiting for a second */
+    float gift_glow; int gift_said; double gift_bump;   /* the Lampstand flaring as a gift is taken; its caption, once a visit */
     int pc_fired, spirit_said, splint_said; /* spirit_said: the caption for a weak cast, once a level; splint_said a splinter's */
     int click_spent;                        /* the click went on a ware or the cat: no cast until it is let go */
     char msg[64];
@@ -3049,6 +3051,7 @@ static float torch_flicker(const Light *L) {
 
 static void tri_dark(void);
 static float lm_at(float x, float y);
+static int gift_due(void);
 static void build_lightmap(void) {
     float ambient = G.shop ? 0.06f : (PK.depth ? (G.ptheme == PT_SEVERANCE ? 0.16f : 0.08f) : 0.06f - 0.012f * depth());   /* the dark itself deepens, set by set; not in a pocket */
     for (int i = 0; i < LMN * LMN; i++) G.lm[i] = ambient;
@@ -3099,7 +3102,9 @@ static void build_lightmap(void) {
     if (G.shop) {                                                  /* the Lampstand's bowls light the room north of hers */
         float lit = 0.0f;
         for (int e = 0; e < NELEM; e++) lit += align_rank(e) ? 0.35f + 0.02f * (float)imin(align_rank(e), 20) : 0.0f;
-        if (lit > 0.0f) light_dynamic(LAMP_X + 0.5f, LAMP_Y + 0.9f, lit * (0.94f + 0.06f * sinf((float)G.t * 6.0f)), 3.4f + 0.5f * lit);
+        if (gift_due()) lit += 0.9f + 0.5f * sinf((float)G.t * 2.4f);   /* a gift waits: it breathes */
+        lit += G.gift_glow;
+        if (lit > 0.0f) light_dynamic(LAMP_X + 0.5f, LAMP_Y + 0.9f, lit * (0.94f + 0.06f * sinf((float)G.t * 6.0f)), 3.4f + 0.5f * fminf(lit, 3.0f));
     }
     for (int i = 0; i < MAXBURNS; i++)
         if (G.burns[i].alive) light_dynamic(G.burns[i].x, G.burns[i].y, (G.burns[i].foe == 2 ? 0.8f : 1.5f) * (1.0f - smoothstepf(G.burns[i].life - 0.7f, G.burns[i].life, G.burns[i].t)) * (0.85f + 0.15f * sinf((float)G.t * 17.0f + i)), 3.2f);
@@ -4170,6 +4175,11 @@ static int align_open(int e) { return e == cls_el() || LEDGER.lent == e + 1 || R
 static int phys_locked(void) { return RUN.gifts < 1 && cls_el() != EL_PHYS && !align_open(EL_PHYS); }
 static int class_offered(int k) { return k != EL_PHYS || !phys_locked(); }
 static int class_random(void) { int k; do k = rnd(NELEM); while (!class_offered(k)); return k; }   /* 0-based */
+/* The Lampstand's gifts (docs/PLAN-play.md, section 3): a line more, free, owed once level 4 is behind you and again once
+ * level 12 is, counted by the level about to be entered, so a Portal run or an old page gets what it is owed. Any closed
+ * line may be taken, Physical too. With every line open, a gift comes as its opening's points */
+static int gifts_owed(int level) { return (level >= 5) + (level >= 13); }
+static int gift_due(void) { return G.shop && gifts_owed(G.level) > RUN.gifts; }
 static int align_rank(int e) {                                     /* 0: closed; 1 opened; a rank a point after */
     if (!align_open(e)) return 0;
     int r = 1;
@@ -4274,6 +4284,7 @@ static int ascend_open(void) { return atone_reach() > RUN.atone || RUN.points > 
 static int align_price(int e, int n);
 static void align_buy(int e, int n);
 static int align_funds(int e);
+static void gift_settle(void);
 static int align_ready(int e, int n);
 static int align_next(int e, int path, int stop_at_ability) {     /* the next node on the way down a path, -1 at its end */
     if (!align_open(e)) return ND_OPEN;
@@ -4292,6 +4303,8 @@ static void class_take(int c) {
         for (int n = ND_EFF; n < NNODE; n++) kept |= RUN.al[old][n] != 0;
         if (kept && RUN.al[old][ND_OPEN] < ALIGN[old].n[ND_OPEN].cost) { RUN.al[old][ND_OPEN] = (uint8_t)ALIGN[old].n[ND_OPEN].cost; RUN.al_gift |= (uint8_t)(1u << old); }
     }
+    if (RUN.gifted >> e & 1) { RUN.gifted &= (uint8_t)~(1u << e); RUN.gifts--; RUN.al[e][ND_OPEN] = 0; }   /* a gift's line sworn to:
+                                                                                                        the gift is owed again */
     if (RUN.al[e][ND_OPEN]) {
         if (!(RUN.al_gift >> e & 1)) RUN.al_points += RUN.al[e][ND_OPEN];
         RUN.al[e][ND_OPEN] = 0; RUN.al_gift &= (uint8_t)~(1u << e);
@@ -16828,6 +16841,8 @@ static void begin_shop(void) {
     old_spells_said();                                             /* a page from before the Alignment */
     if (!RUN.cls && !LEDGER.yours && !LEDGER.kept) class_take(1 + class_random());   /* the dream: what it was, at random, so every line shows in time */
     line_lend();
+    gift_settle();                                                 /* the Lampstand's gift: the dream's at once */
+    G.gift_said = 0;
     int bag_up = 0;
     for (int p = 0; p < G.ped_n; p++) {                            /* now and then the BFS9000, the rest to wear; one bag at most */
         int pool = p == 0 ? POOL_ATTACK : POOL_GEAR;               /* runes are the Rune Shrine's, spells the lines' */
@@ -17437,6 +17452,7 @@ static void update_shop(double dt) {
     if (!SHOP_BEYOND()) G.fade = smoothstepf(0.0f, 0.7f, (float)G.level_t);
     G.mood_t -= fdt;
     if (G.mood_t <= 0.0f) { snd_set_mood(0.6f); G.mood_t = 0.5f; }
+    G.gift_glow = fmaxf(0.0f, G.gift_glow - fdt);
     build_lightmap();
 }
 
@@ -17905,7 +17921,10 @@ static void open_ui(int which) {
     }
     else if (which == UI_CODEX) { snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.3f, 0.5f); }
     else if (which == UI_STONES) { G.cs_arm = -1; snd_sfx_ex(SFX_WHISPER, 0.4f, 0.5f); }
-    else if (which == UI_ALIGN) { G.al_arm = -1; G.al_node = ND_OPEN; snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.35f, 0.5f); }
+    else if (which == UI_ALIGN) {
+        G.al_arm = -1; G.al_node = ND_OPEN; snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.35f, 0.5f);
+        if (gift_due()) for (int e = 0; e < NELEM; e++) if (!align_open(e)) { G.al_el = e; break; }   /* a gift: the first line it may be */
+    }
     else if (which == UI_HALL2) { G.ui_sel = 0; G.h2_arm = -1; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); }
     else if (which == UI_CLASS) { G.vow_sel = cls_el() >= 0 ? (cls_el() + 1) % NELEM : 0; G.vow_arm = -1; snd_sfx_ex(SFX_WHISPER, 0.6f, 0.5f); }
     else if (which == UI_ASCEND) {
@@ -18121,7 +18140,12 @@ static void shop_human(float dt) {
     if (IN.hit[KEY_C]) { open_ui(UI_CODEX); return; }
     if (IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
     if (IN.hit[KEY_M]) say(RUN.has_map ? "NOTHING HERE TO MAP" : "YOU HAVE NO MAP. SHE SELLS ONE");
+    if (gift_due() && !G.gift_said) { G.gift_said = 1; say("THE LAMPSTAND IS LIT FOR YOU: A GIFT WAITS"); }
     human_walk(dt);
+    if (gift_due() && G.px > SHOP_DOOR - 0.55f && G.py > 13.0f && G.py < 18.0f) {   /* the way on is held till the gift is taken */
+        G.px = SHOP_DOOR - 0.55f; G.cx = (int)G.px;
+        if (G.t - G.gift_bump > 3.0) { G.gift_bump = G.t; say("NOT YET: THE LAMPSTAND IS LIT FOR YOU"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); }
+    }
     int was = G.shop_look;
     G.shop_look = -1;
     float bd = 3.2f;
@@ -19250,7 +19274,7 @@ enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX
                                                puzzles solved, trials won and lost (u16 each); the kinds of puzzle solved, of trial won */
 #define LG_HALL2_BYTES 12                   /* the bell and the font cursed, the levels they wait for, the secrets, a replay */
 #define LG_ALIGN_B11 (NELEM * NNODE + 2 + 4)     /* the nodes, the points; the class, the Witchfinder's points and those spent, the gift openings */
-#define LG_ALIGN_BYTES (LG_ALIGN_B11 + 1)         /* 1.0.0b16: the Lampstand's gifts taken */
+#define LG_ALIGN_BYTES (LG_ALIGN_B11 + 2)         /* 1.0.0b16: the Lampstand's gifts taken, and the lines they opened */
 enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
 #define LG_PAGE_BYTES 17
 #define LG_VISIT_BYTES (8 + NPED * (2 + OFFER_BYTES))
@@ -19365,7 +19389,7 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     memcpy(c, RUN.al, sizeof RUN.al); put16(c + NELEM * NNODE, clampi(RUN.al_points, 0, 65535));
     c[NELEM * NNODE + 2] = (uint8_t)RUN.cls; c[NELEM * NNODE + 3] = (uint8_t)clampi(RUN.cls_pts, 0, 255);
     c[NELEM * NNODE + 4] = (uint8_t)clampi(RUN.cls_spent, 0, 255); c[NELEM * NNODE + 5] = RUN.al_gift;
-    c[LG_ALIGN_B11] = (uint8_t)clampi(RUN.gifts, 0, 255);
+    c[LG_ALIGN_B11] = (uint8_t)clampi(RUN.gifts, 0, 255); c[LG_ALIGN_B11 + 1] = RUN.gifted;
     p = section_end(c, c + LG_ALIGN_BYTES);
     c = section_begin(p, LG_HALL2);                                /* the Dead Bell and the Weeping Font (1.0.0b11, step 12) */
     memset(c, 0, LG_HALL2_BYTES);
@@ -19471,7 +19495,7 @@ static void run_unpack(const uint8_t *buf, int len) {
     if (c && k >= NELEM * NNODE + 2) {                             /* version 7: the Alignment */
         for (int e = 0; e < NELEM; e++) for (int n = 0; n < NNODE; n++) RUN.al[e][n] = (uint8_t)imin(c[e * NNODE + n], ALIGN[e].n[n].cost);
         RUN.al_points = get16(c + NELEM * NNODE);
-        if (k >= LG_ALIGN_BYTES) RUN.gifts = c[LG_ALIGN_B11];      /* 1.0.0b16: the gifts taken */
+        if (k >= LG_ALIGN_BYTES) { RUN.gifts = c[LG_ALIGN_B11]; RUN.gifted = c[LG_ALIGN_B11 + 1] & ((1u << NELEM) - 1); }   /* 1.0.0b16 */
         if (k >= LG_ALIGN_B11) {                                   /* and the class (step 10); before it, asked at the next visit */
             RUN.cls = c[NELEM * NNODE + 2] <= NELEM ? c[NELEM * NNODE + 2] : 0;
             RUN.cls_pts = c[NELEM * NNODE + 3]; RUN.cls_spent = c[NELEM * NNODE + 4]; RUN.al_gift = c[NELEM * NNODE + 5] & ((1u << NELEM) - 1);
@@ -19755,7 +19779,7 @@ static void death_fall(void) {
     RUN.treasure = 0; RUN.souls = 0; RUN.soul_frac = 0.0f; RUN.coins = 0; RUN.goal = 0;
     g->atk[AT_BFS] = -1;                                           /* the lines' spells follow them (align_sync) */
     memset(RUN.al, 0, sizeof RUN.al); RUN.al_points = 0;           /* the lines go; Fire stays open, at rank 1; */
-    RUN.cls = RUN.cls_pts = RUN.cls_spent = 0; RUN.al_gift = 0; RUN.gifts = 0;   /* the next life is asked what it was, and given again */
+    RUN.cls = RUN.cls_pts = RUN.cls_spent = 0; RUN.al_gift = 0; RUN.gifts = 0; RUN.gifted = 0;   /* the next life is asked what it was, and given again */
     RUN.replay_from = 0; RUN.latch_said = 0;
     memset(g->worn, 0, sizeof g->worn); memset(g->bag, 0, sizeof g->bag); g->bag_size = g->bag_quality = 0;
     g->bones = 0; g->has_held = 0; memset(&g->held, 0, sizeof g->held);
@@ -19947,7 +19971,7 @@ static int align_chained(int e, int n) { return n >= ND_A1 && RUN.al[e][align_ot
 static int align_spent(int e) { int t = 0; for (int n = 0; n < NNODE; n++) t += RUN.al[e][n]; return t; }
 static int align_funds(int e) { return RUN.al_points + (e == EL_FIRE ? RUN.cls_pts : 0); }   /* the Witchfinder's go only into Fire */
 static int align_refund(int e) {                                   /* what unbinding gives back: half of what was paid */
-    return (align_spent(e) - ((RUN.al_gift >> e & 1) ? ALIGN[e].n[ND_OPEN].cost : 0) - (e == EL_FIRE ? RUN.cls_spent : 0)) / 2;
+    return (align_spent(e) - ((RUN.al_gift >> e & 1) || (RUN.gifted >> e & 1) ? ALIGN[e].n[ND_OPEN].cost : 0) - (e == EL_FIRE ? RUN.cls_spent : 0)) / 2;
 }
 static void align_buy(int e, int n) {
     int price = align_price(e, n), given = e == EL_FIRE ? imin(RUN.cls_pts, price) : 0;
@@ -19961,17 +19985,52 @@ static void align_buy(int e, int n) {
             RUN.al_points, G.player ? "player" : "autopilot", G.t);
 #endif
 }
+/* a gift taken: the line's opening, free */
+static void gift_take(int e) {
+    if (align_open(e)) return;
+    RUN.al[e][ND_OPEN] = (uint8_t)ALIGN[e].n[ND_OPEN].cost; RUN.gifted |= (uint8_t)(1u << e); RUN.gifts++;
+    if (e == EL_PHYS) RUN.gear.bones = (int16_t)imin(bones_max(), RUN.gear.bones + SPEAR_BONES);   /* the spear comes with bones */
+    caster_sync();
+    G.gift_glow = 2.0f;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT gift %d %s level %d by %s t=%.2f\n", RUN.gifts, ALIGN[e].name, G.level, G.player ? "player" : "autopilot", G.t);
+#endif
+}
+static int gift_closed(void) { int n = 0; for (int e = 0; e < NELEM; e++) n += !align_open(e); return n; }
+/* in her room: a gift owed with every line open comes as points; the dream takes its own at once (the line its Alignment
+ * would buy next: Fire, then its second, then any), but not on a page it may not choose for */
+static void gift_settle(void) {
+    while (gift_due() && !gift_closed()) {
+        RUN.gifts++; RUN.al_points += ALIGN[EL_FIRE].n[ND_OPEN].cost;
+        if (G.player) say("EVERY LINE IS OPEN: THE GIFT COMES AS POINTS");
+    }
+    if (G.player || LEDGER.yours || LEDGER.kept) return;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_NOGIFT")) return;                            /* testing: the gift left for a person */
+#endif
+    uint32_t h = RUN.run_id * 2654435761u;
+    int own = cls_el() >= 0 ? cls_el() : (int)(h % NELEM), second = (own + 1 + (int)((h >> 8) % (NELEM - 1))) % NELEM;   /* as auto_align */
+    if (second == EL_FIRE) second = (second + 1) % NELEM;
+    if (second == own) second = (own + 2) % NELEM;
+    while (gift_due() && gift_closed()) {
+        int e = !align_open(EL_FIRE) ? EL_FIRE : !align_open(second) ? second : -1;
+        for (int k = 0; e < 0 && k < NELEM; k++) { int c = (int)((h >> 12) + (uint32_t)k) % NELEM; if (!align_open(c)) e = c; }
+        gift_take(e);
+    }
+}
 static void align_unbind(int e) {                                  /* every node goes; half the points come back, rounded down */
     int back = align_refund(e);
     if (e == EL_FIRE) { if (cls_el() == EL_FIRE) RUN.cls_pts += RUN.cls_spent; RUN.cls_spent = 0; }   /* the Witchfinder's come back whole */
     memset(RUN.al[e], 0, sizeof RUN.al[e]);
-    RUN.al_gift &= (uint8_t)~(1u << e);                            /* an old class's line, unbound, closes */
+    RUN.al_gift &= (uint8_t)~(1u << e);                            /* an old class's line, unbound, closes; */
+    if (RUN.gifted >> e & 1) RUN.al[e][ND_OPEN] = (uint8_t)ALIGN[e].n[ND_OPEN].cost;   /* a gift's stays open */
     RUN.al_points += back; RUN.coins -= 2;
     caster_sync();
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT align_unbind %s back %d points %d t=%.2f\n", ALIGN[e].name, back, RUN.al_points, G.t);
 #endif
 }
+#define AL_GIFT 100                         /* al_arm: a gift's line awaiting its second Enter, AL_GIFT + the line */
 static void update_align(int view) {
     if (!view && (IN.hit[KEY_ESC] || IN.hit[KEY_TAB])) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
     int e = G.al_el = clampi(G.al_el, 0, NELEM - 1), was = e;
@@ -20001,6 +20060,15 @@ static void update_align(int view) {
         return;
     }
     if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_MOUSE1])) return;
+    if (gift_due() && n == ND_OPEN && !align_open(e)) {           /* the gift: any closed line, Physical too, asked twice */
+        if (G.al_arm != AL_GIFT + e) { G.al_arm = AL_GIFT + e; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }
+        G.al_arm = -1;
+        gift_take(e);
+        al_buy_t = G.ui_t; al_buy_e = e; al_buy_n = n;
+        snd_sfx_ex(SFX_ATONE, 0.6f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.6f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.7f, 0.5f);
+        say("%s IS YOURS: A GIFT", ALIGN[e].name);
+        return;
+    }
     if (!align_ready(e, n) || align_funds(e) < align_price(e, n)) { G.al_arm = -1; snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
     if ((n == ND_A1 || n == ND_B1) && !RUN.al[e][n] && G.al_arm != n) { G.al_arm = n; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }   /* the other path will close */
     G.al_arm = -1;
@@ -25935,6 +26003,7 @@ static void render_align(Frame *f, int view) {
             u->state = SK_HELD; u->got = u->cost;
             if (m == ND_OPEN && RUN.al[e][m] < nd->cost) snprintf(note[m], sizeof note[m], LEDGER.lent == e + 1 ? "LENT, TILL YOU SAY WHAT YOU WERE." : "YOURS BY WHAT YOU WERE.");
         } else if (align_chained(e, m)) { u->state = SK_CLOSED; snprintf(note[m], sizeof note[m], "THE OTHER PATH IS CHOSEN."); }
+        else if (m == ND_OPEN && !view && gift_due()) { u->state = SK_READY; u->cost = 0; snprintf(note[m], sizeof note[m], "A GIFT: FREE."); }
         else if (m == ND_OPEN && e == EL_PHYS && phys_locked()) { u->state = SK_CLOSED; snprintf(note[m], sizeof note[m], "SHUT TILL THE LAMPSTAND'S FIRST GIFT."); }
         else if (align_ready(e, m)) {
             int short_by = align_price(e, m) - funds;
@@ -25956,6 +26025,8 @@ static void render_align(Frame *f, int view) {
     if (!view && G.al_arm == -2) snprintf(warn, sizeof warn, "UNBIND %s FOR TWO CURSED COINS: EVERY NODE GOES, AND %d POINTS COME BACK. AGAIN TO UNBIND.", ALIGN[e].name, align_refund(e));
     else if (!view && G.al_arm == -3) snprintf(warn, sizeof warn, "UNBINDING A LINE TAKES TWO CURSED COINS. YOU HAVE %d.", RUN.coins);
     else if (!view && G.al_arm == n) snprintf(warn, sizeof warn, "THE OTHER PATH WILL CLOSE. AGAIN TO TAKE THIS ONE.");
+    else if (!view && G.al_arm == AL_GIFT + e) snprintf(warn, sizeof warn, "%s, THE LAMPSTAND'S GIFT. ENTER AGAIN TO TAKE IT.", ALIGN[e].name);
+    else if (!view && gift_due()) snprintf(warn, sizeof warn, "THE DEAD ASK YOU TO CARRY ANOTHER: ANY LINE NOT YET OPEN, FREE. ITS OPENING, ENTER TWICE.");
     else warn[0] = 0;
     tr.warn = warn[0] ? warn : 0;
     tr.keys = pk(view ? "A/D PAGE  1-6 LINE  W/S NODE  TAB" : "1-6  WASD  ENTER BUYS  SPACE UNBINDS");   /* a pad's buttons marked */

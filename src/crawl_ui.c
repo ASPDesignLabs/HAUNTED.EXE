@@ -588,6 +588,7 @@ void ui_tree(Frame *f, const UiTree *tr) {
     const UiNode *nd = &tr->n[tr->sel < 0 || tr->sel > 9 ? 0 : tr->sel];
     int m = tr->sel;
     if (nd->state == SK_HELD) snprintf(b, sizeof b, "YOURS");
+    else if (nd->cost <= 0) snprintf(b, sizeof b, "A GIFT");    /* the Lampstand's (1.0.0b16) */
     else if (nd->cost > 1 && nd->got > 0) snprintf(b, sizeof b, "%d OF %d POINTS", nd->got, nd->cost);
     else snprintf(b, sizeof b, "%d POINT%s", nd->cost, nd->cost == 1 ? "" : "S");
     UiPane pn = { UI_NODE_ICON[tr->elem][m], 0, tr->ramp, nd->state, 0, nd->name, nd->kind, b, nd->state == SK_HELD ? R_GOLD + 12 : R_GOLD + 10,
