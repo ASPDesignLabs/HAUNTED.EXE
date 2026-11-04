@@ -1676,5 +1676,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   deaths against 261 and 32 (without the gifts 241 and 66). Fire, Lightning and Spirit are about where they were; the
   Anatomist died 13 times (7) and the Plague Doctor 25 (6), on levels 1-7, and its poison a tick half again as hard (the
   owner's) didn't move it (28). The table is in docs/PLAN-play.md, *The checks so far*.
+- 1.0.0b16's step 5 (things that want a spell, run I; harness only), the same 40 runs as steps 1 and 2's: 1,409 things set,
+  1,161 answered by the dream, one wrong spell; 246 levels cleared and 44 deaths (step 2: 248 and 57; the Plague Doctor 29),
+  a level a few seconds longer. That build also has the stronger poison, the wheels and the Mirror by hand.
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.

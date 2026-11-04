@@ -237,6 +237,13 @@ six and a half cells of its lane, in sight and out of a fight, if it holds the l
 `G.probe_mk`): it turns, casts till it is done, and goes on; twice at most for each. Debug: `MARKED level n: ...`, `EVENT
 mk_dream`, `mk_hit`, `mk_wrong`, `mk_done`, `CRAWL_TPMARK=k` (a few steps from the k-th, facing it, as you take over).
 
+*Checked* (the dream from level 1, 50 minutes, the same 40 seeds and pasts as step 2's runs): 1,409 things set, 1,161 answered
+by the dream (82%), one struck by the wrong spell; 246 levels cleared and 44 deaths against step 2's 248 and 57 (the Plague
+Doctor 29 against 25, the rest fewer); a level's median time 354-360 s against 335-363 s, so a few seconds longer. This
+build also carries the Plague Doctor's stronger poison, the wheels and the Mirror by hand, so the difference isn't the
+things' alone, and it is inside the noise of eight seeds a past. ASan clean on two sessions (a person's wrong spell and fire
+at a pricket; a Plague Doctor's dream).
+
 ### 4.3 Several hits, timers, and moving things (from level 5: two or three lines)
 
 12. **The portcullis winch.** Lightning charges it; the gate rises and holds for eight seconds, a short cut or a vault of
