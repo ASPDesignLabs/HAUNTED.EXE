@@ -1686,5 +1686,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
 - 1.0.0b16's step 5 (things that want a spell, run I; harness only), the same 40 runs as steps 1 and 2's: 1,409 things set,
   1,161 answered by the dream, one wrong spell; 246 levels cleared and 44 deaths (step 2: 248 and 57; the Plague Doctor 29),
   a level a few seconds longer. That build also has the stronger poison, the wheels and the Mirror by hand.
+- 1.0.0b16's step 6 (section 4.3's things and the runs' own; harness only), the same 40 runs: 252 levels cleared and 40 deaths
+  (step 5: 246 and 44), about 80% of 1,437 things answered by the dream; the rolling skull is mostly lost to it.
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.

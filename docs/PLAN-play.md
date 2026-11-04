@@ -319,6 +319,12 @@ until water hinders; the swinging censer (17), not drawn; bile over a grate (20)
 anywhere. Debug: `CRAWL_MARKK=k` (things of kind k, `MKK_*`, where they can be), `CRAWL_TPMARK=k` now readies the thing's line,
 `MARKED level n` marks a gated one, `EVENT mk_heat`, `mk_gate up`, `mk_lost`.
 
+*Checked* (the dream from level 1, 50 minutes, the same 40 seeds and pasts as steps 2 and 5): 252 levels cleared and 40 deaths,
+against step 5's 246 and 44 and step 2's 248 and 57; a level's median time 347-357 s. 1,437 things set, about 1,150 answered
+(80%; 55 sets of bells, 39 hearths, 20 vents, 16 rolling skulls caught and 24 lost, 5 seals); no death to a vent, which never
+scalded the dream. Inside the noise of eight seeds a past, as before. ASan clean on four sessions (a person at the bells with
+the spear and at the hearth's gate, and dream runs from 21 and 31 with corpse-lights forced).
+
 ### 4.4 Sequences (from level 13: three lines or more)
 
 22. **The tablet's order.** A carved tablet shows three glyphs; three things down the hall each want their own element,
