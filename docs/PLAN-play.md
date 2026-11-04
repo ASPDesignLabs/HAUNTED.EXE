@@ -361,6 +361,47 @@ relay's lamp (dead, lit, frozen) with the galvanic coil in its line, lamp oil (c
 (a cracked column, then its drums down), the poison font (dry, brimming) and the Order's drum (beating, silenced). Standing
 water, firedamp and the ice floor take the seal on what is already there.
 
+Redrawn in a gothic hand at the owner's word (lancets, crockets and finials, tracery, a Calvary cross, a capital of skulls,
+a blind arcade, spikes and bone sticks), and approved with that.
+
+**In the game** (step 8, harness only; frames in `docs/play/frames-step8.png`, each before and after). The sequences are
+`MkKind.tier` 3, from level 13 with three lines held (the ward-stone two, the relay fire), chosen one time in four there
+(`mk_pick`'s `want_seq`); `MAXMK` holds them.
+
+- **The tablet's order** (`MKK_TABLET`, `mk_tablet`): the tablet beside the way and three plinths (`MKK_PLINTH`, tier 9, never
+  chosen alone) a few steps on, each its own held line; the tablet's order (`Marked.els`) a shuffle of them, drawn as three
+  seals in its sockets (`render_marks`), lit as kept. A plinth struck by its line in turn lights; out of turn, all of it goes
+  dark (*OUT OF TURN: THE STONE GROANS*). The three kept: a chalice and gems. Shots pass the tablet.
+- **The turning reliquary** (`MKK_RELIQ`): a face for 3.5 s, then 0.7 s turning (no seal, struck glances off), the next of
+  three held lines; three right running opens it (a wrong one starts the count again). A chalice and gems.
+- **The ward-stone** (`MKK_WSTONE`, by `mk_gated` as the hearth): five right hits, a new held line after each; broken, its
+  door goes up for good.
+- **The relay** (`MKK_RELAY`, `mk_relay`): three lamps beside the way; fire lights one and it passes to the next in 0.8 s. The
+  middle one time in two is frozen (fire thaws it, then it takes the flame) or, with lightning held, a dead coil (lightning
+  wakes it). All lit (`relay_check`): gold. Not built to a gate yet: it gives at its end instead.
+
+The things for fights are tier 4 (`place_fights`, after `place_marked`): one a level from 5, two from 13, in a room that is not
+the start's, the exit's, a vault, the wing or the trial's, and only in a line held. The dream never answers them.
+
+- **Lamp oil** (`MKK_CASK`, fire): bursts into nine burning cells (`add_burn`), eight seconds.
+- **Loose masonry** (`MKK_PILLAR`, physical, two hits): comes down on what stands within 1.8 cells, half its health and a
+  stagger (not bosses); rubble. It blocks nothing (Q3: nothing may close the way before 13, and a hall shut behind you is
+  a softlock waiting); a person may want it to.
+- **The poison font** (`MKK_PFONT`, poison): brimming half a minute; what comes within 1.7 cells is poisoned a twentieth of its
+  health each second. A flask passing over anything that wants poison now answers it as it goes (`mk_shot`), as well as its
+  burst (`mk_burst`, not twice).
+- **The Order's drum** (`MKK_DRUM`, spirit): every file of the Order within sixteen cells breaks (`pack_break`), staggered.
+- **Standing water** (`MKK_WATER`, run II, lightning; no sprite, the seal on the water): everything standing in the water
+  within eight cells is stunned a second, slowed and hurt an eighth; lightning striking a creature in the water does it too
+  (`mk_wet_hit`). Again after six seconds.
+- **A cold floor** (`MKK_ICEF`, frost): rimes the nine cells about it twenty seconds (`SP_MK_ICE`), slowing what crosses; then
+  it may be rimed again.
+- **Firedamp** (`MKK_DAMP`, run III, fire): the seal on a stope's gas (`G.site`), which a fire already sends up; again after
+  twenty seconds.
+
+Debug: `CRAWL_FIGHTK=k` (the fight things of kind k, `MKK_*`), `CRAWL_TPMARK=99` (the last thing set), `FIGHTS level n`, `EVENT
+mk_crush`, `mk_drum`, `mk_water_shock`.
+
 ### 4.6 By run
 
 Each run's look can carry its own:
@@ -543,7 +584,7 @@ letting go, B, a tap of up for the map, Q tapped and held, RB and LB; ASan clean
 5. Section 4.2's things and the stretch budget (section 5), run I only; frames from levels 1-4 for the owner. *Built, frames sent.*
 6. Section 4.3's, and runs II-IV's flavours. *Built, frames sent.*
 7. Warded creatures, with sixteen-seed runs against `CRAWL_WARD=0`. *Built, frames sent.*
-8. Sequences (4.4) and the fight things (4.5). *Drawn, for the owner.*
+8. Sequences (4.4) and the fight things (4.5). *Built, frames sent.*
 9. The lull's watch.
 10. The checks: balance against 1.0.0b15, ASan, the README's and the page's words.
 
