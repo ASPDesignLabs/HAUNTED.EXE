@@ -431,6 +431,21 @@ of breaking glass and the rim gone, dropping it to the kind's own weakness: then
 **Balance.** The dream sees wards through `hit_mult`, so it switches spells as it should; the cost is time, which shows in
 the runs. Eight seeds is too few here (CLAUDE.md's step-2 note); compare sixteen against `CRAWL_WARD=0`.
 
+**In the game** (step 7, harness only; frames in `docs/play/frames-step7.png`: a skeleton knight warded against fire, near,
+struck by fire and named, then after; a skeleton warded against frost, struck by fire; a shambler the same). `Mob.ward[2]` (1 +
+the element), `wdmg`, `wring`, `wset`; `Pack.ward`, `wset`. `ward_give` the first time a creature moves (`update_mob`), never
+saved: the chance by run (one in six, four, three, three), half again for a pack or rank III and up; a pack's first member
+rolls for all of it, by its leader. `ward_pick`: the lines held (none with fewer than two), not one it takes nothing from,
+not the one it is weakest to, not the class's own while two are held, the least weak first and ties at random; a second for
+rank IV and black from three lines, one time in two, always leaving a held line unwarded. `ward_str` in `weak_el` (so
+`hit_mult`, `choose_spell` and the readout follow). `ward_struck` from `damage_mob`: a warded hit rings dull (`SFX_KNOCK`,
+the rim white a moment), the first a level named (`G.ward_said`, also on first sight within six cells); a fifth of its health
+of that element cracks it (`SFX_GLASS`). Drawn: the rim (`Draw.ward`, every pixel of the outline in the element's colour; two
+wards alternate), the glyph barred over its head within seven cells in sight (`render_warded`), and the readout's barred glyph
+under the bar's right end. The bestiary's pages say *SOME COME WARDED* once the caster has been down to level 5. Not bosses,
+their adds, allies, spectres, spirits, the Wraith, a trial's, wall skulls, sacs or spiderlings. Debug: `CRAWL_WARD=0/1/2`
+(none, as made, every creature that may be), `EVENT warded`, `ward_cracked`, the state line's `wardhits` and `cracked`.
+
 ## 7. The Mirror by hand
 
 **Now.** `def_trigger` fires it when two missiles will land within 1.5 s or a wall skull charges; the veil
@@ -513,7 +528,7 @@ letting go, B, a tap of up for the map, Q tapped and held, RB and LB; ASan clean
 4. The look of a marked thing (motes, glyph, pips, the dull ring), on a sheet first, as the art has gone. *Drawn; approved by the owner.*
 5. Section 4.2's things and the stretch budget (section 5), run I only; frames from levels 1-4 for the owner. *Built, frames sent.*
 6. Section 4.3's, and runs II-IV's flavours. *Built, frames sent.*
-7. Warded creatures, with sixteen-seed runs against `CRAWL_WARD=0`.
+7. Warded creatures, with sixteen-seed runs against `CRAWL_WARD=0`. *Built, frames sent.*
 8. Sequences (4.4) and the fight things (4.5).
 9. The lull's watch.
 10. The checks: balance against 1.0.0b15, ASan, the README's and the page's words.

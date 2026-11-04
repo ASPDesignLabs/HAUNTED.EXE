@@ -207,15 +207,15 @@ tools/music.sh` renders them into `build/music/`) were sent to the owner, who sa
 smoke-tested the Windows and browser builds on the branch), and it was released as **1.0.0b15** at the owner's word (4 November),
 squashed onto main as one commit. Its *hand-off log* says where it stands.
 
-**1.0.0b16** is planned in [`docs/PLAN-play.md`](docs/PLAN-play.md) (4 November, on `claude/modest-knuth-gd9u51`; steps 1-6
+**1.0.0b16** is planned in [`docs/PLAN-play.md`](docs/PLAN-play.md) (4 November, on `claude/modest-knuth-gd9u51`; steps 1-7
 built, harness only, with the pad's wheels), for the early levels' quiet stretches: no class starts with the fireball any more (each begins with its own line), a
 second and third line given free at the Lampstand after levels 4 and 12, things in the crypt struck by the right spell (only
 the lines held), creatures warded against a held line (60% to 90%, cracking), and the Mirror rune raised by hand on the right
 mouse as a parry (Q turns between it and the boss gifts), a Common one free with the shrine's first curse. The owner answered
 the first round the same day and put it first: the minds' showing and the rest of the art pass are now **1.0.0b17**, the lower
-storey **1.0.0b18**. The second round (N1-N5, from the fireball's going) was answered the same day; steps 1-6 and the
-wheels are built (harness only): one line each, the gifts, the Mirror by hand, and things that want a spell in every run (their
-sheets approved). The Plague Doctor is still the weakest past in the dream's runs; its flask strikes a quarter harder.
+storey **1.0.0b18**. The second round (N1-N5, from the fireball's going) was answered the same day; steps 1-7 and the
+wheels are built (harness only): one line each, the gifts, the Mirror by hand, things that want a spell in every run (their
+sheets approved) and warded creatures. The Plague Doctor is still the weakest past in the dream's runs; its flask strikes a quarter harder.
 
 ## Working with the owner
 
@@ -1438,6 +1438,11 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `mk_flood`; the winch's `mk_gate_up` for `GATE_UP`, the hearth's for good), the steam vent (`VENT_*`, `mk_dmarks` for the
   dream), run II's web, run III's lodestone, run IV's prism and geode. Debug: `MARKED level n`, `EVENT mk_dream`, `mk_hit`,
   `mk_wrong`, `mk_done`, `mk_heat`, `mk_gate up`, `mk_lost`, `CRAWL_TPMARK=k` (and its line readied), `CRAWL_MARKK=k`.
+- **Warded creatures** (1.0.0b16 step 7, docs/PLAN-play.md section 6). `Mob.ward[2]`, `wdmg`, `wring`, `wset`; `Pack.ward`;
+  `ward_give` (the first time it moves), `ward_pick`, `ward_str` (in `weak_el`: 60% on level 5 to 90% by 30), `ward_struck`
+  (from `damage_mob`: the dull ring, the caption, the crack at a fifth of its health), `Draw.ward` (the rim), `render_warded` (the
+  barred glyph over its head), the readout's barred glyph, the bestiary's *SOME COME WARDED*. Debug: `CRAWL_WARD=0/1/2`, `EVENT
+  warded`, `ward_cracked`, `wardhits=`/`cracked=` on the state line.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

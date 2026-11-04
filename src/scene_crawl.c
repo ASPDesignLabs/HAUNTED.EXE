@@ -148,6 +148,10 @@ typedef struct {
                                                                       you, his bell ringing (and how hard), the wait to ring hard again,
                                                                       frozen; when he last saw you; how long its way somewhere has been
                                                                       stood in */
+    int wset, ward[2]; float wdmg[2], wring;                       /* 1.0.0b16: warded (docs/PLAN-play.md section 6): whether it has been
+                                                                      given its ward yet; 1 + each element it is warded against; the
+                                                                      damage of that element taken (a fifth of its health cracks it); the
+                                                                      dull ring of a warded hit */
 } Mob;
 /* a pack (docs/PLAN-ai.md, sections 5-6): its kind (PA_*), its members, the one that leads it, how many it began with; its
  * state (PAS_*), the one calling and how long the call has to run; when one of it last saw the caster, and where; its
@@ -158,6 +162,7 @@ typedef struct {
     float call_t, seen_t, kx, ky, turn_t;
     int on[2]; float on_hp[2];
     float chill_t;                                                 /* step 8: the Wraith's wail heard; it keeps to its posts a while */
+    int ward[2], wset;                                             /* 1.0.0b16: the ward its members share (1 + the element), once given */
 } Pack;
 #define MAXPACKS 12
 enum { PACK_NONE, PACK_FILE, PACK_HOUNDS, PACK_ROOST, PACK_WAKE, PACK_SCAV, PACK_SPIDERS, PACK_IMPS, PACK_SENTINELS, PACK_BAND, PACK_WHIP };
@@ -822,6 +827,7 @@ static struct {
     float still_t, noise_x, noise_y, noise_t;   /* how long the caster has stood; its last loud noise, and when */
     int namb; Ambush amb[2];                /* the level's ambushes (section 12) */
     int nmk; Marked mk[MAXMK];              /* things that want a spell (1.0.0b16, docs/PLAN-play.md section 4) */
+    int ward_said;                          /* the elements a ward has been named in, a bit each, this level (section 6) */
     int probe_mk, probe_sp, probe_n; float probe_last;   /* the dream at one: 1 + which, the spell, casts so far, the last */
     int hunt_kind, hunt_on, hunt_said, hunt_nx, hunt_ny, hunt_whip; float hunt_at, hunt_heard;   /* the level's hunt: HK_*, let loose, its
                                                                       nearer tell given; where it picks up the trail; when; the last noise
@@ -4578,11 +4584,13 @@ static float knight_pace(const Mob *m, int st) {                   /* quicker as
  * by how much that element hurts it. A knight down to its breastplate has nothing left to keep fire off.
  * The BFS9000 is no element's: it hurts anything that can be hurt the same. */
 static int spirit_mastery(void);
+static float ward_str(void);
 static float weak_el(const Mob *m, int el) {
     if (m->type == MOB_GHOST) return el == EL_SPIRIT && spirit_mastery() ? 1.0f : 0.0f;   /* a spectre: Spirit Mastery's alone */
-    if (m->type == MOB_KNIGHT && el == EL_FIRE && knight_stage(m) == 2) return 1.0f;
     if (m->type == MOB_WRAITH && m->boss) return el == EL_FIRE ? 1.2f : 1.0f;   /* the Wraith Unbound, in light */
-    return KINDS[m->type].weak[el];
+    float w = m->type == MOB_KNIGHT && el == EL_FIRE && knight_stage(m) == 2 ? 1.0f : KINDS[m->type].weak[el];
+    if (m->ward[0] == el + 1 || m->ward[1] == el + 1) w *= 1.0f - ward_str();   /* warded against it (1.0.0b16) */
+    return w;
 }
 static float weak_to(const Mob *m, int atk) {
     return ATK_ELEM[atk] < 0 ? (KIND_IS(m, KF_SPIRIT) ? 0.0f : 1.0f) : weak_el(m, ATK_ELEM[atk]);
@@ -4597,6 +4605,80 @@ static float hit_mult(const Mob *m, int atk) {
         if (e != ATK_ELEM[atk] && e != EL_POISON) k += align_add(e) * weak_el(m, e);
     return k;
 }
+/* Warded creatures (1.0.0b16, docs/PLAN-play.md section 6): some come warded against a line the caster holds, which then
+ * does a small share of its damage (60% kept off on level 5, rising evenly to 90% by level 30); a fifth of its health
+ * taken in that element cracks it. Packs share one. Given the first time it moves (ward_give), never saved. */
+static float ward_str(void) { return 0.6f + 0.3f * clampf((float)(G.level - 5) / 25.0f, 0.0f, 1.0f); }
+static int ward_mode(void) {                                       /* 0 none, 1 as made, 2 every creature (CRAWL_WARD) */
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_WARD")) return clampi(atoi(getenv("CRAWL_WARD")), 0, 2);
+#endif
+    return 1;
+}
+static int ward_pick(const Mob *m, int ward[2]) {                  /* which elements, from the lines held: 0 none */
+    int held[NELEM], nh = 0, own = cls_el(), weakest = 0;
+    for (int e = 0; e < NELEM; e++) if (align_open(e)) held[nh++] = e;
+    if (nh < 2) return 0;                                          /* never every line held */
+    const float *wk = KINDS[m->type].weak;
+    for (int e = 1; e < NELEM; e++) if (wk[e] > wk[weakest]) weakest = e;
+    int cand[NELEM], nc = 0;
+    for (int i = 0; i < nh; i++) {
+        int e = held[i];
+        if (wk[e] <= 0.05f || (e == weakest && wk[e] > 1.01f)) continue;   /* nothing to keep off; never what it is weakest to */
+        if (nh == 2 && e == own) continue;                         /* with two lines the second is the one a ward teaches */
+        cand[nc++] = e;
+    }
+    if (!nc) return 0;
+    for (int i = 0; i < nc; i++) { int j = i + rnd(nc - i), t = cand[i]; cand[i] = cand[j]; cand[j] = t; }   /* ties at random */
+    for (int i = 1; i < nc; i++) for (int j = i; j > 0 && wk[cand[j]] < wk[cand[j - 1]] - 0.01f; j--) { int t = cand[j]; cand[j] = cand[j - 1]; cand[j - 1] = t; }
+    ward[0] = cand[0] + 1; ward[1] = 0;                            /* the one its nature already shrugs off most */
+    if (nh >= 3 && nc >= 2 && nh - 2 >= 1 && (m->rank == RK_IV || m->rank == RK_V) && rnd(2)) ward[1] = cand[1] + 1;   /* two, from three lines */
+    return 1;
+}
+static void ward_give(Mob *m) {
+    m->wset = 1; m->ward[0] = m->ward[1] = 0;
+    int mode = ward_mode();
+    if (!mode || (G.level < 5 && crawl_loop(G.level) == 0) || m->boss || m->add || m->ally || m->tri || KIND_IS(m, KF_SPIRIT)
+        || m->type == MOB_GHOST || m->type == MOB_WSKULL || m->type == MOB_SAC || m->type == MOB_LING || m->type == MOB_WRAITH) return;
+    Pack *p = m->pack ? pack_of(m) : NULL;
+    if (p && p->wset) { m->ward[0] = p->ward[0]; m->ward[1] = m->rank >= RK_IV && m->rank != RK_GILDED ? p->ward[1] : 0; if (!m->ward[1] && p->ward[1] && !m->ward[0]) m->ward[0] = p->ward[1]; return; }
+    const Mob *lead = p && p->leader >= 0 ? &G.mobs[p->leader] : m;
+    static const int ONE_IN[4] = { 6, 4, 3, 3 };                   /* about one in six on run I, four on II, three on III and IV */
+    float chance = 1.0f / (float)ONE_IN[clampi(crawl_set(G.level), 0, 3)];
+    if (p || lead->rank >= RK_III) chance *= 1.5f;                 /* leaders, rank III and up and the gilded more often */
+    int w[2] = { 0, 0 };
+    if ((mode == 2 || rndf() < chance) && ward_pick(lead, w)) { m->ward[0] = w[0]; m->ward[1] = m->rank >= RK_IV && m->rank != RK_GILDED ? w[1] : 0; }
+    if (p) { p->wset = 1; p->ward[0] = w[0]; p->ward[1] = w[1]; }
+#ifdef CRAWL_DEBUG
+    if (m->ward[0]) fprintf(stderr, "EVENT warded %s rank %d against %s%s%s t=%.2f\n", KINDS[m->type].name, m->rank, ELEM_NAME[m->ward[0] - 1],
+                            m->ward[1] ? " and " : "", m->ward[1] ? ELEM_NAME[m->ward[1] - 1] : "", G.t);
+#endif
+}
+#ifdef CRAWL_DEBUG
+static int ward_hits, wards_cracked;
+#endif
+static void ward_struck(Mob *m, int el, float dmg, int tick) {
+    for (int i = 0; i < 2; i++) {
+        if (m->ward[i] != el + 1) continue;
+        m->wdmg[i] += dmg;
+        if (!tick) {
+            if (m->wring <= 0.0f) sfx_at(SFX_KNOCK, m->x, m->y, 0.9f);   /* a dull ring, as a boss's shell gives */
+            m->wring = 0.35f;
+#ifdef CRAWL_DEBUG
+            ward_hits++;
+#endif
+            if (G.player && !(G.ward_said >> el & 1)) { G.ward_said |= 1 << el; say("WARDED AGAINST %s", ELEM_NAME[el]); }
+        }
+        if (m->wdmg[i] >= 0.2f * m->maxhp) {                       /* cracked (Q7 a): only slower, never locked */
+            m->ward[i] = 0; m->wring = 0.0f;
+            sfx_at(SFX_GLASS, m->x, m->y, 1.2f); sfx_at(SFX_SHATTER, m->x, m->y, 0.6f);
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT ward_cracked %s %s t=%.2f\n", KINDS[m->type].name, ELEM_NAME[el], G.t);
+            wards_cracked++;
+#endif
+        }
+    }
+}
 static float sap_slow(void);
 static float tri_wading(void);
 static float slow_factor(void) {                                   /* slowed, the caster walks at 60%; resisted, less slowly; */
@@ -4610,6 +4692,7 @@ static float spell_effect(void) { return 1.0f + gear_total(&RUN.gear, ST_EFFECT)
 /* A hit on a creature, from (fx, fy) (shields only stop what comes from in front). Returns 1 if it died. */
 static int boss_hurt(Mob *m, float dmg);
 static int wraith_open(const Mob *m);
+static void ward_struck(Mob *m, int el, float dmg, int tick);
 static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float slow) {
     if (m->ally) return 0;                                         /* yours: your spells pass it by */
     if (G.latch == (int)(m - G.mobs) + 1) return 0;                /* nor what is latched on your face */
@@ -4663,6 +4746,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
         if (ATK_ELEM[atk] != EL_POISON && align_add(EL_POISON) > 0.0f) mob_poison(m, dmg * align_add(EL_POISON), 4.0f);   /* Poison's: a dose */
     }
     if (atk >= 0 && atk < NATK) { dmg *= hit_mult(m, atk); m->last_atk = atk; if (!(flags & DM_TICK)) rec_hit(m, atk); }   /* what it is weak to, or shrugs off */
+    if (atk >= 0 && atk < NATK && ATK_ELEM[atk] >= 0) ward_struck(m, ATK_ELEM[atk], dmg, flags & DM_TICK);   /* a ward: a dull ring, and it may crack */
     if (m->frozen > 0.0f && RUN.gear.def[DF_NOVA] >= RUNE_EXQ) { dmg *= 2.0f; DBG_COUNT(exq_shatter); }   /* Exquisite runes: the frozen */
     static int shattering;                                         /* Shatter: the frozen struck by a spell break, and their shards cut */
     int shards = 0;
@@ -7048,11 +7132,16 @@ static int charge_read(const Mob *m, float pd) {
 }
 
 static void update_mob(Mob *m, float dt) {
+    if (!m->wset && m->state == MS_WALK) ward_give(m);            /* warded, or not, for its level (1.0.0b16) */
 #ifdef CRAWL_DEBUG
-    if (g_stage >= 0 && m->state == MS_WALK) { m->t += dt; m->anim += dt * 1.5f; m->sub_t += dt; return; }   /* stood still for frames */
+    if (g_stage >= 0 && m->state == MS_WALK) { m->t += dt; m->anim += dt * 1.5f; m->sub_t += dt; if (m->wring > 0.0f) m->wring -= dt; return; }   /* stood still for frames */
 #endif
     if (m->state == MS_DIE && m->sub == 77) { if ((m->t += dt) >= 0.9f) m->alive = 0; return; }   /* gone into the BFS9000 */
     if (m->ally && m->state == MS_WALK) { update_ally(m, dt); return; }   /* raised by your Grave Call: it fights for you */
+    if (m->wring > 0.0f) m->wring -= dt;
+    if (G.player && m->ward[0] && m->state == MS_WALK && !(G.ward_said >> (m->ward[0] - 1) & 1) && hypotf(m->x - G.px, m->y - G.py) < 6.0f
+        && line_clear(G.px, G.py, m->x, m->y)) { G.ward_said |= 1 << (m->ward[0] - 1); say("WARDED AGAINST %s", ELEM_NAME[m->ward[0] - 1]); }   /* the first
+                                                                      seen on a level, named */
     if (m->boss && m->state == MS_WALK && (G.bstate != BS_FIGHT || G.bpose_t > 0.0f)) {   /* waiting, holding while its wave
                                                                                             fights, or casting */
         m->t += dt;
@@ -10869,7 +10958,7 @@ static int mk_place(int i, int first) {                            /* a thing ne
     return 0;
 }
 static void place_marked(void) {
-    G.nmk = 0;
+    G.nmk = 0; G.ward_said = 0;
     if (!mk_level_ok()) return;
     static int16_t prev[MAPN][MAPN];
     static int qx[MAPN * MAPN], qy[MAPN * MAPN];
@@ -11460,7 +11549,7 @@ static void pocket_say_found(int link) {                           /* the first 
  * outer wall as far as can be from it; else the chain's reward (for now a hoard, until the themes bring
  * theirs). Its things come in the same order each time, so what was taken can stay taken. */
 static void gen_pocket(const Secret *sc, int link) {
-    G.nmk = 0;                                                     /* no seals in a pocket */
+    G.nmk = 0; G.ward_said = 0;                                    /* no seals in a pocket */
     G.faced = 0;                                                    /* a pocket keeps its own look */
     memset(G.haz, 0, sizeof G.haz); G.hz_acc = 0.0f;               /* the level's hazards wait with it */
     if (G.silenced) { G.silenced = 0; snd_set_muffle(0); }
@@ -17270,8 +17359,8 @@ static void crawl_update(double dt) {
                     G.level, G.t, G.state, G.cx, G.cy, G.tx, G.ty, G.h, G.next_h, G.spd, alive, G.explored, G.ncells,
                     G.hp, RUN.treasure, G.items_got, G.items_total, G.has_key[0] | G.has_key[1] << 1 | G.has_key[2] << 2,
                     G.nvaults ? G.doors[G.vault_door[0]].locked : -1, G.dead, RUN.souls, G.value_got, G.value_total);
-            fprintf(stderr, "   throws=%d bonehits=%d bathits=%d firehits=%d swordhits=%d bites=%d dodges=%d exit=(%d,%d) seen=%d leaving=%d kills=%d/%d\n",
-                    throws, hits_bone, hits_bat, hits_fire, hits_sword, bites, dodges, G.exit_fx, G.exit_fy, G.exit_seen, G.leaving, G.kills, G.kills_total);
+            fprintf(stderr, "   throws=%d bonehits=%d bathits=%d firehits=%d swordhits=%d bites=%d dodges=%d exit=(%d,%d) seen=%d leaving=%d kills=%d/%d wardhits=%d cracked=%d\n",
+                    throws, hits_bone, hits_bat, hits_fire, hits_sword, bites, dodges, G.exit_fx, G.exit_fy, G.exit_seen, G.leaving, G.kills, G.kills_total, ward_hits, wards_cracked);
             if (mind_on()) {                                       /* how the dead think, counted */
                 int aw[5] = { 0 }, eng = 0, held = 0, asleep = 0;
                 for (int i = 0; i < MAXMOBS; i++) {
@@ -22349,7 +22438,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
 /* alpha < 1: dithered see-through. remap: the ramp R_PURPLE turns into. flags: how it is drawn.
  * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
 typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; float web, mg; int mgw;
-                 int eye, etype, erank, estate; const uint8_t *ov; float vap; int ecol; } Draw;   /* ecol: 1 + EC_*, its eyes' colour whatever its rank */   /* ov: its rank's dressing (crawl_dress);
+                 int eye, etype, erank, estate; const uint8_t *ov; float vap; int ecol, ward; } Draw;   /* ecol: 1 + EC_*, its eyes' colour whatever its rank */   /* ov: its rank's dressing (crawl_dress);
                                                                                                 vap: its spirit vapour, 0 none, 1 full */   /* eye: a creature's eyes go on after it (render_eyes), as its kind, rank and state */   /* mg: the hidden
                                                                                                    message's glint, mgw through the walls; glint: a key's
                                                                                                    ramp, for Keymaker's sparkle; web: how much of yours holds it */
@@ -22850,7 +22939,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
-        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0, 0, 0, 0, 0, NULL, 0.0f, 0 }; } while (0)
+        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0, 0, 0, 0, 0, NULL, 0.0f, 0, 0 }; } while (0)
     for (int i = 0; i < G.ndecos; i++) {
         const Deco *dc = &G.decos[i];
         static const float FPS[4] = { 0.0f, 0.0f, 3.0f, 9.0f };    /* by frame count: candles flicker, fire roars */
@@ -22958,6 +23047,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         }
         if (m->boss == 1 + BOSS_SPIDER && G.bmend_t > 0.0f && m->state == MS_WALK) d->flags |= DR_MEND;   /* its Mend Rune */
         if (m->pois_t > 0.0f && m->state == MS_WALK) d->flags |= DR_POISONED;
+        if (m->ward[0] && m->state == MS_WALK) d->ward = m->ward[0] + (m->wring > 0.0f ? 16 : 0) + 32 * m->ward[1];   /* a hard rim of its colour */
         if (m->pin > 0.0f && m->state == MS_WALK) d->flags |= DR_PINNED;
         if (m->burn_t > 0.0f && m->state == MS_WALK) d->flags |= DR_BURNING;
         if (m->boss == 1 + BOSS_WRAITH && G.bslip_t > 0.9f) d->flags |= DR_RIPPLE;
@@ -23353,6 +23443,13 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     if (ox >= 0 && ox < TS && d->ov[ox * TS + sy] != C_CLEAR) { c = d->ov[ox * TS + sy]; ovr = 1; }
                 }
                 if (c == C_CLEAR) {
+                    if (d->ward && !behind && ((tyi < TS - 1 && col[tyi + 1] != C_CLEAR) || (tyi > 0 && col[tyi - 1] != C_CLEAR)
+                        || (tx > 0 && img[(tx - 1) * TS + tyi] != C_CLEAR) || (tx < TS - 1 && img[(tx + 1) * TS + tyi] != C_CLEAR))) {
+                        int we = (d->ward & 15) - 1, w2 = d->ward >> 5;     /* warded: a hard rim; struck, it rings white; two, they alternate */
+                        if (w2 && ((x + y) >> 1 & 1)) we = w2 - 1;
+                        f->pix[y * W + x] = (d->ward & 16) ? (uint8_t)C_WHITE : ramp_at(ELEM_RAMP[we], 13);
+                        continue;
+                    }
                     if ((d->flags & (DR_EDGE | DR_ALLY)) && !behind && ((x + y + (int)(G.t * 10.0)) & 1)
                         && ((tyi < TS - 1 && col[tyi + 1] != C_CLEAR) || (tx > 0 && img[(tx - 1) * TS + tyi] != C_CLEAR)
                             || (tx < TS - 1 && img[(tx + 1) * TS + tyi] != C_CLEAR)))
@@ -25805,6 +25902,8 @@ static void render_bestiary(Frame *f) {
      * kills or twelve hits, each harm from three times it has hurt you */
     gfx_text8(f, 14, 151, "WHAT HURTS IT", R_GOLD + 10, 1);
     if (spirit) { gfx_text8(f, 14, 161, "NOTHING YOU CARRY TOUCHES IT", R_STONE + 11, 1); return; }
+    if (k != MOB_WSKULL && k != MOB_SAC && k != MOB_LING && (RUN.level >= 5 || crawl_loop(RUN.level) > 0))   /* 1.0.0b16 */
+        gfx_text8(f, W - 14 - gfx_text_width("SOME COME WARDED", 1), 151, "SOME COME WARDED", R_STONE + 11, 1);
     static const char *const ROW[4] = { "MORE", "LESS", "AS USUAL", "NOT LEARNT" };
     static const uint8_t ROWC[4] = { R_MOSS + 13, R_BLOOD + 13, R_STONE + 12, R_STONE + 8 };
     int at[4] = { 0 };
@@ -26770,6 +26869,13 @@ static void render_target(Frame *f) {
         }
         if (unknown) gfx_text8(f, side == 0 ? x0 : x, by, "?", R_STONE + 8, 1);   /* still to be learnt: a dim ? at the outer end */
     }
+    for (int w = 0; w < 2; w++) {                                  /* warded: its glyph barred, under the bar's right end */
+        if (!m->ward[w]) continue;
+        int x = bx + bw - 9 - w * 11, y = by + 10;
+        ui_band(f, x - 2, y - 1, 11, 9);
+        elem_glyph(f, x, y, m->ward[w] - 1, 0);
+        for (int i = -1; i <= 7; i++) gfx_px(f, x + i, y + 3, C_WHITE);
+    }
 }
 
 /* ---- the cornerstones' screen ---- */
@@ -27537,6 +27643,33 @@ static void wheel_render(Frame *f) {
     const char *const *K = WH.src ? KQ : PADX.used ? KPAD : KM;
     for (int i = 0; i < 3; i++) ui_keys(f, 6, cy + 14 + i * 12, K[i], UI_M(13));
 }
+/* a warded creature near you: its element's glyph over its head, barred (docs/PLAN-play.md section 6) */
+static void render_warded(Frame *f, float dx, float dy, float horizon) {
+    for (int i = 0; i < MAXMOBS; i++) {
+        const Mob *m = &G.mobs[i];
+        if (!m->alive || m->state != MS_WALK || !m->ward[0] || buried(m) || m->sleep == 1) continue;
+        float d = hypotf(m->x - G.px, m->y - G.py);
+        if (d > 7.0f || (m->type == MOB_SHADE && shade_alpha(m) < 0.2f) || !line_clear(G.px, G.py, m->x, m->y)) continue;
+        float sx, sy, dep, z = fminf(1.05f, 0.95f * RANK_SIZE[m->rank] + 0.08f);
+        if (!project(m->x, m->y, z, dx, dy, horizon, &sx, &sy, &dep)) continue;
+        int k = clampi((int)(FOCAL / dep / 64.0f * 1.6f + 0.5f), 1, 3), nw = m->ward[1] ? 2 : 1;
+        for (int w = 0; w < nw; w++) {
+            int e = m->ward[w] - 1, gx = (int)sx - (nw * 9 * k) / 2 + w * 9 * k, gy = (int)sy - 8 * k;
+            for (int r = -1; r < 8; r++)
+                for (int c = -1; c < 8; c++) {
+                    char ch = r >= 0 && r < 7 && c >= 0 && c < 7 ? ELEM_GLYPH[e][r][c] : '.';
+                    int bar = r == 3 && c >= -1 && c <= 7;          /* barred */
+                    uint8_t col = bar ? (uint8_t)(m->wring > 0.0f ? C_WHITE : R_STONE + 13) : (ch == '#' || ch == 'o') ? ramp_at(ELEM_RAMP[e], ch == 'o' ? 15 : 12) : 0;
+                    if (!col) continue;
+                    for (int yy = 0; yy < k; yy++)
+                        for (int xx = 0; xx < k; xx++) {
+                            int px = gx + c * k + xx, py = gy + r * k + yy;
+                            if (px >= 0 && px < W && py >= 0 && py < H && dep < zbuf[px] + 0.05f) f->pix[py * W + px] = col;
+                        }
+                }
+        }
+    }
+}
 /* the seals on things that want a spell, at full brightness through dark and fog, hidden by the walls; never smaller than
  * about half a texel a pixel, so one down a long hall can still be read */
 static void render_marks(Frame *f, float dx, float dy, float horizon) {
@@ -27591,6 +27724,7 @@ static void crawl_render(Frame *f) {
     render_beams(f, dx, dy, horizon);
     render_wisps(f, dx, dy, horizon);
     render_marks(f, dx, dy, horizon);
+    render_warded(f, dx, dy, horizon);
     G.camz = camz;
     if (G.web_hp > 0.0f && !G.dead && !G.shop) render_web(f);
     if (G.shop) render_shop_tags(f, dx, dy, horizon);
