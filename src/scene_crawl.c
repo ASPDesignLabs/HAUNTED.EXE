@@ -10993,8 +10993,10 @@ static void pocket_reset_level(void) { memset(&PK, 0, sizeof PK); PK.level = G.l
 static void ledger_first(void);
 static uint32_t new_run_id(uint32_t seed);
 static void claim_take(void);
+static struct { int fight, frail, place, menu; float fight_t, calm_t, cast_t; } MUS;   /* what the music is told (music_frame) */
 static void crawl_enter(uint32_t seed) {
     crawl_art_init();
+    memset(&MUS, 0, sizeof MUS);
     CON.open = 0; CON.slide = 0.0f; snd_hold(0);                   /* the console goes up; what a code did stays */
     ledger_first();                                                /* the first time: the page to start from */
     int resume = RUN.active;
@@ -26467,5 +26469,72 @@ static void crawl_render(Frame *f) {
     con_render(f);
 }
 
-const Scene scene_crawl = { "CATACOMB", W, H, SND_PROG_CRAWL, crawl_enter, crawl_update, crawl_render,
+/* The music follows the crypt (docs/PLAN-music.md): the run's piece, her hall and its back rooms, a menu, a
+ * fight that grows and the failing. Each setter does nothing when nothing has changed, so all of it is said
+ * every frame, the dream's as a person's. */
+static int her_screen(int ui) {                                    /* her hall's own screens keep her piece */
+    return ui == UI_MERCHANT || ui == UI_LEDGER || ui == UI_LETGO || ui == UI_SHRINE || ui == UI_TOTEM || ui == UI_PORTAL ||
+           ui == UI_STONE || ui == UI_COMP || ui == UI_REPO || ui == UI_ASCEND || ui == UI_STONES || ui == UI_ALIGN ||
+           ui == UI_CLASS || ui == UI_HALL2;
+}
+static void music_frame(float dt) {
+    int lv = G.level > 0 ? G.level : imax(1, RUN.level);
+    snd_set_track(MU_CRYPTS + crawl_set(lv));
+    int place = 0;                                                 /* her room (and the way on), or her back rooms */
+    if (G.shop) place = (G.cx >= 10 && G.cx <= 20 && G.cy >= 12 && G.cy <= 17) || G.cx > 20 ? 1 : 2;
+    snd_set_place(place);
+#ifdef CRAWL_DEBUG
+    if (place != MUS.place) fprintf(stderr, "EVENT music place %d t=%.2f\n", place, G.t);
+#endif
+    MUS.place = place;
+    int menu = 0;                                                  /* not the console, nor the map: the crypt runs under those */
+    if (G.ui != UI_NONE && !(G.shop && her_screen(G.ui))) menu = G.ui == UI_WISPS ? 2 : 1;
+    snd_set_menu(menu);
+#ifdef CRAWL_DEBUG
+    if (menu != MUS.menu) fprintf(stderr, "EVENT music menu %d t=%.2f\n", menu, G.t);
+#endif
+    MUS.menu = menu;
+
+    int near = 0, engaged = 0;                                     /* a fight: something that knows you, close, or a missile coming */
+    int boss = G.boss >= 0 && (G.bstate == BS_FIGHT || G.bstate == BS_WAVE || G.bstate == BS_RISE);
+    if (!G.shop && !G.tally && !G.dead && !PK.depth && !boss) {
+        for (int i = 0; i < MAXMOBS; i++) {
+            const Mob *m = &G.mobs[i];
+            if (!m->alive || m->state != MS_WALK || m->ally || (KINDS[m->type].flags & KF_SPIRIT)) continue;
+            if (m->engage) engaged++;
+            if (m->alert > 0.0f && hypotf(m->x - G.px, m->y - G.py) < 9.0f) near++;
+        }
+        if (incoming(2.0f) > 0 || skull_charging(9.0f, 0.0f)) near++;
+        if (G.flare_t > 0.9f) MUS.cast_t = 3.0f;                   /* casting at something in sight that hasn't noticed yet */
+        if (MUS.cast_t > 0.0f && enemies_within(9.0f, 0) > 0) near++;
+    }
+    MUS.cast_t = fmaxf(0.0f, MUS.cast_t - dt);
+    if (G.shop || PK.depth || boss) { MUS.fight = 0; MUS.fight_t = 0.0f; }
+    else if (near) {                                               /* in at once; it grows with time, numbers and hurt, never back */
+        int lvl = 1;
+        MUS.calm_t = 0.0f; MUS.fight_t += dt;
+        if (MUS.fight_t > 20.0f || engaged >= 3) lvl = 2;
+        if (MUS.fight_t > 45.0f || engaged >= 5 || G.hp * 5 < G.max_hp * 2) lvl = 3;
+        MUS.fight = imax(MUS.fight, lvl);
+    } else if (MUS.fight && (MUS.calm_t += dt) >= 6.0f) { MUS.fight = 0; MUS.fight_t = 0.0f; }   /* out after six quiet seconds */
+#ifdef CRAWL_DEBUG
+    static int said_fight;
+    if (MUS.fight != said_fight) fprintf(stderr, "EVENT music fight %d level %d t=%.2f engaged=%d hp=%d/%d\n", MUS.fight, G.level, G.t, engaged, G.hp, G.max_hp);
+    said_fight = MUS.fight;
+#endif
+    snd_set_fight(MUS.fight);
+
+    if (G.shop || G.max_hp <= 0) MUS.frail = 0;                    /* the failing: under a fifth, lifted over a quarter */
+    else if (G.hp * 5 < G.max_hp) MUS.frail = 1;
+    else if (G.hp * 4 > G.max_hp) MUS.frail = 0;
+#ifdef CRAWL_DEBUG
+    static int said_frail;
+    if (MUS.frail != said_frail) fprintf(stderr, "EVENT music frail %d t=%.2f hp=%d/%d\n", MUS.frail, G.t, G.hp, G.max_hp);
+    said_frail = MUS.frail;
+#endif
+    snd_set_frail(MUS.frail);
+}
+static void crawl_frame(double dt) { crawl_update(dt); music_frame((float)dt); }
+
+const Scene scene_crawl = { "CATACOMB", W, H, SND_PROG_CRAWL, crawl_enter, crawl_frame, crawl_render,
                             crawl_control, crawl_status, crawl_input };

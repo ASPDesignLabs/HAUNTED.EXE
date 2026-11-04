@@ -37,12 +37,13 @@ KEEP int web_slots(void) { return SLOT_ALL; }
 KEEP int web_slot_index(int which) { return which == 0 ? SLOT_PROGRESS : which == 1 ? SLOT_MARK : SLOT_PREFS; }
 
 /* the settings, before web_start: the /c dialog's, by the registry's names */
-KEEP void web_config(int sound, int volume, int brightness, int haunt, int crawl, int stay, int shift, int pad) {
+KEEP void web_config(int sound, int volume, int brightness, int haunt, int crawl, int stay, int shift, int pad, int music, int effects) {
     app_default_config(&g_cfg);
     g_cfg.sound = sound; g_cfg.volume = clampi(volume, 0, 100); g_cfg.brightness = clampi(brightness, 30, 100);
     g_cfg.scene_enabled[0] = haunt; g_cfg.scene_enabled[1] = crawl;
     if (!haunt && !crawl) g_cfg.scene_enabled[0] = 1;
     g_cfg.stay_seconds = stay < 30 ? 30 : stay; g_cfg.pixel_shift = shift; g_cfg.pad = pad;
+    g_cfg.music = clampi(music, 0, 100); g_cfg.effects = clampi(effects, 0, 100);
     g_cfg.first_scene = g_cfg.scene_enabled[0] ? 0 : 1;
 }
 /* a slot from storage, before web_start: the page puts its bytes in web_slot_buf first */

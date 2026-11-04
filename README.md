@@ -247,7 +247,7 @@ the bar, with a bell on the first beat: the knight's in D minor on brass, the sp
 plucked, with a skittering hi-hat, the Deacon's in G minor on an organ with a choir, and the Wraith's
 in A minor, a drone with a voice that comes and goes. While the adds are out it turns up (drums, the
 bass doubled, a semitone higher, a little quicker) and settles when they fall. When the boss falls the
-waltz fades under three tolls, and the march comes back.
+waltz fades under three tolls, and the run's own music comes back.
 
 **Challenges.** A beaten boss can be fought again from the Accursed Portal (below), as you are, from
 its antechamber, with the way back up fallen in. Each win takes it a step higher, to five: a quarter
@@ -629,7 +629,7 @@ Shrine** on each puzzle level will, for souls, show where it lies through the wa
 and every clue you read, goes into a new page of Tab, **DOCUMENTS**, until the level ends.
 
 **Trials.** On every level from the third, a door marked with the run's skull and crossed bones, two red lights by
-it. A cell inside it seals, the room turns (its walls, its light, a quicker march), and an hourglass stands at the
+it. A cell inside it seals, the room turns (its walls, its light, the music quickening), and an hourglass stands at the
 top of the view with a minute of sand and no numbers. Seventeen trials, four or five a run: the ossuary's bones
 standing up in waves, a vigil over three candles, relics carried to a bier, a knight's wager, a toll whose small
 bells answer only under the great one; rising water, a brood of sacs, sluice wheels, saints' lamps in the dark; a
@@ -854,6 +854,8 @@ eight characters), and today's date. Keep that in mind before you share a record
 ## Settings
 
 * **Sound** on/off and **volume**. The default is 60%.
+* **Music** and **Effects** (1.0.0b15): each under the volume, both 100% at first, so either can be turned
+  down without the other.
 * **Brightness** cap, 30-100%. The default is 85%.
 * **Scenes**: enable either or both, and how often they switch (1-15 minutes).
 * **Slowly drift the picture**: moves the whole image by up to a few source pixels along a very slow
@@ -900,16 +902,37 @@ square-wave beeps, a Freeverb-style reverb and a ping-pong delay.
   wind through the pumpkin patch, a cackle, chattering teeth, zombie groans, earth breaking, crows, a
   bone xylophone for the dancing skeletons, collapsing bones, and a wail with a stab of brass for the
   ghost's boo.
-* **CATACOMB**: an early-90s AdLib-style adventure tune: a slow 92 BPM, 32-bar march in D minor with
-  bass, arpeggios, a flute and then a brass melody, a timpani-only crypt section and a snare roll back
-  into the loop. Under it are footsteps, grinding doors, spell casts, fireball impacts, collapsing
+* **CATACOMB** (since 1.0.0b15): a piece for each run of ten, each four sections of eight bars played in
+  an order that takes three or four minutes to come round.
+  * **The Crypts**: D minor, slow, an organ and a low choir, a bell; the old march's first phrase sung as a
+    chant, on a flute or the choir, a brass chorale, and the crypt itself, a drone with E-flat leaning on D.
+  * **The Catacombs**: C minor, a barcarolle in six, a harp rolling over a pad, a bell under the water,
+    drips; the tune on a vibraphone, then a low flute as if from under the surface.
+  * **The Hollows**: E minor with its flattened second, a work song: the bass swinging like a pick, an
+    anvil, low brass held in fifths, a hammered dulcimer, and the brass calling down the seam.
+  * **The Deep**: F-sharp minor, slow, a drone, glass harmonica chords, a celesta glinting, G and C major
+    laid over F-sharp so that nothing settles.
+  * **The merchant's hall**: a sly tango in A minor, plucked bass in a habanera, a harpsichord marking the
+    beat and a flute sliding up to its notes; her back rooms keep only its bass and a music box.
+  * **The menus**: the old march's opening as a lullaby in three, in the run's key and on its instrument: a
+    music box, a harp under water, a dulcimer, glass. The run's piece stops where it was and takes up again
+    when the menu closes; the console and the map are not menus.
+  * **A fight**, when something has noticed you nearby or you are casting at something in sight, brings in
+    drums, an ostinato and brass on the next beat. The longer it lasts, the more of you there are fighting,
+    or the lower your health, the more of it plays and the quicker (a twentieth, then a tenth). Six quiet
+    seconds and it ends on a closing chord. A trial plays its fight and quicker still.
+  * **Under a fifth of your health** the music goes muffled and thin with a heartbeat on its beat, and lifts
+    above a quarter. The game's own sounds stay clear.
+
+  Under it are footsteps, grinding doors, spell casts, fireball impacts, collapsing
   bones, ghost wails, bat squeaks, drips and distant moans, all in a cave reverb. On top of those come
   the game sounds: coin chimes, the key's jingle, the vault's lock, thrown bones, the caster grunting
   when hit, a heartbeat at low HP, a potion, a death groan, the wraiths' shriek, and a brass fanfare
   for each level cleared. A secret wall grinds and thuds back with a pair of knocks and a peal of bells,
-  and the wisp arrives with a rising shimmer. Each boss has its own waltz (above), which the march gives
-  way to and comes back after, and in the Backrooms and Severance the music fades for a mains hum and an
-  echo, or a muzak of major sevenths.
+  and the wisp arrives with a rising shimmer. Each boss has its own waltz (above), which the run's piece
+  gives way to and comes back after, and in the Backrooms and Severance the music fades for a mains hum and
+  an echo, or a muzak of major sevenths. Until 1.0.0b15 the whole crypt had one tune, a 92 BPM AdLib-style
+  march in D minor.
 
 ## Building from source
 
@@ -996,6 +1019,23 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b15** (the music). Tested in the harness only. The pieces were rendered as recordings for the
+author before they went in; in the game the music has been measured, not heard, and no one has played with it
+through real speakers yet. The Windows and browser builds were compiled and smoke-tested by CI on the work branch.
+
+* **The pieces**, rendered alone through each change. Calm, they sit 1 to 3 dB under the old march (which had
+  hats throughout); a fight at its height brings them 2 to 4 dB up; nothing clips. The fight's quickening,
+  measured from the sound: the Hollows' bar 2.865 s calm and 2.605 s at its height (2.857 and 2.597 meant). Low
+  health halves the sound above 1.5 kHz. No note was cut short for want of a voice. The synth takes 1.7 to 1.8%
+  of one core in a fight, against 1.4% for the march.
+* **In the game**: the autopilot at level 13 had a fight come every 20 to 50 seconds, grow, and end, through a
+  trial and three deaths; a scripted person taken over at 15% health was failing at once; Tab, Esc, the
+  bestiary, the Codex and the L list each brought the menu's tune, and her own screens kept hers. The music
+  only listens: the autopilot's run on one seed is the old build's line for line over 500 seconds.
+* **Memory safety**: AddressSanitizer and UBSan clean over six renders driven through every change, the
+  autopilot at the knight's level, a person through every menu at low health, and a trial three times.
+* **The sliders**: in the harness only; the Windows dialog and the browser's settings were compiled, not used.
 
 **New in 1.0.0b14** (the first art pass, how the dead think, the sprint, Physic, the lantern and places to
 mend, and the screens in stone). Tested in the harness only, by the autopilot and scripted players: not yet

@@ -71,7 +71,8 @@ typedef struct Patch {
 } Patch;
 
 enum { PAT_BELL, PAT_MBOX, PAT_DRONE, PAT_PAD, PAT_BASS, PAT_STAB,
-       PAT_FLUTE, PAT_BRASS, PAT_HARP, PAT_ORGAN, PAT_EPIANO, PAT_VIBES, PAT_VOICE, PAT_COUNT };
+       PAT_FLUTE, PAT_BRASS, PAT_HARP, PAT_ORGAN, PAT_EPIANO, PAT_VIBES, PAT_VOICE,
+       PAT_GLASS, PAT_DULC, PAT_STRINGS, PAT_PIZZ, PAT_ANVIL, PAT_CELESTA, PAT_COUNT };
 
 static const Patch PATCHES[PAT_COUNT] = {
     /* bell: inharmonic 1:3.5, modulation dies away -> pure ring */
@@ -126,6 +127,31 @@ static const Patch PATCHES[PAT_COUNT] = {
     [PAT_VOICE] = { .mc=1, .mm=2.0f, .wc=0, .wm=0, .idx=0.7f, .fb=0.25f,
                     .am=0.50f,.dm=1.0f,.sm=0.8f, .rm=0.8f, .ac=0.45f,.dc=1.0f,.sc=0.9f, .rc=0.9f,
                     .vib_hz=5.2f,.vib_st=0.14f,.vib_delay=0.35f, .level=0.14f, .rev=0.60f, .dly=0.15f },
+    /* the pieces' instruments (docs/PLAN-music.md) */
+    /* glass harmonica: a wet finger on a rim, swelling in, a slow waver */
+    [PAT_GLASS] = { .mc=1, .mm=2.0f, .wc=0, .wm=0, .idx=0.45f, .fb=0.0f,
+                    .am=0.20f,.dm=1.5f,.sm=0.5f, .rm=0.9f, .ac=0.16f,.dc=2.5f,.sc=0.7f, .rc=1.0f,
+                    .vib_hz=3.8f,.vib_st=0.06f,.vib_delay=0.4f, .level=0.15f, .rev=0.65f, .dly=0.30f },
+    /* hammered dulcimer: a bright strike that dies to a thin ring */
+    [PAT_DULC]  = { .mc=1, .mm=3.0f, .wc=0, .wm=0, .idx=2.8f, .fb=0.05f,
+                    .am=0.001f,.dm=0.12f,.sm=0, .rm=0.15f, .ac=0.001f,.dc=1.3f,.sc=0, .rc=0.35f,
+                    .vib_hz=0,.vib_st=0,.vib_delay=0, .level=0.13f, .rev=0.35f, .dly=0.22f },
+    /* low strings: a bowed, rosiny edge */
+    [PAT_STRINGS] = { .mc=1, .mm=1.0f, .wc=0, .wm=0, .idx=2.3f, .fb=0.55f,
+                    .am=0.14f,.dm=0.8f,.sm=0.75f, .rm=0.25f, .ac=0.10f,.dc=1.0f,.sc=0.9f, .rc=0.28f,
+                    .vib_hz=5.0f,.vib_st=0.08f,.vib_delay=0.2f, .level=0.11f, .rev=0.40f, .dly=0.05f },
+    /* pizzicato: a plucked gut string, round and short */
+    [PAT_PIZZ]  = { .mc=1, .mm=1.0f, .wc=0, .wm=0, .idx=1.7f, .fb=0.10f,
+                    .am=0.001f,.dm=0.10f,.sm=0, .rm=0.08f, .ac=0.001f,.dc=0.45f,.sc=0, .rc=0.10f,
+                    .vib_hz=0,.vib_st=0,.vib_delay=0, .level=0.32f, .rev=0.18f, .dly=0.0f },
+    /* an anvil: struck iron, inharmonic, a short clang */
+    [PAT_ANVIL] = { .mc=1, .mm=3.71f, .wc=0, .wm=0, .idx=5.0f, .fb=0.0f,
+                    .am=0.001f,.dm=0.07f,.sm=0, .rm=0.10f, .ac=0.001f,.dc=0.8f,.sc=0, .rc=0.25f,
+                    .vib_hz=0,.vib_st=0,.vib_delay=0, .level=0.12f, .rev=0.50f, .dly=0.15f },
+    /* celesta: a small hammer on a steel bar, high and quick */
+    [PAT_CELESTA] = { .mc=1, .mm=7.0f, .wc=0, .wm=0, .idx=1.3f, .fb=0.0f,
+                    .am=0.001f,.dm=0.08f,.sm=0, .rm=0.30f, .ac=0.001f,.dc=0.9f,.sc=0, .rc=0.40f,
+                    .vib_hz=0,.vib_st=0,.vib_delay=0, .level=0.11f, .rev=0.55f, .dly=0.30f },
 };
 
 /* ------------------------------------------------------------------ */
@@ -151,14 +177,20 @@ typedef struct Voice {
     int gainch;                 /* 1 = scaled by the drone gain */
     int ctl;
     int bus;                    /* which music it belongs to, which fades as a whole: BUS_* */
+    int layer;                  /* and which part of it: LY_* */
 } Voice;
 
-/* The march, Severance's muzak (in as the march goes), a boss's waltz (the same), and the notes the
- * game's effects play (the fanfare, the stinger), which neither fades. */
-enum { BUS_MARCH, BUS_MUZAK, BUS_BOSS, BUS_SFX };
+/* The run's piece (or the march), Severance's muzak (in as the march goes), a boss's waltz (the same), the
+ * notes the game's effects play (the fanfare, the stinger), which none of them fades, her hall's piece and
+ * the menus' tune. */
+enum { BUS_RUN, BUS_MUZAK, BUS_BOSS, BUS_SFX, BUS_SHOP, BUS_MENU, NBUS };
 static int g_vbus;                  /* the bus new voices, drums and scheduled notes go to */
+/* What part of a piece a voice or drum belongs to: always there, the fight's, or the colour (tunes,
+ * arpeggios, glints) that thins when the caster is failing (docs/PLAN-music.md). */
+enum { LY_BASE, LY_FIGHT, LY_COLOUR, NLAYER };
+static int g_vlayer;
 
-#define NV 36
+#define NV 48
 static Voice g_v[NV];
 static uint32_t g_serial;
 
@@ -189,6 +221,7 @@ static Voice *voice_on(int pat, int midi, float vel, float pan, int gate_samples
     v->gate_left = gate_samples;
     v->vel = vel;
     v->bus = g_vbus;
+    v->layer = g_vlayer;
     float a = clampf(pan, 0.0f, 1.0f) * (PI_F * 0.5f);
     v->pl = cosf(a); v->pr = sinf(a);
     return v;
@@ -273,19 +306,21 @@ typedef struct Sfx {
     uint32_t rng;
     float gain, pan, rev;
     int bus;                    /* a drum's music */
+    int layer;                  /* and its part of it */
 } Sfx;
 
 #define NS 28
 static Sfx g_s[NS];
 static uint32_t g_rng = 12345;
 static int g_hold;                  /* the console is open: the game's effects and the crackle wait; the music and its drums play */
-static int g_trial;                 /* a trial under way: the march a quarter quicker, its drums driving */
+static int g_trial;                 /* a trial under way: the run's piece an eighth quicker, its fight playing */
 static float g_fx_gain = 1.0f;      /* the game's effects fade out and back in over a fiftieth of a second, so nothing clicks */
 static int g_room;                  /* 1 the Backrooms: the music gone, a hum, more echo on the game's sounds; 2 Severance: muzak too */
 static int g_muffle;                /* the void: everything as if heard through cloth */
 static float g_muf_k, g_mlp[2];
 static float g_room_k, g_muz_k;     /* how far into the room's sound, and into the muzak, 0..1, over a second */
 static float g_hum_ph;
+static int g_track;                 /* the run's piece, MU_* (MU_NONE: none yet) */
 
 static Sfx *sfx_start(int type, float dur, float gain, float pan, float rev) {
     static Sfx none;
@@ -298,6 +333,7 @@ static Sfx *sfx_start(int type, float dur, float gain, float pan, float rev) {
     s->gain = gain; s->pan = pan; s->rev = rev;
     s->rng = rng_next(&g_rng) | 1u;
     s->bus = g_vbus;
+    s->layer = g_vlayer;
     return s;
 }
 
@@ -1241,7 +1277,7 @@ static void sched_run(void) {
     for (int i = 0; i < NSCHED; i++) if (g_sched[i].active && --g_sched[i].when <= 0) {
         g_sched[i].active = 0;
         int was = g_vbus;
-        g_vbus = g_sched[i].bus;
+        g_vbus = g_sched[i].bus; g_vlayer = LY_BASE;
         voice_on(g_sched[i].pat, g_sched[i].midi, g_sched[i].vel, 0.55f, g_sched[i].gate ? g_sched[i].gate : (int)(g_sps * 2));
         g_vbus = was;
     }
@@ -1293,87 +1329,9 @@ static void haunt_step(uint32_t step) {
 }
 
 /* ------------------------------------------------------------------ */
-/* CRAWL music: 92 BPM, D minor, a 32-bar AdLib-style adventure march */
+/* CRAWL: the cave and Severance's muzak on the sequencer's clock; the */
+/* pieces on their own players (below). The march went with 1.0.0b15. */
 /* ------------------------------------------------------------------ */
-
-typedef struct ChordDef { int8_t bass; int8_t minor; } ChordDef;
-#define CH_DM { 38, 1 }
-#define CH_BB { 34, 0 }
-#define CH_C  { 36, 0 }
-#define CH_GM { 43, 1 }
-#define CH_A  { 33, 0 }
-#define CH_F  { 41, 0 }
-#define CH_EB { 39, 0 }
-static const ChordDef CHORDS[32] = {
-    CH_DM, CH_DM, CH_BB, CH_C,  CH_DM, CH_GM, CH_A,  CH_A,     /* A: march intro          */
-    CH_DM, CH_F,  CH_C,  CH_DM, CH_BB, CH_GM, CH_A,  CH_A,     /* B: flute melody         */
-    CH_GM, CH_DM, CH_A,  CH_DM, CH_BB, CH_F,  CH_GM, CH_A,     /* C: brass melody         */
-    CH_DM, CH_EB, CH_DM, CH_EB, CH_BB, CH_GM, CH_A,  CH_A,     /* D: the crypt, then a roll */
-};
-#undef CH_DM
-#undef CH_BB
-#undef CH_C
-#undef CH_GM
-#undef CH_A
-#undef CH_F
-#undef CH_EB
-
-typedef struct LeadNote { uint8_t bar, step, len, midi, pat; } LeadNote;
-#define FL PAT_FLUTE
-#define BR PAT_BRASS
-static const LeadNote LEAD[] = {
-    { 8,0,4,69,FL},{ 8,4,4,74,FL},{ 8,8,6,77,FL},{ 8,14,2,76,FL},
-    { 9,0,4,77,FL},{ 9,4,4,81,FL},{ 9,8,4,79,FL},{ 9,12,4,77,FL},
-    {10,0,6,76,FL},{10,6,2,74,FL},{10,8,4,72,FL},{10,12,4,76,FL},
-    {11,0,12,74,FL},{11,12,4,69,FL},
-    {12,0,4,70,FL},{12,4,4,74,FL},{12,8,8,77,FL},
-    {13,0,4,79,FL},{13,4,4,77,FL},{13,8,4,74,FL},{13,12,4,70,FL},
-    {14,0,4,73,FL},{14,4,4,76,FL},{14,8,8,81,FL},
-    {15,0,4,79,FL},{15,4,4,77,FL},{15,8,4,76,FL},{15,12,4,73,FL},
-
-    {16,0,6,86,BR},{16,6,2,84,BR},{16,8,4,82,BR},{16,12,4,79,BR},
-    {17,0,6,81,BR},{17,6,2,79,BR},{17,8,4,77,BR},{17,12,4,74,BR},
-    {18,0,4,76,BR},{18,4,4,81,BR},{18,8,8,85,BR},
-    {19,0,12,86,BR},
-    {20,0,4,82,BR},{20,4,4,86,BR},{20,8,4,84,BR},{20,12,4,82,BR},
-    {21,0,4,81,BR},{21,4,4,84,BR},{21,8,4,81,BR},{21,12,4,77,BR},
-    {22,0,4,79,BR},{22,4,4,82,BR},{22,8,4,81,BR},{22,12,4,79,BR},
-    {23,0,4,81,BR},{23,4,4,76,BR},{23,8,4,73,BR},{23,12,4,76,BR},
-
-    {28,0,8,74,FL},{28,8,8,77,FL},
-    {29,0,8,79,FL},{29,8,8,82,FL},
-    {30,0,16,81,FL},
-    {31,0,8,85,FL},{31,8,8,81,FL},
-};
-#undef FL
-#undef BR
-
-enum { D_KICK = 1, D_SNARE = 2, D_HAT = 4, D_GHOST = 8, D_CRASH = 16, D_TOM = 32, D_ROLL = 64 };
-
-static int crawl_drums(int sec, int s) {
-    int m = 0;
-    if (s == 0 && (sec == 0 || sec == 8 || sec == 16)) m |= D_CRASH;
-    if (sec < 24) {                                   /* march */
-        if (s == 0 || s == 8) m |= D_KICK;
-        if (s == 4 || s == 12) m |= D_SNARE;
-        if ((s & 1) == 0) m |= D_HAT;
-        if ((sec & 1) && (s == 14 || s == 15)) m |= D_GHOST;
-        if ((sec == 7 || sec == 15 || sec == 23) && s >= 8 && (s & 1) == 0) m |= D_TOM;
-    } else if (sec < 28) {                            /* the crypt: timpani only */
-        if (s == 0) m |= D_TOM;
-        if (s == 8 && (sec & 1)) m |= D_TOM;
-    } else if (sec < 30) {
-        if (s == 0 || s == 8) m |= D_KICK;
-        if (s == 4 || s == 12) m |= D_SNARE;
-        if ((s & 3) == 2) m |= D_HAT;
-    } else {                                          /* snare roll into the loop */
-        if ((s & 1) == 0 || sec == 31) m |= D_ROLL;
-        if (s == 0 || s == 8) m |= D_KICK | D_TOM;
-    }
-    return m;
-}
-
-static const uint8_t ARP8[8] = { 0, 1, 2, 3, 2, 1, 2, 1 };
 
 /* Severance's muzak: eight bars of major sevenths, slightly too calm. An electric piano comps in a
  * bossa rhythm, a soft bass walks root and fifth, a vibraphone carries a tune nobody asked for. */
@@ -1404,54 +1362,9 @@ static float g_boss_k;              /* how far into a boss's waltz, 0..1 (below)
 
 static void crawl_step(uint32_t step) {
     if (g_room == 2) muzak_step(step);
-    if ((g_room && g_room_k >= 1.0f) || g_boss_k >= 1.0f) return;  /* the march has faded: none of it, nor the cave's drips */
-    int bar = (int)(step / 16), sec = bar & 31, s = (int)(step & 15);
-    const ChordDef *ch = &CHORDS[sec];
-    int third = ch->minor ? 3 : 4;
-    int sps = (int)g_sps;
-
-    int dm = g_trial ? crawl_drums(8 + (sec & 7), s) | ((s & 1) ? D_HAT : 0) : crawl_drums(sec, s);   /* a trial's: the march's, harder */
-    if (dm & D_KICK)  sfx_start(X_KICK, 0.4f, 0.65f, 0.5f, 0.05f);
-    if (dm & D_SNARE) sfx_start(X_SNARE, 0.3f, 0.70f, 0.5f, 0.22f);
-    if (dm & D_GHOST) sfx_start(X_SNARE, 0.2f, 0.28f, 0.52f, 0.15f);
-    if (dm & D_ROLL)  sfx_start(X_SNARE, 0.2f, 0.25f + 0.55f * ((sec - 30) * 16 + s) / 31.0f, 0.5f, 0.2f);
-    if (dm & D_HAT)   sfx_start(X_HAT_C, 0.08f, (s & 3) == 0 ? 0.45f : 0.28f, 0.6f, 0.04f);
-    if (dm & D_CRASH) sfx_start(X_CRASH, 1.6f, 0.45f, 0.5f, 0.3f);
-    if (dm & D_TOM)   sfx_start(X_TOM, 0.6f, sec >= 24 && sec < 28 ? 0.9f : 0.6f, 0.45f, 0.35f);
-
-    /* bass: a marching eighth-note figure; a held pedal D in the crypt */
-    if (sec >= 24 && sec < 28) {
-        if (s == 0) voice_on(PAT_BASS, 38, 0.9f, 0.5f, sps * 15);
-    } else if ((s & 1) == 0) {
-        static const int8_t FIG[8] = { 0, 0, 7, 0, 0, 0, 7, 12 };
-        voice_on(PAT_BASS, ch->bass + FIG[s >> 1], (s & 7) == 0 ? 0.95f : 0.7f, 0.5f, sps * 2 - sps / 3);
-    }
-
-    /* organ chord each bar */
-    if (s == 0) {
-        int root = ch->bass + 12 + (ch->bass < 36 ? 12 : 0);
-        float v = sec >= 24 && sec < 28 ? 1.0f : (sec < 8 ? 0.7f : 0.45f);
-        int len = sps * 15;
-        voice_on(PAT_ORGAN, root,         v, 0.35f, len);
-        voice_on(PAT_ORGAN, root + third, v, 0.50f, len);
-        voice_on(PAT_ORGAN, root + 7,     v, 0.65f, len);
-    }
-
-    /* harpsichord arpeggios in the second half of the intro and under the brass */
-    if (((sec >= 4 && sec < 8) || (sec >= 16 && sec < 24)) && (s & 1) == 0) {
-        int r = ch->bass + 24;
-        int tones[4] = { r, r + third, r + 7, r + 12 };
-        voice_on(PAT_HARP, tones[ARP8[s >> 1]], (s & 3) == 0 ? 0.9f : 0.65f, (s & 2) ? 0.65f : 0.35f, sps * 2);
-    }
-
-    for (unsigned i = 0; i < sizeof LEAD / sizeof LEAD[0]; i++)
-        if (LEAD[i].bar == sec && LEAD[i].step == s)
-            voice_on(LEAD[i].pat, LEAD[i].midi, 1.0f, 0.5f, LEAD[i].len * sps - sps / 4);
-
-    /* the cave itself: drips and, rarely, something moaning far away; not in a pocket's room */
-    if (g_room) return;
+    if (g_room || g_boss_k >= 1.0f) return;                        /* the cave itself: drips and, rarely, something moaning far away */
     if (rng_f(&g_mrng) < 0.022f) sfx_start(SFX_DRIP, 0.6f, 0.5f + 0.5f * rng_f(&g_mrng), 0.1f + 0.8f * rng_f(&g_mrng), 0.75f);
-    if (s == 0 && rng_f(&g_mrng) < 0.06f) sfx_start(SFX_MOAN, 2.6f, 0.45f, 0.2f + 0.6f * rng_f(&g_mrng), 0.8f);
+    if ((step & 15) == 0 && rng_f(&g_mrng) < 0.06f) sfx_start(SFX_MOAN, 2.6f, 0.45f, 0.2f + 0.6f * rng_f(&g_mrng), 0.8f);
 }
 
 
@@ -1599,8 +1512,460 @@ static void boss_step(void) {
         if (!(s & 1)) sfx_start(X_HAT_C, 0.08f, (s & 3) == 0 ? 0.32f : 0.2f, 0.6f, 0.04f);
         if (b == 7 && s >= 4 && !(s & 1)) sfx_start(X_TOM, 0.6f, 0.45f + 0.08f * (float)s, 0.4f, 0.35f);
     }
-    g_vbus = BUS_MARCH;
+    g_vbus = BUS_RUN;
     if (++g_bpos >= blen) { g_bpos = 0; g_bbar++; }
+}
+
+/* ------------------------------------------------------------------ */
+/* The pieces: a run each, her hall, the menus (docs/PLAN-music.md)    */
+/* ------------------------------------------------------------------ */
+
+/* A piece is sections of eight bars, each bar a chord (the bass over the key's root, then three tones over the
+ * bass's octave) and perhaps a tune, played in an order; its step function makes each step what it likes of them.
+ * A player runs a piece on its own clock and bus. The run's player carries the fight: a level from the game, taken
+ * on a beat going in and at a bar line coming out, which brings in the fight's layer and quickens the pace. */
+typedef struct MNote { uint8_t bar, step, len, midi; } MNote;   /* midi + 128: on the piece's second instrument */
+typedef struct MSec { int8_t ch[8][4]; const MNote *mel; int nmel; } MSec;
+typedef struct Piece {
+    float bpm; int spb, blen, root;        /* beats a minute, steps a beat, steps a bar, the key's root */
+    const MSec *sec; const uint8_t *order; int norder, loop;   /* its sections, the order they go in, where it comes round to */
+    void (*step)(const MSec *S, int bar, int s);
+    int cad;                               /* the patch of the chord that closes a fight */
+    float gain;                            /* to sit about where the march sat */
+} Piece;
+typedef struct Player {
+    int piece, on, bus;
+    double sps, acc;                       /* a step in samples (it glides), and the clock */
+    int s, bar, oi, pass;                  /* the step in the bar, the bar in the section, the place in the order, times round */
+    int fight, lvl;
+} Player;
+enum { PL_RUN, PL_SHOP, PL_MENU, NPLAYER };
+static Player g_pl[NPLAYER];
+static Player *g_P;                        /* the player stepping */
+static int g_psps;                         /* its step, in samples */
+static float g_busg[NBUS], g_layg[NLAYER]; /* each bus's and layer's gain this sample */
+static int g_alive[NBUS];                  /* a bus that is or is coming in: its voices aren't cut, and new ones start */
+static int g_fight_req, g_frail, g_menu_req, g_menu, g_menu_var, g_place, g_track_next;
+static float g_fight_k, g_frail_k, g_menu_k, g_run_k, g_shop_k, g_menu_wait;
+static float g_mix_music = 1.0f, g_mix_fx = 1.0f;
+static float g_flp[4], g_mnlp[4];          /* the failing's low-pass on the music, the menu's water (run II) */
+
+#define C3(b, x, y, z) { b, x, y, z }
+
+static Voice *pv(int pat, int midi, float vel, float pan, int steps) {
+    if (!g_alive[g_vbus]) return NULL;
+    return voice_on(pat, midi, vel, pan, steps * g_psps - g_psps / 4);
+}
+static void pd(int type, float dur, float gain, float pan, float rev) {
+    if (g_alive[g_vbus]) sfx_start(type, dur, gain, pan, rev);
+}
+static void pchord(const int8_t *c, int pat, int base, float vel, int steps, float detune) {
+    for (int k = 1; k < 4; k++) {
+        Voice *v = pv(pat, base + c[k], vel, 0.25f + 0.25f * (float)(k - 1), steps);
+        if (v && k == 3 && detune != 0.0f) v->freq *= detune;
+    }
+}
+/* the section's tune at this step: alt notes on the second patch; doubled, a second voice a hair sharp */
+static void ptune(const MSec *S, int bar, int s, int pat, int alt, float vel, int tr, int dbl) {
+    for (int i = 0; i < S->nmel; i++) {
+        const MNote *n = &S->mel[i];
+        if (n->bar != bar || n->step != s) continue;
+        int p = (n->midi & 128) ? alt : pat, m = (n->midi & 127) + tr;
+        Voice *v = pv(p, m, vel, 0.5f, n->len);
+        if (v && dbl) { Voice *w = pv(p, m, vel * 0.6f, 0.62f, n->len); if (w) w->freq *= 1.005f; }
+    }
+}
+static inline float mrnd(void) { return rng_f(&g_mrng); }
+#define MEL(m) m, (int)(sizeof m / sizeof m[0])
+#define ORD(o) o, (int)(sizeof o / sizeof o[0])
+
+/* Run I, the Order's crypts: D minor, 66, organ and a low choir, a bell; the march's phrase as chant, a brass
+ * chorale, and the crypt itself, a drone with E-flat leaning on D. */
+#define Di   C3(0, 0, 3, 7)
+#define Diii C3(3, 3, 7, 10)
+#define Div  C3(5, 5, 8, 12)
+#define DV   C3(7, 7, 11, 14)
+#define DVI  C3(-4, 8, 12, 15)
+#define DVII C3(-2, 10, 14, 17)
+#define DbII C3(1, 1, 5, 8)
+static const MNote MEL_C_A[] = {                              /* an intonation, on the choir */
+    {4,0,6,62},{4,6,2,64},{4,8,8,65},{5,0,8,64},{5,8,8,62},{6,0,8,61},{6,8,8,64},{7,0,16,64} };
+static const MNote MEL_C_B[] = {                              /* the march's phrase, slowed to a chant */
+    {0,0,4,69},{0,4,4,74},{0,8,6,77},{0,14,2,76}, {1,0,4,77},{1,4,4,81},{1,8,4,79},{1,12,4,77},
+    {2,0,6,76},{2,6,2,74},{2,8,4,72},{2,12,4,76}, {3,0,12,74},{3,12,4,69},
+    {4,0,4,70},{4,4,4,74},{4,8,8,77}, {5,0,4,79},{5,4,4,77},{5,8,4,74},{5,12,4,70},
+    {6,0,4,73},{6,4,4,76},{6,8,8,81}, {7,0,4,79},{7,4,4,77},{7,8,4,76},{7,12,4,73} };
+static const MNote MEL_C_C[] = {                              /* the chorale, on brass */
+    {0,0,8,70},{0,8,4,69},{0,12,4,67}, {1,0,12,69},{1,12,4,65}, {2,0,4,64},{2,4,4,67},{2,8,8,69},
+    {3,0,8,65},{3,8,8,62}, {4,0,4,65},{4,4,4,70},{4,8,8,74}, {5,0,8,72},{5,8,8,69},
+    {6,0,4,70},{6,4,4,69},{6,8,4,67},{6,12,4,65}, {7,0,16,64} };
+static const MNote MEL_C_D[] = {                              /* the crypt: the march's last call, on flute */
+    {4,0,8,74},{4,8,8,77},{5,0,8,79},{5,8,8,82},{6,0,16,81},{7,0,8,85},{7,8,8,81} };
+static const MSec SEC_CRYPTS[4] = {
+    { { Di, Di, DVI, DVII, Di, Div, DV, DV }, MEL(MEL_C_A) },
+    { { Di, Diii, DVII, Di, DVI, Div, DV, DV }, MEL(MEL_C_B) },
+    { { Div, Di, DV, Di, DVI, Diii, Div, DV }, MEL(MEL_C_C) },
+    { { Di, DbII, Di, DbII, DVI, Div, DV, DV }, MEL(MEL_C_D) } };
+static const uint8_t ORD_CRYPTS[] = { 0, 1, 2, 3, 1, 2, 0, 3 };
+
+static void crypts_step(const MSec *S, int bar, int s) {
+    const int r = 38;
+    const int8_t *c = S->ch[bar];
+    int sec = (int)(S - SEC_CRYPTS), pass = g_P->pass, fl = g_P->fight ? g_P->lvl : 0;
+    if (s == 0) {
+        pv(PAT_BASS, r + c[0], 0.5f, 0.5f, 15);
+        if (sec == 3) pchord(c, PAT_VOICE, r + 12, 0.36f, 15, 1.004f);
+        else pchord(c, PAT_ORGAN, r + 12, sec == 0 ? 0.8f : 0.55f, 15, 0.0f);
+        if (sec == 0 && !(bar & 1)) { pv(PAT_VOICE, r + 12, 0.3f, 0.35f, 31); pv(PAT_VOICE, r + 19, 0.24f, 0.65f, 31); }
+        if (sec == 3 && bar == 0) pv(PAT_DRONE, r, 0.9f, 0.5f, 127);
+        if (bar == 0) pv(PAT_BELL, r + 36, 0.32f, 0.3f + 0.4f * mrnd(), 12);
+        if (sec == 3 && (bar & 1) == 0 && bar) pv(PAT_BELL, r + 24 + c[0], 0.22f, 0.3f + 0.4f * mrnd(), 12);
+    }
+    g_vlayer = LY_COLOUR;
+    if (sec == 0) ptune(S, bar, s, PAT_VOICE, PAT_VOICE, 0.5f, 0, 1);
+    else if (sec == 1) { if (pass & 1) ptune(S, bar, s, PAT_VOICE, PAT_VOICE, 0.55f, -12, 1); else ptune(S, bar, s, PAT_FLUTE, PAT_FLUTE, 0.85f, 0, 0); }
+    else if (sec == 2) { ptune(S, bar, s, PAT_BRASS, PAT_BRASS, 0.8f, 0, 0); if (pass & 1) ptune(S, bar, s, PAT_FLUTE, PAT_FLUTE, 0.35f, 12, 0); }
+    else ptune(S, bar, s, PAT_FLUTE, PAT_FLUTE, 0.75f, 0, 0);
+    if (fl) {                                                      /* the fight: a procession with timpani */
+        static const int8_t FIG[8] = { 0, 0, 7, 0, 0, 0, 7, 12 };
+        g_vlayer = LY_FIGHT;
+        if (s == 0 || s == 8) { pd(X_TOM, 0.6f, 0.5f + 0.1f * (float)fl, 0.45f, 0.35f); pd(X_KICK, 0.4f, 0.55f, 0.5f, 0.05f); }
+        if (fl >= 2 && (s == 4 || s == 12)) pd(X_SNARE, 0.3f, 0.4f, 0.5f, 0.22f);
+        if (fl >= 3 && !(s & 1)) pd(X_HAT_C, 0.08f, (s & 3) ? 0.18f : 0.3f, 0.6f, 0.04f);
+        if (fl >= 3 && bar == 7 && s >= 8) pd(X_SNARE, 0.2f, 0.2f + 0.04f * (float)(s - 8), 0.5f, 0.2f);
+        if (!(s & 1)) pv(PAT_STRINGS, r + 12 + c[0] + FIG[s >> 1], (s & 7) ? 0.45f : 0.62f, 0.4f, 2);
+        if (fl >= 2 && (s == 0 || s == 6)) pchord(c, PAT_BRASS, r + 12, 0.42f, 2, 0.0f);
+    }
+}
+
+/* Run II, the drowned catacombs: C minor, a barcarolle in 6/8 at 50 the dotted beat, a harp rolling over a pad,
+ * a bell under the water, drips; the tune on a vibraphone, then a low flute, as if from under the surface. */
+#define Ci   C3(0, 0, 3, 7)
+#define Ciii C3(3, 3, 7, 10)
+#define Civ  C3(5, 5, 8, 12)
+#define CV   C3(-5, 7, 11, 14)
+#define CVI  C3(-4, 8, 12, 15)
+#define CVII C3(-2, 10, 14, 17)
+#define CbII C3(1, 1, 5, 8)
+static const MNote MEL_W_B[] = {                              /* the boat song */
+    {0,0,3,67},{0,3,1,68},{0,4,2,67}, {1,0,3,72},{1,3,3,70}, {2,0,3,68},{2,3,1,65},{2,4,2,67}, {3,0,6,62},
+    {4,0,3,67},{4,3,1,68},{4,4,2,67}, {5,0,3,70},{5,3,3,74}, {6,0,3,73},{6,3,1,72},{6,4,2,68}, {7,0,6,71} };
+static const MNote MEL_W_C[] = {                              /* deeper */
+    {0,0,3,63},{0,3,3,60}, {1,0,3,62},{1,3,3,65}, {2,0,6,67}, {3,0,3,63},{3,3,1,62},{3,4,2,60},
+    {4,0,3,65},{4,3,3,68}, {5,0,3,65},{5,3,3,61}, {6,0,3,62},{6,3,3,59}, {7,0,6,67} };
+static const MSec SEC_CATAC[4] = {
+    { { Ci, Ci, CVI, CVI, Civ, Civ, CV, CV }, NULL, 0 },
+    { { Ci, CVI, Civ, CV, Ci, Ciii, CbII, CV }, MEL(MEL_W_B) },
+    { { CVI, CVII, Ciii, Ci, Civ, CbII, CV, CV }, MEL(MEL_W_C) },
+    { { Ci, CbII, Ci, CbII, CVI, Civ, CV, Ci }, NULL, 0 } };
+static const uint8_t ORD_CATAC[] = { 0, 1, 2, 3, 1, 2, 0, 1 };
+
+static void catac_step(const MSec *S, int bar, int s) {
+    const int r = 36;
+    const int8_t *c = S->ch[bar];
+    int sec = (int)(S - SEC_CATAC), pass = g_P->pass, fl = g_P->fight ? g_P->lvl : 0;
+    if (s == 0) {
+        pv(PAT_BASS, r + c[0], 0.5f, 0.5f, 3);
+        pchord(c, PAT_PAD, r + 12, 0.5f, 6, 1.003f);
+        if (sec == 3) { pv(PAT_VOICE, r + 12 + c[1], 0.28f, 0.35f, 6); pv(PAT_VOICE, r + 12 + c[3], 0.22f, 0.65f, 6); }
+        if (bar == 0 || (sec == 3 && bar == 4)) pv(PAT_BELL, r + 24 + c[1] % 12, 0.3f, 0.3f + 0.4f * mrnd(), 6);
+    }
+    if (s == 3) pv(PAT_BASS, r + c[0] + 7, 0.36f, 0.5f, 3);
+    g_vlayer = LY_COLOUR;
+    if (sec != 3 || !(bar & 1)) {                                  /* root, fifth, octave, tenth, octave, fifth */
+        int A6[6] = { c[1], c[3], c[1] + 12, c[2] + 12, c[1] + 12, c[3] };
+        pv(PAT_HARP, r + 12 + A6[s], s == 0 ? 0.6f : 0.42f, (s & 1) ? 0.65f : 0.35f, 3);
+    }
+    if (sec == 1) ptune(S, bar, s, (pass & 1) ? PAT_CELESTA : PAT_VIBES, 0, 0.7f, 12, 0);
+    if (sec == 2) { if (pass & 1) ptune(S, bar, s, PAT_VOICE, 0, 0.5f, 0, 1); else ptune(S, bar, s, PAT_FLUTE, 0, 0.75f, 0, 0); }
+    g_vlayer = LY_BASE;
+    if (mrnd() < 0.05f) pd(SFX_DRIP, 0.6f, 0.35f + 0.4f * mrnd(), 0.1f + 0.8f * mrnd(), 0.75f);
+    if (fl) {                                                      /* the fight: frame drums in six, the strings swelling */
+        g_vlayer = LY_FIGHT;
+        if (s == 0) pd(X_TOM, 0.6f, 0.55f + 0.1f * (float)fl, 0.45f, 0.35f);
+        if (s == 3) pd(X_KICK, 0.4f, 0.5f, 0.5f, 0.05f);
+        if (fl >= 2) pd(X_HAT_C, 0.08f, (s == 0 || s == 3) ? 0.26f : 0.16f, 0.6f, 0.04f);
+        if (fl >= 3 && s == 3) pd(X_SNARE, 0.3f, 0.35f, 0.5f, 0.22f);
+        if (fl >= 3 && bar == 7 && s >= 2) pd(X_TOM, 0.5f, 0.3f + 0.08f * (float)s, 0.4f, 0.3f);
+        if (s == 0) pchord(c, PAT_STRINGS, r + 12, 0.22f + 0.06f * (float)fl, 6, 0.0f);
+        if (fl >= 2 && sec == 1) ptune(S, bar, s, PAT_FLUTE, 0, 0.45f, 0, 0);
+    }
+}
+
+/* Run III, the charnel mine: E minor leaning Phrygian, 84, a work rhythm in the bass, a pick's thud, an anvil, low
+ * brass held in fifths; a hammered dulcimer for the work song, and the brass calling down the seam. */
+#define Ei   C3(0, 0, 3, 7)
+#define Eiv  C3(5, 5, 8, 12)
+#define EV   C3(7, 7, 11, 14)
+#define EVI  C3(-4, 8, 12, 15)
+#define EVII C3(-2, 10, 14, 17)
+#define EbII C3(1, 1, 5, 8)
+static const MNote MEL_H_B[] = {                              /* the work song */
+    {0,0,2,76},{0,2,2,79},{0,4,4,81},{0,8,4,83},{0,12,4,81}, {1,0,4,79},{1,4,4,76},{1,8,8,74},
+    {2,0,2,74},{2,2,2,78},{2,4,4,81},{2,8,4,86},{2,12,4,84}, {3,0,6,83},{3,6,2,81},{3,8,8,79},
+    {4,0,2,79},{4,2,2,81},{4,4,4,84},{4,8,4,83},{4,12,4,79}, {5,0,4,81},{5,4,4,78},{5,8,8,74},
+    {6,0,2,76},{6,2,2,77},{6,4,4,79},{6,8,4,77},{6,12,4,76}, {7,0,16,76} };
+static const MNote MEL_H_C[] = {                              /* the seam: brass calls (+128), the dulcimer answers */
+    {0,0,4,57+128},{0,4,4,60+128},{0,8,8,64+128}, {1,0,2,76},{1,2,2,74},{1,4,4,72},{1,8,8,69},
+    {2,0,4,55+128},{2,4,4,59+128},{2,8,8,64+128}, {3,0,2,79},{3,2,2,76},{3,4,4,74},{3,8,8,71},
+    {4,0,4,53+128},{4,4,4,57+128},{4,8,8,60+128}, {5,0,2,77},{5,2,2,76},{5,4,4,72},{5,8,8,69},
+    {6,0,4,59+128},{6,4,4,63+128},{6,8,8,66+128}, {7,0,4,75},{7,4,4,71},{7,8,8,66} };
+static const MSec SEC_HOLLOWS[4] = {
+    { { Ei, Ei, EbII, Ei, Ei, EVII, EVI, EbII }, NULL, 0 },
+    { { Ei, Ei, EVII, Ei, EVI, EVII, Ei, Ei }, MEL(MEL_H_B) },
+    { { Eiv, Eiv, Ei, Ei, EbII, EbII, EV, EV }, MEL(MEL_H_C) },
+    { { Ei, EVI, Ei, EVI, EbII, EbII, Ei, Ei }, NULL, 0 } };
+static const uint8_t ORD_HOLLOWS[] = { 0, 1, 2, 3, 1, 2, 1, 3 };
+
+static void hollows_step(const MSec *S, int bar, int s) {
+    const int r = 40;
+    const int8_t *c = S->ch[bar];
+    int sec = (int)(S - SEC_HOLLOWS), pass = g_P->pass, fl = g_P->fight ? g_P->lvl : 0;
+    if (s == 0 || s == 8 || (sec != 3 && (s == 3 || s == 6 || s == 11 || s == 14)))   /* the swing of a pick */
+        pv(PAT_BASS, r + c[0], (s == 0 || s == 8) ? 0.8f : 0.5f, 0.5f, 2);
+    if (s == 0) {
+        pd(X_TOM, 0.6f, sec == 3 ? 0.15f : 0.3f, 0.5f, 0.3f);
+        if (sec != 3) { pv(PAT_BRASS, r + 12 + c[1], 0.32f, 0.4f, 15); pv(PAT_BRASS, r + 12 + c[3], 0.26f, 0.6f, 15); }
+        else pv(PAT_DRONE, r + 12 + c[1], 0.7f, 0.5f, 15);
+    }
+    if (sec != 3 && s == 12) pv(PAT_ANVIL, 79, (bar & 1) ? 0.5f : 0.4f, 0.62f, 2);
+    if (sec == 3 && s == 0 && !(bar & 1)) pv(PAT_ANVIL, 79, 0.2f, 0.2f + 0.6f * mrnd(), 2);   /* far off down the shaft */
+    g_vlayer = LY_COLOUR;
+    if (((sec == 0 && bar >= 4) || sec == 3) && !(s & 1))         /* the dulcimer's tremolo */
+        pv(PAT_DULC, r + 36 + c[1], s == 0 ? 0.28f : 0.18f, 0.5f, 2);
+    if (sec == 1) { ptune(S, bar, s, PAT_DULC, PAT_DULC, 0.85f, 0, 1); if (pass & 1) ptune(S, bar, s, PAT_FLUTE, PAT_FLUTE, 0.35f, -12, 0); }
+    if (sec == 2) ptune(S, bar, s, PAT_DULC, PAT_BRASS, 0.8f, 0, 1);
+    if (fl) {                                                      /* the fight: the anvil on two and four, drums, brass */
+        static const int8_t RUN4[4] = { 0, 1, 2, 3 };
+        g_vlayer = LY_FIGHT;
+        if (s == 0 || s == 8 || (fl >= 2 && s == 10)) pd(X_KICK, 0.4f, 0.55f, 0.5f, 0.05f);
+        if (s == 4 || s == 12) pd(X_SNARE, 0.3f, 0.35f + 0.05f * (float)fl, 0.5f, 0.22f);
+        if (fl >= 2 && (fl >= 3 || !(s & 1))) pd(X_HAT_C, 0.08f, (s & 3) ? 0.14f : 0.24f, 0.6f, 0.04f);
+        if (s == 4) pv(PAT_ANVIL, 79, 0.35f, 0.38f, 2);
+        if (fl >= 3 && s == 14) pv(PAT_ANVIL, 84, 0.25f, 0.5f, 1);
+        if (fl >= 2 && (s == 6 || s == 14)) { pv(PAT_BRASS, r + 12 + c[1], 0.42f, 0.4f, 1); pv(PAT_BRASS, r + 12 + c[3], 0.36f, 0.6f, 1); }
+        if (fl >= 2 && (bar & 1)) {
+            int t = RUN4[s & 3] == 3 ? c[1] + 12 : c[1 + RUN4[s & 3]];
+            pv(PAT_DULC, r + 36 + t, 0.28f, (s & 1) ? 0.62f : 0.38f, 1);
+        }
+    }
+}
+
+/* Run IV, the black glass: F-sharp minor, 56, a drone, glass harmonica chords, a celesta glinting; G major and C
+ * major laid over F-sharp, and an augmented chord, so that nothing quite settles. */
+#define Fi   C3(0, 0, 3, 7)
+#define Faug C3(0, 0, 4, 8)
+#define Fiv  C3(5, 5, 8, 12)
+#define FVI  C3(-4, 8, 12, 15)
+#define FbII C3(1, 1, 5, 8)
+#define FbV  C3(6, 6, 10, 13)
+static const MNote MEL_G_B[] = {                              /* the tune, on glass */
+    {0,0,8,73},{0,8,8,74}, {1,0,12,69},{1,12,4,66}, {2,0,8,69},{2,8,4,72},{2,12,4,74}, {3,0,16,71},
+    {4,0,4,73},{4,4,4,78},{4,8,8,76}, {5,0,8,72},{5,8,8,76}, {6,0,4,74},{6,4,4,71},{6,8,8,67}, {7,0,16,66} };
+static const MNote MEL_G_C[] = {                              /* the magma, on vibraphone */
+    {0,0,4,74},{0,4,4,71},{0,8,8,66}, {1,0,4,67},{1,4,4,71},{1,8,8,74}, {2,0,16,73}, {3,0,8,70},{3,8,8,74},
+    {4,0,4,69},{4,4,4,74},{4,8,8,78}, {5,0,8,79},{5,8,8,76}, {6,0,4,74},{6,4,4,71},{6,8,8,67}, {7,0,16,66} };
+static const MSec SEC_DEEP[4] = {
+    { { Fi, FbII, Fi, FbII, Fi, Faug, FbII, Fi }, NULL, 0 },
+    { { Fi, Fi, FVI, FbII, Fi, FbV, FbII, Fi }, MEL(MEL_G_B) },
+    { { Fiv, FbII, Fi, Faug, FVI, FbV, FbII, Fi }, MEL(MEL_G_C) },
+    { { Fi, Fi, Fi, Fi, FbII, FbII, Fi, Fi }, NULL, 0 } };
+static const uint8_t ORD_DEEP[] = { 0, 1, 2, 3, 1, 0, 2, 3 };
+
+static void deep_step(const MSec *S, int bar, int s) {
+    const int r = 42;
+    const int8_t *c = S->ch[bar];
+    int sec = (int)(S - SEC_DEEP), pass = g_P->pass, fl = g_P->fight ? g_P->lvl : 0;
+    int sung = sec == 1 || sec == 2;
+    if (s == 0) {
+        if (bar == 0) { pv(PAT_DRONE, r + 12, 0.9f, 0.35f, 127); pv(PAT_DRONE, r + 19, 0.65f, 0.65f, 127); }
+        if (!(bar & 1)) pv(PAT_BASS, r + c[0], 0.4f, 0.5f, 31);
+        if (sung || !(bar & 1)) pchord(c, PAT_GLASS, r + 12, 0.42f, sung ? 15 : 31, 1.003f);
+    }
+    g_vlayer = LY_COLOUR;
+    if (mrnd() < (sec == 3 ? 0.05f : 0.08f))                       /* a glint in the dark */
+        pv(PAT_CELESTA, r + 36 + c[1 + (int)(mrnd() * 2.99f)] + (mrnd() < 0.3f ? 12 : 0), 0.18f + 0.15f * mrnd(), 0.15f + 0.7f * mrnd(), 4);
+    if (sec == 1) ptune(S, bar, s, (pass & 1) ? PAT_VIBES : PAT_GLASS, 0, 0.6f, 0, !(pass & 1));
+    if (sec == 2) ptune(S, bar, s, (pass & 1) ? PAT_GLASS : PAT_VIBES, 0, 0.6f, 0, pass & 1);
+    if (fl) {                                                      /* the fight: a pulse like a heart, strings trembling */
+        g_vlayer = LY_FIGHT;
+        if (s == 0 || (fl >= 2 && s == 8)) pd(X_KICK, 0.4f, 0.55f, 0.5f, 0.05f);
+        if (s == 3 || (fl >= 2 && s == 11)) pd(X_KICK, 0.4f, 0.38f, 0.5f, 0.05f);
+        if (fl >= 2 && s == 12) pd(X_TOM, 0.6f, 0.5f, 0.45f, 0.35f);
+        if (fl >= 3) { pd(X_HAT_C, 0.06f, (s & 3) ? 0.1f : 0.18f, 0.65f, 0.04f); if (s == 12) pd(X_SNARE, 0.3f, 0.35f, 0.5f, 0.22f); }
+        if (!(s & 1)) pv(PAT_STRINGS, r + 12 + c[0], 0.38f + 0.05f * (float)fl, 0.4f, 2);
+        if (fl >= 2 && sung) ptune(S, bar, s, PAT_VIBES, 0, 0.4f, 12, 0);
+    }
+}
+
+/* Her hall: A minor, 100, a habanera on plucked strings, a harpsichord marking the beat, a sly flute that slides
+ * up to its notes; a music box answers. Her back rooms keep only the bass and the music box. */
+#define Ai   C3(0, 0, 3, 7)
+#define Aiv  C3(5, 5, 8, 12)
+#define AV   C3(-5, 7, 11, 14)
+#define AVI  C3(-4, 8, 12, 15)
+#define AbII C3(1, 1, 5, 8)
+static const MNote MEL_M_A[] = {                              /* her entrance */
+    {0,0,6,76},{0,6,2,75},{0,8,4,76},{0,12,4,72}, {1,0,12,69},
+    {2,0,6,74},{2,6,2,73},{2,8,4,74},{2,12,4,77}, {3,0,8,81},{3,8,4,77},{3,12,4,74},
+    {4,0,6,71},{4,6,2,70},{4,8,4,71},{4,12,4,74}, {5,0,8,76},{5,8,4,74},{5,12,4,71},
+    {6,0,4,72},{6,4,4,71},{6,8,4,69},{6,12,4,68}, {7,0,4,71},{7,4,4,68},{7,8,8,64} };
+static const MNote MEL_M_B[] = {                              /* the purr, on the music box */
+    {0,0,4,84},{0,4,4,81},{0,8,8,77}, {1,0,4,82},{1,4,4,77},{1,8,8,74}, {2,0,4,80},{2,4,4,76},{2,8,8,71}, {3,0,12,81},
+    {4,0,4,77},{4,4,4,81},{4,8,8,84}, {5,0,4,86},{5,4,4,81},{5,8,8,77}, {6,0,4,83},{6,4,4,80},{6,8,4,76},{6,12,4,74}, {7,0,16,71} };
+static const MSec SEC_MERCH[2] = {
+    { { Ai, Ai, Aiv, Aiv, AV, AV, Ai, AV }, MEL(MEL_M_A) },
+    { { AVI, AbII, AV, Ai, AVI, Aiv, AV, AV }, MEL(MEL_M_B) } };
+static const uint8_t ORD_MERCH[] = { 0, 1 };
+
+static void merch_step(const MSec *S, int bar, int s) {
+    static const int8_t HS[8] = { 0, 3, 4, 6, 8, 11, 12, 14 }, HO[8] = { 0, 0, 7, 12, 0, 0, 7, 10 };
+    static const float HV[8] = { 0.85f, 0.5f, 0.65f, 0.55f, 0.8f, 0.5f, 0.65f, 0.55f };
+    const int r = 33;
+    const int8_t *c = S->ch[bar];
+    int sec = (int)(S - SEC_MERCH), pass = g_P->pass, back = g_place == 2;
+    for (int i = 0; i < 8; i++)
+        if (HS[i] == s) pv(PAT_PIZZ, r + 12 + c[0] + HO[i], HV[i] * (back ? 0.6f : 1.0f), 0.5f, 2);
+    g_vlayer = LY_COLOUR;
+    if (!back && ((s & 3) == 0 || (s == 14 && (bar & 1))))
+        pchord(c, PAT_HARP, r + 24, s == 0 ? 0.6f : s == 8 ? 0.5f : 0.38f, 1, 0.0f);
+    if (sec == 0 && !back) { ptune(S, bar, s, PAT_FLUTE, 0, 0.9f, 0, 0); if (pass & 1) ptune(S, bar, s, PAT_MBOX, 0, 0.3f, 12, 0); }
+    if (sec == 1) ptune(S, bar, s, PAT_MBOX, 0, back ? 0.55f : 0.75f, 0, 0);
+}
+
+/* The menus: the march's opening as a lullaby in three, over a pad, in the run's key and on its instrument:
+ * a music box (I), a harp under water (II), a dulcimer (III), glass (IV). */
+static const MNote MEL_N_A[] = {
+    {0,0,2,69},{0,2,2,74},{0,4,2,77}, {1,0,4,76},{1,4,2,74}, {2,0,2,77},{2,2,2,81},{2,4,2,79}, {3,0,4,77},{3,4,2,74},
+    {4,0,2,70},{4,2,2,74},{4,4,2,79}, {5,0,4,76},{5,4,2,73}, {6,0,2,74},{6,2,2,77},{6,4,2,76}, {7,0,6,74} };
+static const MNote MEL_N_B[] = {
+    {0,0,2,82},{0,2,2,81},{0,4,2,77}, {1,0,4,79},{1,4,2,74}, {2,0,2,76},{2,2,2,73},{2,4,2,76}, {3,0,6,74},
+    {4,0,2,70},{4,2,2,74},{4,4,2,77}, {5,0,4,79},{5,4,2,77}, {6,0,2,76},{6,2,2,79},{6,4,2,76}, {7,0,6,73} };
+static const MSec SEC_MENU[2] = {
+    { { Di, Di, DVI, Div, Div, C3(-5, 7, 11, 14), Di, Di }, MEL(MEL_N_A) },
+    { { DVI, Div, C3(-5, 7, 11, 14), Di, DVI, Div, C3(-5, 7, 11, 14), C3(-5, 7, 11, 14) }, MEL(MEL_N_B) } };
+static const uint8_t ORD_MENU[] = { 0, 1 };
+
+static void menu_step(const MSec *S, int bar, int s) {
+    static const int8_t TT[4] = { 0, -2, 2, -8 }, CT[4] = { 0, -2, 2, 4 };
+    static const uint8_t MP[4] = { PAT_MBOX, PAT_HARP, PAT_DULC, PAT_GLASS };
+    int v = g_menu_var & 3, r = 38 + CT[v];
+    const int8_t *c = S->ch[bar];
+    if (s == 0) { pchord(c, PAT_PAD, r + 12, 0.35f, 6, 1.003f); pv(PAT_BASS, r + c[0], 0.3f, 0.5f, 5); }
+    g_vlayer = LY_COLOUR;
+    ptune(S, bar, s, MP[v], MP[v], v == 3 ? 0.55f : 0.75f, TT[v], v >= 2);
+}
+
+static const Piece PIECES[MU_COUNT] = {
+    [MU_CRYPTS]    = { 66.0f,  4, 16, 38, SEC_CRYPTS,  ORD(ORD_CRYPTS),  1, crypts_step,  PAT_BRASS,   1.15f },
+    [MU_CATACOMBS] = { 50.0f,  3,  6, 36, SEC_CATAC,   ORD(ORD_CATAC),   1, catac_step,   PAT_STRINGS, 1.55f },
+    [MU_HOLLOWS]   = { 84.0f,  4, 16, 40, SEC_HOLLOWS, ORD(ORD_HOLLOWS), 1, hollows_step, PAT_BRASS,   1.45f },
+    [MU_DEEP]      = { 56.0f,  4, 16, 42, SEC_DEEP,    ORD(ORD_DEEP),    1, deep_step,    PAT_GLASS,   1.25f },
+    [MU_MERCHANT]  = { 100.0f, 4, 16, 33, SEC_MERCH,   ORD(ORD_MERCH),   0, merch_step,   PAT_HARP,    1.3f },
+    [MU_MENU]      = { 60.0f,  2,  6, 38, SEC_MENU,    ORD(ORD_MENU),    0, menu_step,    PAT_PAD,     1.2f },
+};
+#undef MEL
+#undef ORD
+
+static void player_start(Player *p, int piece, int bus) {
+    const Piece *P = &PIECES[piece];
+    memset(p, 0, sizeof *p);
+    p->piece = piece; p->on = 1; p->bus = bus;
+    p->sps = 60.0 / P->bpm / P->spb * SND_RATE;
+    p->acc = p->sps - 1.0;                                         /* the first step at once */
+}
+
+/* the pace: as written, a twentieth quicker at the fight's second level and a tenth at its third, an eighth more in a trial */
+static double player_pace(const Player *p) {
+    const Piece *P = &PIECES[p->piece];
+    double f = 1.0;
+    if (p == &g_pl[PL_RUN]) {
+        if (p->fight) f += 0.05 * (p->lvl - 1);
+        if (g_trial) f += 0.12;
+    }
+    return 60.0 / (P->bpm * f) / P->spb * SND_RATE;
+}
+
+static void player_step(Player *p) {
+    const Piece *P = &PIECES[p->piece];
+    int s = p->s;
+    g_P = p; g_vbus = p->bus; g_vlayer = LY_BASE; g_psps = (int)p->sps;
+    if (p == &g_pl[PL_RUN]) {
+        int want = g_fight_req;
+        if (g_trial && want < 2) want = 2;
+        if (!p->fight && want && s % P->spb == 0) {                /* into a fight, on the beat */
+            p->fight = 1; p->lvl = want;
+            pd(X_CRASH, 1.6f, 0.4f, 0.5f, 0.3f);
+            pd(X_TOM, 0.6f, 0.7f, 0.45f, 0.35f);
+        } else if (p->fight && s == 0) {
+            if (want) p->lvl = want;
+            else {                                                 /* out of it, at the bar line: a closing chord */
+                static const int8_t T[3] = { 0, 3, 7 };
+                p->fight = 0;
+                for (int k = 0; k < 3; k++) pv(P->cad, P->root + 24 + T[k], 0.4f, 0.3f + 0.2f * (float)k, P->blen);
+                pd(X_TOM, 0.6f, 0.4f, 0.45f, 0.35f);
+            }
+        }
+        if (g_frail && s % P->spb == 0) sfx_start(SFX_HEART, 0.6f, 0.45f + 0.35f * g_frail_k, 0.5f, 0.15f);
+        p->sps += (player_pace(p) - p->sps) * 0.12;                /* the pace glides over a bar or two */
+        g_psps = (int)p->sps;
+    }
+    P->step(&P->sec[P->order[p->oi]], p->bar, s);
+    g_vlayer = LY_BASE; g_vbus = BUS_RUN;
+    if (++p->s >= P->blen) {
+        p->s = 0;
+        if (++p->bar >= 8) { p->bar = 0; if (++p->oi >= P->norder) { p->oi = P->loop; p->pass++; } }
+    }
+}
+
+/* Once a sample: the fades, the buses' gains, the clocks. */
+static void music_tick(void) {
+    float up = 1.0f / SR;
+    if (g_menu_req && !g_menu && (g_menu_wait -= up) <= 0.0f) {   /* a menu, held open long enough */
+        g_menu = 1;
+        g_menu_var = g_track >= MU_CRYPTS && g_track <= MU_DEEP ? g_track - MU_CRYPTS : 0;
+        player_start(&g_pl[PL_MENU], MU_MENU, BUS_MENU);
+    }
+    if (g_track_next != g_track && g_run_k <= 0.0f) {              /* the old piece has faded: the new one from its top */
+        g_track = g_track_next;
+        if (g_track >= MU_CRYPTS && g_track <= MU_DEEP) player_start(&g_pl[PL_RUN], g_track, BUS_RUN);
+        else g_pl[PL_RUN].on = 0;
+    }
+    if (g_place && !g_pl[PL_SHOP].on) player_start(&g_pl[PL_SHOP], MU_MERCHANT, BUS_SHOP);
+    g_run_k = g_track_next == g_track ? fminf(1.0f, g_run_k + up) : fmaxf(0.0f, g_run_k - up);
+    g_shop_k = g_place ? fminf(1.0f, g_shop_k + up / 1.5f) : fmaxf(0.0f, g_shop_k - up / 1.5f);
+    if (!g_place && g_shop_k <= 0.0f) g_pl[PL_SHOP].on = 0;        /* her piece from its top next time */
+    g_menu_k = g_menu ? fminf(1.0f, g_menu_k + up / 0.4f) : fmaxf(0.0f, g_menu_k - up / 0.6f);
+    if (!g_menu && g_menu_k <= 0.0f) g_pl[PL_MENU].on = 0;
+    int fighting = g_pl[PL_RUN].on && g_pl[PL_RUN].fight;
+    g_fight_k = fighting ? fminf(1.0f, g_fight_k + up / 0.25f) : fmaxf(0.0f, g_fight_k - up / 2.0f);
+    g_frail_k = g_frail ? fminf(1.0f, g_frail_k + up / 1.5f) : fmaxf(0.0f, g_frail_k - up / 1.5f);
+
+    float m = 1.0f - g_menu_k;
+    g_busg[BUS_RUN] = g_run_k * (1.0f - g_room_k) * (1.0f - g_boss_k) * (1.0f - g_shop_k) * m;
+    g_busg[BUS_MUZAK] = 0.6f * g_muz_k * m;
+    g_busg[BUS_BOSS] = g_boss_k * m;
+    g_busg[BUS_SFX] = g_fx_gain;
+    g_busg[BUS_SHOP] = g_shop_k * m * PIECES[MU_MERCHANT].gain;
+    g_busg[BUS_MENU] = g_menu_k * PIECES[MU_MENU].gain;
+    if (g_track != MU_NONE) g_busg[BUS_RUN] *= PIECES[g_track].gain;
+    g_alive[BUS_RUN] = g_track_next == g_track && !g_place && !g_menu && !g_room && !g_boss_on;
+    g_alive[BUS_MUZAK] = g_room == 2 && !g_menu;
+    g_alive[BUS_BOSS] = g_boss_on && !g_menu;
+    g_alive[BUS_SFX] = 1;
+    g_alive[BUS_SHOP] = g_place && !g_menu;
+    g_alive[BUS_MENU] = g_menu;
+    g_layg[LY_BASE] = 1.0f;
+    g_layg[LY_FIGHT] = g_fight_k;
+    g_layg[LY_COLOUR] = 1.0f - 0.75f * g_frail_k;
+
+    /* the clocks: the run's stops while her hall or a menu plays, and takes up where it was */
+    Player *p = &g_pl[PL_RUN];
+    if (p->on && !g_menu && !g_place && (p->acc += 1.0) >= p->sps) { p->acc -= p->sps; player_step(p); }
+    p = &g_pl[PL_SHOP];
+    if (p->on && !g_menu && (p->acc += 1.0) >= p->sps) { p->acc -= p->sps; player_step(p); }
+    p = &g_pl[PL_MENU];
+    if (p->on && (p->acc += 1.0) >= p->sps) { p->acc -= p->sps; player_step(p); }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1647,7 +2012,11 @@ void snd_start_program(int prog) {
     g_samples = 0; g_step_acc = 0; g_step = 0;
     g_mrng = 777u + (uint32_t)prog * 31u;
     g_hb_timer = 0; g_hold = 0; g_fx_gain = 1.0f; g_room = 0; g_room_k = g_muz_k = 0.0f; g_muffle = 0; g_muf_k = 0.0f;
-    g_boss_on = 0; g_boss_k = 0.0f; g_bhat = 0; g_bdrone[0] = g_bdrone[1] = NULL; g_vbus = BUS_MARCH;
+    g_boss_on = 0; g_boss_k = 0.0f; g_bhat = 0; g_bdrone[0] = g_bdrone[1] = NULL; g_vbus = BUS_RUN; g_vlayer = LY_BASE;
+    memset(g_pl, 0, sizeof g_pl);                     /* the pieces: none yet */
+    g_track = g_track_next = MU_NONE; g_run_k = 0.0f; g_shop_k = g_menu_k = g_fight_k = g_frail_k = 0.0f;
+    g_place = g_menu = g_menu_req = g_fight_req = g_frail = 0;
+    memset(g_flp, 0, sizeof g_flp); memset(g_mnlp, 0, sizeof g_mnlp);
     if (prog == SND_PROG_HAUNT) {
         g_sps = 0.25 * SND_RATE;                      /* 60 BPM sixteenths */
         g_rv_fb = 0.86f; g_rv_damp = 0.30f; g_rv_wet = 0.36f;
@@ -1668,6 +2037,28 @@ void snd_hold(int on) { LOCK(); g_hold = on != 0; UNLOCK(); }
 void snd_set_room(int room) { LOCK(); g_room = room; UNLOCK(); }
 void snd_set_muffle(int on) { LOCK(); g_muffle = on != 0; UNLOCK(); }
 void snd_set_trial(int on) { LOCK(); g_trial = on != 0; UNLOCK(); }
+
+void snd_set_track(int mu) {
+    LOCK();
+    if (mu >= MU_NONE && mu <= MU_DEEP) {
+        g_track_next = mu;
+        if (g_samples < 1.0 && mu != g_track) {                    /* nothing has played yet: no fade */
+            g_track = mu;
+            if (mu != MU_NONE) player_start(&g_pl[PL_RUN], mu, BUS_RUN); else g_pl[PL_RUN].on = 0;
+        }
+    }
+    UNLOCK();
+}
+void snd_set_place(int place) { LOCK(); g_place = place < 0 ? 0 : place > 2 ? 2 : place; UNLOCK(); }
+void snd_set_menu(int on) {
+    LOCK();
+    if (on && !g_menu_req) { g_menu_req = 1; g_menu_wait = on == 2 ? 0.5f : 0.15f; }
+    else if (!on) g_menu_req = g_menu = 0;
+    UNLOCK();
+}
+void snd_set_fight(int level) { LOCK(); g_fight_req = level < 0 ? 0 : level > 3 ? 3 : level; UNLOCK(); }
+void snd_set_frail(int on) { LOCK(); g_frail = on != 0; UNLOCK(); }
+void snd_set_mix(float music, float effects) { LOCK(); g_mix_music = clampf(music, 0.0f, 1.0f); g_mix_fx = clampf(effects, 0.0f, 1.0f); UNLOCK(); }
 
 void snd_set_boss(int theme, int wave) {
     LOCK();
@@ -1694,7 +2085,7 @@ void snd_boss_fall(void) {
         g_boss_on = 0; g_bfade = 1.0f / (4.0f * SR);
         g_vbus = BUS_SFX;
         for (int i = 0; i < 3; i++) sched_note_g((int)((2.4f + 1.8f * i) * SND_RATE), PAT_BELL, T->root + 24, 0.75f - 0.15f * i, 3 * SND_RATE);
-        g_vbus = BUS_MARCH;
+        g_vbus = BUS_RUN;
     }
     UNLOCK();
 }
@@ -1843,7 +2234,7 @@ void snd_sfx_ex(int id, float gain, float pan) {
         if (id == SFX_HEART) g = (0.6f + 0.5f * g_mood) * gain;
         sfx_start(id, d->dur, g, clampf(pan, 0.0f, 1.0f), d->rev);
     }
-    g_vbus = BUS_MARCH;
+    g_vbus = BUS_RUN;
     UNLOCK();
 }
 
@@ -1859,15 +2250,16 @@ static void render_locked(int16_t *out, int frames) {
         /* sequencer clock */
         if (g_prog != SND_PROG_NONE) {
             g_step_acc += 1.0;
-            double sps = g_trial && g_prog == SND_PROG_CRAWL ? g_sps * 0.78 : g_sps;
+            double sps = g_sps;
             if (g_step_acc >= sps) {
                 g_step_acc -= sps;
                 if (g_prog == SND_PROG_HAUNT) haunt_step(g_step);
                 else crawl_step(g_step);
                 g_step++;
             }
-            if (g_boss_on && (g_bacc += 1.0) >= g_bsps) { g_bacc -= g_bsps; boss_step(); }
-            if (g_bhat > 0 && --g_bhat == 0) { g_vbus = BUS_BOSS; sfx_start(X_HAT_C, 0.05f, 0.09f, 0.3f + 0.4f * rng_f(&g_mrng), 0.08f); g_vbus = BUS_MARCH; }
+            if (g_prog == SND_PROG_CRAWL) music_tick();
+            if (g_boss_on && !g_menu && (g_bacc += 1.0) >= g_bsps) { g_bacc -= g_bsps; boss_step(); }
+            if (g_bhat > 0 && --g_bhat == 0) { g_vbus = BUS_BOSS; sfx_start(X_HAT_C, 0.05f, 0.09f, 0.3f + 0.4f * rng_f(&g_mrng), 0.08f); g_vbus = BUS_RUN; }
             sched_run();
             g_samples += 1.0;
         }
@@ -1882,20 +2274,35 @@ static void render_locked(int16_t *out, int frames) {
         g_room_k = g_room ? fminf(1.0f, g_room_k + 1.0f / SR) : fmaxf(0.0f, g_room_k - 1.0f / SR);
         g_muz_k = g_room == 2 ? fminf(1.0f, g_muz_k + 1.0f / SR) : fmaxf(0.0f, g_muz_k - 1.0f / SR);
         g_boss_k = g_boss_on ? fminf(1.0f, g_boss_k + g_bfade) : fmaxf(0.0f, g_boss_k - g_bfade);
-        float bus[4];                                              /* the march, and its drums, fade in a pocket's room */
-        bus[BUS_MARCH] = (1.0f - g_room_k) * (1.0f - g_boss_k);    /* and under a boss's waltz; */
-        bus[BUS_MUZAK] = 0.6f * g_muz_k;                           /* Severance's muzak, kept well back under the hum; */
-        bus[BUS_BOSS] = g_boss_k;
-        bus[BUS_SFX] = g_fx_gain;                                  /* the fanfare and the stinger, with the game's sounds */
+        float *bus = g_busg;                                       /* the music's buses (music_tick); the march's alone if no piece */
+        if (g_prog != SND_PROG_CRAWL) {
+            for (int k = 0; k < NBUS; k++) { bus[k] = 0.0f; g_alive[k] = 0; }
+            bus[BUS_RUN] = bus[BUS_SFX] = 1.0f; g_alive[BUS_RUN] = g_alive[BUS_SFX] = 1;
+            g_layg[LY_BASE] = g_layg[LY_FIGHT] = g_layg[LY_COLOUR] = 1.0f;
+        }
+        float mL = 0.0f, mR = 0.0f, mrev = 0.0f, mdly = 0.0f;      /* the music, which the failing muffles and the Music slider scales */
         {
-            float bl[4] = { 0 }, br[4] = { 0 }, brev[4] = { 0 }, bdly[4] = { 0 };
+            float bl[NBUS] = { 0 }, br[NBUS] = { 0 }, brev[NBUS] = { 0 }, bdly[NBUS] = { 0 };
+            int fighting = g_pl[PL_RUN].on && g_pl[PL_RUN].fight;
             for (int i = 0; i < NV; i++) {
                 Voice *v = &g_v[i];
                 if (!v->active) continue;
-                if (bus[v->bus] <= 0.0f && v->bus != BUS_SFX) { v->active = 0; continue; }
-                voice_run(v, &bl[v->bus], &br[v->bus], &brev[v->bus], &bdly[v->bus]);
+                if (bus[v->bus] <= 0.0f && !g_alive[v->bus]) { v->active = 0; continue; }
+                if (v->layer == LY_FIGHT && g_fight_k <= 0.0f && !fighting) { v->active = 0; continue; }
+                float a = 0.0f, b = 0.0f, c = 0.0f, d = 0.0f, k = g_layg[v->layer];
+                voice_run(v, &a, &b, &c, &d);
+                bl[v->bus] += a * k; br[v->bus] += b * k; brev[v->bus] += c * k; bdly[v->bus] += d * k;
             }
-            for (int k = 0; k < 4; k++) { L += bl[k] * bus[k]; R += br[k] * bus[k]; rev += brev[k] * bus[k]; dly += bdly[k] * bus[k]; }
+            if (g_menu_k > 0.0f && g_menu_var == 1) {              /* run II's menu: the harp under water */
+                float x[4] = { bl[BUS_MENU], br[BUS_MENU], brev[BUS_MENU], bdly[BUS_MENU] };
+                for (int k = 0; k < 4; k++) g_mnlp[k] += 0.09f * (x[k] - g_mnlp[k]);
+                bl[BUS_MENU] = g_mnlp[0] * 1.3f; br[BUS_MENU] = g_mnlp[1] * 1.3f; brev[BUS_MENU] = g_mnlp[2] * 1.3f; bdly[BUS_MENU] = g_mnlp[3] * 1.3f;
+            }
+            for (int k = 0; k < NBUS; k++) {
+                float g = bus[k];
+                if (k == BUS_SFX) { g *= g_mix_fx; L += bl[k] * g; R += br[k] * g; rev += brev[k] * g; dly += bdly[k] * g; }
+                else { mL += bl[k] * g; mR += br[k] * g; mrev += brev[k] * g; mdly += bdly[k] * g; }
+            }
         }
 
         g_fx_gain = g_hold ? fmaxf(0.0f, g_fx_gain - 50.0f / SR) : fminf(1.0f, g_fx_gain + 50.0f / SR);
@@ -1903,16 +2310,27 @@ static void render_locked(int16_t *out, int frames) {
             Sfx *s = &g_s[i];
             int game = s->type < SFX_COUNT;
             if (game && g_fx_gain <= 0.0f) continue;               /* held where it is */
-            float x = sfx_sample(s) * (game ? g_fx_gain : bus[s->bus]);
-            float a = s->pan * (PI_F * 0.5f);
-            L += x * cosf(a) * 1.0f; R += x * sinf(a) * 1.0f;      /* cheap pan */
-            rev += x * (s->rev + (game ? 0.25f * g_room_k : 0.0f));
+            float x = sfx_sample(s), a = s->pan * (PI_F * 0.5f);
+            if (game || s->bus == BUS_SFX) {                       /* the game's sounds, the fanfare's drums */
+                x *= (game ? g_fx_gain : bus[s->bus]) * g_mix_fx;
+                L += x * cosf(a); R += x * sinf(a);                /* cheap pan */
+                rev += x * (s->rev + (game ? 0.25f * g_room_k : 0.0f));
+            } else {                                               /* a piece's drums */
+                x *= bus[s->bus] * g_layg[s->layer];
+                mL += x * cosf(a); mR += x * sinf(a); mrev += x * s->rev;
+            }
         }
+        if (g_frail_k > 0.002f) {                                  /* failing: the music as if through a wall, coming down to ~700 Hz */
+            float a = 1.0f - 0.9f * g_frail_k, x[4] = { mL, mR, mrev, mdly };
+            for (int k = 0; k < 4; k++) g_flp[k] += a * (x[k] - g_flp[k]);
+            mL = g_flp[0]; mR = g_flp[1]; mrev = g_flp[2]; mdly = g_flp[3];
+        } else { g_flp[0] = mL; g_flp[1] = mR; g_flp[2] = mrev; g_flp[3] = mdly; }
+        L += mL * g_mix_music; R += mR * g_mix_music; rev += mrev * g_mix_music; dly += mdly * g_mix_music;
         if (g_room_k > 0.0f && g_fx_gain > 0.0f) {                 /* the tubes' hum: the mains, and a buzz on top */
             g_hum_ph += 60.0f / SR; if (g_hum_ph >= 1.0f) g_hum_ph -= 1.0f;
             float p = g_hum_ph;
             float h = 0.55f * sin_cyc(p * 2.0f) + 0.25f * sin_cyc(p * 4.0f) + 0.12f * sin_cyc(p * 6.0f + 0.2f) + 0.06f * sin_cyc(p * 10.0f);
-            h *= 0.012f * g_room_k * g_fx_gain;
+            h *= 0.012f * g_room_k * g_fx_gain * g_mix_fx;
             L += h; R += h;
         }
 
@@ -1941,7 +2359,7 @@ static void render_locked(int16_t *out, int frames) {
             g_crk_env *= 0.9965f;
             float n = nz(&g_mrng), hp = n - g_crk_lp; g_crk_lp = n;
             g_crk_hiss += 0.02f * (nz(&g_mrng) - g_crk_hiss);
-            float c = (hp * g_crk_env * 0.30f + g_crk_hiss * 0.05f) * g_mood * g_fx_gain;
+            float c = (hp * g_crk_env * 0.30f + g_crk_hiss * 0.05f) * g_mood * g_fx_gain * g_mix_fx;
             L += c * 0.9f; R += c; rev += c * 0.1f;
         }
 

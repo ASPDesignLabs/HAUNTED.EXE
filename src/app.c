@@ -27,6 +27,7 @@ void app_default_config(AppConfig *c) {
     memset(c, 0, sizeof *c);
     c->sound = 1;
     c->volume = 60;
+    c->music = c->effects = 100;
     c->brightness = 85;
     c->scene_enabled[0] = c->scene_enabled[1] = 1;
     c->stay_seconds = 240;
@@ -65,6 +66,7 @@ void app_init(const AppConfig *cfg, int audio_driven_externally) {
     A.seed = 0xC0FFEEu ^ (uint32_t)(cfg->first_scene * 7919);
     snd_init();
     snd_set_volume(cfg->sound ? cfg->volume / 100.0f : 0.0f);
+    snd_set_mix(cfg->music / 100.0f, cfg->effects / 100.0f);
     int first = cfg->first_scene;
     if (first < 0 || first >= SCENE_COUNT || !cfg->scene_enabled[first])
         first = cfg->scene_enabled[0] ? 0 : 1;

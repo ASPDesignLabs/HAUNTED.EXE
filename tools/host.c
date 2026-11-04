@@ -2,6 +2,7 @@
  * frames to PNG so the saver can be checked without a Windows machine.
  *
  *   host wav   <haunt|crawl> <seconds> out.wav [sfx_id@time ...]
+ *   host music <piece> <seconds> out.wav [event@time ...]   (CATACOMB's pieces alone: see below)
  *   host shot  <haunt|crawl> <t1,t2,...> prefix [scale]   (PNG frames, 1x scale by default)
  *   host dump  <haunt|crawl> <seconds> prefix <every_n_s> (frames + audio together)
  *   host apl   <haunt|crawl> <seconds>                    (average picture level)
@@ -188,6 +189,8 @@ int main(int argc, char **argv) {
     cfg.start_fade = 0;
     if (getenv("BOTH")) cfg.scene_enabled[0] = cfg.scene_enabled[1] = 1;   /* exercise scene rotation */
     if (getenv("STAY")) cfg.stay_seconds = atoi(getenv("STAY"));
+    if (getenv("HOST_MUSIC")) cfg.music = atoi(getenv("HOST_MUSIC"));          /* the Music and Effects sliders, 0-100 */
+    if (getenv("HOST_EFFECTS")) cfg.effects = atoi(getenv("HOST_EFFECTS"));
 
     if (!strcmp(cmd, "wav") || !strcmp(cmd, "dump")) {
         double secs = atof(argv[3]);
@@ -227,6 +230,60 @@ int main(int argc, char **argv) {
         if (!strcmp(cmd, "wav")) write_wav(out, pcm, pos);
         else { char name[512]; snprintf(name, sizeof name, "%s.wav", out); write_wav(name, pcm, pos); }
         free(pcm); free(rgb);
+        return 0;
+    }
+    if (!strcmp(cmd, "music")) {
+        /* host music <piece> <seconds> out.wav [event@t ...]: a piece of CATACOMB's alone (docs/PLAN-music.md).
+         * Pieces: crypts, catacombs, hollows, deep, merchant, menu1-menu4. Events: fight0-fight3, frail,
+         * well, menu, back, trial, untrial, place0-place2, run1-run4 (the run's piece), as name@seconds. */
+        static const char *PN[] = { "none", "crypts", "catacombs", "hollows", "deep" };
+        const char *piece = argv[2];
+        double secs = atof(argv[3]);
+        snd_init();
+        snd_start_program(SND_PROG_CRAWL);
+        snd_set_volume(0.8f);
+        snd_fade_master(1.0f, 0.01f);
+        int mu = MU_CRYPTS;
+        for (int i = 0; i < 5; i++) if (!strcmp(piece, PN[i])) mu = i;
+        if (!strncmp(piece, "menu", 4) && piece[4] >= '1' && piece[4] <= '4') mu = MU_CRYPTS + piece[4] - '1';
+        snd_set_track(mu);
+        if (!strcmp(piece, "merchant")) snd_set_place(1);
+        if (!strncmp(piece, "menu", 4)) {                         /* the run's piece gives way first: that second isn't kept */
+            static int16_t pre[SND_RATE * 2];
+            snd_set_menu(1);
+            snd_render(pre, SND_RATE);
+        }
+        int nev = 0; char ev[64][16]; double at[64]; int done[64] = { 0 };
+        for (int i = 5; i < argc && nev < 64; i++) {
+            const char *m = strchr(argv[i], '@');
+            if (!m || m - argv[i] >= 16) continue;
+            memcpy(ev[nev], argv[i], (size_t)(m - argv[i])); ev[nev][m - argv[i]] = 0;
+            at[nev++] = atof(m + 1);
+        }
+        int total = (int)(secs * SND_RATE), per = SND_RATE / 70, pos = 0;
+        int16_t *pcm = malloc((size_t)total * 4);
+        while (pos + per <= total) {
+            double now = (double)pos / SND_RATE;
+            for (int i = 0; i < nev; i++) {
+                if (done[i] || now < at[i]) continue;
+                const char *e = ev[i];
+                done[i] = 1;
+                if (!strncmp(e, "fight", 5)) snd_set_fight(atoi(e + 5));
+                else if (!strcmp(e, "frail")) snd_set_frail(1);
+                else if (!strcmp(e, "well")) snd_set_frail(0);
+                else if (!strcmp(e, "menu")) snd_set_menu(1);
+                else if (!strcmp(e, "back")) snd_set_menu(0);
+                else if (!strcmp(e, "trial")) snd_set_trial(1);
+                else if (!strcmp(e, "untrial")) snd_set_trial(0);
+                else if (!strncmp(e, "place", 5)) snd_set_place(atoi(e + 5));
+                else if (!strncmp(e, "run", 3)) snd_set_track(MU_NONE + atoi(e + 3));
+                else fprintf(stderr, "music: no event %s\n", e);
+            }
+            snd_render(pcm + pos * 2, per);
+            pos += per;
+        }
+        write_wav(argv[4], pcm, pos);
+        free(pcm);
         return 0;
     }
     if (!strcmp(cmd, "bench")) {
