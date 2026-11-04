@@ -635,10 +635,13 @@ static const int8_t STONE_AT[10][2] = { { 20, 22 }, { 18, 22 }, { 16, 22 }, { 14
 #define MAXMK 12
 enum { MKK_PRICKET, MKK_RACK, MKK_COFFER, MKK_CAGE, MKK_URN, MKK_COIL, MKK_VINE, MKK_LANTERN, MKK_BARRICADE,
        /* step 6 (section 4.3, from level 5, and the runs' own, 4.6) */
-       MKK_CLIGHT, MKK_RSKULL, MKK_HSEAL, MKK_BELL, MKK_WINCH, MKK_HEARTH, MKK_VENT, MKK_WEB, MKK_CART, MKK_LODE, MKK_PRISM, MKK_GEODE, NMKK };
+       MKK_CLIGHT, MKK_RSKULL, MKK_HSEAL, MKK_BELL, MKK_WINCH, MKK_HEARTH, MKK_VENT, MKK_WEB, MKK_CART, MKK_LODE, MKK_PRISM, MKK_GEODE,
+       /* step 8: sequences (section 4.4, from level 13) and things for fights (4.5, from 5) */
+       MKK_TABLET, MKK_PLINTH, MKK_RELIQ, MKK_WSTONE, MKK_RELAY, MKK_CASK, MKK_PILLAR, MKK_PFONT, MKK_DRUM, MKK_WATER, MKK_ICEF, MKK_DAMP, NMKK };
 typedef struct {
     int kind, el, pips, got, done, deco, tried, said;   /* said: 1 named, 2 its want told, 4 first answered; done 2: lost */
     int st, grp, door, times;               /* st: its state (hot, rolling, up, iced); grp: 1 + a bell's first; door: a gate's */
+    int els[3];                             /* step 8: a tablet's order, a reliquary's faces; an ice floor's first decoration */
     float x, y, hit_t, wrong_t, done_t, t, hx, hy, vx, vy;   /* t: its clock; hx, hy where it keeps to; vx, vy the way it goes */
 } Marked;
 typedef struct { int s0, s1, el, pips, sx, sy, dx, dy; const char *name, *done; int tier, runs, own; } MkKind;
@@ -665,6 +668,19 @@ static const MkKind MKK[NMKK] = {                                   /* el -1: an
     { SP_MK_LODE0, SP_MK_LODE1, EL_LIGHT, 3, 32, 18, 32, 18, "A LODESTONE", "THE LODESTONE IS CHARGED", 2, 4, 4 },
     { SP_PZ_PRISM0 + 2, SP_PZ_PRISM0 + 2, EL_LIGHT, 3, 32, 16, 32, 16, "A PRISM", "THE PRISM BURNS", 2, 8, 8 },
     { SP_PZ_GEODE, SP_PZ_GEODE1, EL_PHYS, 2, 32, 24, 32, 24, "A GEODE", "THE GEODE CRACKS", 2, 8, 8 },
+    /* tier 3 the sequences, from level 13; tier 4 for fights, placed in rooms by place_fights; 9 never chosen alone */
+    { SP_MK_TABLET, SP_MK_TABLET, -1, 3, 32, 28, 32, 28, "A CARVED TABLET", "THE ORDER IS KEPT", 3, 15, 0 },
+    { SP_MK_PLINTH0, SP_MK_PLINTH1, -1, 1, 32, 16, 32, 16, "A PLINTH", "", 9, 15, 0 },
+    { SP_MK_RELIQ0, SP_MK_RELIQ2, -1, 3, 32, 32, 32, 32, "A TURNING RELIQUARY", "THE RELIQUARY OPENS", 3, 15, 0 },
+    { SP_MK_WSTONE0, SP_MK_WSTONE1, -1, 5, 32, 30, 32, 30, "A WARD-STONE", "THE WARD BREAKS: THE DOOR IS UP", 3, 15, 0 },
+    { SP_MK_RELAY0, SP_MK_RELAY1, EL_FIRE, 1, 32, 21, 32, 21, "A DEAD LAMP", "THE LAMPS BURN", 3, 15, 1 },
+    { SP_MK_CASK0, SP_MK_CASK1, EL_FIRE, 1, 32, 22, 32, 50, "LAMP OIL", "THE OIL BURNS", 4, 15, 0 },
+    { SP_MK_PILLAR0, SP_MK_PILLAR1, EL_PHYS, 2, 32, 24, 32, 46, "LOOSE MASONRY", "THE COLUMN COMES DOWN", 4, 15, 0 },
+    { SP_MK_PFONT0, SP_MK_PFONT1, EL_POISON, 1, 32, 14, 32, 14, "A DRY FONT", "THE FONT BRIMS WITH BILE", 4, 15, 0 },
+    { SP_MK_DRUM0, SP_MK_DRUM1, EL_SPIRIT, 1, 32, 34, 32, 34, "THE ORDER'S DRUM", "THE DRUM IS SILENCED", 4, 15, 1 },
+    { -1, -1, EL_LIGHT, 1, 32, 50, 32, 50, "STANDING WATER", "THE WATER CRACKLES", 4, 2, 2 },
+    { -1, -1, EL_FROST, 1, 32, 50, 32, 50, "A COLD FLOOR", "THE FLOOR RIMES OVER", 4, 15, 0 },
+    { -1, -1, EL_FIRE, 1, 32, 40, 32, 40, "FIREDAMP", "THE FIREDAMP GOES UP", 4, 4, 4 },
 };
 #define MK_FROM 5                           /* section 4.3's things from this level of a run */
 #define BELL_RING 6.5f                      /* a bell rings this long: all three at once to answer them (a spell comes round
@@ -4069,7 +4085,7 @@ static void wraith_back_for(Mob *m, float secs);
 static int mk_shot(Shot *s);
 static int mk_aimed(void);
 static void mk_strike(int k, int el);
-static void mk_burst(float x, float y, int el);
+static void mk_burst(float x, float y, int el, unsigned skip);
 /* ---- experience (docs/PLAN-b9.md, section 3): banked as it comes, claimed as Levels of Atonement with
  * the merchant. A kill pays its kind's worth by the level and its rank; in a pocket, the rank it would have
  * had on the level, and a quarter more for the first link and a tenth for each after, 1.6 at most. Secrets,
@@ -4693,6 +4709,7 @@ static float spell_effect(void) { return 1.0f + gear_total(&RUN.gear, ST_EFFECT)
 static int boss_hurt(Mob *m, float dmg);
 static int wraith_open(const Mob *m);
 static void ward_struck(Mob *m, int el, float dmg, int tick);
+static void mk_wet_hit(const Mob *o);
 static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float slow) {
     if (m->ally) return 0;                                         /* yours: your spells pass it by */
     if (G.latch == (int)(m - G.mobs) + 1) return 0;                /* nor what is latched on your face */
@@ -4747,6 +4764,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
     }
     if (atk >= 0 && atk < NATK) { dmg *= hit_mult(m, atk); m->last_atk = atk; if (!(flags & DM_TICK)) rec_hit(m, atk); }   /* what it is weak to, or shrugs off */
     if (atk >= 0 && atk < NATK && ATK_ELEM[atk] >= 0) ward_struck(m, ATK_ELEM[atk], dmg, flags & DM_TICK);   /* a ward: a dull ring, and it may crack */
+    if (atk >= 0 && atk < NATK && ATK_ELEM[atk] == EL_LIGHT && !(flags & DM_TICK)) mk_wet_hit(m);   /* standing in the water */
     if (m->frozen > 0.0f && RUN.gear.def[DF_NOVA] >= RUNE_EXQ) { dmg *= 2.0f; DBG_COUNT(exq_shatter); }   /* Exquisite runes: the frozen */
     static int shattering;                                         /* Shatter: the frozen struck by a spell break, and their shards cut */
     int shards = 0;
@@ -7903,7 +7921,7 @@ static void bfs9000(void) {
  * over four seconds */
 static void flask_burst(Shot *s) {
     s->alive = 0;
-    mk_burst(s->x, s->y, EL_POISON);
+    mk_burst(s->x, s->y, EL_POISON, s->mkhit);
     for (int i = 0; i < MAXBOOMS; i++)
         if (!G.booms[i].alive) { G.booms[i] = (Boom){ 1, s->x, s->y, 0.0f, 0.9f, 2 }; break; }
     sfx_at(SFX_SHATTER, s->x, s->y, 0.6f); sfx_at(SFX_SPLASH, s->x, s->y, 1.0f);
@@ -9695,7 +9713,8 @@ static int dream_looks(void) {                                     /* at a lane 
     }
     for (int k = 0; k < G.nmk && !G.silenced; k++) {               /* a thing that wants a spell it holds, close by the lane (1.0.0b16) */
         Marked *m = &G.mk[k];
-        if (m->done || m->tried >= 2 || (m->grp && m->grp != k + 1) || (m->kind == MKK_WINCH && m->times)) continue;   /* the bells as one */
+        if (m->done || m->tried >= 2 || (m->grp && m->grp != k + 1) || (m->kind == MKK_WINCH && m->times) || MKK[m->kind].tier == 4) continue;   /* the bells
+                                                                      as one; things for fights are a person's */
         if (m->kind == MKK_HSEAL && (RUN.gear.atk[LINE_ATK[EL_FIRE]] < 0 || RUN.gear.atk[LINE_ATK[EL_FROST]] < 0)) continue;
         float d = hypotf(m->x - G.px, m->y - G.py);
         if (d > 6.5f || d < 1.0f || !line_clear(G.px, G.py, m->x, m->y)) continue;
@@ -10332,12 +10351,16 @@ static void update_player(float dt) {
         G.ang = lerpf(G.ang0, G.ang1, smoothstepf(0.0f, 1.0f, fminf(1.0f, G.st / G.adur)));
         if (G.probe_mk > 0 && G.probe_mk <= G.nmk) {               /* or at a thing that wants a spell, till it is answered */
             Marked *m = &G.mk[G.probe_mk - 1], *a = m;
-            int need = m->kind == MKK_BELL ? 3 : m->kind == MKK_HSEAL ? 2 : m->pips - m->got;
-            if (m->grp)                                            /* the bells: the next not ringing */
-                for (int i = m->grp - 1; i < m->grp + 2 && i < G.nmk; i++) if (G.mk[i].grp == m->grp && !G.mk[i].got) { a = &G.mk[i]; break; }
-            int sp = LINE_ATK[a->el];
+            int need = m->kind == MKK_BELL || m->kind == MKK_TABLET ? 3 : m->kind == MKK_HSEAL ? 2 : m->kind == MKK_RELAY ? 4 : m->kind == MKK_RELIQ ? 6 : m->pips - m->got;
+            if (m->kind == MKK_TABLET) {                           /* the plinth next in the tablet's order */
+                for (int i = m->grp; i < G.nmk; i++) if (G.mk[i].grp == m->grp && G.mk[i].kind == MKK_PLINTH && !G.mk[i].got && m->st < 3 && G.mk[i].el == m->els[m->st]) { a = &G.mk[i]; break; }
+            } else if (m->grp)                                     /* the bells: the next not ringing; the relay: the first not lit */
+                for (int i = m->grp - 1; i < G.nmk; i++)
+                    if (G.mk[i].grp == m->grp && (m->kind == MKK_BELL ? !G.mk[i].got : G.mk[i].st != 1)) { a = &G.mk[i]; break; }
+            int sp = LINE_ATK[a->kind == MKK_COIL ? EL_LIGHT : a->kind == MKK_RELAY ? EL_FIRE : a->el];
+            int wait = m->kind == MKK_RELIQ && m->st == 1;          /* turning: wait for the face */
             int more = !m->done && G.probe_n < need + 2 && !in_combat() && !G.silenced && RUN.gear.atk[sp] >= 0;
-            if (more && G.st >= G.adur + 0.1f && G.cooldown <= 0.0f) {
+            if (more && !wait && G.st >= G.adur + 0.1f && G.cooldown <= 0.0f) {
                 G.ang = atan2f(a->y - G.py, a->x - G.px);          /* it may have moved */
                 G.spell = sp; G.hand = 1.0f; cast_spell(sp, -1);
                 G.probe_n++; G.cooldown = cast_cycle(sp); G.calm = 0.0f; G.probe_last = G.st;
@@ -10769,16 +10792,17 @@ static int mk_free(int x, int y, int lanes) {                      /* floor clea
     for (int d = 0; d < 4; d++) if (G.map[y + DY[d]][x + DX[d]].kind == K_DOOR) return 0;
     return 1;
 }
-static int mk_spot(int px, int py, int *ox, int *oy) {             /* beside the way: floor off the lanes, clear of what is there */
+static int mk_spot_sep(int px, int py, int *ox, int *oy, int sep) {   /* beside the way: floor off the lanes, clear of what is there */
     for (int r = 1; r <= 2; r++)
         for (int k = 0; k < 16; k++) {
             int x = px + (int)lroundf(cosf((float)k * 0.3927f) * (float)r), y = py + (int)lroundf(sinf((float)k * 0.3927f) * (float)r);
-            if (!mk_free(x, y, 0) || mk_at(x, y, 4)) continue;
+            if (!mk_free(x, y, 0) || mk_at(x, y, sep)) continue;
             *ox = x; *oy = y;
             return 1;
         }
     return 0;
 }
+static int mk_spot(int px, int py, int *ox, int *oy) { return mk_spot_sep(px, py, ox, oy, 4); }
 static Marked *mk_add(int kind, int el, int x, int y) {
     if (G.nmk >= MAXMK) return NULL;
     Marked *m = &G.mk[G.nmk++];
@@ -10786,11 +10810,12 @@ static Marked *mk_add(int kind, int el, int x, int y) {
     m->kind = kind; m->el = el; m->x = x + 0.5f; m->y = y + 0.5f; m->door = -1;
     m->hx = m->vx = m->x; m->hy = m->vy = m->y;
     m->pips = G.level <= 4 ? imin(MKK[kind].pips, 2) : MKK[kind].pips;   /* the first levels generous */
-    m->deco = G.ndecos;
-    if (kind == MKK_CLIGHT || kind == MKK_CART) add_deco_ex(m->x, m->y, MKK[kind].s0, 2, 0);
+    m->deco = MKK[kind].s0 < 0 ? -1 : G.ndecos;                   /* the water, the floor and the gas wear only the seal */
+    if (MKK[kind].s0 < 0) ;
+    else if (kind == MKK_CLIGHT || kind == MKK_CART) add_deco_ex(m->x, m->y, MKK[kind].s0, 2, 0);
     else if (kind == MKK_WEB) add_deco_ex(m->x, m->y, SP_WEBSHEET, 1, DF_SWAY);
     else add_deco(m->x, m->y, MKK[kind].s0);
-    if (kind == MKK_CART) G.decos[m->deco].nfr = 2;
+    if (kind == MKK_CART && m->deco >= 0) G.decos[m->deco].nfr = 2;
     if (kind == MKK_BARRICADE || kind == MKK_GEODE)                /* R3: Physical brings its own bones */
         for (int d = 0, n = 0; d < 4 && n < 2; d++) {
             int bx = x + DX[d], by = y + DY[d];
@@ -10902,7 +10927,13 @@ static int mk_cart(int i, int el) {                                /* run III: a
 static int mk_can(int k, int *el) {                                /* may kind k be set here, and in which line */
     const MkKind *K = &MKK[k];
     int run = clampi(crawl_set(G.level), 0, 3), step = crawl_step(G.level) + 1;
-    if (!(K->runs >> run & 1) || (K->tier == 2 && step < MK_FROM && G.level < 11)) return 0;
+    if (!(K->runs >> run & 1) || (K->tier == 2 && step < MK_FROM && G.level < 11) || K->tier >= 4) return 0;
+    int nheld = 0;
+    for (int e = 0; e < NELEM; e++) nheld += align_open(e);
+    if (K->tier == 3 && G.level < 13 && crawl_loop(G.level) == 0) return 0;   /* the sequences from level 13: three lines or more */
+    if ((k == MKK_TABLET || k == MKK_RELIQ) && (nheld < 3 || G.nmk + 4 > MAXMK)) return 0;
+    if (k == MKK_WSTONE && nheld < 2) return 0;
+    if (k == MKK_RELAY && G.nmk + 3 > MAXMK) return 0;
     if (k == MKK_HSEAL && !(align_open(EL_FIRE) && align_open(EL_FROST))) return 0;
     if (k == MKK_BELL && G.nmk + 3 > MAXMK) return 0;
     int e = K->el;
@@ -10923,10 +10954,12 @@ static int mk_pick(int first, int el_out[1]) {                     /* what to se
     if (first && own >= 0 && align_open(own)) { el_out[0] = own; return own == EL_FIRE && rnd(2) ? MKK_RACK : MK_OWN[own]; }
     int run = clampi(crawl_set(G.level), 0, 3), late = crawl_step(G.level) + 1 >= MK_FROM || G.level >= 11;
     int want_own = rnd(2), want_new = late && rnd(5) < 3;          /* the run's own half the time; section 4.3's three times in five */
+    int want_seq = (G.level >= 13 || crawl_loop(G.level) > 0) && rnd(4) == 0;   /* a sequence one time in four, from level 13 */
     for (int tries = 0; tries < 40; tries++) {
         int k = rnd(NMKK), e;
+        if (tries < 20 && want_seq && MKK[k].tier != 3) continue;
         if (tries < 24 && want_own && !(MKK[k].own >> run & 1)) continue;
-        if (tries < 32 && want_new && MKK[k].tier != 2) continue;
+        if (tries < 32 && want_new && !want_seq && MKK[k].tier != 2) continue;
         if (!mk_can(k, &e)) continue;
         int seen = 0;
         for (int i = 0; i < G.nmk; i++) seen += G.mk[i].kind == k;
@@ -10944,6 +10977,69 @@ static int mk_count(void) {                                        /* things set
     for (int i = 0; i < G.nmk; i++) n += !G.mk[i].grp || G.mk[i].grp == i + 1;
     return n;
 }
+static int mk_held(int out[NELEM]) {                               /* the lines held, shuffled */
+    int n = 0;
+    for (int e = 0; e < NELEM; e++) if (align_open(e)) out[n++] = e;
+    for (int i = 0; i < n; i++) { int j = i + rnd(n - i), t = out[i]; out[i] = out[j]; out[j] = t; }
+    return n;
+}
+static int mk_tablet(int i) {                                      /* the tablet, and three plinths on down the way, each its own line */
+    int held[NELEM], nh = mk_held(held), tx, ty, px[3], py[3];
+    if (nh < 3 || G.nmk + 4 > MAXMK || !mk_spot(mk_px[i], mk_py[i], &tx, &ty)) return 0;
+    for (int k = 0; k < 3; k++) {
+        int j = i + 3 + 3 * k, ok = 0;
+        for (int o = 0; o < 4 && !ok && j + o < mk_n; o++) {
+            int x, y;
+            if (!mk_spot_sep(mk_px[j + o], mk_py[j + o], &x, &y, 1) || (abs(x - tx) <= 1 && abs(y - ty) <= 1)) continue;
+            int clash = 0;
+            for (int q = 0; q < k; q++) clash |= abs(px[q] - x) <= 1 && abs(py[q] - y) <= 1;
+            if (clash) continue;
+            px[k] = x; py[k] = y; ok = 1;
+        }
+        if (!ok) return 0;
+    }
+    int lead = G.nmk;
+    Marked *t = mk_add(MKK_TABLET, held[0], tx, ty);
+    if (!t) return 0;
+    t->grp = lead + 1; t->pips = 3;
+    int ord[3] = { 0, 1, 2 };
+    for (int a = 0; a < 3; a++) { int b = a + rnd(3 - a), q = ord[a]; ord[a] = ord[b]; ord[b] = q; }
+    for (int k = 0; k < 3; k++) {                                  /* the plinths down the hall hold the lines; the tablet their order */
+        Marked *p = mk_add(MKK_PLINTH, held[k], px[k], py[k]);
+        if (p) p->grp = lead + 1;
+        t->els[ord[k]] = held[k];
+    }
+    t->el = t->els[0];
+    return 1;
+}
+static int mk_relay(int i) {                                       /* three lamps on down the way; fire passes from one to the next */
+    int held[NELEM], nh = mk_held(held), px[3], py[3], light = align_open(EL_LIGHT);
+    (void)held; (void)nh;
+    if (G.nmk + 3 > MAXMK) return 0;
+    for (int k = 0; k < 3; k++) {
+        int j = i + 3 * k, ok = 0;
+        for (int o = 0; o < 3 && !ok && j + o < mk_n; o++) {
+            int x, y;
+            if (!mk_spot_sep(mk_px[j + o], mk_py[j + o], &x, &y, 1)) continue;
+            int clash = 0;
+            for (int q = 0; q < k; q++) clash |= abs(px[q] - x) <= 1 && abs(py[q] - y) <= 1;
+            if (clash) continue;
+            px[k] = x; py[k] = y; ok = 1;
+        }
+        if (!ok) return 0;
+    }
+    int lead = G.nmk, mid = rnd(2) ? 1 : 0;                        /* the middle one frozen, or a dead coil if lightning is held */
+    for (int k = 0; k < 3; k++) {
+        Marked *m;
+        if (k == 1 && mid && light && rnd(2)) { m = mk_add(MKK_COIL, EL_LIGHT, px[k], py[k]); if (m) m->pips = 1; }
+        else {
+            m = mk_add(MKK_RELAY, EL_FIRE, px[k], py[k]);
+            if (m && k == 1 && mid) { m->st = 2; mk_deco(m, SP_MK_RELAY2, 1); }   /* frozen: thawed, then lit */
+        }
+        if (m) m->grp = lead + 1;
+    }
+    return 1;
+}
 static int mk_place(int i, int first) {                            /* a thing near step i of the way */
     for (int tries = 0; tries < 5; tries++) {
         int el, x, y, k = mk_pick(first && tries == 0, &el);
@@ -10951,8 +11047,15 @@ static int mk_place(int i, int first) {                            /* a thing ne
         switch (k) {
         case MKK_BELL: if (mk_bells(i, el)) return 1; break;
         case MKK_CART: if (mk_cart(i, el)) return 1; break;
-        case MKK_WINCH: case MKK_HEARTH: if (mk_gated(k, el)) return 1; break;
-        default: if (!mk_spot(mk_px[i], mk_py[i], &x, &y)) return 0; mk_add(k, el, x, y); return 1;
+        case MKK_WINCH: case MKK_HEARTH: case MKK_WSTONE: if (mk_gated(k, el)) return 1; break;
+        case MKK_TABLET: if (mk_tablet(i)) return 1; break;
+        case MKK_RELAY: if (mk_relay(i)) return 1; break;
+        default: {
+            if (!mk_spot(mk_px[i], mk_py[i], &x, &y)) return 0;
+            Marked *m = mk_add(k, el, x, y);
+            if (m && k == MKK_RELIQ) { int held[NELEM]; mk_held(held); for (int q = 0; q < 3; q++) m->els[q] = held[q]; m->el = m->els[0]; m->t = 3.5f; }
+            return 1;
+        }
         }
     }
     return 0;
@@ -11004,6 +11107,50 @@ static void place_marked(void) {
     fprintf(stderr, "\n");
 #endif
 }
+/* things for fights (section 4.5): one or two a level from 5, in rooms (where the fights are), only in a line held */
+static int mk_room_spot(int *ox, int *oy, int water) {
+    for (int tries = 0; tries < 200; tries++) {
+        if (!G.nrooms) return 0;
+        const Room *R = &G.rooms[rnd(G.nrooms)];
+        if (vault_of_room(R->x + R->w / 2, R->y + R->h / 2) >= 0 || in_room(R, G.cx, G.cy) || in_room(R, G.exit_fx, G.exit_fy)) continue;
+        int x = R->x + 1 + rnd(imax(1, R->w - 2)), y = R->y + 1 + rnd(imax(1, R->h - 2));
+        if (water ? !(on_water(x, y) && G.map[y][x].kind == K_FLOOR && !mk_at(x, y, 4)) : (!mk_free(x, y, 0) || mk_at(x, y, 4))) continue;
+        if (in_wing(x, y) || in_trial(x, y) || abs(x - G.cx) + abs(y - G.cy) < 8) continue;
+        *ox = x; *oy = y;
+        return 1;
+    }
+    return 0;
+}
+static void place_fights(void) {
+    if (!mk_level_ok() || (G.level < 5 && crawl_loop(G.level) == 0)) return;
+    int want = 1 + (G.level >= 13 || crawl_loop(G.level) > 0), run = clampi(crawl_set(G.level), 0, 3), placed = 0;
+    for (int tries = 0; tries < 30 && placed < want && G.nmk < MAXMK; tries++) {
+        int k = MKK_CASK + rnd(MKK_DAMP - MKK_CASK + 1), x, y;
+#ifdef CRAWL_DEBUG
+        if (getenv("CRAWL_FIGHTK")) k = clampi(atoi(getenv("CRAWL_FIGHTK")), MKK_CASK, MKK_DAMP);   /* that kind, where it can be */
+#endif
+        int el = MKK[k].el;
+        if (!(MKK[k].runs >> run & 1) || !align_open(el)) continue;
+        int dup = 0;
+        for (int i = 0; i < G.nmk; i++) dup |= G.mk[i].kind == k;
+        if (dup) continue;
+        if (k == MKK_DAMP) {                                       /* on a stope's firedamp, where it hangs */
+            int s0 = -1;
+            for (int i = 0; i < G.nsite && s0 < 0; i++) if (G.site[i].kind == HZ_DAMP) s0 = i;
+            if (s0 < 0) continue;
+            x = G.site[s0].x; y = G.site[s0].y;
+        } else if (!mk_room_spot(&x, &y, k == MKK_WATER)) continue;
+        Marked *m = mk_add(k, el, x, y);
+        if (m) placed++;
+    }
+#ifdef CRAWL_DEBUG
+    if (placed) {
+        fprintf(stderr, "FIGHTS level %d:", G.level);
+        for (int i = 0; i < G.nmk; i++) if (MKK[G.mk[i].kind].tier == 4) fprintf(stderr, " %s at (%d,%d)", MKK[G.mk[i].kind].name, (int)G.mk[i].x, (int)G.mk[i].y);
+        fprintf(stderr, "\n");
+    }
+#endif
+}
 static int shot_elem(const Shot *s) {
     if (s->kind < NATK) return ATK_ELEM[s->kind];
     return s->kind == SHOT_ORB ? EL_LIGHT : s->kind == SHOT_LANCE ? EL_FROST : (s->kind == SHOT_BALLISTA || s->kind == SHOT_SPLINTER) ? EL_PHYS : -1;
@@ -11014,7 +11161,11 @@ static Item *mk_item(Marked *m, int type) {                        /* a find, ou
     return it;
 }
 static void mk_reward(Marked *m) {
+    if (m->grp && m->grp != (int)(m - G.mk) + 1 && m->kind != MKK_BELL) return;   /* a group's gift is its first's */
+    if (MKK[m->kind].tier == 4) return;                            /* things for fights give the fight */
     switch (m->kind) {
+    case MKK_TABLET: case MKK_RELIQ: mk_item(m, IT_CHALICE); mk_item(m, IT_GEMS); break;
+    case MKK_WSTONE: case MKK_RELAY: mk_item(m, rnd(2) ? IT_COINS : IT_GEMS); break;
     case MKK_COFFER: mk_item(m, rnd(3) ? IT_COINS : IT_CHALICE); if (rnd(3) == 0) mk_item(m, IT_POTION); break;
     case MKK_CAGE: mk_item(m, rnd(2) ? IT_COINS : IT_GEMS); break;
     case MKK_URN: mk_item(m, IT_POTION); break;
@@ -11037,6 +11188,62 @@ static void mk_coin_check(void) {
     for (int i = 0; i < G.nmk; i++) all &= mk_answered(&G.mk[i]);
     if (all && mk_count() >= 3 && hash2(G.level, 4441) % 5 == 0) gain_coin(MK_COIN, "EVERY SEAL HERE ANSWERED");   /* Q11 */
 }
+static void add_burn(float x, float y, int foe);
+static void mk_water_shock(Marked *w);
+static void mk_fight(int k) {                                      /* section 4.5: the fight made different */
+    Marked *m = &G.mk[k];
+    switch (m->kind) {
+    case MKK_CASK:                                                 /* the oil runs out burning: eight seconds of floor */
+        for (int q = 0; q < 9; q++) {
+            float a = q * 0.698f, r = q ? 1.1f : 0.0f;
+            int x = (int)(m->x + cosf(a) * r), y = (int)(m->y + sinf(a) * r);
+            if (G.map[y][x].kind == K_FLOOR) add_burn(x + 0.5f, y + 0.5f, 0);
+        }
+        explode(m->x, m->y); sfx_at(SFX_IGNITE, m->x, m->y, 1.3f);
+        break;
+    case MKK_PILLAR:                                               /* down on whatever stands by it */
+        for (int j = 0; j < MAXMOBS; j++) {
+            Mob *o = &G.mobs[j];
+            if (!o->alive || o->state != MS_WALK || o->boss || o->ally || KIND_IS(o, KF_SPIRIT) || buried(o) || hypotf(o->x - m->x, o->y - m->y) > 1.8f) continue;
+            o->stagger = fmaxf(o->stagger, 1.2f);
+            damage_mob(o, 0.5f * o->maxhp, DM_ARC, m->x, m->y, 0.0f);
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT mk_crush %s t=%.2f\n", KINDS[o->type].name, G.t);
+#endif
+        }
+        add_deco(m->x + 0.6f, m->y + 0.3f, SP_RUBBLE);
+        sfx_at(SFX_RUMBLE, m->x, m->y, 1.4f); sfx_at(SFX_BONES, m->x, m->y, 1.0f);
+        break;
+    case MKK_PFONT: m->t = 30.0f; sfx_at(SFX_HISS, m->x, m->y, 0.9f); break;   /* brimming, half a minute */
+    case MKK_DRUM:                                                 /* the file loses its order */
+        for (int p = 0; p < G.npacks; p++) {
+            Pack *pk = &G.packs[p];
+            if (pk->kind != PACK_FILE || pk->broken) continue;
+            int near = 0;
+            for (int j = 0; j < MAXMOBS && !near; j++) near = G.mobs[j].alive && G.mobs[j].pack == p + 1 && hypotf(G.mobs[j].x - m->x, G.mobs[j].y - m->y) < 16.0f;
+            if (!near) continue;
+            pack_break(pk);
+            for (int j = 0; j < MAXMOBS; j++) if (G.mobs[j].alive && G.mobs[j].pack == p + 1) G.mobs[j].stagger = fmaxf(G.mobs[j].stagger, 1.5f);
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT mk_drum file broken t=%.2f\n", G.t);
+#endif
+        }
+        sfx_at(SFX_GROAN, m->x, m->y, 1.0f);
+        break;
+    case MKK_WATER: mk_water_shock(m); break;
+    case MKK_ICEF: {                                               /* the floor about it rimed, twenty seconds */
+        m->els[0] = G.ndecos; m->els[1] = 0; m->t = 20.0f;
+        for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) {
+            int x = (int)m->x + dx, y = (int)m->y + dy;
+            if (G.map[y][x].kind != K_FLOOR || G.ndecos >= MAXDECO) continue;
+            add_deco_ex(x + 0.5f, y + 0.5f, SP_MK_ICE, 1, 0); m->els[1]++;
+        }
+        sfx_at(SFX_FROST, m->x, m->y, 1.2f);
+        break;
+    }
+    default: break;
+    }
+}
 static void mk_finish(int k) {
     Marked *m = &G.mk[k];
     int first = !m->times;
@@ -11047,8 +11254,10 @@ static void mk_finish(int k) {
     case MKK_CART: mk_deco(m, SP_MK_CART0, 1); break;
     case MKK_HEARTH: if (m->door >= 0) { Door *d = &G.doors[m->door]; d->locked = 0; d->opening = 1; sfx_at(SFX_RUMBLE, d->x + 0.5f, d->y + 0.5f, 1.0f); } mk_deco(m, MKK[m->kind].s1, 1); break;
     case MKK_VENT: m->t = 0.0f; mk_deco(m, MKK[m->kind].s1, 1); break;
+    case MKK_WSTONE: if (m->door >= 0) { Door *d = &G.doors[m->door]; d->locked = 0; d->opening = 1; sfx_at(SFX_RUMBLE, d->x + 0.5f, d->y + 0.5f, 1.0f); } mk_deco(m, MKK[m->kind].s1, 1); break;
     default: mk_deco(m, MKK[m->kind].s1, 1); break;
     }
+    mk_fight(k);                                                   /* what a thing for fights does */
     if (first) {
         mk_reward(m);
         xp_gain((4.0f + 2.0f * (float)m->pips) * xp_level(), mk_name(m));
@@ -11076,9 +11285,71 @@ static void mk_gate_up(int k) {                                    /* the winch:
     fprintf(stderr, "EVENT mk_gate up %s by %s t=%.2f\n", mk_name(m), G.player ? "player" : "autopilot", G.t);
 #endif
 }
+static void mk_wrong(Marked *m, int el, const char *why) {          /* the dull ring, the sparks thrown back */
+    m->wrong_t = 0.7f; m->hit_t = 0.0f;
+    sfx_at(SFX_KNOCK, m->x, m->y, 0.8f);
+    if (G.player && !(m->said & 2)) { m->said |= 2; if (why) say("%s", why); else say("IT WANTS %s", ELEM_NAME[m->el]); }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT mk_wrong %s wants %s got %s t=%.2f\n", MKK[m->kind].name, ELEM_NAME[m->el], el >= 0 ? ELEM_NAME[el] : "none", G.t);
+#endif
+}
+static void mk_finish(int k);
+static void relay_check(int lead) {                                /* every lamp of the relay lit: done */
+    for (int i = lead; i < G.nmk; i++) if (G.mk[i].grp == lead + 1 && G.mk[i].st != 1) return;
+    for (int i = lead; i < G.nmk; i++) if (G.mk[i].grp == lead + 1) mk_finish(i);
+}
 static void mk_strike(int k, int el) {
     Marked *m = &G.mk[k];
-    if (m->done) return;
+    if (m->done || m->kind == MKK_TABLET) return;
+    if (m->kind == MKK_PLINTH) {                                   /* the tablet's order */
+        if (el != m->el) { mk_wrong(m, el, NULL); return; }
+        Marked *t = &G.mk[m->grp - 1];
+        if (!m->got && t->st < 3 && t->els[t->st] == m->el) {
+            m->got = 1; m->hit_t = 0.5f; t->st++; t->got = t->st; t->hit_t = 0.5f;
+            mk_deco(m, MKK[m->kind].s1, 1); sfx_at(SFX_RUNE, m->x, m->y, 1.0f);
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT mk_hit TABLET %d/3 t=%.2f\n", t->st, G.t);
+#endif
+            if (t->st >= 3) for (int i = m->grp - 1; i < G.nmk; i++) if (G.mk[i].grp == m->grp) mk_finish(i);
+            return;
+        }
+        for (int i = m->grp - 1; i < G.nmk; i++)                   /* out of turn: all of it again */
+            if (G.mk[i].grp == m->grp) { G.mk[i].got = 0; if (G.mk[i].kind == MKK_PLINTH) mk_deco(&G.mk[i], MKK[MKK_PLINTH].s0, 1); }
+        t->st = 0; t->got = 0;
+        sfx_at(SFX_GROAN, m->x, m->y, 1.0f);
+        mk_wrong(m, el, "OUT OF TURN: THE STONE GROANS");
+        return;
+    }
+    if (m->kind == MKK_RELIQ) {                                    /* the face towards you, three right running */
+        if (m->st == 1) return;                                    /* turning: it glances off */
+        if (el != m->el) { m->got = 0; mk_wrong(m, el, NULL); return; }
+        m->got++; m->hit_t = 0.5f; sfx_at(SFX_RUNE, m->x, m->y, 0.9f);
+        if (m->got >= m->pips) mk_finish(k);
+        return;
+    }
+    if (m->kind == MKK_WSTONE) {                                   /* a new glyph after each right hit */
+        if (el != m->el) { mk_wrong(m, el, NULL); return; }
+        m->got++; m->hit_t = 0.5f; sfx_at(SFX_RUNE, m->x, m->y, 0.9f);
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT mk_hit %s %d/%d t=%.2f\n", MKK[m->kind].name, m->got, m->pips, G.t);
+#endif
+        if (m->got >= m->pips) { mk_finish(k); return; }
+        int held[NELEM], nh = mk_held(held);
+        for (int i = 0; i < nh; i++) if (held[i] != m->el) { m->el = held[i]; break; }
+        return;
+    }
+    if (m->grp && (m->kind == MKK_RELAY || m->kind == MKK_COIL)) {   /* the relay's lamps and its coil */
+        int want = m->kind == MKK_COIL ? EL_LIGHT : EL_FIRE;
+        if (el != want) { mk_wrong(m, el, NULL); return; }
+        m->hit_t = 0.5f;
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT mk_hit RELAY %s st %d t=%.2f\n", MKK[m->kind].name, m->st, G.t);
+#endif
+        if (m->st == 2) { m->st = 0; mk_deco(m, SP_MK_RELAY0, 1); sfx_at(SFX_HISS, m->x, m->y, 0.8f); return; }   /* thawed */
+        if (m->st == 0) { m->st = 1; m->got = 1; mk_deco(m, MKK[m->kind].s1, 1); sfx_at(m->kind == MKK_COIL ? SFX_ZAP : SFX_IGNITE, m->x, m->y, 0.9f); }
+        relay_check(m->grp - 1);
+        return;
+    }
     if (m->kind == MKK_HSEAL && el == EL_FIRE) {                   /* heated: frost now, while it glows */
         if (!m->st) { m->st = 1; m->el = EL_FROST; mk_deco(m, SP_MK_HSEAL1, 1); sfx_at(SFX_IGNITE, m->x, m->y, 0.9f); }
         m->t = HSEAL_HOT; m->hit_t = 0.5f; m->wrong_t = 0.0f;
@@ -11129,7 +11400,7 @@ static int mk_aimed(void) {                                        /* the thing 
     int best = -1; float bd = 13.0f;
     for (int i = 0; i < G.nmk; i++) {
         const Marked *m = &G.mk[i];
-        if (m->done || (m->kind == MKK_BELL && m->got)) continue;
+        if (m->done || m->kind == MKK_TABLET || (m->kind == MKK_BELL && m->got)) continue;
         float d = hypotf(m->x - G.px, m->y - G.py);
         if (d >= bd || fabsf(wrap_pi(atan2f(m->y - G.py, m->x - G.px) - G.ang)) > atanf(0.45f / fmaxf(d, 0.3f)) + 0.06f) continue;
         if (!line_clear(G.px, G.py, m->x, m->y)) continue;
@@ -11138,19 +11409,52 @@ static int mk_aimed(void) {                                        /* the thing 
     return best;
 }
 static int mk_shot(Shot *s) {                                      /* a missile meeting a thing: it stops there, unless it pierces */
-    if (s->tier < 0 || s->kind == AT_FLASK || s->kind == SHOT_REFLECT || s->kind == SHOT_WEB) return 0;
+    if (s->tier < 0 || s->kind == SHOT_REFLECT || s->kind == SHOT_WEB) return 0;
+    if (s->kind == AT_FLASK) {                                     /* the flask goes over: what wants poison takes it as it passes */
+        for (int i = 0; i < G.nmk; i++) {
+            Marked *m = &G.mk[i];
+            if (m->done || m->el != EL_POISON || (s->mkhit >> i & 1) || hypotf(m->x - s->x, m->y - s->y) > 0.6f) continue;
+            s->mkhit |= (uint16_t)(1u << i);
+            mk_strike(i, EL_POISON);
+        }
+        return 0;
+    }
     int pierce = s->kind == AT_SPEAR || s->kind == SHOT_LANCE || s->kind == SHOT_BALLISTA;
     for (int i = 0; i < G.nmk; i++) {
         Marked *m = &G.mk[i];
-        if (m->done || (s->mkhit >> i & 1) || (m->kind == MKK_BELL && m->got) || hypotf(m->x - s->x, m->y - s->y) > 0.42f) continue;   /* a bell swinging: it goes under */
+        if (m->done || m->kind == MKK_TABLET || (s->mkhit >> i & 1) || (m->kind == MKK_BELL && m->got) || hypotf(m->x - s->x, m->y - s->y) > 0.42f) continue;   /* a bell swinging: it goes under */
         s->mkhit |= (uint16_t)(1u << i);
         mk_strike(i, shot_elem(s));
         if (!pierce) return 1;
     }
     return 0;
 }
-static void mk_burst(float x, float y, int el) {                   /* a flask's burst reaches what is within a cell of it */
-    for (int i = 0; i < G.nmk; i++) if (!G.mk[i].done && hypotf(G.mk[i].x - x, G.mk[i].y - y) < 1.1f) mk_strike(i, el);
+static void mk_water_shock(Marked *w) {                            /* lightning in the standing water: all that stands wet, stunned */
+    static int busy;
+    if (busy) return;
+    busy = 1;
+    int n = 0;
+    for (int j = 0; j < MAXMOBS; j++) {
+        Mob *o = &G.mobs[j];
+        if (!o->alive || o->state != MS_WALK || o->ally || o->boss || KIND_IS(o, KF_SPIRIT) || buried(o) || o->type == MOB_BAT || o->type == MOB_GARGOYLE) continue;
+        if (!on_water((int)o->x, (int)o->y) || hypotf(o->x - w->x, o->y - w->y) > 8.0f) continue;
+        o->stagger = fmaxf(o->stagger, 1.0f); o->slowed = fmaxf(o->slowed, 1.5f);
+        damage_mob(o, 0.12f * o->maxhp, DM_ARC | DM_ATK(AT_CHAIN), w->x, w->y, 0.0f);
+        n++;
+    }
+    sfx_at(SFX_ZAP, w->x, w->y, 1.3f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT mk_water_shock %d t=%.2f\n", n, G.t);
+#endif
+    busy = 0;
+}
+static void mk_wet_hit(const Mob *o) {                            /* lightning on a creature standing in the water: the water takes it */
+    if (!on_water((int)o->x, (int)o->y)) return;
+    for (int i = 0; i < G.nmk; i++)
+        if (G.mk[i].kind == MKK_WATER && !G.mk[i].done && hypotf(G.mk[i].x - o->x, G.mk[i].y - o->y) < 8.0f) { mk_strike(i, EL_LIGHT); return; }
+}
+static void mk_burst(float x, float y, int el, unsigned skip) {   /* a flask's burst reaches what is within a cell of it */
+    for (int i = 0; i < G.nmk; i++) if (!G.mk[i].done && !(skip >> i & 1) && hypotf(G.mk[i].x - x, G.mk[i].y - y) < 1.1f) mk_strike(i, el);
 }
 static int mk_door_busy(const Door *d) {
     if ((int)G.px == d->x && (int)G.py == d->y) return 1;
@@ -11181,11 +11485,36 @@ static void mk_tick(float dt) {
                 m->done = 0; m->got = 0; m->t = 0.0f; mk_deco(m, MKK[m->kind].s0, 1);
                 sfx_at(SFX_HISS, m->x, m->y, 0.7f);
             }
+            if (m->kind == MKK_PFONT && m->t > 0.0f) {             /* the font brimming: what comes near it sickens */
+                float was = m->t; m->t -= dt;
+                if ((int)was != (int)m->t)
+                    for (int j = 0; j < MAXMOBS; j++) {
+                        Mob *o = &G.mobs[j];
+                        if (o->alive && o->state == MS_WALK && !o->ally && !KIND_IS(o, KF_SPIRIT) && !buried(o) && hypotf(o->x - m->x, o->y - m->y) < 1.7f) mob_poison(o, 0.05f * o->maxhp, 3.0f);
+                    }
+                if (m->t <= 0.0f) mk_deco(m, MKK[m->kind].s0, 1);   /* it drains away */
+            }
+            if (m->kind == MKK_ICEF && m->t > 0.0f) {              /* the rime: what crosses it slides and slows */
+                m->t -= dt;
+                for (int j = 0; j < MAXMOBS; j++) {
+                    Mob *o = &G.mobs[j];
+                    if (o->alive && o->state == MS_WALK && !o->ally && fabsf(o->x - m->x) < 1.5f && fabsf(o->y - m->y) < 1.5f) o->slowed = fmaxf(o->slowed, 0.6f);
+                }
+                if (m->t <= 0.0f) {                                /* thawed: it may be rimed again */
+                    for (int q = 0; q < m->els[1]; q++) if (m->els[0] + q < G.ndecos) G.decos[m->els[0] + q].spr = -1;
+                    m->done = 0; m->got = 0;
+                }
+            }
+            if ((m->kind == MKK_WATER && m->done_t >= 6.0f) || (m->kind == MKK_DAMP && m->done_t >= 20.0f)) { m->done = 0; m->got = 0; }   /* again */
             continue;
         }
         if (G.player && !(m->said & 1) && pd < 3.5f && line_clear(G.px, G.py, m->x, m->y) && (!m->grp || m->grp == i + 1)) {
             m->said |= 1;                                          /* a person's first look at it */
             if (m->kind == MKK_HSEAL) say("%s: FIRE, THEN FROST", mk_name(m));
+            else if (m->kind == MKK_TABLET) say("A CARVED TABLET: STRIKE THE PLINTHS IN ITS ORDER");
+            else if (m->kind == MKK_RELIQ) say("A TURNING RELIQUARY: THE FACE TOWARDS YOU, THREE RIGHT");
+            else if (m->kind == MKK_WSTONE) say("A WARD-STONE: ITS GLYPH CHANGES AS IT IS STRUCK");
+            else if (m->kind == MKK_RELAY) say("DEAD LAMPS: FIRE PASSES DOWN THEM");
             else if (m->kind == MKK_BELL) say("THREE BELLS: ALL THREE AT ONCE, WITH %s", ELEM_NAME[m->el]);
             else say("%s: IT WANTS %s", mk_name(m), ELEM_NAME[m->el]);
         }
@@ -11261,6 +11590,24 @@ static void mk_tick(float dt) {
             if (m->t >= VENT_ON && !m->st && !G.dead && pd < 1.15f) { m->st = 1; hz_strike_el(HZ_FISSURE, EL_FIRE, 0.06f, m->x, m->y); }
             break;
         }
+        case MKK_RELIQ:                                            /* it turns: a face, then the next */
+            if ((m->t -= dt) <= 0.0f) {
+                if (m->st == 0) { m->st = 1; m->t = 0.7f; mk_deco(m, SP_MK_RELIQ1, 1); }
+                else { m->st = 0; m->t = 3.5f; m->hx += 1.0f; m->el = m->els[(int)m->hx % 3]; mk_deco(m, SP_MK_RELIQ0, 1); sfx_at(SFX_PUSHWALL, m->x, m->y, 0.3f); }
+            }
+            break;
+        case MKK_RELAY: case MKK_COIL:                             /* lit, it passes the flame to the next */
+            if (!m->grp || m->st != 1) break;
+            for (int q = i + 1; q < G.nmk; q++) {
+                Marked *n2 = &G.mk[q];
+                if (n2->grp != m->grp) continue;
+                if (n2->kind == MKK_RELAY && n2->st == 0 && !n2->done && (n2->t += dt) >= 0.8f) {
+                    n2->st = 1; n2->got = 1; n2->t = 0.0f; mk_deco(n2, MKK[MKK_RELAY].s1, 1); sfx_at(SFX_IGNITE, n2->x, n2->y, 0.8f);
+                    relay_check(m->grp - 1);
+                }
+                break;                                             /* only the next in line */
+            }
+            break;
         case MKK_CART:                                             /* to and fro on its rails */
             m->t += (m->st ? -0.9f : 0.9f) * dt;
             if (m->t >= 4.0f) { m->t = 4.0f; m->st = 1; } else if (m->t <= 0.0f) { m->t = 0.0f; m->st = 0; }
@@ -11337,6 +11684,7 @@ static void start_level(void) {
     tri_place(); snd_set_trial(0);                                 /* the trial's door, its lights */
     place_rests();                                                 /* the places to mend (1.0.0b15) */
     place_marked();                                                /* things that want a spell (1.0.0b16) */
+    place_fights();                                                /* and things for fights (step 8) */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_THINGS")) things_test();
 #endif
@@ -27679,12 +28027,16 @@ static void render_marks(Frame *f, float dx, float dy, float horizon) {
         const MkKind *K = &MKK[m->kind];
         float sx, sy, dep;
         if (!project(m->x, m->y, mk_z(m), dx, dy, horizon, &sx, &sy, &dep)) continue;
-        float tex = FOCAL / dep / 64.0f, k = clampf(tex, 0.55f, 2.4f);
-        sx += (float)((m->done ? K->dx : K->sx) - 32) * tex;
+        float tex = FOCAL / dep / 64.0f, k = clampf(tex, 0.55f, 2.4f), sx0 = sx;
+        if (m->kind == MKK_RELIQ && m->st == 1 && !m->done) continue;   /* turning: no face to strike */
+        int nseal = m->kind == MKK_TABLET ? 3 : 1;                 /* the tablet shows its order, a glyph a socket */
+        for (int q = 0; q < nseal; q++) {
+        sx = sx0 + (float)((m->done ? K->dx : K->sx) - 32 + (nseal > 1 ? (q - 1) * 12 : 0)) * tex;
         int state = m->done ? MK_DONE : m->hit_t > 0.0f ? MK_HIT : m->wrong_t > 0.0f ? MK_WRONG : MK_WAIT;
+        if (nseal > 1) state = m->done || q < m->st ? MK_DONE : MK_WAIT;
         static uint8_t buf[48 * 48];
         memset(buf, C_CLEAR, sizeof buf);
-        crawl_mark(buf, 48, 48, 24, 24, m->el, state, m->pips, m->got, (float)G.t + (float)i * 0.37f);
+        crawl_mark(buf, 48, 48, 24, 24, nseal > 1 ? m->els[q] : m->el, state, nseal > 1 ? 1 : m->pips, nseal > 1 ? 0 : m->got, (float)G.t + (float)i * 0.37f + q * 0.5f);
         for (int by = 0; by < 48; by++)
             for (int bx = 0; bx < 48; bx++) {
                 uint8_t c = buf[by * 48 + bx];
@@ -27698,6 +28050,7 @@ static void render_marks(Frame *f, float dx, float dy, float horizon) {
                     for (int y = y0; y < y1; y++) if (y >= 0 && y < H) f->pix[y * W + x] = c;
                 }
             }
+        }
     }
 }
 static void crawl_render(Frame *f) {
