@@ -27,7 +27,7 @@
   const fromB64 = (s) => { const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
 
   // The settings dialog's, as the registry has them on Windows, and the mouse's sensitivity.
-  const DEFAULTS = { sound: 1, volume: 60, brightness: 85, haunt: 1, crawl: 1, stay: 4, shift: 1, pad: 1, sens: 1.0 };
+  const DEFAULTS = { sound: 1, volume: 60, music: 100, effects: 100, brightness: 85, haunt: 1, crawl: 1, stay: 4, shift: 1, pad: 1, sens: 1.0 };
   function settings() {
     let s = {};
     try { s = JSON.parse(store.get("settings") || "{}") || {}; } catch (e) { s = {}; }
@@ -354,7 +354,7 @@
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     session.del("fled");
     loadSlots();
-    M._web_config(cfg.sound, cfg.volume, cfg.brightness, cfg.haunt, cfg.crawl, Math.round(cfg.stay * 60), cfg.shift, cfg.pad);
+    M._web_config(cfg.sound, cfg.volume, cfg.brightness, cfg.haunt, cfg.crawl, Math.round(cfg.stay * 60), cfg.shift, cfg.pad, cfg.music, cfg.effects);
     M._web_start();
     booted = true;
     plate.hidden = true;
@@ -401,6 +401,8 @@
   function padSprint() { const v = store.get("prefs"); try { return v ? fromB64(v)[0] : -1; } catch (e) { return -1; } }
   function showValues() {
     $("volume-v").textContent = form.volume.value;
+    $("music-v").textContent = form.music.value;
+    $("effects-v").textContent = form.effects.value;
     $("brightness-v").textContent = form.brightness.value + "%";
     $("stay-v").textContent = form.stay.value + (form.stay.value === "1" ? " minute" : " minutes");
     $("sens-v").textContent = Number(form.sens.value).toFixed(2) + "x";
@@ -410,6 +412,7 @@
     flushSlots();
     const s = settings();
     form.sound.checked = !!s.sound; form.volume.value = s.volume; form.brightness.value = s.brightness;
+    form.music.value = s.music; form.effects.value = s.effects;
     form.haunt.checked = !!s.haunt; form.crawl.checked = !!s.crawl; form.stay.value = s.stay;
     form.shift.checked = !!s.shift; form.pad.checked = !!s.pad; form.sens.value = s.sens;
     const sel = form.sprint;
@@ -426,6 +429,7 @@
     e.preventDefault();
     const s = {
       sound: form.sound.checked ? 1 : 0, volume: +form.volume.value, brightness: +form.brightness.value,
+      music: +form.music.value, effects: +form.effects.value,
       haunt: form.haunt.checked ? 1 : 0, crawl: form.crawl.checked ? 1 : 0, stay: +form.stay.value,
       shift: form.shift.checked ? 1 : 0, pad: form.pad.checked ? 1 : 0, sens: +form.sens.value,
     };

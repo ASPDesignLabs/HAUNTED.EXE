@@ -11,6 +11,7 @@
 typedef struct AppConfig {
     int sound;                      /* 1 = play audio */
     int volume;                     /* 0..100 */
+    int music, effects;             /* 0..100 each, under the volume (docs/PLAN-music.md) */
     int brightness;                 /* 30..100 % - global cap, easier on OLED */
     int scene_enabled[SCENE_COUNT];
     int stay_seconds;               /* how long each scene runs before the next */

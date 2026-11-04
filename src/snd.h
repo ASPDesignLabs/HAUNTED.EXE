@@ -10,8 +10,8 @@
 
 enum { SND_PROG_NONE = 0, SND_PROG_HAUNT, SND_PROG_CRAWL };
 
-/* CATACOMB's pieces (docs/PLAN-music.md): the old march, a piece for each run, her hall's, the menus' */
-enum { MU_MARCH, MU_CRYPTS, MU_CATACOMBS, MU_HOLLOWS, MU_DEEP, MU_MERCHANT, MU_MENU, MU_COUNT };
+/* CATACOMB's pieces (docs/PLAN-music.md): none, a piece for each run, her hall's, the menus' */
+enum { MU_NONE, MU_CRYPTS, MU_CATACOMBS, MU_HOLLOWS, MU_DEEP, MU_MERCHANT, MU_MENU, MU_COUNT };
 
 enum {
     SFX_BEEP_POST,      /* PC-speaker POST beep                      */
@@ -116,10 +116,10 @@ void snd_tone(int glass, int midi, float gain, float pan);   /* a struck bell (0
 void snd_hold(int on);                      /* effects and the torches' crackle wait; the music plays on */
 void snd_set_room(int room);                /* CRAWL: 1 the Backrooms (no music, a hum, more echo), 2 Severance (muzak too), 0 the crypt */
 void snd_set_muffle(int on);                /* CRAWL: the void's silence, everything dulled */
-void snd_set_trial(int on);                 /* CRAWL: a trial under way (1.0.0b13), the march quicker, its drums driving */
+void snd_set_trial(int on);                 /* CRAWL: a trial under way (1.0.0b13): the run's piece quicker, its fight playing */
 void snd_set_boss(int theme, int wave);     /* CRAWL: a boss's waltz, 1-4 (0 fades it out); wave 1 while its adds are out */
 void snd_boss_fall(void);                   /* the waltz fades and the bell tolls three times */
-void snd_set_track(int mu);                 /* CRAWL: the run's piece, MU_MARCH..MU_DEEP; the same one again runs on */
+void snd_set_track(int mu);                 /* CRAWL: the run's piece, MU_CRYPTS..MU_DEEP (MU_NONE: silence); the same one again runs on */
 void snd_set_place(int place);              /* CRAWL: 0 the crypt, 1 her room, 2 her back rooms (her piece, thinned) */
 void snd_set_menu(int on);                  /* CRAWL: a menu open (2: a short look, after half a second); the run's piece waits */
 void snd_set_fight(int level);              /* CRAWL: 0 calm, 1-3 a fight, growing (layers, the pace) */

@@ -313,14 +313,14 @@ typedef struct Sfx {
 static Sfx g_s[NS];
 static uint32_t g_rng = 12345;
 static int g_hold;                  /* the console is open: the game's effects and the crackle wait; the music and its drums play */
-static int g_trial;                 /* a trial under way: the march a quarter quicker, its drums driving */
+static int g_trial;                 /* a trial under way: the run's piece an eighth quicker, its fight playing */
 static float g_fx_gain = 1.0f;      /* the game's effects fade out and back in over a fiftieth of a second, so nothing clicks */
 static int g_room;                  /* 1 the Backrooms: the music gone, a hum, more echo on the game's sounds; 2 Severance: muzak too */
 static int g_muffle;                /* the void: everything as if heard through cloth */
 static float g_muf_k, g_mlp[2];
 static float g_room_k, g_muz_k;     /* how far into the room's sound, and into the muzak, 0..1, over a second */
 static float g_hum_ph;
-static int g_track;                 /* the run's piece, MU_* (MU_MARCH: the old march on the sequencer's clock) */
+static int g_track;                 /* the run's piece, MU_* (MU_NONE: none yet) */
 
 static Sfx *sfx_start(int type, float dur, float gain, float pan, float rev) {
     static Sfx none;
@@ -1329,87 +1329,9 @@ static void haunt_step(uint32_t step) {
 }
 
 /* ------------------------------------------------------------------ */
-/* CRAWL music: 92 BPM, D minor, a 32-bar AdLib-style adventure march */
+/* CRAWL: the cave and Severance's muzak on the sequencer's clock; the */
+/* pieces on their own players (below). The march went with 1.0.0b15. */
 /* ------------------------------------------------------------------ */
-
-typedef struct ChordDef { int8_t bass; int8_t minor; } ChordDef;
-#define CH_DM { 38, 1 }
-#define CH_BB { 34, 0 }
-#define CH_C  { 36, 0 }
-#define CH_GM { 43, 1 }
-#define CH_A  { 33, 0 }
-#define CH_F  { 41, 0 }
-#define CH_EB { 39, 0 }
-static const ChordDef CHORDS[32] = {
-    CH_DM, CH_DM, CH_BB, CH_C,  CH_DM, CH_GM, CH_A,  CH_A,     /* A: march intro          */
-    CH_DM, CH_F,  CH_C,  CH_DM, CH_BB, CH_GM, CH_A,  CH_A,     /* B: flute melody         */
-    CH_GM, CH_DM, CH_A,  CH_DM, CH_BB, CH_F,  CH_GM, CH_A,     /* C: brass melody         */
-    CH_DM, CH_EB, CH_DM, CH_EB, CH_BB, CH_GM, CH_A,  CH_A,     /* D: the crypt, then a roll */
-};
-#undef CH_DM
-#undef CH_BB
-#undef CH_C
-#undef CH_GM
-#undef CH_A
-#undef CH_F
-#undef CH_EB
-
-typedef struct LeadNote { uint8_t bar, step, len, midi, pat; } LeadNote;
-#define FL PAT_FLUTE
-#define BR PAT_BRASS
-static const LeadNote LEAD[] = {
-    { 8,0,4,69,FL},{ 8,4,4,74,FL},{ 8,8,6,77,FL},{ 8,14,2,76,FL},
-    { 9,0,4,77,FL},{ 9,4,4,81,FL},{ 9,8,4,79,FL},{ 9,12,4,77,FL},
-    {10,0,6,76,FL},{10,6,2,74,FL},{10,8,4,72,FL},{10,12,4,76,FL},
-    {11,0,12,74,FL},{11,12,4,69,FL},
-    {12,0,4,70,FL},{12,4,4,74,FL},{12,8,8,77,FL},
-    {13,0,4,79,FL},{13,4,4,77,FL},{13,8,4,74,FL},{13,12,4,70,FL},
-    {14,0,4,73,FL},{14,4,4,76,FL},{14,8,8,81,FL},
-    {15,0,4,79,FL},{15,4,4,77,FL},{15,8,4,76,FL},{15,12,4,73,FL},
-
-    {16,0,6,86,BR},{16,6,2,84,BR},{16,8,4,82,BR},{16,12,4,79,BR},
-    {17,0,6,81,BR},{17,6,2,79,BR},{17,8,4,77,BR},{17,12,4,74,BR},
-    {18,0,4,76,BR},{18,4,4,81,BR},{18,8,8,85,BR},
-    {19,0,12,86,BR},
-    {20,0,4,82,BR},{20,4,4,86,BR},{20,8,4,84,BR},{20,12,4,82,BR},
-    {21,0,4,81,BR},{21,4,4,84,BR},{21,8,4,81,BR},{21,12,4,77,BR},
-    {22,0,4,79,BR},{22,4,4,82,BR},{22,8,4,81,BR},{22,12,4,79,BR},
-    {23,0,4,81,BR},{23,4,4,76,BR},{23,8,4,73,BR},{23,12,4,76,BR},
-
-    {28,0,8,74,FL},{28,8,8,77,FL},
-    {29,0,8,79,FL},{29,8,8,82,FL},
-    {30,0,16,81,FL},
-    {31,0,8,85,FL},{31,8,8,81,FL},
-};
-#undef FL
-#undef BR
-
-enum { D_KICK = 1, D_SNARE = 2, D_HAT = 4, D_GHOST = 8, D_CRASH = 16, D_TOM = 32, D_ROLL = 64 };
-
-static int crawl_drums(int sec, int s) {
-    int m = 0;
-    if (s == 0 && (sec == 0 || sec == 8 || sec == 16)) m |= D_CRASH;
-    if (sec < 24) {                                   /* march */
-        if (s == 0 || s == 8) m |= D_KICK;
-        if (s == 4 || s == 12) m |= D_SNARE;
-        if ((s & 1) == 0) m |= D_HAT;
-        if ((sec & 1) && (s == 14 || s == 15)) m |= D_GHOST;
-        if ((sec == 7 || sec == 15 || sec == 23) && s >= 8 && (s & 1) == 0) m |= D_TOM;
-    } else if (sec < 28) {                            /* the crypt: timpani only */
-        if (s == 0) m |= D_TOM;
-        if (s == 8 && (sec & 1)) m |= D_TOM;
-    } else if (sec < 30) {
-        if (s == 0 || s == 8) m |= D_KICK;
-        if (s == 4 || s == 12) m |= D_SNARE;
-        if ((s & 3) == 2) m |= D_HAT;
-    } else {                                          /* snare roll into the loop */
-        if ((s & 1) == 0 || sec == 31) m |= D_ROLL;
-        if (s == 0 || s == 8) m |= D_KICK | D_TOM;
-    }
-    return m;
-}
-
-static const uint8_t ARP8[8] = { 0, 1, 2, 3, 2, 1, 2, 1 };
 
 /* Severance's muzak: eight bars of major sevenths, slightly too calm. An electric piano comps in a
  * bossa rhythm, a soft bass walks root and fifth, a vibraphone carries a tune nobody asked for. */
@@ -1440,59 +1362,9 @@ static float g_boss_k;              /* how far into a boss's waltz, 0..1 (below)
 
 static void crawl_step(uint32_t step) {
     if (g_room == 2) muzak_step(step);
-    if ((g_room && g_room_k >= 1.0f) || g_boss_k >= 1.0f) return;  /* the march has faded: none of it, nor the cave's drips */
-    int s = (int)(step & 15);
-    if (g_track != MU_MARCH) goto cave;                            /* a run's piece plays on its own player (below) */
-    {
-    int bar = (int)(step / 16), sec = bar & 31;
-    const ChordDef *ch = &CHORDS[sec];
-    int third = ch->minor ? 3 : 4;
-    int sps = (int)g_sps;
-
-    int dm = g_trial ? crawl_drums(8 + (sec & 7), s) | ((s & 1) ? D_HAT : 0) : crawl_drums(sec, s);   /* a trial's: the march's, harder */
-    if (dm & D_KICK)  sfx_start(X_KICK, 0.4f, 0.65f, 0.5f, 0.05f);
-    if (dm & D_SNARE) sfx_start(X_SNARE, 0.3f, 0.70f, 0.5f, 0.22f);
-    if (dm & D_GHOST) sfx_start(X_SNARE, 0.2f, 0.28f, 0.52f, 0.15f);
-    if (dm & D_ROLL)  sfx_start(X_SNARE, 0.2f, 0.25f + 0.55f * ((sec - 30) * 16 + s) / 31.0f, 0.5f, 0.2f);
-    if (dm & D_HAT)   sfx_start(X_HAT_C, 0.08f, (s & 3) == 0 ? 0.45f : 0.28f, 0.6f, 0.04f);
-    if (dm & D_CRASH) sfx_start(X_CRASH, 1.6f, 0.45f, 0.5f, 0.3f);
-    if (dm & D_TOM)   sfx_start(X_TOM, 0.6f, sec >= 24 && sec < 28 ? 0.9f : 0.6f, 0.45f, 0.35f);
-
-    /* bass: a marching eighth-note figure; a held pedal D in the crypt */
-    if (sec >= 24 && sec < 28) {
-        if (s == 0) voice_on(PAT_BASS, 38, 0.9f, 0.5f, sps * 15);
-    } else if ((s & 1) == 0) {
-        static const int8_t FIG[8] = { 0, 0, 7, 0, 0, 0, 7, 12 };
-        voice_on(PAT_BASS, ch->bass + FIG[s >> 1], (s & 7) == 0 ? 0.95f : 0.7f, 0.5f, sps * 2 - sps / 3);
-    }
-
-    /* organ chord each bar */
-    if (s == 0) {
-        int root = ch->bass + 12 + (ch->bass < 36 ? 12 : 0);
-        float v = sec >= 24 && sec < 28 ? 1.0f : (sec < 8 ? 0.7f : 0.45f);
-        int len = sps * 15;
-        voice_on(PAT_ORGAN, root,         v, 0.35f, len);
-        voice_on(PAT_ORGAN, root + third, v, 0.50f, len);
-        voice_on(PAT_ORGAN, root + 7,     v, 0.65f, len);
-    }
-
-    /* harpsichord arpeggios in the second half of the intro and under the brass */
-    if (((sec >= 4 && sec < 8) || (sec >= 16 && sec < 24)) && (s & 1) == 0) {
-        int r = ch->bass + 24;
-        int tones[4] = { r, r + third, r + 7, r + 12 };
-        voice_on(PAT_HARP, tones[ARP8[s >> 1]], (s & 3) == 0 ? 0.9f : 0.65f, (s & 2) ? 0.65f : 0.35f, sps * 2);
-    }
-
-    for (unsigned i = 0; i < sizeof LEAD / sizeof LEAD[0]; i++)
-        if (LEAD[i].bar == sec && LEAD[i].step == s)
-            voice_on(LEAD[i].pat, LEAD[i].midi, 1.0f, 0.5f, LEAD[i].len * sps - sps / 4);
-    }
-
-cave:
-    /* the cave itself: drips and, rarely, something moaning far away; not in a pocket's room */
-    if (g_room) return;
+    if (g_room || g_boss_k >= 1.0f) return;                        /* the cave itself: drips and, rarely, something moaning far away */
     if (rng_f(&g_mrng) < 0.022f) sfx_start(SFX_DRIP, 0.6f, 0.5f + 0.5f * rng_f(&g_mrng), 0.1f + 0.8f * rng_f(&g_mrng), 0.75f);
-    if (s == 0 && rng_f(&g_mrng) < 0.06f) sfx_start(SFX_MOAN, 2.6f, 0.45f, 0.2f + 0.6f * rng_f(&g_mrng), 0.8f);
+    if ((step & 15) == 0 && rng_f(&g_mrng) < 0.06f) sfx_start(SFX_MOAN, 2.6f, 0.45f, 0.2f + 0.6f * rng_f(&g_mrng), 0.8f);
 }
 
 
@@ -2076,7 +1948,7 @@ static void music_tick(void) {
     g_busg[BUS_SFX] = g_fx_gain;
     g_busg[BUS_SHOP] = g_shop_k * m * PIECES[MU_MERCHANT].gain;
     g_busg[BUS_MENU] = g_menu_k * PIECES[MU_MENU].gain;
-    if (g_track != MU_MARCH) g_busg[BUS_RUN] *= PIECES[g_track].gain;
+    if (g_track != MU_NONE) g_busg[BUS_RUN] *= PIECES[g_track].gain;
     g_alive[BUS_RUN] = g_track_next == g_track && !g_place && !g_menu && !g_room && !g_boss_on;
     g_alive[BUS_MUZAK] = g_room == 2 && !g_menu;
     g_alive[BUS_BOSS] = g_boss_on && !g_menu;
@@ -2141,8 +2013,8 @@ void snd_start_program(int prog) {
     g_mrng = 777u + (uint32_t)prog * 31u;
     g_hb_timer = 0; g_hold = 0; g_fx_gain = 1.0f; g_room = 0; g_room_k = g_muz_k = 0.0f; g_muffle = 0; g_muf_k = 0.0f;
     g_boss_on = 0; g_boss_k = 0.0f; g_bhat = 0; g_bdrone[0] = g_bdrone[1] = NULL; g_vbus = BUS_RUN; g_vlayer = LY_BASE;
-    memset(g_pl, 0, sizeof g_pl);                     /* the pieces: none yet, the march */
-    g_track = g_track_next = MU_MARCH; g_run_k = 1.0f; g_shop_k = g_menu_k = g_fight_k = g_frail_k = 0.0f;
+    memset(g_pl, 0, sizeof g_pl);                     /* the pieces: none yet */
+    g_track = g_track_next = MU_NONE; g_run_k = 0.0f; g_shop_k = g_menu_k = g_fight_k = g_frail_k = 0.0f;
     g_place = g_menu = g_menu_req = g_fight_req = g_frail = 0;
     memset(g_flp, 0, sizeof g_flp); memset(g_mnlp, 0, sizeof g_mnlp);
     if (prog == SND_PROG_HAUNT) {
@@ -2168,11 +2040,11 @@ void snd_set_trial(int on) { LOCK(); g_trial = on != 0; UNLOCK(); }
 
 void snd_set_track(int mu) {
     LOCK();
-    if (mu >= MU_MARCH && mu <= MU_DEEP) {
+    if (mu >= MU_NONE && mu <= MU_DEEP) {
         g_track_next = mu;
         if (g_samples < 1.0 && mu != g_track) {                    /* nothing has played yet: no fade */
             g_track = mu;
-            if (mu != MU_MARCH) player_start(&g_pl[PL_RUN], mu, BUS_RUN); else g_pl[PL_RUN].on = 0;
+            if (mu != MU_NONE) player_start(&g_pl[PL_RUN], mu, BUS_RUN); else g_pl[PL_RUN].on = 0;
         }
     }
     UNLOCK();
@@ -2378,7 +2250,7 @@ static void render_locked(int16_t *out, int frames) {
         /* sequencer clock */
         if (g_prog != SND_PROG_NONE) {
             g_step_acc += 1.0;
-            double sps = g_trial && g_prog == SND_PROG_CRAWL && g_track == MU_MARCH ? g_sps * 0.78 : g_sps;
+            double sps = g_sps;
             if (g_step_acc >= sps) {
                 g_step_acc -= sps;
                 if (g_prog == SND_PROG_HAUNT) haunt_step(g_step);

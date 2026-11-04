@@ -189,6 +189,8 @@ int main(int argc, char **argv) {
     cfg.start_fade = 0;
     if (getenv("BOTH")) cfg.scene_enabled[0] = cfg.scene_enabled[1] = 1;   /* exercise scene rotation */
     if (getenv("STAY")) cfg.stay_seconds = atoi(getenv("STAY"));
+    if (getenv("HOST_MUSIC")) cfg.music = atoi(getenv("HOST_MUSIC"));          /* the Music and Effects sliders, 0-100 */
+    if (getenv("HOST_EFFECTS")) cfg.effects = atoi(getenv("HOST_EFFECTS"));
 
     if (!strcmp(cmd, "wav") || !strcmp(cmd, "dump")) {
         double secs = atof(argv[3]);
@@ -232,9 +234,9 @@ int main(int argc, char **argv) {
     }
     if (!strcmp(cmd, "music")) {
         /* host music <piece> <seconds> out.wav [event@t ...]: a piece of CATACOMB's alone (docs/PLAN-music.md).
-         * Pieces: march, crypts, catacombs, hollows, deep, merchant, menu1-menu4. Events: fight0-fight3, frail,
+         * Pieces: crypts, catacombs, hollows, deep, merchant, menu1-menu4. Events: fight0-fight3, frail,
          * well, menu, back, trial, untrial, place0-place2, run1-run4 (the run's piece), as name@seconds. */
-        static const char *PN[] = { "march", "crypts", "catacombs", "hollows", "deep" };
+        static const char *PN[] = { "none", "crypts", "catacombs", "hollows", "deep" };
         const char *piece = argv[2];
         double secs = atof(argv[3]);
         snd_init();
@@ -274,7 +276,7 @@ int main(int argc, char **argv) {
                 else if (!strcmp(e, "trial")) snd_set_trial(1);
                 else if (!strcmp(e, "untrial")) snd_set_trial(0);
                 else if (!strncmp(e, "place", 5)) snd_set_place(atoi(e + 5));
-                else if (!strncmp(e, "run", 3)) snd_set_track(MU_MARCH + atoi(e + 3));
+                else if (!strncmp(e, "run", 3)) snd_set_track(MU_NONE + atoi(e + 3));
                 else fprintf(stderr, "music: no event %s\n", e);
             }
             snd_render(pcm + pos * 2, per);

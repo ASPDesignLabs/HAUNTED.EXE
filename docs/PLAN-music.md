@@ -5,8 +5,8 @@ build). Nothing of the game moves until the owner has heard the pieces.*
 
 ## Status
 
-Steps 1 and 2 are built (the engine and the pieces), with `build/host music` to hear them; the game still plays the march.
-Steps 3-5 wait for the owner's ear on the renders.
+Steps 1-4 are built, harness only: the engine and the pieces (`build/host music` to hear them), the game's side (the march
+retired) and the sliders. The owner had the renders and said to wire them in (4 November). Step 5's checks are below.
 
 ## What there was
 
@@ -31,7 +31,7 @@ muffled everything. Nothing followed the run, her hall, a menu, a fight or the c
 - **M7, volumes:** Music and Effects sliders beside the overall one.
 - **M8, the number:** main is at 1.0.0b14, released, with the browser's build added to that release because nothing of the
   game changed. This changes the game, so it goes out as **1.0.0b15**, and the plans after it move up one (the minds'
-  showing and the rest of the art pass to 1.0.0b16, the lower storey to 1.0.0b17). *Default taken; to be confirmed.*
+  showing and the rest of the art pass to 1.0.0b16, the lower storey to 1.0.0b17). Confirmed by the owner, 4 November.
 
 ## The pieces
 
@@ -87,6 +87,9 @@ anvil, a celesta. Voices go from 36 to 48 so that the crossfades don't cut notes
 - The failing below a fifth of health, lifted above a quarter; not in her hall.
 - The four calls are cheap enough to make every frame; the engine does nothing when nothing changes.
 
+As built: a cast in the last three seconds with a creature in sight within nine cells counts as a fight too, since the dream
+(and a careful person) often kills things that never noticed; a fight's level never falls back until it ends.
+
 ## Settings (step 4)
 
 The Windows dialog's *Volume* stays as the overall one, with *Music* and *Effects* under it (registry `MusicVolume`,
@@ -116,3 +119,12 @@ The Windows dialog's *Volume* stays as the overall one, with *Music* and *Effect
   in a fight, against 1.4% for the march. The game still plays the march: its output in play matches the old build's but for
   rounding (one step in the last bit, 0.08% of samples), since the buses are now summed apart. ASan and UBSan clean over six
   renders driven through every change. The Windows and browser builds are left to CI (no MinGW or Emscripten here).
+- **Steps 3-4** (4 November): the march is gone from `snd.c` (`crawl_step` keeps the cave's drips and Severance's muzak on the
+  old clock; `MU_NONE` until the game says which piece). `music_frame` (end of `scene_crawl.c`, wrapped round `crawl_update` by
+  `crawl_frame`, so the early returns don't skip it) says all of it every frame. Her room is cells x 10-20, y 12-17 and the way
+  on east of it; anywhere else in her hall is her back rooms. The sliders: `AppConfig.music`/`effects`, `snd_set_mix` in
+  `app_init`, the registry's `MusicVolume`/`EffectsVolume` and two trackbars under Volume in the Windows dialog (it grew 76
+  px), the browser's settings and `web_config`'s two new arguments, `HOST_MUSIC`/`HOST_EFFECTS` in the harness. A dream's run
+  at level 13 (seed 7): fights came every 20-50 s, grew to 2 after 20 s or three engaged and to 3 as health fell under two
+  fifths, through a trial and three deaths; a person taken over at 15% health was failing at once; Tab, Esc, B, C and the L
+  list each brought the menu's tune and her own screens didn't.

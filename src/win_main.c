@@ -64,6 +64,8 @@ static void settings_load(Settings *s) {
     if (RegOpenKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, KEY_READ, &k) != ERROR_SUCCESS) return;
     s->app.sound = (int)reg_get(k, "Sound", (DWORD)s->app.sound);
     s->app.volume = (int)reg_get(k, "Volume", (DWORD)s->app.volume);
+    s->app.music = (int)reg_get(k, "MusicVolume", (DWORD)s->app.music);
+    s->app.effects = (int)reg_get(k, "EffectsVolume", (DWORD)s->app.effects);
     s->app.brightness = (int)reg_get(k, "Brightness", (DWORD)s->app.brightness);
     s->app.stay_seconds = (int)reg_get(k, "StaySeconds", (DWORD)s->app.stay_seconds);
     s->app.pixel_shift = (int)reg_get(k, "PixelShift", (DWORD)s->app.pixel_shift);
@@ -79,6 +81,8 @@ static void settings_load(Settings *s) {
     RegCloseKey(k);
     if (s->app.volume < 0) s->app.volume = 0;
     if (s->app.volume > 100) s->app.volume = 100;
+    if (s->app.music < 0 || s->app.music > 100) s->app.music = 100;
+    if (s->app.effects < 0 || s->app.effects > 100) s->app.effects = 100;
     if (s->app.brightness < 30) s->app.brightness = 30;
     if (s->app.brightness > 100) s->app.brightness = 100;
     if (s->app.stay_seconds < 30) s->app.stay_seconds = 30;
@@ -125,6 +129,8 @@ static void settings_save(const Settings *s) {
     if (RegCreateKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, NULL, 0, KEY_WRITE, NULL, &k, NULL) != ERROR_SUCCESS) return;
     reg_set(k, "Sound", (DWORD)s->app.sound);
     reg_set(k, "Volume", (DWORD)s->app.volume);
+    reg_set(k, "MusicVolume", (DWORD)s->app.music);
+    reg_set(k, "EffectsVolume", (DWORD)s->app.effects);
     reg_set(k, "Brightness", (DWORD)s->app.brightness);
     reg_set(k, "StaySeconds", (DWORD)s->app.stay_seconds);
     reg_set(k, "PixelShift", (DWORD)s->app.pixel_shift);
@@ -800,7 +806,7 @@ static int run_preview(HINSTANCE hi, HWND parent) {
 /* ------------------------------------------------------------------ */
 
 enum { ID_SOUND = 100, ID_VOL, ID_VOLTXT, ID_BRIGHT, ID_BRIGHTTXT, ID_SC0, ID_SC1, ID_STAY, ID_STAYTXT,
-       ID_SHIFT, ID_MON, ID_PAD, ID_PADSPRINT };
+       ID_SHIFT, ID_MON, ID_PAD, ID_PADSPRINT, ID_MUSIC, ID_MUSICTXT, ID_FX, ID_FXTXT };
 
 static Settings g_cfg;
 static HWND g_cfgwnd, g_cfgparent;
@@ -817,6 +823,10 @@ static void cfg_update_labels(void) {
     char b[64];
     int v = (int)SendDlgItemMessageA(g_cfgwnd, ID_VOL, TBM_GETPOS, 0, 0);
     snprintf(b, sizeof b, "%d%%", v); SetDlgItemTextA(g_cfgwnd, ID_VOLTXT, b);
+    v = (int)SendDlgItemMessageA(g_cfgwnd, ID_MUSIC, TBM_GETPOS, 0, 0);
+    snprintf(b, sizeof b, "%d%%", v); SetDlgItemTextA(g_cfgwnd, ID_MUSICTXT, b);
+    v = (int)SendDlgItemMessageA(g_cfgwnd, ID_FX, TBM_GETPOS, 0, 0);
+    snprintf(b, sizeof b, "%d%%", v); SetDlgItemTextA(g_cfgwnd, ID_FXTXT, b);
     v = (int)SendDlgItemMessageA(g_cfgwnd, ID_BRIGHT, TBM_GETPOS, 0, 0);
     snprintf(b, sizeof b, "%d%%", v); SetDlgItemTextA(g_cfgwnd, ID_BRIGHTTXT, b);
     v = (int)SendDlgItemMessageA(g_cfgwnd, ID_STAY, TBM_GETPOS, 0, 0);
@@ -826,6 +836,8 @@ static void cfg_update_labels(void) {
 static void cfg_apply_and_close(void) {
     g_cfg.app.sound = IsDlgButtonChecked(g_cfgwnd, ID_SOUND) == BST_CHECKED;
     g_cfg.app.volume = (int)SendDlgItemMessageA(g_cfgwnd, ID_VOL, TBM_GETPOS, 0, 0);
+    g_cfg.app.music = (int)SendDlgItemMessageA(g_cfgwnd, ID_MUSIC, TBM_GETPOS, 0, 0);
+    g_cfg.app.effects = (int)SendDlgItemMessageA(g_cfgwnd, ID_FX, TBM_GETPOS, 0, 0);
     g_cfg.app.brightness = (int)SendDlgItemMessageA(g_cfgwnd, ID_BRIGHT, TBM_GETPOS, 0, 0);
     g_cfg.app.stay_seconds = 60 * (int)SendDlgItemMessageA(g_cfgwnd, ID_STAY, TBM_GETPOS, 0, 0);
     g_cfg.app.scene_enabled[0] = IsDlgButtonChecked(g_cfgwnd, ID_SC0) == BST_CHECKED;
@@ -868,7 +880,7 @@ static int run_config(HINSTANCE hi, HWND parent) {
     wc.hCursor = LoadCursorA(NULL, IDC_ARROW); wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
     RegisterClassA(&wc);
 
-    const int W = 440, H = 436;
+    const int W = 440, H = 512;
     RECT r = { 0, 0, W, H };
     AdjustWindowRect(&r, WS_CAPTION | WS_SYSMENU, FALSE);
     int ww = r.right - r.left, wh = r.bottom - r.top;
@@ -891,6 +903,18 @@ static int run_config(HINSTANCE hi, HWND parent) {
     SendMessageA(t, TBM_SETRANGE, TRUE, MAKELONG(0, 100)); SendMessageA(t, TBM_SETTICFREQ, 10, 0);
     SendMessageA(t, TBM_SETPOS, TRUE, g_cfg.app.volume);
     ctl("STATIC", "", 0, 360, y + 4, 60, 18, ID_VOLTXT);
+    y += 38;
+    ctl("STATIC", "    Music", 0, 16, y + 4, 80, 18, 0);              /* under the volume: the music, and the rest */
+    t = ctl(TRACKBAR_CLASSA, "", TBS_AUTOTICKS | WS_TABSTOP, 100, y, 250, 30, ID_MUSIC);
+    SendMessageA(t, TBM_SETRANGE, TRUE, MAKELONG(0, 100)); SendMessageA(t, TBM_SETTICFREQ, 10, 0);
+    SendMessageA(t, TBM_SETPOS, TRUE, g_cfg.app.music);
+    ctl("STATIC", "", 0, 360, y + 4, 60, 18, ID_MUSICTXT);
+    y += 38;
+    ctl("STATIC", "    Effects", 0, 16, y + 4, 80, 18, 0);
+    t = ctl(TRACKBAR_CLASSA, "", TBS_AUTOTICKS | WS_TABSTOP, 100, y, 250, 30, ID_FX);
+    SendMessageA(t, TBM_SETRANGE, TRUE, MAKELONG(0, 100)); SendMessageA(t, TBM_SETTICFREQ, 10, 0);
+    SendMessageA(t, TBM_SETPOS, TRUE, g_cfg.app.effects);
+    ctl("STATIC", "", 0, 360, y + 4, 60, 18, ID_FXTXT);
     y += 38;
     ctl("STATIC", "Brightness", 0, 16, y + 4, 80, 18, 0);
     t = ctl(TRACKBAR_CLASSA, "", TBS_AUTOTICKS | WS_TABSTOP, 100, y, 250, 30, ID_BRIGHT);
