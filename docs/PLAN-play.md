@@ -216,6 +216,27 @@ and the rimed door for fire) come where they can.
 
 Each class's first thing comes on level 2 or 3, so every caster sees early that their own line has a use outside a fight.
 
+**In the game** (step 5, run I, harness only; frames in `docs/play/frames-run1.png`). `place_marked` (in `start_level`, run I's
+levels but the boss's, never a pocket or a challenge) walks the way from the start to the exit's doorstep and, wherever it
+has run `MK_STRETCH` (14) hall steps with no room or door, sets a thing beside it (`mk_spot`: floor off the lanes, clear of
+doors, dressing, items and other things), then fills up anywhere along the way: four to six on levels 1-4, three to five
+after (Q11). The first is the class's own (`MK_OWN`; the Witchfinder's a pricket or a rack), the rest any the lines held
+allow, carriers in a held line's colour, a level's things unlike when they can be (`mk_pick`). On levels 1-4 nothing wants
+more than two hits. `Marked` in `G.mk` (`MAXMK` 8; kind, element, pips, hits, done, the decoration it is drawn as), `MKK`
+the kinds. A missile meeting one stops there (`mk_shot`, `shot_elem`: the ultimates' and the splinter's by their line); a
+flask's burst reaches a cell (`mk_burst`); lightning and Soul Drain with no creature to strike go to the thing aimed at
+(`mk_aimed`, spirit spent as on a creature). Its element lights a pip (`mk_strike`); another gives the dull ring and, once,
+*IT WANTS FROST*. A person's first near look names it (*A BOUND COFFER: IT WANTS FROST*). Done (`mk_finish`): its sprite
+turns, the caption (*THE CHAINS FALL AWAY*), experience (4 and 2 a pip, by the level), and what it gives (`mk_reward`, out of
+the level's totals): the coffer gold and now and then a potion, the cage gold or gems, the urn a potion, the roots and the
+barricade gold (and a bone), the soul three souls, the coil a soul and a half and its light, a pricket or a rack its light
+(`build_lightmap`) and half a soul; every seal on a level answered gives a Cursed Coin one level in five (`MK_COIN`, the
+coin's bit 6). The seal is drawn after the world (`render_marks`: `crawl_mark` projected, never under 0.55 of a pixel a
+texel, hidden by walls), so it shows down a dark hall; done, it stays dark three seconds. The dream answers a thing within
+six and a half cells of its lane, in sight and out of a fight, if it holds the line (`dream_looks`, `PS_PROBE` with
+`G.probe_mk`): it turns, casts till it is done, and goes on; twice at most for each. Debug: `MARKED level n: ...`, `EVENT
+mk_dream`, `mk_hit`, `mk_wrong`, `mk_done`, `CRAWL_TPMARK=k` (a few steps from the k-th, facing it, as you take over).
+
 ### 4.3 Several hits, timers, and moving things (from level 5: two or three lines)
 
 12. **The portcullis winch.** Lightning charges it; the gate rises and holds for eight seconds, a short cut or a vault of
@@ -428,8 +449,8 @@ letting go, B, a tap of up for the map, Q tapped and held, RB and LB; ASan clean
 1. One line to begin with (3a), with the bare spear (N2) and the Wraith (N3), and its balance runs by class. *Built.*
 2. The gifts at the Lampstand (section 3). *Built.*
 3. The wheels (7a) and the Mirror by hand (the parry, then the veil), its place among the right mouse's gifts, and the shrine's free Mirror. *Built.*
-4. The look of a marked thing (motes, glyph, pips, the dull ring), on a sheet first, as the art has gone. *Drawn, waiting for the owner.*
-5. Section 4.2's things and the stretch budget (section 5), run I only; frames from levels 1-4 for the owner.
+4. The look of a marked thing (motes, glyph, pips, the dull ring), on a sheet first, as the art has gone. *Drawn; approved by the owner.*
+5. Section 4.2's things and the stretch budget (section 5), run I only; frames from levels 1-4 for the owner. *Built, frames sent.*
 6. Section 4.3's, and runs II-IV's flavours.
 7. Warded creatures, with sixteen-seed runs against `CRAWL_WARD=0`.
 8. Sequences (4.4) and the fight things (4.5).

@@ -1425,6 +1425,12 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   (`rune_by_hand`), its first `MIRROR_TRUE` 0.6 s a parry (`G.mirror_true`: home, twice as hard); the dream's runes as before.
   The shrine's first curse gives a Common Mirror if none is held. Debug: `EVENT wheel_open`, `wheel_take`, `parries`,
   `shrine_mirror`, `CRAWL_PARRYT=s`.
+- **Things that want a spell** (1.0.0b16 steps 4-5, docs/PLAN-play.md section 4; run I so far). `crawl_mark` (`crawl_art.c`:
+  the seal, its motes, pips; `MK_WAIT/HIT/WRONG/DONE`), the sprites `SP_MK_*` (each waiting and done; `make sheets`' `marked.png`,
+  approved). In play: `Marked` in `G.mk`, the kinds `MKK`, `place_marked` (the way from the start to the exit, `MK_STRETCH`,
+  `mk_spot`, `mk_pick`), `mk_shot`, `mk_burst`, `mk_aimed` (lightning and Soul Drain with no creature), `mk_strike`,
+  `mk_finish`, `mk_reward`, `mk_tick`, `render_marks`, the lights in `build_lightmap`; the dream's in `dream_looks` and
+  `PS_PROBE` (`G.probe_mk`). Debug: `MARKED level n`, `EVENT mk_dream`, `mk_hit`, `mk_wrong`, `mk_done`, `CRAWL_TPMARK=k`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are
