@@ -207,6 +207,11 @@ tools/music.sh` renders them into `build/music/`) were sent to the owner, who sa
 smoke-tested the Windows and browser builds on the branch), and it was released as **1.0.0b15** at the owner's word (4 November),
 squashed onto main as one commit. Its *hand-off log* says where it stands.
 
+Ideas for the early levels' quiet stretches are drafted in [`docs/PLAN-play.md`](docs/PLAN-play.md) (4 November, on
+`claude/modest-knuth-gd9u51`; nothing settled or built): things in the crypt struck by the right spell (only the lines held),
+a second and third line given free at the Lampstand after levels 4 and 12, creatures warded against a held line (60% to 90%),
+and the Mirror rune raised by hand on the right mouse, a Common one free with the shrine's first curse. Its questions wait for the owner.
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture
