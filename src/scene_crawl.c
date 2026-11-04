@@ -4207,7 +4207,7 @@ static const ClassDef CLASSES[NELEM] = {
     { "THE PLAGUE DOCTOR", "UNDER THE BEAK AND BEHIND THE GLASS THEY WALKED THE PEST-HOUSES AND CARRIED OUT THE BODIES, AND LEARNT WHAT "
       "A FEVER PASSES ON, AND TO WHOM. THEIR FLASKS STILL HOLD WHAT THE WARDS HELD; WHERE THEY BREAK, THE FLOOR IS NOT SAFE TO "
       "WALK FOR A WHILE.",
-      "POISON OPEN, AND IT COSTS A FIFTH LESS. ITS POISON BITES HALF AGAIN AS HARD, AND LASTS A FIFTH LONGER." },
+      "POISON OPEN, A FIFTH CHEAPER. FLASKS HIT A QUARTER HARDER; POISON BITES HALF AGAIN AS HARD, A FIFTH LONGER." },
     { "THE SIN-EATER", "PAID IN BREAD AND A COIN TO EAT THE SINS OF THE DEAD FROM THEIR CHESTS, THEY ATE FOR A WHOLE PARISH THROUGH A "
       "PLAGUE YEAR. WHAT THEY SWALLOWED HAS NOT SETTLED. THEY KNOW HOW TO DRAW A SOUL OUT, AND HOW TO KEEP IT; THEIRS IS THE "
       "DEEPEST VESSEL.",
@@ -4696,6 +4696,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
 /* Poison and burning on a creature (docs/PLAN-b11.md, sections 9-10): neither stacks; a stronger dose, or flames
  * walked through again, start it over */
 #define PLAGUE_BITE 1.5f                    /* the Plague Doctor's poison, a tick, against anyone else's */
+#define PLAGUE_STRIKE 1.25f                 /* and their flask's blow as it bursts (the owner, 1.0.0b16) */
 static void mob_poison(Mob *m, float total, float secs) {
     if (!m->alive || m->state != MS_WALK || KIND_IS(m, KF_SPIRIT) || m->ally || secs <= 0.0f) return;
     if (cls_el() == EL_POISON) { total *= 1.2f * PLAGUE_BITE; secs *= 1.2f; }   /* the Plague Doctor's bites harder each tick (1.0.0b16:
@@ -7788,7 +7789,8 @@ static void flask_burst(Shot *s) {
         Mob *m = &G.mobs[i];
         if (!m->alive || m->state != MS_WALK || KIND_IS(m, KF_SPIRIT) || m->ally || buried(m)) continue;
         if (hypotf(m->x - s->x, m->y - s->y) > 0.6f + KINDS[m->type].rad || !line_clear(s->x, s->y, m->x, m->y)) continue;
-        if (damage_mob(m, s->dmg * 0.25f, DM_ARC | DM_ATK(AT_FLASK), s->x, s->y, 0.0f)) continue;
+        float hit = s->dmg * 0.25f * (cls_el() == EL_POISON ? PLAGUE_STRIKE : 1.0f);   /* the Plague Doctor's flask strikes harder (theirs alone) */
+        if (damage_mob(m, hit, DM_ARC | DM_ATK(AT_FLASK), s->x, s->y, 0.0f)) continue;
         mob_poison(m, s->dmg * 0.75f, 4.0f);
     }
     if (s->target >= 1000) {                                       /* Plague Pit: the pool grows with the charge, six seconds, slowing */
