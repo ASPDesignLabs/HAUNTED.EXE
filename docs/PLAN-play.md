@@ -402,6 +402,16 @@ the start's, the exit's, a vault, the wing or the trial's, and only in a line he
 Debug: `CRAWL_FIGHTK=k` (the fight things of kind k, `MKK_*`), `CRAWL_TPMARK=99` (the last thing set), `FIGHTS level n`, `EVENT
 mk_crush`, `mk_drum`, `mk_water_shock`.
 
+*Checked* (harness only). The same 40 dream runs from level 1 (50 minutes, eight seeds for each of five pasts): 250 levels
+cleared and 47 deaths against step 6's 252 and 40 (this build has the wards too). The pasts but one are where they were; the
+Plague Doctor died 29 times (15 in step 6's batch, and 20 to 29 in the batches before it: the noisiest past). From level 1 the
+runs reach about level 7, so no sequence is met; 130 things for fights were placed and the dream set off two by chance. Eight
+40-minute runs from level 11 (gear 3, experience banked): 40 levels cleared, one death; the dream answered the reliquary 4 times
+in 4, the relay 4 in 5 and the ward-stone 4 in 8, but no tablet in 12, since it went to the tablet and the plinths lay on past
+it. It now goes by the plinth next in the order wherever it meets it, and a lit plinth struck again stays lit (the dream's
+second cast had put it out of turn): four runs on level 13 with every thing a tablet then kept 11. ASan clean on four sessions
+(tablets and relays in the dream, a person's lightning in standing water with Drowned in it, the column on skeletons).
+
 ### 4.6 By run
 
 Each run's look can carry its own:

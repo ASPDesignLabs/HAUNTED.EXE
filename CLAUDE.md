@@ -1701,5 +1701,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
 - 1.0.0b16's step 7 (warded creatures; harness only), sixteen seeds against `CRAWL_WARD=0`: from level 1, 99 levels cleared and
   16 deaths (98 and 19), a level 13 s longer; from 21, 98 cleared (94), no deaths either way. The dream switches spells and loses
   only time; how a person fares is untried.
+- 1.0.0b16's step 8 (sequences, things for fights; harness only), the same 40 runs from level 1: 250 levels cleared and 47
+  deaths (step 6: 252 and 40), the Plague Doctor 29 of them (15); from level 11 the dream answers the reliquary, the relay and
+  the ward-stone, and keeps the tablet's order since it goes by the plinth next in it. The fight things are a person's.
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.

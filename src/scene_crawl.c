@@ -9713,7 +9713,10 @@ static int dream_looks(void) {                                     /* at a lane 
     }
     for (int k = 0; k < G.nmk && !G.silenced; k++) {               /* a thing that wants a spell it holds, close by the lane (1.0.0b16) */
         Marked *m = &G.mk[k];
-        if (m->done || m->tried >= 2 || (m->grp && m->grp != k + 1) || (m->kind == MKK_WINCH && m->times) || MKK[m->kind].tier == 4) continue;   /* the bells
+        int next_plinth = m->kind == MKK_PLINTH && !m->got && G.mk[m->grp - 1].st < 3 && G.mk[m->grp - 1].els[G.mk[m->grp - 1].st] == m->el;
+        if (m->kind == MKK_TABLET) continue;                       /* the tablet only tells: the dream goes by the plinth next in its order */
+        if (m->done || m->tried >= 2 || (m->grp && m->grp != k + 1 && !next_plinth) || (m->kind == MKK_PLINTH && !next_plinth)
+            || (m->kind == MKK_WINCH && m->times) || MKK[m->kind].tier == 4) continue;   /* the bells
                                                                       as one; things for fights are a person's */
         if (m->kind == MKK_HSEAL && (RUN.gear.atk[LINE_ATK[EL_FIRE]] < 0 || RUN.gear.atk[LINE_ATK[EL_FROST]] < 0)) continue;
         float d = hypotf(m->x - G.px, m->y - G.py);
@@ -10352,14 +10355,15 @@ static void update_player(float dt) {
         if (G.probe_mk > 0 && G.probe_mk <= G.nmk) {               /* or at a thing that wants a spell, till it is answered */
             Marked *m = &G.mk[G.probe_mk - 1], *a = m;
             int need = m->kind == MKK_BELL || m->kind == MKK_TABLET ? 3 : m->kind == MKK_HSEAL ? 2 : m->kind == MKK_RELAY ? 4 : m->kind == MKK_RELIQ ? 6 : m->pips - m->got;
-            if (m->kind == MKK_TABLET) {                           /* the plinth next in the tablet's order */
+            if (m->kind == MKK_PLINTH) need = 1;
+            else if (m->kind == MKK_TABLET) {                      /* the plinth next in the tablet's order */
                 for (int i = m->grp; i < G.nmk; i++) if (G.mk[i].grp == m->grp && G.mk[i].kind == MKK_PLINTH && !G.mk[i].got && m->st < 3 && G.mk[i].el == m->els[m->st]) { a = &G.mk[i]; break; }
-            } else if (m->grp)                                     /* the bells: the next not ringing; the relay: the first not lit */
+            } else if (m->grp && m->kind != MKK_PLINTH)            /* the bells: the next not ringing; the relay: the first not lit */
                 for (int i = m->grp - 1; i < G.nmk; i++)
                     if (G.mk[i].grp == m->grp && (m->kind == MKK_BELL ? !G.mk[i].got : G.mk[i].st != 1)) { a = &G.mk[i]; break; }
             int sp = LINE_ATK[a->kind == MKK_COIL ? EL_LIGHT : a->kind == MKK_RELAY ? EL_FIRE : a->el];
             int wait = m->kind == MKK_RELIQ && m->st == 1;          /* turning: wait for the face */
-            int more = !m->done && G.probe_n < need + 2 && !in_combat() && !G.silenced && RUN.gear.atk[sp] >= 0;
+            int more = !m->done && !(m->kind == MKK_PLINTH && m->got) && G.probe_n < need + 2 && !in_combat() && !G.silenced && RUN.gear.atk[sp] >= 0;
             if (more && !wait && G.st >= G.adur + 0.1f && G.cooldown <= 0.0f) {
                 G.ang = atan2f(a->y - G.py, a->x - G.px);          /* it may have moved */
                 G.spell = sp; G.hand = 1.0f; cast_spell(sp, -1);
@@ -11304,7 +11308,8 @@ static void mk_strike(int k, int el) {
     if (m->kind == MKK_PLINTH) {                                   /* the tablet's order */
         if (el != m->el) { mk_wrong(m, el, NULL); return; }
         Marked *t = &G.mk[m->grp - 1];
-        if (!m->got && t->st < 3 && t->els[t->st] == m->el) {
+        if (m->got) { m->hit_t = 0.3f; return; }                 /* already lit: it stays so */
+        if (t->st < 3 && t->els[t->st] == m->el) {
             m->got = 1; m->hit_t = 0.5f; t->st++; t->got = t->st; t->hit_t = 0.5f;
             mk_deco(m, MKK[m->kind].s1, 1); sfx_at(SFX_RUNE, m->x, m->y, 1.0f);
 #ifdef CRAWL_DEBUG
