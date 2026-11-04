@@ -446,6 +446,13 @@ under the bar's right end. The bestiary's pages say *SOME COME WARDED* once the 
 their adds, allies, spectres, spirits, the Wraith, a trial's, wall skulls, sacs or spiderlings. Debug: `CRAWL_WARD=0/1/2`
 (none, as made, every creature that may be), `EVENT warded`, `ward_cracked`, the state line's `wardhits` and `cracked`.
 
+*Checked* (the dream, 50 minutes, sixteen seeds, 1-31 odd, the class as it falls; wards on against `CRAWL_WARD=0` on the same
+build): from level 1, 99 levels cleared and 16 deaths against 98 and 19, a level's median time 358 s against 345; 166 creatures
+warded, 28 warded hits, 9 cracked. From level 21 (gear 5, experience banked), 98 levels cleared against 94, no deaths either
+way, 363 s against 369; 1,149 warded, 282 warded hits, 158 cracked. The dream switches as `hit_mult` tells it, so a ward costs
+it a few seconds a level and nothing else: no harder for the dream, inside the noise. A person who doesn't switch pays more.
+ASan clean on three sessions (a person's fire on a fire-warded knight, every creature warded from 31, and from level 1).
+
 ## 7. The Mirror by hand
 
 **Now.** `def_trigger` fires it when two missiles will land within 1.5 s or a wall skull charges; the veil

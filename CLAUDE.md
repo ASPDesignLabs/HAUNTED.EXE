@@ -1693,5 +1693,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   a level a few seconds longer. That build also has the stronger poison, the wheels and the Mirror by hand.
 - 1.0.0b16's step 6 (section 4.3's things and the runs' own; harness only), the same 40 runs: 252 levels cleared and 40 deaths
   (step 5: 246 and 44), about 80% of 1,437 things answered by the dream; the rolling skull is mostly lost to it.
+- 1.0.0b16's step 7 (warded creatures; harness only), sixteen seeds against `CRAWL_WARD=0`: from level 1, 99 levels cleared and
+  16 deaths (98 and 19), a level 13 s longer; from 21, 98 cleared (94), no deaths either way. The dream switches spells and loses
+  only time; how a person fares is untried.
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.
