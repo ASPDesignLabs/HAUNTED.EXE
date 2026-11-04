@@ -207,8 +207,8 @@ tools/music.sh` renders them into `build/music/`) were sent to the owner, who sa
 smoke-tested the Windows and browser builds on the branch), and it was released as **1.0.0b15** at the owner's word (4 November),
 squashed onto main as one commit. Its *hand-off log* says where it stands.
 
-**1.0.0b16** is planned in [`docs/PLAN-play.md`](docs/PLAN-play.md) (4 November, on `claude/modest-knuth-gd9u51`; nothing
-built), for the early levels' quiet stretches: no class starts with the fireball any more (each begins with its own line), a
+**1.0.0b16** is planned in [`docs/PLAN-play.md`](docs/PLAN-play.md) (4 November, on `claude/modest-knuth-gd9u51`; steps 1-3
+built, harness only, with the pad's wheels), for the early levels' quiet stretches: no class starts with the fireball any more (each begins with its own line), a
 second and third line given free at the Lampstand after levels 4 and 12, things in the crypt struck by the right spell (only
 the lines held), creatures warded against a held line (60% to 90%, cracking), and the Mirror rune raised by hand on the right
 mouse as a parry (Q turns between it and the boss gifts), a Common one free with the shrine's first curse. The owner answered
@@ -1415,6 +1415,15 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   holds at her door till it is taken (`shop_human`), the Lampstand breathes (`build_lightmap`, `G.gift_glow`), and its screen
   takes a closed line's opening free on two Enters (`AL_GIFT`; the pane's cost reads *A GIFT*). Debug: `EVENT gift`,
   `CRAWL_NOGIFT=1`.
+- **The wheels and the Mirror by hand** (1.0.0b16 step 3, docs/PLAN-play.md sections 7 and 7a). The pad: D-pad up tapped the
+  map, held (`WHEEL_HOLD`) the runes and gifts' wheel; down tapped the bar, held the spells' wheel; RB the rune readied
+  (`rune_hand`, `rune_readied`), LB the gift readied; LT the right mouse (`use_right`); the bumpers no longer turn the spells.
+  The keys: Q tapped readies the next (`ready_next`: the hand-raised runes, then the gifts; `RUN.rune_sel`, `RUN.mouse_rune`),
+  held opens the wheel and the mouse points. `WH` (`wheel_input`, `wheel_fill`, `wheel_open`, `wheel_close`, `wheel_render`,
+  `wheel_grey`): the world at `WHEEL_SLOW` and grey under it, `update_human` waiting. A person's Mirror rises only by hand
+  (`rune_by_hand`), its first `MIRROR_TRUE` 0.6 s a parry (`G.mirror_true`: home, twice as hard); the dream's runes as before.
+  The shrine's first curse gives a Common Mirror if none is held. Debug: `EVENT wheel_open`, `wheel_take`, `parries`,
+  `shrine_mirror`, `CRAWL_PARRYT=s`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

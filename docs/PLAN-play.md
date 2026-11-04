@@ -4,7 +4,7 @@
 further than asked: no class starts with the fireball any more (section 3a). That opens a short second round (section 11),
 each with a default. It is **1.0.0b16**, ahead of the minds' showing and the rest of the art pass (now 1.0.0b17) and the
 lower storey (now 1.0.0b18). The second round was answered the same day (section 11: every default, and N2 as splinters,
-an ammunition of their own). Steps 1 and 2 are built (harness only).
+an ammunition of their own). Steps 1-3 are built (harness only), with the wheels the owner asked for before step 3 (section 7a).
 
 *The brief, as first drafted (ideas only). Written on `claude/modest-knuth-gd9u51` from main at
 1.0.0b15. The owner's brief: early levels have long stretches where the caster isn't doing much; fill them with things in
@@ -366,6 +366,44 @@ cursed through death and the runes stay, so it comes once a run of the ledger. I
 
 **The other runes** stay automatic. Blink, the Ward and Time Slip by hand are for later (Q9), once the Mirror is played.
 
+**As built** (step 3, harness only). For a person the Mirror never rises by itself (`rune_by_hand`: only the Mirror so
+far; every rune still rises by itself for the dream). It is raised by the right mouse, the pad's LT, or RB (`rune_hand`),
+its cooldown as before; for its first 0.6 s (`MIRROR_TRUE`, `G.mirror_true`) what it meets goes home to its thrower at twice
+the strength, as an Exquisite one's always does, and the rest of the veil sends back as before. Pressed early it says *MIRROR
+VEIL IN n S* and knocks. Q (the pad's X) readies the next for the right mouse, the hand-raised runes and then the bosses'
+gifts (`ready_next`, `RUN.rune_sel`, `RUN.mouse_rune`, not saved); `use_right` uses whichever was readied last. The shrine's
+first curse gives a Common Mirror if none is held, with a pop-up (*A MIRROR VEIL, FROM THE SHRINE*, *RIGHT-CLICK RAISES IT*,
+*RB* on the pad). Checked in the harness: raised only on RB, every 40 s at Common; a bone 0.53 s after raising it parried and
+sent home (`EVENT parries`); the dream's Mirror still rises by itself; the shrine's gift on its first curse. Debug:
+`CRAWL_PARRYT=s` (the parry's window), `EVENT parries`, `shrine_mirror`.
+
+## 7a. The wheels (the owner, 4 November)
+
+Runes most of which a person will raise by hand, six lines of spells and the bosses' gifts are too many for a pad's buttons,
+so they are chosen on wheels, as in a current shooter. **Held, a wheel opens; the stick points; letting go takes what it
+points at.** The D-pad's up, tapped, is the map as before, and held (`WHEEL_HOLD`, 0.3 s) opens the runes and gifts' wheel; the
+D-pad's down, tapped, brings up the bar, and held opens the spells' wheel. RB raises the rune readied, LB uses the gift
+readied (the bumpers were the spells' wheel before); LT is still the right mouse. While a wheel is up the world goes on at
+a twelfth of its pace (`WHEEL_SLOW`, 0.08) and grey (`wheel_grey`: each pixel to the iron ramp by its brightness, dithered in
+over 0.12 s), and the caster stands; the wheel, the bar and everything drawn after keep their colours and run at full
+speed. B or Menu (Esc on the keys) puts it away without choosing.
+
+- **The spells' wheel**: the six lines in their places round it, Fire at the top and clockwise in the 1-6 keys' order, the
+  BFS9000 a seventh when held; a closed line shown shut. In the middle the line's name and rank (the spear's bones or
+  splinters left).
+- **The runes and gifts' wheel**: the runes held down the right half (*RUNES: RB*), the gifts down the left (*GIFTS: LB*),
+  each with its cooldown filling under it; a rune that rises by itself is shown shut, *IT RISES BY ITSELF*. A crowded half
+  gets smaller sockets.
+- **On the keys**: Q held opens the runes and gifts' wheel and the mouse points; a tap of Q readies the next as before. The
+  spells keep 1-7 and the mouse wheel.
+- The controls card speaks of them (*D-PAD DOWN HELD: SPELLS*, *LB A GIFT  RB A RUNE  UP HELD CHOOSES*; on the keys *RIGHT
+  CLICK USES  Q NEXT, HOLD: WHEEL*), and waits while a wheel is up.
+
+Built in `pad_keys` (the holds, `PADX.up_t/dn_t`, `wheel_req/rel/cancel`, `rune_hit/abil_hit`), `wheel_input`, `wheel_fill`,
+`wheel_open`, `wheel_close`, `wheel_render` (`WH`, `WSlot`, `WS_*`), and in `crawl_update` (the slow pace; `update_human` waits
+while a wheel is up). Checked with a scripted pad and keys in the harness: both wheels, the stick and the mouse pointing,
+letting go, B, a tap of up for the map, Q tapped and held, RB and LB; ASan clean. No real pad has touched it.
+
 ## 8. The dream
 
 - It strikes things in its way (4.2-4.5) as it strikes secrets: from `use_spot`, when the thing is within a few cells of
@@ -377,9 +415,9 @@ cursed through death and the runes stay, so it comes once a run of the ledger. I
 
 ## 9. The order
 
-1. One line to begin with (3a), with the bare spear (N2) and the Wraith (N3), and its balance runs by class.
-2. The gifts at the Lampstand (section 3).
-3. The Mirror by hand (the parry, then the veil), its place among the right mouse's gifts, and the shrine's free Mirror.
+1. One line to begin with (3a), with the bare spear (N2) and the Wraith (N3), and its balance runs by class. *Built.*
+2. The gifts at the Lampstand (section 3). *Built.*
+3. The wheels (7a) and the Mirror by hand (the parry, then the veil), its place among the right mouse's gifts, and the shrine's free Mirror. *Built.*
 4. The look of a marked thing (motes, glyph, pips, the dull ring), on a sheet first, as the art has gone.
 5. Section 4.2's things and the stretch budget (section 5), run I only; frames from levels 1-4 for the owner.
 6. Section 4.3's, and runs II-IV's flavours.
