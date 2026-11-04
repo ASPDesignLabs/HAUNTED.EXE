@@ -1,6 +1,11 @@
-# Something to do on the way: things struck by the right spell, warded creatures, the Mirror by hand
+# 1.0.0b16: one line to begin with, things struck by the right spell, warded creatures, the Mirror by hand
 
-*Ideas only (4 November 2026): nothing settled, nothing built. Written on `claude/modest-knuth-gd9u51` from main at
+**The first round is answered** (4 November 2026): the owner's answers are in section 10, with what they change. Q1 went
+further than asked: no class starts with the fireball any more (section 3a). That opens a short second round (section 11),
+each with a default. It is **1.0.0b16**, ahead of the minds' showing and the rest of the art pass (now 1.0.0b17) and the
+lower storey (now 1.0.0b18). Nothing is built.
+
+*The brief, as first drafted (ideas only). Written on `claude/modest-knuth-gd9u51` from main at
 1.0.0b15. The owner's brief: early levels have long stretches where the caster isn't doing much; fill them with things in
 the crypt that want a particular spell, and only spells the caster holds, so nothing locks; each marked by motes in its
 element's glow; timers, moving things, several hits and sequences are all fair. To make room for that, a second line is
@@ -19,20 +24,21 @@ torches), all of it already drawn and none of it answering a spell.
 
 Three facts from the code that shape everything below:
 
-- **Spirit never locks a spell.** With too little spirit a cast goes at tier 1 (`cast_spell`, `Shot.tier`). So an object
-  that wants Frost can always be answered by a caster with Frost open, souls or no souls.
+- **Spirit never locks a spell.** With too little spirit a cast goes weak, at tier 1 and free (`cast_spell`, `Shot.tier`;
+  "LOW ON SPIRIT: SPELLS CAST WEAK"). So an object that wants Frost can always be answered by a caster with Frost open,
+  souls or no souls. (Only the fireball's first rank costs nothing outright; every other line's first rank costs 0.2.)
 - **The spear is the exception.** It spends a bone a throw (`Gear.bones`), and bones run out. Anything that wants
   Physical needs bones beside it, or another way.
-- **Fire is always open** (`align_open`). Anything that wants fire is safe for everyone.
+- **Fire is always open** (`align_open`). Anything that wants fire is safe for everyone. *No longer, by Q1: see 3a.*
 
 ## 2. The rules every idea keeps
 
 - **R1. Only what is held.** A thing's element is chosen when the level is made (`start_level`), from the lines open at
-  that moment. Lines change only in her hall (the Lampstand, a vow), never mid-level, so it holds for the level.
+  that moment. On levels 1-4 that is the class's line alone (3a), so the first things are each class's own. Lines change only in her hall (the Lampstand, a vow), never mid-level, so it holds for the level.
 - **R2. Never between the caster and the way down** until three lines are held, and after that only where there is a way
-  round (a shortcut, not the only door). Keys, the exit and a boss's arch never wait on one.
-- **R3. Physical brings its own bones.** A spear-marked thing has two or three bones on the floor within a few cells, and
-  takes only one throw per hit wanted. Or: the fireball also works, at three times the hits (Q10).
+  round (a shortcut, not the only door; Q3 b). Keys, the exit and a boss's arch never wait on one.
+- **R3. Physical brings its own bones** (Q10 a). A spear-marked thing has two or three bones on the floor within a few
+  cells, and takes only one throw per hit wanted.
 - **R4. Nothing in a pocket, a trial or a boss's arena** to begin with: those have their own rules. (Pockets could have
   their own later: section 4.8.)
 - **R5. Seen before it is needed.** The motes are visible through fog, as the art pass's eyes are, so a thing is noticed
@@ -54,14 +60,49 @@ chosen. A short line on her screen says what it is: *THE DEAD ASK YOU TO CARRY A
 **Through death.** Death already takes the lines and the class (`death_fall`); the gifts would go with them and come again
 at levels 4 and 12 on the next way down. That fits; it needs only `RUN.gifts` cleared with the rest.
 
-**The Witchfinder.** Their class is Fire, so they start with one line where everyone else has two. After one gift they'd
-have two and the others three. Either they take two at level 4 (everyone has three by level 5), or they keep their gift of
-three Fire points and simply run a line behind (Q1).
+**The Witchfinder** (Q1, settled otherwise than asked). Nobody starts with the fireball now, so every class begins with
+one line, its own, and the gifts bring everyone to two lines by level 5 and three by level 13. The Witchfinder is no longer
+a line behind.
 
-**Lines bought with points.** A person may already have opened a third line with Alignment Points by level 4. The gift then
-opens another (a fourth), or pays the opening's points back if every line is open (Q2).
+**A line already bought** (Q2 a). A person may have opened a second line with Alignment Points before level 4. The gift then
+opens another (a third), and the one after (a fourth). Only when every line is open does a gift pay the opening's points back.
 
 **The dream.** `auto_align` already picks a second line; it takes the gift the same way, at once, at its greeting.
+
+## 3a. One line to begin with (Q1)
+
+The owner: no class gets fire by default; a caster specs into other lines if they choose, and the class's gifts apply
+mostly to its own line, which evens the six out. Today's gifts already do, but for two general ones (the Sin-Eater's twenty
+more in the vessel, the Headsman's ten bones and tenth of armour), which can stay. What changes in the code:
+
+- **`align_open`** loses `e == EL_FIRE`; Fire's opening costs 3 like the others (`ALIGN[EL_FIRE].n[ND_OPEN].cost`, today
+  0). The Witchfinder keeps their three Fire points (`RUN.cls_pts`).
+- **The free first rank.** Today only the fireball's first rank costs nothing (`spell_cost`); the others cost 0.2 spirit.
+  To keep the classes even, the class's own line costs nothing at rank 1, whichever it is (N1).
+- **A class before the first step down.** With no fireball, a caster without a class has no spell. Her question already
+  opens at once while `RUN.cls` is 0 (`shop_human`), and the dream takes one at random in `begin_shop`; the way on must
+  also stay barred until it is answered, for a person, after a death and for an old page with no class.
+- **Death** (`death_fall`) takes the lines and the class as now, but no longer leaves Fire open at rank 1: the next life
+  is asked what it was, and starts with that line. Her claim's spell "a tier down, the Fire Bolt to the fireball, never
+  below" becomes the class's line, never below rank 1.
+- **Old pages.** A page whose Fire nodes were bought on top of the free opening keeps Fire open, marked as a gift opening
+  (`RUN.al_gift`, as `class_take` does for a class given up), so nothing bought is lost. A page with no class is asked.
+- **The spear with no bones** (N2). A Headsman, or anyone with only Physical, out of bones has nothing to cast today
+  ("NO BONES FOR THE SPEAR"); before, the fireball was always there. Proposed: as spirit does, a spear with no bones goes
+  weak: a splinter at tier 1, no pierce, free.
+- **The Wraith** (N3). Only fire, Soul Drain, Hellfire and wisps drive the ordinary Wraith back today (`damage_mob`,
+  `wraith_back`; the dream "turns fire on it" in `choose_spell`). A Frost or Lightning caster who took neither as a gift
+  could only spend souls on wisps. Proposed: any spell drives it back for 3 s; fire and spirit for 5 s as now.
+- **The dream's fallbacks.** It reaches for the fireball in six places: `choose_spell`'s default and its Wraith rule, tearing
+  at the Wandering Spider's web, the probe through an ambush's door, and the spell it falls back to when one is closed or
+  the BFS9000 can't be paid for (`G.spell`). Each becomes "the caster's own line" (a small `own_spell()`).
+- **Fire's own things stay fire's.** Explosions and splashes, Firestarter, the double harm to the spider's web, firedamp set
+  off, the knight's breastplate, the imps' and the Wraith Unbound's weaknesses: all keep wanting fire. A caster without it
+  meets them as the other elements do today.
+- **The free fireball in the words.** The status bar, the controls card, the Codex, the class pages and the release notes
+  say the fireball is everyone's in a few places; they change with it.
+- **Balance.** The dream will be weaker on levels 1-4 with one line, and the spear's class weakest of all. Sixteen seeds from
+  level 1 against main, by class (`CRAWL_CLASS`), before anything else in this plan is built on it.
 
 ## 4. Things that want a spell
 
@@ -81,13 +122,15 @@ drawn *in* towards it, slowly, as if it were breathing them: it wants that. Lit 
 The same colours mark warded creatures (section 6), so the two languages must not cross: a thing *draws motes in*; a
 warded creature *wears a hard rim* of the colour and its glyph is barred.
 
-### 4.2 Single spell, standing still (levels 1-4: fire and the class's line)
+### 4.2 Single spell, standing still (levels 1-4: the class's line)
 
-The first ones should be quick and generous: one or two hits, something in it every time.
+The first ones should be quick and generous: one or two hits, something in it every time. With one line to begin with
+(3a), the carriers (the coffer, the cage, the chandelier) wear the class's glyph, and the class's own (8-11, and the sconces
+and the rimed door for fire) come where they can.
 
 1. **Cold sconces.** Empty torch brackets along a long hall, marked with fire. Lit, they stay lit: the hall is lighter (the
-   shade and the Lightless care, deeper down), and lighting every one on a level opens a niche with gold. Fire only, so
-   safe on level 1 for every class. The lull's first answer.
+   shade and the Lightless care, deeper down), and lighting every one on a level opens a niche with gold. Only for a caster
+   with fire, now (3a); the Witchfinder's first.
 2. **The bound coffer.** A chest wrapped in chains, a glyph on the lock. Its element's spell breaks a chain a hit; one to
    three chains by what is inside.
 3. **The hanging cage.** A gibbet (already dressing) on a chain over the hall, marked with the bolt or the bone: strike the
@@ -224,7 +267,8 @@ warded against fire, an imp against fire, a shade against frost), ties broken at
 - never the line it is weakest to (a shambler is never warded against fire);
 - never every line the caster holds: at least one held line is not warded, always;
 - one element only until the caster has three lines (level 13); from then a rank IV or black creature may carry two;
-- the fireball (free) is warded only when the caster's other line would leave a fight winnable on tier-1 casts.
+- never the class's own line while the caster has only two (levels 5-12): the second line is the one a ward teaches.
+  From three lines, any.
 
 **How often.** None before level 5 (one line and fire is too little to switch between). Then about one creature in six on
 run I's levels 5-9, one in four on run II, one in three on III and IV. Packs share one ward (PLAN-ai's packs): a whole file
@@ -235,11 +279,10 @@ element's glyph barred over its head as it comes near, a dull ring and thrown-ba
 boss's `G.bring`), and the target's readout gives that element a barred glyph on the strong side. The first time a level, a
 caption: *WARDED AGAINST FROST*. On the bestiary's page, a line: *SOME COME WARDED*.
 
-**Breaking it.** A ward could crack after enough damage of its own element (a fifth of the creature's health, say),
-dropping it to the kind's own weakness: then nothing is ever locked, only slower (Q7).
+**Breaking it** (Q7 a). A ward cracks after a fifth of the creature's health in damage of its own element, with a sound
+of breaking glass and the rim gone, dropping it to the kind's own weakness: then nothing is ever locked, only slower.
 
-**What it doesn't touch.** Bosses (their own rules), spectres and spirits, allies, a trial's creatures. Boss adds later,
-perhaps (Q8). Nothing saved: a ward belongs to the creature for its level.
+**What it doesn't touch.** Bosses (their own rules), their adds (Q8 a), spectres and spirits, allies, a trial's creatures. Nothing saved: a ward belongs to the creature for its level.
 
 **Balance.** The dream sees wards through `hit_mult`, so it switches spells as it should; the cost is time, which shows in
 the runs. Eight seeds is too few here (CLAUDE.md's step-2 note); compare sixteen against `CRAWL_WARD=0`.
@@ -252,25 +295,24 @@ the runs. Eight seeds is too few here (CLAUDE.md's step-2 note); compare sixteen
 
 **For a person.** It never fires by itself. The right mouse (the pad's LT, which is already the right mouse) raises it;
 the cooldown and the socket's filling line are as now; pressed early it says *THE MIRROR IN 12 S* and knocks, as the boss
-abilities do. The hand comes up palm out, silvered, while it holds. Three ways it could feel (Q4):
+abilities do. The hand comes up palm out, silvered, while it holds. Three ways it could feel (Q4; the owner: **(b)**, the parry):
 
 - **(a) The veil by hand.** The same veil, the same length, raised when you choose. Simplest; the skill is in the timing.
 - **(b) A parry.** A short true mirror (0.6 s) that sends back at twice the strength and homing (as the Exquisite one
   does), then the ordinary veil for the rest. Rewards a good eye; a whiff costs the whole cooldown.
 - **(c) Held.** Up while the button is held, draining a store that fills over the cooldown.
 
-**The right mouse is taken.** It already uses the readied boss ability (`use_readied`; Q readies the next). The Mirror can
-join them: it is readied by default until a boss's gift is won, and Q turns between it and the gifts (`ready_next`). Or the
-gifts move to another key (Q5).
+**The right mouse is taken.** It already uses the readied boss ability (`use_readied`; Q readies the next). The Mirror
+joins them (Q5 a): it is readied by default until a boss's gift is won, and Q turns between it and the gifts
+(`ready_next`); its socket sits first among theirs.
 
 **The dream** keeps `def_trigger` as it is (`G.player` decides which).
 
 **The shrine's first curse.** `shrine_curse` gives a Common Mirror free with the shrine's first rank, with a pop-up (*THE
 SHRINE GIVES YOU A MIRROR*) and a hint (*RIGHT MOUSE RAISES IT*, through `pk`, so the pad's says LT). The shrine stays
-cursed through death and the runes stay, so it comes once a run of the ledger. If a Mirror is already held: nothing more,
-or the first pull a coin cheaper (Q6). Skeletons throw from level 1 and wall skulls charge from 3, so it has work at once.
+cursed through death and the runes stay, so it comes once a run of the ledger. If a Mirror is already held: nothing more (Q6 a). Skeletons throw from level 1 and wall skulls charge from 3, so it has work at once.
 
-**The other runes** stay automatic. Blink, the Ward and Time Slip would make good hand-held ones too, later (Q9).
+**The other runes** stay automatic. Blink, the Ward and Time Slip by hand are for later (Q9), once the Mirror is played.
 
 ## 8. The dream
 
@@ -281,36 +323,67 @@ or the first pull a coin cheaper (Q6). Skeletons throw from level 1 and wall sku
 - Debug: `CRAWL_THINGS2=k` (a thing of kind k ahead on each level), `CRAWL_WARD=0/1/2` (none, as made, every creature
   warded), `EVENT struck`, `thing_done`, `warded`, `ward_cracked`, `mirror_raised`, `mirror_turned`, `gift`.
 
-## 9. A rough order
+## 9. The order
 
-1. The gifts at the Lampstand (small, and everything else stands on it).
-2. The Mirror by hand and the shrine's free Mirror.
-3. The look of a marked thing (motes, glyph, pips, the dull ring), on a sheet first, as the art has gone.
-4. Section 4.2's things and the stretch budget (section 5), run I only; frames from levels 1-4 for the owner.
-5. Section 4.3's, and runs II-IV's flavours.
-6. Warded creatures, with sixteen-seed runs against `CRAWL_WARD=0`.
-7. Sequences (4.4) and the fight things (4.5).
-8. The lull's watch.
+1. One line to begin with (3a), with the bare spear (N2) and the Wraith (N3), and its balance runs by class.
+2. The gifts at the Lampstand (section 3).
+3. The Mirror by hand (the parry, then the veil), its place among the right mouse's gifts, and the shrine's free Mirror.
+4. The look of a marked thing (motes, glyph, pips, the dull ring), on a sheet first, as the art has gone.
+5. Section 4.2's things and the stretch budget (section 5), run I only; frames from levels 1-4 for the owner.
+6. Section 4.3's, and runs II-IV's flavours.
+7. Warded creatures, with sixteen-seed runs against `CRAWL_WARD=0`.
+8. Sequences (4.4) and the fight things (4.5).
+9. The lull's watch.
+10. The checks: balance against 1.0.0b15, ASan, the README's and the page's words.
 
-## 10. Questions
+## 10. Questions (the first round, answered 4 November)
+
+The owner's answers follow each, in bold.
 
 - **Q1. The Witchfinder.** (a) two gifts at level 4, so everyone has three lines by level 5; (b) one, a line behind the
   others. *Recommended: (a).*
+  **The owner: neither. No class starts with fire; each begins with its own line, and its gifts apply mostly to it.**
+  Section 3a.
 - **Q2. A gift with a line already bought.** (a) it opens another line; (b) the points back. *Recommended: (a); (b) only
   when every line is open.*
+  **The owner: (a).**
 - **Q3. Do things ever stand between the caster and the way down?** (a) never; (b) only from level 13, with a way round.
   *Recommended: (b).*
+  **The owner: (b).**
 - **Q4. The Mirror's feel.** (a) the veil by hand; (b) a parry and then the veil; (c) held. *Recommended: (b), with (a) as
   the first step.*
+  **The owner: (b).**
 - **Q5. The right mouse.** (a) the Mirror joins the boss gifts, Q turns between them; (b) the Mirror alone on the right
   mouse, the gifts on another key. *Recommended: (a).*
+  **The owner: (a).**
 - **Q6. The free Mirror when one is held.** (a) nothing; (b) the next pull a coin cheaper. *Recommended: (a).*
+  **The owner: (a).**
 - **Q7. Can a ward crack?** (a) yes, after a fifth of its health in its own element; (b) never. *Recommended: (a).*
+  **The owner: (a).**
 - **Q8. Wards on a boss's adds?** (a) no; (b) from run II. *Recommended: (a) for now.*
+  **The owner: (a).**
 - **Q9. The other runes by hand, later?** Blink, the Ward, Time Slip. *Recommended: ask again after the Mirror is played.*
+  **The owner: later.**
 - **Q10. The spear's things without bones.** (a) bones beside each; (b) the fireball works too, at three times the hits.
   *Recommended: both.*
+  **The owner: (a).** (The fireball's fallback went with Q1 anyway.)
 - **Q11. How many things a level, and do they count?** Three to six, more on levels 1-4; outside the treasure count, a
   coin one level in five for doing them all. *Recommended as written.*
+  **The owner: as recommended.**
 - **Q12. Which release.** After 1.0.0b16 (the minds' showing and the rest of the art pass), or the gifts and the Mirror
   first as a small one.
+  **The owner: first; the others move on a number.** This is 1.0.0b16, the minds' showing and the rest of the art
+  pass 1.0.0b17, the lower storey 1.0.0b18.
+
+## 11. The second round (from Q1), each with a default
+
+- **N1. The class's first rank free.** (a\*) The class's own line costs nothing at rank 1, as the fireball did; (b) every
+  first rank costs 0.2, the fireball's too.
+- **N2. The spear with no bones.** (a\*) It goes weak, as a spell without spirit does: a splinter at tier 1, no pierce, no
+  bone spent; (b) bones grow back, one every six seconds under three; (c) as now, nothing.
+- **N3. What drives the Wraith back.** (a\*) Any spell, 3 s; fire, spirit and wisps 5 s as now; (b) as now (fire, spirit,
+  wisps, Dread and the blessing only).
+- **N4. The way on before a class is chosen.** (a\*) Barred until her question is answered, for anyone (it can be closed and
+  come back to, but not walked past).
+- **N5. The fireball's first rank for old pages.** (a\*) A page that only ever had the free fireball loses it and is asked
+  for a class if it has none; what was bought in Fire stays open as a gift.
