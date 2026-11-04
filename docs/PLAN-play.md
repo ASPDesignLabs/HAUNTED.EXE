@@ -116,6 +116,9 @@ more in the vessel, the Headsman's ten bones and tenth of armour), which can sta
   `align_ready`); the dream and a lending choose among the five (`class_random`). A Headsman already sworn on an old page
   keeps their past. The gifts taken are `RUN.gifts`, a byte at the end of `LG_ALIGN` (`LG_ALIGN_BYTES`; an older page reads
   as none), cleared by a death.
+- **The Plague Doctor's poison** (the owner, 4 November, after step 1's runs: the class's flask alone, a slow lob that hurts
+  over time, died 35 times on eight seeds where 1.0.0b15's died 6). Their poison now bites half again as hard each tick
+  (`PLAGUE_BITE` in `mob_poison`), and still lasts a fifth longer; everyone else's is as it was. The class's gift says so.
 - **A line lent** (N4, N5). Her question already reopens every frame in her room while `RUN.cls` is 0, so a person can't
   walk on without a class. The dream may not choose for a page it reads from the ledger (`LEDGER.kept`), and a run met in
   the crypt with no class has no spell at all; for those `line_lend` lends a line at random (`LEDGER.lent`, never saved)

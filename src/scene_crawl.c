@@ -4156,7 +4156,7 @@ static const ClassDef CLASSES[NELEM] = {
     { "THE PLAGUE DOCTOR", "UNDER THE BEAK AND BEHIND THE GLASS THEY WALKED THE PEST-HOUSES AND CARRIED OUT THE BODIES, AND LEARNT WHAT "
       "A FEVER PASSES ON, AND TO WHOM. THEIR FLASKS STILL HOLD WHAT THE WARDS HELD; WHERE THEY BREAK, THE FLOOR IS NOT SAFE TO "
       "WALK FOR A WHILE.",
-      "POISON OPEN, AND IT COSTS A FIFTH LESS. POISON LASTS A FIFTH LONGER." },
+      "POISON OPEN, AND IT COSTS A FIFTH LESS. ITS POISON BITES HALF AGAIN AS HARD, AND LASTS A FIFTH LONGER." },
     { "THE SIN-EATER", "PAID IN BREAD AND A COIN TO EAT THE SINS OF THE DEAD FROM THEIR CHESTS, THEY ATE FOR A WHOLE PARISH THROUGH A "
       "PLAGUE YEAR. WHAT THEY SWALLOWED HAS NOT SETTLED. THEY KNOW HOW TO DRAW A SOUL OUT, AND HOW TO KEEP IT; THEIRS IS THE "
       "DEEPEST VESSEL.",
@@ -4644,9 +4644,11 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
 
 /* Poison and burning on a creature (docs/PLAN-b11.md, sections 9-10): neither stacks; a stronger dose, or flames
  * walked through again, start it over */
+#define PLAGUE_BITE 1.5f                    /* the Plague Doctor's poison, a tick, against anyone else's */
 static void mob_poison(Mob *m, float total, float secs) {
     if (!m->alive || m->state != MS_WALK || KIND_IS(m, KF_SPIRIT) || m->ally || secs <= 0.0f) return;
-    if (cls_el() == EL_POISON) { total *= 1.2f; secs *= 1.2f; }    /* the Plague Doctor's lasts a fifth longer */
+    if (cls_el() == EL_POISON) { total *= 1.2f * PLAGUE_BITE; secs *= 1.2f; }   /* the Plague Doctor's bites harder each tick (1.0.0b16:
+                                                                                    the owner's, to set the class apart) and lasts a fifth longer */
     if (total <= m->pois_dps * fmaxf(0.0f, m->pois_t)) return;
     m->pois_t = secs; m->pois_dps = total / secs;
 }
