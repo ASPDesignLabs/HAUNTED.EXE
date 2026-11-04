@@ -213,7 +213,8 @@ second and third line given free at the Lampstand after levels 4 and 12, things 
 the lines held), creatures warded against a held line (60% to 90%, cracking), and the Mirror rune raised by hand on the right
 mouse as a parry (Q turns between it and the boss gifts), a Common one free with the shrine's first curse. The owner answered
 the first round the same day and put it first: the minds' showing and the rest of the art pass are now **1.0.0b17**, the lower
-storey **1.0.0b18**. A second round (N1-N5, from the fireball's going) waits, each with a default.
+storey **1.0.0b18**. The second round (N1-N5, from the fireball's going) was answered the same day; steps 1-3 and the
+wheels are built (harness only), the Plague Doctor still the weakest past in the dream's runs.
 
 ## Working with the owner
 
