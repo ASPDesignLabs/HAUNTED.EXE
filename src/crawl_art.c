@@ -3416,6 +3416,182 @@ static void spr_mk_barricade(int id, int down) {
     cv_store(id);
 }
 
+/* ---- step 6's things (docs/PLAN-play.md section 4.3 and 4.6): moving, timed, wanting two spells or more ---- */
+/* a corpse-light: a pale drifting light with a face in it, a tail of itself behind; two frames */
+static void spr_mk_corpselight(int id, int f) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int k = 0; k < 14; k++) {                                  /* the tail, thinning */
+        float u = (float)k / 13.0f, x = 32 + 13 * u + 3 * sinf(u * 5 + f * 1.7f), y = 30 + 7 * u - 3 * cosf(u * 4 + f);
+        cv_flat(x, y, 3.2f * (1 - u) + 0.5f, 2.6f * (1 - u) + 0.5f, (uint8_t)(R_GHOST + 9 - (int)(6 * u)));
+    }
+    for (int y = 20; y <= 40; y++)                                  /* the halo, dithered */
+        for (int x = 22; x <= 42; x++) {
+            float d = hypotf((float)x - 32, (float)y - 30);
+            if (d < 10 && d > 6 && ((x + y + f) & 1)) cv_px(x, y, (uint8_t)(R_GHOST + 7));
+        }
+    cv_ellipse(32, 30, 6, 6, R_GHOST, 0.6f, 1.0f);
+    cv_flat(32, 30, 3, 3, C_WHITE);
+    cv_px(30, 29, (uint8_t)(R_GHOST + 4)); cv_px(34, 29, (uint8_t)(R_GHOST + 4));   /* a face, hardly */
+    cv_px(31 + f, 32, (uint8_t)(R_GHOST + 5)); cv_px(32 + f, 32, (uint8_t)(R_GHOST + 5));
+    cv_store(id);
+}
+/* a skull rolling, two turns of it */
+static void spr_mk_rollskull(int id, int f) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 7, 1.4f, R_WARM + 1);
+    cv_skull(32, 54, 1.05f, 0.25f, 0.85f);
+    if (f) {                                                       /* half a turn on: the crown towards you, the jaw under */
+        for (int y = 47; y <= 60; y++) for (int x = 25; x <= 39; x++) {
+            float d = hypotf((float)x - 32, ((float)y - 54) * 1.1f);
+            if (d < 7) cv_px(x, y, sh(R_BONE, 0.35f + 0.45f * lit((x - 32) / 7.0f, (y - 54) / 7.0f, sqrtf(fmaxf(0, 1 - d * d / 49)))));
+        }
+        cv_line(28, 50, 33, 57, sh(R_BONE, 0.2f)); cv_line(33, 57, 36, 52, sh(R_BONE, 0.2f));   /* a suture */
+    }
+    for (int i = 0; i < 4; i++) cv_px(20 - i * 3, 58 + (i & 1), sh(R_STONE, 0.4f));   /* grit kicked up behind */
+    cv_outline(0);
+    cv_store(id);
+}
+/* a seal of old stone in a ring of iron over a niche: cold; hot from fire (its cracks glowing); broken by frost while hot */
+static void spr_mk_heatseal(int id, int st) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 18, 1.8f, R_WARM + 1);
+    for (int y = 30; y <= 62; y++) for (int x = 14; x <= 50; x++) cv_px(x, y, sh(R_STONE, 0.2f + 0.1f * (x < 17) - 0.08f * (x > 47) + 0.06f * h01(x, y, 651)));   /* its frame */
+    if (st < 2) {
+        for (int y = 33; y <= 61; y++)
+            for (int x = 17; x <= 47; x++) {
+                float d = hypotf((float)x - 32, (float)y - 47);
+                if (d > 14.5f) continue;
+                uint8_t c = d > 13 ? sh(R_IRON, 0.5f + 0.3f * (x < 32)) : sh(R_STONE, 0.35f + 0.25f * lit((x - 32) / 14.0f, (y - 47) / 14.0f, sqrtf(fmaxf(0, 1 - d * d / 196))));
+                if (st == 1 && d <= 13) c = sh(R_BRICK, 0.4f + 0.35f * lit((x - 32) / 14.0f, (y - 47) / 14.0f, sqrtf(fmaxf(0, 1 - d * d / 196))));   /* hot */
+                cv_px(x, y, c);
+            }
+        int cx = 26;                                               /* its cracks */
+        for (int y = 36; y <= 58; y++) { cx += (int)(h01(y, 1, 653) * 3) - 1; cv_px(cx, y, st == 1 ? (uint8_t)(R_FLAME + 12) : sh(R_STONE, 0.05f)); }
+        for (int x = 30; x <= 44; x++) { int y = 46 + (int)(3 * sinf(x * 0.7f)); cv_px(x, y, st == 1 ? (uint8_t)(R_FLAME + 10) : sh(R_STONE, 0.06f)); }
+    } else {
+        for (int y = 33; y <= 61; y++) for (int x = 18; x <= 46; x++) if (hypotf((float)x - 32, (float)y - 47) < 13) cv_px(x, y, sh(R_STONE, 0.02f));   /* the niche, open */
+        cv_flat(32, 55, 3, 1.5f, sh(R_GOLD, 0.85f)); cv_px(31, 54, (uint8_t)(R_GOLD + 12));
+        for (int i = 0; i < 14; i++) cv_flat(10 + h01(i, 2, 655) * 44, 59 + h01(i, 3, 655) * 4, 2.2f, 1.1f, sh(R_STONE, 0.3f + 0.3f * h01(i, 4, 655)));   /* its shards */
+        for (int i = 0; i < 6; i++) cv_px((int)(16 + h01(i, 5, 655) * 32), (int)(56 + h01(i, 6, 655) * 6), sh(R_GHOST, 0.9f));   /* rime on them */
+    }
+    cv_outline(0);
+    cv_store(id);
+}
+/* a small bell on a bracket from the roof: still, and swung ringing */
+static void spr_mk_bell(int id, int ring) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_capsule(26, 0, 38, 0, 1.2f, R_IRON, 0.1f, 0.4f);
+    cv_line(32, 1, 32, 8, sh(R_IRON, 0.45f));
+    float tilt = ring ? 0.35f : 0.0f;
+    for (int y = 8; y <= 26; y++) {
+        float u = (float)(y - 8) / 18.0f, w = 3 + 3 * u + 4 * u * u * u, cx = 32 + tilt * (y - 8);
+        for (int x = (int)(cx - w); x <= (int)(cx + w); x++) {
+            float nx = (x + 0.5f - cx) / (w + 0.01f);
+            cv_px(x, y, sh(R_WARM, (y >= 25 ? 0.5f : 0.25f) + 0.5f * lit(nx, -0.2f, sqrtf(fmaxf(0, 1 - nx * nx)))));
+        }
+    }
+    cv_flat(32 + tilt * 20 + (ring ? 2 : 0), 28, 1.4f, 1.4f, sh(R_IRON, 0.3f));
+    if (ring) for (int k = 0; k < 3; k++) { cv_px(46 + k * 3, 14 + k * 2, sh(R_BONE, 0.8f)); cv_px(47 + k * 3, 18 + k * 2, sh(R_BONE, 0.6f)); cv_px(18 - k * 3, 16 + k * 2, sh(R_BONE, 0.7f)); }
+    cv_outline(0);
+    cv_store(id);
+}
+/* a winch on an iron frame, its drum wound in copper, a chain going up out of sight; woken by lightning it turns, sparking */
+static void spr_mk_winch(int id, int on) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 16, 1.8f, R_WARM + 1);
+    cv_capsule(18, 30, 18, 62, 1.6f, R_IRON, 0.05f, 0.35f); cv_capsule(46, 30, 46, 62, 1.6f, R_IRON, 0.05f, 0.35f);   /* its stands */
+    for (int y = 34; y <= 48; y++)                                  /* the drum, copper-wound */
+        for (int x = 20; x <= 44; x++) cv_px(x, y, ((x + (on ? y / 2 : 0)) & 1) ? sh(R_WARM, 0.3f + 0.4f * (y < 39)) : sh(R_WARM, 0.15f + 0.3f * (y < 39)));
+    cv_capsule(20, 34, 20, 48, 1.5f, R_IRON, 0.1f, 0.5f); cv_capsule(44, 34, 44, 48, 1.5f, R_IRON, 0.1f, 0.5f);
+    for (int y = 0; y < 34; y += 2) cv_flat(30, (float)y + 1, (y & 2) ? 1.4f : 0.8f, (y & 2) ? 0.8f : 1.4f, sh(R_IRON, on ? 0.6f : 0.4f));   /* the chain */
+    cv_capsule(46, 41, 54, 36, 1.0f, R_IRON, 0.1f, 0.4f); cv_capsule(54, 36, 54, 30, 1.0f, R_IRON, 0.1f, 0.4f);   /* the crank */
+    if (on) for (int k = 0; k < 6; k++) cv_line(20 + k * 5, 33, 22 + k * 5, 30 - (k & 1) * 2, (uint8_t)(R_GOLD + 9 + (k & 1) * 3));
+    cv_outline(0);
+    cv_store(id);
+}
+/* a hearth of old brick with an iron grate: dying, a few coals; fed, roaring */
+static void spr_mk_hearth(int id, int roar) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 30; y <= 62; y++) for (int x = 12; x <= 52; x++) {
+        int brick = ((y - 30) / 4 + (x + ((y - 30) / 4 & 1) * 3) / 6) & 1;
+        cv_px(x, y, sh(R_BRICK, 0.25f + 0.12f * brick + 0.08f * h01(x, y, 661) - ((y - 30) % 4 == 0 ? 0.1f : 0.0f)));
+    }
+    for (int y = 40; y <= 62; y++) for (int x = 20; x <= 44; x++) cv_px(x, y, sh(R_STONE, 0.02f + 0.04f * (y > 58)));   /* the mouth */
+    for (int x = 20; x <= 44; x++) cv_px(x, 39, sh(R_STONE, 0.3f));
+    for (int x = 21; x <= 43; x += 3) cv_line(x, 56, x, 61, sh(R_IRON, 0.4f));   /* the grate */
+    for (int i = 0; i < 9; i++) cv_flat(23 + h01(i, 1, 663) * 18, 57 + h01(i, 2, 663) * 3, 1.4f, 0.9f, (uint8_t)(R_FLAME + (roar ? 8 : 3) + (i % 3)));
+    if (roar)
+        for (int k = 0; k < 5; k++) {
+            float x = 24 + k * 4, top = 42 + 4 * h01(k, 3, 665);
+            for (int y = (int)top; y < 57; y++) cv_px((int)(x + sinf(y * 0.5f + k) * 1.2f), y, (uint8_t)(R_FLAME + 15 - (57 - y) / 3));
+        }
+    cv_outline(0);
+    cv_store(id);
+}
+/* a cracked iron pipe out of the floor, venting scalding steam; frozen, sheathed in ice and hung with icicles */
+static void spr_mk_vent(int id, int iced) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 10, 1.6f, R_WARM + 1);
+    cv_capsule(32, 44, 32, 62, 3.0f, R_IRON, 0.08f, 0.45f);
+    cv_capsule(32, 44, 38, 38, 3.0f, R_IRON, 0.08f, 0.45f);
+    cv_line(37, 37, 39, 40, sh(R_STONE, 0.02f));                    /* its crack */
+    if (!iced)
+        for (int i = 0; i < 22; i++) {
+            float u = h01(i, 1, 671), x = 40 + u * 10 - 6 * u * u, y = 36 - u * 32;
+            cv_flat(x + h01(i, 2, 671) * 6 - 3, y, 2 + 4 * u, 1.5f + 3 * u, (uint8_t)(R_GHOST + 13 - (int)(7 * u)));
+        }
+    else {
+        cv_capsule(32, 42, 32, 62, 4.2f, R_GHOST, 0.4f, 0.95f); cv_capsule(32, 43, 38, 37, 4.2f, R_GHOST, 0.4f, 0.95f);
+        for (int k = 0; k < 6; k++) cv_line(27 + k * 2.3f, 36 + (k & 1) * 4, 27 + k * 2.3f, 43 + (k & 1) * 4 + 3, sh(R_GHOST, 0.85f));
+    }
+    cv_outline(0);
+    cv_store(id);
+}
+/* run III: an ore cart on its rails, heaped, a glint in it; two turns of its wheels */
+static void spr_mk_cart(int id, int f) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int x = 4; x <= 60; x++) { cv_px(x, 61, sh(R_IRON, 0.45f)); if ((x & 7) == 0) for (int y = 60; y <= 63; y++) cv_px(x, y, sh(R_WOOD, 0.3f)); }   /* the rails */
+    float pts[8] = { 14, 36, 50, 36, 46, 54, 18, 54 };
+    cv_poly(pts, 4, R_WOOD, 0.45f, 0.18f, 36, 18);
+    for (int x = 14; x <= 50; x++) cv_px(x, 36, sh(R_IRON, 0.55f));
+    cv_line(16, 44, 48, 44, sh(R_IRON, 0.35f));
+    for (int i = 0; i < 16; i++) cv_flat(18 + h01(i, 1, 681) * 28, 33 - h01(i, 2, 681) * 5 * (1 - fabsf(h01(i, 1, 681) - 0.5f) * 2), 2.4f, 1.6f, sh(R_STONE, 0.25f + 0.3f * h01(i, 3, 681)));
+    cv_flat(30, 30, 1.6f, 1.2f, sh(R_GOLD, 0.9f));
+    for (int w = 0; w < 2; w++) {
+        float wx = w ? 42 : 22;
+        cv_ellipse(wx, 56, 4.5f, 4.5f, R_IRON, 0.1f, 0.5f);
+        for (int s = 0; s < 4; s++) { float a = s * 0.785f + f * 0.39f; cv_line(wx, 56, wx + cosf(a) * 3.5f, 56 + sinf(a) * 3.5f, sh(R_IRON, 0.7f)); }
+    }
+    cv_outline(0);
+    cv_store(id);
+}
+/* run III: a lodestone in an iron cradle, veined; charged, its veins burning gold and sparks leaping */
+static void spr_mk_lodestone(int id, int on) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 16, 1.8f, R_WARM + 1);
+    cv_capsule(18, 50, 18, 62, 1.4f, R_IRON, 0.05f, 0.3f); cv_capsule(46, 50, 46, 62, 1.4f, R_IRON, 0.05f, 0.3f); cv_capsule(16, 52, 48, 52, 1.2f, R_IRON, 0.05f, 0.35f);
+    cv_ellipse(32, 38, 14, 13, R_STONE, 0.04f, 0.32f);
+    for (int v = 0; v < 4; v++) {                                   /* its veins */
+        float x = 22 + v * 6, y = 28;
+        for (int s = 0; s < 18; s++) { float nx = x + (h01(v, s, 691) - 0.5f) * 3, ny = y + 1.2f; if (hypotf(nx - 32, (ny - 38) * 1.07f) < 13) cv_px((int)nx, (int)ny, on ? (uint8_t)(R_GOLD + 9 + (s % 4)) : sh(R_IRON, 0.55f)); x = nx; y = ny; }
+    }
+    if (on) for (int k = 0; k < 5; k++) { float a = k * 1.25f; cv_line(32 + cosf(a) * 14, 38 + sinf(a) * 13, 32 + cosf(a) * 19, 38 + sinf(a) * 17, (uint8_t)(R_GOLD + 11)); }
+    cv_outline(0);
+    cv_store(id);
+}
+/* run II: a sheet of new ice on dark water, cracked at its edges: what frost lays for a crossing */
+static void spr_mk_ice(int id) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 52; y <= 63; y++)
+        for (int x = 0; x < 64; x++) {
+            float e = fabsf((float)x - 32) / 32.0f + fabsf((float)y - 58) / 12.0f;
+            if (e > 1.05f + 0.1f * h01(x, y, 697)) continue;
+            cv_px(x, y, sh(R_GHOST, 0.45f + 0.35f * h01(x / 3, y, 699) + (y < 54 ? 0.15f : 0.0f)));
+        }
+    for (int k = 0; k < 5; k++) cv_line(8 + k * 12, 55 + (k & 1) * 3, 14 + k * 12, 61 - (k & 1) * 2, sh(R_GHOST, 0.2f));
+    cv_store(id);
+}
+
 /* The mark on a thing that wants a spell (section 4.1): a seal of dark iron with the element's glyph, motes of its
  * colour drawn in towards it (t, in seconds, turns them), a row of pips for the hits it wants (lit as they land); just
  * struck, the seal flares; struck by the wrong spell, a dull ring and sparks thrown back; done, the seal dark. Into a
@@ -13466,6 +13642,11 @@ void crawl_art_init(void) {
     spr_mk_urn(SP_MK_URN0, 0); spr_mk_urn(SP_MK_URN1, 1); spr_mk_coil(SP_MK_COIL0, 0); spr_mk_coil(SP_MK_COIL1, 1);
     spr_mk_vine(SP_MK_VINE0, 0); spr_mk_vine(SP_MK_VINE1, 1); spr_mk_lantern(SP_MK_LANTERN0, 0); spr_mk_lantern(SP_MK_LANTERN1, 1);
     spr_mk_barricade(SP_MK_BARRICADE0, 0); spr_mk_barricade(SP_MK_BARRICADE1, 1);
+    spr_mk_corpselight(SP_MK_CLIGHT0, 0); spr_mk_corpselight(SP_MK_CLIGHT1, 1); spr_mk_rollskull(SP_MK_RSKULL0, 0); spr_mk_rollskull(SP_MK_RSKULL1, 1);
+    for (int k = 0; k < 3; k++) spr_mk_heatseal(SP_MK_HSEAL0 + k, k);
+    spr_mk_bell(SP_MK_BELL0, 0); spr_mk_bell(SP_MK_BELL1, 1); spr_mk_winch(SP_MK_WINCH0, 0); spr_mk_winch(SP_MK_WINCH1, 1);
+    spr_mk_hearth(SP_MK_HEARTH0, 0); spr_mk_hearth(SP_MK_HEARTH1, 1); spr_mk_vent(SP_MK_VENT0, 0); spr_mk_vent(SP_MK_VENT1, 1);
+    spr_mk_cart(SP_MK_CART0, 0); spr_mk_cart(SP_MK_CART1, 1); spr_mk_lodestone(SP_MK_LODE0, 0); spr_mk_lodestone(SP_MK_LODE1, 1); spr_mk_ice(SP_MK_ICE);
     spr_orb(SP_ORB_A, 0); spr_orb(SP_ORB_B, 1); spr_lance(); spr_ballista(); spr_fspirit(SP_FSPIRIT_A, 0); spr_fspirit(SP_FSPIRIT_B, 1); spr_rime(); spr_mote();
     spr_deadbell(SP_DBELL, 0); spr_deadbell(SP_DBELL_C, 1); spr_font(SP_FONT, 0); spr_font(SP_FONT_C, 1);
     spr_censer(); spr_puff(SP_SMOKE, R_STONE, 0.25f, 0.6f, 81); spr_puff(SP_VAPOUR, R_MOSS, 0.2f, 0.55f, 83); spr_puff(SP_GAS, R_WARM, 0.35f, 0.75f, 87);

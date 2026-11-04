@@ -274,6 +274,11 @@ enum {
     SP_MK_PRICKET0, SP_MK_PRICKET1, SP_MK_COFFER0, SP_MK_COFFER1, SP_MK_CAGE0, SP_MK_CAGE1, SP_MK_RACK0, SP_MK_RACK1,
     SP_MK_URN0, SP_MK_URN1, SP_MK_COIL0, SP_MK_COIL1, SP_MK_VINE0, SP_MK_VINE1, SP_MK_LANTERN0, SP_MK_LANTERN1,
     SP_MK_BARRICADE0, SP_MK_BARRICADE1,
+    /* step 6's (section 4.3, 4.6): a corpse-light, a rolling skull (two frames each), the heat-and-shatter seal (cold, hot,
+     * broken), a bell (still, ringing), a winch, a hearth, a steam vent, run III's ore cart and lodestone, run II's ice */
+    SP_MK_CLIGHT0, SP_MK_CLIGHT1, SP_MK_RSKULL0, SP_MK_RSKULL1, SP_MK_HSEAL0, SP_MK_HSEAL1, SP_MK_HSEAL2,
+    SP_MK_BELL0, SP_MK_BELL1, SP_MK_WINCH0, SP_MK_WINCH1, SP_MK_HEARTH0, SP_MK_HEARTH1, SP_MK_VENT0, SP_MK_VENT1,
+    SP_MK_CART0, SP_MK_CART1, SP_MK_LODE0, SP_MK_LODE1, SP_MK_ICE,
     NSPR
 };
 

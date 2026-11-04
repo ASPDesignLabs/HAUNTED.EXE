@@ -1416,7 +1416,7 @@ static void mk_frame(int ox, int oy, int spr, int sx, int sy, int el, int state,
         uint8_t c = crawl_spr[spr][x * TS + y];
         if (c != C_CLEAR) buf[(y + 20) * FW + x + 16] = crawl_cmap[LIGHT][c];
     }
-    crawl_mark(over, FW, FH, sx + 16, sy + 20, el, state, pips, lit_n, t);
+    if (el >= 0) crawl_mark(over, FW, FH, sx + 16, sy + 20, el, state, pips, lit_n, t);
     for (int y = 0; y < FH; y++) for (int x = 0; x < FW; x++) {
         uint8_t c = over[y * FW + x] != C_CLEAR ? over[y * FW + x] : buf[y * FW + x];
         int r = 22, g = 20, b = 24;                                    /* a dark ground for it to stand on */
@@ -1480,6 +1480,49 @@ static int draw_marked(const char *path) {
     return ok;
 }
 
+
+/* step 6's things (docs/PLAN-play.md 4.3, 4.6): a row each, in the run's own colours */
+static int draw_marked2(const char *path) {
+    typedef struct { int spr, sx, sy, el, st, pips, lit; const char *cap; } F;
+    typedef struct { const char *name; int level; int n; F f[5]; } Row;
+    static const Row R[] = {
+        { "CORPSE-LIGHT: ANY LINE (HERE SPIRIT)", 3, 3, { { SP_MK_CLIGHT0, 32, 14, 4, MK_WAIT, 1, 0, "DRIFTING" }, { SP_MK_CLIGHT1, 32, 14, 4, MK_WAIT, 1, 0, "SHYING" }, { SP_MK_CLIGHT0, 32, 14, 4, MK_HIT, 1, 1, "STRUCK: MOTES" } } },
+        { "ROLLING SKULL: BEFORE THE PIT (LIGHTNING)", 3, 3, { { SP_MK_RSKULL0, 32, 40, 2, MK_WAIT, 1, 0, "ROLLING" }, { SP_MK_RSKULL1, 32, 40, 2, MK_WAIT, 1, 0, "ROLLING" }, { SP_MK_RSKULL0, 32, 40, 2, MK_HIT, 1, 1, "STRUCK" } } },
+        { "HEAT AND SHATTER: FIRE, THEN FROST", 3, 4, { { SP_MK_HSEAL0, 32, 24, 0, MK_WAIT, 1, 0, "COLD: FIRE" }, { SP_MK_HSEAL1, 32, 24, 1, MK_WAIT, 1, 0, "HOT: FROST" }, { SP_MK_HSEAL0, 32, 24, 1, MK_WRONG, 1, 0, "COOLED" }, { SP_MK_HSEAL2, 32, 24, 1, MK_DONE, 0, 0, "BROKEN" } } },
+        { "THREE BELLS: ALL THREE WITHIN 2 S", 3, 3, { { SP_MK_BELL0, 32, 40, 5, MK_WAIT, 3, 0, "WAITING" }, { SP_MK_BELL1, 32, 40, 5, MK_HIT, 3, 1, "ONE RINGING" }, { SP_MK_BELL1, 32, 40, 5, MK_HIT, 3, 3, "ALL THREE" } } },
+        { "PORTCULLIS WINCH: LIGHTNING, GATE UP 8 S", 3, 3, { { SP_MK_WINCH0, 32, 50, 2, MK_WAIT, 1, 0, "WAITING" }, { SP_MK_WINCH1, 32, 50, 2, MK_HIT, 8, 8, "WOUND: 8 S" }, { SP_MK_WINCH1, 32, 50, 2, MK_WAIT, 8, 3, "RUNNING DOWN" } } },
+        { "DYING HEARTH: FED WHILE ITS DOOR RISES", 3, 3, { { SP_MK_HEARTH0, 32, 22, 0, MK_WAIT, 4, 1, "DYING" }, { SP_MK_HEARTH1, 32, 22, 0, MK_HIT, 4, 4, "FED" }, { SP_MK_HEARTH0, 32, 22, 0, MK_WAIT, 4, 2, "FALLING BACK" } } },
+        { "STEAM VENT: FROST SEALS IT 15 S", 13, 2, { { SP_MK_VENT0, 26, 50, 1, MK_WAIT, 1, 0, "VENTING" }, { SP_MK_VENT1, 26, 50, 1, MK_DONE, 0, 0, "ICED" } } },
+        { "RUN II: ICE CROSSING, SLUICE, WEB", 13, 4, { { SP_MK_ICE, 32, 46, 1, MK_WAIT, 1, 0, "ICE TO LAY" }, { SP_MK_ICE, 32, 46, -1, 0, 0, 0, "LAID, 20 S" }, { SP_MK_WINCH0, 32, 50, 2, MK_WAIT, 1, 0, "SLUICE" }, { SP_WEBSHEET, 32, 30, 0, MK_WAIT, 1, 0, "WEB" } } },
+        { "RUN III: ORE CART, LODESTONE", 23, 4, { { SP_MK_CART0, 32, 20, 3, MK_WAIT, 1, 0, "ROLLING" }, { SP_MK_CART1, 32, 20, 3, MK_HIT, 1, 1, "STRUCK" }, { SP_MK_LODE0, 32, 18, 2, MK_WAIT, 2, 0, "DULL" }, { SP_MK_LODE1, 32, 18, 2, MK_DONE, 0, 0, "CHARGED" } } },
+        { "RUN IV: PRISM, GEODE, OBSIDIAN SEAL", 33, 4, { { SP_PZ_PRISM0, 32, 16, 2, MK_WAIT, 3, 0, "PRISM" }, { SP_PZ_GEODE, 32, 24, 5, MK_WAIT, 2, 0, "GEODE" }, { SP_MK_HSEAL0, 32, 24, 0, MK_WAIT, 1, 0, "COLD" }, { SP_MK_HSEAL1, 32, 24, 1, MK_WAIT, 1, 0, "HOT" } } },
+    };
+    enum { N = sizeof R / sizeof R[0], K = 2, FW = 96 * K, FH = 88 * K };
+    iw = PAD + 4 * (FW + 10) + PAD;
+    ih = PAD + LABEL_H + 8 + N * (LABEL_H + FH + LABEL_H + 10) + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "1.0.0B16 STEP 6: MOVING, TIMED, TWO SPELLS", 230, 230, 230);
+    int y = PAD + LABEL_H + 8;
+    for (int i = 0; i < N; i++) {
+        const Row *r = &R[i];
+        crawl_art_level(r->level); crawl_art_run(r->level);
+        text(PAD, y, r->name, 220, 210, 190);
+        y += LABEL_H;
+        for (int c = 0; c < r->n; c++) {
+            const F *f = &r->f[c];
+            int x = PAD + c * (FW + 10);
+            mk_frame(x, y, f->spr, f->sx, f->sy, f->el, f->st, f->pips, f->lit, 0.3f + 0.7f * c + 0.4f * i, K);
+            text(x + 2, y + FH + 2, f->cap, 150, 150, 150);
+        }
+        y += FH + LABEL_H + 10;
+    }
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && !strcmp(argv[1], "list")) {
         for (int i = 0; i < NGROUPS; i++) printf("%-12s %s\n", GROUPS[i].name, GROUPS[i].title);
@@ -1500,6 +1543,7 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "hall2", "1.0.0B11: HER HALL'S NEW ROOM: THE LAMPSTAND (THE BELL AND THE FONT TO COME)");
         printf("%-12s %s\n", "spells", "1.0.0B11: THE SPELLS' THINGS: THE FLASK, THE ULTIMATES' SPRITES");
         printf("%-12s %s\n", "marked", "1.0.0B16: THINGS THAT WANT A SPELL, AND THEIR MARK");
+        printf("%-12s %s\n", "marked2", "1.0.0B16: STEP 6'S THINGS: MOVING, TIMED, TWO SPELLS, BY RUN");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -1604,6 +1648,13 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/marked.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_marked(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "marked2")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/marked2.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_marked2(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     if (!strcmp(argv[1], "all") || !strcmp(argv[1], "hazards")) {

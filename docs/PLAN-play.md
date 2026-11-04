@@ -273,6 +273,12 @@ at a pricket; a Plague Doctor's dream).
     throw, and they ring together. Any spell rings them one at a time, and they must all ring within two seconds: easy for
     the spear and lightning's Arc, a race for the rest.
 
+**Drawn** (step 6, for the owner's eye: `docs/play/marked2.png`, `make sheets`' `marked2.png`; none of it in the game yet): a
+corpse-light (two frames), a rolling skull (two), the heat-and-shatter seal (cold, hot, broken), a bell (still, ringing), the
+winch (still, wound: the portcullis's in run I, a sluice's in run II), the dying hearth (dying, fed), the steam vent (venting,
+iced), run II's ice for the crossing, run III's ore cart (two) and lodestone (dull, charged); run IV's prism and geode are
+1.0.0b13's puzzle things, and its seal the run I one in the Deep's colours. A timed thing's seal counts down in its pips.
+
 ### 4.4 Sequences (from level 13: three lines or more)
 
 22. **The tablet's order.** A carved tablet shows three glyphs; three things down the hall each want their own element,
