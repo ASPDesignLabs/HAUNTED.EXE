@@ -128,3 +128,8 @@ The Windows dialog's *Volume* stays as the overall one, with *Music* and *Effect
   at level 13 (seed 7): fights came every 20-50 s, grew to 2 after 20 s or three engaged and to 3 as health fell under two
   fifths, through a trial and three deaths; a person taken over at 15% health was failing at once; Tab, Esc, B, C and the L
   list each brought the menu's tune and her own screens didn't.
+- **Step 5, so far** (4 November): `make smoke` passes; ASan and UBSan clean over a dream at the knight's level (a trial on
+  the way), a person through Tab, Esc, the L list, B and C at 15% health, and a trial three times; the dream's run on one seed
+  is the old build's line for line over 500 s (the music only reads the game's state). CI, started by hand on the branch
+  (run 95), built and smoke-tested the Windows build and the browser's (Chromium). Nothing heard on a real machine yet. Left for
+  the release: the README's *What has been verified*, the page and the release notes.
