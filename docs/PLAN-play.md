@@ -354,6 +354,13 @@ make the next fight a different fight.
 32. **The Order's drum.** A war drum in an ossuary, marked with the wisp: Soul Drain silences it, and the file (PLAN-ai's
     packs) loses its order for half a minute.
 
+**Drawn** (step 8, for the owner's eye: `docs/play/marked3.png`, `make sheets`' `marked3.png`; none of it in the game yet): the
+tablet with three sockets for its glyphs and the plinths it orders (waiting, struck in turn, out of turn), the turning
+reliquary (its face to you, turning, open), the ward-stone before its door (a new glyph after each hit, then broken), the
+relay's lamp (dead, lit, frozen) with the galvanic coil in its line, lamp oil (casks, then burst and burning), loose masonry
+(a cracked column, then its drums down), the poison font (dry, brimming) and the Order's drum (beating, silenced). Standing
+water, firedamp and the ice floor take the seal on what is already there.
+
 ### 4.6 By run
 
 Each run's look can carry its own:
@@ -536,7 +543,7 @@ letting go, B, a tap of up for the map, Q tapped and held, RB and LB; ASan clean
 5. Section 4.2's things and the stretch budget (section 5), run I only; frames from levels 1-4 for the owner. *Built, frames sent.*
 6. Section 4.3's, and runs II-IV's flavours. *Built, frames sent.*
 7. Warded creatures, with sixteen-seed runs against `CRAWL_WARD=0`. *Built, frames sent.*
-8. Sequences (4.4) and the fight things (4.5).
+8. Sequences (4.4) and the fight things (4.5). *Drawn, for the owner.*
 9. The lull's watch.
 10. The checks: balance against 1.0.0b15, ASan, the README's and the page's words.
 

@@ -279,6 +279,11 @@ enum {
     SP_MK_CLIGHT0, SP_MK_CLIGHT1, SP_MK_RSKULL0, SP_MK_RSKULL1, SP_MK_HSEAL0, SP_MK_HSEAL1, SP_MK_HSEAL2,
     SP_MK_BELL0, SP_MK_BELL1, SP_MK_WINCH0, SP_MK_WINCH1, SP_MK_HEARTH0, SP_MK_HEARTH1, SP_MK_VENT0, SP_MK_VENT1,
     SP_MK_CART0, SP_MK_CART1, SP_MK_LODE0, SP_MK_LODE1, SP_MK_ICE,
+    /* step 8's (sections 4.4, 4.5): the tablet and its plinths, the turning reliquary (front, turning, open), the ward-stone,
+     * the relay's lamp (dead, lit, frozen); lamp oil, loose masonry, the poison font, the Order's drum (each before and after) */
+    SP_MK_TABLET, SP_MK_PLINTH0, SP_MK_PLINTH1, SP_MK_RELIQ0, SP_MK_RELIQ1, SP_MK_RELIQ2, SP_MK_WSTONE0, SP_MK_WSTONE1,
+    SP_MK_RELAY0, SP_MK_RELAY1, SP_MK_RELAY2, SP_MK_CASK0, SP_MK_CASK1, SP_MK_PILLAR0, SP_MK_PILLAR1,
+    SP_MK_PFONT0, SP_MK_PFONT1, SP_MK_DRUM0, SP_MK_DRUM1,
     NSPR
 };
 

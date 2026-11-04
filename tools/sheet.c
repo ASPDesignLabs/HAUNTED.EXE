@@ -1523,6 +1523,85 @@ static int draw_marked2(const char *path) {
     return ok;
 }
 
+/* step 8's sheet: a sprite with up to three seals on it (the tablet's glyphs) */
+static void mk_frame_m(int ox, int oy, int spr, int nm, const int (*m)[6], float t, int k) {
+    enum { FW = 96, FH = 88 };
+    static uint8_t buf[FH * FW], over[FH * FW];
+    memset(buf, C_CLEAR, sizeof buf); memset(over, C_CLEAR, sizeof over);
+    for (int x = 0; x < TS; x++) for (int y = 0; y < TS; y++) {
+        uint8_t c = crawl_spr[spr][x * TS + y];
+        if (c != C_CLEAR) buf[(y + 20) * FW + x + 16] = crawl_cmap[LIGHT][c];
+    }
+    for (int i = 0; i < nm; i++) if (m[i][2] >= 0) crawl_mark(over, FW, FH, m[i][0] + 16, m[i][1] + 20, m[i][2], m[i][3], m[i][4], m[i][5], t + 0.37f * i);
+    for (int y = 0; y < FH; y++) for (int x = 0; x < FW; x++) {
+        uint8_t c = over[y * FW + x] != C_CLEAR ? over[y * FW + x] : buf[y * FW + x];
+        int r = 22, g = 20, b = 24;
+        if (c != C_CLEAR) { r = crawl_pal[c][0] * 255 / 63; g = crawl_pal[c][1] * 255 / 63; b = crawl_pal[c][2] * 255 / 63; }
+        rect(ox + x * k, oy + y * k, k, k, r, g, b);
+    }
+}
+static int draw_marked3(const char *path) {
+    typedef struct { int spr, nm, m[3][6]; const char *cap; } F;
+    typedef struct { const char *name; int level; int n; F f[4]; } Row;
+    static const Row R[] = {
+        { "THE TABLET'S ORDER: THREE PLINTHS, STRUCK IN ITS ORDER", 13, 4, {
+            { SP_MK_TABLET, 3, { { 20, 28, 0, MK_WAIT, 1, 0 }, { 32, 28, 2, MK_WAIT, 1, 0 }, { 44, 28, 1, MK_WAIT, 1, 0 } }, "THE TABLET" },
+            { SP_MK_PLINTH0, 1, { { 32, 16, 0, MK_WAIT, 1, 0 } }, "FIRST: WAITING" },
+            { SP_MK_PLINTH1, 1, { { 32, 16, 0, MK_DONE, 1, 1 } }, "STRUCK IN TURN" },
+            { SP_MK_PLINTH0, 1, { { 32, 16, 1, MK_WRONG, 1, 0 } }, "OUT OF TURN" } } },
+        { "THE TURNING RELIQUARY: STRIKE THE FACE TOWARDS YOU, THREE RIGHT", 13, 4, {
+            { SP_MK_RELIQ0, 1, { { 32, 32, 0, MK_WAIT, 3, 0 } }, "FIRE, FACING" },
+            { SP_MK_RELIQ1, 1, { { 32, 32, -1, 0, 0, 0 } }, "TURNING" },
+            { SP_MK_RELIQ0, 1, { { 32, 32, 4, MK_HIT, 3, 2 } }, "TWO RIGHT" },
+            { SP_MK_RELIQ2, 1, { { 32, 32, 4, MK_DONE, 3, 3 } }, "OPEN" } } },
+        { "THE CHANGING WARD: FIVE HITS, A NEW GLYPH AFTER EACH", 13, 4, {
+            { SP_MK_WSTONE0, 1, { { 32, 30, 0, MK_WAIT, 5, 0 } }, "FIRE" },
+            { SP_MK_WSTONE0, 1, { { 32, 30, 3, MK_HIT, 5, 2 } }, "NOW POISON" },
+            { SP_MK_WSTONE0, 1, { { 32, 30, 1, MK_WAIT, 5, 4 } }, "NOW FROST" },
+            { SP_MK_WSTONE1, 1, { { 32, 30, 1, MK_DONE, 5, 5 } }, "BROKEN" } } },
+        { "THE RELAY: FIRE PASSES DOWN THE LAMPS TO A GATE", 13, 4, {
+            { SP_MK_RELAY0, 1, { { 32, 21, 0, MK_WAIT, 1, 0 } }, "THE FIRST" },
+            { SP_MK_RELAY1, 1, { { 32, 21, 0, MK_DONE, 1, 1 } }, "LIT, PASSING ON" },
+            { SP_MK_RELAY2, 1, { { 32, 21, 0, MK_WAIT, 1, 0 } }, "FROZEN: THAW IT" },
+            { SP_MK_COIL0, 1, { { 32, 58, 2, MK_WAIT, 1, 0 } }, "A DEAD COIL" } } },
+        { "FOR FIGHTS: LAMP OIL (FIRE), LOOSE MASONRY (PHYSICAL)", 3, 4, {
+            { SP_MK_CASK0, 1, { { 32, 22, 0, MK_WAIT, 1, 0 } }, "LAMP OIL" },
+            { SP_MK_CASK1, 1, { { 32, 50, 0, MK_DONE, 1, 1 } }, "BURST: IT BURNS" },
+            { SP_MK_PILLAR0, 1, { { 32, 24, 5, MK_WAIT, 2, 0 } }, "LOOSE MASONRY" },
+            { SP_MK_PILLAR1, 1, { { 32, 46, 5, MK_DONE, 2, 2 } }, "DOWN ON THEM" } } },
+        { "FOR FIGHTS: THE POISON FONT (POISON), THE ORDER'S DRUM (SPIRIT)", 5, 4, {
+            { SP_MK_PFONT0, 1, { { 32, 14, 3, MK_WAIT, 1, 0 } }, "A DRY FONT" },
+            { SP_MK_PFONT1, 1, { { 32, 14, 3, MK_DONE, 1, 1 } }, "BRIMMING" },
+            { SP_MK_DRUM0, 1, { { 32, 34, 4, MK_WAIT, 1, 0 } }, "WAR DRUM" },
+            { SP_MK_DRUM1, 1, { { 32, 34, 4, MK_DONE, 1, 1 } }, "SILENCED" } } },
+    };
+    enum { N = sizeof R / sizeof R[0], K = 2, FW = 96 * K, FH = 88 * K };
+    iw = PAD + 4 * (FW + 70) + PAD;
+    ih = PAD + LABEL_H + 8 + N * (LABEL_H + FH + LABEL_H + 10) + LABEL_H * 2 + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "1.0.0B16 STEP 8: SEQUENCES, AND THINGS FOR FIGHTS", 230, 230, 230);
+    int y = PAD + LABEL_H + 8;
+    for (int i = 0; i < N; i++) {
+        const Row *r = &R[i];
+        crawl_art_level(r->level); crawl_art_run(r->level);
+        text(PAD, y, r->name, 220, 210, 190);
+        y += LABEL_H;
+        for (int c = 0; c < r->n; c++) {
+            const F *f = &r->f[c];
+            int x = PAD + c * (FW + 70);
+            mk_frame_m(x, y, f->spr, f->nm, f->m, 0.3f + 0.7f * c + 0.4f * i, K);
+            text(x + 2, y + FH + 2, f->cap, 150, 150, 150);
+        }
+        y += FH + LABEL_H + 10;
+    }
+    text(PAD, y, "WATER, FIREDAMP, THE ICE FLOOR: THE SEAL ON WHAT IS THERE", 170, 170, 170);
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && !strcmp(argv[1], "list")) {
         for (int i = 0; i < NGROUPS; i++) printf("%-12s %s\n", GROUPS[i].name, GROUPS[i].title);
@@ -1544,6 +1623,7 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "spells", "1.0.0B11: THE SPELLS' THINGS: THE FLASK, THE ULTIMATES' SPRITES");
         printf("%-12s %s\n", "marked", "1.0.0B16: THINGS THAT WANT A SPELL, AND THEIR MARK");
         printf("%-12s %s\n", "marked2", "1.0.0B16: STEP 6'S THINGS: MOVING, TIMED, TWO SPELLS, BY RUN");
+        printf("%-12s %s\n", "marked3", "1.0.0B16: STEP 8'S THINGS: SEQUENCES, AND THINGS FOR FIGHTS");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -1648,6 +1728,13 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/marked.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_marked(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "marked3")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/marked3.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_marked3(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     if (!strcmp(argv[1], "all") || !strcmp(argv[1], "marked2")) {
