@@ -5,7 +5,7 @@ build). Nothing of the game moves until the owner has heard the pieces.*
 
 ## Status
 
-Steps 1-4 are built, harness only: the engine and the pieces (`build/host music` to hear them), the game's side (the march
+Released as 1.0.0b15 (4 November). Steps 1-4 are built, harness only: the engine and the pieces (`build/host music` to hear them), the game's side (the march
 retired) and the sliders. The owner had the renders and said to wire them in (4 November). Step 5's checks are below.
 
 ## What there was
@@ -133,3 +133,6 @@ The Windows dialog's *Volume* stays as the overall one, with *Music* and *Effect
   is the old build's line for line over 500 s (the music only reads the game's state). CI, started by hand on the branch
   (run 95), built and smoke-tested the Windows build and the browser's (Chromium). Nothing heard on a real machine yet. Left for
   the release: the README's *What has been verified*, the page and the release notes.
+- **Released** (4 November) as 1.0.0b15 at the owner's word, squashed onto main as one commit: the README's *Sound*, *Settings*
+  and *What has been verified*, the page's run folds (*And its music*) and *Beta status*, and the release notes. Still to come:
+  the owner's ear on the music in play, and whatever tuning that asks for (how often a fight comes in is the likeliest).
