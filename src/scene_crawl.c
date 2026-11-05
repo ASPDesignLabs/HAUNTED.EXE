@@ -174,7 +174,7 @@ enum { WY_FILE, WY_HOUNDS, WY_ROOST, WY_WAKE, WY_SCAV, WY_CALLER, WY_HUNT, WY_AM
 enum { DEED_AMB, DEED_SHAKEN, DEED_HEADS, DEED_HUSH, DEED_FILE };   /* the record's deeds against them */
 /* an ambush (docs/PLAN-ai.md, section 12): its kill room, the way in (outside, inside), the far side; its teeth; whether sprung (1;
  * 2 the teeth out searching, 3 come hunting); how often refused; 1 + its bait; 1 + a torch snuffed by its door */
-typedef struct { int room, ox, oy, ix, iy, fx, fy, teeth, sprung, teases, bait, snuff, deaths0, done; } Ambush;   /* 1.0.0b18: the
+typedef struct { int room, ox, oy, ix, iy, fx, fy, teeth, sprung, teases, bait, snuff, deaths0, done, eyes; } Ambush;   /* 1.0.0b18: the
                                                                       deaths on the level as it sprang; its end counted */
 enum { B_NONE, B_WAIT, B_SHOW, B_LURE, B_HOME, B_GILD };
 enum { PAS_CALM, PAS_CALL, PAS_HUNT };
@@ -2904,7 +2904,7 @@ static Mob *riser_make(int type, int x, int y, int at) {
 static int riser_spot(int pass, int di, int d0, int *ox, int *oy) {   /* where one waits by this grave or in this puddle */
     int sp = G.decos[di].spr, x = (int)G.decos[di].x, y = (int)G.decos[di].y;
     if (pass) {                                                    /* in the puddle itself */
-        if ((sp != SP_PUDDLE_A && sp != SP_PUDDLE_B) || G.map[y][x].kind != K_FLOOR) return 0;
+        if ((sp != SP_PUDDLE_A && sp != SP_PUDDLE_B && sp != SP_SIGN_DRAG) || G.map[y][x].kind != K_FLOOR) return 0;
     } else {                                                       /* on the floor before the stone */
         if (sp < SP_TOMB_ROUND || sp > SP_TOMB_BROKEN) return 0;
         int d = d0, k = 0;
@@ -5861,6 +5861,7 @@ static void way_met(int w) {
 }
 static int pack_way(const Pack *p) {
     int lset = p->leader >= 0 ? G.mobs[p->leader].set : 0;
+    if (lset == SET_AMBUSH) return WY_AMBUSH;                       /* an ambush's teeth are the ambush */
     switch (p->kind) {
     case PACK_FILE: return lset == SET_WATCH ? WY_WATCH : WY_FILE;   /* the watch's dead are a file of two or three */
     case PACK_HOUNDS: return WY_HOUNDS;
@@ -6071,10 +6072,16 @@ static int amb_make(int r, const int16_t ds[MAPN][MAPN]) {
         if (it) { it->secret = 1; if (type < IT_KEY) { G.items_total--; G.value_total -= treasure_value(type); } }
     }
     /* its tell, by the door outside; a run's first two (the second a torch by the door snuffed) */
-    static const int TELL[4] = { SP_BONES1, SP_PUDDLE_A, SP_RUBBLE, SP_RUBBLE };
+    static const int TELL[4] = { SP_SIGN_RAKE, SP_SIGN_DRAG, SP_SIGN_SCREE, SP_SIGN_CINDER };   /* 1.0.0b18: each run's own */
     add_deco(ox + 0.5f + px * 0.3f, oy + 0.5f + py * 0.3f, TELL[clampi(set, 0, 3)]);
     int first = !(RUN.amb_runs >> clampi(crawl_run(G.level) % 32, 0, 31) & 1);
     if (first && !(a->snuff = amb_light_near(ox, oy))) add_deco(ox + 0.5f - px * 0.3f, oy + 0.5f - py * 0.3f, TELL[clampi(set, 0, 3)]);   /* or a second sign */
+    else if (a->snuff && G.ndecos < MAXDECO) {                     /* the torch snuffed: eyes in the dark inside, till it springs (drawn only) */
+        int ex = ix + (ix - ox), ey = iy + (iy - oy);
+        if (!in_room(R, ex, ey) || G.map[ey][ex].kind != K_FLOOR) { ex = ix; ey = iy; }
+        a->eyes = G.ndecos + 1;
+        G.decos[G.ndecos++] = (Deco){ ex + 0.5f, ey + 0.5f, 0.0f, SP_SIGN_EYES, 1, 0 };
+    }
     G.namb++;
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "AMBUSH level %d: room %d (type %d) way in (%d,%d) far (%d,%d), %d %s, bait %s, %s\n", G.level, r, R->rtype, ox, oy, fx, fy,
@@ -6163,6 +6170,7 @@ static void amb_spring(int k, const char *why) {
     Ambush *a = &G.amb[k];
     if (a->sprung) return;
     a->sprung = 1; a->deaths0 = G.retries;
+    if (a->eyes) G.decos[a->eyes - 1].spr = -1;                    /* the eyes come out of the dark */
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *m = &G.mobs[i];
         if (!m->alive || m->state != MS_WALK || m->amb != k + 1) continue;
@@ -6182,6 +6190,7 @@ static void amb_out(int k, float x, float y, int hunting) {        /* the bait s
     Ambush *a = &G.amb[k];
     if (a->sprung) return;
     a->sprung = hunting ? 3 : 2;
+    if (a->eyes) G.decos[a->eyes - 1].spr = -1;
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *m = &G.mobs[i];
         if (!m->alive || m->state != MS_WALK || m->amb != k + 1 || m->bait_st == B_GILD) continue;
@@ -7526,7 +7535,7 @@ static void update_mob(Mob *m, float dt) {
             m->contact = 2.0f;
             for (int i = 0; i < G.ndecos; i++) {
                 int sp = G.decos[i].spr;
-                if ((sp == SP_BONES1 || sp == SP_BONES2 || sp == SP_SKEL_D3 || sp == SP_SKULLPILE || sp == SP_CARCASS)
+                if ((sp == SP_BONES1 || sp == SP_SIGN_RAKE || sp == SP_BONES2 || sp == SP_SKEL_D3 || sp == SP_SKULLPILE || sp == SP_CARCASS)
                     && fabsf(G.decos[i].x - m->x) < 1.2f && fabsf(G.decos[i].y - m->y) < 1.2f) { m->sub = 4; m->sub_t = 4.0f; break; }
             }
         }
@@ -17718,6 +17727,7 @@ static void stage_set(int k) {                                     /* CRAWL_STAG
         if (k == MOB_HUNTER) m->sub = 2;
         if (getenv("CRAWL_STAGESUB")) m->sub = atoi(getenv("CRAWL_STAGESUB"));
         if (getenv("CRAWL_STAGEBOSS")) m->boss = (uint8_t)(1 + atoi(getenv("CRAWL_STAGEBOSS")));   /* drawn as that boss, for its frames */
+        if (k == MOB_BAT && getenv("CRAWL_STAGESLEEP")) { m->sleep = 1; m->z = 1.0f - 0.64f * KINDS[k].scale * RANK_SIZE[m->rank]; }   /* a roost (1.0.0b18) */
         if (k == MOB_HUNTER && m->sub == 0)                         /* on the ceiling, as it hangs there */
             m->z = 1.0f - KINDS[k].scale * (m->boss ? BOSSES[m->boss - 1].scale : RANK_SIZE[m->rank]);
     }
@@ -20526,6 +20536,12 @@ static void crawl_control(int what) {
         G.px = G.rest_fx[0] + 0.5f; G.py = G.rest_fy[0] + 0.5f;
         G.ang = atan2f((float)(G.rest_y[0] - G.rest_fy[0]), (float)(G.rest_x[0] - G.rest_fx[0])); human_begin();
     }
+    if (getenv("CRAWL_TPAMBUSH") && !G.shop && G.namb) {           /* outside an ambush's door, its sign at your feet (1.0.0b18) */
+        const Ambush *a = &G.amb[0];
+        int dx = a->ix - a->ox, dy = a->iy - a->oy, bx = a->ox, by = a->oy;
+        for (int k = 1; k <= 2; k++) { int x = a->ox - dx * k, y = a->oy - dy * k; if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1 || G.map[y][x].kind != K_FLOOR) break; bx = x; by = y; }
+        G.px = bx + 0.5f; G.py = by + 0.5f; G.ang = atan2f((float)dy, (float)dx); human_begin();
+    }
     if (getenv("CRAWL_TPMARK") && !G.shop && G.nmk) {              /* a few steps from a thing that wants a spell, facing it (1.0.0b16) */
         const Marked *m = &G.mk[clampi(atoi(getenv("CRAWL_TPMARK")) - 1, 0, G.nmk - 1)];
         int best = -1, bx = 0, by = 0;
@@ -23162,7 +23178,7 @@ static void render_vapour(Frame *f, const Draw *d, float left, float top, float 
     const EyeAt *e = &crawl_eyes[d->spr];
     float ex[3], ey[3]; int ne = 0;
     for (int i = 0; i < e->n; i++) { ex[ne] = (d->flags & DR_FLIPH) ? TS - 1 - e->x[i] : e->x[i]; ey[ne] = (d->flags & DR_FLIPV) ? TS - 1 - e->y[i] : e->y[i]; ne++; }
-    if (!ne) { ex[ne] = 32.0f; ey[ne] = 16.0f; ne++; }
+    if (!ne) { ex[ne] = 32.0f; ey[ne] = d->spr >= SP_SKEL_BKA && d->spr <= SP_SHIELD_BKB ? 9.0f : 16.0f; ne++; }   /* a back: from the skull */
     float t = (float)G.t * slow;
     #define VX(fx) ((int)floorf(left + (fx) * es))
     #define VY(fy) ((int)floorf(top + (fy) * es))
@@ -23484,6 +23500,12 @@ static int mob_sprite(const Mob *m, float *scale) {
         if (m->sub == 2) return SP_SPIDER_BITE;
         return ((int)(m->t * 10.0f)) & 1 ? SP_SPIDER_B : SP_SPIDER_A;
     default:
+        if (m->state == MS_WALK && m->sleep == 1) {                /* a roost (1.0.0b18): asleep in its wings; stirring when you are near or
+                                                                      it is called */
+            const Pack *p = m->pack ? &G.packs[m->pack - 1] : NULL;
+            int stir = (p && p->state == PAS_CALL) || hypotf(G.px - m->x, G.py - m->y) < 5.0f || ((int)(G.t * 0.7 + m->x * 3.0f) % 9) == 0;
+            return stir ? SP_BAT_ROOST2 : SP_BAT_ROOST;
+        }
         return m->state == MS_DIE ? SP_BAT_D : ((int)(m->t * 9.0f) & 1 ? SP_BAT_B : SP_BAT_A);
     }
 }
@@ -23495,7 +23517,12 @@ static int mob_side(const Mob *m, int spr, int *flip) {
     if (!minded(m) || !has_facing(m)) return spr;
     const Kind *k = &KINDS[m->type];
     if (k->side < 0 || (spr != k->spr && spr != k->spr2) || (m->type == MOB_HUNTER && m->sub == 0)) return spr;
-    if (fabsf(wrap_pi(m->face - atan2f(G.py - m->y, G.px - m->x))) < 0.79f) return spr;   /* facing you, near enough */
+    float off = fabsf(wrap_pi(m->face - atan2f(G.py - m->y, G.px - m->x)));
+    if (off < 0.79f) return spr;                                   /* facing you, near enough */
+    if (off > 2.36f) {                                             /* its back to you (1.0.0b18): where a back is drawn */
+        if (m->type == MOB_SKEL) return spr == k->spr2 ? SP_SKEL_BKB : SP_SKEL_BKA;
+        if (m->type == MOB_SHIELD) return spr == k->spr2 ? SP_SHIELD_BKB : SP_SHIELD_BKA;
+    }
     *flip = sinf(m->face - G.ang) < 0.0f;
     return spr == k->spr2 ? k->side2 : k->side;
 }
@@ -23635,7 +23662,8 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (m->rank != RK_I && KINDS[m->type].family >= 0 && !statue) d->lut = crawl_rank_lut[KINDS[m->type].family][m->rank];
         if (m->type == MOB_SPIDER && m->state == MS_WALK && m->sub == 0) d->flags = DR_EYES;
         if (m->type == MOB_HUNTER && m->state == MS_WALK && m->sub == 0) d->flags = DR_FLIPV;
-        if (m->type == MOB_BAT && m->state == MS_WALK && m->sleep == 1) d->flags |= DR_FLIPV;   /* a roost, asleep */
+        if (m->type == MOB_BAT && m->state == MS_WALK && m->sleep == 1) d->z -= 0.33f * d->scale;   /* a roost, asleep: drawn as it hangs,
+                                                                      its feet at the ceiling */
         if (m->frozen > 0.0f && m->state == MS_WALK) d->flags |= DR_ICE;   /* only its eyes, in the dark of the web */
         if (G.ptheme == PT_BACKROOMS) d->flags |= DR_GLITCH;           /* nothing here is quite right */
         if (G.ptheme == PT_SEVERANCE) d->flags |= DR_LIT;              /* nor here: everything is too clean */
@@ -23678,8 +23706,9 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         }
         if (m->webbed > 0.0f && m->state == MS_WALK) { d->flags |= DR_WEBBED; d->web = m->webbed / fmaxf(1.0f, m->webmax); }
         if (commune) d->flags = (d->flags & ~DR_EYES) | DR_COMMUNE;   /* Commune: its shape, wherever it is */
-        if (m->state == MS_WALK && !statue && m->type != MOB_SHADE && crawl_eyes[s].n && !(d->flags & (DR_EYES | DR_IMPLODE))) {
-            d->eye = 1; d->etype = m->type; d->erank = m->boss ? RK_V : m->rank;   /* its eyes, after it (render_eyes) */
+        int backed = s >= SP_SKEL_BKA && s <= SP_SHIELD_BKB;       /* a back: no eyes, but its dressing and vapour */
+        if (m->state == MS_WALK && !statue && m->type != MOB_SHADE && (crawl_eyes[s].n || backed) && !(d->flags & (DR_EYES | DR_IMPLODE))) {
+            d->eye = !backed; d->etype = m->type; d->erank = m->boss ? RK_V : m->rank;   /* its eyes, after it (render_eyes) */
             if (m->boss == 1 + BOSS_SPIDER) d->ecol = 1 + EC_FIRE;     /* her two great eyes keep their fire (the owner's word) */
             int dx = crawl_dress_ix[s][m->rank];
             if (m->rank != RK_I && dx >= 0 && !m->boss) d->ov = crawl_dress[dx];   /* its rank's dressing */

@@ -10453,24 +10453,24 @@ static void spr_signs(void) {
     cv_store(SP_SIGN_DRAG);
 
     cv_begin(cv_sprite, TS, TS);                                   /* fresh scree */
-    cv_flat(30, 61.5f, 24, 2.5f, sh(R_STONE, 0.08f));
+    cv_flat(30, 61.5f, 24, 2.5f, sh(R_IRON, 0.05f));
     for (int k = 0; k < 26; k++) {
         float t = h01(k, 1, 621), a = (h01(k, 2, 621) - 0.5f) * 1.6f;
         float cx = 14.0f + 36.0f * t, cy = 62.0f - 7.0f * (1.0f - t) * (0.6f + 0.4f * cosf(a)) * h01(k, 3, 621), r = 0.8f + 2.2f * h01(k, 4, 621) * (1.0f - 0.5f * t);
         float pt[8] = { cx - r, cy, cx - r * 0.2f, cy - r * 1.1f, cx + r, cy - r * 0.3f, cx + r * 0.4f, cy + r * 0.6f };
-        cv_poly(pt, 4, R_STONE, 0.45f, 0.95f, cy - r, r * 2.0f);   /* pale, sharp-edged, new-broken */
+        cv_poly(pt, 4, R_IRON, 0.4f, 0.92f, cy - r, r * 2.0f);    /* pale, sharp-edged, new-broken (iron's greys hold at every level) */
     }
     cv_capsule(36, 52, 56, 60, 1.6f, R_WOOD, 0.2f, 0.55f);         /* a timber split from its prop */
     for (int k = 0; k < 4; k++) cv_line(36.0f - k, 51.0f + k * 0.8f, 33.0f - k * 0.5f, 49.0f + k, sh(R_WOOD, 0.6f));
-    for (int i = 0; i < 50; i++) cv_px(10 + (int)(h01(i, 5, 623) * 44.0f), 59 + (int)(h01(i, 6, 623) * 5.0f), sh(R_STONE, 0.6f + 0.3f * h01(i, 7, 623)));   /* grit */
+    for (int i = 0; i < 50; i++) cv_px(10 + (int)(h01(i, 5, 623) * 44.0f), 59 + (int)(h01(i, 6, 623) * 5.0f), sh(R_IRON, 0.55f + 0.3f * h01(i, 7, 623)));   /* grit */
     cv_outline(0);
     cv_store(SP_SIGN_SCREE);
 
     cv_begin(cv_sprite, TS, TS);                                   /* warm cinders */
-    cv_flat(32, 61.5f, 22, 2.5f, sh(R_STONE, 0.04f));
+    cv_flat(32, 61.5f, 22, 2.5f, sh(R_IRON, 0.03f));
     for (int k = 0; k < 18; k++) {
         float cx = 14.0f + 36.0f * h01(k, 1, 631), cy = 59.0f + 4.0f * h01(k, 2, 631), r = 1.0f + 2.5f * h01(k, 3, 631);
-        cv_ellipse(cx, cy, r * 1.2f, r * 0.8f, R_STONE, 0.02f, 0.18f);
+        cv_ellipse(cx, cy, r * 1.2f, r * 0.8f, R_IRON, 0.02f, 0.22f);
         if (h01(k, 4, 631) < 0.6f) {                                /* its heart still red */
             cv_px((int)cx, (int)cy, (uint8_t)(R_FLAME + 6 + (int)(h01(k, 5, 631) * 5.0f)));
             if (r > 2.0f) cv_px((int)cx + 1, (int)cy, (uint8_t)(R_FLAME + 4));

@@ -1136,7 +1136,16 @@ The order of the steps is the building's; what a person meets, and where, is sec
    `docs/minds/minds.png` (`make sheets`' `minds`): the skeleton's and the shield-bearer's backs (`SP_SKEL_BKA/B`,
    `SP_SHIELD_BKA/B`; `skel_draw` with `g_back`, `SKULL_BACK`, `cv_mirror`, `skel_dress_back`), the roost asleep and stirring
    (`SP_BAT_ROOST`, `SP_BAT_ROOST2`), and the signs by run (`SP_SIGN_RAKE`, `_DRAG`, `_SCREE`, `_CINDER`, `_EYES`). Drawn,
-   not yet in play; the other kinds' backs follow once these are approved.
+   approved by the owner (5 November) and in play: `mob_side` turns to a back past 135 degrees (its dressing and vapour, no
+   eyes); a roost asleep is drawn as it hangs (`SP_BAT_ROOST`, stirring as `SP_BAT_ROOST2` when you are within five cells, it is
+   called, or now and then), a third of its height higher than the old turned bat so its feet are at the ceiling; the ambushes'
+   signs by run in place of bones, a puddle and rubble (the raked bones still count as bones to a ghoul, the drag as a puddle to
+   the buried); a run's first ambush with its torch snuffed has eyes in the dark one cell inside its door (`Ambush.eyes`, a
+   decoration set without the random stream), gone when it springs or comes out. The scree and the cinders were drawn again in
+   the iron's greys after the first frames: in the stone's tint of runs III and IV they read as gold. The dream's events are
+   1.0.0b17's line for line. Frames: `docs/minds/backs_game.png`, `roost_game.png`. Debug: `CRAWL_TPAMBUSH=1` (two cells
+   outside the first ambush's door, facing in), `CRAWL_STAGESLEEP=1` (a staged bat asleep). The other kinds' backs come next,
+   on a sheet first.
 12. **The checks**: the balance runs (D5), ASan on long dream and scripted sessions, `bench` (the new fields must not
     show: a few breadth-first searches a second over 2,025 cells, and one scent stamp a step).
 
