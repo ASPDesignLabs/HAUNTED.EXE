@@ -1132,7 +1132,11 @@ The order of the steps is the building's; what a person meets, and where, is sec
    of the Order beaten without a hurt from the moment it set on you. Saved as `LG_WAYS` (20 bytes), kept through death. The
    bestiary: each kind's ways in its voice, on Space in place of its lore (`G.best_ways`). Debug: `CRAWL_WAYS=1`, `EVENT way`,
    `EVENT deed`. The dream's events are those of 1.0.0b17 line for line but the new achievements (a 700 s run, a fixed run id);
-   ASan clean on three sessions. The art (a roosting bat, the ambushes' signs, backs) is on a sheet for the owner first.
+   ASan clean on three sessions. The art (a roosting bat, the ambushes' signs, backs) is on a sheet for the owner first:
+   `docs/minds/minds.png` (`make sheets`' `minds`): the skeleton's and the shield-bearer's backs (`SP_SKEL_BKA/B`,
+   `SP_SHIELD_BKA/B`; `skel_draw` with `g_back`, `SKULL_BACK`, `cv_mirror`, `skel_dress_back`), the roost asleep and stirring
+   (`SP_BAT_ROOST`, `SP_BAT_ROOST2`), and the signs by run (`SP_SIGN_RAKE`, `_DRAG`, `_SCREE`, `_CINDER`, `_EYES`). Drawn,
+   not yet in play; the other kinds' backs follow once these are approved.
 12. **The checks**: the balance runs (D5), ASan on long dream and scripted sessions, `bench` (the new fields must not
     show: a few breadth-first searches a second over 2,025 cells, and one scent stamp a step).
 
