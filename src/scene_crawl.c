@@ -163,12 +163,19 @@ typedef struct {
     int on[2]; float on_hp[2];
     float chill_t;                                                 /* step 8: the Wraith's wail heard; it keeps to its posts a while */
     int ward[2], wset;                                             /* 1.0.0b16: the ward its members share (1 + the element), once given */
+    int hunted, hurts0, done;                                      /* 1.0.0b18: it has hunted you; your hurts as it set on you; its end
+                                                                      counted */
 } Pack;
 #define MAXPACKS 12
 enum { PACK_NONE, PACK_FILE, PACK_HOUNDS, PACK_ROOST, PACK_WAKE, PACK_SCAV, PACK_SPIDERS, PACK_IMPS, PACK_SENTINELS, PACK_BAND, PACK_WHIP };
+/* the dead's ways, as a person meets them (1.0.0b18): named once a run of ten, and a page each in the Codex */
+enum { WY_FILE, WY_HOUNDS, WY_ROOST, WY_WAKE, WY_SCAV, WY_CALLER, WY_HUNT, WY_AMBUSH, WY_WATCH, WY_NEST, WY_BAND, WY_IMPS, WY_SENTINELS,
+       WY_WHIP, WY_BELL, WY_CHILL, WY_GATHER, NWAY };
+enum { DEED_AMB, DEED_SHAKEN, DEED_HEADS, DEED_HUSH, DEED_FILE };   /* the record's deeds against them */
 /* an ambush (docs/PLAN-ai.md, section 12): its kill room, the way in (outside, inside), the far side; its teeth; whether sprung (1;
  * 2 the teeth out searching, 3 come hunting); how often refused; 1 + its bait; 1 + a torch snuffed by its door */
-typedef struct { int room, ox, oy, ix, iy, fx, fy, teeth, sprung, teases, bait, snuff; } Ambush;
+typedef struct { int room, ox, oy, ix, iy, fx, fy, teeth, sprung, teases, bait, snuff, deaths0, done, eyes; } Ambush;   /* 1.0.0b18: the
+                                                                      deaths on the level as it sprang; its end counted */
 enum { B_NONE, B_WAIT, B_SHOW, B_LURE, B_HOME, B_GILD };
 enum { PAS_CALM, PAS_CALL, PAS_HUNT };
 /* What each kind of creature is (docs/PLAN-bestiary.md): its names, a line for the bestiary, its
@@ -746,6 +753,10 @@ static struct {
     uint16_t steps[NLINE]; uint8_t over[NLINE];
     int corner, wind_spent, wind_run;
     unsigned amb_runs;                      /* the runs of ten whose first ambush has been sprung (not saved: named again after a load) */
+    uint32_t ways, way_said; int way_run;   /* 1.0.0b18, the minds shown: the dead's ways met (WY_*, a bit each), those named on this run
+                                               of ten, and which run that is (LG_WAYS, kept through death) */
+    int deed_amb, deed_shaken, deed_heads, deed_hush, deed_file;   /* ambushes come through, hunts shaken off, packs broken by their
+                                               leader's fall, callers silenced before they called, files of the Order beaten untouched */
     int rune_sel, mouse_rune;               /* the rune RB raises, and whether the right mouse is the rune's or the gift's (not saved) */
     int splint_used; float splint_t;        /* splinters thrown and not yet grown back, and the growing (1.0.0b16; not saved:
                                                a load starts with all eight) */
@@ -847,6 +858,7 @@ static struct {
     float lull_t, lull_cd, lull_look;       /* step 9: a person's walking with nothing happening; the wait before another
                                                offering; the next look about for a creature */
     int lull_items, lull_links;             /* what had been found when the lull was last reset */
+    int hurts, hunt_shaken;                 /* 1.0.0b18: the caster's hurts on the level so far; the hunt shaken off */
     int probe_mk, probe_sp, probe_n; float probe_last;   /* the dream at one: 1 + which, the spell, casts so far, the last */
     int hunt_kind, hunt_on, hunt_said, hunt_nx, hunt_ny, hunt_whip; float hunt_at, hunt_heard;   /* the level's hunt: HK_*, let loose, its
                                                                       nearer tell given; where it picks up the trail; when; the last noise
@@ -952,6 +964,7 @@ static struct {
     int quit_arm;                           /* Esc's BEGIN A NEW RUN, asked once already */
     int led_mode, led_arm, led_msg;             /* the ledger: signing (0) or opening (1); a second Enter's page; why */
     int best_page, best_rank, best_scroll;      /* the bestiary: which creature (or the achievements), which rank, how far down */
+    int best_ways;                              /* 1.0.0b18: its ways shown in place of its lore (Space) */
     float ui_t;                                 /* a clock that runs while a menu holds the crypt still */
     float pc_t, pc_len, grab_t, hint_t, msg_t;     /* their cast; reaching for a ware; the hints; a message */
     float pc_wind;                          /* their cast's wind-up: it goes this far in (docs/PLAN-b11.md, section 7) */
@@ -2891,7 +2904,7 @@ static Mob *riser_make(int type, int x, int y, int at) {
 static int riser_spot(int pass, int di, int d0, int *ox, int *oy) {   /* where one waits by this grave or in this puddle */
     int sp = G.decos[di].spr, x = (int)G.decos[di].x, y = (int)G.decos[di].y;
     if (pass) {                                                    /* in the puddle itself */
-        if ((sp != SP_PUDDLE_A && sp != SP_PUDDLE_B) || G.map[y][x].kind != K_FLOOR) return 0;
+        if ((sp != SP_PUDDLE_A && sp != SP_PUDDLE_B && sp != SP_SIGN_DRAG) || G.map[y][x].kind != K_FLOOR) return 0;
     } else {                                                       /* on the floor before the stone */
         if (sp < SP_TOMB_ROUND || sp > SP_TOMB_BROKEN) return 0;
         int d = d0, k = 0;
@@ -3687,7 +3700,7 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
     }
     int d = (int)(dmg + 0.5f);
     if (d < 1) d = 1;
-    G.hp -= d;
+    G.hp -= d; G.hurts++;
     if (G.player) { WELL.hp[WELL.i] += (float)d; WELL.calm = 0.0f; WELL.over_t = 0.0f; }   /* hurt: the cap is the run's again */
     rec_harm(G.blame, el);
     if (!seeping) windup_blow(d, raw, armoured, el);
@@ -3731,6 +3744,10 @@ enum { MA_CALM, MA_WARY, MA_HUNT, MA_TRACK, MA_SEARCH };          /* how the dea
 enum { NZ_STEP, NZ_CAST, NZ_FIGHT, NZ_MEND, NZ_LAND, NZ_DOOR, NZ_SECRET, NZ_DEATH, NZ_CALL, NZ_BELL, NNZ };   /* the first four are the caster's own, where it stands */
 static void noise(float x, float y, int steps, int what, int kind);
 static void alarm_at(Mob *m, int steps);
+static void way_met(int w);
+static void deed_note(int which);
+static int pack_way(const Pack *p);
+static void ways_ends(void);
 static void sexton_ring(Mob *m, int hard);
 static void dream_glance(float x, float y);
 static void wisp_out(Wisp *w);
@@ -3937,7 +3954,8 @@ static int spend_spirit(float c) {
 
 enum { ACH_SECRET0 = REC_KINDS * NRANK, ACH_LEVEL0 = ACH_SECRET0 + 16, ACH_DESCENT0 = ACH_LEVEL0 + 20,   /* bits: slayers by kind and rank, then the rest; */
        ACH_LEVEL21 = 256, ACH_BOSS0 = ACH_LEVEL21 + 20,          /* from version 6: levels 21 to 40, then the bosses */
-       ACH_DEED0 = ACH_BOSS0 + 6 * 8 };                          /* 1.0.0b13: puzzles at 1, 5, 20; trials at 1, 10, 30; each run's trials all won */
+       ACH_DEED0 = ACH_BOSS0 + 6 * 8,                            /* 1.0.0b13: puzzles at 1, 5, 20; trials at 1, 10, 30; each run's trials all won */
+       ACH_WAY0 = ACH_DEED0 + 10 };                              /* 1.0.0b18: ambushes, hunts shaken, packs beheaded, callers hushed, a file untouched */
 static const int PZ_STEP[3] = { 1, 5, 20 }, TRI_STEP[3] = { 1, 10, 30 };
 static const char *const PZ_ACH[3] = { "A KEY OF THOUGHT", "THE PATIENT MIND", "NOTHING SEALED FOR LONG" };
 static const char *const TRI_ACH[3] = { "AGAINST THE SAND", "THE HOURGLASS, BROKEN", "TIME'S OWN ENEMY" };
@@ -4502,7 +4520,9 @@ static void xp_rooms(void) {                                       /* a room fir
 
 static void mob_poison(Mob *m, float total, float secs);
 static float permafrost(void);
+static int caller_hushed(const Mob *m);
 static void kill_mob(Mob *m) {
+    if (caller_hushed(m)) deed_note(DEED_HUSH);                    /* slain before its call went out */
     m->state = MS_DIE; m->t = 0.0f; m->sleep = 0; m->hold = 0; m->engage = 0;
     if (m->amb && m->bait_st && m->bait_st != B_GILD && m->amb <= G.namb && !G.amb[m->amb - 1].sprung) {   /* the bait slain */
         const Ambush *a = &G.amb[m->amb - 1];
@@ -5149,9 +5169,10 @@ static int16_t (*mind_field(int tx, int ty))[MAPN] {
 }
 
 static void mind_tell(Mob *m) {                                    /* a wary creature's sound: you know it heard */
-    int sfx = SFX_BONES;
+    int sfx = SFX_RATTLE;                                          /* the Order's dead: a head turned, the jaw's click */
     switch (m->type) {
-    case MOB_HOUND: case MOB_GHOUL: case MOB_SHAMBLER: case MOB_DROWNED: sfx = SFX_GROAN; break;
+    case MOB_HOUND: sfx = SFX_SNUFF; break;                        /* it scents the air */
+    case MOB_GHOUL: case MOB_SHAMBLER: case MOB_DROWNED: sfx = SFX_GROAN; break;
     case MOB_HUNTER: case MOB_BROOD: sfx = SFX_SKITTER; break;
     case MOB_BAT: sfx = SFX_BAT; break;
     case MOB_SHADE: sfx = SFX_WHISPER; break;
@@ -5240,9 +5261,11 @@ static void pack_call(Mob *m) {                                    /* one of it 
         p->call_t = 1.1f; G.mobs[p->leader].call_t = 1.1f; DBG_COUNT(horns);   /* his hounds wait on it */
     }
     pack_tell(p, m->x, m->y);
+    way_met(pack_way(p));
     DBG_COUNT(pack_calls);
 }
 static void pack_hunt(Pack *p) {                                   /* the call heard: all of it knows where you are */
+    if (!p->hunted) { p->hunted = 1; p->hurts0 = G.hurts; }
     p->state = PAS_HUNT; p->kx = G.px; p->ky = G.py; p->seen_t = (float)G.t;
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *o = &G.mobs[i];
@@ -5433,6 +5456,8 @@ static void pack_frame(float dt) {
         }
         p->mem = live;
         if (!n) continue;
+        if (!p->broken && p->kind != PACK_WAKE && p->leader >= 0 && !(live >> p->leader & 1) && G.mobs[p->leader].state == MS_DIE)
+            deed_note(DEED_HEADS);                                 /* broken by its leader's fall */
         if (p->chill_t > 0.0f) { p->chill_t -= dt; p->state = PAS_CALM; continue; }   /* the Wraith near: it keeps to its posts */
         if (!p->broken && p->kind != PACK_WAKE && (p->leader < 0 || !(live >> p->leader & 1) || (n * 2 <= p->n0 && p->kind != PACK_WHIP))) { pack_break(p); continue; }   /* the
                                                                       huntsman's hounds break only when he falls */
@@ -5474,7 +5499,7 @@ static void wraith_chill(const Mob *w) {
             o->alert = 0.0f; o->aware = MA_CALM; o->wait = 0.0f; o->engage = 0;
         }
     }
-    if (n) DBG_COUNT(chills);
+    if (n) { DBG_COUNT(chills); if (hypotf(w->x - G.px, w->y - G.py) < 20.0f) way_met(WY_CHILL); }
 }
 /* a roost asleep on the ceiling: a noise reaching it, a light or a step close by, or a blow, and it calls */
 static void roost_doze(Mob *m, float dt) {
@@ -5507,7 +5532,7 @@ static void wake_stir(Mob *m) {
         }
     float at = 0.0f;
     for (int i = 0; i < n; i++) { at += 0.6f + 0.6f * rndf(); G.mobs[idx[i]].sub_t = at; }
-    if (n) DBG_COUNT(wakes_rise);
+    if (n) { DBG_COUNT(wakes_rise); way_met(WY_WAKE); }
 }
 
 /* The cap (P6 a): any number may hunt, but only so many are in the fight at once (within eight cells and in sight):
@@ -5583,6 +5608,7 @@ static void gather_exit(void) {
         if (!passed) continue;
         mind_track(m, G.exit_fx + 0.5f, G.exit_fy + 0.5f); n++;
     }
+    if (n >= 2) way_met(WY_GATHER);
     DBG_COUNT(gathered);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "GATHER level %d: %d go to the exit's room\n", G.level, n);
@@ -5591,6 +5617,7 @@ static void gather_exit(void) {
 static void minds_frame(float dt) {
     if (!mind_on()) return;
     well_tick(dt);
+    ways_ends();
     if (since(39) && !G.gathered && !PK.depth && !G.shop && G.exit_fx >= 0 && hypotf(G.exit_fx + 0.5f - G.px, G.exit_fy + 0.5f - G.py) < 7.0f
         && line_clear(G.px, G.py, G.exit_fx + 0.5f, G.exit_fy + 0.5f)) { G.gathered = 1; gather_exit(); }
     WELL.quiet = WELL.n0 ? 0.0f : WELL.quiet + dt;
@@ -5780,7 +5807,7 @@ static void hunt_tick(void) {
 #ifdef CRAWL_DEBUG
         fprintf(stderr, "EVENT hunt_begin %s %d trail from (%d,%d) t=%.2f\n", HK_NAME[G.hunt_kind], alive, G.hunt_nx, G.hunt_ny, G.t);
 #endif
-        if (!alive) G.hunt_kind = 0;
+        if (!alive) G.hunt_kind = 0; else way_met(WY_HUNT);
         return;
     }
     int noise = G.hunt_kind == HK_WATCH && G.noise_t > G.hunt_heard;
@@ -5805,7 +5832,112 @@ static void hunter_tick(Mob *m) {
 }
 static void hunter_lost(Mob *m) {
     m->hunter = 0; mind_track(m, m->x, m->y);
+    if (!G.hunt_shaken && G.hunt_on) { G.hunt_shaken = 1; deed_note(DEED_SHAKEN); }   /* the trail broken: water, a door, a pocket */
     DBG_COUNT(hunt_lost);
+}
+
+/* ---- The dead's ways shown (docs/PLAN-ai.md, Part H; 1.0.0b18). Each set piece is named the first time it shows itself
+ * on each run of ten, as the hazards are; once met it has a page in the Codex, THE WAYS OF THE DEAD. The record keeps
+ * what was done about them, for five achievements. ---- */
+static const char *const WAY_NAME[NWAY] = { "THE FILE OF THE ORDER", "THE HOUNDS' PACK", "THE ROOST", "THE WAKE", "THE SCAVENGERS",
+    "THE CALLERS", "THE HUNT", "THE AMBUSH", "THE WATCH AND ITS DEAD", "THE NEST", "THE BAND", "THE IMPS' BROOD", "THE SENTINELS",
+    "THE WHIPPER-IN'S HOUNDS", "THE SEXTON'S BELL", "THE WRAITH'S CHILL", "THE GATHERING" };
+static const char *const WAY_SAY[NWAY] = { "THE FILE OF THE ORDER IS ON YOU", "THE PACK GIVES TONGUE", "THE ROOST WAKES",
+    "THE WAKE RISES", "SOMETHING COMES TO FEED", "IT CALLS THE OTHERS", "SOMETHING IS SET ON YOUR TRAIL", "AN AMBUSH",
+    "THE WATCH CALLS ITS DEAD", "THE NEST STIRS ABOVE YOU", "A BAND OF THE DEAD", "THE BROOD COMES OUT OF THE HEAT",
+    "THE SENTINELS WAKE", "THE HUNTSMAN'S HORN", "THE SEXTON RINGS FOR THEM", "THE DEAD FALL STILL AT THE WAIL",
+    "THEY HAVE GATHERED AT THE WAY OUT" };
+static void way_met(int w) {
+    if (w < 0 || w >= NWAY || !mind_on()) return;
+    RUN.ways |= 1u << w;
+    int run = crawl_run(G.level);
+    if (RUN.way_run != run) { RUN.way_run = run; RUN.way_said = 0; }
+    if (RUN.way_said >> w & 1) return;
+    RUN.way_said |= 1u << w;
+    say("%s", WAY_SAY[w]);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT way %s t=%.2f\n", WAY_NAME[w], G.t);
+#endif
+}
+static int pack_way(const Pack *p) {
+    int lset = p->leader >= 0 ? G.mobs[p->leader].set : 0;
+    if (lset == SET_AMBUSH) return WY_AMBUSH;                       /* an ambush's teeth are the ambush */
+    switch (p->kind) {
+    case PACK_FILE: return lset == SET_WATCH ? WY_WATCH : WY_FILE;   /* the watch's dead are a file of two or three */
+    case PACK_HOUNDS: return WY_HOUNDS;
+    case PACK_ROOST: return WY_ROOST;
+    case PACK_WAKE: return WY_WAKE;
+    case PACK_SCAV: return WY_SCAV;
+    case PACK_SPIDERS: return lset == SET_HUNT ? -1 : WY_NEST;     /* a hunt's spiders are the hunt's */
+    case PACK_IMPS: return WY_IMPS;
+    case PACK_SENTINELS: return WY_SENTINELS;
+    case PACK_BAND: return WY_BAND;
+    case PACK_WHIP: return WY_WHIP;
+    default: return -1;
+    }
+}
+/* the record's five deeds, and their achievements (bits from ACH_WAY0) */
+static const int AMB_STEP[3] = { 1, 5, 20 }, SHAKE_STEP[2] = { 1, 10 }, HEAD_STEP[3] = { 1, 10, 50 }, HUSH_STEP[2] = { 1, 10 };
+static const char *const AMB_ACH[3] = { "THE TEETH CLOSED ON NOTHING", "WISE TO THE BAIT", "NO ROOM TO KILL IN" };
+static const char *const SHAKE_ACH[2] = { "OFF THE SCENT", "A COLD TRAIL" };
+static const char *const HEAD_ACH[3] = { "CUT OFF THE HEAD", "SHEPHERD OF NONE", "THE LEADERLESS DEAD" };
+static const char *const HUSH_ACH[2] = { "BEFORE THE CRY", "A HOUSE OF SILENCE" };
+#define FILE_ACH "OUT OF STEP"
+static void ach_earn(int bit, int spr, int kind, int rank, const char *title, const char *detail);
+static void deed_note(int which) {
+    char d[48];
+    switch (which) {
+    case DEED_AMB:
+        if (RUN.deed_amb < 65535) RUN.deed_amb++;
+        for (int k = 0; k < 3; k++) if (RUN.deed_amb >= AMB_STEP[k]) { snprintf(d, sizeof d, "%d AMBUSH%s COME THROUGH", AMB_STEP[k], AMB_STEP[k] > 1 ? "ES" : ""); ach_earn(ACH_WAY0 + k, SP_SKEL_A, -1, 0, AMB_ACH[k], d); }
+        break;
+    case DEED_SHAKEN:
+        if (RUN.deed_shaken < 65535) RUN.deed_shaken++;
+        for (int k = 0; k < 2; k++) if (RUN.deed_shaken >= SHAKE_STEP[k]) { snprintf(d, sizeof d, "%d HUNT%s SHAKEN OFF", SHAKE_STEP[k], SHAKE_STEP[k] > 1 ? "S" : ""); ach_earn(ACH_WAY0 + 3 + k, SP_HOUND_A, -1, 0, SHAKE_ACH[k], d); }
+        break;
+    case DEED_HEADS:
+        if (RUN.deed_heads < 65535) RUN.deed_heads++;
+        for (int k = 0; k < 3; k++) if (RUN.deed_heads >= HEAD_STEP[k]) { snprintf(d, sizeof d, "%d PACK%s BROKEN AT THE HEAD", HEAD_STEP[k], HEAD_STEP[k] > 1 ? "S" : ""); ach_earn(ACH_WAY0 + 5 + k, SP_SHIELD_A, -1, 0, HEAD_ACH[k], d); }
+        break;
+    case DEED_HUSH:
+        if (RUN.deed_hush < 65535) RUN.deed_hush++;
+        for (int k = 0; k < 2; k++) if (RUN.deed_hush >= HUSH_STEP[k]) { snprintf(d, sizeof d, "%d CALLER%s SILENCED", HUSH_STEP[k], HUSH_STEP[k] > 1 ? "S" : ""); ach_earn(ACH_WAY0 + 8 + k, SP_WSKULL1, -1, 0, HUSH_ACH[k], d); }
+        break;
+    default:
+        if (RUN.deed_file < 65535) RUN.deed_file++;
+        ach_earn(ACH_WAY0 + 10, SP_SHIELD_A, -1, 0, FILE_ACH, "A FILE BEATEN UNTOUCHED");
+        break;
+    }
+#ifdef CRAWL_DEBUG
+    static const char *const DN[5] = { "ambush_through", "hunt_shaken", "pack_headless", "caller_hushed", "file_untouched" };
+    fprintf(stderr, "EVENT deed %s t=%.2f\n", DN[clampi(which, 0, 4)], G.t);
+#endif
+}
+/* a caller slain before its call went out: the wall skull in its fire's first moment, the deacon drawing breath, the Sexton's
+ * bell raised, a pack's caller mid-call */
+static int caller_hushed(const Mob *m) {
+    if (!mind_on() || (!minded(m) && m->type != MOB_WSKULL)) return 0;
+    if (m->type == MOB_WSKULL) return m->sub == 1 && !m->called;
+    if (m->type == MOB_DEACON && m->call_t > 0.0f && !m->called) return 1;
+    if (m->type == MOB_SEXTON && m->rings == 1) return 1;
+    const Pack *p = m->pack ? &G.packs[m->pack - 1] : NULL;
+    return p && p->state == PAS_CALL && p->caller == (int)(m - G.mobs);
+}
+/* the end of a set piece, once each: an ambush whose teeth are all down, a file of the Order down to the last */
+static void ways_ends(void) {
+    for (int k = 0; k < G.namb; k++) {
+        Ambush *a = &G.amb[k];
+        if (a->done || a->sprung != 1) continue;
+        int left = 0;
+        for (int i = 0; i < MAXMOBS && !left; i++) left = G.mobs[i].alive && G.mobs[i].amb == k + 1 && G.mobs[i].bait_st != B_GILD;
+        if (!left) { a->done = 1; if (G.retries == a->deaths0 && !G.dead) deed_note(DEED_AMB); }
+    }
+    for (int k = 0; k < G.npacks; k++) {
+        Pack *p = &G.packs[k];
+        if (p->done || p->kind != PACK_FILE || !p->hunted || p->mem) continue;
+        p->done = 1;
+        if (G.hurts == p->hurts0 && !G.dead) deed_note(DEED_FILE);
+    }
 }
 
 /* ---- Lures and ambushes (docs/PLAN-ai.md, section 12; step 6). A kill room (one or two ways in, off the way from the
@@ -5940,10 +6072,16 @@ static int amb_make(int r, const int16_t ds[MAPN][MAPN]) {
         if (it) { it->secret = 1; if (type < IT_KEY) { G.items_total--; G.value_total -= treasure_value(type); } }
     }
     /* its tell, by the door outside; a run's first two (the second a torch by the door snuffed) */
-    static const int TELL[4] = { SP_BONES1, SP_PUDDLE_A, SP_RUBBLE, SP_RUBBLE };
+    static const int TELL[4] = { SP_SIGN_RAKE, SP_SIGN_DRAG, SP_SIGN_SCREE, SP_SIGN_CINDER };   /* 1.0.0b18: each run's own */
     add_deco(ox + 0.5f + px * 0.3f, oy + 0.5f + py * 0.3f, TELL[clampi(set, 0, 3)]);
     int first = !(RUN.amb_runs >> clampi(crawl_run(G.level) % 32, 0, 31) & 1);
     if (first && !(a->snuff = amb_light_near(ox, oy))) add_deco(ox + 0.5f - px * 0.3f, oy + 0.5f - py * 0.3f, TELL[clampi(set, 0, 3)]);   /* or a second sign */
+    else if (a->snuff && G.ndecos < MAXDECO) {                     /* the torch snuffed: eyes in the dark inside, till it springs (drawn only) */
+        int ex = ix + (ix - ox), ey = iy + (iy - oy);
+        if (!in_room(R, ex, ey) || G.map[ey][ex].kind != K_FLOOR) { ex = ix; ey = iy; }
+        a->eyes = G.ndecos + 1;
+        G.decos[G.ndecos++] = (Deco){ ex + 0.5f, ey + 0.5f, 0.0f, SP_SIGN_EYES, 1, 0 };
+    }
     G.namb++;
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "AMBUSH level %d: room %d (type %d) way in (%d,%d) far (%d,%d), %d %s, bait %s, %s\n", G.level, r, R->rtype, ox, oy, fx, fy,
@@ -6016,9 +6154,8 @@ static void amb_gild(void) {
 }
 static void amb_said(void) {                                       /* the first sprung on a run is named */
     int bit = clampi(crawl_run(G.level) % 32, 0, 31);
-    if (RUN.amb_runs >> bit & 1) return;
     RUN.amb_runs |= 1u << bit;
-    say("AN AMBUSH");
+    way_met(WY_AMBUSH);
 }
 static void amb_release(Mob *m) {                                  /* a tooth stirs: out of the earth, off the plinth, down from the ceiling */
     if ((m->type == MOB_SHAMBLER || m->type == MOB_DROWNED) && m->sub == 1) {
@@ -6032,7 +6169,8 @@ static void amb_release(Mob *m) {                                  /* a tooth st
 static void amb_spring(int k, const char *why) {
     Ambush *a = &G.amb[k];
     if (a->sprung) return;
-    a->sprung = 1;
+    a->sprung = 1; a->deaths0 = G.retries;
+    if (a->eyes) G.decos[a->eyes - 1].spr = -1;                    /* the eyes come out of the dark */
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *m = &G.mobs[i];
         if (!m->alive || m->state != MS_WALK || m->amb != k + 1) continue;
@@ -6052,6 +6190,7 @@ static void amb_out(int k, float x, float y, int hunting) {        /* the bait s
     Ambush *a = &G.amb[k];
     if (a->sprung) return;
     a->sprung = hunting ? 3 : 2;
+    if (a->eyes) G.decos[a->eyes - 1].spr = -1;
     for (int i = 0; i < MAXMOBS; i++) {
         Mob *m = &G.mobs[i];
         if (!m->alive || m->state != MS_WALK || m->amb != k + 1 || m->bait_st == B_GILD) continue;
@@ -6092,7 +6231,7 @@ static int bait_tick(Mob *m, float dt, int sees) {
     case B_WAIT:
         if (sees && G.level_t > 1.5 && pd < 12.0f) {
             m->bait_st = B_SHOW; m->bait_t = 0.0f; mind_tell(m);
-            if (m->type == MOB_HOUND) sfx_at(SFX_ROUT, m->x, m->y, 0.8f);   /* a yelp */
+            if (m->type == MOB_HOUND) sfx_at(SFX_YELP, m->x, m->y, 1.0f);   /* a yelp */
             if (m->type == MOB_SKEL && !m->bthrew) { throw_bone(m); m->bthrew = 1; }   /* the straggler throws once */
             DBG_COUNT(bait_seen);
         }
@@ -6170,6 +6309,7 @@ static void alarm_at(Mob *m, int steps) {
     if (m->called || G.shop || G.dead) return;
     m->called = 1;
     noise(m->x, m->y, steps, NZ_CALL, m->type);
+    if (m->type == MOB_WSKULL || m->type == MOB_GARGOYLE || m->type == MOB_DEACON) way_met(WY_CALLER);
     DBG_COUNT(alarms);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT alarm %s steps %d t=%.2f\n", KINDS[m->type].name, steps, G.t);
@@ -6337,6 +6477,7 @@ static void scav_feed(Mob *m) {                                    /* the scaven
     m->scav = 0; m->sub = 4; m->sub_t = 5.0f + 3.0f * rndf();
     dream_glance(m->x, m->y);                                      /* its chewing, heard */
     m->face = atan2f(m->scy - m->y, m->scx - m->x) + (rndf() - 0.5f);   /* bent over it */
+    if (hypotf(m->x - G.px, m->y - G.py) < 12.0f) way_met(WY_SCAV);
     DBG_COUNT(feeds);
 }
 static void mind_arrived(Mob *m) {                                 /* at the place it meant to go */
@@ -6578,7 +6719,7 @@ static void update_spider(Mob *m, float dt) {
     case 0:
         m->x = m->ax; m->y = m->ay; m->z = 0.62f;
         if (!G.dead && G.wwalk_t <= 0.0f && m->cool <= 0.0f && m->feared <= 0.0f && da < 2.0f && line_clear(m->ax, m->ay, G.px, G.py)) { m->sub = 1; m->sub_t = 0.0f; sfx_at(SFX_SKITTER, m->x, m->y, 1.0f); DBG_COUNT(spider_drops);
-            if (m->pack) { pack_call(m); DBG_COUNT(nest_calls); } }   /* a nest's tripwire */
+            if (m->pack) { pack_call(m); sfx_at(SFX_THRUM, m->ax, m->ay, 1.1f); DBG_COUNT(nest_calls); } }   /* a nest's tripwire: the web thrums */
         break;
     case 1: {                                                      /* down the thread */
         float k = fminf(1.0f, m->sub_t / 0.35f);
@@ -7386,7 +7527,7 @@ static void update_mob(Mob *m, float dt) {
         if (m->sub == 4) {                                         /* feeding: it mends, and is open */
             m->hp = fminf(m->maxhp, m->hp + m->maxhp * 0.06f * dt);
             if ((m->sub_t -= dt) <= 0.0f || (sees && pd0 < 6.0f)) m->sub = 0;
-            if (rnd(90) == 0) sfx_at(SFX_BONES, m->x, m->y, 0.5f);
+            if (rnd(100) == 0) sfx_at(SFX_CHEW, m->x, m->y, 0.7f);   /* heard at its meal */
             return;
         }
         if (fights && !afraid && sees && pd0 < 2.6f && pd0 > 0.9f && m->cool <= 0.0f) { start_leap(m); return; }
@@ -7394,7 +7535,7 @@ static void update_mob(Mob *m, float dt) {
             m->contact = 2.0f;
             for (int i = 0; i < G.ndecos; i++) {
                 int sp = G.decos[i].spr;
-                if ((sp == SP_BONES1 || sp == SP_BONES2 || sp == SP_SKEL_D3 || sp == SP_SKULLPILE || sp == SP_CARCASS)
+                if ((sp == SP_BONES1 || sp == SP_SIGN_RAKE || sp == SP_BONES2 || sp == SP_SKEL_D3 || sp == SP_SKULLPILE || sp == SP_CARCASS)
                     && fabsf(G.decos[i].x - m->x) < 1.2f && fabsf(G.decos[i].y - m->y) < 1.2f) { m->sub = 4; m->sub_t = 4.0f; break; }
             }
         }
@@ -7550,6 +7691,7 @@ static void update_mob(Mob *m, float dt) {
             if (m->rings == 1 && m->ring_t <= 1.2f) {              /* raised, and rung: the widest call on the level, to his place */
                 m->rings = 2; m->ring_cd = 8.0f; m->contact = 0.0f;
                 noise(m->x, m->y, 14, NZ_BELL, m->type);
+                way_met(WY_BELL);
                 DBG_COUNT(bell_alarms);
             }
             if (m->rings == 2 && (m->contact -= dt) <= 0.0f) { m->contact = 0.16f; sfx_at(SFX_HANDBELL, m->x, m->y, 1.25f); }
@@ -11917,6 +12059,7 @@ static void debug_gear(void) {
     if (getenv("CRAWL_ABIL")) give_ability(atoi(getenv("CRAWL_ABIL")));
     if (getenv("CRAWL_BAG")) give_bag(atoi(getenv("CRAWL_BAG")));
     if (getenv("CRAWL_GOLD")) RUN.treasure = atoi(getenv("CRAWL_GOLD"));
+    if (getenv("CRAWL_WAYS")) { RUN.ways = (1u << NWAY) - 1; RUN.deed_amb = 3; RUN.deed_hush = 2; }   /* 1.0.0b18: every way met, for the shots */
     if (getenv("CRAWL_SEENALL")) for (int k = 0; k < NKINDS && k < REC_KINDS; k++) {   /* every kind met, and some slain, for the shots */
         RUN.rec.seen[k] = 0x1f;
         for (int r = 0; r < NRANK; r++) RUN.rec.kills[k][r] = (uint16_t)((k * 7 + r * 5) % 23 + (r == 0 ? 30 : 0));
@@ -17584,6 +17727,7 @@ static void stage_set(int k) {                                     /* CRAWL_STAG
         if (k == MOB_HUNTER) m->sub = 2;
         if (getenv("CRAWL_STAGESUB")) m->sub = atoi(getenv("CRAWL_STAGESUB"));
         if (getenv("CRAWL_STAGEBOSS")) m->boss = (uint8_t)(1 + atoi(getenv("CRAWL_STAGEBOSS")));   /* drawn as that boss, for its frames */
+        if (k == MOB_BAT && getenv("CRAWL_STAGESLEEP")) { m->sleep = 1; m->z = 1.0f - 0.64f * KINDS[k].scale * RANK_SIZE[m->rank]; }   /* a roost (1.0.0b18) */
         if (k == MOB_HUNTER && m->sub == 0)                         /* on the ceiling, as it hangs there */
             m->z = 1.0f - KINDS[k].scale * (m->boss ? BOSSES[m->boss - 1].scale : RANK_SIZE[m->rank]);
     }
@@ -20392,6 +20536,12 @@ static void crawl_control(int what) {
         G.px = G.rest_fx[0] + 0.5f; G.py = G.rest_fy[0] + 0.5f;
         G.ang = atan2f((float)(G.rest_y[0] - G.rest_fy[0]), (float)(G.rest_x[0] - G.rest_fx[0])); human_begin();
     }
+    if (getenv("CRAWL_TPAMBUSH") && !G.shop && G.namb) {           /* outside an ambush's door, its sign at your feet (1.0.0b18) */
+        const Ambush *a = &G.amb[0];
+        int dx = a->ix - a->ox, dy = a->iy - a->oy, bx = a->ox, by = a->oy;
+        for (int k = 1; k <= 2; k++) { int x = a->ox - dx * k, y = a->oy - dy * k; if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1 || G.map[y][x].kind != K_FLOOR) break; bx = x; by = y; }
+        G.px = bx + 0.5f; G.py = by + 0.5f; G.ang = atan2f((float)dy, (float)dx); human_begin();
+    }
     if (getenv("CRAWL_TPMARK") && !G.shop && G.nmk) {              /* a few steps from a thing that wants a spell, facing it (1.0.0b16) */
         const Marked *m = &G.mk[clampi(atoi(getenv("CRAWL_TPMARK")) - 1, 0, G.nmk - 1)];
         int best = -1, bx = 0, by = 0;
@@ -20664,7 +20814,9 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
 #define LG_CASTER_BYTES (1 + 2 + 4 + 2 + NLINE * 2 + NLINE + 1 + 1 + 2)
 #define LEDGER_MAGIC 0x3147444Cu            /* "LDG1" */
 #define PROGRESS_MAGIC 0x31505648u          /* "HVP1": a progress that names the page to start from */
-enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX, LG_CASTER, LG_ELEM, LG_ALIGN, LG_HALL2, LG_DEEDS };
+enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX, LG_CASTER, LG_ELEM, LG_ALIGN, LG_HALL2, LG_DEEDS, LG_WAYS };
+#define LG_WAYS_BYTES 20                    /* 1.0.0b18: the dead's ways met and named this run of ten (u32 each), that run (u16), the five
+                                               deeds against them (u16 each) */
 #define LG_DEEDS_BYTES 18                   /* 1.0.0b13 (docs/PLAN-b13.md): every hazard met, a bit each (the hall keeps only eight);
                                                puzzles solved, trials won and lost (u16 each); the kinds of puzzle solved, of trial won */
 #define LG_HALL2_BYTES 12                   /* the bell and the font cursed, the levels they wait for, the secrets, a replay */
@@ -20677,7 +20829,7 @@ enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
 #define COMP_BYTES ((NIK - 1) * NQUAL * (1 + COMP_MAX * PIECE_BYTES) + NATK)   /* at the most */
 #define REPO_BYTES (1 + 4 + 2 + REPO_MAX * PIECE_BYTES)
 #define PAGE_BYTES (save_end(6) + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 3 + COMP_BYTES + 3 + REPO_BYTES \
-                    + 3 + 24 + 3 + LG_CASTER_BYTES + 3 + REC_ELEM_BYTES + 3 + LG_ALIGN_BYTES + 3 + LG_HALL2_BYTES + 3 + LG_DEEDS_BYTES + 1)   /* the most a page takes so far */
+                    + 3 + 24 + 3 + LG_CASTER_BYTES + 3 + REC_ELEM_BYTES + 3 + LG_ALIGN_BYTES + 3 + LG_HALL2_BYTES + 3 + LG_DEEDS_BYTES + 3 + LG_WAYS_BYTES + 1)   /* the most a page takes so far */
 static void stone_pack(uint8_t *p, const Stone *st) {
     uint64_t w = (uint64_t)st->when;
     put32(p, (int32_t)(uint32_t)(w & 0xffffffffu)); put32(p + 4, (int32_t)(uint32_t)(w >> 32)); put16(p + 8, st->level);
@@ -20795,6 +20947,10 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     put32(c, RUN.omens);
     put16(c + 4, RUN.deed_pz); put16(c + 6, RUN.deed_tri); put16(c + 8, RUN.deed_lost); put32(c + 10, RUN.pz_kinds); put32(c + 14, RUN.tri_kinds);
     p = section_end(c, c + LG_DEEDS_BYTES);
+    c = section_begin(p, LG_WAYS);                                 /* the dead's ways (1.0.0b18) */
+    put32(c, (int32_t)RUN.ways); put32(c + 4, (int32_t)RUN.way_said); put16(c + 8, clampi(RUN.way_run, 0, 65535));
+    put16(c + 10, RUN.deed_amb); put16(c + 12, RUN.deed_shaken); put16(c + 14, RUN.deed_heads); put16(c + 16, RUN.deed_hush); put16(c + 18, RUN.deed_file);
+    p = section_end(c, c + LG_WAYS_BYTES);
     c = section_begin(p, LG_ELEM);
     memcpy(c, RUN.rec.el_kills, sizeof RUN.rec.el_kills); memcpy(c + REC_KINDS * NELEM, RUN.rec.el_hits, sizeof RUN.rec.el_hits);
     memcpy(c + 2 * REC_KINDS * NELEM, RUN.rec.harms, sizeof RUN.rec.harms);
@@ -20907,6 +21063,11 @@ static void run_unpack(const uint8_t *buf, int len) {
     if (c && k >= 18) {
         RUN.deed_pz = get16(c + 4); RUN.deed_tri = get16(c + 6); RUN.deed_lost = get16(c + 8);
         RUN.pz_kinds = get32(c + 10) & ((1u << NPZK) - 1); RUN.tri_kinds = get32(c + 14) & ((1u << NTRI) - 1);
+    }
+    c = page_section(buf, len, LG_WAYS, &k);
+    if (c && k >= LG_WAYS_BYTES) {
+        RUN.ways = (uint32_t)get32(c) & ((1u << NWAY) - 1); RUN.way_said = (uint32_t)get32(c + 4) & ((1u << NWAY) - 1); RUN.way_run = get16(c + 8);
+        RUN.deed_amb = get16(c + 10); RUN.deed_shaken = get16(c + 12); RUN.deed_heads = get16(c + 14); RUN.deed_hush = get16(c + 16); RUN.deed_file = get16(c + 18);
     }
     c = page_section(buf, len, LG_HALL2, &k);
     if (c && k >= 7) {
@@ -22073,13 +22234,13 @@ static void update_repomenu(void) {
  * and hazard does, each written in once you have worn, held, unlocked or met it; and a page on her claim,
  * there from the start. Kept through death, with the page. C opens it; the crypt waits. ---- */
 
-enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_PUZZLE, CX_TRIAL, CX_CASTER, CX_ELEM, CX_LINE, CX_CLASS, CX_SOUL, CX_CLAIM, NCX };
+enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_PUZZLE, CX_TRIAL, CX_WAYS, CX_CASTER, CX_ELEM, CX_LINE, CX_CLASS, CX_SOUL, CX_CLAIM, NCX };
 enum { CXS_VESSEL, CXS_BELL, CXS_FONT, CXS_REPLAY, CXS_SAP, NCXS };   /* the souls' pages */
-#define CX_MAX (NABIL + NDEF + NBOSS + NSTAT + NHZ + NPZK + NTRI + 3 + NCS + 2 + NELEM + 1 + NCXS)
+#define CX_MAX (NABIL + NDEF + NBOSS + NSTAT + NHZ + NPZK + NTRI + NWAY + 3 + NCS + 2 + NELEM + 1 + NCXS)
 enum { CXC_ATONE, CXC_LUCK, CXC_OVER, CXC_CORNER };                /* the caster's own pages: then a cornerstone each, CXC_CORNER + CS_* */
 typedef struct { int sec, i; } CxEntry;
 static const char *const CX_PART[NCX] = { "AN ABILITY OF WHAT YOU WEAR", "A RUNE", "A BOSS'S GIFT", "A STAT A PIECE CAN ROLL", "A HAZARD", "A PUZZLE SOLVED",
-                                          "A TRIAL WON", "THE CASTER'S OWN",
+                                          "A TRIAL WON", "THE WAYS OF THE DEAD", "THE CASTER'S OWN",
                                           "THE ELEMENTS", "A LINE OF THE ALIGNMENT", "WHAT YOU WERE", "SOULS", "THE MERCHANT'S LEDGER" };
 static void codex_note(void) {                                     /* worn, held or met: written in */
     const Gear *g = &RUN.gear;
@@ -22106,6 +22267,7 @@ static int codex_entries(CxEntry *e) {
     for (int h = 0; h < NHZ; h++) if (RUN.omens >> h & 1) e[n++] = (CxEntry){ CX_HAZ, h };
     for (int k = 0; k < NPZK; k++) if (RUN.pz_kinds >> k & 1) e[n++] = (CxEntry){ CX_PUZZLE, k };   /* 1.0.0b13 */
     for (int k = 0; k < NTRI; k++) if (RUN.tri_kinds >> k & 1) e[n++] = (CxEntry){ CX_TRIAL, k };
+    for (int w = 0; w < NWAY; w++) if (RUN.ways >> w & 1) e[n++] = (CxEntry){ CX_WAYS, w };   /* 1.0.0b18 */
     e[n++] = (CxEntry){ CX_CASTER, CXC_ATONE };
     e[n++] = (CxEntry){ CX_CASTER, CXC_LUCK };
     if (RUN.atone >= ATONE_TOP) e[n++] = (CxEntry){ CX_CASTER, CXC_OVER };
@@ -23007,6 +23169,7 @@ static void vap_px(Frame *f, int x, int y, int ps, uint8_t c, float depth, float
             else *p = c;
         }
 }
+static int is_back(int s);
 static void render_vapour(Frame *f, const Draw *d, float left, float top, float size, float fog) {
     int rank = d->erank;
     if (d->vap <= 0.0f || g_fx >= 2 || rank < RK_III) return;
@@ -23016,7 +23179,7 @@ static void render_vapour(Frame *f, const Draw *d, float left, float top, float 
     const EyeAt *e = &crawl_eyes[d->spr];
     float ex[3], ey[3]; int ne = 0;
     for (int i = 0; i < e->n; i++) { ex[ne] = (d->flags & DR_FLIPH) ? TS - 1 - e->x[i] : e->x[i]; ey[ne] = (d->flags & DR_FLIPV) ? TS - 1 - e->y[i] : e->y[i]; ne++; }
-    if (!ne) { ex[ne] = 32.0f; ey[ne] = 16.0f; ne++; }
+    if (!ne) { ex[ne] = 32.0f; ey[ne] = is_back(d->spr) ? 9.0f : 16.0f; ne++; }   /* a back: from the skull */
     float t = (float)G.t * slow;
     #define VX(fx) ((int)floorf(left + (fx) * es))
     #define VY(fy) ((int)floorf(top + (fy) * es))
@@ -23338,18 +23501,46 @@ static int mob_sprite(const Mob *m, float *scale) {
         if (m->sub == 2) return SP_SPIDER_BITE;
         return ((int)(m->t * 10.0f)) & 1 ? SP_SPIDER_B : SP_SPIDER_A;
     default:
+        if (m->state == MS_WALK && m->sleep == 1) {                /* a roost (1.0.0b18): asleep in its wings; stirring when you are near or
+                                                                      it is called */
+            const Pack *p = m->pack ? &G.packs[m->pack - 1] : NULL;
+            int stir = (p && p->state == PAS_CALL) || hypotf(G.px - m->x, G.py - m->y) < 5.0f || ((int)(G.t * 0.7 + m->x * 3.0f) % 9) == 0;
+            return stir ? SP_BAT_ROOST2 : SP_BAT_ROOST;
+        }
         return m->state == MS_DIE ? SP_BAT_D : ((int)(m->t * 9.0f) & 1 ? SP_BAT_B : SP_BAT_A);
     }
 }
 
 /* S1: a creature looking across your line of sight shows its side, turned to the way it faces; one looking away shows
  * its side too, until there are backs to show (docs/PLAN-ai.md, section 1). Only its walk: a blow or a cast faces you. */
+static int is_back(int s) {                                        /* 1.0.0b18: a back view: no eyes, the vapour from the head */
+    return (s >= SP_SKEL_BKA && s <= SP_SHIELD_BKB) || (s >= SP_KNIGHT_BKA && s <= SP_GARG_BKB) || (s >= SP_HUNTER_BKA && s <= SP_BROOD_BKB);
+}
 static int mob_side(const Mob *m, int spr, int *flip) {
     *flip = 0;
     if (!minded(m) || !has_facing(m)) return spr;
     const Kind *k = &KINDS[m->type];
+    if (m->type == MOB_KNIGHT && spr >= SP_KNIGHT_A && spr <= SP_KNIGHT3_S && (spr - SP_KNIGHT_A) % 4 < 2   /* any plate, walking */
+        && fabsf(wrap_pi(m->face - atan2f(G.py - m->y, G.px - m->x))) > 2.36f)
+        return SP_KNIGHT_BKA + (spr - SP_KNIGHT_A) / 4 * 2 + (spr - SP_KNIGHT_A) % 4;
     if (k->side < 0 || (spr != k->spr && spr != k->spr2) || (m->type == MOB_HUNTER && m->sub == 0)) return spr;
-    if (fabsf(wrap_pi(m->face - atan2f(G.py - m->y, G.px - m->x))) < 0.79f) return spr;   /* facing you, near enough */
+    float off = fabsf(wrap_pi(m->face - atan2f(G.py - m->y, G.px - m->x)));
+    if (off < 0.79f) return spr;                                   /* facing you, near enough */
+    if (off > 2.36f) {                                             /* its back to you (1.0.0b18): where a back is drawn */
+        if (m->type == MOB_SKEL) return spr == k->spr2 ? SP_SKEL_BKB : SP_SKEL_BKA;
+        if (m->type == MOB_SHIELD) return spr == k->spr2 ? SP_SHIELD_BKB : SP_SHIELD_BKA;
+        if (m->type == MOB_WHIPPER) return spr == k->spr2 ? SP_WHIP_BKB : SP_WHIP_BKA;
+        if (m->type == MOB_DEACON) return spr == k->spr2 ? SP_DEACON_BKB : SP_DEACON_BKA;
+        if (m->type == MOB_SEXTON) return spr == k->spr2 ? SP_SEXTON_BKB : SP_SEXTON_BKA;
+        if (m->type == MOB_SHAMBLER) return spr == k->spr2 ? SP_SHAMB_BKB : SP_SHAMB_BKA;
+        if (m->type == MOB_DROWNED) return spr == k->spr2 ? SP_DROWN_BKB : SP_DROWN_BKA;
+        if (m->type == MOB_GHOUL) return spr == k->spr2 ? SP_GHOUL_BKB : SP_GHOUL_BKA;
+        if (m->type == MOB_HOUND) return spr == k->spr2 ? SP_HOUND_BKB : SP_HOUND_BKA;
+        if (m->type == MOB_IMP) return spr == k->spr2 ? SP_IMP_BKB : SP_IMP_BKA;
+        if (m->type == MOB_GARGOYLE) return spr == k->spr2 ? SP_GARG_BKB : SP_GARG_BKA;
+        if (m->type == MOB_HUNTER) return spr == k->spr2 ? SP_HUNTER_BKB : SP_HUNTER_BKA;
+        if (m->type == MOB_BROOD) return spr == k->spr2 ? SP_BROOD_BKB : SP_BROOD_BKA;
+    }
     *flip = sinf(m->face - G.ang) < 0.0f;
     return spr == k->spr2 ? k->side2 : k->side;
 }
@@ -23489,7 +23680,8 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (m->rank != RK_I && KINDS[m->type].family >= 0 && !statue) d->lut = crawl_rank_lut[KINDS[m->type].family][m->rank];
         if (m->type == MOB_SPIDER && m->state == MS_WALK && m->sub == 0) d->flags = DR_EYES;
         if (m->type == MOB_HUNTER && m->state == MS_WALK && m->sub == 0) d->flags = DR_FLIPV;
-        if (m->type == MOB_BAT && m->state == MS_WALK && m->sleep == 1) d->flags |= DR_FLIPV;   /* a roost, asleep */
+        if (m->type == MOB_BAT && m->state == MS_WALK && m->sleep == 1) d->z -= 0.33f * d->scale;   /* a roost, asleep: drawn as it hangs,
+                                                                      its feet at the ceiling */
         if (m->frozen > 0.0f && m->state == MS_WALK) d->flags |= DR_ICE;   /* only its eyes, in the dark of the web */
         if (G.ptheme == PT_BACKROOMS) d->flags |= DR_GLITCH;           /* nothing here is quite right */
         if (G.ptheme == PT_SEVERANCE) d->flags |= DR_LIT;              /* nor here: everything is too clean */
@@ -23532,8 +23724,9 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         }
         if (m->webbed > 0.0f && m->state == MS_WALK) { d->flags |= DR_WEBBED; d->web = m->webbed / fmaxf(1.0f, m->webmax); }
         if (commune) d->flags = (d->flags & ~DR_EYES) | DR_COMMUNE;   /* Commune: its shape, wherever it is */
-        if (m->state == MS_WALK && !statue && m->type != MOB_SHADE && crawl_eyes[s].n && !(d->flags & (DR_EYES | DR_IMPLODE))) {
-            d->eye = 1; d->etype = m->type; d->erank = m->boss ? RK_V : m->rank;   /* its eyes, after it (render_eyes) */
+        int backed = is_back(s);                                   /* a back: no eyes, but its dressing and vapour */
+        if (m->state == MS_WALK && !statue && m->type != MOB_SHADE && (crawl_eyes[s].n || backed) && !(d->flags & (DR_EYES | DR_IMPLODE))) {
+            d->eye = !backed; d->etype = m->type; d->erank = m->boss ? RK_V : m->rank;   /* its eyes, after it (render_eyes) */
             if (m->boss == 1 + BOSS_SPIDER) d->ecol = 1 + EC_FIRE;     /* her two great eyes keep their fire (the owner's word) */
             int dx = crawl_dress_ix[s][m->rank];
             if (m->rank != RK_I && dx >= 0 && !m->boss) d->ov = crawl_dress[dx];   /* its rank's dressing */
@@ -26265,6 +26458,18 @@ static int ach_lines(AchLine *L, int max) {
         snprintf(l->title, sizeof l->title, "%s", TRI_RUN_ACH[r]);
         snprintf(l->prog, sizeof l->prog, "%d/%d", got, all);
     }
+    if (mind_on() || RUN.ways) for (int k = 0; k < 11 && n < max; k++) {   /* 1.0.0b18: the dead's ways answered */
+        AchLine *l = &L[n++];
+        int have, need; const char *t;
+        if (k < 3) { have = RUN.deed_amb; need = AMB_STEP[k]; t = AMB_ACH[k]; }
+        else if (k < 5) { have = RUN.deed_shaken; need = SHAKE_STEP[k - 3]; t = SHAKE_ACH[k - 3]; }
+        else if (k < 8) { have = RUN.deed_heads; need = HEAD_STEP[k - 5]; t = HEAD_ACH[k - 5]; }
+        else if (k < 10) { have = RUN.deed_hush; need = HUSH_STEP[k - 8]; t = HUSH_ACH[k - 8]; }
+        else { have = RUN.deed_file; need = 1; t = FILE_ACH; }
+        l->done = ach_has(ACH_WAY0 + k); l->known = 1;
+        snprintf(l->title, sizeof l->title, "%s", t);
+        snprintf(l->prog, sizeof l->prog, "%d/%d", have < need ? have : need, need);
+    }
     return n;
 }
 #define ACH_ROWS 15
@@ -26284,6 +26489,7 @@ static void update_bestiary(void) {
     int dx = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
     int dy = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
     if (dx) { G.best_page = (G.best_page + dx + pages) % pages; G.best_scroll = 0; best_default_rank(); snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    if (IN.hit[KEY_SPACE] && G.best_page < nk && mind_on()) { G.best_ways ^= 1; snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f); }   /* its lore, or its ways */
     if (!dy) return;
     if (G.best_page < nk) {                                        /* through the ranks it comes in */
         int rk[NRANK], nr = kind_ranks(order[G.best_page], rk), at = 0;
@@ -26342,8 +26548,40 @@ static void render_bestiary(Frame *f) {
     else if (seen) snprintf(line, sizeof line, "RANK %s  %s", RANK_ROMAN[G.best_rank], G.best_rank == RK_I ? "" : rank_word(k, G.best_rank));
     else snprintf(line, sizeof line, "RANK %s  NOT MET YET", RANK_ROMAN[G.best_rank]);
     gfx_text8(f, x0, 57, line, seen || spirit ? (uint8_t)RANK_COL[G.best_rank] : (uint8_t)(R_STONE + 8), 1);
-    if (met) text_wrap(f, x0, 70, KINDS[k].lore, 23, R_STONE + 12, 4);
+    /* its ways (1.0.0b18): what it does among the others, written in its voice, on Space in place of its lore */
+    static const char *const WAYS[NKINDS] = {
+        [MOB_SKEL] = "IT KEEPS A POST OR WALKS A ROUND, MARCHES IN THE FILE, AND THROWS ROUND CORNERS.",
+        [MOB_GHOST] = "IT DRIFTS TO WHERE THE DEAD LIE IN WAIT, AND HANGS THERE.",
+        [MOB_BAT] = "THEY SLEEP IN A ROOST ON THE DIMMEST CEILING. WAKE ONE AND THE REST COME DOWN.",
+        [MOB_WSKULL] = "IT SCREAMS WHEN IT WAKES, AND THE DEAD NEARBY COME. SILENCE IT FIRST.",
+        [MOB_SHIELD] = "IT LEADS THE FILE OF THE ORDER, AND HOLDS THE ROOM IT IS SET TO HOLD.",
+        [MOB_SPIDER] = "ITS WEB IS A TRIPWIRE: WHAT HANGS ABOVE IT DROPS WHEN IT DOES.",
+        [MOB_SHAMBLER] = "THE BURIED LIE IN A WAKE. WHEN ONE RISES, THE REST STIR AFTER IT.",
+        [MOB_DROWNED] = "IT WAITS UNDER STILL WATER BY A DOOR, AND RISES WITH OTHERS.",
+        [MOB_HOUND] = "THEY TAKE TURNS, ONE AT YOUR BACK. BROKEN, ONE RUNS TO FETCH THE OTHERS.",
+        [MOB_WRAITH] = "AT ITS WAIL THE DEAD NEARBY HOLD STILL A WHILE, AND LISTEN.",
+        [MOB_HUNTER] = "SET LOOSE, IT FOLLOWS YOUR TRAIL ALONG THE CEILING. WATER BREAKS THE SCENT.",
+        [MOB_GHOUL] = "IT HEARS A DEATH FAR OFF AND COMES TO FEED, WITH ONE OR TWO MORE.",
+        [MOB_KNIGHT] = "HIS HOUNDS CIRCLE UNTIL HE IS CLOSE. FELL HIM AND THEY RUN.",
+        [MOB_BROOD] = "TWO HUNTERS GUARD HER, AND GO BACK TO HER WHEN SHE IS HURT.",
+        [MOB_LING] = "THEY COME OUT OF HER SACS IN FOURS, AND THEY DO NOT THINK.",
+        [MOB_SHADE] = "IT STALKS BEHIND YOU AND STRIKES WHEN YOU STAND STILL. LIGHT FACES IT DOWN.",
+        [MOB_IMP] = "A BROOD SPLITS ROUND ITS VENT TO LOB EMBERS, AND FALLS BACK INTO THE HEAT.",
+        [MOB_DEACON] = "HE CALLS WHEN HE SEES YOU, AND HIS CONGREGATION COMES, A SHIELD IN FRONT.",
+        [MOB_GARGOYLE] = "SENTINELS: WAKE ONE AND EVERY STATUE NEAR IT WAKES.",
+        [MOB_WHIPPER] = "HE KEEPS BACK AND SENDS HIS HOUNDS IN ONE BY ONE TO THE CRACK OF THE WHIP.",
+        [MOB_SEXTON] = "HE NEVER HUNTS. HIS BELL BRINGS EVERYTHING THAT HEARS IT TO HIS PLACE.",
+        [MOB_LIGHTLESS] = "IT ROAMS, QUICK WHEN IT KNOWS, AND PUTS OUT THE WISPS IT REACHES." };
+    const char *ways = met && mind_on() && WAYS[k] ? WAYS[k] : NULL;
+    if (!ways) G.best_ways = 0;
+    if (met && G.best_ways) text_wrap(f, x0, 70, ways, 23, R_BONE + 12, 4);
+    else if (met) text_wrap(f, x0, 70, KINDS[k].lore, 23, R_STONE + 12, 4);
     else text_wrap(f, x0, 70, "NOT YET MET. IT IS DOWN THERE SOMEWHERE.", 23, R_STONE + 8, 4);
+    if (ways) {                                                    /* which of the two: a pip each at the well's corner */
+        for (int j = 0; j < 2; j++) for (int q = 0; q < 4; q++) gfx_px(f, 300 + j * 5 + (q & 1), 39 + (q >> 1), j == G.best_ways ? (uint8_t)(R_GOLD + 12) : UI_M(9));
+        const char *h = pk(G.best_ways ? "SPACE: ITS LORE" : "SPACE: ITS WAYS");
+        hint8(f, 308 - hint_width(h), 108, h, R_STONE + 9);
+    }
     /* slain, rank by rank, against what each achievement asks; its ranks as lozenges at the niche's foot, the one shown lit */
     int rk[NRANK], nr = kind_ranks(k, rk);
     if (!spirit) for (int j = 0; j < nr; j++) {
@@ -26809,6 +27047,7 @@ static void render_codex(Frame *f) {
     case CX_HAZ: snprintf(name, sizeof name, "%s", HZ_NAME[c->i]); break;
     case CX_PUZZLE: snprintf(name, sizeof name, "%s", PZ_NAME[c->i]); break;
     case CX_TRIAL: snprintf(name, sizeof name, "%s", TRI_NAME[c->i]); break;
+    case CX_WAYS: snprintf(name, sizeof name, "%s", WAY_NAME[clampi(c->i, 0, NWAY - 1)]); break;
     case CX_ELEM: snprintf(name, sizeof name, "WHAT HURTS WHAT"); break;
     case CX_LINE: snprintf(name, sizeof name, "%s", ALIGN[c->i].name); break;
     case CX_CLASS: snprintf(name, sizeof name, "%s", CLASSES[c->i].name); break;
@@ -27027,6 +27266,61 @@ static void render_codex(Frame *f) {
                        "NEVER A SPELL. THE ANSWER IS WRITTEN DOWN SOMEWHERE ON THE LEVEL.", 36, R_STONE + 11, 7) * 9 + 4;
         snprintf(line, sizeof line, "PUZZLES SOLVED: %d", RUN.deed_pz);
         text_wrap(f, 14, y, line, 36, R_BONE + 11, 1);
+        break;
+    }
+    case CX_WAYS: {                                                /* 1.0.0b18: what it does, its tell, how it is answered */
+        static const char *const DOES[NWAY] = {
+            "THE ORDER'S DEAD IN A LINE: ONE OR TWO SHIELDS AT THE HEAD, THE REST BEHIND, WALKING A ROUND OR HOLDING A ROOM.",
+            "BONE HOUNDS, TWO TO FOUR. THEY TAKE TURNS AT YOU AND CIRCLE WHILE THEY WAIT; ONE GOES FOR YOUR BACK.",
+            "BATS ASLEEP ON THE CEILING OF THE DIMMEST ROOM. A NOISE, A STEP CLOSE BY OR A LIGHT, AND ALL OF IT DROPS.",
+            "THE BURIED, THREE OR FOUR UNDER ONE ROOM'S GRAVES OR PUDDLES. ONE RISING STIRS THE REST, NEAREST YOU FIRST.",
+            "GHOULS HEAR A DEATH THREE TIMES AS FAR AS OTHERS DO, AND COME TO FEED ON IT, ONE TO THREE TOGETHER.",
+            "THE WALL SKULL SCREAMS AS IT WAKES, THE GARGOYLE SHRIEKS AS IT COMES LOOSE, THE DEACON CALLS WHEN HE FIRST SEES YOU. "
+            "WHAT HEARS IT COMES TO LOOK.",
+            "A BAND WAITS AT THE FAR END OF THE LEVEL AND IS LET LOOSE LATER: THE WATCH GOES TO EVERY LOUD NOISE, HOUNDS AND "
+            "SPIDERS TO WHERE YOU WERE A MINUTE AGO, AND ON ALONG YOUR TRAIL.",
+            "A KILL ROOM: THE TEETH BY THE INSIDE OF THE DOOR, OFTEN A BAIT IN THE HALL THAT SHOWS ITSELF AND BACKS AWAY TO THE FAR SIDE.",
+            "A WALL SKULL WATCHES A HALL, AND TWO OR THREE SKELETONS HOLD THE ROOM ITS SCREAM REACHES.",
+            "HUNTING SPIDERS OVERHEAD BY A WEB SPIDER'S CORNER. ITS WEB IS THEIR TRIPWIRE.",
+            "MORE THAN ONE KIND TOGETHER: A KNIGHT AND HIS HOUNDS, A DEACON AND HIS CONGREGATION, A MOTHER AND HER GUARD.",
+            "EMBER IMPS BY A VENT. THEY SPLIT TO EITHER SIDE TO LOB, AND FALL BACK INTO THE HEAT.",
+            "GARGOYLES ON THEIR PLINTHS. WAKE ONE AND EVERY STATUE WITHIN TWELVE CELLS WAKES WITH IT.",
+            "THE HUNTSMAN AND THREE OR FOUR HOUNDS. HE KEEPS BACK AND SENDS THEM IN ONE BY ONE.",
+            "HE RINGS ONCE AT EACH TURN OF HIS ROUND. SEEING YOU, HE RAISES THE BELL AND RINGS IT HARD, AND EVERYTHING THAT HEARS "
+            "GOES TO HIS PLACE.",
+            "AT THE WRAITH'S COMING AND AT EACH WAIL, PACKS NEAR IT KEEP TO THEIR POSTS FOR FIFTEEN SECONDS.",
+            "LATE IN THE DEEP, WHAT YOU WALKED PAST GATHERS IN THE EXIT'S ROOM ONCE YOU HAVE SEEN IT." };
+        static const char *const TELL[NWAY] = {
+            "BONES CLACKED IN TIME, LIKE A DRUM.", "A LONG RISING HOWL.", "A RUSTLE OF WINGS AND A SQUEAK.",
+            "EARTH BREAKING, OR WATER STIRRING, NEAR A GRAVE.", "GROANING, AND THE SOUND OF CHEWING.", "THE CALL ITSELF.",
+            "SOMETHING FAR OFF: A HOWL, A DRUM, A SKITTER, A HORN.", "A SIGN BY THE DOOR: BONES, A PUDDLE, RUBBLE; NOW AND THEN A TORCH "
+            "SNUFFED, OR A SPECTRE HANGING THERE.", "THE SKULL'S SCREAM, THEN THEIR CLACKING.", "A WEB THRUMMING.",
+            "THE LEADER'S SOUND: A SWORD AND A HOWL, A WHISPERED CHANT.", "HISSING, AND A POP OF EMBERS.", "GRIT FALLING FROM THEM.",
+            "HIS HORN, AND THE CRACK OF THE WHIP.", "THE HANDBELL.", "THE WAIL.", "NOTHING: THEY ARE THERE WHEN YOU COME." };
+        static const char *const ANSWER[NWAY] = {
+            "SILENCE THE DRUM, OR STRIKE AT THE SHIELDS FROM THE SIDE. THE THROWERS KEEP A CELL BEHIND.",
+            "KEEP A WALL AT YOUR BACK. FELL THE LEADER AND THE PACK BREAKS, BUT ONE RUNS TO FETCH OTHERS.",
+            "GO THROUGH THE DIM ROOMS IN THE DARK, AND QUIETLY.", "BURN THE FIRST, AND STAND BACK FROM THE REST.",
+            "CATCH ONE FEEDING: IT IS OPEN, AND TAKES TWICE THE HARM.", "KILL THE CALLER BEFORE IT CALLS: THEN NOTHING HEARS.",
+            "BREAK YOUR TRAIL: WATER CARRIES NO SCENT, AND A SHUT DOOR STOPS A HUNTER.",
+            "READ THE SIGN, AND SEND A SPELL THROUGH THE DOOR BEFORE YOU GO IN. KILL THE BAIT FROM AFAR AND THE TEETH COME OUT TO LOOK.",
+            "THE SKULL FIRST.", "LOOK UP BEFORE YOU WALK UNDER A WEB.", "FELL THE LEADER: HOUNDS RUN, THE CONGREGATION LOSES ITS VOICE.",
+            "COLD, AND KEEP OUT OF THE VENT'S HEAT.", "PASS WIDE OF THE PLINTHS, OR WAKE THEM ONE AT A TIME.",
+            "FELL HIM, AND HIS HOUNDS RUN WILD: QUICKER, BUT CARELESS AND ALONE.", "FROST STOPS THE BELL. KILL HIM WITH IT RAISED, AND NO ONE HEARS.",
+            "A BREATH TO FIGHT WHAT IS LEFT OUT OF THEIR ORDER.", "LEAVE NOTHING BEHIND YOU, OR COME IN READY." };
+        int w = clampi(c->i, 0, NWAY - 1);
+        y += text_wrap(f, 14, y, DOES[w], 36, R_STONE + 13, 6) * 9 + 4;
+        gfx_text8(f, 14, y, "ITS TELL", R_GOLD + 10, 1); y += 10;
+        y += text_wrap(f, 14, y, TELL[w], 36, R_STONE + 11, 3) * 9 + 4;
+        gfx_text8(f, 14, y, "HOW IT IS ANSWERED", R_GOLD + 10, 1); y += 10;
+        y += text_wrap(f, 14, y, ANSWER[w], 36, R_STONE + 11, 4) * 9 + 4;
+        line[0] = 0;
+        if (w == WY_AMBUSH) snprintf(line, sizeof line, "AMBUSHES COME THROUGH: %d", RUN.deed_amb);
+        else if (w == WY_HUNT) snprintf(line, sizeof line, "HUNTS SHAKEN OFF: %d", RUN.deed_shaken);
+        else if (w == WY_CALLER || w == WY_BELL) snprintf(line, sizeof line, "CALLERS SILENCED: %d", RUN.deed_hush);
+        else if (w == WY_FILE) snprintf(line, sizeof line, "FILES BEATEN UNTOUCHED: %d", RUN.deed_file);
+        else if (w == WY_HOUNDS || w == WY_BAND || w == WY_WHIP) snprintf(line, sizeof line, "PACKS BROKEN AT THE HEAD: %d", RUN.deed_heads);
+        if (line[0]) text_wrap(f, 14, y, line, 36, R_BONE + 11, 1);
         break;
     }
     case CX_TRIAL: {

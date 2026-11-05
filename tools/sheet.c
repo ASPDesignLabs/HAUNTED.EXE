@@ -1523,6 +1523,125 @@ static int draw_marked2(const char *path) {
     return ok;
 }
 
+/* 1.0.0b18: the minds shown (docs/PLAN-ai.md, Part H): backs, the roost, the ambushes' signs */
+static int draw_minds(const char *path) {
+    crawl_art_level(5);
+    enum { NC = 7 };
+    iw = PAD + ROWHEAD + NC * (CELL + PAD);
+    ih = PAD + LABEL_H + 4 * (LABEL_H + CELL + PAD) + 2 * LABEL_H + 80 + PAD + 8 * TXT + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "1.0.0B18: THE MINDS SHOWN - BACKS, THE ROOST, THE AMBUSHES' SIGNS", 230, 230, 230);
+    int y = PAD + LABEL_H;
+    static const int RK[5] = { RK_I, RK_II, RK_III, RK_IV, RK_V };
+    struct { const char *name; int front, side, ba, bb; } B[2] = {
+        { "SKELETON", SP_SKEL_A, SP_SKEL_SA, SP_SKEL_BKA, SP_SKEL_BKB }, { "SHIELD-BEARER", SP_SHIELD_A, SP_SHIELD_SA, SP_SHIELD_BKA, SP_SHIELD_BKB } };
+    for (int b = 0; b < 2; b++) {                                  /* front, side, back and its other step at rank I; the back by rank */
+        text(PAD, y, B[b].name, 220, 210, 190);
+        static const char *const CAP[NC] = { "FRONT", "SIDE", "BACK", "BACK, STEP", "BACK II", "BACK IV", "BACK V" };
+        for (int c = 0; c < NC; c++) text(PAD + ROWHEAD + c * (CELL + PAD), y, CAP[c], 160, 160, 160);
+        y += LABEL_H;
+        int spr[NC] = { B[b].front, B[b].side, B[b].ba, B[b].bb, B[b].ba, B[b].ba, B[b].ba }, rk[NC] = { 0, 0, 0, 0, RK[1], RK[3], RK[4] };
+        for (int c = 0; c < NC; c++) { g_rank = rk[c]; sprite(PAD + ROWHEAD + c * (CELL + PAD), y, spr[c], rk[c] ? crawl_rank_lut[PF_BONE][rk[c]] : NULL); }
+        g_rank = 0;
+        y += CELL + PAD;
+    }
+    text(PAD, y, "GILDED, AND THE ROOST", 220, 210, 190);
+    y += LABEL_H;
+    g_rank = RK_GILDED;
+    sprite(PAD + ROWHEAD, y, SP_SKEL_BKA, crawl_rank_lut[PF_BONE][RK_GILDED]);
+    sprite(PAD + ROWHEAD + (CELL + PAD), y, SP_SHIELD_BKA, crawl_rank_lut[PF_BONE][RK_GILDED]);
+    g_rank = 0;
+    text(PAD + ROWHEAD, y + CELL + 2, "GILDED BACKS", 160, 160, 160);
+    sprite(PAD + ROWHEAD + 3 * (CELL + PAD), y, SP_BAT_ROOST, NULL);
+    sprite(PAD + ROWHEAD + 4 * (CELL + PAD), y, SP_BAT_ROOST2, NULL);
+    sprite(PAD + ROWHEAD + 5 * (CELL + PAD), y, SP_BAT_A, NULL);
+    text(PAD + ROWHEAD + 3 * (CELL + PAD), y + CELL + 2, "ASLEEP", 160, 160, 160);
+    text(PAD + ROWHEAD + 4 * (CELL + PAD), y + CELL + 2, "STIRRING", 160, 160, 160);
+    text(PAD + ROWHEAD + 5 * (CELL + PAD), y + CELL + 2, "AWAKE", 160, 160, 160);
+    y += CELL + PAD + LABEL_H;
+    text(PAD, y, "THE AMBUSHES' SIGNS BY THE DOOR", 220, 210, 190);
+    y += LABEL_H;
+    static const int SG[5] = { SP_SIGN_RAKE, SP_SIGN_DRAG, SP_SIGN_SCREE, SP_SIGN_CINDER, SP_SIGN_EYES };
+    static const int SL[5] = { 5, 15, 25, 35, 5 };
+    static const char *const SN[5] = { "I: BONES", "II: A DRAG", "III: SCREE", "IV: CINDERS", "ANY: EYES" };
+    for (int c = 0; c < 5; c++) {
+        crawl_art_level(SL[c]); if (crawl_drawn(SL[c])) crawl_art_run(SL[c]);
+        sprite(PAD + ROWHEAD + c * (CELL + PAD), y, SG[c], NULL);
+        text(PAD + ROWHEAD + c * (CELL + PAD), y + CELL + 2, SN[c], 160, 160, 160);
+    }
+    sprite(PAD + ROWHEAD + 5 * (CELL + PAD), y, SP_BONES1, NULL);
+    sprite(PAD + ROWHEAD + 6 * (CELL + PAD), y, SP_RUBBLE, NULL);
+    text(PAD + ROWHEAD + 5 * (CELL + PAD), y + CELL + 2, "WAS: BONES", 120, 120, 120);
+    text(PAD + ROWHEAD + 6 * (CELL + PAD), y + CELL + 2, "WAS: RUBBLE", 120, 120, 120);
+    y += CELL + PAD + LABEL_H;
+    text(PAD, y + 30, "CLOSER", 220, 210, 190);
+    for (int c = 0; c < 5; c++) {                                  /* the signs at four times, their lower part */
+        crawl_art_level(SL[c]); if (crawl_drawn(SL[c])) crawl_art_run(SL[c]);
+        int ox = PAD + ROWHEAD + c * (CELL + PAD);
+        rect(ox, y, 192, 80, 22, 21, 24);
+        for (int yy = 0; yy < 20; yy++) for (int xx = 0; xx < 48; xx++) {
+            int sy = c == 4 ? 20 + yy : 44 + yy;
+            uint8_t col = crawl_spr[SG[c]][(xx + 8) * TS + sy];
+            if (col == C_CLEAR) continue;
+            col = crawl_cmap[LIGHT][col];
+            rect(ox + xx * 4, y + yy * 4, 4, 4, crawl_pal[col][0] * 255 / 63, crawl_pal[col][1] * 255 / 63, crawl_pal[col][2] * 255 / 63);
+        }
+    }
+    y += 80 + PAD;
+    text(PAD, y, "SHADED AS NEAR A TORCH. THE BACKS HAVE NO EYES: THE ONE EXCEPTION (S1 A).", 120, 120, 120);
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
+/* 1.0.0b18: the backs, kind by kind: front, side, back and its other step at rank I, then the back at II, IV, V and gilded */
+typedef struct { const char *name; int family, front, side, ba, bb; } BackRow;
+static const BackRow BACKS[] = {
+    { "KNIGHT", PF_ARMOUR, SP_KNIGHT_A, SP_KNIGHT_SA, SP_KNIGHT_BKA, SP_KNIGHT_BKB },
+    { "HALF PLATE", PF_ARMOUR, SP_KNIGHT2_A, SP_KNIGHT_SA, SP_KNIGHT2_BKA, SP_KNIGHT2_BKB },
+    { "BREASTPLATE", PF_ARMOUR, SP_KNIGHT3_A, SP_KNIGHT_SA, SP_KNIGHT3_BKA, SP_KNIGHT3_BKB },
+    { "WHIPPER-IN", PF_BONE, SP_WHIP_A, SP_WHIP_SA, SP_WHIP_BKA, SP_WHIP_BKB },
+    { "DEACON", PF_ROBE, SP_DEACON_A, SP_DEACON_SA, SP_DEACON_BKA, SP_DEACON_BKB },
+    { "SEXTON", PF_HIDE, SP_SEXTON_A, SP_SEXTON_SA, SP_SEXTON_BKA, SP_SEXTON_BKB },
+    { "SHAMBLER", PF_FLESH, SP_SHAMB_A, SP_SHAMB_SA, SP_SHAMB_BKA, SP_SHAMB_BKB },
+    { "DROWNED", PF_DROWN, SP_DROWN_A, SP_DROWN_SA, SP_DROWN_BKA, SP_DROWN_BKB },
+    { "GHOUL", PF_FLESH, SP_GHOUL_A, SP_GHOUL_SA, SP_GHOUL_BKA, SP_GHOUL_BKB },
+    { "BONE HOUND", PF_BONE, SP_HOUND_A, SP_HOUND_SA, SP_HOUND_BKA, SP_HOUND_BKB },
+    { "EMBER IMP", PF_CLAY, SP_IMP_A, SP_IMP_SA, SP_IMP_BKA, SP_IMP_BKB },
+    { "GARGOYLE", PF_STONE, SP_GARG_A, SP_GARG_SA, SP_GARG_BKA, SP_GARG_BKB },
+    { "HUNTING SPIDER", PF_HIDE, SP_HUNTER_A, SP_HUNTER_SA, SP_HUNTER_BKA, SP_HUNTER_BKB },
+    { "BROOD MOTHER", PF_CHITIN, SP_BROOD_A, SP_BROOD_SA, SP_BROOD_BKA, SP_BROOD_BKB },
+};
+static int draw_backs(const char *path) {
+    crawl_art_level(15);
+    { int mx = -1; for (int i = 0; i < NSPR; i++) for (int r = 0; r < NRANK; r++) if (crawl_dress_ix[i][r] > mx) mx = crawl_dress_ix[i][r]; fprintf(stderr, "dress layers used %d of %d\n", mx + 1, NDRESS); }
+    enum { NC = 8, N = sizeof BACKS / sizeof BACKS[0] };
+    iw = PAD + ROWHEAD + NC * (CELL + PAD);
+    ih = PAD + LABEL_H + N * (LABEL_H + CELL + PAD) + 8 * TXT + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "1.0.0B18: THE BACKS, KIND BY KIND (LEVEL 15)", 230, 230, 230);
+    int y = PAD + LABEL_H;
+    static const char *const CAP[NC] = { "FRONT", "SIDE", "BACK", "BACK, STEP", "BACK II", "BACK IV", "BACK V", "GILDED" };
+    for (int b = 0; b < N; b++) {
+        const BackRow *r = &BACKS[b];
+        text(PAD, y, r->name, 220, 210, 190);
+        for (int c = 0; c < NC; c++) text(PAD + ROWHEAD + c * (CELL + PAD), y, CAP[c], 160, 160, 160);
+        y += LABEL_H;
+        int spr[NC] = { r->front, r->side, r->ba, r->bb, r->ba, r->ba, r->ba, r->ba }, rk[NC] = { 0, 0, 0, 0, RK_II, RK_IV, RK_V, RK_GILDED };
+        for (int c = 0; c < NC; c++) { g_rank = rk[c]; sprite(PAD + ROWHEAD + c * (CELL + PAD), y, spr[c], rk[c] && r->family >= 0 ? crawl_rank_lut[r->family][rk[c]] : NULL); }
+        g_rank = 0;
+        y += CELL + PAD;
+    }
+    text(PAD, y, "SHADED AS NEAR A TORCH. NO EYES FROM BEHIND (S1 A).", 120, 120, 120);
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
 /* step 8's sheet: a sprite with up to three seals on it (the tablet's glyphs) */
 static void mk_frame_m(int ox, int oy, int spr, int nm, const int (*m)[6], float t, int k) {
     enum { FW = 96, FH = 88 };
@@ -1624,6 +1743,8 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "marked", "1.0.0B16: THINGS THAT WANT A SPELL, AND THEIR MARK");
         printf("%-12s %s\n", "marked2", "1.0.0B16: STEP 6'S THINGS: MOVING, TIMED, TWO SPELLS, BY RUN");
         printf("%-12s %s\n", "marked3", "1.0.0B16: STEP 8'S THINGS: SEQUENCES, AND THINGS FOR FIGHTS");
+        printf("%-12s %s\n", "backs", "1.0.0B18: THE BACKS, KIND BY KIND");
+        printf("%-12s %s\n", "minds", "1.0.0B18: THE MINDS SHOWN: BACKS, THE ROOST, THE AMBUSHES' SIGNS");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -1728,6 +1849,20 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/marked.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_marked(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "backs")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/backs.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_backs(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "minds")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/minds.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_minds(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     if (!strcmp(argv[1], "all") || !strcmp(argv[1], "marked3")) {
