@@ -23514,7 +23514,7 @@ static int mob_sprite(const Mob *m, float *scale) {
 /* S1: a creature looking across your line of sight shows its side, turned to the way it faces; one looking away shows
  * its side too, until there are backs to show (docs/PLAN-ai.md, section 1). Only its walk: a blow or a cast faces you. */
 static int is_back(int s) {                                        /* 1.0.0b18: a back view: no eyes, the vapour from the head */
-    return (s >= SP_SKEL_BKA && s <= SP_SHIELD_BKB) || (s >= SP_KNIGHT_BKA && s <= SP_KNIGHT3_BKB);
+    return (s >= SP_SKEL_BKA && s <= SP_SHIELD_BKB) || (s >= SP_KNIGHT_BKA && s <= SP_WHIP_BKB);
 }
 static int mob_side(const Mob *m, int spr, int *flip) {
     *flip = 0;
@@ -23529,6 +23529,7 @@ static int mob_side(const Mob *m, int spr, int *flip) {
     if (off > 2.36f) {                                             /* its back to you (1.0.0b18): where a back is drawn */
         if (m->type == MOB_SKEL) return spr == k->spr2 ? SP_SKEL_BKB : SP_SKEL_BKA;
         if (m->type == MOB_SHIELD) return spr == k->spr2 ? SP_SHIELD_BKB : SP_SHIELD_BKA;
+        if (m->type == MOB_WHIPPER) return spr == k->spr2 ? SP_WHIP_BKB : SP_WHIP_BKA;
     }
     *flip = sinf(m->face - G.ang) < 0.0f;
     return spr == k->spr2 ? k->side2 : k->side;

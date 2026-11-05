@@ -5905,8 +5905,12 @@ static void ox_horn(float x0, float y0, float x1, float y1, float bend) {
 }
 
 /* the Whipper-In's skull: the small one, with its brow under the cap's peak */
+/* the small skull from behind (1.0.0b18): the crown, the bump of the occiput, the jaw's back corners, the neck below */
+static const char *const SKULL_SMALL_BACK[10] = {
+    "..56775..", ".5799975.", "4799a9974", "4789a9874", "4679a9764", ".5678765.", ".4567654.", "..45054..", "..3.0.3..", "...353...",
+};
 static void whip_skull(int x0, int y0, uint8_t eye) {
-    grid_stamp(SKULL_SMALL, 9, 10, x0, y0, R_BONE, R_BONE, eye, 0);
+    grid_stamp(g_back ? SKULL_SMALL_BACK : SKULL_SMALL, 9, 10, x0, y0, R_BONE, R_BONE, g_back ? 0 : eye, 0);
     g_skbox[0] = x0; g_skbox[1] = y0; g_skbox[2] = x0 + 9; g_skbox[3] = y0 + 10;
 }
 /* the black velvet hunting cap, its peak over the brow at y0 + 7 */
@@ -5948,6 +5952,8 @@ static void spr_whipper(int id, float w, int pose) {
         cv_bone_decay(617);
         cv_outline(0); cv_store(id); return;
     }
+    int back = g_back;                                              /* 1.0.0b18: from behind (walking), drawn as from the front and turned */
+    if (back) pose &= 1;
     int horn = pose == 2, crack = pose == 3;
     float hb = horn ? -1.0f : 0.0f;                                 /* the head tipped back to blow */
     cv_flat(32, 62, 15, 1.8f, R_WARM + 1);
@@ -5984,7 +5990,7 @@ static void spr_whipper(int id, float w, int pose) {
     static const float YS[6] = { 17, 19, 24, 30, 34, 48 }, HW[6] = { 8.5f, 10.5f, 9.5f, 7.5f, 8.5f, 12.5f };
     static const float YO[8] = { 17, 19, 23, 28, 30, 32, 34, 48 }, OP[8] = { 1.5f, 3.0f, 5.0f, 2.5f, 0.5f, 0.5f, 1.0f, 6.5f };
     for (int y = 17; y <= 48; y++) {
-        float hw = pwl(YS, HW, 6, (float)y), op = pwl(YO, OP, 8, (float)y), sw = y > 30 ? w * (y - 30) * 0.08f : 0.0f;
+        float hw = pwl(YS, HW, 6, (float)y), op = back ? (y > 40 ? 0.6f : 0.0f) : pwl(YO, OP, 8, (float)y), sw = y > 30 ? w * (y - 30) * 0.08f : 0.0f;   /* from behind: closed, the vent below */
         if (crack && y > 30) sw += (y - 30) * 0.05f;
         for (int x = (int)(32 - hw + sw) - 1; x <= (int)(32 + hw + sw) + 1; x++) {
             float dx = x + 0.5f - 32 - sw, a = fabsf(dx);
@@ -5992,20 +5998,25 @@ static void spr_whipper(int id, float w, int pose) {
             if (y > 43 && h01(x, y, 623) < (y - 43) / 6.0f) continue;   /* the hem, ragged */
             if (fbm(x / 2.5f, y / 2.5f, 8, 611) > 0.8f) continue;       /* holed */
             float u = dx / hw, v = 0.2f + 0.24f * (1.0f - u * u) - 0.07f * u;
-            if (y < 30 && a - op < 1.6f) v = y < 21 ? -1.0f : 0.1f;      /* the lapel's facing; the velvet collar */
+            if (back) { if (y < 20) v = -1.0f; else if (a < 0.7f) v -= 0.08f; }   /* the velvet collar at the nape; the back seam */
+            else if (y < 30 && a - op < 1.6f) v = y < 21 ? -1.0f : 0.1f;   /* the lapel's facing; the velvet collar */
             if (y > 32 && sinf(dx * 1.3f + 0.7f) > 0.62f) v -= 0.07f;    /* folds in the skirts */
             if (fbm(x / 4.0f, y / 4.0f, 16, 625) < 0.3f) v -= 0.06f;     /* old stains */
             cv_px(x, y, v < 0.0f ? sh(R_IRON, 0.22f) : sh(R_BLOOD, v));
         }
     }
-    for (int k = 0; k < 2; k++) for (int s = -1; s <= 1; s += 2) {   /* brass buttons down the lapels, and the one at the waist */
+    if (back) for (int s = -1; s <= 1; s += 2) { cv_px(32 + s * 2, 31, sh(R_WOOD, 0.85f)); cv_px(32 + s * 2 - 1, 31, sh(R_SKIN, 0.8f)); }   /* the two buttons at the
+                                                                      back of the waist, where a hunting coat has them */
+    if (!back) for (int k = 0; k < 2; k++) for (int s = -1; s <= 1; s += 2) {   /* brass buttons down the lapels, and the one at the waist */
         float bx = 32 + s * (pwl(YO, OP, 8, 24.0f + k * 3.0f) + 1.8f);
         cv_px((int)bx, 24 + k * 3, sh(R_WOOD, 0.85f)); cv_px((int)bx - 1, 24 + k * 3, sh(R_SKIN, 0.85f));
     }
-    cv_px(32, 31, sh(R_WOOD, 0.9f)); cv_px(31, 31, sh(R_SKIN, 0.85f));
-    /* the stock at his throat, a pale linen, knotted, its ends torn */
-    cv_ellipse(32, 17.5f, 2.4f, 1.6f, R_STONE, 0.35f, 0.95f);
-    cv_capsule(31.5f, 18.5f, 30.5f, 22.5f, 0.8f, R_STONE, 0.3f, 0.85f); cv_capsule(32.5f, 18.5f, 33.5f, 21.5f, 0.8f, R_STONE, 0.25f, 0.75f);
+    if (!back) {
+        cv_px(32, 31, sh(R_WOOD, 0.9f)); cv_px(31, 31, sh(R_SKIN, 0.85f));
+        /* the stock at his throat, a pale linen, knotted, its ends torn */
+        cv_ellipse(32, 17.5f, 2.4f, 1.6f, R_STONE, 0.35f, 0.95f);
+        cv_capsule(31.5f, 18.5f, 30.5f, 22.5f, 0.8f, R_STONE, 0.3f, 0.85f); cv_capsule(32.5f, 18.5f, 33.5f, 21.5f, 0.8f, R_STONE, 0.25f, 0.75f);
+    } else cv_capsule(30, 17, 34, 17, 0.8f, R_STONE, 0.3f, 0.7f);    /* the stock's band, round the back of the neck */
     /* arms: ragged sleeves to the elbow, bone below */
     for (int s = -1; s <= 1; s += 2) {
         float sx = 32 + s * 9.5f, sy = 19.5f, ex, ey, hx, hy;
@@ -6045,6 +6056,7 @@ static void spr_whipper(int id, float w, int pose) {
     whip_skull(28, 5 + (int)hb, eye);
     hunt_cap(32, hb - 1.0f);
     cv_bone_decay(631);
+    if (back) cv_mirror();
     cv_outline(0);
     cv_store(id);
 }
@@ -6053,6 +6065,28 @@ static void spr_whipper(int id, float w, int pose) {
  * and a notch out of the skull, IV an arrow in the ribs and old blood dried black on the scarlet, V char, the dead's cloak
  * behind him, an iron chain of office and a stag's tines grown through the cap; gilded gold on the bones, gold braid on the
  * coat's edges and a death-mask */
+static void whipper_back_dress(int id, float w) {                 /* from behind: tatters, frost, an arrow out of the back, char and the cloak, gilt braid */
+    g_dress_ramp2 = R_BLOOD;
+    for (int r = RK_II; r < NRANK; r++) {
+        dress_begin(id);
+        uint32_t sd = 661u + (uint32_t)r * 7u;
+        if (r == RK_GILDED) {
+            kit_gold(R_BONE, 0.55f, sd);
+            for (int y = 17; y < 50; y++) for (int x = 16; x < 50; x++) {
+                uint8_t b = base_c(x, y);
+                if (b >= R_BLOOD && b < R_BLOOD + 16 && (!dress_on(base_c(x - 1, y), R_BLOOD) || !dress_on(base_c(x + 1, y), R_BLOOD) || !dress_on(base_c(x, y + 1), R_BLOOD)))
+                    cv_px(x, y, (uint8_t)(R_GOLD + 8 + (int)(h01(x, y, sd) * 3.0f)));
+            }
+        } else {
+            kit_rags(23, 46, 41, 47, r == RK_II ? 6.0f : 8.0f, w, R_BLOOD, 0.06f, 0.24f, 0, sd);
+            if (r == RK_II) kit_moss(0.25f, 2, sd + 1);
+            if (r == RK_III) kit_frost(0.75f, sd + 2);
+            if (r >= RK_IV) { kit_arrow(35, 27, -0.8f, 8.0f); kit_blood(35, 28, 9, 1, sd + 3); }
+            if (r == RK_V) { kit_char(0.3f, sd + 4); kit_rags(22, 19, 42, 20, 28, w * 0.6f, R_IRON, 0.03f, 0.2f, 0, sd + 5); }
+        }
+        dress_store(id, r, R_BONE);
+    }
+}
 static void whipper_dress(int id, float w, int pose) {
     float hb = pose == 2 ? -1.0f : 0.0f;
     g_dress_ramp2 = R_BLOOD;
@@ -6677,6 +6711,8 @@ static void spr_bestiary_bones(void) {
     deacon_dress(SP_DEACON_A); deacon_dress(SP_DEACON_B); deacon_dress(SP_DEACON_CHANT);
     spr_bdeacon(SP_BDEACON_A, 1.0f, 0); spr_bdeacon(SP_BDEACON_B, -1.0f, 1); spr_bdeacon(SP_BDEACON_CHANT, 0.0f, 2); spr_bdeacon(SP_BDEACON_D, 0.0f, 3);   /* the Black Deacon's own */
     spr_whipper(SP_WHIP_A, 1.0f, 0); spr_whipper(SP_WHIP_B, -1.0f, 1); spr_whipper(SP_WHIP_HORN, 0.0f, 2); spr_whipper(SP_WHIP_CRACK, 0.0f, 3); spr_whipper(SP_WHIP_D, 0.0f, 4);
+    g_back = 1; spr_whipper(SP_WHIP_BKA, 1.0f, 0); spr_whipper(SP_WHIP_BKB, -1.0f, 1); g_back = 0;   /* 1.0.0b18: his back */
+    whipper_back_dress(SP_WHIP_BKA, -1.0f); whipper_back_dress(SP_WHIP_BKB, 1.0f);
     whipper_dress(SP_WHIP_A, 1.0f, 0); whipper_dress(SP_WHIP_B, -1.0f, 1); whipper_dress(SP_WHIP_HORN, 0.0f, 2); whipper_dress(SP_WHIP_CRACK, 0.0f, 3);
     for (int f = 0; f < 6; f++) { spr_sexton(SP_SEXTON_A + f, f == 0 ? 1.0f : f == 1 ? -1.0f : f == 4 ? 1.0f : 0.0f, f); if (f < 5) sexton_dress(SP_SEXTON_A + f, f == 1 ? -1.0f : 1.0f); }
     for (int f = 0; f < 5; f++) { spr_lightless(SP_LIGHT_A + f, f == 0 ? 1.0f : f == 1 ? -1.0f : 0.0f, f); if (f < 4) lightless_dress(SP_LIGHT_A + f, f); }
