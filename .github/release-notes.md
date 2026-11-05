@@ -1,31 +1,24 @@
-The sixteenth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
+The seventeenth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
 
-This one is about the quiet stretches of the early levels, and what you do with the spells you have.
+A small one, finishing what the sixteenth began: the quiet stretches of the early levels.
 
 ### Before you upgrade
 
-Your saves and settings carry over. A caster keeps every line it paid for, Fire included, but nobody has the fireball for nothing any more (below). Going back to the fifteenth beta is safe: it simply forgets the Lampstand's gifts, and offers them again if you come back.
+Your saves and settings carry over unchanged, and going back to the sixteenth beta is safe.
 
 ### New in this beta
 
-**One line to begin with.** No class starts with the fireball now. Each begins with its own line, its first rank costing no spirit, and the Lampstand gives you a second line free after level 4 and a third after level 12: the merchant holds the way on until you have taken it. The Headsman's line waits for the first of those gifts. The Bone Spear with no bones throws splinters, eight at most, one coming back every six seconds. Any spell now drives the wandering Wraith back for a moment.
+**The lull.** When you have walked thirty seconds with nothing happening, no fight, nothing found or struck and no creature in sight, the level offers you something, never more than once a minute:
 
-**Things that want a spell.** Along the way, wherever it runs long with nothing in it, things in the crypt want a spell you hold, each with a small iron seal that draws motes of its colour in. Strike it with the right one and it gives a little: gold, gems, a potion, bones, souls, light, a short way through. The wrong spell rings dull, and the first time on a level you are told what it wants.
+- a corpse-light drifting in from somewhere out of sight, to be answered before it shies off;
+- a cold pricket further on that lights itself a moment and goes out: it wants fire (or, if you have none, a galvanic coil that sparks and wants lightning);
+- a handbell rung somewhere off, and something coming to see who is there.
 
-- On the first levels: cold prickets, votive racks, an urn of coals, a galvanic coil, a knot of roots, a soul bound in a lantern, a bone barricade, and coffers and cages in any line.
-- From each run's fifth level they move, time and want two spells: a corpse-light that shies off, a skull that rolls away from you, a seal that fire heats and frost breaks, three bells that must ring at once, a portcullis winch, a dying hearth, a steam vent. Each run has its own besides.
-- From level 13, sequences: a tablet's order, a turning reliquary, a ward-stone whose glyph changes, a relay of lamps.
-- In the rooms, things for fights: lamp oil to fire, loose masonry to bring down, a font to fill with bile, the Order's drum to silence, standing water to shock, a floor to rime.
+It watches only a person's play; the screensaver walks on as before.
 
-**Warded creatures.** From level 5 some creatures come warded against one of your lines, which then does only a small share of its damage: a hard rim in its colour, its glyph barred over its head, a dull ring when struck by it. Never your class's own line while you hold two, never every line you hold, and a fifth of its health taken in that element cracks the ward.
+Everything from the sixteenth beta is here too: one line to begin with and two more from the Lampstand, things in the crypt that want a spell, warded creatures, and the Mirror rune by hand.
 
-**The Mirror by hand.** The Mirror rune rises only when you raise it, on the right mouse button. What it meets in its first moment goes home to its thrower twice as hard. Q turns between it and the boss abilities, and held opens a wheel of them. The Rune Shrine's first curse gives you a Common Mirror if you have none.
-
-**On a controller**, holding the D-pad up opens a wheel of the runes and abilities, and holding it down a wheel of the spells, while the crypt slows and greys. RB raises the Mirror and LB uses the ability readied.
-
-**The Plague Doctor** bites harder each tick, and its flask strikes a quarter harder; no one else's does.
-
-This is still a beta. All of it has been tested in the harness, by the screensaver's own play and by scripted players, and seen in frames: nobody has played it by hand yet, so how the gifts, the things, the wards and the Mirror feel is still to be judged. The Windows and browser builds are compiled and smoke-tested by GitHub Actions. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
+This is still a beta. The lull has been tested in the harness by a scripted player only: nobody has played it by hand yet, so whether it comes at the right moments is still to be judged. The Windows and browser builds are compiled and smoke-tested by GitHub Actions. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
 
 ### Files
 

@@ -495,6 +495,12 @@ Cursed Coin. None of it counts in the level's treasure.
 
 The screensaver answers what it passes and holds the line for, but leaves the things for fights to a person.
 
+**The lull** (1.0.0b17). When you have walked thirty seconds with nothing happening (no fight, nothing found or
+struck, no creature in sight), the level offers you something, never twice in a minute: a corpse-light drifting in
+from out of sight, a cold pricket further on that lights itself a moment and goes out (it wants fire; with no fire, a
+galvanic coil that sparks), or a handbell rung somewhere off and something coming to see who is there. Only for a
+person: the screensaver keeps no watch.
+
 **Warded creatures.** From level 5 some creatures come warded against one of your lines: that element does only a
 small share of its damage, two fifths on level 5, a tenth from level 30. About one in six on the Crypts' levels, one in
 four in the Catacombs, one in three deeper; a pack shares one ward; never your class's own while you hold two lines,
@@ -1070,6 +1076,16 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b17** (the lull's watch). Tested in the harness only: not yet played by hand, run on Windows or seen on
+a real screen. The Windows and browser builds were compiled and smoke-tested by CI on the work branch.
+
+* **The offerings**: a scripted walker following an exit wisp was offered each of the three; the bell's wanderer found
+  it within two to seven seconds. The frames show them poorly, since the walker turns away from them; they are best
+  seen by hand.
+* **The screensaver is untouched**: the watch is a person's only, and a 700-second autopilot run on a fixed run id
+  logged the same 628 events as 1.0.0b16's, line for line, so 1.0.0b16's balance numbers below stand.
+* **Memory safety**: AddressSanitizer and UBSan clean on four sessions, each offering among them.
 
 **New in 1.0.0b16** (one line to begin with, the Lampstand's gifts, things that want a spell, warded creatures, the
 Mirror by hand and the controller's wheels). Tested in the harness only, by the autopilot and scripted players: not

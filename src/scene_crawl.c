@@ -844,6 +844,9 @@ static struct {
     int namb; Ambush amb[2];                /* the level's ambushes (section 12) */
     int nmk; Marked mk[MAXMK];              /* things that want a spell (1.0.0b16, docs/PLAN-play.md section 4) */
     int ward_said;                          /* the elements a ward has been named in, a bit each, this level (section 6) */
+    float lull_t, lull_cd, lull_look;       /* step 9: a person's walking with nothing happening; the wait before another
+                                               offering; the next look about for a creature */
+    int lull_items, lull_links;             /* what had been found when the lull was last reset */
     int probe_mk, probe_sp, probe_n; float probe_last;   /* the dream at one: 1 + which, the spell, casts so far, the last */
     int hunt_kind, hunt_on, hunt_said, hunt_nx, hunt_ny, hunt_whip; float hunt_at, hunt_heard;   /* the level's hunt: HK_*, let loose, its
                                                                       nearer tell given; where it picks up the trail; when; the last noise
@@ -11304,6 +11307,7 @@ static void relay_check(int lead) {                                /* every lamp
 }
 static void mk_strike(int k, int el) {
     Marked *m = &G.mk[k];
+    G.lull_t = 0.0f;                                               /* a thing struck is something happening */
     if (m->done || m->kind == MKK_TABLET) return;
     if (m->kind == MKK_PLINTH) {                                   /* the tablet's order */
         if (el != m->el) { mk_wrong(m, el, NULL); return; }
@@ -11595,13 +11599,27 @@ static void mk_tick(float dt) {
             if (m->t >= VENT_ON && !m->st && !G.dead && pd < 1.15f) { m->st = 1; hz_strike_el(HZ_FISSURE, EL_FIRE, 0.06f, m->x, m->y); }
             break;
         }
+        case MKK_PRICKET: case MKK_COIL:                           /* the lull's: lit a moment, then out */
+            if (m->st == 3 && (m->t -= dt) <= 0.0f) { m->st = 0; mk_deco(m, MKK[m->kind].s0, 1); sfx_at(SFX_HISS, m->x, m->y, 0.5f); }
+            if (m->kind == MKK_COIL && m->grp && m->st == 1) {       /* a relay's coil passes the flame, below */
+                for (int q = i + 1; q < G.nmk; q++) {
+                    Marked *n2 = &G.mk[q];
+                    if (n2->grp != m->grp) continue;
+                    if (n2->kind == MKK_RELAY && n2->st == 0 && !n2->done && (n2->t += dt) >= 0.8f) {
+                        n2->st = 1; n2->got = 1; n2->t = 0.0f; mk_deco(n2, MKK[MKK_RELAY].s1, 1); sfx_at(SFX_IGNITE, n2->x, n2->y, 0.8f);
+                        relay_check(m->grp - 1);
+                    }
+                    break;
+                }
+            }
+            break;
         case MKK_RELIQ:                                            /* it turns: a face, then the next */
             if ((m->t -= dt) <= 0.0f) {
                 if (m->st == 0) { m->st = 1; m->t = 0.7f; mk_deco(m, SP_MK_RELIQ1, 1); }
                 else { m->st = 0; m->t = 3.5f; m->hx += 1.0f; m->el = m->els[(int)m->hx % 3]; mk_deco(m, SP_MK_RELIQ0, 1); sfx_at(SFX_PUSHWALL, m->x, m->y, 0.3f); }
             }
             break;
-        case MKK_RELAY: case MKK_COIL:                             /* lit, it passes the flame to the next */
+        case MKK_RELAY:                                            /* lit, it passes the flame to the next */
             if (!m->grp || m->st != 1) break;
             for (int q = i + 1; q < G.nmk; q++) {
                 Marked *n2 = &G.mk[q];
@@ -11630,6 +11648,97 @@ static void mk_dmarks(void) {                                      /* the vents'
         hz_dput(x, y, c);
         for (int d = 0; d < 4; d++) if (G.map[y + DY[d]][x + DX[d]].kind == K_FLOOR) hz_dput(x + DX[d], y + DY[d], c);
     }
+}
+
+/* The lull's watch (docs/PLAN-play.md section 5, step 9): a person who has walked thirty seconds with no fight, no find,
+ * nothing struck and no creature seen is offered something, a minute apart at least, never the dream: a corpse-light
+ * drifting in ahead, a cold pricket (or a coil) that lights itself a moment further on and goes out, or a far-off bell
+ * and something coming by. */
+#define LULL_T 30.0f
+#define LULL_CD 60.0f
+#ifdef CRAWL_DEBUG
+static int lulls;
+#endif
+static int lull_spot(int dmin, int dmax, int seen, int *ox, int *oy) {   /* ahead if it can be; out of sight, or in it */
+    float fx = cosf(G.ang), fy = sinf(G.ang), best = seen ? 0.6f : -2.0f;
+    int found = 0;
+    for (int tries = 0; tries < (seen ? 40 : 10); tries++) {
+        int x, y;
+        if (!pick_cell_at_depth(G.cx, G.cy, dmin, dmax, !seen, &x, &y)) continue;
+        if (!mk_free(x, y, 1) || mk_at(x, y, 3) || in_wing(x, y) || in_trial(x, y)) continue;
+        if (seen && !line_clear(G.px, G.py, x + 0.5f, y + 0.5f)) continue;
+        float dx = x + 0.5f - G.px, dy = y + 0.5f - G.py, d = hypotf(dx, dy), dot = d > 0.1f ? (dx * fx + dy * fy) / d : 0.0f;
+        if (dot > best) { best = dot; *ox = x; *oy = y; found = 1; }
+    }
+    return found;
+}
+static void lull_offer(void) {
+    int held[NELEM], nh = mk_held(held), x, y, kind = rnd(3);
+    if (!nh) return;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_LULLK")) kind = clampi(atoi(getenv("CRAWL_LULLK")), 0, 2);   /* 0 the corpse-light, 1 the pricket, 2 the bell */
+#endif
+    if (kind == 1 && !align_open(EL_FIRE) && !align_open(EL_LIGHT)) kind = 0;
+    if (kind < 2 && G.nmk >= MAXMK) kind = 2;
+    if (kind == 1 && !lull_spot(5, 12, 1, &x, &y)) kind = 0;        /* the pricket in sight, further on */
+    if (kind == 2 && (!mind_on() || !lull_spot(16, 26, 0, &x, &y))) kind = 0;
+    if (kind == 0 && !lull_spot(6, 12, 0, &x, &y)) return;
+    G.lull_cd = LULL_CD; G.lull_t = 0.0f;
+    if (kind == 0) {                                               /* a corpse-light drifts in ahead */
+        Marked *m = mk_add(MKK_CLIGHT, held[0], x, y);
+        if (m) sfx_at(SFX_WHISPER, m->x, m->y, 0.7f);
+    } else if (kind == 1) {                                        /* a cold pricket lights itself a moment, and goes out */
+        int fire = align_open(EL_FIRE);
+        Marked *m = mk_add(fire ? MKK_PRICKET : MKK_COIL, fire ? EL_FIRE : EL_LIGHT, x, y);
+        if (m) { m->st = 3; m->t = 1.6f; mk_deco(m, MKK[m->kind].s1, 1); sfx_at(fire ? SFX_IGNITE : SFX_ZAP, m->x, m->y, 0.8f); }
+    } else {                                                       /* a far-off bell, and something comes by */
+        sfx_at(SFX_HANDBELL, x + 0.5f, y + 0.5f, 1.0f);
+        int alive = 0;
+        for (int i = 0; i < MAXMOBS; i++) alive += G.mobs[i].alive && !KIND_IS(&G.mobs[i], KF_UNCOUNTED);
+        if (alive < 12) {
+            uint64_t was = 0;
+            for (int i = 0; i < MAXMOBS; i++) was |= (uint64_t)(G.mobs[i].alive != 0) << i;
+            spawn_wanderer(x, y);
+            for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && !(was >> i & 1) && minded(&G.mobs[i])) mind_track(&G.mobs[i], G.px, G.py);
+        }
+    }
+#ifdef CRAWL_DEBUG
+    lulls++;
+    fprintf(stderr, "EVENT lull %s at (%d,%d) t=%.2f\n", kind == 0 ? "corpse-light" : kind == 1 ? "pricket" : "bell", x, y, G.t);
+#endif
+}
+static void lull_tick(float dt) {
+#ifdef CRAWL_DEBUG
+    static double lull_why;
+    if (getenv("CRAWL_LULLTRACE") && G.t >= lull_why) { lull_why = G.t + 5.0; fprintf(stderr, "LULL gate player=%d dead=%d ui=%d exiting=%d ok=%d\n", G.player, G.dead, G.ui, G.exiting, mk_level_ok()); }
+#endif
+    if (!G.player || G.dead || G.ui || G.exiting || !mk_level_ok()) { G.lull_t = 0.0f; return; }
+    G.lull_cd = fmaxf(0.0f, G.lull_cd - dt);
+    int quiet = !in_combat() && G.items_got == G.lull_items && G.links_found == G.lull_links;
+    if (quiet && (G.lull_look -= dt) <= 0.0f) {                    /* a creature in sight ends it too */
+        G.lull_look = 0.5f;
+        for (int i = 0; i < MAXMOBS && quiet; i++) {
+            const Mob *m = &G.mobs[i];
+            if (!m->alive || m->state != MS_WALK || buried(m) || KIND_IS(m, KF_UNCOUNTED) || hypotf(m->x - G.px, m->y - G.py) > 9.0f) continue;
+            if (m->alert > 0.0f || line_clear(G.px, G.py, m->x, m->y)) quiet = 0;
+        }
+    }
+#ifdef CRAWL_DEBUG
+    static double lull_q;
+    if (getenv("CRAWL_LULLTRACE") && G.t >= lull_q) { lull_q = G.t + 2.0; fprintf(stderr, "LULL quiet=%d combat=%d items=%d/%d links=%d/%d\n", quiet, in_combat(), G.items_got, G.lull_items, G.links_found, G.lull_links); }
+#endif
+    G.lull_items = G.items_got; G.lull_links = G.links_found;
+    if (!quiet) { G.lull_t = 0.0f; return; }
+    if (G.pvx * G.pvx + G.pvy * G.pvy > 0.09f) G.lull_t += dt;     /* walking: standing still only waits */
+    float need = LULL_T;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_LULL")) need = (float)atof(getenv("CRAWL_LULL"));
+#endif
+    if (G.lull_t >= need && G.lull_cd <= 0.0f) lull_offer();
+#ifdef CRAWL_DEBUG
+    static double lull_say;
+    if (getenv("CRAWL_LULLTRACE") && G.t >= lull_say) { lull_say = G.t + 2.0; fprintf(stderr, "LULL t=%.1f quiet=%d lull=%.1f cd=%.1f v=%.2f\n", G.t, quiet, G.lull_t, G.lull_cd, hypotf(G.pvx, G.pvy)); }
+#endif
 }
 
 static void start_level(void) {
@@ -17666,6 +17775,7 @@ static void crawl_update(double dt) {
     }
     G.still_t = G.pvx * G.pvx + G.pvy * G.pvy < 0.09f ? G.still_t + fdt : 0.0f;
     rest_tick(fdt);
+    lull_tick(fdt);                                                /* a person's long quiet walk: something offered (1.0.0b17) */
     if (G.hp <= G.max_hp / 4 && !G.dead && (G.heartbeat -= fdt) <= 0.0f) { snd_sfx_ex(SFX_HEART, 0.9f, 0.5f); G.heartbeat = 1.1f; }
 
     name_newcomers();

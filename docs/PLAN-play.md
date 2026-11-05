@@ -5,8 +5,8 @@ further than asked: no class starts with the fireball any more (section 3a). Tha
 each with a default. It is **1.0.0b16**, ahead of the minds' showing and the rest of the art pass (now 1.0.0b17) and the
 lower storey (now 1.0.0b18). The second round was answered the same day (section 11: every default, and N2 as splinters,
 an ammunition of their own). Steps 1-8 are built (harness only), with the wheels the owner asked for before step 3 (section 7a),
-and were **released as 1.0.0b16** at the owner's word (5 November), squashed onto main as one commit. What is left (step 9, the
-lull's watch, and step 10's checks of it) is now **1.0.0b17**; the minds' showing and the rest of the art pass move to
+and were **released as 1.0.0b16** at the owner's word (5 November), squashed onto main as one commit. What was left (step 9, the
+lull's watch, and step 10's checks of it) was built and **released as 1.0.0b17** (5 November); the minds' showing and the rest of the art pass move to
 **1.0.0b18**, the lower storey to **1.0.0b19**.
 
 *The brief, as first drafted (ideas only). Written on `claude/modest-knuth-gd9u51` from main at
@@ -457,6 +457,23 @@ The lull is in the walking, so placement should follow the walking.
   itself for a moment further on and goes out (*it wants fire*), a far-off bell. PLAN-ai's budget could keep a creature or
   two back for this, to come by as a wanderer when a lull runs long. Never twice in a minute; never the dream's.
 
+**In the game** (step 9, for 1.0.0b17; harness only). `lull_tick` (in `crawl_update`, after `rest_tick`) counts `G.lull_t`
+while a person walks (standing still only pauses it) with nothing happening: no fight (`in_combat`), nothing picked up
+(`G.items_got`), no secret found (`G.links_found`), nothing struck (`mk_strike` resets it) and no creature alerted or in sight
+within nine cells (looked for twice a second). At thirty seconds (`LULL_T`), a minute after the last at least (`LULL_CD`), on
+the levels that take things (`mk_level_ok`: not a boss's, a pocket or a challenge), `lull_offer` gives one of three, in a line
+held: a corpse-light set six to twelve steps off, out of sight, to drift in; a cold pricket (or with no fire, a galvanic coil)
+five to twelve steps ahead in sight, lit a moment (`Marked.st` 3, 1.6 s) and then out, left to be answered; or a handbell
+heard sixteen to twenty-six steps off and a wanderer sent from there, tracking you (with the new minds, and fewer than twelve
+about). The budget keeps no creature back for it: the wanderer is spawned, as the dream's calm one is. Never the dream's.
+Debug: `CRAWL_LULL=s` (the quiet needed), `CRAWL_LULLK=k` (0 the corpse-light, 1 the pricket, 2 the bell), `CRAWL_LULLTRACE=1`,
+`EVENT lull`.
+
+*Checked* (harness only): a scripted walker following an exit wisp was offered each of the three; the bell's wanderer found it
+within two to seven seconds. The dream never runs the watch: one 700-second dream run on a fixed run id logged the same 628
+events as 1.0.0b16's, line for line. ASan clean on four sessions (each offering, the pricket twice). Frames of the offerings
+from the walker show them poorly, since it turns away; they are best seen by hand.
+
 ## 6. Warded creatures
 
 **What.** Some creatures are warded against one line the caster has open: that element does a small share of its damage.
@@ -599,8 +616,9 @@ letting go, B, a tap of up for the map, Q tapped and held, RB and LB; ASan clean
 7. Warded creatures, with sixteen-seed runs against `CRAWL_WARD=0`. *Built, frames sent.*
 8. Sequences (4.4) and the fight things (4.5). *Built, frames sent.*
    *Steps 1-8 released as 1.0.0b16 (5 November). Steps 9 and 10 are 1.0.0b17.*
-9. The lull's watch.
-10. The checks: balance against 1.0.0b16, ASan, the README's and the page's words.
+9. The lull's watch. *Built (harness only).*
+10. The checks: balance against 1.0.0b16, ASan, the README's and the page's words. *Done: the dream is unchanged by it (same
+   events line for line); ASan clean; the words written. Released as 1.0.0b17 (5 November).*
 
 ## 10. Questions (the first round, answered 4 November)
 
