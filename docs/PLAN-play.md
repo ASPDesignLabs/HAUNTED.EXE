@@ -457,6 +457,23 @@ The lull is in the walking, so placement should follow the walking.
   itself for a moment further on and goes out (*it wants fire*), a far-off bell. PLAN-ai's budget could keep a creature or
   two back for this, to come by as a wanderer when a lull runs long. Never twice in a minute; never the dream's.
 
+**In the game** (step 9, for 1.0.0b17; harness only). `lull_tick` (in `crawl_update`, after `rest_tick`) counts `G.lull_t`
+while a person walks (standing still only pauses it) with nothing happening: no fight (`in_combat`), nothing picked up
+(`G.items_got`), no secret found (`G.links_found`), nothing struck (`mk_strike` resets it) and no creature alerted or in sight
+within nine cells (looked for twice a second). At thirty seconds (`LULL_T`), a minute after the last at least (`LULL_CD`), on
+the levels that take things (`mk_level_ok`: not a boss's, a pocket or a challenge), `lull_offer` gives one of three, in a line
+held: a corpse-light set six to twelve steps off, out of sight, to drift in; a cold pricket (or with no fire, a galvanic coil)
+five to twelve steps ahead in sight, lit a moment (`Marked.st` 3, 1.6 s) and then out, left to be answered; or a handbell
+heard sixteen to twenty-six steps off and a wanderer sent from there, tracking you (with the new minds, and fewer than twelve
+about). The budget keeps no creature back for it: the wanderer is spawned, as the dream's calm one is. Never the dream's.
+Debug: `CRAWL_LULL=s` (the quiet needed), `CRAWL_LULLK=k` (0 the corpse-light, 1 the pricket, 2 the bell), `CRAWL_LULLTRACE=1`,
+`EVENT lull`.
+
+*Checked* (harness only): a scripted walker following an exit wisp was offered each of the three; the bell's wanderer found it
+within two to seven seconds. The dream never runs the watch: one 700-second dream run on a fixed run id logged the same 628
+events as 1.0.0b16's, line for line. ASan clean on four sessions (each offering, the pricket twice). Frames of the offerings
+from the walker show them poorly, since it turns away; they are best seen by hand.
+
 ## 6. Warded creatures
 
 **What.** Some creatures are warded against one line the caster has open: that element does a small share of its damage.
@@ -599,8 +616,9 @@ letting go, B, a tap of up for the map, Q tapped and held, RB and LB; ASan clean
 7. Warded creatures, with sixteen-seed runs against `CRAWL_WARD=0`. *Built, frames sent.*
 8. Sequences (4.4) and the fight things (4.5). *Built, frames sent.*
    *Steps 1-8 released as 1.0.0b16 (5 November). Steps 9 and 10 are 1.0.0b17.*
-9. The lull's watch.
-10. The checks: balance against 1.0.0b16, ASan, the README's and the page's words.
+9. The lull's watch. *Built (harness only).*
+10. The checks: balance against 1.0.0b16, ASan, the README's and the page's words. *The dream is unchanged by it (same events
+   line for line); ASan clean; the README's and the page's words wait for the release.*
 
 ## 10. Questions (the first round, answered 4 November)
 

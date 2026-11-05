@@ -209,7 +209,7 @@ squashed onto main as one commit. Its *hand-off log* says where it stands.
 
 **1.0.0b16** is planned in [`docs/PLAN-play.md`](docs/PLAN-play.md) (4 November, on `claude/modest-knuth-gd9u51`; steps 1-8
 built, harness only, with the pad's wheels, and released as **1.0.0b16** at the owner's word on 5 November, squashed onto main
-as one commit; its steps 9-10, the lull's watch and its checks, are now **1.0.0b17**), for the early levels' quiet stretches: no class starts with the fireball any more (each begins with its own line), a
+as one commit; its steps 9-10, the lull's watch and its checks, are now **1.0.0b17**, built on the same branch, harness only), for the early levels' quiet stretches: no class starts with the fireball any more (each begins with its own line), a
 second and third line given free at the Lampstand after levels 4 and 12, things in the crypt struck by the right spell (only
 the lines held), creatures warded against a held line (60% to 90%, cracking), and the Mirror rune raised by hand on the right
 mouse as a parry (Q turns between it and the boss gifts), a Common one free with the shrine's first curse. The owner answered
@@ -1444,6 +1444,10 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `place_fights`: `mk_fight` for the oil, the column, the font, the drum, the ice; `mk_water_shock`, `mk_wet_hit`; firedamp on
   `G.site`); the flask answers what wants poison as it passes. Debug: `CRAWL_FIGHTK=k`, `FIGHTS level n`, `EVENT mk_crush`,
   `mk_drum`, `mk_water_shock`.
+- **The lull's watch** (1.0.0b17, PLAN-play step 9, section 5). `lull_tick` (a person's quiet walking, `G.lull_t`, reset by a
+  fight, a find, a secret, a strike or a creature seen; `LULL_T` 30 s, `LULL_CD` 60 s), `lull_spot`, `lull_offer` (a corpse-light out
+  of sight, a pricket or coil lit a moment in sight, `Marked.st` 3, or a handbell and a wanderer tracking you). Never the dream's.
+  Debug: `CRAWL_LULL=s`, `CRAWL_LULLK=k`, `CRAWL_LULLTRACE=1`, `EVENT lull`.
 - **Warded creatures** (1.0.0b16 step 7, docs/PLAN-play.md section 6). `Mob.ward[2]`, `wdmg`, `wring`, `wset`; `Pack.ward`;
   `ward_give` (the first time it moves), `ward_pick`, `ward_str` (in `weak_el`: 60% on level 5 to 90% by 30), `ward_struck`
   (from `damage_mob`: the dull ring, the caption, the crack at a fifth of its health), `Draw.ward` (the rim), `render_warded` (the
