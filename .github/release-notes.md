@@ -1,24 +1,26 @@
-The seventeenth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
+The eighteenth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
 
-A small one, finishing what the sixteenth began: the quiet stretches of the early levels.
+The dead learnt to think in the fourteenth beta. This one lets you see it.
 
 ### Before you upgrade
 
-Your saves and settings carry over unchanged, and going back to the sixteenth beta is safe.
+Your saves and settings carry over. Each page of the ledger now also keeps the dead's ways you have met and your deeds against them; earlier betas simply step over that part, so going back is safe.
 
 ### New in this beta
 
-**The lull.** When you have walked thirty seconds with nothing happening, no fight, nothing found or struck and no creature in sight, the level offers you something, never more than once a minute:
+**Their backs.** Every creature that can turn away now shows its back, and has no eyes from behind: one looking away hasn't seen you, and you may pass it.
 
-- a corpse-light drifting in from somewhere out of sight, to be answered before it shies off;
-- a cold pricket further on that lights itself a moment and goes out: it wants fire (or, if you have none, a galvanic coil that sparks and wants lightning);
-- a handbell rung somewhere off, and something coming to see who is there.
+**The roost** hangs asleep from the ceiling wrapped in its wings, and stirs as you come near.
 
-It watches only a person's play; the screensaver walks on as before.
+**The ambushes' signs.** Each run marks a kill room with a sign of its own by the door: raked bones in the Crypts, a wet drag in the Catacombs, fresh scree in the Hollows, warm cinders in the Deep. A run's first ambush, its torch snuffed, has eyes in the dark just inside.
 
-Everything from the sixteenth beta is here too: one line to begin with and two more from the Lampstand, things in the crypt that want a spell, warded creatures, and the Mirror rune by hand.
+**Named, and written down.** Each of the dead's tactics (the file of the Order, the hounds' pack, the roost, the wake, the hunt, the ambush, the nest, the Sexton's bell and the rest) is named the first time it shows itself in each run of ten. Once met, it has a page in the Codex, *The Ways of the Dead*: what it does, how you hear it coming, and how it is answered. In the bestiary, **Space** turns a creature's page from its lore to its ways.
 
-This is still a beta. The lull has been tested in the harness by a scripted player only: nobody has played it by hand yet, so whether it comes at the right moments is still to be judged. The Windows and browser builds are compiled and smoke-tested by GitHub Actions. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
+**New sounds**: a scavenger at its meal, a bait's yelp, a web thrumming as the nest drops, the dead's bones settling as they turn wary, a hound scenting the air.
+
+**Eleven new achievements**: ambushes come through without a death, hunts shaken off, packs broken by their leader's fall, callers killed before they could call, and a file of the Order beaten without a single hurt.
+
+This is still a beta. All of it has been tested in the harness, by the screensaver's own play and on sheets of the art: nobody has played it by hand yet. The Windows and browser builds are compiled and smoke-tested by GitHub Actions. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
 
 ### Files
 

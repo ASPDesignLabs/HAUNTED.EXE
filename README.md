@@ -191,6 +191,20 @@ gathering at the exit. Each level spends one budget on all of it, so it holds ab
 Each kind still has its weaknesses (fire for the shambler, frost for hounds and spiders, lightning and
 Bone Spear through armour), which the autopilot plays to, and each run's doors have their own sound.
 
+**Their ways shown** (1.0.0b18). Every creature that can turn its back on you now shows it (and, from behind,
+no eyes: a creature looking away is one that hasn't seen you). A roost hangs asleep wrapped in its wings
+and stirs as you come near. Each run marks its ambushes with a sign of its own by the door: raked bones in
+the Crypts, a wet drag in the Catacombs, fresh scree in the Hollows, warm cinders in the Deep; a run's
+first, its torch snuffed, has eyes in the dark just inside. Each tactic is named the first time it shows
+itself on each run of ten (THE FILE OF THE ORDER IS ON YOU, THE NEST STIRS ABOVE YOU, SOMETHING IS SET ON
+YOUR TRAIL ...), and once met has a page in the Codex, *THE WAYS OF THE DEAD*: what it does, how you hear
+it coming, and how it is answered. The bestiary's pages turn on **Space** from a creature's lore to its
+ways. New sounds: a scavenger at its meal, a bait's yelp, a web thrumming as the nest drops, the dead's
+bones settling as they turn wary, a hound scenting the air. The record keeps what you did about them, for
+eleven new achievements: ambushes come through without a death (1, 5, 20), hunts shaken off (1, 10), packs
+broken by their leader's fall (1, 10, 50), callers killed before they called (1, 10), and a file of the
+Order beaten without a hurt.
+
 ### CATACOMB: the bosses
 
 The tenth level of each run is an ordinary level with an arena set into its far end in place of the
@@ -1076,6 +1090,20 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b18** (the dead's ways shown). Tested in the harness only: not yet played by hand, run on Windows
+or seen on a real screen. The Windows and browser builds were compiled and smoke-tested by CI on the work branch.
+
+* **The screensaver plays as before**: a 700-second autopilot run on a fixed run id logged the same events as
+  1.0.0b17's, line for line, but for the new captions and achievements, checked again after each creature's back
+  went in. So 1.0.0b16's balance numbers below stand.
+* **The captions, the Codex's pages, the deeds**: each of the seventeen tactics named in autopilot runs from levels 1,
+  21 and 31, and every deed counted at least once (an ambush come through and a file beaten untouched from level 31).
+  Every new page of the Codex and the bestiary checked to fit. The record saved, kept through a death and read back.
+* **The art**: every back, the roost and the signs on sheets at each rank; the skeleton's, shield-bearer's, knight's
+  and shambler's backs, the roost and the Catacombs' sign seen in frames from the game. The scree and cinders were
+  drawn again in greys after the first frames, where the Hollows' and the Deep's light made them look like gold.
+* **Memory safety**: AddressSanitizer and UBSan clean on six sessions, among them every kind turned away at rank IV.
 
 **New in 1.0.0b17** (the lull's watch). Tested in the harness only: not yet played by hand, run on Windows or seen on
 a real screen. The Windows and browser builds were compiled and smoke-tested by CI on the work branch.

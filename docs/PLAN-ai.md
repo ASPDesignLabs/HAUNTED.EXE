@@ -1119,7 +1119,7 @@ The order of the steps is the building's; what a person meets, and where, is sec
    was found and mended, and `STALL` lines and `CRAWL_RUNID` were added to catch the rest if there is a rest.
    Folded into main with steps 0-9, unreleased, at the owner's word (3 November).
 11. **Showing it** (Part H): sounds, captions, the bestiary, the Codex, the record, achievements; the art.
-   *Built (1.0.0b18, harness only), but the art.* Sounds: five new (`SFX_CHEW` the scavenger at its meal, `SFX_YELP` the
+   *Built and released as 1.0.0b18 (5 November, harness only), with the art below.* Sounds: five new (`SFX_CHEW` the scavenger at its meal, `SFX_YELP` the
    hound's as bait, `SFX_THRUM` the nest's web as its tripwire drops, `SFX_RATTLE` the Order's dead turning wary, `SFX_SNUFF` a
    hound's); the rest were made with the steps. Captions: the dead's ways (`WY_*`, seventeen: the file, the hounds, the roost,
    the wake, the scavengers, the callers, the hunt, the ambush, the watch, the nest, the band, the imps' brood, the sentinels,
