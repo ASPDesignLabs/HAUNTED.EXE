@@ -1603,9 +1603,15 @@ static const BackRow BACKS[] = {
     { "HALF PLATE", PF_ARMOUR, SP_KNIGHT2_A, SP_KNIGHT_SA, SP_KNIGHT2_BKA, SP_KNIGHT2_BKB },
     { "BREASTPLATE", PF_ARMOUR, SP_KNIGHT3_A, SP_KNIGHT_SA, SP_KNIGHT3_BKA, SP_KNIGHT3_BKB },
     { "WHIPPER-IN", PF_BONE, SP_WHIP_A, SP_WHIP_SA, SP_WHIP_BKA, SP_WHIP_BKB },
+    { "DEACON", PF_ROBE, SP_DEACON_A, SP_DEACON_SA, SP_DEACON_BKA, SP_DEACON_BKB },
+    { "SEXTON", PF_HIDE, SP_SEXTON_A, SP_SEXTON_SA, SP_SEXTON_BKA, SP_SEXTON_BKB },
+    { "SHAMBLER", PF_FLESH, SP_SHAMB_A, SP_SHAMB_SA, SP_SHAMB_BKA, SP_SHAMB_BKB },
+    { "DROWNED", PF_DROWN, SP_DROWN_A, SP_DROWN_SA, SP_DROWN_BKA, SP_DROWN_BKB },
+    { "GHOUL", PF_FLESH, SP_GHOUL_A, SP_GHOUL_SA, SP_GHOUL_BKA, SP_GHOUL_BKB },
 };
 static int draw_backs(const char *path) {
     crawl_art_level(15);
+    { int mx = -1; for (int i = 0; i < NSPR; i++) for (int r = 0; r < NRANK; r++) if (crawl_dress_ix[i][r] > mx) mx = crawl_dress_ix[i][r]; fprintf(stderr, "dress layers used %d of %d\n", mx + 1, NDRESS); }
     enum { NC = 8, N = sizeof BACKS / sizeof BACKS[0] };
     iw = PAD + ROWHEAD + NC * (CELL + PAD);
     ih = PAD + LABEL_H + N * (LABEL_H + CELL + PAD) + 8 * TXT + PAD;
