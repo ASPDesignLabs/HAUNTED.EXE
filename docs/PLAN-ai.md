@@ -1146,7 +1146,8 @@ The order of the steps is the building's; what a person meets, and where, is sec
    1.0.0b17's line for line. Frames: `docs/minds/backs_game.png`, `roost_game.png`. Debug: `CRAWL_TPAMBUSH=1` (two cells
    outside the first ambush's door, facing in), `CRAWL_STAGESLEEP=1` (a staged bat asleep). The other kinds' backs follow, kind
    by kind, on `make sheets`' `backs` (`docs/minds/backs.png`): the knight in each state of its plate (`KNIGHT_HELM_BACK`), the
-   Whipper-In (`SKULL_SMALL_BACK`), the deacon, the Sexton, the shambler, the Drowned and the ghoul (`spr_ghoul_back`). A back is
+   Whipper-In (`SKULL_SMALL_BACK`), the deacon, the Sexton, the shambler, the Drowned, the ghoul (`spr_ghoul_back`), the bone hound
+   (`spr_hound_back`), the imp, the gargoyle in flight, the hunting spider and the brood mother: every kind that turns. A back is
    drawn as the front is with `g_back` set: the skeleton family's are turned at once (`cv_mirror`) with a dressing of their own;
    the later kinds' are drawn unturned, dressed by the kind's own dressing, and then turned with it (`spr_turn`). `is_back` keeps
    their eyes off and lifts the vapour to the head. Each was checked on the sheet; the dream's events stay 1.0.0b17's.

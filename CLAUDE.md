@@ -1453,6 +1453,10 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `DEED_*`, `caller_hushed`, `ways_ends`, `Pack.hunted/hurts0/done`, `Ambush.deaths0/done`, `G.hurts`, `G.hunt_shaken`) and
   achievements from `ACH_WAY0`; `LG_WAYS`; the bestiary's ways on Space (`G.best_ways`); sounds `SFX_CHEW`, `SFX_YELP`,
   `SFX_THRUM`, `SFX_RATTLE`, `SFX_SNUFF`. Debug: `CRAWL_WAYS=1`, `EVENT way`, `EVENT deed`.
+  The art (Part H's): backs for every kind that turns (`*_BKA/_BKB` sprites; `mob_side` past 135 degrees, `is_back` without
+  eyes; `g_back` while drawing, `cv_mirror` or `spr_turn`; `make sheets`' `backs`), the roost asleep (`SP_BAT_ROOST`, `_ROOST2`),
+  the ambushes' signs by run (`SP_SIGN_*`, eyes in the dark by a snuffed torch, `Ambush.eyes`); `make sheets`' `minds`. Debug:
+  `CRAWL_TPAMBUSH=1`, `CRAWL_STAGESLEEP=1`.
 - **Warded creatures** (1.0.0b16 step 7, docs/PLAN-play.md section 6). `Mob.ward[2]`, `wdmg`, `wring`, `wset`; `Pack.ward`;
   `ward_give` (the first time it moves), `ward_pick`, `ward_str` (in `weak_el`: 60% on level 5 to 90% by 30), `ward_struck`
   (from `damage_mob`: the dull ring, the caption, the crack at a fifth of its health), `Draw.ward` (the rim), `render_warded` (the

@@ -23514,7 +23514,7 @@ static int mob_sprite(const Mob *m, float *scale) {
 /* S1: a creature looking across your line of sight shows its side, turned to the way it faces; one looking away shows
  * its side too, until there are backs to show (docs/PLAN-ai.md, section 1). Only its walk: a blow or a cast faces you. */
 static int is_back(int s) {                                        /* 1.0.0b18: a back view: no eyes, the vapour from the head */
-    return (s >= SP_SKEL_BKA && s <= SP_SHIELD_BKB) || (s >= SP_KNIGHT_BKA && s <= SP_GHOUL_BKB);
+    return (s >= SP_SKEL_BKA && s <= SP_SHIELD_BKB) || (s >= SP_KNIGHT_BKA && s <= SP_GARG_BKB) || (s >= SP_HUNTER_BKA && s <= SP_BROOD_BKB);
 }
 static int mob_side(const Mob *m, int spr, int *flip) {
     *flip = 0;
@@ -23535,6 +23535,11 @@ static int mob_side(const Mob *m, int spr, int *flip) {
         if (m->type == MOB_SHAMBLER) return spr == k->spr2 ? SP_SHAMB_BKB : SP_SHAMB_BKA;
         if (m->type == MOB_DROWNED) return spr == k->spr2 ? SP_DROWN_BKB : SP_DROWN_BKA;
         if (m->type == MOB_GHOUL) return spr == k->spr2 ? SP_GHOUL_BKB : SP_GHOUL_BKA;
+        if (m->type == MOB_HOUND) return spr == k->spr2 ? SP_HOUND_BKB : SP_HOUND_BKA;
+        if (m->type == MOB_IMP) return spr == k->spr2 ? SP_IMP_BKB : SP_IMP_BKA;
+        if (m->type == MOB_GARGOYLE) return spr == k->spr2 ? SP_GARG_BKB : SP_GARG_BKA;
+        if (m->type == MOB_HUNTER) return spr == k->spr2 ? SP_HUNTER_BKB : SP_HUNTER_BKA;
+        if (m->type == MOB_BROOD) return spr == k->spr2 ? SP_BROOD_BKB : SP_BROOD_BKA;
     }
     *flip = sinf(m->face - G.ang) < 0.0f;
     return spr == k->spr2 ? k->side2 : k->side;
