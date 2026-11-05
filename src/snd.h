@@ -94,6 +94,11 @@ enum {
     SFX_HANDBELL,       /* the Sexton's handbell: one stroke of the clapper, bright and beating */
     SFX_GLASS,          /* the Lightless moving: a faint, high, glassy chime */
     SFX_WHIPCRACK,      /* a whip's crack: a sharp snap, a hiss of the thong */
+    SFX_CHEW,           /* a scavenger at its meal: wet tearing, a bone cracked, a gulp (1.0.0b18, the minds shown) */
+    SFX_YELP,           /* a hound's yelp, short and high, as the bait shows itself */
+    SFX_THRUM,          /* a web plucked: a low thrum shivering, a dry tick or two (the nest) */
+    SFX_RATTLE,         /* the dead turning their heads: bones settling, the jaw's click */
+    SFX_SNUFF,          /* a beast snuffling the air: three short breaths in */
     SFX_COUNT
 };
 

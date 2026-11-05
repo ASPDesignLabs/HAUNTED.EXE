@@ -750,6 +750,47 @@ static float sfx_sample(Sfx *s) {
         x = hiss + snap;
         break;
     }
+    case SFX_CHEW: {                                /* wet tearing in bursts, a crack of bone halfway, a gulp at the end */
+        float u = t / s->dur, rate = 5.5f, ph = fmodf(t * rate, 1.0f);
+        float tear = svf_band(nz(&s->rng), 900.0f + 500.0f * ph, 0.6f, &s->lo1, &s->bp1) * (ph < 0.45f ? sinf(PI_F * ph / 0.45f) : 0.0f) * (u < 0.8f ? 1.0f : 0.0f);
+        float c = t - 0.55f, crack = c > 0.0f ? (nz(&s->rng) * 0.7f + sin_cyc(1700.0f * c) * 0.3f) * expf(-c * 60.0f) : 0.0f;
+        float g = t - 0.85f * s->dur, gulp = g > 0.0f ? sin_cyc((180.0f - 260.0f * g) * g) * expf(-g * 14.0f) : 0.0f;
+        x = tear * 0.55f + crack * 0.8f + gulp * 0.6f;
+        break;
+    }
+    case SFX_YELP: {                                /* a short high yelp, its pitch jumping up and falling */
+        float f = t < 0.04f ? 900.0f + 9000.0f * t : 1260.0f - 2600.0f * (t - 0.04f);
+        s->ph[0] += fmaxf(f, 300.0f) / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        float v = svf_band(s->ph[0] * 2.0f - 1.0f, 1400.0f, 0.3f, &s->lo1, &s->bp1);
+        x = v * sinf(PI_F * fminf(t / s->dur, 1.0f)) * 0.9f;
+        break;
+    }
+    case SFX_THRUM: {                               /* a strand plucked low: a slow shiver, and dry ticks of legs */
+        float f = 62.0f * (1.0f + 0.03f * sinf(t * 19.0f));
+        float th = (sin_cyc(f * t) + sin_cyc(f * 2.01f * t) * 0.5f + sin_cyc(f * 3.03f * t) * 0.25f) * expf(-t * 2.2f) * fminf(1.0f, t / 0.02f);
+        s->a -= 1.0f / SR;
+        if (s->a <= 0.0f) { s->a = 0.08f + 0.12f * (nz(&s->rng) * 0.5f + 0.5f); s->b = 1.0f; }
+        s->b *= expf(-1.0f / (SR * 0.004f));
+        float tick = svf_band(nz(&s->rng), 5200.0f, 0.5f, &s->lo2, &s->bp2) * s->b;
+        x = th * 0.6f + tick * 0.35f;
+        break;
+    }
+    case SFX_RATTLE: {                              /* bones shifting: a handful of dry clicks, a scrape, the jaw's click */
+        float u = t / s->dur;
+        s->a -= 1.0f / SR;
+        if (s->a <= 0.0f) { s->a = 0.02f + 0.05f * (nz(&s->rng) * 0.5f + 0.5f); s->b = 1.0f - u; }
+        s->b *= expf(-1.0f / (SR * 0.006f));
+        float click = svf_band(nz(&s->rng), 2600.0f, 0.4f, &s->lo1, &s->bp1) * s->b;
+        float j = t - 0.75f * s->dur, jaw = j > 0.0f ? (sin_cyc(1900.0f * j) * 0.5f + nz(&s->rng) * 0.5f) * expf(-j * 120.0f) : 0.0f;
+        x = click * 0.7f + jaw * 0.9f;
+        break;
+    }
+    case SFX_SNUFF: {                               /* three short breaths drawn in through a muzzle */
+        float ph = fmodf(t * 6.0f, 1.0f), on = t < 0.5f && ph < 0.6f ? sinf(PI_F * ph / 0.6f) : 0.0f;
+        float air = svf_band(nz(&s->rng), 1100.0f + 900.0f * ph, 0.35f, &s->lo1, &s->bp1);
+        x = air * on * 0.8f;
+        break;
+    }
     case SFX_DOOR4_SHUT: {                          /* a glassy chime, and the heat's hiss */
         float chime = (sin_cyc(1210.0f * t) * 0.6f + sin_cyc(1873.0f * t) * 0.4f + sin_cyc(2711.0f * t) * 0.25f) * expf(-t * 4.5f);
         float hiss = svf_band(nz(&s->rng), 6000.0f, 0.6f, &s->lo1, &s->bp1) * expf(-t * 9.0f);
@@ -2178,6 +2219,11 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_HANDBELL]   = { 1.40f, 0.60f,  0.50f, 0.55f },
     [SFX_GLASS]      = { 0.60f, 0.45f, -0.50f, 0.50f },
     [SFX_WHIPCRACK]  = { 0.40f, 0.85f,  0.50f, 0.30f },
+    [SFX_CHEW]       = { 1.20f, 0.60f, -0.40f, 0.35f },
+    [SFX_YELP]       = { 0.22f, 0.70f, -0.40f, 0.35f },
+    [SFX_THRUM]      = { 1.40f, 0.70f, -0.40f, 0.45f },
+    [SFX_RATTLE]     = { 0.45f, 0.55f, -0.40f, 0.30f },
+    [SFX_SNUFF]      = { 0.55f, 0.55f, -0.40f, 0.25f },
 };
 
 void snd_tone(int glass, int midi, float gain, float pan) {      /* a struck bell or a singing crystal, at its own note */

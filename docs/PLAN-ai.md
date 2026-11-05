@@ -1119,6 +1119,20 @@ The order of the steps is the building's; what a person meets, and where, is sec
    was found and mended, and `STALL` lines and `CRAWL_RUNID` were added to catch the rest if there is a rest.
    Folded into main with steps 0-9, unreleased, at the owner's word (3 November).
 11. **Showing it** (Part H): sounds, captions, the bestiary, the Codex, the record, achievements; the art.
+   *Built (1.0.0b18, harness only), but the art.* Sounds: five new (`SFX_CHEW` the scavenger at its meal, `SFX_YELP` the
+   hound's as bait, `SFX_THRUM` the nest's web as its tripwire drops, `SFX_RATTLE` the Order's dead turning wary, `SFX_SNUFF` a
+   hound's); the rest were made with the steps. Captions: the dead's ways (`WY_*`, seventeen: the file, the hounds, the roost,
+   the wake, the scavengers, the callers, the hunt, the ambush, the watch, the nest, the band, the imps' brood, the sentinels,
+   the Whipper-In's, the Sexton's bell, the Wraith's chill, the gathering), each named the first time it shows itself on each
+   run of ten (`way_met`, `RUN.ways`, `RUN.way_said`, `RUN.way_run`); the ambush's old caption is one of them. The Codex: *THE
+   WAYS OF THE DEAD* (`CX_WAYS`), a page each once met: what it does, its tell, how it is answered, and the tally. The record
+   (`RUN.deed_amb`, `deed_shaken`, `deed_heads`, `deed_hush`, `deed_file`; `deed_note`, `caller_hushed`, `ways_ends`) and
+   eleven achievements from `ACH_WAY0` (334): ambushes come through (every tooth slain without a death) at 1, 5, 20; hunts
+   shaken off at 1, 10; packs broken by their leader's fall at 1, 10, 50; callers slain before they called at 1, 10; a file
+   of the Order beaten without a hurt from the moment it set on you. Saved as `LG_WAYS` (20 bytes), kept through death. The
+   bestiary: each kind's ways in its voice, on Space in place of its lore (`G.best_ways`). Debug: `CRAWL_WAYS=1`, `EVENT way`,
+   `EVENT deed`. The dream's events are those of 1.0.0b17 line for line but the new achievements (a 700 s run, a fixed run id);
+   ASan clean on three sessions. The art (a roosting bat, the ambushes' signs, backs) is on a sheet for the owner first.
 12. **The checks**: the balance runs (D5), ASan on long dream and scripted sessions, `bench` (the new fields must not
     show: a few breadth-first searches a second over 2,025 cells, and one scent stamp a step).
 

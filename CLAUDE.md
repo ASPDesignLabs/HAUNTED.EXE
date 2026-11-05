@@ -1448,6 +1448,11 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   fight, a find, a secret, a strike or a creature seen; `LULL_T` 30 s, `LULL_CD` 60 s), `lull_spot`, `lull_offer` (a corpse-light out
   of sight, a pricket or coil lit a moment in sight, `Marked.st` 3, or a handbell and a wanderer tracking you). Never the dream's.
   Debug: `CRAWL_LULL=s`, `CRAWL_LULLK=k`, `CRAWL_LULLTRACE=1`, `EVENT lull`.
+- **The dead's ways shown** (1.0.0b18, PLAN-ai step 11, Part H; harness only). `WY_*` (seventeen set pieces), `way_met` (named
+  once a run of ten, `RUN.ways`/`way_said`/`way_run`), `pack_way`; the Codex's `CX_WAYS`; the record's deeds (`deed_note`,
+  `DEED_*`, `caller_hushed`, `ways_ends`, `Pack.hunted/hurts0/done`, `Ambush.deaths0/done`, `G.hurts`, `G.hunt_shaken`) and
+  achievements from `ACH_WAY0`; `LG_WAYS`; the bestiary's ways on Space (`G.best_ways`); sounds `SFX_CHEW`, `SFX_YELP`,
+  `SFX_THRUM`, `SFX_RATTLE`, `SFX_SNUFF`. Debug: `CRAWL_WAYS=1`, `EVENT way`, `EVENT deed`.
 - **Warded creatures** (1.0.0b16 step 7, docs/PLAN-play.md section 6). `Mob.ward[2]`, `wdmg`, `wring`, `wset`; `Pack.ward`;
   `ward_give` (the first time it moves), `ward_pick`, `ward_str` (in `weak_el`: 60% on level 5 to 90% by 30), `ward_struck`
   (from `damage_mob`: the dull ring, the caption, the crack at a fifth of its health), `Draw.ward` (the rim), `render_warded` (the
