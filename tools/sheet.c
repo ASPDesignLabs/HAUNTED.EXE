@@ -1596,6 +1596,40 @@ static int draw_minds(const char *path) {
     return ok;
 }
 
+/* 1.0.0b18: the backs, kind by kind: front, side, back and its other step at rank I, then the back at II, IV, V and gilded */
+typedef struct { const char *name; int family, front, side, ba, bb; } BackRow;
+static const BackRow BACKS[] = {
+    { "KNIGHT", PF_ARMOUR, SP_KNIGHT_A, SP_KNIGHT_SA, SP_KNIGHT_BKA, SP_KNIGHT_BKB },
+    { "HALF PLATE", PF_ARMOUR, SP_KNIGHT2_A, SP_KNIGHT_SA, SP_KNIGHT2_BKA, SP_KNIGHT2_BKB },
+    { "BREASTPLATE", PF_ARMOUR, SP_KNIGHT3_A, SP_KNIGHT_SA, SP_KNIGHT3_BKA, SP_KNIGHT3_BKB },
+};
+static int draw_backs(const char *path) {
+    crawl_art_level(15);
+    enum { NC = 8, N = sizeof BACKS / sizeof BACKS[0] };
+    iw = PAD + ROWHEAD + NC * (CELL + PAD);
+    ih = PAD + LABEL_H + N * (LABEL_H + CELL + PAD) + 8 * TXT + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "1.0.0B18: THE BACKS, KIND BY KIND (LEVEL 15)", 230, 230, 230);
+    int y = PAD + LABEL_H;
+    static const char *const CAP[NC] = { "FRONT", "SIDE", "BACK", "BACK, STEP", "BACK II", "BACK IV", "BACK V", "GILDED" };
+    for (int b = 0; b < N; b++) {
+        const BackRow *r = &BACKS[b];
+        text(PAD, y, r->name, 220, 210, 190);
+        for (int c = 0; c < NC; c++) text(PAD + ROWHEAD + c * (CELL + PAD), y, CAP[c], 160, 160, 160);
+        y += LABEL_H;
+        int spr[NC] = { r->front, r->side, r->ba, r->bb, r->ba, r->ba, r->ba, r->ba }, rk[NC] = { 0, 0, 0, 0, RK_II, RK_IV, RK_V, RK_GILDED };
+        for (int c = 0; c < NC; c++) { g_rank = rk[c]; sprite(PAD + ROWHEAD + c * (CELL + PAD), y, spr[c], rk[c] && r->family >= 0 ? crawl_rank_lut[r->family][rk[c]] : NULL); }
+        g_rank = 0;
+        y += CELL + PAD;
+    }
+    text(PAD, y, "SHADED AS NEAR A TORCH. NO EYES FROM BEHIND (S1 A).", 120, 120, 120);
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
 /* step 8's sheet: a sprite with up to three seals on it (the tablet's glyphs) */
 static void mk_frame_m(int ox, int oy, int spr, int nm, const int (*m)[6], float t, int k) {
     enum { FW = 96, FH = 88 };
@@ -1697,6 +1731,7 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "marked", "1.0.0B16: THINGS THAT WANT A SPELL, AND THEIR MARK");
         printf("%-12s %s\n", "marked2", "1.0.0B16: STEP 6'S THINGS: MOVING, TIMED, TWO SPELLS, BY RUN");
         printf("%-12s %s\n", "marked3", "1.0.0B16: STEP 8'S THINGS: SEQUENCES, AND THINGS FOR FIGHTS");
+        printf("%-12s %s\n", "backs", "1.0.0B18: THE BACKS, KIND BY KIND");
         printf("%-12s %s\n", "minds", "1.0.0B18: THE MINDS SHOWN: BACKS, THE ROOST, THE AMBUSHES' SIGNS");
         return 0;
     }
@@ -1802,6 +1837,13 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/marked.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_marked(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "backs")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/backs.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_backs(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     if (!strcmp(argv[1], "all") || !strcmp(argv[1], "minds")) {

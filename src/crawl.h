@@ -287,6 +287,7 @@ enum {
     /* 1.0.0b18, the minds shown (docs/PLAN-ai.md Part H): backs (walking), the roost asleep and stirring, the ambushes' signs */
     SP_SKEL_BKA, SP_SKEL_BKB, SP_SHIELD_BKA, SP_SHIELD_BKB, SP_BAT_ROOST, SP_BAT_ROOST2,
     SP_SIGN_RAKE, SP_SIGN_DRAG, SP_SIGN_SCREE, SP_SIGN_CINDER, SP_SIGN_EYES,
+    SP_KNIGHT_BKA, SP_KNIGHT_BKB, SP_KNIGHT2_BKA, SP_KNIGHT2_BKB, SP_KNIGHT3_BKA, SP_KNIGHT3_BKB,   /* the knight's backs, by its plate */
     NSPR
 };
 

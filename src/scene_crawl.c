@@ -23169,6 +23169,7 @@ static void vap_px(Frame *f, int x, int y, int ps, uint8_t c, float depth, float
             else *p = c;
         }
 }
+static int is_back(int s);
 static void render_vapour(Frame *f, const Draw *d, float left, float top, float size, float fog) {
     int rank = d->erank;
     if (d->vap <= 0.0f || g_fx >= 2 || rank < RK_III) return;
@@ -23178,7 +23179,7 @@ static void render_vapour(Frame *f, const Draw *d, float left, float top, float 
     const EyeAt *e = &crawl_eyes[d->spr];
     float ex[3], ey[3]; int ne = 0;
     for (int i = 0; i < e->n; i++) { ex[ne] = (d->flags & DR_FLIPH) ? TS - 1 - e->x[i] : e->x[i]; ey[ne] = (d->flags & DR_FLIPV) ? TS - 1 - e->y[i] : e->y[i]; ne++; }
-    if (!ne) { ex[ne] = 32.0f; ey[ne] = d->spr >= SP_SKEL_BKA && d->spr <= SP_SHIELD_BKB ? 9.0f : 16.0f; ne++; }   /* a back: from the skull */
+    if (!ne) { ex[ne] = 32.0f; ey[ne] = is_back(d->spr) ? 9.0f : 16.0f; ne++; }   /* a back: from the skull */
     float t = (float)G.t * slow;
     #define VX(fx) ((int)floorf(left + (fx) * es))
     #define VY(fy) ((int)floorf(top + (fy) * es))
@@ -23512,10 +23513,16 @@ static int mob_sprite(const Mob *m, float *scale) {
 
 /* S1: a creature looking across your line of sight shows its side, turned to the way it faces; one looking away shows
  * its side too, until there are backs to show (docs/PLAN-ai.md, section 1). Only its walk: a blow or a cast faces you. */
+static int is_back(int s) {                                        /* 1.0.0b18: a back view: no eyes, the vapour from the head */
+    return (s >= SP_SKEL_BKA && s <= SP_SHIELD_BKB) || (s >= SP_KNIGHT_BKA && s <= SP_KNIGHT3_BKB);
+}
 static int mob_side(const Mob *m, int spr, int *flip) {
     *flip = 0;
     if (!minded(m) || !has_facing(m)) return spr;
     const Kind *k = &KINDS[m->type];
+    if (m->type == MOB_KNIGHT && spr >= SP_KNIGHT_A && spr <= SP_KNIGHT3_S && (spr - SP_KNIGHT_A) % 4 < 2   /* any plate, walking */
+        && fabsf(wrap_pi(m->face - atan2f(G.py - m->y, G.px - m->x))) > 2.36f)
+        return SP_KNIGHT_BKA + (spr - SP_KNIGHT_A) / 4 * 2 + (spr - SP_KNIGHT_A) % 4;
     if (k->side < 0 || (spr != k->spr && spr != k->spr2) || (m->type == MOB_HUNTER && m->sub == 0)) return spr;
     float off = fabsf(wrap_pi(m->face - atan2f(G.py - m->y, G.px - m->x)));
     if (off < 0.79f) return spr;                                   /* facing you, near enough */
@@ -23706,7 +23713,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         }
         if (m->webbed > 0.0f && m->state == MS_WALK) { d->flags |= DR_WEBBED; d->web = m->webbed / fmaxf(1.0f, m->webmax); }
         if (commune) d->flags = (d->flags & ~DR_EYES) | DR_COMMUNE;   /* Commune: its shape, wherever it is */
-        int backed = s >= SP_SKEL_BKA && s <= SP_SHIELD_BKB;       /* a back: no eyes, but its dressing and vapour */
+        int backed = is_back(s);                                   /* a back: no eyes, but its dressing and vapour */
         if (m->state == MS_WALK && !statue && m->type != MOB_SHADE && (crawl_eyes[s].n || backed) && !(d->flags & (DR_EYES | DR_IMPLODE))) {
             d->eye = !backed; d->etype = m->type; d->erank = m->boss ? RK_V : m->rank;   /* its eyes, after it (render_eyes) */
             if (m->boss == 1 + BOSS_SPIDER) d->ecol = 1 + EC_FIRE;     /* her two great eyes keep their fire (the owner's word) */

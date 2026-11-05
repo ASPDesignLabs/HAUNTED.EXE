@@ -5195,15 +5195,36 @@ static const char *const KNIGHT_HELM[16] = {
     ".6fa7bbdbb7af6.", ".6f0@00c00@0f6.", ".589a9a0a9a985.", ".57898a0a89875.", ".5680908090865.", ".5679a9a9a9765.",
     ".4680908090864.", ".3f6789a9876f3.", "..24567876542..", "...234565432...",
 };
+/* the helm from behind (1.0.0b18): the crest running down to the nape, the plume's stump falling down it, rivets, the seam */
+static const char *const KNIGHT_HELM_BACK[16] = {
+    "......mpm......",
+    ".....mrqrm.....",
+    "....59bnb95....",
+    "...69bcocb96...",
+    "..68abcncba86..",
+    ".578abbmbba875.",
+    ".6fa7bblbb7af6.",
+    ".6f9999k9999f6.",
+    ".589a9a6a9a985.",
+    ".5f898a6a898f5.",
+    ".5687976797865.",
+    ".5679a969a9765.",
+    ".4f879767978f4.",
+    ".3f675969576f3.",
+    "..24567876542..",
+    "...234565432...",
+};
 static void spr_knight(int id, float w, int pose, int state) {
     cv_begin(cv_sprite, TS, TS);
+    int back = g_back;                                              /* 1.0.0b18: its back, drawn as from the front and turned about */
+    if (back) { pose &= 1; sword(37, 34, -1.05f); }                 /* the sword held before it: only the blade past its shoulder shows */
     float gx, gy, ga;                                               /* where the hands grip, and where the blade points */
     if (pose == 2) { gx = 41; gy = 11; ga = -2.9f; }
     else if (pose == 3) { gx = 27; gy = 40; ga = 2.55f; }
     else if (pose == 4) { gx = 32; gy = 25; ga = 1.5708f; }        /* planted: both hands on the pommel, the point in the floor */
     else { gx = 37; gy = 34; ga = -1.05f; }
     cv_flat(32, 62, 16, 2.0f, R_WARM + 1);
-    if (pose == 2) sword(gx, gy, ga);                               /* raised behind the head */
+    if (pose == 2 && !back) sword(gx, gy, ga);                      /* raised behind the head */
     /* legs: bone, with plate on the thighs and shins unless it has been hacked away */
     for (int s = -1; s <= 1; s += 2) {
         float k = s * w, hx = 32 + s * 4.0f, kx = 32 + s * 5.0f - k * 2.5f, fx = 32 + s * 5.5f - k * 4.0f;
@@ -5242,7 +5263,7 @@ static void spr_knight(int id, float w, int pose, int state) {
                 cv_px(x, y, sh(R_BLOOD, 0.22f + fold - (y - 41) * 0.006f));
             }
         }
-        for (int k = -2; k <= 2; k++) { cv_px(32 + k, 46, sh(R_BONE, 0.75f)); cv_px(32, 46 + k, sh(R_BONE, 0.75f)); }   /* the cross */
+        for (int k = -2; k <= 2; k++) { cv_px(32 + k, 46, sh(R_BONE, 0.75f)); cv_px(32, 46 + k, sh(R_BONE, 0.75f)); }   /* the cross, on both sides of it */
         cv_px(30, 44, sh(R_BONE, 0.6f)); cv_px(34, 44, sh(R_BONE, 0.6f)); cv_px(30, 48, sh(R_BONE, 0.6f)); cv_px(34, 48, sh(R_BONE, 0.6f));
     }
     /* the breastplate, with a ridge down it; hacked and split as the knight is worn down */
@@ -5252,15 +5273,27 @@ static void spr_knight(int id, float w, int pose, int state) {
             float nx = (x + 0.5f - 32) / hw;
             if (state == 2 && (x < 30 - (y - 18) * 0.15f || y > 32)) continue;   /* the left half and the belly gone */
             float v = 0.25f + 0.6f * lit(nx, (y - 26) / 14.0f, sqrtf(fmaxf(0.0f, 1.0f - nx * nx)));
-            if (fabsf(x + 0.5f - 32) < 0.8f) v += 0.25f;
+            if (back) {                                             /* the backplate: a channel down the spine, the blades swelling either side */
+                if (fabsf(x + 0.5f - 32) < 0.8f) v -= 0.18f;
+                else if (y < 28 && fabsf(fabsf(x + 0.5f - 32) - 4.5f) < 2.0f) v += 0.1f;
+                if (y == 30 && fabsf(x + 0.5f - 32) < hw - 1.0f) v -= 0.15f;   /* the lames' join */
+            } else if (fabsf(x + 0.5f - 32) < 0.8f) v += 0.25f;
             if (state >= 1 && h01(x / 2, y / 2, 311) > 0.86f) v -= 0.3f;    /* dents */
             cv_px(x, y, sh(R_IRON, v));
         }
     }
     if (state == 2) cv_line(30, 19, 33, 33, sh(R_IRON, 0.05f));
     for (int k = 0; k < 4; k++) { cv_px(24, 21 + k * 4, (uint8_t)(R_IRON + 14)); if (state < 2) cv_px(40, 21 + k * 4, (uint8_t)(R_IRON + 13)); }   /* rivets down the plate's edges */
-    /* arms: both hands on the grip */
+    /* arms: both hands on the grip (from behind, only the upper arm and the pauldron) */
     for (int s = -1; s <= 1; s += 2) {
+        if (back) {
+            float sx = 32 + s * 9.0f, sy = 20;
+            cv_bone(sx, sy, sx + s * 1.5f, sy + 9.0f, 1.3f, 0.2f, 0.75f);
+            if (state < 2) plate(sx + s * 0.5f, sy + 3.0f, sx + s * 1.5f, sy + 9.0f, 2.2f, 0.1f);   /* the rerebrace */
+            int keep = state == 0 || s > 0;
+            if (keep) { cv_ellipse(sx, sy - 0.5f, 5.0f, 4.0f, R_IRON, 0.3f, 1.0f); cv_px((int)sx - 2, (int)sy - 3, (uint8_t)(R_IRON + 15)); cv_px((int)sx + 2, (int)sy - 3, (uint8_t)(R_IRON + 15)); }
+            continue;
+        }
         float sx = 32 + s * 9.0f, sy = 20;
         float ex = (sx + gx) * 0.5f + s * 4.0f, ey = (sy + gy) * 0.5f + 4.0f;
         if (pose == 2) { ex = (sx + gx) * 0.5f + s * 3.0f; ey = (sy + gy) * 0.5f + 3.0f; }
@@ -5270,18 +5303,41 @@ static void spr_knight(int id, float w, int pose, int state) {
         if (keep) { cv_ellipse(sx, sy - 0.5f, 5.0f, 4.0f, R_IRON, 0.3f, 1.0f); cv_px((int)sx - 2, (int)sy - 3, (uint8_t)(R_IRON + 15)); cv_px((int)sx + 2, (int)sy - 3, (uint8_t)(R_IRON + 15)); cv_px((int)sx, (int)sy + 2, (uint8_t)(R_IRON + 14)); }   /* pauldron, riveted */
         if (state < 2) plate(ex, ey, gx + s * 1.0f, gy, 2.0f, 0.05f);          /* vambrace */
     }
-    if (pose != 2) sword(gx, gy, ga);
-    for (int s = -1; s <= 1; s += 2) cv_ellipse(gx + s * 1.2f, gy + 0.5f, 2.2f, 2.0f, state < 2 ? R_IRON : R_BONE, 0.3f, 0.9f);   /* gauntlets, or bare bone */
+    if (pose != 2 && !back) sword(gx, gy, ga);
+    if (!back) for (int s = -1; s <= 1; s += 2) cv_ellipse(gx + s * 1.2f, gy + 0.5f, 2.2f, 2.0f, state < 2 ? R_IRON : R_BONE, 0.3f, 0.9f);   /* gauntlets, or bare bone */
     /* the head: a great helm with a slit, and two embers in it; or the bare skull once the helm is off */
     cv_capsule(32, 15, 32, 18, 1.2f, R_BONE, 0.3f, 0.9f);
-    if (state == 0) grid_stamp(KNIGHT_HELM, 15, 16, 25, 1, R_IRON, R_BLOOD, (uint8_t)(R_FLAME + 9), 0);   /* the great helm */
+    if (state == 0) grid_stamp(back ? KNIGHT_HELM_BACK : KNIGHT_HELM, 15, 16, 25, 1, R_IRON, R_BLOOD, (uint8_t)(R_FLAME + 9), 0);   /* the great helm */
     else {                                                          /* the helm hacked off: the skull under it */
-        skull_stamp(32, 10, 0, 0, (uint8_t)(R_FLAME + 9));
+        skull_stamp(32, 10, 0, 0, back ? 0 : (uint8_t)(R_FLAME + 9));
         if (state == 1) for (int x = 25; x <= 39; x++) { cv_px(x, 2 + (x - 32) * (x - 32) / 12, sh(R_IRON, 0.5f)); cv_px(x, 3 + (x - 32) * (x - 32) / 12, sh(R_IRON, 0.25f)); }   /* the helm's rim, all that is left */
     }
     cv_bone_decay(313);
+    if (back) cv_mirror();
     cv_outline(0);
     cv_store(id);
+}
+
+/* the knight's dressing from behind: rust and moss, frost and dents, an arrow in the backplate and its blood, char under the
+ * crown and a chain, gilt edges */
+static void knight_dress_back(int id, int state) {
+    for (int r = RK_II; r < NRANK; r++) {
+        dress_begin(id);
+        if (r == RK_II) {
+            kit_moss(0.28f, 0, 571);
+            for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) { uint8_t b = base_c(x, y); if (b > R_IRON && b < R_IRON + 16 && fbm(x / 3.0f, y / 3.0f, 16, 573) > 0.7f) cv_px(x, y, sh(R_BRICK, 0.3f + 0.2f * h01(x, y, 575))); }
+        }
+        if (r == RK_III) kit_frost(0.8f, 577);
+        if (r >= RK_III && r != RK_GILDED) for (int k = 0; k < 5; k++) cv_px(26 + (int)(h01(k, 1, 579) * 12.0f), 20 + (int)(h01(k, 2, 579) * 14.0f), sh(R_IRON, 0.05f));
+        if (r >= RK_IV && r != RK_GILDED) { kit_arrow(36, 26, -0.9f, 8.0f); kit_blood(36, 27, 8, 1, 581); if (state < 2) kit_arrow(27, 31, -2.2f, 6.0f); }
+        if (r == RK_V) { kit_char(0.3f, 583); kit_crown(32, state == 0 ? 3 : 2, 13, 585); kit_chain(41, 22, 44, 36, 1.5f, R_IRON); }
+        if (r == RK_GILDED)
+            for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) {
+                uint8_t b = base_c(x, y);
+                if (b > R_IRON && b < R_IRON + 16 && (b - R_IRON >= 12 || (!base_on(x - 1, y) || !base_on(x + 1, y) || !base_on(x, y - 1)))) cv_px(x, y, (uint8_t)(R_GOLD + clampi(b - R_IRON - 2, 5, NGOLD - 1)));
+            }
+        dress_store(id, r, R_IRON);
+    }
 }
 
 /* the knight's dressing by rank: II rust and moss on the plate, III frost on it and dents, IV a broken blade in the
@@ -6606,6 +6662,10 @@ static void spr_bestiary_bones(void) {
         spr_knight(base, 1.0f, 0, st); spr_knight(base + 1, -1.0f, 1, st); spr_knight(base + 2, 0.0f, 2, st); spr_knight(base + 3, 0.0f, 3, st);
         for (int k = 0; k < 4; k++) knight_dress(base + k, st);
         spr_knight(SP_KNIGHT_P0 + st, 0.0f, 4, st);
+        g_back = 1;                                                 /* 1.0.0b18: its back, walking, in each state of its plate */
+        spr_knight(SP_KNIGHT_BKA + st * 2, 1.0f, 0, st); spr_knight(SP_KNIGHT_BKA + st * 2 + 1, -1.0f, 1, st);
+        g_back = 0;
+        knight_dress_back(SP_KNIGHT_BKA + st * 2, st); knight_dress_back(SP_KNIGHT_BKA + st * 2 + 1, st);
     }
     spr_knight_dead(SP_KNIGHT_D);
     for (int st = 0; st < 3; st++) {                                /* the Ill-Fated Knight's own */
