@@ -1,33 +1,31 @@
-The fifteenth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
+The sixteenth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
 
-The crypt has music of its own now: a piece for each run, the merchant's, the menus', and music that follows a fight and your health.
+This one is about the quiet stretches of the early levels, and what you do with the spells you have.
 
 ### Before you upgrade
 
-Your saves and settings carry over, and nothing in the saves has changed, so going back to the fourteenth beta is safe too. The two new settings are simply ignored there.
+Your saves and settings carry over. A caster keeps every line it paid for, Fire included, but nobody has the fireball for nothing any more (below). Going back to the fifteenth beta is safe: it simply forgets the Lampstand's gifts, and offers them again if you come back.
 
 ### New in this beta
 
-**A piece for each run of ten,** in place of the one march that played everywhere. Each piece has four parts, played in an order that takes three or four minutes to come round.
+**One line to begin with.** No class starts with the fireball now. Each begins with its own line, its first rank costing no spirit, and the Lampstand gives you a second line free after level 4 and a third after level 12: the merchant holds the way on until you have taken it. The Headsman's line waits for the first of those gifts. The Bone Spear with no bones throws splinters, eight at most, one coming back every six seconds. Any spell now drives the wandering Wraith back for a moment.
 
-- **The Crypts:** D minor, slow, an organ and a low choir, and a bell. The old march's first phrase comes back as a chant, and there is a brass chorale.
-- **The Catacombs:** a barcarolle in six, a harp rolling over the water, a bell under it, and drips. A vibraphone has the tune, then a low flute as if from under the surface.
-- **The Hollows:** a work song. The bass swings like a pick, and there is an anvil, low brass and a hammered dulcimer.
-- **The Deep:** a drone, glass harmonica, and a celesta glinting. Chords are laid over one another so that nothing settles.
+**Things that want a spell.** Along the way, wherever it runs long with nothing in it, things in the crypt want a spell you hold, each with a small iron seal that draws motes of its colour in. Strike it with the right one and it gives a little: gold, gems, a potion, bones, souls, light, a short way through. The wrong spell rings dull, and the first time on a level you are told what it wants.
 
-**The merchant's hall** has a sly tango, which thins to a music box in her back rooms.
+- On the first levels: cold prickets, votive racks, an urn of coals, a galvanic coil, a knot of roots, a soul bound in a lantern, a bone barricade, and coffers and cages in any line.
+- From each run's fifth level they move, time and want two spells: a corpse-light that shies off, a skull that rolls away from you, a seal that fire heats and frost breaks, three bells that must ring at once, a portcullis winch, a dying hearth, a steam vent. Each run has its own besides.
+- From level 13, sequences: a tablet's order, a turning reliquary, a ward-stone whose glyph changes, a relay of lamps.
+- In the rooms, things for fights: lamp oil to fire, loose masonry to bring down, a font to fill with bile, the Order's drum to silence, standing water to shock, a floor to rime.
 
-**The menus** play a lullaby made from the march's opening, in the run's key and on its instrument: a music box, a harp under water, a dulcimer, or glass. The run's piece waits where it stopped and takes up again when you close the menu. The console and the map don't count as menus.
+**Warded creatures.** From level 5 some creatures come warded against one of your lines, which then does only a small share of its damage: a hard rim in its colour, its glyph barred over its head, a dull ring when struck by it. Never your class's own line while you hold two, never every line you hold, and a fifth of its health taken in that element cracks the ward.
 
-**A fight** brings in drums, strings and brass on the next beat. The longer it lasts, the more there are against you and the lower your health, the more of it plays and the quicker it goes. Six quiet seconds, and it ends on a closing chord. A trial plays its fight from the start.
+**The Mirror by hand.** The Mirror rune rises only when you raise it, on the right mouse button. What it meets in its first moment goes home to its thrower twice as hard. Q turns between it and the boss abilities, and held opens a wheel of them. The Rune Shrine's first curse gives you a Common Mirror if you have none.
 
-**When you are failing,** under a fifth of your health, the music goes muffled and thin over a heartbeat, and lifts above a quarter. The game's own sounds stay clear, so you can still hear what is coming.
+**On a controller**, holding the D-pad up opens a wheel of the runes and abilities, and holding it down a wheel of the spells, while the crypt slows and greys. RB raises the Mirror and LB uses the ability readied.
 
-**Music and Effects sliders** sit under Volume, in the screensaver's settings and in the browser's.
+**The Plague Doctor** bites harder each tick, and its flask strikes a quarter harder; no one else's does.
 
-The bosses' waltzes, the Backrooms' hum and Severance's muzak are as they were. The dream plays exactly as before: the music only listens.
-
-This is still a beta. The pieces were rendered as recordings for the author before they went in; in the game itself the music has only been measured in the harness, and nobody has played with it through real speakers yet, so whether the fights come in too often, and how the menus and the failing feel, is still to be judged. The Windows build is compiled and smoke-tested by GitHub Actions. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
+This is still a beta. All of it has been tested in the harness, by the screensaver's own play and by scripted players, and seen in frames: nobody has played it by hand yet, so how the gifts, the things, the wards and the Mirror feel is still to be judged. The Windows and browser builds are compiled and smoke-tested by GitHub Actions. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
 
 ### Files
 

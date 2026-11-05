@@ -410,11 +410,16 @@ you have of it now. A and D turn the pages, W and S go between the parts. It is 
 each, and does its harm in one or two of them; the target's readout and the bestiary show it in glyphs
 (below). **Spells are lines**, one an element, bought with **Alignment Points**, one a Level of Atonement,
 at **the Lampstand** in the room north of hers, whose six bowls burn as lines open and grow as they rank.
-Three points open a line (Fire comes open), and every point in it after that is a rank. A spell's strength
-follows your Level of Atonement and its rank adds to that. The spells: **Fire Bolt** (the fireball, free at
-rank 1), **Frost Shard** (slows), **the bolt** (strikes at once), **the Blight Flask** (lobbed over what is
+Three points open a line, and every point in it after that is a rank. No line comes open to everyone (since
+1.0.0b16): you begin with your class's alone, its first rank costing no spirit, and the Lampstand gives you a
+second line free after level 4 and a third after level 12 (she holds the way on till you have taken it; with
+every line open it comes as points). A spell's strength
+follows your Level of Atonement and its rank adds to that. The spells: **Fire Bolt** (the fireball),
+**Frost Shard** (slows), **the bolt** (strikes at once), **the Blight Flask** (lobbed over what is
 in the way, a splash and poison after), **Soul Drain** (heals you as it hurts, the healing paid in spirit)
-and **the Bone Spear** (through all in a line, a bone a spear, no spirit). 1 to 6 choose them, 7 the BFS9000.
+and **the Bone Spear** (through all in a line, a bone a spear, no spirit; with no bones it throws splinters,
+eight at most, one coming back every six seconds, slower and lighter). 1 to 6 choose them, 7 the BFS9000. Any spell
+now drives the wandering Wraith back three seconds, fire, spirit and a wisp five.
 
 Each line goes: the opening; Efficiency (less spirit) and Insight (a shorter wind-up), a point at a time;
 an ability (Firestarter's flames along the fireball's flight, Deep Chill's freezing third shard, Ionization's
@@ -438,7 +443,8 @@ Masteries of Lightning, Frost, Poison and Spirit add a share of their element to
 Spirit's lets it harm spectres). Unbinding a
 line costs two Cursed Coins and gives back half its points. Tab's fourth page shows the tree and its fifth
 each element's Power, Efficiency and Insight, the line's and what you wear together. A death that costs
-takes the lines, all but Fire and your class's.
+takes every line and the class: the next life is asked again, and the Lampstand's gifts come again. An older
+page's caster keeps any line it paid for, Fire included, but no longer has the fireball for nothing.
 
 **What you were.** At a fresh start, and after every death that costs, she asks *WHAT WERE YOU?* The
 caster is set to the labour of clearing the crypts, and what it was decides how:
@@ -446,16 +452,61 @@ caster is set to the labour of clearing the crypts, and what it was decides how:
 | Class | Line | What it gives |
 |---|---|---|
 | The Witchfinder | Fire | Fire a fifth cheaper and a tenth stronger; three points for Fire |
-| The Anatomist | Frost | Frost open, a fifth cheaper; slowing and freezing a fifth longer |
-| The Galvanist | Lightning | Lightning open, a fifth cheaper and a tenth quicker to gather |
-| The Plague Doctor | Poison | Poison open, a fifth cheaper; poison a fifth longer |
-| The Sin-Eater | Spirit | Spirit open, a fifth cheaper; twenty more souls carried |
-| The Headsman | Physical | Physical open; a fifth more spears spend no bone, ten more bones, a tenth more armour |
+| The Anatomist | Frost | Frost a fifth cheaper; slowing and freezing a fifth longer |
+| The Galvanist | Lightning | Lightning a fifth cheaper and a tenth quicker to gather |
+| The Plague Doctor | Poison | Poison a fifth cheaper; poison a fifth longer and half again as hard a tick; the flask strikes a quarter harder |
+| The Sin-Eater | Spirit | Spirit a fifth cheaper; twenty more souls carried |
+| The Headsman | Physical | A fifth more spears spend no bone, ten more bones, a tenth more armour; not to be chosen until the Lampstand's first gift |
+
+Each class's line is open from the start.
 
 Each has a story on her question's screen. A life keeps one; from Level of Atonement 20 she hears another
 past for five Cursed Coins, and the old line keeps what was bought in it. The screensaver takes one at
 random, so every line shows in time. The class's mark is on the Alignment screen, the caster's page and the
 grave's stone.
+
+### CATACOMB: things that want a spell, and the warded
+
+(1.0.0b16.) **Things in the crypt want a spell**: along the way from the start to the exit, wherever it runs long
+with nothing in it, three to six a level, each wanting a line you hold. Each carries a seal, a small iron disc with
+its element's glyph that draws motes of that colour in towards it, shown through the dark down a long hall. The
+right spell lights a pip with a flare and a chime; the wrong one rings dull and throws its sparks back, and the
+first time a level you are told what it wants. Done, it goes dark and gives a little: gold, gems, a potion, bones,
+souls, light, experience, now and then a short way through; on one level in five, answering every seal gives a
+Cursed Coin. None of it counts in the level's treasure.
+
+- **Levels 1 to 4**, a hit or two each, the class's own first: cold prickets and votive racks for fire, a keeper's urn
+  of coals to quench, a galvanic coil to wake, a knot of roots to wither, a soul bound in a lantern to draw out, a bone
+  barricade for the spear, and coffers and hanging cages in any line held.
+- **From a run's fifth level** they move, time and want two things: a corpse-light that drifts and shies off, a skull
+  that rolls away when it sees you, a stone seal that fire heats and frost breaks while it glows, three bells that must
+  ring at once (the spear takes all three in one throw), a portcullis winch that lightning raises over a short cut for
+  eight seconds, a dying hearth to keep fed while its door rises, a steam vent frost can ice for a while. Each run has
+  its own besides: webbed niches in the Catacombs, ore carts and lodestones in the Hollows, prisms, geodes and an
+  obsidian seal in the Deep.
+- **From level 13, with three lines held**, sequences: a carved tablet that shows three glyphs and plinths down the hall
+  to strike in its order; a gilt reliquary that turns between three faces, struck three right running; a ward-stone
+  before a door whose glyph changes after each hit; a relay of lamps that passes fire down the line, a frozen lamp or
+  a dead coil in it.
+- **Things for fights**, one or two a level from 5, in the rooms: lamp oil that bursts into a burning floor, loose
+  masonry that comes down on what stands by it, a font a flask fills with bile, the Order's drum that Soul Drain
+  silences (and its file of the dead loses its order), standing water in the Catacombs that lightning shocks,
+  stunning all that stand in it, a floor frost rimes so what crosses slides and slows, and the Hollows' firedamp.
+
+The screensaver answers what it passes and holds the line for, but leaves the things for fights to a person.
+
+**Warded creatures.** From level 5 some creatures come warded against one of your lines: that element does only a
+small share of its damage, two fifths on level 5, a tenth from level 30. About one in six on the Crypts' levels, one in
+four in the Catacombs, one in three deeper; a pack shares one ward; never your class's own while you hold two lines,
+never every line you hold. A warded creature wears a hard rim of the element's colour, its glyph barred over its
+head as it comes near and on its health's readout; struck by that element it rings dull, and the first on a level is
+named. A fifth of its health taken in that element cracks the ward, with a sound of glass, so nothing is ever locked,
+only slower. Bosses, their adds, spirits and a trial's creatures are never warded.
+
+**The Mirror by hand.** The Mirror rune rises only when you raise it, on the right mouse (Q turns between it and the
+boss abilities, and held opens a wheel of them): what it meets in its first 0.6 s goes home to the thrower twice as hard,
+and after that it is the veil as before, until its wait comes round. The shrine's first curse gives a Common one if
+you have none. The screensaver's caster still raises its runes by itself.
 
 ### CATACOMB: souls
 
@@ -667,8 +718,8 @@ switching until you hand it back. HAUNT.EXE cuts straight to the crypt.
 | C | The Codex of Affixations. A and D turn the pages, W and S go between its parts |
 | M | The map, once bought from the merchant, while you walk on. The arrow keys pan it, Space brings it back to you, M, Esc or Tab rolls it up |
 | Turn or strafe hard, back and forth | Shake off a bat that has latched on to your face |
-| Right mouse | Use the boss ability readied (once the Hexed Totem has taught you one) |
-| Q | Ready the next boss ability; at a ware in the merchant's room, hold it |
+| Right mouse | Raise the Mirror, or use the boss ability readied (whichever Q readied) |
+| Q | Tap: ready the next of them; hold: a wheel of them, the mouse pointing, while the crypt slows and greys. At a ware in the merchant's room, hold it |
 | W, A, S or D twice | Swift Dodge, once the Totem has taught it: a dart two to five cells that way |
 | H | A look at the status bar while it is tucked away |
 | Esc | Asks whether you want to leave, with a different argument each time for staying; also where you open the ledger, and with a controller in, choose its sprint button |
@@ -686,13 +737,13 @@ settings can turn it off.
 |---|---|---|
 | Left stick | Walk and strafe, slower as it leans less; click it to sprint, until it stops leaning forward (another button can be chosen at Esc) | Up, down, left, right |
 | Right stick | Turn, faster the further it leans | |
-| RT / LT | Cast (hold to charge) / use the boss ability readied | |
-| RB / LB | Next / previous spell | Next / previous page |
+| RT / LT | Cast (hold to charge) / the right mouse's: the Mirror or the ability readied | |
+| RB / LB | The rune readied (the Mirror) / the boss ability readied | Next / previous page |
 | A | Open, use, buy (E) | Choose (Enter) |
 | B | Swift Dodge, the way the left stick leans, else back | Back, close (Esc) |
 | X | Ready the next ability; at a ware, hold it (Q) | |
 | Y | The wisps (L) | Space |
-| D-pad | Up the map (then it pans the map), left the bestiary, right the Codex, down the status bar | Up, down, left, right |
+| D-pad | Up tapped the map (then it pans the map), held a wheel of the runes and boss abilities; down tapped the status bar, held a wheel of the spells; left the bestiary, right the Codex | Up, down, left, right |
 | View / Menu | The wardrobe / the question at Esc | |
 
 **The screens** (1.0.0b14). Every menu, card and the tally is cut in weathered marble, in faces of our
@@ -1019,6 +1070,28 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b16** (one line to begin with, the Lampstand's gifts, things that want a spell, warded creatures, the
+Mirror by hand and the controller's wheels). Tested in the harness only, by the autopilot and scripted players: not
+yet played by hand, run on Windows or seen on a real screen. The Windows and browser builds were compiled and
+smoke-tested by CI on the work branch.
+
+* **The balance**, the autopilot from level 1 for 50 minutes on eight seeds for each of five classes (the Headsman's
+  line is shut at a fresh start): 1.0.0b15 cleared 261 levels and died 32 times; with one line and splinters, before
+  the gifts, 241 and 66; with the gifts 248 and 57; as released, 250 and 47. Fire, Lightning and Spirit are about where
+  they were; the Plague Doctor is the weakest, dying 15 to 29 times in its eight runs from one batch to the next, and
+  its poison and its flask were made harder for it alone. The Anatomist fares a little worse.
+* **The things**: in the same runs about four in five were answered by the autopilot (1,437 placed in one batch); it
+  loses most rolling skulls, and leaves the things for fights alone. From level 11 it answered the reliquary, the
+  relay, the ward-stone and, once it learnt to go by the next plinth, the tablet. Each kind was set, struck rightly and
+  wrongly and finished by a scripted person in the harness; the frames went to the author.
+* **The wards**, sixteen seeds with and without: from level 1, 99 levels cleared and 16 deaths against 98 and 19, a
+  level 13 seconds longer; from level 21, 98 against 94 and no deaths. The autopilot switches spells as a ward tells
+  it, so a ward costs it only time; how a person who doesn't switch fares is untried.
+* **The Mirror and the wheels**: a scripted person's parries and a scripted controller's wheels in the harness only;
+  how either feels in the hand is untried.
+* **Memory safety**: AddressSanitizer and UBSan clean on every step's sessions (twenty in all), among them a
+  Plague Doctor's dream, every creature warded from level 31, lightning in standing water and the column coming down.
 
 **New in 1.0.0b15** (the music). Tested in the harness only. The pieces were rendered as recordings for the
 author before they went in; in the game the music has been measured, not heard, and no one has played with it

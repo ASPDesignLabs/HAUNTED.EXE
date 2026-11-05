@@ -124,6 +124,7 @@ float gear_cap_up(int stat);
 #define SPEAR_BONES 6                                    /* what buying or improving the spear brings */
 void  spell_set_atone(int atone);                        /* the Level of Atonement spells follow */
 void  spell_set_line(int el, float eff, float ins, float power);   /* a line's Efficiency, Insight and Power (fractions) */
+void  spell_set_own(int atk);                            /* the class's spell, whose first rank costs nothing (-1 none) */
 float spell_line(int el, int which);                     /* and what was set: 0 Efficiency, 1 Insight, 2 Power */
 float spell_damage(const Gear *g, int atk);              /* per hit, with the damage worn */
 float spell_damage_at(const Gear *g, int atk, int rank); /* the same at another rank (a weak cast goes at rank 1) */

@@ -270,6 +270,20 @@ enum {
     SP_SEXTON_A, SP_SEXTON_B, SP_SEXTON_RING_A, SP_SEXTON_RING_B, SP_SEXTON_ICE, SP_SEXTON_D,   /* the Sexton: walking, ringing (up, down), the bell frozen, fallen */
     SP_LIGHT_A, SP_LIGHT_B, SP_LIGHT_STRIKE, SP_LIGHT_LISTEN, SP_LIGHT_D,   /* the Lightless: walking, the strike, listening, shattered */
     SP_WHIP_SA, SP_WHIP_SB, SP_SEXTON_SA, SP_SEXTON_SB, SP_LIGHT_SA, SP_LIGHT_SB,   /* their side views, walking, facing right */
+    /* things that want a spell (1.0.0b16, docs/PLAN-play.md section 4), each waiting and done */
+    SP_MK_PRICKET0, SP_MK_PRICKET1, SP_MK_COFFER0, SP_MK_COFFER1, SP_MK_CAGE0, SP_MK_CAGE1, SP_MK_RACK0, SP_MK_RACK1,
+    SP_MK_URN0, SP_MK_URN1, SP_MK_COIL0, SP_MK_COIL1, SP_MK_VINE0, SP_MK_VINE1, SP_MK_LANTERN0, SP_MK_LANTERN1,
+    SP_MK_BARRICADE0, SP_MK_BARRICADE1,
+    /* step 6's (section 4.3, 4.6): a corpse-light, a rolling skull (two frames each), the heat-and-shatter seal (cold, hot,
+     * broken), a bell (still, ringing), a winch, a hearth, a steam vent, run III's ore cart and lodestone, run II's ice */
+    SP_MK_CLIGHT0, SP_MK_CLIGHT1, SP_MK_RSKULL0, SP_MK_RSKULL1, SP_MK_HSEAL0, SP_MK_HSEAL1, SP_MK_HSEAL2,
+    SP_MK_BELL0, SP_MK_BELL1, SP_MK_WINCH0, SP_MK_WINCH1, SP_MK_HEARTH0, SP_MK_HEARTH1, SP_MK_VENT0, SP_MK_VENT1,
+    SP_MK_CART0, SP_MK_CART1, SP_MK_LODE0, SP_MK_LODE1, SP_MK_ICE,
+    /* step 8's (sections 4.4, 4.5): the tablet and its plinths, the turning reliquary (front, turning, open), the ward-stone,
+     * the relay's lamp (dead, lit, frozen); lamp oil, loose masonry, the poison font, the Order's drum (each before and after) */
+    SP_MK_TABLET, SP_MK_PLINTH0, SP_MK_PLINTH1, SP_MK_RELIQ0, SP_MK_RELIQ1, SP_MK_RELIQ2, SP_MK_WSTONE0, SP_MK_WSTONE1,
+    SP_MK_RELAY0, SP_MK_RELAY1, SP_MK_RELAY2, SP_MK_CASK0, SP_MK_CASK1, SP_MK_PILLAR0, SP_MK_PILLAR1,
+    SP_MK_PFONT0, SP_MK_PFONT1, SP_MK_DRUM0, SP_MK_DRUM1,
     NSPR
 };
 
@@ -345,6 +359,8 @@ static inline float crawl_depth(int level) {                                /* h
 
 extern const char *const RUNE_GLYPH[9][7];      /* the runes' marks, 5 by 7, by DF_* (the hand's tattoos, the shrine) */
 extern const char *const ELEM_GLYPH[6][7];      /* the elements' glyphs, 7 by 7, by EL_*: '#' the colour, 'o' bright (1.0.0b11) */
+enum { MK_WAIT, MK_HIT, MK_WRONG, MK_DONE };      /* a marked thing's mark (1.0.0b16): waiting, just struck, the wrong spell, done */
+void crawl_mark(uint8_t *buf, int w, int h, int cx, int cy, int el, int state, int pips, int lit_n, float t);   /* row-major, at full brightness */
 extern const char *const RUNE_MARK[9][11];      /* the runes' marks for their sockets, 11 by 11, by DF_* */
 extern const char *const CLASS_MARK[6][11];     /* the classes' marks, 11 by 11, by the class's element */
 extern const char *const PZ_MARKS[16][7];       /* the marks carved on puzzles' things, 7 by 7 (1.0.0b13): mitre, helm, tonsure, crown,
