@@ -4,7 +4,10 @@
 further than asked: no class starts with the fireball any more (section 3a). That opens a short second round (section 11),
 each with a default. It is **1.0.0b16**, ahead of the minds' showing and the rest of the art pass (now 1.0.0b17) and the
 lower storey (now 1.0.0b18). The second round was answered the same day (section 11: every default, and N2 as splinters,
-an ammunition of their own). Steps 1-3 are built (harness only), with the wheels the owner asked for before step 3 (section 7a).
+an ammunition of their own). Steps 1-8 are built (harness only), with the wheels the owner asked for before step 3 (section 7a),
+and were **released as 1.0.0b16** at the owner's word (5 November), squashed onto main as one commit. What is left (step 9, the
+lull's watch, and step 10's checks of it) is now **1.0.0b17**; the minds' showing and the rest of the art pass move to
+**1.0.0b18**, the lower storey to **1.0.0b19**.
 
 *The brief, as first drafted (ideas only). Written on `claude/modest-knuth-gd9u51` from main at
 1.0.0b15. The owner's brief: early levels have long stretches where the caster isn't doing much; fill them with things in
@@ -595,8 +598,9 @@ letting go, B, a tap of up for the map, Q tapped and held, RB and LB; ASan clean
 6. Section 4.3's, and runs II-IV's flavours. *Built, frames sent.*
 7. Warded creatures, with sixteen-seed runs against `CRAWL_WARD=0`. *Built, frames sent.*
 8. Sequences (4.4) and the fight things (4.5). *Built, frames sent.*
+   *Steps 1-8 released as 1.0.0b16 (5 November). Steps 9 and 10 are 1.0.0b17.*
 9. The lull's watch.
-10. The checks: balance against 1.0.0b15, ASan, the README's and the page's words.
+10. The checks: balance against 1.0.0b16, ASan, the README's and the page's words.
 
 ## 10. Questions (the first round, answered 4 November)
 

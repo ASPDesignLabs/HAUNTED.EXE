@@ -21063,7 +21063,7 @@ static void death_fall(void) {
 #endif
     RUN.treasure = 0; RUN.souls = 0; RUN.soul_frac = 0.0f; RUN.coins = 0; RUN.goal = 0;
     g->atk[AT_BFS] = -1;                                           /* the lines' spells follow them (align_sync) */
-    memset(RUN.al, 0, sizeof RUN.al); RUN.al_points = 0;           /* the lines go; Fire stays open, at rank 1; */
+    memset(RUN.al, 0, sizeof RUN.al); RUN.al_points = 0;           /* the lines go, every one; */
     RUN.cls = RUN.cls_pts = RUN.cls_spent = 0; RUN.al_gift = 0; RUN.gifts = 0; RUN.gifted = 0;   /* the next life is asked what it was, and given again */
     RUN.replay_from = 0; RUN.latch_said = 0;
     memset(g->worn, 0, sizeof g->worn); memset(g->bag, 0, sizeof g->bag); g->bag_size = g->bag_quality = 0;
