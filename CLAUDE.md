@@ -10,6 +10,15 @@ face and the cat merchant were traced from the owner's photographs).
 Current release: **1.0.0b18** (pre-release, November 2026). Project page:
 https://aspdesignlabs.github.io/HAUNTED.EXE/ · repo: `ASPDesignLabs/HAUNTED.EXE`.
 
+**1.0.0b18.1** comes first, an update of its own at the owner's word (7 November), planned in
+[`docs/PLAN-b18-1.md`](docs/PLAN-b18-1.md) and settled in one round, being built on `claude/funny-lamport-onhkrp` from main
+at 1.0.0b18 while PLAN-combat's two tracks build 1.0.0b19 on theirs: the trial's door that shut on a person half in its doorway,
+the wheels at the merchant's, a reward left in a trial's room, the bell puzzles' bells told apart, a soul-lamp that bars the
+Wraith from a challenge, the controller laid out by the player (View and Menu together to look at it), and props that take
+half a cell or a quarter by their art. It changes none of the functions PLAN-combat's section 17.2 gives either track; its
+section 10 lists what it touches beside them, and its sections 14 and 15 are the merge notes and the hand-off log: read them
+first.
+
 The next planned work (themes every five levels, wall tiles, enemies, bosses, bonus levels) is written
 up in [`docs/PLAN-descent.md`](docs/PLAN-descent.md). The creatures, their colour ranks and the order
 in which creatures and decorations appear are in [`docs/PLAN-bestiary.md`](docs/PLAN-bestiary.md),
@@ -1140,7 +1149,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   pz_solved`, `thing`, `msg_found`, `bshrine_found`, `bshrine_show`. `make sheets` draws `hazards.png`, `puzzles.png`
   and `documents.png`. *Trials* (step 5): `G.tri` (`TRI_*`, `TRI_RUN`, `tri_kind_of`) in a one-door room chosen as the wing is
   (`mz_vault`, `mz_max`; `G.tri_room`, `G.tri_door`, drawn `T_TRDOOR`, `SP_TRLIGHT0` by it, `in_trial`), placed by `tri_place`;
-  `update_trial`: a cell inside, `tri_begin` (`Door.locked` `TRIALED`, `tri_turn`'s faces, `tri_floor`'s water, `fog_tint`,
+  `update_trial`: `TRI_IN` (1.5 cells) past the door's middle with the body clear of its cell (1.0.0b18.1; one cell in, it
+  had shut on a person half in the doorway), `tri_begin` (`Door.locked` `TRIALED`, `tri_turn`'s faces, `tri_floor`'s water, `fog_tint`,
   `snd_set_trial`, the kind's creatures `tri_spawn`/`tri_wave` with `Mob.tri`, things `tri_thing` with `Thing.tri`),
   `tri_run`, `tri_end` (`G.tri_boon`: the boon in `xp_kill`, the curse in `xp_gain`, the tally's note). Slow things:
   `Thing.slow` in tenths of a second, `G.work_i`, `update_work`. The hourglass: `crawl_hourglass`, `render_trial`,
@@ -1488,6 +1498,11 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   exit wisp has a pale gold halo, and the altar's fire burns with a white edge (`DR_EDGE`). The debug
   build logs `EVENT altar at`, `wakes`, `altar wisp home`, `altar sends price=`, `blesses`, `anoints` and
   `turned`.
+- **1.0.0b18.1** (docs/PLAN-b18-1.md; its log is section 15). *The trial's door* (step 1): a door that seals itself (`SEALED`,
+  `TRIALED`, `GATED`) never shuts while the caster's box is over its cell (`door_body`, in `update_doors` and `mk_door_busy`;
+  it had tested the centre only, and a person who had put a step into a trial's room stood with a quarter of a cell over the
+  door, which shut and held them till the sand ran out); a trial begins `TRI_IN` past its door; and `unstick` (at the head of
+  `human_move`) sets a caster caught in anything solid where it fits, the nearest place within a cell (`EVENT unstuck`).
 
 ## Releasing
 

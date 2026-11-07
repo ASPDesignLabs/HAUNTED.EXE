@@ -1,6 +1,6 @@
 # 1.0.0b18.1: the trial's door, and the crypt made kinder
 
-**Settled, nothing built yet** (7 November 2026). Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
+**Settled; step 1 built** (harness only; 7 November 2026). Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
 tracks of [`PLAN-combat.md`](https://github.com/ASPDesignLabs/HAUNTED.EXE/blob/claude/inspiring-archimedes-dbj5n6/docs/PLAN-combat.md)
 build 1.0.0b19 on `claude/inspiring-archimedes-dbj5n6`. The owner gave one fault and six improvements, asked for them as an
 update of their own ahead of that work, and answered every question in one round (section 12). Every number below that isn't
@@ -355,6 +355,39 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
 
 (Filled in at step 1 and step 9: each conflict with `claude/inspiring-archimedes-dbj5n6`, where, and how to keep both.)
 
+- **After step 1** (7 November): this branch's changes from main (`git diff main`), applied with `git apply --3way` onto a scratch
+  worktree of their branch at `d87d2dc` (*PLAN-combat: marks on the sprite sheet's groups*): `CLAUDE.md`, this plan and
+  `src/scene_crawl.c` went in cleanly, none of the names added (`door_body`, `unstick`, `TRI_IN`) is used on their branch, and
+  `make host` built it with no warnings. Nothing was committed there or pushed. Nothing for them to do yet.
+
 ## 15. Hand-off log
 
 (Each step's entry: what was built, how it was tested, its commits, what is left.)
+
+- **7 November. Step 1, the trial's door: built** (harness only).
+  - *Built:* `TRI_IN` (1.5) and the body's test in `update_trial`; `door_body` in place of the centre test in `update_doors`
+    (sealed, trialed and gated doors) and in `mk_door_busy`; `unstick` at the head of `human_move` (`EVENT unstuck`). The trials'
+    comment and `CLAUDE.md` say a cell and a half now; `CLAUDE.md` has this plan's paragraph at its top and a bullet of its own
+    at the end of *How CATACOMB works*.
+  - *The fault, reproduced on 1.0.0b18* (seed 1, `CRAWL_LEVEL=3 CRAWL_TPTRIAL=1 CRAWL_TRIAL=1`, a scripted walk to the door, then
+    0.46 s on): the Vigil began at 31.4 s with the caster's centre at x 35.84, a twelfth of a cell of its body over the door's cell
+    (36,18). The door shut; S, A, D and W did nothing for the thirteen seconds tried, while the trial's dead struck. That room's
+    first cell has a tomb on either side, so a person caught there could do nothing at all.
+  - *Mended, the same script:* the peek begins nothing, and the caster backs out and walks on. Walking two steps in begins the
+    trial at 31.8 s with the caster well inside; it moves about the room, and the shut door and the tombs stop it as they should.
+  - *The safety net alone:* a scratch build (never committed) with the old trigger and the old door test put back: at the first
+    press after the door shut, `EVENT unstuck from (35.84,18.50) in (36,18) kind 2 to (35.75,18.54)`, and W then walked it into
+    the room.
+  - *The boss arch:* `CRAWL_LEVEL=10 CRAWL_TPBOSS=1`, walked in: the fight began at x 13.6 (the arch is x 12), backing up stopped at
+    the arch, strafing was free, nothing unstuck. The winch's gate goes through the same `door_body`, but wasn't tried in play.
+  - *The dream:* 1.0.0b18 and this build on eight seeds (1-15 odd), 30 minutes from level 3, the same run ids: trials begun 27
+    and 30, won 11 and 13, lost 5 and 0, died in 10 and 15; levels cleared 26 and 23, deaths 19 and 23. The runs part ways
+    early (seed 9's level 5 came out as different rooms in the two), so then the dream started at each trial's door
+    (`CRAWL_TPTRIAL=2`), sixteen seeds (1-31 odd) on levels 3-8, everything alike up to the trial: begun 271 and 269, won 36 and
+    35, lost 36 and 32, died 172 and 169 (a cold deep start beside the door, tried again after each death); 81 of 96 first
+    outcomes the same, the rest close fights going either way. The trigger leaves the dream's trials as they were; `unstuck`
+    never fired in a dream (its walk is its own).
+  - *Other checks:* `make host` and `make build/host_debug` without warnings; `make smoke` passes (1.91 ms a frame); ASan and UBSan
+    clean on the peek, a walk-in with a fight, a ten-minute dream from level 3 and the safety net's scratch build; the trial merge
+    (section 14) clean.
+  - *Left:* nothing of step 1. Next, step 2 (the wheels in her rooms).

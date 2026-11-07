@@ -465,6 +465,8 @@ enum { TRI_OSSUARY, TRI_VIGIL, TRI_RITES, TRI_WAGER, TRI_TOLL, TRI_WATER, TRI_BR
        TRI_CAVEIN, TRI_FEAST, TRI_RITE, TRI_FIREDAMP, TRI_MOLTEN, TRI_DARK, TRI_COURT, TRI_SINGING, NTRI };
 enum { TRS_SHUT, TRS_ON, TRS_WON, TRS_LOST };   /* not yet gone into; running; won; its sand run out */
 #define TRI_TIME 60.0f
+#define TRI_IN 1.5f                         /* how far past its door's middle a trial begins, the body clear of the door
+                                               (1.0.0b18.1: one cell in, it had shut on a person half in the doorway) */
 #define TOLL_T 9.0f                         /* the Toll's great bell, this often */
 typedef struct {
     uint8_t role, nstate, state, wall, on, frames, cap, facing, look, tri, slow;   /* cap: a place that piles more than one; facing: drawn by
@@ -9312,6 +9314,11 @@ static int door_sfx(int shut) {
                                  { SFX_DOOR3_OPEN, SFX_DOOR3_SHUT }, { SFX_DOOR4_OPEN, SFX_DOOR4_SHUT } };
     return S[G.shop ? 0 : clampi(crawl_set(G.level), 0, 3)][shut != 0];
 }
+/* the caster's girth over a door's cell, as body_blocked would find it: a door that seals itself never shuts on it */
+static int door_body(const Door *d) {
+    return G.px + BODY + 0.02f >= (float)d->x && G.px - BODY - 0.02f < (float)(d->x + 1)
+        && G.py + BODY + 0.02f >= (float)d->y && G.py - BODY - 0.02f < (float)(d->y + 1);
+}
 static void update_doors(float dt) {
     for (int i = 0; i < G.ndoors; i++) {
         Door *d = &G.doors[i];
@@ -9326,7 +9333,7 @@ static void update_doors(float dt) {
             if (d->open >= 1.0f) { d->opening = 0; d->idle = 0.0f; }
         } else if (d->open > 0.0f) {
             int busy = pdist < 1.6f || (d->locked == 2 && vault_of_room((int)G.px, (int)G.py) == d->color);
-            if (d->locked == SEALED || d->locked == TRIALED || d->locked == GATED) busy = (int)G.px == d->x && (int)G.py == d->y;   /* it shuts behind you */
+            if (d->locked == SEALED || d->locked == TRIALED || d->locked == GATED) busy = door_body(d);   /* it shuts behind you, not on you */
             for (int m = 0; m < MAXMOBS; m++)
                 if (G.mobs[m].alive && ((G.mobs[m].cx == d->x && G.mobs[m].cy == d->y) || (G.mobs[m].tx == d->x && G.mobs[m].ty == d->y))) busy = 1;
             d->idle = busy ? 0.0f : d->idle + dt;
@@ -11608,7 +11615,7 @@ static void mk_burst(float x, float y, int el, unsigned skip) {   /* a flask's b
     for (int i = 0; i < G.nmk; i++) if (!G.mk[i].done && !(skip >> i & 1) && hypotf(G.mk[i].x - x, G.mk[i].y - y) < 1.1f) mk_strike(i, el);
 }
 static int mk_door_busy(const Door *d) {
-    if ((int)G.px == d->x && (int)G.py == d->y) return 1;
+    if (door_body(d)) return 1;                                    /* the caster anywhere in its doorway (1.0.0b18.1) */
     for (int j = 0; j < MAXMOBS; j++)
         if (G.mobs[j].alive && ((G.mobs[j].cx == d->x && G.mobs[j].cy == d->y) || (G.mobs[j].tx == d->x && G.mobs[j].ty == d->y))) return 1;
     return 0;
@@ -15837,7 +15844,7 @@ static void tp_near(float tx, float ty) {                          /* testing: a
 
 /* ---- trials (1.0.0b13, docs/PLAN-b13.md part D) ----
  * On every level from the third, a boss's too (outside its arena), one room off the way with one door, marked with the
- * run's skull and crossed bones, two red lights by it. One cell past the door it seals behind you and the room turns:
+ * run's skull and crossed bones, two red lights by it. A cell and a half past the door it seals behind you and the room turns:
  * its light, its walls, a quicker march, and an hourglass at the top of the view with sixty seconds of sand and no
  * numbers. Win, and the hourglass breaks, you are restored (health and bones in full, spirit to half the vessel if it
  * was less) and THE TRIAL'S BOON gives a fifth more experience from combat for the rest of the level; let the sand run
@@ -16514,7 +16521,7 @@ static void update_trial(float dt) {
     if (G.tri_state == TRS_SHUT) {
         const Door *d = &G.doors[G.tri_door];
         int x = (int)G.px, y = (int)G.py;
-        if (!G.dead && in_trial(x, y) && abs(x - d->x) + abs(y - d->y) >= 1) tri_begin();   /* a cell past the door */
+        if (!G.dead && in_trial(x, y) && !door_body(d) && hypotf(G.px - (d->x + 0.5f), G.py - (d->y + 0.5f)) >= TRI_IN) tri_begin();   /* well past the door: a peek begins nothing */
         return;
     }
     if (G.tri_state != TRS_ON) { G.tri_end += dt; return; }
@@ -19140,8 +19147,30 @@ static void push_from(float ox, float oy, float r) {              /* out of some
     if (!body_blocked(nx, ny, &bx, &by)) { G.px = nx; G.py = ny; }
 }
 
+/* 1.0.0b18.1: the body caught in something solid (a door that shut on it, whatever else might close on it): every step
+ * would be refused, so it is set where it fits, the nearest place within a cell. Walls are a cell thick, so it can't come
+ * out on their far side. */
+static void unstick(void) {
+    int bx, by;
+    if (!body_blocked(G.px, G.py, &bx, &by)) return;
+    for (int r = 1; r <= 20; r++) {                                /* rings a twentieth of a cell apart */
+        float rr = 0.05f * (float)r;
+        for (int k = 0; k < 16; k++) {
+            float a = (float)k * (TAU_F / 16.0f), x = G.px + cosf(a) * rr, y = G.py + sinf(a) * rr;
+            int ox, oy;
+            if (body_blocked(x, y, &ox, &oy)) continue;
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT unstuck from (%.2f,%.2f) in (%d,%d) kind %d to (%.2f,%.2f) t=%.2f\n", G.px, G.py, bx, by, cell(bx, by)->kind, x, y, G.t);
+#endif
+            G.px = x; G.py = y;
+            return;
+        }
+    }
+}
+
 /* one step of walking, sliding along walls; returns how far it got */
 static float human_move(float dx, float dy) {
+    unstick();
     float ox = G.px, oy = G.py;
     int bx, by;
     if (dx != 0.0f) { if (!body_blocked(G.px + dx, G.py, &bx, &by)) G.px += dx; else human_bump(bx, by); }
