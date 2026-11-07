@@ -109,14 +109,14 @@ release above, the owner moved it on a number, staged as its G2 (a) says: 1.0.0b
 every sample, soul-sappers from each run's sixth level, Resist Lightning), logic puzzles worked with things in the world
 behind a sealed wing (a hidden message, a Black Shrine, Tab's documents), timed trials behind skull-marked doors, and a
 reckoning of what is left before a person leaves a level; then the lower storey, its edges, stairs and ladders, now
-**1.0.0b20** (renumbered six times at the owner's word; a note at the plan's head says so). Being
+**1.0.0b23** (renumbered seven times at the owner's word; a note at the plan's head says so). Being
 built on `claude/epic-dirac-n8uosr` from main at 1.0.0b12, in the plan's steps, sheets before art in the game. 1.0.0b13's
 steps 1-8 were built (harness only; the Windows build compiled and smoke-tested by CI on the branch, by a run started by
 hand) and released as 1.0.0b13 at the owner's word, squashed onto main as one commit like the betas before it; the squash
 also took out `b.txt` and `dream.txt`, debug logs that had come onto main with 1.0.0b11. The new art (`hazards.png`,
 `puzzles.png`, `documents.png`, `trials.png`) still waits for the owner's eye. The README's new strip,
 `preview_catacomb_trials.png`, was taken for the release (no hazard shows well in a still frame, so it has none).
-The lower storey (steps 9-13, now 1.0.0b20) is not begun. See
+The lower storey (steps 9-13, now 1.0.0b23) is not begun. See
 *1.0.0b13 so far* below, and the numbers under *Known issues*.
 
 1.0.0b14 is now the first art pass, planned in [`docs/InitialArtPass.md`](docs/InitialArtPass.md) (31 October 2026; the
@@ -136,7 +136,7 @@ How the dead think is planned in [`docs/PLAN-ai.md`](docs/PLAN-ai.md) (1 Novembe
 `claude/laughing-cori-a3jk29`, the work branch `claude/youthful-mayer-deaa11`, from main with the art pass so far):
 senses and memory, packs of a kind and mixed bands, posts, patrols, callers, scavengers, hunters on the caster's trail,
 lures and ambushes, cunning by rank, an encounter budget for the generator, and three new kinds for the roles. The owner
-answered most of the first round the same day: it is **1.0.0b15**, ahead of the lower storey (now 1.0.0b20), with the
+answered most of the first round the same day: it is **1.0.0b15**, ahead of the lower storey (now 1.0.0b23), with the
 same minds for the dream and a person, the old ones behind `CRAWL_MIND=0`; ambushes from level 7 and a new kind of
 interaction every two levels (the plan's section 23 tallies them and drafts a rollout); and the owner's own additions,
 a sprint with a meter and a recovery that quickens with health, a line multiplying what a potion restores, and the
@@ -201,7 +201,7 @@ The music is planned in [`docs/PLAN-music.md`](docs/PLAN-music.md) (3 November, 
 `claude/vibrant-keller-bdeun7` from main at 1.0.0b14 with the browser's build): a piece for each run, her hall's, the menus'
 lullaby in each run's guise, a fight's layers and quickening, the failing's muffle and heartbeat, Music and Effects sliders;
 the march retired. It is **1.0.0b15** (the owner, 4 November); the minds' showing and the rest of the art pass move up to
-1.0.0b16, the lower storey to 1.0.0b17 (since moved on again, to 1.0.0b18, 1.0.0b19 and 1.0.0b20, by PLAN-play below and 1.0.0b18's release). Steps 1-2 (the engine and the pieces, in `src/snd.c` after the bosses' waltzes; `sh
+1.0.0b16, the lower storey to 1.0.0b17 (since moved on again, to 1.0.0b18, 1.0.0b19 and 1.0.0b20, by PLAN-play below and 1.0.0b18's release, and to 1.0.0b23 by PLAN-combat). Steps 1-2 (the engine and the pieces, in `src/snd.c` after the bosses' waltzes; `sh
 tools/music.sh` renders them into `build/music/`) were sent to the owner, who said to wire them in; steps 3-4 (the game's side,
 `music_frame` at the end of `scene_crawl.c`, and the sliders) and step 5's checks were done, harness only (CI compiled and
 smoke-tested the Windows and browser builds on the branch), and it was released as **1.0.0b15** at the owner's word (4 November),
@@ -217,20 +217,25 @@ the first round the same day and put it first: the minds' showing and the rest o
 storey **1.0.0b19** (moved on once more when 1.0.0b16 went out without steps 9-10). The minds' showing (PLAN-ai step 11, with
 every creature's back, the roost and the ambushes' signs) was built on the same branch, harness only, and released as **1.0.0b18**
 at the owner's word (5 November), squashed onto main as one commit; the rest of the art pass (InitialArtPass's P7, P8, the Wraith
-Unbound) is now **1.0.0b19**, the lower storey **1.0.0b20**. The second round (N1-N5, from the fireball's going) was answered the same day; steps 1-8 and the
+Unbound) was then 1.0.0b19 and the lower storey 1.0.0b20; PLAN-combat (below) took 1.0.0b19-b21, so they are now **1.0.0b22** and
+**1.0.0b23**. The second round (N1-N5, from the fireball's going) was answered the same day; steps 1-8 and the
 wheels are built (harness only): one line each, the gifts, the Mirror by hand, things that want a spell in every run (their
 sheets approved), warded creatures, sequences and things for fights. The Plague Doctor is still the weakest past in the dream's runs; its flask strikes a quarter harder.
 
-An overhaul of harm is planned in [`docs/PLAN-combat.md`](docs/PLAN-combat.md) (7 November, a draft on
-`claude/inspiring-archimedes-dbj5n6`; nothing built), from a review of how damage works today (its section 1) and the owner's
-guide (its appendix, as given): a status for each element on the caster and on the dead (On Fire, Chilled and Frozen, Stunned,
-Poisoned, Unbound, Knocked Down), the dead weak to one element and strong against one (more with rank), elemental skeletons,
-shamblers and hounds, new attacks (the Bone Thrower, the shield-bearer's charge, the Drowned's spew), a starting sheet for each
-class, the Unholy Confessions in place of the ascend screen's lines (weighted by class, out of sight), augments for each spell
-line earned by using it, and a merchant that leans to the lines held. Its section 16 holds the questions; which release it is
-(before or after the art pass's rest and the lower storey) is one of them. Found in the review and noted there: `HURT_MAGIC` is
-resisted by Resist Burn whatever its element; poison is the weak element across the bestiary (0.55 on average); skeletons'
-throws have no floor; flat armour grows as the blow does.
+An overhaul of harm is planned in [`docs/PLAN-combat.md`](docs/PLAN-combat.md), settled with the owner (7 November) on
+`claude/inspiring-archimedes-dbj5n6`, from a review of how damage works today (its section 1) and the owner's guide (its
+appendix, as given): a status for each element on the caster and on the dead (On Fire, Chilled and Frozen, Stunned, Poisoned,
+Unbound, Knocked Down), the dead weak to one element and strong against one (more with rank) and born to elements past rank I,
+new attacks (the Bone Thrower, the shield-bearer's charge, the Drowned's spew), a starting sheet for each class, the Unholy
+Confessions in place of the ascend screen's lines (weighted by class, out of sight), six augments for each spell line earned by
+using it, and a merchant that leans to the lines held. It comes **before the art pass's rest and the lower storey, in three
+releases**: **1.0.0b19** the statuses, the elements and the new attacks; **1.0.0b20** the classes and the Confessions; **1.0.0b21**
+the augments and the merchant; so the art pass is now **1.0.0b22** and the lower storey **1.0.0b23**. The owner took every default
+in its section 16 but a few (noted there). **It is built by two agents at once on that one branch**, track C (harm that reaches the
+caster) and track D (harm that reaches the dead): **read its section 17 before touching anything**, and its tracks' logs (sections
+18 and 19). Nothing is built yet but the marks in the shared lists and the shared declarations (its 17.3 and 17.4). Found in the
+review and mended by the plan: `HURT_MAGIC` is resisted by Resist Burn whatever its element; poison is the weak element across
+the bestiary (0.55 on average); skeletons' throws have no floor; flat armour grows as the blow does.
 
 ## Working with the owner
 
@@ -246,6 +251,9 @@ throws have no floor; flat armour grows as the blow does.
   plain, slightly dry, literary voice; match it. Code comments are short and in the same voice.
 - No model identifiers in commits, code, comments or docs. Commit and PR attribution: follow whatever
   your environment specifies.
+- PLAN-combat is built by two agents on one branch (`claude/inspiring-archimedes-dbj5n6`), a track each. Pull with
+  rebase and build before every push, never force-push, change only what your track owns, and add to the marked lists only
+  above your own track's end mark: docs/PLAN-combat.md section 17 has it all.
 
 ## Repository map
 
@@ -1462,6 +1470,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   fight, a find, a secret, a strike or a creature seen; `LULL_T` 30 s, `LULL_CD` 60 s), `lull_spot`, `lull_offer` (a corpse-light out
   of sight, a pricket or coil lit a moment in sight, `Marked.st` 3, or a handbell and a wanderer tracking you). Never the dream's.
   Debug: `CRAWL_LULL=s`, `CRAWL_LULLK=k`, `CRAWL_LULLTRACE=1`, `EVENT lull`.
+- **PLAN-combat, the caster's track (C)** (docs/PLAN-combat.md, sections 3, 4, 8, 10 and 11; its log is section 18). Only
+  track C writes in this bullet. Nothing built yet.
 - **The dead's ways shown** (1.0.0b18, PLAN-ai step 11, Part H; harness only; released). `WY_*` (seventeen set pieces), `way_met` (named
   once a run of ten, `RUN.ways`/`way_said`/`way_run`), `pack_way`; the Codex's `CX_WAYS`; the record's deeds (`deed_note`,
   `DEED_*`, `caller_hushed`, `ways_ends`, `Pack.hunted/hurts0/done`, `Ambush.deaths0/done`, `G.hurts`, `G.hunt_shaken`) and
@@ -1476,6 +1486,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   (from `damage_mob`: the dull ring, the caption, the crack at a fifth of its health), `Draw.ward` (the rim), `render_warded` (the
   barred glyph over its head), the readout's barred glyph, the bestiary's *SOME COME WARDED*. Debug: `CRAWL_WARD=0/1/2`, `EVENT
   warded`, `ward_cracked`, `wardhits=`/`cracked=` on the state line.
+- **PLAN-combat, the dead's track (D)** (docs/PLAN-combat.md, sections 5-7, 9 and 12; its log is section 19). Only track D
+  writes in this bullet. Nothing built yet.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

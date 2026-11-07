@@ -1207,6 +1207,10 @@ static float sfx_sample(Sfx *s) {
         x = sin_cyc(s->ph[0]) * expf(-t * 10.0f) * 0.7f;
         break;
     }
+    /* docs/PLAN-combat.md section 17: each track adds its sounds' cases only above its own end mark */
+    /* the caster's track (C) ends */
+    /* the dead's track (D): */
+    /* the dead's track (D) ends */
     default: break;
     }
     s->t += 1.0f / SR;
@@ -2224,6 +2228,10 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_THRUM]      = { 1.40f, 0.70f, -0.40f, 0.45f },
     [SFX_RATTLE]     = { 0.45f, 0.55f, -0.40f, 0.30f },
     [SFX_SNUFF]      = { 0.55f, 0.55f, -0.40f, 0.25f },
+    /* docs/PLAN-combat.md section 17: each track adds only above its own end mark */
+    /* the caster's track (C) ends */
+    /* the dead's track (D): */
+    /* the dead's track (D) ends */
 };
 
 void snd_tone(int glass, int midi, float gain, float pan) {      /* a struck bell or a singing crystal, at its own note */

@@ -14532,6 +14532,10 @@ void crawl_art_init(void) {
     spr_hunter(SP_HUNTER_BKA, 0); spr_hunter(SP_HUNTER_BKB, 1); spr_brood(SP_BROOD_BKA, 0); spr_brood(SP_BROOD_BKB, 1);
     g_back = 0;
     hunter_dress(SP_HUNTER_BKA, 0); hunter_dress(SP_HUNTER_BKB, 1); brood_dress(SP_BROOD_BKA, 0); brood_dress(SP_BROOD_BKB, 1);
+    /* docs/PLAN-combat.md section 17: each track draws its new sprites only above its own end mark */
+    /* the caster's track (C) ends */
+    /* the dead's track (D): */
+    /* the dead's track (D) ends */
     for (int f = 0; f < 3; f++) spr_bspider(SP_BSPIDER_A + f, f);   /* the Wandering Spider's own */
     spr_bspider(SP_BSPIDER_REAR, 3); spr_bspider(SP_BSPIDER_D, 4);
     for (int f = 0; f < 3; f++) spr_sac(SP_SAC_A + f, f);

@@ -291,6 +291,10 @@ enum {
     SP_WHIP_BKA, SP_WHIP_BKB, SP_DEACON_BKA, SP_DEACON_BKB, SP_SEXTON_BKA, SP_SEXTON_BKB,
     SP_SHAMB_BKA, SP_SHAMB_BKB, SP_DROWN_BKA, SP_DROWN_BKB, SP_GHOUL_BKA, SP_GHOUL_BKB, SP_HOUND_BKA, SP_HOUND_BKB, SP_IMP_BKA, SP_IMP_BKB, SP_GARG_BKA, SP_GARG_BKB,
     SP_HUNTER_BKA, SP_HUNTER_BKB, SP_BROOD_BKA, SP_BROOD_BKB,
+    /* docs/PLAN-combat.md, two tracks on one branch (its section 17): each adds only above its own end mark */
+    /* the caster's track (C) ends */
+    /* the dead's track (D): */
+    /* the dead's track (D) ends */
     NSPR
 };
 

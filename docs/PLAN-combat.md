@@ -1,13 +1,18 @@
 # The elements' teeth: statuses, elemental creatures, the classes' own, the Unholy Confessions and the spells' augments
 
-**A draft, nothing built** (7 November 2026). Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
+**Settled, nothing built yet** (7 November 2026). Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
 review of how harm is dealt today (section 1), the owner's answers to that review's first four questions, and the owner's
-guide (kept as given in the appendix). The owner's answers so far: creatures cast through the kinds we have, "mixed up a
-bit" as the guide sets out (Q1 b); their spells use the caster's six elements, so the resists, the Mirror and the wards all
-answer them (Q2 yes); each class has its own starting pool of stats (Q3, close to a); the merchant leans to the class, a
-little, and nothing Rare or better comes without something for a line the caster holds (Q4). The review's Q5 (three balance
-fixes) and Q6 (which release) are still open; they are asked again in section 16 with the rest. Every number below not in
-the guide is a default, marked as one, for the owner to keep or change.
+guide (kept as given in the appendix). The owner's answers to the review: creatures cast through the kinds we have, "mixed
+up a bit" as the guide sets out (Q1 b); their spells use the caster's six elements, so the resists, the Mirror and the wards
+all answer them (Q2 yes); each class has its own starting pool of stats (Q3, close to a); the merchant leans to the class, a
+little, and nothing Rare or better comes without something for a line the caster holds (Q4). **Section 16 was answered the
+same day**: every default, but B7 (b), U1 (b), U8 (Restoration chosen as an active spell, no key of its own), A2 (b) and
+K4 (b); the body below is written to the answers. It comes **before the art pass's rest and the lower storey, in three
+releases** (R1 a, R2 a): **1.0.0b19** the statuses, the elements and the new attacks; **1.0.0b20** the classes' own and the
+Unholy Confessions; **1.0.0b21** the augments and the merchant by class. The rest of the art pass becomes **1.0.0b22**, the
+lower storey **1.0.0b23**. The owner asked for the work to be split between **two agents on this one branch**: section 17
+is how (the tracks, who owns what, the markers in the shared lists, the rules for pulling and pushing), and sections 18 and 19
+are the tracks' logs. Every number below not in the guide is a default, marked as one, for the owner to change by playing.
 
 *The brief, in a line: every element gets a status of its own, on the caster and on the dead; the dead get elements, weak to
 one and strong against another, more with rank, and the commonest kinds learn new attacks; each class starts with its own
@@ -57,11 +62,11 @@ Seven pieces, each resting on the ones before:
 Each is visual or felt at once, so each goes the way the art has gone: a sheet first where there is something new to see,
 then frames from the game, then the dream's runs.
 
-## 3. One road for harm (step 1)
+## 3. One road for harm (C1)
 
-- **An attack table.** `KINDS` gains its attacks as data, a row each: what it is (`AK_BLOW`, `AK_THROW`, `AK_LEAP`, `AK_SPEW`,
-  `AK_CHARGE`, `AK_CAST`), its element (or "the creature's"), its factor on the blow, its wind-up, cooldown, reach, and
-  whether it can be dodged. `update_mob`'s inline numbers and `mob_blow` both read it, so they cannot drift apart. The rows
+- **An attack table.** `ATTACKS[]`, an array of its own beside `KINDS` (which the dead's track edits: section 17), a row an
+  attack: its kind, what it is (`AK_BLOW`, `AK_THROW`, `AK_LEAP`, `AK_SPEW`, `AK_CHARGE`, `AK_CAST`), its element (or "the
+  creature's"), its factor on the blow, its wind-up, cooldown, reach, and whether it can be dodged. `update_mob`'s inline numbers and `mob_blow` both read it, so they cannot drift apart. The rows
   start as today's numbers exactly.
 - **`foe_hit(m, attack, dmg)`** is the one way a creature's harm reaches the caster: it sets the blame, the element, whether
   Dodge applies, then calls `hurt_ex` with a new kind, `HURT_SPELL` (dodged, cut by its own element's resist, half armour
@@ -74,9 +79,11 @@ then frames from the game, then the dream's runs.
   health, each attack's harm and rate, the time a rank-I caster of each class needs to kill it with their line, and the time
   it needs to kill the caster through common armour. Printed before and after each step, so a change is seen on paper
   before the dream plays it.
-- The review's three faults are asked in P1-P2; whichever the owner takes go in here.
+- The review's faults, as the owner took them: the skeletons' throws never quicker than 0.6 s apart (P1); armour takes a share,
+  harm x 100 / (100 + armour x 100 / (4 + 0.8 x level)), so the same armour keeps off the same share of a rank-I blow at any
+  level (P2); poison's weakness mended by section 7's table.
 
-## 4. Statuses on the caster (step 2)
+## 4. Statuses on the caster (C2)
 
 `G.af[AF_*]` (time left) and `G.af_n` (stacks), cleared by `reset_caster_state`, never saved. Names in the code, `AF_*` for
 *affliction*, since `CS_*` and `ST_*` are taken.
@@ -96,7 +103,8 @@ then frames from the game, then the dream's runs.
 - **No locks.** Hard control (Stunned, Knocked Down, Frozen, Unbound) one after another could hold a caster for ever in a
   pack. Default (S1): when one ends, the same can't land for 3 s, and no hard control at all for 1 s.
 - **Resisted** (the Confessions, section 10): Agility cuts the chance and length of Knocked Down, Stunned and Frozen;
-  Spirituality cuts Unbound; Survival the rest. Whether an element's own resist also cuts its status's chance is S11.
+  Spirituality cuts Unbound; Survival the rest. An element's own resist also cuts its status's chance by half its value (S11).
+- **Hazards** impart their element's status too, at the base chance (S10); bosses keep their own ways for now (S12).
 - **What exists already becomes a status** (S9): the Wraith's touch and the frost hazards give Chilled stacks; spiders' bites
   Poisoned (their slowing as now); the shambler's grab stays a slow, but a physical shambler's becomes the grapple (section
   8.3); the void still silences as now (it is the void's, not Unbound).
@@ -121,7 +129,7 @@ then frames from the game, then the dream's runs.
 
 Rumble on a knock-down and on freezing; a stun's buzz short. Nothing else changes for the pad.
 
-## 5. Statuses on the dead (step 2)
+## 5. Statuses on the dead (D3)
 
 The same seven, as far as they mean anything to a creature (E3-E6):
 
@@ -138,7 +146,7 @@ What exists already: Frost Nova's freeze and Deep Chill's become Frozen (Deep Ch
 Amperage's daze is a stun; Impale's pin stays its own. Spectres, the Wraith, sacs and bosses take none, or a boss only a
 shortened one (E3).
 
-## 6. The elements on the caster's spells (step 3)
+## 6. The elements on the caster's spells (D4)
 
 Each of the caster's hits rolls its element's status. Default (E1): 10% at a line's rank 1, rising evenly to 25% by rank 20;
 Spell Effect raises it; the augments (section 11) and a new stat (section 12) raise it further; a creature strong against the
@@ -148,7 +156,7 @@ alone); the spear's stagger and Impale stay.
 What already does something like it is reconciled, not doubled: Firestarter's burning floor gives On Fire as it does burning
 now; the flask's poison is Poisoned; Frost's slow is a Chilled stack; Soul Drain's Unbound chance is the line's own.
 
-## 7. The bestiary's elements (step 4)
+## 7. The bestiary's elements (D1, D2)
 
 ### 7.1 The rule
 
@@ -179,26 +187,36 @@ weak to lightning, strong against fire).
 
 ### 7.3 With rank
 
-Default (B3): a second strength at rank III, a third at rank V, chosen as wards are chosen now: among the lines the caster
+A second strength at rank III, a third at rank V (B3), chosen as wards are chosen now: among the lines the caster
 holds, never the creature's weakness, never the only line held (B4). That makes the rank's strengths what wards were; B5 asks
 whether wards go (default: yes, folded in; a rank's strength can still crack after a fifth of its health in that element, as a
-ward does, so a person learns it can be broken). Packs share theirs, as wards are shared now.
+ward does, so a person learns it can be broken). Packs share theirs, as wards are shared now. The target's readout shows a
+rank's strengths once one has been seen struck (B11).
 
 ### 7.4 Elemental creatures
 
 Past rank I a creature may be born to an element (B7-B9): its attacks carry it some of the time, and its eyes and its missiles
-show it. Default: rank II 15%, III 25%, IV 35%, V 45%; a pack shares one; any of the five that aren't Physical, weighted to the
-run (I Fire and Spirit, II Frost and Poison, III Lightning and Poison, IV Fire and Spirit). Its own element becomes one it is
-strong against (B6); its weakness stays.
+show it. **Every kind with eyes and a blow** (B7 b): the skeleton, the bat, the shield-bearer, the web spider, the shambler, the
+Drowned (its grab; never its spew), the bone hound, the hunting spider, the ghoul, the knight, the brood mother (her sacs and
+spiderlings take hers), the gargoyle and the Whipper-In (his lash). The ember imp and the wall skull are Fire by nature and are
+never born to another. Not the spectre, the Wraith, the shade or the Lightless (no eyes), the deacon or the Sexton (no blow),
+a boss or its adds (S12), nor an ally. Rank II 15%, III 25%, IV 35%, V 45%; a pack shares one; any of the five that aren't
+Physical, weighted to the run (I Fire and Spirit, II Frost and Poison, III Lightning and Poison, IV Fire and Spirit). Its own
+element becomes one it is strong against (B6); its weakness stays. `Mob.elem` (1 + the element) is where it is kept.
 
 **The eyes** (B10). Today the eyes' colour is the kind's at rank I and the rank's from II, and each rank has its own form (a
 glow beside, a cold slit, a streak to the temple, a white flare, a gold cross). Default: an elemental creature's eyes take
 its element's colour (`ELEM_RAMP`), and the rank keeps the form, so both still read. **Missiles** of an element shimmer in
 its colour (motes trailing, as a wisp's); plain bone stays plain.
 
-## 8. New attacks (step 5)
+## 8. New attacks (C3, C4)
 
 Every one through the attack table and `foe_hit`; every one has a tell a person can read and the dream can answer.
+
+**Any elemental creature** (7.4) carries its element on one attack in three (M1), whatever its kind: a missile shimmers in the
+element's colour (motes trailing, as a wisp's), a blow is shown by the eyes flaring in that colour as it strikes (they flare
+white today). The chance of its status on the caster is M2's (12% at rank II, +4% a rank), the shambler's two and a half times.
+What follows is what the guide adds kind by kind.
 
 ### 8.1 The skeleton
 
@@ -237,7 +255,7 @@ The charge's tell and the spew's swell go into `hz_dmap` as warnings, so `decide
 the charge as it answers a missile. The Bone Thrower's flash is a missile warning. Knocked down or frozen, the dream waits; it
 drinks under 40% as now.
 
-## 9. The classes' own (step 6)
+## 9. The classes' own (D5)
 
 **The guide does not hold the starting pools** (K1); this draft follows the Confessions' order of each class (section 10), so
 a class starts where it is best. Each is the caster's own (`gear_set_own` in `caster_sync`, under the same caps), nothing to
@@ -254,7 +272,7 @@ save, and the class's line gifts stay (K2).
 
 Flat, not growing with Atonement (K3); the Confessions are the growth.
 
-## 10. The Unholy Confessions (step 7)
+## 10. The Unholy Confessions (C5; Restoration, the killing blow and the cracks D5)
 
 Her menu's *ASCEND* keeps its name for the act (Levels of Atonement claimed, ten points each to 50), but what the points buy
 becomes **the Unholy Confessions**: six groups in place of today's sixteen lines (`LINES`, `UI_ASCEND`). Cut in the stone kit
@@ -262,9 +280,12 @@ as the other screens are (a sheet first).
 
 ### 10.1 The structure
 
-Default (U1): five ranks a Confession (I-V), each raising everything in it together; ranks cost 10, 20, 30, 40, 50 points (150 a
-Confession, 900 for all six against 500 points at Atonement 50: a caster confesses three or four deeply, or all six shallowly).
-Past 50, an overlevel raises one Confession past V (VI at 55, VII at 60 ...; U6).
+Five ranks a Confession (I-V), **bought a point at a time** (U1 b): rank I is 10 points, II 20 more, III 30, IV 40, V 50 (150 a
+Confession, 900 for all six against 500 points at Atonement 50: a caster confesses three or four deeply, or all six
+shallowly). Every point moves all of the Confession's numbers its share of the way to the next rank at once (a point in rank
+II's twenty is a twentieth of the step from I to II); what a rank opens comes when the rank is whole (Restoration's spell and
+the crack sight at rank I, the killing blow's chance from rank I). The screen shows the rank, the points into the next, and
+what the next point gives. Past 50, an overlevel raises one Confession past V (VI at 55, VII at 60 ...; U6).
 
 ### 10.2 The six
 
@@ -272,24 +293,27 @@ The guide's numbers where it gives them; the rest defaults. Each at rank I / V; 
 
 | Confession | What it does | I | V |
 |---|---|---|---|
-| **Restoration** | the Restoration spell (10.3); Physic | 0.5 HP/s for 0.7 souls/s; Physic +10% | 2 HP/s for 0.1 souls/s; Physic +50% |
+| **Restoration** | the Restoration spell (10.3); Physic | 0.25% of health a second for 0.7 souls/s; Physic +10% | 1% a second for 0.1 souls/s; Physic +50% |
 | **Agility** | Knocked Down, Stunned and Frozen rarer and shorter; Dodge, Movement, Quiet | -30%; +2% / +3% / +5% | -85%; +10% / +15% / +25% |
 | **Spirituality** | souls from kills; Unbound rarer and shorter; Spell Haste, Spirit Cost, Spell Effect | +10%; -30%; +2% / -3% / +4% | +50%; -85%; +10% / -15% / +20% |
 | **Constitution** | sprint recovery and length; health; a killing blow survived (10.4) | +10%, +0.5 s; +15; 5% | +50%, +2.5 s; +100; 25% |
 | **Survival** | every other status rarer and shorter (Poisoned, Chilled, On Fire, grabs, webs, bile, Soul Sap); Treasure, Luck | -15%; +3%, +0.5% | -60%; +15%, +2.5% |
 | **Toughness** | armour; cracks seen from further off (10.5) | +2 and +5% of worn; 4 cells | +14 and +25% of worn; 8 cells |
 
-What becomes of today's lines (U5): Health into Constitution; Dodge and Movement into Agility; Spell Haste and Attunement into
+The cornerstones stay as they are (U7); a death that costs takes the Confessions with the Levels of Atonement (U13). What
+becomes of today's lines (U5): Health into Constitution; Dodge and Movement into Agility; Spell Haste and Attunement into
 Spirituality; Treasure and Luck into Survival; Sprint into Constitution; Physic into Restoration; the five resists into gear
 alone (they cut their element's harm; the Confessions cut statuses). **Damage has no Confession**: a spell's strength is the
 Alignment's and the gear's. Points spent in the old lines come back as points when a page is read (U5).
 
 ### 10.3 Restoration, the spell
 
-A seventh spell (U8): key 7 and a place on the spells' wheel; held to channel after a breath's wind-up; walking at half pace
-while it runs; a blow on you doesn't end it but a stun, a knock-down or Unbound does; souls spent by the second, healing by the
-second. Drawn as a pale glow up the arm. U9 asks whether its numbers stay flat (2 HP a second is slow once health is 400) or
-become a share of health (0.25% to 1% a second).
+A spell chosen as the others are (U8, the owner: no key of its own): once Restoration's rank I is confessed it joins the spells
+the caster turns between (the mouse wheel, the spells' wheel, the pad's), and the cast button held channels it after a breath's
+wind-up; walking at half pace while it runs; a blow on you doesn't end it but a stun, a knock-down or Unbound does; souls spent
+by the second, healing by the second. Drawn as a pale glow up the arm. The dream chooses it as it chooses a spell: out of a
+fight, hurt, with souls to spare. U9 (taken as its default, b): its healing is a share of health, 0.25% a second at rank I to
+1% at V, the souls as the guide.
 
 ### 10.4 The killing blow survived
 
@@ -323,23 +347,24 @@ The Plague Doctor's places sum lowest, so it gets the most from the Confessions 
 
 `auto_ascend` spends by its class's two best Confessions first, then evens out. It never confesses a person's run, as now.
 
-## 11. The spells' augments (step 8)
+## 11. The spells' augments (C6, D7)
 
 ### 11.1 The structure, as read from the guide
 
-Each line has augments, three ranks each. Slots open at the line's three great steps: **its opening** (first learnt), **its
-ability** (the three-point node: Firestarter, Deep Chill, Ionization, Seep, Harvest, Impale) and **its ultimate**. At each the
-caster chooses one of two at the Lampstand; so a line ends with three augments chosen. Choosing is done with **Y (Space)** on
-the line's augment slot at the Lampstand (`UI_ALIGN`), where Space today unbinds a line (that moves to Back; A6). The guide says
-"five augments for each line" and also "one given at the start, two after the ability, two for the ultimate", while Fire's
-example has a pair at each tier: A1 asks which.
+Each line has **six augments, a pair at each of its three great steps** (A1 c): **its opening** (first learnt), **its ability**
+(the three-point node: Firestarter, Deep Chill, Ionization, Seep, Harvest, Impale) and **its ultimate** (whichever path's comes
+first). At each the caster chooses one of the pair at the Lampstand, so a line ends with three augments, three ranks each.
+Choosing is done with **Y (Space)** on the line's augment slot at the Lampstand (`UI_ALIGN`), where Space today unbinds a line
+(that moves to Back; A6). A choice is final until the line is unbound (A5).
 
-**Credits.** Once chosen, an augment is fed by the line: a kill whose last blow was the line's spell, or a thing that wants the
-spell struck (`mk_done`), counts; ranks come at once, in the crypt, when enough is counted (the guide: "unlock immediately ...
-so a player who is active in the depths gets the benefit while in combat"). Default (A3): a kill 1, a thing 2, a boss 10;
-ranks at 20, 50 and 100 credits, each augment in turn (A4: the newest chosen first, or the one the caster marks at the
-Lampstand). The target (A2): all three chosen augments of the class's line at rank III by the end of run II (level 20), checked
-with the dream's counts and tuned.
+**Credits.** A line's credits are counted from its opening: a kill whose last blow was the line's spell, or a thing that wants
+the spell struck (`mk_done`). A kill 1, a thing 2, a boss 10 (A3). They are banked by the line and spent at once, in the crypt,
+on the newest augment chosen that is not yet at rank III, then the next newest (A4); what can't be spent yet (every chosen one
+at III, the next not chosen) waits in the bank, so a pair chosen late can rank up the moment it is chosen. An augment's ranks
+come at 20, 50 and 100 credits of its own (A3; 300 for a line's nine). **The target** (A2 b): a caster who plays the class's
+line reaches all nine ranks by **Level of Atonement 20**. The thresholds are checked against the dream's counts (credits banked
+by Atonement 20, by class) and, if the target can't hold at A3's numbers, scaled down together until it does; the target
+governs. Where a line's ultimate comes after Atonement 20, its pair ranks up from the bank as soon as it is chosen.
 
 **They stack**: Burning Intensity with Multiply is a charged shot that splits, and costs both (A7: default, the increases add:
 +30% and +30% is +60%).
@@ -351,9 +376,9 @@ with the dream's counts and tuned.
   near-certain to ignite, its burning three times as fierce (A11).
 - **Tier 2: Multiply / Swift Flight.** Multiply: split in an arc, each half the cast's damage, +30% spirit. Swift Flight: the
   bolt flies far faster and further.
-- **Tier 3: Volatility / (the guide's second is missing).** Volatility: what dies of your burning bursts, setting all within reach
-  alight and dealing a third of the victim's health to them, +30% spirit. A12 asks for a cap on chains (default: each creature
-  bursts once, a boss takes a tenth of what a burst would give).
+- **Tier 3: Volatility / Pyre.** Volatility: what dies of your burning bursts, setting all within reach alight and dealing a
+  third of the victim's health to them, +30% spirit; each creature bursts once, a boss takes a tenth of what a burst would give
+  (A12). Pyre (A13 b, ours): what burns spreads its burning to one creature within a cell, once.
 
 Two clashes with what is built (A9, A10): **Firewall** is held too (Fire's path B ultimate), and the Fire line already has a node
 called **Burning Intensity** (burning lasts longer). Defaults: with both, a hold grows the bolt and a hold past three seconds
@@ -379,7 +404,7 @@ cast's damage a projectile; Volatility 17%, 25%, 33%).
 Augments, their credits and their choices go with the lines when a death costs, and come back as the lines are bought again
 (A14). The dream chooses at random within the pair and feeds them as it plays (A15).
 
-## 12. The merchant by class (step 9)
+## 12. The merchant by class (D6)
 
 The owner: only a few pulls should carry stats no use to the class; nothing Rare or better without something for a spell the
 caster holds. "No use" is an element's stat for a line not held (its Power, Efficiency, Insight, its "ADDS %", its status
@@ -393,8 +418,20 @@ chance); everything else (health, armour, Dodge, Movement, the resists, Haste, S
   element's status), on rings and bracers; *STEADINESS* (Knocked Down, Stunned and Frozen shorter and rarer, under Agility's cap),
   on boots and amulets. Appended to `ST_*`, so old pieces read as they were.
 - **"ADDS %"** (G4) today rolls only fire, frost and lightning, at random; it rolls among the lines held, all six.
-- **Class-specific abilities on gear** (G5): the owner's message says the guide offers them, but they weren't in it. When they
-  come, they are new `AB_*` (a byte in the piece already; the Codex's bits have room).
+- **Class-specific abilities on gear** (G5, K4 b: drafted here). New `AB_*` (a byte in the piece already; the Codex's bits have
+  room), one a class, its numbers by quality as the others' are (shown as the Common to Exquisite range):
+
+  | Class | Ability | What it does |
+  |---|---|---|
+  | Witchfinder | **PYREBRAND** | your ignitions 5-15% more often, and they burn a second longer |
+  | Anatomist | **THE SLAB** | the Chilled stacks you lay last a second longer; the frozen take 5-15% more from you |
+  | Galvanist | **LIVE WIRE** | your stuns 5-15% more often; a stunned creature you strike passes a fifth of the hit to the nearest within two cells |
+  | Plague Doctor | **FEVER** | the creatures you poison take 5-15% more from every element |
+  | Sin-Eater | **SWALLOWED SIN** | Unbound from your spells 5-15% more often; what dies Unbound leaves a soul more |
+  | Headsman | **THE BLOCK** | Knocked Down 15-40% shorter (with Agility, under its cap); a spear that kills a staggered or pinned creature leaves its bone |
+
+  A piece of Uncommon or better that rolls an ability rolls the caster's class's one time in three. One of another class's (from
+  the Compendium, the Repository, or a vow changed) does nothing, and its card says whose it is (*FOR THE WITCHFINDER*).
 
 ## 13. Saves
 
@@ -414,29 +451,45 @@ af <status> <on|off> by <kind>`, `EVENT ignite`, `chill_stack`, `frozen`, `stun`
 `spew`, `aug <line> <tier> <rank>`, `confess <line> <rank>`; `CRAWL_AF=k` (a status on the caster every ten seconds),
 `CRAWL_ELEM=e` (every creature that can be, of element e), `CRAWL_AUG=...`, `CRAWL_CONF=...`, `CRAWL_CHARGE=1`.
 
-## 15. The order
+## 15. The order: three releases, two tracks
 
-Each step committed, pushed and logged at its end, as the art pass's log does, so the work can be handed on between sessions.
+Two agents build it at once on this branch (section 17), one a track: **the caster's track (C)**, harm that reaches the caster,
+and **the dead's track (D)**, harm that reaches the dead. Each release's steps are split between them; a release is cut only when
+both tracks' steps for it are built and its joint checks are done. Each step committed, pushed and logged at its end in the
+track's own log (sections 18 and 19), so the work can be handed on between sessions.
 
-1. **One road for harm** (section 3): the attack table, `foe_hit`, `HURT_SPELL`, `HURT_MAGIC` mended, `make combat`; the review's
-   fixes the owner takes (P1-P2). Sixteen seeds against 1.0.0b18 to show nothing else moved.
-2. **Statuses** (sections 4-5): the sheet of glyphs and the knock-down's frames first; then the caster's and the dead's; the old
-   effects folded in. Nothing imparts them yet but the old sources and `CRAWL_AF`.
-3. **The elements on the caster's spells** (section 6).
-4. **The bestiary's elements** (section 7): the table, the ranks' strengths in place of wards, the eyes' colours (a sheet of
-   every kind's eyes in each element), elemental creatures; the bestiary's and the Codex's pages, the lore lines.
-5. **New attacks** (section 8): a sheet of the flash, the charge, the spew; then each in the game with the dream's counters.
-6. **The classes' own** (section 9).
-7. **The Unholy Confessions** (section 10): the screen's sheet first; Restoration, the killing blow, the cracks; old pages paid
-   back.
-8. **The augments** (section 11): Fire first, played and tuned; then each line in turn.
-9. **The merchant by class** (section 12).
-10. **The checks**: sixteen seeds from each start for each class against 1.0.0b18, ASan, the README's and the page's words, the
-    release notes for a player.
+### 1.0.0b19: the statuses, the elements, the new attacks
+
+| Step | Track C (the caster's) | Track D (the dead's) |
+|---|---|---|
+| 1 | **C1. One road for harm** (section 3): `ATTACKS[]`, `foe_hit`, `HURT_SPELL`, `HURT_MAGIC` mended, `make combat`; P1's floor under the throws and P2's armour as a share. Sixteen seeds against 1.0.0b18. | **D1. The bestiary's elements** (7.1-7.3): the flat table, the ranks' strengths in place of wards (cracking kept), the readout, the bestiary's and the Codex's words, the lore lines. |
+| 2 | **C2. The caster's statuses** (section 4): the sheet of glyphs and the knock-down's frames first; then the seven, their rules, the old effects folded in, the view, sounds and rumble, the dream waiting them out. | **D2. Elemental creatures** (7.4): `Mob.elem` at birth, packs sharing it, the eyes in the element's colour and flaring in it while `Mob.elem_on` (a sheet of every kind's eyes in each element first). |
+| 3 | **C3. Their elements on you** (section 8's opening): one attack in three carrying `Mob.elem` (`Mob.elem_on` while it does), M2's chances, missiles shimmering. | **D3. The dead's statuses** (section 5): `mob_stunned`, `mob_unbound` filled in, one gate at the head of `update_mob`, Frozen by stacks, drawn. |
+| 4 | **C4. New attacks** (8.1-8.6): a sheet of the flash, the charge and the spew first; then each, with the dream's counters. | **D4. The elements on your spells** (section 6): the chances in `damage_mob` and the hits, Firestarter, Deep Chill and Amperage reconciled. |
+| J | **J19, both:** sixteen seeds from each start for each class against 1.0.0b18 (each track runs half), ASan, then the README, the page and the notes (track C writes them, D sends its numbers in its log). | |
+
+### 1.0.0b20: the classes' own, the Unholy Confessions
+
+| Step | Track C | Track D |
+|---|---|---|
+| 5 | **C5. The Confessions** (section 10): the screen (its sheet first), points a step at a time (U1 b), the class's weight unseen, Agility, Spirituality and Survival wired into C2's statuses, today's lines folded and paid back (`LG_CONF`), overlevels, the dream's spending. Its first commit is the release's contract (17.3): `conf_rank`, `conf_value`. | **D5. The classes' own** (section 9), **Restoration** the spell (10.3), **the killing blow** (10.4) and **Toughness's cracks** (10.5), each reading C5's `conf_value`. |
+| J | **J20, both**, as J19, against 1.0.0b19. | |
+
+### 1.0.0b21: the augments, the merchant by class
+
+| Step | Track C | Track D |
+|---|---|---|
+| 6 | **C6. The augments' frame** (11.1, 11.3, 11.5): the slots, the Lampstand's Y, the bank and the ranks (`LG_AUG`), the dream's choices; then **Fire's six** (11.2), played and tuned. Its first commit is the release's contract: the augment hooks the lines' spells call. | **D6. The merchant by class** (section 12): the off-line share, the Rare-and-up rule, the new stats, "ADDS %" for six, the class abilities on gear. |
+| 7 | | **D7. The other five lines' augments** (11.4's drafts, or the owner's), on C6's frame once its contract is in. |
+| J | **J21, both**, as J19, against 1.0.0b20. | |
+
+After J21: the rest of the art pass (InitialArtPass's P7, P8, the Wraith Unbound) is **1.0.0b22**, the lower storey **1.0.0b23**.
 
 ## 16. Questions
 
-Defaults are marked (a\*). The owner's answers go after each, as in the other plans.
+Defaults are marked (a\*). **Answered 7 November**: the owner took every default but B7 (b), U1 (b), U8 (Restoration chosen as an
+active spell) and A2 (b), and chose (b) for K4, which had none; the answers that settle something are noted after their
+question. The body above is written to them.
 
 ### Still open from the review
 
@@ -446,8 +499,10 @@ Defaults are marked (a\*). The owner's answers go after each, as in the other pl
   (b) keep it flat (the shield-bearer's "twice the armour" then means something early and nothing late); (c) leave it.
 - **R1. Which release.** (a\*) Before the art pass's rest and the lower storey: this becomes 1.0.0b19, the art pass 1.0.0b20,
   the lower storey 1.0.0b21; (b) after them.
+  **The owner: (a).** With R2 (a), the three releases are 1.0.0b19, b20 and b21; the art pass 1.0.0b22, the lower storey 1.0.0b23.
 - **R2. One release or three.** (a\*) Three: statuses, elements and new attacks (steps 1-5); the classes and the Confessions
   (6-7); the augments and the merchant (8-9); (b) all at once.
+  **The owner: (a).**
 
 ### Statuses
 
@@ -492,6 +547,7 @@ Defaults are marked (a\*). The owner's answers go after each, as in the other pl
   (Fire and Frost, Lightning and Poison, Spirit and Physical); (c) it changes nothing.
 - **B7. Which kinds are born elemental.** (a\*) Skeletons, shamblers and hounds, as the guide; the shield-bearer and the knight in a
   later round; (b) every kind with eyes and a blow.
+  **The owner: (b).** Section 7.4 lists them.
 - **B8. How often.** (a\*) Rank II 15%, III 25%, IV 35%, V 45%, a pack sharing one; (b) yours.
 - **B9. Which elements.** (a\*) Any but Physical, weighted to the run (I Fire, Spirit; II Frost, Poison; III Lightning, Poison; IV
   Fire, Spirit); (b) evenly.
@@ -517,15 +573,18 @@ Defaults are marked (a\*). The owner's answers go after each, as in the other pl
 ### The classes' own
 
 - **K1. Starting pools.** The guide doesn't hold them. (a) The owner sends them; (b\*) the draft in section 9 until then.
+  **The owner: (b),** the draft in section 9 for now.
 - **K2. The class gifts on its line** (a fifth off its cost, and the rest). (a\*) Kept beside the sheet; (b) folded into it.
 - **K3. Does a sheet grow?** (a\*) No, the Confessions are the growth; (b) a little with each Level of Atonement.
 - **K4. Class abilities on gear.** The owner's message says the guide offers them; they weren't in it. (a) The owner sends them; (b) one
   drafted for each class.
+  **The owner: (b).** Drafted in section 12.
 
 ### The Unholy Confessions
 
 - **U1. Ranks.** (a\*) Five a Confession, each raising all of it, at 10, 20, 30, 40, 50 points; (b) ranks with smaller steps between,
   bought a point at a time within each; (c) yours.
+  **The owner: (b).** Section 10.1.
 - **U2. Gates.** (a\*) None: points alone; (b) rank n needs Level of Atonement 10n - 5.
 - **U3. The numbers shown.** (a\*) What the caster actually gets, the class's weight in it unnamed; (b) the nominal numbers, the weight
   hidden entirely.
@@ -537,8 +596,10 @@ Defaults are marked (a\*). The owner's answers go after each, as in the other pl
   Confessions.
 - **U8. Restoration's key.** (a\*) Key 7 and the spells' wheel (the pad's down held), held to channel; (b) on the right mouse with the
   gifts.
+  **The owner: neither: Restoration is chosen as an active spell, as the others are, so it needs no key of its own.** Section 10.3.
 - **U9. Restoration's amounts.** (a) Flat, as the guide (0.5 to 2 HP a second); (b\*) a share of health, 0.25% to 1% a second, the souls
   as the guide.
+  **The default, (b).**
 - **U10. The killing blow.** (a\*) Second Wind first; then Constitution's chance, at most once a level; (b) every time it rolls.
 - **U11. The cracks.** (a\*) Motes from 4 cells at rank I to 8 at V; (b) yours.
 - **U12. Survival's statuses.** (a\*) Poisoned, Chilled, On Fire, and the old grabs, webs, bile and Soul Sap; (b) only the guide's.
@@ -549,7 +610,9 @@ Defaults are marked (a\*). The owner's answers go after each, as in the other pl
 
 - **A1. How many a line.** (a) Five: a pair, a pair and one (Fire's example, its tier 3 single); (b) one given, then a pair and a pair;
   (c\*) six: a pair at each of the three steps, one chosen from each, three kept.
+  **The owner: (c).**
 - **A2. "Level their way to 20".** (a\*) Crypt level 20, the end of run II; (b) Level of Atonement 20; (c) the line's rank 20.
+  **The owner: (b), Level of Atonement 20.** Section 11.1: the line's credits are banked from its opening.
 - **A3. Credits.** (a\*) A kill by the line 1, a thing struck 2, a boss 10; ranks at 20, 50, 100; (b) yours.
 - **A4. Which augment is fed.** (a\*) The newest not yet at III; (b) the one the caster marks at the Lampstand.
 - **A5. Choices.** (a\*) Final, until the line is unbound; (b) changed at the Lampstand for two coins.
@@ -564,8 +627,10 @@ Defaults are marked (a\*). The owner's answers go after each, as in the other pl
 - **A12. Volatility's chains.** (a\*) Each creature bursts once; a boss takes a tenth of a burst; (b) no cap.
 - **A13. Fire's tier 3.** The guide has Volatility and a blank. (a) The owner names the second; (b\*) *Pyre*: what burns spreads it to one
   creature within a cell, once.
+  **The owner: (b), Pyre.**
 - **A14. Death.** (a\*) Augments go with the lines; (b) kept, as runes are.
 - **A15. The other lines' augments** (11.4). (a) The owner's; (b\*) the drafts until then.
+  **The owner: (b),** the drafts until the owner's come.
 
 ### The merchant
 
@@ -574,6 +639,116 @@ Defaults are marked (a\*). The owner's answers go after each, as in the other pl
 - **G3. New stats** (a status chance per element, Steadiness). (a\*) Yes; (b) no.
 - **G4. "ADDS %"** for all six elements, from the lines held. (a\*) Yes; (b) leave it at three.
 - **G5. Class abilities on gear**: K4.
+
+## 17. Two agents, one branch
+
+The owner (7 November): the work is to be split with another agent working in the same repository and on the same branch.
+Both agents work on **`claude/inspiring-archimedes-dbj5n6`**, each in its own checkout (its own session or machine; never a
+shared working tree). The agent that wrote this plan takes **track C**; the other takes **track D**, unless the owner says
+otherwise. Everything here exists so that two people editing one 28,000-line file never trip on each other.
+
+### 17.1 The tracks
+
+- **Track C, the caster's**: harm that reaches the caster. In 1.0.0b19: C1 to C4 (section 15); it also cuts the releases.
+- **Track D, the dead's**: harm that reaches the dead. In 1.0.0b19: D1 to D4.
+
+### 17.2 What each owns (1.0.0b19)
+
+Only the owning track changes these. Redrawn by track C's contract commit at the start of 1.0.0b20 and 1.0.0b21 (section 15
+sketches who does what in each).
+
+| Track C only | Track D only |
+|---|---|
+| `hurt_ex`, `hurt_by`, the new `foe_hit` and `HURT_SPELL`, `harm_of`, `windup_blow`, `windup_break`, `slow_factor`, `reset_caster_state` | `KINDS` (its weaknesses and lore lines), `weak_el`, `weak_to`, `hit_mult`, the wards (`ward_*`, `Pack.ward`) |
+| the `Bone` struct, `throw_to`, `throw_missile`, `bone_land`, `update_bones`, `bite`, `update_leap` | `pick_rank`, `set_rank`, `spawn_mob` (an element at birth) |
+| `mob_blow` and the new `ATTACKS[]`; the per-kind attack branches of `update_mob` (from the skeleton's throw to the bat's bite) | one gate block at the head of `update_mob`, before the per-kind branches (nothing inside them); `mob_stunned`, `mob_unbound` |
+| the touches in `update_wraith` and `wraith_boss`; `latch_begin`, `update_latch` | `damage_mob`, `mob_afflict`, `mob_burn`, `mob_poison`, `deep_chill`, `daze`, Frost Nova's freeze |
+| `update_human`, `human_walk`, `human_cast`, `human_use`, `cast_spell`'s aim (Chilled's spread only) | the hit cases of `update_shots`, `chain_lightning`, `flask_burst`, `tether_hold`, `update_ultimates` |
+| `sprint_tick`, `sprint_recovery`, `tint`, `render_statusbar`, `render_readout` | `render_eyes` and its tables, `render_warded`, `render_target`, the bestiary's and the Codex's element pages |
+| the dream's side of harm: `auto_dodge`, `decide`, the tells in `hz_dmap` | the dream's aim by weakness: `choose_spell`, `find_target` |
+| the missiles' part of `render_sprites`; `tools/combat.c` and `make combat`; the status glyphs in `ui_art.c` | the creatures' part of `render_sprites` |
+
+**Shared** (either may make a small change; pull first, keep both): `update_mob` outside the two parts above, `render_sprites`
+outside its two, `start_level`, `begin_shop`, the debug state lines, the Codex's lists, the Makefile, README and the page (track C
+at a release).
+
+### 17.3 What the two tracks share (the contract)
+
+In `src/scene_crawl.c`, after `Mob`, committed with this section:
+
+- `Mob.elem`: 1 + the element a creature was born to, 0 none. Set by D (D2), read by C's attacks (C3).
+- `Mob.elem_on`: the attack under way carries the element. Set by C (C3), read by D's eyes (D2), which flare in its colour.
+- `AF_*` (`AF_FIRE`, `AF_CHILL`, `AF_FROZEN`, `AF_STUN`, `AF_POISON`, `AF_UNBOUND`, `AF_DOWN`, `NAF`) and `af_of(el)`, the status
+  each element imparts: the same names on the caster (C) and on the dead (D).
+- `mob_stunned(m)`, `mob_unbound(m)`: stubs that say no; D fills them in (D3); C's attacks call them (C3, C4) and don't start
+  what they forbid.
+- To come: at the start of 1.0.0b20, C5's `conf_rank(cf)` and `conf_value(cf, which)`, which D5 reads; at the start of 1.0.0b21,
+  C6's augment hooks, which D7 fills for its lines.
+
+**Changing the contract**: write the change here and in the code's declarations in one commit of its own, push it at once, and
+put a line starting **CONTRACT** in your log. Each agent reads the other's log at every pull.
+
+### 17.4 The marks in shared lists
+
+Lists both tracks add to have a pair of marks: add only just above your own track's end mark, so the two never touch the same
+lines and git merges them by itself.
+
+- `src/snd.h`: the `SFX_*` enum, before `SFX_COUNT`. `src/snd.c`: the `SFXDEF` table's end, and the synth's switch before its
+  `default`.
+- `src/crawl.h`: the `SP_*` enum, before `NSPR`. `src/crawl_art.c`: the end of the sprite list in `crawl_art_init`.
+- `src/scene_crawl.c`: the end of `Mob`, the end of `G` (what the caster carries into a pocket goes in `carry_caster`'s spans
+  instead: C's by `poison_t`), the debug counters before `hurt_by`.
+- `CLAUDE.md`: each track has one bullet of its own under *How CATACOMB works* (C's after *The lull's watch*, D's after *Warded
+  creatures*) and writes its notes there; track C keeps the paragraph at the top.
+
+A list that isn't marked and that both need (the Codex's `CX_*` and `CX_MAX`, a one-line enum): whoever needs it first puts it
+on separate lines with a pair of marks, in a commit of its own, pushed at once.
+
+### 17.5 Pulling and pushing
+
+1. **At the start of every session**: `git fetch origin claude/inspiring-archimedes-dbj5n6`, check the branch out, `git pull
+   --rebase origin claude/inspiring-archimedes-dbj5n6`; read the other track's log since you last looked.
+2. **Commit small**: a piece that works, an hour's work at most. **Before every push**: `git pull --rebase` as above, then `make
+   host` and `make build/host_debug` (no new warnings in either) and `make smoke`. Push with `git push origin
+   claude/inspiring-archimedes-dbj5n6`. Never force-push; never rewrite a commit already pushed. Refused because the other pushed
+   first: pull with rebase again, build again, push.
+3. **A conflict**: in the other track's lines, keep theirs exactly and put yours back round them; in a shared function, keep both
+   and build. If what the other meant isn't clear, push nothing, write it in your log and ask the owner.
+4. **Off switches**: each new behaviour has a debug switch that takes it out (`CRAWL_AF=0` for C's statuses, `CRAWL_ELEM=0` for
+   D's elements and strengths, and so on), so either track's balance runs can set the other's aside; a run's notes say which were set.
+5. **Sheets** go to the owner as before; while one waits, carry on with what doesn't hang on it.
+6. **A step ends with its log entry**: what was built, how it was tested (harness only, ASan, which seeds), its commits, what is left.
+7. **Nothing else in a commit**: no logs, build output or saves; never the console's codes.
+8. **The release**, only at the owner's word: track C cuts it (the README, the page, the notes, `VERSION`, the squash onto main as
+   one commit) once both logs mark the release's steps built and its J checks are done. Track D sends its numbers in its log. The
+   branch goes on after a release as it did before.
+
+### 17.6 Starting the second agent
+
+Paste this into a new session on `ASPDesignLabs/HAUNTED.EXE`:
+
+> You are the dead's track (D) of docs/PLAN-combat.md in ASPDesignLabs/HAUNTED.EXE. Work on the existing branch
+> claude/inspiring-archimedes-dbj5n6: you have the owner's permission to commit and push there, and to no other branch. Another
+> agent is building the caster's track (C) on the same branch at the same time. Read CLAUDE.md, then docs/PLAN-combat.md in
+> full, then its section 17 again and both tracks' logs (sections 18 and 19). Follow section 17 exactly: change only what 17.2
+> gives D, add to shared lists only above D's end marks, pull with rebase and build before every push, never force-push. Build
+> D's steps for the current release in order (1.0.0b19: D1, D2, D3, D4), sheets to the owner first where the plan says, each
+> step committed, pushed and logged in section 19. Don't cut a release; tell the owner when your steps are built.
+
+For track C in a fresh session, the same with C, C1 to C4 and section 18.
+
+## 18. Track C's log (the caster's)
+
+*Append only, newest at the bottom.*
+
+- **7 November.** The plan settled with the owner. The marks (17.4) and the shared declarations (17.3) committed: `make host`,
+  `make build/host_debug` (no warnings) and `make smoke` pass; nothing in the game changes. Next: C1.
+
+## 19. Track D's log (the dead's)
+
+*Append only, newest at the bottom.*
+
+- *Nothing yet. The first entry is the agent's own: which commit it started from.*
 
 ## Appendix: the owner's guide (7 November), as given
 
@@ -702,3 +877,9 @@ Defaults are marked (a\*). The owner's answers go after each, as in the other pl
 > Toughness - Offers armor to the player, along with an ability that reveals secret entrances (cracks) to a player with a minor
 > particle effect emanating from the cracks themselves, visible from twice the distance cracks normally are that grows in intensity
 > and distance visible. AN, HE, PD, SE, WF, GA
+
+**The owner's answers to section 16 (7 November), as given:**
+
+> R1 a, R2 a, take every other default for now aside for: B7. B; K1. B; K4. B; U1. B; U8. The player needs to select
+> restoration as an active spell, so no need to keybind; A1. C; A2. B; A13. B; A15. B. I'd like the ability to split this work
+> with another agent interacting in the same repo and branch.

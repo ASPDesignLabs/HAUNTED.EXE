@@ -8,7 +8,8 @@ storey (1 November). 1.0.0b13's content (steps 1-8) was built and released as be
 lower storey is now **1.0.0b17**. Later the same day the owner put [`PLAN-play.md`](PLAN-play.md) at 1.0.0b16 and moved
 the rest on again: wherever this plan says 1.0.0b16, the lower storey is now **1.0.0b18**. On 5 November PLAN-play's
 first eight steps went out as 1.0.0b16 and its last two became 1.0.0b17, so the lower storey is now **1.0.0b19**; and when PLAN-ai's showing went out alone as 1.0.0b18 (5 November), the rest of
-the art pass took 1.0.0b19 and the lower storey **1.0.0b20**.
+the art pass took 1.0.0b19 and the lower storey **1.0.0b20**. On 7 November [`PLAN-combat.md`](PLAN-combat.md) took 1.0.0b19, b20
+and b21, so the art pass is now 1.0.0b22 and the lower storey **1.0.0b23**.
 
 **Status: settled (30 October 2026). The owner answered both rounds the same day, and added a sixth thing: a
 reckoning of what is left on a level before you leave it. Written as 1.0.0b12's plan; 1.0.0b12 went out instead as a

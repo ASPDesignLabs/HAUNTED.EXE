@@ -152,7 +152,26 @@ typedef struct {
                                                                       given its ward yet; 1 + each element it is warded against; the
                                                                       damage of that element taken (a fifth of its health cracks it); the
                                                                       dull ring of a warded hit */
+    /* docs/PLAN-combat.md, two tracks on one branch (its section 17): each adds fields only above its own end mark */
+    int elem_on;                                                   /* the attack under way carries its element (section 8): set by C,
+                                                                      read by D's eyes, which flare in its colour */
+    /* the caster's track (C) ends */
+    /* the dead's track (D): */
+    int elem;                                                      /* 1 + the element it was born to (section 7.4), 0 none: set by D,
+                                                                      read by C's attacks */
+    /* the dead's track (D) ends */
 } Mob;
+/* What the two tracks share (docs/PLAN-combat.md, section 17.3). Change any of it only as that section says. The statuses, the
+ * same seven on the caster and on the dead (sections 4-5), and the one each element imparts */
+enum { AF_FIRE, AF_CHILL, AF_FROZEN, AF_STUN, AF_POISON, AF_UNBOUND, AF_DOWN, NAF };
+static inline int af_of(int el) {
+    static const int8_t AF[NELEM] = { AF_FIRE, AF_CHILL, AF_STUN, AF_POISON, AF_UNBOUND, AF_DOWN };
+    return el >= 0 && el < NELEM ? AF[el] : -1;
+}
+/* the dead's track fills these in; the caster's track's attacks call them (an Unbound creature has no element, Bone Thrower,
+ * charge or call; a stunned one no blow, throw or call) */
+static inline int mob_stunned(const Mob *m) { (void)m; return 0; }
+static inline int mob_unbound(const Mob *m) { (void)m; return 0; }
 /* a pack (docs/PLAN-ai.md, sections 5-6): its kind (PA_*), its members, the one that leads it, how many it began with; its
  * state (PAS_*), the one calling and how long the call has to run; when one of it last saw the caster, and where; its
  * turns: those engaged now, their health as their turn began, the one relieved last, and when the turn changes */
@@ -1073,6 +1092,11 @@ static struct {
        and those it has cast into (a bit each) */
     int glance, corner_on, corner_x, corner_y, amb_read, amb_probed;
     float glance_x, glance_y, glance_last, guard_t, corner_cd;
+    /* docs/PLAN-combat.md section 17: each track adds fields only above its own end mark. What is on the caster and must go
+       into a pocket with it belongs in carry_caster's spans instead (the caster's track: by poison_t) */
+    /* the caster's track (C) ends */
+    /* the dead's track (D): */
+    /* the dead's track (D) ends */
 } G;
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
        BP_LITANY };                                 /* the Deacon's censer raised, the green light growing */
@@ -3770,6 +3794,10 @@ static int dodged, flank, spread, feints, fell_back, covers, corner_throws, door
 static int sentinels_woke, chills, nest_calls, gathered, leashed;
 static int glances, glance_finds, amb_read, amb_probes, corners, corners_held;
 static int ways_blocked, lantern_felt, horns, whip_cracks, whip_lashes, wild_hounds, bell_rounds, bell_alarms, bell_heard, bells_frozen, light_felt, lightless_lost, lightless_hits, wisps_struck;
+/* docs/PLAN-combat.md section 17: each track adds its counters only above its own end mark */
+/* the caster's track (C) ends */
+/* the dead's track (D): */
+/* the dead's track (D) ends */
 #endif
 static int hurt_by(const Mob *m, float dmg, int kind) {
     G.blame = blame_of(m); last_set = m->set;

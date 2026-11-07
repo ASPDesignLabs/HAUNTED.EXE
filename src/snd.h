@@ -99,6 +99,10 @@ enum {
     SFX_THRUM,          /* a web plucked: a low thrum shivering, a dry tick or two (the nest) */
     SFX_RATTLE,         /* the dead turning their heads: bones settling, the jaw's click */
     SFX_SNUFF,          /* a beast snuffling the air: three short breaths in */
+    /* docs/PLAN-combat.md, two tracks on one branch (its section 17): each adds only above its own end mark */
+    /* the caster's track (C) ends */
+    /* the dead's track (D): */
+    /* the dead's track (D) ends */
     SFX_COUNT
 };
 
