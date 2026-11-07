@@ -3160,6 +3160,7 @@ static float torch_flicker(const Light *L) {
 static void tri_dark(void);
 static float lm_at(float x, float y);
 static int gift_due(void);
+static void ward_lights(void);
 static void build_lightmap(void) {
     float ambient = G.shop ? 0.06f : (PK.depth ? (G.ptheme == PT_SEVERANCE ? 0.16f : 0.08f) : 0.06f - 0.012f * depth());   /* the dark itself deepens, set by set; not in a pocket */
     for (int i = 0; i < LMN * LMN; i++) G.lm[i] = ambient;
@@ -3197,6 +3198,7 @@ static void build_lightmap(void) {
     for (int i = 0; i < G.nitems && !G.shop; i++)                  /* a won trial's hoard: its own light, a flare as it comes (1.0.0b18.1) */
         if (G.items[i].alive && G.items[i].type == IT_CHEST && G.items[i].color == TRI_REWARD)
             light_dynamic_ex(G.items[i].x, G.items[i].y, 0.75f + 0.2f * sinf((float)G.t * 2.4f) + 1.4f * (1.0f - smoothstepf(0.0f, 1.2f, G.tri_end)), 2.6f, 1);
+    ward_lights();                                                 /* a lit soul-lamp's (1.0.0b18.1) */
     for (int k = 0; k < 3 && G.fwall_t > 0.0f; k++) {
         float an = (float)G.t * 2.2f + (float)k * TAU_F / 3.0f;
         light_dynamic(G.px + cosf(an) * 1.2f, G.py + sinf(an) * 1.2f, 0.7f, 2.6f);
@@ -6552,6 +6554,97 @@ static float mob_time(Mob *m, float dt) {
     return dt * k;
 }
 
+/* ---- the soul-lamps' ward (1.0.0b18.1, docs/PLAN-b18-1.md section 6) ----
+ * A lamp by each challenge (a trial's room, a puzzle's ground and wing, a sequence of things that want a spell); a soul
+ * offered buys two minutes of it, five at most banked, burning only while the Wraith is on the level. While one burns its
+ * ground, and a ring of a cell round it, is stone to the Wraith: it goes round, or, with you inside, to the edge nearest you
+ * and along it as you move. Kept outside G, so a pocket leaves it as it was, and made again with each level. */
+#define MAXWL 8
+#define WARD_SOUL_T 120.0f                  /* a soul's worth of ward */
+#define WARD_MAX 5                          /* souls a lamp holds */
+enum { WLK_TRIAL, WLK_PUZZLE, WLK_SEQ };
+typedef struct {
+    int kind, cx, cy, d, deco;              /* what it guards; the floor cell before it, the wall it hangs on (DX, DY); its decoration */
+    float banked;                           /* seconds of ward left in it */
+    int said, offered;                      /* its words said once; souls the dream has put in */
+} WLamp;
+static struct {
+    int n, mask;                            /* lamps; the bits of those burning */
+    WLamp l[MAXWL];
+    uint8_t cell[MAPN][MAPN];               /* a bit for each lamp's ground, its ring with it */
+    int16_t field[MAPN][MAPN], out[MAPN][MAPN];   /* while one burns: the Wraith's way to you round them; steps out of them */
+    float field_t, hiss_t, flare_t, flare_x, flare_y, offer_t;   /* the field's next making; the hiss; the edge's flare and where; the dream's look */
+    int at_edge, said_held;                 /* the Wraith held at an edge; that said once */
+} WD;
+static int wraith_barred(int x, int y) { return !PK.depth && x >= 0 && y >= 0 && x < MAPN && y < MAPN && (WD.cell[y][x] & WD.mask); }
+static int wraith_h(int x, int y) {                                /* the field the Wraith goes down: the ward's while one burns */
+    if (x < 0 || y < 0 || x >= MAPN || y >= MAPN) return -1;
+    return WD.mask && !PK.depth ? WD.field[y][x] : hunt[y][x];
+}
+static void ward_field(void) {                                     /* from you, round what is warded; from its edge, with you inside it */
+    static int qx[MAPN * MAPN], qy[MAPN * MAPN], sv[MAPN * MAPN], sx[MAPN * MAPN], sy[MAPN * MAPN];
+    int qh = 0, qt = 0, ns = 0;
+    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) { WD.field[y][x] = -1; WD.out[y][x] = wraith_barred(x, y) ? -1 : 0; }
+    int cx = (int)G.px, cy = (int)G.py;
+    if (!wraith_barred(cx, cy)) { sx[0] = cx; sy[0] = cy; sv[0] = 0; ns = 1; }
+    else
+        for (int y = 1; y < MAPN - 1; y++)                         /* every open cell at the edge, by its distance from you */
+            for (int x = 1; x < MAPN - 1; x++) {
+                if (wraith_barred(x, y) || !hunt_pass(x, y)) continue;
+                int edge = 0;
+                for (int k = 0; k < 4; k++) edge |= wraith_barred(x + DX[k], y + DY[k]);
+                if (!edge) continue;
+                sx[ns] = x; sy[ns] = y; sv[ns] = (int)(hypotf(x + 0.5f - G.px, y + 0.5f - G.py) + 0.5f); ns++;
+            }
+    for (int a = 1; a < ns; a++)                                   /* nearest first */
+        for (int b = a; b > 0 && sv[b] < sv[b - 1]; b--) { int t = sv[b]; sv[b] = sv[b - 1]; sv[b - 1] = t; t = sx[b]; sx[b] = sx[b - 1]; sx[b - 1] = t; t = sy[b]; sy[b] = sy[b - 1]; sy[b - 1] = t; }
+    int si = 0;
+    for (;;) {                                                     /* a breadth-first walk, the seeds let in as their distance comes */
+        while (si < ns && (qh == qt || sv[si] <= WD.field[qy[qh]][qx[qh]])) {
+            if (WD.field[sy[si]][sx[si]] < 0) { WD.field[sy[si]][sx[si]] = (int16_t)sv[si]; qx[qt] = sx[si]; qy[qt] = sy[si]; qt++; }
+            si++;
+        }
+        if (qh == qt) break;
+        int x = qx[qh], y = qy[qh]; qh++;
+        for (int k = 0; k < 4; k++) {
+            int nx = x + DX[k], ny = y + DY[k];
+            if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || WD.field[ny][nx] >= 0 || !hunt_pass(nx, ny) || wraith_barred(nx, ny)) continue;
+            WD.field[ny][nx] = (int16_t)(WD.field[y][x] + 1); qx[qt] = nx; qy[qt] = ny; qt++;
+        }
+    }
+    qh = qt = 0;                                                   /* and inside: steps to the nearest cell outside */
+    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (WD.out[y][x] == 0 && hunt_pass(x, y)) { qx[qt] = x; qy[qt] = y; qt++; }
+    while (qh < qt) {
+        int x = qx[qh], y = qy[qh]; qh++;
+        for (int k = 0; k < 4; k++) {
+            int nx = x + DX[k], ny = y + DY[k];
+            if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || WD.out[ny][nx] >= 0 || !hunt_pass(nx, ny)) continue;
+            WD.out[ny][nx] = (int16_t)(WD.out[y][x] + 1); qx[qt] = nx; qy[qt] = ny; qt++;
+        }
+    }
+}
+static int ward_step_out(Mob *m) {                                 /* the Wraith caught inside as a lamp is lit: out, the shortest way */
+    if (!wraith_barred(m->cx, m->cy) || WD.out[m->cy][m->cx] < 0) return 0;
+    int best = -1, bo = WD.out[m->cy][m->cx];
+    for (int k = 0; k < 4; k++) {
+        int nx = m->cx + DX[k], ny = m->cy + DY[k];
+        if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || !hunt_pass(nx, ny) || WD.out[ny][nx] < 0 || WD.out[ny][nx] >= bo) continue;
+        bo = WD.out[ny][nx]; best = k;
+    }
+    if (best < 0) return 0;
+    if (m->sub != 1) wraith_back_for(m, 1.6f);                     /* driven as by fire, a recoil once, */
+    else m->sub_t = fmaxf(0.0f, m->sub_t - 1.2f);                  /* and kept driven a step at a time till it is out */
+    const Cell *c = cell(m->cx + DX[best], m->cy + DY[best]);
+    if (c->kind == K_DOOR && G.doors[c->door].open < 0.9f) { if (!G.doors[c->door].opening) G.doors[c->door].opening = 1; return 1; }
+    m->tx = m->cx + DX[best]; m->ty = m->cy + DY[best];
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ward_driven to (%d,%d) t=%.2f\n", m->tx, m->ty, G.t);
+#endif
+    return 1;
+}
+
+static void ward_make(void);
+static void ward_tick(float dt);
 /* The Wraith: from level 9, once a level, after about four minutes there, from the far end. It walks
  * the halls as you do, solid, down the hunt field, and pulls doors open. It can't be killed: fire,
  * the wisp's light close by, and Dread drive it back for a while; then it comes on again. Its touch
@@ -6592,10 +6685,11 @@ static void update_wraith(Mob *m, float dt) {
     if (d > step) { m->x += dx / d * step; m->y += dy / d * step; return; }
     m->x = gx; m->y = gy; m->cx = m->tx; m->cy = m->ty;
     if (G.dead || G.exiting) return;
-    int here = hunt[m->cy][m->cx], best = -1; float bs = -1e9f;
+    if (ward_step_out(m)) return;                                  /* a soul-lamp lit with it inside: out (1.0.0b18.1) */
+    int here = wraith_h(m->cx, m->cy), best = -1; float bs = -1e9f;   /* (the ward's field while a lamp burns) */
     for (int k = 0; k < 4; k++) {
-        int nx = m->cx + DX[k], ny = m->cy + DY[k], h = hunt[ny][nx];
-        if (h < 0 || occupied(nx, ny, m)) continue;
+        int nx = m->cx + DX[k], ny = m->cy + DY[k], h = wraith_h(nx, ny);
+        if (h < 0 || occupied(nx, ny, m) || wraith_barred(nx, ny)) continue;
         if (here >= 0 && (m->sub == 1 ? h <= here : h >= here)) continue;   /* down the field coming, up it going */
         float s = rndf() * 0.3f + (here < 0 ? -hypotf(nx + 0.5f - G.px, ny + 0.5f - G.py) : 0.0f);
         if (s > bs) { bs = s; best = k; }
@@ -11955,6 +12049,7 @@ static void start_level(void) {
     place_rests();                                                 /* the places to mend (1.0.0b15) */
     place_marked();                                                /* things that want a spell (1.0.0b16) */
     place_fights();                                                /* and things for fights (step 8) */
+    ward_make();                                                   /* a soul-lamp by each challenge, out (1.0.0b18.1) */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_THINGS")) things_test();
 #endif
@@ -16651,6 +16746,276 @@ static void tri_place(void) {
     fprintf(stderr, "TRIAL level %d: %s room %d door (%d,%d) in at (%d,%d)\n", G.level, TRI_NAME[G.tri], G.tri_room, dr->x, dr->y, G.tri_ix, G.tri_iy);
 #endif
 }
+/* ---- the soul-lamps, laid with the level and lit by souls (1.0.0b18.1, docs/PLAN-b18-1.md section 6) ---- */
+static int ward_wraith(void) {                                     /* the Wraith on the level: 1 + its place, or 0 */
+    for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && G.mobs[i].type == MOB_WRAITH && !G.mobs[i].boss) return i + 1;
+    return 0;
+}
+static int ward_level(void) {                                      /* a level the Wraith comes to */
+    return !G.shop && !PK.depth && G.boss < 0 && !crawl_boss(G.level) && (G.level >= KINDS[MOB_WRAITH].debut || crawl_loop(G.level) > 0);
+}
+static float ward_due(void) {                                      /* seconds till it comes: 0 come, 1e9 not this level */
+    if (ward_wraith()) return 0.0f;
+    if (G.wraith_done || !ward_level()) return 1e9f;
+    float at = 240.0f;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_WRAITH")) at = (float)atof(getenv("CRAWL_WRAITH"));
+#endif
+    return fmaxf(0.0f, at - (float)G.level_t);
+}
+static void ward_spread(int bit, int x0, int y0, int reach) {      /* every open cell within reach steps of a place */
+    static int16_t d[MAPN][MAPN];
+    static int q[MAPN * MAPN];
+    if (reach < 0 || x0 < 1 || y0 < 1 || x0 >= MAPN - 1 || y0 >= MAPN - 1) return;
+    if (!is_open(x0, y0)) {                                        /* a thing in the wall: from the floor before it */
+        for (int k = 0; k < 4; k++) if (is_open(x0 + DX[k], y0 + DY[k])) ward_spread(bit, x0 + DX[k], y0 + DY[k], reach - 1);
+        return;
+    }
+    memset(d, 0xff, sizeof d);
+    int qh = 0, qt = 0;
+    d[y0][x0] = 0; q[qt++] = y0 * MAPN + x0;
+    while (qh < qt) {
+        int x = q[qh] % MAPN, y = q[qh] / MAPN; qh++;
+        WD.cell[y][x] |= (uint8_t)bit;
+        if (d[y][x] >= reach) continue;
+        for (int k = 0; k < 4; k++) {
+            int nx = x + DX[k], ny = y + DY[k];
+            if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || d[ny][nx] >= 0 || !is_open(nx, ny)) continue;
+            d[ny][nx] = (int16_t)(d[y][x] + 1); q[qt++] = ny * MAPN + nx;
+        }
+    }
+}
+static int ward_area_n(int bit) { int n = 0; for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) n += (WD.cell[y][x] & bit) != 0; return n; }
+static void ward_ring(int bit) {                                   /* the cells about it, corners too, through floor and doorways */
+    static uint8_t add[MAPN][MAPN];
+    memset(add, 0, sizeof add);
+    for (int y = 1; y < MAPN - 1; y++)
+        for (int x = 1; x < MAPN - 1; x++) {
+            if (!(WD.cell[y][x] & bit)) continue;
+            for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) if (is_open(x + i, y + j) && !(WD.cell[y + j][x + i] & bit)) add[y + j][x + i] = 1;
+        }
+    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (add[y][x]) WD.cell[y][x] |= (uint8_t)bit;
+}
+/* its lamp, hung on a wall near a place: want steps from it if it can */
+static int ward_hang(int kind, int ax, int ay, int want) {
+    static int16_t d[MAPN][MAPN];
+    static int q[MAPN * MAPN];
+    if (WD.n >= MAXWL || G.ndecos >= MAXDECO || ax < 1 || ay < 1 || ax >= MAPN - 1 || ay >= MAPN - 1) return 0;
+    memset(d, 0xff, sizeof d);
+    int qh = 0, qt = 0, bx = -1, by = -1, bk = 0;
+    float bs = 1e9f;
+    d[ay][ax] = 0; q[qt++] = ay * MAPN + ax;
+    while (qh < qt) {
+        int x = q[qh] % MAPN, y = q[qh] / MAPN; qh++;
+        if (cell(x, y)->kind == K_FLOOR && !in_band(y) && !in_trial(x, y) && !in_wing(x, y))   /* never shut away behind the door it guards */
+            for (int k = 0; k < 4; k++) {
+                const Cell *w = cell(x + DX[k], y + DY[k]);
+                if (w->kind != K_WALL || w->secret || w->ftorch || w->fover[(k + 2) & 3]) continue;   /* bare stone, not a secret's */
+                float px = x + 0.5f + DX[k] * 0.40f, py = y + 0.5f + DY[k] * 0.40f, s = (float)(abs(d[y][x] - want) * 4 + d[y][x]) + k * 0.01f;
+                int clash = 0;
+                for (int i = 0; i < G.ndecos && !clash; i++) clash = G.decos[i].spr >= 0 && hypotf(G.decos[i].x - px, G.decos[i].y - py) < 0.7f;
+                for (int i = 0; i < WD.n && !clash; i++) clash = hypotf(G.decos[WD.l[i].deco].x - px, G.decos[WD.l[i].deco].y - py) < 1.5f;
+                if (!clash && s < bs) { bs = s; bx = x; by = y; bk = k; }
+            }
+        if (d[y][x] >= 4) continue;
+        for (int k = 0; k < 4; k++) {
+            int nx = x + DX[k], ny = y + DY[k];
+            if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || d[ny][nx] >= 0 || !is_open(nx, ny)) continue;
+            d[ny][nx] = (int16_t)(d[y][x] + 1); q[qt++] = ny * MAPN + nx;
+        }
+    }
+    if (bx < 0) return 0;
+    WLamp *L = &WD.l[WD.n++];
+    memset(L, 0, sizeof *L);
+    L->kind = kind; L->cx = bx; L->cy = by; L->d = bk; L->deco = G.ndecos;
+    G.decos[G.ndecos++] = (Deco){ bx + 0.5f + DX[bk] * 0.40f, by + 0.5f + DY[bk] * 0.40f, 0.0f, SP_WLAMP0 + 3 * (crawl_set(G.level) & 3), 1, 0 };   /* no draw on the dice */
+    return 1;
+}
+static void ward_lights(void) {                                    /* a lit lamp's light, for the lightmap */
+    for (int i = 0; i < WD.n && !G.shop && !PK.depth; i++)
+        if (WD.l[i].banked > 0.0f) light_dynamic(G.decos[WD.l[i].deco].x, G.decos[WD.l[i].deco].y, 0.5f + 0.06f * sinf((float)G.t * 5.0f + (float)i), 2.6f);
+}
+static int seq_kind(int k) { return k == MKK_TABLET || k == MKK_PLINTH || k == MKK_RELIQ || k == MKK_WSTONE || k == MKK_RELAY; }
+static int seq_key(int i) { return G.mk[i].grp ? G.mk[i].grp : i + 1; }
+/* each challenge's ground, a ring round it and its lamp, once the level is made; nothing yet lit */
+static void ward_make(void) {
+    memset(&WD, 0, sizeof WD);
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_WARD") && !atoi(getenv("CRAWL_WARD"))) return;
+#endif
+    if (!ward_level()) return;                                     /* the Wraith never comes here: no lamps to light */
+    for (int c = 0; c < 2 + MAXMK && WD.n < MAXWL; c++) {
+        int bit = 1 << WD.n, kind = -1, ax = -1, ay = -1, want = 1;
+        if (c == 0 && G.tri >= 0 && G.tri_room >= 0 && G.tri_wx >= 0) {   /* a trial: its room; the lamp beside its lights */
+            for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (in_trial(x, y) && is_open(x, y)) WD.cell[y][x] |= (uint8_t)bit;
+            kind = WLK_TRIAL; ax = G.tri_wx; ay = G.tri_wy; want = 2;
+        } else if (c == 1 && G.pz >= 0 && G.pz_room >= 0 && G.pz_door >= 0 && G.pz_wx >= 0) {   /* a puzzle: its wing, the ground its pieces lie on */
+            for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (in_wing(x, y) && is_open(x, y)) WD.cell[y][x] |= (uint8_t)bit;
+            ward_spread(bit, G.doors[G.pz_door].x, G.doors[G.pz_door].y, 2);
+            for (int i = 0; i < G.nthing; i++) if (!G.thing[i].tri) ward_spread(bit, G.thing[i].cx, G.thing[i].cy, 2);
+            kind = WLK_PUZZLE; ax = G.pz_wx; ay = G.pz_wy; want = 1;
+        } else if (c >= 2 && c - 2 < G.nmk && seq_kind(G.mk[c - 2].kind)) {   /* a sequence: about its pieces, the lamp by its first */
+            int i = c - 2, key = seq_key(i), seen = 0;
+            for (int j = 0; j < i; j++) seen |= seq_kind(G.mk[j].kind) && seq_key(j) == key;
+            if (seen) continue;
+            for (int j = 0; j < G.nmk; j++) if (seq_key(j) == key) ward_spread(bit, (int)G.mk[j].x, (int)G.mk[j].y, 2);
+            kind = WLK_SEQ; ax = (int)G.mk[i].x; ay = (int)G.mk[i].y; want = 1;
+            if (!is_open(ax, ay)) for (int k = 0; k < 4; k++) if (is_open((int)G.mk[i].x + DX[k], (int)G.mk[i].y + DY[k])) { ax = (int)G.mk[i].x + DX[k]; ay = (int)G.mk[i].y + DY[k]; break; }
+        }
+        if (kind < 0) continue;
+        ward_ring(bit);
+        if (!ward_area_n(bit) || !ward_hang(kind, ax, ay, want))   /* nowhere to hang it: no ward there */
+            for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) WD.cell[y][x] &= (uint8_t)~bit;
+    }
+#ifdef CRAWL_DEBUG
+    static const char *const WK[3] = { "trial", "puzzle", "sequence" };
+    for (int i = 0; i < WD.n; i++)
+        fprintf(stderr, "WARD level %d: lamp %d for the %s at (%d,%d) on the wall %d, %d cells\n", G.level, i, WK[WD.l[i].kind], WD.l[i].cx, WD.l[i].cy, WD.l[i].d, ward_area_n(1 << i));
+    if (getenv("CRAWL_WARDMAP"))                                   /* the ward's cells by lamp, the lamps, the things */
+        for (int y = 0; y < MAPN; y++) {
+            char row[MAPN + 1];
+            for (int x = 0; x < MAPN; x++) {
+                int b = WD.cell[y][x], c = cell(x, y)->kind;
+                row[x] = c == K_WALL ? '#' : c == K_DOOR ? '+' : b ? (char)('0' + __builtin_ctz((unsigned)b)) : '.';
+                for (int i = 0; i < WD.n; i++) if (WD.l[i].cx == x && WD.l[i].cy == y) row[x] = 'L';
+                for (int i = 0; i < G.nthing; i++) if (G.thing[i].cx == x && G.thing[i].cy == y) row[x] = 'T';
+                for (int i = 0; i < G.nmk; i++) if ((int)G.mk[i].x == x && (int)G.mk[i].y == y) row[x] = 'M';
+            }
+            row[MAPN] = 0;
+            fprintf(stderr, "WARDMAP %2d %s\n", y, row);
+        }
+    if (getenv("CRAWL_WARDLIT"))                                   /* testing: every lamp lit with n souls, none paid */
+        for (int i = 0; i < WD.n; i++) { WD.l[i].banked = WARD_SOUL_T * (float)clampi(atoi(getenv("CRAWL_WARDLIT")), 1, WARD_MAX); WD.mask |= 1 << i; G.decos[WD.l[i].deco].spr++; G.decos[WD.l[i].deco].nfr = 2; }
+#endif
+}
+static void ward_light(int i, int on) {                            /* its flame, and the bit that bars the Wraith */
+    Deco *dc = &G.decos[WD.l[i].deco];
+    int base = SP_WLAMP0 + 3 * (crawl_set(G.level) & 3);
+    dc->spr = on ? base + 1 : base; dc->nfr = on ? 2 : 1;
+    if (on) WD.mask |= 1 << i; else WD.mask &= ~(1 << i);
+    WD.field_t = 0.0f;
+}
+static int ward_offer(int i, int dream) {                          /* a soul for two minutes of it */
+    WLamp *L = &WD.l[i];
+    const Deco *dc = &G.decos[L->deco];
+    if (L->banked > (float)(WARD_MAX - 1) * WARD_SOUL_T + 0.5f) { if (!dream) { say("THE LAMP HOLDS NO MORE"); snd_sfx_ex(SFX_KNOCK, 0.35f, 0.5f); } return 0; }
+    if (spirit() < 1.0f || !spend_spirit(1.0f)) { if (!dream) { say("THE LAMP WANTS A WHOLE SOUL"); snd_sfx_ex(SFX_KNOCK, 0.35f, 0.5f); } return 0; }
+    int was = L->banked > 0.0f;
+    L->banked += WARD_SOUL_T;
+    if (dream) L->offered++;
+    if (!was) ward_light(i, 1);
+    sfx_at(SFX_IGNITE, dc->x, dc->y, 0.7f);
+    if (!dream) {
+        int min = (int)ceilf(L->banked / 60.0f - 1e-3f);
+        if (ward_wraith()) say("THE WARD HOLDS: %d MINUTES", min); else say("%d MINUTES, FROM THE WRAITH'S COMING", min);
+    }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ward_offer lamp %d %s banked %.0f s spirit %.1f t=%.2f\n", i, dream ? "dream" : "person", L->banked, spirit(), G.t);
+    if (!was) fprintf(stderr, "EVENT ward_lit lamp %d t=%.2f\n", i, G.t);
+#endif
+    return 1;
+}
+static int ward_facing(void) {                                     /* the lamp a person stands before and looks at */
+    int best = -1; float ba = 0.6f;
+    for (int i = 0; i < WD.n; i++) {
+        const Deco *dc = &G.decos[WD.l[i].deco];
+        if (hypotf(dc->x - G.px, dc->y - G.py) > 1.7f) continue;
+        float a = fabsf(wrap_pi(atan2f(dc->y - G.py, dc->x - G.px) - G.ang));
+        if (a < ba) { ba = a; best = i; }
+    }
+    return best;
+}
+static int ward_undone(int i) {                                    /* its challenge still waits to be met */
+    const WLamp *L = &WD.l[i];
+    if (L->kind == WLK_TRIAL) return G.tri >= 0 && G.tri_state == TRS_SHUT;
+    if (L->kind == WLK_PUZZLE) return G.pz >= 0 && !G.pz_solved;
+    for (int j = 0; j < G.nmk; j++) if (seq_kind(G.mk[j].kind) && (WD.cell[(int)G.mk[j].y][(int)G.mk[j].x] >> i & 1) && !G.mk[j].done) return 1;
+    for (int j = 0; j < G.nmk; j++)                                /* a piece in the wall: by the floor before it */
+        if (seq_kind(G.mk[j].kind) && !G.mk[j].done && hypotf(G.mk[j].x - (L->cx + 0.5f), G.mk[j].y - (L->cy + 0.5f)) < 2.5f) return 1;
+    return 0;
+}
+/* the clock, the field, a person's offering, the dream's, the Wraith held at the edge */
+static void ward_tick(float dt) {
+    if (PK.depth || G.shop || !WD.n || dt <= 0.0f) return;
+    int wi = ward_wraith();
+    for (int i = 0; i < WD.n; i++) {                               /* the clock burns only while the Wraith walks the level */
+        WLamp *L = &WD.l[i];
+        if (L->banked <= 0.0f || !wi) continue;
+        if ((L->banked -= dt) > 0.0f) continue;
+        L->banked = 0.0f;
+        ward_light(i, 0);
+        sfx_at(SFX_WIND, G.decos[L->deco].x, G.decos[L->deco].y, 0.6f);
+        if (G.player) say("A SOUL-LAMP GOES OUT");
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT ward_out lamp %d t=%.2f\n", i, G.t);
+#endif
+    }
+    if (WD.mask && (WD.field_t -= dt) <= 0.0f) { ward_field(); WD.field_t = 0.5f; }
+    WD.flare_t = fmaxf(0.0f, WD.flare_t - dt / 1.2f);
+    int held = 0;
+    if (wi && WD.mask && !G.dead) {                                /* held at the edge: a hiss, the line flaring where it stands */
+        Mob *m = &G.mobs[wi - 1];
+        int hx = -1, hy = -1;
+        for (int k = 0; k < 4 && hx < 0; k++) if (wraith_barred(m->cx + DX[k], m->cy + DY[k])) { hx = m->cx + DX[k]; hy = m->cy + DY[k]; }
+        held = hx >= 0 && m->sub != 1 && !wraith_barred(m->cx, m->cy) && hypotf(m->x - G.px, m->y - G.py) < 8.0f;
+        if (held && !WD.at_edge) {
+            WD.hiss_t = 0.0f;
+            if (G.player && !WD.said_held) { WD.said_held = 1; say("THE WRAITH CANNOT PASS THE WARD"); }
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT ward_held at (%d,%d) t=%.2f\n", m->cx, m->cy, G.t);
+#endif
+        }
+        if (held && (WD.hiss_t -= dt) <= 0.0f) {
+            WD.hiss_t = 3.0f;
+            sfx_at(SFX_HISS, m->x, m->y, 0.45f);
+            WD.flare_t = 1.0f; WD.flare_x = (m->cx + hx) * 0.5f + 0.5f; WD.flare_y = (m->cy + hy) * 0.5f + 0.5f;
+        }
+    }
+    WD.at_edge = held;
+#ifdef CRAWL_DEBUG
+    if (wi) {                                                      /* a check: it never walks into a lit ward from outside */
+        static int lx = -1, ly = -1, lw = -1;
+        const Mob *m = &G.mobs[wi - 1];
+        if (lw == wi && (lx != m->cx || ly != m->cy) && lx >= 0 && !wraith_barred(lx, ly) && wraith_barred(m->cx, m->cy))
+            fprintf(stderr, "EVENT ward_breach (%d,%d) to (%d,%d) t=%.2f\n", lx, ly, m->cx, m->cy, G.t);
+        lx = m->cx; ly = m->cy; lw = wi;
+        static double tr_t;
+        if (getenv("CRAWL_WARDTRACE") && G.t - tr_t >= 1.0) {
+            tr_t = G.t;
+            fprintf(stderr, "WARD trace t=%.1f wraith (%.2f,%.2f) sub %d field %d, you (%.2f,%.2f) ang %.2f inside %d, apart %.2f, mask %d banked %.0f hp %d/%d\n", G.t, m->x, m->y,
+                    m->sub, wraith_h(m->cx, m->cy), G.px, G.py, G.ang, wraith_barred((int)G.px, (int)G.py), hypotf(m->x - G.px, m->y - G.py), WD.mask, WD.n ? WD.l[0].banked : 0.0f, G.hp, G.max_hp);
+        }
+    }
+#endif
+    if (G.player && !G.dead) {
+        if (IN.hit[KEY_E] && thing_facing() < 0) { int i = ward_facing(); if (i >= 0) { IN.hit[KEY_E] = 0; ward_offer(i, 0); } }   /* E at it: a soul (a puzzle's piece first) */
+        for (int i = 0; i < WD.n && G.msg_t <= 0.4f; i++) {        /* its words, once a level, when first seen near */
+            WLamp *L = &WD.l[i];
+            const Deco *dc = &G.decos[L->deco];
+            if (L->said || hypotf(dc->x - G.px, dc->y - G.py) > 3.0f || fabsf(wrap_pi(atan2f(dc->y - G.py, dc->x - G.px) - G.ang)) > 0.8f
+                || !line_clear(G.px, G.py, L->cx + 0.5f, L->cy + 0.5f)) continue;
+            L->said = 1;
+            say("%s", pkp("A SOUL-LAMP   E: OFFER A SOUL"));
+        }
+        return;
+    }
+    if (G.dead || (WD.offer_t -= dt) > 0.0f) return;               /* the dream (W3 a): what the challenge wants, as it comes to it */
+    WD.offer_t = 0.5f;
+    float due = ward_due();
+    int ccx = (int)G.px, ccy = (int)G.py;
+    for (int i = 0; i < WD.n; i++) {
+        WLamp *L = &WD.l[i];
+        const Deco *dc = &G.decos[L->deco];
+        if (!ward_undone(i)) continue;
+        int inside = WD.cell[ccy][ccx] >> i & 1, near = hypotf(dc->x - G.px, dc->y - G.py) < 2.5f && line_clear(G.px, G.py, L->cx + 0.5f, L->cy + 0.5f);
+        int coming = L->kind == WLK_TRIAL ? near : inside || near;
+        if (L->banked <= 0.0f && !L->offered && coming && due < 60.0f && spirit() >= 15.0f) {
+            int want = L->kind == WLK_TRIAL ? 1 : 2;
+            for (int k = 0; k < want && spirit() >= 11.0f; k++) ward_offer(i, 1);   /* never under ten */
+        } else if (wi && inside && L->banked > 0.0f && L->banked < 60.0f && L->offered < WARD_MAX && spirit() >= 11.0f)
+            ward_offer(i, 1);                                      /* and one more as it burns low */
+    }
+}
 /* the dream at a trial: in, when it has found the door and two thirds of its health; then what each asks */
 static int tri_next(int *a) {
     *a = -1;
@@ -17886,6 +18251,7 @@ static void crawl_update(double dt) {
         if (G.tally) G.fade = smoothstepf(0.0f, 0.4f, (float)G.tally_t) * (1.0f - smoothstepf(TALLY_END - 0.7f, TALLY_END, (float)G.tally_t));
         return;
     }
+    ward_tick(fdt);                                                /* the soul-lamps (1.0.0b18.1) */
     float ox = G.px, oy = G.py;
     int still = 0;
 #ifdef CRAWL_DEBUG
@@ -17957,7 +18323,7 @@ static void crawl_update(double dt) {
         && !G.tally && !G.exiting && (G.wraith_try -= fdt) <= 0.0f) {
         int x, y;
         G.wraith_try = 5.0f;
-        if (pick_cell_at_depth(G.cx, G.cy, 20, 400, 1, &x, &y)) {
+        if (pick_cell_at_depth(G.cx, G.cy, 20, 400, 1, &x, &y) && !wraith_barred(x, y)) {   /* (never inside a soul-lamp's ward) */
             Mob *m = spawn_mob(x, y, MOB_WRAITH);
             if (m) { m->alert = 1e9f; G.wraith_done = 1; G.wraith_now = 0; sfx_at(SFX_WAIL, x + 0.5f, y + 0.5f, 3.0f); wraith_chill(m); }
 #ifdef CRAWL_DEBUG
@@ -20654,6 +21020,12 @@ static void crawl_control(int what) {
         if (best >= 0.0f) { G.px = tx; G.py = ty; G.cx = G.tx = (int)tx; G.cy = G.ty = (int)ty; G.ang = atan2f(G.ped_y[k] - ty, G.ped_x[k] - tx); }
         fprintf(stderr, "TPPED %d of %d at (%.2f,%.2f) ang %.3f\n", k + 1, G.ped_n, G.px, G.py, G.ang);
     }
+    if (getenv("CRAWL_TPWARD") && !G.shop && WD.n) {               /* testing: before soul-lamp k, facing it (1.0.0b18.1) */
+        const WLamp *L = &WD.l[clampi(atoi(getenv("CRAWL_TPWARD")) - 1, 0, WD.n - 1)];
+        G.px = L->cx + 0.5f - DX[L->d] * 0.1f; G.py = L->cy + 0.5f - DY[L->d] * 0.1f; G.cx = G.tx = L->cx; G.cy = G.ty = L->cy;
+        G.ang = atan2f((float)DY[L->d], (float)DX[L->d]);
+        fprintf(stderr, "TPWARD lamp %d at (%.2f,%.2f) ang %.3f\n", (int)(L - WD.l), G.px, G.py, G.ang);
+    }
     if (getenv("CRAWL_TPEXIT") && !G.shop && G.exit_fx >= 0) tp_exit();    /* testing: straight to the exit, facing it */
     if (getenv("CRAWL_TPSECRET") && !G.shop && G.nsecrets) tp_secret(atoi(getenv("CRAWL_TPSECRET")) % G.nsecrets);
     if (getenv("CRAWL_TPALTAR") && !G.shop) tp_altar();
@@ -22712,7 +23084,8 @@ enum { FM_NONE, FM_SHADOW, FM_CRACK, FM_FIRE, FM_EMBER, FM_SHEEN, FM_BILE, FM_VR
        FM_OMEN, FM_OMEN_CELL, FM_OMEN_ARC,                      /* Premonition's zones: round, a cell's worth, a blade's fan */
        FM_VAPOUR, FM_WAX, FM_RIME, FM_SURGE, FM_SPARK, FM_BUBBLE, FM_POOL, FM_DUST, FM_SHIMMER, FM_SRING, FM_ASH, FM_STAR,
        FM_CHALK, FM_HAZE,                                       /* the runs' own (1.0.0b13) */
-       FM_PLATE, FM_PIPE };                                     /* a puzzle's flagstone, stone or glass, and its channels (1.0.0b13) */
+       FM_PLATE, FM_PIPE,                                       /* a puzzle's flagstone, stone or glass, and its channels (1.0.0b13) */
+       FM_WARD };                                               /* a soul-lamp's ward, at its edge (1.0.0b18.1) */
 typedef struct { uint8_t kind, prio; float k, ax, ay, r, ang; } FMark;
 static FMark fmark[MAPN][MAPN];
 static void fm_set(int x, int y, int kind, int prio, float k, float ax, float ay, float r, float ang) {
@@ -22808,6 +23181,17 @@ static int omen_marks(void) {                                      /* Premonitio
     }
     return any;
 }
+static int ward_marks(void) {                                      /* the soul-lamps' ward, where it meets the open floor */
+    int any = 0;
+    for (int y = 1; y < MAPN - 1; y++)
+        for (int x = 1; x < MAPN - 1; x++) {
+            if (!wraith_barred(x, y) || fmark[y][x].kind != FM_NONE || G.map[y][x].kind != K_FLOOR) continue;
+            int edge = 0;
+            for (int k = 0; k < 4; k++) edge |= !wraith_barred(x + DX[k], y + DY[k]) && is_open(x + DX[k], y + DY[k]);
+            if (edge) { fm_set(x, y, FM_WARD, 0, 1.0f, WD.flare_x, WD.flare_y, WD.flare_t, 0.0f); any = 1; }
+        }
+    return any;
+}
 static int hz_marks(void) {
     memset(fmark, 0, sizeof fmark);
     if (G.shop) return 0;
@@ -22865,6 +23249,7 @@ static int hz_marks(void) {
         if (t->role == TR_PLATE) { fm_set(t->cx, t->cy, FM_PLATE, 1, t->on ? 1.0f : 0.0f, (float)t->look, (float)t->mark, (float)t->state, 0.0f); any = 1; }
         else if (t->role == TR_TURN && t->spr < 0) { fm_set(t->cx, t->cy, FM_PIPE, 1, (float)t->look, (float)pipe_mask(t->val, t->state), (float)i, 0.0f, 0.0f); any = 1; }
     }
+    if (WD.mask && !PK.depth) any |= ward_marks();                 /* the soul-lamps' ward, under all the rest (1.0.0b18.1) */
     return any;
 }
 /* one floor pixel under a mark: returns a colour drawn as it is (bright, or the void's dark), or -1 to
@@ -23066,6 +23451,16 @@ static int fm_pixel(const FMark *m, float wx, float wy, float fx, float fy, int 
         if (on_edge) return edge;
         if (inside && b < (k < 0.75f ? 1 : 2)) return R_PURPLE + 7;
         return -1;
+    }
+    case FM_WARD: {                                                /* a soul-lamp's ward: a faint violet line where it meets the open */
+        int cx = (int)floorf(wx), cy = (int)floorf(wy);
+        #define WO(xx, yy) (!wraith_barred(xx, yy) && is_open(xx, yy))
+        int on = (fx < 0.06f && WO(cx - 1, cy)) || (fx > 0.94f && WO(cx + 1, cy)) || (fy < 0.06f && WO(cx, cy - 1)) || (fy > 0.94f && WO(cx, cy + 1));
+        #undef WO
+        if (!on) return -1;
+        float fl = m->r > 0.0f ? m->r * (1.0f - smoothstepf(0.0f, 1.8f, hypotf(wx - m->ax, wy - m->ay))) : 0.0f;   /* flaring where the Wraith is held */
+        if (!((int)((fx + fy) * 6.0f + (float)G.t * 0.8f) & 1) && fl < 0.3f) return -1;   /* dashed, drifting slowly */
+        return R_PURPLE + clampi((int)(6.0f + 1.5f * sinf((float)G.t * 1.7f + wx + wy) + 9.0f * fl), 0, 15);
     }
     }
     return -1;
@@ -28307,6 +28702,18 @@ static void render_map(Frame *f) {
                     f->pix[sy * W + sx] = (uint8_t)imax(R_BONE, c - (((sx + sy) % 3) == 0 ? 4 : 2));
                 }
         }
+    for (int y = 0; y < MAPN && WD.mask && !PK.depth; y++)        /* a lit soul-lamp's ward: washed violet (1.0.0b18.1) */
+        for (int x = 0; x < MAPN; x++) {
+            if (!(G.mapped[y][x] & 1) || !wraith_barred(x, y) || !map_open(x, y)) continue;
+            int px = map_bx + x * MAP_PX, py = map_by + y * MAP_PX;
+            for (int j = 1; j < MAP_PX; j++)
+                for (int i = 1; i < MAP_PX; i++) {
+                    int sx = px + i, sy = py + j;
+                    if (sx < MAP_VX0 || sx >= MAP_VX0 + MAP_VW || sy < MAP_VY0 || sy >= MAP_VY0 + MAP_VH || ((sx + 2 * sy) & 3)) continue;
+                    uint8_t c = g_scroll[sy][sx];
+                    if (c >= R_BONE && c < R_BONE + 16) f->pix[sy * W + sx] = (uint8_t)(R_PURPLE + 6);
+                }
+        }
     for (int y = 0; y < MAPN; y++)                                 /* the walls: a line wherever floor meets stone */
         for (int x = 0; x < MAPN; x++) {
             if (!(G.mapped[y][x] & 1) || !map_open(x, y)) continue;
@@ -28342,6 +28749,12 @@ static void render_map(Frame *f) {
         else if (G.mapped[G.vis_y][G.vis_x] & 1)
             for (int k = 1; k < 4; k++) for (int j = 1; j < 4; j++) map_px(f, map_bx + G.vis_x * MAP_PX + k, map_by + G.vis_y * MAP_PX + j, R_GOLD + 6);
     }
+    for (int i = 0; i < WD.n && !PK.depth && !G.shop; i++)        /* the soul-lamps: a mark on their wall, blue while lit */
+        if (G.mapped[WD.l[i].cy][WD.l[i].cx] & 1) {
+            int px = map_bx + WD.l[i].cx * MAP_PX + 2 + DX[WD.l[i].d] * 2, py = map_by + WD.l[i].cy * MAP_PX + 2 + DY[WD.l[i].d] * 2;
+            uint8_t c = WD.l[i].banked > 0.0f ? (uint8_t)(R_GLOW + 12) : (uint8_t)(R_IRON + 3);
+            map_px(f, px, py, c); map_px(f, px + 1, py, c); map_px(f, px, py + 1, c); map_px(f, px + 1, py + 1, c);
+        }
     if (G.altar_x >= 0 && (G.mapped[G.altar_y][G.altar_x] & 1)) {   /* the Black Altar */
         int px = map_bx + G.altar_x * MAP_PX, py = map_by + G.altar_y * MAP_PX;
         for (int k = 1; k < 4; k++) for (int j = 1; j < 4; j++) map_px(f, px + k, py + j, k == 2 && j == 2 ? (uint8_t)(R_PURPLE + 10) : (uint8_t)(R_IRON + 1));
@@ -28574,6 +28987,35 @@ static void render_warded(Frame *f, float dx, float dy, float horizon) {
 }
 /* the seals on things that want a spell, at full brightness through dark and fog, hidden by the walls; never smaller than
  * about half a texel a pixel, so one down a long hall can still be read */
+/* a lit soul-lamp's pips, five on its sprite: those not banked put out, the one burning flickering in its last seconds */
+static void ward_pips(Frame *f, float dx, float dy, float horizon) {
+    static const int PIPY[4] = { 51, 40, 46, 47 };                 /* the pips' row on each run's lamp (crawl_art.c, spr_wlamp) */
+    static const uint8_t DARK[4] = { R_IRON + 1, R_WOOD + 1, R_IRON + 1, R_STONE + 1 };
+    if (PK.depth || G.shop || !WD.mask) return;
+    int run = crawl_set(G.level) & 3;
+    for (int i = 0; i < WD.n; i++) {
+        const WLamp *L = &WD.l[i];
+        const Deco *dc = &G.decos[L->deco];
+        float sx, sy, dep;
+        if (L->banked <= 0.0f || hypotf(dc->x - G.px, dc->y - G.py) > 12.0f) continue;
+        if (!project(dc->x, dc->y, 1.0f - (float)PIPY[run] / 64.0f, dx, dy, horizon, &sx, &sy, &dep)) continue;
+        float tex = FOCAL / dep / 64.0f, part = fmodf(L->banked, WARD_SOUL_T);
+        int lit = (int)ceilf(L->banked / WARD_SOUL_T - 1e-3f);
+        if (part < 1e-3f) part = WARD_SOUL_T;
+        for (int p = 0; p < 5; p++) {
+            int dark = p >= lit || (p == lit - 1 && part < 15.0f && fmodf((float)G.t * 3.0f, 1.0f) < 0.45f);
+            if (!dark) continue;
+            int x0 = (int)floorf(sx + (float)(24 + 4 * p - 32) * tex), x1 = (int)floorf(sx + (float)(26 + 4 * p - 32) * tex);
+            int y0 = (int)floorf(sy), y1 = (int)floorf(sy + 2.0f * tex);
+            if (x1 <= x0) x1 = x0 + 1;
+            if (y1 <= y0) y1 = y0 + 1;
+            for (int x = x0; x < x1; x++) {
+                if (x < 0 || x >= W || dep >= zbuf[x] + 0.05f) continue;
+                for (int y = y0; y < y1; y++) if (y >= 0 && y < H) f->pix[y * W + x] = DARK[run];
+            }
+        }
+    }
+}
 static void render_marks(Frame *f, float dx, float dy, float horizon) {
     for (int i = 0; i < G.nmk; i++) {
         const Marked *m = &G.mk[i];
@@ -28606,6 +29048,7 @@ static void render_marks(Frame *f, float dx, float dy, float horizon) {
             }
         }
     }
+    ward_pips(f, dx, dy, horizon);                                 /* and the soul-lamps' pips (1.0.0b18.1) */
 }
 static void crawl_render(Frame *f) {
     f->w = W; f->h = H;

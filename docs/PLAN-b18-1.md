@@ -1,7 +1,7 @@
 # 1.0.0b18.1: the trial's door, and the crypt made kinder
 
-**Settled; steps 1-3 built** (harness only; 7 November 2026); **step 4's sheets wait for the owner** (`docs/b18-1/bells.png`,
-`docs/b18-1/lamps.png`). Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
+**Settled; steps 1-3 and 6 built** (harness only; 7 November 2026); step 4's sheets (`docs/b18-1/bells.png`,
+`docs/b18-1/lamps.png`) approved by the owner; step 5 (the bells in the game) next. Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
 tracks of [`PLAN-combat.md`](https://github.com/ASPDesignLabs/HAUNTED.EXE/blob/claude/inspiring-archimedes-dbj5n6/docs/PLAN-combat.md)
 build 1.0.0b19 on `claude/inspiring-archimedes-dbj5n6`. The owner gave one fault and six improvements, asked for them as an
 update of their own ahead of that work, and answered every question in one round (section 12). Every number below that isn't
@@ -210,6 +210,45 @@ never going under 10. It may still fire at a Wraith held at an edge, which only 
 that, the fix is a line in `find_target`, which is track D's, agreed with them first. Debug: `CRAWL_WARD=0` (no lamps), `EVENT
 ward_offer`, `ward_lit`, `ward_out`, `ward_held` (the Wraith at an edge), `ward_driven`.
 
+### As built (step 6)
+
+- **Where it lives.** Outside `G`, in a static `WD` (the lamps `WLamp`, a byte of bits a cell, the fields), so nothing is added
+  to `G`'s end, where the combat tracks add theirs, and a pocket leaves it as it was (its clock stops there, as the plan says).
+  `ward_make` runs at the end of `start_level`'s placements (after `place_fights`), so a level begun again begins with the lamps
+  out. It draws on no dice (the lamps' decorations are written with a fixed phase), so a level's creatures and treasure come out
+  as before.
+- **Only where the Wraith comes** (a default): no lamps on levels 1-8, a boss's level or her rooms, where a soul offered would
+  buy nothing.
+- **The areas**, as section 6 has them; the ring is a cell all round, corners too (through a corner a person at the edge of the
+  ground could have been touched from a cell outside the ring), through floor and doorways. A puzzle's things are its pieces
+  (those on the level as it is made, not a trial's); a sequence is a tablet, plinth, reliquary, ward-stone or relay and whatever
+  shares its group (the relay's coil). A puzzle's ground is large (70-90 cells with its wing, on the levels looked at), and
+  where it lies across a hall the Wraith goes round by another way.
+- **The lamp** hangs on bare stone within four steps (no torch, no feature on that face, not a secret's wall, not on another
+  decoration), the trial's two steps from the hall cell before its door if it can be, and never in the room or wing it guards
+  (a first try hung a trial's inside its own room, reached through the door). E within 1.7 cells, looking at it within a third
+  of a right angle, offers a soul (a puzzle's piece looked at takes the press first); the press goes no further. Its words once a level, when first seen near: *A SOUL-LAMP   E:
+  OFFER A SOUL* (the pad's words through `pk`). Lit: *THE WARD HOLDS: 4 MINUTES*, or before the Wraith has come *4 MINUTES,
+  FROM THE WRAITH'S COMING*; *THE LAMP WANTS A WHOLE SOUL*, *THE LAMP HOLDS NO MORE* (a sixth would pass ten minutes), *A
+  SOUL-LAMP GOES OUT*, and *THE WRAITH CANNOT PASS THE WARD* the first time it is held at an edge. The approved sprites are used
+  as drawn (their pips all lit); in play the pips not banked are drawn out over them, and the one burning flickers in its last
+  fifteen seconds (`ward_pips`, from the end of `render_marks`). A lit lamp gives a small light of its own (`ward_lights`).
+- **The Wraith**: `wraith_barred` in its step's test; `wraith_h` the field it reads (the ward's while one burns, `ward_field`
+  made every half second and at once when a lamp is lit or goes out, through the hunt field's doors); `ward_step_out` drives it
+  out the shortest way if a lamp is lit with it inside (one recoil, kept driven a step at a time, through a door by opening it);
+  it never comes into being inside a lit ward. Held at an edge: `SFX_HISS` every three seconds and the line flaring there.
+- **Seen**: `FM_WARD` on the floor's cells at the ward's edge (set inside `hz_marks`, under every other mark), drawn in
+  `fm_pixel` as a faint violet dash that drifts, brighter near the Wraith while it is held; on the map the ward washed violet
+  over cells seen and each lamp a mark on its wall, blue while lit.
+- **The dream** looks twice a second. It offers when the Wraith has come or is due within the minute and it has 15 spirit, and
+  then only from inside a puzzle's or sequence's ground, or within 2.5 cells of a trial's lamp before the trial (a default: it
+  doesn't walk to the lamp; it lights it from where it works), and only while the challenge waits: two souls, one for a trial,
+  never going under ten. Inside a ground whose lamp has under a minute left and the Wraith on the level, one more, five at most.
+- Debug as section 6 says, and: `CRAWL_WARDLIT=n` (every lamp lit with n souls, none paid), `CRAWL_TPWARD=k` (before lamp k,
+  facing it, once you take control), `CRAWL_WARDMAP=1` (each level's map with the ward's cells by lamp), `CRAWL_WARDTRACE=1` (the
+  Wraith, you and the ward once a second), `WARD level n:` lines, `EVENT ward_breach` (should never come: the Wraith into a lit
+  ward from outside).
+
 ## 7. The controller (P1 a, P2 a, P3 a, P4 a)
 
 **Today.** The sprint's button is the only one that moves (Esc's question, `Q_PAD`; `SLOT_PREFS` a byte; the registry's
@@ -350,7 +389,9 @@ Each step committed, pushed and logged in section 15. While a sheet waits, the w
 | `pad_keys`, `PADX`, `quit_rows`, `pk`, `pad_sprint*` | neither | the layout |
 | `solid_prop`, `dress_level`, the placement helpers | neither | footprints |
 | the walk in `update_mob` (`gx = m->tx + 0.5f`, line 7782) | shared | `cell_pass`, two lines |
-| the Wraith's step and field in `update_wraith` | shared; D changed the lines below the step's loop | `wraith_barred` in the loop's test, the field it reads |
+| the Wraith's step and field in `update_wraith` | shared; D changed the lines below the step's loop | `wraith_barred` in the loop's test, the field it reads, `ward_step_out` above it |
+| the Wraith's coming in `crawl_update`, the frame's call before the player moves, `start_level`'s placements | neither | never inside a lit ward; `ward_tick`; `ward_make` |
+| `hz_marks`, the `FM_*` enum, `fm_pixel`, `render_marks`' end, `render_map`, `build_lightmap` (a call) | neither | the ward's edge, pips, wash, light |
 | the props' part of `render_sprites`, `render_floor`'s marks | shared | where a prop stands; the ward's edge |
 | the `SP_*` enum, `crawl_art_init` | shared, marked at the end | added mid-list |
 | `CLAUDE.md`, the README, the page | shared (C at a release) | at this release |
@@ -378,8 +419,9 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
 2. The bells' shapes and metals as in section 5's table; the numerals in the readings and the names.
 3. The hanging bell is still, cracked and without its clapper.
 4. A puzzle's ground: two steps round the wing's door and its pieces; a sequence's: two steps round its pieces.
-5. The lamps aren't saved; a level begun again begins with them out.
-6. The dream offers two souls for a puzzle or sequence and one for a trial, from 15 spirit, never under 10.
+5. The lamps aren't saved; a level begun again begins with them out. They are laid only on levels the Wraith comes to.
+6. The dream offers two souls for a puzzle or sequence and one for a trial, from 15 spirit, never under 10, from inside the
+   ground (or by a trial's lamp), not walking to the lamp.
 7. View is fixed with Menu, as half of the look.
 8. The turn speed from half to twice today's.
 9. Footprints: full from 0.7 of a cell, half from 0.45, a quarter under; pillars, arenas, her rooms, gargoyles' plinths and props in
@@ -407,6 +449,12 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   sprites are in the middle of the `SP_*` enum (after the things that want a spell) and of `crawl_art_init` (after the drum),
   and the sheet's groups before `b6`, all away from their marks at the ends; the sprite numbers after them shift, which nothing
   saves.
+- **After step 6** (7 November, their branch still at `5559111`): applied clean (with `--binary` for the sheets), `make host`
+  and `make build/host_debug` built there with no warnings, and the held-at-the-edge test ran there as here. For whoever merges:
+  their `wraith_cornered` lands the Wraith with `pick_cell_at_depth`; add `&& !wraith_barred(x, y)` to that test, as this
+  update's coming of the Wraith has, so it never comes out of the stone inside a lit ward. Their `if (best < 0) {
+  wraith_cornered(m, dt); return; }` after the step's loop is right as it is: held at an edge the Wraith is coming, not driven,
+  so it only waits there.
 
 ## 15. Hand-off log
 
@@ -493,3 +541,38 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   - *Checks:* both builds without warnings; `make smoke` passes (1.81 ms a frame); the trial merge clean (section 14).
   - *Waiting on:* the owner's word on both sheets. While they wait, step 6's logic (the ward's areas, the Wraith's way round,
     the offering) and step 7's controller sheet can go on; neither hangs on these drawings.
+  - *Approved* by the owner the same day, who then asked for step 6's logic before step 5.
+- **7 November. Step 6, the ward: built** (harness only).
+  - *Built:* as section 6 says, with its *as built* notes: `WD`, `WLamp`, `wraith_barred`, `wraith_h`, `ward_field`,
+    `ward_step_out`, `ward_make`, `ward_hang`, `ward_spread`, `ward_ring`, `ward_offer`, `ward_tick`, `ward_marks` (`FM_WARD`),
+    `ward_pips`, `ward_lights`, the map's wash; debug `CRAWL_WARD=0`, `CRAWL_WARDLIT`, `CRAWL_TPWARD`, `CRAWL_WARDMAP`,
+    `CRAWL_WARDTRACE`. The names `warded`, `ward_cracked` and `ward_give` in the event log and the code are still the warded
+    creatures' (1.0.0b16), and `ward_shards` the Bone Ward's: only `ward_offer`, `ward_lit`, `ward_out`, `ward_held`,
+    `ward_driven` and `ward_breach` are the lamps'.
+  - *Laid* (seed 3, levels 9-34): a lamp by each trial, puzzle and sequence from level 9, none on a boss's level; grounds of 16-48
+    cells for a trial, 69-91 for a puzzle and its wing, 17-23 for a sequence. Two faults found by the map and mended: a trial's
+    lamp hung inside its own room, reached through the door (now never in the room or wing it guards); and the Wraith's way out
+    counted walls as outside, so a lamp lit with it inside sent it at the stone and it wandered (now through the hunt field's
+    floor and doors only).
+  - *A person* (seed 3, level 12, three cisterns, `CRAWL_TPWARD=2 CRAWL_WRAITH=12 CRAWL_SOULS=20`): two souls at the puzzle's
+    lamp (*4 MINUTES, FROM THE WRAITH'S COMING*); the Wraith came round to the ground's nearest edge, 6.3 cells off, hissed, and
+    stood there for the rest of the run, following along the edge as the person walked about inside; with no soul offered it
+    reached them and killed them in 30 s. Lit with the Wraith three cells inside: one recoil, out in three steps, held at the
+    edge. One soul: out 120 s after the Wraith came (the clock waited for it), touched ten seconds later. E while turned away
+    offered nothing; three Es before the trial's lamp banked six minutes, one at a time, its pips going on one by one. Frames:
+    the lamp lit and its pips, the ward's faint line on the floor, the wash on the map, *THE WRAITH CANNOT PASS THE WARD*.
+  - *The dream* (lamps lit from the start, `CRAWL_WARDLIT=5`, the Wraith at 20 s, nine level starts): no `ward_breach`, holds
+    at the edge in four. On its own (`CRAWL_SOULS=40 CRAWL_WRAITH=90`, sixteen level starts, levels 12-22) it lit lamps on
+    fifteen, and the Wraith was held at an edge on eight. *Sixteen seeds (1-31 odd), 30 minutes from level 9* (gear 3, `CRAWL_XPBANK=9450`, the same run ids;
+    step 4's build against this): final levels a median 12 and 12, levels cleared 43 and 39, deaths 4 and 3 (all on level 10),
+    trials won 42 and 43 of 44, puzzles 9 and 9. It lit two lamps in all (its spirit is seldom 15 when the Wraith is due) and the
+    Wraith was never held from it. The Wraith touched it 2 and 26 times: 25 in one run, a stall on level 11 with no lamp lit,
+    where the dream stood firing fire bolts at the Wraith 1.1 cells off and each struck a bell puzzle's bell between them
+    (*THREE BELLS wants FROST got FIRE*), so it was never driven back. That is on main too (the bells block shots unless rung,
+    and the dream's aim is track D's `find_target`); left for the owner. Each build had other stalls of its own (1 and 2).
+  - *Other checks:* both builds without warnings; `make smoke` passes (1.75 ms a frame); ASan and UBSan clean on three sessions
+    (a person driving the Wraith out, walking inside, the map open, the lamp out; the dream from level 9 with the Wraith at 30 s
+    and souls to spend; the dream with lamps lit from the start through two pockets); the trial merge clean (section 14).
+  - *For the owner's eye:* whether the line on the floor is too faint to find, and whether the lamps' words come at the right
+    moment. Both are a number each.
+  - *Left:* step 5 (the bells in the game), then step 7.

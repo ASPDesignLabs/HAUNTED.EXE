@@ -1516,7 +1516,20 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   the owner): the bell puzzles' four bells (`spr_pbell`, `bell_body`, `cut_numeral`, `cv_swing`; `SP_PBELL0..3`, swung
   `SP_PBELL0R..3R`), run II's dead bell (`spr_bell_dead`, `SP_BELL_DEAD`; `spr_deadbell` is her hall's Dead Bell, another
   thing) and the soul-lamp by run (`spr_wlamp`, `SP_WLAMP0 + 3 x run + state`), in the `SP_*` enum after the things that want a
-  spell; `make sheets`' `b181bells` and `b181lamps`, kept as `docs/b18-1/bells.png` and `lamps.png`. Made, not yet placed.
+  spell; `make sheets`' `b181bells` and `b181lamps`, kept as `docs/b18-1/bells.png` and `lamps.png`; approved. The bells not
+  yet placed. *The ward* (step 6): `ward_make` (end of `start_level`'s placements; only on levels the Wraith comes to) lays a
+  ground for each trial (its room), puzzle (its wing, and two steps round its door and pieces) and sequence (two steps round its
+  pieces), a ring of a cell round each, as a bit a lamp in a static `WD` (not `G`: a pocket leaves it be), and hangs a soul-lamp
+  (`WLamp`, a decoration) on bare stone near it, never inside what it guards. E facing one (`ward_facing`, after a puzzle's
+  piece) offers a soul (`ward_offer`): two minutes, five banked; the clock burns only while the Wraith is on the level
+  (`ward_tick`, before the player moves). Lit, its cells are stone to the Wraith (`wraith_barred` in `update_wraith`'s step;
+  `wraith_h` reads `ward_field`, made each half second, from you round the wards, or from the ward's edge by its distance to
+  you when you are inside); one lit on it is driven out (`ward_step_out`); it never comes into being inside. Seen: `FM_WARD`
+  (`ward_marks` in `hz_marks`), `ward_pips` (from `render_marks`), `ward_lights`, the map's wash. The dream lights one from
+  inside its ground (or by a trial's lamp) when the Wraith has come or is due within a minute, from 15 spirit, never under 10.
+  The names `warded`, `ward_cracked`, `ward_give`, `ward_str` are still the warded creatures', `ward_shards` the Bone Ward's.
+  Debug: `CRAWL_WARD=0`, `CRAWL_WARDLIT=n`, `CRAWL_TPWARD=k`, `CRAWL_WARDMAP=1`, `CRAWL_WARDTRACE=1`, `WARD level n:`, `EVENT
+  ward_offer`, `ward_lit`, `ward_out`, `ward_held`, `ward_driven`, `ward_breach` (never, or a fault).
 
 ## Releasing
 
