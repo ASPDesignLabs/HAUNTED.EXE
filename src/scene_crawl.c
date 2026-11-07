@@ -9063,6 +9063,88 @@ static int hz_soft(int x, int y);
 static int hz_danger(int x, int y);
 static int walk_clear(float x0, float y0, float x1, float y1);
 
+#ifdef CRAWL_DEBUG
+/* The balance sheet (docs/PLAN-combat.md, section 3; `make combat`, `build/host_debug combat`): the game's own numbers, level by
+ * level. THE DEAD: each kind met by then at rank I and at its run's highest rank, its health, each of its attacks' harm before
+ * anything turns it, how often it comes, what gets through a reference caster's armour, and how long that attack alone needs to
+ * kill them. THE CASTER: each class's line at a reference Level of Atonement (the dream's: 16 at level 11, 30 at 21, 44 at 31)
+ * with every Alignment point in it and nothing worn, its damage, cycle and damage a second, and how many casts a rank-I kind
+ * needs (the kind's weakness before its rank's strengths, and no class's gifts). The reference caster is 100 health and eight a
+ * level, with a Common robe's armour (0.8 a level). */
+void crawl_combat_sheet(FILE *f);
+void crawl_combat_sheet(FILE *f) {
+    static const int LV[] = { 1, 3, 5, 7, 10, 13, 15, 17, 20, 23, 25, 27, 30, 33, 35, 37, 40 };
+    static const float AT_L[] = { 1, 11, 21, 31, 40 }, AT_A[] = { 1, 16, 30, 44, 50 };
+    static const char *const AK_WORD[] = { "blow", "bite", "throw", "leap", "touch", "cast", "spew", "charge" };
+    int keep_level = G.level, keep_retries = G.retries, keep_theme = G.ptheme;
+    G.retries = 0; G.ptheme = 0;
+    Gear gear;
+    fprintf(f, "THE DEAD: kind, rank, health; each attack: what, element, harm, its whole round (wind-up and wait, s), harm\n"
+               "through the reference armour, seconds it alone needs to kill the reference caster\n");
+    for (size_t li = 0; li < sizeof LV / sizeof LV[0]; li++) {
+        int L = LV[li];
+        G.level = L;
+        float php = 100.0f + 8.0f * (float)L, parm = 0.8f * (float)L;
+        int set = crawl_set(L), top = imin(RK_V, set + (crawl_step(L) >= 4 ? 1 : 0));
+        fprintf(f, "\nLEVEL %d (run %d): reference caster %.0f health, %.0f armour; throws every %.2f s\n", L, set + 1, php, parm, throw_interval());
+        for (int k = 0; k < NKINDS; k++) {
+            if (KINDS[k].debut > L || KINDS[k].hp >= 1e8f || fa_main(k) < 0) continue;
+            for (int ri = 0; ri < 2; ri++) {
+                int r = ri ? imin(top, KINDS[k].top) : RK_I;
+                if (ri && r == RK_I) continue;
+                Mob m;
+                memset(&m, 0, sizeof m);
+                m.type = k; m.dmgk = RANK_DMG[r];
+                float hp = k == MOB_WSKULL ? 1.0f : mob_base_hp(k) * powf(1.04f, (float)(L - 1)) * RANK_HP[r];
+                fprintf(f, "  %-16s %-4s hp %6.0f", KINDS[k].name, r == RK_I ? "I" : r == RK_II ? "II" : r == RK_III ? "III" : r == RK_IV ? "IV" : "V", hp);
+                for (int fa = 0; fa < NFA; fa++) {
+                    const FoeAtk *a = &ATTACKS[fa];
+                    if (a->type != k || a->k <= 0.0f || (fa == FA_WBOSS)) continue;
+                    int phys = a->el == EL_PHYS;
+                    float harm = mob_damage(&m) * a->k + a->add, every = (a->cool < 0.0f ? throw_interval() : a->cool) + a->wind;   /* the whole round */
+                    float ar = parm * (phys ? 1.0f : 0.5f), ref = 4.0f + 0.8f * (float)L;   /* as hurt_ex takes it (armour_keep) */
+                    float got = fmaxf(1.0f, old_harm() ? harm - ar : harm * ref / (ref + ar));
+                    fprintf(f, " | %s %s %.1f /%.2fs ->%.1f kill %.0fs", AK_WORD[a->ak], ELEM_NAME[a->el], harm, every, got, php / got * every);
+                }
+                fprintf(f, "\n");
+            }
+        }
+    }
+    fprintf(f, "\nTHE CASTER: each class's line at the reference Level of Atonement, every point in it, nothing worn: damage a cast,\n"
+               "cycle, damage a second; then for each kind at its run's highest rank, the casts each class needs, by its weakness\n");
+    static const char *const CL2[NELEM] = { "WF", "AN", "GA", "PD", "SE", "HE" };
+    for (size_t li = 0; li < sizeof LV / sizeof LV[0]; li++) {
+        int L = LV[li];
+        G.level = L;
+        float at = 50.0f, dmg[NELEM];
+        for (int i = 0; i + 1 < 5; i++) if (L <= AT_L[i + 1]) { at = AT_A[i] + (AT_A[i + 1] - AT_A[i]) * ((float)L - AT_L[i]) / (AT_L[i + 1] - AT_L[i]); break; }
+        int atone = (int)(at + 0.5f), rank = imin(29, atone), set = crawl_set(L), top = imin(RK_V, set + (crawl_step(L) >= 4 ? 1 : 0));
+        spell_set_atone(atone);
+        for (int x = 0; x < NELEM; x++) spell_set_line(x, 0.0f, 0.0f, 0.0f);
+        fprintf(f, "\nLEVEL %d: Atonement %d, line rank %d\n", L, atone, rank);
+        for (int e = 0; e < NELEM; e++) {
+            gear_reset(&gear);
+            int sp = LINE_ATK[e];
+            gear.atk[sp] = (int8_t)rank;
+            float cyc = spell_cycle(&gear, sp);
+            dmg[e] = spell_damage_at(&gear, sp, rank);
+            fprintf(f, "  %-13s %-12s dmg %6.1f  cycle %.2fs  dps %6.1f\n", CLASS_SHORT[e], ATK_NAME[sp], dmg[e], cyc, dmg[e] / cyc);
+        }
+        for (int k = 0; k < NKINDS; k++) {
+            if (KINDS[k].debut > L || KINDS[k].hp >= 1e8f || (KINDS[k].flags & KF_SPIRIT) || !(KINDS[k].flags & KF_PAGE) || k == MOB_WSKULL) continue;
+            int r = imin(top, KINDS[k].top);
+            float hp = mob_base_hp(k) * powf(1.04f, (float)(L - 1)) * RANK_HP[r];
+            fprintf(f, "    %-16s %-3s hp %6.0f |", KINDS[k].name, r == RK_I ? "I" : r == RK_II ? "II" : r == RK_III ? "III" : r == RK_IV ? "IV" : "V", hp);
+            for (int e = 0; e < NELEM; e++) {
+                float w = kind_weak(k, e);                     /* the dead's track's: CRAWL_ELEM=0 gives 1.0.0b18's */
+                if (w <= 0.0f) fprintf(f, " %s    -", CL2[e]); else fprintf(f, " %s %4.1f", CL2[e], hp / (dmg[e] * w));
+            }
+            fprintf(f, "\n");
+        }
+    }
+    G.level = keep_level; G.retries = keep_retries; G.ptheme = keep_theme;
+}
+#endif
 /* a creature's usual blow and how often it comes: what it gives a web, one of yours, or one of theirs */
 static float mob_blow(const Mob *m, float *every) {               /* its usual attack's row (docs/PLAN-combat.md, section 3) */
     int fa = fa_main(m->type);

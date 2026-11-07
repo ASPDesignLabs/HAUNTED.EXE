@@ -177,7 +177,13 @@ static void input_init(void) {
     }
 }
 
+#ifdef CRAWL_DEBUG
+void crawl_combat_sheet(FILE *f);
+#endif
 int main(int argc, char **argv) {
+#ifdef CRAWL_DEBUG
+    if (argc >= 2 && !strcmp(argv[1], "combat")) { crawl_combat_sheet(stdout); return 0; }   /* the balance sheet (docs/PLAN-combat.md) */
+#endif
     if (argc < 4) { fprintf(stderr, "usage: see source header\n"); return 1; }
     const char *cmd = argv[1];
     AppConfig cfg;
