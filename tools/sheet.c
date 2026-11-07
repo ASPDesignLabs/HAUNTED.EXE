@@ -150,6 +150,10 @@ static const Group GROUPS[] = {
     { "b7", "1.0.0B7: FOR APPROVAL", -1, 1,
       { { SP_HEXTOTEM, "TOTEM" }, { SP_SCRIP, "SCRIP" }, { SP_BSPIDER_A, "SPIDER" }, { SP_BKNIGHT_P0, "KNIGHT" },
         { SP_BRAZIER_OUT, "PUT OUT" }, { SP_TOMB_FRESH, "NEWEST" }, { SP_TOMB_ROUND, "OLDER" }, { SP_LECTERN, "COMPENDIUM" }, { -1, 0 } } },
+    /* docs/PLAN-combat.md, two tracks on one branch (its section 17): each adds groups only above its own end mark */
+    /* the caster's track (C) ends */
+    /* the dead's track (D): */
+    /* the dead's track (D) ends */
 };
 #define NGROUPS ((int)(sizeof GROUPS / sizeof GROUPS[0]))
 
