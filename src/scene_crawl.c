@@ -7973,21 +7973,21 @@ static int feint_held(Mob *m) {
     m->feint = 2; m->cool = 0.35f;
     return 1;
 }
-/* ---- C4 (docs/PLAN-combat.md, section 8; track C): new attacks. Waiting on the owner's word on their sheet, so off in play:
- * CRAWL_C4=1 in the debug build puts them in (CRAWL_C4SOON=1 every few seconds, for frames). The Bone Thrower: a skeleton of
+/* ---- C4 (docs/PLAN-combat.md, section 8; track C): new attacks, their sheet approved (CRAWL_C4=0 in the debug build takes them
+ * out; CRAWL_C4SOON=1 every few seconds, for frames). The Bone Thrower: a skeleton of
  * rank II up flashes 0.6 s, then lobs three bones half a second apart over twenty degrees. The shield-bearer's charge: a stamp
  * and the shield up 0.5 s, then up to five cells along a clear lane; it knocks you down 1.2 s, unless it is dodged, the Bone Ward
  * takes it all, or your armour is twice its harm. The Drowned's spew: swelling 0.5 s, then a gout two cells in a thirty-degree
  * cone, eight tenths of its blow and Poisoned. Stunned or Unbound, none of them begins (E3, E5) ---- */
 enum { C4_NONE, C4_FLASH, C4_VOLLEY, C4_STAMP, C4_RUSH, C4_REST, C4_SWELL, C4_SPEW };
 #define C4_EDGE 512                                                /* DR_EDGE, which is declared further on (checked there) */
-static int c4_on(void) {
+static int c4_on(void) {                                           /* in play (the owner's word on its sheet); CRAWL_C4=0 or CRAWL_AF=0 takes them out */
 #ifdef CRAWL_DEBUG
     static int v = -1;
-    if (v < 0) v = getenv("CRAWL_C4") && atoi(getenv("CRAWL_C4")) ? 1 : 0;
+    if (v < 0) v = getenv("CRAWL_C4") && !atoi(getenv("CRAWL_C4")) ? 0 : 1;
     return v && !af_off();
 #else
-    return 0;
+    return 1;
 #endif
 }
 static float c4_wait(int fa) {                                     /* the wait before the next (-1: the first, a while after it could) */
@@ -8100,6 +8100,41 @@ static int c4_spew(Mob *m, float dt, int sees, float pd) {
     }
     if (m->c4_t >= 0.45f) { c4_stop(m, FA_SPEW); m->cool = fmaxf(m->cool, 1.0f); }
     return 1;
+}
+/* the dream's counters (8.6): a Bone Thrower flashing in sight, its bones about to come, counts as a missile on its way (the
+ * runes and Swift Dodge answer it); the charge's lane while it stamps and runs, and the spew's cone while the Drowned swells and
+ * spews, are warnings on the dream's map, so it steps off them, or dodges if it can */
+static void hz_dput(int x, int y, int c);
+static int c4_tells(float within) {
+    int n = 0;
+    for (int i = 0; i < MAXMOBS; i++) {
+        const Mob *m = &G.mobs[i];
+        if (!m->alive || m->state != MS_WALK) continue;
+        if ((m->c4 == C4_FLASH && m->c4_t > ATTACKS[FA_VOLLEY].wind - within) || (m->c4 == C4_STAMP && m->c4_t > ATTACKS[FA_CHARGE].wind - within))
+            if (line_clear(m->x, m->y, G.px, G.py)) n++;
+    }
+    return n;
+}
+static void c4_dmarks(void) {
+    for (int i = 0; i < MAXMOBS; i++) {
+        const Mob *m = &G.mobs[i];
+        if (!m->alive || m->state != MS_WALK) continue;
+        if (m->c4 == C4_STAMP || m->c4 == C4_RUSH) {
+            float c = cosf(m->c4a), s = sinf(m->c4a);
+            for (float t = 0.0f; t <= 5.2f; t += 0.3f) {
+                int x = (int)(m->c4x + c * t), y = (int)(m->c4y + s * t);
+                if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1 || blocks_move(x, y)) break;
+                hz_dput(x, y, 1);
+            }
+        } else if (m->c4 == C4_SWELL || m->c4 == C4_SPEW) {
+            float a = m->c4 == C4_SPEW ? m->c4a : m->face;
+            for (int y = imax(1, (int)m->y - 3); y <= imin(MAPN - 2, (int)m->y + 3); y++)
+                for (int x = imax(1, (int)m->x - 3); x <= imin(MAPN - 2, (int)m->x + 3); x++) {
+                    float dx = x + 0.5f - m->x, dy = y + 0.5f - m->y, d = hypotf(dx, dy);
+                    if (d < 2.6f && (d < 0.9f || fabsf(wrap_pi(atan2f(dy, dx) - a)) < 0.45f) && !blocks_move(x, y)) hz_dput(x, y, 1);
+                }
+        }
+    }
 }
 static void c4_grapple(Mob *m) {                                   /* a shambler's grip with no element in it: held fast (8.3, M8) */
     if (!c4_on() || m->type != MOB_SHAMBLER || foe_el != EL_PHYS || !af_can(AF_DOWN) || rndf() >= af_rank_chance(m->rank) * 2.5f) return;
@@ -9414,8 +9449,9 @@ static void update_shots(float dt) {
 
 /* ---- the caster's defences: tattooed runes, each waiting for its moment ---- */
 
+static int c4_tells(float within);
 static int incoming(float within) {                                 /* missiles that will reach the caster soon */
-    int n = 0;
+    int n = c4_tells(within);                                      /* and a Bone Thrower's flash, as good as one (C4, 8.6) */
     for (int i = 0; i < MAXBONES; i++) {
         const Bone *b = &G.bones[i];
         if (!b->alive) continue;
@@ -13911,6 +13947,7 @@ static void update_hazards(float dt) {
     memset(hz_dmap, 0, sizeof hz_dmap);
     if (PK.depth || G.shop || G.tally) { if (was) snd_set_muffle(0); return; }
     mk_dmarks();                                                   /* the steam vents (1.0.0b16) */
+    c4_dmarks();                                                   /* a charge's lane, a spew's cone (C4) */
     int px = (int)G.px, py = (int)G.py, mhp = G.max_hp > 0 ? G.max_hp : 100;
     for (int i = 0; i < MAXHAZ; i++) {
         Hazard *h = &G.haz[i];
