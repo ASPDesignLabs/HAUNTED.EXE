@@ -743,6 +743,24 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
 
 - **7 November.** The plan settled with the owner. The marks (17.4) and the shared declarations (17.3) committed: `make host`,
   `make build/host_debug` (no warnings) and `make smoke` pass; nothing in the game changes. Next: C1.
+- **7 November. C1 built** (harness only), in three parts, `0ef4e55`, `99f391f`, `a788b4d` (and `bff69d5`, the notes). (1)
+  `ATTACKS[]` (`FoeAtk`, `FA_*`) holds every attack the dead make on the caster; `update_mob`'s branches, `update_leap`,
+  `update_spider`, `update_wskull`, the Wraith's touches and `mob_blow` read it; `foe_hit` and `bone_hurt` are the one road,
+  `Bone.el1` a missile's element. Three five-minute dreams from levels 1, 21 and 31 gave the old events line for line (275, 443,
+  301). `mob_blow` (webs and allies only) moved a little: the shield-bearer's blow there is its blow plus one, not a tenth more, and
+  the shade, the Whipper-In and the Lightless strike at their own rate. (2) `HURT_SPELL` (once `HURT_MAGIC`, an alias kept) by its
+  element's resist alone (`el_resist`, which `windup_blow` reads too); armour as a share (`armour_keep`, P2); the throws' floor
+  (P1); `CRAWL_OLDHARM=1` gives back 1.0.0b18's events line for line on the same three dreams. (3) `make combat`. Not changed: a
+  hazard's fire, a point at a time, can still be dodged, as before. ASan clean on four sessions: a dream from level 1 for fifteen
+  minutes, from 31 for ten, the Ill-Fated Knight's fight (his Mirror turned a spell, which struck), and the sheet.
+  **The checks**, C1 alone (built before D1 came in), against 1.0.0b18's play (built at `2444cd2`), sixteen seeds (1-31 odd,
+  `CRAWL_RUNID` the seed, so the two builds meet the same runs): from level 1 for 100 minutes, 148 levels cleared (155), 62 deaths
+  (59), 43 on level 10 (39) and 19 elsewhere (20), the knight felled twice (5 times); of the deaths 11 to the knight (9) and 4 to his
+  Mirror (2), where a turned frost or lightning spell is now resisted by its own resist, not Resist Burn. From 11, 21 and 31 for 50
+  minutes (gear 3, 5, 8; `CRAWL_XPBANK` 9450, 35322, 77658): no deaths either way, 100, 100 and 95 levels cleared (101, 98, 98), a
+  level's median time 355, 368 and 366 s (356, 371, 365). Inside the noise everywhere, then; the knight's level is the noisiest
+  number there is (28 to 48 deaths between builds that never touched him). No contract changed. Next: C2, its sheet first (the
+  status glyphs and the knock-down's frames), for the owner.
 
 ## 19. Track D's log (the dead's)
 
