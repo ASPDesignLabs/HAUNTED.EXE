@@ -834,6 +834,19 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
 - **7 November. CONTRACT: `Mob.c_flags`** (17.3): draw flags track C asks a creature drawn with while one of its attacks is under
   way (first the Bone Thrower's flash, `DR_EDGE`); set and cleared by C, ORed in by one line in the creatures' part of
   `render_sprites` (D's), which does nothing else with it. Nothing sets it yet, so nothing is drawn differently.
+- **7 November. C4's sheet, for the owner** (`docs/combat/c4-attacks.png`). The new attacks built behind `CRAWL_C4=1` (the debug
+  build) and off in play, so the frames are the game's own: the Bone Thrower (rank II up, a 0.6 s flash through `Mob.c_flags`,
+  then three bones lobbed half a second apart over twenty degrees), the shield-bearer's charge (the stamp with the shield up and
+  dust, then the rush up to five cells along a clear lane; struck, knocked down 1.2 s, M4's mitigation), the Drowned's spew
+  (swelling, then a gout in a thirty-degree cone, Poisoned) and the shambler's grapple (held 1.2 s with no fall, the hand shoving
+  at it; M8). New sprites by rank on `make sheets`' `c4`, `c4drown` and `c4fx`: `SP_SHIELD_RAISE`, `SP_SHIELD_RUSH`,
+  `SP_DROWN_SWELL`, `SP_DROWN_SPEW`, `SP_SPEW_A/B`, `SP_DUST_A/B`. Defaults where section 8 was silent: the Bone Thrower aims each
+  bone where you stand as it throws, not where you will be; the charge runs seven cells a second, then stands 0.6 s; the rush's
+  after-images hide behind it head on, so dust is kicked up along its way; the spew's gout is Poison, resisted by Resist Poison,
+  and its Poisoned lasts 6 s less that resist; a shambler grapples only on a grip with no element in it, at 2.5 times M2's chance
+  by its rank (rank I 20%), and a Spirit shambler's grip takes 2 + its rank in souls (M6) instead of Unbound. With `CRAWL_C4` unset
+  nothing is drawn from the dice: three five-minute dreams from levels 1, 21 and 31 give the previous commit's events line for
+  line. The dream's counters (8.6) and the balance runs wait for the word on the sheet.
 
 ## 19. Track D's log (the dead's)
 

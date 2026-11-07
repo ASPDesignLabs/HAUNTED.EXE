@@ -162,6 +162,8 @@ typedef struct {
                                                                       a moment after; 0 not decided */
     int c_flags;                                                   /* contract (C4): DR_* flags C asks it drawn with while an attack of
                                                                       its is under way; the creatures' part ORs them in */
+    int c4, c4n; float c4_t, c4_cd, c4a, c4x, c4y;                 /* C4's attacks: which is under way (C4_*), bones thrown; its clock,
+                                                                      the wait before the next, its aim and where it began */
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     int elem;                                                      /* 1 + the element it was born to (section 7.4), 0 none: set by D,
@@ -1308,7 +1310,8 @@ static float throw_interval(void) { return fmaxf(old_harm() ? 0.0f : 0.6f, 1.5f 
 enum { AK_BLOW, AK_BITE, AK_THROW, AK_LEAP, AK_TOUCH, AK_CAST, AK_SPEW, AK_CHARGE };
 typedef struct { int type, ak, el; float k, add, wind, cool, cool_rnd, go, go2, reach, slow; } FoeAtk;
 enum { FA_BONE, FA_SWORD, FA_GRAB, FA_DGRAB, FA_HBITE, FA_HLEAP, FA_GLEAP, FA_KNIGHT, FA_BROOD, FA_LING, FA_SHADE, FA_EMBER,
-       FA_FIREBALL, FA_CLAW, FA_SWOOP, FA_BAT, FA_LASH, FA_GLASS, FA_WTOUCH, FA_WBOSS, FA_WEB, NFA };
+       FA_FIREBALL, FA_CLAW, FA_SWOOP, FA_BAT, FA_LASH, FA_GLASS, FA_WTOUCH, FA_WBOSS, FA_WEB,
+       FA_VOLLEY, FA_CHARGE, FA_SPEW, NFA };                       /* C4's: after each kind's usual, so fa_main finds that first */
 static const FoeAtk ATTACKS[NFA] = {
     /*               kind            what      element    k      add   wind   cool  rnd   go    go2   reach  slow */
     [FA_BONE]     = { MOB_SKEL,      AK_THROW, EL_PHYS,   1.0f,  0.0f, 0.35f, -1.0f, 0.0f, 0.0f, 99.0f, 0.36f, 0.0f },
@@ -1332,6 +1335,10 @@ static const FoeAtk ATTACKS[NFA] = {
     [FA_WTOUCH]   = { MOB_WRAITH,    AK_TOUCH, EL_FROST,  1.5f,  0.0f, 0.0f,  2.0f, 0.0f, 1.1f,  0.0f, 1.1f,  2.0f },
     [FA_WBOSS]    = { MOB_WRAITH,    AK_TOUCH, EL_FROST,  1.2f,  0.0f, 0.0f,  2.5f, 0.0f, 1.1f,  0.0f, 1.1f,  2.0f },   /* the Wraith Unbound's */
     [FA_WEB]      = { MOB_SPIDER,    AK_BITE,  EL_POISON, 0.0f,  0.0f, 0.25f, 3.0f, 0.0f, 2.0f,  0.0f, 1.05f, 4.0f },   /* poison, no blow */
+    /* C4 (section 8): the Bone Thrower's three (each a bone's), the shield-bearer's charge, the Drowned's spew */
+    [FA_VOLLEY]   = { MOB_SKEL,      AK_THROW, EL_PHYS,   1.0f,  0.0f, 0.6f,  12.0f, 6.0f, 2.5f, 9.0f, 0.9f,  0.0f },
+    [FA_CHARGE]   = { MOB_SHIELD,    AK_CHARGE,EL_PHYS,   1.2f,  0.0f, 0.5f,  8.0f, 8.0f, 2.0f,  5.0f, 0.95f, 0.0f },
+    [FA_SPEW]     = { MOB_DROWNED,   AK_SPEW,  EL_POISON, 0.8f,  0.0f, 0.5f,  6.0f, 3.0f, 1.2f,  2.0f, 2.2f,  0.0f },
 };
 static int fa_main(int type) {                                     /* a kind's usual attack, -1 none (the deacon, the Sexton) */
     for (int i = 0; i < NFA; i++) if (ATTACKS[i].type == type) return i;
@@ -4032,6 +4039,7 @@ static int glances, glance_finds, amb_read, amb_probes, corners, corners_held;
 static int ways_blocked, lantern_felt, horns, whip_cracks, whip_lashes, wild_hounds, bell_rounds, bell_alarms, bell_heard, bells_frozen, light_felt, lightless_lost, lightless_hits, wisps_struck;
 /* docs/PLAN-combat.md section 17: each track adds its counters only above its own end mark */
 static int elem_hits, elem_throws;                                 /* C3: blows and throws that carried a creature's element */
+static int c4_volleys, c4_charges, c4_charge_hits, c4_downs, c4_spews, c4_spew_hits, c4_grapples, c4_souls;   /* C4's */
 /* the caster's track (C) ends */
 /* the dead's track (D): */
 static int wraith_cornered_n;                                      /* the Wraith gone into the stone from a corner */
@@ -4069,13 +4077,23 @@ static int elem_take(Mob *m) {
 static void elem_tick(Mob *m, float dt) {                          /* the decision held only as long as its wind-up */
     if (m->elem_t > 0.0f && (m->elem_t -= dt) <= 0.0f) { m->elem_t = 0.0f; m->elem_on = 0; }
 }
+static int c4_on(void);
+static float spirit(void);
+static int spend_spirit(float c);
+static int foe_el;                                                 /* the element foe_hit's last blow went as */
 static int foe_hit(Mob *m, int fa, float k) {
     const FoeAtk *a = &ATTACKS[fa];
     int el = a->el;
     if (el == EL_PHYS) { int e = elem_take(m); if (e >= 0) el = e; }   /* its element, one blow in three */
     if (el != EL_PHYS) harm_next = el;
+    foe_el = el;
     int d = hurt_by(m, mob_damage(m) * a->k * k + a->add, el == EL_PHYS ? HURT_BLOW : HURT_SPELL);
-    if (d > 0 && m->type != MOB_WRAITH)                            /* the Wraith's chills (S9); a shambler's grip two and a half times (M2) */
+    if (d > 0 && m->type == MOB_SHAMBLER && el == EL_SPIRIT && c4_on()) {   /* a Spirit shambler's grip takes souls (M6), not the words */
+        if (af_can(AF_UNBOUND) && af_rolls(AF_UNBOUND, af_rank_chance(m->rank) * 2.5f) && spirit() > 0.0f) {
+            spend_spirit(fminf(spirit(), 2.0f + (float)imin(m->rank, RK_V))); show_bar(); pop_readout();
+            snd_sfx_ex(SFX_WHISPER, 0.7f, 0.5f); DBG_COUNT(c4_souls);
+        }
+    } else if (d > 0 && m->type != MOB_WRAITH)                     /* the Wraith's chills (S9); a shambler's grip two and a half times (M2) */
         af_struck(el, blame_of(m), (float)d, 1 + (int)(m - G.mobs), m->type == MOB_SHAMBLER ? 2.5f : 1.0f);
     if (d > 0 && el != a->el) DBG_COUNT(elem_hits);
     return d;
@@ -7955,6 +7973,141 @@ static int feint_held(Mob *m) {
     m->feint = 2; m->cool = 0.35f;
     return 1;
 }
+/* ---- C4 (docs/PLAN-combat.md, section 8; track C): new attacks. Waiting on the owner's word on their sheet, so off in play:
+ * CRAWL_C4=1 in the debug build puts them in (CRAWL_C4SOON=1 every few seconds, for frames). The Bone Thrower: a skeleton of
+ * rank II up flashes 0.6 s, then lobs three bones half a second apart over twenty degrees. The shield-bearer's charge: a stamp
+ * and the shield up 0.5 s, then up to five cells along a clear lane; it knocks you down 1.2 s, unless it is dodged, the Bone Ward
+ * takes it all, or your armour is twice its harm. The Drowned's spew: swelling 0.5 s, then a gout two cells in a thirty-degree
+ * cone, eight tenths of its blow and Poisoned. Stunned or Unbound, none of them begins (E3, E5) ---- */
+enum { C4_NONE, C4_FLASH, C4_VOLLEY, C4_STAMP, C4_RUSH, C4_REST, C4_SWELL, C4_SPEW };
+#define C4_EDGE 512                                                /* DR_EDGE, which is declared further on (checked there) */
+static int c4_on(void) {
+#ifdef CRAWL_DEBUG
+    static int v = -1;
+    if (v < 0) v = getenv("CRAWL_C4") && atoi(getenv("CRAWL_C4")) ? 1 : 0;
+    return v && !af_off();
+#else
+    return 0;
+#endif
+}
+static float c4_wait(int fa) {                                     /* the wait before the next (-1: the first, a while after it could) */
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_C4SOON")) return fa < 0 ? 0.3f : 2.5f;
+#endif
+    return fa < 0 ? 2.0f + 5.0f * rndf() : ATTACKS[fa].cool + ATTACKS[fa].cool_rnd * rndf();
+}
+static int c4_ready(Mob *m, float dt) {                            /* its wait run down; the first set a while after it first could */
+    if (!c4_on()) return 0;                                        /* off: nothing drawn from the dice */
+    if (m->c4_cd == 0.0f) { m->c4_cd = c4_wait(-1); return 0; }
+    if (m->c4_cd > 0.0f) m->c4_cd -= dt;
+    return m->c4_cd <= 0.0f && !mob_stunned(m) && !mob_unbound(m) && !m->boss && !m->add && !m->ally && c4_on() && !G.dead;
+}
+static void c4_stop(Mob *m, int fa) { m->c4 = C4_NONE; m->c4_t = 0.0f; m->c_flags = 0; m->c4_cd = fmaxf(0.01f, c4_wait(fa)); }
+static int c4_thrower(Mob *m, float dt, int los, float pd) {
+    if (m->c4 == C4_NONE) {
+        if (!c4_ready(m, dt) || m->rank < RK_II || m->rank == RK_GILDED || !m->seen || !los || m->throw_t > 0.0f || m->cover == 1
+            || pd < ATTACKS[FA_VOLLEY].go || pd > ATTACKS[FA_VOLLEY].go2) return 0;
+        m->c4 = C4_FLASH; m->c4_t = 0.0f; m->c_flags = C4_EDGE; m->c4n = 0;
+        elem_arm(m, ATTACKS[FA_VOLLEY].wind + 1.1f);               /* its element, if it carries one this time, on the first of them */
+        sfx_at(SFX_RATTLE, m->x, m->y, 1.2f); DBG_COUNT(c4_volleys);
+    }
+    if (m->c4 != C4_FLASH && m->c4 != C4_VOLLEY) return 0;
+    if (mob_stunned(m) || mob_unbound(m) || G.dead) { c4_stop(m, FA_VOLLEY); m->throw_t = 0.0f; return 0; }
+    m->c4_t += dt;
+    m->face = atan2f(G.py - m->y, G.px - m->x);
+    if (m->c4 == C4_FLASH) {
+        m->c_flags = ((int)(m->c4_t * 12.0f) & 1) ? C4_EDGE : 0;   /* the edge flashing */
+        if (m->c4_t >= ATTACKS[FA_VOLLEY].wind) { m->c4 = C4_VOLLEY; m->c4_t = 0.5f; m->c_flags = 0; }
+    }
+    if (m->c4 == C4_VOLLEY && m->c4_t >= 0.5f) {
+        static const float OFF[3] = { 0.0f, -0.1745f, 0.1745f };    /* where you stand, then ten degrees either side */
+        m->c4_t -= 0.5f;
+        float a = atan2f(G.py - m->y, G.px - m->x) + OFF[m->c4n], d = hypotf(G.px - m->x, G.py - m->y);
+        throw_to(m, MIS_BONE, m->x + cosf(a) * d, m->y + sinf(a) * d, 1);
+        if (++m->c4n >= 3) { c4_stop(m, FA_VOLLEY); m->cool = fa_every(FA_BONE); m->throw_t = 0.0f; return 1; }
+    }
+    m->throw_t = 0.1f;                                             /* the throwing pose, held */
+    return 1;
+}
+static float c4_lane(const Mob *m, float a, float len) {           /* how far a straight run goes before something stops it */
+    float c = cosf(a), s = sinf(a);
+    for (float t = 0.25f; t <= len; t += 0.25f) {
+        float x = m->x + c * t, y = m->y + s * t;
+        int cx = (int)x, cy = (int)y;
+        if (blocks_move(cx, cy) || G.map[cy][cx].kind == K_DOOR) return t - 0.25f;
+        if ((cx != m->cx || cy != m->cy) && occupied(cx, cy, m)) return t - 0.25f;
+    }
+    return len;
+}
+static int c4_charge(Mob *m, float dt, int los, float pd) {
+    if (m->c4 == C4_NONE) {
+        if (!c4_ready(m, dt) || m->shield <= 0.0f || !los || !m->seen || m->swing > 0.0f || pd < ATTACKS[FA_CHARGE].go || pd > ATTACKS[FA_CHARGE].go2) return 0;
+        float a = atan2f(G.py - m->y, G.px - m->x);
+        if (c4_lane(m, a, pd - 0.6f) < pd - 0.6f) return 0;        /* not along a clear lane */
+        m->c4 = C4_STAMP; m->c4_t = 0.0f; m->c4a = a; m->c4x = m->x; m->c4y = m->y;
+        sfx_at(SFX_STEP, m->x, m->y, 1.6f); sfx_at(SFX_DRUM, m->x, m->y, 0.6f); DBG_COUNT(c4_charges);
+    }
+    if (m->c4 != C4_STAMP && m->c4 != C4_RUSH && m->c4 != C4_REST) return 0;
+    m->c4_t += dt;
+    if (m->c4 == C4_STAMP) {
+        m->face = m->c4a;
+        if (mob_stunned(m) || mob_unbound(m)) { c4_stop(m, FA_CHARGE); return 0; }
+        if (m->c4_t >= ATTACKS[FA_CHARGE].wind) { m->c4 = C4_RUSH; m->c4_t = 0.0f; sfx_at(SFX_WHOOSH, m->x, m->y, 1.0f); }
+        return 1;
+    }
+    if (m->c4 == C4_RUSH) {
+        float step = 7.0f * dt, ran = hypotf(m->x - m->c4x, m->y - m->c4y);
+        float go = fminf(step, c4_lane(m, m->c4a, step + 0.25f));
+        m->x += cosf(m->c4a) * go; m->y += sinf(m->c4a) * go;
+        m->cx = m->tx = (int)m->x; m->cy = m->ty = (int)m->y;
+        int stop = go < step * 0.5f || ran + go >= 5.0f;
+        if (!G.dead && hypotf(G.px - m->x, G.py - m->y) < ATTACKS[FA_CHARGE].reach + BODY) {   /* it strikes you */
+            float raw = mob_damage(m) * ATTACKS[FA_CHARGE].k;
+            int d = foe_hit(m, FA_CHARGE, 1.0f);
+            sfx_at(SFX_SWORD, m->x, m->y, 1.4f); DBG_COUNT(c4_charge_hits);
+            if (d > 0 && (float)gear_armor(&RUN.gear) < 2.0f * raw && af_can(AF_DOWN)) { af_hold(AF_DOWN, 1.2f, 1 + (int)(m - G.mobs)); DBG_COUNT(c4_downs); }   /* M4 */
+            if (d > 0) thorns(m);
+            stop = 1;
+        }
+        if (stop) { m->c4 = C4_REST; m->c4_t = 0.0f; }
+        return 1;
+    }
+    if (m->c4_t >= 0.6f) { c4_stop(m, FA_CHARGE); m->cool = 0.5f; }   /* getting its feet under it */
+    return 1;
+}
+static int c4_spew(Mob *m, float dt, int sees, float pd) {
+    if (m->c4 == C4_NONE) {
+        if (!c4_ready(m, dt) || !sees || m->swing > 0.0f || pd < ATTACKS[FA_SPEW].go || pd > ATTACKS[FA_SPEW].go2) return 0;
+        m->c4 = C4_SWELL; m->c4_t = 0.0f; m->c4n = 0;
+        sfx_at(SFX_AF_SICK, m->x, m->y, 1.0f); sfx_at(SFX_GROAN, m->x, m->y, 0.6f); DBG_COUNT(c4_spews);
+    }
+    if (m->c4 != C4_SWELL && m->c4 != C4_SPEW) return 0;
+    m->c4_t += dt;
+    if (m->c4 == C4_SWELL) {
+        m->face = atan2f(G.py - m->y, G.px - m->x);
+        if (mob_stunned(m)) { c4_stop(m, FA_SPEW); return 0; }
+        if (m->c4_t >= ATTACKS[FA_SPEW].wind) { m->c4 = C4_SPEW; m->c4_t = 0.0f; m->c4a = m->face; sfx_at(SFX_SPLASH, m->x, m->y, 1.6f); sfx_at(SFX_HISS, m->x, m->y, 0.8f); }
+        return 1;
+    }
+    if (!m->c4n && m->c4_t >= 0.15f) {                             /* the gout arrives */
+        m->c4n = 1;
+        float d = hypotf(G.px - m->x, G.py - m->y), off = fabsf(wrap_pi(atan2f(G.py - m->y, G.px - m->x) - m->c4a));
+        if (!G.dead && d < ATTACKS[FA_SPEW].reach && off < 0.2618f && line_clear(m->x, m->y, G.px, G.py)) {
+            harm_next = EL_POISON;
+            int h = hurt_by(m, mob_damage(m) * ATTACKS[FA_SPEW].k, HURT_SPELL);
+            if (h > 0) { af_poison(6.0f * (1.0f - gear_poison_resist(&RUN.gear))); DBG_COUNT(c4_spew_hits); }
+        }
+    }
+    if (m->c4_t >= 0.45f) { c4_stop(m, FA_SPEW); m->cool = fmaxf(m->cool, 1.0f); }
+    return 1;
+}
+static void c4_grapple(Mob *m) {                                   /* a shambler's grip with no element in it: held fast (8.3, M8) */
+    if (!c4_on() || m->type != MOB_SHAMBLER || foe_el != EL_PHYS || !af_can(AF_DOWN) || rndf() >= af_rank_chance(m->rank) * 2.5f) return;
+    af_hold(AF_DOWN, 1.2f, 1 + (int)(m - G.mobs));
+    G.af_shake = 1.0f; G.af_k = 0.0f;                              /* no fall: the view stays up and the hand shoves at it */
+    DBG_COUNT(c4_grapples);
+}
+
 /* black: a charged ultimate held: out of its reach until you let go */
 static int charge_read(const Mob *m, float pd) {
     return G.chg_on && G.chg_t > 0.25f && spell_charges(G.chg_sp) && minded(m) && cunning(m) >= RK_V && pd < 6.0f;
@@ -8110,6 +8263,7 @@ static void update_mob(Mob *m, float dt) {
         int los = sees && G.level_t > 1.5;
         float lx, ly;
         if (los && !m->seen) { m->seen = 1; m->cool = (0.45f + 0.35f * rndf()) * throw_interval() / 1.5f; }
+        if (c4_thrower(m, dt, los, pd0)) return;                    /* C4: the Bone Thrower */
         if (m->throw_t > 0.0f) {
             m->throw_t -= dt;
             if (m->throw_t <= 0.0f) {
@@ -8131,6 +8285,7 @@ static void update_mob(Mob *m, float dt) {
     if (m->type == MOB_SHIELD && fights && !afraid) {             /* closes in behind its shield and strikes */
         int los = sees && G.level_t > 1.5;
         if (los) { m->seen = 1; m->face += wrap_pi(atan2f(pdy0, pdx0) - m->face) * fminf(1.0f, dt * 6.0f); }
+        if (c4_charge(m, dt, los, pd0)) return;                     /* C4: the charge */
         m->cool -= dt;
         if (m->swing > 0.0f) {
             m->swing -= dt;
@@ -8146,6 +8301,7 @@ static void update_mob(Mob *m, float dt) {
         if (los && pd0 < ATTACKS[FA_SWORD].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_SWORD].wind; feint_roll(m); elem_arm(m, m->swing); return; }
     }
     if ((m->type == MOB_SHAMBLER || m->type == MOB_DROWNED) && fights && !afraid) {   /* it lurches in and takes hold */
+        if (m->type == MOB_DROWNED && c4_spew(m, dt, sees, pd0)) return;   /* C4: the spew */
         m->cool -= dt;
         if (m->swing > 0.0f) {
             m->swing -= dt;
@@ -8156,6 +8312,7 @@ static void update_mob(Mob *m, float dt) {
                 m->cool = ga->cool;
                 if (pd0 < ga->reach && foe_hit(m, (int)(ga - ATTACKS), 1.0f) > 0) {
                     G.slow_t = fmaxf(G.slow_t, ga->slow * (1.0f - gear_slow_resist(&RUN.gear)));   /* it holds on */
+                    c4_grapple(m);                                 /* C4: or holds you fast */
                     thorns(m); DBG_COUNT(grabs);
                 }
             }
@@ -13983,7 +14140,7 @@ static void af_tick(float dt) {
             snd_sfx_ex(SFX_AF_THAW, 0.8f, 0.5f); rumble(0.25f, 0.6f, 0.2f);
         }
         if (k == AF_FIRE) G.af_burn = G.af_acc = 0.0f;
-        if (k == AF_DOWN) G.af_by = 0;
+        if (k == AF_DOWN) { G.af_by = 0; G.af_shake = 0.0f; }   /* up, or the grip let go */
         af_event(k, 0);
     }
     G.af_hardt = fmaxf(0.0f, G.af_hardt - dt);
@@ -20394,6 +20551,18 @@ static void pilgrim_step(float dt) {
 
 static void update_human(float dt) {
     G.calm += dt;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_FACEFOE")) {                                 /* for frames: the view turned to the nearest creature within eight cells, */
+        G.hint_t = 0.0f;                                           /* and the controls card put away */
+        float best = 8.0f; const Mob *t = NULL;
+        for (int i = 0; i < MAXMOBS; i++) {
+            const Mob *m = &G.mobs[i];
+            float d = hypotf(m->x - G.px, m->y - G.py);
+            if (m->alive && m->state == MS_WALK && !buried(m) && d < best) { best = d; t = m; }
+        }
+        if (t) G.ang += wrap_pi(atan2f(t->y - G.py, t->x - G.px) - G.ang) * fminf(1.0f, dt * 6.0f);
+    }
+#endif
     if (G.pilgrim == 1) {                                          /* a key touched: the feet are the caster's again */
         int touched = IN.ntext > 0;
         for (int k = 0; k < KEY_COUNT && !touched; k++) touched = IN.hit[k];
@@ -23921,6 +24090,7 @@ enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_S
                                                                       over it, more with each */
        /* the dead's track (D) ends */
 };
+_Static_assert(C4_EDGE == DR_EDGE, "C4's flash is DR_EDGE");
 /* VENOM: fire's colours turned green (the flask's splash); POISONED: green bubbles rising off it; BURNING: flames licking up it */   /* ALLY: risen by your Grave Call, a violet edge; WEBBED: held in yours */                                         /* RIPPLE: the Wraith's Time Slip, grey, going out */   /* SHINE: polished plate, a glint
                                                                                                  sliding over it */
 /* GLITCH: rows torn sideways and colours slipping, now and then (the Backrooms), more often when LOOPED; CLIP: cut at
@@ -24302,6 +24472,8 @@ static int mob_sprite(const Mob *m, float *scale) {
     case MOB_DROWNED:
         if (m->state == MS_DIE) return SP_DROWN_BURST;
         if (m->sub == 2) return SP_DROWN_RISE;
+        if (m->c4 == C4_SWELL) return SP_DROWN_SWELL;               /* C4: the spew */
+        if (m->c4 == C4_SPEW) return SP_DROWN_SPEW;
         return m->swing > 0.0f ? SP_DROWN_GRAB : (fr ? SP_DROWN_B : SP_DROWN_A);
     case MOB_HOUND:
         if (m->state == MS_DIE) return SP_HOUND_D;
@@ -24363,6 +24535,8 @@ static int mob_sprite(const Mob *m, float *scale) {
     case MOB_SHIELD: {
         if (m->state == MS_DIE) return m->t < 0.25f ? SP_SKEL_D1 : (m->t < 0.5f ? SP_SKEL_D2 : SP_SKEL_D3);
         int o = m->shield > 0.0f ? 0 : SP_SHIELD_XA - SP_SHIELD_A;
+        if (m->shield > 0.0f && m->state == MS_WALK && m->c4 == C4_STAMP) return SP_SHIELD_RAISE;   /* C4: the charge */
+        if (m->shield > 0.0f && m->state == MS_WALK && m->c4 == C4_RUSH) return SP_SHIELD_RUSH;
         return o + (m->swing > 0.0f ? SP_SHIELD_S : (fr ? SP_SHIELD_B : SP_SHIELD_A));
     }
     case MOB_GHOST:
@@ -24813,6 +24987,39 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         ADD(G.px + cosf(an) * 1.2f, G.py + sinf(an) * 1.2f, 0.12f + 0.04f * sinf((float)G.t * 5.0f + (float)k), ((int)(G.t * 10.0) + k) & 1 ? SP_FSPIRIT_B : SP_FSPIRIT_A,
             1.0f - smoothstepf(0.0f, 0.6f, 0.6f - G.fwall_t));
         if (n > n0) { list[n - 1].scale = 0.45f; list[n - 1].flags |= DR_BRIGHT; }
+    }
+    for (int i = 0; i < MAXMOBS; i++) {                            /* C4's: a stamp's dust, a charge's after-images, a spew's gouts */
+        const Mob *m = &G.mobs[i];
+        if (!m->alive || m->state != MS_WALK || !m->c4) continue;
+        float sc = KINDS[m->type].scale * RANK_SIZE[m->rank];
+        const uint8_t *lut = m->rank != RK_I && KINDS[m->type].family >= 0 ? crawl_rank_lut[KINDS[m->type].family][m->rank] : NULL;
+        if (m->c4 == C4_STAMP || (m->c4 == C4_RUSH && m->c4_t < 0.5f)) {
+            int n0 = n, rush = m->c4 == C4_RUSH;
+            ADD(rush ? m->c4x : m->x, rush ? m->c4y : m->y, 0.0f, rush ? SP_DUST_B : SP_DUST_A, rush ? 0.3f + m->c4_t : 0.0f);
+            if (n > n0) { list[n - 1].scale = 0.8f * sc; list[n - 1].flags |= DR_LIT; }
+        }
+        if (m->c4 == C4_RUSH) {
+            for (int k = 1; k <= 2; k++) {                         /* dust kicked up along its way, seen past it head on */
+                int n0 = n;
+                ADD(m->x - cosf(m->c4a) * 0.5f * (float)k, m->y - sinf(m->c4a) * 0.5f * (float)k, 0.0f, SP_DUST_B, 0.25f * (float)k);
+                if (n > n0) { list[n - 1].scale = (0.75f + 0.2f * (float)k) * sc; list[n - 1].flags |= DR_LIT; }
+            }
+            for (int k = 1; k <= 2; k++) {
+                float back = 0.45f * (float)k;
+                int n0 = n;
+                ADD(m->x - cosf(m->c4a) * back, m->y - sinf(m->c4a) * back, m->z, SP_SHIELD_RUSH, k == 1 ? 0.5f : 0.72f);
+                if (n > n0) { list[n - 1].scale = sc; list[n - 1].lut = lut; }
+            }
+        }
+        if (m->c4 == C4_SPEW) {
+            for (int k = 0; k < 6; k++) {
+                float u = fmodf(m->c4_t * 2.6f + (float)k / 6.0f, 1.0f), off = ((float)((k * 37) % 7) / 6.0f - 0.5f) * 0.5f, r = 0.35f + 1.9f * u;
+                if (m->c4_t > 0.3f && u < 0.3f) continue;          /* the last of it, not more */
+                int n0 = n;
+                ADD(m->x + cosf(m->c4a + off) * r, m->y + sinf(m->c4a + off) * r, 0.42f - 0.34f * u, (k & 1) ? SP_SPEW_B : SP_SPEW_A, 0.0f);
+                if (n > n0) list[n - 1].scale = 0.3f + 0.3f * u;
+            }
+        }
     }
     for (int i = 0; i < MAXBONES; i++) {
         const Bone *b = &G.bones[i];

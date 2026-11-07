@@ -151,6 +151,12 @@ static const Group GROUPS[] = {
       { { SP_HEXTOTEM, "TOTEM" }, { SP_SCRIP, "SCRIP" }, { SP_BSPIDER_A, "SPIDER" }, { SP_BKNIGHT_P0, "KNIGHT" },
         { SP_BRAZIER_OUT, "PUT OUT" }, { SP_TOMB_FRESH, "NEWEST" }, { SP_TOMB_ROUND, "OLDER" }, { SP_LECTERN, "COMPENDIUM" }, { -1, 0 } } },
     /* docs/PLAN-combat.md, two tracks on one branch (its section 17): each adds groups only above its own end mark */
+    { "c4", "PLAN-COMBAT C4: FOR APPROVAL", PF_BONE, ALL_RANKS,
+      { { SP_SHIELD_A, "WALK (TODAY)" }, { SP_SHIELD_RAISE, "THE STAMP" }, { SP_SHIELD_RUSH, "THE CHARGE" }, { SP_SKEL_T, "THROWER" }, { -1, 0 } } },
+    { "c4drown", "PLAN-COMBAT C4: THE DROWNED'S SPEW", PF_DROWN, ALL_RANKS,
+      { { SP_DROWN_A, "WADE (TODAY)" }, { SP_DROWN_SWELL, "SWELLING" }, { SP_DROWN_SPEW, "SPEWING" }, { -1, 0 } } },
+    { "c4fx", "PLAN-COMBAT C4: THE SPEW'S GOUTS, THE STAMP'S DUST", -1, 1,
+      { { SP_SPEW_A, "GOUT A" }, { SP_SPEW_B, "GOUT B" }, { SP_DUST_A, "DUST" }, { SP_DUST_B, "SPREADING" }, { -1, 0 } } },
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     /* the dead's track (D) ends */

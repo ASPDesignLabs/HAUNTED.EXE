@@ -1517,7 +1517,22 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   and orange) with three motes trailing at its height; D's eyes flare while `elem_on`. Ordinary physical blows knock nobody
   down: Knocked Down comes from physical hazards (C2), and the charge and the grapple (C4). `CRAWL_AF=0` takes C3 out too
   (C2's events line for line); `CRAWL_ELEMON=1` (every attack of an elemental creature carries it, for frames); `EVENT
-  elem_hits`, `elem_throws`.
+  elem_hits`, `elem_throws`. **C4's sheet** (`docs/combat/c4-attacks.png`, waiting on the owner's word): the new attacks are built
+  but off in play (`c4_on`: the debug build's `CRAWL_C4=1`; nothing is drawn from the dice while off, so play is the same line
+  for line). `FA_VOLLEY`, `FA_CHARGE`, `FA_SPEW` in `ATTACKS`; `Mob.c4` (`C4_*`), `c4n`, `c4_t`, `c4_cd`, `c4a`, `c4x/c4y`;
+  `c4_ready`, `c4_wait`, `c4_stop`. The Bone Thrower (`c4_thrower`, in the skeleton's branch: rank II up, 2.5-9 cells, a 0.6 s
+  flash through `Mob.c_flags`, the contract's, then three bones lobbed 0.5 s apart, ten degrees either side; 12-18 s apart). The
+  charge (`c4_charge`, `c4_lane`: with its shield, 2-5 cells, a clear lane; the stamp 0.5 s, `SP_SHIELD_RAISE`, dust; the rush at
+  seven cells a second up to five, `SP_SHIELD_RUSH`, dust kicked up and two after-images; struck, 1.2 blows and knocked down 1.2 s
+  unless dodged, warded or out-armoured twice over, M4; 8-16 s apart). The spew (`c4_spew`, in the Drowned's branch: 1.2-2 cells,
+  `SP_DROWN_SWELL` 0.5 s, then `SP_DROWN_SPEW` and six gouts, `SP_SPEW_A/B`, in a thirty-degree cone; at 0.15 s, eight tenths of
+  its blow as Poison and Poisoned; 6-9 s apart). The grapple (`c4_grapple`, after a shambler's grip with no element, `foe_el`:
+  2.5 times M2's chance, held 1.2 s with no fall, `G.af_shake`), and a Spirit shambler's grip taking 2 + its rank in souls (M6).
+  Stunned or Unbound, none begins. The art in `crawl_art.c` (`spr_shield_charge`, `spr_drowned`'s poses 6 and 7, `spr_spew`,
+  `spr_dust`), on `make sheets`' `c4`, `c4drown` and `c4fx`. Debug: `CRAWL_C4=1`, `CRAWL_C4SOON=1` (a few seconds apart, for
+  frames), `CRAWL_FACEFOE=1` (a person's view turned to the nearest creature and the controls card put away, for frames); `EVENT
+  c4_volleys`, `c4_charges`, `c4_charge_hits`, `c4_downs`, `c4_spews`, `c4_spew_hits`, `c4_grapples`, `c4_souls`. The dream's
+  counters (8.6) wait for the word.
 - **The dead's ways shown** (1.0.0b18, PLAN-ai step 11, Part H; harness only; released). `WY_*` (seventeen set pieces), `way_met` (named
   once a run of ten, `RUN.ways`/`way_said`/`way_run`), `pack_way`; the Codex's `CX_WAYS`; the record's deeds (`deed_note`,
   `DEED_*`, `caller_hushed`, `ways_ends`, `Pack.hunted/hurts0/done`, `Ambush.deaths0/done`, `G.hurts`, `G.hunt_shaken`) and

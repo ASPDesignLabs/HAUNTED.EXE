@@ -4912,7 +4912,7 @@ static void spr_drowned(int id, float w, int pose) {
     }
     int back = g_back;                                              /* 1.0.0b18: its back (walking), drawn unturned; spr_turn turns it */
     if (back) pose = 0;
-    int grab = pose == 2;
+    int grab = pose == 2, swell = pose == 6, spew = pose == 7;      /* C4: swelling with water, then spewing it */
     float sw = w * 0.8f;
     cv_flat(32, 62, 15, 2.0f, R_WARM + 1);                          /* the wet where it stands */
     cv_flat(32, 62, 10, 1.2f, sh(R_GHOST, 0.12f));
@@ -4927,8 +4927,9 @@ static void spr_drowned(int id, float w, int pose) {
     cv_line(rx - 1, ry - 1, rx + 2, ry - 1, sh(R_WOOD, 0.45f)); cv_line(rx - 1, ry, rx + 2, ry, sh(R_WOOD, 0.3f));
     cv_line(rx + 2, ry, 47, 61, sh(R_WOOD, 0.35f));
     cv_ellipse(49, 60.5f, 3.2f, 2.4f, R_STONE, 0.15f, 0.55f);
-    cv_ellipse(32 + sw * 0.5f, 37, 9.5f, 10.0f, R_GHOST, 0.15f, 0.7f);   /* the belly, swollen tight */
-    cv_ellipse(32 + sw * 0.6f, 26, 7.5f, 5.0f, R_GHOST, 0.15f, 0.6f);    /* a narrow chest over it, ribs showing */
+    if (swell) cv_ellipse(32 + sw * 0.5f, 36, 12.0f, 12.0f, R_GHOST, 0.2f, 0.82f);   /* swelling: the belly drum-tight, shining */
+    else cv_ellipse(32 + sw * 0.5f, 37, spew ? 8.0f : 9.5f, spew ? 9.0f : 10.0f, R_GHOST, 0.15f, 0.7f);   /* the belly, swollen tight */
+    cv_ellipse(32 + sw * 0.6f, 26, swell ? 9.0f : 7.5f, swell ? 6.0f : 5.0f, R_GHOST, 0.15f, 0.6f);    /* a narrow chest over it, ribs showing */
     for (int r = 0; r < 3; r++) for (int s = -1; s <= 1; s += 2) cv_line(32 + sw * 0.6f + s * 1.5f, 24 + r * 2.2f, 32 + sw * 0.6f + s * 6.5f, 25.5f + r * 2.2f, sh(R_GHOST, 0.25f));
     if (back) {                                                     /* from behind: a narrow back, the belly bulging past it at the flanks */
         cv_ellipse(32 + sw * 0.5f, 33, 6.5f, 12.0f, R_GHOST, 0.1f, 0.5f);
@@ -4959,6 +4960,14 @@ static void spr_drowned(int id, float w, int pose) {
             cv_capsule(sx, sy, 32 + s * 13.0f, sy - 4, 1.8f, R_GHOST, 0.2f, 0.65f);
             cv_capsule(32 + s * 13.0f, sy - 4, 32 + s * 12.0f, sy - 14, 1.5f, R_GHOST, 0.2f, 0.6f);
             dead_hand(32 + s * 12.0f, sy - 16, s < 0 ? -2.0f : -1.1f, 0.5f, R_GHOST, 1.15f);
+        } else if (swell) {                                         /* clutching the belly as it fills */
+            cv_capsule(sx, sy, 32 + s * 14.0f, sy + 10, 1.8f, R_GHOST, 0.15f, 0.6f);
+            cv_capsule(32 + s * 14.0f, sy + 10, 32 + s * 9.0f, sy + 17, 1.5f, R_GHOST, 0.15f, 0.55f);
+            dead_hand(32 + s * 8.0f, sy + 18, s < 0 ? 0.3f : 2.8f, 0.3f, R_GHOST, 1.0f);
+        } else if (spew) {                                          /* flung back and out, the whole of it behind the gout */
+            cv_capsule(sx, sy, 32 + s * 15.0f, sy + 3, 1.8f, R_GHOST, 0.15f, 0.6f);
+            cv_capsule(32 + s * 15.0f, sy + 3, 32 + s * 19.0f, sy + 12, 1.5f, R_GHOST, 0.15f, 0.55f);
+            dead_hand(32 + s * 19.5f, sy + 14, s < 0 ? 2.2f : 0.9f, 0.6f, R_GHOST, 1.1f);
         } else {
             float ex = 32 + s * 11.0f + sw * 0.4f, ey = sy + 14, hx = 32 + s * 11.5f - s * w * 0.5f, hy = sy + 28;
             cv_capsule(sx, sy, ex, ey, 1.8f, R_GHOST, 0.15f, 0.6f);
@@ -4991,11 +5000,81 @@ static void spr_drowned(int id, float w, int pose) {
     } else {
         grid_stamp(DROWN_HEAD, 13, 15, (int)hx0, (int)hy0, R_GHOST, R_IRON, (uint8_t)(R_GLOW + 14), 0);
         cv_px((int)hx0 + 6, (int)hy0 + 15, sh(R_GHOST, 0.75f)); cv_px((int)hx0 + 6, (int)hy0 + 17, sh(R_GHOST, 0.5f));   /* water from its mouth */
+        if (swell) {                                                /* the throat and cheeks filling, the lips pressed shut */
+            cv_ellipse(32 + sw * 0.8f, 18.5f, 5.0f, 3.2f, R_GHOST, 0.25f, 0.85f);
+            cv_ellipse(hx0 + 1.5f, hy0 + 11.0f, 2.2f, 2.0f, R_GHOST, 0.3f, 0.8f); cv_ellipse(hx0 + 11.5f, hy0 + 11.0f, 2.2f, 2.0f, R_GHOST, 0.3f, 0.8f);
+            for (int x = -2; x <= 2; x++) cv_px((int)(hx0 + 6.5f) + x, (int)hy0 + 13, sh(R_IRON, 0.08f));
+            for (int k = 0; k < 4; k++) cv_line(25 + k * 4 + sw * 0.5f, 30 + (k & 1) * 3, 27 + k * 4 + sw * 0.5f, 40 - (k & 1) * 2, sh(R_PURPLE, 0.32f));   /* the veins standing out */
+        }
+        if (spew) {                                                 /* the jaw dropped wide, and the water coming */
+            cv_flat(hx0 + 6.5f, hy0 + 12.5f, 3.0f, 2.8f, sh(R_IRON, 0.04f));
+            for (int i = 0; i < 160; i++) {                         /* a gout, widening as it comes at you */
+                float u = h01(i, 1, 249), y = hy0 + 13.0f + u * 30.0f, half = 1.5f + u * 9.0f;
+                float x = hx0 + 6.5f + (h01(i, 2, 249) - 0.5f) * 2.0f * half;
+                cv_px((int)x, (int)y, h01(i, 3, 249) > 0.7f ? sh(R_GHOST, 0.85f) : sh(R_MOSS, 0.3f + 0.4f * h01(i, 4, 249)));
+            }
+        }
     }
     cv_px((int)hx0, (int)hy0 + 15, sh(R_GHOST, 0.6f)); cv_px((int)hx0 + 12, (int)hy0 + 16, sh(R_GHOST, 0.6f));      /* and its hair */
     cv_rot(R_GHOST, 0.2f, 236);
     if (pose == 3) { cv_sink(18, 58); drowned_pool(32, 22, 0, 245); }
     cv_outline(0);
+    cv_store(id);
+}
+
+/* C4 (docs/PLAN-combat.md, section 8.2): the shield-bearer's charge. The stamp: a foot planted, the shield brought up to the
+ * jaw, the blade drawn back; the rush: behind the shield, the skull's eyes over its rim, a long stride under it */
+static void spr_shield_charge(int id, int rush) {
+    float w = rush ? 1.5f : 0.8f;
+    skel_draw(w, 0.0f, 13, 0);
+    if (rush) {
+        cv_capsule(47, 27, 54, 33, 1.0f, R_IRON, 0.5f, 1.0f);       /* the blade's point, low and forward */
+    } else {
+        cv_capsule(46, 30, 55, 44, 1.0f, R_IRON, 0.5f, 1.0f);       /* the blade drawn back to the hip */
+        cv_capsule(44, 28, 48, 33, 0.9f, R_WOOD, 0.3f, 0.6f);
+    }
+    float cx = rush ? 31.0f : 25.0f, cy = rush ? 28.0f : 25.0f, rx = rush ? 15.5f : 13.5f, ry = rush ? 16.5f : 15.0f;
+    for (int y = (int)(cy - ry); y <= (int)(cy + ry); y++)        /* the shield, as the walking one's, nearer */
+        for (int x = (int)(cx - rx); x <= (int)(cx + rx); x++) {
+            float nx = (x + 0.5f - cx) / rx, ny = (y + 0.5f - cy) / ry, d = nx * nx + ny * ny;
+            if (d > 1.0f) continue;
+            float v = 0.32f + 0.45f * lit(nx * 0.4f, ny * 0.4f, sqrtf(1.0f - d * 0.6f));
+            uint8_t c;
+            if (d > 0.8f) c = sh(R_IRON, v + 0.25f);
+            else if (d < 0.05f) c = sh(R_IRON, v + 0.45f);
+            else {
+                int plank = (int)((x - (cx - rx)) / 6.0f);
+                c = sh(R_WOOD, v + 0.08f * h01(plank, 3, 51) - (((int)(x - (cx - rx)) % 7) == 0 ? 0.12f : 0.0f) - g_decay * 0.15f * h01(x / 3, y / 3, 52));
+                if (fabsf(y + 0.5f - cy) < 1.2f) c = sh(R_IRON, v + 0.1f);
+            }
+            cv_px(x, y, c);
+        }
+    cv_px((int)(cx - 4), (int)(cy - 6), sh(R_IRON, 0.9f)); cv_px((int)(cx + 5), (int)(cy + 6), sh(R_IRON, 0.9f));
+    cv_outline(0);
+    cv_store(id);
+    skel_dress(id, w, rush ? 52.0f : 54.0f, rush ? 31.0f : 42.0f);
+}
+/* C4: a gout of the Drowned's spew, murky and bright where it catches the light; and the dust a stamp raises */
+static void spr_spew(int id, int f) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int i = 0; i < 90; i++) {
+        float a = h01(i, 1, 251 + f) * TAU_F, r = 11.0f * sqrtf(h01(i, 2, 251 + f));
+        float x = 32 + cosf(a) * r * 1.2f, y = 32 + sinf(a) * r * 0.8f;
+        int big = h01(i, 3, 251 + f) > 0.6f;
+        uint8_t c = h01(i, 4, 251 + f) > 0.78f ? sh(R_GHOST, 0.9f) : sh(R_MOSS, 0.25f + 0.45f * h01(i, 5, 251 + f));
+        cv_px((int)x, (int)y, c);
+        if (big) { cv_px((int)x + 1, (int)y, c); cv_px((int)x, (int)y + 1, sh(R_MOSS, 0.2f)); }
+    }
+    cv_store(id);
+}
+static void spr_dust(int id, int f) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int i = 0; i < 420; i++) {
+        float a = h01(i, 1, 261 + f) * PI_F, r = (f ? 22.0f : 14.0f) * sqrtf(h01(i, 2, 261 + f));
+        float x = 32 + cosf(a) * r * 1.4f, y = 62 - sinf(a) * r * (f ? 0.75f : 0.6f);
+        if (h01(i, 3, 261 + f) < 0.1f + 0.3f * (float)f) continue;   /* thinning as it spreads */
+        cv_px((int)x, (int)y, sh(h01(i, 4, 261 + f) > 0.5f ? R_STONE : R_WARM, 0.3f + 0.35f * h01(i, 5, 261 + f)));
+    }
     cv_store(id);
 }
 
@@ -11371,6 +11450,7 @@ void crawl_art_level(int level) {
     spr_skeleton(SP_SKEL_T, 0.3f, 0.0f, 3, 1);
     spr_shieldskel(SP_SHIELD_A, 1.0f, 0, 1); spr_shieldskel(SP_SHIELD_B, -1.0f, 0, 1); spr_shieldskel(SP_SHIELD_S, 0.2f, 1, 1);
     spr_shieldskel(SP_SHIELD_XA, 1.0f, 0, 0); spr_shieldskel(SP_SHIELD_XB, -1.0f, 0, 0); spr_shieldskel(SP_SHIELD_XS, 0.2f, 1, 0);
+    spr_shield_charge(SP_SHIELD_RAISE, 0); spr_shield_charge(SP_SHIELD_RUSH, 1);   /* C4: the charge, at the level's age */
     spr_bestiary_bones();
     spr_sides();
     props_level(level);                                             /* the props, at its age, washed in run II */
@@ -14533,6 +14613,10 @@ void crawl_art_init(void) {
     g_back = 0;
     hunter_dress(SP_HUNTER_BKA, 0); hunter_dress(SP_HUNTER_BKB, 1); brood_dress(SP_BROOD_BKA, 0); brood_dress(SP_BROOD_BKB, 1);
     /* docs/PLAN-combat.md section 17: each track draws its new sprites only above its own end mark */
+    spr_shield_charge(SP_SHIELD_RAISE, 0); spr_shield_charge(SP_SHIELD_RUSH, 1);   /* C4: the charge */
+    spr_drowned(SP_DROWN_SWELL, 0.0f, 6); spr_drowned(SP_DROWN_SPEW, 0.0f, 7);
+    drowned_dress(SP_DROWN_SWELL, 0); drowned_dress(SP_DROWN_SPEW, 0);
+    spr_spew(SP_SPEW_A, 0); spr_spew(SP_SPEW_B, 1); spr_dust(SP_DUST_A, 0); spr_dust(SP_DUST_B, 1);
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     /* the dead's track (D) ends */

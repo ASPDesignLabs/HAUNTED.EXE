@@ -292,6 +292,9 @@ enum {
     SP_SHAMB_BKA, SP_SHAMB_BKB, SP_DROWN_BKA, SP_DROWN_BKB, SP_GHOUL_BKA, SP_GHOUL_BKB, SP_HOUND_BKA, SP_HOUND_BKB, SP_IMP_BKA, SP_IMP_BKB, SP_GARG_BKA, SP_GARG_BKB,
     SP_HUNTER_BKA, SP_HUNTER_BKB, SP_BROOD_BKA, SP_BROOD_BKB,
     /* docs/PLAN-combat.md, two tracks on one branch (its section 17): each adds only above its own end mark */
+    SP_SHIELD_RAISE, SP_SHIELD_RUSH,            /* C4: the shield-bearer's charge: the stamp, the shield up; behind it, at a run */
+    SP_DROWN_SWELL, SP_DROWN_SPEW,              /* C4: the Drowned swelling, then spewing */
+    SP_SPEW_A, SP_SPEW_B, SP_DUST_A, SP_DUST_B, /* C4: a gout of the spew; the dust of a stamp */
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     /* the dead's track (D) ends */
