@@ -1,6 +1,6 @@
 # 1.0.0b18.1: the trial's door, and the crypt made kinder
 
-**Settled; steps 1 and 2 built** (harness only; 7 November 2026). Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
+**Settled; steps 1-3 built** (harness only; 7 November 2026). Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
 tracks of [`PLAN-combat.md`](https://github.com/ASPDesignLabs/HAUNTED.EXE/blob/claude/inspiring-archimedes-dbj5n6/docs/PLAN-combat.md)
 build 1.0.0b19 on `claude/inspiring-archimedes-dbj5n6`. The owner gave one fault and six improvements, asked for them as an
 update of their own ahead of that work, and answered every question in one round (section 12). Every number below that isn't
@@ -85,11 +85,22 @@ of light. Lost (R3 a): nothing, as now; the curse stands.
   caster's Treasure on top as on any pickup. It **glows**: a gold light of its own, slowly pulsing; a gold edge (`DR_EDGE`); the
   twinkle (`DR_GLINT`). It is kept out of the level's treasure count, as a secret's loot is (`Item.secret`), so the tally's share
   and the dream's sums for leaving don't change; the tally names it on the trial's line. No new sprite.
+  *As built:* drawn full bright (`DR_BRIGHT`) with a shimmering gold edge (`DR_EDGE` with a ramp in `Draw.glint`: one line in the
+  sprite drawer, the edge's colour, which the blessing and a waiting boss keep white), the treasure's twinkle quicker, and its own
+  light flaring as it comes (`build_lightmap`). Not `DR_GLINT`, which is the Keymaker's and shows through walls; the shrine's glow
+  as a halo was tried and dropped (it is a sigil, and hung over the chest like a mark). The tally's note is under TREASURE (*THE
+  TRIAL'S HOARD, TAKEN*, or *LEFT IN ITS ROOM* in red), and the reckoning at the exit says *THE TRIAL'S HOARD STILL LIES IN ITS
+  ROOM*. A caption 2.4 s after the win, once the boon's has had its time: *ITS HOARD AND A DRAUGHT LIE IN THE ROOM*. Both are
+  marked by `Item.color` (`TRI_REWARD`), which only keys and scrip read; `Item` itself is left alone, since the combat branch
+  changed the line above it.
 - **The trial's draught.** A potion, which replaces the win's restoring of health (R2 b): health no longer comes back the moment
   the trial is won. Defaults: it restores in full (not a potion's usual share), and it isn't taken at full health, so it waits
   in the room until it is wanted (a caption says so the first time). The win still fills bones and spirit at once, as now.
 - **The dream** takes both: the hoard as treasure it has seen, the draught when it is hurt.
 - Debug: `EVENT trial_reward <gold>`, `EVENT draught`.
+- *As built:* standing on the draught while whole gives *THE DRAUGHT WAITS: YOU ARE WHOLE* once. It cures poison too, as the win
+  did. The Codex's trial page says so (and *A STEP AND A HALF IN*, which step 1 should have changed). Debug: `CRAWL_TRIWIN=s` (a
+  trial won s seconds after it begins), `EVENT trial_reward`, `trial_hoard`, `draught`.
 
 The dream takes every trial with two thirds of its health; without the restore it may come out of one lower and die more on
 that level. The checks will say (section 9).
@@ -312,6 +323,9 @@ Each step committed, pushed and logged in section 15. While a sheet waits, the w
 | Where | Whose, by PLAN-combat 17.2 | What changes |
 |---|---|---|
 | `update_trial`, `tri_begin`, `tri_end`, `tri_place` | neither | the trigger; the reward |
+| `collect`, `update_items`, `reckon_lines`, the tally's notes, the Codex's trial page | neither | the reward picked up, waiting, noted |
+| the dynamic lights in `build_lightmap` (after the motes'), the items' part of `render_sprites` | shared (both unchanged on their branch) | the hoard's light and look |
+| the sprite drawer's edge colour (one line) | shared; track C's `DR_ELEMX` is about 25 lines below | a ramp in `Draw.glint` colours `DR_EDGE` |
 | `update_doors`, `mk_door_busy` | neither | a body, not a centre |
 | `human_move`, `body_blocked` | neither (C has `update_human` and `human_walk`) | the safety net; footprints |
 | the frame's wheel gate, `wheel_input`, `shop_human`, `update_shop`, `render_shop_card`, `render_shop_tags`, `ready_next` (a debug line) | neither | the wheels in her rooms |
@@ -366,6 +380,10 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   to the `render_wards` line). Mended on this side: both call sites are back as on main, and the test sits inside
   `render_shop_tags` and `render_shop_card`, which neither track has touched. Applied again: clean, and built with no warnings.
   For whoever merges: keep `crawl_render`'s lines there as theirs; nothing of this update is on them.
+- **After step 3** (7 November, their branch still at `d87d2dc`): applied clean, built with no warnings, none of the new names
+  used there. Two things kept out of their way on purpose: `Item` isn't touched (their `Bone` change is the line above it, so a
+  new field would have conflicted), and no draw flag was added (their C3 added `DR_ELEMX`); the hoard's gold edge is a ramp in
+  `Draw.glint` read by the edge's one line, about 25 lines above their `DR_ELEMX` block in the same drawer.
 
 ## 15. Hand-off log
 
@@ -417,3 +435,27 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   - *Other checks:* both builds without warnings; `make smoke` passes (1.72 ms a frame); ASan and UBSan clean on three sessions
     in her rooms (keys, pad, menus); the trial merge clean after the mend above.
   - *Left:* nothing of step 2. Next, step 3 (the trial's reward).
+  - *CI:* run 42406057780 on the branch (started by hand): the Windows build compiled, the smoke test passed.
+- **7 November. Step 3, the trial's reward: built** (harness only).
+  - *Built:* as section 4 says, with its *as built* notes: `tri_reward`, `tri_reward_spot`, `tri_reward_at`, `TRI_REWARD`; the
+    win's health restore gone (bones and spirit as before); the draught in `collect` and waiting in `update_items`; the hoard's
+    look and light; the captions; the tally's note, the reckoning's line, the Codex's page; `CRAWL_TRIWIN`.
+  - *A person* (seed 1, level 3, the Vigil, `CRAWL_TPTRIAL=1 CRAWL_TRIWIN=3`): on the win the hoard (1,050, three of level 3's
+    chests at 350) lay at (33,17) and the draught at (34,16), health stayed at 96 and the treasure count at 0 of 31; walked onto,
+    the hoard gave 1,050 gold and the draught made 96 into 100. Won at full health (`CRAWL_TRIWIN=1`), standing on the draught
+    left it lying with *THE DRAUGHT WAITS: YOU ARE WHOLE*. Frames: the hoard full bright and edged in shimmering gold beside
+    the draught; *ITS HOARD AND A DRAUGHT LIE IN THE ROOM* on time; the Codex's page on eight lines with room below it; and,
+    after a sleepwalk to the level's end (`dump`, since a `shot` run had parted from the `apl` one by then), the tally's
+    *THE TRIAL'S HOARD, TAKEN* under TREASURE. The reckoning's line for a hoard left lying was read, not seen.
+  - *The dream from each trial's door* (sixteen seeds, levels 3-8, 240 s, the same run ids; step 1's build, which the dream
+    can't tell from step 2's, against this): begun 298 and 300, won 37 and 38, lost 35 and 36, died in 193 and 194; 38 rewards,
+    37 hoards taken, 36 draughts drunk. Deaths later on the level after a win, 11 and 15: every one in the same life came after
+    the draught, which the dream drank one or two seconds after the win; the rest were later lives (the level begun again).
+  - *The dream from level 3* (sixteen seeds, 30 minutes, the same builds): levels cleared 46 and 48, deaths 38 and 31, trials
+    begun 53 and 46, won 20 and 20, lost 6 and 6, died in 25 and 18; 20 rewards, 18 hoards taken, 15 draughts (it leaves a
+    draught above four fifths of its health, as it does any potion). No harm in the noise.
+  - *Other checks:* both builds without warnings; `make smoke` passes (1.89 ms a frame); ASan and UBSan clean on a person's win
+    with both taken and the Codex opened, a win at full health with the draught left, and a ten-minute dream from level 3 with
+    `CRAWL_TRIWIN=8`; the trial merge clean.
+  - *For the owner's eye:* whether the gold edge reads as "worth more" on a real screen, in motion. It can be made stronger.
+  - *Left:* nothing of step 3. Next, step 4: the sheets of the bells and the soul-lamps, to the owner first.

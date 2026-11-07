@@ -1506,7 +1506,13 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   *The wheels in her rooms* (step 2): the frame's gate is `!G.ui`, not `!G.shop`; a ware is held on Q's release when Q was only
   tapped (`shop_hold`, from `wheel_input`); `shop_human` waits while a wheel is up or fading (`WH.k`), and her cards and tags
   step aside (`render_shop_card`, `render_shop_tags`). Debug: `CRAWL_TPPED=k` (before her pedestal k), `EVENT shop_hold`,
-  `EVENT ready_next`.
+  `EVENT ready_next`. *The trial's reward* (step 3): a win no longer restores health at once; `tri_reward` leaves a hoard (the
+  run's chest, `3 x treasure_value(IT_CHEST)`, `Item.secret` so out of the level's count) and a draught in the room's middle
+  (`tri_reward_spot`: free floor in sight of the door, not under the caster), both marked `Item.color` `TRI_REWARD`
+  (`tri_reward_at`). The hoard is drawn full bright with a gold edge (`DR_EDGE` with a ramp in `Draw.glint`, which colours the
+  edge) and its own light; the draught makes you whole and cures poison (`collect`), and waits in `update_items` while you are
+  whole. The tally notes it under TREASURE, the reckoning says if it still lies there, and the Codex's trial page says so.
+  Debug: `CRAWL_TRIWIN=s` (a trial won s seconds in), `EVENT trial_reward`, `trial_hoard`, `draught`.
 
 ## Releasing
 

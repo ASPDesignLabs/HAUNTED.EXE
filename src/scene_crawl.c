@@ -467,6 +467,7 @@ enum { TRS_SHUT, TRS_ON, TRS_WON, TRS_LOST };   /* not yet gone into; running; w
 #define TRI_TIME 60.0f
 #define TRI_IN 1.5f                         /* how far past its door's middle a trial begins, the body clear of the door
                                                (1.0.0b18.1: one cell in, it had shut on a person half in the doorway) */
+#define TRI_REWARD 100                      /* an Item's color: a won trial's hoard or draught (1.0.0b18.1) */
 #define TOLL_T 9.0f                         /* the Toll's great bell, this often */
 typedef struct {
     uint8_t role, nstate, state, wall, on, frames, cap, facing, look, tri, slow;   /* cap: a place that piles more than one; facing: drawn by
@@ -3193,6 +3194,9 @@ static void build_lightmap(void) {
     }
     for (int i = 0; i < MAXMOTES; i++)
         if (G.motes[i].alive) light_dynamic_ex(G.motes[i].x, G.motes[i].y, 0.35f * (1.0f - smoothstepf(MOTE_LIFE - 2.0f, MOTE_LIFE, G.motes[i].t)), 1.6f, 1);
+    for (int i = 0; i < G.nitems && !G.shop; i++)                  /* a won trial's hoard: its own light, a flare as it comes (1.0.0b18.1) */
+        if (G.items[i].alive && G.items[i].type == IT_CHEST && G.items[i].color == TRI_REWARD)
+            light_dynamic_ex(G.items[i].x, G.items[i].y, 0.75f + 0.2f * sinf((float)G.t * 2.4f) + 1.4f * (1.0f - smoothstepf(0.0f, 1.2f, G.tri_end)), 2.6f, 1);
     for (int k = 0; k < 3 && G.fwall_t > 0.0f; k++) {
         float an = (float)G.t * 2.2f + (float)k * TAU_F / 3.0f;
         light_dynamic(G.px + cosf(an) * 1.2f, G.py + sinf(an) * 1.2f, 0.7f, 2.6f);
@@ -12569,7 +12573,18 @@ static void collect(Item *it) {
         fprintf(stderr, "EVENT key%d t=%.2f path=%d\n", it->color, G.t, bfs_dist[G.cy][G.cx]);
 #endif
         break;
-    case IT_POTION: G.hp = imin(G.max_hp, G.hp + potion_heal()); snd_sfx(SFX_POTION); break;
+    case IT_POTION:
+        if (it->color == TRI_REWARD) {                             /* the trial's draught: whole again, the poison gone (1.0.0b18.1) */
+            G.hp = G.max_hp; G.poison_t = 0.0f;
+            say("THE TRIAL'S DRAUGHT: YOU ARE WHOLE");
+            snd_sfx(SFX_POTION); snd_sfx_ex(SFX_SHIMMER, 0.5f, 0.5f);
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT draught by %s t=%.2f\n", G.player ? "player" : "autopilot", G.t);
+#endif
+            break;
+        }
+        G.hp = imin(G.max_hp, G.hp + potion_heal()); snd_sfx(SFX_POTION);
+        break;
     case IT_SCRIP: {                                               /* a boss's: to the Hexed Totem's account at once */
         int b = clampi(it->color, 0, BOSS_REC - 1), n = (G.bstep >= 3 ? 2 : 1) + (G.corrupt != 0);   /* the bell's one more */
         RUN.scrip[b] += n; RUN.rec.boss[b].scrip = (uint16_t)imin(65535, RUN.rec.boss[b].scrip + n);
@@ -12604,6 +12619,13 @@ static void collect(Item *it) {
                                                                                                   caster's own, the bell's */
         RUN.treasure += got; G.level_treasure += got;
         if (!it->secret) { G.value_got += v; G.items_got++; }
+        if (it->color == TRI_REWARD) {                             /* the trial's hoard (1.0.0b18.1) */
+            say("THE TRIAL'S HOARD: $%d", got);
+            snd_sfx(SFX_KEYGET);
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT trial_hoard %d by %s t=%.2f\n", got, G.player ? "player" : "autopilot", G.t);
+#endif
+        }
         snd_sfx_ex(SFX_COIN, it->type >= IT_CROWN ? 1.2f : 0.9f, 0.5f);
         G.gold = it->type >= IT_CROWN ? 1.0f : 0.6f;
         if (it->type >= IT_CROWN) G.grin_t = 1.6f;
@@ -15849,8 +15871,9 @@ static void tp_near(float tx, float ty) {                          /* testing: a
  * On every level from the third, a boss's too (outside its arena), one room off the way with one door, marked with the
  * run's skull and crossed bones, two red lights by it. A cell and a half past the door it seals behind you and the room turns:
  * its light, its walls, a quicker march, and an hourglass at the top of the view with sixty seconds of sand and no
- * numbers. Win, and the hourglass breaks, you are restored (health and bones in full, spirit to half the vessel if it
- * was less) and THE TRIAL'S BOON gives a fifth more experience from combat for the rest of the level; let the sand run
+ * numbers. Win, and the hourglass breaks, bones fill, spirit goes to half the vessel if it was less, a hoard and a draught
+ * that makes you whole are left in the room (tri_reward, 1.0.0b18.1; health had come back at once), and THE TRIAL'S BOON
+ * gives a fifth more experience from combat for the rest of the level; let the sand run
  * out and its creatures crumble, and THE TRIAL'S CURSE takes a fifth from all experience instead. Falling there is a
  * death as anywhere. The dream takes every trial it finds with two thirds of its health. */
 static const char *const TRI_NAME[NTRI] = { "THE OSSUARY WAKES", "THE VIGIL", "LAST RITES", "THE KNIGHT'S WAGER", "THE TOLL",
@@ -16213,6 +16236,48 @@ static int tri_done(int *n) {                                      /* of the tri
     return d;
 }
 #endif
+/* 1.0.0b18.1: a trial won leaves its reward in its room, in place of the restoring it gave at once: a hoard worth three of
+ * the level's chests, glowing, kept out of the level's treasure count, and a draught that makes you whole, which waits while
+ * you are whole. Both are marked in Item.color, which only keys and scrip read. */
+static int tri_reward_at(int type) {                               /* a won trial's hoard or draught still lying, or -1 */
+    for (int i = 0; i < G.nitems; i++) if (G.items[i].alive && G.items[i].type == type && G.items[i].color == TRI_REWARD) return i;
+    return -1;
+}
+static int tri_reward_spot(int nx, int ny, int *ox, int *oy) {     /* free floor near the room's middle, in sight of its door,
+                                                                      not under the caster; the second near the first (nx >= 0) */
+    const Room *R = &G.rooms[G.tri_room];
+    const Door *d = &G.doors[G.tri_door];
+    int ix = 2 * d->x - G.tri_wx, iy = 2 * d->y - G.tri_wy;        /* the cell inside its door */
+    float cx = (float)R->x + (float)R->w * 0.5f, cy = (float)R->y + (float)R->h * 0.5f;
+    for (int pass = 0; pass < 2; pass++) {                         /* in sight of the door first, then anywhere in it */
+        int bx = -1, by = -1; float bd = 1e9f;
+        for (int y = R->y; y < R->y + R->h; y++)
+            for (int x = R->x; x < R->x + R->w; x++) {
+                if (!free_floor(x, y) || hypotf(x + 0.5f - G.px, y + 0.5f - G.py) < 1.4f) continue;
+                if (pass == 0 && !line_clear(ix + 0.5f, iy + 0.5f, x + 0.5f, y + 0.5f)) continue;
+                float s = nx >= 0 ? hypotf((float)(x - nx), (float)(y - ny)) : hypotf(x + 0.5f - cx, y + 0.5f - cy);
+                if (s < bd) { bd = s; bx = x; by = y; }
+            }
+        if (bx >= 0) { *ox = bx; *oy = by; return 1; }
+    }
+    return 0;
+}
+static void tri_reward(void) {
+    int hx, hy, px, py;
+    if (!tri_reward_spot(-1, -1, &hx, &hy)) { hx = (int)G.px; hy = (int)G.py; }   /* no room for it: at your feet */
+    Item *h = add_item(hx, hy, IT_CHEST);
+    if (h) {
+        h->secret = 1; h->seen = 1; h->color = TRI_REWARD; h->value = 3 * treasure_value(IT_CHEST);
+        G.items_total--; G.value_total -= treasure_value(IT_CHEST);   /* out of the level's count, as a secret's loot is */
+    }
+    if (!tri_reward_spot(hx, hy, &px, &py)) { px = (int)G.px; py = (int)G.py; }
+    Item *p = add_item(px, py, IT_POTION);
+    if (p) { p->secret = 1; p->seen = 1; p->color = TRI_REWARD; }
+    sfx_at(SFX_SHIMMER, hx + 0.5f, hy + 0.5f, 0.9f); sfx_at(SFX_DEEPCHIME, hx + 0.5f, hy + 0.5f, 0.6f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT trial_reward gold %d at (%d,%d) draught at (%d,%d) caster (%.1f,%.1f) t=%.2f\n", h ? h->value : 0, hx, hy, px, py, G.px, G.py, G.t);
+#endif
+}
 static void tri_end(int won) {
 #ifdef CRAWL_DEBUG
     { int n, d = tri_done(&n); fprintf(stderr, "TRIAL end %s: %d of %d done, %d standing, hp %d/%d, hold %.1f at (%.1f,%.1f)", won ? "won" : "lost", d, n, tri_alive(0), G.hp, G.max_hp, G.tri_hold, G.px, G.py);
@@ -16247,12 +16312,12 @@ static void tri_end(int won) {
             if (all) ach_earn(ACH_DEED0 + 6 + r, SP_TRLIGHT0 + r, -1, 0, TRI_RUN_ACH[r], "EVERY ONE WON");
         }
         G.tri_boon = 1;
-        G.hp = G.max_hp; G.poison_t = 0.0f;
+        tri_reward();                                              /* its hoard and its draught, in place of health at once (1.0.0b18.1) */
         RUN.gear.bones = imax(RUN.gear.bones, bones_max());
         float half = vessel() * 0.5f;
         if (spirit() < half) { RUN.souls = (int)half; RUN.soul_frac = half - (float)RUN.souls; }
         say("THE TRIAL IS WON: THE TRIAL'S BOON, A FIFTH MORE FROM WHAT YOU SLAY");
-        snd_sfx_ex(SFX_SHATTER, 1.0f, 0.5f); snd_sfx_ex(SFX_FANFARE, 0.6f, 0.5f); snd_sfx_ex(SFX_POTION, 0.7f, 0.5f);
+        snd_sfx_ex(SFX_SHATTER, 1.0f, 0.5f); snd_sfx_ex(SFX_FANFARE, 0.6f, 0.5f);
         show_bar();
     } else {
         if (RUN.deed_lost < 65535) RUN.deed_lost++;
@@ -16527,7 +16592,13 @@ static void update_trial(float dt) {
         if (!G.dead && in_trial(x, y) && !door_body(d) && hypotf(G.px - (d->x + 0.5f), G.py - (d->y + 0.5f)) >= TRI_IN) tri_begin();   /* well past the door: a peek begins nothing */
         return;
     }
-    if (G.tri_state != TRS_ON) { G.tri_end += dt; return; }
+    if (G.tri_state != TRS_ON) {
+        float was = G.tri_end;
+        G.tri_end += dt;
+        if (G.player && G.tri_state == TRS_WON && was < 2.4f && G.tri_end >= 2.4f && tri_reward_at(IT_CHEST) >= 0)
+            say("ITS HOARD AND A DRAUGHT LIE IN THE ROOM");           /* once the boon's words have had their time (1.0.0b18.1) */
+        return;
+    }
     if (G.dead) {
 #ifdef CRAWL_DEBUG
         if (!G.tri_a[15]++) { int n, d = tri_done(&n); fprintf(stderr, "EVENT trial_died %d %s level %d left %.1f by %s t=%.2f (%d of %d done, %d standing, by %d/%d/%d)\n", G.tri, TRI_NAME[G.tri], G.level, G.tri_t,
@@ -16537,6 +16608,9 @@ static void update_trial(float dt) {
     }
     float was = G.tri_t;
     G.tri_t -= dt;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_TRIWIN") && TRI_TIME - G.tri_t >= (float)atof(getenv("CRAWL_TRIWIN"))) { tri_end(1); return; }   /* testing: won, s seconds in */
+#endif
     if (G.tri_t < 10.0f && floorf(was) != floorf(G.tri_t)) snd_sfx_ex(SFX_TICK, 0.5f + 0.05f * (10.0f - G.tri_t), 0.5f);   /* the last ten */
     tri_run(dt);
     if (G.tri_state == TRS_ON && G.tri_t <= 0.0f) {
@@ -17301,6 +17375,10 @@ static void update_items(void) {
         float d = hypotf(it->x - G.px, it->y - G.py);
         if (!it->seen && d < (it->type == IT_KEY ? 13.0f : 8.5f) && line_clear(G.px, G.py, it->x, it->y)) it->seen = 1;
         if (it->type == IT_BONE && RUN.gear.bones >= bones_max()) continue;   /* no room for it */
+        if (it->type == IT_POTION && it->color == TRI_REWARD && G.hp >= G.max_hp) {   /* the trial's draught waits while you are whole */
+            if (G.player && !it->value && d < 0.9f) { it->value = 1; say("THE DRAUGHT WAITS: YOU ARE WHOLE"); }   /* (value: said, once) */
+            continue;
+        }
         if (d < (G.player ? 0.5f : 1.6f) && G.level_t > 1.0 && !G.ending) collect(it);   /* the autopilot reaches out, to a corner */
     }
 }
@@ -18991,6 +19069,7 @@ static int reckon_lines(char out[NRK][48], int glyph[NRK]) {
         snprintf(out[n], 48, "ABOUT %s GOLD STILL LIES HERE", num); glyph[n++] = RK_GOLD;
     }
     if (G.tri >= 0 && G.tri_state == TRS_SHUT) { snprintf(out[n], 48, "THE TRIAL STILL WAITS"); glyph[n++] = RK_TRIAL; }
+    else if (G.tri >= 0 && G.tri_state == TRS_WON && tri_reward_at(IT_CHEST) >= 0) { snprintf(out[n], 48, "THE TRIAL'S HOARD STILL LIES IN ITS ROOM"); glyph[n++] = RK_TRIAL; }
     return n;
 }
 /* E at the exit, or walking into it: the reckoning first, if anything is left */
@@ -24013,6 +24092,14 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             list[n - 1].flags |= DR_GLINT; list[n - 1].glint = GLINT[it->color];
         }
         if (n > n0 && it->type != IT_KEY) { float u = ph * 0.6f - floorf(ph * 0.6f); list[n - 1].twinkle = u < 0.1f ? sinf(u / 0.1f * PI_F) : 0.0f; }
+        if (n > n0 && it->color == TRI_REWARD) {                   /* a won trial's: full bright; the hoard glints often, edged in gold */
+            list[n - 1].flags |= DR_BRIGHT;
+            if (it->type == IT_CHEST) {
+                float u = ph * 1.4f - floorf(ph * 1.4f);
+                list[n - 1].twinkle = u < 0.25f ? sinf(u / 0.25f * PI_F) : 0.0f;
+                list[n - 1].flags |= DR_EDGE; list[n - 1].glint = R_GOLD;   /* a gold edge, shimmering (and its own light: build_lightmap) */
+            }
+        }
     }
     if (G.shop)                                                    /* the bosses' scrip on the Totem's hooks, one for each ability known */
         for (int b = 0; b < NBOSS; b++) {
@@ -24161,7 +24248,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     if ((d->flags & (DR_EDGE | DR_ALLY)) && !behind && ((x + y + (int)(G.t * 10.0)) & 1)
                         && ((tyi < TS - 1 && col[tyi + 1] != C_CLEAR) || (tx > 0 && img[(tx - 1) * TS + tyi] != C_CLEAR)
                             || (tx < TS - 1 && img[(tx + 1) * TS + tyi] != C_CLEAR)))
-                        f->pix[y * W + x] = (d->flags & DR_ALLY) ? (uint8_t)(R_PURPLE + 13) : (uint8_t)C_WHITE;   /* the blessing: a white edge
+                        f->pix[y * W + x] = (d->flags & DR_ALLY) ? (uint8_t)(R_PURPLE + 13) : d->glint && !(d->flags & DR_GLINT) ? ramp_at(d->glint, 12 + ((x ^ y) & 3)) : (uint8_t)C_WHITE;   /* (a ramp in glint: a won trial's hoard, gold) the blessing: a white edge
                                                                                                          about its fire; yours, a violet one */
                     continue;
                 }
@@ -25437,6 +25524,8 @@ static void render_tally_in(Frame *f) {
             snprintf(note[r], sizeof note[r], "%s%s%s", a, *a && *b ? "  " : "", b);
         }
         if (r == 4 && G.trials_failed) snprintf(note[r], sizeof note[r], "%d TRIAL%s FAILED", G.trials_failed, G.trials_failed > 1 ? "S" : "");
+        if (r == 2 && G.tri >= 0 && G.tri_state == TRS_WON)       /* the trial's hoard, out of the count (1.0.0b18.1) */
+            snprintf(note[r], sizeof note[r], tri_reward_at(IT_CHEST) >= 0 ? "THE TRIAL'S HOARD, LEFT IN ITS ROOM" : "THE TRIAL'S HOARD, TAKEN");
         nn += note[r][0] != 0;
     }
     int pitch = clampi((176 - top - nn * 9) / imax(1, nr), 12, 15), y = top;   /* spaced to fit, closer with more rows and notes */
@@ -25452,6 +25541,7 @@ static void render_tally_in(Frame *f) {
             int x0 = 30 + gfx_text_width(LABEL[r], 1) + 6, x1 = 290 - lw - 6;   /* the leader: a line cut in the stone */
             for (int x = x0; x < x1; x++) { gfx_px(f, x, y + 11, UI_M(1)); gfx_px(f, x, y + 12, UI_M(11)); }
             if (r == 4 && note[r][0]) gfx_text8(f, 46, y + 13, note[r], R_BLOOD + 12, 1);   /* under the label's foot, each part its colour */
+            if (r == 2 && note[r][0]) gfx_text8(f, 46, y + 13, note[r], tri_reward_at(IT_CHEST) >= 0 ? (uint8_t)(R_BLOOD + 12) : (uint8_t)(R_GOLD + 12), 1);
             if (r == 5 && note[r][0]) {
                 const char *a = G.corrupt && G.fonted ? "HALF, +10%" : G.corrupt ? "HALF" : G.fonted ? "+10%" : "";
                 int nx = 46;
@@ -27382,8 +27472,9 @@ static void render_codex(Frame *f) {
         snprintf(line, sizeof line, "%s. %s.", RUN_OF[tri_run_of(c->i)], TRI_TASK[c->i]);
         y += text_wrap(f, 14, y, line, 36, R_STONE + 13, 4) * 9 + 4;
         y += text_wrap(f, 14, y, TRI_HOLD[c->i] ? "HELD TO THE END OF THE SAND, IT IS WON." : "DONE BEFORE THE SAND RUNS OUT, IT IS WON.", 36, R_STONE + 11, 2) * 9 + 4;
-        y += text_wrap(f, 14, y, "A SKULL AND CROSSED BONES ON THE DOOR. A CELL INSIDE, IT SEALS: SIXTY SECONDS. WON, YOU ARE MADE WHOLE (SPIRIT TO "
-                       "HALF THE VESSEL) AND THE BOON GIVES A FIFTH MORE FROM WHAT YOU SLAY; RUN OUT, THE CURSE TAKES A FIFTH OF EVERYTHING.", 36, R_STONE + 11, 9) * 9 + 4;
+        y += text_wrap(f, 14, y, "A SKULL AND CROSSED BONES ON THE DOOR. A STEP AND A HALF IN, IT SEALS: SIXTY SECONDS. WON, IT LEAVES A HOARD AND "
+                       "A DRAUGHT TO MAKE YOU WHOLE, SPIRIT TO HALF THE VESSEL, AND THE BOON: A FIFTH MORE FROM WHAT YOU SLAY. RUN OUT, THE "
+                       "CURSE TAKES A FIFTH OF EVERYTHING.", 36, R_STONE + 11, 9) * 9 + 4;   /* (1.0.0b18.1: the step, the reward) */
         snprintf(line, sizeof line, "TRIALS WON: %d   LOST: %d", RUN.deed_tri, RUN.deed_lost);
         text_wrap(f, 14, y, line, 36, R_BONE + 11, 1);
         break;
