@@ -58,8 +58,11 @@ enum { MIS_BONE, MIS_FIRE, MIS_EMBER, MIS_TURNED, MIS_WEB };   /* what the dead 
 enum { DM_PIERCE = 1, DM_ARC = 2, DM_SLOW = 4, DM_TICK = 8 };   /* how a hit lands: through shields, round them, chilling; poison or
                                                                     burning wearing on it (no hit landed, not made your target) */
 #define DM_ATK(a) (((a) + 1) << 8)          /* and which spell it is, for the creature's weakness to it */
-enum { HURT_BLOW, HURT_MAGIC, HURT_POISON, HURT_STONE, HURT_VOID,   /* STONE: no dodging it; VOID: nothing resists it */
+enum { HURT_BLOW, HURT_SPELL, HURT_POISON, HURT_STONE, HURT_VOID,   /* STONE: no dodging it; VOID: nothing resists it */
        HURT_ELEM };                         /* a hazard's stroke (1.0.0b13): no dodging it, resisted by its element alone */
+/* SPELL (docs/PLAN-combat.md, section 3; it was HURT_MAGIC): dodged, cut by its element's own resist (harm_next; Fire if none
+ * is named) and by half the armour */
+#define HURT_MAGIC HURT_SPELL                /* the old name, for anything written before it changed */
 /* What last hurt the dweller, for the stone if it was the end of them: a creature (its kind and rank), a
  * boss, a boss's hazard, or what a creature left behind (its poison, an imp's fire, a drowned one's pool),
  * or your own spell turned back by the knight's mirror */
@@ -505,8 +508,9 @@ static void hz_clear(void);
 
 typedef struct { int alive, kind, target; float x, y, z, vx, vy, life, dmg; uint64_t pierced; int tier; float arc; uint16_t mkhit; } Shot;   /* tier: the rank
                                                                                  it was cast at; arc: a lob's whole flight (the Blight Flask), 0 straight */
-typedef struct { int alive, kind; float x, y, vx, vy, life, spin, dmg, life0; int from, atk; Blame by; } Bone;   /* life0: an ember's whole flight; from: its thrower;
-                                                                                                    atk: a turned spell's kind */
+typedef struct { int alive, kind; float x, y, vx, vy, life, spin, dmg, life0; int from, atk; Blame by; int el1; } Bone;   /* life0: an ember's whole flight; from: its thrower;
+                                                                                                    atk: a turned spell's kind;
+                                                                                                    el1: 1 + its element (PLAN-combat) */
 typedef struct { int alive, type, cx, cy, seen, color, lx, ly, secret, gen; float x, y, phase; int value; } Item;   /* lx, ly: the lane cell it is taken from;
                                                                                                    gen: 1 + its place among a pocket's things (0: not a pocket's) */
 typedef struct { int alive; float x, y, t, r; int big; } Boom;           /* big 2: the Blight Flask's green splash */
@@ -1264,6 +1268,47 @@ static float mob_damage(const Mob *m) {
     return d * (1.0f - 0.15f * (float)r);
 }
 static float throw_interval(void) { return 1.5f / powf(1.05f, (float)(G.level - 1)); }   /* 5% quicker each level */
+/* What the dead do to you (docs/PLAN-combat.md, section 3): every attack as a row, so the blows in update_mob, the claws at a
+ * web or an ally (mob_blow) and the balance sheet (make combat) read the same numbers. k: its share of the creature's blow
+ * (mob_damage), and add on top; wind: the wind-up (for a leap its flight, for a bat the time it must cling); cool: the wait
+ * after it (below 0, throw_interval's), cool_rnd up to that much more; go: how near you must be for it to begin (go2 the far
+ * edge, for throws and leaps); reach: how near you must still be as it lands; slow: how long it holds you after */
+enum { AK_BLOW, AK_BITE, AK_THROW, AK_LEAP, AK_TOUCH, AK_CAST, AK_SPEW, AK_CHARGE };
+typedef struct { int type, ak, el; float k, add, wind, cool, cool_rnd, go, go2, reach, slow; } FoeAtk;
+enum { FA_BONE, FA_SWORD, FA_GRAB, FA_DGRAB, FA_HBITE, FA_HLEAP, FA_GLEAP, FA_KNIGHT, FA_BROOD, FA_LING, FA_SHADE, FA_EMBER,
+       FA_FIREBALL, FA_CLAW, FA_SWOOP, FA_BAT, FA_LASH, FA_GLASS, FA_WTOUCH, FA_WBOSS, FA_WEB, NFA };
+static const FoeAtk ATTACKS[NFA] = {
+    /*               kind            what      element    k      add   wind   cool  rnd   go    go2   reach  slow */
+    [FA_BONE]     = { MOB_SKEL,      AK_THROW, EL_PHYS,   1.0f,  0.0f, 0.35f, -1.0f, 0.0f, 0.0f, 99.0f, 0.36f, 0.0f },
+    [FA_SWORD]    = { MOB_SHIELD,    AK_BLOW,  EL_PHYS,   1.0f,  1.0f, 0.45f, 1.4f, 0.0f, 1.35f, 0.0f, 1.6f,  0.0f },
+    [FA_GRAB]     = { MOB_SHAMBLER,  AK_BLOW,  EL_PHYS,   1.0f,  0.0f, 0.6f,  1.8f, 0.0f, 1.25f, 0.0f, 1.45f, 1.2f },
+    [FA_DGRAB]    = { MOB_DROWNED,   AK_BLOW,  EL_PHYS,   1.0f,  0.0f, 0.6f,  1.8f, 0.0f, 1.25f, 0.0f, 1.45f, 2.5f },
+    [FA_HBITE]    = { MOB_HOUND,     AK_BITE,  EL_PHYS,   0.8f,  0.0f, 0.25f, 1.3f, 0.0f, 1.15f, 0.0f, 1.3f,  0.0f },
+    [FA_HLEAP]    = { MOB_HUNTER,    AK_LEAP,  EL_PHYS,   0.6f,  0.0f, 0.45f, 3.0f, 0.0f, 0.9f,  2.4f, 1.2f,  0.0f },
+    [FA_GLEAP]    = { MOB_GHOUL,     AK_LEAP,  EL_PHYS,   0.85f, 0.0f, 0.45f, 2.5f, 0.0f, 0.9f,  2.6f, 1.2f,  0.0f },
+    [FA_KNIGHT]   = { MOB_KNIGHT,    AK_BLOW,  EL_PHYS,   1.5f,  0.0f, 0.9f,  2.0f, 0.0f, 1.5f,  0.0f, 1.7f,  0.0f },
+    [FA_BROOD]    = { MOB_BROOD,     AK_BITE,  EL_PHYS,   1.2f,  0.0f, 0.0f,  1.6f, 0.0f, 1.4f,  0.0f, 1.4f,  0.0f },
+    [FA_LING]     = { MOB_LING,      AK_BITE,  EL_PHYS,   0.4f,  0.0f, 0.0f,  1.0f, 0.0f, 0.8f,  0.0f, 0.8f,  0.0f },
+    [FA_SHADE]    = { MOB_SHADE,     AK_TOUCH, EL_SPIRIT, 1.0f,  0.0f, 0.5f,  2.2f, 0.0f, 0.95f, 0.0f, 1.1f,  0.0f },   /* half while it takes souls */
+    [FA_EMBER]    = { MOB_IMP,       AK_THROW, EL_FIRE,   0.8f,  0.0f, 0.4f,  2.4f, 1.0f, 1.5f,  8.0f, 0.36f, 0.0f },
+    [FA_FIREBALL] = { MOB_WSKULL,    AK_CAST,  EL_FIRE,   2.0f,  0.0f, 3.0f,  3.0f, 0.0f, 0.0f,  9.0f, 0.36f, 0.0f },
+    [FA_CLAW]     = { MOB_GARGOYLE,  AK_BLOW,  EL_PHYS,   1.1f,  0.0f, 0.3f,  1.6f, 0.0f, 1.2f,  0.0f, 1.3f,  0.0f },
+    [FA_SWOOP]    = { MOB_GARGOYLE,  AK_LEAP,  EL_PHYS,   0.85f, 0.0f, 0.45f, 2.5f, 0.0f, 1.4f,  3.2f, 1.2f,  0.0f },
+    [FA_BAT]      = { MOB_BAT,       AK_BITE,  EL_PHYS,   1.0f,  0.0f, 3.0f,  0.0f, 0.0f, 1.25f, 0.0f, 1.25f, 0.0f },
+    [FA_LASH]     = { MOB_WHIPPER,   AK_BLOW,  EL_PHYS,   0.9f,  0.0f, 0.4f,  1.8f, 0.0f, 2.4f,  0.0f, 2.6f,  0.0f },
+    [FA_GLASS]    = { MOB_LIGHTLESS, AK_BLOW,  EL_PHYS,   1.3f,  0.0f, 0.4f,  1.6f, 0.0f, 1.3f,  0.0f, 1.5f,  0.0f },
+    [FA_WTOUCH]   = { MOB_WRAITH,    AK_TOUCH, EL_FROST,  1.5f,  0.0f, 0.0f,  2.0f, 0.0f, 1.1f,  0.0f, 1.1f,  2.0f },
+    [FA_WBOSS]    = { MOB_WRAITH,    AK_TOUCH, EL_FROST,  1.2f,  0.0f, 0.0f,  2.5f, 0.0f, 1.1f,  0.0f, 1.1f,  2.0f },   /* the Wraith Unbound's */
+    [FA_WEB]      = { MOB_SPIDER,    AK_BITE,  EL_POISON, 0.0f,  0.0f, 0.25f, 3.0f, 0.0f, 2.0f,  0.0f, 1.05f, 4.0f },   /* poison, no blow */
+};
+static int fa_main(int type) {                                     /* a kind's usual attack, -1 none (the deacon, the Sexton) */
+    for (int i = 0; i < NFA; i++) if (ATTACKS[i].type == type) return i;
+    return -1;
+}
+static float fa_every(int fa) {                                    /* how often it comes, wind-up and wait together */
+    const FoeAtk *a = &ATTACKS[fa];
+    return a->cool < 0.0f ? throw_interval() : a->ak == AK_LEAP ? a->cool : a->wind + a->cool;
+}
 static float rndf(void) { return rng_f(&G.rs); }
 static uint32_t hash2(int x, int y) {
     uint32_t h = (uint32_t)x * 73856093u ^ (uint32_t)y * 19349663u ^ (uint32_t)G.level * 83492791u;
@@ -3660,7 +3705,7 @@ static int harm_of(int kind) {
     int e = harm_next;
     harm_next = -1;
     if (e >= 0) return e;
-    return kind == HURT_POISON ? EL_POISON : kind == HURT_MAGIC ? EL_FIRE : kind == HURT_VOID ? -1 : EL_PHYS;
+    return kind == HURT_POISON ? EL_POISON : kind == HURT_SPELL ? EL_FIRE : kind == HURT_VOID ? -1 : EL_PHYS;
 }
 static void rec_harm(Blame b, int el) {
     int k = b.what == BL_MOB || b.what == BL_POISON || b.what == BL_FIRE || b.what == BL_POOL ? b.type : -1;
@@ -3705,13 +3750,13 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
     int seeping = kind == HURT_POISON || kind == HURT_VOID;        /* nothing turns these: no dodge, armour or ward */
     if (!seeping) {
         if (kind != HURT_STONE && kind != HURT_ELEM && rndf() < gear_dodge(g)) { snd_sfx_ex(SFX_WHOOSH, 0.5f, 0.5f); DBG_COUNT(dodges); return 0; }   /* it passed through a shadow */
-        if (kind == HURT_MAGIC) dmg *= 1.0f - gear_magic_resist(g);
+        if (kind == HURT_SPELL) dmg *= 1.0f - gear_magic_resist(g);
         if (kind == HURT_ELEM) dmg *= el == EL_FIRE ? 1.0f - gear_magic_resist(g) : el == EL_FROST ? 1.0f - gear_slow_resist(g)
                                     : el == EL_POISON ? 1.0f - gear_poison_resist(g) : 1.0f;   /* Spirit and Lightning below */
         if (el == EL_SPIRIT) dmg *= 1.0f - gear_total(g, ST_RES_SPIRIT) / 100.0f;   /* Resist Spirit (1.0.0b11) */
         if (el == EL_LIGHT) dmg *= 1.0f - gear_light_resist(g);    /* Resist Lightning (1.0.0b13) */
         raw = dmg;
-        dmg -= kind == HURT_MAGIC || (kind == HURT_ELEM && el != EL_PHYS) ? gear_armor(g) * 0.5f : (float)gear_armor(g);
+        dmg -= kind == HURT_SPELL || (kind == HURT_ELEM && el != EL_PHYS) ? gear_armor(g) * 0.5f : (float)gear_armor(g);
         if (dmg < 1.0f) dmg = 1.0f;
         armoured = dmg;
         if (G.ward_hp > 0.0f) {                                    /* the bone ward takes it */
@@ -3805,6 +3850,20 @@ static int hurt_by(const Mob *m, float dmg, int kind) {
     if (r > 0) noise(G.px, G.py, 5, NZ_FIGHT, -1);                /* blows: heard five steps off (S3) */
     return r;
 }
+/* One road for the dead's harm (docs/PLAN-combat.md, section 3): an attack's row, times k, as its element. A blow, a bite, a
+ * leap's landing or a touch; what flies goes by bone_hurt */
+static int foe_hit(const Mob *m, int fa, float k) {
+    const FoeAtk *a = &ATTACKS[fa];
+    if (a->el != EL_PHYS) harm_next = a->el;
+    return hurt_by(m, mob_damage(m) * a->k * k + a->add, a->el == EL_PHYS ? HURT_BLOW : HURT_SPELL);
+}
+static int bone_el(const Bone *b) { return b->el1 - 1; }           /* what a missile carries: -1 nothing but itself */
+static int bone_hurt(const Bone *b) {
+    int el = bone_el(b);
+    G.blame = b->by;
+    if (el >= 0 && el != EL_PHYS) harm_next = el;
+    return hurt_ex(b->dmg, el >= 0 && el != EL_PHYS ? HURT_SPELL : HURT_BLOW, b->x - b->vx, b->y - b->vy);
+}
 
 /* a throw at the caster, leading it a little; or (lob) one lobbed to a place, landing there: over a corner (step 7) */
 static void throw_to(const Mob *m, int kind, float tx, float ty, int lob) {
@@ -3816,8 +3875,9 @@ static void throw_to(const Mob *m, int kind, float tx, float ty, int lob) {
         if (kind != MIS_FIRE && !lob) { tx += G.pvx * tt * 0.6f; ty += G.pvy * tt * 0.6f; }   /* leads the caster a little */
         float far = lob ? 0.0f : fmaxf(0.0f, hypotf(G.px - m->x, G.py - m->y) - 4.0f);   /* across a great hall a bone goes wide */
         float a = atan2f(ty - m->y, tx - m->x) + (rndf() - 0.5f) * (kind == MIS_FIRE ? 0.05f : (lob ? 0.06f : 0.14f + 0.05f * far));
+        int fa = kind == MIS_FIRE ? FA_FIREBALL : (kind == MIS_EMBER ? FA_EMBER : FA_BONE);
         *b = (Bone){ 1, kind, m->x + cosf(a) * 0.3f, m->y + sinf(a) * 0.3f, cosf(a) * sp, sinf(a) * sp, 4.0f, rndf() * 4.0f,
-                     kind == MIS_FIRE ? 2.0f * mob_damage(m) : (kind == MIS_EMBER ? 0.8f * mob_damage(m) : mob_damage(m)), 0.0f, (int)(m - G.mobs), 0, blame_of(m) };
+                     mob_damage(m) * ATTACKS[fa].k, 0.0f, (int)(m - G.mobs), 0, blame_of(m), 1 + ATTACKS[fa].el };
         if (kind == MIS_EMBER || lob) b->life = b->life0 = fminf(4.0f, hypotf(tx - m->x, ty - m->y) / sp);   /* lobbed to where the caster will be */
         sfx_at(kind == MIS_BONE ? SFX_THROW : SFX_CAST, m->x, m->y, kind == MIS_EMBER ? 0.7f : 1.0f);
         return;
@@ -3827,7 +3887,7 @@ static void throw_missile(const Mob *m, int kind) { throw_to(m, kind, G.px, G.py
 static void throw_bone(const Mob *m) { throw_missile(m, MIS_BONE); }
 static void bone_land(const Bone *b) {                             /* a bone lobbed over a corner comes down where you went */
     if (!G.dead && !passing() && hypotf(b->x - G.px, b->y - G.py) < 0.9f) {
-        G.blame = b->by; hurt_ex(b->dmg, HURT_BLOW, b->x - b->vx, b->y - b->vy); DBG_COUNT(hits_bone);
+        bone_hurt(b); DBG_COUNT(hits_bone);
     } else sfx_at(SFX_BONES, b->x, b->y, 0.5f);
 }
 
@@ -3884,19 +3944,19 @@ static void update_bones(float dt) {
             }
             if (!G.dead && d < 0.36f) {
                 b->alive = 0; G.blame = b->by; last_set = b->from >= 0 && b->from < MAXMOBS ? G.mobs[b->from].set : 0;
-                if (b->kind == MIS_FIRE) { hurt_ex(b->dmg, HURT_MAGIC, b->x - b->vx, b->y - b->vy); explode(b->x, b->y); DBG_COUNT(hits_fire); }
-                else if (b->kind == MIS_EMBER) { hurt_ex(b->dmg, HURT_MAGIC, b->x - b->vx, b->y - b->vy); ember_land(b); DBG_COUNT(ember_hits); }
+                if (b->kind == MIS_FIRE) { bone_hurt(b); explode(b->x, b->y); DBG_COUNT(hits_fire); }
+                else if (b->kind == MIS_EMBER) { bone_hurt(b); ember_land(b); DBG_COUNT(ember_hits); }
                 else if (b->kind == MIS_WEB) {                     /* held fast */
                     G.web_max = G.web_hp = (float)G.max_hp / 3.0f; G.web_idle = 0.0f;
                     snd_sfx_ex(SFX_DIRT, 0.9f, 0.5f); say("CAUGHT IN THE WEB: CAST TO TEAR IT");
                     DBG_COUNT(webbed);
                 }
                 else if (b->kind == MIS_TURNED) {                  /* your own spell, at half strength */
-                    hurt_ex(b->dmg, b->atk == AT_SPEAR ? HURT_BLOW : HURT_MAGIC, b->x - b->vx, b->y - b->vy);
+                    bone_hurt(b);                                   /* as its own element (it was always fire before) */
                     if (b->atk == AT_FIRE || b->atk == AT_HELL) explode(b->x, b->y); else sfx_at(b->atk == AT_FROST ? SFX_FROST : SFX_ZAP, b->x, b->y, 0.6f);
                     DBG_COUNT(turned_hits);
                 }
-                else { hurt_ex(b->dmg, HURT_BLOW, b->x - b->vx, b->y - b->vy); DBG_COUNT(hits_bone); }
+                else { bone_hurt(b); DBG_COUNT(hits_bone); }
             }
         }
         if (b->life <= 0.0f && b->alive) { if (b->kind == MIS_EMBER) ember_land(b); else if (b->kind == MIS_BONE && b->life0 > 0.0f) bone_land(b); b->alive = 0; }
@@ -6598,12 +6658,11 @@ static void update_wraith(Mob *m, float dt) {
     for (int i = 0; i < MAXWISPS && m->sub != 1; i++)              /* a wisp's light, close by */
         if (G.wisps[i].on && G.wisps[i].a > 0.5f && hypotf(G.wisps[i].x - m->x, G.wisps[i].y - m->y) < 3.0f) wraith_back(m);
     if (m->sub == 1 && m->sub_t > WRAITH_BACK_T) m->sub = 0;
-    if (m->sub == 0 && !G.dead && G.wwalk_t <= 0.0f && pd < 1.1f && m->cool <= 0.0f) {  /* its touch */
-        m->cool = 2.0f;
+    if (m->sub == 0 && !G.dead && G.wwalk_t <= 0.0f && pd < ATTACKS[FA_WTOUCH].reach && m->cool <= 0.0f) {  /* its touch */
+        m->cool = ATTACKS[FA_WTOUCH].cool;
         sfx_at(SFX_SHRIEK, m->x, m->y, 1.0f);
-        harm_next = EL_FROST;
-        if (hurt_by(m, mob_damage(m) * 1.5f, HURT_MAGIC) > 0) {
-            G.chill = 1.0f; G.slow_t = fmaxf(G.slow_t, 2.0f * (1.0f - gear_slow_resist(&RUN.gear)));
+        if (foe_hit(m, FA_WTOUCH, 1.0f) > 0) {
+            G.chill = 1.0f; G.slow_t = fmaxf(G.slow_t, ATTACKS[FA_WTOUCH].slow * (1.0f - gear_slow_resist(&RUN.gear)));
             DBG_COUNT(wraith_touches);
         }
     }
@@ -6702,13 +6761,13 @@ static void update_wskull(Mob *m, float dt) {
     }
     case 1:                                                        /* the fire gathers: three seconds */
         if (m->sub_t >= 0.6f) alarm_at(m, 10);                     /* its scream down the halls: the watch (docs/PLAN-ai.md, 10) */
-        if (m->sub_t >= 3.0f) {
-            if (seen && d < 9.0f) throw_missile(m, MIS_FIRE);
+        if (m->sub_t >= ATTACKS[FA_FIREBALL].wind) {
+            if (seen && d < ATTACKS[FA_FIREBALL].go2) throw_missile(m, MIS_FIRE);
             m->sub = 2; m->sub_t = 0.0f;
         }
         break;
     default:                                                       /* spent; it gathers again if you linger */
-        if (m->sub_t >= 3.0f) {
+        if (m->sub_t >= ATTACKS[FA_FIREBALL].cool) {
             m->sub = seen && d < 4.5f ? 1 : 0; m->sub_t = 0.0f;   /* awake now: it needs no second look */
             if (m->sub == 1) sfx_at(SFX_SCREAM, m->x, m->y, 0.9f);
         }
@@ -6728,7 +6787,7 @@ static void bite(Mob *m) {
     float k = 1.0f - gear_poison_resist(g);                        /* resisted, it is shorter and weaker */
     G.poison_t = fmaxf(G.poison_t, 6.0f * k); G.poison_by = (Blame){ BL_POISON, (uint8_t)m->type, (uint8_t)m->rank };
     G.poison_dps = (1.0f + (float)((G.level - 4) / 2 > 0 ? (G.level - 4) / 2 : 0)) * m->dmgk * (0.5f + 0.5f * k);
-    G.slow_t = fmaxf(G.slow_t, 4.0f * (1.0f - gear_slow_resist(g)));
+    G.slow_t = fmaxf(G.slow_t, ATTACKS[FA_WEB].slow * (1.0f - gear_slow_resist(g)));
 }
 
 static void update_spider(Mob *m, float dt) {
@@ -6746,7 +6805,7 @@ static void update_spider(Mob *m, float dt) {
     switch (m->sub) {
     case 0:
         m->x = m->ax; m->y = m->ay; m->z = 0.62f;
-        if (!G.dead && G.wwalk_t <= 0.0f && m->cool <= 0.0f && m->feared <= 0.0f && da < 2.0f && line_clear(m->ax, m->ay, G.px, G.py)) { m->sub = 1; m->sub_t = 0.0f; sfx_at(SFX_SKITTER, m->x, m->y, 1.0f); DBG_COUNT(spider_drops);
+        if (!G.dead && G.wwalk_t <= 0.0f && m->cool <= 0.0f && m->feared <= 0.0f && da < ATTACKS[FA_WEB].go && line_clear(m->ax, m->ay, G.px, G.py)) { m->sub = 1; m->sub_t = 0.0f; sfx_at(SFX_SKITTER, m->x, m->y, 1.0f); DBG_COUNT(spider_drops);
             if (m->pack) { pack_call(m); sfx_at(SFX_THRUM, m->ax, m->ay, 1.1f); DBG_COUNT(nest_calls); } }   /* a nest's tripwire: the web thrums */
         break;
     case 1: {                                                      /* down the thread */
@@ -6757,8 +6816,8 @@ static void update_spider(Mob *m, float dt) {
         break;
     }
     case 2:                                                        /* the bite */
-        if (m->sub_t >= 0.25f) {
-            if (!G.dead && G.wwalk_t <= 0.0f && hypotf(G.px - m->x, G.py - m->y) < 1.05f) bite(m);
+        if (m->sub_t >= ATTACKS[FA_WEB].wind) {
+            if (!G.dead && G.wwalk_t <= 0.0f && hypotf(G.px - m->x, G.py - m->y) < ATTACKS[FA_WEB].reach) bite(m);
             m->sub = 3; m->sub_t = 0.0f;
             m->bx = m->x; m->by = m->y;                             /* where it climbs back from */
         }
@@ -6767,7 +6826,7 @@ static void update_spider(Mob *m, float dt) {
         float k = fminf(1.0f, m->sub_t / 1.2f);
         m->z = lerpf(0.12f, 0.62f, k);
         m->x = lerpf(m->bx, m->ax, k); m->y = lerpf(m->by, m->ay, k);
-        if (k >= 1.0f) { m->sub = 0; m->cool = 3.0f; }
+        if (k >= 1.0f) { m->sub = 0; m->cool = ATTACKS[FA_WEB].cool; }
         break;
     }
     }
@@ -6785,14 +6844,14 @@ static void start_leap(Mob *m) {
 static int update_leap(Mob *m, float dt) {
     if (m->sub != 3) return 0;
     m->sub_t += dt;
-    int garg = m->type == MOB_GARGOYLE;
-    float k = fminf(1.0f, m->sub_t / 0.45f);
+    int garg = m->type == MOB_GARGOYLE, fa = m->type == MOB_HUNTER ? FA_HLEAP : garg ? FA_SWOOP : FA_GLEAP;
+    float k = fminf(1.0f, m->sub_t / ATTACKS[fa].wind);
     m->x = lerpf(m->bx, m->ax, k); m->y = lerpf(m->by, m->ay, k); m->z = garg ? GARG_Z - 0.1f * sinf(PI_F * k) : 0.35f * sinf(PI_F * k);
     if (k < 1.0f) return 1;
-    m->sub = m->type == MOB_HUNTER || garg ? 2 : 0; m->z = garg ? GARG_Z : 0.0f; m->cool = m->type == MOB_HUNTER ? 3.0f : 2.5f;
+    m->sub = m->type == MOB_HUNTER || garg ? 2 : 0; m->z = garg ? GARG_Z : 0.0f; m->cool = ATTACKS[fa].cool;
     m->cx = m->tx = (int)m->x; m->cy = m->ty = (int)m->y;
-    if (!G.dead && G.wwalk_t <= 0.0f && hypotf(G.px - m->x, G.py - m->y) < 1.2f) {
-        if (hurt_by(m, mob_damage(m) * (m->type == MOB_HUNTER ? 0.6f : 0.85f), HURT_BLOW) > 0) thorns(m);
+    if (!G.dead && G.wwalk_t <= 0.0f && hypotf(G.px - m->x, G.py - m->y) < ATTACKS[fa].reach) {
+        if (foe_hit(m, fa, 1.0f) > 0) thorns(m);
         if (m->type == MOB_HUNTER && rnd(3) == 0) bite(m);         /* now and then the fangs go in */
         DBG_COUNT(leaps);
     }
@@ -6939,7 +6998,8 @@ static int knight_turns(Mob *mb, Shot *s) {
         if (b->alive) continue;
         float a = atan2f(G.py - mb->y, G.px - mb->x), sp = fminf(hypotf(s->vx, s->vy) * 0.8f, 6.0f);
         *b = (Bone){ 1, MIS_TURNED, mb->x + cosf(a) * 0.5f, mb->y + sinf(a) * 0.5f, cosf(a) * sp, sinf(a) * sp, 4.0f, 0.0f,
-                     fminf(s->dmg * 0.5f, (float)G.max_hp * 0.2f), 0.0f, (int)(mb - G.mobs), s->kind, { BL_MIRROR, 0, 0 } };
+                     fminf(s->dmg * 0.5f, (float)G.max_hp * 0.2f), 0.0f, (int)(mb - G.mobs), s->kind, { BL_MIRROR, 0, 0 },
+                     s->kind >= 0 && s->kind < NATK ? 1 + ATK_ELEM[s->kind] : 0 };
         break;
     }
     sfx_at(SFX_MIRRORBELL, mb->x, mb->y, 1.0f);
@@ -6996,7 +7056,7 @@ static int spider_boss(Mob *m, float dt, float pd0, int sees) {
                 Bone *b = &G.bones[i];
                 if (b->alive) continue;
                 float a = atan2f(G.py - m->y, G.px - m->x);
-                *b = (Bone){ 1, MIS_WEB, m->x + cosf(a) * 0.5f, m->y + sinf(a) * 0.5f, cosf(a) * 3.5f, sinf(a) * 3.5f, 4.0f, 0.0f, 0.0f, 0.0f, (int)(m - G.mobs), 0, blame_of(m) };
+                *b = (Bone){ 1, MIS_WEB, m->x + cosf(a) * 0.5f, m->y + sinf(a) * 0.5f, cosf(a) * 3.5f, sinf(a) * 3.5f, 4.0f, 0.0f, 0.0f, 0.0f, (int)(m - G.mobs), 0, blame_of(m), 0 };
                 sfx_at(SFX_THROW, m->x, m->y, 1.0f);
                 break;
             }
@@ -7121,12 +7181,11 @@ static void wraith_boss(Mob *m, float dt) {
             DBG_COUNT(wraith_slips);
             break;
         }
-    if (!G.dead && G.wwalk_t <= 0.0f && pd < 1.1f && m->cool <= 0.0f) {   /* its touch */
-        m->cool = 2.5f;
+    if (!G.dead && G.wwalk_t <= 0.0f && pd < ATTACKS[FA_WBOSS].reach && m->cool <= 0.0f) {   /* its touch */
+        m->cool = ATTACKS[FA_WBOSS].cool;
         sfx_at(SFX_SHRIEK, m->x, m->y, 1.0f);
-        harm_next = EL_FROST;
-        if (hurt_by(m, mob_damage(m) * 1.2f, HURT_MAGIC) > 0) {
-            G.chill = 1.0f; G.slow_t = fmaxf(G.slow_t, 2.0f * (1.0f - gear_slow_resist(&RUN.gear)));
+        if (foe_hit(m, FA_WBOSS, 1.0f) > 0) {
+            G.chill = 1.0f; G.slow_t = fmaxf(G.slow_t, ATTACKS[FA_WBOSS].slow * (1.0f - gear_slow_resist(&RUN.gear)));
             DBG_COUNT(wraith_touches);
         }
     }
@@ -7475,16 +7534,16 @@ static void update_mob(Mob *m, float dt) {
                 if (feint_held(m)) return;                         /* black: the arm goes back, and no bone */
                 if (!los && mind && cunning(m) >= RK_II && corner_aim(m, &lx, &ly)) { throw_to(m, MIS_BONE, lx, ly, 1); DBG_COUNT(corner_throws); }
                 else throw_bone(m);
-                m->cool = throw_interval() * (1.0f + (rndf() - 0.5f) * 0.27f); DBG_COUNT(throws);
+                m->cool = fa_every(FA_BONE) * (1.0f + (rndf() - 0.5f) * 0.27f); DBG_COUNT(throws);
                 if (mind && cunning(m) >= RK_II && m->cool > 0.5f && cover_near(m)) { m->cover = 1; DBG_COUNT(covers); }   /* green: behind
                                                                       the corner a step off, out again for the next */
             }
             return;                                                /* stands still to throw */
         }
-        if (m->seen && los && m->cover != 1 && (m->cool -= dt) <= 0.0f) { m->throw_t = 0.35f; feint_roll(m); return; }
+        if (m->seen && los && m->cover != 1 && (m->cool -= dt) <= 0.0f) { m->throw_t = ATTACKS[FA_BONE].wind; feint_roll(m); return; }
         if (m->seen && !los && !m->cover && mind && cunning(m) >= RK_II && (m->cool -= dt) <= 0.0f && corner_aim(m, &lx, &ly)) {   /* over the
                                                                       corner, to where it saw you go */
-            m->throw_t = 0.35f; return;
+            m->throw_t = ATTACKS[FA_BONE].wind; return;
         }
     }
     if (m->type == MOB_SHIELD && fights && !afraid) {             /* closes in behind its shield and strikes */
@@ -7496,13 +7555,13 @@ static void update_mob(Mob *m, float dt) {
             if (m->swing <= 0.0f) {
                 m->swing = 0.0f;
                 if (feint_held(m)) return;
-                m->cool = 1.4f;
+                m->cool = ATTACKS[FA_SWORD].cool;
                 sfx_at(SFX_SWORD, m->x, m->y, 1.2f);
-                if (pd0 < 1.6f && hurt_by(m, mob_damage(m) + 1.0f, HURT_BLOW) > 0) { thorns(m); DBG_COUNT(hits_sword); }
+                if (pd0 < ATTACKS[FA_SWORD].reach && foe_hit(m, FA_SWORD, 1.0f) > 0) { thorns(m); DBG_COUNT(hits_sword); }
             }
             return;
         }
-        if (los && pd0 < 1.35f && m->cool <= 0.0f) { m->swing = 0.45f; feint_roll(m); return; }
+        if (los && pd0 < ATTACKS[FA_SWORD].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_SWORD].wind; feint_roll(m); return; }
     }
     if ((m->type == MOB_SHAMBLER || m->type == MOB_DROWNED) && fights && !afraid) {   /* it lurches in and takes hold */
         m->cool -= dt;
@@ -7511,15 +7570,16 @@ static void update_mob(Mob *m, float dt) {
             if (m->swing <= 0.0f) {
                 m->swing = 0.0f;
                 if (feint_held(m)) return;
-                m->cool = 1.8f;
-                if (pd0 < 1.45f && hurt_by(m, mob_damage(m), HURT_BLOW) > 0) {
-                    G.slow_t = fmaxf(G.slow_t, (m->type == MOB_DROWNED ? 2.5f : 1.2f) * (1.0f - gear_slow_resist(&RUN.gear)));   /* it holds on */
+                const FoeAtk *ga = &ATTACKS[m->type == MOB_DROWNED ? FA_DGRAB : FA_GRAB];
+                m->cool = ga->cool;
+                if (pd0 < ga->reach && foe_hit(m, (int)(ga - ATTACKS), 1.0f) > 0) {
+                    G.slow_t = fmaxf(G.slow_t, ga->slow * (1.0f - gear_slow_resist(&RUN.gear)));   /* it holds on */
                     thorns(m); DBG_COUNT(grabs);
                 }
             }
             return;
         }
-        if (sees && pd0 < 1.25f && m->cool <= 0.0f) { m->swing = 0.6f; feint_roll(m); sfx_at(SFX_GROAN, m->x, m->y, 1.0f); return; }
+        if (sees && pd0 < ATTACKS[FA_GRAB].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_GRAB].wind; feint_roll(m); sfx_at(SFX_GROAN, m->x, m->y, 1.0f); return; }
         if (pd0 < 7.0f && rnd(500) == 0) sfx_at(SFX_GROAN, m->x, m->y, 0.7f);
     }
     if (m->type == MOB_HOUND && fights && !afraid) {               /* in, a bite, and away */
@@ -7527,13 +7587,13 @@ static void update_mob(Mob *m, float dt) {
         if (m->swing > 0.0f) {
             m->swing -= dt;
             if (m->swing <= 0.0f) {
-                m->swing = 0.0f; m->cool = 1.3f; m->feared = 0.8f; m->wfeared = 0;
+                m->swing = 0.0f; m->cool = ATTACKS[FA_HBITE].cool; m->feared = 0.8f; m->wfeared = 0;
                 sfx_at(SFX_BONES, m->x, m->y, 0.7f);
-                if (pd0 < 1.3f && hurt_by(m, mob_damage(m) * 0.8f, HURT_BLOW) > 0) { thorns(m); DBG_COUNT(hound_bites); }
+                if (pd0 < ATTACKS[FA_HBITE].reach && foe_hit(m, FA_HBITE, 1.0f) > 0) { thorns(m); DBG_COUNT(hound_bites); }
             }
             return;
         }
-        if (sees && pd0 < 1.15f && m->cool <= 0.0f) { m->swing = 0.25f; return; }
+        if (sees && pd0 < ATTACKS[FA_HBITE].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_HBITE].wind; return; }
     }
     if (m->boss == 1 + BOSS_SPIDER && spider_boss(m, dt, pd0, sees)) return;
     if (m->type == MOB_HUNTER && !G.dead) {                        /* along the ceiling, down a thread, and a leap */
@@ -7547,7 +7607,7 @@ static void update_mob(Mob *m, float dt) {
             m->z = lerpf(1.0f - KINDS[MOB_HUNTER].scale, 0.0f, fminf(1.0f, m->sub_t / 0.4f));
             if (m->sub_t >= 0.4f) { m->sub = 2; m->z = 0.0f; m->alert = 12.0f; }
             return;
-        } else if (fights && sees && pd0 < 2.4f && pd0 > 0.9f && m->cool <= 0.0f) { start_leap(m); return; }
+        } else if (fights && sees && pd0 < ATTACKS[FA_HLEAP].go2 && pd0 > ATTACKS[FA_HLEAP].go && m->cool <= 0.0f) { start_leap(m); return; }
     }
     if (m->type == MOB_GHOUL && !G.dead) {                          /* it leaps the last of the way; it feeds on the dead */
         if (update_leap(m, dt)) return;
@@ -7558,7 +7618,7 @@ static void update_mob(Mob *m, float dt) {
             if (rnd(100) == 0) sfx_at(SFX_CHEW, m->x, m->y, 0.7f);   /* heard at its meal */
             return;
         }
-        if (fights && !afraid && sees && pd0 < 2.6f && pd0 > 0.9f && m->cool <= 0.0f) { start_leap(m); return; }
+        if (fights && !afraid && sees && pd0 < ATTACKS[FA_GLEAP].go2 && pd0 > ATTACKS[FA_GLEAP].go && m->cool <= 0.0f) { start_leap(m); return; }
         if (m->alert <= 0.0f && m->hp < m->maxhp && (m->contact -= dt) <= 0.0f) {   /* bones near? it stops to eat */
             m->contact = 2.0f;
             for (int i = 0; i < G.ndecos; i++) {
@@ -7579,20 +7639,20 @@ static void update_mob(Mob *m, float dt) {
             if (m->swing <= 0.0f) {
                 m->swing = 0.0f;
                 if (feint_held(m)) { m->cool = 0.5f; return; }      /* the blade held high, and down a moment later */
-                m->cool = 2.0f; m->throw_t = 0.3f;
+                m->cool = ATTACKS[FA_KNIGHT].cool; m->throw_t = 0.3f;
                 sfx_at(SFX_SWORD, m->x, m->y, 1.4f);
-                if (pd0 < 1.7f && hurt_by(m, mob_damage(m) * 1.5f, HURT_BLOW) > 0) { thorns(m); DBG_COUNT(knight_blows); }
+                if (pd0 < ATTACKS[FA_KNIGHT].reach && foe_hit(m, FA_KNIGHT, 1.0f) > 0) { thorns(m); DBG_COUNT(knight_blows); }
             }
             return;
         }
-        if (sees && pd0 < 1.5f && m->cool <= 0.0f) { m->swing = 0.9f; feint_roll(m); sfx_at(SFX_SWORD, m->x, m->y, 0.4f); return; }
+        if (sees && pd0 < ATTACKS[FA_KNIGHT].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_KNIGHT].wind; feint_roll(m); sfx_at(SFX_SWORD, m->x, m->y, 0.4f); return; }
     }
     if (m->type == MOB_BROOD && !G.dead) {                          /* she lays as she goes, and bites what comes close */
         m->cool -= dt;
         if (m->swing > 0.0f) { if ((m->swing -= dt) <= 0.0f) m->swing = 0.0f; return; }   /* laying */
-        if (fights && sees && pd0 < 1.4f && m->cool <= 0.0f) {
-            m->cool = 1.6f;
-            if (hurt_by(m, mob_damage(m) * 1.2f, HURT_BLOW) > 0) { thorns(m); DBG_COUNT(brood_bites); }
+        if (fights && sees && pd0 < ATTACKS[FA_BROOD].go && m->cool <= 0.0f) {
+            m->cool = ATTACKS[FA_BROOD].cool;
+            if (foe_hit(m, FA_BROOD, 1.0f) > 0) { thorns(m); DBG_COUNT(brood_bites); }
             sfx_at(SFX_SKITTER, m->x, m->y, 1.2f);
             return;
         }
@@ -7607,9 +7667,9 @@ static void update_mob(Mob *m, float dt) {
     }
     if (m->type == MOB_LING && !G.dead) {                           /* a swarm of small bites */
         m->cool -= dt; m->alert = fmaxf(m->alert, 5.0f);
-        if (fights && pd0 < 0.8f && m->cool <= 0.0f) {
-            m->cool = 1.0f;
-            if (hurt_by(m, mob_damage(m) * 0.4f, HURT_BLOW) > 0) { thorns(m); DBG_COUNT(ling_bites); }
+        if (fights && pd0 < ATTACKS[FA_LING].go && m->cool <= 0.0f) {
+            m->cool = ATTACKS[FA_LING].cool;
+            if (foe_hit(m, FA_LING, 1.0f) > 0) { thorns(m); DBG_COUNT(ling_bites); }
         }
     }
     if (m->type == MOB_SHADE && !G.dead) {                         /* unseen in the dark; its touch takes souls */
@@ -7620,19 +7680,18 @@ static void update_mob(Mob *m, float dt) {
             if (m->swing <= 0.0f) {
                 m->swing = 0.0f;
                 if (feint_held(m)) return;
-                m->cool = 2.2f; m->sub_t = 1.5f;
-                if (pd0 < 1.1f) {
+                m->cool = ATTACKS[FA_SHADE].cool; m->sub_t = 1.5f;
+                if (pd0 < ATTACKS[FA_SHADE].reach) {
                     int take = RUN.souls < 2 + m->rank ? RUN.souls : 2 + m->rank;
                     RUN.souls -= take;
-                    harm_next = EL_SPIRIT;
-                    if (hurt_by(m, mob_damage(m) * (take ? 0.5f : 1.0f), HURT_MAGIC) > 0) thorns(m);   /* nothing to take: it takes more of you */
+                    if (foe_hit(m, FA_SHADE, take ? 0.5f : 1.0f) > 0) thorns(m);   /* nothing to take: it takes more of you */
                     snd_sfx_ex(SFX_WHISPER, 0.9f, 0.5f); pop_readout();
                     DBG_COUNT(shade_touches);
                 }
             }
             return;
         }
-        if (fights && pd0 < 0.95f && m->cool <= 0.0f) { m->swing = 0.5f; feint_roll(m); sfx_at(SFX_GHOST_TICK, m->x, m->y, 0.8f); if (mind) DBG_COUNT(shade_strikes); return; }
+        if (fights && pd0 < ATTACKS[FA_SHADE].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_SHADE].wind; feint_roll(m); sfx_at(SFX_GHOST_TICK, m->x, m->y, 0.8f); if (mind) DBG_COUNT(shade_strikes); return; }
         if (pd0 < 6.0f && shade_hidden(m) && rnd(100) == 0) sfx_at(SFX_STEP, m->x, m->y, 0.45f);   /* footsteps, and no one there */
     }
     if (m->type == MOB_IMP && !G.dead) {                           /* it keeps off, and lobs embers */
@@ -7643,14 +7702,14 @@ static void update_mob(Mob *m, float dt) {
                 if (feint_held(m)) return;
                 if (!sees && mind && cunning(m) >= RK_II && corner_aim(m, &lx, &ly)) { throw_to(m, MIS_EMBER, lx, ly, 1); DBG_COUNT(corner_throws); }
                 else throw_missile(m, MIS_EMBER);
-                m->cool = 2.4f + rndf(); DBG_COUNT(embers);
+                m->cool = ATTACKS[FA_EMBER].cool + ATTACKS[FA_EMBER].cool_rnd * rndf(); DBG_COUNT(embers);
                 if (mind && cunning(m) >= RK_II && cover_near(m)) { m->cover = 1; DBG_COUNT(covers); }
             }
             return;
         }
         m->cool -= dt;
-        if (fights && sees && pd0 > 1.5f && pd0 < 8.0f && m->cool <= 0.0f && G.level_t > 1.5 && m->cover != 1) { m->throw_t = 0.4f; feint_roll(m); return; }
-        if (fights && !sees && !m->cover && mind && cunning(m) >= RK_II && m->cool <= 0.0f && corner_aim(m, &lx, &ly)) { m->throw_t = 0.4f; return; }
+        if (fights && sees && pd0 > ATTACKS[FA_EMBER].go && pd0 < ATTACKS[FA_EMBER].go2 && m->cool <= 0.0f && G.level_t > 1.5 && m->cover != 1) { m->throw_t = ATTACKS[FA_EMBER].wind; feint_roll(m); return; }
+        if (fights && !sees && !m->cover && mind && cunning(m) >= RK_II && m->cool <= 0.0f && corner_aim(m, &lx, &ly)) { m->throw_t = ATTACKS[FA_EMBER].wind; return; }
     }
     if (m->type == MOB_DEACON && !G.dead) {                        /* it keeps back, and calls the fallen up again */
         if (mind && !m->called) {                                  /* the first time he sees you he calls the level's dead */
@@ -7700,12 +7759,12 @@ static void update_mob(Mob *m, float dt) {
             if ((m->swing -= dt) > 0.0f) return;
             m->swing = 0.0f;
             if (feint_held(m)) return;
-            m->cool = 1.8f; m->throw_t = 0.3f;
+            m->cool = ATTACKS[FA_LASH].cool; m->throw_t = 0.3f;
             sfx_at(SFX_WHIPCRACK, m->x, m->y, 1.2f);
-            if (pd0 < 2.6f && hurt_by(m, mob_damage(m) * 0.9f, HURT_BLOW) > 0) { thorns(m); DBG_COUNT(whip_lashes); }
+            if (pd0 < ATTACKS[FA_LASH].reach && foe_hit(m, FA_LASH, 1.0f) > 0) { thorns(m); DBG_COUNT(whip_lashes); }
             return;
         }
-        if (fights && sees && pd0 < 2.4f && m->cool <= 0.0f && G.level_t > 1.5) { m->swing = 0.4f; feint_roll(m); return; }
+        if (fights && sees && pd0 < ATTACKS[FA_LASH].go && m->cool <= 0.0f && G.level_t > 1.5) { m->swing = ATTACKS[FA_LASH].wind; feint_roll(m); return; }
         if (mind && !m->called && !pack_of(m) && sees && G.level_t > 1.5) {   /* his hounds gone: the horn, for whatever hears it */
             m->call_t = 1.1f; sfx_at(SFX_HORN, m->x, m->y, 1.2f); alarm_at(m, 10); DBG_COUNT(horns);
             return;
@@ -7736,9 +7795,9 @@ static void update_mob(Mob *m, float dt) {
             if ((m->swing -= dt) > 0.0f) return;
             m->swing = 0.0f;
             if (feint_held(m)) return;
-            m->cool = 1.6f;
+            m->cool = ATTACKS[FA_GLASS].cool;
             sfx_at(SFX_GLASS, m->x, m->y, 1.0f);
-            if (pd0 < 1.5f && hurt_by(m, mob_damage(m) * 1.3f, HURT_BLOW) > 0) { thorns(m); DBG_COUNT(lightless_hits); }
+            if (pd0 < ATTACKS[FA_GLASS].reach && foe_hit(m, FA_GLASS, 1.0f) > 0) { thorns(m); DBG_COUNT(lightless_hits); }
             return;
         }
         Wisp *w = &G.wisps[0];
@@ -7747,7 +7806,7 @@ static void update_mob(Mob *m, float dt) {
             DBG_COUNT(wisps_struck);
             return;
         }
-        if (fights && !afraid && sees && pd0 < 1.3f && m->cool <= 0.0f) { m->swing = 0.4f; feint_roll(m); return; }
+        if (fights && !afraid && sees && pd0 < ATTACKS[FA_GLASS].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_GLASS].wind; feint_roll(m); return; }
         if ((m->tx != m->cx || m->ty != m->cy) && pd0 < 9.0f && rnd(110) == 0) sfx_at(SFX_GLASS, m->x, m->y, 0.4f);   /* its glass, as it goes */
     }
     if (m->type == MOB_GARGOYLE) {                                 /* stone till you pass; then wings */
@@ -7771,13 +7830,13 @@ static void update_mob(Mob *m, float dt) {
             if ((m->swing -= dt) <= 0.0f) {
                 m->swing = 0.0f;
                 if (feint_held(m)) return;
-                m->cool = 1.6f;
-                if (pd0 < 1.3f && hurt_by(m, mob_damage(m) * 1.1f, HURT_BLOW) > 0) thorns(m);
+                m->cool = ATTACKS[FA_CLAW].cool;
+                if (pd0 < ATTACKS[FA_CLAW].reach && foe_hit(m, FA_CLAW, 1.0f) > 0) thorns(m);
             }
             return;
         }
-        if (fights && sees && pd0 < 1.2f && m->cool <= 0.0f) { m->swing = 0.3f; feint_roll(m); return; }
-        if (fights && sees && pd0 > 1.4f && pd0 < 3.2f && m->cool <= 0.0f) { start_leap(m); return; }
+        if (fights && sees && pd0 < ATTACKS[FA_CLAW].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_CLAW].wind; feint_roll(m); return; }
+        if (fights && sees && pd0 > ATTACKS[FA_SWOOP].go && pd0 < ATTACKS[FA_SWOOP].go2 && m->cool <= 0.0f) { start_leap(m); return; }
     }
     if (m->type == MOB_BAT && !G.dead) {                           /* bats come for your face */
         int los = pd0 < 5.0f && sees;
@@ -7794,12 +7853,12 @@ static void update_mob(Mob *m, float dt) {
             if (!blocks_move((int)nx, (int)m->y)) m->x = nx;
             if (!blocks_move((int)m->x, (int)ny)) m->y = ny;
             m->cx = m->tx = (int)m->x; m->cy = m->ty = (int)m->y;
-            if (!waits && hypotf(G.px - m->x, G.py - m->y) < 1.25f) {   /* touching: after 3 s it bites, */
+            if (!waits && hypotf(G.px - m->x, G.py - m->y) < ATTACKS[FA_BAT].reach) {   /* touching: after 3 s it bites, */
                 m->contact += dt;
                 if (latch_begin(m)) return;                        /* or from rank II, sooner, it latches on */
-                if (m->contact >= 3.0f) {
+                if (m->contact >= ATTACKS[FA_BAT].wind) {
                     m->contact = 0.0f;
-                    if (hurt_by(m, mob_damage(m), HURT_BLOW) > 0) thorns(m);
+                    if (foe_hit(m, FA_BAT, 1.0f) > 0) thorns(m);
                     sfx_at(SFX_BAT, m->x, m->y, 1.0f); DBG_COUNT(hits_bat);
                 }
             } else m->contact = 0.0f;
@@ -8592,7 +8651,7 @@ static void update_shots(float dt) {
         if (b->foe) {                                              /* an ember's: it burns whoever stands in it */
             if ((int)(pt * 2.0f) != (int)(b->t * 2.0f) && hypotf(G.px - b->x, G.py - b->y) < 0.6f) {
                 G.blame = (Blame){ BL_FIRE, MOB_IMP, 0 };
-                if (hurt_ex(b->dps * 0.5f, HURT_MAGIC, b->x, b->y) > 0) DBG_COUNT(ember_scorch);
+                if (hurt_ex(b->dps * 0.5f, HURT_SPELL, b->x, b->y) > 0) DBG_COUNT(ember_scorch);
             }
             continue;
         }
@@ -8871,25 +8930,11 @@ static int hz_danger(int x, int y);
 static int walk_clear(float x0, float y0, float x1, float y1);
 
 /* a creature's usual blow and how often it comes: what it gives a web, one of yours, or one of theirs */
-static float mob_blow(const Mob *m, float *every) {
-    float k = 1.0f, e = 2.5f;
-    switch (m->type) {
-    case MOB_SKEL: e = throw_interval(); break;
-    case MOB_SHIELD: e = 1.85f; k = 1.1f; break;
-    case MOB_SHAMBLER: case MOB_DROWNED: e = 2.4f; break;
-    case MOB_HOUND: e = 1.55f; k = 0.8f; break;
-    case MOB_HUNTER: e = 3.0f; k = 0.6f; break;
-    case MOB_GHOUL: e = 2.5f; k = 0.85f; break;
-    case MOB_KNIGHT: e = 2.9f; k = 1.5f; break;
-    case MOB_BROOD: e = 1.6f; k = 1.2f; break;
-    case MOB_LING: e = 1.0f; k = 0.4f; break;
-    case MOB_IMP: e = 2.8f; k = 0.8f; break;
-    case MOB_GARGOYLE: e = 1.9f; k = 1.1f; break;
-    case MOB_BAT: e = 3.0f; break;
-    default: break;
-    }
-    *every = e;
-    return mob_damage(m) * k;
+static float mob_blow(const Mob *m, float *every) {               /* its usual attack's row (docs/PLAN-combat.md, section 3) */
+    int fa = fa_main(m->type);
+    if (fa < 0 || ATTACKS[fa].k <= 0.0f) { *every = 2.5f; return mob_damage(m); }   /* those that never strike: as they were */
+    *every = fa_every(fa);
+    return mob_damage(m) * ATTACKS[fa].k + ATTACKS[fa].add;
 }
 
 /* Soul Sap (docs/PLAN-b11.md, section 6): a bat of rank II or more that stays on your face latches on instead of biting:
@@ -13190,7 +13235,7 @@ static void update_hazards(float dt) {
         static int burns; if ((++burns & 15) == 1) fprintf(stderr, "EVENT hz_hit %s x16 t=%.2f\n", G.silenced ? "void" : "fire", G.t);
 #endif
         G.blame = (Blame){ BL_HAZARD, (uint8_t)(G.silenced ? HZ_VOID : HZ_FIRE), 0 };
-        hurt_ex(1.0f, G.silenced ? HURT_VOID : HURT_MAGIC, G.px, G.py);
+        hurt_ex(1.0f, G.silenced ? HURT_VOID : HURT_SPELL, G.px, G.py);
     }
     for (int e = 0; e < NELEM; e++)                                /* the runs' own, by element (1.0.0b13) */
         while (G.hz_el_acc[e] >= 1.0f && !G.dead) { G.hz_el_acc[e] -= 1.0f; G.blame = (Blame){ BL_HAZARD, G.hz_el_by[e], 0 }; harm_next = e; hurt_ex(1.0f, HURT_POISON, G.px, G.py); }
@@ -17042,7 +17087,7 @@ static void update_boss(float dt) {
                     int cx = (int)(k->x + lx / ld * u), cy = (int)(k->y + ly / ld * u);
                     if (blocks_light(cx, cy) || G.map[cy][cx].kind == K_PILLAR) seen = 0;
                 }
-                if (seen) { G.blame = blame_of(k); harm_next = EL_SPIRIT; hurt_ex((float)G.max_hp * 0.2f, HURT_MAGIC, k->x, k->y); sfx_at(SFX_ZAP, G.px, G.py, 1.2f); DBG_COUNT(litany_hits); }
+                if (seen) { G.blame = blame_of(k); harm_next = EL_SPIRIT; hurt_ex((float)G.max_hp * 0.2f, HURT_SPELL, k->x, k->y); sfx_at(SFX_ZAP, G.px, G.py, 1.2f); DBG_COUNT(litany_hits); }
                 else { sfx_at(SFX_WHISPER, k->x, k->y, 0.5f); DBG_COUNT(litany_missed); }
             }
         }
@@ -17837,7 +17882,7 @@ static void crawl_update(double dt) {
     minds_frame(fdt);                                              /* packs, and how many may be in the fight (docs/PLAN-ai.md, step 3) */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_KILLAT") && !G.dead && G.t >= atof(getenv("CRAWL_KILLAT")) && G.t - dt < atof(getenv("CRAWL_KILLAT"))) {   /* testing: struck down */
-        G.level_t = fmax(G.level_t, 2.0); G.blame = (Blame){ BL_NONE, 0, 0 }; hurt_ex(99999.0f, HURT_MAGIC, G.px, G.py);
+        G.level_t = fmax(G.level_t, 2.0); G.blame = (Blame){ BL_NONE, 0, 0 }; hurt_ex(99999.0f, HURT_SPELL, G.px, G.py);
     }
     static int stage_level = -1;                                   /* CRAWL_STAGE: a kind stood down a hall */
     if (getenv("CRAWL_STAGE") && !G.shop && !PK.depth && stage_level != G.level && G.level_t > 0.3) {
