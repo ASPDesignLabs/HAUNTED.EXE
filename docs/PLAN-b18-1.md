@@ -541,6 +541,7 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   - *Checks:* both builds without warnings; `make smoke` passes (1.81 ms a frame); the trial merge clean (section 14).
   - *Waiting on:* the owner's word on both sheets. While they wait, step 6's logic (the ward's areas, the Wraith's way round,
     the offering) and step 7's controller sheet can go on; neither hangs on these drawings.
+  - *CI:* run 42411396362 on the branch (started by hand): the Windows build compiled, the smoke test passed.
   - *Approved* by the owner the same day, who then asked for step 6's logic before step 5.
 - **7 November. Step 6, the ward: built** (harness only).
   - *Built:* as section 6 says, with its *as built* notes: `WD`, `WLamp`, `wraith_barred`, `wraith_h`, `ward_field`,
@@ -576,3 +577,5 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   - *For the owner's eye:* whether the line on the floor is too faint to find, and whether the lamps' words come at the right
     moment. Both are a number each.
   - *Left:* step 5 (the bells in the game), then step 7.
+  - *CI:* run 42415459761 on the branch (started by hand): the Windows build compiled and its smoke test passed; the browser's
+    build compiled and its smoke test in Chromium passed.
