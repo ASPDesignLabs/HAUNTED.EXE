@@ -158,6 +158,8 @@ typedef struct {
     /* docs/PLAN-combat.md, two tracks on one branch (its section 17): each adds fields only above its own end mark */
     int elem_on;                                                   /* the attack under way carries its element (section 8): set by C,
                                                                       read by D's eyes, which flare in its colour */
+    float elem_t;                                                  /* an attack's element decided (C3): how long it holds, wind-up and
+                                                                      a moment after; 0 not decided */
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     int elem;                                                      /* 1 + the element it was born to (section 7.4), 0 none: set by D,
@@ -3888,9 +3890,9 @@ static void af_put(int k, float d, int by) {                       /* status k, 
 }
 /* a creature's elemental hit got through: its status, by its rank (M2). Bosses keep their own ways (S12); Physical knocks down
  * only by the attacks that say so (C3, C4) */
-static void af_struck(int el, Blame b, float d, int by) {
+static void af_struck(int el, Blame b, float d, int by, float mult) {
     int k = af_of(el);
-    if (k < 0 || el == EL_PHYS || b.what == BL_BOSS || af_boss_fight() || !af_can(k) || !af_rolls(k, af_rank_chance(b.rank))) return;
+    if (k < 0 || el == EL_PHYS || b.what == BL_BOSS || af_boss_fight() || !af_can(k) || !af_rolls(k, af_rank_chance(b.rank) * mult)) return;
     af_put(k, d, by);
 }
 static void af_stroke(int el, float d) {                           /* a hazard's stroke: a frost one a stack (S9), the rest at the base chance (S10) */
@@ -4027,6 +4029,7 @@ static int sentinels_woke, chills, nest_calls, gathered, leashed;
 static int glances, glance_finds, amb_read, amb_probes, corners, corners_held;
 static int ways_blocked, lantern_felt, horns, whip_cracks, whip_lashes, wild_hounds, bell_rounds, bell_alarms, bell_heard, bells_frozen, light_felt, lightless_lost, lightless_hits, wisps_struck;
 /* docs/PLAN-combat.md section 17: each track adds its counters only above its own end mark */
+static int elem_hits, elem_throws;                                 /* C3: blows and throws that carried a creature's element */
 /* the caster's track (C) ends */
 /* the dead's track (D): */
 static int wraith_cornered_n;                                      /* the Wraith gone into the stone from a corner */
@@ -4041,11 +4044,38 @@ static int hurt_by(const Mob *m, float dmg, int kind) {
 }
 /* One road for the dead's harm (docs/PLAN-combat.md, section 3): an attack's row, times k, as its element. A blow, a bite, a
  * leap's landing or a touch; what flies goes by bone_hurt */
-static int foe_hit(const Mob *m, int fa, float k) {
+/* An elemental creature's attack (docs/PLAN-combat.md, section 8, M1): one in three carries its element, decided as its wind-up
+ * begins (elem_arm; its eyes flare while it holds) or, for a quick bite with none, as it lands; an Unbound one carries none (E5).
+ * elem_take spends it */
+static void elem_arm(Mob *m, float wind) {
+    if (!m->elem || m->boss || m->add || m->ally || af_off()) return;
+    m->elem_t = wind + 0.35f;
+    m->elem_on = !mob_unbound(m) && rnd(3) == 0;
+#ifdef CRAWL_DEBUG
+    static int every = -1;
+    if (every < 0) every = getenv("CRAWL_ELEMON") != NULL;       /* every attack carries it, for its frames */
+    if (every && !mob_unbound(m)) m->elem_on = 1;
+#endif
+}
+static int elem_take(Mob *m) {
+    if (!m->elem || m->boss || m->add || m->ally || af_off()) return -1;
+    if (m->elem_t <= 0.0f) elem_arm(m, 0.0f);                       /* a bite with no wind-up: decided now */
+    int e = m->elem_on && !mob_unbound(m) ? m->elem - 1 : -1;
+    m->elem_on = 0; m->elem_t = 0.0f;
+    return e >= 0 && e < NELEM && e != EL_PHYS ? e : -1;
+}
+static void elem_tick(Mob *m, float dt) {                          /* the decision held only as long as its wind-up */
+    if (m->elem_t > 0.0f && (m->elem_t -= dt) <= 0.0f) { m->elem_t = 0.0f; m->elem_on = 0; }
+}
+static int foe_hit(Mob *m, int fa, float k) {
     const FoeAtk *a = &ATTACKS[fa];
-    if (a->el != EL_PHYS) harm_next = a->el;
-    int d = hurt_by(m, mob_damage(m) * a->k * k + a->add, a->el == EL_PHYS ? HURT_BLOW : HURT_SPELL);
-    if (d > 0 && m->type != MOB_WRAITH) af_struck(a->el, blame_of(m), (float)d, 1 + (int)(m - G.mobs));   /* the Wraith's chills (S9) */
+    int el = a->el;
+    if (el == EL_PHYS) { int e = elem_take(m); if (e >= 0) el = e; }   /* its element, one blow in three */
+    if (el != EL_PHYS) harm_next = el;
+    int d = hurt_by(m, mob_damage(m) * a->k * k + a->add, el == EL_PHYS ? HURT_BLOW : HURT_SPELL);
+    if (d > 0 && m->type != MOB_WRAITH)                            /* the Wraith's chills (S9); a shambler's grip two and a half times (M2) */
+        af_struck(el, blame_of(m), (float)d, 1 + (int)(m - G.mobs), m->type == MOB_SHAMBLER ? 2.5f : 1.0f);
+    if (d > 0 && el != a->el) DBG_COUNT(elem_hits);
     return d;
 }
 static int bone_el(const Bone *b) { return b->el1 - 1; }           /* what a missile carries: -1 nothing but itself */
@@ -4055,7 +4085,7 @@ static int bone_hurt(const Bone *b) {
     if (el >= 0 && el != EL_PHYS) harm_next = el;
     harm_from = b->from >= 0 && b->from < MAXMOBS ? 1 + b->from : 0;
     int d = hurt_ex(b->dmg, el >= 0 && el != EL_PHYS ? HURT_SPELL : HURT_BLOW, b->x - b->vx, b->y - b->vy);
-    if (d > 0 && el >= 0 && b->kind != MIS_TURNED) af_struck(el, b->by, (float)d, harm_from);   /* a turned spell is the knight's own (S12) */
+    if (d > 0 && el >= 0 && b->kind != MIS_TURNED) af_struck(el, b->by, (float)d, harm_from, 1.0f);   /* a turned spell is the knight's own (S12) */
     return d;
 }
 
@@ -4070,8 +4100,10 @@ static void throw_to(const Mob *m, int kind, float tx, float ty, int lob) {
         float far = lob ? 0.0f : fmaxf(0.0f, hypotf(G.px - m->x, G.py - m->y) - 4.0f);   /* across a great hall a bone goes wide */
         float a = atan2f(ty - m->y, tx - m->x) + (rndf() - 0.5f) * (kind == MIS_FIRE ? 0.05f : (lob ? 0.06f : 0.14f + 0.05f * far));
         int fa = kind == MIS_FIRE ? FA_FIREBALL : (kind == MIS_EMBER ? FA_EMBER : FA_BONE);
+        int el = kind == MIS_BONE ? elem_take(&G.mobs[m - G.mobs]) : -1;   /* an elemental skeleton's, one throw in three (M1) */
+        if (el >= 0) DBG_COUNT(elem_throws);
         *b = (Bone){ 1, kind, m->x + cosf(a) * 0.3f, m->y + sinf(a) * 0.3f, cosf(a) * sp, sinf(a) * sp, 4.0f, rndf() * 4.0f,
-                     mob_damage(m) * ATTACKS[fa].k, 0.0f, (int)(m - G.mobs), 0, blame_of(m), 1 + ATTACKS[fa].el };
+                     mob_damage(m) * ATTACKS[fa].k, 0.0f, (int)(m - G.mobs), 0, blame_of(m), 1 + (el >= 0 ? el : ATTACKS[fa].el) };
         if (kind == MIS_EMBER || lob) b->life = b->life0 = fminf(4.0f, hypotf(tx - m->x, ty - m->y) / sp);   /* lobbed to where the caster will be */
         sfx_at(kind == MIS_BONE ? SFX_THROW : SFX_CAST, m->x, m->y, kind == MIS_EMBER ? 0.7f : 1.0f);
         return;
@@ -7327,6 +7359,10 @@ static void bite(Mob *m) {
     af_poison(6.0f * k);                                           /* Poisoned: each bite adds its time (S5, S9) */
     G.poison_dps = (1.0f + (float)((G.level - 4) / 2 > 0 ? (G.level - 4) / 2 : 0)) * m->dmgk * (0.5f + 0.5f * k);
     G.slow_t = fmaxf(G.slow_t, ATTACKS[FA_WEB].slow * (1.0f - gear_slow_resist(g)));
+    if (m->type == MOB_SPIDER) {                                   /* an elemental one's bite, one in three, carries it too (C3) */
+        int e = elem_take(m);
+        if (e >= 0) { G.blame = blame_of(m); af_struck(e, G.blame, mob_damage(m), 1 + (int)(m - G.mobs), 1.0f); DBG_COUNT(elem_hits); }
+    }
 }
 
 static void update_spider(Mob *m, float dt) {
@@ -7344,7 +7380,7 @@ static void update_spider(Mob *m, float dt) {
     switch (m->sub) {
     case 0:
         m->x = m->ax; m->y = m->ay; m->z = 0.62f;
-        if (!G.dead && G.wwalk_t <= 0.0f && m->cool <= 0.0f && m->feared <= 0.0f && da < ATTACKS[FA_WEB].go && line_clear(m->ax, m->ay, G.px, G.py)) { m->sub = 1; m->sub_t = 0.0f; sfx_at(SFX_SKITTER, m->x, m->y, 1.0f); DBG_COUNT(spider_drops);
+        if (!G.dead && G.wwalk_t <= 0.0f && m->cool <= 0.0f && m->feared <= 0.0f && da < ATTACKS[FA_WEB].go && line_clear(m->ax, m->ay, G.px, G.py)) { m->sub = 1; m->sub_t = 0.0f; elem_arm(m, 1.0f); sfx_at(SFX_SKITTER, m->x, m->y, 1.0f); DBG_COUNT(spider_drops);
             if (m->pack) { pack_call(m); sfx_at(SFX_THRUM, m->ax, m->ay, 1.1f); DBG_COUNT(nest_calls); } }   /* a nest's tripwire: the web thrums */
         break;
     case 1: {                                                      /* down the thread */
@@ -7378,6 +7414,7 @@ static void start_leap(Mob *m) {
     float a = atan2f(G.py - m->y, G.px - m->x), d = fmaxf(0.0f, hypotf(G.px - m->x, G.py - m->y) - 0.7f);
     m->sub = 3; m->sub_t = 0.0f;
     m->bx = m->x; m->by = m->y; m->ax = m->x + cosf(a) * d; m->ay = m->y + sinf(a) * d;
+    elem_arm(m, ATTACKS[m->type == MOB_HUNTER ? FA_HLEAP : m->type == MOB_GARGOYLE ? FA_SWOOP : FA_GLEAP].wind);
     sfx_at(m->type == MOB_GHOUL ? SFX_GROAN : (m->type == MOB_GARGOYLE ? SFX_WHOOSH : SFX_SKITTER), m->x, m->y, 1.2f);
 }
 static int update_leap(Mob *m, float dt) {
@@ -7929,6 +7966,7 @@ static void update_mob(Mob *m, float dt) {
 #endif
     if (m->state == MS_DIE && m->sub == 77) { if ((m->t += dt) >= 0.9f) m->alive = 0; return; }   /* gone into the BFS9000 */
     if (m->ally && m->state == MS_WALK) { update_ally(m, dt); return; }   /* raised by your Grave Call: it fights for you */
+    elem_tick(m, dt);                                              /* an attack's element held through its wind-up (C3) */
     if (m->wring > 0.0f) m->wring -= dt;
     if (G.player && m->ward[0] && !elem_mode() && m->state == MS_WALK && !(G.ward_said >> (m->ward[0] - 1) & 1) && hypotf(m->x - G.px, m->y - G.py) < 6.0f
         && line_clear(G.px, G.py, m->x, m->y)) { G.ward_said |= 1 << (m->ward[0] - 1); say("WARDED AGAINST %s", ELEM_NAME[m->ward[0] - 1]); }   /* the first
@@ -8082,7 +8120,7 @@ static void update_mob(Mob *m, float dt) {
             }
             return;                                                /* stands still to throw */
         }
-        if (m->seen && los && m->cover != 1 && (m->cool -= dt) <= 0.0f) { m->throw_t = ATTACKS[FA_BONE].wind; feint_roll(m); return; }
+        if (m->seen && los && m->cover != 1 && (m->cool -= dt) <= 0.0f) { m->throw_t = ATTACKS[FA_BONE].wind; feint_roll(m); elem_arm(m, m->throw_t); return; }
         if (m->seen && !los && !m->cover && mind && cunning(m) >= RK_II && (m->cool -= dt) <= 0.0f && corner_aim(m, &lx, &ly)) {   /* over the
                                                                       corner, to where it saw you go */
             m->throw_t = ATTACKS[FA_BONE].wind; return;
@@ -8103,7 +8141,7 @@ static void update_mob(Mob *m, float dt) {
             }
             return;
         }
-        if (los && pd0 < ATTACKS[FA_SWORD].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_SWORD].wind; feint_roll(m); return; }
+        if (los && pd0 < ATTACKS[FA_SWORD].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_SWORD].wind; feint_roll(m); elem_arm(m, m->swing); return; }
     }
     if ((m->type == MOB_SHAMBLER || m->type == MOB_DROWNED) && fights && !afraid) {   /* it lurches in and takes hold */
         m->cool -= dt;
@@ -8121,7 +8159,7 @@ static void update_mob(Mob *m, float dt) {
             }
             return;
         }
-        if (sees && pd0 < ATTACKS[FA_GRAB].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_GRAB].wind; feint_roll(m); sfx_at(SFX_GROAN, m->x, m->y, 1.0f); return; }
+        if (sees && pd0 < ATTACKS[FA_GRAB].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_GRAB].wind; feint_roll(m); elem_arm(m, m->swing); sfx_at(SFX_GROAN, m->x, m->y, 1.0f); return; }
         if (pd0 < 7.0f && rnd(500) == 0) sfx_at(SFX_GROAN, m->x, m->y, 0.7f);
     }
     if (m->type == MOB_HOUND && fights && !afraid) {               /* in, a bite, and away */
@@ -8135,7 +8173,7 @@ static void update_mob(Mob *m, float dt) {
             }
             return;
         }
-        if (sees && pd0 < ATTACKS[FA_HBITE].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_HBITE].wind; return; }
+        if (sees && pd0 < ATTACKS[FA_HBITE].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_HBITE].wind; elem_arm(m, m->swing); return; }
     }
     if (m->boss == 1 + BOSS_SPIDER && spider_boss(m, dt, pd0, sees)) return;
     if (m->type == MOB_HUNTER && !G.dead) {                        /* along the ceiling, down a thread, and a leap */
@@ -8187,7 +8225,7 @@ static void update_mob(Mob *m, float dt) {
             }
             return;
         }
-        if (sees && pd0 < ATTACKS[FA_KNIGHT].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_KNIGHT].wind; feint_roll(m); sfx_at(SFX_SWORD, m->x, m->y, 0.4f); return; }
+        if (sees && pd0 < ATTACKS[FA_KNIGHT].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_KNIGHT].wind; feint_roll(m); elem_arm(m, m->swing); sfx_at(SFX_SWORD, m->x, m->y, 0.4f); return; }
     }
     if (m->type == MOB_BROOD && !G.dead) {                          /* she lays as she goes, and bites what comes close */
         m->cool -= dt;
@@ -8306,7 +8344,7 @@ static void update_mob(Mob *m, float dt) {
             if (pd0 < ATTACKS[FA_LASH].reach && foe_hit(m, FA_LASH, 1.0f) > 0) { thorns(m); DBG_COUNT(whip_lashes); }
             return;
         }
-        if (fights && sees && pd0 < ATTACKS[FA_LASH].go && m->cool <= 0.0f && G.level_t > 1.5) { m->swing = ATTACKS[FA_LASH].wind; feint_roll(m); return; }
+        if (fights && sees && pd0 < ATTACKS[FA_LASH].go && m->cool <= 0.0f && G.level_t > 1.5) { m->swing = ATTACKS[FA_LASH].wind; feint_roll(m); elem_arm(m, m->swing); return; }
         if (mind && !m->called && !pack_of(m) && sees && G.level_t > 1.5) {   /* his hounds gone: the horn, for whatever hears it */
             m->call_t = 1.1f; sfx_at(SFX_HORN, m->x, m->y, 1.2f); alarm_at(m, 10); DBG_COUNT(horns);
             return;
@@ -8377,7 +8415,7 @@ static void update_mob(Mob *m, float dt) {
             }
             return;
         }
-        if (fights && sees && pd0 < ATTACKS[FA_CLAW].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_CLAW].wind; feint_roll(m); return; }
+        if (fights && sees && pd0 < ATTACKS[FA_CLAW].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_CLAW].wind; feint_roll(m); elem_arm(m, m->swing); return; }
         if (fights && sees && pd0 > ATTACKS[FA_SWOOP].go && pd0 < ATTACKS[FA_SWOOP].go2 && m->cool <= 0.0f) { start_leap(m); return; }
     }
     if (m->type == MOB_BAT && !G.dead) {                           /* bats come for your face */
@@ -8396,6 +8434,7 @@ static void update_mob(Mob *m, float dt) {
             if (!blocks_move((int)m->x, (int)ny)) m->y = ny;
             m->cx = m->tx = (int)m->x; m->cy = m->ty = (int)m->y;
             if (!waits && hypotf(G.px - m->x, G.py - m->y) < ATTACKS[FA_BAT].reach) {   /* touching: after 3 s it bites, */
+                if (m->contact <= 0.0f) elem_arm(m, ATTACKS[FA_BAT].wind);   /* its element decided as it settles on you (C3) */
                 m->contact += dt;
                 if (latch_begin(m)) return;                        /* or from rank II, sooner, it latches on */
                 if (m->contact >= ATTACKS[FA_BAT].wind) {
@@ -23872,6 +23911,8 @@ enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_S
        DR_FLIPH = 8388608,                                           /* FLIPH: turned left to right (a side view, facing your left) */
        /* docs/PLAN-combat.md, two tracks on one branch (its section 17): each adds flags only above its own end mark; the
           caster's track takes bits from 24 upwards, the dead's from 30 downwards, so the two never take the same */
+       DR_ELEMX = 1 << 24,                                           /* a missile carrying an element (C3): shimmering in its colour, the
+                                                                      ramp in remap; a mote of it wholly */
        /* the caster's track (C) ends */
        /* the dead's track (D): */
        DR_CHILLA = 1 << 30, DR_CHILLB = 1 << 29,                     /* Chilled (section 5): its stacks, 1-3, in two bits; frost creeping
@@ -24793,8 +24834,22 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             int n0 = n;
             ADD(b->x, b->y, 0.1f, shot_sprite(&fake, &sc), 0);
             if (n > n0) list[n - 1].scale = sc;
-        } else ADD(b->x, b->y, b->life0 > 0.0f && b->kind == MIS_BONE ? 0.04f + 0.35f * sinf(PI_F * (1.0f - b->life / b->life0)) : 0.04f,
-                   SP_BONEFLY0 + (((int)b->spin) & 3), 0);                  /* a lobbed one arcs */
+        } else {
+            float z = b->life0 > 0.0f && b->kind == MIS_BONE ? 0.04f + 0.35f * sinf(PI_F * (1.0f - b->life / b->life0)) : 0.04f;   /* a lobbed one arcs */
+            int n0 = n, e = bone_el(b);
+            ADD(b->x, b->y, z, SP_BONEFLY0 + (((int)b->spin) & 3), 0);
+            if (e >= 0 && e != EL_PHYS && b->kind == MIS_BONE && n > n0) {   /* its element (C3): shimmering, motes trailing as a wisp's */
+                list[n - 1].flags |= DR_ELEMX | DR_BRIGHT; list[n - 1].remap = ELEM_RAMP[e];
+                float sp = hypotf(b->vx, b->vy) + 1e-4f;
+                for (int k = 1; k <= 3; k++) {
+                    float back = 0.18f * (float)k, wob = 0.06f * sinf((float)G.t * 17.0f + (float)(k * 2 + i)), sc = 0.34f - 0.05f * (float)k;
+                    int m0 = n;
+                    ADD(b->x - b->vx / sp * back - b->vy / sp * wob, b->y - b->vy / sp * back + b->vx / sp * wob,
+                        z + 0.5f * (1.0f - sc) + 0.04f * sinf((float)G.t * 11.0f + (float)k), SP_BONEFLY0 + ((k + i) & 3), 0);   /* at the bone's height */
+                    if (n > m0) { list[n - 1].scale = sc; list[n - 1].flags |= DR_ELEMX | DR_BRIGHT; list[n - 1].remap = ELEM_RAMP[e]; }
+                }
+            }
+        }
     }
     for (int i = 0; i < G.nitems; i++) {
         const Item *it = &G.items[i];
@@ -24985,6 +25040,11 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                 if ((d->flags & DR_BURNING) && tyi > TS / 3
                     && (hash2(tx >> 1, (tyi + (int)(G.t * 24.0)) >> 1) & 7) == 0) { f->pix[y * W + x] = (uint8_t)(R_FLAME + 9 + (int)(hash2(tyi, tx) & 6)); continue; }   /* flames licking up it */
                 if ((d->flags & DR_VENOM) && ((c >= R_FLAME && c < R_FLAME + 16) || (c >= R_GLOW && c < R_GLOW + 16) || c == C_WHITE)) c = (uint8_t)(R_MOSS + (c == C_WHITE ? 15 : (c & 15)));
+                if ((d->flags & DR_ELEMX) && (d->scale < 0.4f || ((x + y + (int)(G.t * 15.0)) & 1))) {   /* an element carried (C3) */
+                    int lo = d->remap == R_FLAME ? 4 : 7;                  /* fire kept orange, apart from lightning's gold */
+                    f->pix[y * W + x] = ramp_at(d->remap, clampi(((c - 1) & 15) / 3 + lo + (int)(hash2(x >> 1, y + (int)(G.t * 10.0)) & 3), lo, lo + 8));
+                    continue;
+                }
                 if (d->remap && c >= R_PURPLE && c < R_PURPLE + 16) c = ramp_at(d->remap, c - R_PURPLE);
                 if (d->flags & DR_IMPLODE) { f->pix[y * W + x] = c == 0 ? 0 : (uint8_t)(R_GLOW + clampi(6 + (int)((c & 15) * 0.6f), 6, 15)); continue; }
                 if ((d->flags & DR_ICE) && c != 0 && ((x + y) & 1)) {    /* rimed with frost */

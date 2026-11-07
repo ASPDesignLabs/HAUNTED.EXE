@@ -233,8 +233,8 @@ releases**: **1.0.0b19** the statuses, the elements and the new attacks; **1.0.0
 the augments and the merchant; so the art pass is now **1.0.0b22** and the lower storey **1.0.0b23**. The owner took every default
 in its section 16 but a few (noted there). **It is built by two agents at once on that one branch**, track C (harm that reaches the
 caster) and track D (harm that reaches the dead): **read its section 17 before touching anything**, and its tracks' logs (sections
-18 and 19). Built so far (harness only): C1 and C2 (one road for harm; the caster's statuses), D1 to D4 (the bestiary's
-elements, elemental creatures, the dead's statuses, the elements on your spells); C3 and C4 are next, then J19. Found in the
+18 and 19). Built so far (harness only): C1 to C3 (one road for harm; the caster's statuses; their elements on you), D1 to D4
+(the bestiary's elements, elemental creatures, the dead's statuses, the elements on your spells); C4 is next, then J19. Found in the
 review and mended by the plan: `HURT_MAGIC` is resisted by Resist Burn whatever its element; poison is the weak element across
 the bestiary (0.55 on average); skeletons' throws have no floor; flat armour grows as the blow does.
 
@@ -1507,6 +1507,17 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   (none: the previous build's events line for line), `CRAWL_AF=<fire|chill|frozen|stun|poison|unbound|down|all>` (that one on
   the caster every ten seconds), `CRAWL_AFSHOW=k` (the look only: `AF_*`; `1:n` Chilled's stacks, `7` the grapple, `all`),
   `EVENT af <status> on by what/type/rank n=stacks player|autopilot`, `EVENT af <status> off`; `build/uisheet status`.
+  **C3 is built** (harness only): an elemental creature (`Mob.elem`, D's) carries its element on one attack in three (M1). It is
+  decided as the wind-up begins (`elem_arm` beside each `feint_roll`, in `start_leap`, the web spider's drop, a bat settling on
+  you; `Mob.elem_on` while it holds, `Mob.elem_t` how long, run down by `elem_tick` in `update_mob`), or as a quick bite lands;
+  never for a boss, an add or an ally, and an Unbound one carries none (E5). `elem_take` spends it: `foe_hit` makes a physical
+  blow that element (resisted by its own resist and half the armour), `throw_to` makes the bone its element (`Bone.el1`), `bite`
+  gives the web spider's. Its status by rank as any elemental hit (`af_struck`, M2: 12% at rank II, 4% more a rank), the
+  shambler's grip two and a half times. The bone shimmers (`DR_ELEMX`, bit 24, the element's ramp in `remap`, fire kept low
+  and orange) with three motes trailing at its height; D's eyes flare while `elem_on`. Ordinary physical blows knock nobody
+  down: Knocked Down comes from physical hazards (C2), and the charge and the grapple (C4). `CRAWL_AF=0` takes C3 out too
+  (C2's events line for line); `CRAWL_ELEMON=1` (every attack of an elemental creature carries it, for frames); `EVENT
+  elem_hits`, `elem_throws`.
 - **The dead's ways shown** (1.0.0b18, PLAN-ai step 11, Part H; harness only; released). `WY_*` (seventeen set pieces), `way_met` (named
   once a run of ten, `RUN.ways`/`way_said`/`way_run`), `pack_way`; the Codex's `CX_WAYS`; the record's deeds (`deed_note`,
   `DEED_*`, `caller_hushed`, `ways_ends`, `Pack.hunted/hurts0/done`, `Ambush.deaths0/done`, `G.hurts`, `G.hunt_shaken`) and
