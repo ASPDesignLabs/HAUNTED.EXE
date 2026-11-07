@@ -847,6 +847,24 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   by its rank (rank I 20%), and a Spirit shambler's grip takes 2 + its rank in souls (M6) instead of Unbound. With `CRAWL_C4` unset
   nothing is drawn from the dice: three five-minute dreams from levels 1, 21 and 31 give the previous commit's events line for
   line. The dream's counters (8.6) and the balance runs wait for the word on the sheet.
+- **7 November. C4 built** (harness only), on the owner's word on its sheet, in `234dc2f` (and `5559111`, the notes): the four
+  attacks in play (`c4_on`; `CRAWL_C4=0` or `CRAWL_AF=0` takes them out, and then the previous commit's events come line for line
+  from levels 1, 21 and 31), and the dream's counters (8.6): a Bone Thrower's flash or a stamp in its sight counts as a missile on
+  its way (`c4_tells` in `incoming`), so its runes and Swift Dodge answer it; the charge's lane and the spew's cone are warnings on
+  `hz_dmap` (`c4_dmarks`), so `decide` steps off them and `auto_abilities` dodges out; knocked down or frozen it waits (C2). The
+  hound's rules (8.5) came with C3 and D2. ASan clean on a dream from level 13 with the attacks every few seconds and Swift Dodge
+  given (it dodged eight times; the one charge missed), and on the two before the switch. **The checks**, on against `CRAWL_C4=0`
+  on the same build, sixteen seeds (1-31 odd, `CRAWL_RUNID` the seed; the off side is C3's batch again, line for line): from level 1,
+  167 levels cleared and 50 deaths, 31 on level 10 and 19 elsewhere, the knight felled 6 times (off: 161, 54, 40 and 14, 4); from
+  11, 21 and 31, 97, 98 and 96 levels cleared and no deaths (101, 94 and 95, and one each from 11 and 31), a level's median time
+  365, 362 and 362 s (364, 372, 368). From level 1 the dream met 298 charges, was struck by 170 and knocked down by 147 (the rest
+  out-armoured), 327 volleys, 11 spews (4 struck) and 30 grapples, and lost souls to a Spirit shambler once; from 11, 114 charges
+  (50 struck, 19 down), 37 spews (7), 208 volleys, 2 grapples; from 21 and 31, 89 and 102 charges (39 and 35 struck, 9 and 10 down)
+  and 317 and 395 volleys, no spews (the Drowned are run II's). Deaths to shield-bearers from level 1 went from 10 to 6, to
+  skeletons from 18 to 23. Inside the noise, then: the dream steps off most lanes it sees and keeps its distance from the Drowned,
+  and run I's armour seldom turns a charge; a person fighting close will meet more of all of it, untried. No contract changed
+  (`Mob.c_flags` was C4's, earlier). **C1 to C4 are built**: track C's steps for 1.0.0b19 are done, as are track D's; J19, the
+  joint checks, is next.
 
 ## 19. Track D's log (the dead's)
 
