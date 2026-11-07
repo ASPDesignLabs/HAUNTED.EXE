@@ -803,6 +803,30 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   first roll, and level 1's deaths off the knight have run 9 to 27 between builds that changed nothing there. The dream walks
   into few statuses: its creatures' elements wait for C3, and it sees most hazards coming. A person who stands in the bile, the
   cold or a censer's swing will meet far more of them; untried. No contract changed. Next: C3, then C4 (its sheet first).
+- **7 November. C3 built** (harness only), in `29b6591`. An elemental creature carries its element on one attack in three (M1),
+  decided as its wind-up begins (`elem_arm` beside each `feint_roll`, in `start_leap`, at a web spider's drop and as a bat
+  settles on you; `Mob.elem_on` while it holds, a field of C's, `Mob.elem_t`, for how long, run down by `elem_tick` in `update_mob`'s
+  shared part), or as a quick bite with no wind-up lands (the hound's, the brood mother's, a spiderling's). `elem_take` spends it:
+  `foe_hit` makes a physical blow that element, `throw_to` the bone (`Bone.el1`), `bite` the web spider's; never a boss, an add or
+  an ally, nothing from an Unbound one (E5). Its status by rank as any elemental hit (M2), the shambler's grip at two and a half
+  times. A bone carrying one shimmers in its colour with three motes trailing at its height (`DR_ELEMX`, the caster's bit 24; fire
+  kept low on its ramp, orange, apart from lightning's gold); D2's eyes flare while `elem_on`. Defaults where section 8 was
+  silent: an attack's element held through its wind-up and 0.35 s after, then forgotten; the web spider's bite carries it as a
+  status only (the bite does no harm of its own); the shambler's two and a half times is in now, its grapple and Spirit's souls wait
+  for C4; ordinary physical blows knock nobody down. `CRAWL_AF=0` takes C3 out with the statuses (C2's events line for line from
+  levels 1, 21 and 31); `CRAWL_ELEMON=1` makes every attack carry it, for frames; `EVENT elem_hits`, `elem_throws`. ASan clean on
+  two sessions (a dream from 21 with every creature of Lightning and every attack carrying it; a person gripped by three Frost
+  shamblers). **The checks**, the same sixteen seeds as C2's, statuses on: from level 1, 161 levels cleared and 54 deaths, 40 on
+  level 10 and 14 elsewhere, the knight felled 4 times (C2 on: 165, 59, 33 and 26, 6; off: 167, 48, 33 and 15, 5); from 11, 21 and
+  31, 101, 94 and 95 levels cleared and one death each from 11 and 31 (C2 on: 99, 98, 96, none; off: 101, 99, 100, none), a level's
+  median time 364, 372 and 368 s (from 1, 354). The two deaths, a rank-I hound on level 13 and a rank-III Lightless on level 32,
+  had no status or element near them. Elements carried, from 1, 11, 21 and 31: 65, 11, 19 and 27 blows, 75, 17, 48 and 85 bones
+  (of 391, 364, 874 and 1,377 creatures born to one). Landed, from 1: Poisoned 77, Knocked Down 23, Chilled 17, Unbound 9 (run I's
+  Spirit), On Fire 5, Stunned 1; from 11: Poisoned 179, Chilled 28, Stunned 3, On Fire 1, Frozen 1; from 21: Poisoned 112, Chilled 5,
+  On Fire 3, Stunned, Frozen and Knocked Down once each; from 31: Poisoned 24, Chilled 11, Stunned and On Fire 4 each, Knocked Down 2.
+  Inside the noise, then: the dream answers most of it at range, so a carried element reaches it about once a level. No contract
+  changed: `Mob.elem_on` is set, so D2's flare shows in play. Next: C4, its sheet first (the Bone Thrower's flash, the charge, the
+  spew), for the owner.
 
 ## 19. Track D's log (the dead's)
 
