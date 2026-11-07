@@ -776,6 +776,33 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   by the stack, icy Frozen, warm On Fire, a little violet Unbound, greyer Stunned). `build/uisheet status` draws the marks at three
   times size. The dream's events can't change (nothing sets a status); ASan clean on five sessions of the look. Waiting on the
   owner's word; the rules (4.1), the old effects folded in, sounds and rumble come after it.
+- **7 November. C2 built** (harness only), on the owner's word on its sheet, in `0b34b47` and `911418b`. The seven land and hold
+  with the owner's defaults (4.1, S1-S12, E2): `af_can` (S1: no hard control within 3 s of the same ending, none within 1 s of any;
+  Purify running keeps fire, cold and poison off), `af_rolls` (S11: the element's own resist halves the chance), `af_hold`,
+  `af_ignite`, `af_chill`, `af_poison`; the gates `no_cast` and `rune_barred` in place of the void's at every spell, gift, Swift
+  Dodge, rune and the dream's aim, and E refused unbound, frozen or down. Frozen x1.33 on all harm; down, every creature's harm but
+  the knocker's halved. Where they come from: a creature's elemental hit by its rank (`af_struck`: 8% at rank I, M2's 12% at II, 4%
+  more a rank; never a boss, its fight, a turned spell or the Wraith); a hazard's stroke (`af_stroke`: frost a stack, the rest 12%,
+  a physical one knocking down); the Wraith's touches two stacks in place of their slow; bites, the Drowned's pool, bile and
+  `hz_poison` Poisoned by what their poison rose; the cold a stack every 1.5 s in place of `hz_chill`. Purify cures fire, cold and
+  poison and breaks a freeze, Blink a freeze or a knock-down (`af_purify`, `af_break`, both in their `def_trigger`s); the dream waits
+  out a freeze or a knock-down at the head of `update_player`. Six sounds (`SFX_AF_*`, at the loudness of the old ones), rumble on a
+  freeze and a knock-down, a short buzz for a stun. Defaults where section 4 was silent: a rolled Poisoned adds 6 s; Frozen's third
+  more counts what seeps too; the knock-down from a hazard has no knocker, so every creature's harm is halved; Purify and Blink are
+  the two runes a freeze lets fire, Blink alone on the floor; the dream spends Purify on a freeze out of a fight too. Physical
+  blows from creatures knock nobody down (the charge and the grapple, C4, are the creatures' ways to). `CRAWL_AF=0` gives back the
+  previous build's events line for line from levels 1, 21 and 31; `CRAWL_AF=<status>|all` puts one on the caster every ten
+  seconds. ASan clean on five sessions (a person under each in turn; dreams from 11 and 21 with every rune, Blink and Purify
+  breaking holds; a person into a pocket, out and struck down). **The checks**, statuses on against `CRAWL_AF=0` on the same build
+  (D1-D4 in both), sixteen seeds (1-31 odd, `CRAWL_RUNID` the seed): from level 1 (100 minutes) 165 levels cleared and 59 deaths
+  (167 and 48), 33 of them on level 10 either way, the knight felled 6 times (5); from 11, 21 and 31 (50 minutes, gear 3, 5, 8 and
+  `CRAWL_XPBANK` as C1's) no deaths either way, 99, 98 and 96 levels cleared (101, 99, 100), a level's median time 364, 365 and 368
+  s (361, 369, 364). Landed on the dream, from 1, 11, 21 and 31: Poisoned 65, 187, 122 and 42 times; Chilled 20, 21, 3 and 12;
+  Knocked Down 19, 2, 1 and 2; On Fire 1, 0, 0 and 5; Unbound once; Stunned and Frozen never. The eleven deaths more from level 1
+  were all off the knight's level (26 against 15), but only one came within 12 s of a status landing: the runs part ways at the
+  first roll, and level 1's deaths off the knight have run 9 to 27 between builds that changed nothing there. The dream walks
+  into few statuses: its creatures' elements wait for C3, and it sees most hazards coming. A person who stands in the bile, the
+  cold or a censer's swing will meet far more of them; untried. No contract changed. Next: C3, then C4 (its sheet first).
 
 ## 19. Track D's log (the dead's)
 
