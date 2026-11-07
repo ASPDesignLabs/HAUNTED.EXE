@@ -1509,7 +1509,21 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   *SHRUGS OFF ONE MORE* (*TWO MORE*) by the rank shown; the Codex's elements part has a second page, *THE DEAD'S ELEMENTS*
   (`CX_ELEM` 1). Lore rewritten: the gargoyle, the Drowned. Debug: `CRAWL_ELEM=0` puts back 1.0.0b18's table (`OLD_WEAK`)
   and wards (`elem_mode`); the hazards' harm to the dead reads `KINDS` itself and keeps the new table either way. `EVENT
-  strengths`, `ward_cracked`, `wardhits=`/`cracked=` on the state line.
+  strengths`, `ward_cracked`, `wardhits=`/`cracked=` on the state line. **D3, the dead's statuses** (section 5; harness only):
+  `Mob.stun_t`, `unb_t`, `chl_n`/`chl_t` (Chilled stacks, all gone 3 s after the last), `stun_cd`/`frz_cd` (after a stun or a
+  freeze, 3 s before the same lands again: `AF_RELOCK`, S1 for the dead too), `frz_was`; On Fire is `burn_t`, Poisoned
+  `pois_t`, Frozen `m->frozen` (+33% in `damage_mob`). Given by `mob_ignite` (E2: added to what is left, four seconds again),
+  `mob_chill` (stacks to `need`, then `mob_freeze` for `CHILL_FREEZE`; never lengthened while frozen), `mob_stun` (1.2 s, a
+  boss a third; a wind-up broken), `mob_unbind` (1.5 s, no boss); `mob_takes_af` says who takes none (spectres, the Wraith,
+  sacs, wall skulls, spirits, allies, the buried). The contract's `mob_stunned`/`mob_unbound` read them. `mob_gate`, the one
+  gate at the head of `update_mob`, runs them down and returns the dt the rest runs on: chill takes 18% a stack
+  (`CHILL_SLOW`) off the whole clock, a stun halves it and holds `cool`; a stun or Unbound holds the calls (`Mob.call_t`, the
+  Sexton's raised `ring_t`, the pack's `call_t` when it is the caller) by adding back what the branches take off
+  (`mob_clock` mirrors `mob_time`); Poisoned doubles wind-ups and waits the same way. Drawn: `DR_CHILLA`/`DR_CHILLB` (bits 30,
+  29: the stacks, a frost dither of 2, 3, 5 in 16), `DR_ICE` frozen as before, a ring of sparks over the stunned (in
+  `render_warded`), grey eyes while Unbound (`Draw.estate` 5). Debug: `CRAWL_MAF=k` (status `AF_k` on what is in sight within
+  nine cells every 2.5 s, a chill stack every 0.7), `EVENT maf <status> <kind>`. The gate runs before `CRAWL_STAGE`'s early
+  return, so staged creatures show them (but a staged one never thaws).
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

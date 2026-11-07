@@ -790,6 +790,21 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   in motion, from the game's own renderer) went to the owner; D2 waits on it, kept aside, and D3 goes on meanwhile (17.5.5).
   Marks put on the Draw flags (`DR_*`), in a commit of their own: the caster's track takes bits from 24 upwards, the dead's
   from 30 downwards. Next: D3.
+- **7 November. D3 built** (harness only): the dead's statuses (section 5), on `Mob` fields of D's (`stun_t`, `unb_t`, `chl_n`,
+  `chl_t`, `stun_cd`, `frz_cd`) beside what was there (`burn_t` On Fire, `pois_t` Poisoned, `frozen` Frozen); the contract's
+  `mob_stunned` and `mob_unbound` filled in. One gate at the head of `update_mob` (`mob_gate`) runs them and returns the dt the
+  rest of the creature's step runs on, so nothing inside the kinds' branches changed: chill and a stun slow the clock; a stun
+  holds `cool`; a stun or Unbound holds the calls (the deacon's and the horn's `call_t`, the Sexton's raised bell, a pack's call
+  when it is the caller) by adding back what the branches take off; Poisoned doubles wind-ups and waits the same way. Drawn: frost
+  by the stack (`DR_CHILLA`, `DR_CHILLB`), sparks over the stunned, grey eyes while Unbound. Defaults where section 5 was silent:
+  18% off the clock a Chilled stack; S1's "no locks" for the dead too (a stun or a freeze can't land again within 3 s of its end,
+  and neither is lengthened while it lasts); a boss is slowed where it would freeze, as Deep Chill has it. In play nothing gives
+  them yet but what was there: Frozen's third more on what Frost Nova and Winter's Lance freeze, and Poisoned's slowing on what
+  the flask poisons; D4 gives the hits their chances. `CRAWL_MAF=k` puts status k on what is in sight. Tested: staged frames of
+  each, ASan clean on six dreams of four minutes from level 11 (one a status, 421 landed), and eight seeds (1-15 odd) of 50
+  minutes against `CRAWL_ELEM=0` on the same build: from level 1, 52 levels cleared and 7 deaths (49 and 10); from level 21, 46
+  cleared and none (49, none), a level's median time 367 s (368). Seed 15 from 21 stalls on level 23 casting at a Wraith it has
+  driven back, as it did with D1 alone: the known stall, not D3's. Commits: the D3 commit before this entry's push. Next: D4.
 
 ## Appendix: the owner's guide (7 November), as given
 

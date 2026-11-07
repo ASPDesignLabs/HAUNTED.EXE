@@ -164,6 +164,9 @@ typedef struct {
                                                                       read by C's attacks */
     int wseen;                                                     /* its rank's strengths (ward[]) seen struck, a bit each (section
                                                                       7.3, B11): only these are shown */
+    float stun_t, unb_t, chl_t, stun_cd, frz_cd;                   /* its statuses (section 5): stunned, Unbound; since the last
+                                                                      chilling; the waits before a stun or a freeze can land again */
+    int chl_n, frz_was;                                            /* Chilled stacks; frozen last frame (thawing takes the stacks) */
     /* the dead's track (D) ends */
 } Mob;
 /* What the two tracks share (docs/PLAN-combat.md, section 17.3). Change any of it only as that section says. The statuses, the
@@ -175,8 +178,8 @@ static inline int af_of(int el) {
 }
 /* the dead's track fills these in; the caster's track's attacks call them (an Unbound creature has no element, Bone Thrower,
  * charge or call; a stunned one no blow, throw or call) */
-static inline int mob_stunned(const Mob *m) { (void)m; return 0; }
-static inline int mob_unbound(const Mob *m) { (void)m; return 0; }
+static inline int mob_stunned(const Mob *m) { return m->stun_t > 0.0f; }   /* filled in by D3 */
+static inline int mob_unbound(const Mob *m) { return m->unb_t > 0.0f; }
 /* a pack (docs/PLAN-ai.md, sections 5-6): its kind (PA_*), its members, the one that leads it, how many it began with; its
  * state (PAS_*), the one calling and how long the call has to run; when one of it last saw the caster, and where; its
  * turns: those engaged now, their health as their turn began, the one relieved last, and when the turn changes */
@@ -5010,6 +5013,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
     if (atk >= 0 && atk < NATK) { dmg *= hit_mult(m, atk); m->last_atk = atk; if (!(flags & DM_TICK)) rec_hit(m, atk); }   /* what it is weak to, or shrugs off */
     if (atk >= 0 && atk < NATK && ATK_ELEM[atk] >= 0) ward_struck(m, ATK_ELEM[atk], dmg, flags & DM_TICK);   /* a ward: a dull ring, and it may crack */
     if (atk >= 0 && atk < NATK && ATK_ELEM[atk] == EL_LIGHT && !(flags & DM_TICK)) mk_wet_hit(m);   /* standing in the water */
+    if (m->frozen > 0.0f && elem_mode()) dmg *= 1.33f;             /* Frozen: a third more (docs/PLAN-combat.md section 5) */
     if (m->frozen > 0.0f && RUN.gear.def[DF_NOVA] >= RUNE_EXQ) { dmg *= 2.0f; DBG_COUNT(exq_shatter); }   /* Exquisite runes: the frozen */
     static int shattering;                                         /* Shatter: the frozen struck by a spell break, and their shards cut */
     int shards = 0;
@@ -5099,6 +5103,133 @@ static void mob_afflict(Mob *m, float dt) {                        /* what wears
         m->burn_t -= dt; m->burn_acc += m->burn_dps * dt;
         if (m->burn_acc >= 1.0f || m->burn_t <= 0.0f) { float d = m->burn_acc; m->burn_acc = 0.0f; if (d > 0.0f) damage_mob(m, d, DM_ARC | DM_TICK | DM_ATK(AT_HELL), m->x, m->y, 0.0f); }
     }
+}
+
+/* The dead's statuses (1.0.0b19, docs/PLAN-combat.md section 5): the caster's seven, as far as they mean anything to a
+ * creature. On Fire is its burning (E2: a new ignite adds to what is left and starts the four seconds again). Chilled stacks
+ * slow its whole clock, 18% a stack, and all fall off three seconds after the last; four freeze it three seconds (m->frozen:
+ * Frozen, and it takes a third more, damage_mob), and thawing takes the stacks. Stunned (1.2 s, a boss a third as long)
+ * breaks a wind-up, holds its blows, throws and calls, and halves its pace. Poisoned (its poison running, mob_poison)
+ * doubles its wind-ups and waits. Unbound (1.5 s) holds its calls; the caster's track's attacks ask mob_unbound for the
+ * rest (its element, the Bone Thrower, the charge). When a stun or a freeze ends the same can't land for three seconds
+ * (S1, for the dead too: a default). Spectres, the Wraith, sacs, wall skulls, spirits, allies and the buried take none; a
+ * boss only a shortened stun and the chill's slowing. Never saved. Knocked Down is the caster's alone. */
+#define CHILL_SLOW 0.18f                    /* each stack of Chilled off a creature's clock */
+#define CHILL_FREEZE 3.0f                   /* frozen by stacks, and how long a stack lasts after the last chilling */
+#define AF_RELOCK 3.0f                      /* after a stun or a freeze, before the same can land again */
+#ifdef CRAWL_DEBUG
+static int maf_count[NAF];                                         /* statuses landed on the dead, by AF_* */
+#endif
+static void mob_ignite(Mob *m, float dmg) __attribute__((unused));   /* only the debug build's CRAWL_MAF calls these until D4 */
+static void mob_chill(Mob *m, int stacks, int need) __attribute__((unused));   /* gives the caster's hits their chances */
+static void mob_stun(Mob *m, float secs) __attribute__((unused));
+static void mob_unbind(Mob *m, float secs) __attribute__((unused));
+static int mob_takes_af(const Mob *m) {
+    return m->alive && m->state == MS_WALK && !m->ally && !KIND_IS(m, KF_SPIRIT) && !buried(m) && m->type != MOB_GHOST
+        && m->type != MOB_SAC && m->type != MOB_WSKULL && !(m->type == MOB_WRAITH && !m->boss) && elem_mode();
+}
+static void maf_note(const Mob *m, int af) {
+#ifdef CRAWL_DEBUG
+    static const char *const NM[NAF] = { "fire", "chill", "frozen", "stun", "poison", "unbound", "down" };
+    maf_count[af]++;
+    fprintf(stderr, "EVENT maf %s %s rank %d t=%.2f\n", NM[af], KINDS[m->type].name, m->rank, G.t);
+#else
+    (void)m; (void)af;
+#endif
+}
+static void mob_ignite(Mob *m, float dmg) {                        /* On Fire: the hit again over four seconds, on what is left */
+    if (!mob_takes_af(m) || dmg <= 0.0f) return;
+    float left = m->burn_t > 0.0f ? m->burn_dps * m->burn_t : 0.0f;
+    m->burn_t = 4.0f; m->burn_dps = (left + dmg) / 4.0f;
+    maf_note(m, AF_FIRE);
+}
+static void mob_freeze(Mob *m, float secs) {                       /* Frozen: its clock stopped (mob_time), a third more taken */
+    if (!mob_takes_af(m) || m->frz_cd > 0.0f || m->frozen > 0.0f || secs <= 0.0f) return;   /* never lengthened: no locks */
+    if (m->boss) { m->slowed = fmaxf(m->slowed, secs); return; }   /* a boss is slowed instead, as Deep Chill has it */
+    m->frozen = fmaxf(m->frozen, secs); m->swing = 0.0f; m->throw_t = 0.0f;
+    sfx_at(SFX_FROST, m->x, m->y, 1.2f);
+    maf_note(m, AF_FROZEN);
+}
+static void mob_chill(Mob *m, int stacks, int need) {              /* Chilled: stacks, frozen at need (four) */
+    if (!mob_takes_af(m) || stacks <= 0 || m->frozen > 0.0f) return;
+    m->chl_n += stacks; m->chl_t = 0.0f;
+    maf_note(m, AF_CHILL);
+    if (m->chl_n >= need) {
+        if (m->frz_cd > 0.0f) m->chl_n = need - 1;                 /* thawed too lately: it stays at the edge */
+        else { mob_freeze(m, CHILL_FREEZE); if (m->boss) m->chl_n = 0; }
+    }
+}
+static void mob_stun(Mob *m, float secs) {                         /* Stunned */
+    if (!mob_takes_af(m) || m->stun_cd > 0.0f || m->stun_t > 0.0f || secs <= 0.0f) return;   /* never lengthened: no locks */
+    if (m->boss) secs /= 3.0f;                                     /* a boss for a third as long, its ways kept */
+    else { m->swing = 0.0f; m->throw_t = 0.0f; }                   /* a wind-up broken */
+    sfx_at(SFX_CRACKLE, m->x, m->y, 1.3f);
+    m->stun_t = secs;
+    maf_note(m, AF_STUN);
+}
+static void mob_unbind(Mob *m, float secs) {                       /* Unbound: no element, no call */
+    if (!mob_takes_af(m) || m->boss || secs <= 0.0f) return;
+    if (m->unb_t <= 0.0f) sfx_at(SFX_WHISPER, m->x, m->y, 0.9f);
+    m->unb_t = fmaxf(m->unb_t, secs);
+    maf_note(m, AF_UNBOUND);
+}
+static float mob_clock(const Mob *m) {                             /* what mob_time will make of the gate's dt, as things stand */
+    if (m->frozen > 0.0f || m->pin > 0.0f) return 0.0f;
+    float k = m->slowed > 0.0f ? 0.5f : 1.0f;
+    if (G.slip_t > 0.0f && hypotf(m->x - G.px, m->y - G.py) < 7.0f) k *= 0.3f;
+    return k;
+}
+/* the gate at the head of update_mob, before the kinds' own ways: the statuses run down, and it returns the dt the rest of
+ * the creature's step runs on. A hold adds back what the kinds' own branches will take off (cool, swing, throw_t, a call) */
+static float mob_gate(Mob *m, float dt) {
+    if (m->state != MS_WALK || !elem_mode()) { m->stun_t = m->unb_t = 0.0f; m->chl_n = 0; return dt; }
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_MAF")) {                                     /* CRAWL_MAF=k: status k (AF_*) on what is in sight within nine
+                                                                      cells, every 2.5 seconds (a stack of Chilled every 0.7) */
+        int k = clampi(atoi(getenv("CRAWL_MAF")), 0, NAF - 1);
+        float every = k == AF_CHILL ? 0.7f : 2.5f;
+        static int last[MAXMOBS];                                  /* the period each was last given it in */
+        int now = (int)floor(G.t / every), mi = (int)(m - G.mobs);
+        if (now != last[mi] && hypotf(m->x - G.px, m->y - G.py) < 9.0f && line_clear(G.px, G.py, m->x, m->y) && (last[mi] = now, 1))
+            switch (k) {
+            case AF_FIRE: mob_ignite(m, 0.1f * m->maxhp); break;
+            case AF_CHILL: mob_chill(m, 1, 4); break;
+            case AF_FROZEN: mob_freeze(m, 3.0f); break;
+            case AF_STUN: mob_stun(m, 1.2f); break;
+            case AF_POISON: mob_poison(m, 0.1f * m->maxhp, 4.0f); if (mob_takes_af(m)) maf_note(m, AF_POISON); break;
+            case AF_UNBOUND: mob_unbind(m, 1.5f); break;
+            default: break;
+            }
+    }
+#endif
+    if (m->stun_cd > 0.0f) m->stun_cd -= dt;
+    if (m->frz_cd > 0.0f) m->frz_cd -= dt;
+    if (m->frozen > 0.0f) m->frz_was = 1;
+    else if (m->frz_was) { m->frz_was = 0; m->chl_n = 0; m->frz_cd = AF_RELOCK; }   /* thawed: the stacks are spent */
+    if (m->chl_n > 0 && m->frozen <= 0.0f && (m->chl_t += dt) >= CHILL_FREEZE) m->chl_n = 0;   /* they fall off together */
+    float k = 1.0f;
+    if (m->chl_n > 0 && m->frozen <= 0.0f) k *= fmaxf(0.2f, 1.0f - CHILL_SLOW * (float)m->chl_n);
+    int stun = m->stun_t > 0.0f, unb = m->unb_t > 0.0f;
+    if (stun) {
+        k *= 0.5f;                                                 /* half pace */
+        m->cool = fmaxf(m->cool, m->stun_t + 0.1f);                /* no blow or throw begun */
+        if ((m->stun_t -= dt) <= 0.0f) { m->stun_t = 0.0f; m->stun_cd = AF_RELOCK; }
+    }
+    if (unb && (m->unb_t -= dt) <= 0.0f) m->unb_t = 0.0f;
+    float after = dt * k * mob_clock(m);                           /* what the branches will count down by */
+    if (stun || unb) {                                             /* no call: the deacon's, the horn, the bell, a pack's, held */
+        if (m->call_t > 0.0f) m->call_t += after;
+        if (m->type == MOB_SEXTON && m->rings == 1 && m->ring_t > 0.0f) m->ring_t += after;
+        Pack *p = m->pack ? pack_of(m) : NULL;
+        if (p && p->state == PAS_CALL && p->caller == (int)(m - G.mobs) && p->call_t > 0.0f) p->call_t += dt;   /* pack_frame's own dt */
+    }
+    if (m->pois_t > 0.0f && !m->boss) {                            /* Poisoned: its wind-ups and waits at half speed */
+        if (m->cool > 0.0f) m->cool += 0.5f * after;
+        if (m->swing > 0.0f) m->swing += 0.5f * after;
+        if (m->throw_t > 0.0f) m->throw_t += 0.5f * after;
+        if (m->call_t > 0.0f) m->call_t += 0.5f * after;
+    }
+    return dt * k;
 }
 
 /* The lines' abilities (docs/PLAN-b11.md, sections 9-10, step 7) */
@@ -7516,6 +7647,7 @@ static int charge_read(const Mob *m, float pd) {
 
 static void update_mob(Mob *m, float dt) {
     if (!m->wset && m->state == MS_WALK) ward_give(m);            /* its rank's strengths (1.0.0b19; warded, 1.0.0b16) */
+    dt = mob_gate(m, dt);                                          /* its statuses (docs/PLAN-combat.md section 5, 1.0.0b19) */
 #ifdef CRAWL_DEBUG
     if (g_stage >= 0 && m->state == MS_WALK) { m->t += dt; m->anim += dt * 1.5f; m->sub_t += dt; if (m->wring > 0.0f) m->wring -= dt; return; }   /* stood still for frames */
 #endif
@@ -23376,6 +23508,8 @@ enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_S
           caster's track takes bits from 24 upwards, the dead's from 30 downwards, so the two never take the same */
        /* the caster's track (C) ends */
        /* the dead's track (D): */
+       DR_CHILLA = 1 << 30, DR_CHILLB = 1 << 29,                     /* Chilled (section 5): its stacks, 1-3, in two bits; frost creeping
+                                                                      over it, more with each */
        /* the dead's track (D) ends */
 };
 /* VENOM: fire's colours turned green (the flask's splash); POISONED: green bubbles rising off it; BURNING: flames licking up it */   /* ALLY: risen by your Grave Call, a violet edge; WEBBED: held in yours */                                         /* RIPPLE: the Wraith's Time Slip, grey, going out */   /* SHINE: polished plate, a glint
@@ -23418,6 +23552,7 @@ static void render_eyes(Frame *f, const Draw *d, float left, float top, float si
     if (st == 0 && fmodf((float)G.t * 0.37f + ph, 5.0f) < 0.08f) return;   /* a blink, now and then, while it is calm */
     uint8_t core = EYE_CORE[ec], glow = EYE_GLOW[ec];
     if (st == 2) core = C_WHITE;                                   /* striking: they flare */
+    if (st == 5) { core = R_STONE + 11; glow = R_STONE + 6; st = 1; }   /* Unbound (1.0.0b19): the fire gone out of them, grey */
     float es = size / TS;
     int sx[2], sy[2], n = e->n;
     for (int i = 0; i < n; i++) {
@@ -23990,6 +24125,8 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (m->type == MOB_BAT && m->state == MS_WALK && m->sleep == 1) d->z -= 0.33f * d->scale;   /* a roost, asleep: drawn as it hangs,
                                                                       its feet at the ceiling */
         if (m->frozen > 0.0f && m->state == MS_WALK) d->flags |= DR_ICE;   /* only its eyes, in the dark of the web */
+        else if (m->chl_n > 0 && m->state == MS_WALK) d->flags |= (m->chl_n >= 2 ? DR_CHILLA : 0) | (m->chl_n != 2 ? DR_CHILLB : 0);   /* Chilled,
+                                                                      bluer by its stacks */
         if (G.ptheme == PT_BACKROOMS) d->flags |= DR_GLITCH;           /* nothing here is quite right */
         if (G.ptheme == PT_SEVERANCE) d->flags |= DR_LIT;              /* nor here: everything is too clean */
         if (flipH) d->flags |= DR_FLIPH;
@@ -24043,6 +24180,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             if (m->rank != RK_I && dx >= 0 && !m->boss) d->ov = crawl_dress[dx];   /* its rank's dressing */
             if (!m->boss && m->rank >= RK_III && !KIND_IS(m, KF_SPIRIT)) d->vap = 1.0f;   /* and its spirit, showing */
             d->estate = m->type == MOB_WSKULL ? (m->sub == 0 ? 3 : 2) : (m->swing > 0.0f || m->throw_t > 0.0f ? 2 : (m->alert ? 1 : 0));
+            if (m->unb_t > 0.0f && d->estate != 3) d->estate = 5;   /* Unbound: its eyes gone grey */
         } else if (m->state == MS_WALK && m->type == MOB_LIGHTLESS && !(d->flags & (DR_EYES | DR_IMPLODE))) {   /* no eyes, but its rank's marks */
             int dx = crawl_dress_ix[s][m->rank];
             if (m->rank != RK_I && dx >= 0) d->ov = crawl_dress[dx];
@@ -24448,6 +24586,11 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                 if (d->flags & DR_IMPLODE) { f->pix[y * W + x] = c == 0 ? 0 : (uint8_t)(R_GLOW + clampi(6 + (int)((c & 15) * 0.6f), 6, 15)); continue; }
                 if ((d->flags & DR_ICE) && c != 0 && ((x + y) & 1)) {    /* rimed with frost */
                     f->pix[y * W + x] = fogged((uint8_t)(R_GLOW + clampi(2 + (int)(((c - 1) & 15) * 0.5f + light * 4.0f), 2, 12)), fog, light, x, y);
+                    continue;
+                }
+                if ((d->flags & (DR_CHILLA | DR_CHILLB)) && c != 0     /* Chilled: the frost creeping over it, a little more a stack */
+                    && BAYER[y & 3][x & 3] < 1 + ((d->flags & DR_CHILLA ? 2 : 0) + (d->flags & DR_CHILLB ? 1 : 0)) * 4 / 3) {   /* 2, 3, 5 of 16 */
+                    f->pix[y * W + x] = fogged((uint8_t)(R_GLOW + clampi((int)(((c - 1) & 15) * 0.4f + light * 3.0f), 1, 9)), fog, light, x, y);
                     continue;
                 }
                 f->pix[y * W + x] = (d->flags & DR_BRIGHT) ? c : fogged(shade(c, light, x, y), fog, light, x, y);
@@ -28740,6 +28883,25 @@ static void wheel_render(Frame *f) {
 /* a creature near you strong against a line you hold (its rank's, once seen struck; a ward, 1.0.0b16): its element's glyph
  * over its head, barred (docs/PLAN-play.md section 6, PLAN-combat.md 7.3) */
 static void render_warded(Frame *f, float dx, float dy, float horizon) {
+    for (int i = 0; i < MAXMOBS; i++) {                            /* stunned (1.0.0b19): a ring of sparks going round over its head */
+        const Mob *m = &G.mobs[i];
+        if (!m->alive || m->state != MS_WALK || m->stun_t <= 0.0f || buried(m) || hypotf(m->x - G.px, m->y - G.py) > 12.0f
+            || !line_clear(G.px, G.py, m->x, m->y)) continue;
+        float sx, sy, dep, z = fminf(1.1f, KINDS[m->type].scale * RANK_SIZE[m->rank] + 0.06f + fmaxf(0.0f, m->z));
+        if (!project(m->x, m->y, z, dx, dy, horizon, &sx, &sy, &dep)) continue;
+        float r = clampf(FOCAL / dep * 0.16f, 3.0f, 16.0f);
+        int ps = dep < 4.0f ? 2 : 1;
+        for (int k = 0; k < 5; k++) {
+            float a = (float)G.t * 6.0f + (float)k * TAU_F / 5.0f;
+            int px = (int)(sx + cosf(a) * r), py = (int)(sy + sinf(a) * r * 0.35f);
+            uint8_t c = k & 1 ? (uint8_t)C_WHITE : (uint8_t)(R_GOLD + 12);
+            for (int yy = 0; yy < ps; yy++)
+                for (int xx = 0; xx < ps; xx++) {
+                    int qx = px + xx, qy = py + yy;
+                    if (qx >= 0 && qx < W && qy >= 0 && qy < H && dep < zbuf[qx] + 0.05f) f->pix[qy * W + qx] = c;
+                }
+        }
+    }
     for (int i = 0; i < MAXMOBS; i++) {
         const Mob *m = &G.mobs[i];
         int sh[2], nw = 0;
