@@ -1,6 +1,6 @@
 # 1.0.0b18.1: the trial's door, and the crypt made kinder
 
-**Settled; step 1 built** (harness only; 7 November 2026). Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
+**Settled; steps 1 and 2 built** (harness only; 7 November 2026). Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
 tracks of [`PLAN-combat.md`](https://github.com/ASPDesignLabs/HAUNTED.EXE/blob/claude/inspiring-archimedes-dbj5n6/docs/PLAN-combat.md)
 build 1.0.0b19 on `claude/inspiring-archimedes-dbj5n6`. The owner gave one fault and six improvements, asked for them as an
 update of their own ahead of that work, and answered every question in one round (section 12). Every number below that isn't
@@ -71,6 +71,8 @@ boss arch (`CRAWL_TPBOSS=1`) and a winch's gate with a person half in the doorwa
   MAP*; the bar).
 - While a wheel is open nothing in her rooms answers a press: no buying, no patting, no looking at a ware; the click that closes
   it buys and casts nothing (`G.click_spent`). The room goes grey under it as the crypt does.
+- Found in the frames (built so): her cards (a ware's, hers, the Repository's ...) and the pedestals' price tags step aside while
+  a wheel is up or fading (`render_shop_card`, `render_shop_tags`); they had been drawn straight through it.
 - The dream never opens a wheel.
 
 ## 4. The trial's reward
@@ -312,7 +314,7 @@ Each step committed, pushed and logged in section 15. While a sheet waits, the w
 | `update_trial`, `tri_begin`, `tri_end`, `tri_place` | neither | the trigger; the reward |
 | `update_doors`, `mk_door_busy` | neither | a body, not a centre |
 | `human_move`, `body_blocked` | neither (C has `update_human` and `human_walk`) | the safety net; footprints |
-| the frame's wheel gate, `wheel_input`, `shop_human` | neither | the wheels in her rooms |
+| the frame's wheel gate, `wheel_input`, `shop_human`, `update_shop`, `render_shop_card`, `render_shop_tags`, `ready_next` (a debug line) | neither | the wheels in her rooms |
 | `pad_keys`, `PADX`, `quit_rows`, `pk`, `pad_sprint*` | neither | the layout |
 | `solid_prop`, `dress_level`, the placement helpers | neither | footprints |
 | the walk in `update_mob` (`gx = m->tx + 0.5f`, line 7782) | shared | `cell_pass`, two lines |
@@ -359,6 +361,11 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   worktree of their branch at `d87d2dc` (*PLAN-combat: marks on the sprite sheet's groups*): `CLAUDE.md`, this plan and
   `src/scene_crawl.c` went in cleanly, none of the names added (`door_body`, `unstick`, `TRI_IN`) is used on their branch, and
   `make host` built it with no warnings. Nothing was committed there or pushed. Nothing for them to do yet.
+- **After step 2** (7 November, their branch still at `d87d2dc`): the first try conflicted in `crawl_render`, where step 2 had
+  put the wheel's test on the call of `render_shop_tags`, the line above the one track C changed for C2 (`render_af_view` added
+  to the `render_wards` line). Mended on this side: both call sites are back as on main, and the test sits inside
+  `render_shop_tags` and `render_shop_card`, which neither track has touched. Applied again: clean, and built with no warnings.
+  For whoever merges: keep `crawl_render`'s lines there as theirs; nothing of this update is on them.
 
 ## 15. Hand-off log
 
@@ -391,3 +398,22 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
     clean on the peek, a walk-in with a fight, a ten-minute dream from level 3 and the safety net's scratch build; the trial merge
     (section 14) clean.
   - *Left:* nothing of step 1. Next, step 2 (the wheels in her rooms).
+  - *CI:* run 42404300163 on the branch (started by hand): the Windows build compiled, the smoke test passed.
+- **7 November. Step 2, the wheels in her rooms: built** (harness only).
+  - *Built:* the frame's wheel gate takes `!G.ui` in place of `!G.shop` (her rooms, never over one of her menus, which in the
+    crypt return before it); the ware's hold is `shop_hold`, called from `wheel_input`'s tap branch on Q's release when no wheel
+    is up and a ware is looked at (otherwise the next rune or gift, as in the crypt); `update_shop` calls `shop_human` only with
+    no wheel up or fading (`WH.k`), so the press that closes one buys nothing (buying there reads the press itself, not
+    `G.click_spent`); her cards and tags step aside under a wheel. Debug: `CRAWL_TPPED=k` (before her pedestal k, facing it,
+    once you take control), `EVENT shop_hold`, `EVENT ready_next`.
+  - *Tested* (seed 1, `CRAWL_TOTEM=1111 CRAWL_RUNES=2`, before level 1 and level 5): Q tapped at a ware holds it on letting go
+    (a quarter of 1,020 taken; tapped again, nothing more); Q held opens the gifts' wheel and letting go takes from it, no ware
+    held; E and a click under a wheel, and E just after letting go, buy nothing, E two seconds later buys; the pad's X holds, the
+    D-pad's down and up held open the spells' and the gifts' wheels, A under one buys nothing, B puts one away; Q held over her
+    menu and over the wardrobe opens nothing, and after Esc it opens the wheel. Frames before, under and after each wheel.
+  - *Not changed, seen on the way:* in the crypt as on 1.0.0b18, the gifts' wheel shortens the status bar's HEALTH to HEAL...,
+    and a toast or a caption can be drawn over the wheel. Older than this work; left for the owner.
+  - *The dream:* untouched (every change is behind `G.player`; it never opens a wheel), so no runs.
+  - *Other checks:* both builds without warnings; `make smoke` passes (1.72 ms a frame); ASan and UBSan clean on three sessions
+    in her rooms (keys, pad, menus); the trial merge clean after the mend above.
+  - *Left:* nothing of step 2. Next, step 3 (the trial's reward).

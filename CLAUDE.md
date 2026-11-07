@@ -1503,6 +1503,10 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   it had tested the centre only, and a person who had put a step into a trial's room stood with a quarter of a cell over the
   door, which shut and held them till the sand ran out); a trial begins `TRI_IN` past its door; and `unstick` (at the head of
   `human_move`) sets a caster caught in anything solid where it fits, the nearest place within a cell (`EVENT unstuck`).
+  *The wheels in her rooms* (step 2): the frame's gate is `!G.ui`, not `!G.shop`; a ware is held on Q's release when Q was only
+  tapped (`shop_hold`, from `wheel_input`); `shop_human` waits while a wheel is up or fading (`WH.k`), and her cards and tags
+  step aside (`render_shop_card`, `render_shop_tags`). Debug: `CRAWL_TPPED=k` (before her pedestal k), `EVENT shop_hold`,
+  `EVENT ready_next`.
 
 ## Releasing
 

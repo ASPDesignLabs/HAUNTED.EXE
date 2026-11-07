@@ -9261,6 +9261,9 @@ static void ready_next(void) {
     if (nx >= 100) { RUN.abil_sel = nx - 100; RUN.mouse_rune = 0; say("READIED: %s", BA_NAME[nx - 100]); }
     else { RUN.rune_sel = nx; RUN.mouse_rune = 1; say("READIED: %s", DEF_NAME[nx]); }
     snd_sfx_ex(SFX_TICK, 0.7f, 0.5f); show_bar();
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ready_next %s %d t=%.2f\n", nx >= 100 ? "gift" : "rune", nx >= 100 ? nx - 100 : nx, G.t);
+#endif
 }
 static void use_right(void) {                                      /* the right mouse (the pad's LT): whichever was readied last */
     int r = rune_readied();
@@ -17773,7 +17776,8 @@ static void crawl_update(double dt) {
         XPF.banner = fmaxf(0.0f, XPF.banner - fdt);
     }
     if (G.player && G.ui && !G.shop) { update_ui(); return; }     /* a menu is up: the crypt holds its breath */
-    if (G.player && !G.shop && !G.dead && !G.tally && !G.exiting) wheel_input(fdt);   /* a wheel: real time for it, */
+    if (G.player && !G.ui && !G.dead && !G.tally && !G.exiting) wheel_input(fdt);   /* a wheel: real time for it (her rooms too,
+                                                                      1.0.0b18.1, but never over one of her menus), */
     else if (WH.open) wheel_close(0);
     WH.k = WH.open ? fminf(1.0f, WH.k + fdt / 0.12f) : fmaxf(0.0f, WH.k - fdt / 0.12f);
     if (WH.open) { dt *= WHEEL_SLOW; fdt = (float)dt; }            /* and the world slow under it */
@@ -18749,7 +18753,8 @@ static void update_shop(double dt) {
             build_lightmap();
             return;
         }
-        shop_human(fdt);
+        if (!WH.open && WH.k <= 0.0f) shop_human(fdt);            /* a wheel up, or going: she and her wares wait, so the press
+                                                                      that closed it buys nothing (1.0.0b18.1) */
         G.sdur = 0.0f;
     }
     if (G.sdur > 0.0f) {                                           /* the current turn or walk */
@@ -19296,12 +19301,33 @@ static void wheel_close(int take) {
     }
     WH.open = 0;
 }
+/* a ware held for the next visit, for a quarter of its price: Q tapped while looking at it (on letting go since 1.0.0b18.1,
+ * so that Q held may open the gifts' wheel in her rooms as anywhere) */
+static void shop_hold(int i) {
+    const Offer *o = &G.offers[i];
+    int cost = (o->price + 3) / 4;
+    if (o->price <= 0) say("IT IS FREE: NOTHING TO HOLD");
+    else if (G.shop_held >= 0) say(G.shop_held == i ? "IT IS HELD FOR YOU" : "ONE WARE HELD AT A TIME");
+    else if (cost > RUN.treasure) say("HOLDING IT COSTS $%d", cost);
+    else {
+        RUN.treasure -= cost;
+        RUN.gear.held = *o; RUN.gear.has_held = 1; G.shop_held = i;
+        say("HELD FOR NEXT TIME: $%d", cost);
+        snd_sfx_ex(SFX_COIN, 0.8f, 0.5f); sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.9f); G.cat_slow = 1.2f;
+    }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT shop_hold %d price %d held %d left %d t=%.2f\n", i, o->price, G.shop_held, RUN.treasure, G.t);
+#endif
+}
 static void wheel_input(float dt) {
     if (IN.down[KEY_Q]) {                                          /* Q: tapped, the next readied; held, the gifts' wheel */
         if ((WH.q_t += dt) >= WHEEL_HOLD && !WH.q_w) { WH.q_w = 1; if (!WH.open) wheel_open(WH_GIFTS, 1); }
     } else if (WH.q_t > 0.0f) {
         if (WH.q_w) { if (WH.open && WH.src) wheel_close(1); }
-        else if (!WH.open) ready_next();
+        else if (!WH.open) {
+            if (G.shop && G.shop_look >= 0 && !G.offer_gone[G.shop_look]) shop_hold(G.shop_look);   /* at her pedestals: held */
+            else ready_next();
+        }
         WH.q_t = 0.0f; WH.q_w = 0;
     }
     if (PADX.wheel_req && !WH.open) wheel_open(PADX.wheel_req, 0);
@@ -19758,19 +19784,6 @@ static void shop_human(float dt) {
             }
         }
         else if (!human_use() && G.mer_look) { open_ui(UI_MERCHANT); G.click_spent = CAST_HIT; }   /* her menu: the ledger, a pat */
-    }
-    if (IN.hit[KEY_Q] && i >= 0) {                                 /* hold it for the next visit, for a quarter of its price */
-        const Offer *o = &G.offers[i];
-        int cost = (o->price + 3) / 4;
-        if (o->price <= 0) say("IT IS FREE: NOTHING TO HOLD");
-        else if (G.shop_held >= 0) say(G.shop_held == i ? "IT IS HELD FOR YOU" : "ONE WARE HELD AT A TIME");
-        else if (cost > RUN.treasure) say("HOLDING IT COSTS $%d", cost);
-        else {
-            RUN.treasure -= cost;
-            RUN.gear.held = *o; RUN.gear.has_held = 1; G.shop_held = i;
-            say("HELD FOR NEXT TIME: $%d", cost);
-            snd_sfx_ex(SFX_COIN, 0.8f, 0.5f); sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.9f); G.cat_slow = 1.2f;
-        }
     }
     human_cast(dt, !G.click_spent);
 }
@@ -20552,6 +20565,16 @@ static void crawl_control(int what) {
     say("THE CONTROLS ARE YOURS");
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_XP")) RUN.xp += atoi(getenv("CRAWL_XP"));   /* testing: experience banked, not yet claimed */
+    if (getenv("CRAWL_TPPED") && G.shop && G.ped_n) {              /* testing: before her pedestal k, facing it (1.0.0b18.1) */
+        int k = clampi(atoi(getenv("CRAWL_TPPED")) - 1, 0, G.ped_n - 1), bx, by;
+        float best = -1.0f, tx = 0.0f, ty = 0.0f;
+        for (int i = 0; i < 16; i++) {                             /* a step and a half off, on the side away from her */
+            float a = (float)i * (TAU_F / 16.0f), x = G.ped_x[k] + cosf(a) * 1.4f, y = G.ped_y[k] + sinf(a) * 1.4f, s = hypotf(x - CAT_X, y - CAT_Y);
+            if (!body_blocked(x, y, &bx, &by) && s > best) { best = s; tx = x; ty = y; }
+        }
+        if (best >= 0.0f) { G.px = tx; G.py = ty; G.cx = G.tx = (int)tx; G.cy = G.ty = (int)ty; G.ang = atan2f(G.ped_y[k] - ty, G.ped_x[k] - tx); }
+        fprintf(stderr, "TPPED %d of %d at (%.2f,%.2f) ang %.3f\n", k + 1, G.ped_n, G.px, G.py, G.ang);
+    }
     if (getenv("CRAWL_TPEXIT") && !G.shop && G.exit_fx >= 0) tp_exit();    /* testing: straight to the exit, facing it */
     if (getenv("CRAWL_TPSECRET") && !G.shop && G.nsecrets) tp_secret(atoi(getenv("CRAWL_TPSECRET")) % G.nsecrets);
     if (getenv("CRAWL_TPALTAR") && !G.shop) tp_altar();
@@ -24261,6 +24284,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
 
 /* ---- the merchant's wares: prices over the pedestals, a sparkle when one is taken ---- */
 static void render_shop_tags(Frame *f, float dx, float dy, float horizon) {
+    if (WH.k > 0.0f) return;                                       /* a wheel up in her rooms: the tags wait (1.0.0b18.1) */
     int order[NPED], n = 0, box[NPED][4], nb = 0;                  /* nearest first; a tag that would cover a nearer one waits */
     for (int i = 0; i < G.ped_n; i++) order[n++] = i;
     for (int a = 1; a < n; a++) for (int b = a; b > 0; b--) {
@@ -24519,6 +24543,7 @@ static int shop_carded(void) {                                     /* a person l
                                   || G.tot_look || G.bell_look || G.font_look || G.lamp_look || G.sh_look);
 }
 static void render_shop_card(Frame *f) {
+    if (G.player && WH.k > 0.0f) return;                           /* and the cards: a wheel covers them (1.0.0b18.1) */
     int i = G.shop_step == SH_LOOK || G.shop_step == SH_GO || (G.shop_step == SH_BUY && G.shop_pick >= 0 && !G.offer_gone[G.shop_pick]) ? G.shop_look : -1;
     if (G.shop_step == SH_LOOK && G.shop_t < 0.35) i = -1;
     if (G.player) i = G.shop_look;
