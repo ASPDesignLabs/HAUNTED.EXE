@@ -75,7 +75,7 @@ then frames from the game, then the dream's runs.
   touch Frost, a spell the knight's Mirror turns is its own element, the Litany Spirit. Each is then resisted by its own
   resist only. This moves a few numbers (Resist Burn will matter less, Resist Slow and Resist Spirit more); the dream's
   runs say how much.
-- **A balance sheet** (`make combat`, `tools/combat.c`, as `make items` is): for each level, kind and rank, the creature's
+- **A balance sheet** (`make combat`: `build/host_debug combat`, `crawl_combat_sheet`, so it reads the formulas that play): for each level, kind and rank, the creature's
   health, each attack's harm and rate, the time a rank-I caster of each class needs to kill it with their line, and the time
   it needs to kill the caster through common armour. Printed before and after each step, so a change is seen on paper
   before the dream plays it.
@@ -666,7 +666,7 @@ sketches who does what in each).
 | `update_human`, `human_walk`, `human_cast`, `human_use`, `cast_spell`'s aim (Chilled's spread only) | the hit cases of `update_shots`, `chain_lightning`, `flask_burst`, `tether_hold`, `update_ultimates` |
 | `sprint_tick`, `sprint_recovery`, `tint`, `render_statusbar`, `render_readout` | `render_eyes` and its tables, `render_warded`, `render_target`, the bestiary's and the Codex's element pages |
 | the dream's side of harm: `auto_dodge`, `decide`, the tells in `hz_dmap` | the dream's aim by weakness: `choose_spell`, `find_target` |
-| the missiles' part of `render_sprites`; `tools/combat.c` and `make combat`; the status glyphs in `ui_art.c` | the creatures' part of `render_sprites` |
+| the missiles' part of `render_sprites`; `crawl_combat_sheet` and `make combat`; the status glyphs in `ui_art.c` | the creatures' part of `render_sprites` |
 
 **Shared** (either may make a small change; pull first, keep both): `update_mob` outside the two parts above, `render_sprites`
 outside its two, `start_level`, `begin_shop`, the debug state lines, the Codex's lists, the Makefile, README and the page (track C

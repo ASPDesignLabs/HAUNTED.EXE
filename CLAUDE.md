@@ -1471,7 +1471,16 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   of sight, a pricket or coil lit a moment in sight, `Marked.st` 3, or a handbell and a wanderer tracking you). Never the dream's.
   Debug: `CRAWL_LULL=s`, `CRAWL_LULLK=k`, `CRAWL_LULLTRACE=1`, `EVENT lull`.
 - **PLAN-combat, the caster's track (C)** (docs/PLAN-combat.md, sections 3, 4, 8, 10 and 11; its log is section 18). Only
-  track C writes in this bullet. Nothing built yet.
+  track C writes in this bullet. **C1 is built** (harness only): `ATTACKS[]` beside `KINDS` (`FoeAtk`, `FA_*`: each attack's
+  creature, kind `AK_*`, element, share of the blow `k` and `add`, `wind`, `cool` (below 0 the skeleton's `throw_interval`),
+  `cool_rnd`, `go`/`go2`, `reach`, `slow`; `fa_main`, `fa_every`), read by `update_mob`'s branches, `update_leap`,
+  `update_spider`, `update_wskull`, the Wraith's touches and `mob_blow`. `foe_hit(m, fa, k)` is the one road for a creature's
+  blow, bite, landing or touch (its element through `harm_next`, `HURT_SPELL` unless physical); `bone_hurt(b)` for what flies
+  (`Bone.el1`, 1 + the element; a spell the knight's Mirror turns carries its own). `HURT_SPELL` (it was `HURT_MAGIC`, still an
+  alias) is cut by its element's own resist alone (`el_resist`) and by half the armour; armour keeps off a share (`armour_keep`:
+  a / (a + 4 + 0.8 x level), half as much against the elements; P2); `throw_interval` never under 0.6 s (P1). `CRAWL_OLDHARM=1`
+  puts back 1.0.0b18's harm. `make combat` (`build/host_debug combat`, `crawl_combat_sheet`) writes the balance sheet to
+  `build/combat.txt`.
 - **The dead's ways shown** (1.0.0b18, PLAN-ai step 11, Part H; harness only; released). `WY_*` (seventeen set pieces), `way_met` (named
   once a run of ten, `RUN.ways`/`way_said`/`way_run`), `pack_way`; the Codex's `CX_WAYS`; the record's deeds (`deed_note`,
   `DEED_*`, `caller_hushed`, `ways_ends`, `Pack.hunted/hurts0/done`, `Ambush.deaths0/done`, `G.hurts`, `G.hunt_shaken`) and
