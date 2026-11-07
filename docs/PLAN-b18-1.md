@@ -603,3 +603,5 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
     the knell, the dream at the drowned bells, and a level 19 with dead bells; the trial merge clean (section 14).
   - *Committed* as `6867e7f` (the code; these notes followed in the next commit, the first try at them having failed).
   - *Left:* step 7, the controller's sheet to the owner first.
+  - *CI:* run 42417307380 on the branch (started by hand): the Windows build and its smoke test, the browser's build and its
+    smoke test in Chromium, all passed.
