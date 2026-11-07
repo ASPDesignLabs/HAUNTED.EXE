@@ -162,6 +162,8 @@ typedef struct {
     /* the dead's track (D): */
     int elem;                                                      /* 1 + the element it was born to (section 7.4), 0 none: set by D,
                                                                       read by C's attacks */
+    int wseen;                                                     /* its rank's strengths (ward[]) seen struck, a bit each (section
+                                                                      7.3, B11): only these are shown */
     /* the dead's track (D) ends */
 } Mob;
 /* What the two tracks share (docs/PLAN-combat.md, section 17.3). Change any of it only as that section says. The statuses, the
@@ -231,74 +233,74 @@ static const Kind KINDS[] = {
     /* what each element does to it, in the enum's order (fire, frost, lightning, poison, spirit, physical), then its harm */
     [MOB_SKEL] = { "SKELETON", "SKELETONS", "THE ORDER'S DEAD, STILL AT THEIR POSTS. THEY THROW WHAT THEY ARE MADE OF.",
         SP_SKEL_A, SP_SKEL_B, SP_SKEL_SA, SP_SKEL_SB, PF_BONE, 1, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_DOORS, SFX_BONES, SP_SKEL_D3,
-        20, 0.9f, 1.0f, 0.42f,                          { 1.0f, 0.75f, 1.25f, 0.5f, 0.75f, 1.25f }, H_PHYS },
+        20, 0.9f, 1.0f, 0.42f,                          { 1.0f, 1.0f, 1.0f, 0.5f, 1.0f, 1.5f }, H_PHYS },
     [MOB_GHOST] = { "SPECTRE", "SPECTRES", "A CHILL WITH A FACE. IT ONLY WANTS YOU TO KNOW IT IS THERE.",
         SP_GHOST_A, SP_GHOST_B, SP_GHOST_SA, SP_GHOST_SB, -1, 1, RK_I, 0, KF_SPIRIT | KF_PAGE | KF_UNCOUNTED, SFX_GHOST_DIE, -1,
         20, 0.7f, 1.35f, 0.42f,                         { 0 }, 0 },   /* only Spirit Mastery's Spirit reaches it (weak_el) */
     [MOB_BAT] = { "BAT", "BATS", "THEY COME FOR THE FACE, AND BITE WHEN THEY HAVE IT. DEEP DOWN THEY ARE THE COLOUR OF EMBERS.",
         SP_BAT_A, SP_BAT_B, SP_BAT_SA, SP_BAT_SB, PF_WING, 1, RK_IV, 0, KF_SOLID | KF_PAGE, SFX_BAT, -1,
-        10, 1.7f, 1.0f, 0.30f,                          { 1.0f, 1.5f, 1.25f, 1.5f, 1.0f, 1.0f }, H_PHYS },
+        10, 1.7f, 1.0f, 0.30f,                          { 0.5f, 1.0f, 1.0f, 1.5f, 1.0f, 1.0f }, H_PHYS },
     [MOB_WSKULL] = { "WALL SKULL", "WALL SKULLS", "SET IN THE STONE TO WATCH THE HALLS. WALK UP TO ONE AND MEET ITS EYE, AND IT WAKES.",
         SP_WSKULL1, SP_WSKULL1, SP_WSKULL_S, SP_WSKULL_S, PF_BONE, 3, RK_V, 0, KF_PAGE, SFX_SHATTER, -1,
         1, 0.0f, 0.62f, 0.38f,                          { 1.0f, 1.0f, 1.0f, 0.5f, 1.0f, 1.0f }, H_FIRE },
     [MOB_SHIELD] = { "SHIELD-BEARER", "SHIELD-BEARERS", "A SKELETON THAT REMEMBERS ITS DRILL. GO ROUND THE SHIELD, OR THROUGH IT.",
         SP_SHIELD_A, SP_SHIELD_B, SP_SHIELD_SA, SP_SHIELD_SB, PF_BONE, 4, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_DOORS | KF_MELEE, SFX_BONES, SP_SKEL_D3,
-        30, 1.0f, 1.0f, 0.42f,                          { 0.75f, 1.0f, 1.5f, 0.5f, 1.0f, 1.5f }, H_PHYS },
+        30, 1.0f, 1.0f, 0.42f,                          { 1.0f, 1.0f, 1.5f, 1.0f, 1.0f, 0.5f }, H_PHYS },
     [MOB_SPIDER] = { "SPIDER", "SPIDERS", "IT WAITS IN A CORNER WEB, AND ALL YOU SEE ARE ITS EYES. THE DEEP ONES ARE PALE.",
         SP_SPIDER_A, SP_SPIDER_B, SP_SPIDER_SA, SP_SPIDER_SB, PF_CHITIN, 6, RK_V, 0, KF_PAGE, SFX_SKITTER, -1,
-        15, 0.0f, 0.42f, 0.38f,                         { 1.25f, 1.5f, 1.0f, 0.5f, 1.0f, 1.0f }, H_POISON },
+        15, 0.0f, 0.42f, 0.38f,                         { 1.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f }, H_POISON },
     [MOB_SHAMBLER] = { "SHAMBLER", "SHAMBLERS", "THE BURIED, UP AGAIN: SLOW, AND HUNGRY, AND IT WILL HOLD ON TO YOU. FIRE TAKES IT WELL.",
         SP_SHAMB_A, SP_SHAMB_B, SP_SHAMB_SA, SP_SHAMB_SB, PF_FLESH, 2, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_DOORS | KF_MELEE, SFX_GROAN, SP_SHAMB_D2,
-        32, 0.6f, 1.0f, 0.42f,                          { 1.5f, 0.75f, 1.0f, 0.75f, 1.25f, 1.0f }, H_PHYS },
-    [MOB_DROWNED] = { "DROWNED", "DROWNED", "SWOLLEN WITH THE WATER IT DIED IN. STAND BACK WHEN IT GOES: IT BURSTS.",
+        32, 0.6f, 1.0f, 0.42f,                          { 1.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f }, H_PHYS },
+    [MOB_DROWNED] = { "DROWNED", "DROWNED", "SWOLLEN WITH THE WATER IT DIED IN, WHICH DROWNS FIRE AND CARRIES LIGHTNING. IT BURSTS.",
         SP_DROWN_A, SP_DROWN_B, SP_DROWN_SA, SP_DROWN_SB, PF_DROWN, 7, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_MELEE, SFX_SHATTER, -1,
-        46, 0.55f, 1.1f, 0.46f,                         { 1.5f, 0.5f, 1.25f, 0.75f, 1.0f, 1.0f }, H_PHYS | H_POISON },
+        46, 0.55f, 1.1f, 0.46f,                         { 0.5f, 1.0f, 1.5f, 1.0f, 1.0f, 1.0f }, H_PHYS | H_POISON },
     [MOB_HOUND] = { "BONE HOUND", "BONE HOUNDS", "A DOG'S BONES THAT STILL KNOW THEIR WORK. THEY HUNT IN PAIRS, BITE, AND RUN.",
         SP_HOUND_A, SP_HOUND_B, SP_HOUND_SA, SP_HOUND_SB, PF_BONE, 8, RK_V, 0, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_MELEE, SFX_BONES, SP_HOUND_D,
-        14, 2.0f, 0.75f, 0.34f,                         { 1.0f, 1.5f, 1.25f, 0.5f, 0.75f, 1.0f }, H_PHYS },
+        14, 2.0f, 0.75f, 0.34f,                         { 1.0f, 1.5f, 1.0f, 1.0f, 1.0f, 0.5f }, H_PHYS },
     [MOB_WRAITH] = { "WRAITH", "WRAITHS", "IT WALKS THE HALLS AS YOU DO, AND IT DOES NOT TIRE. FIRE AND LIGHT DRIVE IT BACK, A WHILE.",
         SP_WRAITH_A, SP_WRAITH_B, SP_WRAITH_SA, SP_WRAITH_SB, -1, 9, RK_I, 0, KF_SPIRIT | KF_SOLID | KF_UNIQUE | KF_PAGE | KF_DOORS | KF_MELEE | KF_UNCOUNTED, SFX_WAIL, -1,
         1e9f, 0.75f, 1.6f, 0.5f,                        { 0 }, H_FROST },
     [MOB_HUNTER] = { "HUNTING SPIDER", "HUNTING SPIDERS", "IT DOES NOT WAIT IN A WEB. IT WALKS, ON THE FLOOR OR OVERHEAD, AND IT COMES FOR YOU.",
         SP_HUNTER_A, SP_HUNTER_B, SP_HUNTER_SA, SP_HUNTER_SB, PF_HIDE, 11, RK_V, 0, KF_PAGE | KF_MELEE, SFX_SKITTER, SP_HUNTER_D,
-        22, 1.6f, 0.6f, 0.34f,                          { 1.25f, 1.5f, 1.0f, 0.5f, 1.0f, 1.0f }, H_PHYS | H_POISON },
+        22, 1.6f, 0.6f, 0.34f,                          { 1.0f, 1.5f, 0.5f, 1.0f, 1.0f, 1.0f }, H_PHYS | H_POISON },
     [MOB_GHOUL] = { "GHOUL", "GHOULS", "IT EATS WHAT THE OTHERS LEAVE. CATCH IT FEEDING AND IT IS OPEN.",
         SP_GHOUL_A, SP_GHOUL_B, SP_GHOUL_SA, SP_GHOUL_SB, PF_FLESH, 12, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_MELEE, SFX_GROAN, SP_GHOUL_D,
-        30, 1.5f, 0.85f, 0.40f,                         { 1.0f, 1.5f, 1.0f, 0.75f, 1.25f, 1.0f }, H_PHYS },
+        30, 1.5f, 0.85f, 0.40f,                         { 1.0f, 1.0f, 1.0f, 0.5f, 1.5f, 1.0f }, H_PHYS },
     [MOB_KNIGHT] = { "SKELETON KNIGHT", "SKELETON KNIGHTS", "PLATE OVER BONE. HIT IT TILL THE ARMOUR FALLS AWAY; IT GETS QUICKER AS IT DOES.",
         SP_KNIGHT_A, SP_KNIGHT_B, SP_KNIGHT_SA, SP_KNIGHT_SB, PF_ARMOUR, 13, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_DOORS | KF_MELEE, SFX_SHATTER, SP_KNIGHT_D,
-        60, 0.8f, 1.2f, 0.46f,                          { 0.75f, 1.0f, 1.5f, 0.25f, 1.0f, 1.5f }, H_PHYS },
+        60, 0.8f, 1.2f, 0.46f,                          { 1.0f, 1.0f, 1.5f, 1.0f, 1.0f, 0.5f }, H_PHYS },
     [MOB_BROOD] = { "BROOD MOTHER", "BROOD MOTHERS", "SHE LAYS AS SHE GOES. KILL HER AND THE SACS DIE WITH HER.",
         SP_BROOD_A, SP_BROOD_B, SP_BROOD_SA, SP_BROOD_SB, PF_CHITIN, 14, RK_V, 0, KF_SOLID | KF_PAGE, SFX_SKITTER, SP_BROOD_D,
-        70, 0.6f, 1.0f, 0.5f,                           { 1.5f, 1.0f, 1.25f, 0.5f, 1.0f, 1.0f }, H_PHYS },
+        70, 0.6f, 1.0f, 0.5f,                           { 1.0f, 0.5f, 1.0f, 1.5f, 1.0f, 1.0f }, H_PHYS },
     [MOB_LING] = { "SPIDERLING", "SPIDERLINGS", "HER CHILDREN. ONE BITE EACH, AND THERE ARE ALWAYS MORE.",
         SP_LING_A, SP_LING_B, SP_LING_A, SP_LING_B, PF_CHITIN, 14, RK_V, 0, KF_PAGE | KF_MELEE, SFX_SKITTER, -1,
-        4, 2.2f, 0.22f, 0.24f,                          { 1.5f, 1.5f, 1.5f, 0.75f, 1.0f, 1.0f }, H_PHYS },
+        4, 2.2f, 0.22f, 0.24f,                          { 1.0f, 0.5f, 1.0f, 1.5f, 1.0f, 1.0f }, H_PHYS },
     [MOB_SAC] = { "EGG SAC", "EGG SACS", "",
         SP_SAC_A, SP_SAC_B, SP_SAC_A, SP_SAC_B, -1, 14, RK_I, 0, KF_UNCOUNTED, SFX_SHATTER, SP_SAC_OPEN,
-        6, 0.0f, 0.5f, 0.30f,                           { 1.5f, 1.0f, 1.0f, 0.5f, 0.0f, 1.0f }, 0 },
+        6, 0.0f, 0.5f, 0.30f,                           { 1.0f, 0.5f, 1.0f, 1.5f, 0.0f, 1.0f }, 0 },
     [MOB_SHADE] = { "SHADE", "SHADES", "A SHAPE OF DARK THAT SHOWS ONLY IN LIGHT. ITS TOUCH TAKES SOULS.",
         SP_SHADE_A, SP_SHADE_B, SP_SHADE_SA, SP_SHADE_SB, -1, 16, RK_I, 0, KF_PAGE | KF_MELEE, SFX_GHOST_DIE, -1,
-        30, 1.1f, 1.1f, 0.40f,                          { 1.25f, 0.5f, 1.0f, 0.0f, 1.5f, 0.75f }, H_SPIRIT },
+        30, 1.1f, 1.1f, 0.40f,                          { 1.0f, 1.0f, 1.0f, 0.5f, 1.5f, 1.0f }, H_SPIRIT },
     [MOB_IMP] = { "EMBER IMP", "EMBER IMPS", "BORN OF THE MAGMA, AND IT THROWS IT. COLD IS WHAT IT FEARS.",
         SP_IMP_A, SP_IMP_B, SP_IMP_SA, SP_IMP_SB, PF_CLAY, 17, RK_V, 0, KF_SOLID | KF_PAGE, SFX_SHATTER, SP_IMP_D,
         18, 1.4f, 0.55f, 0.30f,                         { 0.5f, 1.5f, 1.0f, 1.0f, 1.0f, 1.0f }, H_FIRE },
     [MOB_DEACON] = { "DEACON", "DEACONS", "A PRIEST OF THE DEAD, AND THEY GET UP WHEN HE ASKS. KILL HIM FIRST.",
         SP_DEACON_A, SP_DEACON_B, SP_DEACON_SA, SP_DEACON_SB, PF_ROBE, 18, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_DOORS, SFX_BONES, SP_DEACON_D,
-        40, 0.9f, 1.05f, 0.42f,                         { 1.25f, 1.0f, 1.0f, 0.75f, 0.75f, 1.25f }, 0 },
-    [MOB_GARGOYLE] = { "GARGOYLE", "GARGOYLES", "IT IS ONLY A STATUE UNTIL YOU PASS. STONE SHRUGS OFF FIRE AND FROST.",
+        40, 0.9f, 1.05f, 0.42f,                         { 1.5f, 1.0f, 1.0f, 1.0f, 0.5f, 1.0f }, 0 },
+    [MOB_GARGOYLE] = { "GARGOYLE", "GARGOYLES", "IT IS ONLY A STATUE UNTIL YOU PASS. LIGHTNING RUNS OFF IT; A SPEAR CHIPS IT.",
         SP_GARG_A, SP_GARG_B, SP_GARG_SA, SP_GARG_SB, PF_STONE, 19, RK_V, 0, KF_PAGE | KF_MELEE, SFX_SHATTER, SP_GARG_D,
-        45, 2.2f, 0.9f, 0.42f,                          { 0.5f, 0.5f, 1.5f, 0.0f, 0.0f, 1.5f }, H_PHYS },
+        45, 2.2f, 0.9f, 0.42f,                          { 1.0f, 1.0f, 0.5f, 1.0f, 1.0f, 1.5f }, H_PHYS },
     /* the new kinds made for the minds' roles (1.0.0b15, docs/PLAN-ai.md section 22) */
     [MOB_WHIPPER] = { "WHIPPER-IN", "WHIPPERS-IN", "THE ORDER'S HUNTSMAN. HIS HORN SETS HIS HOUNDS ON YOU; FELL HIM AND THEY RUN WILD.",
         SP_WHIP_A, SP_WHIP_B, SP_WHIP_SA, SP_WHIP_SB, PF_BONE, 22, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_DOORS, SFX_BONES, SP_WHIP_D,
-        36, 1.0f, 1.15f, 0.42f,                         { 1.0f, 0.75f, 1.25f, 0.5f, 0.75f, 1.25f }, H_PHYS },
+        36, 1.0f, 1.15f, 0.42f,                         { 1.0f, 1.0f, 0.5f, 1.0f, 1.5f, 1.0f }, H_PHYS },
     [MOB_SEXTON] = { "SEXTON", "SEXTONS", "HE RINGS AT EACH TURN OF HIS ROUND, AND HARD WHEN HE SEES YOU. FROST STOPS THE BELL.",
         SP_SEXTON_A, SP_SEXTON_B, SP_SEXTON_SA, SP_SEXTON_SB, PF_HIDE, 26, RK_V, 1, KF_UNDEAD | KF_SOLID | KF_PAGE | KF_DOORS, SFX_GROAN, SP_SEXTON_D,
-        30, 0.8f, 1.0f, 0.42f,                          { 1.5f, 1.0f, 1.0f, 0.75f, 1.0f, 1.0f }, 0 },
+        30, 0.8f, 1.0f, 0.42f,                          { 1.0f, 1.0f, 1.0f, 1.5f, 0.5f, 1.0f }, 0 },
     [MOB_LIGHTLESS] = { "LIGHTLESS", "LIGHTLESS", "BLACK GLASS, NO EYES. IT FEELS LIGHT AND COMES TO IT, SILENT. SHUTTER THE LANTERN.",
         SP_LIGHT_A, SP_LIGHT_B, SP_LIGHT_SA, SP_LIGHT_SB, PF_CHITIN, 32, RK_V, 1, KF_SOLID | KF_PAGE | KF_DOORS | KF_MELEE, SFX_SHATTER, SP_LIGHT_D,
-        50, 1.3f, 1.2f, 0.40f,                          { 0.75f, 1.25f, 1.0f, 0.0f, 0.75f, 1.5f }, H_PHYS },
+        50, 1.3f, 1.2f, 0.40f,                          { 1.0f, 1.0f, 1.0f, 1.0f, 0.5f, 1.5f }, H_PHYS },
 };
 _Static_assert(MOB_LIGHTLESS < 24, "the record keeps 24 kinds (REC_KINDS)");
 #define NKINDS ((int)(sizeof KINDS / sizeof KINDS[0]))
@@ -4739,17 +4741,60 @@ static float knight_pace(const Mob *m, int st) {                   /* quicker as
     return KINDS[MOB_KNIGHT].speed * RANK_SPEED[m->rank] * (1.0f + 0.25f * st);
 }
 
-/* How much a spell bites a creature: its weakness to the spell's element, and each element worn added in
- * by how much that element hurts it. A knight down to its breastplate has nothing left to keep fire off.
- * The BFS9000 is no element's: it hurts anything that can be hurt the same. */
+/* The bestiary's elements (1.0.0b19, docs/PLAN-combat.md section 7): every kind weak to one element (x1.5) and strong
+ * against one (x0.5), the rest plain, as KINDS has it; from rank III one more strength, from V another, among the lines
+ * the caster holds (the wards' way, folded in: they still crack). CRAWL_ELEM=0 in the debug build puts the old shaded
+ * table and the old wards back, for the balance runs (the hazards' harm to the dead reads KINDS itself, and keeps the new
+ * table either way). */
+static int elem_mode(void) {                                       /* 0 the old table and wards (CRAWL_ELEM=0), 1 as made */
+#ifdef CRAWL_DEBUG
+    static int mode = -1;
+    if (mode < 0) mode = !(getenv("CRAWL_ELEM") && atoi(getenv("CRAWL_ELEM")) == 0);
+    return mode;
+#else
+    return 1;
+#endif
+}
+#define STRENGTH_K 0.5f                                            /* what a strength lets through */
+#ifdef CRAWL_DEBUG
+static const float OLD_WEAK[][NELEM] = {                           /* 1.0.0b18's, for CRAWL_ELEM=0 */
+    [MOB_SKEL] = { 1.0f, 0.75f, 1.25f, 0.5f, 0.75f, 1.25f },     [MOB_GHOST] = { 0 },
+    [MOB_BAT] = { 1.0f, 1.5f, 1.25f, 1.5f, 1.0f, 1.0f },         [MOB_WSKULL] = { 1.0f, 1.0f, 1.0f, 0.5f, 1.0f, 1.0f },
+    [MOB_SHIELD] = { 0.75f, 1.0f, 1.5f, 0.5f, 1.0f, 1.5f },      [MOB_SPIDER] = { 1.25f, 1.5f, 1.0f, 0.5f, 1.0f, 1.0f },
+    [MOB_SHAMBLER] = { 1.5f, 0.75f, 1.0f, 0.75f, 1.25f, 1.0f },  [MOB_DROWNED] = { 1.5f, 0.5f, 1.25f, 0.75f, 1.0f, 1.0f },
+    [MOB_HOUND] = { 1.0f, 1.5f, 1.25f, 0.5f, 0.75f, 1.0f },      [MOB_WRAITH] = { 0 },
+    [MOB_HUNTER] = { 1.25f, 1.5f, 1.0f, 0.5f, 1.0f, 1.0f },      [MOB_GHOUL] = { 1.0f, 1.5f, 1.0f, 0.75f, 1.25f, 1.0f },
+    [MOB_KNIGHT] = { 0.75f, 1.0f, 1.5f, 0.25f, 1.0f, 1.5f },     [MOB_BROOD] = { 1.5f, 1.0f, 1.25f, 0.5f, 1.0f, 1.0f },
+    [MOB_LING] = { 1.5f, 1.5f, 1.5f, 0.75f, 1.0f, 1.0f },        [MOB_SAC] = { 1.5f, 1.0f, 1.0f, 0.5f, 0.0f, 1.0f },
+    [MOB_SHADE] = { 1.25f, 0.5f, 1.0f, 0.0f, 1.5f, 0.75f },      [MOB_IMP] = { 0.5f, 1.5f, 1.0f, 1.0f, 1.0f, 1.0f },
+    [MOB_DEACON] = { 1.25f, 1.0f, 1.0f, 0.75f, 0.75f, 1.25f },   [MOB_GARGOYLE] = { 0.5f, 0.5f, 1.5f, 0.0f, 0.0f, 1.5f },
+    [MOB_WHIPPER] = { 1.0f, 0.75f, 1.25f, 0.5f, 0.75f, 1.25f },  [MOB_SEXTON] = { 1.5f, 1.0f, 1.0f, 0.75f, 1.0f, 1.0f },
+    [MOB_LIGHTLESS] = { 0.75f, 1.25f, 1.0f, 0.0f, 0.75f, 1.5f },
+};
+_Static_assert(sizeof OLD_WEAK / sizeof OLD_WEAK[0] == sizeof KINDS / sizeof KINDS[0], "a row for every kind");
+#endif
+static float kind_weak(int k, int el) {                            /* what an element does to a kind, before its rank's strengths */
+#ifdef CRAWL_DEBUG
+    if (!elem_mode()) return OLD_WEAK[k][el];
+#endif
+    return KINDS[k].weak[el];
+}
+/* How much a spell bites a creature: its kind's weakness or strength in the spell's element, its rank's strengths, and
+ * each element worn added in by how much that element hurts it. The BFS9000 is no element's: it hurts anything that can
+ * be hurt the same. */
 static int spirit_mastery(void);
 static float ward_str(void);
 static float weak_el(const Mob *m, int el) {
     if (m->type == MOB_GHOST) return el == EL_SPIRIT && spirit_mastery() ? 1.0f : 0.0f;   /* a spectre: Spirit Mastery's alone */
     if (m->type == MOB_WRAITH && m->boss) return el == EL_FIRE ? 1.2f : 1.0f;   /* the Wraith Unbound, in light */
-    float w = m->type == MOB_KNIGHT && el == EL_FIRE && knight_stage(m) == 2 ? 1.0f : KINDS[m->type].weak[el];
-    if (m->ward[0] == el + 1 || m->ward[1] == el + 1) w *= 1.0f - ward_str();   /* warded against it (1.0.0b16) */
-    return w;
+    int strong = m->ward[0] == el + 1 || m->ward[1] == el + 1;
+    if (!elem_mode()) {                                            /* the old: a knight down to its breastplate has nothing left
+                                                                      to keep fire off; a ward keeps 60% to 90% off (1.0.0b16) */
+        float w = m->type == MOB_KNIGHT && el == EL_FIRE && knight_stage(m) == 2 ? 1.0f : kind_weak(m->type, el);
+        return strong ? w * (1.0f - ward_str()) : w;
+    }
+    float w = kind_weak(m->type, el);
+    return strong ? fminf(w, STRENGTH_K) : w;                      /* its rank's strength, never more than its kind's own */
 }
 static float weak_to(const Mob *m, int atk) {
     return ATK_ELEM[atk] < 0 ? (KIND_IS(m, KF_SPIRIT) ? 0.0f : 1.0f) : weak_el(m, ATK_ELEM[atk]);
@@ -4778,7 +4823,8 @@ static int ward_pick(const Mob *m, int ward[2]) {                  /* which elem
     int held[NELEM], nh = 0, own = cls_el(), weakest = 0;
     for (int e = 0; e < NELEM; e++) if (align_open(e)) held[nh++] = e;
     if (nh < 2) return 0;                                          /* never every line held */
-    const float *wk = KINDS[m->type].weak;
+    float wk[NELEM];
+    for (int e = 0; e < NELEM; e++) wk[e] = kind_weak(m->type, e);
     for (int e = 1; e < NELEM; e++) if (wk[e] > wk[weakest]) weakest = e;
     int cand[NELEM], nc = 0;
     for (int i = 0; i < nh; i++) {
@@ -4794,11 +4840,52 @@ static int ward_pick(const Mob *m, int ward[2]) {                  /* which elem
     if (nh >= 3 && nc >= 2 && nh - 2 >= 1 && (m->rank == RK_IV || m->rank == RK_V) && rnd(2)) ward[1] = cand[1] + 1;   /* two, from three lines */
     return 1;
 }
+/* A rank's strengths (docs/PLAN-combat.md 7.3, B3-B5): rank III and IV one, V two, the gilded one; up to n of the lines
+ * held, never its weakness nor what its kind already shrugs off, with two lines never the class's own (the second is the
+ * one a strength teaches), and always leaving a held line that bites it at least as usual. Those its pack chose come
+ * first (pref), so a pack shares them where its kinds allow. Returns how many. */
+static int rank_strengths(int rank) { return rank >= RK_V && rank != RK_GILDED ? 2 : rank >= RK_III ? 1 : 0; }
+static int strength_pick(const Mob *m, int n, const int *pref, int out[2]) {
+    out[0] = out[1] = 0;
+    int held[NELEM], nh = 0, own = cls_el(), cand[NELEM], nc = 0, bites = 0;
+    for (int e = 0; e < NELEM; e++) if (align_open(e)) held[nh++] = e;
+    if (nh < 2 || n <= 0) return 0;                                /* never against the only line held */
+    for (int i = 0; i < nh; i++) {
+        int e = held[i];
+        float w = kind_weak(m->type, e);
+        if (w > STRENGTH_K + 0.01f) bites++;                       /* a held line it doesn't shrug off */
+        if (w <= STRENGTH_K + 0.01f || w > 1.01f) continue;        /* shrugged off already, or what it is weak to */
+        if (nh == 2 && e == own) continue;
+        cand[nc++] = e;
+    }
+    for (int i = 0; i < nc; i++) { int j = i + rnd(nc - i), t = cand[i]; cand[i] = cand[j]; cand[j] = t; }
+    for (int q = 1; pref && q >= 0; q--)                           /* the pack's to the front, its first first */
+        for (int i = 0; i < nc; i++)
+            if (pref[q] == cand[i] + 1) { int t = cand[i]; memmove(cand + 1, cand, (size_t)i * sizeof cand[0]); cand[0] = t; break; }
+    int k = 0;
+    for (int i = 0; i < nc && k < n && bites > 1; i++, bites--) out[k++] = cand[i] + 1;
+    return k;
+}
+static void strength_give(Mob *m) {
+    Pack *p = m->pack ? pack_of(m) : NULL;
+    if (p && !p->wset) {                                           /* the pack's, chosen once for its leader, two deep */
+        const Mob *lead = p->leader >= 0 ? &G.mobs[p->leader] : m;
+        p->wset = 1;
+        strength_pick(lead, 2, NULL, p->ward);
+    }
+    strength_pick(m, rank_strengths(m->rank), p ? p->ward : NULL, m->ward);
+#ifdef CRAWL_DEBUG
+    if (m->ward[0]) fprintf(stderr, "EVENT strengths %s rank %d against %s%s%s t=%.2f\n", KINDS[m->type].name, m->rank, ELEM_NAME[m->ward[0] - 1],
+                            m->ward[1] ? " and " : "", m->ward[1] ? ELEM_NAME[m->ward[1] - 1] : "", G.t);
+#endif
+}
 static void ward_give(Mob *m) {
     m->wset = 1; m->ward[0] = m->ward[1] = 0;
     int mode = ward_mode();
-    if (!mode || (G.level < 5 && crawl_loop(G.level) == 0) || m->boss || m->add || m->ally || m->tri || KIND_IS(m, KF_SPIRIT)
+    if (!mode || m->boss || m->add || m->ally || m->tri || KIND_IS(m, KF_SPIRIT)
         || m->type == MOB_GHOST || m->type == MOB_WSKULL || m->type == MOB_SAC || m->type == MOB_LING || m->type == MOB_WRAITH) return;
+    if (elem_mode()) { strength_give(m); return; }                 /* 1.0.0b19: by rank, in place of wards */
+    if (G.level < 5 && crawl_loop(G.level) == 0) return;
     Pack *p = m->pack ? pack_of(m) : NULL;
     if (p && p->wset) { m->ward[0] = p->ward[0]; m->ward[1] = m->rank >= RK_IV && m->rank != RK_GILDED ? p->ward[1] : 0; if (!m->ward[1] && p->ward[1] && !m->ward[0]) m->ward[0] = p->ward[1]; return; }
     const Mob *lead = p && p->leader >= 0 ? &G.mobs[p->leader] : m;
@@ -4816,6 +4903,16 @@ static void ward_give(Mob *m) {
 #ifdef CRAWL_DEBUG
 static int ward_hits, wards_cracked;
 #endif
+/* a rank's strength is shown (its rim, the barred glyph over it, the readout) once it has been seen struck (B11): on it,
+ * and on those of its pack that share it */
+static int strength_shown(const Mob *m, int i) { return m->ward[i] && (!elem_mode() || (m->wseen >> i & 1)); }
+static void strength_seen(Mob *m, int i) {
+    for (int j = 0; j < MAXMOBS; j++) {
+        Mob *o = &G.mobs[j];
+        if (o != m && (!m->pack || o->pack != m->pack || !o->alive)) continue;
+        for (int q = 0; q < 2; q++) if (o->ward[q] == m->ward[i]) o->wseen |= 1 << q;
+    }
+}
 static void ward_struck(Mob *m, int el, float dmg, int tick) {
     for (int i = 0; i < 2; i++) {
         if (m->ward[i] != el + 1) continue;
@@ -4826,11 +4923,16 @@ static void ward_struck(Mob *m, int el, float dmg, int tick) {
 #ifdef CRAWL_DEBUG
             ward_hits++;
 #endif
-            if (G.player && !(G.ward_said >> el & 1)) { G.ward_said |= 1 << el; say("WARDED AGAINST %s", ELEM_NAME[el]); }
+            if (elem_mode()) strength_seen(m, i);
+            if (G.player && !(G.ward_said >> el & 1)) { G.ward_said |= 1 << el; say(elem_mode() ? "THIS ONE SHRUGS OFF %s" : "WARDED AGAINST %s", ELEM_NAME[el]); }
         }
         if (m->wdmg[i] >= 0.2f * m->maxhp) {                       /* cracked (Q7 a): only slower, never locked */
             m->ward[i] = 0; m->wring = 0.0f;
             sfx_at(SFX_GLASS, m->x, m->y, 1.2f); sfx_at(SFX_SHATTER, m->x, m->y, 0.6f);
+            if (elem_mode() && G.player && !(G.ward_said >> (el + 8) & 1)) {   /* once a level an element (the upper bits) */
+                G.ward_said |= 1 << (el + 8);
+                say("CRACKED: %s BITES IT AGAIN", ELEM_NAME[el]);
+            }
 #ifdef CRAWL_DEBUG
             fprintf(stderr, "EVENT ward_cracked %s %s t=%.2f\n", KINDS[m->type].name, ELEM_NAME[el], G.t);
             wards_cracked++;
@@ -7413,14 +7515,14 @@ static int charge_read(const Mob *m, float pd) {
 }
 
 static void update_mob(Mob *m, float dt) {
-    if (!m->wset && m->state == MS_WALK) ward_give(m);            /* warded, or not, for its level (1.0.0b16) */
+    if (!m->wset && m->state == MS_WALK) ward_give(m);            /* its rank's strengths (1.0.0b19; warded, 1.0.0b16) */
 #ifdef CRAWL_DEBUG
     if (g_stage >= 0 && m->state == MS_WALK) { m->t += dt; m->anim += dt * 1.5f; m->sub_t += dt; if (m->wring > 0.0f) m->wring -= dt; return; }   /* stood still for frames */
 #endif
     if (m->state == MS_DIE && m->sub == 77) { if ((m->t += dt) >= 0.9f) m->alive = 0; return; }   /* gone into the BFS9000 */
     if (m->ally && m->state == MS_WALK) { update_ally(m, dt); return; }   /* raised by your Grave Call: it fights for you */
     if (m->wring > 0.0f) m->wring -= dt;
-    if (G.player && m->ward[0] && m->state == MS_WALK && !(G.ward_said >> (m->ward[0] - 1) & 1) && hypotf(m->x - G.px, m->y - G.py) < 6.0f
+    if (G.player && m->ward[0] && !elem_mode() && m->state == MS_WALK && !(G.ward_said >> (m->ward[0] - 1) & 1) && hypotf(m->x - G.px, m->y - G.py) < 6.0f
         && line_clear(G.px, G.py, m->x, m->y)) { G.ward_said |= 1 << (m->ward[0] - 1); say("WARDED AGAINST %s", ELEM_NAME[m->ward[0] - 1]); }   /* the first
                                                                       seen on a level, named */
     if (m->boss && m->state == MS_WALK && (G.bstate != BS_FIGHT || G.bpose_t > 0.0f)) {   /* waiting, holding while its wave
@@ -22350,6 +22452,7 @@ enum { CXS_VESSEL, CXS_BELL, CXS_FONT, CXS_REPLAY, CXS_SAP, NCXS };   /* the sou
     /* docs/PLAN-combat.md section 17: each track adds its new pages' count (+ n) only above its own end mark */ \
     /* the caster's track (C) ends */ \
     /* the dead's track (D): */ \
+    + 1 /* the elements' second page, the dead's (D1) */ \
     /* the dead's track (D) ends */ \
     )
 enum { CXC_ATONE, CXC_LUCK, CXC_OVER, CXC_CORNER };                /* the caster's own pages: then a cornerstone each, CXC_CORNER + CS_* */
@@ -22388,6 +22491,7 @@ static int codex_entries(CxEntry *e) {
     if (RUN.atone >= ATONE_TOP) e[n++] = (CxEntry){ CX_CASTER, CXC_OVER };
     for (int c = 0; c < NCS; c++) if (RUN.corner >> c & 1) e[n++] = (CxEntry){ CX_CASTER, CXC_CORNER + c };
     e[n++] = (CxEntry){ CX_ELEM, 0 };
+    if (elem_mode()) e[n++] = (CxEntry){ CX_ELEM, 1 };             /* the dead's elements (1.0.0b19) */
     for (int el = 0; el < NELEM; el++) if (align_open(el)) e[n++] = (CxEntry){ CX_LINE, el };   /* the lines open */
     if (cls_el() >= 0) e[n++] = (CxEntry){ CX_CLASS, cls_el() };   /* what you were */
     e[n++] = (CxEntry){ CX_SOUL, CXS_VESSEL };                     /* the souls, as each is met */
@@ -23817,7 +23921,11 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         }
         if (m->boss == 1 + BOSS_SPIDER && G.bmend_t > 0.0f && m->state == MS_WALK) d->flags |= DR_MEND;   /* its Mend Rune */
         if (m->pois_t > 0.0f && m->state == MS_WALK) d->flags |= DR_POISONED;
-        if (m->ward[0] && m->state == MS_WALK) d->ward = m->ward[0] + (m->wring > 0.0f ? 16 : 0) + 32 * m->ward[1];   /* a hard rim of its colour */
+        if (m->state == MS_WALK) {                                 /* its strengths shown: a hard rim of their colour */
+            int a = strength_shown(m, 0) ? m->ward[0] : 0, b = strength_shown(m, 1) ? m->ward[1] : 0;
+            if (!a) { a = b; b = 0; }
+            if (a) d->ward = a + (m->wring > 0.0f ? 16 : 0) + 32 * b;
+        }
         if (m->pin > 0.0f && m->state == MS_WALK) d->flags |= DR_PINNED;
         if (m->burn_t > 0.0f && m->state == MS_WALK) d->flags |= DR_BURNING;
         if (m->boss == 1 + BOSS_WRAITH && G.bslip_t > 0.9f) d->flags |= DR_RIPPLE;
@@ -26718,14 +26826,18 @@ static void render_bestiary(Frame *f) {
      * kills or twelve hits, each harm from three times it has hurt you */
     gfx_text8(f, 14, 151, "WHAT HURTS IT", R_GOLD + 10, 1);
     if (spirit) { gfx_text8(f, 14, 161, "NOTHING YOU CARRY TOUCHES IT", R_STONE + 11, 1); return; }
-    if (k != MOB_WSKULL && k != MOB_SAC && k != MOB_LING && (RUN.level >= 5 || crawl_loop(RUN.level) > 0))   /* 1.0.0b16 */
+    if (elem_mode()) {                                             /* 1.0.0b19: what the rank shown adds, from the lines held */
+        int ns = k == MOB_WSKULL || k == MOB_SAC || k == MOB_LING ? 0 : rank_strengths(G.best_rank);
+        const char *t = ns == 2 ? "SHRUGS OFF TWO MORE" : ns ? "SHRUGS OFF ONE MORE" : NULL;
+        if (t) gfx_text8(f, W - 14 - gfx_text_width(t, 1), 151, t, R_STONE + 11, 1);
+    } else if (k != MOB_WSKULL && k != MOB_SAC && k != MOB_LING && (RUN.level >= 5 || crawl_loop(RUN.level) > 0))   /* 1.0.0b16 */
         gfx_text8(f, W - 14 - gfx_text_width("SOME COME WARDED", 1), 151, "SOME COME WARDED", R_STONE + 11, 1);
     static const char *const ROW[4] = { "MORE", "LESS", "AS USUAL", "NOT LEARNT" };
     static const uint8_t ROWC[4] = { R_MOSS + 13, R_BLOOD + 13, R_STONE + 12, R_STONE + 8 };
     int at[4] = { 0 };
     for (int row = 0; row < 4; row++) gfx_text8(f, 14 + (row & 1) * 150, 161 + (row >> 1) * 10, ROW[row], ROWC[row], 1);
     for (int e = 0; e < NELEM; e++) {
-        int g = weak_grade(KINDS[k].weak[e]), row = !el_learnt(k, e) ? 3 : g > 0 ? 0 : g < 0 ? 1 : 2;
+        int g = weak_grade(kind_weak(k, e)), row = !el_learnt(k, e) ? 3 : g > 0 ? 0 : g < 0 ? 1 : 2;
         int x = 14 + (row & 1) * 150 + gfx_text_width(ROW[row], 1) + 6 + at[row], y = 161 + (row >> 1) * 10;
         if (row == 3) elem_glyph(f, x, y, e, 1);
         else glyph_marked(f, x, y, e, g);
@@ -27163,7 +27275,7 @@ static void render_codex(Frame *f) {
     case CX_PUZZLE: snprintf(name, sizeof name, "%s", PZ_NAME[c->i]); break;
     case CX_TRIAL: snprintf(name, sizeof name, "%s", TRI_NAME[c->i]); break;
     case CX_WAYS: snprintf(name, sizeof name, "%s", WAY_NAME[clampi(c->i, 0, NWAY - 1)]); break;
-    case CX_ELEM: snprintf(name, sizeof name, "WHAT HURTS WHAT"); break;
+    case CX_ELEM: snprintf(name, sizeof name, c->i ? "THE DEAD'S ELEMENTS" : "WHAT HURTS WHAT"); break;
     case CX_LINE: snprintf(name, sizeof name, "%s", ALIGN[c->i].name); break;
     case CX_CLASS: snprintf(name, sizeof name, "%s", CLASSES[c->i].name); break;
     case CX_SOUL: {
@@ -27307,6 +27419,20 @@ static void render_codex(Frame *f) {
         break;
     }
     case CX_ELEM: {                                                /* docs/PLAN-b11.md, sections 2 and 4 */
+        if (c->i == 1) {                                           /* the dead's (docs/PLAN-combat.md, section 7) */
+            y += text_wrap_ex(f, 14, y, "EVERY KIND IS WEAK TO ONE ELEMENT AND SHRUGS OFF ONE.", 36, R_STONE + 13, 2, 9) * 9 + 5;
+            glyph_marked(f, 14, y, EL_FIRE, 2);
+            gfx_text8(f, 40, y, "BITES HALF AGAIN AS HARD", R_MOSS + 13, 1);
+            y += 11;
+            glyph_marked(f, 14, y, EL_FROST, -2);
+            gfx_text8(f, 40, y, "BITES HALF AS HARD", R_BLOOD + 13, 1);
+            y += 15;
+            y += text_wrap_ex(f, 14, y, "FROM RANK III IT SHRUGS OFF ONE OF YOUR LINES MORE, FROM V ANOTHER: NEVER WHAT IT IS WEAK TO, "
+                              "NEVER THE LAST OF YOURS THAT BITES IT. A PACK SHARES THEM.", 36, R_STONE + 13, 5, 9) * 9 + 5;
+            text_wrap(f, 14, y, "STRUCK WITH ONE, IT RINGS DULL AND SHOWS IT, BARRED. A FIFTH OF ITS HEALTH IN THAT ELEMENT "
+                      "CRACKS IT.", 36, R_BONE + 11, 3);
+            break;
+        }
         static const char *const NATURE[NELEM] = { "IT BURNS", "IT SLOWS", "IT STRIKES AT ONCE", "IT SICKENS OVER TIME", "IT HEALS AS IT HURTS", "IT PIERCES" };
         static const char *const FROM[NELEM] = { "SKULLS, IMPS, HELLRENT", "THE WRAITH'S TOUCH", "NOTHING YET",
                                                  "SPIDERS, DROWNED, BILE", "SHADES; BATS FROM II", "BLOWS, BITES, BONES, ROCK" };
@@ -27670,12 +27796,19 @@ static int target_shown(void) {
 /* One side of the target's readout: what it takes more from (more), or less, learnt, the most nearest the
  * bar; up to four. Returns how many, with each element in el[] and its grade in gr[]; *unknown if some
  * element is still to be learnt on this kind */
+static float shown_weak(const Mob *m, int e) {                    /* what the readout may say: its kind's, and its rank's
+                                                                      strengths only once seen struck (B11) */
+    if (!elem_mode() || m->type == MOB_GHOST || (m->type == MOB_WRAITH && m->boss)) return weak_el(m, e);
+    float w = kind_weak(m->type, e);
+    for (int i = 0; i < 2; i++) if (m->ward[i] == e + 1 && strength_shown(m, i)) w = fminf(w, STRENGTH_K);
+    return w;
+}
 static int weak_side(const Mob *m, int more, int *el, int *gr, int *unknown) {
     int n = 0;
     *unknown = 0;
     for (int e = 0; e < NELEM; e++) {
         if (!el_learnt(m->type, e)) { *unknown = 1; continue; }
-        int g = weak_grade(weak_el(m, e));
+        int g = weak_grade(shown_weak(m, e));
         if (more ? g <= 0 : g >= 0) continue;
         int i = n++;
         while (i > 0 && (more ? gr[i - 1] < g : gr[i - 1] > g)) { el[i] = el[i - 1]; gr[i] = gr[i - 1]; i--; }   /* the most first */
@@ -27741,9 +27874,10 @@ static void render_target(Frame *f) {
         }
         if (unknown) gfx_text8(f, side == 0 ? x0 : x, by, "?", R_STONE + 8, 1);   /* still to be learnt: a dim ? at the outer end */
     }
-    for (int w = 0; w < 2; w++) {                                  /* warded: its glyph barred, under the bar's right end */
-        if (!m->ward[w]) continue;
-        int x = bx + bw - 9 - w * 11, y = by + 10;
+    for (int w = 0, nb = 0; w < 2; w++) {                          /* its rank's strengths seen: their glyphs barred, under the
+                                                                      bar's right end */
+        if (!strength_shown(m, w)) continue;
+        int x = bx + bw - 9 - nb++ * 11, y = by + 10;
         ui_band(f, x - 2, y - 1, 11, 9);
         elem_glyph(f, x, y, m->ward[w] - 1, 0);
         for (int i = -1; i <= 7; i++) gfx_px(f, x + i, y + 3, C_WHITE);
@@ -28515,18 +28649,21 @@ static void wheel_render(Frame *f) {
     const char *const *K = WH.src ? KQ : PADX.used ? KPAD : KM;
     for (int i = 0; i < 3; i++) ui_keys(f, 6, cy + 14 + i * 12, K[i], UI_M(13));
 }
-/* a warded creature near you: its element's glyph over its head, barred (docs/PLAN-play.md section 6) */
+/* a creature near you strong against a line you hold (its rank's, once seen struck; a ward, 1.0.0b16): its element's glyph
+ * over its head, barred (docs/PLAN-play.md section 6, PLAN-combat.md 7.3) */
 static void render_warded(Frame *f, float dx, float dy, float horizon) {
     for (int i = 0; i < MAXMOBS; i++) {
         const Mob *m = &G.mobs[i];
-        if (!m->alive || m->state != MS_WALK || !m->ward[0] || buried(m) || m->sleep == 1) continue;
+        int sh[2], nw = 0;
+        for (int w = 0; w < 2; w++) if (strength_shown(m, w)) sh[nw++] = m->ward[w];
+        if (!m->alive || m->state != MS_WALK || !nw || buried(m) || m->sleep == 1) continue;
         float d = hypotf(m->x - G.px, m->y - G.py);
         if (d > 7.0f || (m->type == MOB_SHADE && shade_alpha(m) < 0.2f) || !line_clear(G.px, G.py, m->x, m->y)) continue;
         float sx, sy, dep, z = fminf(1.05f, 0.95f * RANK_SIZE[m->rank] + 0.08f);
         if (!project(m->x, m->y, z, dx, dy, horizon, &sx, &sy, &dep)) continue;
-        int k = clampi((int)(FOCAL / dep / 64.0f * 1.6f + 0.5f), 1, 3), nw = m->ward[1] ? 2 : 1;
+        int k = clampi((int)(FOCAL / dep / 64.0f * 1.6f + 0.5f), 1, 3);
         for (int w = 0; w < nw; w++) {
-            int e = m->ward[w] - 1, gx = (int)sx - (nw * 9 * k) / 2 + w * 9 * k, gy = (int)sy - 8 * k;
+            int e = sh[w] - 1, gx = (int)sx - (nw * 9 * k) / 2 + w * 9 * k, gy = (int)sy - 8 * k;
             for (int r = -1; r < 8; r++)
                 for (int c = -1; c < 8; c++) {
                     char ch = r >= 0 && r < 7 && c >= 0 && c < 7 ? ELEM_GLYPH[e][r][c] : '.';

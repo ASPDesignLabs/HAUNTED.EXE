@@ -1487,7 +1487,20 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   barred glyph over its head), the readout's barred glyph, the bestiary's *SOME COME WARDED*. Debug: `CRAWL_WARD=0/1/2`, `EVENT
   warded`, `ward_cracked`, `wardhits=`/`cracked=` on the state line.
 - **PLAN-combat, the dead's track (D)** (docs/PLAN-combat.md, sections 5-7, 9 and 12; its log is section 19). Only track D
-  writes in this bullet. Nothing built yet.
+  writes in this bullet. **D1, the bestiary's elements** (7.1-7.3; harness only): `KINDS[].weak` is flat, x1.5 for the kind's
+  one weakness and x0.5 for its one strength, the rest x1, as 7.2's table (spiderlings and sacs take the brood mother's, the
+  sac's Spirit still nothing; the wall skull, the spectre and the Wraith as they were); `kind_weak` reads it. A rank's
+  strengths are the wards folded in (`Mob.ward`, `wset`, `wdmg`, `wring`, `Pack.ward` kept): `ward_give` calls
+  `strength_give` (`rank_strengths`: III and IV one, V two, the gilded one; `strength_pick`: lines held, never the weakness
+  nor what the kind shrugs off, with two lines never the class's own, always a held line left that bites as usual; a pack's
+  chosen once for its leader, two deep, first in each member's choice), x0.5 (`STRENGTH_K`) in `weak_el`, cracking at a
+  fifth of its health as before. One is shown only once seen struck (`Mob.wseen`, `strength_shown`, `strength_seen`, its
+  pack's too): the rim, `render_warded`, the readout (`shown_weak`, the barred glyphs), the caption *THIS ONE SHRUGS OFF
+  ...*, and cracked *CRACKED: ... BITES IT AGAIN* (`G.ward_said`'s bits 8-13). The bestiary's rows read `kind_weak`, and say
+  *SHRUGS OFF ONE MORE* (*TWO MORE*) by the rank shown; the Codex's elements part has a second page, *THE DEAD'S ELEMENTS*
+  (`CX_ELEM` 1). Lore rewritten: the gargoyle, the Drowned. Debug: `CRAWL_ELEM=0` puts back 1.0.0b18's table (`OLD_WEAK`)
+  and wards (`elem_mode`); the hazards' harm to the dead reads `KINDS` itself and keeps the new table either way. `EVENT
+  strengths`, `ward_cracked`, `wardhits=`/`cracked=` on the state line.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

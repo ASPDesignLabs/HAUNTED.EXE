@@ -751,6 +751,21 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
 - **7 November.** Track D started from `2444cd2` (the marks and the shared declarations), with nothing of track C's pushed
   since. Marks put on the Codex's one-line enum (`CX_*`, `NCX`) and on `CX_MAX` (17.4: whoever needs them first), in a commit
   of their own, since D1 gives the elements' part a second page; nothing else in it. Next: D1.
+- **7 November. D1 built** (harness only): 7.2's table flat in `KINDS` (weak x1.5, strong x0.5, the rest x1; every element the
+  weakness of three kinds and the strength of three, each averaging 1.0), a rank's strengths in place of wards (III and IV one,
+  V two, x0.5, from the lines held, packs sharing, cracking at a fifth of its health), shown only once seen struck (B11: the rim,
+  the barred glyph, the readout, a caption), the bestiary's rows and its line for the rank shown, a second page in the Codex's
+  elements part (*THE DEAD'S ELEMENTS*), the gargoyle's and the Drowned's lore. Defaults I took where the plan was silent:
+  spiderlings and sacs take the brood mother's pair (the sac's Spirit stays at nothing); the gilded take one strength; strengths
+  no longer wait for level 5 (the lines gate them: never fewer than two held); the rim and the glyph over the head wait for the
+  ring too, not only the readout; the Drowned's lore got its hint though it didn't contradict anything. `CRAWL_ELEM=0` puts back
+  1.0.0b18's table and wards, but not for the hazards' harm to the dead (`hz_hurt_mob`, `hz_harm` read `KINDS` directly and are
+  neither track's in 17.2), so a balance run with it keeps the new table there, from level 31. Tested: frames of the Codex's
+  page, the bestiary at ranks I, III and V, and a person's frost on a rank III skeleton (nothing shown, a ring, then all of it
+  shown; a crack); ASan clean on that and on a dream of fifteen minutes from level 21. Eight seeds (1-15 odd, `CRAWL_RUNID` the
+  seed) from level 1 for 50 minutes against `CRAWL_ELEM=0` on the same build: 52 levels cleared and 6 deaths (49 and 10), none
+  reached a boss; 14 strengths given against 97 wards, since run I has few of rank III. The same from level 21 is running; its
+  numbers come in my next entry. Next: D2's sheet of eyes.
 
 ## Appendix: the owner's guide (7 November), as given
 
