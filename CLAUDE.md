@@ -221,6 +221,17 @@ Unbound) is now **1.0.0b19**, the lower storey **1.0.0b20**. The second round (N
 wheels are built (harness only): one line each, the gifts, the Mirror by hand, things that want a spell in every run (their
 sheets approved), warded creatures, sequences and things for fights. The Plague Doctor is still the weakest past in the dream's runs; its flask strikes a quarter harder.
 
+An overhaul of harm is planned in [`docs/PLAN-combat.md`](docs/PLAN-combat.md) (7 November, a draft on
+`claude/inspiring-archimedes-dbj5n6`; nothing built), from a review of how damage works today (its section 1) and the owner's
+guide (its appendix, as given): a status for each element on the caster and on the dead (On Fire, Chilled and Frozen, Stunned,
+Poisoned, Unbound, Knocked Down), the dead weak to one element and strong against one (more with rank), elemental skeletons,
+shamblers and hounds, new attacks (the Bone Thrower, the shield-bearer's charge, the Drowned's spew), a starting sheet for each
+class, the Unholy Confessions in place of the ascend screen's lines (weighted by class, out of sight), augments for each spell
+line earned by using it, and a merchant that leans to the lines held. Its section 16 holds the questions; which release it is
+(before or after the art pass's rest and the lower storey) is one of them. Found in the review and noted there: `HURT_MAGIC` is
+resisted by Resist Burn whatever its element; poison is the weak element across the bestiary (0.55 on average); skeletons'
+throws have no floor; flat armour grows as the blow does.
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture
