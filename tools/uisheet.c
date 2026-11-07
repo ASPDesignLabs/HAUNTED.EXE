@@ -351,6 +351,36 @@ static int runs_sheet(const char *path) {
     return ok;
 }
 
+/* the caster's statuses (docs/PLAN-combat.md, section 4.2, for approval): the seven marks on their stones three times size; under
+ * them On Fire's edge running out, Chilled's stacks one to three, and the row as the game sets it */
+static int status_sheet(const char *path) {
+    static const char *const NAME[7] = { "ON FIRE", "CHILLED", "FROZEN", "STUNNED", "POISONED", "UNBOUND", "KNOCKED DOWN" };
+    static const int RAMP[7] = { R_FLAME, R_GLOW, R_GLOW, R_GOLD, R_MOSS, R_PURPLE, R_BLOOD };
+    const int S = 2, P = 640, Q = 400, G = 12, H = 30;
+    iw = G + P + G; ih = 40 + Q + H + G + 7 * 20 + 20;
+    img = calloc((size_t)iw * ih, 3);
+    for (size_t i = 0; i < (size_t)iw * ih * 3; i++) img[i] = 12;
+    crawl_art_level(3); crawl_art_run(3); ui_marble_make(10u);
+    label(G, 10, "THE CASTER'S STATUSES (PLAN-COMBAT C2)");
+    frame_begin(1);
+    ui_ramps(0);
+    for (int i = 0; i < 7; i++) ui_status(&F, 6 + i * 44, 12, UI_AFMARK[i], RAMP[i], 1.0f, i == 1 ? 2 : 0, i == 1 ? 3 : 0, 0.0f, 3);
+    static const float LEFT[4] = { 1.0f, 0.66f, 0.33f, 0.12f };
+    for (int k = 0; k < 4; k++) ui_status(&F, 10 + k * 34, 92, UI_AFMARK[0], R_FLAME, LEFT[k], 0, 0, 0.0f, 2);
+    for (int k = 0; k < 3; k++) ui_status(&F, 170 + k * 34, 92, UI_AFMARK[1], R_GLOW, 0.8f, k + 1, 3, 0.0f, 2);
+    for (int k = 0; k < 5; k++) {                             /* the row, as the game sets it */
+        static const int ROW[5] = { 6, 3, 5, 1, 0 };
+        int i = ROW[k];
+        ui_status(&F, 124 + k * 15, 160 + (i == 1 ? 0 : 4), UI_AFMARK[i], RAMP[i], 0.9f - 0.15f * (float)k, i == 1 ? 3 : 0, i == 1 ? 3 : 0, 0.0f, 1);
+    }
+    blit(G, 40 + H, S);
+    label(G, 40 + 6, "MARKS X3; RUNNING OUT; STACKS; THE ROW");
+    for (int i = 0; i < 7; i++) { char b[40]; snprintf(b, sizeof b, "%d  %s", i + 1, NAME[i]); label(G, 40 + H + Q + G + i * 20, b); }
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
 /* every node of every line in the pane, with the longest foot it can have: the fit check */
 static int fit_all(void) {
     static const char *const WARN[3] = { 0, "THE OTHER PATH WILL CLOSE. AGAIN TO TAKE THIS ONE.",
@@ -369,6 +399,7 @@ int main(int argc, char **argv) {
     crawl_art_init();
     ui_face_init();
     if (!strcmp(argv[1], "fit")) { int n = fit_all(); printf("UI fit: %d overflows\n", n); return n ? 1 : 0; }
+    if (!strcmp(argv[1], "status")) return status_sheet(argc > 2 ? argv[2] : "status.png") ? 0 : 1;
     if (!strcmp(argv[1], "all")) {
         char p[512];
         const char *d = argc > 2 ? argv[2] : ".";

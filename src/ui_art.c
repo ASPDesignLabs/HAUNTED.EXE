@@ -984,6 +984,17 @@ const int UI_NODE_ICON[6][10] = {
     { IC_SPEAR, IC_EFF, IC_INS, IC_IMPALE, IC_BONEPLATE, IC_OSSIFIED, IC_PHALANX, IC_INS2, IC_PHMASTER, IC_BALLISTA },
 };
 
+/* the statuses' marks (docs/PLAN-combat.md, section 4), nine square: '#' the mark, 'o' its lighter part */
+const char *const UI_AFMARK[7][9] = {
+    { "....#....", "...##....", "...###.#.", "..####.#.", ".###o###.", ".##ooo##.", "##ooooo##", "##oo.oo##", ".#######." },   /* on fire */
+    { "....#....", ".#..#..#.", "..#.#.#..", "...ooo...", "####o####", "...ooo...", "..#.#.#..", ".#..#..#.", "....#...." },   /* chilled */
+    { "#########", "#o..#..o#", "#.#.#.#.#", "#..ooo..#", "####o####", "#..ooo..#", "#.#.#.#.#", "#o..#..o#", "#########" },   /* frozen */
+    { ".....##..", "....##...", "...##....", "..######.", ".....##..", "....##...", "...##..o.", "..#...ooo", ".......o." },   /* stunned: a bolt, a spark */
+    { "....#....", "...###.o.", "...###...", "..#####.o", ".###o###.", ".##oo###.", ".##o####.", "..#####..", "...###..." },   /* poisoned */
+    { "..#####..", ".#.....##", "#..o..#.#", "#.ooo#..#", "#..o#o..#", "#..#o...#", "#.#.....#", "##.....#.", "..#####.." },   /* unbound */
+    { "...###...", "...###...", "...###...", ".#######.", "..#####..", "...###...", "....#....", ".o.....o.", "ooooooooo" },   /* knocked down: to the ground */
+};
+
 /* the caster's lines' small marks, seven square ('#'), for ascend's rows; the resists borrow the elements' glyphs */
 const char *const UI_LMARK[11][7] = {
     { ".##.##.", "#######", "#######", ".#####.", "..###..", "...#...", "......." },   /* health */

@@ -761,6 +761,20 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   level's median time 355, 368 and 366 s (356, 371, 365). Inside the noise everywhere, then; the knight's level is the noisiest
   number there is (28 to 48 deaths between builds that never touched him). No contract changed. Next: C2, its sheet first (the
   status glyphs and the knock-down's frames), for the owner.
+- **7 November. C2's sheet, for the owner** (`docs/combat/c2-statuses.png`). The look of the seven, built and shown, nothing that
+  plays: `G.af[NAF]`, `af0`, `af_n`, `af_k`, `af_shake`, `af_by` in `carry_caster`'s span by `poison_t`; `af_tick` (beside
+  `update_hazards`) runs their clocks and how far a knock-down has the view down; nothing sets one yet but `CRAWL_AFSHOW` (the
+  debug build: `k` an `AF_*`, `1:n` Chilled with n stacks, `7` the grapple, `all` four at once; the knock-down every 3 s). The
+  marks are `UI_AFMARK` (ui_art.c, nine square), each on a stone of the kit's, `ui_status` (crawl_ui.c: the mark inlaid, its
+  colour round the edge for the time left, pips for stacks); the row is `render_af_row`, centred over the portrait on the bar's top
+  edge, or on a band at the foot while the bar is away (lifted over the readout). The view: `render_af_view` after the hand (a
+  shadow at the edges for Unbound, a throb for the grapple, the dark for a knock-down; rime from the corners by Chilled's stacks
+  and all round Frozen; flames at the foot; sparks wheeling while Stunned), `af_roll` (knocked down: the crypt leans, each column
+  slid by its distance from the middle), the horizon and the eye in `crawl_render` (down 40 px and 0.40 lower on the floor; the
+  view swimming while Stunned), the hand in `render_hand` (grey and dropped Unbound, gone down, shoving grappled) and `tint` (bluer
+  by the stack, icy Frozen, warm On Fire, a little violet Unbound, greyer Stunned). `build/uisheet status` draws the marks at three
+  times size. The dream's events can't change (nothing sets a status); ASan clean on five sessions of the look. Waiting on the
+  owner's word; the rules (4.1), the old effects folded in, sounds and rumble come after it.
 
 ## 19. Track D's log (the dead's)
 

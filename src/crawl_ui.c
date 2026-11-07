@@ -426,6 +426,35 @@ void ui_mark(Frame *f, int x, int y, const char *const *mark, int ramp, int mode
     }
 }
 
+/* a status on the caster (docs/PLAN-combat.md, section 4): a dark stone, chamfered, the mark inlaid; its time round the edge */
+void ui_status(Frame *f, int x, int y, const char *const *mark, int ramp, float left, int pips, int maxpips, float t, int sc) {
+    int w = 13, h = maxpips > 0 ? 17 : 13, per = 2 * (w - 2) + 2 * (h - 2);
+    if (sc < 1) sc = 1;
+    for (int j = 0; j < h; j++) for (int i = 0; i < w; i++) {
+        int cut = (i == 0 || i == w - 1) && (j == 0 || j == h - 1);
+        if (cut) continue;
+        int edge = i == 0 || j == 0 || i == w - 1 || j == h - 1;
+        uint8_t c = edge ? UI_W(1) : UI_W(j < 2 ? 5 : j > h - 3 ? 2 : 3);   /* lit from above, as the wells are */
+        gfx_rect(f, x + i * sc, y + j * sc, sc, sc, c);
+    }
+    left = left < 0.0f ? 0.0f : left > 1.0f ? 1.0f : left;
+    int lit = (int)(left * (float)per + 0.999f), blink = left < 0.2f && ((int)(t * 6.0f) & 1);
+    for (int k = 0; k < per; k++) {                            /* the edge, from the top's middle, clockwise */
+        int q = (k + w / 2 - 1) % per, i, j;
+        if (q < w - 2) { i = 1 + q; j = 0; }
+        else if ((q -= w - 2) < h - 2) { i = w - 1; j = 1 + q; }
+        else if ((q -= h - 2) < w - 2) { i = w - 2 - q; j = h - 1; }
+        else { q -= w - 2; i = 0; j = h - 2 - q; }
+        uint8_t c = k < lit && !blink ? (uint8_t)(ramp + (ramp == R_GOLD ? 11 : 13)) : UI_W(0);
+        gfx_rect(f, x + i * sc, y + j * sc, sc, sc, c);
+    }
+    ui_mark(f, x + 2 * sc, y + 2 * sc, mark, ramp, IM_INLAID, sc);
+    for (int p = 0; p < maxpips; p++) {                        /* stacks: a pip each, under the mark */
+        int px = x + (w / 2 - (maxpips * 3 - 1) / 2 + p * 3) * sc, py = y + (h - 4) * sc;
+        gfx_rect(f, px, py, 2 * sc, 2 * sc, p < pips ? (uint8_t)(ramp + (ramp == R_GOLD ? 12 : 14)) : UI_W(1));
+    }
+}
+
 static int chamfer_in(int i, int j, int s, int c) {         /* inside a square of side s with its corners cut by c */
     if (i < 0 || j < 0 || i >= s || j >= s) return 0;
     int a = i < c ? c - i : i >= s - c ? i - (s - 1 - c) : 0, b = j < c ? c - j : j >= s - c ? j - (s - 1 - c) : 0;

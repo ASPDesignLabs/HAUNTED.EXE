@@ -1480,7 +1480,10 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   alias) is cut by its element's own resist alone (`el_resist`) and by half the armour; armour keeps off a share (`armour_keep`:
   a / (a + 4 + 0.8 x level), half as much against the elements; P2); `throw_interval` never under 0.6 s (P1). `CRAWL_OLDHARM=1`
   puts back 1.0.0b18's harm. `make combat` (`build/host_debug combat`, `crawl_combat_sheet`) writes the balance sheet to
-  `build/combat.txt`.
+  `build/combat.txt`. **C2's look** (for the owner, `docs/combat/c2-statuses.png`; nothing sets a status yet): `G.af[NAF]` and
+  its fellows in `carry_caster`'s span, `af_tick`, `af_on`; `UI_AFMARK` and `ui_status` (the kit's), `render_af_row` (over the
+  portrait on the bar's edge, or at the foot), `render_af_view`, `af_roll`, the horizon and eye in `crawl_render`, `render_hand`,
+  `tint`. Debug: `CRAWL_AFSHOW=k` (`AF_*`; `1:n` Chilled's stacks, `7` the grapple, `all`); `build/uisheet status`.
 - **The dead's ways shown** (1.0.0b18, PLAN-ai step 11, Part H; harness only; released). `WY_*` (seventeen set pieces), `way_met` (named
   once a run of ten, `RUN.ways`/`way_said`/`way_run`), `pack_way`; the Codex's `CX_WAYS`; the record's deeds (`deed_note`,
   `DEED_*`, `caller_hushed`, `ways_ends`, `Pack.hunted/hurts0/done`, `Ambush.deaths0/done`, `G.hurts`, `G.hunt_shaken`) and

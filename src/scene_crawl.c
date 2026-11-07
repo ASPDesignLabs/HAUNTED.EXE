@@ -908,6 +908,10 @@ static struct {
 
     /* what is on the caster: poison, slow, and the defensive spells running */
     float poison_t, poison_dps, poison_acc, slow_t, purify_t, regen_acc;
+    float af[NAF], af0[NAF], af_k, af_shake;                       /* PLAN-combat section 4: each status's time left on the caster and
+                                                                      what it began at (its glyph's edge), how far a knock-down has the
+                                                                      view down (0 up, 1 on the floor), a grapple's shove */
+    int af_n, af_by;                                               /* Chilled's stacks; 1 + whoever knocked you down */
     Blame blame, poison_by;             /* what last hurt the caster, and what poisoned it */
     float ward_hp, ward_t, mirror_t, slip_t, reap_t, mend_t, mend_rate, mirror_flash;   /* mirror_flash: Mirrored just sent one back */
     float mirror_true;                      /* the Mirror raised by hand: its first moment sends back twice as hard, homing (1.0.0b16) */
@@ -13618,6 +13622,37 @@ static void update_hazards(float dt) {
     if (G.silenced != was) snd_set_muffle(G.silenced);
     G.sil_k += ((float)G.silenced - G.sil_k) * fminf(1.0f, dt * 8.0f);
 }
+/* The caster's statuses (docs/PLAN-combat.md, section 4): their clocks, and how far a knock-down has the view down. Nothing sets
+ * one yet but CRAWL_AFSHOW (the debug build: a status's look, for its sheet), so nothing in play changes */
+static void af_tick(float dt) {
+#ifdef CRAWL_DEBUG
+    static int show = -2, stacks = 0;
+    if (show == -2) {
+        const char *e = getenv("CRAWL_AFSHOW");                    /* k (AF_*), k:stacks for Chilled, 7 the grapple, "all" the row */
+        show = !e ? -1 : !strcmp(e, "all") ? 100 : clampi(atoi(e), 0, NAF);
+        if (e && strchr(e, ':')) stacks = clampi(atoi(strchr(e, ':') + 1), 0, 3);
+    }
+    if (show >= 0 && G.level_t > 2.0 && !G.dead) {
+        float t = (float)fmod(G.level_t, 6.0);
+        int grapple = show == NAF, all = show == 100;
+        for (int k = 0; k < NAF; k++) {
+            if (!all && k != show && !(grapple && k == AF_DOWN)) continue;
+            if (all && (k == AF_FROZEN || k == AF_STUN || k == AF_DOWN)) continue;   /* the row's sheet: four at once */
+            if (k == AF_DOWN && grapple) { G.af0[k] = 1.2f; G.af[k] = 1.2f - (float)fmod(G.level_t, 1.0); continue; }
+            if (k == AF_DOWN) { float c = (float)fmod(G.level_t, 3.0); G.af0[k] = 1.5f; G.af[k] = c < 1.5f ? 1.5f - c : 0.0f; continue; }
+            G.af0[k] = k == AF_POISON ? 42.0f : 6.0f; G.af[k] = G.af0[k] - (k == AF_POISON ? t * 2.0f : t);
+        }
+        G.af_n = show == AF_CHILL || all ? (stacks ? stacks : 2) : 0;
+        G.af_shake = grapple ? 1.0f : 0.0f;
+    }
+#endif
+    for (int k = 0; k < NAF; k++) if (G.af[k] > 0.0f) G.af[k] = fmaxf(0.0f, G.af[k] - dt);
+    if (G.af[AF_CHILL] <= 0.0f) G.af_n = 0;
+    float want = G.af[AF_DOWN] > 0.0f && G.af_shake <= 0.0f ? 1.0f : 0.0f;   /* down in a quarter second, up in four tenths; a grapple holds you up */
+    G.af_k = want > G.af_k ? fminf(want, G.af_k + dt / 0.25f) : fmaxf(want, G.af_k - dt / 0.4f);
+    if (G.dead) { memset(G.af, 0, sizeof G.af); G.af_n = 0; G.af_k = 0.0f; }
+}
+static int af_on(int k) { return k >= 0 && k < NAF && G.af[k] > 0.0f; }
 static int hz_danger(int x, int y) { return x >= 0 && y >= 0 && x < MAPN && y < MAPN && hz_dmap[y][x] < HZ_SOFT ? hz_dmap[y][x] : 0; }
 static int hz_soft(int x, int y) { return x >= 0 && y >= 0 && x < MAPN && y < MAPN && hz_dmap[y][x] == HZ_SOFT; }   /* what is always there: walked round if it can be */
 static void hz_clear(void) {                                       /* a new place: none of them come along */
@@ -17780,6 +17815,7 @@ static void update_human(float dt);
 /* how far up the hand is: a cast, or a rune shown off */
 static float hand_raise(void) {
     float lift = G.rune_lift > 0.0f ? 0.8f * smoothstepf(1.4f, 1.25f, G.rune_lift) * smoothstepf(0.0f, 0.3f, G.rune_lift) : 0.0f;
+    if (G.af_shake > 0.0f && G.af[AF_DOWN] > 0.0f) lift = fmaxf(lift, 0.75f);   /* grappled: up against what holds you (PLAN-combat) */
     return fmaxf(G.hand, lift);
 }
 /* the hand rises from the bottom right, reaching up and over, Catacomb 3-D / Doom style */
@@ -18342,6 +18378,7 @@ static void crawl_update(double dt) {
     if (!G.dead) { map_note(); map_follow(fdt); xp_rooms(); update_items(); update_abilities(fdt); ab_update(fdt); update_altar(); update_status(fdt); if (G.level_t > 1.0) update_defense(fdt); }
     update_boss(fdt);
     update_hazards(fdt);
+    af_tick(fdt);                                                  /* what is on the caster (PLAN-combat, section 4) */
     update_sites(fdt);
     update_things(fdt);
     pz_update(fdt);
@@ -25446,8 +25483,10 @@ static void render_hand(Frame *f) {
         for (int c = 0; c < 256; c++) grey[c] = (uint8_t)(R_STONE + clampi((crawl_pal[c][0] * 3 + crawl_pal[c][1] * 6 + crawl_pal[c][2]) * 15 / 630, 0, 15));
         grey_built = 1;
     }
-    int greyed = G.silenced;
-    oy += (int)(G.sil_k * 18.0f);                                  /* the void: the hand drops */
+    int greyed = G.silenced || af_on(AF_UNBOUND);
+    oy += (int)(fmaxf(G.sil_k, af_on(AF_UNBOUND) ? 1.0f : 0.0f) * 18.0f);   /* the void, or Unbound: the hand drops */
+    oy += (int)(G.af_k * 90.0f);                                   /* knocked down: out of sight */
+    if (G.af_shake > 0.0f && af_on(AF_DOWN)) { ox += (int)(4.0f * sinf((float)G.t * 23.0f)); oy -= 6; }   /* grappled: it shoves */
     for (int y = 0; y < HAND_H; y++) {
         int sy = oy + y;
         if (sy < 0 || sy >= H) continue;
@@ -25957,6 +25996,110 @@ static void render_readout(Frame *f) {
     if (RUN.coins > 0) { draw_coin(f, px + cx, py + 5); gfx_text8(f, px + cx + 10, py + 5, coins, R_GOLD + 10, 1); }
 }
 
+/* The caster's statuses shown (docs/PLAN-combat.md, section 4.2). The row: a small stone for each, centred over the portrait, just
+ * above the bar while it is up, else on a band of its own at the foot (over the readout while that shows). The worst first */
+static void render_af_row(Frame *f) {
+    static const int ORDER[NAF] = { AF_DOWN, AF_FROZEN, AF_STUN, AF_UNBOUND, AF_CHILL, AF_FIRE, AF_POISON };
+    static const int RAMP[NAF] = { R_FLAME, R_GLOW, R_GLOW, R_GOLD, R_MOSS, R_PURPLE, R_BLOOD };   /* by AF_* */
+    int on[NAF], n = 0, tall = 0;
+    for (int i = 0; i < NAF; i++) if (af_on(ORDER[i])) { on[n++] = ORDER[i]; tall |= ORDER[i] == AF_CHILL; }
+    if (!n || G.tally || G.shop) return;
+    int w = n * 15 - 2, h = tall ? 17 : 13, x = 182 - w / 2, y;
+    int bar = G.player && G.bar > 0.0f;
+    if (bar) y = H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f) - h - 2;   /* sits on the bar's top edge */
+    else {
+        y = H - h - 4 - (G.readout > 0.0f ? 22 : 0);
+        ui_band(f, x - 3, y - 2, w + 6, h + 4);
+    }
+    for (int i = 0; i < n; i++) {
+        int k = on[i];
+        float left = G.af0[k] > 0.0f ? G.af[k] / G.af0[k] : 0.0f;
+        int ramp = k == AF_DOWN && G.af_shake > 0.0f ? R_BONE : RAMP[k];   /* the grapple, bone: no fall */
+        ui_status(f, x + i * 15, y + (h - (k == AF_CHILL ? 17 : 13)), UI_AFMARK[k], ramp, left, k == AF_CHILL ? G.af_n : 0, k == AF_CHILL ? 3 : 0, (float)G.t, 1);
+    }
+}
+/* knocked down (section 4.2): the crypt drawn so far leans as you go over, each column slid by its distance from the middle, the
+ * gap left black: a roll the raycaster can't draw */
+static void af_roll(Frame *f, float k) {
+    static uint8_t col[H];
+    float lean = 0.16f * k;
+    for (int x = 0; x < W; x++) {
+        int s = (int)lroundf(((float)x - W * 0.5f) * lean);
+        if (!s) continue;
+        for (int y = 0; y < H; y++) col[y] = f->pix[y * W + x];
+        for (int y = 0; y < H; y++) { int sy = y - s; f->pix[y * W + x] = sy >= 0 && sy < H ? col[sy] : 0; }
+    }
+}
+static uint32_t af_hash(int x, int y) { uint32_t h = (uint32_t)x * 374761393u + (uint32_t)y * 668265263u; h = (h ^ (h >> 13)) * 1274126177u; return h ^ (h >> 16); }
+/* What a status does to the view (section 4.2), drawn after the hand: frost from the corners by Chilled's stacks and all round
+ * when Frozen, flames licking up the foot when On Fire, sparks wheeling while Stunned, a violet shadow at the edges while
+ * Unbound, the dark closing in while knocked down, and a pulse at the edges while grappled */
+static void render_af_view(Frame *f) {
+    if (G.shop || G.tally) return;
+    float tt = (float)G.t;
+    float vig = af_on(AF_UNBOUND) ? 0.3f : 0.0f;                   /* the edges darken first: violet, unbound; red, grappled; black, down */
+    int vcol = R_PURPLE;
+    if (G.af_shake > 0.0f && af_on(AF_DOWN)) { vig = 0.3f + 0.2f * sinf(tt * 12.0f); vcol = R_BLOOD; }
+    if (G.af_k > 0.0f) { vig = fmaxf(vig, 0.7f * G.af_k); vcol = 0; }
+    if (vig > 0.0f) {
+        for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) {
+            float dx = fabsf((float)x - W * 0.5f) / (W * 0.5f), dy = fabsf((float)y - H * 0.5f) / (H * 0.5f);
+            float d = fmaxf(dx * dx, dy * dy) + 0.4f * (dx * dx + dy * dy);   /* 0 in the middle, 1 to 1.4 at the edges */
+            float v = (d - (vcol == R_PURPLE ? 1.15f : 1.05f - 0.45f * vig)) * 2.2f;
+            if (v <= 0.0f) continue;
+            uint32_t hh = af_hash(x, y);
+            if (vcol == R_PURPLE) v = fminf(v, 0.4f);             /* unbound: a shadow, never a wall; grappled, a throb */
+            if (vcol == R_BLOOD) v = fminf(v, 0.7f);
+            if ((float)(hh & 255) / 255.0f > v) continue;          /* dithered, thicker to the edge */
+            f->pix[y * W + x] = vcol ? (uint8_t)(vcol + (vcol == R_PURPLE ? 1 : v > 0.8f ? 2 : 4)) : 0;
+        }
+    }
+    int frozen = af_on(AF_FROZEN), stacks = frozen ? 4 : af_on(AF_CHILL) ? G.af_n : 0;
+    if (stacks) {                                                  /* rime, from the corners in; frozen, a crust all round */
+        float reach = frozen ? 74.0f : 14.0f + 13.0f * (float)stacks, band = frozen ? 16.0f : 0.0f;
+        for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) {
+            float dx = (float)(x < W / 2 ? x : W - 1 - x), dy = (float)(y < H / 2 ? y : H - 1 - y);
+            float d = sqrtf(dx * dx * 0.6f + dy * dy * 1.4f), e = fminf(dx, dy);
+            uint32_t hh = af_hash(x, y);
+            float v = fmaxf(reach - d, band - e) + (float)(hh & 15) * 0.6f - 4.5f;
+            if (v <= 0.0f) continue;
+            if (v < 2.0f) { if (hh & 0x30) f->pix[y * W + x] = (uint8_t)(R_GLOW + 14 - (int)(hh >> 8 & 1)); continue; }   /* its glittering rim */
+            if (v < 9.0f && ((x + y) & 1) && (hh & 0x100)) continue;   /* thin, the crypt through it */
+            int k = 8 + (int)fminf(5.0f, v * 0.35f) + (int)(hh >> 9 & 1);
+            f->pix[y * W + x] = (uint8_t)(R_GLOW + clampi(k, 0, 15));
+            if (!(hh & 0x7c00)) f->pix[y * W + x] = C_WHITE;       /* a glint */
+        }
+    }
+    if (af_on(AF_FIRE)) {                                          /* flames along the foot */
+        for (int x = 0; x < W; x++) {
+            float fh = 7.0f + 6.0f * sinf((float)x * 0.21f + tt * 9.0f) * sinf((float)x * 0.07f - tt * 5.0f) + (float)(af_hash(x, (int)(tt * 20.0f)) & 7);
+            for (int j = 0; j < (int)fh; j++) {
+                int y = H - 1 - j;
+                float k = 1.0f - (float)j / fh;
+                if (k < 0.35f && ((x + y + (int)(tt * 30.0f)) & 1)) continue;
+                f->pix[y * W + x] = (uint8_t)(R_FLAME + clampi((int)(4.0f + 11.0f * k), 0, 15));
+            }
+        }
+    }
+    if (af_on(AF_STUN)) {                                          /* sparks wheeling over your head, trailing */
+        for (int i = 0; i < 5; i++) {
+            for (int tr = 6; tr >= 0; tr--) {
+                float a = tt * 3.2f - (float)tr * 0.09f + (float)i * TAU_F / 5.0f;
+                int cx = W / 2 + (int)(cosf(a) * 46.0f), cy = 24 + (int)(sinf(a) * 9.0f);
+                if (tr) { if (!(tr & 1)) gfx_px(f, cx, cy, (uint8_t)(R_GOLD + 9 - tr)); continue; }
+                int r = sinf(a) > 0.0f ? 4 : 3;                    /* the near ones larger */
+                for (int k = -r; k <= r; k++) {
+                    uint8_t c = (uint8_t)(R_GOLD + (abs(k) <= 1 ? 12 : 8));
+                    gfx_px(f, cx + k, cy, c); gfx_px(f, cx, cy + k, c);
+                    if (abs(k) <= r / 2) { gfx_px(f, cx + k, cy + k, (uint8_t)(R_GOLD + 7)); gfx_px(f, cx + k, cy - k, (uint8_t)(R_GOLD + 7)); }
+                }
+                gfx_px(f, cx, cy, C_WHITE);
+            }
+        }
+    }
+
+}
+
 /* The ability sockets (docs/PLAN-b7.md, section 8), at the bottom left: each unlocked ability's mark, a
  * line along its foot filling as it comes round (bright when ready), a pip over it for each web or risen
  * dead it may have out (lit while one is), the right mouse's one outlined in gold, all greyed and struck
@@ -26076,6 +26219,13 @@ static void tint(Frame *f) {
     if (G.dread_t > 0.0f) { float k = sinf(PI_F * G.dread_t / 0.8f); dark = fmaxf(dark, 0.45f * k); violet = fmaxf(violet, 0.18f * k); }   /* Dread: a shadow falls */
     if (G.bfs_t > 0.0f) dark = fmaxf(dark, G.bfs_t < 0.12f ? 0.97f : 0.9f * (1.0f - smoothstepf(0.12f, 1.3f, G.bfs_t)));   /* the light goes out of the room */
     float ghost = G.wwalk_t > 0.0f ? 0.6f * fminf(1.0f, G.wwalk_t * 4.0f) : 0.0f;   /* Wraithwalk: the world grey and far */
+    if (af_on(AF_POISON)) green = fmaxf(green, 0.20f + 0.07f * sinf((float)G.t * 4.0f));   /* the statuses (PLAN-combat, 4.2) */
+    if (af_on(AF_FROZEN)) { blue = fmaxf(blue, 0.34f); chill = fmaxf(chill, 0.25f); }
+    else if (af_on(AF_CHILL)) blue = fmaxf(blue, 0.06f * (float)G.af_n);   /* bluer by the stack */
+    if (af_on(AF_FIRE)) { red = fmaxf(red, 0.06f + 0.03f * sinf((float)G.t * 13.0f)); gold = fmaxf(gold, 0.05f); }
+    if (af_on(AF_UNBOUND)) violet = fmaxf(violet, 0.05f);
+    if (af_on(AF_STUN)) ghost = fmaxf(ghost, 0.18f);
+    if (G.af_k > 0.0f) dark = fmaxf(dark, 0.22f * G.af_k);
     if (red <= 0.0f && gold <= 0.0f && chill <= 0.0f && green <= 0.0f && blue <= 0.0f && violet <= 0.0f && dark <= 0.0f && ghost <= 0.0f) return;
     for (int i = 1; i < 256; i++) {
         int glow = G.bfs_t > 0.0f && i >= R_GLOW && i < R_GLOW + 16;   /* the imploding keep their light */
@@ -29004,12 +29154,14 @@ static void crawl_render(Frame *f) {
     if (G.tally) { render_tally(f); if (G.player && G.ui) render_ui(f); con_render(f); return; }   /* toasts wait for the next level */
     g_camfog = fog_at(G.px, G.py);
     fog_tint = G.tri >= 0 && G.tri_state == TRS_ON && in_trial((int)G.px, (int)G.py) ? TRI_FOG[G.tri] : 0;   /* a trial's room, turned */
-    float ang = G.ang + G.kick;
+    float stun = af_on(AF_STUN) ? 1.0f : 0.0f;                    /* stunned, the view swims; knocked down, it lies on the floor */
+    float ang = G.ang + G.kick + stun * 0.035f * sinf((float)G.t * 4.3f);
     float dx = cosf(ang), dy = sinf(ang);
     float plx = -dy * PLANE_LEN, ply = dx * PLANE_LEN;
-    float horizon = H / 2.0f + G.hurt * 3.0f;
+    float down = smoothstepf(0.0f, 1.0f, G.af_k);
+    float horizon = H / 2.0f + G.hurt * 3.0f + down * 40.0f + stun * 3.0f * sinf((float)G.t * 6.1f);
     float camz = G.camz;
-    G.camz -= 0.03f * G.hurt;
+    G.camz -= 0.03f * G.hurt + 0.40f * down;
     fm_any = hz_marks();
     render_floor(f, dx, dy, plx, ply, horizon);
     render_walls(f, dx, dy, plx, ply, horizon);
@@ -29019,9 +29171,10 @@ static void crawl_render(Frame *f) {
     render_marks(f, dx, dy, horizon);
     render_warded(f, dx, dy, horizon);
     G.camz = camz;
+    if (down > 0.0f) af_roll(f, down);                             /* on the floor, on your side */
     if (G.web_hp > 0.0f && !G.dead && !G.shop) render_web(f);
     if (G.shop) render_shop_tags(f, dx, dy, horizon);
-    if (!G.dead) { render_wards(f); render_hand(f); render_vslip(f); render_latch(f); }
+    if (!G.dead) { render_wards(f); render_hand(f); render_vslip(f); render_latch(f); render_af_view(f); }
     wheel_grey(f);                                                 /* a wheel up: the world grey, what is drawn after keeps its colours */
     if (map_shown()) render_map(f);                                /* the map, as the crypt goes on under it */
     if (G.shop && G.ui != UI_MERCHANT) render_shop_card(f);   /* her own card would show under her menu */
@@ -29033,6 +29186,7 @@ static void crawl_render(Frame *f) {
     render_dash(f);
     if (G.player && !G.shop && G.bar <= 0.0f) render_readout(f);   /* and the small one while it is away */
     if (!G.shop && !G.player) { render_readout(f); render_face_popup(f); }
+    if (!G.dead) render_af_row(f);                                 /* what is on you (PLAN-combat, section 4.2) */
     if (!G.shop) { render_bossbar(f); render_trial(f); render_target(f); if (!(G.player && G.ui)) render_card(f); }   /* a menu covers a card */
     render_xp(f);
     render_wind(f);
