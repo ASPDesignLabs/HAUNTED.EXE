@@ -1208,6 +1208,58 @@ static float sfx_sample(Sfx *s) {
         break;
     }
     /* docs/PLAN-combat.md section 17: each track adds its sounds' cases only above its own end mark */
+    case SFX_AF_STUN: {                             /* a high ring with a slow beat in it, a buzz for the first moment */
+        float e = fminf(1.0f, t / 0.004f) * expf(-t * 3.2f);
+        float ring = sin_cyc(3520.0f * t) * 0.5f + sin_cyc(3527.0f * t) * 0.5f + sin_cyc(5280.0f * t) * 0.18f;
+        s->ph[0] += 110.0f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        float buzz = (s->ph[0] < 0.5f ? 1.0f : -1.0f) * expf(-t * 14.0f);
+        x = ring * e * 0.32f + buzz * 0.16f;
+        break;
+    }
+    case SFX_AF_HUSH: {                             /* the breath drawn out: noise falling and closing, a hollow low fall, a whisper going */
+        float u = t / s->dur;
+        float air = svf_band(nz(&s->rng), 1800.0f - 1400.0f * u, 0.5f, &s->lo1, &s->bp1) * (1.0f - u) * fminf(1.0f, t / 0.03f);
+        s->ph[0] += (140.0f - 90.0f * u) / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        float hollow = sin_cyc(s->ph[0]) * expf(-t * 4.0f);
+        float wh = u > 0.35f ? svf_band(nz(&s->rng), 3200.0f + 600.0f * sinf(t * 23.0f), 0.3f, &s->lo2, &s->bp2) * (1.0f - u) * 0.5f : 0.0f;
+        x = air * 0.55f + hollow * 0.45f + wh * 0.4f;
+        break;
+    }
+    case SFX_AF_FREEZE: {                           /* ice closing over: crackles quickening, a crunch at the end */
+        float u = t / s->dur;
+        s->a -= 1.0f / SR;
+        if (s->a <= 0.0f && u < 0.8f) { s->a = (0.03f - 0.025f * u) * (0.4f + 0.6f * (nz(&s->rng) * 0.5f + 0.5f)); s->b = 0.4f + 0.6f * u; s->c = 2500.0f + 4500.0f * (nz(&s->rng) * 0.5f + 0.5f); }
+        s->b *= expf(-1.0f / (SR * 0.004f));
+        float crack = svf_band(nz(&s->rng), s->c, 0.12f, &s->lo1, &s->bp1) * s->b;
+        float v = t - 0.62f, crunch = v > 0.0f ? (svf_band(nz(&s->rng), 900.0f, 0.4f, &s->lo2, &s->bp2) * 1.6f + sin_cyc(70.0f * v) * 0.6f) * expf(-v * 22.0f) : 0.0f;
+        x = crack * 0.7f + crunch * 0.6f + sin_cyc(2637.0f * t) * 0.05f * u;
+        break;
+    }
+    case SFX_AF_THAW: {                             /* a sharp crack, then pieces of ice ringing down */
+        float crack = svf_band(nz(&s->rng), 3000.0f, 0.5f, &s->lo1, &s->bp1) * expf(-t * 40.0f) * 1.4f;
+        s->a -= 1.0f / SR;
+        if (s->a <= 0.0f && t > 0.06f && t < 0.6f) { s->a = 0.03f + 0.08f * (nz(&s->rng) * 0.5f + 0.5f); s->d = 0.0f; s->c = 1800.0f + 2600.0f * (nz(&s->rng) * 0.5f + 0.5f); }
+        s->d += 1.0f / SR;
+        float tink = t > 0.06f ? sin_cyc(s->c * s->d) * expf(-s->d * 35.0f) * (1.0f - t / s->dur) : 0.0f;
+        x = crack * 0.6f + tink * 0.35f;
+        break;
+    }
+    case SFX_AF_DOWN: {                             /* a body on stone: the thud, grit after it, the breath knocked out */
+        s->lp1 += 0.08f * (nz(&s->rng) - s->lp1);
+        float thud = sin_cyc((55.0f + 40.0f * expf(-t * 30.0f)) * t) * expf(-t * 14.0f) * 1.1f + s->lp1 * expf(-t * 20.0f) * 1.2f;
+        float v = t - 0.05f, grit = v > 0.0f ? svf_band(nz(&s->rng), 2200.0f, 0.5f, &s->lo1, &s->bp1) * expf(-v * 12.0f) * 0.35f : 0.0f;
+        float w = t - 0.12f, oof = w > 0.0f && w < 0.35f ? svf_band(nz(&s->rng), 700.0f - 300.0f * w, 0.35f, &s->lo2, &s->bp2) * sinf(PI_F * w / 0.35f) * 0.6f : 0.0f;
+        x = thud * 0.7f + grit + oof;
+        break;
+    }
+    case SFX_AF_SICK: {                             /* a sour gurgle: low bubbles rising in the throat, a little retch of noise */
+        float u = t / s->dur, w = sinf(PI_F * u);
+        s->ph[0] += (90.0f + 60.0f * u + 25.0f * sinf(t * 31.0f)) / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        float bub = fmodf(t * 14.0f, 1.0f), pop = bub < 0.25f ? sinf(PI_F * bub / 0.25f) : 0.0f;
+        float gurgle = svf_band(nz(&s->rng), 400.0f + 300.0f * bub, 0.25f, &s->lo1, &s->bp1) * pop;
+        x = (sin_cyc(s->ph[0]) * 0.35f + gurgle * 0.7f) * w;
+        break;
+    }
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     /* the dead's track (D) ends */
@@ -2229,6 +2281,12 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_RATTLE]     = { 0.45f, 0.55f, -0.40f, 0.30f },
     [SFX_SNUFF]      = { 0.55f, 0.55f, -0.40f, 0.25f },
     /* docs/PLAN-combat.md section 17: each track adds only above its own end mark */
+    [SFX_AF_STUN]    = { 1.10f, 0.55f,  0.50f, 0.35f },
+    [SFX_AF_HUSH]    = { 0.90f, 0.70f,  0.50f, 0.55f },
+    [SFX_AF_FREEZE]  = { 0.75f, 0.75f,  0.50f, 0.40f },
+    [SFX_AF_THAW]    = { 0.80f, 0.70f,  0.50f, 0.40f },
+    [SFX_AF_DOWN]    = { 0.70f, 1.00f,  0.50f, 0.25f },
+    [SFX_AF_SICK]    = { 0.80f, 0.70f,  0.50f, 0.30f },
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     /* the dead's track (D) ends */

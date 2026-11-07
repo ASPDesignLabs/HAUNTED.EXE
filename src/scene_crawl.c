@@ -915,7 +915,11 @@ static struct {
                                                                       what it began at (its glyph's edge), how far a knock-down has the
                                                                       view down (0 up, 1 on the floor), a grapple's shove */
     int af_n, af_by;                                               /* Chilled's stacks; 1 + whoever knocked you down */
-    Blame blame, poison_by;             /* what last hurt the caster, and what poisoned it */
+    float af_lock[NAF], af_hardt;                                  /* S1: each hard control's wait before it may land again, and
+                                                                      a second after any when none may */
+    float af_burn, af_acc, af_cold, af_cold_t;                     /* On Fire's harm still to come and its odd points; standing in
+                                                                      the cold, towards the next stack, and when it was last felt */
+    Blame blame, poison_by, af_fire_by;  /* what last hurt the caster, what poisoned it, and what set it alight */
     float ward_hp, ward_t, mirror_t, slip_t, reap_t, mend_t, mend_rate, mirror_flash;   /* mirror_flash: Mirrored just sent one back */
     float mirror_true;                      /* the Mirror raised by hand: its first moment sends back twice as hard, homing (1.0.0b16) */
     float ward_shards, decoy_x, decoy_y, decoy_t;   /* Exquisite runes: the Bone Ward's burst when it breaks; Blink's double */
@@ -3779,6 +3783,142 @@ static void windup_blow(int d, float raw, float after, int el) {
 #endif
 }
 static void rest_end(const char *why);
+static void say(const char *fmt, ...);
+/* ---- The caster's statuses (docs/PLAN-combat.md, section 4; track C). G.af[k] the time left, G.af0[k] what it began at,
+ * G.af_n Chilled's stacks. The hard ones (Stunned, Unbound, Frozen, Knocked Down) hold a person from spells, runes and the
+ * gifts; Frozen and Knocked Down from walking too. None lands back to back (S1), and an element's own resist halves its
+ * status's chance (S11). CRAWL_AF=0 (the debug build) takes them all out */
+static int af_on(int k) { return k >= 0 && k < NAF && G.af[k] > 0.0f; }
+static int af_hardk(int k) { return k == AF_STUN || k == AF_UNBOUND || k == AF_FROZEN || k == AF_DOWN; }
+static int af_rooted(void) { return af_on(AF_FROZEN) || af_on(AF_DOWN); }            /* not a step */
+static int af_hushed(void) { return af_on(AF_STUN) || af_on(AF_UNBOUND) || af_rooted(); }   /* no spell, rune or gift */
+static int no_cast(void) { return G.silenced || af_hushed(); }                        /* the void's silence, or a status's */
+static int rune_barred(int k) {                                    /* Blink breaks a knock-down or a freeze; Purify a freeze (S2) */
+    if (G.silenced || af_on(AF_STUN) || af_on(AF_UNBOUND)) return 1;
+    if (af_on(AF_FROZEN)) return k != DF_BLINK && k != DF_PURIFY;
+    return af_on(AF_DOWN) && k != DF_BLINK;
+}
+static const char *hush_word(void) {
+    return G.silenced ? "THE VOID TAKES THE WORDS FROM YOU" : af_on(AF_FROZEN) ? "FROZEN FAST: NOTHING WILL COME"
+         : af_on(AF_DOWN) ? "ON THE FLOOR: NOTHING WILL COME" : af_on(AF_UNBOUND) ? "UNBOUND: THE WORDS WON'T COME"
+         : "STUNNED: NOTHING WILL GATHER";
+}
+static void hush_say(void) { say("%s", hush_word()); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); }
+static int af_off(void) {
+#ifdef CRAWL_DEBUG
+    static int off = -1;
+    if (off < 0) { const char *e = getenv("CRAWL_AF"); off = e && !strcmp(e, "0"); }
+    return off;
+#else
+    return 0;
+#endif
+}
+static const int8_t AF_EL[NAF] = { EL_FIRE, EL_FROST, EL_FROST, EL_LIGHT, EL_POISON, EL_SPIRIT, EL_PHYS };   /* whose resist keeps it off */
+#ifdef CRAWL_DEBUG
+static const char *const AF_NAME[NAF] = { "fire", "chill", "frozen", "stun", "poison", "unbound", "down" };
+static int af_count[NAF];
+#endif
+static void af_event(int k, int on) {
+#ifdef CRAWL_DEBUG
+    if (on) af_count[k]++;
+    if (on) fprintf(stderr, "EVENT af %s on by %d/%d/%d n=%d %s t=%.2f\n", AF_NAME[k], G.blame.what, G.blame.type, G.blame.rank,
+                    G.af_n, G.player ? "player" : "autopilot", G.t);
+    else fprintf(stderr, "EVENT af %s off t=%.2f\n", AF_NAME[k], G.t);
+#else
+    (void)k; (void)on;
+#endif
+}
+#define AF_BASE 0.12f                       /* a hazard's stroke (S10): M2's rank II */
+static float af_rank_chance(int rank) { return 0.08f + 0.04f * (float)imin(rank, RK_V); }   /* M2: 12% at rank II, 4% more a rank */
+static int af_boss_fight(void) { return G.boss >= 0 && (G.bstate == BS_FIGHT || G.bstate == BS_WAVE || G.bstate == BS_RISE); }
+static int af_can(int k) {
+    if (af_off() || G.dead || G.ending || G.exiting || G.tally || G.shop || G.level_t < 1.5 || G.wind_t > 0.0f || G.dash_t > 0.0f) return 0;
+    if (G.purify_t > 0.0f && (k == AF_FIRE || k == AF_CHILL || k == AF_POISON)) return 0;   /* Purify keeps them off */
+    if (af_hardk(k) && (af_on(k) || G.af_lock[k] > 0.0f || G.af_hardt > 0.0f)) return 0;  /* S1: never back to back */
+    return 1;
+}
+static int af_rolls(int k, float chance) { return rndf() < chance * (1.0f - 0.5f * el_resist(&RUN.gear, AF_EL[k])); }   /* S11 */
+static void af_hold(int k, float secs, int by) {                  /* a hard control lands: whatever was gathering is lost */
+    G.af[k] = G.af0[k] = secs;
+    if (k == AF_DOWN) G.af_by = by;
+    if (winding_up()) windup_break();
+    if (G.rest_on) rest_end("struck");
+    switch (k) {
+    case AF_STUN: snd_sfx_ex(SFX_AF_STUN, 0.8f, 0.5f); rumble(0.15f, 0.55f, 0.18f); break;   /* a short buzz */
+    case AF_UNBOUND: snd_sfx_ex(SFX_AF_HUSH, 0.8f, 0.5f); break;
+    case AF_FROZEN: snd_sfx_ex(SFX_AF_FREEZE, 0.9f, 0.5f); rumble(0.55f, 0.25f, 0.45f); break;
+    case AF_DOWN: snd_sfx_ex(SFX_AF_DOWN, 0.9f, 0.5f); snd_sfx_ex(SFX_HEART, 0.6f, 0.5f); rumble(0.9f, 0.4f, 0.35f); break;
+    }
+    pop_readout(); show_bar();
+    af_event(k, 1);
+}
+static void af_ignite(float dmg) {                                 /* the hit's harm again over four seconds, added to what is left (E2) */
+    if (dmg <= 0.0f) return;
+    int was = af_on(AF_FIRE);
+    G.af_burn += dmg; G.af[AF_FIRE] = G.af0[AF_FIRE] = 4.0f; G.af_fire_by = G.blame;
+    snd_sfx_ex(SFX_IGNITE, was ? 0.45f : 0.8f, 0.5f);
+    if (!was) af_event(AF_FIRE, 1);
+}
+static void af_chill(int n, int by) {                              /* stacks; four make Frozen; all fall 3 s after the last (S3) */
+    if (af_on(AF_FROZEN)) return;                                  /* frozen: they are spent as it ends */
+    int was = G.af_n;
+    G.af_n = imin(G.af_n + n, 4); G.af[AF_CHILL] = G.af0[AF_CHILL] = 3.0f;
+    snd_sfx_ex(SFX_FROST, 0.35f + 0.1f * (float)G.af_n, 0.5f);
+    if (!was) af_event(AF_CHILL, 1);
+    if (G.af_n < 4) return;
+    if (af_can(AF_FROZEN)) af_hold(AF_FROZEN, 3.0f, by);
+    else G.af_n = 3;                                               /* not again so soon: it waits at three */
+}
+static void af_poison(float secs) {                                /* each dose adds its time, to a minute (S5) */
+    if (secs <= 0.0f || !af_can(AF_POISON)) return;
+    int was = af_on(AF_POISON);
+    G.af[AF_POISON] = G.af0[AF_POISON] = fminf(60.0f, G.af[AF_POISON] + secs);
+    if (!was) { snd_sfx_ex(SFX_AF_SICK, 0.7f, 0.5f); af_event(AF_POISON, 1); }
+}
+static void af_put(int k, float d, int by) {                       /* status k, landed, from a hit of d */
+    switch (k) {
+    case AF_FIRE: af_ignite(d); break;
+    case AF_CHILL: af_chill(1, by); break;
+    case AF_POISON: af_poison(6.0f); break;
+    case AF_STUN: af_hold(AF_STUN, 1.2f, by); break;
+    case AF_UNBOUND: af_hold(AF_UNBOUND, 1.5f, by); break;
+    case AF_DOWN: af_hold(AF_DOWN, 1.5f, by); break;
+    default: break;
+    }
+}
+/* a creature's elemental hit got through: its status, by its rank (M2). Bosses keep their own ways (S12); Physical knocks down
+ * only by the attacks that say so (C3, C4) */
+static void af_struck(int el, Blame b, float d, int by) {
+    int k = af_of(el);
+    if (k < 0 || el == EL_PHYS || b.what == BL_BOSS || af_boss_fight() || !af_can(k) || !af_rolls(k, af_rank_chance(b.rank))) return;
+    af_put(k, d, by);
+}
+static void af_stroke(int el, float d) {                           /* a hazard's stroke: a frost one a stack (S9), the rest at the base chance (S10) */
+    int k = af_of(el);
+    if (k < 0 || af_boss_fight() || !af_can(k)) return;
+    if (k == AF_CHILL) { if (af_rolls(k, 1.0f)) af_chill(1, 0); return; }
+    if (af_rolls(k, AF_BASE)) af_put(k, d, 0);
+}
+static void af_cold(float dt) {                                    /* standing in the cold: a stack a second and a half (S9) */
+    if (G.level_t - G.af_cold_t > 0.5f) G.af_cold = 0.5f;          /* come in fresh: the first after a second */
+    G.af_cold_t = (float)G.level_t;
+    if ((G.af_cold += dt) < 1.5f) return;
+    G.af_cold -= 1.5f;
+    if (af_can(AF_CHILL) && af_rolls(AF_CHILL, 1.0f)) af_chill(1, 0);
+}
+static void af_purify(void) {                                      /* Purify: Poisoned, Chilled and On Fire cured, and a freeze broken */
+    G.af[AF_POISON] = G.af[AF_CHILL] = G.af[AF_FIRE] = 0.0f; G.af_n = 0; G.af_burn = G.af_acc = 0.0f;
+    if (af_on(AF_FROZEN)) { G.af[AF_FROZEN] = 0.01f; }             /* af_tick ends it, with its sound */
+}
+static void af_break(void) {                                       /* Blink: up off the floor, out of the ice */
+    if (af_on(AF_DOWN)) G.af[AF_DOWN] = 0.01f;
+    if (af_on(AF_FROZEN)) G.af[AF_FROZEN] = 0.01f;
+}
+static void af_clear(void) {                                       /* a death, a new run, a reset: none of them */
+    memset(G.af, 0, sizeof G.af); memset(G.af0, 0, sizeof G.af0); memset(G.af_lock, 0, sizeof G.af_lock);
+    G.af_n = G.af_by = 0; G.af_k = G.af_shake = G.af_hardt = G.af_burn = G.af_acc = G.af_cold = 0.0f;
+}
+static int harm_from;                                              /* 1 + the creature whose harm hurt_ex is about to take */
 /* a person's last two minutes, in tens of seconds: health lost, kills, and how long since a hurt (docs/PLAN-ai.md, section 27) */
 static struct { float hp[12]; int k[12], i; float t, calm, over_t, quiet; int n0; } WELL;
 static int hurt_ex(float dmg, int kind, float sx, float sy) {
@@ -3790,6 +3930,8 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
     if (G.rest_on) rest_end("struck");                             /* a blow ends the mending */
     const Gear *g = &RUN.gear;
     int seeping = kind == HURT_POISON || kind == HURT_VOID;        /* nothing turns these: no dodge, armour or ward */
+    int from = harm_from; harm_from = 0;
+    if (af_on(AF_FROZEN)) dmg *= 1.33f;                            /* frozen: everything a third more, before the killing blow is judged */
     if (!seeping) {
         if (kind != HURT_STONE && kind != HURT_ELEM && rndf() < gear_dodge(g)) { snd_sfx_ex(SFX_WHOOSH, 0.5f, 0.5f); DBG_COUNT(dodges); return 0; }   /* it passed through a shadow */
         int phys = el < 0 || el == EL_PHYS;
@@ -3801,6 +3943,7 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
         raw = dmg;
         if (old_harm()) dmg -= kind == HURT_SPELL || (kind == HURT_ELEM && el != EL_PHYS) ? gear_armor(g) * 0.5f : (float)gear_armor(g);
         else dmg *= 1.0f - armour_keep(g, phys);                  /* a share kept off (P2), half of it against the elements */
+        if (af_on(AF_DOWN) && from > 0 && from != G.af_by) dmg *= 0.5f;   /* on the floor: every other creature's harm halved */
         if (dmg < 1.0f) dmg = 1.0f;
         armoured = dmg;
         if (G.ward_hp > 0.0f) {                                    /* the bone ward takes it */
@@ -3829,7 +3972,7 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
     if (G.hp > 0) { if (!seeping) { snd_sfx(SFX_HURT); rumble(0.25f + 2.0f * share, 0.15f + 1.5f * share, 0.15f + share); } return d; }
     if ((RUN.corner >> CS_WIND & 1) && !RUN.wind_spent) {          /* Second Wind: not yet */
         RUN.wind_spent = 1;
-        G.hp = imax(1, G.max_hp / 2); G.wind_t = 2.0f; G.poison_t = 0.0f; G.hz_acc = 0.0f;
+        G.hp = imax(1, G.max_hp / 2); G.wind_t = 2.0f; G.poison_t = 0.0f; G.hz_acc = 0.0f; af_clear();   /* and nothing on you */
         snd_sfx_ex(SFX_WAIL, 0.9f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 1.0f, 0.5f); snd_sfx_ex(SFX_WHOOSH, 0.8f, 0.5f);
         rumble(0.8f, 0.5f, 0.6f); pop_readout(); show_bar();
 #ifdef CRAWL_DEBUG
@@ -3891,6 +4034,7 @@ static int wraith_cornered_n;                                      /* the Wraith
 #endif
 static int hurt_by(const Mob *m, float dmg, int kind) {
     G.blame = blame_of(m); last_set = m->set;
+    harm_from = 1 + (int)(m - G.mobs);
     int r = hurt_ex(dmg, kind, m->x, m->y);
     if (r > 0) noise(G.px, G.py, 5, NZ_FIGHT, -1);                /* blows: heard five steps off (S3) */
     return r;
@@ -3900,14 +4044,19 @@ static int hurt_by(const Mob *m, float dmg, int kind) {
 static int foe_hit(const Mob *m, int fa, float k) {
     const FoeAtk *a = &ATTACKS[fa];
     if (a->el != EL_PHYS) harm_next = a->el;
-    return hurt_by(m, mob_damage(m) * a->k * k + a->add, a->el == EL_PHYS ? HURT_BLOW : HURT_SPELL);
+    int d = hurt_by(m, mob_damage(m) * a->k * k + a->add, a->el == EL_PHYS ? HURT_BLOW : HURT_SPELL);
+    if (d > 0 && m->type != MOB_WRAITH) af_struck(a->el, blame_of(m), (float)d, 1 + (int)(m - G.mobs));   /* the Wraith's chills (S9) */
+    return d;
 }
 static int bone_el(const Bone *b) { return b->el1 - 1; }           /* what a missile carries: -1 nothing but itself */
 static int bone_hurt(const Bone *b) {
     int el = bone_el(b);
     G.blame = b->by;
     if (el >= 0 && el != EL_PHYS) harm_next = el;
-    return hurt_ex(b->dmg, el >= 0 && el != EL_PHYS ? HURT_SPELL : HURT_BLOW, b->x - b->vx, b->y - b->vy);
+    harm_from = b->from >= 0 && b->from < MAXMOBS ? 1 + b->from : 0;
+    int d = hurt_ex(b->dmg, el >= 0 && el != EL_PHYS ? HURT_SPELL : HURT_BLOW, b->x - b->vx, b->y - b->vy);
+    if (d > 0 && el >= 0 && b->kind != MIS_TURNED) af_struck(el, b->by, (float)d, harm_from);   /* a turned spell is the knight's own (S12) */
+    return d;
 }
 
 /* a throw at the caster, leading it a little; or (lob) one lobbed to a place, landing there: over a corner (step 7) */
@@ -5023,8 +5172,10 @@ static float tri_wading(void);
 static float slow_factor(void) {                                   /* slowed, the caster walks at 60%; resisted, less slowly; */
     if (G.web_hp > 0.0f) return 0.0f;                              /* held in the Wandering Spider's web: not at all */
     if (G.snare_t > 0.0f) return 0.0f;                             /* or a snare's (1.0.0b13) */
+    if (af_rooted()) return 0.0f;                                  /* frozen, or on the floor */
     return sap_slow() * (G.slow_t > 0.0f ? 1.0f - 0.4f * (1.0f - 0.5f * gear_slow_resist(&RUN.gear)) : 1.0f) * (G.hz_slow > 0.0f ? G.hz_slow : 1.0f)   /* bile and void besides, */
-         * tri_wading();                                              /* and a trial's water */
+         * tri_wading()                                               /* and a trial's water, */
+         * (1.0f - 0.08f * (float)G.af_n);                            /* and the cold: Chilled, 8% a stack (S4) */
 }
 static float spell_effect(void) { return 1.0f + gear_total(&RUN.gear, ST_EFFECT) / 100.0f; }   /* all a spell does besides damage */
 
@@ -7043,7 +7194,9 @@ static void update_wraith(Mob *m, float dt) {
         m->cool = ATTACKS[FA_WTOUCH].cool;
         sfx_at(SFX_SHRIEK, m->x, m->y, 1.0f);
         if (foe_hit(m, FA_WTOUCH, 1.0f) > 0) {
-            G.chill = 1.0f; G.slow_t = fmaxf(G.slow_t, ATTACKS[FA_WTOUCH].slow * (1.0f - gear_slow_resist(&RUN.gear)));
+            G.chill = 1.0f;
+            if (af_off()) G.slow_t = fmaxf(G.slow_t, ATTACKS[FA_WTOUCH].slow * (1.0f - gear_slow_resist(&RUN.gear)));
+            else if (af_can(AF_CHILL) && af_rolls(AF_CHILL, 1.0f)) af_chill(2, 1 + (int)(m - G.mobs));   /* its cold: two stacks (S9) */
             DBG_COUNT(wraith_touches);
         }
     }
@@ -7108,7 +7261,9 @@ static void update_pools(float dt) {
         if ((p->t += dt) > 5.0f) { p->alive = 0; continue; }
         if (!G.dead && G.purify_t <= 0.0f && hypotf(G.px - p->x, G.py - p->y) < 0.9f) {
             float k = 1.0f - gear_poison_resist(&RUN.gear);
+            float was = G.poison_t;
             G.poison_t = fmaxf(G.poison_t, 2.5f * k); G.poison_by = (Blame){ BL_POOL, MOB_DROWNED, 0 };
+            af_poison(G.poison_t - was);                           /* Poisoned while you stand in it */
             G.poison_dps = fmaxf(G.poison_dps, (1.0f + (float)(G.level > 4 ? (G.level - 4) / 2 : 0)) * (0.5f + 0.5f * k));
         }
     }
@@ -7169,6 +7324,7 @@ static void bite(Mob *m) {
     if (G.purify_t > 0.0f) return;                                  /* Purify's protection */
     float k = 1.0f - gear_poison_resist(g);                        /* resisted, it is shorter and weaker */
     G.poison_t = fmaxf(G.poison_t, 6.0f * k); G.poison_by = (Blame){ BL_POISON, (uint8_t)m->type, (uint8_t)m->rank };
+    af_poison(6.0f * k);                                           /* Poisoned: each bite adds its time (S5, S9) */
     G.poison_dps = (1.0f + (float)((G.level - 4) / 2 > 0 ? (G.level - 4) / 2 : 0)) * m->dmgk * (0.5f + 0.5f * k);
     G.slow_t = fmaxf(G.slow_t, ATTACKS[FA_WEB].slow * (1.0f - gear_slow_resist(g)));
 }
@@ -7568,7 +7724,9 @@ static void wraith_boss(Mob *m, float dt) {
         m->cool = ATTACKS[FA_WBOSS].cool;
         sfx_at(SFX_SHRIEK, m->x, m->y, 1.0f);
         if (foe_hit(m, FA_WBOSS, 1.0f) > 0) {
-            G.chill = 1.0f; G.slow_t = fmaxf(G.slow_t, ATTACKS[FA_WBOSS].slow * (1.0f - gear_slow_resist(&RUN.gear)));
+            G.chill = 1.0f;
+            if (af_off()) G.slow_t = fmaxf(G.slow_t, ATTACKS[FA_WBOSS].slow * (1.0f - gear_slow_resist(&RUN.gear)));
+            else if (af_can(AF_CHILL) && af_rolls(AF_CHILL, 1.0f)) af_chill(2, 1 + (int)(m - G.mobs));
             DBG_COUNT(wraith_touches);
         }
     }
@@ -7704,7 +7862,7 @@ static int doorway(int cx, int cy, int nx, int ny) {
     return r0 != c->region || c->region != r2;
 }
 static int held_door(int nx, int ny) {
-    if (G.dead || G.silenced || G.wwalk_t > 0.0f || hypotf(G.pvx, G.pvy) > 1.2f) return 0;
+    if (G.dead || no_cast() || G.wwalk_t > 0.0f || hypotf(G.pvx, G.pvy) > 1.2f) return 0;
     if (G.player && (G.cooldown > 0.35f || G.pc_t >= 0.0f)) return 0;   /* a person mid-cast: nothing ready yet */
     float dx = nx + 0.5f - G.px, dy = ny + 0.5f - G.py, d = hypotf(dx, dy);
     if (d < 1.6f || d > 7.0f || fabsf(wrap_pi(atan2f(dy, dx) - G.ang)) > 0.45f) return 0;
@@ -8452,7 +8610,8 @@ static int spell_tier(int sp) { return RUN.gear.atk[sp] < 0 ? 0 : RUN.gear.atk[s
 static int splint_left(void) { return SPLINTER_MAX - clampi(RUN.splint_used, 0, SPLINTER_MAX); }
 static int spear_bare(void) { return RUN.gear.bones <= 0; }       /* the next throw a splinter */
 static int spear_ready(void) { return !spear_bare() || splint_left() > 0; }
-static float cast_cycle(int sp) { float c = spell_cycle(&RUN.gear, sp); return sp == AT_SPEAR && spear_bare() ? c * SPLINTER_SLOW : c; }
+static float af_slow_cast(void) { return af_on(AF_POISON) ? 1.5f : 1.0f; }   /* Poisoned: wind-up and cycle half again (S5) */
+static float cast_cycle(int sp) { float c = spell_cycle(&RUN.gear, sp) * af_slow_cast(); return sp == AT_SPEAR && spear_bare() ? c * SPLINTER_SLOW : c; }
 static void splint_tick(float dt) {
     if (RUN.splint_used <= 0 || RUN.gear.atk[AT_SPEAR] < 0) { RUN.splint_t = 0.0f; return; }
     if ((RUN.splint_t += dt) >= SPLINTER_T) { RUN.splint_t -= SPLINTER_T; RUN.splint_used--; }
@@ -8567,6 +8726,7 @@ static void say(const char *fmt, ...);
 static void cast_spell(int sp, int t) {
     const Gear *g = &RUN.gear;
     Mob *m = t >= 0 ? &G.mobs[t] : &G.mobs[0];
+    if (af_hushed()) return;                                       /* stunned, unbound, frozen or down: nothing comes (PLAN-combat, 4) */
     if (G.rest_on) rest_end("cast");                                /* a cast gets you up */
     int have = t >= 0 && m->alive && m->state == MS_WALK;
     float tx = have ? m->x : G.px + cosf(G.ang) * 4, ty = have ? m->y : G.py + sinf(G.ang) * 4;
@@ -8574,6 +8734,7 @@ static void cast_spell(int sp, int t) {
     if (seal >= 0) { tx = G.mk[seal].x; ty = G.mk[seal].y; }
     float a = atan2f(ty - G.py, tx - G.px);
     if (G.player && sp != AT_CHAIN && sp != AT_DRAIN) a = G.ang;   /* a person's shots go where they look */
+    if (G.af_n > 0 && sp != AT_CHAIN && sp != AT_DRAIN) a += (rndf() * 2.0f - 1.0f) * 0.0262f * (float)G.af_n;   /* Chilled: 1.5 degrees astray a stack (S4) */
     /* what it costs: a bone for every spear; spirit above tier 1, and with too little, it goes at tier-1
      * strength (and heals nothing) */
     int splinter = sp == AT_SPEAR && spear_bare();                 /* no bones: a splinter, if one has grown */
@@ -9100,10 +9261,11 @@ static int def_trigger(int k) {
     float hpf = (float)G.hp / (float)G.max_hp;
     switch (k) {
     case DF_WARD: return G.ward_hp <= 0.0f && (incoming(0.7f) || skull_charging(7.0f, 1.5f) || melee_close());
-    case DF_BLINK: return (melee_close() && hpf < 0.6f) || (incoming(0.4f) && G.ward_hp <= 0.0f && G.mirror_t <= 0.0f && hpf < 0.5f);
+    case DF_BLINK: return (melee_close() && hpf < 0.6f) || (incoming(0.4f) && G.ward_hp <= 0.0f && G.mirror_t <= 0.0f && hpf < 0.5f)
+                          || (af_rooted() && G.af[af_on(AF_FROZEN) ? AF_FROZEN : AF_DOWN] > 0.6f && in_combat());   /* off the floor, out of the ice */
     case DF_MIRROR: return G.mirror_t <= 0.0f && (incoming(1.5f) >= 2 || skull_charging(9.0f, 2.0f));
     case DF_MEND: return G.mend_t <= 0.0f && hpf < 0.45f;
-    case DF_PURIFY: return G.poison_t > 2.0f || G.slow_t > 1.5f;
+    case DF_PURIFY: return G.poison_t > 2.0f || G.slow_t > 1.5f || af_on(AF_FROZEN) || G.af_n >= 2 || G.af_burn > 0.1f * (float)G.max_hp || G.af[AF_POISON] > 8.0f;
     case DF_NOVA: return enemies_within(1.8f, 0) >= 2 || melee_close();
     case DF_DREAD: return enemies_within(4.0f, 1) >= 2;
     case DF_SLIP: return G.slip_t <= 0.0f && (enemies_within(5.0f, 0) + incoming(2.0f) >= 3 || (hpf < 0.35f && in_combat()));
@@ -9182,14 +9344,14 @@ static void cast_defense(int k) {
     float eff = spell_effect();                                    /* the runes' strength */
     switch (k) {
     case DF_WARD: G.ward_hp = (10.0f + 5.0f * t) * eff; G.ward_t = 12.0f; G.ward_shards = q >= RUNE_EXQ ? G.ward_hp * 0.5f : 0.0f; break;
-    case DF_BLINK: blink(); break;
+    case DF_BLINK: af_break(); blink(); break;
     case DF_MIRROR: G.mirror_t = (3.0f + 0.5f * t) * eff; if (G.player) G.mirror_true = MIRROR_TRUE;
 #ifdef CRAWL_DEBUG
         if (G.player && getenv("CRAWL_PARRYT")) G.mirror_true = (float)atof(getenv("CRAWL_PARRYT"));   /* testing: the parry's window */
 #endif
         break;
     case DF_MEND: G.mend_t = 4.0f; G.mend_rate = (15.0f + 5.0f * t) / 4.0f * eff; break;
-    case DF_PURIFY: G.poison_t = G.slow_t = 0.0f; G.purify_t = (4.0f + t) * eff; break;
+    case DF_PURIFY: G.poison_t = G.slow_t = 0.0f; G.purify_t = (4.0f + t) * eff; af_purify(); break;
     case DF_NOVA:
         for (int i = 0; i < MAXMOBS; i++) {
             Mob *m = &G.mobs[i];
@@ -9261,10 +9423,10 @@ static void update_defense(float dt) {
         if (rune_by_hand(k)) { G.def_wait[k] = 0.0f; continue; }   /* a person's to raise */
         if (G.def_wait[k] > 0.0f) {
             G.def_wait[k] -= dt;
-            if (G.def_wait[k] <= 0.0f && G.def_cd[k] <= 0.0f && !G.dead && !G.silenced) cast_defense(k);
+            if (G.def_wait[k] <= 0.0f && G.def_cd[k] <= 0.0f && !G.dead && !rune_barred(k)) cast_defense(k);
             continue;
         }
-        if (G.def_cd[k] > 0.0f || G.def_hush[k] > 0.0f || G.dead || G.silenced) continue;   /* the void: no rune fires */
+        if (G.def_cd[k] > 0.0f || G.def_hush[k] > 0.0f || G.dead || rune_barred(k)) continue;   /* the void, or a status: no rune fires */
         if (def_trigger(k)) {
             if (rndf() < 0.12f) { G.def_hush[k] = 1.5f; continue; }   /* missed the moment */
             G.def_wait[k] = 0.15f + 0.55f * rndf() + (rndf() < 0.1f ? 0.8f : 0.0f);
@@ -9723,7 +9885,7 @@ static void dash_begin(float vx, float vy) {
 }
 static int swift_dodge(float a) {
     if (RUN.abil[BOSS_KNIGHT] <= 0 || G.dash_t > 0.0f || G.web_hp > 0.0f || G.shop) return 0;
-    if (G.silenced) { say("THE VOID TAKES THE WORDS FROM YOU"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); return 0; }
+    if (no_cast()) { hush_say(); return 0; }
     if (G.ab_cd[BOSS_KNIGHT] > 0.0f) return 0;                     /* quietly: a double tap is easily made by chance */
     float r = dash_reach(a, 5.0f);
     if (r < 2.0f) return 0;
@@ -9763,7 +9925,7 @@ static int aim_target(void);
 static void use_readied(void) {
     int b = ab_readied();
     if (b < 0) return;
-    if (G.silenced) { say("THE VOID TAKES THE WORDS FROM YOU"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); return; }
+    if (no_cast()) { hush_say(); return; }
     if (G.ab_cd[b] > 0.0f) { say("%s IN %.0f S", BA_NAME[b], ceilf(G.ab_cd[b])); snd_sfx_ex(SFX_KNOCK, 0.35f, 0.5f); return; }
     show_bar();
     if (b == BOSS_SPIDER) web_spit(aim_target());
@@ -9785,7 +9947,7 @@ static int rune_readied(void) {                                    /* RB's: the 
 }
 static void rune_hand(int k) {                                     /* a rune raised by hand, its cooldown as ever */
     if (k < 0) { say("NO RUNE TO RAISE BY HAND"); snd_sfx_ex(SFX_KNOCK, 0.35f, 0.5f); return; }
-    if (G.silenced) { say("THE VOID TAKES THE WORDS FROM YOU"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); return; }
+    if (rune_barred(k)) { hush_say(); return; }
     if (G.def_cd[k] > 0.0f) { say("%s IN %.0f S", DEF_NAME[k], ceilf(G.def_cd[k])); snd_sfx_ex(SFX_KNOCK, 0.35f, 0.5f); return; }
     show_bar();
     cast_defense(k);
@@ -9812,7 +9974,7 @@ static void use_right(void) {                                      /* the right 
 /* the autopilot, if the page has them: Swift Dodge out of a missile's way or a warning, Tangled Web on the
  * nearest creature that comes to blows, Grave Call on fresh remains in a fight, Wraithwalk when cornered */
 static void auto_abilities(void) {
-    if (G.dead || G.silenced || G.shop || G.exiting || G.dash_t > 0.0f) return;
+    if (G.dead || no_cast() || G.shop || G.exiting || G.dash_t > 0.0f) return;
     int st = G.state;
     if (RUN.abil[BOSS_KNIGHT] && G.ab_cd[BOSS_KNIGHT] <= 0.0f && G.web_hp <= 0.0f
         && (st == PS_MOVE || st == PS_TURN || st == PS_AIM || st == PS_CAST || st == PS_HOLD || st == PS_UNAIM)
@@ -10391,7 +10553,7 @@ static int dream_looks(void) {                                     /* at a lane 
     }
     for (int k = 0; k < G.namb; k++) {
         const Ambush *a = &G.amb[k];
-        if (!(G.amb_read >> k & 1) || (G.amb_probed >> k & 1) || a->sprung || G.silenced) continue;
+        if (!(G.amb_read >> k & 1) || (G.amb_probed >> k & 1) || a->sprung || no_cast()) continue;
         if (abs(G.cx - a->ix) > 2 || abs(G.cy - a->iy) > 2 || in_room(&G.rooms[a->room], G.cx, G.cy)) continue;
         G.amb_probed |= 1 << k;
         begin_turn(atan2f(a->fy + 0.5f - G.py, a->fx + 0.5f - G.px));
@@ -10399,7 +10561,7 @@ static int dream_looks(void) {                                     /* at a lane 
         DBG_COUNT(amb_probes);
         return 1;
     }
-    for (int k = 0; k < G.nmk && !G.silenced; k++) {               /* a thing that wants a spell it holds, close by the lane (1.0.0b16) */
+    for (int k = 0; k < G.nmk && !no_cast(); k++) {               /* a thing that wants a spell it holds, close by the lane (1.0.0b16) */
         Marked *m = &G.mk[k];
         int next_plinth = m->kind == MKK_PLINTH && !m->got && G.mk[m->grp - 1].st < 3 && G.mk[m->grp - 1].els[G.mk[m->grp - 1].st] == m->el;
         if (m->kind == MKK_TABLET) continue;                       /* the tablet only tells: the dream goes by the plinth next in its order */
@@ -10736,7 +10898,7 @@ static int choose_spell(int t) {
 }
 
 static void cast_windup(void) {                                    /* the autopilot's cast: it gathers, then goes */
-    G.cast_wind = spell_windup(&RUN.gear, G.spell, spell_tier(G.spell));
+    G.cast_wind = spell_windup(&RUN.gear, G.spell, spell_tier(G.spell)) * af_slow_cast();
     G.cast_len = G.cast_wind + 0.3f;
 }
 /* The autopilot's ultimates (docs/PLAN-b11.md, section 14): it charges one when three or more are in reach (in sight
@@ -10747,7 +10909,7 @@ static int spell_tethers(int sp);
 static void auto_charge_pick(void) {
     G.auto_chg = 0;
     int sp = G.spell, t = G.target, tier = spell_tier(sp);
-    if (t < 0 || !targetable(&G.mobs[t]) || G.silenced) return;
+    if (t < 0 || !targetable(&G.mobs[t]) || no_cast()) return;
     const Mob *m = &G.mobs[t];
     if (spell_tethers(sp)) {                                       /* Soul Tether: on the strongest in sight */
         if (spirit() < 3.0f) return;
@@ -10796,6 +10958,10 @@ static void update_player(float dt) {
         begin_turn(heading_angle(G.next_h)); G.state = PS_TURN;
         return;
     }
+    if (af_rooted() && !G.dead) {                                   /* frozen or on the floor: it waits it out, its Blink ready (PLAN-combat, 4) */
+        G.cooldown -= dt; G.spd = 0.0f; G.hand = fmaxf(0.0f, G.hand - dt * 4.0f);
+        return;
+    }
     auto_abilities();
     if (G.dash_t > 0.0f) return;
     if (G.web_hp > 0.0f && !G.dead && (G.web_idle += dt) > 1.2f) {   /* held, and nothing to aim at: it tears at the web */
@@ -10805,7 +10971,7 @@ static void update_player(float dt) {
     G.cooldown -= dt;
     G.calm += dt;
     amb_read_tick();                                               /* an ambush's sign, read in passing (step 10) */
-    if ((G.state == PS_AIM || G.state == PS_HOLD || G.state == PS_UNAIM || (G.state == PS_CAST && G.fired) || (G.state == PS_CAST && G.silenced))
+    if ((G.state == PS_AIM || G.state == PS_HOLD || G.state == PS_UNAIM || (G.state == PS_CAST && G.fired) || (G.state == PS_CAST && no_cast()))
         && hz_danger((int)G.px, (int)G.py)) {                      /* the floor warns: it stops aiming and goes on */
         G.hand = 0.0f; G.state = PS_MOVE; G.ang = wrap_pi(G.ang);
         begin_turn(heading_angle(G.h)); G.state = PS_TURN; G.st = 0.0f; G.adur = 0.15f;
@@ -10825,7 +10991,7 @@ static void update_player(float dt) {
         }
         if (blocker >= 0) {
             target = 0.0f; G.spd = fminf(G.spd, 0.3f); G.blocked += dt;
-            if (G.cooldown <= 0.0f && !G.silenced) { aim_at(blocker); break; }
+            if (G.cooldown <= 0.0f && !no_cast()) { aim_at(blocker); break; }
         } else G.blocked = 0.0f;
         G.spd += clampf(target - G.spd, -6.0f * dt, 6.0f * dt);
         advance(G.spd * dt);
@@ -10842,7 +11008,7 @@ static void update_player(float dt) {
                 G.state = PS_TURN;
             } else start_move();
         }
-        if (G.cooldown <= 0.0f && G.state == PS_MOVE && !G.silenced) {
+        if (G.cooldown <= 0.0f && G.state == PS_MOVE && !no_cast()) {
             int t = find_target();
             if (t >= 0) aim_at(t);
         }
@@ -11032,7 +11198,7 @@ static void update_player(float dt) {
         G.st += dt;
         G.ang = lerpf(G.ang0, G.ang1, smoothstepf(0.0f, 1.0f, fminf(1.0f, G.st / G.adur)));
         if (G.st < G.adur) break;
-        int t = G.cooldown <= 0.0f && !G.silenced ? find_target() : -1;
+        int t = G.cooldown <= 0.0f && !no_cast() ? find_target() : -1;
         if (t >= 0) { aim_at(t); DBG_COUNT(glance_finds); break; }
         if (G.st >= G.adur + 0.5f) { begin_turn(heading_angle(G.next_h)); G.state = PS_TURN; }
         break;
@@ -11051,7 +11217,7 @@ static void update_player(float dt) {
                     if (G.mk[i].grp == m->grp && (m->kind == MKK_BELL ? !G.mk[i].got : G.mk[i].st != 1)) { a = &G.mk[i]; break; }
             int sp = LINE_ATK[a->kind == MKK_COIL ? EL_LIGHT : a->kind == MKK_RELAY ? EL_FIRE : a->el];
             int wait = m->kind == MKK_RELIQ && m->st == 1;          /* turning: wait for the face */
-            int more = !m->done && !(m->kind == MKK_PLINTH && m->got) && G.probe_n < need + 2 && !in_combat() && !G.silenced && RUN.gear.atk[sp] >= 0;
+            int more = !m->done && !(m->kind == MKK_PLINTH && m->got) && G.probe_n < need + 2 && !in_combat() && !no_cast() && RUN.gear.atk[sp] >= 0;
             if (more && !wait && G.st >= G.adur + 0.1f && G.cooldown <= 0.0f) {
                 G.ang = atan2f(a->y - G.py, a->x - G.px);          /* it may have moved */
                 G.spell = sp; G.hand = 1.0f; cast_spell(sp, -1);
@@ -11071,7 +11237,7 @@ static void update_player(float dt) {
         if (!corner_keep()) { corner_leave(); break; }
         int t = guard_target();
         if (t >= 0) {
-            if (G.cooldown <= 0.0f && !G.silenced) { aim_at(t); G.resume_state = PS_GUARD; break; }
+            if (G.cooldown <= 0.0f && !no_cast()) { aim_at(t); G.resume_state = PS_GUARD; break; }
             G.ang += wrap_pi(atan2f(G.mobs[t].y - G.py, G.mobs[t].x - G.px) - G.ang) * fminf(1.0f, dt * 6.0f);   /* facing it */
         }
         break;
@@ -11104,6 +11270,7 @@ static void human_begin(void);
 
 static void reset_caster_state(void) {
     G.poison_t = G.poison_dps = G.poison_acc = G.slow_t = G.purify_t = G.regen_acc = 0.0f;
+    af_clear();
     G.ward_hp = G.ward_t = G.mirror_t = G.slip_t = G.reap_t = G.mend_t = G.mend_rate = G.mirror_flash = G.mirror_true = 0.0f;
     G.ward_shards = G.decoy_t = 0.0f;
     memset(G.def_cd, 0, sizeof G.def_cd); memset(G.def_wait, 0, sizeof G.def_wait);
@@ -13288,6 +13455,7 @@ static int hz_strike_el(int kind, int el, float share, float sx, float sy) {
     harm_next = el;
     int d = hurt_ex(fminf(share, 0.25f) * (float)mhp, HURT_ELEM, sx, sy);
     if (d > 0 && el == EL_LIGHT && winding_up() && rndf() >= gear_light_resist(&RUN.gear)) windup_break();
+    if (d > 0) af_stroke(el, (float)d);                            /* its element's status (S9, S10) */
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT hz_hit %d %d t=%.2f\n", kind, d, G.t);
 #endif
@@ -13302,8 +13470,9 @@ static void hz_seep(int kind, float share_s, float dt) {           /* harm a sec
 }
 static void hz_poison(int kind, float share) {                     /* poisoned as bile poisons: Purify keeps it off */
     if (G.purify_t > 0.0f) return;
-    float r = 1.0f - gear_poison_resist(&RUN.gear);
+    float r = 1.0f - gear_poison_resist(&RUN.gear), was = G.poison_t;
     G.poison_t = fmaxf(G.poison_t, 2.5f * r); G.poison_by = (Blame){ BL_HAZARD, (uint8_t)kind, 0 };
+    af_poison(G.poison_t - was);
     G.poison_dps = fmaxf(G.poison_dps, (1.0f + (float)imax(0, (G.level - 4) / 2)) * share * (0.5f + 0.5f * r));
 }
 static void hz_chill(float slow) { G.hz_slow = fminf(G.hz_slow, 1.0f - (1.0f - slow) * (1.0f - 0.5f * gear_slow_resist(&RUN.gear))); }
@@ -13570,7 +13739,7 @@ static void update_hazards(float dt) {
                 sfx_at(SFX_BOOM, h->x, h->y, 0.9f); sfx_at(SFX_SHATTER, h->x, h->y, 0.5f);
                 if (hypotf(G.px - h->x, G.py - h->y) < 4.0f) rumble(0.45f, 0.1f, 0.22f);   /* a rock lands near */
                 for (int j = 0; j < MAXBOOMS; j++) if (!G.booms[j].alive) { memset(&G.booms[j], 0, sizeof G.booms[j]); G.booms[j].alive = 1; G.booms[j].x = h->x; G.booms[j].y = h->y; break; }
-                if (!G.dead && hypotf(G.px - h->x, G.py - h->y) < h->r + BODY) { G.blame = (Blame){ BL_HAZARD, HZ_ROCK, 0 }; int d = hurt_ex(h->share * (float)mhp, HURT_STONE, h->x, h->y);
+                if (!G.dead && hypotf(G.px - h->x, G.py - h->y) < h->r + BODY) { G.blame = (Blame){ BL_HAZARD, HZ_ROCK, 0 }; int d = hurt_ex(h->share * (float)mhp, HURT_STONE, h->x, h->y); if (d > 0) af_stroke(EL_PHYS, (float)d);
 #ifdef CRAWL_DEBUG
                     fprintf(stderr, "EVENT hz_hit rock %d t=%.2f\n", d, G.t);
 #endif
@@ -13585,8 +13754,9 @@ static void update_hazards(float dt) {
             if (ph < 2)
                 for (int k = 0; k < h->n; k++)
                     if (h->cx[k] == px && h->cy[k] == py && hz_bile_wet(h, k) >= 1.0f && G.purify_t <= 0.0f) {   /* Purify keeps it off */
-                        float r = 1.0f - gear_poison_resist(&RUN.gear);
+                        float r = 1.0f - gear_poison_resist(&RUN.gear), was = G.poison_t;
                         G.poison_t = fmaxf(G.poison_t, 2.5f * r); G.poison_by = (Blame){ BL_HAZARD, HZ_BILE, 0 };
+                        af_poison(G.poison_t - was);
                         G.poison_dps = fmaxf(G.poison_dps, (1.0f + (float)imax(0, (G.level - 4) / 2)) * h->share * (0.5f + 0.5f * r));
                         G.hz_slow = fminf(G.hz_slow, 0.8f);
                         break;
@@ -13608,7 +13778,7 @@ static void update_hazards(float dt) {
             if (ph == 1 && !G.dead && hz_in_cells(h, px, py)) hz_seep(h->kind, h->share, dt);
             break;
         case HZ_COLD:
-            if (ph == 1 && !G.dead && hz_in_cells(h, px, py)) { hz_chill(0.6f); hz_seep(HZ_COLD, h->share, dt); }
+            if (ph == 1 && !G.dead && hz_in_cells(h, px, py)) { if (af_off()) hz_chill(0.6f); else af_cold(dt); hz_seep(HZ_COLD, h->share, dt); }
             break;
         case HZ_SLUICE:                                            /* the surge runs down its cells, and throws you on */
             if (struck) sfx_at(SFX_SPLASH, h->x, h->y, 1.5f);
@@ -13616,7 +13786,7 @@ static void update_hazards(float dt) {
                 int k = hz_in_cells(h, px, py);
                 if (k && (float)h->cd[k - 1] <= (h->t - h->warn) * 6.0f + 0.5f) {
                     h->hit = 1;
-                    if (hz_strike(HZ_SLUICE, h->share, h->x, h->y) > 0) { G.slow_t = fmaxf(G.slow_t, 2.0f * (1.0f - gear_slow_resist(&RUN.gear))); hz_shove(cosf(h->ang), sinf(h->ang), 2.0f); }
+                    if (hz_strike(HZ_SLUICE, h->share, h->x, h->y) > 0) { if (af_off()) G.slow_t = fmaxf(G.slow_t, 2.0f * (1.0f - gear_slow_resist(&RUN.gear))); hz_shove(cosf(h->ang), sinf(h->ang), 2.0f); }
                 }
             }
             break;
@@ -13713,15 +13883,23 @@ static void update_hazards(float dt) {
     if (G.silenced != was) snd_set_muffle(G.silenced);
     G.sil_k += ((float)G.silenced - G.sil_k) * fminf(1.0f, dt * 8.0f);
 }
-/* The caster's statuses (docs/PLAN-combat.md, section 4): their clocks, and how far a knock-down has the view down. Nothing sets
- * one yet but CRAWL_AFSHOW (the debug build: a status's look, for its sheet), so nothing in play changes */
+/* The caster's statuses (docs/PLAN-combat.md, section 4): their clocks, what ends as they run out (a hard control can't land
+ * again for 3 s, nor any for 1 s; the ice breaks and takes the stacks with it), On Fire's harm a point at a time, and how far a
+ * knock-down has the view down. The debug build: CRAWL_AFSHOW (a status's look, for its sheet; nothing else then) and CRAWL_AF
+ * (0 none of them; fire, chill, frozen, stun, poison, unbound, down or all: that one put on the caster every ten seconds) */
 static void af_tick(float dt) {
+    int shown = 0;
 #ifdef CRAWL_DEBUG
-    static int show = -2, stacks = 0;
+    static int show = -2, stacks = 0, put = -2;
+    static double put_t;
     if (show == -2) {
         const char *e = getenv("CRAWL_AFSHOW");                    /* k (AF_*), k:stacks for Chilled, 7 the grapple, "all" the row */
         show = !e ? -1 : !strcmp(e, "all") ? 100 : clampi(atoi(e), 0, NAF);
         if (e && strchr(e, ':')) stacks = clampi(atoi(strchr(e, ':') + 1), 0, 3);
+        const char *a = getenv("CRAWL_AF");
+        put = -1;
+        if (a && !strcmp(a, "all")) put = NAF;
+        else if (a) for (int k = 0; k < NAF; k++) if (!strcmp(a, AF_NAME[k])) put = k;
     }
     if (show >= 0 && G.level_t > 2.0 && !G.dead) {
         float t = (float)fmod(G.level_t, 6.0);
@@ -13735,15 +13913,44 @@ static void af_tick(float dt) {
         }
         G.af_n = show == AF_CHILL || all ? (stacks ? stacks : 2) : 0;
         G.af_shake = grapple ? 1.0f : 0.0f;
+        shown = 1;
     }
+    if (put >= 0 && !G.dead && G.level_t > 3.0 && G.level_t - put_t >= 10.0) {   /* one every ten seconds, on whatever stands there */
+        int k = put == NAF ? (int)(G.level_t / 10.0) % NAF : put;
+        put_t = G.level_t;
+        G.blame = (Blame){ BL_HAZARD, 0, 0 };
+        if (k == AF_FROZEN) { if (af_can(AF_CHILL)) af_chill(4, 0); }
+        else if (af_can(k)) af_put(k, 0.15f * (float)G.max_hp, 0);
+    }
+    if (G.level_t < put_t) put_t = 0.0;                            /* a new level */
 #endif
-    for (int k = 0; k < NAF; k++) if (G.af[k] > 0.0f) G.af[k] = fmaxf(0.0f, G.af[k] - dt);
+    if (G.af[AF_FIRE] > 0.0f && !shown) {                          /* On Fire: what is left, spread over the time left */
+        float part = G.af_burn * fminf(1.0f, dt / G.af[AF_FIRE]);
+        G.af_burn -= part; G.af_acc += part;
+        while (G.af_acc >= 1.0f && !G.dead) { G.af_acc -= 1.0f; G.blame = G.af_fire_by; harm_next = EL_FIRE; hurt_ex(1.0f, HURT_POISON, G.px, G.py); }
+    }
+    for (int k = 0; k < NAF; k++) {
+        G.af_lock[k] = fmaxf(0.0f, G.af_lock[k] - dt);
+        if (G.af[k] <= 0.0f) continue;
+        if ((G.af[k] -= dt) > 0.0f) continue;
+        G.af[k] = 0.0f;
+        if (shown) continue;
+        if (af_hardk(k)) { G.af_lock[k] = 3.0f; G.af_hardt = 1.0f; }   /* S1 */
+        if (k == AF_FROZEN) {                                      /* the ice breaks, and the stacks go with it */
+            if (G.af[AF_CHILL] > 0.0f) af_event(AF_CHILL, 0);
+            G.af_n = 0; G.af[AF_CHILL] = 0.0f;
+            snd_sfx_ex(SFX_AF_THAW, 0.8f, 0.5f); rumble(0.25f, 0.6f, 0.2f);
+        }
+        if (k == AF_FIRE) G.af_burn = G.af_acc = 0.0f;
+        if (k == AF_DOWN) G.af_by = 0;
+        af_event(k, 0);
+    }
+    G.af_hardt = fmaxf(0.0f, G.af_hardt - dt);
     if (G.af[AF_CHILL] <= 0.0f) G.af_n = 0;
     float want = G.af[AF_DOWN] > 0.0f && G.af_shake <= 0.0f ? 1.0f : 0.0f;   /* down in a quarter second, up in four tenths; a grapple holds you up */
     G.af_k = want > G.af_k ? fminf(want, G.af_k + dt / 0.25f) : fmaxf(want, G.af_k - dt / 0.4f);
-    if (G.dead) { memset(G.af, 0, sizeof G.af); G.af_n = 0; G.af_k = 0.0f; }
+    if (G.dead) af_clear();
 }
-static int af_on(int k) { return k >= 0 && k < NAF && G.af[k] > 0.0f; }
 static int hz_danger(int x, int y) { return x >= 0 && y >= 0 && x < MAPN && y < MAPN && hz_dmap[y][x] < HZ_SOFT ? hz_dmap[y][x] : 0; }
 static int hz_soft(int x, int y) { return x >= 0 && y >= 0 && x < MAPN && y < MAPN && hz_dmap[y][x] == HZ_SOFT; }   /* what is always there: walked round if it can be */
 static void hz_clear(void) {                                       /* a new place: none of them come along */
@@ -14083,7 +14290,7 @@ static void update_sites(float dt) {
             break;
         case HZ_DCOLD:                                             /* rime where the fire went out: it is always there */
             for (int k = 0; k < s->n; k++) hz_mark(s->cx[k], s->cy[k], HZ_SOFT);
-            for (int k = 0; k < s->n; k++) if (!G.dead && s->cx[k] == px && s->cy[k] == py) { hz_chill(0.65f); hz_seep(HZ_DCOLD, 0.012f, dt); break; }
+            for (int k = 0; k < s->n; k++) if (!G.dead && s->cx[k] == px && s->cy[k] == py) { if (af_off()) hz_chill(0.65f); else af_cold(dt); hz_seep(HZ_DCOLD, 0.012f, dt); break; }
             break;
         case HZ_TITHE:                                             /* the chalk takes its tithe while you stand in it */
             hz_mark_disc(cx, cy, 1.4f, HZ_SOFT);
@@ -19888,6 +20095,7 @@ static void sprint_recovery(float *wait, float *fill) {
     int n = G.max_hp >= 300 ? imin((G.max_hp - 200) / 100, 40) : 0;
     float k = powf(0.75f, (float)n);
     *wait = fmaxf(0.25f, 1.5f * k); *fill = fmaxf(0.75f, 3.5f * k);
+    if (G.af_n > 0) { *wait /= 0.4f; *fill /= 0.4f; }              /* Chilled: it comes back at two fifths the pace (S4) */
 }
 static void sprint_tick(float dt, int on, int moved) {
     float mx = sprint_max(), wait, fill;
@@ -19929,7 +20137,7 @@ static void human_walk(float dt) {
     G.ang = wrap_pi(G.ang + IN.mdx * MOUSE_TURN + ((float)(ar && IN.down[KEY_RIGHT]) - (float)(ar && IN.down[KEY_LEFT])) * KEY_TURN * turn * dt + pad_turn(dt));
     float fwd = (float)(IN.down[KEY_W] || (ar && IN.down[KEY_UP])) - (float)(IN.down[KEY_S] || (ar && IN.down[KEY_DOWN])) + IN.ly;
     float side = (float)IN.down[KEY_D] - (float)IN.down[KEY_A] + IN.lx;
-    int on = want && !G.spr_dry && G.spr > 0.0f && fwd > 0.33f && fwd >= fabsf(side);   /* a sprint goes forward */
+    int on = want && !G.spr_dry && G.spr > 0.0f && fwd > 0.33f && fwd >= fabsf(side) && !af_on(AF_STUN);   /* a sprint goes forward; stunned, a walk */
     float run = on ? 1.5f : 1.0f;
     float len = sqrtf(fwd * fwd + side * side), moved = 0.0f;
     if (len > 0.0f) {                                              /* the stick part way over: slower */
@@ -20039,7 +20247,7 @@ static void human_cast(float dt, int may) {
     G.cooldown -= dt;
     if (G.spell < 0 || G.spell >= NATK || RUN.gear.atk[G.spell] < 0) G.spell = own_spell();   /* a line gone (a new past after a death) */
     int trig = may && (IN.down[KEY_MOUSE1] || (IN.down[KEY_CAST] && !(WEB && G.map_on)));   /* the map keeps the browser's Space */
-    if (trig && G.silenced) { if (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CAST]) { say("THE VOID TAKES THE WORDS FROM YOU"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); } trig = 0; }
+    if (trig && no_cast()) { if (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CAST]) hush_say(); trig = 0; }
     if (!may && G.chg_on) { G.chg_on = 0; tether_end(); }          /* a screen opened over it: the charge is let fall */
     if (spell_holds(G.spell) || G.chg_on) {                        /* a charging ultimate's spell, or Soul Tether's: held, not repeated */
         if (!G.chg_on && trig && G.pc_t < 0.0f && G.cooldown <= 0.0f && !G.dead && (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CAST])) {
@@ -20055,7 +20263,7 @@ static void human_cast(float dt, int may) {
                 if (G.tether) tether_end();
                 else if (G.chg_t < 0.25f || !spell_charges(G.chg_sp)) {   /* a tap: the ordinary spell, wind-up and all */
                     float cyc = cast_cycle(G.chg_sp);
-                    G.pc_wind = spell_windup(&RUN.gear, G.chg_sp, spell_tier(G.chg_sp));
+                    G.pc_wind = spell_windup(&RUN.gear, G.chg_sp, spell_tier(G.chg_sp)) * af_slow_cast();
                     G.pc_t = 0.0f; G.pc_fired = 0; G.pc_len = G.pc_wind + 0.25f; G.cooldown = fmaxf(cyc, G.pc_len);
                 } else {                                           /* the charge goes: it took the wind-up's place */
                     cast_charged(G.chg_sp, aim_target(), clampf(G.chg_t, 0.0f, 1.0f));
@@ -20071,7 +20279,7 @@ static void human_cast(float dt, int may) {
             if (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CAST]) { say("THE BFS9000 NEEDS %d SOULS", bfs_cost(RUN.gear.atk[AT_BFS])); snd_sfx_ex(SFX_ZAP, 0.4f, 0.5f); }
         } else {
             float cyc = cast_cycle(G.spell);
-            G.pc_wind = spell_windup(&RUN.gear, G.spell, spell_tier(G.spell));
+            G.pc_wind = spell_windup(&RUN.gear, G.spell, spell_tier(G.spell)) * af_slow_cast();
             G.pc_t = 0.0f; G.pc_fired = 0; G.pc_len = G.pc_wind + 0.25f; G.cooldown = fmaxf(cyc, G.pc_len);
         }
     }
@@ -20209,7 +20417,10 @@ static void update_human(float dt) {
     }
     if (PADX.dodge) { PADX.dodge = 0; if (G.dash_t <= 0.0f) swift_dodge(PADX.dodge_a); }   /* or B on a controller */
     if (G.dash_t > 0.0f) dash_step(dt); else human_walk(dt);
-    if (IN.hit[KEY_E] || (!WEB && IN.hit[KEY_SPACE])) human_use();
+    if (IN.hit[KEY_E] || (!WEB && IN.hit[KEY_SPACE])) {
+        if (af_on(AF_UNBOUND) || af_rooted()) hush_say();          /* unbound, frozen or down: the hands take hold of nothing (S8) */
+        else human_use();
+    }
     if (G.exiting) return;
     if (CAST_UP) G.click_spent = 0;
     human_cast(dt, !G.click_spent);
@@ -26271,18 +26482,18 @@ static void render_sprint(Frame *f) {
 static void render_sockets(Frame *f) {
     if (!sockets_shown()) return;
     int bar_top = H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f);
-    int y = imin(bar_top - 20, H - 21), x = 4, sel = ab_readied();
+    int y = imin(bar_top - 20, H - 21), x = 4, sel = ab_readied(), hush = no_cast();   /* the void, or a status: struck through */
     for (int b = 0; b < NBOSS; b++) {
         if (!RUN.abil[b]) continue;
         float wait = ab_wait(b), k = wait > 0.0f ? 1.0f - clampf(G.ab_cd[b] / wait, 0.0f, 1.0f) : 1.0f;
         int ready = k >= 1.0f, ramp = BA_RAMP[b];
         if (b == sel && ab_on_mouse(b)) gfx_rect(f, x - 1, y - 1, 19, 19, (uint8_t)(R_GOLD + 11));   /* the right mouse's */
         bevel(f, x, y, 17, 17, 0);
-        uint8_t mc = G.silenced ? (uint8_t)(R_STONE + 7) : (ready ? ramp_at(ramp, 14) : ramp_at(ramp, 8));
+        uint8_t mc = hush ? (uint8_t)(R_STONE + 7) : (ready ? ramp_at(ramp, 14) : ramp_at(ramp, 8));
         ab_mark(f, x + 3, y + 2, b, mc);
         for (int i = 0; i < 13; i++)                               /* coming round */
-            gfx_px(f, x + 2 + i, y + 14, i < (int)(k * 13.0f + 0.5f) ? (ready && !G.silenced ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 9)) : (uint8_t)(R_STONE + 3));
-        if (G.silenced) for (int i = 1; i < 16; i++) gfx_px(f, x + i, y + 16 - i, R_BLOOD + 11);   /* struck through */
+            gfx_px(f, x + 2 + i, y + 14, i < (int)(k * 13.0f + 0.5f) ? (ready && !hush ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 9)) : (uint8_t)(R_STONE + 3));
+        if (hush) for (int i = 1; i < 16; i++) gfx_px(f, x + i, y + 16 - i, R_BLOOD + 11);   /* struck through */
         if (b == BOSS_SPIDER || b == BOSS_DEACON) {                /* a pip for each it may have out, lit while one is */
             int out = b == BOSS_SPIDER ? webs_out() : allies_out();
             for (int p = 0; p < RUN.abil[b]; p++) gfx_rect(f, x + 1 + p * 4, y - 4, 2, 2, p < out ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 7));
@@ -26305,7 +26516,7 @@ static void render_runesockets(Frame *f) {
     int y0 = G.player ? imin(bar_top - 20, H - 21) : H - 21 - (int)(G.lift * 40.0f + 0.5f);
     for (int k = 0; k < NDEF; k++) {
         if (!G.rs_slot[k] || G.rs_a[k] <= 0.0f) continue;
-        int q = clampi(RUN.gear.def[k], 1, RUNE_EXQ), ph = rune_phase(k), ramp = gear_color(GK_DEF, k), qr = QUAL_RAMP[q - 1];
+        int q = clampi(RUN.gear.def[k], 1, RUNE_EXQ), ph = rune_phase(k), ramp = gear_color(GK_DEF, k), qr = QUAL_RAMP[q - 1], hush = rune_barred(k);
         int x = W - 21 - (G.rs_slot[k] - 1) * SOCK, y = y0 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.rs_a[k])) * 24.0f + 0.5f);
         ui_well(f, x, y, 17, 17);                                  /* a socket sunk in the stone */
         for (int i = 0; i < 17; i++) {                             /* the edge in its quality's colour */
@@ -26316,13 +26527,13 @@ static void render_runesockets(Frame *f) {
         for (int r = 0; r < 11; r++) for (int c = 0; c < 11; c++) {
             char ch = RUNE_MARK[k][r][c];
             if (ch != '#' && ch != 'o') continue;
-            int v = G.silenced ? 6 : glow ? (ch == 'o' ? 15 : 13 + (int)(1.5f * sinf((float)G.t * 9.0f))) : (ch == 'o' ? 14 : (lit ? 12 : 10));
-            gfx_px(f, x + 3 + c, y + 2 + r, G.silenced ? (uint8_t)(R_STONE + v) : ramp_at(ramp, v));
+            int v = hush ? 6 : glow ? (ch == 'o' ? 15 : 13 + (int)(1.5f * sinf((float)G.t * 9.0f))) : (ch == 'o' ? 14 : (lit ? 12 : 10));
+            gfx_px(f, x + 3 + c, y + 2 + r, hush ? (uint8_t)(R_STONE + v) : ramp_at(ramp, v));
         }
         float wait = def_cooldown(q), fill = wait > 0.0f ? 1.0f - clampf(G.def_cd[k] / wait, 0.0f, 1.0f) : 1.0f;
         for (int i = 0; i < 13; i++)                               /* coming round */
-            gfx_px(f, x + 2 + i, y + 14, i < (int)(fill * 13.0f + 0.5f) ? (fill >= 1.0f && !G.silenced ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 9)) : (uint8_t)(R_STONE + 3));
-        if (G.silenced) for (int i = 1; i < 16; i++) gfx_px(f, x + i, y + 16 - i, R_BLOOD + 11);   /* the void: no rune fires */
+            gfx_px(f, x + 2 + i, y + 14, i < (int)(fill * 13.0f + 0.5f) ? (fill >= 1.0f && !hush ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 9)) : (uint8_t)(R_STONE + 3));
+        if (hush) for (int i = 1; i < 16; i++) gfx_px(f, x + i, y + 16 - i, R_BLOOD + 11);   /* the void, or a status: no rune fires */
     }
 }
 

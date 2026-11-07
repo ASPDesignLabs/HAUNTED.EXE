@@ -100,6 +100,12 @@ enum {
     SFX_RATTLE,         /* the dead turning their heads: bones settling, the jaw's click */
     SFX_SNUFF,          /* a beast snuffling the air: three short breaths in */
     /* docs/PLAN-combat.md, two tracks on one branch (its section 17): each adds only above its own end mark */
+    SFX_AF_STUN,        /* the caster stunned: a high ring, beating, and a buzz under it (PLAN-combat's statuses) */
+    SFX_AF_HUSH,        /* the caster unbound: the breath drawn out of it, a hollow fall and a whisper going */
+    SFX_AF_FREEZE,      /* the caster frozen: ice closing over, crackling up to a hard crunch */
+    SFX_AF_THAW,        /* the ice breaking off: a sharp crack and the pieces ringing down */
+    SFX_AF_DOWN,        /* the caster knocked down: a body on stone, grit, a breath knocked out */
+    SFX_AF_SICK,        /* the caster poisoned: a sour, low gurgle rising in the throat */
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     /* the dead's track (D) ends */
