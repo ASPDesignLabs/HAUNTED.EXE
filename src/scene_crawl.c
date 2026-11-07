@@ -2524,7 +2524,7 @@ static void dress_level(void) {
                     continue;
                 }
                 if (set == 1 && style == 1 && rndf() < 0.1f) { add_deco(x + 0.5f, y + 0.5f, rnd(3) ? SP_PUDDLE_A : SP_PUDDLE_B); continue; }   /* the graves have flooded */
-                if (set == 1 && since(9) && style == 0 && corner && rnd(30) == 0) { add_deco_ex(x + 0.5f, y + 0.5f, SP_BELL, 1, DF_SWAY); continue; }
+                if (set == 1 && since(9) && style == 0 && corner && rnd(30) == 0) { add_deco_ex(x + 0.5f, y + 0.5f, SP_BELL_DEAD, 1, 0); continue; }   /* dead, still: not one to ring (1.0.0b18.1) */
                 if (set == 2 && style == 0 && corner && since(12) && rnd(12) == 0) { solid_prop(x, y, SP_ARMOURSTAND, 1, K_PROP); continue; }
                 if (set == 3 && style == 0 && corner && rnd(4) == 0) { crystals(x, y); continue; }
                 if ((style == 1 || style == 3) && since(4) && rndf() < 0.04f + 0.05f * dk) { add_deco_ex(x + 0.5f, y + 0.5f, since(6) && set <= 2 && rnd(2) ? SP_ROOTS : SP_WEBSHEET, 1, DF_SWAY); continue; }
@@ -14313,11 +14313,12 @@ static void pz_make_run1(int kind, int diff) {
     case PZ_KNELL: case PZ_DBELLS: {                               /* bells to ring in an order a banner (or a carving of ripples) gives */
         int dbells = kind == PZ_DBELLS;
         static const char *const DEPTH_WORD[4] = { "THE SHALLOWEST", "THE SHALLOW", "THE DEEP", "THE DEEPEST" };
+        static const char *const ROMAN[4] = { "I", "II", "III", "IV" };   /* cut in each bell, and in the words (1.0.0b18.1) */
         n = imin(7, 4 + diff);
         for (int k = 0; k < 4; k++) {
             char nm[40];
-            snprintf(nm, sizeof nm, "%s BELL", dbells ? DEPTH_WORD[k] : BELL_WORD[k]);
-            int b = pz_standing(TR_STRIKE, SP_BELL, 1, 0, nm);
+            snprintf(nm, sizeof nm, "%s BELL (%s)", dbells ? DEPTH_WORD[k] : BELL_WORD[k], ROMAN[k]);
+            int b = pz_standing(TR_STRIKE, SP_PBELL0 + k, 1, 0, nm);   /* each its own: shape, bands, metal, numeral */
             if (b < 0) break;
             G.thing[b].grp = 1; G.thing[b].val = k; G.thing[b].scale = 0.6f + 0.17f * (float)k;
             G.thing[b].z = dbells ? -0.08f * (float)k : 0.0f;
@@ -14326,7 +14327,7 @@ static void pz_make_run1(int kind, int diff) {
         for (int k = 0; k < n; k++) { int v; do v = rnd(4); while (k && v == G.pz_seq[k - 1]); G.pz_seq[k] = v; }
         char txt[160];
         snprintf(txt, sizeof txt, "%s", dbells ? "THE RIPPLES, AS THE BELLS SOUND:" : "THE ORDER'S KNELL, IN BELLS:");
-        for (int k = 0; k < n; k++) pz_append(txt, 160, " %s%s", dbells ? DEPTH_WORD[G.pz_seq[k]] + 4 : BELL_WORD[G.pz_seq[k]] + 4, k < n - 1 ? "," : "");
+        for (int k = 0; k < n; k++) pz_append(txt, 160, " %s (%s)%s", dbells ? DEPTH_WORD[G.pz_seq[k]] + 4 : BELL_WORD[G.pz_seq[k]] + 4, ROMAN[G.pz_seq[k]], k < n - 1 ? "," : "");
         pz_reading(dbells ? SP_PZ_TABLET : SP_PZ_BANNER, 1, dbells ? "A CARVING OF RIPPLES" : "THE BANNER OVER THE BELLS", txt);
         snprintf(ans, 200, "RING THEM SO:%s", strchr(txt, ':') + 1);
         snprintf(hint, 100, dbells ? "THE DEEPER IT HANGS, THE LOWER IT SOUNDS" : "THE BANNER'S BELLS, FROM ITS LEFT");
@@ -14612,6 +14613,8 @@ static void pz_make(void) {
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "PUZZLE level %d: %s diff %d room %d door (%d,%d) exit inside %d, %d things: %s\n", G.level, PZ_NAME[G.pz], diff, G.pz_room,
             dr->x, dr->y, G.pz_exit, G.nthing - n0, G.pz_answer);
+    if (getenv("CRAWL_PZTHINGS"))                                  /* each of its things, where (1.0.0b18.1) */
+        for (int i = n0; i < G.nthing; i++) fprintf(stderr, "PUZZLE thing %d %s at (%.2f,%.2f) z %.2f scale %.2f\n", i, G.thing[i].name, G.thing[i].x, G.thing[i].y, G.thing[i].z, G.thing[i].scale);
 #endif
 }
 /* stacking: an item laid on top of a pile */
@@ -21020,6 +21023,13 @@ static void crawl_control(int what) {
         if (best >= 0.0f) { G.px = tx; G.py = ty; G.cx = G.tx = (int)tx; G.cy = G.ty = (int)ty; G.ang = atan2f(G.ped_y[k] - ty, G.ped_x[k] - tx); }
         fprintf(stderr, "TPPED %d of %d at (%.2f,%.2f) ang %.3f\n", k + 1, G.ped_n, G.px, G.py, G.ang);
     }
+    if (getenv("CRAWL_TPAT") && !G.shop) {                         /* testing: at x,y facing deg (1.0.0b18.1, for frames) */
+        float x = 0.0f, y = 0.0f, a = 0.0f;
+        if (sscanf(getenv("CRAWL_TPAT"), "%f,%f,%f", &x, &y, &a) >= 2) {
+            G.px = x; G.py = y; G.cx = G.tx = (int)x; G.cy = G.ty = (int)y; G.ang = a * (float)M_PI / 180.0f;
+            fprintf(stderr, "TPAT (%.2f,%.2f) ang %.3f\n", G.px, G.py, G.ang);
+        }
+    }
     if (getenv("CRAWL_TPWARD") && !G.shop && WD.n) {               /* testing: before soul-lamp k, facing it (1.0.0b18.1) */
         const WLamp *L = &WD.l[clampi(atoi(getenv("CRAWL_TPWARD")) - 1, 0, WD.n - 1)];
         G.px = L->cx + 0.5f - DX[L->d] * 0.1f; G.py = L->cy + 0.5f - DY[L->d] * 0.1f; G.cx = G.tx = L->cx; G.cy = G.ty = L->cy;
@@ -24353,12 +24363,14 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     for (int i = 0; i < G.nthing && !PK.depth && !G.shop; i++) {  /* a puzzle's things (1.0.0b13) */
         const Thing *t = &G.thing[i];
         if (t->spr < 0 || G.carry == i + 1) continue;
-        int n0 = n, spr = t->spr + (t->frames > 1 ? t->state % t->frames : 0);
+        int n0 = n, spr = t->spr + (t->frames > 1 ? t->state % t->frames : 0), back = 0;
         if (t->facing) spr = t->spr + ((t->state - dir_to(G.px, G.py, t->x, t->y) + 4) & 3);   /* away, to your right, to you, to your left */
+        if (t->spr >= SP_PBELL0 && t->spr <= SP_PBELL3 && t->t < 0.8f) { spr = SP_PBELL0R + t->spr - SP_PBELL0; back = t->t >= 0.42f; }   /* rung: it leans, and swings back */
         ADD(t->x, t->y, t->z, spr, 0);
         if (n > n0) {
             list[n - 1].scale = t->scale;
             if (t->t < 0.35f || (t->role == TR_STRIKE && t->t < 1.2f)) list[n - 1].flags = DR_EDGE;   /* just touched */
+            if (back) list[n - 1].flags |= DR_FLIPH;
             if (t->ramp >= 0) list[n - 1].remap = t->ramp;
         }
         if (t->mark && n > n0) {                                   /* its mark, carved on it */
