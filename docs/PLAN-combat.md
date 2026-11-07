@@ -836,6 +836,24 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   1 and 3 from 11 stall on level 12 by a Wraith driven back, in both modes: the known stall again. **D1, D3 and D4 are built;
   D2 waits on the owner's word on its sheet of eyes** (its code kept aside: elemental creatures at birth, packs sharing, the
   element a strength, the eyes in its colour and flaring while `Mob.elem_on`). No contract changed.
+- **7 November. D2 built** (harness only), on the owner's word on its sheet (approved as drawn; `tools/eyesheet.py` draws it
+  from the game's renderer: every kind at rank III in each element, a skeleton by rank calm and striking, the motes in motion).
+  `Mob.elem` given with the strengths the first time a creature moves (`elem_give`): every kind with eyes and a blow (B7 b), rank
+  II 15%, III 25%, IV 35%, V 45%, never the gilded, any element but Physical, the run's two thrice as likely, never its kind's
+  weakness; a pack's rolled once for its leader (`Pack.elem`) and taken by members past rank I whose kind allows it; sacs and
+  spiderlings the nearest mother's. Born to an element it shrugs it off (x0.5, shown at once in the readout since the eyes tell
+  it), its weakness kept. The eyes: the element's colour (in tones apart from the ranks' own: Frost white in cyan, not rank III's
+  blue; Poison bile over green, not rank II's), the rank's form kept, a flicker, and a mote that moves each element's way; while
+  `Mob.elem_on` they flare in the colour (C sets it, C3); Unbound wins, grey. Defaults I took: the gilded are never born to one;
+  the weights 3 to 1; the readout shows a born strength at once. Two weak spots told the owner with the sheet: at rank V Frost's
+  pale cross is near a plain rank V's in a still (the falling mote parts them), and a waiting web spider's two points look alike
+  for Frost and Lightning in a still. Tested: ASan clean with each element forced from level 11 (15-25 born a run) and with a
+  person and the flare; eight seeds (1-15 odd) of 50 minutes against `CRAWL_ELEM=0` on the same build: from level 1, 51 levels
+  cleared and 5 deaths (49 and 10), 61 born; from 21, 49 and none (49, none), a level's median time 366 s (368), 507 born (Fire 88,
+  Frost 62, Lightning 142, Poison 162, Spirit 53: run III's two lead). A long stall line on level 3 of seed 7 is THE KNIGHT'S
+  WAGER, a trial's duel of 40 s, not a stall. Bench on this session's new machine: 2.19-2.31 ms a frame against D4's 2.09-2.19
+  on the same machine (the earlier 1.5 was another machine). **D1 to D4 are built**: track D's steps for 1.0.0b19 are done, but for
+  J19. **CONTRACT** unchanged: `Mob.elem` is set, and its colour and flare wait only on C3 setting `Mob.elem_on`.
 
 ## Appendix: the owner's guide (7 November), as given
 

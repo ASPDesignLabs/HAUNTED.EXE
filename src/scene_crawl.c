@@ -189,7 +189,8 @@ typedef struct {
     float call_t, seen_t, kx, ky, turn_t;
     int on[2]; float on_hp[2];
     float chill_t;                                                 /* step 8: the Wraith's wail heard; it keeps to its posts a while */
-    int ward[2], wset;                                             /* 1.0.0b16: the ward its members share (1 + the element), once given */
+    int ward[2], wset, elem;                                       /* 1.0.0b16: the ward its members share (1 + the element), once given;
+                                                                      1.0.0b19: the element they were born to (1 + it, -1 none, 0 not yet) */
     int hunted, hurts0, done;                                      /* 1.0.0b18: it has hunted you; your hurts as it set on you; its end
                                                                       counted */
 } Pack;
@@ -4801,7 +4802,7 @@ static float weak_el(const Mob *m, int el) {
         return strong ? w * (1.0f - ward_str()) : w;
     }
     float w = kind_weak(m->type, el);
-    return strong ? fminf(w, STRENGTH_K) : w;                      /* its rank's strength, never more than its kind's own */
+    return strong || m->elem == el + 1 ? fminf(w, STRENGTH_K) : w;   /* its rank's strength, or born to it (7.4, B6), never more than its kind's own */
 }
 static float weak_to(const Mob *m, int atk) {
     return ATK_ELEM[atk] < 0 ? (KIND_IS(m, KF_SPIRIT) ? 0.0f : 1.0f) : weak_el(m, ATK_ELEM[atk]);
@@ -4852,14 +4853,14 @@ static int ward_pick(const Mob *m, int ward[2]) {                  /* which elem
  * one a strength teaches), and always leaving a held line that bites it at least as usual. Those its pack chose come
  * first (pref), so a pack shares them where its kinds allow. Returns how many. */
 static int rank_strengths(int rank) { return rank >= RK_V && rank != RK_GILDED ? 2 : rank >= RK_III ? 1 : 0; }
-static int strength_pick(const Mob *m, int n, const int *pref, int out[2]) {
+static int strength_pick(const Mob *m, int n, int born, const int *pref, int out[2]) {   /* born: 1 + the element it was born to */
     out[0] = out[1] = 0;
     int held[NELEM], nh = 0, own = cls_el(), cand[NELEM], nc = 0, bites = 0;
     for (int e = 0; e < NELEM; e++) if (align_open(e)) held[nh++] = e;
     if (nh < 2 || n <= 0) return 0;                                /* never against the only line held */
     for (int i = 0; i < nh; i++) {
         int e = held[i];
-        float w = kind_weak(m->type, e);
+        float w = born == e + 1 ? fminf(kind_weak(m->type, e), STRENGTH_K) : kind_weak(m->type, e);
         if (w > STRENGTH_K + 0.01f) bites++;                       /* a held line it doesn't shrug off */
         if (w <= STRENGTH_K + 0.01f || w > 1.01f) continue;        /* shrugged off already, or what it is weak to */
         if (nh == 2 && e == own) continue;
@@ -4878,16 +4879,83 @@ static void strength_give(Mob *m) {
     if (p && !p->wset) {                                           /* the pack's, chosen once for its leader, two deep */
         const Mob *lead = p->leader >= 0 ? &G.mobs[p->leader] : m;
         p->wset = 1;
-        strength_pick(lead, 2, NULL, p->ward);
+        strength_pick(lead, 2, p->elem > 0 ? p->elem : 0, NULL, p->ward);
     }
-    strength_pick(m, rank_strengths(m->rank), p ? p->ward : NULL, m->ward);
+    strength_pick(m, rank_strengths(m->rank), m->elem, p ? p->ward : NULL, m->ward);
 #ifdef CRAWL_DEBUG
     if (m->ward[0]) fprintf(stderr, "EVENT strengths %s rank %d against %s%s%s t=%.2f\n", KINDS[m->type].name, m->rank, ELEM_NAME[m->ward[0] - 1],
                             m->ward[1] ? " and " : "", m->ward[1] ? ELEM_NAME[m->ward[1] - 1] : "", G.t);
 #endif
 }
+/* Elemental creatures (docs/PLAN-combat.md 7.4, B6-B10): past rank I one may be born to an element; its attacks carry it
+ * some of the time (the caster's track's, C3) and its eyes show it; it shrugs that element off, and its weakness stays. Every
+ * kind with eyes and a blow (B7 b), never a spirit, the shade, the Lightless, the deacon, the Sexton, a boss or its adds, an
+ * ally; the imp and the wall skull are fire by nature and born to nothing else. Rank II 15%, III 25%, IV 35%, V 45%, the
+ * gilded never; any element but Physical, the run's two thrice as likely as the rest, never its kind's weakness. A pack shares
+ * its leader's; a brood's sacs and spiderlings take their mother's. Given the first time it moves, with its strengths (so a
+ * pack's ranks are settled), never saved. CRAWL_ELEM=e (1 Fire ... 5 Spirit): every one that can be, of that element. */
+static int elem_kind(int type) {
+    switch (type) {
+    case MOB_SKEL: case MOB_BAT: case MOB_SHIELD: case MOB_SPIDER: case MOB_SHAMBLER: case MOB_DROWNED: case MOB_HOUND:
+    case MOB_HUNTER: case MOB_GHOUL: case MOB_KNIGHT: case MOB_BROOD: case MOB_SAC: case MOB_LING: case MOB_GARGOYLE: case MOB_WHIPPER:
+        return 1;
+    default: return 0;
+    }
+}
+static int elem_may(const Mob *m, int e) {                         /* may m be born to element e (0-based) */
+    return e >= 0 && e < EL_PHYS && elem_kind(m->type) && !m->boss && !m->add && !m->ally && kind_weak(m->type, e) <= 1.01f;
+}
+static int elem_roll(const Mob *m) {                               /* 1 + the element m is born to, or 0 */
+    static const float CHANCE[NRANK] = { 0.0f, 0.15f, 0.25f, 0.35f, 0.45f, 0.0f };
+    static const int8_t FAV[4][2] = { { EL_FIRE, EL_SPIRIT }, { EL_FROST, EL_POISON }, { EL_LIGHT, EL_POISON }, { EL_FIRE, EL_SPIRIT } };
+    float ch = CHANCE[clampi(m->rank, 0, NRANK - 1)];
+    if (ch <= 0.0f) return 0;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_ELEM")) { int e = atoi(getenv("CRAWL_ELEM")) - 1; return elem_may(m, e) ? e + 1 : 0; }
+#endif
+    if (rndf() >= ch) return 0;
+    const int8_t *fav = FAV[clampi(crawl_set(G.level), 0, 3)];
+    float w[EL_PHYS], tot = 0.0f;
+    for (int e = 0; e < EL_PHYS; e++) { w[e] = elem_may(m, e) ? (e == fav[0] || e == fav[1] ? 3.0f : 1.0f) : 0.0f; tot += w[e]; }
+    float r = rndf() * tot;
+    for (int e = 0; e < EL_PHYS; e++) if (w[e] > 0.0f && (r -= w[e]) < 0.0f) return e + 1;
+    return 0;
+}
+#ifdef CRAWL_DEBUG
+static int elem_born;
+#endif
+static void elem_give(Mob *m) {
+    m->elem = 0;
+    if (!elem_mode() || !elem_kind(m->type) || m->boss || m->add || m->ally) return;
+    int forced = 0;                                                /* CRAWL_ELEM=e: every one that can be, mother or none */
+#ifdef CRAWL_DEBUG
+    forced = getenv("CRAWL_ELEM") != NULL;
+#endif
+    if ((m->type == MOB_SAC || m->type == MOB_LING) && !forced) {  /* her children: the nearest mother's */
+        const Mob *mo = NULL;
+        float bd = 12.0f;
+        for (int i = 0; i < MAXMOBS; i++) {
+            const Mob *o = &G.mobs[i];
+            float d = hypotf(o->x - m->x, o->y - m->y);
+            if (o->alive && o->type == MOB_BROOD && o->state == MS_WALK && o->wset && d < bd) { bd = d; mo = o; }
+        }
+        if (mo && elem_may(m, mo->elem - 1)) m->elem = mo->elem;
+    } else if (m->pack && pack_of(m)) {                            /* a pack's: its leader's, rolled once */
+        Pack *p = (Pack *)pack_of(m);
+        if (!p->elem) {
+            const Mob *lead = p->leader >= 0 && elem_kind(G.mobs[p->leader].type) ? &G.mobs[p->leader] : m;
+            int e = elem_roll(lead);
+            p->elem = e ? e : -1;
+        }
+        if (p->elem > 0 && m->rank > RK_I && m->rank != RK_GILDED && elem_may(m, p->elem - 1)) m->elem = p->elem;
+    } else m->elem = m->rank != RK_GILDED ? elem_roll(m) : 0;
+#ifdef CRAWL_DEBUG
+    if (m->elem) { elem_born++; fprintf(stderr, "EVENT born %s rank %d of %s t=%.2f\n", KINDS[m->type].name, m->rank, ELEM_NAME[m->elem - 1], G.t); }
+#endif
+}
 static void ward_give(Mob *m) {
     m->wset = 1; m->ward[0] = m->ward[1] = 0;
+    elem_give(m);                                                  /* born to an element, or not (1.0.0b19) */
     int mode = ward_mode();
     if (!mode || m->boss || m->add || m->ally || m->tri || KIND_IS(m, KF_SPIRIT)
         || m->type == MOB_GHOST || m->type == MOB_WSKULL || m->type == MOB_SAC || m->type == MOB_LING || m->type == MOB_WRAITH) return;
@@ -23587,11 +23655,17 @@ enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_S
  * never lost to a far-off sprite's sampling, at least a point each with a pixel between. The kind's own colour at rank I,
  * the rank's from II, and a form for each rank: II a glow beside, III a cold slit, IV a streak to the temple, V a white
  * flare, gilded a small gold cross. Alerted they gain a halo and stop blinking; striking they flare. The Shade has none. */
-enum { EC_AMBER, EC_COLD, EC_SULPHUR, EC_EMBER, EC_WGOLD, EC_CRIMSON, EC_PALE, EC_ROT, EC_CHILL, EC_BLOOD, EC_HOT, EC_GILT, EC_ASH, EC_FIRE, NEC };
+enum { EC_AMBER, EC_COLD, EC_SULPHUR, EC_EMBER, EC_WGOLD, EC_CRIMSON, EC_PALE, EC_ROT, EC_CHILL, EC_BLOOD, EC_HOT, EC_GILT, EC_ASH, EC_FIRE,
+       EC_EL0, EC_EL_LAST = EC_EL0 + EL_PHYS - 1, NEC };          /* 1.0.0b19: born to an element (docs/PLAN-combat.md 7.4), by EL_*,
+                                                                      in tones apart from the ranks' own (the rank keeps its form) */
 static const uint8_t EYE_CORE[NEC] = { R_FLAME + 12, R_GLOW + 15, R_FLAME + 15, R_BLOOD + 15, C_WHITE, R_BLOOD + 15, C_WHITE,
-                                       R_MOSS + 15, R_GLOW + 15, R_FLAME + 8, C_WHITE, R_GOLD + 12, R_FLAME + 5, R_FLAME + 15 };
+                                       R_MOSS + 15, R_GLOW + 15, R_FLAME + 8, C_WHITE, R_GOLD + 12, R_FLAME + 5, R_FLAME + 15,
+                                       R_FLAME + 15, C_WHITE, C_WHITE, R_GOLD + 11, R_PURPLE + 15 };   /* fire, frost (white in cyan, not the
+                                                                      third rank's blue), lightning (white in gold), poison (bile over
+                                                                      green), spirit */
 static const uint8_t EYE_GLOW[NEC] = { R_FLAME + 7, R_GLOW + 10, R_MOSS + 13, R_BLOOD + 10, R_FLAME + 12, R_BLOOD + 11, R_GHOST + 11,
-                                       R_MOSS + 11, R_GLOW + 11, R_BLOOD + 13, R_PURPLE + 14, R_GOLD + 8, R_FLAME + 1, R_FLAME + 9 };
+                                       R_MOSS + 11, R_GLOW + 11, R_BLOOD + 13, R_PURPLE + 14, R_GOLD + 8, R_FLAME + 1, R_FLAME + 9,
+                                       R_FLAME + 10, R_GHOST + 11, R_GOLD + 12, R_MOSS + 10, R_PURPLE + 10 };
 static const int8_t EYE_OWN[NKINDS] = {                            /* each kind's own, at rank I */
     [MOB_SKEL] = EC_AMBER, [MOB_GHOST] = EC_COLD, [MOB_BAT] = EC_EMBER, [MOB_WSKULL] = EC_AMBER, [MOB_SHIELD] = EC_AMBER,
     [MOB_SPIDER] = EC_EMBER, [MOB_SHAMBLER] = EC_SULPHUR, [MOB_DROWNED] = EC_COLD, [MOB_HOUND] = EC_AMBER, [MOB_WRAITH] = EC_COLD,
@@ -23615,8 +23689,13 @@ static void render_eyes(Frame *f, const Draw *d, float left, float top, float si
     float ph = d->x * 3.1f + d->y * 1.7f;
     if (st == 0 && fmodf((float)G.t * 0.37f + ph, 5.0f) < 0.08f) return;   /* a blink, now and then, while it is calm */
     uint8_t core = EYE_CORE[ec], glow = EYE_GLOW[ec];
+    int born = ec >= EC_EL0 && ec <= EC_EL_LAST;                   /* born to an element (1.0.0b19) */
     if (st == 2) core = C_WHITE;                                   /* striking: they flare */
-    if (st == 5) { core = R_STONE + 11; glow = R_STONE + 6; st = 1; }   /* Unbound (1.0.0b19): the fire gone out of them, grey */
+    else if (born && st != 4 && st != 5 && fmodf((float)G.t * (ec == EC_EL0 + EL_LIGHT ? 11.0f : 6.0f) + ph, 1.0f) < 0.3f) core = glow;   /* its
+                                                                      element stirring in them: a flicker, quicker for lightning */
+    if (st == 4) st = 2;                                           /* striking with its element (Mob.elem_on): they flare in its colour */
+    if (st == 5) { core = R_STONE + 11; glow = R_STONE + 6; born = 0; st = 1; }   /* Unbound (1.0.0b19): the fire gone out of them, grey,
+                                                                      and its element with it */
     float es = size / TS;
     int sx[2], sy[2], n = e->n;
     for (int i = 0; i < n; i++) {
@@ -23631,10 +23710,26 @@ static void render_eyes(Frame *f, const Draw *d, float left, float top, float si
     for (int i = 0; i < n; i++) {
         int x0 = sx[i] - cs / 2, y0 = sy[i] - cs / 2, out = n == 2 ? (sx[i] < sx[1 - i] ? -1 : 1) : 1;
         if (near) {
+            int flare = d->estate == 4;                            /* its element's flare: a full halo, a ring wider */
             if (st >= 1)                                           /* alerted: a halo, dithered */
-                for (int y = y0 - 1; y <= y0 + cs; y++)
-                    for (int x = x0 - 1; x <= x0 + cs; x++)
-                        if ((x + y) & 1) eye_px(f, x, y, glow, d->depth);
+                for (int y = y0 - 1 - flare; y <= y0 + cs + flare; y++)
+                    for (int x = x0 - 1 - flare; x <= x0 + cs + flare; x++)
+                        if (flare || ((x + y) & 1)) eye_px(f, x, y, glow, d->depth);
+            if (born && !flare) {                                  /* a mote of it now and then, each its own way, so they read
+                                                                      apart from the ranks' colours: fire rises, frost falls white,
+                                                                      lightning sparks at the side, poison drips, spirit sways up */
+                int el = ec - EC_EL0, mx = x0 + cs / 2, my = y0, side = i ? 1 : -1;
+                float mt = fmodf((float)G.t * 1.3f + ph * 0.7f + (float)i * 0.45f, 1.0f);
+                uint8_t mc = glow;
+                switch (el) {
+                case EL_FIRE: mx += side * (int)(mt * 2.0f); my = y0 - 1 - (int)(mt * (float)(cs + 4)); break;
+                case EL_FROST: mx += side * 2; my = y0 + cs + (int)(mt * (float)(cs + 3)); mc = C_WHITE; break;
+                case EL_LIGHT: mt *= 2.0f; mx = side > 0 ? x0 + cs + 1 + (int)(mt * 2.0f) : x0 - 2 - (int)(mt * 2.0f); my = y0 + (int)(mt * 3.0f) % imax(1, cs); break;
+                case EL_POISON: mx += side; my = y0 + cs + (int)(mt * mt * (float)(cs + 5)); break;
+                default: mx += (int)(2.0f * sinf(mt * TAU_F)); my = y0 - 1 - (int)(mt * (float)(cs + 5)); break;
+                }
+                if (mt < 0.7f) eye_px(f, mx, my, mc, d->depth);
+            }
             switch (rank) {
             case RK_II: for (int k = 0; k < cs; k++) eye_px(f, out > 0 ? x0 + cs : x0 - 1, y0 + k, glow, d->depth); break;   /* a glow beside */
             case RK_III: for (int k = 1; k <= cs; k++) { eye_px(f, x0 + cs / 2, y0 - k, glow, d->depth); eye_px(f, x0 + cs / 2, y0 + cs - 1 + k, glow, d->depth); } break;   /* a slit */
@@ -23642,7 +23737,7 @@ static void render_eyes(Frame *f, const Draw *d, float left, float top, float si
             case RK_V: {                                           /* a white flare, slowly breathing */
                 int a = arm + (int)(1.5f + 1.5f * sinf((float)G.t * 1.7f + ph));
                 for (int k = 1; k <= a; k++) {
-                    uint8_t c = k == a ? (ec == EC_FIRE ? (uint8_t)(R_FLAME + 3) : (uint8_t)(R_PURPLE + 11)) : glow;
+                    uint8_t c = k == a ? (born ? (uint8_t)(glow - 4) : ec == EC_FIRE ? (uint8_t)(R_FLAME + 3) : (uint8_t)(R_PURPLE + 11)) : glow;
                     eye_px(f, x0 + cs / 2, y0 - k, c, d->depth); eye_px(f, x0 + cs / 2, y0 + cs - 1 + k, c, d->depth);
                     eye_px(f, x0 - k, y0 + cs / 2, c, d->depth); eye_px(f, x0 + cs - 1 + k, y0 + cs / 2, c, d->depth);
                 }
@@ -24184,7 +24279,10 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (m->boss) { d->scale *= BOSSES[m->boss - 1].scale; if (waits) d->flags |= DR_EDGE; }
         if (m->small) d->scale *= 0.62f;
         if (m->rank != RK_I && KINDS[m->type].family >= 0 && !statue) d->lut = crawl_rank_lut[KINDS[m->type].family][m->rank];
-        if (m->type == MOB_SPIDER && m->state == MS_WALK && m->sub == 0) d->flags = DR_EYES;
+        if (m->type == MOB_SPIDER && m->state == MS_WALK && m->sub == 0) {
+            d->flags = DR_EYES;
+            if (m->elem > 0 && m->elem <= EL_PHYS) d->ecol = 1 + EC_EL0 + m->elem - 1;   /* born to an element: its points in its colour */
+        }
         if (m->type == MOB_HUNTER && m->state == MS_WALK && m->sub == 0) d->flags = DR_FLIPV;
         if (m->type == MOB_BAT && m->state == MS_WALK && m->sleep == 1) d->z -= 0.33f * d->scale;   /* a roost, asleep: drawn as it hangs,
                                                                       its feet at the ceiling */
@@ -24240,11 +24338,16 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (m->state == MS_WALK && !statue && m->type != MOB_SHADE && (crawl_eyes[s].n || backed) && !(d->flags & (DR_EYES | DR_IMPLODE))) {
             d->eye = !backed; d->etype = m->type; d->erank = m->boss ? RK_V : m->rank;   /* its eyes, after it (render_eyes) */
             if (m->boss == 1 + BOSS_SPIDER) d->ecol = 1 + EC_FIRE;     /* her two great eyes keep their fire (the owner's word) */
+            else if (m->elem > 0 && m->elem <= EL_PHYS) d->ecol = 1 + EC_EL0 + m->elem - 1;   /* born to an element: its colour */
             int dx = crawl_dress_ix[s][m->rank];
             if (m->rank != RK_I && dx >= 0 && !m->boss) d->ov = crawl_dress[dx];   /* its rank's dressing */
             if (!m->boss && m->rank >= RK_III && !KIND_IS(m, KF_SPIRIT)) d->vap = 1.0f;   /* and its spirit, showing */
             d->estate = m->type == MOB_WSKULL ? (m->sub == 0 ? 3 : 2) : (m->swing > 0.0f || m->throw_t > 0.0f ? 2 : (m->alert ? 1 : 0));
-            if (m->unb_t > 0.0f && d->estate != 3) d->estate = 5;   /* Unbound: its eyes gone grey */
+            if (m->elem && m->elem_on && d->estate != 3) d->estate = 4;   /* its attack carries its element: they flare in it */
+#ifdef CRAWL_DEBUG
+            if (m->elem && getenv("CRAWL_EYEFLARE")) d->estate = 4;   /* for the sheet */
+#endif
+            if (m->unb_t > 0.0f && d->estate != 3) d->estate = 5;   /* Unbound: its eyes gone grey, its element out of them */
         } else if (m->state == MS_WALK && m->type == MOB_LIGHTLESS && !(d->flags & (DR_EYES | DR_IMPLODE))) {   /* no eyes, but its rank's marks */
             int dx = crawl_dress_ix[s][m->rank];
             if (m->rank != RK_I && dx >= 0) d->ov = crawl_dress[dx];
@@ -24529,7 +24632,9 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                 for (int yy = 0; yy <= big; yy++)
                     for (int xx = 0; xx <= big; xx++) {
                         int px = sx + xx, py = sy + yy;
-                        if (px >= 0 && px < W && py >= 0 && py < H && d->depth < zbuf[px]) f->pix[py * W + px] = (uint8_t)(R_BLOOD + 13 + (int)(2.5f * (0.5f + 0.5f * sinf((float)G.t * 2.0f + d->x))));
+                        if (px >= 0 && px < W && py >= 0 && py < H && d->depth < zbuf[px])
+                            f->pix[py * W + px] = d->ecol ? (sinf((float)G.t * 2.0f + d->x) > 0.0f ? EYE_CORE[d->ecol - 1] : EYE_GLOW[d->ecol - 1])
+                                                          : (uint8_t)(R_BLOOD + 13 + (int)(2.5f * (0.5f + 0.5f * sinf((float)G.t * 2.0f + d->x))));
                     }
             }
             continue;
@@ -28211,6 +28316,7 @@ static float shown_weak(const Mob *m, int e) {                    /* what the re
     if (!elem_mode() || m->type == MOB_GHOST || (m->type == MOB_WRAITH && m->boss)) return weak_el(m, e);
     float w = kind_weak(m->type, e);
     for (int i = 0; i < 2; i++) if (m->ward[i] == e + 1 && strength_shown(m, i)) w = fminf(w, STRENGTH_K);
+    if (m->elem == e + 1) w = fminf(w, STRENGTH_K);                /* born to it: its eyes say so */
     return w;
 }
 static int weak_side(const Mob *m, int more, int *el, int *gr, int *unknown) {

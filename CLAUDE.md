@@ -1533,7 +1533,17 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `DM_SLOW` is a Chilled stack on every hit (not `m->slowed`), the flask's poison is Poisoned, neither rolls; Physical gives
   nothing. Deep Chill's shard count gives way to `chill_need` (three stacks, not four); Permafrost lengthens the freeze;
   Amperage's `daze` is a 1.5 s stun. The Codex's first elements page says what each leaves on them. `CRAWL_ELEM=0` keeps all
-  of it out.
+  of it out. **D2, elemental creatures** (7.4; harness only; its sheet `tools/eyesheet.py`): `Mob.elem` (1 + the element) given
+  with its strengths the first time it moves (`elem_give` from `ward_give`): `elem_kind` (the kinds with eyes and a blow, B7 b),
+  `elem_may` (never Physical, never its kind's weakness, never a boss, its adds or an ally), `elem_roll` (rank II 15%, III 25%, IV
+  35%, V 45%, the gilded never; the run's two elements thrice as likely); a pack's rolled once for its leader (`Pack.elem`, -1
+  none) and taken by its members past rank I where their kind allows; sacs and spiderlings take the nearest mother's. Born to it,
+  it shrugs it off (`weak_el`, x0.5, shown at once since the eyes tell it; `strength_pick` counts it as shrugged). The eyes
+  (`EC_EL0` + the element in `EYE_CORE`/`EYE_GLOW`, tones apart from the ranks': frost white in cyan, poison bile over green):
+  `Draw.ecol` in its colour, the rank's form kept, a flicker and a mote moving each element's way (`render_eyes`); striking with
+  it (`Mob.elem_on`, C's) `Draw.estate` 4, a full halo in its colour; Unbound (5) wins, grey; a web spider waiting in its web
+  shows its two points in the colour. Debug: `CRAWL_ELEM=e` (1 Fire ... 5 Spirit: every one that can be, of e, mothers or
+  none), `CRAWL_EYEFLARE=1` (every born one flaring, for the sheet), `EVENT born`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are
