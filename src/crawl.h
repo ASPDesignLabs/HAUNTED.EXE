@@ -284,6 +284,11 @@ enum {
     SP_MK_TABLET, SP_MK_PLINTH0, SP_MK_PLINTH1, SP_MK_RELIQ0, SP_MK_RELIQ1, SP_MK_RELIQ2, SP_MK_WSTONE0, SP_MK_WSTONE1,
     SP_MK_RELAY0, SP_MK_RELAY1, SP_MK_RELAY2, SP_MK_CASK0, SP_MK_CASK1, SP_MK_PILLAR0, SP_MK_PILLAR1,
     SP_MK_PFONT0, SP_MK_PFONT1, SP_MK_DRUM0, SP_MK_DRUM1,
+    /* 1.0.0b18.1 (docs/PLAN-b18-1.md, sections 5 and 6): the bell puzzles' four bells, still and swung (I silver on a yoke,
+     * II bronze and waisted, III iron and wide-mouthed, IV the great bell in black iron); run II's dead bell; the soul-lamp
+     * in each run's look, three a run: out, and lit in two frames (SP_WLAMP0 + 3 * run + state) */
+    SP_PBELL0, SP_PBELL1, SP_PBELL2, SP_PBELL3, SP_PBELL0R, SP_PBELL1R, SP_PBELL2R, SP_PBELL3R, SP_BELL_DEAD,
+    SP_WLAMP0, SP_WLAMP_LAST = SP_WLAMP0 + 11,
     /* 1.0.0b18, the minds shown (docs/PLAN-ai.md Part H): backs (walking), the roost asleep and stirring, the ambushes' signs */
     SP_SKEL_BKA, SP_SKEL_BKB, SP_SHIELD_BKA, SP_SHIELD_BKB, SP_BAT_ROOST, SP_BAT_ROOST2,
     SP_SIGN_RAKE, SP_SIGN_DRAG, SP_SIGN_SCREE, SP_SIGN_CINDER, SP_SIGN_EYES,

@@ -1,6 +1,7 @@
 # 1.0.0b18.1: the trial's door, and the crypt made kinder
 
-**Settled; steps 1-3 built** (harness only; 7 November 2026). Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
+**Settled; steps 1-3 built** (harness only; 7 November 2026); **step 4's sheets wait for the owner** (`docs/b18-1/bells.png`,
+`docs/b18-1/lamps.png`). Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
 tracks of [`PLAN-combat.md`](https://github.com/ASPDesignLabs/HAUNTED.EXE/blob/claude/inspiring-archimedes-dbj5n6/docs/PLAN-combat.md)
 build 1.0.0b19 on `claude/inspiring-archimedes-dbj5n6`. The owner gave one fault and six improvements, asked for them as an
 update of their own ahead of that work, and answered every question in one round (section 12). Every number below that isn't
@@ -138,6 +139,17 @@ a broken one is only there. The Toll's four small bells keep `SP_BELL` (they are
 `make sheets` draws `bells.png`: today's bell at the knell's four sizes and the drowned bells' four depths beside the four new
 ones, still and rung, in each run's light, and the dead bell beside today's decoration. To the owner before anything goes in.
 
+*As drawn* (step 4; `spr_pbell`, `bell_body`, `bell_r`, `cut_numeral`, `cv_swing`, `spr_bell_dead`; `SP_PBELL0..3`, `SP_PBELL0R..3R`,
+`SP_BELL_DEAD`; `make sheets`' `b181bells`, and `docs/b18-1/bells.png` in run I's light at level 6 over run II's at 16; the
+sheet tool draws each sprite at one size, so the knell's sizes and the drowned bells' depths are left to step 5's frames):
+- Silver is the iron ramp's brightest steps, not the ghost ramp, which came out icy blue. So the four darken in order, I to IV,
+  with bronze between: another way to tell them, besides shape, bands and numeral.
+- The numerals have serifs; without them II and III read as slots in the metal. IV is inlaid pale in the black iron.
+- Rung, a bell leans from its beam, its clapper lags and strikes the lip, and the ring goes out from where it struck.
+- Today's bell (the art pass's, P4) is already a little broken: a crack up from a chip in its lip, its rope cut. The dead bell
+  goes much further, so the two can't be confused: a wedge gone from the lip, cracked through, no clapper, one strap left, askew
+  from a beam broken through, with grey threads of web. The Toll's four small bells keep today's bell, as the plan says.
+
 ## 6. The Wraith barred (W1 a + c, W2 a, W3 a, W4 a)
 
 ### The areas
@@ -163,6 +175,12 @@ Each then grows a ring of one cell, the cells immediately round it, through floo
 - **The clock** (W2 a) burns only while the Wraith is on the level: from its coming, and not while it is in the stone between
   being cornered and coming again. Souls offered before it comes wait. Anything that stops the level (a pocket, a menu) stops it.
 - Defaults: not saved; a level begun again begins with every lamp out, the souls offered gone.
+- *As drawn* (step 4; `spr_wlamp`, `lamp_flame`, `lamp_pips`; `SP_WLAMP0 + 3 x run + state`, 0 out, 1 and 2 lit; `make sheets`'
+  `b181lamps`, and `docs/b18-1/lamps.png` with each run's three in its own run's light, levels 5, 15, 25 and 35): run I an iron
+  cage under a plate pierced with the Order's cross; run II a bronze bowl on three chains from a bracket, dripping; run III a
+  miner's lantern on a hook from a timber bracket, its horn panes glowing; run IV an obsidian vessel glinting violet, the flame
+  seen through it. The soul's flame is the full-bright magic ramp, which is blue (the plan said pale violet), and so plainly not
+  a torch's. The sprites show all five pips lit when the lamp is lit; in play the pips not yet banked will be drawn out (step 6).
 
 ### The Wraith
 
@@ -384,6 +402,11 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   used there. Two things kept out of their way on purpose: `Item` isn't touched (their `Bone` change is the line above it, so a
   new field would have conflicted), and no draw flag was added (their C3 added `DR_ELEMX`); the hoard's gold edge is a ramp in
   `Draw.glint` read by the edge's one line, about 25 lines above their `DR_ELEMX` block in the same drawer.
+- **After step 4** (7 November, their branch at `5559111`, two commits on: C4's sheet and its notes, which added sprites and
+  sheet groups above their marks): applied clean, no conflict markers, `make host` and `make build/sheet` built there. The new
+  sprites are in the middle of the `SP_*` enum (after the things that want a spell) and of `crawl_art_init` (after the drum),
+  and the sheet's groups before `b6`, all away from their marks at the ends; the sprite numbers after them shift, which nothing
+  saves.
 
 ## 15. Hand-off log
 
@@ -459,3 +482,14 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
     `CRAWL_TRIWIN=8`; the trial merge clean.
   - *For the owner's eye:* whether the gold edge reads as "worth more" on a real screen, in motion. It can be made stronger.
   - *Left:* nothing of step 3. Next, step 4: the sheets of the bells and the soul-lamps, to the owner first.
+  - *CI:* run 42409578815 on the branch (started by hand): the Windows build compiled, the smoke test passed.
+- **7 November. Step 4, the sheets of the bells and the soul-lamps: drawn, and sent to the owner.**
+  - *Drawn:* sections 5 and 6's *as drawn* notes. The sprites are made at start-up but nothing places them yet (step 5 puts the
+    bells in the puzzles and the dead bell in run II's halls, step 6 the lamps).
+  - *Changed on the way, from my own look at the first drawings:* silver from the ghost ramp (icy blue) to the iron ramp's
+    brightest steps; serifs on the numerals; stronger bands; the dead bell's missing piece cut down from a third of the bell to a
+    wedge out of the lip; its cobwebs from gold dots to grey threads; the lamps' page put together with each run's lamps in that
+    run's light.
+  - *Checks:* both builds without warnings; `make smoke` passes (1.81 ms a frame); the trial merge clean (section 14).
+  - *Waiting on:* the owner's word on both sheets. While they wait, step 6's logic (the ward's areas, the Wraith's way round,
+    the offering) and step 7's controller sheet can go on; neither hangs on these drawings.

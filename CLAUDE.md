@@ -1512,7 +1512,11 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   (`tri_reward_at`). The hoard is drawn full bright with a gold edge (`DR_EDGE` with a ramp in `Draw.glint`, which colours the
   edge) and its own light; the draught makes you whole and cures poison (`collect`), and waits in `update_items` while you are
   whole. The tally notes it under TREASURE, the reckoning says if it still lies there, and the Codex's trial page says so.
-  Debug: `CRAWL_TRIWIN=s` (a trial won s seconds in), `EVENT trial_reward`, `trial_hoard`, `draught`.
+  Debug: `CRAWL_TRIWIN=s` (a trial won s seconds in), `EVENT trial_reward`, `trial_hoard`, `draught`. *The sheets* (step 4, for
+  the owner): the bell puzzles' four bells (`spr_pbell`, `bell_body`, `cut_numeral`, `cv_swing`; `SP_PBELL0..3`, swung
+  `SP_PBELL0R..3R`), run II's dead bell (`spr_bell_dead`, `SP_BELL_DEAD`; `spr_deadbell` is her hall's Dead Bell, another
+  thing) and the soul-lamp by run (`spr_wlamp`, `SP_WLAMP0 + 3 x run + state`), in the `SP_*` enum after the things that want a
+  spell; `make sheets`' `b181bells` and `b181lamps`, kept as `docs/b18-1/bells.png` and `lamps.png`. Made, not yet placed.
 
 ## Releasing
 
