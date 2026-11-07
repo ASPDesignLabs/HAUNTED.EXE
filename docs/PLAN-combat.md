@@ -683,6 +683,10 @@ In `src/scene_crawl.c`, after `Mob`, committed with this section:
   each element imparts: the same names on the caster (C) and on the dead (D).
 - `mob_stunned(m)`, `mob_unbound(m)`: stubs that say no; D fills them in (D3); C's attacks call them (C3, C4) and don't start
   what they forbid.
+- `Mob.c_flags` (added for C4, 7 November): draw flags (`DR_*`) track C asks a creature to be drawn with while one of its attacks
+  is under way (the Bone Thrower's flash, `DR_EDGE`). Set by C, cleared by C; the creatures' part of `render_sprites` ORs it into
+  the creature's flags, one line, and does nothing else with it. Anything else C draws for its attacks (a charge's after-images,
+  the dust of its stamp, the Drowned's spew) C adds in the missiles' part.
 - To come: at the start of 1.0.0b20, C5's `conf_rank(cf)` and `conf_value(cf, which)`, which D5 reads; at the start of 1.0.0b21,
   C6's augment hooks, which D7 fills for its lines.
 

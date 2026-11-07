@@ -160,6 +160,8 @@ typedef struct {
                                                                       read by D's eyes, which flare in its colour */
     float elem_t;                                                  /* an attack's element decided (C3): how long it holds, wind-up and
                                                                       a moment after; 0 not decided */
+    int c_flags;                                                   /* contract (C4): DR_* flags C asks it drawn with while an attack of
+                                                                      its is under way; the creatures' part ORs them in */
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     int elem;                                                      /* 1 + the element it was born to (section 7.4), 0 none: set by D,
@@ -24568,6 +24570,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (G.ptheme == PT_SEVERANCE) d->flags |= DR_LIT;              /* nor here: everything is too clean */
         if (flipH) d->flags |= DR_FLIPH;
         if (waits) d->flags |= DR_EDGE;
+        if (m->state == MS_WALK) d->flags |= m->c_flags;           /* the contract: what track C's attacks ask (C4) */
         if (m->boss == 1 + BOSS_KNIGHT && m->state == MS_WALK) {
             d->flags |= DR_SHINE;
             if (G.bdash_age < 0.8f) {                              /* Swift Dodge: where it was a moment ago, fading */
