@@ -827,6 +827,9 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   Inside the noise, then: the dream answers most of it at range, so a carried element reaches it about once a level. No contract
   changed: `Mob.elem_on` is set, so D2's flare shows in play. Next: C4, its sheet first (the Bone Thrower's flash, the charge, the
   spew), for the owner.
+- **7 November. CONTRACT: `Mob.c_flags`** (17.3): draw flags track C asks a creature drawn with while one of its attacks is under
+  way (first the Bone Thrower's flash, `DR_EDGE`); set and cleared by C, ORed in by one line in the creatures' part of
+  `render_sprites` (D's), which does nothing else with it. Nothing sets it yet, so nothing is drawn differently.
 
 ## 19. Track D's log (the dead's)
 
