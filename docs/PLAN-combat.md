@@ -766,6 +766,12 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   seed) from level 1 for 50 minutes against `CRAWL_ELEM=0` on the same build: 52 levels cleared and 6 deaths (49 and 10), none
   reached a boss; 14 strengths given against 97 wards, since run I has few of rank III. The same from level 21 is running; its
   numbers come in my next entry. Next: D2's sheet of eyes.
+- **7 November.** D1 from level 21 (eight seeds, 50 minutes, gear 5, `CRAWL_XPBANK` 35322) against `CRAWL_ELEM=0`: 47 levels
+  cleared and no deaths (49, none), a level's median time 378 s (376); 923 strengths given and 187 cracked (606 wards, 82
+  cracked). Neutral. D2's sheet of eyes (every kind that can be born to an element, at rank III and by rank, calm, striking and
+  in motion, from the game's own renderer) went to the owner; D2 waits on it, kept aside, and D3 goes on meanwhile (17.5.5).
+  Marks put on the Draw flags (`DR_*`), in a commit of their own: the caster's track takes bits from 24 upwards, the dead's
+  from 30 downwards. Next: D3.
 
 ## Appendix: the owner's guide (7 November), as given
 

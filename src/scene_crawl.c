@@ -23371,7 +23371,13 @@ typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int
 enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_SWAY = 32, DR_FLIPV = 64, DR_COMMUNE = 128, DR_GLINT = 256, DR_EDGE = 512,
        DR_GLITCH = 1024, DR_CLIP = 2048, DR_LOOPED = 4096, DR_LIT = 8192, DR_SHINE = 16384, DR_MEND = 32768,
        DR_RIPPLE = 65536, DR_ALLY = 131072, DR_WEBBED = 262144, DR_VENOM = 524288, DR_POISONED = 1048576, DR_BURNING = 2097152, DR_PINNED = 4194304,
-       DR_FLIPH = 8388608 };                                         /* FLIPH: turned left to right (a side view, facing your left) */
+       DR_FLIPH = 8388608,                                           /* FLIPH: turned left to right (a side view, facing your left) */
+       /* docs/PLAN-combat.md, two tracks on one branch (its section 17): each adds flags only above its own end mark; the
+          caster's track takes bits from 24 upwards, the dead's from 30 downwards, so the two never take the same */
+       /* the caster's track (C) ends */
+       /* the dead's track (D): */
+       /* the dead's track (D) ends */
+};
 /* VENOM: fire's colours turned green (the flask's splash); POISONED: green bubbles rising off it; BURNING: flames licking up it */   /* ALLY: risen by your Grave Call, a violet edge; WEBBED: held in yours */                                         /* RIPPLE: the Wraith's Time Slip, grey, going out */   /* SHINE: polished plate, a glint
                                                                                                  sliding over it */
 /* GLITCH: rows torn sideways and colours slipping, now and then (the Backrooms), more often when LOOPED; CLIP: cut at
