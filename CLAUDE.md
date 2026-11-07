@@ -233,7 +233,8 @@ releases**: **1.0.0b19** the statuses, the elements and the new attacks; **1.0.0
 the augments and the merchant; so the art pass is now **1.0.0b22** and the lower storey **1.0.0b23**. The owner took every default
 in its section 16 but a few (noted there). **It is built by two agents at once on that one branch**, track C (harm that reaches the
 caster) and track D (harm that reaches the dead): **read its section 17 before touching anything**, and its tracks' logs (sections
-18 and 19). Nothing is built yet but the marks in the shared lists and the shared declarations (its 17.3 and 17.4). Found in the
+18 and 19). Built so far (harness only): C1 and C2 (one road for harm; the caster's statuses), D1 to D4 (the bestiary's
+elements, elemental creatures, the dead's statuses, the elements on your spells); C3 and C4 are next, then J19. Found in the
 review and mended by the plan: `HURT_MAGIC` is resisted by Resist Burn whatever its element; poison is the weak element across
 the bestiary (0.55 on average); skeletons' throws have no floor; flat armour grows as the blow does.
 
@@ -1482,10 +1483,30 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   alias) is cut by its element's own resist alone (`el_resist`) and by half the armour; armour keeps off a share (`armour_keep`:
   a / (a + 4 + 0.8 x level), half as much against the elements; P2); `throw_interval` never under 0.6 s (P1). `CRAWL_OLDHARM=1`
   puts back 1.0.0b18's harm. `make combat` (`build/host_debug combat`, `crawl_combat_sheet`) writes the balance sheet to
-  `build/combat.txt`. **C2's look** (for the owner, `docs/combat/c2-statuses.png`; nothing sets a status yet): `G.af[NAF]` and
-  its fellows in `carry_caster`'s span, `af_tick`, `af_on`; `UI_AFMARK` and `ui_status` (the kit's), `render_af_row` (over the
-  portrait on the bar's edge, or at the foot), `render_af_view`, `af_roll`, the horizon and eye in `crawl_render`, `render_hand`,
-  `tint`. Debug: `CRAWL_AFSHOW=k` (`AF_*`; `1:n` Chilled's stacks, `7` the grapple, `all`); `build/uisheet status`.
+  `build/combat.txt`. **C2 is built** (harness only; its sheet `docs/combat/c2-statuses.png`, approved): the caster's statuses,
+  `G.af[NAF]` (time left), `af0` (what it began at), `af_n` (Chilled's stacks), `af_by` (1 + the knocker), `af_lock`/`af_hardt`
+  (S1: a hard control can't land within 3 s of the same ending, nor any within 1 s), `af_burn`/`af_acc`/`af_fire_by` (On Fire's
+  harm still to come, a point at a time), `af_cold`/`af_cold_t`, all in `carry_caster`'s span, cleared by `af_clear` (deaths,
+  `reset_caster_state`, Second Wind). The rules sit before `hurt_ex`: `af_can` (off, dead, at her hall, a dart or a Second Wind;
+  Purify running keeps fire, cold and poison off; S1), `af_rolls` (S11: the element's own resist halves the chance), `af_hold`
+  (a hard one: the wind-up broken, a mend ended, its sound and rumble), `af_ignite` (E2), `af_chill` (four stacks freeze for
+  3 s, held at three while Frozen may not land), `af_poison` (each dose adds, to a minute), `af_put`; whence: `af_struck` (from
+  `foe_hit` and `bone_hurt`, a creature's elemental hit by its rank, `af_rank_chance`: 8% + 4% a rank; never a boss, a boss's
+  fight, a turned spell or the Wraith), `af_stroke` (`hz_strike_el` and the rock: a frost stroke a stack, the rest `AF_BASE` 12%;
+  Physical knocks down), `af_cold` (`HZ_COLD`, `HZ_DCOLD`: a stack every 1.5 s, in place of `hz_chill`), the Wraith's touches
+  (two stacks, in place of the slow), bites, the Drowned's pool, bile and `hz_poison` (`af_poison` by what `poison_t` rose).
+  What they do: `slow_factor` (rooted 0; 8% a stack), `sprint_recovery` (Chilled: two fifths the pace), `human_walk` (stunned,
+  no sprint), `cast_spell` (`af_hushed` returns; Chilled 1.5 degrees astray a stack, not lightning or the drain), `af_slow_cast`
+  (Poisoned: `cast_cycle` and the three wind-ups x1.5), `hurt_ex` (Frozen x1.33 on everything; down, every creature's harm but the
+  knocker's halved, `harm_from`), `no_cast` (the void or `af_hushed`) in place of `G.silenced` at every gate of spells, gifts,
+  Swift Dodge and the dream's aim, `rune_barred(k)` for runes (Blink fires frozen or down, Purify frozen; `af_break`, `af_purify`
+  in `cast_defense`, and their `def_trigger`s), E refused unbound, frozen or down, `hush_say`'s words. The dream waits out a
+  freeze or a knock-down at the head of `update_player`. Sounds `SFX_AF_STUN`, `_HUSH`, `_FREEZE`, `_THAW`, `_DOWN`, `_SICK`
+  (and `SFX_IGNITE`, `SFX_FROST`). The look: `render_af_row`, `ui_status`/`UI_AFMARK`, `render_af_view`, `af_roll`, the horizon
+  and eye in `crawl_render`, `render_hand`, `tint`; the sockets struck through by `no_cast`/`rune_barred`. Debug: `CRAWL_AF=0`
+  (none: the previous build's events line for line), `CRAWL_AF=<fire|chill|frozen|stun|poison|unbound|down|all>` (that one on
+  the caster every ten seconds), `CRAWL_AFSHOW=k` (the look only: `AF_*`; `1:n` Chilled's stacks, `7` the grapple, `all`),
+  `EVENT af <status> on by what/type/rank n=stacks player|autopilot`, `EVENT af <status> off`; `build/uisheet status`.
 - **The dead's ways shown** (1.0.0b18, PLAN-ai step 11, Part H; harness only; released). `WY_*` (seventeen set pieces), `way_met` (named
   once a run of ten, `RUN.ways`/`way_said`/`way_run`), `pack_way`; the Codex's `CX_WAYS`; the record's deeds (`deed_note`,
   `DEED_*`, `caller_hushed`, `ways_ends`, `Pack.hunted/hurts0/done`, `Ambush.deaths0/done`, `G.hurts`, `G.hunt_shaken`) and

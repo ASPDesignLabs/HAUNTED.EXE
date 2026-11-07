@@ -3900,7 +3900,7 @@ static void af_stroke(int el, float d) {                           /* a hazard's
     if (af_rolls(k, AF_BASE)) af_put(k, d, 0);
 }
 static void af_cold(float dt) {                                    /* standing in the cold: a stack a second and a half (S9) */
-    if (G.level_t - G.af_cold_t > 0.5f) G.af_cold = 0.5f;          /* come in fresh: the first after a second */
+    if (G.level_t - G.af_cold_t > 0.5 || G.level_t < G.af_cold_t) G.af_cold = 0.5f;   /* come in fresh: the first after a second */
     G.af_cold_t = (float)G.level_t;
     if ((G.af_cold += dt) < 1.5f) return;
     G.af_cold -= 1.5f;

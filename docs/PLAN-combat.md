@@ -447,8 +447,9 @@ All of it as ledger sections (a reader steps over what it doesn't know), so the 
 
 It must do all of it, for the screensaver and the harness: take its augments and feed them, confess by class, read the new tells
 (8.6), wait out what holds it, and never stand still in a stun-lock (S1 makes that impossible). Debug for each step: `EVENT
-af <status> <on|off> by <kind>`, `EVENT ignite`, `chill_stack`, `frozen`, `stun`, `unbound`, `down`, `bone_thrower`, `charge`,
-`spew`, `aug <line> <tier> <rank>`, `confess <line> <rank>`; `CRAWL_AF=k` (a status on the caster every ten seconds),
+af <status> on by <what/type/rank>` and `EVENT af <status> off` (C2 built it so, one line for every status), `bone_thrower`,
+`charge`, `spew`, `aug <line> <tier> <rank>`, `confess <line> <rank>`; `CRAWL_AF=0` none of them, `CRAWL_AF=<status>` or `all`
+(that one on the caster every ten seconds: the names `fire`, `chill`, `frozen`, `stun`, `poison`, `unbound`, `down`),
 `CRAWL_ELEM=e` (every creature that can be, of element e), `CRAWL_AUG=...`, `CRAWL_CONF=...`, `CRAWL_CHARGE=1`.
 
 ## 15. The order: three releases, two tracks
