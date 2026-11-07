@@ -1516,8 +1516,10 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   the owner): the bell puzzles' four bells (`spr_pbell`, `bell_body`, `cut_numeral`, `cv_swing`; `SP_PBELL0..3`, swung
   `SP_PBELL0R..3R`), run II's dead bell (`spr_bell_dead`, `SP_BELL_DEAD`; `spr_deadbell` is her hall's Dead Bell, another
   thing) and the soul-lamp by run (`spr_wlamp`, `SP_WLAMP0 + 3 x run + state`), in the `SP_*` enum after the things that want a
-  spell; `make sheets`' `b181bells` and `b181lamps`, kept as `docs/b18-1/bells.png` and `lamps.png`; approved. The bells not
-  yet placed. *The ward* (step 6): `ward_make` (end of `start_level`'s placements; only on levels the Wraith comes to) lays a
+  spell; `make sheets`' `b181bells` and `b181lamps`, kept as `docs/b18-1/bells.png` and `lamps.png`; approved. *The bells* (step
+  5): the knell's and the drowned bells' are `SP_PBELL0 + k`, drawn rung (`SP_PBELL0R + k`, then mirrored) for 0.8 s after a
+  strike; their names and readings carry the numerals (THE LEAST BELL (I)); run II's hanging bell is `SP_BELL_DEAD`, still.
+  The Toll keeps `SP_BELL`. Debug: `CRAWL_PZTHINGS=1`, `CRAWL_TPAT=x,y,deg`. *The ward* (step 6): `ward_make` (end of `start_level`'s placements; only on levels the Wraith comes to) lays a
   ground for each trial (its room), puzzle (its wing, and two steps round its door and pieces) and sequence (two steps round its
   pieces), a ring of a cell round each, as a bit a lamp in a static `WD` (not `G`: a pocket leaves it be), and hangs a soul-lamp
   (`WLamp`, a decoration) on bare stone near it, never inside what it guards. E facing one (`ward_facing`, after a puzzle's

@@ -1,7 +1,7 @@
 # 1.0.0b18.1: the trial's door, and the crypt made kinder
 
-**Settled; steps 1-3 and 6 built** (harness only; 7 November 2026); step 4's sheets (`docs/b18-1/bells.png`,
-`docs/b18-1/lamps.png`) approved by the owner; step 5 (the bells in the game) next. Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
+**Settled; steps 1-6 built** (harness only; 7 November 2026), step 4's sheets (`docs/b18-1/bells.png`,
+`docs/b18-1/lamps.png`) approved by the owner; step 7 (the controller's sheet) next. Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
 tracks of [`PLAN-combat.md`](https://github.com/ASPDesignLabs/HAUNTED.EXE/blob/claude/inspiring-archimedes-dbj5n6/docs/PLAN-combat.md)
 build 1.0.0b19 on `claude/inspiring-archimedes-dbj5n6`. The owner gave one fault and six improvements, asked for them as an
 update of their own ahead of that work, and answered every question in one round (section 12). Every number below that isn't
@@ -149,6 +149,12 @@ sheet tool draws each sprite at one size, so the knell's sizes and the drowned b
 - Today's bell (the art pass's, P4) is already a little broken: a crack up from a chip in its lip, its rope cut. The dead bell
   goes much further, so the two can't be confused: a wedge gone from the lip, cracked through, no clapper, one strap left, askew
   from a beam broken through, with grey threads of web. The Toll's four small bells keep today's bell, as the plan says.
+
+*As built* (step 5): the knell and the drowned bells stand as `SP_PBELL0 + k` (I the least or the shallowest), at today's sizes
+and depths; rung (a thing's clock under 0.8 s) a bell is drawn as its `SP_PBELL0R` frame, leaning, and from 0.42 s mirrored,
+swinging back, then still. Their names are *THE LEAST BELL (I)* ... *THE DEEPEST BELL (IV)*, and the banner and the carving
+read *LEAST (I), GREAT (IV), ...*, as does the answer kept in the documents. Run II's hanging bell is `SP_BELL_DEAD` and no longer
+sways (the same draw of the dice, so the levels come out as before). The Toll's bells and `things_test` keep `SP_BELL`.
 
 ## 6. The Wraith barred (W1 a + c, W2 a, W3 a, W4 a)
 
@@ -455,6 +461,9 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   update's coming of the Wraith has, so it never comes out of the stone inside a lit ward. Their `if (best < 0) {
   wraith_cornered(m, dt); return; }` after the step's loop is right as it is: held at an edge the Wraith is coming, not driven,
   so it only waits there.
+- **After step 5** (7 November, their branch at `d36e0c4`, one commit on: track C's log): applied clean, built with no warnings.
+  The bells touch only the knell's lines in `pz_make_run1`, one line of `dress_level` and the things' part of `render_sprites`,
+  none of which they have changed.
 
 ## 15. Hand-off log
 
@@ -579,3 +588,18 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   - *Left:* step 5 (the bells in the game), then step 7.
   - *CI:* run 42415459761 on the branch (started by hand): the Windows build compiled and its smoke test passed; the browser's
     build compiled and its smoke test in Chromium passed.
+- **7 November. Step 5, the bells in the game: built** (harness only).
+  - *Built:* as section 5's *as built* says. Debug: `CRAWL_PZTHINGS=1` (each of a puzzle's things and where, on its `PUZZLE`
+    line's level), `CRAWL_TPAT=x,y,deg` (stand there facing that way once you take control, for frames).
+  - *Frames* (seed 3 level 6, the knell; seed 1 level 14, the drowned bells; seeds 1 and 3 level 19, the dead bell): the four
+    told apart side by side in run I's light (III wide-mouthed iron and I the silver handbell on its yoke; II tall bronze and IV
+    black iron with its pale numeral) and in run II's, the drowned four at their depths with IV's numeral clear; bell II rung,
+    leaning, swinging back mirrored, still; the dead bell askew from its broken beam behind a reliquary. In an unlit stretch IV's
+    black iron is hard to see but its numeral shows; a person comes close to ring it anyway.
+  - *The dream:* the puzzles' logic is unchanged (the bells' values, groups and sounds), and so is the hanging bell's draw of
+    the dice. Sixteen starts (seeds 1-15 odd, the knell on level 6 and the drowned bells on 14, 240 s, the same run ids), step 6's
+    build against this: 13 solved in each, run for run.
+  - *Other checks:* both builds without warnings; `make smoke` passes (1.74 ms a frame); ASan and UBSan clean on a person ringing
+    the knell, the dream at the drowned bells, and a level 19 with dead bells; the trial merge clean (section 14).
+  - *Committed* as `6867e7f` (the code; these notes followed in the next commit, the first try at them having failed).
+  - *Left:* step 7, the controller's sheet to the owner first.
