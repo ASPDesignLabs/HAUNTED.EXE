@@ -748,7 +748,9 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
 
 *Append only, newest at the bottom.*
 
-- *Nothing yet. The first entry is the agent's own: which commit it started from.*
+- **7 November.** Track D started from `2444cd2` (the marks and the shared declarations), with nothing of track C's pushed
+  since. Marks put on the Codex's one-line enum (`CX_*`, `NCX`) and on `CX_MAX` (17.4: whoever needs them first), in a commit
+  of their own, since D1 gives the elements' part a second page; nothing else in it. Next: D1.
 
 ## Appendix: the owner's guide (7 November), as given
 

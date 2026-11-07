@@ -22262,9 +22262,19 @@ static void update_repomenu(void) {
  * and hazard does, each written in once you have worn, held, unlocked or met it; and a page on her claim,
  * there from the start. Kept through death, with the page. C opens it; the crypt waits. ---- */
 
-enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_PUZZLE, CX_TRIAL, CX_WAYS, CX_CASTER, CX_ELEM, CX_LINE, CX_CLASS, CX_SOUL, CX_CLAIM, NCX };
+enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_PUZZLE, CX_TRIAL, CX_WAYS, CX_CASTER, CX_ELEM, CX_LINE, CX_CLASS, CX_SOUL, CX_CLAIM,
+       /* docs/PLAN-combat.md, two tracks on one branch (its section 17): each adds parts only above its own end mark */
+       /* the caster's track (C) ends */
+       /* the dead's track (D): */
+       /* the dead's track (D) ends */
+       NCX };
 enum { CXS_VESSEL, CXS_BELL, CXS_FONT, CXS_REPLAY, CXS_SAP, NCXS };   /* the souls' pages */
-#define CX_MAX (NABIL + NDEF + NBOSS + NSTAT + NHZ + NPZK + NTRI + NWAY + 3 + NCS + 2 + NELEM + 1 + NCXS)
+#define CX_MAX (NABIL + NDEF + NBOSS + NSTAT + NHZ + NPZK + NTRI + NWAY + 3 + NCS + 2 + NELEM + 1 + NCXS \
+    /* docs/PLAN-combat.md section 17: each track adds its new pages' count (+ n) only above its own end mark */ \
+    /* the caster's track (C) ends */ \
+    /* the dead's track (D): */ \
+    /* the dead's track (D) ends */ \
+    )
 enum { CXC_ATONE, CXC_LUCK, CXC_OVER, CXC_CORNER };                /* the caster's own pages: then a cornerstone each, CXC_CORNER + CS_* */
 typedef struct { int sec, i; } CxEntry;
 static const char *const CX_PART[NCX] = { "AN ABILITY OF WHAT YOU WEAR", "A RUNE", "A BOSS'S GIFT", "A STAT A PIECE CAN ROLL", "A HAZARD", "A PUZZLE SOLVED",
