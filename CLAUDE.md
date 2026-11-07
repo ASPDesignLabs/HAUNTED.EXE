@@ -681,7 +681,9 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
     - The Wraith (from 9; `update_wraith`) comes once a level after 240 s (`CRAWL_WRAITH=s` to
       test), from the far end, down the hunt field, opening doors, while torches gutter near it.
       It can't be killed: fire, a wisp's light close by and Dread drive it back for 5 s
-      (`wraith_back`). The autopilot turns fire on it.
+      (`wraith_back`). The autopilot turns fire on it. Driven back into a corner it can't leave (nowhere further from
+      you, or a door it can't open), it goes into the stone after a second and comes again from the far end
+      (`wraith_cornered`, `Mob.corner_t`; `EVENT wraith_cornered`).
     - The hunting spider (from 11) waits upside down on the ceiling (`DR_FLIPV`), drops when you
       come close, and leaps (`start_leap`, `update_leap`); one leap in three poisons.
     - The ghoul (from 12) leaps too, and feeds on bones when it has lost you (`sub` 4: it mends, and
@@ -1782,7 +1784,11 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   bolt about once a second at nothing it killed while its souls ran down; in both a Wraith had just been driven back nearby.
   One cause found by reading the code: a pack broken while its call was under way stayed calling, and the leaders-first rule
   aimed at its caller from any side for ever; mended (`pack_break` ends the call). Whether that was all of it isn't known yet:
-  the `STALL` lines and `CRAWL_RUNID` were added to catch the next one. ASan clean on three sessions (corners held, an ambush
+  the `STALL` lines and `CRAWL_RUNID` were added to catch the next one. They caught it (7 November, at the owner's word, on
+  PLAN-combat's branch): a Wraith driven back into a corridor's end, a vault's locked door at its back, where the dream's way
+  out went through the vault. It tried the door for ever, and the dream, blocked by it (`update_player`'s blocker, which
+  never asked whether it was a driven-back Wraith), drove it back every 1.8 s until its souls ran out; about one run in four
+  from level 11. Mended with `wraith_cornered` (under *Enemies*): the three seeds that showed it run clean. ASan clean on three sessions (corners held, an ambush
   read and probed).
 - 1.0.0b16's steps 1 and 2 (one line to begin with, splinters, Physical shut till the first gift, the gifts; harness only),
   the dream from level 1 for 50 minutes on eight seeds for each of the five pasts against 1.0.0b15: 248 levels cleared and 57

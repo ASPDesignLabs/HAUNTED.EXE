@@ -167,6 +167,8 @@ typedef struct {
     float stun_t, unb_t, chl_t, stun_cd, frz_cd;                   /* its statuses (section 5): stunned, Unbound; since the last
                                                                       chilling; the waits before a stun or a freeze can land again */
     int chl_n, frz_was;                                            /* Chilled stacks; frozen last frame (thawing takes the stacks) */
+    float corner_t;                                                /* the Wraith: how long it has been driven back into a corner it
+                                                                      can't leave (wraith_cornered) */
     /* the dead's track (D) ends */
 } Mob;
 /* What the two tracks share (docs/PLAN-combat.md, section 17.3). Change any of it only as that section says. The statuses, the
@@ -3884,6 +3886,7 @@ static int ways_blocked, lantern_felt, horns, whip_cracks, whip_lashes, wild_hou
 /* docs/PLAN-combat.md section 17: each track adds its counters only above its own end mark */
 /* the caster's track (C) ends */
 /* the dead's track (D): */
+static int wraith_cornered_n;                                      /* the Wraith gone into the stone from a corner */
 /* the dead's track (D) ends */
 #endif
 static int hurt_by(const Mob *m, float dmg, int kind) {
@@ -7008,6 +7011,24 @@ static void wraith_back_for(Mob *m, float secs) {
     DBG_COUNT(wraith_drives);
 }
 static void wraith_back(Mob *m) { wraith_back_for(m, WRAITH_BACK_T); }
+/* Driven back into a corner it can't leave (nowhere further from you, or a door it can't open: a vault's still locked, a
+ * sealed, winged, trialed or gated one), a moment, then it goes into the stone and comes again from the far end of the
+ * level, as it first came. It had stood there, and the dream had stood driving it back for minutes at a time (a vault's
+ * locked door at its back and the dream's way out through the vault). */
+static void wraith_cornered(Mob *m, float dt) {
+    if (m->sub != 1) { m->corner_t = 0.0f; return; }
+    if ((m->corner_t += dt) < 1.0f) return;
+    int x, y;
+    if (!pick_cell_at_depth((int)G.px, (int)G.py, 20, 400, 1, &x, &y)) return;
+    m->corner_t = 0.0f;
+    sfx_at(SFX_WAIL, m->x, m->y, 1.1f);
+    m->x = x + 0.5f; m->y = y + 0.5f; m->cx = m->tx = x; m->cy = m->ty = y;
+    m->sub = 0;                                                    /* and it comes again */
+#ifdef CRAWL_DEBUG
+    wraith_cornered_n++;
+    fprintf(stderr, "EVENT wraith_cornered to (%d,%d) t=%.2f\n", x, y, G.t);
+#endif
+}
 static void update_wraith(Mob *m, float dt) {
     m->t += dt;
     dt = mob_time(m, dt);
@@ -7041,14 +7062,16 @@ static void update_wraith(Mob *m, float dt) {
         float s = rndf() * 0.3f + (here < 0 ? -hypotf(nx + 0.5f - G.px, ny + 0.5f - G.py) : 0.0f);
         if (s > bs) { bs = s; best = k; }
     }
-    if (best < 0) return;
+    if (best < 0) { wraith_cornered(m, dt); return; }
     int nx = m->cx + DX[best], ny = m->cy + DY[best];
     const Cell *c = cell(nx, ny);
     if (c->kind == K_DOOR && G.doors[c->door].open < 0.9f) {        /* a door opening by itself: it is coming */
         Door *dr = &G.doors[c->door];
+        if (dr->locked == 1 || dr->locked >= SEALED) { wraith_cornered(m, dt); return; }   /* one it can't open */
         if (!dr->opening) dr->opening = 1;                          /* its sound in update_doors, by the run */
         return;
     }
+    m->corner_t = 0.0f;
     m->tx = nx; m->ty = ny;
 }
 

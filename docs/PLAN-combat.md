@@ -854,6 +854,22 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   WAGER, a trial's duel of 40 s, not a stall. Bench on this session's new machine: 2.19-2.31 ms a frame against D4's 2.09-2.19
   on the same machine (the earlier 1.5 was another machine). **D1 to D4 are built**: track D's steps for 1.0.0b19 are done, but for
   J19. **CONTRACT** unchanged: `Mob.elem` is set, and its colour and flare wait only on C3 setting `Mob.elem_on`.
+- **7 November.** A slip of mine: D2's push went up after its rebase onto C2's sheet (`edfbf83`) without building the rebased tree
+  first, against 17.5.2. Built at once after: no warnings, smoke clean. The chain I push with now builds after the pull.
+- **7 November. The dream's stall by a driven-back Wraith, mended** (the owner asked for it in this session; outside D's steps,
+  harness only). Found by the `STALL` lines (seeds 1 and 3 from 11, 15 from 21; about one run in four from 11) and reproduced to the
+  line on seed 1: the dream at a corridor's end with the exit beyond a vault's locked door, the Wraith driven back into the cell
+  before that door. Driven back it retreats up the hunt field, and the only cell further from the dream was the locked door: it
+  stood "opening" it for ever. The dream, blocked by it (`update_player`'s blocker, which never asked whether it was a driven-back
+  Wraith; `find_target` had been mended for that in 1.0.0b11), drove it back every 1.8 s till its souls ran out. Mended in the
+  Wraith's movement (`update_wraith`, its retreat; not one of 17.2's lists, so neither track's): driven back with nowhere further to
+  go, or only a door it can't open (a key's lock, or sealed, winged, trialed, gated), a second later it goes into the stone and
+  comes again from the far end of the level, as it first came (`wraith_cornered`, `Mob.corner_t` in D's part of `Mob`; `EVENT
+  wraith_cornered`). A person sees it too: a Wraith driven into a corner now goes, where it stood there to come on again at
+  arm's length. The dream's blocker is left as it was. Tested: the three seeds run clean (6, 6 and 5 levels against 5, 5 and 4;
+  cornered 1, 2 and 6 times); ASan clean on three dreams from 11 with the Wraith at 30 s (cornered four times); and eight seeds
+  (1-15 odd) of 50 minutes from 11 and from 21, both modes (32 runs): no `STALL` lines at all (the same seeds before it: 7 from 11 and
+  2 from 21), the Wraith cornered 82 times, no deaths, levels cleared 49 and 49 from 11, 51 and 50 from 21.
 
 ## Appendix: the owner's guide (7 November), as given
 
