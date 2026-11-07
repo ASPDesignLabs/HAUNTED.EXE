@@ -1267,7 +1267,19 @@ static float mob_damage(const Mob *m) {
     int r = G.retries < 3 ? G.retries : 3;
     return d * (1.0f - 0.15f * (float)r);
 }
-static float throw_interval(void) { return 1.5f / powf(1.05f, (float)(G.level - 1)); }   /* 5% quicker each level */
+/* CRAWL_OLDHARM=1 (the debug build): C1 of docs/PLAN-combat.md set aside, harm as 1.0.0b18 dealt it (fire's resist on every
+ * spell, armour taken off flat, the throws with no floor), so the other track's balance runs can leave it out */
+static int old_harm(void) {
+#ifdef CRAWL_DEBUG
+    static int v = -1;
+    if (v < 0) v = getenv("CRAWL_OLDHARM") && atoi(getenv("CRAWL_OLDHARM")) ? 1 : 0;
+    return v;
+#else
+    return 0;
+#endif
+}
+/* 5% quicker each level, never quicker than 0.6 s (P1: by level 40 it had come to a throw every 0.22 s, and kept on past it) */
+static float throw_interval(void) { return fmaxf(old_harm() ? 0.0f : 0.6f, 1.5f / powf(1.05f, (float)(G.level - 1))); }
 /* What the dead do to you (docs/PLAN-combat.md, section 3): every attack as a row, so the blows in update_mob, the claws at a
  * web or an ally (mob_blow) and the balance sheet (make combat) read the same numbers. k: its share of the creature's blow
  * (mob_damage), and add on top; wind: the wind-up (for a leap its flight, for a bat the time it must cling); cool: the wait
@@ -3722,13 +3734,31 @@ static void windup_break(void) {                                   /* the spell 
     else { G.st = G.cast_len; G.fired = 2; G.auto_chg = 0; G.chg_on = 0; G.tether = 0; }
     snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f);
 }
+/* an element's own resist (docs/PLAN-combat.md, section 3): Fire by Resist Burn, Frost by Resist Slow, Poison, Spirit and
+ * Lightning by theirs; Physical by none */
+static float el_resist(const Gear *g, int el) {
+    switch (el) {
+    case EL_FIRE: return gear_magic_resist(g);
+    case EL_FROST: return gear_slow_resist(g);
+    case EL_POISON: return gear_poison_resist(g);
+    case EL_SPIRIT: return gear_total(g, ST_RES_SPIRIT) / 100.0f;
+    case EL_LIGHT: return gear_light_resist(g);
+    default: return 0.0f;
+    }
+}
+/* the share armour keeps off (P2): armour as great as a rank-I blow of the level keeps off half of any blow, whatever the
+ * level, as a flat number never could (it grew as the blow did, till one robe left a blow at 1); half as much against the
+ * elements */
+static float armour_keep(const Gear *g, int phys) {
+    float a = (float)gear_armor(g) * (phys ? 1.0f : 0.5f), ref = 4.0f + 0.8f * (float)G.level;
+    return a > 0.0f ? a / (a + ref) : 0.0f;
+}
 static void windup_blow(int d, float raw, float after, int el) {
     if (!winding_up() || G.max_hp <= 0) return;
     if (G.blame.what == BL_FIRE || (G.blame.what == BL_HAZARD && (G.blame.type == HZ_FIRE || G.blame.type == HZ_BILE || G.blame.type == HZ_VOID))) return;
     const Gear *g = &RUN.gear;
     float share = (float)d / (float)G.max_hp, chance = fminf(0.9f, 0.25f + 2.0f * share);
-    float res = el == EL_FIRE ? gear_magic_resist(g) : el == EL_POISON ? gear_poison_resist(g) : el == EL_FROST ? gear_slow_resist(g)
-              : el == EL_SPIRIT ? gear_total(g, ST_RES_SPIRIT) / 100.0f : el == EL_LIGHT ? gear_light_resist(g) : 0.0f;
+    float res = el_resist(g, el);
     float keep = gear_dodge(g) + 0.6f * (raw > 0.0f ? fmaxf(0.0f, raw - after) / raw : 0.0f) + 0.4f * res + 0.25f * gear_total(g, ST_LUCK) / 100.0f;
     if (rndf() >= chance * (1.0f - fminf(0.9f, keep))) return;
     windup_break();
@@ -3750,13 +3780,15 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
     int seeping = kind == HURT_POISON || kind == HURT_VOID;        /* nothing turns these: no dodge, armour or ward */
     if (!seeping) {
         if (kind != HURT_STONE && kind != HURT_ELEM && rndf() < gear_dodge(g)) { snd_sfx_ex(SFX_WHOOSH, 0.5f, 0.5f); DBG_COUNT(dodges); return 0; }   /* it passed through a shadow */
-        if (kind == HURT_SPELL) dmg *= 1.0f - gear_magic_resist(g);
-        if (kind == HURT_ELEM) dmg *= el == EL_FIRE ? 1.0f - gear_magic_resist(g) : el == EL_FROST ? 1.0f - gear_slow_resist(g)
-                                    : el == EL_POISON ? 1.0f - gear_poison_resist(g) : 1.0f;   /* Spirit and Lightning below */
-        if (el == EL_SPIRIT) dmg *= 1.0f - gear_total(g, ST_RES_SPIRIT) / 100.0f;   /* Resist Spirit (1.0.0b11) */
-        if (el == EL_LIGHT) dmg *= 1.0f - gear_light_resist(g);    /* Resist Lightning (1.0.0b13) */
+        int phys = el < 0 || el == EL_PHYS;
+        if (old_harm()) {                                          /* 1.0.0b18's: every spell resisted as fire */
+            if (kind == HURT_SPELL) dmg *= 1.0f - gear_magic_resist(g);
+            if (kind == HURT_ELEM && el != EL_SPIRIT && el != EL_LIGHT) dmg *= 1.0f - el_resist(g, el);
+            if (el == EL_SPIRIT || el == EL_LIGHT) dmg *= 1.0f - el_resist(g, el);
+        } else if (!phys) dmg *= 1.0f - el_resist(g, el);          /* each element by its own resist alone (PLAN-combat, section 3) */
         raw = dmg;
-        dmg -= kind == HURT_SPELL || (kind == HURT_ELEM && el != EL_PHYS) ? gear_armor(g) * 0.5f : (float)gear_armor(g);
+        if (old_harm()) dmg -= kind == HURT_SPELL || (kind == HURT_ELEM && el != EL_PHYS) ? gear_armor(g) * 0.5f : (float)gear_armor(g);
+        else dmg *= 1.0f - armour_keep(g, phys);                  /* a share kept off (P2), half of it against the elements */
         if (dmg < 1.0f) dmg = 1.0f;
         armoured = dmg;
         if (G.ward_hp > 0.0f) {                                    /* the bone ward takes it */
