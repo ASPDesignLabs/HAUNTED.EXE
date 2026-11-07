@@ -4957,6 +4957,9 @@ static float spell_effect(void) { return 1.0f + gear_total(&RUN.gear, ST_EFFECT)
 static int boss_hurt(Mob *m, float dmg);
 static int wraith_open(const Mob *m);
 static void ward_struck(Mob *m, int el, float dmg, int tick);
+static void mob_chill(Mob *m, int stacks, int need);
+static int chill_need(void);
+static void el_status(Mob *m, int atk, float dmg);
 static void mk_wet_hit(const Mob *o);
 static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float slow) {
     if (m->ally) return 0;                                         /* yours: your spells pass it by */
@@ -5004,7 +5007,10 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
             if (dmg <= 0.0f) { m->stagger = fmaxf(m->stagger, 0.2f); return 0; }
         }
     }
-    if ((flags & DM_SLOW) && slow > 0.0f) m->slowed = fmaxf(m->slowed, slow);
+    if ((flags & DM_SLOW) && slow > 0.0f) {                        /* Frost's slow: a Chilled stack (D4, section 6) */
+        if (elem_mode()) mob_chill(m, 1, chill_need());
+        else m->slowed = fmaxf(m->slowed, slow);
+    }
     int atk = (flags >> 8) - 1;
     if (atk >= 0 && atk < NATK && !(flags & DM_TICK) && atk != AT_BFS) {   /* the Masteries' Additions that aren't damage */
         if (ATK_ELEM[atk] != EL_FROST && align_add(EL_FROST) > 0.0f) m->slowed = fmaxf(m->slowed, 0.6f);   /* Frost's: a little slowing */
@@ -5069,6 +5075,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
         DBG_COUNT(shatters);
     }
     if (m->hp <= 0.0f) { kill_mob(m); return 1; }
+    if (atk >= 0 && atk < NATK && !(flags & DM_TICK)) el_status(m, atk, dmg);   /* its element's status, by chance (D4) */
     if (m->type == MOB_SKEL || m->type == MOB_SHIELD) {            /* knocked back a step */
         m->stagger = 0.6f; m->throw_t = 0.0f; m->swing = 0.0f; m->cool = fmaxf(m->cool, 0.9f);
         sfx_at(SFX_BONES, m->x, m->y, 0.45f);
@@ -5120,10 +5127,6 @@ static void mob_afflict(Mob *m, float dt) {                        /* what wears
 #ifdef CRAWL_DEBUG
 static int maf_count[NAF];                                         /* statuses landed on the dead, by AF_* */
 #endif
-static void mob_ignite(Mob *m, float dmg) __attribute__((unused));   /* only the debug build's CRAWL_MAF calls these until D4 */
-static void mob_chill(Mob *m, int stacks, int need) __attribute__((unused));   /* gives the caster's hits their chances */
-static void mob_stun(Mob *m, float secs) __attribute__((unused));
-static void mob_unbind(Mob *m, float secs) __attribute__((unused));
 static int mob_takes_af(const Mob *m) {
     return m->alive && m->state == MS_WALK && !m->ally && !KIND_IS(m, KF_SPIRIT) && !buried(m) && m->type != MOB_GHOST
         && m->type != MOB_SAC && m->type != MOB_WSKULL && !(m->type == MOB_WRAITH && !m->boss) && elem_mode();
@@ -5150,13 +5153,14 @@ static void mob_freeze(Mob *m, float secs) {                       /* Frozen: it
     sfx_at(SFX_FROST, m->x, m->y, 1.2f);
     maf_note(m, AF_FROZEN);
 }
+static int chill_need(void) { return align_has(EL_FROST, ND_ABIL) ? 3 : 4; }   /* Deep Chill freezes at three (D4, section 5) */
 static void mob_chill(Mob *m, int stacks, int need) {              /* Chilled: stacks, frozen at need (four) */
     if (!mob_takes_af(m) || stacks <= 0 || m->frozen > 0.0f) return;
     m->chl_n += stacks; m->chl_t = 0.0f;
     maf_note(m, AF_CHILL);
     if (m->chl_n >= need) {
         if (m->frz_cd > 0.0f) m->chl_n = need - 1;                 /* thawed too lately: it stays at the edge */
-        else { mob_freeze(m, CHILL_FREEZE); if (m->boss) m->chl_n = 0; }
+        else { mob_freeze(m, CHILL_FREEZE * permafrost()); if (m->boss) m->chl_n = 0; }   /* Permafrost longer, as its slowing was */
     }
 }
 static void mob_stun(Mob *m, float secs) {                         /* Stunned */
@@ -5172,6 +5176,24 @@ static void mob_unbind(Mob *m, float secs) {                       /* Unbound: n
     if (m->unb_t <= 0.0f) sfx_at(SFX_WHISPER, m->x, m->y, 0.9f);
     m->unb_t = fmaxf(m->unb_t, secs);
     maf_note(m, AF_UNBOUND);
+}
+/* The elements on the caster's spells (1.0.0b19, docs/PLAN-combat.md section 6, E1): each hit that leaves it standing rolls its
+ * element's status, 10% at the line's rank 1 rising evenly to 25% by rank 20, times Spell Effect, halved on what is strong
+ * against the element and half again on what is weak to it. Reconciled, not doubled: Frost's slow is already a Chilled stack
+ * on every hit, and the flask's poison Poisoned, so neither rolls; Physical gives the dead nothing (the spear's stagger and
+ * Impale stay). Fire: the hit again over four seconds; Lightning: stunned 1.2 s; Spirit: Unbound 1.5 s. */
+static float el_chance(const Mob *m, int el) {
+    float r = (float)align_rank(el), ch = (0.10f + 0.15f * clampf((r - 1.0f) / 19.0f, 0.0f, 1.0f)) * spell_effect();
+    float w = weak_el(m, el);
+    return w <= STRENGTH_K + 0.01f ? ch * 0.5f : w >= 1.49f ? ch * 1.5f : ch;
+}
+static void el_status(Mob *m, int atk, float dmg) {
+    int el = ATK_ELEM[atk];
+    if (!elem_mode() || el < 0 || el == EL_FROST || el == EL_POISON || el == EL_PHYS || !mob_takes_af(m)) return;
+    if (rndf() >= el_chance(m, el)) return;
+    if (el == EL_FIRE) mob_ignite(m, dmg);
+    else if (el == EL_LIGHT) mob_stun(m, 1.2f);
+    else if (el == EL_SPIRIT) mob_unbind(m, 1.5f);
 }
 static float mob_clock(const Mob *m) {                             /* what mob_time will make of the gate's dt, as things stand */
     if (m->frozen > 0.0f || m->pin > 0.0f) return 0.0f;
@@ -5193,7 +5215,7 @@ static float mob_gate(Mob *m, float dt) {
         if (now != last[mi] && hypotf(m->x - G.px, m->y - G.py) < 9.0f && line_clear(G.px, G.py, m->x, m->y) && (last[mi] = now, 1))
             switch (k) {
             case AF_FIRE: mob_ignite(m, 0.1f * m->maxhp); break;
-            case AF_CHILL: mob_chill(m, 1, 4); break;
+            case AF_CHILL: mob_chill(m, 1, chill_need()); break;
             case AF_FROZEN: mob_freeze(m, 3.0f); break;
             case AF_STUN: mob_stun(m, 1.2f); break;
             case AF_POISON: mob_poison(m, 0.1f * m->maxhp, 4.0f); if (mob_takes_af(m)) maf_note(m, AF_POISON); break;
@@ -5241,6 +5263,7 @@ static float permafrost(void) {                                    /* slowing an
 }
 static void deep_chill(Mob *m) {                                   /* Deep Chill: the third shard in four seconds freezes it a second */
     if (!align_has(EL_FROST, ND_ABIL) || !m->alive || m->state != MS_WALK) return;
+    if (elem_mode()) return;                                       /* 1.0.0b19: Deep Chill freezes at three stacks instead (chill_need) */
     if ((float)G.t - m->chill_t > 4.0f) { m->chill_n = 0; m->chill_t = (float)G.t; }
     if (++m->chill_n < 3) return;
     m->chill_n = 0;
@@ -8567,7 +8590,11 @@ static int spell_charges(int sp) {
 }
 static int spell_tethers(int sp) { return sp == AT_DRAIN && align_has(EL_SPIRIT, ND_AULT); }
 static int spell_holds(int sp) { return spell_charges(sp) || spell_tethers(sp); }
-static void daze(Mob *m) { m->cool = fmaxf(m->cool, 1.5f); m->throw_t = 0.0f; m->swing = 0.0f; }   /* Amperage: no blow or throw a while */
+static void mob_stun(Mob *m, float secs);
+static void daze(Mob *m) {                                         /* Amperage: no blow or throw a while; 1.0.0b19, a stun (section 5) */
+    if (elem_mode()) { mob_stun(m, 1.5f); return; }
+    m->cool = fmaxf(m->cool, 1.5f); m->throw_t = 0.0f; m->swing = 0.0f;
+}
 static void rime(float x, float y) {                               /* Winter's Lance: the floor rimed four seconds, slowing what crosses */
     for (int i = 0; i < MAXVENOM; i++)
         if (!G.venoms[i].alive) { G.venoms[i] = (Venom){ 1, x, y, 0.45f, 0.0f, 4.0f, 0.0f, 1.0f * permafrost(), 1 }; return; }
@@ -27664,7 +27691,9 @@ static void render_codex(Frame *f) {
                       "CRACKS IT.", 36, R_BONE + 11, 3);
             break;
         }
-        static const char *const NATURE[NELEM] = { "IT BURNS", "IT SLOWS", "IT STRIKES AT ONCE", "IT SICKENS OVER TIME", "IT HEALS AS IT HURTS", "IT PIERCES" };
+        static const char *const NATURE[NELEM] = { "IT BURNS; SETS ALIGHT", "IT CHILLS; FOUR FREEZE", "AT ONCE, AND STUNS",
+                                                   "IT SICKENS, AND SLOWS", "IT HEALS YOU; UNBINDS", "IT PIERCES" };   /* 1.0.0b19: and
+                                                                      what each leaves on the dead (docs/PLAN-combat.md section 6) */
         static const char *const FROM[NELEM] = { "SKULLS, IMPS, HELLRENT", "THE WRAITH'S TOUCH", "NOTHING YET",
                                                  "SPIDERS, DROWNED, BILE", "SHADES; BATS FROM II", "BLOWS, BITES, BONES, ROCK" };
         y -= 2;

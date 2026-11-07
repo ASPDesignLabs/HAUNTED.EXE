@@ -805,6 +805,23 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   minutes against `CRAWL_ELEM=0` on the same build: from level 1, 52 levels cleared and 7 deaths (49 and 10); from level 21, 46
   cleared and none (49, none), a level's median time 367 s (368). Seed 15 from 21 stalls on level 23 casting at a Wraith it has
   driven back, as it did with D1 alone: the known stall, not D3's. Commits: the D3 commit before this entry's push. Next: D4.
+- **7 November. D4 built** (harness only): each of the caster's hits that leaves a creature standing (not a tick) rolls its
+  element's status (`el_status`, `el_chance` in `damage_mob`): 10% at the line's rank 1 to 25% by 20, times Spell Effect, halved
+  on what is strong against it, half again on what is weak to it; Fire ignites (the hit again over four seconds, E2), Lightning
+  stuns 1.2 s, Spirit unbinds 1.5 s. Reconciled, not doubled: Frost's slow is a Chilled stack on every hit (no longer
+  `m->slowed`), and the flask's poison Poisoned, so neither rolls; Physical gives the dead nothing. Deep Chill's count of shards
+  gives way to freezing at three stacks (`chill_need`); Permafrost lengthens the freeze as it did the slowing; Amperage's daze is
+  a 1.5 s stun. Firestarter's burning was already On Fire (`burn_t`); left as it was. The Codex's first elements page says what
+  each leaves on them. Defaults where section 6 was silent: Frost and Poison don't roll on top of what they always do; the roll
+  comes after the kill (a hit that kills gives nothing). Tested: ASan clean on six dreams of five minutes from level 11, a class
+  each; eight seeds (1-15 odd) of 50 minutes against `CRAWL_ELEM=0` on the same build: from level 1, 50 levels cleared and 7
+  deaths (49 and 10); from 11 (gear 3), 48 and none (49, none), a level's median time 362 s (350); from 21 (gear 5), 47 and none
+  (49, none), 365 s (368). Landed, from 1, 11 and 21: chill 1,191, 454 and 188; frozen 122, 32 and 6; fire 103, 46 and 115; stun
+  4, 54 and 25; Unbound 1, 147 and 190 (the dream's classes by seed: from 1, five Witchfinders and three Anatomists). Frost is the
+  one to watch at J19: three Anatomists from level 1 froze things 122 times in 50 minutes, each freeze a third more damage. Seeds
+  1 and 3 from 11 stall on level 12 by a Wraith driven back, in both modes: the known stall again. **D1, D3 and D4 are built;
+  D2 waits on the owner's word on its sheet of eyes** (its code kept aside: elemental creatures at birth, packs sharing, the
+  element a strength, the eyes in its colour and flaring while `Mob.elem_on`). No contract changed.
 
 ## Appendix: the owner's guide (7 November), as given
 

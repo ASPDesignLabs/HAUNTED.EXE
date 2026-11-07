@@ -1523,7 +1523,14 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   29: the stacks, a frost dither of 2, 3, 5 in 16), `DR_ICE` frozen as before, a ring of sparks over the stunned (in
   `render_warded`), grey eyes while Unbound (`Draw.estate` 5). Debug: `CRAWL_MAF=k` (status `AF_k` on what is in sight within
   nine cells every 2.5 s, a chill stack every 0.7), `EVENT maf <status> <kind>`. The gate runs before `CRAWL_STAGE`'s early
-  return, so staged creatures show them (but a staged one never thaws).
+  return, so staged creatures show them (but a staged one never thaws). **D4, the elements on your spells** (section 6;
+  harness only): `el_status` from `damage_mob`, for a hit that leaves it standing (not a tick): `el_chance` is 10% at the
+  line's `align_rank` 1 to 25% by 20, times `spell_effect`, halved if `weak_el` says strong, half again if weak; Fire
+  `mob_ignite` (the hit again), Lightning `mob_stun` 1.2 s, Spirit `mob_unbind` 1.5 s. Reconciled, not doubled: Frost's
+  `DM_SLOW` is a Chilled stack on every hit (not `m->slowed`), the flask's poison is Poisoned, neither rolls; Physical gives
+  nothing. Deep Chill's shard count gives way to `chill_need` (three stacks, not four); Permafrost lengthens the freeze;
+  Amperage's `daze` is a 1.5 s stun. The Codex's first elements page says what each leaves on them. `CRAWL_ELEM=0` keeps all
+  of it out.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are
