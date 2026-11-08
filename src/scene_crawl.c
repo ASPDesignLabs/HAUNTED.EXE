@@ -1160,6 +1160,8 @@ static struct {
     float cf_rep0;
     /* the caster's track (C) ends */
     /* the dead's track (D): */
+    int lb_spent;                                                  /* 1.0.0b20: Constitution's killing blow lived this level (D5, */
+    double lb_at;                                                  /* 10.4), and when: its breath is drawn as Second Wind's */
     /* the dead's track (D) ends */
 } G;
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
@@ -5302,7 +5304,36 @@ static float class_extra(int what) {                               /* KX_*: what
     if (e < 0 || !class_sheet_on()) return 0.0f;
     return what == KX_AF_CUT ? CLASS_OWN[e].af_cut : what == KX_SOULS ? CLASS_OWN[e].souls : 0.0f;
 }
-static int blow_survived(int kind) { (void)kind; return 0; }       /* Constitution's chance (10.4): 1 if this killing blow is lived */
+/* a killing blow lived (10.4): a blow that would end the caster, not a seep (hurt_ex has asked), not fire, bile or a void stood in,
+ * nor a burning floor, a pool or poison; Second Wind has gone first. Constitution's chance, at most once a level (a pocket is a
+ * place of its own): the blow lands, health stops at 1, and nothing touches the caster for three seconds, as a Second Wind.
+ * What is on it stays on it (the owner's words: the blow connects, 1 health, three seconds). */
+static int lastblow_can(void) {
+    switch (G.blame.what) {
+    case BL_POISON: case BL_FIRE: case BL_POOL: return 0;
+    case BL_HAZARD: return G.blame.type != HZ_FIRE && G.blame.type != HZ_BILE && G.blame.type != HZ_VOID;   /* as windup_blow has it */
+    default: return 1;
+    }
+}
+static int blow_survived(int kind) {
+    (void)kind;
+    if (G.lb_spent || G.shop || G.tally || !lastblow_can()) return 0;
+    float ch = conf_value(CF_CONST, CV_LASTBLOW);
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_LASTBLOW")) ch = (float)atof(getenv("CRAWL_LASTBLOW"));   /* testing: the chance as given */
+#endif
+    if (ch <= 0.0f || rndf() >= ch) return 0;                     /* nothing confessed, nothing rolled */
+    G.lb_spent = 1; G.lb_at = G.t;
+    G.hp = 1; G.wind_t = 3.0f;
+    snd_sfx(SFX_HURT); snd_sfx_ex(SFX_HEART, 1.0f, 0.5f); snd_sfx_ex(SFX_DEEPCHIME, 0.7f, 0.5f);
+    rumble(0.9f, 0.6f, 0.5f); pop_readout(); show_bar();
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT lastblow level %d chance %.2f by %d/%d/%d t=%.2f %s\n", G.level, ch, G.blame.what, G.blame.type, G.blame.rank, G.t,
+            G.player ? "player" : "autopilot");
+#endif
+    return 1;
+}
+static int lastblow_shown(void) { return G.lb_at > 0.0 && G.t - G.lb_at < 3.05 && G.wind_t > 0.0f; }   /* the breath is the blow's */
 /* ---- the dead's track's stubs end ---- */
 
 static void xp_rooms(void) {                                       /* a room first set foot in */
@@ -13407,6 +13438,7 @@ static void start_level(void) {
     if (G.corrupt || G.fonted) fprintf(stderr, "EVENT corrupted level %d shown %d fonted %d t=%.2f\n", G.level, G.cshown, G.fonted, G.t);
 #endif
     G.rooms_in = 0;                                                /* a new level's rooms, each worth finding */
+    G.lb_spent = 0; G.lb_at = 0.0;                                 /* Constitution's killing blow, once a level (D5) */
     G.glance = G.corner_on = G.amb_read = G.amb_probed = 0; G.glance_last = -99.0f; G.corner_cd = 0.0f;   /* the dream's counters */
     G.map_on = 0;                                                  /* rolled up between levels */
     memset(G.has_key, 0, sizeof G.has_key);
@@ -27216,6 +27248,57 @@ static void render_charge(Frame *f, int ox, int oy) {
     }
 }
 
+/* Restoration (1.0.0b20, PLAN-combat 10.3; the dead's track's, D5): while it is channelled, a pale glow climbs the arm from the
+ * fingers into the sleeve, a band at a time, the hand's own shading kept under it, and motes rise off the fingertips. Drawn
+ * over the hand as it was drawn, from its frame's pixels. restore_glow: how much (0 none); CRAWL_RESTSHOW=1 (debug) for the
+ * sheet, till the spell is in */
+static float restore_glow(void) {
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_RESTSHOW")) return 1.0f;
+#endif
+    return 0.0f;
+}
+static void render_restore(Frame *f, int ox, int oy, int hf) {
+    float k = restore_glow();
+    if (k <= 0.0f) return;
+    const uint8_t *hb = hand_fr[hf];
+    int ty = hand_tip[hf][1], tx = hand_tip[hf][0];
+    float t = (float)G.t;
+    for (int y = 0; y < HAND_H; y++) {
+        int sy = oy + y;
+        if (sy < 0 || sy >= H) continue;
+        float u = clampf((float)(y - ty) / (float)imax(1, HAND_H - ty), 0.0f, 1.0f);   /* 0 at the fingers, 1 down in the sleeve */
+        float band = 0.0f;
+        for (int b = 0; b < 3; b++) {                              /* three bands going down the arm, into the caster */
+            float c = fmodf(t * 0.6f + (float)b / 3.0f, 1.0f) * 1.15f - 0.05f, d = (u - c) / 0.07f;
+            band = fmaxf(band, expf(-d * d));
+        }
+        float glow = k * (0.14f * (1.0f - u) * (1.0f - u) + 0.62f * band * (1.0f - 0.6f * u));
+        int cover = (int)(glow * 16.0f + 0.5f);                    /* a dithered wash: the skin shows through it */
+        if (cover <= 0) continue;
+        for (int x = 0; x < HAND_W; x++) {
+            uint8_t c = hb[y * HAND_W + x];
+            if (c == C_CLEAR) continue;
+            int sx = ox + x;
+            if (sx < 0 || sx >= W || BAYER[sy & 3][sx & 3] >= cover) continue;
+            int lum = (crawl_pal[c][0] * 3 + crawl_pal[c][1] * 6 + crawl_pal[c][2]) * 15 / 630;
+            f->pix[sy * W + sx] = ramp_at(R_GHOST, 5 + lum * 2 / 3);
+        }
+    }
+    for (int i = 0; i < 9; i++) {                                  /* motes off the fingertips, rising and thinning */
+        uint32_t h = (uint32_t)i * 2654435761u;
+        float life = 0.9f + 0.6f * (float)(h >> 8 & 255) / 255.0f, ph = fmodf(t / life + (float)(h >> 16 & 255) / 255.0f, 1.0f);
+        float mx = (float)(ox + tx) + ((float)(h & 255) / 255.0f - 0.5f) * 34.0f + 3.0f * sinf(t * 2.3f + (float)i);
+        float my = (float)(oy + ty) + 14.0f - ph * 30.0f;
+        int lv = (int)(k * 15.0f * (1.0f - ph) * fminf(1.0f, ph * 6.0f));
+        if (lv < 4) continue;
+        int px = (int)mx, py = (int)my;
+        for (int q = 0; q < 5; q++) {
+            int qx = px + (q == 1) - (q == 2), qy = py + (q == 3) - (q == 4);
+            if (qx >= 0 && qx < W && qy >= 0 && qy < H && (q == 0 || lv >= 9)) f->pix[qy * W + qx] = ramp_at(R_GHOST, q == 0 ? lv : lv / 2 + 2);
+        }
+    }
+}
 static void render_hand(Frame *f) {
     float hand = hand_raise();
 #ifdef CRAWL_DEBUG
@@ -27263,6 +27346,7 @@ static void render_hand(Frame *f) {
         }
     }
     render_charge(f, ox, oy);
+    render_restore(f, ox, oy, hf);                                 /* Restoration channelled (D5) */
     float ct = -1.0f, fire = 0.0f;                                 /* how far into a cast, and when it lets go */
     if (G.state == PS_CAST) { ct = G.st; fire = G.cast_wind; }
     else if (G.player && G.pc_t >= 0.0f) { ct = G.pc_t; fire = G.pc_wind; }
@@ -30102,12 +30186,13 @@ static void render_xp(Frame *f) {
 /* a Second Wind: a white flash, and its name across the view while nothing can touch you */
 static void render_wind(Frame *f) {
     if (G.wind_t <= 0.0f || G.tally) return;
-    float k = 2.0f - G.wind_t;
+    int lb = lastblow_shown();                                     /* or a killing blow lived (D5): three seconds, and its word */
+    float k = (lb ? 3.0f : 2.0f) - G.wind_t;
     if (k < 0.3f) {                                                /* the flash, thinning */
         int lim = (int)(16.0f * (1.0f - k / 0.3f));
         for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) if (BAYER[y & 3][x & 3] < lim) f->pix[y * W + x] = C_WHITE;
     }
-    const char *t = "SECOND WIND";
+    const char *t = lb ? "UNBROKEN" : "SECOND WIND";
     int w = gfx_text_width(t, 2), y = 54 + (int)(4.0f * sinf(k * 3.0f));
     gfx_text16(f, (W - w) / 2 + 2, y + 2, t, R_STONE + 3, 2);
     gfx_text16(f, (W - w) / 2, y, t, (int)(k * 10.0f) & 1 ? (uint8_t)C_WHITE : (uint8_t)(R_GHOST + 14), 2);
@@ -31208,6 +31293,59 @@ static void wheel_render(Frame *f) {
     const char *const *K = PADX.used ? KPAD : WH.src ? KQ : KM;
     for (int i = 0; i < 3; i++) ui_keys(f, 6, cy + 20 + i * 12, K[i], UI_M(13));   /* clear of the words in its middle */
 }
+/* Toughness's cracks (1.0.0b20, PLAN-combat 10.5; D5): motes rising off a shut secret's crack, in the run's colour (the
+ * Order's candle gold, the drowned's ghost-light, the mine's amber, the black glass's violet), seen as far as Toughness's
+ * reach (conf_value: today's two cells and the weighted gain past them, 4 to 8 at full weight), more of them by its rank,
+ * at full brightness through dark and fog, as the eyes are, hidden by the walls. Within two cells the cracks show anyway */
+static int cracks_on(void) {                                       /* CRAWL_CRACKS=1 (debug): till the owner has seen them */
+#ifdef CRAWL_DEBUG
+    static int on = -1;
+    if (on < 0) on = getenv("CRAWL_CRACKS") && atoi(getenv("CRAWL_CRACKS")) > 0;
+    return on;
+#else
+    return 0;
+#endif
+}
+static void render_cracks(Frame *f, float dx, float dy, float horizon) {
+    static const uint8_t RAMP[4] = { R_GOLD, R_GHOST, R_FLAME, R_PURPLE };
+    static const int TOP[4] = { 12, 15, 15, 15 };                  /* the gold ramp is thirteen */
+    float reach = conf_value(CF_TOUGH, CV_CRACKS);
+    if (reach <= 0.0f || !cracks_on() || PK.depth || G.shop || G.dead) return;
+    int run = crawl_set(G.level), n = 3 + 3 * imin(imax(1, conf_rank(CF_TOUGH)), 5);
+    for (int i = 0; i < G.nsecrets; i++) {
+        const Secret *sc = &G.secrets[i];
+        if (sc->state) continue;
+        float nx = (float)(sc->sx - sc->fx), ny = (float)(sc->sy - sc->fy);   /* into the wall */
+        float cx = (float)sc->fx + 0.5f + 0.5f * nx, cy = (float)sc->fy + 0.5f + 0.5f * ny;   /* the crack's face */
+        float d = hypotf(cx - G.px, cy - G.py);
+        if (d > reach || (G.px - cx) * nx + (G.py - cy) * ny > 0.0f) continue;   /* too far, or behind it */
+#ifdef CRAWL_DEBUG
+        { static double said; if (atoi(getenv("CRAWL_CRACKS")) >= 2 && G.t - said > 1.0) { said = G.t;   /* CRAWL_CRACKS=2: where */
+            fprintf(stderr, "CRACKS secret %d face (%.1f,%.1f) at %.1f cells, reach %.1f, rank %d t=%.2f\n", i, cx, cy, d, reach, conf_rank(CF_TOUGH), G.t); } }
+#endif
+        float edge = 1.0f - smoothstepf(reach - 1.0f, reach, d);   /* thinning at the edge of its reach */
+        for (int k = 0; k < n; k++) {
+            uint32_t h = hash2(sc->sx * 31 + k, sc->sy * 17 + i);
+            float life = 1.8f + 1.2f * (float)(h & 255) / 255.0f, ph = fmodf((float)G.t / life + (float)(h >> 8 & 255) / 255.0f, 1.0f);
+            float along = ((float)(h >> 16 & 255) / 255.0f - 0.5f) * 0.8f + 0.05f * sinf((float)G.t * 1.3f + (float)k * 2.1f);
+            float out = 0.04f + 0.14f * ph, z = 0.06f + 0.8f * ph;   /* off the stone and up, slowly */
+            float x = cx - nx * out - ny * along, y = cy - ny * out + nx * along, sx, sy, dep;
+            if (!project(x, y, z, dx, dy, horizon, &sx, &sy, &dep)) continue;
+            float a = smoothstepf(0.0f, 0.15f, ph) * (1.0f - smoothstepf(0.55f, 1.0f, ph)) * edge;
+            int lv = (int)(a * 16.0f);
+            if (lv < 3) continue;
+            uint8_t c = (uint8_t)(RAMP[run] + imin(TOP[run], 6 + lv * (TOP[run] - 5) / 16)), halo = (uint8_t)(RAMP[run] + 3 + lv / 4);
+            int px = (int)floorf(sx), py = (int)floorf(sy), sz = FOCAL / dep / 64.0f > 1.6f ? 2 : 1;
+            for (int yy = -1; yy <= sz; yy++)                      /* a bright core, a dim cross about it */
+                for (int xx = -1; xx <= sz; xx++) {
+                    int core = xx >= 0 && xx < sz && yy >= 0 && yy < sz, edge = (xx < 0 || xx >= sz) != (yy < 0 || yy >= sz);
+                    int qx = px + xx, qy = py + yy;
+                    if ((core || (edge && lv >= 6)) && qx >= 0 && qx < W && qy >= 0 && qy < H && dep < zbuf[qx] + 0.02f)
+                        f->pix[qy * W + qx] = core ? c : halo;
+                }
+        }
+    }
+}
 /* a creature near you strong against a line you hold (its rank's, once seen struck; a ward, 1.0.0b16): its element's glyph
  * over its head, barred (docs/PLAN-play.md section 6, PLAN-combat.md 7.3) */
 static void render_warded(Frame *f, float dx, float dy, float horizon) {
@@ -31256,6 +31394,7 @@ static void render_warded(Frame *f, float dx, float dy, float horizon) {
                 }
         }
     }
+    render_cracks(f, dx, dy, horizon);                             /* and Toughness's motes at a shut secret's crack (D5) */
 }
 /* the seals on things that want a spell, at full brightness through dark and fog, hidden by the walls; never smaller than
  * about half a texel a pixel, so one down a long hall can still be read */

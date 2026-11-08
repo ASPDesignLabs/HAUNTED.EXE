@@ -1199,6 +1199,62 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   *From level 1, the first 3,000 s, sixteen seeds a class: with 1.0.0b18.1 merged in; the combat work alone in brackets; 1.0.0b18 in
   square brackets. From level 31, 1,500 s on eight seeds a class: 114 (110) [114] levels cleared, no deaths.*
 
+- **8 November. D5 begun: the classes' own sheets** (harness only; `14b56b5`, before C5 was in play). Section 9's draft, which
+  the owner took for now (K1 b), in D's marked block: `CLASS_OWN` (each class's health against the hundred everyone had, and its
+  stats in their own units), `class_own` (into `caster_sync`'s own, under the same caps), `class_extra` (`KX_AF_CUT`: the Plague
+  Doctor's tenth off every mark's chance, which `af_rolls` takes; `KX_SOULS`: the Sin-Eater's tenth more souls from kills, which
+  C5's `soul_share` reads). Her question has a second page (Space turns between *THEIR PAST* and *WHAT THEY BRING*: the sheet as
+  rows), the Codex's class pages a sentence of it under the story. A class taken (or traded) feels its health at once, as more
+  health from a line was; a debug start with `CRAWL_CLASS` starts whole. `CRAWL_SHEET=0` leaves the sheets out: a dream on it
+  plays released 1.0.0b19's line for line, so J19's merged runs stand as the baseline. **The runs**: from level 1, the first
+  3,000 s on sixteen seeds (1-31 odd) for each of the five classes: 503 levels cleared and 85 deaths (511 and 78), a level's
+  median 356 s (353), deaths on level 1 6 (3). By class, cleared and deaths: the Witchfinder 108 and 5 (106, 7), the Anatomist
+  101 and 11 (99, 18), the Galvanist 99 and 25 (102, 18), the Plague Doctor 91 and 33 (99, 21), the Sin-Eater 104 and 11 (105,
+  14). The Plague Doctor's sheet can do it no harm (a quarter off poison, a tenth off every mark, Luck, Treasure, half a second's
+  sprint), so its twelve more deaths are the noise's size; the Galvanist's seven could be its ninety health, so both were run on
+  sixteen more seeds (33-63 odd), the sheet against `CRAWL_SHEET=0`: on them the Galvanist died 27 times
+  against 13 (52 against 31 over all thirty-two seeds; seventeen more of them to rank I skeletons on levels 1-4), and the Plague
+  Doctor 33 against 29 (66 against 50). The Plague Doctor's is the noise again; the Galvanist's looks real against the dream, and
+  a batch with its health at 100 (the rest of its sheet kept) is being run to see whether that is all of it. The table is the
+  owner's draft (K1 b), so it stays as it is till they say. From level 31, 1,500 s on eight seeds a class
+  (17-31 odd) against `CRAWL_SHEET=0`: 118 levels cleared (114), no deaths in either, a level's median 366 s (366). What the
+  marks did: knocked down 510 times (468), poisoned 80 (70). ASan clean on a Plague Doctor's dream from level 11 for 400 s, a
+  person turning her question's pages, and one taking the Anatomist's vow over the Witchfinder.
+  **A stall found there, older than this branch and neither track's: for the owner.** The one run past 41 s (the Plague
+  Doctor's seed 9, level 5, 121 s by the line and about four minutes in all) was replayed to the line: hurt under two fifths, the
+  dream wants its place to mend (`rest_goal`); one cell on, a shambler still under the earth comes into its sight within seven
+  cells, and `enemies_within` (so `in_combat`) counts the buried (`buried(m)`, which `targetable` refuses), so it doesn't; one
+  cell back the shambler is out of sight and it wants the place again. It went back and forth between (10,14) and (11,14) till it
+  gave the level up at 270 s. `enemies_within` skipping the buried would mend it, but it is called from the runes' triggers and
+  the dream's fights in many places, so it would move both tracks' runs: left for the owner's word.
+- **8 November. The killing blow survived** (10.4; harness only). `blow_survived`: asked by C's `hurt_ex` after Second Wind, for
+  a blow that isn't a seep; D refuses as well what is stood in (`lastblow_can`: fire, bile or a void hazard ticking, a burning
+  floor, a pool, poison, as `windup_blow` has it), a rock, an arc, a stroke and every creature's blow count. Constitution's chance
+  (`conf_value(CF_CONST, CV_LASTBLOW)`, the class's weight in it and C's cap of a half), once a level (`G.lb_spent`, in D's part
+  of `G`, cleared in `start_level`, which is shared; a pocket starts afresh, as a place of its own): health stops at 1, and
+  `G.wind_t` 3 s keeps everything off as a Second Wind's does, with its flash and *UNBROKEN* in place of its name (`render_wind`,
+  two lines, while `lastblow_shown`); the hurt, a heartbeat and a deep chime. What is on the caster stays (the owner's words: the
+  blow connects, one health, three seconds). With nothing confessed nothing is rolled, so a run without Constitution plays as
+  before. Tested: struck down by `CRAWL_KILLAT` with `CRAWL_CONF=000500` on sixteen seeds for three classes, the chances as their
+  weights give them (0.25 the Headsman, 0.22 the Plague Doctor, 0.15 the Galvanist) and 15 of 48 lived; forced (`CRAWL_LASTBLOW=1`)
+  over a Plague Doctor's dream of 2,400 s, once on each of levels 2, 4 and 5, never twice on a level, a retry after a death
+  allowed again; frames of the breath; ASan clean on that dream (1,200 s) and on a person struck down on level 12.
+- **8 November. Toughness's cracks: the sheet, for the owner** (`docs/combat/d5-cracks.png`; 10.5). `render_cracks` (from the
+  end of `render_warded`): motes off each shut secret's crack face, rising and drifting off the stone over two or three seconds,
+  in the run's colour (the Order's candle gold, the drowned's ghost-light, the mine's amber, the black glass's violet), a bright
+  core and a dim cross about it, at full brightness through dark and fog, hidden by walls; seen within Toughness's reach
+  (`conf_value(CF_TOUGH, CV_CRACKS)`: 4 cells at rank I to 8 at V for the Anatomist, 3 to 5 for a class at half weight), thinning
+  over its last cell, six motes at rank I to eighteen at V. The cracks' own texture still shows only within two cells, as today.
+  The sheet: each run at rank V close to, rank I at 3.2 cells, III at 5, V at 7, from the game (`CRAWL_TPAT`). Behind
+  `CRAWL_CRACKS=1` (debug) till it is approved; `CRAWL_CRACKS=2` adds a `CRACKS` line a second (the face, the distance, the reach).
+  Next: Restoration the spell, its glow up the arm on a sheet first.
+- **8 November. Restoration's glow: the sheet, for the owner** (`docs/combat/d5-restoration.png`; 10.3). `render_restore` (from
+  `render_hand`, one line after `render_charge`): while it is channelled, three bands of pale ghost-light go down the arm from the
+  fingers into the sleeve every 1.7 s, dithered over the hand's own shading so the skin shows through, a faint wash at the fingers,
+  and motes rising off them. The sheet shows the hand at rest and the claw, in run I's light and run IV's dark, untouched and at
+  four moments. Nothing in play draws it yet (`restore_glow` is 0 but for `CRAWL_RESTSHOW=1`, debug); the spell itself (its
+  number, the spells' turning and wheel, the channel, the dream's choosing) comes next, built while the sheets wait.
+
 ## Appendix: the owner's guide (7 November), as given
 
 > Q1. B, but we mix things up a bit. I offered a guide I've spent a day working on. Use my responses to these questions and the

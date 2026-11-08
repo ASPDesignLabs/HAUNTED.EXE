@@ -251,7 +251,8 @@ only, at the owner's word, then from levels 1 and 31 again over 1.0.0b18.1, merg
 logs, the README and the page). Released as **1.0.0b19** at the owner's word (8 November), a pre-release as before, squashed
 onto main as one commit with 1.0.0b18.1's work. 1.0.0b20 is begun (8 November): C5 (the Confessions) and D5 (the classes' own); C5's contract is in (its 17.2 b and 17.3:
 `conf_rank`, `conf_value`, and D5's hooks `class_own`, `class_extra`, `blow_survived`), and C5 is built and in play (the
-Confessions' sheet approved; harness only). Found in the
+Confessions' sheet approved; harness only); of D5, the classes' sheets and the killing blow are built (harness only), Toughness's
+cracks wait on their sheet (`docs/combat/d5-cracks.png`), and Restoration the spell is to come. Found in the
 review and mended by the plan: `HURT_MAGIC` is resisted by Resist Burn whatever its element; poison is the weak element across
 the bestiary (0.55 on average); skeletons' throws have no floor; flat armour grows as the blow does.
 
@@ -1635,6 +1636,21 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   it (`Mob.elem_on`, C's) `Draw.estate` 4, a full halo in its colour; Unbound (5) wins, grey; a web spider waiting in its web
   shows its two points in the colour. Debug: `CRAWL_ELEM=e` (1 Fire ... 5 Spirit: every one that can be, of e, mothers or
   none), `CRAWL_EYEFLARE=1` (every born one flaring, for the sheet), `EVENT born`.
+  **D5, the classes' own** (1.0.0b20, section 9 and 10.3-10.5; harness only). The bodies of C's three hooks, in D's marked
+  block before `xp_rooms`: `CLASS_OWN` (each class's health against the hundred and up to five stats in their units, `af_cut`,
+  `souls`), `class_own` (into `caster_sync`'s own), `class_extra` (`KX_AF_CUT`, the Plague Doctor's tenth off every mark's
+  chance, read by `af_rolls`; `KX_SOULS`, the Sin-Eater's tenth more souls, read by C5's `soul_share`), `class_sheet_row`,
+  `class_sheet_words`. Her question has a second page (Space: `class_page`, *WHAT THEY BRING*), the Codex's class pages a sentence
+  of it; a class taken feels its health at once (`class_take`), and a debug start with `CRAWL_CLASS` has it full. The killing blow
+  (10.4): `blow_survived` (after Second Wind; not what is stood in, `lastblow_can`, as `windup_blow` has it), Constitution's
+  chance (`conf_value(CF_CONST, CV_LASTBLOW)`), once a level (`G.lb_spent`, cleared in `start_level`; a pocket is a place of its
+  own): 1 health and `G.wind_t` 3 s, drawn by `render_wind` with *UNBROKEN* while `lastblow_shown`. Toughness's cracks (10.5):
+  `render_cracks` (from the end of `render_warded`), motes off each shut secret's crack face in the run's colour within
+  `conf_value(CF_TOUGH, CV_CRACKS)`, more by rank; behind `cracks_on` (`CRAWL_CRACKS=1`) till the owner has seen
+  `docs/combat/d5-cracks.png`. Restoration's glow (10.3): `render_restore` (from `render_hand`), bands of ghost-light down the arm
+  while `restore_glow` says so; its sheet `docs/combat/d5-restoration.png`; the spell itself not yet built. Debug: `CRAWL_SHEET=0`
+  (no sheets: the build before, line for line), `CRAWL_LASTBLOW=p` (its chance as given), `CRAWL_CRACKS=2` (and a `CRACKS` line a
+  second: the face, the distance, the reach), `CRAWL_RESTSHOW=1` (the glow, for the sheet), `EVENT lastblow`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are
