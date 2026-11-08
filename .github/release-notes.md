@@ -1,6 +1,6 @@
 The nineteenth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
 
-Harm goes by its element now, and each element leaves its mark, on you and on the dead.
+Harm goes by its element now, and each element leaves its mark, on you and on the dead. It also mends the trial's door, hangs a lamp against the Wraith by each challenge, and lets you lay out your controller yourself.
 
 ### Before you upgrade
 
@@ -26,6 +26,16 @@ They come from the dead's elemental attacks (more often the higher their rank), 
 **What your spells leave on them.** Fire sets them burning, lightning stuns them, spirit unbinds them so they cannot call or charge, frost chills and then freezes them, poison slows everything they do.
 
 **New attacks.** Skeletons of green rank and up flash white and lob three bones over you. A shield-bearer stamps and charges along a clear lane, knocking you down unless you dodge it, ward it off or wear armour twice its harm. The Drowned swells and spews foul water in a narrow cone. A shambler's grip now and then holds you fast.
+
+**Trials.** A trial's door no longer shuts on you half in the doorway: a trial begins only once you are a step and a half inside, and no door that seals itself shuts while you stand in it. Win, and the trial's hoard (three times the level's chest, glowing gold) and a draught that restores you in full appear in its room; the draught waits there until you need it.
+
+**A lamp against the Wraith.** By each trial, sealed wing and sequence of things that want a spell hangs a soul-lamp. Offer it a soul for two minutes of light, up to five, and while it burns the Wraith can't set foot on that ground; it walks the edge instead.
+
+**Bells you can tell apart**, by their shape, the bands round them, their metal and a numeral; the Catacombs' broken bells hang still.
+
+**Your controller, laid out.** Esc's question now holds the controller's layout: every button's job but View's and Menu's can be traded with another's, the sticks swapped, the turning made slower or quicker, the rumble turned off. View and Menu together show the layout anywhere you play.
+
+**And**: the wheels open at the merchant's, and props narrower than a cell take only half of it or a quarter, so you can pass beside them.
 
 This is still a beta. All of it has been tested in the harness, by the screensaver's own play, by scripted play and on sheets of the art: nobody has played it by hand yet. The Windows and browser builds are compiled and smoke-tested by GitHub Actions. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
 

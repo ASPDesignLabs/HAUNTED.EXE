@@ -10,10 +10,12 @@ face and the cat merchant were traced from the owner's photographs).
 Current release: **1.0.0b18** (pre-release, November 2026). Project page:
 https://aspdesignlabs.github.io/HAUNTED.EXE/ · repo: `ASPDesignLabs/HAUNTED.EXE`.
 
-**1.0.0b18.1** comes first, an update of its own at the owner's word (7 November), planned in
-[`docs/PLAN-b18-1.md`](docs/PLAN-b18-1.md) and settled in one round, being built on `claude/funny-lamport-onhkrp` from main
-at 1.0.0b18 while PLAN-combat's two tracks build 1.0.0b19 on theirs: the trial's door that shut on a person half in its doorway,
-the wheels at the merchant's, a reward left in a trial's room, the bell puzzles' bells told apart, a soul-lamp that bars the
+**1.0.0b18.1** was planned as an update of its own at the owner's word (7 November), in
+[`docs/PLAN-b18-1.md`](docs/PLAN-b18-1.md), settled in one round and built (steps 1-8, harness only) on
+`claude/funny-lamport-onhkrp` from main at 1.0.0b18 while PLAN-combat's two tracks built 1.0.0b19 on theirs. At the owner's
+word (8 November) it goes out with **1.0.0b19** instead: merged into `claude/inspiring-archimedes-dbj5n6` without a conflict,
+and J19's checks are being run again over the two together (PLAN-combat's section 19 will have the numbers). It mends the trial's door that shut on a person half in its doorway, and
+brings the wheels at the merchant's, a reward left in a trial's room, the bell puzzles' bells told apart, a soul-lamp that bars the
 Wraith from a challenge, the controller laid out by the player (View and Menu together to look at it), and props that take
 half a cell or a quarter by their art. It changes none of the functions PLAN-combat's section 17.2 gives either track; its
 section 10 lists what it touches beside them, and its sections 14 and 15 are the merge notes and the hand-off log: read them

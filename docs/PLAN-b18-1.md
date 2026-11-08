@@ -1,7 +1,9 @@
 # 1.0.0b18.1: the trial's door, and the crypt made kinder
 
 **Settled; steps 1-8 built** (harness only; 7-8 November 2026), the sheets of steps 4, 7 and 8 (`docs/b18-1/bells.png`,
-`lamps.png`, `pad.png`, `footprints.png`) approved by the owner; step 9 (the checks) next. Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
+`lamps.png`, `pad.png`, `footprints.png`) approved by the owner. **At the owner's word (8 November) it goes out with 1.0.0b19, not alone**: merged into
+`claude/inspiring-archimedes-dbj5n6`, its step 9 folded into PLAN-combat's J19 (run over both together), its step 10 that
+release's (section 15's last entry). Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
 tracks of [`PLAN-combat.md`](https://github.com/ASPDesignLabs/HAUNTED.EXE/blob/claude/inspiring-archimedes-dbj5n6/docs/PLAN-combat.md)
 build 1.0.0b19 on `claude/inspiring-archimedes-dbj5n6`. The owner gave one fault and six improvements, asked for them as an
 update of their own ahead of that work, and answered every question in one round (section 12). Every number below that isn't
@@ -585,6 +587,10 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   head of `crawl_update`. None is in 17.2's lists (`spawn_mob`, track D's, is left alone for that reason). If either track
   changes the line `float gx = m->tx + 0.5f, gy = m->ty + 0.5f, ...` in `update_mob`, keep `cell_pass` there.
 
+- **The merge** (8 November, at the owner's word; their branch at `2b56cdd`, this one at `a92756d`): `git merge --no-ff` into their
+  branch, no conflict, as the trial merges said; built with no warnings, `make smoke` passing. The one line section 14 asked for after
+  step 6 went in after it, in a commit of its own: `wraith_cornered` refuses a landing that `wraith_barred` bars.
+
 ## 15. Hand-off log
 
 (Each step's entry: what was built, how it was tested, its commits, what is left.)
@@ -816,3 +822,10 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
     and the browser's compiled and both smoke tests passed (before `foot_settle`). With `foot_settle`: `make smoke` passes (1.91 ms
     a frame) and a fourth ASan session (the dream from level 31, 300 s, 104 passes) is clean; CI run 42441922401 on the
     final state passed (both builds and both smoke tests).
+- **8 November. Merged into PLAN-combat's branch, to go out with 1.0.0b19** (at the owner's word; by track D's agent). Section 14's
+  last entry has the merge. Step 9's checks are J19's now: the dream's runs over both together against 1.0.0b18 on the same seeds
+  (PLAN-combat's section 19), and ASan on this plan's three sessions over the merged build (a trial peeked at and walked into, the
+  ward with the Wraith at 12 s, a scripted pad opening the look): clean, as was a dream from level 21 (600 s, the Wraith come); the runs over
+  both are under way as this is written. The heads and treasure on a level
+  (six seeds, levels 1-39) were not counted again. Step 10 is 1.0.0b19's release: the README, the page and the notes carry this
+  plan's parts already. Anything more built on `claude/funny-lamport-onhkrp` needs merging again.
