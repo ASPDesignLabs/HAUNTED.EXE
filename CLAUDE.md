@@ -252,7 +252,8 @@ logs, the README and the page). Released as **1.0.0b19** at the owner's word (8 
 onto main as one commit with 1.0.0b18.1's work. 1.0.0b20 is begun (8 November): C5 (the Confessions) and D5 (the classes' own); C5's contract is in (its 17.2 b and 17.3:
 `conf_rank`, `conf_value`, and D5's hooks `class_own`, `class_extra`, `blow_survived`), and C5 is built and in play (the
 Confessions' sheet approved; harness only); of D5, the classes' sheets and the killing blow are built (harness only), Toughness's
-cracks wait on their sheet (`docs/combat/d5-cracks.png`), and Restoration the spell is to come. Found in the
+cracks and Restoration's glow wait on their sheets (`docs/combat/d5-cracks.png`, `d5-restoration.png`), and Restoration the
+spell is built (harness only). Found in the
 review and mended by the plan: `HURT_MAGIC` is resisted by Resist Burn whatever its element; poison is the weak element across
 the bestiary (0.55 on average); skeletons' throws have no floor; flat armour grows as the blow does.
 
@@ -1647,8 +1648,10 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   own): 1 health and `G.wind_t` 3 s, drawn by `render_wind` with *UNBROKEN* while `lastblow_shown`. Toughness's cracks (10.5):
   `render_cracks` (from the end of `render_warded`), motes off each shut secret's crack face in the run's colour within
   `conf_value(CF_TOUGH, CV_CRACKS)`, more by rank; behind `cracks_on` (`CRAWL_CRACKS=1`) till the owner has seen
-  `docs/combat/d5-cracks.png`. Restoration's glow (10.3): `render_restore` (from `render_hand`), bands of ghost-light down the arm
-  while `restore_glow` says so; its sheet `docs/combat/d5-restoration.png`; the spell itself not yet built. Debug: `CRAWL_SHEET=0`
+  `docs/combat/d5-cracks.png`. Restoration (10.3): in hand as `G.rst_sel` (id `RS_ID`, not an `AT_`; 8, the wheel, the spells'
+  wheel's ankh `RESTORE_MARK`), `restore_cast` (its channel, from `human_cast`), `restore_tick`, half pace in `slow_factor`,
+  `restore_hud` (the status bar), `dream_restore` (from `update_player`), and the glow `render_restore` (from `render_hand`,
+  `G.rst_k`; its sheet `docs/combat/d5-restoration.png`); `EVENT restore_begin`, `restore_end`. Debug: `CRAWL_SHEET=0`
   (no sheets: the build before, line for line), `CRAWL_LASTBLOW=p` (its chance as given), `CRAWL_CRACKS=2` (and a `CRACKS` line a
   second: the face, the distance, the reach), `CRAWL_RESTSHOW=1` (the glow, for the sheet), `EVENT lastblow`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a

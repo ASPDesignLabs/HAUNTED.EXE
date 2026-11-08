@@ -1164,6 +1164,9 @@ static struct {
     /* the dead's track (D): */
     int lb_spent;                                                  /* 1.0.0b20: Constitution's killing blow lived this level (D5, */
     double lb_at;                                                  /* 10.4), and when: its breath is drawn as Second Wind's */
+    int rst_sel, rst_on;                                           /* Restoration (10.3): in hand in place of the spell; channelling */
+    float rst_t, rst_acc, rst_k, rst_snd, rst_spent;               /* the press held, health owed, the glow, a breath's sound, souls */
+    int rst_healed;                                                /* spent and health given this channel */
     /* the dead's track (D) ends */
 } G;
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
@@ -5318,6 +5321,7 @@ static int lastblow_can(void) {
     default: return 1;
     }
 }
+static void dream_restore(float dt);                               /* Restoration, the dream's (10.3), by the spells' keys below */
 static int blow_survived(int kind) {
     (void)kind;
     if (G.lb_spent || G.shop || G.tally || !lastblow_can()) return 0;
@@ -5723,7 +5727,8 @@ static float slow_factor(void) {                                   /* slowed, th
     if (af_rooted()) return 0.0f;                                  /* frozen, or on the floor */
     return sap_slow() * (G.slow_t > 0.0f ? 1.0f - 0.4f * (1.0f - 0.5f * gear_slow_resist(&RUN.gear)) : 1.0f) * (G.hz_slow > 0.0f ? G.hz_slow : 1.0f)   /* bile and void besides, */
          * tri_wading()                                               /* and a trial's water, */
-         * (1.0f - 0.08f * (float)G.af_n);                            /* and the cold: Chilled, 8% a stack (S4) */
+         * (1.0f - 0.08f * (float)G.af_n)                             /* and the cold: Chilled, 8% a stack (S4), */
+         * (G.rst_on ? 0.5f : 1.0f);                                   /* and Restoration channelled: half pace (D5, 10.3) */
 }
 static float spell_effect(void) { return 1.0f + gear_total(&RUN.gear, ST_EFFECT) / 100.0f; }   /* all a spell does besides damage */
 
@@ -11809,6 +11814,7 @@ static void update_player(float dt) {
     G.cooldown -= dt;
     G.calm += dt;
     amb_read_tick();                                               /* an ambush's sign, read in passing (step 10) */
+    dream_restore(dt);                                             /* Restoration, out of a fight (D5, 10.3) */
     if ((G.state == PS_AIM || G.state == PS_HOLD || G.state == PS_UNAIM || (G.state == PS_CAST && G.fired) || (G.state == PS_CAST && no_cast()))
         && hz_danger((int)G.px, (int)G.py)) {                      /* the floor warns: it stops aiming and goes on */
         G.hand = 0.0f; G.state = PS_MOVE; G.ang = wrap_pi(G.ang);
@@ -19308,6 +19314,7 @@ static void update_human(float dt);
 static float hand_raise(void) {
     float lift = G.rune_lift > 0.0f ? 0.8f * smoothstepf(1.4f, 1.25f, G.rune_lift) * smoothstepf(0.0f, 0.3f, G.rune_lift) : 0.0f;
     if (G.af_shake > 0.0f && G.af[AF_DOWN] > 0.0f) lift = fmaxf(lift, 0.75f);   /* grappled: up against what holds you (PLAN-combat) */
+    lift = fmaxf(lift, 0.72f * G.rst_k);                            /* Restoration channelled: up, glowing (D5) */
     return fmaxf(G.hand, lift);
 }
 /* the hand rises from the bottom right, reaching up and over, Catacomb 3-D / Doom style */
@@ -21207,16 +21214,102 @@ static int aim_target(void) {
     return best;
 }
 
+/* ---- Restoration (1.0.0b20, PLAN-combat 10.3; the dead's track's, D5) ----
+ * Once Restoration's rank I is confessed it is a spell among the others: 8, the wheel and the spells' wheel put it in hand
+ * (G.rst_sel; G.spell stays what it was, for when it is put down). Held, the cast channels it after a breath (RS_WIND): souls
+ * by the second, health by the second (a share of it, Restoration's numbers with the class's weight), walking at half pace
+ * (slow_factor). A blow doesn't end it; a stun, a knock-down, Unbound or the void do, and so do letting go, a menu and the
+ * souls running out. Drawn as a pale glow down the arm (render_restore). The dream channels it out of a fight, hurt, with
+ * souls to spare (dream_restore). It casts nothing, so nothing the dead do hears it as a spell */
+#define RS_ID 100                                                  /* its place among the spells' ids, past every AT_ and SHOT_ */
+#define RS_WIND 0.4f
+static const char *const RESTORE_MARK[11] = { "....###....", "...#...#...", "...#...#...", "....#.#....", ".####o####.", ".....#.....",
+                                              ".....#.....", ".....o.....", ".....#.....", ".....#.....", "..........." };   /* an ankh */
+static int restore_open(void) { return conf_value(CF_RESTORE, CV_HEAL) > 0.0f; }
+static int restore_breaks(void) { return G.dead || no_cast() || af_on(AF_STUN) || af_on(AF_DOWN) || af_on(AF_UNBOUND); }
+static void restore_stop(const char *why) {
+    if (G.rst_on) {
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT restore_end %s healed %d souls %.1f t=%.2f %s\n", why, G.rst_healed, G.rst_spent, G.t, G.player ? "player" : "autopilot");
+#else
+        (void)why;
+#endif
+    }
+    G.rst_on = 0; G.rst_t = 0.0f; G.rst_acc = 0.0f; G.rst_healed = 0; G.rst_spent = 0.0f;
+}
+static void restore_begin(void) {
+    G.rst_on = 1; G.rst_healed = 0; G.rst_spent = 0.0f; G.rst_snd = 0.0f;
+    snd_sfx_ex(SFX_SHIMMER, 0.55f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT restore_begin hp %d/%d souls %.1f t=%.2f %s\n", G.hp, G.max_hp, spirit(), G.t, G.player ? "player" : "autopilot");
+#endif
+}
+static void restore_tick(float dt) {                               /* a channel's second: souls in, health out */
+    if (G.hp >= G.max_hp) { G.rst_acc = 0.0f; return; }             /* whole: it costs nothing to hold */
+    float cost = conf_value(CF_RESTORE, CV_HEAL_SOULS) * dt;
+    if (!spend_spirit(cost)) {
+        if (G.player) say("NO SOULS LEFT TO SPEND");
+        restore_stop("souls");
+        return;
+    }
+    G.rst_spent += cost;
+    G.rst_acc += conf_value(CF_RESTORE, CV_HEAL) * (float)G.max_hp * dt;
+    while (G.rst_acc >= 1.0f && G.hp < G.max_hp) { G.rst_acc -= 1.0f; G.hp++; G.rst_healed++; }
+    if ((G.rst_snd -= dt) <= 0.0f) { G.rst_snd = 1.6f; snd_sfx_ex(SFX_SHIMMER, 0.3f, 0.5f); }   /* a breath of it now and then */
+}
+static void restore_glow_step(float dt) { G.rst_k += ((G.rst_on ? 1.0f : 0.0f) - G.rst_k) * fminf(1.0f, dt * 6.0f); }
+static int restore_cast(float dt, int trig, int may) {              /* a person's, from human_cast: 1 while it has the cast button */
+    if (G.rst_sel && !restore_open()) G.rst_sel = 0;                 /* a death took the Confessions */
+    if (!G.rst_sel) { if (G.rst_on) restore_stop("put down"); restore_glow_step(dt); return 0; }
+    if (!may || !trig || restore_breaks()) restore_stop(!may ? "menu" : !trig ? "let go" : "broken");
+    else if ((G.rst_t += dt) >= RS_WIND) {                           /* a breath, and it flows */
+        if (!G.rst_on) restore_begin();
+        restore_tick(dt);
+    }
+    restore_glow_step(dt);
+    return 1;
+}
+static void dream_restore(float dt) {                              /* the dream's, from update_player: out of a fight, hurt, souls to spare */
+    if (G.player) return;
+    int may = restore_open() && !restore_breaks() && !G.shop && !G.tally && !in_combat() && G.state != PS_CAST && G.state != PS_AIM;
+    if (G.rst_on && (!may || G.hp >= (int)(0.9f * (float)G.max_hp) || spirit() < 4.0f)) restore_stop(!may ? "fight" : "enough");
+    else if (!G.rst_on && may && G.hp < (int)(0.6f * (float)G.max_hp)) {   /* souls enough to mend a fifth of its health, and six over */
+        float heal = conf_value(CF_RESTORE, CV_HEAL), need = heal > 0.0f ? 0.2f / heal * conf_value(CF_RESTORE, CV_HEAL_SOULS) : 1e9f;
+        if (spirit() >= 6.0f + need) { G.rst_t = RS_WIND; restore_begin(); }
+    }
+    if (G.rst_on) restore_tick(dt);
+    restore_glow_step(dt);
+}
+static void pick_restore(void) {
+    if (!restore_open()) { say("RESTORATION IS NOT YET CONFESSED"); return; }
+    if (!G.rst_sel) snd_sfx_ex(SFX_TICK, 0.8f, 0.5f);
+    G.rst_sel = 1;
+    show_bar();
+    say("RESTORATION  RANK %d", imax(1, conf_rank(CF_RESTORE)));
+}
+static void restore_hud(Frame *f, int x, int w, int y0) {          /* the status bar's spell, while it is in hand */
+    static const char *const ANKH[7] = { ".###.", "#...#", ".#.#.", "#####", "..#..", "..#..", "..#.." };
+    const char *nm = "RESTORE";                                    /* as wide as the lightning's name and glyph, which the box allows */
+    if (gfx_text_width(nm, 1) + 7 > w + 18) nm = "HEAL";
+    int nw = gfx_text_width(nm, 1) + 7, nx = x + (w - nw) / 2;
+    for (int r = 0; r < 7; r++) for (int c = 0; c < 5; c++) if (ANKH[r][c] == '#') gfx_px(f, nx + c, y0 + 19 + r, ramp_at(R_GHOST, 13));
+    gfx_text8(f, nx + 7, y0 + 19, nm, ramp_at(R_GHOST, G.rst_on ? 15 : 12), 1);
+    char num[16];
+    snprintf(num, sizeof num, "RANK %d", imax(1, conf_rank(CF_RESTORE)));
+    gfx_text8(f, x + (w - gfx_text_width(num, 1)) / 2, y0 + 30, num, R_IRON + 13, 1);
+}
+
 static const int KEY_SPELL[7] = { AT_FIRE, AT_FROST, AT_CHAIN, AT_FLASK, AT_DRAIN, AT_SPEAR, AT_BFS };   /* 1-7 */
 static void pick_spell(int sp) {
+    if (sp == RS_ID) { pick_restore(); return; }                   /* Restoration (D5) */
     if (sp < 0 || sp >= NATK) return;
     if (RUN.gear.atk[sp] < 0) {
         if (sp == AT_BFS) say("NOT IN YOUR SPELLBOOK");
         else say("%s IS NOT YET OPEN: THE LAMPSTAND", ELEM_NAME[ATK_ELEM[sp]]);
         return;
     }
-    if (sp != G.spell) snd_sfx_ex(SFX_TICK, 0.8f, 0.5f);
-    G.spell = sp;
+    if (sp != G.spell || G.rst_sel) snd_sfx_ex(SFX_TICK, 0.8f, 0.5f);
+    G.spell = sp; G.rst_sel = 0;                                    /* Restoration put down, if it was in hand */
     show_bar();
     if (sp == AT_BFS) say("THE BFS9000");
     else say("%s  RANK %d", ATK_NAME[sp], RUN.gear.atk[sp]);
@@ -21226,11 +21319,11 @@ static void pick_spell(int sp) {
 static void wheel_fill(int kind) {
     WH.n = 0; WH.hi = -1;
     if (kind == WH_SPELLS) {                                       /* the six lines in their places round it, top first, the BFS9000 a seventh */
-        int n = RUN.gear.atk[AT_BFS] >= 0 ? 7 : 6;
+        int nb = RUN.gear.atk[AT_BFS] >= 0 ? 7 : 6, n = nb + restore_open();   /* and Restoration last, once confessed (D5) */
         for (int i = 0; i < n; i++) {
-            int sp = KEY_SPELL[i];
-            WH.s[WH.n] = (WSlot){ WS_SPELL, sp, RUN.gear.atk[sp] >= 0, -PI_F * 0.5f + (float)i * 2.0f * PI_F / (float)n };
-            if (sp == G.spell) WH.hi = WH.n;
+            int sp = i < nb ? KEY_SPELL[i] : RS_ID;
+            WH.s[WH.n] = (WSlot){ WS_SPELL, sp, sp == RS_ID || RUN.gear.atk[sp] >= 0, -PI_F * 0.5f + (float)i * 2.0f * PI_F / (float)n };
+            if (sp == RS_ID ? G.rst_sel : sp == G.spell && !G.rst_sel) WH.hi = WH.n;
             WH.n++;
         }
         return;
@@ -21329,11 +21422,13 @@ static void wheel_input(float dt) {
 
 static void spell_keys(void) {
     for (int k = 0; k < 7; k++) if (IN.hit[KEY_1 + k]) pick_spell(KEY_SPELL[k]);
-    if (IN.wheel) {                                                /* the wheel turns the pages, past what isn't open */
-        int dir = IN.wheel > 0 ? -1 : 1, at = 0;
+    if (IN.hit[KEY_8]) pick_restore();                             /* 8: Restoration (D5) */
+    if (IN.wheel) {                                                /* the wheel turns the pages, past what isn't open; Restoration an eighth */
+        int dir = IN.wheel > 0 ? -1 : 1, at = 0, m = 7 + restore_open();
         for (int k = 0; k < 7; k++) if (KEY_SPELL[k] == G.spell) at = k;
-        for (int n = 0; n < 7; n++) { at = (at + dir + 7) % 7; if (RUN.gear.atk[KEY_SPELL[at]] >= 0) break; }
-        pick_spell(KEY_SPELL[at]);
+        if (G.rst_sel) at = 7;
+        for (int n = 0; n < m; n++) { at = (at + dir + m) % m; if (at == 7 || RUN.gear.atk[KEY_SPELL[at]] >= 0) break; }
+        pick_spell(at == 7 ? RS_ID : KEY_SPELL[at]);
     }
 }
 
@@ -21505,6 +21600,7 @@ static void human_cast(float dt, int may) {
     int trig = may && (IN.down[KEY_MOUSE1] || (IN.down[KEY_CAST] && !(WEB && G.map_on)));   /* the map keeps the browser's Space */
     if (trig && no_cast()) { if (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CAST]) hush_say(); trig = 0; }
     if (!may && G.chg_on) { G.chg_on = 0; tether_end(); }          /* a screen opened over it: the charge is let fall */
+    if (restore_cast(dt, trig, may)) trig = 0;                     /* Restoration in hand: held, it channels (D5, 10.3) */
     if (spell_holds(G.spell) || G.chg_on) {                        /* a charging ultimate's spell, or Soul Tether's: held, not repeated */
         if (!G.chg_on && trig && G.pc_t < 0.0f && G.cooldown <= 0.0f && !G.dead && (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CAST])) {
             G.chg_on = 1; G.chg_sp = G.spell; G.chg_t = 0.0f;
@@ -26718,6 +26814,7 @@ static void render_statusbar(Frame *f) {
             break;
         }
         default: {                                                 /* the spell in hand: its element's glyph and its rank */
+            if (G.rst_sel) { restore_hud(f, P[i].x, P[i].w, y0); continue; }   /* or Restoration (D5) */
             int sp = clampi(G.spell, 0, NATK - 1), t = RUN.gear.atk[sp], el = ATK_ELEM[sp];
             uint8_t sc = ramp_at(gear_color(GK_ATK, sp), 13);
             const char *nm = el >= 0 ? (el == EL_LIGHT ? "LIGHTNG" : el == EL_PHYS ? "SPEAR" : ELEM_NAME[el]) : "BFS";
@@ -27254,13 +27351,13 @@ static void render_charge(Frame *f, int ox, int oy) {
 
 /* Restoration (1.0.0b20, PLAN-combat 10.3; the dead's track's, D5): while it is channelled, a pale glow climbs the arm from the
  * fingers into the sleeve, a band at a time, the hand's own shading kept under it, and motes rise off the fingertips. Drawn
- * over the hand as it was drawn, from its frame's pixels. restore_glow: how much (0 none); CRAWL_RESTSHOW=1 (debug) for the
- * sheet, till the spell is in */
+ * over the hand as it was drawn, from its frame's pixels. restore_glow: how much (G.rst_k, 0 none); CRAWL_RESTSHOW=1 (debug)
+ * at full, for the sheet */
 static float restore_glow(void) {
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_RESTSHOW")) return 1.0f;
 #endif
-    return 0.0f;
+    return G.rst_k;
 }
 static void render_restore(Frame *f, int ox, int oy, int hf) {
     float k = restore_glow();
@@ -31234,10 +31331,11 @@ static void wheel_render(Frame *f) {
     for (int i = 0; i < WH.n; i++) {
         const WSlot *w = &WH.s[i];
         int x = cx + (int)lroundf(cosf(w->ang) * (float)R), y = cy + (int)lroundf(sinf(w->ang) * (float)R), sel = i == WH.hi;
-        int cur = (w->kind == WS_SPELL && w->id == G.spell) || (w->kind == WS_RUNE && w->id == rune_readied()) || (w->kind == WS_GIFT && w->id == ab_readied());
+        int cur = (w->kind == WS_SPELL && (w->id == RS_ID ? G.rst_sel : w->id == G.spell && !G.rst_sel)) || (w->kind == WS_RUNE && w->id == rune_readied()) || (w->kind == WS_GIFT && w->id == ab_readied());
         int st = !w->ok ? SK_CLOSED : cur ? SK_HELD : SK_READY, r = sel ? small + 2 : small;
         float fill = 1.0f;
-        if (w->kind == WS_SPELL) {
+        if (w->kind == WS_SPELL && w->id == RS_ID) ui_socket_mark(f, x, y, r, RESTORE_MARK, R_GHOST, st, sel, 0, G.ui_t);   /* Restoration (D5) */
+        else if (w->kind == WS_SPELL) {
             int el = ATK_ELEM[w->id];
             if (el >= 0) ui_socket(f, x, y, r, UI_NODE_ICON[el][ND_OPEN], ELEM_RAMP[el], st, sel, 0, G.ui_t);
             else ui_socket_mark(f, x, y, r, BFS_MARK, R_PURPLE, st, sel, 0, G.ui_t);
@@ -31257,7 +31355,11 @@ static void wheel_render(Frame *f) {
     char a[40] = "", b[40] = "", c[40] = "";                       /* in the middle: what is pointed at */
     if (WH.hi >= 0 && WH.hi < WH.n) {
         const WSlot *w = &WH.s[WH.hi];
-        if (w->kind == WS_SPELL) {
+        if (w->kind == WS_SPELL && w->id == RS_ID) {               /* Restoration (D5) */
+            snprintf(a, sizeof a, "RESTORATION");
+            snprintf(b, sizeof b, "RANK %d", imax(1, conf_rank(CF_RESTORE)));
+            snprintf(c, sizeof c, "HELD, IT HEALS");
+        } else if (w->kind == WS_SPELL) {
             snprintf(a, sizeof a, "%s", w->id == AT_BFS ? "BFS9000" : ELEM_NAME[ATK_ELEM[w->id]]);
             if (!w->ok) snprintf(b, sizeof b, "NOT OPEN");
             else if (w->id == AT_SPEAR) snprintf(b, sizeof b, "RANK %d  %s %d", RUN.gear.atk[w->id], spear_bare() ? "SPLINTERS" : "BONES", spear_bare() ? splint_left() : RUN.gear.bones);

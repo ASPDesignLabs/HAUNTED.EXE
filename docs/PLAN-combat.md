@@ -1231,8 +1231,9 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   sixteen more seeds (33-63 odd), the sheet against `CRAWL_SHEET=0`: on them the Galvanist died 27 times
   against 13 (52 against 31 over all thirty-two seeds; seventeen more of them to rank I skeletons on levels 1-4), and the Plague
   Doctor 33 against 29 (66 against 50). The Plague Doctor's is the noise again; the Galvanist's looks real against the dream, and
-  a batch with its health at 100 (the rest of its sheet kept) is being run to see whether that is all of it. The table is the
-  owner's draft (K1 b), so it stays as it is till they say. From level 31, 1,500 s on eight seeds a class
+  a batch with its health at 100 (the rest of its sheet kept) was run on all thirty-two: 45 deaths (52 at 90, 31 with no sheet),
+  198 levels cleared (202, 208). So its health is a little of it; the rest is near the noise, or in its Movement or Dodge, and
+  wasn't chased, since the owner's caps by class (below, in C's log) reshape the sheets. The table is the owner's draft (K1 b). From level 31, 1,500 s on eight seeds a class
   (17-31 odd) against `CRAWL_SHEET=0`: 118 levels cleared (114), no deaths in either, a level's median 366 s (366). What the
   marks did: knocked down 510 times (468), poisoned 80 (70). ASan clean on a Plague Doctor's dream from level 11 for 400 s, a
   person turning her question's pages, and one taking the Anatomist's vow over the Witchfinder.
@@ -1270,6 +1271,24 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   and motes rising off them. The sheet shows the hand at rest and the claw, in run I's light and run IV's dark, untouched and at
   four moments. Nothing in play draws it yet (`restore_glow` is 0 but for `CRAWL_RESTSHOW=1`, debug); the spell itself (its
   number, the spells' turning and wheel, the channel, the dream's choosing) comes next, built while the sheets wait.
+
+- **8 November. Restoration the spell** (10.3; harness only). Once Restoration's rank I is confessed (`restore_open`) it is a
+  spell among the others: 8 takes it up, the mouse wheel turns to it after the seven, and the spells' wheel (the pad's D-pad down
+  held) has it last, an ankh (`RESTORE_MARK`). It is in hand as `G.rst_sel` (D's part of `G`), with `G.spell` left as it was for
+  when another is taken; its id among the spells is `RS_ID` (100, past every `AT_` and `SHOT_`, so nothing indexed by a spell
+  sees it), not a new `AT_` number, which would have changed the saves' spellbook bytes for nothing kept. Held, the cast button
+  channels it after 0.4 s (`restore_cast`, one line at the head of C's `human_cast`): souls by the second and health by the
+  second as Restoration's numbers give them (`restore_tick`; nothing spent while whole), half pace (one factor in `slow_factor`),
+  the hand up (`hand_raise`) and the glow down the arm (`render_restore`, the sheet's). A blow doesn't end it; letting go, a menu,
+  a stun, a knock-down, Unbound, the void or the souls running out do (`EVENT restore_begin`, `restore_end <why> healed n souls
+  x`). The status bar shows the ankh and *RESTORE* with its rank (`restore_hud`, one line in `render_statusbar`). The dream
+  (`dream_restore`, one line in `update_player`): out of a fight and not casting, under three fifths of its health, with souls to
+  mend a fifth of it and six over, it channels as it walks, to nine tenths or till a fight; at rank I that is 56 souls, so the dream
+  seldom does (once in 25 minutes from level 1 at rank V, as the Sin-Eater). With the owner's numbers (U9 b) it is slow at rank I:
+  a hundred-health caster mends a point every four seconds for 0.7 souls a second; at V a point a second for a tenth. Tested: a
+  person at rank V (the Sin-Eater, at full weight) mended 10 health in 10.6 s for 1.1 souls, walking at half pace, the wheel and
+  the pad's wheel took it up and put it down; frames of the bar and the glow; ASan clean on that and on a dream of 1,200 s that
+  channelled. Not done: Tab's spellbook page doesn't list it (C's page), and balance runs wait for J20.
 
 ## Appendix: the owner's guide (7 November), as given
 
