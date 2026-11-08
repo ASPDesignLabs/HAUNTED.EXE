@@ -130,22 +130,22 @@ everything, and armour can't sensibly go below nothing. The owner took these pai
 
 - Starting resists: the strength **+15%** (today's sheets give 10-25; evened out), the weakness **-15%** (that element harms
   it 15% more). A resist may now go below nothing.
-- Caps lifted by +30% of the base, for the strength's resist and the draft's other two:
+- Caps lifted by +30% of the base (a resist's and armour's stopping at 90%, Spirit Cost's at 70%), for the strength's
+  resist and the draft's other two:
 
 | Class | Caps lifted (+30%) |
 |---|---|
-| Witchfinder | Resist Fire 75 to 97.5, Spell Haste 50 to 65, Spell Effect 50 to 65 |
-| Anatomist | Resist Frost 75 to 97.5, Physic 400 to 520 (its draft's Resist Poison dropped: one strength each now) |
-| Galvanist | Resist Lightning 75 to 97.5, Dodge 35 to 45.5, Movement 40 to 52 |
-| Plague Doctor | Resist Poison 75 to 97.5, Luck 25 to 32.5, Treasure 100 to 130 |
-| Sin-Eater | Resist Spirit 75 to 97.5, Vessel 100 to 130, Spirit Cost 60 to 78 |
-| Headsman | Armour 75% to 97.5% of a blow kept off, Sprint 7.5 to 9.75 s over the base, Damage 100 to 130 |
+| Witchfinder | Resist Fire 75 to 90, Spell Haste 50 to 65, Spell Effect 50 to 65 |
+| Anatomist | Resist Frost 75 to 90, Physic 400 to 520 (its draft's Resist Poison dropped: one strength each now) |
+| Galvanist | Resist Lightning 75 to 90, Dodge 35 to 45.5, Movement 40 to 52 |
+| Plague Doctor | Resist Poison 75 to 90, Luck 25 to 32.5, Treasure 100 to 130 |
+| Sin-Eater | Resist Spirit 75 to 90, Vessel 100 to 130, Spirit Cost 60 to 70 |
+| Headsman | Armour 75% to 90% of a blow kept off, Sprint 7.5 to 9.75 s over the base, Damage 100 to 130 |
 
 - **Armour's cap**: armour keeps off a share of a blow (`armour_keep`); its cap is on that share, 75% for everyone, as the
   resists', and lifted for the Headsman.
 - **The owner's word (8 November): the pairs above as they stand, and a resist's lift stops at 90%** (armour's share too: 75% to
-  90%), Spirit Cost's at 70% (60 to 70); every other cap takes the full +30%. So in the table above, read 90 for each 97.5, and
-  the Sin-Eater's Spirit Cost 60 to 70.
+  90%), Spirit Cost's at 70% (60 to 70); every other cap takes the full +30%. The table above reads so.
 
 **Who does what.** D: the class sheets' strengths and weaknesses (`class_own`), the caps (`class_cap`: the lift of stat st's
 cap in its units, which `caster_sync` adds to the caps), armour's cap in `armour_keep` (given to D for this, 17.2 b), and the
