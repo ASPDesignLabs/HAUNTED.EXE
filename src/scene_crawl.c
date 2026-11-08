@@ -1320,6 +1320,13 @@ static void cell_pass(int x, int y, float *gx, float *gy) {        /* where a cr
     if (m == 3) *gy = (float)y + 0.75f; else if (m == 12) *gy = (float)y + 0.25f;   /* a half: the other */
     else if (m == 5) *gx = (float)x + 0.75f; else if (m == 10) *gx = (float)x + 0.25f;
 }
+static void foot_settle(void) {                                    /* one born by a prop (raised from remains there, a sac laid,
+                                                                      spiderlings) stands on its cell's middle: into what is free */
+    for (int i = 0; i < MAXMOBS; i++) {
+        Mob *m = &G.mobs[i];
+        if (m->alive && foot_of(m->cx, m->cy) && m->x == (float)m->cx + 0.5f && m->y == (float)m->cy + 0.5f) cell_pass(m->cx, m->cy, &m->x, &m->y);
+    }
+}
 static int blocks_move(int x, int y) {
     Cell *c = cell(x, y);
     if (G.slide >= 0 && slide_covers(x, y)) return 1;
@@ -18361,6 +18368,7 @@ static void update_mark(float dt);
 static void comp_note(int level);
 static void crawl_update(double dt) {
     float fdt = (float)dt;
+    foot_settle();                                                 /* one born by a prop, into what it leaves free (1.0.0b18.1) */
 #ifdef CRAWL_DEBUG
     dbg_souls(); foot_watch();
 #endif

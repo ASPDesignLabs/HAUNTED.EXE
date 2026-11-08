@@ -1559,7 +1559,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   kind, the decoration and its light stand at the part's middle (`prop_lx/ly`), and `deco_look` keeps the cell's look. `foot_of`,
   `foot_hit`; `blocks_move` and `hunt_pass` let the dead through, `body_blocked` tests the caster's box corners against the quarters;
   `passable` and every floor test still refuse it. `cell_pass` (the free part's middle) is where `update_mob`'s walk and dodge,
-  `update_ally` and `update_wraith` aim. `place_gargoyles` makes a plinth whole again. The rooms' treasure and the potion may lie in
+  `update_ally` and `update_wraith` aim; `foot_settle` (head of `crawl_update`) sets one born at such a cell's middle into its free
+  part (`spawn_mob` is track D's). `place_gargoyles` makes a plinth whole again. The rooms' treasure and the potion may lie in
   the free part (`part_spot`, `part_lay`); `mk_free` and `pz_free` were not taught. The map draws the mark in its part. Debug:
   `CRAWL_FOOT=0`, `FOOT level n: ...`, `CRAWL_FOOTLIST=1`, `EVENT foot_pass`, `foot_brush` (`foot_watch`), `part_item`, `part_taken`;
   the debug map's `f`.

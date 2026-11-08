@@ -451,7 +451,8 @@ whole cell were still taken, unless they have learnt otherwise.
 - *The dead.* `cell_pass` gives the middle of what a prop leaves free: the other half, or across from a quarter (0.3 from that
   corner's far sides). The walk in `update_mob` and its step aside from a spell, `update_ally` and the ordinary Wraith's
   (`update_wraith`) aim there. A gargoyle placed on a statue's plinth makes it whole again (`place_gargoyles`), and its waking
-  makes it floor as before.
+  makes it floor as before. A creature born in such a cell (raised from remains there, a sac laid, spiderlings) is set into its
+  free part by `foot_settle` each frame, since `spawn_mob`, which puts it at the cell's middle, is track D's.
 - *Placement.* The rooms' treasure and the potion may lie in what a prop leaves free (`part_spot`: beside a lane, by floor
   reached without a key, no door beside; `part_lay` puts it at `cell_pass`). **Not taught** (a second change from the text):
   `mk_free` and `pz_free`. Things that want a spell and the puzzles' pieces are faced and struck at their cell's middle, and the
@@ -580,7 +581,8 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   `hunt_pass`, `body_blocked`, `deco_look`, `place_gargoyles`' one line, `place_items` (two lines, and `part_spot`/`part_lay`
   beside `room_cell`), `collect`'s debug line, the map's prop mark, the debug map's letter, a debug watch at the head of
   `crawl_update`, and the walk's target in four places: `update_mob`'s walk and its dodge (shared), `update_ally` and
-  `update_wraith`'s movement (neither's, by PLAN-combat's own note on the Wraith). None is in 17.2's lists. If either track
+  `update_wraith`'s movement (neither's, by PLAN-combat's own note on the Wraith), and `foot_settle` beside the debug watch at the
+  head of `crawl_update`. None is in 17.2's lists (`spawn_mob`, track D's, is left alone for that reason). If either track
   changes the line `float gx = m->tx + 0.5f, gy = m->ty + 0.5f, ...` in `update_mob`, keep `cell_pass` there.
 
 ## 15. Hand-off log
@@ -795,7 +797,22 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
     their cells' edges and a hunting spider overhead. Neither run from 31 died.
   - *A fault found on the way and mended:* a prop moved into its part could come out in its other look, since a look is chosen by
     a hash of where it stands; it now keeps the look its cell gave it.
-  - *Other checks:* both builds without warnings; the trial merge clean and built there (section 14). Still running as this was
-    committed: eight dream runs from levels 1 and 31 with footprints and with `CRAWL_FOOT=0`, and three ASan sessions; their
-    results follow below.
+  - *Dream runs* (the same build, footprints on against `CRAWL_FOOT=0`, seeds 1-15 odd, 50 minutes each; from 31 with gear 8 and
+    `CRAWL_XPBANK` 77658): from level 1, 53 levels cleared and 6 deaths (47 and 11), a level's median time 357 s (361); from 31,
+    50 cleared and no deaths (49, none), 372 s (377). One `STALL` line from 1 either way, two from 31 (four). Inside the noise of
+    eight seeds, and no worse. Creatures went into part-filled cells 348 times from level 1 and 2,597 from 31. The rooms' treasure
+    and the potion lay by a prop 35 times from each start, and the dream took 18 and 17 of them, against three in four of all
+    treasure: it heads for them by their lane as for any other, so the gap is where it chooses to walk (and each run's last level
+    is never finished); a person walked to one and took it.
+  - *A second fault found and mended:* the runs' `foot_brush` lines were mostly spectres and web spiders, with bats, a gargoyle
+    and hunting spiders flying and ghouls just after a leap, all as they should be; but one was a skeleton a deacon had raised
+    from remains lying in a prop's cell, stood at the cell's middle, since `spawn_mob` puts every newborn there. `spawn_mob` is
+    on track D's list (PLAN-combat 17.2), so it is left alone: `foot_settle`, at the head of `crawl_update`, sets anything
+    standing exactly at a part-filled cell's middle (only the newly born can) into its free part. The same run again, with the
+    same run id, passed that moment with the skeleton in the free part.
+  - *Other checks:* both builds without warnings; the trial merge clean and built there (section 14); ASan and UBSan clean on three
+    sessions (a person walking into and along a half and a quarter and handing back to the dream, on level 1; the dream from level
+    31, 400 s; a person roaming level 35's obsidian halls); CI run 42440663924 on the branch (started by hand): the Windows build
+    and the browser's compiled and both smoke tests passed (before `foot_settle`). With `foot_settle`: `make smoke` passes (1.91 ms
+    a frame) and a fourth ASan session (the dream from level 31, 300 s, 104 passes) is clean.
 
