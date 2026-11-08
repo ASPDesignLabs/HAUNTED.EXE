@@ -985,6 +985,14 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   game's: the Confessions stand in place of the ascend screen's lines for a person and the dream, and an older page's lines are
   paid back as it is read. `CRAWL_CONFUI` is gone; `CRAWL_LINES=1` in the debug build puts the old lines back (no payback, the old
   screen, the old dream's buying), for balance runs. **C5 is built.** Track C's part of 1.0.0b20 is done; J20 waits on D5.
+- **8 November. Totals and caps on the Confessions' screen, and a brief on caps** (at the owner's word; harness only). The pane
+  now shows each stat as the caster has it in all (worn, the class's own and every Confession: `conf_total`, from
+  `gear_total_free`, a total before its cap) and as the next rank would leave it; the rest (the cuts, the souls, the spell's)
+  as they stand. A number at its cap is pale blue under a lid (`cap_lid`), as is the list's numeral of a Confession with
+  anything capped; *AT ITS CAP: ...* stands at the pane's foot; D asks twice before confessing one whose every number is
+  capped. Spirituality's words shortened to fit. No overflow for any class on any Confession, all at V with caps reached and an
+  overlevel due. `docs/BRIEF-caps.md`: every cap, what reaches for it, and options for caps by class (CP1-CP5), for the owner;
+  nothing of it built. Any of it would be one contract change (`class_own` handing back a cap lift) and a few lines a side.
 
 ## 19. Track D's log (the dead's)
 

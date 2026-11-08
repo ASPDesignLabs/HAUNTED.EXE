@@ -23813,6 +23813,7 @@ static void wind_offer(void) {
 /* The caster's screen (docs/PLAN-b9.md, section 4): a row for each line points buy. W/S choose, D or Enter
  * buys a step (a second press when it is at its cap: more is wasted), A or Backspace takes back a step bought
  * since it opened, Tab the cornerstones, Esc leaves. */
+static int conf_capped(int cf, int *all);
 static void update_confess(void) {                                 /* W/S chooses, D confesses a point (held, ten a second after a
                                                                       breath), A takes one back, Space an overlevel on one at V */
     if (IN.hit[KEY_ESC]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
@@ -23837,8 +23838,11 @@ static void update_confess(void) {                                 /* W/S choose
     } else if (!held) G.cf_rep0 = -1.0f;
     if (step > 0) {
         if (RUN.points <= 0 || RUN.conf[cf] >= CONF_TOP) { if (!rep) snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        int all = 0;
+        conf_capped(cf, &all);
+        if (all && G.cf_arm != cf) { if (!rep) { G.cf_arm = cf; snd_sfx_ex(SFX_KNOCK, 0.7f, 0.5f); } G.cf_rep0 = -1.0f; return; }   /* its note warns; again confesses */
         int r0 = conf_rank(cf);
-        conf_buy(cf, 1); G.cf_buy[cf]++; G.cf_arm = -1;
+        conf_buy(cf, 1); G.cf_buy[cf]++; G.cf_arm = all ? cf : -1;
         snd_sfx_ex(SFX_TICK, rep ? 0.5f : 0.9f, 0.5f);
         if (conf_rank(cf) != r0) { snd_sfx_ex(SFX_RUNE, 0.6f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f); }   /* a rank whole */
     } else if (step < 0) {
@@ -30484,7 +30488,7 @@ static const ConfLbl CONF_LBL[NCONF][5] = {
 static const char *const CONF_DOES[NCONF] = {
     "A SPELL TO MEND BY, CHOSEN AS THE OTHERS ARE, PAID IN SOULS AS IT RUNS. POTIONS DO MORE.",
     "KNOCKED DOWN, STUNNED, FROZEN: RARER AND SHORTER. HARDER TO HIT; QUICKER, QUIETER.",
-    "MORE SOULS FROM THE DEAD; UNBOUND RARER AND SHORTER. SPELLS QUICKER, CHEAPER, STRONGER.",
+    "MORE SOULS FROM THE DEAD; UNBOUND RARER AND SHORTER; BETTER SPELLS.",
     "MORE HEALTH, A LONGER SPRINT AND A QUICKER BREATH. NOW AND THEN A KILLING BLOW IS LIVED.",
     "POISON, CHILL, FIRE, GRABS, WEBS, BILE AND SAP RARER AND SHORTER. MORE GOLD, MORE LUCK.",
     "MORE ARMOUR, AND MORE FROM WHAT YOU WEAR. A SHUT SECRET'S CRACKS SHOW FROM FURTHER OFF.",
@@ -30514,6 +30518,57 @@ static void af_mark1(Frame *f, int x, int y, int k) {              /* a status's
             else if (ch == 'o') gfx_px(f, x + c, y + r, (uint8_t)(AF_LBL_RAMP[k] + 15));
         }
 }
+/* a number of a Confession as the caster has it in all (what is worn, the class's own and every Confession), now and at np points
+ * (and no overlevels), under its cap; the stats' totals, the rest as they stand. Returns its cap, 0 none */
+#define CONF_CAP_K 0.9f                                            /* a status cut's cap, and the killing blow's 0.5 (conf_at) */
+static float conf_total(int cf, int i, int np, int no, float *now, float *next) {
+    *now = *next = 0.0f;
+    if (cf < 0 || cf >= NCONF || i < 0 || i >= CONF[cf].n) return 0.0f;
+    int st = CONF_STAT[cf][i];
+    float d = conf_at(cf, i, np, no) - conf_value(cf, i);
+    if (st < 0) {                                                  /* felt where it is used: as it stands */
+        float extra = cf == CF_SPIRIT && i == CV_SOULS ? class_extra(KX_SOULS) : 0.0f;
+        *now = conf_value(cf, i) + extra; *next = conf_at(cf, i, np, no) + extra;
+        if (cf == CF_TOUGH && i == CV_ARMOUR_WORN) return 0.0f;
+        return (cf == CF_AGILITY && i == CV_HARD) || (cf == CF_SPIRIT && i == CV_UNBOUND) || (cf == CF_SURVIVAL && i == CV_SOFT) ? CONF_CAP_K
+             : cf == CF_CONST && i == CV_LASTBLOW ? 0.5f : 0.0f;
+    }
+    const Gear *g = &RUN.gear;
+    if (st == ST_ARMOR) d += (conf_at(CF_TOUGH, CV_ARMOUR_WORN, np, no) - conf_value(CF_TOUGH, CV_ARMOUR_WORN)) * gear_total_raw(g, ST_ARMOR);
+    float cap = gear_stat_cap(st), up = 0.0f;
+    if (cap > 0.0f && no > RUN.conf_over[cf]) up = (conf_at(cf, i, np, no) - conf_at(cf, i, np, 0)) - (conf_value(cf, i) - conf_at(cf, i, RUN.conf[cf], 0));
+    float free = gear_total_free(g, st);
+    *now = cap > 0.0f ? fminf(free, cap) : free;
+    *next = cap > 0.0f ? fminf(free + d, cap + up) : free + d;
+    if (st == ST_HP) { *now += 100.0f; *next += 100.0f; }         /* as health is shown: the whole of it */
+    if (st == ST_SPRINT) { *now += SPRINT_BASE; *next += SPRINT_BASE; cap += SPRINT_BASE; }
+    return cap > 0.0f ? cap + (st == ST_SPRINT ? 0.0f : 0.0f) : 0.0f;
+}
+static void conf_tfmt(int cf, int i, float v, char *b, int n) {   /* a total, five characters at most */
+    int st = CONF_STAT[cf][i];
+    if (st < 0) { conf_fmt(CONF_LBL[cf][i].fmt, v, 1, b, n); return; }
+    if (st == ST_HP) snprintf(b, (size_t)n, "%.0f", v);
+    else if (st == ST_SPRINT) snprintf(b, (size_t)n, "%.1fS", v);
+    else if (st == ST_THRIFT) snprintf(b, (size_t)n, "-%.0f%%", v);
+    else if (st == ST_ARMOR) { if (v < 9.95f) snprintf(b, (size_t)n, "%.1f", v); else snprintf(b, (size_t)n, "%.0f", v); }
+    else if (v < 9.95f && (st == ST_DODGE || st == ST_MOVE || st == ST_HASTE || st == ST_LUCK)) snprintf(b, (size_t)n, "%.1f%%", v);
+    else snprintf(b, (size_t)n, "%.0f%%", v);
+}
+static int conf_at_cap(float v, float cap) { return cap > 0.0f && v >= cap - 0.05f * (cap < 2.0f ? 0.01f : 1.0f); }
+static int conf_capped(int cf, int *all) {                         /* how many of its numbers are at their cap now; *all: every one */
+    int n = 0, k = 0;
+    for (int i = 0; i < CONF[cf].n; i++) {
+        float now, next, cap = conf_total(cf, i, RUN.conf[cf], RUN.conf_over[cf], &now, &next);
+        if (cap <= 0.0f) continue;
+        k++; n += conf_at_cap(now, cap);
+    }
+    if (all) *all = k > 0 && n == k && k == CONF[cf].n;
+    return n;
+}
+static void cap_lid(Frame *f, int x, int y, int w) {               /* a lid over a number at its cap */
+    for (int i = 0; i < w - 1; i++) gfx_px(f, x + i, y - 2, R_GLOW + 12);
+    gfx_px(f, x, y - 1, R_GLOW + 10); gfx_px(f, x + w - 2, y - 1, R_GLOW + 10);
+}
 static void render_confess(Frame *f) {
     static char title[32], right[24], buf[40];
     dim_view(f);
@@ -30534,6 +30589,7 @@ static void render_confess(Frame *f) {
         const char *num = r > 0 ? ROMAN[imin(r, 15)] : "-";
         if (RUN.conf_over[cf] > 0) eerie_text(f, 127 - 8 * (int)strlen(num), y + 9, num);   /* beside its groove */
         else ui_text8(f, 127 - 8 * (int)strlen(num), y + 9, num, FACE_INSC, r > 0 ? R_GOLD + 11 : UI_M(10), TX_INLAID);
+        if (conf_capped(cf, 0)) cap_lid(f, 127 - 8 * (int)strlen(num), y + 9, 8 * (int)strlen(num));   /* something of it at its cap */
         ui_groove(f, 16, y + 11, 93, y + 11, R_PURPLE, (float)p / (float)CONF_TOP);
         for (int k = 1; k < 5; k++) {                              /* the ranks notched in it, gilt once reached */
             int x = 16 + 77 * CONF_CUM[k] / CONF_TOP;
@@ -30556,30 +30612,48 @@ static void render_confess(Frame *f) {
     ui_rule(f, lx, 304, 54, 0);
     ui_text8(f, 256 - 24, 58, "NOW", FACE_BODY, UI_M(10), TX_PLAIN);
     if (nr) ui_text8(f, 305 - 8 * (int)strlen(ROMAN[imin(nr, 15)]), 58, ROMAN[imin(nr, 15)], FACE_INSC, R_GOLD + 11, TX_INLAID);
+    const char *capw = 0, *capn = 0;                               /* the first at its cap now, and the first the next rank would cap */
     for (int i = 0; i < CONF[sel].n; i++) {
         int y = 69 + i * 10;
         const ConfLbl *l = &CONF_LBL[sel][i];
         if (l->lbl) ui_text8(f, lx, y, l->lbl, FACE_BODY, UI_M(13), TX_INLAID);
         else for (int k = 0; k < 3 && l->af[k]; k++) af_mark1(f, lx + k * 11, y - 1, l->af[k] - 1);
         if (!l->lbl && sel == CF_SURVIVAL) ui_text8(f, lx + 33, y, "+", FACE_BODY, UI_M(12), TX_PLAIN);   /* and the rest, as it says below */
-        int from1 = CONF[sel].v[i].from1;
-        conf_fmt(l->fmt, conf_value(sel, i), p > 0 && (!from1 || p >= CONF_CUM[1]), buf, sizeof buf);
-        ui_text8(f, 256 - 8 * (int)strlen(buf), y, buf, FACE_BODY, p ? C_WHITE : UI_M(11), TX_PLAIN);
+        int from1 = CONF[sel].v[i].from1, st = CONF_STAT[sel][i], np = nr <= 5 ? CONF_CUM[imax(nr, 1)] : CONF_TOP, no = nr > 5 ? nr - 5 : 0;
+        float now, next, cap = conf_total(sel, i, nr ? np : p, nr ? no : RUN.conf_over[sel], &now, &next);
+        int open = st >= 0 || (p > 0 && (!from1 || p >= CONF_CUM[1])), cn = open && conf_at_cap(now, cap);
+        if (st >= 0) conf_tfmt(sel, i, now, buf, sizeof buf);      /* a stat: all you have of it; the rest: what this gives */
+        else conf_fmt(l->fmt, now, open, buf, sizeof buf);
+        int w = 8 * (int)strlen(buf);
+        ui_text8(f, 256 - w, y, buf, FACE_BODY, cn ? R_GLOW + 12 : open ? C_WHITE : UI_M(11), TX_PLAIN);
+        if (cn) cap_lid(f, 256 - w, y, w);
         if (nr) {
-            int np = nr <= 5 ? CONF_CUM[nr] : CONF_TOP, no = nr > 5 ? nr - 5 : 0;
-            conf_fmt(l->fmt, conf_at(sel, i, np, no), 1, buf, sizeof buf);
-            ui_text8(f, 305 - 8 * (int)strlen(buf), y, buf, FACE_BODY, R_GOLD + 11, TX_PLAIN);
+            int cx = conf_at_cap(next, cap);
+            if (st >= 0) conf_tfmt(sel, i, next, buf, sizeof buf); else conf_fmt(l->fmt, next, 1, buf, sizeof buf);
+            w = 8 * (int)strlen(buf);
+            ui_text8(f, 305 - w, y, buf, FACE_BODY, cx ? R_GLOW + 12 : R_GOLD + 11, TX_PLAIN);
+            if (cx) cap_lid(f, 305 - w, y, w);
+            if (cx && !cn) capn = capn ? capn : l->lbl ? l->lbl : "THE CUT";   /* the next rank would reach it */
         }
+        if (cn && !capw) capw = l->lbl ? l->lbl : "THE CUT";
     }
     int dy = 69 + CONF[sel].n * 10 + 5;
     ui_rule(f, lx, 304, dy - 3, 0);
     const char *note = 0;
     if (G.cf_arm == 100 + sel) note = "AN OVERLEVEL TAKES IT PAST V, FOR GOOD. AGAIN TO CONFESS IT.";
     else if (whole && od > 0) note = PADX.used ? "\1Y: AN OVERLEVEL TAKES IT ON." : "SPACE: AN OVERLEVEL TAKES IT ON.";
-    const char *say = note ? pkp(note) : CONF_DOES[sel];           /* an overlevel's word stands in for what it does, as before */
-    int dl = (178 - dy) / 9;
+    if (G.cf_arm == sel) note = "ALL IT GIVES IS AT ITS CAP: MORE IS WASTED. AGAIN TO CONFESS IT ANYWAY.";
+    const char *say = note ? pkp(note) : CONF_DOES[sel];           /* an overlevel's word or a warning stands in for what it does */
+    int bottom = 178;
+    if (!note && (capw || capn)) {                                 /* the caps, at the foot: lids mark them above */
+        snprintf(buf, sizeof buf, capw ? "CAPPED: %s" : "%s CAPS %s", capw ? capw : ROMAN[imin(nr, 15)], capw ? "" : capn);
+        if (capw) snprintf(buf, sizeof buf, "AT ITS CAP: %s", capw);
+        ui_text8(f, lx, 169, buf, FACE_BODY, R_GLOW + 12, TX_INLAID);
+        bottom = 167;
+    }
+    int dl = (bottom - dy) / 9;
     if (ui_wrap_count(say, 20) > dl) ui_overflow("confession", CONF[sel].name, ui_wrap_count(say, 20) - dl);
-    ui_wrap(f, lx, dy, say, 20, 9, dl, FACE_BODY, !note ? UI_M(14) : G.cf_arm == 100 + sel ? R_BLOOD + 12 : R_PURPLE + 13, TX_INLAID);
+    ui_wrap(f, lx, dy, say, 20, 9, dl, FACE_BODY, !note ? UI_M(14) : G.cf_arm == 100 + sel || G.cf_arm == sel ? R_BLOOD + 12 : R_PURPLE + 13, TX_INLAID);
     const char *k = PADX.used ? "\1A CONFESSES  LB BACK  VIEW CORNERSTONES" : "D CONFESSES  A BACK  TAB CORNERSTONES";
     ui_keys(f, 160 - ui_keys_width(k) / 2, 183, k, UI_M(13));
 }
