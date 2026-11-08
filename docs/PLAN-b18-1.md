@@ -1,8 +1,7 @@
 # 1.0.0b18.1: the trial's door, and the crypt made kinder
 
-**Settled; steps 1-7 built** (harness only; 7-8 November 2026), the sheets of steps 4 and 7 (`docs/b18-1/bells.png`,
-`lamps.png`, `pad.png`) approved by the owner; step 8's sheet (`docs/b18-1/footprints.png`) drawn and waiting for the owner's
-eye before anything of it goes into the game. Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
+**Settled; steps 1-8 built** (harness only; 7-8 November 2026), the sheets of steps 4, 7 and 8 (`docs/b18-1/bells.png`,
+`lamps.png`, `pad.png`, `footprints.png`) approved by the owner; step 9 (the checks) next. Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
 tracks of [`PLAN-combat.md`](https://github.com/ASPDesignLabs/HAUNTED.EXE/blob/claude/inspiring-archimedes-dbj5n6/docs/PLAN-combat.md)
 build 1.0.0b19 on `claude/inspiring-archimedes-dbj5n6`. The owner gave one fault and six improvements, asked for them as an
 update of their own ahead of that work, and answered every question in one round (section 12). Every number below that isn't
@@ -435,6 +434,33 @@ hazards' things that make their cells solid. Each is faced to be used, has its f
 middle, and is what the dream walks up to. A plinth with a gargoyle on it stays whole (section 8's own rule); the desks are whole
 by their art (0.94).
 
+*As built* (8 November; the sheet approved by the owner, who said to build it). One change from the text above, for safety's
+sake: **the cell keeps its kind** (`K_PROP`) and carries the mask (`G.foot`: 1 the -x -y quarter, 2 +x -y, 4 -x +y, 8 +x +y),
+rather than becoming floor. What walks reads the mask, and nothing else needs to: `blocks_move` and `hunt_pass` let the dead and
+their fields through such a cell, and `body_blocked` tests the caster's box against its quarters (`foot_of`, `foot_hit`; the box,
+`BODY` 0.24 each way, is no wider than a quarter, so its corners are an exact test, as against walls). The hundred-odd tests of a
+floor cell elsewhere (placements, hazards, puzzles, trials, the dream's planner, `passable`) keep their old caution, as if the
+whole cell were still taken, unless they have learnt otherwise.
+- *Laying.* The rule lives in `solid_prop`, live only while `dress_level` lays the level (`g_foot`; `dress_level` is now that
+  flag and a count around `dress_level_props`, the old body), so the arenas, her rooms, the pockets, the Black Altar and Shrine
+  and the puzzles' and trials' things are never touched. Which wall, and which corner, go by a hash of the cell and the level,
+  not the generator's dice, so a level is laid as it was. A quarter's corner takes a second wall if there is one, else the side
+  away from its block's middle. The lit props' lights (`fire_pit`, `candlestand`, `brazier`, `crystals`, `magma`, the altars)
+  stand where the prop now stands (`prop_lx`, `prop_ly`). A prop moved into its part keeps the look its cell gave it
+  (`deco_look` hashes the cell's middle for it).
+- *The dead.* `cell_pass` gives the middle of what a prop leaves free: the other half, or across from a quarter (0.3 from that
+  corner's far sides). The walk in `update_mob` and its step aside from a spell, `update_ally` and the ordinary Wraith's
+  (`update_wraith`) aim there. A gargoyle placed on a statue's plinth makes it whole again (`place_gargoyles`), and its waking
+  makes it floor as before.
+- *Placement.* The rooms' treasure and the potion may lie in what a prop leaves free (`part_spot`: beside a lane, by floor
+  reached without a key, no door beside; `part_lay` puts it at `cell_pass`). **Not taught** (a second change from the text):
+  `mk_free` and `pz_free`. Things that want a spell and the puzzles' pieces are faced and struck at their cell's middle, and the
+  dream's spots for them stand before a cell; half a cell's offset would put them off those lines, for little gain.
+- *Seen.* The map draws a part-filled cell's mark in its part; the debug map prints it `f`.
+- *Debug.* `CRAWL_FOOT=0` (every prop whole, as before), `FOOT level n: ...` (whole, of them in the open, half, a quarter),
+  `CRAWL_FOOTLIST=1` (each part-filled cell, its mask, sprite and foot), `EVENT foot_pass` (a creature into such a cell, by kind)
+  and `foot_brush` (one standing in what the prop takes: never a walker, in the checks), `EVENT part_item` and `part_taken`.
+
 ## 9. Steps
 
 1. The trial's door (section 2), and the first trial merge.
@@ -549,6 +575,13 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
 - **After step 8's sheet** (8 November, their branch still at `d36e0c4`): applied clean, built there with the sheet tool. The
   measure sits before `crawl_art_level` in `crawl_art.c` and is called at its end; its externs after `crawl_glint` in `crawl.h`;
   the page before the sheet tool's `main`, its mode before `hazards`. None of it theirs.
+- **After step 8** (8 November, their branch still at `d36e0c4`): applied without a conflict and built there; the merged harness ran.
+  Footprints touch `solid_prop` and the lit props' helpers, `dress_level` (split around `dress_level_props`), `blocks_move`,
+  `hunt_pass`, `body_blocked`, `deco_look`, `place_gargoyles`' one line, `place_items` (two lines, and `part_spot`/`part_lay`
+  beside `room_cell`), `collect`'s debug line, the map's prop mark, the debug map's letter, a debug watch at the head of
+  `crawl_update`, and the walk's target in four places: `update_mob`'s walk and its dodge (shared), `update_ally` and
+  `update_wraith`'s movement (neither's, by PLAN-combat's own note on the Wraith). None is in 17.2's lists. If either track
+  changes the line `float gx = m->tx + 0.5f, gy = m->ty + 0.5f, ...` in `update_mob`, keep `cell_pass` there.
 
 ## 15. Hand-off log
 
@@ -743,3 +776,26 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   - *A default of mine, to be confirmed with the sheet:* things with a use keep their cells (section 8's note).
   - *Other checks:* the sheet and the harness build without warnings; `make smoke` passes (1.75 ms a frame); the trial merge clean
     (section 14).
+- **8 November. Step 8, footprints: built** (harness only), the sheet approved by the owner.
+  - *Built:* as section 8's *as built* note says. Two changes from section 8's text, both for safety: the cell keeps its kind
+    (`K_PROP`) and only what walks reads the mask; and `mk_free` and `pz_free` were not taught, only the rooms' treasure and the
+    potion. The frames (`docs/b18-1/footprint-frames.png`: a candlestand and a cross on level 1, an obelisk on 15, a brazier on 25,
+    obsidian on 35, each with every prop whole on the left and its footprint on the right, from the same place) were taken
+    standing beside each prop.
+  - *Laid* (seed 3): level 1, 15 whole (6 of them in the open), 11 half, 1 a quarter; level 15, 10, 29 and none; level 25, 7, 8
+    and 4; level 35, 11, 65 and none (its halls' obsidian).
+  - *Tested by hand in the harness* (seed 3, level 1, a scripted pad): walking east into a cell whose east half a cross takes, the
+    caster stopped at x 35.23, its box against the prop's half (34.76 with `CRAWL_FOOT=0`, against the whole cell); beside a
+    candlestand's quarter it stopped at 39.23, and a step lower walked past it to the wall (39.74). A person walked to a coin lying
+    in a stone's free half (seed 5) and took it. Standing in a prop's cell and handing back to the dream (Esc, sleepwalk), the
+    dream stepped onto its lane at once and went on.
+  - *The dead:* two dream runs from level 1 (500 s) and two from level 31 (700 s): creatures went into part-filled cells 5, 16,
+    118 and 92 times (skeletons, bats, hounds, hunting spiders, ghouls, knights, imps, deacons, the Sexton and the Lightless among
+    them); none that walks stood in a prop's part. The few `foot_brush` lines were a spectre (through walls), web spiders on
+    their cells' edges and a hunting spider overhead. Neither run from 31 died.
+  - *A fault found on the way and mended:* a prop moved into its part could come out in its other look, since a look is chosen by
+    a hash of where it stands; it now keeps the look its cell gave it.
+  - *Other checks:* both builds without warnings; the trial merge clean and built there (section 14). Still running as this was
+    committed: eight dream runs from levels 1 and 31 with footprints and with `CRAWL_FOOT=0`, and three ASan sessions; their
+    results follow below.
+

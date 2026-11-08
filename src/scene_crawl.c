@@ -827,6 +827,8 @@ static struct {
     float lm[LMN * LMN];
     Deco decos[MAXDECO]; int ndecos;
     uint8_t bulky[MAPN][MAPN];          /* cells holding something big to walk around */
+    uint8_t foot[MAPN][MAPN];               /* a prop's footprint (1.0.0b18.1): the quarters of a K_PROP cell it takes, 1 -x -y, 2 +x -y,
+                                               4 -x +y, 8 +x +y; 0 the whole cell, as every prop before */
     float fog[MAPN][MAPN];                  /* fog banks, 0..1, thicker the deeper the level */
     uint8_t mapped[MAPN][MAPN];             /* the map: 1 its shape known, 2 been near it (docs/PLAN-b9.md); 4 seen, 8 walked (1.0.0b11) */
     Mob mobs[MAXMOBS];
@@ -1296,10 +1298,32 @@ static int blocks_light(int x, int y) {
     return c->kind == K_WALL || (c->kind == K_DOOR && G.doors[c->door].open < 0.5f);
 }
 static int slide_covers(int x, int y);
+/* Footprints (1.0.0b18.1, docs/PLAN-b18-1.md section 8): a prop dress_level lays takes the part of its cell its art gives it.
+ * The cell keeps its kind, so whatever tests for floor keeps its old caution; what walks reads the quarters taken. */
+static int foot_of(int x, int y) {
+    if ((unsigned)x >= MAPN || (unsigned)y >= MAPN || G.map[y][x].kind != K_PROP) return 0;
+    return G.foot[y][x];
+}
+static int foot_hit(float px, float py) {                          /* a point in what a part-filled cell's prop takes */
+    int x = (int)floorf(px), y = (int)floorf(py), m = foot_of(x, y);
+    return m && (m >> ((px - (float)x >= 0.5f) | (py - (float)y >= 0.5f) << 1) & 1);
+}
+static void cell_pass(int x, int y, float *gx, float *gy) {        /* where a creature passing through a cell aims: its middle, */
+    int m = foot_of(x, y);                                         /* or the middle of what a prop leaves free of it */
+    *gx = (float)x + 0.5f; *gy = (float)y + 0.5f;
+    if (!m) return;
+    if (m == 1 || m == 2 || m == 4 || m == 8) {                     /* a quarter: across from it */
+        int q = m == 1 ? 0 : m == 2 ? 1 : m == 4 ? 2 : 3;
+        *gx = (float)x + ((q & 1) ? 0.3f : 0.7f); *gy = (float)y + ((q & 2) ? 0.3f : 0.7f);
+        return;
+    }
+    if (m == 3) *gy = (float)y + 0.75f; else if (m == 12) *gy = (float)y + 0.25f;   /* a half: the other */
+    else if (m == 5) *gx = (float)x + 0.75f; else if (m == 10) *gx = (float)x + 0.25f;
+}
 static int blocks_move(int x, int y) {
     Cell *c = cell(x, y);
     if (G.slide >= 0 && slide_covers(x, y)) return 1;
-    return c->kind == K_WALL || c->kind == K_PILLAR || c->kind == K_PROP || (c->kind == K_DOOR && G.doors[c->door].open < 0.9f);
+    return c->kind == K_WALL || c->kind == K_PILLAR || (c->kind == K_PROP && !foot_of(x, y)) || (c->kind == K_DOOR && G.doors[c->door].open < 0.9f);
 }
 /* where the caster may walk: a vault door only once its key is in hand */
 static int passable(int x, int y) {
@@ -2116,7 +2140,7 @@ static void gen_level(void) {
     if (G.boss >= 0)                                               /* the boss's strip of the plan: kept out of the rest */
         for (int y = ARENA_PLAN; y < MG; y++) for (int x = 0; x < MG; x++) MM[y][x].kind = K_PILLAR;
     G.nrooms = 0; G.ndoors = 0; G.nlights = 0; G.nlc = 0; G.ndecos = 0;
-    memset(G.bulky, 0, sizeof G.bulky); memset(G.mapped, 0, sizeof G.mapped);
+    memset(G.bulky, 0, sizeof G.bulky); memset(G.mapped, 0, sizeof G.mapped); memset(G.foot, 0, sizeof G.foot);
     int nreg = 0;
 
     /* rooms: chambers of one to four blocks a side, a few of them big halls */
@@ -2386,23 +2410,64 @@ static int by_way(int x, int y) {                                  /* next to a 
     return 0;
 }
 static int block_corner(int x, int y) { return ((x & 3) == 1 || (x & 3) == 3) && ((y & 3) == 1 || (y & 3) == 3); }
+/* Footprints (1.0.0b18.1): while dress_level lays a level (g_foot), a low prop takes the part of its cell its art gives it
+ * (crawl_prop_foot, crawl_foot_part): the whole from 0.7 of a cell, and always with no wall beside it; the half against a
+ * wall it stands by, its long side along it, from 0.45; the quarter in its corner under that, the corner's open side the
+ * one away from the block's middle. Choices go by the cell, not the generator's dice, so the level is laid as before. */
+static int g_foot, g_foot_n[4];                                    /* laying; and how many whole, half, a quarter, whole in the open */
+static float prop_lx, prop_ly;                                     /* where the last prop stands: its light goes there */
+static int foot_on(void) {
+#ifdef CRAWL_DEBUG
+    static int v = -1;
+    if (v < 0) { const char *e = getenv("CRAWL_FOOT"); v = !(e && atoi(e) == 0); }   /* 0: every prop whole, as before */
+    return v;
+#else
+    return 1;
+#endif
+}
 static void solid_prop(int x, int y, int spr, int nfr, int kind) {
     G.map[y][x].kind = (uint8_t)kind;
-    add_deco_ex(x + 0.5f, y + 0.5f, spr, nfr, 0);
+    prop_lx = x + 0.5f; prop_ly = y + 0.5f;
+    int part = FOOT_WHOLE, walls = 0;
+    if (g_foot && kind == K_PROP && foot_on() && !lane(x, y) && !in_band(y)) {
+        part = crawl_foot_part(crawl_prop_foot(spr, nfr));
+        for (int d = 0; d < 4; d++) walls |= (cell(x + DX[d], y + DY[d])->kind == K_WALL) << d;
+        if (part != FOOT_WHOLE && !walls) { part = FOOT_WHOLE; g_foot_n[3]++; }
+    }
+    if (part != FOOT_WHOLE) {
+        uint32_t h = hash2(x * 7 + 3, y * 13 + G.level);
+        int nw = 0, ws[4];
+        for (int d = 0; d < 4; d++) if (walls >> d & 1) ws[nw++] = d;
+        int d = ws[h % (uint32_t)nw], sx = DX[d], sy = DY[d];       /* the wall it stands by */
+        if (part == FOOT_HALF) {
+            G.foot[y][x] = (uint8_t)(sx > 0 ? 10 : sx < 0 ? 5 : sy > 0 ? 12 : 3);
+            prop_lx = x + 0.5f + 0.25f * sx; prop_ly = y + 0.5f + 0.25f * sy;
+        } else {                                                    /* its corner: by a second wall, or away from the block's middle */
+            if (!sx) sx = (walls & 1) ? 1 : (walls & 4) ? -1 : (x & 3) == 1 ? -1 : (x & 3) == 3 ? 1 : ((h >> 8) & 1 ? 1 : -1);
+            if (!sy) sy = (walls & 2) ? 1 : (walls & 8) ? -1 : (y & 3) == 1 ? -1 : (y & 3) == 3 ? 1 : ((h >> 9) & 1 ? 1 : -1);
+            G.foot[y][x] = (uint8_t)(1 << ((sx > 0) | (sy > 0) << 1));
+            prop_lx = x + 0.5f + 0.25f * sx; prop_ly = y + 0.5f + 0.25f * sy;
+        }
+    }
+    if (g_foot && kind == K_PROP) g_foot_n[part]++;
+#ifdef CRAWL_DEBUG
+    if (part != FOOT_WHOLE && getenv("CRAWL_FOOTLIST")) fprintf(stderr, "FOOT at %d,%d mask %d sprite %d foot %d\n", x, y, G.foot[y][x], spr, crawl_prop_foot(spr, nfr));
+#endif
+    add_deco_ex(prop_lx, prop_ly, spr, nfr, 0);
 }
-static void fire_pit(int x, int y) { solid_prop(x, y, SP_FIREPIT_A, 3, K_PROP); light_static(x + 0.5f, y + 0.5f, 1.7f, 5.6f); }
+static void fire_pit(int x, int y) { solid_prop(x, y, SP_FIREPIT_A, 3, K_PROP); light_static(prop_lx, prop_ly, 1.7f, 5.6f); }
 static void totem(int x, int y) { solid_prop(x, y, SP_TOTEM_A, 2, K_PILLAR); light_static(x + 0.5f, y + 0.5f, 1.0f, 3.8f); }
 static void chandelier(int x, int y) { add_deco_ex(x + 0.5f, y + 0.5f, SP_CHANDELIER_A, 2, DF_SWAY); light_static(x + 0.5f, y + 0.5f, 1.35f, 6.0f); }
-static void candlestand(int x, int y) { solid_prop(x, y, SP_CANDLESTAND_A, 2, K_PROP); light_static(x + 0.5f, y + 0.5f, 0.95f, 3.6f); }
+static void candlestand(int x, int y) { solid_prop(x, y, SP_CANDLESTAND_A, 2, K_PROP); light_static(prop_lx, prop_ly, 0.95f, 3.6f); }
 static void lantern(int x, int y) { add_deco_ex(x + 0.5f, y + 0.5f, SP_LANTERN_A, 2, DF_SWAY); light_static(x + 0.5f, y + 0.5f, 1.1f, 5.0f); }
-static void brazier(int x, int y) { solid_prop(x, y, SP_BRAZIER_A, 3, K_PROP); light_static(x + 0.5f, y + 0.5f, 1.5f, 5.2f); }
+static void brazier(int x, int y) { solid_prop(x, y, SP_BRAZIER_A, 3, K_PROP); light_static(prop_lx, prop_ly, 1.5f, 5.2f); }
 static void minelamp(int x, int y) { solid_prop(x, y, SP_MINELAMP_A, 2, K_PILLAR); light_static(x + 0.5f, y + 0.5f, 0.95f, 4.2f); }
 static void crystals(int x, int y) {                               /* a steady glow, not a flame */
     int n = G.nlights;
-    solid_prop(x, y, SP_CRYSTAL_A, 2, K_PROP); light_static(x + 0.5f, y + 0.5f, 1.15f, 4.6f);
+    solid_prop(x, y, SP_CRYSTAL_A, 2, K_PROP); light_static(prop_lx, prop_ly, 1.15f, 4.6f);
     if (G.nlights > n) G.lights[n].phase = -1000.0f;
 }
-static void magma(int x, int y) { solid_prop(x, y, SP_MAGMA_A, 3, K_PROP); light_static(x + 0.5f, y + 0.5f, 1.6f, 5.4f); }
+static void magma(int x, int y) { solid_prop(x, y, SP_MAGMA_A, 3, K_PROP); light_static(prop_lx, prop_ly, 1.6f, 5.4f); }
 
 /* The dressing comes in as you go down (PLAN-bestiary, section 8): each set lights and furnishes
  * itself in its own way, and some things show a level or two before what they warn of. In the second
@@ -2451,7 +2516,16 @@ static int hall_litter(void) {
     return rnd(4) ? SP_BONES1 : SP_BONES2;
 }
 
-static void dress_level(void) {
+static void dress_level_props(void);
+static void dress_level(void) {                                    /* the props laid with their footprints (1.0.0b18.1) */
+    g_foot = 1; memset(g_foot_n, 0, sizeof g_foot_n);
+    dress_level_props();
+    g_foot = 0;
+#ifdef CRAWL_DEBUG
+    if (!PK.depth) fprintf(stderr, "FOOT level %d: %d whole (%d of them in the open), %d half, %d a quarter\n", G.level, g_foot_n[0], g_foot_n[3], g_foot_n[1], g_foot_n[2]);
+#endif
+}
+static void dress_level_props(void) {
     float dk = decay();
     int set = crawl_set(G.level);
     /* the halls */
@@ -2543,11 +2617,11 @@ static void dress_level(void) {
                 if (style == 1 && corner && rndf() < 0.6f) {       /* rows of graves; a mine's carts and props; an altar room */
                     if (set <= 1) solid_prop(x, y, SP_TOMB_ROUND + rnd(4), 1, K_PROP);
                     else if (set == 2 && G.faced && R->rtype == RT_CHAPEL) {   /* the cult's altars, candles between */
-                        if (rnd(4) == 0) { solid_prop(x, y, SP_ALTAR_A, 2, K_PROP); light_static(x + 0.5f, y + 0.5f, 0.7f, 3.0f); }
+                        if (rnd(4) == 0) { solid_prop(x, y, SP_ALTAR_A, 2, K_PROP); light_static(prop_lx, prop_ly, 0.7f, 3.0f); }
                         else if (G.nlights < MAXLIGHTS - 4 && rnd(2)) { add_deco(x + 0.5f, y + 0.5f, SP_CANDLES); light_static(x + 0.5f, y + 0.5f, 0.8f, 2.6f); }
                     }
                     else if (set == 2) { if (rnd(3)) solid_prop(x, y, SP_CART, 1, K_PROP); else minelamp(x, y); }
-                    else if (since(17) && rnd(2)) { solid_prop(x, y, SP_ALTAR_A, 2, K_PROP); light_static(x + 0.5f, y + 0.5f, 0.8f, 3.2f); }
+                    else if (since(17) && rnd(2)) { solid_prop(x, y, SP_ALTAR_A, 2, K_PROP); light_static(prop_lx, prop_ly, 0.8f, 3.2f); }
                     else if (since(18)) solid_prop(x, y, SP_GARG_PERCH, 1, K_PROP);   /* a statue: gargoyles from 19 */
                     else solid_prop(x, y, SP_OBSIDIAN, 1, K_PROP);
                     continue;
@@ -2764,6 +2838,27 @@ static void place_exit(int sx, int sy) {
     G.exit_fx = G.exit_fy = -1;
 }
 
+/* a small thing in what a prop leaves free of its cell (1.0.0b18.1): half of it or more always is. Beside a lane, beside floor
+ * reached without a key (dist, at least dmin steps from the start), no door by it; the thing lies at the free part's middle */
+static int part_spot(int x, int y, int dist[MAPN][MAPN], int dmin) {
+    if (!foot_of(x, y) || G.map[y][x].secret || G.bulky[y][x] || item_at(x, y) || lane_dist(x, y) > 1 || in_band(y)) return 0;
+    int reach = 0;
+    for (int d = 0; d < 4; d++) {
+        const Cell *n = cell(x + DX[d], y + DY[d]);
+        if (n->kind == K_DOOR) return 0;
+        reach |= n->kind == K_FLOOR && dist[y + DY[d]][x + DX[d]] >= dmin;
+    }
+    return reach;
+}
+static void part_lay(Item *it) {
+    if (!it) return;
+    float gx, gy;
+    cell_pass(it->cx, it->cy, &gx, &gy);
+    it->x = gx; it->y = gy;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT part_item %d at %.2f,%.2f\n", it->type, it->x, it->y);
+#endif
+}
 static int room_cell(int room, int *ox, int *oy) {                 /* a free floor cell in a room */
     const Room *R = &G.rooms[room];
     for (int tries = 0; tries < 120; tries++) {
@@ -2796,6 +2891,7 @@ static void place_items(int sx, int sy) {
         int n = rnd(3) + (G.level >= 4);
         for (int k = 0, tries = 0; k < n && tries < 30; tries++) {
             int x = R->x + rnd(R->w), y = R->y + rnd(R->h);
+            if (part_spot(x, y, dist, 0)) { part_lay(add_item(x, y, random_treasure())); k++; continue; }   /* by a prop (1.0.0b18.1) */
             if (dist[y][x] < 0 || !free_floor(x, y)) continue;
             add_item(x, y, random_treasure()); k++;
         }
@@ -2844,6 +2940,7 @@ static void place_items(int sx, int sy) {
     }
     for (int i = 0; i < 300; i++) {                                /* one healing potion */
         int x = 1 + rnd(MAPN - 2), y = 1 + rnd(MAPN - 2);
+        if (part_spot(x, y, dist, 6) && G.map[y][x].theme != TH_CORRIDOR) { part_lay(add_item(x, y, IT_POTION)); break; }   /* by a prop */
         if (dist[y][x] < 6 || !free_floor(x, y)) continue;
         add_item(x, y, IT_POTION);
         break;
@@ -3116,7 +3213,7 @@ static void place_gargoyles(void) {
         Mob *m = spawn_mob(x, y, MOB_GARGOYLE);
         if (!m) return;
         if (di >= 0) G.decos[di].spr = -1;                         /* it is drawn as itself now */
-        G.map[y][x].kind = K_PROP;
+        G.map[y][x].kind = K_PROP; G.foot[y][x] = 0;              /* its plinth whole while it stands there (1.0.0b18.1) */
         m->home = G.map[y][x].region;
         placed++;
     }
@@ -3652,6 +3749,20 @@ static int hits_bone, hits_bat, throws, shrieks, hits_fire, hits_sword, bites, c
 #define DBG_COUNT(v) ((v)++, fprintf(stderr, "EVENT %s t=%.2f\n", #v, G.t))
 static float dbg_soul_in, dbg_soul_out, dbg_soul_last = -1.0f;   /* the souls that came and went this level */
 static int dbg_weak;
+static void foot_watch(void) {                                     /* footprints (1.0.0b18.1): the dead through part-filled cells */
+    static int was[MAXMOBS];
+    static float brush_t[MAXMOBS];
+    for (int i = 0; i < MAXMOBS; i++) {
+        const Mob *m = &G.mobs[i];
+        int in = m->alive && foot_of(m->cx, m->cy) != 0;
+        if (in && !was[i]) fprintf(stderr, "EVENT foot_pass %d at %d,%d t=%.2f\n", m->type, m->cx, m->cy, G.t);
+        was[i] = in;
+        if (m->alive && m->state == MS_WALK && foot_hit(m->x, m->y) && G.t - brush_t[i] > 1.0f) {
+            brush_t[i] = (float)G.t;
+            fprintf(stderr, "EVENT foot_brush %d at %.2f,%.2f t=%.2f\n", m->type, m->x, m->y, G.t);
+        }
+    }
+}
 static void dbg_souls(void) {
     float cur = (float)RUN.souls + RUN.soul_frac;
     if (dbg_soul_last >= 0.0f) { float d = cur - dbg_soul_last; if (d > 0.0f) dbg_soul_in += d; else dbg_soul_out -= d; }
@@ -5075,6 +5186,7 @@ static float hunt_t;
 static int hunt_pass(int x, int y) {
     const Cell *c = cell(x, y);
     if (c->kind == K_FLOOR) return !(G.slide >= 0 && slide_covers(x, y));
+    if (c->kind == K_PROP) return foot_of(x, y) != 0;              /* round a prop that takes part of its cell (1.0.0b18.1) */
     return c->kind == K_DOOR && G.doors[c->door].locked != 1 && G.doors[c->door].locked != SEALED && G.doors[c->door].locked != WINGED && G.doors[c->door].locked != TRIALED && G.doors[c->door].locked != GATED;
 }
 static void build_hunt(float dt) {
@@ -6714,7 +6826,8 @@ static void update_wraith(Mob *m, float dt) {
         }
     }
     if (rnd(900) == 0) { sfx_at(SFX_WAIL, m->x, m->y, 0.9f); wraith_chill(m); }
-    float gx = m->tx + 0.5f, gy = m->ty + 0.5f, dx = gx - m->x, dy = gy - m->y, d = sqrtf(dx * dx + dy * dy);
+    float gx, gy; cell_pass(m->tx, m->ty, &gx, &gy);
+    float dx = gx - m->x, dy = gy - m->y, d = sqrtf(dx * dx + dy * dy);
     float step = m->speed * dt * (m->sub == 1 ? 1.6f : 1.0f);
     if (lantern_lit() && m->sub == 0 && pd < 2.1f && hypotf(gx - G.px, gy - G.py) < pd) return;   /* the Lantern: it keeps a cell further off */
     if (d > step) { m->x += dx / d * step; m->y += dy / d * step; return; }
@@ -7506,7 +7619,8 @@ static void update_mob(Mob *m, float dt) {
     }
     if (m->stagger > 0.0f) { m->stagger -= dt; return; }
     if (m->dodge_t > 0.0f) {                                       /* stepping aside from a spell (step 7) */
-        float gx = m->tx + 0.5f, gy = m->ty + 0.5f, dx = gx - m->x, dy = gy - m->y, d = hypotf(dx, dy), st = 3.4f * dt;
+        float gx, gy; cell_pass(m->tx, m->ty, &gx, &gy);
+        float dx = gx - m->x, dy = gy - m->y, d = hypotf(dx, dy), st = 3.4f * dt;
         m->dodge_t -= dt;
         if (d > st && m->dodge_t > 0.0f) { m->x += dx / d * st; m->y += dy / d * st; return; }
         if (d <= st) { m->x = gx; m->y = gy; m->cx = m->tx; m->cy = m->ty; }
@@ -7914,7 +8028,8 @@ static void update_mob(Mob *m, float dt) {
             return;
         }
     }
-    float gx = m->tx + 0.5f, gy = m->ty + 0.5f, dx = gx - m->x, dy = gy - m->y, d = sqrtf(dx * dx + dy * dy);
+    float gx, gy; cell_pass(m->tx, m->ty, &gx, &gy);               /* round a prop's part (1.0.0b18.1) */
+    float dx = gx - m->x, dy = gy - m->y, d = sqrtf(dx * dx + dy * dy);
     float step = m->speed * dt * (m->type == MOB_BAT ? 0.8f + 0.4f * sinf(m->t * 3.0f) : 1.0f) * (afraid ? 1.4f : 1.0f);
     if (m->bait_st == B_LURE && m->rank != RK_GILDED) step = fminf(step, 1.8f * dt);   /* at your pace, not its own */
     if (mind && !afraid && m->alert <= 0.0f) step *= m->hunter == 2 ? 1.1f : m->aware == MA_WARY ? 0.5f : (m->aware == MA_SEARCH ? 0.8f : 1.0f);   /* to
@@ -9256,7 +9371,8 @@ static void update_ally(Mob *m, float dt) {
     }
     if (!t && hypotf(G.px - m->x, G.py - m->y) < 2.0f) return;     /* nothing to fight: it keeps by you */
     m->anim += dt * m->speed * 3.0f;
-    float gx = m->tx + 0.5f, gy = m->ty + 0.5f, dx = gx - m->x, dy = gy - m->y, d = hypotf(dx, dy), step = m->speed * dt;
+    float gx, gy; cell_pass(m->tx, m->ty, &gx, &gy);
+    float dx = gx - m->x, dy = gy - m->y, d = hypotf(dx, dy), step = m->speed * dt;
     if (d > step) { m->x += dx / d * step; m->y += dy / d * step; return; }
     m->x = gx; m->y = gy; m->cx = m->tx; m->cy = m->ty;
     int best = -1, here = hunt[m->cy][m->cx];
@@ -10724,7 +10840,7 @@ static void debug_map(int seen) {
         for (int y = 0; y < MAPN; y++) {
             for (int x = 0; x < MAPN; x++) {
                 const Cell *c = &G.map[y][x];
-                char ch = c->kind == K_WALL ? '#' : c->kind == K_PILLAR ? 'O' : c->kind == K_PROP ? 'p' : c->kind == K_DOOR ? (G.doors[c->door].locked ? 'L' : 'D') : (lane(x, y) ? (seen && c->visits ? 'o' : '.') : ' ');
+                char ch = c->kind == K_WALL ? '#' : c->kind == K_PILLAR ? 'O' : c->kind == K_PROP ? (foot_of(x, y) ? 'f' : 'p') : c->kind == K_DOOR ? (G.doors[c->door].locked ? 'L' : 'D') : (lane(x, y) ? (seen && c->visits ? 'o' : '.') : ' ');
                 if (c->kind == K_WALL && c->tex == T_TORCH0) ch = 't';
                 if (c->secret) ch = c->secret == 2 ? '?' : (c->secret == 3 ? '&' : ':');
                 rows[y][x] = ch;
@@ -12693,6 +12809,9 @@ static void crawl_enter(uint32_t seed) {
 }
 
 static void collect(Item *it) {
+#ifdef CRAWL_DEBUG
+    if (foot_of(it->cx, it->cy)) fprintf(stderr, "EVENT part_taken %d by %s t=%.2f\n", it->type, G.player ? "a person" : "the dream", G.t);
+#endif
     it->alive = 0;
     if (it->gen && PK.depth) PK.taken[PK.chain][clampi(PK.depth, 0, POCKET_LINKS - 1)] |= 1u << (it->gen - 1);   /* gone from the pocket for good */
     switch (it->type) {
@@ -18243,7 +18362,7 @@ static void comp_note(int level);
 static void crawl_update(double dt) {
     float fdt = (float)dt;
 #ifdef CRAWL_DEBUG
-    dbg_souls();
+    dbg_souls(); foot_watch();
 #endif
     if (con_update(fdt)) return;                                   /* the console is down: the crypt waits, the music plays */
     if (pad_look_tick(fdt)) return;                                /* and so it does under the controller's look (1.0.0b18.1) */
@@ -18619,7 +18738,7 @@ static void gen_shop(void) {
     G.items_total = G.items_got = G.value_total = G.value_got = 0; G.nvaults = 0;
     G.nsecrets = G.secrets_found = G.nlinks = G.links_found = 0; G.slide = G.seek_secret = -1;
     for (int k = 0; k < NKEYS; k++) G.vault_room[k] = G.vault_door[k] = -1;
-    memset(G.bulky, 0, sizeof G.bulky); memset(G.fog, 0, sizeof G.fog); memset(G.mapped, 0, sizeof G.mapped);
+    memset(G.bulky, 0, sizeof G.bulky); memset(G.fog, 0, sizeof G.fog); memset(G.mapped, 0, sizeof G.mapped); memset(G.foot, 0, sizeof G.foot);
     for (int y = 12; y <= 17; y++) for (int x = 10; x <= 20; x++) carve(x, y, 0, TH_BRICK);
     G.rooms[G.nrooms++] = (Room){ 10, 12, 11, 6, 0, TH_BRICK, RT_MERCHANT };
     for (int x = SHOP_DOOR; x <= SHOP_DOOR + 5; x++) carve(x, 15, 1, TH_CORRIDOR);
@@ -19623,7 +19742,8 @@ static int body_blocked(float x, float y, int *bx, int *by) {
     for (int i = 0; i < 2; i++)
         for (int j = 0; j < 2; j++) {
             int cx = (int)floorf(xs[i]), cy = (int)floorf(ys[j]);
-            if (blocks_move(cx, cy)) { *bx = cx; *by = cy; return 1; }
+            if (foot_of(cx, cy) ? foot_hit(xs[i], ys[j]) : blocks_move(cx, cy)) { *bx = cx; *by = cy; return 1; }   /* a prop's part,
+                                                                      as against walls: the box is no wider than a quarter (1.0.0b18.1) */
         }
     return 0;
 }
@@ -24183,7 +24303,9 @@ static int deco_look(const Deco *dc) {
     if (crawl_alt[look][1] >= 0) {
         int na = 1;
         while (na < NALT && crawl_alt[look][na] >= 0) na++;
-        look = crawl_alt[look][hash2((int)(dc->x * 8.0f), (int)(dc->y * 8.0f)) % (uint32_t)na];
+        float hx = dc->x, hy = dc->y;
+        if (foot_of((int)hx, (int)hy)) { hx = floorf(hx) + 0.5f; hy = floorf(hy) + 0.5f; }   /* a prop in its part: the look its cell gave it */
+        look = crawl_alt[look][hash2((int)(hx * 8.0f), (int)(hy * 8.0f)) % (uint32_t)na];
     }
     return look;
 }
@@ -28966,7 +29088,11 @@ static void render_map(Frame *f) {
                 for (int i = 1; i < MAP_PX; i++)
                     for (int t = 2; t <= 3; t++) { if (across) map_px(f, px + i, py + t, c); else map_px(f, px + t, py + i, c); }
             }
-            if (G.map[y][x].kind == K_PROP) map_px(f, px + 2, py + 2, ramp_at(R_WOOD, 6));   /* something low: a grave, a fire pit */
+            if (G.map[y][x].kind == K_PROP) {                       /* something low: a grave, a fire pit; in its part of the cell */
+                int fm = foot_of(x, y), ox = 2, oy = 2;
+                if (fm) { ox = (fm & 10) && !(fm & 5) ? 3 : (fm & 5) && !(fm & 10) ? 1 : 2; oy = (fm & 12) && !(fm & 3) ? 3 : (fm & 3) && !(fm & 12) ? 1 : 2; }
+                map_px(f, px + ox, py + oy, ramp_at(R_WOOD, 6));
+            }
         }
     if (G.exit_wx >= 0) map_face(f, G.exit_wx, G.exit_wy, R_MOSS + 5);   /* the way out, in green */
     for (int i = 0; i < G.nsecrets; i++)                           /* a chained room's doorway, opened */

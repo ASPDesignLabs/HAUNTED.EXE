@@ -1550,7 +1550,19 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   and RIGHT-CLICK the button their job is on in play (`PK_JOB`), and the controls card's pad lines are built from it (`pad_short`).
   Windows keeps `PadMap` (binary) and `PadSprint` (for the settings dialog, whose choice is traded in on loading); the browser's
   page reads and trades the sprint in the same record (`web/haunted.js`); the harness prints it on `PREFS`. Debug: `EVENT pad_trade`,
-  `pad_keep`, `pad_option`, `pad_look`; `CRAWL_PADTRACE=1` (where you are, your angle and the sticks, twice a second).
+  `pad_keep`, `pad_option`, `pad_look`; `CRAWL_PADTRACE=1` (where you are, your angle and the sticks, twice a second). *Footprints* (step 8; its sheet `docs/b18-1/footprints.png`,
+  approved; frames `footprint-frames.png`): `crawl_foot[NSPR]` (each sprite's foot, the lowest eighth of its drawn rows, measured
+  at the end of `crawl_art_level`), `crawl_prop_foot` (a prop's widest frame or look), `crawl_foot_part` (`FOOT_WHOLE` from 45 texels,
+  `FOOT_HALF` from 29, `FOOT_QUARTER`), in `crawl_art.c`. While `dress_level` lays a level (`g_foot`; its old body is
+  `dress_level_props`), `solid_prop` gives a `K_PROP` prop that part of its cell against a wall it stands by (a hash, not `rnd`; none
+  in the open, on a lane or in the arena's band), as a mask in `G.foot` (1 -x -y, 2 +x -y, 4 -x +y, 8 +x +y); the cell keeps its
+  kind, the decoration and its light stand at the part's middle (`prop_lx/ly`), and `deco_look` keeps the cell's look. `foot_of`,
+  `foot_hit`; `blocks_move` and `hunt_pass` let the dead through, `body_blocked` tests the caster's box corners against the quarters;
+  `passable` and every floor test still refuse it. `cell_pass` (the free part's middle) is where `update_mob`'s walk and dodge,
+  `update_ally` and `update_wraith` aim. `place_gargoyles` makes a plinth whole again. The rooms' treasure and the potion may lie in
+  the free part (`part_spot`, `part_lay`); `mk_free` and `pz_free` were not taught. The map draws the mark in its part. Debug:
+  `CRAWL_FOOT=0`, `FOOT level n: ...`, `CRAWL_FOOTLIST=1`, `EVENT foot_pass`, `foot_brush` (`foot_watch`), `part_item`, `part_taken`;
+  the debug map's `f`.
 
 ## Releasing
 
