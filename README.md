@@ -521,12 +521,63 @@ four in the Catacombs, one in three deeper; a pack shares one ward; never your c
 never every line you hold. A warded creature wears a hard rim of the element's colour, its glyph barred over its
 head as it comes near and on its health's readout; struck by that element it rings dull, and the first on a level is
 named. A fifth of its health taken in that element cracks the ward, with a sound of glass, so nothing is ever locked,
-only slower. Bosses, their adds, spirits and a trial's creatures are never warded.
+only slower. Bosses, their adds, spirits and a trial's creatures are never warded. (From 1.0.0b19 a ward is one of a
+rank's strengths: see *harm and the elements* below.)
 
 **The Mirror by hand.** The Mirror rune rises only when you raise it, on the right mouse (Q turns between it and the
 boss abilities, and held opens a wheel of them): what it meets in its first 0.6 s goes home to the thrower twice as hard,
 and after that it is the veil as before, until its wait comes round. The shrine's first curse gives a Common one if
 you have none. The screensaver's caster still raises its runes by itself.
+
+### CATACOMB: harm and the elements
+
+(1.0.0b19.) Harm now goes by its element, and each element leaves something behind, on you and on the dead.
+
+**How harm is taken.** Each element is kept off by its own resist: fire by Resist Burn, frost by Resist Slow,
+lightning, poison and spirit by theirs; the physical by none. Armour keeps off a share of a blow, not a set number:
+armour as great as a green-rank blow of the level keeps off half of it, whatever the level, and half as much against the
+elements. A skeleton never throws quicker than every 0.6 s, however deep.
+
+**What they leave on you.** Seven marks, in a row of small stones by your portrait (by the readout when the bar is
+away), each one's edge draining as it runs out:
+
+- **On Fire**: the hit's harm again over four seconds; a second flame adds to what is left. Flames lick at the foot of
+  the view.
+- **Chilled**: a step slower a stack, the sprint slow to come back, and missiles a little astray; rime creeps in from
+  the corners. They all fall away three seconds after the last. Four make you **Frozen**: three seconds unable to move
+  or cast, and everything that strikes you a third harder, the view iced over, and the ice cracking off as it ends.
+- **Stunned**: 1.2 s with no spells or runes; you can walk but not sprint, and the view swims.
+- **Poisoned**: spells half again as slow to gather and come round, the view green; each dose adds, to a minute.
+- **Unbound**: 1.5 s with no spells, runes or E; the hand greys and drops.
+- **Knocked Down**: 1.5 s on the floor, the crypt leaning over you, no spells or runes; while you are down, every
+  creature but the one that put you there does half.
+
+They come from the dead's elemental blows and missiles, more often the higher their rank; from a hazard's stroke now and
+then (a frost one chills you every time, a falling rock may knock you down); twice over from the Wraith's touch; from
+bites, the Drowned's pools and bile; and a stack every second and a half you stand in the cold. None of the four that
+hold you comes twice running: the same can't come again for three seconds after it ends, and nothing of the four for a
+second. An element's own resist halves the chance of its mark too. Purify cures fire, cold and poison and breaks a freeze;
+Blink takes you up off the floor or out of the ice. The bosses keep their own ways for now.
+
+**The dead's elements.** Every kind is weak to one element, which does half again, and strong against one, which does
+half; the bestiary says which, and the target's readout learns them. From blue rank a creature shrugs off one more of
+your lines, two at black: shown only once you have seen it struck, and cracked by a fifth of its health taken in that
+element (the sixteenth beta's wards, folded in). From green rank some are born to an element, one in seven at green to
+nearly half at black, each run's own two more often: their eyes burn in its colour, they shrug it off, and one attack in three
+carries it, a thrown bone shimmering in the colour, the eyes flaring as it comes.
+
+**What your spells leave on them.** Fire sets them burning, the hit's harm again over four seconds; lightning stuns them,
+no blow, throw or call; spirit unbinds them, no elemental attack, charge or call; frost chills them a stack a hit, and three
+freeze them; poison doubles every wind-up and wait. The chance grows with the line's rank, and is less on what is strong
+against it.
+
+**New attacks.** Skeletons from green rank up are **Bone Throwers**: a white flash about the body, then three bones lobbed
+over you half a second apart. A shield-bearer two to five cells off along a clear lane **charges**: a stamp and the shield
+brought up, then a rush that knocks you down 1.2 s, unless you dodge it, the Bone Ward takes all of it, or your armour is
+twice its harm. The Drowned swells and **spews** foul water two cells in a narrow cone: eight tenths of its blow, and
+Poisoned. A shambler's grip, now and then, **holds you fast** 1.2 s, the view up and your hand shoving at it; a spirit-born
+one takes souls instead. The screensaver steps off a charge's lane and a spew's cone, dodges when it can, and waits out
+what holds it.
 
 ### CATACOMB: souls
 

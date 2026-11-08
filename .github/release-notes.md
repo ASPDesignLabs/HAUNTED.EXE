@@ -1,26 +1,33 @@
-The eighteenth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
+The nineteenth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
 
-The dead learnt to think in the fourteenth beta. This one lets you see it.
+Harm goes by its element now, and each element leaves its mark, on you and on the dead.
 
 ### Before you upgrade
 
-Your saves and settings carry over. Each page of the ledger now also keeps the dead's ways you have met and your deeds against them; earlier betas simply step over that part, so going back is safe.
+Your saves and settings carry over unchanged, and going back to an earlier beta is safe.
 
 ### New in this beta
 
-**Their backs.** Every creature that can turn away now shows its back, and has no eyes from behind: one looking away hasn't seen you, and you may pass it.
+**Harm by element.** Each element is kept off by its own resist: fire by Resist Burn, frost by Resist Slow, lightning, poison and spirit by theirs. Armour keeps off a share of a blow, not a set number, and half as much against the elements, so it counts as much deep down as near the top. A skeleton never throws quicker than every 0.6 seconds.
 
-**The roost** hangs asleep from the ceiling wrapped in its wings, and stirs as you come near.
+**What the elements leave on you**, shown as a row of marks by your portrait and in the view itself:
 
-**The ambushes' signs.** Each run marks a kill room with a sign of its own by the door: raked bones in the Crypts, a wet drag in the Catacombs, fresh scree in the Hollows, warm cinders in the Deep. A run's first ambush, its torch snuffed, has eyes in the dark just inside.
+- **On Fire**: the hit's harm again over four seconds.
+- **Chilled**: slower a step a stack, your sprint slow to come back, your missiles a little astray. Four stacks and you are **Frozen** for three seconds, unable to move or cast, and everything strikes a third harder.
+- **Stunned**: no spells or runes for 1.2 seconds, and no sprint.
+- **Poisoned**: your spells half again as slow, each dose adding, up to a minute.
+- **Unbound**: no spells, runes or E for 1.5 seconds.
+- **Knocked Down**: 1.5 seconds on the floor, the crypt leaning over you; while you are down, everything but what put you there does half.
 
-**Named, and written down.** Each of the dead's tactics (the file of the Order, the hounds' pack, the roost, the wake, the hunt, the ambush, the nest, the Sexton's bell and the rest) is named the first time it shows itself in each run of ten. Once met, it has a page in the Codex, *The Ways of the Dead*: what it does, how you hear it coming, and how it is answered. In the bestiary, **Space** turns a creature's page from its lore to its ways.
+They come from the dead's elemental attacks (more often the higher their rank), from hazards now and then, from the Wraith's touch, from bites, bile and the cold. None of the four that hold you comes twice running. Purify cures fire, cold and poison and breaks a freeze; Blink gets you off the floor or out of the ice.
 
-**New sounds**: a scavenger at its meal, a bait's yelp, a web thrumming as the nest drops, the dead's bones settling as they turn wary, a hound scenting the air.
+**The dead's elements.** Every creature is weak to one element and strong against one; the higher ranks shrug off more of your lines, shown once you have seen them struck and cracked by a fifth of their health taken in that element. From green rank some are born to an element: their eyes burn in its colour, and one attack in three carries it.
 
-**Eleven new achievements**: ambushes come through without a death, hunts shaken off, packs broken by their leader's fall, callers killed before they could call, and a file of the Order beaten without a single hurt.
+**What your spells leave on them.** Fire sets them burning, lightning stuns them, spirit unbinds them so they cannot call or charge, frost chills and then freezes them, poison slows everything they do.
 
-This is still a beta. All of it has been tested in the harness, by the screensaver's own play and on sheets of the art: nobody has played it by hand yet. The Windows and browser builds are compiled and smoke-tested by GitHub Actions. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
+**New attacks.** Skeletons of green rank and up flash white and lob three bones over you. A shield-bearer stamps and charges along a clear lane, knocking you down unless you dodge it, ward it off or wear armour twice its harm. The Drowned swells and spews foul water in a narrow cone. A shambler's grip now and then holds you fast.
+
+This is still a beta. All of it has been tested in the harness, by the screensaver's own play, by scripted play and on sheets of the art: nobody has played it by hand yet. The Windows and browser builds are compiled and smoke-tested by GitHub Actions. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
 
 ### Files
 
