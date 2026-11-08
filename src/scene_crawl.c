@@ -188,6 +188,31 @@ static inline int af_of(int el) {
  * charge or call; a stunned one no blow, throw or call) */
 static inline int mob_stunned(const Mob *m) { return m->stun_t > 0.0f; }   /* filled in by D3 */
 static inline int mob_unbound(const Mob *m) { return m->unb_t > 0.0f; }
+/* 1.0.0b20 (section 17.3): the Unholy Confessions (C5, section 10). conf_rank(cf): the whole ranks confessed, 0 none, 1-5 for I-V,
+ * past 5 by overlevels. conf_value(cf, which): one of its numbers as the caster has it now, the class's weight in it (10.6), moved
+ * a point at a time (10.1); 0 while nothing is confessed, and those marked "from I" 0 till rank I is whole. Shares are fractions
+ * (0.30 is 30%), the rest in their stat's own units. C5 fills them; D5 reads them */
+enum { CF_RESTORE, CF_AGILITY, CF_SPIRIT, CF_CONST, CF_SURVIVAL, CF_TOUGH, NCONF };
+enum { CV_HEAL, CV_HEAL_SOULS, CV_PHYSIC };                        /* Restoration: the spell's health a second, a share of the most
+                                                                      (from I); its souls a second (from I); Physic % */
+enum { CV_HARD, CV_DODGE, CV_MOVE, CV_QUIET };                     /* Agility: Knocked Down, Stunned and Frozen cut (a share off the
+                                                                      chance and the length); Dodge, Movement, Quiet % */
+enum { CV_SOULS, CV_UNBOUND, CV_HASTE, CV_THRIFT, CV_EFFECT };     /* Spirituality: souls from kills (a share more); Unbound cut; Spell
+                                                                      Haste %, Spirit Cost % less, Spell Effect % */
+enum { CV_RECOVER, CV_SPRINT, CV_HEALTH, CV_LASTBLOW };            /* Constitution: the sprint's recovery (a share quicker), its length
+                                                                      (s), health; a killing blow survived (a chance, from I) */
+enum { CV_SOFT, CV_TREASURE, CV_LUCK };                            /* Survival: every other status cut; Treasure %, Luck % */
+enum { CV_ARMOUR, CV_ARMOUR_WORN, CV_CRACKS };                     /* Toughness: armour; a share more of what is worn; how far a crack
+                                                                      is seen, in cells (from I) */
+static int conf_rank(int cf);
+static float conf_value(int cf, int which);
+/* D5's (sections 9, 10.4), called by C: the class's own sheet into the caster's totals (own[] in caster_sync's units, per ST_*),
+ * what of it no stat holds (KX_*), and a killing blow survived (1 if it was: hurt_ex is about to let the caster die, not to a
+ * seep). Stubs that do nothing till D5 fills them */
+enum { KX_AF_CUT, KX_SOULS };                                      /* every status's chance, a share off; souls from kills, a share more */
+static void class_own(float *own);
+static float class_extra(int what);
+static int blow_survived(int kind);
 /* a pack (docs/PLAN-ai.md, sections 5-6): its kind (PA_*), its members, the one that leads it, how many it began with; its
  * state (PAS_*), the one calling and how long the call has to run; when one of it last saw the caster, and where; its
  * turns: those engaged now, their health as their turn began, the one relieved last, and when the turn changes */
@@ -791,6 +816,7 @@ static struct {
     int old_spells;                         /* read from a page older than the Alignment: said once, as she greets you */
     int atone, xp, points;
     uint16_t steps[NLINE]; uint8_t over[NLINE];
+    uint8_t conf[NCONF], conf_over[NCONF];  /* 1.0.0b20: the points in each Confession (150 makes rank V), its overlevels past V */
     int corner, wind_spent, wind_run;
     unsigned amb_runs;                      /* the runs of ten whose first ambush has been sprung (not saved: named again after a load) */
     uint32_t ways, way_said; int way_run;   /* 1.0.0b18, the minds shown: the dead's ways met (WY_*, a bit each), those named on this run
@@ -4009,7 +4035,9 @@ static int af_can(int k) {
     if (af_hardk(k) && (af_on(k) || G.af_lock[k] > 0.0f || G.af_hardt > 0.0f)) return 0;  /* S1: never back to back */
     return 1;
 }
-static int af_rolls(int k, float chance) { return rndf() < chance * (1.0f - 0.5f * el_resist(&RUN.gear, AF_EL[k])); }   /* S11 */
+static int af_rolls(int k, float chance) {                        /* S11: the element's own resist halves it; the class's own (D5) */
+    return rndf() < chance * (1.0f - 0.5f * el_resist(&RUN.gear, AF_EL[k])) * (1.0f - class_extra(KX_AF_CUT));
+}
 static void af_hold(int k, float secs, int by) {                  /* a hard control lands: whatever was gathering is lost */
     G.af[k] = G.af0[k] = secs;
     if (k == AF_DOWN) G.af_by = by;
@@ -4152,6 +4180,7 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
 #endif
         return d;
     }
+    if (!seeping && blow_survived(kind)) return d;                 /* Constitution's killing blow survived (D5, section 10.4) */
     rumble(1.0f, 0.7f, 0.9f);
     G.hp = 0; G.dead = 1; G.dead_t = 0.0; G.retries++; G.killer = G.blame;
     if (mind_on() && !PK.depth) {                                  /* no death loop (section 21): what killed you comes back a head short */
@@ -4690,6 +4719,71 @@ static int line_overs(int l) { return l != LN_HEALTH && l != LN_RESIST && l != L
 #define LUCK_BASE 2.0f                      /* everyone's, at the start */
 static float over_step(int l) { return l == LN_LUCK ? 1.0f : 5.0f; }   /* an overlevel's: Luck 1, the rest 5 */
 static float line_own(int l) { return LINES[l].step * (float)RUN.steps[l] + over_step(l) * (float)RUN.over[l]; }
+/* ---- the Unholy Confessions (1.0.0b20, docs/PLAN-combat.md section 10): six in place of the lines above, five ranks each
+ * bought a point at a time (10, 20, 30, 40, 50: every point moves all of a Confession's numbers its share of the way to the next
+ * rank), each number at rank I and at V and evenly between; past V an overlevel adds a quarter of I to V again. A class takes
+ * each at a share by its place in the guide's lists (10.6), never named on the screen ---- */
+typedef struct { float lo, hi, zero; int from1; } ConfNum;        /* at rank I, at V; what it is with nothing confessed (or before I) */
+typedef struct { const char *name; int n; ConfNum v[5]; } Conf;
+static const Conf CONF[NCONF] = {
+    [CF_RESTORE]  = { "RESTORATION", 3, { { 0.0025f, 0.01f, 0, 1 }, { 0.7f, 0.1f, 0.7f, 1 }, { 10, 50, 0, 0 } } },
+    [CF_AGILITY]  = { "AGILITY", 4, { { 0.30f, 0.85f, 0, 0 }, { 2, 10, 0, 0 }, { 3, 15, 0, 0 }, { 5, 25, 0, 0 } } },
+    [CF_SPIRIT]   = { "SPIRITUALITY", 5, { { 0.10f, 0.50f, 0, 0 }, { 0.30f, 0.85f, 0, 0 }, { 2, 10, 0, 0 }, { 3, 15, 0, 0 }, { 4, 20, 0, 0 } } },
+    [CF_CONST]    = { "CONSTITUTION", 4, { { 0.10f, 0.50f, 0, 0 }, { 0.5f, 2.5f, 0, 0 }, { 15, 100, 0, 0 }, { 0.05f, 0.25f, 0, 1 } } },
+    [CF_SURVIVAL] = { "SURVIVAL", 3, { { 0.15f, 0.60f, 0, 0 }, { 3, 15, 0, 0 }, { 0.5f, 2.5f, 0, 0 } } },
+    [CF_TOUGH]    = { "TOUGHNESS", 3, { { 2, 14, 0, 0 }, { 0.05f, 0.25f, 0, 0 }, { 4, 8, 2, 1 } } },
+};
+static const int CONF_CUM[6] = { 0, 10, 30, 60, 100, 150 };      /* the points that make ranks I-V */
+#define CONF_TOP 150
+static const uint8_t CONF_W[NELEM][NCONF] = {                     /* each class's share, in percent, by its place (10.6) */
+    { 90, 80, 100, 70, 50, 60 },                                   /* the Witchfinder */
+    { 80, 50, 70, 80, 60, 100 },                                   /* the Anatomist */
+    { 60, 100, 80, 60, 90, 50 },                                   /* the Galvanist */
+    { 70, 90, 50, 90, 100, 80 },                                   /* the Plague Doctor */
+    { 100, 60, 90, 50, 80, 70 },                                   /* the Sin-Eater */
+    { 50, 70, 60, 100, 70, 90 },                                   /* the Headsman */
+};
+static float conf_weight(int cf) { int e = cls_el(); return e >= 0 ? (float)CONF_W[e][cf] / 100.0f : 0.75f; }   /* no past yet: the
+                                                                      places' mean */
+__attribute__((unused)) static int conf_rank(int cf) {
+    if (cf < 0 || cf >= NCONF) return 0;
+    int p = RUN.conf[cf], r = 0;
+    while (r < 5 && p >= CONF_CUM[r + 1]) r++;
+    return r == 5 ? 5 + RUN.conf_over[cf] : r;
+}
+static float conf_raw(int cf, int which, int p, int over) {       /* the number at p points (and overlevels), before the class's share */
+    const ConfNum *c = &CONF[cf].v[which];
+    float step = (c->hi - c->lo) / 4.0f;
+    if (p >= CONF_TOP) return c->hi + step * (float)over;
+    if (p < CONF_CUM[1] && c->from1) return 0.0f;                  /* not open till rank I is whole */
+    int k = 1;
+    while (p > CONF_CUM[k]) k++;                                   /* in the step from rank k-1 to k */
+    float a = k == 1 ? c->zero : c->lo + step * (float)(k - 2), b = c->lo + step * (float)(k - 1);
+    return a + (b - a) * (float)(p - CONF_CUM[k - 1]) / (float)(CONF_CUM[k] - CONF_CUM[k - 1]);
+}
+static float conf_at(int cf, int which, int p, int over) {        /* what the caster would have at p points: the class's share in it */
+    if (cf < 0 || cf >= NCONF || which < 0 || which >= CONF[cf].n || p <= 0) return 0.0f;
+    const ConfNum *c = &CONF[cf].v[which];
+    float raw = conf_raw(cf, which, p, over);
+    if (c->from1 && p < CONF_CUM[1]) return 0.0f;
+    float v = c->zero + (raw - c->zero) * conf_weight(cf);
+    if ((cf == CF_AGILITY && which == CV_HARD) || (cf == CF_SPIRIT && which == CV_UNBOUND) || (cf == CF_SURVIVAL && which == CV_SOFT))
+        v = fminf(v, 0.9f);                                        /* a status cut never takes it all */
+    if (cf == CF_CONST && which == CV_LASTBLOW) v = fminf(v, 0.5f);
+    if (cf == CF_RESTORE && which == CV_HEAL_SOULS) v = fmaxf(v, 0.0f);
+    return v;
+}
+__attribute__((unused)) static float conf_value(int cf, int which) {
+    return cf >= 0 && cf < NCONF ? conf_at(cf, which, RUN.conf[cf], RUN.conf_over[cf]) : 0.0f;
+}
+#ifdef CRAWL_DEBUG
+static void conf_debug(const char *s) {                            /* CRAWL_CONF=dddddd: each Confession's rank, 0-5 (6-9: V and overlevels) */
+    for (int cf = 0; cf < NCONF && s[cf] >= '0' && s[cf] <= '9'; cf++) {
+        int d = s[cf] - '0';
+        RUN.conf[cf] = (uint8_t)CONF_CUM[imin(d, 5)]; RUN.conf_over[cf] = (uint8_t)imax(0, d - 5);
+    }
+}
+#endif
 /* ---- the Alignment (docs/PLAN-b11.md, sections 7-10): a line for each element, its spell opened and raised with
  * Alignment Points. A node is bought whole, but Efficiency, Insight and the like a point at a time; every point in
  * a line after its opening is a rank more. Only the class's line comes open (1.0.0b16; Fire did before). ---- */
@@ -4865,6 +4959,7 @@ static void caster_sync(void) {                                    /* the caster
                                                             + (cls_el() == EL_PHYS ? 0.1f : 0.0f));                       /* the Headsman's */
     for (int i = 0; i < 10; i++) own[ST_ARMOR] += G.oss_t[i] > 0.0f;   /* Ossified's points */
     if (G.fwalk_t > 0.0f) own[ST_ARMOR] += 0.5f * (gear_total_raw(&RUN.gear, ST_ARMOR) + own[ST_ARMOR]);   /* Flamewalker */
+    class_own(own);                                                /* the class's own sheet (D5, section 9) */
     for (int st = 0; st < NSTAT; st++) gear_set_own(st, own[st], up[st]);
     align_sync();
 }
@@ -5005,6 +5100,12 @@ static void auto_ascend(void) {                                    /* the autopi
 #endif
     }
 }
+
+/* ---- the dead's track (D) owns these three bodies (docs/PLAN-combat.md, 17.2 and 17.3 for 1.0.0b20): stubs till D5 ---- */
+static void class_own(float *own) { (void)own; }                   /* the class's own sheet, added to own[ST_*] (section 9) */
+static float class_extra(int what) { (void)what; return 0.0f; }   /* KX_*: what of the sheet no stat holds */
+static int blow_survived(int kind) { (void)kind; return 0; }       /* Constitution's chance (10.4): 1 if this killing blow is lived */
+/* ---- the dead's track's stubs end ---- */
 
 static void xp_rooms(void) {                                       /* a room first set foot in */
     if (G.shop || PK.depth) return;
@@ -13262,6 +13363,7 @@ static void debug_gear(void) {
     if (getenv("CRAWL_PEDS")) RUN.peds = clampi(atoi(getenv("CRAWL_PEDS")), 2, NPED);
     if (getenv("CRAWL_GEAR")) give_gear(atoi(getenv("CRAWL_GEAR")));
     if (getenv("CRAWL_ALIGN")) align_debug(getenv("CRAWL_ALIGN"));   /* the lines opened, to a node and a path */
+    if (getenv("CRAWL_CONF")) conf_debug(getenv("CRAWL_CONF"));    /* each Confession's rank (1.0.0b20) */
     if (getenv("CRAWL_ALPTS")) RUN.al_points = atoi(getenv("CRAWL_ALPTS"));
     if (getenv("CRAWL_CLASS")) { RUN.cls = 0; if (atoi(getenv("CRAWL_CLASS")) > 0) class_take(atoi(getenv("CRAWL_CLASS"))); }   /* 0: asked */
     if (getenv("CRAWL_ATONE")) RUN.atone = clampi(atoi(getenv("CRAWL_ATONE")), 1, 999);   /* the Level of Atonement, nothing bought with it */
@@ -13750,6 +13852,7 @@ static void crawl_enter(uint32_t seed) {
     }
 #ifdef CRAWL_DEBUG
     if (resume && getenv("CRAWL_ALIGN")) align_debug(getenv("CRAWL_ALIGN"));   /* over a loaded run too */
+    if (resume && getenv("CRAWL_CONF")) conf_debug(getenv("CRAWL_CONF"));
     if (resume && getenv("CRAWL_CLASS")) { RUN.cls = 0; if (atoi(getenv("CRAWL_CLASS")) > 0) class_take(atoi(getenv("CRAWL_CLASS"))); }
     if (resume && getenv("CRAWL_SOULS")) RUN.souls = atoi(getenv("CRAWL_SOULS"));
     if (resume && getenv("CRAWL_HASMAP")) RUN.has_map = 1;

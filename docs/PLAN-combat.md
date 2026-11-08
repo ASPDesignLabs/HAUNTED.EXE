@@ -673,6 +673,17 @@ sketches who does what in each).
 outside its two, `start_level`, `begin_shop`, the debug state lines, the Codex's lists, the Makefile, README and the page (track C
 at a release).
 
+### 17.2 b. What each owns (1.0.0b20)
+
+Redrawn by C5's contract commit (8 November). Everything 1.0.0b19's table gave a track stays its own; these are added:
+
+| Track C only | Track D only |
+|---|---|
+| the Confessions: `CONF`, `CONF_W`, `CONF_CUM`, `conf_*`, `RUN.conf`, `RUN.conf_over`, `LG_CONF`; `LINES` and the old lines paid back (`LG_CASTER`'s steps) | the bodies of `class_own`, `class_extra` and `blow_survived` (17.3), in their marked block before `xp_rooms`, and whatever they need |
+| `ascend`, `line_buy`, `over_due`, `auto_ascend`, `update_ascend`, `render_ascend` and the screen's sheet; `caster_sync` (but its one line calling `class_own`) | the classes' words (`CLASSES`), her question (`update_class`, `render_class`), the Codex's class pages |
+| Agility's, Spirituality's and Survival's cuts in C2's statuses (`af_rolls`, `af_put`, `af_hold`); the grabs', webs', bile's and Soul Sap's lengths; `sprint_max`, `sprint_recovery`; the souls from kills (the share on `spawn_mote` in `kill_mob`) | Restoration the spell (10.3), wherever it is chosen, cast, channelled and drawn: its `AT_` number, the spells' turning and wheel, its channel in `human_cast` (C keeps the rest of `human_cast`), the dream's choosing of it |
+| Tab's caster page, the Codex's `CX_CASTER` | the killing blow (10.4) as `blow_survived` gives it, and how it is shown; Toughness's cracks (10.5): the motes at a shut secret's crack |
+
 ### 17.3 What the two tracks share (the contract)
 
 In `src/scene_crawl.c`, after `Mob`, committed with this section:
@@ -687,6 +698,19 @@ In `src/scene_crawl.c`, after `Mob`, committed with this section:
   is under way (the Bone Thrower's flash, `DR_EDGE`). Set by C, cleared by C; the creatures' part of `render_sprites` ORs it into
   the creature's flags, one line, and does nothing else with it. Anything else C draws for its attacks (a charge's after-images,
   the dust of its stamp, the Drowned's spew) C adds in the missiles' part.
+- 1.0.0b20 (C5's contract, 8 November): `CF_*` (the six Confessions, `NCONF`) and each one's numbers (`CV_*`: Restoration's
+  `CV_HEAL`, `CV_HEAL_SOULS`, `CV_PHYSIC`; Agility's `CV_HARD`, `CV_DODGE`, `CV_MOVE`, `CV_QUIET`; Spirituality's `CV_SOULS`,
+  `CV_UNBOUND`, `CV_HASTE`, `CV_THRIFT`, `CV_EFFECT`; Constitution's `CV_RECOVER`, `CV_SPRINT`, `CV_HEALTH`, `CV_LASTBLOW`;
+  Survival's `CV_SOFT`, `CV_TREASURE`, `CV_LUCK`; Toughness's `CV_ARMOUR`, `CV_ARMOUR_WORN`, `CV_CRACKS`). `conf_rank(cf)`: the
+  whole ranks, 0-5, past 5 by overlevels. `conf_value(cf, which)`: the number as the caster has it, the class's weight in it,
+  moved a point at a time; shares as fractions, the rest in their stat's units; 0 with nothing confessed, and Restoration's two,
+  the killing blow's chance and the cracks' reach 0 till rank I is whole (the cracks' reach is today's two cells and the weighted
+  gain past them). Set by C (C5); read by D (D5). `CRAWL_CONF=dddddd` in the debug build sets each Confession's rank (6-9: V and
+  overlevels). D's, called by C: `class_own(own)` adds the class's sheet to `caster_sync`'s own totals (per `ST_*`, in its units,
+  before the caps); `class_extra(KX_AF_CUT)` is a share off every status's chance on the caster (`af_rolls` reads it),
+  `class_extra(KX_SOULS)` a share more souls from kills (C5 reads it beside Spirituality's); `blow_survived(kind)` is asked in
+  `hurt_ex` when a blow that isn't a seep would kill, after Second Wind, and returns 1 if the caster lives (D sets the health and
+  the breath). All three are stubs that do nothing till D5 fills them.
 - To come: at the start of 1.0.0b20, C5's `conf_rank(cf)` and `conf_value(cf, which)`, which D5 reads; at the start of 1.0.0b21,
   C6's augment hooks, which D7 fills for its lines.
 
@@ -910,6 +934,16 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
 
   *From level 1, the first 3,000 s of each run, sixteen seeds a class, this branch against 1.0.0b18 (in brackets) on the same
   runs. Track D's longer runs and deeper starts are in its own table, section 19.*
+
+- **8 November. 1.0.0b20 begun: C5's contract.** **CONTRACT.** At the owner's word the agent that was track D through 1.0.0b19
+  takes track C for 1.0.0b20 (C5), another agent track D (D5); each reads the other's log at every pull, as before. Released
+  1.0.0b19 is merged into the branch (`7d100ca`). The contract (17.3's 1.0.0b20 line, and 17.2 b for who owns what):
+  `conf_rank`, `conf_value` and their `CF_*`/`CV_*`, with the Confessions' table, the classes' shares and `CRAWL_CONF` behind
+  them, working now, though nothing in play reads them yet; `RUN.conf`, `RUN.conf_over` (not yet saved); D's three stubs,
+  `class_own` (called at the end of `caster_sync`), `class_extra` (`af_rolls` takes `KX_AF_CUT` off every status's chance) and
+  `blow_survived` (asked in `hurt_ex` after Second Wind). With the stubs nothing in play changes. Defaults taken here: a run with
+  no past takes each Confession at 75%, the places' mean; past V an overlevel adds a quarter of I-to-V again; a status cut never
+  passes 90%, the killing blow's chance 50%. Next: the screen's sheet for the owner, and what doesn't hang on it.
 
 ## 19. Track D's log (the dead's)
 

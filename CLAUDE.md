@@ -249,7 +249,8 @@ attacks), D1 to D4 (the bestiary's elements, elemental creatures, the dead's sta
 steps are all built, and J19, the joint checks, is done (8 November: track D's half whole, track C's from level 1 for 3,000 s
 only, at the owner's word, then from levels 1 and 31 again over 1.0.0b18.1, merged in at the owner's word; the numbers in both
 logs, the README and the page). Released as **1.0.0b19** at the owner's word (8 November), a pre-release as before, squashed
-onto main as one commit with 1.0.0b18.1's work. Next is 1.0.0b20: C5 (the Confessions) and D5 (the classes' own). Found in the
+onto main as one commit with 1.0.0b18.1's work. 1.0.0b20 is begun (8 November): C5 (the Confessions) and D5 (the classes' own); C5's contract is in (its 17.2 b and 17.3:
+`conf_rank`, `conf_value`, and D5's hooks `class_own`, `class_extra`, `blow_survived`). Found in the
 review and mended by the plan: `HURT_MAGIC` is resisted by Resist Burn whatever its element; poison is the weak element across
 the bestiary (0.55 on average); skeletons' throws have no floor; flat armour grows as the blow does.
 
