@@ -865,6 +865,16 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   and run I's armour seldom turns a charge; a person fighting close will meet more of all of it, untried. No contract changed
   (`Mob.c_flags` was C4's, earlier). **C1 to C4 are built**: track C's steps for 1.0.0b19 are done, as are track D's; J19, the
   joint checks, is next.
+- **8 November. J19 begun: how the two tracks share it.** The runs are the dream from each start for each class, this branch
+  against 1.0.0b18 (main at `0201a5f`), on the same seeds with `CRAWL_RUNID` the seed so the two builds meet the same runs.
+  Each track runs **half the seeds**, so that each half covers every start and class: **track C seeds 1-15 odd, track D seeds
+  17-31 odd**. The classes are the five a fresh run can be given, `CRAWL_CLASS` 1-5 (the Headsman's line is shut till the first
+  gift, as 1.0.0b16's checks had it). The starts as C1's: from level 1 for 6,000 s with nothing else set; from 11, 21 and 31 for
+  3,000 s at `CRAWL_GEAR` 3, 5, 8 and `CRAWL_XPBANK` 9450, 35322, 77658 with `CRAWL_LEVEL` the start. Each run's log is its
+  `EVENT` and `STALL` lines. For each start and class: levels cleared, deaths (on a boss's level and elsewhere), the knight
+  felled, a level's median time (from `cleared`), and what landed (`EVENT af`, the dead's `maf`, `elem_hits`, `c4_*`). Track
+  D: your half's numbers in your log in the same shape, and I fold both into one table here and into the README. Then ASan on a
+  session a class, and the README, the page and the notes (track C, 17.5.8).
 
 ## 19. Track D's log (the dead's)
 
