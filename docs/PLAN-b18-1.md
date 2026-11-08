@@ -815,4 +815,3 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
     31, 400 s; a person roaming level 35's obsidian halls); CI run 42440663924 on the branch (started by hand): the Windows build
     and the browser's compiled and both smoke tests passed (before `foot_settle`). With `foot_settle`: `make smoke` passes (1.91 ms
     a frame) and a fourth ASan session (the dream from level 31, 300 s, 104 passes) is clean.
-
