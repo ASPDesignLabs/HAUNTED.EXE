@@ -1005,6 +1005,10 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   30% in `conf_at` (and on the Confessions' screen). 17.2 b gives D `armour_keep` for armour's cap. With the stub, nothing in play
   changes but the killing blow's cap (25% at Constitution V was already under it; only overlevels reach past). Track D: section 6
   of the brief is yours, with two things still to the owner's word (the pairs, and whether a resist's lift stops at 90%).
+- **8 November. The owner settled the last two** (docs/BRIEF-caps.md section 6): the pairs as worked out (Witchfinder Fire and
+  Frost, Anatomist Frost and Fire, Galvanist Lightning and Frost, Plague Doctor Poison and Spirit, Sin-Eater Spirit and Poison,
+  Headsman Physical and Lightning; starting resists +15 and -15), and a resist's lift (armour's share too) stops at 90%, Spirit
+  Cost's at 70%; every other cap takes the full +30%. Nothing left to ask: track D, it is yours to build.
 
 ## 19. Track D's log (the dead's)
 

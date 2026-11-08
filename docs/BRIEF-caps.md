@@ -124,8 +124,7 @@ added (`class_cap`, below); C has done its two pieces (the hook, and the killing
 | Headsman | Physical (armour) | Lightning | plate carries it to the man inside |
 
 Frost is two classes' weakness and Physical is nobody's: most harm is physical, so a class weak to it would be weak to almost
-everything, and armour can't sensibly go below nothing. If the owner would rather each element be exactly one class's
-weakness, the Witchfinder would take Physical (a zealot in robes) and keep Fire.
+everything, and armour can't sensibly go below nothing. The owner took these pairs as they stand (8 November).
 
 **The numbers** (a draft for D to start from):
 
@@ -144,9 +143,9 @@ weakness, the Witchfinder would take Physical (a zealot in robes) and keep Fire.
 
 - **Armour's cap**: armour keeps off a share of a blow (`armour_keep`); its cap is on that share, 75% for everyone, as the
   resists', and lifted for the Headsman.
-- **For the owner's word before D builds**: +30% on a resist's 75% is 97.5%, all but immune to the strength element late on,
-  and Spirit Cost at 78% makes most spells almost free. The recommendation is to let a resist's lift stop at 90% (and Spirit
-  Cost's at 70%), keeping +30% for the rest.
+- **The owner's word (8 November): the pairs above as they stand, and a resist's lift stops at 90%** (armour's share too: 75% to
+  90%), Spirit Cost's at 70% (60 to 70); every other cap takes the full +30%. So in the table above, read 90 for each 97.5, and
+  the Sin-Eater's Spirit Cost 60 to 70.
 
 **Who does what.** D: the class sheets' strengths and weaknesses (`class_own`), the caps (`class_cap`: the lift of stat st's
 cap in its units, which `caster_sync` adds to the caps), armour's cap in `armour_keep` (given to D for this, 17.2 b), and the
