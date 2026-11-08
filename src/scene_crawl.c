@@ -7506,6 +7506,9 @@ static void update_wraith(Mob *m, float dt) {
         }
     }
     if (rnd(900) == 0) { sfx_at(SFX_WAIL, m->x, m->y, 0.9f); wraith_chill(m); }
+    if ((m->tx != m->cx || m->ty != m->cy) && wraith_barred(m->tx, m->ty) && !wraith_barred(m->cx, m->cy)) {
+        m->tx = m->cx; m->ty = m->cy;                              /* a lamp lit while it stepped in: back the way it came */
+    }
     float gx, gy; cell_pass(m->tx, m->ty, &gx, &gy);
     float dx = gx - m->x, dy = gy - m->y, d = sqrtf(dx * dx + dy * dy);
     float step = m->speed * dt * (m->sub == 1 ? 1.6f : 1.0f);
