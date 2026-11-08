@@ -3977,9 +3977,10 @@ static float el_resist(const Gear *g, int el) {
 /* the share armour keeps off (P2): armour as great as a rank-I blow of the level keeps off half of any blow, whatever the
  * level, as a flat number never could (it grew as the blow did, till one robe left a blow at 1); half as much against the
  * elements */
+static float armour_cap(void);
 static float armour_keep(const Gear *g, int phys) {
     float a = (float)gear_armor(g) * (phys ? 1.0f : 0.5f), ref = 4.0f + 0.8f * (float)G.level;
-    return a > 0.0f ? a / (a + ref) : 0.0f;
+    return a > 0.0f ? fminf(a / (a + ref), armour_cap()) : 0.0f;  /* never more than its cap (the owner's caps by class; D's) */
 }
 static void windup_blow(int d, float raw, float after, int el) {
     if (!winding_up() || G.max_hp <= 0) return;
@@ -5253,15 +5254,26 @@ static void old_lines_said(void) {                                 /* to a perso
 /* the classes' own (section 9, the draft the owner took for now, K1 b): what each brings at the start, flat (K3), joined to the
  * caster's own under the same caps; its health against the hundred everyone had, its stats in their own units, and what no stat
  * holds. The class's line and its gifts are as they were (K2). Words for the class question and the Codex in CLASS_SHEET */
-typedef struct { int hp; struct { int8_t st; float v; } s[5]; float af_cut, souls; } ClassOwn;
+/* With the owner's caps by class (docs/BRIEF-caps.md, section 6): each class's own element hurts it 15% less and one other 15%
+ * more (the Headsman's strength is its armour: its weakness is Lightning), and three caps lifted by three tenths (a resist's and
+ * armour's share stopping at 90%, Spirit Cost's at 70%), in each stat's units; armour's share of a blow is capped in armour_keep */
+typedef struct { int hp; struct { int8_t st; float v; } s[6]; float af_cut, souls; int8_t strong, weak; struct { int8_t st; float v; } cap[3]; } ClassOwn;
 static const ClassOwn CLASS_OWN[NELEM] = {
-    [EL_FIRE]   = { 95,  { { ST_HASTE, 6.0f }, { ST_THRIFT, 6.0f }, { ST_EFFECT, 8.0f }, { ST_RES_BURN, 10.0f }, { -1, 0 } }, 0.0f, 0.0f },
-    [EL_FROST]  = { 105, { { ST_ARMOR, 5.0f }, { ST_RES_SLOW, 15.0f }, { ST_PHYSIC, 15.0f }, { -1, 0 }, { -1, 0 } }, 0.0f, 0.0f },
-    [EL_LIGHT]  = { 90,  { { ST_DODGE, 6.0f }, { ST_MOVE, 6.0f }, { ST_QUIET, 15.0f }, { ST_RES_LIGHT, 15.0f }, { -1, 0 } }, 0.0f, 0.0f },
-    [EL_POISON] = { 100, { { ST_RES_POISON, 25.0f }, { ST_LUCK, 1.0f }, { ST_TREASURE, 5.0f }, { ST_SPRINT, 0.5f }, { -1, 0 } }, 0.10f, 0.0f },
-    [EL_SPIRIT] = { 95,  { { ST_REGEN, 0.1f }, { ST_RES_SPIRIT, 15.0f }, { -1, 0 }, { -1, 0 }, { -1, 0 } }, 0.0f, 0.10f },
-    [EL_PHYS]   = { 120, { { ST_ARMOR, 4.0f }, { ST_SPRINT, 1.0f }, { -1, 0 }, { -1, 0 }, { -1, 0 } }, 0.0f, 0.0f },
+    [EL_FIRE]   = { 95,  { { ST_HASTE, 6.0f }, { ST_THRIFT, 6.0f }, { ST_EFFECT, 8.0f }, { ST_RES_BURN, 15.0f }, { ST_RES_SLOW, -15.0f }, { -1, 0 } },
+                    0.0f, 0.0f, EL_FIRE, EL_FROST, { { ST_RES_BURN, 15.0f }, { ST_HASTE, 15.0f }, { ST_EFFECT, 15.0f } } },
+    [EL_FROST]  = { 105, { { ST_ARMOR, 5.0f }, { ST_RES_SLOW, 15.0f }, { ST_PHYSIC, 15.0f }, { ST_RES_BURN, -15.0f }, { -1, 0 }, { -1, 0 } },
+                    0.0f, 0.0f, EL_FROST, EL_FIRE, { { ST_RES_SLOW, 15.0f }, { ST_PHYSIC, 120.0f }, { -1, 0 } } },
+    [EL_LIGHT]  = { 90,  { { ST_DODGE, 6.0f }, { ST_MOVE, 6.0f }, { ST_QUIET, 15.0f }, { ST_RES_LIGHT, 15.0f }, { ST_RES_SLOW, -15.0f }, { -1, 0 } },
+                    0.0f, 0.0f, EL_LIGHT, EL_FROST, { { ST_RES_LIGHT, 15.0f }, { ST_DODGE, 10.5f }, { ST_MOVE, 12.0f } } },
+    [EL_POISON] = { 100, { { ST_RES_POISON, 15.0f }, { ST_LUCK, 1.0f }, { ST_TREASURE, 5.0f }, { ST_SPRINT, 0.5f }, { ST_RES_SPIRIT, -15.0f }, { -1, 0 } },
+                    0.10f, 0.0f, EL_POISON, EL_SPIRIT, { { ST_RES_POISON, 15.0f }, { ST_LUCK, 7.5f }, { ST_TREASURE, 30.0f } } },
+    [EL_SPIRIT] = { 95,  { { ST_REGEN, 0.1f }, { ST_RES_SPIRIT, 15.0f }, { ST_RES_POISON, -15.0f }, { -1, 0 }, { -1, 0 }, { -1, 0 } },
+                    0.0f, 0.10f, EL_SPIRIT, EL_POISON, { { ST_RES_SPIRIT, 15.0f }, { ST_VESSEL, 30.0f }, { ST_THRIFT, 10.0f } } },
+    [EL_PHYS]   = { 120, { { ST_ARMOR, 4.0f }, { ST_SPRINT, 1.0f }, { ST_RES_LIGHT, -15.0f }, { -1, 0 }, { -1, 0 }, { -1, 0 } },
+                    0.0f, 0.0f, EL_PHYS, EL_LIGHT, { { ST_SPRINT, 2.25f }, { ST_DAMAGE, 30.0f }, { -1, 0 } } },
 };
+#define ARMOUR_CAP 0.75f                                           /* the most of a blow armour keeps off; the Headsman's lifted to 90% */
+#define ARMOUR_CAP_UP 0.15f
 static int class_sheet_on(void) {                                  /* CRAWL_SHEET=0 (debug) leaves them out, for the balance runs */
 #ifdef CRAWL_DEBUG
     static int on = -1;
@@ -5276,34 +5288,50 @@ static void class_own(float *own) {                                /* the class'
     if (e < 0 || !class_sheet_on()) return;
     const ClassOwn *c = &CLASS_OWN[e];
     own[ST_HP] += (float)(c->hp - 100);
-    for (int i = 0; i < 5; i++) if (c->s[i].st >= 0) own[c->s[i].st] += c->s[i].v;
+    for (int i = 0; i < 6; i++) if (c->s[i].st >= 0) own[c->s[i].st] += c->s[i].v;
 }
-static int class_sheet_row(int e, int i, char *name, int nn, char *val, int nv) {   /* a row of class e's sheet, in words; 0 past them */
+static int class_sheet_row(int e, int i, char *name, int nn, char *val, int nv, int *stat) {   /* a row of class e's sheet, in words;
+                                                                      0 past them; *stat the stat it is (-1 none) */
     const ClassOwn *c = &CLASS_OWN[e];
+    if (stat) *stat = -1;
     if (i == 0) { snprintf(name, (size_t)nn, "HEALTH"); snprintf(val, (size_t)nv, "%d", c->hp); return 1; }
     int k = 0;
-    for (int j = 0; j < 5; j++) {
+    for (int j = 0; j < 6; j++) {
         if (c->s[j].st < 0 || ++k != i) continue;
         int st = c->s[j].st;
         float v = c->s[j].v;
+        if (stat) *stat = st;
         snprintf(name, (size_t)nn, "%s", STAT_NAME[st]);
-        if (st == ST_ARMOR) snprintf(val, (size_t)nv, "+%.0f", v);
-        else if (st == ST_REGEN) snprintf(val, (size_t)nv, "+%.1f/S", v);
+        if (st == ST_ARMOR) snprintf(val, (size_t)nv, "%+.0f", v);
+        else if (st == ST_REGEN) snprintf(val, (size_t)nv, "%+.1f/S", v);
         else if (st == ST_THRIFT) snprintf(val, (size_t)nv, "-%.0f%%", v);
-        else if (st == ST_SPRINT) snprintf(val, (size_t)nv, "+%.1f S", v);
-        else snprintf(val, (size_t)nv, "+%.0f%%", v);
+        else if (st == ST_SPRINT) snprintf(val, (size_t)nv, "%+.1f S", v);
+        else snprintf(val, (size_t)nv, "%+.0f%%", v);
         return 1;
     }
     if (c->af_cut > 0.0f && ++k == i) { snprintf(name, (size_t)nn, "EVERY MARK'S CHANCE"); snprintf(val, (size_t)nv, "-%.0f%%", c->af_cut * 100.0f); return 1; }
     if (c->souls > 0.0f && ++k == i) { snprintf(name, (size_t)nn, "SOULS FROM KILLS"); snprintf(val, (size_t)nv, "+%.0f%%", c->souls * 100.0f); return 1; }
     return 0;
 }
-static void class_sheet_words(int e, char *buf, int n) {           /* the sheet as a sentence, for the Codex */
-    char nm[40], v[16];
-    int o = snprintf(buf, (size_t)n, "THEY BRING");
-    for (int i = 0; class_sheet_row(e, i, nm, sizeof nm, v, sizeof v) && o < n; i++)
-        o += i == 0 ? snprintf(buf + o, (size_t)(n - o), " %s HEALTH", v) : snprintf(buf + o, (size_t)(n - o), ", %s %s", nm, v);
-    if (o < n) snprintf(buf + o, (size_t)(n - o), ".");
+static void cap_text(int st, float cap, char *val, int nv) {        /* a cap as her question shows it */
+    char num[8];
+    snprintf(num, sizeof num, fabsf(cap - roundf(cap)) < 0.01f ? "%.0f" : "%.1f", clampf(cap, 0.0f, 9999.0f));
+    if (st == ST_SPRINT) snprintf(val, (size_t)nv, "MAX %s S", num);
+    else if (st == ST_VESSEL) snprintf(val, (size_t)nv, "MAX %s", num);
+    else snprintf(val, (size_t)nv, "MAX %s%%", num);
+}
+static int class_cap_row(int e, int i, char *name, int nn, char *val, int nv) {   /* the caps class e lifts, a row each; 0 past them */
+    const ClassOwn *c = &CLASS_OWN[e];
+    int k = 0;
+    for (int j = 0; j < 3; j++) {
+        int st = c->cap[j].st;
+        if (st < 0 || k++ != i) continue;
+        snprintf(name, (size_t)nn, "%s", STAT_NAME[st]);
+        cap_text(st, gear_stat_cap(st) - gear_cap_up(st) + c->cap[j].v, val, nv);
+        return 1;
+    }
+    if (e == EL_PHYS && k == i) { snprintf(name, (size_t)nn, "ARMOUR KEEPS OFF"); cap_text(-1, 100.0f * (ARMOUR_CAP + ARMOUR_CAP_UP), val, nv); return 1; }
+    return 0;
 }
 static float class_extra(int what) {                               /* KX_*: what of the sheet no stat holds */
     int e = cls_el();
@@ -5341,7 +5369,15 @@ static int blow_survived(int kind) {
     return 1;
 }
 static int lastblow_shown(void) { return G.lb_at > 0.0 && G.t - G.lb_at < 3.05 && G.wind_t > 0.0f; }   /* the breath is the blow's */
-static float class_cap(int st) { (void)st; return 0.0f; }          /* the class's lift of stat st's cap (docs/BRIEF-caps.md): D's to fill */
+static float class_cap(int st) {                                   /* the class's lift of stat st's cap (docs/BRIEF-caps.md), in its units */
+    int e = cls_el();
+    if (e < 0 || !class_sheet_on()) return 0.0f;
+    for (int i = 0; i < 3; i++) if (CLASS_OWN[e].cap[i].st == st) return CLASS_OWN[e].cap[i].v;
+    return 0.0f;
+}
+static float armour_cap(void) {                                    /* CRAWL_SHEET=0 leaves armour uncapped, as it was */
+    return !class_sheet_on() ? 1.0f : ARMOUR_CAP + (cls_el() == EL_PHYS ? ARMOUR_CAP_UP : 0.0f);
+}
 /* ---- the dead's track's stubs end ---- */
 
 static void xp_rooms(void) {                                       /* a room first set foot in */
@@ -24483,6 +24519,7 @@ enum { CXS_VESSEL, CXS_BELL, CXS_FONT, CXS_REPLAY, CXS_SAP, NCXS };   /* the sou
     /* the caster's track (C) ends */ \
     /* the dead's track (D): */ \
     + 1 /* the elements' second page, the dead's (D1) */ \
+    + 1 /* the class's second page, what they bring (D5) */ \
     /* the dead's track (D) ends */ \
     )
 enum { CXC_ATONE, CXC_LUCK, CXC_OVER, CXC_CORNER };                /* the caster's own pages: then a cornerstone each, CXC_CORNER + CS_* */
@@ -24523,7 +24560,7 @@ static int codex_entries(CxEntry *e) {
     e[n++] = (CxEntry){ CX_ELEM, 0 };
     if (elem_mode()) e[n++] = (CxEntry){ CX_ELEM, 1 };             /* the dead's elements (1.0.0b19) */
     for (int el = 0; el < NELEM; el++) if (align_open(el)) e[n++] = (CxEntry){ CX_LINE, el };   /* the lines open */
-    if (cls_el() >= 0) e[n++] = (CxEntry){ CX_CLASS, cls_el() };   /* what you were */
+    if (cls_el() >= 0) { e[n++] = (CxEntry){ CX_CLASS, cls_el() }; e[n++] = (CxEntry){ CX_CLASS, NELEM + cls_el() }; }   /* what you were, what they bring */
     e[n++] = (CxEntry){ CX_SOUL, CXS_VESSEL };                     /* the souls, as each is met */
     if (RUN.bell_cursed) e[n++] = (CxEntry){ CX_SOUL, CXS_BELL };
     if (RUN.font_cursed) e[n++] = (CxEntry){ CX_SOUL, CXS_FONT };
@@ -29784,7 +29821,7 @@ static void render_codex(Frame *f) {
     case CX_WAYS: snprintf(name, sizeof name, "%s", WAY_NAME[clampi(c->i, 0, NWAY - 1)]); break;
     case CX_ELEM: snprintf(name, sizeof name, c->i ? "THE DEAD'S ELEMENTS" : "WHAT HURTS WHAT"); break;
     case CX_LINE: snprintf(name, sizeof name, "%s", ALIGN[c->i].name); break;
-    case CX_CLASS: snprintf(name, sizeof name, "%s", CLASSES[c->i].name); break;
+    case CX_CLASS: snprintf(name, sizeof name, "%s", CLASSES[c->i % NELEM].name); break;
     case CX_SOUL: {
         static const char *const SN[NCXS] = { "THE VESSEL", "THE DEAD BELL", "THE WEEPING FONT", "LEVELS REPLAYED", "SOUL SAP" };
         snprintf(name, sizeof name, "%s", SN[clampi(c->i, 0, NCXS - 1)]);
@@ -29976,13 +30013,30 @@ static void render_codex(Frame *f) {
         break;
     }
     case CX_CLASS: {
+        if (c->i >= NELEM) {                                       /* its second page: what they bring (D5, section 9), the caps it
+                                                                      lifts beside them and the rest after (docs/BRIEF-caps.md), its pair */
+            int e = c->i - NELEM, st, used[3] = { 0, 0, 0 };
+            char nm[40], v[16], cv[16], cn[40];
+            gfx_text8(f, 14, y, "WHAT THEY BRING", R_GOLD + 11, 1); y += 11;
+            for (int i = 0; class_sheet_row(e, i, nm, sizeof nm, v, sizeof v, &st) && i < 10; i++, y += 9) {
+                gfx_text8(f, 14, y, nm, R_STONE + 13, 1);
+                gfx_text8(f, 224 - gfx_text_width(v, 1), y, v, R_GLOW + 12, 1);
+                for (int j = 0; st >= 0 && j < 3 && class_cap_row(e, j, cn, sizeof cn, cv, sizeof cv); j++)
+                    if (!used[j] && !strcmp(cn, STAT_NAME[st])) { used[j] = 1; gfx_text8(f, 232, y, cv, R_GHOST + 12, 1); }
+            }
+            for (int j = 0; j < 4 && class_cap_row(e, j, cn, sizeof cn, cv, sizeof cv); j++) {
+                if (j < 3 && used[j]) continue;
+                gfx_text8(f, 14, y, cn, R_STONE + 13, 1); gfx_text8(f, 232, y, cv, R_GHOST + 12, 1); y += 9;
+            }
+            snprintf(line, sizeof line, "%s HURTS THEM LESS, %s MORE. EACH MAX IS THEIR OWN CAP, OVER EVERYONE'S; "
+                     "A RESIST BELOW NOTHING LETS ITS ELEMENT HURT THE MORE.", ELEM_NAME[CLASS_OWN[e].strong], ELEM_NAME[CLASS_OWN[e].weak]);
+            text_wrap(f, 14, y + 4, line, 36, R_BONE + 11, 5);
+            break;
+        }
         int n2 = text_wrap_ex(f, 14, y, CLASSES[c->i].story, 36, R_STONE + 13, 10, 8);
         y += n2 * 8 + 4;
         y += text_wrap_ex(f, 14, y, CLASSES[c->i].gift, 36, R_GOLD + 11, 3, 8) * 8 + 4;
-        char sheet[200];
-        class_sheet_words(c->i, sheet, sizeof sheet);                 /* what they bring (D5, section 9) */
-        y += text_wrap_ex(f, 14, y, sheet, 36, R_GLOW + 12, 4, 8) * 8 + 4;
-        text_wrap(f, 14, y, "A LIFE KEEPS ONE; ANOTHER FROM ATONEMENT 20, FOR FIVE CURSED COINS.", 36, R_BONE + 11, 2);
+        text_wrap(f, 14, y, "A LIFE KEEPS ONE; ANOTHER FROM ATONEMENT 20, FOR FIVE CURSED COINS. WHAT THEY BRING IS ON THE NEXT PAGE.", 36, R_BONE + 11, 3);
         break;
     }
     case CX_SOUL: {
@@ -30565,13 +30619,24 @@ static void render_class(Frame *f) {
         n = ui_wrap(f, 14, 81, CLASSES[c].story, 36, 8, 10, FACE_BODY, UI_M(13), TX_INLAID) + 1;
         int need = ui_wrap_count(CLASSES[c].story, 36);
         if (need > 10) ui_overflow("class story", CLASSES[c].name, need - 10);
-    } else {                                                       /* the starting sheet (section 9), a row each */
-        char nm[40], v[16];
-        for (n = 0; class_sheet_row(c, n, nm, sizeof nm, v, sizeof v) && n < 9; n++) {
+    } else {                                                       /* the starting sheet (section 9), a row each, and the caps it */
+        char nm[40], v[16], cv[16], cn[40];                        /* lifts beside them (docs/BRIEF-caps.md), the rest after; its pair */
+        int st, used[3] = { 0, 0, 0 };
+        for (n = 0; class_sheet_row(c, n, nm, sizeof nm, v, sizeof v, &st) && n < 10; n++) {
             ui_text8(f, 22, 81 + n * 8, nm, FACE_BODY, UI_M(13), TX_INLAID);
-            ui_text8(f, 250 - 8 * (int)strlen(v), 81 + n * 8, v, FACE_BODY, R_GLOW + 12, TX_INLAID);
+            ui_text8(f, 224 - 8 * (int)strlen(v), 81 + n * 8, v, FACE_BODY, R_GLOW + 12, TX_INLAID);
+            for (int j = 0; st >= 0 && j < 3 && class_cap_row(c, j, cn, sizeof cn, cv, sizeof cv); j++)
+                if (!used[j] && !strcmp(cn, STAT_NAME[st])) { used[j] = 1; ui_text8(f, 232, 81 + n * 8, cv, FACE_BODY, R_GHOST + 12, TX_INLAID); }
         }
-        n++;
+        for (int j = 0; j < 4 && class_cap_row(c, j, cn, sizeof cn, cv, sizeof cv); j++) {
+            if (j < 3 && used[j]) continue;
+            ui_text8(f, 22, 81 + n * 8, cn, FACE_BODY, UI_M(13), TX_INLAID);
+            ui_text8(f, 232, 81 + n * 8, cv, FACE_BODY, R_GHOST + 12, TX_INLAID);
+            n++;
+        }
+        snprintf(cn, sizeof cn, "%s HURTS LESS, %s MORE", ELEM_NAME[CLASS_OWN[c].strong], ELEM_NAME[CLASS_OWN[c].weak]);
+        ui_text8(f, 22, 81 + n * 8, cn, FACE_BODY, ramp_at(ELEM_RAMP[c], 12), TX_INLAID);
+        n += 2;
     }
     int gy = 71 + n * 8 + 5, gl = ui_wrap_count(CLASSES[c].gift, 36);
     if (gy + gl * 8 > 177) { ui_overflow("class gift", CLASSES[c].name, (gy + gl * 8 - 177 + 7) / 8); gy = 177 - gl * 8; }

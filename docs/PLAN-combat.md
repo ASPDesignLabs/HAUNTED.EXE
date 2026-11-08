@@ -1290,6 +1290,25 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   the pad's wheel took it up and put it down; frames of the bar and the glow; ASan clean on that and on a dream of 1,200 s that
   channelled. Not done: Tab's spellbook page doesn't list it (C's page), and balance runs wait for J20.
 
+- **8 November. The owner's caps by class** (docs/BRIEF-caps.md section 6, given to D; harness only). **The sheets**: each class's
+  own element's resist +15 and its weakness's -15 (`CLASS_OWN` now has the pair, `strong` and `weak`): the Witchfinder Resist Burn
+  +15 (it was +10) and Resist Slow (frost) -15, the Anatomist Resist Burn -15 (its Resist Slow +15 as it was), the Galvanist Resist
+  Slow -15, the Plague Doctor Resist Poison +15 (it was +25) and Resist Spirit -15, the Sin-Eater Resist Poison -15, the Headsman
+  (its strength its armour, +4 as it was) Resist Lightning -15. A total may go below nothing, as the brief says `el_resist` and
+  `hurt_ex` already take. **The caps** (`class_cap`, filled: the brief's table in each stat's units, read by C's `caster_sync`):
+  the Witchfinder Resist Burn to 90, Spell Haste and Spell Effect to 65; the Anatomist Resist Slow to 90, Physic to 520; the
+  Galvanist Resist Lightning to 90, Dodge to 45.5, Movement to 52; the Plague Doctor Resist Poison to 90, Luck to 32.5, Treasure
+  to 130; the Sin-Eater Resist Spirit to 90, Vessel to 130, Spirit Cost to 70; the Headsman Sprint to 9.75 s over the base,
+  Damage to 130. **Armour's cap** (`armour_keep`, given to D by 17.2 b): the share of a blow kept off never past 75%
+  (`ARMOUR_CAP`), the Headsman's 90% (`armour_cap`). **Shown**: her question's second page has each lifted cap beside its row in
+  pale blue (*MAX 90%*), the lifted caps the sheet has no row for after (the Sin-Eater's Vessel and Spirit Cost, the Headsman's
+  Damage and *ARMOUR KEEPS OFF*), and the pair in the class's colour (*FIRE HURTS LESS, FROST MORE*); the Codex's class has a
+  second page, *WHAT THEY BRING*, laid out the same with a line on what the caps and a resist below nothing mean (the sentence
+  that had been on the first page had run over the Plague Doctor's long story; `CX_MAX` one more, in D's place). `CRAWL_SHEET=0`
+  leaves the sheets, the lifts and armour's cap out: a dream on it plays the commit before line for line (checked, 500 s). Tested:
+  frames of her question's second page for all six and of both Codex pages for all six, no overflow; ASan clean on her question
+  turned through all six and the Codex's pages, and a Headsman's dream from level 21 for 600 s. Balance runs under way (below).
+
 ## Appendix: the owner's guide (7 November), as given
 
 > Q1. B, but we mix things up a bit. I offered a guide I've spent a day working on. Use my responses to these questions and the

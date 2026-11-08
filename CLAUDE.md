@@ -253,7 +253,7 @@ onto main as one commit with 1.0.0b18.1's work. 1.0.0b20 is begun (8 November): 
 `conf_rank`, `conf_value`, and D5's hooks `class_own`, `class_extra`, `blow_survived`), and C5 is built and in play (the
 Confessions' sheet approved; harness only); of D5, the classes' sheets and the killing blow are built (harness only), Toughness's
 cracks and Restoration's glow wait on their sheets (`docs/combat/d5-cracks.png`, `d5-restoration.png`), and Restoration the
-spell is built (harness only). Found in the
+spell and the owner's caps by class (docs/BRIEF-caps.md, given to D) are built (harness only). Found in the
 review and mended by the plan: `HURT_MAGIC` is resisted by Resist Burn whatever its element; poison is the weak element across
 the bestiary (0.55 on average); skeletons' throws have no floor; flat armour grows as the blow does.
 
@@ -1651,8 +1651,11 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `docs/combat/d5-cracks.png`. Restoration (10.3): in hand as `G.rst_sel` (id `RS_ID`, not an `AT_`; 8, the wheel, the spells'
   wheel's ankh `RESTORE_MARK`), `restore_cast` (its channel, from `human_cast`), `restore_tick`, half pace in `slow_factor`,
   `restore_hud` (the status bar), `dream_restore` (from `update_player`), and the glow `render_restore` (from `render_hand`,
-  `G.rst_k`; its sheet `docs/combat/d5-restoration.png`); `EVENT restore_begin`, `restore_end`. Debug: `CRAWL_SHEET=0`
-  (no sheets: the build before, line for line), `CRAWL_LASTBLOW=p` (its chance as given), `CRAWL_CRACKS=2` (and a `CRACKS` line a
+  `G.rst_k`; its sheet `docs/combat/d5-restoration.png`); `EVENT restore_begin`, `restore_end`. The owner's caps by class
+  (docs/BRIEF-caps.md section 6): `CLASS_OWN`'s `strong`/`weak` (its own element's resist +15, one other's -15) and `cap[3]`
+  (`class_cap`, each lift in its stat's units), `armour_cap` in `armour_keep` (75%, the Headsman's 90%), `class_cap_row` and
+  `cap_text` for her question's second page and the Codex's second class page (`CX_CLASS` with `i` past `NELEM`). Debug: `CRAWL_SHEET=0`
+  (no sheets, lifts or armour's cap: the build before, line for line), `CRAWL_LASTBLOW=p` (its chance as given), `CRAWL_CRACKS=2` (and a `CRACKS` line a
   second: the face, the distance, the reach), `CRAWL_RESTSHOW=1` (the glow, for the sheet), `EVENT lastblow`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
