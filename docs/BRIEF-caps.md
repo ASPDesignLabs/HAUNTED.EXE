@@ -97,3 +97,59 @@ A draft for (a), to start from (every number is yours to change):
 The caps live in `src/crawl_gear.c` (shared by both tracks); the class sheets are track D's (D5); the Confessions' screen
 and its cap marks are track C's. Option (a) or (b) would be one contract change (17.3), then a few lines on each side. It
 could go into 1.0.0b20 with D5, or wait for 1.0.0b21. Tested in the harness only, as everything in 1.0.0b20 so far.
+
+## 6. Settled with the owner (8 November), for track D to build
+
+The owner's answers, and what was worked out from them. **Track D builds it** (the class sheets are D's), on the hooks track C
+added (`class_cap`, below); C has done its two pieces (the hook, and the killing blow's cap).
+
+- **Every resist has a cap of its own**: Fire (Resist Burn), Frost (Resist Slow, which is the frost resist), Lightning, Spirit,
+  Poison, and now **Armour**, so a class can be more or less resistant over a long run. A class is most resistant, by default,
+  to its own element.
+- **CP1, CP2: option (a), with every lift at +30% of the cap, not +20%**, so the class is felt in the middle and late game.
+- **CP3: yes.** The class question's screen shows each class's caps beside its sheet.
+- **CP4: the killing blow survived is capped at 30%** (built by C: Constitution's chance never passes it).
+- **CP5: yes, and a yin for every yang.** Each class starts with its own element's resist raised (that element hurts it less)
+  and one opposite element's lowered (it hurts it more), both shown in the class's stats.
+
+**The pairs** (the owner gave the Galvanist's; the other five worked out here, for the owner's word):
+
+| Class | Strength (its own) | Weakness | Why |
+|---|---|---|---|
+| Witchfinder | Fire | Frost | the pyre's servant; the cold numbs the hand that lights it |
+| Anatomist | Frost | Fire | cold flesh kept in spirits of wine: it burns |
+| Galvanist | Lightning | Frost | the owner's: ice stops the current |
+| Plague Doctor | Poison | Spirit | tends the body, never the soul |
+| Sin-Eater | Spirit | Poison | eats the bread laid on the dead, and whatever is in it |
+| Headsman | Physical (armour) | Lightning | plate carries it to the man inside |
+
+Frost is two classes' weakness and Physical is nobody's: most harm is physical, so a class weak to it would be weak to almost
+everything, and armour can't sensibly go below nothing. If the owner would rather each element be exactly one class's
+weakness, the Witchfinder would take Physical (a zealot in robes) and keep Fire.
+
+**The numbers** (a draft for D to start from):
+
+- Starting resists: the strength **+15%** (today's sheets give 10-25; evened out), the weakness **-15%** (that element harms
+  it 15% more). A resist may now go below nothing.
+- Caps lifted by +30% of the base, for the strength's resist and the draft's other two:
+
+| Class | Caps lifted (+30%) |
+|---|---|
+| Witchfinder | Resist Fire 75 to 97.5, Spell Haste 50 to 65, Spell Effect 50 to 65 |
+| Anatomist | Resist Frost 75 to 97.5, Physic 400 to 520 (its draft's Resist Poison dropped: one strength each now) |
+| Galvanist | Resist Lightning 75 to 97.5, Dodge 35 to 45.5, Movement 40 to 52 |
+| Plague Doctor | Resist Poison 75 to 97.5, Luck 25 to 32.5, Treasure 100 to 130 |
+| Sin-Eater | Resist Spirit 75 to 97.5, Vessel 100 to 130, Spirit Cost 60 to 78 |
+| Headsman | Armour 75% to 97.5% of a blow kept off, Sprint 7.5 to 9.75 s over the base, Damage 100 to 130 |
+
+- **Armour's cap**: armour keeps off a share of a blow (`armour_keep`); its cap is on that share, 75% for everyone, as the
+  resists', and lifted for the Headsman.
+- **For the owner's word before D builds**: +30% on a resist's 75% is 97.5%, all but immune to the strength element late on,
+  and Spirit Cost at 78% makes most spells almost free. The recommendation is to let a resist's lift stop at 90% (and Spirit
+  Cost's at 70%), keeping +30% for the rest.
+
+**Who does what.** D: the class sheets' strengths and weaknesses (`class_own`), the caps (`class_cap`: the lift of stat st's
+cap in its units, which `caster_sync` adds to the caps), armour's cap in `armour_keep` (given to D for this, 17.2 b), and the
+class question's screen and the Codex's class pages showing them. C: done (the hook in `caster_sync`, and the killing blow's
+cap in `conf_at`). A resist below nothing already works in `el_resist` and `hurt_ex` (the harm grows by it); the Confessions'
+screen shows the caps as they are.

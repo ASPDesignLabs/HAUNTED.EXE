@@ -213,6 +213,8 @@ enum { KX_AF_CUT, KX_SOULS };                                      /* every stat
 static void class_own(float *own);
 static float class_extra(int what);
 static int blow_survived(int kind);
+static float class_cap(int st);                                    /* 1.0.0b20, the owner's caps by class (docs/BRIEF-caps.md): how far
+                                                                      the class lifts stat st's cap, in its units; D's, a stub till then */
 /* a pack (docs/PLAN-ai.md, sections 5-6): its kind (PA_*), its members, the one that leads it, how many it began with; its
  * state (PAS_*), the one calling and how long the call has to run; when one of it last saw the caster, and where; its
  * turns: those engaged now, their health as their turn began, the one relieved last, and when the turn changes */
@@ -4793,7 +4795,7 @@ static float conf_at(int cf, int which, int p, int over) {        /* what the ca
     float v = c->zero + (raw - c->zero) * conf_weight(cf);
     if ((cf == CF_AGILITY && which == CV_HARD) || (cf == CF_SPIRIT && which == CV_UNBOUND) || (cf == CF_SURVIVAL && which == CV_SOFT))
         v = fminf(v, 0.9f);                                        /* a status cut never takes it all */
-    if (cf == CF_CONST && which == CV_LASTBLOW) v = fminf(v, 0.5f);
+    if (cf == CF_CONST && which == CV_LASTBLOW) v = fminf(v, 0.3f);   /* the owner's cap (CP4) */
     if (cf == CF_RESTORE && which == CV_HEAL_SOULS) v = fmaxf(v, 0.0f);
     return v;
 }
@@ -5023,6 +5025,7 @@ static void caster_sync(void) {                                    /* the caster
     if (G.fwalk_t > 0.0f) own[ST_ARMOR] += 0.5f * (gear_total_raw(&RUN.gear, ST_ARMOR) + own[ST_ARMOR]);   /* Flamewalker */
     conf_own(own, up);                                             /* the Unholy Confessions (C5, section 10) */
     class_own(own);                                                /* the class's own sheet (D5, section 9) */
+    for (int st = 0; st < NSTAT; st++) up[st] += class_cap(st);   /* and its caps (D's, docs/BRIEF-caps.md) */
     for (int st = 0; st < NSTAT; st++) gear_set_own(st, own[st], up[st]);
     align_sync();
 }
@@ -5334,6 +5337,7 @@ static int blow_survived(int kind) {
     return 1;
 }
 static int lastblow_shown(void) { return G.lb_at > 0.0 && G.t - G.lb_at < 3.05 && G.wind_t > 0.0f; }   /* the breath is the blow's */
+static float class_cap(int st) { (void)st; return 0.0f; }          /* the class's lift of stat st's cap (docs/BRIEF-caps.md): D's to fill */
 /* ---- the dead's track's stubs end ---- */
 
 static void xp_rooms(void) {                                       /* a room first set foot in */
@@ -30616,7 +30620,7 @@ static float conf_total(int cf, int i, int np, int no, float *now, float *next) 
         *now = conf_value(cf, i) + extra; *next = conf_at(cf, i, np, no) + extra;
         if (cf == CF_TOUGH && i == CV_ARMOUR_WORN) return 0.0f;
         return (cf == CF_AGILITY && i == CV_HARD) || (cf == CF_SPIRIT && i == CV_UNBOUND) || (cf == CF_SURVIVAL && i == CV_SOFT) ? CONF_CAP_K
-             : cf == CF_CONST && i == CV_LASTBLOW ? 0.5f : 0.0f;
+             : cf == CF_CONST && i == CV_LASTBLOW ? 0.3f : 0.0f;
     }
     const Gear *g = &RUN.gear;
     if (st == ST_ARMOR) d += (conf_at(CF_TOUGH, CV_ARMOUR_WORN, np, no) - conf_value(CF_TOUGH, CV_ARMOUR_WORN)) * gear_total_raw(g, ST_ARMOR);

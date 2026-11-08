@@ -683,6 +683,7 @@ Redrawn by C5's contract commit (8 November). Everything 1.0.0b19's table gave a
 | `ascend`, `line_buy`, `over_due`, `auto_ascend`, `update_ascend`, `render_ascend` and the screen's sheet; `caster_sync` (but its one line calling `class_own`) | the classes' words (`CLASSES`), her question (`update_class`, `render_class`), the Codex's class pages |
 | Agility's, Spirituality's and Survival's cuts in C2's statuses (`af_rolls`, `af_put`, `af_hold`); the grabs', webs', bile's and Soul Sap's lengths; `sprint_max`, `sprint_recovery`; the souls from kills (the share on `spawn_mote` in `kill_mob`) | Restoration the spell (10.3), wherever it is chosen, cast, channelled and drawn: its `AT_` number, the spells' turning and wheel, its channel in `human_cast` (C keeps the rest of `human_cast`), the dream's choosing of it |
 | Tab's caster page, the Codex's `CX_CASTER` | the killing blow (10.4) as `blow_survived` gives it, and how it is shown; Toughness's cracks (10.5): the motes at a shut secret's crack |
+| | **Caps by class** (the owner, 8 November: docs/BRIEF-caps.md section 6, given to D): the body of `class_cap`, the sheets' strengths and weaknesses, `armour_keep` (for armour's cap), and showing them on her question's screen and in the Codex |
 
 ### 17.3 What the two tracks share (the contract)
 
@@ -711,6 +712,9 @@ In `src/scene_crawl.c`, after `Mob`, committed with this section:
   `class_extra(KX_SOULS)` a share more souls from kills (C5 reads it beside Spirituality's); `blow_survived(kind)` is asked in
   `hurt_ex` when a blow that isn't a seep would kill, after Second Wind, and returns 1 if the caster lives (D sets the health and
   the breath). All three are stubs that do nothing till D5 fills them.
+- 1.0.0b20, added 8 November (the owner's caps by class, docs/BRIEF-caps.md section 6): `class_cap(st)`, D's, the class's lift of
+  stat st's cap in its units; `caster_sync` adds it to the caps (`gear_set_own`'s `cap_up`) for every stat. A stub returning 0
+  till D fills it.
 - To come: at the start of 1.0.0b20, C5's `conf_rank(cf)` and `conf_value(cf, which)`, which D5 reads; at the start of 1.0.0b21,
   C6's augment hooks, which D7 fills for its lines.
 
@@ -993,6 +997,14 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   capped. Spirituality's words shortened to fit. No overflow for any class on any Confession, all at V with caps reached and an
   overlevel due. `docs/BRIEF-caps.md`: every cap, what reaches for it, and options for caps by class (CP1-CP5), for the owner;
   nothing of it built. Any of it would be one contract change (`class_own` handing back a cap lift) and a few lines a side.
+- **8 November. The owner's caps by class, given to D.** **CONTRACT.** The owner answered the brief (docs/BRIEF-caps.md section
+  6): every resist with a cap of its own, armour too; option (a) with every lift at +30%; caps shown on her question's screen;
+  the killing blow capped at 30%; a strength and a weakness for each class (the Galvanist's Lightning and Frost the owner's; the
+  other five worked out in the brief, for the owner's word). The owner gave the work to track D, the class sheets being D's.
+  C's part, done: `class_cap(st)` (17.3; a stub in D's block, added to the caps in `caster_sync`) and the killing blow's cap at
+  30% in `conf_at` (and on the Confessions' screen). 17.2 b gives D `armour_keep` for armour's cap. With the stub, nothing in play
+  changes but the killing blow's cap (25% at Constitution V was already under it; only overlevels reach past). Track D: section 6
+  of the brief is yours, with two things still to the owner's word (the pairs, and whether a resist's lift stops at 90%).
 
 ## 19. Track D's log (the dead's)
 
