@@ -953,6 +953,34 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   confessed, and for Restoration's spell, the killing blow and the cracks till rank I is whole. `CRAWL_CONF` takes six points too
   (`12,45,0,30,10,150`). Defaults taken: the same marks the old lines had are not used (the names say enough at this size); the
   class's share shows only in the numbers. Waiting on the owner's word; the rest of C5 goes on meanwhile.
+- **8 November. C5 built, behind its switch till the sheet is approved** (harness only). Everything section 10 gives C5 is in
+  the game but reached only with `CRAWL_CONFUI=1` in the debug build (`conf_on`); once the owner has seen the sheet, it becomes
+  the game's and `CRAWL_LINES=1` puts the old lines back for balance runs. **The points**: `update_confess` (D a point, held ten
+  a second after a breath; A takes back what this opening gave; Space an overlevel on one whole at V, asked twice), more health
+  felt at once as the old line's was, `EVENT confess <name> <rank>` as each rank is made whole. **The numbers**: `conf_own` from
+  `caster_sync` (before D5's `class_own`): Physic, Dodge, Movement, Quiet, Spell Haste, Spirit Cost, Spell Effect, Sprint, Health,
+  Treasure, Luck and armour (with Toughness's share of what is worn) into the caster's own under the same caps; past V the caps
+  rise with what an overlevel adds. **The statuses**: `conf_cut` takes Agility's share off Knocked Down, Stunned and Frozen,
+  Spirituality's off Unbound and Survival's off On Fire, Chilled and Poisoned, both their chance (`af_rolls`) and their length
+  (`af_hold`; `af_ignite` its harm with its length; `af_chill` the fall; `af_poison`); `soft_pace` runs the old clocks down
+  sooner (grabs', webs' and bile's `slow_t`, a web's `snare_t`, the old `poison_t`, the bat's latch, which also needs longer
+  against you to take hold). A forced knock-down (`CRAWL_AF=down`) lasted 1.5 s, 0.21 s with a Galvanist's Agility at V; six
+  seconds of poison 2.4 s with a Plague Doctor's Survival at V. **Souls**: `soul_share` on the motes from kills and spectres
+  (Spirituality, and D5's `KX_SOULS`). **The sprint**: Constitution's recovery divides `sprint_recovery`'s wait and fill.
+  **Overlevels**: `over_due` counts the Confessions' too; an overlevel gives its Alignment Point as before, unless an old line's
+  overlevel paid back already gave it (`RUN.ap_overs`). **Saves**: `LG_CONF` (each Confession's points and overlevels, a byte
+  each, and `ap_overs`); an older page's lines are paid back as it is read (`lines_payback`: every step as the points it cost,
+  every overlevel as one to choose again; `EVENT lines_payback`), and a person is told at her greeting (*THE OLD LINES ARE UNDONE*).
+  Checked by signing a page on the old build (490 points in lines, four overlevels) and opening it on this one: 490 points and four
+  overlevels to choose, and the Confessions saved and read again. A death that costs takes them (U13). **The dream**:
+  `auto_confess`, its class's two best to V and then the lowest, overlevels to the best whole (the Witchfinder Spirituality and
+  Restoration, the Plague Doctor Survival and Agility, the Headsman Constitution and Toughness); with no past, Constitution and
+  Agility. **The Codex**: Luck's page and the overlevels' page in the Confessions' words. With the switch off, a dream of 400 s
+  plays the commit before's 392 events line for line. ASan clean on three sessions with the switch on: a Witchfinder's
+  dream from level 21 for 600 s (eight ranks confessed at its greeting), a Plague Doctor's from level 1 for 600 s, and a person
+  opening the old page above (paid back), confessing held and tapped, taking back and trying an overlevel. Not done: the Codex has no page of the Confessions
+  themselves (the screen says what each does); a number at its cap gives no warning, as the old lines' screen did; balance runs
+  wait for the switch to be the game's (J20).
 
 ## 19. Track D's log (the dead's)
 

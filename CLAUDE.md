@@ -1553,6 +1553,23 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   counters (8.6): `c4_tells` (in `incoming`: a Bone Thrower's flash or a stamp in its sight counts as a missile on its way, for its
   runes and Swift Dodge) and `c4_dmarks` (in `update_hazards`, after `mk_dmarks`: the charge's lane and the spew's cone as warnings
   on `hz_dmap`, so `decide` steps off them and `auto_abilities` dodges out).
+  **C5, the Unholy Confessions** (1.0.0b20, section 10; harness only; **in play only with `CRAWL_CONFUI=1` in the debug build till
+  the owner has seen the screen's sheet**, `docs/combat/c5-confessions.png`; `conf_on`): six Confessions (`CF_*`, `CONF`: each
+  number at rank I and V, `ConfNum.zero`, `from1`) in place of the ascend screen's lines, bought a point at a time (`CONF_CUM` 10,
+  30, 60, 100, 150; `RUN.conf`, `RUN.conf_over`), the class's share (`CONF_W`, 75% with no past) in every number; the contract's
+  `conf_rank`, `conf_value` (`conf_at` for any points). `conf_own` (from `caster_sync`, with D5's `class_own` after it) adds the
+  stats (`CONF_STAT`; Toughness's share of worn armour; past V the caps go up with the overlevel); `conf_cut(k)` takes Agility's
+  share off Knocked Down, Stunned and Frozen, Spirituality's off Unbound and Survival's off the rest, their chance in `af_rolls` and
+  their length in `af_hold`, `af_ignite` (harm too), `af_chill`, `af_poison`; `soft_pace` runs the old clocks down sooner (`slow_t`,
+  `snare_t`, `poison_t`, the bat's latch, which also takes longer to land); `soul_share` on the motes in `kill_mob` (Spirituality
+  and D5's `KX_SOULS`); `sprint_recovery` quicker by Constitution. The screen is `render_confess` and `update_confess` (D a point,
+  held ten a second after a breath, A back what this opening gave, Space an overlevel on one at V, asked twice; `G.cf_buy`,
+  `cf_arm`, `cf_rep0`, `cf_repn`), from `render_ascend`/`update_ascend`; `conf_buy`, `conf_overlevel` (an Alignment Point unless
+  `RUN.ap_overs` says an old line's overlevel already gave it), `over_due` counts both. The dream's `auto_confess` (its class's two
+  best to V, then the lowest, overlevels to the best whole). Saved as `LG_CONF` (points, overlevels, `ap_overs`); an older page's
+  lines are paid back as points and overlevels as it is read (`lines_payback`, `RUN.old_lines`, `old_lines_said`); a death that
+  costs takes them. Debug: `CRAWL_CONF=dddddd` (ranks; 6-9 V and overlevels) or six points `a,b,c,d,e,f`, `EVENT confess <name>
+  <rank> by ...`, `EVENT lines_payback`.
 - **The dead's ways shown** (1.0.0b18, PLAN-ai step 11, Part H; harness only; released). `WY_*` (seventeen set pieces), `way_met` (named
   once a run of ten, `RUN.ways`/`way_said`/`way_run`), `pack_way`; the Codex's `CX_WAYS`; the record's deeds (`deed_note`,
   `DEED_*`, `caller_hushed`, `ways_ends`, `Pack.hunted/hurts0/done`, `Ambush.deaths0/done`, `G.hurts`, `G.hunt_shaken`) and
