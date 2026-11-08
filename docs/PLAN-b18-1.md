@@ -643,3 +643,4 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   - *Checks:* both fit checks pass (the pad's and the Alignment's); both builds without warnings; `make smoke` passes (1.81 ms
     a frame; the game links the new piece but doesn't draw it yet); the trial merge clean (section 14).
   - *Waiting on:* the owner's word on the sheet. Nothing of the screen is in the game yet.
+  - *CI:* run 42433030953 on the branch (started by hand): the Windows and browser builds and their smoke tests passed.
