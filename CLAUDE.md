@@ -1530,8 +1530,11 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   (`ward_marks` in `hz_marks`), `ward_pips` (from `render_marks`), `ward_lights`, the map's wash. The dream lights one from
   inside its ground (or by a trial's lamp) when the Wraith has come or is due within a minute, from 15 spirit, never under 10.
   The names `warded`, `ward_cracked`, `ward_give`, `ward_str` are still the warded creatures', `ward_shards` the Bone Ward's.
-  Debug: `CRAWL_WARD=0`, `CRAWL_WARDLIT=n`, `CRAWL_TPWARD=k`, `CRAWL_WARDMAP=1`, `CRAWL_WARDTRACE=1`, `WARD level n:`, `EVENT
-  ward_offer`, `ward_lit`, `ward_out`, `ward_held`, `ward_driven`, `ward_breach` (never, or a fault).
+  Debug: `CRAWL_LAMPS=0` (not `CRAWL_WARD`, the warded creatures'), `CRAWL_WARDLIT=n`, `CRAWL_TPWARD=k`, `CRAWL_WARDMAP=1`, `CRAWL_WARDTRACE=1`, `WARD level n:`, `EVENT
+  ward_offer`, `ward_lit`, `ward_out`, `ward_held`, `ward_driven`, `ward_breach` (never, or a fault). *The controller* (step 7,
+  its sheet for the owner): `ui_pad` (`UiPad`, `UI_PAD_NAME`) at the end of `src/crawl_ui.c` draws the pad, each button's job
+  on a leader, the chosen one lit, the options, the jobs to trade and the look; `build/uisheet pad <png>` (in `make sheets`)
+  draws it with today's layout as `docs/b18-1/pad.png` and fails on any overflow. Not in the game yet.
 
 ## Releasing
 

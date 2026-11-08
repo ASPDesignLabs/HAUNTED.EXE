@@ -82,6 +82,7 @@ sheets: build/sheet build/uisheet
 	@mkdir -p build/sheets
 	./build/sheet all build/sheets 1
 	./build/uisheet all build/sheets
+	./build/uisheet pad build/sheets/pad.png
 
 build/items: src/crawl_gear.c src/crawl_gear.h src/crawl.h tools/items.c
 	@mkdir -p build

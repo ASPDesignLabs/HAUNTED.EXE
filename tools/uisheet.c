@@ -298,6 +298,103 @@ static void runs_panel(int level) {                         /* the marble as eac
     ui_wrap(&F, 16, 146, "THE SLAB LEANS A TENTH TOWARDS THE RUN'S STONE, AND IS AS BRIGHT IN THE DEEP AS IN THE CRYPTS.", 36, 9, 4, FACE_BODY, UI_M(14), TX_INLAID);
 }
 
+/* ---- the controller (docs/PLAN-b18-1.md section 7): its screen and the look, with today's layout ---- */
+enum { JB_USE, JB_DODGE, JB_NEXT, JB_WISPS, JB_GIFT, JB_RUNE, JB_READIED, JB_CAST, JB_SPRINT, JB_NONE, JB_MAP, JB_BAR, JB_BEAST,
+       JB_CODEX, NJOB };
+static const char *const JOB[NJOB] = { "USE", "DODGE", "NEXT RUNE", "WISPS", "THE GIFT", "THE RUNE", "READIED", "CAST", "SPRINT",
+                                       0, "THE MAP", "THE BAR", "BESTIARY", "CODEX" };
+static const char *const JOB_LIST[NJOB] = { "USE", "SWIFT DODGE", "NEXT RUNE", "WISPS", "THE GIFT", "THE RUNE", "READIED",
+                                            "CAST", "SPRINT", "NOTHING", "THE MAP", "THE BAR", "BESTIARY", "CODEX" };
+static const char *const JOB_HOLD[NJOB] = { 0, 0, "RUNES", 0, 0, 0, 0, 0, 0, 0, "RUNES", "SPELLS", 0, 0 };
+static const char *const JOB_DOES[NJOB] = {
+    "USE: OPEN, TAKE, PULL, RING, OFFER A SOUL.",
+    "SWIFT DODGE, THE WAY THE LEFT STICK LEANS.",
+    "THE NEXT RUNE OR GIFT READIED. HELD: THE WHEEL OF RUNES AND GIFTS.",
+    "THE WISPS' LIST, OR THE ONE ALWAYS CAST; HELD, THE LIST.",
+    "THE BOSS'S GIFT READIED, USED.",
+    "THE RUNE READIED, RAISED BY HAND: THE MIRROR'S PARRY.",
+    "THE RIGHT HAND: THE RUNE OR GIFT READIED, USED.",
+    "CAST THE SPELL IN HAND; HELD, CHARGE IT.",
+    "THE SPRINT, ON AND OFF; IT ENDS AS THE STICK STOPS LEANING.",
+    "NOTHING. TRADED HERE, IT LEAVES THAT BUTTON IDLE.",
+    "THE MAP. HELD: THE WHEEL OF RUNES AND GIFTS.",
+    "THE STATUS BAR. HELD: THE WHEEL OF SPELLS.",
+    "THE BESTIARY.",
+    "THE CODEX OF AFFIXATIONS." };
+static const int JOB_DEFAULT[PAD_COUNT] = { JB_USE, JB_DODGE, JB_NEXT, JB_WISPS, JB_GIFT, JB_RUNE, -1, -1, JB_SPRINT, JB_NONE,
+                                            JB_MAP, JB_BAR, JB_BEAST, JB_CODEX, JB_READIED, JB_CAST };
+static void pad_fill(UiPad *u, const int *jobs) {              /* a layout into the drawing's words */
+    memset(u, 0, sizeof *u);
+    for (int b = 0; b < PAD_COUNT; b++) if (jobs[b] >= 0) { u->job[b] = JOB[jobs[b]]; u->hold[b] = JOB_HOLD[jobs[b]]; }
+    u->job[PAD_VIEW] = "PAGES"; u->job[PAD_MENU] = "PAUSE";
+    u->fixed = 1 << PAD_VIEW | 1 << PAD_MENU;
+    u->sel = u->opt_sel = -1;
+    u->title = "THE CONTROLLER";
+}
+static void pad_panel(int mode, float t) {
+    static char about[120];
+    static const char *list[NJOB];
+    static int on[NJOB];
+    UiPad u;
+    pad_fill(&u, JOB_DEFAULT);
+    u.t = t;
+    static const char *const OPT[4] = { "STICKS: SAME", "TURNING: 1.0", "RUMBLE: ON", "THE DEFAULTS" };
+    if (mode < 4) for (int i = 0; i < 4; i++) u.opt[i] = OPT[i];
+    u.keys = "D-PAD CHOOSES  \1A CHANGES  \1B BACK";
+    switch (mode) {
+    case 0:                                                        /* a button chosen */
+        u.sel = PAD_X;
+        snprintf(about, sizeof about, "X: %s", JOB_DOES[JB_NEXT]);
+        u.about = about;
+        break;
+    case 1:                                                        /* the jobs open for it: the map chosen, to trade */
+        u.sel = PAD_X;
+        for (int j = 0; j < NJOB; j++) { list[j] = JOB_LIST[j]; on[j] = -1; for (int b = 0; b < PAD_COUNT; b++) if (JOB_DEFAULT[b] == j) on[j] = b; }
+        u.list = list; u.list_on = on; u.nlist = NJOB; u.list_sel = JB_MAP;
+        u.about = "X TAKES THE MAP; THE D-PAD'S UP TAKES THE NEXT RUNE.";
+        u.keys = "\1A TRADES  \1B BACK";
+        break;
+    case 2:                                                        /* an option */
+        u.opt_sel = 1; u.opt[1] = "TURNING: 1.2";
+        u.about = "HOW FAST THE RIGHT STICK TURNS YOU: HALF TO TWICE TODAY'S, BY TENTHS.";
+        u.keys = "D-PAD \x1b\x1a CHANGES  \1B BACK";
+        break;
+    case 3:                                                        /* the defaults, asked twice */
+        u.opt_sel = 3;
+        u.about = "AGAIN, AND EVERY BUTTON GOES BACK TO ITS FIRST JOB.";
+        u.about_col = R_GOLD + 11;
+        u.keys = "\1A RESTORES  \1B BACK";
+        break;
+    default:                                                       /* the look: as bound, nothing to change */
+        u.title = "THE CONTROLLER, AS IT IS";
+        u.about = "TO CHANGE THEM: MENU, THEN THE CONTROLLER.";
+        u.keys = "VIEW+MENU  \1B CLOSES";
+        break;
+    }
+    ui_pad(&F, &u);
+}
+static int pad_sheet(const char *path) {
+    const int S = 2, P = 640, Q = 400, G = 12, H = 30;
+    iw = G + 3 * (P + G); ih = 2 * (Q + H + G) + 40;
+    img = calloc((size_t)iw * ih, 3);
+    for (size_t i = 0; i < (size_t)iw * ih * 3; i++) img[i] = 12;
+    label(G, 10, "THE CONTROLLER, FOR APPROVAL (PLAN-B18-1 STEP 7): TODAY'S LAYOUT; EACH PANEL A 320X200 FRAME, DOUBLED");
+    static const char *const CL[6] = { "THE SCREEN: X CHOSEN", "A: THE JOBS, TO TRADE", "AN OPTION: THE TURNING",
+                                       "THE DEFAULTS, ASKED TWICE", "THE LOOK: VIEW AND MENU", "THE LOOK, IN THE DEEP" };
+    for (int i = 0; i < 6; i++) {
+        int lv = i == 5 ? 35 : 1, x = G + (i % 3) * (P + G), y = 40 + (i / 3) * (Q + H + G);
+        crawl_art_level(lv); crawl_art_run(lv); ui_marble_make(7u + (unsigned)lv);
+        frame_begin(1);
+        ui_where = CL[i]; ui_check_frame();
+        pad_panel(i < 4 ? i : 4, 0.3f + 0.2f * i);
+        blit(x, y + H, S);
+        label(x, y + 6, CL[i]);
+    }
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
 static int sheet(const char *path, int level) {
     const int S = 2, P = 640, Q = 400, G = 12, H = 30;
     iw = G + 3 * (P + G); ih = 4 * (Q + H + G) + 40;
@@ -377,5 +474,6 @@ int main(int argc, char **argv) {
         snprintf(p, sizeof p, "%s/ui_runs.png", d);
         return runs_sheet(p) ? 0 : 1;
     }
+    if (!strcmp(argv[1], "pad")) { ui_check = 1; ui_overflows = 0; int ok = pad_sheet(argc > 2 ? argv[2] : "pad.png"); printf("UI fit (pad): %d overflows\n", ui_overflows); return ok && !ui_overflows ? 0 : 1; }
     return sheet(argv[1], argc > 2 ? atoi(argv[2]) : 1) ? 0 : 1;
 }

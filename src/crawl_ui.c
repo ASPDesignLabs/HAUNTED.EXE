@@ -671,3 +671,168 @@ void ui_pane_wide(Frame *f, int x, int y, int w, int h, const UiPane *p) {
     if (p->note) ui_wrap(f, lx, fy, p->note, cols, 9, fl, FACE_BODY, UI_M(11), TX_INLAID);
 }
 
+
+/* ---- the controller (docs/PLAN-b18-1.md section 7): the pad in the stone, its jobs on leaders ---- */
+
+const char *const UI_PAD_NAME[PAD_COUNT] = { "A", "B", "X", "Y", "LB", "RB", "VIEW", "MENU", "LS", "RS",
+                                             "\x18", "\x19", "\x1b", "\x1a", "LT", "RT" };
+static const int8_t PAD_AT[PAD_COUNT][2] = {       /* where each button's leader ends, from the pad's middle */
+    { 26, 0 }, { 33, -7 }, { 19, -7 }, { 26, -14 }, { -30, -28 }, { 30, -28 }, { -8, -12 }, { 8, -12 }, { -26, -8 }, { 14, 8 },
+    { -14, 3 }, { -14, 13 }, { -19, 8 }, { -9, 8 }, { -31, -34 }, { 31, -34 } };
+static const int8_t PAD_LHAND[7] = { PAD_LT, PAD_LB, PAD_LS, PAD_UP, PAD_LEFT, PAD_RIGHT, PAD_DOWN };   /* the left hand's, top down */
+static const int8_t PAD_RHAND[7] = { PAD_RT, PAD_RB, PAD_Y, PAD_X, PAD_B, PAD_A, PAD_RS };
+static int pad_ramp(int b) { return b == PAD_A ? R_MOSS : b == PAD_B ? R_BLOOD : b == PAD_X ? R_GLOW : b == PAD_Y ? R_GOLD : -1; }
+static int pad_name_col(int b) { int r = pad_ramp(b); return r < 0 ? UI_M(15) : r + (r == R_GOLD ? 11 : 10); }
+static uint8_t pad_lit(float t) { return (uint8_t)(R_GOLD + 9 + (int)(2.5f + 2.5f * sinf(t * 6.0f))); }
+static int pad_body(float x, float y) {                            /* the outline: a rounded top over two grips */
+    float ax = fabsf(x);
+    if (ax <= 45.0f && y >= -25.0f && y <= 14.0f) {
+        float cx = ax > 33.0f ? ax - 33.0f : 0.0f, cy = y < -13.0f ? -13.0f - y : 0.0f;
+        if (cx * cx + cy * cy <= 144.0f) return 1;
+    }
+    float gx = (ax - 31.0f) / 16.0f, gy = (y - 13.0f) / 24.0f;
+    return gx * gx + gy * gy <= 1.0f;
+}
+static int pad_top(int x) { for (int y = -30; y < 20; y++) if (pad_body((float)x, (float)y)) return y; return 20; }   /* the shoulder's edge */
+/* a bumper or a trigger: a band following the shoulder's curve, from a to b across, lift..lift+h above it */
+static void pad_shoulder(Frame *f, int cx, int cy, int s, int a, int b, int lift, int h, int lit, float t) {
+    for (int ax = a; ax <= b; ax++) {
+        int top = pad_top(ax) - lift - h, end = ax == a || ax == b, near = ax == a + 1 || ax == b - 1;
+        for (int j = end ? 2 : near ? 1 : 0; j < h; j++) {
+            int edge = j == (end ? 2 : near ? 1 : 0) || j == h - 1 || end;
+            int k = j == (end ? 2 : near ? 1 : 0) ? 12 : j == h - 1 ? 2 : end ? (ax == a) == (s < 0) ? 10 : 3 : 7 + (j < h / 2);
+            gfx_px(f, cx + s * ax, cy + top + j, lit && edge ? pad_lit(t) : UI_W(k));
+        }
+    }
+}
+static void pad_disc(Frame *f, int cx, int cy, float r, int ramp, int lit, float t) {   /* a button, lit from above left */
+    int R = (int)ceilf(r) + 2;
+    for (int y = -R; y <= R; y++)
+        for (int x = -R; x <= R; x++) {
+            float d = sqrtf((float)(x * x + y * y));
+            if (lit && d > r + 0.4f && d <= r + 1.6f) { gfx_px(f, cx + x, cy + y, pad_lit(t)); continue; }
+            if (d > r + 0.4f) continue;
+            int k = d > r - 0.8f ? (x + y < 0 ? 12 : 3) : (x + y < -1 ? 11 : 8);
+            gfx_px(f, cx + x, cy + y, ramp < 0 ? UI_W(k) : (uint8_t)(ramp + (ramp == R_GOLD ? (k > 10 ? 12 : k - 1) : k + 1)));
+        }
+}
+static void pad_stick(Frame *f, int cx, int cy, int lit, float t) {   /* its well, and the cap with a dish in it */
+    for (int y = -9; y <= 9; y++)
+        for (int x = -9; x <= 9; x++) {
+            float d = sqrtf((float)(x * x + y * y));
+            if (d > 8.4f) { if (lit && d <= 9.6f) gfx_px(f, cx + x, cy + y, pad_lit(t)); continue; }
+            int k = d > 5.6f ? (x + y < 0 ? 0 : 3) : d > 4.6f ? (x + y < 0 ? 12 : 4) : d < 2.5f ? 6 : (x + y < 0 ? 7 : 10);
+            gfx_px(f, cx + x, cy + y, UI_W(k));
+        }
+}
+static void pad_draw(Frame *f, int cx, int cy, int sel, float t) {
+    for (int s = -1; s <= 1; s += 2) {                             /* the triggers, behind; the bumpers along the shoulders */
+        pad_shoulder(f, cx, cy, s, 22, 40, 5, 7, sel == (s < 0 ? PAD_LT : PAD_RT), t);
+        pad_shoulder(f, cx, cy, s, 15, 44, 0, 5, sel == (s < 0 ? PAD_LB : PAD_RB), t);
+    }
+    for (int y = -27; y <= 38; y++)                                /* the body: cut from the well's stone, lit from above */
+        for (int x = -48; x <= 48; x++) {
+            if (!pad_body((float)x, (float)y)) continue;
+            int up = !pad_body((float)x, (float)y - 1.0f), dn = !pad_body((float)x, (float)y + 1.0f);
+            int lf = !pad_body((float)x - 1.0f, (float)y), rt = !pad_body((float)x + 1.0f, (float)y);
+            int k = up ? 13 : dn || rt ? 1 : lf ? 10 : 6 + (y < -8) + (y < -18) - (y > 18) - (y > 28);
+            if (!up && !dn && !lf && !rt && (x * 7 + y * 13) % 11 == 0) k--;   /* a little grain */
+            gfx_px(f, cx + x, cy + y, UI_W(k));
+        }
+    pad_stick(f, cx - 26, cy - 8, sel == PAD_LS, t);
+    pad_stick(f, cx + 14, cy + 8, sel == PAD_RS, t);
+    {                                                              /* the D-pad: a cross, each arm its own */
+        int dx = cx - 14, dy = cy + 8;
+        static const int8_t ARM[4][3] = { { PAD_UP, 0, -1 }, { PAD_DOWN, 0, 1 }, { PAD_LEFT, -1, 0 }, { PAD_RIGHT, 1, 0 } };
+        for (int y = -7; y <= 7; y++)
+            for (int x = -7; x <= 7; x++) {
+                if (abs(x) > 2 && abs(y) > 2) continue;
+                int arm = -1;
+                for (int a = 0; a < 4; a++) if ((ARM[a][1] && x * ARM[a][1] > 2) || (ARM[a][2] && y * ARM[a][2] > 2)) arm = ARM[a][0];
+                int edge = abs(x) == 7 || abs(y) == 7 || (abs(x) == 2 && abs(y) > 2) || (abs(y) == 2 && abs(x) > 2);
+                uint8_t c = UI_W(edge ? (x + y < 0 ? 12 : 2) : 9 - (x + y > 2));
+                if (arm >= 0 && arm == sel && edge) c = pad_lit(t);
+                gfx_px(f, dx + x, dy + y, c);
+            }
+    }
+    for (int b = PAD_A; b <= PAD_Y; b++) pad_disc(f, cx + PAD_AT[b][0], cy + PAD_AT[b][1], 3.6f, pad_ramp(b), sel == b, t);
+    for (int s = 0; s < 2; s++) {                                  /* View and Menu: small, in the middle */
+        int b = s ? PAD_MENU : PAD_VIEW, x0 = cx + PAD_AT[b][0] - 2, y0 = cy + PAD_AT[b][1] - 1;
+        for (int j = -1; j <= 3; j++) for (int i = -1; i <= 5; i++) {
+            int ring = i == -1 || i == 5 || j == -1 || j == 3;
+            if (ring) { if (sel == b) gfx_px(f, x0 + i, y0 + j, pad_lit(t)); continue; }
+            gfx_px(f, x0 + i, y0 + j, UI_W(j == 0 ? 12 : j == 2 ? 3 : 9));
+        }
+    }
+}
+static int pad_label_y(const UiPad *p, const int8_t *side, int k) {   /* each row's top; a hold takes a line more */
+    int y = 34;
+    for (int i = 0; i < k; i++) y += 12 + (p->hold[side[i]] ? 9 : 0);
+    return y;
+}
+void ui_pad(Frame *f, const UiPad *p) {
+    const int cx = 160, cy = 72;
+    float t = p->t;
+    ui_slab(f, 4, 4, 312, 192, SLAB_LEDGER, ORN_NONE, t);
+    if (p->title) ui_text16(f, 12, 8, p->title, FACE_INSC, UI_M(14), TX_INLAID, 1);
+    ui_well(f, 9, 28, 302, 132);
+    pad_draw(f, cx, cy, p->sel, t);
+    int lside = !p->list ? -1 : p->sel >= 0 && (p->sel == PAD_MENU || PAD_AT[p->sel][0] > 0) ? 0 : 1;   /* the side the jobs' list covers */
+    for (int s = 0; s < 2; s++)                                    /* each job on its leader: the left hand's left, the right's right */
+        for (int k = 0; k < 7 && s != lside; k++) {
+            int b = s ? PAD_RHAND[k] : PAD_LHAND[k], y = pad_label_y(p, s ? PAD_RHAND : PAD_LHAND, k), on = p->sel == b;
+            const char *job = p->job[b] ? p->job[b] : "-";
+            const char *nm = UI_PAD_NAME[b];
+            int nl = (int)strlen(nm), jl = (int)strlen(job);
+            int lx = s ? cx + 54 : cx - 54;                        /* the label's inner end */
+            int bx = cx + PAD_AT[b][0], by = cy + PAD_AT[b][1];
+            gfx_line(f, s ? lx - 3 : lx + 2, y + 3, bx, by, on ? pad_lit(t) : UI_M(8));
+            if (on) ui_row(f, s ? lx - 2 : lx - 8 * (nl + 1 + jl) - 2, y - 1, 8 * (nl + 1 + jl) + 4, 10, 1);
+            int jc = on ? C_WHITE : p->job[b] ? UI_M(14) : UI_M(8);
+            if (s) { ui_text8(f, lx, y, nm, FACE_BODY, pad_name_col(b), TX_INLAID); ui_text8(f, lx + 8 * (nl + 1), y, job, FACE_BODY, jc, TX_INLAID); }
+            else { ui_text8(f, lx - 8 * nl, y, nm, FACE_BODY, pad_name_col(b), TX_INLAID); ui_text8(f, lx - 8 * (nl + 1 + jl), y, job, FACE_BODY, jc, TX_INLAID); }
+            if (p->hold[b]) {
+                char hb[40];
+                snprintf(hb, sizeof hb, "HELD: %s", p->hold[b]);
+                int hl = (int)strlen(hb);
+                ui_text8(f, s ? lx : lx - 8 * hl, y + 9, hb, FACE_BODY, on ? UI_M(15) : UI_M(10), TX_INLAID);
+            }
+        }
+    for (int s = 0; s < 2 && !p->list; s++) {                      /* View and Menu, fixed: under the pad, cut, not inlaid */
+        int b = s ? PAD_MENU : PAD_VIEW, y = cy + 44 + s * 10, on = p->sel == b;
+        char lb[40];
+        snprintf(lb, sizeof lb, "%s %s", UI_PAD_NAME[b], p->job[b] ? p->job[b] : "-");
+        int w = 8 * (int)strlen(lb);
+        if (on) ui_row(f, cx - w / 2 - 2, y - 1, w + 4, 10, 1);
+        ui_text8(f, cx - w / 2, y, lb, FACE_BODY, on ? C_WHITE : UI_M(11), TX_INLAID);
+    }
+    if (p->opt[0] && !p->list)                                     /* the options, in the well's foot: two a side */
+        for (int i = 0; i < 4; i++) {
+            if (!p->opt[i]) continue;
+            int w = 8 * (int)strlen(p->opt[i]), x = i < 2 ? cx - 54 - w : cx + 54, y = 138 + (i & 1) * 10;
+            ui_row(f, x - 2, y - 1, w + 4, 10, p->opt_sel == i);
+            ui_text8(f, x, y, p->opt[i], FACE_BODY, p->opt_sel == i ? C_WHITE : UI_M(13), TX_INLAID);
+        }
+    int hx = lside < 0 ? 9 : lside == 0 ? 164 : 9, hw = lside < 0 ? 302 : 147;   /* the foot: across, or the half the list leaves */
+    if (p->about) {                                                /* the chosen thing in words */
+        int cols = (hw - 10) / 8, lines = lside < 0 ? 2 : 5, wy = lside < 0 ? 160 : 136, wh = lines * 9 + 3;
+        ui_well(f, hx, wy, hw, wh);
+        int n = ui_wrap_count(p->about, cols);
+        ui_wrap(f, hx + 5, wy + 2 + (n < lines ? (lines - n) * 9 / 2 : 0), p->about, cols, 9, lines, FACE_BODY, p->about_col ? p->about_col : UI_M(14), TX_INLAID);
+        if (n > lines) ui_overflow("pad about", p->about, n - lines);
+    }
+    if (p->keys) ui_keys(f, hx + hw / 2 - ui_keys_width(p->keys) / 2, 184, p->keys, UI_M(13));
+    if (p->list) {                                                 /* the jobs to trade: a tablet over the other hand's side */
+        int x = lside == 0 ? 10 : 170, w = 140, y = 26, h = 8 + 15 + 9 * p->nlist + 4;
+        ui_slab(f, x, y, w, h, SLAB_TABLET, 0, t);
+        const char *nm = p->sel >= 0 ? UI_PAD_NAME[p->sel] : "?";
+        ui_text8(f, x + 8, y + 7, nm, FACE_INSC, p->sel >= 0 ? pad_name_col(p->sel) : UI_M(14), TX_INLAID);
+        ui_text8(f, x + 8 + 8 * ((int)strlen(nm) + 1), y + 7, "TAKES", FACE_INSC, UI_M(14), TX_INLAID);
+        for (int i = 0; i < p->nlist; i++) {
+            int ry = y + 22 + i * 9, on = p->list_sel == i, ob = p->list_on ? p->list_on[i] : -1;
+            ui_row(f, x + 5, ry - 1, w - 10, 9, on);
+            ui_text8(f, x + 9, ry, p->list[i], FACE_BODY, on ? C_WHITE : ob == p->sel ? R_GOLD + 10 : UI_M(13), TX_INLAID);
+            if (ob >= 0) ui_text8(f, x + w - 9 - 8 * (int)strlen(UI_PAD_NAME[ob]), ry, UI_PAD_NAME[ob], FACE_BODY, pad_name_col(ob), TX_INLAID);
+        }
+    }
+}

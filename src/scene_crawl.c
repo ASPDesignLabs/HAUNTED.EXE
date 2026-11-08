@@ -16844,7 +16844,7 @@ static int seq_key(int i) { return G.mk[i].grp ? G.mk[i].grp : i + 1; }
 static void ward_make(void) {
     memset(&WD, 0, sizeof WD);
 #ifdef CRAWL_DEBUG
-    if (getenv("CRAWL_WARD") && !atoi(getenv("CRAWL_WARD"))) return;
+    if (getenv("CRAWL_LAMPS") && !atoi(getenv("CRAWL_LAMPS"))) return;   /* (CRAWL_WARD is the warded creatures') */
 #endif
     if (!ward_level()) return;                                     /* the Wraith never comes here: no lamps to light */
     for (int c = 0; c < 2 + MAXMK && WD.n < MAXWL; c++) {

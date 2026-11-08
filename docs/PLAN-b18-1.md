@@ -1,7 +1,7 @@
 # 1.0.0b18.1: the trial's door, and the crypt made kinder
 
 **Settled; steps 1-6 built** (harness only; 7 November 2026), step 4's sheets (`docs/b18-1/bells.png`,
-`docs/b18-1/lamps.png`) approved by the owner; step 7 (the controller's sheet) next. Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
+`docs/b18-1/lamps.png`) approved by the owner; **step 7's sheet waits for the owner** (`docs/b18-1/pad.png`). Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
 tracks of [`PLAN-combat.md`](https://github.com/ASPDesignLabs/HAUNTED.EXE/blob/claude/inspiring-archimedes-dbj5n6/docs/PLAN-combat.md)
 build 1.0.0b19 on `claude/inspiring-archimedes-dbj5n6`. The owner gave one fault and six improvements, asked for them as an
 update of their own ahead of that work, and answered every question in one round (section 12). Every number below that isn't
@@ -213,7 +213,7 @@ Each then grows a ring of one cell, the cells immediately round it, through floo
 Coming to a challenge with the Wraith come or due within a minute, and 15 spirit or more, it offers what the challenge wants
 (defaults: two souls for a puzzle or a sequence, one for a trial) and one more when a lamp it works by has under a minute left,
 never going under 10. It may still fire at a Wraith held at an edge, which only drives it back; if the checks show time lost to
-that, the fix is a line in `find_target`, which is track D's, agreed with them first. Debug: `CRAWL_WARD=0` (no lamps), `EVENT
+that, the fix is a line in `find_target`, which is track D's, agreed with them first. Debug: `CRAWL_LAMPS=0` (no lamps), `EVENT
 ward_offer`, `ward_lit`, `ward_out`, `ward_held` (the Wraith at an edge), `ward_driven`.
 
 ### As built (step 6)
@@ -323,6 +323,27 @@ and the rest of `pad_keys` reads jobs. `PADX`, `quit_rows` and the hints with it
 The screen and the look drawn with today's layout for the owner (`tools/uisheet.c`, with its fit check). Then tested with a
 scripted pad in the harness: a trade, the defaults, the look from play, a menu and her rooms, a save and its reading, an old byte
 read. Untried with a real controller until the owner plays it (there is none here).
+
+*As drawn* (step 7's sheet, `docs/b18-1/pad.png`; `build/uisheet pad <png>`, also in `make sheets`, failing on any overflow):
+a kit piece the game will draw too, `ui_pad` (`UiPad`, `UI_PAD_NAME`) at the end of `src/crawl_ui.c`, so the sheet is the screen.
+- The pad is cut from the wells' stone, lit from above, in the Xbox layout with no mark on it: the bumpers a band along each
+  shoulder's curve, the triggers above them, the left stick high and the D-pad low on the left, the face buttons high and the
+  right stick low on the right, View and Menu small in the middle. Face buttons in their colours (A green, B red, X blue, Y yellow).
+- Each job is written beside its button's name, the left hand's seven on the left, the right hand's seven on the right, with a
+  leader line to the button; a job with a hold has *HELD: ...* under it. The D-pad's buttons are named by arrows. View and Menu,
+  fixed, are written under the pad (*VIEW PAGES*, *MENU PAUSE*). So the colour is never the only way to tell a button: its
+  name, its place and its line all say it.
+- The chosen button is lit in gold on the drawing, its line gold, its row pressed with gold notches; its whole job in words at
+  the foot (*X: THE NEXT RUNE OR GIFT READIED. HELD: THE WHEEL OF RUNES AND GIFTS.*).
+- The options in the well's foot, two a side: *STICKS: SAME* or *SWAP*, *TURNING: 1.0* (0.5 to 2.0), *RUMBLE: ON*, *THE
+  DEFAULTS* (asked twice: the foot's words turn gold, *AGAIN, AND EVERY BUTTON GOES BACK TO ITS FIRST JOB*).
+- A on a button opens the jobs on a tablet over the other hand's side, each with the button that has it now; the chosen
+  button's own job in gold. The foot and the hint move into the half the tablet leaves.
+- The look is the same drawing with nothing chosen and no options, titled *THE CONTROLLER, AS IT IS*: *TO CHANGE THEM: MENU,
+  THEN THE CONTROLLER.* The sheet shows it in run I's marble and run IV's.
+- The jobs' short names (a default, to fit twelve letters with the button's name): USE, DODGE, NEXT RUNE, WISPS, THE GIFT, THE
+  RUNE, READIED (the right hand: the rune or gift readied with X), CAST, SPRINT, the right stick's click nothing (a dash), THE
+  MAP, THE BAR, BESTIARY, CODEX; in the list SWIFT DODGE and NOTHING are written out.
 
 ## 8. Footprints (F1 b, F2 a)
 
@@ -464,6 +485,10 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
 - **After step 5** (7 November, their branch at `d36e0c4`, one commit on: track C's log): applied clean, built with no warnings.
   The bells touch only the knell's lines in `pz_make_run1`, one line of `dress_level` and the things' part of `render_sprites`,
   none of which they have changed.
+- **After step 7's sheet** (8 November, their branch still at `d36e0c4`): applied clean, built, and both their `status` sheet
+  and the `pad` one ran there. They had added to the kit too (after `ui_mark` in `crawl_ui.c`, after `ui_socket` in the header,
+  a `status` mode in `uisheet`'s main, `combat` in the Makefile); this update's pieces sit at the ends of the kit's files,
+  before `sheet()` in the sheet tool, its mode before main's last line, and after `uisheet all` in `make sheets`.
 
 ## 15. Hand-off log
 
@@ -555,7 +580,7 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
 - **7 November. Step 6, the ward: built** (harness only).
   - *Built:* as section 6 says, with its *as built* notes: `WD`, `WLamp`, `wraith_barred`, `wraith_h`, `ward_field`,
     `ward_step_out`, `ward_make`, `ward_hang`, `ward_spread`, `ward_ring`, `ward_offer`, `ward_tick`, `ward_marks` (`FM_WARD`),
-    `ward_pips`, `ward_lights`, the map's wash; debug `CRAWL_WARD=0`, `CRAWL_WARDLIT`, `CRAWL_TPWARD`, `CRAWL_WARDMAP`,
+    `ward_pips`, `ward_lights`, the map's wash; debug `CRAWL_LAMPS=0`, `CRAWL_WARDLIT`, `CRAWL_TPWARD`, `CRAWL_WARDMAP`,
     `CRAWL_WARDTRACE`. The names `warded`, `ward_cracked` and `ward_give` in the event log and the code are still the warded
     creatures' (1.0.0b16), and `ward_shards` the Bone Ward's: only `ward_offer`, `ward_lit`, `ward_out`, `ward_held`,
     `ward_driven` and `ward_breach` are the lamps'.
@@ -586,6 +611,8 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   - *For the owner's eye:* whether the line on the floor is too faint to find, and whether the lamps' words come at the right
     moment. Both are a number each.
   - *Left:* step 5 (the bells in the game), then step 7.
+  - *Mended after* (8 November): the lamps' switch was first `CRAWL_WARD=0`, which is already the warded creatures' (1.0.0b16
+    step 7), so it took both away at once; it is `CRAWL_LAMPS=0` now. No numbers above used it.
   - *CI:* run 42415459761 on the branch (started by hand): the Windows build compiled and its smoke test passed; the browser's
     build compiled and its smoke test in Chromium passed.
 - **7 November. Step 5, the bells in the game: built** (harness only).
@@ -605,3 +632,14 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   - *Left:* step 7, the controller's sheet to the owner first.
   - *CI:* run 42417307380 on the branch (started by hand): the Windows build and its smoke test, the browser's build and its
     smoke test in Chromium, all passed.
+- **8 November. Step 7's sheet, the controller's screen and the look: drawn, and sent to the owner.**
+  - *Drawn:* section 7's *as drawn* note; `ui_pad` in the kit, its declarations at the end of `crawl_ui.h`, the sheet's `pad`
+    mode in `tools/uisheet.c` and a line in `make sheets`. Six panels: X chosen; A's list, the map chosen to trade; an option;
+    the defaults asked twice; the look; the look in the Deep's marble.
+  - *Changed on the way, from my own look at the first drawings:* the fit check found the left hand's hold lines off the stone,
+    the hint below the slab's moulding and the trade list over the words under it (the foot now moves into the free half); the
+    shoulders were hats on a box and now follow the shoulder's curve; the leaders were too faint; View and Menu cut in the
+    stone read badly and are inlaid.
+  - *Checks:* both fit checks pass (the pad's and the Alignment's); both builds without warnings; `make smoke` passes (1.81 ms
+    a frame; the game links the new piece but doesn't draw it yet); the trial merge clean (section 14).
+  - *Waiting on:* the owner's word on the sheet. Nothing of the screen is in the game yet.
