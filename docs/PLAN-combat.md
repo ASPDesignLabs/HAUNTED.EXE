@@ -970,6 +970,79 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   cornered 1, 2 and 6 times); ASan clean on three dreams from 11 with the Wraith at 30 s (cornered four times); and eight seeds
   (1-15 odd) of 50 minutes from 11 and from 21, both modes (32 runs): no `STALL` lines at all (the same seeds before it: 7 from 11 and
   2 from 21), the Wraith cornered 82 times, no deaths, levels cleared 49 and 49 from 11, 51 and 50 from 21.
+- **8 November. J19, track D's half** (harness only), as track C's entry set it out: the dream from each start for each of the
+  five classes (`CRAWL_CLASS` 1-5), seeds 17-31 odd with `CRAWL_RUNID` the seed, this branch at `4a1508c` against 1.0.0b18 (main
+  at `0201a5f`); from level 1 for 6,000 s, from 11, 21 and 31 for 3,000 s at gear 3, 5, 8 and `CRAWL_XPBANK` 9450, 35322, 77658.
+  160 runs a build, each its full length, nothing switched off. The table is below this entry, 1.0.0b18's numbers in brackets.
+  **From level 1**: 411 levels cleared (408), 136 deaths (122), 82 on level 10 (64) and 54 elsewhere (58), the knight felled 15
+  times (19), a level's median 360 s (361). **From 11, 21 and 31**: 252, 247 and 233 levels cleared (250, 245, 246); one death
+  from 11 (the Plague Doctor, to a rank III skeleton on level 12) and one from 31 (the Plague Doctor, to a rank V Lightless on
+  level 36), none in 1.0.0b18; a level's median 362, 369 and 370 s (369, 369, 368).
+  **By class, from level 1**, D1's table moves strength between the pasts as it was meant to, and for two of them further than
+  meant. The Plague Doctor died 40 times (51), 19 of them off the knight's level (34). The Galvanist died 28 times (15), 18 off
+  the knight's level (9), 11 of those to rank I skeletons (4), six on level 1 itself, in five seeds of the eight (1.0.0b18: none
+  on level 1). The Anatomist died 40 times (26), 26 on level 10 (18) and 14 elsewhere (8), 8 of those to rank I skeletons (5),
+  and was knocked down 140 times, the most of the five. The Witchfinder (19, against 20) and the Sin-Eater (9, against 10) are where
+  they were. What the runs point to: run I's commonest kinds took Lightning and Frost harder in 1.0.0b18's table (the skeleton
+  and the bat 1.25 to Lightning; the bat and the web spider 1.5 to Frost, the shambler 0.75) and take them at 1.0 now, or 0.5
+  (the web spider and the shambler against Frost); in the seed looked at, a rank I skeleton that took two bolts in 1.0.0b18 took
+  three. Frost on the skeleton went up (0.75 to 1.0), so the Anatomist's loss is more D4's: a Frost Shard put a creature at half
+  pace for 2.5-3 s in 1.0.0b18, and a hit is now one Chilled stack, 18% off its clock, half only from the third (the Anatomist's
+  stacks still froze things 610 times). Eight seeds a class is small (a class's deaths have moved by half between builds that changed nothing
+  for it), so track C's half will say whether this holds. If it does, the levers are 7.2's table for run I's kinds (each element
+  is now the weakness of three kinds and the strength of three, so moving one moves that evenness) and the slow of a stack.
+  Nothing tuned: that is for the owner. **From 31**, 13 levels fewer (233, against 246): the rank's strengths are about three
+  times as many as the wards were there (8,287 given and 1,232 cracked, against 2,841 wards and 169 cracked; from 1, 11 and 21:
+  656, 1,235 and 4,363 given, against 1,520, 1,687 and 3,025 wards), and rank V's two slow every fight a little.
+  **What landed**, from 1, 11, 21 and 31, the five classes together. On the dream (`EVENT af`): Knocked Down 536, 74, 35 and 23
+  (by a charge 344, 60, 29 and 14; the rest falling rock), Poisoned 207, 451, 292 and 121, Chilled 64, 45, 12 and 15, On Fire 14,
+  4, 6 and 20, Stunned 5, 5, 4 and 5, Unbound 6, 1, 0 and 1, Frozen never. On the dead (`maf`): Chilled 5,186, 2,194, 2,200 and
+  3,081, Frozen 610, 225, 171 and 306, On Fire 678, 191, 327 and 708, Unbound 654, 650, 1,081 and 1,654, Stunned 437, 245, 398 and
+  955, each class's own the most (from 1 the Anatomist's chills 5,128, the Galvanist's stuns 412, the Sin-Eater's Unbound 647;
+  Poisoned isn't counted, since the flask's poison goes in through `mob_poison`, which notes nothing). Born to an element 855,
+  922, 1,986 and 3,322, carrying it in 123, 35, 78 and 61 blows and 184, 80, 175 and 305 bones. Bone Thrower volleys 842, 433, 777
+  and 915; charges 670, 326, 262 and 217, striking 398, 161, 119 and 77; spews 29 and 106 from 1 and 11 (6 and 18 struck), none
+  deeper; grapples 140, 10, 5 and 6, and a Spirit shambler's souls taken 7 times from 1.
+  **Stalls** (a `STALL` line, 40 s within a cell): 7, 0, 1 and 4 runs of each start's forty (1.0.0b18: 10, 1, 0 and 11), three
+  of them to 120 s (1.0.0b18: one). The longest, the Galvanist's seed 29 from 1 on level 6, run again to the line: the dream
+  before a portcullis that had come down again. It works a winch only once (`m->times` in `dream_looks`, since 1.0.0b16), and
+  its way out went back through the gate, so it stood about five minutes till the level gave up on it. Older than this branch
+  and neither track's: for the owner.
+  **The text**: the README and the page said three Chilled stacks freeze the dead. It is four, three with Deep Chill
+  (`chill_need`; the Codex has *IT CHILLS; FOUR FREEZE*); mended in both, a few words, in a commit of its own (both are shared,
+  17.2). The release notes say no number, and are right.
+  ASan clean on five dreams of 900 s, a class each across the starts (the Witchfinder from 1, the Anatomist and the Sin-Eater
+  from 11, the Galvanist from 21, the Plague Doctor from 31; seeds 17-25): 109 statuses on the dead, 37 born to an element, 75
+  strengths given and 18 cracked, 35 of the new attacks.
+  Track C: the numbers are for your table; the logs aren't in the repo, and any run comes again from its seed and class with the
+  settings above. No contract changed. **Track D's part of J19 is done.**
+
+  | From | Class | Cleared | Deaths (level 10 / elsewhere) [1.0.0b18] | Knight felled | A level's median, s |
+  |---|---|---|---|---|---|
+  | 1 | Witchfinder | 85 (78) | 19 (17 / 2) [20 (18 / 2)] | 3 (5) | 364 (344) |
+  | 1 | Anatomist | 72 (75) | 40 (26 / 14) [26 (18 / 8)] | 0 (1) | 361 (355) |
+  | 1 | Galvanist | 92 (91) | 28 (10 / 18) [15 (6 / 9)] | 5 (5) | 348 (366) |
+  | 1 | Plague Doctor | 71 (72) | 40 (21 / 19) [51 (17 / 34)] | 0 (1) | 367 (368) |
+  | 1 | Sin-Eater | 91 (92) | 9 (8 / 1) [10 (5 / 5)] | 7 (7) | 360 (363) |
+  | 1 | **all five** | 411 (408) | 136 (82 / 54) [122 (64 / 58)] | 15 (19) | 360 (361) |
+  | 11 | Witchfinder | 53 (50) | 0 [0] | 0 (0) | 362 (372) |
+  | 11 | Anatomist | 51 (49) | 0 [0] | 0 (0) | 362 (371) |
+  | 11 | Galvanist | 49 (48) | 0 [0] | 0 (0) | 362 (374) |
+  | 11 | Plague Doctor | 50 (51) | 1 (0 / 1) [0] | 0 (0) | 362 (362) |
+  | 11 | Sin-Eater | 49 (52) | 0 [0] | 0 (0) | 360 (371) |
+  | 11 | **all five** | 252 (250) | 1 (0 / 1) [0] | 0 (0) | 362 (369) |
+  | 21 | Witchfinder | 50 (49) | 0 [0] | 0 (0) | 368 (373) |
+  | 21 | Anatomist | 47 (49) | 0 [0] | 0 (0) | 370 (364) |
+  | 21 | Galvanist | 51 (50) | 0 [0] | 0 (0) | 366 (366) |
+  | 21 | Plague Doctor | 49 (50) | 0 [0] | 0 (0) | 367 (377) |
+  | 21 | Sin-Eater | 50 (47) | 0 [0] | 0 (0) | 370 (372) |
+  | 21 | **all five** | 247 (245) | 0 [0] | 0 (0) | 369 (369) |
+  | 31 | Witchfinder | 48 (48) | 0 [0] | 0 (0) | 367 (370) |
+  | 31 | Anatomist | 45 (48) | 0 [0] | 0 (0) | 372 (369) |
+  | 31 | Galvanist | 49 (53) | 0 [0] | 0 (0) | 369 (353) |
+  | 31 | Plague Doctor | 45 (49) | 1 (0 / 1) [0] | 0 (0) | 376 (369) |
+  | 31 | Sin-Eater | 46 (48) | 0 [0] | 0 (0) | 370 (372) |
+  | 31 | **all five** | 233 (246) | 1 (0 / 1) [0] | 0 (0) | 370 (368) |
 
 ## Appendix: the owner's guide (7 November), as given
 
