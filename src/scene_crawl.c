@@ -5040,6 +5040,11 @@ static void class_take(int c) {
     RUN.cls_pts = e == EL_FIRE ? 3 : 0;
     if (e == EL_PHYS && !was_open) RUN.gear.bones = (int16_t)imin(bones_max(), RUN.gear.bones + SPEAR_BONES);   /* the spear comes with bones */
     caster_sync();
+    if (G.max_hp > 0) {                                            /* the class's health felt at once, the same missing (D5) */
+        int was = G.max_hp;
+        G.max_hp = gear_max_hp(&RUN.gear);
+        G.hp = clampi(G.hp + G.max_hp - was, 1, G.max_hp);
+    }
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT class %s from %s by %s t=%.2f\n", CLASSES[e].name, old >= 0 ? CLASSES[old].name : "nothing", G.player ? "player" : "autopilot", G.t);
 #endif
@@ -5110,8 +5115,66 @@ static void auto_ascend(void) {                                    /* the autopi
 }
 
 /* ---- the dead's track (D) owns these three bodies (docs/PLAN-combat.md, 17.2 and 17.3 for 1.0.0b20): stubs till D5 ---- */
-static void class_own(float *own) { (void)own; }                   /* the class's own sheet, added to own[ST_*] (section 9) */
-static float class_extra(int what) { (void)what; return 0.0f; }   /* KX_*: what of the sheet no stat holds */
+/* the classes' own (section 9, the draft the owner took for now, K1 b): what each brings at the start, flat (K3), joined to the
+ * caster's own under the same caps; its health against the hundred everyone had, its stats in their own units, and what no stat
+ * holds. The class's line and its gifts are as they were (K2). Words for the class question and the Codex in CLASS_SHEET */
+typedef struct { int hp; struct { int8_t st; float v; } s[5]; float af_cut, souls; } ClassOwn;
+static const ClassOwn CLASS_OWN[NELEM] = {
+    [EL_FIRE]   = { 95,  { { ST_HASTE, 6.0f }, { ST_THRIFT, 6.0f }, { ST_EFFECT, 8.0f }, { ST_RES_BURN, 10.0f }, { -1, 0 } }, 0.0f, 0.0f },
+    [EL_FROST]  = { 105, { { ST_ARMOR, 5.0f }, { ST_RES_SLOW, 15.0f }, { ST_PHYSIC, 15.0f }, { -1, 0 }, { -1, 0 } }, 0.0f, 0.0f },
+    [EL_LIGHT]  = { 90,  { { ST_DODGE, 6.0f }, { ST_MOVE, 6.0f }, { ST_QUIET, 15.0f }, { ST_RES_LIGHT, 15.0f }, { -1, 0 } }, 0.0f, 0.0f },
+    [EL_POISON] = { 100, { { ST_RES_POISON, 25.0f }, { ST_LUCK, 1.0f }, { ST_TREASURE, 5.0f }, { ST_SPRINT, 0.5f }, { -1, 0 } }, 0.10f, 0.0f },
+    [EL_SPIRIT] = { 95,  { { ST_REGEN, 0.1f }, { ST_RES_SPIRIT, 15.0f }, { -1, 0 }, { -1, 0 }, { -1, 0 } }, 0.0f, 0.10f },
+    [EL_PHYS]   = { 120, { { ST_ARMOR, 4.0f }, { ST_SPRINT, 1.0f }, { -1, 0 }, { -1, 0 }, { -1, 0 } }, 0.0f, 0.0f },
+};
+static int class_sheet_on(void) {                                  /* CRAWL_SHEET=0 (debug) leaves them out, for the balance runs */
+#ifdef CRAWL_DEBUG
+    static int on = -1;
+    if (on < 0) on = !(getenv("CRAWL_SHEET") && atoi(getenv("CRAWL_SHEET")) == 0);
+    return on;
+#else
+    return 1;
+#endif
+}
+static void class_own(float *own) {                                /* the class's own sheet, added to own[ST_*] (section 9) */
+    int e = cls_el();
+    if (e < 0 || !class_sheet_on()) return;
+    const ClassOwn *c = &CLASS_OWN[e];
+    own[ST_HP] += (float)(c->hp - 100);
+    for (int i = 0; i < 5; i++) if (c->s[i].st >= 0) own[c->s[i].st] += c->s[i].v;
+}
+static int class_sheet_row(int e, int i, char *name, int nn, char *val, int nv) {   /* a row of class e's sheet, in words; 0 past them */
+    const ClassOwn *c = &CLASS_OWN[e];
+    if (i == 0) { snprintf(name, (size_t)nn, "HEALTH"); snprintf(val, (size_t)nv, "%d", c->hp); return 1; }
+    int k = 0;
+    for (int j = 0; j < 5; j++) {
+        if (c->s[j].st < 0 || ++k != i) continue;
+        int st = c->s[j].st;
+        float v = c->s[j].v;
+        snprintf(name, (size_t)nn, "%s", STAT_NAME[st]);
+        if (st == ST_ARMOR) snprintf(val, (size_t)nv, "+%.0f", v);
+        else if (st == ST_REGEN) snprintf(val, (size_t)nv, "+%.1f/S", v);
+        else if (st == ST_THRIFT) snprintf(val, (size_t)nv, "-%.0f%%", v);
+        else if (st == ST_SPRINT) snprintf(val, (size_t)nv, "+%.1f S", v);
+        else snprintf(val, (size_t)nv, "+%.0f%%", v);
+        return 1;
+    }
+    if (c->af_cut > 0.0f && ++k == i) { snprintf(name, (size_t)nn, "EVERY MARK'S CHANCE"); snprintf(val, (size_t)nv, "-%.0f%%", c->af_cut * 100.0f); return 1; }
+    if (c->souls > 0.0f && ++k == i) { snprintf(name, (size_t)nn, "SOULS FROM KILLS"); snprintf(val, (size_t)nv, "+%.0f%%", c->souls * 100.0f); return 1; }
+    return 0;
+}
+static void class_sheet_words(int e, char *buf, int n) {           /* the sheet as a sentence, for the Codex */
+    char nm[40], v[16];
+    int o = snprintf(buf, (size_t)n, "THEY BRING");
+    for (int i = 0; class_sheet_row(e, i, nm, sizeof nm, v, sizeof v) && o < n; i++)
+        o += i == 0 ? snprintf(buf + o, (size_t)(n - o), " %s HEALTH", v) : snprintf(buf + o, (size_t)(n - o), ", %s %s", nm, v);
+    if (o < n) snprintf(buf + o, (size_t)(n - o), ".");
+}
+static float class_extra(int what) {                               /* KX_*: what of the sheet no stat holds */
+    int e = cls_el();
+    if (e < 0 || !class_sheet_on()) return 0.0f;
+    return what == KX_AF_CUT ? CLASS_OWN[e].af_cut : what == KX_SOULS ? CLASS_OWN[e].souls : 0.0f;
+}
 static int blow_survived(int kind) { (void)kind; return 0; }       /* Constitution's chance (10.4): 1 if this killing blow is lived */
 /* ---- the dead's track's stubs end ---- */
 
@@ -13852,6 +13915,7 @@ static void crawl_enter(uint32_t seed) {
         if (getenv("CRAWL_LEVEL")) RUN.level = atoi(getenv("CRAWL_LEVEL"));
         if (getenv("CRAWL_STAGE")) RUN.shop_next = 0;              /* straight into the level */
         debug_gear();
+        if (RUN.cls) { caster_sync(); RUN.hp = gear_max_hp(&RUN.gear); }   /* a class given here starts whole at its own health (D5) */
         if (getenv("CRAWL_HASMAP")) RUN.has_map = 1;              /* the map, already bought */
         if (getenv("CRAWL_CORNER")) { RUN.corner = atoi(getenv("CRAWL_CORNER")) & ((1 << NCS) - 1); RUN.wind_run = crawl_run(RUN.level); }   /* cornerstones held, a bit each */
         if (getenv("CRAWL_LUCK")) RUN.steps[LN_LUCK] = (uint16_t)clampi((int)((atof(getenv("CRAWL_LUCK")) - LUCK_BASE) * 10.0f + 0.5f), 0, 1000);   /* Luck at this */
@@ -23488,7 +23552,9 @@ static void update_align(int view) {
  * answered (Esc is the question of leaving); another past costs five Cursed Coins, from Level of Atonement 20 */
 #define VOW_COINS 5
 #define VOW_ATONE 20
+static int class_page;                                             /* her question shows the past (0) or what they bring (1) */
 static void update_class(void) {
+    if (IN.hit[KEY_SPACE]) { class_page = !class_page; snd_sfx_ex(SFX_PAGE, 0.6f, 0.5f); return; }   /* (Y on a pad) */
     if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) {
         if (G.vow_change) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
         else if (IN.hit[KEY_ESC]) open_ui(UI_QUIT);
@@ -23498,7 +23564,7 @@ static void update_class(void) {
     for (int k = 0; k < NELEM; k++) if (IN.hit[KEY_1 + k]) { G.vow_sel = k; G.vow_arm = -1; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f); }
     if (d) { G.vow_sel = (G.vow_sel + NELEM + d) % NELEM; G.vow_arm = -1; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f); }
     int c = G.vow_sel = clampi(G.vow_sel, 0, NELEM - 1);
-    if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) return;
+    if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_MOUSE1])) return;
     if (G.vow_change && (c == cls_el() || RUN.coins < VOW_COINS)) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); G.vow_arm = -1; return; }
     if (!class_offered(c)) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); G.vow_arm = -1; return; }   /* the Headsman, before the first gift */
     if (G.vow_arm != c) { G.vow_arm = c; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }
@@ -29534,9 +29600,12 @@ static void render_codex(Frame *f) {
     }
     case CX_CLASS: {
         int n2 = text_wrap_ex(f, 14, y, CLASSES[c->i].story, 36, R_STONE + 13, 10, 8);
-        y += n2 * 8 + 6;
-        y += text_wrap_ex(f, 14, y, CLASSES[c->i].gift, 36, R_GOLD + 11, 3, 8) * 8 + 6;
-        text_wrap(f, 14, y, "A LIFE KEEPS ONE. FROM LEVEL OF ATONEMENT 20 SHE WILL HEAR ANOTHER PAST, FOR FIVE CURSED COINS.", 36, R_BONE + 11, 3);
+        y += n2 * 8 + 4;
+        y += text_wrap_ex(f, 14, y, CLASSES[c->i].gift, 36, R_GOLD + 11, 3, 8) * 8 + 4;
+        char sheet[200];
+        class_sheet_words(c->i, sheet, sizeof sheet);                 /* what they bring (D5, section 9) */
+        y += text_wrap_ex(f, 14, y, sheet, 36, R_GLOW + 12, 4, 8) * 8 + 4;
+        text_wrap(f, 14, y, "A LIFE KEEPS ONE; ANOTHER FROM ATONEMENT 20, FOR FIVE CURSED COINS.", 36, R_BONE + 11, 2);
         break;
     }
     case CX_SOUL: {
@@ -30111,9 +30180,21 @@ static void render_class(Frame *f) {
         ui_socket_mark(f, 35 + k * 50, 46, 13, CLASS_MARK[k], ELEM_RAMP[k], state, k == c, 0, G.ui_t);
     }
     ui_rule(f, 14, 305, 65, 1);
-    int n = ui_wrap(f, 14, 71, CLASSES[c].story, 36, 8, 11, FACE_BODY, UI_M(13), TX_INLAID);
-    int need = ui_wrap_count(CLASSES[c].story, 36);
-    if (need > 11) ui_overflow("class story", CLASSES[c].name, need - 11);
+    const char *turn = pk(class_page ? "SPACE THEIR PAST" : "SPACE WHAT THEY BRING");   /* the page's other side (D5) */
+    ui_keys(f, 305 - ui_keys_width(turn), 70, turn, UI_M(10));
+    int n;
+    if (!class_page) {
+        n = ui_wrap(f, 14, 81, CLASSES[c].story, 36, 8, 10, FACE_BODY, UI_M(13), TX_INLAID) + 1;
+        int need = ui_wrap_count(CLASSES[c].story, 36);
+        if (need > 10) ui_overflow("class story", CLASSES[c].name, need - 10);
+    } else {                                                       /* the starting sheet (section 9), a row each */
+        char nm[40], v[16];
+        for (n = 0; class_sheet_row(c, n, nm, sizeof nm, v, sizeof v) && n < 9; n++) {
+            ui_text8(f, 22, 81 + n * 8, nm, FACE_BODY, UI_M(13), TX_INLAID);
+            ui_text8(f, 250 - 8 * (int)strlen(v), 81 + n * 8, v, FACE_BODY, R_GLOW + 12, TX_INLAID);
+        }
+        n++;
+    }
     int gy = 71 + n * 8 + 5, gl = ui_wrap_count(CLASSES[c].gift, 36);
     if (gy + gl * 8 > 177) { ui_overflow("class gift", CLASSES[c].name, (gy + gl * 8 - 177 + 7) / 8); gy = 177 - gl * 8; }
     ui_wrap(f, 14, gy, CLASSES[c].gift, 36, 8, 3, FACE_BODY, R_GOLD + 11, TX_INLAID);
