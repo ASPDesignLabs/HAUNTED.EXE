@@ -1307,7 +1307,15 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   that had been on the first page had run over the Plague Doctor's long story; `CX_MAX` one more, in D's place). `CRAWL_SHEET=0`
   leaves the sheets, the lifts and armour's cap out: a dream on it plays the commit before line for line (checked, 500 s). Tested:
   frames of her question's second page for all six and of both Codex pages for all six, no overflow; ASan clean on her question
-  turned through all six and the Codex's pages, and a Headsman's dream from level 21 for 600 s. Balance runs under way (below).
+  turned through all six and the Codex's pages, and a Headsman's dream from level 21 for 600 s. **The runs** (on this build, C5 in
+  play, against `CRAWL_SHEET=0` on the same seeds): from level 1, the first 3,000 s on eight seeds (1-15 odd) for each of the five
+  classes, 253 levels cleared and 68 deaths (242 and 71), a level's median 353 s (356); the Witchfinder 4 deaths (2), the
+  Anatomist 6 (16), the Galvanist 21 (13), the Plague Doctor 22 (27), the Sin-Eater 15 (13). From level 31, 1,500 s on four seeds a
+  class (17-23 odd): 60 levels each way, one death each way. The dream channelled Restoration 7 times (13) and lived no killing blow
+  (it confesses Constitution for none of these five). The Galvanist is the one that keeps doing worse with its sheet, in every
+  batch (52 against 31 over thirty-two seeds before the caps, 21 against 13 here); with the caps it also takes Frost 15% harder.
+  Whether that is its ninety health, Frost, or its Dodge and Movement changing how the dream walks is not known; a person may fare
+  otherwise. For the owner.
 
 ## Appendix: the owner's guide (7 November), as given
 
