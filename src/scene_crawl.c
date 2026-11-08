@@ -7475,7 +7475,7 @@ static void wraith_cornered(Mob *m, float dt) {
     if (m->sub != 1) { m->corner_t = 0.0f; return; }
     if ((m->corner_t += dt) < 1.0f) return;
     int x, y;
-    if (!pick_cell_at_depth((int)G.px, (int)G.py, 20, 400, 1, &x, &y)) return;
+    if (!pick_cell_at_depth((int)G.px, (int)G.py, 20, 400, 1, &x, &y) || wraith_barred(x, y)) return;   /* never into a lit ward */
     m->corner_t = 0.0f;
     sfx_at(SFX_WAIL, m->x, m->y, 1.1f);
     m->x = x + 0.5f; m->y = y + 0.5f; m->cx = m->tx = x; m->cy = m->ty = y;
