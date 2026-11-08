@@ -875,6 +875,41 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   felled, a level's median time (from `cleared`), and what landed (`EVENT af`, the dead's `maf`, `elem_hits`, `c4_*`). Track
   D: your half's numbers in your log in the same shape, and I fold both into one table here and into the README. Then ASan on a
   session a class, and the README, the page and the notes (track C, 17.5.8).
+- **8 November. J19, track C's half, cut down; the halves folded** (harness only). Run by track D's agent at the owner's word,
+  who asked for it inside an hour, so it is not the whole of what the entry above set out: seeds 1-15 odd, the five classes, this
+  branch at `98013d1` against 1.0.0b18 (`0201a5f`), `CRAWL_RUNID` the seed, **from level 1 only, for 3,000 s, not 6,000** (about
+  levels 1 to 8, where track D's half found the classes moving, and short of the knight's level). The starts from 11, 21 and 31
+  were not run on these seeds (track D's half: two deaths in 120 runs of this branch, none of 1.0.0b18's). A run of 3,000 s is
+  exactly the first 3,000 s of one of 6,000 (track D's seed 17 Galvanist, run again, gave the same 2,559 lines), so track D's runs
+  cut there join these as sixteen seeds: the table below. **Track C's half alone**: 250 levels cleared (248), 47 deaths (50),
+  a level's median 356 s (355); by class the Witchfinder 6 (2), the Anatomist 11 (6), the Galvanist 8 (9), the Plague Doctor 18
+  (28), the Sin-Eater 4 (5). **Both halves**: 500 levels cleared (495), 92 deaths (94), a level's median 357 s (355); the deaths
+  on levels 1 to 8 by level 11, 8, 19, 24, 10, 12, 7 and 1 (13, 7, 26, 23, 8, 11, 5, 1); to rank I skeletons 50 (37), the rest
+  spread. So, as far as the first eight levels go: neutral in all, and the classes move. The Plague Doctor's gain holds on both
+  halves (18 against 28, 14 against 24), as D1's table meant; the Anatomist's loss holds on both (11 against 6, 11 against 8), most
+  likely Frost's slow become a Chilled stack (track D's entry); the Galvanist's doesn't (8 against 9 here, 17 against 7 there): one
+  half's noise, mostly. Landed on the dream in track C's half: Knocked Down 237 (141 by a charge), Poisoned 46, Chilled 19, On Fire
+  4, Stunned 1; on the dead: Chilled 2,541, Frozen 216, On Fire 321, Stunned 214, Unbound 196; 213 born to an element, carrying it
+  in 30 blows and 71 bones; 338 Bone Thrower volleys, 258 charges (158 struck), 84 grapples. Stalls: seven runs of the forty here
+  (two of 1.0.0b18's), all of 40 s, none to 120; four on level 3, where the Knight's Wager is a duel of 40 s. ASan: track D's five
+  sessions, a class each (section 19), stand for J19's. CI: the Build workflow run by hand on the branch at `98013d1`, the Windows
+  build and its smoke test and the browser's build and its smoke test in Chromium all passing. The README's *What has been
+  verified* and the page's *Beta status* now carry 1.0.0b19 (and the page's account of the betas moves on one, and the
+  sixteenth's sentence is the sixteenth's again). **J19 is done as far as an hour allowed**: the knight's level and the deeper
+  starts on seeds 1-15 were not run, about two hours more on four cores, if the owner wants J19 whole before the release. Nothing
+  tuned; no contract changed.
+
+  | Class | Cleared | Deaths | Deaths, seeds 1-15 (C) | Deaths, seeds 17-31 (D) | A level's median, s |
+  |---|---|---|---|---|---|
+  | Witchfinder | 105 (107) | 8 (4) | 6 (2) | 2 (2) | 355 (343) |
+  | Anatomist | 101 (104) | 22 (14) | 11 (6) | 11 (8) | 361 (355) |
+  | Galvanist | 99 (101) | 25 (16) | 8 (9) | 17 (7) | 350 (350) |
+  | Plague Doctor | 89 (82) | 32 (52) | 18 (28) | 14 (24) | 370 (365) |
+  | Sin-Eater | 106 (101) | 5 (8) | 4 (5) | 1 (3) | 354 (362) |
+  | **all five** | 500 (495) | 92 (94) | 47 (50) | 45 (44) | 357 (355) |
+
+  *From level 1, the first 3,000 s of each run, sixteen seeds a class, this branch against 1.0.0b18 (in brackets) on the same
+  runs. Track D's longer runs and deeper starts are in its own table, section 19.*
 
 ## 19. Track D's log (the dead's)
 
