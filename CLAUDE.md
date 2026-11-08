@@ -250,7 +250,8 @@ steps are all built, and J19, the joint checks, is done (8 November: track D's h
 only, at the owner's word, then from levels 1 and 31 again over 1.0.0b18.1, merged in at the owner's word; the numbers in both
 logs, the README and the page). Released as **1.0.0b19** at the owner's word (8 November), a pre-release as before, squashed
 onto main as one commit with 1.0.0b18.1's work. 1.0.0b20 is begun (8 November): C5 (the Confessions) and D5 (the classes' own); C5's contract is in (its 17.2 b and 17.3:
-`conf_rank`, `conf_value`, and D5's hooks `class_own`, `class_extra`, `blow_survived`). Found in the
+`conf_rank`, `conf_value`, and D5's hooks `class_own`, `class_extra`, `blow_survived`), and C5 is built and in play (the
+Confessions' sheet approved; harness only). Found in the
 review and mended by the plan: `HURT_MAGIC` is resisted by Resist Burn whatever its element; poison is the weak element across
 the bestiary (0.55 on average); skeletons' throws have no floor; flat armour grows as the blow does.
 
@@ -1553,8 +1554,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   counters (8.6): `c4_tells` (in `incoming`: a Bone Thrower's flash or a stamp in its sight counts as a missile on its way, for its
   runes and Swift Dodge) and `c4_dmarks` (in `update_hazards`, after `mk_dmarks`: the charge's lane and the spew's cone as warnings
   on `hz_dmap`, so `decide` steps off them and `auto_abilities` dodges out).
-  **C5, the Unholy Confessions** (1.0.0b20, section 10; harness only; **in play only with `CRAWL_CONFUI=1` in the debug build till
-  the owner has seen the screen's sheet**, `docs/combat/c5-confessions.png`; `conf_on`): six Confessions (`CF_*`, `CONF`: each
+  **C5, the Unholy Confessions** (1.0.0b20, section 10; harness only; the screen's sheet `docs/combat/c5-confessions.png`, approved;
+  `conf_on`, and `CRAWL_LINES=1` in the debug build puts the old lines back): six Confessions (`CF_*`, `CONF`: each
   number at rank I and V, `ConfNum.zero`, `from1`) in place of the ascend screen's lines, bought a point at a time (`CONF_CUM` 10,
   30, 60, 100, 150; `RUN.conf`, `RUN.conf_over`), the class's share (`CONF_W`, 75% with no past) in every number; the contract's
   `conf_rank`, `conf_value` (`conf_at` for any points). `conf_own` (from `caster_sync`, with D5's `class_own` after it) adds the

@@ -4755,14 +4755,14 @@ static const uint8_t CONF_W[NELEM][NCONF] = {                     /* each class'
     { 100, 60, 90, 50, 80, 70 },                                   /* the Sin-Eater */
     { 50, 70, 60, 100, 70, 90 },                                   /* the Headsman */
 };
-static int conf_on(void) {                                         /* the Confessions in place of the old lines: in the debug build with
-                                                                      CRAWL_CONFUI=1 only, till the owner has seen the screen's sheet */
+static int conf_on(void) {                                         /* the Confessions in place of the old lines (the sheet approved, 8
+                                                                      November); CRAWL_LINES=1 in the debug build puts the old back */
 #ifdef CRAWL_DEBUG
     static int v = -1;
-    if (v < 0) v = getenv("CRAWL_CONFUI") != 0;
+    if (v < 0) v = getenv("CRAWL_LINES") == 0;
     return v;
 #else
-    return 0;
+    return 1;
 #endif
 }
 static float conf_weight(int cf) { int e = cls_el(); return e >= 0 ? (float)CONF_W[e][cf] / 100.0f : 0.75f; }   /* no past yet: the

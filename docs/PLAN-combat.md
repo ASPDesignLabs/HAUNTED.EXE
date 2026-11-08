@@ -981,6 +981,10 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   opening the old page above (paid back), confessing held and tapped, taking back and trying an overlevel. Not done: the Codex has no page of the Confessions
   themselves (the screen says what each does); a number at its cap gives no warning, as the old lines' screen did; balance runs
   wait for the switch to be the game's (J20).
+- **8 November. The sheet approved; C5 in play.** The owner approved the Confessions' screen as drawn. `conf_on` is now the
+  game's: the Confessions stand in place of the ascend screen's lines for a person and the dream, and an older page's lines are
+  paid back as it is read. `CRAWL_CONFUI` is gone; `CRAWL_LINES=1` in the debug build puts the old lines back (no payback, the old
+  screen, the old dream's buying), for balance runs. **C5 is built.** Track C's part of 1.0.0b20 is done; J20 waits on D5.
 
 ## 19. Track D's log (the dead's)
 
