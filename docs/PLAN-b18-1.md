@@ -1,7 +1,7 @@
 # 1.0.0b18.1: the trial's door, and the crypt made kinder
 
 **Settled; steps 1-8 built** (harness only; 7-8 November 2026), the sheets of steps 4, 7 and 8 (`docs/b18-1/bells.png`,
-`lamps.png`, `pad.png`, `footprints.png`) approved by the owner. **At the owner's word (8 November) it goes out with 1.0.0b19, not alone**: merged into
+`lamps.png`, `pad.png`, `footprints.png`) approved by the owner. **At the owner's word (8 November) it went out with 1.0.0b19, not alone** (released the same day): merged into
 `claude/inspiring-archimedes-dbj5n6`, its step 9 folded into PLAN-combat's J19 (run over both together), its step 10 that
 release's (section 15's last entry). Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
 tracks of [`PLAN-combat.md`](https://github.com/ASPDesignLabs/HAUNTED.EXE/blob/claude/inspiring-archimedes-dbj5n6/docs/PLAN-combat.md)

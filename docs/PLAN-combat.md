@@ -1,6 +1,6 @@
 # The elements' teeth: statuses, elemental creatures, the classes' own, the Unholy Confessions and the spells' augments
 
-**Settled, nothing built yet** (7 November 2026). Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
+**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20 (C5, D5) is next. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
 review of how harm is dealt today (section 1), the owner's answers to that review's first four questions, and the owner's
 guide (kept as given in the appendix). The owner's answers to the review: creatures cast through the kinds we have, "mixed
 up a bit" as the guide sets out (Q1 b); their spells use the caster's six elements, so the resists, the Mirror and the wards
@@ -1078,6 +1078,43 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   | 31 | Plague Doctor | 45 (49) | 1 (0 / 1) [0] | 0 (0) | 376 (369) |
   | 31 | Sin-Eater | 46 (48) | 0 [0] | 0 (0) | 370 (372) |
   | 31 | **all five** | 233 (246) | 1 (0 / 1) [0] | 0 (0) | 370 (368) |
+
+- **8 November. 1.0.0b18.1 merged in, and J19 run again over both** (at the owner's word, who asked that its work go out
+  with 1.0.0b19; by track D's agent). `claude/funny-lamport-onhkrp` (steps 1-8 of docs/PLAN-b18-1.md, harness only) merged with
+  `--no-ff` into this branch without a conflict (`e8169e0`), as its trial merges had said; one line its section 14 asked for
+  added after (`4808d0f`): `wraith_cornered` never lands the Wraith inside a lit soul-lamp's ward. None of 17.2's lists is
+  touched by it. **The runs**, this branch's side only, the 1.0.0b18 runs above standing as the baseline (the same binary,
+  seeds and settings; a run cut short is the same as the first part of a longer one): from level 1, sixteen seeds (1-31 odd) for
+  each of the five classes, 3,000 s; from level 31, track D's eight seeds a class, 1,500 s. **From level 1**: 511 levels cleared
+  and 78 deaths, against 1.0.0b18's 495 and 94 and the combat work alone's 500 and 92; a level's median 353 s (355). By class
+  (the combat alone, then 1.0.0b18): the Witchfinder 7 (8, 4), the Anatomist 18 (22, 14), the Galvanist 18 (25, 16), the Plague
+  Doctor 21 (32, 52), the Sin-Eater 14 (5, 8). So with both, the Anatomist's and the Galvanist's losses are inside the noise, the
+  Plague Doctor's gain holds, and the Sin-Eater's two halves moved the other way (one more sign that eight or sixteen seeds a
+  class carry a third or more either way). Deaths on level 1 fell to 3 (11 and 13). Of 298 trials begun the dream won 220, lost 22 and
+  died in 49 (216, 19 and 54 for 1.0.0b18), took every reward and drank 176 draughts. **From level 31**: 114 levels cleared
+  (110, 114), no deaths in any; the dream offered souls at a lamp 116 times, lit 80, and the Wraith was held at an edge 10 times
+  and driven out 5. **A fault found there, of 1.0.0b18.1's**: one lamp lit while the Wraith was already stepping in let it finish
+  the step and stand inside, where nothing drove it out (`EVENT ward_breach`, seed 23, the Plague Doctor, level 32). Replayed to
+  the line and mended (`c183123`): a step whose cell a lamp bars turns back to where it came from; the replay holds at the edge,
+  and six runs with lamps lit from the start and the Wraith at 20 s (`CRAWL_WARDLIT=5 CRAWL_WRAITH=20`, one under ASan) show no
+  breach. The runs from level 1 end before the Wraith's levels, and from 31 only that run could have gone otherwise. Stalls: four
+  runs of the eighty from level 1 (thirteen and seven), four of the forty from 31 (three and seven), none past 41 s. **ASan** on the
+  merged build: 1.0.0b18.1's three sessions (a trial peeked at, which began nothing, and walked into; the ward with the Wraith at
+  12 s; a scripted pad taking over and opening the look) and a dream from level 21 for 600 s: clean. The heads and treasure on a
+  level weren't counted again. CI (the Build workflow, by hand) passed at `98013d1`, before the merge; the release's own run will
+  show the merged build's. **J19 is done** over 1.0.0b19 as it goes out.
+
+  | Class | Cleared | Deaths | A level's median, s |
+  |---|---|---|---|
+  | Witchfinder | 106 (105) [107] | 7 (8) [4] | 347 (355) [343] |
+  | Anatomist | 99 (101) [104] | 18 (22) [14] | 358 (361) [355] |
+  | Galvanist | 102 (99) [101] | 18 (25) [16] | 350 (350) [350] |
+  | Plague Doctor | 99 (89) [82] | 21 (32) [52] | 361 (370) [365] |
+  | Sin-Eater | 105 (106) [101] | 14 (5) [8] | 350 (354) [362] |
+  | **all five** | 511 (500) [495] | 78 (92) [94] | 353 (357) [355] |
+
+  *From level 1, the first 3,000 s, sixteen seeds a class: with 1.0.0b18.1 merged in; the combat work alone in brackets; 1.0.0b18 in
+  square brackets. From level 31, 1,500 s on eight seeds a class: 114 (110) [114] levels cleared, no deaths.*
 
 ## Appendix: the owner's guide (7 November), as given
 

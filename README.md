@@ -1193,18 +1193,17 @@ work branch, by a run started by hand.
   their elements reach it about once a level; it steps off most charges' lanes and spews' cones it sees, and was
   knocked down by a charge 147 times in sixteen runs from level 1. Someone who fights close, or stands in the cold or
   the bile, will meet far more of all of it; untried.
-* **All of it together** (run before 1.0.0b18.1's parts were merged in; the runs over both are under way), the
-  autopilot from level 1 on sixteen seeds for each of the five classes a fresh run can be given, its first 3,000
-  seconds (about eight levels), against 1.0.0b18 on the same runs: 500 levels cleared and 92 deaths, against 495 and
-  94, a level about six minutes either way. The classes move. The Plague Doctor died 32 times (52), nearer the others
-  at last, since poison now bites the dead as hard as any element; the Anatomist 22 (14), on both halves of the seeds,
-  most likely because a frost hit now slows a creature by a fifth where it halved its pace; the Galvanist 25 (16),
-  nearly all of it on one half of the seeds; the Witchfinder 8 (4) and the Sin-Eater 5 (8). On half the seeds the runs
-  went on to 6,000 seconds, past the knight's level: 136 deaths against 122, 82 of them on his level (64), the knight
-  beaten 15 times (19). From levels 11, 21 and 31, on those eight seeds a class for 50 minutes: two deaths in 120 runs
-  (none) and as far as before, but for a twentieth fewer levels from 31, where the dead's strengths are about three
-  times what the wards were. The knight's level and the deeper starts were not run on the other half of the seeds.
-  Untuned: that waits for someone to play it.
+* **All of it together**, with 1.0.0b18.1's parts below: the autopilot from level 1 on sixteen seeds for each of the
+  five classes a fresh run can be given, its first 3,000 seconds (about eight levels), against 1.0.0b18 on the same
+  runs: 511 levels cleared and 78 deaths, against 495 and 94, a level about six minutes either way. The Plague Doctor
+  died 21 times (52), nearer the others at last, since poison now bites the dead as hard as any element. The
+  Witchfinder died 7 times (4), the Anatomist 18 (14), the Galvanist 18 (16) and the Sin-Eater 14 (8): inside the
+  noise of so few runs, which has moved a class's deaths by half between batches. From level 31, on eight seeds a
+  class for 25 minutes: no deaths either way, and as far as before. Before 1.0.0b18.1's parts were merged in, half the
+  seeds were run to 6,000 seconds, past the knight's level: 136 deaths against 122, 82 of them on his level (64), the
+  knight beaten 15 times (19); and from levels 11, 21 and 31 for 50 minutes, two deaths in 120 runs (none) and as far
+  as before, but for a twentieth fewer levels from 31, where the dead's strengths are about three times what the wards
+  were. Untuned: that waits for someone to play it.
 * **The trial's door, the reward, the bells, the lamps, the wheels at the merchant's, the controller laid out and the
   props' footprints** (first built as 1.0.0b18.1, and merged in without a conflict): the door's fault reproduced on
   1.0.0b18 (a step into the Vigil's room, and the caster could not move for the trial's whole minute while its dead
@@ -1212,8 +1211,9 @@ work branch, by a run started by hand.
   harness, the layout by a pretend controller scripted into it (a trade, the defaults, the look from play, the layout
   saved, an old setting read); no real controller has touched it. The lamps held the Wraith at their edge for a
   scripted person and for the autopilot, which offers its souls at them. The bells, the lamps, the controller's
-  drawing and the footprints were approved by the author on sheets first. AddressSanitizer clean on every step's
-  sessions, and again over the merged build.
+  drawing and the footprints were approved by the author on sheets first. The joint checks found one fault of the
+  lamps', mended: a lamp lit while the Wraith was already stepping into its ground let it finish the step and stand
+  inside; it now turns back. AddressSanitizer clean on every step's sessions, and again over the merged build.
 * **A fault mended on the way**: a Wraith driven back into a corridor's end with a locked door at its back stood
   there for ever, and the autopilot, blocked by it, drove it back until its souls ran out (about one run in four from
   level 11). Driven into a corner now, it goes into the stone and comes again from the far end of the level.
