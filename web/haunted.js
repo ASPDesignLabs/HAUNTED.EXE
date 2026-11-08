@@ -398,7 +398,25 @@
   const PAD_ORDER = ["LS", "RS", "A", "B", "X", "Y", "LB", "RB", "LT", "RT", "UP", "DOWN", "LEFT", "RIGHT", "VIEW", "MENU"];
   const PAD_SAY = ["Left stick, clicked", "Right stick, clicked", "A", "B", "X", "Y", "Left bumper", "Right bumper", "Left trigger",
                    "Right trigger", "D-pad up", "D-pad down", "D-pad left", "D-pad right", "View", "Menu"];
-  function padSprint() { const v = store.get("prefs"); try { return v ? fromB64(v)[0] : -1; } catch (e) { return -1; } }
+  // The prefs are the pad's layout since 1.0.0b18.1 ("HVQ1", a version, each button's job, flags, the turning; job 8 is the
+  // sprint), or before it a single byte, the sprint's button.
+  function prefsBytes() { const v = store.get("prefs"); try { return v ? fromB64(v) : null; } catch (e) { return null; } }
+  function isLayout(b) { return b && b.length >= 23 && b[0] === 72 && b[1] === 86 && b[2] === 81 && b[3] === 49; }
+  function padSprint() {
+    const b = prefsBytes();
+    if (!b) return -1;
+    if (!isLayout(b)) return b[0];
+    for (let i = 0; i < 16; i++) if (b[5 + i] === PADB.LS) return i;
+    return -1;
+  }
+  function setPadSprint(ps) {                                    // the sprint onto that button, its job traded to the sprint's
+    const b = prefsBytes();
+    if (!isLayout(b)) { store.set("prefs", toB64(new Uint8Array([ps]))); return; }
+    const cur = padSprint();
+    if (cur < 0 || ps === PADB.VIEW || ps === PADB.MENU) return;   // View and Menu keep their own
+    const t = b[5 + ps]; b[5 + ps] = b[5 + cur]; b[5 + cur] = t;
+    store.set("prefs", toB64(b));
+  }
   function showValues() {
     $("volume-v").textContent = form.volume.value;
     $("music-v").textContent = form.music.value;
@@ -437,7 +455,7 @@
     store.set("settings", JSON.stringify(s));
     const ps = +form.sprint.value;
     flushSlots();
-    if (ps !== padSprint()) store.set("prefs", toB64(new Uint8Array([ps])));
+    if (ps !== padSprint()) setPadSprint(ps);
     importing = true;                                            // nothing more from this run's memory: it boots again
     location.reload();
   });

@@ -10,6 +10,15 @@ face and the cat merchant were traced from the owner's photographs).
 Current release: **1.0.0b18** (pre-release, November 2026). Project page:
 https://aspdesignlabs.github.io/HAUNTED.EXE/ · repo: `ASPDesignLabs/HAUNTED.EXE`.
 
+**1.0.0b18.1** comes first, an update of its own at the owner's word (7 November), planned in
+[`docs/PLAN-b18-1.md`](docs/PLAN-b18-1.md) and settled in one round, being built on `claude/funny-lamport-onhkrp` from main
+at 1.0.0b18 while PLAN-combat's two tracks build 1.0.0b19 on theirs: the trial's door that shut on a person half in its doorway,
+the wheels at the merchant's, a reward left in a trial's room, the bell puzzles' bells told apart, a soul-lamp that bars the
+Wraith from a challenge, the controller laid out by the player (View and Menu together to look at it), and props that take
+half a cell or a quarter by their art. It changes none of the functions PLAN-combat's section 17.2 gives either track; its
+section 10 lists what it touches beside them, and its sections 14 and 15 are the merge notes and the hand-off log: read them
+first.
+
 The next planned work (themes every five levels, wall tiles, enemies, bosses, bonus levels) is written
 up in [`docs/PLAN-descent.md`](docs/PLAN-descent.md). The creatures, their colour ranks and the order
 in which creatures and decorations appear are in [`docs/PLAN-bestiary.md`](docs/PLAN-bestiary.md),
@@ -321,7 +330,7 @@ Environment for the harness: `HOST_INPUT="1:+H;4.3:-H;5:+W;7:-W;8:m400,0;9:+MOUS
 as in `core.h` without `KEY_`, so `CONSOLE`, `BACK`, `PGUP`, `PGDN` too),
 `HOST_LOAD=file` (the progress to start from: a run, or the page it names; stands in for the registry),
 `HOST_SAVE=file` (the progress, each time the game writes it), `HOST_SLOTS=dir` (the ledger's pages as
-`slot1.bin`..`slot3.bin`, the dead's mark as `mark.bin`, the pad's sprint button as `prefs.bin`), `BOTH=1` (scene rotation), `STAY=n`. A game
+`slot1.bin`..`slot3.bin`, the dead's mark as `mark.bin`, the pad's layout as `prefs.bin`), `BOTH=1` (scene rotation), `STAY=n`. A game
 controller in `HOST_INPUT`: buttons `+PAD_A` ... `-PAD_RT` (names as `PAD_*` in `core.h`), sticks `aLX0.8`,
 `aLY1`, `aRX-0.5`, `aRY0` (y up); any of them makes a pad plugged in. The harness prints `RUMBLE lo hi`
 and `RUMBLE off` as the motors start and stop. `M` is the map's key (1.0.0b9).
@@ -628,7 +637,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   Esc, Y Space, the bumpers A/D, View Tab; in play A is E, X Q, Y L, D-pad up M (the map, 1.0.0b9), View Tab, Menu Esc,
   D-pad left/right/down B/C/H, RT and LT the mouse buttons, the bumpers the wheel, B Swift Dodge by the
   stick's lean (`PADX.dodge`, done in `update_human`), the sprint's button toggles the sprint (`PADX.run`; the left
-  stick click unless a person chose another, below); `human_walk`
+  stick's click at first: since 1.0.0b18.1 a person lays out every job but View's and Menu's, the 1.0.0b18.1 bullet below); `human_walk`
   adds the sticks (`pad_turn`, `PAD_TURN`). What was held at the takeover counts once let go
   (`PADX.held`), and a direction that opened a menu isn't its first move (`PADX.menu`). `PADX.used` (the
   pad touched last, a key or the mouse turning it back) makes `pk` turn a hint's keys into buttons
@@ -876,8 +885,9 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   format above; the gear is packed field by field, so adding to `Gear` means adding to
   `gear_pack`/`gear_unpack` and a new version that still loads the old ones; `REC_KINDS` is fixed at 24
   because the record is packed by it). The app keeps `SLOT_ALL` slots (`core.h`): the three pages, then
-  `SLOT_PROGRESS`, `SLOT_MARK` and `SLOT_PREFS` (1.0.0b15: a byte, the pad's sprint button; the registry's DWORD
-  `PadSprint`, which the settings dialog shows too); the platform loads them all before the first scene and writes any the
+  `SLOT_PROGRESS`, `SLOT_MARK` and `SLOT_PREFS` (the pad's layout since 1.0.0b18.1, `PL_BYTES`: "HVQ1", a version, each button's
+  job, flags, the turning; the registry's binary `PadMap`, with the DWORD `PadSprint` beside it for the settings dialog; 1.0.0b15's
+  single byte, the sprint's button, still reads); the platform loads them all before the first scene and writes any the
   game changed after each step (the registry's `Slot1`-`Slot3`, `Progress` and `Mark`; `SLOT_MAX`
   16 KB). Nothing is written on quitting: fleeing keeps only what is signed. `LEDGER` lasts while the
   program runs: `yours` (a person has taken over: the screensaver's dream is over; sleepwalking doesn't
@@ -1165,7 +1175,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   pz_solved`, `thing`, `msg_found`, `bshrine_found`, `bshrine_show`. `make sheets` draws `hazards.png`, `puzzles.png`
   and `documents.png`. *Trials* (step 5): `G.tri` (`TRI_*`, `TRI_RUN`, `tri_kind_of`) in a one-door room chosen as the wing is
   (`mz_vault`, `mz_max`; `G.tri_room`, `G.tri_door`, drawn `T_TRDOOR`, `SP_TRLIGHT0` by it, `in_trial`), placed by `tri_place`;
-  `update_trial`: a cell inside, `tri_begin` (`Door.locked` `TRIALED`, `tri_turn`'s faces, `tri_floor`'s water, `fog_tint`,
+  `update_trial`: `TRI_IN` (1.5 cells) past the door's middle with the body clear of its cell (1.0.0b18.1; one cell in, it
+  had shut on a person half in the doorway), `tri_begin` (`Door.locked` `TRIALED`, `tri_turn`'s faces, `tri_floor`'s water, `fog_tint`,
   `snd_set_trial`, the kind's creatures `tri_spawn`/`tri_wave` with `Mob.tri`, things `tri_thing` with `Thing.tri`),
   `tri_run`, `tri_end` (`G.tri_boon`: the boon in `xp_kill`, the curse in `xp_gain`, the tally's note). Slow things:
   `Thing.slow` in tenths of a second, `G.work_i`, `update_work`. The hourglass: `crawl_hourglass`, `render_trial`,
@@ -1186,8 +1197,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   waits and fills the whole meter (`sprint_recovery`: 1.5 s and 3.5 s, a quarter off each for each whole hundred of
   health past 200, to 0.25 and 0.75; the owner's SP2 b); run dry, `G.spr_dry` until Shift is let go, and
   `SFX_BREATH`; the arrow keys' quicker turn with Shift stays free; `render_sprint` (a slim bar over the status bar's
-  edge while it isn't full). Esc's question has `Q_PAD` while a pad is in (`quit_rows`; `PADX.bind`: every button let
-  go, then the one pressed, `pad_sprint_set`); in play that button and the left stick click trade jobs (`pad_keys`).
+  edge while it isn't full). Esc's question has `Q_PAD` while a pad is in (`quit_rows`): since 1.0.0b18.1 it opens the
+  controller's screen, where the sprint is one job among the rest (the 1.0.0b18.1 bullet below).
   Two new stats at the end, `ST_SPRINT` (seconds, on boots, cap 7.5 over the base) and `ST_PHYSIC` (on robes and
   amulets, cap 400: `potion_heal`, 25 times one and it), and two lines at the end of `LINES` (`LN_SPRINT`, `LN_PHYSIC`, a
   point a step, no overlevels: `line_overs`); the ascend screen shows fourteen lines and scrolls; Tab's caster page
@@ -1621,6 +1632,71 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   exit wisp has a pale gold halo, and the altar's fire burns with a white edge (`DR_EDGE`). The debug
   build logs `EVENT altar at`, `wakes`, `altar wisp home`, `altar sends price=`, `blesses`, `anoints` and
   `turned`.
+- **1.0.0b18.1** (docs/PLAN-b18-1.md; its log is section 15). *The trial's door* (step 1): a door that seals itself (`SEALED`,
+  `TRIALED`, `GATED`) never shuts while the caster's box is over its cell (`door_body`, in `update_doors` and `mk_door_busy`;
+  it had tested the centre only, and a person who had put a step into a trial's room stood with a quarter of a cell over the
+  door, which shut and held them till the sand ran out); a trial begins `TRI_IN` past its door; and `unstick` (at the head of
+  `human_move`) sets a caster caught in anything solid where it fits, the nearest place within a cell (`EVENT unstuck`).
+  *The wheels in her rooms* (step 2): the frame's gate is `!G.ui`, not `!G.shop`; a ware is held on Q's release when Q was only
+  tapped (`shop_hold`, from `wheel_input`); `shop_human` waits while a wheel is up or fading (`WH.k`), and her cards and tags
+  step aside (`render_shop_card`, `render_shop_tags`). Debug: `CRAWL_TPPED=k` (before her pedestal k), `EVENT shop_hold`,
+  `EVENT ready_next`. *The trial's reward* (step 3): a win no longer restores health at once; `tri_reward` leaves a hoard (the
+  run's chest, `3 x treasure_value(IT_CHEST)`, `Item.secret` so out of the level's count) and a draught in the room's middle
+  (`tri_reward_spot`: free floor in sight of the door, not under the caster), both marked `Item.color` `TRI_REWARD`
+  (`tri_reward_at`). The hoard is drawn full bright with a gold edge (`DR_EDGE` with a ramp in `Draw.glint`, which colours the
+  edge) and its own light; the draught makes you whole and cures poison (`collect`), and waits in `update_items` while you are
+  whole. The tally notes it under TREASURE, the reckoning says if it still lies there, and the Codex's trial page says so.
+  Debug: `CRAWL_TRIWIN=s` (a trial won s seconds in), `EVENT trial_reward`, `trial_hoard`, `draught`. *The sheets* (step 4, for
+  the owner): the bell puzzles' four bells (`spr_pbell`, `bell_body`, `cut_numeral`, `cv_swing`; `SP_PBELL0..3`, swung
+  `SP_PBELL0R..3R`), run II's dead bell (`spr_bell_dead`, `SP_BELL_DEAD`; `spr_deadbell` is her hall's Dead Bell, another
+  thing) and the soul-lamp by run (`spr_wlamp`, `SP_WLAMP0 + 3 x run + state`), in the `SP_*` enum after the things that want a
+  spell; `make sheets`' `b181bells` and `b181lamps`, kept as `docs/b18-1/bells.png` and `lamps.png`; approved. *The bells* (step
+  5): the knell's and the drowned bells' are `SP_PBELL0 + k`, drawn rung (`SP_PBELL0R + k`, then mirrored) for 0.8 s after a
+  strike; their names and readings carry the numerals (THE LEAST BELL (I)); run II's hanging bell is `SP_BELL_DEAD`, still.
+  The Toll keeps `SP_BELL`. Debug: `CRAWL_PZTHINGS=1`, `CRAWL_TPAT=x,y,deg`. *The ward* (step 6): `ward_make` (end of `start_level`'s placements; only on levels the Wraith comes to) lays a
+  ground for each trial (its room), puzzle (its wing, and two steps round its door and pieces) and sequence (two steps round its
+  pieces), a ring of a cell round each, as a bit a lamp in a static `WD` (not `G`: a pocket leaves it be), and hangs a soul-lamp
+  (`WLamp`, a decoration) on bare stone near it, never inside what it guards. E facing one (`ward_facing`, after a puzzle's
+  piece) offers a soul (`ward_offer`): two minutes, five banked; the clock burns only while the Wraith is on the level
+  (`ward_tick`, before the player moves). Lit, its cells are stone to the Wraith (`wraith_barred` in `update_wraith`'s step;
+  `wraith_h` reads `ward_field`, made each half second, from you round the wards, or from the ward's edge by its distance to
+  you when you are inside); one lit on it is driven out (`ward_step_out`); it never comes into being inside. Seen: `FM_WARD`
+  (`ward_marks` in `hz_marks`), `ward_pips` (from `render_marks`), `ward_lights`, the map's wash. The dream lights one from
+  inside its ground (or by a trial's lamp) when the Wraith has come or is due within a minute, from 15 spirit, never under 10.
+  The names `warded`, `ward_cracked`, `ward_give`, `ward_str` are still the warded creatures', `ward_shards` the Bone Ward's.
+  Debug: `CRAWL_LAMPS=0` (not `CRAWL_WARD`, the warded creatures'), `CRAWL_WARDLIT=n`, `CRAWL_TPWARD=k`, `CRAWL_WARDMAP=1`, `CRAWL_WARDTRACE=1`, `WARD level n:`, `EVENT
+  ward_offer`, `ward_lit`, `ward_out`, `ward_held`, `ward_driven`, `ward_breach` (never, or a fault). *The controller* (step 7;
+  its sheet `docs/b18-1/pad.png`, approved): `ui_pad` (`UiPad`, `UI_PAD_NAME`) at the end of `src/crawl_ui.c` draws the pad,
+  each button's job on a leader, the chosen one lit, the options, the jobs to trade and the look; `build/uisheet pad <png>` (in
+  `make sheets`) draws it and fails on any overflow. The layout is `PL` (`job[b]`: the job button b has, a job named by the
+  button it began on, so `job[b] == b` is the first layout; `swap`, `quiet`, `turn` in tenths): `pl_read` (SLOT_PREFS, or 1.0.0b15's
+  byte, the sprint traded onto that button), `pl_write`, `pl_trade` (never View or Menu, `pl_fixed`), `pl_on(job)` the button a
+  job is on; `pad_sprint` is `pl_on(PAD_LS)`. `pad_keys` applies it in play after the map's own D-pad and B (menus keep A, B and
+  the D-pad as they were, their stick `PL.mstick`: left, right or either): each button's `dn`/`hit` go to its job, and from there on
+  a `PAD_*` names a job; the sticks are swapped in play only; `pad_turn` takes `PL.turn`, `rumble` keeps quiet with `PL.quiet`. A
+  wheel is pointed with the free hand's stick (`pad_hand`, `PADX.w_hand` for the D-pad's jobs, `q_hand` for X's, the sticks as they
+  are in `PADX.plx..pry`): a D-pad held, the right; X held, the left; and X held holds Q down, so it opens the runes' wheel. View and Menu act when let go,
+  unless the other came within 0.15 s (`PADX.vm_*`): the pair toggles the look (`PADX.look`; `pad_look_tick` after `con_update`
+  holds the crypt, `pad_look_render` before `con_render`; B, Menu, the pair again or Esc puts it away). The screen is `UI_PAD`
+  from Esc's `Q_PAD` row (`pad_menu_open`, `update_padmenu`, `render_padmenu`; `PS`: the chosen thing on `PS_GRID`, the jobs'
+  list `PJ_LIST` that trades, the options `PO_*`, the defaults asked twice). The hints read it: `pk` gives E, Q, L, CLICK, M, 1-9
+  and RIGHT-CLICK the button their job is on in play (`PK_JOB`), and the controls card's pad lines are built from it (`pad_short`).
+  Windows keeps `PadMap` (binary) and `PadSprint` (for the settings dialog, whose choice is traded in on loading); the browser's
+  page reads and trades the sprint in the same record (`web/haunted.js`); the harness prints it on `PREFS`. Debug: `EVENT pad_trade`,
+  `pad_keep`, `pad_option`, `pad_look`; `CRAWL_PADTRACE=1` (where you are, your angle and the sticks, twice a second). *Footprints* (step 8; its sheet `docs/b18-1/footprints.png`,
+  approved; frames `footprint-frames.png`): `crawl_foot[NSPR]` (each sprite's foot, the lowest eighth of its drawn rows, measured
+  at the end of `crawl_art_level`), `crawl_prop_foot` (a prop's widest frame or look), `crawl_foot_part` (`FOOT_WHOLE` from 45 texels,
+  `FOOT_HALF` from 29, `FOOT_QUARTER`), in `crawl_art.c`. While `dress_level` lays a level (`g_foot`; its old body is
+  `dress_level_props`), `solid_prop` gives a `K_PROP` prop that part of its cell against a wall it stands by (a hash, not `rnd`; none
+  in the open, on a lane or in the arena's band), as a mask in `G.foot` (1 -x -y, 2 +x -y, 4 -x +y, 8 +x +y); the cell keeps its
+  kind, the decoration and its light stand at the part's middle (`prop_lx/ly`), and `deco_look` keeps the cell's look. `foot_of`,
+  `foot_hit`; `blocks_move` and `hunt_pass` let the dead through, `body_blocked` tests the caster's box corners against the quarters;
+  `passable` and every floor test still refuse it. `cell_pass` (the free part's middle) is where `update_mob`'s walk and dodge,
+  `update_ally` and `update_wraith` aim; `foot_settle` (head of `crawl_update`) sets one born at such a cell's middle into its free
+  part (`spawn_mob` is track D's). `place_gargoyles` makes a plinth whole again. The rooms' treasure and the potion may lie in
+  the free part (`part_spot`, `part_lay`); `mk_free` and `pz_free` were not taught. The map draws the mark in its part. Debug:
+  `CRAWL_FOOT=0`, `FOOT level n: ...`, `CRAWL_FOOTLIST=1`, `EVENT foot_pass`, `foot_brush` (`foot_watch`), `part_item`, `part_taken`;
+  the debug map's `f`.
 
 ## Releasing
 

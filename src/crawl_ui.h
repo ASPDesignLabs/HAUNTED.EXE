@@ -116,4 +116,23 @@ typedef struct {
 } UiTree;
 void ui_tree(Frame *f, const UiTree *tr);
 
+/* the controller (docs/PLAN-b18-1.md section 7): the pad drawn in the stone, each button's job on a leader to it, the left
+ * hand's on the left; its screen (a button chosen, its options, the jobs to trade) and the look (as bound, nothing chosen) */
+typedef struct {
+    const char *job[PAD_COUNT], *hold[PAD_COUNT];  /* each button's job and its job held, short; 0: nothing, no hold */
+    int fixed;                                     /* bit b: a button that can't be moved (View, Menu) */
+    int sel;                                       /* the button chosen, PAD_*; -1 none */
+    const char *opt[5];                            /* the options' words, three down the left (sticks, turning, the menus' stick) and two
+                                                      down the right (rumble, the defaults); opt[0] 0: none (the look) */
+    int opt_sel;                                   /* the option chosen, -1 none */
+    const char *const *list;                       /* the jobs to trade, open: names, and the button each is on (PAD_*, -1) */
+    const int *list_on;
+    int nlist, list_sel;
+    const char *title, *about, *keys;              /* about: the chosen thing's words across the foot */
+    int about_col;                                 /* 0: the stone's */
+    float t;
+} UiPad;
+extern const char *const UI_PAD_NAME[PAD_COUNT];   /* A ... RT, the D-pad as arrows */
+void ui_pad(Frame *f, const UiPad *p);
+
 #endif

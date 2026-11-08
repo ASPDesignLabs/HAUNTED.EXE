@@ -145,6 +145,14 @@ static const Group GROUPS[] = {
       { { SP_LIGHT_A, "WALK A" }, { SP_LIGHT_B, "WALK B" }, { SP_LIGHT_STRIKE, "STRIKE" }, { SP_LIGHT_LISTEN, "LISTENING" }, { SP_LIGHT_D, "SHATTERED" }, { -1, 0 } } },
     { "sides5", "SIDE VIEWS: THE NEW KINDS", -1, 1,
       { { SP_WHIP_SA, "WHIPPER-IN A" }, { SP_WHIP_SB, "B" }, { SP_SEXTON_SA, "SEXTON A" }, { SP_SEXTON_SB, "B" }, { SP_LIGHT_SA, "LIGHTLESS A" }, { SP_LIGHT_SB, "B" }, { -1, 0 } } },
+    /* 1.0.0b18.1 (docs/PLAN-b18-1.md, sections 5 and 6): the bell puzzles' bells and run II's dead bell; the soul-lamp by run */
+    { "b181bells", "1.0.0B18.1: THE BELL PUZZLES' FOUR BELLS, STILL AND RUNG; RUN II'S DEAD BELL", -1, 1,
+      { { SP_BELL, "TODAY'S" }, { SP_PBELL0, "I SILVER" }, { SP_PBELL1, "II BRONZE" }, { SP_PBELL2, "III IRON" }, { SP_PBELL3, "IV BLACK" },
+        { SP_PBELL0R, "I RUNG" }, { SP_PBELL1R, "II RUNG" }, { SP_PBELL2R, "III RUNG" }, { SP_PBELL3R, "IV RUNG" }, { SP_BELL_DEAD, "DEAD BELL" }, { -1, 0 } } },
+    { "b181lamps", "1.0.0B18.1: THE SOUL-LAMP BY RUN: OUT, LIT (TWO FRAMES)", -1, 1,
+      { { SP_WLAMP0, "I OUT" }, { SP_WLAMP0 + 1, "I LIT" }, { SP_WLAMP0 + 2, "I LIT B" }, { SP_WLAMP0 + 3, "II OUT" }, { SP_WLAMP0 + 4, "II LIT" },
+        { SP_WLAMP0 + 5, "II LIT B" }, { SP_WLAMP0 + 6, "III OUT" }, { SP_WLAMP0 + 7, "III LIT" }, { SP_WLAMP0 + 8, "III LIT B" },
+        { SP_WLAMP0 + 9, "IV OUT" }, { SP_WLAMP0 + 10, "IV LIT" }, { SP_WLAMP0 + 11, "IV LIT B" }, { -1, 0 } } },
     { "b6", "1.0.0B6: FOR APPROVAL", -1, 1,
       { { SP_DOUBLE, "BLINK'S DOUBLE" }, { -1, 0 } } },
     { "b7", "1.0.0B7: FOR APPROVAL", -1, 1,
@@ -1731,6 +1739,141 @@ static int draw_marked3(const char *path) {
     return ok;
 }
 
+/* ---- 1.0.0b18.1: footprints (docs/PLAN-b18-1.md section 8): every prop with the part of its cell its art gives it ---- */
+
+typedef struct { int spr, nfr, level; const char *name, *runs; } FootProp;
+static const FootProp FOOT_RULED[] = {                              /* dress_level's props, which the rule takes */
+    { SP_TOMB_ROUND, 1, 5, "A ROUND STONE", "I AND II" }, { SP_TOMB_ROUND_2, 1, 5, "ITS OTHER LOOK", "I AND II" },
+    { SP_TOMB_CROSS, 1, 5, "A CROSS", "I AND II" }, { SP_TOMB_CROSS_2, 1, 5, "ITS OTHER LOOK", "I AND II" },
+    { SP_TOMB_OBELISK, 1, 5, "AN OBELISK", "I AND II" }, { SP_TOMB_OBELISK_2, 1, 5, "ITS OTHER LOOK", "I AND II" },
+    { SP_TOMB_BROKEN, 1, 5, "A BROKEN STONE", "I AND II" }, { SP_TOMB_BROKEN_2, 1, 5, "ITS OTHER LOOK", "I AND II" },
+    { SP_FIREPIT_A, 3, 5, "A FIRE PIT", "I AND II" }, { SP_CANDLESTAND_A, 2, 2, "A CANDLESTAND", "I, LEVELS 1-2" },
+    { SP_BRAZIER_A, 3, 25, "A BRAZIER", "III" }, { SP_CART, 1, 25, "A MINE CART", "III" },
+    { SP_ARMOURSTAND, 1, 25, "AN ARMOUR STAND", "III" }, { SP_ALTAR_A, 2, 25, "A DRAPED ALTAR", "III AND IV" },
+    { SP_CRYSTAL_A, 2, 35, "CRYSTALS", "IV" }, { SP_MAGMA_A, 3, 35, "A MAGMA VENT", "IV" },
+    { SP_OBSIDIAN, 1, 35, "OBSIDIAN", "IV" }, { SP_GARG_PERCH, 1, 35, "A STATUE'S PLINTH", "IV" },
+};
+typedef struct { int spr, nfr, level; const char *name; } FootKept;
+typedef struct { const char *why; FootKept k[8]; } FootRow;
+static const FootRow FOOT_KEPT[] = {
+    { "IN THE WALLS' RANK: THEY HIDE YOU FROM SIGHT (THE DEACON'S TIMBERS FROM HIS LITANY)",
+      { { SP_STALAG, 1, 15, "FLOWSTONE" }, { SP_TOTEM_A, 2, 5, "A TOTEM" }, { SP_TOTEM2_A, 2, 15, "ITS OTHER" }, { SP_MINELAMP_A, 2, 25, "A MINE LAMP" },
+        { SP_PILLAR, 1, 10, "A PILLAR" }, { SP_TIMBER, 1, 30, "A TIMBER" }, { -1, 0, 0, NULL } } },
+    { "THINGS WITH A USE: FACED, LIT AND WATCHED WHERE THEY STAND (PUZZLES', TRIALS' AND HAZARDS' THINGS TOO)",
+      { { SP_BALTAR, 1, 15, "BLACK ALTAR" }, { SP_BSHRINE, 1, 15, "BLACK SHRINE" }, { SP_COOLER, 1, 25, "THE COOLER" }, { -1, 0, 0, NULL } } },
+    { "HER ROOMS AND THE ARENAS, LAID BY HAND",
+      { { SP_LECTERN, 1, 1, "LECTERN" }, { SP_HEXTOTEM, 1, 1, "HEXED TOTEM" }, { SP_LAMPSTAND, 1, 1, "LAMPSTAND" }, { SP_DBELL, 1, 1, "DEAD BELL" },
+        { SP_FONT, 1, 1, "THE FONT" }, { SP_TOMB_FRESH, 1, 1, "HER PLOT'S" }, { SP_DESKS, 1, 25, "DESKS" }, { -1, 0, 0, NULL } } },
+};
+static const int FOOT_RGB[3][3] = { { 186, 66, 54 }, { 218, 172, 76 }, { 112, 182, 98 } };   /* whole, half, a quarter */
+static const char *const FOOT_WORD[3] = { "WHOLE", "HALF", "A QUARTER" };
+static const char *const FOOT_WHERE[3] = { "OF THE CELL", "BY ITS WALL", "IN A CORNER" };
+
+static void foot_spr(int ox, int oy, int spr, int k) {               /* a sprite at k pixels a texel, near a torch, on a dark plate */
+    rect(ox, oy, TS * k, TS * k, 22, 21, 24);
+    for (int y = 0; y < TS * k; y++)
+        for (int x = 0; x < TS * k; x++) {
+            uint8_t c = crawl_spr[spr][(x / k) * TS + y / k];
+            if (c == C_CLEAR) continue;
+            c = crawl_cmap[LIGHT][c];
+            put(ox + x, oy + y, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+        }
+}
+static void foot_span(int spr, int *x0, int *x1, int *y0, int *y1) { /* its foot, as crawl_art measures it */
+    const uint8_t *s = crawl_spr[spr];
+    int top = TS, bot = -1;
+    *x0 = TS; *x1 = -1;
+    for (int x = 0; x < TS; x++) for (int y = 0; y < TS; y++) if (s[x * TS + y] != C_CLEAR) { if (y < top) top = y; if (y > bot) bot = y; }
+    if (bot < 0) { *x0 = *x1 = *y0 = *y1 = 0; return; }
+    *y1 = bot; *y0 = bot - (bot - top + 8) / 8 + 1;
+    for (int x = 0; x < TS; x++) for (int y = *y0; y <= bot; y++) if (s[x * TS + y] != C_CLEAR) { if (x < *x0) *x0 = x; if (x > *x1) *x1 = x; }
+}
+static void foot_cell(int ox, int oy, int n, int part, int w) {   /* the cell from above: its wall(s), the part taken, the foot in it */
+    const int *c = FOOT_RGB[part];
+    rect(ox, oy, n, n, 40, 38, 44);
+    int tw = part == FOOT_WHOLE ? n : (part == FOOT_HALF ? n : n / 2), th = part == FOOT_WHOLE ? n : n / 2;
+    rect(ox, oy, tw, th, c[0] / 3, c[1] / 3, c[2] / 3);
+    int fw = w * n / TS, fy = oy + th / 2;
+    rect(ox + tw / 2 - fw / 2, fy - 1, fw, 3, c[0], c[1], c[2]);
+    if (part != FOOT_WHOLE) rect(ox, oy - 4, n, 4, 110, 104, 112);   /* the wall it stands by */
+    if (part == FOOT_QUARTER) rect(ox - 4, oy - 4, 4, n + 4, 110, 104, 112);
+    for (int i = 0; i < n; i++) { put(ox + i, oy + n - 1, 70, 66, 74); put(ox + n - 1, oy + i, 70, 66, 74); if (part == FOOT_WHOLE) { put(ox + i, oy, 70, 66, 74); put(ox, oy + i, 70, 66, 74); } }
+}
+static int draw_footprints(const char *path) {
+    enum { M = 12, TW = 156, TH = 232, COLS = 6, KW = 104, KH = 108 };
+    int nr = (int)(sizeof FOOT_RULED / sizeof FOOT_RULED[0]), rows = (nr + COLS - 1) / COLS;
+    int nk = (int)(sizeof FOOT_KEPT / sizeof FOOT_KEPT[0]);
+    iw = M * 2 + TW * COLS; ih = 92 + rows * TH + 30 + nk * (KH + 22) + M;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 12, 11, 14);
+    textk(M, M, "1.0.0B18.1: FOOTPRINTS, BY EACH PROP'S ART", 2, 230, 220, 200);
+    textk(M, M + 24, "ITS FOOT: HOW WIDE THE LOWEST EIGHTH OF ITS DRAWN ROWS IS, AS A SHARE OF A CELL (ITS WIDEST FRAME OR LOOK).", 1, 190, 182, 168);
+    textk(M, M + 36, "FROM 0.70 IT TAKES THE WHOLE CELL, AS EVERY PROP DOES TODAY; FROM 0.45 THE HALF BY THE WALL IT STANDS AGAINST, ITS", 1, 190, 182, 168);
+    textk(M, M + 48, "LONG SIDE ALONG IT; UNDER THAT, THE QUARTER IN ITS CORNER. THE REST OF THE CELL IS FLOOR, WALKED AS ANY. IN THE", 1, 190, 182, 168);
+    textk(M, M + 60, "OPEN, WITH NO WALL BESIDE IT, A PROP TAKES THE WHOLE CELL. UNDER EACH, ITS FOOT ON A RULER MARKED AT 0.45 AND 0.70.", 1, 190, 182, 168);
+    for (int i = 0; i < nr; i++) {
+        const FootProp *P = &FOOT_RULED[i];
+        int ox = M + (i % COLS) * TW, oy = 92 + (i / COLS) * TH;
+        crawl_art_level(P->level);
+        int base = P->spr, w = 0, best = P->spr;                     /* the verdict is the prop's: its widest frame or look */
+        for (int k = 0; k < NALT; k++) { int l = k ? crawl_alt[base][k] : base; if (l < 0) break; }
+        int own = 0;
+        for (int f = 0; f < P->nfr; f++) if (crawl_foot[P->spr + f] > own) { own = crawl_foot[P->spr + f]; best = P->spr + f; }
+        int first = P->spr;                                          /* a second look is judged with its first */
+        for (int b = 0; b < NSPR; b++) for (int k = 1; k < NALT; k++) if (crawl_alt[b][k] == P->spr) first = b;
+        w = crawl_prop_foot(first, P->nfr);
+        int part = crawl_foot_part(w);
+        const int *c = FOOT_RGB[part];
+        textk(ox, oy, P->name, 1, 230, 220, 200);
+        textk(ox, oy + 10, P->runs, 1, 140, 134, 150);
+        foot_spr(ox + 6, oy + 22, best, 2);
+        int x0, x1, y0, y1;
+        foot_span(best, &x0, &x1, &y0, &y1);
+        for (int x = x0 * 2; x <= x1 * 2 + 1; x++) { put(ox + 6 + x, oy + 22 + y0 * 2 - 1, c[0], c[1], c[2]); put(ox + 6 + x, oy + 22 + y1 * 2 + 2, c[0], c[1], c[2]); }
+        int ry = oy + 22 + 128 + 4;                                  /* the ruler */
+        rect(ox + 6, ry, 128, 6, 34, 32, 38);
+        rect(ox + 6 + x0 * 2, ry, (x1 - x0 + 1) * 2, 6, c[0], c[1], c[2]);
+        int h45 = FOOT_HALF_W, h70 = FOOT_WHOLE_W;
+        for (int t = -2; t < 10; t++) {
+            put(ox + 6 + 64 - h45, ry + t, 230, 220, 200); put(ox + 6 + 64 + h45, ry + t, 230, 220, 200);
+            put(ox + 6 + 64 - h70, ry + t, 230, 220, 200); put(ox + 6 + 64 + h70, ry + t, 230, 220, 200);
+        }
+        foot_cell(ox + 10, ry + 22, 36, part, w);
+        char buf[32];
+        snprintf(buf, sizeof buf, "%.2f", own / 64.0);
+        textk(ox + 54, ry + 16, buf, 2, c[0], c[1], c[2]);
+        textk(ox + 54, ry + 36, FOOT_WORD[part], 1, c[0], c[1], c[2]);
+        textk(ox + 54, ry + 46, FOOT_WHERE[part], 1, 190, 182, 168);
+        if (P->spr == SP_GARG_PERCH) textk(ox + 6, ry + 62, "WHOLE, ONE PERCHED", 1, 140, 134, 150);
+        else if (w != own) { snprintf(buf, sizeof buf, "ITS OTHER LOOK %.2f", w / 64.0); textk(ox + 6, ry + 62, buf, 1, 140, 134, 150); }
+        (void)base;
+    }
+    int oy = 92 + rows * TH + 6;
+    textk(M, oy, "LEFT AS THEY ARE: THE WHOLE CELL, WHATEVER THEIR ART (THEIR FOOT SHOWN FOR INTEREST)", 1, 230, 220, 200);
+    oy += 24;
+    for (int r = 0; r < nk; r++, oy += KH + 22) {
+        textk(M, oy, FOOT_KEPT[r].why, 1, 190, 182, 168);
+        for (int i = 0; i < 8 && FOOT_KEPT[r].k[i].name; i++) {
+            const FootKept *K = &FOOT_KEPT[r].k[i];
+            int ox = M + i * KW;
+            crawl_art_level(K->level);
+            foot_spr(ox, oy + 12, K->spr, 1);
+            int x0, x1, y0, y1;
+            foot_span(K->spr, &x0, &x1, &y0, &y1);
+            int w = crawl_prop_foot(K->spr, K->nfr);
+            for (int x = x0; x <= x1; x++) put(ox + x, oy + 12 + y1 + 1, 150, 144, 160);
+            textk(ox, oy + 12 + 66, K->name, 1, 210, 200, 186);
+            char buf[16];
+            snprintf(buf, sizeof buf, "%.2f", w / 64.0);
+            textk(ox, oy + 12 + 76, buf, 1, 140, 134, 150);
+        }
+    }
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && !strcmp(argv[1], "list")) {
         for (int i = 0; i < NGROUPS; i++) printf("%-12s %s\n", GROUPS[i].name, GROUPS[i].title);
@@ -1755,6 +1898,7 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "marked3", "1.0.0B16: STEP 8'S THINGS: SEQUENCES, AND THINGS FOR FIGHTS");
         printf("%-12s %s\n", "backs", "1.0.0B18: THE BACKS, KIND BY KIND");
         printf("%-12s %s\n", "minds", "1.0.0B18: THE MINDS SHOWN: BACKS, THE ROOST, THE AMBUSHES' SIGNS");
+        printf("%-12s %s\n", "footprints", "1.0.0B18.1: EVERY PROP WITH THE PART OF ITS CELL ITS ART GIVES IT");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -1887,6 +2031,14 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/marked2.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_marked2(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "footprints")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/footprints.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_footprints(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        crawl_art_level(level < 1 ? 1 : level);
         done++;
     }
     if (!strcmp(argv[1], "all") || !strcmp(argv[1], "hazards")) {

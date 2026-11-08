@@ -501,6 +501,9 @@ enum { TRI_OSSUARY, TRI_VIGIL, TRI_RITES, TRI_WAGER, TRI_TOLL, TRI_WATER, TRI_BR
        TRI_CAVEIN, TRI_FEAST, TRI_RITE, TRI_FIREDAMP, TRI_MOLTEN, TRI_DARK, TRI_COURT, TRI_SINGING, NTRI };
 enum { TRS_SHUT, TRS_ON, TRS_WON, TRS_LOST };   /* not yet gone into; running; won; its sand run out */
 #define TRI_TIME 60.0f
+#define TRI_IN 1.5f                         /* how far past its door's middle a trial begins, the body clear of the door
+                                               (1.0.0b18.1: one cell in, it had shut on a person half in the doorway) */
+#define TRI_REWARD 100                      /* an Item's color: a won trial's hoard or draught (1.0.0b18.1) */
 #define TOLL_T 9.0f                         /* the Toll's great bell, this often */
 typedef struct {
     uint8_t role, nstate, state, wall, on, frames, cap, facing, look, tri, slow;   /* cap: a place that piles more than one; facing: drawn by
@@ -861,6 +864,8 @@ static struct {
     float lm[LMN * LMN];
     Deco decos[MAXDECO]; int ndecos;
     uint8_t bulky[MAPN][MAPN];          /* cells holding something big to walk around */
+    uint8_t foot[MAPN][MAPN];               /* a prop's footprint (1.0.0b18.1): the quarters of a K_PROP cell it takes, 1 -x -y, 2 +x -y,
+                                               4 -x +y, 8 +x +y; 0 the whole cell, as every prop before */
     float fog[MAPN][MAPN];                  /* fog banks, 0..1, thicker the deeper the level */
     uint8_t mapped[MAPN][MAPN];             /* the map: 1 its shape known, 2 been near it (docs/PLAN-b9.md); 4 seen, 8 walked (1.0.0b11) */
     Mob mobs[MAXMOBS];
@@ -1130,7 +1135,7 @@ static float zbuf[W];
 enum { MM_SIGN, MM_ASCEND, MM_OFFER, MM_VOW, MM_PED, MM_WIND, MM_PAT, MM_LEAVE, NMM };   /* the merchant's menu */
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
 #define NINV 6                              /* Tab's pages */
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES, UI_ALIGN, UI_CLASS, UI_HALL2, UI_BSHRINE, UI_RECKON };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES, UI_ALIGN, UI_CLASS, UI_HALL2, UI_BSHRINE, UI_RECKON, UI_PAD };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 static double IN_DT;                        /* and how long the step is */
 static struct {                             /* their game controller, if they have one */
@@ -1144,8 +1149,12 @@ static struct {                             /* their game controller, if they ha
                                                stops leaning forward or the meter runs dry */
     int dodge;                              /* B: Swift Dodge, at dodge_a */
     float dodge_a;
-    int sprint, sprint_read;                /* the button the sprint is on (PAD_*; a person's own, SLOT_PREFS), and read */
-    int bind;                               /* Esc's question choosing it: 1 waiting for every button let go, 2 for the one */
+    int look;                               /* the look (View and Menu together, 1.0.0b18.1): the controller as it is */
+    float look_t, vm_t;                     /* how long it has been up; since View or Menu went down */
+    int vm_p, vm_s;                         /* View (1) and Menu (2) down and waiting for their letting go; spent on the look */
+    float plx, ply, prx, pry;               /* the sticks as they are, before any swap */
+    int w_hand, q_hand;                     /* the hand holding a wheel open, from the D-pad's jobs and from X's: 1 left, 2 right,
+                                               0 a shoulder; the wheel is pointed with the other hand's stick */
     float up_t, dn_t; int up_w, dn_w;       /* the D-pad's up and down held, and whether that opened a wheel (1.0.0b16) */
     int wheel_req, wheel_rel, wheel_cancel; /* this step: a wheel to open (WH_*), the one let go, B or Menu */
     int rune_hit, abil_hit;                 /* RB, the rune readied; LB, the boss's gift readied */
@@ -1169,19 +1178,46 @@ static void wheel_close(int take);
 /* the pad's sprint button (docs/PLAN-ai.md, SP3): kept as a person's own setting beside the ledger */
 static const char *const PAD_WORD[PAD_COUNT] = { "\1A", "\1B", "\1X", "\1Y", "LB", "RB", "VIEW", "MENU", "L-STICK", "R-STICK",
                                                  "D-PAD UP", "D-PAD DOWN", "D-PAD LEFT", "D-PAD RIGHT", "LT", "RT" };
-static int pad_sprint(void) {
-    if (!PADX.sprint_read) {
-        uint8_t b = PAD_LS;
-        PADX.sprint = slot_read(SLOT_PREFS, &b, 1) == 1 && b < PAD_COUNT ? b : PAD_LS;
-        PADX.sprint_read = 1;
-    }
-    return PADX.sprint;
+/* The pad's layout (1.0.0b18.1, docs/PLAN-b18-1.md section 7): each button's job, a job named by the button that has it at
+ * first (job[b] == b is today's layout), View and Menu never moved; the sticks swapped, no rumble, the turning in tenths.
+ * A person's own, in SLOT_PREFS: "HVQ1", a version, the sixteen jobs, a byte of flags (1 swapped, 2 quiet), the turning.
+ * 1.0.0b15's single byte (the sprint's button) reads as today's layout with the sprint traded onto that button. */
+#define PL_BYTES 23
+static struct { uint8_t job[PAD_COUNT]; int swap, quiet, turn, mstick, read; } PL;   /* mstick: the menus' stick, 0 left, 1 right, 2 either */
+static void pl_default(void) { for (int b = 0; b < PAD_COUNT; b++) PL.job[b] = (uint8_t)b; PL.swap = PL.quiet = PL.mstick = 0; PL.turn = 10; }
+static int pl_fixed(int b) { return b == PAD_VIEW || b == PAD_MENU; }
+static void pl_trade(int a, int b) { if (a == b || pl_fixed(a) || pl_fixed(b)) return; uint8_t t = PL.job[a]; PL.job[a] = PL.job[b]; PL.job[b] = t; }
+static void pl_read(void) {
+    if (PL.read) return;
+    PL.read = 1; pl_default();
+    uint8_t buf[64];
+    int n = slot_read(SLOT_PREFS, buf, sizeof buf), ok = n >= PL_BYTES && !memcmp(buf, "HVQ1", 4) && buf[4] >= 1, seen = 0;
+    for (int b = 0; b < PAD_COUNT && ok; b++) { ok = buf[5 + b] < PAD_COUNT && !(seen >> buf[5 + b] & 1); if (ok) seen |= 1 << buf[5 + b]; }
+    if (ok && buf[5 + PAD_VIEW] == PAD_VIEW && buf[5 + PAD_MENU] == PAD_MENU) {
+        memcpy(PL.job, buf + 5, PAD_COUNT); PL.swap = buf[21] & 1; PL.quiet = buf[21] >> 1 & 1; PL.mstick = clampi(buf[21] >> 2 & 3, 0, 2);
+        PL.turn = clampi(buf[22], 5, 20);
+    } else if (n == 1 && buf[0] < PAD_COUNT) pl_trade(PAD_LS, buf[0]);
 }
-static void pad_sprint_set(int b) {
-    uint8_t v = (uint8_t)b;
-    PADX.sprint = b; PADX.sprint_read = 1;
-    slot_write(SLOT_PREFS, &v, 1);
+static void pl_write(void) {
+    uint8_t b[PL_BYTES];
+    memcpy(b, "HVQ1", 4); b[4] = 1;
+    memcpy(b + 5, PL.job, PAD_COUNT);
+    b[21] = (uint8_t)(PL.swap | PL.quiet << 1 | PL.mstick << 2); b[22] = (uint8_t)PL.turn;
+    slot_write(SLOT_PREFS, b, PL_BYTES);
 }
+static int pl_on(int job) { pl_read(); for (int b = 0; b < PAD_COUNT; b++) if (PL.job[b] == job) return b; return job; }   /* the button a job is on */
+static int pad_sprint(void) { return pl_on(PAD_LS); }
+static const char *pad_short(int b) { return b >= PAD_UP && b <= PAD_RIGHT ? UI_PAD_NAME[b] : PAD_WORD[b]; }   /* the D-pad as arrows */
+static int pad_hand(int b) {                                       /* which thumb a button is under: 1 the left, 2 the right, 0 a finger */
+    if ((b >= PAD_UP && b <= PAD_RIGHT) || b == PAD_LS || b == PAD_VIEW) return 1;
+    if (b <= PAD_Y || b == PAD_RS || b == PAD_MENU) return 2;
+    return 0;
+}
+static void pad_menu_open(void);                                   /* its screen, from Esc's question, and the look */
+static void update_padmenu(void);
+static void render_padmenu(Frame *f);
+static int pad_look_tick(float dt);
+static void pad_look_render(Frame *f);
 static const char *pad_sprint_hint(void) {
     static char h[48];
     snprintf(h, sizeof h, "%s SPRINTS FORWARD, A WHILE", PAD_WORD[pad_sprint()]);
@@ -1193,7 +1229,8 @@ static const char *pad_sprint_hint(void) {
  * face button marked (\1) for its colour. Only hints go through here: elsewhere a lone C or E is prose. */
 /* the controller's motors, for a person playing with it */
 static void rumble(float low, float high, float secs) {
-    if (!G.player || !PADX.used) return;
+    pl_read();
+    if (!G.player || !PADX.used || PL.quiet) return;           /* and not when a person turned it off */
     pad_rumble(low, high, secs);
 }
 /* The browser's build (docs/PLAN-web.md): Space casts, as the left button does, since Ctrl+W and Ctrl+1-9 are the
@@ -1226,7 +1263,10 @@ static const char *pk(const char *s) {
             if ((int)strlen(PK_KEY[i]) == (int)(b - a) && !strncmp(a, PK_KEY[i], (size_t)(b - a))) key = i;
         if (key < 0) { while (s < e && n < 230) o[n++] = *s++; continue; }
         while (s < a) o[n++] = *s++;
-        for (const char *p = PK_PAD[key]; *p && n < 230; p++) o[n++] = *p;
+        static const int8_t PK_JOB[16] = { -1, -1, PAD_A, -1, -1, -1, -1, -1, PAD_X, -1, -1, PAD_Y, PAD_DOWN, PAD_RT, PAD_UP, PAD_RB };
+        const char *pw = PK_PAD[key];                              /* in play, the button that has the key's job now (1.0.0b18.1) */
+        if (G.ui == UI_NONE && PK_JOB[key] >= 0) pw = PAD_WORD[pl_on(PK_JOB[key])];
+        for (const char *p = pw; *p && n < 230; p++) o[n++] = *p;
         for (s = b; s < e && n < 230; ) o[n++] = *s++;
     }
     o[n] = 0;
@@ -1366,10 +1406,39 @@ static int blocks_light(int x, int y) {
     return c->kind == K_WALL || (c->kind == K_DOOR && G.doors[c->door].open < 0.5f);
 }
 static int slide_covers(int x, int y);
+/* Footprints (1.0.0b18.1, docs/PLAN-b18-1.md section 8): a prop dress_level lays takes the part of its cell its art gives it.
+ * The cell keeps its kind, so whatever tests for floor keeps its old caution; what walks reads the quarters taken. */
+static int foot_of(int x, int y) {
+    if ((unsigned)x >= MAPN || (unsigned)y >= MAPN || G.map[y][x].kind != K_PROP) return 0;
+    return G.foot[y][x];
+}
+static int foot_hit(float px, float py) {                          /* a point in what a part-filled cell's prop takes */
+    int x = (int)floorf(px), y = (int)floorf(py), m = foot_of(x, y);
+    return m && (m >> ((px - (float)x >= 0.5f) | (py - (float)y >= 0.5f) << 1) & 1);
+}
+static void cell_pass(int x, int y, float *gx, float *gy) {        /* where a creature passing through a cell aims: its middle, */
+    int m = foot_of(x, y);                                         /* or the middle of what a prop leaves free of it */
+    *gx = (float)x + 0.5f; *gy = (float)y + 0.5f;
+    if (!m) return;
+    if (m == 1 || m == 2 || m == 4 || m == 8) {                     /* a quarter: across from it */
+        int q = m == 1 ? 0 : m == 2 ? 1 : m == 4 ? 2 : 3;
+        *gx = (float)x + ((q & 1) ? 0.3f : 0.7f); *gy = (float)y + ((q & 2) ? 0.3f : 0.7f);
+        return;
+    }
+    if (m == 3) *gy = (float)y + 0.75f; else if (m == 12) *gy = (float)y + 0.25f;   /* a half: the other */
+    else if (m == 5) *gx = (float)x + 0.75f; else if (m == 10) *gx = (float)x + 0.25f;
+}
+static void foot_settle(void) {                                    /* one born by a prop (raised from remains there, a sac laid,
+                                                                      spiderlings) stands on its cell's middle: into what is free */
+    for (int i = 0; i < MAXMOBS; i++) {
+        Mob *m = &G.mobs[i];
+        if (m->alive && foot_of(m->cx, m->cy) && m->x == (float)m->cx + 0.5f && m->y == (float)m->cy + 0.5f) cell_pass(m->cx, m->cy, &m->x, &m->y);
+    }
+}
 static int blocks_move(int x, int y) {
     Cell *c = cell(x, y);
     if (G.slide >= 0 && slide_covers(x, y)) return 1;
-    return c->kind == K_WALL || c->kind == K_PILLAR || c->kind == K_PROP || (c->kind == K_DOOR && G.doors[c->door].open < 0.9f);
+    return c->kind == K_WALL || c->kind == K_PILLAR || (c->kind == K_PROP && !foot_of(x, y)) || (c->kind == K_DOOR && G.doors[c->door].open < 0.9f);
 }
 /* where the caster may walk: a vault door only once its key is in hand */
 static int passable(int x, int y) {
@@ -2186,7 +2255,7 @@ static void gen_level(void) {
     if (G.boss >= 0)                                               /* the boss's strip of the plan: kept out of the rest */
         for (int y = ARENA_PLAN; y < MG; y++) for (int x = 0; x < MG; x++) MM[y][x].kind = K_PILLAR;
     G.nrooms = 0; G.ndoors = 0; G.nlights = 0; G.nlc = 0; G.ndecos = 0;
-    memset(G.bulky, 0, sizeof G.bulky); memset(G.mapped, 0, sizeof G.mapped);
+    memset(G.bulky, 0, sizeof G.bulky); memset(G.mapped, 0, sizeof G.mapped); memset(G.foot, 0, sizeof G.foot);
     int nreg = 0;
 
     /* rooms: chambers of one to four blocks a side, a few of them big halls */
@@ -2456,23 +2525,64 @@ static int by_way(int x, int y) {                                  /* next to a 
     return 0;
 }
 static int block_corner(int x, int y) { return ((x & 3) == 1 || (x & 3) == 3) && ((y & 3) == 1 || (y & 3) == 3); }
+/* Footprints (1.0.0b18.1): while dress_level lays a level (g_foot), a low prop takes the part of its cell its art gives it
+ * (crawl_prop_foot, crawl_foot_part): the whole from 0.7 of a cell, and always with no wall beside it; the half against a
+ * wall it stands by, its long side along it, from 0.45; the quarter in its corner under that, the corner's open side the
+ * one away from the block's middle. Choices go by the cell, not the generator's dice, so the level is laid as before. */
+static int g_foot, g_foot_n[4];                                    /* laying; and how many whole, half, a quarter, whole in the open */
+static float prop_lx, prop_ly;                                     /* where the last prop stands: its light goes there */
+static int foot_on(void) {
+#ifdef CRAWL_DEBUG
+    static int v = -1;
+    if (v < 0) { const char *e = getenv("CRAWL_FOOT"); v = !(e && atoi(e) == 0); }   /* 0: every prop whole, as before */
+    return v;
+#else
+    return 1;
+#endif
+}
 static void solid_prop(int x, int y, int spr, int nfr, int kind) {
     G.map[y][x].kind = (uint8_t)kind;
-    add_deco_ex(x + 0.5f, y + 0.5f, spr, nfr, 0);
+    prop_lx = x + 0.5f; prop_ly = y + 0.5f;
+    int part = FOOT_WHOLE, walls = 0;
+    if (g_foot && kind == K_PROP && foot_on() && !lane(x, y) && !in_band(y)) {
+        part = crawl_foot_part(crawl_prop_foot(spr, nfr));
+        for (int d = 0; d < 4; d++) walls |= (cell(x + DX[d], y + DY[d])->kind == K_WALL) << d;
+        if (part != FOOT_WHOLE && !walls) { part = FOOT_WHOLE; g_foot_n[3]++; }
+    }
+    if (part != FOOT_WHOLE) {
+        uint32_t h = hash2(x * 7 + 3, y * 13 + G.level);
+        int nw = 0, ws[4];
+        for (int d = 0; d < 4; d++) if (walls >> d & 1) ws[nw++] = d;
+        int d = ws[h % (uint32_t)nw], sx = DX[d], sy = DY[d];       /* the wall it stands by */
+        if (part == FOOT_HALF) {
+            G.foot[y][x] = (uint8_t)(sx > 0 ? 10 : sx < 0 ? 5 : sy > 0 ? 12 : 3);
+            prop_lx = x + 0.5f + 0.25f * sx; prop_ly = y + 0.5f + 0.25f * sy;
+        } else {                                                    /* its corner: by a second wall, or away from the block's middle */
+            if (!sx) sx = (walls & 1) ? 1 : (walls & 4) ? -1 : (x & 3) == 1 ? -1 : (x & 3) == 3 ? 1 : ((h >> 8) & 1 ? 1 : -1);
+            if (!sy) sy = (walls & 2) ? 1 : (walls & 8) ? -1 : (y & 3) == 1 ? -1 : (y & 3) == 3 ? 1 : ((h >> 9) & 1 ? 1 : -1);
+            G.foot[y][x] = (uint8_t)(1 << ((sx > 0) | (sy > 0) << 1));
+            prop_lx = x + 0.5f + 0.25f * sx; prop_ly = y + 0.5f + 0.25f * sy;
+        }
+    }
+    if (g_foot && kind == K_PROP) g_foot_n[part]++;
+#ifdef CRAWL_DEBUG
+    if (part != FOOT_WHOLE && getenv("CRAWL_FOOTLIST")) fprintf(stderr, "FOOT at %d,%d mask %d sprite %d foot %d\n", x, y, G.foot[y][x], spr, crawl_prop_foot(spr, nfr));
+#endif
+    add_deco_ex(prop_lx, prop_ly, spr, nfr, 0);
 }
-static void fire_pit(int x, int y) { solid_prop(x, y, SP_FIREPIT_A, 3, K_PROP); light_static(x + 0.5f, y + 0.5f, 1.7f, 5.6f); }
+static void fire_pit(int x, int y) { solid_prop(x, y, SP_FIREPIT_A, 3, K_PROP); light_static(prop_lx, prop_ly, 1.7f, 5.6f); }
 static void totem(int x, int y) { solid_prop(x, y, SP_TOTEM_A, 2, K_PILLAR); light_static(x + 0.5f, y + 0.5f, 1.0f, 3.8f); }
 static void chandelier(int x, int y) { add_deco_ex(x + 0.5f, y + 0.5f, SP_CHANDELIER_A, 2, DF_SWAY); light_static(x + 0.5f, y + 0.5f, 1.35f, 6.0f); }
-static void candlestand(int x, int y) { solid_prop(x, y, SP_CANDLESTAND_A, 2, K_PROP); light_static(x + 0.5f, y + 0.5f, 0.95f, 3.6f); }
+static void candlestand(int x, int y) { solid_prop(x, y, SP_CANDLESTAND_A, 2, K_PROP); light_static(prop_lx, prop_ly, 0.95f, 3.6f); }
 static void lantern(int x, int y) { add_deco_ex(x + 0.5f, y + 0.5f, SP_LANTERN_A, 2, DF_SWAY); light_static(x + 0.5f, y + 0.5f, 1.1f, 5.0f); }
-static void brazier(int x, int y) { solid_prop(x, y, SP_BRAZIER_A, 3, K_PROP); light_static(x + 0.5f, y + 0.5f, 1.5f, 5.2f); }
+static void brazier(int x, int y) { solid_prop(x, y, SP_BRAZIER_A, 3, K_PROP); light_static(prop_lx, prop_ly, 1.5f, 5.2f); }
 static void minelamp(int x, int y) { solid_prop(x, y, SP_MINELAMP_A, 2, K_PILLAR); light_static(x + 0.5f, y + 0.5f, 0.95f, 4.2f); }
 static void crystals(int x, int y) {                               /* a steady glow, not a flame */
     int n = G.nlights;
-    solid_prop(x, y, SP_CRYSTAL_A, 2, K_PROP); light_static(x + 0.5f, y + 0.5f, 1.15f, 4.6f);
+    solid_prop(x, y, SP_CRYSTAL_A, 2, K_PROP); light_static(prop_lx, prop_ly, 1.15f, 4.6f);
     if (G.nlights > n) G.lights[n].phase = -1000.0f;
 }
-static void magma(int x, int y) { solid_prop(x, y, SP_MAGMA_A, 3, K_PROP); light_static(x + 0.5f, y + 0.5f, 1.6f, 5.4f); }
+static void magma(int x, int y) { solid_prop(x, y, SP_MAGMA_A, 3, K_PROP); light_static(prop_lx, prop_ly, 1.6f, 5.4f); }
 
 /* The dressing comes in as you go down (PLAN-bestiary, section 8): each set lights and furnishes
  * itself in its own way, and some things show a level or two before what they warn of. In the second
@@ -2521,7 +2631,16 @@ static int hall_litter(void) {
     return rnd(4) ? SP_BONES1 : SP_BONES2;
 }
 
-static void dress_level(void) {
+static void dress_level_props(void);
+static void dress_level(void) {                                    /* the props laid with their footprints (1.0.0b18.1) */
+    g_foot = 1; memset(g_foot_n, 0, sizeof g_foot_n);
+    dress_level_props();
+    g_foot = 0;
+#ifdef CRAWL_DEBUG
+    if (!PK.depth) fprintf(stderr, "FOOT level %d: %d whole (%d of them in the open), %d half, %d a quarter\n", G.level, g_foot_n[0], g_foot_n[3], g_foot_n[1], g_foot_n[2]);
+#endif
+}
+static void dress_level_props(void) {
     float dk = decay();
     int set = crawl_set(G.level);
     /* the halls */
@@ -2613,11 +2732,11 @@ static void dress_level(void) {
                 if (style == 1 && corner && rndf() < 0.6f) {       /* rows of graves; a mine's carts and props; an altar room */
                     if (set <= 1) solid_prop(x, y, SP_TOMB_ROUND + rnd(4), 1, K_PROP);
                     else if (set == 2 && G.faced && R->rtype == RT_CHAPEL) {   /* the cult's altars, candles between */
-                        if (rnd(4) == 0) { solid_prop(x, y, SP_ALTAR_A, 2, K_PROP); light_static(x + 0.5f, y + 0.5f, 0.7f, 3.0f); }
+                        if (rnd(4) == 0) { solid_prop(x, y, SP_ALTAR_A, 2, K_PROP); light_static(prop_lx, prop_ly, 0.7f, 3.0f); }
                         else if (G.nlights < MAXLIGHTS - 4 && rnd(2)) { add_deco(x + 0.5f, y + 0.5f, SP_CANDLES); light_static(x + 0.5f, y + 0.5f, 0.8f, 2.6f); }
                     }
                     else if (set == 2) { if (rnd(3)) solid_prop(x, y, SP_CART, 1, K_PROP); else minelamp(x, y); }
-                    else if (since(17) && rnd(2)) { solid_prop(x, y, SP_ALTAR_A, 2, K_PROP); light_static(x + 0.5f, y + 0.5f, 0.8f, 3.2f); }
+                    else if (since(17) && rnd(2)) { solid_prop(x, y, SP_ALTAR_A, 2, K_PROP); light_static(prop_lx, prop_ly, 0.8f, 3.2f); }
                     else if (since(18)) solid_prop(x, y, SP_GARG_PERCH, 1, K_PROP);   /* a statue: gargoyles from 19 */
                     else solid_prop(x, y, SP_OBSIDIAN, 1, K_PROP);
                     continue;
@@ -2629,7 +2748,7 @@ static void dress_level(void) {
                     continue;
                 }
                 if (set == 1 && style == 1 && rndf() < 0.1f) { add_deco(x + 0.5f, y + 0.5f, rnd(3) ? SP_PUDDLE_A : SP_PUDDLE_B); continue; }   /* the graves have flooded */
-                if (set == 1 && since(9) && style == 0 && corner && rnd(30) == 0) { add_deco_ex(x + 0.5f, y + 0.5f, SP_BELL, 1, DF_SWAY); continue; }
+                if (set == 1 && since(9) && style == 0 && corner && rnd(30) == 0) { add_deco_ex(x + 0.5f, y + 0.5f, SP_BELL_DEAD, 1, 0); continue; }   /* dead, still: not one to ring (1.0.0b18.1) */
                 if (set == 2 && style == 0 && corner && since(12) && rnd(12) == 0) { solid_prop(x, y, SP_ARMOURSTAND, 1, K_PROP); continue; }
                 if (set == 3 && style == 0 && corner && rnd(4) == 0) { crystals(x, y); continue; }
                 if ((style == 1 || style == 3) && since(4) && rndf() < 0.04f + 0.05f * dk) { add_deco_ex(x + 0.5f, y + 0.5f, since(6) && set <= 2 && rnd(2) ? SP_ROOTS : SP_WEBSHEET, 1, DF_SWAY); continue; }
@@ -2834,6 +2953,27 @@ static void place_exit(int sx, int sy) {
     G.exit_fx = G.exit_fy = -1;
 }
 
+/* a small thing in what a prop leaves free of its cell (1.0.0b18.1): half of it or more always is. Beside a lane, beside floor
+ * reached without a key (dist, at least dmin steps from the start), no door by it; the thing lies at the free part's middle */
+static int part_spot(int x, int y, int dist[MAPN][MAPN], int dmin) {
+    if (!foot_of(x, y) || G.map[y][x].secret || G.bulky[y][x] || item_at(x, y) || lane_dist(x, y) > 1 || in_band(y)) return 0;
+    int reach = 0;
+    for (int d = 0; d < 4; d++) {
+        const Cell *n = cell(x + DX[d], y + DY[d]);
+        if (n->kind == K_DOOR) return 0;
+        reach |= n->kind == K_FLOOR && dist[y + DY[d]][x + DX[d]] >= dmin;
+    }
+    return reach;
+}
+static void part_lay(Item *it) {
+    if (!it) return;
+    float gx, gy;
+    cell_pass(it->cx, it->cy, &gx, &gy);
+    it->x = gx; it->y = gy;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT part_item %d at %.2f,%.2f\n", it->type, it->x, it->y);
+#endif
+}
 static int room_cell(int room, int *ox, int *oy) {                 /* a free floor cell in a room */
     const Room *R = &G.rooms[room];
     for (int tries = 0; tries < 120; tries++) {
@@ -2866,6 +3006,7 @@ static void place_items(int sx, int sy) {
         int n = rnd(3) + (G.level >= 4);
         for (int k = 0, tries = 0; k < n && tries < 30; tries++) {
             int x = R->x + rnd(R->w), y = R->y + rnd(R->h);
+            if (part_spot(x, y, dist, 0)) { part_lay(add_item(x, y, random_treasure())); k++; continue; }   /* by a prop (1.0.0b18.1) */
             if (dist[y][x] < 0 || !free_floor(x, y)) continue;
             add_item(x, y, random_treasure()); k++;
         }
@@ -2914,6 +3055,7 @@ static void place_items(int sx, int sy) {
     }
     for (int i = 0; i < 300; i++) {                                /* one healing potion */
         int x = 1 + rnd(MAPN - 2), y = 1 + rnd(MAPN - 2);
+        if (part_spot(x, y, dist, 6) && G.map[y][x].theme != TH_CORRIDOR) { part_lay(add_item(x, y, IT_POTION)); break; }   /* by a prop */
         if (dist[y][x] < 6 || !free_floor(x, y)) continue;
         add_item(x, y, IT_POTION);
         break;
@@ -3186,7 +3328,7 @@ static void place_gargoyles(void) {
         Mob *m = spawn_mob(x, y, MOB_GARGOYLE);
         if (!m) return;
         if (di >= 0) G.decos[di].spr = -1;                         /* it is drawn as itself now */
-        G.map[y][x].kind = K_PROP;
+        G.map[y][x].kind = K_PROP; G.foot[y][x] = 0;              /* its plinth whole while it stands there (1.0.0b18.1) */
         m->home = G.map[y][x].region;
         placed++;
     }
@@ -3265,6 +3407,7 @@ static float torch_flicker(const Light *L) {
 static void tri_dark(void);
 static float lm_at(float x, float y);
 static int gift_due(void);
+static void ward_lights(void);
 static void build_lightmap(void) {
     float ambient = G.shop ? 0.06f : (PK.depth ? (G.ptheme == PT_SEVERANCE ? 0.16f : 0.08f) : 0.06f - 0.012f * depth());   /* the dark itself deepens, set by set; not in a pocket */
     for (int i = 0; i < LMN * LMN; i++) G.lm[i] = ambient;
@@ -3299,6 +3442,10 @@ static void build_lightmap(void) {
     }
     for (int i = 0; i < MAXMOTES; i++)
         if (G.motes[i].alive) light_dynamic_ex(G.motes[i].x, G.motes[i].y, 0.35f * (1.0f - smoothstepf(MOTE_LIFE - 2.0f, MOTE_LIFE, G.motes[i].t)), 1.6f, 1);
+    for (int i = 0; i < G.nitems && !G.shop; i++)                  /* a won trial's hoard: its own light, a flare as it comes (1.0.0b18.1) */
+        if (G.items[i].alive && G.items[i].type == IT_CHEST && G.items[i].color == TRI_REWARD)
+            light_dynamic_ex(G.items[i].x, G.items[i].y, 0.75f + 0.2f * sinf((float)G.t * 2.4f) + 1.4f * (1.0f - smoothstepf(0.0f, 1.2f, G.tri_end)), 2.6f, 1);
+    ward_lights();                                                 /* a lit soul-lamp's (1.0.0b18.1) */
     for (int k = 0; k < 3 && G.fwall_t > 0.0f; k++) {
         float an = (float)G.t * 2.2f + (float)k * TAU_F / 3.0f;
         light_dynamic(G.px + cosf(an) * 1.2f, G.py + sinf(an) * 1.2f, 0.7f, 2.6f);
@@ -3717,6 +3864,20 @@ static int hits_bone, hits_bat, throws, shrieks, hits_fire, hits_sword, bites, c
 #define DBG_COUNT(v) ((v)++, fprintf(stderr, "EVENT %s t=%.2f\n", #v, G.t))
 static float dbg_soul_in, dbg_soul_out, dbg_soul_last = -1.0f;   /* the souls that came and went this level */
 static int dbg_weak;
+static void foot_watch(void) {                                     /* footprints (1.0.0b18.1): the dead through part-filled cells */
+    static int was[MAXMOBS];
+    static float brush_t[MAXMOBS];
+    for (int i = 0; i < MAXMOBS; i++) {
+        const Mob *m = &G.mobs[i];
+        int in = m->alive && foot_of(m->cx, m->cy) != 0;
+        if (in && !was[i]) fprintf(stderr, "EVENT foot_pass %d at %d,%d t=%.2f\n", m->type, m->cx, m->cy, G.t);
+        was[i] = in;
+        if (m->alive && m->state == MS_WALK && foot_hit(m->x, m->y) && G.t - brush_t[i] > 1.0f) {
+            brush_t[i] = (float)G.t;
+            fprintf(stderr, "EVENT foot_brush %d at %.2f,%.2f t=%.2f\n", m->type, m->x, m->y, G.t);
+        }
+    }
+}
 static void dbg_souls(void) {
     float cur = (float)RUN.souls + RUN.soul_frac;
     if (dbg_soul_last >= 0.0f) { float d = cur - dbg_soul_last; if (d > 0.0f) dbg_soul_in += d; else dbg_soul_out -= d; }
@@ -5686,6 +5847,7 @@ static float hunt_t;
 static int hunt_pass(int x, int y) {
     const Cell *c = cell(x, y);
     if (c->kind == K_FLOOR) return !(G.slide >= 0 && slide_covers(x, y));
+    if (c->kind == K_PROP) return foot_of(x, y) != 0;              /* round a prop that takes part of its cell (1.0.0b18.1) */
     return c->kind == K_DOOR && G.doors[c->door].locked != 1 && G.doors[c->door].locked != SEALED && G.doors[c->door].locked != WINGED && G.doors[c->door].locked != TRIALED && G.doors[c->door].locked != GATED;
 }
 static void build_hunt(float dt) {
@@ -7200,6 +7362,97 @@ static float mob_time(Mob *m, float dt) {
     return dt * k;
 }
 
+/* ---- the soul-lamps' ward (1.0.0b18.1, docs/PLAN-b18-1.md section 6) ----
+ * A lamp by each challenge (a trial's room, a puzzle's ground and wing, a sequence of things that want a spell); a soul
+ * offered buys two minutes of it, five at most banked, burning only while the Wraith is on the level. While one burns its
+ * ground, and a ring of a cell round it, is stone to the Wraith: it goes round, or, with you inside, to the edge nearest you
+ * and along it as you move. Kept outside G, so a pocket leaves it as it was, and made again with each level. */
+#define MAXWL 8
+#define WARD_SOUL_T 120.0f                  /* a soul's worth of ward */
+#define WARD_MAX 5                          /* souls a lamp holds */
+enum { WLK_TRIAL, WLK_PUZZLE, WLK_SEQ };
+typedef struct {
+    int kind, cx, cy, d, deco;              /* what it guards; the floor cell before it, the wall it hangs on (DX, DY); its decoration */
+    float banked;                           /* seconds of ward left in it */
+    int said, offered;                      /* its words said once; souls the dream has put in */
+} WLamp;
+static struct {
+    int n, mask;                            /* lamps; the bits of those burning */
+    WLamp l[MAXWL];
+    uint8_t cell[MAPN][MAPN];               /* a bit for each lamp's ground, its ring with it */
+    int16_t field[MAPN][MAPN], out[MAPN][MAPN];   /* while one burns: the Wraith's way to you round them; steps out of them */
+    float field_t, hiss_t, flare_t, flare_x, flare_y, offer_t;   /* the field's next making; the hiss; the edge's flare and where; the dream's look */
+    int at_edge, said_held;                 /* the Wraith held at an edge; that said once */
+} WD;
+static int wraith_barred(int x, int y) { return !PK.depth && x >= 0 && y >= 0 && x < MAPN && y < MAPN && (WD.cell[y][x] & WD.mask); }
+static int wraith_h(int x, int y) {                                /* the field the Wraith goes down: the ward's while one burns */
+    if (x < 0 || y < 0 || x >= MAPN || y >= MAPN) return -1;
+    return WD.mask && !PK.depth ? WD.field[y][x] : hunt[y][x];
+}
+static void ward_field(void) {                                     /* from you, round what is warded; from its edge, with you inside it */
+    static int qx[MAPN * MAPN], qy[MAPN * MAPN], sv[MAPN * MAPN], sx[MAPN * MAPN], sy[MAPN * MAPN];
+    int qh = 0, qt = 0, ns = 0;
+    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) { WD.field[y][x] = -1; WD.out[y][x] = wraith_barred(x, y) ? -1 : 0; }
+    int cx = (int)G.px, cy = (int)G.py;
+    if (!wraith_barred(cx, cy)) { sx[0] = cx; sy[0] = cy; sv[0] = 0; ns = 1; }
+    else
+        for (int y = 1; y < MAPN - 1; y++)                         /* every open cell at the edge, by its distance from you */
+            for (int x = 1; x < MAPN - 1; x++) {
+                if (wraith_barred(x, y) || !hunt_pass(x, y)) continue;
+                int edge = 0;
+                for (int k = 0; k < 4; k++) edge |= wraith_barred(x + DX[k], y + DY[k]);
+                if (!edge) continue;
+                sx[ns] = x; sy[ns] = y; sv[ns] = (int)(hypotf(x + 0.5f - G.px, y + 0.5f - G.py) + 0.5f); ns++;
+            }
+    for (int a = 1; a < ns; a++)                                   /* nearest first */
+        for (int b = a; b > 0 && sv[b] < sv[b - 1]; b--) { int t = sv[b]; sv[b] = sv[b - 1]; sv[b - 1] = t; t = sx[b]; sx[b] = sx[b - 1]; sx[b - 1] = t; t = sy[b]; sy[b] = sy[b - 1]; sy[b - 1] = t; }
+    int si = 0;
+    for (;;) {                                                     /* a breadth-first walk, the seeds let in as their distance comes */
+        while (si < ns && (qh == qt || sv[si] <= WD.field[qy[qh]][qx[qh]])) {
+            if (WD.field[sy[si]][sx[si]] < 0) { WD.field[sy[si]][sx[si]] = (int16_t)sv[si]; qx[qt] = sx[si]; qy[qt] = sy[si]; qt++; }
+            si++;
+        }
+        if (qh == qt) break;
+        int x = qx[qh], y = qy[qh]; qh++;
+        for (int k = 0; k < 4; k++) {
+            int nx = x + DX[k], ny = y + DY[k];
+            if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || WD.field[ny][nx] >= 0 || !hunt_pass(nx, ny) || wraith_barred(nx, ny)) continue;
+            WD.field[ny][nx] = (int16_t)(WD.field[y][x] + 1); qx[qt] = nx; qy[qt] = ny; qt++;
+        }
+    }
+    qh = qt = 0;                                                   /* and inside: steps to the nearest cell outside */
+    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (WD.out[y][x] == 0 && hunt_pass(x, y)) { qx[qt] = x; qy[qt] = y; qt++; }
+    while (qh < qt) {
+        int x = qx[qh], y = qy[qh]; qh++;
+        for (int k = 0; k < 4; k++) {
+            int nx = x + DX[k], ny = y + DY[k];
+            if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || WD.out[ny][nx] >= 0 || !hunt_pass(nx, ny)) continue;
+            WD.out[ny][nx] = (int16_t)(WD.out[y][x] + 1); qx[qt] = nx; qy[qt] = ny; qt++;
+        }
+    }
+}
+static int ward_step_out(Mob *m) {                                 /* the Wraith caught inside as a lamp is lit: out, the shortest way */
+    if (!wraith_barred(m->cx, m->cy) || WD.out[m->cy][m->cx] < 0) return 0;
+    int best = -1, bo = WD.out[m->cy][m->cx];
+    for (int k = 0; k < 4; k++) {
+        int nx = m->cx + DX[k], ny = m->cy + DY[k];
+        if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || !hunt_pass(nx, ny) || WD.out[ny][nx] < 0 || WD.out[ny][nx] >= bo) continue;
+        bo = WD.out[ny][nx]; best = k;
+    }
+    if (best < 0) return 0;
+    if (m->sub != 1) wraith_back_for(m, 1.6f);                     /* driven as by fire, a recoil once, */
+    else m->sub_t = fmaxf(0.0f, m->sub_t - 1.2f);                  /* and kept driven a step at a time till it is out */
+    const Cell *c = cell(m->cx + DX[best], m->cy + DY[best]);
+    if (c->kind == K_DOOR && G.doors[c->door].open < 0.9f) { if (!G.doors[c->door].opening) G.doors[c->door].opening = 1; return 1; }
+    m->tx = m->cx + DX[best]; m->ty = m->cy + DY[best];
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ward_driven to (%d,%d) t=%.2f\n", m->tx, m->ty, G.t);
+#endif
+    return 1;
+}
+
+static void ward_make(void);
+static void ward_tick(float dt);
 /* The Wraith: from level 9, once a level, after about four minutes there, from the far end. It walks
  * the halls as you do, solid, down the hunt field, and pulls doors open. It can't be killed: fire,
  * the wisp's light close by, and Dread drive it back for a while; then it comes on again. Its touch
@@ -7253,16 +7506,18 @@ static void update_wraith(Mob *m, float dt) {
         }
     }
     if (rnd(900) == 0) { sfx_at(SFX_WAIL, m->x, m->y, 0.9f); wraith_chill(m); }
-    float gx = m->tx + 0.5f, gy = m->ty + 0.5f, dx = gx - m->x, dy = gy - m->y, d = sqrtf(dx * dx + dy * dy);
+    float gx, gy; cell_pass(m->tx, m->ty, &gx, &gy);
+    float dx = gx - m->x, dy = gy - m->y, d = sqrtf(dx * dx + dy * dy);
     float step = m->speed * dt * (m->sub == 1 ? 1.6f : 1.0f);
     if (lantern_lit() && m->sub == 0 && pd < 2.1f && hypotf(gx - G.px, gy - G.py) < pd) return;   /* the Lantern: it keeps a cell further off */
     if (d > step) { m->x += dx / d * step; m->y += dy / d * step; return; }
     m->x = gx; m->y = gy; m->cx = m->tx; m->cy = m->ty;
     if (G.dead || G.exiting) return;
-    int here = hunt[m->cy][m->cx], best = -1; float bs = -1e9f;
+    if (ward_step_out(m)) return;                                  /* a soul-lamp lit with it inside: out (1.0.0b18.1) */
+    int here = wraith_h(m->cx, m->cy), best = -1; float bs = -1e9f;   /* (the ward's field while a lamp burns) */
     for (int k = 0; k < 4; k++) {
-        int nx = m->cx + DX[k], ny = m->cy + DY[k], h = hunt[ny][nx];
-        if (h < 0 || occupied(nx, ny, m)) continue;
+        int nx = m->cx + DX[k], ny = m->cy + DY[k], h = wraith_h(nx, ny);
+        if (h < 0 || occupied(nx, ny, m) || wraith_barred(nx, ny)) continue;
         if (here >= 0 && (m->sub == 1 ? h <= here : h >= here)) continue;   /* down the field coming, up it going */
         float s = rndf() * 0.3f + (here < 0 ? -hypotf(nx + 0.5f - G.px, ny + 0.5f - G.py) : 0.0f);
         if (s > bs) { bs = s; best = k; }
@@ -8228,7 +8483,8 @@ static void update_mob(Mob *m, float dt) {
     }
     if (m->stagger > 0.0f) { m->stagger -= dt; return; }
     if (m->dodge_t > 0.0f) {                                       /* stepping aside from a spell (step 7) */
-        float gx = m->tx + 0.5f, gy = m->ty + 0.5f, dx = gx - m->x, dy = gy - m->y, d = hypotf(dx, dy), st = 3.4f * dt;
+        float gx, gy; cell_pass(m->tx, m->ty, &gx, &gy);
+        float dx = gx - m->x, dy = gy - m->y, d = hypotf(dx, dy), st = 3.4f * dt;
         m->dodge_t -= dt;
         if (d > st && m->dodge_t > 0.0f) { m->x += dx / d * st; m->y += dy / d * st; return; }
         if (d <= st) { m->x = gx; m->y = gy; m->cx = m->tx; m->cy = m->ty; }
@@ -8641,7 +8897,8 @@ static void update_mob(Mob *m, float dt) {
             return;
         }
     }
-    float gx = m->tx + 0.5f, gy = m->ty + 0.5f, dx = gx - m->x, dy = gy - m->y, d = sqrtf(dx * dx + dy * dy);
+    float gx, gy; cell_pass(m->tx, m->ty, &gx, &gy);               /* round a prop's part (1.0.0b18.1) */
+    float dx = gx - m->x, dy = gy - m->y, d = sqrtf(dx * dx + dy * dy);
     float step = m->speed * dt * (m->type == MOB_BAT ? 0.8f + 0.4f * sinf(m->t * 3.0f) : 1.0f) * (afraid ? 1.4f : 1.0f);
     if (m->bait_st == B_LURE && m->rank != RK_GILDED) step = fminf(step, 1.8f * dt);   /* at your pace, not its own */
     if (mind && !afraid && m->alert <= 0.0f) step *= m->hunter == 2 ? 1.1f : m->aware == MA_WARY ? 0.5f : (m->aware == MA_SEARCH ? 0.8f : 1.0f);   /* to
@@ -10060,7 +10317,8 @@ static void update_ally(Mob *m, float dt) {
     }
     if (!t && hypotf(G.px - m->x, G.py - m->y) < 2.0f) return;     /* nothing to fight: it keeps by you */
     m->anim += dt * m->speed * 3.0f;
-    float gx = m->tx + 0.5f, gy = m->ty + 0.5f, dx = gx - m->x, dy = gy - m->y, d = hypotf(dx, dy), step = m->speed * dt;
+    float gx, gy; cell_pass(m->tx, m->ty, &gx, &gy);
+    float dx = gx - m->x, dy = gy - m->y, d = hypotf(dx, dy), step = m->speed * dt;
     if (d > step) { m->x += dx / d * step; m->y += dy / d * step; return; }
     m->x = gx; m->y = gy; m->cx = m->tx; m->cy = m->ty;
     int best = -1, here = hunt[m->cy][m->cx];
@@ -10198,6 +10456,9 @@ static void ready_next(void) {
     if (nx >= 100) { RUN.abil_sel = nx - 100; RUN.mouse_rune = 0; say("READIED: %s", BA_NAME[nx - 100]); }
     else { RUN.rune_sel = nx; RUN.mouse_rune = 1; say("READIED: %s", DEF_NAME[nx]); }
     snd_sfx_ex(SFX_TICK, 0.7f, 0.5f); show_bar();
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ready_next %s %d t=%.2f\n", nx >= 100 ? "gift" : "rune", nx >= 100 ? nx - 100 : nx, G.t);
+#endif
 }
 static void use_right(void) {                                      /* the right mouse (the pad's LT): whichever was readied last */
     int r = rune_readied();
@@ -10251,6 +10512,11 @@ static int door_sfx(int shut) {
                                  { SFX_DOOR3_OPEN, SFX_DOOR3_SHUT }, { SFX_DOOR4_OPEN, SFX_DOOR4_SHUT } };
     return S[G.shop ? 0 : clampi(crawl_set(G.level), 0, 3)][shut != 0];
 }
+/* the caster's girth over a door's cell, as body_blocked would find it: a door that seals itself never shuts on it */
+static int door_body(const Door *d) {
+    return G.px + BODY + 0.02f >= (float)d->x && G.px - BODY - 0.02f < (float)(d->x + 1)
+        && G.py + BODY + 0.02f >= (float)d->y && G.py - BODY - 0.02f < (float)(d->y + 1);
+}
 static void update_doors(float dt) {
     for (int i = 0; i < G.ndoors; i++) {
         Door *d = &G.doors[i];
@@ -10265,7 +10531,7 @@ static void update_doors(float dt) {
             if (d->open >= 1.0f) { d->opening = 0; d->idle = 0.0f; }
         } else if (d->open > 0.0f) {
             int busy = pdist < 1.6f || (d->locked == 2 && vault_of_room((int)G.px, (int)G.py) == d->color);
-            if (d->locked == SEALED || d->locked == TRIALED || d->locked == GATED) busy = (int)G.px == d->x && (int)G.py == d->y;   /* it shuts behind you */
+            if (d->locked == SEALED || d->locked == TRIALED || d->locked == GATED) busy = door_body(d);   /* it shuts behind you, not on you */
             for (int m = 0; m < MAXMOBS; m++)
                 if (G.mobs[m].alive && ((G.mobs[m].cx == d->x && G.mobs[m].cy == d->y) || (G.mobs[m].tx == d->x && G.mobs[m].ty == d->y))) busy = 1;
             d->idle = busy ? 0.0f : d->idle + dt;
@@ -11525,7 +11791,7 @@ static void debug_map(int seen) {
         for (int y = 0; y < MAPN; y++) {
             for (int x = 0; x < MAPN; x++) {
                 const Cell *c = &G.map[y][x];
-                char ch = c->kind == K_WALL ? '#' : c->kind == K_PILLAR ? 'O' : c->kind == K_PROP ? 'p' : c->kind == K_DOOR ? (G.doors[c->door].locked ? 'L' : 'D') : (lane(x, y) ? (seen && c->visits ? 'o' : '.') : ' ');
+                char ch = c->kind == K_WALL ? '#' : c->kind == K_PILLAR ? 'O' : c->kind == K_PROP ? (foot_of(x, y) ? 'f' : 'p') : c->kind == K_DOOR ? (G.doors[c->door].locked ? 'L' : 'D') : (lane(x, y) ? (seen && c->visits ? 'o' : '.') : ' ');
                 if (c->kind == K_WALL && c->tex == T_TORCH0) ch = 't';
                 if (c->secret) ch = c->secret == 2 ? '?' : (c->secret == 3 ? '&' : ':');
                 rows[y][x] = ch;
@@ -12552,7 +12818,7 @@ static void mk_burst(float x, float y, int el, unsigned skip) {   /* a flask's b
     for (int i = 0; i < G.nmk; i++) if (!G.mk[i].done && !(skip >> i & 1) && hypotf(G.mk[i].x - x, G.mk[i].y - y) < 1.1f) mk_strike(i, el);
 }
 static int mk_door_busy(const Door *d) {
-    if ((int)G.px == d->x && (int)G.py == d->y) return 1;
+    if (door_body(d)) return 1;                                    /* the caster anywhere in its doorway (1.0.0b18.1) */
     for (int j = 0; j < MAXMOBS; j++)
         if (G.mobs[j].alive && ((G.mobs[j].cx == d->x && G.mobs[j].cy == d->y) || (G.mobs[j].tx == d->x && G.mobs[j].ty == d->y))) return 1;
     return 0;
@@ -12885,6 +13151,7 @@ static void start_level(void) {
     place_rests();                                                 /* the places to mend (1.0.0b15) */
     place_marked();                                                /* things that want a spell (1.0.0b16) */
     place_fights();                                                /* and things for fights (step 8) */
+    ward_make();                                                   /* a soul-lamp by each challenge, out (1.0.0b18.1) */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_THINGS")) things_test();
 #endif
@@ -13493,6 +13760,9 @@ static void crawl_enter(uint32_t seed) {
 }
 
 static void collect(Item *it) {
+#ifdef CRAWL_DEBUG
+    if (foot_of(it->cx, it->cy)) fprintf(stderr, "EVENT part_taken %d by %s t=%.2f\n", it->type, G.player ? "a person" : "the dream", G.t);
+#endif
     it->alive = 0;
     if (it->gen && PK.depth) PK.taken[PK.chain][clampi(PK.depth, 0, POCKET_LINKS - 1)] |= 1u << (it->gen - 1);   /* gone from the pocket for good */
     switch (it->type) {
@@ -13503,7 +13773,18 @@ static void collect(Item *it) {
         fprintf(stderr, "EVENT key%d t=%.2f path=%d\n", it->color, G.t, bfs_dist[G.cy][G.cx]);
 #endif
         break;
-    case IT_POTION: G.hp = imin(G.max_hp, G.hp + potion_heal()); snd_sfx(SFX_POTION); break;
+    case IT_POTION:
+        if (it->color == TRI_REWARD) {                             /* the trial's draught: whole again, the poison gone (1.0.0b18.1) */
+            G.hp = G.max_hp; G.poison_t = 0.0f;
+            say("THE TRIAL'S DRAUGHT: YOU ARE WHOLE");
+            snd_sfx(SFX_POTION); snd_sfx_ex(SFX_SHIMMER, 0.5f, 0.5f);
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT draught by %s t=%.2f\n", G.player ? "player" : "autopilot", G.t);
+#endif
+            break;
+        }
+        G.hp = imin(G.max_hp, G.hp + potion_heal()); snd_sfx(SFX_POTION);
+        break;
     case IT_SCRIP: {                                               /* a boss's: to the Hexed Totem's account at once */
         int b = clampi(it->color, 0, BOSS_REC - 1), n = (G.bstep >= 3 ? 2 : 1) + (G.corrupt != 0);   /* the bell's one more */
         RUN.scrip[b] += n; RUN.rec.boss[b].scrip = (uint16_t)imin(65535, RUN.rec.boss[b].scrip + n);
@@ -13538,6 +13819,13 @@ static void collect(Item *it) {
                                                                                                   caster's own, the bell's */
         RUN.treasure += got; G.level_treasure += got;
         if (!it->secret) { G.value_got += v; G.items_got++; }
+        if (it->color == TRI_REWARD) {                             /* the trial's hoard (1.0.0b18.1) */
+            say("THE TRIAL'S HOARD: $%d", got);
+            snd_sfx(SFX_KEYGET);
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT trial_hoard %d by %s t=%.2f\n", got, G.player ? "player" : "autopilot", G.t);
+#endif
+        }
         snd_sfx_ex(SFX_COIN, it->type >= IT_CROWN ? 1.2f : 0.9f, 0.5f);
         G.gold = it->type >= IT_CROWN ? 1.0f : 0.6f;
         if (it->type >= IT_CROWN) G.grin_t = 1.6f;
@@ -15202,11 +15490,12 @@ static void pz_make_run1(int kind, int diff) {
     case PZ_KNELL: case PZ_DBELLS: {                               /* bells to ring in an order a banner (or a carving of ripples) gives */
         int dbells = kind == PZ_DBELLS;
         static const char *const DEPTH_WORD[4] = { "THE SHALLOWEST", "THE SHALLOW", "THE DEEP", "THE DEEPEST" };
+        static const char *const ROMAN[4] = { "I", "II", "III", "IV" };   /* cut in each bell, and in the words (1.0.0b18.1) */
         n = imin(7, 4 + diff);
         for (int k = 0; k < 4; k++) {
             char nm[40];
-            snprintf(nm, sizeof nm, "%s BELL", dbells ? DEPTH_WORD[k] : BELL_WORD[k]);
-            int b = pz_standing(TR_STRIKE, SP_BELL, 1, 0, nm);
+            snprintf(nm, sizeof nm, "%s BELL (%s)", dbells ? DEPTH_WORD[k] : BELL_WORD[k], ROMAN[k]);
+            int b = pz_standing(TR_STRIKE, SP_PBELL0 + k, 1, 0, nm);   /* each its own: shape, bands, metal, numeral */
             if (b < 0) break;
             G.thing[b].grp = 1; G.thing[b].val = k; G.thing[b].scale = 0.6f + 0.17f * (float)k;
             G.thing[b].z = dbells ? -0.08f * (float)k : 0.0f;
@@ -15215,7 +15504,7 @@ static void pz_make_run1(int kind, int diff) {
         for (int k = 0; k < n; k++) { int v; do v = rnd(4); while (k && v == G.pz_seq[k - 1]); G.pz_seq[k] = v; }
         char txt[160];
         snprintf(txt, sizeof txt, "%s", dbells ? "THE RIPPLES, AS THE BELLS SOUND:" : "THE ORDER'S KNELL, IN BELLS:");
-        for (int k = 0; k < n; k++) pz_append(txt, 160, " %s%s", dbells ? DEPTH_WORD[G.pz_seq[k]] + 4 : BELL_WORD[G.pz_seq[k]] + 4, k < n - 1 ? "," : "");
+        for (int k = 0; k < n; k++) pz_append(txt, 160, " %s (%s)%s", dbells ? DEPTH_WORD[G.pz_seq[k]] + 4 : BELL_WORD[G.pz_seq[k]] + 4, ROMAN[G.pz_seq[k]], k < n - 1 ? "," : "");
         pz_reading(dbells ? SP_PZ_TABLET : SP_PZ_BANNER, 1, dbells ? "A CARVING OF RIPPLES" : "THE BANNER OVER THE BELLS", txt);
         snprintf(ans, 200, "RING THEM SO:%s", strchr(txt, ':') + 1);
         snprintf(hint, 100, dbells ? "THE DEEPER IT HANGS, THE LOWER IT SOUNDS" : "THE BANNER'S BELLS, FROM ITS LEFT");
@@ -15501,6 +15790,8 @@ static void pz_make(void) {
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "PUZZLE level %d: %s diff %d room %d door (%d,%d) exit inside %d, %d things: %s\n", G.level, PZ_NAME[G.pz], diff, G.pz_room,
             dr->x, dr->y, G.pz_exit, G.nthing - n0, G.pz_answer);
+    if (getenv("CRAWL_PZTHINGS"))                                  /* each of its things, where (1.0.0b18.1) */
+        for (int i = n0; i < G.nthing; i++) fprintf(stderr, "PUZZLE thing %d %s at (%.2f,%.2f) z %.2f scale %.2f\n", i, G.thing[i].name, G.thing[i].x, G.thing[i].y, G.thing[i].z, G.thing[i].scale);
 #endif
 }
 /* stacking: an item laid on top of a pile */
@@ -16853,10 +17144,11 @@ static void tp_near(float tx, float ty) {                          /* testing: a
 
 /* ---- trials (1.0.0b13, docs/PLAN-b13.md part D) ----
  * On every level from the third, a boss's too (outside its arena), one room off the way with one door, marked with the
- * run's skull and crossed bones, two red lights by it. One cell past the door it seals behind you and the room turns:
+ * run's skull and crossed bones, two red lights by it. A cell and a half past the door it seals behind you and the room turns:
  * its light, its walls, a quicker march, and an hourglass at the top of the view with sixty seconds of sand and no
- * numbers. Win, and the hourglass breaks, you are restored (health and bones in full, spirit to half the vessel if it
- * was less) and THE TRIAL'S BOON gives a fifth more experience from combat for the rest of the level; let the sand run
+ * numbers. Win, and the hourglass breaks, bones fill, spirit goes to half the vessel if it was less, a hoard and a draught
+ * that makes you whole are left in the room (tri_reward, 1.0.0b18.1; health had come back at once), and THE TRIAL'S BOON
+ * gives a fifth more experience from combat for the rest of the level; let the sand run
  * out and its creatures crumble, and THE TRIAL'S CURSE takes a fifth from all experience instead. Falling there is a
  * death as anywhere. The dream takes every trial it finds with two thirds of its health. */
 static const char *const TRI_NAME[NTRI] = { "THE OSSUARY WAKES", "THE VIGIL", "LAST RITES", "THE KNIGHT'S WAGER", "THE TOLL",
@@ -17219,6 +17511,48 @@ static int tri_done(int *n) {                                      /* of the tri
     return d;
 }
 #endif
+/* 1.0.0b18.1: a trial won leaves its reward in its room, in place of the restoring it gave at once: a hoard worth three of
+ * the level's chests, glowing, kept out of the level's treasure count, and a draught that makes you whole, which waits while
+ * you are whole. Both are marked in Item.color, which only keys and scrip read. */
+static int tri_reward_at(int type) {                               /* a won trial's hoard or draught still lying, or -1 */
+    for (int i = 0; i < G.nitems; i++) if (G.items[i].alive && G.items[i].type == type && G.items[i].color == TRI_REWARD) return i;
+    return -1;
+}
+static int tri_reward_spot(int nx, int ny, int *ox, int *oy) {     /* free floor near the room's middle, in sight of its door,
+                                                                      not under the caster; the second near the first (nx >= 0) */
+    const Room *R = &G.rooms[G.tri_room];
+    const Door *d = &G.doors[G.tri_door];
+    int ix = 2 * d->x - G.tri_wx, iy = 2 * d->y - G.tri_wy;        /* the cell inside its door */
+    float cx = (float)R->x + (float)R->w * 0.5f, cy = (float)R->y + (float)R->h * 0.5f;
+    for (int pass = 0; pass < 2; pass++) {                         /* in sight of the door first, then anywhere in it */
+        int bx = -1, by = -1; float bd = 1e9f;
+        for (int y = R->y; y < R->y + R->h; y++)
+            for (int x = R->x; x < R->x + R->w; x++) {
+                if (!free_floor(x, y) || hypotf(x + 0.5f - G.px, y + 0.5f - G.py) < 1.4f) continue;
+                if (pass == 0 && !line_clear(ix + 0.5f, iy + 0.5f, x + 0.5f, y + 0.5f)) continue;
+                float s = nx >= 0 ? hypotf((float)(x - nx), (float)(y - ny)) : hypotf(x + 0.5f - cx, y + 0.5f - cy);
+                if (s < bd) { bd = s; bx = x; by = y; }
+            }
+        if (bx >= 0) { *ox = bx; *oy = by; return 1; }
+    }
+    return 0;
+}
+static void tri_reward(void) {
+    int hx, hy, px, py;
+    if (!tri_reward_spot(-1, -1, &hx, &hy)) { hx = (int)G.px; hy = (int)G.py; }   /* no room for it: at your feet */
+    Item *h = add_item(hx, hy, IT_CHEST);
+    if (h) {
+        h->secret = 1; h->seen = 1; h->color = TRI_REWARD; h->value = 3 * treasure_value(IT_CHEST);
+        G.items_total--; G.value_total -= treasure_value(IT_CHEST);   /* out of the level's count, as a secret's loot is */
+    }
+    if (!tri_reward_spot(hx, hy, &px, &py)) { px = (int)G.px; py = (int)G.py; }
+    Item *p = add_item(px, py, IT_POTION);
+    if (p) { p->secret = 1; p->seen = 1; p->color = TRI_REWARD; }
+    sfx_at(SFX_SHIMMER, hx + 0.5f, hy + 0.5f, 0.9f); sfx_at(SFX_DEEPCHIME, hx + 0.5f, hy + 0.5f, 0.6f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT trial_reward gold %d at (%d,%d) draught at (%d,%d) caster (%.1f,%.1f) t=%.2f\n", h ? h->value : 0, hx, hy, px, py, G.px, G.py, G.t);
+#endif
+}
 static void tri_end(int won) {
 #ifdef CRAWL_DEBUG
     { int n, d = tri_done(&n); fprintf(stderr, "TRIAL end %s: %d of %d done, %d standing, hp %d/%d, hold %.1f at (%.1f,%.1f)", won ? "won" : "lost", d, n, tri_alive(0), G.hp, G.max_hp, G.tri_hold, G.px, G.py);
@@ -17253,12 +17587,12 @@ static void tri_end(int won) {
             if (all) ach_earn(ACH_DEED0 + 6 + r, SP_TRLIGHT0 + r, -1, 0, TRI_RUN_ACH[r], "EVERY ONE WON");
         }
         G.tri_boon = 1;
-        G.hp = G.max_hp; G.poison_t = 0.0f;
+        tri_reward();                                              /* its hoard and its draught, in place of health at once (1.0.0b18.1) */
         RUN.gear.bones = imax(RUN.gear.bones, bones_max());
         float half = vessel() * 0.5f;
         if (spirit() < half) { RUN.souls = (int)half; RUN.soul_frac = half - (float)RUN.souls; }
         say("THE TRIAL IS WON: THE TRIAL'S BOON, A FIFTH MORE FROM WHAT YOU SLAY");
-        snd_sfx_ex(SFX_SHATTER, 1.0f, 0.5f); snd_sfx_ex(SFX_FANFARE, 0.6f, 0.5f); snd_sfx_ex(SFX_POTION, 0.7f, 0.5f);
+        snd_sfx_ex(SFX_SHATTER, 1.0f, 0.5f); snd_sfx_ex(SFX_FANFARE, 0.6f, 0.5f);
         show_bar();
     } else {
         if (RUN.deed_lost < 65535) RUN.deed_lost++;
@@ -17530,10 +17864,16 @@ static void update_trial(float dt) {
     if (G.tri_state == TRS_SHUT) {
         const Door *d = &G.doors[G.tri_door];
         int x = (int)G.px, y = (int)G.py;
-        if (!G.dead && in_trial(x, y) && abs(x - d->x) + abs(y - d->y) >= 1) tri_begin();   /* a cell past the door */
+        if (!G.dead && in_trial(x, y) && !door_body(d) && hypotf(G.px - (d->x + 0.5f), G.py - (d->y + 0.5f)) >= TRI_IN) tri_begin();   /* well past the door: a peek begins nothing */
         return;
     }
-    if (G.tri_state != TRS_ON) { G.tri_end += dt; return; }
+    if (G.tri_state != TRS_ON) {
+        float was = G.tri_end;
+        G.tri_end += dt;
+        if (G.player && G.tri_state == TRS_WON && was < 2.4f && G.tri_end >= 2.4f && tri_reward_at(IT_CHEST) >= 0)
+            say("ITS HOARD AND A DRAUGHT LIE IN THE ROOM");           /* once the boon's words have had their time (1.0.0b18.1) */
+        return;
+    }
     if (G.dead) {
 #ifdef CRAWL_DEBUG
         if (!G.tri_a[15]++) { int n, d = tri_done(&n); fprintf(stderr, "EVENT trial_died %d %s level %d left %.1f by %s t=%.2f (%d of %d done, %d standing, by %d/%d/%d)\n", G.tri, TRI_NAME[G.tri], G.level, G.tri_t,
@@ -17543,6 +17883,9 @@ static void update_trial(float dt) {
     }
     float was = G.tri_t;
     G.tri_t -= dt;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_TRIWIN") && TRI_TIME - G.tri_t >= (float)atof(getenv("CRAWL_TRIWIN"))) { tri_end(1); return; }   /* testing: won, s seconds in */
+#endif
     if (G.tri_t < 10.0f && floorf(was) != floorf(G.tri_t)) snd_sfx_ex(SFX_TICK, 0.5f + 0.05f * (10.0f - G.tri_t), 0.5f);   /* the last ten */
     tri_run(dt);
     if (G.tri_state == TRS_ON && G.tri_t <= 0.0f) {
@@ -17582,6 +17925,276 @@ static void tri_place(void) {
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "TRIAL level %d: %s room %d door (%d,%d) in at (%d,%d)\n", G.level, TRI_NAME[G.tri], G.tri_room, dr->x, dr->y, G.tri_ix, G.tri_iy);
 #endif
+}
+/* ---- the soul-lamps, laid with the level and lit by souls (1.0.0b18.1, docs/PLAN-b18-1.md section 6) ---- */
+static int ward_wraith(void) {                                     /* the Wraith on the level: 1 + its place, or 0 */
+    for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive && G.mobs[i].type == MOB_WRAITH && !G.mobs[i].boss) return i + 1;
+    return 0;
+}
+static int ward_level(void) {                                      /* a level the Wraith comes to */
+    return !G.shop && !PK.depth && G.boss < 0 && !crawl_boss(G.level) && (G.level >= KINDS[MOB_WRAITH].debut || crawl_loop(G.level) > 0);
+}
+static float ward_due(void) {                                      /* seconds till it comes: 0 come, 1e9 not this level */
+    if (ward_wraith()) return 0.0f;
+    if (G.wraith_done || !ward_level()) return 1e9f;
+    float at = 240.0f;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_WRAITH")) at = (float)atof(getenv("CRAWL_WRAITH"));
+#endif
+    return fmaxf(0.0f, at - (float)G.level_t);
+}
+static void ward_spread(int bit, int x0, int y0, int reach) {      /* every open cell within reach steps of a place */
+    static int16_t d[MAPN][MAPN];
+    static int q[MAPN * MAPN];
+    if (reach < 0 || x0 < 1 || y0 < 1 || x0 >= MAPN - 1 || y0 >= MAPN - 1) return;
+    if (!is_open(x0, y0)) {                                        /* a thing in the wall: from the floor before it */
+        for (int k = 0; k < 4; k++) if (is_open(x0 + DX[k], y0 + DY[k])) ward_spread(bit, x0 + DX[k], y0 + DY[k], reach - 1);
+        return;
+    }
+    memset(d, 0xff, sizeof d);
+    int qh = 0, qt = 0;
+    d[y0][x0] = 0; q[qt++] = y0 * MAPN + x0;
+    while (qh < qt) {
+        int x = q[qh] % MAPN, y = q[qh] / MAPN; qh++;
+        WD.cell[y][x] |= (uint8_t)bit;
+        if (d[y][x] >= reach) continue;
+        for (int k = 0; k < 4; k++) {
+            int nx = x + DX[k], ny = y + DY[k];
+            if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || d[ny][nx] >= 0 || !is_open(nx, ny)) continue;
+            d[ny][nx] = (int16_t)(d[y][x] + 1); q[qt++] = ny * MAPN + nx;
+        }
+    }
+}
+static int ward_area_n(int bit) { int n = 0; for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) n += (WD.cell[y][x] & bit) != 0; return n; }
+static void ward_ring(int bit) {                                   /* the cells about it, corners too, through floor and doorways */
+    static uint8_t add[MAPN][MAPN];
+    memset(add, 0, sizeof add);
+    for (int y = 1; y < MAPN - 1; y++)
+        for (int x = 1; x < MAPN - 1; x++) {
+            if (!(WD.cell[y][x] & bit)) continue;
+            for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) if (is_open(x + i, y + j) && !(WD.cell[y + j][x + i] & bit)) add[y + j][x + i] = 1;
+        }
+    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (add[y][x]) WD.cell[y][x] |= (uint8_t)bit;
+}
+/* its lamp, hung on a wall near a place: want steps from it if it can */
+static int ward_hang(int kind, int ax, int ay, int want) {
+    static int16_t d[MAPN][MAPN];
+    static int q[MAPN * MAPN];
+    if (WD.n >= MAXWL || G.ndecos >= MAXDECO || ax < 1 || ay < 1 || ax >= MAPN - 1 || ay >= MAPN - 1) return 0;
+    memset(d, 0xff, sizeof d);
+    int qh = 0, qt = 0, bx = -1, by = -1, bk = 0;
+    float bs = 1e9f;
+    d[ay][ax] = 0; q[qt++] = ay * MAPN + ax;
+    while (qh < qt) {
+        int x = q[qh] % MAPN, y = q[qh] / MAPN; qh++;
+        if (cell(x, y)->kind == K_FLOOR && !in_band(y) && !in_trial(x, y) && !in_wing(x, y))   /* never shut away behind the door it guards */
+            for (int k = 0; k < 4; k++) {
+                const Cell *w = cell(x + DX[k], y + DY[k]);
+                if (w->kind != K_WALL || w->secret || w->ftorch || w->fover[(k + 2) & 3]) continue;   /* bare stone, not a secret's */
+                float px = x + 0.5f + DX[k] * 0.40f, py = y + 0.5f + DY[k] * 0.40f, s = (float)(abs(d[y][x] - want) * 4 + d[y][x]) + k * 0.01f;
+                int clash = 0;
+                for (int i = 0; i < G.ndecos && !clash; i++) clash = G.decos[i].spr >= 0 && hypotf(G.decos[i].x - px, G.decos[i].y - py) < 0.7f;
+                for (int i = 0; i < WD.n && !clash; i++) clash = hypotf(G.decos[WD.l[i].deco].x - px, G.decos[WD.l[i].deco].y - py) < 1.5f;
+                if (!clash && s < bs) { bs = s; bx = x; by = y; bk = k; }
+            }
+        if (d[y][x] >= 4) continue;
+        for (int k = 0; k < 4; k++) {
+            int nx = x + DX[k], ny = y + DY[k];
+            if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || d[ny][nx] >= 0 || !is_open(nx, ny)) continue;
+            d[ny][nx] = (int16_t)(d[y][x] + 1); q[qt++] = ny * MAPN + nx;
+        }
+    }
+    if (bx < 0) return 0;
+    WLamp *L = &WD.l[WD.n++];
+    memset(L, 0, sizeof *L);
+    L->kind = kind; L->cx = bx; L->cy = by; L->d = bk; L->deco = G.ndecos;
+    G.decos[G.ndecos++] = (Deco){ bx + 0.5f + DX[bk] * 0.40f, by + 0.5f + DY[bk] * 0.40f, 0.0f, SP_WLAMP0 + 3 * (crawl_set(G.level) & 3), 1, 0 };   /* no draw on the dice */
+    return 1;
+}
+static void ward_lights(void) {                                    /* a lit lamp's light, for the lightmap */
+    for (int i = 0; i < WD.n && !G.shop && !PK.depth; i++)
+        if (WD.l[i].banked > 0.0f) light_dynamic(G.decos[WD.l[i].deco].x, G.decos[WD.l[i].deco].y, 0.5f + 0.06f * sinf((float)G.t * 5.0f + (float)i), 2.6f);
+}
+static int seq_kind(int k) { return k == MKK_TABLET || k == MKK_PLINTH || k == MKK_RELIQ || k == MKK_WSTONE || k == MKK_RELAY; }
+static int seq_key(int i) { return G.mk[i].grp ? G.mk[i].grp : i + 1; }
+/* each challenge's ground, a ring round it and its lamp, once the level is made; nothing yet lit */
+static void ward_make(void) {
+    memset(&WD, 0, sizeof WD);
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_LAMPS") && !atoi(getenv("CRAWL_LAMPS"))) return;   /* (CRAWL_WARD is the warded creatures') */
+#endif
+    if (!ward_level()) return;                                     /* the Wraith never comes here: no lamps to light */
+    for (int c = 0; c < 2 + MAXMK && WD.n < MAXWL; c++) {
+        int bit = 1 << WD.n, kind = -1, ax = -1, ay = -1, want = 1;
+        if (c == 0 && G.tri >= 0 && G.tri_room >= 0 && G.tri_wx >= 0) {   /* a trial: its room; the lamp beside its lights */
+            for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (in_trial(x, y) && is_open(x, y)) WD.cell[y][x] |= (uint8_t)bit;
+            kind = WLK_TRIAL; ax = G.tri_wx; ay = G.tri_wy; want = 2;
+        } else if (c == 1 && G.pz >= 0 && G.pz_room >= 0 && G.pz_door >= 0 && G.pz_wx >= 0) {   /* a puzzle: its wing, the ground its pieces lie on */
+            for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (in_wing(x, y) && is_open(x, y)) WD.cell[y][x] |= (uint8_t)bit;
+            ward_spread(bit, G.doors[G.pz_door].x, G.doors[G.pz_door].y, 2);
+            for (int i = 0; i < G.nthing; i++) if (!G.thing[i].tri) ward_spread(bit, G.thing[i].cx, G.thing[i].cy, 2);
+            kind = WLK_PUZZLE; ax = G.pz_wx; ay = G.pz_wy; want = 1;
+        } else if (c >= 2 && c - 2 < G.nmk && seq_kind(G.mk[c - 2].kind)) {   /* a sequence: about its pieces, the lamp by its first */
+            int i = c - 2, key = seq_key(i), seen = 0;
+            for (int j = 0; j < i; j++) seen |= seq_kind(G.mk[j].kind) && seq_key(j) == key;
+            if (seen) continue;
+            for (int j = 0; j < G.nmk; j++) if (seq_key(j) == key) ward_spread(bit, (int)G.mk[j].x, (int)G.mk[j].y, 2);
+            kind = WLK_SEQ; ax = (int)G.mk[i].x; ay = (int)G.mk[i].y; want = 1;
+            if (!is_open(ax, ay)) for (int k = 0; k < 4; k++) if (is_open((int)G.mk[i].x + DX[k], (int)G.mk[i].y + DY[k])) { ax = (int)G.mk[i].x + DX[k]; ay = (int)G.mk[i].y + DY[k]; break; }
+        }
+        if (kind < 0) continue;
+        ward_ring(bit);
+        if (!ward_area_n(bit) || !ward_hang(kind, ax, ay, want))   /* nowhere to hang it: no ward there */
+            for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) WD.cell[y][x] &= (uint8_t)~bit;
+    }
+#ifdef CRAWL_DEBUG
+    static const char *const WK[3] = { "trial", "puzzle", "sequence" };
+    for (int i = 0; i < WD.n; i++)
+        fprintf(stderr, "WARD level %d: lamp %d for the %s at (%d,%d) on the wall %d, %d cells\n", G.level, i, WK[WD.l[i].kind], WD.l[i].cx, WD.l[i].cy, WD.l[i].d, ward_area_n(1 << i));
+    if (getenv("CRAWL_WARDMAP"))                                   /* the ward's cells by lamp, the lamps, the things */
+        for (int y = 0; y < MAPN; y++) {
+            char row[MAPN + 1];
+            for (int x = 0; x < MAPN; x++) {
+                int b = WD.cell[y][x], c = cell(x, y)->kind;
+                row[x] = c == K_WALL ? '#' : c == K_DOOR ? '+' : b ? (char)('0' + __builtin_ctz((unsigned)b)) : '.';
+                for (int i = 0; i < WD.n; i++) if (WD.l[i].cx == x && WD.l[i].cy == y) row[x] = 'L';
+                for (int i = 0; i < G.nthing; i++) if (G.thing[i].cx == x && G.thing[i].cy == y) row[x] = 'T';
+                for (int i = 0; i < G.nmk; i++) if ((int)G.mk[i].x == x && (int)G.mk[i].y == y) row[x] = 'M';
+            }
+            row[MAPN] = 0;
+            fprintf(stderr, "WARDMAP %2d %s\n", y, row);
+        }
+    if (getenv("CRAWL_WARDLIT"))                                   /* testing: every lamp lit with n souls, none paid */
+        for (int i = 0; i < WD.n; i++) { WD.l[i].banked = WARD_SOUL_T * (float)clampi(atoi(getenv("CRAWL_WARDLIT")), 1, WARD_MAX); WD.mask |= 1 << i; G.decos[WD.l[i].deco].spr++; G.decos[WD.l[i].deco].nfr = 2; }
+#endif
+}
+static void ward_light(int i, int on) {                            /* its flame, and the bit that bars the Wraith */
+    Deco *dc = &G.decos[WD.l[i].deco];
+    int base = SP_WLAMP0 + 3 * (crawl_set(G.level) & 3);
+    dc->spr = on ? base + 1 : base; dc->nfr = on ? 2 : 1;
+    if (on) WD.mask |= 1 << i; else WD.mask &= ~(1 << i);
+    WD.field_t = 0.0f;
+}
+static int ward_offer(int i, int dream) {                          /* a soul for two minutes of it */
+    WLamp *L = &WD.l[i];
+    const Deco *dc = &G.decos[L->deco];
+    if (L->banked > (float)(WARD_MAX - 1) * WARD_SOUL_T + 0.5f) { if (!dream) { say("THE LAMP HOLDS NO MORE"); snd_sfx_ex(SFX_KNOCK, 0.35f, 0.5f); } return 0; }
+    if (spirit() < 1.0f || !spend_spirit(1.0f)) { if (!dream) { say("THE LAMP WANTS A WHOLE SOUL"); snd_sfx_ex(SFX_KNOCK, 0.35f, 0.5f); } return 0; }
+    int was = L->banked > 0.0f;
+    L->banked += WARD_SOUL_T;
+    if (dream) L->offered++;
+    if (!was) ward_light(i, 1);
+    sfx_at(SFX_IGNITE, dc->x, dc->y, 0.7f);
+    if (!dream) {
+        int min = (int)ceilf(L->banked / 60.0f - 1e-3f);
+        if (ward_wraith()) say("THE WARD HOLDS: %d MINUTES", min); else say("%d MINUTES, FROM THE WRAITH'S COMING", min);
+    }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ward_offer lamp %d %s banked %.0f s spirit %.1f t=%.2f\n", i, dream ? "dream" : "person", L->banked, spirit(), G.t);
+    if (!was) fprintf(stderr, "EVENT ward_lit lamp %d t=%.2f\n", i, G.t);
+#endif
+    return 1;
+}
+static int ward_facing(void) {                                     /* the lamp a person stands before and looks at */
+    int best = -1; float ba = 0.6f;
+    for (int i = 0; i < WD.n; i++) {
+        const Deco *dc = &G.decos[WD.l[i].deco];
+        if (hypotf(dc->x - G.px, dc->y - G.py) > 1.7f) continue;
+        float a = fabsf(wrap_pi(atan2f(dc->y - G.py, dc->x - G.px) - G.ang));
+        if (a < ba) { ba = a; best = i; }
+    }
+    return best;
+}
+static int ward_undone(int i) {                                    /* its challenge still waits to be met */
+    const WLamp *L = &WD.l[i];
+    if (L->kind == WLK_TRIAL) return G.tri >= 0 && G.tri_state == TRS_SHUT;
+    if (L->kind == WLK_PUZZLE) return G.pz >= 0 && !G.pz_solved;
+    for (int j = 0; j < G.nmk; j++) if (seq_kind(G.mk[j].kind) && (WD.cell[(int)G.mk[j].y][(int)G.mk[j].x] >> i & 1) && !G.mk[j].done) return 1;
+    for (int j = 0; j < G.nmk; j++)                                /* a piece in the wall: by the floor before it */
+        if (seq_kind(G.mk[j].kind) && !G.mk[j].done && hypotf(G.mk[j].x - (L->cx + 0.5f), G.mk[j].y - (L->cy + 0.5f)) < 2.5f) return 1;
+    return 0;
+}
+/* the clock, the field, a person's offering, the dream's, the Wraith held at the edge */
+static void ward_tick(float dt) {
+    if (PK.depth || G.shop || !WD.n || dt <= 0.0f) return;
+    int wi = ward_wraith();
+    for (int i = 0; i < WD.n; i++) {                               /* the clock burns only while the Wraith walks the level */
+        WLamp *L = &WD.l[i];
+        if (L->banked <= 0.0f || !wi) continue;
+        if ((L->banked -= dt) > 0.0f) continue;
+        L->banked = 0.0f;
+        ward_light(i, 0);
+        sfx_at(SFX_WIND, G.decos[L->deco].x, G.decos[L->deco].y, 0.6f);
+        if (G.player) say("A SOUL-LAMP GOES OUT");
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT ward_out lamp %d t=%.2f\n", i, G.t);
+#endif
+    }
+    if (WD.mask && (WD.field_t -= dt) <= 0.0f) { ward_field(); WD.field_t = 0.5f; }
+    WD.flare_t = fmaxf(0.0f, WD.flare_t - dt / 1.2f);
+    int held = 0;
+    if (wi && WD.mask && !G.dead) {                                /* held at the edge: a hiss, the line flaring where it stands */
+        Mob *m = &G.mobs[wi - 1];
+        int hx = -1, hy = -1;
+        for (int k = 0; k < 4 && hx < 0; k++) if (wraith_barred(m->cx + DX[k], m->cy + DY[k])) { hx = m->cx + DX[k]; hy = m->cy + DY[k]; }
+        held = hx >= 0 && m->sub != 1 && !wraith_barred(m->cx, m->cy) && hypotf(m->x - G.px, m->y - G.py) < 8.0f;
+        if (held && !WD.at_edge) {
+            WD.hiss_t = 0.0f;
+            if (G.player && !WD.said_held) { WD.said_held = 1; say("THE WRAITH CANNOT PASS THE WARD"); }
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT ward_held at (%d,%d) t=%.2f\n", m->cx, m->cy, G.t);
+#endif
+        }
+        if (held && (WD.hiss_t -= dt) <= 0.0f) {
+            WD.hiss_t = 3.0f;
+            sfx_at(SFX_HISS, m->x, m->y, 0.45f);
+            WD.flare_t = 1.0f; WD.flare_x = (m->cx + hx) * 0.5f + 0.5f; WD.flare_y = (m->cy + hy) * 0.5f + 0.5f;
+        }
+    }
+    WD.at_edge = held;
+#ifdef CRAWL_DEBUG
+    if (wi) {                                                      /* a check: it never walks into a lit ward from outside */
+        static int lx = -1, ly = -1, lw = -1;
+        const Mob *m = &G.mobs[wi - 1];
+        if (lw == wi && (lx != m->cx || ly != m->cy) && lx >= 0 && !wraith_barred(lx, ly) && wraith_barred(m->cx, m->cy))
+            fprintf(stderr, "EVENT ward_breach (%d,%d) to (%d,%d) t=%.2f\n", lx, ly, m->cx, m->cy, G.t);
+        lx = m->cx; ly = m->cy; lw = wi;
+        static double tr_t;
+        if (getenv("CRAWL_WARDTRACE") && G.t - tr_t >= 1.0) {
+            tr_t = G.t;
+            fprintf(stderr, "WARD trace t=%.1f wraith (%.2f,%.2f) sub %d field %d, you (%.2f,%.2f) ang %.2f inside %d, apart %.2f, mask %d banked %.0f hp %d/%d\n", G.t, m->x, m->y,
+                    m->sub, wraith_h(m->cx, m->cy), G.px, G.py, G.ang, wraith_barred((int)G.px, (int)G.py), hypotf(m->x - G.px, m->y - G.py), WD.mask, WD.n ? WD.l[0].banked : 0.0f, G.hp, G.max_hp);
+        }
+    }
+#endif
+    if (G.player && !G.dead) {
+        if (IN.hit[KEY_E] && thing_facing() < 0) { int i = ward_facing(); if (i >= 0) { IN.hit[KEY_E] = 0; ward_offer(i, 0); } }   /* E at it: a soul (a puzzle's piece first) */
+        for (int i = 0; i < WD.n && G.msg_t <= 0.4f; i++) {        /* its words, once a level, when first seen near */
+            WLamp *L = &WD.l[i];
+            const Deco *dc = &G.decos[L->deco];
+            if (L->said || hypotf(dc->x - G.px, dc->y - G.py) > 3.0f || fabsf(wrap_pi(atan2f(dc->y - G.py, dc->x - G.px) - G.ang)) > 0.8f
+                || !line_clear(G.px, G.py, L->cx + 0.5f, L->cy + 0.5f)) continue;
+            L->said = 1;
+            say("%s", pkp("A SOUL-LAMP   E: OFFER A SOUL"));
+        }
+        return;
+    }
+    if (G.dead || (WD.offer_t -= dt) > 0.0f) return;               /* the dream (W3 a): what the challenge wants, as it comes to it */
+    WD.offer_t = 0.5f;
+    float due = ward_due();
+    int ccx = (int)G.px, ccy = (int)G.py;
+    for (int i = 0; i < WD.n; i++) {
+        WLamp *L = &WD.l[i];
+        const Deco *dc = &G.decos[L->deco];
+        if (!ward_undone(i)) continue;
+        int inside = WD.cell[ccy][ccx] >> i & 1, near = hypotf(dc->x - G.px, dc->y - G.py) < 2.5f && line_clear(G.px, G.py, L->cx + 0.5f, L->cy + 0.5f);
+        int coming = L->kind == WLK_TRIAL ? near : inside || near;
+        if (L->banked <= 0.0f && !L->offered && coming && due < 60.0f && spirit() >= 15.0f) {
+            int want = L->kind == WLK_TRIAL ? 1 : 2;
+            for (int k = 0; k < want && spirit() >= 11.0f; k++) ward_offer(i, 1);   /* never under ten */
+        } else if (wi && inside && L->banked > 0.0f && L->banked < 60.0f && L->offered < WARD_MAX && spirit() >= 11.0f)
+            ward_offer(i, 1);                                      /* and one more as it burns low */
+    }
 }
 /* the dream at a trial: in, when it has found the door and two thirds of its health; then what each asks */
 static int tri_next(int *a) {
@@ -18307,6 +18920,10 @@ static void update_items(void) {
         float d = hypotf(it->x - G.px, it->y - G.py);
         if (!it->seen && d < (it->type == IT_KEY ? 13.0f : 8.5f) && line_clear(G.px, G.py, it->x, it->y)) it->seen = 1;
         if (it->type == IT_BONE && RUN.gear.bones >= bones_max()) continue;   /* no room for it */
+        if (it->type == IT_POTION && it->color == TRI_REWARD && G.hp >= G.max_hp) {   /* the trial's draught waits while you are whole */
+            if (G.player && !it->value && d < 0.9f) { it->value = 1; say("THE DRAUGHT WAITS: YOU ARE WHOLE"); }   /* (value: said, once) */
+            continue;
+        }
         if (d < (G.player ? 0.5f : 1.6f) && G.level_t > 1.0 && !G.ending) collect(it);   /* the autopilot reaches out, to a corner */
     }
 }
@@ -18768,10 +19385,12 @@ static void update_mark(float dt);
 static void comp_note(int level);
 static void crawl_update(double dt) {
     float fdt = (float)dt;
+    foot_settle();                                                 /* one born by a prop, into what it leaves free (1.0.0b18.1) */
 #ifdef CRAWL_DEBUG
-    dbg_souls();
+    dbg_souls(); foot_watch();
 #endif
     if (con_update(fdt)) return;                                   /* the console is down: the crypt waits, the music plays */
+    if (pad_look_tick(fdt)) return;                                /* and so it does under the controller's look (1.0.0b18.1) */
     if (RUN.active) comp_note(G.level);                            /* what is worn and known goes into the Compendium */
     caster_sync();                                                 /* and the caster's own joins what is worn */
     G.msg_t = fmaxf(0.0f, G.msg_t - fdt); G.hint_t = fmaxf(0.0f, G.hint_t - fdt); G.knock_t = fmaxf(0.0f, G.knock_t - fdt);
@@ -18783,7 +19402,8 @@ static void crawl_update(double dt) {
         XPF.banner = fmaxf(0.0f, XPF.banner - fdt);
     }
     if (G.player && G.ui && !G.shop) { update_ui(); return; }     /* a menu is up: the crypt holds its breath */
-    if (G.player && !G.shop && !G.dead && !G.tally && !G.exiting) wheel_input(fdt);   /* a wheel: real time for it, */
+    if (G.player && !G.ui && !G.dead && !G.tally && !G.exiting) wheel_input(fdt);   /* a wheel: real time for it (her rooms too,
+                                                                      1.0.0b18.1, but never over one of her menus), */
     else if (WH.open) wheel_close(0);
     WH.k = WH.open ? fminf(1.0f, WH.k + fdt / 0.12f) : fmaxf(0.0f, WH.k - fdt / 0.12f);
     if (WH.open) { dt *= WHEEL_SLOW; fdt = (float)dt; }            /* and the world slow under it */
@@ -18814,6 +19434,7 @@ static void crawl_update(double dt) {
         if (G.tally) G.fade = smoothstepf(0.0f, 0.4f, (float)G.tally_t) * (1.0f - smoothstepf(TALLY_END - 0.7f, TALLY_END, (float)G.tally_t));
         return;
     }
+    ward_tick(fdt);                                                /* the soul-lamps (1.0.0b18.1) */
     float ox = G.px, oy = G.py;
     int still = 0;
 #ifdef CRAWL_DEBUG
@@ -18885,7 +19506,7 @@ static void crawl_update(double dt) {
         && !G.tally && !G.exiting && (G.wraith_try -= fdt) <= 0.0f) {
         int x, y;
         G.wraith_try = 5.0f;
-        if (pick_cell_at_depth(G.cx, G.cy, 20, 400, 1, &x, &y)) {
+        if (pick_cell_at_depth(G.cx, G.cy, 20, 400, 1, &x, &y) && !wraith_barred(x, y)) {   /* (never inside a soul-lamp's ward) */
             Mob *m = spawn_mob(x, y, MOB_WRAITH);
             if (m) { m->alert = 1e9f; G.wraith_done = 1; G.wraith_now = 0; sfx_at(SFX_WAIL, x + 0.5f, y + 0.5f, 3.0f); wraith_chill(m); }
 #ifdef CRAWL_DEBUG
@@ -19143,7 +19764,7 @@ static void gen_shop(void) {
     G.items_total = G.items_got = G.value_total = G.value_got = 0; G.nvaults = 0;
     G.nsecrets = G.secrets_found = G.nlinks = G.links_found = 0; G.slide = G.seek_secret = -1;
     for (int k = 0; k < NKEYS; k++) G.vault_room[k] = G.vault_door[k] = -1;
-    memset(G.bulky, 0, sizeof G.bulky); memset(G.fog, 0, sizeof G.fog); memset(G.mapped, 0, sizeof G.mapped);
+    memset(G.bulky, 0, sizeof G.bulky); memset(G.fog, 0, sizeof G.fog); memset(G.mapped, 0, sizeof G.mapped); memset(G.foot, 0, sizeof G.foot);
     for (int y = 12; y <= 17; y++) for (int x = 10; x <= 20; x++) carve(x, y, 0, TH_BRICK);
     G.rooms[G.nrooms++] = (Room){ 10, 12, 11, 6, 0, TH_BRICK, RT_MERCHANT };
     for (int x = SHOP_DOOR; x <= SHOP_DOOR + 5; x++) carve(x, 15, 1, TH_CORRIDOR);
@@ -19760,7 +20381,8 @@ static void update_shop(double dt) {
             build_lightmap();
             return;
         }
-        shop_human(fdt);
+        if (!WH.open && WH.k <= 0.0f) shop_human(fdt);            /* a wheel up, or going: she and her wares wait, so the press
+                                                                      that closed it buys nothing (1.0.0b18.1) */
         G.sdur = 0.0f;
     }
     if (G.sdur > 0.0f) {                                           /* the current turn or walk */
@@ -19997,6 +20619,7 @@ static int reckon_lines(char out[NRK][48], int glyph[NRK]) {
         snprintf(out[n], 48, "ABOUT %s GOLD STILL LIES HERE", num); glyph[n++] = RK_GOLD;
     }
     if (G.tri >= 0 && G.tri_state == TRS_SHUT) { snprintf(out[n], 48, "THE TRIAL STILL WAITS"); glyph[n++] = RK_TRIAL; }
+    else if (G.tri >= 0 && G.tri_state == TRS_WON && tri_reward_at(IT_CHEST) >= 0) { snprintf(out[n], 48, "THE TRIAL'S HOARD STILL LIES IN ITS ROOM"); glyph[n++] = RK_TRIAL; }
     return n;
 }
 /* E at the exit, or walking into it: the reckoning first, if anything is left */
@@ -20145,7 +20768,8 @@ static int body_blocked(float x, float y, int *bx, int *by) {
     for (int i = 0; i < 2; i++)
         for (int j = 0; j < 2; j++) {
             int cx = (int)floorf(xs[i]), cy = (int)floorf(ys[j]);
-            if (blocks_move(cx, cy)) { *bx = cx; *by = cy; return 1; }
+            if (foot_of(cx, cy) ? foot_hit(xs[i], ys[j]) : blocks_move(cx, cy)) { *bx = cx; *by = cy; return 1; }   /* a prop's part,
+                                                                      as against walls: the box is no wider than a quarter (1.0.0b18.1) */
         }
     return 0;
 }
@@ -20158,8 +20782,30 @@ static void push_from(float ox, float oy, float r) {              /* out of some
     if (!body_blocked(nx, ny, &bx, &by)) { G.px = nx; G.py = ny; }
 }
 
+/* 1.0.0b18.1: the body caught in something solid (a door that shut on it, whatever else might close on it): every step
+ * would be refused, so it is set where it fits, the nearest place within a cell. Walls are a cell thick, so it can't come
+ * out on their far side. */
+static void unstick(void) {
+    int bx, by;
+    if (!body_blocked(G.px, G.py, &bx, &by)) return;
+    for (int r = 1; r <= 20; r++) {                                /* rings a twentieth of a cell apart */
+        float rr = 0.05f * (float)r;
+        for (int k = 0; k < 16; k++) {
+            float a = (float)k * (TAU_F / 16.0f), x = G.px + cosf(a) * rr, y = G.py + sinf(a) * rr;
+            int ox, oy;
+            if (body_blocked(x, y, &ox, &oy)) continue;
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT unstuck from (%.2f,%.2f) in (%d,%d) kind %d to (%.2f,%.2f) t=%.2f\n", G.px, G.py, bx, by, cell(bx, by)->kind, x, y, G.t);
+#endif
+            G.px = x; G.py = y;
+            return;
+        }
+    }
+}
+
 /* one step of walking, sliding along walls; returns how far it got */
 static float human_move(float dx, float dy) {
+    unstick();
     float ox = G.px, oy = G.py;
     int bx, by;
     if (dx != 0.0f) { if (!body_blocked(G.px + dx, G.py, &bx, &by)) G.px += dx; else human_bump(bx, by); }
@@ -20285,12 +20931,33 @@ static void wheel_close(int take) {
     }
     WH.open = 0;
 }
+/* a ware held for the next visit, for a quarter of its price: Q tapped while looking at it (on letting go since 1.0.0b18.1,
+ * so that Q held may open the gifts' wheel in her rooms as anywhere) */
+static void shop_hold(int i) {
+    const Offer *o = &G.offers[i];
+    int cost = (o->price + 3) / 4;
+    if (o->price <= 0) say("IT IS FREE: NOTHING TO HOLD");
+    else if (G.shop_held >= 0) say(G.shop_held == i ? "IT IS HELD FOR YOU" : "ONE WARE HELD AT A TIME");
+    else if (cost > RUN.treasure) say("HOLDING IT COSTS $%d", cost);
+    else {
+        RUN.treasure -= cost;
+        RUN.gear.held = *o; RUN.gear.has_held = 1; G.shop_held = i;
+        say("HELD FOR NEXT TIME: $%d", cost);
+        snd_sfx_ex(SFX_COIN, 0.8f, 0.5f); sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.9f); G.cat_slow = 1.2f;
+    }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT shop_hold %d price %d held %d left %d t=%.2f\n", i, o->price, G.shop_held, RUN.treasure, G.t);
+#endif
+}
 static void wheel_input(float dt) {
     if (IN.down[KEY_Q]) {                                          /* Q: tapped, the next readied; held, the gifts' wheel */
         if ((WH.q_t += dt) >= WHEEL_HOLD && !WH.q_w) { WH.q_w = 1; if (!WH.open) wheel_open(WH_GIFTS, 1); }
     } else if (WH.q_t > 0.0f) {
         if (WH.q_w) { if (WH.open && WH.src) wheel_close(1); }
-        else if (!WH.open) ready_next();
+        else if (!WH.open) {
+            if (G.shop && G.shop_look >= 0 && !G.offer_gone[G.shop_look]) shop_hold(G.shop_look);   /* at her pedestals: held */
+            else ready_next();
+        }
         WH.q_t = 0.0f; WH.q_w = 0;
     }
     if (PADX.wheel_req && !WH.open) wheel_open(PADX.wheel_req, 0);
@@ -20298,7 +20965,12 @@ static void wheel_input(float dt) {
     if (!WH.src && PADX.wheel_rel == WH.open) { wheel_close(1); return; }
     if (PADX.wheel_cancel || IN.hit[KEY_ESC]) { IN.hit[KEY_ESC] = 0; wheel_close(0); snd_sfx_ex(SFX_KEY, 0.5f, 0.5f); return; }
     WH.t += dt;
-    float vx = IN.lx, vy = -IN.ly;                                 /* the stick, y down as the screen is */
+    float vx = IN.lx, vy = -IN.ly;                                 /* the stick, y down as the screen is: the free hand's (1.0.0b18.1): */
+    if (IN.pad) {                                                  /* a D-pad held, the right; X held, the left; a shoulder, either */
+        int hand = WH.src ? PADX.q_hand : PADX.w_hand;
+        int right = hand == 1 || (hand == 0 && PADX.prx * PADX.prx + PADX.pry * PADX.pry > PADX.plx * PADX.plx + PADX.ply * PADX.ply);
+        vx = right ? PADX.prx : PADX.plx; vy = -(right ? PADX.pry : PADX.ply);
+    }
     if (WH.src || IN.mdx != 0.0f || IN.mdy != 0.0f) {              /* or the mouse, gathered into a point */
         WH.mx += IN.mdx; WH.my += IN.mdy;
         float r = hypotf(WH.mx, WH.my);
@@ -20363,7 +21035,7 @@ static void sprint_tick(float dt, int on, int moved) {
 }
 
 /* turning and walking, shared by the crypt and the merchant's room */
-static float pad_turn(float dt) { return IN.rx * (0.4f + 0.6f * IN.rx * IN.rx) * PAD_TURN * dt; }   /* gentle near the middle */
+static float pad_turn(float dt) { return IN.rx * (0.4f + 0.6f * IN.rx * IN.rx) * PAD_TURN * (float)PL.turn * 0.1f * dt; }   /* gentle near the middle; a person's turning */
 static void human_walk(float dt) {
     int want = IN.down[KEY_SHIFT] || PADX.run;
     if (!IN.down[KEY_SHIFT]) G.spr_dry = 0;                        /* Shift let go: it may be asked for again */
@@ -20764,19 +21436,6 @@ static void shop_human(float dt) {
         }
         else if (!human_use() && G.mer_look) { open_ui(UI_MERCHANT); G.click_spent = CAST_HIT; }   /* her menu: the ledger, a pat */
     }
-    if (IN.hit[KEY_Q] && i >= 0) {                                 /* hold it for the next visit, for a quarter of its price */
-        const Offer *o = &G.offers[i];
-        int cost = (o->price + 3) / 4;
-        if (o->price <= 0) say("IT IS FREE: NOTHING TO HOLD");
-        else if (G.shop_held >= 0) say(G.shop_held == i ? "IT IS HELD FOR YOU" : "ONE WARE HELD AT A TIME");
-        else if (cost > RUN.treasure) say("HOLDING IT COSTS $%d", cost);
-        else {
-            RUN.treasure -= cost;
-            RUN.gear.held = *o; RUN.gear.has_held = 1; G.shop_held = i;
-            say("HELD FOR NEXT TIME: $%d", cost);
-            snd_sfx_ex(SFX_COIN, 0.8f, 0.5f); sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.9f); G.cat_slow = 1.2f;
-        }
-    }
     human_cast(dt, !G.click_spent);
 }
 
@@ -20908,7 +21567,7 @@ static void run_new(void) {
 }
 static void quit_choose(int c) {
     if (c == Q_OPEN) { open_ledger(1); return; }
-    if (c == Q_PAD) { PADX.bind = 1; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }   /* then the button wanted */
+    if (c == Q_PAD) { pad_menu_open(); return; }                   /* the controller's screen (1.0.0b18.1) */
     if (c == Q_NEW) {                                              /* asked twice: what is unsigned is lost */
         if (!G.quit_arm) { G.quit_arm = 1; snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return; }
         run_new();
@@ -20921,22 +21580,6 @@ static void quit_choose(int c) {
 static void update_quit(void) {
     if (G.status_ret == PLAY_QUIT) return;
     int nq = quit_rows();
-    if (PADX.bind) {                                               /* choosing the sprint's button: every one let go, then the one pressed */
-        if (!IN.pad || (IN.hit[KEY_ESC] && !IN.pad_hit[PAD_B] && !IN.pad_hit[PAD_MENU])) { PADX.bind = 0; return; }   /* Esc on the keys gives up */
-        int any = 0;
-        for (int b = 0; b < PAD_COUNT; b++) any |= IN.pad_down[b];
-        if (PADX.bind == 1) { if (!any) PADX.bind = 2; return; }
-        for (int b = 0; b < PAD_COUNT; b++)
-            if (IN.pad_hit[b]) {
-                pad_sprint_set(b); PADX.bind = 0; PADX.run = 0;
-                snd_sfx_ex(SFX_RUNE, 0.6f, 0.5f);
-#ifdef CRAWL_DEBUG
-                fprintf(stderr, "EVENT pad_sprint %d t=%.2f\n", b, G.t);
-#endif
-                break;
-            }
-        return;
-    }
     G.ui_sel = clampi(G.ui_sel, 0, nq - 1);
     if (IN.hit[KEY_W] || IN.hit[KEY_UP]) { G.ui_sel = (G.ui_sel + nq - 1) % nq; G.quit_arm = 0; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
     if (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) { G.ui_sel = (G.ui_sel + 1) % nq; G.quit_arm = 0; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
@@ -21440,8 +22083,10 @@ static void pad_keys(float dt) {
     int keys = IN.ntext > 0 || IN.wheel || fabsf(IN.mdx) + fabsf(IN.mdy) > 4.0f, pads = 0;
     PADX.dodge = 0;
     PADX.wheel_req = PADX.wheel_rel = PADX.wheel_cancel = PADX.rune_hit = PADX.abil_hit = 0;
+    pl_read();
     for (int k = 0; k < KEY_COUNT && !keys; k++) keys = IN.hit[k];
-    if (!IN.pad) { PADX.used = PADX.run = 0; return; }
+    if (!IN.pad) { PADX.used = PADX.run = 0; PADX.look = 0; PADX.vm_p = PADX.vm_s = 0; return; }
+    PADX.plx = IN.lx; PADX.ply = IN.ly; PADX.prx = IN.rx; PADX.pry = IN.ry;
     if (PADX.fresh) {                                              /* the button held to take over counts once let go */
         PADX.fresh = 0; PADX.held = 0;
         for (int b = 0; b < PAD_COUNT; b++) if (IN.pad_down[b]) PADX.held |= 1u << b;
@@ -21456,12 +22101,47 @@ static void pad_keys(float dt) {
     }
     pads |= IN.lx * IN.lx + IN.ly * IN.ly > 0.09f || IN.rx * IN.rx + IN.ry * IN.ry > 0.09f;
     if (pads) PADX.used = 1; else if (keys) PADX.used = 0;
+    {                                                              /* View and Menu (1.0.0b18.1): together, the look; alone, each */
+        int vm[2] = { PAD_VIEW, PAD_MENU };                        /* acts as it is let go, unless the other came in the while */
+        PADX.vm_t += dt;
+        for (int i = 0; i < 2; i++) {
+            int b = vm[i], bit = 1 << i, other = 1 << (1 - i);
+            if (hit[b]) {
+                if (PADX.vm_p & other && PADX.vm_t < 0.15f) {      /* the second of the two, in time */
+                    PADX.vm_s |= 3;
+                    if (G.player && !CON.open) { PADX.look = !PADX.look; PADX.look_t = 0.0f; snd_sfx_ex(PADX.look ? SFX_PAGE : SFX_KEY, 0.6f, 0.5f); }
+#ifdef CRAWL_DEBUG
+                    fprintf(stderr, "EVENT pad_look %s t=%.2f\n", PADX.look ? "on" : "off", G.t);
+#endif
+                } else if (PADX.look) PADX.vm_s |= bit;            /* Menu alone puts the look away, below; spent either way */
+                if (!(PADX.vm_p & other)) PADX.vm_t = 0.0f;
+                PADX.vm_p |= bit;
+                hit[b] = 0;
+            } else if (PADX.vm_p & bit && !IN.pad_down[b]) {       /* let go: its own job now, if the look didn't take it */
+                hit[b] = !(PADX.vm_s & bit);
+                PADX.vm_p &= ~bit; PADX.vm_s &= ~bit;
+            } else hit[b] = 0;
+        }
+    }
+    if (PADX.look) {                                               /* the look: B or Menu puts it away; nothing else gets through */
+        if (hit[PAD_B] || hit[PAD_MENU] || (IN.pad_hit[PAD_MENU] && !(PADX.vm_p & 1))) { PADX.look = 0; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
+        return;
+    }
+    if (PL.swap && G.ui == UI_NONE) {                              /* the sticks swapped, in play */
+        float t = IN.lx; IN.lx = IN.rx; IN.rx = t; t = IN.ly; IN.ly = IN.ry; IN.ry = t;
+    }
     if (IN.ly < 0.33f) PADX.run = 0;                               /* the sprint ends as the stick stops leaning forward */
+#ifdef CRAWL_DEBUG
+    static double ptr_t;
+    if (getenv("CRAWL_PADTRACE") && G.t - ptr_t >= 0.5) { ptr_t = G.t; fprintf(stderr, "PAD trace t=%.1f at (%.2f,%.2f) ang %.3f sticks %.2f %.2f %.2f %.2f\n", G.t, G.px, G.py, G.ang, IN.lx, IN.ly, IN.rx, IN.ry); }
+#endif
     if (CON.open) return;
 #define PRESS(k) (IN.hit[k] = IN.down[k] = 1)
     if (G.ui != UI_NONE) {
         static const int DIRK[4] = { KEY_W, KEY_S, KEY_A, KEY_D };
-        int want[4] = { dn[PAD_UP] || IN.ly > 0.55f, dn[PAD_DOWN] || IN.ly < -0.55f, dn[PAD_LEFT] || IN.lx < -0.55f, dn[PAD_RIGHT] || IN.lx > 0.55f };
+        float sx = IN.lx, sy = IN.ly;                              /* the stick a person moves through menus with (1.0.0b18.1) */
+        if (PL.mstick == 1 || (PL.mstick == 2 && IN.rx * IN.rx + IN.ry * IN.ry > sx * sx + sy * sy)) { sx = IN.rx; sy = IN.ry; }
+        int want[4] = { dn[PAD_UP] || sy > 0.55f, dn[PAD_DOWN] || sy < -0.55f, dn[PAD_LEFT] || sx < -0.55f, dn[PAD_RIGHT] || sx > 0.55f };
         if (!PADX.menu)                                            /* just opened: what opened it, or a walk, isn't a turn of the page */
             for (int d = 0; d < 4; d++) { PADX.on[d] = (uint8_t)want[d]; PADX.rep[d] = 0.4f; }
         PADX.menu = 1;
@@ -21481,20 +22161,19 @@ static void pad_keys(float dt) {
         return;
     }
     PADX.menu = 0;
-    {                                                              /* the sprint's button and the left stick click trade jobs */
-        int sb = pad_sprint();
-        if (sb != PAD_LS) {
-            uint8_t t = dn[sb]; dn[sb] = dn[PAD_LS]; dn[PAD_LS] = t;
-            t = hit[sb]; hit[sb] = hit[PAD_LS]; hit[PAD_LS] = t;
-        }
-    }
-    if (G.map_on && G.player && !G.shop) {                         /* the map up: the D-pad pans it, B closes it */
+    if (G.map_on && G.player && !G.shop) {                         /* the map up: the D-pad pans it, B closes it, whatever the layout */
         if (hit[PAD_UP]) PRESS(KEY_UP);
         if (hit[PAD_DOWN]) PRESS(KEY_DOWN);
         if (hit[PAD_LEFT]) PRESS(KEY_LEFT);
         if (hit[PAD_RIGHT]) PRESS(KEY_RIGHT);
         if (hit[PAD_B]) PRESS(KEY_M);
         hit[PAD_UP] = hit[PAD_DOWN] = hit[PAD_LEFT] = hit[PAD_RIGHT] = hit[PAD_B] = 0;
+        dn[PAD_UP] = dn[PAD_DOWN] = dn[PAD_LEFT] = dn[PAD_RIGHT] = dn[PAD_B] = 0;
+    }
+    {                                                              /* the layout: each button's state goes to its job (1.0.0b18.1); */
+        uint8_t jd[PAD_COUNT], jh[PAD_COUNT];                      /* from here on a PAD_* names a job, by the button it began on */
+        for (int b = 0; b < PAD_COUNT; b++) { jd[PL.job[b]] = dn[b]; jh[PL.job[b]] = hit[b]; }
+        memcpy(dn, jd, sizeof jd); memcpy(hit, jh, sizeof jh);
     }
     {                                                              /* the D-pad's up and down: tapped, the map and the bar; held, the wheels */
         float *ht[2] = { &PADX.up_t, &PADX.dn_t };
@@ -21504,13 +22183,14 @@ static void pad_keys(float dt) {
             if (G.map_on && G.player && !G.shop) { *ht[i] = 0.0f; *hw[i] = 0; continue; }   /* the map up: they pan it, above */
             if (dn[DB[i]]) {
                 *ht[i] += dt;
-                if (*ht[i] >= WHEEL_HOLD && !*hw[i]) { *hw[i] = 1; PADX.wheel_req = WK[i]; }
+                if (*ht[i] >= WHEEL_HOLD && !*hw[i]) { *hw[i] = 1; PADX.wheel_req = WK[i]; PADX.w_hand = pad_hand(pl_on(DB[i])); }
             } else if (*ht[i] > 0.0f) {
                 if (!*hw[i]) PRESS(TAPK[i]); else PADX.wheel_rel = WK[i];
                 *ht[i] = 0.0f; *hw[i] = 0;
             }
         }
     }
+    if (dn[PAD_X]) { IN.down[KEY_Q] = 1; PADX.q_hand = pad_hand(pl_on(PAD_X)); }   /* X held, as Q held: the runes' wheel (1.0.0b18.1) */
     if (WH.open) {                                                 /* a wheel up: the stick points, B or Menu puts it away */
         if (hit[PAD_B] || hit[PAD_MENU]) PADX.wheel_cancel = 1;
         return;
@@ -21557,6 +22237,29 @@ static void crawl_control(int what) {
     say("THE CONTROLS ARE YOURS");
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_XP")) RUN.xp += atoi(getenv("CRAWL_XP"));   /* testing: experience banked, not yet claimed */
+    if (getenv("CRAWL_TPPED") && G.shop && G.ped_n) {              /* testing: before her pedestal k, facing it (1.0.0b18.1) */
+        int k = clampi(atoi(getenv("CRAWL_TPPED")) - 1, 0, G.ped_n - 1), bx, by;
+        float best = -1.0f, tx = 0.0f, ty = 0.0f;
+        for (int i = 0; i < 16; i++) {                             /* a step and a half off, on the side away from her */
+            float a = (float)i * (TAU_F / 16.0f), x = G.ped_x[k] + cosf(a) * 1.4f, y = G.ped_y[k] + sinf(a) * 1.4f, s = hypotf(x - CAT_X, y - CAT_Y);
+            if (!body_blocked(x, y, &bx, &by) && s > best) { best = s; tx = x; ty = y; }
+        }
+        if (best >= 0.0f) { G.px = tx; G.py = ty; G.cx = G.tx = (int)tx; G.cy = G.ty = (int)ty; G.ang = atan2f(G.ped_y[k] - ty, G.ped_x[k] - tx); }
+        fprintf(stderr, "TPPED %d of %d at (%.2f,%.2f) ang %.3f\n", k + 1, G.ped_n, G.px, G.py, G.ang);
+    }
+    if (getenv("CRAWL_TPAT") && !G.shop) {                         /* testing: at x,y facing deg (1.0.0b18.1, for frames) */
+        float x = 0.0f, y = 0.0f, a = 0.0f;
+        if (sscanf(getenv("CRAWL_TPAT"), "%f,%f,%f", &x, &y, &a) >= 2) {
+            G.px = x; G.py = y; G.cx = G.tx = (int)x; G.cy = G.ty = (int)y; G.ang = a * (float)M_PI / 180.0f;
+            fprintf(stderr, "TPAT (%.2f,%.2f) ang %.3f\n", G.px, G.py, G.ang);
+        }
+    }
+    if (getenv("CRAWL_TPWARD") && !G.shop && WD.n) {               /* testing: before soul-lamp k, facing it (1.0.0b18.1) */
+        const WLamp *L = &WD.l[clampi(atoi(getenv("CRAWL_TPWARD")) - 1, 0, WD.n - 1)];
+        G.px = L->cx + 0.5f - DX[L->d] * 0.1f; G.py = L->cy + 0.5f - DY[L->d] * 0.1f; G.cx = G.tx = L->cx; G.cy = G.ty = L->cy;
+        G.ang = atan2f((float)DY[L->d], (float)DX[L->d]);
+        fprintf(stderr, "TPWARD lamp %d at (%.2f,%.2f) ang %.3f\n", (int)(L - WD.l), G.px, G.py, G.ang);
+    }
     if (getenv("CRAWL_TPEXIT") && !G.shop && G.exit_fx >= 0) tp_exit();    /* testing: straight to the exit, facing it */
     if (getenv("CRAWL_TPSECRET") && !G.shop && G.nsecrets) tp_secret(atoi(getenv("CRAWL_TPSECRET")) % G.nsecrets);
     if (getenv("CRAWL_TPALTAR") && !G.shop) tp_altar();
@@ -23476,6 +24179,7 @@ static void update_ui(void) {
     if (G.ui == UI_ALTAR) { update_altarmenu(); return; }
     if (G.ui == UI_BSHRINE) { update_bshrine(); return; }
     if (G.ui == UI_RECKON) { update_reckon(); return; }
+    if (G.ui == UI_PAD) { update_padmenu(); return; }
     if (G.ui == UI_INVENTORY) update_inventory();
     else if (G.ui == UI_LEDGER) update_ledger();
     else if (G.ui == UI_MERCHANT) update_merchantmenu();
@@ -23627,7 +24331,8 @@ enum { FM_NONE, FM_SHADOW, FM_CRACK, FM_FIRE, FM_EMBER, FM_SHEEN, FM_BILE, FM_VR
        FM_OMEN, FM_OMEN_CELL, FM_OMEN_ARC,                      /* Premonition's zones: round, a cell's worth, a blade's fan */
        FM_VAPOUR, FM_WAX, FM_RIME, FM_SURGE, FM_SPARK, FM_BUBBLE, FM_POOL, FM_DUST, FM_SHIMMER, FM_SRING, FM_ASH, FM_STAR,
        FM_CHALK, FM_HAZE,                                       /* the runs' own (1.0.0b13) */
-       FM_PLATE, FM_PIPE };                                     /* a puzzle's flagstone, stone or glass, and its channels (1.0.0b13) */
+       FM_PLATE, FM_PIPE,                                       /* a puzzle's flagstone, stone or glass, and its channels (1.0.0b13) */
+       FM_WARD };                                               /* a soul-lamp's ward, at its edge (1.0.0b18.1) */
 typedef struct { uint8_t kind, prio; float k, ax, ay, r, ang; } FMark;
 static FMark fmark[MAPN][MAPN];
 static void fm_set(int x, int y, int kind, int prio, float k, float ax, float ay, float r, float ang) {
@@ -23723,6 +24428,17 @@ static int omen_marks(void) {                                      /* Premonitio
     }
     return any;
 }
+static int ward_marks(void) {                                      /* the soul-lamps' ward, where it meets the open floor */
+    int any = 0;
+    for (int y = 1; y < MAPN - 1; y++)
+        for (int x = 1; x < MAPN - 1; x++) {
+            if (!wraith_barred(x, y) || fmark[y][x].kind != FM_NONE || G.map[y][x].kind != K_FLOOR) continue;
+            int edge = 0;
+            for (int k = 0; k < 4; k++) edge |= !wraith_barred(x + DX[k], y + DY[k]) && is_open(x + DX[k], y + DY[k]);
+            if (edge) { fm_set(x, y, FM_WARD, 0, 1.0f, WD.flare_x, WD.flare_y, WD.flare_t, 0.0f); any = 1; }
+        }
+    return any;
+}
 static int hz_marks(void) {
     memset(fmark, 0, sizeof fmark);
     if (G.shop) return 0;
@@ -23780,6 +24496,7 @@ static int hz_marks(void) {
         if (t->role == TR_PLATE) { fm_set(t->cx, t->cy, FM_PLATE, 1, t->on ? 1.0f : 0.0f, (float)t->look, (float)t->mark, (float)t->state, 0.0f); any = 1; }
         else if (t->role == TR_TURN && t->spr < 0) { fm_set(t->cx, t->cy, FM_PIPE, 1, (float)t->look, (float)pipe_mask(t->val, t->state), (float)i, 0.0f, 0.0f); any = 1; }
     }
+    if (WD.mask && !PK.depth) any |= ward_marks();                 /* the soul-lamps' ward, under all the rest (1.0.0b18.1) */
     return any;
 }
 /* one floor pixel under a mark: returns a colour drawn as it is (bright, or the void's dark), or -1 to
@@ -23981,6 +24698,16 @@ static int fm_pixel(const FMark *m, float wx, float wy, float fx, float fy, int 
         if (on_edge) return edge;
         if (inside && b < (k < 0.75f ? 1 : 2)) return R_PURPLE + 7;
         return -1;
+    }
+    case FM_WARD: {                                                /* a soul-lamp's ward: a faint violet line where it meets the open */
+        int cx = (int)floorf(wx), cy = (int)floorf(wy);
+        #define WO(xx, yy) (!wraith_barred(xx, yy) && is_open(xx, yy))
+        int on = (fx < 0.06f && WO(cx - 1, cy)) || (fx > 0.94f && WO(cx + 1, cy)) || (fy < 0.06f && WO(cx, cy - 1)) || (fy > 0.94f && WO(cx, cy + 1));
+        #undef WO
+        if (!on) return -1;
+        float fl = m->r > 0.0f ? m->r * (1.0f - smoothstepf(0.0f, 1.8f, hypotf(wx - m->ax, wy - m->ay))) : 0.0f;   /* flaring where the Wraith is held */
+        if (!((int)((fx + fy) * 6.0f + (float)G.t * 0.8f) & 1) && fl < 0.3f) return -1;   /* dashed, drifting slowly */
+        return R_PURPLE + clampi((int)(6.0f + 1.5f * sinf((float)G.t * 1.7f + wx + wy) + 9.0f * fl), 0, 15);
     }
     }
     return -1;
@@ -24673,7 +25400,9 @@ static int deco_look(const Deco *dc) {
     if (crawl_alt[look][1] >= 0) {
         int na = 1;
         while (na < NALT && crawl_alt[look][na] >= 0) na++;
-        look = crawl_alt[look][hash2((int)(dc->x * 8.0f), (int)(dc->y * 8.0f)) % (uint32_t)na];
+        float hx = dc->x, hy = dc->y;
+        if (foot_of((int)hx, (int)hy)) { hx = floorf(hx) + 0.5f; hy = floorf(hy) + 0.5f; }   /* a prop in its part: the look its cell gave it */
+        look = crawl_alt[look][hash2((int)(hx * 8.0f), (int)(hy * 8.0f)) % (uint32_t)na];
     }
     return look;
 }
@@ -24932,12 +25661,14 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     for (int i = 0; i < G.nthing && !PK.depth && !G.shop; i++) {  /* a puzzle's things (1.0.0b13) */
         const Thing *t = &G.thing[i];
         if (t->spr < 0 || G.carry == i + 1) continue;
-        int n0 = n, spr = t->spr + (t->frames > 1 ? t->state % t->frames : 0);
+        int n0 = n, spr = t->spr + (t->frames > 1 ? t->state % t->frames : 0), back = 0;
         if (t->facing) spr = t->spr + ((t->state - dir_to(G.px, G.py, t->x, t->y) + 4) & 3);   /* away, to your right, to you, to your left */
+        if (t->spr >= SP_PBELL0 && t->spr <= SP_PBELL3 && t->t < 0.8f) { spr = SP_PBELL0R + t->spr - SP_PBELL0; back = t->t >= 0.42f; }   /* rung: it leans, and swings back */
         ADD(t->x, t->y, t->z, spr, 0);
         if (n > n0) {
             list[n - 1].scale = t->scale;
             if (t->t < 0.35f || (t->role == TR_STRIKE && t->t < 1.2f)) list[n - 1].flags = DR_EDGE;   /* just touched */
+            if (back) list[n - 1].flags |= DR_FLIPH;
             if (t->ramp >= 0) list[n - 1].remap = t->ramp;
         }
         if (t->mark && n > n0) {                                   /* its mark, carved on it */
@@ -25113,6 +25844,14 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             list[n - 1].flags |= DR_GLINT; list[n - 1].glint = GLINT[it->color];
         }
         if (n > n0 && it->type != IT_KEY) { float u = ph * 0.6f - floorf(ph * 0.6f); list[n - 1].twinkle = u < 0.1f ? sinf(u / 0.1f * PI_F) : 0.0f; }
+        if (n > n0 && it->color == TRI_REWARD) {                   /* a won trial's: full bright; the hoard glints often, edged in gold */
+            list[n - 1].flags |= DR_BRIGHT;
+            if (it->type == IT_CHEST) {
+                float u = ph * 1.4f - floorf(ph * 1.4f);
+                list[n - 1].twinkle = u < 0.25f ? sinf(u / 0.25f * PI_F) : 0.0f;
+                list[n - 1].flags |= DR_EDGE; list[n - 1].glint = R_GOLD;   /* a gold edge, shimmering (and its own light: build_lightmap) */
+            }
+        }
     }
     if (G.shop)                                                    /* the bosses' scrip on the Totem's hooks, one for each ability known */
         for (int b = 0; b < NBOSS; b++) {
@@ -25263,7 +26002,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     if ((d->flags & (DR_EDGE | DR_ALLY)) && !behind && ((x + y + (int)(G.t * 10.0)) & 1)
                         && ((tyi < TS - 1 && col[tyi + 1] != C_CLEAR) || (tx > 0 && img[(tx - 1) * TS + tyi] != C_CLEAR)
                             || (tx < TS - 1 && img[(tx + 1) * TS + tyi] != C_CLEAR)))
-                        f->pix[y * W + x] = (d->flags & DR_ALLY) ? (uint8_t)(R_PURPLE + 13) : (uint8_t)C_WHITE;   /* the blessing: a white edge
+                        f->pix[y * W + x] = (d->flags & DR_ALLY) ? (uint8_t)(R_PURPLE + 13) : d->glint && !(d->flags & DR_GLINT) ? ramp_at(d->glint, 12 + ((x ^ y) & 3)) : (uint8_t)C_WHITE;   /* (a ramp in glint: a won trial's hoard, gold) the blessing: a white edge
                                                                                                          about its fire; yours, a violet one */
                     continue;
                 }
@@ -25396,6 +26135,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
 
 /* ---- the merchant's wares: prices over the pedestals, a sparkle when one is taken ---- */
 static void render_shop_tags(Frame *f, float dx, float dy, float horizon) {
+    if (WH.k > 0.0f) return;                                       /* a wheel up in her rooms: the tags wait (1.0.0b18.1) */
     int order[NPED], n = 0, box[NPED][4], nb = 0;                  /* nearest first; a tag that would cover a nearer one waits */
     for (int i = 0; i < G.ped_n; i++) order[n++] = i;
     for (int a = 1; a < n; a++) for (int b = a; b > 0; b--) {
@@ -25654,6 +26394,7 @@ static int shop_carded(void) {                                     /* a person l
                                   || G.tot_look || G.bell_look || G.font_look || G.lamp_look || G.sh_look);
 }
 static void render_shop_card(Frame *f) {
+    if (G.player && WH.k > 0.0f) return;                           /* and the cards: a wheel covers them (1.0.0b18.1) */
     int i = G.shop_step == SH_LOOK || G.shop_step == SH_GO || (G.shop_step == SH_BUY && G.shop_pick >= 0 && !G.offer_gone[G.shop_pick]) ? G.shop_look : -1;
     if (G.shop_step == SH_LOOK && G.shop_t < 0.35) i = -1;
     if (G.player) i = G.shop_look;
@@ -26549,6 +27290,8 @@ static void render_tally_in(Frame *f) {
             snprintf(note[r], sizeof note[r], "%s%s%s", a, *a && *b ? "  " : "", b);
         }
         if (r == 4 && G.trials_failed) snprintf(note[r], sizeof note[r], "%d TRIAL%s FAILED", G.trials_failed, G.trials_failed > 1 ? "S" : "");
+        if (r == 2 && G.tri >= 0 && G.tri_state == TRS_WON)       /* the trial's hoard, out of the count (1.0.0b18.1) */
+            snprintf(note[r], sizeof note[r], tri_reward_at(IT_CHEST) >= 0 ? "THE TRIAL'S HOARD, LEFT IN ITS ROOM" : "THE TRIAL'S HOARD, TAKEN");
         nn += note[r][0] != 0;
     }
     int pitch = clampi((176 - top - nn * 9) / imax(1, nr), 12, 15), y = top;   /* spaced to fit, closer with more rows and notes */
@@ -26564,6 +27307,7 @@ static void render_tally_in(Frame *f) {
             int x0 = 30 + gfx_text_width(LABEL[r], 1) + 6, x1 = 290 - lw - 6;   /* the leader: a line cut in the stone */
             for (int x = x0; x < x1; x++) { gfx_px(f, x, y + 11, UI_M(1)); gfx_px(f, x, y + 12, UI_M(11)); }
             if (r == 4 && note[r][0]) gfx_text8(f, 46, y + 13, note[r], R_BLOOD + 12, 1);   /* under the label's foot, each part its colour */
+            if (r == 2 && note[r][0]) gfx_text8(f, 46, y + 13, note[r], tri_reward_at(IT_CHEST) >= 0 ? (uint8_t)(R_BLOOD + 12) : (uint8_t)(R_GOLD + 12), 1);
             if (r == 5 && note[r][0]) {
                 const char *a = G.corrupt && G.fonted ? "HALF, +10%" : G.corrupt ? "HALF" : G.fonted ? "+10%" : "";
                 int nx = 46;
@@ -26925,15 +27669,26 @@ static void render_messages(Frame *f) {
     if (G.hint_t > 0.0f && G.player && !G.ui && !G.dead && !G.claim_card && !shop_carded() && WH.k <= 0.0f) {   /* never over death's card, hers, a ware's or a wheel */
         static const char *const HINT[4] = { WEB ? "WASD WALK  MOUSE TURN  SPACE CASTS" : "WASD WALK  MOUSE TURN  CLICK CASTS", "1-9 SPELLS  E OPENS  TAB INVENTORY", "B BESTIARY  ESC LEAVE OR SLEEPWALK",
                                              "L WISPS  C THE CODEX  H THE STATUS BAR" };
-        static const char *const PADHINT[4] = { "L-STICK WALK  R-STICK TURN  RT CASTS", "D-PAD DOWN HELD: SPELLS  \1A OPENS",
-                                                "MENU LEAVE  VIEW INVENTORY  \1Y WISPS", "D-PAD: BESTIARY, CODEX, STATUS BAR" };
+        static char PADHINT[4][48], pm[6][48];                     /* the pad's lines, by the layout (1.0.0b18.1) */
+        #define PW(j) PAD_WORD[pl_on(j)]
+        snprintf(PADHINT[0], 48, "%s WALK  %s TURN  %s CASTS", PL.swap ? "R-STICK" : "L-STICK", PL.swap ? "L-STICK" : "R-STICK", PW(PAD_RT));
+        snprintf(PADHINT[1], 48, "%s HELD: SPELLS  %s OPENS", PW(PAD_DOWN), PW(PAD_A));
+        snprintf(PADHINT[2], 48, "MENU LEAVE  VIEW INVENTORY  %s WISPS", PW(PAD_Y));
+        if (pl_on(PAD_LEFT) == PAD_LEFT && pl_on(PAD_RIGHT) == PAD_RIGHT && pl_on(PAD_DOWN) == PAD_DOWN) snprintf(PADHINT[3], 48, "D-PAD: BESTIARY, CODEX, STATUS BAR");
+        else snprintf(PADHINT[3], 48, "%s BESTIARY  %s CODEX", pad_short(pl_on(PAD_LEFT)), pad_short(pl_on(PAD_RIGHT)));
+        snprintf(pm[0], 48, "%s DODGES THE WAY THE STICK LEANS", PW(PAD_B));
+        snprintf(pm[1], 48, "%s A GIFT  %s A RUNE  %s HELD CHOOSES", pad_short(pl_on(PAD_LB)), pad_short(pl_on(PAD_RB)), pl_on(PAD_UP) == PAD_UP ? "UP" : pad_short(pl_on(PAD_UP)));
+        snprintf(pm[2], 48, "%s TAPPED: THE MAP", PW(PAD_UP));
+        snprintf(pm[3], 48, "HOLD %s TO CHARGE AN ULTIMATE", PW(PAD_RT));
+        snprintf(pm[4], 48, "SWING THE %s TO SHAKE OFF A BAT", PL.swap ? "L-STICK" : "R-STICK");
+        #undef PW
         int charges = 0, bats = G.level >= 5;                      /* bats of rank II come in from the first run's fifth level */
         for (int sp = 0; sp < AT_BFS; sp++) charges |= RUN.gear.atk[sp] >= 0 && spell_holds(sp);
-        const char *more[7] = { PADX.used ? pad_sprint_hint() : "SHIFT SPRINTS FORWARD, A WHILE", RUN.abil[BOSS_KNIGHT] ? (PADX.used ? "\1B DODGES THE WAY THE STICK LEANS" : "TAP A DIRECTION TWICE TO DODGE") : NULL,
-                                ab_readied() >= 0 || rune_readied() >= 0 ? (PADX.used ? "LB A GIFT  RB A RUNE  UP HELD CHOOSES" : "RIGHT CLICK USES  Q NEXT, HOLD: WHEEL") : NULL,
-                                RUN.has_map ? (PADX.used ? "D-PAD UP TAPPED: THE MAP" : "M THE MAP") : NULL,
-                                charges ? (PADX.used ? "HOLD RT TO CHARGE AN ULTIMATE" : "HOLD A SPELL TO CHARGE ITS ULTIMATE") : NULL,   /* 1.0.0b11 */
-                                bats ? (PADX.used ? "SWING THE R-STICK TO SHAKE OFF A BAT" : "TURN OR STRAFE HARD TO SHAKE OFF A BAT") : NULL,
+        const char *more[7] = { PADX.used ? pad_sprint_hint() : "SHIFT SPRINTS FORWARD, A WHILE", RUN.abil[BOSS_KNIGHT] ? (PADX.used ? pm[0] : "TAP A DIRECTION TWICE TO DODGE") : NULL,
+                                ab_readied() >= 0 || rune_readied() >= 0 ? (PADX.used ? pm[1] : "RIGHT CLICK USES  Q NEXT, HOLD: WHEEL") : NULL,
+                                RUN.has_map ? (PADX.used ? pm[2] : "M THE MAP") : NULL,
+                                charges ? (PADX.used ? pm[3] : "HOLD A SPELL TO CHARGE ITS ULTIMATE") : NULL,   /* 1.0.0b11 */
+                                bats ? (PADX.used ? pm[4] : "TURN OR STRAFE HARD TO SHAKE OFF A BAT") : NULL,
                                 G.shop || RUN.al_points > 0 ? "THE LAMPSTAND NORTH OF HER: THE LINES" : NULL };
         int rows = 0, widest = 0;                                  /* one band of stone behind them all */
         for (int i = 0; i < 11; i++) { const char *h = i < 4 ? (PADX.used ? PADHINT[i] : HINT[i]) : more[i - 4]; if (h) { rows++; widest = imax(widest, hint_width(h)); } }
@@ -27352,12 +28107,10 @@ static void render_quit(Frame *f) {
         gfx_text8(f, (W - gfx_text_width(ln, 1)) / 2, y, ln, R_STONE + 13, 1);
         p += n; while (*p == ' ') p++;
     }
-    char padrow[40];
-    snprintf(padrow, sizeof padrow, PADX.bind ? (((int)(G.t * 3.0) & 1) ? "PRESS A BUTTON" : "") : "SPRINT: %s", PAD_WORD[pad_sprint()] + (pad_sprint() < PAD_LB));
-    const char *OPT[Q_OPTIONS] = { "FLEE TO THE SURFACE", "STAY IN THE DARK", "SLEEPWALK", "OPEN THE LEDGER", "BEGIN A NEW RUN", padrow };
+    const char *OPT[Q_OPTIONS] = { "FLEE TO THE SURFACE", "STAY IN THE DARK", "SLEEPWALK", "OPEN THE LEDGER", "BEGIN A NEW RUN", "THE CONTROLLER" };
     static const char *const NOTE[Q_OPTIONS] = { "NOTHING IS KEPT BUT WHAT IS SIGNED", "BACK TO THE CRYPT", "THE AUTOPILOT WALKS ON WITHOUT YOU",
                                                  "A RUN FROM A PAGE SHE HAS SIGNED", "FROM NOTHING. SIGNED PAGES STAY",
-                                                 "\1A, THEN THE BUTTON. ITS JOB GOES TO THE L-STICK" };
+                                                 "EACH BUTTON'S JOB, AND THE STICKS" };
     int nq = quit_rows(), step = nq > Q_PAD ? 15 : 17, top = 62;    /* the rows in a well, spaced to fit the pad's sixth */
     ui_well(f, bx + 10, by + 56, bw - 20, 104);
     ui_rule(f, bx + 22, bx + bw - 23, by + top + Q_OPEN * step, 1);   /* leaving, then the ledger and a new run */
@@ -27377,12 +28130,159 @@ static void render_quit(Frame *f) {
         }
     }
     const char *note = NOTE[clampi(G.ui_sel, 0, nq - 1)];
-    if (PADX.bind) note = "THE BUTTON THE SPRINT GOES ON";
     int ncol = R_GOLD + 9;
     if (LEDGER.marked && (G.ui_sel == Q_FLEE || G.ui_sel == Q_OPEN || G.ui_sel == Q_NEW)) { note = "THE DEAD ARE WATCHING"; ncol = R_BLOOD + 13; }
     if (CON.used && G.ui_sel == Q_FLEE) note = "THE DEAD TOOK NOTE: NOTHING KEPT";
     if (G.ui_sel == Q_NEW && G.quit_arm) { note = "ENTER AGAIN: THE UNSIGNED IS LOST"; ncol = R_BLOOD + 13; }
     hint8(f, (W - hint_width(note)) / 2, by + bh - 15, note, ncol);   /* its own line, inside the stone */
+}
+
+/* ---- the controller (1.0.0b18.1, docs/PLAN-b18-1.md section 7): its screen from Esc's question, and the look ----
+ * A job is named by the button it began on (PAD_*); PL.job[b] is the job button b has now. */
+static const char *const JOB_SHORT[PAD_COUNT] = { "USE", "DODGE", "NEXT RUNE", "WISPS", "THE GIFT", "THE RUNE", "PAGES", "PAUSE",
+                                                  "SPRINT", 0, "THE MAP", "THE BAR", "BESTIARY", "CODEX", "READIED", "CAST" };
+static const char *const JOB_LONG[PAD_COUNT] = { "USE", "SWIFT DODGE", "NEXT RUNE", "WISPS", "THE GIFT", "THE RUNE", "PAGES", "PAUSE",
+                                                 "SPRINT", "NOTHING", "THE MAP", "THE BAR", "BESTIARY", "CODEX", "READIED", "CAST" };
+static const char *const JOB_HOLD[PAD_COUNT] = { 0, 0, "RUNES", 0, 0, 0, 0, 0, 0, 0, "RUNES", "SPELLS", 0, 0, 0, 0 };
+static const char *const JOB_DOES[PAD_COUNT] = {
+    "USE (OPEN, TAKE, PULL, RING, OFFER A SOUL).", "SWIFT DODGE, THE WAY THE STICK LEANS.",
+    "THE NEXT RUNE OR GIFT. HELD: THE RUNES' WHEEL.", "THE WISPS' LIST, OR THE ONE ALWAYS CAST.",
+    "THE BOSS'S GIFT READIED, USED.", "THE RUNE READIED, RAISED BY HAND.",
+    "TAB'S PAGES. FIXED: WITH MENU, IT IS THE LOOK.", "THE QUESTION, AND BACK. FIXED: WITH VIEW, THE LOOK.",
+    "THE SPRINT, ON AND OFF.", "NOTHING: A BUTTON LEFT IDLE.",
+    "THE MAP. HELD: THE RUNES' WHEEL.", "THE STATUS BAR. HELD: THE SPELLS' WHEEL.",
+    "THE BESTIARY.", "THE CODEX OF AFFIXATIONS.",
+    "THE RIGHT HAND: THE RUNE OR GIFT READIED.", "CAST THE SPELL IN HAND; HELD, CHARGE IT." };
+static const char *const PAD_SAY[PAD_COUNT] = { "A", "B", "X", "Y", "LB", "RB", "VIEW", "MENU", "THE L-STICK", "THE R-STICK",
+                                                "D-PAD UP", "D-PAD DOWN", "D-PAD LEFT", "D-PAD RIGHT", "LT", "RT" };
+static const int8_t PJ_LIST[14] = { PAD_A, PAD_B, PAD_X, PAD_Y, PAD_LB, PAD_RB, PAD_LT, PAD_RT, PAD_LS, PAD_RS, PAD_UP, PAD_DOWN,
+                                    PAD_LEFT, PAD_RIGHT };      /* the jobs to trade, in the sheet's order */
+enum { PO_STICKS = PAD_COUNT, PO_TURN, PO_MENUS, PO_RUMBLE, PO_DEFAULTS };   /* in the order ui_pad lays the options out */
+#define PS_ROWS 11
+static const int8_t PS_GRID[PS_ROWS][2] = { { PAD_LT, PAD_RT }, { PAD_LB, PAD_RB }, { PAD_LS, PAD_Y }, { PAD_UP, PAD_X }, { PAD_LEFT, PAD_B },
+                                            { PAD_RIGHT, PAD_A }, { PAD_DOWN, PAD_RS }, { PAD_VIEW, PAD_MENU }, { PO_STICKS, PO_RUMBLE },
+                                            { PO_TURN, PO_DEFAULTS }, { PO_MENUS, -1 } };   /* as drawn: the left hand's down the left,
+                                                                      the options under; -1 nothing there */
+static struct { int sel, r, c, list, lsel, arm; } PS;
+static void pad_menu_open(void) {
+    open_ui(UI_PAD);
+    PS.sel = PAD_A; PS.r = 5; PS.c = 1; PS.list = PS.arm = 0;
+    snd_sfx_ex(SFX_PAGE, 0.6f, 0.5f);
+}
+static void pad_fill(UiPad *u) {                                   /* the layout as the drawing wants it */
+    memset(u, 0, sizeof *u);
+    pl_read();
+    for (int b = 0; b < PAD_COUNT; b++) { u->job[b] = JOB_SHORT[PL.job[b]]; u->hold[b] = JOB_HOLD[PL.job[b]]; }
+    u->fixed = 1 << PAD_VIEW | 1 << PAD_MENU;
+    u->sel = u->opt_sel = -1;
+}
+static void update_padmenu(void) {
+    int up = IN.hit[KEY_W] || IN.hit[KEY_UP], down = IN.hit[KEY_S] || IN.hit[KEY_DOWN];
+    int left = IN.hit[KEY_A] || IN.hit[KEY_LEFT], right = IN.hit[KEY_D] || IN.hit[KEY_RIGHT];
+    int ok = IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE], back = IN.hit[KEY_ESC];
+    pl_read();
+    if (PS.list) {                                                 /* the jobs: one chosen is traded onto this button */
+        if (up || down) { PS.lsel = (PS.lsel + (down ? 1 : 13)) % 14; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+        if (back) { PS.list = 0; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
+        if (ok) {
+            int job = PJ_LIST[PS.lsel], from = pl_on(job);
+            if (from != PS.sel) { pl_trade(PS.sel, from); pl_write(); snd_sfx_ex(SFX_RUNE, 0.6f, 0.5f); }
+            else snd_sfx_ex(SFX_KEY, 0.6f, 0.5f);
+            PS.list = 0;
+#ifdef CRAWL_DEBUG
+            if (from != PS.sel) fprintf(stderr, "EVENT pad_trade %s takes %s, %s takes %s t=%.2f\n", PAD_SAY[PS.sel], JOB_LONG[job], PAD_SAY[from], JOB_LONG[PL.job[from]], G.t);
+            else fprintf(stderr, "EVENT pad_keep %s %s t=%.2f\n", PAD_SAY[PS.sel], JOB_LONG[job], G.t);
+#endif
+        }
+        return;
+    }
+    if (back) { G.ui = UI_QUIT; G.ui_sel = Q_PAD; PS.arm = 0; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }   /* back to the question */
+    if (up || down) {                                              /* down the column, past an empty place, round */
+        do PS.r = (PS.r + (down ? 1 : PS_ROWS - 1)) % PS_ROWS; while (PS_GRID[PS.r][PS.c] < 0);
+        PS.sel = PS_GRID[PS.r][PS.c]; PS.arm = 0; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f);
+    } else if ((left || right) && PS.sel == PO_TURN) {             /* the turning, by tenths */
+        int t = clampi(PL.turn + (right ? 1 : -1), 5, 20);
+        if (t != PL.turn) { PL.turn = t; pl_write(); snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); } else snd_sfx_ex(SFX_KNOCK, 0.35f, 0.5f);
+    } else if ((left || right) && PS.sel == PO_MENUS) {            /* the menus' stick: left, right, either */
+        PL.mstick = (PL.mstick + (right ? 1 : 2)) % 3; pl_write(); snd_sfx_ex(SFX_TICK, 0.6f, 0.5f);
+    } else if (left || right) {                                    /* across, or the nearest above where nothing is */
+        PS.c = 1 - PS.c;
+        while (PS_GRID[PS.r][PS.c] < 0) PS.r--;
+        PS.sel = PS_GRID[PS.r][PS.c]; PS.arm = 0; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f);
+    }
+    if (!ok) return;
+    if (PS.sel < PAD_COUNT) {
+        if (pl_fixed(PS.sel)) { snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); return; }   /* View and Menu stay */
+        PS.list = 1; PS.lsel = 0;
+        for (int i = 0; i < 14; i++) if (PJ_LIST[i] == PL.job[PS.sel]) PS.lsel = i;
+        snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f);
+        return;
+    }
+    if (PS.sel == PO_STICKS) PL.swap ^= 1;
+    else if (PS.sel == PO_MENUS) PL.mstick = (PL.mstick + 1) % 3;
+    else if (PS.sel == PO_RUMBLE) { PL.quiet ^= 1; if (!PL.quiet) pad_rumble(0.4f, 0.4f, 0.25f); }   /* a shudder, to say so */
+    else if (PS.sel == PO_DEFAULTS) {                              /* asked twice */
+        if (!PS.arm) { PS.arm = 1; snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return; }
+        pl_default(); PS.arm = 0;
+    } else return;
+    pl_write();
+    snd_sfx_ex(SFX_RUNE, 0.5f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT pad_option %d swap %d quiet %d turn %d menus %d t=%.2f\n", PS.sel - PAD_COUNT, PL.swap, PL.quiet, PL.turn, PL.mstick, G.t);
+#endif
+}
+static void render_padmenu(Frame *f) {
+    static char about[160], o0[24], o1[24], o2[24], o3[24];
+    static const char *const MSTICK[3] = { "LEFT", "RIGHT", "BOTH" };
+    static const char *list[14];
+    static int on[14];
+    UiPad u;
+    pad_fill(&u);
+    u.t = G.ui_t; u.title = "THE CONTROLLER";
+    snprintf(o0, sizeof o0, "STICKS: %s", PL.swap ? "SWAP" : "SAME");
+    snprintf(o1, sizeof o1, "TURNING: %d.%d", PL.turn / 10, PL.turn % 10);
+    snprintf(o2, sizeof o2, "MENUS: %s", MSTICK[PL.mstick]);
+    snprintf(o3, sizeof o3, "RUMBLE: %s", PL.quiet ? "OFF" : "ON");
+    u.opt[0] = o0; u.opt[1] = o1; u.opt[2] = o2; u.opt[3] = o3; u.opt[4] = "THE DEFAULTS";
+    if (PS.sel < PAD_COUNT) u.sel = PS.sel; else u.opt_sel = PS.sel - PAD_COUNT;
+    u.keys = PS.sel == PO_TURN || PS.sel == PO_MENUS ? "D-PAD \x1b\x1a CHANGES  \1B BACK" : "D-PAD CHOOSES  \1A CHANGES  \1B BACK";
+    if (PS.sel < PAD_COUNT) snprintf(about, sizeof about, "%s: %s", PAD_SAY[PS.sel], JOB_DOES[PL.job[PS.sel]]);
+    else if (PS.sel == PO_STICKS) snprintf(about, sizeof about, "WHICH STICK WALKS AND WHICH TURNS. NOW THE %s WALKS.", PL.swap ? "RIGHT" : "LEFT");
+    else if (PS.sel == PO_TURN) snprintf(about, sizeof about, "HOW FAST THE TURNING STICK TURNS YOU: HALF TO TWICE THE FIRST.");
+    else if (PS.sel == PO_MENUS) snprintf(about, sizeof about, "WHICH STICK MOVES IN MENUS. A WHEEL TAKES THE FREE HAND'S STICK.");
+    else if (PS.sel == PO_RUMBLE) snprintf(about, sizeof about, "THE MOTORS: A HURT, A ROCK FALLING, A BOSS'S FALL.");
+    else snprintf(about, sizeof about, PS.arm ? "AGAIN, AND EVERY BUTTON GOES BACK TO ITS FIRST JOB." : "EVERY BUTTON'S FIRST JOB, THE STICKS AS THEY CAME, RUMBLE ON.");
+    u.about = about;
+    if (PS.sel == PO_DEFAULTS && PS.arm) { u.about_col = R_GOLD + 11; u.keys = "\1A RESTORES  \1B BACK"; }
+    if (PS.list) {
+        int job = PJ_LIST[PS.lsel], from = pl_on(job);
+        for (int i = 0; i < 14; i++) { list[i] = JOB_LONG[PJ_LIST[i]]; on[i] = pl_on(PJ_LIST[i]); }
+        u.list = list; u.list_on = on; u.nlist = 14; u.list_sel = PS.lsel;
+        if (from == PS.sel) snprintf(about, sizeof about, "%s KEEPS %s.", PAD_SAY[PS.sel], JOB_LONG[job]);
+        else snprintf(about, sizeof about, "%s TAKES %s; %s TAKES %s.", PAD_SAY[PS.sel], JOB_LONG[job], PAD_SAY[from], JOB_LONG[PL.job[PS.sel]]);
+        u.keys = "\1A TRADES  \1B BACK";
+    }
+    dim_view(f);
+    ui_pad(f, &u);
+}
+static int pad_look_tick(float dt) {                               /* the look up: the crypt waits; Esc on the keys puts it away */
+    if (!PADX.look) return 0;
+    if (!G.player || !IN.pad) { PADX.look = 0; return 0; }
+    PADX.look_t += dt;
+    if (IN.hit[KEY_ESC]) { PADX.look = 0; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
+    return 1;
+}
+static void pad_look_render(Frame *f) {
+    if (!PADX.look || !G.player) return;
+    UiPad u;
+    pad_fill(&u);
+    u.t = PADX.look_t; u.title = "THE CONTROLLER, AS IT IS";
+    u.about = "TO CHANGE THEM: MENU, THEN THE CONTROLLER.";
+    u.keys = "VIEW+MENU  \1B CLOSES";
+    ui_on(f, 1, "look");
+    dim_view(f);
+    ui_pad(f, &u);
+    ui_off();
 }
 
 /* a page of the ledger, 24 wide and 27 tall, its corner turned down and its numeral at the foot; gold for
@@ -28625,8 +29525,9 @@ static void render_codex(Frame *f) {
         snprintf(line, sizeof line, "%s. %s.", RUN_OF[tri_run_of(c->i)], TRI_TASK[c->i]);
         y += text_wrap(f, 14, y, line, 36, R_STONE + 13, 4) * 9 + 4;
         y += text_wrap(f, 14, y, TRI_HOLD[c->i] ? "HELD TO THE END OF THE SAND, IT IS WON." : "DONE BEFORE THE SAND RUNS OUT, IT IS WON.", 36, R_STONE + 11, 2) * 9 + 4;
-        y += text_wrap(f, 14, y, "A SKULL AND CROSSED BONES ON THE DOOR. A CELL INSIDE, IT SEALS: SIXTY SECONDS. WON, YOU ARE MADE WHOLE (SPIRIT TO "
-                       "HALF THE VESSEL) AND THE BOON GIVES A FIFTH MORE FROM WHAT YOU SLAY; RUN OUT, THE CURSE TAKES A FIFTH OF EVERYTHING.", 36, R_STONE + 11, 9) * 9 + 4;
+        y += text_wrap(f, 14, y, "A SKULL AND CROSSED BONES ON THE DOOR. A STEP AND A HALF IN, IT SEALS: SIXTY SECONDS. WON, IT LEAVES A HOARD AND "
+                       "A DRAUGHT TO MAKE YOU WHOLE, SPIRIT TO HALF THE VESSEL, AND THE BOON: A FIFTH MORE FROM WHAT YOU SLAY. RUN OUT, THE "
+                       "CURSE TAKES A FIFTH OF EVERYTHING.", 36, R_STONE + 11, 9) * 9 + 4;   /* (1.0.0b18.1: the step, the reward) */
         snprintf(line, sizeof line, "TRIALS WON: %d   LOST: %d", RUN.deed_tri, RUN.deed_lost);
         text_wrap(f, 14, y, line, 36, R_BONE + 11, 1);
         break;
@@ -29468,6 +30369,18 @@ static void render_map(Frame *f) {
                     f->pix[sy * W + sx] = (uint8_t)imax(R_BONE, c - (((sx + sy) % 3) == 0 ? 4 : 2));
                 }
         }
+    for (int y = 0; y < MAPN && WD.mask && !PK.depth; y++)        /* a lit soul-lamp's ward: washed violet (1.0.0b18.1) */
+        for (int x = 0; x < MAPN; x++) {
+            if (!(G.mapped[y][x] & 1) || !wraith_barred(x, y) || !map_open(x, y)) continue;
+            int px = map_bx + x * MAP_PX, py = map_by + y * MAP_PX;
+            for (int j = 1; j < MAP_PX; j++)
+                for (int i = 1; i < MAP_PX; i++) {
+                    int sx = px + i, sy = py + j;
+                    if (sx < MAP_VX0 || sx >= MAP_VX0 + MAP_VW || sy < MAP_VY0 || sy >= MAP_VY0 + MAP_VH || ((sx + 2 * sy) & 3)) continue;
+                    uint8_t c = g_scroll[sy][sx];
+                    if (c >= R_BONE && c < R_BONE + 16) f->pix[sy * W + sx] = (uint8_t)(R_PURPLE + 6);
+                }
+        }
     for (int y = 0; y < MAPN; y++)                                 /* the walls: a line wherever floor meets stone */
         for (int x = 0; x < MAPN; x++) {
             if (!(G.mapped[y][x] & 1) || !map_open(x, y)) continue;
@@ -29489,7 +30402,11 @@ static void render_map(Frame *f) {
                 for (int i = 1; i < MAP_PX; i++)
                     for (int t = 2; t <= 3; t++) { if (across) map_px(f, px + i, py + t, c); else map_px(f, px + t, py + i, c); }
             }
-            if (G.map[y][x].kind == K_PROP) map_px(f, px + 2, py + 2, ramp_at(R_WOOD, 6));   /* something low: a grave, a fire pit */
+            if (G.map[y][x].kind == K_PROP) {                       /* something low: a grave, a fire pit; in its part of the cell */
+                int fm = foot_of(x, y), ox = 2, oy = 2;
+                if (fm) { ox = (fm & 10) && !(fm & 5) ? 3 : (fm & 5) && !(fm & 10) ? 1 : 2; oy = (fm & 12) && !(fm & 3) ? 3 : (fm & 3) && !(fm & 12) ? 1 : 2; }
+                map_px(f, px + ox, py + oy, ramp_at(R_WOOD, 6));
+            }
         }
     if (G.exit_wx >= 0) map_face(f, G.exit_wx, G.exit_wy, R_MOSS + 5);   /* the way out, in green */
     for (int i = 0; i < G.nsecrets; i++)                           /* a chained room's doorway, opened */
@@ -29503,6 +30420,12 @@ static void render_map(Frame *f) {
         else if (G.mapped[G.vis_y][G.vis_x] & 1)
             for (int k = 1; k < 4; k++) for (int j = 1; j < 4; j++) map_px(f, map_bx + G.vis_x * MAP_PX + k, map_by + G.vis_y * MAP_PX + j, R_GOLD + 6);
     }
+    for (int i = 0; i < WD.n && !PK.depth && !G.shop; i++)        /* the soul-lamps: a mark on their wall, blue while lit */
+        if (G.mapped[WD.l[i].cy][WD.l[i].cx] & 1) {
+            int px = map_bx + WD.l[i].cx * MAP_PX + 2 + DX[WD.l[i].d] * 2, py = map_by + WD.l[i].cy * MAP_PX + 2 + DY[WD.l[i].d] * 2;
+            uint8_t c = WD.l[i].banked > 0.0f ? (uint8_t)(R_GLOW + 12) : (uint8_t)(R_IRON + 3);
+            map_px(f, px, py, c); map_px(f, px + 1, py, c); map_px(f, px, py + 1, c); map_px(f, px + 1, py + 1, c);
+        }
     if (G.altar_x >= 0 && (G.mapped[G.altar_y][G.altar_x] & 1)) {   /* the Black Altar */
         int px = map_bx + G.altar_x * MAP_PX, py = map_by + G.altar_y * MAP_PX;
         for (int k = 1; k < 4; k++) for (int j = 1; j < 4; j++) map_px(f, px + k, py + j, k == 2 && j == 2 ? (uint8_t)(R_PURPLE + 10) : (uint8_t)(R_IRON + 1));
@@ -29579,7 +30502,7 @@ static void render_ui_in(Frame *f);
 static void render_ui(Frame *f) {
     static const char *const NAME[] = { "none", "wardrobe", "quit", "ledger", "bestiary", "letgo", "wisps", "altar", "shrine", "totem",
                                         "portal", "merchant", "stone", "compendium", "repository", "codex", "ascend", "cornerstones",
-                                        "alignment", "class", "hall2", "bshrine", "reckon" };
+                                        "alignment", "class", "hall2", "bshrine", "reckon", "controller" };
     ui_on(f, 1, G.ui >= 0 && G.ui < (int)(sizeof NAME / sizeof NAME[0]) ? NAME[G.ui] : "?");
     render_ui_in(f);
     ui_off();
@@ -29600,6 +30523,7 @@ static void render_ui_in(Frame *f) {
     if (G.ui == UI_ALTAR) { render_altarmenu(f); return; }
     if (G.ui == UI_BSHRINE) { render_bshrine(f); return; }
     if (G.ui == UI_RECKON) { render_reckon(f); return; }
+    if (G.ui == UI_PAD) { render_padmenu(f); return; }
     if (G.ui == UI_INVENTORY) render_inventory(f);
     else if (G.ui == UI_QUIT) render_quit(f);
     else if (G.ui == UI_LEDGER) render_ledger(f);
@@ -29701,10 +30625,11 @@ static void wheel_render(Frame *f) {
         if (!nr) ui_text8(f, cx + R - 24, cy - 4, "NONE", FACE_BODY, UI_M(7), TX_INLAID);
         if (!na) ui_text8(f, cx - R - 8, cy - 4, "NONE", FACE_BODY, UI_M(7), TX_INLAID);
     }
-    static const char *const KPAD[3] = { "STICK POINTS", "RELEASE TAKES", "\1B LEAVES" }, *const KQ[3] = { "MOUSE POINTS", "RELEASE TAKES", "ESC LEAVES" },
-                             *const KM[3] = { "MOUSE POINTS", "RELEASE TAKES", "ESC LEAVES" };
-    const char *const *K = WH.src ? KQ : PADX.used ? KPAD : KM;
-    for (int i = 0; i < 3; i++) ui_keys(f, 6, cy + 14 + i * 12, K[i], UI_M(13));
+    static const char *const KQ[3] = { "MOUSE POINTS", "RELEASE TAKES", "ESC LEAVES" }, *const KM[3] = { "MOUSE POINTS", "RELEASE TAKES", "ESC LEAVES" };
+    int hand = WH.src ? PADX.q_hand : PADX.w_hand;                 /* the stick that points: the free hand's (1.0.0b18.1) */
+    const char *KPAD[3] = { hand == 1 ? "R-STICK AIMS" : hand == 2 ? "L-STICK AIMS" : "A STICK AIMS", "RELEASE TAKES", "\1B LEAVES" };   /* as long as it was */
+    const char *const *K = PADX.used ? KPAD : WH.src ? KQ : KM;
+    for (int i = 0; i < 3; i++) ui_keys(f, 6, cy + 20 + i * 12, K[i], UI_M(13));   /* clear of the words in its middle */
 }
 /* a creature near you strong against a line you hold (its rank's, once seen struck; a ward, 1.0.0b16): its element's glyph
  * over its head, barred (docs/PLAN-play.md section 6, PLAN-combat.md 7.3) */
@@ -29757,6 +30682,35 @@ static void render_warded(Frame *f, float dx, float dy, float horizon) {
 }
 /* the seals on things that want a spell, at full brightness through dark and fog, hidden by the walls; never smaller than
  * about half a texel a pixel, so one down a long hall can still be read */
+/* a lit soul-lamp's pips, five on its sprite: those not banked put out, the one burning flickering in its last seconds */
+static void ward_pips(Frame *f, float dx, float dy, float horizon) {
+    static const int PIPY[4] = { 51, 40, 46, 47 };                 /* the pips' row on each run's lamp (crawl_art.c, spr_wlamp) */
+    static const uint8_t DARK[4] = { R_IRON + 1, R_WOOD + 1, R_IRON + 1, R_STONE + 1 };
+    if (PK.depth || G.shop || !WD.mask) return;
+    int run = crawl_set(G.level) & 3;
+    for (int i = 0; i < WD.n; i++) {
+        const WLamp *L = &WD.l[i];
+        const Deco *dc = &G.decos[L->deco];
+        float sx, sy, dep;
+        if (L->banked <= 0.0f || hypotf(dc->x - G.px, dc->y - G.py) > 12.0f) continue;
+        if (!project(dc->x, dc->y, 1.0f - (float)PIPY[run] / 64.0f, dx, dy, horizon, &sx, &sy, &dep)) continue;
+        float tex = FOCAL / dep / 64.0f, part = fmodf(L->banked, WARD_SOUL_T);
+        int lit = (int)ceilf(L->banked / WARD_SOUL_T - 1e-3f);
+        if (part < 1e-3f) part = WARD_SOUL_T;
+        for (int p = 0; p < 5; p++) {
+            int dark = p >= lit || (p == lit - 1 && part < 15.0f && fmodf((float)G.t * 3.0f, 1.0f) < 0.45f);
+            if (!dark) continue;
+            int x0 = (int)floorf(sx + (float)(24 + 4 * p - 32) * tex), x1 = (int)floorf(sx + (float)(26 + 4 * p - 32) * tex);
+            int y0 = (int)floorf(sy), y1 = (int)floorf(sy + 2.0f * tex);
+            if (x1 <= x0) x1 = x0 + 1;
+            if (y1 <= y0) y1 = y0 + 1;
+            for (int x = x0; x < x1; x++) {
+                if (x < 0 || x >= W || dep >= zbuf[x] + 0.05f) continue;
+                for (int y = y0; y < y1; y++) if (y >= 0 && y < H) f->pix[y * W + x] = DARK[run];
+            }
+        }
+    }
+}
 static void render_marks(Frame *f, float dx, float dy, float horizon) {
     for (int i = 0; i < G.nmk; i++) {
         const Marked *m = &G.mk[i];
@@ -29789,6 +30743,7 @@ static void render_marks(Frame *f, float dx, float dy, float horizon) {
             }
         }
     }
+    ward_pips(f, dx, dy, horizon);                                 /* and the soul-lamps' pips (1.0.0b18.1) */
 }
 static void crawl_render(Frame *f) {
     f->w = W; f->h = H;
@@ -29798,7 +30753,7 @@ static void crawl_render(Frame *f) {
 #ifdef CRAWL_DEBUG
     ui_check = 1; ui_check_frame();
 #endif
-    if (G.tally) { render_tally(f); if (G.player && G.ui) render_ui(f); con_render(f); return; }   /* toasts wait for the next level */
+    if (G.tally) { render_tally(f); if (G.player && G.ui) render_ui(f); pad_look_render(f); con_render(f); return; }   /* toasts wait for the next level */
     g_camfog = fog_at(G.px, G.py);
     fog_tint = G.tri >= 0 && G.tri_state == TRS_ON && in_trial((int)G.px, (int)G.py) ? TRI_FOG[G.tri] : 0;   /* a trial's room, turned */
     float stun = af_on(AF_STUN) ? 1.0f : 0.0f;                    /* stunned, the view swims; knocked down, it lies on the floor */
@@ -29843,6 +30798,7 @@ static void crawl_render(Frame *f) {
     if (G.player && G.ui) render_ui(f);
     if (!(G.player && G.ui)) render_toasts(f);                     /* never over a menu: they wait for it */
     tint(f);
+    pad_look_render(f);
     con_render(f);
 }
 
