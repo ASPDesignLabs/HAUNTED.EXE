@@ -567,9 +567,9 @@ nearly half at black, each run's own two more often: their eyes burn in its colo
 carries it, a thrown bone shimmering in the colour, the eyes flaring as it comes.
 
 **What your spells leave on them.** Fire sets them burning, the hit's harm again over four seconds; lightning stuns them,
-no blow, throw or call; spirit unbinds them, no elemental attack, charge or call; frost chills them a stack a hit, and three
-freeze them; poison doubles every wind-up and wait. The chance grows with the line's rank, and is less on what is strong
-against it.
+no blow, throw or call; spirit unbinds them, no elemental attack, charge or call; frost chills them a stack a hit, and four
+freeze them (three with Deep Chill); poison doubles every wind-up and wait. The chance grows with the line's rank, and is
+less on what is strong against it.
 
 **New attacks.** Skeletons from green rank up are **Bone Throwers**: a white flash about the body, then three bones lobbed
 over you half a second apart. A shield-bearer two to five cells off along a clear lane **charges**: a stamp and the shield
