@@ -789,8 +789,8 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
     candlestand's quarter it stopped at 39.23, and a step lower walked past it to the wall (39.74). A person walked to a coin lying
     in a stone's free half (seed 5) and took it. Standing in a prop's cell and handing back to the dream (Esc, sleepwalk), the
     dream stepped onto its lane at once and went on.
-  - *The dead:* two dream runs from level 1 (500 s) and two from level 31 (700 s): creatures went into part-filled cells 5, 16,
-    118 and 92 times (skeletons, bats, hounds, hunting spiders, ghouls, knights, imps, deacons, the Sexton and the Lightless among
+  - *The dead:* two dream runs from level 1 (500 s) and two from level 31 (700 s): creatures went into part-filled cells 4, 16,
+    118 and 79 times (skeletons, bats, hounds, hunting spiders, ghouls, knights, imps, deacons, the Sexton and the Lightless among
     them); none that walks stood in a prop's part. The few `foot_brush` lines were a spectre (through walls), web spiders on
     their cells' edges and a hunting spider overhead. Neither run from 31 died.
   - *A fault found on the way and mended:* a prop moved into its part could come out in its other look, since a look is chosen by
