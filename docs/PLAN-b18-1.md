@@ -712,3 +712,5 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
     D-pad and by X, and a menu on the right stick); the sheets' fit checks pass; the trial merge clean (section 14). The Windows
     build (`PadMap`) and the browser's page only compile in CI here: no MinGW in this container.
   - *Untried:* a real controller (none here), the Windows registry by hand, the browser's settings panel by hand.
+  - *CI:* run 42436508177 on the branch (started by hand): the Windows build (with `PadMap`) and the browser's compiled, and both
+    smoke tests passed.
