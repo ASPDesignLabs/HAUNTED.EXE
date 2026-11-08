@@ -944,6 +944,15 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   `blow_survived` (asked in `hurt_ex` after Second Wind). With the stubs nothing in play changes. Defaults taken here: a run with
   no past takes each Confession at 75%, the places' mean; past V an overlevel adds a quarter of I-to-V again; a status cut never
   passes 90%, the killing blow's chance 50%. Next: the screen's sheet for the owner, and what doesn't hang on it.
+- **8 November. C5's sheet, for the owner** (`docs/combat/c5-confessions.png`). The ascend screen as the Confessions would have it,
+  drawn by the game (`render_confess`, shown in place of today's only with `CRAWL_CONFUI=1` in the debug build; play is as it was):
+  the six down the left, each its rank's numeral beside a groove that fills to V with the ranks notched in it; the chosen one on
+  the right, its rank and the points into the next, its numbers as you have them and as the next rank has them (VI and on when an
+  overlevel is due on one at V), what it does under them. Agility's first number and Spirituality's second are the statuses'
+  marks, not words (knocked down, stunned, frozen; Unbound); Survival's are poison, chill and fire and a +. `--` where nothing is
+  confessed, and for Restoration's spell, the killing blow and the cracks till rank I is whole. `CRAWL_CONF` takes six points too
+  (`12,45,0,30,10,150`). Defaults taken: the same marks the old lines had are not used (the names say enough at this size); the
+  class's share shows only in the numbers. Waiting on the owner's word; the rest of C5 goes on meanwhile.
 
 ## 19. Track D's log (the dead's)
 

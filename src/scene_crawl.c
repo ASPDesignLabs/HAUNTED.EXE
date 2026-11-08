@@ -1151,6 +1151,9 @@ static struct {
     float glance_x, glance_y, glance_last, guard_t, corner_cd;
     /* docs/PLAN-combat.md section 17: each track adds fields only above its own end mark. What is on the caster and must go
        into a pocket with it belongs in carry_caster's spans instead (the caster's track: by poison_t) */
+    int cf_buy[NCONF], cf_arm;                                     /* 1.0.0b20, the Confessions' screen: points confessed since it
+                                                                      opened (they may go back); an overlevel awaiting its second
+                                                                      press (100 + the Confession), -1 none */
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     /* the dead's track (D) ends */
@@ -4777,7 +4780,12 @@ __attribute__((unused)) static float conf_value(int cf, int which) {
     return cf >= 0 && cf < NCONF ? conf_at(cf, which, RUN.conf[cf], RUN.conf_over[cf]) : 0.0f;
 }
 #ifdef CRAWL_DEBUG
-static void conf_debug(const char *s) {                            /* CRAWL_CONF=dddddd: each Confession's rank, 0-5 (6-9: V and overlevels) */
+static void conf_debug(const char *s) {                            /* CRAWL_CONF=dddddd: each Confession's rank, 0-5 (6-9: V and
+                                                                      overlevels); or a,b,c,d,e,f: each one's points, to 150 */
+    if (strchr(s, ',')) {
+        for (int cf = 0; cf < NCONF && *s; cf++) { RUN.conf[cf] = (uint8_t)clampi(atoi(s), 0, CONF_TOP); s = strchr(s, ','); if (!s) break; s++; }
+        return;
+    }
     for (int cf = 0; cf < NCONF && s[cf] >= '0' && s[cf] <= '9'; cf++) {
         int d = s[cf] - '0';
         RUN.conf[cf] = (uint8_t)CONF_CUM[imin(d, 5)]; RUN.conf_over[cf] = (uint8_t)imax(0, d - 5);
@@ -30187,8 +30195,137 @@ static const char *const *line_mark(int l) {
     default: return UI_LMARK[UI_LM_PHYSIC];
     }
 }
+/* ---- the Unholy Confessions' screen (1.0.0b20, docs/PLAN-combat.md section 10): the six down the left, each its rank and
+ * a groove that fills to V with the ranks notched in it; the chosen one's numbers on the right, as you have them and as the
+ * next rank has them, what it does under them. The class's weight is in the numbers and never named ---- */
+enum { CVF_PCT, CVF_PCT1, CVF_SHARE, CVF_CUT, CVF_LESS, CVF_NUM, CVF_SEC, CVF_HEAL, CVF_SOULS, CVF_CHANCE, CVF_CELLS };
+typedef struct { const char *lbl; int fmt; int af[3]; } ConfLbl;   /* a word, or up to three statuses' marks (1 + AF_*) */
+static const ConfLbl CONF_LBL[NCONF][5] = {
+    [CF_RESTORE]  = { { "MENDING", CVF_HEAL, { 0 } }, { "SOULS/S", CVF_SOULS, { 0 } }, { "PHYSIC", CVF_PCT, { 0 } } },
+    [CF_AGILITY]  = { { 0, CVF_CUT, { 1 + AF_DOWN, 1 + AF_STUN, 1 + AF_FROZEN } }, { "DODGE", CVF_PCT1, { 0 } },
+                      { "MOVEMENT", CVF_PCT1, { 0 } }, { "QUIET", CVF_PCT, { 0 } } },
+    [CF_SPIRIT]   = { { "SOULS", CVF_SHARE, { 0 } }, { 0, CVF_CUT, { 1 + AF_UNBOUND } }, { "HASTE", CVF_PCT1, { 0 } },
+                      { "COST", CVF_LESS, { 0 } }, { "EFFECT", CVF_PCT, { 0 } } },
+    [CF_CONST]    = { { "RECOVERY", CVF_SHARE, { 0 } }, { "SPRINT", CVF_SEC, { 0 } }, { "HEALTH", CVF_NUM, { 0 } },
+                      { "REPRIEVE", CVF_CHANCE, { 0 } } },
+    [CF_SURVIVAL] = { { 0, CVF_CUT, { 1 + AF_POISON, 1 + AF_CHILL, 1 + AF_FIRE } }, { "TREASURE", CVF_PCT, { 0 } }, { "LUCK", CVF_PCT1, { 0 } } },
+    [CF_TOUGH]    = { { "ARMOUR", CVF_NUM, { 0 } }, { "OF WORN", CVF_SHARE, { 0 } }, { "CRACKS", CVF_CELLS, { 0 } } },
+};
+static const char *const CONF_DOES[NCONF] = {
+    "A SPELL TO MEND BY, CHOSEN AS THE OTHERS ARE, PAID IN SOULS AS IT RUNS. POTIONS DO MORE.",
+    "KNOCKED DOWN, STUNNED, FROZEN: RARER AND SHORTER. HARDER TO HIT; QUICKER, QUIETER.",
+    "MORE SOULS FROM THE DEAD; UNBOUND RARER AND SHORTER. SPELLS QUICKER, CHEAPER, STRONGER.",
+    "MORE HEALTH, A LONGER SPRINT AND A QUICKER BREATH. NOW AND THEN A KILLING BLOW IS LIVED.",
+    "POISON, CHILL, FIRE, GRABS, WEBS, BILE AND SAP RARER AND SHORTER. MORE GOLD, MORE LUCK.",
+    "MORE ARMOUR, AND MORE FROM WHAT YOU WEAR. A SHUT SECRET'S CRACKS SHOW FROM FURTHER OFF.",
+};
+static const int AF_LBL_RAMP[NAF] = { R_FLAME, R_GLOW, R_GLOW, R_GOLD, R_MOSS, R_PURPLE, R_BLOOD };   /* as the row over the bar */
+static void conf_fmt(int fmt, float v, int open, char *b, int n) {  /* a number, five characters at most */
+    if (!open) { snprintf(b, (size_t)n, "--"); return; }
+    switch (fmt) {
+    case CVF_PCT: snprintf(b, (size_t)n, "+%.0f%%", v); break;
+    case CVF_PCT1: if (v < 9.95f) snprintf(b, (size_t)n, "+%.1f%%", v); else snprintf(b, (size_t)n, "+%.0f%%", v); break;
+    case CVF_SHARE: snprintf(b, (size_t)n, "+%.0f%%", v * 100.0f); break;
+    case CVF_CUT: snprintf(b, (size_t)n, "-%.0f%%", v * 100.0f); break;
+    case CVF_LESS: snprintf(b, (size_t)n, "-%.0f%%", v); break;
+    case CVF_NUM: if (v < 9.95f) snprintf(b, (size_t)n, "+%.1f", v); else snprintf(b, (size_t)n, "+%.0f", v); break;
+    case CVF_SEC: snprintf(b, (size_t)n, "+%.1fS", v); break;
+    case CVF_HEAL: snprintf(b, (size_t)n, "%.2f%%", v * 100.0f); break;
+    case CVF_SOULS: snprintf(b, (size_t)n, "%.2f", v); break;
+    case CVF_CHANCE: snprintf(b, (size_t)n, "%.0f%%", v * 100.0f); break;
+    default: snprintf(b, (size_t)n, "%.1f", v); break;
+    }
+}
+static void af_mark1(Frame *f, int x, int y, int k) {              /* a status's mark at its own size, nine square */
+    for (int r = 0; r < 9; r++)
+        for (int c = 0; c < 9; c++) {
+            char ch = UI_AFMARK[k][r][c];
+            if (ch == '#') gfx_px(f, x + c, y + r, (uint8_t)(AF_LBL_RAMP[k] + 12));
+            else if (ch == 'o') gfx_px(f, x + c, y + r, (uint8_t)(AF_LBL_RAMP[k] + 15));
+        }
+}
+static int conf_ui(void) {                                         /* the Confessions' screen: shown only in the debug build till the
+                                                                      owner has seen its sheet */
+#ifdef CRAWL_DEBUG
+    static int v = -1;
+    if (v < 0) v = getenv("CRAWL_CONFUI") != 0;
+    return v;
+#else
+    return 0;
+#endif
+}
+static void render_confess(Frame *f) {
+    static char title[32], right[24], buf[40];
+    dim_view(f);
+    int od = over_due(), due = corner_due() + od, sel = clampi(G.ui_sel, 0, NCONF - 1);
+    snprintf(title, sizeof title, "LEVEL OF ATONEMENT %d", RUN.atone);
+    if (due > 0 && ((int)(G.ui_t * 2.0f) & 1)) snprintf(right, sizeof right, "%d TO CHOOSE", due);
+    else snprintf(right, sizeof right, "%d POINT%s", RUN.points, RUN.points == 1 ? "" : "S");
+    ui_screen(f, title, R_PURPLE + 13, right, due > 0 && ((int)(G.ui_t * 2.0f) & 1) ? R_PURPLE + 14 : RUN.points ? R_GOLD + 12 : UI_M(9), 136, G.ui_t);
+    char a[16], b[16];
+    commas(RUN.xp, a, sizeof a); commas(atone_need(RUN.atone + 1), b, sizeof b);
+    snprintf(buf, sizeof buf, "EXP %s/%s", a, b);
+    if (strlen(buf) > 16) snprintf(buf, sizeof buf, "EXP %s", a);
+    ui_text8(f, 14, 32, buf, FACE_BODY, UI_M(11), TX_PLAIN);
+    for (int cf = 0; cf < NCONF; cf++) {                           /* the six: name and rank, the groove under them */
+        int y = 46 + cf * 22, p = RUN.conf[cf], r = conf_rank(cf);
+        ui_row(f, 11, y - 2, 120, 20, cf == sel);
+        ui_text8(f, 16, y, CONF[cf].name, FACE_BODY, cf == sel ? C_WHITE : p ? R_PURPLE + 13 : UI_M(12), TX_INLAID);
+        const char *num = r > 0 ? ROMAN[imin(r, 15)] : "-";
+        if (RUN.conf_over[cf] > 0) eerie_text(f, 127 - 8 * (int)strlen(num), y + 9, num);   /* beside its groove */
+        else ui_text8(f, 127 - 8 * (int)strlen(num), y + 9, num, FACE_INSC, r > 0 ? R_GOLD + 11 : UI_M(10), TX_INLAID);
+        ui_groove(f, 16, y + 11, 93, y + 11, R_PURPLE, (float)p / (float)CONF_TOP);
+        for (int k = 1; k < 5; k++) {                              /* the ranks notched in it, gilt once reached */
+            int x = 16 + 77 * CONF_CUM[k] / CONF_TOP;
+            gfx_px(f, x, y + 9, p >= CONF_CUM[k] ? R_GOLD + 12 : UI_M(13)); gfx_px(f, x, y + 10, p >= CONF_CUM[k] ? R_GOLD + 10 : UI_M(11));
+        }
+        if (G.cf_buy[cf] > 0) for (int k = 0; k < 2; k++) { gfx_px(f, 125, y + 3 + k, R_PURPLE + 13); gfx_px(f, 126, y + 3 + k, R_PURPLE + 13); }   /* confessed just now */
+    }
+    /* the pane: its name, its rank and the points into the next, the numbers now and at the next rank, what it does */
+    int lx = 142, p = RUN.conf[sel], r = conf_rank(sel), whole = p >= CONF_TOP;
+    int nr = whole ? (od > 0 ? r + 1 : 0) : r + 1;                 /* the rank the right-hand column shows: none when whole */
+    ui_text8(f, lx, 33, CONF[sel].name, FACE_INSC, p ? R_PURPLE + 14 : UI_M(13), TX_INLAID);
+    if (r == 0) snprintf(buf, sizeof buf, "UNCONFESSED");
+    else snprintf(buf, sizeof buf, "RANK %s", ROMAN[imin(r, 15)]);
+    ui_text8(f, lx, 44, buf, FACE_BODY, UI_M(11), TX_PLAIN);
+    if (!whole) {
+        int k = r + 1;
+        snprintf(buf, sizeof buf, "%d/%d", p - CONF_CUM[k - 1], CONF_CUM[k] - CONF_CUM[k - 1]);
+    } else snprintf(buf, sizeof buf, "WHOLE");
+    ui_text8(f, 305 - 8 * (int)strlen(buf), 44, buf, FACE_BODY, R_GOLD + 10, TX_PLAIN);
+    ui_rule(f, lx, 304, 54, 0);
+    ui_text8(f, 256 - 24, 58, "NOW", FACE_BODY, UI_M(10), TX_PLAIN);
+    if (nr) ui_text8(f, 305 - 8 * (int)strlen(ROMAN[imin(nr, 15)]), 58, ROMAN[imin(nr, 15)], FACE_INSC, R_GOLD + 11, TX_INLAID);
+    for (int i = 0; i < CONF[sel].n; i++) {
+        int y = 69 + i * 10;
+        const ConfLbl *l = &CONF_LBL[sel][i];
+        if (l->lbl) ui_text8(f, lx, y, l->lbl, FACE_BODY, UI_M(13), TX_INLAID);
+        else for (int k = 0; k < 3 && l->af[k]; k++) af_mark1(f, lx + k * 11, y - 1, l->af[k] - 1);
+        if (!l->lbl && sel == CF_SURVIVAL) ui_text8(f, lx + 33, y, "+", FACE_BODY, UI_M(12), TX_PLAIN);   /* and the rest, as it says below */
+        int from1 = CONF[sel].v[i].from1;
+        conf_fmt(l->fmt, conf_value(sel, i), p > 0 && (!from1 || p >= CONF_CUM[1]), buf, sizeof buf);
+        ui_text8(f, 256 - 8 * (int)strlen(buf), y, buf, FACE_BODY, p ? C_WHITE : UI_M(11), TX_PLAIN);
+        if (nr) {
+            int np = nr <= 5 ? CONF_CUM[nr] : CONF_TOP, no = nr > 5 ? nr - 5 : 0;
+            conf_fmt(l->fmt, conf_at(sel, i, np, no), 1, buf, sizeof buf);
+            ui_text8(f, 305 - 8 * (int)strlen(buf), y, buf, FACE_BODY, R_GOLD + 11, TX_PLAIN);
+        }
+    }
+    int dy = 69 + CONF[sel].n * 10 + 5;
+    ui_rule(f, lx, 304, dy - 3, 0);
+    const char *note = 0;
+    if (G.cf_arm == 100 + sel) note = "AN OVERLEVEL TAKES IT PAST V, FOR GOOD. AGAIN TO CONFESS IT.";
+    else if (whole && od > 0) note = PADX.used ? "\1Y: AN OVERLEVEL TAKES IT ON." : "SPACE: AN OVERLEVEL TAKES IT ON.";
+    const char *say = note ? pkp(note) : CONF_DOES[sel];           /* an overlevel's word stands in for what it does, as before */
+    int dl = (178 - dy) / 9;
+    if (ui_wrap_count(say, 20) > dl) ui_overflow("confession", CONF[sel].name, ui_wrap_count(say, 20) - dl);
+    ui_wrap(f, lx, dy, say, 20, 9, dl, FACE_BODY, !note ? UI_M(14) : G.cf_arm == 100 + sel ? R_BLOOD + 12 : R_PURPLE + 13, TX_INLAID);
+    const char *k = PADX.used ? "\1A CONFESSES  LB BACK  VIEW CORNERSTONES" : "D CONFESSES  A BACK  TAB CORNERSTONES";
+    ui_keys(f, 160 - ui_keys_width(k) / 2, 183, k, UI_M(13));
+}
 static void render_ascend(Frame *f) {
     static char title[32], right[24], kind[32], cost[40], extra[96], note[120], warn[120];
+    if (conf_ui()) { render_confess(f); return; }
     dim_view(f);
     int due = corner_due() + over_due(), od = over_due(), sel = clampi(G.ui_sel, 0, NLINE - 1);
     snprintf(title, sizeof title, "LEVEL OF ATONEMENT %d", RUN.atone);
