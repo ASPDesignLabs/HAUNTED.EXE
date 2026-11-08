@@ -337,6 +337,15 @@ extern const int8_t crawl_hand_shift[NHF][2];      /* where each frame is drawn,
 /* frame k of the hand from src (and its labels, lab: 0 none), into dst and dlab; tip: where a spell forms in it */
 void crawl_hand_frame(int k, const uint8_t *src, const uint8_t *lab, uint8_t *dst, uint8_t *dlab, int tip[2]);
 extern int8_t crawl_glint[NSPR][2];             /* brightest gold pixel of a sprite, for twinkles; -1 if none */
+/* each sprite's foot (1.0.0b18.1, docs/PLAN-b18-1.md section 8): how wide the lowest eighth of its drawn rows is, in texels,
+ * measured at the end of crawl_art_level, after the props are drawn; a prop's is its widest frame or look (crawl_prop_foot),
+ * and it takes the whole of its cell, the half along its wall or the quarter in its corner by crawl_foot_part */
+extern uint8_t crawl_foot[NSPR];
+enum { FOOT_WHOLE, FOOT_HALF, FOOT_QUARTER };
+#define FOOT_WHOLE_W 45                         /* 0.7 of a cell, and up */
+#define FOOT_HALF_W 29                          /* 0.45 */
+int crawl_prop_foot(int spr, int nfr);
+int crawl_foot_part(int w);
 /* where a creature's eyes are on its sprite (docs/InitialArtPass.md section 5), recorded as the sprite is drawn (cv_eye),
  * for the pass that puts them on the screen whatever the light and fog: n eyes (0 none), at x, y in the sprite */
 typedef struct { int8_t n, x[2], y[2]; } EyeAt;

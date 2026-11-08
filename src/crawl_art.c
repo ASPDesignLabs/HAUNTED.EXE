@@ -11642,6 +11642,32 @@ static void props_alts(void) {
     for (int i = 0; i < (int)(sizeof ALTS / sizeof ALTS[0]); i++) memcpy(crawl_alt[ALTS[i][0]], ALTS[i], sizeof ALTS[i]);
 }
 
+/* each sprite's foot (1.0.0b18.1): the lowest eighth of its drawn rows, and how wide it is there */
+uint8_t crawl_foot[NSPR];
+static void feet_measure(void) {
+    for (int id = 0; id < NSPR; id++) {
+        const uint8_t *s = crawl_spr[id];
+        int top = TS, bot = -1, x0 = TS, x1 = -1;
+        for (int x = 0; x < TS; x++)
+            for (int y = 0; y < TS; y++) if (s[x * TS + y] != C_CLEAR) { if (y < top) top = y; if (y > bot) bot = y; }
+        if (bot < 0) { crawl_foot[id] = 0; continue; }
+        int y0 = bot - (bot - top + 8) / 8 + 1;
+        for (int x = 0; x < TS; x++)
+            for (int y = y0; y <= bot; y++) if (s[x * TS + y] != C_CLEAR) { if (x < x0) x0 = x; if (x > x1) x1 = x; }
+        crawl_foot[id] = (uint8_t)(x1 - x0 + 1);
+    }
+}
+int crawl_prop_foot(int spr, int nfr) {                            /* its widest frame or look */
+    int w = 0;
+    for (int k = 0; k < NALT; k++) {
+        int look = k == 0 ? spr : crawl_alt[spr][k];
+        if (look < 0) break;
+        for (int f = 0; f < (nfr > 0 ? nfr : 1); f++) if (crawl_foot[look + f] > w) w = crawl_foot[look + f];
+    }
+    return w;
+}
+int crawl_foot_part(int w) { return w >= FOOT_WHOLE_W ? FOOT_WHOLE : (w >= FOOT_HALF_W ? FOOT_HALF : FOOT_QUARTER); }
+
 void crawl_art_level(int level) {
     float dk = crawl_decay(level), depth = crawl_depth(level);
     g_decay = fmaxf(dk, depth);                                     /* the dead themselves only get older going down */
@@ -11678,6 +11704,7 @@ void crawl_art_level(int level) {
         for (int f = 0; f < 4; f++) { spr_key(SP_KEY0 + f, KS[f], R_GOLD); spr_key(SP_KEYS0 + f, KS[f], R_IRON); spr_key(SP_KEYC0 + f, KS[f], R_BLOOD); }
         specials_plain();
     }
+    feet_measure();                                                 /* and how much of a cell each takes (1.0.0b18.1) */
 }
 
 /* ------------------------------------------------------------------ */

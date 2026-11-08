@@ -1,7 +1,8 @@
 # 1.0.0b18.1: the trial's door, and the crypt made kinder
 
 **Settled; steps 1-7 built** (harness only; 7-8 November 2026), the sheets of steps 4 and 7 (`docs/b18-1/bells.png`,
-`lamps.png`, `pad.png`) approved by the owner; step 8 (footprints, its sheet first) next. Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
+`lamps.png`, `pad.png`) approved by the owner; step 8's sheet (`docs/b18-1/footprints.png`) drawn and waiting for the owner's
+eye before anything of it goes into the game. Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
 tracks of [`PLAN-combat.md`](https://github.com/ASPDesignLabs/HAUNTED.EXE/blob/claude/inspiring-archimedes-dbj5n6/docs/PLAN-combat.md)
 build 1.0.0b19 on `claude/inspiring-archimedes-dbj5n6`. The owner gave one fault and six improvements, asked for them as an
 update of their own ahead of that work, and answered every question in one round (section 12). Every number below that isn't
@@ -419,6 +420,21 @@ skull piles, candles) block nothing but keep anything else out of their cell (`G
 `make sheets` draws `footprints.png`: every prop with the footprint its art gives it drawn at its foot. F1 b lets the art decide;
 the sheet shows the owner what it decided. Then frames from levels 1, 15, 25 and 35.
 
+*The sheet as drawn* (8 November; `docs/b18-1/footprints.png`, `make sheets`' `footprints`). The measure is `crawl_foot[NSPR]`
+with `crawl_prop_foot` (the widest frame or look) and `crawl_foot_part` in `crawl_art.c`, taken at the end of
+`crawl_art_level`, not `crawl_art_init`: the props are drawn there, a level at a time (`props_level`, then the run's own), so a
+redrawn prop brings its own. All four runs give the same widths today. What the art decided, of the props `dress_level` lays:
+
+| Whole (0.70 and up) | Half, by its wall (0.45-0.70) | A quarter, in a corner (under 0.45) |
+|---|---|---|
+| the broken stone (0.72, its other look 0.78), the fire pit (0.72), the mine cart (0.81), the draped altar (0.77), the magma vent (0.83) | the round stone (0.56), the cross (0.50, its other look 0.62), the obelisk (0.53), the brazier (0.55), the crystals (0.61), the obsidian (0.56), a statue's plinth (0.48) | the candlestand (0.39), the armour stand (0.38) |
+
+One default of mine, added to section 13's list (item 9) and shown on the sheet: **things with a use** keep their whole cell, as
+pillars, the arenas and her rooms do: the Black Altar, the Black Shrine and the water cooler, and the puzzles', trials' and
+hazards' things that make their cells solid. Each is faced to be used, has its flames, eyes, wisp or glint set at its cell's
+middle, and is what the dream walks up to. A plinth with a gargoyle on it stays whole (section 8's own rule); the desks are whole
+by their art (0.94).
+
 ## 9. Steps
 
 1. The trial's door (section 2), and the first trial merge.
@@ -488,7 +504,8 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
 7. View is fixed with Menu, as half of the look.
 8. The turn speed from half to twice today's.
 9. Footprints: full from 0.7 of a cell, half from 0.45, a quarter under; pillars, arenas, her rooms, gargoyles' plinths and props in
-   the open left as they are.
+   the open left as they are; and things with a use (the Black Altar, the Black Shrine, the cooler, the puzzles', trials' and
+   hazards' things), added when the sheet was drawn.
 
 ## 14. The trial merge
 
@@ -529,6 +546,9 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   controller touches `pad_keys`, `PADX`, the old sprint byte's functions, `pad_turn`, `rumble`, `pk`, the controls card's pad lines,
   the wheel's pointing and hint lines, Esc's question, a UI state at the end of the list, a line after `con_update` and before each
   `con_render`, `win_main.c`'s slots, `tools/host.c`'s print and `web/haunted.js`'s sprint setting; none of it theirs.
+- **After step 8's sheet** (8 November, their branch still at `d36e0c4`): applied clean, built there with the sheet tool. The
+  measure sits before `crawl_art_level` in `crawl_art.c` and is called at its end; its externs after `crawl_glint` in `crawl.h`;
+  the page before the sheet tool's `main`, its mode before `hazards`. None of it theirs.
 
 ## 15. Hand-off log
 
@@ -714,3 +734,12 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   - *Untried:* a real controller (none here), the Windows registry by hand, the browser's settings panel by hand.
   - *CI:* run 42436508177 on the branch (started by hand): the Windows build (with `PadMap`) and the browser's compiled, and both
     smoke tests passed.
+- **8 November. Step 8's sheet, footprints: drawn** (for the owner's eye; nothing of it in the game yet).
+  - *Drawn:* `docs/b18-1/footprints.png` (`build/sheet footprints`, and in `make sheets`): every prop `dress_level` lays, each with
+    its foot on a ruler marked at 0.45 and 0.70, the share, the verdict and the cell from above with the part it takes; then
+    those left as they are, with their feet for interest. The measure (`crawl_foot`, `crawl_prop_foot`, `crawl_foot_part`) is in
+    `crawl_art.c`, at the end of `crawl_art_level` (section 8's *sheet as drawn*). Five props come out whole, seven half, two a
+    quarter.
+  - *A default of mine, to be confirmed with the sheet:* things with a use keep their cells (section 8's note).
+  - *Other checks:* the sheet and the harness build without warnings; `make smoke` passes (1.75 ms a frame); the trial merge clean
+    (section 14).
