@@ -235,7 +235,9 @@ in its section 16 but a few (noted there). **It is built by two agents at once o
 caster) and track D (harm that reaches the dead): **read its section 17 before touching anything**, and its tracks' logs (sections
 18 and 19). Built so far (harness only): C1 to C4 (one road for harm; the caster's statuses; their elements on you; the new
 attacks), D1 to D4 (the bestiary's elements, elemental creatures, the dead's statuses, the elements on your spells): 1.0.0b19's
-steps are all built; J19, the joint checks, is next. Found in the
+steps are all built, and J19, the joint checks, is done as far as an hour allowed (8 November, at the owner's word: track D's
+half whole, track C's from level 1 for 3,000 s only; the numbers in both logs, the README and the page). The release waits on
+the owner's word. Found in the
 review and mended by the plan: `HURT_MAGIC` is resisted by Resist Burn whatever its element; poison is the weak element across
 the bestiary (0.55 on average); skeletons' throws have no floor; flat armour grows as the blow does.
 

@@ -1142,6 +1142,40 @@ The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.p
 
 ## What has been verified
 
+**New in 1.0.0b19** (harm and the elements: one road for harm, the seven marks on you, the dead's elements and
+strengths and what your spells leave on them, the new attacks). Tested in the harness only: not yet played by hand,
+run on Windows or seen on a real screen. The Windows and browser builds were compiled and smoke-tested by CI on the
+work branch, by a run started by hand.
+
+* **One road for harm**: with the old harm switched back in, three five-minute autopilot runs from levels 1, 21 and 31
+  logged 1.0.0b18's events line for line, so nothing was lost in gathering every attack into one table. With the new
+  harm, sixteen seeds against 1.0.0b18 were inside the noise from every start.
+* **Each part against its absence**: the marks on you, the dead's elements on you, the new attacks, the bestiary's
+  elements, the elemental creatures, the dead's marks and your spells' were each weighed on eight or sixteen seeds
+  against the same build with it switched off. None moved the autopilot's deaths beyond the noise on its own, and from
+  levels 11, 21 and 31 none brought more than one death to a start. The autopilot mostly answers the dead at range, so
+  their elements reach it about once a level; it steps off most charges' lanes and spews' cones it sees, and was
+  knocked down by a charge 147 times in sixteen runs from level 1. Someone who fights close, or stands in the cold or
+  the bile, will meet far more of all of it; untried.
+* **All of it together**, the autopilot from level 1 on sixteen seeds for each of the five classes a fresh run can be
+  given, its first 3,000 seconds (about eight levels), against 1.0.0b18 on the same runs: 500 levels cleared and 92
+  deaths, against 495 and 94, a level about six minutes either way. The classes move. The Plague Doctor died 32 times
+  (52), nearer the others at last, since poison now bites the dead as hard as any element; the Anatomist 22 (14), on
+  both halves of the seeds, most likely because a frost hit now slows a creature by a fifth where it halved its pace;
+  the Galvanist 25 (16), nearly all of it on one half of the seeds; the Witchfinder 8 (4) and the Sin-Eater 5 (8). On
+  half the seeds the runs went on to 6,000 seconds, past the knight's level: 136 deaths against 122, 82 of them on his
+  level (64), the knight beaten 15 times (19). From levels 11, 21 and 31, on those eight seeds a class for 50 minutes:
+  two deaths in 120 runs (none) and as far as before, but for a twentieth fewer levels from 31, where the dead's
+  strengths are about three times what the wards were. The knight's level and the deeper starts were not run on the
+  other half of the seeds. Untuned: that waits for someone to play it.
+* **A fault mended on the way**: a Wraith driven back into a corridor's end with a locked door at its back stood
+  there for ever, and the autopilot, blocked by it, drove it back until its souls ran out (about one run in four from
+  level 11). Driven into a corner now, it goes into the stone and comes again from the far end of the level.
+* **The look**: the marks and the view under each, the knock-down, the new attacks and every kind's eyes in each
+  element were drawn on sheets from the game's own drawing and approved by the author.
+* **Memory safety**: AddressSanitizer and UBSan clean on every part's sessions, and on five more for the whole: the
+  autopilot from each start, a class each.
+
 **New in 1.0.0b18** (the dead's ways shown). Tested in the harness only: not yet played by hand, run on Windows
 or seen on a real screen. The Windows and browser builds were compiled and smoke-tested by CI on the work branch.
 
