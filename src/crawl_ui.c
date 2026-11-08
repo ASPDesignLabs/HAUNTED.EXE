@@ -806,16 +806,16 @@ void ui_pad(Frame *f, const UiPad *p) {
         if (on) ui_row(f, cx - w / 2 - 2, y - 1, w + 4, 10, 1);
         ui_text8(f, cx - w / 2, y, lb, FACE_BODY, on ? C_WHITE : UI_M(11), TX_INLAID);
     }
-    if (p->opt[0] && !p->list)                                     /* the options, in the well's foot: two a side */
-        for (int i = 0; i < 4; i++) {
+    if (p->opt[0] && !p->list)                                     /* the options, in the well's foot: three left, two right */
+        for (int i = 0; i < 5; i++) {
             if (!p->opt[i]) continue;
-            int w = 8 * (int)strlen(p->opt[i]), x = i < 2 ? cx - 54 - w : cx + 54, y = 138 + (i & 1) * 10;
+            int w = 8 * (int)strlen(p->opt[i]), x = i < 3 ? cx - 54 - w : cx + 54, y = 134 + (i < 3 ? i : i - 3) * 9;
             ui_row(f, x - 2, y - 1, w + 4, 10, p->opt_sel == i);
             ui_text8(f, x, y, p->opt[i], FACE_BODY, p->opt_sel == i ? C_WHITE : UI_M(13), TX_INLAID);
         }
     int hx = lside < 0 ? 9 : lside == 0 ? 164 : 9, hw = lside < 0 ? 302 : 147;   /* the foot: across, or the half the list leaves */
     if (p->about) {                                                /* the chosen thing in words */
-        int cols = (hw - 10) / 8, lines = lside < 0 ? 2 : 5, wy = lside < 0 ? 160 : 136, wh = lines * 9 + 3;
+        int cols = (hw - 10) / 8, lines = lside < 0 ? 2 : 5, wy = lside < 0 ? 162 : 136, wh = lines * 9 + 2;
         ui_well(f, hx, wy, hw, wh);
         int n = ui_wrap_count(p->about, cols);
         ui_wrap(f, hx + 5, wy + 2 + (n < lines ? (lines - n) * 9 / 2 : 0), p->about, cols, 9, lines, FACE_BODY, p->about_col ? p->about_col : UI_M(14), TX_INLAID);

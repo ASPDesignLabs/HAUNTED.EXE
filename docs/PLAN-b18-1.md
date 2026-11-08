@@ -1,7 +1,7 @@
 # 1.0.0b18.1: the trial's door, and the crypt made kinder
 
-**Settled; steps 1-6 built** (harness only; 7 November 2026), step 4's sheets (`docs/b18-1/bells.png`,
-`docs/b18-1/lamps.png`) approved by the owner; **step 7's sheet waits for the owner** (`docs/b18-1/pad.png`). Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
+**Settled; steps 1-7 built** (harness only; 7-8 November 2026), the sheets of steps 4 and 7 (`docs/b18-1/bells.png`,
+`lamps.png`, `pad.png`) approved by the owner; step 8 (footprints, its sheet first) next. Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
 tracks of [`PLAN-combat.md`](https://github.com/ASPDesignLabs/HAUNTED.EXE/blob/claude/inspiring-archimedes-dbj5n6/docs/PLAN-combat.md)
 build 1.0.0b19 on `claude/inspiring-archimedes-dbj5n6`. The owner gave one fault and six improvements, asked for them as an
 update of their own ahead of that work, and answered every question in one round (section 12). Every number below that isn't
@@ -345,6 +345,42 @@ a kit piece the game will draw too, `ui_pad` (`UiPad`, `UI_PAD_NAME`) at the end
   RUNE, READIED (the right hand: the rune or gift readied with X), CAST, SPRINT, the right stick's click nothing (a dash), THE
   MAP, THE BAR, BESTIARY, CODEX; in the list SWIFT DODGE and NOTHING are written out.
 
+*The owner's word while it was built* (8 November): "make sure the user can bind the stick they use to move around the menus
+we have ... Holding a d-pad button should cause the right stick to move through options in the ring menus we use." So:
+- **A wheel is pointed with the free hand's stick**: held open by a button under the left thumb (the D-pad, the left stick's
+  click, View), the right stick; under the right thumb (the face buttons, the right stick's click, Menu), the left stick; by a
+  shoulder, whichever stick is pushed further. It goes by the button the job is on, so a moved job takes its hand with it. The
+  wheel's hint says which: *R-STICK AIMS*, *L-STICK AIMS*, *A STICK AIMS*. Before, every wheel took the left stick, which the
+  left thumb could not reach while it held the D-pad.
+- **X held opens the runes' wheel**, as the screen and this plan's table had said; before, the pad pressed Q for one frame
+  only, so X held only readied the next.
+- **THE MENUS** (a fifth option, *MENUS: LEFT*, *RIGHT* or *BOTH*): the stick that moves through the list menus with the
+  D-pad. Left at first, as before. Saved in the flags' byte (bits 2-3). The options are now three down the left (sticks,
+  turning, menus) and two down the right (rumble, the defaults), and the sheet was drawn again so (`docs/b18-1/pad.png`).
+
+*As built* (step 7, in the game):
+- **The layout** (`PL`): each button's job, a job named by the button it began on, so today's layout is each button its own; the
+  sticks, the turning (5 to 20 tenths), the menus' stick, the rumble. Saved at every change as section 7's record (`PL_BYTES`, 23
+  bytes); 1.0.0b15's single byte reads as today's layout with the sprint traded onto that button (a byte naming View or Menu is
+  let be).
+- **In play** `pad_keys` hands each button's state to its job after the map's own D-pad and B, so the rest of it is unchanged and
+  a job's tap and hold go with it whole. Menus keep the pad as it was but for their stick. The sticks are swapped in play only, so
+  the stick that walks also leans a dodge. The turning multiplies the turning stick's turn; rumble off stops every motor a
+  person's play starts.
+- **View and Menu** act as they are let go; the second of the two within 0.15 s of the first opens the look (in play, in her
+  rooms, over any menu, the map, the tally; the crypt waits under it, as under the console), and B, Menu alone, the pair again or
+  Esc on the keys puts it away.
+- **The screen** comes from Esc's question, its last row, *THE CONTROLLER* (*EACH BUTTON'S JOB, AND THE STICKS*), there while a
+  pad is in, as the sprint's row was. The D-pad or the menus' stick moves over the drawing as it is laid out (two columns and the
+  options under them; on TURNING and MENUS left and right change it), A opens the jobs on the button chosen and A trades, B goes
+  back (from the screen to the question). View and Menu chosen only knock. The about line names the button and what its job does.
+- **The hints** in play name the button a job is on now (*E*, *Q*, *L*, *CLICK*, *M*, *1-9*, *RIGHT-CLICK* through `pk`), and so do the
+  controls card's pad lines (the walking and turning sticks swapped with them; a moved bestiary or codex by its button).
+- **Windows**: `PadMap` (binary) beside `PadSprint`, which is written from the layout; the settings dialog's sprint choice, made
+  there, is traded in as the layout is loaded. **The browser**: its page's sprint setting reads and trades within the same record.
+- Defaults taken: the about line's names (*D-PAD UP*, *THE L-STICK*); the question's row only while a pad is in; a View or Menu
+  chosen in the dialog for the sprint is let be (they keep their own jobs); the menus' stick left at first.
+
 ## 8. Footprints (F1 b, F2 a)
 
 **Today.** About thirty kinds of prop (tombs, altars, braziers, carts, candlestands, lecterns, the obsidian) are placed by one
@@ -489,6 +525,10 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   and the `pad` one ran there. They had added to the kit too (after `ui_mark` in `crawl_ui.c`, after `ui_socket` in the header,
   a `status` mode in `uisheet`'s main, `combat` in the Makefile); this update's pieces sit at the ends of the kit's files,
   before `sheet()` in the sheet tool, its mode before main's last line, and after `uisheet all` in `make sheets`.
+- **After step 7** (8 November, their branch still at `d36e0c4`): applied clean and built there, the `pad` sheet drawn there. The
+  controller touches `pad_keys`, `PADX`, the old sprint byte's functions, `pad_turn`, `rumble`, `pk`, the controls card's pad lines,
+  the wheel's pointing and hint lines, Esc's question, a UI state at the end of the list, a line after `con_update` and before each
+  `con_render`, `win_main.c`'s slots, `tools/host.c`'s print and `web/haunted.js`'s sprint setting; none of it theirs.
 
 ## 15. Hand-off log
 
@@ -644,3 +684,31 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
     a frame; the game links the new piece but doesn't draw it yet); the trial merge clean (section 14).
   - *Waiting on:* the owner's word on the sheet. Nothing of the screen is in the game yet.
   - *CI:* run 42433030953 on the branch (started by hand): the Windows and browser builds and their smoke tests passed.
+  - *Approved* by the owner, who asked for it to be built.
+- **8 November. Step 7, the controller: built** (harness only; a scripted pad, no real controller).
+  - *Built:* as section 7's *as built* note says, with the owner's word given while it was built (the wheels by the free hand,
+    X held, the menus' stick).
+  - *Tested with a scripted pad* (seed 3, level 1, `HOST_SLOTS` for the prefs): taken over with A held; Menu let go opened the
+    question; its last row opened the screen; X chosen, the jobs opened on NEXT RUNE, THE MAP chosen and traded (*X TAKES THE
+    MAP; D-PAD UP TAKES NEXT RUNE*), saved as 23 bytes and drawn so; back with B twice; X then did the map's job in her room
+    (*NOTHING HERE TO MAP*) and in the crypt (the map up, the D-pad still panning it, B closing it); the controls card read *X
+    TAPPED: THE MAP*. View and Menu together opened the look in the crypt, over the wardrobe in her room, and the pair again (in
+    either order) put it away, as did B; View alone opened the wardrobe as it was let go, Menu alone the question. Rumble off,
+    sticks swapped and turning 1.5 saved; the defaults asked once (in gold), restored on the second press. An old prefs byte of 3
+    read as Y sprinting and the left stick's click taking the wisps. In play: the sticks as they came walk on the left and turn on
+    the right (3.0 radians in a second); swapped, the other way about; turning 2.0 turned 6.0 radians in a second, 0.5 turned 1.5.
+    A fall with rumble on started the motors (two `RUMBLE` lines), with it off none.
+  - *The owner's additions, tested:* the spells' wheel held open on the D-pad's down took the slot the right stick pointed at,
+    and with the left stick pushed instead took only the slot already lit; X held opened the runes' wheel and the left stick
+    pointed it, the right being let be; X tapped still readied the next (*ready_next gift*). The question moved by the left stick
+    only (menus LEFT), the right only (RIGHT), either (BOTH).
+  - *Faults found on the way and mended:* the look closed by B had marked Menu spent, so the next Menu alone did nothing; with the
+    look up, View then Menu didn't close it; the question's note was wider than its headstone (the debug build's fit check). And one
+    older than this work: the wheel's hint lines touched the words in its middle (*IT RISES BY ITSELF*) by a row; they sit six
+    pixels lower now.
+  - *Other checks:* both builds without warnings; every about line's wrapping checked against the kit's rule for every button and
+    job (two lines, and five in the list's half); `make smoke` passes (1.76 ms a frame); ASan and UBSan clean on two sessions (the
+    screen, a trade, the options, the look and View and Menu alone, the sticks swapped; then the options' grid, the wheels by the
+    D-pad and by X, and a menu on the right stick); the sheets' fit checks pass; the trial merge clean (section 14). The Windows
+    build (`PadMap`) and the browser's page only compile in CI here: no MinGW in this container.
+  - *Untried:* a real controller (none here), the Windows registry by hand, the browser's settings panel by hand.

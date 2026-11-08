@@ -338,8 +338,8 @@ static void pad_panel(int mode, float t) {
     UiPad u;
     pad_fill(&u, JOB_DEFAULT);
     u.t = t;
-    static const char *const OPT[4] = { "STICKS: SAME", "TURNING: 1.0", "RUMBLE: ON", "THE DEFAULTS" };
-    if (mode < 4) for (int i = 0; i < 4; i++) u.opt[i] = OPT[i];
+    static const char *const OPT[5] = { "STICKS: SAME", "TURNING: 1.0", "MENUS: LEFT", "RUMBLE: ON", "THE DEFAULTS" };
+    if (mode < 4) for (int i = 0; i < 5; i++) u.opt[i] = OPT[i];
     u.keys = "D-PAD CHOOSES  \1A CHANGES  \1B BACK";
     switch (mode) {
     case 0:                                                        /* a button chosen */
@@ -360,7 +360,7 @@ static void pad_panel(int mode, float t) {
         u.keys = "D-PAD \x1b\x1a CHANGES  \1B BACK";
         break;
     case 3:                                                        /* the defaults, asked twice */
-        u.opt_sel = 3;
+        u.opt_sel = 4;
         u.about = "AGAIN, AND EVERY BUTTON GOES BACK TO ITS FIRST JOB.";
         u.about_col = R_GOLD + 11;
         u.keys = "\1A RESTORES  \1B BACK";

@@ -149,6 +149,11 @@ static void slots_flush(void) {
         if (f) { fwrite(buf, 1, (size_t)n, f); fclose(f); }
         if (i == SLOT_PROGRESS) fprintf(stderr, "PROGRESS: saved %d bytes%s%s\n", n, save ? " to " : "", save ? save : "");
         else if (i == SLOT_MARK) fprintf(stderr, "MARK: saved %d bytes\n", n);
+        else if (i == SLOT_PREFS && n >= 23 && !memcmp(buf, "HVQ1", 4)) {   /* the pad's layout (1.0.0b18.1): each button's job */
+            fprintf(stderr, "PREFS: saved %d bytes, layout", n);
+            for (int b = 0; b < 16; b++) fprintf(stderr, " %d", buf[5 + b]);
+            fprintf(stderr, " swap %d quiet %d turn %d\n", buf[21] & 1, buf[21] >> 1 & 1, buf[22]);
+        }
         else if (i == SLOT_PREFS) fprintf(stderr, "PREFS: saved %d bytes (pad sprint %d)\n", n, buf[0]);
         else fprintf(stderr, "SLOT %d: saved %d bytes\n", i + 1, n);
     }

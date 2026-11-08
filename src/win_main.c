@@ -101,7 +101,16 @@ static void slots_load(void) {
     HKEY k;
     if (RegOpenKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, KEY_READ, &k) != ERROR_SUCCESS) return;
     DWORD ps = reg_get(k, "PadSprint", 0xff);                     /* the prefs: a setting of its own, so the dialog shows it */
-    if (ps < PAD_COUNT) { uint8_t b = (uint8_t)ps; app_slot_load(SLOT_PREFS, &b, 1); }
+    uint8_t pm[64];                                                /* and the pad's whole layout (1.0.0b18.1): "HVQ1", a version, */
+    DWORD pmn = sizeof pm, pmt = 0;                                /* a job a button (job 8 the sprint), flags, the turning */
+    if (RegQueryValueExA(k, "PadMap", NULL, &pmt, pm, &pmn) == ERROR_SUCCESS && pmt == REG_BINARY && pmn >= 23 && !memcmp(pm, "HVQ1", 4)) {
+        if (ps < PAD_COUNT && ps != PAD_VIEW && ps != PAD_MENU) {  /* the dialog's sprint button, changed there: traded in */
+            int cur = -1;
+            for (int b = 0; b < PAD_COUNT; b++) if (pm[5 + b] == PAD_LS) cur = b;
+            if (cur >= 0 && cur != (int)ps && cur != PAD_VIEW && cur != PAD_MENU) { uint8_t t = pm[5 + ps]; pm[5 + ps] = pm[5 + cur]; pm[5 + cur] = t; }
+        }
+        app_slot_load(SLOT_PREFS, pm, (int)pmn);
+    } else if (ps < PAD_COUNT) { uint8_t b = (uint8_t)ps; app_slot_load(SLOT_PREFS, &b, 1); }
     for (int i = 0; i < SLOT_ALL; i++) {
         if (i == SLOT_PREFS) continue;
         static uint8_t buf[SLOT_MAX];
@@ -117,7 +126,16 @@ static void slots_flush(void) {
         int n = app_slot_take(i, buf, sizeof buf);
         HKEY k;
         if (n <= 0 || RegCreateKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, NULL, 0, KEY_WRITE, NULL, &k, NULL) != ERROR_SUCCESS) continue;
-        if (i == SLOT_PREFS) { reg_set(k, "PadSprint", (DWORD)buf[0]); RegCloseKey(k); continue; }
+        if (i == SLOT_PREFS) {                                     /* the layout, and the sprint's button from it for the dialog */
+            if (n >= 23 && !memcmp(buf, "HVQ1", 4)) {
+                DWORD ps = PAD_LS;
+                for (int b = 0; b < PAD_COUNT; b++) if (buf[5 + b] == PAD_LS) ps = (DWORD)b;
+                RegSetValueExA(k, "PadMap", 0, REG_BINARY, buf, (DWORD)n);
+                reg_set(k, "PadSprint", ps);
+            } else reg_set(k, "PadSprint", (DWORD)buf[0]);
+            RegCloseKey(k);
+            continue;
+        }
         char name[8];
         RegSetValueExA(k, slot_name(i, name, sizeof name), 0, REG_BINARY, buf, (DWORD)n);
         RegCloseKey(k);

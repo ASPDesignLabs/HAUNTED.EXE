@@ -1083,7 +1083,7 @@ static float zbuf[W];
 enum { MM_SIGN, MM_ASCEND, MM_OFFER, MM_VOW, MM_PED, MM_WIND, MM_PAT, MM_LEAVE, NMM };   /* the merchant's menu */
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
 #define NINV 6                              /* Tab's pages */
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES, UI_ALIGN, UI_CLASS, UI_HALL2, UI_BSHRINE, UI_RECKON };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES, UI_ALIGN, UI_CLASS, UI_HALL2, UI_BSHRINE, UI_RECKON, UI_PAD };   /* the menus a person can open */
 static Input IN;                            /* their keys and mouse, this step */
 static double IN_DT;                        /* and how long the step is */
 static struct {                             /* their game controller, if they have one */
@@ -1097,8 +1097,12 @@ static struct {                             /* their game controller, if they ha
                                                stops leaning forward or the meter runs dry */
     int dodge;                              /* B: Swift Dodge, at dodge_a */
     float dodge_a;
-    int sprint, sprint_read;                /* the button the sprint is on (PAD_*; a person's own, SLOT_PREFS), and read */
-    int bind;                               /* Esc's question choosing it: 1 waiting for every button let go, 2 for the one */
+    int look;                               /* the look (View and Menu together, 1.0.0b18.1): the controller as it is */
+    float look_t, vm_t;                     /* how long it has been up; since View or Menu went down */
+    int vm_p, vm_s;                         /* View (1) and Menu (2) down and waiting for their letting go; spent on the look */
+    float plx, ply, prx, pry;               /* the sticks as they are, before any swap */
+    int w_hand, q_hand;                     /* the hand holding a wheel open, from the D-pad's jobs and from X's: 1 left, 2 right,
+                                               0 a shoulder; the wheel is pointed with the other hand's stick */
     float up_t, dn_t; int up_w, dn_w;       /* the D-pad's up and down held, and whether that opened a wheel (1.0.0b16) */
     int wheel_req, wheel_rel, wheel_cancel; /* this step: a wheel to open (WH_*), the one let go, B or Menu */
     int rune_hit, abil_hit;                 /* RB, the rune readied; LB, the boss's gift readied */
@@ -1122,19 +1126,46 @@ static void wheel_close(int take);
 /* the pad's sprint button (docs/PLAN-ai.md, SP3): kept as a person's own setting beside the ledger */
 static const char *const PAD_WORD[PAD_COUNT] = { "\1A", "\1B", "\1X", "\1Y", "LB", "RB", "VIEW", "MENU", "L-STICK", "R-STICK",
                                                  "D-PAD UP", "D-PAD DOWN", "D-PAD LEFT", "D-PAD RIGHT", "LT", "RT" };
-static int pad_sprint(void) {
-    if (!PADX.sprint_read) {
-        uint8_t b = PAD_LS;
-        PADX.sprint = slot_read(SLOT_PREFS, &b, 1) == 1 && b < PAD_COUNT ? b : PAD_LS;
-        PADX.sprint_read = 1;
-    }
-    return PADX.sprint;
+/* The pad's layout (1.0.0b18.1, docs/PLAN-b18-1.md section 7): each button's job, a job named by the button that has it at
+ * first (job[b] == b is today's layout), View and Menu never moved; the sticks swapped, no rumble, the turning in tenths.
+ * A person's own, in SLOT_PREFS: "HVQ1", a version, the sixteen jobs, a byte of flags (1 swapped, 2 quiet), the turning.
+ * 1.0.0b15's single byte (the sprint's button) reads as today's layout with the sprint traded onto that button. */
+#define PL_BYTES 23
+static struct { uint8_t job[PAD_COUNT]; int swap, quiet, turn, mstick, read; } PL;   /* mstick: the menus' stick, 0 left, 1 right, 2 either */
+static void pl_default(void) { for (int b = 0; b < PAD_COUNT; b++) PL.job[b] = (uint8_t)b; PL.swap = PL.quiet = PL.mstick = 0; PL.turn = 10; }
+static int pl_fixed(int b) { return b == PAD_VIEW || b == PAD_MENU; }
+static void pl_trade(int a, int b) { if (a == b || pl_fixed(a) || pl_fixed(b)) return; uint8_t t = PL.job[a]; PL.job[a] = PL.job[b]; PL.job[b] = t; }
+static void pl_read(void) {
+    if (PL.read) return;
+    PL.read = 1; pl_default();
+    uint8_t buf[64];
+    int n = slot_read(SLOT_PREFS, buf, sizeof buf), ok = n >= PL_BYTES && !memcmp(buf, "HVQ1", 4) && buf[4] >= 1, seen = 0;
+    for (int b = 0; b < PAD_COUNT && ok; b++) { ok = buf[5 + b] < PAD_COUNT && !(seen >> buf[5 + b] & 1); if (ok) seen |= 1 << buf[5 + b]; }
+    if (ok && buf[5 + PAD_VIEW] == PAD_VIEW && buf[5 + PAD_MENU] == PAD_MENU) {
+        memcpy(PL.job, buf + 5, PAD_COUNT); PL.swap = buf[21] & 1; PL.quiet = buf[21] >> 1 & 1; PL.mstick = clampi(buf[21] >> 2 & 3, 0, 2);
+        PL.turn = clampi(buf[22], 5, 20);
+    } else if (n == 1 && buf[0] < PAD_COUNT) pl_trade(PAD_LS, buf[0]);
 }
-static void pad_sprint_set(int b) {
-    uint8_t v = (uint8_t)b;
-    PADX.sprint = b; PADX.sprint_read = 1;
-    slot_write(SLOT_PREFS, &v, 1);
+static void pl_write(void) {
+    uint8_t b[PL_BYTES];
+    memcpy(b, "HVQ1", 4); b[4] = 1;
+    memcpy(b + 5, PL.job, PAD_COUNT);
+    b[21] = (uint8_t)(PL.swap | PL.quiet << 1 | PL.mstick << 2); b[22] = (uint8_t)PL.turn;
+    slot_write(SLOT_PREFS, b, PL_BYTES);
 }
+static int pl_on(int job) { pl_read(); for (int b = 0; b < PAD_COUNT; b++) if (PL.job[b] == job) return b; return job; }   /* the button a job is on */
+static int pad_sprint(void) { return pl_on(PAD_LS); }
+static const char *pad_short(int b) { return b >= PAD_UP && b <= PAD_RIGHT ? UI_PAD_NAME[b] : PAD_WORD[b]; }   /* the D-pad as arrows */
+static int pad_hand(int b) {                                       /* which thumb a button is under: 1 the left, 2 the right, 0 a finger */
+    if ((b >= PAD_UP && b <= PAD_RIGHT) || b == PAD_LS || b == PAD_VIEW) return 1;
+    if (b <= PAD_Y || b == PAD_RS || b == PAD_MENU) return 2;
+    return 0;
+}
+static void pad_menu_open(void);                                   /* its screen, from Esc's question, and the look */
+static void update_padmenu(void);
+static void render_padmenu(Frame *f);
+static int pad_look_tick(float dt);
+static void pad_look_render(Frame *f);
 static const char *pad_sprint_hint(void) {
     static char h[48];
     snprintf(h, sizeof h, "%s SPRINTS FORWARD, A WHILE", PAD_WORD[pad_sprint()]);
@@ -1146,7 +1177,8 @@ static const char *pad_sprint_hint(void) {
  * face button marked (\1) for its colour. Only hints go through here: elsewhere a lone C or E is prose. */
 /* the controller's motors, for a person playing with it */
 static void rumble(float low, float high, float secs) {
-    if (!G.player || !PADX.used) return;
+    pl_read();
+    if (!G.player || !PADX.used || PL.quiet) return;           /* and not when a person turned it off */
     pad_rumble(low, high, secs);
 }
 /* The browser's build (docs/PLAN-web.md): Space casts, as the left button does, since Ctrl+W and Ctrl+1-9 are the
@@ -1179,7 +1211,10 @@ static const char *pk(const char *s) {
             if ((int)strlen(PK_KEY[i]) == (int)(b - a) && !strncmp(a, PK_KEY[i], (size_t)(b - a))) key = i;
         if (key < 0) { while (s < e && n < 230) o[n++] = *s++; continue; }
         while (s < a) o[n++] = *s++;
-        for (const char *p = PK_PAD[key]; *p && n < 230; p++) o[n++] = *p;
+        static const int8_t PK_JOB[16] = { -1, -1, PAD_A, -1, -1, -1, -1, -1, PAD_X, -1, -1, PAD_Y, PAD_DOWN, PAD_RT, PAD_UP, PAD_RB };
+        const char *pw = PK_PAD[key];                              /* in play, the button that has the key's job now (1.0.0b18.1) */
+        if (G.ui == UI_NONE && PK_JOB[key] >= 0) pw = PAD_WORD[pl_on(PK_JOB[key])];
+        for (const char *p = pw; *p && n < 230; p++) o[n++] = *p;
         for (s = b; s < e && n < 230; ) o[n++] = *s++;
     }
     o[n] = 0;
@@ -18211,6 +18246,7 @@ static void crawl_update(double dt) {
     dbg_souls();
 #endif
     if (con_update(fdt)) return;                                   /* the console is down: the crypt waits, the music plays */
+    if (pad_look_tick(fdt)) return;                                /* and so it does under the controller's look (1.0.0b18.1) */
     if (RUN.active) comp_note(G.level);                            /* what is worn and known goes into the Compendium */
     caster_sync();                                                 /* and the caster's own joins what is worn */
     G.msg_t = fmaxf(0.0f, G.msg_t - fdt); G.hint_t = fmaxf(0.0f, G.hint_t - fdt); G.knock_t = fmaxf(0.0f, G.knock_t - fdt);
@@ -19783,7 +19819,12 @@ static void wheel_input(float dt) {
     if (!WH.src && PADX.wheel_rel == WH.open) { wheel_close(1); return; }
     if (PADX.wheel_cancel || IN.hit[KEY_ESC]) { IN.hit[KEY_ESC] = 0; wheel_close(0); snd_sfx_ex(SFX_KEY, 0.5f, 0.5f); return; }
     WH.t += dt;
-    float vx = IN.lx, vy = -IN.ly;                                 /* the stick, y down as the screen is */
+    float vx = IN.lx, vy = -IN.ly;                                 /* the stick, y down as the screen is: the free hand's (1.0.0b18.1): */
+    if (IN.pad) {                                                  /* a D-pad held, the right; X held, the left; a shoulder, either */
+        int hand = WH.src ? PADX.q_hand : PADX.w_hand;
+        int right = hand == 1 || (hand == 0 && PADX.prx * PADX.prx + PADX.pry * PADX.pry > PADX.plx * PADX.plx + PADX.ply * PADX.ply);
+        vx = right ? PADX.prx : PADX.plx; vy = -(right ? PADX.pry : PADX.ply);
+    }
     if (WH.src || IN.mdx != 0.0f || IN.mdy != 0.0f) {              /* or the mouse, gathered into a point */
         WH.mx += IN.mdx; WH.my += IN.mdy;
         float r = hypotf(WH.mx, WH.my);
@@ -19847,7 +19888,7 @@ static void sprint_tick(float dt, int on, int moved) {
 }
 
 /* turning and walking, shared by the crypt and the merchant's room */
-static float pad_turn(float dt) { return IN.rx * (0.4f + 0.6f * IN.rx * IN.rx) * PAD_TURN * dt; }   /* gentle near the middle */
+static float pad_turn(float dt) { return IN.rx * (0.4f + 0.6f * IN.rx * IN.rx) * PAD_TURN * (float)PL.turn * 0.1f * dt; }   /* gentle near the middle; a person's turning */
 static void human_walk(float dt) {
     int want = IN.down[KEY_SHIFT] || PADX.run;
     if (!IN.down[KEY_SHIFT]) G.spr_dry = 0;                        /* Shift let go: it may be asked for again */
@@ -20364,7 +20405,7 @@ static void run_new(void) {
 }
 static void quit_choose(int c) {
     if (c == Q_OPEN) { open_ledger(1); return; }
-    if (c == Q_PAD) { PADX.bind = 1; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }   /* then the button wanted */
+    if (c == Q_PAD) { pad_menu_open(); return; }                   /* the controller's screen (1.0.0b18.1) */
     if (c == Q_NEW) {                                              /* asked twice: what is unsigned is lost */
         if (!G.quit_arm) { G.quit_arm = 1; snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return; }
         run_new();
@@ -20377,22 +20418,6 @@ static void quit_choose(int c) {
 static void update_quit(void) {
     if (G.status_ret == PLAY_QUIT) return;
     int nq = quit_rows();
-    if (PADX.bind) {                                               /* choosing the sprint's button: every one let go, then the one pressed */
-        if (!IN.pad || (IN.hit[KEY_ESC] && !IN.pad_hit[PAD_B] && !IN.pad_hit[PAD_MENU])) { PADX.bind = 0; return; }   /* Esc on the keys gives up */
-        int any = 0;
-        for (int b = 0; b < PAD_COUNT; b++) any |= IN.pad_down[b];
-        if (PADX.bind == 1) { if (!any) PADX.bind = 2; return; }
-        for (int b = 0; b < PAD_COUNT; b++)
-            if (IN.pad_hit[b]) {
-                pad_sprint_set(b); PADX.bind = 0; PADX.run = 0;
-                snd_sfx_ex(SFX_RUNE, 0.6f, 0.5f);
-#ifdef CRAWL_DEBUG
-                fprintf(stderr, "EVENT pad_sprint %d t=%.2f\n", b, G.t);
-#endif
-                break;
-            }
-        return;
-    }
     G.ui_sel = clampi(G.ui_sel, 0, nq - 1);
     if (IN.hit[KEY_W] || IN.hit[KEY_UP]) { G.ui_sel = (G.ui_sel + nq - 1) % nq; G.quit_arm = 0; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
     if (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) { G.ui_sel = (G.ui_sel + 1) % nq; G.quit_arm = 0; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
@@ -20896,8 +20921,10 @@ static void pad_keys(float dt) {
     int keys = IN.ntext > 0 || IN.wheel || fabsf(IN.mdx) + fabsf(IN.mdy) > 4.0f, pads = 0;
     PADX.dodge = 0;
     PADX.wheel_req = PADX.wheel_rel = PADX.wheel_cancel = PADX.rune_hit = PADX.abil_hit = 0;
+    pl_read();
     for (int k = 0; k < KEY_COUNT && !keys; k++) keys = IN.hit[k];
-    if (!IN.pad) { PADX.used = PADX.run = 0; return; }
+    if (!IN.pad) { PADX.used = PADX.run = 0; PADX.look = 0; PADX.vm_p = PADX.vm_s = 0; return; }
+    PADX.plx = IN.lx; PADX.ply = IN.ly; PADX.prx = IN.rx; PADX.pry = IN.ry;
     if (PADX.fresh) {                                              /* the button held to take over counts once let go */
         PADX.fresh = 0; PADX.held = 0;
         for (int b = 0; b < PAD_COUNT; b++) if (IN.pad_down[b]) PADX.held |= 1u << b;
@@ -20912,12 +20939,47 @@ static void pad_keys(float dt) {
     }
     pads |= IN.lx * IN.lx + IN.ly * IN.ly > 0.09f || IN.rx * IN.rx + IN.ry * IN.ry > 0.09f;
     if (pads) PADX.used = 1; else if (keys) PADX.used = 0;
+    {                                                              /* View and Menu (1.0.0b18.1): together, the look; alone, each */
+        int vm[2] = { PAD_VIEW, PAD_MENU };                        /* acts as it is let go, unless the other came in the while */
+        PADX.vm_t += dt;
+        for (int i = 0; i < 2; i++) {
+            int b = vm[i], bit = 1 << i, other = 1 << (1 - i);
+            if (hit[b]) {
+                if (PADX.vm_p & other && PADX.vm_t < 0.15f) {      /* the second of the two, in time */
+                    PADX.vm_s |= 3;
+                    if (G.player && !CON.open) { PADX.look = !PADX.look; PADX.look_t = 0.0f; snd_sfx_ex(PADX.look ? SFX_PAGE : SFX_KEY, 0.6f, 0.5f); }
+#ifdef CRAWL_DEBUG
+                    fprintf(stderr, "EVENT pad_look %s t=%.2f\n", PADX.look ? "on" : "off", G.t);
+#endif
+                } else if (PADX.look) PADX.vm_s |= bit;            /* Menu alone puts the look away, below; spent either way */
+                if (!(PADX.vm_p & other)) PADX.vm_t = 0.0f;
+                PADX.vm_p |= bit;
+                hit[b] = 0;
+            } else if (PADX.vm_p & bit && !IN.pad_down[b]) {       /* let go: its own job now, if the look didn't take it */
+                hit[b] = !(PADX.vm_s & bit);
+                PADX.vm_p &= ~bit; PADX.vm_s &= ~bit;
+            } else hit[b] = 0;
+        }
+    }
+    if (PADX.look) {                                               /* the look: B or Menu puts it away; nothing else gets through */
+        if (hit[PAD_B] || hit[PAD_MENU] || (IN.pad_hit[PAD_MENU] && !(PADX.vm_p & 1))) { PADX.look = 0; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
+        return;
+    }
+    if (PL.swap && G.ui == UI_NONE) {                              /* the sticks swapped, in play */
+        float t = IN.lx; IN.lx = IN.rx; IN.rx = t; t = IN.ly; IN.ly = IN.ry; IN.ry = t;
+    }
     if (IN.ly < 0.33f) PADX.run = 0;                               /* the sprint ends as the stick stops leaning forward */
+#ifdef CRAWL_DEBUG
+    static double ptr_t;
+    if (getenv("CRAWL_PADTRACE") && G.t - ptr_t >= 0.5) { ptr_t = G.t; fprintf(stderr, "PAD trace t=%.1f at (%.2f,%.2f) ang %.3f sticks %.2f %.2f %.2f %.2f\n", G.t, G.px, G.py, G.ang, IN.lx, IN.ly, IN.rx, IN.ry); }
+#endif
     if (CON.open) return;
 #define PRESS(k) (IN.hit[k] = IN.down[k] = 1)
     if (G.ui != UI_NONE) {
         static const int DIRK[4] = { KEY_W, KEY_S, KEY_A, KEY_D };
-        int want[4] = { dn[PAD_UP] || IN.ly > 0.55f, dn[PAD_DOWN] || IN.ly < -0.55f, dn[PAD_LEFT] || IN.lx < -0.55f, dn[PAD_RIGHT] || IN.lx > 0.55f };
+        float sx = IN.lx, sy = IN.ly;                              /* the stick a person moves through menus with (1.0.0b18.1) */
+        if (PL.mstick == 1 || (PL.mstick == 2 && IN.rx * IN.rx + IN.ry * IN.ry > sx * sx + sy * sy)) { sx = IN.rx; sy = IN.ry; }
+        int want[4] = { dn[PAD_UP] || sy > 0.55f, dn[PAD_DOWN] || sy < -0.55f, dn[PAD_LEFT] || sx < -0.55f, dn[PAD_RIGHT] || sx > 0.55f };
         if (!PADX.menu)                                            /* just opened: what opened it, or a walk, isn't a turn of the page */
             for (int d = 0; d < 4; d++) { PADX.on[d] = (uint8_t)want[d]; PADX.rep[d] = 0.4f; }
         PADX.menu = 1;
@@ -20937,20 +20999,19 @@ static void pad_keys(float dt) {
         return;
     }
     PADX.menu = 0;
-    {                                                              /* the sprint's button and the left stick click trade jobs */
-        int sb = pad_sprint();
-        if (sb != PAD_LS) {
-            uint8_t t = dn[sb]; dn[sb] = dn[PAD_LS]; dn[PAD_LS] = t;
-            t = hit[sb]; hit[sb] = hit[PAD_LS]; hit[PAD_LS] = t;
-        }
-    }
-    if (G.map_on && G.player && !G.shop) {                         /* the map up: the D-pad pans it, B closes it */
+    if (G.map_on && G.player && !G.shop) {                         /* the map up: the D-pad pans it, B closes it, whatever the layout */
         if (hit[PAD_UP]) PRESS(KEY_UP);
         if (hit[PAD_DOWN]) PRESS(KEY_DOWN);
         if (hit[PAD_LEFT]) PRESS(KEY_LEFT);
         if (hit[PAD_RIGHT]) PRESS(KEY_RIGHT);
         if (hit[PAD_B]) PRESS(KEY_M);
         hit[PAD_UP] = hit[PAD_DOWN] = hit[PAD_LEFT] = hit[PAD_RIGHT] = hit[PAD_B] = 0;
+        dn[PAD_UP] = dn[PAD_DOWN] = dn[PAD_LEFT] = dn[PAD_RIGHT] = dn[PAD_B] = 0;
+    }
+    {                                                              /* the layout: each button's state goes to its job (1.0.0b18.1); */
+        uint8_t jd[PAD_COUNT], jh[PAD_COUNT];                      /* from here on a PAD_* names a job, by the button it began on */
+        for (int b = 0; b < PAD_COUNT; b++) { jd[PL.job[b]] = dn[b]; jh[PL.job[b]] = hit[b]; }
+        memcpy(dn, jd, sizeof jd); memcpy(hit, jh, sizeof jh);
     }
     {                                                              /* the D-pad's up and down: tapped, the map and the bar; held, the wheels */
         float *ht[2] = { &PADX.up_t, &PADX.dn_t };
@@ -20960,13 +21021,14 @@ static void pad_keys(float dt) {
             if (G.map_on && G.player && !G.shop) { *ht[i] = 0.0f; *hw[i] = 0; continue; }   /* the map up: they pan it, above */
             if (dn[DB[i]]) {
                 *ht[i] += dt;
-                if (*ht[i] >= WHEEL_HOLD && !*hw[i]) { *hw[i] = 1; PADX.wheel_req = WK[i]; }
+                if (*ht[i] >= WHEEL_HOLD && !*hw[i]) { *hw[i] = 1; PADX.wheel_req = WK[i]; PADX.w_hand = pad_hand(pl_on(DB[i])); }
             } else if (*ht[i] > 0.0f) {
                 if (!*hw[i]) PRESS(TAPK[i]); else PADX.wheel_rel = WK[i];
                 *ht[i] = 0.0f; *hw[i] = 0;
             }
         }
     }
+    if (dn[PAD_X]) { IN.down[KEY_Q] = 1; PADX.q_hand = pad_hand(pl_on(PAD_X)); }   /* X held, as Q held: the runes' wheel (1.0.0b18.1) */
     if (WH.open) {                                                 /* a wheel up: the stick points, B or Menu puts it away */
         if (hit[PAD_B] || hit[PAD_MENU]) PADX.wheel_cancel = 1;
         return;
@@ -22943,6 +23005,7 @@ static void update_ui(void) {
     if (G.ui == UI_ALTAR) { update_altarmenu(); return; }
     if (G.ui == UI_BSHRINE) { update_bshrine(); return; }
     if (G.ui == UI_RECKON) { update_reckon(); return; }
+    if (G.ui == UI_PAD) { update_padmenu(); return; }
     if (G.ui == UI_INVENTORY) update_inventory();
     else if (G.ui == UI_LEDGER) update_ledger();
     else if (G.ui == UI_MERCHANT) update_merchantmenu();
@@ -26199,15 +26262,26 @@ static void render_messages(Frame *f) {
     if (G.hint_t > 0.0f && G.player && !G.ui && !G.dead && !G.claim_card && !shop_carded() && WH.k <= 0.0f) {   /* never over death's card, hers, a ware's or a wheel */
         static const char *const HINT[4] = { WEB ? "WASD WALK  MOUSE TURN  SPACE CASTS" : "WASD WALK  MOUSE TURN  CLICK CASTS", "1-9 SPELLS  E OPENS  TAB INVENTORY", "B BESTIARY  ESC LEAVE OR SLEEPWALK",
                                              "L WISPS  C THE CODEX  H THE STATUS BAR" };
-        static const char *const PADHINT[4] = { "L-STICK WALK  R-STICK TURN  RT CASTS", "D-PAD DOWN HELD: SPELLS  \1A OPENS",
-                                                "MENU LEAVE  VIEW INVENTORY  \1Y WISPS", "D-PAD: BESTIARY, CODEX, STATUS BAR" };
+        static char PADHINT[4][48], pm[6][48];                     /* the pad's lines, by the layout (1.0.0b18.1) */
+        #define PW(j) PAD_WORD[pl_on(j)]
+        snprintf(PADHINT[0], 48, "%s WALK  %s TURN  %s CASTS", PL.swap ? "R-STICK" : "L-STICK", PL.swap ? "L-STICK" : "R-STICK", PW(PAD_RT));
+        snprintf(PADHINT[1], 48, "%s HELD: SPELLS  %s OPENS", PW(PAD_DOWN), PW(PAD_A));
+        snprintf(PADHINT[2], 48, "MENU LEAVE  VIEW INVENTORY  %s WISPS", PW(PAD_Y));
+        if (pl_on(PAD_LEFT) == PAD_LEFT && pl_on(PAD_RIGHT) == PAD_RIGHT && pl_on(PAD_DOWN) == PAD_DOWN) snprintf(PADHINT[3], 48, "D-PAD: BESTIARY, CODEX, STATUS BAR");
+        else snprintf(PADHINT[3], 48, "%s BESTIARY  %s CODEX", pad_short(pl_on(PAD_LEFT)), pad_short(pl_on(PAD_RIGHT)));
+        snprintf(pm[0], 48, "%s DODGES THE WAY THE STICK LEANS", PW(PAD_B));
+        snprintf(pm[1], 48, "%s A GIFT  %s A RUNE  %s HELD CHOOSES", pad_short(pl_on(PAD_LB)), pad_short(pl_on(PAD_RB)), pl_on(PAD_UP) == PAD_UP ? "UP" : pad_short(pl_on(PAD_UP)));
+        snprintf(pm[2], 48, "%s TAPPED: THE MAP", PW(PAD_UP));
+        snprintf(pm[3], 48, "HOLD %s TO CHARGE AN ULTIMATE", PW(PAD_RT));
+        snprintf(pm[4], 48, "SWING THE %s TO SHAKE OFF A BAT", PL.swap ? "L-STICK" : "R-STICK");
+        #undef PW
         int charges = 0, bats = G.level >= 5;                      /* bats of rank II come in from the first run's fifth level */
         for (int sp = 0; sp < AT_BFS; sp++) charges |= RUN.gear.atk[sp] >= 0 && spell_holds(sp);
-        const char *more[7] = { PADX.used ? pad_sprint_hint() : "SHIFT SPRINTS FORWARD, A WHILE", RUN.abil[BOSS_KNIGHT] ? (PADX.used ? "\1B DODGES THE WAY THE STICK LEANS" : "TAP A DIRECTION TWICE TO DODGE") : NULL,
-                                ab_readied() >= 0 || rune_readied() >= 0 ? (PADX.used ? "LB A GIFT  RB A RUNE  UP HELD CHOOSES" : "RIGHT CLICK USES  Q NEXT, HOLD: WHEEL") : NULL,
-                                RUN.has_map ? (PADX.used ? "D-PAD UP TAPPED: THE MAP" : "M THE MAP") : NULL,
-                                charges ? (PADX.used ? "HOLD RT TO CHARGE AN ULTIMATE" : "HOLD A SPELL TO CHARGE ITS ULTIMATE") : NULL,   /* 1.0.0b11 */
-                                bats ? (PADX.used ? "SWING THE R-STICK TO SHAKE OFF A BAT" : "TURN OR STRAFE HARD TO SHAKE OFF A BAT") : NULL,
+        const char *more[7] = { PADX.used ? pad_sprint_hint() : "SHIFT SPRINTS FORWARD, A WHILE", RUN.abil[BOSS_KNIGHT] ? (PADX.used ? pm[0] : "TAP A DIRECTION TWICE TO DODGE") : NULL,
+                                ab_readied() >= 0 || rune_readied() >= 0 ? (PADX.used ? pm[1] : "RIGHT CLICK USES  Q NEXT, HOLD: WHEEL") : NULL,
+                                RUN.has_map ? (PADX.used ? pm[2] : "M THE MAP") : NULL,
+                                charges ? (PADX.used ? pm[3] : "HOLD A SPELL TO CHARGE ITS ULTIMATE") : NULL,   /* 1.0.0b11 */
+                                bats ? (PADX.used ? pm[4] : "TURN OR STRAFE HARD TO SHAKE OFF A BAT") : NULL,
                                 G.shop || RUN.al_points > 0 ? "THE LAMPSTAND NORTH OF HER: THE LINES" : NULL };
         int rows = 0, widest = 0;                                  /* one band of stone behind them all */
         for (int i = 0; i < 11; i++) { const char *h = i < 4 ? (PADX.used ? PADHINT[i] : HINT[i]) : more[i - 4]; if (h) { rows++; widest = imax(widest, hint_width(h)); } }
@@ -26626,12 +26700,10 @@ static void render_quit(Frame *f) {
         gfx_text8(f, (W - gfx_text_width(ln, 1)) / 2, y, ln, R_STONE + 13, 1);
         p += n; while (*p == ' ') p++;
     }
-    char padrow[40];
-    snprintf(padrow, sizeof padrow, PADX.bind ? (((int)(G.t * 3.0) & 1) ? "PRESS A BUTTON" : "") : "SPRINT: %s", PAD_WORD[pad_sprint()] + (pad_sprint() < PAD_LB));
-    const char *OPT[Q_OPTIONS] = { "FLEE TO THE SURFACE", "STAY IN THE DARK", "SLEEPWALK", "OPEN THE LEDGER", "BEGIN A NEW RUN", padrow };
+    const char *OPT[Q_OPTIONS] = { "FLEE TO THE SURFACE", "STAY IN THE DARK", "SLEEPWALK", "OPEN THE LEDGER", "BEGIN A NEW RUN", "THE CONTROLLER" };
     static const char *const NOTE[Q_OPTIONS] = { "NOTHING IS KEPT BUT WHAT IS SIGNED", "BACK TO THE CRYPT", "THE AUTOPILOT WALKS ON WITHOUT YOU",
                                                  "A RUN FROM A PAGE SHE HAS SIGNED", "FROM NOTHING. SIGNED PAGES STAY",
-                                                 "\1A, THEN THE BUTTON. ITS JOB GOES TO THE L-STICK" };
+                                                 "EACH BUTTON'S JOB, AND THE STICKS" };
     int nq = quit_rows(), step = nq > Q_PAD ? 15 : 17, top = 62;    /* the rows in a well, spaced to fit the pad's sixth */
     ui_well(f, bx + 10, by + 56, bw - 20, 104);
     ui_rule(f, bx + 22, bx + bw - 23, by + top + Q_OPEN * step, 1);   /* leaving, then the ledger and a new run */
@@ -26651,12 +26723,159 @@ static void render_quit(Frame *f) {
         }
     }
     const char *note = NOTE[clampi(G.ui_sel, 0, nq - 1)];
-    if (PADX.bind) note = "THE BUTTON THE SPRINT GOES ON";
     int ncol = R_GOLD + 9;
     if (LEDGER.marked && (G.ui_sel == Q_FLEE || G.ui_sel == Q_OPEN || G.ui_sel == Q_NEW)) { note = "THE DEAD ARE WATCHING"; ncol = R_BLOOD + 13; }
     if (CON.used && G.ui_sel == Q_FLEE) note = "THE DEAD TOOK NOTE: NOTHING KEPT";
     if (G.ui_sel == Q_NEW && G.quit_arm) { note = "ENTER AGAIN: THE UNSIGNED IS LOST"; ncol = R_BLOOD + 13; }
     hint8(f, (W - hint_width(note)) / 2, by + bh - 15, note, ncol);   /* its own line, inside the stone */
+}
+
+/* ---- the controller (1.0.0b18.1, docs/PLAN-b18-1.md section 7): its screen from Esc's question, and the look ----
+ * A job is named by the button it began on (PAD_*); PL.job[b] is the job button b has now. */
+static const char *const JOB_SHORT[PAD_COUNT] = { "USE", "DODGE", "NEXT RUNE", "WISPS", "THE GIFT", "THE RUNE", "PAGES", "PAUSE",
+                                                  "SPRINT", 0, "THE MAP", "THE BAR", "BESTIARY", "CODEX", "READIED", "CAST" };
+static const char *const JOB_LONG[PAD_COUNT] = { "USE", "SWIFT DODGE", "NEXT RUNE", "WISPS", "THE GIFT", "THE RUNE", "PAGES", "PAUSE",
+                                                 "SPRINT", "NOTHING", "THE MAP", "THE BAR", "BESTIARY", "CODEX", "READIED", "CAST" };
+static const char *const JOB_HOLD[PAD_COUNT] = { 0, 0, "RUNES", 0, 0, 0, 0, 0, 0, 0, "RUNES", "SPELLS", 0, 0, 0, 0 };
+static const char *const JOB_DOES[PAD_COUNT] = {
+    "USE (OPEN, TAKE, PULL, RING, OFFER A SOUL).", "SWIFT DODGE, THE WAY THE STICK LEANS.",
+    "THE NEXT RUNE OR GIFT. HELD: THE RUNES' WHEEL.", "THE WISPS' LIST, OR THE ONE ALWAYS CAST.",
+    "THE BOSS'S GIFT READIED, USED.", "THE RUNE READIED, RAISED BY HAND.",
+    "TAB'S PAGES. FIXED: WITH MENU, IT IS THE LOOK.", "THE QUESTION, AND BACK. FIXED: WITH VIEW, THE LOOK.",
+    "THE SPRINT, ON AND OFF.", "NOTHING: A BUTTON LEFT IDLE.",
+    "THE MAP. HELD: THE RUNES' WHEEL.", "THE STATUS BAR. HELD: THE SPELLS' WHEEL.",
+    "THE BESTIARY.", "THE CODEX OF AFFIXATIONS.",
+    "THE RIGHT HAND: THE RUNE OR GIFT READIED.", "CAST THE SPELL IN HAND; HELD, CHARGE IT." };
+static const char *const PAD_SAY[PAD_COUNT] = { "A", "B", "X", "Y", "LB", "RB", "VIEW", "MENU", "THE L-STICK", "THE R-STICK",
+                                                "D-PAD UP", "D-PAD DOWN", "D-PAD LEFT", "D-PAD RIGHT", "LT", "RT" };
+static const int8_t PJ_LIST[14] = { PAD_A, PAD_B, PAD_X, PAD_Y, PAD_LB, PAD_RB, PAD_LT, PAD_RT, PAD_LS, PAD_RS, PAD_UP, PAD_DOWN,
+                                    PAD_LEFT, PAD_RIGHT };      /* the jobs to trade, in the sheet's order */
+enum { PO_STICKS = PAD_COUNT, PO_TURN, PO_MENUS, PO_RUMBLE, PO_DEFAULTS };   /* in the order ui_pad lays the options out */
+#define PS_ROWS 11
+static const int8_t PS_GRID[PS_ROWS][2] = { { PAD_LT, PAD_RT }, { PAD_LB, PAD_RB }, { PAD_LS, PAD_Y }, { PAD_UP, PAD_X }, { PAD_LEFT, PAD_B },
+                                            { PAD_RIGHT, PAD_A }, { PAD_DOWN, PAD_RS }, { PAD_VIEW, PAD_MENU }, { PO_STICKS, PO_RUMBLE },
+                                            { PO_TURN, PO_DEFAULTS }, { PO_MENUS, -1 } };   /* as drawn: the left hand's down the left,
+                                                                      the options under; -1 nothing there */
+static struct { int sel, r, c, list, lsel, arm; } PS;
+static void pad_menu_open(void) {
+    open_ui(UI_PAD);
+    PS.sel = PAD_A; PS.r = 5; PS.c = 1; PS.list = PS.arm = 0;
+    snd_sfx_ex(SFX_PAGE, 0.6f, 0.5f);
+}
+static void pad_fill(UiPad *u) {                                   /* the layout as the drawing wants it */
+    memset(u, 0, sizeof *u);
+    pl_read();
+    for (int b = 0; b < PAD_COUNT; b++) { u->job[b] = JOB_SHORT[PL.job[b]]; u->hold[b] = JOB_HOLD[PL.job[b]]; }
+    u->fixed = 1 << PAD_VIEW | 1 << PAD_MENU;
+    u->sel = u->opt_sel = -1;
+}
+static void update_padmenu(void) {
+    int up = IN.hit[KEY_W] || IN.hit[KEY_UP], down = IN.hit[KEY_S] || IN.hit[KEY_DOWN];
+    int left = IN.hit[KEY_A] || IN.hit[KEY_LEFT], right = IN.hit[KEY_D] || IN.hit[KEY_RIGHT];
+    int ok = IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE], back = IN.hit[KEY_ESC];
+    pl_read();
+    if (PS.list) {                                                 /* the jobs: one chosen is traded onto this button */
+        if (up || down) { PS.lsel = (PS.lsel + (down ? 1 : 13)) % 14; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+        if (back) { PS.list = 0; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
+        if (ok) {
+            int job = PJ_LIST[PS.lsel], from = pl_on(job);
+            if (from != PS.sel) { pl_trade(PS.sel, from); pl_write(); snd_sfx_ex(SFX_RUNE, 0.6f, 0.5f); }
+            else snd_sfx_ex(SFX_KEY, 0.6f, 0.5f);
+            PS.list = 0;
+#ifdef CRAWL_DEBUG
+            if (from != PS.sel) fprintf(stderr, "EVENT pad_trade %s takes %s, %s takes %s t=%.2f\n", PAD_SAY[PS.sel], JOB_LONG[job], PAD_SAY[from], JOB_LONG[PL.job[from]], G.t);
+            else fprintf(stderr, "EVENT pad_keep %s %s t=%.2f\n", PAD_SAY[PS.sel], JOB_LONG[job], G.t);
+#endif
+        }
+        return;
+    }
+    if (back) { G.ui = UI_QUIT; G.ui_sel = Q_PAD; PS.arm = 0; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }   /* back to the question */
+    if (up || down) {                                              /* down the column, past an empty place, round */
+        do PS.r = (PS.r + (down ? 1 : PS_ROWS - 1)) % PS_ROWS; while (PS_GRID[PS.r][PS.c] < 0);
+        PS.sel = PS_GRID[PS.r][PS.c]; PS.arm = 0; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f);
+    } else if ((left || right) && PS.sel == PO_TURN) {             /* the turning, by tenths */
+        int t = clampi(PL.turn + (right ? 1 : -1), 5, 20);
+        if (t != PL.turn) { PL.turn = t; pl_write(); snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); } else snd_sfx_ex(SFX_KNOCK, 0.35f, 0.5f);
+    } else if ((left || right) && PS.sel == PO_MENUS) {            /* the menus' stick: left, right, either */
+        PL.mstick = (PL.mstick + (right ? 1 : 2)) % 3; pl_write(); snd_sfx_ex(SFX_TICK, 0.6f, 0.5f);
+    } else if (left || right) {                                    /* across, or the nearest above where nothing is */
+        PS.c = 1 - PS.c;
+        while (PS_GRID[PS.r][PS.c] < 0) PS.r--;
+        PS.sel = PS_GRID[PS.r][PS.c]; PS.arm = 0; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f);
+    }
+    if (!ok) return;
+    if (PS.sel < PAD_COUNT) {
+        if (pl_fixed(PS.sel)) { snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); return; }   /* View and Menu stay */
+        PS.list = 1; PS.lsel = 0;
+        for (int i = 0; i < 14; i++) if (PJ_LIST[i] == PL.job[PS.sel]) PS.lsel = i;
+        snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f);
+        return;
+    }
+    if (PS.sel == PO_STICKS) PL.swap ^= 1;
+    else if (PS.sel == PO_MENUS) PL.mstick = (PL.mstick + 1) % 3;
+    else if (PS.sel == PO_RUMBLE) { PL.quiet ^= 1; if (!PL.quiet) pad_rumble(0.4f, 0.4f, 0.25f); }   /* a shudder, to say so */
+    else if (PS.sel == PO_DEFAULTS) {                              /* asked twice */
+        if (!PS.arm) { PS.arm = 1; snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return; }
+        pl_default(); PS.arm = 0;
+    } else return;
+    pl_write();
+    snd_sfx_ex(SFX_RUNE, 0.5f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT pad_option %d swap %d quiet %d turn %d menus %d t=%.2f\n", PS.sel - PAD_COUNT, PL.swap, PL.quiet, PL.turn, PL.mstick, G.t);
+#endif
+}
+static void render_padmenu(Frame *f) {
+    static char about[160], o0[24], o1[24], o2[24], o3[24];
+    static const char *const MSTICK[3] = { "LEFT", "RIGHT", "BOTH" };
+    static const char *list[14];
+    static int on[14];
+    UiPad u;
+    pad_fill(&u);
+    u.t = G.ui_t; u.title = "THE CONTROLLER";
+    snprintf(o0, sizeof o0, "STICKS: %s", PL.swap ? "SWAP" : "SAME");
+    snprintf(o1, sizeof o1, "TURNING: %d.%d", PL.turn / 10, PL.turn % 10);
+    snprintf(o2, sizeof o2, "MENUS: %s", MSTICK[PL.mstick]);
+    snprintf(o3, sizeof o3, "RUMBLE: %s", PL.quiet ? "OFF" : "ON");
+    u.opt[0] = o0; u.opt[1] = o1; u.opt[2] = o2; u.opt[3] = o3; u.opt[4] = "THE DEFAULTS";
+    if (PS.sel < PAD_COUNT) u.sel = PS.sel; else u.opt_sel = PS.sel - PAD_COUNT;
+    u.keys = PS.sel == PO_TURN || PS.sel == PO_MENUS ? "D-PAD \x1b\x1a CHANGES  \1B BACK" : "D-PAD CHOOSES  \1A CHANGES  \1B BACK";
+    if (PS.sel < PAD_COUNT) snprintf(about, sizeof about, "%s: %s", PAD_SAY[PS.sel], JOB_DOES[PL.job[PS.sel]]);
+    else if (PS.sel == PO_STICKS) snprintf(about, sizeof about, "WHICH STICK WALKS AND WHICH TURNS. NOW THE %s WALKS.", PL.swap ? "RIGHT" : "LEFT");
+    else if (PS.sel == PO_TURN) snprintf(about, sizeof about, "HOW FAST THE TURNING STICK TURNS YOU: HALF TO TWICE THE FIRST.");
+    else if (PS.sel == PO_MENUS) snprintf(about, sizeof about, "WHICH STICK MOVES IN MENUS. A WHEEL TAKES THE FREE HAND'S STICK.");
+    else if (PS.sel == PO_RUMBLE) snprintf(about, sizeof about, "THE MOTORS: A HURT, A ROCK FALLING, A BOSS'S FALL.");
+    else snprintf(about, sizeof about, PS.arm ? "AGAIN, AND EVERY BUTTON GOES BACK TO ITS FIRST JOB." : "EVERY BUTTON'S FIRST JOB, THE STICKS AS THEY CAME, RUMBLE ON.");
+    u.about = about;
+    if (PS.sel == PO_DEFAULTS && PS.arm) { u.about_col = R_GOLD + 11; u.keys = "\1A RESTORES  \1B BACK"; }
+    if (PS.list) {
+        int job = PJ_LIST[PS.lsel], from = pl_on(job);
+        for (int i = 0; i < 14; i++) { list[i] = JOB_LONG[PJ_LIST[i]]; on[i] = pl_on(PJ_LIST[i]); }
+        u.list = list; u.list_on = on; u.nlist = 14; u.list_sel = PS.lsel;
+        if (from == PS.sel) snprintf(about, sizeof about, "%s KEEPS %s.", PAD_SAY[PS.sel], JOB_LONG[job]);
+        else snprintf(about, sizeof about, "%s TAKES %s; %s TAKES %s.", PAD_SAY[PS.sel], JOB_LONG[job], PAD_SAY[from], JOB_LONG[PL.job[PS.sel]]);
+        u.keys = "\1A TRADES  \1B BACK";
+    }
+    dim_view(f);
+    ui_pad(f, &u);
+}
+static int pad_look_tick(float dt) {                               /* the look up: the crypt waits; Esc on the keys puts it away */
+    if (!PADX.look) return 0;
+    if (!G.player || !IN.pad) { PADX.look = 0; return 0; }
+    PADX.look_t += dt;
+    if (IN.hit[KEY_ESC]) { PADX.look = 0; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
+    return 1;
+}
+static void pad_look_render(Frame *f) {
+    if (!PADX.look || !G.player) return;
+    UiPad u;
+    pad_fill(&u);
+    u.t = PADX.look_t; u.title = "THE CONTROLLER, AS IT IS";
+    u.about = "TO CHANGE THEM: MENU, THEN THE CONTROLLER.";
+    u.keys = "VIEW+MENU  \1B CLOSES";
+    ui_on(f, 1, "look");
+    dim_view(f);
+    ui_pad(f, &u);
+    ui_off();
 }
 
 /* a page of the ledger, 24 wide and 27 tall, its corner turned down and its numeral at the foot; gold for
@@ -28843,7 +29062,7 @@ static void render_ui_in(Frame *f);
 static void render_ui(Frame *f) {
     static const char *const NAME[] = { "none", "wardrobe", "quit", "ledger", "bestiary", "letgo", "wisps", "altar", "shrine", "totem",
                                         "portal", "merchant", "stone", "compendium", "repository", "codex", "ascend", "cornerstones",
-                                        "alignment", "class", "hall2", "bshrine", "reckon" };
+                                        "alignment", "class", "hall2", "bshrine", "reckon", "controller" };
     ui_on(f, 1, G.ui >= 0 && G.ui < (int)(sizeof NAME / sizeof NAME[0]) ? NAME[G.ui] : "?");
     render_ui_in(f);
     ui_off();
@@ -28864,6 +29083,7 @@ static void render_ui_in(Frame *f) {
     if (G.ui == UI_ALTAR) { render_altarmenu(f); return; }
     if (G.ui == UI_BSHRINE) { render_bshrine(f); return; }
     if (G.ui == UI_RECKON) { render_reckon(f); return; }
+    if (G.ui == UI_PAD) { render_padmenu(f); return; }
     if (G.ui == UI_INVENTORY) render_inventory(f);
     else if (G.ui == UI_QUIT) render_quit(f);
     else if (G.ui == UI_LEDGER) render_ledger(f);
@@ -28965,10 +29185,11 @@ static void wheel_render(Frame *f) {
         if (!nr) ui_text8(f, cx + R - 24, cy - 4, "NONE", FACE_BODY, UI_M(7), TX_INLAID);
         if (!na) ui_text8(f, cx - R - 8, cy - 4, "NONE", FACE_BODY, UI_M(7), TX_INLAID);
     }
-    static const char *const KPAD[3] = { "STICK POINTS", "RELEASE TAKES", "\1B LEAVES" }, *const KQ[3] = { "MOUSE POINTS", "RELEASE TAKES", "ESC LEAVES" },
-                             *const KM[3] = { "MOUSE POINTS", "RELEASE TAKES", "ESC LEAVES" };
-    const char *const *K = WH.src ? KQ : PADX.used ? KPAD : KM;
-    for (int i = 0; i < 3; i++) ui_keys(f, 6, cy + 14 + i * 12, K[i], UI_M(13));
+    static const char *const KQ[3] = { "MOUSE POINTS", "RELEASE TAKES", "ESC LEAVES" }, *const KM[3] = { "MOUSE POINTS", "RELEASE TAKES", "ESC LEAVES" };
+    int hand = WH.src ? PADX.q_hand : PADX.w_hand;                 /* the stick that points: the free hand's (1.0.0b18.1) */
+    const char *KPAD[3] = { hand == 1 ? "R-STICK AIMS" : hand == 2 ? "L-STICK AIMS" : "A STICK AIMS", "RELEASE TAKES", "\1B LEAVES" };   /* as long as it was */
+    const char *const *K = PADX.used ? KPAD : WH.src ? KQ : KM;
+    for (int i = 0; i < 3; i++) ui_keys(f, 6, cy + 20 + i * 12, K[i], UI_M(13));   /* clear of the words in its middle */
 }
 /* a warded creature near you: its element's glyph over its head, barred (docs/PLAN-play.md section 6) */
 static void render_warded(Frame *f, float dx, float dy, float horizon) {
@@ -29070,7 +29291,7 @@ static void crawl_render(Frame *f) {
 #ifdef CRAWL_DEBUG
     ui_check = 1; ui_check_frame();
 #endif
-    if (G.tally) { render_tally(f); if (G.player && G.ui) render_ui(f); con_render(f); return; }   /* toasts wait for the next level */
+    if (G.tally) { render_tally(f); if (G.player && G.ui) render_ui(f); pad_look_render(f); con_render(f); return; }   /* toasts wait for the next level */
     g_camfog = fog_at(G.px, G.py);
     fog_tint = G.tri >= 0 && G.tri_state == TRS_ON && in_trial((int)G.px, (int)G.py) ? TRI_FOG[G.tri] : 0;   /* a trial's room, turned */
     float ang = G.ang + G.kick;
@@ -29111,6 +29332,7 @@ static void crawl_render(Frame *f) {
     if (G.player && G.ui) render_ui(f);
     if (!(G.player && G.ui)) render_toasts(f);                     /* never over a menu: they wait for it */
     tint(f);
+    pad_look_render(f);
     con_render(f);
 }
 

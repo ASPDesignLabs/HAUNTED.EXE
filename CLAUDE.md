@@ -307,7 +307,7 @@ Environment for the harness: `HOST_INPUT="1:+H;4.3:-H;5:+W;7:-W;8:m400,0;9:+MOUS
 as in `core.h` without `KEY_`, so `CONSOLE`, `BACK`, `PGUP`, `PGDN` too),
 `HOST_LOAD=file` (the progress to start from: a run, or the page it names; stands in for the registry),
 `HOST_SAVE=file` (the progress, each time the game writes it), `HOST_SLOTS=dir` (the ledger's pages as
-`slot1.bin`..`slot3.bin`, the dead's mark as `mark.bin`, the pad's sprint button as `prefs.bin`), `BOTH=1` (scene rotation), `STAY=n`. A game
+`slot1.bin`..`slot3.bin`, the dead's mark as `mark.bin`, the pad's layout as `prefs.bin`), `BOTH=1` (scene rotation), `STAY=n`. A game
 controller in `HOST_INPUT`: buttons `+PAD_A` ... `-PAD_RT` (names as `PAD_*` in `core.h`), sticks `aLX0.8`,
 `aLY1`, `aRX-0.5`, `aRY0` (y up); any of them makes a pad plugged in. The harness prints `RUMBLE lo hi`
 and `RUMBLE off` as the motors start and stop. `M` is the map's key (1.0.0b9).
@@ -614,7 +614,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   Esc, Y Space, the bumpers A/D, View Tab; in play A is E, X Q, Y L, D-pad up M (the map, 1.0.0b9), View Tab, Menu Esc,
   D-pad left/right/down B/C/H, RT and LT the mouse buttons, the bumpers the wheel, B Swift Dodge by the
   stick's lean (`PADX.dodge`, done in `update_human`), the sprint's button toggles the sprint (`PADX.run`; the left
-  stick click unless a person chose another, below); `human_walk`
+  stick's click at first: since 1.0.0b18.1 a person lays out every job but View's and Menu's, the 1.0.0b18.1 bullet below); `human_walk`
   adds the sticks (`pad_turn`, `PAD_TURN`). What was held at the takeover counts once let go
   (`PADX.held`), and a direction that opened a menu isn't its first move (`PADX.menu`). `PADX.used` (the
   pad touched last, a key or the mouse turning it back) makes `pk` turn a hint's keys into buttons
@@ -860,8 +860,9 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   format above; the gear is packed field by field, so adding to `Gear` means adding to
   `gear_pack`/`gear_unpack` and a new version that still loads the old ones; `REC_KINDS` is fixed at 24
   because the record is packed by it). The app keeps `SLOT_ALL` slots (`core.h`): the three pages, then
-  `SLOT_PROGRESS`, `SLOT_MARK` and `SLOT_PREFS` (1.0.0b15: a byte, the pad's sprint button; the registry's DWORD
-  `PadSprint`, which the settings dialog shows too); the platform loads them all before the first scene and writes any the
+  `SLOT_PROGRESS`, `SLOT_MARK` and `SLOT_PREFS` (the pad's layout since 1.0.0b18.1, `PL_BYTES`: "HVQ1", a version, each button's
+  job, flags, the turning; the registry's binary `PadMap`, with the DWORD `PadSprint` beside it for the settings dialog; 1.0.0b15's
+  single byte, the sprint's button, still reads); the platform loads them all before the first scene and writes any the
   game changed after each step (the registry's `Slot1`-`Slot3`, `Progress` and `Mark`; `SLOT_MAX`
   16 KB). Nothing is written on quitting: fleeing keeps only what is signed. `LEDGER` lasts while the
   program runs: `yours` (a person has taken over: the screensaver's dream is over; sleepwalking doesn't
@@ -1171,8 +1172,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   waits and fills the whole meter (`sprint_recovery`: 1.5 s and 3.5 s, a quarter off each for each whole hundred of
   health past 200, to 0.25 and 0.75; the owner's SP2 b); run dry, `G.spr_dry` until Shift is let go, and
   `SFX_BREATH`; the arrow keys' quicker turn with Shift stays free; `render_sprint` (a slim bar over the status bar's
-  edge while it isn't full). Esc's question has `Q_PAD` while a pad is in (`quit_rows`; `PADX.bind`: every button let
-  go, then the one pressed, `pad_sprint_set`); in play that button and the left stick click trade jobs (`pad_keys`).
+  edge while it isn't full). Esc's question has `Q_PAD` while a pad is in (`quit_rows`): since 1.0.0b18.1 it opens the
+  controller's screen, where the sprint is one job among the rest (the 1.0.0b18.1 bullet below).
   Two new stats at the end, `ST_SPRINT` (seconds, on boots, cap 7.5 over the base) and `ST_PHYSIC` (on robes and
   amulets, cap 400: `potion_heal`, 25 times one and it), and two lines at the end of `LINES` (`LN_SPRINT`, `LN_PHYSIC`, a
   point a step, no overlevels: `line_overs`); the ascend screen shows fourteen lines and scrolls; Tab's caster page
@@ -1531,10 +1532,25 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   inside its ground (or by a trial's lamp) when the Wraith has come or is due within a minute, from 15 spirit, never under 10.
   The names `warded`, `ward_cracked`, `ward_give`, `ward_str` are still the warded creatures', `ward_shards` the Bone Ward's.
   Debug: `CRAWL_LAMPS=0` (not `CRAWL_WARD`, the warded creatures'), `CRAWL_WARDLIT=n`, `CRAWL_TPWARD=k`, `CRAWL_WARDMAP=1`, `CRAWL_WARDTRACE=1`, `WARD level n:`, `EVENT
-  ward_offer`, `ward_lit`, `ward_out`, `ward_held`, `ward_driven`, `ward_breach` (never, or a fault). *The controller* (step 7,
-  its sheet for the owner): `ui_pad` (`UiPad`, `UI_PAD_NAME`) at the end of `src/crawl_ui.c` draws the pad, each button's job
-  on a leader, the chosen one lit, the options, the jobs to trade and the look; `build/uisheet pad <png>` (in `make sheets`)
-  draws it with today's layout as `docs/b18-1/pad.png` and fails on any overflow. Not in the game yet.
+  ward_offer`, `ward_lit`, `ward_out`, `ward_held`, `ward_driven`, `ward_breach` (never, or a fault). *The controller* (step 7;
+  its sheet `docs/b18-1/pad.png`, approved): `ui_pad` (`UiPad`, `UI_PAD_NAME`) at the end of `src/crawl_ui.c` draws the pad,
+  each button's job on a leader, the chosen one lit, the options, the jobs to trade and the look; `build/uisheet pad <png>` (in
+  `make sheets`) draws it and fails on any overflow. The layout is `PL` (`job[b]`: the job button b has, a job named by the
+  button it began on, so `job[b] == b` is the first layout; `swap`, `quiet`, `turn` in tenths): `pl_read` (SLOT_PREFS, or 1.0.0b15's
+  byte, the sprint traded onto that button), `pl_write`, `pl_trade` (never View or Menu, `pl_fixed`), `pl_on(job)` the button a
+  job is on; `pad_sprint` is `pl_on(PAD_LS)`. `pad_keys` applies it in play after the map's own D-pad and B (menus keep A, B and
+  the D-pad as they were, their stick `PL.mstick`: left, right or either): each button's `dn`/`hit` go to its job, and from there on
+  a `PAD_*` names a job; the sticks are swapped in play only; `pad_turn` takes `PL.turn`, `rumble` keeps quiet with `PL.quiet`. A
+  wheel is pointed with the free hand's stick (`pad_hand`, `PADX.w_hand` for the D-pad's jobs, `q_hand` for X's, the sticks as they
+  are in `PADX.plx..pry`): a D-pad held, the right; X held, the left; and X held holds Q down, so it opens the runes' wheel. View and Menu act when let go,
+  unless the other came within 0.15 s (`PADX.vm_*`): the pair toggles the look (`PADX.look`; `pad_look_tick` after `con_update`
+  holds the crypt, `pad_look_render` before `con_render`; B, Menu, the pair again or Esc puts it away). The screen is `UI_PAD`
+  from Esc's `Q_PAD` row (`pad_menu_open`, `update_padmenu`, `render_padmenu`; `PS`: the chosen thing on `PS_GRID`, the jobs'
+  list `PJ_LIST` that trades, the options `PO_*`, the defaults asked twice). The hints read it: `pk` gives E, Q, L, CLICK, M, 1-9
+  and RIGHT-CLICK the button their job is on in play (`PK_JOB`), and the controls card's pad lines are built from it (`pad_short`).
+  Windows keeps `PadMap` (binary) and `PadSprint` (for the settings dialog, whose choice is traded in on loading); the browser's
+  page reads and trades the sprint in the same record (`web/haunted.js`); the harness prints it on `PREFS`. Debug: `EVENT pad_trade`,
+  `pad_keep`, `pad_option`, `pad_look`; `CRAWL_PADTRACE=1` (where you are, your angle and the sticks, twice a second).
 
 ## Releasing
 
