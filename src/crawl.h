@@ -284,6 +284,11 @@ enum {
     SP_MK_TABLET, SP_MK_PLINTH0, SP_MK_PLINTH1, SP_MK_RELIQ0, SP_MK_RELIQ1, SP_MK_RELIQ2, SP_MK_WSTONE0, SP_MK_WSTONE1,
     SP_MK_RELAY0, SP_MK_RELAY1, SP_MK_RELAY2, SP_MK_CASK0, SP_MK_CASK1, SP_MK_PILLAR0, SP_MK_PILLAR1,
     SP_MK_PFONT0, SP_MK_PFONT1, SP_MK_DRUM0, SP_MK_DRUM1,
+    /* 1.0.0b18.1 (docs/PLAN-b18-1.md, sections 5 and 6): the bell puzzles' four bells, still and swung (I silver on a yoke,
+     * II bronze and waisted, III iron and wide-mouthed, IV the great bell in black iron); run II's dead bell; the soul-lamp
+     * in each run's look, three a run: out, and lit in two frames (SP_WLAMP0 + 3 * run + state) */
+    SP_PBELL0, SP_PBELL1, SP_PBELL2, SP_PBELL3, SP_PBELL0R, SP_PBELL1R, SP_PBELL2R, SP_PBELL3R, SP_BELL_DEAD,
+    SP_WLAMP0, SP_WLAMP_LAST = SP_WLAMP0 + 11,
     /* 1.0.0b18, the minds shown (docs/PLAN-ai.md Part H): backs (walking), the roost asleep and stirring, the ambushes' signs */
     SP_SKEL_BKA, SP_SKEL_BKB, SP_SHIELD_BKA, SP_SHIELD_BKB, SP_BAT_ROOST, SP_BAT_ROOST2,
     SP_SIGN_RAKE, SP_SIGN_DRAG, SP_SIGN_SCREE, SP_SIGN_CINDER, SP_SIGN_EYES,
@@ -291,6 +296,13 @@ enum {
     SP_WHIP_BKA, SP_WHIP_BKB, SP_DEACON_BKA, SP_DEACON_BKB, SP_SEXTON_BKA, SP_SEXTON_BKB,
     SP_SHAMB_BKA, SP_SHAMB_BKB, SP_DROWN_BKA, SP_DROWN_BKB, SP_GHOUL_BKA, SP_GHOUL_BKB, SP_HOUND_BKA, SP_HOUND_BKB, SP_IMP_BKA, SP_IMP_BKB, SP_GARG_BKA, SP_GARG_BKB,
     SP_HUNTER_BKA, SP_HUNTER_BKB, SP_BROOD_BKA, SP_BROOD_BKB,
+    /* docs/PLAN-combat.md, two tracks on one branch (its section 17): each adds only above its own end mark */
+    SP_SHIELD_RAISE, SP_SHIELD_RUSH,            /* C4: the shield-bearer's charge: the stamp, the shield up; behind it, at a run */
+    SP_DROWN_SWELL, SP_DROWN_SPEW,              /* C4: the Drowned swelling, then spewing */
+    SP_SPEW_A, SP_SPEW_B, SP_DUST_A, SP_DUST_B, /* C4: a gout of the spew; the dust of a stamp */
+    /* the caster's track (C) ends */
+    /* the dead's track (D): */
+    /* the dead's track (D) ends */
     NSPR
 };
 
@@ -332,6 +344,15 @@ extern const int8_t crawl_hand_shift[NHF][2];      /* where each frame is drawn,
 /* frame k of the hand from src (and its labels, lab: 0 none), into dst and dlab; tip: where a spell forms in it */
 void crawl_hand_frame(int k, const uint8_t *src, const uint8_t *lab, uint8_t *dst, uint8_t *dlab, int tip[2]);
 extern int8_t crawl_glint[NSPR][2];             /* brightest gold pixel of a sprite, for twinkles; -1 if none */
+/* each sprite's foot (1.0.0b18.1, docs/PLAN-b18-1.md section 8): how wide the lowest eighth of its drawn rows is, in texels,
+ * measured at the end of crawl_art_level, after the props are drawn; a prop's is its widest frame or look (crawl_prop_foot),
+ * and it takes the whole of its cell, the half along its wall or the quarter in its corner by crawl_foot_part */
+extern uint8_t crawl_foot[NSPR];
+enum { FOOT_WHOLE, FOOT_HALF, FOOT_QUARTER };
+#define FOOT_WHOLE_W 45                         /* 0.7 of a cell, and up */
+#define FOOT_HALF_W 29                          /* 0.45 */
+int crawl_prop_foot(int spr, int nfr);
+int crawl_foot_part(int w);
 /* where a creature's eyes are on its sprite (docs/InitialArtPass.md section 5), recorded as the sprite is drawn (cv_eye),
  * for the pass that puts them on the screen whatever the light and fog: n eyes (0 none), at x, y in the sprite */
 typedef struct { int8_t n, x[2], y[2]; } EyeAt;

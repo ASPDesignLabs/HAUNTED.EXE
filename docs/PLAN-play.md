@@ -8,7 +8,7 @@ an ammunition of their own). Steps 1-8 are built (harness only), with the wheels
 and were **released as 1.0.0b16** at the owner's word (5 November), squashed onto main as one commit. What was left (step 9, the
 lull's watch, and step 10's checks of it) was built and **released as 1.0.0b17** (5 November); the minds' showing and the rest of the art pass move to
 **1.0.0b18**, the lower storey to **1.0.0b19**. (The minds' showing went out alone as 1.0.0b18; the rest of the art pass is
-now 1.0.0b19, the lower storey 1.0.0b20.)
+now 1.0.0b19, the lower storey 1.0.0b20; since 7 November, by [`PLAN-combat.md`](PLAN-combat.md), 1.0.0b22 and 1.0.0b23.)
 
 *The brief, as first drafted (ideas only). Written on `claude/modest-knuth-gd9u51` from main at
 1.0.0b15. The owner's brief: early levels have long stretches where the caster isn't doing much; fill them with things in

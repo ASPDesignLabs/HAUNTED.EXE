@@ -6,6 +6,7 @@
 #   make cards  - the project page's title cards in site/cards (needs Pillow)
 #   make sheets - CATACOMB's sprite sheets in build/sheets, by rank, for approval
 #   make items  - a hundred rolled wares a level as build/items.json, for checking names and numbers
+#   make combat - the balance sheet as build/combat.txt: the dead's harm and the caster's by level (docs/PLAN-combat.md)
 #   make web    - the browser's build in build/web and dist/HAUNTED-<version>-web.zip (needs Emscripten's emcc)
 VERSION := $(shell cat VERSION)
 FILEVER := $(shell sed -E 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*/\1,\2,\3,0/' VERSION)
@@ -82,6 +83,7 @@ sheets: build/sheet build/uisheet
 	@mkdir -p build/sheets
 	./build/sheet all build/sheets 1
 	./build/uisheet all build/sheets
+	./build/uisheet pad build/sheets/pad.png
 
 build/items: src/crawl_gear.c src/crawl_gear.h src/crawl.h tools/items.c
 	@mkdir -p build
@@ -89,6 +91,10 @@ build/items: src/crawl_gear.c src/crawl_gear.h src/crawl.h tools/items.c
 
 items: build/items
 	./build/items > build/items.json
+
+combat: build/host_debug
+	./build/host_debug combat > build/combat.txt
+	@echo build/combat.txt
 
 # The browser's build (docs/PLAN-web.md): the same sources with Space casting (HVS_WEB) and src/web_main.c, as
 # haunted-core.js and .wasm, beside the page and its script. Served from /play/ on the project page.
@@ -120,4 +126,4 @@ webzip: $(WEBPKG)
 
 clean:
 	rm -rf build dist/HAUNTED.scr dist/HAUNTED.EXE dist/*.zip
-.PHONY: all host scr zip smoke cards sheets items web webzip clean
+.PHONY: all host scr zip smoke cards sheets items combat web webzip clean

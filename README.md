@@ -521,12 +521,63 @@ four in the Catacombs, one in three deeper; a pack shares one ward; never your c
 never every line you hold. A warded creature wears a hard rim of the element's colour, its glyph barred over its
 head as it comes near and on its health's readout; struck by that element it rings dull, and the first on a level is
 named. A fifth of its health taken in that element cracks the ward, with a sound of glass, so nothing is ever locked,
-only slower. Bosses, their adds, spirits and a trial's creatures are never warded.
+only slower. Bosses, their adds, spirits and a trial's creatures are never warded. (From 1.0.0b19 a ward is one of a
+rank's strengths: see *harm and the elements* below.)
 
 **The Mirror by hand.** The Mirror rune rises only when you raise it, on the right mouse (Q turns between it and the
 boss abilities, and held opens a wheel of them): what it meets in its first 0.6 s goes home to the thrower twice as hard,
 and after that it is the veil as before, until its wait comes round. The shrine's first curse gives a Common one if
 you have none. The screensaver's caster still raises its runes by itself.
+
+### CATACOMB: harm and the elements
+
+(1.0.0b19.) Harm now goes by its element, and each element leaves something behind, on you and on the dead.
+
+**How harm is taken.** Each element is kept off by its own resist: fire by Resist Burn, frost by Resist Slow,
+lightning, poison and spirit by theirs; the physical by none. Armour keeps off a share of a blow, not a set number:
+armour as great as a green-rank blow of the level keeps off half of it, whatever the level, and half as much against the
+elements. A skeleton never throws quicker than every 0.6 s, however deep.
+
+**What they leave on you.** Seven marks, in a row of small stones by your portrait (by the readout when the bar is
+away), each one's edge draining as it runs out:
+
+- **On Fire**: the hit's harm again over four seconds; a second flame adds to what is left. Flames lick at the foot of
+  the view.
+- **Chilled**: a step slower a stack, the sprint slow to come back, and missiles a little astray; rime creeps in from
+  the corners. They all fall away three seconds after the last. Four make you **Frozen**: three seconds unable to move
+  or cast, and everything that strikes you a third harder, the view iced over, and the ice cracking off as it ends.
+- **Stunned**: 1.2 s with no spells or runes; you can walk but not sprint, and the view swims.
+- **Poisoned**: spells half again as slow to gather and come round, the view green; each dose adds, to a minute.
+- **Unbound**: 1.5 s with no spells, runes or E; the hand greys and drops.
+- **Knocked Down**: 1.5 s on the floor, the crypt leaning over you, no spells or runes; while you are down, every
+  creature but the one that put you there does half.
+
+They come from the dead's elemental blows and missiles, more often the higher their rank; from a hazard's stroke now and
+then (a frost one chills you every time, a falling rock may knock you down); twice over from the Wraith's touch; from
+bites, the Drowned's pools and bile; and a stack every second and a half you stand in the cold. None of the four that
+hold you comes twice running: the same can't come again for three seconds after it ends, and nothing of the four for a
+second. An element's own resist halves the chance of its mark too. Purify cures fire, cold and poison and breaks a freeze;
+Blink takes you up off the floor or out of the ice. The bosses keep their own ways for now.
+
+**The dead's elements.** Every kind is weak to one element, which does half again, and strong against one, which does
+half; the bestiary says which, and the target's readout learns them. From blue rank a creature shrugs off one more of
+your lines, two at black: shown only once you have seen it struck, and cracked by a fifth of its health taken in that
+element (the sixteenth beta's wards, folded in). From green rank some are born to an element, one in seven at green to
+nearly half at black, each run's own two more often: their eyes burn in its colour, they shrug it off, and one attack in three
+carries it, a thrown bone shimmering in the colour, the eyes flaring as it comes.
+
+**What your spells leave on them.** Fire sets them burning, the hit's harm again over four seconds; lightning stuns them,
+no blow, throw or call; spirit unbinds them, no elemental attack, charge or call; frost chills them a stack a hit, and four
+freeze them (three with Deep Chill); poison doubles every wind-up and wait. The chance grows with the line's rank, and is
+less on what is strong against it.
+
+**New attacks.** Skeletons from green rank up are **Bone Throwers**: a white flash about the body, then three bones lobbed
+over you half a second apart. A shield-bearer two to five cells off along a clear lane **charges**: a stamp and the shield
+brought up, then a rush that knocks you down 1.2 s, unless you dodge it, the Bone Ward takes all of it, or your armour is
+twice its harm. The Drowned swells and **spews** foul water two cells in a narrow cone: eight tenths of its blow, and
+Poisoned. A shambler's grip, now and then, **holds you fast** 1.2 s, the view up and your hand shoving at it; a spirit-born
+one takes souls instead. The screensaver steps off a charge's lane and a spew's cone, dodges when it can, and waits out
+what holds it.
 
 ### CATACOMB: souls
 
@@ -717,6 +768,32 @@ The record counts puzzles solved and trials won, with achievements for them, and
 hazard met, each kind of puzzle solved and each trial won. The screensaver works the puzzles out slowly, a wrong
 try now and then, and takes every trial it finds.
 
+### CATACOMB: the trial's door, and the crypt made kinder
+
+(1.0.0b19; first planned as an update of its own, 1.0.0b18.1.)
+
+* **The trial's door** no longer shuts on you. A trial begins only once all of you is clear of the doorway and a
+  step and a half inside, so a look round the door begins nothing; no door that seals itself (a trial's, a boss's
+  arch, a winch's portcullis) shuts while any part of you stands in it; and should anything ever close on you,
+  you are set free in the nearest place you fit.
+* **A trial's reward.** Win, and its hoard and a draught appear in the middle of the room with a chime: the run's
+  own treasure, worth three times the level's chest and glowing gold, and a draught that restores you in full.
+  The draught takes the place of the win's old restoring, and waits in the room until you need it. Lose, and
+  there is nothing, as before. The tally and the reckoning at the exit say if the hoard was left behind.
+* **The bells.** The knell's four bells and the drowned bells are told apart four ways at once: by shape, by the
+  bands cast round them, by their metal, and by a numeral, I to IV, which the reading on the banner or the carving
+  names too. The bells hanging in the Catacombs' halls are cracked, clapperless and still, so they can't be taken
+  for bells you ring.
+* **The soul-lamps.** A lamp hangs by each trial, each puzzle's sealed wing and each sequence of things that want
+  a spell. E at it offers a soul for two minutes of its light, up to five; while it burns, the Wraith cannot set
+  foot on that challenge's ground or the ring round it, and walks its edge instead, kept off. The time runs only
+  while the Wraith is on the level. The ground is drawn faint on the floor and washed violet on the map.
+* **The wheels in her rooms.** The runes', gifts' and spells' wheels open at the merchant's too, and a tap of Q
+  at a ware holds it when let go.
+* **Props by their size.** Things narrower than a cell take half of it, or a quarter, by how wide they are drawn,
+  so you pass beside a candlestand or a brazier where the whole cell was barred, and the dead go round them too.
+* **The controller laid out**: see *Playing CATACOMB yourself*.
+
 ### Playing CATACOMB yourself
 
 Hold **H** for three seconds, in either scene, or any button on a game controller. A bar fills at the
@@ -742,7 +819,7 @@ switching until you hand it back. HAUNT.EXE cuts straight to the crypt.
 | Q | Tap: ready the next of them; hold: a wheel of them, the mouse pointing, while the crypt slows and greys. At a ware in the merchant's room, hold it |
 | W, A, S or D twice | Swift Dodge, once the Totem has taught it: a dart two to five cells that way |
 | H | A look at the status bar while it is tucked away |
-| Esc | Asks whether you want to leave, with a different argument each time for staying; also where you open the ledger, and with a controller in, choose its sprint button |
+| Esc | Asks whether you want to leave, with a different argument each time for staying; also where you open the ledger, and with a controller in, lay out its buttons |
 
 **With a game controller.** An Xbox controller, or any pad that speaks XInput (most PC pads do, some
 in an Xbox mode), plays it as well as the keys do, in the screensaver and in the window; the window
@@ -755,7 +832,7 @@ settings can turn it off.
 
 | Controller | In the crypt and the merchant's room | In a menu |
 |---|---|---|
-| Left stick | Walk and strafe, slower as it leans less; click it to sprint, until it stops leaning forward (another button can be chosen at Esc) | Up, down, left, right |
+| Left stick | Walk and strafe, slower as it leans less; click it to sprint, until it stops leaning forward | Up, down, left, right |
 | Right stick | Turn, faster the further it leans | |
 | RT / LT | Cast (hold to charge) / the right mouse's: the Mirror or the ability readied | |
 | RB / LB | The rune readied (the Mirror) / the boss ability readied | Next / previous page |
@@ -764,7 +841,16 @@ settings can turn it off.
 | X | Ready the next ability; at a ware, hold it (Q) | |
 | Y | The wisps (L) | Space |
 | D-pad | Up tapped the map (then it pans the map), held a wheel of the runes and boss abilities; down tapped the status bar, held a wheel of the spells; left the bestiary, right the Codex | Up, down, left, right |
-| View / Menu | The wardrobe / the question at Esc | |
+| View / Menu | The wardrobe / the question at Esc; both together, the controller's drawing | |
+
+**Laying it out** (1.0.0b19). That is the layout as it comes. With a pad in, Esc's question has *THE
+CONTROLLER*: a drawing of the pad with a line from each button to its job. Choose a button, then a job,
+and the two trade, so no job is ever left without a button; *RESTORE THE DEFAULTS* is asked twice. View
+and Menu stay where they are, and in every menu A chooses and B goes back. The same screen swaps the
+sticks, sets the turn speed from half today's to twice, and turns the rumble off. View and Menu pressed
+together show the drawing anywhere you play, with the jobs as they stand; each of the two now acts when
+let go, a fifth of a second later than before. The layout is kept with the settings, not the run (in the
+registry on Windows, in the browser's own storage on the page), and the hints and the controls card read it.
 
 **The screens** (1.0.0b14). Every menu, card and the tally is cut in weathered marble, in faces of our
 own at the old sizes, keeping their colours, with the crypt dimmed in a narrow margin round it; the words
@@ -935,7 +1021,8 @@ eight characters), and today's date. Keep that in mind before you share a record
   black, which suits an OLED beside an ordinary screen.
 * **Game controller**: hold any button to play, and play with it (on by default).
 * **Sprint button** (1.0.0b14): the controller's button that toggles the sprint, the left stick's click
-  unless you choose another (here, or from the question at Esc while a pad is in).
+  unless you choose another; a choice here trades places with that button's job in the layout laid out
+  at Esc (1.0.0b19).
 
 Settings are stored in `HKEY_CURRENT_USER\Software\HalloweenVGASaver`.
 
@@ -1090,6 +1177,50 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b19** (harm and the elements: one road for harm, the seven marks on you, the dead's elements and
+strengths and what your spells leave on them, the new attacks). Tested in the harness only: not yet played by hand,
+run on Windows or seen on a real screen. The Windows and browser builds were compiled and smoke-tested by CI on the
+work branch, by a run started by hand.
+
+* **One road for harm**: with the old harm switched back in, three five-minute autopilot runs from levels 1, 21 and 31
+  logged 1.0.0b18's events line for line, so nothing was lost in gathering every attack into one table. With the new
+  harm, sixteen seeds against 1.0.0b18 were inside the noise from every start.
+* **Each part against its absence**: the marks on you, the dead's elements on you, the new attacks, the bestiary's
+  elements, the elemental creatures, the dead's marks and your spells' were each weighed on eight or sixteen seeds
+  against the same build with it switched off. None moved the autopilot's deaths beyond the noise on its own, and from
+  levels 11, 21 and 31 none brought more than one death to a start. The autopilot mostly answers the dead at range, so
+  their elements reach it about once a level; it steps off most charges' lanes and spews' cones it sees, and was
+  knocked down by a charge 147 times in sixteen runs from level 1. Someone who fights close, or stands in the cold or
+  the bile, will meet far more of all of it; untried.
+* **All of it together**, with 1.0.0b18.1's parts below: the autopilot from level 1 on sixteen seeds for each of the
+  five classes a fresh run can be given, its first 3,000 seconds (about eight levels), against 1.0.0b18 on the same
+  runs: 511 levels cleared and 78 deaths, against 495 and 94, a level about six minutes either way. The Plague Doctor
+  died 21 times (52), nearer the others at last, since poison now bites the dead as hard as any element. The
+  Witchfinder died 7 times (4), the Anatomist 18 (14), the Galvanist 18 (16) and the Sin-Eater 14 (8): inside the
+  noise of so few runs, which has moved a class's deaths by half between batches. From level 31, on eight seeds a
+  class for 25 minutes: no deaths either way, and as far as before. Before 1.0.0b18.1's parts were merged in, half the
+  seeds were run to 6,000 seconds, past the knight's level: 136 deaths against 122, 82 of them on his level (64), the
+  knight beaten 15 times (19); and from levels 11, 21 and 31 for 50 minutes, two deaths in 120 runs (none) and as far
+  as before, but for a twentieth fewer levels from 31, where the dead's strengths are about three times what the wards
+  were. Untuned: that waits for someone to play it.
+* **The trial's door, the reward, the bells, the lamps, the wheels at the merchant's, the controller laid out and the
+  props' footprints** (first built as 1.0.0b18.1, and merged in without a conflict): the door's fault reproduced on
+  1.0.0b18 (a step into the Vigil's room, and the caster could not move for the trial's whole minute while its dead
+  struck) and gone after the mend; a peek begins nothing. Each of the rest was tried by a scripted person in the
+  harness, the layout by a pretend controller scripted into it (a trade, the defaults, the look from play, the layout
+  saved, an old setting read); no real controller has touched it. The lamps held the Wraith at their edge for a
+  scripted person and for the autopilot, which offers its souls at them. The bells, the lamps, the controller's
+  drawing and the footprints were approved by the author on sheets first. The joint checks found one fault of the
+  lamps', mended: a lamp lit while the Wraith was already stepping into its ground let it finish the step and stand
+  inside; it now turns back. AddressSanitizer clean on every step's sessions, and again over the merged build.
+* **A fault mended on the way**: a Wraith driven back into a corridor's end with a locked door at its back stood
+  there for ever, and the autopilot, blocked by it, drove it back until its souls ran out (about one run in four from
+  level 11). Driven into a corner now, it goes into the stone and comes again from the far end of the level.
+* **The look**: the marks and the view under each, the knock-down, the new attacks and every kind's eyes in each
+  element were drawn on sheets from the game's own drawing and approved by the author.
+* **Memory safety**: AddressSanitizer and UBSan clean on every part's sessions, and on five more for the whole: the
+  autopilot from each start, a class each.
 
 **New in 1.0.0b18** (the dead's ways shown). Tested in the harness only: not yet played by hand, run on Windows
 or seen on a real screen. The Windows and browser builds were compiled and smoke-tested by CI on the work branch.

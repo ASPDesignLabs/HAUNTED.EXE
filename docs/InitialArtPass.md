@@ -2,7 +2,8 @@
 
 *5 November: what is left of this pass (section 14's P7 and P8, then the Wraith Unbound, then part four) is **1.0.0b19**; the
 lower storey after it is 1.0.0b20. The backs every creature shows, the roost and the ambushes' signs came out with PLAN-ai's step
-11 in 1.0.0b18 (`docs/minds/`).*
+11 in 1.0.0b18 (`docs/minds/`). 7 November: [`PLAN-combat.md`](PLAN-combat.md) took 1.0.0b19-b21 at the owner's word, so what is
+left of this pass is now **1.0.0b22**, and the lower storey 1.0.0b23.*
 
 **Status: settled (31 October 2026): the owner answered every question the same day (see *Decided* below), and work has
 begun on `claude/dazzling-dirac-20cr2y`. On 1 November, with units 1-25 and the props of runs I and II (P1-P6) built, the
