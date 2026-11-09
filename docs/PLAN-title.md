@@ -227,6 +227,9 @@ G4. **The checks**: frames of every state in the harness; scripted input down ev
     parts is a follow-up if the owner finds it slow. Not run: the Windows and browser builds (no MinGW or Emscripten here;
     CI compiles them), nothing by hand on Windows.
 G5. **The docs**: README (features, what was verified), CLAUDE.md, the page, the release notes (the music pass's too).
+    **Done** (9 November): README's *CATACOMB: the title screen* (with `docs/preview_catacomb_title.png`), the play
+    section, the music and *New in 1.0.0b21.1*; the page's play section, figure, music, upgrading and beta status; the release
+    notes rewritten; CLAUDE.md's release line, a paragraph and the map.
 G6. **The release**: VERSION 1.0.0b21.1, squashed onto main as one commit; CI publishes it; check the release and the page.
 
 ## 5. Questions still open for the owner
@@ -262,3 +265,6 @@ None open now (answered 9 November: see section 1).
   `docs/PLAN-music-work.md`).
 - **9 November, later.** G2-G4 done (harness only) and pushed. Next: G5 (README, CLAUDE.md, the page, release notes with
   the music pass), then CI on the branch by hand (`actions_run_trigger` on build.yml) to compile Windows and web, then G6.
+- **9 November, later still.** G5 done and pushed. CI started by hand on the branch (run 42709106409) to compile Windows
+  and web. Next: when it is green, G6. Set VERSION to 1.0.0b21.1, squash the branch onto main as one commit (main is
+  789978b, already merged into the branch), push main, then check the release and the page.

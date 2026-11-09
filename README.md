@@ -860,12 +860,32 @@ try now and then, and takes every trial it finds.
   so you pass beside a candlestand or a brazier where the whole cell was barred, and the dead go round them too.
 * **The controller laid out**: see *Playing CATACOMB yourself*.
 
+### CATACOMB: the title screen
+
+![The title screen's three scenes, and each with its menu up](docs/preview_catacomb_title.png)
+
+Since 1.0.0b21.1, taking over brings up a title screen first, drawn as the game draws, in mode 13h's terms. There are three
+scenes, and each start of the program shows the next of them in turn. **Beneath** is a graveyard in cross-section under a
+rising moon, the earth in its bands with its dead in it, and a walker with a lantern crossing the crypt buried under it.
+**The Walk** is run I's hall in the first person, walked slowly into the fog through an arch whose lintel carries the name.
+**The Risen** is one great headstone close up, the name cut in it, while a hand claws out of the grave beside it. In each,
+the name is in a gothic, bloody hand that drips, the light moves, and lightning comes now and then. The music is the lament
+ground, a passacaglia in G minor.
+
+**PRESS ANY KEY** (or **PRESS ANY BUTTON**, when a controller is in use): any key or button does it, but a stick's movement
+doesn't. A menu then comes into the middle while the scene goes on. In Beneath it is a stone rising out of the earth, in
+The Walk a tablet let down on chains, and in The Risen the headstone's face cut again under a dither. It offers
+**CHOOSE A GRAVE** (the ledger's three pages as graves, two built of stone and an unmarked one of timber; a page's stone
+gives its class, level and date, and Enter raises it), **BEGIN A NEW RUN**, **THE CONTROLS** (the keys' whole list, or the
+controller's own screen) and **HELP** (not written yet). Esc goes back a step. Left untouched on its prompt for a minute and
+a half, the title gives the screen back to the screensaver. The run the screensaver was dreaming is not one of the choices.
+
 ### Playing CATACOMB yourself
 
 Hold **H** for three seconds, in either scene, or any button on a game controller. A bar fills at the
 bottom of the screen; let go early and nothing happens (any other key still ends the screensaver as
-usual; a controller's buttons never do). When it fills, the crypt is yours, and the scenes stop
-switching until you hand it back. HAUNT.EXE cuts straight to the crypt.
+usual; a controller's buttons never do). When it fills, the title screen comes up (above); choose a grave or a new run, and
+the crypt is yours, and the scenes stop switching until you hand it back. HAUNT.EXE cuts straight to the crypt.
 
 | Key | What it does |
 |---|---|
@@ -1130,6 +1150,11 @@ square-wave beeps, a Freeverb-style reverb and a ping-pong delay.
   wind through the pumpkin patch, a cackle, chattering teeth, zombie groans, earth breaking, crows, a
   bone xylophone for the dancing skeletons, collapsing bones, and a wail with a stab of brass for the
   ghost's boo.
+* **CATACOMB's music, since 1.0.0b21.1**: her hall plays a habanera, with an alley cat's swing after a perfect level;
+  run I's piece is *the ill-fated* and run II's *the descent*, each with its fight; the Lampstand and ascending play an
+  estampie; the title screen and the ledger opened to choose a page play the lament ground, a passacaglia in G minor. The
+  synth learnt the chip's tremolo and drums, glides, the tracker's arpeggio and twelve new instruments. Runs III and IV keep
+  1.0.0b15's pieces, below.
 * **CATACOMB** (since 1.0.0b15): a piece for each run of ten, each four sections of eight bars played in
   an order that takes three or four minutes to come round.
   * **The Crypts**: D minor, slow, an organ and a low choir, a bell; the old march's first phrase sung as a
@@ -1247,6 +1272,19 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b21.1** (the title screen; and the music pass: her hall's pieces, run I's and run II's, the Lampstand's).
+Tested in the harness only: not yet played by hand, run on Windows or seen on a real screen.
+
+* **The title screen**: driven by a scripted person in the harness, with the keys and with a scripted controller, down every
+  path: the prompt, the menu, the controls (the keys' list, and the controller's screen with a pad), help, the graves
+  (empty pages say nothing is written; a page signed at the merchant's rises, its class read from the page), a new run into
+  her room and her question, the three scenes in turn from one start to the next, and the screen given back to the
+  screensaver after 90 seconds untouched, which then went on. Clean under AddressSanitizer and UBSan in each scene down
+  every path. The smoke test passes.
+* **What it costs**: a title frame takes 19 to 28 ms to draw on the test machine (a crypt frame 1.8 ms), since its earth,
+  sky and stone are drawn afresh each frame; it is a title, but a slow machine may find it heavy.
+* **The music pass** (made separately, docs/PLAN-music-work.md) was tested in the harness only, as its own notes say.
 
 **New in 1.0.0b21** (the spells' augments, six to a line; the merchant by what you hold, and your class's own abilities on
 what you wear). Tested in the harness only: not yet played by hand, run on Windows or seen on a real screen.
