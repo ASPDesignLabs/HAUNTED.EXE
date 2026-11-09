@@ -205,7 +205,7 @@ G1. **The art as a module**: `src/crawl_title.c/.h` (`title_draw(Frame *, float 
     the key's flare, each choice's and each grave's chosen-ness, the pages' words (`title_page_set`), a foot word and the
     version. `src/crawl_title.c` is in the Makefile's `SRC`, so the Windows and web builds take it.
 G2. **The title in the game**: its state (`TI` in `scene_crawl.c`), input (any key or button, not a stick), render, music
-    (`snd_set_menu(3)`), the rotation, the idle return. *Status: written, being built and tested.* The block sits just
+    (`snd_set_menu(3)`), the rotation, the idle return. **Done** (9 November, harness only). The block sits just
     before "death's cost" in `scene_crawl.c` (`TI`, `title_enabled`, `title_next_scene`, `title_pages`, `title_open`,
     `title_to_dream`, `title_to_play`, `title_any`, `title_nav`, `title_pick`, `title_tick`, `title_controls`, `title_help`,
     `title_up`, `title_render`), with prototypes after `pad_look_render`'s. Its hooks: `crawl_control` (CTRL_TAKE opens it
@@ -214,10 +214,18 @@ G2. **The title in the game**: its state (`TI` in `scene_crawl.c`), input (any k
     no fight or failing). The prefs' 24th byte is `PL.title` (`PL_BYTES_TITLE`). `Page` gained `cls`, read from the
     page's `LG_ALIGN` in `page_info`. Debug switches: `CRAWL_TITLE=0`, `CRAWL_TITLESCENE=k` (0-2); `EVENT title open`,
     `menu`, `pick`, `rise`, `new`, `dream`.
-G3. **The four**: the graves from the ledger, a new run, the controls, help. *Status: written with G2* (`title_pick`,
-    `title_to_play`, `title_controls`, `title_help`).
+G3. **The four**: the graves from the ledger, a new run, the controls, help. **Done** (9 November, harness only):
+    `title_pick`, `title_to_play`, `title_controls`, `title_help`.
 G4. **The checks**: frames of every state in the harness; scripted input down every path into play; an ASan session; the
-    smoke test; a bench of the title's frame; the mock-ups made again from the module.
+    smoke test; a bench of the title's frame; the mock-ups made again from the module. **Done** (9 November): with the
+    keys and with a scripted pad, the prompt, the menu, the controls (the keys' list; the controller's screen with a pad),
+    help, the graves (empty: NOTHING IS WRITTEN HERE; a page signed through her menu rises with `ledger_open`, its class read
+    as the Witchfinder), a new run into her room and its class question, the rotation (A, then B, then C, the prefs record
+    24 bytes), and 90 s untouched giving the screen back to the dream, which went on. ASan and UBSan clean in each scene down
+    every path, and with the pad into a new run. `make smoke` passes. `build/titlemock <dir> bench`: a title's frame is
+    19-28 ms here (the crypt's is 1.8 ms), since the earth, sky and stone are drawn afresh every frame; caching the still
+    parts is a follow-up if the owner finds it slow. Not run: the Windows and browser builds (no MinGW or Emscripten here;
+    CI compiles them), nothing by hand on Windows.
 G5. **The docs**: README (features, what was verified), CLAUDE.md, the page, the release notes (the music pass's too).
 G6. **The release**: VERSION 1.0.0b21.1, squashed onto main as one commit; CI publishes it; check the release and the page.
 
@@ -252,3 +260,5 @@ None open now (answered 9 November: see section 1).
   rows with `+S`/`-S`. Then G5 and G6 as written. The release notes must also cover main's unreleased music pass (commit
   789978b, "The game's music: her hall's pieces, run I's and run II's, the Lampstand's"; its plan is
   `docs/PLAN-music-work.md`).
+- **9 November, later.** G2-G4 done (harness only) and pushed. Next: G5 (README, CLAUDE.md, the page, release notes with
+  the music pass), then CI on the branch by hand (`actions_run_trigger` on build.yml) to compile Windows and web, then G6.

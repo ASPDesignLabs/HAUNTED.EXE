@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <zlib.h>
 
 #define W 320
@@ -300,6 +301,16 @@ int main(int argc, char **argv) {
             char p[512];
             snprintf(p, sizeof p, "%s/s_%s_%s.png", argv[1], argv[3], argv[4]);
             still(p, SS[i].fn, SS[i].loop, (float)atof(argv[4]));
+        }
+    }
+    if (!strcmp(which, "bench")) {                                      /* how long a frame takes to draw, each title and its menu */
+        static void (*const FN[6])(float) = { scene_a, scene_b, scene_c, scene_a_menu, scene_b_menu, scene_c_menu };
+        static const char *const NM[6] = { "A", "B", "C", "A menu", "B menu", "C menu (its dissolve at 1.0-1.7 s)" };
+        for (int i = 0; i < 6; i++) {
+            LOOP = i < 3 ? (i ? 8.0f : 12.0f) : 16.0f;
+            clock_t c0 = clock();
+            for (int k = 0; k < 160; k++) FN[i](k * LOOP / 160.0f);
+            printf("%s: %.2f ms a frame\n", NM[i], (double)(clock() - c0) * 1000.0 / CLOCKS_PER_SEC / 160.0);
         }
     }
     if (!strcmp(which, "flash")) {                                      /* the lightning's frames, to check them */

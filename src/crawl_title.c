@@ -1516,7 +1516,8 @@ static void a_graves(float t) {
         matf(x, y, band ? R_BRICK : R_FLOOR, band ? v * 0.7f : v, 0);
     }
     static const int CX[3] = { 57, 160, 263 };
-    for (int g = 0; g < 2; g++) {                                      /* the shafts, the coffins in them */
+    for (int g = 0; g < 3; g++) {                                      /* the shafts, the coffins in them */
+        if (!TP[g].used) continue;
         for (int y = G; y < G + 28; y++) for (int x = CX[g] - 36; x < CX[g] + 36; x++) if (!(MF[y][x] & MF_DIRECT)) MV[y][x] += 0.05f * (h01(x, y, 57 + g) - 0.3f) + ((x == CX[g] - 36 || x == CX[g] + 35) ? -0.1f : 0);
         coffin_side(CX[g] - 34, G + 12, 68, 12, 0.36f, 0.25f * GK[g]);
     }
@@ -1543,9 +1544,9 @@ static void a_graves(float t) {
     vignette(0.45f);
     ui_light(160, H, 0.6f);
     resolve();
-    for (int g = 0; g < 2; g++) {                                      /* the coffins' cracks of light while chosen */
+    for (int g = 0; g < 3; g++) {                                      /* the coffins' cracks of light while chosen */
         float k = GK[g];
-        if (k < 0.3f) continue;
+        if (k < 0.3f || !TP[g].used) continue;
         for (int i = 4; i < 64; i++) if (h01(i, g, 7) < 0.7f) F.pix[(G + 12) * W + CX[g] - 34 + i] = (uint8_t)(R_GLOW + clampi((int)(6 + 8 * k), 0, 15));
     }
     if (foot_word) { int w = (int)strlen(foot_word) * 8; ui_band(&F, W / 2 - w / 2 - 6, 182, w + 12, 15); ui_text8(&F, W / 2 - w / 2, 186, foot_word, FACE_INSC, R_BLOOD + 13, TX_INLAID); }

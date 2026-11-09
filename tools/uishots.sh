@@ -77,7 +77,7 @@ for L in $LEVELS; do
                 printf "%s%s:%s%s", (i > 1 ? ";" : ""), a[1], s, n } }')
         fi
         ENVS=$(echo "$ENVS" | sed "s/AT+6/$((L + 6))/; s/AT+7/$((L + 7))/; s/AT+9/$((L + 9))/")   # this run's levels with an altar, a puzzle, its boss
-        ( cd "$D" && env CRAWL_LEVEL=$L $ENVS HOST_INPUT="$INPUT" "$HOST" shot crawl "$AT" "$NAME" 2 >/dev/null 2>"$NAME.log" \
+        ( cd "$D" && env CRAWL_TITLE=0 CRAWL_LEVEL=$L $ENVS HOST_INPUT="$INPUT" "$HOST" shot crawl "$AT" "$NAME" 2 >/dev/null 2>"$NAME.log" \
               && for f in "$NAME"_*.png; do mv "$f" "$NAME.png"; done ) &
     done; wait; }
     cat "$D"/*.log | grep "^UI overflow" | sort -u > "$D/fit.txt" || true   # the fit checks' findings
