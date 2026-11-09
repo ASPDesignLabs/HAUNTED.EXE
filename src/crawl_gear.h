@@ -32,8 +32,14 @@ enum { ST_ARMOR, ST_DODGE, ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_S
                                                            (docs/PLAN-b11.md, section 5): ST_POW + EL_* */
        ST_RES_LIGHT = ST_INS + NELEM,                   /* 1.0.0b13: Resist Lightning, for the runs' hazards (docs/PLAN-b13.md, H4) */
        ST_SPRINT, ST_PHYSIC,                            /* 1.0.0b15: seconds more of sprint; more from a potion (docs/PLAN-ai.md, 24-25) */
+       ST_ADD_POISON, ST_ADD_SPIRIT, ST_ADD_PHYS,       /* 1.0.0b21 (docs/PLAN-combat.md section 12, G4): "ADDS %" for the other three,
+                                                           beside ST_FIRE, ST_FROST, ST_SHOCK (st_adds) */
+       ST_CHANCE, ST_STEADY = ST_CHANCE + EL_PHYS,      /* G3: each element's status chance, ST_CHANCE + EL_* (Physical has none);
+                                                           Steadiness, the hard statuses shorter and rarer */
        NSTAT };
-enum { AB_NONE, AB_SWIFT, AB_ARCANE, AB_TREASURE, AB_KEYMAKER, AB_COMMUNE, AB_THORNS, AB_MIRRORED, NABIL };
+/* the abilities; from 1.0.0b21 (G5) one for each class, AB_CLASS + its element, rolled only for that class */
+enum { AB_NONE, AB_SWIFT, AB_ARCANE, AB_TREASURE, AB_KEYMAKER, AB_COMMUNE, AB_THORNS, AB_MIRRORED,
+       AB_CLASS, AB_PYRE = AB_CLASS, AB_SLAB, AB_WIRE, AB_FEVER, AB_SIN, AB_BLOCK, NABIL };
 #define PIECE_STATS 6                                   /* five at most, and one an ability may add */
 #define BAG_MAX 5
 
@@ -116,6 +122,7 @@ float gear_ability_cap(int ability);                     /* the most an ability 
  * and how far overlevels have raised that cap. Treasure is Treasure Hunter's and the caster's together */
 void  gear_set_own(int stat, float add, float cap_up);
 void  gear_set_lean(int el, float use);                  /* how much the caster uses an element: wares lean to it, the autopilot weighs it */
+int   st_adds(int el);                                   /* an element's "ADDS %" stat (1.0.0b21) */
 float gear_own(int stat);
 float gear_cap_up(int stat);
 

@@ -215,6 +215,11 @@ static float class_extra(int what);
 static int blow_survived(int kind);
 static float class_cap(int st);                                    /* 1.0.0b20, the owner's caps by class (docs/BRIEF-caps.md): how far
                                                                       the class lifts stat st's cap, in its units; D's, a stub till then */
+static float gear_cut(int k);                                      /* 1.0.0b21 (D6, section 12): the share what is worn takes off status k's
+                                                                      chance and length on the caster (Steadiness on Knocked Down, Stunned and
+                                                                      Frozen; the Headsman's Block on Knocked Down), added to Agility's under its
+                                                                      cap in conf_cut; D's, a stub till then */
+static void abil_short(int ab, float a, char *buf, int n);         /* and an ability's few words on Tab's caster page (D's) */
 /* a pack (docs/PLAN-ai.md, sections 5-6): its kind (PA_*), its members, the one that leads it, how many it began with; its
  * state (PAS_*), the one calling and how long the call has to run; when one of it last saw the caster, and where; its
  * turns: those engaged now, their health as their turn began, the one relieved last, and when the turn changes */
@@ -4831,8 +4836,10 @@ static void conf_own(float *own, float *up) {                      /* the Confes
     if (worn > 0.0f) own[ST_ARMOR] += worn * gear_total_raw(&RUN.gear, ST_ARMOR);
 }
 static float conf_cut(int k) {                                     /* a share off status k's chance and its length */
-    if (!conf_on() || k < 0) return 0.0f;
-    if (k == AF_DOWN || k == AF_STUN || k == AF_FROZEN) return conf_value(CF_AGILITY, CV_HARD);
+    if (k < 0) return 0.0f;
+    if (k == AF_DOWN || k == AF_STUN || k == AF_FROZEN)            /* Agility's, and what is worn (D6's gear_cut), under the one cap */
+        return fminf((conf_on() ? conf_value(CF_AGILITY, CV_HARD) : 0.0f) + gear_cut(k), 0.9f);
+    if (!conf_on()) return 0.0f;
     if (k == AF_UNBOUND) return conf_value(CF_SPIRIT, CV_UNBOUND);
     return conf_value(CF_SURVIVAL, CV_SOFT);                       /* the rest: fire, chill, poison */
 }
@@ -5339,6 +5346,8 @@ static float class_extra(int what) {                               /* KX_*: what
     if (e < 0 || !class_sheet_on()) return 0.0f;
     return what == KX_AF_CUT ? CLASS_OWN[e].af_cut : what == KX_SOULS ? CLASS_OWN[e].souls : 0.0f;
 }
+static float gear_cut(int k) { (void)k; return 0.0f; }             /* D6's: what is worn, off the hard statuses (a stub) */
+static void abil_short(int ab, float a, char *buf, int n) { snprintf(buf, (size_t)n, "%s %.0f%%", ABIL_NAME[clampi(ab, 0, NABIL - 1)], a); }
 /* a killing blow lived (10.4): a blow that would end the caster, not a seep (hurt_ex has asked), not fire, bile or a void stood in,
  * nor a burning floor, a pool or poison; Second Wind has gone first. Constitution's chance, at most once a level (a pocket is a
  * place of its own): the blow lands, health stops at 1, and nothing touches the caster for three seconds, as a Second Wind.
@@ -28481,7 +28490,8 @@ static void render_caster(Frame *f) {
         case AB_KEYMAKER: snprintf(v, sizeof v, "KEYMAKER %.0f CELLS", a); break;
         case AB_COMMUNE: snprintf(v, sizeof v, "COMMUNE %.0f, %.1f S", a, b / 10.0f); break;
         case AB_THORNS: snprintf(v, sizeof v, "THORNS %.0f", a); break;
-        default: snprintf(v, sizeof v, "MIRROR %.0f%% AT %.0f%%", a, b); break;
+        case AB_MIRRORED: snprintf(v, sizeof v, "MIRROR %.0f%% AT %.0f%%", a, b); break;
+        default: abil_short(ab, a, v, sizeof v); break;            /* the classes' (D6) */
         }
         gfx_text8(f, n % 2 ? 162 : 14, y + (n / 2) * 9, v, R_GOLD + 11, 1);
         n++;
@@ -29763,7 +29773,8 @@ static void render_codex(Frame *f) {
         "KEYS WITHIN ITS REACH SPARKLE THROUGH THE WALLS, AND THE L MENU OFFERS A WISP TO EACH.",
         "EVERY FIFTEEN SECONDS, CREATURES WITHIN ITS REACH SHOW AS RED SHAPES THROUGH THE WALLS FOR A MOMENT.",
         "WHATEVER STRIKES OR BITES YOU TAKES SO MUCH BACK, WHATEVER YOUR ARMOUR TOOK.",
-        "A CHANCE THAT A MISSILE IS SENT BACK, HOMING ON ITS THROWER ROUND CORNERS." };
+        "A CHANCE THAT A MISSILE IS SENT BACK, HOMING ON ITS THROWER ROUND CORNERS.",
+        "", "", "", "", "", "" };                                   /* the classes' (D6) */
     static const char *const EXQ_DOES[NDEF] = { "IT BURSTS INTO SHARDS WHEN IT BREAKS.", "IT LEAVES A DOUBLE BEHIND, AND THE DEAD NEARBY GO FOR THAT.",
         "IT SENDS MISSILES HOME TO THEIR THROWER AT TWICE ITS STRENGTH.", "HEALING PAST FULL BECOMES A SMALL WARD.",
         "IT MENDS TWO HUNDREDTHS OF YOUR HEALTH A SECOND WHILE IT LASTS.", "THE FROZEN TAKE DOUBLE.", "IT REACHES THE LIVING TOO.",

@@ -29,7 +29,9 @@ const char *const STAT_NAME[NSTAT] = { "ARMOR", "DODGE", "HEALTH", "RESTORES", "
                                        "FIRE EFFICIENCY", "FROST EFFICIENCY", "LIGHTNING EFFICIENCY", "POISON EFFICIENCY",
                                        "SPIRIT EFFICIENCY", "PHYSICAL EFFICIENCY",
                                        "FIRE INSIGHT", "FROST INSIGHT", "LIGHTNING INSIGHT", "POISON INSIGHT", "SPIRIT INSIGHT", "PHYSICAL INSIGHT",
-                                       "RESIST LIGHTNING", "SPRINT", "PHYSIC" };
+                                       "RESIST LIGHTNING", "SPRINT", "PHYSIC",
+                                       "POISON", "SPIRIT", "PHYSICAL",   /* 1.0.0b21: "ADDS %", as FIRE, FROST and LIGHTNING */
+                                       "IGNITION", "RIME", "STATIC", "BLIGHT", "HUSH", "STEADINESS" };
 static const char *const STAT_OF[NSTAT] = { "THE BULWARK", "SHADOWS", "VIGOUR", "REJUVENATION", "CLEAN BLOOD", "THE HEARTH",
                                             "THE UNBOUND", "THE LIGHTFOOT", "SILENCE", "QUICKENING", "THE FRUGAL SOUL",
                                             "SPELLTONGUE", "CINDERS", "RIME", "STORMS", "THE ADEPT", "PLENTY", "FORTUNE",
@@ -38,9 +40,13 @@ static const char *const STAT_OF[NSTAT] = { "THE BULWARK", "SHADOWS", "VIGOUR", 
                                             "THE BANKED COAL", "THE STILL MERE", "THE LODESTONE", "THE THIN DOSE", "THE SPARING SOUL", "THE QUIVER",
                                             "TINDER", "HOARFROST", "THE SPARK", "THE SWIFT DRAUGHT", "THE WHISPER", "THE SLING",
                                             "THE GROUNDED",   /* 1.0.0b13's, a draft (docs/PLAN-b13.md, H4) */
-                                            "THE CHASE", "THE APOTHECARY" };   /* 1.0.0b15's */
-const char *const ABIL_NAME[NABIL] = { "", "SWIFTNESS", "ARCANE KNOWLEDGE", "TREASURE HUNTER", "KEYMAKER", "COMMUNE", "THORNS", "MIRRORED" };
-static const char *const ABIL_WORD[NABIL] = { "", "SWIFT", "ARCANE", "TREASURE HUNTER", "KEYMAKER", "COMMUNING", "THORNED", "MIRRORED" };
+                                            "THE CHASE", "THE APOTHECARY",   /* 1.0.0b15's */
+                                            "GALL", "THE HAUNTING", "THE CUDGEL",   /* 1.0.0b21's */
+                                            "THE KINDLING", "THE BITTER FROST", "THE TEMPEST", "PESTILENCE", "THE STILLED TONGUE", "THE UNMOVED" };
+const char *const ABIL_NAME[NABIL] = { "", "SWIFTNESS", "ARCANE KNOWLEDGE", "TREASURE HUNTER", "KEYMAKER", "COMMUNE", "THORNS", "MIRRORED",
+                                       "PYREBRAND", "THE SLAB", "LIVE WIRE", "FEVER", "SWALLOWED SIN", "THE BLOCK" };   /* the classes' (1.0.0b21) */
+static const char *const ABIL_WORD[NABIL] = { "", "SWIFT", "ARCANE", "TREASURE HUNTER", "KEYMAKER", "COMMUNING", "THORNED", "MIRRORED",
+                                              "PYREBRANDED", "SLAB-COLD", "LIVE-WIRED", "FEVERED", "SIN-EATEN", "BLOCK-HEWN" };
 
 static const float QUAL_MULT[NQUAL] = { 1.0f, 1.2f, 1.45f, 1.75f, 2.1f };   /* how strong its stats roll */
 static const float QUAL_PRICE[NQUAL] = { 1.0f, 1.5f, 2.2f, 3.2f, 4.5f };
@@ -50,10 +56,14 @@ static const int ABIL_CHANCE[NQUAL] = { 0, 10, 25, 50, 100 };                /* 
 static const int KIND_SLOTS[NIK] = { 0, 2, 2, 2, 2, 4, 1, 0 };
 static const float KIND_PRICE[NIK] = { 0.0f, 0.45f, 0.6f, 0.7f, 0.7f, 0.9f, 0.8f, 0.5f };
 static const int STAT_SCALE[NSTAT] = { 10, 10, 10, 100, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
-                                       10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 100, 10 };
+                                       10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 100, 10,
+                                       10, 10, 10, 10, 10, 10, 10, 10, 10 };
 static const float STAT_CAP[NSTAT] = { 0, 35, 0, 0, 75, 75, 75, 40, 80, 50, 60, 100, 50, 50, 50, 50, 100, 25, 75, 100,
                                        50, 50, 50, 50, 50, 50, 40, 40, 40, 40, 40, 40, 30, 30, 30, 30, 30, 30, 75,
-                                       7.5f, 400 };   /* on totals; 0 = none. Sprint's is what is added to the 2.5 s everyone has */
+                                       7.5f, 400,
+                                       50, 50, 50,                        /* "ADDS %": the six share one cap (gear_total) */
+                                       60, 60, 60, 60, 60, 40 };          /* the status chances; Steadiness, under Agility's cap too */
+                                     /* on totals; 0 = none. Sprint's is what is added to the 2.5 s everyone has */
 static float OWN[NSTAT], CAP_UP[NSTAT];                           /* the caster's own, and the overlevels' raise of each cap */
 #define ST_ELEM ST_FIRE                       /* in the tables below: an element, chosen when it is rolled; */
 #define PICK_POW 200                          /* and an element's Power, Efficiency or Insight, the same way (1.0.0b11) */
@@ -81,7 +91,12 @@ static int lean_elem(uint32_t *rng);
 static uint32_t rnext(uint32_t *s) { *s ^= *s << 13; *s ^= *s >> 17; *s ^= *s << 5; return *s; }
 static int rpick(uint32_t *s, int n) { return (int)(rnext(s) % (uint32_t)n); }
 static float rfrac(uint32_t *s) { return (float)(rnext(s) & 0xffff) / 65536.0f; }
-static int is_elem(int st) { return st >= ST_FIRE && st <= ST_SHOCK; }
+static int is_elem(int st) { return (st >= ST_FIRE && st <= ST_SHOCK) || (st >= ST_ADD_POISON && st <= ST_ADD_PHYS); }   /* "ADDS %" */
+int st_adds(int el) {
+    static const int8_t ADDS[NELEM] = { ST_FIRE, ST_FROST, ST_SHOCK, ST_ADD_POISON, ST_ADD_SPIRIT, ST_ADD_PHYS };
+    return el >= 0 && el < NELEM ? ADDS[el] : -1;
+}
+static float adds_all(const Gear *g) { float a = 0.0f; for (int e = 0; e < NELEM; e++) a += gear_total_raw(g, st_adds(e)); return a; }
 
 void gear_reset(Gear *g) {
     memset(g, 0, sizeof *g);
@@ -362,7 +377,7 @@ float gear_total(const Gear *g, int st) {
     if (st == ST_THRIFT) t *= 1.0f + gear_ability(g, AB_ARCANE, 0) / 100.0f;
     if (st == ST_TREASURE) t += gear_ability(g, AB_TREASURE, 0);  /* Treasure Hunter's share */
     if (is_elem(st)) {
-        float all = gear_total_raw(g, ST_FIRE) + gear_total_raw(g, ST_FROST) + gear_total_raw(g, ST_SHOCK);
+        float all = adds_all(g);                                   /* the six share one cap */
         if (all > STAT_CAP[st]) t *= STAT_CAP[st] / all;
         return t;
     }
@@ -380,7 +395,7 @@ float gear_total_free(const Gear *g, int st) {                     /* as gear_to
 }
 int gear_capped(const Gear *g, int st) {
     if (STAT_CAP[st] <= 0.0f) return 0;
-    if (is_elem(st)) return gear_total_raw(g, st) > 0.0f && gear_total_raw(g, ST_FIRE) + gear_total_raw(g, ST_FROST) + gear_total_raw(g, ST_SHOCK) >= STAT_CAP[st] - 0.05f;
+    if (is_elem(st)) return gear_total_raw(g, st) > 0.0f && adds_all(g) >= STAT_CAP[st] - 0.05f;
     return gear_total(g, st) >= STAT_CAP[st] + CAP_UP[st] - 0.05f;
 }
 

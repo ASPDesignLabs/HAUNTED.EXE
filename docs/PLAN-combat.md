@@ -685,6 +685,17 @@ Redrawn by C5's contract commit (8 November). Everything 1.0.0b19's table gave a
 | Tab's caster page, the Codex's `CX_CASTER` | the killing blow (10.4) as `blow_survived` gives it, and how it is shown; Toughness's cracks (10.5): the motes at a shut secret's crack |
 | | **Caps by class** (the owner, 8 November: docs/BRIEF-caps.md section 6, given to D): the body of `class_cap`, the sheets' strengths and weaknesses, `armour_keep` (for armour's cap), and showing them on her question's screen and in the Codex |
 
+### 17.2 c. What each owns (1.0.0b21): D6's part
+
+Drawn by track D's contract commit for D6 (9 November), since D6 began first; C6's contract commit adds C's own rows. Everything
+the tables above gave a track stays its own; these are added:
+
+| Track D only |
+|---|
+| the pieces' rolls and words in `crawl_gear.c`: `piece_roll`, `lean_elem`, `pick_ability`, `KIND_STATS`, the stats' and abilities' tables (`STAT_NAME`, `STAT_OF`, `STAT_SCALE`, `STAT_CAP`, `ABIL_NAME`, `ABIL_WORD`, `CAP0`, `piece_grade`), `piece_stat_text`, `piece_ability_text`, `piece_worth`, the new `st_adds`, `gear_set_class` |
+| the new stats' and the classes' abilities' effects where they are felt on the dead (`hit_mult`, `el_chance`, `el_status`, `mob_ignite`, `mob_chill`, `mob_poison`'s dose, `damage_mob`), the bone and the soul they leave in `kill_mob` (one line each, beside C's share), the bodies of `gear_cut` and `abil_short` |
+| the Codex's words for stats and abilities (`STAT_DOES`, `stat_does`, `ABIL_DOES`), Tab's fifth page (`render_elements`), the cards' *FOR THE ...* |
+
 ### 17.3 What the two tracks share (the contract)
 
 In `src/scene_crawl.c`, after `Mob`, committed with this section:
@@ -715,6 +726,13 @@ In `src/scene_crawl.c`, after `Mob`, committed with this section:
 - 1.0.0b20, added 8 November (the owner's caps by class, docs/BRIEF-caps.md section 6): `class_cap(st)`, D's, the class's lift of
   stat st's cap in its units; `caster_sync` adds it to the caps (`gear_set_own`'s `cap_up`) for every stat. A stub returning 0
   till D fills it.
+- 1.0.0b21 (D6's contract, 9 November): the new stats at the end of `ST_*` (`ST_ADD_POISON`, `ST_ADD_SPIRIT`, `ST_ADD_PHYS`:
+  "ADDS %" beside `ST_FIRE`, `ST_FROST`, `ST_SHOCK`, which `st_adds(el)` names; `ST_CHANCE` + `EL_*` for the five status chances;
+  `ST_STEADY`) and the classes' abilities at the end of `AB_*` (`AB_CLASS` + the class's element: `AB_PYRE`, `AB_SLAB`, `AB_WIRE`,
+  `AB_FEVER`, `AB_SIN`, `AB_BLOCK`); old pieces read as they were. `gear_cut(k)`, D's: the share what is worn takes off status k's
+  chance and length on the caster; C's `conf_cut` adds it to Agility's for the three hard ones, under the same 0.9 (one line,
+  written by D in this commit, and it counts with the old lines too). `abil_short(ab, a, buf, n)`, D's: a class ability's words
+  on Tab's caster page, whose switch now names Mirrored and leaves the rest to it. Stubs that do nothing till D6 fills them.
 - To come: at the start of 1.0.0b20, C5's `conf_rank(cf)` and `conf_value(cf, which)`, which D5 reads; at the start of 1.0.0b21,
   C6's augment hooks, which D7 fills for its lines.
 
@@ -1416,6 +1434,12 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   (the twentieth beta, the status row weighed, the upgrading note), the notes rewritten for it (the Galvanist's frost, the stall
   mended, the harder start said plainly), CLAUDE.md, `VERSION` 1.0.0b20; squashed onto main as one commit, as the betas before it.
   Next for track D: **D6**, the merchant by class (section 12), for 1.0.0b21; D7 waits on C6's contract.
+- **9 November. D6 begun: its contract.** **CONTRACT.** At the owner's word ("go ahead and start D6"). Section 17.2 c gives D the
+  pieces' rolls and the new stats' and abilities' effects (C6's contract will add C's rows). In 17.3: the new `ST_*` and `AB_*` at
+  the ends of their lists (nothing rolls them yet), `st_adds`, `gear_cut(k)` (a stub; track C, I put the one line into your
+  `conf_cut` that adds it to Agility's cut for Knocked Down, Stunned and Frozen, under the same 0.9, and it now counts with
+  `CRAWL_LINES=1` too), and `abil_short` (a stub; your `render_caster`'s switch names Mirrored now, so a class ability on the page
+  isn't drawn as a mirror). "ADDS %" shares its one cap among six. Nothing in play changes.
 
 ## Appendix: the owner's guide (7 November), as given
 
