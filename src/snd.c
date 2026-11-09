@@ -2036,8 +2036,7 @@ static void sc_musette(int part, int pat, float vel, float pan, int tr, float ce
     sc_play_ex(part, pat, pat, vel, pan, tr, 0.35f, 0, cents / 1731.0f);
 }
 
-/* Run I, the Order's crypts: D minor, 66, organ and a low choir, a bell; the march's phrase as chant, a brass
- * chorale, and the crypt itself, a drone with E-flat leaning on D. */
+/* The D minor chords the menus' tune is built on (1.0.0b15's run I piece is retired: docs/PLAN-music-work.md) */
 #define Di   C3(0, 0, 3, 7)
 #define Diii C3(3, 3, 7, 10)
 #define Div  C3(5, 5, 8, 12)
@@ -2045,109 +2044,6 @@ static void sc_musette(int part, int pat, float vel, float pan, int tr, float ce
 #define DVI  C3(-4, 8, 12, 15)
 #define DVII C3(-2, 10, 14, 17)
 #define DbII C3(1, 1, 5, 8)
-static const MNote MEL_C_A[] = {                              /* an intonation, on the choir */
-    {4,0,6,62},{4,6,2,64},{4,8,8,65},{5,0,8,64},{5,8,8,62},{6,0,8,61},{6,8,8,64},{7,0,16,64} };
-static const MNote MEL_C_B[] = {                              /* the march's phrase, slowed to a chant */
-    {0,0,4,69},{0,4,4,74},{0,8,6,77},{0,14,2,76}, {1,0,4,77},{1,4,4,81},{1,8,4,79},{1,12,4,77},
-    {2,0,6,76},{2,6,2,74},{2,8,4,72},{2,12,4,76}, {3,0,12,74},{3,12,4,69},
-    {4,0,4,70},{4,4,4,74},{4,8,8,77}, {5,0,4,79},{5,4,4,77},{5,8,4,74},{5,12,4,70},
-    {6,0,4,73},{6,4,4,76},{6,8,8,81}, {7,0,4,79},{7,4,4,77},{7,8,4,76},{7,12,4,73} };
-static const MNote MEL_C_C[] = {                              /* the chorale, on brass */
-    {0,0,8,70},{0,8,4,69},{0,12,4,67}, {1,0,12,69},{1,12,4,65}, {2,0,4,64},{2,4,4,67},{2,8,8,69},
-    {3,0,8,65},{3,8,8,62}, {4,0,4,65},{4,4,4,70},{4,8,8,74}, {5,0,8,72},{5,8,8,69},
-    {6,0,4,70},{6,4,4,69},{6,8,4,67},{6,12,4,65}, {7,0,16,64} };
-static const MNote MEL_C_D[] = {                              /* the crypt: the march's last call, on flute */
-    {4,0,8,74},{4,8,8,77},{5,0,8,79},{5,8,8,82},{6,0,16,81},{7,0,8,85},{7,8,8,81} };
-static const MSec SEC_CRYPTS[4] = {
-    { { Di, Di, DVI, DVII, Di, Div, DV, DV }, MEL(MEL_C_A) },
-    { { Di, Diii, DVII, Di, DVI, Div, DV, DV }, MEL(MEL_C_B) },
-    { { Div, Di, DV, Di, DVI, Diii, Div, DV }, MEL(MEL_C_C) },
-    { { Di, DbII, Di, DbII, DVI, Div, DV, DV }, MEL(MEL_C_D) } };
-static const uint8_t ORD_CRYPTS[] = { 0, 1, 2, 3, 1, 2, 0, 3 };
-
-static void crypts_step(const MSec *S, int bar, int s) {
-    const int r = 38;
-    const int8_t *c = S->ch[bar];
-    int sec = (int)(S - SEC_CRYPTS), pass = g_P->pass, fl = g_P->fight ? g_P->lvl : 0;
-    if (s == 0) {
-        pv(PAT_BASS, r + c[0], 0.5f, 0.5f, 15);
-        if (sec == 3) pchord(c, PAT_VOICE, r + 12, 0.36f, 15, 1.004f);
-        else pchord(c, PAT_ORGAN, r + 12, sec == 0 ? 0.8f : 0.55f, 15, 0.0f);
-        if (sec == 0 && !(bar & 1)) { pv(PAT_VOICE, r + 12, 0.3f, 0.35f, 31); pv(PAT_VOICE, r + 19, 0.24f, 0.65f, 31); }
-        if (sec == 3 && bar == 0) pv(PAT_DRONE, r, 0.9f, 0.5f, 127);
-        if (bar == 0) pv(PAT_BELL, r + 36, 0.32f, 0.3f + 0.4f * mrnd(), 12);
-        if (sec == 3 && (bar & 1) == 0 && bar) pv(PAT_BELL, r + 24 + c[0], 0.22f, 0.3f + 0.4f * mrnd(), 12);
-    }
-    g_vlayer = LY_COLOUR;
-    if (sec == 0) ptune(S, bar, s, PAT_VOICE, PAT_VOICE, 0.5f, 0, 1);
-    else if (sec == 1) { if (pass & 1) ptune(S, bar, s, PAT_VOICE, PAT_VOICE, 0.55f, -12, 1); else ptune(S, bar, s, PAT_FLUTE, PAT_FLUTE, 0.85f, 0, 0); }
-    else if (sec == 2) { ptune(S, bar, s, PAT_BRASS, PAT_BRASS, 0.8f, 0, 0); if (pass & 1) ptune(S, bar, s, PAT_FLUTE, PAT_FLUTE, 0.35f, 12, 0); }
-    else ptune(S, bar, s, PAT_FLUTE, PAT_FLUTE, 0.75f, 0, 0);
-    if (fl) {                                                      /* the fight: a procession with timpani */
-        static const int8_t FIG[8] = { 0, 0, 7, 0, 0, 0, 7, 12 };
-        g_vlayer = LY_FIGHT;
-        if (s == 0 || s == 8) { pd(X_TOM, 0.6f, 0.5f + 0.1f * (float)fl, 0.45f, 0.35f); pd(X_KICK, 0.4f, 0.55f, 0.5f, 0.05f); }
-        if (fl >= 2 && (s == 4 || s == 12)) pd(X_SNARE, 0.3f, 0.4f, 0.5f, 0.22f);
-        if (fl >= 3 && !(s & 1)) pd(X_HAT_C, 0.08f, (s & 3) ? 0.18f : 0.3f, 0.6f, 0.04f);
-        if (fl >= 3 && bar == 7 && s >= 8) pd(X_SNARE, 0.2f, 0.2f + 0.04f * (float)(s - 8), 0.5f, 0.2f);
-        if (!(s & 1)) pv(PAT_STRINGS, r + 12 + c[0] + FIG[s >> 1], (s & 7) ? 0.45f : 0.62f, 0.4f, 2);
-        if (fl >= 2 && (s == 0 || s == 6)) pchord(c, PAT_BRASS, r + 12, 0.42f, 2, 0.0f);
-    }
-}
-
-/* Run II, the drowned catacombs: C minor, a barcarolle in 6/8 at 50 the dotted beat, a harp rolling over a pad,
- * a bell under the water, drips; the tune on a vibraphone, then a low flute, as if from under the surface. */
-#define Ci   C3(0, 0, 3, 7)
-#define Ciii C3(3, 3, 7, 10)
-#define Civ  C3(5, 5, 8, 12)
-#define CV   C3(-5, 7, 11, 14)
-#define CVI  C3(-4, 8, 12, 15)
-#define CVII C3(-2, 10, 14, 17)
-#define CbII C3(1, 1, 5, 8)
-static const MNote MEL_W_B[] = {                              /* the boat song */
-    {0,0,3,67},{0,3,1,68},{0,4,2,67}, {1,0,3,72},{1,3,3,70}, {2,0,3,68},{2,3,1,65},{2,4,2,67}, {3,0,6,62},
-    {4,0,3,67},{4,3,1,68},{4,4,2,67}, {5,0,3,70},{5,3,3,74}, {6,0,3,73},{6,3,1,72},{6,4,2,68}, {7,0,6,71} };
-static const MNote MEL_W_C[] = {                              /* deeper */
-    {0,0,3,63},{0,3,3,60}, {1,0,3,62},{1,3,3,65}, {2,0,6,67}, {3,0,3,63},{3,3,1,62},{3,4,2,60},
-    {4,0,3,65},{4,3,3,68}, {5,0,3,65},{5,3,3,61}, {6,0,3,62},{6,3,3,59}, {7,0,6,67} };
-static const MSec SEC_CATAC[4] = {
-    { { Ci, Ci, CVI, CVI, Civ, Civ, CV, CV }, NULL, 0 },
-    { { Ci, CVI, Civ, CV, Ci, Ciii, CbII, CV }, MEL(MEL_W_B) },
-    { { CVI, CVII, Ciii, Ci, Civ, CbII, CV, CV }, MEL(MEL_W_C) },
-    { { Ci, CbII, Ci, CbII, CVI, Civ, CV, Ci }, NULL, 0 } };
-static const uint8_t ORD_CATAC[] = { 0, 1, 2, 3, 1, 2, 0, 1 };
-
-static void catac_step(const MSec *S, int bar, int s) {
-    const int r = 36;
-    const int8_t *c = S->ch[bar];
-    int sec = (int)(S - SEC_CATAC), pass = g_P->pass, fl = g_P->fight ? g_P->lvl : 0;
-    if (s == 0) {
-        pv(PAT_BASS, r + c[0], 0.5f, 0.5f, 3);
-        pchord(c, PAT_PAD, r + 12, 0.5f, 6, 1.003f);
-        if (sec == 3) { pv(PAT_VOICE, r + 12 + c[1], 0.28f, 0.35f, 6); pv(PAT_VOICE, r + 12 + c[3], 0.22f, 0.65f, 6); }
-        if (bar == 0 || (sec == 3 && bar == 4)) pv(PAT_BELL, r + 24 + c[1] % 12, 0.3f, 0.3f + 0.4f * mrnd(), 6);
-    }
-    if (s == 3) pv(PAT_BASS, r + c[0] + 7, 0.36f, 0.5f, 3);
-    g_vlayer = LY_COLOUR;
-    if (sec != 3 || !(bar & 1)) {                                  /* root, fifth, octave, tenth, octave, fifth */
-        int A6[6] = { c[1], c[3], c[1] + 12, c[2] + 12, c[1] + 12, c[3] };
-        pv(PAT_HARP, r + 12 + A6[s], s == 0 ? 0.6f : 0.42f, (s & 1) ? 0.65f : 0.35f, 3);
-    }
-    if (sec == 1) ptune(S, bar, s, (pass & 1) ? PAT_CELESTA : PAT_VIBES, 0, 0.7f, 12, 0);
-    if (sec == 2) { if (pass & 1) ptune(S, bar, s, PAT_VOICE, 0, 0.5f, 0, 1); else ptune(S, bar, s, PAT_FLUTE, 0, 0.75f, 0, 0); }
-    g_vlayer = LY_BASE;
-    if (mrnd() < 0.05f) pd(SFX_DRIP, 0.6f, 0.35f + 0.4f * mrnd(), 0.1f + 0.8f * mrnd(), 0.75f);
-    if (fl) {                                                      /* the fight: frame drums in six, the strings swelling */
-        g_vlayer = LY_FIGHT;
-        if (s == 0) pd(X_TOM, 0.6f, 0.55f + 0.1f * (float)fl, 0.45f, 0.35f);
-        if (s == 3) pd(X_KICK, 0.4f, 0.5f, 0.5f, 0.05f);
-        if (fl >= 2) pd(X_HAT_C, 0.08f, (s == 0 || s == 3) ? 0.26f : 0.16f, 0.6f, 0.04f);
-        if (fl >= 3 && s == 3) pd(X_SNARE, 0.3f, 0.35f, 0.5f, 0.22f);
-        if (fl >= 3 && bar == 7 && s >= 2) pd(X_TOM, 0.5f, 0.3f + 0.08f * (float)s, 0.4f, 0.3f);
-        if (s == 0) pchord(c, PAT_STRINGS, r + 12, 0.22f + 0.06f * (float)fl, 6, 0.0f);
-        if (fl >= 2 && sec == 1) ptune(S, bar, s, PAT_FLUTE, 0, 0.45f, 0, 0);
-    }
-}
 
 /* Run III, the charnel mine: E minor leaning Phrygian, 84, a work rhythm in the bass, a pick's thud, an anvil, low
  * brass held in fifths; a hammered dulcimer for the work song, and the brass calling down the seam. */
@@ -2718,9 +2614,10 @@ static void nocturne_step(const ScSec *S, int bar, int s) {
     }
 }
 
-/* ---- Run I's attempts (docs/PLAN-music-work.md, step 2): five pieces for the Order's crypts, each written with
- * its fight. The fight comes in on a beat at level 1 and grows to 3 (player_step and player_pace, as before); what
- * each level adds is the piece's own, on the fight's layer ---- */
+/* ---- Run I's attempts (docs/PLAN-music-work.md, step 2), written for the Order's crypts with their fights, and given
+ * out by the owner: the ill-fated is run I's, the descent run II's, the estampie the Lampstand's and ascending's; the
+ * office and the ossuary are kept, unused. The fight comes in on a beat at level 1 and grows to 3 (player_step and
+ * player_pace, as before); what each level adds is the piece's own, on the fight's layer ---- */
 
 /* the bass sounding now: the bass part's note, else the chord's lowest */
 static int sc_root(void) {
@@ -2757,7 +2654,7 @@ static inline int fight_lvl(void) { return g_P && g_P->fight ? g_P->lvl : 0; }
 static inline float mhz(int m) { return 440.0f * exp2f((float)(m - 69) / 12.0f); }
 static inline float timp_hz(int m) { while (m < 40) m += 12; while (m > 52) m -= 12; return mhz(m); }   /* a kettle's range */
 
-/* A. The office of the dead: D minor (Dorian at times), 64, sixteen steps a bar. A chant on the choir over the organ's
+/* Kept, unused (MU_OFFICE): the office of the dead: D minor (Dorian at times), 64, sixteen steps a bar. A chant on the choir over the organ's
  * pedal, then the same chant in organum (a fourth under it, over the drone alone), a chorale for the choir with a
  * D major at its end, a motet (the chant low, a flute's descant over it), the crypt (E-flat leaning on D, bells).
  * Fighting: timpani on the bass and the low strings driving (1); sackbuts on the chant and the organ's chords struck,
@@ -2828,7 +2725,7 @@ static void office_step(const ScSec *S, int bar, int s) {
     }
 }
 
-/* B. The ill-fated: D minor, 80, sixteen steps a bar. A horn's call; the march's phrase grown into a romantic theme on
+/* Run I's (MU_CRYPTS): the ill-fated: D minor, 80, sixteen steps a bar. A horn's call; the march's phrase grown into a romantic theme on
  * the violins over a harp and strings, the bass falling D, C, B-flat, A; the horn takes it, the violins against it; a
  * soaring B part (F, then E-flat, the Neapolitan); a storm of tremolo over a chromatic fall; all of it; the phrase
  * again on a celesta. Fighting: tremolo and timpani (1); a snare's march, brass struck on the chords, a cymbal (2);
@@ -2897,7 +2794,7 @@ static void gothic_step(const ScSec *S, int bar, int s) {
     }
 }
 
-/* C. The ossuary: D minor, 72, sixteen steps a bar. Slow chords that turn aside (B-flat major seven, B-flat minor's
+/* Kept, unused (MU_OSSUARY): the ossuary: D minor, 72, sixteen steps a bar. Slow chords that turn aside (B-flat major seven, B-flat minor's
  * sixth, G minor and E-flat), glass and strings held over a low pad, a bell for the tune; the choir; a section of
  * the tracker's arpeggio rippling under a cello; the crypt over a pedal. Fighting: the bass pulsing in sixteenths and
  * the chip's bass drum (1); its snare, and an arpeggio buzzing the chord on one voice, as an AdLib did (2); hats in
@@ -2961,7 +2858,7 @@ static void ossuary_step(const ScSec *S, int bar, int s) {
     }
 }
 
-/* D. The descent: D minor (its flat second for the B part), 96, sixteen steps a bar; the dungeon crawlers' music of
+/* Run II's (MU_CATACOMBS): the descent: D minor (its flat second for the B part), 96, sixteen steps a bar; the dungeon crawlers' music of
  * the AdLib's day. A harpsichord's pluck running the chords in sixteenths, a pad, a bass in eighths, the tune on brass
  * with its vibrato; a B part on the flute; a bridge where a cello sings over a walking bass. Fighting: the chip's kit,
  * bass drum and snare (1); hats, the bass galloping in sixteenths, brass struck on the off-beats (2); hats in
@@ -3026,7 +2923,7 @@ static void descent_step(const ScSec *S, int bar, int s) {
     }
 }
 
-/* E. The estampie of the bone choir: D Dorian, six-eight (two beats of six steps), 50 the beat. A consort: a
+/* The Lampstand's and ascending's (MU_LAMP, on the menus' bus): the estampie of the bone choir: D Dorian, six-eight (two beats of six steps), 50 the beat. A consort: a
  * hurdy-gurdy's drone (the bandoneon's reeds held), a lute striking the chord on each beat and picking between, a
  * recorder; the dance in puncta, each played twice, open the first time and closed the second; the third on a shawm;
  * a slow interlude on a viol with an E-flat in it. Fighting: the tabor's full rhythm and a tambourine (1); the shawm
@@ -3095,8 +2992,6 @@ static void estampie_step(const ScSec *S, int bar, int s) {
 }
 
 static const Piece PIECES[MU_COUNT] = {
-    [MU_CRYPTS]    = { 66.0f,  4, 16, 38, SEC_CRYPTS,  ORD(ORD_CRYPTS),  1, crypts_step,  PAT_BRASS,   1.15f },
-    [MU_CATACOMBS] = { 50.0f,  3,  6, 36, SEC_CATAC,   ORD(ORD_CATAC),   1, catac_step,   PAT_STRINGS, 1.55f },
     [MU_HOLLOWS]   = { 84.0f,  4, 16, 40, SEC_HOLLOWS, ORD(ORD_HOLLOWS), 1, hollows_step, PAT_BRASS,   1.45f },
     [MU_DEEP]      = { 56.0f,  4, 16, 42, SEC_DEEP,    ORD(ORD_DEEP),    1, deep_step,    PAT_GLASS,   1.25f },
     [MU_MENU]      = { 60.0f,  2,  6, 38, SEC_MENU,    ORD(ORD_MENU),    0, menu_step,    PAT_PAD,     1.2f },
@@ -3105,16 +3000,16 @@ static const Piece PIECES[MU_COUNT] = {
     [MU_TITLE]     = { 72.0f,  4, 12, 43, NULL, ORD(ORD_GROUND), 1, NULL, PAT_HARP, 1.12f, SC_GROUND, 7, ground_step, 6.0f },
     [MU_SPECIAL]   = { 138.0f, 4, 12, 36, NULL, ORD(ORD_WALTZ), 1, NULL, PAT_HARP, 1.0f, SC_WALTZ, 8, waltz_step, 6.0f },
     [MU_ENDING]    = { 66.0f,  4, 16, 37, NULL, ORD(ORD_NOCTURNE), 1, NULL, PAT_HARP, 1.45f, SC_NOCTURNE, 7, nocturne_step, 6.0f },
-    [MU_RUN1A]     = { 64.0f,  4, 16, 38, NULL, ORD(ORD_OFFICE), 1, NULL, PAT_BRASS, 1.27f, SC_OFFICE, 7, office_step, 3.0f },
-    [MU_RUN1B]     = { 80.0f,  4, 16, 38, NULL, ORD(ORD_GOTHIC), 1, NULL, PAT_BRASS, 1.08f, SC_GOTHIC, 8, gothic_step, 3.0f },
-    [MU_RUN1C]     = { 72.0f,  4, 16, 38, NULL, ORD(ORD_OSSUARY), 1, NULL, PAT_GLASS, 1.06f, SC_OSSUARY, 8, ossuary_step, 6.0f },
-    [MU_RUN1D]     = { 96.0f,  4, 16, 38, NULL, ORD(ORD_DESCENT), 1, NULL, PAT_BRASS, 1.23f, SC_DESCENT, 8, descent_step, 3.0f },
-    [MU_RUN1E]     = { 50.0f,  6, 12, 38, NULL, ORD(ORD_ESTAMPIE), 1, NULL, PAT_REED, 1.26f, SC_ESTAMPIE, 8, estampie_step, 4.0f },
+    [MU_CRYPTS]    = { 80.0f,  4, 16, 38, NULL, ORD(ORD_GOTHIC), 1, NULL, PAT_BRASS, 1.08f, SC_GOTHIC, 8, gothic_step, 3.0f },
+    [MU_CATACOMBS] = { 96.0f,  4, 16, 38, NULL, ORD(ORD_DESCENT), 1, NULL, PAT_BRASS, 1.23f, SC_DESCENT, 8, descent_step, 3.0f },
+    [MU_LAMP]      = { 50.0f,  6, 12, 38, NULL, ORD(ORD_ESTAMPIE), 1, NULL, PAT_REED, 1.26f, SC_ESTAMPIE, 8, estampie_step, 4.0f },
+    [MU_OFFICE]    = { 64.0f,  4, 16, 38, NULL, ORD(ORD_OFFICE), 1, NULL, PAT_BRASS, 1.27f, SC_OFFICE, 7, office_step, 3.0f },
+    [MU_OSSUARY]   = { 72.0f,  4, 16, 38, NULL, ORD(ORD_OSSUARY), 1, NULL, PAT_GLASS, 1.06f, SC_OSSUARY, 8, ossuary_step, 6.0f },
 };
 #undef MEL
 #undef ORD
 
-static int run_piece(int mu) { return (mu >= MU_CRYPTS && mu <= MU_DEEP) || (mu >= MU_RUN1A && mu <= MU_RUN1E); }
+static int run_piece(int mu) { return (mu >= MU_CRYPTS && mu <= MU_DEEP) || mu == MU_OFFICE || mu == MU_OSSUARY; }
 static int run_guise(int mu) { return mu >= MU_CRYPTS && mu <= MU_DEEP ? mu - MU_CRYPTS : 0; }   /* the menus' tune in the run's guise */
 static void player_start(Player *p, int piece, int bus) {
     const Piece *P = &PIECES[piece];
@@ -3344,7 +3239,7 @@ void snd_set_track(int mu) {
 void snd_set_place(int place) { LOCK(); g_place = place < 0 ? 0 : place > 2 ? 2 : place; UNLOCK(); }
 void snd_set_menu(int on) {
     LOCK();
-    if (on) g_menu_mu = on == 3 ? MU_TITLE : MU_MENU;
+    if (on) g_menu_mu = on == 3 ? MU_TITLE : on == 4 ? MU_LAMP : MU_MENU;
     if (on && !g_menu_req) { g_menu_req = 1; g_menu_wait = on == 2 ? 0.5f : 0.15f; }
     else if (!on) g_menu_req = g_menu = 0;
     UNLOCK();

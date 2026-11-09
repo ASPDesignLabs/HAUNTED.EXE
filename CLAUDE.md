@@ -275,8 +275,9 @@ tracker's arpeggio, twelve new instruments, 64 voices and pieces written as text
 and all placed by the owner: the habanera is her hall's (`MU_MERCHANT`; 1.0.0b15's retired), the alley cat plays there after a
 perfect level (`MU_PERFECT`, `RUN.perfect`), the lament ground while the ledger is opened (`MU_TITLE`, for a title screen when
 there is one), the waltz (`MU_SPECIAL`) and the nocturne (`MU_ENDING`) wait unused. Run I's five attempts, each written with its
-fight (`MU_RUN1A`-`MU_RUN1E`, `sh tools/music.sh run1`), wait for the owner's ear (its step 2); the game still plays 1.0.0b15's
-run I piece. Harness only. Its hand-off log is at its end: read it first.
+fight, were heard and three placed: the ill-fated is run I's piece (`MU_CRYPTS`), the descent run II's (`MU_CATACOMBS`), the
+estampie plays while the Lampstand or ascending is open (`MU_LAMP`); the office and the ossuary are kept, unused. 1.0.0b15's
+run I and run II pieces are retired. Harness only. Its hand-off log is at its end: read it first.
 
 ## Working with the owner
 
@@ -315,7 +316,7 @@ run I piece. Harness only. Its hand-off log is at its end: read it first.
 | `tools/gallery.sh`, `docs/gallery/` | The page's *Then and now*: the same moments in 1.0.0b1, 1.0.0b13 and this build, each from its own build of the harness (old ones in worktrees under `build/gallery/`), as single 320x200 frames; `build_site.sh` copies them to `img/gallery/` |
 | `tools/uisheet.c`, `tools/uishots.sh` | The screens' sheet for approval (`make sheets`; `build/uisheet fit` checks the pane's text fits), and every screen from the harness as contact sheets |
 | `tools/host.c` | The headless test harness (Linux): PNG frames, WAV audio, benchmarks, scripted input |
-| `tools/music.sh` | CATACOMB's pieces for the ear (docs/PLAN-music.md): each piece, and each run's through a fight, the failing and a menu, into `build/music/`; `hall`, her hall's pieces (docs/PLAN-music-work.md) |
+| `tools/music.sh` | CATACOMB's pieces for the ear (docs/PLAN-music.md): each piece, and each run's through a fight, the failing and a menu, into `build/music/`; `hall`, her hall's pieces and the Lampstand's; `spare`, run I's attempts kept unused (docs/PLAN-music-work.md) |
 | `src/web_main.c`, `web/` | The browser's shell (docs/PLAN-web.md): the game's exported door, and the play page, its script and the sound worklet; `make web` (Emscripten) builds `build/web`, `make webzip` the release's `HAUNTED-<version>-web.zip`; `HVS_WEB` makes Space the cast key in `scene_crawl.c` |
 | `tools/web_smoke.js` | The browser build's smoke test in Playwright's Chromium (`node tools/web_smoke.js <site> [secs] [shots]`; CI runs it) |
 | `tools/build_site.sh` | Assembles the Pages site from `site/` and `docs/*.png`, fills `@VERSION@` and the title card |
@@ -347,8 +348,8 @@ build/host wav   <scene> <seconds> out.wav [sfx_id@time ...]   # sfx_id: the SFX
 build/host dump  <scene> <seconds> <prefix> <every_n_s>       # frames and audio together
 build/host bench <scene> <seconds>                            # ms per frame, every frame drawn
 build/host music <piece> <seconds> out.wav [event@t ...]    # a piece alone (crypts, catacombs, hollows, deep, merchant,
-                                                              # perfect, title, special, ending, run1a-e, menu1-4) through fight0-3,
-                                                              # frail/well, menu/title/back,
+                                                              # perfect, title, special, ending, lamp, office, ossuary, menu1-4)
+                                                              # through fight0-3, frail/well, menu/title/lamp/back,
                                                               # trial/untrial, place0-2, run1-4 (docs/PLAN-music.md); prints
                                                               # any score faults; HOST_DRIPS=0, HOST_MUTE=mask (PLAN-music-work)
 build/host apl   <scene> <seconds>                            # average picture level; fast (draws twice a second), good for long sims;
@@ -614,8 +615,10 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   fanfare and the stinger (`BUS_SFX`) play over either.
 - **The music** (1.0.0b15, docs/PLAN-music.md; `src/snd.c` after the waltzes). A piece (`Piece`: pace, metre, root, four
   sections of eight bars as `MSec`, chords and a tune as `MNote`, an order, a step function, a gain) runs on a `Player` of
-  its own clock and bus: the run's (`PL_RUN`, `BUS_RUN`; `crypts_step`, `catac_step`, `hollows_step`, `deep_step`), her
-  hall's (`merch_step`, `BUS_SHOP`) and the menus' (`menu_step`, `BUS_MENU`, `g_menu_var` the run's guise). Voices and drums
+  its own clock and bus: the run's (`PL_RUN`, `BUS_RUN`; runs I and II are scored pieces since docs/PLAN-music-work.md,
+  `gothic_step` and `descent_step`, runs III and IV still `hollows_step`, `deep_step`), her hall's (`habanera_step`, or
+  `swing_step` after a perfect level, `BUS_SHOP`) and the menus' (`menu_step`, `BUS_MENU`, `g_menu_var` the run's guise; the
+  ledger's opening plays `ground_step`, the Lampstand and ascending `estampie_step`). Voices and drums
   carry a layer (`LY_BASE`, `LY_FIGHT`, `LY_COLOUR`, set by `g_vlayer`). `music_tick` (once a sample) fades the buses
   (`g_busg`; `g_alive` a bus that is or is coming in, whose voices aren't cut) and runs the clocks: the run's stops in her
   hall and under a menu. The run's player takes the fight on a beat and lets it go at a bar line (`player_step`: a crash

@@ -8,10 +8,11 @@ that whoever picks the work up can follow it: what the owner asked, what they ch
 - **Her hall: done, harness only.** Five pieces were written and heard by the owner, who gave every one of them a place
   (below). In the game: the habanera is her hall's, the alley cat plays there after a perfect level, the lament ground
   while the ledger is opened to choose a page. The waltz and the nocturne are kept in the code, unused.
-- **Run I and its fight: five attempts written** (step 2 below), each with its fight's three levels, rendered and sent to
-  the owner. The game plays 1.0.0b15's piece for run I until one is chosen.
-- Runs II-IV, the menus and the bosses' waltzes come after, the same way, if the owner wants them.
-- Nothing here has been heard on a real machine but the five renders the owner listened to.
+- **Run I and its fight: done, harness only.** Five attempts were written and heard; the owner placed three: the ill-fated
+  is run I's piece, the descent replaces run II's, the estampie plays while the Lampstand or ascending is open. The office
+  and the ossuary are kept, unused. 1.0.0b15's run I and run II pieces are retired.
+- Runs III-IV, the menus and the bosses' waltzes come after, the same way, if the owner wants them.
+- Nothing here has been heard on a real machine but the renders the owner listened to.
 
 ## What the owner asked (9 November)
 
@@ -72,12 +73,13 @@ The old run pieces, the menus' tune and the screensaver render bit for bit as be
   `start_level`. `music_frame` says `snd_set_shop(RUN.perfect ? MU_PERFECT : MU_MERCHANT)` before her place; the piece
   changes only at her next visit. Debug: `CRAWL_PERFECT=1` (every level counted perfect), `EVENT music hall
   merchant|perfect`.
-- `music_frame`'s menu is 3 while `UI_LEDGER` is open in `led_mode` 1 (opening), wherever it is.
+- `music_frame`'s menu is 3 while `UI_LEDGER` is open in `led_mode` 1 (opening), wherever it is; 4 while `UI_ALIGN`,
+  `UI_ASCEND` or `UI_STONES` is open (`snd_set_menu(4)`, the estampie). Debug: `EVENT music menu 3|4`.
 
 ## The steps
 
 1. **Her hall** (done): five attempts, the owner's choice, wired in. Harness only.
-2. **Run I and its fight** (written, waiting for the owner's ear): five attempts at run I's piece, each written with its fight's three levels (what
+2. **Run I and its fight** (done, the owner's choice wired in): five attempts at run I's piece, each written with its fight's three levels (what
    comes in at each, and the pace a twentieth quicker a level, as before), rendered calm and through a fight that grows,
    ends and fails. The owner picks; the chosen one takes `MU_CRYPTS`'s place.
 3. Whatever the owner asks next (runs II-IV, the menus' guises, the bosses).
@@ -92,13 +94,30 @@ The old run pieces, the menus' tune and the screensaver render bit for bit as be
 | The lament ground | G minor, 3/4, 72 | a passacaglia on the falling bass G, F, E-flat, D | the ground alone, the oboe's theme, violin and oboe, the ground made chromatic under a choir, divisions, everything with organ and timpani, the chromatic ground quietly | 2:40 |
 | The midnight nocturne | D-flat major, 4/4, 66 | a concert harp rolling wide chords; music box, cello, glass, celesta, a choir; no drums | intro, A, A, B (B-flat minor on glass), C (chords sliding by whole tones), A, coda | 2:40 |
 
+## What the owner chose for run I (9 November)
+
+"run1b and its combat music is amazing, the exact kind of thing I was looking for" (1.0.0b15's run I piece had felt like a
+lullaby). They heard the five and placed three:
+
+| Piece | Its place | In the code |
+|---|---|---|
+| B, the ill-fated | run I's piece, with its fight (1.0.0b15's is retired) | `MU_CRYPTS`, `SC_GOTHIC`, `gothic_step` |
+| D, the descent | run II's piece, with its fight (1.0.0b15's drowned barcarolle is retired) | `MU_CATACOMBS`, `SC_DESCENT`, `descent_step` |
+| E, the estampie | while the Lampstand is open (`UI_ALIGN`) and while ascending (`UI_ASCEND`, and `UI_STONES` on the way in) | `MU_LAMP`, `SC_ESTAMPIE`, `estampie_step` |
+| A, the office of the dead | kept, unused | `MU_OFFICE`, `SC_OFFICE`, `office_step` |
+| C, the ossuary | kept, unused | `MU_OSSUARY`, `SC_OSSUARY`, `ossuary_step` |
+
+Taken as defaults: the descent stays in D minor (run I's key too) as it was heard; the menus' tune keeps its run II guise
+(the harp under water, in C minor). The estampie plays on the menus' bus, so her piece waits under it and takes up again
+where it stopped when the screen closes; it begins from its top each time.
+
 ## Run I's attempts (step 2)
 
 Each is D minor or its modes, as run I's piece has been, and each is written with its fight: the fight's layer (`LY_FIGHT`)
 comes in on a beat at level 1 and grows to 3, the pace a twentieth quicker a level, a crash and a timpani stroke going in
 and a closing chord at a bar line coming out, as 1.0.0b15's pieces do (`player_step`); what each level adds is the
 piece's own. The failing (the low-pass, the colour thinned, the heartbeat) and the menus are as before. Candidates are
-`MU_RUN1A`-`MU_RUN1E` (`run_piece`); the game keeps `MU_CRYPTS` until the owner chooses.
+were `MU_RUN1A`-`MU_RUN1E` until the owner chose (`run_piece` says which pieces the run's player may take).
 
 | | Piece | Key, metre, pace | Calm | Fighting: level 1, 2, 3 | Length |
 |---|---|---|---|---|---|
@@ -108,8 +127,9 @@ piece's own. The failing (the low-pass, the colour thinned, the heartbeat) and t
 | D | The descent | D minor (its flat second in the B part), 4/4, 96 | the dungeon crawlers' music of the AdLib's day: a harpsichord's pluck running the chords in sixteenths, a pad, a bass in eighths, the tune on brass; a B part on the flute; a bridge where a cello sings over a walking bass | the chip's bass drum and snare; hats, the bass galloping, brass struck on the off-beats; hats in sixteenths, cymbals, a muted trumpet on the tune, the toms' fill | 2:30 |
 | E | The estampie of the bone choir | D Dorian, 6/8, 50 the dotted beat | a consort: a hurdy-gurdy's drone, a lute striking the chord on each beat and picking between, a recorder; the dance in puncta played twice, open then closed; the third on a shawm; a slow interlude on a viol with an E-flat in it | the tabor's full rhythm and a tambourine; the shawm with the tune, a frame drum, a psaltery running the chords; the tambourine shaken through, the psaltery with the tune, the viol on the drone | 2:20 |
 
-`sh tools/music.sh run1` renders each once through calm (`run1a.mp3` ...) and through a fight (`run1a-fight.mp3`: calm,
-fight 1 at 15 s, 2 at 40 s, 3 at 65 s, over at 95 s, failing from 105 s to 125 s).
+They were rendered once through calm and through a fight (calm, fight 1 at 15 s, 2 at 40 s, 3 at 65 s, over at 95 s,
+failing from 105 s to 125 s). Now `sh tools/music.sh crypts` and `catacombs` render runs I and II as any run's piece,
+`hall` the estampie (`lamp`) with her hall's, and `spare` the two kept unused.
 
 Checked as her hall's were: no score faults; the clash check (what is left is meant: the chant's flat-sixth neighbour,
 a flat ninth on A7); the balance calm and at the fight's height (tunes 0-5 dB under the mix, basses 7-10, pads 8-14,
@@ -126,7 +146,9 @@ one 1.5); peak voices 13-45 of 64.
   7-10, chords and pads 8-12, drums 10-14. Each piece's loudness matched to the old habanera's (-18.3 LUFS).
 - Peak voices 15-45 of 64, none stolen; the synth about 2.7% of a core in her hall (1.5% before). ASan and UBSan clean
   over all five, leaving her hall and coming back. `make smoke` passes.
-- In the game (the debug build): her hall's piece is the habanera, and the alley cat after a level counted perfect.
+- In the game (the debug build): her hall's piece is the habanera, and the alley cat after a level counted perfect; the
+  ledger's opening brings the lament ground and Esc's question the menus' tune again; the Lampstand and ascending bring
+  the estampie, her menu keeps the habanera; runs I and II play the ill-fated and the descent, fights coming and going.
 
 ## How to hear them
 
@@ -142,3 +164,7 @@ one 1.5); peak voices 13-45 of 64.
   helpers `sc_root`, `sc_figure`, `sc_stab`, `sc_late`, `timp_hz`), harness only, rendered and sent. Next: the owner's choice;
   the chosen one takes `MU_CRYPTS`'s place (the menus' tune keeps its guise for run I), the others go or are kept as the
   owner says.
+- **9 November, step 2 wired**: the owner's choice in: the ill-fated is run I's (`MU_CRYPTS`), the descent run II's
+  (`MU_CATACOMBS`), the estampie the Lampstand's and ascending's (`MU_LAMP`, `snd_set_menu(4)`); the office and the ossuary
+  kept (`MU_OFFICE`, `MU_OSSUARY`); 1.0.0b15's `crypts_step` and `catac_step` retired (the D chords stay for the menus'
+  tune). Harness only. Next: whatever the owner asks (runs III and IV, the menus, the bosses).

@@ -32726,6 +32726,7 @@ static void music_frame(float dt) {
     MUS.place = place;
     int menu = 0;                                                  /* not the console, nor the map: the crypt runs under those */
     if (G.ui == UI_LEDGER && G.led_mode) menu = 3;                 /* a page to open, here or in her hall: the lament ground */
+    else if (G.ui == UI_ALIGN || G.ui == UI_ASCEND || G.ui == UI_STONES) menu = 4;   /* the Lampstand, or ascending: the estampie */
     else if (G.ui != UI_NONE && !(G.shop && her_screen(G.ui))) menu = G.ui == UI_WISPS ? 2 : 1;
     snd_set_menu(menu);
 #ifdef CRAWL_DEBUG

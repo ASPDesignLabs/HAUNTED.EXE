@@ -245,8 +245,9 @@ int main(int argc, char **argv) {
     }
     if (!strcmp(cmd, "music")) {
         /* host music <piece> <seconds> out.wav [event@t ...]: a piece of CATACOMB's alone (docs/PLAN-music.md).
-         * Pieces: crypts, catacombs, hollows, deep, merchant, perfect, title, special, ending, run1a-run1e (run I's
-         * attempts; docs/PLAN-music-work.md), menu1-menu4. Events: fight0-fight3, frail, well, menu, title (the ledger opened), back, trial, untrial, place0-place2, run1-run4 (the
+         * Pieces: crypts, catacombs, hollows, deep, merchant, perfect, title, special, ending, lamp, office, ossuary
+         * (docs/PLAN-music-work.md), menu1-menu4. Events: fight0-fight3, frail, well, menu, title (the ledger opened), lamp
+         * (the Lampstand or ascending), back, trial, untrial, place0-place2, run1-run4 (the
          * run's piece), as name@seconds. HOST_DRIPS=0 leaves out the cave's drips and moans; HOST_MUTE=mask the patches
          * by number (bit 63 the pieces' drums), to weigh a mix. */
         static const char *PN[] = { "none", "crypts", "catacombs", "hollows", "deep" };
@@ -258,7 +259,8 @@ int main(int argc, char **argv) {
         snd_fade_master(1.0f, 0.01f);
         int mu = MU_CRYPTS;
         for (int i = 0; i < 5; i++) if (!strcmp(piece, PN[i])) mu = i;
-        if (!strncmp(piece, "run1", 4) && piece[4] >= 'a' && piece[4] <= 'e' && !piece[5]) mu = MU_RUN1A + piece[4] - 'a';   /* run I's attempts */
+        if (!strcmp(piece, "office")) mu = MU_OFFICE;              /* run I's attempts the owner kept */
+        if (!strcmp(piece, "ossuary")) mu = MU_OSSUARY;
         if (!strncmp(piece, "menu", 4) && piece[4] >= '1' && piece[4] <= '4') mu = MU_CRYPTS + piece[4] - '1';
         const char *err = snd_check();
         if (err) fprintf(stderr, "music: faults in the scores:\n%s", err);
@@ -269,6 +271,7 @@ int main(int argc, char **argv) {
         if (!strcmp(piece, "merchant")) snd_set_place(1);
         static const char *HN[] = { "perfect", "title", "special", "ending" };   /* her hall's others, played as her hall plays them */
         for (int i = 0; i < 4; i++) if (!strcmp(piece, HN[i])) { snd_set_shop(MU_PERFECT + i); snd_set_place(1); }
+        if (!strcmp(piece, "lamp")) { snd_set_shop(MU_LAMP); snd_set_place(1); }
         if (!strncmp(piece, "menu", 4)) {                         /* the run's piece gives way first: that second isn't kept */
             static int16_t pre[SND_RATE * 2];
             snd_set_menu(1);
@@ -294,6 +297,7 @@ int main(int argc, char **argv) {
                 else if (!strcmp(e, "well")) snd_set_frail(0);
                 else if (!strcmp(e, "menu")) snd_set_menu(1);
                 else if (!strcmp(e, "title")) snd_set_menu(3);
+                else if (!strcmp(e, "lamp")) snd_set_menu(4);
                 else if (!strcmp(e, "back")) snd_set_menu(0);
                 else if (!strcmp(e, "trial")) snd_set_trial(1);
                 else if (!strcmp(e, "untrial")) snd_set_trial(0);
