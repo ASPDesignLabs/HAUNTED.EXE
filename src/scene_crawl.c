@@ -164,6 +164,7 @@ typedef struct {
                                                                       its is under way; the creatures' part ORs them in */
     int c4, c4n; float c4_t, c4_cd, c4a, c4x, c4y;                 /* C4's attacks: which is under way (C4_*), bones thrown; its clock,
                                                                       the wait before the next, its aim and where it began */
+    int pyre;                                                      /* Pyre (1.0.0b21): it has passed its burning on, once */
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     int elem;                                                      /* 1 + the element it was born to (section 7.4), 0 none: set by D,
@@ -175,6 +176,8 @@ typedef struct {
     int chl_n, frz_was;                                            /* Chilled stacks; frozen last frame (thawing takes the stacks) */
     float corner_t;                                                /* the Wraith: how long it has been driven back into a corner it
                                                                       can't leave (wraith_cornered) */
+    float bld_t, bld_dps, bld_acc;                                 /* D7, Barbed: its bleed's time left, harm a second, harm owed */
+    float stb_t; int stb_n;                                        /* D7, Static Build: since lightning last struck it, the strikes */
     /* the dead's track (D) ends */
 } Mob;
 /* What the two tracks share (docs/PLAN-combat.md, section 17.3). Change any of it only as that section says. The statuses, the
@@ -215,6 +218,21 @@ static float class_extra(int what);
 static int blow_survived(int kind);
 static float class_cap(int st);                                    /* 1.0.0b20, the owner's caps by class (docs/BRIEF-caps.md): how far
                                                                       the class lifts stat st's cap, in its units; D's, a stub till then */
+static float gear_cut(int k);                                      /* 1.0.0b21 (D6, section 12): the share what is worn takes off status k's
+                                                                      chance and length on the caster (Steadiness on Knocked Down, Stunned and
+                                                                      Frozen; the Headsman's Block on Knocked Down), added to Agility's under its
+                                                                      cap in conf_cut; D's, a stub till then */
+static void abil_short(int ab, float a, char *buf, int n);         /* and an ability's few words on Tab's caster page (D's) */
+/* 1.0.0b21 (section 17.3): the spells' augments (section 11; C6 the frame and Fire's, D7 the other five lines'). Each line has three
+ * steps with a pair at each, one of which the caster chooses at the Lampstand: its opening, its ability, its ultimate (AUG_OPEN,
+ * AUG_ABIL, AUG_ULT). aug_of(e, t): which of the pair is chosen at step t of line e (0 none, 1 the first, 2 the second);
+ * aug_rank(e, t): its rank, 0-3, from the line's credits; aug_k(e, t, w): 0 unless w is the one chosen, else 0.5, 0.75 or 1 by its
+ * rank (A8: the guide's numbers are rank III's). C6 fills them. The hooks that hand each line its say are after Shot */
+enum { AUG_OPEN, AUG_ABIL, AUG_ULT, NAUGT };
+enum { AUGQ_CHANCE, AUGQ_HARM };                                   /* aug_af's two questions: a status's chance, its harm */
+static int aug_of(int e, int t);
+static int aug_rank(int e, int t);
+static inline float aug_k(int e, int t, int w);
 /* a pack (docs/PLAN-ai.md, sections 5-6): its kind (PA_*), its members, the one that leads it, how many it began with; its
  * state (PAS_*), the one calling and how long the call has to run; when one of it last saw the caster, and where; its
  * turns: those engaged now, their health as their turn began, the one relieved last, and when the turn changes */
@@ -550,8 +568,48 @@ static int font_drink(int i);
 static Mob *boss_mob(void);
 static void hz_clear(void);
 
-typedef struct { int alive, kind, target; float x, y, z, vx, vy, life, dmg; uint64_t pierced; int tier; float arc; uint16_t mkhit; } Shot;   /* tier: the rank
-                                                                                 it was cast at; arc: a lob's whole flight (the Blight Flask), 0 straight */
+typedef struct { int alive, kind, target; float x, y, z, vx, vy, life, dmg; uint64_t pierced; int tier; float arc; uint16_t mkhit; float scale; } Shot;   /* tier: the rank
+                                                                                 it was cast at; arc: a lob's whole flight (the Blight Flask), 0 straight;
+                                                                                 scale (1.0.0b21): its size, 0 as drawn (a held bolt grown, an augment's) */
+/* The augments' hooks (17.3, 1.0.0b21): called where a line's spell is cast, flies, strikes, burns and kills, each handing the line
+ * to its own track's handler (Fire's the caster's track's; the other five lines' D7's, augd_* in the dead's track's marked block).
+ * With no augment chosen they change nothing, so a line without one plays as before.
+ *   aug_cost(sp)               what the line's augments add to the spell's spirit, a share (0.3 is 30% more; A7: they add up)
+ *   aug_dmg(sp)                a multiplier on the spell's damage as it is cast (cast_spell, cast_charged)
+ *   aug_cast(sp, s, t)         a shot just made by the line's spell (s NULL for lightning and the drain, after they strike; t the
+ *                              target or -1); it may change the shot (dmg, speed, life, scale) and make more
+ *   aug_hit(m, atk, flags, d)  a hit in damage_mob, after its weaknesses and before its health; it may change *d
+ *   aug_af(m, atk, q)          a multiplier on the status the hit rolls in el_status: AUGQ_CHANCE its chance, AUGQ_HARM its harm
+ *   aug_kill(m, atk, flags)    a creature killed by the line (flags as damage_mob had them: DM_TICK a burn's or poison's tick);
+ *                              the caster's track banks the line's credit here too
+ *   aug_tick(m, dt)            each creature, each step, from mob_afflict (a burning that spreads, a bleed)
+ *   aug_fly(s, dt)             each shot in flight, from update_shots (a trail)
+ * The same with the line first (augd_*, e the line) are the dead's track's for its five; augd_built(e) says which of its lines'
+ * augments are built, so the Lampstand offers them */
+static float aug_cost(int sp);
+static float aug_dmg(int sp);
+static void aug_cast(int sp, Shot *s, int t);
+static void aug_hit(Mob *m, int atk, int flags, float *dmg);
+static float aug_af(const Mob *m, int atk, int q);
+static void aug_kill(Mob *m, int atk, int flags);
+static void aug_tick(Mob *m, float dt);
+static void aug_fly(Shot *s, float dt);
+static float augd_cost(int e, int sp);
+static float augd_dmg(int e, int sp);
+static void augd_cast(int e, int sp, Shot *s, int t);
+static void augd_hit(int e, Mob *m, int atk, int flags, float *dmg);
+static float augd_af(int e, const Mob *m, int atk, int q);
+static void augd_kill(int e, Mob *m, int atk, int flags);
+static void augd_tick(Mob *m, float dt);
+static void augd_fly(int e, Shot *s, float dt);
+static int augd_built(int e);
+__attribute__((unused)) static const char *augd_name(int e, int t, int w);   /* D's (D7's contract, 9 November): the name of
+                                                                      augment w (1, 2) at step t of line e, one of the dead's track's
+                                                                      five; "" for Fire or none (unused till C6's Lampstand reads it) */
+__attribute__((unused)) static void augd_does(int e, int t, int w, float k, char *buf, int n);   /* and what it does at a rank's
+                                                                      share k (0.5, 0.75, 1; 0 as at rank III), its numbers in it */
+static float dk(int e, int t, int w);                              /* D7's own, not the contract: augment w at step t of line e, its
+                                                                      rank's share (aug_k, or CRAWL_AUGD in the debug build) */
 typedef struct { int alive, kind; float x, y, vx, vy, life, spin, dmg, life0; int from, atk; Blame by; int el1; } Bone;   /* life0: an ember's whole flight; from: its thrower;
                                                                                                     atk: a turned spell's kind;
                                                                                                     el1: 1 + its element (PLAN-combat) */
@@ -605,7 +663,8 @@ typedef struct {
 #define MAXTRAILS 12
 #define MAXVENOM 40
 #define MAXMOTES 24
-typedef struct { int alive; float x, y, t, souls; } SoulMote;   /* a soul where it fell: six seconds, taken within 1.2 cells */
+typedef struct { int alive; float x, y, t, souls, fly; } SoulMote;   /* a soul where it fell: six seconds, taken within 1.2 cells;
+                                                                      fly: Shepherd's (D7), coming to you so many cells a second */
 #define MOTE_LIFE 6.0f
 #define MOTE_REACH 1.2f
 enum { CXM_SAP = 1 };                       /* RUN.cx_more: what else the Codex has met (1.0.0b11): Soul Sap */
@@ -819,6 +878,10 @@ static struct {
     int atone, xp, points;
     uint16_t steps[NLINE]; uint8_t over[NLINE];
     uint8_t conf[NCONF], conf_over[NCONF];  /* 1.0.0b20: the points in each Confession (150 makes rank V), its overlevels past V */
+    uint8_t aug[NELEM][NAUGT], aug_ord[NELEM][NAUGT];   /* 1.0.0b21, the augments (section 11): which of each step's pair is chosen
+                                               (0 none, 1, 2) and in what order (1 the first chosen), its credits, and each line's bank of
+                                               credits not yet spent (LG_AUG; a death that costs and an unbinding take them) */
+    uint16_t aug_cr[NELEM][NAUGT], aug_bank[NELEM];
     int ap_overs, old_lines;                /* overlevels whose Alignment Point an old line already gave (paid back as overlevels to
                                                choose again); the old lines paid back as points, still to be said (not saved) */
     int corner, wind_spent, wind_run;
@@ -1160,6 +1223,8 @@ static struct {
                                                                       press (100 + the Confession), -1 none; a key held, the points
                                                                       it has given and when it went down (-1 not held) */
     float cf_rep0;
+    int al_aug, al_augs;                                           /* 1.0.0b21, the Lampstand: the pair of an augment's step shown (1 + the
+                                                                      step, 0 none), and which of the two the eye is on */
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     int lb_spent;                                                  /* 1.0.0b20: Constitution's killing blow lived this level (D5, */
@@ -1167,6 +1232,10 @@ static struct {
     int rst_sel, rst_on;                                           /* Restoration (10.3): in hand in place of the spell; channelling */
     float rst_t, rst_acc, rst_k, rst_snd, rst_spent;               /* the press held, health owed, the glow, a breath's sound, souls */
     int rst_healed;                                                /* spent and health given this channel */
+    int d7_lg;                                                     /* D7: Lingering Hunger's 1 + the creature the beam holds, its time */
+    float d7_lg_t, d7_lg_dps, d7_lg_acc, d7_lg_beam;               /* left, harm a second, harm owed, the beam's next drawing */
+    float d7_drained, d7_zap, d7_spear, d7_shep;                   /* the drain's last hit, the bolt's, the spear's; Shepherd's pace for */
+    int d7_splint;                                                 /* the motes a kill now leaves; a splinter striking */
     /* the dead's track (D) ends */
 } G;
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
@@ -1284,8 +1353,10 @@ static void rumble(float low, float high, float secs) {
 #endif
 #define CAST_HIT (IN.hit[KEY_MOUSE1] || (WEB && IN.hit[KEY_SPACE]))     /* what spends a press: no cast till it is let go */
 #define CAST_UP (!IN.down[KEY_MOUSE1] && !(WEB && IN.down[KEY_SPACE]))
-static const char *const PK_KEY[] = { "ENTER", "ESC", "E", "W/S", "WASD", "A/D", "TAB", "SPACE", "Q", "B", "C", "L", "1-9", "CLICK", "M", "RIGHT-CLICK" };
-static const char *const PK_PAD[] = { "\1A", "\1B", "\1A", "D-PAD", "D-PAD", "LB/RB", "VIEW", "\1Y", "\1X", "\1B", "\1B", "\1Y", "D-PAD DOWN", "RT", "D-PAD UP", "RB" };
+static const char *const PK_KEY[] = { "ENTER", "ESC", "E", "W/S", "WASD", "A/D", "TAB", "SPACE", "Q", "B", "C", "L", "1-9", "CLICK", "M", "RIGHT-CLICK",
+                                      "BACK" };
+static const char *const PK_PAD[] = { "\1A", "\1B", "\1A", "D-PAD", "D-PAD", "LB/RB", "VIEW", "\1Y", "\1X", "\1B", "\1B", "\1Y", "D-PAD DOWN", "RT", "D-PAD UP", "RB",
+                                      "\1X" };   /* BACK: X in a menu (1.0.0b21) */
 static const char *pk(const char *s) {
     static char buf[8][240];
     static int at;
@@ -1303,7 +1374,7 @@ static const char *pk(const char *s) {
             if ((int)strlen(PK_KEY[i]) == (int)(b - a) && !strncmp(a, PK_KEY[i], (size_t)(b - a))) key = i;
         if (key < 0) { while (s < e && n < 230) o[n++] = *s++; continue; }
         while (s < a) o[n++] = *s++;
-        static const int8_t PK_JOB[16] = { -1, -1, PAD_A, -1, -1, -1, -1, -1, PAD_X, -1, -1, PAD_Y, PAD_DOWN, PAD_RT, PAD_UP, PAD_RB };
+        static const int8_t PK_JOB[17] = { -1, -1, PAD_A, -1, -1, -1, -1, -1, PAD_X, -1, -1, PAD_Y, PAD_DOWN, PAD_RT, PAD_UP, PAD_RB, -1 };
         const char *pw = PK_PAD[key];                              /* in play, the button that has the key's job now (1.0.0b18.1) */
         if (G.ui == UI_NONE && PK_JOB[key] >= 0) pw = PAD_WORD[pl_on(PK_JOB[key])];
         for (const char *p = pw; *p && n < 230; p++) o[n++] = *p;
@@ -4253,6 +4324,9 @@ static int c4_volleys, c4_charges, c4_charge_hits, c4_downs, c4_spews, c4_spew_h
 /* the caster's track (C) ends */
 /* the dead's track (D): */
 static int wraith_cornered_n;                                      /* the Wraith gone into the stone from a corner */
+static int wire_arcs, sin_souls, block_bones;                      /* D6: Live Wire's sparks, Swallowed Sin's souls, the Block's bones */
+static int aug_claps, aug_snaps, aug_splinters, aug_rains, aug_bones, aug_lingers, aug_twins, aug_echoes, aug_conducts,
+           aug_clusters, aug_miasmas, aug_pests;                   /* D7: the five lines' augments at work */
 /* the dead's track (D) ends */
 #endif
 static int hurt_by(const Mob *m, float dmg, int kind) {
@@ -4461,13 +4535,17 @@ static void spawn_mote(float x, float y, float souls) {            /* left where
         }
     int k = 0;
     for (int i = 0; i < MAXMOTES; i++) { if (!G.motes[i].alive) { k = i; break; } if (G.motes[i].t > G.motes[k].t) k = i; }   /* or the oldest goes */
-    G.motes[k] = (SoulMote){ 1, x, y, 0.0f, souls };
+    G.motes[k] = (SoulMote){ 1, x, y, 0.0f, souls, G.d7_shep };
 }
 static void update_motes(float dt) {
     for (int i = 0; i < MAXMOTES; i++) {
         SoulMote *m = &G.motes[i];
         if (!m->alive) continue;
         if ((m->t += dt) >= MOTE_LIFE) { m->alive = 0; continue; }
+        if (m->fly > 0.0f && m->t > 0.25f && !G.dead) {               /* Shepherd's: it comes to you (D7) */
+            float vx = G.px - m->x, vy = G.py - m->y, d = hypotf(vx, vy) + 1e-4f, st = fminf(d, m->fly * dt);
+            m->x += vx / d * st; m->y += vy / d * st; m->t = fminf(m->t, MOTE_LIFE - 2.5f);
+        }
         if (G.dead || hypotf(m->x - G.px, m->y - G.py) > MOTE_REACH) continue;
         m->alive = 0;
         gain_souls(m->souls);
@@ -4831,8 +4909,10 @@ static void conf_own(float *own, float *up) {                      /* the Confes
     if (worn > 0.0f) own[ST_ARMOR] += worn * gear_total_raw(&RUN.gear, ST_ARMOR);
 }
 static float conf_cut(int k) {                                     /* a share off status k's chance and its length */
-    if (!conf_on() || k < 0) return 0.0f;
-    if (k == AF_DOWN || k == AF_STUN || k == AF_FROZEN) return conf_value(CF_AGILITY, CV_HARD);
+    if (k < 0) return 0.0f;
+    if (k == AF_DOWN || k == AF_STUN || k == AF_FROZEN)            /* Agility's, and what is worn (D6's gear_cut), under the one cap */
+        return fminf((conf_on() ? conf_value(CF_AGILITY, CV_HARD) : 0.0f) + gear_cut(k), 0.9f);
+    if (!conf_on()) return 0.0f;
     if (k == AF_UNBOUND) return conf_value(CF_SPIRIT, CV_UNBOUND);
     return conf_value(CF_SURVIVAL, CV_SOFT);                       /* the rest: fire, chill, poison */
 }
@@ -4865,7 +4945,8 @@ static const ALine ALIGN[NELEM] = {
         { "INSIGHT", 2, NK_INS, 0.15f, 0, "FIRE GATHERS 15% QUICKER A POINT." },
         { "FIRESTARTER", 3, NK_ABIL, 0, 0, "THE FIREBALL SETS THE FLOOR ALIGHT ALONG ITS FLIGHT; WHAT WALKS THROUGH IT CATCHES FIRE." },
         { "EFFICIENCY II", 2, NK_EFF, 0.10f, 0, "FIRE COSTS 10% LESS SPIRIT A POINT." },
-        { "BURNING INTENSITY", 2, NK_STEP, 0.5f, 0, "WHAT BURNS BURNS HALF AS LONG AGAIN, A POINT." },
+        { "SLOW EMBERS", 2, NK_STEP, 0.5f, 0, "WHAT BURNS BURNS HALF AS LONG AGAIN, A POINT." },   /* BURNING INTENSITY till 1.0.0b21: the
+                                                                      name went to Fire's first augment (PLAN-combat A10) */
         { "FLAMEWALKER", 5, NK_ULT, 0, 0, "WALKING THROUGH YOUR FLAMES GIVES YOU HALF YOUR ARMOUR AGAIN FOR FIVE SECONDS." },
         { "INSIGHT II", 2, NK_INS, 0.15f, 0, "FIRE GATHERS 15% QUICKER A POINT." },
         { "FIRE MASTERY", 5, NK_MASTER, 0.25f, 0, "FIRE HITS A QUARTER HARDER." },
@@ -5000,6 +5081,23 @@ static float bone_spared(void) {                                   /* a spear th
     return fminf(0.9f, align_sum(EL_PHYS, NK_EFF) + (cls_el() == EL_PHYS ? 0.2f : 0.0f) + gear_total(&RUN.gear, ST_EFF + EL_PHYS) / 100.0f);
 }
 static int align_has(int e, int n) { return align_open(e) && align_full(e, n) && ALIGN[e].n[n].cost > 0; }   /* an ability, Mastery or ultimate bought */
+static int d6_on(void) {                                           /* the merchant by class (1.0.0b21, D6): the wares by the lines held and the
+                                                                      class, the new stats and the classes' abilities felt; CRAWL_D6=0 in the
+                                                                      debug build puts back 1.0.0b20's, for the balance runs */
+#ifdef CRAWL_DEBUG
+    static int on = -1;
+    if (on < 0) on = !(getenv("CRAWL_D6") && atoi(getenv("CRAWL_D6")) == 0);
+    return on;
+#else
+    return 1;
+#endif
+}
+static float cls_ab(int e, int which) {                            /* a class's ability worn (G5): felt by that class alone */
+    return d6_on() && cls_el() == e ? gear_ability(&RUN.gear, AB_CLASS + e, which) : 0.0f;
+}
+static float st_odds(int el) {                                     /* G3: an element's status chance worn, as a share more */
+    return d6_on() && el >= 0 && el < EL_PHYS ? gear_total(&RUN.gear, ST_CHANCE + el) / 100.0f : 0.0f;
+}
 static void align_sync(void) {                                     /* each line's spell into the spellbook, at its rank */
     for (int e = 0; e < NELEM; e++) {
         int r = align_rank(e);
@@ -5010,6 +5108,7 @@ static void align_sync(void) {                                     /* each line'
         spell_set_line(e, eff, fminf(0.9f, ins), align_power(e) + (mine && e == EL_FIRE ? 0.1f : 0.0f));   /* the Witchfinder's heat */
         gear_set_lean(e, (float)r);                                /* the wares lean to the lines fed, and the dream weighs them so */
     }
+    gear_set_class(cls_el(), d6_on());                             /* and to the class (1.0.0b21, D6) */
     RUN.gear.atk[AT_HELL] = RUN.gear.atk[AT_WISPS] = -1;           /* only the abilities let these loose now */
     spell_set_own(cls_el() >= 0 ? LINE_ATK[cls_el()] : LEDGER.lent ? LINE_ATK[LEDGER.lent - 1] : -1);   /* its first rank free */
     spell_set_atone(RUN.atone);
@@ -5046,6 +5145,9 @@ static int ascend(void) {                                          /* every leve
     RUN.atone = to;
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT ascend to %d (+%d) points %d xp %d by %s t=%.2f\n", to, n, RUN.points, RUN.xp, G.player ? "player" : "autopilot", G.t);
+    int cr[NELEM];                                                 /* each line's augment credits so far, for their pacing (C6, A2 b) */
+    for (int e = 0; e < NELEM; e++) { cr[e] = RUN.aug_bank[e]; for (int t = 0; t < NAUGT; t++) cr[e] += RUN.aug_cr[e][t]; }
+    fprintf(stderr, "AUGCR atone %d level %d credits %d %d %d %d %d %d t=%.2f\n", to, RUN.level, cr[0], cr[1], cr[2], cr[3], cr[4], cr[5], G.t);
 #endif
     return n;
 }
@@ -5144,6 +5246,7 @@ static void auto_align(void) {
 }
 
 static void auto_confess(void);
+static void auto_augment(void);
 static void auto_ascend(void) {                                    /* the autopilot's: a little of everything that keeps it alive */
     if (LEDGER.yours || LEDGER.kept) return;                       /* a person's run: what it buys is theirs to choose */
     ascend();
@@ -5339,6 +5442,16 @@ static float class_extra(int what) {                               /* KX_*: what
     if (e < 0 || !class_sheet_on()) return 0.0f;
     return what == KX_AF_CUT ? CLASS_OWN[e].af_cut : what == KX_SOULS ? CLASS_OWN[e].souls : 0.0f;
 }
+static float gear_cut(int k) {                                     /* D6's (G3, G5): what is worn, off the hard statuses, as Agility's */
+    if (!d6_on() || !(k == AF_DOWN || k == AF_STUN || k == AF_FROZEN)) return 0.0f;
+    return gear_total(&RUN.gear, ST_STEADY) / 100.0f + (k == AF_DOWN ? cls_ab(EL_PHYS, 0) / 100.0f : 0.0f);   /* Steadiness; the Block */
+}
+static void abil_short(int ab, float a, char *buf, int n) {        /* a class's ability on Tab's caster page */
+    static const char *const WD[NELEM] = { "PYREBRAND", "SLAB", "LIVE WIRE", "FEVER", "SWALLOWED SIN", "BLOCK" };
+    int e = clampi(ab - AB_CLASS, 0, NELEM - 1);
+    if (cls_el() != e) snprintf(buf, (size_t)n, "%s: NOT YOURS", WD[e]);
+    else snprintf(buf, (size_t)n, "%s +%.0f%%", WD[e], a);
+}
 /* a killing blow lived (10.4): a blow that would end the caster, not a seep (hurt_ex has asked), not fire, bile or a void stood in,
  * nor a burning floor, a pool or poison; Second Wind has gone first. Constitution's chance, at most once a level (a pocket is a
  * place of its own): the blow lands, health stops at 1, and nothing touches the caster for three seconds, as a Second Wind.
@@ -5380,6 +5493,568 @@ static float armour_cap(void) {                                    /* CRAWL_SHEE
     return !class_sheet_on() ? 1.0f : ARMOUR_CAP + (cls_el() == EL_PHYS ? ARMOUR_CAP_UP : 0.0f);
 }
 /* ---- the dead's track's stubs end ---- */
+
+/* ---- the dead's track (D) owns these bodies (docs/PLAN-combat.md, 17.2 c and 17.3 for 1.0.0b21): the augments of Frost,
+ * Lightning, Poison, Spirit and Physical (section 11.4), e the line; stubs that change nothing till D7 ---- */
+static int spell_tier(int sp);
+static float spell_effect(void);
+static float permafrost(void);
+static int targetable(const Mob *m);
+static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float slow);
+static void add_beam(int kind, float x0, float y0, float z0, float x1, float y1, float z1);
+static void mob_chill(Mob *m, int stacks, int need);
+static int chill_need(void);
+static void mob_stun(Mob *m, float secs);
+static float dk(int e, int t, int w) {
+#ifdef CRAWL_DEBUG
+    static int ov = -1, ch[3], rk = 3;                             /* CRAWL_AUGD=abc: the choice at each step (0 none, 1, 2) on every one
+                                                                      of the five lines; CRAWL_AUGDR=r its rank, 1-3 (3) */
+    if (ov < 0) {
+        const char *a = getenv("CRAWL_AUGD"), *r = getenv("CRAWL_AUGDR");
+        ov = a != NULL;
+        for (int i = 0; i < 3 && a && a[i]; i++) ch[i] = a[i] - '0';
+        if (r) rk = clampi(atoi(r), 1, 3);
+    }
+    if (ov && e > EL_FIRE && e < NELEM && t >= 0 && t < 3) return ch[t] == w ? (rk >= 3 ? 1.0f : rk == 2 ? 0.75f : 0.5f) : 0.0f;
+#endif
+    return aug_k(e, t, w);
+}
+static int aug_show(int k) {                                       /* CRAWL_AUGSHOW=k in the debug build, for the sheet: 1 everything in
+                                                                      sight bleeding, 2 Static Build's three bolts over it, 3 the bursts
+                                                                      and the cloud before you every two seconds, 9 all of them */
+#ifdef CRAWL_DEBUG
+    static int v = -1;
+    if (v < 0) v = getenv("CRAWL_AUGSHOW") ? atoi(getenv("CRAWL_AUGSHOW")) : 0;
+    return v && (v == k || v == 9);
+#else
+    (void)k; return 0;
+#endif
+}
+static void d7_boom(float x, float y, int big, float r);
+static void aug_show_tick(float dt) {                              /* CRAWL_AUGSHOW=3: Cold Snap's burst on the left, Thunderclap's on the
+                                                                      right, Miasma's cloud between, before the caster */
+    static float t;
+    if (!aug_show(3) || G.shop || (t -= dt) > 0.0f) return;
+    t = 2.0f;
+    float ax = cosf(G.ang), ay = sinf(G.ang), lx = -ay, ly = ax;
+    d7_boom(G.px + ax * 1.9f + lx * 0.8f, G.py + ay * 1.9f + ly * 0.8f, 3, 1.9f);
+    d7_boom(G.px + ax * 1.9f - lx * 0.8f, G.py + ay * 1.9f - ly * 0.8f, 4, 1.5f);
+    for (int i = 0; i < MAXVENOM; i++)
+        if (!G.venoms[i].alive) { G.venoms[i] = (Venom){ 1, G.px + ax * 2.2f, G.py + ay * 2.2f, 0.9f, 0.0f, 1.5f, 0.0f, 0.0f, 2 }; break; }
+}
+static Mob *d7_near(const Mob *from, float x, float y, float reach, uint64_t skip) {   /* the nearest other within reach and in sight */
+    Mob *best = NULL; float bd = reach;
+    for (int k = 0; k < MAXMOBS; k++) {
+        Mob *o = &G.mobs[k];
+        if (o == from || (skip >> k & 1) || !targetable(o) || o->ally) continue;
+        float d = hypotf(o->x - x, o->y - y);
+        if (d < bd && line_clear(x, y, o->x, o->y)) { bd = d; best = o; }
+    }
+    return best;
+}
+static void d7_bolt(const Mob *from, float dmg, const char *what) {   /* Forked, Grounding: the bolt leaps on to one more */
+    if (dmg <= 0.0f) return;
+    Mob *o = d7_near(from, from->x, from->y, 3.0f, 0);
+    if (!o) return;
+    add_beam(AT_CHAIN, from->x, from->y, from->z + 0.5f, o->x, o->y, o->z + 0.5f);
+    sfx_at(SFX_ZAP, o->x, o->y, 0.7f);
+    damage_mob(o, dmg, DM_ARC | DM_ATK(AT_CHAIN), from->x, from->y, 0.0f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT aug_%s t=%.2f\n", what, G.t);
+#else
+    (void)what;
+#endif
+}
+static void d7_boom(float x, float y, int big, float r) {
+    for (int b = 0; b < MAXBOOMS; b++)
+        if (!G.booms[b].alive) { G.booms[b] = (Boom){ 1, x, y, 0.0f, r, big }; return; }
+}
+static void thunderclap(Mob *m) {                                  /* the stunned struck: all within a cell and a half stunned */
+    d7_boom(m->x, m->y, 4, 1.5f);
+    sfx_at(SFX_CRACKLE, m->x, m->y, 1.0f);
+    for (int k = 0; k < MAXMOBS; k++) {
+        Mob *o = &G.mobs[k];
+        if (o != m && o->alive && o->state == MS_WALK && hypotf(o->x - m->x, o->y - m->y) < 1.5f) mob_stun(o, 1.2f);
+    }
+    DBG_COUNT(aug_claps);
+}
+static void cold_snap(Mob *m) {                                    /* the frozen burst: a chill on all within a cell and a half */
+    static int snapping;
+    if (snapping) return;                                          /* one snap doesn't set off another */
+    snapping = 1;
+    d7_boom(m->x, m->y, 3, 1.9f);
+    sfx_at(SFX_SHATTER, m->x, m->y, 0.7f);
+    for (int k = 0; k < MAXMOBS; k++) {
+        Mob *o = &G.mobs[k];
+        if (o != m && o->alive && o->state == MS_WALK && hypotf(o->x - m->x, o->y - m->y) < 1.5f) mob_chill(o, 1, chill_need());
+    }
+    snapping = 0;
+    DBG_COUNT(aug_snaps);
+}
+static void frost_splinter(const Shot *s, const Mob *mb, float dmg) {   /* Splinterfrost: three shards on behind what it struck */
+    float a0 = atan2f(s->vy, s->vx), r = KINDS[mb->type].rad + 0.25f;
+    float x = mb->x + cosf(a0) * r, y = mb->y + sinf(a0) * r;
+    if (dmg <= 0.0f || blocks_light((int)x, (int)y)) return;
+    for (int i = -1; i <= 1; i++) {
+        Shot *n = new_shot(AT_FROST, x, y, a0 + 0.45f * (float)i, 8.0f, dmg);
+        if (n) { n->tier = s->tier; n->target = -2; n->life = 0.45f; n->scale = 0.5f; }
+    }
+    DBG_COUNT(aug_splinters);
+}
+static void bone_rain(const Mob *m, float dmg) {                   /* Bone Rain: three splinters at the nearest */
+    if (dmg <= 0.0f) return;
+    Mob *t[3] = { NULL, NULL, NULL };
+    uint64_t skip = 0;
+    for (int i = 0; i < 3; i++) { t[i] = d7_near(m, m->x, m->y, 6.0f, skip); if (t[i]) skip |= 1ull << (int)(t[i] - G.mobs); }
+    for (int i = 0; i < 3; i++) {
+        const Mob *o = t[i] ? t[i] : t[0];
+        float a = o ? atan2f(o->y - m->y, o->x - m->x) + (t[i] ? 0.0f : 0.25f * (float)(i - 1)) : rndf() * TAU_F;
+        Shot *n = new_shot(SHOT_SPLINTER, m->x, m->y, a, 11.0f, dmg);
+        if (n) n->tier = spell_tier(AT_SPEAR);
+    }
+    DBG_COUNT(aug_rains);
+}
+static void d7_bone(const Mob *m) {                                /* a bone where the spear's kill fell (Recovery) */
+    if (G.map[m->cy][m->cx].kind != K_FLOOR) return;
+    Item *it = add_item(m->cx, m->cy, IT_BONE);
+    if (it) { it->secret = 1; it->seen = 1; DBG_COUNT(aug_bones); }
+}
+static float augd_cost(int e, int sp) {
+    return e == EL_LIGHT && sp == AT_CHAIN && dk(EL_LIGHT, 0, 2) > 0.0f ? 0.25f : 0.0f;   /* Overcharge: a quarter more spirit */
+}
+static float augd_dmg(int e, int sp) {
+    float k = 1.0f;
+    if (e == EL_FROST && sp == AT_FROST && dk(EL_FROST, 0, 1) > 0.0f) k *= 0.8f;     /* Hoarbite: a fifth weaker */
+    if (e == EL_LIGHT && sp == AT_CHAIN && dk(EL_LIGHT, 0, 2) > 0.0f) k *= 1.0f + 0.3f * dk(EL_LIGHT, 0, 2);   /* Overcharge */
+    if (e == EL_SPIRIT && sp == AT_DRAIN && dk(EL_SPIRIT, 0, 1) > 0.0f) k *= 0.85f;  /* Siphon: it hurts less */
+    return k;
+}
+static void augd_cast(int e, int sp, Shot *s, int t) {
+    float k;
+    switch (e) {
+    case EL_FROST:
+        if (s && sp == AT_FROST && (k = dk(EL_FROST, 1, 2)) > 0.0f) {   /* Glacial Weight: slower, heavier, through the first */
+            s->vx *= 0.7f; s->vy *= 0.7f; s->life *= 1.45f; s->scale = 1.35f; s->target = -3;
+        }
+        return;
+    case EL_LIGHT: {
+        if (sp != AT_CHAIN || t < 0) return;
+        const Mob *m = &G.mobs[t];
+        if ((k = dk(EL_LIGHT, 0, 1)) > 0.0f) d7_bolt(m, G.d7_zap * 0.5f * k, "fork");   /* Forked */
+        if ((k = dk(EL_LIGHT, 1, 2)) > 0.0f && (on_water(m->cx, m->cy) || m->pois_t > 0.0f)) d7_bolt(m, G.d7_zap * 0.7f * k, "ground");   /* Grounding */
+        return;
+    }
+    case EL_POISON:
+        if (s && sp == AT_FLASK && s->target < 1000 && (k = dk(EL_POISON, 0, 2)) > 0.0f) {   /* Straight Throw: flat and fast */
+            float sp1 = 1.0f + 0.6f * k;
+            s->vx *= sp1; s->vy *= sp1; s->arc = 0.0f; s->z = 0.0f; s->life = 1.2f;
+        }
+        return;
+    case EL_SPIRIT: {
+        if (sp != AT_DRAIN || t < 0) { G.d7_drained = 0.0f; return; }
+        const Gear *g = &RUN.gear;
+        int tier = spell_tier(AT_DRAIN);
+        if ((k = dk(EL_SPIRIT, 0, 1)) > 0.0f && G.d7_drained > 0.0f && G.hp < G.max_hp) {   /* Siphon: more of it back */
+            float heal = fminf(G.d7_drained * fminf(0.8f, 0.5f + 0.05f * tier) * spell_effect()
+                               * (1.0f + ALIGN[EL_SPIRIT].n[ND_A2].val * (float)RUN.al[EL_SPIRIT][ND_A2]) * 0.3f * k, (float)(G.max_hp - G.hp));
+            if (heal > 0.0f && spend_spirit(heal * heal_cost(g, tier))) G.hp = clampi(G.hp + (int)(heal + 0.5f), 0, G.max_hp);
+        }
+        if ((k = dk(EL_SPIRIT, 1, 1)) > 0.0f && G.d7_drained > 0.0f && G.mobs[t].alive && G.mobs[t].state == MS_WALK) {   /* Lingering Hunger */
+            G.d7_lg = t + 1; G.d7_lg_t = 0.6f * k; G.d7_lg_dps = G.d7_drained * 0.5f / 0.6f; G.d7_lg_acc = 0.0f; G.d7_lg_beam = 0.0f;
+            DBG_COUNT(aug_lingers);
+        }
+        G.d7_drained = 0.0f;
+        return;
+    }
+    case EL_PHYS:
+        if (s && sp == AT_SPEAR && (k = dk(EL_PHYS, 1, 1)) > 0.0f) {   /* Twin Throw: two side by side for one bone */
+            float a = atan2f(s->vy, s->vx), v = hypotf(s->vx, s->vy), ox = -sinf(a) * 0.16f, oy = cosf(a) * 0.16f;
+            s->dmg *= 0.3f + 0.3f * k;
+            Shot *n = new_shot(AT_SPEAR, s->x + ox, s->y + oy, a, v, s->dmg);
+            if (n) { n->tier = s->tier; n->target = s->target; }
+            s->x -= ox; s->y -= oy;
+            DBG_COUNT(aug_twins);
+        }
+        return;
+    }
+}
+static void augd_hit(int e, Mob *m, int atk, int flags, float *dmg) {
+    float k;
+    if (flags & DM_TICK) return;
+    switch (e) {
+    case EL_FROST:
+        if (atk == AT_FROST && (flags & DM_SLOW) && (k = dk(EL_FROST, 0, 1)) > 0.0f && rndf() < k) mob_chill(m, 1, chill_need());   /* Hoarbite */
+        return;
+    case EL_LIGHT:
+        if (atk != AT_CHAIN) return;
+        if (dk(EL_LIGHT, 1, 1) > 0.0f) {                           /* Static Build: each strike within three seconds counts */
+            if (m->stb_t > 3.0f) m->stb_n = 0;
+            m->stb_n = imin(m->stb_n + 1, 4); m->stb_t = 0.0f;
+        }
+        if ((k = dk(EL_LIGHT, 2, 1)) > 0.0f && m->stun_t > 0.0f && rndf() < k) thunderclap(m);   /* Thunderclap */
+        return;
+    case EL_SPIRIT:
+        if (atk == AT_DRAIN) G.d7_drained = fminf(*dmg, fmaxf(m->hp, 0.0f));   /* what the drain takes, for Siphon and the hunger */
+        return;
+    case EL_PHYS:
+        if (atk == AT_SPEAR && !G.d7_splint && (k = dk(EL_PHYS, 0, 1)) > 0.0f && *dmg > 0.0f) {   /* Barbed: half the hit again, bled */
+            float left = m->bld_t > 0.0f ? m->bld_dps * m->bld_t : 0.0f;
+            m->bld_t = 3.0f; m->bld_dps = (left + *dmg * 0.5f * k) / 3.0f;
+        }
+        return;
+    }
+}
+static float augd_af(int e, const Mob *m, int atk, int q) {
+    if (q != AUGQ_CHANCE) return 1.0f;
+    if (e == EL_LIGHT && atk == AT_CHAIN)                          /* Overcharge doubles it; Static Build raises it a half a strike */
+        return (1.0f + dk(EL_LIGHT, 0, 2)) * (1.0f + 0.5f * dk(EL_LIGHT, 1, 1) * (float)imax(0, m->stb_n - 1));
+    if (e == EL_SPIRIT && atk == AT_DRAIN) return 1.0f + dk(EL_SPIRIT, 0, 2);   /* Hollowing */
+    return 1.0f;
+}
+static void augd_kill(int e, Mob *m, int atk, int flags) {
+    float k;
+    switch (e) {
+    case EL_SPIRIT:
+        if (atk != AT_DRAIN) return;
+        if ((k = dk(EL_SPIRIT, 1, 2)) > 0.0f) {                    /* Soul Echo: the cast's spirit back */
+            gain_souls(spell_cost(&RUN.gear, AT_DRAIN, spell_tier(AT_DRAIN)) * (1.0f + aug_cost(AT_DRAIN)) * k);
+            DBG_COUNT(aug_echoes);
+        }
+        if ((k = dk(EL_SPIRIT, 2, 2)) > 0.0f) G.d7_shep = 5.0f * k;   /* Shepherd: its motes come to you (spawn_mote) */
+        return;
+    case EL_PHYS:
+        if (atk != AT_SPEAR || (flags & DM_TICK) || G.d7_splint) return;
+        if ((k = dk(EL_PHYS, 0, 2)) > 0.0f && rndf() < 0.5f * k) d7_bone(m);   /* Recovery */
+        if ((k = dk(EL_PHYS, 2, 2)) > 0.0f) bone_rain(m, G.d7_spear * 0.35f * k);   /* Bone Rain */
+        return;
+    }
+}
+static void augd_tick(Mob *m, float dt) {
+    if (m->stb_n) { m->stb_t += dt; if (m->stb_t > 3.0f) m->stb_n = 0; }   /* Static Build fades */
+    if (m->bld_t > 0.0f) {                                         /* Barbed's bleed */
+        m->bld_t -= dt; m->bld_acc += m->bld_dps * dt;
+        if (m->bld_acc >= 1.0f || m->bld_t <= 0.0f) {
+            float d = m->bld_acc; m->bld_acc = 0.0f;
+            if (m->bld_t <= 0.0f) m->bld_t = 0.0f;
+            if (d > 0.0f && damage_mob(m, d, DM_ARC | DM_TICK | DM_ATK(AT_SPEAR), m->x, m->y, 0.0f)) return;
+        }
+    }
+    if (G.d7_lg == (int)(m - G.mobs) + 1 && G.d7_lg_t > 0.0f) {   /* Lingering Hunger: the beam holds on it */
+        if (G.dead || hypotf(m->x - G.px, m->y - G.py) > 9.0f || !line_clear(G.px, G.py, m->x, m->y)) { G.d7_lg = 0; return; }
+        G.d7_lg_t -= dt; G.d7_lg_acc += G.d7_lg_dps * dt;
+        if ((G.d7_lg_beam -= dt) <= 0.0f) {
+            G.d7_lg_beam = 0.12f;
+            add_beam(AT_DRAIN, G.px + cosf(G.ang) * 0.35f, G.py + sinf(G.ang) * 0.35f, 0.42f, m->x, m->y, m->z + 0.5f);
+        }
+        if (G.d7_lg_acc >= 1.0f || G.d7_lg_t <= 0.0f) {
+            float d = G.d7_lg_acc; G.d7_lg_acc = 0.0f;
+            if (G.d7_lg_t <= 0.0f) G.d7_lg = 0;
+            if (d > 0.0f) damage_mob(m, d, DM_ARC | DM_TICK | DM_ATK(AT_DRAIN), G.px, G.py, 0.0f);
+        }
+    }
+}
+static void augd_fly(int e, Shot *s, float dt) {
+    float k;
+    if (e != EL_FROST || s->kind != AT_FROST || s->target == -2 || (k = dk(EL_FROST, 1, 1)) <= 0.0f) return;   /* Rime Trail */
+    int i = (int)(s - G.shots);
+    if (hypotf(s->x - G.lay_x[i], s->y - G.lay_y[i]) < 0.6f || G.map[clampi((int)s->y, 0, MAPN - 1)][clampi((int)s->x, 0, MAPN - 1)].kind != K_FLOOR) return;
+    G.lay_x[i] = s->x; G.lay_y[i] = s->y;
+    for (int v = 0; v < MAXVENOM; v++)
+        if (!G.venoms[v].alive) { G.venoms[v] = (Venom){ 1, s->x, s->y, 0.4f, 0.0f, 2.0f * k, 0.0f, 0.6f * permafrost(), 1 }; break; }
+    (void)dt;
+}
+static int d7_on(void) {                                           /* the five lines' augments offered at the Lampstand wherever C6's frame is
+                                                                      (their sheet approved, 9 November); CRAWL_D7=0 in the debug build takes
+                                                                      them out, for the balance runs */
+#ifdef CRAWL_DEBUG
+    static int on = -1;
+    if (on < 0) on = !(getenv("CRAWL_D7") && atoi(getenv("CRAWL_D7")) == 0);
+    return on;
+#else
+    return 1;
+#endif
+}
+static int augd_built(int e) { return e > EL_FIRE && e < NELEM && d7_on(); }   /* which of the five have their augments built (the
+                                                                      Lampstand offers only those) */
+/* the five lines' augments (section 11.4, the drafts the owner took till theirs come, A15): a pair at each of the three steps */
+static const char *const AUGD_NAME[NELEM][3][2] = {
+    [EL_FROST]  = { { "HOARBITE", "SPLINTERFROST" }, { "RIME TRAIL", "GLACIAL WEIGHT" }, { "COLD SNAP", "BRITTLE" } },
+    [EL_LIGHT]  = { { "FORKED", "OVERCHARGE" }, { "STATIC BUILD", "GROUNDING" }, { "THUNDERCLAP", "CONDUCTOR" } },
+    [EL_POISON] = { { "THICK BREW", "STRAIGHT THROW" }, { "CLUSTER", "MIASMA" }, { "PESTILENCE", "ROT" } },
+    [EL_SPIRIT] = { { "SIPHON", "HOLLOWING" }, { "LINGERING HUNGER", "SOUL ECHO" }, { "EXORCISM", "SHEPHERD" } },
+    [EL_PHYS]   = { { "BARBED", "RECOVERY" }, { "TWIN THROW", "HEAVY HAFT" }, { "SKEWER", "BONE RAIN" } },
+};
+static const char *augd_name(int e, int t, int w) {
+    if (e <= EL_FIRE || e >= NELEM || t < 0 || t > 2 || w < 1 || w > 2) return "";
+    return AUGD_NAME[e][t][w - 1];
+}
+static void augd_does(int e, int t, int w, float k, char *buf, int n) {
+    if (k <= 0.0f) k = 1.0f;
+    int p = (int)(100.0f * k + 0.5f);
+    *buf = 0;
+    if (e <= EL_FIRE || e >= NELEM || t < 0 || t > 2 || w < 1 || w > 2) return;
+    switch (e * 6 + t * 2 + (w - 1)) {
+    case EL_FROST * 6 + 0: snprintf(buf, (size_t)n, "A FIFTH WEAKER, AND %d%% OF ITS HITS LAY A SECOND CHILL.", p); break;
+    case EL_FROST * 6 + 1: snprintf(buf, (size_t)n, "THE SHARD BREAKS INTO THREE BEHIND WHAT IT STRIKES, EACH AT %d%%.", (int)(30.0f * k + 0.5f)); break;
+    case EL_FROST * 6 + 2: snprintf(buf, (size_t)n, "THE SHARD RIMES THE FLOOR IT CROSSES FOR %.1f S, SLOWING WHAT WALKS THERE.", 2.0f * k); break;
+    case EL_FROST * 6 + 3: snprintf(buf, (size_t)n, "SLOWER AND HEAVIER: IT GOES THROUGH THE FIRST IT STRIKES, AT %d%% AFTER.", (int)(70.0f * k + 0.5f)); break;
+    case EL_FROST * 6 + 4: snprintf(buf, (size_t)n, "WHAT FREEZES BURSTS %d TIMES IN A HUNDRED, A CHILL ON ALL WITHIN A CELL AND A HALF.", p); break;
+    case EL_FROST * 6 + 5: snprintf(buf, (size_t)n, "THE FROZEN TAKE %d%% MORE FROM EVERYTHING.", (int)(25.0f * k + 0.5f)); break;
+    case EL_LIGHT * 6 + 0: snprintf(buf, (size_t)n, "A SECOND BOLT LEAPS TO ANOTHER WITHIN THREE CELLS, AT %d%%.", (int)(50.0f * k + 0.5f)); break;
+    case EL_LIGHT * 6 + 1: snprintf(buf, (size_t)n, "%d%% HARDER, AND ITS STUN %d%% LIKELIER; A QUARTER MORE SPIRIT.", (int)(30.0f * k + 0.5f), p); break;
+    case EL_LIGHT * 6 + 2: snprintf(buf, (size_t)n, "EACH HIT ON ONE CREATURE WITHIN THREE SECONDS RAISES ITS STUN %d%%, THREE TIMES.", (int)(50.0f * k + 0.5f)); break;
+    case EL_LIGHT * 6 + 3: snprintf(buf, (size_t)n, "WHAT STANDS IN WATER OR IS POISONED PASSES IT TO ONE MORE, AT %d%%.", (int)(70.0f * k + 0.5f)); break;
+    case EL_LIGHT * 6 + 4: snprintf(buf, (size_t)n, "STRIKE THE STUNNED, AND %d TIMES IN A HUNDRED ALL WITHIN A CELL AND A HALF ARE STUNNED.", p); break;
+    case EL_LIGHT * 6 + 5: snprintf(buf, (size_t)n, "IONIZATION'S TRAIL LASTS %.1f TIMES AS LONG, AND STUNS WHAT CROSSES IT %d TIMES IN A HUNDRED.", 1.0f + 2.0f * k, p); break;
+    case EL_POISON * 6 + 0: snprintf(buf, (size_t)n, "YOUR POISON LASTS %d%% LONGER, AND HURTS AS MUCH MORE.", (int)(50.0f * k + 0.5f)); break;
+    case EL_POISON * 6 + 1: snprintf(buf, (size_t)n, "THROWN FLAT AND %d%% FASTER, IT BURSTS ON THE FIRST IT MEETS.", (int)(60.0f * k + 0.5f)); break;
+    case EL_POISON * 6 + 2: snprintf(buf, (size_t)n, "THE BURST THROWS THREE SMALL FLASKS, EACH AT %d%%.", (int)(40.0f * k + 0.5f)); break;
+    case EL_POISON * 6 + 3: snprintf(buf, (size_t)n, "THE BURST LEAVES A CLOUD A SECOND AND A HALF THAT POISONS WHAT PASSES, AT %d%%.", p); break;
+    case EL_POISON * 6 + 4: snprintf(buf, (size_t)n, "THE POISONED LEAVE A POOL WHERE THEY DIE, OF %d%% OF WHAT WAS LEFT IN THEM.", p); break;
+    case EL_POISON * 6 + 5: snprintf(buf, (size_t)n, "THE POISONED TAKE %d%% MORE FROM EVERY OTHER ELEMENT.", (int)(15.0f * k + 0.5f)); break;
+    case EL_SPIRIT * 6 + 0: snprintf(buf, (size_t)n, "THE DRAIN HEALS %d%% MORE, AND HURTS 15%% LESS.", (int)(30.0f * k + 0.5f)); break;
+    case EL_SPIRIT * 6 + 1: snprintf(buf, (size_t)n, "THE DRAIN LEAVES THE DEAD UNBOUND %d%% MORE OFTEN.", p); break;
+    case EL_SPIRIT * 6 + 2: snprintf(buf, (size_t)n, "THE BEAM HOLDS %.1f S AFTER THE CAST, DRAINING %d%% OF THE HIT AGAIN.", 0.6f * k, (int)(50.0f * k + 0.5f)); break;
+    case EL_SPIRIT * 6 + 3: snprintf(buf, (size_t)n, "A KILL BY THE DRAIN GIVES BACK %d%% OF ITS SPIRIT.", p); break;
+    case EL_SPIRIT * 6 + 4: snprintf(buf, (size_t)n, "THE UNBOUND TAKE %d%% MORE FROM EVERYTHING.", (int)(30.0f * k + 0.5f)); break;
+    case EL_SPIRIT * 6 + 5: snprintf(buf, (size_t)n, "THE SOULS OF WHAT THE DRAIN KILLS FLY TO YOU, %s.", k >= 0.99f ? "QUICKLY" : k >= 0.74f ? "STEADILY" : "SLOWLY"); break;
+    case EL_PHYS * 6 + 0: snprintf(buf, (size_t)n, "WHAT IT STRIKES BLEEDS %d%% OF THE HIT OVER THREE SECONDS.", (int)(50.0f * k + 0.5f)); break;
+    case EL_PHYS * 6 + 1: snprintf(buf, (size_t)n, "A SPEAR THAT KILLS LEAVES ITS BONE %d TIMES IN A HUNDRED.", (int)(50.0f * k + 0.5f)); break;
+    case EL_PHYS * 6 + 2: snprintf(buf, (size_t)n, "TWO SPEARS SIDE BY SIDE FOR ONE BONE, EACH AT %d%%.", (int)(30.0f + 30.0f * k + 0.5f)); break;
+    case EL_PHYS * 6 + 3: snprintf(buf, (size_t)n, "THE FIRST IT STRIKES STAGGERS %.2f S.", 0.5f * k); break;
+    case EL_PHYS * 6 + 4: snprintf(buf, (size_t)n, "EACH CREATURE IT GOES THROUGH ADDS %d%% FOR THE NEXT.", (int)(15.0f * k + 0.5f)); break;
+    case EL_PHYS * 6 + 5: snprintf(buf, (size_t)n, "A SPEAR THAT KILLS BURSTS INTO THREE SPLINTERS THAT SEEK THE NEAREST, EACH AT %d%%.", (int)(35.0f * k + 0.5f)); break;
+    }
+}
+/* ---- the dead's track's augment stubs end ---- */
+
+/* ---- the spells' augments (1.0.0b21, PLAN-combat section 11): the caster's track's frame and its dispatchers. Each hook hands a
+ * line's spell to its line's own: Fire's here, the other five's to the dead's track (augd_*).
+ * A line's three steps (its opening, its ability, its ultimate) each offer a pair; one is chosen at the Lampstand (Space), for good
+ * till the line is unbound (A5). The line's credits (a kill by it 1, a thing struck with it 2, a boss 10: A3) bank by the line from
+ * its opening and go at once to the newest chosen augment not yet at rank III, then the next (A4); an augment's ranks come at 20,
+ * 50 and 100 credits of its own (AUG_CR). CRAWL_AUG=0 in the debug build takes it all out ---- */
+static const uint16_t AUG_CR[3] = { 20, 50, 100 };                 /* the credits that make ranks I, II and III */
+static const char *const FIRE_AUG[NAUGT][2] = {                 /* Fire's (section 11.2, the guide's); the other five lines' are the
+                                                                      dead's track's (augd_name, augd_does) */
+    { "BURNING INTENSITY", "FIRECRACKER" }, { "MULTIPLY", "SWIFT FLIGHT" }, { "VOLATILITY", "PYRE" } };
+static const float MULTIPLY_K[4] = { 0.5f, 0.3f, 0.4f, 0.5f };     /* a split bolt's share of the cast, by rank (11.3; III's with none) */
+static const float VOLATILE_K[4] = { 0.33f, 0.17f, 0.25f, 0.33f }; /* a burst's share of the dead's health, by rank */
+static void fire_does(int t, int w, float k, char *buf, int n) {   /* what Fire's augment w at step t does at a rank's share k (0 as III) */
+    if (k <= 0.0f) k = 1.0f;
+    int r = k >= 0.99f ? 3 : k >= 0.74f ? 2 : 1;
+    switch (t * 2 + w - 1) {
+    case 0: snprintf(buf, (size_t)n, "HELD, THE BOLT GROWS: A FIFTH WEAKER AT ONCE, %d%% STRONGER AND %.1f TIMES ITS SIZE AT THREE SECONDS, UP TO 30%% MORE SPIRIT.",
+                     (int)(25.0f * k + 0.5f), 1.0f + 1.5f * k); break;
+    case 1: snprintf(buf, (size_t)n, "THE BOLT IS A SPARK: A QUARTER OF ITS DAMAGE, ALL BUT SURE TO SET ITS MARK ALIGHT, THE BURNING %.1f TIMES AS FIERCE.", 1.0f + 2.0f * k); break;
+    case 2: snprintf(buf, (size_t)n, "THE BOLT SPLITS IN AN ARC OF THREE, EACH %d%% OF THE CAST, FOR 30%% MORE SPIRIT.", (int)(100.0f * MULTIPLY_K[r] + 0.5f)); break;
+    case 3: snprintf(buf, (size_t)n, "THE BOLT FLIES %d%% FASTER AND %d%% FURTHER.", (int)(100.0f * k + 0.5f), (int)(50.0f * k + 0.5f)); break;
+    case 4: snprintf(buf, (size_t)n, "WHAT DIES OF YOUR BURNING BURSTS, SETTING ALL NEAR IT ALIGHT FOR %d%% OF ITS HEALTH. 30%% MORE SPIRIT.",
+                     (int)(100.0f * VOLATILE_K[r] + 0.5f)); break;
+    default: snprintf(buf, (size_t)n, "WHAT BURNS SPREADS %d%% OF ITS BURNING TO ONE CREATURE WITHIN A CELL, ONCE.", (int)(100.0f * k + 0.5f)); break;
+    }
+}
+static const char *aug_name(int e, int t, int w) {                 /* the augment's name, whichever track's line it is */
+    if (w < 1 || w > 2 || t < 0 || t >= NAUGT) return "";
+    return e == EL_FIRE ? FIRE_AUG[t][w - 1] : augd_name(e, t, w);
+}
+static void aug_does(int e, int t, int w, float k, char *buf, int n) {
+    *buf = 0;
+    if (w < 1 || w > 2 || t < 0 || t >= NAUGT) return;
+    if (e == EL_FIRE) fire_does(t, w, k, buf, n); else augd_does(e, t, w, k, buf, n);
+}
+static int aug_on(void) {                                          /* the augments in play (the sheet approved, 9 November); CRAWL_AUG=0 in
+                                                                      the debug build takes them out, for the balance runs */
+#ifdef CRAWL_DEBUG
+    static int v = -1;
+    if (v < 0) v = !(getenv("CRAWL_AUG") && atoi(getenv("CRAWL_AUG")) == 0);
+    return v;
+#else
+    return 1;
+#endif
+}
+static int aug_built(int e) { return aug_on() && (e == EL_FIRE ? 1 : augd_built(e)); }
+static int aug_step_open(int e, int t) {                           /* the step reached: the line open, its ability, an ultimate */
+    if (e < 0 || e >= NELEM || !align_open(e)) return 0;
+    return t == AUG_OPEN ? 1 : t == AUG_ABIL ? align_full(e, ND_ABIL) : align_full(e, ND_AULT) || align_full(e, ND_BULT);
+}
+static int aug_of(int e, int t) {
+    if (e < 0 || e >= NELEM || t < 0 || t >= NAUGT || !aug_built(e) || !aug_step_open(e, t)) return 0;
+    return RUN.aug[e][t];
+}
+static int aug_rank_at(int cr) { return cr >= AUG_CR[2] ? 3 : cr >= AUG_CR[1] ? 2 : cr >= AUG_CR[0] ? 1 : 0; }
+static int aug_rank(int e, int t) { return aug_of(e, t) ? aug_rank_at(RUN.aug_cr[e][t]) : 0; }
+static inline float aug_k(int e, int t, int w) {
+    int r = w && aug_of(e, t) == w ? aug_rank(e, t) : 0;
+    return r >= 3 ? 1.0f : r == 2 ? 0.75f : r == 1 ? 0.5f : 0.0f;
+}
+static const char *const AUG_STEP[NAUGT] = { "OPENING", "ABILITY", "ULTIMATE" };
+static void aug_feed(int e) {                                      /* the bank to the newest chosen not yet at III, then the next (A4) */
+    for (int guard = 0; guard < NAUGT && RUN.aug_bank[e] > 0; guard++) {
+        int best = -1;
+        for (int t = 0; t < NAUGT; t++)
+            if (RUN.aug[e][t] && aug_step_open(e, t) && RUN.aug_cr[e][t] < AUG_CR[2] && (best < 0 || RUN.aug_ord[e][t] > RUN.aug_ord[e][best])) best = t;
+        if (best < 0) return;                                      /* nothing to feed: it waits in the bank */
+        int was = aug_rank_at(RUN.aug_cr[e][best]), give = imin(RUN.aug_bank[e], AUG_CR[2] - RUN.aug_cr[e][best]);
+        RUN.aug_cr[e][best] = (uint16_t)(RUN.aug_cr[e][best] + give); RUN.aug_bank[e] = (uint16_t)(RUN.aug_bank[e] - give);
+        int now = aug_rank_at(RUN.aug_cr[e][best]);
+        if (now > was) {
+            static const char *const RN[4] = { "", "I", "II", "III" };
+            if (G.player) { say("%s: RANK %s", aug_name(e, best, RUN.aug[e][best]), RN[now]); snd_sfx_ex(SFX_RUNE, 0.9f, 0.5f); }
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT aug %s %s %s rank %d t=%.2f by %s\n", ELEM_NAME[e], AUG_STEP[best], aug_name(e, best, RUN.aug[e][best]), now, G.t, G.player ? "player" : "autopilot");
+#endif
+        }
+    }
+}
+static void aug_credit(int e, int n) {                             /* the line's credits, from its opening (11.1) */
+    if (e < 0 || e >= NELEM || n <= 0 || !aug_on() || !align_open(e)) return;
+    RUN.aug_bank[e] = (uint16_t)imin(60000, RUN.aug_bank[e] + n);
+    aug_feed(e);
+}
+static int aug_choose(int e, int t, int w) {                       /* final, till the line is unbound (A5) */
+    if (!aug_built(e) || !aug_step_open(e, t) || RUN.aug[e][t] || w < 1 || w > 2) return 0;
+    int ord = 0;
+    for (int k = 0; k < NAUGT; k++) ord = imax(ord, RUN.aug_ord[e][k]);
+    RUN.aug[e][t] = (uint8_t)w; RUN.aug_ord[e][t] = (uint8_t)(ord + 1);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT aug_choose %s %s %s t=%.2f by %s\n", ELEM_NAME[e], AUG_STEP[t], aug_name(e, t, w), G.t, G.player ? "player" : "autopilot");
+#endif
+    aug_feed(e);                                                   /* a pair chosen late ranks up from the bank at once */
+    return 1;
+}
+static void aug_forget(int e) {                                    /* the line unbound, or a death that costs: its augments go (A5, A14) */
+    if (e < 0 || e >= NELEM) return;
+    memset(RUN.aug[e], 0, sizeof RUN.aug[e]); memset(RUN.aug_ord[e], 0, sizeof RUN.aug_ord[e]);
+    memset(RUN.aug_cr[e], 0, sizeof RUN.aug_cr[e]); RUN.aug_bank[e] = 0;
+}
+static void auto_augment(void) {                                   /* the dream's: at random within each pair, as it opens (A15) */
+    if (LEDGER.yours || LEDGER.kept) return;                       /* a person's run: theirs to choose */
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_AUGAUTO") && !atoi(getenv("CRAWL_AUGAUTO"))) return;   /* CRAWL_AUGAUTO=0: the dream leaves them, for frames */
+#endif
+    for (int e = 0; e < NELEM; e++)
+        for (int t = 0; t < NAUGT; t++)
+            if (aug_built(e) && aug_step_open(e, t) && !RUN.aug[e][t]) aug_choose(e, t, 1 + rnd(2));
+}
+#ifdef CRAWL_DEBUG
+static void aug_debug_set(void) {                                  /* CRAWL_AUGSET: eighteen digits, a line's three steps each in ELEM order:
+                                                                      0 none, 1-3 the first at that rank, 4-6 the second */
+    const char *v = getenv("CRAWL_AUGSET");
+    if (!v || !aug_on()) return;
+    for (int i = 0; v[i] && i < NELEM * NAUGT; i++) {
+        int d = v[i] - '0', e = i / NAUGT, t = i % NAUGT;
+        if (d < 1 || d > 6) continue;
+        RUN.aug[e][t] = (uint8_t)(d > 3 ? 2 : 1); RUN.aug_ord[e][t] = (uint8_t)(t + 1);
+        RUN.aug_cr[e][t] = AUG_CR[(d - 1) % 3];
+    }
+}
+#endif
+/* Fire's six (section 11.2), each felt only at rank I or more (aug_k is 0 till then). The opening's pair changes the bolt itself:
+ * Burning Intensity holds it (human_cast, the dream's PS_CAST), a fifth weaker tapped, growing over three seconds held, and past
+ * three with the Firewall the Firewall comes (A9); Firecracker makes it a spark. The ability's: Multiply splits it in three,
+ * Swift Flight speeds it. The ultimate's: Volatility bursts what dies of your burning, Pyre passes burning on. Only the bolt
+ * (AT_FIRE) takes the first four; the burning (AT_HELL's ticks, whatever lit it) the last two */
+static float weak_el(const Mob *m, int el);
+static float el_chance(const Mob *m, int el);
+static void mob_ignite(Mob *m, float dmg);
+static int mob_takes_af(const Mob *m);
+static void explode_big(float x, float y, float r);
+static float g_fire_hold = -1.0f;                                  /* Burning Intensity: the held bolt's share of three seconds as it
+                                                                      goes; below 0, a bolt not held (a tap, a splash, the dream's) */
+#ifdef CRAWL_DEBUG
+static int fire_held, fire_splits, fire_bursts, fire_spreads;
+#endif
+#define FIRE_GROW_T 3.0f                                           /* Burning Intensity's full growth, and the Firewall's hold with it */
+static int fire_grows(int sp) { return sp == AT_FIRE && aug_k(EL_FIRE, AUG_OPEN, 1) > 0.0f; }
+static float fire_cost(int sp) {                                   /* the increases add (A7) */
+    if (sp != AT_FIRE) return 0.0f;
+    float c = 0.0f;
+    if (fire_grows(sp) && g_fire_hold > 0.0f) c += 0.3f * g_fire_hold;
+    if (aug_k(EL_FIRE, AUG_ABIL, 1) > 0.0f) c += 0.3f;             /* Multiply */
+    if (aug_k(EL_FIRE, AUG_ULT, 1) > 0.0f) c += 0.3f;              /* Volatility */
+    return c;
+}
+static float fire_dmg(int sp) {
+    if (sp != AT_FIRE) return 1.0f;
+    float d = 1.0f, k = aug_k(EL_FIRE, AUG_OPEN, 1);
+    if (k > 0.0f) d *= 0.8f + (0.2f + 0.25f * k) * fmaxf(0.0f, g_fire_hold);   /* a fifth weaker at once, a quarter stronger at three s */
+    else if (aug_k(EL_FIRE, AUG_OPEN, 2) > 0.0f) d *= 0.25f;       /* the spark */
+    if (aug_k(EL_FIRE, AUG_ABIL, 1) > 0.0f) d *= MULTIPLY_K[aug_rank(EL_FIRE, AUG_ABIL)];   /* each of the three */
+    return d;
+}
+static void fire_cast(int sp, Shot *s) {
+    if (sp != AT_FIRE || !s) return;
+    float k = aug_k(EL_FIRE, AUG_OPEN, 1);
+    if (k > 0.0f) s->scale = 1.0f + 1.5f * k * fmaxf(0.0f, g_fire_hold);
+    else if (aug_k(EL_FIRE, AUG_OPEN, 2) > 0.0f) s->scale = 0.55f;
+    if ((k = aug_k(EL_FIRE, AUG_ABIL, 2)) > 0.0f) {                /* Swift Flight: faster by k, further by half k */
+        s->vx *= 1.0f + k; s->vy *= 1.0f + k; s->life *= (1.0f + 0.5f * k) / (1.0f + k);
+    }
+    if (aug_k(EL_FIRE, AUG_ABIL, 1) > 0.0f) {                      /* Multiply: two more, a little either side */
+        float a = atan2f(s->vy, s->vx), v = hypotf(s->vx, s->vy);
+        for (int i = -1; i <= 1; i += 2) {
+            Shot *o = new_shot(AT_FIRE, s->x, s->y, a + 0.25f * (float)i, v, s->dmg);
+            if (o) { o->tier = s->tier; o->target = s->target; o->scale = s->scale; o->life = s->life; }
+        }
+#ifdef CRAWL_DEBUG
+        DBG_COUNT(fire_splits);
+#endif
+    }
+}
+static float fire_af(const Mob *m, int atk, int q) {               /* Firecracker: all but sure to set its mark alight, and fiercer */
+    float k = atk == AT_FIRE ? aug_k(EL_FIRE, AUG_OPEN, 2) : 0.0f;
+    if (k <= 0.0f) return 1.0f;
+    if (q == AUGQ_HARM) return 1.0f + 2.0f * k;                    /* three times the spark's damage over four seconds at III (A11) */
+    float c = el_chance(m, EL_FIRE);
+    return c > 0.0f ? fmaxf(1.0f, (weak_el(m, EL_FIRE) < 0.75f ? 0.6f : 0.95f) / c) : 1.0f;   /* less sure of what shrugs fire off */
+}
+static void fire_kill(Mob *m, int atk, int flags) {                /* Volatility: what dies of your burning bursts */
+    if (!(flags & DM_TICK) || (atk != AT_HELL && atk != AT_FIRE) || aug_k(EL_FIRE, AUG_ULT, 1) <= 0.0f) return;
+    float harm = m->maxhp * VOLATILE_K[aug_rank(EL_FIRE, AUG_ULT)];
+    explode_big(m->x, m->y, 1.5f);
+    for (int i = 0; i < MAXMOBS; i++) {
+        Mob *o = &G.mobs[i];
+        if (o == m || !mob_takes_af(o) || hypotf(o->x - m->x, o->y - m->y) >= 1.6f || !line_clear(m->x, m->y, o->x, o->y)) continue;
+        mob_ignite(o, harm * (o->boss ? 0.1f : 1.0f));             /* a boss a tenth (A12); it dies once, so it bursts once */
+    }
+#ifdef CRAWL_DEBUG
+    DBG_COUNT(fire_bursts);
+#endif
+}
+static void fire_tick(Mob *m) {                                    /* Pyre: what burns passes its burning to one within a cell, once */
+    if (m->pyre || m->burn_t <= 0.0f) return;
+    float k = aug_k(EL_FIRE, AUG_ULT, 2);
+    if (k <= 0.0f) return;
+    Mob *best = NULL; float bd = 1.25f;                            /* a cell between them, near enough */
+    for (int i = 0; i < MAXMOBS; i++) {
+        Mob *o = &G.mobs[i];
+        if (o == m || o->burn_t > 0.0f || !mob_takes_af(o)) continue;
+        float d = hypotf(o->x - m->x, o->y - m->y);
+        if (d < bd && line_clear(m->x, m->y, o->x, o->y)) { bd = d; best = o; }
+    }
+    if (!best) return;
+    m->pyre = 1;
+    mob_ignite(best, k * m->burn_dps * m->burn_t);                 /* k of what is left to it */
+    sfx_at(SFX_IGNITE, best->x, best->y, 0.6f);
+#ifdef CRAWL_DEBUG
+    DBG_COUNT(fire_spreads);
+#endif
+}
+static int aug_line(int atk) { return atk >= 0 && atk < NATK ? ATK_ELEM[atk] : -1; }   /* a spell's line (Hellfire's burning is Fire's) */
+static float aug_cost(int sp) { int e = aug_line(sp); return e < 0 ? 0.0f : e == EL_FIRE ? fire_cost(sp) : augd_cost(e, sp); }
+static float aug_dmg(int sp) { int e = aug_line(sp); return e < 0 ? 1.0f : e == EL_FIRE ? fire_dmg(sp) : augd_dmg(e, sp); }
+static void aug_cast(int sp, Shot *s, int t) { int e = aug_line(sp); if (e == EL_FIRE) fire_cast(sp, s); else if (e >= 0) augd_cast(e, sp, s, t); }
+static void aug_hit(Mob *m, int atk, int flags, float *dmg) { int e = aug_line(atk); if (e >= 0 && e != EL_FIRE) augd_hit(e, m, atk, flags, dmg); }
+static float aug_af(const Mob *m, int atk, int q) { int e = aug_line(atk); return e < 0 ? 1.0f : e == EL_FIRE ? fire_af(m, atk, q) : augd_af(e, m, atk, q); }
+static void aug_kill(Mob *m, int atk, int flags) {
+    int e = aug_line(atk);
+    if (e < 0) return;
+    if (atk != AT_BFS) aug_credit(e, 1);                           /* a kill by the line: a credit (A3) */
+    if (e == EL_FIRE) fire_kill(m, atk, flags); else augd_kill(e, m, atk, flags);
+}
+static void aug_tick(Mob *m, float dt) { fire_tick(m); augd_tick(m, dt); }
+static void aug_fly(Shot *s, float dt) { int e = aug_line(s->kind); if (e >= 0 && e != EL_FIRE) augd_fly(e, s, dt); }
 
 static void xp_rooms(void) {                                       /* a room first set foot in */
     if (G.shop || PK.depth) return;
@@ -5432,6 +6107,18 @@ static void kill_mob(Mob *m) {
     xp_kill(m);
     spawn_mote(m->x, m->y, (RANK_SOULS[m->rank] + (m->last_atk == AT_DRAIN && align_has(EL_SPIRIT, ND_ABIL) ? (m->rank >= RK_III ? 2.0f : 1.0f) : 0.0f))   /* Harvest */
                            * soul_share());                        /* Spirituality, and the class's own */
+    if (m->unb_t > 0.0f && cls_ab(EL_SPIRIT, 0) > 0.0f) { spawn_mote(m->x, m->y, 1.0f); DBG_COUNT(sin_souls); }   /* Swallowed Sin: Unbound, a soul
+                                                                      more (G5) */
+    if (m->pois_t > 0.0f && dk(EL_POISON, 2, 1) > 0.0f && G.map[m->cy][m->cx].kind == K_FLOOR)   /* Pestilence: the poisoned leave a pool (D7) */
+        for (int i = 0; i < MAXVENOM; i++)
+            if (!G.venoms[i].alive) {
+                G.venoms[i] = (Venom){ 1, m->x, m->y, 0.6f, 0.0f, 3.0f, fmaxf(1.0f, m->pois_dps * m->pois_t) * dk(EL_POISON, 2, 1), 0.0f, 0 };
+                DBG_COUNT(aug_pests); break;
+            }
+    if (m->last_atk == AT_SPEAR && (m->stagger > 0.0f || m->pin > 0.0f) && cls_ab(EL_PHYS, 0) > 0.0f && G.map[m->cy][m->cx].kind == K_FLOOR) {
+        Item *it = add_item(m->cx, m->cy, IT_BONE);                /* the Block: the spear's bone left where it fell (G5) */
+        if (it) { it->secret = 1; it->seen = 1; DBG_COUNT(block_bones); }
+    }
     if (G.reap_t > 0.0f && RUN.gear.def[DF_REAP] >= RUNE_EXQ && !G.dead && !KIND_IS(m, KF_UNCOUNTED)) {   /* Exquisite: a little life back */
         G.hp = clampi(G.hp + (G.max_hp + 19) / 20, 0, G.max_hp);
         DBG_COUNT(exq_reaped);
@@ -5552,8 +6239,9 @@ static float hit_mult(const Mob *m, int atk) {
     const Gear *g = &RUN.gear;
     float k = weak_to(m, atk);
     if (atk == AT_BFS) return k;
-    k += gear_total(g, ST_FIRE) / 100.0f * weak_el(m, EL_FIRE) + gear_total(g, ST_FROST) / 100.0f * weak_el(m, EL_FROST)
-       + gear_total(g, ST_SHOCK) / 100.0f * weak_el(m, EL_LIGHT);
+    float adds = 0.0f;                                             /* "ADDS %", all six since 1.0.0b21 (G4) */
+    for (int e = 0; e < NELEM; e++) adds += gear_total(g, st_adds(e)) / 100.0f * weak_el(m, e);
+    k += adds;
     for (int e = 0; e < NELEM; e++)                                /* the Masteries' Additions (docs/PLAN-b11.md, sections 9-10) */
         if (e != ATK_ELEM[atk] && e != EL_POISON) k += align_add(e) * weak_el(m, e);
     return k;
@@ -5777,6 +6465,28 @@ static void mob_chill(Mob *m, int stacks, int need);
 static int chill_need(void);
 static void el_status(Mob *m, int atk, float dmg);
 static void mk_wet_hit(const Mob *o);
+static void add_beam(int kind, float x0, float y0, float z0, float x1, float y1, float z1);
+static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float slow);
+static void wire_pass(Mob *m, float dmg) {                         /* Live Wire (G5): a stunned creature struck passes a fifth of the hit
+                                                                      to the nearest within two cells, as a spark that rolls nothing */
+    static int passing;
+    if (passing || cls_ab(EL_LIGHT, 0) <= 0.0f || dmg <= 0.0f) return;
+    int best = -1; float bd = 2.0f;
+    for (int i = 0; i < MAXMOBS; i++) {
+        Mob *o = &G.mobs[i];
+        if (o == m || !o->alive || o->state != MS_WALK || o->ally || KIND_IS(o, KF_SPIRIT) || buried(o) || o->boss) continue;
+        float d = hypotf(o->x - m->x, o->y - m->y);
+        if (d < bd && line_clear(m->x, m->y, o->x, o->y)) { bd = d; best = i; }
+    }
+    if (best < 0) return;
+    Mob *o = &G.mobs[best];
+    add_beam(AT_CHAIN, m->x, m->y, m->z + 0.5f, o->x, o->y, o->z + 0.5f);
+    sfx_at(SFX_CRACKLE, o->x, o->y, 1.4f);
+    passing = 1;
+    damage_mob(o, dmg * 0.2f, DM_ARC | DM_TICK, m->x, m->y, 0.0f);
+    passing = 0;
+    DBG_COUNT(wire_arcs);
+}
 static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float slow) {
     if (m->ally) return 0;                                         /* yours: your spells pass it by */
     if (G.latch == (int)(m - G.mobs) + 1) return 0;                /* nor what is latched on your face */
@@ -5824,7 +6534,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
         }
     }
     if ((flags & DM_SLOW) && slow > 0.0f) {                        /* Frost's slow: a Chilled stack (D4, section 6) */
-        if (elem_mode()) mob_chill(m, 1, chill_need());
+        if (elem_mode()) mob_chill(m, 1 + (st_odds(EL_FROST) > 0.0f && rndf() < st_odds(EL_FROST)), chill_need());   /* Rime: a second (G3) */
         else m->slowed = fmaxf(m->slowed, slow);
     }
     int atk = (flags >> 8) - 1;
@@ -5833,9 +6543,15 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
         if (ATK_ELEM[atk] != EL_POISON && align_add(EL_POISON) > 0.0f) mob_poison(m, dmg * align_add(EL_POISON), 4.0f);   /* Poison's: a dose */
     }
     if (atk >= 0 && atk < NATK) { dmg *= hit_mult(m, atk); m->last_atk = atk; if (!(flags & DM_TICK)) rec_hit(m, atk); }   /* what it is weak to, or shrugs off */
+    if (atk >= 0 && atk < NATK) aug_hit(m, atk, flags, &dmg);      /* the line's augments (17.3, 1.0.0b21) */
+    if (m->pois_t > 0.0f && cls_ab(EL_POISON, 0) > 0.0f) dmg *= 1.0f + cls_ab(EL_POISON, 0) / 100.0f;   /* Fever: the poisoned take more (G5) */
+    if (m->pois_t > 0.0f && atk >= 0 && atk < NATK && ATK_ELEM[atk] != EL_POISON && dk(EL_POISON, 2, 2) > 0.0f) dmg *= 1.0f + 0.15f * dk(EL_POISON, 2, 2);   /* Rot (D7) */
+    if (m->unb_t > 0.0f && dk(EL_SPIRIT, 2, 1) > 0.0f) dmg *= 1.0f + 0.3f * dk(EL_SPIRIT, 2, 1);   /* Exorcism: the Unbound take more (D7) */
     if (atk >= 0 && atk < NATK && ATK_ELEM[atk] >= 0) ward_struck(m, ATK_ELEM[atk], dmg, flags & DM_TICK);   /* a ward: a dull ring, and it may crack */
     if (atk >= 0 && atk < NATK && ATK_ELEM[atk] == EL_LIGHT && !(flags & DM_TICK)) mk_wet_hit(m);   /* standing in the water */
     if (m->frozen > 0.0f && elem_mode()) dmg *= 1.33f;             /* Frozen: a third more (docs/PLAN-combat.md section 5) */
+    if (m->frozen > 0.0f && cls_ab(EL_FROST, 0) > 0.0f) dmg *= 1.0f + cls_ab(EL_FROST, 0) / 100.0f;   /* the Slab: more yet (G5) */
+    if (m->frozen > 0.0f && dk(EL_FROST, 2, 2) > 0.0f) dmg *= 1.0f + 0.25f * dk(EL_FROST, 2, 2);   /* Brittle (D7) */
     if (m->frozen > 0.0f && RUN.gear.def[DF_NOVA] >= RUNE_EXQ) { dmg *= 2.0f; DBG_COUNT(exq_shatter); }   /* Exquisite runes: the frozen */
     static int shattering;                                         /* Shatter: the frozen struck by a spell break, and their shards cut */
     int shards = 0;
@@ -5875,6 +6591,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
     }
     if (m->rank == RK_GILDED && m->hp > m->maxhp * 0.5f && m->hp - dmg <= m->maxhp * 0.5f) { m->feared = 6.0f; m->wfeared = 0; }   /* the gilded run, with their gold */
     m->hp -= dmg;
+    if (m->stun_t > 0.0f && atk >= 0 && atk < NATK && !(flags & DM_TICK)) wire_pass(m, dmg);   /* Live Wire: a fifth arcs on (G5) */
     if (shards) {                                                  /* everything within a cell and a half: half a shard, and a chill */
         shattering = 1;
         float sd = spell_damage(&RUN.gear, AT_FROST) * 0.5f;
@@ -5890,7 +6607,13 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
             if (!G.booms[b].alive) { G.booms[b] = (Boom){ 1, m->x, m->y, 0.0f, 1.0f, 3 }; break; }
         DBG_COUNT(shatters);
     }
-    if (m->hp <= 0.0f) { kill_mob(m); return 1; }
+    if (m->hp <= 0.0f) {                                           /* (the augments, 17.3; Shepherd's pace for its motes spent, and a beam
+                                                                      held on it let go) */
+        if (atk >= 0 && atk < NATK) aug_kill(m, atk, flags);
+        kill_mob(m); G.d7_shep = 0.0f;
+        if (G.d7_lg == (int)(m - G.mobs) + 1) G.d7_lg = 0;
+        return 1;
+    }
     if (atk >= 0 && atk < NATK && !(flags & DM_TICK)) el_status(m, atk, dmg);   /* its element's status, by chance (D4) */
     if (m->type == MOB_SKEL || m->type == MOB_SHIELD) {            /* knocked back a step */
         m->stagger = 0.6f; m->throw_t = 0.0f; m->swing = 0.0f; m->cool = fmaxf(m->cool, 0.9f);
@@ -5906,6 +6629,8 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
 #define PLAGUE_STRIKE 1.25f                 /* and their flask's blow as it bursts (the owner, 1.0.0b16) */
 static void mob_poison(Mob *m, float total, float secs) {
     if (!m->alive || m->state != MS_WALK || KIND_IS(m, KF_SPIRIT) || m->ally || secs <= 0.0f) return;
+    if (st_odds(EL_POISON) > 0.0f && rndf() < st_odds(EL_POISON)) { total *= 1.5f; secs *= 1.5f; }   /* Blight: a dose half again (G3) */
+    if (dk(EL_POISON, 0, 1) > 0.0f) { float b = 1.0f + 0.5f * dk(EL_POISON, 0, 1); total *= b; secs *= b; }   /* Thick Brew (D7) */
     if (cls_el() == EL_POISON) { total *= 1.2f * PLAGUE_BITE; secs *= 1.2f; }   /* the Plague Doctor's bites harder each tick (1.0.0b16:
                                                                                     the owner's, to set the class apart) and lasts a fifth longer */
     if (total <= m->pois_dps * fmaxf(0.0f, m->pois_t)) return;
@@ -5926,6 +6651,7 @@ static void mob_afflict(Mob *m, float dt) {                        /* what wears
         m->burn_t -= dt; m->burn_acc += m->burn_dps * dt;
         if (m->burn_acc >= 1.0f || m->burn_t <= 0.0f) { float d = m->burn_acc; m->burn_acc = 0.0f; if (d > 0.0f) damage_mob(m, d, DM_ARC | DM_TICK | DM_ATK(AT_HELL), m->x, m->y, 0.0f); }
     }
+    if (m->state == MS_WALK) aug_tick(m, dt);                      /* the augments' (17.3, 1.0.0b21) */
 }
 
 /* The dead's statuses (1.0.0b19, docs/PLAN-combat.md section 5): the caster's seven, as far as they mean anything to a
@@ -5959,7 +6685,7 @@ static void maf_note(const Mob *m, int af) {
 static void mob_ignite(Mob *m, float dmg) {                        /* On Fire: the hit again over four seconds, on what is left */
     if (!mob_takes_af(m) || dmg <= 0.0f) return;
     float left = m->burn_t > 0.0f ? m->burn_dps * m->burn_t : 0.0f;
-    m->burn_t = 4.0f; m->burn_dps = (left + dmg) / 4.0f;
+    m->burn_t = 4.0f + (cls_ab(EL_FIRE, 0) > 0.0f ? 1.0f : 0.0f); m->burn_dps = (left + dmg) / 4.0f;   /* Pyrebrand: a second longer (G5) */
     maf_note(m, AF_FIRE);
 }
 static void mob_freeze(Mob *m, float secs) {                       /* Frozen: its clock stopped (mob_time), a third more taken */
@@ -5976,7 +6702,10 @@ static void mob_chill(Mob *m, int stacks, int need) {              /* Chilled: s
     maf_note(m, AF_CHILL);
     if (m->chl_n >= need) {
         if (m->frz_cd > 0.0f) m->chl_n = need - 1;                 /* thawed too lately: it stays at the edge */
-        else { mob_freeze(m, CHILL_FREEZE * permafrost()); if (m->boss) m->chl_n = 0; }   /* Permafrost longer, as its slowing was */
+        else {
+            mob_freeze(m, CHILL_FREEZE * permafrost()); if (m->boss) m->chl_n = 0;   /* Permafrost longer, as its slowing was */
+            if (m->frozen > 0.0f && dk(EL_FROST, 2, 1) > 0.0f && rndf() < dk(EL_FROST, 2, 1)) cold_snap(m);   /* Cold Snap (D7) */
+        }
     }
 }
 static void mob_stun(Mob *m, float secs) {                         /* Stunned */
@@ -6000,14 +6729,15 @@ static void mob_unbind(Mob *m, float secs) {                       /* Unbound: n
  * Impale stay). Fire: the hit again over four seconds; Lightning: stunned 1.2 s; Spirit: Unbound 1.5 s. */
 static float el_chance(const Mob *m, int el) {
     float r = (float)align_rank(el), ch = (0.10f + 0.15f * clampf((r - 1.0f) / 19.0f, 0.0f, 1.0f)) * spell_effect();
+    ch *= 1.0f + st_odds(el) + cls_ab(el, 0) / 100.0f;            /* Ignition, Static, Hush; Pyrebrand, Live Wire, Swallowed Sin (1.0.0b21) */
     float w = weak_el(m, el);
     return w <= STRENGTH_K + 0.01f ? ch * 0.5f : w >= 1.49f ? ch * 1.5f : ch;
 }
 static void el_status(Mob *m, int atk, float dmg) {
     int el = ATK_ELEM[atk];
     if (!elem_mode() || el < 0 || el == EL_FROST || el == EL_POISON || el == EL_PHYS || !mob_takes_af(m)) return;
-    if (rndf() >= el_chance(m, el)) return;
-    if (el == EL_FIRE) mob_ignite(m, dmg);
+    if (rndf() >= el_chance(m, el) * aug_af(m, atk, AUGQ_CHANCE)) return;   /* the line's augments (17.3, 1.0.0b21) */
+    if (el == EL_FIRE) mob_ignite(m, dmg * aug_af(m, atk, AUGQ_HARM));
     else if (el == EL_LIGHT) mob_stun(m, 1.2f);
     else if (el == EL_SPIRIT) mob_unbind(m, 1.5f);
 }
@@ -6044,7 +6774,8 @@ static float mob_gate(Mob *m, float dt) {
     if (m->frz_cd > 0.0f) m->frz_cd -= dt;
     if (m->frozen > 0.0f) m->frz_was = 1;
     else if (m->frz_was) { m->frz_was = 0; m->chl_n = 0; m->frz_cd = AF_RELOCK; }   /* thawed: the stacks are spent */
-    if (m->chl_n > 0 && m->frozen <= 0.0f && (m->chl_t += dt) >= CHILL_FREEZE) m->chl_n = 0;   /* they fall off together */
+    if (m->chl_n > 0 && m->frozen <= 0.0f && (m->chl_t += dt) >= CHILL_FREEZE + (cls_ab(EL_FROST, 0) > 0.0f ? 1.0f : 0.0f)) m->chl_n = 0;   /* they
+                                                                      fall off together; the Slab holds them a second more */
     float k = 1.0f;
     if (m->chl_n > 0 && m->frozen <= 0.0f) k *= fmaxf(0.2f, 1.0f - CHILL_SLOW * (float)m->chl_n);
     int stun = m->stun_t > 0.0f, unb = m->unb_t > 0.0f;
@@ -6090,6 +6821,7 @@ static void deep_chill(Mob *m) {                                   /* Deep Chill
     fprintf(stderr, "EVENT deep_chill %s t=%.2f\n", KINDS[m->type].name, G.t);
 #endif
 }
+static float trail_life(void) { return 0.5f * (1.0f + 2.0f * dk(EL_LIGHT, 2, 2)); }   /* half a second; Conductor's, three times (D7) */
 static void ionize(float x0, float y0, float x1, float y1, float dmg, uint64_t struck) {   /* Ionization: a trail half a second */
     if (!align_has(EL_LIGHT, ND_ABIL)) return;
     for (int i = 0; i < MAXTRAILS; i++)
@@ -6099,7 +6831,7 @@ static void update_trails(float dt) {                              /* what cross
     for (int i = 0; i < MAXTRAILS; i++) {
         Trail *tr = &G.trails[i];
         if (!tr->alive) continue;
-        if ((tr->t += dt) >= 0.5f) { tr->alive = 0; continue; }
+        if ((tr->t += dt) >= trail_life()) { tr->alive = 0; continue; }
         float vx = tr->x1 - tr->x0, vy = tr->y1 - tr->y0, l2 = vx * vx + vy * vy + 1e-4f;
         for (int k = 0; k < MAXMOBS; k++) {
             Mob *m = &G.mobs[k];
@@ -6108,6 +6840,7 @@ static void update_trails(float dt) {                              /* what cross
             if (hypotf(tr->x0 + vx * u - m->x, tr->y0 + vy * u - m->y) > 0.25f + KINDS[m->type].rad) continue;
             tr->hit |= 1ull << k;
             damage_mob(m, tr->dmg, DM_ARC | DM_ATK(AT_CHAIN), m->x, m->y, 0.0f);
+            if (m->alive && m->state == MS_WALK && dk(EL_LIGHT, 2, 2) > 0.0f && rndf() < dk(EL_LIGHT, 2, 2)) { mob_stun(m, 1.2f); DBG_COUNT(aug_conducts); }   /* Conductor */
         }
     }
 }
@@ -9456,7 +10189,7 @@ static Shot *new_shot(int kind, float x, float y, float a, float speed, float dm
     for (int i = 0; i < MAXSHOTS; i++) {
         Shot *s = &G.shots[i];
         if (s->alive) continue;
-        *s = (Shot){ 1, kind, -1, x, y, 0.0f, cosf(a) * speed, sinf(a) * speed, kind == AT_SPEAR || kind == SHOT_SPLINTER ? 1.0f : 1.6f, dmg, 0, 1, 0.0f, 0 };
+        *s = (Shot){ 1, kind, -1, x, y, 0.0f, cosf(a) * speed, sinf(a) * speed, kind == AT_SPEAR || kind == SHOT_SPLINTER ? 1.0f : 1.6f, dmg, 0, 1, 0.0f, 0, 0.0f };
         G.lay_x[i] = x; G.lay_y[i] = y;
         return s;
     }
@@ -9511,6 +10244,7 @@ static int own_missile(void) {                                     /* the same, 
  * each a quarter weaker (docs/PLAN-b11.md, section 9) */
 static void chain_lightning(int t, float dmg, int tier) {
     uint64_t hit = 0;
+    G.d7_zap = dmg;                                                /* the bolt's harm, for Forked and Grounding (D7) */
     Mob *m = &G.mobs[t];
     float hx = G.px + cosf(G.ang) * 0.35f, hy = G.py + sinf(G.ang) * 0.35f;
     add_beam(AT_CHAIN, hx, hy, 0.42f, m->x, m->y, m->z + 0.5f);
@@ -9588,6 +10322,18 @@ static void flask_burst(Shot *s) {
         return;
     }
     seep(s->x, s->y, s->dmg * 0.75f);
+    float k;
+    if ((k = dk(EL_POISON, 1, 1)) > 0.0f && s->target != -3) {   /* Cluster: three small flasks thrown out (D7) */
+        float a0 = rndf() * TAU_F;
+        for (int i = 0; i < 3; i++) {
+            Shot *c = new_shot(AT_FLASK, s->x, s->y, a0 + (float)i * TAU_F / 3.0f, 4.5f, s->dmg * 0.4f * k);
+            if (c) { c->tier = s->tier; c->arc = c->life = 0.35f; c->target = -3; c->scale = 0.6f; }
+        }
+        DBG_COUNT(aug_clusters);
+    }
+    if ((k = dk(EL_POISON, 1, 2)) > 0.0f)                          /* Miasma: a cloud where it burst (D7) */
+        for (int i = 0; i < MAXVENOM; i++)
+            if (!G.venoms[i].alive) { G.venoms[i] = (Venom){ 1, s->x, s->y, 0.9f, 0.0f, 1.5f, s->dmg * 0.75f * k, 0.0f, 2 }; DBG_COUNT(aug_miasmas); break; }
 }
 
 /* let the chosen spell go at target t (or straight ahead if it is gone) */
@@ -9610,7 +10356,7 @@ static void cast_spell(int sp, int t) {
     int splinter = sp == AT_SPEAR && spear_bare();                 /* no bones: a splinter, if one has grown */
     if (splinter && splint_left() <= 0) { say("NO BONES, AND NO SPLINTERS YET"); fizzle(sp); return; }
     int tier = spell_tier(sp), weak = 0;
-    if (sp != AT_BFS && !((sp == AT_CHAIN || sp == AT_DRAIN) && !have && seal < 0) && !spend_spirit(spell_cost(g, sp, tier))) {
+    if (sp != AT_BFS && !((sp == AT_CHAIN || sp == AT_DRAIN) && !have && seal < 0) && !spend_spirit(spell_cost(g, sp, tier) * (1.0f + aug_cost(sp)))) {   /* its augments' */
         tier = 1; weak = 1;
         if (!G.spirit_said) { G.spirit_said = 1; say("LOW ON SPIRIT: SPELLS CAST WEAK"); }
 #ifdef CRAWL_DEBUG
@@ -9619,7 +10365,7 @@ static void cast_spell(int sp, int t) {
 #endif
     }
     if (sp == AT_SPEAR && !splinter && rndf() >= bone_spared()) RUN.gear.bones--;   /* Physical Efficiency: now and then none */
-    float dmg = spell_damage_at(g, sp, tier);
+    float dmg = spell_damage_at(g, sp, tier) * aug_dmg(sp);       /* its augments' share (1.0.0b21) */
     if (sp == AT_SPEAR && !splinter && align_has(EL_PHYS, ND_A2)) dmg += 0.5f * (float)gear_armor(g);   /* Ossified: half your armour behind it */
     if (splinter) {
         dmg *= SPLINTER_DMG; RUN.splint_used++;
@@ -9644,6 +10390,7 @@ static void cast_spell(int sp, int t) {
     case AT_CHAIN:
         if (have) chain_lightning(t, dmg, tier);
         else { int k = mk_aimed(); if (k >= 0) { add_beam(AT_CHAIN, hx, hy, 0.42f, G.mk[k].x, G.mk[k].y, 0.6f); mk_strike(k, EL_LIGHT); } else fizzle(sp); }   /* a seal */
+        aug_cast(sp, NULL, have ? t : -1);
         return;
     case AT_DRAIN:
         if (have) {
@@ -9669,12 +10416,13 @@ static void cast_spell(int sp, int t) {
                 DBG_COUNT(wisp_host);
             }
         } else { int k = mk_aimed(); if (k >= 0) { add_beam(AT_DRAIN, hx, hy, 0.42f, G.mk[k].x, G.mk[k].y, 0.6f); mk_strike(k, EL_SPIRIT); } else fizzle(sp); }   /* a seal */
+        aug_cast(sp, NULL, have ? t : -1);
         return;
     case AT_BFS: bfs9000(); return;
     case AT_FLASK: {                                               /* lobbed to where you aim, over what is in the way */
         float d = clampf(have ? hypotf(tx - G.px, ty - G.py) : 4.5f, 1.2f, 9.0f);
         Shot *s = new_shot(AT_FLASK, hx, hy, a, 7.0f, dmg);
-        if (s) { s->tier = tier; s->arc = s->life = d / 7.0f; }
+        if (s) { s->tier = tier; s->arc = s->life = d / 7.0f; aug_cast(sp, s, have ? t : -1); }
         snd_sfx_ex(SFX_WHOOSH, 0.6f, 0.5f);
         return;
     }
@@ -9683,7 +10431,7 @@ static void cast_spell(int sp, int t) {
         if (have) wisp_bfs(m->cx, m->cy);
         for (int i = 0; i < n; i++) {
             Shot *s = new_shot(AT_WISPS, hx, hy, a + (i - (n - 1) * 0.5f) * 0.45f, 4.5f, dmg);
-            if (s) { s->target = have ? t : -1; s->life = 3.0f; s->tier = tier; }
+            if (s) { s->target = have ? t : -1; s->life = 3.0f; s->tier = tier; aug_cast(sp, s, have ? t : -1); }
         }
         snd_sfx_ex(SFX_SHIMMER, 0.6f, 0.5f);
         return;
@@ -9692,7 +10440,7 @@ static void cast_spell(int sp, int t) {
         float speed = sp == AT_SPEAR ? 12.0f : (sp == AT_HELL ? 6.0f : (sp == AT_FROST ? 9.0f : 8.0f));
         if (bat) a += (rndf() - 0.5f) * (sp == AT_FROST ? 0.3f : 0.6f);   /* bats are hard to hit */
         Shot *s = new_shot(sp, hx, hy, a, speed, dmg);
-        if (s) s->tier = tier;
+        if (s) { s->tier = tier; aug_cast(sp, s, have ? t : -1); }
         snd_sfx_ex(sp == AT_FROST ? SFX_FROST : SFX_CAST, sp == AT_HELL ? 1.3f : 1.0f, 0.5f);
         return;
     }
@@ -9715,7 +10463,16 @@ static int spell_charges(int sp) {
     }
 }
 static int spell_tethers(int sp) { return sp == AT_DRAIN && align_has(EL_SPIRIT, ND_AULT); }
-static int spell_holds(int sp) { return spell_charges(sp) || spell_tethers(sp); }
+static int spell_holds(int sp) { return spell_charges(sp) || spell_tethers(sp) || fire_grows(sp); }   /* and Burning Intensity's bolt */
+static float hold_span(int sp) { return fire_grows(sp) ? FIRE_GROW_T : 1.0f; }   /* a full charge: three seconds with it, the Firewall too */
+static void cast_held(int sp, int t, float held) {                 /* Burning Intensity's bolt let go: grown by the hold */
+    g_fire_hold = clampf(held / FIRE_GROW_T, 0.0f, 1.0f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT fire_held k=%.2f t=%.2f by %s\n", g_fire_hold, G.t, G.player ? "player" : "autopilot"); fire_held++;
+#endif
+    cast_spell(sp, t);
+    g_fire_hold = -1.0f;
+}
 static void mob_stun(Mob *m, float secs);
 static void daze(Mob *m) {                                         /* Amperage: no blow or throw a while; 1.0.0b19, a stun (section 5) */
     if (elem_mode()) { mob_stun(m, 1.5f); return; }
@@ -9836,10 +10593,12 @@ static void web_miss(float x, float y);
 static void web_land(Shot *s, Mob *m);
 static void update_shots(float dt) {
     const Gear *g = &RUN.gear;
+    aug_show_tick(dt);                                             /* CRAWL_AUGSHOW's, for the sheet (D7; nothing otherwise) */
     for (int i = 0; i < MAXSHOTS; i++) {
         Shot *s = &G.shots[i];
         if (!s->alive) continue;
         s->life -= dt;
+        aug_fly(s, dt);                                            /* its line's augments, in flight (17.3, 1.0.0b21) */
         if (s->kind == AT_WISPS) {                                 /* homing, round corners if need be */
             Mob *m = s->target >= 0 ? &G.mobs[s->target] : NULL;
             if (m && (!m->alive || m->state != MS_WALK)) { m = NULL; s->target = -1; }
@@ -9933,12 +10692,14 @@ static void update_shots(float dt) {
                 if (s->kind == AT_FIRE || s->kind == AT_HELL) explode(s->x, s->y); else sfx_at(s->kind == AT_FROST || s->kind == SHOT_LANCE ? SFX_FROST : SFX_BONES, s->x, s->y, 0.5f);
                 break;
             }
-            for (int mi = 0; mi < MAXMOBS && s->tier >= 0 && s->kind != AT_FLASK; mi++) {   /* tier -1: a broken ward's shards, only for
-                                                                                                show; a flask goes over them */
+            for (int mi = 0; mi < MAXMOBS && s->tier >= 0 && (s->kind != AT_FLASK || s->arc <= 0.0f); mi++) {   /* tier -1: a broken ward's
+                                                                                                shards, only for show; a lobbed flask goes over
+                                                                                                them, one thrown flat (Straight Throw) doesn't */
                 Mob *mb = &G.mobs[mi];
                 if (!mb->alive || mb->state != MS_WALK || mb->ally) continue;   /* your own pass */
                 if (mb->type == MOB_GHOST && !(s->kind == AT_WISPS && spirit_mastery())) continue;   /* fire passes through spectres; Wisp Host's don't */
-                int pierce = s->kind == AT_SPEAR || s->kind == SHOT_ORB || s->kind == SHOT_LANCE || s->kind == SHOT_BALLISTA;
+                int pierce = s->kind == AT_SPEAR || s->kind == SHOT_ORB || s->kind == SHOT_LANCE || s->kind == SHOT_BALLISTA || s->kind == AT_FROST;   /* a frost
+                                                                      shard: only Glacial Weight's ever passes one */
                 if (pierce && (s->pierced >> mi & 1)) continue;
                 float hr = KINDS[mb->type].rad * (mb->boss ? BOSSES[mb->boss - 1].scale : 1.0f) + (s->kind == SHOT_ORB ? 0.3f : 0.0f);
                 if (hypotf(mb->x - s->x, mb->y - s->y) >= hr) continue;
@@ -9947,12 +10708,17 @@ static void update_shots(float dt) {
                 if (knight_turns(mb, s)) break;
                 float fx = s->x - s->vx * 0.1f, fy = s->y - s->vy * 0.1f;
                 switch (s->kind) {
-                case AT_SPEAR:                                     /* through everything in the line, shields too */
+                case AT_SPEAR: {                                   /* through everything in the line, shields too */
+                    int first = !s->pierced;
                     if (!s->pierced && align_has(EL_PHYS, ND_ABIL) && mb->alive) {   /* Impale: the first it strikes, pinned */
                         if (mb->boss) mb->stagger = fmaxf(mb->stagger, 0.4f); else mb->pin = fmaxf(mb->pin, 0.6f);
                     }
                     s->pierced |= 1ull << mi;
+                    G.d7_spear = s->dmg;                           /* for Bone Rain (D7) */
                     damage_mob(mb, s->dmg, DM_PIERCE | DM_ATK(AT_SPEAR), fx, fy, 0.0f);
+                    float k;
+                    if (first && (k = dk(EL_PHYS, 1, 2)) > 0.0f && mb->alive && mb->state == MS_WALK) mb->stagger = fmaxf(mb->stagger, 0.5f * k);   /* Heavy Haft */
+                    if ((k = dk(EL_PHYS, 2, 1)) > 0.0f) s->dmg *= 1.0f + 0.15f * k;   /* Skewer: more for the next */
                     if (align_has(EL_PHYS, ND_A2)) {                   /* Ossified: a point of armour, six seconds */
                         int o = 0;
                         for (int k = 1; k < 10; k++) if (G.oss_t[k] < G.oss_t[o]) o = k;
@@ -9960,6 +10726,7 @@ static void update_shots(float dt) {
                     }
                     sfx_at(SFX_BONES, mb->x, mb->y, 0.5f);
                     continue;
+                }
                 case AT_HELL:
                     s->alive = 0; explode_big(s->x, s->y, 1.6f);
                     damage_mob(mb, s->dmg, DM_ATK(AT_HELL), fx, fy, 0.0f); splash(s->x, s->y, 1.5f, s->dmg, mb, AT_HELL);
@@ -9971,14 +10738,23 @@ static void update_shots(float dt) {
                     damage_mob(mb, s->dmg, DM_ATK(AT_FIRE), fx, fy, 0.0f);
                     if (s->tier >= 2) splash(s->x, s->y, 0.75f, s->dmg * 0.5f, mb, AT_FIRE);
                     break;
-                case AT_FROST:
-                    s->alive = 0; sfx_at(SFX_FROST, s->x, s->y, 0.8f);
+                case AT_FROST: {
+                    int heavy = s->target == -3;                   /* Glacial Weight's, through the first it strikes (D7) */
+                    float d0 = s->dmg, k;
+                    if (!heavy) s->alive = 0;
+                    sfx_at(SFX_FROST, s->x, s->y, 0.8f);
                     if (!damage_mob(mb, s->dmg, DM_SLOW | DM_ATK(AT_FROST), fx, fy, (2.5f + 0.25f * s->tier) * spell_effect() * permafrost())) deep_chill(mb);
+                    if (s->target != -2 && (k = dk(EL_FROST, 0, 2)) > 0.0f) frost_splinter(s, mb, d0 * 0.3f * k);   /* Splinterfrost */
+                    if (heavy) { s->pierced |= 1ull << mi; s->target = -1; s->dmg *= 0.7f * dk(EL_FROST, 1, 2); continue; }
                     break;
+                }
                 case SHOT_WEB: web_land(s, mb); break;             /* your Tangled Web */
+                case AT_FLASK: flask_burst(s); break;              /* thrown flat (Straight Throw, D7): it bursts on what it meets */
                 case SHOT_SPLINTER:                                /* a splinter: the first it meets, and a shield stops it */
                     s->alive = 0;
+                    G.d7_splint = 1;                               /* no bleed, bone or rain from it (D7) */
                     damage_mob(mb, s->dmg, DM_ATK(AT_SPEAR), fx, fy, 0.0f);
+                    G.d7_splint = 0;
                     sfx_at(SFX_BONES, mb->x, mb->y, 0.3f);
                     break;
                 case SHOT_ORB: {                                   /* Amperage: through it, and an arc to one more not yet struck */
@@ -11802,6 +12578,16 @@ static void auto_charge_pick(void) {
         G.target = best; G.auto_chg = 1; G.auto_hold = 2.5f;
         return;
     }
+    if (fire_grows(sp) && !spell_charges(sp)) {                    /* Burning Intensity: held while what it aims at is far, longer the
+                                                                      further, if nothing has come to blows */
+        float d = hypotf(m->x - G.px, m->y - G.py), hold = clampf((d - 4.0f) * 0.6f, 0.0f, FIRE_GROW_T - 0.25f);
+        for (int i = 0; i < MAXMOBS && hold > 0.0f; i++) {
+            const Mob *o = &G.mobs[i];
+            if (targetable(o) && hypotf(o->x - G.px, o->y - G.py) < 2.5f) hold = 0.0f;
+        }
+        if (hold >= 0.5f && spirit() >= spell_cost(&RUN.gear, sp, tier) * 1.3f) { G.auto_chg = 1; G.auto_hold = hold; }
+        return;
+    }
     if (!spell_charges(sp)) return;
     if (sp == AT_SPEAR ? RUN.gear.bones <= 0 : spirit() < spell_cost(&RUN.gear, sp, tier) * 2.5f) return;
     int near = 0, blows = 0;
@@ -11937,7 +12723,9 @@ static void update_player(float dt) {
             if (spell_tethers(G.spell)) {
                 if (G.st >= 0.25f) { if (!G.tether && targetable(m)) G.tether = G.target + 1; tether_hold(dt); }
                 done = G.st >= 0.25f + G.auto_hold || (G.st > 0.6f && !G.tether) || !G.chg_on;
-            } else if (G.st >= 1.05f) { cast_charged(G.spell, targetable(m) ? G.target : -1, 1.0f); done = 1; }
+            } else if (fire_grows(G.spell) && !spell_charges(G.spell)) {   /* Burning Intensity's bolt, held its while */
+                if (G.st >= 0.25f + G.auto_hold || !targetable(m)) { cast_held(G.spell, targetable(m) ? G.target : -1, G.st); done = 1; }
+            } else if (G.st >= hold_span(G.spell) + 0.05f) { cast_charged(G.spell, targetable(m) ? G.target : -1, 1.0f); done = 1; }
             if (done) {
                 G.chg_on = 0; G.auto_chg = 0; tether_end(); G.fired = 1;
                 G.hand = 0.0f; G.cooldown = cast_cycle(G.spell) * 1.5f;
@@ -13002,6 +13790,7 @@ static void mk_finish(int k) {
     if (first) {
         mk_reward(m);
         xp_gain((4.0f + 2.0f * (float)m->pips) * xp_level(), mk_name(m));
+        aug_credit(m->el, 2);                                      /* a thing struck with the line: two of its credits (A3) */
     }
     sfx_at(SFX_SHIMMER, m->x, m->y, 1.2f);
     sfx_at(m->kind == MKK_COFFER || m->kind == MKK_CAGE || m->kind == MKK_CART ? SFX_COIN : m->kind == MKK_HSEAL || m->kind == MKK_GEODE ? SFX_SHATTER
@@ -13487,6 +14276,7 @@ static void start_level(void) {
 #endif
     G.rooms_in = 0;                                                /* a new level's rooms, each worth finding */
     G.lb_spent = 0; G.lb_at = 0.0;                                 /* Constitution's killing blow, once a level (D5) */
+    G.d7_lg = 0; G.d7_shep = 0.0f; G.d7_splint = 0;                /* the augments' (D7): nothing held over from the level before */
     G.glance = G.corner_on = G.amb_read = G.amb_probed = 0; G.glance_last = -99.0f; G.corner_cd = 0.0f;   /* the dream's counters */
     G.map_on = 0;                                                  /* rolled up between levels */
     memset(G.has_key, 0, sizeof G.has_key);
@@ -13643,6 +14433,7 @@ static void debug_gear(void) {
     if (getenv("CRAWL_GEAR")) give_gear(atoi(getenv("CRAWL_GEAR")));
     if (getenv("CRAWL_ALIGN")) align_debug(getenv("CRAWL_ALIGN"));   /* the lines opened, to a node and a path */
     if (getenv("CRAWL_CONF")) conf_debug(getenv("CRAWL_CONF"));    /* each Confession's rank (1.0.0b20) */
+    aug_debug_set();                                               /* CRAWL_AUGSET: the augments chosen, at a rank (1.0.0b21) */
     if (getenv("CRAWL_ALPTS")) RUN.al_points = atoi(getenv("CRAWL_ALPTS"));
     if (getenv("CRAWL_CLASS")) { RUN.cls = 0; if (atoi(getenv("CRAWL_CLASS")) > 0) class_take(atoi(getenv("CRAWL_CLASS"))); }   /* 0: asked */
     if (getenv("CRAWL_ATONE")) RUN.atone = clampi(atoi(getenv("CRAWL_ATONE")), 1, 999);   /* the Level of Atonement, nothing bought with it */
@@ -14133,6 +14924,7 @@ static void crawl_enter(uint32_t seed) {
 #ifdef CRAWL_DEBUG
     if (resume && getenv("CRAWL_ALIGN")) align_debug(getenv("CRAWL_ALIGN"));   /* over a loaded run too */
     if (resume && getenv("CRAWL_CONF")) conf_debug(getenv("CRAWL_CONF"));
+    if (resume) aug_debug_set();
     if (resume && getenv("CRAWL_CLASS")) { RUN.cls = 0; if (atoi(getenv("CRAWL_CLASS")) > 0) class_take(atoi(getenv("CRAWL_CLASS"))); }
     if (resume && getenv("CRAWL_SOULS")) RUN.souls = atoi(getenv("CRAWL_SOULS"));
     if (resume && getenv("CRAWL_HASMAP")) RUN.has_map = 1;
@@ -18971,6 +19763,7 @@ static void boss_adds(void) {
 static void boss_fall(Mob *m) {
     const BossDef *B = &BOSSES[G.boss];
     G.bstate = BS_DEAD; G.bstate_t = 0.0f;
+    if (m->last_atk >= 0 && m->last_atk < NATK && m->last_atk != AT_BFS) aug_credit(ATK_ELEM[m->last_atk], 10);   /* the line that felled it (A3) */
     G.web_hp = 0.0f;                                               /* its web goes slack */
     rumble(0.9f, 0.5f, 1.4f);
     Item *it = add_item(m->cx, m->cy, IT_SCRIP);
@@ -20283,6 +21076,7 @@ static void begin_shop(void) {
     line_lend();
     gift_settle();                                                 /* the Lampstand's gift: the dream's at once */
     G.gift_said = 0;
+    if (d6_on()) align_sync();                                     /* the wares by the lines and the class as they are now (D6) */
     int bag_up = 0;
     for (int p = 0; p < G.ped_n; p++) {                            /* now and then the BFS9000, the rest to wear; one bag at most */
         int pool = p == 0 ? POOL_ATTACK : POOL_GEAR;               /* runes are the Rune Shrine's, spells the lines' */
@@ -20799,7 +21593,7 @@ static void update_shop(double dt) {
         if (st > 0.8f && st - fdt <= 0.8f) G.cat_slow = 1.4f;
         if (st >= 2.4f) {
             if (RUN.peds < NPED && RUN.treasure >= ped_price() + (int)gear_haul(G.level)) ped_buy();   /* another, if a level's haul is left after */
-            auto_ascend(); auto_align();
+            auto_ascend(); auto_align(); auto_augment();   /* its augments as their steps open (A15) */
             G.shop_step = SH_LOOK; G.shop_look = 0; G.shop_t = 0.0; shop_turn(face_of(G.ped_x[0], G.ped_y[0]), 0.7f);
         }
         break;
@@ -21563,6 +22357,7 @@ static void update_bestiary(void);
 static int toast_showing(void);
 static void open_ui(int which) {
     G.ui = which; G.map_on = 0;                                    /* another screen takes the map's place */
+    G.al_aug = 0;                                                  /* the Lampstand opens on its tree, not a pair (1.0.0b21) */
     show_bar();                                                    /* and it is there when the menu closes */
     if (which == UI_INVENTORY) { G.ui_sel = 0; G.inv_page = 0; G.inv0 = RUN.gear; snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); }
     else if (which == UI_BESTIARY) { best_default_rank(); snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); }
@@ -21651,12 +22446,17 @@ static void human_cast(float dt, int may) {
             else {
                 G.chg_on = 0;
                 if (G.tether) tether_end();
-                else if (G.chg_t < 0.25f || !spell_charges(G.chg_sp)) {   /* a tap: the ordinary spell, wind-up and all */
+                else if (G.chg_t < 0.25f || (!spell_charges(G.chg_sp) && !fire_grows(G.chg_sp))) {   /* a tap: the ordinary spell, wind-up and all */
                     float cyc = cast_cycle(G.chg_sp);
                     G.pc_wind = spell_windup(&RUN.gear, G.chg_sp, spell_tier(G.chg_sp)) * af_slow_cast();
                     G.pc_t = 0.0f; G.pc_fired = 0; G.pc_len = G.pc_wind + 0.25f; G.cooldown = fmaxf(cyc, G.pc_len);
+                } else if (fire_grows(G.chg_sp) && !(spell_charges(G.chg_sp) && G.chg_t >= FIRE_GROW_T)) {   /* Burning Intensity: the bolt grown;
+                                                                      past three seconds with the Firewall, the Firewall (A9) */
+                    cast_held(G.chg_sp, aim_target(), G.chg_t);
+                    G.pc_t = 0.3f; G.pc_fired = 1; G.pc_wind = 0.3f; G.pc_len = 0.55f; G.calm = 0.0f;
+                    G.cooldown = cast_cycle(G.chg_sp);
                 } else {                                           /* the charge goes: it took the wind-up's place */
-                    cast_charged(G.chg_sp, aim_target(), clampf(G.chg_t, 0.0f, 1.0f));
+                    cast_charged(G.chg_sp, aim_target(), clampf(G.chg_t / hold_span(G.chg_sp), 0.0f, 1.0f));
                     G.pc_t = 0.3f; G.pc_fired = 1; G.pc_wind = 0.3f; G.pc_len = 0.55f; G.calm = 0.0f;
                     G.cooldown = cast_cycle(G.chg_sp) * 1.5f;
                 }
@@ -22402,7 +23202,7 @@ static int con_do(int what, int num, const char *rest) {
         con_printf(ok, "A BAG, %s, ALL BUT ONE PLACE FILLED.", QUAL_NAME[num - 1]);
         return 1;
     case CH_ABIL:
-        if (num < 1 || num >= NABIL) { con_print("ABILITIES GO FROM 1 TO 7.", no); return 0; }
+        if (num < 1 || num >= NABIL) { con_print("ABILITIES GO FROM 1 TO 13.", no); return 0; }
         if (!give_ability(num)) { con_print("YOU WEAR NOTHING FOR IT TO TEACH.", no); return 0; }
         G.max_hp = gear_max_hp(&RUN.gear); if (G.hp > G.max_hp) G.hp = G.max_hp;
         con_printf(ok, "ALL YOU WEAR KNOWS %s NOW.", ABIL_NAME[num]);
@@ -22637,6 +23437,7 @@ static void pad_keys(float dt) {
         if (hit[PAD_A]) PRESS(KEY_ENTER);
         if (hit[PAD_B] || hit[PAD_MENU]) PRESS(KEY_ESC);
         if (hit[PAD_Y]) PRESS(KEY_SPACE);
+        if (hit[PAD_X] && aug_on()) PRESS(KEY_BACK);               /* X: back, with the augments (unbinding a line, taking back: 1.0.0b21) */
         if (hit[PAD_RB]) PRESS(G.ui == UI_ALIGN ? KEY_PGDN : KEY_D);   /* at the Lampstand, the lines */
         if (hit[PAD_LB]) PRESS(G.ui == UI_ALIGN ? KEY_PGUP : KEY_A);
         if (hit[PAD_VIEW]) PRESS(KEY_TAB);
@@ -23035,8 +23836,10 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
 #define LEDGER_MAGIC 0x3147444Cu            /* "LDG1" */
 #define PROGRESS_MAGIC 0x31505648u          /* "HVP1": a progress that names the page to start from */
 enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX, LG_CASTER, LG_ELEM, LG_ALIGN, LG_HALL2, LG_DEEDS, LG_WAYS,
-       LG_CONF };                                                  /* 1.0.0b20: the Confessions' points and overlevels, a byte each, and
+       LG_CONF,                                                    /* 1.0.0b20: the Confessions' points and overlevels, a byte each, and
                                                                       the old overlevels whose Alignment Points were given */
+       LG_AUG };                                                   /* 1.0.0b21: each line's augments, AUG_LINE_BYTES a line */
+#define AUG_LINE_BYTES (NAUGT * 4 + 2)      /* a line's augments: three choices, their order, their credits (u16), its bank (u16) */
 #define LG_WAYS_BYTES 20                    /* 1.0.0b18: the dead's ways met and named this run of ten (u32 each), that run (u16), the five
                                                deeds against them (u16 each) */
 #define LG_DEEDS_BYTES 18                   /* 1.0.0b13 (docs/PLAN-b13.md): every hazard met, a bit each (the hall keeps only eight);
@@ -23157,6 +23960,14 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     c = section_begin(p, LG_CONF);
     memcpy(c, RUN.conf, NCONF); memcpy(c + NCONF, RUN.conf_over, NCONF); c[2 * NCONF] = (uint8_t)clampi(RUN.ap_overs, 0, 255);
     p = section_end(c, c + 2 * NCONF + 1);
+    c = section_begin(p, LG_AUG);                                  /* 1.0.0b21: a line at a time, its three choices, their order, their
+                                                                      credits (u16), its bank (u16) */
+    for (int e = 0; e < NELEM; e++) {
+        uint8_t *q = c + e * AUG_LINE_BYTES;
+        for (int t = 0; t < NAUGT; t++) { q[t] = RUN.aug[e][t]; q[NAUGT + t] = RUN.aug_ord[e][t]; put16(q + 2 * NAUGT + 2 * t, RUN.aug_cr[e][t]); }
+        put16(q + 4 * NAUGT, RUN.aug_bank[e]);
+    }
+    p = section_end(c, c + NELEM * AUG_LINE_BYTES);
     c = section_begin(p, LG_ALIGN);
     memcpy(c, RUN.al, sizeof RUN.al); put16(c + NELEM * NNODE, clampi(RUN.al_points, 0, 65535));
     c[NELEM * NNODE + 2] = (uint8_t)RUN.cls; c[NELEM * NNODE + 3] = (uint8_t)clampi(RUN.cls_pts, 0, 255);
@@ -23322,6 +24133,17 @@ static void run_unpack(const uint8_t *buf, int len) {
         RUN.corner = *q++; RUN.wind_spent = *q++ != 0;
         RUN.wind_run = get16(q);
     }
+    c = page_section(buf, len, LG_AUG, &k);                        /* 1.0.0b21: the augments; an older page has none */
+    for (int e = 0; e < NELEM; e++) aug_forget(e);
+    if (c && k >= NELEM * AUG_LINE_BYTES)
+        for (int e = 0; e < NELEM; e++) {
+            const uint8_t *q = c + e * AUG_LINE_BYTES;
+            for (int t = 0; t < NAUGT; t++) {
+                RUN.aug[e][t] = q[t] <= 2 ? q[t] : 0; RUN.aug_ord[e][t] = q[NAUGT + t];
+                RUN.aug_cr[e][t] = (uint16_t)imin(get16(q + 2 * NAUGT + 2 * t), AUG_CR[2]);
+            }
+            RUN.aug_bank[e] = get16(q + 4 * NAUGT);
+        }
     c = page_section(buf, len, LG_CONF, &k);                       /* 1.0.0b20 */
     memset(RUN.conf, 0, sizeof RUN.conf); memset(RUN.conf_over, 0, sizeof RUN.conf_over); RUN.ap_overs = 0;
     if (c && k >= 2 * NCONF + 1) {
@@ -23575,6 +24397,7 @@ static void death_fall(void) {
     RUN.atone = 1; RUN.xp = 0; RUN.points = 0; RUN.corner = 0; RUN.wind_spent = 0;   /* the Level of Atonement and all it bought; */
     memset(RUN.steps, 0, sizeof RUN.steps); memset(RUN.over, 0, sizeof RUN.over);       /* the map stays */
     memset(RUN.conf, 0, sizeof RUN.conf); memset(RUN.conf_over, 0, sizeof RUN.conf_over); RUN.ap_overs = 0;   /* the Confessions with them (U13) */
+    for (int e = 0; e < NELEM; e++) aug_forget(e);                 /* and the augments with the lines (A14) */
     XPF.n = 0; XPF.banner = 0.0f;
     G.level_treasure = G.level_souls = 0;
     RUN.level = 1; RUN.shop_next = 1; RUN.hp = gear_max_hp(g);
@@ -23811,6 +24634,7 @@ static void align_unbind(int e) {                                  /* every node
     int back = align_refund(e);
     if (e == EL_FIRE) { if (cls_el() == EL_FIRE) RUN.cls_pts += RUN.cls_spent; RUN.cls_spent = 0; }   /* the Witchfinder's come back whole */
     memset(RUN.al[e], 0, sizeof RUN.al[e]);
+    aug_forget(e);                                                 /* and its augments with it (A5) */
     RUN.al_gift &= (uint8_t)~(1u << e);                            /* an old class's line, unbound, closes; */
     if (RUN.gifted >> e & 1) RUN.al[e][ND_OPEN] = (uint8_t)ALIGN[e].n[ND_OPEN].cost;   /* a gift's stays open */
     RUN.al_points += back; RUN.coins -= 2;
@@ -23820,7 +24644,29 @@ static void align_unbind(int e) {                                  /* every node
 #endif
 }
 #define AL_GIFT 100                         /* al_arm: a gift's line awaiting its second Enter, AL_GIFT + the line */
+#define AL_AUG 200                          /* and an augment awaiting its second, AL_AUG + its step x 2 + which */
+static int al_aug_step(int e, int n) {                             /* the augment's step a node carries (1.0.0b21), or -1 */
+    if (n == ND_OPEN) return AUG_OPEN;
+    if (n == ND_ABIL) return AUG_ABIL;
+    return (n == ND_AULT || n == ND_BULT) && align_full(e, n) ? AUG_ULT : -1;   /* the ultimate held, whichever path */
+}
+static const char *const *aug_mark(int e, int t, int w) { return UI_AUGMARK[e == EL_FIRE && w >= 1 && w <= 2 ? t * 2 + w - 1 : 6]; }
+static void update_augpair(int e) {                                /* the pair at a step: A/D the one, Enter twice takes it (A5: for good) */
+    int t = clampi(G.al_aug - 1, 0, NAUGT - 1);
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_SPACE] || IN.hit[KEY_BACK] || IN.hit[KEY_TAB]) { G.al_aug = 0; G.al_arm = -1; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
+    if (RUN.aug[e][t]) return;                                     /* chosen: there to be looked at */
+    int lr = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT] || IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT] || IN.hit[KEY_W] || IN.hit[KEY_UP]);
+    if (lr) { G.al_augs = !G.al_augs; G.al_arm = -1; snd_sfx_ex(SFX_TICK, 0.7f, 0.5f); return; }
+    if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_MOUSE1])) return;
+    int w = clampi(G.al_augs, 0, 1);
+    if (G.al_arm != AL_AUG + t * 2 + w) { G.al_arm = AL_AUG + t * 2 + w; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }
+    G.al_arm = -1;
+    if (!aug_choose(e, t, w + 1)) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+    snd_sfx_ex(SFX_RUNE, 0.8f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.6f, 0.5f);
+    say("%s IS YOURS", aug_name(e, t, w + 1));
+}
 static void update_align(int view) {
+    if (!view && G.al_aug) { update_augpair(clampi(G.al_el, 0, NELEM - 1)); return; }   /* the pair's tablet has the keys while it is up */
     if (!view && (IN.hit[KEY_ESC] || IN.hit[KEY_TAB])) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
     int e = G.al_el = clampi(G.al_el, 0, NELEM - 1), was = e;
     for (int k = 0; k < NELEM; k++) if (IN.hit[KEY_1 + k]) e = k;
@@ -23840,7 +24686,14 @@ static void update_align(int view) {
         return;
     }
     if (view) return;
-    if (IN.hit[KEY_SPACE] || IN.hit[KEY_BACK]) {                   /* unbinding, for two coins, asked twice */
+    if (aug_on() && IN.hit[KEY_SPACE]) {                           /* Space (Y): the step's augments (1.0.0b21, A6) */
+        int at = al_aug_step(e, n);
+        if (at < 0 || !aug_built(e) || !aug_step_open(e, at)) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        G.al_aug = 1 + at; G.al_augs = RUN.aug[e][at] ? RUN.aug[e][at] - 1 : 0; G.al_arm = -1;
+        snd_sfx_ex(SFX_PAGE, 0.7f, 0.5f);
+        return;
+    }
+    if (aug_on() ? IN.hit[KEY_BACK] : IN.hit[KEY_SPACE] || IN.hit[KEY_BACK]) {   /* unbinding, for two coins, asked twice (Back, with the augments) */
         if (!align_spent(e)) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
         if (RUN.coins < 2) { G.al_arm = -3; snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
         if (G.al_arm != -2) { G.al_arm = -2; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }
@@ -24511,6 +25364,7 @@ static void update_repomenu(void) {
 
 enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_PUZZLE, CX_TRIAL, CX_WAYS, CX_CASTER, CX_ELEM, CX_LINE, CX_CLASS, CX_SOUL, CX_CLAIM,
        /* docs/PLAN-combat.md, two tracks on one branch (its section 17): each adds parts only above its own end mark */
+       CX_AUG,                                                    /* an augment chosen (C6, 1.0.0b21): i is its line x NAUGT + its step */
        /* the caster's track (C) ends */
        /* the dead's track (D): */
        /* the dead's track (D) ends */
@@ -24518,6 +25372,7 @@ enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_PUZZLE, CX_TRIAL, CX_WAYS,
 enum { CXS_VESSEL, CXS_BELL, CXS_FONT, CXS_REPLAY, CXS_SAP, NCXS };   /* the souls' pages */
 #define CX_MAX (NABIL + NDEF + NBOSS + NSTAT + NHZ + NPZK + NTRI + NWAY + 3 + NCS + 2 + NELEM + 1 + NCXS \
     /* docs/PLAN-combat.md section 17: each track adds its new pages' count (+ n) only above its own end mark */ \
+    + NELEM * NAUGT /* the augments chosen (C6) */ \
     /* the caster's track (C) ends */ \
     /* the dead's track (D): */ \
     + 1 /* the elements' second page, the dead's (D1) */ \
@@ -24528,7 +25383,8 @@ enum { CXC_ATONE, CXC_LUCK, CXC_OVER, CXC_CORNER };                /* the caster
 typedef struct { int sec, i; } CxEntry;
 static const char *const CX_PART[NCX] = { "AN ABILITY OF WHAT YOU WEAR", "A RUNE", "A BOSS'S GIFT", "A STAT A PIECE CAN ROLL", "A HAZARD", "A PUZZLE SOLVED",
                                           "A TRIAL WON", "THE WAYS OF THE DEAD", "THE CASTER'S OWN",
-                                          "THE ELEMENTS", "A LINE OF THE ALIGNMENT", "WHAT YOU WERE", "SOULS", "THE MERCHANT'S LEDGER" };
+                                          "THE ELEMENTS", "A LINE OF THE ALIGNMENT", "WHAT YOU WERE", "SOULS", "THE MERCHANT'S LEDGER",
+                                          "AN AUGMENT OF A LINE" };
 static void codex_note(void) {                                     /* worn, held or met: written in */
     const Gear *g = &RUN.gear;
     uint32_t ab = RUN.cx_abil; uint64_t st = RUN.cx_stat;
@@ -24569,6 +25425,8 @@ static int codex_entries(CxEntry *e) {
     if (RUN.rec.cleared) e[n++] = (CxEntry){ CX_SOUL, CXS_REPLAY };
     if (RUN.cx_more & CXM_SAP) e[n++] = (CxEntry){ CX_SOUL, CXS_SAP };
     e[n++] = (CxEntry){ CX_CLAIM, 0 };
+    for (int el = 0; el < NELEM; el++)                             /* the augments chosen (C6), each line's in step order */
+        for (int t = 0; t < NAUGT; t++) if (aug_of(el, t)) e[n++] = (CxEntry){ CX_AUG, el * NAUGT + t };
     return n;
 }
 /* A/D a page, W/S the next part, C or Esc closes */
@@ -25391,6 +26249,7 @@ enum { DR_EYES = 1, DR_IMPLODE = 2, DR_BRIGHT = 4, DR_ICE = 8, DR_CAT = 16, DR_S
        /* the dead's track (D): */
        DR_CHILLA = 1 << 30, DR_CHILLB = 1 << 29,                     /* Chilled (section 5): its stacks, 1-3, in two bits; frost creeping
                                                                       over it, more with each */
+       DR_BLEED = 1 << 28,                                           /* bleeding (D7, Barbed): dark drops running down it */
        /* the dead's track (D) ends */
 };
 _Static_assert(C4_EDGE == DR_EDGE, "C4's flash is DR_EDGE");
@@ -26072,6 +26931,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         }
         if (m->pin > 0.0f && m->state == MS_WALK) d->flags |= DR_PINNED;
         if (m->burn_t > 0.0f && m->state == MS_WALK) d->flags |= DR_BURNING;
+        if ((m->bld_t > 0.0f || aug_show(1)) && m->state == MS_WALK) d->flags |= DR_BLEED;   /* Barbed's bleed (D7) */
         if (m->boss == 1 + BOSS_WRAITH && G.bslip_t > 0.9f) d->flags |= DR_RIPPLE;
         if (m->boss == 1 + BOSS_DEACON) {
             if (G.bpose == BP_LITANY && G.bpose_t > 0.0f && m->state == MS_WALK) d->flags |= DR_MEND;   /* the Litany's green light */
@@ -26250,6 +27110,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (!s->alive || (s->x - G.px) * dx + (s->y - G.py) * dy < (s->kind == SHOT_ORB ? 1.1f : 0.6f)) continue;   /* the hand covers it leaving */
         float sc;
         int sp = shot_sprite(s, &sc), n0 = n;
+        if (s->scale > 0.0f) sc *= s->scale;                       /* Burning Intensity's grown bolt, Firecracker's spark (1.0.0b21) */
         ADD(s->x, s->y, -0.02f + (1.0f - sc) * 0.5f + (s->kind == AT_FLASK ? s->z : 0.0f), sp, 0);
         if (n > n0) list[n - 1].scale = sc;
     }
@@ -26278,6 +27139,16 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         const Venom *v = &G.venoms[i];
         if (!v->alive) continue;
         int n0 = n;
+        if (v->rime == 2) {                                        /* Miasma's cloud (D7): a green vapour standing, gathering and thinning */
+            float a = 0.6f * smoothstepf(0.0f, 0.25f, v->t) * (1.0f - smoothstepf(v->life - 0.5f, v->life, v->t));
+            for (int c = 0; c < 2 && a > 0.03f; c++) {
+                int n1 = n;
+                float ox = c ? 0.25f : -0.2f, oy = c ? -0.15f : 0.2f, bob = 0.04f * sinf((float)G.t * 1.3f + (float)c * 2.1f);
+                ADD(v->x + ox, v->y + oy, -0.02f + bob, SP_VAPOUR, a);
+                if (n > n1) { list[n - 1].scale = 0.8f + 0.3f * smoothstepf(0.0f, 1.0f, v->t); list[n - 1].flags |= DR_BRIGHT; }
+            }
+            continue;
+        }
         ADD(v->x, v->y, 0.0f, v->rime ? SP_RIME : SP_DROWN_POOL, 1.0f - smoothstepf(v->life - 0.6f, v->life, v->t));
         if (n > n0) { list[n - 1].scale = (v->rime ? 1.0f : 0.8f) * v->r / (v->rime ? 0.45f : 0.55f); if (!v->rime) list[n - 1].flags |= DR_VENOM; }
     }
@@ -26564,6 +27435,11 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                 if ((d->flags & DR_POISONED) && hash2(tx >> 1, (tyi + (int)(G.t * 9.0)) >> 1) % 23u == 0) { f->pix[y * W + x] = (uint8_t)(R_MOSS + 11 + ((tyi >> 2) & 3)); continue; }   /* bubbles rising */
                 if ((d->flags & DR_BURNING) && tyi > TS / 3
                     && (hash2(tx >> 1, (tyi + (int)(G.t * 24.0)) >> 1) & 7) == 0) { f->pix[y * W + x] = (uint8_t)(R_FLAME + 9 + (int)(hash2(tyi, tx) & 6)); continue; }   /* flames licking up it */
+                if ((d->flags & DR_BLEED) && tyi > TS / 5 && hash2(tx, 91) % 5u == 0) {   /* bleeding (D7): thin runs of blood going down it,
+                                                                      a bright drop at each foot, a darkening trail above */
+                    int ph = (tyi - (int)(G.t * 9.0) + (int)(hash2(tx, 7) & 31)) & 31;
+                    if (ph < 6) { f->pix[y * W + x] = (uint8_t)(R_BLOOD + (ph == 5 ? 12 : ph >= 3 ? 9 : 6)); continue; }
+                }
                 if ((d->flags & DR_VENOM) && ((c >= R_FLAME && c < R_FLAME + 16) || (c >= R_GLOW && c < R_GLOW + 16) || c == C_WHITE)) c = (uint8_t)(R_MOSS + (c == C_WHITE ? 15 : (c & 15)));
                 if ((d->flags & DR_ELEMX) && (d->scale < 0.4f || ((x + y + (int)(G.t * 15.0)) & 1))) {   /* an element carried (C3) */
                     int lo = d->remap == R_FLAME ? 4 : 7;                  /* fire kept orange, apart from lightning's gold */
@@ -27310,7 +28186,7 @@ static void render_charge(Frame *f, int ox, int oy) {
     if (!G.chg_on || !spell_holds(G.chg_sp) || G.chg_t < 0.12f) return;
     int el = ATK_ELEM[G.chg_sp];
     if (el < 0) return;
-    float k = clampf(G.chg_t, 0.0f, 1.0f), t = (float)G.t, full = k >= 0.999f;
+    float k = clampf(G.chg_t / hold_span(G.chg_sp), 0.0f, 1.0f), t = (float)G.t, full = k >= 0.999f;   /* Burning Intensity's over three s */
     float cx = (float)ox - 20.0f, cy = (float)oy + 46.0f, R = 16.0f + 9.0f * k, spin = 0.8f + 5.0f * k;   /* left of the palm, under the fingers */
     int ramp = ELEM_RAMP[el];
     float pulse = full ? 0.5f + 0.5f * sinf(t * 9.0f) : 0.0f;
@@ -28271,7 +29147,9 @@ static void render_messages(Frame *f) {
         snprintf(pm[0], 48, "%s DODGES THE WAY THE STICK LEANS", PW(PAD_B));
         snprintf(pm[1], 48, "%s A GIFT  %s A RUNE  %s HELD CHOOSES", pad_short(pl_on(PAD_LB)), pad_short(pl_on(PAD_RB)), pl_on(PAD_UP) == PAD_UP ? "UP" : pad_short(pl_on(PAD_UP)));
         snprintf(pm[2], 48, "%s TAPPED: THE MAP", PW(PAD_UP));
-        snprintf(pm[3], 48, "HOLD %s TO CHARGE AN ULTIMATE", PW(PAD_RT));
+        int ults = 0;                                              /* only Burning Intensity's bolt held: it grows (1.0.0b21) */
+        for (int sp = 0; sp < AT_BFS; sp++) ults |= RUN.gear.atk[sp] >= 0 && (spell_charges(sp) || spell_tethers(sp));
+        snprintf(pm[3], 48, ults ? "HOLD %s TO CHARGE AN ULTIMATE" : "HOLD %s: THE FIRE BOLT GROWS", PW(PAD_RT));
         snprintf(pm[4], 48, "SWING THE %s TO SHAKE OFF A BAT", PL.swap ? "L-STICK" : "R-STICK");
         #undef PW
         int charges = 0, bats = G.level >= 5;                      /* bats of rank II come in from the first run's fifth level */
@@ -28279,7 +29157,7 @@ static void render_messages(Frame *f) {
         const char *more[7] = { PADX.used ? pad_sprint_hint() : "SHIFT SPRINTS FORWARD, A WHILE", RUN.abil[BOSS_KNIGHT] ? (PADX.used ? pm[0] : "TAP A DIRECTION TWICE TO DODGE") : NULL,
                                 ab_readied() >= 0 || rune_readied() >= 0 ? (PADX.used ? pm[1] : "RIGHT CLICK USES  Q NEXT, HOLD: WHEEL") : NULL,
                                 RUN.has_map ? (PADX.used ? pm[2] : "M THE MAP") : NULL,
-                                charges ? (PADX.used ? pm[3] : "HOLD A SPELL TO CHARGE ITS ULTIMATE") : NULL,   /* 1.0.0b11 */
+                                charges ? (PADX.used ? pm[3] : ults ? "HOLD A SPELL TO CHARGE ITS ULTIMATE" : "HOLD THE FIRE BOLT AND IT GROWS") : NULL,   /* 1.0.0b11 */
                                 bats ? (PADX.used ? pm[4] : "TURN OR STRAFE HARD TO SHAKE OFF A BAT") : NULL,
                                 G.shop || RUN.al_points > 0 ? "THE LAMPSTAND NORTH OF HER: THE LINES" : NULL };
         int rows = 0, widest = 0;                                  /* one band of stone behind them all */
@@ -28401,24 +29279,28 @@ static void render_elements(Frame *f) {
     const Gear *g = &RUN.gear;
     tab_frame(f, "THE ELEMENTS", R_GOLD + 12, 0, 0, "A/D PAGE  TAB CLOSE");
     ui_well(f, 9, 37, 302, 154);
-    static const char *const HEAD[3] = { "POWER", "EFFICIENCY", "INSIGHT" };
-    static const int HX[3] = { 160, 244, 306 };
-    for (int c = 0; c < 3; c++) gfx_text8(f, HX[c] - gfx_text_width(HEAD[c], 1), 42, HEAD[c], R_GOLD + 10, 1);
+    static const char *const HEAD[5] = { "POWER", "EFF.", "INS.", "ADDS", "ODDS" };   /* 1.0.0b21: what each adds, and its status */
+    static const int HX[5] = { 146, 186, 226, 266, 306 };
+    for (int c = 0; c < 5; c++) gfx_text8(f, HX[c] - gfx_text_width(HEAD[c], 1), 42, HEAD[c], R_GOLD + 10, 1);
     char v[24];
     for (int e = 0; e < NELEM; e++) {
-        int y = 54 + e * 12, r = align_rank(e), worn[3] = { ST_POW + e, ST_EFF + e, ST_INS + e };
-        float val[3] = { (spell_line(e, 2) + gear_total(g, ST_POW + e) / 100.0f) * 100.0f, spell_efficiency(g, e) * 100.0f, spell_insight(g, e) * 100.0f };
+        int y = 54 + e * 12, r = align_rank(e), worn[5] = { ST_POW + e, ST_EFF + e, ST_INS + e, st_adds(e), e < EL_PHYS ? ST_CHANCE + e : -1 };
+        float val[5] = { (spell_line(e, 2) + gear_total(g, ST_POW + e) / 100.0f) * 100.0f, spell_efficiency(g, e) * 100.0f, spell_insight(g, e) * 100.0f,
+                         gear_total(g, st_adds(e)) + (e != EL_POISON ? align_add(e) * 100.0f : 0.0f),
+                         (st_odds(e) + (e == EL_FIRE || e == EL_LIGHT || e == EL_SPIRIT ? cls_ab(e, 0) / 100.0f : 0.0f)) * 100.0f };
         elem_glyph(f, 14, y, e, r == 0);
         gfx_text8(f, 26, y, ELEM_NAME[e], r ? ramp_at(ELEM_RAMP[e], 13) : (uint8_t)(R_STONE + 8), 1);
-        for (int c = 0; c < 3; c++) {
-            snprintf(v, sizeof v, c ? "%.0f%%" : "+%.0f%%", val[c]);
-            int capped = gear_capped(g, worn[c]), some = gear_total(g, worn[c]) > 0.0f;
+        for (int c = 0; c < 5; c++) {
+            if (worn[c] < 0) { gfx_text8(f, HX[c] - gfx_text_width("--", 1), y, "--", R_STONE + 7, 1); continue; }   /* Physical: no status */
+            snprintf(v, sizeof v, c == 1 || c == 2 ? "%.0f%%" : "+%.0f%%", val[c]);
+            int capped = gear_capped(g, worn[c]), some = gear_total(g, worn[c]) > 0.0f || (c == 4 && val[c] > 0.5f);
             gfx_text8(f, HX[c] - gfx_text_width(v, 1), y, v, capped ? (uint8_t)(R_GLOW + 12) : some ? (uint8_t)(R_GOLD + 11) : val[c] > 0.5f ? (uint8_t)(R_STONE + 12) : (uint8_t)(R_STONE + 7), 1);
         }
     }
     ui_rule(f, 14, 305, 129, 0);
-    text_wrap(f, 14, 134, "POWER: MORE OF ITS DAMAGE. EFFICIENCY: LESS SPIRIT; PHYSICAL'S, NO BONE SPENT. INSIGHT: A SHORTER "
-                          "WIND-UP. GOLD: PARTLY WORN. BLUE: WHAT IS WORN IS AT ITS CAP.", 36, R_STONE + 11, 5);
+    text_wrap(f, 14, 134, "POWER: MORE OF ITS DAMAGE. EFF.: LESS SPIRIT, OR NO BONE SPENT. INS.: A SHORTER WIND-UP. "
+                          "ADDS: SO MUCH MORE OF EVERY SPELL, AS IT. ODDS: ITS MARK ON THE DEAD MORE OFTEN. GOLD: WORN. "
+                          "BLUE: AT ITS CAP.", 36, R_STONE + 11, 6);
 }
 
 /* a stat's name, short enough for a column of the caster's numbers */
@@ -28481,7 +29363,8 @@ static void render_caster(Frame *f) {
         case AB_KEYMAKER: snprintf(v, sizeof v, "KEYMAKER %.0f CELLS", a); break;
         case AB_COMMUNE: snprintf(v, sizeof v, "COMMUNE %.0f, %.1f S", a, b / 10.0f); break;
         case AB_THORNS: snprintf(v, sizeof v, "THORNS %.0f", a); break;
-        default: snprintf(v, sizeof v, "MIRROR %.0f%% AT %.0f%%", a, b); break;
+        case AB_MIRRORED: snprintf(v, sizeof v, "MIRROR %.0f%% AT %.0f%%", a, b); break;
+        default: abil_short(ab, a, v, sizeof v); break;            /* the classes' (D6) */
         }
         gfx_text8(f, n % 2 ? 162 : 14, y + (n / 2) * 9, v, R_GOLD + 11, 1);
         n++;
@@ -29749,6 +30632,21 @@ static void stat_does(int st, char *buf, int n) {                  /* the elemen
     if (st == ST_RES_LIGHT) { snprintf(buf, (size_t)n, "LIGHTNING HURTS LESS, AND A BOLT OF IT BREAKS A SPELL BEING GATHERED LESS OFTEN."); return; }
     if (st == ST_SPRINT) { snprintf(buf, (size_t)n, "MORE SECONDS OF SPRINT, PAST THE TWO AND A HALF EVERYONE HAS, TO TEN IN ALL."); return; }
     if (st == ST_PHYSIC) { snprintf(buf, (size_t)n, "A POTION RESTORES MORE THAN ITS TWENTY-FIVE: HALF AS MUCH AGAIN AT FIFTY, FIVE TIMES AT FOUR HUNDRED."); return; }
+    if (st == ST_ADD_POISON || st == ST_ADD_SPIRIT || st == ST_ADD_PHYS) {   /* 1.0.0b21's (docs/PLAN-combat.md section 12) */
+        const char *el = STAT_NAME[st];
+        snprintf(buf, (size_t)n, "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS %s, AS MUCH AS %s BITES WHAT IT HITS. THE SIX SHARE ONE CAP.", el, el);
+        return;
+    }
+    if (st == ST_STEADY) { snprintf(buf, (size_t)n, "KNOCKED DOWN, STUNNED AND FROZEN COME LESS OFTEN AND END SOONER, WITH AGILITY'S SHARE, NINE TENTHS AT MOST."); return; }
+    if (st >= ST_CHANCE && st < ST_CHANCE + EL_PHYS) {
+        static const char *const ODDS[EL_PHYS] = { "YOUR FIRE SETS THE DEAD ALIGHT MORE OFTEN, BY THIS SHARE.",
+            "YOUR FROST LAYS A SECOND CHILL THIS SHARE OF THE TIME, SO THE DEAD FREEZE SOONER.",
+            "YOUR LIGHTNING STUNS THE DEAD MORE OFTEN, BY THIS SHARE.",
+            "THIS SHARE OF YOUR POISON'S DOSES RUN HALF AGAIN AS LONG, AND HURT HALF AGAIN AS MUCH.",
+            "YOUR SPIRIT LEAVES THE DEAD UNBOUND MORE OFTEN, BY THIS SHARE." };
+        snprintf(buf, (size_t)n, "%s", ODDS[st - ST_CHANCE]);
+        return;
+    }
     int e = st >= ST_INS ? st - ST_INS : st >= ST_EFF ? st - ST_EFF : st - ST_POW;
     if (st >= ST_INS) snprintf(buf, (size_t)n, "%s SPELLS GATHER QUICKER, AFTER WHAT THE LINE'S INSIGHT TAKES OFF.", ELEM_NAME[e]);
     else if (st >= ST_EFF && e == EL_PHYS) snprintf(buf, (size_t)n, "A SPEAR SPENDS NO BONE MORE OFTEN, WITH THE LINE'S EFFICIENCY; NINE TIMES IN TEN AT MOST.");
@@ -29763,7 +30661,13 @@ static void render_codex(Frame *f) {
         "KEYS WITHIN ITS REACH SPARKLE THROUGH THE WALLS, AND THE L MENU OFFERS A WISP TO EACH.",
         "EVERY FIFTEEN SECONDS, CREATURES WITHIN ITS REACH SHOW AS RED SHAPES THROUGH THE WALLS FOR A MOMENT.",
         "WHATEVER STRIKES OR BITES YOU TAKES SO MUCH BACK, WHATEVER YOUR ARMOUR TOOK.",
-        "A CHANCE THAT A MISSILE IS SENT BACK, HOMING ON ITS THROWER ROUND CORNERS." };
+        "A CHANCE THAT A MISSILE IS SENT BACK, HOMING ON ITS THROWER ROUND CORNERS.",
+        "YOUR FIRE SETS THE DEAD ALIGHT MORE OFTEN, BY THIS SHARE, AND THEY BURN A SECOND LONGER.",   /* the classes' (1.0.0b21) */
+        "THE CHILL YOU LAY ON THE DEAD LASTS A SECOND LONGER, AND THE FROZEN TAKE THIS SHARE MORE FROM YOU.",
+        "YOUR LIGHTNING STUNS MORE OFTEN, BY THIS SHARE; STRIKE A STUNNED ONE AND A FIFTH OF THE HIT ARCS TO THE NEAREST WITHIN TWO CELLS.",
+        "WHAT YOU HAVE POISONED TAKES THIS SHARE MORE FROM EVERY ELEMENT.",
+        "YOUR SPIRIT LEAVES THE DEAD UNBOUND MORE OFTEN, BY THIS SHARE; WHAT DIES UNBOUND LEAVES A SOUL MORE.",
+        "KNOCKED DOWN LESS OFTEN AND NOT AS LONG, WITH AGILITY. A SPEAR THAT KILLS THE STAGGERED OR PINNED LEAVES ITS BONE." };
     static const char *const EXQ_DOES[NDEF] = { "IT BURSTS INTO SHARDS WHEN IT BREAKS.", "IT LEAVES A DOUBLE BEHIND, AND THE DEAD NEARBY GO FOR THAT.",
         "IT SENDS MISSILES HOME TO THEIR THROWER AT TWICE ITS STRENGTH.", "HEALING PAST FULL BECOMES A SMALL WARD.",
         "IT MENDS TWO HUNDREDTHS OF YOUR HEALTH A SECOND WHILE IT LASTS.", "THE FROZEN TAKE DOUBLE.", "IT REACHES THE LIVING TOO.",
@@ -29772,9 +30676,9 @@ static void render_codex(Frame *f) {
         "MORE HEALTH.", "HEALTH BACK EVERY SECOND.", "POISON LASTS SHORTER AND BITES LESS.", "FIRE AND BURNING HURT LESS.",
         "SLOWING AND BEING HELD LAST SHORTER.", "YOU WALK FASTER.", "YOUR STEPS WAKE FEWER OF THE DEAD.", "YOUR SPELLS COME ROUND SOONER.",
         "YOUR SPELLS TAKE LESS SPIRIT.", "EVERY SPELL HITS HARDER.",
-        "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS FIRE, AS MUCH AS FIRE BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
-        "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS FROST, AS MUCH AS FROST BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
-        "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS LIGHTNING, AS MUCH AS LIGHTNING BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
+        "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS FIRE, AS MUCH AS FIRE BITES WHAT IT HITS. THE SIX SHARE ONE CAP.",
+        "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS FROST, AS MUCH AS FROST BITES WHAT IT HITS. THE SIX SHARE ONE CAP.",
+        "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS LIGHTNING, AS MUCH AS LIGHTNING BITES WHAT IT HITS. THE SIX SHARE ONE CAP.",
         "SOUL DRAIN'S HEALING, FROST'S SLOW, HELLFIRE'S BURNING FLOOR AND EVERY RUNE, STRONGER.",
         "MORE FOR EVERY GOLD PIECE YOU PICK UP.", "THE CHANCE THAT WHAT YOU SLAY DROPS GOLD OF ITS RANK, AND NOW AND THEN SOMETHING MORE.",
         "WHAT IS DONE TO YOU BY SPIRIT HURTS LESS, AND WHAT DRAINS SOULS TAKES FEWER.", "YOUR VESSEL HOLDS MORE SPIRIT." };
@@ -29840,6 +30744,7 @@ static void render_codex(Frame *f) {
     }
     case CX_CASTER: snprintf(name, sizeof name, "%s", c->i == CXC_ATONE ? "LEVELS OF ATONEMENT" : c->i == CXC_LUCK ? "LUCK" : c->i == CXC_OVER ? "OVERLEVELS"
                                                     : CS_NAME[clampi(c->i - CXC_CORNER, 0, NCS - 1)]); break;
+    case CX_AUG: snprintf(name, sizeof name, "%s", aug_name(c->i / NAUGT, c->i % NAUGT, aug_of(c->i / NAUGT, c->i % NAUGT))); break;
     default: snprintf(name, sizeof name, "HER CLAIM"); break;
     }
     /* the stone (docs/PLAN-ui.md section 6.2): the entry's name across the top, its part and the parts as lozenges, the page in a well */
@@ -29861,7 +30766,7 @@ static void render_codex(Frame *f) {
     switch (c->sec) {
     case CX_ABIL: {
         int a = c->i;
-        y += text_wrap(f, 14, y, ABIL_DOES[a], 36, R_STONE + 13, 3) * 9 + 4;
+        y += text_wrap(f, 14, y, ABIL_DOES[a], 36, R_STONE + 13, a >= AB_CLASS ? 4 : 3) * 9 + 4;
         for (int q = Q_UNCOMMON; q < NQUAL; q++, y += 9) {           /* never on a Common piece */
             int v0 = piece_grade(a, q, G.level, 0), v1 = piece_grade(a, q, G.level, 1);
             switch (a) {
@@ -29869,6 +30774,7 @@ static void render_codex(Frame *f) {
             case AB_COMMUNE: snprintf(line, sizeof line, "%d CELLS, %d.%d S", v0, v1 / 10, v1 % 10); break;
             case AB_THORNS: snprintf(line, sizeof line, "%d BACK, AT LEVEL %d", v0, G.level); break;
             case AB_MIRRORED: snprintf(line, sizeof line, "%d%% OF THEM, AT %d%%", v0, v1); break;
+            case AB_BLOCK: snprintf(line, sizeof line, "%d%% LESS", v0); break;
             default: snprintf(line, sizeof line, "+%d%%", v0); break;
             }
             gfx_text8(f, 14, y, QUAL_NAME[q], (uint8_t)qual_text(q), 1);
@@ -29877,9 +30783,14 @@ static void render_codex(Frame *f) {
         float cap = gear_ability_cap(a);
         if (cap > 0.0f) { snprintf(line, sizeof line, "SUMMED OVER WHAT YOU WEAR, TO %.0f%s AT MOST.", cap, a == AB_KEYMAKER || a == AB_COMMUNE ? " CELLS" : "%"); y += 2 + text_wrap(f, 14, y + 2, line, 36, R_STONE + 10, 2) * 9; }
         y += 4;
+        if (a >= AB_CLASS) {                                       /* a class's (1.0.0b21): rolled for it alone */
+            snprintf(line, sizeof line, "THE %s'S ALONE: ONE ABILITY IN THREE ON A PIECE OF UNCOMMON OR BETTER, WHILE YOU ARE ONE. ANYONE ELSE'S DOES NOTHING.", CLASS_SHORT[a - AB_CLASS]);
+            y += text_wrap(f, 14, y, line, 36, R_BONE + 11, 4) * 9 + 4;
+        } else
         y += text_wrap(f, 14, y, "ON ANY PIECE BUT A BAG, UNCOMMON OR BETTER: ONE IN TEN, A QUARTER AT RARE, HALF AT ULTRA-RARE, EVERY EXQUISITE ONE.", 36, R_BONE + 11, 4) * 9 + 4;
         float have = gear_ability(g, a, 0);
-        if (have > 0.0f) snprintf(line, sizeof line, "YOU WEAR IT: %.0f%s", have, a == AB_KEYMAKER || a == AB_COMMUNE ? " CELLS" : (a == AB_THORNS ? " BACK" : "%"));
+        if (have > 0.0f && a >= AB_CLASS && cls_el() != a - AB_CLASS) snprintf(line, sizeof line, "YOU WEAR IT, BUT IT IS NOT YOURS");
+        else if (have > 0.0f) snprintf(line, sizeof line, "YOU WEAR IT: %.0f%s", have, a == AB_KEYMAKER || a == AB_COMMUNE ? " CELLS" : (a == AB_THORNS ? " BACK" : "%"));
         else snprintf(line, sizeof line, "YOU WEAR NONE OF IT NOW");
         gfx_text8(f, 14, y, line, have > 0.0f ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 9), 1);
         break;
@@ -30021,6 +30932,28 @@ static void render_codex(Frame *f) {
         }
         snprintf(line, sizeof line, "RANK %d. THE LAMPSTAND, NORTH OF HER ROOM, SAYS WHAT EACH DOES.", align_rank(el));
         text_wrap(f, 14, y + 4, line, 36, R_BONE + 11, 2);
+        break;
+    }
+    case CX_AUG: {                                                 /* C6: its line and step, what it does now and at III, its credits */
+        static const char *const STEP[NAUGT] = { "ITS OPENING", "ITS ABILITY", "ITS ULTIMATE" };
+        int el = c->i / NAUGT, t = c->i % NAUGT, w = aug_of(el, t), r = aug_rank(el, t), cr = RUN.aug_cr[el][t];
+        static const char *const RN[4] = { "", "I", "II", "III" };
+        snprintf(line, sizeof line, "%s, %s", ALIGN[el].name, STEP[t]);
+        gfx_text8(f, 14, y, line, ramp_at(ELEM_RAMP[el], 12), 1); y += 11;
+        char does[200];
+        aug_does(el, t, w, r >= 2 ? (r >= 3 ? 1.0f : 0.75f) : 0.5f, does, sizeof does);
+        snprintf(line, sizeof line, "%s %s", r ? "NOW:" : "AT RANK I:", does);
+        y += text_wrap(f, 14, y, line, 36, R_STONE + 13, 5) * 9 + 3;
+        if (r < 3) {
+            aug_does(el, t, w, 1.0f, does, sizeof does);
+            snprintf(line, sizeof line, "AT RANK III: %s", does);
+            y += text_wrap(f, 14, y, line, 36, R_STONE + 10, 5) * 9 + 3;
+        }
+        if (r >= 3) snprintf(line, sizeof line, "RANK III, WHOLE. %d BANKED.", RUN.aug_bank[el]);
+        else snprintf(line, sizeof line, "%s%s, %d OF %d CREDITS. %d BANKED.", r ? "RANK " : "", r ? RN[r] : "UNRANKED", cr, AUG_CR[r], RUN.aug_bank[el]);
+        gfx_text8(f, 14, y, line, R_GLOW + 12, 1); y += 11;
+        text_wrap(f, 14, y, "A KILL BY THE LINE'S SPELL IS A CREDIT, A THING STRUCK TWO, A BOSS TEN; THEY FEED THE NEWEST CHOSEN. "
+                  "IT IS YOURS TILL THE LINE IS UNBOUND.", 36, R_BONE + 11, 4);
         break;
     }
     case CX_CLASS: {
@@ -30522,7 +31455,7 @@ static void render_stones(Frame *f, int tabbed) {
 static void render_align(Frame *f, int view) {
     static const char *const KIND[NNODE] = { "OPENING", "PASSIVE", "PASSIVE", "ABILITY", "PATH A", "PATH A", "ULTIMATE",
                                              "PATH B", "PATH B", "ULTIMATE" };
-    static char title[40], note[NNODE][56], warn[200];
+    static char title[40], note[NNODE][56], warn[200], augn[NNODE][80];
     int e = clampi(G.al_el, 0, NELEM - 1), n = clampi(G.al_node, 0, NNODE - 1), funds = align_funds(e);
     UiTree tr;
     memset(&tr, 0, sizeof tr);
@@ -30558,6 +31491,17 @@ static void render_align(Frame *f, int view) {
             else snprintf(note[m], sizeof note[m], "NEEDS %s.", ALIGN[e].n[m - 1].name);
         }
         u->note = note[m][0] ? note[m] : 0;
+        int at = al_aug_step(e, m);                                /* 1.0.0b21: its augment's slot, once the step is reached */
+        if (at >= 0 && aug_built(e) && aug_step_open(e, at)) {
+            int w = RUN.aug[e][at], r = aug_rank(e, at), cr = RUN.aug_cr[e][at];
+            static const char *const RN[4] = { "NO RANK YET", "RANK I", "RANK II", "RANK III" };
+            u->aug = w ? 2 : 1; u->aug_rank = r; u->aug_mark = w ? aug_mark(e, at, w) : 0;
+            static const char *const RV[4] = { "", " I", " II", " III" };
+            (void)RN; (void)cr;
+            if (!w) snprintf(augn[m], sizeof augn[m], view ? "AN AUGMENT TO CHOOSE." : "%s: ITS AUGMENTS.", pk("SPACE"));
+            else snprintf(augn[m], sizeof augn[m], "%s%s", aug_name(e, at, w), RV[r]);
+            u->aug_note = augn[m];
+        }
         if (e == al_buy_e && m == al_buy_n && G.ui_t - al_buy_t < 0.33f && G.ui_t >= al_buy_t)
             u->grow = fmaxf(0.02f, (G.ui_t - al_buy_t) / 0.33f);   /* the colour runs down its groove */
     }
@@ -30568,8 +31512,32 @@ static void render_align(Frame *f, int view) {
     else if (!view && gift_due()) snprintf(warn, sizeof warn, "THE DEAD ASK YOU TO CARRY ANOTHER: ANY LINE NOT YET OPEN, FREE. ITS OPENING, ENTER TWICE.");
     else warn[0] = 0;
     tr.warn = warn[0] ? warn : 0;
-    tr.keys = pk(view ? "A/D PAGE  1-6 LINE  W/S NODE  TAB" : "1-6  WASD  ENTER BUYS  SPACE UNBINDS");   /* a pad's buttons marked */
+    tr.keys = pk(view ? "A/D PAGE  1-6 LINE  W/S NODE  TAB" : !aug_on() ? "1-6  WASD  ENTER BUYS  SPACE UNBINDS"
+                 : al_aug_step(e, n) >= 0 && aug_built(e) && aug_step_open(e, al_aug_step(e, n)) ? "ENTER BUYS  SPACE AUGMENTS"
+                 : "1-6  WASD  ENTER BUYS  BACK UNBINDS");      /* a pad's buttons marked; Space where it means something */
+    if (!view && G.al_aug) tr.keys = 0;                            /* the pair's tablet has its own */
     ui_tree(f, &tr);
+    if (view || !G.al_aug) return;
+    int t = clampi(G.al_aug - 1, 0, NAUGT - 1), w = RUN.aug[e][t];   /* the pair at a step (1.0.0b21) */
+    static char head[48], aw[160];
+    UiAugPair ap;
+    memset(&ap, 0, sizeof ap);
+    snprintf(head, sizeof head, "%s: %s", ALIGN[e].name, AUG_STEP[t]);
+    ap.title = head; ap.sub = w ? "CHOSEN" : "CHOOSE ONE"; ap.ramp = ELEM_RAMP[e]; ap.t = G.ui_t;
+    static char does[2][200];                                      /* each at the rank it is at, or would be (III's numbers, unchosen) */
+    for (int k = 0; k < 2; k++) {
+        aug_does(e, t, k + 1, w == k + 1 ? (aug_rank(e, t) ? aug_k(e, t, k + 1) : 0.5f) : 0.0f, does[k], sizeof does[k]);   /* unranked: I's */
+        ap.o[k].name = aug_name(e, t, k + 1); ap.o[k].does = does[k]; ap.o[k].mark = aug_mark(e, t, k + 1);
+    }
+    ap.sel = w ? w - 1 : clampi(G.al_augs, 0, 1); ap.chosen = w;
+    ap.rank = aug_rank(e, t); ap.credits = RUN.aug_cr[e][t]; ap.next = ap.rank < 3 ? AUG_CR[ap.rank] : 0; ap.bank = RUN.aug_bank[e];
+    if (G.al_arm == AL_AUG + t * 2 + ap.sel) {
+        snprintf(aw, sizeof aw, "AGAIN, AND IT IS YOURS FOR GOOD.");
+        ap.warn = aw;
+    }
+    ap.keys = pk(w ? "SPACE BACK" : "A/D CHOOSE  ENTER TAKES  SPACE BACK");
+    ui_check_frame();                                              /* a tablet over the tree: its own words are what fit or don't */
+    ui_augpair(f, &ap);
 }
 
 /* the bell's or the font's menu: what it is now, its rows and their prices, the second Enter's warning */
@@ -31531,6 +32499,31 @@ static void render_cracks(Frame *f, float dx, float dy, float horizon) {
 /* a creature near you strong against a line you hold (its rank's, once seen struck; a ward, 1.0.0b16): its element's glyph
  * over its head, barred (docs/PLAN-play.md section 6, PLAN-combat.md 7.3) */
 static void render_warded(Frame *f, float dx, float dy, float horizon) {
+    for (int i = 0; i < MAXMOBS; i++) {                            /* Static Build (D7): a small bolt over its head for each strike that
+                                                                      raises its stun, three at most */
+        const Mob *m = &G.mobs[i];
+        int np = aug_show(2) ? 3 : imin(3, m->stb_n - 1);
+        if (np <= 0 || !m->alive || m->state != MS_WALK || buried(m) || hypotf(m->x - G.px, m->y - G.py) > 12.0f
+            || !line_clear(G.px, G.py, m->x, m->y)) continue;
+        float sx, sy, dep, z = fminf(1.1f, KINDS[m->type].scale * RANK_SIZE[m->rank] + 0.02f + fmaxf(0.0f, m->z));
+        if (!project(m->x, m->y, z, dx, dy, horizon, &sx, &sy, &dep)) continue;
+        static const char BOLT[6][4] = { ".##", ".#.", "##.", ".##", ".#.", "#.." };
+        int ps = clampi((int)(FOCAL / dep / 64.0f * 2.0f + 0.5f), 1, 3), gap = 5 * ps;
+        for (int p = 0; p < np; p++) {
+            int gx = (int)sx - (np * gap) / 2 + p * gap, gy = (int)sy - 7 * ps;
+            int lit = ((int)(G.t * 9.0) + p * 3 + i) % 7 != 0;   /* now and then one flickers out */
+            for (int r = 0; r < 6; r++)
+                for (int c = 0; c < 3; c++) {
+                    if (BOLT[r][c] != '#') continue;
+                    uint8_t col = lit ? (((int)(G.t * 14.0) + r + p) % 9 == 0 ? (uint8_t)C_WHITE : (uint8_t)(R_GOLD + 12 - (r == 0 || r == 5))) : (uint8_t)(R_GOLD + 6);
+                    for (int yy = 0; yy < ps; yy++)
+                        for (int xx = 0; xx < ps; xx++) {
+                            int qx = gx + c * ps + xx, qy = gy + r * ps + yy;
+                            if (qx >= 0 && qx < W && qy >= 0 && qy < H && dep < zbuf[qx] + 0.05f) f->pix[qy * W + qx] = col;
+                        }
+                }
+        }
+    }
     for (int i = 0; i < MAXMOBS; i++) {                            /* stunned (1.0.0b19): a ring of sparks going round over its head */
         const Mob *m = &G.mobs[i];
         if (!m->alive || m->state != MS_WALK || m->stun_t <= 0.0f || buried(m) || hypotf(m->x - G.px, m->y - G.py) > 12.0f

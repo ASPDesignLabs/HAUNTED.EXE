@@ -1,6 +1,6 @@
 # The elements' teeth: statuses, elemental creatures, the classes' own, the Unholy Confessions and the spells' augments
 
-**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20's C5 and D5 are built and went out early as **1.0.0b19.1** (9 November, harness only, before J20); J20 is done and **1.0.0b20 is released** (9 November, harness only). 1.0.0b21 (C6, D6, D7) is next. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
+**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20's C5 and D5 are built and went out early as **1.0.0b19.1** (9 November, harness only, before J20); J20 is done and **1.0.0b20 is released** (9 November, harness only). 1.0.0b21 (C6, D6, D7) is built (9 November, harness only; C6's and D7's sheets approved), J21 is done (the owner kept the augments as they are) and **1.0.0b21 is released** (9 November, harness only): the plan is done. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
 review of how harm is dealt today (section 1), the owner's answers to that review's first four questions, and the owner's
 guide (kept as given in the appendix). The owner's answers to the review: creatures cast through the kinds we have, "mixed
 up a bit" as the guide sets out (Q1 b); their spells use the caster's six elements, so the resists, the Mirror and the wards
@@ -685,6 +685,29 @@ Redrawn by C5's contract commit (8 November). Everything 1.0.0b19's table gave a
 | Tab's caster page, the Codex's `CX_CASTER` | the killing blow (10.4) as `blow_survived` gives it, and how it is shown; Toughness's cracks (10.5): the motes at a shut secret's crack |
 | | **Caps by class** (the owner, 8 November: docs/BRIEF-caps.md section 6, given to D): the body of `class_cap`, the sheets' strengths and weaknesses, `armour_keep` (for armour's cap), and showing them on her question's screen and in the Codex |
 
+### 17.2 c. What each owns (1.0.0b21): D6's part
+
+Drawn by track D's contract commit for D6 (9 November), since D6 began first; C6's contract commit adds C's own rows. Everything
+the tables above gave a track stays its own; these are added:
+
+| Track D only |
+|---|
+| the pieces' rolls and words in `crawl_gear.c`: `piece_roll`, `lean_elem`, `pick_ability`, `KIND_STATS`, the stats' and abilities' tables (`STAT_NAME`, `STAT_OF`, `STAT_SCALE`, `STAT_CAP`, `ABIL_NAME`, `ABIL_WORD`, `CAP0`, `piece_grade`), `piece_stat_text`, `piece_ability_text`, `piece_worth`, the new `st_adds`, `gear_set_class` |
+| the new stats' and the classes' abilities' effects where they are felt on the dead (`hit_mult`, `el_chance`, `el_status`, `mob_ignite`, `mob_chill`, `mob_poison`'s dose, `damage_mob`), the bone and the soul they leave in `kill_mob` (one line each, beside C's share), the bodies of `gear_cut` and `abil_short` |
+| the Codex's words for stats and abilities (`STAT_DOES`, `stat_does`, `ABIL_DOES`), Tab's fifth page (`render_elements`), the cards' *FOR THE ...* |
+
+C6's contract commit (9 November) adds these:
+
+| Track C only | Track D only |
+|---|---|
+| the augments' frame: `RUN`'s choices, credits, bank and order, `LG_AUG`, `aug_of`, `aug_rank`, `aug_k`, the credits (kills, things, bosses), the dispatchers `aug_*` (17.3) and their call sites | the bodies of `augd_*` (17.3), in their marked block after D5's, and whatever they need for Frost, Lightning, Poison, Spirit and Physical (11.4); those five lines' rows of the augments' names and words |
+| the Lampstand's augment slots and choosing (`update_align`'s and `render_align`'s augment parts; Space to the augments, Back to unbind, A6), the Codex's augment pages | |
+| the dream's choosing and feeding (A15) | |
+| Fire's six (11.2): their handlers, the held bolt in `human_cast` and its clash with the Firewall (A9), *SLOW EMBERS* (A10), `Shot.scale` and how a shot is drawn by it | |
+
+`cast_spell` is track C's now (its cost, its damage and its shots' augments); its hits through `chain_lightning`, `flask_burst` and
+`damage_mob` stay track D's.
+
 ### 17.3 What the two tracks share (the contract)
 
 In `src/scene_crawl.c`, after `Mob`, committed with this section:
@@ -715,8 +738,30 @@ In `src/scene_crawl.c`, after `Mob`, committed with this section:
 - 1.0.0b20, added 8 November (the owner's caps by class, docs/BRIEF-caps.md section 6): `class_cap(st)`, D's, the class's lift of
   stat st's cap in its units; `caster_sync` adds it to the caps (`gear_set_own`'s `cap_up`) for every stat. A stub returning 0
   till D fills it.
-- To come: at the start of 1.0.0b20, C5's `conf_rank(cf)` and `conf_value(cf, which)`, which D5 reads; at the start of 1.0.0b21,
-  C6's augment hooks, which D7 fills for its lines.
+- 1.0.0b21 (D6's contract, 9 November): the new stats at the end of `ST_*` (`ST_ADD_POISON`, `ST_ADD_SPIRIT`, `ST_ADD_PHYS`:
+  "ADDS %" beside `ST_FIRE`, `ST_FROST`, `ST_SHOCK`, which `st_adds(el)` names; `ST_CHANCE` + `EL_*` for the five status chances;
+  `ST_STEADY`) and the classes' abilities at the end of `AB_*` (`AB_CLASS` + the class's element: `AB_PYRE`, `AB_SLAB`, `AB_WIRE`,
+  `AB_FEVER`, `AB_SIN`, `AB_BLOCK`); old pieces read as they were. `gear_cut(k)`, D's: the share what is worn takes off status k's
+  chance and length on the caster; C's `conf_cut` adds it to Agility's for the three hard ones, under the same 0.9 (one line,
+  written by D in this commit, and it counts with the old lines too). `abil_short(ab, a, buf, n)`, D's: a class ability's words
+  on Tab's caster page, whose switch now names Mirrored and leaves the rest to it. Stubs that do nothing till D6 fills them.
+- 1.0.0b21 (C6's contract, 9 November): the augments (section 11). `AUG_OPEN`, `AUG_ABIL`, `AUG_ULT` (`NAUGT`), a line's three steps.
+  `aug_of(e, t)`: which of the pair at step t of line e is chosen (0 none, 1 the first, 2 the second); `aug_rank(e, t)`: its rank,
+  0-3; `aug_k(e, t, w)`: 0 unless w is the one chosen, else 0.5, 0.75 or 1 by its rank (A8). Set by C (C6), read by both. **The
+  hooks**, declared after `Shot`, each handing a line's spell to its own (Fire's C's; the other five's `augd_*`, D's, with the
+  line `e` first), and changing nothing while no augment is chosen: `aug_cost(sp)` (a share added to the spell's spirit, A7),
+  `aug_dmg(sp)` (a multiplier on its damage as cast), `aug_cast(sp, s, t)` (a shot just made by the line's spell, NULL for
+  lightning and the drain once they have struck; it may change the shot and make more), `aug_hit(m, atk, flags, &dmg)` (in
+  `damage_mob`, after its weaknesses, before its health), `aug_af(m, atk, q)` (in `el_status`: `AUGQ_CHANCE` a multiplier on the
+  status's chance, `AUGQ_HARM` on its harm), `aug_kill(m, atk, flags)` (in `damage_mob`, before `kill_mob`; `DM_TICK` a burn's or
+  poison's tick; C banks the line's credit there too), `aug_tick(m, dt)` (each creature, from `mob_afflict`), `aug_fly(s, dt)`
+  (each shot in flight, from `update_shots`); `augd_built(e)`: D's, which of its lines' augments are built, so the Lampstand
+  offers only those. `Shot.scale`: a shot's size, 0 as drawn. The ultimates (`cast_charged`) take no augments. The call sites in
+  track D's functions are one line each, put there by this commit: `damage_mob`'s hit and kill, `el_status`'s roll and harm,
+  `mob_afflict`'s tick; and `update_shots`' flight (its shared part).
+- 1.0.0b21 (D7's contract, 9 November): `augd_name(e, t, w)`, the name of augment w (1 or 2) at step t of line e, one of the
+  dead's track's five ("" for Fire); `augd_does(e, t, w, k, buf, n)`, what it does at a rank's share k (0.5, 0.75, 1; 0 as at rank
+  III), with its numbers. D's, for C's Lampstand and Codex to read beside Fire's own; filled now (11.4's drafts, the owner's A15).
 
 **Changing the contract**: write the change here and in the code's declarations in one commit of its own, push it at once, and
 put a line starting **CONTRACT** in your log. Each agent reads the other's log at every pull.
@@ -1053,6 +1098,113 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   J20's runs are otherwise done.
 - **9 November. The owner's word: keep it harder.** 1.0.0b20 goes out with the Confessions as they are and J20's numbers in the
   README; main's README and page keep their *not yet weighed* till then, and 1.0.0b20's words carry the finding. **J20 is done.**
+- **9 November. C6's contract: the augments' hooks, and 17.2 c** (1.0.0b20 released by track D at the owner's word; C6 begun).
+  **CONTRACT.** 17.3's 1.0.0b21 bullet: `AUG_OPEN`, `AUG_ABIL`, `AUG_ULT`; `aug_of`, `aug_rank`, `aug_k` (C's, saying none till
+  C6's frame); the hooks `aug_cost`, `aug_dmg`, `aug_cast`, `aug_hit`, `aug_af`, `aug_kill`, `aug_tick`, `aug_fly`, declared after
+  `Shot`, which hand Fire to C and the other five lines to D's `augd_*` (stubs in a new marked block after D5's, with
+  `augd_built`); `Shot.scale`. Their call sites: `cast_spell` (the cost, the damage, each shot; lightning and the drain after they
+  strike), and one line each in track D's `damage_mob` (the hit, after its weaknesses; the kill, before `kill_mob`), `el_status`
+  (the chance and the harm), `mob_afflict` (the tick) and `update_shots` (the flight). The ultimates take none. 17.2 c (C's rows
+  added under D6's, whose contract came first, 978a9a4; the two met in the contract block and the plan, kept both): the frame, the
+  Lampstand's slots, the dream's choosing and Fire's six are C's; `augd_*` and the five lines' names and words are D's;
+  `cast_spell` is C's now. Checked: the dream from level 1 for 600 s on seed 5 as the Witchfinder (661 events) and the Plague
+  Doctor (603) plays the build before line for line. Next: the frame (the slots at the Lampstand, credits, ranks, `LG_AUG`, the
+  dream's choices) and Fire's six, behind a debug switch till their sheet is approved. Track D: D7 can begin on `augd_*` now.
+- **9 November. C6's frame and Fire's six, and their sheet, for the owner** (`docs/combat/c6-augments.png`; harness only). All of
+  it behind `CRAWL_AUG=1` in the debug build (`aug_on`, 0 in the release build), so play is the build before's: with it unset four
+  600 s dreams (seeds 1 and 3, the Witchfinder and the Sin-Eater) give the previous commit's events line for line. *The frame*
+  (`a47c96a`): `RUN.aug` (the choice at each step, 1 or 2), `aug_ord` (the order chosen), `aug_cr` (each one's credits),
+  `aug_bank`; `LG_AUG` after `LG_CONF` (`AUG_LINE_BYTES` a line; an older page reads as none chosen); `aug_credit` (a kill by the
+  line 1, the BFS9000 none; a thing struck 2, in `mk_finish`; a boss 10 to the line of its last blow, in `boss_fall`), `aug_feed`
+  (the newest chosen not at III, then the next; a rank's caption and `SFX_RUNE`), `aug_choose`, `aug_forget` (unbinding,
+  `align_unbind`; a death that costs, all six, A14), `auto_augment` (the dream, at random, never a person's run or a kept page,
+  A15). The Lampstand: each step's node carries a slot beside it (its mark, `UI_AUGMARK`, Fire's six drawn and a plain rune for the
+  rest, and three pips); Space on the opening, the ability or an ultimate held opens the pair's tablet (`ui_augpair`): A/D the one,
+  Enter twice takes it (*AGAIN, AND IT IS YOURS FOR GOOD.*), its credits and the line's bank at its foot; Back unbinds (A6), the
+  pad's X being Back in a menu while the augments are on. Unchosen, a card gives rank III's numbers; chosen, the rank it is at or
+  comes to next. *Fire's six* (11.2, A7-A13): Burning Intensity holds the bolt (`spell_holds`; `human_cast`'s release: a tap
+  under 0.25 s is the ordinary cast with its wind-up, at 0.8; held, `cast_held` with `g_fire_hold` the share of three seconds,
+  0.8 + (0.2 + 0.25k) of it, up to 30% more spirit, `Shot.scale` 1 + 1.5k of it; past three seconds with the Firewall, the Firewall,
+  A9; `render_charge` fills over three seconds); Firecracker a spark (0.25 the damage, scale 0.55, its ignite 95%, 60% on what
+  shrugs fire off, its burning 1 + 2k times the spark's, A11); Multiply three bolts 0.25 rad apart, each `MULTIPLY_K` of the cast,
+  30% more spirit; Swift Flight (1 + k) times as fast and (1 + k/2) as far, so its life is shortened and Firestarter's floor still
+  catches from the hand; Volatility (`fire_kill`: a kill by a burn's tick bursts, `explode_big`, setting all within 1.6 cells in
+  sight alight for `VOLATILE_K` of its health, a boss a tenth, A12; 30% more spirit); Pyre (`fire_tick`, from `aug_tick`: what burns
+  passes k of what is left of its burning to the nearest not alight within 1.25 cells, once, `Mob.pyre`). The node that was
+  BURNING INTENSITY is SLOW EMBERS (A10). Shots are drawn by `Shot.scale`. The dream holds the bolt when its mark is beyond four
+  cells and nothing within 2.5, (d - 4) x 0.6 s, half a second at least, 2.75 at most; with the Firewall it doesn't, and its
+  Firewall takes three seconds. The controls card says HOLD THE FIRE BOLT AND IT GROWS when only it holds. Not done: a grown bolt
+  strikes by its middle as any bolt does (the hits are track D's `update_shots`), and its burst is the ordinary one. With the
+  switch on, a dream from level 13 at `CRAWL_GEAR=3` for 600 s (seed 3) held 10 bolts, split 73 and burst 9 with Burning
+  Intensity, Multiply and Volatility at III; with Firecracker, Swift Flight and Pyre 53 of its marks went alight (none with no
+  augment) and three passed it on (before Pyre's reach was widened from a cell). ASan clean on four sessions: two such dreams, a
+  fresh run from level 1, and a person holding for 1 s (a grown bolt) and 3.5 s with the Firewall (the Firewall). The sheet: the
+  Lampstand's slots and pair, and each augment but Pyre in play (Pyre shows only as a second creature alight). Next, on the
+  owner's word: the augments on in the release build (`CRAWL_AUG=0` to take them out), then the pacing to A2 b's target and the
+  balance runs.
+- **9 November. C6's sheet approved; the augments in play; J21 begun.** At the owner's word ("Approved"): `aug_on` is 1 in every
+  build (`CRAWL_AUG=0` in the debug build takes the frame and Fire's six out; then four 600 s dreams, seeds 1 and 3, the
+  Witchfinder and the Sin-Eater, play the build before line for line), so with D7's switch all six lines are in play. The Codex has
+  a part for the augments chosen (`CX_AUG`: what each does now and at III, its rank, its credits and the line's bank). D's note
+  that the missiles' part doesn't draw `Shot.scale`: it does since `72fbf9a`, for every shot, so Splinterfrost's, Glacial Weight's
+  and Cluster's sizes show. **The pacing** (A2 b), a first look: the Witchfinder from level 1 (seed 1, 7,200 s) had 324 credits on
+  Fire by Level of Atonement 13 on level 10, past the 300 that nine ranks take, Burning Intensity at III by level 3; so A3's
+  thresholds hold and stay (11.1 scales them only down). The dream seldom passes the knight, so Atonement 20 is far for most runs
+  from level 1; the batch below counts each class's line by its last ascend. **J21**, as J20 and against 1.0.0b20 (main at
+  `e982abf`, built in a worktree): track C's half is seeds 1-15 odd, the five classes a fresh run can be given, from level 1 for
+  the first 3,000 s (`CRAWL_RUNID` the seed), both builds run here; track D's half, seeds 17-31 odd and the start from 31 on its
+  eight seeds, as J20's. This branch at `8fe7e56` (both tracks' augments on, D6 in). Under way.
+- **9 November. J21, track C's half** (harness only). Seeds 1-15 odd, the five classes, from level 1 for the first 3,000 s, this
+  branch at `8fe7e56` against 1.0.0b20 at `e982abf`, both run here with `CRAWL_RUNID` the seed (1.0.0b20 in brackets):
+
+  | Class | Cleared | Deaths | Augments chosen, ranks gained |
+  |---|---|---|---|
+  | Witchfinder | 51 (51) | 17 (9) | 24, 47 |
+  | Anatomist | 49 (52) | 10 (4) | 24, 47 |
+  | Galvanist | 51 (46) | 13 (27) | 24, 46 |
+  | Plague Doctor | 50 (48) | 24 (20) | 23, 43 |
+  | Sin-Eater | 48 (51) | 19 (9) | 24, 44 |
+  | **all five** | 249 (248) | **83 (69)** | 119, 227 |
+
+  A fifth more deaths, none on a boss's level (3,000 s doesn't reach 10), 8 on level 1 (4); a level's median 349 s (356). Fire's
+  augments left 986 events, D's 2,183. Stalls: two runs stood 40 s (four in 1.0.0b20's), none to 120 s. **Where**: by the opening
+  augment the dream drew at random (A15), the Witchfinder died 11 times on the four seeds it took **Firecracker** (1.0.0b20: none on
+  those seeds) and 6 on the four it took Burning Intensity (9); the Sin-Eater 15 on the four it took Siphon (4) and 4 on Hollowing's
+  (5). Both trade a hit's damage now for something later: the spark is a quarter of the bolt and its burning, at rank I twice the
+  spark's and at III three times (A11: 75% of a bolt over four seconds), never quite a plain bolt's hit and the 10-25% chance of
+  its own burning, and slower, so the early dead live longer; Siphon hurts 15% less for its healing. Four seeds a side, so a lean,
+  not a verdict; track D's half will say more. The Galvanist's 13 against 27 is the noise J20 saw in it. **The pacing** (A2 b),
+  four seeds a class to 7,200 s with the augments on: every run that reached Level of Atonement 18 or more had 300 credits or more
+  on its class's line by then (the Galvanist's four 433-501 at 19-20, the Sin-Eater's three 428-521, the Plague Doctor's one 387,
+  the Anatomist's one 398 at 18), and 300 came at Atonement 13 to 19; the rest stood at the knight with Atonement 10 to 14 and 182
+  to 347, some 20 to 27 a level. So A3's thresholds hold and stay. `LG_AUG` checked: augments chosen and their credits, signed onto
+  a page and read back in a fresh session, show as they were on the Codex's pages.
+- **9 November. J21, the two halves folded** (harness only; the owner's word, (a), keep it, is in track D's log). This branch at
+  `8fe7e56` (both tracks' augments on, D6 in) against 1.0.0b20 at `e982abf`; 1.0.0b20's two halves, 69 and 48 deaths, make J20's
+  117 again, line for line, class by class (1.0.0b20 in brackets):
+
+  | Class | Cleared | Deaths |
+  |---|---|---|
+  | Witchfinder | 95 (102) | 42 (19) |
+  | Anatomist | 96 (103) | 18 (8) |
+  | Galvanist | 102 (96) | 27 (45) |
+  | Plague Doctor | 97 (100) | 39 (32) |
+  | Sin-Eater | 95 (103) | 32 (13) |
+  | **all five** | 485 (504) | **158 (117)** |
+
+  *Sixteen seeds (1-31 odd) a class, the first 3,000 s from level 1; from level 31 track D's half alone, 117 (119) cleared and one
+  death (one).* A third more deaths, past D5's quarter, none on a boss's level (3,000 s doesn't reach one), most on levels 3 to 7 to
+  rank I skeletons; a level's median 349-357 s (355-356). Track D's variants put it on the augments (with them out, 64 deaths on its
+  half against 75; D6 inside the noise). By the opening the dream drew at random on its own line, against 1.0.0b20 on the same seeds:
+  Firecracker 27 (4) and Siphon 23 (4), the openings that take from the one spell it has early; Burning Intensity 15 (15), Hollowing
+  9 (9) even; the Galvanist, whose openings add to the hit, died less (27 against 45). From level 31 nothing moved. The pacing holds
+  (A2 b): every run that reached Level of Atonement 18 had its class's 300 credits. Stalls: nine runs of eighty from level 1 stood 40 s
+  within a cell of a place (nine in 1.0.0b20), none past 41 s. ASan clean on track D's seven dreams and track C's four (C6's
+  entry). **J21 is done**; 1.0.0b21 goes out with these numbers as they stand, at the owner's word, when the owner says. The
+  README, the page, the notes and CLAUDE.md are written for it on the branch (the page's twenty-first beta goes out with the
+  squash). Found while writing them: 1.0.0b20's `piece_unpack` reads a piece carrying one of D6's new stats (a mark's chance,
+  Steadiness) or a class's ability as nothing, so going back to it loses such pieces; the notes, the README and the page say so
+  and advise a copy first. Nothing to change (a reader can't know a stat it hasn't got); track D, for your note.
 
 ## 19. Track D's log (the dead's)
 
@@ -1416,6 +1568,168 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   (the twentieth beta, the status row weighed, the upgrading note), the notes rewritten for it (the Galvanist's frost, the stall
   mended, the harder start said plainly), CLAUDE.md, `VERSION` 1.0.0b20; squashed onto main as one commit, as the betas before it.
   Next for track D: **D6**, the merchant by class (section 12), for 1.0.0b21; D7 waits on C6's contract.
+- **9 November. D6 begun: its contract.** **CONTRACT.** At the owner's word ("go ahead and start D6"). Section 17.2 c gives D the
+  pieces' rolls and the new stats' and abilities' effects (C6's contract will add C's rows). In 17.3: the new `ST_*` and `AB_*` at
+  the ends of their lists (nothing rolls them yet), `st_adds`, `gear_cut(k)` (a stub; track C, I put the one line into your
+  `conf_cut` that adds it to Agility's cut for Knocked Down, Stunned and Frozen, under the same 0.9, and it now counts with
+  `CRAWL_LINES=1` too), and `abil_short` (a stub; your `render_caster`'s switch names Mirrored now, so a class ability on the page
+  isn't drawn as a mirror). "ADDS %" shares its one cap among six. Nothing in play changes.
+- **9 November. D6 is built: the merchant by class** (section 12; harness only). Commits `83c37b3` (the rolls), `ddea244` (felt),
+  `87710b1` (her wares rolled after a class or a gift is taken in her room). **The rolls** (`crawl_gear.c`): an element's stat
+  comes from the lines held by rank (`pick_elem`, G1); a piece in six may carry one for a line not held, never two; Rare and up
+  are rolled again till they carry one for a held line (`on_line`, G2; boots and amulets roll no element's stat, so carry none
+  and are left alone); the status chances on bracers and rings, Steadiness on boots and amulets (G3); "ADDS %" among all six,
+  sharing one cap (G4); an ability on a piece of Uncommon or better is the class's one time in three (G5). Checked with `make
+  items` (it takes `ITEMS_LINES`, `ITEMS_CLASS` and `ITEMS_OLD` now): 300 wares a level, levels 1-30, as a Witchfinder with Fire
+  at 8 and Lightning at 3: every Rare-and-up bracer, hood, robe and ring carries one of the two; 5% of all pieces carry an
+  off-line stat (13% of those with any element's stat), none two; Pyrebrand is a third of the abilities at Uncommon and up. A
+  Headsman holding Physical alone rolls no status chance (there is none for Physical). **Felt**: `st_odds` (Ignition, Static
+  and Hush a share more on their status's chance in `el_chance`; **my reading for the two that roll no chance today**: Rime lays
+  a second Chilled stack that share of the time, Blight makes that share of your doses half again as long and as strong; for
+  the owner to change), `cls_ab` (a class's ability felt by its class alone: Pyrebrand, a share more ignitions and a second
+  more of burning at the same pace; the Slab, a share more on the frozen and the stacks a second longer; Live Wire, a share more
+  stuns and `wire_pass`, a fifth of a hit on the stunned to the nearest within two cells, a spark that rolls nothing; Fever, the
+  poisoned a share more from everything; Swallowed Sin, a share more Unbound and a soul from what dies Unbound; the Block, a
+  share off Knocked Down and the spear's bone where a staggered or pinned one fell). **The Block cuts Knocked Down as Agility
+  does, its chance with its length**, since it joins Agility's cut; the plan says shorter only. Steadiness and the Block go
+  through `gear_cut` (CONTRACT, above), under Agility's 0.9. The cards say *FOR THE WITCHFINDER* on another's (and it does
+  nothing); Tab's elements page has ADDS and ODDS; the Codex has words for each new stat and ability (frames of the wardrobe,
+  her card, the elements page and the Codex's pages: nothing overflows). `CRAWL_D6=0` plays the build before line for line
+  (two seeds, 900 s), and with it `make items` gives the old wares byte for byte.
+
+  **Runs**, this build against `CRAWL_D6=0` on the same seeds (`CRAWL_RUNID` the seed), the five classes a fresh run can be given:
+
+  | From | Class | Cleared | Deaths | A level's median, s |
+  |---|---|---|---|---|
+  | 1 | Witchfinder | 53 (51) | 9 (9) | 349 (343) |
+  | 1 | Anatomist | 52 (52) | 5 (4) | 342 (362) |
+  | 1 | Galvanist | 51 (46) | 19 (27) | 340 (356) |
+  | 1 | Plague Doctor | 42 (48) | 29 (20) | 370 (357) |
+  | 1 | Sin-Eater | 50 (51) | 8 (9) | 348 (345) |
+  | 1 | **all five** | 248 (248) | 70 (69) | 349 (356) |
+  | 31 | **all five** | 117 (118) | 0 (0) | 370 (374) |
+
+  *Seeds 1-15 odd; from level 1 the first 3,000 s, from level 31 1,500 s at gear 8; `CRAWL_D6=0` in brackets.* Even in all. The
+  Plague Doctor and the Galvanist were run on seeds 17-31 too: the Galvanist 27 deaths (18) there, 46 (45) over sixteen seeds;
+  the Plague Doctor 14 (12) there, **43 (32) over sixteen**, most of it on levels 1-3 of seeds 1 and 7 (17 deaths on levels 1-3
+  against 5). The two builds part from the first ware (a fresh run's free piece is rolled by the new rules), so the early levels
+  differ at once; whether the class's wares, now leaning to Poison (Blight, Poison's Power, "ADDS %" Poison), leave the dream's
+  early Plague Doctor worse off than random ones did isn't known; the Galvanist swung as far each way between the two halves.
+  From level 1 the dream bought 18 pieces with its class's ability in 40 runs (3 from 31); Swallowed Sin left 31 souls from
+  level 1, Live Wire arced 6 times from 31. No run stood still past 41 s. **ASan** clean on four dreams of 600 s (the Plague
+  Doctor from 1; from 11, 21 and 31 the Galvanist, the Headsman and the Sin-Eater with `CRAWL_ABIL` their class's ability on every
+  worn piece: Live Wire, the Block and Swallowed Sin fired). **Track C**: Tab's caster page (yours) has no row for Steadiness or
+  the three new "ADDS %"; the right column has room for one more, and Steadiness would sit there. **D6 is built**; next for track
+  D, D7 (the other five lines' augments) on C6's frame.
+- **9 November. D7 begun: its contract.** **CONTRACT.** At the owner's word ("go ahead and start", expecting to approve the look).
+  17.3's D7 bullet: `augd_name` and `augd_does`, the five lines' names and words for the Lampstand and the Codex (track C: read them
+  for every line but Fire; `__attribute__((unused))` till you do). The bodies come next, behind `augd_built` returning 0 till the
+  owner approves their sheet, and a debug switch of D's that forces a choice for testing before C6's frame chooses.
+- **9 November. D7 is built: the other five lines' augments** (11.4's drafts, A15; harness only). Commits `6fbb937` and `1525dc0`.
+  The thirty, each at the rank's share k (C's `aug_k`: half, three quarters, whole, the drafts' numbers being rank III, A8),
+  through `augd_*` and D's own functions (CLAUDE.md's D bullet has where each sits): **Frost** Hoarbite (a fifth weaker; a second
+  chill k of the time), Splinterfrost (three shards on behind what it strikes, 30% x k each), Rime Trail (the floor rimed 2 s x k
+  along its flight), Glacial Weight (seven tenths the pace, through the first it strikes at 70% x k after), Cold Snap (what freezes
+  bursts k of the time, a chill on all within 1.5 cells; a snap sets off no other), Brittle (the frozen take 25% x k more from
+  everything); **Lightning** Forked (a second bolt within 3 cells at 50% x k), Overcharge (30% x k harder, its stun 1 + k as likely,
+  a quarter more spirit), Static Build (each strike on one creature within 3 s raises its stun half x k a time, three times),
+  Grounding (what stands in run II's water or is poisoned passes the bolt on at 70% x k), Thunderclap (the stunned struck, k of
+  the time all within 1.5 cells stunned), Conductor (Ionization's trail 1 + 2k as long, stunning what crosses it k of the time);
+  **Poison** Thick Brew (your poison 50% x k longer, as much more harm), Straight Throw (flat, 60% x k quicker, bursting on what it
+  meets), Cluster (three small flasks at 40% x k), Miasma (a cloud 1.5 s, poisoning at k of the burst's dose), Pestilence (the
+  poisoned leave a pool of k of what was left in them), Rot (the poisoned 15% x k more from every other element); **Spirit**
+  Siphon (the drain heals 30% x k more, for the spirit healing costs, and hurts 15% less), Hollowing (Unbound 1 + k as likely),
+  Lingering Hunger (the beam held 0.6 s x k, draining half the hit again x k; it doesn't heal), Soul Echo (a kill by the drain gives
+  back k of its spirit), Exorcism (the Unbound 30% x k more from everything), Shepherd (the drain's kills' souls fly to you at 5 x k
+  cells a second); **Physical** Barbed (half the hit x k bled over 3 s), Recovery (the bone left half x k of the time), Twin Throw
+  (two spears for one bone, **45%, 52% and 60% by rank**: halving the guide's 60% would have made rank I weaker than one spear),
+  Heavy Haft (the first struck staggers 0.5 s x k), Skewer (15% x k more for each pierced), Bone Rain (a kill bursts into three
+  splinters at the nearest, 35% x k each; a splinter's own hits bleed, leave and rain nothing). The fixed costs (Hoarbite's fifth,
+  Siphon's 15%, Overcharge's quarter) don't move with rank. Brittle, Rot and Exorcism count whatever strikes; the rest are the
+  line's own spell. **The sheet** (`docs/combat/d7-augments.png`, sent to the owner): what is new to the eye is three things,
+  Barbed's bleed (`DR_BLEED`), Static Build's gold bolts and Miasma's green vapour; Thunderclap and Cold Snap use the orb's flash and
+  the frost's burst; the rest what is drawn already. Till it is approved `augd_built` says none (`CRAWL_D7=1` offers them, with C's
+  `CRAWL_AUG=1`). **Checked**: with nothing chosen, the dream plays the build before line for line (two seeds, 600 and 900 s);
+  forced by `CRAWL_AUGD` on all five lines for each pair of the five classes from level 21, every augment that leaves an event left
+  it; ASan clean on four dreams of 600 s with them forced (two pairs, ranks I and III, from levels 1, 21 and 31). With C's frame
+  (`CRAWL_AUG=1 CRAWL_D7=1`) the dream chooses D's at the Lampstand and they rank up from its credits (the newest first, A4).
+  **Runs**, both arms with C's frame on (Fire's augments in both), D7 on against off, five classes, seeds 1-7 odd, from level 21
+  at gear 5 for 1,200 s: 44 levels cleared (42), no deaths either way, a level's median 364 s (371); 59 ranks gained on D's lines;
+  Pestilence pooled 87 times, Twin Throw threw 60, Thunderclap 15, Lingering Hunger 5, Cold Snap 4, Conductor 2. One run stood 120 s
+  on level 21, a Galvanist in the arm without D7. Too few runs to weigh (J21 will). **Track C**: Splinterfrost's shards (0.5),
+  Glacial Weight's (1.35) and Cluster's flasks (0.6) set `Shot.scale`, which your missiles' part doesn't draw yet; they show at
+  their usual size till it does. **D7 is built**; track D's part of 1.0.0b21 waits on the owner's word on the sheet, then J21.
+- **9 November. D7's sheet approved; D's augments switched on.** At the owner's word ("I approve the sheet, switch them on"):
+  `d7_on` is on in every build (`CRAWL_D7=0` in the debug build takes them out, for the balance runs), so `augd_built` says the five
+  lines are built. They come into play wherever C6's frame is: with `aug_on` still off in the release build (C6's own sheet,
+  `docs/combat/c6-augments.png`, with the owner), nothing is chosen yet and play is the build before line for line (checked, 900 s);
+  with `CRAWL_AUG=1` alone the dream now chooses D's at the Lampstand beside Fire's. **Track C**: once the owner approves your sheet,
+  turning `aug_on` on brings all six lines in at once; nothing more is needed on D's side.
+- **9 November. J21, track D's half** (harness only), as track C's entry set it out: this branch at `14adf0d` (code as `8fe7e56`:
+  all six lines' augments in play, D6 in) against 1.0.0b20 (`e982abf`, built in a worktree), both run here with `CRAWL_RUNID` the
+  seed: seeds 17-31 odd for each of the five classes, from level 1 for the first 3,000 s, and from level 31 for 1,500 s at
+  `CRAWL_GEAR` 8 and `CRAWL_XPBANK` 77658. 1.0.0b20's runs here are J20's own for that build, line for line, as they should be.
+  **From level 1**: 236 levels cleared and 75 deaths (256 and 48), none on a boss's level, a level's median 357 s (355). Deaths by
+  level 1-7: 5, 6, 19, 11, 11, 17, 6; to rank I skeletons 34, rank II 8, shamblers 10, bats 5. **From level 31**: 117 cleared (119),
+  one death (one: a Witchfinder on 32 to a gilded Lightless; 1.0.0b20's a Sin-Eater on 31 to a rank IV imp), a level's median
+  376 s (364). With track C's half: **from level 1, 485 cleared and 158 deaths (504 and 117)**.
+
+  | From | Class | Cleared | Deaths | A level's median, s |
+  |---|---|---|---|---|
+  | 1 | Witchfinder | 44 (51) | 25 (10) | 346 (353) |
+  | 1 | Anatomist | 47 (51) | 8 (4) | 362 (363) |
+  | 1 | Galvanist | 51 (50) | 14 (18) | 350 (359) |
+  | 1 | Plague Doctor | 47 (52) | 15 (12) | 369 (352) |
+  | 1 | Sin-Eater | 47 (52) | 13 (4) | 359 (348) |
+  | 1 | **all five** | 236 (256) | **75 (48)** | 357 (355) |
+  | 31 | all five | 117 (119) | 1 (1) | 376 (364) |
+
+  **Which part.** The same forty starts from level 1 again, with the augments out (`CRAWL_AUG=0`, D6 in): 244 cleared and 64
+  deaths; with D6 out (`CRAWL_D6=0`, the augments in): 243 and 80; with both out it is 1.0.0b20 line for line (checked to 900 s
+  on two seeds). So the augments are most of it (+11 with D6, +32 without), and D6 is inside the noise (-5 with the augments, +16
+  without; its own sixteen seeds came out even). The classes swing by ten between these variants (the Galvanist 27, 14, 10, 18),
+  so only the totals and the pattern below are worth reading. **Where**: by the opening the dream drew at random for its own line
+  (A15), each run against its own variant without the augments (ten or six runs a side): Siphon 21 deaths (5), Firecracker 22
+  (7), Burning Intensity 20 (11), Hoarbite 13 (7), Thick Brew 26 (16), Straight Throw 16 (10), Splinterfrost 7 (4), Hollowing 6
+  (7), Forked 13 (22), Overcharge 11 (23). With track C's half, against 1.0.0b20 alone (eight seeds a side): **Firecracker 27
+  (4), Siphon 23 (4)**, Burning Intensity 15 (15), Hollowing 9 (9). What costs the dream is an opening that takes from the one
+  spell it has on levels 1-7, against rank I skeletons that a quicker kill keeps off it: Firecracker's spark (a quarter now, the
+  rest burning over four seconds), Siphon's 15% less (for healing that is small at rank I and paid in spirit), Hoarbite's fifth
+  less (which costs less: its second chill holds them). Burning Intensity's 0.8 on a bolt not held comes out even over both halves: the
+  dream holds it at range. What adds to the hit (Overcharge, Forked) helps it: the Galvanist died less with the augments in either
+  variant. Thick Brew only lengthens a dose, so its 26 against 16 is the Plague Doctor's usual noise. **For the owner**, three ways:
+  (a) keep it (a person chooses, and the dream's random choice is A15's); (b) the dream's first choice on its own line weighs the
+  pair (the side that keeps its hit: Burning Intensity, Hollowing, Splinterfrost), which touches only the dream (`auto_augment`,
+  track C's); (c) ease the two trades, Firecracker's spark (C's) and Siphon's 15% (D's: to 5%, or its healing free of spirit at
+  rank I), which a person would feel too. I'd take (b), and (c) for Siphon only if a person finds it a poor trade. Nothing changed
+  yet; the owner's word first. **What else**: from level 1 the dream channelled Restoration 9 times (12) and from 31 107 (200; not looked
+  into: the spirit Multiply and Overcharge take may be what it lacks), lived no killing blow, and 197 creatures were born to
+  an element from level 1 (223), 1,619 from 31 (1,525); the merchant by class: 30 souls from Swallowed Sin, one
+  Live Wire's arc, no bone from the Block. The augments' events from level 1: Multiply's split bolts 1,303, Splinterfrost 1,295,
+  Forked 301, Burning Intensity's held bolts 275, Cluster 266, Lingering Hunger 220, Soul Echo 133, Miasma 22; from 31, Twin Throw
+  151, Miasma 114, Multiply 71, Cluster and Volatility 59 each, Thunderclap and Cold Snap 54 each, Bone Rain 36, Pestilence 27,
+  Pyre 24, Conductor 9. 119 augments chosen from level 1 and 227 ranks gained (312 and 149 from 31, the deep start choosing at its
+  first visit). Stalls: seven runs of the forty from level 1 stood 40 s within a cell of a place (five), two from 31 (none), none
+  past 41 s. **ASan** clean on seven dreams of 600 s on this build: a class each across the starts (the Witchfinder from 1,
+  the Anatomist from 11, the Galvanist from 21, the Plague Doctor and the Sin-Eater from 31), and two with every line open and
+  every augment at III by `CRAWL_AUGSET`, the first of each pair from 31 and the second from 21 (Cold Snap, Forked, Thunderclap,
+  Multiply, Burning Intensity's held bolt, Soul Echo, Miasma and Splinterfrost among what fired). Track C: the numbers are for your
+  table; no contract changed. **Track D's half of J21 is done.**
+- **9 November. The owner's word on J21: (a), keep it.** The augments stay as they are: the dream still draws each pair's side at
+  random (A15), Firecracker's spark and Siphon's 15% unchanged; a person chooses their own. So 1.0.0b21 goes out with J21's numbers
+  as they stand (from level 1, 158 deaths against 117 over both halves), as 1.0.0b20 did with J20's. Nothing changed in the code.
+  Track C: both halves are in; the table, the README, the page and the notes are yours to fold, as J20's were. The release waits on
+  the owner's word.
+- **9 November. Released as 1.0.0b21** at the owner's word ("check the status of the work and if done, release"), by track D's
+  agent: C6, D6 and D7 built and their sheets approved, J21's halves folded by track C (`09bbd35`, with the README, the page, the
+  notes and CLAUDE.md) and the owner's word on them (keep it). Mended in those words before it went out, all D's side or the
+  numbers: an Uncommon-or-better piece's ability is the class's one time in three (not one piece in three); Swallowed Sin's soul
+  comes from what dies Unbound (not every kill); the build plays 1.0.0b20 line for line only with the augments and D6 both out
+  (with the augments alone out it doesn't: D6 is in); the deaths ran from level 1 (track C's half had 8 there), and in track D's
+  half rank I skeletons took 34 of 75 (not most). Added: the Alignment strip's caption says it shows the Lampstand before its
+  slots, CLAUDE.md's current release and D7 note, the plan's status, `VERSION` 1.0.0b21; squashed onto main as one commit, as the
+  betas before it. Track C: your log's fold says "most on levels 3 to 7 to rank I skeletons"; left as written (append only), the
+  correction is here. **PLAN-combat is done.** Next, at the owner's word: the art pass's rest (1.0.0b22), the lower storey (1.0.0b23).
 
 ## Appendix: the owner's guide (7 November), as given
 

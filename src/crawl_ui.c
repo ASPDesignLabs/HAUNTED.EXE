@@ -612,6 +612,16 @@ void ui_tree(Frame *f, const UiTree *tr) {
                 gfx_px(f, px + k * 4 + 2, py + 1, UI_M(10));
             }
         }
+        if (nd->aug) {                                             /* 1.0.0b21: its augment's slot, beside it (path A's ultimate on its left) */
+            int ax = TREE_X[m] + (m == 6 ? -(TREE_R[m] + 9) : TREE_R[m] + 9), ay = TREE_Y[m];
+            ui_socket_mark(f, ax, ay, 7, nd->aug == 2 && nd->aug_mark ? nd->aug_mark : UI_AUGMARK[6], tr->ramp,
+                           nd->aug == 2 ? SK_HELD : SK_READY, 0, 0, t);
+            for (int k = 0; nd->aug == 2 && k < 3; k++) {          /* its ranks, three pips under it */
+                uint8_t c = k < nd->aug_rank ? (uint8_t)(R_GOLD + 12) : UI_W(1);
+                gfx_rect(f, ax - 5 + k * 4, ay + 9, 2, 2, c);
+                gfx_px(f, ax - 3 + k * 4, ay + 10, UI_M(10));
+            }
+        }
     }
     /* the pane: the chosen node */
     const UiNode *nd = &tr->n[tr->sel < 0 || tr->sel > 9 ? 0 : tr->sel];
@@ -623,7 +633,55 @@ void ui_tree(Frame *f, const UiTree *tr) {
     UiPane pn = { UI_NODE_ICON[tr->elem][m], 0, tr->ramp, nd->state, 0, nd->name, nd->kind, b, nd->state == SK_HELD ? R_GOLD + 12 : R_GOLD + 10,
                   nd->does, 0, 0, nd->note, tr->warn, 0 };
     ui_pane(f, 176, 28, 135, 152, &pn, t);
+    if (nd->aug) {                                                 /* its augment, on the cost's row: the mark, and its rank (1.0.0b21) */
+        static const char *const RV[4] = { "-", "I", "II", "III" };
+        int ax = 176 + 135 - 8 - 34, ay = 28 + 44, br = (int)(t * 2.0f) & 1;
+        ui_mark(f, ax, ay, nd->aug == 2 && nd->aug_mark ? nd->aug_mark : UI_AUGMARK[6], tr->ramp, nd->aug == 2 ? IM_INLAID : br ? IM_GLOW : IM_HALF, 1);
+        if (nd->aug == 2) ui_text8(f, ax + 12, ay + 1, RV[nd->aug_rank < 0 ? 0 : nd->aug_rank > 3 ? 3 : nd->aug_rank], FACE_INSC, R_GOLD + 12, TX_INLAID);
+    }
     if (tr->keys) ui_keys(f, 160 - ui_keys_width(tr->keys) / 2, 183, tr->keys, UI_M(13));
+}
+
+/* the pair an augment's step offers: a tablet over the tree and the pane, the two side by side (1.0.0b21) */
+void ui_augpair(Frame *f, const UiAugPair *p) {
+    float t = p->t;
+    int x = 12, y = 30, w = 296, h = 162, cw = 140;
+    ui_slab(f, x, y, w, h, SLAB_TABLET, ORN_NONE, t);
+    int col = p->ramp + (p->ramp == R_GOLD ? 12 : 14);
+    if (p->title) ui_text8(f, x + 8, y + 6, p->title, FACE_INSC, col, TX_INLAID);
+    if (p->sub) ui_text8(f, x + w - 8 - 8 * (int)strlen(p->sub), y + 6, p->sub, FACE_BODY, UI_M(11), TX_PLAIN);
+    for (int k = 0; k < 2; k++) {
+        int cx = x + 6 + k * (cw + 4), cy = y + 18, ch = 116;
+        int chosen = p->chosen == k + 1, other = p->chosen && !chosen, sel = p->sel == k;
+        ui_well(f, cx, cy, cw, ch);
+        int state = chosen ? SK_HELD : other ? SK_CLOSED : sel ? SK_READY : SK_REACH;
+        ui_socket_mark(f, cx + 18, cy + 17, 13, p->o[k].mark ? p->o[k].mark : UI_AUGMARK[6], p->ramp, state, sel && !p->chosen, 0, t);
+        int ncols = (cw - 40) / 8;
+        int nl = ui_wrap_count(p->o[k].name, ncols);
+        ui_wrap(f, cx + 36, nl > 1 ? cy + 8 : cy + 13, p->o[k].name, ncols, 9, 2, FACE_INSC,
+                other ? UI_M(8) : chosen ? R_GOLD + 12 : sel ? col : UI_M(13), TX_INLAID);
+        if (nl > 2) ui_overflow("augment name", p->o[k].name, nl - 2);
+        if (other) for (int i = cx + 34; i < cx + cw - 4; i++) gfx_px(f, i, cy + 17, UI_M(6));   /* struck through */
+        int dcols = (cw - 10) / 8, dl = (ch - 40) / 9, need = ui_wrap_count(p->o[k].does, dcols);
+        ui_wrap(f, cx + 5, cy + 36, p->o[k].does, dcols, 9, dl, FACE_BODY, other ? UI_M(8) : UI_M(14), TX_INLAID);
+        if (need > dl) ui_overflow("augment", p->o[k].name, need - dl);
+    }
+    char b[64];
+    int fy = y + 138;
+    if (p->warn) {                                                 /* the second press's warning takes the foot's place */
+        ui_wrap(f, x + 8, fy, p->warn, (w - 16) / 8, 9, 1, FACE_BODY, R_GOLD + 12, TX_INLAID);
+        if (ui_wrap_count(p->warn, (w - 16) / 8) > 1) ui_overflow("augment warning", p->warn, ui_wrap_count(p->warn, (w - 16) / 8) - 1);
+    } else if (p->chosen) {                                        /* its rank, and the credits to the next */
+        static const char *const RN[4] = { "UNRANKED", "RANK I", "RANK II", "RANK III" };
+        ui_text8(f, x + 8, fy, RN[p->rank < 0 ? 0 : p->rank > 3 ? 3 : p->rank], FACE_INSC, R_GOLD + 12, TX_INLAID);
+        if (p->next > 0) snprintf(b, sizeof b, "%d OF %d CREDITS", p->credits, p->next); else snprintf(b, sizeof b, "WHOLE");
+        ui_text8(f, x + 82, fy, b, FACE_BODY, UI_M(13), TX_INLAID);
+    } else ui_text8(f, x + 8, fy, "ONE OF THE TWO, FOR GOOD", FACE_BODY, UI_M(12), TX_INLAID);
+    if (!p->warn) {
+        snprintf(b, sizeof b, "%d BANKED", p->bank);
+        ui_text8(f, x + w - 8 - 8 * (int)strlen(b), fy, b, FACE_BODY, p->bank ? R_GOLD + 11 : UI_M(9), TX_INLAID);
+    }
+    if (p->keys) ui_keys(f, 160 - ui_keys_width(p->keys) / 2, y + h - 12, p->keys, UI_M(13));
 }
 
 /* ---- a screen and its pane ---- */

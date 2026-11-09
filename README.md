@@ -54,7 +54,7 @@ Two scenes are included. They alternate every few minutes (configurable) with a 
 
 ![CATACOMB's four runs: a chapter house with its plaster falling away and a knight's slab with candles in the Crypts; a shield-bearer wading through a cistern and a spinners' gallery of bone and webs in the Catacombs; a timbered gallery with mine carts and a lamp, and a fossil hall with a fire, in the Hollows; a geode under a roof of amethyst, and a glass hall with its cracks alight, in the Deep](docs/preview_catacomb_runs.png)
 ![CATACOMB's trials and puzzles: a trial's door marked with skull and crossed bones in the Catacombs, Rising Water under way with its hourglass and the drowned wading in, the magma's beam through two glass prisms in a Deep puzzle, the hidden message found in a candle-box, the documents page with the leaf's text, and the reckoning's slip at the exit, THE DEAD KEEP COUNT](docs/preview_catacomb_trials.png)
-![CATACOMB's Alignment and souls: the Lampstand's tree with Fire at rank 17 and Firestarter chosen, a flame spirit circling the caster's hand, her question of another past at the Anatomist, the map open while walking with violet ink across a hole burnt in the parchment, a shield-bearer's health with the glyphs of what hurts it, and a bat latched across the view](docs/preview_catacomb_alignment.png)
+![CATACOMB's Alignment and souls: the Lampstand's tree (as it was before 1.0.0b21's augment slots) with Fire at rank 17 and Firestarter chosen, a flame spirit circling the caster's hand, her question of another past at the Anatomist, the map open while walking with violet ink across a hole burnt in the parchment, a shield-bearer's health with the glyphs of what hurts it, and a bat latched across the view](docs/preview_catacomb_alignment.png)
 ![CATACOMB's map and Levels of Atonement: the map floating beside the merchant with its card, the map unrolled in the Ossuary, a shield-bearer's health with the spells that hurt it most and least, a Level of Atonement banked as it falls, the caster's screen, and the cornerstones](docs/preview_catacomb_atonement.png)
 ![CATACOMB with a game controller: holding a button over HAUNT.EXE's pumpkin patch, the controls in the pad's words, the merchant's prompt, the wardrobe, the bestiary and the Codex with their buttons in colour](docs/preview_catacomb_pad.png)
 ![CATACOMB's bosses: the Ill-Fated Skeleton Knight's card in the knights' vault, the knight raising its blade, the Wandering Hunting Spider's card in its gallery, the Black Deacon in his chapel in a green light with his ward's shards about him, a fire bursting on him, and a Fire Bolt bursting on the Wraith Unbound on its throne beside a void](docs/preview_catacomb_bosses.png)
@@ -337,6 +337,16 @@ buy, and a rest while it purrs mends some of your wounds.
   stone, and the L list offers a wisp to each key still lying), **Communing** (every 15 seconds, creatures
   near you show as red shapes through the walls), **Thorned** (hurts what strikes you) and **Mirrored**
   (sends some missiles back at whoever threw them).
+* **By what you hold** (1.0.0b21). An element's stats roll for the lines you hold, more often for those ranked
+  higher; only one piece in six carries one for a line you don't hold, and never two, and anything Rare or better
+  carries at least one for a line you hold. New stats: a chance of each element's mark on the dead (*Ignition*,
+  *Rime*, *Static*, *Blight*, *Hush*), on rings and bracers; and *Steadiness* (Knocked Down, Stunned and Frozen shorter
+  and rarer), on boots and amulets. The element added to every spell now rolls among all six lines you hold, under one
+  cap. From Uncommon up, an ability a piece rolls is your class's own one time in three: **Pyrebrand** (the Witchfinder's:
+  ignites more often, and a second longer), **the Slab** (the Anatomist's: the frozen take more, and chills last
+  longer), **Live Wire** (the Galvanist's: stuns more often, and a fifth arcs on), **Fever** (the Plague Doctor's: the
+  poisoned take more), **Swallowed Sin** (the Sin-Eater's: unbinds more often, and a soul more from what dies Unbound) and **the Block**
+  (the Headsman's: knocked down less, and bones kept). Another class's says *for the ...* and does nothing for you.
 * **Anointed** pieces, about one in ten, have their stats raised by 10% (Common) to 25% (Exquisite).
   The Black Altars anoint too (below).
 * **Bags.** You start without one. A bag holds two to five spare pieces by its quality (a Burlap Sack,
@@ -456,7 +466,8 @@ third of a second at rank 1, more as it ranks and for the ultimates), and you ca
 a blow that lands then may break it, less often the better your Dodge, Armour, resistance and Luck. The
 Masteries of Lightning, Frost, Poison and Spirit add a share of their element to every other spell (and
 Spirit's lets it harm spectres). Unbinding a
-line costs two Cursed Coins and gives back half its points. Tab's fourth page shows the tree and its fifth
+line (Back at the Lampstand, X on a controller, since 1.0.0b21) costs two Cursed Coins and gives back half its points,
+and its augments go with it. Tab's fourth page shows the tree and its fifth
 each element's Power, Efficiency and Insight, the line's and what you wear together. A death that costs
 takes every line and the class: the next life is asked again, and the Lampstand's gifts come again. An older
 page's caster keeps any line it paid for, Fire included, but no longer has the fireball for nothing.
@@ -494,6 +505,30 @@ Each has a story on her question's screen. A life keeps one; from Level of Atone
 past for five Cursed Coins, and the old line keeps what was bought in it. The screensaver takes one at
 random, so every line shows in time. The class's mark is on the Alignment screen, the caster's page and the
 grave's stone.
+
+### CATACOMB: the spells' augments
+
+(1.0.0b21.) Each line earns **augments**, a pair at each of its three great steps: its opening, its ability and its
+ultimate, whichever path's. At the Lampstand, Space (Y on a controller) on that step's node shows the pair beside it on
+a tablet; A and D choose, Enter takes one, asked twice, for good until the line is unbound. The other of the pair is gone.
+
+They grow by use. A kill by the line's spell is a credit, a thing that wants the spell struck with it two, a boss ten.
+The credits go to the line's newest augment not yet whole; its ranks come at 20, 50 and 100 of its own, so a line's
+three take 300 in all, and what can't be spent yet waits in the line's bank, so a pair chosen late takes from it at once.
+Rank I gives half of what an augment does whole, rank II three quarters. The slot beside each node carries the augment's
+mark and three pips; the Codex has a page for each one chosen, saying what it does now and whole, and its credits. A death
+that costs takes them with the lines. The screensaver's caster chooses at random.
+
+| Line | Its opening | Its ability | Its ultimate |
+|---|---|---|---|
+| Fire | **Burning Intensity**: hold the bolt and it grows; tapped it is a fifth weaker, held three seconds a quarter stronger and two and a half times the size, for up to 30% more spirit (with the Firewall, a hold past three seconds calls the Firewall) / **Firecracker**: a spark of a quarter of the damage, all but sure to set its mark alight, the burning three times the spark's | **Multiply**: three bolts in an arc, each half the cast, for 30% more spirit / **Swift Flight**: twice as fast and half again as far | **Volatility**: what dies of your burning bursts, setting all near it alight for a third of its health (a boss a tenth of that), for 30% more spirit / **Pyre**: what burns passes its burning to one within a cell, once |
+| Frost | **Hoarbite**: a fifth weaker, two chills a hit / **Splinterfrost**: the shard breaks into three behind its mark, each at 30% | **Rime Trail**: the floor it crosses rimed two seconds / **Glacial Weight**: slower and heavier, through the first it strikes at 70% after | **Cold Snap**: what freezes bursts, a chill on all within a cell and a half / **Brittle**: the frozen take a quarter more from everything |
+| Lightning | **Forked**: a second bolt to another within three cells, at half / **Overcharge**: 30% harder and twice as likely to stun, for a quarter more spirit | **Static Build**: each hit on one creature within three seconds raises its stun, three times / **Grounding**: what stands in water or is poisoned passes it to one more, at 70% | **Thunderclap**: strike the stunned, and all within a cell and a half are stunned / **Conductor**: Ionization's trail lasts three times as long and stuns |
+| Poison | **Thick Brew**: your poison lasts half as long again, and hurts as much more / **Straight Throw**: thrown flat and quick, it bursts on the first it meets | **Cluster**: the burst throws three small flasks at 40% / **Miasma**: the burst leaves a cloud that poisons what passes | **Pestilence**: the poisoned leave a pool where they die / **Rot**: the poisoned take 15% more from every other element |
+| Spirit | **Siphon**: the drain heals 30% more and hurts 15% less / **Hollowing**: the drain leaves the dead Unbound twice as often | **Lingering Hunger**: the beam holds a moment after the cast, draining half the hit again / **Soul Echo**: a kill by the drain gives its spirit back | **Exorcism**: the Unbound take 30% more / **Shepherd**: the souls of what the drain kills fly to you |
+| Physical | **Barbed**: what it strikes bleeds half the hit over three seconds / **Recovery**: a spear that kills leaves its bone half the time | **Twin Throw**: two spears side by side for one bone, each at 60% / **Heavy Haft**: the first it strikes staggers half a second | **Skewer**: each creature it goes through adds 15% for the next / **Bone Rain**: a spear that kills bursts into three splinters that seek the nearest |
+
+The Fire node that used to be called Burning Intensity (burning lasts half as long again) is now **Slow Embers**.
 
 ### CATACOMB: things that want a spell, and the warded
 
@@ -986,6 +1021,10 @@ became HAUNTED.EXE, kept so that settings and saves carry over), `Progress` besi
 start from or holds the unsigned run, and `Mark` is the dead's watch; `uninstall.cmd` removes them with
 the settings. They are written the moment the game changes them, and never on quitting.
 
+**1.0.0b21 adds the augments** you have chosen and their credits to each page; 1.0.0b20 steps over them, and a page it
+signs loses them. It also reads a piece carrying one of 1.0.0b21's new stats (a mark's chance, Steadiness) or a class's
+own ability as nothing, so going back would lose such pieces. If you might go back, back up first (below).
+
 **1.0.0b11 changes saves one way.** It writes save version 7, which 1.0.0b10 and earlier can't read, and
 the first time it opens a page from before it, that page's spells are forgotten (you are given an Alignment
 Point for each Level of Atonement past the first instead, and told so as she greets you) and you are asked what you were. It
@@ -1208,6 +1247,29 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b21** (the spells' augments, six to a line; the merchant by what you hold, and your class's own abilities on
+what you wear). Tested in the harness only: not yet played by hand, run on Windows or seen on a real screen.
+
+* **Weighed against 1.0.0b20**: the screensaver from level 1, the first 3,000 seconds on sixteen seeds for each of the five
+  classes a fresh run can be given, against 1.0.0b20 on the same runs: 485 levels cleared and **158 deaths** (504 and 117).
+  **A third more deaths**, on levels 1 to 7 (on half the seeds, 34 of 75 to rank I skeletons). The augments are most of it, and of them the
+  openings that take from the one spell the screensaver has early, chosen at random: on the seeds where it drew Firecracker,
+  its Witchfinder died 27 times (4 on the same seeds before), and where it drew Siphon, its Sin-Eater 23 (4); with Burning
+  Intensity and Hollowing it died as often as before, and the Galvanist, whose openings add to the hit, less. Kept as it is,
+  at the author's word: a person chooses their own. By class: the Witchfinder 42 deaths (19), the Anatomist 18 (8), the
+  Galvanist 27 (45), the Plague Doctor 39 (32), the Sin-Eater 32 (13). The merchant by class moved nothing past the noise.
+  From level 31, 1,500 seconds on eight seeds a class: 117 levels cleared (119) and one death (one).
+* **The augments' pace**: on four seeds a class to 7,200 seconds, every run that reached Level of Atonement 18 had the 300
+  credits its class's line needs for all nine ranks, the 300 coming between Levels 13 and 19.
+* **The augments**: Fire's six in the screensaver's play, and five of them in a scripted person's (the held bolt grown, and with
+  the Firewall held past three seconds the Firewall); the other lines' forced on every pair in the screensaver's play; chosen
+  at the Lampstand by a scripted person, asked twice; their choices and credits signed onto a page and read back in a fresh
+  session; the Lampstand's tablet and the Codex's pages checked to fit. With the augments and the merchant by class both
+  switched out, the screensaver played 1.0.0b20 exactly, event for event. The Lampstand's slots and Fire's six, and the other lines', approved by the author
+  on sheets first.
+* **Memory safety** for 1.0.0b21 (AddressSanitizer): seven dreams of 600 seconds on this build, a class each across levels 1,
+  11, 21 and 31 and two with every augment forced to its third rank, and four with Fire's alone before the rest came in: clean.
 
 **New in 1.0.0b20** (the Unholy Confessions, what each class brings and its caps, armour's cap, the killing blow lived,
 Restoration, Toughness's cracks, first put out in 1.0.0b19.1 before its balance runs; now weighed against 1.0.0b19, with the
