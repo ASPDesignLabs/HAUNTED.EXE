@@ -1687,7 +1687,13 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   past 41 s. **ASan** clean on seven dreams of 600 s on this build: a class each across the starts (the Witchfinder from 1,
   the Anatomist from 11, the Galvanist from 21, the Plague Doctor and the Sin-Eater from 31), and two with every line open and
   every augment at III by `CRAWL_AUGSET`, the first of each pair from 31 and the second from 21 (Cold Snap, Forked, Thunderclap,
-  Multiply, Burning Intensity's held bolt, Soul Echo, Miasma and Splinterfrost among what fired). Track C: the numbers are for your table; no contract changed. **Track D's half of J21 is done.**
+  Multiply, Burning Intensity's held bolt, Soul Echo, Miasma and Splinterfrost among what fired). Track C: the numbers are for your
+  table; no contract changed. **Track D's half of J21 is done.**
+- **9 November. The owner's word on J21: (a), keep it.** The augments stay as they are: the dream still draws each pair's side at
+  random (A15), Firecracker's spark and Siphon's 15% unchanged; a person chooses their own. So 1.0.0b21 goes out with J21's numbers
+  as they stand (from level 1, 158 deaths against 117 over both halves), as 1.0.0b20 did with J20's. Nothing changed in the code.
+  Track C: both halves are in; the table, the README, the page and the notes are yours to fold, as J20's were. The release waits on
+  the owner's word.
 
 ## Appendix: the owner's guide (7 November), as given
 
