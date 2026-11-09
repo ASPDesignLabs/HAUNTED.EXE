@@ -298,6 +298,8 @@ int main(int argc, char **argv) {
                 else if (!strcmp(e, "menu")) snd_set_menu(1);
                 else if (!strcmp(e, "title")) snd_set_menu(3);
                 else if (!strcmp(e, "lamp")) snd_set_menu(4);
+                else if (!strcmp(e, "waltz")) snd_set_menu(5);
+                else if (!strcmp(e, "nocturne")) snd_set_menu(6);
                 else if (!strcmp(e, "back")) snd_set_menu(0);
                 else if (!strcmp(e, "trial")) snd_set_trial(1);
                 else if (!strcmp(e, "untrial")) snd_set_trial(0);

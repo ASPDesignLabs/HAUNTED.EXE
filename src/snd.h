@@ -144,7 +144,8 @@ void snd_boss_fall(void);                   /* the waltz fades and the bell toll
 void snd_set_track(int mu);                 /* CRAWL: the run's piece, MU_CRYPTS..MU_DEEP (MU_NONE: silence); the same one again runs on */
 void snd_set_place(int place);              /* CRAWL: 0 the crypt, 1 her room, 2 her back rooms (her piece, thinned) */
 void snd_set_menu(int on);                  /* CRAWL: a menu open (2: a short look, after half a second; 3: the ledger opened, the title's piece;
-                                               4: the Lampstand or ascending, the estampie); the run's piece waits */
+                                               4: the Lampstand or ascending, the estampie; 5: the waltz, for a special
+                                               screen; 6: the nocturne, for an ending); the run's piece waits */
 void snd_set_fight(int level);              /* CRAWL: 0 calm, 1-3 a fight, growing (layers, the pace) */
 void snd_set_frail(int on);                 /* CRAWL: failing: the music muffled and thinned, a heartbeat */
 void snd_set_mix(float music, float effects); /* the Music and Effects volumes, 0..1, under the master */

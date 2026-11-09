@@ -13,6 +13,15 @@ that whoever picks the work up can follow it: what the owner asked, what they ch
   and the ossuary are kept, unused. 1.0.0b15's run I and run II pieces are retired.
 - Runs III-IV, the menus and the bosses' waltzes come after, the same way, if the owner wants them.
 - Nothing here has been heard on a real machine but the renders the owner listened to.
+- **Merged into main, unreleased** (9 November, at the owner's word), squashed as one commit, so that a title screen can be
+  built on main with the music in. `VERSION` stays 1.0.0b21, so no release comes of it.
+
+**For whoever builds the title screen.** The music is reached through `snd_set_menu` (`src/snd.h`), called each frame from
+`music_frame` at the end of `scene_crawl.c` with whatever screen is up: 3 the lament ground (`MU_TITLE`: "press start,
+select a grave"; today the ledger opened from Esc), 5 the waltz (`MU_SPECIAL`, for a special screen), 6 the nocturne
+(`MU_ENDING`, for an ending), 4 the estampie (the Lampstand), 1 or 2 the menus' tune; 0 lets the run's piece back. One
+piece gives way to the next in a third of a second. `build/host music crypts 40 out.wav title@5 waltz@15 back@30` hears the
+switches.
 
 ## What the owner asked (9 November)
 
@@ -168,3 +177,6 @@ one 1.5); peak voices 13-45 of 64.
   (`MU_CATACOMBS`), the estampie the Lampstand's and ascending's (`MU_LAMP`, `snd_set_menu(4)`); the office and the ossuary
   kept (`MU_OFFICE`, `MU_OSSUARY`); 1.0.0b15's `crypts_step` and `catac_step` retired (the D chords stay for the menus'
   tune). Harness only. Next: whatever the owner asks (runs III and IV, the menus, the bosses).
+- **9 November, merged**: `snd_set_menu` 5 and 6 added (the waltz and the nocturne, for screens to come; the harness's
+  `waltz` and `nocturne` events), and the work squashed onto main at the owner's word, unreleased, for the title screen's
+  agent. Harness only; CI compiles the Windows and browser builds.

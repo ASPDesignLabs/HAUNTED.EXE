@@ -3239,7 +3239,7 @@ void snd_set_track(int mu) {
 void snd_set_place(int place) { LOCK(); g_place = place < 0 ? 0 : place > 2 ? 2 : place; UNLOCK(); }
 void snd_set_menu(int on) {
     LOCK();
-    if (on) g_menu_mu = on == 3 ? MU_TITLE : on == 4 ? MU_LAMP : MU_MENU;
+    if (on) g_menu_mu = on == 3 ? MU_TITLE : on == 4 ? MU_LAMP : on == 5 ? MU_SPECIAL : on == 6 ? MU_ENDING : MU_MENU;
     if (on && !g_menu_req) { g_menu_req = 1; g_menu_wait = on == 2 ? 0.5f : 0.15f; }
     else if (!on) g_menu_req = g_menu = 0;
     UNLOCK();

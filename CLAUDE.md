@@ -277,7 +277,9 @@ perfect level (`MU_PERFECT`, `RUN.perfect`), the lament ground while the ledger 
 there is one), the waltz (`MU_SPECIAL`) and the nocturne (`MU_ENDING`) wait unused. Run I's five attempts, each written with its
 fight, were heard and three placed: the ill-fated is run I's piece (`MU_CRYPTS`), the descent run II's (`MU_CATACOMBS`), the
 estampie plays while the Lampstand or ascending is open (`MU_LAMP`); the office and the ossuary are kept, unused. 1.0.0b15's
-run I and run II pieces are retired. Harness only. Its hand-off log is at its end: read it first.
+run I and run II pieces are retired. Harness only. Merged into main, unreleased, at the owner's word (9 November), so that
+a title screen can be built with the music in: `snd_set_menu(3)` is the title's piece, 5 the waltz, 6 the nocturne (the
+plan's status says how). Its hand-off log is at its end: read it first.
 
 ## Working with the owner
 
