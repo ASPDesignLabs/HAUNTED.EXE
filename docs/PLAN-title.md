@@ -1,7 +1,8 @@
 # The title screen: plan and hand-off
 
 Status (9 November 2026): **the refinement pass is done (steps 1-8) and the owner approved it. The menu is under way
-(section 4b, M1-M4): done, and sent to the owner for a look.** Nothing in the game is changed yet. Everything here is mock-ups drawn by `tools/titlemock.c`, outside the game.
+(section 4b, M1-M4): done, and approved. 9 November: the owner asked for the title in the game, released as
+**1.0.0b21.1, "The Title Screen Update"**, with main's music pass (section 7, G1-G6): under way.** Everything here is mock-ups drawn by `tools/titlemock.c`, outside the game.
 
 Read the hand-off log (section 6) first. It says where the last session stopped.
 
@@ -175,6 +176,37 @@ M4. **Checks and hand-over**: a still of each with the pad's words, the overview
 THE CONTROLS in the game: the controls card the game already has (`render_hud`'s `more[]`), or the controller's own screen
 (`UI_PAD`, `ui_pad`) while a pad is the input. HELP leads to a page saying it isn't written yet. Neither is drawn in these
 mock-ups.
+
+## 7. Into the game: 1.0.0b21.1, "The Title Screen Update" (asked for 9 November)
+
+Main now has the music pass (the lament ground, `MU_TITLE`, played by `snd_set_menu(3)`). The owner asked to release the
+title as 1.0.0b21.1, "The Title Screen Update". Decisions taken as defaults (say so to the owner):
+- **When it shows.** Every time a person takes over: H held three seconds, or any button on a pad. Before, that handed the
+  dream's run straight over. Now the title comes first, and the dream's run is not one of its choices (section 1). The
+  crypt waits behind the title.
+- **Which one.** The title comes round in turn, A, B, C, once per start of the program. The last one shown is a 24th byte
+  of the prefs record (`SLOT_PREFS`, the pad's layout), which older 23-byte records lack and still read.
+- **Esc.** Esc counts as "any key" on the prompt (the owner: any key or button). In the menu, Esc (B) goes back to the
+  prompt; in the graves, the controls or help, back to the menu. Untouched for 90 s at the prompt, the title gives the
+  screen back to the dream, so a screensaver left alone goes on dreaming.
+- **The choices.** CHOOSE A GRAVE opens the three pages (`page_info`, a page's class from its `LG_ALIGN`); a used page
+  rises at once (`ledger_open`); an empty one says nothing is written there. BEGIN A NEW RUN is `run_new` at once. THE
+  CONTROLS is the keys' whole list on a slab, or the controller's own screen (`ui_pad`, read-only) with a pad. HELP is a page
+  that says it isn't written yet.
+- **The art at level 3**, as the mock-ups had it: `crawl_art_level(3)` while the title is up; a choice starts its level's
+  art as ever; going back to the dream puts the dream's level's art back.
+- **Debug.** `CRAWL_TITLE=0` skips the title in the debug build (as before: H gives the dream's run). `tools/uishots.sh`
+  and `tools/gallery.sh` set it.
+
+G1. **The art as a module**: `src/crawl_title.c/.h` (`title_draw(Frame *, float t, const TitleView *)`), moved out of
+    `tools/titlemock.c`, which becomes its driver for the mock-ups. *Status: being done.*
+G2. **The title in the game**: its state (`TI` in `scene_crawl.c`), input (any key or button, not a stick), render, music
+    (`snd_set_menu(3)`), the rotation, the idle return.
+G3. **The four**: the graves from the ledger, a new run, the controls, help.
+G4. **The checks**: frames of every state in the harness; scripted input down every path into play; an ASan session; the
+    smoke test; a bench of the title's frame; the mock-ups made again from the module.
+G5. **The docs**: README (features, what was verified), CLAUDE.md, the page, the release notes (the music pass's too).
+G6. **The release**: VERSION 1.0.0b21.1, squashed onto main as one commit; CI publishes it; check the release and the page.
 
 ## 5. Questions still open for the owner
 
