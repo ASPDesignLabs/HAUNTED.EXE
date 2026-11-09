@@ -62,31 +62,36 @@ static const float STAT_CAP[NSTAT] = { 0, 35, 0, 0, 75, 75, 75, 40, 80, 50, 60, 
                                        50, 50, 50, 50, 50, 50, 40, 40, 40, 40, 40, 40, 30, 30, 30, 30, 30, 30, 75,
                                        7.5f, 400,
                                        50, 50, 50,                        /* "ADDS %": the six share one cap (gear_total) */
-                                       60, 60, 60, 60, 60, 40 };          /* the status chances; Steadiness, under Agility's cap too */
+                                       50, 50, 50, 50, 50, 40 };          /* the status chances; Steadiness, under Agility's cap too */
                                      /* on totals; 0 = none. Sprint's is what is added to the 2.5 s everyone has */
 static float OWN[NSTAT], CAP_UP[NSTAT];                           /* the caster's own, and the overlevels' raise of each cap */
 #define ST_ELEM ST_FIRE                       /* in the tables below: an element, chosen when it is rolled; */
 #define PICK_POW 200                          /* and an element's Power, Efficiency or Insight, the same way (1.0.0b11) */
 #define PICK_EFF 201
 #define PICK_INS 202
+#define PICK_CHANCE 203                       /* and its status chance (1.0.0b21, docs/PLAN-combat.md section 12, G3) */
 
 /* what each kind can roll; wrists have damage only from Rare up */
 static const int KIND_STATS[NIK][14] = {
     { -1 },
-    { ST_HASTE, ST_THRIFT, ST_ARMOR, ST_DODGE, ST_DAMAGE, PICK_INS, -1 },
-    { ST_MOVE, ST_QUIET, ST_DODGE, ST_SPRINT, -1 },
-    { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_RES_SPIRIT, ST_VESSEL, ST_RES_LIGHT, ST_PHYSIC, -1 },
+    { ST_HASTE, ST_THRIFT, ST_ARMOR, ST_DODGE, ST_DAMAGE, PICK_INS, PICK_CHANCE, -1 },
+    { ST_MOVE, ST_QUIET, ST_DODGE, ST_SPRINT, ST_STEADY, -1 },
+    { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_RES_SPIRIT, ST_VESSEL, ST_RES_LIGHT, ST_PHYSIC, ST_STEADY, -1 },
     { ST_ARMOR, ST_EFFECT, ST_HP, PICK_EFF, ST_VESSEL, -1 },
     { ST_HP, ST_REGEN, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_ARMOR, ST_HASTE, ST_ELEM, ST_DAMAGE, PICK_POW, ST_RES_SPIRIT, ST_RES_LIGHT, ST_PHYSIC, -1 },
-    { ST_DAMAGE, ST_ELEM, PICK_POW, -1 },
+    { ST_DAMAGE, ST_ELEM, PICK_POW, PICK_CHANCE, -1 },
     { -1 },
 };
 static int is_pow(int st) { return st >= ST_POW && st < ST_POW + NELEM; }
 static int is_eff(int st) { return st >= ST_EFF && st < ST_EFF + NELEM; }
 static int is_ins(int st) { return st >= ST_INS && st < ST_INS + NELEM; }
+static int is_chance(int st) { return st >= ST_CHANCE && st < ST_CHANCE + EL_PHYS; }
 static float g_use[NELEM];                    /* how much each element is cast (gear_set_lean): wares lean to it */
 void gear_set_lean(int el, float use) { if (el >= 0 && el < NELEM) g_use[el] = use < 0.0f ? 0.0f : use; }
 static int lean_elem(uint32_t *rng);
+static int g_class = -1, g_byclass = 1;       /* the caster's class's element (-1 none), and whether the wares go by it (D6) */
+static const char *const CLASS_FOR[NELEM] = { "WITCHFINDER", "ANATOMIST", "GALVANIST", "PLAGUE DOCTOR", "SIN-EATER", "HEADSMAN" };
+void gear_set_class(int el, int on) { g_class = el >= 0 && el < NELEM ? el : -1; g_byclass = on != 0; }
 
 static uint32_t rnext(uint32_t *s) { *s ^= *s << 13; *s ^= *s >> 17; *s ^= *s << 5; return *s; }
 static int rpick(uint32_t *s, int n) { return (int)(rnext(s) % (uint32_t)n); }
@@ -136,8 +141,11 @@ static float stat_base(int st, int kind, int level) {
     case ST_HASTE:  return (3.0f + 0.6f * l) * (kind == IK_ROBE ? 1.2f : 1.0f);
     case ST_THRIFT: return 5.0f + 1.0f * l;
     case ST_DAMAGE: return (5.0f + 2.0f * l) * (kind == IK_RING ? 1.0f : (kind == IK_ROBE ? 0.6f : 0.3f));
-    case ST_FIRE: case ST_FROST: case ST_SHOCK: return (4.0f + 1.5f * l) * (kind == IK_RING ? 1.0f : 0.6f);
+    case ST_FIRE: case ST_FROST: case ST_SHOCK: case ST_ADD_POISON: case ST_ADD_SPIRIT: case ST_ADD_PHYS:
+        return (4.0f + 1.5f * l) * (kind == IK_RING ? 1.0f : 0.6f);
+    case ST_STEADY: return (4.0f + 1.0f * l) * (kind == IK_BOOTS ? 1.0f : 0.8f);
     default:
+        if (is_chance(st)) return (6.0f + 1.2f * l) * (kind == IK_RING ? 1.0f : 0.7f);
         if (is_pow(st)) return (4.0f + 1.5f * l) * (kind == IK_RING ? 1.0f : 0.6f);
         if (is_eff(st)) return 4.0f + 0.8f * l;
         if (is_ins(st)) return 3.0f + 0.6f * l;
@@ -177,7 +185,8 @@ int piece_quality_roll(int level, uint32_t *rng) {
     return q;
 }
 
-/* an element for a rolled Power, Efficiency or Insight: a third of the time one the caster uses, by how much (section 5) */
+/* an element for a rolled Power, Efficiency or Insight: a third of the time one the caster uses, by how much (docs/PLAN-b11.md
+ * section 5). The old rolls, kept for gear_set_class's off switch */
 static int lean_elem(uint32_t *rng) {
     float tot = 0.0f;
     for (int e = 0; e < NELEM; e++) tot += g_use[e];
@@ -186,6 +195,35 @@ static int lean_elem(uint32_t *rng) {
         for (int e = 0; e < NELEM; e++) { if (r < g_use[e]) return e; r -= g_use[e]; }
     }
     return rpick(rng, NELEM);
+}
+/* 1.0.0b21 (docs/PLAN-combat.md section 12): an element's stat is rolled from the lines held, by their rank (G1); off, one not
+ * held (a piece in six may carry one). nophys: not Physical, which has no status chance. With nothing held, any of them */
+static int held(int e, int nophys) { return g_use[e] > 0.0f && !(nophys && e == EL_PHYS); }
+static int held_any(int nophys) { for (int e = 0; e < NELEM; e++) if (held(e, nophys)) return 1; return 0; }
+static int pick_elem(uint32_t *rng, int off, int nophys) {
+    float tot = 0.0f;
+    for (int e = 0; e < NELEM; e++) if (held(e, nophys)) tot += g_use[e];
+    if (!off && tot > 0.0f) {
+        float r = rfrac(rng) * tot;
+        for (int e = 0; e < NELEM; e++) if (held(e, nophys)) { if (r < g_use[e]) return e; r -= g_use[e]; }
+        for (int e = NELEM - 1; e >= 0; e--) if (held(e, nophys)) return e;
+    }
+    int cand[NELEM], n = 0;
+    for (int e = 0; e < NELEM; e++) if (!(nophys && e == EL_PHYS) && (!off || !held(e, nophys))) cand[n++] = e;
+    if (!n) for (int e = 0; e < NELEM; e++) if (!(nophys && e == EL_PHYS)) cand[n++] = e;
+    return cand[rpick(rng, n)];
+}
+static int stat_elem(int st) {                                     /* the element a stat belongs to, -1 none */
+    if (is_pow(st)) return st - ST_POW;
+    if (is_eff(st)) return st - ST_EFF;
+    if (is_ins(st)) return st - ST_INS;
+    if (is_chance(st)) return st - ST_CHANCE;
+    for (int e = 0; e < NELEM; e++) if (st == st_adds(e)) return e;
+    return -1;
+}
+static int on_line(const Piece *p) {                               /* it carries a stat for a line held (G2) */
+    for (int i = 0; i < p->nstat; i++) { int e = stat_elem(p->stat[i]); if (e >= 0 && held(e, 0)) return 1; }
+    return 0;
 }
 static int pick_ability(uint32_t *rng) {
     static const int W[NABIL] = { 0, 4, 4, 4, 2, 3, 4, 3 };
@@ -203,25 +241,55 @@ Piece piece_roll(int kind, int level, int quality, uint32_t *rng) {
     p.quality = (uint8_t)(quality >= 0 ? quality : piece_quality_roll(level, rng));
     if (kind == IK_BAG) return p;                                  /* a bag holds; it does nothing else */
     p.anointed = rpick(rng, 10) == 0;
-    int pool[14], n = 0;
+    int pool[14], n = 0, by = g_byclass, elems = 0;
     for (int i = 0; KIND_STATS[kind][i] >= 0; i++) {
         int st = KIND_STATS[kind][i];
         if (kind == IK_WRIST && st == ST_DAMAGE && p.quality < Q_RARE) continue;
+        if (!by && (st == ST_STEADY || st == PICK_CHANCE)) continue;   /* the old rolls: 1.0.0b20's wares, rng for rng */
+        if (by && st == PICK_CHANCE && !held_any(1) && held_any(0)) continue;   /* only Physical held: no status chance of use */
+        elems += st == ST_ELEM || st >= PICK_POW;
         pool[n++] = st;
     }
     int want = QUAL_STATS[p.quality] < KIND_SLOTS[kind] ? QUAL_STATS[p.quality] : KIND_SLOTS[kind] + (p.quality == Q_EXQUISITE);
     if (want > n) want = n;
-    for (int k = 0; k < want; k++) {                               /* different stats, picked at random */
-        int j = k + rpick(rng, n - k), t = pool[k];
-        pool[k] = pool[j]; pool[j] = t;
-        int st = pool[k] == ST_ELEM ? ST_FIRE + rpick(rng, 3) : pool[k];
-        if (st == PICK_POW) st = ST_POW + lean_elem(rng);
-        else if (st == PICK_EFF) st = ST_EFF + lean_elem(rng);
-        else if (st == PICK_INS) st = ST_INS + lean_elem(rng);
-        add_stat(&p, st, rng);
+    int off = by && rpick(rng, 6) == 0;                            /* G1: a piece in six may carry one stat of no use, never two */
+    int must = by && p.quality >= Q_RARE && elems && held_any(0);  /* G2: Rare and up carry one for a line held */
+    for (int tries = 0; ; tries++) {
+        int off_left = off;
+        p.nstat = 0;
+        for (int k = 0; k < want; k++) {                           /* different stats, picked at random */
+            int j = k + rpick(rng, n - k), t = pool[k];
+            pool[k] = pool[j]; pool[j] = t;
+            int st = pool[k];
+            if (!by) {
+                if (st == ST_ELEM) st = ST_FIRE + rpick(rng, 3);
+                else if (st == PICK_POW) st = ST_POW + lean_elem(rng);
+                else if (st == PICK_EFF) st = ST_EFF + lean_elem(rng);
+                else if (st == PICK_INS) st = ST_INS + lean_elem(rng);
+            } else if (st == ST_ELEM || st >= PICK_POW) {
+                int e = pick_elem(rng, off_left, st == PICK_CHANCE);
+                off_left = 0;
+                st = st == ST_ELEM ? st_adds(e) : st == PICK_POW ? ST_POW + e : st == PICK_EFF ? ST_EFF + e
+                   : st == PICK_INS ? ST_INS + e : ST_CHANCE + e;      /* G4: "ADDS %" among all six */
+            }
+            add_stat(&p, st, rng);
+        }
+        if (!must || on_line(&p)) break;
+        if (tries >= 40) {                                         /* never yet: the last stat made one of a line held */
+            int e = pick_elem(rng, 0, 0), i = p.nstat - 1;
+            if (i < 0) break;
+            int st = -1;
+            for (int k = 0; k < n && st < 0; k++) if (pool[k] == ST_ELEM || pool[k] == PICK_POW || pool[k] == PICK_EFF || pool[k] == PICK_INS)
+                st = pool[k] == ST_ELEM ? st_adds(e) : pool[k] == PICK_POW ? ST_POW + e : pool[k] == PICK_EFF ? ST_EFF + e : ST_INS + e;
+            if (st < 0) break;
+            p.nstat--; add_stat(&p, st, rng);
+            break;
+        }
     }
     if (kind == IK_HOOD || rpick(rng, 100) < ABIL_CHANCE[p.quality]) {   /* hoods always carry one */
-        p.ability = (uint8_t)pick_ability(rng);
+        if (by && g_class >= 0 && p.quality >= Q_UNCOMMON && rpick(rng, 3) == 0) p.ability = (uint8_t)(AB_CLASS + g_class);   /* G5: the class's,
+                                                                      one time in three */
+        else p.ability = (uint8_t)pick_ability(rng);
         if (p.ability == AB_SWIFT && !has_stat(&p, ST_MOVE)) add_stat(&p, ST_MOVE, rng);       /* and bring their stat */
         if (p.ability == AB_ARCANE && !has_stat(&p, ST_THRIFT)) add_stat(&p, ST_THRIFT, rng);
     }
@@ -293,7 +361,8 @@ void piece_stat_text(int st, int val, char *buf, int n) {
     case ST_ARMOR: case ST_HP: snprintf(buf, (size_t)n, "%s +%.0f", STAT_NAME[st], v); break;
     case ST_REGEN: snprintf(buf, (size_t)n, "RESTORES %.2f/S", v); break;
     case ST_THRIFT: snprintf(buf, (size_t)n, "SPIRIT COST -%.0f%%", v); break;
-    case ST_FIRE: case ST_FROST: case ST_SHOCK: snprintf(buf, (size_t)n, "ADDS %.0f%% %s", v, STAT_NAME[st]); break;
+    case ST_FIRE: case ST_FROST: case ST_SHOCK: case ST_ADD_POISON: case ST_ADD_SPIRIT: case ST_ADD_PHYS:
+        snprintf(buf, (size_t)n, "ADDS %.0f%% %s", v, STAT_NAME[st]); break;
     case ST_VESSEL: snprintf(buf, (size_t)n, "VESSEL +%.0f", v); break;
     case ST_SPRINT: snprintf(buf, (size_t)n, "SPRINT +%.1fS", v); break;
     default: snprintf(buf, (size_t)n, "%s +%.0f%%", STAT_NAME[st], v); break;
@@ -310,7 +379,19 @@ void piece_ability_text(const Piece *p, char *buf, int n) {
     case AB_COMMUNE: snprintf(buf, (size_t)n, "COMMUNE: FOES WITHIN %d CELLS SHOWN FOR %d.%d S, EVERY 15 S", a, b / 10, b % 10); break;
     case AB_THORNS: snprintf(buf, (size_t)n, "THORNS: %d BACK TO WHAT STRIKES YOU", a); break;
     case AB_MIRRORED: snprintf(buf, (size_t)n, "MIRRORED: %d%% OF MISSILES SENT BACK AT %d%%", a, b); break;
-    default: snprintf(buf, (size_t)n, "%s", ""); break;
+    default:
+        if (p->ability >= AB_CLASS && p->ability < NABIL && p->ability - AB_CLASS != g_class)   /* another's: it does nothing for you */
+            snprintf(buf, (size_t)n, "%s: FOR THE %s", ABIL_NAME[p->ability], CLASS_FOR[p->ability - AB_CLASS]);
+        else switch (p->ability) {
+        case AB_PYRE: snprintf(buf, (size_t)n, "PYREBRAND: IGNITES %d%% MORE OFTEN, 1 S LONGER", a); break;
+        case AB_SLAB: snprintf(buf, (size_t)n, "THE SLAB: FROZEN +%d%% HARM, CHILL 1 S LONGER", a); break;
+        case AB_WIRE: snprintf(buf, (size_t)n, "LIVE WIRE: STUNS %d%% MORE; A FIFTH ARCS ON", a); break;
+        case AB_FEVER: snprintf(buf, (size_t)n, "FEVER: THE POISONED TAKE %d%% MORE", a); break;
+        case AB_SIN: snprintf(buf, (size_t)n, "SWALLOWED SIN: UNBINDS %d%% MORE; A SOUL MORE", a); break;
+        case AB_BLOCK: snprintf(buf, (size_t)n, "THE BLOCK: KNOCKED DOWN %d%% LESS; BONES KEPT", a); break;
+        default: snprintf(buf, (size_t)n, "%s", ""); break;
+        }
+        break;
     }
 }
 
@@ -321,6 +402,7 @@ int piece_grade(int ab, int q, int level, int which) {
     static const int KEY_RANGE[NQUAL] = { 6, 8, 10, 12, 16 };
     static const int COMMUNE_R[NQUAL] = { 4, 6, 8, 10, 12 }, COMMUNE_T[NQUAL] = { 10, 15, 20, 25, 30 };
     static const int MIRROR_P[NQUAL] = { 8, 12, 17, 23, 30 }, MIRROR_D[NQUAL] = { 50, 60, 75, 90, 100 };
+    static const int CLASS_P[NQUAL] = { 5, 7, 10, 12, 15 }, BLOCK_P[NQUAL] = { 15, 21, 27, 34, 40 };   /* the classes' (1.0.0b21) */
     switch (ab) {
     case AB_SWIFT: return PCT_SWIFT[q];
     case AB_ARCANE: case AB_TREASURE: return PCT_HALF[q];
@@ -328,6 +410,8 @@ int piece_grade(int ab, int q, int level, int which) {
     case AB_COMMUNE: return which ? COMMUNE_T[q] : COMMUNE_R[q];
     case AB_THORNS: return (int)((2.0f + 0.6f * level) * QUAL_MULT[q] + 0.5f);
     case AB_MIRRORED: return which ? MIRROR_D[q] : MIRROR_P[q];
+    case AB_BLOCK: return which ? 0 : BLOCK_P[q];
+    case AB_PYRE: case AB_SLAB: case AB_WIRE: case AB_FEVER: case AB_SIN: return which ? 0 : CLASS_P[q];
     default: return 0;
     }
 }
@@ -350,12 +434,13 @@ float gear_cap_up(int st) { return st >= 0 && st < NSTAT ? CAP_UP[st] : 0.0f; }
 int stat_on_kind(int st, int kind) {
     if (kind <= IK_NONE || kind >= NIK) return 0;
     for (const int *k = KIND_STATS[kind]; *k >= 0; k++)
-        if (*k == st || (*k == ST_ELEM && is_elem(st)) || (*k == PICK_POW && is_pow(st)) || (*k == PICK_EFF && is_eff(st)) || (*k == PICK_INS && is_ins(st))) return 1;
+        if (*k == st || (*k == ST_ELEM && is_elem(st)) || (*k == PICK_POW && is_pow(st)) || (*k == PICK_EFF && is_eff(st)) || (*k == PICK_INS && is_ins(st))
+            || (*k == PICK_CHANCE && is_chance(st))) return 1;
     return 0;
 }
 
 /* abilities add up across what is worn, to a cap; Mirrored's share sent back is the best of them */
-static const float CAP0[NABIL] = { 0, 25, 50, 50, 16, 12, 0, 50 }, CAP1[NABIL] = { 0, 0, 0, 0, 0, 30, 0, 0 };
+static const float CAP0[NABIL] = { 0, 25, 50, 50, 16, 12, 0, 50, 30, 30, 30, 30, 30, 60 }, CAP1[NABIL] = { 0, 0, 0, 0, 0, 30, 0, 0 };
 float gear_ability_cap(int ab) { return ab > 0 && ab < NABIL ? CAP0[ab] : 0.0f; }
 float gear_ability(const Gear *g, int ab, int which) {
     float t = 0.0f;
@@ -419,10 +504,11 @@ float piece_worth(const Piece *p, int level) {
                                                 0.3f, 0.35f };
     static const int REF[ST_RES_SPIRIT + 2] = { IK_ROBE, IK_BOOTS, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_ROBE, IK_BOOTS, IK_BOOTS,
                                                 IK_WRIST, IK_WRIST, IK_RING, IK_RING, IK_RING, IK_RING, IK_HOOD, 0, 0, IK_ROBE, IK_NECK };
-    static const float AW[NABIL] = { 0.0f, 0.15f, 0.3f, 0.4f, 0.0f, 0.0f, 0.4f, 0.5f };
+    static const float AW[NABIL] = { 0.0f, 0.15f, 0.3f, 0.4f, 0.0f, 0.0f, 0.4f, 0.5f, 0.4f, 0.4f, 0.4f, 0.4f, 0.4f, 0.3f };
     /* Keymaker and Commune are for a person's eyes: the autopilot doesn't count them; nor Treasure or Luck, which
-     * no piece rolls. An element's Power, Efficiency and Insight count by how much that element is cast */
-    static const int FELT_AB[NABIL] = { 0, 1, 1, 1, 0, 0, 1, 1 };
+     * no piece rolls. An element's Power, Efficiency and Insight count by how much that element is cast; a class's
+     * ability only for that class */
+    static const int FELT_AB[NABIL] = { 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1 };
     if (p->kind == IK_NONE || p->kind == IK_BAG) return 0.0f;
     if (level < 1) level = 1;
     float w = 0.0f, tot = 0.0f;
@@ -433,6 +519,12 @@ float piece_worth(const Piece *p, int level) {
         if (st == ST_TREASURE || st == ST_LUCK || st == ST_SPRINT) continue;   /* the dream never sprints */
         if (st == ST_PHYSIC) { w += 0.2f * ((float)p->val[i] / STAT_SCALE[st]) / fmaxf(1e-3f, stat_base(st, IK_ROBE, level)); continue; }
         if (st == ST_RES_LIGHT) { wt = 0.25f; ref = IK_ROBE; }          /* as Resist Slow: only hazards deal it */
+        else if (st == ST_ADD_POISON || st == ST_ADD_SPIRIT || st == ST_ADD_PHYS) { wt = W[ST_FIRE]; ref = IK_RING; }   /* as the other three */
+        else if (st == ST_STEADY) { wt = 0.3f; ref = IK_BOOTS; }
+        else if (is_chance(st)) {                                  /* by how much its element is cast, as Power is */
+            float use = tot > 0.0f ? g_use[st - ST_CHANCE] / tot : 0.0f;
+            wt = 0.35f * use; ref = IK_RING;
+        }
         else if (st < ST_POW) { wt = W[st]; ref = REF[st]; }
         else {
             el = is_pow(st) ? st - ST_POW : (is_eff(st) ? st - ST_EFF : st - ST_INS);
@@ -442,7 +534,8 @@ float piece_worth(const Piece *p, int level) {
         }
         w += wt * ((float)p->val[i] / STAT_SCALE[st]) / fmaxf(1e-3f, stat_base(st, ref, level));
     }
-    return w + (FELT_AB[p->ability] ? AW[p->ability] * (1.0f + 0.25f * p->quality) : 0.0f);
+    int mine = p->ability < AB_CLASS || p->ability - AB_CLASS == g_class;
+    return w + (FELT_AB[p->ability] && mine ? AW[p->ability] * (1.0f + 0.25f * p->quality) : 0.0f);
 }
 
 int piece_slot(const Gear *g, int kind) {

@@ -123,6 +123,7 @@ float gear_ability_cap(int ability);                     /* the most an ability 
 void  gear_set_own(int stat, float add, float cap_up);
 void  gear_set_lean(int el, float use);                  /* how much the caster uses an element: wares lean to it, the autopilot weighs it */
 int   st_adds(int el);                                   /* an element's "ADDS %" stat (1.0.0b21) */
+void  gear_set_class(int el, int on);                   /* the caster's class (-1 none), and whether the wares go by it (1.0.0b21; 0 the old rolls) */
 float gear_own(int stat);
 float gear_cap_up(int stat);
 

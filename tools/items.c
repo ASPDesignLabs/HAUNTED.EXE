@@ -2,6 +2,9 @@
  * what the merchant's wares pedestal would put out, so many a level, as JSON on stdout.
  *
  *   items [first last [n [seed]]]      levels first..last (default 1..20, then 21 and 41), n each (100)
+ *
+ * ITEMS_LINES=a,b,c,d,e,f gives the lines' ranks (Fire to Physical) the wares lean to, ITEMS_CLASS=k the class (1-6 by
+ * element) and ITEMS_OLD=1 the rolls before 1.0.0b21 (docs/PLAN-combat.md section 12)
  */
 #include "../src/crawl_gear.h"
 #include "../src/crawl.h"
@@ -59,6 +62,11 @@ int main(int argc, char **argv) {
     int first = argc > 2 ? atoi(argv[1]) : 1, last = argc > 2 ? atoi(argv[2]) : 20;
     int n = argc > 3 ? atoi(argv[3]) : 100;
     uint32_t seed = argc > 4 ? (uint32_t)strtoul(argv[4], NULL, 10) : 20261031u;
+    if (getenv("ITEMS_LINES")) {
+        const char *c = getenv("ITEMS_LINES");
+        for (int e = 0; e < NELEM && *c; e++) { gear_set_lean(e, (float)atof(c)); while (*c && *c != ',') c++; if (*c) c++; }
+    }
+    gear_set_class(getenv("ITEMS_CLASS") ? atoi(getenv("ITEMS_CLASS")) - 1 : -1, !(getenv("ITEMS_OLD") && atoi(getenv("ITEMS_OLD"))));
     printf("{\"qualities\":[");
     for (int q = 0; q < NQUAL; q++) { printf("%s", q ? "," : ""); json_str(QUAL_NAME[q]); }
     printf("],\"levels\":[\n");

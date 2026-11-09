@@ -5007,6 +5007,17 @@ static float bone_spared(void) {                                   /* a spear th
     return fminf(0.9f, align_sum(EL_PHYS, NK_EFF) + (cls_el() == EL_PHYS ? 0.2f : 0.0f) + gear_total(&RUN.gear, ST_EFF + EL_PHYS) / 100.0f);
 }
 static int align_has(int e, int n) { return align_open(e) && align_full(e, n) && ALIGN[e].n[n].cost > 0; }   /* an ability, Mastery or ultimate bought */
+static int d6_on(void) {                                           /* the merchant by class (1.0.0b21, D6): the wares by the lines held and the
+                                                                      class, the new stats and the classes' abilities felt; CRAWL_D6=0 in the
+                                                                      debug build puts back 1.0.0b20's, for the balance runs */
+#ifdef CRAWL_DEBUG
+    static int on = -1;
+    if (on < 0) on = !(getenv("CRAWL_D6") && atoi(getenv("CRAWL_D6")) == 0);
+    return on;
+#else
+    return 1;
+#endif
+}
 static void align_sync(void) {                                     /* each line's spell into the spellbook, at its rank */
     for (int e = 0; e < NELEM; e++) {
         int r = align_rank(e);
@@ -5017,6 +5028,7 @@ static void align_sync(void) {                                     /* each line'
         spell_set_line(e, eff, fminf(0.9f, ins), align_power(e) + (mine && e == EL_FIRE ? 0.1f : 0.0f));   /* the Witchfinder's heat */
         gear_set_lean(e, (float)r);                                /* the wares lean to the lines fed, and the dream weighs them so */
     }
+    gear_set_class(cls_el(), d6_on());                             /* and to the class (1.0.0b21, D6) */
     RUN.gear.atk[AT_HELL] = RUN.gear.atk[AT_WISPS] = -1;           /* only the abilities let these loose now */
     spell_set_own(cls_el() >= 0 ? LINE_ATK[cls_el()] : LEDGER.lent ? LINE_ATK[LEDGER.lent - 1] : -1);   /* its first rank free */
     spell_set_atone(RUN.atone);
