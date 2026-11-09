@@ -268,3 +268,9 @@ None open now (answered 9 November: see section 1).
 - **9 November, later still.** G5 done and pushed. CI started by hand on the branch (run 42709106409) to compile Windows
   and web. Next: when it is green, G6. Set VERSION to 1.0.0b21.1, squash the branch onto main as one commit (main is
   789978b, already merged into the branch), push main, then check the release and the page.
+- **9 November, release in hand.** CI on the branch: the Windows and browser builds compiled; their smoke tests were still
+  running at this entry. The release commit is staged locally on `release-b21-1` (from origin/main, the branch squashed,
+  VERSION 1.0.0b21.1). If this session ends before it is pushed: `git fetch origin main && git checkout -B release-b21-1
+  origin/main && git merge --squash origin/claude/compassionate-dirac-6ui1wb`, set VERSION to 1.0.0b21.1, commit as
+  "1.0.0b21.1: The Title Screen Update" with the attribution lines, `git push origin release-b21-1:main`, then check the
+  release (`gh api repos/ASPDesignLabs/HAUNTED.EXE/releases/tags/v1.0.0b21.1`) and the page.
