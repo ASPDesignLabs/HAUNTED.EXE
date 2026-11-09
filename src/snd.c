@@ -169,7 +169,7 @@ static const Patch PATCHES[PAT_COUNT] = {
     [PAT_CELESTA] = { .mc=1, .mm=7.0f, .wc=0, .wm=0, .idx=1.3f, .fb=0.0f,
                     .am=0.001f,.dm=0.08f,.sm=0, .rm=0.30f, .ac=0.001f,.dc=0.9f,.sc=0, .rc=0.40f,
                     .vib_hz=0,.vib_st=0,.vib_delay=0, .level=0.11f, .rev=0.55f, .dly=0.30f },
-    /* her hall's candidates' (docs/PLAN-music2.md), using the rest of what an AdLib could do */
+    /* her hall's candidates' (docs/PLAN-music-work.md), using the rest of what an AdLib could do */
     /* clarinet: the modulator an octave up, so only the odd harmonics sound; mellower as it climbs */
     [PAT_CLAR]  = { .mc=1, .mm=2.0f, .wc=0, .wm=0, .idx=1.9f, .fb=0.06f,
                     .am=0.04f,.dm=0.6f,.sm=0.75f, .rm=0.12f, .ac=0.035f,.dc=0.8f,.sc=0.9f, .rc=0.13f,
@@ -1807,7 +1807,7 @@ static void boss_step(void) {
 typedef struct MNote { uint8_t bar, step, len, midi; } MNote;   /* midi + 128: on the piece's second instrument */
 typedef struct MSec { int8_t ch[8][4]; const MNote *mel; int nmel; } MSec;
 
-/* A scored piece (docs/PLAN-music2.md) is written out as text, a part to a string, and read once at start:
+/* A scored piece (docs/PLAN-music-work.md) is written out as text, a part to a string, and read once at start:
  *   a4/12   a note (c4 is middle C; # and b after the letter), twelve steps long; the length carries to the next
  *   [a3 c4 e4]/24   notes struck together        r/6   a rest        -/12   the last note held on
  *   |       a bar line: the steps between two must make a bar, or snd_check says where they don't
@@ -1847,7 +1847,8 @@ static Player *g_P;                        /* the player stepping */
 static int g_psps;                         /* its step, in samples */
 static float g_busg[NBUS], g_layg[NLAYER]; /* each bus's and layer's gain this sample */
 static int g_alive[NBUS];                  /* a bus that is or is coming in: its voices aren't cut, and new ones start */
-static int g_fight_req, g_frail, g_menu_req, g_menu, g_menu_var, g_place, g_track_next, g_shop_mu = MU_MERCHANT;
+static int g_fight_req, g_frail, g_menu_req, g_menu, g_menu_var, g_place, g_track_next, g_shop_mu = MU_MERCHANT, g_menu_mu = MU_MENU;
+static float g_menu_sw = 1.0f;             /* the menu's piece changing under it: down, the other from its top, up */
 static float g_fight_k, g_frail_k, g_menu_k, g_run_k, g_shop_k, g_menu_wait;
 static float g_mix_music = 1.0f, g_mix_fx = 1.0f;
 static float g_flp[4], g_mnlp[4];          /* the failing's low-pass on the music, the menu's water (run II) */
@@ -2254,41 +2255,6 @@ static void deep_step(const MSec *S, int bar, int s) {
     }
 }
 
-/* Her hall: A minor, 100, a habanera on plucked strings, a harpsichord marking the beat, a sly flute that slides
- * up to its notes; a music box answers. Her back rooms keep only the bass and the music box. */
-#define Ai   C3(0, 0, 3, 7)
-#define Aiv  C3(5, 5, 8, 12)
-#define AV   C3(-5, 7, 11, 14)
-#define AVI  C3(-4, 8, 12, 15)
-#define AbII C3(1, 1, 5, 8)
-static const MNote MEL_M_A[] = {                              /* her entrance */
-    {0,0,6,76},{0,6,2,75},{0,8,4,76},{0,12,4,72}, {1,0,12,69},
-    {2,0,6,74},{2,6,2,73},{2,8,4,74},{2,12,4,77}, {3,0,8,81},{3,8,4,77},{3,12,4,74},
-    {4,0,6,71},{4,6,2,70},{4,8,4,71},{4,12,4,74}, {5,0,8,76},{5,8,4,74},{5,12,4,71},
-    {6,0,4,72},{6,4,4,71},{6,8,4,69},{6,12,4,68}, {7,0,4,71},{7,4,4,68},{7,8,8,64} };
-static const MNote MEL_M_B[] = {                              /* the purr, on the music box */
-    {0,0,4,84},{0,4,4,81},{0,8,8,77}, {1,0,4,82},{1,4,4,77},{1,8,8,74}, {2,0,4,80},{2,4,4,76},{2,8,8,71}, {3,0,12,81},
-    {4,0,4,77},{4,4,4,81},{4,8,8,84}, {5,0,4,86},{5,4,4,81},{5,8,8,77}, {6,0,4,83},{6,4,4,80},{6,8,4,76},{6,12,4,74}, {7,0,16,71} };
-static const MSec SEC_MERCH[2] = {
-    { { Ai, Ai, Aiv, Aiv, AV, AV, Ai, AV }, MEL(MEL_M_A) },
-    { { AVI, AbII, AV, Ai, AVI, Aiv, AV, AV }, MEL(MEL_M_B) } };
-static const uint8_t ORD_MERCH[] = { 0, 1 };
-
-static void merch_step(const MSec *S, int bar, int s) {
-    static const int8_t HS[8] = { 0, 3, 4, 6, 8, 11, 12, 14 }, HO[8] = { 0, 0, 7, 12, 0, 0, 7, 10 };
-    static const float HV[8] = { 0.85f, 0.5f, 0.65f, 0.55f, 0.8f, 0.5f, 0.65f, 0.55f };
-    const int r = 33;
-    const int8_t *c = S->ch[bar];
-    int sec = (int)(S - SEC_MERCH), pass = g_P->pass, back = g_place == 2;
-    for (int i = 0; i < 8; i++)
-        if (HS[i] == s) pv(PAT_PIZZ, r + 12 + c[0] + HO[i], HV[i] * (back ? 0.6f : 1.0f), 0.5f, 2);
-    g_vlayer = LY_COLOUR;
-    if (!back && ((s & 3) == 0 || (s == 14 && (bar & 1))))
-        pchord(c, PAT_HARP, r + 24, s == 0 ? 0.6f : s == 8 ? 0.5f : 0.38f, 1, 0.0f);
-    if (sec == 0 && !back) { ptune(S, bar, s, PAT_FLUTE, 0, 0.9f, 0, 0); if (pass & 1) ptune(S, bar, s, PAT_MBOX, 0, 0.3f, 12, 0); }
-    if (sec == 1) ptune(S, bar, s, PAT_MBOX, 0, back ? 0.55f : 0.75f, 0, 0);
-}
-
 /* The menus: the march's opening as a lullaby in three, over a pad, in the run's key and on its instrument:
  * a music box (I), a harp under water (II), a dulcimer (III), glass (IV). */
 static const MNote MEL_N_A[] = {
@@ -2312,7 +2278,9 @@ static void menu_step(const MSec *S, int bar, int s) {
     ptune(S, bar, s, MP[v], MP[v], v == 3 ? 0.55f : 0.75f, TT[v], v >= 2);
 }
 
-/* ---- her hall's candidates (docs/PLAN-music2.md): five pieces for the owner to choose between ---- */
+/* ---- 1.0.0b22's pieces (docs/PLAN-music-work.md), written for her hall and given out by the owner: the habanera is her
+ * hall's, the alley cat plays there after a perfect level, the lament ground for the ledger opened (a title screen's,
+ * when there is one); the clockwork waltz waits for a special screen and the nocturne for an ending ---- */
 
 /* Shared by the candidates: a chord's notes taken in turn, up and down, one every so many steps */
 static void sc_arp(const Ev *e, const int8_t *pat, int npat, int every, int pt, float vel, float pan, int tr, int len) {
@@ -2322,7 +2290,7 @@ static void sc_arp(const Ev *e, const int8_t *pat, int npat, int every, int pt, 
     pv(pt, e->nt[i] + o + tr, vel * (0.9f + 0.2f * mrnd()), pan + 0.25f * ((float)i / (float)(e->n > 1 ? e->n - 1 : 1) - 0.5f), len);
 }
 
-/* 1. The habanera, grown: A minor, 92, a bar of 48 steps (twelve a beat, for the triplets). A habanera on
+/* Her hall's: the habanera, grown (1.0.0b15's, retired, was its first draft): A minor, 92, a bar of 48 steps (twelve a beat, for the triplets). A habanera on
  * pizzicato over an A pedal while the chords slide down from A to F-sharp inside it; a gut-strung guitar
  * strumming the off-beats, a bandoneon breathing (the chip's tremolo) in two reeds a few cents apart, the flute
  * sliding up to its notes, a clarinet under it; castanets and hands. The B part goes round the circle of fifths
@@ -2345,7 +2313,7 @@ static void sc_arp(const Ev *e, const int8_t *pat, int npat, int every, int pt, 
 #define S1_BME "a4/12 f4/12 c5/18 bb4/6 | b4/18 a4/6 g4/12 f4/12 | e4/24 g4/12 b4/12 | a4/36 r/12 | d5/18 c5/6 b4/12 a4/12 |" \
                "g#4/24 b4/12 d5/12 | c5/18 b4/6 a4/12 e4/12 | !e5/12 r/36 |"
 #define S1_BX1 "r/48 | r/48 | r/48 | r/24 a5/6 g5/6 f5/6 e5/6 | r/48 | r/48 | r/36 e5/6 g#5/6 | r/12 b5/6 a5/6 g#5/6 f5/6 e5/6 d5/6 |"
-static ScSec SC_SHOP1[] = {
+static ScSec SC_HABANERA[] = {
     SECT(0, "[c4 e4 a4]/48 | [c4 e4 a4]/48 | [c4 e4 a4]/48 | [d4 g#4 b4]/48 |", HB_A HB_A HB_A HB_E, NULL,
         "r/24 e4/9 d#4/3 e4/12 | r/24 e4/9 f4/3 e4/12 | r/24 a4/9 g#4/3 a4/6 c5/6 | b4/24 g#4/24 |"),
     SECT(10, S1_ACH, S1_ABA, S1_AME, S1_ACO),
@@ -2363,9 +2331,9 @@ static ScSec SC_SHOP1[] = {
         "b1/9 f2/3 b1/6 d2/6 e2/9 b1/3 e2/6 g#2/6 | e2/12 r/36 |",
         "r/24 e5/6 f5/6 g#5/6 a5/6 | b5/12 r/12 d6/6 c6/6 b5/6 g#5/6 |"),
 };
-static const uint8_t ORD_SHOP1[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+static const uint8_t ORD_HABANERA[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
 
-static void shop1_step(const ScSec *S, int bar, int s) {
+static void habanera_step(const ScSec *S, int bar, int s) {
     static const int8_t ARP[8] = { 0, 1, 2, 3, 2, 1, 2, 1 };
     int kind = S->var / 10, vv = S->var % 10, back = g_place == 2;
     int full = (kind == 1 && (vv == 1 || vv == 3)) || (kind == 2 && vv == 1);
@@ -2436,7 +2404,7 @@ static Voice *sc_arpvoice(const Ev *e, int pat, float vel, float pan, int tr, fl
     return v;
 }
 
-/* 2. The clockwork waltz: C minor, 138, three beats of four steps. A curiosity shop's clocks ticking and tocking
+/* For a special screen, not yet used: the clockwork waltz: C minor, 138, three beats of four steps. A curiosity shop's clocks ticking and tocking
  * on woodblocks; a music box with a celesta over it, the oom-pah-pah of pizzicato and a harp; the B part in
  * E-flat on a violin, its minor fourth (A-flat minor) turning the light; then the clocks run down in A-flat,
  * a glass harmonica singing over an AdLib's arpeggio shimmering on one voice, and back. */
@@ -2453,7 +2421,7 @@ static Voice *sc_arpvoice(const Ev *e, int pat, float vel, float pan, int tr, fl
 #define S2_BME "bb4/8 eb5/4 | g5/12 | f5/4 g5/4 ab5/4 | bb5/8 ab5/4 | ab5/4 f5/4 c5/4 | d5/4 f5/4 ab5/4 | g5/12 | r/4 bb4/4 eb5/4 |" \
                "c6/8 ab5/4 | b5/8 ab5/4 | bb5/8 g5/4 | bb5/4 g5/4 e5/4 | f5/8 ab5/4 | d6/4 c6/4 ab5/4 | g5/8 eb5/4 | d5/4 f5/4 b5/4 |"
 #define S2_BCO "g4/12 | bb4/12 | f4/12 | ab4/12 | eb4/12 | d4/12 | eb4/12 | g4/12 | eb4/12 | eb4/12 | eb4/12 | e4/12 | f4/12 | d4/12 | eb4/12 | d4/12 |"
-static ScSec SC_SHOP2[] = {
+static ScSec SC_WALTZ[] = {
     SECT(0, "[g3 c4 eb4]/12 | [g3 c4 eb4]/12 | [f3 b3 d4]/12 | [f3 b3 d4]/12 |", "c3/12 | c3/12 | g2/12 | g2/12 |",
         "r/12 | r/12 | g4/2 b4/2 d5/2 f5/2 g5/2 b5/2 | d6/2 f6/2 g6/8 |"),
     SECT(10, S2_ACH, S2_ABA, S2_AME, S2_ACO),
@@ -2470,9 +2438,9 @@ static ScSec SC_SHOP2[] = {
     SECT(40, "[g3 c4 eb4]/12 | [ab3 c4 eb4]/12 | [f3 b3 d4]/12 | [g3 c4 eb4]/12 |", "c3/12 | ab2/12 | g2/12 | c3/12 |",
         "g6/2 eb6/2 c6/2 g5/2 eb5/2 c5/2 | ab5/2 eb5/2 c5/2 ab4/2 eb4/2 c4/2 | b4/4 d5/4 f5/4 | c5/12 |"),
 };
-static const uint8_t ORD_SHOP2[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+static const uint8_t ORD_WALTZ[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
 
-static void shop2_step(const ScSec *S, int bar, int s) {
+static void waltz_step(const ScSec *S, int bar, int s) {
     int kind = S->var / 10, vv = S->var % 10, back = g_place == 2;
     const Ev *ch = sc_now(PT_CH);
     /* the oom: pizzicato and a low string; in the clocks' running down, a long low note */
@@ -2514,7 +2482,7 @@ static void shop2_step(const ScSec *S, int bar, int s) {
     }
 }
 
-/* 3. The alley cat: F minor, a swing at 120, three steps a beat (a swung eighth is two and one). A muted
+/* Her hall after a perfect level (MU_PERFECT): the alley cat: F minor, a swing at 120, three steps a beat (a swung eighth is two and one). A muted
  * trumpet on the tune over brushes, the chip's cymbal for a ride and its hat for the foot, an electric piano
  * comping rootless chords, and a double bass in two for the first time round, walking the second (it finds its
  * own way to each chord: a chord tone, then a half step into the next). The second chorus gives the tune to the
@@ -2535,7 +2503,7 @@ static void shop2_step(const ScSec *S, int bar, int s) {
 #define S3_BME "f5/6 db5/3 c5/3 | r/3 bb4/2 db5/1 f5/3 g5/3 | c6/6 bb5/3 g5/3 | ab5/9 r/3 | r/3 f5/2 ab5/1 c6/6 |" \
                "bb5/3 ab5/2 fb5/1 db5/6 | c5/6 eb5/3 g5/3 | f5/3 db5/3 e5/3 g5/3 |"
 #define S3_BCO "db4/12 | db4/12 | c4/12 | c4/12 | c4/12 | db4/12 | eb4/12 | db4/6 e4/6 |"
-static ScSec SC_SHOP3[] = {
+static ScSec SC_SWING[] = {
     SECT(0, "[f2 ab3 c4 eb4 g4]/12 | [db2 ab3 c4 eb4 f4]/12 | [g2 bb3 db4 f4]/6 [c2 bb3 db4 e4 g4]/6 | [g2 bb3 db4 f4]/6 [c2 bb3 db4 e4 g4]/6 |",
         NULL, "r/12 | r/12 | r/6 g4/2 bb4/1 db5/2 e5/1 | g5/3 f5/2 e5/1 db5/3 c5/3 |"),
     SECT(10, S3_A1CH, NULL, S3_A1ME, S3_A1CO),
@@ -2549,7 +2517,7 @@ static ScSec SC_SHOP3[] = {
     SECT(30, "[db2 ab3 c4 eb4 f4]/12 | [c2 bb3 db4 e4 g4]/12 | [f2 ab3 c4 eb4 g4]/12 | [f2 ab3 c4 eb4 g4]/12 |", NULL,
         "ab5/6 f5/3 c5/3 | db5/3 e5/3 g5/3 bb5/3 | c6/12 | r/12 |"),
 };
-static const uint8_t ORD_SHOP3[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+static const uint8_t ORD_SWING[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 
 static int g_walk = 41;                   /* where the bass last stood */
 static int near_oct(int m, int to) { while (m < to - 6) m += 12; while (m > to + 6) m -= 12; return m; }
@@ -2593,7 +2561,7 @@ static void sc_comp(int pat, float vel, float pan, int steps) {
     }
 }
 
-static void shop3_step(const ScSec *S, int bar, int s) {
+static void swing_step(const ScSec *S, int bar, int s) {
     static const int8_t COMP[5][2] = { { 0, 5 }, { 2, 8 }, { 3, 9 }, { 5, 11 }, { 0, 8 } };
     static int pick;
     int kind = S->var / 10, vv = S->var % 10, back = g_place == 2;
@@ -2630,7 +2598,7 @@ static void shop3_step(const ScSec *S, int bar, int s) {
     }
 }
 
-/* 4. The lament ground: G minor, 72, three beats of four steps. A passacaglia: the bass falls G, F, E-flat, D
+/* The ledger opened to choose a page, and a title screen's when there is one (MU_TITLE): the lament ground: G minor, 72, three beats of four steps. A passacaglia: the bass falls G, F, E-flat, D
  * over and over on low strings and a harpsichord, and everything else is variations laid on it, each a
  * little more: the ground alone with the harpsichord's sarabande chords and a bell; the theme on the oboe; the
  * violin taking it with the oboe against it; the ground made chromatic (G, F-sharp, F, E, E-flat, D) under a
@@ -2647,7 +2615,7 @@ static void shop3_step(const ScSec *S, int bar, int s) {
 #define S4_CBA "g2/12 | f#2/12 | f2/12 | e2/12 | eb2/12 | d2/12 | g2/12 | f#2/12 | f2/12 | e2/12 | eb2/12 | d2/12 |"
 #define S4_CX1 "d5/12 | d5/12 | d5/8 c5/4 | c5/12 | c5/8 bb4/4 | bb4/4 a4/8 | g5/12 | f#5/12 | f5/8 e5/4 | e5/12 | eb5/8 d5/4 | d5/4 c#5/4 d5/4 |"
 #define S4_CX2 "bb4/12 | a4/12 | a4/12 | g4/12 | g4/12 | g4/4 f#4/8 | d5/12 | d5/12 | d5/8 c5/4 | c5/12 | c5/8 bb4/4 | a4/12 |"
-static ScSec SC_SHOP4[] = {
+static ScSec SC_GROUND[] = {
     SECT(10, S4_CH, S4_BA),
     SECT(20, S4_CH, S4_BA, S4_ME, S4_CO),
     SECT(30, S4_CH, S4_BA, S4_ME, S4_CO),
@@ -2657,9 +2625,9 @@ static ScSec SC_SHOP4[] = {
     SECT(60, S4_CH, S4_BA, S4_ME, S4_CO),
     SECT(70, S4_CCH, S4_CBA, NULL, NULL, S4_CX1, S4_CX2),
 };
-static const uint8_t ORD_SHOP4[] = { 0, 1, 2, 3, 4, 5, 6 };
+static const uint8_t ORD_GROUND[] = { 0, 1, 2, 3, 4, 5, 6 };
 
-static void shop4_step(const ScSec *S, int bar, int s) {
+static void ground_step(const ScSec *S, int bar, int s) {
     static const int8_t DIV[6] = { 0, 1, 2, 3, 2, 1 };
     int kind = S->var / 10, back = g_place == 2;
     const Ev *ch = sc_now(PT_CH);
@@ -2694,7 +2662,7 @@ static void shop4_step(const ScSec *S, int bar, int s) {
     }
 }
 
-/* 5. The midnight nocturne: D-flat major, 66, sixteen steps a bar. The shop after closing: a concert harp
+/* For an ending, not yet used: the midnight nocturne: D-flat major, 66, sixteen steps a bar. The shop after closing: a concert harp
  * rolling its chords, slow and wide (major sevenths, ninths, a sharp eleventh), a music box with the tune, a
  * cello under it; then B-flat minor on glass; then the chords sliding down by whole tones, all alike, a celesta
  * and a choir; the minor fourth at each turn (G-flat minor), and home. No drums: a finger cymbal now and then. */
@@ -2703,7 +2671,7 @@ static void shop4_step(const ScSec *S, int bar, int s) {
 #define S5_ABA "db2/16 | gb2/16 | eb2/16 | ab1/16 | f2/16 | bb1/16 | gb2/16 | db2/16 |"
 #define S5_AME "f5/6 eb5/2 ab5/8 | c6/12 bb5/4 | gb5/6 f5/2 db5/8 | eb5/8 c5/8 | ab5/6 g5/2 f5/8 | db6/8 c6/4 bb5/4 | bb5/8 a5/8 | ab5/16 |"
 #define S5_ACO "f3/8 ab3/8 | bb3/16 | gb3/8 bb3/8 | db4/8 c4/8 | ab3/8 c4/8 | db4/8 f3/8 | db4/16 | c4/16 |"
-static ScSec SC_SHOP5[] = {
+static ScSec SC_NOCTURNE[] = {
     SECT(0, "[f3 ab3 c4 eb4]/16 | [gb3 db4 eb4 f4]/16 |", "db2/16 | ab1/16 |"),
     SECT(10, S5_ACH, S5_ABA, S5_AME, S5_ACO),
     SECT(11, S5_ACH, S5_ABA, S5_AME, S5_ACO),
@@ -2718,9 +2686,9 @@ static ScSec SC_SHOP5[] = {
     SECT(12, S5_ACH, S5_ABA, S5_AME, S5_ACO),
     SECT(40, "[eb3 a3 db4]/16 | [f3 ab3 c4 eb4]/16 |", "gb2/16 | db2/16 |", "eb5/8 a5/8 | ab5/16 |"),
 };
-static const uint8_t ORD_SHOP5[] = { 0, 1, 2, 3, 4, 5, 6 };
+static const uint8_t ORD_NOCTURNE[] = { 0, 1, 2, 3, 4, 5, 6 };
 
-static void shop5_step(const ScSec *S, int bar, int s) {
+static void nocturne_step(const ScSec *S, int bar, int s) {
     static const int8_t UP[6] = { 0, 1, 2, 3, 2, 1 };
     int kind = S->var / 10, vv = S->var % 10, back = g_place == 2;
     const Ev *ch = sc_now(PT_CH);
@@ -2750,22 +2718,404 @@ static void shop5_step(const ScSec *S, int bar, int s) {
     }
 }
 
+/* ---- Run I's attempts (docs/PLAN-music-work.md, step 2): five pieces for the Order's crypts, each written with
+ * its fight. The fight comes in on a beat at level 1 and grows to 3 (player_step and player_pace, as before); what
+ * each level adds is the piece's own, on the fight's layer ---- */
+
+/* the bass sounding now: the bass part's note, else the chord's lowest */
+static int sc_root(void) {
+    const Ev *e = sc_now(PT_BA);
+    if (e && e->n) return e->nt[0];
+    e = sc_now(PT_CH);
+    return e && e->n ? e->nt[0] : -1;
+}
+/* a figure on the bass, a note every `every` steps: semitones from it, 99 a rest */
+static void sc_figure(const int8_t *fig, int n, int every, int pat, int tr, float vel, float pan, int len) {
+    int r = sc_root();
+    if (r < 0 || g_abs % every) return;
+    int i = (g_abs / every) % n;
+    if (fig[i] == 99) return;
+    pv(pat, r + tr + fig[i], vel * (i == 0 ? 1.0f : 0.82f) * (0.94f + 0.12f * mrnd()), pan, len);
+}
+/* the chord sounding now, struck again: a stab, or a tremolo's stroke */
+static void sc_stab(int part, int pat, float vel, float pan, int len, int tr) {
+    const Ev *e = sc_now(part);
+    if (!e) return;
+    for (int j = 0; j < e->n; j++) pv(pat, e->nt[j] + tr, vel, pan + 0.3f * ((float)j / (float)(e->n > 1 ? e->n - 1 : 1) - 0.5f), len);
+}
+/* a part's events that began `d` steps ago: a canon */
+static void sc_late(int part, int d, int pat, float vel, float pan, int tr) {
+    const ScSec *S = g_S;
+    if (!S || !S->ev[part]) return;
+    for (int i = 0; i < S->nev[part]; i++) {
+        const Ev *e = &S->ev[part][i];
+        if (e->at + d != g_abs) continue;
+        for (int j = 0; j < e->n; j++) sc_voice(pat, e->nt[j] + tr, vel, pan, e->len, e->fx);
+    }
+}
+static inline int fight_lvl(void) { return g_P && g_P->fight ? g_P->lvl : 0; }
+static inline float mhz(int m) { return 440.0f * exp2f((float)(m - 69) / 12.0f); }
+static inline float timp_hz(int m) { while (m < 40) m += 12; while (m > 52) m -= 12; return mhz(m); }   /* a kettle's range */
+
+/* A. The office of the dead: D minor (Dorian at times), 64, sixteen steps a bar. A chant on the choir over the organ's
+ * pedal, then the same chant in organum (a fourth under it, over the drone alone), a chorale for the choir with a
+ * D major at its end, a motet (the chant low, a flute's descant over it), the crypt (E-flat leaning on D, bells).
+ * Fighting: timpani on the bass and the low strings driving (1); sackbuts on the chant and the organ's chords struck,
+ * a snare (2); the chant in canon on brass, hats, the timpani every beat (3). */
+#define A_CH "[d3 a3]/16 | [d3 a3]/16 | [f3 a3 c4]/16 | [e3 g3 c4]/16 | [d3 f3 bb3]/16 | [f3 a3 c4]/16 | [d3 g3 bb3]/8 [e3 a3 c#4]/8 | [d3 f3 a3]/16 |"
+#define A_BA "d2/16 | d2/16 | f2/16 | c2/16 | bb1/16 | f2/16 | g2/8 a2/8 | d2/16 |"
+#define A_ME "d4/4 f4/4 a4/8 | a4/4 a4/4 a4/4 bb4/2 a4/2 | a4/4 c5/4 a4/4 f4/4 | g4/8 e4/4 g4/4 | f4/4 d4/4 f4/4 bb4/4 | a4/8 c5/4 a4/4 |" \
+             "g4/4 f4/4 e4/8 | d4/16 |"
+#define A_FIFTH "[d3 a3]/16 | [d3 a3]/16 | [d3 a3]/16 | [d3 a3]/16 | [d3 a3]/16 | [d3 a3]/16 | [d3 a3]/16 | [d3 a3]/16 |"
+#define A_PED "d2/16 | d2/16 | d2/16 | d2/16 | d2/16 | d2/16 | d2/16 | d2/16 |"
+#define A_CCH "[d4 f4 a4]/4 [e4 g4 c5]/4 [f4 bb4 d5]/8 | [g4 bb4 d5]/4 [g4 c5 e5]/4 [a4 c5 f5]/4 [g4 c5 e5]/4 |" \
+              "[f4 bb4 d5]/8 [f4 a4 c5]/4 [g4 bb4 d5]/4 | [d4 e4 a4]/8 [c#4 e4 a4]/8 | [f4 a4 c5]/4 [f4 bb4 d5]/4 [g4 c5 e5]/4 [a4 d5 f5]/4 |" \
+              "[bb4 d5 g5]/8 [a4 c5 f5]/4 [g4 c5 e5]/4 | [f4 bb4 d5]/4 [f4 a4 c5]/4 [d4 g4 bb4]/4 [e4 g4 c5]/4 | [f#4 a4 d5]/16 |"
+#define A_CBA "d3/4 c3/4 bb2/8 | g2/4 c3/4 f2/4 e2/4 | bb2/8 a2/4 g2/4 | a2/16 | f2/4 bb2/4 c3/4 d3/4 | bb2/8 a2/4 g2/4 | bb2/4 a2/4 g2/4 c3/4 | d3/16 |"
+#define A_CME "a4/4 c5/4 d5/8 | d5/4 e5/4 f5/4 e5/4 | d5/8 c5/4 d5/4 | a4/16 | c5/4 d5/4 e5/4 f5/4 | g5/8 f5/4 e5/4 | d5/4 c5/4 bb4/4 c5/4 | d5/16 |"
+static ScSec SC_OFFICE[] = {
+    SECT(0, "[d3 a3]/16 | [d3 a3]/16 | [d3 a3]/16 | [d3 a3]/16 |", "d2/16 | d2/16 | d2/16 | d2/16 |"),
+    SECT(10, A_CH, A_BA, A_ME),
+    SECT(20, A_FIFTH, A_PED, A_ME),
+    SECT(30, A_CCH, A_CBA, A_CME),
+    SECT(50, "[d3 a3]/16 | [eb3 g3 bb3]/16 | [d3 f3 a3]/16 | [eb3 g3 bb3]/16 | [d3 f3 bb3]/16 | [d3 g3 bb3]/16 | [eb3 g3 bb3]/16 | [c#3 e3 a3]/16 |",
+        "d2/16 | d2/16 | d2/16 | d2/16 | bb1/16 | g1/16 | eb2/16 | a1/16 |",
+        "r/16 | r/8 g4/4 eb4/4 | d4/16 | r/8 bb4/4 g4/4 | f4/8 d4/8 | g4/8 bb4/8 | g4/4 f4/4 eb4/8 | e4/8 c#4/8 |"),
+    SECT(40, A_CH, A_BA, A_ME, "f3/16 | a3/16 | a3/16 | g3/16 | f3/16 | a3/16 | bb3/8 a3/8 | a3/16 |",
+        "a5/6 g5/2 f5/4 d5/4 | e5/4 f5/4 g5/4 a5/4 | c6/8 a5/4 f5/4 | g5/4 e5/4 c5/4 e5/4 | d5/4 f5/4 bb5/8 | a5/6 g5/2 f5/4 c5/4 |"
+        "d5/4 bb4/4 c#5/4 e5/4 | d5/16 |"),
+    SECT(31, A_CCH, A_CBA, A_CME),
+};
+static const uint8_t ORD_OFFICE[] = { 0, 1, 2, 3, 4, 5, 6 };
+
+static void office_step(const ScSec *S, int bar, int s) {
+    static const int8_t OST[8] = { 0, 0, 7, 0, 12, 0, 7, 0 };
+    int kind = S->var / 10, fl = fight_lvl(), r = sc_root(), last = bar == S->bars - 1;
+    /* the pedal: the organ's sixteen-foot, a bowed bass an octave over it */
+    if (sc_starts(PT_BA)) { sc_play(PT_BA, PAT_ORGAN, 0.6f, 0.5f, 0); sc_play(PT_BA, PAT_STRINGS, 0.4f, 0.45f, 12); }
+    /* the organ's chords (the choir's own in the chorale) */
+    if (sc_starts(PT_CH)) {
+        if (kind == 3) {
+            sc_play_ex(PT_CH, PAT_VOICE, PAT_VOICE, 0.46f, 0.5f, 0, 0.6f, 0, 0.004f);
+            sc_play_ex(PT_CH, PAT_ORGAN, PAT_ORGAN, 0.4f, 0.5f, -12, 0.4f, 0, 0.0f);
+        } else sc_play_ex(PT_CH, PAT_ORGAN, PAT_ORGAN, kind == 5 ? 0.45f : kind == 2 || kind == 0 ? 0.42f : 0.55f, 0.5f, 0, 0.4f, 0, 0.0f);
+    }
+    /* bells: the office's start, and the crypt's slow toll */
+    if (s == 0 && ((kind == 0 && !(bar & 1)) || (bar == 0 && kind != 5))) { pv(PAT_BELL, 50, 0.5f, 0.3f, 16); pv(PAT_BELL, 57, 0.32f, 0.7f, 16); }
+    if (s == 0 && kind == 5 && !(bar & 1) && r >= 0) pv(PAT_BELL, r + 24, 0.32f, 0.25f + 0.5f * mrnd(), 16);
+    g_vlayer = LY_COLOUR;
+    switch (kind) {
+    case 0: if (bar == 1 && s == 0) { pv(PAT_VOICE, 50, 0.4f, 0.4f, 48); pv(PAT_VOICE, 57, 0.32f, 0.6f, 48); } break;
+    case 1: sc_play_ex(PT_ME, PAT_VOICE, PAT_VOICE, 0.7f, 0.5f, 0, 0.3f, 0, 0.004f); break;
+    case 2: sc_play(PT_ME, PAT_VOICE, 0.66f, 0.58f, 0); sc_play(PT_ME, PAT_VOICE, 0.5f, 0.42f, -5); break;
+    case 4: sc_play(PT_ME, PAT_VOICE, 0.6f, 0.45f, -12); sc_play(PT_X1, PAT_FLUTE, 0.75f, 0.64f, 0); sc_play(PT_CO, PAT_VIOLIN, 0.5f, 0.36f, 0); break;
+    case 5: sc_play(PT_ME, PAT_VOICE, 0.5f, 0.55f, 0); break;
+    }
+    if (!fl) return;
+    g_vlayer = LY_FIGHT;                                           /* the fight */
+    if (r >= 0 && (s == 0 || s == 8 || (fl >= 3 && (s & 3) == 0))) pdf(X_OTT, 1.0f, s == 0 ? 0.45f : 0.32f, 0.45f, 0.35f, timp_hz(r));
+    sc_figure(OST, 8, 2, PAT_STRINGS, 12, 0.65f, 0.4f, 2);
+    if (fl >= 2) {
+        if (s == 4 || s == 12) pdf(X_OSD, 0.25f, 0.3f, 0.5f, 0.25f, 0.0f);
+        if (s == 0 || s == 10) sc_stab(PT_CH, PAT_BRASS, 0.42f, 0.5f, 3, kind == 3 ? -12 : 0);
+        sc_play(PT_ME, PAT_BRASS, 0.55f, 0.38f, -12);
+    }
+    if (fl >= 3) {
+        if (!(s & 1)) pdf(X_OHH, 0.05f, (s & 3) ? 0.12f : 0.2f, 0.62f, 0.05f, 0.0f);
+        if (bar == 0 && s == 0) pdf(X_OCY, 2.0f, 0.3f, 0.5f, 0.3f, 0.0f);
+        sc_late(PT_ME, 8, PAT_BRASS, 0.42f, 0.68f, 0);
+        if (last && s >= 12 && r >= 0) pdf(X_OTT, 0.3f, 0.25f + 0.05f * (float)(s - 12), 0.45f, 0.3f, timp_hz(r));
+    }
+}
+
+/* B. The ill-fated: D minor, 80, sixteen steps a bar. A horn's call; the march's phrase grown into a romantic theme on
+ * the violins over a harp and strings, the bass falling D, C, B-flat, A; the horn takes it, the violins against it; a
+ * soaring B part (F, then E-flat, the Neapolitan); a storm of tremolo over a chromatic fall; all of it; the phrase
+ * again on a celesta. Fighting: tremolo and timpani (1); a snare's march, brass struck on the chords, a cymbal (2);
+ * the drum on every beat, hats, the brass with the tune (3). */
+#define B_ACH "[d4 f4 a4]/16 | [d4 f4 a4]/16 | [c4 e4 g4]/16 | [d4 f4 a4]/16 | [d4 f4 bb4]/16 | [d4 g4 bb4]/16 | [c#4 e4 a4]/16 | [c#4 e4 g4]/16 |"
+#define B_ABA "d2/16 | c2/16 | bb1/16 | a1/16 | bb1/16 | g1/16 | a1/16 | a1/16 |"
+#define B_AME "a4/4 d5/4 f5/6 e5/2 | f5/4 a5/4 g5/4 f5/4 | e5/6 d5/2 c5/4 e5/4 | d5/12 a4/4 | bb4/4 d5/4 f5/8 | g5/4 f5/4 d5/4 bb4/4 |" \
+              "c#5/4 e5/4 a5/8 | g5/4 f5/4 e5/4 c#5/4 |"
+#define B_ACO "f4/8 a4/4 f4/4 | c4/8 d4/4 f4/4 | e4/8 g4/4 bb4/4 | a4/8 f4/4 d4/4 | d4/8 f4/8 | bb3/8 d4/8 | e4/8 c#4/8 | e4/4 g4/4 c#4/8 |"
+#define B_BCH "[c4 f4 a4]/16 | [c4 e4 g4]/16 | [d4 f4 a4]/16 | [d4 f4 bb4]/16 | [d4 g4 bb4]/16 | [eb4 g4 bb4]/16 | [c#4 e4 a4]/16 | [c#4 e4 g4]/16 |"
+#define B_BBA "f2/16 | e2/16 | d2/16 | bb1/16 | g1/16 | eb2/16 | c#2/16 | a1/16 |"
+#define B_BME "a5/12 g5/4 | g5/8 e5/8 | f5/8 d5/4 a5/4 | bb5/12 a5/4 | g5/8 bb5/4 d6/4 | eb6/8 bb5/4 g5/4 | e5/8 a5/4 c#6/4 | d6/4 c#6/4 bb5/4 g5/4 |"
+static ScSec SC_GOTHIC[] = {
+    SECT(0, "[d4 f4 a4]/16 | [c#4 e4 a4]/16 | [d4 f4 bb4]/16 | [c#4 e4 a4]/16 |", "d2/16 | a1/16 | bb1/16 | a1/16 |",
+        "a3/4 d4/4 f4/8 | e4/16 | f4/4 d4/4 bb3/8 | c#4/8 e4/8 |"),
+    SECT(10, B_ACH, B_ABA, B_AME, B_ACO),
+    SECT(11, B_ACH, B_ABA, B_AME, B_ACO),
+    SECT(20, B_BCH, B_BBA, B_BME),
+    SECT(30, "[d4 f4 a4]/16 | [c#4 e4 a4]/16 | [c4 e4 g4]/16 | [b3 d4 g4]/16 | [bb3 d4 f4]/16 | [a3 c4 f4]/16 | [bb3 d4 g4]/16 | [c#4 e4 g4]/16 |",
+        "d2/16 | c#2/16 | c2/16 | b1/16 | bb1/16 | a1/16 | g1/16 | a1/16 |",
+        "d5/4 a4/4 f4/8 | e4/16 | e5/4 c5/4 g4/8 | g4/16 | f5/4 d5/4 bb4/8 | a4/16 | bb4/4 d5/4 g5/8 | e5/8 c#5/8 |"),
+    SECT(12, B_ACH, B_ABA, B_AME, B_ACO),
+    SECT(21, B_BCH, B_BBA, B_BME),
+    SECT(40, "[d4 f4 a4]/16 | [d4 f4 bb4]/16 | [d4 g4 bb4]/16 | [c#4 e4 a4]/16 |", "d2/16 | bb1/16 | g1/16 | a1/16 |",
+        "a5/4 d6/4 f6/6 e6/2 | d6/8 bb5/8 | g5/4 bb5/4 d6/8 | c#6/8 a5/8 |"),
+};
+static const uint8_t ORD_GOTHIC[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+
+static void gothic_step(const ScSec *S, int bar, int s) {
+    static const int8_t UP[6] = { 0, 1, 2, 3, 2, 1 };
+    int kind = S->var / 10, vv = S->var % 10, fl = fight_lvl(), r = sc_root(), last = bar == S->bars - 1;
+    const Ev *ch = sc_now(PT_CH);
+    /* the basses, bowed */
+    if (sc_starts(PT_BA)) { sc_play(PT_BA, PAT_STRINGS, 0.7f, 0.42f, 12); sc_play(PT_BA, PAT_VIOLIN, 0.4f, 0.48f, 0); }
+    /* the strings' chords; the harp; the storm's tremolo */
+    if (sc_starts(PT_CH)) sc_play_ex(PT_CH, PAT_STRPAD, PAT_STRPAD, kind == 3 ? 0.35f : kind == 4 ? 0.4f : 0.58f, 0.5f, 0, 0.5f, 0, 0.004f);
+    if (kind == 1 || kind == 4 || (kind == 2 && vv)) sc_arp(ch, UP, 6, 2, PAT_CHARP, kind == 4 ? 0.3f : 0.38f, 0.62f, 12, 4);
+    if (kind == 3 || kind == 0 || fl) sc_stab(PT_CH, PAT_STRINGS, kind == 3 ? 0.22f : 0.16f, 0.45f, 1, kind == 0 ? -12 : 0);
+    if (sc_starts(PT_CH) && (kind == 2 || (kind == 1 && vv == 2))) sc_play_ex(PT_CH, PAT_VOICE, PAT_VOICE, 0.22f, 0.5f, 0, 0.6f, 0, 0.004f);
+    if (last && (kind == 3 || kind == 0) && s >= 8 && r >= 0) pdf(X_OTT, 0.3f, 0.08f + 0.025f * (float)(s - 8), 0.45f, 0.3f, timp_hz(r));
+    g_vlayer = LY_COLOUR;
+    switch (kind) {
+    case 0: sc_play(PT_ME, PAT_BRASS, 1.05f, 0.4f, 0); break;
+    case 1:
+        if (vv == 1) { sc_play(PT_ME, PAT_BRASS, 1.15f, 0.42f, -12); sc_play(PT_CO, PAT_VIOLIN, 0.55f, 0.62f, 12); }
+        else { sc_play(PT_ME, PAT_VIOLIN, 1.15f, 0.58f, 0); if (vv == 2) { sc_play(PT_ME, PAT_FLUTE, 0.4f, 0.7f, 12); sc_play(PT_CO, PAT_BRASS, 0.55f, 0.38f, 0); } }
+        break;
+    case 2: sc_play(PT_ME, PAT_VIOLIN, 1.2f, 0.58f, 0); if (vv) sc_play(PT_ME, PAT_FLUTE, 0.4f, 0.7f, 12); break;
+    case 3: sc_play(PT_ME, PAT_BRASS, 1.15f, 0.45f, 0); break;
+    case 4: sc_play(PT_ME, PAT_CELESTA, 1.1f, 0.6f, 0); sc_play(PT_ME, PAT_MBOX, 0.3f, 0.4f, -12); break;
+    }
+    if (!fl) return;
+    g_vlayer = LY_FIGHT;                                           /* the fight */
+    if (r >= 0 && (s == 0 || s == 8)) pdf(X_OTT, 1.0f, 0.5f, 0.45f, 0.35f, timp_hz(r));
+    if (fl >= 2) {
+        if (s == 4 || s == 12) pdf(X_OSD, 0.25f, 0.34f, 0.5f, 0.25f, 0.0f);
+        if (s == 14 || s == 15) pdf(X_OSD, 0.12f, 0.14f, 0.5f, 0.2f, 0.0f);
+        if (s == 0 || s == 6) sc_stab(PT_CH, PAT_BRASS, 0.42f, 0.5f, 3, 0);
+        if (bar == 0 && s == 0) pdf(X_OCY, 2.0f, 0.3f, 0.5f, 0.3f, 0.0f);
+    }
+    if (fl >= 3) {
+        if ((s & 3) == 0) pdf(X_OBD, 0.35f, 0.32f, 0.5f, 0.05f, 0.0f);
+        if (!(s & 1)) pdf(X_OHH, 0.05f, (s & 3) ? 0.1f : 0.18f, 0.62f, 0.05f, 0.0f);
+        if (kind != 3 && kind != 0) sc_play(PT_ME, PAT_BRASS, 0.5f, 0.4f, 0);
+        if (last && s >= 12 && r >= 0) pdf(X_OTT, 0.3f, 0.3f, 0.45f, 0.3f, timp_hz(r));
+    }
+}
+
+/* C. The ossuary: D minor, 72, sixteen steps a bar. Slow chords that turn aside (B-flat major seven, B-flat minor's
+ * sixth, G minor and E-flat), glass and strings held over a low pad, a bell for the tune; the choir; a section of
+ * the tracker's arpeggio rippling under a cello; the crypt over a pedal. Fighting: the bass pulsing in sixteenths and
+ * the chip's bass drum (1); its snare, and an arpeggio buzzing the chord on one voice, as an AdLib did (2); hats in
+ * sixteenths, brass on the tune, a tom's fill (3). */
+#define C_ACH "[f3 a3 e4]/16 | [f3 a3 d4]/16 | [bb3 d4 f4]/16 | [g3 d4 e4]/16 | [f3 a3 d4]/16 | [db4 f4 g4]/16 | [c4 f4 a4]/16 | [c#4 e4 g4]/16 |"
+#define C_ABA "d2/16 | bb1/16 | g1/16 | a1/16 | d2/16 | bb1/16 | c2/16 | a1/16 |"
+#define C_AME "a5/8 e5/8 | f5/12 a5/4 | bb5/8 a5/8 | d5/12 e5/4 | f5/8 e5/4 d5/4 | db5/8 f5/8 | c5/8 a4/8 | c#5/8 e5/4 g5/4 |"
+#define C_BCH "[g3 bb3 d4]/16 | [g3 bb3 eb4]/16 | [f3 bb3 d4]/16 | [f3 a3 c4]/16 | [g3 bb3 d4]/16 | [g3 bb3 eb4]/16 | [g3 c4 eb4]/16 | [f#3 a3 d4]/16 |"
+#define C_BBA "g1/16 | eb2/16 | bb1/16 | f2/16 | g1/16 | eb2/16 | c2/16 | d2/16 |"
+#define C_BME "bb4/8 d5/8 | eb5/16 | d5/8 f5/8 | c5/16 | bb4/8 g4/8 | g4/8 bb4/8 | c5/8 eb5/8 | a4/8 f#4/8 |"
+static ScSec SC_OSSUARY[] = {
+    SECT(0, "[d3 a3 e4]/16 | [d3 a3 e4]/16 | [bb2 f3 d4]/16 | [a2 e3 c#4]/16 |", "d2/16 | d2/16 | bb1/16 | a1/16 |"),
+    SECT(10, C_ACH, C_ABA, C_AME),
+    SECT(20, C_BCH, C_BBA, C_BME),
+    SECT(30, C_ACH, C_ABA, NULL, "a3/8 d3/4 f3/4 | d3/12 f3/4 | bb3/8 g3/8 | g3/8 e3/8 | f3/8 a3/4 d4/4 | db4/8 bb3/8 | c4/8 a3/8 | c#4/8 e4/4 a3/4 |"),
+    SECT(11, C_ACH, C_ABA, C_AME),
+    SECT(50, "[d3 a3]/16 | [eb3 g3 bb3]/16 | [d3 f3 a3]/16 | [c3 e3 g3]/16 | [bb2 d3 f3]/16 | [eb3 g3 bb3]/16 | [d3 f3 a3]/16 | [c#3 e3 a3]/16 |",
+        "d2/16 | d2/16 | d2/16 | d2/16 | d2/16 | d2/16 | d2/16 | d2/16 |",
+        "d5/16 | eb5/8 g5/8 | f5/16 | e5/8 g5/8 | f5/8 d5/8 | g5/8 bb5/8 | a5/16 | e5/16 |"),
+    SECT(21, C_BCH, C_BBA, C_BME),
+    SECT(31, C_ACH, C_ABA, NULL, "a3/8 d3/4 f3/4 | d3/12 f3/4 | bb3/8 g3/8 | g3/8 e3/8 | f3/8 a3/4 d4/4 | db4/8 bb3/8 | c4/8 a3/8 | c#4/8 e4/4 a3/4 |"),
+};
+static const uint8_t ORD_OSSUARY[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+
+static void ossuary_step(const ScSec *S, int bar, int s) {
+    static const int8_t PULSE[8] = { 0, 0, 12, 0, 0, 12, 0, 7 };
+    int kind = S->var / 10, fl = fight_lvl(), last = bar == S->bars - 1;
+    const Ev *ch = sc_now(PT_CH);
+    /* a low pad held under it all, and the glass and strings over */
+    if (sc_starts(PT_BA)) { sc_play(PT_BA, PAT_PAD, 0.6f, 0.5f, 0); sc_play(PT_BA, PAT_STRINGS, 0.3f, 0.45f, 12); }
+    if (sc_starts(PT_CH)) {
+        sc_play_ex(PT_CH, PAT_GLASS, PAT_GLASS, 0.27f, 0.5f, 0, 0.5f, 0, 0.003f);
+        sc_play_ex(PT_CH, PAT_STRPAD, PAT_STRPAD, 0.45f, 0.5f, 0, 0.6f, 0, 0.004f);
+        if (kind == 2 || (kind == 1 && S->var % 10)) sc_play_ex(PT_CH, PAT_VOICE, PAT_VOICE, 0.3f, 0.5f, 12, 0.6f, 0, 0.004f);
+        if (kind == 3) { sc_arpvoice(ch, PAT_ORGAN, 0.42f, 0.66f, 12, 12.0f, 16); sc_arpvoice(ch, PAT_ORGAN, 0.22f, 0.34f, 24, 18.0f, 16); }
+    }
+    if (s == 0 && (kind == 0 ? !(bar & 1) : bar == 0)) pv(PAT_BELL, 62, 0.4f, 0.35f, 16);
+    g_vlayer = LY_COLOUR;
+    switch (kind) {
+    case 1:
+        if (S->var % 10) { sc_play(PT_ME, PAT_GLASS, 0.75f, 0.55f, 0); sc_play(PT_ME, PAT_BELL, 0.4f, 0.4f, 0); }
+        else { sc_play(PT_ME, PAT_BELL, 0.65f, 0.55f, 0); sc_play(PT_ME, PAT_MBOX, 0.25f, 0.7f, 12); }
+        break;
+    case 2: sc_play_ex(PT_ME, PAT_VOICE, PAT_VOICE, 0.65f, 0.5f, 0, 0.3f, 0, 0.004f); break;
+    case 3: sc_play(PT_CO, PAT_VIOLIN, 0.95f, 0.42f, 0); break;
+    case 5: sc_play(PT_ME, PAT_BELL, 0.55f, 0.3f + 0.4f * mrnd(), 0); break;
+    }
+    if (!fl) return;
+    g_vlayer = LY_FIGHT;                                           /* the fight */
+    sc_figure(PULSE, 8, 1, PAT_BASS, 12, 0.5f, 0.5f, 1);
+    if (s == 0 || s == 8 || (fl >= 2 && s == 10)) pdf(X_OBD, 0.35f, 0.5f, 0.5f, 0.05f, 0.0f);
+    if (fl >= 2) {
+        if (s == 4 || s == 12) pdf(X_OSD, 0.22f, 0.32f, 0.5f, 0.25f, 0.0f);
+        if (sc_starts(PT_CH)) sc_arpvoice(ch, PAT_ORGAN, 0.3f, 0.7f, 24, 30.0f, 16);
+    }
+    if (fl >= 3) {
+        pdf(X_OHH, 0.04f, (s & 1) ? 0.08f : 0.15f, 0.62f, 0.04f, 0.0f);
+        if (bar == 0 && s == 0) pdf(X_OCY, 2.0f, 0.3f, 0.5f, 0.3f, 0.0f);
+        sc_play(kind == 3 ? PT_CO : PT_ME, PAT_BRASS, 0.72f, 0.4f, kind == 3 ? 12 : 0);
+        if (last && s >= 8 && !(s & 1)) pdf(X_OTT, 0.4f, 0.4f, 0.45f, 0.3f, 220.0f - 14.0f * (float)(s - 8));
+    }
+}
+
+/* D. The descent: D minor (its flat second for the B part), 96, sixteen steps a bar; the dungeon crawlers' music of
+ * the AdLib's day. A harpsichord's pluck running the chords in sixteenths, a pad, a bass in eighths, the tune on brass
+ * with its vibrato; a B part on the flute; a bridge where a cello sings over a walking bass. Fighting: the chip's kit,
+ * bass drum and snare (1); hats, the bass galloping in sixteenths, brass struck on the off-beats (2); hats in
+ * sixteenths, cymbals, a muted trumpet on the tune an octave up, the toms' fill into the next (3). */
+#define D_ACH "[d4 f4 a4]/16 | [d4 f4 bb4]/16 | [c4 e4 g4]/16 | [d4 f4 a4]/16 | [d4 f4 a4]/16 | [d4 f4 bb4]/16 | [d4 g4 bb4]/16 | [c#4 e4 a4]/16 |"
+#define D_ABA "d2/16 | bb1/16 | c2/16 | d2/16 | d2/16 | bb1/16 | g1/16 | a1/16 |"
+#define D_AME "d5/3 f5/3 a5/2 g5/4 f5/4 | f5/6 d5/2 bb4/8 | c5/3 e5/3 g5/2 a5/4 g5/4 | d5/12 r/4 | a5/3 g5/3 f5/2 e5/4 f5/4 |" \
+              "d5/6 f5/2 bb5/8 | a5/4 g5/4 f5/4 d5/4 | e5/8 c#5/8 |"
+#define D_BCH "[eb4 g4 bb4]/16 | [d4 f4 a4]/16 | [eb4 g4 bb4]/16 | [d4 f4 a4]/16 | [d4 f4 bb4]/16 | [c4 e4 g4]/16 | [d4 f4 a4]/16 | [c#4 e4 a4]/16 |"
+#define D_BBA "eb2/16 | d2/16 | eb2/16 | d2/16 | bb1/16 | c2/16 | d2/16 | a1/16 |"
+#define D_BME "g5/6 f5/2 eb5/8 | d5/8 a4/8 | bb5/6 g5/2 eb5/8 | f5/16 | d5/4 f5/4 bb5/4 a5/4 | g5/4 e5/4 c5/4 e5/4 | f5/4 e5/4 d5/4 c5/4 | c#5/8 e5/8 |"
+#define D_CCH "[d4 g4 bb4]/16 | [d4 f4 a4]/16 | [eb4 g4 bb4]/16 | [d4 f4 bb4]/16 | [d4 g4 bb4]/16 | [d4 f4 a4]/16 | [eb4 g4 bb4]/16 | [c#4 e4 a4]/16 |"
+#define D_CBA "g2/4 bb2/4 d3/4 bb2/4 | d2/4 f2/4 a2/4 f2/4 | eb2/4 g2/4 bb2/4 g2/4 | bb1/4 d2/4 f2/4 d2/4 | g2/4 bb2/4 d3/4 bb2/4 |" \
+              "d2/4 f2/4 a2/4 f2/4 | eb2/4 g2/4 bb2/4 g2/4 | a1/4 c#2/4 e2/4 a2/4 |"
+#define D_CCO "d4/8 bb3/8 | a3/12 f3/4 | g3/8 bb3/8 | f3/16 | g3/4 bb3/4 d4/4 bb3/4 | f4/8 d4/4 a3/4 | eb4/8 bb3/4 g3/4 | c#4/8 e4/8 |"
+static ScSec SC_DESCENT[] = {
+    SECT(0, "[d4 f4 a4]/16 | [eb4 g4 bb4]/16 | [d4 f4 a4]/16 | [c4 e4 g4]/16 |", "d2/16 | eb2/16 | d2/16 | c2/16 |"),
+    SECT(10, D_ACH, D_ABA, D_AME),
+    SECT(20, D_BCH, D_BBA, D_BME),
+    SECT(11, D_ACH, D_ABA, D_AME),
+    SECT(30, D_CCH, D_CBA, NULL, D_CCO),
+    SECT(12, D_ACH, D_ABA, D_AME),
+    SECT(21, D_BCH, D_BBA, D_BME),
+    SECT(31, D_CCH, D_CBA, NULL, D_CCO),
+};
+static const uint8_t ORD_DESCENT[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+
+static void descent_step(const ScSec *S, int bar, int s) {
+    static const int8_t B8[8] = { 0, 99, 0, 12, 0, 99, 7, 0 }, GAL[8] = { 0, 0, 12, 0, 0, 0, 12, 7 }, UP[8] = { 0, 1, 2, 3, 2, 1, 2, 1 };
+    int kind = S->var / 10, vv = S->var % 10, fl = fight_lvl(), last = bar == S->bars - 1;
+    const Ev *ch = sc_now(PT_CH);
+    /* the bass: eighths, the bridge's walking line, a gallop in the fight */
+    if (kind == 3) sc_play(PT_BA, PAT_BASS, 0.55f, 0.5f, 0);
+    else if (fl >= 2) sc_figure(GAL, 8, 1, PAT_BASS, 0, 0.5f, 0.5f, 1);
+    else if (kind != 0 || bar >= 2) sc_figure(B8, 8, 2, PAT_BASS, 0, fl ? 0.55f : 0.42f, 0.5f, 2);
+    /* the harpsichord running the chord, and a pad */
+    sc_arp(ch, UP, 8, 1, PAT_HARP, kind == 0 ? 0.48f : 0.38f, 0.64f, 12, 2);
+    if (sc_starts(PT_CH)) sc_play_ex(PT_CH, PAT_PAD, PAT_PAD, 0.3f, 0.5f, 0, 0.5f, 0, 0.003f);
+    g_vlayer = LY_COLOUR;
+    switch (kind) {
+    case 1:
+        sc_play(PT_ME, PAT_BRASS, 1.05f, 0.55f, 0);
+        if (vv) sc_play(PT_ME, PAT_CLAR, 0.35f, 0.38f, -12);
+        if (vv == 2) sc_play(PT_ME, PAT_FLUTE, 0.3f, 0.7f, 12);
+        break;
+    case 2: sc_play(PT_ME, PAT_FLUTE, 0.9f, 0.58f, 0); if (vv) sc_play(PT_ME, PAT_BRASS, 0.45f, 0.42f, -12); break;
+    case 3: sc_play(PT_CO, PAT_VIOLIN, 0.8f, 0.45f, 0); break;
+    }
+    if (!fl) return;
+    g_vlayer = LY_FIGHT;                                           /* the fight: the chip's kit */
+    if (s == 0 || s == 8 || s == 10) pdf(X_OBD, 0.35f, 0.55f, 0.5f, 0.05f, 0.0f);
+    if (s == 4 || s == 12) pdf(X_OSD, 0.22f, 0.4f, 0.5f, 0.22f, 0.0f);
+    if (fl >= 2) {
+        if (fl == 2 && !(s & 1)) pdf(X_OHH, 0.05f, (s & 3) ? 0.12f : 0.2f, 0.64f, 0.04f, 0.0f);
+        if (s == 6 || s == 14) sc_stab(PT_CH, PAT_BRASS, 0.36f, 0.5f, 2, 0);
+    }
+    if (fl >= 3) {
+        pdf(X_OHH, 0.04f, (s & 1) ? 0.09f : 0.17f, 0.64f, 0.04f, 0.0f);
+        if (s == 0 && !(bar & 3)) pdf(X_OCY, 1.8f, 0.3f, 0.45f, 0.3f, 0.0f);
+        if (kind != 3) sc_play(PT_ME, PAT_MUTE, 0.45f, 0.66f, 12);
+        if (last && s >= 12) pdf(X_OTT, 0.4f, 0.45f, 0.3f + 0.12f * (float)(s - 12), 0.3f, 200.0f - 26.0f * (float)(s - 12));
+    }
+}
+
+/* E. The estampie of the bone choir: D Dorian, six-eight (two beats of six steps), 50 the beat. A consort: a
+ * hurdy-gurdy's drone (the bandoneon's reeds held), a lute striking the chord on each beat and picking between, a
+ * recorder; the dance in puncta, each played twice, open the first time and closed the second; the third on a shawm;
+ * a slow interlude on a viol with an E-flat in it. Fighting: the tabor's full rhythm and a tambourine (1); the shawm
+ * with the tune, a frame drum, a psaltery running the chords (2); the tambourine shaken through, the psaltery with
+ * the tune, the viol on the drone (3). */
+#define E_P1 "d5/4 e5/2 f5/4 g5/2 | e5/4 d5/2 c5/6 | d5/2 e5/2 f5/2 a5/4 g5/2 | f5/4 e5/2 f5/6 | g5/4 a5/2 b5/4 a5/2 | a5/4 g5/2 e5/4 c5/2 |"
+#define E_P1CH "[d4 f4 a4]/12 | [c4 e4 g4]/12 | [d4 f4 a4]/12 | [c4 f4 a4]/12 | [d4 g4 b4]/12 | [c4 e4 a4]/12 |"
+#define E_P1BA "d3/12 | c3/12 | d3/12 | f2/12 | g2/12 | a2/12 |"
+#define E_P2 "a5/2 g5/2 a5/2 c6/4 a5/2 | g5/4 e5/2 c5/6 | f5/2 g5/2 a5/2 d6/4 c6/2 | c6/4 b5/2 a5/6 | b5/4 a5/2 g5/4 b5/2 | a5/4 g5/2 f5/4 e5/2 |"
+#define E_P2CH "[c4 f4 a4]/12 | [c4 e4 g4]/12 | [d4 f4 a4]/12 | [c4 e4 a4]/12 | [d4 g4 b4]/12 | [d4 f4 a4]/12 |"
+#define E_P2BA "f2/12 | c3/12 | d3/12 | a2/12 | g2/12 | d3/12 |"
+#define E_OPEN_CH "[c4 e4 g4]/12 | [c4 e4 a4]/12 |"
+#define E_SHUT_CH "[c4 e4 g4]/12 | [d4 f4 a4]/12 |"
+#define E_P3CH "[a3 d4 f4]/12 | [a3 d4 f4]/12 | [g3 c4 e4]/12 | [g3 c4 e4]/12 | [bb3 d4 f4]/12 | [bb3 d4 g4]/12 | [a3 c#4 e4]/12 | [a3 d4 f4]/12 |"
+#define E_P3BA "d3/12 | d3/12 | c3/12 | c3/12 | bb2/12 | g2/12 | a2/12 | d3/12 |"
+#define E_P3 "a4/4 a4/2 d5/4 a4/2 | f4/4 e4/2 d4/6 | g4/4 g4/2 c5/4 g4/2 | e4/4 d4/2 c4/6 | f4/4 f4/2 bb4/4 a4/2 | g4/4 f4/2 g4/4 a4/2 |" \
+             "e4/2 f4/2 g4/2 a4/6 | d4/12 |"
+static ScSec SC_ESTAMPIE[] = {
+    SECT(0, "[d4 a4]/12 | [d4 a4]/12 |", "d3/12 | d3/12 |"),
+    SECT(10, E_P1CH E_OPEN_CH, E_P1BA "c3/12 | a2/12 |", E_P1 "e5/4 d5/2 c5/4 d5/2 | e5/12 |"),
+    SECT(11, E_P1CH E_SHUT_CH, E_P1BA "c3/12 | d3/12 |", E_P1 "c5/4 d5/2 e5/4 c5/2 | d5/12 |"),
+    SECT(20, E_P2CH E_OPEN_CH, E_P2BA "c3/12 | a2/12 |", E_P2 "e5/4 f5/2 g5/4 e5/2 | a5/12 |"),
+    SECT(21, E_P2CH E_SHUT_CH, E_P2BA "c3/12 | d3/12 |", E_P2 "e5/4 d5/2 c5/4 e5/2 | d5/12 |"),
+    SECT(40, "[d4 f4 a4]/12 | [c4 e4 g4]/12 | [bb3 d4 f4]/12 | [a3 c#4 e4]/12 | [a3 d4 f4]/12 | [bb3 eb4 g4]/12 | [a3 d4 f4]/12 | [a3 c#4 e4]/12 |",
+        "d3/12 | c3/12 | bb2/12 | a2/12 | d3/12 | eb3/12 | d3/12 | a2/12 |", NULL,
+        "a4/12 | g4/12 | f4/12 | e4/12 | f4/6 a4/6 | g4/6 bb4/6 | f4/6 d4/6 | e4/6 c#4/6 |"),
+    SECT(30, E_P3CH, E_P3BA, E_P3),
+    SECT(31, E_P3CH, E_P3BA, E_P3),
+};
+static const uint8_t ORD_ESTAMPIE[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+
+static void estampie_step(const ScSec *S, int bar, int s) {
+    static const int8_t PICK[4] = { 1, 2, 1, 0 };
+    int kind = S->var / 10, vv = S->var % 10, fl = fight_lvl(), r = sc_root();
+    const Ev *ch = sc_now(PT_CH);
+    /* the hurdy-gurdy's drone, D and A, the length of the section */
+    if (bar == 0 && s == 0) { int len = S->bars * 12; pv(PAT_REED, 50, 0.75f, 0.4f, len); pv(PAT_REED, 57, 0.58f, 0.6f, len); }
+    /* the lute: the bass and the chord on each beat, a string picked between */
+    if (r >= 0 && s == 0) pv(PAT_GUIT, r, 0.9f, 0.42f, 6);
+    if (ch && (s == 0 || s == 6)) sc_strum(ch, PAT_GUIT, s == 0 ? 0.78f : 0.6f, 0.36f, 5, 0, 14, 0);
+    if (ch && kind != 4 && (s & 1) == 0 && s % 6) pv(PAT_GUIT, ch->nt[PICK[(s / 2) & 3] % ch->n] + 12, 0.45f, 0.34f, 2);
+    /* the tabor, lightly */
+    if (s == 0 || s == 6) pdf(X_OTT, 0.25f, s == 0 ? 0.32f : 0.22f, 0.55f, 0.2f, 165.0f);
+    g_vlayer = LY_COLOUR;
+    switch (kind) {
+    case 1: sc_play(PT_ME, PAT_FLUTE, 0.85f, 0.56f, 0); break;
+    case 2: sc_play(PT_ME, PAT_FLUTE, 0.85f, 0.56f, 0); sc_play(PT_ME, PAT_VIOLIN, 0.45f, 0.42f, -12); break;
+    case 3: sc_play(PT_ME, PAT_OBOE, 0.8f, 0.48f, 0); if (vv) sc_play(PT_ME, PAT_FLUTE, 0.4f, 0.66f, 12); break;
+    case 4: sc_play(PT_CO, PAT_VIOLIN, 0.8f, 0.5f, 0); break;
+    }
+    if (!fl) return;
+    g_vlayer = LY_FIGHT;                                           /* the fight */
+    if (s == 0 || s == 3 || s == 4 || s == 6 || s == 9 || s == 10) pdf(X_OTT, 0.25f, s % 6 == 0 ? 0.5f : 0.3f, 0.55f, 0.2f, 165.0f);
+    if (s == 0 || s == 6) pdf(X_TAMB, 0.35f, 0.35f, 0.7f, 0.2f, 0.0f);
+    if (fl >= 2) {
+        if (kind != 3) sc_play(kind == 4 ? PT_CO : PT_ME, PAT_OBOE, 0.55f, 0.44f, 0);
+        if (s == 0) pdf(X_OTT, 0.6f, 0.5f, 0.45f, 0.3f, 90.0f);
+        sc_arp(ch, PICK, 4, 2, PAT_DULC, 0.4f, 0.7f, 12, 2);
+    }
+    if (fl >= 3) {
+        if (!(s & 1)) pdf(X_TAMB, 0.15f, 0.22f, 0.7f, 0.2f, 0.0f);
+        if (bar == 0 && s == 0) pdf(X_OCY, 1.6f, 0.25f, 0.5f, 0.3f, 0.0f);
+        sc_play(kind == 4 ? PT_CO : PT_ME, PAT_DULC, 0.58f, 0.3f, 12);
+        if (s == 0 && r >= 0) pv(PAT_VIOLIN, r, 0.45f, 0.5f, 12);
+    }
+}
+
 static const Piece PIECES[MU_COUNT] = {
     [MU_CRYPTS]    = { 66.0f,  4, 16, 38, SEC_CRYPTS,  ORD(ORD_CRYPTS),  1, crypts_step,  PAT_BRASS,   1.15f },
     [MU_CATACOMBS] = { 50.0f,  3,  6, 36, SEC_CATAC,   ORD(ORD_CATAC),   1, catac_step,   PAT_STRINGS, 1.55f },
     [MU_HOLLOWS]   = { 84.0f,  4, 16, 40, SEC_HOLLOWS, ORD(ORD_HOLLOWS), 1, hollows_step, PAT_BRASS,   1.45f },
     [MU_DEEP]      = { 56.0f,  4, 16, 42, SEC_DEEP,    ORD(ORD_DEEP),    1, deep_step,    PAT_GLASS,   1.25f },
-    [MU_MERCHANT]  = { 100.0f, 4, 16, 33, SEC_MERCH,   ORD(ORD_MERCH),   0, merch_step,   PAT_HARP,    1.3f },
     [MU_MENU]      = { 60.0f,  2,  6, 38, SEC_MENU,    ORD(ORD_MENU),    0, menu_step,    PAT_PAD,     1.2f },
-    [MU_SHOP1]     = { 92.0f, 12, 48, 33, NULL, ORD(ORD_SHOP1), 1, NULL, PAT_HARP, 0.94f, SC_SHOP1, 9, shop1_step, 9.0f },
-    [MU_SHOP2]     = { 138.0f, 4, 12, 36, NULL, ORD(ORD_SHOP2), 1, NULL, PAT_HARP, 1.0f, SC_SHOP2, 8, shop2_step, 6.0f },
-    [MU_SHOP3]     = { 120.0f, 3, 12, 41, NULL, ORD(ORD_SHOP3), 1, NULL, PAT_HARP, 1.38f, SC_SHOP3, 10, shop3_step, 2.0f },
-    [MU_SHOP4]     = { 72.0f,  4, 12, 43, NULL, ORD(ORD_SHOP4), 1, NULL, PAT_HARP, 1.12f, SC_SHOP4, 7, shop4_step, 6.0f },
-    [MU_SHOP5]     = { 66.0f,  4, 16, 37, NULL, ORD(ORD_SHOP5), 1, NULL, PAT_HARP, 1.45f, SC_SHOP5, 7, shop5_step, 6.0f },
+    [MU_MERCHANT]  = { 92.0f, 12, 48, 33, NULL, ORD(ORD_HABANERA), 1, NULL, PAT_HARP, 0.94f, SC_HABANERA, 9, habanera_step, 9.0f },
+    [MU_PERFECT]   = { 120.0f, 3, 12, 41, NULL, ORD(ORD_SWING), 1, NULL, PAT_HARP, 1.38f, SC_SWING, 10, swing_step, 2.0f },
+    [MU_TITLE]     = { 72.0f,  4, 12, 43, NULL, ORD(ORD_GROUND), 1, NULL, PAT_HARP, 1.12f, SC_GROUND, 7, ground_step, 6.0f },
+    [MU_SPECIAL]   = { 138.0f, 4, 12, 36, NULL, ORD(ORD_WALTZ), 1, NULL, PAT_HARP, 1.0f, SC_WALTZ, 8, waltz_step, 6.0f },
+    [MU_ENDING]    = { 66.0f,  4, 16, 37, NULL, ORD(ORD_NOCTURNE), 1, NULL, PAT_HARP, 1.45f, SC_NOCTURNE, 7, nocturne_step, 6.0f },
+    [MU_RUN1A]     = { 64.0f,  4, 16, 38, NULL, ORD(ORD_OFFICE), 1, NULL, PAT_BRASS, 1.27f, SC_OFFICE, 7, office_step, 3.0f },
+    [MU_RUN1B]     = { 80.0f,  4, 16, 38, NULL, ORD(ORD_GOTHIC), 1, NULL, PAT_BRASS, 1.08f, SC_GOTHIC, 8, gothic_step, 3.0f },
+    [MU_RUN1C]     = { 72.0f,  4, 16, 38, NULL, ORD(ORD_OSSUARY), 1, NULL, PAT_GLASS, 1.06f, SC_OSSUARY, 8, ossuary_step, 6.0f },
+    [MU_RUN1D]     = { 96.0f,  4, 16, 38, NULL, ORD(ORD_DESCENT), 1, NULL, PAT_BRASS, 1.23f, SC_DESCENT, 8, descent_step, 3.0f },
+    [MU_RUN1E]     = { 50.0f,  6, 12, 38, NULL, ORD(ORD_ESTAMPIE), 1, NULL, PAT_REED, 1.26f, SC_ESTAMPIE, 8, estampie_step, 4.0f },
 };
 #undef MEL
 #undef ORD
 
+static int run_piece(int mu) { return (mu >= MU_CRYPTS && mu <= MU_DEEP) || (mu >= MU_RUN1A && mu <= MU_RUN1E); }
+static int run_guise(int mu) { return mu >= MU_CRYPTS && mu <= MU_DEEP ? mu - MU_CRYPTS : 0; }   /* the menus' tune in the run's guise */
 static void player_start(Player *p, int piece, int bus) {
     const Piece *P = &PIECES[piece];
     memset(p, 0, sizeof *p);
@@ -2828,18 +3178,21 @@ static void player_step(Player *p) {
 static void music_tick(void) {
     float up = 1.0f / SR;
     if (g_menu_req && !g_menu && (g_menu_wait -= up) <= 0.0f) {   /* a menu, held open long enough */
-        g_menu = 1;
-        g_menu_var = g_track >= MU_CRYPTS && g_track <= MU_DEEP ? g_track - MU_CRYPTS : 0;
-        player_start(&g_pl[PL_MENU], MU_MENU, BUS_MENU);
+        g_menu = 1; g_menu_sw = 1.0f;
+        g_menu_var = run_guise(g_track);
+        player_start(&g_pl[PL_MENU], g_menu_mu, BUS_MENU);
     }
+    if (g_menu && g_pl[PL_MENU].on && g_pl[PL_MENU].piece != g_menu_mu) {   /* another menu's piece: the first goes, the next begins */
+        if ((g_menu_sw -= up / 0.35f) <= 0.0f) { g_menu_sw = 0.0f; player_start(&g_pl[PL_MENU], g_menu_mu, BUS_MENU); }
+    } else g_menu_sw = fminf(1.0f, g_menu_sw + up / 0.35f);
     if (g_track_next != g_track && g_run_k <= 0.0f) {              /* the old piece has faded: the new one from its top */
         g_track = g_track_next;
-        if (g_track >= MU_CRYPTS && g_track <= MU_DEEP) player_start(&g_pl[PL_RUN], g_track, BUS_RUN);
+        if (run_piece(g_track)) player_start(&g_pl[PL_RUN], g_track, BUS_RUN);
         else g_pl[PL_RUN].on = 0;
     }
     if (g_place && !g_pl[PL_SHOP].on) player_start(&g_pl[PL_SHOP], g_shop_mu, BUS_SHOP);
     {                                                              /* the echo's time: the piece in front's, or the crypt's */
-        int front = g_menu ? MU_MENU : g_place ? g_shop_mu : g_track;
+        int front = g_menu ? g_pl[PL_MENU].piece : g_place ? g_pl[PL_SHOP].piece : g_track;
         float st = front > MU_NONE && front < MU_COUNT ? PIECES[front].dly : 0.0f;
         int want = st > 0.0f ? (int)(st * 60.0 / PIECES[front].bpm / PIECES[front].spb * SND_RATE) : (int)((60.0 / 92.0 / 4.0 * SND_RATE) * 3.0);
         if (want >= DLY_MAX) want = DLY_MAX - 1;
@@ -2859,8 +3212,8 @@ static void music_tick(void) {
     g_busg[BUS_MUZAK] = 0.6f * g_muz_k * m;
     g_busg[BUS_BOSS] = g_boss_k * m;
     g_busg[BUS_SFX] = g_fx_gain;
-    g_busg[BUS_SHOP] = g_shop_k * m * PIECES[g_shop_mu].gain;
-    g_busg[BUS_MENU] = g_menu_k * PIECES[MU_MENU].gain;
+    g_busg[BUS_SHOP] = g_shop_k * m * PIECES[g_pl[PL_SHOP].on ? g_pl[PL_SHOP].piece : g_shop_mu].gain;
+    g_busg[BUS_MENU] = g_menu_k * g_menu_sw * PIECES[g_pl[PL_MENU].on ? g_pl[PL_MENU].piece : g_menu_mu].gain;
     if (g_track != MU_NONE) g_busg[BUS_RUN] *= PIECES[g_track].gain;
     g_alive[BUS_RUN] = g_track_next == g_track && !g_place && !g_menu && !g_room && !g_boss_on;
     g_alive[BUS_MUZAK] = g_room == 2 && !g_menu;
@@ -2919,7 +3272,7 @@ static void score_init(void) {             /* every scored piece read once, befo
     }
 }
 const char *snd_check(void) { score_init(); return g_sc_err[0] ? g_sc_err : NULL; }
-void snd_set_shop(int mu) { LOCK(); g_shop_mu = mu >= MU_MERCHANT && mu < MU_COUNT && mu != MU_MENU ? mu : MU_MERCHANT; UNLOCK(); }
+void snd_set_shop(int mu) { LOCK(); g_shop_mu = mu >= MU_MERCHANT && mu < MU_COUNT && mu != MU_MENU ? mu : MU_MERCHANT; UNLOCK(); }   /* from her next visit */
 void snd_mute(uint64_t mask) { LOCK(); g_patmute = mask; UNLOCK(); }
 
 void snd_init(void) {
@@ -2979,7 +3332,7 @@ void snd_set_trial(int on) { LOCK(); g_trial = on != 0; UNLOCK(); }
 
 void snd_set_track(int mu) {
     LOCK();
-    if (mu >= MU_NONE && mu <= MU_DEEP) {
+    if (mu == MU_NONE || run_piece(mu)) {
         g_track_next = mu;
         if (g_samples < 1.0 && mu != g_track) {                    /* nothing has played yet: no fade */
             g_track = mu;
@@ -2991,6 +3344,7 @@ void snd_set_track(int mu) {
 void snd_set_place(int place) { LOCK(); g_place = place < 0 ? 0 : place > 2 ? 2 : place; UNLOCK(); }
 void snd_set_menu(int on) {
     LOCK();
+    if (on) g_menu_mu = on == 3 ? MU_TITLE : MU_MENU;
     if (on && !g_menu_req) { g_menu_req = 1; g_menu_wait = on == 2 ? 0.5f : 0.15f; }
     else if (!on) g_menu_req = g_menu = 0;
     UNLOCK();

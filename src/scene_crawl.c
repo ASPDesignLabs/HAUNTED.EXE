@@ -886,6 +886,7 @@ static struct {
                                                choose again); the old lines paid back as points, still to be said (not saved) */
     int corner, wind_spent, wind_run;
     unsigned amb_runs;                      /* the runs of ten whose first ambush has been sprung (not saved: named again after a load) */
+    int perfect;                            /* the level just cleared was perfect: her hall plays the alley cat till one isn't (not saved) */
     uint32_t ways, way_said; int way_run;   /* 1.0.0b18, the minds shown: the dead's ways met (WY_*, a bit each), those named on this run
                                                of ten, and which run that is (LG_WAYS, kept through death) */
     int deed_amb, deed_shaken, deed_heads, deed_hush, deed_file;   /* ambushes come through, hunts shaken off, packs broken by their
@@ -4702,8 +4703,15 @@ static void rec_secret(void) {
         }
 }
 static int ach_level(int lv) { return lv <= 20 ? ACH_LEVEL0 + lv - 1 : ACH_LEVEL21 + lv - 21; }   /* level lv cleared, 1 to 40 */
+static int level_perfect(void) {                                   /* the tally's PERFECT: every treasure and every creature */
+    return G.items_total > 0 && G.items_got == G.items_total && G.kills_total > 0 && G.kills == G.kills_total;
+}
 static void rec_cleared(void) {
     Record *r = &RUN.rec;
+    RUN.perfect = level_perfect();
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_PERFECT")) RUN.perfect = 1;                  /* every level counted perfect, for her hall's music */
+#endif
     char t[48], d[32];
     if (G.level <= DESCENT_LEN) {
         r->cleared |= 1ull << (G.level - 1);
@@ -14268,6 +14276,7 @@ static void start_level(void) {
     line_lend();
     pocket_reset_level();
     G.replay = RUN.replay_from != 0;                               /* a level replayed through the Portal */
+    RUN.perfect = 0;                                               /* her hall's piece is the habanera again unless this one is perfect */
     G.corrupt = RUN.bell_next == G.level; G.cshown = G.corrupt && RUN.bell_secrets; G.fonted = RUN.font_next == G.level;   /* the bell's and */
     RUN.bell_next = RUN.bell_secrets = RUN.font_next = 0;          /* the font's, for one attempt: a death or fleeing ends them */
 #ifdef CRAWL_DEBUG
@@ -28788,7 +28797,7 @@ static void render_tally_in(Frame *f) {
     if (t > TALLY_ROW0 + nr * TALLY_ROW_GAP + 0.2f) {
         int perfect = G.items_total > 0 && G.items_got == G.items_total;
         int all_dead = G.kills_total > 0 && G.kills == G.kills_total;
-        const char *msg = perfect && all_dead ? "PERFECT!" : (perfect ? "ALL TREASURE!" : (all_dead ? "NONE LEFT STANDING" : ""));
+        const char *msg = level_perfect() ? "PERFECT!" : (perfect ? "ALL TREASURE!" : (all_dead ? "NONE LEFT STANDING" : ""));
         if (*msg && ((int)(t * 3.0f) & 1)) card_text(f, imin(y + 2, 174), msg, perfect ? R_GOLD + 12 : R_BLOOD + 13);
     }
 }
@@ -32706,13 +32715,18 @@ static void music_frame(float dt) {
     snd_set_track(MU_CRYPTS + crawl_set(lv));
     int place = 0;                                                 /* her room (and the way on), or her back rooms */
     if (G.shop) place = (G.cx >= 10 && G.cx <= 20 && G.cy >= 12 && G.cy <= 17) || G.cx > 20 ? 1 : 2;
+    snd_set_shop(RUN.perfect ? MU_PERFECT : MU_MERCHANT);          /* after a perfect level, the alley cat (docs/PLAN-music-work.md) */
+#ifdef CRAWL_DEBUG
+    if (place && !MUS.place) fprintf(stderr, "EVENT music hall %s t=%.2f\n", RUN.perfect ? "perfect" : "merchant", G.t);
+#endif
     snd_set_place(place);
 #ifdef CRAWL_DEBUG
     if (place != MUS.place) fprintf(stderr, "EVENT music place %d t=%.2f\n", place, G.t);
 #endif
     MUS.place = place;
     int menu = 0;                                                  /* not the console, nor the map: the crypt runs under those */
-    if (G.ui != UI_NONE && !(G.shop && her_screen(G.ui))) menu = G.ui == UI_WISPS ? 2 : 1;
+    if (G.ui == UI_LEDGER && G.led_mode) menu = 3;                 /* a page to open, here or in her hall: the lament ground */
+    else if (G.ui != UI_NONE && !(G.shop && her_screen(G.ui))) menu = G.ui == UI_WISPS ? 2 : 1;
     snd_set_menu(menu);
 #ifdef CRAWL_DEBUG
     if (menu != MUS.menu) fprintf(stderr, "EVENT music menu %d t=%.2f\n", menu, G.t);
