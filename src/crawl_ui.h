@@ -68,6 +68,7 @@ void ui_socket(Frame *f, int cx, int cy, int r, int icon, int ramp, int state, i
 void ui_socket_mark(Frame *f, int cx, int cy, int r, const char *const *mark, int ramp, int state, int sel, int ult, float t);
 void ui_mark(Frame *f, int x, int y, const char *const *mark, int ramp, int mode, int scale);
 extern const char *const UI_LMARK[11][7];         /* the caster's lines' small marks (ui_art.c), by UI_LM_* */
+extern const char *const UI_AUGMARK[7][9];        /* the augments' marks (ui_art.c): Fire's six, then a plain rune */
 /* a status on the caster (docs/PLAN-combat.md, section 4): its mark, nine square, inlaid on a small dark stone; its colour round
  * the edge for the time left (left, 1 to 0, from the top clockwise, blinking under a fifth); pips under the mark for stacks.
  * 13 wide, 13 tall (17 with pips), times scale */
@@ -103,6 +104,10 @@ typedef struct {
     int steps;                                     /* bought a point at a time: its points as pips under it */
     float grow;                                    /* 0: its groove by its state; else filled this far, 0..1 (a purchase) */
     const char *note;                              /* its state's words at the pane's foot, or 0 */
+    int aug, aug_rank;                             /* 1.0.0b21, an augment's slot beside it: 0 none, 1 a pair to choose from, 2 chosen;
+                                                      the chosen one's rank, 0-3 */
+    const char *const *aug_mark;                   /* the chosen one's mark (nine square), or 0 for the plain rune */
+    const char *aug_note;                          /* the pane's line on it, or 0 */
 } UiNode;
 typedef struct {
     const char *title;                             /* the line and its rank */
@@ -115,6 +120,19 @@ typedef struct {
     float t;
 } UiTree;
 void ui_tree(Frame *f, const UiTree *tr);
+/* the pair an augment's step offers (docs/PLAN-combat.md, section 11): a tablet over the tree, the two side by side, the one
+ * chosen inlaid and the other struck through, its ranks and credits under them */
+typedef struct {
+    const char *title, *sub;                       /* the line's step, and what it is */
+    int ramp;
+    struct { const char *name, *does; const char *const *mark; } o[2];
+    int sel, chosen;                               /* the one the eye is on (0, 1); which is chosen (0 none, 1, 2) */
+    int rank, credits, next, bank;                 /* the chosen one's rank and credits, the credits of its next rank (0 at III), the
+                                                      line's bank */
+    const char *warn, *keys;
+    float t;
+} UiAugPair;
+void ui_augpair(Frame *f, const UiAugPair *p);
 
 /* the controller (docs/PLAN-b18-1.md section 7): the pad drawn in the stone, each button's job on a leader to it, the left
  * hand's on the left; its screen (a button chosen, its options, the jobs to trade) and the look (as bound, nothing chosen) */

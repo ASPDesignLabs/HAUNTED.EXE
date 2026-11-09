@@ -872,6 +872,10 @@ static struct {
     int atone, xp, points;
     uint16_t steps[NLINE]; uint8_t over[NLINE];
     uint8_t conf[NCONF], conf_over[NCONF];  /* 1.0.0b20: the points in each Confession (150 makes rank V), its overlevels past V */
+    uint8_t aug[NELEM][NAUGT], aug_ord[NELEM][NAUGT];   /* 1.0.0b21, the augments (section 11): which of each step's pair is chosen
+                                               (0 none, 1, 2) and in what order (1 the first chosen), its credits, and each line's bank of
+                                               credits not yet spent (LG_AUG; a death that costs and an unbinding take them) */
+    uint16_t aug_cr[NELEM][NAUGT], aug_bank[NELEM];
     int ap_overs, old_lines;                /* overlevels whose Alignment Point an old line already gave (paid back as overlevels to
                                                choose again); the old lines paid back as points, still to be said (not saved) */
     int corner, wind_spent, wind_run;
@@ -1213,6 +1217,8 @@ static struct {
                                                                       press (100 + the Confession), -1 none; a key held, the points
                                                                       it has given and when it went down (-1 not held) */
     float cf_rep0;
+    int al_aug, al_augs;                                           /* 1.0.0b21, the Lampstand: the pair of an augment's step shown (1 + the
+                                                                      step, 0 none), and which of the two the eye is on */
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     int lb_spent;                                                  /* 1.0.0b20: Constitution's killing blow lived this level (D5, */
@@ -1337,8 +1343,10 @@ static void rumble(float low, float high, float secs) {
 #endif
 #define CAST_HIT (IN.hit[KEY_MOUSE1] || (WEB && IN.hit[KEY_SPACE]))     /* what spends a press: no cast till it is let go */
 #define CAST_UP (!IN.down[KEY_MOUSE1] && !(WEB && IN.down[KEY_SPACE]))
-static const char *const PK_KEY[] = { "ENTER", "ESC", "E", "W/S", "WASD", "A/D", "TAB", "SPACE", "Q", "B", "C", "L", "1-9", "CLICK", "M", "RIGHT-CLICK" };
-static const char *const PK_PAD[] = { "\1A", "\1B", "\1A", "D-PAD", "D-PAD", "LB/RB", "VIEW", "\1Y", "\1X", "\1B", "\1B", "\1Y", "D-PAD DOWN", "RT", "D-PAD UP", "RB" };
+static const char *const PK_KEY[] = { "ENTER", "ESC", "E", "W/S", "WASD", "A/D", "TAB", "SPACE", "Q", "B", "C", "L", "1-9", "CLICK", "M", "RIGHT-CLICK",
+                                      "BACK" };
+static const char *const PK_PAD[] = { "\1A", "\1B", "\1A", "D-PAD", "D-PAD", "LB/RB", "VIEW", "\1Y", "\1X", "\1B", "\1B", "\1Y", "D-PAD DOWN", "RT", "D-PAD UP", "RB",
+                                      "\1X" };   /* BACK: X in a menu (1.0.0b21) */
 static const char *pk(const char *s) {
     static char buf[8][240];
     static int at;
@@ -1356,7 +1364,7 @@ static const char *pk(const char *s) {
             if ((int)strlen(PK_KEY[i]) == (int)(b - a) && !strncmp(a, PK_KEY[i], (size_t)(b - a))) key = i;
         if (key < 0) { while (s < e && n < 230) o[n++] = *s++; continue; }
         while (s < a) o[n++] = *s++;
-        static const int8_t PK_JOB[16] = { -1, -1, PAD_A, -1, -1, -1, -1, -1, PAD_X, -1, -1, PAD_Y, PAD_DOWN, PAD_RT, PAD_UP, PAD_RB };
+        static const int8_t PK_JOB[17] = { -1, -1, PAD_A, -1, -1, -1, -1, -1, PAD_X, -1, -1, PAD_Y, PAD_DOWN, PAD_RT, PAD_UP, PAD_RB, -1 };
         const char *pw = PK_PAD[key];                              /* in play, the button that has the key's job now (1.0.0b18.1) */
         if (G.ui == UI_NONE && PK_JOB[key] >= 0) pw = PAD_WORD[pl_on(PK_JOB[key])];
         for (const char *p = pw; *p && n < 230; p++) o[n++] = *p;
@@ -5218,6 +5226,7 @@ static void auto_align(void) {
 }
 
 static void auto_confess(void);
+static void auto_augment(void);
 static void auto_ascend(void) {                                    /* the autopilot's: a little of everything that keeps it alive */
     if (LEDGER.yours || LEDGER.kept) return;                       /* a person's run: what it buys is theirs to choose */
     ascend();
@@ -5530,22 +5539,138 @@ static void augd_does(int e, int t, int w, float k, char *buf, int n) {
 /* ---- the dead's track's augment stubs end ---- */
 
 /* ---- the spells' augments (1.0.0b21, PLAN-combat section 11): the caster's track's frame and its dispatchers. Each hook hands a
- * line's spell to its line's own: Fire's here, the other five's to the dead's track (augd_*). Till C6 fills the frame no augment
- * is ever chosen, and every hook gives back what it was given ---- */
-static int aug_built(int e) { return e == EL_FIRE ? 0 : augd_built(e); }   /* Fire's come with C6 */
-static int aug_of(int e, int t) { (void)t; if (e < 0 || e >= NELEM || !aug_built(e)) return 0; return 0; }   /* C6: the choice */
-static int aug_rank(int e, int t) { return aug_of(e, t) ? 0 : 0; }   /* C6: the rank from the credits */
+ * line's spell to its line's own: Fire's here, the other five's to the dead's track (augd_*).
+ * A line's three steps (its opening, its ability, its ultimate) each offer a pair; one is chosen at the Lampstand (Space), for good
+ * till the line is unbound (A5). The line's credits (a kill by it 1, a thing struck with it 2, a boss 10: A3) bank by the line from
+ * its opening and go at once to the newest chosen augment not yet at rank III, then the next (A4); an augment's ranks come at 20,
+ * 50 and 100 credits of its own (AUG_CR). Behind CRAWL_AUG=1 in the debug build till the owner has seen the sheet ---- */
+static const uint16_t AUG_CR[3] = { 20, 50, 100 };                 /* the credits that make ranks I, II and III */
+static const char *const FIRE_AUG[NAUGT][2] = {                 /* Fire's (section 11.2, the guide's); the other five lines' are the
+                                                                      dead's track's (augd_name, augd_does) */
+    { "BURNING INTENSITY", "FIRECRACKER" }, { "MULTIPLY", "SWIFT FLIGHT" }, { "VOLATILITY", "PYRE" } };
+static const float MULTIPLY_K[4] = { 0.5f, 0.3f, 0.4f, 0.5f };     /* a split bolt's share of the cast, by rank (11.3; III's with none) */
+static const float VOLATILE_K[4] = { 0.33f, 0.17f, 0.25f, 0.33f }; /* a burst's share of the dead's health, by rank */
+static void fire_does(int t, int w, float k, char *buf, int n) {   /* what Fire's augment w at step t does at a rank's share k (0 as III) */
+    if (k <= 0.0f) k = 1.0f;
+    int r = k >= 0.99f ? 3 : k >= 0.74f ? 2 : 1;
+    switch (t * 2 + w - 1) {
+    case 0: snprintf(buf, (size_t)n, "HELD, THE BOLT GROWS: A FIFTH WEAKER AT ONCE, %d%% STRONGER AND %.1f TIMES ITS SIZE AT THREE SECONDS, UP TO A THIRD MORE SPIRIT.",
+                     (int)(25.0f * k + 0.5f), 1.0f + 1.5f * k); break;
+    case 1: snprintf(buf, (size_t)n, "THE BOLT IS A SPARK: A QUARTER OF ITS DAMAGE, ALL BUT SURE TO SET ITS MARK ALIGHT, THE BURNING %.1f TIMES AS FIERCE.", 1.0f + 2.0f * k); break;
+    case 2: snprintf(buf, (size_t)n, "THE BOLT SPLITS IN AN ARC OF THREE, EACH %d%% OF THE CAST, FOR A THIRD MORE SPIRIT.", (int)(100.0f * MULTIPLY_K[r] + 0.5f)); break;
+    case 3: snprintf(buf, (size_t)n, "THE BOLT FLIES %d%% FASTER AND %d%% FURTHER.", (int)(100.0f * k + 0.5f), (int)(50.0f * k + 0.5f)); break;
+    case 4: snprintf(buf, (size_t)n, "WHAT DIES OF YOUR BURNING BURSTS, SETTING ALL NEAR IT ALIGHT FOR %d%% OF ITS HEALTH. A THIRD MORE SPIRIT.",
+                     (int)(100.0f * VOLATILE_K[r] + 0.5f)); break;
+    default: snprintf(buf, (size_t)n, "WHAT BURNS SPREADS %d%% OF ITS BURNING TO ONE CREATURE WITHIN A CELL, ONCE.", (int)(100.0f * k + 0.5f)); break;
+    }
+}
+static const char *aug_name(int e, int t, int w) {                 /* the augment's name, whichever track's line it is */
+    if (w < 1 || w > 2 || t < 0 || t >= NAUGT) return "";
+    return e == EL_FIRE ? FIRE_AUG[t][w - 1] : augd_name(e, t, w);
+}
+static void aug_does(int e, int t, int w, float k, char *buf, int n) {
+    *buf = 0;
+    if (w < 1 || w > 2 || t < 0 || t >= NAUGT) return;
+    if (e == EL_FIRE) fire_does(t, w, k, buf, n); else augd_does(e, t, w, k, buf, n);
+}
+static int aug_on(void) {                                          /* CRAWL_AUG=1 (debug): the augments in play, till the sheet is approved */
+#ifdef CRAWL_DEBUG
+    static int v = -1;
+    if (v < 0) v = getenv("CRAWL_AUG") && atoi(getenv("CRAWL_AUG")) > 0;
+    return v;
+#else
+    return 0;
+#endif
+}
+static int aug_built(int e) { return aug_on() && (e == EL_FIRE ? 1 : augd_built(e)); }
+static int aug_step_open(int e, int t) {                           /* the step reached: the line open, its ability, an ultimate */
+    if (e < 0 || e >= NELEM || !align_open(e)) return 0;
+    return t == AUG_OPEN ? 1 : t == AUG_ABIL ? align_full(e, ND_ABIL) : align_full(e, ND_AULT) || align_full(e, ND_BULT);
+}
+static int aug_of(int e, int t) {
+    if (e < 0 || e >= NELEM || t < 0 || t >= NAUGT || !aug_built(e) || !aug_step_open(e, t)) return 0;
+    return RUN.aug[e][t];
+}
+static int aug_rank_at(int cr) { return cr >= AUG_CR[2] ? 3 : cr >= AUG_CR[1] ? 2 : cr >= AUG_CR[0] ? 1 : 0; }
+static int aug_rank(int e, int t) { return aug_of(e, t) ? aug_rank_at(RUN.aug_cr[e][t]) : 0; }
 static inline float aug_k(int e, int t, int w) {
     int r = w && aug_of(e, t) == w ? aug_rank(e, t) : 0;
     return r >= 3 ? 1.0f : r == 2 ? 0.75f : r == 1 ? 0.5f : 0.0f;
 }
+static const char *const AUG_STEP[NAUGT] = { "OPENING", "ABILITY", "ULTIMATE" };
+static void aug_feed(int e) {                                      /* the bank to the newest chosen not yet at III, then the next (A4) */
+    for (int guard = 0; guard < NAUGT && RUN.aug_bank[e] > 0; guard++) {
+        int best = -1;
+        for (int t = 0; t < NAUGT; t++)
+            if (RUN.aug[e][t] && aug_step_open(e, t) && RUN.aug_cr[e][t] < AUG_CR[2] && (best < 0 || RUN.aug_ord[e][t] > RUN.aug_ord[e][best])) best = t;
+        if (best < 0) return;                                      /* nothing to feed: it waits in the bank */
+        int was = aug_rank_at(RUN.aug_cr[e][best]), give = imin(RUN.aug_bank[e], AUG_CR[2] - RUN.aug_cr[e][best]);
+        RUN.aug_cr[e][best] = (uint16_t)(RUN.aug_cr[e][best] + give); RUN.aug_bank[e] = (uint16_t)(RUN.aug_bank[e] - give);
+        int now = aug_rank_at(RUN.aug_cr[e][best]);
+        if (now > was) {
+            static const char *const RN[4] = { "", "I", "II", "III" };
+            if (G.player) { say("%s: RANK %s", aug_name(e, best, RUN.aug[e][best]), RN[now]); snd_sfx_ex(SFX_RUNE, 0.9f, 0.5f); }
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT aug %s %s %s rank %d t=%.2f by %s\n", ELEM_NAME[e], AUG_STEP[best], aug_name(e, best, RUN.aug[e][best]), now, G.t, G.player ? "player" : "autopilot");
+#endif
+        }
+    }
+}
+static void aug_credit(int e, int n) {                             /* the line's credits, from its opening (11.1) */
+    if (e < 0 || e >= NELEM || n <= 0 || !aug_on() || !align_open(e)) return;
+    RUN.aug_bank[e] = (uint16_t)imin(60000, RUN.aug_bank[e] + n);
+    aug_feed(e);
+}
+static int aug_choose(int e, int t, int w) {                       /* final, till the line is unbound (A5) */
+    if (!aug_built(e) || !aug_step_open(e, t) || RUN.aug[e][t] || w < 1 || w > 2) return 0;
+    int ord = 0;
+    for (int k = 0; k < NAUGT; k++) ord = imax(ord, RUN.aug_ord[e][k]);
+    RUN.aug[e][t] = (uint8_t)w; RUN.aug_ord[e][t] = (uint8_t)(ord + 1);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT aug_choose %s %s %s t=%.2f by %s\n", ELEM_NAME[e], AUG_STEP[t], aug_name(e, t, w), G.t, G.player ? "player" : "autopilot");
+#endif
+    aug_feed(e);                                                   /* a pair chosen late ranks up from the bank at once */
+    return 1;
+}
+static void aug_forget(int e) {                                    /* the line unbound, or a death that costs: its augments go (A5, A14) */
+    if (e < 0 || e >= NELEM) return;
+    memset(RUN.aug[e], 0, sizeof RUN.aug[e]); memset(RUN.aug_ord[e], 0, sizeof RUN.aug_ord[e]);
+    memset(RUN.aug_cr[e], 0, sizeof RUN.aug_cr[e]); RUN.aug_bank[e] = 0;
+}
+static void auto_augment(void) {                                   /* the dream's: at random within each pair, as it opens (A15) */
+    if (LEDGER.yours || LEDGER.kept) return;                       /* a person's run: theirs to choose */
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_AUGAUTO") && !atoi(getenv("CRAWL_AUGAUTO"))) return;   /* CRAWL_AUGAUTO=0: the dream leaves them, for frames */
+#endif
+    for (int e = 0; e < NELEM; e++)
+        for (int t = 0; t < NAUGT; t++)
+            if (aug_built(e) && aug_step_open(e, t) && !RUN.aug[e][t]) aug_choose(e, t, 1 + rnd(2));
+}
+#ifdef CRAWL_DEBUG
+static void aug_debug_set(void) {                                  /* CRAWL_AUGSET: eighteen digits, a line's three steps each in ELEM order:
+                                                                      0 none, 1-3 the first at that rank, 4-6 the second */
+    const char *v = getenv("CRAWL_AUGSET");
+    if (!v || !aug_on()) return;
+    for (int i = 0; v[i] && i < NELEM * NAUGT; i++) {
+        int d = v[i] - '0', e = i / NAUGT, t = i % NAUGT;
+        if (d < 1 || d > 6) continue;
+        RUN.aug[e][t] = (uint8_t)(d > 3 ? 2 : 1); RUN.aug_ord[e][t] = (uint8_t)(t + 1);
+        RUN.aug_cr[e][t] = AUG_CR[(d - 1) % 3];
+    }
+}
+#endif
 static int aug_line(int atk) { return atk >= 0 && atk < NATK ? ATK_ELEM[atk] : -1; }   /* a spell's line (Hellfire's burning is Fire's) */
 static float aug_cost(int sp) { int e = aug_line(sp); return e < 0 || e == EL_FIRE ? 0.0f : augd_cost(e, sp); }
 static float aug_dmg(int sp) { int e = aug_line(sp); return e < 0 || e == EL_FIRE ? 1.0f : augd_dmg(e, sp); }
 static void aug_cast(int sp, Shot *s, int t) { int e = aug_line(sp); if (e >= 0 && e != EL_FIRE) augd_cast(e, sp, s, t); }
 static void aug_hit(Mob *m, int atk, int flags, float *dmg) { int e = aug_line(atk); if (e >= 0 && e != EL_FIRE) augd_hit(e, m, atk, flags, dmg); }
 static float aug_af(const Mob *m, int atk, int q) { int e = aug_line(atk); return e < 0 || e == EL_FIRE ? 1.0f : augd_af(e, m, atk, q); }
-static void aug_kill(Mob *m, int atk, int flags) { int e = aug_line(atk); if (e >= 0 && e != EL_FIRE) augd_kill(e, m, atk, flags); }
+static void aug_kill(Mob *m, int atk, int flags) {
+    int e = aug_line(atk);
+    if (e < 0) return;
+    if (atk != AT_BFS) aug_credit(e, 1);                           /* a kill by the line: a credit (A3) */
+    if (e != EL_FIRE) augd_kill(e, m, atk, flags);
+}
 static void aug_tick(Mob *m, float dt) { augd_tick(m, dt); }
 static void aug_fly(Shot *s, float dt) { int e = aug_line(s->kind); if (e >= 0 && e != EL_FIRE) augd_fly(e, s, dt); }
 
@@ -13210,6 +13335,7 @@ static void mk_finish(int k) {
     if (first) {
         mk_reward(m);
         xp_gain((4.0f + 2.0f * (float)m->pips) * xp_level(), mk_name(m));
+        aug_credit(m->el, 2);                                      /* a thing struck with the line: two of its credits (A3) */
     }
     sfx_at(SFX_SHIMMER, m->x, m->y, 1.2f);
     sfx_at(m->kind == MKK_COFFER || m->kind == MKK_CAGE || m->kind == MKK_CART ? SFX_COIN : m->kind == MKK_HSEAL || m->kind == MKK_GEODE ? SFX_SHATTER
@@ -13851,6 +13977,7 @@ static void debug_gear(void) {
     if (getenv("CRAWL_GEAR")) give_gear(atoi(getenv("CRAWL_GEAR")));
     if (getenv("CRAWL_ALIGN")) align_debug(getenv("CRAWL_ALIGN"));   /* the lines opened, to a node and a path */
     if (getenv("CRAWL_CONF")) conf_debug(getenv("CRAWL_CONF"));    /* each Confession's rank (1.0.0b20) */
+    aug_debug_set();                                               /* CRAWL_AUGSET: the augments chosen, at a rank (1.0.0b21) */
     if (getenv("CRAWL_ALPTS")) RUN.al_points = atoi(getenv("CRAWL_ALPTS"));
     if (getenv("CRAWL_CLASS")) { RUN.cls = 0; if (atoi(getenv("CRAWL_CLASS")) > 0) class_take(atoi(getenv("CRAWL_CLASS"))); }   /* 0: asked */
     if (getenv("CRAWL_ATONE")) RUN.atone = clampi(atoi(getenv("CRAWL_ATONE")), 1, 999);   /* the Level of Atonement, nothing bought with it */
@@ -14341,6 +14468,7 @@ static void crawl_enter(uint32_t seed) {
 #ifdef CRAWL_DEBUG
     if (resume && getenv("CRAWL_ALIGN")) align_debug(getenv("CRAWL_ALIGN"));   /* over a loaded run too */
     if (resume && getenv("CRAWL_CONF")) conf_debug(getenv("CRAWL_CONF"));
+    if (resume) aug_debug_set();
     if (resume && getenv("CRAWL_CLASS")) { RUN.cls = 0; if (atoi(getenv("CRAWL_CLASS")) > 0) class_take(atoi(getenv("CRAWL_CLASS"))); }
     if (resume && getenv("CRAWL_SOULS")) RUN.souls = atoi(getenv("CRAWL_SOULS"));
     if (resume && getenv("CRAWL_HASMAP")) RUN.has_map = 1;
@@ -19179,6 +19307,7 @@ static void boss_adds(void) {
 static void boss_fall(Mob *m) {
     const BossDef *B = &BOSSES[G.boss];
     G.bstate = BS_DEAD; G.bstate_t = 0.0f;
+    if (m->last_atk >= 0 && m->last_atk < NATK && m->last_atk != AT_BFS) aug_credit(ATK_ELEM[m->last_atk], 10);   /* the line that felled it (A3) */
     G.web_hp = 0.0f;                                               /* its web goes slack */
     rumble(0.9f, 0.5f, 1.4f);
     Item *it = add_item(m->cx, m->cy, IT_SCRIP);
@@ -21008,7 +21137,7 @@ static void update_shop(double dt) {
         if (st > 0.8f && st - fdt <= 0.8f) G.cat_slow = 1.4f;
         if (st >= 2.4f) {
             if (RUN.peds < NPED && RUN.treasure >= ped_price() + (int)gear_haul(G.level)) ped_buy();   /* another, if a level's haul is left after */
-            auto_ascend(); auto_align();
+            auto_ascend(); auto_align(); auto_augment();   /* its augments as their steps open (A15) */
             G.shop_step = SH_LOOK; G.shop_look = 0; G.shop_t = 0.0; shop_turn(face_of(G.ped_x[0], G.ped_y[0]), 0.7f);
         }
         break;
@@ -21772,6 +21901,7 @@ static void update_bestiary(void);
 static int toast_showing(void);
 static void open_ui(int which) {
     G.ui = which; G.map_on = 0;                                    /* another screen takes the map's place */
+    G.al_aug = 0;                                                  /* the Lampstand opens on its tree, not a pair (1.0.0b21) */
     show_bar();                                                    /* and it is there when the menu closes */
     if (which == UI_INVENTORY) { G.ui_sel = 0; G.inv_page = 0; G.inv0 = RUN.gear; snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); }
     else if (which == UI_BESTIARY) { best_default_rank(); snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); }
@@ -22846,6 +22976,7 @@ static void pad_keys(float dt) {
         if (hit[PAD_A]) PRESS(KEY_ENTER);
         if (hit[PAD_B] || hit[PAD_MENU]) PRESS(KEY_ESC);
         if (hit[PAD_Y]) PRESS(KEY_SPACE);
+        if (hit[PAD_X] && aug_on()) PRESS(KEY_BACK);               /* X: back, with the augments (unbinding a line, taking back: 1.0.0b21) */
         if (hit[PAD_RB]) PRESS(G.ui == UI_ALIGN ? KEY_PGDN : KEY_D);   /* at the Lampstand, the lines */
         if (hit[PAD_LB]) PRESS(G.ui == UI_ALIGN ? KEY_PGUP : KEY_A);
         if (hit[PAD_VIEW]) PRESS(KEY_TAB);
@@ -23244,8 +23375,10 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
 #define LEDGER_MAGIC 0x3147444Cu            /* "LDG1" */
 #define PROGRESS_MAGIC 0x31505648u          /* "HVP1": a progress that names the page to start from */
 enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX, LG_CASTER, LG_ELEM, LG_ALIGN, LG_HALL2, LG_DEEDS, LG_WAYS,
-       LG_CONF };                                                  /* 1.0.0b20: the Confessions' points and overlevels, a byte each, and
+       LG_CONF,                                                    /* 1.0.0b20: the Confessions' points and overlevels, a byte each, and
                                                                       the old overlevels whose Alignment Points were given */
+       LG_AUG };                                                   /* 1.0.0b21: each line's augments, AUG_LINE_BYTES a line */
+#define AUG_LINE_BYTES (NAUGT * 4 + 2)      /* a line's augments: three choices, their order, their credits (u16), its bank (u16) */
 #define LG_WAYS_BYTES 20                    /* 1.0.0b18: the dead's ways met and named this run of ten (u32 each), that run (u16), the five
                                                deeds against them (u16 each) */
 #define LG_DEEDS_BYTES 18                   /* 1.0.0b13 (docs/PLAN-b13.md): every hazard met, a bit each (the hall keeps only eight);
@@ -23366,6 +23499,14 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     c = section_begin(p, LG_CONF);
     memcpy(c, RUN.conf, NCONF); memcpy(c + NCONF, RUN.conf_over, NCONF); c[2 * NCONF] = (uint8_t)clampi(RUN.ap_overs, 0, 255);
     p = section_end(c, c + 2 * NCONF + 1);
+    c = section_begin(p, LG_AUG);                                  /* 1.0.0b21: a line at a time, its three choices, their order, their
+                                                                      credits (u16), its bank (u16) */
+    for (int e = 0; e < NELEM; e++) {
+        uint8_t *q = c + e * AUG_LINE_BYTES;
+        for (int t = 0; t < NAUGT; t++) { q[t] = RUN.aug[e][t]; q[NAUGT + t] = RUN.aug_ord[e][t]; put16(q + 2 * NAUGT + 2 * t, RUN.aug_cr[e][t]); }
+        put16(q + 4 * NAUGT, RUN.aug_bank[e]);
+    }
+    p = section_end(c, c + NELEM * AUG_LINE_BYTES);
     c = section_begin(p, LG_ALIGN);
     memcpy(c, RUN.al, sizeof RUN.al); put16(c + NELEM * NNODE, clampi(RUN.al_points, 0, 65535));
     c[NELEM * NNODE + 2] = (uint8_t)RUN.cls; c[NELEM * NNODE + 3] = (uint8_t)clampi(RUN.cls_pts, 0, 255);
@@ -23531,6 +23672,17 @@ static void run_unpack(const uint8_t *buf, int len) {
         RUN.corner = *q++; RUN.wind_spent = *q++ != 0;
         RUN.wind_run = get16(q);
     }
+    c = page_section(buf, len, LG_AUG, &k);                        /* 1.0.0b21: the augments; an older page has none */
+    for (int e = 0; e < NELEM; e++) aug_forget(e);
+    if (c && k >= NELEM * AUG_LINE_BYTES)
+        for (int e = 0; e < NELEM; e++) {
+            const uint8_t *q = c + e * AUG_LINE_BYTES;
+            for (int t = 0; t < NAUGT; t++) {
+                RUN.aug[e][t] = q[t] <= 2 ? q[t] : 0; RUN.aug_ord[e][t] = q[NAUGT + t];
+                RUN.aug_cr[e][t] = (uint16_t)imin(get16(q + 2 * NAUGT + 2 * t), AUG_CR[2]);
+            }
+            RUN.aug_bank[e] = get16(q + 4 * NAUGT);
+        }
     c = page_section(buf, len, LG_CONF, &k);                       /* 1.0.0b20 */
     memset(RUN.conf, 0, sizeof RUN.conf); memset(RUN.conf_over, 0, sizeof RUN.conf_over); RUN.ap_overs = 0;
     if (c && k >= 2 * NCONF + 1) {
@@ -23784,6 +23936,7 @@ static void death_fall(void) {
     RUN.atone = 1; RUN.xp = 0; RUN.points = 0; RUN.corner = 0; RUN.wind_spent = 0;   /* the Level of Atonement and all it bought; */
     memset(RUN.steps, 0, sizeof RUN.steps); memset(RUN.over, 0, sizeof RUN.over);       /* the map stays */
     memset(RUN.conf, 0, sizeof RUN.conf); memset(RUN.conf_over, 0, sizeof RUN.conf_over); RUN.ap_overs = 0;   /* the Confessions with them (U13) */
+    for (int e = 0; e < NELEM; e++) aug_forget(e);                 /* and the augments with the lines (A14) */
     XPF.n = 0; XPF.banner = 0.0f;
     G.level_treasure = G.level_souls = 0;
     RUN.level = 1; RUN.shop_next = 1; RUN.hp = gear_max_hp(g);
@@ -24020,6 +24173,7 @@ static void align_unbind(int e) {                                  /* every node
     int back = align_refund(e);
     if (e == EL_FIRE) { if (cls_el() == EL_FIRE) RUN.cls_pts += RUN.cls_spent; RUN.cls_spent = 0; }   /* the Witchfinder's come back whole */
     memset(RUN.al[e], 0, sizeof RUN.al[e]);
+    aug_forget(e);                                                 /* and its augments with it (A5) */
     RUN.al_gift &= (uint8_t)~(1u << e);                            /* an old class's line, unbound, closes; */
     if (RUN.gifted >> e & 1) RUN.al[e][ND_OPEN] = (uint8_t)ALIGN[e].n[ND_OPEN].cost;   /* a gift's stays open */
     RUN.al_points += back; RUN.coins -= 2;
@@ -24029,7 +24183,29 @@ static void align_unbind(int e) {                                  /* every node
 #endif
 }
 #define AL_GIFT 100                         /* al_arm: a gift's line awaiting its second Enter, AL_GIFT + the line */
+#define AL_AUG 200                          /* and an augment awaiting its second, AL_AUG + its step x 2 + which */
+static int al_aug_step(int e, int n) {                             /* the augment's step a node carries (1.0.0b21), or -1 */
+    if (n == ND_OPEN) return AUG_OPEN;
+    if (n == ND_ABIL) return AUG_ABIL;
+    return (n == ND_AULT || n == ND_BULT) && align_full(e, n) ? AUG_ULT : -1;   /* the ultimate held, whichever path */
+}
+static const char *const *aug_mark(int e, int t, int w) { return UI_AUGMARK[e == EL_FIRE && w >= 1 && w <= 2 ? t * 2 + w - 1 : 6]; }
+static void update_augpair(int e) {                                /* the pair at a step: A/D the one, Enter twice takes it (A5: for good) */
+    int t = clampi(G.al_aug - 1, 0, NAUGT - 1);
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_SPACE] || IN.hit[KEY_BACK] || IN.hit[KEY_TAB]) { G.al_aug = 0; G.al_arm = -1; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
+    if (RUN.aug[e][t]) return;                                     /* chosen: there to be looked at */
+    int lr = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT] || IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT] || IN.hit[KEY_W] || IN.hit[KEY_UP]);
+    if (lr) { G.al_augs = !G.al_augs; G.al_arm = -1; snd_sfx_ex(SFX_TICK, 0.7f, 0.5f); return; }
+    if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_MOUSE1])) return;
+    int w = clampi(G.al_augs, 0, 1);
+    if (G.al_arm != AL_AUG + t * 2 + w) { G.al_arm = AL_AUG + t * 2 + w; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }
+    G.al_arm = -1;
+    if (!aug_choose(e, t, w + 1)) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+    snd_sfx_ex(SFX_RUNE, 0.8f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.6f, 0.5f);
+    say("%s IS YOURS", aug_name(e, t, w + 1));
+}
 static void update_align(int view) {
+    if (!view && G.al_aug) { update_augpair(clampi(G.al_el, 0, NELEM - 1)); return; }   /* the pair's tablet has the keys while it is up */
     if (!view && (IN.hit[KEY_ESC] || IN.hit[KEY_TAB])) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
     int e = G.al_el = clampi(G.al_el, 0, NELEM - 1), was = e;
     for (int k = 0; k < NELEM; k++) if (IN.hit[KEY_1 + k]) e = k;
@@ -24049,7 +24225,14 @@ static void update_align(int view) {
         return;
     }
     if (view) return;
-    if (IN.hit[KEY_SPACE] || IN.hit[KEY_BACK]) {                   /* unbinding, for two coins, asked twice */
+    if (aug_on() && IN.hit[KEY_SPACE]) {                           /* Space (Y): the step's augments (1.0.0b21, A6) */
+        int at = al_aug_step(e, n);
+        if (at < 0 || !aug_built(e) || !aug_step_open(e, at)) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        G.al_aug = 1 + at; G.al_augs = RUN.aug[e][at] ? RUN.aug[e][at] - 1 : 0; G.al_arm = -1;
+        snd_sfx_ex(SFX_PAGE, 0.7f, 0.5f);
+        return;
+    }
+    if (aug_on() ? IN.hit[KEY_BACK] : IN.hit[KEY_SPACE] || IN.hit[KEY_BACK]) {   /* unbinding, for two coins, asked twice (Back, with the augments) */
         if (!align_spent(e)) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
         if (RUN.coins < 2) { G.al_arm = -3; snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
         if (G.al_arm != -2) { G.al_arm = -2; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }
@@ -30763,7 +30946,7 @@ static void render_stones(Frame *f, int tabbed) {
 static void render_align(Frame *f, int view) {
     static const char *const KIND[NNODE] = { "OPENING", "PASSIVE", "PASSIVE", "ABILITY", "PATH A", "PATH A", "ULTIMATE",
                                              "PATH B", "PATH B", "ULTIMATE" };
-    static char title[40], note[NNODE][56], warn[200];
+    static char title[40], note[NNODE][56], warn[200], augn[NNODE][80];
     int e = clampi(G.al_el, 0, NELEM - 1), n = clampi(G.al_node, 0, NNODE - 1), funds = align_funds(e);
     UiTree tr;
     memset(&tr, 0, sizeof tr);
@@ -30799,6 +30982,17 @@ static void render_align(Frame *f, int view) {
             else snprintf(note[m], sizeof note[m], "NEEDS %s.", ALIGN[e].n[m - 1].name);
         }
         u->note = note[m][0] ? note[m] : 0;
+        int at = al_aug_step(e, m);                                /* 1.0.0b21: its augment's slot, once the step is reached */
+        if (at >= 0 && aug_built(e) && aug_step_open(e, at)) {
+            int w = RUN.aug[e][at], r = aug_rank(e, at), cr = RUN.aug_cr[e][at];
+            static const char *const RN[4] = { "NO RANK YET", "RANK I", "RANK II", "RANK III" };
+            u->aug = w ? 2 : 1; u->aug_rank = r; u->aug_mark = w ? aug_mark(e, at, w) : 0;
+            static const char *const RV[4] = { "", " I", " II", " III" };
+            (void)RN; (void)cr;
+            if (!w) snprintf(augn[m], sizeof augn[m], view ? "AN AUGMENT TO CHOOSE." : "%s: ITS AUGMENTS.", pk("SPACE"));
+            else snprintf(augn[m], sizeof augn[m], "%s%s", aug_name(e, at, w), RV[r]);
+            u->aug_note = augn[m];
+        }
         if (e == al_buy_e && m == al_buy_n && G.ui_t - al_buy_t < 0.33f && G.ui_t >= al_buy_t)
             u->grow = fmaxf(0.02f, (G.ui_t - al_buy_t) / 0.33f);   /* the colour runs down its groove */
     }
@@ -30809,8 +31003,32 @@ static void render_align(Frame *f, int view) {
     else if (!view && gift_due()) snprintf(warn, sizeof warn, "THE DEAD ASK YOU TO CARRY ANOTHER: ANY LINE NOT YET OPEN, FREE. ITS OPENING, ENTER TWICE.");
     else warn[0] = 0;
     tr.warn = warn[0] ? warn : 0;
-    tr.keys = pk(view ? "A/D PAGE  1-6 LINE  W/S NODE  TAB" : "1-6  WASD  ENTER BUYS  SPACE UNBINDS");   /* a pad's buttons marked */
+    tr.keys = pk(view ? "A/D PAGE  1-6 LINE  W/S NODE  TAB" : !aug_on() ? "1-6  WASD  ENTER BUYS  SPACE UNBINDS"
+                 : al_aug_step(e, n) >= 0 && aug_built(e) && aug_step_open(e, al_aug_step(e, n)) ? "ENTER BUYS  SPACE AUGMENTS"
+                 : "1-6  WASD  ENTER BUYS  BACK UNBINDS");      /* a pad's buttons marked; Space where it means something */
+    if (!view && G.al_aug) tr.keys = 0;                            /* the pair's tablet has its own */
     ui_tree(f, &tr);
+    if (view || !G.al_aug) return;
+    int t = clampi(G.al_aug - 1, 0, NAUGT - 1), w = RUN.aug[e][t];   /* the pair at a step (1.0.0b21) */
+    static char head[48], aw[160];
+    UiAugPair ap;
+    memset(&ap, 0, sizeof ap);
+    snprintf(head, sizeof head, "%s: %s", ALIGN[e].name, AUG_STEP[t]);
+    ap.title = head; ap.sub = w ? "CHOSEN" : "CHOOSE ONE"; ap.ramp = ELEM_RAMP[e]; ap.t = G.ui_t;
+    static char does[2][200];                                      /* each at the rank it is at, or would be (III's numbers, unchosen) */
+    for (int k = 0; k < 2; k++) {
+        aug_does(e, t, k + 1, w == k + 1 ? (aug_rank(e, t) ? aug_k(e, t, k + 1) : 0.5f) : 0.0f, does[k], sizeof does[k]);   /* unranked: I's */
+        ap.o[k].name = aug_name(e, t, k + 1); ap.o[k].does = does[k]; ap.o[k].mark = aug_mark(e, t, k + 1);
+    }
+    ap.sel = w ? w - 1 : clampi(G.al_augs, 0, 1); ap.chosen = w;
+    ap.rank = aug_rank(e, t); ap.credits = RUN.aug_cr[e][t]; ap.next = ap.rank < 3 ? AUG_CR[ap.rank] : 0; ap.bank = RUN.aug_bank[e];
+    if (G.al_arm == AL_AUG + t * 2 + ap.sel) {
+        snprintf(aw, sizeof aw, "AGAIN, AND IT IS YOURS FOR GOOD.");
+        ap.warn = aw;
+    }
+    ap.keys = pk(w ? "SPACE BACK" : "A/D CHOOSE  ENTER TAKES  SPACE BACK");
+    ui_check_frame();                                              /* a tablet over the tree: its own words are what fit or don't */
+    ui_augpair(f, &ap);
 }
 
 /* the bell's or the font's menu: what it is now, its rows and their prices, the second Enter's warning */
