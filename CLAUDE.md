@@ -1678,6 +1678,23 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   added to Agility's cut, under 0.9), `abil_short`, Tab's elements page with ADDS and ODDS (`render_elements`), the Codex's words
   (`stat_does`, `ABIL_DOES`). Debug: `CRAWL_D6=0` (the build before, line for line), `make items` with `ITEMS_LINES`,
   `ITEMS_CLASS`, `ITEMS_OLD`; `EVENT wire_arcs`, `sin_souls`, `block_bones`.
+  **D7, the other five lines' augments** (1.0.0b21, section 11.4's drafts; harness only; its sheet `docs/combat/d7-augments.png`
+  sent to the owner). The contract's `augd_name`/`augd_does` (`AUGD_NAME`; the words with the rank's numbers) and the bodies of
+  `augd_*` in D's marked block, each reading `dk(e, t, w)` (C's `aug_k`, the rank's share 0.5/0.75/1): `augd_cost` (Overcharge),
+  `augd_dmg` (Hoarbite, Overcharge, Siphon), `augd_cast` (Glacial Weight's slower heavier shard, `target` -3; Forked and Grounding
+  by `d7_bolt` from `G.d7_zap`; Straight Throw's flat flask; Siphon's heal and Lingering Hunger's hold, `G.d7_lg*`, from
+  `G.d7_drained`; Twin Throw's second spear), `augd_hit` (Hoarbite's second chill, Static Build's `Mob.stb_n/stb_t`, Thunderclap,
+  the drain's dealt, Barbed's `Mob.bld_*`), `augd_af` (Overcharge, Static Build, Hollowing), `augd_kill` (Soul Echo, Shepherd's
+  `G.d7_shep` read by `spawn_mote` into `SoulMote.fly`, Recovery, Bone Rain), `augd_tick` (the bleed, the hold's beam and harm,
+  Static Build's fading), `augd_fly` (Rime Trail's rime). In D's own functions: Splinterfrost (`frost_splinter`, `target` -2), Heavy
+  Haft, Skewer and `G.d7_spear` (`update_shots`' hit cases; a splinter sets `G.d7_splint` so no bleed, bone or rain comes of it;
+  a flask thrown flat bursts on a creature), Cold Snap (`mob_chill`, `cold_snap`), Brittle, Rot and Exorcism (`damage_mob`), Thick
+  Brew (`mob_poison`), Conductor (`trail_life`, `update_trails`), Cluster and Miasma (`flask_burst`; a cloud is `Venom.rime` 2, drawn
+  as `SP_VAPOUR`), Pestilence (`kill_mob`). Drawn: `DR_BLEED` (bit 28), Static Build's bolts in `render_warded`. Offered at the
+  Lampstand only once the owner approves the sheet (`augd_built` by `d7_on`; C's frame needs `CRAWL_AUG=1` too). Debug: `CRAWL_D7=1`,
+  `CRAWL_AUGD=abc` (the choice at each step on all five lines, bypassing the frame) and `CRAWL_AUGDR=r`, `CRAWL_AUGSHOW=k` (1 bleed,
+  2 bolts, 3 bursts and the cloud, 9 all); `EVENT aug_fork`, `aug_ground`, `aug_claps`, `aug_snaps`, `aug_splinters`, `aug_rains`,
+  `aug_bones`, `aug_lingers`, `aug_twins`, `aug_echoes`, `aug_conducts`, `aug_clusters`, `aug_miasmas`, `aug_pests`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are

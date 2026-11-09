@@ -6509,8 +6509,13 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
             if (!G.booms[b].alive) { G.booms[b] = (Boom){ 1, m->x, m->y, 0.0f, 1.0f, 3 }; break; }
         DBG_COUNT(shatters);
     }
-    if (m->hp <= 0.0f) { if (atk >= 0 && atk < NATK) aug_kill(m, atk, flags); kill_mob(m); G.d7_shep = 0.0f; return 1; }   /* (the augments, 17.3;
-                                                                      Shepherd's pace for its motes spent) */
+    if (m->hp <= 0.0f) {                                           /* (the augments, 17.3; Shepherd's pace for its motes spent, and a beam
+                                                                      held on it let go) */
+        if (atk >= 0 && atk < NATK) aug_kill(m, atk, flags);
+        kill_mob(m); G.d7_shep = 0.0f;
+        if (G.d7_lg == (int)(m - G.mobs) + 1) G.d7_lg = 0;
+        return 1;
+    }
     if (atk >= 0 && atk < NATK && !(flags & DM_TICK)) el_status(m, atk, dmg);   /* its element's status, by chance (D4) */
     if (m->type == MOB_SKEL || m->type == MOB_SHIELD) {            /* knocked back a step */
         m->stagger = 0.6f; m->throw_t = 0.0f; m->swing = 0.0f; m->cool = fmaxf(m->cool, 0.9f);
