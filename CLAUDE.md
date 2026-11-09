@@ -1654,7 +1654,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   wheel's ankh `RESTORE_MARK`), `restore_cast` (its channel, from `human_cast`), `restore_tick`, half pace in `slow_factor`,
   `restore_hud` (the status bar), `dream_restore` (from `update_player`), and the glow `render_restore` (from `render_hand`,
   `G.rst_k`; its sheet `docs/combat/d5-restoration.png`, approved); `EVENT restore_begin`, `restore_end`. The owner's caps by class
-  (docs/BRIEF-caps.md section 6): `CLASS_OWN`'s `strong`/`weak` (its own element's resist +15, one other's -15) and `cap[3]`
+  (docs/BRIEF-caps.md section 6): `CLASS_OWN`'s `strong`/`weak` (its own element's resist +15, one other's -15, the Galvanist's
+  Frost -10) and `cap[3]`
   (`class_cap`, each lift in its stat's units), `armour_cap` in `armour_keep` (75%, the Headsman's 90%), `class_cap_row` and
   `cap_text` for her question's second page and the Codex's second class page (`CX_CLASS` with `i` past `NELEM`). Debug: `CRAWL_SHEET=0`
   (no sheets, lifts or armour's cap: the build before, line for line), `CRAWL_LASTBLOW=p` (its chance as given), `CRAWL_CRACKS=0` (no motes), `CRAWL_CRACKS=2` (and a `CRACKS`

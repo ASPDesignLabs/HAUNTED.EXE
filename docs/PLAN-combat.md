@@ -1334,6 +1334,14 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   crack at 1.5 cells with Toughness at V shows the motes and one with nothing confessed shows none, so a run without Toughness looks
   as it did. Nothing of D5 waits on a sheet now. Still the owner's: the Galvanist's sheet, and the stall by a buried shambler.
 
+- **9 November. The owner's word on the two left open.** The Galvanist's weakness is Frost at -10, not -15 (`CLASS_OWN`; her question
+  and the Codex read it from there). The stall by a buried shambler is mended at the owner's word: `enemies_within` (neither
+  track's) no longer counts the buried (`buried(m)`, as `targetable` refuses them), so `in_combat` doesn't flicker as one under the
+  earth comes into sight and goes, and the dream wants its place to mend whichever side of it it stands. It also leaves the buried
+  out of the runes' triggers and the dream's fights that count enemies near, which is as `targetable` has always had it. Checked:
+  the Galvanist's page reads *RESIST SLOW -10%*; the Plague Doctor's seed 9 from level 1 for 3,000 s on this build (C5 in play, so
+  not the run that showed it) stood no longer than 40 s anywhere. Both go into J20.
+
 ## Appendix: the owner's guide (7 November), as given
 
 > Q1. B, but we mix things up a bit. I offered a guide I've spent a day working on. Use my responses to these questions and the

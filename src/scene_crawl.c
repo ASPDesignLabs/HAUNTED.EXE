@@ -5255,15 +5255,16 @@ static void old_lines_said(void) {                                 /* to a perso
  * caster's own under the same caps; its health against the hundred everyone had, its stats in their own units, and what no stat
  * holds. The class's line and its gifts are as they were (K2). Words for the class question and the Codex in CLASS_SHEET */
 /* With the owner's caps by class (docs/BRIEF-caps.md, section 6): each class's own element hurts it 15% less and one other 15%
- * more (the Headsman's strength is its armour: its weakness is Lightning), and three caps lifted by three tenths (a resist's and
- * armour's share stopping at 90%, Spirit Cost's at 70%), in each stat's units; armour's share of a blow is capped in armour_keep */
+ * more (the Galvanist's Frost 10%, the owner's; the Headsman's strength is its armour, its weakness Lightning), and three caps
+ * lifted by three tenths (a resist's and armour's share stopping at 90%, Spirit Cost's at 70%), in each stat's units; armour's
+ * share of a blow is capped in armour_keep */
 typedef struct { int hp; struct { int8_t st; float v; } s[6]; float af_cut, souls; int8_t strong, weak; struct { int8_t st; float v; } cap[3]; } ClassOwn;
 static const ClassOwn CLASS_OWN[NELEM] = {
     [EL_FIRE]   = { 95,  { { ST_HASTE, 6.0f }, { ST_THRIFT, 6.0f }, { ST_EFFECT, 8.0f }, { ST_RES_BURN, 15.0f }, { ST_RES_SLOW, -15.0f }, { -1, 0 } },
                     0.0f, 0.0f, EL_FIRE, EL_FROST, { { ST_RES_BURN, 15.0f }, { ST_HASTE, 15.0f }, { ST_EFFECT, 15.0f } } },
     [EL_FROST]  = { 105, { { ST_ARMOR, 5.0f }, { ST_RES_SLOW, 15.0f }, { ST_PHYSIC, 15.0f }, { ST_RES_BURN, -15.0f }, { -1, 0 }, { -1, 0 } },
                     0.0f, 0.0f, EL_FROST, EL_FIRE, { { ST_RES_SLOW, 15.0f }, { ST_PHYSIC, 120.0f }, { -1, 0 } } },
-    [EL_LIGHT]  = { 90,  { { ST_DODGE, 6.0f }, { ST_MOVE, 6.0f }, { ST_QUIET, 15.0f }, { ST_RES_LIGHT, 15.0f }, { ST_RES_SLOW, -15.0f }, { -1, 0 } },
+    [EL_LIGHT]  = { 90,  { { ST_DODGE, 6.0f }, { ST_MOVE, 6.0f }, { ST_QUIET, 15.0f }, { ST_RES_LIGHT, 15.0f }, { ST_RES_SLOW, -10.0f }, { -1, 0 } },
                     0.0f, 0.0f, EL_LIGHT, EL_FROST, { { ST_RES_LIGHT, 15.0f }, { ST_DODGE, 10.5f }, { ST_MOVE, 12.0f } } },
     [EL_POISON] = { 100, { { ST_RES_POISON, 15.0f }, { ST_LUCK, 1.0f }, { ST_TREASURE, 5.0f }, { ST_SPRINT, 0.5f }, { ST_RES_SPIRIT, -15.0f }, { -1, 0 } },
                     0.10f, 0.0f, EL_POISON, EL_SPIRIT, { { ST_RES_POISON, 15.0f }, { ST_LUCK, 7.5f }, { ST_TREASURE, 30.0f } } },
@@ -10103,6 +10104,7 @@ static int enemies_within(float r, int undead_only) {
         const Mob *m = &G.mobs[i];
         if (!m->alive || m->state != MS_WALK || m->type == MOB_GHOST || m->type == MOB_WSKULL || m->type == MOB_SAC || m->ally || m->webbed > 0.0f) continue;
         if ((m->type == MOB_SPIDER || m->type == MOB_GARGOYLE) && m->sub == 0) continue;
+        if (buried(m)) continue;                                   /* still under the earth: nothing to fight yet (the owner's word, 9 November) */
         if (undead_only && !KIND_IS(m, KF_UNDEAD)) continue;
         if (hypotf(m->x - G.px, m->y - G.py) < r && line_clear(m->x, m->y, G.px, G.py)) n++;
     }
