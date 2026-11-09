@@ -1664,6 +1664,20 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   `cap_text` for her question's second page and the Codex's second class page (`CX_CLASS` with `i` past `NELEM`). Debug: `CRAWL_SHEET=0`
   (no sheets, lifts or armour's cap: the build before, line for line), `CRAWL_LASTBLOW=p` (its chance as given), `CRAWL_CRACKS=0` (no motes), `CRAWL_CRACKS=2` (and a `CRACKS`
   line a second: the face, the distance, the reach), `CRAWL_RESTSHOW=1` (the glow, for the sheet), `EVENT lastblow`.
+  **D6, the merchant by class** (1.0.0b21, section 12; harness only). In `crawl_gear.c`: `gear_set_class(el, on)` (from
+  `align_sync`, and before her wares roll in `begin_shop`), `pick_elem` (an element's stat from the lines held by rank, G1; with
+  `off`, one not held: a piece in six, `off_left` so never two), `on_line` and the reroll in `piece_roll` (Rare and up carry one
+  for a held line, G2; boots and amulets have none to carry), `PICK_CHANCE` on bracers and rings and `ST_STEADY` on boots and
+  amulets (G3), `st_adds(el)` ("ADDS %" for six, one shared cap: `adds_all`, G4), the class's ability one time in three on
+  Uncommon and up (`AB_CLASS` + its element, G5; `CLASS_FOR`, *FOR THE ...* in `piece_ability_text` when it is another's),
+  `piece_worth` weighing them (a class's ability only for its class). Felt, in `scene_crawl.c`: `st_odds(el)` (the status
+  chances; in `el_chance` for Fire, Lightning and Spirit, a second chill in `damage_mob`'s frost, a dose half again in
+  `mob_poison`), `cls_ab(e, which)` (a class's ability, felt by that class alone: Pyrebrand in `el_chance` and `mob_ignite`, the
+  Slab in `damage_mob` and `mob_gate`'s chill, Live Wire in `el_chance` and `wire_pass`, Fever in `damage_mob`, Swallowed Sin in
+  `el_chance` and a mote in `kill_mob`, the Block in `gear_cut` and a bone in `kill_mob`), `gear_cut` (Steadiness and the Block
+  added to Agility's cut, under 0.9), `abil_short`, Tab's elements page with ADDS and ODDS (`render_elements`), the Codex's words
+  (`stat_does`, `ABIL_DOES`). Debug: `CRAWL_D6=0` (the build before, line for line), `make items` with `ITEMS_LINES`,
+  `ITEMS_CLASS`, `ITEMS_OLD`; `EVENT wire_arcs`, `sin_souls`, `block_bones`.
 - **Black Altars** (`place_altar`, `update_altar`; `G.altar_*`). One a level from 6, on a
   level with secrets: in the exit room, in a block corner off the lanes and the way and two cells from
   the exit, otherwise in the room farthest from the start (`SP_BALTAR`, a solid prop; the flames are
