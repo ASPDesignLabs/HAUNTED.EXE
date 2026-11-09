@@ -1,6 +1,6 @@
 # The elements' teeth: statuses, elemental creatures, the classes' own, the Unholy Confessions and the spells' augments
 
-**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20's C5 and D5 are built and went out early as **1.0.0b19.1** (9 November, harness only, before J20); J20 is done and **1.0.0b20 is released** (9 November, harness only). 1.0.0b21 (C6, D6, D7) is under way: D6 is built (9 November, harness only), C6's contract is in. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
+**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20's C5 and D5 are built and went out early as **1.0.0b19.1** (9 November, harness only, before J20); J20 is done and **1.0.0b20 is released** (9 November, harness only). 1.0.0b21 (C6, D6, D7) is under way: D6 and D7 are built (9 November, harness only; D7's sheet with the owner), C6's frame is in. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
 review of how harm is dealt today (section 1), the owner's answers to that review's first four questions, and the owner's
 guide (kept as given in the appendix). The owner's answers to the review: creatures cast through the kinds we have, "mixed
 up a bit" as the guide sets out (Q1 b); their spells use the caster's six elements, so the resists, the Mirror and the wards
@@ -1562,6 +1562,40 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   17.3's D7 bullet: `augd_name` and `augd_does`, the five lines' names and words for the Lampstand and the Codex (track C: read them
   for every line but Fire; `__attribute__((unused))` till you do). The bodies come next, behind `augd_built` returning 0 till the
   owner approves their sheet, and a debug switch of D's that forces a choice for testing before C6's frame chooses.
+- **9 November. D7 is built: the other five lines' augments** (11.4's drafts, A15; harness only). Commits `6fbb937` and `1525dc0`.
+  The thirty, each at the rank's share k (C's `aug_k`: half, three quarters, whole, the drafts' numbers being rank III, A8),
+  through `augd_*` and D's own functions (CLAUDE.md's D bullet has where each sits): **Frost** Hoarbite (a fifth weaker; a second
+  chill k of the time), Splinterfrost (three shards on behind what it strikes, 30% x k each), Rime Trail (the floor rimed 2 s x k
+  along its flight), Glacial Weight (seven tenths the pace, through the first it strikes at 70% x k after), Cold Snap (what freezes
+  bursts k of the time, a chill on all within 1.5 cells; a snap sets off no other), Brittle (the frozen take 25% x k more from
+  everything); **Lightning** Forked (a second bolt within 3 cells at 50% x k), Overcharge (30% x k harder, its stun 1 + k as likely,
+  a quarter more spirit), Static Build (each strike on one creature within 3 s raises its stun half x k a time, three times),
+  Grounding (what stands in run II's water or is poisoned passes the bolt on at 70% x k), Thunderclap (the stunned struck, k of
+  the time all within 1.5 cells stunned), Conductor (Ionization's trail 1 + 2k as long, stunning what crosses it k of the time);
+  **Poison** Thick Brew (your poison 50% x k longer, as much more harm), Straight Throw (flat, 60% x k quicker, bursting on what it
+  meets), Cluster (three small flasks at 40% x k), Miasma (a cloud 1.5 s, poisoning at k of the burst's dose), Pestilence (the
+  poisoned leave a pool of k of what was left in them), Rot (the poisoned 15% x k more from every other element); **Spirit**
+  Siphon (the drain heals 30% x k more, for the spirit healing costs, and hurts 15% less), Hollowing (Unbound 1 + k as likely),
+  Lingering Hunger (the beam held 0.6 s x k, draining half the hit again x k; it doesn't heal), Soul Echo (a kill by the drain gives
+  back k of its spirit), Exorcism (the Unbound 30% x k more from everything), Shepherd (the drain's kills' souls fly to you at 5 x k
+  cells a second); **Physical** Barbed (half the hit x k bled over 3 s), Recovery (the bone left half x k of the time), Twin Throw
+  (two spears for one bone, **45%, 52% and 60% by rank**: halving the guide's 60% would have made rank I weaker than one spear),
+  Heavy Haft (the first struck staggers 0.5 s x k), Skewer (15% x k more for each pierced), Bone Rain (a kill bursts into three
+  splinters at the nearest, 35% x k each; a splinter's own hits bleed, leave and rain nothing). The fixed costs (Hoarbite's fifth,
+  Siphon's 15%, Overcharge's quarter) don't move with rank. Brittle, Rot and Exorcism count whatever strikes; the rest are the
+  line's own spell. **The sheet** (`docs/combat/d7-augments.png`, sent to the owner): what is new to the eye is three things,
+  Barbed's bleed (`DR_BLEED`), Static Build's gold bolts and Miasma's green vapour; Thunderclap and Cold Snap use the orb's flash and
+  the frost's burst; the rest what is drawn already. Till it is approved `augd_built` says none (`CRAWL_D7=1` offers them, with C's
+  `CRAWL_AUG=1`). **Checked**: with nothing chosen, the dream plays the build before line for line (two seeds, 600 and 900 s);
+  forced by `CRAWL_AUGD` on all five lines for each pair of the five classes from level 21, every augment that leaves an event left
+  it; ASan clean on four dreams of 600 s with them forced (two pairs, ranks I and III, from levels 1, 21 and 31). With C's frame
+  (`CRAWL_AUG=1 CRAWL_D7=1`) the dream chooses D's at the Lampstand and they rank up from its credits (the newest first, A4).
+  **Runs**, both arms with C's frame on (Fire's augments in both), D7 on against off, five classes, seeds 1-7 odd, from level 21
+  at gear 5 for 1,200 s: 44 levels cleared (42), no deaths either way, a level's median 364 s (371); 59 ranks gained on D's lines;
+  Pestilence pooled 87 times, Twin Throw threw 60, Thunderclap 15, Lingering Hunger 5, Cold Snap 4, Conductor 2. One run stood 120 s
+  on level 21, a Galvanist in the arm without D7. Too few runs to weigh (J21 will). **Track C**: Splinterfrost's shards (0.5),
+  Glacial Weight's (1.35) and Cluster's flasks (0.6) set `Shot.scale`, which your missiles' part doesn't draw yet; they show at
+  their usual size till it does. **D7 is built**; track D's part of 1.0.0b21 waits on the owner's word on the sheet, then J21.
 
 ## Appendix: the owner's guide (7 November), as given
 
