@@ -4,6 +4,7 @@
 # fight's end, the failing, and a menu opened and closed. Into build/music/, as MP3 when ffmpeg is there.
 #   sh tools/music.sh            all of it
 #   sh tools/music.sh crypts     one piece and its moments
+#   sh tools/music.sh shops      her hall's five candidates
 set -e
 cd "$(dirname "$0")/.."
 make -s host
@@ -31,6 +32,12 @@ want "$1" catacombs && { piece catacombs 160; moments catacombs; }
 want "$1" hollows   && { piece hollows 190;   moments hollows; }
 want "$1" deep      && { piece deep 280;      moments deep; }
 want "$1" merchant  && piece merchant 100 place2@60
+if want "$1" shops; then   # her hall's five candidates (docs/PLAN-music2.md): the whole of each, a little of its top again, then her back rooms
+    for k in 1:162 2:136 3:144 4:160 5:160; do
+        n=${k%%:*}; l=${k#*:}
+        HOST_DRIPS=0 build/host music shop$n $((l + 32)) "$out/shop$n.wav" place2@$((l + 10)); enc shop$n
+    done
+fi
 if want "$1" menus; then
     for k in 1 2 3 4; do build/host music menu$k 40 "$out/menu$k.wav"; done
     if command -v ffmpeg >/dev/null 2>&1; then

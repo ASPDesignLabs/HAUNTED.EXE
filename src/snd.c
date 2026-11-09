@@ -2,6 +2,7 @@
 #include "snd.h"
 #include "core.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -45,6 +46,17 @@ static inline float wave(int w, float ph) {
         if (p >= 0.5f) p -= 0.5f;
         return p < 0.25f ? fabsf(s) : 0.0f;
     }
+    case 4: case 5: {                                  /* OPL3: a sine at twice the pitch, then silence (5: its halves rectified) */
+        float p = ph - floorf(ph);
+        if (p >= 0.5f) return 0.0f;
+        float a = sin_cyc(2.0f * p);
+        return w == 5 ? fabsf(a) : a;
+    }
+    case 6:  return s >= 0.0f ? 1.0f : -1.0f;         /* OPL3: square */
+    case 7: {                                          /* OPL3: derived square, a falling ramp each half */
+        float p = ph - floorf(ph);
+        return p < 0.5f ? expf(-14.0f * p) : -expf(-14.0f * (p - 0.5f));
+    }
     default: return s;
     }
 }
@@ -68,11 +80,16 @@ typedef struct Patch {
     float vib_hz, vib_st, vib_delay;
     float level;
     float rev, dly;             /* effect sends */
+    float trem, tremm, trem_hz; /* OPL's tremolo: depth on the carrier's level and on the modulator's index (0..1), its rate (3.7 Hz if 0) */
+    float kslc, kslm;           /* OPL's key scaling of level: dB lost an octave above middle C, carrier and modulator */
+    float ksr;                  /* OPL's key scaling of rate: envelopes this much quicker an octave above middle C */
 } Patch;
 
 enum { PAT_BELL, PAT_MBOX, PAT_DRONE, PAT_PAD, PAT_BASS, PAT_STAB,
        PAT_FLUTE, PAT_BRASS, PAT_HARP, PAT_ORGAN, PAT_EPIANO, PAT_VIBES, PAT_VOICE,
-       PAT_GLASS, PAT_DULC, PAT_STRINGS, PAT_PIZZ, PAT_ANVIL, PAT_CELESTA, PAT_COUNT };
+       PAT_GLASS, PAT_DULC, PAT_STRINGS, PAT_PIZZ, PAT_ANVIL, PAT_CELESTA,
+       PAT_CLAR, PAT_REED, PAT_GUIT, PAT_UPBASS, PAT_MVIBES, PAT_MUTE, PAT_HPSD, PAT_OBOE, PAT_WOOD,
+       PAT_STRPAD, PAT_VIOLIN, PAT_CHARP, PAT_COUNT };
 
 static const Patch PATCHES[PAT_COUNT] = {
     /* bell: inharmonic 1:3.5, modulation dies away -> pure ring */
@@ -152,6 +169,56 @@ static const Patch PATCHES[PAT_COUNT] = {
     [PAT_CELESTA] = { .mc=1, .mm=7.0f, .wc=0, .wm=0, .idx=1.3f, .fb=0.0f,
                     .am=0.001f,.dm=0.08f,.sm=0, .rm=0.30f, .ac=0.001f,.dc=0.9f,.sc=0, .rc=0.40f,
                     .vib_hz=0,.vib_st=0,.vib_delay=0, .level=0.11f, .rev=0.55f, .dly=0.30f },
+    /* her hall's candidates' (docs/PLAN-music2.md), using the rest of what an AdLib could do */
+    /* clarinet: the modulator an octave up, so only the odd harmonics sound; mellower as it climbs */
+    [PAT_CLAR]  = { .mc=1, .mm=2.0f, .wc=0, .wm=0, .idx=1.9f, .fb=0.06f,
+                    .am=0.04f,.dm=0.6f,.sm=0.75f, .rm=0.12f, .ac=0.035f,.dc=0.8f,.sc=0.9f, .rc=0.13f,
+                    .vib_hz=5.0f,.vib_st=0.10f,.vib_delay=0.35f, .level=0.17f, .rev=0.32f, .dly=0.15f, .kslm=2.0f },
+    /* a bandoneon's reeds: a half-sine modulator, the bellows breathing in the chip's tremolo */
+    [PAT_REED]  = { .mc=1, .mm=1.0f, .wc=0, .wm=1, .idx=2.4f, .fb=0.35f,
+                    .am=0.05f,.dm=0.5f,.sm=0.8f, .rm=0.15f, .ac=0.06f,.dc=0.6f,.sc=0.9f, .rc=0.16f,
+                    .vib_hz=0,.vib_st=0,.vib_delay=0, .level=0.075f, .rev=0.35f, .dly=0.08f,
+                    .trem=0.12f, .tremm=0.18f, .kslm=1.5f },
+    /* a gut-strung guitar: a bright pluck going mellow, the higher strings dying sooner */
+    [PAT_GUIT]  = { .mc=1, .mm=1.0f, .wc=0, .wm=0, .idx=2.2f, .fb=0.08f,
+                    .am=0.001f,.dm=0.18f,.sm=0.15f, .rm=0.10f, .ac=0.002f,.dc=1.6f,.sc=0, .rc=0.25f,
+                    .vib_hz=0,.vib_st=0,.vib_delay=0, .level=0.13f, .rev=0.30f, .dly=0.10f, .kslm=3.0f, .ksr=0.25f },
+    /* a double bass plucked: a thump, then a round note that dies */
+    [PAT_UPBASS] = { .mc=1, .mm=1.0f, .wc=0, .wm=0, .idx=1.6f, .fb=0.10f,
+                    .am=0.001f,.dm=0.08f,.sm=0.25f, .rm=0.08f, .ac=0.004f,.dc=1.1f,.sc=0, .rc=0.12f,
+                    .vib_hz=0,.vib_st=0,.vib_delay=0, .level=0.38f, .rev=0.08f, .dly=0.0f },
+    /* vibraphone with its motor running: the tremolo wide and quick */
+    [PAT_MVIBES] = { .mc=1, .mm=4.0f, .wc=0, .wm=0, .idx=1.3f, .fb=0.0f,
+                    .am=0.001f,.dm=0.30f,.sm=0, .rm=0.5f, .ac=0.001f,.dc=2.6f,.sc=0, .rc=0.6f,
+                    .vib_hz=0,.vib_st=0,.vib_delay=0, .level=0.15f, .rev=0.45f, .dly=0.15f, .trem=0.38f, .trem_hz=5.4f },
+    /* a muted trumpet: a buzzing modulator fed back on itself, a nasal waver */
+    [PAT_MUTE]  = { .mc=1, .mm=1.0f, .wc=0, .wm=0, .idx=2.8f, .fb=0.62f,
+                    .am=0.04f,.dm=0.4f,.sm=0.6f, .rm=0.10f, .ac=0.02f,.dc=0.5f,.sc=0.8f, .rc=0.10f,
+                    .vib_hz=5.5f,.vib_st=0.08f,.vib_delay=0.3f, .level=0.12f, .rev=0.30f, .dly=0.20f, .kslm=1.0f, .tremm=0.10f },
+    /* harpsichord: a quill's bright pluck, the dampers quick */
+    [PAT_HPSD]  = { .mc=1, .mm=1.0f, .wc=0, .wm=2, .idx=3.0f, .fb=0.30f,
+                    .am=0.001f,.dm=0.9f,.sm=0, .rm=0.10f, .ac=0.001f,.dc=1.4f,.sc=0, .rc=0.12f,
+                    .vib_hz=0,.vib_st=0,.vib_delay=0, .level=0.17f, .rev=0.30f, .dly=0.12f, .ksr=0.3f },
+    /* oboe: the carrier on the third harmonic, so the tone is all nose */
+    [PAT_OBOE]  = { .mc=3, .mm=1.0f, .wc=0, .wm=0, .idx=2.0f, .fb=0.10f,
+                    .am=0.05f,.dm=0.5f,.sm=0.8f, .rm=0.10f, .ac=0.04f,.dc=0.6f,.sc=0.9f, .rc=0.12f,
+                    .vib_hz=5.0f,.vib_st=0.08f,.vib_delay=0.3f, .level=0.14f, .rev=0.35f, .dly=0.12f, .kslm=1.5f },
+    /* a woodblock: hollow, gone at once */
+    [PAT_WOOD]  = { .mc=1, .mm=2.4f, .wc=0, .wm=0, .idx=1.5f, .fb=0.0f,
+                    .am=0.001f,.dm=0.02f,.sm=0, .rm=0.03f, .ac=0.001f,.dc=0.09f,.sc=0, .rc=0.04f,
+                    .vib_hz=0,.vib_st=0,.vib_delay=0, .level=0.40f, .rev=0.25f, .dly=0.0f },
+    /* a string section, softly: slow to bow, mellow at the top */
+    [PAT_STRPAD] = { .mc=1, .mm=1.0f, .wc=0, .wm=0, .idx=1.6f, .fb=0.5f,
+                    .am=0.4f,.dm=1.0f,.sm=0.8f, .rm=0.6f, .ac=0.35f,.dc=1.0f,.sc=0.9f, .rc=0.7f,
+                    .vib_hz=4.8f,.vib_st=0.06f,.vib_delay=0.4f, .level=0.07f, .rev=0.5f, .dly=0.05f, .kslm=3.0f },
+    /* a solo violin (or cello, low): a bow's edge and a singing vibrato */
+    [PAT_VIOLIN] = { .mc=1, .mm=1.0f, .wc=0, .wm=0, .idx=2.0f, .fb=0.6f,
+                    .am=0.08f,.dm=0.5f,.sm=0.8f, .rm=0.2f, .ac=0.07f,.dc=0.8f,.sc=0.9f, .rc=0.2f,
+                    .vib_hz=5.6f,.vib_st=0.15f,.vib_delay=0.25f, .level=0.13f, .rev=0.40f, .dly=0.12f, .kslm=2.0f },
+    /* a concert harp: a soft pluck that rings */
+    [PAT_CHARP] = { .mc=1, .mm=1.0f, .wc=0, .wm=0, .idx=1.2f, .fb=0.0f,
+                    .am=0.001f,.dm=0.2f,.sm=0, .rm=0.2f, .ac=0.002f,.dc=2.0f,.sc=0, .rc=0.5f,
+                    .vib_hz=0,.vib_st=0,.vib_delay=0, .level=0.16f, .rev=0.50f, .dly=0.20f, .kslm=2.0f },
 };
 
 /* ------------------------------------------------------------------ */
@@ -178,6 +245,10 @@ typedef struct Voice {
     int ctl;
     int bus;                    /* which music it belongs to, which fades as a whole: BUS_* */
     int layer;                  /* and which part of it: LY_* */
+    float kim, kac;             /* key scaling: the modulator's index and the carrier's level, by pitch */
+    float tr_c, tr_m;           /* the tremolo this control period */
+    float bend_end; int glide;  /* a glide stops at bend_end */
+    int8_t arp[4]; int narp; float arp_hz;   /* a tracker's arpeggio: semitones taken in turn, arp_hz a second */
 } Voice;
 
 /* The run's piece (or the march), Severance's muzak (in as the march goes), a boss's waltz (the same), the
@@ -190,9 +261,11 @@ static int g_vbus;                  /* the bus new voices, drums and scheduled n
 enum { LY_BASE, LY_FIGHT, LY_COLOUR, NLAYER };
 static int g_vlayer;
 
-#define NV 48
+#define NV 64
 static Voice g_v[NV];
 static uint32_t g_serial;
+static double g_lfo_t;              /* the chip's LFO clock: every voice's tremolo beats together, as on an OPL */
+static uint64_t g_patmute;          /* the harness's: patches (bit 63 a piece's drums, 62 the cave's drips) left out, for weighing a mix */
 
 static inline float coef_for(float seconds) {      /* ~1% after `seconds` */
     if (seconds < 0.002f) seconds = 0.002f;
@@ -224,6 +297,17 @@ static Voice *voice_on(int pat, int midi, float vel, float pan, int gate_samples
     v->layer = g_vlayer;
     float a = clampf(pan, 0.0f, 1.0f) * (PI_F * 0.5f);
     v->pl = cosf(a); v->pr = sinf(a);
+    v->kim = v->kac = v->tr_c = v->tr_m = 1.0f;
+    if (p->kslm != 0.0f || p->kslc != 0.0f || p->ksr != 0.0f) {   /* key scaling, from middle C */
+        float oct = (float)(midi - 60) / 12.0f;
+        if (oct > 0.0f) { v->kim = powf(10.0f, -p->kslm * oct / 20.0f); v->kac = powf(10.0f, -p->kslc * oct / 20.0f); }
+        if (p->ksr != 0.0f) {
+            float k = powf(1.0f + p->ksr, oct);
+            v->ram = k / (fmaxf(p->am, 0.001f) * SR); v->rac = k / (fmaxf(p->ac, 0.001f) * SR);
+            v->kdm = coef_for(p->dm / k); v->kdc = coef_for(p->dc / k);
+            v->krm = coef_for(p->rm / k); v->krc = coef_for(p->rc / k);
+        }
+    }
     return v;
 }
 
@@ -257,12 +341,20 @@ static inline void voice_run(Voice *v, float *outl, float *outr, float *rev, flo
         float st = v->bend;
         if (p->vib_hz > 0.0f && v->t > p->vib_delay)
             st += p->vib_st * sin_cyc(p->vib_hz * v->t);
+        if (v->narp) st += v->arp[(int)(v->t * v->arp_hz) % v->narp];
         float f = v->freq * (st != 0.0f ? exp2f(st / 12.0f) : 1.0f);
         v->incc = f * p->mc / SR;
         v->incm = f * p->mm / SR;
+        if (p->trem > 0.0f || p->tremm > 0.0f) {
+            float l = 0.5f + 0.5f * sin_cyc((float)fmod(g_lfo_t * (p->trem_hz > 0.0f ? p->trem_hz : 3.7f), 1.0));
+            v->tr_c = 1.0f - p->trem * l; v->tr_m = 1.0f - p->tremm * l;
+        }
     }
     v->t += 1.0f / SR;
     v->bend += v->bend_rate / SR;
+    if (v->glide && (v->bend_rate > 0.0f ? v->bend >= v->bend_end : v->bend <= v->bend_end)) {
+        v->bend = v->bend_end; v->bend_rate = 0.0f; v->glide = 0;
+    }
 
     float em = env_tick(&v->em, v->gate, v->ram, v->kdm, v->krm, p->sm);
     float ec = env_tick(&v->ec, v->gate, v->rac, v->kdc, v->krc, p->sc);
@@ -273,14 +365,14 @@ static inline void voice_run(Voice *v, float *outl, float *outr, float *rev, flo
     v->fb2 = v->fb1; v->fb1 = m;
     float c;
     if (p->add) {
-        c = (wave(p->wc, v->phc) * ec + m * 0.6f);
+        c = (wave(p->wc, v->phc) * ec + m * 0.6f * v->tr_m);
     } else {
-        c = wave(p->wc, v->phc + p->idx * m * (1.0f / TAU_F)) * ec;
+        c = wave(p->wc, v->phc + p->idx * v->kim * v->tr_m * m * (1.0f / TAU_F)) * ec;
     }
     v->phm += v->incm; if (v->phm >= 1.0f) v->phm -= 1.0f;
     v->phc += v->incc; if (v->phc >= 1.0f) v->phc -= 1.0f;
 
-    float g = p->level * v->vel * (v->gainch ? g_drone_gain : 1.0f);
+    float g = p->level * v->vel * (v->gainch ? g_drone_gain : 1.0f) * v->kac * v->tr_c;
     float s = c * g;
     *outl += s * v->pl;
     *outr += s * v->pr;
@@ -293,7 +385,11 @@ static inline void voice_run(Voice *v, float *outl, float *outr, float *rev, flo
 /* ------------------------------------------------------------------ */
 
 typedef enum {
-    X_KICK = 1000, X_SNARE, X_HAT_C, X_HAT_O, X_CRASH, X_TOM
+    X_KICK = 1000, X_SNARE, X_HAT_C, X_HAT_O, X_CRASH, X_TOM,
+    /* an OPL's rhythm mode: its bass drum, snare, hat, cymbal and tom, the metal made as the chip makes it */
+    X_OBD, X_OSD, X_OHH, X_OCY, X_OTT,
+    /* and hands: castanets (f0 the clicks in a roll), a tambourine, a brush, a clap, a snap */
+    X_CAST, X_TAMB, X_BRUSH, X_CLAP, X_SNAP
 } XType;                                         /* percussion, after SFX_COUNT */
 
 typedef struct Sfx {
@@ -307,6 +403,7 @@ typedef struct Sfx {
     float gain, pan, rev;
     int bus;                    /* a drum's music */
     int layer;                  /* and its part of it */
+    float f0;                   /* a drum's pitch (0: its own) */
 } Sfx;
 
 #define NS 28
@@ -1207,6 +1304,78 @@ static float sfx_sample(Sfx *s) {
         x = sin_cyc(s->ph[0]) * expf(-t * 10.0f) * 0.7f;
         break;
     }
+    case X_OBD: {                                   /* two operators, the modulator dying fast: a knock, then a round thud */
+        float f = (s->f0 > 0.0f ? s->f0 : 52.0f) * (1.0f + 0.9f * expf(-t * 38.0f));
+        s->ph[0] += f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        s->ph[1] += f / SR; if (s->ph[1] >= 1.0f) s->ph[1] -= 1.0f;
+        float m = sin_cyc(s->ph[1] + s->a * 0.08f); s->a = m;
+        x = sin_cyc(s->ph[0] + 0.32f * expf(-t * 26.0f) * m) * expf(-t * 4.6f / s->dur) * 0.95f;
+        if (t < 0.002f) x *= t / 0.002f;
+        break;
+    }
+    case X_OSD: case X_OHH: case X_OCY: {           /* the chip's metal: phase bits of two oscillators, and its noise */
+        float fa = s->f0 > 0.0f ? s->f0 : 290.0f, fb = fa * 1.63f;
+        s->ph[0] += fa / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        s->ph[1] += fb / SR; if (s->ph[1] >= 1.0f) s->ph[1] -= 1.0f;
+        int i7 = (int)(s->ph[0] * 1024.0f) & 1023, i8 = (int)(s->ph[1] * 1024.0f) & 1023;
+        int noise = (rng_next(&s->rng) >> 13) & 1;
+        int hi = ((((i7 >> 2) ^ (i7 >> 7)) | (i7 >> 3)) & 1) | (((i8 >> 3) ^ (i8 >> 5)) & 1);
+        float e = expf(-t * 4.6f / s->dur), o;
+        if (s->type == X_OSD) {
+            int b8 = (i7 >> 8) & 1;
+            o = b8 ? (noise ? -1.0f : 0.0f) : (noise ? 0.0f : 1.0f);
+            o = o * 0.8f + sin_cyc(s->ph[0] * 0.5f) * 0.35f * expf(-t * 30.0f);
+        } else if (s->type == X_OHH) o = hi ? (noise ? -0.957f : -0.316f) : (noise ? 0.314f : 0.957f);
+        else o = hi ? -1.0f : 1.0f;
+        float hp = o - s->lp1; s->lp1 += (s->type == X_OSD ? 0.08f : 0.35f) * (o - s->lp1);   /* the chip's edge, rounded a little */
+        s->lp2 += 0.6f * (hp - s->lp2);
+        x = s->lp2 * e * (s->type == X_OSD ? 0.6f : s->type == X_OHH ? 0.32f : 0.24f);
+        if (t < 0.0015f) x *= t / 0.0015f;
+        break;
+    }
+    case X_OTT: {                                   /* the chip's tom: one operator, a sine that sags as it dies */
+        float f = (s->f0 > 0.0f ? s->f0 : 120.0f) * (1.0f + 0.12f * expf(-t * 18.0f));
+        s->ph[0] += f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        x = sin_cyc(s->ph[0]) * expf(-t * 4.6f / s->dur) * 0.75f;
+        if (t < 0.002f) x *= t / 0.002f;
+        break;
+    }
+    case X_CAST: {                                  /* castanets: hard wooden clicks, a roll of them if f0 says */
+        int n = s->f0 > 1.0f ? (int)s->f0 : 1;
+        for (int i = 0; i < n; i++) {
+            float u = t - 0.032f * (float)i;
+            if (u < 0.0f || u > 0.05f) continue;
+            float g = i == n - 1 ? 1.0f : 0.6f + 0.1f * (float)i;
+            x += (sin_cyc(1850.0f * u) * 0.5f + sin_cyc(3120.0f * u) * 0.3f) * expf(-u * 260.0f) * g;
+        }
+        x += svf_band(nz(&s->rng), 3600.0f, 0.4f, &s->lo1, &s->bp1) * expf(-fmodf(t, 0.032f) * 500.0f) * 0.35f;
+        x *= 0.7f;
+        break;
+    }
+    case X_TAMB: {                                  /* a tambourine: the skin knocked, the jingles shivering after */
+        s->ph[0] += 4100.0f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        s->ph[1] += 6230.0f / SR; if (s->ph[1] >= 1.0f) s->ph[1] -= 1.0f;
+        float jing = (sin_cyc(s->ph[0]) + sin_cyc(s->ph[1]) * 0.8f) * (0.6f + 0.4f * nz(&s->rng));
+        float shiver = 0.65f + 0.35f * sin_cyc(t * 31.0f);
+        float knock = sin_cyc(210.0f * t) * expf(-t * 70.0f);
+        x = (jing * shiver * 0.22f * expf(-t * 4.6f / s->dur) + knock * 0.25f) * fminf(1.0f, t / 0.002f);
+        break;
+    }
+    case X_BRUSH: {                                 /* a wire brush: a swish drawn round the head (f0 1: a tap) */
+        float a = s->f0 > 0.5f ? 0.003f : 0.035f;
+        float env = fminf(1.0f, t / a) * expf(-fmaxf(0.0f, t - a) * 4.6f / s->dur);
+        x = svf_band(nz(&s->rng), 5200.0f - 1400.0f * fminf(1.0f, t / 0.12f), 0.7f, &s->lo1, &s->bp1) * env * 0.5f;
+        break;
+    }
+    case X_CLAP: {                                  /* hands: three slaps close together and a little room */
+        float u = t < 0.024f ? fmodf(t, 0.008f) : t - 0.016f;
+        x = svf_band(nz(&s->rng), 1150.0f, 0.55f, &s->lo1, &s->bp1) * expf(-u * (t < 0.024f ? 400.0f : 32.0f)) * 0.9f;
+        break;
+    }
+    case X_SNAP: {                                  /* a finger snap */
+        x = svf_band(nz(&s->rng), 2300.0f, 0.35f, &s->lo1, &s->bp1) * expf(-t * 260.0f) * 0.8f + sin_cyc(960.0f * t) * expf(-t * 120.0f) * 0.15f;
+        break;
+    }
     /* docs/PLAN-combat.md section 17: each track adds its sounds' cases only above its own end mark */
     case SFX_AF_STUN: {                             /* a high ring with a slow beat in it, a buzz for the first moment */
         float e = fminf(1.0f, t / 0.004f) * expf(-t * 3.2f);
@@ -1358,25 +1527,39 @@ static const uint8_t HAUNT_WEIGHT[] = { 5, 2, 3, 2, 5, 2, 3, 4, 2, 2, 3, 1, 2 };
 static const uint8_t LULLABY[] = { 69, 74, 77, 76, 74, 77, 81, 79, 77, 76, 74, 73, 74, 0, 0, 0 };
 
 /* Delayed notes (the lullaby needs spaced onsets between sequencer steps). */
-typedef struct Sched { int when; int midi; float vel; int pat; int active; int gate; int bus; } Sched;
-#define NSCHED 32
+typedef struct Sched { int when; int midi; float vel; int pat; int active; int gate; int bus; int layer; float pan, bend, brate; } Sched;
+#define NSCHED 128
 static Sched g_sched[NSCHED];
+static int g_nsched;                /* how many wait */
+static Sched *sched_slot(void) {
+    for (int i = 0; i < NSCHED; i++) if (!g_sched[i].active) { memset(&g_sched[i], 0, sizeof g_sched[i]); g_nsched++; return &g_sched[i]; }
+    return NULL;
+}
 static void sched_note_g(int delay_samples, int pat, int midi, float vel, int gate) {   /* gate 0: two steps */
-    for (int i = 0; i < NSCHED; i++) if (!g_sched[i].active) {
-        g_sched[i].when = delay_samples; g_sched[i].midi = midi;
-        g_sched[i].vel = vel; g_sched[i].pat = pat; g_sched[i].active = 1; g_sched[i].gate = gate;
-        g_sched[i].bus = g_vbus;
-        return;
-    }
+    Sched *q = sched_slot();
+    if (!q) return;
+    q->when = delay_samples; q->midi = midi; q->vel = vel; q->pat = pat; q->active = 1; q->gate = gate;
+    q->bus = g_vbus; q->layer = LY_BASE; q->pan = 0.55f;
 }
 static void sched_note(int delay_samples, int pat, int midi, float vel) { sched_note_g(delay_samples, pat, midi, vel, 0); }
+/* a note a moment from now on the bus and layer playing: a strum's string, a rolled chord's, an echo; bend
+ * semitones gliding home at brate a second */
+static void sched_v(int delay, int pat, int midi, float vel, float pan, int gate, float bend, float brate) {
+    Sched *q = sched_slot();
+    if (!q) return;
+    q->when = delay > 0 ? delay : 1; q->midi = midi; q->vel = vel; q->pat = pat; q->active = 1; q->gate = gate > 0 ? gate : 1;
+    q->bus = g_vbus; q->layer = g_vlayer; q->pan = pan; q->bend = bend; q->brate = brate;
+}
 static void sched_run(void) {
+    if (!g_nsched) return;
     for (int i = 0; i < NSCHED; i++) if (g_sched[i].active && --g_sched[i].when <= 0) {
-        g_sched[i].active = 0;
+        Sched *q = &g_sched[i];
+        q->active = 0; g_nsched--;
         int was = g_vbus;
-        g_vbus = g_sched[i].bus; g_vlayer = LY_BASE;
-        voice_on(g_sched[i].pat, g_sched[i].midi, g_sched[i].vel, 0.55f, g_sched[i].gate ? g_sched[i].gate : (int)(g_sps * 2));
-        g_vbus = was;
+        g_vbus = q->bus; g_vlayer = q->layer;
+        Voice *v = voice_on(q->pat, q->midi, q->vel, q->pan, q->gate ? q->gate : (int)(g_sps * 2));
+        if (q->bend != 0.0f) { v->bend = q->bend; v->bend_rate = q->brate; v->bend_end = 0.0f; v->glide = 1; }
+        g_vbus = was; g_vlayer = LY_BASE;
     }
 }
 
@@ -1459,7 +1642,7 @@ static float g_boss_k;              /* how far into a boss's waltz, 0..1 (below)
 
 static void crawl_step(uint32_t step) {
     if (g_room == 2) muzak_step(step);
-    if (g_room || g_boss_k >= 1.0f) return;                        /* the cave itself: drips and, rarely, something moaning far away */
+    if (g_room || g_boss_k >= 1.0f || ((g_patmute >> 62) & 1)) return;   /* the cave itself: drips and, rarely, something moaning far away */
     if (rng_f(&g_mrng) < 0.022f) sfx_start(SFX_DRIP, 0.6f, 0.5f + 0.5f * rng_f(&g_mrng), 0.1f + 0.8f * rng_f(&g_mrng), 0.75f);
     if ((step & 15) == 0 && rng_f(&g_mrng) < 0.06f) sfx_start(SFX_MOAN, 2.6f, 0.45f, 0.2f + 0.6f * rng_f(&g_mrng), 0.8f);
 }
@@ -1623,12 +1806,34 @@ static void boss_step(void) {
  * on a beat going in and at a bar line coming out, which brings in the fight's layer and quickens the pace. */
 typedef struct MNote { uint8_t bar, step, len, midi; } MNote;   /* midi + 128: on the piece's second instrument */
 typedef struct MSec { int8_t ch[8][4]; const MNote *mel; int nmel; } MSec;
+
+/* A scored piece (docs/PLAN-music2.md) is written out as text, a part to a string, and read once at start:
+ *   a4/12   a note (c4 is middle C; # and b after the letter), twelve steps long; the length carries to the next
+ *   [a3 c4 e4]/24   notes struck together        r/6   a rest        -/12   the last note held on
+ *   |       a bar line: the steps between two must make a bar, or snd_check says where they don't
+ * and before a note or chord: ! accented, . a ghost, ' short, ^ slid up to from a semitone under, < scooped from
+ * two, * fallen onto from a tone over, + on the part's second instrument, = left to ring. */
+enum { FX_ACC = 1, FX_GHOST = 2, FX_STAC = 4, FX_SLIDE = 8, FX_SCOOP = 16, FX_FALL = 32, FX_ALT = 64, FX_RING = 128 };
+#define EV_N 6
+typedef struct Ev { uint16_t at, len; uint8_t n, fx; uint8_t nt[EV_N]; } Ev;   /* at: the step in its section */
+enum { PT_CH, PT_BA, PT_ME, PT_CO, PT_X1, PT_X2, PT_X3, NPT };   /* the chords, the bass, the tune, a counter, and more */
+#define SECT(v, ...) { .p = { __VA_ARGS__ }, .var = (v) }
+typedef struct ScSec {
+    const char *p[NPT];                    /* each part's score, or NULL */
+    int var;                               /* how the piece dresses it: the same music played again another way */
+    int bars;                              /* read from the score */
+    Ev *ev[NPT]; uint16_t nev[NPT];
+} ScSec;
+
 typedef struct Piece {
     float bpm; int spb, blen, root;        /* beats a minute, steps a beat, steps a bar, the key's root */
     const MSec *sec; const uint8_t *order; int norder, loop;   /* its sections, the order they go in, where it comes round to */
     void (*step)(const MSec *S, int bar, int s);
     int cad;                               /* the patch of the chord that closes a fight */
     float gain;                            /* to sit about where the march sat */
+    ScSec *sc; int nsc;                    /* a scored piece's sections (the order indexes them), */
+    void (*step2)(const ScSec *S, int bar, int s);   /* and its step */
+    float dly;                             /* its echo's time in steps (0: the crypt's) */
 } Piece;
 typedef struct Player {
     int piece, on, bus;
@@ -1642,7 +1847,7 @@ static Player *g_P;                        /* the player stepping */
 static int g_psps;                         /* its step, in samples */
 static float g_busg[NBUS], g_layg[NLAYER]; /* each bus's and layer's gain this sample */
 static int g_alive[NBUS];                  /* a bus that is or is coming in: its voices aren't cut, and new ones start */
-static int g_fight_req, g_frail, g_menu_req, g_menu, g_menu_var, g_place, g_track_next;
+static int g_fight_req, g_frail, g_menu_req, g_menu, g_menu_var, g_place, g_track_next, g_shop_mu = MU_MERCHANT;
 static float g_fight_k, g_frail_k, g_menu_k, g_run_k, g_shop_k, g_menu_wait;
 static float g_mix_music = 1.0f, g_mix_fx = 1.0f;
 static float g_flp[4], g_mnlp[4];          /* the failing's low-pass on the music, the menu's water (run II) */
@@ -1650,11 +1855,11 @@ static float g_flp[4], g_mnlp[4];          /* the failing's low-pass on the musi
 #define C3(b, x, y, z) { b, x, y, z }
 
 static Voice *pv(int pat, int midi, float vel, float pan, int steps) {
-    if (!g_alive[g_vbus]) return NULL;
+    if (!g_alive[g_vbus] || ((g_patmute >> pat) & 1)) return NULL;
     return voice_on(pat, midi, vel, pan, steps * g_psps - g_psps / 4);
 }
 static void pd(int type, float dur, float gain, float pan, float rev) {
-    if (g_alive[g_vbus]) sfx_start(type, dur, gain, pan, rev);
+    if (g_alive[g_vbus] && !((g_patmute >> 63) & 1)) sfx_start(type, dur, gain, pan, rev);
 }
 static void pchord(const int8_t *c, int pat, int base, float vel, int steps, float detune) {
     for (int k = 1; k < 4; k++) {
@@ -1675,6 +1880,160 @@ static void ptune(const MSec *S, int bar, int s, int pat, int alt, float vel, in
 static inline float mrnd(void) { return rng_f(&g_mrng); }
 #define MEL(m) m, (int)(sizeof m / sizeof m[0])
 #define ORD(o) o, (int)(sizeof o / sizeof o[0])
+
+/* ---- scored pieces: reading them, and playing their parts ---- */
+
+#define EVPOOL 12000
+static Ev g_evpool[EVPOOL];
+static int g_evn;
+static char g_sc_err[512];                 /* the first faults found in the scores, for snd_check */
+
+static void sc_fault(const char *what, int bar, const char *msg, int a, int b) {
+    size_t n = strlen(g_sc_err);
+    if (n < sizeof g_sc_err - 96) snprintf(g_sc_err + n, sizeof g_sc_err - n, "%s bar %d: %s %d %d\n", what, bar, msg, a, b);
+}
+static int sc_note(const char **pc) {
+    static const int8_t PCL[7] = { 9, 11, 0, 2, 4, 5, 7 };      /* a b c d e f g */
+    const char *c = *pc;
+    if (*c < 'a' || *c > 'g') return -1;
+    int m = PCL[*c - 'a'];
+    for (c++; *c == '#' || *c == 'b'; c++) m += *c == '#' ? 1 : -1;
+    if (*c < '0' || *c > '9') return -1;
+    m += (*c - '0' + 1) * 12;
+    *pc = c + 1;
+    return m;
+}
+/* one part's score into events; the bars it has */
+static int sc_parse(const char *src, int blen, Ev **out, uint16_t *nout, const char *what) {
+    Ev *e0 = &g_evpool[g_evn], *last = NULL;
+    int n = 0, pos = 0, bar0 = 0, bars = 0, len = blen / 4;
+    const char *c = src;
+    while (*c) {
+        if (*c == ' ' || *c == '\n' || *c == '\t') { c++; continue; }
+        if (*c == '|') {
+            if (pos - bar0 != blen) sc_fault(what, bars + 1, "steps, not", pos - bar0, blen);
+            bars++; bar0 = pos; c++;
+            continue;
+        }
+        int fx = 0, rest = 0, ext = 0;
+        for (;; c++) {
+            if (*c == '!') fx |= FX_ACC; else if (*c == '.') fx |= FX_GHOST; else if (*c == '\'') fx |= FX_STAC;
+            else if (*c == '^') fx |= FX_SLIDE; else if (*c == '<') fx |= FX_SCOOP; else if (*c == '*') fx |= FX_FALL;
+            else if (*c == '+') fx |= FX_ALT; else if (*c == '=') fx |= FX_RING; else break;
+        }
+        Ev e; memset(&e, 0, sizeof e);
+        if (*c == '[') {
+            for (c++; *c && *c != ']';) {
+                if (*c == ' ') { c++; continue; }
+                int m = sc_note(&c);
+                if (m < 0) { sc_fault(what, bars + 1, "not a note in a chord at", (int)(c - src), 0); c++; continue; }
+                if (e.n < EV_N) e.nt[e.n++] = (uint8_t)m;
+            }
+            if (*c == ']') c++;
+        } else if (*c == 'r') { rest = 1; c++; }
+        else if (*c == '-') { ext = 1; c++; }
+        else {
+            int m = sc_note(&c);
+            if (m < 0) { sc_fault(what, bars + 1, "not a note at", (int)(c - src), 0); c++; continue; }
+            e.nt[e.n++] = (uint8_t)m;
+        }
+        if (*c == '/') { char *end; len = (int)strtol(c + 1, &end, 10); c = end; }
+        if (ext) { if (last) last->len = (uint16_t)(last->len + len); pos += len; continue; }
+        if (!rest && g_evn + n < EVPOOL) {
+            e.at = (uint16_t)pos; e.len = (uint16_t)len; e.fx = (uint8_t)fx;
+            e0[n++] = e; last = &e0[n - 1];
+        } else last = NULL;
+        pos += len;
+    }
+    if (pos != bar0) sc_fault(what, bars + 1, "ends mid-bar after steps", pos - bar0, blen);
+    g_evn += n; *out = e0; *nout = (uint16_t)n;
+    return bars;
+}
+
+static const ScSec *g_S, *g_S_next;        /* the section playing, and the one after it */
+static int g_abs, g_blen;                  /* the step in it, and a bar's steps */
+
+/* a note of a part, as its marks say */
+static Voice *sc_voice(int pat, int midi, float vel, float pan, int steps, int fx) {
+    if (fx & FX_ACC) vel *= 1.3f;
+    if (fx & FX_GHOST) vel *= 0.55f;
+    if (fx & FX_STAC) steps = steps > 1 ? steps / 2 : 1;
+    if (fx & FX_RING) steps *= 2;
+    Voice *v = pv(pat, midi, vel, pan, steps);
+    if (v && (fx & (FX_SLIDE | FX_SCOOP | FX_FALL))) {
+        v->bend = fx & FX_SLIDE ? -1.0f : fx & FX_SCOOP ? -2.0f : 2.0f;
+        v->bend_rate = fx & FX_SLIDE ? 1.0f / 0.07f : fx & FX_SCOOP ? 2.0f / 0.16f : -2.0f / 0.05f;
+        v->bend_end = 0.0f; v->glide = 1;
+    }
+    return v;
+}
+/* the events of a part that begin now, on pat (alt for those marked +), a chord's notes spread across the field
+ * by spread and rolled upwards roll samples apart; tr semitones; dbl, a second voice that much sharp, quieter */
+static int sc_play_ex(int part, int pat, int alt, float vel, float pan, int tr, float spread, int roll, float dbl) {
+    const ScSec *S = g_S;
+    int k = 0;
+    if (!S || !S->ev[part]) return 0;
+    for (int i = 0; i < S->nev[part]; i++) {
+        const Ev *e = &S->ev[part][i];
+        if (e->at < g_abs) continue;
+        if (e->at > g_abs) break;
+        int p = (e->fx & FX_ALT) ? alt : pat;
+        for (int j = 0; j < e->n; j++) {
+            float pn = e->n > 1 ? pan + spread * ((float)j / (float)(e->n - 1) - 0.5f) : pan;
+            int m = e->nt[j] + tr;
+            if (roll && j) {
+                if (g_alive[g_vbus] && !((g_patmute >> p) & 1))
+                    sched_v(roll * j, p, m, vel * (e->fx & FX_ACC ? 1.3f : e->fx & FX_GHOST ? 0.55f : 1.0f), pn, e->len * g_psps - g_psps / 4 - roll * j, 0.0f, 0.0f);
+            } else {
+                Voice *v = sc_voice(p, m, vel, pn, e->len, e->fx);
+                if (v && dbl > 0.0f) { Voice *w = sc_voice(p, m, vel * 0.55f, 1.0f - pn, e->len, e->fx); if (w) w->freq *= 1.0f + dbl; }
+            }
+        }
+        k++;
+    }
+    return k;
+}
+static int sc_play(int part, int pat, float vel, float pan, int tr) { return sc_play_ex(part, pat, pat, vel, pan, tr, 0.3f, 0, 0.0f); }
+/* the event of a part sounding at step a of section S (the chord there), or NULL */
+static const Ev *sc_at(const ScSec *S, int part, int a) {
+    if (!S || !S->ev[part]) return NULL;
+    for (int i = 0; i < S->nev[part]; i++) {
+        const Ev *e = &S->ev[part][i];
+        if (e->at <= a && a < e->at + e->len) return e;
+        if (e->at > a) break;
+    }
+    return NULL;
+}
+static const Ev *sc_now(int part) { return sc_at(g_S, part, g_abs); }
+static int sc_starts(int part) { const Ev *e = sc_now(part); return e && e->at == g_abs; }
+/* the chord after this one: later in the section, or the next section's first */
+static const Ev *sc_after(int part) {
+    const Ev *e = sc_now(part);
+    if (e && e->at + e->len < g_S->bars * g_blen) return sc_at(g_S, part, e->at + e->len);
+    return g_S_next ? sc_at(g_S_next, part, 0) : NULL;
+}
+/* a chord strummed: each string a few milliseconds after the last, down (low to high) or up */
+static void sc_strum(const Ev *e, int pat, float vel, float pan, int steps, int up, int ms, int tr) {
+    if (!e || !g_alive[g_vbus] || ((g_patmute >> pat) & 1)) return;
+    int gap = ms * SND_RATE / 1000, gate = steps * g_psps - g_psps / 4;
+    for (int j = 0; j < e->n; j++) {
+        int k = up ? e->n - 1 - j : j;
+        float pn = pan + 0.3f * ((float)k / (float)(e->n > 1 ? e->n - 1 : 1) - 0.5f);
+        float vv = vel * (up ? 0.75f : 1.0f) * (j == 0 ? 1.0f : 0.9f + 0.1f * mrnd());
+        if (j == 0) pv(pat, e->nt[k] + tr, vv, pn, steps);
+        else sched_v(gap * j, pat, e->nt[k] + tr, vv, pn, gate - gap * j, 0.0f, 0.0f);
+    }
+}
+/* a drum of the piece's, at a pitch */
+static void pdf(int type, float dur, float gain, float pan, float rev, float f0) {
+    if (!g_alive[g_vbus] || ((g_patmute >> 63) & 1)) return;
+    Sfx *x = sfx_start(type, dur, gain, pan, rev);
+    x->f0 = f0;
+}
+/* a musette: two reeds a few cents apart */
+static void sc_musette(int part, int pat, float vel, float pan, int tr, float cents) {
+    sc_play_ex(part, pat, pat, vel, pan, tr, 0.35f, 0, cents / 1731.0f);
+}
 
 /* Run I, the Order's crypts: D minor, 66, organ and a low choir, a bell; the march's phrase as chant, a brass
  * chorale, and the crypt itself, a drone with E-flat leaning on D. */
@@ -1953,6 +2312,444 @@ static void menu_step(const MSec *S, int bar, int s) {
     ptune(S, bar, s, MP[v], MP[v], v == 3 ? 0.55f : 0.75f, TT[v], v >= 2);
 }
 
+/* ---- her hall's candidates (docs/PLAN-music2.md): five pieces for the owner to choose between ---- */
+
+/* Shared by the candidates: a chord's notes taken in turn, up and down, one every so many steps */
+static void sc_arp(const Ev *e, const int8_t *pat, int npat, int every, int pt, float vel, float pan, int tr, int len) {
+    if (!e || !e->n || g_abs % every) return;
+    int i = pat[(g_abs / every) % npat], o = 0;
+    while (i >= e->n) { i -= e->n; o += 12; }
+    pv(pt, e->nt[i] + o + tr, vel * (0.9f + 0.2f * mrnd()), pan + 0.25f * ((float)i / (float)(e->n > 1 ? e->n - 1 : 1) - 0.5f), len);
+}
+
+/* 1. The habanera, grown: A minor, 92, a bar of 48 steps (twelve a beat, for the triplets). A habanera on
+ * pizzicato over an A pedal while the chords slide down from A to F-sharp inside it; a gut-strung guitar
+ * strumming the off-beats, a bandoneon breathing (the chip's tremolo) in two reeds a few cents apart, the flute
+ * sliding up to its notes, a clarinet under it; castanets and hands. The B part goes round the circle of fifths
+ * on the clarinet to a stop; then her purr, the Andalusian cadence, a music box over a harp of a guitar. */
+#define HB_A "a2/9 e2/3 a2/6 c3/6 a2/9 e2/3 a2/6 e3/6 |"
+#define HB_F "f2/9 c2/3 f2/6 a2/6 f2/9 c2/3 f2/6 c3/6 |"
+#define HB_E "e2/9 b1/3 e2/6 g#2/6 e2/9 b1/3 e2/6 b2/6 |"
+#define HB_D "d2/9 a1/3 d2/6 f2/6 d2/9 a1/3 d2/6 a2/6 |"
+#define HB_G "g2/9 d2/3 g2/6 b2/6 g2/9 d2/3 g2/6 d3/6 |"
+#define HB_C "c3/9 g2/3 c3/6 e3/6 c3/9 g2/3 c3/6 g2/6 |"
+#define HB_B "b1/9 f2/3 b1/6 d2/6 b1/9 f2/3 b1/6 f2/6 |"
+#define S1_ACH "[c4 e4 a4]/48 | [c4 e4 g#4]/48 | [c4 e4 g4]/48 | [c4 e4 f#4]/48 | [c4 e4 a4]/48 | [d4 f4 g#4 b4]/48 | [c4 e4 a4]/48 | [d4 g#4 b4]/48 |"
+#define S1_ABA HB_A HB_A HB_A HB_A HB_F HB_E HB_A HB_E
+#define S1_AME "^e5/18 d#5/6 e5/12 c5/12 | e5/18 d#5/6 e5/12 b4/12 | e5/18 d#5/6 e5/12 g5/12 | f#5/18 e5/6 d5/12 c5/12 |" \
+               "a4/9 b4/3 c5/6 e5/6 a5/24 | *g#5/18 f5/6 e5/12 d5/12 | c5/9 b4/3 a4/6 e4/6 a4/12 c5/12 | b4/6 c5/6 b4/6 a4/6 g#4/24 |"
+#define S1_ACO "c4/36 a3/12 | e4/36 c4/12 | a3/24 c4/12 d4/12 | e4/36 d4/12 | c4/24 e4/24 | d4/24 b3/24 | c4/12 e4/12 a4/24 |" \
+               "g#4/12 f4/12 d4/12 b3/12 |"
+#define S1_BCH "[c4 f4 a4]/48 | [b3 f4 g4]/48 | [b3 e4 g4]/48 | [c4 e4 a4]/48 | [a3 d4 f4]/48 | [g#3 d4 f4]/48 | [a3 c4 e4]/48 | [g#3 d4 e4]/12 r/36 |"
+#define S1_BBA HB_D HB_G HB_C HB_F HB_B HB_E HB_A "e2/12 r/36 |"
+#define S1_BME "a4/12 f4/12 c5/18 bb4/6 | b4/18 a4/6 g4/12 f4/12 | e4/24 g4/12 b4/12 | a4/36 r/12 | d5/18 c5/6 b4/12 a4/12 |" \
+               "g#4/24 b4/12 d5/12 | c5/18 b4/6 a4/12 e4/12 | !e5/12 r/36 |"
+#define S1_BX1 "r/48 | r/48 | r/48 | r/24 a5/6 g5/6 f5/6 e5/6 | r/48 | r/48 | r/36 e5/6 g#5/6 | r/12 b5/6 a5/6 g#5/6 f5/6 e5/6 d5/6 |"
+static ScSec SC_SHOP1[] = {
+    SECT(0, "[c4 e4 a4]/48 | [c4 e4 a4]/48 | [c4 e4 a4]/48 | [d4 g#4 b4]/48 |", HB_A HB_A HB_A HB_E, NULL,
+        "r/24 e4/9 d#4/3 e4/12 | r/24 e4/9 f4/3 e4/12 | r/24 a4/9 g#4/3 a4/6 c5/6 | b4/24 g#4/24 |"),
+    SECT(10, S1_ACH, S1_ABA, S1_AME, S1_ACO),
+    SECT(11, S1_ACH, S1_ABA, S1_AME, S1_ACO),
+    SECT(20, S1_BCH, S1_BBA, S1_BME, NULL, S1_BX1),
+    SECT(12, S1_ACH, S1_ABA, S1_AME, S1_ACO),
+    SECT(30, "[a3 c4 e4]/48 | [g3 b3 d4]/48 | [f3 a3 c4]/48 | [e3 g#3 b3]/48 | [a3 c4 e4]/48 | [g3 b3 d4]/48 | [f3 a3 c4]/48 | [e3 g#3 b3 d4]/48 |",
+        "a2/36 e2/12 | g2/36 d2/12 | f2/36 c2/12 | e2/36 b1/12 | a2/36 e2/12 | g2/36 d2/12 | f2/36 c2/12 | e2/36 b1/12 |",
+        "e6/6 c6/6 a5/6 c6/6 e6/12 a5/12 | d6/6 b5/6 g5/6 b5/6 d6/12 g5/12 | c6/6 a5/6 f5/6 a5/6 c6/12 f5/12 | b5/12 g#5/12 e5/24 |"
+        "a5/18 g#5/6 a5/12 c6/12 | b5/18 a5/6 g5/12 d5/12 | a5/18 g5/6 f5/12 c5/12 | b5/12 g#5/12 d6/12 b5/12 |",
+        "c4/48 | b3/48 | a3/48 | g#3/48 | e4/24 c4/24 | d4/24 b3/24 | c4/24 a3/24 | b3/24 g#3/24 |"),
+    SECT(21, S1_BCH, S1_BBA, S1_BME, NULL, S1_BX1),
+    SECT(13, S1_ACH, S1_ABA, S1_AME, S1_ACO),
+    SECT(40, "[a3 d4 f4]/24 [g#3 d4 e4]/24 | [g#3 d4 e4 b4]/12 r/36 |",
+        "b1/9 f2/3 b1/6 d2/6 e2/9 b1/3 e2/6 g#2/6 | e2/12 r/36 |",
+        "r/24 e5/6 f5/6 g#5/6 a5/6 | b5/12 r/12 d6/6 c6/6 b5/6 g#5/6 |"),
+};
+static const uint8_t ORD_SHOP1[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+
+static void shop1_step(const ScSec *S, int bar, int s) {
+    static const int8_t ARP[8] = { 0, 1, 2, 3, 2, 1, 2, 1 };
+    int kind = S->var / 10, vv = S->var % 10, back = g_place == 2;
+    int full = (kind == 1 && (vv == 1 || vv == 3)) || (kind == 2 && vv == 1);
+    const Ev *ch = sc_now(PT_CH);
+    /* the bass: pizzicato, with a plucked low string under its strong notes */
+    sc_play(PT_BA, PAT_PIZZ, back ? 0.5f : kind == 3 ? 0.7f : 0.95f, 0.48f, 0);
+    if (!back && kind != 3 && s % 24 == 0) sc_play(PT_BA, PAT_BASS, 0.32f, 0.5f, 0);
+    if (back) {                                                    /* her back rooms: the bass and the music box */
+        g_vlayer = LY_COLOUR;
+        sc_play(PT_ME, PAT_MBOX, 0.5f, 0.5f, kind == 2 ? 12 : 0);
+        return;
+    }
+    /* the guitar: strums on the off-beats, a harp's arpeggio in her purr */
+    if (kind == 3) sc_arp(ch, ARP, 8, 6, PAT_GUIT, 0.75f, 0.4f, 0, 10);
+    else if (ch) {
+        if (s == 12 || s == 36) sc_strum(ch, PAT_GUIT, kind == 0 ? 0.65f : 0.85f, 0.38f, 6, 0, 11, 0);
+        if (full && (s == 18 || s == 42)) sc_strum(ch, PAT_GUIT, 0.55f, 0.38f, 5, 1, 7, 0);
+        if (kind == 1 && bar == 7 && s == 42) { sc_strum(ch, PAT_GUIT, 0.7f, 0.38f, 3, 1, 5, 0); }
+    }
+    /* the bandoneon's chords (in A2 it takes the tune and strings hold the chords) */
+    if (((kind == 1 && vv != 0 && vv != 2) || kind == 2) && sc_starts(PT_CH)) sc_musette(PT_CH, PAT_REED, 0.62f, 0.62f, 0, 9.0f);
+    if (((kind == 1 && vv >= 2) || (kind == 2 && vv == 1) || kind == 3) && sc_starts(PT_CH))
+        sc_play_ex(PT_CH, PAT_STRPAD, PAT_STRPAD, kind == 3 ? 0.55f : 0.7f, 0.5f, -12 + (kind == 3 ? 12 : 0), 0.5f, 0, 0.004f);
+    g_vlayer = LY_COLOUR;
+    switch (kind) {
+    case 0: sc_musette(PT_CO, PAT_REED, 1.0f, 0.4f, 0, 8.0f); break;
+    case 1:
+        if (vv == 2) { sc_musette(PT_ME, PAT_REED, 1.25f, 0.55f, 0, 8.0f); sc_play(PT_CO, PAT_FLUTE, 0.45f, 0.35f, 12); }
+        else {
+            sc_play(PT_ME, PAT_FLUTE, 0.9f, 0.56f, 0);
+            if (vv) sc_play(PT_CO, PAT_CLAR, 0.7f, 0.36f, 0);
+            if (vv == 3) sc_play(PT_ME, PAT_MBOX, 0.3f, 0.7f, 12);
+        }
+        break;
+    case 2:
+        if (vv) { sc_play(PT_ME, PAT_VIOLIN, 0.8f, 0.58f, 12); sc_play(PT_ME, PAT_CLAR, 0.55f, 0.4f, 0); }
+        else sc_play(PT_ME, PAT_CLAR, 0.95f, 0.45f, 0);
+        sc_play(PT_X1, PAT_FLUTE, 0.7f, 0.66f, 0);
+        break;
+    case 3: sc_play(PT_ME, PAT_MBOX, 0.8f, 0.6f, 0); sc_play(PT_CO, PAT_VIOLIN, 0.5f, 0.35f, 0); break;
+    case 4: sc_play(PT_ME, PAT_FLUTE, 0.9f, 0.56f, 0); break;
+    }
+    g_vlayer = LY_BASE;
+    /* castanets, hands, the chip's tom and drum */
+    int stop = (kind == 2 && bar == 7) || (kind == 4 && bar == 1);
+    if (stop) { if (s == 12 || s == 24 || s == 36) pdf(X_CAST, 0.2f, 0.45f, 0.7f, 0.25f, 3.0f); }
+    else if (kind != 3 && (kind != 0 || bar >= 2)) {
+        if (s == 9 || s == 33) pdf(X_CAST, 0.1f, kind == 0 ? 0.3f : 0.38f, 0.68f, 0.2f, 1.0f);
+        if (full && s == 42 && (bar & 1)) pdf(X_CAST, 0.2f, 0.35f, 0.68f, 0.2f, 3.0f);
+    }
+    if (full && !stop && (s == 12 || s == 36)) pdf(X_CLAP, 0.3f, 0.3f, 0.3f, 0.3f, 0.0f);
+    if ((kind == 1 && vv >= 2) || (kind == 2 && vv == 1)) {
+        if (s == 0 && !stop) pdf(X_OTT, 0.5f, 0.35f, 0.45f, 0.3f, 98.0f);
+        if (vv == 3 && (s == 0 || s == 24)) pdf(X_OBD, 0.35f, 0.4f, 0.5f, 0.05f, 0.0f);
+    }
+    if (kind == 3 && (bar == 3 || bar == 7) && s == 0) pdf(X_CAST, 0.2f, 0.25f, 0.7f, 0.3f, 3.0f);
+    if (bar == 0 && s == 0 && kind == 1 && vv == 3) pdf(X_OCY, 1.6f, 0.3f, 0.6f, 0.3f, 0.0f);
+}
+
+/* a voice that runs through a chord's notes faster than a hand could: the tracker's arpeggio, an AdLib's chords on one channel */
+static Voice *sc_arpvoice(const Ev *e, int pat, float vel, float pan, int tr, float hz, int steps) {
+    if (!e || !e->n) return NULL;
+    Voice *v = pv(pat, e->nt[0] + tr, vel, pan, steps);
+    if (!v) return NULL;
+    v->narp = e->n > 4 ? 4 : e->n;
+    for (int i = 0; i < v->narp; i++) v->arp[i] = (int8_t)(e->nt[i] - e->nt[0]);
+    v->arp_hz = hz;
+    return v;
+}
+
+/* 2. The clockwork waltz: C minor, 138, three beats of four steps. A curiosity shop's clocks ticking and tocking
+ * on woodblocks; a music box with a celesta over it, the oom-pah-pah of pizzicato and a harp; the B part in
+ * E-flat on a violin, its minor fourth (A-flat minor) turning the light; then the clocks run down in A-flat,
+ * a glass harmonica singing over an AdLib's arpeggio shimmering on one voice, and back. */
+#define S2_ACH "[g3 c4 eb4]/12 | [f3 b3 d4]/12 | [ab3 c4 eb4]/12 | [f3 b3 d4]/12 | [ab3 c4 f4]/12 | [g3 c4 eb4]/12 | [ab3 c4 f4]/12 | [f3 b3 d4]/12 |" \
+               "[g3 c4 eb4]/12 | [f3 b3 d4]/12 | [ab3 c4 eb4]/12 | [ab3 db4 f4]/12 | [g3 c4 eb4]/12 | [f3 b3 d4]/12 | [g3 c4 eb4]/8 [f3 b3 d4]/4 | [g3 c4 eb4]/12 |"
+#define S2_ABA "c3/12 | g2/12 | ab2/12 | g2/12 | f2/12 | c3/12 | d3/12 | g2/12 | c3/12 | g2/12 | ab2/12 | db3/12 | g2/12 | g2/12 | c3/8 g2/4 | c3/12 |"
+#define S2_AME "g5/8 c6/4 | b5/4 c6/4 d6/4 | eb6/8 c6/4 | b5/8 g5/4 | ab5/8 c6/4 | g5/4 eb5/2 d5/2 c5/4 | f5/8 ab5/4 | g5/12 |" \
+               "g5/8 c6/4 | b5/4 c6/4 d6/4 | eb6/4 d6/2 c6/2 ab5/4 | f5/4 ab5/4 db6/4 | c6/8 g5/4 | d6/4 b5/4 f5/4 | eb5/8 d5/4 | c5/12 |"
+#define S2_ACO "c4/8 eb4/4 | g4/12 | ab4/8 eb4/4 | f4/12 | c4/12 | eb4/12 | d4/8 f4/4 | b3/12 |" \
+               "c4/8 eb4/4 | g4/12 | c4/12 | db4/8 f4/4 | eb4/12 | d4/8 f4/4 | g3/4 c4/4 b3/4 | c4/12 |"
+#define S2_BCH "[g3 bb3 eb4]/12 | [g3 bb3 eb4]/12 | [f3 ab3 d4]/12 | [f3 ab3 d4]/12 | [ab3 c4 eb4]/12 | [f3 ab3 d4]/12 | [g3 bb3 eb4]/12 | [g3 bb3 eb4]/12 |" \
+               "[ab3 c4 eb4]/12 | [ab3 b3 eb4]/12 | [g3 bb3 eb4]/12 | [g3 bb3 e4]/12 | [ab3 c4 eb4]/12 | [f3 ab3 d4]/12 | [g3 bb3 eb4]/12 | [f3 b3 d4]/12 |"
+#define S2_BBA "eb3/12 | bb2/12 | bb2/12 | f2/12 | f2/12 | bb2/12 | eb3/12 | bb2/12 | ab2/12 | ab2/12 | g2/12 | c3/12 | f2/12 | bb2/12 | eb3/12 | g2/12 |"
+#define S2_BME "bb4/8 eb5/4 | g5/12 | f5/4 g5/4 ab5/4 | bb5/8 ab5/4 | ab5/4 f5/4 c5/4 | d5/4 f5/4 ab5/4 | g5/12 | r/4 bb4/4 eb5/4 |" \
+               "c6/8 ab5/4 | b5/8 ab5/4 | bb5/8 g5/4 | bb5/4 g5/4 e5/4 | f5/8 ab5/4 | d6/4 c6/4 ab5/4 | g5/8 eb5/4 | d5/4 f5/4 b5/4 |"
+#define S2_BCO "g4/12 | bb4/12 | f4/12 | ab4/12 | eb4/12 | d4/12 | eb4/12 | g4/12 | eb4/12 | eb4/12 | eb4/12 | e4/12 | f4/12 | d4/12 | eb4/12 | d4/12 |"
+static ScSec SC_SHOP2[] = {
+    SECT(0, "[g3 c4 eb4]/12 | [g3 c4 eb4]/12 | [f3 b3 d4]/12 | [f3 b3 d4]/12 |", "c3/12 | c3/12 | g2/12 | g2/12 |",
+        "r/12 | r/12 | g4/2 b4/2 d5/2 f5/2 g5/2 b5/2 | d6/2 f6/2 g6/8 |"),
+    SECT(10, S2_ACH, S2_ABA, S2_AME, S2_ACO),
+    SECT(20, S2_BCH, S2_BBA, S2_BME, S2_BCO),
+    SECT(11, S2_ACH, S2_ABA, S2_AME, S2_ACO),
+    SECT(30, "[ab3 c4 eb4 g4]/12 | [ab3 c4 eb4 g4]/12 | [ab3 c4 db4 f4]/12 | [ab3 c4 db4 f4]/12 | [ab3 c4 eb4 g4]/12 | [ab3 c4 eb4]/12 |"
+             "[ab3 db4 f4]/12 | [g3 bb3 db4 f4]/12 | [ab3 c4 eb4 g4]/12 | [ab3 c4 eb4 g4]/12 | [ab3 c4 db4 f4]/12 | [ab3 b3 d4 f4]/12 |"
+             "[g3 c4 eb4]/12 | [ab3 c4 f4]/12 | [ab3 c4 eb4 f4]/12 | [ab3 bb3 d4 f4]/12 |",
+        "ab2/12 | ab2/12 | db3/12 | db3/12 | f2/12 | f2/12 | bb2/12 | eb2/12 | ab2/12 | ab2/12 | db3/12 | b2/12 | g2/12 | f2/12 | f2/12 | bb2/12 |",
+        "c5/12 | eb5/8 g5/4 | f5/12 | ab5/8 c6/4 | g5/12 | ab5/8 f5/4 | f5/8 db5/4 | g5/4 eb5/4 db5/4 |"
+        "c5/12 | eb5/8 g5/4 | f5/8 ab5/4 | d5/4 f5/4 ab5/4 | g5/12 | f5/12 | c5/4 eb5/4 ab5/4 | ab5/8 f5/2 d5/2 |"),
+    SECT(21, S2_BCH, S2_BBA, S2_BME, S2_BCO),
+    SECT(12, S2_ACH, S2_ABA, S2_AME, S2_ACO),
+    SECT(40, "[g3 c4 eb4]/12 | [ab3 c4 eb4]/12 | [f3 b3 d4]/12 | [g3 c4 eb4]/12 |", "c3/12 | ab2/12 | g2/12 | c3/12 |",
+        "g6/2 eb6/2 c6/2 g5/2 eb5/2 c5/2 | ab5/2 eb5/2 c5/2 ab4/2 eb4/2 c4/2 | b4/4 d5/4 f5/4 | c5/12 |"),
+};
+static const uint8_t ORD_SHOP2[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+
+static void shop2_step(const ScSec *S, int bar, int s) {
+    int kind = S->var / 10, vv = S->var % 10, back = g_place == 2;
+    const Ev *ch = sc_now(PT_CH);
+    /* the oom: pizzicato and a low string; in the clocks' running down, a long low note */
+    if (kind == 3) { if (s == 0) sc_play(PT_BA, PAT_STRINGS, 0.5f, 0.5f, 0); }
+    else if (kind != 0 || bar >= 2) {
+        sc_play(PT_BA, PAT_PIZZ, back ? 0.5f : 0.95f, 0.47f, 0);
+        if (!back) sc_play(PT_BA, PAT_BASS, 0.42f, 0.5f, -12);
+    }
+    if (back) { g_vlayer = LY_COLOUR; sc_play(PT_ME, PAT_MBOX, 0.5f, 0.5f, kind == 2 ? 0 : -12); return; }
+    /* the clocks: tick and tock a beat, the whole shop's; one a bar while they run down */
+    {
+        int b = bar * 3 + s / 4, beat = s % 4 == 0;
+        if (beat && (kind != 3 || s == 0)) pv(PAT_WOOD, (b & 1) ? 79 : 84, kind == 0 ? 0.7f : kind == 3 ? 0.35f : 0.5f, (b & 1) ? 0.3f : 0.72f, 1);
+        if (kind == 1 && vv == 2 && s == 10) pv(PAT_WOOD, 91, 0.3f, 0.8f, 1);      /* a small clock's quicker tick */
+    }
+    /* the pah-pah: a harp, or pizzicato chords in the violin's part */
+    if (ch && (kind != 0 || bar >= 2) && kind != 3 && (s == 4 || s == 8)) {
+        if (kind == 2) sc_strum(ch, PAT_PIZZ, s == 4 ? 0.42f : 0.34f, 0.55f, 3, 0, 4, 0);
+        else sc_strum(ch, PAT_CHARP, s == 4 ? 0.5f : 0.4f, 0.58f, 3, 0, 6, 12);
+    }
+    if (sc_starts(PT_CH) && (kind == 2 || kind == 3 || (kind == 1 && vv == 2)))
+        sc_play_ex(PT_CH, PAT_STRPAD, PAT_STRPAD, kind == 3 ? 0.6f : 0.5f, 0.5f, 0, 0.5f, 0, 0.004f);
+    if (kind == 3 && sc_starts(PT_CH)) sc_arpvoice(ch, PAT_ORGAN, 0.45f, 0.65f, 24, 28.0f, 12);   /* the shimmer */
+    g_vlayer = LY_COLOUR;
+    switch (kind) {
+    case 0: sc_play(PT_ME, PAT_MBOX, 0.8f, 0.5f, 0); break;
+    case 1:
+        sc_play(PT_ME, PAT_MBOX, vv ? 0.55f : 0.85f, 0.55f, 0);
+        if (vv == 0) sc_play(PT_ME, PAT_CELESTA, 0.32f, 0.72f, 12);
+        if (vv) { sc_play(PT_ME, PAT_VIOLIN, 0.75f, 0.45f, -12); sc_play(PT_CO, PAT_CLAR, 0.6f, 0.35f, 0); }
+        if (vv == 2) sc_play(PT_CO, PAT_FLUTE, 0.35f, 0.7f, 12);
+        break;
+    case 2:
+        if (vv) { sc_play(PT_ME, PAT_FLUTE, 0.85f, 0.56f, 0); sc_play(PT_ME, PAT_CLAR, 0.45f, 0.4f, -12); }
+        else { sc_play(PT_ME, PAT_VIOLIN, 0.85f, 0.56f, 0); sc_play(PT_CO, PAT_CLAR, 0.6f, 0.38f, 0); }
+        break;
+    case 3: sc_play(PT_ME, PAT_GLASS, 0.85f, 0.5f, 0); if (s == 0 && (bar & 3) == 3) pv(PAT_CELESTA, 96, 0.25f, 0.8f, 4); break;
+    case 4: sc_play(PT_ME, PAT_CELESTA, 0.6f, 0.6f, 0); sc_play(PT_ME, PAT_MBOX, 0.4f, 0.4f, -12); break;
+    }
+}
+
+/* 3. The alley cat: F minor, a swing at 120, three steps a beat (a swung eighth is two and one). A muted
+ * trumpet on the tune over brushes, the chip's cymbal for a ride and its hat for the foot, an electric piano
+ * comping rootless chords, and a double bass in two for the first time round, walking the second (it finds its
+ * own way to each chord: a chord tone, then a half step into the next). The second chorus gives the tune to the
+ * vibraphone with its motor on, a clarinet holding the guide tones under it, and the trumpet back for the last
+ * eight. Every chord's first note is its root, for the bass; the rest is the piano's. */
+#define S3_A6 "r/3 c5/2 eb5/1 f5/3 ab5/3 | g5/6 f5/2 c5/1 r/3 | r/2 bb4/1 db5/2 f5/1 e5/2 db5/1 bb4/3 | c5/9 r/3 |" \
+              "r/3 db5/2 f5/1 ab5/3 c6/3 | bb5/6 g5/2 f5/1 db5/3 |"
+#define S3_C6 "[f2 ab3 c4 eb4 f4]/12 | [f2 ab3 c4 eb4 g4]/12 | [g2 bb3 db4 f4]/6 [c2 bb3 db4 e4 g4]/6 | [f2 ab3 c4 eb4 g4]/12 |" \
+              "[bb1 ab3 db4 f4]/12 | [eb2 g3 db4 f4]/12 |"
+#define S3_A1CH S3_C6 "[ab1 g3 bb3 c4 eb4]/6 [db2 ab3 c4 eb4 f4]/6 | [g2 bb3 db4 f4]/6 [c2 bb3 db4 e4 g4]/6 |"
+#define S3_A1ME S3_A6 "c5/3 eb5/3 f5/2 ab5/1 c6/3 | bb5/3 ab5/2 g5/1 e5/3 db5/3 |"
+#define S3_A1CO "eb4/12 | eb4/12 | db4/6 e4/6 | eb4/12 | db4/12 | db4/12 | c4/6 c4/6 | db4/6 e4/6 |"
+#define S3_A2CH S3_C6 "[g2 bb3 db4 f4]/6 [c2 bb3 db4 e4 g4]/6 | [f2 ab3 c4 eb4 g4]/12 |"
+#define S3_A2ME S3_A6 "bb5/3 ab5/2 g5/1 e5/3 db5/3 | c5/3 f5/6 r/3 |"
+#define S3_A2CO "eb4/12 | eb4/12 | db4/6 e4/6 | eb4/12 | db4/12 | db4/12 | db4/6 e4/6 | eb4/12 |"
+#define S3_BCH "[bb1 ab3 db4 f4]/12 | [eb2 g3 bb3 db4 f4]/12 | [ab1 g3 bb3 c4 eb4]/12 | [ab1 f3 ab3 c4 eb4]/12 |" \
+               "[db2 ab3 c4 eb4 f4]/12 | [gb2 bb3 db4 e4 ab4]/12 | [f2 ab3 c4 eb4 g4]/12 | [g2 bb3 db4 f4]/6 [c2 bb3 db4 e4 g4]/6 |"
+#define S3_BME "f5/6 db5/3 c5/3 | r/3 bb4/2 db5/1 f5/3 g5/3 | c6/6 bb5/3 g5/3 | ab5/9 r/3 | r/3 f5/2 ab5/1 c6/6 |" \
+               "bb5/3 ab5/2 fb5/1 db5/6 | c5/6 eb5/3 g5/3 | f5/3 db5/3 e5/3 g5/3 |"
+#define S3_BCO "db4/12 | db4/12 | c4/12 | c4/12 | c4/12 | db4/12 | eb4/12 | db4/6 e4/6 |"
+static ScSec SC_SHOP3[] = {
+    SECT(0, "[f2 ab3 c4 eb4 g4]/12 | [db2 ab3 c4 eb4 f4]/12 | [g2 bb3 db4 f4]/6 [c2 bb3 db4 e4 g4]/6 | [g2 bb3 db4 f4]/6 [c2 bb3 db4 e4 g4]/6 |",
+        NULL, "r/12 | r/12 | r/6 g4/2 bb4/1 db5/2 e5/1 | g5/3 f5/2 e5/1 db5/3 c5/3 |"),
+    SECT(10, S3_A1CH, NULL, S3_A1ME, S3_A1CO),
+    SECT(11, S3_A2CH, NULL, S3_A2ME, S3_A2CO),
+    SECT(12, S3_BCH, NULL, S3_BME, S3_BCO),
+    SECT(13, S3_A2CH, NULL, S3_A2ME, S3_A2CO),
+    SECT(20, S3_A1CH, NULL, S3_A1ME, S3_A1CO),
+    SECT(21, S3_A2CH, NULL, S3_A2ME, S3_A2CO),
+    SECT(22, S3_BCH, NULL, S3_BME, S3_BCO),
+    SECT(23, S3_A2CH, NULL, S3_A2ME, S3_A2CO),
+    SECT(30, "[db2 ab3 c4 eb4 f4]/12 | [c2 bb3 db4 e4 g4]/12 | [f2 ab3 c4 eb4 g4]/12 | [f2 ab3 c4 eb4 g4]/12 |", NULL,
+        "ab5/6 f5/3 c5/3 | db5/3 e5/3 g5/3 bb5/3 | c6/12 | r/12 |"),
+};
+static const uint8_t ORD_SHOP3[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+
+static int g_walk = 41;                   /* where the bass last stood */
+static int near_oct(int m, int to) { while (m < to - 6) m += 12; while (m > to + 6) m -= 12; return m; }
+/* the double bass: in two (root, then its fifth), or walking a beat at a time */
+static void sc_bass_jazz(int walk, int pat, float vel) {
+    const Ev *e = sc_now(PT_CH);
+    if (!e || g_abs % 3) return;
+    int root = near_oct(e->nt[0], g_walk), m = -1;
+    if (root < 31) root += 12;
+    if (root > 52) root -= 12;
+    if (g_abs == e->at) m = root;
+    else if (!walk) { if ((g_abs - e->at) % 6 == 0) m = near_oct(root + 7, g_walk); }
+    else {
+        const Ev *nx = sc_after(PT_CH);
+        if (nx && g_abs + 3 >= e->at + e->len) {                   /* the last beat: a half step into the next root */
+            int nr = near_oct(nx->nt[0], g_walk);
+            m = nr + (mrnd() < 0.6f ? -1 : 1);
+        } else {                                                   /* a chord tone a third to a fifth away */
+            int cand[8], nc = 0;
+            for (int i = 1; i < e->n && nc < 8; i++) {
+                int c = near_oct(e->nt[i], g_walk);
+                if (c != g_walk && abs(c - g_walk) <= 7 && c >= 31 && c <= 55) cand[nc++] = c;
+            }
+            m = nc ? cand[(int)(mrnd() * (float)nc) % nc] : near_oct(root + 7, g_walk);
+        }
+    }
+    if (m < 0) return;
+    while (m < 31) m += 12;
+    while (m > 55) m -= 12;
+    g_walk = m;
+    pv(pat, m, vel * (g_abs % 6 == 0 ? 1.0f : 0.85f) * (0.92f + 0.16f * mrnd()), 0.45f, walk ? 3 : 6);
+}
+/* the piano's rootless chord, the root left to the bass; an anticipation takes the chord coming */
+static void sc_comp(int pat, float vel, float pan, int steps) {
+    const Ev *e = sc_at(g_S, PT_CH, g_abs + 1);
+    if (!e) e = sc_now(PT_CH);
+    if (!e || !g_alive[g_vbus] || ((g_patmute >> pat) & 1)) return;
+    for (int j = 1; j < e->n; j++) {
+        if (j == 1) pv(pat, e->nt[j], vel, pan - 0.1f, steps);
+        else sched_v(j * 90, pat, e->nt[j], vel * (0.88f + 0.12f * mrnd()), pan - 0.1f + 0.07f * (float)j, steps * g_psps - g_psps / 4, 0.0f, 0.0f);
+    }
+}
+
+static void shop3_step(const ScSec *S, int bar, int s) {
+    static const int8_t COMP[5][2] = { { 0, 5 }, { 2, 8 }, { 3, 9 }, { 5, 11 }, { 0, 8 } };
+    static int pick;
+    int kind = S->var / 10, vv = S->var % 10, back = g_place == 2;
+    int walk = kind == 2 || kind == 3 || (kind == 1 && vv == 2);
+    sc_bass_jazz(walk, PAT_UPBASS, back ? 0.4f : 0.58f);
+    if (back) { g_vlayer = LY_COLOUR; sc_play(PT_ME, PAT_MBOX, 0.45f, 0.5f, 0); return; }
+    /* the piano: a comping figure a bar, chosen as it goes, the chord struck again where it changes */
+    if (s == 0) pick = (int)(mrnd() * 4.99f);
+    if (s == COMP[pick][0] || s == COMP[pick][1] || (s == 6 && sc_starts(PT_CH) && COMP[pick][0] != 5 && COMP[pick][1] != 5))
+        sc_comp(PAT_EPIANO, s == 0 ? 0.55f : 0.45f, 0.5f, s % 3 == 2 ? 2 : 3);
+    /* the drums: the ride (the chip's cymbal), the hat's foot on two and four, brushes, the kick feathered */
+    int ride = kind == 2 || kind == 3 || (kind == 1 && vv == 3);
+    if (ride && (s == 0 || s == 3 || s == 5 || s == 6 || s == 9 || s == 11)) pdf(X_OCY, 0.55f, (s % 3) ? 0.13f : 0.2f, 0.66f, 0.2f, 410.0f);
+    if (s == 3 || s == 9) pdf(X_OHH, 0.06f, 0.22f, 0.6f, 0.05f, 0.0f);
+    if (!ride && s % 3 == 0) pdf(X_BRUSH, 0.28f, 0.32f, 0.4f, 0.15f, 0.0f);
+    if (!ride && (s == 3 || s == 9)) pdf(X_BRUSH, 0.12f, 0.38f, 0.42f, 0.15f, 1.0f);
+    if (s % 3 == 0) pdf(X_OBD, 0.3f, 0.13f, 0.5f, 0.0f, 48.0f);
+    if (ride && s % 3 == 2 && mrnd() < 0.18f) pdf(X_OSD, 0.12f, 0.12f, 0.45f, 0.15f, 0.0f);       /* the snare's chatter */
+    if ((kind == 0 || (kind == 1 && vv == 0)) && (s == 3 || s == 9)) pdf(X_SNAP, 0.1f, 0.4f, 0.75f, 0.25f, 0.0f);
+    if (kind == 2 && vv != 3 && bar == S->bars - 1 && (s == 6 || s >= 9))   /* a fill into the next eight */
+        pdf(X_OSD, 0.15f, 0.12f + 0.03f * (float)(s - 6), 0.45f, 0.2f, 0.0f);
+    if (bar == 0 && s == 0 && kind == 2 && vv == 0) pdf(X_OCY, 1.8f, 0.3f, 0.5f, 0.3f, 300.0f);
+    if (kind == 3 && bar == 2 && s == 0) pdf(X_OCY, 2.4f, 0.32f, 0.5f, 0.35f, 300.0f);
+    g_vlayer = LY_COLOUR;
+    switch (kind) {
+    case 0: sc_play(PT_ME, PAT_MVIBES, 0.75f, 0.62f, 0); break;
+    case 1: sc_play(PT_ME, PAT_MUTE, 1.25f, 0.55f, 0); break;
+    case 2:
+        sc_play(PT_ME, PAT_MVIBES, 1.15f, 0.62f, 0);
+        sc_play(PT_CO, PAT_CLAR, 0.27f, 0.36f, 0);
+        if (vv == 3) sc_play(PT_ME, PAT_MUTE, 0.85f, 0.45f, -12);
+        break;
+    case 3: sc_play(PT_ME, PAT_MUTE, 1.2f, 0.5f, 0); sc_play(PT_ME, PAT_MVIBES, 0.7f, 0.68f, 0); break;
+    }
+}
+
+/* 4. The lament ground: G minor, 72, three beats of four steps. A passacaglia: the bass falls G, F, E-flat, D
+ * over and over on low strings and a harpsichord, and everything else is variations laid on it, each a
+ * little more: the ground alone with the harpsichord's sarabande chords and a bell; the theme on the oboe; the
+ * violin taking it with the oboe against it; the ground made chromatic (G, F-sharp, F, E, E-flat, D) under a
+ * choir, a flute and the oboe falling through suspensions; divisions, the harpsichord in running sixteenths
+ * and the ground walking; everything with the organ and timpani; then the chromatic ground again, quietly, a
+ * music box and glass for her purr. */
+#define S4_CH "[g3 bb3 d4]/12 | [f3 a3 c4]/12 | [g3 bb3 eb4]/12 | [f#3 a3 d4]/12 | [g3 bb3 d4]/12 | [f3 a3 d4]/12 | [g3 c4 eb4]/12 | [f#3 a3 d4]/12 |"
+#define S4_BA "g2/12 | f2/12 | eb2/12 | d2/12 | g2/12 | f2/12 | eb2/12 | d2/12 |"
+#define S4_ME "d5/8 c5/2 bb4/2 | a4/8 bb4/2 c5/2 | bb4/4 g4/4 eb5/4 | d5/6 c5/2 bb4/2 a4/2 | g4/4 bb4/4 d5/4 | f5/6 e5/2 d5/4 |" \
+              "eb5/6 d5/2 c5/4 | bb4/4 a4/8 |"
+#define S4_CO "bb4/8 g4/4 | c5/8 f4/4 | g4/8 bb4/4 | a4/4 f#4/4 d4/4 | bb3/8 d4/4 | a4/8 f4/4 | c4/4 eb4/4 g4/4 | g4/4 f#4/8 |"
+#define S4_CCH "[g3 bb3 d4]/12 | [f#3 a3 d4]/12 | [f3 a3 d4]/12 | [e3 g3 c4]/12 | [eb3 g3 c4]/12 | [f#3 a3 d4]/12 |" \
+               "[g3 bb3 d4]/12 | [f#3 a3 d4]/12 | [f3 a3 d4]/12 | [e3 g3 c4]/12 | [eb3 g3 c4]/12 | [f#3 a3 d4]/12 |"
+#define S4_CBA "g2/12 | f#2/12 | f2/12 | e2/12 | eb2/12 | d2/12 | g2/12 | f#2/12 | f2/12 | e2/12 | eb2/12 | d2/12 |"
+#define S4_CX1 "d5/12 | d5/12 | d5/8 c5/4 | c5/12 | c5/8 bb4/4 | bb4/4 a4/8 | g5/12 | f#5/12 | f5/8 e5/4 | e5/12 | eb5/8 d5/4 | d5/4 c#5/4 d5/4 |"
+#define S4_CX2 "bb4/12 | a4/12 | a4/12 | g4/12 | g4/12 | g4/4 f#4/8 | d5/12 | d5/12 | d5/8 c5/4 | c5/12 | c5/8 bb4/4 | a4/12 |"
+static ScSec SC_SHOP4[] = {
+    SECT(10, S4_CH, S4_BA),
+    SECT(20, S4_CH, S4_BA, S4_ME, S4_CO),
+    SECT(30, S4_CH, S4_BA, S4_ME, S4_CO),
+    SECT(40, S4_CCH, S4_CBA, NULL, NULL, S4_CX1, S4_CX2),
+    SECT(50, S4_CH, "g2/4 bb2/4 d3/4 | f2/4 a2/4 c3/4 | eb2/4 g2/4 bb2/4 | d2/4 f#2/4 a2/4 | g2/4 bb2/4 d3/4 | f2/4 a2/4 d3/4 | eb2/4 g2/4 c3/4 |"
+                 "d2/4 f#2/4 a2/4 |", S4_ME, S4_CO),
+    SECT(60, S4_CH, S4_BA, S4_ME, S4_CO),
+    SECT(70, S4_CCH, S4_CBA, NULL, NULL, S4_CX1, S4_CX2),
+};
+static const uint8_t ORD_SHOP4[] = { 0, 1, 2, 3, 4, 5, 6 };
+
+static void shop4_step(const ScSec *S, int bar, int s) {
+    static const int8_t DIV[6] = { 0, 1, 2, 3, 2, 1 };
+    int kind = S->var / 10, back = g_place == 2;
+    const Ev *ch = sc_now(PT_CH);
+    /* the ground: low strings, a harpsichord doubling it, the organ's pedal when everything plays */
+    sc_play(PT_BA, PAT_STRINGS, back ? 0.5f : kind == 7 ? 0.65f : 1.1f, 0.42f, 0);
+    if (!back && kind != 7) sc_play(PT_BA, PAT_HPSD, 0.55f, 0.55f, kind == 5 ? 0 : -12);
+    if (back) { g_vlayer = LY_COLOUR; sc_play(PT_ME, PAT_MBOX, 0.5f, 0.5f, 12); sc_play(PT_X1, PAT_MBOX, 0.5f, 0.5f, 12); return; }
+    if (kind == 6 && s == 0) sc_play(PT_BA, PAT_ORGAN, 0.6f, 0.5f, -12);
+    /* the harpsichord's chords: a sarabande, the weight on the second beat; divisions in sixteenths */
+    if (kind == 5) sc_arp(ch, DIV, 6, 1, PAT_HPSD, 0.42f, 0.6f, 12, 2);
+    else if (ch && kind != 7 && (s == 0 || s == 4)) sc_strum(ch, PAT_HPSD, s == 0 ? 0.42f : 0.55f, 0.6f, s == 0 ? 3 : 7, 0, 9, 0);
+    if (kind == 7 && ch && (s == 0 || s == 6)) sc_strum(ch, PAT_CHARP, 0.45f, 0.62f, 6, 0, 40, 12);
+    /* sustained: strings, the choir, the organ */
+    if (sc_starts(PT_CH)) {
+        if (kind == 3 || kind == 6) sc_play_ex(PT_CH, PAT_STRPAD, PAT_STRPAD, 0.55f, 0.5f, 0, 0.5f, 0, 0.004f);
+        if (kind == 4) sc_play_ex(PT_CH, PAT_VOICE, PAT_VOICE, 0.3f, 0.5f, 0, 0.6f, 0, 0.004f);
+        if (kind == 6) { sc_play_ex(PT_CH, PAT_ORGAN, PAT_ORGAN, 0.6f, 0.5f, 0, 0.4f, 0, 0.0f); sc_play_ex(PT_CH, PAT_VOICE, PAT_VOICE, 0.2f, 0.5f, 12, 0.6f, 0, 0.004f); }
+        if (kind == 7) sc_play_ex(PT_CH, PAT_STRPAD, PAT_STRPAD, 0.4f, 0.5f, 0, 0.5f, 0, 0.004f);
+    }
+    if (kind == 1 && s == 0 && (bar & 3) == 0) pv(PAT_BELL, 55, 0.4f, 0.35f, 12);     /* a bell at each ground's start */
+    if (kind == 6 && s == 0 && ((bar & 3) == 0 || (bar & 3) == 3)) pdf(X_OTT, 1.2f, 0.4f, 0.5f, 0.35f, (bar & 3) ? 73.4f : 98.0f);
+    if (kind == 6 && s == 8 && (bar & 3) == 3) pdf(X_OTT, 0.8f, 0.3f, 0.5f, 0.35f, 73.4f);
+    if (kind == 4 && bar == S->bars - 1 && s == 0) pdf(X_OTT, 1.5f, 0.35f, 0.5f, 0.4f, 73.4f);
+    g_vlayer = LY_COLOUR;
+    switch (kind) {
+    case 2: sc_play(PT_ME, PAT_OBOE, 0.9f, 0.55f, 0); break;
+    case 3: sc_play(PT_ME, PAT_VIOLIN, 0.9f, 0.58f, 0); sc_play(PT_CO, PAT_OBOE, 0.65f, 0.38f, 0); break;
+    case 4: sc_play(PT_X1, PAT_FLUTE, 0.85f, 0.62f, 0); sc_play(PT_X2, PAT_OBOE, 0.7f, 0.38f, 0); break;
+    case 5: sc_play(PT_ME, PAT_ORGAN, 0.9f, 0.45f, 12); sc_play(PT_CO, PAT_CLAR, 0.5f, 0.35f, 0); break;
+    case 6: sc_play(PT_ME, PAT_VIOLIN, 0.95f, 0.58f, 0); sc_play(PT_ME, PAT_FLUTE, 0.4f, 0.7f, 12); sc_play(PT_CO, PAT_OBOE, 0.7f, 0.38f, 0); break;
+    case 7: sc_play(PT_X1, PAT_MBOX, 0.7f, 0.6f, 12); sc_play(PT_X2, PAT_GLASS, 0.6f, 0.4f, 0); break;
+    }
+}
+
+/* 5. The midnight nocturne: D-flat major, 66, sixteen steps a bar. The shop after closing: a concert harp
+ * rolling its chords, slow and wide (major sevenths, ninths, a sharp eleventh), a music box with the tune, a
+ * cello under it; then B-flat minor on glass; then the chords sliding down by whole tones, all alike, a celesta
+ * and a choir; the minor fourth at each turn (G-flat minor), and home. No drums: a finger cymbal now and then. */
+#define S5_ACH "[f3 ab3 c4 eb4]/16 | [bb3 db4 f4]/16 | [gb3 bb3 db4]/16 | [gb3 db4 eb4]/8 [gb3 c4 eb4]/8 | [ab3 c4 eb4]/16 |" \
+               "[ab3 db4 f4]/16 | [f3 bb3 db4]/8 [eb3 a3 db4]/8 | [f3 ab3 c4 eb4]/16 |"
+#define S5_ABA "db2/16 | gb2/16 | eb2/16 | ab1/16 | f2/16 | bb1/16 | gb2/16 | db2/16 |"
+#define S5_AME "f5/6 eb5/2 ab5/8 | c6/12 bb5/4 | gb5/6 f5/2 db5/8 | eb5/8 c5/8 | ab5/6 g5/2 f5/8 | db6/8 c6/4 bb5/4 | bb5/8 a5/8 | ab5/16 |"
+#define S5_ACO "f3/8 ab3/8 | bb3/16 | gb3/8 bb3/8 | db4/8 c4/8 | ab3/8 c4/8 | db4/8 f3/8 | db4/16 | c4/16 |"
+static ScSec SC_SHOP5[] = {
+    SECT(0, "[f3 ab3 c4 eb4]/16 | [gb3 db4 eb4 f4]/16 |", "db2/16 | ab1/16 |"),
+    SECT(10, S5_ACH, S5_ABA, S5_AME, S5_ACO),
+    SECT(11, S5_ACH, S5_ABA, S5_AME, S5_ACO),
+    SECT(20, "[ab3 db4 f4]/16 | [f3 bb3 db4]/16 | [gb3 bb3 db4]/16 | [eb3 a3 c4 gb4]/16 | [ab3 db4 f4]/16 | [f3 bb3 db4]/16 |"
+             "[gb3 bb3 db4]/16 | [gb3 db4 eb4]/12 [gb3 c4 eb4]/4 |",
+        "bb1/16 | gb2/16 | eb2/16 | f2/16 | bb1/16 | gb2/16 | eb2/16 | ab1/16 |",
+        "db5/6 c5/2 f5/8 | f5/12 db5/4 | gb5/6 f5/2 bb4/8 | a4/6 c5/2 gb5/8 | f5/16 | c6/8 bb5/8 | gb5/8 f5/8 | eb5/8 db5/4 c5/4 |"),
+    SECT(30, "[f#3 a3 c#4 g#4]/16 | [e3 g3 b3 f#4]/16 | [d3 f3 a3 e4]/16 | [c3 eb3 g3 d4]/16 | [bb3 db4 f4 c5]/16 | [ab3 c4 eb4]/16 |"
+             "[gb3 bb3 db4]/16 | [gb3 c4 f4]/16 |",
+        "d2/16 | c2/16 | bb1/16 | ab1/16 | gb2/16 | f2/16 | eb2/16 | ab1/16 |",
+        "g#5/4 f#5/4 c#6/8 | f#5/4 e5/4 b5/8 | e5/4 d5/4 a5/8 | d5/4 c5/4 g5/8 | bb4/4 c5/4 f5/8 | ab5/8 g5/8 | gb5/8 f5/8 | f5/8 eb5/4 c5/4 |"),
+    SECT(12, S5_ACH, S5_ABA, S5_AME, S5_ACO),
+    SECT(40, "[eb3 a3 db4]/16 | [f3 ab3 c4 eb4]/16 |", "gb2/16 | db2/16 |", "eb5/8 a5/8 | ab5/16 |"),
+};
+static const uint8_t ORD_SHOP5[] = { 0, 1, 2, 3, 4, 5, 6 };
+
+static void shop5_step(const ScSec *S, int bar, int s) {
+    static const int8_t UP[6] = { 0, 1, 2, 3, 2, 1 };
+    int kind = S->var / 10, vv = S->var % 10, back = g_place == 2;
+    const Ev *ch = sc_now(PT_CH);
+    /* the bass: the harp's low string, and a bow under it */
+    sc_play(PT_BA, PAT_CHARP, back ? 0.5f : 0.8f, 0.45f, 0);
+    if (!back) sc_play(PT_BA, PAT_STRINGS, 0.32f, 0.5f, 0);
+    if (back) { g_vlayer = LY_COLOUR; sc_play(PT_ME, PAT_MBOX, 0.5f, 0.5f, 0); return; }
+    /* the harp: each chord rolled up from the bass; in places an arpeggio rippling on */
+    if (sc_starts(PT_CH)) sc_play_ex(PT_CH, PAT_CHARP, PAT_CHARP, 0.55f, 0.55f, 0, 0.5f, 1900, 0.0f);
+    if ((kind == 2 || (kind == 1 && vv == 2)) && s % 2 == 0 && s) sc_arp(ch, UP, 6, 2, PAT_CHARP, 0.32f, 0.6f, 12, 3);
+    if (sc_starts(PT_CH)) {
+        if (kind == 0 || kind == 3 || kind == 4) sc_play_ex(PT_CH, PAT_VOICE, PAT_VOICE, kind == 3 ? 0.3f : 0.28f, 0.5f, 0, 0.6f, 0, 0.004f);
+        if (kind == 1 && vv) sc_play_ex(PT_CH, PAT_STRPAD, PAT_STRPAD, 0.4f, 0.5f, 0, 0.5f, 0, 0.004f);
+        if (kind == 1 && vv == 0) sc_play_ex(PT_CH, PAT_GLASS, PAT_GLASS, 0.32f, 0.5f, 12, 0.5f, 0, 0.0f);
+    }
+    if (bar == 0 && s == 0 && kind != 4) pdf(X_OCY, 2.5f, 0.1f, 0.7f, 0.5f, 900.0f);   /* a finger cymbal */
+    g_vlayer = LY_COLOUR;
+    switch (kind) {
+    case 1:
+        if (vv == 0) sc_play(PT_ME, PAT_MBOX, 0.8f, 0.55f, 0);
+        else if (vv == 1) { sc_play(PT_ME, PAT_CELESTA, 1.3f, 0.58f, 0); sc_play(PT_ME, PAT_MBOX, 0.3f, 0.7f, 12); sc_play(PT_CO, PAT_VIOLIN, 0.6f, 0.38f, 0); }
+        else { sc_play(PT_ME, PAT_MVIBES, 1.2f, 0.56f, 0); sc_play(PT_ME, PAT_MBOX, 0.3f, 0.72f, 12); sc_play(PT_CO, PAT_VIOLIN, 0.6f, 0.38f, 0); }
+        break;
+    case 2: sc_play(PT_ME, PAT_GLASS, 0.85f, 0.55f, 0); break;
+    case 3: sc_play(PT_ME, PAT_CELESTA, 1.3f, 0.6f, 0); sc_play(PT_ME, PAT_MBOX, 0.35f, 0.7f, 12); sc_play(PT_ME, PAT_VOICE, 0.3f, 0.45f, -12); break;
+    case 4: sc_play(PT_ME, PAT_MBOX, 0.75f, 0.55f, 0); break;
+    }
+}
+
 static const Piece PIECES[MU_COUNT] = {
     [MU_CRYPTS]    = { 66.0f,  4, 16, 38, SEC_CRYPTS,  ORD(ORD_CRYPTS),  1, crypts_step,  PAT_BRASS,   1.15f },
     [MU_CATACOMBS] = { 50.0f,  3,  6, 36, SEC_CATAC,   ORD(ORD_CATAC),   1, catac_step,   PAT_STRINGS, 1.55f },
@@ -1960,6 +2757,11 @@ static const Piece PIECES[MU_COUNT] = {
     [MU_DEEP]      = { 56.0f,  4, 16, 42, SEC_DEEP,    ORD(ORD_DEEP),    1, deep_step,    PAT_GLASS,   1.25f },
     [MU_MERCHANT]  = { 100.0f, 4, 16, 33, SEC_MERCH,   ORD(ORD_MERCH),   0, merch_step,   PAT_HARP,    1.3f },
     [MU_MENU]      = { 60.0f,  2,  6, 38, SEC_MENU,    ORD(ORD_MENU),    0, menu_step,    PAT_PAD,     1.2f },
+    [MU_SHOP1]     = { 92.0f, 12, 48, 33, NULL, ORD(ORD_SHOP1), 1, NULL, PAT_HARP, 0.94f, SC_SHOP1, 9, shop1_step, 9.0f },
+    [MU_SHOP2]     = { 138.0f, 4, 12, 36, NULL, ORD(ORD_SHOP2), 1, NULL, PAT_HARP, 1.0f, SC_SHOP2, 8, shop2_step, 6.0f },
+    [MU_SHOP3]     = { 120.0f, 3, 12, 41, NULL, ORD(ORD_SHOP3), 1, NULL, PAT_HARP, 1.38f, SC_SHOP3, 10, shop3_step, 2.0f },
+    [MU_SHOP4]     = { 72.0f,  4, 12, 43, NULL, ORD(ORD_SHOP4), 1, NULL, PAT_HARP, 1.12f, SC_SHOP4, 7, shop4_step, 6.0f },
+    [MU_SHOP5]     = { 66.0f,  4, 16, 37, NULL, ORD(ORD_SHOP5), 1, NULL, PAT_HARP, 1.45f, SC_SHOP5, 7, shop5_step, 6.0f },
 };
 #undef MEL
 #undef ORD
@@ -2007,11 +2809,18 @@ static void player_step(Player *p) {
         p->sps += (player_pace(p) - p->sps) * 0.12;                /* the pace glides over a bar or two */
         g_psps = (int)p->sps;
     }
-    P->step(&P->sec[P->order[p->oi]], p->bar, s);
+    int nb = 8;
+    if (P->sc) {
+        int nx = p->oi + 1 < P->norder ? p->oi + 1 : P->loop;
+        g_S = &P->sc[P->order[p->oi]]; g_S_next = &P->sc[P->order[nx]];
+        g_blen = P->blen; g_abs = p->bar * P->blen + s; nb = g_S->bars > 0 ? g_S->bars : 1;
+        P->step2(g_S, p->bar, s);
+        g_S = NULL;
+    } else P->step(&P->sec[P->order[p->oi]], p->bar, s);
     g_vlayer = LY_BASE; g_vbus = BUS_RUN;
     if (++p->s >= P->blen) {
         p->s = 0;
-        if (++p->bar >= 8) { p->bar = 0; if (++p->oi >= P->norder) { p->oi = P->loop; p->pass++; } }
+        if (++p->bar >= nb) { p->bar = 0; if (++p->oi >= P->norder) { p->oi = P->loop; p->pass++; } }
     }
 }
 
@@ -2028,7 +2837,14 @@ static void music_tick(void) {
         if (g_track >= MU_CRYPTS && g_track <= MU_DEEP) player_start(&g_pl[PL_RUN], g_track, BUS_RUN);
         else g_pl[PL_RUN].on = 0;
     }
-    if (g_place && !g_pl[PL_SHOP].on) player_start(&g_pl[PL_SHOP], MU_MERCHANT, BUS_SHOP);
+    if (g_place && !g_pl[PL_SHOP].on) player_start(&g_pl[PL_SHOP], g_shop_mu, BUS_SHOP);
+    {                                                              /* the echo's time: the piece in front's, or the crypt's */
+        int front = g_menu ? MU_MENU : g_place ? g_shop_mu : g_track;
+        float st = front > MU_NONE && front < MU_COUNT ? PIECES[front].dly : 0.0f;
+        int want = st > 0.0f ? (int)(st * 60.0 / PIECES[front].bpm / PIECES[front].spb * SND_RATE) : (int)((60.0 / 92.0 / 4.0 * SND_RATE) * 3.0);
+        if (want >= DLY_MAX) want = DLY_MAX - 1;
+        if (want != g_dlen && g_prog == SND_PROG_CRAWL) g_dlen = want;
+    }
     g_run_k = g_track_next == g_track ? fminf(1.0f, g_run_k + up) : fmaxf(0.0f, g_run_k - up);
     g_shop_k = g_place ? fminf(1.0f, g_shop_k + up / 1.5f) : fmaxf(0.0f, g_shop_k - up / 1.5f);
     if (!g_place && g_shop_k <= 0.0f) g_pl[PL_SHOP].on = 0;        /* her piece from its top next time */
@@ -2043,7 +2859,7 @@ static void music_tick(void) {
     g_busg[BUS_MUZAK] = 0.6f * g_muz_k * m;
     g_busg[BUS_BOSS] = g_boss_k * m;
     g_busg[BUS_SFX] = g_fx_gain;
-    g_busg[BUS_SHOP] = g_shop_k * m * PIECES[MU_MERCHANT].gain;
+    g_busg[BUS_SHOP] = g_shop_k * m * PIECES[g_shop_mu].gain;
     g_busg[BUS_MENU] = g_menu_k * PIECES[MU_MENU].gain;
     if (g_track != MU_NONE) g_busg[BUS_RUN] *= PIECES[g_track].gain;
     g_alive[BUS_RUN] = g_track_next == g_track && !g_place && !g_menu && !g_room && !g_boss_on;
@@ -2072,7 +2888,7 @@ static void music_tick(void) {
 static void reset_voices_and_fx(void) {
     memset(g_v, 0, sizeof g_v);
     memset(g_s, 0, sizeof g_s);
-    memset(g_sched, 0, sizeof g_sched);
+    memset(g_sched, 0, sizeof g_sched); g_nsched = 0;
     memset(g_rv, 0, sizeof *g_rv);
     memset(g_dl, 0, sizeof g_dl); memset(g_dr, 0, sizeof g_dr);
     g_dpos = 0;
@@ -2080,6 +2896,31 @@ static void reset_voices_and_fx(void) {
     g_wind_lp1 = g_wind_lp2 = 0;
     g_dcx[0] = g_dcx[1] = g_dcy[0] = g_dcy[1] = 0;
 }
+
+static void score_init(void) {             /* every scored piece read once, before the sound starts */
+    static const char *PTN[NPT] = { "chords", "bass", "tune", "counter", "x1", "x2", "x3" };
+    static int done;
+    if (done) return;
+    done = 1;
+    for (int k = 0; k < MU_COUNT; k++) {
+        const Piece *P = &PIECES[k];
+        for (int i = 0; P->sc && i < P->nsc; i++) {
+            ScSec *S = &P->sc[i];
+            S->bars = 0;
+            for (int j = 0; j < NPT; j++) {
+                if (!S->p[j]) continue;
+                char what[64];
+                snprintf(what, sizeof what, "piece %d section %d %s", k, i, PTN[j]);
+                int b = sc_parse(S->p[j], P->blen, &S->ev[j], &S->nev[j], what);
+                if (S->bars && b != S->bars) sc_fault(what, b, "bars, not", b, S->bars);
+                if (b > S->bars) S->bars = b;
+            }
+        }
+    }
+}
+const char *snd_check(void) { score_init(); return g_sc_err[0] ? g_sc_err : NULL; }
+void snd_set_shop(int mu) { LOCK(); g_shop_mu = mu >= MU_MERCHANT && mu < MU_COUNT && mu != MU_MENU ? mu : MU_MERCHANT; UNLOCK(); }
+void snd_mute(uint64_t mask) { LOCK(); g_patmute = mask; UNLOCK(); }
 
 void snd_init(void) {
 #ifdef _WIN32
@@ -2090,6 +2931,7 @@ void snd_init(void) {
     LOCK();
     reset_voices_and_fx();
     g_prog = SND_PROG_NONE;
+    score_init();
     UNLOCK();
 }
 
@@ -2376,6 +3218,7 @@ static void render_locked(int16_t *out, int frames) {
             g_samples += 1.0;
         }
         /* slow controls */
+        g_lfo_t += 1.0 / SR;
         g_mood += (g_mood_target - g_mood) * (1.0f / (SR * 1.5f));
         g_drone_gain = 0.55f + 0.45f * g_mood;
         if (g_mg < g_mg_target) { g_mg += g_mg_slope; if (g_mg > g_mg_target) g_mg = g_mg_target; }

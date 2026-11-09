@@ -11,7 +11,9 @@
 enum { SND_PROG_NONE = 0, SND_PROG_HAUNT, SND_PROG_CRAWL };
 
 /* CATACOMB's pieces (docs/PLAN-music.md): none, a piece for each run, her hall's, the menus' */
-enum { MU_NONE, MU_CRYPTS, MU_CATACOMBS, MU_HOLLOWS, MU_DEEP, MU_MERCHANT, MU_MENU, MU_COUNT };
+enum { MU_NONE, MU_CRYPTS, MU_CATACOMBS, MU_HOLLOWS, MU_DEEP, MU_MERCHANT, MU_MENU,
+       MU_SHOP1, MU_SHOP2, MU_SHOP3, MU_SHOP4, MU_SHOP5,   /* her hall's candidates (docs/PLAN-music2.md), for the owner's ear */
+       MU_COUNT };
 
 enum {
     SFX_BEEP_POST,      /* PC-speaker POST beep                      */
@@ -140,6 +142,9 @@ void snd_set_menu(int on);                  /* CRAWL: a menu open (2: a short lo
 void snd_set_fight(int level);              /* CRAWL: 0 calm, 1-3 a fight, growing (layers, the pace) */
 void snd_set_frail(int on);                 /* CRAWL: failing: the music muffled and thinned, a heartbeat */
 void snd_set_mix(float music, float effects); /* the Music and Effects volumes, 0..1, under the master */
+void snd_set_shop(int mu);                  /* CRAWL: the piece her hall plays (MU_MERCHANT, or a candidate) */
+const char *snd_check(void);                /* faults in the scored pieces' scores, or NULL */
+void snd_mute(uint64_t mask);               /* the harness's: patches (by number; bit 63 the drums, 62 the cave's drips) left out */
 void snd_set_latency(int frames);           /* device latency, for visual sync */
 void snd_render(int16_t *out, int frames);  /* interleaved stereo */
 void snd_advance(double seconds);           /* run the clock with no audio device */

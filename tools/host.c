@@ -245,8 +245,10 @@ int main(int argc, char **argv) {
     }
     if (!strcmp(cmd, "music")) {
         /* host music <piece> <seconds> out.wav [event@t ...]: a piece of CATACOMB's alone (docs/PLAN-music.md).
-         * Pieces: crypts, catacombs, hollows, deep, merchant, menu1-menu4. Events: fight0-fight3, frail,
-         * well, menu, back, trial, untrial, place0-place2, run1-run4 (the run's piece), as name@seconds. */
+         * Pieces: crypts, catacombs, hollows, deep, merchant, shop1-shop5 (her hall's candidates, docs/PLAN-music2.md),
+         * menu1-menu4. Events: fight0-fight3, frail, well, menu, back, trial, untrial, place0-place2, run1-run4 (the
+         * run's piece), as name@seconds. HOST_DRIPS=0 leaves out the cave's drips and moans; HOST_MUTE=mask the patches
+         * by number (bit 63 the pieces' drums), to weigh a mix. */
         static const char *PN[] = { "none", "crypts", "catacombs", "hollows", "deep" };
         const char *piece = argv[2];
         double secs = atof(argv[3]);
@@ -257,8 +259,14 @@ int main(int argc, char **argv) {
         int mu = MU_CRYPTS;
         for (int i = 0; i < 5; i++) if (!strcmp(piece, PN[i])) mu = i;
         if (!strncmp(piece, "menu", 4) && piece[4] >= '1' && piece[4] <= '4') mu = MU_CRYPTS + piece[4] - '1';
+        const char *err = snd_check();
+        if (err) fprintf(stderr, "music: faults in the scores:\n%s", err);
+        uint64_t mute = getenv("HOST_MUTE") ? strtoull(getenv("HOST_MUTE"), NULL, 0) : 0;
+        if (getenv("HOST_DRIPS") && !atoi(getenv("HOST_DRIPS"))) mute |= 1ull << 62;
+        snd_mute(mute);
         snd_set_track(mu);
         if (!strcmp(piece, "merchant")) snd_set_place(1);
+        if (!strncmp(piece, "shop", 4) && piece[4] >= '1' && piece[4] <= '5') { snd_set_shop(MU_SHOP1 + piece[4] - '1'); snd_set_place(1); }
         if (!strncmp(piece, "menu", 4)) {                         /* the run's piece gives way first: that second isn't kept */
             static int16_t pre[SND_RATE * 2];
             snd_set_menu(1);
