@@ -1142,6 +1142,18 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   Lampstand's slots and pair, and each augment but Pyre in play (Pyre shows only as a second creature alight). Next, on the
   owner's word: the augments on in the release build (`CRAWL_AUG=0` to take them out), then the pacing to A2 b's target and the
   balance runs.
+- **9 November. C6's sheet approved; the augments in play; J21 begun.** At the owner's word ("Approved"): `aug_on` is 1 in every
+  build (`CRAWL_AUG=0` in the debug build takes the frame and Fire's six out; then four 600 s dreams, seeds 1 and 3, the
+  Witchfinder and the Sin-Eater, play the build before line for line), so with D7's switch all six lines are in play. The Codex has
+  a part for the augments chosen (`CX_AUG`: what each does now and at III, its rank, its credits and the line's bank). D's note
+  that the missiles' part doesn't draw `Shot.scale`: it does since `72fbf9a`, for every shot, so Splinterfrost's, Glacial Weight's
+  and Cluster's sizes show. **The pacing** (A2 b), a first look: the Witchfinder from level 1 (seed 1, 7,200 s) had 324 credits on
+  Fire by Level of Atonement 13 on level 10, past the 300 that nine ranks take, Burning Intensity at III by level 3; so A3's
+  thresholds hold and stay (11.1 scales them only down). The dream seldom passes the knight, so Atonement 20 is far for most runs
+  from level 1; the batch below counts each class's line by its last ascend. **J21**, as J20 and against 1.0.0b20 (main at
+  `e982abf`, built in a worktree): track C's half is seeds 1-15 odd, the five classes a fresh run can be given, from level 1 for
+  the first 3,000 s (`CRAWL_RUNID` the seed), both builds run here; track D's half, seeds 17-31 odd and the start from 31 on its
+  eight seeds, as J20's. This branch at `8fe7e56` (both tracks' augments on, D6 in). Under way.
 
 ## 19. Track D's log (the dead's)
 
