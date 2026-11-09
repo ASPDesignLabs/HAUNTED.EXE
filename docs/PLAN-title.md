@@ -2,7 +2,9 @@
 
 Status (9 November 2026): **the refinement pass is done (steps 1-8) and the owner approved it. The menu is under way
 (section 4b, M1-M4): done, and approved. 9 November: the owner asked for the title in the game, released as
-**1.0.0b21.1, "The Title Screen Update"**, with main's music pass (section 7, G1-G6): under way.** Everything here is mock-ups drawn by `tools/titlemock.c`, outside the game.
+**1.0.0b21.1, "The Title Screen Update"**, with main's music pass (section 7, G1-G6): released the same day, a
+pre-release, harness only.** The art is `src/crawl_title.c` in the game; `tools/titlemock.c` drives the same art for
+mock-ups.
 
 Read the hand-off log (section 6) first. It says where the last session stopped.
 
@@ -232,7 +234,9 @@ G5. **The docs**: README (features, what was verified), CLAUDE.md, the page, the
     notes rewritten; CLAUDE.md's release line, a paragraph and the map.
 G6. **The release**: VERSION 1.0.0b21.1, squashed onto main as one commit; CI publishes it; check the release and the page.
     **Pushed** (9 November): main is `6dbdd89`, "1.0.0b21.1: The Title Screen Update", after CI went green on the branch
-    (run 42710646255: Windows and its smoke, the browser and its smoke). Still to check: the release's assets and the page.
+    (run 42710646255: Windows and its smoke, the browser and its smoke). The release
+    `v1.0.0b21.1` came out as a pre-release with its five assets (the EXE, the SCR, the Windows and web zips, the sums),
+    and the page shows the update, the title's strip and `/play/` (checked 9 November).
 
 ## 5. Questions still open for the owner
 
@@ -290,3 +294,7 @@ None open now (answered 9 November: see section 1).
   on main and at Pages; the release check is `gh api repos/ASPDesignLabs/HAUNTED.EXE/releases/tags/v1.0.0b21.1`
   (REST, not GraphQL). After that, the title waits on the owner's hand on Windows. Its follow-ups: HELP's page, and
   anything they find.
+- **9 November, checked.** The release and the page are out as G6 says. Nothing of the title has been played by hand. The
+  next work waits on the owner: HELP's page (THE CONTROLS and HELP are the menu's two overlays, `title_controls` and
+  `title_help` in `scene_crawl.c`), and whatever they find on Windows (a title frame is 8-14 ms here; the crypt's is 1.8).
+  `docs/titlepass/README.md` was written for the mock-ups and is brought up to date on this branch.

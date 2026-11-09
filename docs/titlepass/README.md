@@ -1,7 +1,8 @@
-# A title screen for CATACOMB: mock-ups
+# A title screen for CATACOMB: the mock-ups
 
-Mock-ups only (9 November 2026): nothing here is in the game, and the game's code is untouched. The plan and its
-hand-off log are in [`docs/PLAN-title.md`](../PLAN-title.md). The owner kept all three, to come round in turn at each
+These began as mock-ups (9 November 2026) and went into the game the same day, in 1.0.0b21.1: the art is now
+`src/crawl_title.c`, which the game and `tools/titlemock.c` both draw with. The plan and its hand-off log are in
+[`docs/PLAN-title.md`](../PLAN-title.md). The owner kept all three, to come round in turn at each
 start, and asked for a refinement pass. These stills are from after it. Asked for by the owner:
 a title screen that comes up when a person holds H (or a button) to enter the crypts, the name in a gothic, bloody hand,
 "press a button", then the graves to choose from. The owner already has the music.
@@ -12,8 +13,7 @@ own palette (level 3), run I's textures, the light table, and the carved stone's
 and 18 MB doubled. To make them again:
 
 ```sh
-gcc -O2 -std=gnu11 -o build/titlemock src/crawl_art.c src/hand_img.c src/face_img.c src/cat_img.c src/font_vga.c \
-    src/crawl_ui.c src/ui_art.c src/gfx.c tools/titlemock.c -lm -lz
+make build/titlemock
 build/titlemock <dir>                # every GIF (doubled), its four stills, overview.png and logo.png
 TM_SCALE=1 build/titlemock <dir> a   # one of them, at native size
 build/titlemock <dir> flash          # the lightning's frames, to check them
@@ -96,9 +96,9 @@ The titles were given more detail too:
   a hand claws at the air while earth falls off it. *Its graves*: three plots. A hand rises out of the chosen grave's mound,
   and the empty page is an open pit with a spade in its earth.
 
-Each grave screen shows the ledger's three pages as graves, then the unsigned run and a new grave as rows. The pages' words
-(the Witchfinder at level 14, the Anatomist at a death) are made up. The choice moves through all five once a loop to show
-each state.
+As first drawn, each grave screen showed the ledger's three pages as graves, then the unsigned run and a new grave as rows;
+the owner's answers took the rows out. The pages' words in the mock-ups (the Witchfinder at level 14, the Anatomist at a
+death) are made up; the game's come from the ledger.
 
 ## What in it is 13h's own
 
