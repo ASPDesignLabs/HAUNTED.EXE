@@ -20436,6 +20436,7 @@ static void begin_shop(void) {
     line_lend();
     gift_settle();                                                 /* the Lampstand's gift: the dream's at once */
     G.gift_said = 0;
+    if (d6_on()) align_sync();                                     /* the wares by the lines and the class as they are now (D6) */
     int bag_up = 0;
     for (int p = 0; p < G.ped_n; p++) {                            /* now and then the BFS9000, the rest to wear; one bag at most */
         int pool = p == 0 ? POOL_ATTACK : POOL_GEAR;               /* runes are the Rune Shrine's, spells the lines' */
