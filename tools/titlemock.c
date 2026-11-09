@@ -29,6 +29,9 @@
 #define PI 3.14159265f
 
 static Frame F;
+/* the input in use: the prompt and the hints follow it (the owner, 9 November) */
+static int PADMODE;
+static const char *any_prompt(void) { return PADMODE ? "PRESS ANY BUTTON" : "PRESS ANY KEY"; }
 static float T, LOOP;                                   /* the clock, and the loop it comes round in */
 static uint8_t BASEPAL[256][3];
 
@@ -305,6 +308,7 @@ typedef struct {
     struct { int x, y, len, per, big; float ph; } drip[96];
 } Logo;
 static Logo LG;
+static int lg_dripmax = 99;                                             /* the drips' longest, for a small name over words */
 /* the name laid out: line 1 at scale s1, then line 2 (or on the same line when same is set) at s2 */
 static void logo_build(const char *l1, float s1, const char *l2, float s2, int same, uint32_t seed) {
     memset(&LG, 0, sizeof LG);
@@ -398,6 +402,7 @@ static void logo_build(const char *l1, float s1, const char *l2, float s2, int s
                 LG.drip[k].x = x; LG.drip[k].y = y + 1;
                 LG.drip[k].big = r < (foot ? 0.16f : 0.03f);
                 LG.drip[k].len = (LG.drip[k].big ? 9 : 3) + (int)(h01(x, y, seed + 1) * (LG.drip[k].big ? 24 : 9));
+                if (LG.drip[k].len > lg_dripmax) LG.drip[k].len = lg_dripmax;
                 LG.drip[k].per = 1 + (int)(h01(x, y, seed + 2) * 3);
                 LG.drip[k].ph = h01(x, y, seed + 3);
                 x += 3;
@@ -679,7 +684,9 @@ static struct {
     float dv[SCH][SCW];
     uint8_t r[SCH][SCW], d[SCH][SCW];
     float v[SCH][SCW];
+    float gk[SCH][SCW];                                                 /* 0: the canvas's gilding; else 1 + this word's own */
 } S;
+static float sc_gk;                                                     /* set before sc_text: the words' own gilding, 1 + k */
 static void sc_begin(int w, int h) { memset(&S, 0, sizeof S); S.w = w < SCW ? w : SCW; S.h = h < SCH ? h : SCH; }
 static int sc_in(int i, int j) { return i >= 0 && j >= 0 && i < S.w && j < S.h; }
 static int sc_solid(int i, int j) { return sc_in(i, j) && S.id[j][i]; }
@@ -772,7 +779,7 @@ static void sc_text(int x, int y, const char *s, int big, int adv, int gild, uin
             int X = x + k * adv + c, Y = y + r;
             if (!sc_solid(X, Y) || h01(X, Y, seed) < 0.022f) continue;
             S.ht[Y][X] = -1;
-            if (gild) S.f[Y][X] |= SF_GILD;
+            if (gild) { S.f[Y][X] |= SF_GILD; S.gk[Y][X] = sc_gk; }
         }
     }
 }
@@ -861,10 +868,13 @@ static float weathered(int i, int j, float v, uint32_t seed, int calm, int *ramp
  * gramp (R_GOLD, or R_BONE for a pale inlay) */
 static void sc_shade(float bv, uint32_t seed, float gild, int gramp) {
 #define HT(a, b) (sc_solid(a, b) ? S.ht[b][a] : -9)
+    float gild0 = gild;
     for (int j = 0; j < S.h; j++) for (int i = 0; i < S.w; i++) {
         S.d[j][i] = 0;
+        gild = gild0;
         if (!S.id[j][i]) continue;
         int h = S.ht[j][i], m = S.m[j][i], fl = S.f[j][i];
+        if (S.gk[j][i] > 0) gild = S.gk[j][i] - 1;
         float v = bv + S.dv[j][i];
         float lit = 0;
         if (HT(i - 1, j) < h) lit += 0.13f; else if (HT(i - 2, j) < h) lit += 0.05f;
@@ -944,6 +954,9 @@ static void sc_draw(int cx, int by, float deg) {
     }
 }
 
+static const char *const KEY_SKULL[11] = {
+    "...#####...", ".#########.", "###########", "##..###..##", "#....#....#", "##..###..##", "#####.#####", ".####.####.",
+    "..#######..", "..#.#.#.#..", "...#####..." };
 /* ---- the graves, built ---- */
 /* I: a gothic stele. A two-step plinth, pinnacles at its shoulders, a pointed head, a moulded border; the class's mark in
  * relief in a sunk quatrefoil. Its head's corner is broken off, cracks run from the break. 104 by 100. */
@@ -1100,7 +1113,7 @@ static void row_slab(int x, int y, int w, const char *s, float k, uint32_t seed)
     sc_draw(x + w / 2, y + 17, 0);
 }
 /* the hints, each key on a worn stone cap, its letter cut and filled pale; the words after it inlaid */
-static void ui_keys_worn(int y, const char *keys[], const char *says[], int n) {
+static void ui_keys_worn(int y, const char *const keys[], const char *const says[], int n) {
     int tw = 0;
     for (int k = 0; k < n; k++) tw += sc_text_w(keys[k], 8) + 8 + (int)strlen(says[k]) * 8 + (k < n - 1 ? 14 : 0);
     int x = (W - tw) / 2;
@@ -1111,14 +1124,15 @@ static void ui_keys_worn(int y, const char *keys[], const char *says[], int n) {
         sc_poly(p, 6, 1, 1, SM_STONE, 0.1f);
         sc_text(4, 3, keys[k], 0, 8, 1, 60 + (uint32_t)k);
         sc_chips(0.25f, 70 + (uint32_t)k);
-        sc_shade(0.42f, 80 + (uint32_t)k, 1.0f, R_BONE);
+        int capr = !PADMODE ? R_BONE : !strcmp(keys[k], "A") ? R_MOSS : !strcmp(keys[k], "B") ? R_BLOOD : !strcmp(keys[k], "X") ? R_GLOW : !strcmp(keys[k], "Y") ? R_GOLD : R_BONE;
+        sc_shade(0.42f, 80 + (uint32_t)k, 1.0f, capr);
         sc_draw(x + cw / 2, y + 11, 0);
         x += cw + 4;
         for (int j = 0; j < 13; j++) for (int i = 0; i < (int)strlen(says[k]) * 8 + 2; i++) LC[y - 2 + j][x - 1 + i] = fmaxf(LC[y - 2 + j][x - 1 + i], 0.5f);
         x += (int)strlen(says[k]) * 8 + 14;
     }
 }
-static void ui_keys_words(int y, const char *keys[], const char *says[], int n) {   /* the words, after the light is resolved */
+static void ui_keys_words(int y, const char *const keys[], const char *const says[], int n) {   /* the words, after the light is resolved */
     int tw = 0;
     for (int k = 0; k < n; k++) tw += sc_text_w(keys[k], 8) + 8 + (int)strlen(says[k]) * 8 + (k < n - 1 ? 14 : 0);
     int x = (W - tw) / 2;
@@ -1129,7 +1143,9 @@ static void ui_keys_words(int y, const char *keys[], const char *says[], int n) 
     }
 }
 static void ui_light(int y0, int y1, float v) { for (int y = y0; y < y1 && y < H; y++) for (int x = 0; x < W; x++) LC[y][x] = fmaxf(LC[y][x], v); }
-static const char *KEYS3[3] = { "A/D", "ENTER", "ESC" }, *SAYS3[3] = { "CHOOSES", "RISES", "BACK" };
+static const char *KEYS3[3] = { "A/D", "ENTER", "ESC" }, *SAYS3[3] = { "MOVES", "RISES", "BACK" };
+static const char *PADK3[3] = { "D-PAD", "A", "B" };
+#define GKEYS (PADMODE ? PADK3 : KEYS3)
 /* a vignette: the light falling off towards the corners, to hold the eye */
 static void vignette(float k) {
     for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) {
@@ -1137,6 +1153,96 @@ static void vignette(float k) {
         float f = 1 - k * smooth(0.55f, 1.25f, r);
         LC[y][x] *= f; LW[y][x] *= f;
     }
+}
+
+static struct { int on; float appear, press, k[4]; } MN;
+static const char *MKEYS[3] = { "W/S", "ENTER", "ESC" }, *MPADK[3] = { "D-PAD", "A", "B" }, *MSAYS[3] = { "MOVES", "SELECTS", "BACK" };
+#define MENUKEYS (PADMODE ? MPADK : MKEYS)
+static void title_foot_pre(void) { if (MN.on && MN.appear > 0.5f) { ui_keys_worn(185, MENUKEYS, MSAYS, 3); ui_light(182, H, 0.62f); } }
+static void title_foot(int y, int band, float t) {
+    if (MN.on && MN.appear > 0.5f) { ui_keys_words(185, MENUKEYS, MSAYS, 3); return; }
+    if (MN.on && MN.appear > 0.02f) return;
+    if (MN.on && MN.press > 0) {                                          /* the key taken: the words flare and are gone */
+        int w = (int)strlen(any_prompt()) * 8;
+        if (band) ui_band(&F, W / 2 - w / 2 - 8, y - 4, w + 16, 16);
+        ui_text8(&F, W / 2 - w / 2, y, any_prompt(), FACE_INSC, R_BONE + 15, TX_INLAID);
+        return;
+    }
+    prompt(W / 2, y, any_prompt(), band, t, R_BONE);
+}
+/* ---- the menu after the key (docs/PLAN-title.md, 4b): four choices on a stone in the middle, the scene going on ---- */
+static const char *const MENU_ROWS[4] = { "CHOOSE A GRAVE", "BEGIN A NEW RUN", "THE CONTROLS", "HELP" };
+static const char *menu_note(int i) {
+    static const char *const N[4] = { "ONE OF HER PAGES", "FROM THE BEGINNING", "WHAT EACH KEY DOES", "NOT WRITTEN YET" };
+    return i == 2 && PADMODE ? "WHAT EACH BUTTON DOES" : N[i];
+}
+#define T_PRESS 1.0f
+#define T_IN 0.7f
+/* where the menu is at t in its loop: the title a second, the key, the menu coming in, the choice going down the four, and
+ * at the end Esc, the menu going, so the loop comes back to the title */
+static void menu_time(float t) {
+    MN.on = 1;
+    MN.press = t >= T_PRESS && t < T_PRESS + 0.35f ? 1 - (t - T_PRESS) / 0.35f : 0;
+    MN.appear = smooth(T_PRESS, T_PRESS + T_IN, t) * (1 - smooth(LOOP - 0.6f, LOOP - 0.05f, t));
+    float t0 = T_PRESS + T_IN, per = (LOOP - 0.6f - t0) / 4;
+    for (int k = 0; k < 4; k++) {
+        float u = t - t0 - k * per;
+        float in = k == 0 ? 1 : smooth(0, 0.3f, u), out = k == 3 ? 1 : 1 - smooth(per, per + 0.3f, u);
+        MN.k[k] = (k == 0 ? (t >= T_PRESS ? 1 : 0) : (u >= 0 ? 1 : 0)) * in * out;
+    }
+}
+static int menu_sel(void) { int b = 0; for (int k = 1; k < 4; k++) if (MN.k[k] > MN.k[b]) b = k; return b; }
+/* the four, cut and gilding one by one, with a gilt notch either side of the chosen; then a rule and the note */
+static void menu_rows(int xc, int y0, int dy, int maxw, int note_y, uint32_t seed) {
+    for (int i = 0; i < 4; i++) {
+        sc_gk = 1 + MN.k[i];
+        sc_text_c(xc, y0 + i * dy, MENU_ROWS[i], 0, 1, seed + (uint32_t)i, maxw);
+        int hw = sc_text_w(MENU_ROWS[i], 8) / 2 + 7;
+        for (int e = 0; e < 2; e++) {                                   /* the notches, small lozenges */
+            int nx = xc + (e ? hw : -hw - 1), ny = y0 + i * dy + 3;
+            static const int DX[5] = { 0, -1, 1, 0, 0 }, DY[5] = { 0, 0, 0, -1, 1 };
+            for (int q = 0; q < 5; q++) if (sc_solid(nx + DX[q], ny + DY[q])) { S.ht[ny + DY[q]][nx + DX[q]] = -1; S.f[ny + DY[q]][nx + DX[q]] |= SF_GILD; S.gk[ny + DY[q]][nx + DX[q]] = 1 + MN.k[i]; }
+        }
+    }
+    sc_gk = 0;
+    if (note_y >= 0) {
+        for (int x = xc - 60; x <= xc + 60; x++) if (sc_solid(x, note_y - 4) && abs(x - xc) > 3) S.ht[note_y - 4][x] = -1;   /* a rule, broken at its middle */
+        sc_text_c(xc, note_y, menu_note(menu_sel()), 0, 0, seed + 9, maxw);
+    }
+}
+/* A's: a stone with a steep gable, a skull cut in it, rising out of the earth into the middle of the graveyard; 172 by 96 */
+static void build_menu_stone(void) {
+    sc_begin(172, 96);
+    sc_rect(0, 20, 172, 76, 1, 0, SM_STONE, 0.04f);
+    sc_arch(36, 136, 21, 20, 2, 1, 0, SM_STONE, 0.04f);
+    sc_groove(1u << 1, 4);
+    for (int k = 1; k < 6; k++) for (int e = 0; e < 2; e++) {
+        float u = k / 6.0f, x = e ? 136 - u * 50 : 36 + u * 50;
+        int top = 0;
+        while (top < 30 && !sc_solid((int)x, top)) top++;
+        sc_disc(x + (e ? 1.5f : -1.5f), top + 0.5f, 1.8f, 6, 1, SM_STONE, 0.08f);
+    }
+    sc_mark(86 - 5, 8, KEY_SKULL, 11, 1, -1, 0);
+    menu_rows(86, 28, 13, 156, 82, 900);
+    sc_break(170, 24, 7, 901);
+    sc_crack(150, 20, 2.0f, 40, 902, 2);
+    sc_crack(4, 60, 0.3f, 18, 903, 1);
+    sc_chips(0.3f, 904);
+    sc_ivy(166, 95, 40, 905); sc_ivy(5, 95, 14, 906);
+}
+/* B's: a tablet on two rings, lowered on chains from the lintel; 180 by 88 */
+static void build_menu_tablet(void) {
+    sc_begin(180, 88);
+    float p[16] = { 5, 6, 175, 6, 180, 11, 180, 83, 175, 88, 5, 88, 0, 83, 0, 11 };
+    sc_poly(p, 8, 1, 0, SM_STONE, 0.06f);
+    sc_groove(1u << 1, 3); sc_groove(1u << 1, 6);
+    for (int e = 0; e < 2; e++) { float rx = e ? 156 : 24; sc_ring(rx, 5, 2, 4.2f, 2, 1, SM_IRON, 0.1f); sc_rect((int)rx - 3, 8, 7, 4, 2, 1, SM_IRON, 0.06f); }
+    sc_mark(90 - 5, 11, KEY_SKULL, 11, 1, -1, 0);
+    menu_rows(90, 21, 13, 160, 74, 910);
+    sc_break(2, 86, 7, 911);
+    sc_crack(176, 30, 2.6f, 30, 912, 2);
+    sc_crack(60, 88, -1.3f, 14, 913, 1);
+    sc_chips(0.3f, 914);
 }
 
 /* ======================================================================================================================
@@ -1451,6 +1557,18 @@ static void scene_a(float t) {
         float u = frac(t / LOOP * 2 + i * 0.37f);
         bat(W + 10 - u * (W + 30), 30 + 12 * sinf(u * 9 + i) + i * 10, t * 26 + i);
     }
+    if (MN.on && MN.appear > 0) {                                       /* the menu's stone, rising out of the earth */
+        float e = 1 - powf(1 - MN.appear, 3), off = (1 - e) * 150 + (MN.appear > 0.9f && MN.appear < 1 ? sinf(MN.appear * 60) : 0);
+        build_menu_stone(); sc_shade(0.46f, 920, 0, R_GOLD); sc_draw(W / 2, 156 + (int)off, 0);
+        for (int i = 0; i < 24 && MN.appear < 1; i++) {                  /* earth falling off it as it comes */
+            float x = 76 + h01(i, 1, 921) * 168, fall = frac(h01(i, 2, 921) + MN.appear * 3) * 30;
+            matf((int)x, 60 + (int)off + (int)fall, R_FLOOR, 0.4f, MF_FLAT);
+        }
+        for (int y = 56; y < 158; y++) for (int x = 72; x < 248; x++) LC[y][x] = fmaxf(LC[y][x], 0.72f * MN.appear);
+        int sel = menu_sel();
+        light_add(W / 2, 60 + off + 28 + sel * 13 + 3, 70, 0.5f * MN.appear, 1);
+    }
+    title_foot_pre();
     fog(A_GROUND - 22, A_GROUND + 2, t, 1.5f, 33);
     if (flash > 0.7f) {                                                 /* lightning on the hills */
         float bx = 118, by = 0;
@@ -1467,8 +1585,8 @@ static void scene_a(float t) {
     resolve();
     if (eyes) { F.pix[(int)ey * W + (int)ex] = R_BLOOD + 15; F.pix[(int)ey * W + (int)ex + 2] = R_BLOOD + 15; }
     for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) if (MR[y][x] == R_GLOW && (MF[y][x] & MF_FLAT) && y < A_GROUND) F.pix[y * W + x] = C_WHITE;
-    prompt(W / 2, 189, "PRESS ANY BUTTON", 0, t, R_BONE);
-    gfx_text8(&F, W - 2 - 8 * 8, 191, "1.0.0B21", R_STONE + 4, 1);
+    title_foot(189, 0, t);
+    if (!MN.on || MN.appear < 0.02f) gfx_text8(&F, W - 2 - 8 * 8, 191, "1.0.0B21", R_STONE + 4, 1);
 }
 
 /* ---- the graves to choose from: what the ledger's pages would say (made up for the mock-ups) ---- */
@@ -1477,7 +1595,7 @@ static const Grave GR[3] = {
     { "I", "WITCHFINDER", "LEVEL 14", "CATACOMBS", "7 NOV 2026", 1 },
     { "II", "ANATOMIST", "LEVEL 1", "AT A DEATH", "9 NOV 2026", 1 },
     { "III", "UNMARKED", "NOTHING", "WRITTEN", "", 0 } };
-#define NCHOICE 5                                       /* the three, the unsigned run, a new grave */
+#define NCHOICE 3                                       /* the three pages; the unsigned run is not one (the owner, 9 November) */
 static float sel_k(float t, int k) {                     /* how chosen k is: coming up over a third of a second, going as fast */
     float per = LOOP / NCHOICE, u = t - k * per;
     if (k == 0 && t > LOOP - 0.35f) return smooth(LOOP - 0.35f, LOOP, t);   /* the loop comes back round to the first */
@@ -1565,9 +1683,7 @@ static void a_graves(float t) {
     for (int g = 0; g < 3; g++) mist(CX[g], G, sel_k(t, g), t, 300 + g);
     fog(G - 14, G + 1, t, 1.1f, 34);
     ui_beam("RISE FROM WHICH GRAVE?", t);
-    static const char *const MORE[2] = { "UNSIGNED: LEVEL 3", "DIG A NEW GRAVE" };
-    for (int k = 0; k < 2; k++) row_slab(k ? 166 : 6, 160, 148, MORE[k], sel_k(t, 3 + k), 500 + (uint32_t)k);
-    ui_keys_worn(184, KEYS3, SAYS3, 3);
+    ui_keys_worn(184, GKEYS, SAYS3, 3);
     /* light: the moon, a candle's warmth on the chosen, the coffin's lid lit from within */
     for (int y = G; y < H; y++) for (int x = 0; x < W; x++) LC[y][x] = y < 158 ? 0.55f - 0.25f * (y - G) / (H - G) : 0.62f;
     for (int g = 0; g < 3; g++) {
@@ -1578,7 +1694,6 @@ static void a_graves(float t) {
         light_add(CX[g], G - 50, 60, 0.3f * k, 0);
         if (GR[g].used) light_add(CX[g], G + 14, 40, 0.8f * k, 0);
     }
-    for (int k = 3; k < 5; k++) { float kk = sel_k(t, k); if (kk > 0) light_add(k == 3 ? 80 : 240, 168, 70, 0.6f * kk, 1); }
     vignette(0.45f);
     ui_light(160, H, 0.6f);
     resolve();
@@ -1587,7 +1702,7 @@ static void a_graves(float t) {
         if (k < 0.3f) continue;
         for (int i = 4; i < 64; i++) if (h01(i, g, 7) < 0.7f) F.pix[(G + 12) * W + CX[g] - 34 + i] = (uint8_t)(R_GLOW + clampi((int)(6 + 8 * k), 0, 15));
     }
-    ui_keys_words(184, KEYS3, SAYS3, 3);
+    ui_keys_words(184, GKEYS, SAYS3, 3);
 }
 
 /* ======================================================================================================================
@@ -1729,9 +1844,6 @@ static int b_arch(int x, int y) {                                       /* 0 the
     float top = 62 + 10 * (1 - sqrtf(fmaxf(0, 1 - c * c)));               /* the opening's segmental head */
     return y < top ? 2 : 0;
 }
-static const char *const KEY_SKULL[11] = {
-    "...#####...", ".#########.", "###########", "##..###..##", "#....#....#", "##..###..##", "#####.#####", ".####.####.",
-    "..#######..", "..#.#.#.#..", "...#####..." };
 /* the arch built: blocks each their own, chipped, cracked, stained and grown over; a keystone with a skull cut in it; a
  * piece gone from the opening's edge; the step worn hollow where feet have gone */
 static void b_build_frame(void) {
@@ -1793,7 +1905,26 @@ static void scene_b(float t) {
     for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) { MF[y][x] = 0; MR[y][x] = 0; }
     b_hall(t, 50, H);
     b_sprites(t);
+    float tab_y = 84;
+    if (MN.on && MN.appear > 0) {                                       /* the menu's tablet, let down on its chains */
+        float a = MN.appear, e = a < 0.8f ? 1 - powf(1 - a / 0.8f, 2) : 1 + 0.04f * sinf((a - 0.8f) / 0.2f * PI);
+        tab_y = 84 - (1 - e) * 110;
+        build_menu_tablet(); sc_shade(0.46f, 930, 0, R_GOLD); sc_draw(W / 2, (int)tab_y + 88, 0);
+        for (int e2 = 0; e2 < 2; e2++) {                                 /* its chains, up to the lintel */
+            int cx = W / 2 - 90 + (e2 ? 156 : 24);
+            for (int y = 60; y < (int)tab_y + 2; y++) {
+                int link = ((y - (int)tab_y) % 6 + 6) % 6;
+                if (link < 4) { matf(cx - 1, y, R_IRON, 0.3f, MF_FLAT); matf(cx + 1, y, R_IRON, 0.24f, MF_FLAT); }
+                else matf(cx, y, R_IRON, 0.34f, MF_FLAT);
+            }
+        }
+    }
     b_frame(t, 0.85f * flick(t, 11));
+    if (MN.on && MN.appear > 0) {
+        for (int y = (int)tab_y; y < (int)tab_y + 90; y++) for (int x = 68; x < 252; x++) if (y >= 0 && y < H) LC[y][x] = fmaxf(LC[y][x], 0.7f * MN.appear);
+        light_add(W / 2, tab_y + 26 + menu_sel() * 13 + 3, 70, 0.5f * MN.appear, 1);
+    }
+    title_foot_pre();
     /* roots down from the lintel into the opening, stirring in the draught; cobwebs in its corners */
     for (int k = 0; k < 6; k++) {
         float x = 40 + k * 47 + h01(k, 0, 90) * 16, len = 8 + h01(k, 1, 90) * 16, sw = sinf(2 * PI * t / LOOP * 2 + k) * 1.3f;
@@ -1808,14 +1939,14 @@ static void scene_b(float t) {
         for (int a = 0; a < 4; a++) mline((float)cx, 66, cx + sx * cosf(a * 0.5f) * 18, 66 + sinf(a * 0.5f) * 18, 1, R_BONE, 0.26f, MF_FLAT);
     }
     /* candles on the step's ends */
-    static const int CA[6] = { 34, 40, 46, 274, 280, 286 }, CH[6] = { 2, 5, 0, 1, 4, 0 };
+    static const int CA[6] = { 7, 12, 17, 303, 308, 313 }, CH[6] = { 2, 5, 0, 1, 4, 0 };
     for (int i = 0; i < 6; i++) { mrect(CA[i] - 1, 186 - 6 - CH[i], 3, 6 + CH[i], R_BONE, 0.6f, 0); matf(CA[i] - 1, 186 - 6 - CH[i], R_BONE, 0.75f, 0); }
-    light_add(40, 176, 60, 0.7f * flick(t, 31), 1); light_add(280, 176, 60, 0.7f * flick(t, 32), 1);
+    light_add(14, 176, 60, 0.7f * flick(t, 31), 1); light_add(306, 176, 60, 0.7f * flick(t, 32), 1);
     for (int i = 0; i < 6; i++) flame(CA[i], 186 - 7 - CH[i], 5, t, i + 40);
     logo_build("HAUNTED", 0.95f, ".EXE", 0.84f, 1, 21);
     logo_draw((W - LG.w) / 2, 6, LS_CARVED, 1.05f + 0.1f * flick(t, 4), H - 2, t);
     resolve();
-    prompt(W / 2, 190, "PRESS ANY BUTTON", 0, t, R_BONE);
+    title_foot(190, 0, t);
 }
 
 /* a loculus's slab: a moulded border, iron cramps top and foot, the class's mark cut at its head, the words; a corner
@@ -1918,14 +2049,11 @@ static void scene_b_graves(float t) {
     }
     for (int g = 0; g < 3; g++) { float k = sel_k(t, g); if (k > 0 && GR[g].used) light_add(CX[g] - 36, (NY0 + NY1) * 0.5f, 40, 0.8f * k, 0); }
     ui_wall_tablet(W / 2, 6, 208, "RISE FROM WHICH GRAVE?");
-    static const char *const MORE[2] = { "UNSIGNED: LEVEL 3", "DIG A NEW GRAVE" };
-    for (int k = 0; k < 2; k++) row_slab(k ? 166 : 6, 163, 148, MORE[k], sel_k(t, 3 + k), 500 + (uint32_t)k);
-    ui_keys_worn(184, KEYS3, SAYS3, 3);
+    ui_keys_worn(184, GKEYS, SAYS3, 3);
     for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) if (!(MF[y][x] & MF_DIRECT)) { float l = LC[y][x] + LW[y][x]; LC[y][x] = fmaxf(l * 0.5f, 0.24f); LW[y][x] = l * 0.5f; }
-    for (int k = 3; k < 5; k++) { float kk = sel_k(t, k); if (kk > 0) light_add(k == 3 ? 80 : 240, 170, 70, 0.6f * kk, 1); }
     ui_light(160, H, 0.6f);
     resolve();
-    ui_keys_words(184, KEYS3, SAYS3, 3);
+    ui_keys_words(184, GKEYS, SAYS3, 3);
 }
 
 /* ======================================================================================================================
@@ -2026,6 +2154,7 @@ static void leaf(float x, float y, float ph, int col) {               /* an autu
  * MEMENTO MORI cut in it; its left shoulder broken off and cracks from the break; ivy up that side. 214 by 150 */
 static const char *const WING[9] = { "........#####", ".....########", "...###########", ".############", "#############",
                                      "..###########", "....#########", ".......######", ".........####" };
+static int C_FACE;                                                      /* 0 the name stacked; 1 the menu's face */
 static void build_great_stone(void) {
     sc_begin(214, 150);
     sc_rect(0, 138, 214, 12, 1, 0, SM_STONE, 0);
@@ -2047,7 +2176,8 @@ static void build_great_stone(void) {
     sc_mark(107 - 11, 15, KEY_SKULL, 11, 2, 1, 0.1f);
     for (int y = 12; y < 42; y++) for (int x = 94; x < 120; x++) if (sc_solid(x, y) && S.ht[y][x] == 1 && x > 95 && x < 119) S.dv[y][x] += 0.14f;
     for (int y = 46; y < 124; y++) for (int x = 20; x < 194; x++) if (sc_solid(x, y) && S.ht[y][x] == 0) S.f[y][x] |= SF_CALM;   /* quiet where the name is cut */
-    sc_text_c(107, 129, "MEMENTO MORI", 0, 0, 77, 190);
+    if (!C_FACE) sc_text_c(107, 129, "MEMENTO MORI", 0, 0, 77, 190);
+    else { menu_rows(107, 80, 11, 170, -1, 940); sc_text_c(107, 129, menu_note(menu_sel()), 0, 0, 941, 190); }
     sc_break(10, 46, 13, 81);                                            /* the left shoulder, gone */
     sc_crack(22, 52, 0.5f, 60, 82, 2);
     sc_crack(30, 40, -0.4f, 30, 83, 1);
@@ -2143,10 +2273,22 @@ static void scene_c(float t) {
     grass_fg(t);
     vignette(0.35f);
     for (int i = 0; i < 6; i++) flame(CA[i], G + 4 - 10 - CH[i], 6, t, i);
-    logo_build("HAUNTED", 0.8f, ".EXE", 0.76f, 0, 31);
-    logo_draw((W - LG.w) / 2, SB - 150 + 50, LS_CARVED, 1.0f + 0.2f * flash, G + 1, t);
+    if (!C_FACE) { logo_build("HAUNTED", 0.8f, ".EXE", 0.76f, 0, 31); logo_draw((W - LG.w) / 2, SB - 150 + 50, LS_CARVED, 1.0f + 0.2f * flash, G + 1, t); }
+    else {                                                              /* the name on one line over the four */
+        lg_dripmax = 5;
+        logo_build("HAUNTED", 0.56f, ".EXE", 0.5f, 1, 31);
+        lg_dripmax = 99;
+        logo_draw((W - LG.w) / 2, SB - 150 + 50, LS_CARVED, 1.0f + 0.2f * flash, G + 1, t);
+        for (int y = SB - 150 + 46; y < SB - 26; y++) for (int x = 60; x < 260; x++) LC[y][x] = fmaxf(LC[y][x], 0.62f * MN.appear);
+        light_add(W / 2, SB - 150 + 80 + menu_sel() * 11 + 3, 60, 0.45f, 1);
+        if (MN.appear < 1) for (int i = 0; i < 40; i++) {                /* dust off the face as it is cut again */
+            float x = 70 + h01(i, 1, 950) * 180, y = SB - 140 + h01(i, 2, 950) * 90 + MN.appear * 40 * (1 + h01(i, 3, 950));
+            matf((int)x, (int)y, R_STONE, 0.7f, MF_FLAT);
+        }
+    }
+    title_foot_pre();
     resolve();
-    prompt(W / 2, 186, "PRESS ANY BUTTON", 1, t, R_BONE);
+    title_foot(186, 1, t);
 }
 
 /* the graves in C: three stones close, a mound before each; out of the chosen one's a hand comes up, its candles lit; the
@@ -2207,9 +2349,7 @@ static void scene_c_graves(float t) {
     }
     for (int g = 0; g < 3; g++) mist(CX[g], M - 4, sel_k(t, g), t, 300 + g);
     ui_beam("RISE FROM WHICH GRAVE?", t);
-    static const char *const MORE[2] = { "UNSIGNED: LEVEL 3", "DIG A NEW GRAVE" };
-    for (int k = 0; k < 2; k++) row_slab(k ? 166 : 6, 162, 148, MORE[k], sel_k(t, 3 + k), 500 + (uint32_t)k);
-    ui_keys_worn(184, KEYS3, SAYS3, 3);
+    ui_keys_worn(184, GKEYS, SAYS3, 3);
     for (int y = G; y < H; y++) for (int x = 0; x < W; x++) LC[y][x] = y < 160 ? 0.5f : 0.62f;
     for (int g = 0; g < 3; g++) {
         float k = sel_k(t, g);
@@ -2218,11 +2358,10 @@ static void scene_c_graves(float t) {
         light_add(CX[g], G - 12, 80 * fl, 1.0f * k, 1);
         light_add(CX[g], G - 50, 60, 0.3f * k, 0);
     }
-    for (int k = 3; k < 5; k++) { float kk = sel_k(t, k); if (kk > 0) light_add(k == 3 ? 80 : 240, 170, 70, 0.6f * kk, 1); }
     vignette(0.45f);
     ui_light(160, H, 0.6f);
     resolve();
-    ui_keys_words(184, KEYS3, SAYS3, 3);
+    ui_keys_words(184, GKEYS, SAYS3, 3);
 }
 
 /* ======================================================================================================================
@@ -2275,6 +2414,21 @@ static void run(const char *dir, const char *name, void (*fn)(float), float loop
     printf("%s: %d frames\n", name, n);
 }
 
+/* the menus: each title with its menu coming in after a second (docs/PLAN-title.md, 4b) */
+static void scene_a_menu(float t) { menu_time(t); scene_a(t); MN.on = 0; }
+static void scene_b_menu(float t) { menu_time(t); scene_b(t); MN.on = 0; }
+static void scene_c_menu(float t) {
+    static uint8_t was[H * W];
+    menu_time(t);
+    if (MN.appear >= 0.999f) { C_FACE = 1; scene_c(t); }
+    else if (MN.appear <= 0.001f) { C_FACE = 0; scene_c(t); }
+    else {                                                              /* the old face dissolving into the new, in a dither */
+        C_FACE = 0; scene_c(t); memcpy(was, F.pix, sizeof was);
+        C_FACE = 1; scene_c(t);
+        for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) if (bay(x, y) * 0.98f + 0.01f > MN.appear) F.pix[y * W + x] = was[y * W + x];
+    }
+    C_FACE = 0; MN.on = 0;
+}
 /* every built piece alone, three times size, on a dark ground: for looking at them closely */
 static void parts_sheet(const char *path) {
     pal_night();
@@ -2288,9 +2442,9 @@ static void parts_sheet(const char *path) {
     build_fragment(17, 9, 300); sc_shade(0.42f, 301, 0, R_GOLD); sc_draw(130, 128, 0);
     row_slab(8, 140, 148, "UNSIGNED: LEVEL 3", 0, 500);
     row_slab(8, 160, 148, "DIG A NEW GRAVE", 1, 501);
-    ui_keys_worn(182, KEYS3, SAYS3, 3);
+    ui_keys_worn(182, GKEYS, SAYS3, 3);
     resolve();
-    ui_keys_words(182, KEYS3, SAYS3, 3);
+    ui_keys_words(182, GKEYS, SAYS3, 3);
     sw = W * 3; sh = H * 3;
     sheet = calloc((size_t)sw * sh, 3);
     for (int y = 0; y < sh; y++) for (int x = 0; x < sw; x++) { const uint8_t *q = F.pal[F.pix[(y / 3) * W + x / 3]]; for (int c = 0; c < 3; c++) sheet[((size_t)y * sw + x) * 3 + c] = (uint8_t)(q[c] * 255 / 63); }
@@ -2306,26 +2460,32 @@ static void still(const char *path, void (*fn)(float), float loop, float t) {
     write_png(path, sheet, sw, sh);
     free(sheet);
 }
-/* the six side by side, a still each, labelled: the overview */
+/* the overview: each scene's title, its menu and its graves, a still each, labelled; and a sheet of the pad's words */
 static void overview(const char *dir) {
-    static const struct { const char *label; void (*fn)(float); float loop, t; } V[6] = {
-        { "A  BENEATH", scene_a, 12, 4.0f }, { "A  ITS GRAVES", a_graves, 12, 1.2f },
-        { "B  THE WALK", scene_b, 8, 2.0f }, { "B  ITS GRAVES", scene_b_graves, 12, 3.6f },
-        { "C  THE RISEN", scene_c, 8, 2.2f }, { "C  ITS GRAVES", scene_c_graves, 12, 1.4f } };
-    sw = (W * 2 + 16) * 2 + 16; sh = (H * 2 + 40) * 3 + 16;
-    uint8_t *big = calloc((size_t)sw * sh, 3);
-    for (int i = 0; i < 6; i++) {
-        LOOP = V[i].loop; T = V[i].t;
-        V[i].fn(T);
-        sheet = big;
-        int ox = 16 + (i % 2) * (W * 2 + 16), oy = 16 + (i / 2) * (H * 2 + 40);
-        sheet_label(ox, oy, V[i].label);
-        sheet_put(ox, oy + 24);
-    }
+    static const struct { const char *label; void (*fn)(float); float loop, t; } V[9] = {
+        { "A  BENEATH", scene_a, 12, 4.0f }, { "A  ITS MENU", scene_a_menu, 12, 3.0f }, { "A  ITS GRAVES", a_graves, 12, 1.2f },
+        { "B  THE WALK", scene_b, 8, 2.0f }, { "B  ITS MENU", scene_b_menu, 12, 5.4f }, { "B  ITS GRAVES", scene_b_graves, 12, 6.0f },
+        { "C  THE RISEN", scene_c, 8, 2.2f }, { "C  ITS MENU", scene_c_menu, 12, 8.0f }, { "C  ITS GRAVES", scene_c_graves, 12, 1.4f } };
     char p[512];
-    snprintf(p, sizeof p, "%s/overview.png", dir);
-    write_png(p, big, sw, sh);
-    free(big);
+    for (int pass = 0; pass < 2; pass++) {
+        int n = pass ? 3 : 9;
+        sw = (W * 2 + 16) * 3 + 16; sh = (H * 2 + 40) * (n / 3) + 16;
+        uint8_t *big = calloc((size_t)sw * sh, 3);
+        PADMODE = pass;
+        for (int i = 0; i < n; i++) {
+            int v = pass ? (i == 0 ? 6 : i == 1 ? 4 : 5) : i;
+            LOOP = V[v].loop; T = V[v].t;
+            V[v].fn(T);
+            sheet = big;
+            int ox = 16 + (i % 3) * (W * 2 + 16), oy = 16 + (i / 3) * (H * 2 + 40);
+            sheet_label(ox, oy, V[v].label);
+            sheet_put(ox, oy + 24);
+        }
+        PADMODE = 0;
+        snprintf(p, sizeof p, pass ? "%s/pad.png" : "%s/overview.png", dir);
+        write_png(p, big, sw, sh);
+        free(big);
+    }
 }
 
 int main(int argc, char **argv) {
@@ -2344,11 +2504,18 @@ int main(int argc, char **argv) {
     if (!strcmp(which, "b") || !strcmp(which, "all")) run(argv[1], "B_graves", scene_b_graves, 12.0f);
     if (!strcmp(which, "c") || !strcmp(which, "all")) run(argv[1], "C_risen", scene_c, 8.0f);
     if (!strcmp(which, "c") || !strcmp(which, "all")) run(argv[1], "C_graves", scene_c_graves, 12.0f);
+    if (!strcmp(which, "menu") || !strcmp(which, "all")) {
+        run(argv[1], "A_menu", scene_a_menu, 12.0f);
+        run(argv[1], "B_menu", scene_b_menu, 12.0f);
+        run(argv[1], "C_menu", scene_c_menu, 12.0f);
+    }
     if (!strcmp(which, "overview") || !strcmp(which, "all")) overview(argv[1]);
     if (!strcmp(which, "s") && argc > 4) {                              /* one still: s <A|Ag|B|Bg|C|Cg> <seconds> */
-        static const struct { const char *n; void (*fn)(float); float loop; } SS[6] = {
-            { "A", scene_a, 12 }, { "Ag", a_graves, 12 }, { "B", scene_b, 8 }, { "Bg", scene_b_graves, 12 }, { "C", scene_c, 8 }, { "Cg", scene_c_graves, 12 } };
-        for (int i = 0; i < 6; i++) if (!strcmp(argv[3], SS[i].n)) {
+        static const struct { const char *n; void (*fn)(float); float loop; } SS[9] = {
+            { "A", scene_a, 12 }, { "Ag", a_graves, 12 }, { "B", scene_b, 8 }, { "Bg", scene_b_graves, 12 }, { "C", scene_c, 8 }, { "Cg", scene_c_graves, 12 },
+            { "Am", scene_a_menu, 12 }, { "Bm", scene_b_menu, 12 }, { "Cm", scene_c_menu, 12 } };
+        PADMODE = getenv("TM_PAD") != NULL;
+        for (int i = 0; i < 9; i++) if (!strcmp(argv[3], SS[i].n)) {
             char p[512];
             snprintf(p, sizeof p, "%s/s_%s_%s.png", argv[1], argv[3], argv[4]);
             still(p, SS[i].fn, SS[i].loop, (float)atof(argv[4]));

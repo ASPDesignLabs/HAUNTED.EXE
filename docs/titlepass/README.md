@@ -21,6 +21,8 @@ build/titlemock <dir> flash          # the lightning's frames, to check them
 
 - `overview.png`: a still of each of the six.
 - `logo.png`: the name, in blood and cut in stone, on one line and stacked.
+- `A_menu.png`, `B_menu.png`, `C_menu.png`: the menu after the key (docs/PLAN-title.md, 4b), four stills from each loop:
+  the title, the menu coming in, the choice going down. `pad.png`: the words when the pad is the input.
 - `parts.png`: the built pieces of the grave screens alone, three times size: the stele, the wheel-cross, the timber cross
   and its board, a kerb, a broken piece, the rows' slabs and the worn key caps.
 - `A_beneath.png` ... `C_graves.png`: four stills from each loop.
@@ -34,6 +36,15 @@ a little smaller. There are two treatments:
   and draw back. The drops fall to the ground and splash. The gleams are the skin ramp's palest steps.
 - **Cut in stone**: incised letters, their walls in shadow and blood in the cuts, the stone's lip lit under them. The drips
   run down the stone.
+
+## The menu (after the owner's answers)
+
+A key or a button (not a stick) brings a menu into the middle, over the scene, which goes on: CHOOSE A GRAVE, BEGIN A NEW
+RUN, THE CONTROLS, HELP. In A a stone with a steep gable rises out of the earth into the graveyard. In B a tablet comes
+down on chains from the lintel into the arch. In C the great stone's face is cut again, the name on one line over the four,
+the old face dissolving into the new in a dither. The chosen choice is gilt with a notch either side, and a short note
+under the four says what it does. The prompt reads PRESS ANY KEY, or PRESS ANY BUTTON when the pad is in use, and the
+hints follow the input. The grave screens now hold only the three graves: the unsigned run is not a choice.
 
 ## The refinement pass
 

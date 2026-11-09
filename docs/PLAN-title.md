@@ -1,7 +1,7 @@
 # The title screen: plan and hand-off
 
 Status (9 November 2026): **the refinement pass is done (steps 1-8) and the owner approved it. The menu is under way
-(section 4b, M1-M4).** Nothing in the game is changed yet. Everything here is mock-ups drawn by `tools/titlemock.c`, outside the game.
+(section 4b, M1-M4): done, and sent to the owner for a look.** Nothing in the game is changed yet. Everything here is mock-ups drawn by `tools/titlemock.c`, outside the game.
 
 Read the hand-off log (section 6) first. It says where the last session stopped.
 
@@ -23,6 +23,12 @@ Read the hand-off log (section 6) first. It says where the last session stopped.
   screen with four options**: choose a grave, begin a new run, review the controls, and an empty one that leads to a help
   section still to come. **The scene's animation and music go on while it is up.** In the owner's words: "You have most
   of the assets for this, just modify a few so they allow for this selection screen to appear in the middle."
+- 9 November: **the music for the title is Shop4 on `claude/beautiful-einstein-tzed36`.** That is the fourth of her hall's
+  five attempts, *the lament ground* (G minor, 3/4, 72, a passacaglia on the falling bass G, F, E-flat, D, 2:40). That
+  branch already gives it to a title screen: `MU_TITLE`, `SC_GROUND`, `ground_step` in its `src/snd.c`, played for now when
+  the ledger is opened to choose a page, and `snd_set_menu(3)` / `g_menu_mu` let a menu play the title's piece. Its
+  `docs/PLAN-music-work.md` describes it. `build/host music title <secs> out.wav` on that branch renders it. The mock-ups'
+  MP4 previews were made that way, with the branch built in a detached worktree in the scratchpad, then removed.
 - The owner's standing preferences (CLAUDE.md, *Working with the owner*): options and questions before big features; honest
   status about what was tried and how; British spelling; the plain, dry voice. They also asked for backups to be encouraged
   and edits to be confirmed. So keep this work in new files, and commit and push each step.
@@ -150,12 +156,21 @@ HELP is a page still to be written. In each scene the menu comes in its own way,
 The chosen choice gilds while it is chosen. A one-line note says what it does: on the menu stone in A and B, on C's plinth.
 The hints at the foot follow the input: keys on worn caps, or the pad's buttons in their colours.
 
-M1. **Record the answers; graves without the extra rows; the prompt by input.** *Status: being done.*
+M1. **Record the answers; graves without the extra rows; the prompt by input.** **Done** (9 November): `NCHOICE` 3;
+    `PADMODE` and `any_prompt` (PRESS ANY KEY / PRESS ANY BUTTON); the hints' caps in the pad's colours (A green, B red, as
+    the game's `hint8`) when it is the pad.
 M2. **The menu's stones**, with the kit: A's standing stone, B's hanging tablet, C's face re-cut. Each row gilds on its
-    own.
+    own. **Done**: `build_menu_stone`, `build_menu_tablet`, `build_great_stone` with `C_FACE` 1; `menu_rows` (the four, gilt
+    notches either side of the chosen, a rule and the note); the kit's `S.gk` and `sc_gk` gild word by word.
 M3. **The menu scenes**: a second of the title, the key, the menu coming in, then the choice going down the four. Their
-    GIFs: `A_menu`, `B_menu`, `C_menu`.
+    GIFs: `A_menu`, `B_menu`, `C_menu`. **Done**: `menu_time` (`T_PRESS` 1 s, `T_IN` 0.7 s; the prompt flares as the key is
+    taken; at the loop's end Esc, and the menu goes, so the loop comes back to the title), `title_foot_pre` and `title_foot`;
+    A's stone rises out of the earth shedding clods, B's tablet comes down on its chains with a small bounce, and C's face
+    dissolves in a dither (`scene_c_menu` draws both faces and mixes them by `bay`), dust falling off it. The notes: ONE OF
+    HER PAGES, FROM THE BEGINNING, WHAT EACH KEY DOES (or BUTTON), NOT WRITTEN YET.
 M4. **Checks and hand-over**: a still of each with the pad's words, the overview, docs, commit and push, sent to the owner.
+    **Done**: `overview.png` (each scene's title, menu and graves), `pad.png` (the pad's words), the stills in
+    `docs/titlepass/`, and MP4 previews of the three menus with the lament ground under them, sent to the owner (not in git).
 
 THE CONTROLS in the game: the controls card the game already has (`render_hud`'s `more[]`), or the controller's own screen
 (`UI_PAD`, `ui_pad`) while a pad is the input. HELP leads to a page saying it isn't written yet. Neither is drawn in these
@@ -180,3 +195,8 @@ None open now (answered 9 November: see section 1).
   grave I covers part of its plinth's numeral, and PLAGUE DOCTOR is untried on a stone.
 - **9 November, session 1, after the owner's look.** Approved ("All look amazing"). The answers and the menu are
   recorded in sections 1 and 4b. M1 is under way.
+- **9 November, session 1, later still.** M1-M4 done and pushed; the owner was sent the menus' GIFs and MP4s (the lament
+  ground under them). Waiting on their look. The next is whatever they say, then step 9 (into the game). Its plan should
+  start from section 4b: the title scene and its rotation, any key or button but a stick to go on, the menu, the grave
+  screen from `page_info`, THE CONTROLS from the controls card and `UI_PAD`, HELP's empty page, and `MU_TITLE` from the
+  music branch.
