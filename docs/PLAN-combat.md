@@ -1110,6 +1110,38 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   `cast_spell` is C's now. Checked: the dream from level 1 for 600 s on seed 5 as the Witchfinder (661 events) and the Plague
   Doctor (603) plays the build before line for line. Next: the frame (the slots at the Lampstand, credits, ranks, `LG_AUG`, the
   dream's choices) and Fire's six, behind a debug switch till their sheet is approved. Track D: D7 can begin on `augd_*` now.
+- **9 November. C6's frame and Fire's six, and their sheet, for the owner** (`docs/combat/c6-augments.png`; harness only). All of
+  it behind `CRAWL_AUG=1` in the debug build (`aug_on`, 0 in the release build), so play is the build before's: with it unset four
+  600 s dreams (seeds 1 and 3, the Witchfinder and the Sin-Eater) give the previous commit's events line for line. *The frame*
+  (`a47c96a`): `RUN.aug` (the choice at each step, 1 or 2), `aug_ord` (the order chosen), `aug_cr` (each one's credits),
+  `aug_bank`; `LG_AUG` after `LG_CONF` (`AUG_LINE_BYTES` a line; an older page reads as none chosen); `aug_credit` (a kill by the
+  line 1, the BFS9000 none; a thing struck 2, in `mk_finish`; a boss 10 to the line of its last blow, in `boss_fall`), `aug_feed`
+  (the newest chosen not at III, then the next; a rank's caption and `SFX_RUNE`), `aug_choose`, `aug_forget` (unbinding,
+  `align_unbind`; a death that costs, all six, A14), `auto_augment` (the dream, at random, never a person's run or a kept page,
+  A15). The Lampstand: each step's node carries a slot beside it (its mark, `UI_AUGMARK`, Fire's six drawn and a plain rune for the
+  rest, and three pips); Space on the opening, the ability or an ultimate held opens the pair's tablet (`ui_augpair`): A/D the one,
+  Enter twice takes it (*AGAIN, AND IT IS YOURS FOR GOOD.*), its credits and the line's bank at its foot; Back unbinds (A6), the
+  pad's X being Back in a menu while the augments are on. Unchosen, a card gives rank III's numbers; chosen, the rank it is at or
+  comes to next. *Fire's six* (11.2, A7-A13): Burning Intensity holds the bolt (`spell_holds`; `human_cast`'s release: a tap
+  under 0.25 s is the ordinary cast with its wind-up, at 0.8; held, `cast_held` with `g_fire_hold` the share of three seconds,
+  0.8 + (0.2 + 0.25k) of it, up to 30% more spirit, `Shot.scale` 1 + 1.5k of it; past three seconds with the Firewall, the Firewall,
+  A9; `render_charge` fills over three seconds); Firecracker a spark (0.25 the damage, scale 0.55, its ignite 95%, 60% on what
+  shrugs fire off, its burning 1 + 2k times the spark's, A11); Multiply three bolts 0.25 rad apart, each `MULTIPLY_K` of the cast,
+  30% more spirit; Swift Flight (1 + k) times as fast and (1 + k/2) as far, so its life is shortened and Firestarter's floor still
+  catches from the hand; Volatility (`fire_kill`: a kill by a burn's tick bursts, `explode_big`, setting all within 1.6 cells in
+  sight alight for `VOLATILE_K` of its health, a boss a tenth, A12; 30% more spirit); Pyre (`fire_tick`, from `aug_tick`: what burns
+  passes k of what is left of its burning to the nearest not alight within 1.25 cells, once, `Mob.pyre`). The node that was
+  BURNING INTENSITY is SLOW EMBERS (A10). Shots are drawn by `Shot.scale`. The dream holds the bolt when its mark is beyond four
+  cells and nothing within 2.5, (d - 4) x 0.6 s, half a second at least, 2.75 at most; with the Firewall it doesn't, and its
+  Firewall takes three seconds. The controls card says HOLD THE FIRE BOLT AND IT GROWS when only it holds. Not done: a grown bolt
+  strikes by its middle as any bolt does (the hits are track D's `update_shots`), and its burst is the ordinary one. With the
+  switch on, a dream from level 13 at `CRAWL_GEAR=3` for 600 s (seed 3) held 10 bolts, split 73 and burst 9 with Burning
+  Intensity, Multiply and Volatility at III; with Firecracker, Swift Flight and Pyre 53 of its marks went alight (none with no
+  augment) and three passed it on (before Pyre's reach was widened from a cell). ASan clean on four sessions: two such dreams, a
+  fresh run from level 1, and a person holding for 1 s (a grown bolt) and 3.5 s with the Firewall (the Firewall). The sheet: the
+  Lampstand's slots and pair, and each augment but Pyre in play (Pyre shows only as a second creature alight). Next, on the
+  owner's word: the augments on in the release build (`CRAWL_AUG=0` to take them out), then the pacing to A2 b's target and the
+  balance runs.
 
 ## 19. Track D's log (the dead's)
 

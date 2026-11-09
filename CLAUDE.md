@@ -1584,6 +1584,17 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   twice before confessing one whose every number is capped (`G.cf_arm` the Confession). The caps and the owner's caps by class
   are in `docs/BRIEF-caps.md` (section 6 settled, built by D). Tab's caster page lists D's Restoration on 8 once confessed
   (`render_caster`: an ankh, its rank, gold while `G.rst_sel`).
+  **C6, the augments' frame and Fire's six** (1.0.0b21, section 11; harness only; behind `CRAWL_AUG=1` in the debug build till its
+  sheet, `docs/combat/c6-augments.png`, is approved: `aug_on`). `RUN.aug`/`aug_ord`/`aug_cr`/`aug_bank`, saved as `LG_AUG`;
+  `aug_of`, `aug_rank`, `aug_k` (0 till rank I), `aug_credit` (kills 1, things 2 in `mk_finish`, a boss 10 in `boss_fall`),
+  `aug_feed`, `aug_choose`, `aug_forget`, `auto_augment`; the dispatchers `aug_*` hand Fire to `fire_cost`, `fire_dmg`,
+  `fire_cast`, `fire_af`, `fire_kill` (Volatility), `fire_tick` (Pyre, `Mob.pyre`), the other lines to D's `augd_*`. The
+  Lampstand's slots (`ui_tree`'s `UiNode.aug*`, `UI_AUGMARK`), the pair's tablet (`ui_augpair`, `update_augpair`, `G.al_aug`,
+  `G.al_augs`, `AL_AUG`); Space the augments, Back unbinds. Burning Intensity's held bolt: `fire_grows`, `hold_span`, `cast_held`,
+  `g_fire_hold`, `FIRE_GROW_T`; `Shot.scale` drawn in `render_sprites`. The Fire node once called BURNING INTENSITY is SLOW EMBERS.
+  Debug: `CRAWL_AUG=1`, `CRAWL_AUGSET` (eighteen digits, a line's three steps in `ELEM` order: 0 none, 1-3 the first at that
+  rank, 4-6 the second), `CRAWL_AUGAUTO=0` (the dream leaves them), `EVENT aug_choose`, `aug`, `fire_held`, `fire_splits`,
+  `fire_bursts`, `fire_spreads`.
 - **The dead's ways shown** (1.0.0b18, PLAN-ai step 11, Part H; harness only; released). `WY_*` (seventeen set pieces), `way_met` (named
   once a run of ten, `RUN.ways`/`way_said`/`way_run`), `pack_way`; the Codex's `CX_WAYS`; the record's deeds (`deed_note`,
   `DEED_*`, `caller_hushed`, `ways_ends`, `Pack.hunted/hurts0/done`, `Ambush.deaths0/done`, `G.hurts`, `G.hunt_shaken`) and

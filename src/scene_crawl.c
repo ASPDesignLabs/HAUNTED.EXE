@@ -164,6 +164,7 @@ typedef struct {
                                                                       its is under way; the creatures' part ORs them in */
     int c4, c4n; float c4_t, c4_cd, c4a, c4x, c4y;                 /* C4's attacks: which is under way (C4_*), bones thrown; its clock,
                                                                       the wait before the next, its aim and where it began */
+    int pyre;                                                      /* Pyre (1.0.0b21): it has passed its burning on, once */
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     int elem;                                                      /* 1 + the element it was born to (section 7.4), 0 none: set by D,
@@ -4944,7 +4945,8 @@ static const ALine ALIGN[NELEM] = {
         { "INSIGHT", 2, NK_INS, 0.15f, 0, "FIRE GATHERS 15% QUICKER A POINT." },
         { "FIRESTARTER", 3, NK_ABIL, 0, 0, "THE FIREBALL SETS THE FLOOR ALIGHT ALONG ITS FLIGHT; WHAT WALKS THROUGH IT CATCHES FIRE." },
         { "EFFICIENCY II", 2, NK_EFF, 0.10f, 0, "FIRE COSTS 10% LESS SPIRIT A POINT." },
-        { "BURNING INTENSITY", 2, NK_STEP, 0.5f, 0, "WHAT BURNS BURNS HALF AS LONG AGAIN, A POINT." },
+        { "SLOW EMBERS", 2, NK_STEP, 0.5f, 0, "WHAT BURNS BURNS HALF AS LONG AGAIN, A POINT." },   /* BURNING INTENSITY till 1.0.0b21: the
+                                                                      name went to Fire's first augment (PLAN-combat A10) */
         { "FLAMEWALKER", 5, NK_ULT, 0, 0, "WALKING THROUGH YOUR FLAMES GIVES YOU HALF YOUR ARMOUR AGAIN FOR FIVE SECONDS." },
         { "INSIGHT II", 2, NK_INS, 0.15f, 0, "FIRE GATHERS 15% QUICKER A POINT." },
         { "FIRE MASTERY", 5, NK_MASTER, 0.25f, 0, "FIRE HITS A QUARTER HARDER." },
@@ -5838,12 +5840,12 @@ static void fire_does(int t, int w, float k, char *buf, int n) {   /* what Fire'
     if (k <= 0.0f) k = 1.0f;
     int r = k >= 0.99f ? 3 : k >= 0.74f ? 2 : 1;
     switch (t * 2 + w - 1) {
-    case 0: snprintf(buf, (size_t)n, "HELD, THE BOLT GROWS: A FIFTH WEAKER AT ONCE, %d%% STRONGER AND %.1f TIMES ITS SIZE AT THREE SECONDS, UP TO A THIRD MORE SPIRIT.",
+    case 0: snprintf(buf, (size_t)n, "HELD, THE BOLT GROWS: A FIFTH WEAKER AT ONCE, %d%% STRONGER AND %.1f TIMES ITS SIZE AT THREE SECONDS, UP TO 30%% MORE SPIRIT.",
                      (int)(25.0f * k + 0.5f), 1.0f + 1.5f * k); break;
     case 1: snprintf(buf, (size_t)n, "THE BOLT IS A SPARK: A QUARTER OF ITS DAMAGE, ALL BUT SURE TO SET ITS MARK ALIGHT, THE BURNING %.1f TIMES AS FIERCE.", 1.0f + 2.0f * k); break;
-    case 2: snprintf(buf, (size_t)n, "THE BOLT SPLITS IN AN ARC OF THREE, EACH %d%% OF THE CAST, FOR A THIRD MORE SPIRIT.", (int)(100.0f * MULTIPLY_K[r] + 0.5f)); break;
+    case 2: snprintf(buf, (size_t)n, "THE BOLT SPLITS IN AN ARC OF THREE, EACH %d%% OF THE CAST, FOR 30%% MORE SPIRIT.", (int)(100.0f * MULTIPLY_K[r] + 0.5f)); break;
     case 3: snprintf(buf, (size_t)n, "THE BOLT FLIES %d%% FASTER AND %d%% FURTHER.", (int)(100.0f * k + 0.5f), (int)(50.0f * k + 0.5f)); break;
-    case 4: snprintf(buf, (size_t)n, "WHAT DIES OF YOUR BURNING BURSTS, SETTING ALL NEAR IT ALIGHT FOR %d%% OF ITS HEALTH. A THIRD MORE SPIRIT.",
+    case 4: snprintf(buf, (size_t)n, "WHAT DIES OF YOUR BURNING BURSTS, SETTING ALL NEAR IT ALIGHT FOR %d%% OF ITS HEALTH. 30%% MORE SPIRIT.",
                      (int)(100.0f * VOLATILE_K[r] + 0.5f)); break;
     default: snprintf(buf, (size_t)n, "WHAT BURNS SPREADS %d%% OF ITS BURNING TO ONE CREATURE WITHIN A CELL, ONCE.", (int)(100.0f * k + 0.5f)); break;
     }
@@ -5943,19 +5945,110 @@ static void aug_debug_set(void) {                                  /* CRAWL_AUGS
     }
 }
 #endif
+/* Fire's six (section 11.2), each felt only at rank I or more (aug_k is 0 till then). The opening's pair changes the bolt itself:
+ * Burning Intensity holds it (human_cast, the dream's PS_CAST), a fifth weaker tapped, growing over three seconds held, and past
+ * three with the Firewall the Firewall comes (A9); Firecracker makes it a spark. The ability's: Multiply splits it in three,
+ * Swift Flight speeds it. The ultimate's: Volatility bursts what dies of your burning, Pyre passes burning on. Only the bolt
+ * (AT_FIRE) takes the first four; the burning (AT_HELL's ticks, whatever lit it) the last two */
+static float weak_el(const Mob *m, int el);
+static float el_chance(const Mob *m, int el);
+static void mob_ignite(Mob *m, float dmg);
+static int mob_takes_af(const Mob *m);
+static void explode_big(float x, float y, float r);
+static float g_fire_hold = -1.0f;                                  /* Burning Intensity: the held bolt's share of three seconds as it
+                                                                      goes; below 0, a bolt not held (a tap, a splash, the dream's) */
+#ifdef CRAWL_DEBUG
+static int fire_held, fire_splits, fire_bursts, fire_spreads;
+#endif
+#define FIRE_GROW_T 3.0f                                           /* Burning Intensity's full growth, and the Firewall's hold with it */
+static int fire_grows(int sp) { return sp == AT_FIRE && aug_k(EL_FIRE, AUG_OPEN, 1) > 0.0f; }
+static float fire_cost(int sp) {                                   /* the increases add (A7) */
+    if (sp != AT_FIRE) return 0.0f;
+    float c = 0.0f;
+    if (fire_grows(sp) && g_fire_hold > 0.0f) c += 0.3f * g_fire_hold;
+    if (aug_k(EL_FIRE, AUG_ABIL, 1) > 0.0f) c += 0.3f;             /* Multiply */
+    if (aug_k(EL_FIRE, AUG_ULT, 1) > 0.0f) c += 0.3f;              /* Volatility */
+    return c;
+}
+static float fire_dmg(int sp) {
+    if (sp != AT_FIRE) return 1.0f;
+    float d = 1.0f, k = aug_k(EL_FIRE, AUG_OPEN, 1);
+    if (k > 0.0f) d *= 0.8f + (0.2f + 0.25f * k) * fmaxf(0.0f, g_fire_hold);   /* a fifth weaker at once, a quarter stronger at three s */
+    else if (aug_k(EL_FIRE, AUG_OPEN, 2) > 0.0f) d *= 0.25f;       /* the spark */
+    if (aug_k(EL_FIRE, AUG_ABIL, 1) > 0.0f) d *= MULTIPLY_K[aug_rank(EL_FIRE, AUG_ABIL)];   /* each of the three */
+    return d;
+}
+static void fire_cast(int sp, Shot *s) {
+    if (sp != AT_FIRE || !s) return;
+    float k = aug_k(EL_FIRE, AUG_OPEN, 1);
+    if (k > 0.0f) s->scale = 1.0f + 1.5f * k * fmaxf(0.0f, g_fire_hold);
+    else if (aug_k(EL_FIRE, AUG_OPEN, 2) > 0.0f) s->scale = 0.55f;
+    if ((k = aug_k(EL_FIRE, AUG_ABIL, 2)) > 0.0f) {                /* Swift Flight: faster by k, further by half k */
+        s->vx *= 1.0f + k; s->vy *= 1.0f + k; s->life *= (1.0f + 0.5f * k) / (1.0f + k);
+    }
+    if (aug_k(EL_FIRE, AUG_ABIL, 1) > 0.0f) {                      /* Multiply: two more, a little either side */
+        float a = atan2f(s->vy, s->vx), v = hypotf(s->vx, s->vy);
+        for (int i = -1; i <= 1; i += 2) {
+            Shot *o = new_shot(AT_FIRE, s->x, s->y, a + 0.25f * (float)i, v, s->dmg);
+            if (o) { o->tier = s->tier; o->target = s->target; o->scale = s->scale; o->life = s->life; }
+        }
+#ifdef CRAWL_DEBUG
+        DBG_COUNT(fire_splits);
+#endif
+    }
+}
+static float fire_af(const Mob *m, int atk, int q) {               /* Firecracker: all but sure to set its mark alight, and fiercer */
+    float k = atk == AT_FIRE ? aug_k(EL_FIRE, AUG_OPEN, 2) : 0.0f;
+    if (k <= 0.0f) return 1.0f;
+    if (q == AUGQ_HARM) return 1.0f + 2.0f * k;                    /* three times the spark's damage over four seconds at III (A11) */
+    float c = el_chance(m, EL_FIRE);
+    return c > 0.0f ? fmaxf(1.0f, (weak_el(m, EL_FIRE) < 0.75f ? 0.6f : 0.95f) / c) : 1.0f;   /* less sure of what shrugs fire off */
+}
+static void fire_kill(Mob *m, int atk, int flags) {                /* Volatility: what dies of your burning bursts */
+    if (!(flags & DM_TICK) || (atk != AT_HELL && atk != AT_FIRE) || aug_k(EL_FIRE, AUG_ULT, 1) <= 0.0f) return;
+    float harm = m->maxhp * VOLATILE_K[aug_rank(EL_FIRE, AUG_ULT)];
+    explode_big(m->x, m->y, 1.5f);
+    for (int i = 0; i < MAXMOBS; i++) {
+        Mob *o = &G.mobs[i];
+        if (o == m || !mob_takes_af(o) || hypotf(o->x - m->x, o->y - m->y) >= 1.6f || !line_clear(m->x, m->y, o->x, o->y)) continue;
+        mob_ignite(o, harm * (o->boss ? 0.1f : 1.0f));             /* a boss a tenth (A12); it dies once, so it bursts once */
+    }
+#ifdef CRAWL_DEBUG
+    DBG_COUNT(fire_bursts);
+#endif
+}
+static void fire_tick(Mob *m) {                                    /* Pyre: what burns passes its burning to one within a cell, once */
+    if (m->pyre || m->burn_t <= 0.0f) return;
+    float k = aug_k(EL_FIRE, AUG_ULT, 2);
+    if (k <= 0.0f) return;
+    Mob *best = NULL; float bd = 1.25f;                            /* a cell between them, near enough */
+    for (int i = 0; i < MAXMOBS; i++) {
+        Mob *o = &G.mobs[i];
+        if (o == m || o->burn_t > 0.0f || !mob_takes_af(o)) continue;
+        float d = hypotf(o->x - m->x, o->y - m->y);
+        if (d < bd && line_clear(m->x, m->y, o->x, o->y)) { bd = d; best = o; }
+    }
+    if (!best) return;
+    m->pyre = 1;
+    mob_ignite(best, k * m->burn_dps * m->burn_t);                 /* k of what is left to it */
+    sfx_at(SFX_IGNITE, best->x, best->y, 0.6f);
+#ifdef CRAWL_DEBUG
+    DBG_COUNT(fire_spreads);
+#endif
+}
 static int aug_line(int atk) { return atk >= 0 && atk < NATK ? ATK_ELEM[atk] : -1; }   /* a spell's line (Hellfire's burning is Fire's) */
-static float aug_cost(int sp) { int e = aug_line(sp); return e < 0 || e == EL_FIRE ? 0.0f : augd_cost(e, sp); }
-static float aug_dmg(int sp) { int e = aug_line(sp); return e < 0 || e == EL_FIRE ? 1.0f : augd_dmg(e, sp); }
-static void aug_cast(int sp, Shot *s, int t) { int e = aug_line(sp); if (e >= 0 && e != EL_FIRE) augd_cast(e, sp, s, t); }
+static float aug_cost(int sp) { int e = aug_line(sp); return e < 0 ? 0.0f : e == EL_FIRE ? fire_cost(sp) : augd_cost(e, sp); }
+static float aug_dmg(int sp) { int e = aug_line(sp); return e < 0 ? 1.0f : e == EL_FIRE ? fire_dmg(sp) : augd_dmg(e, sp); }
+static void aug_cast(int sp, Shot *s, int t) { int e = aug_line(sp); if (e == EL_FIRE) fire_cast(sp, s); else if (e >= 0) augd_cast(e, sp, s, t); }
 static void aug_hit(Mob *m, int atk, int flags, float *dmg) { int e = aug_line(atk); if (e >= 0 && e != EL_FIRE) augd_hit(e, m, atk, flags, dmg); }
-static float aug_af(const Mob *m, int atk, int q) { int e = aug_line(atk); return e < 0 || e == EL_FIRE ? 1.0f : augd_af(e, m, atk, q); }
+static float aug_af(const Mob *m, int atk, int q) { int e = aug_line(atk); return e < 0 ? 1.0f : e == EL_FIRE ? fire_af(m, atk, q) : augd_af(e, m, atk, q); }
 static void aug_kill(Mob *m, int atk, int flags) {
     int e = aug_line(atk);
     if (e < 0) return;
     if (atk != AT_BFS) aug_credit(e, 1);                           /* a kill by the line: a credit (A3) */
-    if (e != EL_FIRE) augd_kill(e, m, atk, flags);
+    if (e == EL_FIRE) fire_kill(m, atk, flags); else augd_kill(e, m, atk, flags);
 }
-static void aug_tick(Mob *m, float dt) { augd_tick(m, dt); }
+static void aug_tick(Mob *m, float dt) { fire_tick(m); augd_tick(m, dt); }
 static void aug_fly(Shot *s, float dt) { int e = aug_line(s->kind); if (e >= 0 && e != EL_FIRE) augd_fly(e, s, dt); }
 
 static void xp_rooms(void) {                                       /* a room first set foot in */
@@ -10365,7 +10458,16 @@ static int spell_charges(int sp) {
     }
 }
 static int spell_tethers(int sp) { return sp == AT_DRAIN && align_has(EL_SPIRIT, ND_AULT); }
-static int spell_holds(int sp) { return spell_charges(sp) || spell_tethers(sp); }
+static int spell_holds(int sp) { return spell_charges(sp) || spell_tethers(sp) || fire_grows(sp); }   /* and Burning Intensity's bolt */
+static float hold_span(int sp) { return fire_grows(sp) ? FIRE_GROW_T : 1.0f; }   /* a full charge: three seconds with it, the Firewall too */
+static void cast_held(int sp, int t, float held) {                 /* Burning Intensity's bolt let go: grown by the hold */
+    g_fire_hold = clampf(held / FIRE_GROW_T, 0.0f, 1.0f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT fire_held k=%.2f t=%.2f by %s\n", g_fire_hold, G.t, G.player ? "player" : "autopilot"); fire_held++;
+#endif
+    cast_spell(sp, t);
+    g_fire_hold = -1.0f;
+}
 static void mob_stun(Mob *m, float secs);
 static void daze(Mob *m) {                                         /* Amperage: no blow or throw a while; 1.0.0b19, a stun (section 5) */
     if (elem_mode()) { mob_stun(m, 1.5f); return; }
@@ -12471,6 +12573,16 @@ static void auto_charge_pick(void) {
         G.target = best; G.auto_chg = 1; G.auto_hold = 2.5f;
         return;
     }
+    if (fire_grows(sp) && !spell_charges(sp)) {                    /* Burning Intensity: held while what it aims at is far, longer the
+                                                                      further, if nothing has come to blows */
+        float d = hypotf(m->x - G.px, m->y - G.py), hold = clampf((d - 4.0f) * 0.6f, 0.0f, FIRE_GROW_T - 0.25f);
+        for (int i = 0; i < MAXMOBS && hold > 0.0f; i++) {
+            const Mob *o = &G.mobs[i];
+            if (targetable(o) && hypotf(o->x - G.px, o->y - G.py) < 2.5f) hold = 0.0f;
+        }
+        if (hold >= 0.5f && spirit() >= spell_cost(&RUN.gear, sp, tier) * 1.3f) { G.auto_chg = 1; G.auto_hold = hold; }
+        return;
+    }
     if (!spell_charges(sp)) return;
     if (sp == AT_SPEAR ? RUN.gear.bones <= 0 : spirit() < spell_cost(&RUN.gear, sp, tier) * 2.5f) return;
     int near = 0, blows = 0;
@@ -12606,7 +12718,9 @@ static void update_player(float dt) {
             if (spell_tethers(G.spell)) {
                 if (G.st >= 0.25f) { if (!G.tether && targetable(m)) G.tether = G.target + 1; tether_hold(dt); }
                 done = G.st >= 0.25f + G.auto_hold || (G.st > 0.6f && !G.tether) || !G.chg_on;
-            } else if (G.st >= 1.05f) { cast_charged(G.spell, targetable(m) ? G.target : -1, 1.0f); done = 1; }
+            } else if (fire_grows(G.spell) && !spell_charges(G.spell)) {   /* Burning Intensity's bolt, held its while */
+                if (G.st >= 0.25f + G.auto_hold || !targetable(m)) { cast_held(G.spell, targetable(m) ? G.target : -1, G.st); done = 1; }
+            } else if (G.st >= hold_span(G.spell) + 0.05f) { cast_charged(G.spell, targetable(m) ? G.target : -1, 1.0f); done = 1; }
             if (done) {
                 G.chg_on = 0; G.auto_chg = 0; tether_end(); G.fired = 1;
                 G.hand = 0.0f; G.cooldown = cast_cycle(G.spell) * 1.5f;
@@ -22327,12 +22441,17 @@ static void human_cast(float dt, int may) {
             else {
                 G.chg_on = 0;
                 if (G.tether) tether_end();
-                else if (G.chg_t < 0.25f || !spell_charges(G.chg_sp)) {   /* a tap: the ordinary spell, wind-up and all */
+                else if (G.chg_t < 0.25f || (!spell_charges(G.chg_sp) && !fire_grows(G.chg_sp))) {   /* a tap: the ordinary spell, wind-up and all */
                     float cyc = cast_cycle(G.chg_sp);
                     G.pc_wind = spell_windup(&RUN.gear, G.chg_sp, spell_tier(G.chg_sp)) * af_slow_cast();
                     G.pc_t = 0.0f; G.pc_fired = 0; G.pc_len = G.pc_wind + 0.25f; G.cooldown = fmaxf(cyc, G.pc_len);
+                } else if (fire_grows(G.chg_sp) && !(spell_charges(G.chg_sp) && G.chg_t >= FIRE_GROW_T)) {   /* Burning Intensity: the bolt grown;
+                                                                      past three seconds with the Firewall, the Firewall (A9) */
+                    cast_held(G.chg_sp, aim_target(), G.chg_t);
+                    G.pc_t = 0.3f; G.pc_fired = 1; G.pc_wind = 0.3f; G.pc_len = 0.55f; G.calm = 0.0f;
+                    G.cooldown = cast_cycle(G.chg_sp);
                 } else {                                           /* the charge goes: it took the wind-up's place */
-                    cast_charged(G.chg_sp, aim_target(), clampf(G.chg_t, 0.0f, 1.0f));
+                    cast_charged(G.chg_sp, aim_target(), clampf(G.chg_t / hold_span(G.chg_sp), 0.0f, 1.0f));
                     G.pc_t = 0.3f; G.pc_fired = 1; G.pc_wind = 0.3f; G.pc_len = 0.55f; G.calm = 0.0f;
                     G.cooldown = cast_cycle(G.chg_sp) * 1.5f;
                 }
@@ -26981,6 +27100,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (!s->alive || (s->x - G.px) * dx + (s->y - G.py) * dy < (s->kind == SHOT_ORB ? 1.1f : 0.6f)) continue;   /* the hand covers it leaving */
         float sc;
         int sp = shot_sprite(s, &sc), n0 = n;
+        if (s->scale > 0.0f) sc *= s->scale;                       /* Burning Intensity's grown bolt, Firecracker's spark (1.0.0b21) */
         ADD(s->x, s->y, -0.02f + (1.0f - sc) * 0.5f + (s->kind == AT_FLASK ? s->z : 0.0f), sp, 0);
         if (n > n0) list[n - 1].scale = sc;
     }
@@ -28056,7 +28176,7 @@ static void render_charge(Frame *f, int ox, int oy) {
     if (!G.chg_on || !spell_holds(G.chg_sp) || G.chg_t < 0.12f) return;
     int el = ATK_ELEM[G.chg_sp];
     if (el < 0) return;
-    float k = clampf(G.chg_t, 0.0f, 1.0f), t = (float)G.t, full = k >= 0.999f;
+    float k = clampf(G.chg_t / hold_span(G.chg_sp), 0.0f, 1.0f), t = (float)G.t, full = k >= 0.999f;   /* Burning Intensity's over three s */
     float cx = (float)ox - 20.0f, cy = (float)oy + 46.0f, R = 16.0f + 9.0f * k, spin = 0.8f + 5.0f * k;   /* left of the palm, under the fingers */
     int ramp = ELEM_RAMP[el];
     float pulse = full ? 0.5f + 0.5f * sinf(t * 9.0f) : 0.0f;
@@ -29017,7 +29137,9 @@ static void render_messages(Frame *f) {
         snprintf(pm[0], 48, "%s DODGES THE WAY THE STICK LEANS", PW(PAD_B));
         snprintf(pm[1], 48, "%s A GIFT  %s A RUNE  %s HELD CHOOSES", pad_short(pl_on(PAD_LB)), pad_short(pl_on(PAD_RB)), pl_on(PAD_UP) == PAD_UP ? "UP" : pad_short(pl_on(PAD_UP)));
         snprintf(pm[2], 48, "%s TAPPED: THE MAP", PW(PAD_UP));
-        snprintf(pm[3], 48, "HOLD %s TO CHARGE AN ULTIMATE", PW(PAD_RT));
+        int ults = 0;                                              /* only Burning Intensity's bolt held: it grows (1.0.0b21) */
+        for (int sp = 0; sp < AT_BFS; sp++) ults |= RUN.gear.atk[sp] >= 0 && (spell_charges(sp) || spell_tethers(sp));
+        snprintf(pm[3], 48, ults ? "HOLD %s TO CHARGE AN ULTIMATE" : "HOLD %s: THE FIRE BOLT GROWS", PW(PAD_RT));
         snprintf(pm[4], 48, "SWING THE %s TO SHAKE OFF A BAT", PL.swap ? "L-STICK" : "R-STICK");
         #undef PW
         int charges = 0, bats = G.level >= 5;                      /* bats of rank II come in from the first run's fifth level */
@@ -29025,7 +29147,7 @@ static void render_messages(Frame *f) {
         const char *more[7] = { PADX.used ? pad_sprint_hint() : "SHIFT SPRINTS FORWARD, A WHILE", RUN.abil[BOSS_KNIGHT] ? (PADX.used ? pm[0] : "TAP A DIRECTION TWICE TO DODGE") : NULL,
                                 ab_readied() >= 0 || rune_readied() >= 0 ? (PADX.used ? pm[1] : "RIGHT CLICK USES  Q NEXT, HOLD: WHEEL") : NULL,
                                 RUN.has_map ? (PADX.used ? pm[2] : "M THE MAP") : NULL,
-                                charges ? (PADX.used ? pm[3] : "HOLD A SPELL TO CHARGE ITS ULTIMATE") : NULL,   /* 1.0.0b11 */
+                                charges ? (PADX.used ? pm[3] : ults ? "HOLD A SPELL TO CHARGE ITS ULTIMATE" : "HOLD THE FIRE BOLT AND IT GROWS") : NULL,   /* 1.0.0b11 */
                                 bats ? (PADX.used ? pm[4] : "TURN OR STRAFE HARD TO SHAKE OFF A BAT") : NULL,
                                 G.shop || RUN.al_points > 0 ? "THE LAMPSTAND NORTH OF HER: THE LINES" : NULL };
         int rows = 0, widest = 0;                                  /* one band of stone behind them all */
