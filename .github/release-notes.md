@@ -1,44 +1,33 @@
-The twentieth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
+The twenty-first beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
 
-It puts the Unholy Confessions in place of the old lines, and gives each class what it is made of: health and stats of its own, an element that hurts it less and one that hurts it more, and caps lifted beyond everyone else's. Its point release, 1.0.0b19.1, brought these early; this release has weighed them against 1.0.0b19 over the screensaver's long runs, and they make the early levels harder (below).
+It gives every spell line six augments, a pair at each of its great steps, earned by using the line; and the merchant's wares now lean to the lines you hold, with your class's own abilities among them.
 
 ### Before you upgrade
 
-Your saves and settings carry over. Coming from 1.0.0b19 or earlier, the lines you bought with your points at the merchant are undone as a page is read, and every point comes back to you to confess; she tells you so as she greets you. Overlevels come back the same way, to choose again. From 1.0.0b19.1 nothing changes in the saves.
+Your saves and settings carry over. A page signed on this beta keeps the augments you have chosen and their credits.
 
-Going back to 1.0.0b19 is safe, but it knows nothing of the Confessions: the points spent on them aren't there, and a page it signs loses them for good.
+Going back to 1.0.0b20 is not quite safe: it reads a page without the augments (and a page it signs loses them), and it reads any piece you wear or carry that has one of this beta's new stats (a mark's chance, Steadiness) or a class's own ability as nothing, so such pieces would be lost. If you might go back, keep a copy of your saves first, from a command prompt: `reg export HKCU\Software\HalloweenVGASaver haunted-backup.reg` (double-click the file to restore it).
 
 ### New in this release
 
-**The Unholy Confessions.** The merchant's *ascend* now confesses instead of buying lines. There are six, each with five ranks, bought a point at a time (10, 20, 30, 40 and 50 points a rank, 150 to the fifth), every point moving all of a Confession's numbers a step. At the fifth rank, at a class's full share:
+**The spells' augments.** Each line earns a pair of augments at its opening, its ability and its ultimate. At the Lampstand, Space (Y on a controller) on that step's node shows the pair; A and D choose, Enter takes one, asked twice, for good until the line is unbound. Unbinding a line is now Back (X on a controller), and its augments go with it.
 
-- **Restoration**: Restoration, a spell (below), and potions restoring half again as much.
-- **Agility**: Knocked Down, Stunned and Frozen 85% less likely and shorter; Dodge +10%, Movement +15%, Quiet +25%.
-- **Spirituality**: half again as many souls from the dead; Unbound 85% less likely and shorter; Spell Haste +10%, spells 15% cheaper, Spell Effect +20%.
-- **Constitution**: the sprint coming back half again as fast, and 2.5 seconds longer; 100 more health; and a 25% chance, once a level, to live a blow that would kill you, on one health and untouchable for three seconds.
-- **Survival**: On Fire, Chilled and Poisoned 60% less likely and shorter, and grabs, webs and bile with them; Treasure +15%, Luck +2.5%.
-- **Toughness**: 14 more armour and a quarter of what you wear again; and a shut secret's cracks give off motes you can see from as far as eight cells.
+They grow by use: a kill by the line's spell is a credit, a thing that wants the spell struck with it two, a boss ten. An augment's ranks come at 20, 50 and 100 credits of its own, the line's newest first; rank I gives half of what it does whole, rank II three quarters. Credits a line can't spend yet wait in its bank, so a pair chosen late can rank up at once. The Codex has a page for each one chosen.
 
-Each class takes each Confession at a share of its own, from half to the whole; which suit it is for you to find. The screen shows every number as you have it in all and as the next rank would leave it, and puts a pale blue lid on anything at its cap; D confesses a point (hold it to go on), A takes back what you confessed since the screen opened. Past the fiftieth Level of Atonement an overlevel takes a Confession past its fifth rank, its caps with it.
+| Line | Its opening | Its ability | Its ultimate |
+|---|---|---|---|
+| Fire | Burning Intensity (hold the bolt and it grows, to a quarter stronger and two and a half times the size; tapped, a fifth weaker; with the Firewall, a hold past three seconds calls it) or Firecracker (a spark, a quarter of the damage, all but sure to set its mark alight) | Multiply (three bolts in an arc) or Swift Flight (twice as fast) | Volatility (what dies of your burning bursts, setting the rest alight) or Pyre (burning passed on to one more) |
+| Frost | Hoarbite or Splinterfrost | Rime Trail or Glacial Weight | Cold Snap or Brittle |
+| Lightning | Forked or Overcharge | Static Build or Grounding | Thunderclap or Conductor |
+| Poison | Thick Brew or Straight Throw | Cluster or Miasma | Pestilence or Rot |
+| Spirit | Siphon or Hollowing | Lingering Hunger or Soul Echo | Exorcism or Shepherd |
+| Physical | Barbed or Recovery | Twin Throw or Heavy Haft | Skewer or Bone Rain |
 
-**What you were, in numbers.** Each class now starts with its own health and stats, its own element hurting it less and another more, and three caps lifted beyond everyone else's. Her question's second page (Space) shows them, as does the Codex.
+The Fire node that was called Burning Intensity, which makes burning last longer, is now Slow Embers.
 
-| Class | Health | Brings | Strength, weakness | Caps lifted |
-|---|---|---|---|---|
-| The Witchfinder | 95 | Spell Haste +6%, spells 6% cheaper, Spell Effect +8% | fire 15% less, frost 15% more | Resist Burn 90%, Spell Haste 65%, Spell Effect 65% |
-| The Anatomist | 105 | Armour +5, Physic +15% | frost less, fire more | Resist Slow 90%, Physic 520% |
-| The Galvanist | 90 | Dodge +6%, Movement +6%, Quiet +15% | lightning less, frost a tenth more | Resist Lightning 90%, Dodge 45.5%, Movement 52% |
-| The Plague Doctor | 100 | Luck +1%, Treasure +5%, sprint +0.5 s, every mark a tenth less likely | poison less, spirit more | Resist Poison 90%, Luck 32.5%, Treasure 130% |
-| The Sin-Eater | 95 | mends 0.1 health a second, a tenth more souls | spirit less, poison more | Resist Spirit 90%, spirit carried 130, spells to 70% cheaper |
-| The Headsman | 120 | Armour +4, sprint +1 s | its armour, lightning more | armour keeps off 90%, sprint 9.75 s over the base, Damage 130% |
+**The merchant, by what you hold.** An element's stats now roll for the lines you hold, more for those ranked higher; only one piece in six carries one for a line you don't, and anything Rare or better carries at least one for yours. New stats: a chance of each element's mark on the dead (Ignition, Rime, Static, Blight, Hush) on rings and bracers, and Steadiness (Knocked Down, Stunned and Frozen shorter and rarer) on boots and amulets. The element added to every spell now rolls among all six lines you hold. From Uncommon up, one piece in three may carry your class's own ability: Pyrebrand, the Slab, Live Wire, Fever, Swallowed Sin or the Block.
 
-**Armour has a cap**: it keeps off at most three quarters of a blow (the Headsman nine tenths).
-
-**Restoration, the spell.** Once its first rank is confessed, 8 takes it up (it is last on the mouse wheel and the spells' wheel too). Hold the cast and after a breath it trades souls for health, a glow climbing your arm, while you walk at half pace: slowly at the first rank, a point of a hundred health every four seconds, to a point a second for a tenth of a soul at the fifth. A blow doesn't end it; letting go, a stun, a knock-down, being Unbound, the void or running out of souls do. Tab's caster page lists it with the rest.
-
-**Since 1.0.0b19.1.** The Galvanist's frost hurts it a tenth more, not 15%. The screensaver no longer stands for minutes turning back and forth where a shambler still under the earth comes in and out of its sight.
-
-**Harder at the start.** Weighed against 1.0.0b19, the screensaver's caster died half again as often in its first fifty minutes from level 1 (117 deaths against 78 over eighty runs), on levels 3 to 6: by the seventh Level of Atonement the old lines had given it some 55 health and fifteen points of every resist, where the Confessions give health only through Constitution. That start is kept on purpose. A person who confesses with care may fare better; the Galvanist fares worst for the screensaver.
+**Harder again at the start, for the screensaver.** Weighed against 1.0.0b20, the screensaver's caster died a third more often in its first fifty minutes from level 1 (158 deaths against 117 over eighty runs), on levels 3 to 7. It chooses its augments at random, and two openings cost it most: Firecracker and Siphon, each trading part of the one spell it has early for something that comes later. That is kept on purpose: a person chooses their own. From level 31 nothing moved.
 
 This is still a beta. All of it has been tested in the harness, by the screensaver's own play, by scripted play and on sheets of the art: nobody has played it by hand yet. The Windows and browser builds are compiled and smoke-tested by GitHub Actions. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
 

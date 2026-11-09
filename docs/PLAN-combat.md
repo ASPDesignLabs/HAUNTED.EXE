@@ -1167,7 +1167,7 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   | **all five** | 249 (248) | **83 (69)** | 119, 227 |
 
   A fifth more deaths, none on a boss's level (3,000 s doesn't reach 10), 8 on level 1 (4); a level's median 349 s (356). Fire's
-  augments left 986 events, D's 2,183. Stalls: three runs stood 40 s (four in 1.0.0b20's), none to 120 s. **Where**: by the opening
+  augments left 986 events, D's 2,183. Stalls: two runs stood 40 s (four in 1.0.0b20's), none to 120 s. **Where**: by the opening
   augment the dream drew at random (A15), the Witchfinder died 11 times on the four seeds it took **Firecracker** (1.0.0b20: none on
   those seeds) and 6 on the four it took Burning Intensity (9); the Sin-Eater 15 on the four it took Siphon (4) and 4 on Hollowing's
   (5). Both trade a hit's damage now for something later: the spark is a quarter of the bolt and its burning, at rank I twice the
@@ -1179,6 +1179,32 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   the Anatomist's one 398 at 18), and 300 came at Atonement 13 to 19; the rest stood at the knight with Atonement 10 to 14 and 182
   to 347, some 20 to 27 a level. So A3's thresholds hold and stay. `LG_AUG` checked: augments chosen and their credits, signed onto
   a page and read back in a fresh session, show as they were on the Codex's pages.
+- **9 November. J21, the two halves folded** (harness only; the owner's word, (a), keep it, is in track D's log). This branch at
+  `8fe7e56` (both tracks' augments on, D6 in) against 1.0.0b20 at `e982abf`; 1.0.0b20's two halves, 69 and 48 deaths, make J20's
+  117 again, line for line, class by class (1.0.0b20 in brackets):
+
+  | Class | Cleared | Deaths |
+  |---|---|---|
+  | Witchfinder | 95 (102) | 42 (19) |
+  | Anatomist | 96 (103) | 18 (8) |
+  | Galvanist | 102 (96) | 27 (45) |
+  | Plague Doctor | 97 (100) | 39 (32) |
+  | Sin-Eater | 95 (103) | 32 (13) |
+  | **all five** | 485 (504) | **158 (117)** |
+
+  *Sixteen seeds (1-31 odd) a class, the first 3,000 s from level 1; from level 31 track D's half alone, 117 (119) cleared and one
+  death (one).* A third more deaths, past D5's quarter, none on a boss's level (3,000 s doesn't reach one), most on levels 3 to 7 to
+  rank I skeletons; a level's median 349-357 s (355-356). Track D's variants put it on the augments (with them out, 64 deaths on its
+  half against 75; D6 inside the noise). By the opening the dream drew at random on its own line, against 1.0.0b20 on the same seeds:
+  Firecracker 27 (4) and Siphon 23 (4), the openings that take from the one spell it has early; Burning Intensity 15 (15), Hollowing
+  9 (9) even; the Galvanist, whose openings add to the hit, died less (27 against 45). From level 31 nothing moved. The pacing holds
+  (A2 b): every run that reached Level of Atonement 18 had its class's 300 credits. Stalls: nine runs of eighty from level 1 stood 40 s
+  within a cell of a place (nine in 1.0.0b20), none past 41 s. ASan clean on track D's seven dreams and track C's four (C6's
+  entry). **J21 is done**; 1.0.0b21 goes out with these numbers as they stand, at the owner's word, when the owner says. The
+  README, the page, the notes and CLAUDE.md are written for it on the branch (the page's twenty-first beta goes out with the
+  squash). Found while writing them: 1.0.0b20's `piece_unpack` reads a piece carrying one of D6's new stats (a mark's chance,
+  Steadiness) or a class's ability as nothing, so going back to it loses such pieces; the notes, the README and the page say so
+  and advise a copy first. Nothing to change (a reader can't know a stat it hasn't got); track D, for your note.
 
 ## 19. Track D's log (the dead's)
 

@@ -259,7 +259,10 @@ squashed onto main as one commit. J20, the joint checks against 1.0.0b19, is don
 the buried shambler's stall mended at the owner's word first): the dream dies half again as often early on, the Confessions
 giving its early caster less than the old lines did, and the owner kept the harder start. Released as **1.0.0b20** at the
 owner's word (9 November), a pre-release, squashed onto main as one commit. **1.0.0b21** (C6, the augments' frame and Fire's;
-D6, the merchant by class; D7, the other lines' augments) is next. Found in the
+D6, the merchant by class; D7, the other lines' augments) is built (harness only; every sheet approved, all of it in play), and J21,
+the joint checks against 1.0.0b20, is done (9 November): the dream dies a third more often early on, drawing at random openings
+that trade its one early spell's hit (Firecracker, Siphon), and the owner kept it as it is. The README, the page and the notes
+are written for it on the branch; it waits on the owner's word to go out. Found in the
 review and mended by the plan: `HURT_MAGIC` is resisted by Resist Burn whatever its element; poison is the weak element across
 the bestiary (0.55 on average); skeletons' throws have no floor; flat armour grows as the blow does.
 
@@ -2046,5 +2049,12 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   seeds the old lines back gave 47 deaths against 69), since the dream's early caster gets no health or resists from them unless
   it confesses Constitution. Kept at the owner's word. The Galvanist died 45 times (18), the worst in every batch. From level 31,
   eight seeds a class: 119 cleared (114), one death (none). The tables are in docs/PLAN-combat.md, sections 18 and 19.
+- 1.0.0b21 (C6, D6 and D7: the augments, the merchant by class) has been tested in the harness only. From level 1, the first
+  3,000 s on sixteen seeds for each of the five classes against 1.0.0b20 (J21): 485 levels cleared and 158 deaths (504 and 117),
+  on levels 3 to 7, most to rank I skeletons; the augments are most of it, and of them the openings the dream draws at random that
+  take from its one early spell (on the seeds that drew them, Firecracker 27 deaths against 4, Siphon 23 against 4). Kept at the
+  owner's word. From level 31, eight seeds a class: 117 cleared (119), one death (one). Every run that reached Level of Atonement 18
+  had its class's line's 300 credits. 1.0.0b20 reads a piece with one of 1.0.0b21's new stats or a class's ability as nothing
+  (`piece_unpack`), so going back loses such pieces; the notes say so. The tables are in docs/PLAN-combat.md, sections 18 and 19.
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.
