@@ -11,7 +11,14 @@
 enum { SND_PROG_NONE = 0, SND_PROG_HAUNT, SND_PROG_CRAWL };
 
 /* CATACOMB's pieces (docs/PLAN-music.md): none, a piece for each run, her hall's, the menus' */
-enum { MU_NONE, MU_CRYPTS, MU_CATACOMBS, MU_HOLLOWS, MU_DEEP, MU_MERCHANT, MU_MENU, MU_COUNT };
+enum { MU_NONE, MU_CRYPTS, MU_CATACOMBS, MU_HOLLOWS, MU_DEEP, MU_MERCHANT, MU_MENU,
+       MU_PERFECT,      /* her hall after a perfect level (docs/PLAN-music-work.md) */
+       MU_TITLE,        /* the ledger opened to choose a page; a title screen's, when there is one */
+       MU_SPECIAL,      /* kept for a special screen */
+       MU_ENDING,       /* kept for an ending */
+       MU_LAMP,         /* the Lampstand's and ascending's screens (docs/PLAN-music-work.md) */
+       MU_OFFICE, MU_OSSUARY,   /* run I's other attempts, kept */
+       MU_COUNT };
 
 enum {
     SFX_BEEP_POST,      /* PC-speaker POST beep                      */
@@ -136,10 +143,15 @@ void snd_set_boss(int theme, int wave);     /* CRAWL: a boss's waltz, 1-4 (0 fad
 void snd_boss_fall(void);                   /* the waltz fades and the bell tolls three times */
 void snd_set_track(int mu);                 /* CRAWL: the run's piece, MU_CRYPTS..MU_DEEP (MU_NONE: silence); the same one again runs on */
 void snd_set_place(int place);              /* CRAWL: 0 the crypt, 1 her room, 2 her back rooms (her piece, thinned) */
-void snd_set_menu(int on);                  /* CRAWL: a menu open (2: a short look, after half a second); the run's piece waits */
+void snd_set_menu(int on);                  /* CRAWL: a menu open (2: a short look, after half a second; 3: the ledger opened, the title's piece;
+                                               4: the Lampstand or ascending, the estampie; 5: the waltz, for a special
+                                               screen; 6: the nocturne, for an ending); the run's piece waits */
 void snd_set_fight(int level);              /* CRAWL: 0 calm, 1-3 a fight, growing (layers, the pace) */
 void snd_set_frail(int on);                 /* CRAWL: failing: the music muffled and thinned, a heartbeat */
 void snd_set_mix(float music, float effects); /* the Music and Effects volumes, 0..1, under the master */
+void snd_set_shop(int mu);                  /* CRAWL: the piece her hall plays from her next visit (MU_MERCHANT, MU_PERFECT ...) */
+const char *snd_check(void);                /* faults in the scored pieces' scores, or NULL */
+void snd_mute(uint64_t mask);               /* the harness's: patches (by number; bit 63 the drums, 62 the cave's drips) left out */
 void snd_set_latency(int frames);           /* device latency, for visual sync */
 void snd_render(int16_t *out, int frames);  /* interleaved stereo */
 void snd_advance(double seconds);           /* run the clock with no audio device */
