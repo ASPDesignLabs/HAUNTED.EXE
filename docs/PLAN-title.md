@@ -1,6 +1,6 @@
 # The title screen: plan and hand-off
 
-Status (9 November 2026): **the first mock-ups are done; the refinement pass is under way: steps 1-6 done, step 7 next.** Nothing in the
+Status (9 November 2026): **the first mock-ups are done; the refinement pass is under way: steps 1-8 done; the GIFs sent to the owner for a look.** Nothing in the
 game is changed yet. Everything here is mock-ups drawn by `tools/titlemock.c`, outside the game.
 
 Read the hand-off log (section 6) first. It says where the last session stopped.
@@ -119,10 +119,13 @@ Mark each step as it lands (**done**, with the date), and add a line to the log 
 7. **C's title, the detail pass.** The great stone rebuilt with the kit: a moulded border, a winged death's head in its
    head, a broken shoulder with pieces at its foot, cracks, lichen and water stains, MEMENTO MORI cut under the name. The hand
    with its knuckles' bones showing and a torn cuff. Dark grass in the foreground, wilted flowers, a fence and a mausoleum
-   behind. A vignette.
+   behind. A vignette. **Done** (9 November): `build_great_stone` (a double moulding, a winged death's head from `WING` and
+   `KEY_SKULL`, volutes, the left shoulder broken off and its pieces at the foot, MEMENTO MORI on the plinth), `grass_fg`,
+   the hand's shroud cuff and knuckles (`hand_lift` brightens it where it is small).
 8. **Checks and hand-over.** Render everything. Look at each still: the words readable, nothing over the name, the loops
    clean. Update `docs/titlepass/` (stills, overview, logo, README), commit and push, and send the GIFs to the owner with
-   short notes.
+   short notes. **Done** (9 November): the stills, `overview.png`, `logo.png` and `parts.png` in `docs/titlepass/`, and its
+   README rewritten for this pass. The GIFs (about 20 MB doubled) went to the owner, not into git.
 9. **Later, not this pass: into the game.** Its own plan: a title scene between the screensaver and play, the rotation,
    the music hook, the graves read from the ledger (`page_info`), and the questions below. It wants the owner's answers
    first.
@@ -142,3 +145,7 @@ Mark each step as it lands (**done**, with the date), and add a line to the log 
 - **9 November, session 1, later.** Steps 2-4 done and pushed: the sculpt kit, the weathered UI, the graves rebuilt in all
   three. Next is step 5 (A's title). Iterate with `build/titlemock <dir> s <A|Ag|B|Bg|C|Cg> <seconds>`, which writes one
   still doubled as `s_<name>_<t>.png`, and look at it before rendering the GIFs (about 30 s for all of them).
+- **9 November, session 1, end.** Steps 5-8 done and pushed. All six sent to the owner. Waiting on their look at the
+  refinement and on the questions in section 5. The next work is whatever they say about this pass, then step 9 (into the
+  game), which wants its own plan and the owner's answers first. Known small things: in C's graves the hand rising from
+  grave I covers part of its plinth's numeral, and PLAGUE DOCTOR is untried on a stone.

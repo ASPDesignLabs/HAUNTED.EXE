@@ -590,26 +590,6 @@ static void mline(float x0, float y0, float x1, float y1, float w, int ramp, flo
 }
 static void mrect(int x, int y, int w, int h, int ramp, float v, int flags) { for (int j = 0; j < h; j++) for (int i = 0; i < w; i++) matf(x + i, y + j, ramp, v, flags); }
 
-/* a headstone seen from the side of the plot: shape 0 rounded, 1 a cross, 2 pointed, 3 broken; lit from the moon's side */
-static void small_stone(int cx, int base, int w, int h, int shape, float lean, float lit_right, uint32_t seed) {
-    for (int y = base - h; y < base; y++) for (int x = cx - w / 2 - 3; x <= cx + w / 2 + 3; x++) {
-        float fy = (float)(base - y) / h, fx = x - cx - lean * (base - y);
-        int in = 0;
-        float hw = w * 0.5f;
-        if (shape == 0) { float r = hw, top = h - r; in = fabsf(fx) <= hw && ((base - y) <= top || fx * fx + ((base - y) - top) * ((base - y) - top) <= r * r); }
-        else if (shape == 1) { in = (fabsf(fx) <= hw * 0.35f) || (fabsf(fx) <= hw && fy > 0.62f && fy < 0.8f); }
-        else if (shape == 2) { in = fabsf(fx) <= hw * (fy < 0.7f ? 1 : (1 - fy) / 0.3f); }
-        else { in = fabsf(fx) <= hw && fy < 0.75f - 0.35f * (fx / hw + 1) * 0.5f + 0.1f * (h01(x, 0, seed) - 0.5f); }
-        if (!in) continue;
-        float v = 0.34f + 0.16f * fbm(x * 0.3f, y * 0.3f, seed) + lit_right * 0.22f * (fx / hw);
-        int edge_r = 0;
-        if (fx > hw - 1.5f) edge_r = 1;
-        if (edge_r) v += 0.18f * lit_right;
-        if (fx < -hw + 1.2f) v -= 0.12f;
-        int moss = fbm(x * 0.5f, y * 0.5f, seed + 5) > 0.66f && fy < 0.5f;
-        matf(x, y, moss ? R_MOSS : R_STONE, v, 0);
-    }
-}
 
 /* a dead tree: a trunk and its branches, forked again and again */
 static void branch(float x, float y, float ang, float len, float w, int depth, uint32_t seed) {
@@ -1504,61 +1484,7 @@ static float sel_k(float t, int k) {                     /* how chosen k is: com
     if (u < 0 || u > per + 0.35f) return 0;
     return smooth(0, 0.35f, u) * (1 - smooth(per, per + 0.35f, u));
 }
-static void text_c(int cx, int y, const char *s, int col) { ui_text8(&F, cx - (int)strlen(s) * 4, y, s, FACE_INSC, col, TX_INLAID); }
-static void text16_c(int cx, int y, const char *s, int col) { ui_text16(&F, cx - (int)strlen(s) * 4, y, s, FACE_INSC, col, TX_INLAID, 1); }
-static void hints(int y, const char *s) { ui_keys(&F, (W - ui_keys_width(s)) / 2, y, s, R_STONE + 11); }
 
-/* a great headstone: shape 0 round-topped, 1 a pointed gothic arch; a moulded edge, a sunk panel for the words */
-static void big_stone(int cx, int base, int w, int h, int shape, uint32_t seed) {
-    int x0 = cx - w / 2;
-    for (int y = base - h; y < base; y++) for (int x = x0; x < x0 + w; x++) {
-        int i = x - x0, j = y - (base - h);
-        int in;
-        if (shape == 0) { float r = w * 0.5f, cyy = r; in = j >= cyy || ((i - r + 0.5f) * (i - r + 0.5f) + (j - cyy) * (j - cyy) <= r * r); }
-        else {                                                          /* a drop arch: two arcs meeting at a point */
-            float R = w * 0.75f, sq = 0.6f, spring = sqrtf(R * R - (w * 0.25f) * (w * 0.25f)) * sq, px = i + 0.5f, py = j;
-            float d1 = (px - (w - R)) * (px - (w - R)) + (py - spring) * (py - spring) / (sq * sq), d2 = (px - R) * (px - R) + (py - spring) * (py - spring) / (sq * sq);
-            in = j >= spring || (d1 <= R * R && d2 <= R * R);
-        }
-        if (!in) continue;
-        float v = 0.38f + 0.18f * fbm(x * 0.12f, y * 0.12f, seed) + 0.05f * (h01(x, y, seed) - 0.5f);
-        /* the edge: lit on the right (the moon), shadowed left */
-        int e = 0;
-        for (int d = 1; d <= 3 && !e; d++) {
-            int ii = i - d, jj = j;
-            (void)ii; (void)jj;
-            if (x - d < x0 || x + d >= x0 + w) e = d;
-        }
-        if (i < 2) v -= 0.14f; else if (i > w - 3) v += 0.16f;
-        /* the sunk panel */
-        int pj0 = shape == 0 ? (int)(w * 0.42f) : (int)(w * 0.52f), pj1 = h - 8;
-        if (j >= pj0 && j <= pj1 && i >= 6 && i <= w - 7) {
-            if (j == pj0 || i == 6) v -= 0.14f;
-            else if (j == pj1 || i == w - 7) v += 0.1f;
-            else v -= 0.05f;
-        }
-        int moss = fbm(x * 0.25f, y * 0.25f, seed + 9) > 0.68f && j > h * 0.6f;
-        int crack = fabsf(fbm(x * 0.07f, y * 0.07f, seed + 3) - 0.5f) < 0.012f;
-        if (crack) v -= 0.2f;
-        matf(x, y, moss ? R_MOSS : R_STONE, v, 0);
-    }
-    for (int x = x0 - 3; x < x0 + w + 3; x++) for (int y = base - 3; y < base; y++)   /* its foot set in turf */
-        if (x < x0 || x >= x0 + w || y == base - 1) matf(x, y, R_STONE, 0.3f - 0.05f * (base - y), 0);
-}
-static void board(int cx, int G) {                                     /* a post and a board nailed across it, for a plot unmarked */
-    mline((float)cx, (float)G, (float)cx, (float)G - 70, 6, R_WOOD, 0.3f, 0);
-    for (int y = G - 64; y < G - 20; y++) for (int x = cx - 42; x <= cx + 42; x++) {
-        float v = 0.4f + 0.1f * sinf(y * 1.3f + fbm(x * 0.1f, y, 4) * 4) - 0.12f * (y == G - 64 || y == G - 21) + (x == cx + 42 ? 0.1f : 0);
-        matf(x, y, R_WOOD, v, 0);
-    }
-    matf(cx - 36, G - 58, R_IRON, 0.5f, 0); matf(cx + 36, G - 58, R_IRON, 0.5f, 0);
-}
-static void board_words(int cx, int G, float k) {
-    text_c(cx, G - 60, GR[2].num, k > 0.5f ? R_GOLD + 11 : R_WOOD + 1);
-    text_c(cx, G - 49, GR[2].who, k > 0.5f ? R_BONE + 13 : R_WOOD + 1);
-    text_c(cx, G - 39, "NOTHING", k > 0.5f ? R_BONE + 10 : R_WOOD + 1);
-    text_c(cx, G - 30, "WRITTEN", k > 0.5f ? R_BONE + 10 : R_WOOD + 1);
-}
 static void candle(int x, int base, int lit, float t, int seed) {
     mrect(x - 1, base - 7, 3, 7, R_BONE, 0.62f, 0);
     matf(x - 1, base - 7, R_BONE, 0.75f, 0);
@@ -2035,10 +1961,16 @@ static void hand(float gx, int gy, float sc, float rise, float curl, float t, ui
     float lean = -0.18f + 0.06f * sinf(t * 1.3f);
     float wx = gx + sinf(lean) * 40 * sc * rise, wy = gy - cosf(lean) * 40 * sc * rise;
     capsule(gx + 2 * sc, gy + 6, wx, wy, 6.0f * sc, 5.2f * sc, R_WARM, 0.36f * hand_lift, gy, seed);   /* the forearm, rags at the wrist */
-    for (int i = 0; i < 6; i++) {
-        float a = lean - PI / 2 + (i - 2.5f) * 0.32f;
-        float rx = wx + cosf(a + PI) * 4 * sc * 0, ry = wy + 6 * sc;
-        mline(rx + (i - 2.5f) * 2 * sc, ry, rx + (i - 2.5f) * 2.6f * sc + sinf(t * 3 + i) * sc, ry + 7 * sc + h01(i, 0, seed) * 5 * sc, 1.4f * sc, R_FLOOR, 0.3f, 0);
+    {                                                                   /* a cuff of shroud at the wrist, torn, its rags hanging */
+        float cx0 = gx + 2 * sc + (wx - gx - 2 * sc) * 0.62f, cy0 = gy + 6 + (wy - gy - 6) * 0.62f;
+        for (int i = -7; i <= 7; i++) for (int j = -2; j <= 2; j++) {
+            int X = (int)(cx0 + i * sc), Y = (int)(cy0 + j * sc + i * 0.2f);
+            if (Y < gy && abs(i) <= 6) matf(X, Y, R_PURPLE, (0.14f + 0.06f * (j < 0) + 0.04f * (i < 0)) * hand_lift, 0);
+        }
+        for (int i = 0; i < 5; i++) {
+            float x0 = cx0 + (i - 2) * 2.4f * sc, ln = (4 + h01(i, 0, seed) * 7) * sc, sw = sinf(t * 3 + i) * sc;
+            mline(x0, cy0 + 2 * sc, x0 + sw, cy0 + 2 * sc + ln, 1.2f * sc, R_PURPLE, 0.12f * hand_lift, 0);
+        }
     }
     float ux = sinf(lean), uy = -cosf(lean), rx = cosf(lean), ry = sinf(lean);   /* up the hand, and across it */
     float kx = wx + ux * 13 * sc, ky = wy + uy * 13 * sc;               /* the knuckles */
@@ -2062,6 +1994,7 @@ static void hand(float gx, int gy, float sc, float rise, float curl, float t, ui
             x = nx; y = ny;
         }
         matf((int)x, (int)y, R_BONE, 0.75f, 0);                         /* the nail gone, the bone's tip */
+        { float bx0 = kx + rx * BASE[f] * sc, by0 = ky + ry * BASE[f] * sc; if (by0 < gy) { matf((int)bx0, (int)by0, R_BONE, 0.62f * hand_lift, 0); matf((int)bx0 + 1, (int)by0, R_BONE, 0.5f * hand_lift, 0); } }   /* its knuckle through the skin */
         hand_tips[f][0] = x; hand_tips[f][1] = y;
     }
     float tx = wx + ux * 5 * sc + rx * 6 * sc, ty = wy + uy * 5 * sc + ry * 6 * sc, ta = lean + 0.9f - 0.5f * curl;   /* the thumb */
@@ -2089,6 +2022,50 @@ static void leaf(float x, float y, float ph, int col) {               /* an autu
     int w = (int)(1.5f + 1.5f * fabsf(sinf(ph)));
     for (int i = -w; i <= w; i++) matf((int)x + i, (int)y + (i * (sinf(ph * 0.5f) > 0 ? 1 : -1)) / 2, col, 0.55f + 0.1f * (i == 0), MF_FLAT);
 }
+/* the great stone: a round head on a moulded slab, a winged death's head in it, volutes at its shoulders, a plinth with
+ * MEMENTO MORI cut in it; its left shoulder broken off and cracks from the break; ivy up that side. 214 by 150 */
+static const char *const WING[9] = { "........#####", ".....########", "...###########", ".############", "#############",
+                                     "..###########", "....#########", ".......######", ".........####" };
+static void build_great_stone(void) {
+    sc_begin(214, 150);
+    sc_rect(0, 138, 214, 12, 1, 0, SM_STONE, 0);
+    sc_rect(8, 127, 198, 11, 2, 0, SM_STONE, 0.03f);
+    sc_rect(14, 46, 186, 81, 3, 0, SM_STONE, 0.04f);
+    sc_arch(14, 200, 47, 36, 0, 3, 0, SM_STONE, 0.04f);
+    sc_groove(1u << 3, 4); sc_groove(1u << 3, 7);
+    for (int e = 0; e < 2; e++) {                                        /* the volutes at its shoulders */
+        float vx = e ? 199.5f : 14.5f;
+        sc_disc(vx, 50, 7, 4, 1, SM_STONE, 0.06f);
+        sc_ring(vx, 50, 2.5f, 4.2f, 4, 0, SM_STONE, 0.0f);
+    }
+    for (int j = 0; j < 9; j++) for (int i = 0; WING[j][i]; i++) if (WING[j][i] == '#')   /* the wings, feathered */
+        for (int b = 0; b < 4; b++) for (int e = 0; e < 2; e++) {
+            int x = e ? 118 + i * 2 + (b & 1) : 96 - i * 2 - (b & 1), y = 17 + j * 2 + (b >> 1);
+            if (sc_solid(x, y)) { S.ht[y][x] = 1; S.dv[y][x] = 0.16f; S.f[y][x] |= SF_CALM; if ((i + j / 2) % 3 == 0 && j > 1 && i > 2) { S.ht[y][x] = 0; S.dv[y][x] = -0.08f; } }
+        }
+    for (int y = 12; y < 42; y++) for (int x = 94; x < 120; x++) if (sc_solid(x, y) && (x - 107) * (x - 107) / 169.0f + (y - 26) * (y - 26) / 225.0f < 1) S.ht[y][x] = -1;   /* the skull's sunk field */
+    sc_mark(107 - 11, 15, KEY_SKULL, 11, 2, 1, 0.1f);
+    for (int y = 12; y < 42; y++) for (int x = 94; x < 120; x++) if (sc_solid(x, y) && S.ht[y][x] == 1 && x > 95 && x < 119) S.dv[y][x] += 0.14f;
+    for (int y = 46; y < 124; y++) for (int x = 20; x < 194; x++) if (sc_solid(x, y) && S.ht[y][x] == 0) S.f[y][x] |= SF_CALM;   /* quiet where the name is cut */
+    sc_text_c(107, 129, "MEMENTO MORI", 0, 0, 77, 190);
+    sc_break(10, 46, 13, 81);                                            /* the left shoulder, gone */
+    sc_crack(22, 52, 0.5f, 60, 82, 2);
+    sc_crack(30, 40, -0.4f, 30, 83, 1);
+    sc_crack(190, 127, -2.0f, 30, 84, 1);
+    sc_crack(150, 138, -1.4f, 12, 85, 0);
+    sc_chips(0.3f, 86);
+    sc_ivy(6, 149, 90, 87); sc_ivy(12, 149, 60, 88); sc_ivy(200, 149, 30, 89);
+}
+static void grass_fg(float t) {                                         /* dark blades in the foreground's corners, stirring */
+    for (int k = 0; k < 60; k++) {
+        int side = k % 2;
+        float x = side ? W - 2 - h01(k, 0, 92) * 90 : 2 + h01(k, 0, 92) * 90;
+        float hgt = 10 + h01(k, 1, 92) * 22 * (1 - fabsf((side ? W - x : x)) / 110.0f), sw = sinf(2 * PI * t / LOOP * 2 + k * 0.7f) * 2 + (side ? -2 : 2);
+        if (hgt < 6) continue;
+        mline(x, (float)H, x + sw * 0.4f, H - hgt * 0.6f, 1.6f, R_MOSS, 0.03f, MF_FLAT | MF_NOWARM);
+        mline(x + sw * 0.4f, H - hgt * 0.6f, x + sw, H - hgt, 1, R_MOSS, 0.04f, MF_FLAT | MF_NOWARM);
+    }
+}
 static void scene_c(float t) {
     float flash = flash_k(t, LOOP * 0.62f);
     const int G = 160;
@@ -2096,8 +2073,7 @@ static void scene_c(float t) {
     pal_flash(flash * 0.5f);
     light_clear(0.62f + 0.4f * flash, 0);
     sky(0, G, t, 46, 34, 16, flash);
-    /* the far graveyard, flat against the hills */
-    for (int x = 0; x < W; x++) {
+    for (int x = 0; x < W; x++) {                                      /* the far graveyard, flat against the hills */
         float hy = 128 + 5 * sinf(x * 0.03f + 2) + 2 * fbm(x * 0.06f, 0, 18);
         for (int y = (int)hy; y < G; y++) matf(x, y, R_CEIL, 0.1f, MF_NOWARM);
     }
@@ -2109,57 +2085,33 @@ static void scene_c(float t) {
             if (in) matf(x + dx, y, R_CEIL, 0.04f, MF_NOWARM);
         }
     }
+    for (int x = 272; x < 318; x++) for (int y = 108; y < G - 4; y++) {   /* a mausoleum, flat against the hills */
+        int ped = y < 118 && y >= 118 - (23 - abs(x - 295)) / 2;
+        if ((y >= 118 || ped) && !(y >= 128 && x > 290 && x < 300)) matf(x, y, R_CEIL, 0.05f + 0.02f * (y == 118), MF_NOWARM);
+    }
+    for (int x = 0; x < 64; x += 3) { mrect(x, G - 22, 1, 14, R_CEIL, 0.04f, MF_NOWARM); matf(x, G - 23, R_CEIL, 0.04f, MF_NOWARM); }   /* the railings */
+    mrect(0, G - 19, 64, 1, R_CEIL, 0.04f, MF_NOWARM);
     branch(24, G, 1.45f, 34, 7, 6, 31);
     branch(24, G - 24, 0.6f, 18, 3.5f, 4, 37);
-    /* the ground */
-    for (int y = G - 6; y < H; y++) for (int x = 0; x < W; x++) {
+    for (int y = G - 6; y < H; y++) for (int x = 0; x < W; x++) {      /* the ground */
         float n = fbm(x * 0.04f, y * 0.08f, 51);
-        float v = 0.16f + 0.1f * n + 0.04f * (y - G) / 40.0f + 0.04f * (h01(x, y, 52) - 0.5f);
+        float v = 0.16f + 0.1f * n + 0.04f * (y - G) / 40.0f + 0.04f * (h01(x, y, 52) - 0.5f) + 0.03f * (((x + y / 3) % 4) == 0);
         if (y < G) { if (h01(x, 0, 3) * 6 < G - y) continue; matf(x, y, R_MOSS, 0.12f + 0.04f * (G - y), 0); continue; }
         matf(x, y, n > 0.68f ? R_FLOOR : R_MOSS, n > 0.68f ? v + 0.04f : v, 0);
     }
-    /* the stone: a great round-headed slab, a skull carved in its head */
-    const int SW = 210, SH = 132, SX = W / 2 - SW / 2, SB = G + 2;
-    for (int y = SB - SH; y < SB; y++) for (int x = SX; x < SX + SW; x++) {
-        int i = x - SX, j = y - (SB - SH);
-        float r = SW * 0.5f;
-        float ey = 34;                                                   /* its head: a flattened half-round */
-        int in = j >= ey || ((i - r + 0.5f) * (i - r + 0.5f) / (r * r) + (j - ey) * (j - ey) / (ey * ey) <= 1);
-        if (!in) continue;
-        float v = 0.3f + 0.18f * fbm(x * 0.07f, y * 0.07f, 101) + 0.05f * (h01(x, y, 102) - 0.5f);
-        int edge = 0;
-        for (int d = 1; d <= 3 && !edge; d++) {
-            int ii = i - d, jj = j - d;
-            int up = jj >= ey || ((ii - r + 0.5f) * 0 + 1) ? 0 : 0; (void)up;
-            float e1 = (i - d - r + 0.5f), e2 = (i + d - r + 0.5f);
-            int o1 = !(j >= ey || (e1 * e1 / (r * r) + (j - ey) * (j - ey) / (ey * ey) <= 1)) || i - d < 0;
-            int o2 = !(j >= ey || (e2 * e2 / (r * r) + (j - ey) * (j - ey) / (ey * ey) <= 1)) || i + d >= SW;
-            int o3 = jj < 0 || !(jj >= ey || ((i - r + 0.5f) * (i - r + 0.5f) / (r * r) + (jj - ey) * (jj - ey) / (ey * ey) <= 1));
-            if (o1 || o3) edge = d; else if (o2) edge = -d;
-        }
-        if (edge > 0) v += edge == 1 ? 0.2f : 0.1f;
-        else if (edge < 0) v -= edge == -1 ? 0.18f : 0.08f;
-        if (fabsf(fbm(x * 0.04f, y * 0.04f, 103) - 0.5f) < 0.008f) v -= 0.22f;   /* cracks */
-        int moss = fbm(x * 0.2f, y * 0.2f, 104) > 0.66f && (j > SH - 30 || i < 14 || i > SW - 14);
-        if (j >= SH - 3) v -= 0.1f;
-        matf(x, y, moss ? R_MOSS : R_STONE, moss ? v * 0.7f : v, 0);
+    for (int i = 0; i < 26; i++) {                                     /* fallen leaves on the ground */
+        float lx = h01(i, 1, 46) * W, ly = G + 4 + h01(i, 2, 46) * 34;
+        static const int LCOL[3] = { R_BRICK, R_WOOD, R_GOLD };
+        mrect((int)lx, (int)ly, 2 + (i % 2), 1, LCOL[i % 3], 0.3f, 0);
     }
-    /* the skull carved in its head, sunk and shadowed */
-    {
-        static const char *const SK[] = {
-            "....#######....", "..###########..", ".#############.", "###############", "###...###...###", "##.....#.....##",
-            "##....###....##", "###..##.##..###", ".######.######.", "..####...####..", "...#.#.#.#.#...", "...#########...", "....#.#.#.#...." };
-        int kx = W / 2 - 15, ky = SB - SH + 9;
-        for (int j = 0; j < 13; j++) for (int i = 0; i < 15; i++) for (int b = 0; b < 4; b++) {
-            int x = kx + i * 2 + (b & 1), y = ky + j * 2 + (b >> 1);
-            if (SK[j][i] == '#') {
-                int lit = j > 0 && SK[j - 1][i] != '#' ? -1 : (j < 12 && SK[j + 1][i] != '#') ? 1 : 0;
-                MV[y][x] = clampf(MV[y][x] - 0.06f + 0.08f * lit, 0, 1);
-            } else if ((j > 0 && SK[j - 1][i] == '#') || (i > 0 && SK[j][i - 1] == '#')) MV[y][x] = 0.12f;   /* the hollows: the eyes, the nose */
-        }
-    }
-    /* the mound before it, and the hand out of it */
-    for (int x = 200; x < 320; x++) {
+    const int SB = G + 2;
+    build_great_stone();
+    sc_shade(0.36f, 101, 0, R_GOLD);
+    sc_draw(W / 2, SB, 0);
+    build_fragment(18, 10, 120); sc_shade(0.36f, 121, 0, R_GOLD); sc_draw(W / 2 - 112, SB + 1, -24);
+    build_fragment(10, 6, 122); sc_shade(0.36f, 123, 0, R_GOLD); sc_draw(W / 2 - 96, SB + 3, 12);
+    dead_flowers(W / 2 + 70, SB, 124);
+    for (int x = 200; x < 320; x++) {                                   /* the mound before it, and the hand out of it */
         int mh = (int)(9 * sqrtf(fmaxf(0, 1 - powf((x - 284) / 60.0f, 2))));
         for (int y = G + 14 - mh; y < G + 16; y++) matf(x, y, R_FLOOR, 0.3f + 0.14f * fbm(x * 0.3f, y * 0.3f, 7) + 0.1f * (y == G + 14 - mh), 0);
     }
@@ -2172,15 +2124,15 @@ static void scene_c(float t) {
         float a = i / 9.0f * PI;
         mline(HX - cosf(a) * 7, G + 12.0f - sinf(a) * 2, HX - cosf(a) * (14 + 6 * h01(i, 1, 2)), G + 12.0f - sinf(a) * 3, 1, R_FLOOR, 0.08f, 0);
     }
-    /* candles at the stone's foot */
-    static const int CA[6] = { 62, 70, 78, 242, 250, 258 }, CH[6] = { 0, 3, 1, 2, 0, 3 };
-    for (int i = 0; i < 6; i++) { mrect(CA[i] - 1, G + 2 - 9 - CH[i], 3, 9 + CH[i], R_BONE, 0.6f, 0); matf(CA[i] - 1, G + 2 - 9 - CH[i], R_BONE, 0.75f, 0); }
-    /* light: the moon, the candles' warmth on the stone's foot */
+    static const int CA[6] = { 62, 70, 78, 242, 250, 258 }, CH[6] = { 0, 3, 1, 2, 0, 3 };   /* candles at the stone's foot */
+    for (int i = 0; i < 6; i++) {
+        mrect(CA[i] - 1, G + 4 - 9 - CH[i], 3, 9 + CH[i], R_BONE, 0.6f, 0); matf(CA[i] - 1, G + 4 - 9 - CH[i], R_BONE, 0.75f, 0);
+        matf(CA[i] + 1, G + 4 - 6 - CH[i], R_BONE, 0.7f, 0); matf(CA[i] + 1, G + 4 - 5 - CH[i], R_BONE, 0.7f, 0);   /* wax run down */
+    }
     for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) if (y > G) LC[y][x] *= 0.75f;
     for (int i = 0; i < 6; i += 2) { float fl = flick(t, i); light_add(CA[i] + 8, G - 8, 110 * fl, 0.75f, 1); }
     for (int i = 3; i < 6; i += 2) { float fl = flick(t, i); light_add(CA[i] - 8, G - 8, 110 * fl, 0.75f, 1); }
-    /* the leaves, the bats */
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 7; i++) {                                       /* the leaves, the bats */
         float lu = frac(t / LOOP * (1 + i % 2) + h01(i, 1, 44));
         float lx = W + 8 - lu * (W + 16), ly = 20 + h01(i, 2, 44) * 120 + lu * 30 + 6 * sinf(lu * 12 + i);
         static const int LC_[3] = { R_BRICK, R_WOOD, R_GOLD };
@@ -2188,11 +2140,12 @@ static void scene_c(float t) {
     }
     { float bu = frac(t / LOOP + 0.2f); bat(W + 10 - bu * (W + 30), 24 + 10 * sinf(bu * 8), t * 26); }
     fog(G - 16, G + 6, t, 1.2f, 35);
+    grass_fg(t);
+    vignette(0.35f);
+    for (int i = 0; i < 6; i++) flame(CA[i], G + 4 - 10 - CH[i], 6, t, i);
     logo_build("HAUNTED", 0.8f, ".EXE", 0.76f, 0, 31);
-    logo_draw((W - LG.w) / 2, SB - SH + 40, LS_CARVED, 1.0f + 0.2f * flash, G + 1, t);
+    logo_draw((W - LG.w) / 2, SB - 150 + 50, LS_CARVED, 1.0f + 0.2f * flash, G + 1, t);
     resolve();
-    for (int i = 0; i < 6; i++) flame(CA[i], G + 2 - 10 - CH[i], 6, t, i);
-    for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) if (MF[y][x] & MF_DIRECT) F.pix[y * W + x] = MD[y][x];
     prompt(W / 2, 186, "PRESS ANY BUTTON", 1, t, R_BONE);
 }
 
