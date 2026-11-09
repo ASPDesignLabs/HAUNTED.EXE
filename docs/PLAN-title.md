@@ -1,7 +1,7 @@
 # The title screen: plan and hand-off
 
-Status (9 November 2026): **the first mock-ups are done; the refinement pass is under way: steps 1-8 done; the GIFs sent to the owner for a look.** Nothing in the
-game is changed yet. Everything here is mock-ups drawn by `tools/titlemock.c`, outside the game.
+Status (9 November 2026): **the refinement pass is done (steps 1-8) and the owner approved it. The menu is under way
+(section 4b, M1-M4).** Nothing in the game is changed yet. Everything here is mock-ups drawn by `tools/titlemock.c`, outside the game.
 
 Read the hand-off log (section 6) first. It says where the last session stopped.
 
@@ -17,6 +17,12 @@ Read the hand-off log (section 6) first. It says where the last session stopped.
   grave screens are to look more weathered and detailed.** In the owner's words: "the graves look very simplistic, made of
   maybe two shapes. They should be a bit more structured than that, with chips, cracks, and destruction denoting a haunted
   gothic look. Same with the markers for plots, they look like they are made from simple shapes."
+- 9 November, on the refinement: **"All look amazing."** Their answers to section 5: the unsigned run is **not** a choice;
+  the prompt reads **PRESS ANY KEY or PRESS ANY BUTTON by the input in use**, and on the title **any key or button counts,
+  but not a stick's movement**; the lightning **stays**. And a menu: **after the button, a selection in the middle of the
+  screen with four options**: choose a grave, begin a new run, review the controls, and an empty one that leads to a help
+  section still to come. **The scene's animation and music go on while it is up.** In the owner's words: "You have most
+  of the assets for this, just modify a few so they allow for this selection screen to appear in the middle."
 - The owner's standing preferences (CLAUDE.md, *Working with the owner*): options and questions before big features; honest
   status about what was tried and how; British spelling; the plain, dry voice. They also asked for backups to be encouraged
   and edits to be confirmed. So keep this work in new files, and commit and push each step.
@@ -130,11 +136,34 @@ Mark each step as it lands (**done**, with the date), and add a line to the log 
    the music hook, the graves read from the ledger (`page_info`), and the questions below. It wants the owner's answers
    first.
 
+## 4b. The menu, step by step (asked for 9 November)
+
+The flow is the title, then any key or button (not a stick), then the menu in the middle over the scene, which goes on with
+its music. From the menu: CHOOSE A GRAVE leads to the grave screen, BEGIN A NEW RUN starts one, THE CONTROLS shows them, and
+HELP is a page still to be written. In each scene the menu comes in its own way, built from that scene's pieces:
+
+- **A** has a stone rising out of the earth into the middle of the graveyard, below the name in the sky.
+- **B** has a tablet lowered on chains from the lintel into the arch's opening, with the hall walking on behind it.
+- **C** has the great stone's face cut again: the name goes onto one line at the top of the slab, the four choices are cut
+  under it, and the old face dissolves into the new in a 13h dither, with dust falling.
+
+The chosen choice gilds while it is chosen. A one-line note says what it does: on the menu stone in A and B, on C's plinth.
+The hints at the foot follow the input: keys on worn caps, or the pad's buttons in their colours.
+
+M1. **Record the answers; graves without the extra rows; the prompt by input.** *Status: being done.*
+M2. **The menu's stones**, with the kit: A's standing stone, B's hanging tablet, C's face re-cut. Each row gilds on its
+    own.
+M3. **The menu scenes**: a second of the title, the key, the menu coming in, then the choice going down the four. Their
+    GIFs: `A_menu`, `B_menu`, `C_menu`.
+M4. **Checks and hand-over**: a still of each with the pad's words, the overview, docs, commit and push, sent to the owner.
+
+THE CONTROLS in the game: the controls card the game already has (`render_hud`'s `more[]`), or the controller's own screen
+(`UI_PAD`, `ui_pad`) while a pad is the input. HELP leads to a page saying it isn't written yet. Neither is drawn in these
+mock-ups.
+
 ## 5. Questions still open for the owner
 
-1. Is the unsigned run (the screensaver's) one of the choices, or does taking over always go through the graves?
-2. Should the prompt say PRESS ANY BUTTON, PRESS ANY KEY, or show the actual key and button?
-3. Should the lightning stay as it is, go softer, or go behind a setting (a "still" title for the eyes)?
+None open now (answered 9 November: see section 1).
 
 ## 6. Hand-off log
 
@@ -149,3 +178,5 @@ Mark each step as it lands (**done**, with the date), and add a line to the log 
   refinement and on the questions in section 5. The next work is whatever they say about this pass, then step 9 (into the
   game), which wants its own plan and the owner's answers first. Known small things: in C's graves the hand rising from
   grave I covers part of its plinth's numeral, and PLAGUE DOCTOR is untried on a stone.
+- **9 November, session 1, after the owner's look.** Approved ("All look amazing"). The answers and the menu are
+  recorded in sections 1 and 4b. M1 is under way.
