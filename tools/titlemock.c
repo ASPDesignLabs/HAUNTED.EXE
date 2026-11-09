@@ -689,7 +689,7 @@ static void flame(int x, int y, float h, float t, int seed) {
 extern unsigned char ui_face8[NFACE][128][8], ui_face16[128][16];
 extern unsigned char ui_has8[NFACE][128], ui_has16[128];
 #define SCW 320
-#define SCH 160
+#define SCH 200
 enum { SM_STONE, SM_WOOD, SM_WOODV, SM_IRON, SM_IVY, SM_ROPE };
 enum { SF_GILD = 1, SF_CALM = 2, SF_FRESH = 4, SF_CRACK = 8, SF_PALE = 16 };
 static struct {
@@ -948,7 +948,7 @@ static void sc_draw(int cx, int by, float deg) {
             for (int i = 0; i < S.w; i++) {
                 if (!S.id[j][i]) continue;
                 int X = cx - S.w / 2 + i + sh, Y = by - S.h + j;
-                if (S.d[j][i]) direct(X, Y, S.d[j][i]); else matf(X, Y, S.r[j][i], S.v[j][i], 0);
+                if (S.d[j][i]) direct(X, Y, S.d[j][i]); else matf(X, Y, S.r[j][i], S.v[j][i], MF_FLAT);
             }
         }
         return;
@@ -960,7 +960,7 @@ static void sc_draw(int cx, int by, float deg) {
         float sx = rx * ca + ry * sa, sy = -rx * sa + ry * ca;
         int i = (int)floorf(sx + S.w * 0.5f), j = (int)floorf(sy + S.h);
         if (!sc_solid(i, j)) continue;
-        if (S.d[j][i]) direct(X, Y, S.d[j][i]); else matf(X, Y, S.r[j][i], S.v[j][i], 0);
+        if (S.d[j][i]) direct(X, Y, S.d[j][i]); else matf(X, Y, S.r[j][i], S.v[j][i], MF_FLAT);
     }
 }
 
@@ -1167,46 +1167,101 @@ static void vignette(float k) {
 #define A_CRYPT0 140
 #define A_FLOOR 184
 static float a_lantern_x, a_lantern_y, a_flick;
-/* the walker, side on, going right: a hooded cloak, a lantern held out on a short chain */
+static uint8_t WMASK[H][W];                                             /* the walker, for the shadow it throws */
+static void wm(int x, int y, int ramp, float v) { matf(x, y, ramp, v, 0); if ((unsigned)x < W && (unsigned)y < H) WMASK[y][x] = 1; }
+static void wline(float x0, float y0, float x1, float y1, float w, int ramp, float v) {
+    float dx = x1 - x0, dy = y1 - y0, l = sqrtf(dx * dx + dy * dy);
+    int n = (int)(l * 2) + 1;
+    for (int k = 0; k <= n; k++) {
+        float u = (float)k / n, cx = x0 + dx * u, cy = y0 + dy * u, r = w * 0.5f;
+        for (int y = (int)floorf(cy - r); y <= (int)ceilf(cy + r); y++) for (int x = (int)floorf(cx - r); x <= (int)ceilf(cx + r); x++)
+            if ((x + 0.5f - cx) * (x + 0.5f - cx) + (y + 0.5f - cy) * (y + 0.5f - cy) <= r * r) wm(x, y, ramp, v);
+    }
+}
+/* the walker, side on, going right: a hooded cloak, ragged at the hem, a rope at the waist; a staff in the back hand, a
+ * lantern held out in the front on a short chain */
 static void walker(float x, int foot, float t, int lantern_out) {
+    memset(WMASK, 0, sizeof WMASK);
     float step = t / 0.5f * PI;                                       /* a step each half second */
     float bob = fabsf(sinf(step)) * 1.2f;
     int top = foot - 30 + (int)roundf(-bob);
     int cx = (int)roundf(x);
-    /* the cloak: shoulders to a hem that swings */
+    /* the staff, planted ahead of the back foot and swung forward again */
+    float sp = frac(t / 1.0f), tipx = cx - 3 + (sp < 0.5f ? 8 - sp * 16 : -8 + (sp - 0.5f) * 32 * 0.5f);
+    wline((float)cx - 3, (float)top + 9, tipx, (float)foot, 1.4f, R_WOOD, 0.14f);
+    wm(cx - 3, top + 8, R_WOOD, 0.2f);
+    /* the cloak: shoulders to a hem that swings, folds down it, ragged at its edge */
     float sw = sinf(step) * 2.0f;
     for (int y = top + 8; y < foot - 1; y++) {
         float u = (float)(y - top - 8) / (foot - 1 - top - 8);
         float back = 5 + 4 * u + (u > 0.6f ? -sw * (u - 0.6f) * 2 : 0), front = 4 + 3 * u + (u > 0.6f ? sw * (u - 0.6f) * 2 : 0);
         for (int i = -(int)back; i <= (int)front; i++) {
-            float v = 0.07f + 0.03f * (fmodf(i + y * 0.3f, 4) < 1) + (i >= (int)front - 1 ? 0.3f : i > 0 ? 0.06f : 0);
-            matf(cx + i, y, R_IRON, v, 0);
+            if (y > foot - 4 && h01(i + cx, y, 17) < 0.35f) continue;   /* the hem in rags */
+            float fold = fmodf(i * 1.0f + y * 0.15f + 40, 3.5f) < 1 ? -0.03f : 0.02f;
+            float v = 0.07f + fold + (i >= (int)front - 1 ? 0.3f : i > 0 ? 0.06f : 0);
+            if (y == top + 15 || y == top + 16) v = 0.24f + 0.1f * (i > 0);   /* the rope at the waist */
+            wm(cx + i, y, y == top + 15 || y == top + 16 ? R_WOOD : R_IRON, v);
         }
     }
-    /* the feet, in turn */
-    int fa = (int)roundf(sinf(step) * 3), fb = -fa;
-    mrect(cx + fa, foot - 2, 4, 2, R_IRON, 0.18f, 0);
-    mrect(cx + fb - 1, foot - 2, 4, 2, R_IRON, 0.12f, 0);
-    /* the hood: round, a point behind, the face in its shadow */
+    wline((float)cx + 2, top + 16.0f, cx + 1.0f + sw * 0.3f, top + 22.0f, 1, R_WOOD, 0.3f);   /* its knot's end */
+    int fa = (int)roundf(sinf(step) * 3), fb = -fa;                    /* the feet, in turn */
+    for (int k = 0; k < 4; k++) { wm(cx + fa + k, foot - 2, R_IRON, 0.18f); wm(cx + fa + k, foot - 1, R_IRON, 0.14f); wm(cx + fb - 1 + k, foot - 2, R_IRON, 0.12f); wm(cx + fb - 1 + k, foot - 1, R_IRON, 0.1f); }
+    /* the hood: round, a point behind, its rim lit at the front, the face in its shadow */
     for (int y = top; y < top + 11; y++) for (int i = -5; i <= 5; i++) {
         float dx = i - 0.5f, dy = y - (top + 5.5f);
         int in = dx * dx + dy * dy <= 26 || (i < -2 && y < top + 4 && y > top - 1 && i > -7 + (y - top));
         if (!in) continue;
         int face = i >= 1 && y >= top + 3 && y <= top + 8 && dx * dx + dy * dy < 14;
-        matf(cx + i, y, face ? R_SKIN : R_IRON, face ? (i >= 3 ? 0.22f : 0.04f) : 0.08f + 0.26f * (i > 2), 0);
+        int rim = !face && i >= 2 && dx * dx + dy * dy > 16;
+        wm(cx + i, y, face ? R_SKIN : R_IRON, face ? (i >= 3 && y > top + 5 ? 0.24f : 0.04f) : rim ? 0.4f : 0.09f);
     }
     /* the arm out, the lantern hanging from the hand, swinging after the step */
     int hx = cx + 9, hy = top + 13;
-    mline((float)cx + 2, (float)top + 10, (float)hx, (float)hy, 2.6f, R_IRON, 0.2f, 0);
-    matf(hx, hy, R_SKIN, 0.4f, 0);
+    wline((float)cx + 2, (float)top + 10, (float)hx, (float)hy, 2.6f, R_IRON, 0.2f);
+    wm(hx, hy, R_SKIN, 0.4f);
     float swing = sinf(step - 0.8f) * 0.18f;
     float lx = hx + sinf(swing) * 6, ly = hy + cosf(swing) * 6;
     mline((float)hx, (float)hy, lx, ly - 2, 1, R_IRON, 0.3f, 0);
-    mrect((int)lx - 2, (int)ly - 2, 5, 1, R_IRON, 0.35f, 0);
+    mrect((int)lx - 2, (int)ly - 3, 5, 1, R_IRON, 0.35f, 0); matf((int)lx, (int)ly - 4, R_IRON, 0.35f, 0);
     mrect((int)lx - 2, (int)ly + 5, 5, 1, R_IRON, 0.3f, 0);
-    for (int j = -1; j <= 4; j++) { matf((int)lx - 2, (int)ly + j, R_IRON, 0.3f, 0); matf((int)lx + 2, (int)ly + j, R_IRON, 0.3f, 0); }
-    for (int j = -1; j <= 4; j++) for (int i = -1; i <= 1; i++) direct((int)lx + i, (int)ly + j, (uint8_t)(R_FLAME + clampi(9 + (j > 1) * 3 - abs(i) * 2, 0, 15)));
+    for (int j = -2; j <= 4; j++) { matf((int)lx - 2, (int)ly + j, R_IRON, 0.3f, 0); matf((int)lx + 2, (int)ly + j, R_IRON, 0.3f, 0); }
+    for (int j = -1; j <= 4; j++) for (int i = -1; i <= 1; i++) direct((int)lx + i, (int)ly + j, (uint8_t)(R_FLAME + clampi(9 + (j > 1) * 3 - abs(i) * 2 + (int)(2 * sinf(t * 23 + j)), 0, 15)));
     if (lantern_out) { a_lantern_x = lx; a_lantern_y = ly + 2; }
+}
+/* the small stones over the graves, built: each leaning or broken its own way */
+static void small_built(int kind, int cx, int base, float deg, uint32_t seed) {
+    switch (kind) {
+    case 0:                                                             /* a gothic stone, its gable pointed */
+        sc_begin(14, 20); sc_rect(0, 17, 14, 3, 1, 0, SM_STONE, 0); sc_rect(1, 8, 12, 9, 2, 0, SM_STONE, 0.04f);
+        sc_arch(1, 13, 9, 8, 2, 2, 0, SM_STONE, 0.04f); sc_groove(1u << 2, 2); sc_chips(0.3f, seed); break;
+    case 1:                                                             /* a wheel-cross, an arm broken */
+        sc_begin(15, 24); sc_rect(2, 20, 11, 4, 1, 0, SM_STONE, 0); sc_rect(6, 2, 4, 19, 2, 0, SM_STONE, 0.05f);
+        sc_rect(1, 6, 13, 4, 2, 0, SM_STONE, 0.05f); sc_ring(8, 8, 3, 5, 2, 1, SM_STONE, 0.06f); sc_break(14, 8, 2.5f, seed); break;
+    case 2:                                                             /* an angel on a plinth, her head bowed, a wing broken */
+        sc_begin(20, 32); sc_rect(4, 24, 12, 8, 1, 0, SM_STONE, 0); sc_rect(3, 23, 14, 2, 1, 1, SM_STONE, 0.08f);
+        { float robe[8] = { 8, 9, 13, 9, 15, 23, 5, 23 }; sc_poly(robe, 4, 2, 0, SM_STONE, 0.06f); }
+        sc_disc(10, 6.5f, 2.4f, 2, 1, SM_STONE, 0.08f);
+        { float lw[8] = { 8, 10, 1, 2, 2, 13, 7, 17 }; sc_poly(lw, 4, 3, -1, SM_STONE, 0.02f); }
+        { float rw[8] = { 13, 10, 19, 2, 18, 13, 14, 17 }; sc_poly(rw, 4, 3, -1, SM_STONE, 0.02f); }
+        for (int j = 12; j < 23; j += 3) sc_px(11 + (j % 2), j, 2, -1, SM_STONE, 0);   /* the robe's folds */
+        sc_break(18, 3, 3, seed); sc_chips(0.25f, seed + 1); break;
+    case 3:                                                             /* a round-headed stone, chipped */
+        sc_begin(12, 16); sc_rect(0, 6, 12, 10, 1, 0, SM_STONE, 0.04f); sc_arch(0, 12, 6, 6, 0, 1, 0, SM_STONE, 0.04f);
+        sc_groove(1u << 1, 2); sc_chips(0.4f, seed); break;
+    case 4:                                                             /* an obelisk, snapped */
+        sc_begin(10, 30); sc_rect(0, 26, 10, 4, 1, 0, SM_STONE, 0); sc_rect(1, 22, 8, 4, 2, 0, SM_STONE, 0.04f);
+        { float ob[8] = { 2, 22, 8, 22, 7, 6, 3, 6 }; sc_poly(ob, 4, 3, 0, SM_STONE, 0.06f); }
+        sc_break(5, 7, 3.5f, seed); sc_chips(0.25f, seed + 1); break;
+    case 5:                                                             /* the obelisk's top, fallen */
+        sc_begin(6, 12); { float tp[6] = { 0.5f, 12, 5.5f, 12, 3, 0 }; sc_poly(tp, 3, 1, 0, SM_STONE, 0.06f); }
+        for (int i = 0; i < 6; i++) if (sc_solid(i, 11)) S.f[11][i] |= SF_FRESH; break;
+    case 6:                                                             /* a slab gone over */
+        sc_begin(12, 18); sc_rect(0, 0, 12, 18, 1, 0, SM_STONE, 0.04f); sc_groove(1u << 1, 2); sc_chips(0.4f, seed); break;
+    default:                                                            /* the stump of one broken across */
+        sc_begin(12, 11); sc_rect(0, 0, 12, 11, 1, 0, SM_STONE, 0.02f); sc_break(6, -2, 6, seed); sc_chips(0.4f, seed + 1); break;
+    }
+    sc_shade(0.42f, seed + 9, 0, R_GOLD);
+    sc_draw(cx, base, deg);
 }
 static void a_world(float t, float flash, int graves) {
     float mx = graves ? 34 : 196, my = graves ? 22 : 70, mr = graves ? 11 : 14;
@@ -1214,73 +1269,90 @@ static void a_world(float t, float flash, int graves) {
     pal_flash(flash * 0.55f);
     light_clear(1.0f + 0.4f * flash, 0);
     sky(0, A_GROUND, t, mx, my, mr, flash);
-    /* the far hills and a church's spire, flat against the sky */
+    /* the far hills and the church, flat against the sky; one window lit */
     for (int x = 0; x < W; x++) {
         float hy = 80 + 6 * sinf(x * 0.021f + 1.3f) + 3 * sinf(x * 0.063f) + 2 * fbm(x * 0.05f, 0, 8);
         if (x > 44 && x < 70) hy = fminf(hy, 72);
         if (x > 52 && x < 62) hy = fminf(hy, 64);
         if (x >= 55 && x <= 58) hy = fminf(hy, 50 + (float)abs(x - 56) * 4);
+        if (x == 56) hy = fminf(hy, 46);                                /* the spire's cross */
         for (int y = (int)hy; y < A_GROUND; y++) matf(x, y, R_CEIL, 0.1f + 0.02f * (y > 88), MF_NOWARM);
     }
-    for (int x = 53; x <= 59; x++) mrect(x, 64, 1, 3, R_CEIL, 0.1f, MF_NOWARM);
-    /* the tree, its crows */
+    mrect(54, 48, 5, 1, R_CEIL, 0.1f, MF_NOWARM);
+    for (int y = 77; y < 81; y++) for (int x = 47; x < 49; x++) if (!(y == 77 && x == 48)) direct(x, y, (uint8_t)(R_FLAME + clampi((int)(2 + 2 * flick(t, 21) - (y == 80)), 0, 15)));
+    /* the tree, its crows (one shakes its wings now and then) */
     branch(28, A_GROUND, 1.5f, 30, 8, 6, 7);
     branch(28, A_GROUND - 18, 2.5f, 18, 4, 4, 9);
     branch(30, A_GROUND - 24, 0.7f, 16, 3.5f, 4, 13);
     mrect(40, 52, 3, 2, R_IRON, 0.04f, MF_FLAT); matf(43, 51, R_IRON, 0.04f, MF_FLAT); matf(39, 51, R_IRON, 0.04f, MF_FLAT);
-    mrect(17, 47, 3, 2, R_IRON, 0.04f, MF_FLAT); matf(16, 46, R_IRON, 0.04f, MF_FLAT);
-    /* the stones, an iron fence and the mausoleum */
-    static const struct { int x, w, h, shape; float lean; } ST[] = {
-        { 84, 11, 16, 0, 0.05f }, { 108, 9, 19, 1, -0.06f }, { 133, 12, 14, 2, 0.0f }, { 160, 10, 17, 0, -0.12f },
-        { 186, 13, 12, 3, 0.04f }, { 211, 9, 18, 1, 0.08f }, { 232, 11, 15, 0, 0.0f } };
-    for (int i = 0; i < 7; i++) small_stone(ST[i].x, A_GROUND, ST[i].w, ST[i].h, ST[i].shape, ST[i].lean, 1, 30 + i);
-    for (int x = 250; x < 318; x += 4) { mrect(x, A_GROUND - 13, 1, 13, R_IRON, 0.12f, 0); matf(x, A_GROUND - 14, R_IRON, 0.2f, 0); }
+    if (frac(t / 3.0f) < 0.12f) { mline(40, 52, 37, 48, 1, R_IRON, 0.04f, MF_FLAT); mline(42, 52, 45, 48, 1, R_IRON, 0.04f, MF_FLAT); }
+    mrect(17, 47, 3, 2, R_IRON, 0.04f, MF_FLAT); matf(16, 46, R_IRON, 0.04f, MF_FLAT); matf(19, 49, R_IRON, 0.04f, MF_FLAT);
+    /* the stones, built: leaning, snapped, gone over; an angel among them */
+    small_built(0, 84, A_GROUND, 3.0f, 31);
+    small_built(1, 106, A_GROUND, -7.0f, 32);
+    small_built(2, 130, A_GROUND, 0, 33);
+    small_built(3, 152, A_GROUND, 9.0f, 34);
+    small_built(4, 172, A_GROUND, 0, 35);
+    small_built(5, 182, A_GROUND, 78.0f, 36);
+    small_built(6, 204, A_GROUND, -80.0f, 37);
+    small_built(7, 222, A_GROUND, 2.0f, 38);
+    small_built(0, 240, A_GROUND, -3.0f, 39);
+    for (int x = 250; x < 318; x += 4) { if (x == 270 || x == 274) continue; mrect(x, A_GROUND - 13, 1, 13, R_IRON, 0.12f, 0); matf(x, A_GROUND - 14, R_IRON, 0.2f, 0); }
+    mline(270, A_GROUND - 1, 276, A_GROUND - 8, 1, R_IRON, 0.12f, 0);   /* a railing bent over */
     mrect(250, A_GROUND - 11, 68, 1, R_IRON, 0.12f, 0); mrect(250, A_GROUND - 4, 68, 1, R_IRON, 0.12f, 0);
     {
         int mx0 = 262, mw = 42, base = A_GROUND;
         for (int y = base - 34; y < base; y++) for (int x = mx0; x < mx0 + mw; x++) {
             int ped = y < base - 24, roof = y < base - 30 + abs(x - (mx0 + mw / 2)) * 6 / (mw / 2);
             if (ped && roof) continue;
+            if (ped && x > mx0 + mw - 9 && y < base - 27 + (x - mx0 - mw + 9) / 2) continue;   /* its pediment's corner broken */
             float v = 0.3f + 0.12f * fbm(x * 0.4f, y * 0.4f, 21) + 0.18f * (x > mx0 + mw - 4);
             int col = !ped && ((x - mx0) % 9 < 3) && y > base - 23 && y < base - 2;
             int door = !ped && x > mx0 + 16 && x < mx0 + 26 && y > base - 18;
-            if (door) v = 0.03f;
+            if (door) v = 0.03f + (y < base - 16 ? 0.05f : 0);
             else if (!ped && !col && y > base - 23 && y < base - 2) v -= 0.12f;
             if (y == base - 24 || y == base - 23) v += 0.15f;
+            if (fabsf(fbm(x * 0.1f, y * 0.1f, 22) - 0.5f) < 0.02f) v -= 0.15f;
             matf(x, y, R_STONE, v, 0);
         }
     }
-    /* the earth: strata, darker going down */
+    /* the earth in its bands: topsoil and roots, clay, gravel, the rock over the vault */
     for (int y = A_GROUND; y < H; y++) for (int x = 0; x < W; x++) {
-        float n = fbm(x * 0.07f, y * 0.11f, 51), strata = 0.05f * sinf(y * 0.55f + 2 * fbm(x * 0.02f, y * 0.02f, 52));
-        float v = 0.3f + 0.26f * (n - 0.5f) * 1.6f + strata - 0.2f * (float)(y - A_GROUND) / (H - A_GROUND);
-        if (y < A_GROUND + 3) v -= 0.1f;
-        if (h01(x, y, 53) < 0.03f) v += 0.14f;
-        if (h01(x / 2, y / 2, 54) < 0.04f) v -= 0.12f;
-        for (int g = 0; g < 3; g++) {                                   /* the graves' shafts: earth turned, looser */
-            static const int GX[3] = { 70, 146, 197 }, GY[3] = { 110, 116, 108 };
-            if (x >= GX[g] - 2 && x < GX[g] + 30 && y < GY[g] + 10) { v += 0.06f * (h01(x, y, 55 + g) - 0.3f) + 0.03f; if (x == GX[g] - 2 || x == GX[g] + 29) v -= 0.08f; }
-        }
-        matf(x, y, R_FLOOR, v, 0);
-    }
-    for (int i = 0; i < 26; i++) {                                     /* stones in the earth */
-        int sx = (int)(h01(i, 1, 61) * W), sy = A_GROUND + 8 + (int)(h01(i, 2, 61) * 40);
-        float r = 1.5f + h01(i, 3, 61) * 2.5f;
-        for (int y = (int)(sy - r); y <= sy + r; y++) for (int x = (int)(sx - r * 1.4f); x <= sx + r * 1.4f; x++)
-            if ((x - sx) * (x - sx) / 1.96f + (y - sy) * (y - sy) <= r * r) matf(x, y, R_STONE, 0.22f + 0.12f * (y < sy) + 0.04f * h01(x, y, 4), 0);
+        float wv = 3 * (fbm(x * 0.03f, 0, 59) - 0.5f) * 2;
+        int ramp = R_FLOOR;
+        float n = fbm(x * 0.07f, y * 0.11f, 51), v;
+        if (y < 106 + wv) v = 0.2f + 0.14f * n - 0.08f * (y < A_GROUND + 3);
+        else if (y < 117 + wv) { ramp = h01(x / 3, y, 64) < 0.5f ? R_BRICK : R_FLOOR; v = 0.15f + 0.08f * n + 0.03f * sinf(y * 1.3f + n * 4); }
+        else if (y < 128 + wv) { v = 0.22f + 0.1f * n; if (h01(x / 2, y / 2, 60) < 0.3f) { ramp = R_STONE; v = 0.22f + 0.14f * ((y & 1) == 0) + 0.06f * h01(x, y, 61); } }
+        else { ramp = R_STONE; v = 0.16f + 0.08f * n; if (fabsf(fbm(x * 0.05f, y * 0.1f, 62) - 0.5f) < 0.02f) v = 0.06f; }
+        if (h01(x, y, 53) < 0.02f) v += 0.12f;
+        matf(x, y, ramp, v, 0);
     }
     root(28, A_GROUND + 1, 1.6f, 36, 3.5f, 3, 3); root(22, A_GROUND + 1, 2.3f, 28, 2.4f, 3, 4); root(35, A_GROUND + 1, 0.9f, 32, 2.4f, 3, 5);
-    /* the buried: coffins under some of the stones, bones loose in the earth */
-    coffin_side(70, 110, 28, 8, 0.42f, 0); coffin_side(146, 116, 28, 8, 0.38f, 0); coffin_side(197, 108, 28, 8, 0.4f, 0);
-    skull_small(118, 124, 0.42f); skull_small(240, 113, 0.38f); skull_small(52, 128, 0.36f);
-    bone_small(124, 128, 6, 1, 0.38f); bone_small(30, 124, 7, -1, 0.34f); bone_small(258, 120, 6, 1, 0.36f); bone_small(176, 130, 5, -1, 0.35f);
+    for (int x = 0; x < W; x += 3) if (h01(x, 1, 63) < 0.6f) mline((float)x, A_GROUND + 1.0f, x + (h01(x, 2, 63) - 0.5f) * 3, A_GROUND + 3 + h01(x, 3, 63) * 5, 1, R_WOOD, 0.24f, 0);   /* the grass's roots */
+    /* the buried: coffins under some of the stones; an old one burst, its dead in it; bones loose */
+    coffin_side(70, 104, 28, 8, 0.42f, 0); coffin_side(146, 108, 28, 8, 0.38f, 0);
+    {
+        int bx = 222, by = 110;                                        /* the burst coffin, its lid gone askew */
+        for (int i = 0; i < 32; i++) { matf(bx + i, by + 8, R_WOOD, 0.34f, 0); matf(bx + i, by + 9, R_WOOD, 0.26f, 0); }
+        for (int j = 0; j < 9; j++) { matf(bx, by + j, R_WOOD, 0.34f, 0); matf(bx + 31, by + j, R_WOOD, 0.3f, 0); }
+        for (int i = 0; i < 18; i++) matf(bx + 14 + i, by - 1 - i / 6, R_WOOD, 0.36f, 0);
+        for (int i = 1; i < 31; i++) for (int j = 0; j < 8; j++) matf(bx + i, by + j, R_FLOOR, 0.08f, 0);
+        skull_small(bx + 2, by + 2, 0.52f);
+        for (int i = 7; i < 26; i++) matf(bx + i, by + 5, R_BONE, 0.44f, 0);          /* the spine, ribs, a leg */
+        for (int i = 9; i < 16; i += 2) { matf(bx + i, by + 3, R_BONE, 0.4f, 0); matf(bx + i, by + 4, R_BONE, 0.4f, 0); matf(bx + i, by + 6, R_BONE, 0.36f, 0); }
+        mrect(bx + 17, by + 4, 3, 3, R_BONE, 0.4f, 0);
+        for (int i = 20; i < 30; i++) matf(bx + i, by + 6 + (i > 25), R_BONE, 0.42f, 0);
+    }
+    skull_small(118, 112, 0.42f); skull_small(52, 120, 0.36f); skull_small(186, 124, 0.34f);
+    bone_small(124, 116, 6, 1, 0.38f); bone_small(30, 116, 7, -1, 0.34f); bone_small(258, 106, 6, 1, 0.36f); bone_small(176, 118, 5, -1, 0.35f);
     for (int x = 0; x < W; x += 2) {                                    /* grass along the edge */
         int g = (int)(h01(x, 0, 71) * 3);
         for (int j = 1; j <= g; j++) matf(x, A_GROUND - j, R_MOSS, 0.18f + 0.06f * j, 0);
     }
     (void)graves;
 }
-/* the crypt: arches between piers, its back wall of blocks, its niches; returns nothing, lit later */
+/* the crypt: arches of voussoirs between piers with capitals and bases; its back wall of blocks */
 static int a_open(int x, int y) {                                       /* in the passage's air (seen against its back wall) */
     if (y >= A_FLOOR || y < A_CRYPT0) return 0;
     int bay = ((x % 64) + 64) % 64;
@@ -1290,28 +1362,58 @@ static int a_open(int x, int y) {                                       /* in th
     return y >= top;
 }
 static void a_crypt(float t) {
-    for (int y = A_CRYPT0 - 6; y < A_FLOOR + 3; y++) for (int x = 0; x < W; x++) {
+    for (int y = A_CRYPT0 - 8; y < A_FLOOR + 3; y++) for (int x = 0; x < W; x++) {
         int bay = ((x % 64) + 64) % 64;
         if (a_open(x, y)) {                                             /* the back wall: courses of blocks */
             int row = (y - A_CRYPT0) / 6, off = row & 1 ? 8 : 0;
             int mort = (y - A_CRYPT0) % 6 == 0 || ((x + off) % 16) == 0;
             float v = mort ? 0.12f : 0.3f + 0.12f * fbm(x * 0.2f, y * 0.2f, 81) + 0.05f * h01((x + off) / 16, row, 82);
+            if (!mort && h01(x, y, 83) < 0.03f) v -= 0.12f;
             matf(x, y, R_STONE, v, 0);
-        } else if (y < A_FLOOR) {
-            int near = 0;                                               /* the vault's ring of voussoirs round the arch */
-            for (int d = 1; d <= 4 && !near; d++) if (a_open(x, y + d)) near = d;
-            if (near) matf(x, y, R_STONE, 0.42f - near * 0.04f + ((x / 5) % 2 ? 0.04f : 0) - ((x % 5) == 0 ? 0.12f : 0), 0);
-            else if (bay < 6 && y > A_CRYPT0 + 16) matf(x, y, R_STONE, 0.38f + (bay == 5 ? 0.1f : bay == 0 ? -0.12f : 0) + 0.06f * ((y / 6) % 2), 0);
-        } else matf(x, y, R_STONE, 0.36f - 0.1f * (y - A_FLOOR) + ((x % 12) == 0 ? -0.1f : 0), 0);
+            continue;
+        }
+        if (y >= A_FLOOR) { matf(x, y, R_STONE, 0.36f - 0.1f * (y - A_FLOOR) + ((x % 12) == 0 ? -0.1f : 0), 0); continue; }
+        int near = 0;                                                   /* the ring of voussoirs round each arch */
+        for (int d = 1; d <= 5 && !near; d++) if (a_open(x, y + d) && bay >= 6) near = d;
+        if (near) {
+            float cxb = (x / 64) * 64 + 35.0f, ang = atan2f((float)(y - (A_CRYPT0 + 17)), x - cxb);
+            float fb = (ang + PI) / (PI / 9);
+            float v = 0.4f - near * 0.03f + (((int)fb) % 2 ? 0.05f : -0.02f);
+            if (fabsf(frac(fb) - 0.5f) > 0.42f) v = 0.14f;              /* the joints, fanning out */
+            if (near == 5) v = 0.16f;
+            matf(x, y, R_STONE, v + 0.04f * (h01(x, y, 84) - 0.5f), 0);
+        } else if (bay < 6 || bay > 61) {                               /* the piers, their capitals and bases */
+            int cap = y >= A_CRYPT0 + 13 && y <= A_CRYPT0 + 17, base_ = y >= A_FLOOR - 4;
+            int inpier = bay < 6 || ((cap || base_) && bay > 61);
+            if (!inpier && !(cap || base_)) continue;
+            if (!inpier) continue;
+            float v = 0.38f + (bay == 5 ? 0.1f : bay == 0 ? -0.12f : 0) + 0.06f * ((y / 6) % 2);
+            if (cap || base_) v = 0.48f - (y == A_CRYPT0 + 17 || y == A_FLOOR - 1 ? 0.2f : 0);
+            matf(x, y, R_STONE, v, 0);
+        } else if (y > A_CRYPT0 - 8) matf(x, y, R_STONE, 0.18f + 0.06f * fbm(x * 0.1f, y * 0.1f, 85), 0);
     }
-    /* niches in alternate bays, with skulls; a coffin on a ledge in another */
+    for (int b = 0; b <= 5; b++) for (int y = A_CRYPT0 + 13; y <= A_CRYPT0 + 17; y++) for (int dx = -2; dx < 8; dx++) {   /* capitals and bases wider than the piers */
+        int x = b * 64 + dx;
+        matf(x, y, R_STONE, y == A_CRYPT0 + 17 ? 0.26f : 0.5f, 0);
+        matf(x, A_FLOOR - 4 + (y - A_CRYPT0 - 13), R_STONE, y == A_CRYPT0 + 13 ? 0.52f : 0.4f, 0);
+    }
+    /* niches with skulls in some bays, a sarcophagus in one, a ledge of the dead in another */
     for (int b = 0; b < 6; b++) {
         int bx = b * 64 + 20;
-        if (b % 2 == 0) {
+        if (b == 3) {                                                   /* the sarcophagus, its lid carved with its sleeper */
+            mrect(bx - 4, A_FLOOR - 11, 36, 11, R_STONE, 0.34f, 0);
+            for (int i = 0; i < 36; i += 6) mrect(bx - 2 + i, A_FLOOR - 8, 4, 6, R_STONE, 0.24f, 0);
+            mrect(bx - 5, A_FLOOR - 13, 38, 2, R_STONE, 0.48f, 0);
+            mrect(bx + 2, A_FLOOR - 16, 24, 3, R_STONE, 0.44f, 0);       /* the effigy: head, hands, feet */
+            mdisc(bx + 2, A_FLOOR - 16, 2.5f, R_STONE, 0.48f, 0);
+            mrect(bx + 12, A_FLOOR - 18, 3, 2, R_STONE, 0.46f, 0);
+            mrect(bx + 25, A_FLOOR - 18, 2, 3, R_STONE, 0.42f, 0);
+        } else if (b % 2 == 0) {
             for (int k = 0; k < 2; k++) {
                 int nx = bx + k * 16, ny = A_FLOOR - 26;
                 mrect(nx, ny, 12, 9, R_STONE, 0.04f, 0);
                 skull_small(nx + 3, ny + 3, 0.5f);
+                if (k) bone_small(nx + 1, ny + 7, 8, 0, 0.4f);
                 mrect(nx, ny + 9, 12, 1, R_STONE, 0.45f, 0);
             }
         } else {
@@ -1320,8 +1422,12 @@ static void a_crypt(float t) {
             for (int i = 0; i < 30; i += 6) mrect(bx + i, A_FLOOR - 6, 3, 4, R_STONE, 0.22f, 0);
         }
     }
-    /* cobwebs in the corners of the arches */
-    for (int b = 0; b <= 5; b++) {
+    for (int b = 1; b <= 4; b += 3) {                                   /* chains from the arches' crowns, swaying */
+        float cxb = b * 64 + 35, sway = sinf(t * 2 * PI / LOOP * 3 + b) * 1.2f;
+        for (int k = 0; k < 16; k++) matf((int)(cxb + sway * k / 16), A_CRYPT0 + 5 + k, R_IRON, k % 2 ? 0.32f : 0.24f, 0);
+        mdisc(cxb + sway, A_CRYPT0 + 22, 1.6f, R_IRON, 0.3f, 0);
+    }
+    for (int b = 0; b <= 5; b++) {                                      /* cobwebs in the corners of the arches */
         int px = b * 64 + 6;
         for (int r = 3; r <= 9; r += 3) for (int a = 0; a < 10; a++) {
             float an = a / 9.0f * PI * 0.5f;
@@ -1329,8 +1435,8 @@ static void a_crypt(float t) {
         }
         for (int a = 0; a < 3; a++) mline((float)px, A_CRYPT0 + 8.0f, px + cosf(a * 0.7f) * 10, A_CRYPT0 + 8 + sinf(a * 0.7f) * 10, 1, R_BONE, 0.26f, MF_FLAT);
     }
-    /* dust coming down out of the cracks */
-    for (int i = 0; i < 14; i++) {
+    for (int i = 0; i < 9; i++) bone_small(10 + i * 34 + (int)(h01(i, 0, 86) * 14), A_FLOOR - 1, 4 + i % 3, 0, 0.36f);   /* bones on the floor */
+    for (int i = 0; i < 14; i++) {                                      /* dust coming down out of the cracks */
         float x = h01(i, 1, 91) * W, ph = h01(i, 2, 91), sp = 1 + (i % 2);
         float u = frac(t / LOOP * sp + ph);
         float y = A_CRYPT0 + 18 + u * (A_FLOOR - A_CRYPT0 - 18);
@@ -1341,11 +1447,9 @@ static void scene_a(float t) {
     float flash = flash_k(t, LOOP * 0.55f);
     a_world(t, flash, 0);
     a_crypt(t);
-    /* the walker crosses once a loop */
-    float wx = -24 + (W + 48) * (t / LOOP);
+    float wx = -24 + (W + 48) * (t / LOOP);                             /* the walker crosses once a loop */
     walker(wx, A_FLOOR, t, 1);
-    /* eyes in the dark of a niche, shut while the light is near */
-    float ex = 2 * 64 + 22 + 16 + 3, ey = A_FLOOR - 22;
+    float ex = 2 * 64 + 22 + 16 + 3, ey = A_FLOOR - 22;                 /* eyes in the dark of a niche, shut while the light is near */
     int eyes = fabsf(a_lantern_x - ex) > 60 && frac(t / 3.1f) > 0.06f;
     /* light: the moon on the ground, little in the earth, nothing in the crypt but the lantern */
     for (int y = A_GROUND; y < H; y++) for (int x = 0; x < W; x++) {
@@ -1353,16 +1457,22 @@ static void scene_a(float t) {
         LC[y][x] = k * (1.0f + 0.35f * flash * (y < A_CRYPT0 - 6));
     }
     a_flick = flick(t, 3);
-    light_add(a_lantern_x, a_lantern_y, 78 * a_flick, 1.6f, 1);
+    light_add(a_lantern_x, a_lantern_y, 82 * a_flick, 1.6f, 1);
     light_add(a_lantern_x, a_lantern_y, 20, 0.9f, 1);
-    /* the bats over the moon, twice a loop */
-    for (int i = 0; i < 2; i++) {
+    light_add(48, 79, 7, 0.25f * flick(t, 21), 1);                      /* the church's window */
+    /* the walker's shadow, thrown big on the back wall away from the lantern */
+    for (int y = A_CRYPT0; y < A_FLOOR; y++) for (int x = 0; x < W; x++) {
+        if (WMASK[y][x] || !a_open(x, y)) continue;
+        float qx = a_lantern_x + (x - a_lantern_x) / 1.7f, qy = a_lantern_y + (y - a_lantern_y) / 1.7f;
+        int ix = (int)qx, iy = (int)qy;
+        if (ix >= 0 && iy >= 0 && ix < W && iy < H && WMASK[iy][ix]) LW[y][x] *= 0.22f;
+    }
+    for (int i = 0; i < 2; i++) {                                       /* the bats over the moon, twice a loop */
         float u = frac(t / LOOP * 2 + i * 0.37f);
         bat(W + 10 - u * (W + 30), 30 + 12 * sinf(u * 9 + i) + i * 10, t * 26 + i);
     }
     fog(A_GROUND - 22, A_GROUND + 2, t, 1.5f, 33);
-    /* lightning on the hills */
-    if (flash > 0.7f) {
+    if (flash > 0.7f) {                                                 /* lightning on the hills */
         float bx = 118, by = 0;
         for (int j = 0; j < 14; j++) {
             float nx = bx + (h01(j, 1, 5) - 0.5f) * 10, ny = by + 6;
@@ -1371,6 +1481,7 @@ static void scene_a(float t) {
             if (by > 82) break;
         }
     }
+    vignette(0.35f);
     logo_build("HAUNTED", 0.95f, ".EXE", 0.84f, 1, 11);
     logo_draw((W - LG.w) / 2, 10, LS_BLOOD, 1.0f + 0.25f * flash, A_GROUND - 1, t);
     resolve();
@@ -1592,6 +1703,53 @@ static int b_wall_tex(int cell, int left, int texx, int texy, float t) {   /* a 
     return c;
 }
 static float b_depth[W];
+static float b_vig(int x, int y) { float dx = (x - W * 0.5f) / (W * 0.5f), dy = (y - 120.0f) / 100.0f; return 1 - 0.4f * smooth(0.5f, 1.2f, sqrtf(dx * dx * 0.8f + dy * dy)); }
+/* the game's own props in the hall, as billboards against its depth: on the floor, or hung from the vault */
+static void b_sprite(float wx, float wy, int spr, int hang, float sc, float t) {
+    float dx = wx - b_camx, dy = wy - 2.0f;
+    if (dx < 1.5f || dx > 14) return;                                    /* close by, it has gone past behind the piers */
+    float size = B_PROJ / dx * sc, sx = (dy / (dx * 0.66f) + 1) * W * 0.5f;
+    float top = hang ? b_hor - B_PROJ * (1 - B_EYE) / dx : b_hor + B_PROJ * B_EYE / dx - size;
+    float l = b_light(wx, wy, hang ? 0.8f : 0.25f, dx, t);
+    for (int c = (int)(sx - size / 2); c < (int)(sx + size / 2); c++) {
+        if (c < 0 || c >= W || dx > b_depth[c] - 0.05f) continue;
+        int u = clampi((int)((c - (sx - size / 2)) / size * TS), 0, TS - 1);
+        for (int r = (int)top; r < (int)(top + size); r++) {
+            if (r < 50 || r >= H) continue;
+            int v = clampi((int)((r - top) / size * TS), 0, TS - 1);
+            uint8_t tx = crawl_spr[spr][u * TS + v];
+            if (tx == C_CLEAR) continue;
+            direct(c, r, IS_FULLBRIGHT(tx) ? tx : b_lit(tx, l * b_vig(c, r)));
+        }
+    }
+}
+static void b_sprites(float t) {
+    static const struct { float x, y; int spr, hang; float sc; } BP[] = {
+        { 0.7f, 1.32f, SP_BONES2, 0, 0.7f }, { 1.6f, 1.25f, SP_CANDLES, 0, 0.6f }, { 2.45f, 2.72f, SP_SKULLPILE, 0, 0.6f },
+        { 3.4f, 2.62f, SP_GIBBET_SKEL, 1, 0.78f }, { 1.25f, 2.55f, SP_CHAINS, 1, 0.8f }, { 2.9f, 1.3f, SP_ROOTS, 1, 0.8f },
+        { 3.75f, 2.72f, SP_URN, 0, 0.55f }, { 0.25f, 2.7f, SP_COBWEB, 1, 0.7f } };
+    int n = (int)(sizeof BP / sizeof BP[0]);
+    for (int blk = (int)floorf(b_camx / B_PERIOD) + 3; blk >= (int)floorf(b_camx / B_PERIOD); blk--)   /* far first */
+        for (int k = n - 1; k >= 0; k--) b_sprite(blk * B_PERIOD + BP[k].x, BP[k].y, BP[k].spr, BP[k].hang, BP[k].sc, t);
+    /* a spectre crossing the hall at the edge of the fog, once a loop */
+    float u = frac(t / LOOP + 0.1f);
+    if (u > 0.25f && u < 0.75f) {
+        float wy = 1.15f + (u - 0.25f) / 0.5f * 1.7f, wx = b_camx + 7.5f;
+        float dx = wx - b_camx, size = B_PROJ / dx * 0.95f, sx = ((wy - 2) / (dx * 0.66f) + 1) * W * 0.5f;
+        float top = b_hor + B_PROJ * B_EYE / dx - size - 3 * sinf(t * 3);
+        int spr = (int)(t * 4) % 2 ? SP_GHOST_A : SP_GHOST_B;
+        float a = smooth(0.25f, 0.33f, u) * (1 - smooth(0.67f, 0.75f, u));
+        for (int c = (int)(sx - size / 2); c < (int)(sx + size / 2); c++) {
+            if (c < 0 || c >= W) continue;
+            int uu = clampi((int)((c - (sx - size / 2)) / size * TS), 0, TS - 1);
+            for (int r = (int)top; r < (int)(top + size); r++) {
+                if (r < 50 || r >= H || bay(c, r) > a * 0.6f) continue;
+                uint8_t tx = crawl_spr[spr][uu * TS + clampi((int)((r - top) / size * TS), 0, TS - 1)];
+                if (tx != C_CLEAR) direct(c, r, crawl_cmap[18][tx]);
+            }
+        }
+    }
+}
 static void b_hall(float t, int y0, int y1) {
     float step = b_camx * 2 * PI;                                       /* two steps a cell */
     b_hor = 100 + sinf(step) * 1.2f;
@@ -1612,14 +1770,14 @@ static void b_hall(float t, int y0, int y1) {
                 int texy = clampi((int)(v * TS), 0, TS - 1);
                 uint8_t tx = (uint8_t)b_wall_tex(cell, left, texx, texy, t);
                 float wz = 1 - v;
-                c = IS_FULLBRIGHT(tx) ? tx : b_lit(tx, b_light(wx, left ? 1.0f : 3.0f, wz, d, t));
+                c = IS_FULLBRIGHT(tx) ? tx : b_lit(tx, b_light(wx, left ? 1.0f : 3.0f, wz, d, t) * b_vig(x, y));
             } else {
                 int floor = y >= bot;
                 float dist = floor ? B_PROJ * B_EYE / (y - b_hor + 0.5f) : B_PROJ * (1 - B_EYE) / (b_hor - y + 0.5f);
                 float fx = b_camx + dist * rx, fy = camy + dist * ry;
                 int tu = (int)(frac(fx) * TS) & 63, tv = (int)(frac(fy) * TS) & 63;
                 uint8_t tx = crawl_tex[floor ? T_FLOORS + FL1_FLAGS : T_CEILS + CE1_RIB][tu * TS + tv];
-                c = b_lit(tx, b_light(fx, fy, floor ? 0 : 1, dist, t) * (floor ? 1.0f : 0.8f));
+                c = b_lit(tx, b_light(fx, fy, floor ? 0 : 1, dist, t) * (floor ? 1.0f : 0.8f) * b_vig(x, y));
             }
             direct(x, y, c);
         }
@@ -1645,50 +1803,95 @@ static int b_arch(int x, int y) {                                       /* 0 the
     float top = 62 + 10 * (1 - sqrtf(fmaxf(0, 1 - c * c)));               /* the opening's segmental head */
     return y < top ? 2 : 0;
 }
-static void b_frame(float t, float glow) {
-    for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) {
-        int a = b_arch(x, y);
-        if (!a) continue;
-        int row = a == 2 ? y / 31 : (y - 62) / 23, off = row & 1 ? 21 : 0;
-        int bw = a == 2 ? 64 : 24;
-        int bx = a == 2 ? (x + off) % bw : (x < 24 ? x : x - (W - 24));
-        int by = a == 2 ? y % 31 : (y - 62) % 23;
-        int joint = by == 0 || bx == 0 || (a == 1 && (bx == 23));
-        float v = 0.36f + 0.16f * fbm(x * 0.09f, y * 0.09f, 61) + 0.06f * (h01((x + off) / bw, row, 62) - 0.5f);
-        if (joint) v = 0.12f;
-        else if (by == 1 || bx == 1) v += 0.1f;
-        else if (by >= (a == 2 ? 29 : 21)) v -= 0.08f;
-        /* the opening's edge: chamfered, lit from inside */
-        int inner = 0;
-        for (int d = 1; d <= 3 && !inner; d++) if (!b_arch(x + (x < W / 2 ? d : -d), y) || !b_arch(x, y + d)) inner = d;
-        if (inner == 1) v += 0.16f; else if (inner == 2) v -= 0.1f;
-        matf(x, y, R_STONE, v, 0);
+static const char *const KEY_SKULL[11] = {
+    "...#####...", ".#########.", "###########", "##..###..##", "#....#....#", "##..###..##", "#####.#####", ".####.####.",
+    "..#######..", "..#.#.#.#..", "...#####..." };
+/* the arch built: blocks each their own, chipped, cracked, stained and grown over; a keystone with a skull cut in it; a
+ * piece gone from the opening's edge; the step worn hollow where feet have gone */
+static void b_build_frame(void) {
+    sc_begin(W, H);
+    int id = 1;
+    for (int row = 0; row < 2; row++) {                                 /* the lintel's two courses */
+        int off = row ? 32 : 0;
+        for (int bx = -off; bx < W; bx += 64) {
+            for (int y = row * 31; y < row * 31 + 31; y++) for (int x = bx; x < bx + 64; x++)
+                if (x >= 0 && x < W && b_arch(x, y) == 2) sc_px(x, y, id, 0, SM_STONE, 0.04f * (h01(id, 0, 3) - 0.5f));
+            id++;
+        }
     }
-    light_clear(0.34f, 0);
+    for (int y = 62; y < 76; y++) for (int x = 24; x < W - 24; x++) if (b_arch(x, y) == 2) sc_px(x, y, id, 0, SM_STONE, -0.02f);   /* the head's voussoirs */
+    for (int x = 24; x < W - 24; x += 18) for (int y = 62; y < 76; y++) if (sc_solid(x, y)) S.id[y][x] = (uint8_t)(id + 1);
+    id += 2;
+    for (int side = 0; side < 2; side++) for (int y = 62; y < 184; y += 23) {   /* the piers' blocks */
+        int x0 = side ? W - 24 : 0;
+        for (int yy = y; yy < y + 23 && yy < 184; yy++) for (int x = x0; x < x0 + 24; x++) sc_px(x, yy, id, 0, SM_STONE, 0.04f * (h01(id, 1, 3) - 0.5f));
+        id++;
+    }
+    for (int y = 184; y < H; y++) for (int x = 0; x < W; x++) {         /* the step, worn hollow in the middle */
+        float worn = 1 - fabsf(x - W * 0.5f) / 70.0f;
+        sc_px(x, y, 240, 0, SM_STONE, -0.08f + 0.12f * fmaxf(0, worn) * (y > 186));
+    }
+    float kb[8] = { 141, 56, 179, 56, 172, 86, 148, 86 };               /* the keystone, a wedge standing proud */
+    sc_poly(kb, 4, 241, 1, SM_STONE, 0.12f);
+    for (int y = 60; y < 83; y++) for (int x = 146; x < 175; x++) if (sc_solid(x, y) && S.id[y][x] == 241) { float e = (x - 160) / (14.0f - (y - 60) * 0.12f); if (fabsf(e) < 0.82f) S.ht[y][x] = 0; }   /* its sunk field */
+    sc_mark(160 - 11, 61, KEY_SKULL, 11, 2, 2, 0.1f);                   /* the skull, in relief */
+    for (int y = 56; y < 87; y++) for (int x = 140; x < 180; x++) if (sc_solid(x, y) && S.id[y][x] == 241) {
+        if (S.ht[y][x] == 2) S.dv[y][x] += 0.18f;
+        else if (S.ht[y][x] == 0) { S.dv[y][x] -= 0.14f; S.f[y][x] |= SF_CALM; }
+    }
+    for (int y = 0; y < 76; y++) for (int x = 0; x < W; x++) if (sc_solid(x, y) && S.id[y][x] != 241 && (S.ht[y][x] == 0) && y >= 6 && y < 56 && x > 8 && x < W - 8) S.f[y][x] |= SF_CALM;   /* quiet under the name */
+    sc_break(W - 24, 96, 7, 51);                                         /* a bite out of the opening's edge */
+    sc_break(-2, 30, 9, 52);                                             /* the lintel's end crumbled */
+    sc_crack(60, 0, 1.4f, 30, 53, 2); sc_crack(250, 61, -1.8f, 26, 54, 2); sc_crack(10, 120, 0.3f, 18, 55, 1);
+    sc_crack(W - 6, 150, 2.6f, 16, 56, 1); sc_crack(110, 184, -0.3f, 30, 57, 1);
+    sc_chips(0.3f, 58);
+    sc_ivy(4, 183, 70, 59); sc_ivy(9, 183, 40, 60); sc_ivy(W - 4, 183, 46, 61);
+}
+static void b_frame(float t, float glow) {
+    b_build_frame();
+    sc_shade(0.46f, 62, 0, R_GOLD);
+    sc_draw(W / 2, H, 0);
+    light_clear(0.36f, 0);
     for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) {          /* the hall's glow on the arch's inside */
         if (!b_arch(x, y)) continue;
         float dx = fminf((float)abs(x - 24), (float)abs(x - (W - 24))), dy = 72.0f - y;
         float dd = b_arch(x, y) == 2 ? fmaxf(0, dy) : dx;
         LW[y][x] = glow * 0.9f * expf(-dd / 22.0f);
     }
+    light_add(160, 92, 40, 0.55f * glow, 1);                             /* the keystone, lit from the hall under it */
     (void)t;
 }
 static void scene_b(float t) {
     memcpy(F.pal, BASEPAL, sizeof F.pal);
     b_camx = 0.5f + t / LOOP * B_PERIOD * 2;
-    for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) MF[y][x] = 0;
+    for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) { MF[y][x] = 0; MR[y][x] = 0; }
     b_hall(t, 50, H);
+    b_sprites(t);
     b_frame(t, 0.85f * flick(t, 11));
+    /* roots down from the lintel into the opening, stirring in the draught; cobwebs in its corners */
+    for (int k = 0; k < 6; k++) {
+        float x = 40 + k * 47 + h01(k, 0, 90) * 16, len = 8 + h01(k, 1, 90) * 16, sw = sinf(2 * PI * t / LOOP * 2 + k) * 1.3f;
+        float y0 = 62 + 10 * (1 - sqrtf(fmaxf(0, 1 - powf((x - W * 0.5f) / (W * 0.5f - 24), 2)))) - 1;
+        mline(x, y0, x + sw * 0.5f, y0 + len * 0.6f, 1.6f, R_WOOD, 0.22f, 0);
+        mline(x + sw * 0.5f, y0 + len * 0.6f, x + sw, y0 + len, 1, R_WOOD, 0.2f, 0);
+        if (k % 2) mline(x + sw * 0.5f, y0 + len * 0.6f, x + sw + 3, y0 + len * 0.8f, 1, R_WOOD, 0.18f, 0);
+    }
+    for (int e = 0; e < 2; e++) {
+        int cx = e ? W - 25 : 24, sx = e ? -1 : 1;
+        for (int r = 4; r <= 16; r += 4) for (int a = 0; a <= 12; a++) { float an = a / 12.0f * PI * 0.5f; matf(cx + sx * (int)(cosf(an) * r), 66 + (int)(sinf(an) * r), R_BONE, 0.3f, MF_FLAT); }
+        for (int a = 0; a < 4; a++) mline((float)cx, 66, cx + sx * cosf(a * 0.5f) * 18, 66 + sinf(a * 0.5f) * 18, 1, R_BONE, 0.26f, MF_FLAT);
+    }
+    /* candles on the step's ends */
+    static const int CA[6] = { 34, 40, 46, 274, 280, 286 }, CH[6] = { 2, 5, 0, 1, 4, 0 };
+    for (int i = 0; i < 6; i++) { mrect(CA[i] - 1, 186 - 6 - CH[i], 3, 6 + CH[i], R_BONE, 0.6f, 0); matf(CA[i] - 1, 186 - 6 - CH[i], R_BONE, 0.75f, 0); }
+    light_add(40, 176, 60, 0.7f * flick(t, 31), 1); light_add(280, 176, 60, 0.7f * flick(t, 32), 1);
+    for (int i = 0; i < 6; i++) flame(CA[i], 186 - 7 - CH[i], 5, t, i + 40);
     logo_build("HAUNTED", 0.95f, ".EXE", 0.84f, 1, 21);
-    logo_draw((W - LG.w) / 2, 6, LS_CARVED, 0.95f + 0.1f * flick(t, 4), H - 2, t);
-    /* the threshold: a step of dark stone, the prompt cut in it */
-    for (int y = 184; y < H; y++) for (int x = 24; x < W - 24; x++) matf(x, y, R_STONE, (y == 184 ? 0.42f : 0.24f) + 0.08f * fbm(x * 0.2f, y * 0.2f, 63), 0);
+    logo_draw((W - LG.w) / 2, 6, LS_CARVED, 1.05f + 0.1f * flick(t, 4), H - 2, t);
     resolve();
-    prompt(W / 2, 189, "PRESS ANY BUTTON", 0, t, R_BONE);
+    prompt(W / 2, 190, "PRESS ANY BUTTON", 0, t, R_BONE);
 }
 
-/* the graves in B: a wall of the crypt with three loculi, their slabs inscribed; the chosen one's candle lit, its slab
- * drawn a little aside and a cold light from behind it */
 /* a loculus's slab: a moulded border, iron cramps top and foot, the class's mark cut at its head, the words; a corner
  * broken and cracks; 86 by 92 */
 static void build_loculus_slab(const char *const *mark, const char *num, const char *const *lines, uint32_t seed) {

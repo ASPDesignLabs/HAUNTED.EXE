@@ -1,6 +1,6 @@
 # The title screen: plan and hand-off
 
-Status (9 November 2026): **the first mock-ups are done; the refinement pass is under way: steps 1-4 done, step 5 next.** Nothing in the
+Status (9 November 2026): **the first mock-ups are done; the refinement pass is under way: steps 1-6 done, step 7 next.** Nothing in the
 game is changed yet. Everything here is mock-ups drawn by `tools/titlemock.c`, outside the game.
 
 Read the hand-off log (section 6) first. It says where the last session stopped.
@@ -105,10 +105,17 @@ Mark each step as it lands (**done**, with the date), and add a line to the log 
    a plinth, the church with one window lit, crows that move. The earth in distinct bands (topsoil and roots, clay, gravel,
    rock over the vault), an old skeleton in a burst coffin. The crypt's arches in separate voussoirs, piers with capitals,
    a sarcophagus. The walker's shadow thrown big on the back wall, the walker with a staff and folds in the cloak. A
-   vignette to hold the eye.
+   vignette to hold the eye. **Done** (9 November): `small_built` (eight small stones: gable, wheel-cross, angel, round,
+   obelisk and its fallen top, a slab gone over, a stump), the church's window, a crow that shakes its wings, the earth's
+   bands, the burst coffin, `a_crypt`'s voussoirs, capitals, sarcophagus and chains, the walker's staff, rope, ragged hem
+   and lit hood rim, and its shadow (`WMASK`, cast from the lantern on the back wall).
 6. **B's title, the detail pass.** The game's own sprites in the hall, against its depth: bones, skull heaps, candles,
    chains, cobwebs. A spectre crossing at the edge of the fog once a loop. The lintel weathered, with a keystone carved with a
    skull, cobwebs and roots in the arch's corners, and the step worn in the middle with candles on it. A vignette.
+   **Done** (9 November): `b_sprites` (bone heap, candles, skull stack, the occupied gibbet, chains, roots, an urn, a
+   cobweb; none nearer than 1.5 cells, where the piers hide them) and the spectre, `b_build_frame` (the whole arch from
+   the kit, each block its own, with a keystone wedge and the skull in relief, a bite out of the opening, ivy up the piers).
+   The kit's pieces are drawn undithered (`MF_FLAT`), because dither made carved stone look see-through.
 7. **C's title, the detail pass.** The great stone rebuilt with the kit: a moulded border, a winged death's head in its
    head, a broken shoulder with pieces at its foot, cracks, lichen and water stains, MEMENTO MORI cut under the name. The hand
    with its knuckles' bones showing and a torn cuff. Dark grass in the foreground, wilted flowers, a fence and a mausoleum
