@@ -476,7 +476,8 @@ caster is set to the labour of clearing the crypts, and what it was decides how:
 Each class's line is open from the start.
 
 **What each brings** (1.0.0b19.1). A class also starts with health and stats of its own, joined to what it wears and
-confesses under the same caps; its own element hurts it 15% less and one other 15% more; and three of its caps are lifted
+confesses under the same caps; its own element hurts it 15% less and one other 15% more (the Galvanist's frost a tenth,
+from 1.0.0b20); and three of its caps are lifted
 by three tenths (a resist's and armour's stopping at 90%, spirit cost's at 70%). Her question's second page (Space) and
 the Codex's class pages show it:
 
@@ -1208,10 +1209,27 @@ The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.p
 
 ## What has been verified
 
-**New in 1.0.0b19.1** (the Unholy Confessions, what each class brings and its caps, armour's cap, the killing blow
-lived, Restoration, Toughness's cracks: the twentieth beta's work, put out before its balance runs at the owner's word).
-Tested in the harness only: not yet played by hand, run on Windows or seen on a real screen. **Not yet weighed against
-1.0.0b19** over the screensaver's long runs: that comes next, before 1.0.0b20.
+**New in 1.0.0b20** (the Unholy Confessions, what each class brings and its caps, armour's cap, the killing blow lived,
+Restoration, Toughness's cracks, first put out in 1.0.0b19.1 before its balance runs; now weighed against 1.0.0b19, with the
+Galvanist's frost at a tenth and a stall of the screensaver's mended). Tested in the harness only: not yet played by hand, run
+on Windows or seen on a real screen.
+
+* **Weighed against 1.0.0b19**: the screensaver from level 1, the first 3,000 seconds on sixteen seeds for each of the five
+  classes a fresh run can be given, against 1.0.0b19 on the same runs: 504 levels cleared and **117 deaths** (511 and 78).
+  **Half again as many deaths**, on levels 3 to 6, a third of them to rank I skeletons. The Confessions are most of it: on
+  half the seeds, the same build with the old lines back died 47 times where it died 69. By Level of Atonement 7 the old
+  lines had given the screensaver's caster some 55 health and fifteen points more of every resist; the Confessions give health only
+  through Constitution, which it seldom confesses first. The harder start is kept, at the author's word. By class: the
+  Witchfinder 19 deaths (7), the Anatomist 8 (18), the Galvanist 45 (18), the Plague Doctor 32 (21), the Sin-Eater 13 (14);
+  the Galvanist does worse with its own sheet in every batch, with its frost at 15% or 10%. From level 31, 1,500 seconds on
+  eight seeds a class: 119 levels cleared (114) and one death (none). Restoration was channelled by the screensaver, and the
+  killing blow never lived (none of the five confesses Constitution first). A person may fare otherwise in all of it.
+* **A stall mended**: the screensaver could stand turning back and forth for minutes where a shambler still under the earth
+  came in and out of its sight while it wanted a place to mend; one under the earth no longer counts as near.
+* **Memory safety** for 1.0.0b20 (AddressSanitizer): five dreams of 600 seconds, a class each, from levels 1, 11, 21 and 31:
+  clean.
+
+**First put out in 1.0.0b19.1** (the same parts, before the runs above):
 
 * **The Confessions**: a page signed on the old build with 490 points in lines and four overlevels, opened on this one,
   gave back 490 points and four overlevels to choose, and its Confessions were saved and read again; confessing tapped,

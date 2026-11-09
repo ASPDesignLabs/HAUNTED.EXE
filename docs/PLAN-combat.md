@@ -1,6 +1,6 @@
 # The elements' teeth: statuses, elemental creatures, the classes' own, the Unholy Confessions and the spells' augments
 
-**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20's C5 and D5 are built and went out early as **1.0.0b19.1** (9 November, harness only, before J20); 1.0.0b20 follows J20. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
+**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20's C5 and D5 are built and went out early as **1.0.0b19.1** (9 November, harness only, before J20); J20 is done and **1.0.0b20 is released** (9 November, harness only). 1.0.0b21 (C6, D6, D7) is next. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
 review of how harm is dealt today (section 1), the owner's answers to that review's first four questions, and the owner's
 guide (kept as given in the appendix). The owner's answers to the review: creatures cast through the kinds we have, "mixed
 up a bit" as the guide sets out (Q1 b); their spells use the caster's six elements, so the resists, the Mirror and the wards
@@ -1020,6 +1020,39 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   built in a worktree): track C's half is seeds 1-15 odd, the five classes a fresh run can be given, from level 1 for the first
   3,000 s (`CRAWL_RUNID` the seed), both builds run here, so neither half leans on J19's numbers; track D's half, seeds 17-31
   odd and the start from 31 on its eight seeds, as J19's. Under way.
+- **9 November. J20, track C's half, and the two folded: the Confessions cost the dream** (harness only). Seeds 1-15 odd, the five
+  classes, from level 1 for the first 3,000 s, this branch at `a3efa7a` (as track D's half: the Galvanist's Frost at -10, the
+  buried shambler's mend) against 1.0.0b19 at `41fe10c`, both run here with `CRAWL_RUNID` the seed. 1.0.0b19's two halves, 30
+  and 48 deaths, make J19's 78 again, line for line. **Both halves** (track D's from its log; 1.0.0b19 in brackets):
+
+  | Class | Cleared | Deaths |
+  |---|---|---|
+  | Witchfinder | 102 (106) | 19 (7) |
+  | Anatomist | 103 (99) | 8 (18) |
+  | Galvanist | 96 (102) | 45 (18) |
+  | Plague Doctor | 100 (99) | 32 (21) |
+  | Sin-Eater | 103 (105) | 13 (14) |
+  | **all five** | 504 (511) | **117 (78)** |
+
+  *Sixteen seeds (1-31 odd) a class, the first 3,000 s from level 1; from level 31 track D's half alone, 119 (114) cleared and one
+  death (none).* Half again as many deaths, past D5's quarter: the halves part (track C's 69 against 30, track D's 48 against 48),
+  but sixteen seeds together say it. On track C's half, the release build (`4aec226`, before `a3efa7a`) died 68 times, so the two
+  mends moved nothing there. The deaths are on levels 3 to 6, a third of them to rank I skeletons (25 against 11). **Why**, on
+  track C's half: the same build with the old lines back (`CRAWL_LINES=1`, the classes' sheets kept) died **47** times; with the
+  Confessions and no sheets (track D's earlier runs) **71**; so the Confessions are the most of it and the sheets some. On the
+  Sin-Eater's seed 13 the dream began level 6 with 120 health under the Confessions and 246 under the lines (the shop's wares part
+  ways too, so not all of that is the points). The lines gave the dream, by about 60 points (Level of Atonement 7), some +55
+  health, +15% to every resist, +4% damage and spell haste and +3% dodge, by the old order; the Confessions give health only through
+  Constitution (15 at I to 100 at V, at the class's share) and no resist at all, and the dream confesses its class's two best, for
+  most classes not Constitution. A scratch build confessing Constitution first for every class (not kept) died **64** times: at its
+  share, rank I or II, that is too little health this early to matter. The classes that fare well confess Toughness (the
+  Anatomist, armour) or Restoration and Spirituality (the Sin-Eater); those that fare worst Agility (the Galvanist, the Plague
+  Doctor). Restoration was channelled 19 times, Constitution's chance lived no killing blow (none of the five confesses it first),
+  4 runs of 40 stood 40-41 s, none longer. **For the owner**: whether the early caster should have more of its own (health with
+  each Level of Atonement, say, as the cheap Health line was), the Confessions' early numbers raised, or the harder start kept.
+  J20's runs are otherwise done.
+- **9 November. The owner's word: keep it harder.** 1.0.0b20 goes out with the Confessions as they are and J20's numbers in the
+  README; main's README and page keep their *not yet weighed* till then, and 1.0.0b20's words carry the finding. **J20 is done.**
 
 ## 19. Track D's log (the dead's)
 
@@ -1333,6 +1366,56 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   leaves them out, `CRAWL_CRACKS=2` still traces); Restoration's glow was already in play with the spell. Checked: a frame of run I's
   crack at 1.5 cells with Toughness at V shows the motes and one with nothing confessed shows none, so a run without Toughness looks
   as it did. Nothing of D5 waits on a sheet now. Still the owner's: the Galvanist's sheet, and the stall by a buried shambler.
+
+- **9 November. The owner's word on the two left open.** The Galvanist's weakness is Frost at -10, not -15 (`CLASS_OWN`; her question
+  and the Codex read it from there). The stall by a buried shambler is mended at the owner's word: `enemies_within` (neither
+  track's) no longer counts the buried (`buried(m)`, as `targetable` refuses them), so `in_combat` doesn't flicker as one under the
+  earth comes into sight and goes, and the dream wants its place to mend whichever side of it it stands. It also leaves the buried
+  out of the runes' triggers and the dream's fights that count enemies near, which is as `targetable` has always had it. Checked:
+  the Galvanist's page reads *RESIST SLOW -10%*; the Plague Doctor's seed 9 from level 1 for 3,000 s on this build (C5 in play, so
+  not the run that showed it) stood no longer than 40 s anywhere. Both go into J20.
+
+- **9 November. J20, track D's half** (harness only), as track C's entry set it out: this branch at `a3efa7a` (with the Galvanist's
+  Frost at -10 and the buried shambler's mend, which track C's half, run before them, hasn't) against 1.0.0b19 (`41fe10c`, built in
+  a worktree), both run here on the same seeds with `CRAWL_RUNID` the seed: seeds 17-31 odd for each of the five classes a fresh
+  run can be given, from level 1 for the first 3,000 s, and from level 31 for 1,500 s at `CRAWL_GEAR` 8 and `CRAWL_XPBANK` 77658.
+  **From level 1**: 256 levels cleared and 48 deaths (251 and 48), a level's median 355 s (352), none on a boss's level (the runs
+  end before it). By class: the Witchfinder 10 deaths (5), the Anatomist 4 (12), the Galvanist 18 (9), the Plague Doctor 12 (12),
+  the Sin-Eater 4 (10). **From level 31**: 119 levels cleared (114), one death (none: a Sin-Eater on level 31, to a rank IV ember imp), a level's median
+  364 s (366). What landed on the caster from level 1: knocked down 231 times (237), poisoned 43 (32), chilled 16 (13), on fire 0
+  (6); from 31, on fire 15 (8), stunned 4 (none), the rest alike. The dream channelled Restoration 12 times from level 1 and 200
+  from 31, confessed 160 and 720 ranks, lived no killing blow (none of the five confesses Constitution first); creatures born to
+  an element 223 and 1,525 (224 and 1,506). Stalls: five runs of the forty from level 1 stood 40 s within a cell of a place
+  (two), none past 41 s; from 31 none (four). **The Galvanist** again: 18 deaths against 9, eight of them to rank I skeletons on
+  levels 1-4 (four); every batch since its sheet went in has it so (52 against 31 over thirty-two seeds, then 21 against 13, now
+  18 against 9), with its Frost at -15 or -10. Its ninety health is a little of it (at 100 it had died 45 times where it died 52). What the rest is, its
+  Dodge and Movement changing how the dream walks, or the eight seeds, isn't known; a person may fare otherwise. For the owner.
+  **ASan** clean on five dreams of 600 s on this build, a class each across the starts (the Witchfinder
+  from 1, the Anatomist from 11, the Galvanist from 21, the Plague Doctor and the Sin-Eater from 31; Restoration channelled and
+  ranks confessed in them). Track C: the numbers are for your table; no contract changed. **Track D's half of J20 is done.**
+
+  | From | Class | Cleared | Deaths | A level's median, s |
+  |---|---|---|---|---|
+  | 1 | Witchfinder | 51 (52) | 10 (5) | 353 (342) |
+  | 1 | Anatomist | 51 (49) | 4 (12) | 363 (348) |
+  | 1 | Galvanist | 50 (50) | 18 (9) | 359 (350) |
+  | 1 | Plague Doctor | 52 (49) | 12 (12) | 352 (361) |
+  | 1 | Sin-Eater | 52 (51) | 4 (10) | 348 (354) |
+  | 1 | **all five** | 256 (251) | 48 (48) | 355 (352) |
+  | 31 | Witchfinder | 24 (22) | 0 (0) | 380 (360) |
+  | 31 | Anatomist | 24 (22) | 0 (0) | 362 (366) |
+  | 31 | Galvanist | 24 (23) | 0 (0) | 362 (355) |
+  | 31 | Plague Doctor | 24 (23) | 0 (0) | 348 (378) |
+  | 31 | Sin-Eater | 23 (24) | 1 (0) | 386 (375) |
+  | 31 | **all five** | 119 (114) | 1 (0) | 364 (366) |
+
+  *Seeds 17-31 odd; from level 1 the first 3,000 s, from level 31 1,500 s; 1.0.0b19 in brackets.*
+
+- **9 November. Released as 1.0.0b20** at the owner's word ("do what you need to, then release b20"), by track D's agent: J20
+  done (track C folded both halves; the owner kept the harder start), the README's *New in 1.0.0b20* with J20's numbers, the page
+  (the twentieth beta, the status row weighed, the upgrading note), the notes rewritten for it (the Galvanist's frost, the stall
+  mended, the harder start said plainly), CLAUDE.md, `VERSION` 1.0.0b20; squashed onto main as one commit, as the betas before it.
+  Next for track D: **D6**, the merchant by class (section 12), for 1.0.0b21; D7 waits on C6's contract.
 
 ## Appendix: the owner's guide (7 November), as given
 

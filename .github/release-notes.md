@@ -1,10 +1,10 @@
-A point release of the nineteenth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
+The twentieth beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
 
-It brings the work planned for the twentieth beta early, before that beta's long balance runs: the Unholy Confessions in place of the old lines, and what each class is made of. The twentieth beta comes once these have been weighed against 1.0.0b19.
+It puts the Unholy Confessions in place of the old lines, and gives each class what it is made of: health and stats of its own, an element that hurts it less and one that hurts it more, and caps lifted beyond everyone else's. Its point release, 1.0.0b19.1, brought these early; this release has weighed them against 1.0.0b19 over the screensaver's long runs, and they make the early levels harder (below).
 
 ### Before you upgrade
 
-Your saves and settings carry over. The lines you bought with your points at the merchant are undone as a page is read, and every point comes back to you to confess; she tells you so as she greets you. Overlevels come back the same way, to choose again.
+Your saves and settings carry over. Coming from 1.0.0b19 or earlier, the lines you bought with your points at the merchant are undone as a page is read, and every point comes back to you to confess; she tells you so as she greets you. Overlevels come back the same way, to choose again. From 1.0.0b19.1 nothing changes in the saves.
 
 Going back to 1.0.0b19 is safe, but it knows nothing of the Confessions: the points spent on them aren't there, and a page it signs loses them for good.
 
@@ -27,7 +27,7 @@ Each class takes each Confession at a share of its own, from half to the whole; 
 |---|---|---|---|---|
 | The Witchfinder | 95 | Spell Haste +6%, spells 6% cheaper, Spell Effect +8% | fire 15% less, frost 15% more | Resist Burn 90%, Spell Haste 65%, Spell Effect 65% |
 | The Anatomist | 105 | Armour +5, Physic +15% | frost less, fire more | Resist Slow 90%, Physic 520% |
-| The Galvanist | 90 | Dodge +6%, Movement +6%, Quiet +15% | lightning less, frost more | Resist Lightning 90%, Dodge 45.5%, Movement 52% |
+| The Galvanist | 90 | Dodge +6%, Movement +6%, Quiet +15% | lightning less, frost a tenth more | Resist Lightning 90%, Dodge 45.5%, Movement 52% |
 | The Plague Doctor | 100 | Luck +1%, Treasure +5%, sprint +0.5 s, every mark a tenth less likely | poison less, spirit more | Resist Poison 90%, Luck 32.5%, Treasure 130% |
 | The Sin-Eater | 95 | mends 0.1 health a second, a tenth more souls | spirit less, poison more | Resist Spirit 90%, spirit carried 130, spells to 70% cheaper |
 | The Headsman | 120 | Armour +4, sprint +1 s | its armour, lightning more | armour keeps off 90%, sprint 9.75 s over the base, Damage 130% |
@@ -36,7 +36,11 @@ Each class takes each Confession at a share of its own, from half to the whole; 
 
 **Restoration, the spell.** Once its first rank is confessed, 8 takes it up (it is last on the mouse wheel and the spells' wheel too). Hold the cast and after a breath it trades souls for health, a glow climbing your arm, while you walk at half pace: slowly at the first rank, a point of a hundred health every four seconds, to a point a second for a tenth of a soul at the fifth. A blow doesn't end it; letting go, a stun, a knock-down, being Unbound, the void or running out of souls do. Tab's caster page lists it with the rest.
 
-This is still a beta. All of it has been tested in the harness, by the screensaver's own play, by scripted play and on sheets of the art: nobody has played it by hand yet, and it hasn't yet been weighed against 1.0.0b19 over the long runs. The Windows and browser builds are compiled and smoke-tested by GitHub Actions. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
+**Since 1.0.0b19.1.** The Galvanist's frost hurts it a tenth more, not 15%. The screensaver no longer stands for minutes turning back and forth where a shambler still under the earth comes in and out of its sight.
+
+**Harder at the start.** Weighed against 1.0.0b19, the screensaver's caster died half again as often in its first fifty minutes from level 1 (117 deaths against 78 over eighty runs), on levels 3 to 6: by the seventh Level of Atonement the old lines had given it some 55 health and fifteen points of every resist, where the Confessions give health only through Constitution. That start is kept on purpose. A person who confesses with care may fare better; the Galvanist fares worst for the screensaver.
+
+This is still a beta. All of it has been tested in the harness, by the screensaver's own play, by scripted play and on sheets of the art: nobody has played it by hand yet. The Windows and browser builds are compiled and smoke-tested by GitHub Actions. If something goes wrong on your machine, please [open an issue](https://github.com/ASPDesignLabs/HAUNTED.EXE/issues) with your Windows version and graphics card.
 
 ### Files
 
