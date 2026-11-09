@@ -1020,6 +1020,37 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   built in a worktree): track C's half is seeds 1-15 odd, the five classes a fresh run can be given, from level 1 for the first
   3,000 s (`CRAWL_RUNID` the seed), both builds run here, so neither half leans on J19's numbers; track D's half, seeds 17-31
   odd and the start from 31 on its eight seeds, as J19's. Under way.
+- **9 November. J20, track C's half, and the two folded: the Confessions cost the dream** (harness only). Seeds 1-15 odd, the five
+  classes, from level 1 for the first 3,000 s, this branch at `a3efa7a` (as track D's half: the Galvanist's Frost at -10, the
+  buried shambler's mend) against 1.0.0b19 at `41fe10c`, both run here with `CRAWL_RUNID` the seed. 1.0.0b19's two halves, 30
+  and 48 deaths, make J19's 78 again, line for line. **Both halves** (track D's from its log; 1.0.0b19 in brackets):
+
+  | Class | Cleared | Deaths |
+  |---|---|---|
+  | Witchfinder | 102 (106) | 19 (7) |
+  | Anatomist | 103 (99) | 8 (18) |
+  | Galvanist | 96 (102) | 45 (18) |
+  | Plague Doctor | 100 (99) | 32 (21) |
+  | Sin-Eater | 103 (105) | 13 (14) |
+  | **all five** | 504 (511) | **117 (78)** |
+
+  *Sixteen seeds (1-31 odd) a class, the first 3,000 s from level 1; from level 31 track D's half alone, 119 (114) cleared and one
+  death (none).* Half again as many deaths, past D5's quarter: the halves part (track C's 69 against 30, track D's 48 against 48),
+  but sixteen seeds together say it. On track C's half, the release build (`4aec226`, before `a3efa7a`) died 68 times, so the two
+  mends moved nothing there. The deaths are on levels 3 to 6, a third of them to rank I skeletons (25 against 11). **Why**, on
+  track C's half: the same build with the old lines back (`CRAWL_LINES=1`, the classes' sheets kept) died **47** times; with the
+  Confessions and no sheets (track D's earlier runs) **71**; so the Confessions are the most of it and the sheets some. On the
+  Sin-Eater's seed 13 the dream began level 6 with 120 health under the Confessions and 246 under the lines (the shop's wares part
+  ways too, so not all of that is the points). The lines gave the dream, by about 60 points (Level of Atonement 7), some +55
+  health, +15% to every resist, +4% damage and spell haste and +3% dodge, by the old order; the Confessions give health only through
+  Constitution (15 at I to 100 at V, at the class's share) and no resist at all, and the dream confesses its class's two best, for
+  most classes not Constitution. A scratch build confessing Constitution first for every class (not kept) died **64** times: at its
+  share, rank I or II, that is too little health this early to matter. The classes that fare well confess Toughness (the
+  Anatomist, armour) or Restoration and Spirituality (the Sin-Eater); those that fare worst Agility (the Galvanist, the Plague
+  Doctor). Restoration was channelled 19 times, Constitution's chance lived no killing blow (none of the five confesses it first),
+  4 runs of 40 stood 40-41 s, none longer. **For the owner**: whether the early caster should have more of its own (health with
+  each Level of Atonement, say, as the cheap Health line was), the Confessions' early numbers raised, or the harder start kept.
+  J20's runs are otherwise done.
 
 ## 19. Track D's log (the dead's)
 
