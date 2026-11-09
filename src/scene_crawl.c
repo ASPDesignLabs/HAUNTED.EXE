@@ -31468,13 +31468,13 @@ static void wheel_render(Frame *f) {
  * Order's candle gold, the drowned's ghost-light, the mine's amber, the black glass's violet), seen as far as Toughness's
  * reach (conf_value: today's two cells and the weighted gain past them, 4 to 8 at full weight), more of them by its rank,
  * at full brightness through dark and fog, as the eyes are, hidden by the walls. Within two cells the cracks show anyway */
-static int cracks_on(void) {                                       /* CRAWL_CRACKS=1 (debug): till the owner has seen them */
+static int cracks_on(void) {                                       /* in play (the owner approved the sheet); CRAWL_CRACKS=0 (debug) leaves them out */
 #ifdef CRAWL_DEBUG
     static int on = -1;
-    if (on < 0) on = getenv("CRAWL_CRACKS") && atoi(getenv("CRAWL_CRACKS")) > 0;
+    if (on < 0) on = !(getenv("CRAWL_CRACKS") && atoi(getenv("CRAWL_CRACKS")) == 0);
     return on;
 #else
-    return 0;
+    return 1;
 #endif
 }
 static void render_cracks(Frame *f, float dx, float dy, float horizon) {
@@ -31491,7 +31491,7 @@ static void render_cracks(Frame *f, float dx, float dy, float horizon) {
         float d = hypotf(cx - G.px, cy - G.py);
         if (d > reach || (G.px - cx) * nx + (G.py - cy) * ny > 0.0f) continue;   /* too far, or behind it */
 #ifdef CRAWL_DEBUG
-        { static double said; if (atoi(getenv("CRAWL_CRACKS")) >= 2 && G.t - said > 1.0) { said = G.t;   /* CRAWL_CRACKS=2: where */
+        { static double said; if (getenv("CRAWL_CRACKS") && atoi(getenv("CRAWL_CRACKS")) >= 2 && G.t - said > 1.0) { said = G.t;   /* CRAWL_CRACKS=2: where */
             fprintf(stderr, "CRACKS secret %d face (%.1f,%.1f) at %.1f cells, reach %.1f, rank %d t=%.2f\n", i, cx, cy, d, reach, conf_rank(CF_TOUGH), G.t); } }
 #endif
         float edge = 1.0f - smoothstepf(reach - 1.0f, reach, d);   /* thinning at the edge of its reach */

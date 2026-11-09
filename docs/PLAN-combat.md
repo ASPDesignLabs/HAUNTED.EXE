@@ -1317,6 +1317,12 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   Whether that is its ninety health, Frost, or its Dodge and Movement changing how the dream walks is not known; a person may fare
   otherwise. For the owner.
 
+- **9 November. Both sheets approved; the cracks in play.** The owner approved `docs/combat/d5-cracks.png` and
+  `docs/combat/d5-restoration.png` as drawn. Toughness's motes are now the game's (`cracks_on`; `CRAWL_CRACKS=0` in the debug build
+  leaves them out, `CRAWL_CRACKS=2` still traces); Restoration's glow was already in play with the spell. Checked: a frame of run I's
+  crack at 1.5 cells with Toughness at V shows the motes and one with nothing confessed shows none, so a run without Toughness looks
+  as it did. Nothing of D5 waits on a sheet now. Still the owner's: the Galvanist's sheet, and the stall by a buried shambler.
+
 ## Appendix: the owner's guide (7 November), as given
 
 > Q1. B, but we mix things up a bit. I offered a guide I've spent a day working on. Use my responses to these questions and the
