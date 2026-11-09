@@ -1,6 +1,6 @@
 # The title screen: plan and hand-off
 
-Status (9 November 2026): **the first mock-ups are done; the refinement pass is under way (step 2 of 9).** Nothing in the
+Status (9 November 2026): **the first mock-ups are done; the refinement pass is under way: steps 1-4 done, step 5 next.** Nothing in the
 game is changed yet. Everything here is mock-ups drawn by `tools/titlemock.c`, outside the game.
 
 Read the hand-off log (section 6) first. It says where the last session stopped.
@@ -72,9 +72,15 @@ Mark each step as it lands (**done**, with the date), and add a line to the log 
    lip); chips along every edge; ivy; weathering (grain, pits, water run down from the top, rising damp at the foot, lichen
    yellow at its heart, moss). Wood (planks, grain, knots, splits, nails with rust run) and iron are materials in it.
    Carved text: sunk, a little worn, and gilded while chosen, the gold coming in dithered. It renders leaning or turned a few
-   degrees. *Status: being written.*
+   degrees. **Done** (9 November): `sc_*` in `titlemock.c`; `build/titlemock <dir> parts` draws every built piece three
+   times size (`parts.png`). Small leans are sheared row by row (`sc_draw`), so cut letters keep their shape; a turn
+   past 3.5 degrees is a true rotation, for things without words.
 3. **The weathered UI.** A title tablet hanging on chains: chipped, cracked, its border cut, and the words gilt but worn.
-   The two extra choices on chipped slabs, their words gilded while chosen. Worn stone key caps for the hints.
+   The two extra choices on chipped slabs, their words gilded while chosen. Worn stone key caps for the hints. **Done**
+   (9 November). Out of doors (A, C) the title is cut into a lych-gate's beam across the top, with slates over it and
+   iron bands (`ui_beam`), not a hanging tablet: a tablet hanging from nothing in the open sky looked wrong. Indoors (B)
+   it is a tablet set in the wall (`ui_wall_tablet`). The rows are `row_slab`, the hints `ui_keys_worn` and
+   `ui_keys_words`, and `ui_light` keeps them readable whatever the scene's light.
 4. **The graves, rebuilt with the kit.**
    - **A and C, the headstones.** I is a gothic stele: two-step plinth, pinnacles with finials, a pointed arch, a moulded
      border, the class's mark in relief in a sunk quatrefoil, its numeral on the plinth. Its arch's corner is broken off and
@@ -87,6 +93,14 @@ Mark each step as it lands (**done**, with the date), and add a line to the log 
      has its slab fallen in two pieces, leaning in it.
    - **Names up to thirteen letters** (PLAGUE DOCTOR) must fit on a stone. If the line is too long, the name line closes up
      to 7 pixels a letter.
+   **Done** (9 November): `build_stele`, `build_wheelcross`, `build_timber_cross`, `build_plank`, `build_kerb`,
+   `build_fragment` and `build_loculus_slab`, drawn by `grave_drawn` (A and C) and `scene_b_graves`. As built: I's head is a
+   steep gable with bowed sides, crockets and a cross finial, on square shoulders. A true pointed arch over the full width
+   came out round at this height. Its right shoulder and pinnacle are broken off, and two pieces lie at its foot. In B the
+   empty niche has the hung board too, and its slab lies fallen in two pieces under it. A's plots have no kerbs, since its
+   cross-section shows the coffins instead. C's have them. Unchosen words are cut deep and dark. Chosen ones fill with gold
+   (the board's with bone). Close-up, 7 pixels a letter is enough for WITCHFINDER (77 px); PLAGUE DOCTOR (91 px) would
+   need two lines, and that isn't tried.
 5. **A's title, the detail pass.** Small stones made with the kit: broken, leaning, crosses, an obelisk snapped. An angel on
    a plinth, the church with one window lit, crows that move. The earth in distinct bands (topsoil and roots, clay, gravel,
    rock over the vault), an old skeleton in a burst coffin. The crypt's arches in separate voussoirs, piers with capitals,
@@ -118,3 +132,6 @@ Mark each step as it lands (**done**, with the date), and add a line to the log 
   `tools/titlemock.c`, with stills in `docs/titlepass/`. Committed as "Title screen mock-ups ..." on
   `claude/compassionate-dirac-6ui1wb`. The owner liked all three, asked for them to rotate per start, and asked for the
   refinement pass above. The graves were their main complaint ("two shapes"). Plan written (step 1). Step 2 begun.
+- **9 November, session 1, later.** Steps 2-4 done and pushed: the sculpt kit, the weathered UI, the graves rebuilt in all
+  three. Next is step 5 (A's title). Iterate with `build/titlemock <dir> s <A|Ag|B|Bg|C|Cg> <seconds>`, which writes one
+  still doubled as `s_<name>_<t>.png`, and look at it before rendering the GIFs (about 30 s for all of them).

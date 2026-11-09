@@ -681,6 +681,485 @@ static void flame(int x, int y, float h, float t, int seed) {
 }
 
 /* ======================================================================================================================
+ * The sculpt kit (docs/PLAN-title.md, step 2): a canvas for things built of parts. Each part has a height (raised, the
+ * face, sunk) and a stuff (stone, wood, iron, ivy, rope); shading gives bevels and cast shadows by height, seams where parts
+ * meet, the walls of what is cut; then breaks (fresh and pale where they are new), cracks with a lit lip, chips along every
+ * edge, weathering, and words cut in it that gild while chosen. It is drawn into the frame upright, leaning or turned.
+ * ====================================================================================================================== */
+extern unsigned char ui_face8[NFACE][128][8], ui_face16[128][16];
+extern unsigned char ui_has8[NFACE][128], ui_has16[128];
+#define SCW 320
+#define SCH 160
+enum { SM_STONE, SM_WOOD, SM_WOODV, SM_IRON, SM_IVY, SM_ROPE };
+enum { SF_GILD = 1, SF_CALM = 2, SF_FRESH = 4, SF_CRACK = 8, SF_PALE = 16 };
+static struct {
+    int w, h;
+    uint8_t id[SCH][SCW], m[SCH][SCW], f[SCH][SCW];
+    int8_t ht[SCH][SCW];
+    float dv[SCH][SCW];
+    uint8_t r[SCH][SCW], d[SCH][SCW];
+    float v[SCH][SCW];
+} S;
+static void sc_begin(int w, int h) { memset(&S, 0, sizeof S); S.w = w < SCW ? w : SCW; S.h = h < SCH ? h : SCH; }
+static int sc_in(int i, int j) { return i >= 0 && j >= 0 && i < S.w && j < S.h; }
+static int sc_solid(int i, int j) { return sc_in(i, j) && S.id[j][i]; }
+static void sc_px(int i, int j, int id, int ht, int m, float dv) {
+    if (!sc_in(i, j)) return;
+    S.id[j][i] = (uint8_t)id; S.ht[j][i] = (int8_t)ht; S.m[j][i] = (uint8_t)m; S.dv[j][i] = dv; S.f[j][i] &= SF_CALM;
+}
+static void sc_rect(int x, int y, int w, int h, int id, int ht, int m, float dv) { for (int j = 0; j < h; j++) for (int i = 0; i < w; i++) sc_px(x + i, y + j, id, ht, m, dv); }
+static void sc_poly(const float *p, int n, int id, int ht, int m, float dv) {          /* any polygon, by crossings */
+    float y0 = 1e9f, y1 = -1e9f, x0 = 1e9f, x1 = -1e9f;
+    for (int k = 0; k < n; k++) { x0 = fminf(x0, p[2 * k]); x1 = fmaxf(x1, p[2 * k]); y0 = fminf(y0, p[2 * k + 1]); y1 = fmaxf(y1, p[2 * k + 1]); }
+    for (int j = (int)floorf(y0); j <= (int)ceilf(y1); j++) for (int i = (int)floorf(x0); i <= (int)ceilf(x1); i++) {
+        float px = i + 0.5f, py = j + 0.5f;
+        int in = 0;
+        for (int a = 0, b = n - 1; a < n; b = a++) {
+            float ax = p[2 * a], ay = p[2 * a + 1], bx = p[2 * b], by = p[2 * b + 1];
+            if ((ay > py) != (by > py) && px < (bx - ax) * (py - ay) / (by - ay) + ax) in = !in;
+        }
+        if (in) sc_px(i, j, id, ht, m, dv);
+    }
+}
+static void sc_disc(float cx, float cy, float r, int id, int ht, int m, float dv) {
+    for (int j = (int)floorf(cy - r); j <= (int)ceilf(cy + r); j++) for (int i = (int)floorf(cx - r); i <= (int)ceilf(cx + r); i++)
+        if ((i + 0.5f - cx) * (i + 0.5f - cx) + (j + 0.5f - cy) * (j + 0.5f - cy) <= r * r) sc_px(i, j, id, ht, m, dv);
+}
+static void sc_ring(float cx, float cy, float r0, float r1, int id, int ht, int m, float dv) {
+    for (int j = (int)floorf(cy - r1); j <= (int)ceilf(cy + r1); j++) for (int i = (int)floorf(cx - r1); i <= (int)ceilf(cx + r1); i++) {
+        float d2 = (i + 0.5f - cx) * (i + 0.5f - cx) + (j + 0.5f - cy) * (j + 0.5f - cy);
+        if (d2 <= r1 * r1 && d2 >= r0 * r0) sc_px(i, j, id, ht, m, dv);
+    }
+}
+static void sc_line(float x0, float y0, float x1, float y1, float w, int id, int ht, int m, float dv) {
+    float dx = x1 - x0, dy = y1 - y0, l = sqrtf(dx * dx + dy * dy);
+    int n = (int)(l * 2) + 1;
+    for (int k = 0; k <= n; k++) { float u = (float)k / n; sc_disc(x0 + dx * u, y0 + dy * u, w * 0.5f, id, ht, m, dv); }
+}
+/* an arch over [x0, x1] springing at yb, rise high at its middle: round, or pointed (two arcs meeting) */
+static void sc_arch(int x0, int x1, int yb, float rise, int pointed, int id, int ht, int m, float dv) {
+    float hw = (x1 - x0) * 0.5f, xm = (x0 + x1) * 0.5f;
+    float pr = pointed ? hw * 1.732f : hw, R = (pr * pr + hw * hw) / (2 * hw), sq = rise / pr;   /* pointed: equilateral, pressed down */
+    for (int i = x0; i < x1; i++) {
+        float x = i + 0.5f, top;
+        if (!pointed) top = rise * sqrtf(fmaxf(0, 1 - (x - xm) * (x - xm) / (hw * hw)));
+        else if (pointed == 2) top = rise * powf(fmaxf(0, 1 - fabsf(x - xm) / hw), 0.62f);   /* a gable with bowed sides, sharp at its point */
+        else { float c = x <= xm ? x0 + R : x1 - R; top = sq * sqrtf(fmaxf(0, R * R - (x - c) * (x - c))); }
+        for (int j = (int)floorf(yb - top); j < yb; j++) sc_px(i, j, id, ht, m, dv);
+    }
+}
+/* how far in from the edge of the parts listed (a mask of ids), up to 8 */
+static uint8_t SDIST[SCH][SCW];
+static void sc_dist(uint32_t ids) {
+    for (int j = 0; j < S.h; j++) for (int i = 0; i < S.w; i++) SDIST[j][i] = (S.id[j][i] && (ids >> S.id[j][i] & 1)) ? 8 : 0;
+    for (int it = 0; it < 8; it++)
+        for (int j = 0; j < S.h; j++) for (int i = 0; i < S.w; i++) {
+            if (!SDIST[j][i]) continue;
+            int b = SDIST[j][i];
+            if (i == 0 || j == 0 || i == S.w - 1 || j == S.h - 1) b = 1;
+            else { int n = SDIST[j][i - 1]; if (SDIST[j][i + 1] < n) n = SDIST[j][i + 1]; if (SDIST[j - 1][i] < n) n = SDIST[j - 1][i]; if (SDIST[j + 1][i] < n) n = SDIST[j + 1][i]; if (n + 1 < b) b = n + 1; }
+            SDIST[j][i] = (uint8_t)b;
+        }
+}
+static void sc_groove(uint32_t ids, int at) {                         /* a line cut at this far in from the outline */
+    sc_dist(ids);
+    for (int j = 0; j < S.h; j++) for (int i = 0; i < S.w; i++) if (SDIST[j][i] == at) S.ht[j][i] = -1;
+}
+/* a mark of the game's own ('#' and 'o'), scale times, at a height: raised out of a sunk field, or cut into the face */
+static void sc_mark(int x, int y, const char *const *mark, int n, int sc, int ht, float dv_o) {
+    for (int j = 0; j < n; j++) for (int i = 0; mark[j][i]; i++) {
+        if (mark[j][i] == '.') continue;
+        for (int b = 0; b < sc * sc; b++) {
+            int X = x + i * sc + b % sc, Y = y + j * sc + b / sc;
+            if (!sc_solid(X, Y)) continue;
+            S.ht[Y][X] = (int8_t)ht;
+            S.f[Y][X] |= SF_CALM;
+            if (mark[j][i] == 'o') S.dv[Y][X] += dv_o;
+        }
+    }
+}
+/* words cut in: sunk, a few of their pixels worn away, the stone round them quieter; gildable ones fill with gold */
+static const unsigned char *g8(uint8_t c) { return c < 128 && ui_has8[FACE_INSC][c] ? ui_face8[FACE_INSC][c] : font_bios8[c]; }
+static const unsigned char *g16(uint8_t c) { return c < 128 && ui_has16[c] ? ui_face16[c] : font_vga16[c]; }
+static int sc_text_w(const char *s, int adv) { return (int)strlen(s) * adv - (adv - 7); }
+static void sc_text(int x, int y, const char *s, int big, int adv, int gild, uint32_t seed) {
+    int rows = big ? 16 : 8, n = (int)strlen(s);
+    for (int j = -2; j < rows + 1; j++) for (int i = -2; i < n * adv + 1; i++) if (sc_solid(x + i, y + j)) S.f[y + j][x + i] |= SF_CALM;
+    for (int k = 0; k < n; k++) {
+        const unsigned char *g = big ? g16((uint8_t)s[k]) : g8((uint8_t)s[k]);
+        for (int r = 0; r < rows; r++) for (int c = 0; c < 8; c++) {
+            if (!(g[r] >> (7 - c) & 1)) continue;
+            int X = x + k * adv + c, Y = y + r;
+            if (!sc_solid(X, Y) || h01(X, Y, seed) < 0.022f) continue;
+            S.ht[Y][X] = -1;
+            if (gild) S.f[Y][X] |= SF_GILD;
+        }
+    }
+}
+static void sc_text_c(int cx, int y, const char *s, int big, int gild, uint32_t seed, int maxw) {
+    int adv = sc_text_w(s, 8) > maxw ? 7 : 8;                        /* a long name closes up a little */
+    sc_text(cx - sc_text_w(s, adv) / 2, y, s, big, adv, gild, seed);
+}
+/* a break: a jagged bite out of it; what is left round the bite is fresh stone */
+static void sc_break(float cx, float cy, float r, uint32_t seed) {
+    for (int j = (int)(cy - r * 1.6f); j <= cy + r * 1.6f; j++) for (int i = (int)(cx - r * 1.6f); i <= cx + r * 1.6f; i++) {
+        if (!sc_solid(i, j)) continue;
+        float a = atan2f(j - cy, i - cx), d = sqrtf((i - cx) * (i - cx) + (j - cy) * (j - cy));
+        float rr = r * (0.75f + 0.45f * vnoise(a * 2.2f + 9, 0.5f, seed) + 0.18f * h01((int)(a * 9), 0, seed));
+        if (d < rr) S.id[j][i] = 0;
+        else if (d < rr + 2.5f) S.f[j][i] |= SF_FRESH;
+    }
+}
+/* a crack: a wandering line from a point, forking now and then; it goes under words rather than through them */
+static void sc_crack(float x, float y, float ang, int len, uint32_t seed, int forks) {
+    for (int k = 0; k < len; k++) {
+        ang += (h01(k, 1, seed) - 0.5f) * 0.9f;
+        x += cosf(ang); y += sinf(ang);
+        int i = (int)x, j = (int)y;
+        if (!sc_solid(i, j)) { if (k > 3) return; continue; }
+        if (!(S.f[j][i] & SF_CALM)) S.f[j][i] |= SF_CRACK;
+        if (forks > 0 && h01(k, 2, seed) < 0.06f) sc_crack(x, y, ang + (h01(k, 3, seed) < 0.5f ? 0.8f : -0.8f), len / 3, seed * 7u + (uint32_t)k, forks - 1);
+    }
+}
+/* chips: little bites out of every edge; more where it stands proud */
+static void sc_chips(float amt, uint32_t seed) {
+    static uint8_t cut[SCH][SCW];
+    memset(cut, 0, sizeof cut);
+    for (int j = 0; j < S.h; j++) for (int i = 0; i < S.w; i++) {
+        if (!S.id[j][i] || S.m[j][i] == SM_IVY || S.m[j][i] == SM_ROPE) continue;
+        int edge = !sc_solid(i - 1, j) || !sc_solid(i + 1, j) || !sc_solid(i, j - 1) || !sc_solid(i, j + 1);
+        int corner = (!sc_solid(i - 1, j) || !sc_solid(i + 1, j)) && (!sc_solid(i, j - 1) || !sc_solid(i, j + 1));
+        if (!edge) continue;
+        float n = vnoise(i * 0.45f, j * 0.45f, seed);
+        if (n > 0.86f - amt * 0.3f || (corner && h01(i, j, seed) < amt)) cut[j][i] = 1;
+    }
+    for (int j = 0; j < S.h; j++) for (int i = 0; i < S.w; i++) if (cut[j][i]) {
+        S.id[j][i] = 0;
+        if (vnoise(i * 0.45f, j * 0.45f, seed) > 0.93f - amt * 0.3f)        /* a deeper chip: the next pixel in too */
+            for (int d = 0; d < 4; d++) { static const int DX[4] = { 1, -1, 0, 0 }, DY[4] = { 0, 0, 1, -1 }; int X = i + DX[d], Y = j + DY[d]; if (sc_solid(X, Y) && h01(X, Y, seed + 1) < 0.5f) { S.id[Y][X] = 0; } }
+    }
+}
+/* ivy: a stem wandering up, leaves either side */
+static void sc_ivy(float x, float y, int len, uint32_t seed) {
+    float ang = -PI / 2;
+    for (int k = 0; k < len; k++) {
+        ang += (h01(k, 1, seed) - 0.5f) * 0.6f; ang = clampf(ang, -PI * 0.68f, -PI * 0.36f);
+        x += cosf(ang); y += sinf(ang);
+        if (!sc_in((int)x, (int)y)) return;
+        sc_px((int)x, (int)y, 200, 2, SM_IVY, -0.1f);
+        if (k % 3 == 0) {
+            int side = (k / 3) % 2 ? 1 : -1;
+            float lx = x + side * 2.2f, ly = y + 0.5f;
+            sc_disc(lx, ly, 1.6f + h01(k, 2, seed) * 0.8f, 200, 2, SM_IVY, 0.12f * h01(k, 3, seed));
+        }
+    }
+}
+/* weathered stone: grain, pits, water run down from the top, damp risen at the foot, lichen yellow at its heart, moss */
+static float weathered(int i, int j, float v, uint32_t seed, int calm, int *ramp) {
+    *ramp = R_STONE;
+    float k = calm ? 0.35f : 1.0f, fy = (float)j / S.h;
+    v += 0.12f * k * (fbm(i * 0.11f, j * 0.11f, seed) - 0.5f);
+    v += 0.07f * (h01(i, j, seed + 1) - 0.5f);
+    if (!calm && h01(i, j, seed + 2) < 0.04f) v -= 0.15f;
+    else if (h01(i, j, seed + 3) < 0.015f) v += 0.1f;
+    float streak = fbm(i * 0.5f, j * 0.03f, seed + 4);
+    v -= 0.2f * k * smooth(0.5f, 0.78f, streak) * (1.0f - 0.6f * fy);
+    float damp = smooth(0.72f, 0.98f, fy + 0.15f * (fbm(i * 0.07f, 3, seed + 5) - 0.5f));
+    v -= 0.14f * damp;
+    if (!calm) {
+        float l = fbm(i * 0.16f + 7, j * 0.16f, seed + 6);
+        if (l > 0.7f && h01(i, j, seed + 7) > 0.3f) {
+            int core = l > 0.77f;
+            *ramp = core ? R_GOLD : R_MOSS;
+            return core ? 0.26f + 0.25f * (l - 0.77f) / 0.23f : 0.24f + 0.1f * h01(i, j, seed + 8);
+        }
+        if (damp > 0.5f && h01(i, j, seed + 9) < 0.35f * damp) { *ramp = R_MOSS; return 0.17f + 0.1f * h01(i, j, seed + 10); }
+    }
+    return v;
+}
+/* the shading: every pixel's ramp and value (or a colour as it is, for gold); gild 0..1 how far the words are gilt, in
+ * gramp (R_GOLD, or R_BONE for a pale inlay) */
+static void sc_shade(float bv, uint32_t seed, float gild, int gramp) {
+#define HT(a, b) (sc_solid(a, b) ? S.ht[b][a] : -9)
+    for (int j = 0; j < S.h; j++) for (int i = 0; i < S.w; i++) {
+        S.d[j][i] = 0;
+        if (!S.id[j][i]) continue;
+        int h = S.ht[j][i], m = S.m[j][i], fl = S.f[j][i];
+        float v = bv + S.dv[j][i];
+        float lit = 0;
+        if (HT(i - 1, j) < h) lit += 0.13f; else if (HT(i - 2, j) < h) lit += 0.05f;
+        if (HT(i, j - 1) < h) lit += 0.15f; else if (HT(i, j - 2) < h) lit += 0.06f;
+        if (HT(i + 1, j) < h) lit -= 0.13f; else if (HT(i + 2, j) < h) lit -= 0.05f;
+        if (HT(i, j + 1) < h) lit -= 0.16f; else if (HT(i, j + 2) < h) lit -= 0.06f;
+        if (h < 0) {                                                    /* what is cut: dark, its far wall catching light */
+            if (fl & SF_GILD) {                                         /* a letter: cut deep, so it reads */
+                S.r[j][i] = m == SM_WOOD || m == SM_WOODV ? R_WOOD : R_STONE;
+                S.v[j][i] = (HT(i + 1, j) > h || HT(i, j + 1) > h) ? 0.14f : 0.04f;
+                if (!(gild > 0.01f && gild * 1.2f > bay(i, j))) continue;
+            }
+            v -= 0.2f;
+            if (HT(i - 1, j) > h || HT(i, j - 1) > h) v -= 0.08f;
+            if (HT(i + 1, j) > h || HT(i, j + 1) > h) v += 0.1f;
+        }
+        if (h == 0 && m != SM_IVY && ((sc_solid(i - 1, j - 1) && (S.f[j - 1][i - 1] & SF_GILD)) || (sc_solid(i, j - 1) && (S.f[j - 1][i] & SF_GILD) && S.ht[j - 1][i] < 0))) v += 0.12f;   /* a letter's lit lip */
+        if (h == 0 && (HT(i - 1, j - 1) > 0 || HT(i - 2, j - 2) > 0 || HT(i - 1, j - 2) > 0)) v -= 0.12f;   /* a raised part's shadow */
+        if (sc_solid(i, j + 1) && S.id[j + 1][i] != S.id[j][i] && S.ht[j + 1][i] == h && S.m[j + 1][i] == m) v -= 0.1f;   /* a joint */
+        if (sc_solid(i + 1, j) && S.id[j][i + 1] != S.id[j][i] && S.ht[j][i + 1] == h && S.m[j][i + 1] == m) v -= 0.06f;
+        v += lit;
+        int ramp = R_STONE;
+        if (m == SM_STONE) {
+            if (fl & SF_CRACK) { S.r[j][i] = R_STONE; S.v[j][i] = 0.05f; continue; }
+            if (sc_solid(i - 1, j - 1) && (S.f[j - 1][i - 1] & SF_CRACK)) v += 0.08f;   /* the crack's lip */
+            if (fl & SF_FRESH) { v += 0.12f + 0.05f * (h01(i, j, seed + 11) - 0.5f); ramp = R_STONE; }
+            else v = weathered(i, j, v, seed, (fl & SF_CALM) != 0 || h != 0, &ramp);
+        } else if (m == SM_WOOD || m == SM_WOODV) {                     /* grain along the plank, knots, the ends gone dark */
+            float a = m == SM_WOOD ? (float)j : (float)i, b = m == SM_WOOD ? (float)i : (float)j;
+            float grain = sinf(a * 1.9f + fbm(b * 0.06f, a * 0.3f, seed) * 7.0f);
+            v += 0.07f * grain + 0.05f * (h01(i, j, seed + 12) - 0.5f);
+            float kn = vnoise(i * 0.25f, j * 0.25f, seed + 13);
+            if (kn > 0.82f) v -= 0.18f * (kn - 0.82f) / 0.18f;
+            if (fl & SF_CRACK) v = 0.04f;
+            ramp = R_WOOD;
+            if (fbm(i * 0.2f, j * 0.2f, seed + 14) > 0.66f) { ramp = R_STONE; v *= 0.85f; }   /* weathered silver */
+        } else if (m == SM_IRON) {
+            ramp = h01(i, j, seed + 15) < 0.25f ? R_BRICK : R_IRON;
+            v = v * 0.8f + 0.05f * (h01(i, j, seed + 16) - 0.5f);
+        } else if (m == SM_IVY) {
+            ramp = R_MOSS; v = 0.3f + S.dv[j][i] + lit * 0.8f;
+        } else if (m == SM_ROPE) {
+            ramp = R_WOOD; v = 0.5f + lit * 0.6f - 0.15f * (((i + j) % 3) == 0);
+        }
+        if ((fl & SF_GILD) && gild > 0.01f && gild * 1.2f > bay(i, j)) {   /* the words fill with gold, a little at a time */
+            int n = gramp == R_GOLD ? NGOLD : 16;
+            int hi = (HT(i, j - 1) > h) ? -2 : (HT(i, j + 1) > h ? 2 : 0);
+            S.d[j][i] = (uint8_t)(gramp + clampi((int)((n - 1) * (0.42f + 0.38f * gild)) + hi + (h01(i, j, seed) < 0.1f), 0, n - 1));
+            continue;
+        }
+        S.r[j][i] = (uint8_t)ramp; S.v[j][i] = v;
+    }
+#undef HT
+}
+/* into the frame: the canvas's foot at (cx, by), turned by deg (plus leaning right) */
+static void sc_draw(int cx, int by, float deg) {
+    float a = deg * PI / 180.0f, ca = cosf(a), sa = sinf(a);
+    if (fabsf(deg) < 3.5f) {                                            /* a small lean: sheared row by row, so words keep their shape */
+        for (int j = 0; j < S.h; j++) {
+            int sh = (int)roundf((S.h - j) * tanf(a));
+            for (int i = 0; i < S.w; i++) {
+                if (!S.id[j][i]) continue;
+                int X = cx - S.w / 2 + i + sh, Y = by - S.h + j;
+                if (S.d[j][i]) direct(X, Y, S.d[j][i]); else matf(X, Y, S.r[j][i], S.v[j][i], 0);
+            }
+        }
+        return;
+    }
+    float ext = sqrtf((float)(S.w * S.w + S.h * S.h)) + 2;
+    for (int Y = by - (int)ext; Y <= by + (int)(ext * 0.5f); Y++) for (int X = cx - (int)ext; X <= cx + (int)ext; X++) {
+        if ((unsigned)X >= W || (unsigned)Y >= H) continue;
+        float rx = X + 0.5f - cx, ry = Y + 0.5f - by;
+        float sx = rx * ca + ry * sa, sy = -rx * sa + ry * ca;
+        int i = (int)floorf(sx + S.w * 0.5f), j = (int)floorf(sy + S.h);
+        if (!sc_solid(i, j)) continue;
+        if (S.d[j][i]) direct(X, Y, S.d[j][i]); else matf(X, Y, S.r[j][i], S.v[j][i], 0);
+    }
+}
+
+/* ---- the graves, built ---- */
+/* I: a gothic stele. A two-step plinth, pinnacles at its shoulders, a pointed head, a moulded border; the class's mark in
+ * relief in a sunk quatrefoil. Its head's corner is broken off, cracks run from the break. 104 by 100. */
+static void build_stele(const char *const *mark, const char *num, const char *const *lines, int nl, uint32_t seed) {
+    sc_begin(104, 100);
+    sc_rect(0, 90, 104, 10, 1, 0, SM_STONE, 0);                          /* the plinth */
+    sc_rect(5, 81, 94, 9, 2, 0, SM_STONE, 0.03f);
+    sc_rect(8, 38, 88, 43, 3, 0, SM_STONE, 0.04f);                       /* the shaft on square shoulders, */
+    sc_arch(20, 84, 39, 31, 2, 3, 0, SM_STONE, 0.04f);                   /* its head a tall pointed gable */
+    sc_groove(1u << 3, 4);                                               /* the moulding */
+    for (int k = 1; k < 6; k++) for (int e = 0; e < 2; e++) {           /* crockets: knobs of leaf up the gable's edges */
+        float u = k / 6.0f, x = e ? 84 - u * 30 : 20 + u * 30;
+        int top = 0;
+        while (top < 40 && !sc_solid((int)x, top)) top++;
+        sc_disc(x + (e ? 1.5f : -1.5f), top + 0.5f, 1.8f, 6, 1, SM_STONE, 0.08f);
+    }
+    sc_rect(50, 0, 4, 9, 6, 1, SM_STONE, 0.08f);                         /* a cross for its finial */
+    sc_rect(47, 2, 10, 3, 6, 1, SM_STONE, 0.08f);
+    for (int k = 0; k < 2; k++) {                                        /* the pinnacles, standing proud */
+        int x = k ? 92 : 1;
+        sc_rect(x, 44, 11, 37, 4 + k, 1, SM_STONE, 0.02f);
+        float p[6] = { (float)x - 1, 44, (float)x + 12, 44, x + 5.5f, 27 };
+        sc_poly(p, 3, 4 + k, 1, SM_STONE, 0.02f);
+        sc_disc(x + 5.5f, 25, 2.6f, 4 + k, 1, SM_STONE, 0.05f);
+        sc_rect(x, 44, 11, 2, 4 + k, 1, SM_STONE, 0.1f);                 /* a string course */
+        sc_rect(x + 4, 50, 3, 26, 4 + k, -1, SM_STONE, 0);               /* a blind lancet cut in each */
+    }
+    for (int k = 0; k < 5; k++) {                                        /* the quatrefoil, sunk */
+        static const float QX[5] = { 0, -6.5f, 6.5f, 0, 0 }, QY[5] = { 0, 0, 0, -6.5f, 6.5f };
+        float cx = 52 + QX[k], cy = 25 + QY[k];
+        for (int j = (int)cy - 7; j <= cy + 7; j++) for (int i = (int)cx - 7; i <= cx + 7; i++)
+            if (sc_solid(i, j) && S.id[j][i] == 3 && (i + 0.5f - cx) * (i + 0.5f - cx) + (j + 0.5f - cy) * (j + 0.5f - cy) <= 6.4f * 6.4f) S.ht[j][i] = -1;
+    }
+    if (mark) sc_mark(52 - 11, 25 - 11, mark, 11, 2, 0, 0.14f);          /* the mark, standing out of it */
+    sc_text_c(52, 82, num, 0, 1, seed, 80);
+    for (int k = 0; k < nl; k++) sc_text_c(52, 41 + k * 9, lines[k], 0, 1, seed + (uint32_t)k, 80);
+    sc_break(98, 28, 8, seed + 3);                                       /* a shoulder and its pinnacle's top, gone */
+    sc_crack(89, 37, 1.9f, 40, seed + 4, 2);
+    sc_crack(70, 18, 1.9f, 16, seed + 5, 1);
+    sc_crack(18, 90, -1.2f, 14, seed + 6, 1);
+    sc_chips(0.35f, seed + 7);
+}
+/* II: a wheel-cross on a slab. The cross stands proud on the slab's gable, its ring broken away on the left; a crack across
+ * the slab; ivy up its right side. 104 by 100. */
+static void build_wheelcross(const char *const *mark, const char *num, const char *const *lines, int nl, uint32_t seed) {
+    sc_begin(104, 100);
+    sc_rect(2, 90, 100, 10, 1, 0, SM_STONE, 0);
+    sc_rect(8, 82, 88, 8, 2, 0, SM_STONE, 0.03f);
+    sc_rect(10, 40, 84, 42, 3, 0, SM_STONE, 0.02f);                      /* the slab, a low gable on it */
+    float gab[6] = { 10, 40.5f, 94, 40.5f, 52, 30 };
+    sc_poly(gab, 3, 3, 0, SM_STONE, 0.02f);
+    sc_groove(1u << 3, 4);
+    sc_rect(45, 0, 14, 44, 5, 1, SM_STONE, 0.06f);                       /* the cross */
+    sc_rect(27, 11, 50, 11, 5, 1, SM_STONE, 0.06f);
+    sc_ring(52, 16.5f, 12.5f, 17.5f, 5, 1, SM_STONE, 0.06f);
+    sc_disc(52, 16.5f, 6, 5, 2, SM_STONE, 0.1f);                         /* its boss */
+    for (int j = 2; j < 40; j++) if (j < 10 || j > 23) { sc_px(51, j, 5, 0, SM_STONE, 0.02f); sc_px(52, j, 5, 0, SM_STONE, 0.02f); }   /* a groove down each arm */
+    for (int i = 29; i < 75; i++) if (i < 45 || i > 59) { sc_px(i, 16, 5, 0, SM_STONE, 0.02f); }
+    if (mark) sc_mark(52 - 5, 16 - 5, mark, 11, 1, 1, 0.12f);
+    sc_text_c(52, 82, num, 0, 1, seed, 80);
+    for (int k = 0; k < nl; k++) sc_text_c(52, 45 + k * 9, lines[k], 0, 1, seed + (uint32_t)k, 74);
+    sc_break(31, 12, 7, seed + 3);                                       /* the ring broken, the arm's end with it */
+    sc_crack(93, 44, 2.3f, 50, seed + 4, 2);
+    sc_crack(12, 60, 0.3f, 16, seed + 5, 1);
+    sc_chips(0.3f, seed + 7);
+    sc_ivy(92, 99, 80, seed + 8);
+    sc_ivy(95, 97, 40, seed + 9);
+}
+/* the empty plot's marker: two rough timbers lashed with rope, the upright's top split; 60 by 92 */
+static void build_timber_cross(uint32_t seed) {
+    sc_begin(60, 92);
+    sc_rect(25, 0, 10, 92, 1, 0, SM_WOODV, 0.02f);
+    sc_rect(4, 19, 52, 9, 2, 1, SM_WOOD, 0.04f);
+    for (int j = 34; j < 92; j++) if (h01(j / 5, 0, seed) < 0.5f) { sc_px(25, j, 1, 0, SM_WOODV, -0.16f); sc_px(26, j, 1, 0, SM_WOODV, -0.1f); }   /* bark left on it */
+    for (int i = 6; i < 54; i++) if (h01(i / 6, 1, seed) < 0.4f) sc_px(i, 27, 2, 1, SM_WOOD, -0.14f);
+    for (int k = 0; k < 4; k++) {                                        /* the lashing, crossed over the joint */
+        sc_line(23, 16.0f + k * 1.5f, 37, 27.0f + k * 1.5f, 1.4f, 3, 2, SM_ROPE, 0);
+        sc_line(37, 16.0f + k * 1.5f, 23, 27.0f + k * 1.5f, 1.4f, 3, 2, SM_ROPE, 0);
+    }
+    sc_line(30, 30, 27, 38, 1, 3, 2, SM_ROPE, 0);                        /* a loose end */
+    sc_break(30, 0, 4.5f, seed);                                         /* the top split and broken */
+    sc_crack(30, 3, 1.57f, 16, seed + 1, 0);
+    sc_crack(5, 23, 0.0f, 9, seed + 2, 0);
+    sc_crack(55, 22, PI, 10, seed + 3, 0);
+    sc_chips(0.25f, seed + 4);
+}
+/* the board hung from it: two planks, nails rusting down them, the words scratched in; 84 by 40 */
+static void build_plank(uint32_t seed) {
+    sc_begin(86, 42);
+    sc_rect(1, 1, 84, 19, 1, 0, SM_WOOD, 0.05f);
+    sc_rect(0, 21, 85, 20, 2, 0, SM_WOOD, 0.02f);
+    for (int k = 0; k < 4; k++) {
+        int x = k % 2 ? 79 : 4, y = k < 2 ? 5 : 26;
+        sc_disc(x + 0.5f, y + 0.5f, 1.6f, 9, 1, SM_IRON, 0.1f);
+        for (int j = 2; j < 6 + (int)(h01(k, 1, seed) * 6); j++) if (sc_solid(x, y + j)) { S.m[y + j][x] = SM_IRON; S.dv[y + j][x] = -0.1f; }   /* the rust run */
+    }
+    sc_break(86, 34, 6, seed + 1);                                        /* the lower plank's end split off */
+    sc_crack(70, 10, PI, 22, seed + 2, 0);
+    sc_text_c(43, 3, "III", 0, 1, seed + 3, 80);
+    sc_text_c(43, 13, "UNMARKED", 0, 1, seed + 4, 80);
+    sc_text_c(43, 23, "NOTHING", 0, 1, seed + 5, 80);
+    sc_text_c(43, 32, "WRITTEN", 0, 1, seed + 6, 80);
+    sc_chips(0.3f, seed + 7);
+}
+/* a piece broken off, lying where it fell */
+static void build_fragment(int w, int h, uint32_t seed) {
+    sc_begin(w, h);
+    float p[12];
+    for (int k = 0; k < 6; k++) { float a = k / 6.0f * 2 * PI, r = 0.75f + 0.25f * h01(k, 0, seed); p[2 * k] = w * 0.5f + cosf(a) * r * w * 0.5f; p[2 * k + 1] = h * 0.55f + sinf(a) * r * h * 0.45f; }
+    sc_poly(p, 6, 1, 0, SM_STONE, 0);
+    for (int i = 0; i < w; i++) for (int j = 0; j < h; j++) if (sc_solid(i, j)) { S.f[j][i] |= SF_FRESH; if (sc_solid(i, j + 1)) S.f[j + 1][i] |= SF_FRESH; break; }
+    sc_chips(0.3f, seed + 1);
+}
+/* a plot's kerb, seen from the front: a low stone strip between two posts, one finial gone; w by 18 */
+static void build_kerb(int w, uint32_t seed) {
+    sc_begin(w, 18);
+    sc_rect(0, 9, w, 9, 1, 0, SM_STONE, 0);
+    sc_rect(0, 4, 9, 14, 2, 1, SM_STONE, 0.04f); sc_rect(w - 9, 4, 9, 14, 3, 1, SM_STONE, 0.04f);
+    sc_disc(4.5f, 3.2f, 3.2f, 2, 1, SM_STONE, 0.06f); sc_disc(w - 4.5f, 3.2f, 3.2f, 3, 1, SM_STONE, 0.06f);
+    sc_break(w - 4.5f, 2, 4, seed);
+    sc_crack(w * 0.4f, 9, 1.2f, 9, seed + 1, 0);
+    sc_chips(0.35f, seed + 2);
+}
+
+/* ---- the weathered pieces of the screens (step 3) ---- */
+/* a lych-gate's beam across the top, the title cut in it and gilt, iron bands, its tiles over it; for out of doors */
+static void ui_beam(const char *title, float t) {
+    sc_begin(W, 26);
+    for (int i = 0; i < W; i++) for (int j = 0; j < 6; j++) {          /* the roof's edge: a row of slates */
+        int sl = (i + (j > 2 ? 6 : 0)) / 12;
+        sc_px(i, j, 10 + sl % 2, (j % 3 == 0) ? 0 : 1, SM_STONE, -0.18f + 0.06f * h01(sl, j / 3, 3));
+    }
+    sc_rect(0, 6, W, 18, 1, 0, SM_WOOD, 0.02f);
+    sc_rect(0, 23, W, 3, 2, 1, SM_WOOD, 0.08f);
+    for (int k = 0; k < 2; k++) { int x = k ? 248 : 52; sc_rect(x, 6, 7, 18, 3, 1, SM_IRON, 0.1f); for (int j = 9; j < 22; j += 6) sc_disc(x + 3.5f, j, 1.2f, 3, 2, SM_IRON, 0.2f); }
+    sc_text(W / 2 - sc_text_w(title, 8) / 2, 7, title, 1, 8, 1, 41);
+    sc_crack(20, 14, 0.05f, 30, 5, 1); sc_crack(300, 12, PI, 24, 6, 1);
+    sc_break(W + 2, 12, 6, 7);
+    sc_chips(0.2f, 8);
+    sc_shade(0.42f, 44, 0.85f, R_GOLD);
+    sc_draw(W / 2, 26, 0);
+    (void)t;
+}
+/* a slab for a row: chipped, its words cut and gilt while chosen */
+static void row_slab(int x, int y, int w, const char *s, float k, uint32_t seed) {
+    sc_begin(w, 17);
+    float p[12] = { 2, 0, (float)w - 3, 0, (float)w, 3, (float)w - 1, 17, 1, 17, 0, 3 };
+    sc_poly(p, 6, 1, 0, SM_STONE, 0.04f);
+    sc_groove(1u << 1, 2);
+    sc_text_c(w / 2, 5, s, 0, 1, seed, w - 8);
+    sc_crack((float)(w - 18), 0, 1.9f, 12, seed + 1, 0);
+    sc_chips(0.3f, seed + 2);
+    sc_shade(0.36f + 0.1f * k, seed + 3, k, R_GOLD);
+    sc_draw(x + w / 2, y + 17, 0);
+}
+/* the hints, each key on a worn stone cap, its letter cut and filled pale; the words after it inlaid */
+static void ui_keys_worn(int y, const char *keys[], const char *says[], int n) {
+    int tw = 0;
+    for (int k = 0; k < n; k++) tw += sc_text_w(keys[k], 8) + 8 + (int)strlen(says[k]) * 8 + (k < n - 1 ? 14 : 0);
+    int x = (W - tw) / 2;
+    for (int k = 0; k < n; k++) {
+        int cw = sc_text_w(keys[k], 8) + 8;
+        sc_begin(cw, 13);
+        float p[12] = { 1, 0, (float)cw - 2, 0, (float)cw, 2, (float)cw, 13, 0, 13, 0, 2 };
+        sc_poly(p, 6, 1, 1, SM_STONE, 0.1f);
+        sc_text(4, 3, keys[k], 0, 8, 1, 60 + (uint32_t)k);
+        sc_chips(0.25f, 70 + (uint32_t)k);
+        sc_shade(0.42f, 80 + (uint32_t)k, 1.0f, R_BONE);
+        sc_draw(x + cw / 2, y + 11, 0);
+        x += cw + 4;
+        for (int j = 0; j < 13; j++) for (int i = 0; i < (int)strlen(says[k]) * 8 + 2; i++) LC[y - 2 + j][x - 1 + i] = fmaxf(LC[y - 2 + j][x - 1 + i], 0.5f);
+        x += (int)strlen(says[k]) * 8 + 14;
+    }
+}
+static void ui_keys_words(int y, const char *keys[], const char *says[], int n) {   /* the words, after the light is resolved */
+    int tw = 0;
+    for (int k = 0; k < n; k++) tw += sc_text_w(keys[k], 8) + 8 + (int)strlen(says[k]) * 8 + (k < n - 1 ? 14 : 0);
+    int x = (W - tw) / 2;
+    for (int k = 0; k < n; k++) {
+        x += sc_text_w(keys[k], 8) + 8 + 4;
+        ui_text8(&F, x, y + 1, says[k], FACE_INSC, R_BONE + 10, TX_INLAID);
+        x += (int)strlen(says[k]) * 8 + 14;
+    }
+}
+static void ui_light(int y0, int y1, float v) { for (int y = y0; y < y1 && y < H; y++) for (int x = 0; x < W; x++) LC[y][x] = fmaxf(LC[y][x], v); }
+static const char *KEYS3[3] = { "A/D", "ENTER", "ESC" }, *SAYS3[3] = { "CHOOSES", "RISES", "BACK" };
+/* a vignette: the light falling off towards the corners, to hold the eye */
+static void vignette(float k) {
+    for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) {
+        float dx = (x - W * 0.5f) / (W * 0.5f), dy = (y - H * 0.5f) / (H * 0.5f), r = sqrtf(dx * dx * 0.8f + dy * dy * 1.1f);
+        float f = 1 - k * smooth(0.55f, 1.25f, r);
+        LC[y][x] *= f; LW[y][x] *= f;
+    }
+}
+
+/* ======================================================================================================================
  * A, BENEATH: the graveyard under the moon; under it the earth, its dead and its roots; under that the crypt, and in it
  * a walker with a lantern going by
  * ====================================================================================================================== */
@@ -979,92 +1458,99 @@ static void mist(int cx, int base, float k, float t, uint32_t seed) {    /* a br
     if (k <= 0) return;
     for (int y = base - 40; y < base + 1; y++) for (int x = cx - 46; x < cx + 46; x++) {
         float f = fbm((x - cx) * 0.05f, (y + t * 9) * 0.07f, seed) * (1 - fabsf((float)(x - cx)) / 46) * smooth((float)base - 40, (float)base - 4, (float)y);
-        if (f * k > 0.36f + bay(x, y) * 0.3f && !(MF[y][x] & MF_DIRECT)) { MR[y][x] = R_GHOST; MV[y][x] = fmaxf(MV[y][x], 0.2f + 0.3f * f * k); MF[y][x] = MF_NOWARM; }
+        if (f * k > 0.4f + bay(x, y) * 0.32f && !(MF[y][x] & MF_DIRECT)) { MR[y][x] = R_GHOST; MV[y][x] = fmaxf(MV[y][x] * 0.6f, 0.14f + 0.22f * f * k); MF[y][x] = MF_NOWARM; }
+    }
+}
+static const char *const GL[2][4] = { { "WITCHFINDER", "LEVEL 14", "CATACOMBS", "7 NOV 2026" }, { "ANATOMIST", "LEVEL 1", "AT A DEATH", "9 NOV 2026" } };
+static void dead_flowers(int cx, int base, uint32_t seed) {            /* a few stems left at a grave, their heads hanging */
+    for (int k = 0; k < 6; k++) {
+        float x = cx - 8 + k * 3 + h01(k, 0, seed) * 2, hgt = 6 + h01(k, 1, seed) * 6, bend = (h01(k, 2, seed) - 0.3f) * 4;
+        mline(x, (float)base, x + bend * 0.5f, base - hgt, 1, R_MOSS, 0.16f, 0);
+        mline(x + bend * 0.5f, base - hgt, x + bend, base - hgt + 3, 1, R_MOSS, 0.14f, 0);
+        mdisc(x + bend, base - hgt + 3.5f, 1.3f, k % 2 ? R_BLOOD : R_PURPLE, 0.22f, 0);
+    }
+}
+/* one grave of the three, built and drawn: the stone (or the cross and its board), its flowers or candles */
+static void grave_drawn(int g, int cx, int base, float k, float t) {
+    float lean = g == 0 ? 1.5f : -2.0f;
+    if (GR[g].used) {
+        if (g == 0) build_stele(CLASS_MARK[0], GR[g].num, GL[0], 4, 100 + (uint32_t)g);
+        else build_wheelcross(CLASS_MARK[1], GR[g].num, GL[1], 4, 100 + (uint32_t)g);
+        sc_shade(0.44f, 200 + (uint32_t)g, k, R_GOLD);
+        sc_draw(cx, base + 1, lean);
+        if (g == 0) {                                                   /* the broken corner, where it fell */
+            build_fragment(17, 9, 300); sc_shade(0.42f, 301, 0, R_GOLD); sc_draw(cx + 60, base + 1, 18);
+            build_fragment(8, 5, 302); sc_shade(0.42f, 303, 0, R_GOLD); sc_draw(cx + 72, base + 1, -10);
+        }
+        for (int c = 0; c < 2; c++) candle(cx + (c ? 49 : -50), base - 9, k > 0.5f, t, g * 2 + c);
+        if (k <= 0.5f) dead_flowers(cx + (g ? 18 : -18), base - 10, 50 + (uint32_t)g);
+    } else {
+        float a = 5 * PI / 180;
+        build_timber_cross(400); sc_shade(0.4f, 401, 0, R_GOLD); sc_draw(cx, base + 2, 5);
+        /* the board hangs from the arms on two cords */
+        float ax[2], ay[2];
+        for (int e = 0; e < 2; e++) { float rx = e ? 22.0f : -22.0f, ry = -67.0f; ax[e] = cx + rx * cosf(a) - ry * sinf(a); ay[e] = base + 2 + rx * sinf(a) + ry * cosf(a); }
+        int py = base - 52;
+        mline(ax[0], ay[0], cx - 34.0f, (float)py + 2, 1, R_WOOD, 0.45f, 0);
+        mline(ax[1], ay[1], cx + 34.0f, (float)py + 2, 1, R_WOOD, 0.45f, 0);
+        build_plank(410); sc_shade(0.42f, 411, k, R_BONE); sc_draw(cx, py + 42, 0);
+        for (int c = 0; c < 2; c++) candle(cx + (c ? 30 : -30), base, k > 0.5f, t, g * 2 + c);
     }
 }
 static void a_graves(float t) {
     const int G = 124;
     pal_night();
     light_clear(0.75f, 0);
-    sky(0, G, t, 34, 26, 11, 0);
+    sky(0, G, t, 228, 48, 8, 0);
     for (int x = 0; x < W; x++) {                                      /* the hills behind */
-        float hy = 96 + 5 * sinf(x * 0.025f + 0.4f) + 3 * sinf(x * 0.07f) + 2 * fbm(x * 0.05f, 0, 8);
+        float hy = 98 + 5 * sinf(x * 0.025f + 0.4f) + 3 * sinf(x * 0.07f) + 2 * fbm(x * 0.05f, 0, 8);
         for (int y = (int)hy; y < G; y++) matf(x, y, R_CEIL, 0.09f, MF_NOWARM);
     }
-    branch(306, G, 1.7f, 26, 6, 5, 12);
-    for (int y = G; y < H; y++) for (int x = 0; x < W; x++) {
+    for (int y = G; y < H; y++) for (int x = 0; x < W; x++) {          /* the earth in its bands */
         float n = fbm(x * 0.07f, y * 0.11f, 51), strata = 0.05f * sinf(y * 0.55f + 2 * fbm(x * 0.02f, y * 0.02f, 52));
         float v = 0.28f + 0.26f * (n - 0.5f) * 1.6f + strata - 0.16f * (float)(y - G) / (H - G);
         if (y < G + 3) v -= 0.1f;
         if (h01(x, y, 53) < 0.03f) v += 0.14f;
-        matf(x, y, R_FLOOR, v, 0);
+        int band = y > G + 30 && y < G + 36 + (int)(3 * sinf(x * 0.05f));
+        matf(x, y, band ? R_BRICK : R_FLOOR, band ? v * 0.7f : v, 0);
     }
     static const int CX[3] = { 57, 160, 263 };
-    for (int g = 0; g < 3; g++) {
-        float k = sel_k(t, g);
-        if (GR[g].used) {
-            big_stone(CX[g], G, 96, g == 0 ? 82 : 92, g, 100 + g);
-            coffin_side(CX[g] - 34, G + 10, 68, 12, 0.36f, 0.25f * k);
-        } else {                                                        /* the empty plot: a wooden cross, its board blank */
-            board(CX[g], G);
-            for (int x = CX[g] - 30; x <= CX[g] + 30; x++) {             /* its mound */
-                int mh = (int)(6 * sqrtf(fmaxf(0, 1 - powf((x - CX[g]) / 30.0f, 2))));
-                for (int y = G - mh; y < G; y++) matf(x, y, R_FLOOR, 0.36f + 0.1f * h01(x, y, 6), 0);
-            }
-        }
-        for (int c = 0; c < 2; c++) candle(CX[g] + (c ? 30 : -30), G + 1, k > 0.5f, t, g * 2 + c);
+    for (int g = 0; g < 2; g++) {                                      /* the shafts, the coffins in them */
+        for (int y = G; y < G + 28; y++) for (int x = CX[g] - 36; x < CX[g] + 36; x++) if (!(MF[y][x] & MF_DIRECT)) MV[y][x] += 0.05f * (h01(x, y, 57 + g) - 0.3f) + ((x == CX[g] - 36 || x == CX[g] + 35) ? -0.1f : 0);
+        coffin_side(CX[g] - 34, G + 12, 68, 12, 0.36f, 0.25f * sel_k(t, g));
     }
+    skull_small(CX[2] + 14, G + 20, 0.36f); bone_small(CX[2] - 22, G + 24, 7, 1, 0.34f);
     for (int x = 0; x < W; x += 2) {                                    /* the turf */
         int gg = (int)(h01(x, 0, 71) * 3);
         for (int j = 1; j <= gg; j++) matf(x, G - j, R_MOSS, 0.2f + 0.06f * j, 0);
     }
+    for (int g = 0; g < 3; g++) grave_drawn(g, CX[g], G, sel_k(t, g), t);
     for (int g = 0; g < 3; g++) mist(CX[g], G, sel_k(t, g), t, 300 + g);
-    fog(G - 16, G + 1, t, 1.2f, 34);
+    fog(G - 14, G + 1, t, 1.1f, 34);
+    ui_beam("RISE FROM WHICH GRAVE?", t);
+    static const char *const MORE[2] = { "UNSIGNED: LEVEL 3", "DIG A NEW GRAVE" };
+    for (int k = 0; k < 2; k++) row_slab(k ? 166 : 6, 160, 148, MORE[k], sel_k(t, 3 + k), 500 + (uint32_t)k);
+    ui_keys_worn(184, KEYS3, SAYS3, 3);
     /* light: the moon, a candle's warmth on the chosen, the coffin's lid lit from within */
-    for (int y = G; y < H; y++) for (int x = 0; x < W; x++) LC[y][x] = 0.55f - 0.25f * (y - G) / (H - G);
+    for (int y = G; y < H; y++) for (int x = 0; x < W; x++) LC[y][x] = y < 158 ? 0.55f - 0.25f * (y - G) / (H - G) : 0.62f;
     for (int g = 0; g < 3; g++) {
         float k = sel_k(t, g);
         if (k <= 0) continue;
         float fl = flick(t, g);
-        light_add(CX[g], G - 10, 70 * fl, 1.0f * k, 1);
-        light_add(CX[g], G - 40, 60, 0.35f * k, 0);
+        light_add(CX[g], G - 14, 76 * fl, 1.05f * k, 1);
+        light_add(CX[g], G - 50, 60, 0.3f * k, 0);
         if (GR[g].used) light_add(CX[g], G + 14, 40, 0.8f * k, 0);
     }
-    for (int k = 3; k < 5; k++) { float kk = sel_k(t, k); if (kk > 0) light_add(k == 3 ? 85 : 235, 166, 60, 0.5f * kk, 1); }
+    for (int k = 3; k < 5; k++) { float kk = sel_k(t, k); if (kk > 0) light_add(k == 3 ? 80 : 240, 168, 70, 0.6f * kk, 1); }
+    vignette(0.45f);
+    ui_light(160, H, 0.6f);
     resolve();
-    /* the coffins' cracks of light while chosen */
-    for (int g = 0; g < 2; g++) {
+    for (int g = 0; g < 2; g++) {                                      /* the coffins' cracks of light while chosen */
         float k = sel_k(t, g);
         if (k < 0.3f) continue;
-        for (int i = 4; i < 64; i += 1) if (h01(i, g, 7) < 0.7f) F.pix[(G + 12) * W + CX[g] - 34 + i] = (uint8_t)(R_GLOW + clampi((int)(6 + 8 * k), 0, 15));
+        for (int i = 4; i < 64; i++) if (h01(i, g, 7) < 0.7f) F.pix[(G + 12) * W + CX[g] - 34 + i] = (uint8_t)(R_GLOW + clampi((int)(6 + 8 * k), 0, 15));
     }
-    /* the words: carved on the stones, written on the board; bright on the chosen */
-    text16_c(W / 2, 4, "RISE FROM WHICH GRAVE?", R_BONE + 13);
-    for (int g = 0; g < 3; g++) {
-        float k = sel_k(t, g);
-        int top = GR[g].used ? G - (g == 0 ? 82 : 92) + (g == 0 ? 6 : 14) : G - 60;
-        int hi = R_BONE + clampi((int)(5 + 10 * k), 0, 15), lo = R_STONE + clampi((int)(6 + 7 * k), 0, 15);
-        if (GR[g].used) {
-            text16_c(CX[g], top + 4, GR[g].num, k > 0.5f ? R_GOLD + 11 : R_STONE + 8);
-            int y = G - 48 + (g == 1 ? 2 : 0);
-            text_c(CX[g], y, GR[g].who, hi);
-            text_c(CX[g], y + 10, GR[g].l1, lo);
-            text_c(CX[g], y + 19, GR[g].l2, g == 1 ? R_BLOOD + clampi((int)(7 + 7 * k), 0, 15) : lo);
-            text_c(CX[g], y + 28, GR[g].l3, lo);
-        } else {
-            (void)top;
-            board_words(CX[g], G, k);
-        }
-    }
-    /* the two more: the run the dream was in, and a fresh one */
-    static const char *const MORE[2] = { "UNSIGNED: LEVEL 3", "DIG A NEW GRAVE" };
-    for (int k = 0; k < 2; k++) {
-        float kk = sel_k(t, 3 + k);
-        int x = k ? 166 : 6, w = 148;
-        ui_row(&F, x, 160, w, 15, kk > 0.5f);
-        text_c(x + w / 2, 164, MORE[k], kk > 0.5f ? C_WHITE : R_STONE + 11);
-    }
-    hints(187, "A/D CHOOSES  ENTER RISES  ESC BACK");
+    ui_keys_words(184, KEYS3, SAYS3, 3);
 }
 
 /* ======================================================================================================================
@@ -1203,88 +1689,114 @@ static void scene_b(float t) {
 
 /* the graves in B: a wall of the crypt with three loculi, their slabs inscribed; the chosen one's candle lit, its slab
  * drawn a little aside and a cold light from behind it */
+/* a loculus's slab: a moulded border, iron cramps top and foot, the class's mark cut at its head, the words; a corner
+ * broken and cracks; 86 by 92 */
+static void build_loculus_slab(const char *const *mark, const char *num, const char *const *lines, uint32_t seed) {
+    sc_begin(86, 92);
+    sc_rect(0, 0, 86, 92, 1, 0, SM_STONE, 0.06f);
+    sc_groove(1u << 1, 3);
+    sc_groove(1u << 1, 5);
+    for (int k = 0; k < 2; k++) {                                        /* the cramps */
+        int y = k ? 86 : 1;
+        sc_rect(37, y, 12, 5, 2, 1, SM_IRON, 0.1f);
+        sc_disc(40, y + 2.5f, 1, 2, 2, SM_IRON, 0.25f); sc_disc(46, y + 2.5f, 1, 2, 2, SM_IRON, 0.25f);
+        for (int jj = 0; jj < 7; jj++) if (sc_solid(43, y + 5 + jj) && !k) { S.m[y + 5 + jj][43] = SM_IRON; S.dv[y + 5 + jj][43] = -0.12f; }   /* rust run down */
+    }
+    if (mark) sc_mark(43 - 5, 9, mark, 11, 1, -1, 0);
+    sc_text_c(43, 23, num, 0, 1, seed, 78);
+    for (int k = 0; k < 4; k++) sc_text_c(43, 37 + k * 10, lines[k], 0, 1, seed + 1 + (uint32_t)k, 78);
+    sc_break(2, 89, 7, seed + 7);
+    sc_crack(70, 0, 1.9f, 40, seed + 8, 2);
+    sc_crack(0, 30, 0.2f, 14, seed + 9, 1);
+    sc_chips(0.3f, seed + 10);
+}
+/* a tablet set in the wall, the title cut in it and gilt */
+static void ui_wall_tablet(int cx, int y, int w, const char *title) {
+    sc_begin(w, 24);
+    float p[16] = { 4, 0, (float)w - 4, 0, (float)w, 4, (float)w, 20, (float)w - 4, 24, 4, 24, 0, 20, 0, 4 };
+    sc_poly(p, 8, 1, 0, SM_STONE, 0.08f);
+    sc_groove(1u << 1, 3);
+    for (int k = 0; k < 2; k++) { int x = k ? w - 9 : 4; sc_rect(x, 9, 5, 6, 2, 1, SM_IRON, 0.1f); }
+    sc_text(w / 2 - sc_text_w(title, 8) / 2, 4, title, 1, 8, 1, 43);
+    sc_crack((float)w - 30, 0, 1.8f, 20, 9, 1);
+    sc_chips(0.3f, 10);
+    sc_shade(0.42f, 46, 0.9f, R_GOLD);
+    sc_draw(cx, y + 24, 0);
+}
 static void scene_b_graves(float t) {
     memcpy(F.pal, BASEPAL, sizeof F.pal);
     static const int CX[3] = { 58, 160, 262 };
-    const int NY0 = 42, NY1 = 150;
-    float lights[5][4];                                                 /* x, y, strength, warm */
+    const int NY0 = 44, NY1 = 148;
+    float lights[5][3];
     int nl = 0;
-    for (int g = 0; g < 3; g++) { float k = sel_k(t, g); if (k > 0) { lights[nl][0] = CX[g]; lights[nl][1] = NY1 + 4; lights[nl][2] = 1.4f * k * flick(t, g); lights[nl][3] = 1; nl++; } }
-    lights[nl][0] = 4; lights[nl][1] = 70; lights[nl][2] = 0.9f * flick(t, 9); lights[nl][3] = 1; nl++;
-    lights[nl][0] = W - 4; lights[nl][1] = 70; lights[nl][2] = 0.9f * flick(t, 10); lights[nl][3] = 1; nl++;
-    for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) {
-        float l = 0.16f;
+    for (int g = 0; g < 3; g++) { float k = sel_k(t, g); if (k > 0) { lights[nl][0] = CX[g]; lights[nl][1] = NY1 + 4; lights[nl][2] = 1.3f * k * flick(t, g); nl++; } }
+    lights[nl][0] = 4; lights[nl][1] = 80; lights[nl][2] = 0.8f * flick(t, 9); nl++;
+    lights[nl][0] = W - 4; lights[nl][1] = 80; lights[nl][2] = 0.8f * flick(t, 10); nl++;
+    for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) {          /* the wall: run I's stone, by the candles and two torches */
+        float l = 0.14f;
         for (int i = 0; i < nl; i++) { float dx = x - lights[i][0], dy = (y - lights[i][1]) * 1.2f; l += lights[i][2] / (1 + (dx * dx + dy * dy) / 2600.0f); }
+        float dxv = (x - W * 0.5f) / (W * 0.5f), dyv = (y - H * 0.5f) / (H * 0.5f);
+        l *= 1 - 0.45f * smooth(0.55f, 1.25f, sqrtf(dxv * dxv * 0.8f + dyv * dyv * 1.1f));
         int tx = ((x % 64) + 64) % 64, ty = y % 64;
         uint8_t c = crawl_tex[T_MATV(M1_ASHLAR, ((x / 64) + (y / 64)) & 1)][tx * TS + ty];
         direct(x, y, b_lit(c, l));
-        LC[y][x] = l * 0.5f; LW[y][x] = l * 0.5f;
+        LC[y][x] = l * 0.45f; LW[y][x] = l * 0.55f;
     }
     for (int g = 0; g < 3; g++) {
         float k = sel_k(t, g);
-        int x0 = CX[g] - 44, x1 = CX[g] + 44;
-        /* the niche: an arched recess, its rim of dressed stone */
-        for (int y = NY0 - 6; y < NY1 + 6; y++) for (int x = x0 - 6; x < x1 + 6; x++) {
-            float c = (x - CX[g]) / 50.0f, top = NY0 - 6 + 20 * (1 - sqrtf(fmaxf(0, 1 - c * c)));
+        int x0 = CX[g] - 45, x1 = CX[g] + 45;
+        /* the niche: an arch of voussoirs, a skull for its keystone, the dark inside */
+        for (int y = NY0 - 10; y < NY1 + 2; y++) for (int x = x0 - 9; x < x1 + 9; x++) {
+            float c = (x - CX[g]) / 54.0f, top = NY0 - 10 + 22 * (1 - sqrtf(fmaxf(0, 1 - c * c)));
             if (y < top) continue;
-            float ci = (x - CX[g]) / 44.0f, itop = NY0 + 20 * (1 - sqrtf(fmaxf(0, 1 - ci * ci)));
+            float ci = (x - CX[g]) / 45.0f, itop = NY0 + 20 * (1 - sqrtf(fmaxf(0, 1 - ci * ci)));
             int inside = x >= x0 && x < x1 && y >= itop && y < NY1;
-            if (!inside) { matf(x, y, R_STONE, 0.5f + 0.1f * (y < NY0 + 10) - 0.15f * (y >= NY1) + 0.06f * fbm(x * 0.2f, y * 0.2f, 70), 0); continue; }
-            matf(x, y, R_STONE, 0.05f, 0);
+            if (inside) { matf(x, y, R_STONE, 0.04f + 0.03f * (y > NY1 - 10), 0); continue; }
+            float ang = atan2f((float)(y - (NY0 + 20)), (float)(x - CX[g]));
+            int block = (int)floorf((ang + PI) / (PI / 11)), ring = y < NY0 + 22;
+            float v = 0.46f + 0.06f * (block % 2) + 0.08f * (fbm(x * 0.2f, y * 0.2f, 70 + g) - 0.5f);
+            if (ring && fabsf(fmodf((ang + PI) / (PI / 11), 1.0f) - 0.5f) > 0.45f) v = 0.16f;   /* the joints between voussoirs */
+            if (!ring && (x == x0 - 1 || x == x1)) v = 0.2f;
+            if (!ring && (y - NY0) % 14 == 0) v = 0.2f;
+            if (h01(x, y, 71 + g) < 0.03f) v -= 0.15f;
+            matf(x, y, R_STONE, v, 0);
         }
-        if (GR[g].used) {                                               /* the slab, drawn aside a little while chosen */
-            int dxs = (int)(10 * k);
-            for (int y = NY0 + 16; y < NY1 - 2; y++) for (int x = x0 + 4; x < x1 - 4; x++) {
-                int X = x + dxs;
-                if (X >= x1 - 1) continue;
-                int e = x == x0 + 4 || y == NY0 + 16 ? 1 : x == x1 - 5 || y == NY1 - 3 ? -1 : 0;
-                float v = 0.52f + 0.12f * fbm(x * 0.15f, y * 0.15f, 80 + g) + 0.12f * e;
-                if (fabsf(fbm(x * 0.05f, y * 0.05f, 90 + g) - 0.5f) < 0.01f) v -= 0.2f;
-                matf(X, y, R_STONE, v, 0);
-            }
-            for (int y = NY0 + 16; y < NY1 - 2 && dxs > 0; y++) for (int x = x0 + 4; x < x0 + 4 + dxs; x++)   /* the cold behind it */
-                if (x >= x0 + 2 + dxs - 2 || h01(x, y + (int)(t * 6), 3) < 0.04f * k) matf(x, y, R_GLOW, 0.12f + 0.2f * k, MF_NOWARM | MF_FLAT);
-                else matf(x, y, R_STONE, 0.02f, 0);
-            for (int i = 0; i < 3; i++) mline((float)x0 + 6, NY0 + 2.0f + i * 3, x0 + 18.0f - i * 2, NY0 + 12.0f, 1, R_BONE, 0.35f, MF_FLAT);
-        } else {                                                        /* empty: a cobweb, bones of no one */
-            for (int r = 4; r <= 16; r += 4) for (int a = 0; a <= 12; a++) { float an = a / 12.0f * PI * 0.5f; matf(x1 - 1 - (int)(cosf(an) * r), NY0 + 14 + (int)(sinf(an) * r) - 2, R_BONE, 0.4f, MF_FLAT); }
-            bone_small(CX[g] - 10, NY1 - 4, 8, 0, 0.4f); skull_small(CX[g] + 6, NY1 - 8, 0.45f);
+        skull_small(CX[g] - 2, NY0 - 9, 0.62f);
+        for (int y = NY1; y < NY1 + 7; y++) for (int x = x0 - 10; x < x1 + 10; x++) {   /* the sill, chipped */
+            if ((x == x0 - 10 || x == x1 + 9) && h01(x, y, 5) < 0.5f) continue;
+            if (y == NY1 && h01(x, 0, 6 + g) < 0.08f) continue;
+            matf(x, y, R_STONE, (y == NY1 ? 0.6f : y > NY1 + 4 ? 0.26f : 0.42f) + 0.06f * (h01(x, y, 7) - 0.5f), 0);
         }
-        mrect(x0 - 8, NY1, 104, 4, R_STONE, 0.56f, 0);                   /* the ledge, a candle on it */
-        mrect(x0 - 8, NY1 + 4, 104, 2, R_STONE, 0.3f, 0);
-        candle(CX[g], NY1, k > 0.5f, t, g);
-    }
-    for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) if (!(MF[y][x] & MF_DIRECT)) { float l = LC[y][x] + LW[y][x]; LC[y][x] = l * 0.45f; LW[y][x] = l * 0.55f; }
-    for (int g = 0; g < 3; g++) { float k = sel_k(t, g); if (k > 0 && GR[g].used) light_add(CX[g] - 30, (NY0 + NY1) * 0.5f, 40, 0.8f * k, 0); }
-    ui_band(&F, 0, 0, 0, 0);
-    resolve();
-    ui_band(&F, 60, 4, 200, 20);
-    text16_c(W / 2, 6, "RISE FROM WHICH GRAVE?", R_BONE + 13);
-    for (int g = 0; g < 3; g++) {
-        float k = sel_k(t, g);
-        int dxs = (int)(10 * k), y = NY0 + 22;
         if (GR[g].used) {
-            int hi = R_BONE + clampi((int)(6 + 9 * k), 0, 15), lo = R_STONE + clampi((int)(4 + 8 * k), 0, 15);
-            ui_text16(&F, CX[g] + dxs - (int)strlen(GR[g].num) * 4, y, GR[g].num, FACE_INSC, 0, TX_CUT, 1);
-            text_c(CX[g] + dxs, y + 22, GR[g].who, hi);
-            text_c(CX[g] + dxs, y + 33, GR[g].l1, lo);
-            text_c(CX[g] + dxs, y + 43, GR[g].l2, g == 1 ? R_BLOOD + clampi((int)(7 + 7 * k), 0, 15) : lo);
-            text_c(CX[g] + dxs, y + 53, GR[g].l3, lo);
-        } else {
-            text16_c(CX[g], y, GR[g].num, R_STONE + clampi((int)(6 + 6 * k), 0, 15));
-            text_c(CX[g], y + 22, GR[g].who, R_STONE + clampi((int)(5 + 8 * k), 0, 15));
-            text_c(CX[g], y + 33, "NOTHING", R_STONE + clampi((int)(4 + 6 * k), 0, 15));
-            text_c(CX[g], y + 43, "WRITTEN", R_STONE + clampi((int)(4 + 6 * k), 0, 15));
+            int dxs = (int)(10 * k);
+            for (int y = NY0 + 16; y < NY1 - 1; y++) for (int x = x0 + 2; x < x0 + 2 + dxs; x++)   /* the cold behind the slab drawn aside */
+                if (x >= x0 + dxs - 1 || h01(x, y + (int)(t * 6), 3) < 0.04f * k) matf(x, y, R_GLOW, 0.12f + 0.2f * k, MF_NOWARM | MF_FLAT);
+            build_loculus_slab(CLASS_MARK[g], GR[g].num, GL[g], 700 + (uint32_t)g);
+            sc_shade(0.48f, 710 + (uint32_t)g, k, R_GOLD);
+            sc_draw(CX[g] + dxs, NY1, 0);
+        } else {                                                        /* empty: its slab fallen in two, a board hung where it was */
+            for (int r = 4; r <= 16; r += 4) for (int a = 0; a <= 12; a++) { float an = a / 12.0f * PI * 0.5f; matf(x1 - 1 - (int)(cosf(an) * r), NY0 + 14 + (int)(sinf(an) * r) - 2, R_BONE, 0.4f, MF_FLAT); }
+            build_plank(410); sc_shade(0.44f, 411, k, R_BONE); sc_draw(CX[g], NY0 + 66, 0);
+            mline((float)CX[g], NY0 + 18.0f, CX[g] - 30.0f, NY0 + 25.0f, 1, R_WOOD, 0.45f, 0);
+            mline((float)CX[g], NY0 + 18.0f, CX[g] + 30.0f, NY0 + 25.0f, 1, R_WOOD, 0.45f, 0);
+            matf(CX[g], NY0 + 17, R_IRON, 0.6f, 0);
+            build_fragment(34, 22, 720); sc_shade(0.44f, 721, 0, R_GOLD); sc_draw(CX[g] - 20, NY1, -14);
+            build_fragment(28, 18, 722); sc_shade(0.42f, 723, 0, R_GOLD); sc_draw(CX[g] + 22, NY1, 22);
+            skull_small(CX[g] - 3, NY1 - 7, 0.45f);
         }
+        candle(CX[g] + 36, NY1, k > 0.5f, t, g);
+        candle(CX[g] + 40, NY1, k > 0.5f, t, g + 3);
     }
+    for (int g = 0; g < 3; g++) { float k = sel_k(t, g); if (k > 0 && GR[g].used) light_add(CX[g] - 36, (NY0 + NY1) * 0.5f, 40, 0.8f * k, 0); }
+    ui_wall_tablet(W / 2, 6, 208, "RISE FROM WHICH GRAVE?");
     static const char *const MORE[2] = { "UNSIGNED: LEVEL 3", "DIG A NEW GRAVE" };
-    for (int k = 0; k < 2; k++) {
-        float kk = sel_k(t, 3 + k);
-        int x = k ? 166 : 6, w = 148;
-        ui_row(&F, x, 164, w, 15, kk > 0.5f);
-        text_c(x + w / 2, 168, MORE[k], kk > 0.5f ? C_WHITE : R_STONE + 11);
-    }
-    hints(189, "A/D CHOOSES  ENTER RISES  ESC BACK");
+    for (int k = 0; k < 2; k++) row_slab(k ? 166 : 6, 163, 148, MORE[k], sel_k(t, 3 + k), 500 + (uint32_t)k);
+    ui_keys_worn(184, KEYS3, SAYS3, 3);
+    for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) if (!(MF[y][x] & MF_DIRECT)) { float l = LC[y][x] + LW[y][x]; LC[y][x] = fmaxf(l * 0.5f, 0.24f); LW[y][x] = l * 0.5f; }
+    for (int k = 3; k < 5; k++) { float kk = sel_k(t, k); if (kk > 0) light_add(k == 3 ? 80 : 240, 170, 70, 0.6f * kk, 1); }
+    ui_light(160, H, 0.6f);
+    resolve();
+    ui_keys_words(184, KEYS3, SAYS3, 3);
 }
 
 /* ======================================================================================================================
@@ -1314,12 +1826,12 @@ static void capsule(float ax, float ay, float bx, float by, float r0, float r1, 
     }
 }
 /* the hand: out of the earth at (gx, gy), its wrist rise above it; fingers curled by curl (0 open, 1 a fist) */
-static float hand_tips[5][2];
+static float hand_tips[5][2], hand_lift = 1.0f;
 static void hand(float gx, int gy, float sc, float rise, float curl, float t, uint32_t seed) {
     if (rise <= 0) return;
     float lean = -0.18f + 0.06f * sinf(t * 1.3f);
     float wx = gx + sinf(lean) * 40 * sc * rise, wy = gy - cosf(lean) * 40 * sc * rise;
-    capsule(gx + 2 * sc, gy + 6, wx, wy, 6.0f * sc, 5.2f * sc, R_WARM, 0.36f, gy, seed);   /* the forearm, rags at the wrist */
+    capsule(gx + 2 * sc, gy + 6, wx, wy, 6.0f * sc, 5.2f * sc, R_WARM, 0.36f * hand_lift, gy, seed);   /* the forearm, rags at the wrist */
     for (int i = 0; i < 6; i++) {
         float a = lean - PI / 2 + (i - 2.5f) * 0.32f;
         float rx = wx + cosf(a + PI) * 4 * sc * 0, ry = wy + 6 * sc;
@@ -1331,7 +1843,7 @@ static void hand(float gx, int gy, float sc, float rise, float curl, float t, ui
     for (int k = 0; k <= 6; k++) {
         float u = k / 6.0f;
         float cx = wx + ux * 13 * sc * u, cy = wy + uy * 13 * sc * u, half = (4.6f + 2.4f * u) * sc;
-        capsule(cx - rx * half * 0.6f, cy - ry * half * 0.6f, cx + rx * half * 0.6f, cy + ry * half * 0.6f, 2.4f * sc, 2.4f * sc, R_WARM, 0.4f + 0.04f * u, gy, seed + 1);
+        capsule(cx - rx * half * 0.6f, cy - ry * half * 0.6f, cx + rx * half * 0.6f, cy + ry * half * 0.6f, 2.4f * sc, 2.4f * sc, R_WARM, (0.4f + 0.04f * u) * hand_lift, gy, seed + 1);
     }
     static const float BASE[4] = { -5.2f, -1.8f, 1.6f, 4.8f }, LEN[4] = { 0.92f, 1.06f, 1.0f, 0.78f }, SPREAD[4] = { -0.34f, -0.11f, 0.1f, 0.3f };
     for (int f = 0; f < 4; f++) {
@@ -1343,7 +1855,7 @@ static void hand(float gx, int gy, float sc, float rise, float curl, float t, ui
             float l = segs[j] * LEN[f] * sc;
             float nx = x + sinf(a) * l, ny = y - cosf(a) * l;
             float r = (2.0f - 0.35f * j) * sc;
-            capsule(x, y, nx, ny, r, r * 0.88f, j == 2 ? R_BONE : R_WARM, j == 2 ? 0.5f : 0.42f, gy, seed + 3 + f);
+            capsule(x, y, nx, ny, r, r * 0.88f, j == 2 ? R_BONE : R_WARM, (j == 2 ? 0.5f : 0.42f) * hand_lift, gy, seed + 3 + f);
             x = nx; y = ny;
         }
         matf((int)x, (int)y, R_BONE, 0.75f, 0);                         /* the nail gone, the bone's tip */
@@ -1484,83 +1996,77 @@ static void scene_c(float t) {
 /* the graves in C: three stones close, a mound before each; out of the chosen one's a hand comes up, its candles lit; the
  * empty plot an open pit, a spade in its earth */
 static void scene_c_graves(float t) {
-    const int G = 112, M = G + 40;                                      /* the stones' foot; the mounds' */
+    const int G = 124, M = 152;                                         /* the stones' foot; the kerbs' */
     pal_night();
     light_clear(0.55f, 0);
-    sky(0, G, t, 290, 26, 11, 0);
+    sky(0, G, t, 30, 50, 9, 0);
     for (int x = 0; x < W; x++) {
         float hy = 100 + 5 * sinf(x * 0.03f + 2) + 2 * fbm(x * 0.06f, 0, 18);
         for (int y = (int)hy; y < G; y++) matf(x, y, R_CEIL, 0.1f, MF_NOWARM);
     }
-    for (int y = G - 6; y < H; y++) for (int x = 0; x < W; x++) {
+    for (int y = G - 6; y < H; y++) for (int x = 0; x < W; x++) {      /* the turf, in strokes of grass */
         float n = fbm(x * 0.04f, y * 0.08f, 51);
-        float v = 0.16f + 0.1f * n + 0.04f * (h01(x, y, 52) - 0.5f);
+        float v = 0.15f + 0.08f * n + 0.06f * (h01(x, y / 2, 52) - 0.5f) + 0.05f * (((x + y / 3) % 4) == 0);
         if (y < G) { if (h01(x, 0, 3) * 6 < G - y) continue; matf(x, y, R_MOSS, 0.12f + 0.04f * (G - y), 0); continue; }
-        matf(x, y, n > 0.68f ? R_FLOOR : R_MOSS, n > 0.68f ? v + 0.04f : v, 0);
+        matf(x, y, n > 0.7f ? R_FLOOR : R_MOSS, n > 0.7f ? v + 0.04f : v, 0);
     }
+    branch(8, G - 2, 1.35f, 30, 6, 6, 31);                              /* the tree, behind the stones */
     static const int CX[3] = { 57, 160, 263 };
     for (int g = 0; g < 3; g++) {
         float k = sel_k(t, g);
-        if (GR[g].used) big_stone(CX[g], G, 96, g == 0 ? 80 : 88, g, 100 + g);
-        else board(CX[g], G);
-        if (GR[g].used) for (int x = CX[g] - 46; x <= CX[g] + 46; x++) {  /* the grave's mound before the stone */
-            float m = fmaxf(0, 1 - powf((x - CX[g]) / 46.0f, 2));
-            int mh = (int)(8 * sqrtf(m));
-            for (int y = M - mh; y < M + 2; y++) matf(x, y, R_FLOOR, 0.26f + 0.12f * fbm(x * 0.3f, y * 0.3f, 7 + g) + 0.1f * (y == M - mh), 0);
-        } else {                                                        /* the open pit and its earth, the spade */
+        grave_drawn(g, CX[g], G, k, t);
+        if (GR[g].used) {
+            for (int x = CX[g] - 44; x <= CX[g] + 44; x++) {             /* the grave's earth, heaped between stone and kerb */
+                float m = fmaxf(0, 1 - powf((x - CX[g]) / 44.0f, 2));
+                int top = G + 4 + (int)(14 * (1 - sqrtf(m)));
+                for (int y = top; y < M - 4; y++) {
+                    float v = 0.24f + 0.12f * fbm(x * 0.3f, y * 0.3f, 7 + g) + 0.1f * (y == top) - 0.06f * (h01(x, y, 8) < 0.15f);
+                    matf(x, y, h01(x, y, 9 + g) < 0.08f && y > top + 2 ? R_STONE : R_FLOOR, v, 0);
+                }
+                if (h01(x, 0, 10 + g) < 0.4f) for (int jj = 1; jj < 3; jj++) matf(x, top - jj, R_MOSS, 0.2f, 0);
+            }
+            build_kerb(96, 600 + (uint32_t)g); sc_shade(0.42f, 610 + (uint32_t)g, 0, R_GOLD); sc_draw(CX[g], M + 6, g ? -1.0f : 1.2f);
+            float rise = smooth(0.1f, 0.9f, k);
+            if (rise > 0) {                                             /* out of the chosen one's earth, a hand */
+                float curl = 0.15f + 0.5f * (0.5f - 0.5f * cosf(2 * PI * t * 0.8f));
+                hand_lift = 1.3f;
+                hand(CX[g] + 28, M - 3, 0.86f, rise * 0.6f, curl, t, 70 + (uint32_t)g);
+                hand_lift = 1.0f;
+                clods(CX[g] + 28, M - 3, t, 0.72f, rise > 0.6f ? 10 : 0);
+            }
+        } else {                                                        /* the open pit, its earth thrown up, the spade */
             for (int x = CX[g] - 46; x < CX[g] + 46; x++) {
                 int mh = (int)(10 * sqrtf(fmaxf(0, 1 - powf((x - CX[g]) / 46.0f, 2))));
-                for (int y = M - 12 - mh; y < M - 12; y++) matf(x, y, R_FLOOR, 0.3f + 0.14f * fbm(x * 0.25f, y * 0.25f, 19) + 0.08f * (y == M - 12 - mh), 0);
+                for (int y = G + 6 - mh; y < G + 8; y++) matf(x, y, R_FLOOR, 0.3f + 0.14f * fbm(x * 0.25f, y * 0.25f, 19) + 0.08f * (y == G + 6 - mh), 0);
             }
-            for (int y = M - 12; y < M + 1; y++) for (int x = CX[g] - 34; x < CX[g] + 34; x++) {
-                float e = fminf(fminf((float)(x - CX[g] + 34), (float)(CX[g] + 33 - x)), (float)(M - y));
-                matf(x, y, R_FLOOR, y == M - 12 ? 0.42f : 0.03f + 0.02f * fminf(e, 3), 0);
+            for (int y = G + 8; y < M + 4; y++) for (int x = CX[g] - 36; x < CX[g] + 36; x++) {
+                float e = fminf(fminf((float)(x - CX[g] + 36), (float)(CX[g] + 35 - x)), (float)(M + 3 - y));
+                matf(x, y, R_FLOOR, y == G + 8 ? 0.45f : 0.02f + 0.03f * fminf(e, 3) + 0.04f * (h01(x, y, 4) < 0.1f), 0);
             }
-            mline(CX[g] + 30.0f, M - 16.0f, CX[g] + 38.0f, M - 52.0f, 2, R_WOOD, 0.4f, 0);   /* the spade's haft, its blade in the heap */
-            mrect(CX[g] + 34, M - 56, 8, 2, R_WOOD, 0.4f, 0);
-            for (int y = M - 18; y < M - 10; y++) for (int x = CX[g] + 26; x < CX[g] + 34; x++) if (y >= M - 14 + (x - CX[g] - 26) / 3) matf(x, y, R_IRON, 0.45f + 0.1f * (x == CX[g] + 27), 0);
+            for (int y = G + 9; y < M + 3; y += 5) for (int x = CX[g] - 34; x < CX[g] + 34; x++) if (h01(x, y, 5) < 0.4f) matf(x, y, R_FLOOR, 0.1f, 0);   /* spade marks in its sides */
+            mline(CX[g] + 44.0f, G + 6.0f, CX[g] + 52.0f, G - 30.0f, 2, R_WOOD, 0.4f, 0);
+            mrect(CX[g] + 48, G - 34, 8, 2, R_WOOD, 0.4f, 0);
+            for (int y = G + 2; y < G + 10; y++) for (int x = CX[g] + 40; x < CX[g] + 48; x++) if (y >= G + 6 + (x - CX[g] - 40) / 3 - 4) matf(x, y, R_IRON, 0.45f + 0.1f * (x == CX[g] + 41), 0);
         }
-        float rise = smooth(0.1f, 0.9f, k);
-        if (GR[g].used && rise > 0) {
-            float curl = 0.15f + 0.5f * (0.5f - 0.5f * cosf(2 * PI * t * 0.8f));
-            hand(CX[g] + 4, M + 1, 0.82f, rise * 0.72f, curl, t, 70 + g);
-            clods(CX[g] + 4, M + 1, t, 0.82f, 8 * (rise > 0.6f));
-        }
-        for (int c = 0; c < 2; c++) candle(CX[g] + (c ? 40 : -40), M - 2, k > 0.5f, t, g * 2 + c);
     }
-    for (int g = 0; g < 3; g++) mist(CX[g], M, sel_k(t, g), t, 300 + g);
-    for (int y = G; y < H; y++) for (int x = 0; x < W; x++) LC[y][x] = 0.42f;
+    for (int g = 0; g < 3; g++) mist(CX[g], M - 4, sel_k(t, g), t, 300 + g);
+    ui_beam("RISE FROM WHICH GRAVE?", t);
+    static const char *const MORE[2] = { "UNSIGNED: LEVEL 3", "DIG A NEW GRAVE" };
+    for (int k = 0; k < 2; k++) row_slab(k ? 166 : 6, 162, 148, MORE[k], sel_k(t, 3 + k), 500 + (uint32_t)k);
+    ui_keys_worn(184, KEYS3, SAYS3, 3);
+    for (int y = G; y < H; y++) for (int x = 0; x < W; x++) LC[y][x] = y < 160 ? 0.5f : 0.62f;
     for (int g = 0; g < 3; g++) {
         float k = sel_k(t, g);
         if (k <= 0) continue;
         float fl = flick(t, g);
-        light_add(CX[g], M - 8, 76 * fl, 1.0f * k, 1);
-        light_add(CX[g], G - 40, 60, 0.3f * k, 0);
+        light_add(CX[g], G - 12, 80 * fl, 1.0f * k, 1);
+        light_add(CX[g], G - 50, 60, 0.3f * k, 0);
     }
-    for (int k = 3; k < 5; k++) { float kk = sel_k(t, k); if (kk > 0) light_add(k == 3 ? 85 : 235, 168, 60, 0.5f * kk, 1); }
+    for (int k = 3; k < 5; k++) { float kk = sel_k(t, k); if (kk > 0) light_add(k == 3 ? 80 : 240, 170, 70, 0.6f * kk, 1); }
+    vignette(0.45f);
+    ui_light(160, H, 0.6f);
     resolve();
-    text16_c(W / 2, 4, "RISE FROM WHICH GRAVE?", R_BONE + 13);
-    for (int g = 0; g < 3; g++) {
-        float k = sel_k(t, g);
-        int hi = R_BONE + clampi((int)(5 + 10 * k), 0, 15), lo = R_STONE + clampi((int)(6 + 7 * k), 0, 15);
-        if (GR[g].used) {
-            int top = G - (g == 0 ? 80 : 88) + (g == 0 ? 5 : 12);
-            text16_c(CX[g], top + 4, GR[g].num, k > 0.5f ? R_GOLD + 11 : R_STONE + 8);
-            int y = G - 48 + (g == 1 ? 2 : 0);
-            text_c(CX[g], y, GR[g].who, hi);
-            text_c(CX[g], y + 10, GR[g].l1, lo);
-            text_c(CX[g], y + 19, GR[g].l2, g == 1 ? R_BLOOD + clampi((int)(7 + 7 * k), 0, 15) : lo);
-            text_c(CX[g], y + 28, GR[g].l3, lo);
-        } else board_words(CX[g], G, k);
-    }
-    static const char *const MORE[2] = { "UNSIGNED: LEVEL 3", "DIG A NEW GRAVE" };
-    for (int k = 0; k < 2; k++) {
-        float kk = sel_k(t, 3 + k);
-        int x = k ? 166 : 6, w = 148;
-        ui_row(&F, x, 165, w, 15, kk > 0.5f);
-        text_c(x + w / 2, 169, MORE[k], kk > 0.5f ? C_WHITE : R_STONE + 11);
-    }
-    hints(189, "A/D CHOOSES  ENTER RISES  ESC BACK");
+    ui_keys_words(184, KEYS3, SAYS3, 3);
 }
 
 /* ======================================================================================================================
@@ -1613,6 +2119,28 @@ static void run(const char *dir, const char *name, void (*fn)(float), float loop
     printf("%s: %d frames\n", name, n);
 }
 
+/* every built piece alone, three times size, on a dark ground: for looking at them closely */
+static void parts_sheet(const char *path) {
+    pal_night();
+    light_clear(1.0f, 0);
+    for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) matf(x, y, R_CEIL, 0.12f, 0);
+    build_stele(CLASS_MARK[0], "I", GL[0], 4, 100); sc_shade(0.44f, 200, 0, R_GOLD); sc_draw(56, 104, 0);
+    build_wheelcross(CLASS_MARK[1], "II", GL[1], 4, 101); sc_shade(0.44f, 201, 1, R_GOLD); sc_draw(164, 104, 0);
+    build_timber_cross(400); sc_shade(0.4f, 401, 0, R_GOLD); sc_draw(270, 104, 0);
+    build_plank(410); sc_shade(0.42f, 411, 0, R_BONE); sc_draw(270, 150, 0);
+    build_kerb(100, 5); sc_shade(0.44f, 6, 0, R_GOLD); sc_draw(56, 128, 0);
+    build_fragment(17, 9, 300); sc_shade(0.42f, 301, 0, R_GOLD); sc_draw(130, 128, 0);
+    row_slab(8, 140, 148, "UNSIGNED: LEVEL 3", 0, 500);
+    row_slab(8, 160, 148, "DIG A NEW GRAVE", 1, 501);
+    ui_keys_worn(182, KEYS3, SAYS3, 3);
+    resolve();
+    ui_keys_words(182, KEYS3, SAYS3, 3);
+    sw = W * 3; sh = H * 3;
+    sheet = calloc((size_t)sw * sh, 3);
+    for (int y = 0; y < sh; y++) for (int x = 0; x < sw; x++) { const uint8_t *q = F.pal[F.pix[(y / 3) * W + x / 3]]; for (int c = 0; c < 3; c++) sheet[((size_t)y * sw + x) * 3 + c] = (uint8_t)(q[c] * 255 / 63); }
+    write_png(path, sheet, sw, sh);
+    free(sheet);
+}
 static void still(const char *path, void (*fn)(float), float loop, float t) {
     LOOP = loop; T = t;
     fn(t);
@@ -1661,6 +2189,16 @@ int main(int argc, char **argv) {
     if (!strcmp(which, "c") || !strcmp(which, "all")) run(argv[1], "C_risen", scene_c, 8.0f);
     if (!strcmp(which, "c") || !strcmp(which, "all")) run(argv[1], "C_graves", scene_c_graves, 12.0f);
     if (!strcmp(which, "overview") || !strcmp(which, "all")) overview(argv[1]);
+    if (!strcmp(which, "s") && argc > 4) {                              /* one still: s <A|Ag|B|Bg|C|Cg> <seconds> */
+        static const struct { const char *n; void (*fn)(float); float loop; } SS[6] = {
+            { "A", scene_a, 12 }, { "Ag", a_graves, 12 }, { "B", scene_b, 8 }, { "Bg", scene_b_graves, 12 }, { "C", scene_c, 8 }, { "Cg", scene_c_graves, 12 } };
+        for (int i = 0; i < 6; i++) if (!strcmp(argv[3], SS[i].n)) {
+            char p[512];
+            snprintf(p, sizeof p, "%s/s_%s_%s.png", argv[1], argv[3], argv[4]);
+            still(p, SS[i].fn, SS[i].loop, (float)atof(argv[4]));
+        }
+    }
+    if (!strcmp(which, "parts") || !strcmp(which, "all")) { char p[512]; snprintf(p, sizeof p, "%s/parts.png", argv[1]); parts_sheet(p); }
     if (!strcmp(which, "flash")) {                                      /* the lightning's frames, to check them */
         char p[512];
         snprintf(p, sizeof p, "%s/flash_a.png", argv[1]); still(p, scene_a, 12, 12 * 0.55f + 0.04f);
