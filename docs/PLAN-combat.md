@@ -1639,6 +1639,55 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   `docs/combat/c6-augments.png`, with the owner), nothing is chosen yet and play is the build before line for line (checked, 900 s);
   with `CRAWL_AUG=1` alone the dream now chooses D's at the Lampstand beside Fire's. **Track C**: once the owner approves your sheet,
   turning `aug_on` on brings all six lines in at once; nothing more is needed on D's side.
+- **9 November. J21, track D's half** (harness only), as track C's entry set it out: this branch at `14adf0d` (code as `8fe7e56`:
+  all six lines' augments in play, D6 in) against 1.0.0b20 (`e982abf`, built in a worktree), both run here with `CRAWL_RUNID` the
+  seed: seeds 17-31 odd for each of the five classes, from level 1 for the first 3,000 s, and from level 31 for 1,500 s at
+  `CRAWL_GEAR` 8 and `CRAWL_XPBANK` 77658. 1.0.0b20's runs here are J20's own for that build, line for line, as they should be.
+  **From level 1**: 236 levels cleared and 75 deaths (256 and 48), none on a boss's level, a level's median 357 s (355). Deaths by
+  level 1-7: 5, 6, 19, 11, 11, 17, 6; to rank I skeletons 34, rank II 8, shamblers 10, bats 5. **From level 31**: 117 cleared (119),
+  one death (one: a Witchfinder on 32 to a gilded Lightless; 1.0.0b20's a Sin-Eater on 31 to a rank IV imp), a level's median
+  376 s (364). With track C's half: **from level 1, 485 cleared and 158 deaths (504 and 117)**.
+
+  | From | Class | Cleared | Deaths | A level's median, s |
+  |---|---|---|---|---|
+  | 1 | Witchfinder | 44 (51) | 25 (10) | 346 (353) |
+  | 1 | Anatomist | 47 (51) | 8 (4) | 362 (363) |
+  | 1 | Galvanist | 51 (50) | 14 (18) | 350 (359) |
+  | 1 | Plague Doctor | 47 (52) | 15 (12) | 369 (352) |
+  | 1 | Sin-Eater | 47 (52) | 13 (4) | 359 (348) |
+  | 1 | **all five** | 236 (256) | **75 (48)** | 357 (355) |
+  | 31 | all five | 117 (119) | 1 (1) | 376 (364) |
+
+  **Which part.** The same forty starts from level 1 again, with the augments out (`CRAWL_AUG=0`, D6 in): 244 cleared and 64
+  deaths; with D6 out (`CRAWL_D6=0`, the augments in): 243 and 80; with both out it is 1.0.0b20 line for line (checked to 900 s
+  on two seeds). So the augments are most of it (+11 with D6, +32 without), and D6 is inside the noise (-5 with the augments, +16
+  without; its own sixteen seeds came out even). The classes swing by ten between these variants (the Galvanist 27, 14, 10, 18),
+  so only the totals and the pattern below are worth reading. **Where**: by the opening the dream drew at random for its own line
+  (A15), each run against its own variant without the augments (ten or six runs a side): Siphon 21 deaths (5), Firecracker 22
+  (7), Burning Intensity 20 (11), Hoarbite 13 (7), Thick Brew 26 (16), Straight Throw 16 (10), Splinterfrost 7 (4), Hollowing 6
+  (7), Forked 13 (22), Overcharge 11 (23). With track C's half, against 1.0.0b20 alone (eight seeds a side): **Firecracker 27
+  (4), Siphon 23 (4)**, Burning Intensity 15 (15), Hollowing 9 (9). What costs the dream is an opening that takes from the one
+  spell it has on levels 1-7, against rank I skeletons that a quicker kill keeps off it: Firecracker's spark (a quarter now, the
+  rest burning over four seconds), Siphon's 15% less (for healing that is small at rank I and paid in spirit), Hoarbite's fifth
+  less (which costs less: its second chill holds them). Burning Intensity's 0.8 on a bolt not held comes out even over both halves: the
+  dream holds it at range. What adds to the hit (Overcharge, Forked) helps it: the Galvanist died less with the augments in either
+  variant. Thick Brew only lengthens a dose, so its 26 against 16 is the Plague Doctor's usual noise. **For the owner**, three ways:
+  (a) keep it (a person chooses, and the dream's random choice is A15's); (b) the dream's first choice on its own line weighs the
+  pair (the side that keeps its hit: Burning Intensity, Hollowing, Splinterfrost), which touches only the dream (`auto_augment`,
+  track C's); (c) ease the two trades, Firecracker's spark (C's) and Siphon's 15% (D's: to 5%, or its healing free of spirit at
+  rank I), which a person would feel too. I'd take (b), and (c) for Siphon only if a person finds it a poor trade. Nothing changed
+  yet; the owner's word first. **What else**: from level 1 the dream channelled Restoration 9 times (12) and from 31 107 (200; not looked
+  into: the spirit Multiply and Overcharge take may be what it lacks), lived no killing blow, and 197 creatures were born to
+  an element from level 1 (223), 1,619 from 31 (1,525); the merchant by class: 30 souls from Swallowed Sin, one
+  Live Wire's arc, no bone from the Block. The augments' events from level 1: Multiply's split bolts 1,303, Splinterfrost 1,295,
+  Forked 301, Burning Intensity's held bolts 275, Cluster 266, Lingering Hunger 220, Soul Echo 133, Miasma 22; from 31, Twin Throw
+  151, Miasma 114, Multiply 71, Cluster and Volatility 59 each, Thunderclap and Cold Snap 54 each, Bone Rain 36, Pestilence 27,
+  Pyre 24, Conductor 9. 119 augments chosen from level 1 and 227 ranks gained (312 and 149 from 31, the deep start choosing at its
+  first visit). Stalls: seven runs of the forty from level 1 stood 40 s within a cell of a place (five), two from 31 (none), none
+  past 41 s. **ASan** clean on seven dreams of 600 s on this build: a class each across the starts (the Witchfinder from 1,
+  the Anatomist from 11, the Galvanist from 21, the Plague Doctor and the Sin-Eater from 31), and two with every line open and
+  every augment at III by `CRAWL_AUGSET`, the first of each pair from 31 and the second from 21 (Cold Snap, Forked, Thunderclap,
+  Multiply, Burning Intensity's held bolt, Soul Echo, Miasma and Splinterfrost among what fired). Track C: the numbers are for your table; no contract changed. **Track D's half of J21 is done.**
 
 ## Appendix: the owner's guide (7 November), as given
 
