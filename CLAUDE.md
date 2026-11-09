@@ -1575,8 +1575,9 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   <rank> by ...`, `EVENT lines_payback`. The screen shows each stat as the caster has it in all and as the next rank would leave it
   (`conf_total`, `conf_tfmt`; `gear_total_free` in `crawl_gear.c` is a total before its cap), a pale blue lid over a number at
   its cap (`cap_lid`, `conf_at_cap`; on the list's numeral too, `conf_capped`), *AT ITS CAP: ...* at the pane's foot, and asks
-  twice before confessing one whose every number is capped (`G.cf_arm` the Confession). The caps and a draft of caps by class
-  are in `docs/BRIEF-caps.md`, for the owner.
+  twice before confessing one whose every number is capped (`G.cf_arm` the Confession). The caps and the owner's caps by class
+  are in `docs/BRIEF-caps.md` (section 6 settled, built by D). Tab's caster page lists D's Restoration on 8 once confessed
+  (`render_caster`: an ankh, its rank, gold while `G.rst_sel`).
 - **The dead's ways shown** (1.0.0b18, PLAN-ai step 11, Part H; harness only; released). `WY_*` (seventeen set pieces), `way_met` (named
   once a run of ten, `RUN.ways`/`way_said`/`way_run`), `pack_way`; the Codex's `CX_WAYS`; the record's deeds (`deed_note`,
   `DEED_*`, `caller_hushed`, `ways_ends`, `Pack.hunted/hurts0/done`, `Ambush.deaths0/done`, `G.hurts`, `G.hunt_shaken`) and

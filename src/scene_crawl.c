@@ -28499,9 +28499,18 @@ static void render_caster(Frame *f) {
         if (sp == AT_BFS) snprintf(e, sizeof e, "%d BFS", k + 1); else snprintf(e, sizeof e, "%d   %d", k + 1, g->atk[sp]);
         int w = gfx_text_width(e, 1);
         if (x + w > W - 10) { x = 66; y += 9; }
-        gfx_text8(f, x, y, e, sp == G.spell ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 11), 1);
+        gfx_text8(f, x, y, e, sp == G.spell && !G.rst_sel ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 11), 1);
         if (sp != AT_BFS) elem_glyph(f, x + 12, y, ATK_ELEM[sp], 0);
         x += w + 8;
+    }
+    if (restore_open()) {                                          /* Restoration on 8, once confessed (D5's spell), an ankh for its glyph */
+        static const char *const ANKH[7] = { "..###..", ".#...#.", "..#.#..", "#######", "...#...", "...#...", "...#..." };
+        char e[24];
+        snprintf(e, sizeof e, "8   %d", imax(1, conf_rank(CF_RESTORE)));
+        int w = gfx_text_width(e, 1);
+        if (x + w > W - 10) { x = 66; y += 9; }
+        gfx_text8(f, x, y, e, G.rst_sel ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 11), 1);
+        for (int r = 0; r < 7; r++) for (int c = 0; c < 7; c++) if (ANKH[r][c] == '#') gfx_px(f, x + 12 + c, y + r, ramp_at(R_GHOST, 13));
     }
     y += 10; x = 14;
     gfx_text8(f, x, y, "RUNES", R_GOLD + 10, 1);

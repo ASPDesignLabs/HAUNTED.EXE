@@ -1009,6 +1009,10 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   Frost, Anatomist Frost and Fire, Galvanist Lightning and Frost, Plague Doctor Poison and Spirit, Sin-Eater Spirit and Poison,
   Headsman Physical and Lightning; starting resists +15 and -15), and a resist's lift (armour's share too) stops at 90%, Spirit
   Cost's at 70%; every other cap takes the full +30%. Nothing left to ask: track D, it is yours to build.
+- **9 November. Restoration on Tab's caster page** (at the owner's word; harness only). D's log left it undone, the page being
+  C's: once Restoration is confessed, the spells' row ends with *8*, an ankh in ghost-light and its rank, gold while it is in
+  hand; the spell left in `G.spell` is no longer lit gold while Restoration is (`render_caster`). Frames with it in hand, out
+  of hand and unconfessed (absent); no overflow.
 
 ## 19. Track D's log (the dead's)
 
