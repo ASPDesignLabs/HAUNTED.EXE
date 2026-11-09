@@ -1,6 +1,6 @@
 # The elements' teeth: statuses, elemental creatures, the classes' own, the Unholy Confessions and the spells' augments
 
-**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20's C5 and D5 are built and went out early as **1.0.0b19.1** (9 November, harness only, before J20); J20 is done and **1.0.0b20 is released** (9 November, harness only). 1.0.0b21 (C6, D6, D7) is next. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
+**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20's C5 and D5 are built and went out early as **1.0.0b19.1** (9 November, harness only, before J20); J20 is done and **1.0.0b20 is released** (9 November, harness only). 1.0.0b21 (C6, D6, D7) is under way: D6 is built (9 November, harness only), C6's contract is in. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
 review of how harm is dealt today (section 1), the owner's answers to that review's first four questions, and the owner's
 guide (kept as given in the appendix). The owner's answers to the review: creatures cast through the kinds we have, "mixed
 up a bit" as the guide sets out (Q1 b); their spells use the caster's six elements, so the resists, the Mirror and the wards
@@ -1476,6 +1476,53 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   `conf_cut` that adds it to Agility's cut for Knocked Down, Stunned and Frozen, under the same 0.9, and it now counts with
   `CRAWL_LINES=1` too), and `abil_short` (a stub; your `render_caster`'s switch names Mirrored now, so a class ability on the page
   isn't drawn as a mirror). "ADDS %" shares its one cap among six. Nothing in play changes.
+- **9 November. D6 is built: the merchant by class** (section 12; harness only). Commits `83c37b3` (the rolls), `ddea244` (felt),
+  `87710b1` (her wares rolled after a class or a gift is taken in her room). **The rolls** (`crawl_gear.c`): an element's stat
+  comes from the lines held by rank (`pick_elem`, G1); a piece in six may carry one for a line not held, never two; Rare and up
+  are rolled again till they carry one for a held line (`on_line`, G2; boots and amulets roll no element's stat, so carry none
+  and are left alone); the status chances on bracers and rings, Steadiness on boots and amulets (G3); "ADDS %" among all six,
+  sharing one cap (G4); an ability on a piece of Uncommon or better is the class's one time in three (G5). Checked with `make
+  items` (it takes `ITEMS_LINES`, `ITEMS_CLASS` and `ITEMS_OLD` now): 300 wares a level, levels 1-30, as a Witchfinder with Fire
+  at 8 and Lightning at 3: every Rare-and-up bracer, hood, robe and ring carries one of the two; 5% of all pieces carry an
+  off-line stat (13% of those with any element's stat), none two; Pyrebrand is a third of the abilities at Uncommon and up. A
+  Headsman holding Physical alone rolls no status chance (there is none for Physical). **Felt**: `st_odds` (Ignition, Static
+  and Hush a share more on their status's chance in `el_chance`; **my reading for the two that roll no chance today**: Rime lays
+  a second Chilled stack that share of the time, Blight makes that share of your doses half again as long and as strong; for
+  the owner to change), `cls_ab` (a class's ability felt by its class alone: Pyrebrand, a share more ignitions and a second
+  more of burning at the same pace; the Slab, a share more on the frozen and the stacks a second longer; Live Wire, a share more
+  stuns and `wire_pass`, a fifth of a hit on the stunned to the nearest within two cells, a spark that rolls nothing; Fever, the
+  poisoned a share more from everything; Swallowed Sin, a share more Unbound and a soul from what dies Unbound; the Block, a
+  share off Knocked Down and the spear's bone where a staggered or pinned one fell). **The Block cuts Knocked Down as Agility
+  does, its chance with its length**, since it joins Agility's cut; the plan says shorter only. Steadiness and the Block go
+  through `gear_cut` (CONTRACT, above), under Agility's 0.9. The cards say *FOR THE WITCHFINDER* on another's (and it does
+  nothing); Tab's elements page has ADDS and ODDS; the Codex has words for each new stat and ability (frames of the wardrobe,
+  her card, the elements page and the Codex's pages: nothing overflows). `CRAWL_D6=0` plays the build before line for line
+  (two seeds, 900 s), and with it `make items` gives the old wares byte for byte.
+
+  **Runs**, this build against `CRAWL_D6=0` on the same seeds (`CRAWL_RUNID` the seed), the five classes a fresh run can be given:
+
+  | From | Class | Cleared | Deaths | A level's median, s |
+  |---|---|---|---|---|
+  | 1 | Witchfinder | 53 (51) | 9 (9) | 349 (343) |
+  | 1 | Anatomist | 52 (52) | 5 (4) | 342 (362) |
+  | 1 | Galvanist | 51 (46) | 19 (27) | 340 (356) |
+  | 1 | Plague Doctor | 42 (48) | 29 (20) | 370 (357) |
+  | 1 | Sin-Eater | 50 (51) | 8 (9) | 348 (345) |
+  | 1 | **all five** | 248 (248) | 70 (69) | 349 (356) |
+  | 31 | **all five** | 117 (118) | 0 (0) | 370 (374) |
+
+  *Seeds 1-15 odd; from level 1 the first 3,000 s, from level 31 1,500 s at gear 8; `CRAWL_D6=0` in brackets.* Even in all. The
+  Plague Doctor and the Galvanist were run on seeds 17-31 too: the Galvanist 27 deaths (18) there, 46 (45) over sixteen seeds;
+  the Plague Doctor 14 (12) there, **43 (32) over sixteen**, most of it on levels 1-3 of seeds 1 and 7 (17 deaths on levels 1-3
+  against 5). The two builds part from the first ware (a fresh run's free piece is rolled by the new rules), so the early levels
+  differ at once; whether the class's wares, now leaning to Poison (Blight, Poison's Power, "ADDS %" Poison), leave the dream's
+  early Plague Doctor worse off than random ones did isn't known; the Galvanist swung as far each way between the two halves.
+  From level 1 the dream bought 18 pieces with its class's ability in 40 runs (3 from 31); Swallowed Sin left 31 souls from
+  level 1, Live Wire arced 6 times from 31. No run stood still past 41 s. **ASan** clean on four dreams of 600 s (the Plague
+  Doctor from 1; from 11, 21 and 31 the Galvanist, the Headsman and the Sin-Eater with `CRAWL_ABIL` their class's ability on every
+  worn piece: Live Wire, the Block and Swallowed Sin fired). **Track C**: Tab's caster page (yours) has no row for Steadiness or
+  the three new "ADDS %"; the right column has room for one more, and Steadiness would sit there. **D6 is built**; next for track
+  D, D7 (the other five lines' augments) on C6's frame.
 
 ## Appendix: the owner's guide (7 November), as given
 
