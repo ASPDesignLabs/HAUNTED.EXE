@@ -25,4 +25,4 @@ Esc (B on a controller) goes back a step. Left untouched on its prompt for a min
 
 ### What has been tested
 
-The title screen was driven down every path in the test harness, with the keys and with a scripted controller, and checked with AddressSanitizer. The music was tested in the harness. None of it has been played by hand or run on Windows yet. A title frame is heavier to draw than a frame of the crypt (19 to 28 ms on the test machine): if it stutters on yours, please say.
+The title screen was driven down every path in the test harness, with the keys and with a scripted controller, and checked with AddressSanitizer. The music was tested in the harness. None of it has been played by hand or run on Windows yet. A title frame is heavier to draw than a frame of the crypt (8 to 14 ms on the test machine): if it stutters on yours, please say.

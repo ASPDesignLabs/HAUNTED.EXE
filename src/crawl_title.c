@@ -428,9 +428,10 @@ static void sky(int y0, int y1, float t, float mx, float my, float mr, float fla
         float sp = (float)(W) / LOOP * (layer ? 1 : 2) / 1.0f;
         for (int y = y0; y < y1; y++) for (int x = 0; x < W; x++) {
             /* drifting, and seamless round the loop: two drifts a loop apart, crossfaded */
+            float band = 1 - fabsf((float)(y - (y0 + (y1 - y0) * (layer ? 0.55f : 0.3f))) / ((y1 - y0) * 0.25f));
+            if (band <= 0.36f) continue;                                 /* no cloud can show here: spare the noise */
             float fy = y * 0.045f + layer * 3, a1 = (x + t * sp * 0.25f) / (float)W * per, a0 = (x + (t - LOOP) * sp * 0.25f) / (float)W * per;
             float c = fbm_px(a1, fy, per, 91 + layer * 13) * (1 - t / LOOP) + fbm_px(a0, fy, per, 91 + layer * 13) * (t / LOOP);
-            float band = 1 - fabsf((float)(y - (y0 + (y1 - y0) * (layer ? 0.55f : 0.3f))) / ((y1 - y0) * 0.25f));
             c = c * clampf(band, 0, 1) - 0.36f;
             if (c <= 0) continue;
             float a = clampf(c * 4, 0, 1);
@@ -450,6 +451,28 @@ static void fog(int y0, int y1, float t, float dens, uint32_t seed) {
         float f = (f1 * (1 - t / LOOP) + f0 * (t / LOOP)) * smooth((float)y0, (float)y0 + (y1 - y0) * 0.5f, (float)y) * (1 - smooth((float)y1 - 6, (float)y1, (float)y));
         f = f * dens - 0.5f;
         if (f > bay(x, y) * 0.5f && !(MF[y][x] & MF_DIRECT)) { MR[y][x] = R_STONE; MV[y][x] = fmaxf(MV[y][x], 0.3f + 0.4f * f); MF[y][x] = MF_NOWARM; }
+    }
+}
+
+/* ---- still layers: rows of the materials that never change, drawn once and copied after ---- */
+enum { LY_A_EARTH, LY_A_CRYPT, LY_C_GROUND, NLY };
+static struct { int y0, y1; uint8_t *r, *f; float *v; } LYR[NLY];
+static int layer_get(int id) {
+    if (!LYR[id].r) return 0;
+    for (int y = LYR[id].y0; y < LYR[id].y1; y++) {
+        size_t o = (size_t)(y - LYR[id].y0) * W;
+        memcpy(MR[y], LYR[id].r + o, W); memcpy(MF[y], LYR[id].f + o, W); memcpy(MV[y], LYR[id].v + o, W * sizeof(float));
+    }
+    return 1;
+}
+static void layer_put(int id, int y0, int y1) {
+    size_t n = (size_t)(y1 - y0) * W;
+    LYR[id].r = malloc(n); LYR[id].f = malloc(n); LYR[id].v = malloc(n * sizeof(float));
+    if (!LYR[id].r || !LYR[id].f || !LYR[id].v) { free(LYR[id].r); free(LYR[id].f); free(LYR[id].v); memset(&LYR[id], 0, sizeof LYR[id]); return; }
+    LYR[id].y0 = y0; LYR[id].y1 = y1;
+    for (int y = y0; y < y1; y++) {
+        size_t o = (size_t)(y - y0) * W;
+        memcpy(LYR[id].r + o, MR[y], W); memcpy(LYR[id].f + o, MF[y], W); memcpy(LYR[id].v + o, MV[y], W * sizeof(float));
     }
 }
 
@@ -736,7 +759,49 @@ static float weathered(int i, int j, float v, uint32_t seed, int calm, int *ramp
 }
 /* the shading: every pixel's ramp and value (or a colour as it is, for gold); gild 0..1 how far the words are gilt, in
  * gramp (R_GOLD, or R_BONE for a pale inlay) */
+/* the shaded pieces kept: most never change, and shading is most of a frame's work; a piece is known again by a hash of
+ * everything it was built from */
+#define SCC_N 48
+static struct { uint64_t key; int w, h; size_t cap; uint8_t *r, *d; float *v; } SCC[SCC_N];
+static int scc_next;
+static uint64_t sc_key(float bv, uint32_t seed, float gild, int gramp) {
+    uint64_t h = 1469598103934665603ull;
+#define MIX(x) do { h ^= (uint64_t)(x); h *= 1099511628211ull; } while (0)
+    union { float f; uint32_t u; } c;
+    MIX(S.w); MIX(S.h); c.f = bv; MIX(c.u); MIX(seed); c.f = gild; MIX(c.u); MIX(gramp);
+    for (int j = 0; j < S.h; j++) for (int i = 0; i < S.w; i++) {
+        if (!S.id[j][i]) { MIX(0); continue; }
+        MIX(S.id[j][i] | (uint32_t)(uint8_t)S.ht[j][i] << 8 | (uint32_t)S.m[j][i] << 16 | (uint32_t)S.f[j][i] << 24);
+        c.f = S.dv[j][i]; MIX(c.u); c.f = S.gk[j][i]; MIX(c.u);
+    }
+#undef MIX
+    return h;
+}
+static void sc_shade_now(float bv, uint32_t seed, float gild, int gramp);
 static void sc_shade(float bv, uint32_t seed, float gild, int gramp) {
+    uint64_t key = sc_key(bv, seed, gild, gramp);
+    for (int k = 0; k < SCC_N; k++) if (SCC[k].key == key && SCC[k].w == S.w && SCC[k].h == S.h && SCC[k].r) {
+        for (int j = 0; j < S.h; j++) {
+            memcpy(S.r[j], SCC[k].r + (size_t)j * S.w, (size_t)S.w); memcpy(S.d[j], SCC[k].d + (size_t)j * S.w, (size_t)S.w);
+            memcpy(S.v[j], SCC[k].v + (size_t)j * S.w, (size_t)S.w * sizeof(float));
+        }
+        return;
+    }
+    sc_shade_now(bv, seed, gild, gramp);
+    int k = scc_next; scc_next = (scc_next + 1) % SCC_N;
+    size_t n = (size_t)S.w * S.h;
+    if (SCC[k].cap < n) {
+        free(SCC[k].r); free(SCC[k].d); free(SCC[k].v);
+        SCC[k].r = malloc(n); SCC[k].d = malloc(n); SCC[k].v = malloc(n * sizeof(float)); SCC[k].cap = n;
+        if (!SCC[k].r || !SCC[k].d || !SCC[k].v) { free(SCC[k].r); free(SCC[k].d); free(SCC[k].v); memset(&SCC[k], 0, sizeof SCC[k]); return; }
+    }
+    SCC[k].key = key; SCC[k].w = S.w; SCC[k].h = S.h;
+    for (int j = 0; j < S.h; j++) {
+        memcpy(SCC[k].r + (size_t)j * S.w, S.r[j], (size_t)S.w); memcpy(SCC[k].d + (size_t)j * S.w, S.d[j], (size_t)S.w);
+        memcpy(SCC[k].v + (size_t)j * S.w, S.v[j], (size_t)S.w * sizeof(float));
+    }
+}
+static void sc_shade_now(float bv, uint32_t seed, float gild, int gramp) {
 #define HT(a, b) (sc_solid(a, b) ? S.ht[b][a] : -9)
     float gild0 = gild;
     for (int j = 0; j < S.h; j++) for (int i = 0; i < S.w; i++) {
@@ -1257,7 +1322,9 @@ static void a_world(float t, float flash, int graves) {
             matf(x, y, R_STONE, v, 0);
         }
     }
-    /* the earth in its bands: topsoil and roots, clay, gravel, the rock over the vault */
+    /* the earth in its bands: topsoil and roots, clay, gravel, the rock over the vault; and its dead: all of it still, so
+     * drawn once and copied after */
+    if (!layer_get(LY_A_EARTH)) {
     for (int y = A_GROUND; y < H; y++) for (int x = 0; x < W; x++) {
         float wv = 3 * (fbm(x * 0.03f, 0, 59) - 0.5f) * 2;
         int ramp = R_FLOOR;
@@ -1287,6 +1354,8 @@ static void a_world(float t, float flash, int graves) {
     }
     skull_small(118, 112, 0.42f); skull_small(52, 120, 0.36f); skull_small(186, 124, 0.34f);
     bone_small(124, 116, 6, 1, 0.38f); bone_small(30, 116, 7, -1, 0.34f); bone_small(258, 106, 6, 1, 0.36f); bone_small(176, 118, 5, -1, 0.35f);
+    layer_put(LY_A_EARTH, A_GROUND, H);
+    }
     for (int x = 0; x < W; x += 2) {                                    /* grass along the edge */
         int g = (int)(h01(x, 0, 71) * 3);
         for (int j = 1; j <= g; j++) matf(x, A_GROUND - j, R_MOSS, 0.18f + 0.06f * j, 0);
@@ -1303,6 +1372,7 @@ static int a_open(int x, int y) {                                       /* in th
     return y >= top;
 }
 static void a_crypt(float t) {
+    if (!layer_get(LY_A_CRYPT)) {                                      /* its stone and its dead are still: once */
     for (int y = A_CRYPT0 - 8; y < A_FLOOR + 3; y++) for (int x = 0; x < W; x++) {
         int bay = ((x % 64) + 64) % 64;
         if (a_open(x, y)) {                                             /* the back wall: courses of blocks */
@@ -1363,11 +1433,6 @@ static void a_crypt(float t) {
             for (int i = 0; i < 30; i += 6) mrect(bx + i, A_FLOOR - 6, 3, 4, R_STONE, 0.22f, 0);
         }
     }
-    for (int b = 1; b <= 4; b += 3) {                                   /* chains from the arches' crowns, swaying */
-        float cxb = b * 64 + 35, sway = sinf(t * 2 * PI / LOOP * 3 + b) * 1.2f;
-        for (int k = 0; k < 16; k++) matf((int)(cxb + sway * k / 16), A_CRYPT0 + 5 + k, R_IRON, k % 2 ? 0.32f : 0.24f, 0);
-        mdisc(cxb + sway, A_CRYPT0 + 22, 1.6f, R_IRON, 0.3f, 0);
-    }
     for (int b = 0; b <= 5; b++) {                                      /* cobwebs in the corners of the arches */
         int px = b * 64 + 6;
         for (int r = 3; r <= 9; r += 3) for (int a = 0; a < 10; a++) {
@@ -1377,6 +1442,13 @@ static void a_crypt(float t) {
         for (int a = 0; a < 3; a++) mline((float)px, A_CRYPT0 + 8.0f, px + cosf(a * 0.7f) * 10, A_CRYPT0 + 8 + sinf(a * 0.7f) * 10, 1, R_BONE, 0.26f, MF_FLAT);
     }
     for (int i = 0; i < 9; i++) bone_small(10 + i * 34 + (int)(h01(i, 0, 86) * 14), A_FLOOR - 1, 4 + i % 3, 0, 0.36f);   /* bones on the floor */
+    layer_put(LY_A_CRYPT, A_CRYPT0 - 8, H);
+    }
+    for (int b = 1; b <= 4; b += 3) {                                   /* chains from the arches' crowns, swaying */
+        float cxb = b * 64 + 35, sway = sinf(t * 2 * PI / LOOP * 3 + b) * 1.2f;
+        for (int k = 0; k < 16; k++) matf((int)(cxb + sway * k / 16), A_CRYPT0 + 5 + k, R_IRON, k % 2 ? 0.32f : 0.24f, 0);
+        mdisc(cxb + sway, A_CRYPT0 + 22, 1.6f, R_IRON, 0.3f, 0);
+    }
     for (int i = 0; i < 14; i++) {                                      /* dust coming down out of the cracks */
         float x = h01(i, 1, 91) * W, ph = h01(i, 2, 91), sp = 1 + (i % 2);
         float u = frac(t / LOOP * sp + ph);
@@ -2072,16 +2144,19 @@ static void scene_c(float t) {
     mrect(0, G - 19, 64, 1, R_CEIL, 0.04f, MF_NOWARM);
     branch(24, G, 1.45f, 34, 7, 6, 31);
     branch(24, G - 24, 0.6f, 18, 3.5f, 4, 37);
-    for (int y = G - 6; y < H; y++) for (int x = 0; x < W; x++) {      /* the ground */
+    for (int y = G - 6; y < G; y++) for (int x = 0; x < W; x++) if (h01(x, 0, 3) * 6 >= G - y) matf(x, y, R_MOSS, 0.12f + 0.04f * (G - y), 0);   /* the grass's edge */
+    if (!layer_get(LY_C_GROUND)) {                                     /* the ground and its leaves, still: once */
+    for (int y = G; y < H; y++) for (int x = 0; x < W; x++) {
         float n = fbm(x * 0.04f, y * 0.08f, 51);
         float v = 0.16f + 0.1f * n + 0.04f * (y - G) / 40.0f + 0.04f * (h01(x, y, 52) - 0.5f) + 0.03f * (((x + y / 3) % 4) == 0);
-        if (y < G) { if (h01(x, 0, 3) * 6 < G - y) continue; matf(x, y, R_MOSS, 0.12f + 0.04f * (G - y), 0); continue; }
         matf(x, y, n > 0.68f ? R_FLOOR : R_MOSS, n > 0.68f ? v + 0.04f : v, 0);
     }
     for (int i = 0; i < 26; i++) {                                     /* fallen leaves on the ground */
         float lx = h01(i, 1, 46) * W, ly = G + 4 + h01(i, 2, 46) * 34;
         static const int LCOL[3] = { R_BRICK, R_WOOD, R_GOLD };
         mrect((int)lx, (int)ly, 2 + (i % 2), 1, LCOL[i % 3], 0.3f, 0);
+    }
+    layer_put(LY_C_GROUND, G, H);
     }
     const int SB = G + 2;
     build_great_stone();

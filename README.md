@@ -1282,8 +1282,9 @@ Tested in the harness only: not yet played by hand, run on Windows or seen on a 
   her room and her question, the three scenes in turn from one start to the next, and the screen given back to the
   screensaver after 90 seconds untouched, which then went on. Clean under AddressSanitizer and UBSan in each scene down
   every path. The smoke test passes.
-* **What it costs**: a title frame takes 19 to 28 ms to draw on the test machine (a crypt frame 1.8 ms), since its earth,
-  sky and stone are drawn afresh each frame; it is a title, but a slow machine may find it heavy.
+* **What it costs**: a title frame takes 8 to 14 ms to draw on the test machine (a crypt frame 1.8 ms). Its built stones are
+  shaded once and kept, and the still earth and ground are drawn once, but the sky, the light and the hall are drawn each
+  frame.
 * **The music pass** (made separately, docs/PLAN-music-work.md) was tested in the harness only, as its own notes say.
 
 **New in 1.0.0b21** (the spells' augments, six to a line; the merchant by what you hold, and your class's own abilities on

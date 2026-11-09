@@ -294,8 +294,9 @@ is the `TI` block in `scene_crawl.c` before "death's cost". `tools/titlemock.c` 
 for mock-ups, sheets and a bench. It went out with main's music pass (docs/PLAN-music-work.md), squashed onto main as one
 commit, harness only. In the harness, holding H now meets the title: `CRAWL_TITLE=0` (debug) gives the dream's run straight
 away, as before, and the debug teleports (`CRAWL_TP*`) want it. `tools/uishots.sh` and `tools/gallery.sh` set it.
-`CRAWL_TITLESCENE=k` (0-2) picks the scene. A title frame is 19-28 ms against the crypt's 1.8; caching its still layers is
-the obvious follow-up.
+`CRAWL_TITLESCENE=k` (0-2) picks the scene. A title frame is 8-14 ms against the crypt's 1.8. `sc_shade` keeps what it
+shaded under a hash of the piece (`SCC`), and the still earth, crypt and ground are drawn once (`layer_get`, `layer_put`).
+`tools/web_smoke.js` passes the title (a key, then BEGIN A NEW RUN) and judges its frame apart, under 40 ms.
 
 ## Working with the owner
 

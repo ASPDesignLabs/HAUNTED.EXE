@@ -222,9 +222,9 @@ G4. **The checks**: frames of every state in the harness; scripted input down ev
     help, the graves (empty: NOTHING IS WRITTEN HERE; a page signed through her menu rises with `ledger_open`, its class read
     as the Witchfinder), a new run into her room and its class question, the rotation (A, then B, then C, the prefs record
     24 bytes), and 90 s untouched giving the screen back to the dream, which went on. ASan and UBSan clean in each scene down
-    every path, and with the pad into a new run. `make smoke` passes. `build/titlemock <dir> bench`: a title's frame is
-    19-28 ms here (the crypt's is 1.8 ms), since the earth, sky and stone are drawn afresh every frame; caching the still
-    parts is a follow-up if the owner finds it slow. Not run: the Windows and browser builds (no MinGW or Emscripten here;
+    every path, and with the pad into a new run. `make smoke` passes. `build/titlemock <dir> bench`: a title's frame was
+    19-28 ms here (the crypt's is 1.8 ms); with `sc_shade`'s cache (`SCC`, by a hash of the piece) and the still layers drawn
+    once (`LY_*`, `layer_get`/`layer_put`), 8-14 ms, the pictures unchanged. Not run: the Windows and browser builds (no MinGW or Emscripten here;
     CI compiles them), nothing by hand on Windows.
 G5. **The docs**: README (features, what was verified), CLAUDE.md, the page, the release notes (the music pass's too).
     **Done** (9 November): README's *CATACOMB: the title screen* (with `docs/preview_catacomb_title.png`), the play
@@ -274,3 +274,9 @@ None open now (answered 9 November: see section 1).
   origin/main && git merge --squash origin/claude/compassionate-dirac-6ui1wb`, set VERSION to 1.0.0b21.1, commit as
   "1.0.0b21.1: The Title Screen Update" with the attribution lines, `git push origin release-b21-1:main`, then check the
   release (`gh api repos/ASPDesignLabs/HAUNTED.EXE/releases/tags/v1.0.0b21.1`) and the page.
+- **9 November, CI on the branch (run 42709106409).** Windows built and its smoke passed. The browser's smoke failed: it
+  took over and expected play, so it tried to sign the ledger, found the title, and measured the title's frame (39.5 ms
+  in Chromium, the picture 37.6) against the crypt's 12 ms bound. Mended: `tools/web_smoke.js` now passes the title (Enter,
+  then S and Enter for a new run, then Enter twice for her question), judges the title's frame apart (under 40 ms), and
+  checks the prefs (written by the title's turn) persist through a reload, where it had checked a signed page. And the
+  title was made about twice as fast (G4's note). CI to be run again before G6.

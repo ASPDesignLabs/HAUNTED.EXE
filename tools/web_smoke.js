@@ -64,16 +64,27 @@ function fail(msg) { console.error("FAIL " + msg); process.exitCode = 1; }
   d = await dark();
   console.log(`play: ${d.w}x${d.h}, ${(d.dark * 100).toFixed(0)}% near black`);
   if (d.w !== 320 || d.h !== 200) fail("not in the crypt's mode after the takeover");
-  await shot("takeover");
+  await shot("title");
+  // since 1.0.0b21.1 the takeover opens the title screen: any key brings its menu; its own work is judged apart, with
+  // more room, since it draws an earth, a sky and stone where the crypt draws walls
+  await page.keyboard.press("Enter"); await page.waitForTimeout(1200);
+  await shot("title-menu");
+  await page.evaluate(() => window.HAUNTED.reset());
+  await page.waitForTimeout(2000);
+  const tp = await page.evaluate(() => window.HAUNTED.perf);
+  const town = (tp.step + tp.sound + tp.draw) / Math.max(1, tp.n);
+  console.log(`title: a frame's own work ${town.toFixed(2)} ms (the picture ${(tp.draw / Math.max(1, tp.n)).toFixed(2)})`);
+  if (town > 40) fail(`the title's own work is ${town.toFixed(1)} ms a frame`);
+  // BEGIN A NEW RUN: her room, and her question of what you were; Enter takes the first past offered
+  await page.keyboard.press("KeyS"); await page.waitForTimeout(300);
+  await page.keyboard.press("Enter"); await page.waitForTimeout(1500);
+  await shot("new-run");
+  await page.keyboard.press("Enter"); await page.waitForTimeout(400);
+  await page.keyboard.press("Enter"); await page.waitForTimeout(600);
   await page.keyboard.down("KeyW"); await page.waitForTimeout(1500); await page.keyboard.up("KeyW");
   await page.keyboard.down("Space"); await page.waitForTimeout(300); await page.keyboard.up("Space");
   await page.waitForTimeout(400);
   await shot("cast");
-  // a fresh run's takeover stands before the merchant: Space (as a click) opens her menu; sign her ledger on page 1
-  await page.keyboard.press("Enter"); await page.waitForTimeout(400);
-  await page.keyboard.press("Enter"); await page.waitForTimeout(400);
-  await page.keyboard.press("Enter"); await page.waitForTimeout(600);
-  await shot("signed");
   await page.keyboard.press("Escape"); await page.waitForTimeout(800);   // in play, Esc asks: flee, stay, sleepwalk
   await shot("question");
   await page.keyboard.press("Escape");
@@ -91,17 +102,17 @@ function fail(msg) { console.error("FAIL " + msg); process.exitCode = 1; }
   if (f2.fps < 15) fail("under 15 frames a second");
   const kept = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("haunted.exe/")));
   console.log("localStorage: " + (kept.join(", ") || "nothing yet"));
-  if (!kept.includes("haunted.exe/slot1")) fail("signing the ledger wrote no page to localStorage");
-  // the page survives a reload: boot again and it is still there, read back by the game
-  const before = await page.evaluate(() => localStorage.getItem("haunted.exe/slot1"));
+  // the title's turn is kept in the prefs (1.0.0b21.1): they must be written, and survive a reload
+  if (!kept.includes("haunted.exe/prefs")) fail("the title wrote no prefs to localStorage");
+  const before = await page.evaluate(() => localStorage.getItem("haunted.exe/prefs"));
   await page.reload();
   await page.waitForFunction(() => document.getElementById("press").textContent.includes("boot"), null, { timeout: 30000 });
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => document.body.classList.contains("booted"), null, { timeout: 30000 });
   await page.waitForTimeout(3000);
-  const after = await page.evaluate(() => localStorage.getItem("haunted.exe/slot1"));
-  console.log("after a reload, page 1 is " + (after === before ? "as it was" : after ? "rewritten" : "gone"));
-  if (!after) fail("the ledger's page didn't survive a reload");
+  const after = await page.evaluate(() => localStorage.getItem("haunted.exe/prefs"));
+  console.log("after a reload, the prefs are " + (after === before ? "as they were" : after ? "rewritten" : "gone"));
+  if (!after) fail("the prefs didn't survive a reload");
   const sound = await page.evaluate(() => { try { return new AudioContext().state; } catch (e) { return "none"; } });
   console.log("an AudioContext here starts " + sound);
   if (errors.length) fail("errors on the page:\n  " + errors.join("\n  "));
