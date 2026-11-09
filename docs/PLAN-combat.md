@@ -1,6 +1,6 @@
 # The elements' teeth: statuses, elemental creatures, the classes' own, the Unholy Confessions and the spells' augments
 
-**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20's C5 and D5 are built and went out early as **1.0.0b19.1** (9 November, harness only, before J20); 1.0.0b20 follows J20. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
+**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20's C5 and D5 are built and went out early as **1.0.0b19.1** (9 November, harness only, before J20); J20 is done and **1.0.0b20 is released** (9 November, harness only). 1.0.0b21 (C6, D6, D7) is next. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
 review of how harm is dealt today (section 1), the owner's answers to that review's first four questions, and the owner's
 guide (kept as given in the appendix). The owner's answers to the review: creatures cast through the kinds we have, "mixed
 up a bit" as the guide sets out (Q1 b); their spells use the caster's six elements, so the resists, the Mirror and the wards
@@ -1410,6 +1410,12 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   | 31 | **all five** | 119 (114) | 1 (0) | 364 (366) |
 
   *Seeds 17-31 odd; from level 1 the first 3,000 s, from level 31 1,500 s; 1.0.0b19 in brackets.*
+
+- **9 November. Released as 1.0.0b20** at the owner's word ("do what you need to, then release b20"), by track D's agent: J20
+  done (track C folded both halves; the owner kept the harder start), the README's *New in 1.0.0b20* with J20's numbers, the page
+  (the twentieth beta, the status row weighed, the upgrading note), the notes rewritten for it (the Galvanist's frost, the stall
+  mended, the harder start said plainly), CLAUDE.md, `VERSION` 1.0.0b20; squashed onto main as one commit, as the betas before it.
+  Next for track D: **D6**, the merchant by class (section 12), for 1.0.0b21; D7 waits on C6's contract.
 
 ## Appendix: the owner's guide (7 November), as given
 
