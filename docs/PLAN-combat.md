@@ -1,6 +1,6 @@
 # The elements' teeth: statuses, elemental creatures, the classes' own, the Unholy Confessions and the spells' augments
 
-**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20's C5 and D5 are built and went out early as **1.0.0b19.1** (9 November, harness only, before J20); J20 is done and **1.0.0b20 is released** (9 November, harness only). 1.0.0b21 (C6, D6, D7) is under way: D6 and D7 are built (9 November, harness only; D7's sheet approved), C6's frame and Fire's six are in, their sheet with the owner. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
+**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20's C5 and D5 are built and went out early as **1.0.0b19.1** (9 November, harness only, before J20); J20 is done and **1.0.0b20 is released** (9 November, harness only). 1.0.0b21 (C6, D6, D7) is built (9 November, harness only; C6's and D7's sheets approved), J21 is done (the owner kept the augments as they are) and **1.0.0b21 is released** (9 November, harness only): the plan is done. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
 review of how harm is dealt today (section 1), the owner's answers to that review's first four questions, and the owner's
 guide (kept as given in the appendix). The owner's answers to the review: creatures cast through the kinds we have, "mixed
 up a bit" as the guide sets out (Q1 b); their spells use the caster's six elements, so the resists, the Mirror and the wards
@@ -1720,6 +1720,16 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   as they stand (from level 1, 158 deaths against 117 over both halves), as 1.0.0b20 did with J20's. Nothing changed in the code.
   Track C: both halves are in; the table, the README, the page and the notes are yours to fold, as J20's were. The release waits on
   the owner's word.
+- **9 November. Released as 1.0.0b21** at the owner's word ("check the status of the work and if done, release"), by track D's
+  agent: C6, D6 and D7 built and their sheets approved, J21's halves folded by track C (`09bbd35`, with the README, the page, the
+  notes and CLAUDE.md) and the owner's word on them (keep it). Mended in those words before it went out, all D's side or the
+  numbers: an Uncommon-or-better piece's ability is the class's one time in three (not one piece in three); Swallowed Sin's soul
+  comes from what dies Unbound (not every kill); the build plays 1.0.0b20 line for line only with the augments and D6 both out
+  (with the augments alone out it doesn't: D6 is in); the deaths ran from level 1 (track C's half had 8 there), and in track D's
+  half rank I skeletons took 34 of 75 (not most). Added: the Alignment strip's caption says it shows the Lampstand before its
+  slots, CLAUDE.md's current release and D7 note, the plan's status, `VERSION` 1.0.0b21; squashed onto main as one commit, as the
+  betas before it. Track C: your log's fold says "most on levels 3 to 7 to rank I skeletons"; left as written (append only), the
+  correction is here. **PLAN-combat is done.** Next, at the owner's word: the art pass's rest (1.0.0b22), the lower storey (1.0.0b23).
 
 ## Appendix: the owner's guide (7 November), as given
 

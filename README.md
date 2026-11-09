@@ -54,7 +54,7 @@ Two scenes are included. They alternate every few minutes (configurable) with a 
 
 ![CATACOMB's four runs: a chapter house with its plaster falling away and a knight's slab with candles in the Crypts; a shield-bearer wading through a cistern and a spinners' gallery of bone and webs in the Catacombs; a timbered gallery with mine carts and a lamp, and a fossil hall with a fire, in the Hollows; a geode under a roof of amethyst, and a glass hall with its cracks alight, in the Deep](docs/preview_catacomb_runs.png)
 ![CATACOMB's trials and puzzles: a trial's door marked with skull and crossed bones in the Catacombs, Rising Water under way with its hourglass and the drowned wading in, the magma's beam through two glass prisms in a Deep puzzle, the hidden message found in a candle-box, the documents page with the leaf's text, and the reckoning's slip at the exit, THE DEAD KEEP COUNT](docs/preview_catacomb_trials.png)
-![CATACOMB's Alignment and souls: the Lampstand's tree with Fire at rank 17 and Firestarter chosen, a flame spirit circling the caster's hand, her question of another past at the Anatomist, the map open while walking with violet ink across a hole burnt in the parchment, a shield-bearer's health with the glyphs of what hurts it, and a bat latched across the view](docs/preview_catacomb_alignment.png)
+![CATACOMB's Alignment and souls: the Lampstand's tree (as it was before 1.0.0b21's augment slots) with Fire at rank 17 and Firestarter chosen, a flame spirit circling the caster's hand, her question of another past at the Anatomist, the map open while walking with violet ink across a hole burnt in the parchment, a shield-bearer's health with the glyphs of what hurts it, and a bat latched across the view](docs/preview_catacomb_alignment.png)
 ![CATACOMB's map and Levels of Atonement: the map floating beside the merchant with its card, the map unrolled in the Ossuary, a shield-bearer's health with the spells that hurt it most and least, a Level of Atonement banked as it falls, the caster's screen, and the cornerstones](docs/preview_catacomb_atonement.png)
 ![CATACOMB with a game controller: holding a button over HAUNT.EXE's pumpkin patch, the controls in the pad's words, the merchant's prompt, the wardrobe, the bestiary and the Codex with their buttons in colour](docs/preview_catacomb_pad.png)
 ![CATACOMB's bosses: the Ill-Fated Skeleton Knight's card in the knights' vault, the knight raising its blade, the Wandering Hunting Spider's card in its gallery, the Black Deacon in his chapel in a green light with his ward's shards about him, a fire bursting on him, and a Fire Bolt bursting on the Wraith Unbound on its throne beside a void](docs/preview_catacomb_bosses.png)
@@ -342,10 +342,10 @@ buy, and a rest while it purrs mends some of your wounds.
   carries at least one for a line you hold. New stats: a chance of each element's mark on the dead (*Ignition*,
   *Rime*, *Static*, *Blight*, *Hush*), on rings and bracers; and *Steadiness* (Knocked Down, Stunned and Frozen shorter
   and rarer), on boots and amulets. The element added to every spell now rolls among all six lines you hold, under one
-  cap. From Uncommon up, one piece in three may carry your class's own ability: **Pyrebrand** (the Witchfinder's:
+  cap. From Uncommon up, an ability a piece rolls is your class's own one time in three: **Pyrebrand** (the Witchfinder's:
   ignites more often, and a second longer), **the Slab** (the Anatomist's: the frozen take more, and chills last
   longer), **Live Wire** (the Galvanist's: stuns more often, and a fifth arcs on), **Fever** (the Plague Doctor's: the
-  poisoned take more), **Swallowed Sin** (the Sin-Eater's: unbinds more often, and a soul more a kill) and **the Block**
+  poisoned take more), **Swallowed Sin** (the Sin-Eater's: unbinds more often, and a soul more from what dies Unbound) and **the Block**
   (the Headsman's: knocked down less, and bones kept). Another class's says *for the ...* and does nothing for you.
 * **Anointed** pieces, about one in ten, have their stats raised by 10% (Common) to 25% (Exquisite).
   The Black Altars anoint too (below).
@@ -1253,7 +1253,7 @@ what you wear). Tested in the harness only: not yet played by hand, run on Windo
 
 * **Weighed against 1.0.0b20**: the screensaver from level 1, the first 3,000 seconds on sixteen seeds for each of the five
   classes a fresh run can be given, against 1.0.0b20 on the same runs: 485 levels cleared and **158 deaths** (504 and 117).
-  **A third more deaths**, on levels 3 to 7, most of them to rank I skeletons. The augments are most of it, and of them the
+  **A third more deaths**, on levels 1 to 7 (on half the seeds, 34 of 75 to rank I skeletons). The augments are most of it, and of them the
   openings that take from the one spell the screensaver has early, chosen at random: on the seeds where it drew Firecracker,
   its Witchfinder died 27 times (4 on the same seeds before), and where it drew Siphon, its Sin-Eater 23 (4); with Burning
   Intensity and Hollowing it died as often as before, and the Galvanist, whose openings add to the hit, less. Kept as it is,
@@ -1265,8 +1265,8 @@ what you wear). Tested in the harness only: not yet played by hand, run on Windo
 * **The augments**: Fire's six in the screensaver's play, and five of them in a scripted person's (the held bolt grown, and with
   the Firewall held past three seconds the Firewall); the other lines' forced on every pair in the screensaver's play; chosen
   at the Lampstand by a scripted person, asked twice; their choices and credits signed onto a page and read back in a fresh
-  session; the Lampstand's tablet and the Codex's pages checked to fit. With the augments switched out, the screensaver played
-  the build before exactly, event for event. The Lampstand's slots and Fire's six, and the other lines', approved by the author
+  session; the Lampstand's tablet and the Codex's pages checked to fit. With the augments and the merchant by class both
+  switched out, the screensaver played 1.0.0b20 exactly, event for event. The Lampstand's slots and Fire's six, and the other lines', approved by the author
   on sheets first.
 * **Memory safety** for 1.0.0b21 (AddressSanitizer): seven dreams of 600 seconds on this build, a class each across levels 1,
   11, 21 and 31 and two with every augment forced to its third rank, and four with Fire's alone before the rest came in: clean.
