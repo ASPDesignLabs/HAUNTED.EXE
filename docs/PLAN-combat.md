@@ -1051,6 +1051,8 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   4 runs of 40 stood 40-41 s, none longer. **For the owner**: whether the early caster should have more of its own (health with
   each Level of Atonement, say, as the cheap Health line was), the Confessions' early numbers raised, or the harder start kept.
   J20's runs are otherwise done.
+- **9 November. The owner's word: keep it harder.** 1.0.0b20 goes out with the Confessions as they are and J20's numbers in the
+  README; main's README and page keep their *not yet weighed* till then, and 1.0.0b20's words carry the finding. **J20 is done.**
 
 ## 19. Track D's log (the dead's)
 
