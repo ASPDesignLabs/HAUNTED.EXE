@@ -231,6 +231,8 @@ G5. **The docs**: README (features, what was verified), CLAUDE.md, the page, the
     section, the music and *New in 1.0.0b21.1*; the page's play section, figure, music, upgrading and beta status; the release
     notes rewritten; CLAUDE.md's release line, a paragraph and the map.
 G6. **The release**: VERSION 1.0.0b21.1, squashed onto main as one commit; CI publishes it; check the release and the page.
+    **Pushed** (9 November): main is `6dbdd89`, "1.0.0b21.1: The Title Screen Update", after CI went green on the branch
+    (run 42710646255: Windows and its smoke, the browser and its smoke). Still to check: the release's assets and the page.
 
 ## 5. Questions still open for the owner
 
@@ -284,3 +286,7 @@ None open now (answered 9 November: see section 1).
   scene. If green: G6 as in the entry above (release-b21-1 from origin/main, `git merge --squash`, VERSION 1.0.0b21.1,
   commit, `git push origin release-b21-1:main`). If the browser's smoke fails again, read its log
   (`get_job_logs`) first: the title's bound is 40 ms a frame there.
+- **9 November, released.** `6dbdd89` pushed to main. If the release or the page didn't come out, look at the Build run
+  on main and at Pages; the release check is `gh api repos/ASPDesignLabs/HAUNTED.EXE/releases/tags/v1.0.0b21.1`
+  (REST, not GraphQL). After that, the title waits on the owner's hand on Windows. Its follow-ups: HELP's page, and
+  anything they find.
