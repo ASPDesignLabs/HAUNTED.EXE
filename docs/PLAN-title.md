@@ -199,10 +199,23 @@ title as 1.0.0b21.1, "The Title Screen Update". Decisions taken as defaults (say
   and `tools/gallery.sh` set it.
 
 G1. **The art as a module**: `src/crawl_title.c/.h` (`title_draw(Frame *, float t, const TitleView *)`), moved out of
-    `tools/titlemock.c`, which becomes its driver for the mock-ups. *Status: being done.*
+    `tools/titlemock.c`, which becomes its driver for the mock-ups. **Done** (9 November): `make build/titlemock` remakes
+    the approved mock-ups from the module, frame for frame (the overview checked by eye). `title_debug_frame` serves the
+    logo and parts sheets. The view (`TitleView`) carries the scene, the pad, the graves or not, the menu's coming,
+    the key's flare, each choice's and each grave's chosen-ness, the pages' words (`title_page_set`), a foot word and the
+    version. `src/crawl_title.c` is in the Makefile's `SRC`, so the Windows and web builds take it.
 G2. **The title in the game**: its state (`TI` in `scene_crawl.c`), input (any key or button, not a stick), render, music
-    (`snd_set_menu(3)`), the rotation, the idle return.
-G3. **The four**: the graves from the ledger, a new run, the controls, help.
+    (`snd_set_menu(3)`), the rotation, the idle return. *Status: written, being built and tested.* The block sits just
+    before "death's cost" in `scene_crawl.c` (`TI`, `title_enabled`, `title_next_scene`, `title_pages`, `title_open`,
+    `title_to_dream`, `title_to_play`, `title_any`, `title_nav`, `title_pick`, `title_tick`, `title_controls`, `title_help`,
+    `title_up`, `title_render`), with prototypes after `pad_look_render`'s. Its hooks: `crawl_control` (CTRL_TAKE opens it
+    unless `CRAWL_TITLE=0`; CTRL_PAUSE leaves it be), `crawl_input` (no `pad_keys` while it is up), `crawl_update` (its
+    `title_tick` first, then return), `crawl_render` (`title_render` before anything else), `music_frame` (`snd_set_menu(3)`,
+    no fight or failing). The prefs' 24th byte is `PL.title` (`PL_BYTES_TITLE`). `Page` gained `cls`, read from the
+    page's `LG_ALIGN` in `page_info`. Debug switches: `CRAWL_TITLE=0`, `CRAWL_TITLESCENE=k` (0-2); `EVENT title open`,
+    `menu`, `pick`, `rise`, `new`, `dream`.
+G3. **The four**: the graves from the ledger, a new run, the controls, help. *Status: written with G2* (`title_pick`,
+    `title_to_play`, `title_controls`, `title_help`).
 G4. **The checks**: frames of every state in the harness; scripted input down every path into play; an ASan session; the
     smoke test; a bench of the title's frame; the mock-ups made again from the module.
 G5. **The docs**: README (features, what was verified), CLAUDE.md, the page, the release notes (the music pass's too).
@@ -232,3 +245,10 @@ None open now (answered 9 November: see section 1).
   start from section 4b: the title scene and its rotation, any key or button but a stick to go on, the menu, the grave
   screen from `page_info`, THE CONTROLS from the controls card and `UI_PAD`, HELP's empty page, and `MU_TITLE` from the
   music branch.
+- **9 November, session 1, at the owner's word to release.** Main's music pass merged into the branch (no conflicts). G1
+  done. G2 and G3 are written and the first build is running. Usage is nearly spent for the week, so if a new agent takes
+  this up: build (`make build/host build/host_debug build/titlemock`), fix what fails, then G4's checks. Take over with
+  `HOST_INPUT="1:+H;4.3:-H;6:+ENTER;6.1:-ENTER"` and shots at 5, 7 and 9 s; `CRAWL_TITLESCENE=1` for B; pick the menu's
+  rows with `+S`/`-S`. Then G5 and G6 as written. The release notes must also cover main's unreleased music pass (commit
+  789978b, "The game's music: her hall's pieces, run I's and run II's, the Lampstand's"; its plan is
+  `docs/PLAN-music-work.md`).
