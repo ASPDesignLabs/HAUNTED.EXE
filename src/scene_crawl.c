@@ -4301,6 +4301,7 @@ static int c4_volleys, c4_charges, c4_charge_hits, c4_downs, c4_spews, c4_spew_h
 /* the caster's track (C) ends */
 /* the dead's track (D): */
 static int wraith_cornered_n;                                      /* the Wraith gone into the stone from a corner */
+static int wire_arcs, sin_souls, block_bones;                      /* D6: Live Wire's sparks, Swallowed Sin's souls, the Block's bones */
 /* the dead's track (D) ends */
 #endif
 static int hurt_by(const Mob *m, float dmg, int kind) {
@@ -5061,6 +5062,12 @@ static int d6_on(void) {                                           /* the mercha
     return 1;
 #endif
 }
+static float cls_ab(int e, int which) {                            /* a class's ability worn (G5): felt by that class alone */
+    return d6_on() && cls_el() == e ? gear_ability(&RUN.gear, AB_CLASS + e, which) : 0.0f;
+}
+static float st_odds(int el) {                                     /* G3: an element's status chance worn, as a share more */
+    return d6_on() && el >= 0 && el < EL_PHYS ? gear_total(&RUN.gear, ST_CHANCE + el) / 100.0f : 0.0f;
+}
 static void align_sync(void) {                                     /* each line's spell into the spellbook, at its rank */
     for (int e = 0; e < NELEM; e++) {
         int r = align_rank(e);
@@ -5401,8 +5408,16 @@ static float class_extra(int what) {                               /* KX_*: what
     if (e < 0 || !class_sheet_on()) return 0.0f;
     return what == KX_AF_CUT ? CLASS_OWN[e].af_cut : what == KX_SOULS ? CLASS_OWN[e].souls : 0.0f;
 }
-static float gear_cut(int k) { (void)k; return 0.0f; }             /* D6's: what is worn, off the hard statuses (a stub) */
-static void abil_short(int ab, float a, char *buf, int n) { snprintf(buf, (size_t)n, "%s %.0f%%", ABIL_NAME[clampi(ab, 0, NABIL - 1)], a); }
+static float gear_cut(int k) {                                     /* D6's (G3, G5): what is worn, off the hard statuses, as Agility's */
+    if (!d6_on() || !(k == AF_DOWN || k == AF_STUN || k == AF_FROZEN)) return 0.0f;
+    return gear_total(&RUN.gear, ST_STEADY) / 100.0f + (k == AF_DOWN ? cls_ab(EL_PHYS, 0) / 100.0f : 0.0f);   /* Steadiness; the Block */
+}
+static void abil_short(int ab, float a, char *buf, int n) {        /* a class's ability on Tab's caster page */
+    static const char *const WD[NELEM] = { "PYREBRAND", "SLAB", "LIVE WIRE", "FEVER", "SWALLOWED SIN", "BLOCK" };
+    int e = clampi(ab - AB_CLASS, 0, NELEM - 1);
+    if (cls_el() != e) snprintf(buf, (size_t)n, "%s: NOT YOURS", WD[e]);
+    else snprintf(buf, (size_t)n, "%s +%.0f%%", WD[e], a);
+}
 /* a killing blow lived (10.4): a blow that would end the caster, not a seep (hurt_ex has asked), not fire, bile or a void stood in,
  * nor a burning floor, a pool or poison; Second Wind has gone first. Constitution's chance, at most once a level (a pocket is a
  * place of its own): the blow lands, health stops at 1, and nothing touches the caster for three seconds, as a Second Wind.
@@ -5530,6 +5545,12 @@ static void kill_mob(Mob *m) {
     xp_kill(m);
     spawn_mote(m->x, m->y, (RANK_SOULS[m->rank] + (m->last_atk == AT_DRAIN && align_has(EL_SPIRIT, ND_ABIL) ? (m->rank >= RK_III ? 2.0f : 1.0f) : 0.0f))   /* Harvest */
                            * soul_share());                        /* Spirituality, and the class's own */
+    if (m->unb_t > 0.0f && cls_ab(EL_SPIRIT, 0) > 0.0f) { spawn_mote(m->x, m->y, 1.0f); DBG_COUNT(sin_souls); }   /* Swallowed Sin: Unbound, a soul
+                                                                      more (G5) */
+    if (m->last_atk == AT_SPEAR && (m->stagger > 0.0f || m->pin > 0.0f) && cls_ab(EL_PHYS, 0) > 0.0f && G.map[m->cy][m->cx].kind == K_FLOOR) {
+        Item *it = add_item(m->cx, m->cy, IT_BONE);                /* the Block: the spear's bone left where it fell (G5) */
+        if (it) { it->secret = 1; it->seen = 1; DBG_COUNT(block_bones); }
+    }
     if (G.reap_t > 0.0f && RUN.gear.def[DF_REAP] >= RUNE_EXQ && !G.dead && !KIND_IS(m, KF_UNCOUNTED)) {   /* Exquisite: a little life back */
         G.hp = clampi(G.hp + (G.max_hp + 19) / 20, 0, G.max_hp);
         DBG_COUNT(exq_reaped);
@@ -5650,8 +5671,9 @@ static float hit_mult(const Mob *m, int atk) {
     const Gear *g = &RUN.gear;
     float k = weak_to(m, atk);
     if (atk == AT_BFS) return k;
-    k += gear_total(g, ST_FIRE) / 100.0f * weak_el(m, EL_FIRE) + gear_total(g, ST_FROST) / 100.0f * weak_el(m, EL_FROST)
-       + gear_total(g, ST_SHOCK) / 100.0f * weak_el(m, EL_LIGHT);
+    float adds = 0.0f;                                             /* "ADDS %", all six since 1.0.0b21 (G4) */
+    for (int e = 0; e < NELEM; e++) adds += gear_total(g, st_adds(e)) / 100.0f * weak_el(m, e);
+    k += adds;
     for (int e = 0; e < NELEM; e++)                                /* the Masteries' Additions (docs/PLAN-b11.md, sections 9-10) */
         if (e != ATK_ELEM[atk] && e != EL_POISON) k += align_add(e) * weak_el(m, e);
     return k;
@@ -5875,6 +5897,28 @@ static void mob_chill(Mob *m, int stacks, int need);
 static int chill_need(void);
 static void el_status(Mob *m, int atk, float dmg);
 static void mk_wet_hit(const Mob *o);
+static void add_beam(int kind, float x0, float y0, float z0, float x1, float y1, float z1);
+static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float slow);
+static void wire_pass(Mob *m, float dmg) {                         /* Live Wire (G5): a stunned creature struck passes a fifth of the hit
+                                                                      to the nearest within two cells, as a spark that rolls nothing */
+    static int passing;
+    if (passing || cls_ab(EL_LIGHT, 0) <= 0.0f || dmg <= 0.0f) return;
+    int best = -1; float bd = 2.0f;
+    for (int i = 0; i < MAXMOBS; i++) {
+        Mob *o = &G.mobs[i];
+        if (o == m || !o->alive || o->state != MS_WALK || o->ally || KIND_IS(o, KF_SPIRIT) || buried(o) || o->boss) continue;
+        float d = hypotf(o->x - m->x, o->y - m->y);
+        if (d < bd && line_clear(m->x, m->y, o->x, o->y)) { bd = d; best = i; }
+    }
+    if (best < 0) return;
+    Mob *o = &G.mobs[best];
+    add_beam(AT_CHAIN, m->x, m->y, m->z + 0.5f, o->x, o->y, o->z + 0.5f);
+    sfx_at(SFX_CRACKLE, o->x, o->y, 1.4f);
+    passing = 1;
+    damage_mob(o, dmg * 0.2f, DM_ARC | DM_TICK, m->x, m->y, 0.0f);
+    passing = 0;
+    DBG_COUNT(wire_arcs);
+}
 static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float slow) {
     if (m->ally) return 0;                                         /* yours: your spells pass it by */
     if (G.latch == (int)(m - G.mobs) + 1) return 0;                /* nor what is latched on your face */
@@ -5922,7 +5966,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
         }
     }
     if ((flags & DM_SLOW) && slow > 0.0f) {                        /* Frost's slow: a Chilled stack (D4, section 6) */
-        if (elem_mode()) mob_chill(m, 1, chill_need());
+        if (elem_mode()) mob_chill(m, 1 + (st_odds(EL_FROST) > 0.0f && rndf() < st_odds(EL_FROST)), chill_need());   /* Rime: a second (G3) */
         else m->slowed = fmaxf(m->slowed, slow);
     }
     int atk = (flags >> 8) - 1;
@@ -5932,9 +5976,11 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
     }
     if (atk >= 0 && atk < NATK) { dmg *= hit_mult(m, atk); m->last_atk = atk; if (!(flags & DM_TICK)) rec_hit(m, atk); }   /* what it is weak to, or shrugs off */
     if (atk >= 0 && atk < NATK) aug_hit(m, atk, flags, &dmg);      /* the line's augments (17.3, 1.0.0b21) */
+    if (m->pois_t > 0.0f && cls_ab(EL_POISON, 0) > 0.0f) dmg *= 1.0f + cls_ab(EL_POISON, 0) / 100.0f;   /* Fever: the poisoned take more (G5) */
     if (atk >= 0 && atk < NATK && ATK_ELEM[atk] >= 0) ward_struck(m, ATK_ELEM[atk], dmg, flags & DM_TICK);   /* a ward: a dull ring, and it may crack */
     if (atk >= 0 && atk < NATK && ATK_ELEM[atk] == EL_LIGHT && !(flags & DM_TICK)) mk_wet_hit(m);   /* standing in the water */
     if (m->frozen > 0.0f && elem_mode()) dmg *= 1.33f;             /* Frozen: a third more (docs/PLAN-combat.md section 5) */
+    if (m->frozen > 0.0f && cls_ab(EL_FROST, 0) > 0.0f) dmg *= 1.0f + cls_ab(EL_FROST, 0) / 100.0f;   /* the Slab: more yet (G5) */
     if (m->frozen > 0.0f && RUN.gear.def[DF_NOVA] >= RUNE_EXQ) { dmg *= 2.0f; DBG_COUNT(exq_shatter); }   /* Exquisite runes: the frozen */
     static int shattering;                                         /* Shatter: the frozen struck by a spell break, and their shards cut */
     int shards = 0;
@@ -5974,6 +6020,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
     }
     if (m->rank == RK_GILDED && m->hp > m->maxhp * 0.5f && m->hp - dmg <= m->maxhp * 0.5f) { m->feared = 6.0f; m->wfeared = 0; }   /* the gilded run, with their gold */
     m->hp -= dmg;
+    if (m->stun_t > 0.0f && atk >= 0 && atk < NATK && !(flags & DM_TICK)) wire_pass(m, dmg);   /* Live Wire: a fifth arcs on (G5) */
     if (shards) {                                                  /* everything within a cell and a half: half a shard, and a chill */
         shattering = 1;
         float sd = spell_damage(&RUN.gear, AT_FROST) * 0.5f;
@@ -6005,6 +6052,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
 #define PLAGUE_STRIKE 1.25f                 /* and their flask's blow as it bursts (the owner, 1.0.0b16) */
 static void mob_poison(Mob *m, float total, float secs) {
     if (!m->alive || m->state != MS_WALK || KIND_IS(m, KF_SPIRIT) || m->ally || secs <= 0.0f) return;
+    if (st_odds(EL_POISON) > 0.0f && rndf() < st_odds(EL_POISON)) { total *= 1.5f; secs *= 1.5f; }   /* Blight: a dose half again (G3) */
     if (cls_el() == EL_POISON) { total *= 1.2f * PLAGUE_BITE; secs *= 1.2f; }   /* the Plague Doctor's bites harder each tick (1.0.0b16:
                                                                                     the owner's, to set the class apart) and lasts a fifth longer */
     if (total <= m->pois_dps * fmaxf(0.0f, m->pois_t)) return;
@@ -6059,7 +6107,7 @@ static void maf_note(const Mob *m, int af) {
 static void mob_ignite(Mob *m, float dmg) {                        /* On Fire: the hit again over four seconds, on what is left */
     if (!mob_takes_af(m) || dmg <= 0.0f) return;
     float left = m->burn_t > 0.0f ? m->burn_dps * m->burn_t : 0.0f;
-    m->burn_t = 4.0f; m->burn_dps = (left + dmg) / 4.0f;
+    m->burn_t = 4.0f + (cls_ab(EL_FIRE, 0) > 0.0f ? 1.0f : 0.0f); m->burn_dps = (left + dmg) / 4.0f;   /* Pyrebrand: a second longer (G5) */
     maf_note(m, AF_FIRE);
 }
 static void mob_freeze(Mob *m, float secs) {                       /* Frozen: its clock stopped (mob_time), a third more taken */
@@ -6100,6 +6148,7 @@ static void mob_unbind(Mob *m, float secs) {                       /* Unbound: n
  * Impale stay). Fire: the hit again over four seconds; Lightning: stunned 1.2 s; Spirit: Unbound 1.5 s. */
 static float el_chance(const Mob *m, int el) {
     float r = (float)align_rank(el), ch = (0.10f + 0.15f * clampf((r - 1.0f) / 19.0f, 0.0f, 1.0f)) * spell_effect();
+    ch *= 1.0f + st_odds(el) + cls_ab(el, 0) / 100.0f;            /* Ignition, Static, Hush; Pyrebrand, Live Wire, Swallowed Sin (1.0.0b21) */
     float w = weak_el(m, el);
     return w <= STRENGTH_K + 0.01f ? ch * 0.5f : w >= 1.49f ? ch * 1.5f : ch;
 }
@@ -6144,7 +6193,8 @@ static float mob_gate(Mob *m, float dt) {
     if (m->frz_cd > 0.0f) m->frz_cd -= dt;
     if (m->frozen > 0.0f) m->frz_was = 1;
     else if (m->frz_was) { m->frz_was = 0; m->chl_n = 0; m->frz_cd = AF_RELOCK; }   /* thawed: the stacks are spent */
-    if (m->chl_n > 0 && m->frozen <= 0.0f && (m->chl_t += dt) >= CHILL_FREEZE) m->chl_n = 0;   /* they fall off together */
+    if (m->chl_n > 0 && m->frozen <= 0.0f && (m->chl_t += dt) >= CHILL_FREEZE + (cls_ab(EL_FROST, 0) > 0.0f ? 1.0f : 0.0f)) m->chl_n = 0;   /* they
+                                                                      fall off together; the Slab holds them a second more */
     float k = 1.0f;
     if (m->chl_n > 0 && m->frozen <= 0.0f) k *= fmaxf(0.2f, 1.0f - CHILL_SLOW * (float)m->chl_n);
     int stun = m->stun_t > 0.0f, unb = m->unb_t > 0.0f;
@@ -22505,7 +22555,7 @@ static int con_do(int what, int num, const char *rest) {
         con_printf(ok, "A BAG, %s, ALL BUT ONE PLACE FILLED.", QUAL_NAME[num - 1]);
         return 1;
     case CH_ABIL:
-        if (num < 1 || num >= NABIL) { con_print("ABILITIES GO FROM 1 TO 7.", no); return 0; }
+        if (num < 1 || num >= NABIL) { con_print("ABILITIES GO FROM 1 TO 13.", no); return 0; }
         if (!give_ability(num)) { con_print("YOU WEAR NOTHING FOR IT TO TEACH.", no); return 0; }
         G.max_hp = gear_max_hp(&RUN.gear); if (G.hp > G.max_hp) G.hp = G.max_hp;
         con_printf(ok, "ALL YOU WEAR KNOWS %s NOW.", ABIL_NAME[num]);
@@ -28504,24 +28554,28 @@ static void render_elements(Frame *f) {
     const Gear *g = &RUN.gear;
     tab_frame(f, "THE ELEMENTS", R_GOLD + 12, 0, 0, "A/D PAGE  TAB CLOSE");
     ui_well(f, 9, 37, 302, 154);
-    static const char *const HEAD[3] = { "POWER", "EFFICIENCY", "INSIGHT" };
-    static const int HX[3] = { 160, 244, 306 };
-    for (int c = 0; c < 3; c++) gfx_text8(f, HX[c] - gfx_text_width(HEAD[c], 1), 42, HEAD[c], R_GOLD + 10, 1);
+    static const char *const HEAD[5] = { "POWER", "EFF.", "INS.", "ADDS", "ODDS" };   /* 1.0.0b21: what each adds, and its status */
+    static const int HX[5] = { 146, 186, 226, 266, 306 };
+    for (int c = 0; c < 5; c++) gfx_text8(f, HX[c] - gfx_text_width(HEAD[c], 1), 42, HEAD[c], R_GOLD + 10, 1);
     char v[24];
     for (int e = 0; e < NELEM; e++) {
-        int y = 54 + e * 12, r = align_rank(e), worn[3] = { ST_POW + e, ST_EFF + e, ST_INS + e };
-        float val[3] = { (spell_line(e, 2) + gear_total(g, ST_POW + e) / 100.0f) * 100.0f, spell_efficiency(g, e) * 100.0f, spell_insight(g, e) * 100.0f };
+        int y = 54 + e * 12, r = align_rank(e), worn[5] = { ST_POW + e, ST_EFF + e, ST_INS + e, st_adds(e), e < EL_PHYS ? ST_CHANCE + e : -1 };
+        float val[5] = { (spell_line(e, 2) + gear_total(g, ST_POW + e) / 100.0f) * 100.0f, spell_efficiency(g, e) * 100.0f, spell_insight(g, e) * 100.0f,
+                         gear_total(g, st_adds(e)) + (e != EL_POISON ? align_add(e) * 100.0f : 0.0f),
+                         (st_odds(e) + (e == EL_FIRE || e == EL_LIGHT || e == EL_SPIRIT ? cls_ab(e, 0) / 100.0f : 0.0f)) * 100.0f };
         elem_glyph(f, 14, y, e, r == 0);
         gfx_text8(f, 26, y, ELEM_NAME[e], r ? ramp_at(ELEM_RAMP[e], 13) : (uint8_t)(R_STONE + 8), 1);
-        for (int c = 0; c < 3; c++) {
-            snprintf(v, sizeof v, c ? "%.0f%%" : "+%.0f%%", val[c]);
-            int capped = gear_capped(g, worn[c]), some = gear_total(g, worn[c]) > 0.0f;
+        for (int c = 0; c < 5; c++) {
+            if (worn[c] < 0) { gfx_text8(f, HX[c] - gfx_text_width("--", 1), y, "--", R_STONE + 7, 1); continue; }   /* Physical: no status */
+            snprintf(v, sizeof v, c == 1 || c == 2 ? "%.0f%%" : "+%.0f%%", val[c]);
+            int capped = gear_capped(g, worn[c]), some = gear_total(g, worn[c]) > 0.0f || (c == 4 && val[c] > 0.5f);
             gfx_text8(f, HX[c] - gfx_text_width(v, 1), y, v, capped ? (uint8_t)(R_GLOW + 12) : some ? (uint8_t)(R_GOLD + 11) : val[c] > 0.5f ? (uint8_t)(R_STONE + 12) : (uint8_t)(R_STONE + 7), 1);
         }
     }
     ui_rule(f, 14, 305, 129, 0);
-    text_wrap(f, 14, 134, "POWER: MORE OF ITS DAMAGE. EFFICIENCY: LESS SPIRIT; PHYSICAL'S, NO BONE SPENT. INSIGHT: A SHORTER "
-                          "WIND-UP. GOLD: PARTLY WORN. BLUE: WHAT IS WORN IS AT ITS CAP.", 36, R_STONE + 11, 5);
+    text_wrap(f, 14, 134, "POWER: MORE OF ITS DAMAGE. EFF.: LESS SPIRIT, OR NO BONE SPENT. INS.: A SHORTER WIND-UP. "
+                          "ADDS: SO MUCH MORE OF EVERY SPELL, AS IT. ODDS: ITS MARK ON THE DEAD MORE OFTEN. GOLD: WORN. "
+                          "BLUE: AT ITS CAP.", 36, R_STONE + 11, 6);
 }
 
 /* a stat's name, short enough for a column of the caster's numbers */
@@ -29853,6 +29907,21 @@ static void stat_does(int st, char *buf, int n) {                  /* the elemen
     if (st == ST_RES_LIGHT) { snprintf(buf, (size_t)n, "LIGHTNING HURTS LESS, AND A BOLT OF IT BREAKS A SPELL BEING GATHERED LESS OFTEN."); return; }
     if (st == ST_SPRINT) { snprintf(buf, (size_t)n, "MORE SECONDS OF SPRINT, PAST THE TWO AND A HALF EVERYONE HAS, TO TEN IN ALL."); return; }
     if (st == ST_PHYSIC) { snprintf(buf, (size_t)n, "A POTION RESTORES MORE THAN ITS TWENTY-FIVE: HALF AS MUCH AGAIN AT FIFTY, FIVE TIMES AT FOUR HUNDRED."); return; }
+    if (st == ST_ADD_POISON || st == ST_ADD_SPIRIT || st == ST_ADD_PHYS) {   /* 1.0.0b21's (docs/PLAN-combat.md section 12) */
+        const char *el = STAT_NAME[st];
+        snprintf(buf, (size_t)n, "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS %s, AS MUCH AS %s BITES WHAT IT HITS. THE SIX SHARE ONE CAP.", el, el);
+        return;
+    }
+    if (st == ST_STEADY) { snprintf(buf, (size_t)n, "KNOCKED DOWN, STUNNED AND FROZEN COME LESS OFTEN AND END SOONER, WITH AGILITY'S SHARE, NINE TENTHS AT MOST."); return; }
+    if (st >= ST_CHANCE && st < ST_CHANCE + EL_PHYS) {
+        static const char *const ODDS[EL_PHYS] = { "YOUR FIRE SETS THE DEAD ALIGHT MORE OFTEN, BY THIS SHARE.",
+            "YOUR FROST LAYS A SECOND CHILL THIS SHARE OF THE TIME, SO THE DEAD FREEZE SOONER.",
+            "YOUR LIGHTNING STUNS THE DEAD MORE OFTEN, BY THIS SHARE.",
+            "THIS SHARE OF YOUR POISON'S DOSES RUN HALF AGAIN AS LONG, AND HURT HALF AGAIN AS MUCH.",
+            "YOUR SPIRIT LEAVES THE DEAD UNBOUND MORE OFTEN, BY THIS SHARE." };
+        snprintf(buf, (size_t)n, "%s", ODDS[st - ST_CHANCE]);
+        return;
+    }
     int e = st >= ST_INS ? st - ST_INS : st >= ST_EFF ? st - ST_EFF : st - ST_POW;
     if (st >= ST_INS) snprintf(buf, (size_t)n, "%s SPELLS GATHER QUICKER, AFTER WHAT THE LINE'S INSIGHT TAKES OFF.", ELEM_NAME[e]);
     else if (st >= ST_EFF && e == EL_PHYS) snprintf(buf, (size_t)n, "A SPEAR SPENDS NO BONE MORE OFTEN, WITH THE LINE'S EFFICIENCY; NINE TIMES IN TEN AT MOST.");
@@ -29868,7 +29937,12 @@ static void render_codex(Frame *f) {
         "EVERY FIFTEEN SECONDS, CREATURES WITHIN ITS REACH SHOW AS RED SHAPES THROUGH THE WALLS FOR A MOMENT.",
         "WHATEVER STRIKES OR BITES YOU TAKES SO MUCH BACK, WHATEVER YOUR ARMOUR TOOK.",
         "A CHANCE THAT A MISSILE IS SENT BACK, HOMING ON ITS THROWER ROUND CORNERS.",
-        "", "", "", "", "", "" };                                   /* the classes' (D6) */
+        "YOUR FIRE SETS THE DEAD ALIGHT MORE OFTEN, BY THIS SHARE, AND THEY BURN A SECOND LONGER.",   /* the classes' (1.0.0b21) */
+        "THE CHILL YOU LAY ON THE DEAD LASTS A SECOND LONGER, AND THE FROZEN TAKE THIS SHARE MORE FROM YOU.",
+        "YOUR LIGHTNING STUNS MORE OFTEN, BY THIS SHARE; STRIKE A STUNNED ONE AND A FIFTH OF THE HIT ARCS TO THE NEAREST WITHIN TWO CELLS.",
+        "WHAT YOU HAVE POISONED TAKES THIS SHARE MORE FROM EVERY ELEMENT.",
+        "YOUR SPIRIT LEAVES THE DEAD UNBOUND MORE OFTEN, BY THIS SHARE; WHAT DIES UNBOUND LEAVES A SOUL MORE.",
+        "KNOCKED DOWN LESS OFTEN AND NOT AS LONG, WITH AGILITY. A SPEAR THAT KILLS THE STAGGERED OR PINNED LEAVES ITS BONE." };
     static const char *const EXQ_DOES[NDEF] = { "IT BURSTS INTO SHARDS WHEN IT BREAKS.", "IT LEAVES A DOUBLE BEHIND, AND THE DEAD NEARBY GO FOR THAT.",
         "IT SENDS MISSILES HOME TO THEIR THROWER AT TWICE ITS STRENGTH.", "HEALING PAST FULL BECOMES A SMALL WARD.",
         "IT MENDS TWO HUNDREDTHS OF YOUR HEALTH A SECOND WHILE IT LASTS.", "THE FROZEN TAKE DOUBLE.", "IT REACHES THE LIVING TOO.",
@@ -29877,9 +29951,9 @@ static void render_codex(Frame *f) {
         "MORE HEALTH.", "HEALTH BACK EVERY SECOND.", "POISON LASTS SHORTER AND BITES LESS.", "FIRE AND BURNING HURT LESS.",
         "SLOWING AND BEING HELD LAST SHORTER.", "YOU WALK FASTER.", "YOUR STEPS WAKE FEWER OF THE DEAD.", "YOUR SPELLS COME ROUND SOONER.",
         "YOUR SPELLS TAKE LESS SPIRIT.", "EVERY SPELL HITS HARDER.",
-        "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS FIRE, AS MUCH AS FIRE BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
-        "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS FROST, AS MUCH AS FROST BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
-        "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS LIGHTNING, AS MUCH AS LIGHTNING BITES WHAT IT HITS. THE THREE ELEMENTS SHARE ONE CAP.",
+        "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS FIRE, AS MUCH AS FIRE BITES WHAT IT HITS. THE SIX SHARE ONE CAP.",
+        "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS FROST, AS MUCH AS FROST BITES WHAT IT HITS. THE SIX SHARE ONE CAP.",
+        "A SHARE OF EVERY SPELL'S DAMAGE IS ADDED AS LIGHTNING, AS MUCH AS LIGHTNING BITES WHAT IT HITS. THE SIX SHARE ONE CAP.",
         "SOUL DRAIN'S HEALING, FROST'S SLOW, HELLFIRE'S BURNING FLOOR AND EVERY RUNE, STRONGER.",
         "MORE FOR EVERY GOLD PIECE YOU PICK UP.", "THE CHANCE THAT WHAT YOU SLAY DROPS GOLD OF ITS RANK, AND NOW AND THEN SOMETHING MORE.",
         "WHAT IS DONE TO YOU BY SPIRIT HURTS LESS, AND WHAT DRAINS SOULS TAKES FEWER.", "YOUR VESSEL HOLDS MORE SPIRIT." };
@@ -29966,7 +30040,7 @@ static void render_codex(Frame *f) {
     switch (c->sec) {
     case CX_ABIL: {
         int a = c->i;
-        y += text_wrap(f, 14, y, ABIL_DOES[a], 36, R_STONE + 13, 3) * 9 + 4;
+        y += text_wrap(f, 14, y, ABIL_DOES[a], 36, R_STONE + 13, a >= AB_CLASS ? 4 : 3) * 9 + 4;
         for (int q = Q_UNCOMMON; q < NQUAL; q++, y += 9) {           /* never on a Common piece */
             int v0 = piece_grade(a, q, G.level, 0), v1 = piece_grade(a, q, G.level, 1);
             switch (a) {
@@ -29974,6 +30048,7 @@ static void render_codex(Frame *f) {
             case AB_COMMUNE: snprintf(line, sizeof line, "%d CELLS, %d.%d S", v0, v1 / 10, v1 % 10); break;
             case AB_THORNS: snprintf(line, sizeof line, "%d BACK, AT LEVEL %d", v0, G.level); break;
             case AB_MIRRORED: snprintf(line, sizeof line, "%d%% OF THEM, AT %d%%", v0, v1); break;
+            case AB_BLOCK: snprintf(line, sizeof line, "%d%% LESS", v0); break;
             default: snprintf(line, sizeof line, "+%d%%", v0); break;
             }
             gfx_text8(f, 14, y, QUAL_NAME[q], (uint8_t)qual_text(q), 1);
@@ -29982,9 +30057,14 @@ static void render_codex(Frame *f) {
         float cap = gear_ability_cap(a);
         if (cap > 0.0f) { snprintf(line, sizeof line, "SUMMED OVER WHAT YOU WEAR, TO %.0f%s AT MOST.", cap, a == AB_KEYMAKER || a == AB_COMMUNE ? " CELLS" : "%"); y += 2 + text_wrap(f, 14, y + 2, line, 36, R_STONE + 10, 2) * 9; }
         y += 4;
+        if (a >= AB_CLASS) {                                       /* a class's (1.0.0b21): rolled for it alone */
+            snprintf(line, sizeof line, "THE %s'S ALONE: ONE ABILITY IN THREE ON A PIECE OF UNCOMMON OR BETTER, WHILE YOU ARE ONE. ANYONE ELSE'S DOES NOTHING.", CLASS_SHORT[a - AB_CLASS]);
+            y += text_wrap(f, 14, y, line, 36, R_BONE + 11, 4) * 9 + 4;
+        } else
         y += text_wrap(f, 14, y, "ON ANY PIECE BUT A BAG, UNCOMMON OR BETTER: ONE IN TEN, A QUARTER AT RARE, HALF AT ULTRA-RARE, EVERY EXQUISITE ONE.", 36, R_BONE + 11, 4) * 9 + 4;
         float have = gear_ability(g, a, 0);
-        if (have > 0.0f) snprintf(line, sizeof line, "YOU WEAR IT: %.0f%s", have, a == AB_KEYMAKER || a == AB_COMMUNE ? " CELLS" : (a == AB_THORNS ? " BACK" : "%"));
+        if (have > 0.0f && a >= AB_CLASS && cls_el() != a - AB_CLASS) snprintf(line, sizeof line, "YOU WEAR IT, BUT IT IS NOT YOURS");
+        else if (have > 0.0f) snprintf(line, sizeof line, "YOU WEAR IT: %.0f%s", have, a == AB_KEYMAKER || a == AB_COMMUNE ? " CELLS" : (a == AB_THORNS ? " BACK" : "%"));
         else snprintf(line, sizeof line, "YOU WEAR NONE OF IT NOW");
         gfx_text8(f, 14, y, line, have > 0.0f ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 9), 1);
         break;
