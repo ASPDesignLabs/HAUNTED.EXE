@@ -759,6 +759,9 @@ In `src/scene_crawl.c`, after `Mob`, committed with this section:
   offers only those. `Shot.scale`: a shot's size, 0 as drawn. The ultimates (`cast_charged`) take no augments. The call sites in
   track D's functions are one line each, put there by this commit: `damage_mob`'s hit and kill, `el_status`'s roll and harm,
   `mob_afflict`'s tick; and `update_shots`' flight (its shared part).
+- 1.0.0b21 (D7's contract, 9 November): `augd_name(e, t, w)`, the name of augment w (1 or 2) at step t of line e, one of the
+  dead's track's five ("" for Fire); `augd_does(e, t, w, k, buf, n)`, what it does at a rank's share k (0.5, 0.75, 1; 0 as at rank
+  III), with its numbers. D's, for C's Lampstand and Codex to read beside Fire's own; filled now (11.4's drafts, the owner's A15).
 
 **Changing the contract**: write the change here and in the code's declarations in one commit of its own, push it at once, and
 put a line starting **CONTRACT** in your log. Each agent reads the other's log at every pull.
@@ -1523,6 +1526,10 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   worn piece: Live Wire, the Block and Swallowed Sin fired). **Track C**: Tab's caster page (yours) has no row for Steadiness or
   the three new "ADDS %"; the right column has room for one more, and Steadiness would sit there. **D6 is built**; next for track
   D, D7 (the other five lines' augments) on C6's frame.
+- **9 November. D7 begun: its contract.** **CONTRACT.** At the owner's word ("go ahead and start", expecting to approve the look).
+  17.3's D7 bullet: `augd_name` and `augd_does`, the five lines' names and words for the Lampstand and the Codex (track C: read them
+  for every line but Fire; `__attribute__((unused))` till you do). The bodies come next, behind `augd_built` returning 0 till the
+  owner approves their sheet, and a debug switch of D's that forces a choice for testing before C6's frame chooses.
 
 ## Appendix: the owner's guide (7 November), as given
 

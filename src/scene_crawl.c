@@ -600,6 +600,11 @@ static void augd_kill(int e, Mob *m, int atk, int flags);
 static void augd_tick(Mob *m, float dt);
 static void augd_fly(int e, Shot *s, float dt);
 static int augd_built(int e);
+__attribute__((unused)) static const char *augd_name(int e, int t, int w);   /* D's (D7's contract, 9 November): the name of
+                                                                      augment w (1, 2) at step t of line e, one of the dead's track's
+                                                                      five; "" for Fire or none (unused till C6's Lampstand reads it) */
+__attribute__((unused)) static void augd_does(int e, int t, int w, float k, char *buf, int n);   /* and what it does at a rank's
+                                                                      share k (0.5, 0.75, 1; 0 as at rank III), its numbers in it */
 typedef struct { int alive, kind; float x, y, vx, vy, life, spin, dmg, life0; int from, atk; Blame by; int el1; } Bone;   /* life0: an ember's whole flight; from: its thrower;
                                                                                                     atk: a turned spell's kind;
                                                                                                     el1: 1 + its element (PLAN-combat) */
@@ -5472,6 +5477,56 @@ static void augd_tick(Mob *m, float dt) { (void)m; (void)dt; }
 static void augd_fly(int e, Shot *s, float dt) { (void)e; (void)s; (void)dt; }
 static int augd_built(int e) { (void)e; return 0; }               /* which of the five have their augments built (the Lampstand offers
                                                                       only those) */
+/* the five lines' augments (section 11.4, the drafts the owner took till theirs come, A15): a pair at each of the three steps */
+static const char *const AUGD_NAME[NELEM][3][2] = {
+    [EL_FROST]  = { { "HOARBITE", "SPLINTERFROST" }, { "RIME TRAIL", "GLACIAL WEIGHT" }, { "COLD SNAP", "BRITTLE" } },
+    [EL_LIGHT]  = { { "FORKED", "OVERCHARGE" }, { "STATIC BUILD", "GROUNDING" }, { "THUNDERCLAP", "CONDUCTOR" } },
+    [EL_POISON] = { { "THICK BREW", "STRAIGHT THROW" }, { "CLUSTER", "MIASMA" }, { "PESTILENCE", "ROT" } },
+    [EL_SPIRIT] = { { "SIPHON", "HOLLOWING" }, { "LINGERING HUNGER", "SOUL ECHO" }, { "EXORCISM", "SHEPHERD" } },
+    [EL_PHYS]   = { { "BARBED", "RECOVERY" }, { "TWIN THROW", "HEAVY HAFT" }, { "SKEWER", "BONE RAIN" } },
+};
+static const char *augd_name(int e, int t, int w) {
+    if (e <= EL_FIRE || e >= NELEM || t < 0 || t > 2 || w < 1 || w > 2) return "";
+    return AUGD_NAME[e][t][w - 1];
+}
+static void augd_does(int e, int t, int w, float k, char *buf, int n) {
+    if (k <= 0.0f) k = 1.0f;
+    int p = (int)(100.0f * k + 0.5f);
+    *buf = 0;
+    if (e <= EL_FIRE || e >= NELEM || t < 0 || t > 2 || w < 1 || w > 2) return;
+    switch (e * 6 + t * 2 + (w - 1)) {
+    case EL_FROST * 6 + 0: snprintf(buf, (size_t)n, "A FIFTH WEAKER, AND %d%% OF ITS HITS LAY A SECOND CHILL.", p); break;
+    case EL_FROST * 6 + 1: snprintf(buf, (size_t)n, "THE SHARD BREAKS INTO THREE BEHIND WHAT IT STRIKES, EACH AT %d%%.", (int)(30.0f * k + 0.5f)); break;
+    case EL_FROST * 6 + 2: snprintf(buf, (size_t)n, "THE SHARD RIMES THE FLOOR IT CROSSES FOR %.1f S, SLOWING WHAT WALKS THERE.", 2.0f * k); break;
+    case EL_FROST * 6 + 3: snprintf(buf, (size_t)n, "SLOWER AND HEAVIER: IT GOES THROUGH THE FIRST IT STRIKES, AT %d%% AFTER.", (int)(70.0f * k + 0.5f)); break;
+    case EL_FROST * 6 + 4: snprintf(buf, (size_t)n, "WHAT FREEZES BURSTS %d TIMES IN A HUNDRED, A CHILL ON ALL WITHIN A CELL AND A HALF.", p); break;
+    case EL_FROST * 6 + 5: snprintf(buf, (size_t)n, "THE FROZEN TAKE %d%% MORE FROM EVERYTHING.", (int)(25.0f * k + 0.5f)); break;
+    case EL_LIGHT * 6 + 0: snprintf(buf, (size_t)n, "A SECOND BOLT LEAPS TO ANOTHER WITHIN THREE CELLS, AT %d%%.", (int)(50.0f * k + 0.5f)); break;
+    case EL_LIGHT * 6 + 1: snprintf(buf, (size_t)n, "%d%% HARDER, AND ITS STUN %d%% LIKELIER; A QUARTER MORE SPIRIT.", (int)(30.0f * k + 0.5f), p); break;
+    case EL_LIGHT * 6 + 2: snprintf(buf, (size_t)n, "EACH HIT ON ONE CREATURE WITHIN THREE SECONDS RAISES ITS STUN %d%%, THREE TIMES.", (int)(50.0f * k + 0.5f)); break;
+    case EL_LIGHT * 6 + 3: snprintf(buf, (size_t)n, "WHAT STANDS IN WATER OR IS POISONED PASSES IT TO ONE MORE, AT %d%%.", (int)(70.0f * k + 0.5f)); break;
+    case EL_LIGHT * 6 + 4: snprintf(buf, (size_t)n, "STRIKE THE STUNNED, AND %d TIMES IN A HUNDRED ALL WITHIN A CELL AND A HALF ARE STUNNED.", p); break;
+    case EL_LIGHT * 6 + 5: snprintf(buf, (size_t)n, "IONIZATION'S TRAIL LASTS %.1f TIMES AS LONG, AND STUNS WHAT CROSSES IT %d TIMES IN A HUNDRED.", 1.0f + 2.0f * k, p); break;
+    case EL_POISON * 6 + 0: snprintf(buf, (size_t)n, "YOUR POISON LASTS %d%% LONGER, AND HURTS AS MUCH MORE.", (int)(50.0f * k + 0.5f)); break;
+    case EL_POISON * 6 + 1: snprintf(buf, (size_t)n, "THROWN FLAT AND %d%% FASTER, IT BURSTS ON THE FIRST IT MEETS.", (int)(60.0f * k + 0.5f)); break;
+    case EL_POISON * 6 + 2: snprintf(buf, (size_t)n, "THE BURST THROWS THREE SMALL FLASKS, EACH AT %d%%.", (int)(40.0f * k + 0.5f)); break;
+    case EL_POISON * 6 + 3: snprintf(buf, (size_t)n, "THE BURST LEAVES A CLOUD A SECOND AND A HALF THAT POISONS WHAT PASSES, AT %d%%.", p); break;
+    case EL_POISON * 6 + 4: snprintf(buf, (size_t)n, "THE POISONED LEAVE A POOL WHERE THEY DIE, OF %d%% OF WHAT WAS LEFT IN THEM.", p); break;
+    case EL_POISON * 6 + 5: snprintf(buf, (size_t)n, "THE POISONED TAKE %d%% MORE FROM EVERY OTHER ELEMENT.", (int)(15.0f * k + 0.5f)); break;
+    case EL_SPIRIT * 6 + 0: snprintf(buf, (size_t)n, "THE DRAIN HEALS %d%% MORE, AND HURTS 15%% LESS.", (int)(30.0f * k + 0.5f)); break;
+    case EL_SPIRIT * 6 + 1: snprintf(buf, (size_t)n, "THE DRAIN LEAVES THE DEAD UNBOUND %d%% MORE OFTEN.", p); break;
+    case EL_SPIRIT * 6 + 2: snprintf(buf, (size_t)n, "THE BEAM HOLDS %.1f S AFTER THE CAST, DRAINING %d%% OF THE HIT AGAIN.", 0.6f * k, (int)(50.0f * k + 0.5f)); break;
+    case EL_SPIRIT * 6 + 3: snprintf(buf, (size_t)n, "A KILL BY THE DRAIN GIVES BACK %d%% OF ITS SPIRIT.", p); break;
+    case EL_SPIRIT * 6 + 4: snprintf(buf, (size_t)n, "THE UNBOUND TAKE %d%% MORE FROM EVERYTHING.", (int)(30.0f * k + 0.5f)); break;
+    case EL_SPIRIT * 6 + 5: snprintf(buf, (size_t)n, "THE SOULS OF WHAT THE DRAIN KILLS FLY TO YOU, %s.", k >= 0.99f ? "QUICKLY" : k >= 0.74f ? "STEADILY" : "SLOWLY"); break;
+    case EL_PHYS * 6 + 0: snprintf(buf, (size_t)n, "WHAT IT STRIKES BLEEDS %d%% OF THE HIT OVER THREE SECONDS.", (int)(50.0f * k + 0.5f)); break;
+    case EL_PHYS * 6 + 1: snprintf(buf, (size_t)n, "A SPEAR THAT KILLS LEAVES ITS BONE %d TIMES IN A HUNDRED.", (int)(50.0f * k + 0.5f)); break;
+    case EL_PHYS * 6 + 2: snprintf(buf, (size_t)n, "TWO SPEARS SIDE BY SIDE FOR ONE BONE, EACH AT %d%%.", (int)(30.0f + 30.0f * k + 0.5f)); break;
+    case EL_PHYS * 6 + 3: snprintf(buf, (size_t)n, "THE FIRST IT STRIKES STAGGERS %.2f S.", 0.5f * k); break;
+    case EL_PHYS * 6 + 4: snprintf(buf, (size_t)n, "EACH CREATURE IT GOES THROUGH ADDS %d%% FOR THE NEXT.", (int)(15.0f * k + 0.5f)); break;
+    case EL_PHYS * 6 + 5: snprintf(buf, (size_t)n, "A SPEAR THAT KILLS BURSTS INTO THREE SPLINTERS THAT SEEK THE NEAREST, EACH AT %d%%.", (int)(35.0f * k + 0.5f)); break;
+    }
+}
 /* ---- the dead's track's augment stubs end ---- */
 
 /* ---- the spells' augments (1.0.0b21, PLAN-combat section 11): the caster's track's frame and its dispatchers. Each hook hands a
