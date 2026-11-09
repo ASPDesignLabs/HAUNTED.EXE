@@ -280,3 +280,7 @@ None open now (answered 9 November: see section 1).
   then S and Enter for a new run, then Enter twice for her question), judges the title's frame apart (under 40 ms), and
   checks the prefs (written by the title's turn) persist through a reload, where it had checked a signed page. And the
   title was made about twice as fast (G4's note). CI to be run again before G6.
+- **9 November, CI again.** The mended branch (2fa721e) pushed and CI started by hand again; ASan clean on it in each
+  scene. If green: G6 as in the entry above (release-b21-1 from origin/main, `git merge --squash`, VERSION 1.0.0b21.1,
+  commit, `git push origin release-b21-1:main`). If the browser's smoke fails again, read its log
+  (`get_job_logs`) first: the title's bound is 40 ms a frame there.
