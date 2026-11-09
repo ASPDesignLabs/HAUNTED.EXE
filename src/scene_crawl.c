@@ -5145,6 +5145,9 @@ static int ascend(void) {                                          /* every leve
     RUN.atone = to;
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT ascend to %d (+%d) points %d xp %d by %s t=%.2f\n", to, n, RUN.points, RUN.xp, G.player ? "player" : "autopilot", G.t);
+    int cr[NELEM];                                                 /* each line's augment credits so far, for their pacing (C6, A2 b) */
+    for (int e = 0; e < NELEM; e++) { cr[e] = RUN.aug_bank[e]; for (int t = 0; t < NAUGT; t++) cr[e] += RUN.aug_cr[e][t]; }
+    fprintf(stderr, "AUGCR atone %d level %d credits %d %d %d %d %d %d t=%.2f\n", to, RUN.level, cr[0], cr[1], cr[2], cr[3], cr[4], cr[5], G.t);
 #endif
     return n;
 }
@@ -5830,7 +5833,7 @@ static void augd_does(int e, int t, int w, float k, char *buf, int n) {
  * A line's three steps (its opening, its ability, its ultimate) each offer a pair; one is chosen at the Lampstand (Space), for good
  * till the line is unbound (A5). The line's credits (a kill by it 1, a thing struck with it 2, a boss 10: A3) bank by the line from
  * its opening and go at once to the newest chosen augment not yet at rank III, then the next (A4); an augment's ranks come at 20,
- * 50 and 100 credits of its own (AUG_CR). Behind CRAWL_AUG=1 in the debug build till the owner has seen the sheet ---- */
+ * 50 and 100 credits of its own (AUG_CR). CRAWL_AUG=0 in the debug build takes it all out ---- */
 static const uint16_t AUG_CR[3] = { 20, 50, 100 };                 /* the credits that make ranks I, II and III */
 static const char *const FIRE_AUG[NAUGT][2] = {                 /* Fire's (section 11.2, the guide's); the other five lines' are the
                                                                       dead's track's (augd_name, augd_does) */
@@ -5860,13 +5863,14 @@ static void aug_does(int e, int t, int w, float k, char *buf, int n) {
     if (w < 1 || w > 2 || t < 0 || t >= NAUGT) return;
     if (e == EL_FIRE) fire_does(t, w, k, buf, n); else augd_does(e, t, w, k, buf, n);
 }
-static int aug_on(void) {                                          /* CRAWL_AUG=1 (debug): the augments in play, till the sheet is approved */
+static int aug_on(void) {                                          /* the augments in play (the sheet approved, 9 November); CRAWL_AUG=0 in
+                                                                      the debug build takes them out, for the balance runs */
 #ifdef CRAWL_DEBUG
     static int v = -1;
-    if (v < 0) v = getenv("CRAWL_AUG") && atoi(getenv("CRAWL_AUG")) > 0;
+    if (v < 0) v = !(getenv("CRAWL_AUG") && atoi(getenv("CRAWL_AUG")) == 0);
     return v;
 #else
-    return 0;
+    return 1;
 #endif
 }
 static int aug_built(int e) { return aug_on() && (e == EL_FIRE ? 1 : augd_built(e)); }
@@ -25360,6 +25364,7 @@ static void update_repomenu(void) {
 
 enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_PUZZLE, CX_TRIAL, CX_WAYS, CX_CASTER, CX_ELEM, CX_LINE, CX_CLASS, CX_SOUL, CX_CLAIM,
        /* docs/PLAN-combat.md, two tracks on one branch (its section 17): each adds parts only above its own end mark */
+       CX_AUG,                                                    /* an augment chosen (C6, 1.0.0b21): i is its line x NAUGT + its step */
        /* the caster's track (C) ends */
        /* the dead's track (D): */
        /* the dead's track (D) ends */
@@ -25367,6 +25372,7 @@ enum { CX_ABIL, CX_RUNE, CX_BOSS, CX_STAT, CX_HAZ, CX_PUZZLE, CX_TRIAL, CX_WAYS,
 enum { CXS_VESSEL, CXS_BELL, CXS_FONT, CXS_REPLAY, CXS_SAP, NCXS };   /* the souls' pages */
 #define CX_MAX (NABIL + NDEF + NBOSS + NSTAT + NHZ + NPZK + NTRI + NWAY + 3 + NCS + 2 + NELEM + 1 + NCXS \
     /* docs/PLAN-combat.md section 17: each track adds its new pages' count (+ n) only above its own end mark */ \
+    + NELEM * NAUGT /* the augments chosen (C6) */ \
     /* the caster's track (C) ends */ \
     /* the dead's track (D): */ \
     + 1 /* the elements' second page, the dead's (D1) */ \
@@ -25377,7 +25383,8 @@ enum { CXC_ATONE, CXC_LUCK, CXC_OVER, CXC_CORNER };                /* the caster
 typedef struct { int sec, i; } CxEntry;
 static const char *const CX_PART[NCX] = { "AN ABILITY OF WHAT YOU WEAR", "A RUNE", "A BOSS'S GIFT", "A STAT A PIECE CAN ROLL", "A HAZARD", "A PUZZLE SOLVED",
                                           "A TRIAL WON", "THE WAYS OF THE DEAD", "THE CASTER'S OWN",
-                                          "THE ELEMENTS", "A LINE OF THE ALIGNMENT", "WHAT YOU WERE", "SOULS", "THE MERCHANT'S LEDGER" };
+                                          "THE ELEMENTS", "A LINE OF THE ALIGNMENT", "WHAT YOU WERE", "SOULS", "THE MERCHANT'S LEDGER",
+                                          "AN AUGMENT OF A LINE" };
 static void codex_note(void) {                                     /* worn, held or met: written in */
     const Gear *g = &RUN.gear;
     uint32_t ab = RUN.cx_abil; uint64_t st = RUN.cx_stat;
@@ -25418,6 +25425,8 @@ static int codex_entries(CxEntry *e) {
     if (RUN.rec.cleared) e[n++] = (CxEntry){ CX_SOUL, CXS_REPLAY };
     if (RUN.cx_more & CXM_SAP) e[n++] = (CxEntry){ CX_SOUL, CXS_SAP };
     e[n++] = (CxEntry){ CX_CLAIM, 0 };
+    for (int el = 0; el < NELEM; el++)                             /* the augments chosen (C6), each line's in step order */
+        for (int t = 0; t < NAUGT; t++) if (aug_of(el, t)) e[n++] = (CxEntry){ CX_AUG, el * NAUGT + t };
     return n;
 }
 /* A/D a page, W/S the next part, C or Esc closes */
@@ -30735,6 +30744,7 @@ static void render_codex(Frame *f) {
     }
     case CX_CASTER: snprintf(name, sizeof name, "%s", c->i == CXC_ATONE ? "LEVELS OF ATONEMENT" : c->i == CXC_LUCK ? "LUCK" : c->i == CXC_OVER ? "OVERLEVELS"
                                                     : CS_NAME[clampi(c->i - CXC_CORNER, 0, NCS - 1)]); break;
+    case CX_AUG: snprintf(name, sizeof name, "%s", aug_name(c->i / NAUGT, c->i % NAUGT, aug_of(c->i / NAUGT, c->i % NAUGT))); break;
     default: snprintf(name, sizeof name, "HER CLAIM"); break;
     }
     /* the stone (docs/PLAN-ui.md section 6.2): the entry's name across the top, its part and the parts as lozenges, the page in a well */
@@ -30922,6 +30932,28 @@ static void render_codex(Frame *f) {
         }
         snprintf(line, sizeof line, "RANK %d. THE LAMPSTAND, NORTH OF HER ROOM, SAYS WHAT EACH DOES.", align_rank(el));
         text_wrap(f, 14, y + 4, line, 36, R_BONE + 11, 2);
+        break;
+    }
+    case CX_AUG: {                                                 /* C6: its line and step, what it does now and at III, its credits */
+        static const char *const STEP[NAUGT] = { "ITS OPENING", "ITS ABILITY", "ITS ULTIMATE" };
+        int el = c->i / NAUGT, t = c->i % NAUGT, w = aug_of(el, t), r = aug_rank(el, t), cr = RUN.aug_cr[el][t];
+        static const char *const RN[4] = { "", "I", "II", "III" };
+        snprintf(line, sizeof line, "%s, %s", ALIGN[el].name, STEP[t]);
+        gfx_text8(f, 14, y, line, ramp_at(ELEM_RAMP[el], 12), 1); y += 11;
+        char does[200];
+        aug_does(el, t, w, r >= 2 ? (r >= 3 ? 1.0f : 0.75f) : 0.5f, does, sizeof does);
+        snprintf(line, sizeof line, "%s %s", r ? "NOW:" : "AT RANK I:", does);
+        y += text_wrap(f, 14, y, line, 36, R_STONE + 13, 5) * 9 + 3;
+        if (r < 3) {
+            aug_does(el, t, w, 1.0f, does, sizeof does);
+            snprintf(line, sizeof line, "AT RANK III: %s", does);
+            y += text_wrap(f, 14, y, line, 36, R_STONE + 10, 5) * 9 + 3;
+        }
+        if (r >= 3) snprintf(line, sizeof line, "RANK III, WHOLE. %d BANKED.", RUN.aug_bank[el]);
+        else snprintf(line, sizeof line, "%s%s, %d OF %d CREDITS. %d BANKED.", r ? "RANK " : "", r ? RN[r] : "UNRANKED", cr, AUG_CR[r], RUN.aug_bank[el]);
+        gfx_text8(f, 14, y, line, R_GLOW + 12, 1); y += 11;
+        text_wrap(f, 14, y, "A KILL BY THE LINE'S SPELL IS A CREDIT, A THING STRUCK TWO, A BOSS TEN; THEY FEED THE NEWEST CHOSEN. "
+                  "IT IS YOURS TILL THE LINE IS UNBOUND.", 36, R_BONE + 11, 4);
         break;
     }
     case CX_CLASS: {
