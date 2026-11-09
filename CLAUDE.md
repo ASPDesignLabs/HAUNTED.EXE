@@ -1701,8 +1701,9 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   Haft, Skewer and `G.d7_spear` (`update_shots`' hit cases; a splinter sets `G.d7_splint` so no bleed, bone or rain comes of it;
   a flask thrown flat bursts on a creature), Cold Snap (`mob_chill`, `cold_snap`), Brittle, Rot and Exorcism (`damage_mob`), Thick
   Brew (`mob_poison`), Conductor (`trail_life`, `update_trails`), Cluster and Miasma (`flask_burst`; a cloud is `Venom.rime` 2, drawn
-  as `SP_VAPOUR`), Pestilence (`kill_mob`). Drawn: `DR_BLEED` (bit 28), Static Build's bolts in `render_warded`. Offered at the
-  Lampstand only once the owner approves the sheet (`augd_built` by `d7_on`; C's frame needs `CRAWL_AUG=1` too). Debug: `CRAWL_D7=1`,
+  as `SP_VAPOUR`), Pestilence (`kill_mob`). Drawn: `DR_BLEED` (bit 28), Static Build's bolts in `render_warded`. The sheet approved
+  (9 November): `d7_on` is on, so `augd_built` offers them wherever C's frame is (`aug_on`, still behind `CRAWL_AUG=1` till C6's
+  sheet is approved). Debug: `CRAWL_D7=0` (D's out),
   `CRAWL_AUGD=abc` (the choice at each step on all five lines, bypassing the frame) and `CRAWL_AUGDR=r`, `CRAWL_AUGSHOW=k` (1 bleed,
   2 bolts, 3 bursts and the cloud, 9 all); `EVENT aug_fork`, `aug_ground`, `aug_claps`, `aug_snaps`, `aug_splinters`, `aug_rains`,
   `aug_bones`, `aug_lingers`, `aug_twins`, `aug_echoes`, `aug_conducts`, `aug_clusters`, `aug_miasmas`, `aug_pests`.

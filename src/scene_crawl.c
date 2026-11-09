@@ -5760,14 +5760,15 @@ static void augd_fly(int e, Shot *s, float dt) {
         if (!G.venoms[v].alive) { G.venoms[v] = (Venom){ 1, s->x, s->y, 0.4f, 0.0f, 2.0f * k, 0.0f, 0.6f * permafrost(), 1 }; break; }
     (void)dt;
 }
-static int d7_on(void) {                                           /* the five lines' augments offered at the Lampstand: not till the owner
-                                                                      approves their sheet; CRAWL_D7=1 in the debug build offers them */
+static int d7_on(void) {                                           /* the five lines' augments offered at the Lampstand wherever C6's frame is
+                                                                      (their sheet approved, 9 November); CRAWL_D7=0 in the debug build takes
+                                                                      them out, for the balance runs */
 #ifdef CRAWL_DEBUG
     static int on = -1;
-    if (on < 0) on = getenv("CRAWL_D7") && atoi(getenv("CRAWL_D7")) != 0;
+    if (on < 0) on = !(getenv("CRAWL_D7") && atoi(getenv("CRAWL_D7")) == 0);
     return on;
 #else
-    return 0;
+    return 1;
 #endif
 }
 static int augd_built(int e) { return e > EL_FIRE && e < NELEM && d7_on(); }   /* which of the five have their augments built (the

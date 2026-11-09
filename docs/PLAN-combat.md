@@ -1,6 +1,6 @@
 # The elements' teeth: statuses, elemental creatures, the classes' own, the Unholy Confessions and the spells' augments
 
-**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20's C5 and D5 are built and went out early as **1.0.0b19.1** (9 November, harness only, before J20); J20 is done and **1.0.0b20 is released** (9 November, harness only). 1.0.0b21 (C6, D6, D7) is under way: D6 and D7 are built (9 November, harness only; D7's sheet with the owner), C6's frame is in. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
+**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20's C5 and D5 are built and went out early as **1.0.0b19.1** (9 November, harness only, before J20); J20 is done and **1.0.0b20 is released** (9 November, harness only). 1.0.0b21 (C6, D6, D7) is under way: D6 and D7 are built (9 November, harness only; D7's sheet approved), C6's frame and Fire's six are in, their sheet with the owner. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
 review of how harm is dealt today (section 1), the owner's answers to that review's first four questions, and the owner's
 guide (kept as given in the appendix). The owner's answers to the review: creatures cast through the kinds we have, "mixed
 up a bit" as the guide sets out (Q1 b); their spells use the caster's six elements, so the resists, the Mirror and the wards
@@ -1596,6 +1596,12 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   on level 21, a Galvanist in the arm without D7. Too few runs to weigh (J21 will). **Track C**: Splinterfrost's shards (0.5),
   Glacial Weight's (1.35) and Cluster's flasks (0.6) set `Shot.scale`, which your missiles' part doesn't draw yet; they show at
   their usual size till it does. **D7 is built**; track D's part of 1.0.0b21 waits on the owner's word on the sheet, then J21.
+- **9 November. D7's sheet approved; D's augments switched on.** At the owner's word ("I approve the sheet, switch them on"):
+  `d7_on` is on in every build (`CRAWL_D7=0` in the debug build takes them out, for the balance runs), so `augd_built` says the five
+  lines are built. They come into play wherever C6's frame is: with `aug_on` still off in the release build (C6's own sheet,
+  `docs/combat/c6-augments.png`, with the owner), nothing is chosen yet and play is the build before line for line (checked, 900 s);
+  with `CRAWL_AUG=1` alone the dream now chooses D's at the Lampstand beside Fire's. **Track C**: once the owner approves your sheet,
+  turning `aug_on` on brings all six lines in at once; nothing more is needed on D's side.
 
 ## Appendix: the owner's guide (7 November), as given
 
