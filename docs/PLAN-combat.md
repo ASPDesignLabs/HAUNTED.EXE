@@ -696,6 +696,18 @@ the tables above gave a track stays its own; these are added:
 | the new stats' and the classes' abilities' effects where they are felt on the dead (`hit_mult`, `el_chance`, `el_status`, `mob_ignite`, `mob_chill`, `mob_poison`'s dose, `damage_mob`), the bone and the soul they leave in `kill_mob` (one line each, beside C's share), the bodies of `gear_cut` and `abil_short` |
 | the Codex's words for stats and abilities (`STAT_DOES`, `stat_does`, `ABIL_DOES`), Tab's fifth page (`render_elements`), the cards' *FOR THE ...* |
 
+C6's contract commit (9 November) adds these:
+
+| Track C only | Track D only |
+|---|---|
+| the augments' frame: `RUN`'s choices, credits, bank and order, `LG_AUG`, `aug_of`, `aug_rank`, `aug_k`, the credits (kills, things, bosses), the dispatchers `aug_*` (17.3) and their call sites | the bodies of `augd_*` (17.3), in their marked block after D5's, and whatever they need for Frost, Lightning, Poison, Spirit and Physical (11.4); those five lines' rows of the augments' names and words |
+| the Lampstand's augment slots and choosing (`update_align`'s and `render_align`'s augment parts; Space to the augments, Back to unbind, A6), the Codex's augment pages | |
+| the dream's choosing and feeding (A15) | |
+| Fire's six (11.2): their handlers, the held bolt in `human_cast` and its clash with the Firewall (A9), *SLOW EMBERS* (A10), `Shot.scale` and how a shot is drawn by it | |
+
+`cast_spell` is track C's now (its cost, its damage and its shots' augments); its hits through `chain_lightning`, `flask_burst` and
+`damage_mob` stay track D's.
+
 ### 17.3 What the two tracks share (the contract)
 
 In `src/scene_crawl.c`, after `Mob`, committed with this section:
@@ -733,8 +745,20 @@ In `src/scene_crawl.c`, after `Mob`, committed with this section:
   chance and length on the caster; C's `conf_cut` adds it to Agility's for the three hard ones, under the same 0.9 (one line,
   written by D in this commit, and it counts with the old lines too). `abil_short(ab, a, buf, n)`, D's: a class ability's words
   on Tab's caster page, whose switch now names Mirrored and leaves the rest to it. Stubs that do nothing till D6 fills them.
-- To come: at the start of 1.0.0b20, C5's `conf_rank(cf)` and `conf_value(cf, which)`, which D5 reads; at the start of 1.0.0b21,
-  C6's augment hooks, which D7 fills for its lines.
+- 1.0.0b21 (C6's contract, 9 November): the augments (section 11). `AUG_OPEN`, `AUG_ABIL`, `AUG_ULT` (`NAUGT`), a line's three steps.
+  `aug_of(e, t)`: which of the pair at step t of line e is chosen (0 none, 1 the first, 2 the second); `aug_rank(e, t)`: its rank,
+  0-3; `aug_k(e, t, w)`: 0 unless w is the one chosen, else 0.5, 0.75 or 1 by its rank (A8). Set by C (C6), read by both. **The
+  hooks**, declared after `Shot`, each handing a line's spell to its own (Fire's C's; the other five's `augd_*`, D's, with the
+  line `e` first), and changing nothing while no augment is chosen: `aug_cost(sp)` (a share added to the spell's spirit, A7),
+  `aug_dmg(sp)` (a multiplier on its damage as cast), `aug_cast(sp, s, t)` (a shot just made by the line's spell, NULL for
+  lightning and the drain once they have struck; it may change the shot and make more), `aug_hit(m, atk, flags, &dmg)` (in
+  `damage_mob`, after its weaknesses, before its health), `aug_af(m, atk, q)` (in `el_status`: `AUGQ_CHANCE` a multiplier on the
+  status's chance, `AUGQ_HARM` on its harm), `aug_kill(m, atk, flags)` (in `damage_mob`, before `kill_mob`; `DM_TICK` a burn's or
+  poison's tick; C banks the line's credit there too), `aug_tick(m, dt)` (each creature, from `mob_afflict`), `aug_fly(s, dt)`
+  (each shot in flight, from `update_shots`); `augd_built(e)`: D's, which of its lines' augments are built, so the Lampstand
+  offers only those. `Shot.scale`: a shot's size, 0 as drawn. The ultimates (`cast_charged`) take no augments. The call sites in
+  track D's functions are one line each, put there by this commit: `damage_mob`'s hit and kill, `el_status`'s roll and harm,
+  `mob_afflict`'s tick; and `update_shots`' flight (its shared part).
 
 **Changing the contract**: write the change here and in the code's declarations in one commit of its own, push it at once, and
 put a line starting **CONTRACT** in your log. Each agent reads the other's log at every pull.
@@ -1071,6 +1095,18 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   J20's runs are otherwise done.
 - **9 November. The owner's word: keep it harder.** 1.0.0b20 goes out with the Confessions as they are and J20's numbers in the
   README; main's README and page keep their *not yet weighed* till then, and 1.0.0b20's words carry the finding. **J20 is done.**
+- **9 November. C6's contract: the augments' hooks, and 17.2 c** (1.0.0b20 released by track D at the owner's word; C6 begun).
+  **CONTRACT.** 17.3's 1.0.0b21 bullet: `AUG_OPEN`, `AUG_ABIL`, `AUG_ULT`; `aug_of`, `aug_rank`, `aug_k` (C's, saying none till
+  C6's frame); the hooks `aug_cost`, `aug_dmg`, `aug_cast`, `aug_hit`, `aug_af`, `aug_kill`, `aug_tick`, `aug_fly`, declared after
+  `Shot`, which hand Fire to C and the other five lines to D's `augd_*` (stubs in a new marked block after D5's, with
+  `augd_built`); `Shot.scale`. Their call sites: `cast_spell` (the cost, the damage, each shot; lightning and the drain after they
+  strike), and one line each in track D's `damage_mob` (the hit, after its weaknesses; the kill, before `kill_mob`), `el_status`
+  (the chance and the harm), `mob_afflict` (the tick) and `update_shots` (the flight). The ultimates take none. 17.2 c (C's rows
+  added under D6's, whose contract came first, 978a9a4; the two met in the contract block and the plan, kept both): the frame, the
+  Lampstand's slots, the dream's choosing and Fire's six are C's; `augd_*` and the five lines' names and words are D's;
+  `cast_spell` is C's now. Checked: the dream from level 1 for 600 s on seed 5 as the Witchfinder (661 events) and the Plague
+  Doctor (603) plays the build before line for line. Next: the frame (the slots at the Lampstand, credits, ranks, `LG_AUG`, the
+  dream's choices) and Fire's six, behind a debug switch till their sheet is approved. Track D: D7 can begin on `augd_*` now.
 
 ## 19. Track D's log (the dead's)
 

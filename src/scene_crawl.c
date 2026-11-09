@@ -220,6 +220,16 @@ static float gear_cut(int k);                                      /* 1.0.0b21 (
                                                                       Frozen; the Headsman's Block on Knocked Down), added to Agility's under its
                                                                       cap in conf_cut; D's, a stub till then */
 static void abil_short(int ab, float a, char *buf, int n);         /* and an ability's few words on Tab's caster page (D's) */
+/* 1.0.0b21 (section 17.3): the spells' augments (section 11; C6 the frame and Fire's, D7 the other five lines'). Each line has three
+ * steps with a pair at each, one of which the caster chooses at the Lampstand: its opening, its ability, its ultimate (AUG_OPEN,
+ * AUG_ABIL, AUG_ULT). aug_of(e, t): which of the pair is chosen at step t of line e (0 none, 1 the first, 2 the second);
+ * aug_rank(e, t): its rank, 0-3, from the line's credits; aug_k(e, t, w): 0 unless w is the one chosen, else 0.5, 0.75 or 1 by its
+ * rank (A8: the guide's numbers are rank III's). C6 fills them. The hooks that hand each line its say are after Shot */
+enum { AUG_OPEN, AUG_ABIL, AUG_ULT, NAUGT };
+enum { AUGQ_CHANCE, AUGQ_HARM };                                   /* aug_af's two questions: a status's chance, its harm */
+static int aug_of(int e, int t);
+static int aug_rank(int e, int t);
+static inline float aug_k(int e, int t, int w);
 /* a pack (docs/PLAN-ai.md, sections 5-6): its kind (PA_*), its members, the one that leads it, how many it began with; its
  * state (PAS_*), the one calling and how long the call has to run; when one of it last saw the caster, and where; its
  * turns: those engaged now, their health as their turn began, the one relieved last, and when the turn changes */
@@ -555,8 +565,41 @@ static int font_drink(int i);
 static Mob *boss_mob(void);
 static void hz_clear(void);
 
-typedef struct { int alive, kind, target; float x, y, z, vx, vy, life, dmg; uint64_t pierced; int tier; float arc; uint16_t mkhit; } Shot;   /* tier: the rank
-                                                                                 it was cast at; arc: a lob's whole flight (the Blight Flask), 0 straight */
+typedef struct { int alive, kind, target; float x, y, z, vx, vy, life, dmg; uint64_t pierced; int tier; float arc; uint16_t mkhit; float scale; } Shot;   /* tier: the rank
+                                                                                 it was cast at; arc: a lob's whole flight (the Blight Flask), 0 straight;
+                                                                                 scale (1.0.0b21): its size, 0 as drawn (a held bolt grown, an augment's) */
+/* The augments' hooks (17.3, 1.0.0b21): called where a line's spell is cast, flies, strikes, burns and kills, each handing the line
+ * to its own track's handler (Fire's the caster's track's; the other five lines' D7's, augd_* in the dead's track's marked block).
+ * With no augment chosen they change nothing, so a line without one plays as before.
+ *   aug_cost(sp)               what the line's augments add to the spell's spirit, a share (0.3 is 30% more; A7: they add up)
+ *   aug_dmg(sp)                a multiplier on the spell's damage as it is cast (cast_spell, cast_charged)
+ *   aug_cast(sp, s, t)         a shot just made by the line's spell (s NULL for lightning and the drain, after they strike; t the
+ *                              target or -1); it may change the shot (dmg, speed, life, scale) and make more
+ *   aug_hit(m, atk, flags, d)  a hit in damage_mob, after its weaknesses and before its health; it may change *d
+ *   aug_af(m, atk, q)          a multiplier on the status the hit rolls in el_status: AUGQ_CHANCE its chance, AUGQ_HARM its harm
+ *   aug_kill(m, atk, flags)    a creature killed by the line (flags as damage_mob had them: DM_TICK a burn's or poison's tick);
+ *                              the caster's track banks the line's credit here too
+ *   aug_tick(m, dt)            each creature, each step, from mob_afflict (a burning that spreads, a bleed)
+ *   aug_fly(s, dt)             each shot in flight, from update_shots (a trail)
+ * The same with the line first (augd_*, e the line) are the dead's track's for its five; augd_built(e) says which of its lines'
+ * augments are built, so the Lampstand offers them */
+static float aug_cost(int sp);
+static float aug_dmg(int sp);
+static void aug_cast(int sp, Shot *s, int t);
+static void aug_hit(Mob *m, int atk, int flags, float *dmg);
+static float aug_af(const Mob *m, int atk, int q);
+static void aug_kill(Mob *m, int atk, int flags);
+static void aug_tick(Mob *m, float dt);
+static void aug_fly(Shot *s, float dt);
+static float augd_cost(int e, int sp);
+static float augd_dmg(int e, int sp);
+static void augd_cast(int e, int sp, Shot *s, int t);
+static void augd_hit(int e, Mob *m, int atk, int flags, float *dmg);
+static float augd_af(int e, const Mob *m, int atk, int q);
+static void augd_kill(int e, Mob *m, int atk, int flags);
+static void augd_tick(Mob *m, float dt);
+static void augd_fly(int e, Shot *s, float dt);
+static int augd_built(int e);
 typedef struct { int alive, kind; float x, y, vx, vy, life, spin, dmg, life0; int from, atk; Blame by; int el1; } Bone;   /* life0: an ember's whole flight; from: its thrower;
                                                                                                     atk: a turned spell's kind;
                                                                                                     el1: 1 + its element (PLAN-combat) */
@@ -5402,6 +5445,40 @@ static float armour_cap(void) {                                    /* CRAWL_SHEE
 }
 /* ---- the dead's track's stubs end ---- */
 
+/* ---- the dead's track (D) owns these bodies (docs/PLAN-combat.md, 17.2 c and 17.3 for 1.0.0b21): the augments of Frost,
+ * Lightning, Poison, Spirit and Physical (section 11.4), e the line; stubs that change nothing till D7 ---- */
+static float augd_cost(int e, int sp) { (void)e; (void)sp; return 0.0f; }
+static float augd_dmg(int e, int sp) { (void)e; (void)sp; return 1.0f; }
+static void augd_cast(int e, int sp, Shot *s, int t) { (void)e; (void)sp; (void)s; (void)t; }
+static void augd_hit(int e, Mob *m, int atk, int flags, float *dmg) { (void)e; (void)m; (void)atk; (void)flags; (void)dmg; }
+static float augd_af(int e, const Mob *m, int atk, int q) { (void)e; (void)m; (void)atk; (void)q; return 1.0f; }
+static void augd_kill(int e, Mob *m, int atk, int flags) { (void)e; (void)m; (void)atk; (void)flags; }
+static void augd_tick(Mob *m, float dt) { (void)m; (void)dt; }
+static void augd_fly(int e, Shot *s, float dt) { (void)e; (void)s; (void)dt; }
+static int augd_built(int e) { (void)e; return 0; }               /* which of the five have their augments built (the Lampstand offers
+                                                                      only those) */
+/* ---- the dead's track's augment stubs end ---- */
+
+/* ---- the spells' augments (1.0.0b21, PLAN-combat section 11): the caster's track's frame and its dispatchers. Each hook hands a
+ * line's spell to its line's own: Fire's here, the other five's to the dead's track (augd_*). Till C6 fills the frame no augment
+ * is ever chosen, and every hook gives back what it was given ---- */
+static int aug_built(int e) { return e == EL_FIRE ? 0 : augd_built(e); }   /* Fire's come with C6 */
+static int aug_of(int e, int t) { (void)t; if (e < 0 || e >= NELEM || !aug_built(e)) return 0; return 0; }   /* C6: the choice */
+static int aug_rank(int e, int t) { return aug_of(e, t) ? 0 : 0; }   /* C6: the rank from the credits */
+static inline float aug_k(int e, int t, int w) {
+    int r = w && aug_of(e, t) == w ? aug_rank(e, t) : 0;
+    return r >= 3 ? 1.0f : r == 2 ? 0.75f : r == 1 ? 0.5f : 0.0f;
+}
+static int aug_line(int atk) { return atk >= 0 && atk < NATK ? ATK_ELEM[atk] : -1; }   /* a spell's line (Hellfire's burning is Fire's) */
+static float aug_cost(int sp) { int e = aug_line(sp); return e < 0 || e == EL_FIRE ? 0.0f : augd_cost(e, sp); }
+static float aug_dmg(int sp) { int e = aug_line(sp); return e < 0 || e == EL_FIRE ? 1.0f : augd_dmg(e, sp); }
+static void aug_cast(int sp, Shot *s, int t) { int e = aug_line(sp); if (e >= 0 && e != EL_FIRE) augd_cast(e, sp, s, t); }
+static void aug_hit(Mob *m, int atk, int flags, float *dmg) { int e = aug_line(atk); if (e >= 0 && e != EL_FIRE) augd_hit(e, m, atk, flags, dmg); }
+static float aug_af(const Mob *m, int atk, int q) { int e = aug_line(atk); return e < 0 || e == EL_FIRE ? 1.0f : augd_af(e, m, atk, q); }
+static void aug_kill(Mob *m, int atk, int flags) { int e = aug_line(atk); if (e >= 0 && e != EL_FIRE) augd_kill(e, m, atk, flags); }
+static void aug_tick(Mob *m, float dt) { augd_tick(m, dt); }
+static void aug_fly(Shot *s, float dt) { int e = aug_line(s->kind); if (e >= 0 && e != EL_FIRE) augd_fly(e, s, dt); }
+
 static void xp_rooms(void) {                                       /* a room first set foot in */
     if (G.shop || PK.depth) return;
     int cx = (int)G.px, cy = (int)G.py;
@@ -5854,6 +5931,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
         if (ATK_ELEM[atk] != EL_POISON && align_add(EL_POISON) > 0.0f) mob_poison(m, dmg * align_add(EL_POISON), 4.0f);   /* Poison's: a dose */
     }
     if (atk >= 0 && atk < NATK) { dmg *= hit_mult(m, atk); m->last_atk = atk; if (!(flags & DM_TICK)) rec_hit(m, atk); }   /* what it is weak to, or shrugs off */
+    if (atk >= 0 && atk < NATK) aug_hit(m, atk, flags, &dmg);      /* the line's augments (17.3, 1.0.0b21) */
     if (atk >= 0 && atk < NATK && ATK_ELEM[atk] >= 0) ward_struck(m, ATK_ELEM[atk], dmg, flags & DM_TICK);   /* a ward: a dull ring, and it may crack */
     if (atk >= 0 && atk < NATK && ATK_ELEM[atk] == EL_LIGHT && !(flags & DM_TICK)) mk_wet_hit(m);   /* standing in the water */
     if (m->frozen > 0.0f && elem_mode()) dmg *= 1.33f;             /* Frozen: a third more (docs/PLAN-combat.md section 5) */
@@ -5911,7 +5989,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
             if (!G.booms[b].alive) { G.booms[b] = (Boom){ 1, m->x, m->y, 0.0f, 1.0f, 3 }; break; }
         DBG_COUNT(shatters);
     }
-    if (m->hp <= 0.0f) { kill_mob(m); return 1; }
+    if (m->hp <= 0.0f) { if (atk >= 0 && atk < NATK) aug_kill(m, atk, flags); kill_mob(m); return 1; }   /* (the augments, 17.3) */
     if (atk >= 0 && atk < NATK && !(flags & DM_TICK)) el_status(m, atk, dmg);   /* its element's status, by chance (D4) */
     if (m->type == MOB_SKEL || m->type == MOB_SHIELD) {            /* knocked back a step */
         m->stagger = 0.6f; m->throw_t = 0.0f; m->swing = 0.0f; m->cool = fmaxf(m->cool, 0.9f);
@@ -5947,6 +6025,7 @@ static void mob_afflict(Mob *m, float dt) {                        /* what wears
         m->burn_t -= dt; m->burn_acc += m->burn_dps * dt;
         if (m->burn_acc >= 1.0f || m->burn_t <= 0.0f) { float d = m->burn_acc; m->burn_acc = 0.0f; if (d > 0.0f) damage_mob(m, d, DM_ARC | DM_TICK | DM_ATK(AT_HELL), m->x, m->y, 0.0f); }
     }
+    if (m->state == MS_WALK) aug_tick(m, dt);                      /* the augments' (17.3, 1.0.0b21) */
 }
 
 /* The dead's statuses (1.0.0b19, docs/PLAN-combat.md section 5): the caster's seven, as far as they mean anything to a
@@ -6027,8 +6106,8 @@ static float el_chance(const Mob *m, int el) {
 static void el_status(Mob *m, int atk, float dmg) {
     int el = ATK_ELEM[atk];
     if (!elem_mode() || el < 0 || el == EL_FROST || el == EL_POISON || el == EL_PHYS || !mob_takes_af(m)) return;
-    if (rndf() >= el_chance(m, el)) return;
-    if (el == EL_FIRE) mob_ignite(m, dmg);
+    if (rndf() >= el_chance(m, el) * aug_af(m, atk, AUGQ_CHANCE)) return;   /* the line's augments (17.3, 1.0.0b21) */
+    if (el == EL_FIRE) mob_ignite(m, dmg * aug_af(m, atk, AUGQ_HARM));
     else if (el == EL_LIGHT) mob_stun(m, 1.2f);
     else if (el == EL_SPIRIT) mob_unbind(m, 1.5f);
 }
@@ -9477,7 +9556,7 @@ static Shot *new_shot(int kind, float x, float y, float a, float speed, float dm
     for (int i = 0; i < MAXSHOTS; i++) {
         Shot *s = &G.shots[i];
         if (s->alive) continue;
-        *s = (Shot){ 1, kind, -1, x, y, 0.0f, cosf(a) * speed, sinf(a) * speed, kind == AT_SPEAR || kind == SHOT_SPLINTER ? 1.0f : 1.6f, dmg, 0, 1, 0.0f, 0 };
+        *s = (Shot){ 1, kind, -1, x, y, 0.0f, cosf(a) * speed, sinf(a) * speed, kind == AT_SPEAR || kind == SHOT_SPLINTER ? 1.0f : 1.6f, dmg, 0, 1, 0.0f, 0, 0.0f };
         G.lay_x[i] = x; G.lay_y[i] = y;
         return s;
     }
@@ -9631,7 +9710,7 @@ static void cast_spell(int sp, int t) {
     int splinter = sp == AT_SPEAR && spear_bare();                 /* no bones: a splinter, if one has grown */
     if (splinter && splint_left() <= 0) { say("NO BONES, AND NO SPLINTERS YET"); fizzle(sp); return; }
     int tier = spell_tier(sp), weak = 0;
-    if (sp != AT_BFS && !((sp == AT_CHAIN || sp == AT_DRAIN) && !have && seal < 0) && !spend_spirit(spell_cost(g, sp, tier))) {
+    if (sp != AT_BFS && !((sp == AT_CHAIN || sp == AT_DRAIN) && !have && seal < 0) && !spend_spirit(spell_cost(g, sp, tier) * (1.0f + aug_cost(sp)))) {   /* its augments' */
         tier = 1; weak = 1;
         if (!G.spirit_said) { G.spirit_said = 1; say("LOW ON SPIRIT: SPELLS CAST WEAK"); }
 #ifdef CRAWL_DEBUG
@@ -9640,7 +9719,7 @@ static void cast_spell(int sp, int t) {
 #endif
     }
     if (sp == AT_SPEAR && !splinter && rndf() >= bone_spared()) RUN.gear.bones--;   /* Physical Efficiency: now and then none */
-    float dmg = spell_damage_at(g, sp, tier);
+    float dmg = spell_damage_at(g, sp, tier) * aug_dmg(sp);       /* its augments' share (1.0.0b21) */
     if (sp == AT_SPEAR && !splinter && align_has(EL_PHYS, ND_A2)) dmg += 0.5f * (float)gear_armor(g);   /* Ossified: half your armour behind it */
     if (splinter) {
         dmg *= SPLINTER_DMG; RUN.splint_used++;
@@ -9665,6 +9744,7 @@ static void cast_spell(int sp, int t) {
     case AT_CHAIN:
         if (have) chain_lightning(t, dmg, tier);
         else { int k = mk_aimed(); if (k >= 0) { add_beam(AT_CHAIN, hx, hy, 0.42f, G.mk[k].x, G.mk[k].y, 0.6f); mk_strike(k, EL_LIGHT); } else fizzle(sp); }   /* a seal */
+        aug_cast(sp, NULL, have ? t : -1);
         return;
     case AT_DRAIN:
         if (have) {
@@ -9690,12 +9770,13 @@ static void cast_spell(int sp, int t) {
                 DBG_COUNT(wisp_host);
             }
         } else { int k = mk_aimed(); if (k >= 0) { add_beam(AT_DRAIN, hx, hy, 0.42f, G.mk[k].x, G.mk[k].y, 0.6f); mk_strike(k, EL_SPIRIT); } else fizzle(sp); }   /* a seal */
+        aug_cast(sp, NULL, have ? t : -1);
         return;
     case AT_BFS: bfs9000(); return;
     case AT_FLASK: {                                               /* lobbed to where you aim, over what is in the way */
         float d = clampf(have ? hypotf(tx - G.px, ty - G.py) : 4.5f, 1.2f, 9.0f);
         Shot *s = new_shot(AT_FLASK, hx, hy, a, 7.0f, dmg);
-        if (s) { s->tier = tier; s->arc = s->life = d / 7.0f; }
+        if (s) { s->tier = tier; s->arc = s->life = d / 7.0f; aug_cast(sp, s, have ? t : -1); }
         snd_sfx_ex(SFX_WHOOSH, 0.6f, 0.5f);
         return;
     }
@@ -9704,7 +9785,7 @@ static void cast_spell(int sp, int t) {
         if (have) wisp_bfs(m->cx, m->cy);
         for (int i = 0; i < n; i++) {
             Shot *s = new_shot(AT_WISPS, hx, hy, a + (i - (n - 1) * 0.5f) * 0.45f, 4.5f, dmg);
-            if (s) { s->target = have ? t : -1; s->life = 3.0f; s->tier = tier; }
+            if (s) { s->target = have ? t : -1; s->life = 3.0f; s->tier = tier; aug_cast(sp, s, have ? t : -1); }
         }
         snd_sfx_ex(SFX_SHIMMER, 0.6f, 0.5f);
         return;
@@ -9713,7 +9794,7 @@ static void cast_spell(int sp, int t) {
         float speed = sp == AT_SPEAR ? 12.0f : (sp == AT_HELL ? 6.0f : (sp == AT_FROST ? 9.0f : 8.0f));
         if (bat) a += (rndf() - 0.5f) * (sp == AT_FROST ? 0.3f : 0.6f);   /* bats are hard to hit */
         Shot *s = new_shot(sp, hx, hy, a, speed, dmg);
-        if (s) s->tier = tier;
+        if (s) { s->tier = tier; aug_cast(sp, s, have ? t : -1); }
         snd_sfx_ex(sp == AT_FROST ? SFX_FROST : SFX_CAST, sp == AT_HELL ? 1.3f : 1.0f, 0.5f);
         return;
     }
@@ -9861,6 +9942,7 @@ static void update_shots(float dt) {
         Shot *s = &G.shots[i];
         if (!s->alive) continue;
         s->life -= dt;
+        aug_fly(s, dt);                                            /* its line's augments, in flight (17.3, 1.0.0b21) */
         if (s->kind == AT_WISPS) {                                 /* homing, round corners if need be */
             Mob *m = s->target >= 0 ? &G.mobs[s->target] : NULL;
             if (m && (!m->alive || m->state != MS_WALK)) { m = NULL; s->target = -1; }
