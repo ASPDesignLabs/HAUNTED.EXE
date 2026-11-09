@@ -1342,6 +1342,42 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   the Galvanist's page reads *RESIST SLOW -10%*; the Plague Doctor's seed 9 from level 1 for 3,000 s on this build (C5 in play, so
   not the run that showed it) stood no longer than 40 s anywhere. Both go into J20.
 
+- **9 November. J20, track D's half** (harness only), as track C's entry set it out: this branch at `a3efa7a` (with the Galvanist's
+  Frost at -10 and the buried shambler's mend, which track C's half, run before them, hasn't) against 1.0.0b19 (`41fe10c`, built in
+  a worktree), both run here on the same seeds with `CRAWL_RUNID` the seed: seeds 17-31 odd for each of the five classes a fresh
+  run can be given, from level 1 for the first 3,000 s, and from level 31 for 1,500 s at `CRAWL_GEAR` 8 and `CRAWL_XPBANK` 77658.
+  **From level 1**: 256 levels cleared and 48 deaths (251 and 48), a level's median 355 s (352), none on a boss's level (the runs
+  end before it). By class: the Witchfinder 10 deaths (5), the Anatomist 4 (12), the Galvanist 18 (9), the Plague Doctor 12 (12),
+  the Sin-Eater 4 (10). **From level 31**: 119 levels cleared (114), one death (none: a Sin-Eater on level 31, to a rank IV ember imp), a level's median
+  364 s (366). What landed on the caster from level 1: knocked down 231 times (237), poisoned 43 (32), chilled 16 (13), on fire 0
+  (6); from 31, on fire 15 (8), stunned 4 (none), the rest alike. The dream channelled Restoration 12 times from level 1 and 200
+  from 31, confessed 160 and 720 ranks, lived no killing blow (none of the five confesses Constitution first); creatures born to
+  an element 223 and 1,525 (224 and 1,506). Stalls: five runs of the forty from level 1 stood 40 s within a cell of a place
+  (two), none past 41 s; from 31 none (four). **The Galvanist** again: 18 deaths against 9, eight of them to rank I skeletons on
+  levels 1-4 (four); every batch since its sheet went in has it so (52 against 31 over thirty-two seeds, then 21 against 13, now
+  18 against 9), with its Frost at -15 or -10. Its ninety health is a little of it (at 100 it had died 45 times where it died 52). What the rest is, its
+  Dodge and Movement changing how the dream walks, or the eight seeds, isn't known; a person may fare otherwise. For the owner.
+  **ASan** clean on five dreams of 600 s on this build, a class each across the starts (the Witchfinder
+  from 1, the Anatomist from 11, the Galvanist from 21, the Plague Doctor and the Sin-Eater from 31; Restoration channelled and
+  ranks confessed in them). Track C: the numbers are for your table; no contract changed. **Track D's half of J20 is done.**
+
+  | From | Class | Cleared | Deaths | A level's median, s |
+  |---|---|---|---|---|
+  | 1 | Witchfinder | 51 (52) | 10 (5) | 353 (342) |
+  | 1 | Anatomist | 51 (49) | 4 (12) | 363 (348) |
+  | 1 | Galvanist | 50 (50) | 18 (9) | 359 (350) |
+  | 1 | Plague Doctor | 52 (49) | 12 (12) | 352 (361) |
+  | 1 | Sin-Eater | 52 (51) | 4 (10) | 348 (354) |
+  | 1 | **all five** | 256 (251) | 48 (48) | 355 (352) |
+  | 31 | Witchfinder | 24 (22) | 0 (0) | 380 (360) |
+  | 31 | Anatomist | 24 (22) | 0 (0) | 362 (366) |
+  | 31 | Galvanist | 24 (23) | 0 (0) | 362 (355) |
+  | 31 | Plague Doctor | 24 (23) | 0 (0) | 348 (378) |
+  | 31 | Sin-Eater | 23 (24) | 1 (0) | 386 (375) |
+  | 31 | **all five** | 119 (114) | 1 (0) | 364 (366) |
+
+  *Seeds 17-31 odd; from level 1 the first 3,000 s, from level 31 1,500 s; 1.0.0b19 in brackets.*
+
 ## Appendix: the owner's guide (7 November), as given
 
 > Q1. B, but we mix things up a bit. I offered a guide I've spent a day working on. Use my responses to these questions and the

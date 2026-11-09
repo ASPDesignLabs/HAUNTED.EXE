@@ -255,7 +255,8 @@ Confessions' sheet approved; harness only); D5 is built (harness only): the clas
 Restoration (both sheets approved, `docs/combat/d5-cracks.png`, `d5-restoration.png`), and the owner's caps by class
 (docs/BRIEF-caps.md, given to D). All of it was released as **1.0.0b19.1** at the owner's word (9 November), a point
 release before J20's runs (the owner asked for b19 again; CI publishes only a version with no release, so a new number),
-squashed onto main as one commit; **1.0.0b20** goes out after J20, the joint checks against 1.0.0b19. Found in the
+squashed onto main as one commit; **1.0.0b20** goes out after J20, the joint checks against 1.0.0b19 (track D's half done, 9
+November, with the Galvanist's Frost at -10 and the buried shambler's stall mended at the owner's word; its numbers in section 19). Found in the
 review and mended by the plan: `HURT_MAGIC` is resisted by Resist Burn whatever its element; poison is the weak element across
 the bestiary (0.55 on average); skeletons' throws have no floor; flat armour grows as the blow does.
 
