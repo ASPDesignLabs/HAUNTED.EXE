@@ -432,7 +432,8 @@ follows your Level of Atonement and its rank adds to that. The spells: **Fire Bo
 **Frost Shard** (slows), **the bolt** (strikes at once), **the Blight Flask** (lobbed over what is
 in the way, a splash and poison after), **Soul Drain** (heals you as it hurts, the healing paid in spirit)
 and **the Bone Spear** (through all in a line, a bone a spear, no spirit; with no bones it throws splinters,
-eight at most, one coming back every six seconds, slower and lighter). 1 to 6 choose them, 7 the BFS9000. Any spell
+eight at most, one coming back every six seconds, slower and lighter). 1 to 6 choose them, 7 the BFS9000, 8
+Restoration once it is confessed (below). Any spell
 now drives the wandering Wraith back three seconds, fire, spirit and a wisp five.
 
 Each line goes: the opening; Efficiency (less spirit) and Insight (a shorter wind-up), a point at a time;
@@ -473,6 +474,20 @@ caster is set to the labour of clearing the crypts, and what it was decides how:
 | The Headsman | Physical | A fifth more spears spend no bone, ten more bones, a tenth more armour; not to be chosen until the Lampstand's first gift |
 
 Each class's line is open from the start.
+
+**What each brings** (1.0.0b19.1). A class also starts with health and stats of its own, joined to what it wears and
+confesses under the same caps; its own element hurts it 15% less and one other 15% more; and three of its caps are lifted
+by three tenths (a resist's and armour's stopping at 90%, spirit cost's at 70%). Her question's second page (Space) and
+the Codex's class pages show it:
+
+| Class | Health | Brings | Hurt less, more | Caps lifted |
+|---|---|---|---|---|
+| The Witchfinder | 95 | Spell Haste +6%, spirit cost -6%, Spell Effect +8% | fire, frost | Resist Burn 90%, Spell Haste 65%, Spell Effect 65% |
+| The Anatomist | 105 | Armour +5, Physic +15% | frost, fire | Resist Slow 90%, Physic 520% |
+| The Galvanist | 90 | Dodge +6%, Movement +6%, Quiet +15% | lightning, frost | Resist Lightning 90%, Dodge 45.5%, Movement 52% |
+| The Plague Doctor | 100 | Luck +1%, Treasure +5%, sprint +0.5 s, every mark on it a tenth less likely | poison, spirit | Resist Poison 90%, Luck 32.5%, Treasure 130% |
+| The Sin-Eater | 95 | Restores 0.1 a second, a tenth more souls from the dead | spirit, poison | Resist Spirit 90%, spirit carried 130, spirit cost 70% |
+| The Headsman | 120 | Armour +4, sprint +1 s | its armour; lightning more | armour's share of a blow 90%, sprint 9.75 s over the base, Damage 130% |
 
 Each has a story on her question's screen. A life keeps one; from Level of Atonement 20 she hears another
 past for five Cursed Coins, and the old line keeps what was bought in it. The screensaver takes one at
@@ -536,7 +551,9 @@ you have none. The screensaver's caster still raises its runes by itself.
 **How harm is taken.** Each element is kept off by its own resist: fire by Resist Burn, frost by Resist Slow,
 lightning, poison and spirit by theirs; the physical by none. Armour keeps off a share of a blow, not a set number:
 armour as great as a green-rank blow of the level keeps off half of it, whatever the level, and half as much against the
-elements. A skeleton never throws quicker than every 0.6 s, however deep.
+elements. Since 1.0.0b19.1 armour never keeps off more than three quarters of a blow (the Headsman's nine tenths), and
+a resist may go below nothing, so that its element harms more. A skeleton never throws quicker than every 0.6 s,
+however deep.
 
 **What they leave on you.** Seven marks, in a row of small stones by your portrait (by the readout when the bar is
 away), each one's edge draining as it runs out:
@@ -644,30 +661,43 @@ The tally has an EXPERIENCE row.
 reaches at once, ten points each, to the fiftieth. Level *n* needs 42 x (n-1)² in all: 42 for the second,
 3,402 for the tenth, 15,162 for the twentieth and 100,842 for the fiftieth. Without dying, the screensaver's
 caster reaches about Level of Atonement 15 by the end of the first run of the crypt and 28 by the end of the
-second, and 50 at about level 35; someone who clears every chain, at about level 29. Everyone starts alike, at 100
-health and 2% Luck, and the points buy:
+second, and 50 at about level 35; someone who clears every chain, at about level 29. Everyone has 2% Luck to begin
+with, and each class its own health and stats (above).
 
-| Points | Line | A step | Cap on the total |
-|---|---|---|---|
-| 1 | Health | +5 | none |
-| 3 | Damage | +1% | 100% |
-| 3 | Resist all | +5% to poison, burning, slowing and Spirit | 75% each |
-| 3 | Resist poison, burn, slow or Spirit | +15% to the one | 75% |
-| 3 | Spell Haste | +1% | 50% |
-| 3 | Dodge | +1% | 35% |
-| 2 | Treasure | +1% | 100% |
-| 2 | Movement | +1% | 40% |
-| 1 | Luck | +0.1% | 25% |
-| 1 | Attunement (spirit cost) | +1% | 60% |
+**The Unholy Confessions** (1.0.0b19.1, in place of the lines the points bought before). Six, each with five ranks,
+bought a point at a time: 10 points make rank I, then 20, 30, 40 and 50 more (150 to V), and every point moves all of
+a Confession's numbers its share of the way to the next rank. Each class takes each Confession at a share of its own,
+from half to the whole (three quarters with no past yet); the screen never names them, but its numbers are the class's.
+At rank I and rank V, at the whole share:
 
-On the caster's screen W and S choose a line, D or Enter buys a step and A takes back one bought since the
-screen opened; points not spent wait for next time. What the caster has of its own is added to what it
-wears, under the same caps, and a step that would go past one asks twice. **Luck** is new: each kill rolls
-it for a purse of gold, bigger by the creature's rank, and half the time a bone, a potion or an urn besides,
-none of it counted in the level's treasure. Nothing you wear has Luck; only points buy it. **Treasure** is the
-stat Treasure Hunter raises, and makes everything picked up worth more. The screensaver's caster ascends at
-each visit and spends by a fixed order (spell haste, damage, health, dodge, resistance, attunement, luck),
-but never on a run that is yours.
+| Confession | What it gives, at I and at V |
+|---|---|
+| Restoration | Restoration, a spell (below): 0.25% of your health a second for 0.7 souls a second, to 1% for 0.1; Physic +10% to +50% |
+| Agility | Knocked Down, Stunned and Frozen 30% to 85% less likely and shorter; Dodge +2% to +10%, Movement +3% to +15%, Quiet +5% to +25% |
+| Spirituality | 10% to 50% more souls from the dead; Unbound 30% to 85% less likely and shorter; Spell Haste +2% to +10%, spirit cost -3% to -15%, Spell Effect +4% to +20% |
+| Constitution | the sprint back 10% to 50% faster, +0.5 s to +2.5 s of it; health +15 to +100; a 5% to 25% chance, once a level, to live a blow that would kill you, on one health and untouchable three seconds (*UNBROKEN*; never more than 30%, and not what you stand in) |
+| Survival | On Fire, Chilled and Poisoned 15% to 60% less likely and shorter, and grabs, webs, bile and the old poison with them; Treasure +3% to +15%, Luck +0.5% to +2.5% |
+| Toughness | Armour +2 to +14, and 5% to 25% of the armour you wear again; a shut secret's cracks give off motes in the run's colour, through dark and fog, from 4 cells to 8 (2 with none confessed) |
+
+On the caster's screen W and S choose a Confession, D or Enter confesses a point (held, it goes on after a breath,
+ten a second) and A takes back what was confessed since the screen opened; points not confessed wait for next time.
+The pane beside the list shows every number as the caster has it in all (worn, its class's and confessed) and as the
+next rank would leave it; a number at its cap has a pale blue lid over it, as has the list's numeral for any Confession
+with something capped, *AT ITS CAP* says which at the pane's foot, and a Confession whose every number is capped asks
+twice. What the caster has of its own is added to what it wears, under the same caps. An older page's lines are undone
+as it is read, every step given back as the points it cost and every overlevel as one to choose again; she says so as
+she greets you. **Luck**: each kill rolls it for a purse of gold, bigger by the creature's rank, and half the time a
+bone, a potion or an urn besides, none of it counted in the level's treasure. Nothing you wear has Luck; only Survival
+and a few classes raise it. **Treasure** is the stat Treasure Hunter raises, and makes everything picked up worth more.
+The screensaver's caster confesses at each visit, its class's two best Confessions to V first, then the lowest, but
+never on a run that is yours.
+
+**Restoration** (1.0.0b19.1), once its rank I is confessed: 8 takes it up, and it is last on the mouse wheel and the
+spells' wheel (an ankh). Hold the cast and after a breath it channels, souls in and health out at Restoration's rate,
+while you walk at half pace and a pale glow climbs your arm; whole, it costs nothing to hold. A blow doesn't end it;
+letting go, a menu, a stun, a knock-down, Unbound, the void or the souls running out do. The status bar shows the ankh
+and its rank while it is in hand, and Tab's caster page lists it on 8. The screensaver's caster channels it out of a
+fight, hurt under three fifths, with souls to spare.
 
 **Cornerstones.** At each tenth Level of Atonement you choose one of five, free, on a screen of their own
 that opens before the points (and is Tab's third page). A death takes them.
@@ -686,8 +716,8 @@ that opens before the points (and is Tab's third page). A death takes them.
 * **Grave Sense.** Creatures within ten cells show on the map as red marks.
 
 **Overlevels.** Past the fiftieth, each level costs 4,074, and at 55, 60 and every fifth after you have an
-overlevel to give: Space (Y on a controller) on a line of the caster's screen, asked twice, puts that line
-5% past its cap, the cap with it (Luck 1%; not health or resist all). An overlevelled number is drawn pale
+overlevel to give: Space (Y on a controller) on a Confession whole at V, asked twice, takes it past V by a quarter
+of what I to V gave, again, the caps of its stats rising with it, and gives an Alignment Point. An overlevelled number is drawn pale
 violet, breathing and now and then slipping, with the dead's eye beside it, wherever it is shown. The
 Codex has a part of its own for all of this, THE CASTER'S OWN.
 
@@ -807,7 +837,7 @@ switching until you hand it back. HAUNT.EXE cuts straight to the crypt.
 | Shift | Sprint forward at half again your pace while its meter lasts; run dry, it waits, then fills, sooner the more health you have past 200 |
 | Mouse | Turn, Doom-style; there is no looking up or down |
 | Left click, or Ctrl | Cast the spell in hand where you are looking (lightning and Soul Drain pick the nearest creature near the middle of the view). Hold it to charge a line's ultimate, or to keep Soul Tether on; a tap casts the spell |
-| 1 to 7, or the wheel | Choose a line's spell: 1 Fire, 2 Frost, 3 Lightning, 4 Poison (the Blight Flask), 5 Spirit (Soul Drain), 6 Physical (the Bone Spear), 7 the BFS9000; the wheel skips lines not open |
+| 1 to 8, or the wheel | Choose a line's spell: 1 Fire, 2 Frost, 3 Lightning, 4 Poison (the Blight Flask), 5 Spirit (Soul Drain), 6 Physical (the Bone Spear), 7 the BFS9000, 8 Restoration once confessed (hold the cast to channel it); the wheel skips lines not open |
 | E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, step through the exit runes, drink from a boss's font, kindle a brazier, take, set down, turn, pull, light, strike or read a puzzle's or a trial's things, search a thing that may hold the hidden message, use a Black Shrine, or mend at a place in the wall (keep still while it mends you, to three quarters of your health, or all of it with Physic at its cap), or use the merchant (her menu), the Rune Shrine, the Hexed Totem, the Compendium, the Repository, a gravestone, the Accursed Portal, the Lampstand, the Dead Bell, the Weeping Font, a Black Altar or its wisp, a visportal or a water cooler. Walking into a door opens it too, and walking into a chain's doorway takes you through |
 | Tab | The wardrobe: W and S choose a place, worn or in the bag, and Enter moves a piece between them. A and D turn to the caster's page: every total, what abilities add (in gold) and what is at its cap (in blue), and the lines' ranks; then the cornerstones, the Alignment's tree, the elements, and the documents found and read on the level |
 | B | The bestiary and the achievements. A and D turn the pages, W and S choose a rank or scroll |
@@ -1177,6 +1207,35 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b19.1** (the Unholy Confessions, what each class brings and its caps, armour's cap, the killing blow
+lived, Restoration, Toughness's cracks: the twentieth beta's work, put out before its balance runs at the owner's word).
+Tested in the harness only: not yet played by hand, run on Windows or seen on a real screen. **Not yet weighed against
+1.0.0b19** over the screensaver's long runs: that comes next, before 1.0.0b20.
+
+* **The Confessions**: a page signed on the old build with 490 points in lines and four overlevels, opened on this one,
+  gave back 490 points and four overlevels to choose, and its Confessions were saved and read again; confessing tapped,
+  held and taken back; the screensaver's caster confessing by its class at its greeting. A forced knock-down lasted 1.5 s,
+  0.21 s with a Galvanist's Agility at V; six seconds of poison 2.4 s with a Plague Doctor's Survival at V. The screen,
+  with the totals and the caps' lids, fits for every class on every Confession, at V with caps reached and an overlevel due.
+* **The classes' own and their caps**: her question's second page and the Codex's for all six, nothing running over.
+  The screensaver from level 1, its first 3,000 seconds on eight seeds for each of the five classes a fresh run can be
+  given, with the Confessions, against the same build without the classes' sheets and caps: 253 levels cleared and 68
+  deaths (242 and 71); from level 31, four seeds a class, the same either way. **The Galvanist does worse with its
+  sheet** in every batch so far (21 deaths against 13 here; 52 against 31 over thirty-two seeds before the caps; at 100
+  health, 45): its ninety health is some of it, the rest unknown, and a person may fare otherwise. Before the caps, the
+  sheets alone on sixteen seeds: 503 levels cleared and 85 deaths against 1.0.0b19's 511 and 78, inside the noise.
+* **The killing blow**: struck down at a set moment with Constitution at V on sixteen seeds for three classes, 15 of 48
+  lived, as their shares give it; forced, it came once a level and never twice.
+* **Restoration**: a person at rank V mended 10 health in 10.6 s for 1.1 souls at half pace; both wheels took it up and
+  put it down; the screensaver channelled it once in 25 minutes (at rank I it needs 56 souls to begin).
+* **Memory safety** (AddressSanitizer): the Confessions on three sessions (two of the screensaver's from levels 21 and 1, a
+  person opening the old page and confessing), a Plague Doctor's dream from level 11, a person turning her question's
+  pages and taking a vow over another, a Headsman's dream from level 21, the killing blow lived by the screensaver and by
+  a person, Restoration channelled by a person and by the screensaver: all clean.
+* **Found and left for the owner**: the screensaver going back and forth for about four minutes between two cells on
+  one run, wanting its place to mend while a shambler still under the earth came into sight and out (older than this
+  work).
 
 **New in 1.0.0b19** (harm and the elements: one road for harm, the seven marks on you, the dead's elements and
 strengths and what your spells leave on them, the new attacks). Tested in the harness only: not yet played by hand,

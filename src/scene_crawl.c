@@ -188,6 +188,33 @@ static inline int af_of(int el) {
  * charge or call; a stunned one no blow, throw or call) */
 static inline int mob_stunned(const Mob *m) { return m->stun_t > 0.0f; }   /* filled in by D3 */
 static inline int mob_unbound(const Mob *m) { return m->unb_t > 0.0f; }
+/* 1.0.0b20 (section 17.3): the Unholy Confessions (C5, section 10). conf_rank(cf): the whole ranks confessed, 0 none, 1-5 for I-V,
+ * past 5 by overlevels. conf_value(cf, which): one of its numbers as the caster has it now, the class's weight in it (10.6), moved
+ * a point at a time (10.1); 0 while nothing is confessed, and those marked "from I" 0 till rank I is whole. Shares are fractions
+ * (0.30 is 30%), the rest in their stat's own units. C5 fills them; D5 reads them */
+enum { CF_RESTORE, CF_AGILITY, CF_SPIRIT, CF_CONST, CF_SURVIVAL, CF_TOUGH, NCONF };
+enum { CV_HEAL, CV_HEAL_SOULS, CV_PHYSIC };                        /* Restoration: the spell's health a second, a share of the most
+                                                                      (from I); its souls a second (from I); Physic % */
+enum { CV_HARD, CV_DODGE, CV_MOVE, CV_QUIET };                     /* Agility: Knocked Down, Stunned and Frozen cut (a share off the
+                                                                      chance and the length); Dodge, Movement, Quiet % */
+enum { CV_SOULS, CV_UNBOUND, CV_HASTE, CV_THRIFT, CV_EFFECT };     /* Spirituality: souls from kills (a share more); Unbound cut; Spell
+                                                                      Haste %, Spirit Cost % less, Spell Effect % */
+enum { CV_RECOVER, CV_SPRINT, CV_HEALTH, CV_LASTBLOW };            /* Constitution: the sprint's recovery (a share quicker), its length
+                                                                      (s), health; a killing blow survived (a chance, from I) */
+enum { CV_SOFT, CV_TREASURE, CV_LUCK };                            /* Survival: every other status cut; Treasure %, Luck % */
+enum { CV_ARMOUR, CV_ARMOUR_WORN, CV_CRACKS };                     /* Toughness: armour; a share more of what is worn; how far a crack
+                                                                      is seen, in cells (from I) */
+static int conf_rank(int cf);
+static float conf_value(int cf, int which);
+/* D5's (sections 9, 10.4), called by C: the class's own sheet into the caster's totals (own[] in caster_sync's units, per ST_*),
+ * what of it no stat holds (KX_*), and a killing blow survived (1 if it was: hurt_ex is about to let the caster die, not to a
+ * seep). Stubs that do nothing till D5 fills them */
+enum { KX_AF_CUT, KX_SOULS };                                      /* every status's chance, a share off; souls from kills, a share more */
+static void class_own(float *own);
+static float class_extra(int what);
+static int blow_survived(int kind);
+static float class_cap(int st);                                    /* 1.0.0b20, the owner's caps by class (docs/BRIEF-caps.md): how far
+                                                                      the class lifts stat st's cap, in its units; D's, a stub till then */
 /* a pack (docs/PLAN-ai.md, sections 5-6): its kind (PA_*), its members, the one that leads it, how many it began with; its
  * state (PAS_*), the one calling and how long the call has to run; when one of it last saw the caster, and where; its
  * turns: those engaged now, their health as their turn began, the one relieved last, and when the turn changes */
@@ -791,6 +818,9 @@ static struct {
     int old_spells;                         /* read from a page older than the Alignment: said once, as she greets you */
     int atone, xp, points;
     uint16_t steps[NLINE]; uint8_t over[NLINE];
+    uint8_t conf[NCONF], conf_over[NCONF];  /* 1.0.0b20: the points in each Confession (150 makes rank V), its overlevels past V */
+    int ap_overs, old_lines;                /* overlevels whose Alignment Point an old line already gave (paid back as overlevels to
+                                               choose again); the old lines paid back as points, still to be said (not saved) */
     int corner, wind_spent, wind_run;
     unsigned amb_runs;                      /* the runs of ten whose first ambush has been sprung (not saved: named again after a load) */
     uint32_t ways, way_said; int way_run;   /* 1.0.0b18, the minds shown: the dead's ways met (WY_*, a bit each), those named on this run
@@ -1125,8 +1155,18 @@ static struct {
     float glance_x, glance_y, glance_last, guard_t, corner_cd;
     /* docs/PLAN-combat.md section 17: each track adds fields only above its own end mark. What is on the caster and must go
        into a pocket with it belongs in carry_caster's spans instead (the caster's track: by poison_t) */
+    int cf_buy[NCONF], cf_arm, cf_repn;                            /* 1.0.0b20, the Confessions' screen: points confessed since it
+                                                                      opened (they may go back); an overlevel awaiting its second
+                                                                      press (100 + the Confession), -1 none; a key held, the points
+                                                                      it has given and when it went down (-1 not held) */
+    float cf_rep0;
     /* the caster's track (C) ends */
     /* the dead's track (D): */
+    int lb_spent;                                                  /* 1.0.0b20: Constitution's killing blow lived this level (D5, */
+    double lb_at;                                                  /* 10.4), and when: its breath is drawn as Second Wind's */
+    int rst_sel, rst_on;                                           /* Restoration (10.3): in hand in place of the spell; channelling */
+    float rst_t, rst_acc, rst_k, rst_snd, rst_spent;               /* the press held, health owed, the glow, a breath's sound, souls */
+    int rst_healed;                                                /* spent and health given this channel */
     /* the dead's track (D) ends */
 } G;
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
@@ -3937,9 +3977,10 @@ static float el_resist(const Gear *g, int el) {
 /* the share armour keeps off (P2): armour as great as a rank-I blow of the level keeps off half of any blow, whatever the
  * level, as a flat number never could (it grew as the blow did, till one robe left a blow at 1); half as much against the
  * elements */
+static float armour_cap(void);
 static float armour_keep(const Gear *g, int phys) {
     float a = (float)gear_armor(g) * (phys ? 1.0f : 0.5f), ref = 4.0f + 0.8f * (float)G.level;
-    return a > 0.0f ? a / (a + ref) : 0.0f;
+    return a > 0.0f ? fminf(a / (a + ref), armour_cap()) : 0.0f;  /* never more than its cap (the owner's caps by class; D's) */
 }
 static void windup_blow(int d, float raw, float after, int el) {
     if (!winding_up() || G.max_hp <= 0) return;
@@ -3990,6 +4031,8 @@ static const int8_t AF_EL[NAF] = { EL_FIRE, EL_FROST, EL_FROST, EL_LIGHT, EL_POI
 static const char *const AF_NAME[NAF] = { "fire", "chill", "frozen", "stun", "poison", "unbound", "down" };
 static int af_count[NAF];
 #endif
+static float conf_cut(int k);                                     /* 1.0.0b20: the Confessions' share off a status (C5) */
+static float soft_pace(void);
 static void af_event(int k, int on) {
 #ifdef CRAWL_DEBUG
     if (on) af_count[k]++;
@@ -4009,8 +4052,11 @@ static int af_can(int k) {
     if (af_hardk(k) && (af_on(k) || G.af_lock[k] > 0.0f || G.af_hardt > 0.0f)) return 0;  /* S1: never back to back */
     return 1;
 }
-static int af_rolls(int k, float chance) { return rndf() < chance * (1.0f - 0.5f * el_resist(&RUN.gear, AF_EL[k])); }   /* S11 */
+static int af_rolls(int k, float chance) {                        /* S11: the element's own resist halves it; the class's own (D5) */
+    return rndf() < chance * (1.0f - 0.5f * el_resist(&RUN.gear, AF_EL[k])) * (1.0f - class_extra(KX_AF_CUT)) * (1.0f - conf_cut(k));
+}
 static void af_hold(int k, float secs, int by) {                  /* a hard control lands: whatever was gathering is lost */
+    secs *= 1.0f - conf_cut(k);                                    /* Agility, Spirituality: not as long */
     G.af[k] = G.af0[k] = secs;
     if (k == AF_DOWN) G.af_by = by;
     if (winding_up()) windup_break();
@@ -4027,14 +4073,15 @@ static void af_hold(int k, float secs, int by) {                  /* a hard cont
 static void af_ignite(float dmg) {                                 /* the hit's harm again over four seconds, added to what is left (E2) */
     if (dmg <= 0.0f) return;
     int was = af_on(AF_FIRE);
-    G.af_burn += dmg; G.af[AF_FIRE] = G.af0[AF_FIRE] = 4.0f; G.af_fire_by = G.blame;
+    float cut = conf_cut(AF_FIRE);                                 /* Survival: shorter, and so less of it */
+    G.af_burn += dmg * (1.0f - cut); G.af[AF_FIRE] = G.af0[AF_FIRE] = 4.0f * (1.0f - cut); G.af_fire_by = G.blame;
     snd_sfx_ex(SFX_IGNITE, was ? 0.45f : 0.8f, 0.5f);
     if (!was) af_event(AF_FIRE, 1);
 }
 static void af_chill(int n, int by) {                              /* stacks; four make Frozen; all fall 3 s after the last (S3) */
     if (af_on(AF_FROZEN)) return;                                  /* frozen: they are spent as it ends */
     int was = G.af_n;
-    G.af_n = imin(G.af_n + n, 4); G.af[AF_CHILL] = G.af0[AF_CHILL] = 3.0f;
+    G.af_n = imin(G.af_n + n, 4); G.af[AF_CHILL] = G.af0[AF_CHILL] = 3.0f * (1.0f - conf_cut(AF_CHILL));
     snd_sfx_ex(SFX_FROST, 0.35f + 0.1f * (float)G.af_n, 0.5f);
     if (!was) af_event(AF_CHILL, 1);
     if (G.af_n < 4) return;
@@ -4043,6 +4090,7 @@ static void af_chill(int n, int by) {                              /* stacks; fo
 }
 static void af_poison(float secs) {                                /* each dose adds its time, to a minute (S5) */
     if (secs <= 0.0f || !af_can(AF_POISON)) return;
+    secs *= 1.0f - conf_cut(AF_POISON);                            /* Survival */
     int was = af_on(AF_POISON);
     G.af[AF_POISON] = G.af0[AF_POISON] = fminf(60.0f, G.af[AF_POISON] + secs);
     if (!was) { snd_sfx_ex(SFX_AF_SICK, 0.7f, 0.5f); af_event(AF_POISON, 1); }
@@ -4152,6 +4200,7 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
 #endif
         return d;
     }
+    if (!seeping && blow_survived(kind)) return d;                 /* Constitution's killing blow survived (D5, section 10.4) */
     rumble(1.0f, 0.7f, 0.9f);
     G.hp = 0; G.dead = 1; G.dead_t = 0.0; G.retries++; G.killer = G.blame;
     if (mind_on() && !PK.depth) {                                  /* no death loop (section 21): what killed you comes back a head short */
@@ -4690,6 +4739,119 @@ static int line_overs(int l) { return l != LN_HEALTH && l != LN_RESIST && l != L
 #define LUCK_BASE 2.0f                      /* everyone's, at the start */
 static float over_step(int l) { return l == LN_LUCK ? 1.0f : 5.0f; }   /* an overlevel's: Luck 1, the rest 5 */
 static float line_own(int l) { return LINES[l].step * (float)RUN.steps[l] + over_step(l) * (float)RUN.over[l]; }
+/* ---- the Unholy Confessions (1.0.0b20, docs/PLAN-combat.md section 10): six in place of the lines above, five ranks each
+ * bought a point at a time (10, 20, 30, 40, 50: every point moves all of a Confession's numbers its share of the way to the next
+ * rank), each number at rank I and at V and evenly between; past V an overlevel adds a quarter of I to V again. A class takes
+ * each at a share by its place in the guide's lists (10.6), never named on the screen ---- */
+typedef struct { float lo, hi, zero; int from1; } ConfNum;        /* at rank I, at V; what it is with nothing confessed (or before I) */
+typedef struct { const char *name; int n; ConfNum v[5]; } Conf;
+static const Conf CONF[NCONF] = {
+    [CF_RESTORE]  = { "RESTORATION", 3, { { 0.0025f, 0.01f, 0, 1 }, { 0.7f, 0.1f, 0.7f, 1 }, { 10, 50, 0, 0 } } },
+    [CF_AGILITY]  = { "AGILITY", 4, { { 0.30f, 0.85f, 0, 0 }, { 2, 10, 0, 0 }, { 3, 15, 0, 0 }, { 5, 25, 0, 0 } } },
+    [CF_SPIRIT]   = { "SPIRITUALITY", 5, { { 0.10f, 0.50f, 0, 0 }, { 0.30f, 0.85f, 0, 0 }, { 2, 10, 0, 0 }, { 3, 15, 0, 0 }, { 4, 20, 0, 0 } } },
+    [CF_CONST]    = { "CONSTITUTION", 4, { { 0.10f, 0.50f, 0, 0 }, { 0.5f, 2.5f, 0, 0 }, { 15, 100, 0, 0 }, { 0.05f, 0.25f, 0, 1 } } },
+    [CF_SURVIVAL] = { "SURVIVAL", 3, { { 0.15f, 0.60f, 0, 0 }, { 3, 15, 0, 0 }, { 0.5f, 2.5f, 0, 0 } } },
+    [CF_TOUGH]    = { "TOUGHNESS", 3, { { 2, 14, 0, 0 }, { 0.05f, 0.25f, 0, 0 }, { 4, 8, 2, 1 } } },
+};
+static const int CONF_CUM[6] = { 0, 10, 30, 60, 100, 150 };      /* the points that make ranks I-V */
+#define CONF_TOP 150
+static const uint8_t CONF_W[NELEM][NCONF] = {                     /* each class's share, in percent, by its place (10.6) */
+    { 90, 80, 100, 70, 50, 60 },                                   /* the Witchfinder */
+    { 80, 50, 70, 80, 60, 100 },                                   /* the Anatomist */
+    { 60, 100, 80, 60, 90, 50 },                                   /* the Galvanist */
+    { 70, 90, 50, 90, 100, 80 },                                   /* the Plague Doctor */
+    { 100, 60, 90, 50, 80, 70 },                                   /* the Sin-Eater */
+    { 50, 70, 60, 100, 70, 90 },                                   /* the Headsman */
+};
+static int conf_on(void) {                                         /* the Confessions in place of the old lines (the sheet approved, 8
+                                                                      November); CRAWL_LINES=1 in the debug build puts the old back */
+#ifdef CRAWL_DEBUG
+    static int v = -1;
+    if (v < 0) v = getenv("CRAWL_LINES") == 0;
+    return v;
+#else
+    return 1;
+#endif
+}
+static float conf_weight(int cf) { int e = cls_el(); return e >= 0 ? (float)CONF_W[e][cf] / 100.0f : 0.75f; }   /* no past yet: the
+                                                                      places' mean */
+static int conf_rank(int cf) {
+    if (cf < 0 || cf >= NCONF) return 0;
+    int p = RUN.conf[cf], r = 0;
+    while (r < 5 && p >= CONF_CUM[r + 1]) r++;
+    return r == 5 ? 5 + RUN.conf_over[cf] : r;
+}
+static float conf_raw(int cf, int which, int p, int over) {       /* the number at p points (and overlevels), before the class's share */
+    const ConfNum *c = &CONF[cf].v[which];
+    float step = (c->hi - c->lo) / 4.0f;
+    if (p >= CONF_TOP) return c->hi + step * (float)over;
+    if (p < CONF_CUM[1] && c->from1) return 0.0f;                  /* not open till rank I is whole */
+    int k = 1;
+    while (p > CONF_CUM[k]) k++;                                   /* in the step from rank k-1 to k */
+    float a = k == 1 ? c->zero : c->lo + step * (float)(k - 2), b = c->lo + step * (float)(k - 1);
+    return a + (b - a) * (float)(p - CONF_CUM[k - 1]) / (float)(CONF_CUM[k] - CONF_CUM[k - 1]);
+}
+static float conf_at(int cf, int which, int p, int over) {        /* what the caster would have at p points: the class's share in it */
+    if (cf < 0 || cf >= NCONF || which < 0 || which >= CONF[cf].n || p <= 0) return 0.0f;
+    const ConfNum *c = &CONF[cf].v[which];
+    float raw = conf_raw(cf, which, p, over);
+    if (c->from1 && p < CONF_CUM[1]) return 0.0f;
+    float v = c->zero + (raw - c->zero) * conf_weight(cf);
+    if ((cf == CF_AGILITY && which == CV_HARD) || (cf == CF_SPIRIT && which == CV_UNBOUND) || (cf == CF_SURVIVAL && which == CV_SOFT))
+        v = fminf(v, 0.9f);                                        /* a status cut never takes it all */
+    if (cf == CF_CONST && which == CV_LASTBLOW) v = fminf(v, 0.3f);   /* the owner's cap (CP4) */
+    if (cf == CF_RESTORE && which == CV_HEAL_SOULS) v = fmaxf(v, 0.0f);
+    return v;
+}
+static float conf_value(int cf, int which) {
+    return cf >= 0 && cf < NCONF ? conf_at(cf, which, RUN.conf[cf], RUN.conf_over[cf]) : 0.0f;
+}
+static const int8_t CONF_STAT[NCONF][5] = {                       /* the stat each number joins, -1 none (it is felt where it is used) */
+    [CF_RESTORE]  = { -1, -1, ST_PHYSIC, -1, -1 },
+    [CF_AGILITY]  = { -1, ST_DODGE, ST_MOVE, ST_QUIET, -1 },
+    [CF_SPIRIT]   = { -1, -1, ST_HASTE, ST_THRIFT, ST_EFFECT },
+    [CF_CONST]    = { -1, ST_SPRINT, ST_HP, -1, -1 },
+    [CF_SURVIVAL] = { -1, ST_TREASURE, ST_LUCK, -1, -1 },
+    [CF_TOUGH]    = { ST_ARMOR, -1, -1, -1, -1 },
+};
+static void conf_own(float *own, float *up) {                      /* the Confessions into the caster's own, under the same caps; past V
+                                                                      the caps go up with what an overlevel adds */
+    if (!conf_on()) return;
+    for (int cf = 0; cf < NCONF; cf++) {
+        if (!RUN.conf[cf]) continue;
+        for (int i = 0; i < CONF[cf].n; i++) {
+            int st = CONF_STAT[cf][i];
+            if (st < 0) continue;
+            float v = conf_value(cf, i);
+            own[st] += v;
+            if (RUN.conf_over[cf]) up[st] += v - conf_at(cf, i, RUN.conf[cf], 0);
+        }
+    }
+    float worn = conf_value(CF_TOUGH, CV_ARMOUR_WORN);            /* Toughness: a share more of the armour worn */
+    if (worn > 0.0f) own[ST_ARMOR] += worn * gear_total_raw(&RUN.gear, ST_ARMOR);
+}
+static float conf_cut(int k) {                                     /* a share off status k's chance and its length */
+    if (!conf_on() || k < 0) return 0.0f;
+    if (k == AF_DOWN || k == AF_STUN || k == AF_FROZEN) return conf_value(CF_AGILITY, CV_HARD);
+    if (k == AF_UNBOUND) return conf_value(CF_SPIRIT, CV_UNBOUND);
+    return conf_value(CF_SURVIVAL, CV_SOFT);                       /* the rest: fire, chill, poison */
+}
+static float soft_pace(void) { return 1.0f / (1.0f - conf_cut(AF_POISON)); }   /* the old clocks (grabs, webs, bile, the bats' sap):
+                                                                      Survival runs them down sooner */
+static float soul_share(void) { return 1.0f + (conf_on() ? conf_value(CF_SPIRIT, CV_SOULS) : 0.0f) + class_extra(KX_SOULS); }
+#ifdef CRAWL_DEBUG
+static void conf_debug(const char *s) {                            /* CRAWL_CONF=dddddd: each Confession's rank, 0-5 (6-9: V and
+                                                                      overlevels); or a,b,c,d,e,f: each one's points, to 150 */
+    if (strchr(s, ',')) {
+        for (int cf = 0; cf < NCONF && *s; cf++) { RUN.conf[cf] = (uint8_t)clampi(atoi(s), 0, CONF_TOP); s = strchr(s, ','); if (!s) break; s++; }
+        return;
+    }
+    for (int cf = 0; cf < NCONF && s[cf] >= '0' && s[cf] <= '9'; cf++) {
+        int d = s[cf] - '0';
+        RUN.conf[cf] = (uint8_t)CONF_CUM[imin(d, 5)]; RUN.conf_over[cf] = (uint8_t)imax(0, d - 5);
+    }
+}
+#endif
 /* ---- the Alignment (docs/PLAN-b11.md, sections 7-10): a line for each element, its spell opened and raised with
  * Alignment Points. A node is bought whole, but Efficiency, Insight and the like a point at a time; every point in
  * a line after its opening is a rank more. Only the class's line comes open (1.0.0b16; Fire did before). ---- */
@@ -4865,6 +5027,9 @@ static void caster_sync(void) {                                    /* the caster
                                                             + (cls_el() == EL_PHYS ? 0.1f : 0.0f));                       /* the Headsman's */
     for (int i = 0; i < 10; i++) own[ST_ARMOR] += G.oss_t[i] > 0.0f;   /* Ossified's points */
     if (G.fwalk_t > 0.0f) own[ST_ARMOR] += 0.5f * (gear_total_raw(&RUN.gear, ST_ARMOR) + own[ST_ARMOR]);   /* Flamewalker */
+    conf_own(own, up);                                             /* the Unholy Confessions (C5, section 10) */
+    class_own(own);                                                /* the class's own sheet (D5, section 9) */
+    for (int st = 0; st < NSTAT; st++) up[st] += class_cap(st);   /* and its caps (D's, docs/BRIEF-caps.md) */
     for (int st = 0; st < NSTAT; st++) gear_set_own(st, own[st], up[st]);
     align_sync();
 }
@@ -4895,6 +5060,7 @@ static int corner_due(void) { return imin(RUN.atone / 10, NCS) - corner_count();
 static int over_due(void) {                                        /* overlevels to choose: one at 55, 60, 65 ... */
     int n = RUN.atone >= ATONE_TOP + 5 ? (RUN.atone - ATONE_TOP) / 5 : 0;
     for (int l = 0; l < NLINE; l++) n -= RUN.over[l];
+    for (int cf = 0; cf < NCONF; cf++) n -= RUN.conf_over[cf];
     return n;
 }
 static int wind_restorable(void) { return (RUN.corner >> CS_WIND & 1) && RUN.wind_spent; }
@@ -4937,6 +5103,11 @@ static void class_take(int c) {
     RUN.cls_pts = e == EL_FIRE ? 3 : 0;
     if (e == EL_PHYS && !was_open) RUN.gear.bones = (int16_t)imin(bones_max(), RUN.gear.bones + SPEAR_BONES);   /* the spear comes with bones */
     caster_sync();
+    if (G.max_hp > 0) {                                            /* the class's health felt at once, the same missing (D5) */
+        int was = G.max_hp;
+        G.max_hp = gear_max_hp(&RUN.gear);
+        G.hp = clampi(G.hp + G.max_hp - was, 1, G.max_hp);
+    }
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT class %s from %s by %s t=%.2f\n", CLASSES[e].name, old >= 0 ? CLASSES[old].name : "nothing", G.player ? "player" : "autopilot", G.t);
 #endif
@@ -4972,9 +5143,11 @@ static void auto_align(void) {
     }
 }
 
+static void auto_confess(void);
 static void auto_ascend(void) {                                    /* the autopilot's: a little of everything that keeps it alive */
     if (LEDGER.yours || LEDGER.kept) return;                       /* a person's run: what it buys is theirs to choose */
     ascend();
+    if (conf_on()) { auto_confess(); goto stones; }
     static const int ORDER[] = { LN_HASTE, LN_DAMAGE, LN_HEALTH, LN_HEALTH, LN_DODGE, LN_RESIST, LN_ATTUNE, LN_HEALTH, LN_LUCK };
     for (int guard = 0; guard < 4000 && RUN.points > 0; guard++) {
         int any = 0;
@@ -4985,6 +5158,7 @@ static void auto_ascend(void) {                                    /* the autopi
         }
         if (!any) break;
     }
+stones:;
     static const int PICK[NCS] = { CS_WIND, CS_OMEN, CS_LANTERN, CS_SENSE, CS_CARTO };   /* the map it never buys */
     for (int i = 0; i < NCS && corner_due() > 0; i++) {
         int c = PICK[i];
@@ -4996,7 +5170,7 @@ static void auto_ascend(void) {                                    /* the autopi
 #endif
     }
     static const int OVER_PICK[] = { LN_HASTE, LN_DAMAGE, LN_DODGE, LN_ATTUNE, LN_MOVE, LN_POISON, LN_BURN, LN_SLOW, LN_TREASURE, LN_LUCK };
-    while (over_due() > 0) {                                       /* overlevels: the first line already at its cap */
+    while (!conf_on() && over_due() > 0) {                                       /* overlevels: the first line already at its cap */
         int pick = LN_DAMAGE;
         for (int i = 0; i < (int)(sizeof OVER_PICK / sizeof OVER_PICK[0]); i++) if (line_capped(OVER_PICK[i])) { pick = OVER_PICK[i]; break; }
         RUN.over[pick]++; RUN.al_points++; caster_sync();
@@ -5005,6 +5179,206 @@ static void auto_ascend(void) {                                    /* the autopi
 #endif
     }
 }
+
+/* ---- confessing (1.0.0b20, section 10): a point at a time, felt at once; an overlevel past V; the dream's by its class ---- */
+static void conf_felt(int was_max) {                               /* more health is had at once, as the old line's was */
+    caster_sync();
+    G.max_hp = gear_max_hp(&RUN.gear); G.hp = imin(G.hp + imax(0, G.max_hp - was_max), G.max_hp);
+}
+static void conf_buy(int cf, int by_hand) {
+    int was = gear_max_hp(&RUN.gear), r0 = conf_rank(cf);
+    RUN.points--; RUN.conf[cf]++;
+    conf_felt(was);
+#ifdef CRAWL_DEBUG
+    if (conf_rank(cf) != r0) fprintf(stderr, "EVENT confess %s %d by %s points %d t=%.2f\n", CONF[cf].name, conf_rank(cf), by_hand ? "player" : "autopilot", RUN.points, G.t);
+#else
+    (void)r0; (void)by_hand;
+#endif
+}
+static void conf_overlevel(int cf, int by_hand) {                  /* past V, for good; an Alignment Point with it, unless an old line's
+                                                                      overlevel paid back already gave it */
+    int was = gear_max_hp(&RUN.gear);
+    RUN.conf_over[cf]++;
+    if (RUN.ap_overs > 0) RUN.ap_overs--; else RUN.al_points++;
+    conf_felt(was);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT confess %s %d overlevel by %s t=%.2f\n", CONF[cf].name, conf_rank(cf), by_hand ? "player" : "autopilot", G.t);
+#else
+    (void)by_hand;
+#endif
+}
+static void auto_confess(void) {                                   /* section 10.7: the class's two best first, then evened out */
+    int best[2] = { CF_CONST, CF_AGILITY }, e = cls_el();
+    if (e >= 0) {
+        best[0] = best[1] = -1;
+        for (int cf = 0; cf < NCONF; cf++) {
+            if (best[0] < 0 || CONF_W[e][cf] > CONF_W[e][best[0]]) { best[1] = best[0]; best[0] = cf; }
+            else if (best[1] < 0 || CONF_W[e][cf] > CONF_W[e][best[1]]) best[1] = cf;
+        }
+    }
+    for (int guard = 0; guard < 1000 && RUN.points > 0; guard++) {
+        int pick = -1;
+        for (int i = 0; i < 2; i++)
+            if (RUN.conf[best[i]] < CONF_TOP && (pick < 0 || RUN.conf[best[i]] < RUN.conf[pick])) pick = best[i];
+        if (pick < 0)
+            for (int cf = 0; cf < NCONF; cf++) if (RUN.conf[cf] < CONF_TOP && (pick < 0 || RUN.conf[cf] < RUN.conf[pick])) pick = cf;
+        if (pick < 0) break;                                       /* all six whole */
+        conf_buy(pick, 0);
+    }
+    while (over_due() > 0) {                                       /* overlevels: the best of those whole */
+        int pick = -1;
+        for (int i = 0; i < 2 && pick < 0; i++) if (RUN.conf[best[i]] >= CONF_TOP) pick = best[i];
+        for (int cf = 0; cf < NCONF && pick < 0; cf++) if (RUN.conf[cf] >= CONF_TOP) pick = cf;
+        if (pick < 0) break;                                       /* none whole: they wait */
+        conf_overlevel(pick, 0);
+    }
+}
+/* an old page's lines, paid back (U5): every step as the points it cost, every overlevel as one to choose again */
+static void lines_payback(void) {
+    if (!conf_on()) return;
+    int pay = 0, overs = 0;
+    for (int l = 0; l < NLINE; l++) { pay += RUN.steps[l] * LINES[l].cost; overs += RUN.over[l]; RUN.steps[l] = 0; RUN.over[l] = 0; }
+    if (!pay && !overs) return;
+    RUN.points += pay; RUN.ap_overs += overs; RUN.old_lines = 1;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT lines_payback points %d overlevels %d t=%.2f\n", pay, overs, G.t);
+#endif
+}
+static void old_lines_said(void) {                                 /* to a person, as she greets them */
+    if (!RUN.old_lines || !LEDGER.yours || !G.shop) return;
+    RUN.old_lines = 0;
+    toast(SP_ITEM_TOME, -1, RK_I, 0, "THE OLD LINES ARE UNDONE", "THEIR POINTS ARE YOURS TO CONFESS");
+}
+
+/* ---- the dead's track (D) owns these three bodies (docs/PLAN-combat.md, 17.2 and 17.3 for 1.0.0b20): stubs till D5 ---- */
+/* the classes' own (section 9, the draft the owner took for now, K1 b): what each brings at the start, flat (K3), joined to the
+ * caster's own under the same caps; its health against the hundred everyone had, its stats in their own units, and what no stat
+ * holds. The class's line and its gifts are as they were (K2). Words for the class question and the Codex in CLASS_SHEET */
+/* With the owner's caps by class (docs/BRIEF-caps.md, section 6): each class's own element hurts it 15% less and one other 15%
+ * more (the Headsman's strength is its armour: its weakness is Lightning), and three caps lifted by three tenths (a resist's and
+ * armour's share stopping at 90%, Spirit Cost's at 70%), in each stat's units; armour's share of a blow is capped in armour_keep */
+typedef struct { int hp; struct { int8_t st; float v; } s[6]; float af_cut, souls; int8_t strong, weak; struct { int8_t st; float v; } cap[3]; } ClassOwn;
+static const ClassOwn CLASS_OWN[NELEM] = {
+    [EL_FIRE]   = { 95,  { { ST_HASTE, 6.0f }, { ST_THRIFT, 6.0f }, { ST_EFFECT, 8.0f }, { ST_RES_BURN, 15.0f }, { ST_RES_SLOW, -15.0f }, { -1, 0 } },
+                    0.0f, 0.0f, EL_FIRE, EL_FROST, { { ST_RES_BURN, 15.0f }, { ST_HASTE, 15.0f }, { ST_EFFECT, 15.0f } } },
+    [EL_FROST]  = { 105, { { ST_ARMOR, 5.0f }, { ST_RES_SLOW, 15.0f }, { ST_PHYSIC, 15.0f }, { ST_RES_BURN, -15.0f }, { -1, 0 }, { -1, 0 } },
+                    0.0f, 0.0f, EL_FROST, EL_FIRE, { { ST_RES_SLOW, 15.0f }, { ST_PHYSIC, 120.0f }, { -1, 0 } } },
+    [EL_LIGHT]  = { 90,  { { ST_DODGE, 6.0f }, { ST_MOVE, 6.0f }, { ST_QUIET, 15.0f }, { ST_RES_LIGHT, 15.0f }, { ST_RES_SLOW, -15.0f }, { -1, 0 } },
+                    0.0f, 0.0f, EL_LIGHT, EL_FROST, { { ST_RES_LIGHT, 15.0f }, { ST_DODGE, 10.5f }, { ST_MOVE, 12.0f } } },
+    [EL_POISON] = { 100, { { ST_RES_POISON, 15.0f }, { ST_LUCK, 1.0f }, { ST_TREASURE, 5.0f }, { ST_SPRINT, 0.5f }, { ST_RES_SPIRIT, -15.0f }, { -1, 0 } },
+                    0.10f, 0.0f, EL_POISON, EL_SPIRIT, { { ST_RES_POISON, 15.0f }, { ST_LUCK, 7.5f }, { ST_TREASURE, 30.0f } } },
+    [EL_SPIRIT] = { 95,  { { ST_REGEN, 0.1f }, { ST_RES_SPIRIT, 15.0f }, { ST_RES_POISON, -15.0f }, { -1, 0 }, { -1, 0 }, { -1, 0 } },
+                    0.0f, 0.10f, EL_SPIRIT, EL_POISON, { { ST_RES_SPIRIT, 15.0f }, { ST_VESSEL, 30.0f }, { ST_THRIFT, 10.0f } } },
+    [EL_PHYS]   = { 120, { { ST_ARMOR, 4.0f }, { ST_SPRINT, 1.0f }, { ST_RES_LIGHT, -15.0f }, { -1, 0 }, { -1, 0 }, { -1, 0 } },
+                    0.0f, 0.0f, EL_PHYS, EL_LIGHT, { { ST_SPRINT, 2.25f }, { ST_DAMAGE, 30.0f }, { -1, 0 } } },
+};
+#define ARMOUR_CAP 0.75f                                           /* the most of a blow armour keeps off; the Headsman's lifted to 90% */
+#define ARMOUR_CAP_UP 0.15f
+static int class_sheet_on(void) {                                  /* CRAWL_SHEET=0 (debug) leaves them out, for the balance runs */
+#ifdef CRAWL_DEBUG
+    static int on = -1;
+    if (on < 0) on = !(getenv("CRAWL_SHEET") && atoi(getenv("CRAWL_SHEET")) == 0);
+    return on;
+#else
+    return 1;
+#endif
+}
+static void class_own(float *own) {                                /* the class's own sheet, added to own[ST_*] (section 9) */
+    int e = cls_el();
+    if (e < 0 || !class_sheet_on()) return;
+    const ClassOwn *c = &CLASS_OWN[e];
+    own[ST_HP] += (float)(c->hp - 100);
+    for (int i = 0; i < 6; i++) if (c->s[i].st >= 0) own[c->s[i].st] += c->s[i].v;
+}
+static int class_sheet_row(int e, int i, char *name, int nn, char *val, int nv, int *stat) {   /* a row of class e's sheet, in words;
+                                                                      0 past them; *stat the stat it is (-1 none) */
+    const ClassOwn *c = &CLASS_OWN[e];
+    if (stat) *stat = -1;
+    if (i == 0) { snprintf(name, (size_t)nn, "HEALTH"); snprintf(val, (size_t)nv, "%d", c->hp); return 1; }
+    int k = 0;
+    for (int j = 0; j < 6; j++) {
+        if (c->s[j].st < 0 || ++k != i) continue;
+        int st = c->s[j].st;
+        float v = c->s[j].v;
+        if (stat) *stat = st;
+        snprintf(name, (size_t)nn, "%s", STAT_NAME[st]);
+        if (st == ST_ARMOR) snprintf(val, (size_t)nv, "%+.0f", v);
+        else if (st == ST_REGEN) snprintf(val, (size_t)nv, "%+.1f/S", v);
+        else if (st == ST_THRIFT) snprintf(val, (size_t)nv, "-%.0f%%", v);
+        else if (st == ST_SPRINT) snprintf(val, (size_t)nv, "%+.1f S", v);
+        else snprintf(val, (size_t)nv, "%+.0f%%", v);
+        return 1;
+    }
+    if (c->af_cut > 0.0f && ++k == i) { snprintf(name, (size_t)nn, "EVERY MARK'S CHANCE"); snprintf(val, (size_t)nv, "-%.0f%%", c->af_cut * 100.0f); return 1; }
+    if (c->souls > 0.0f && ++k == i) { snprintf(name, (size_t)nn, "SOULS FROM KILLS"); snprintf(val, (size_t)nv, "+%.0f%%", c->souls * 100.0f); return 1; }
+    return 0;
+}
+static void cap_text(int st, float cap, char *val, int nv) {        /* a cap as her question shows it */
+    char num[8];
+    snprintf(num, sizeof num, fabsf(cap - roundf(cap)) < 0.01f ? "%.0f" : "%.1f", clampf(cap, 0.0f, 9999.0f));
+    if (st == ST_SPRINT) snprintf(val, (size_t)nv, "MAX %s S", num);
+    else if (st == ST_VESSEL) snprintf(val, (size_t)nv, "MAX %s", num);
+    else snprintf(val, (size_t)nv, "MAX %s%%", num);
+}
+static int class_cap_row(int e, int i, char *name, int nn, char *val, int nv) {   /* the caps class e lifts, a row each; 0 past them */
+    const ClassOwn *c = &CLASS_OWN[e];
+    int k = 0;
+    for (int j = 0; j < 3; j++) {
+        int st = c->cap[j].st;
+        if (st < 0 || k++ != i) continue;
+        snprintf(name, (size_t)nn, "%s", STAT_NAME[st]);
+        cap_text(st, gear_stat_cap(st) - gear_cap_up(st) + c->cap[j].v, val, nv);
+        return 1;
+    }
+    if (e == EL_PHYS && k == i) { snprintf(name, (size_t)nn, "ARMOUR KEEPS OFF"); cap_text(-1, 100.0f * (ARMOUR_CAP + ARMOUR_CAP_UP), val, nv); return 1; }
+    return 0;
+}
+static float class_extra(int what) {                               /* KX_*: what of the sheet no stat holds */
+    int e = cls_el();
+    if (e < 0 || !class_sheet_on()) return 0.0f;
+    return what == KX_AF_CUT ? CLASS_OWN[e].af_cut : what == KX_SOULS ? CLASS_OWN[e].souls : 0.0f;
+}
+/* a killing blow lived (10.4): a blow that would end the caster, not a seep (hurt_ex has asked), not fire, bile or a void stood in,
+ * nor a burning floor, a pool or poison; Second Wind has gone first. Constitution's chance, at most once a level (a pocket is a
+ * place of its own): the blow lands, health stops at 1, and nothing touches the caster for three seconds, as a Second Wind.
+ * What is on it stays on it (the owner's words: the blow connects, 1 health, three seconds). */
+static int lastblow_can(void) {
+    switch (G.blame.what) {
+    case BL_POISON: case BL_FIRE: case BL_POOL: return 0;
+    case BL_HAZARD: return G.blame.type != HZ_FIRE && G.blame.type != HZ_BILE && G.blame.type != HZ_VOID;   /* as windup_blow has it */
+    default: return 1;
+    }
+}
+static void dream_restore(float dt);                               /* Restoration, the dream's (10.3), by the spells' keys below */
+static int blow_survived(int kind) {
+    (void)kind;
+    if (G.lb_spent || G.shop || G.tally || !lastblow_can()) return 0;
+    float ch = conf_value(CF_CONST, CV_LASTBLOW);
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_LASTBLOW")) ch = (float)atof(getenv("CRAWL_LASTBLOW"));   /* testing: the chance as given */
+#endif
+    if (ch <= 0.0f || rndf() >= ch) return 0;                     /* nothing confessed, nothing rolled */
+    G.lb_spent = 1; G.lb_at = G.t;
+    G.hp = 1; G.wind_t = 3.0f;
+    snd_sfx(SFX_HURT); snd_sfx_ex(SFX_HEART, 1.0f, 0.5f); snd_sfx_ex(SFX_DEEPCHIME, 0.7f, 0.5f);
+    rumble(0.9f, 0.6f, 0.5f); pop_readout(); show_bar();
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT lastblow level %d chance %.2f by %d/%d/%d t=%.2f %s\n", G.level, ch, G.blame.what, G.blame.type, G.blame.rank, G.t,
+            G.player ? "player" : "autopilot");
+#endif
+    return 1;
+}
+static int lastblow_shown(void) { return G.lb_at > 0.0 && G.t - G.lb_at < 3.05 && G.wind_t > 0.0f; }   /* the breath is the blow's */
+static float class_cap(int st) {                                   /* the class's lift of stat st's cap (docs/BRIEF-caps.md), in its units */
+    int e = cls_el();
+    if (e < 0 || !class_sheet_on()) return 0.0f;
+    for (int i = 0; i < 3; i++) if (CLASS_OWN[e].cap[i].st == st) return CLASS_OWN[e].cap[i].v;
+    return 0.0f;
+}
+static float armour_cap(void) {                                    /* CRAWL_SHEET=0 leaves armour uncapped, as it was */
+    return !class_sheet_on() ? 1.0f : ARMOUR_CAP + (cls_el() == EL_PHYS ? ARMOUR_CAP_UP : 0.0f);
+}
+/* ---- the dead's track's stubs end ---- */
 
 static void xp_rooms(void) {                                       /* a room first set foot in */
     if (G.shop || PK.depth) return;
@@ -5048,14 +5422,15 @@ static void kill_mob(Mob *m) {
     }
     if (m->boss) return;                                           /* a boss leaves only its scrip */
     if (m->type == MOB_GHOST) {                                    /* a spectre, slain by Spirit: its souls, nothing more */
-        spawn_mote(m->x, m->y, spectre_souls());
+        spawn_mote(m->x, m->y, spectre_souls() * soul_share());
 #ifdef CRAWL_DEBUG
         fprintf(stderr, "EVENT spectre slain t=%.2f\n", G.t);
 #endif
         return;
     }
     xp_kill(m);
-    spawn_mote(m->x, m->y, RANK_SOULS[m->rank] + (m->last_atk == AT_DRAIN && align_has(EL_SPIRIT, ND_ABIL) ? (m->rank >= RK_III ? 2.0f : 1.0f) : 0.0f));   /* Harvest */
+    spawn_mote(m->x, m->y, (RANK_SOULS[m->rank] + (m->last_atk == AT_DRAIN && align_has(EL_SPIRIT, ND_ABIL) ? (m->rank >= RK_III ? 2.0f : 1.0f) : 0.0f))   /* Harvest */
+                           * soul_share());                        /* Spirituality, and the class's own */
     if (G.reap_t > 0.0f && RUN.gear.def[DF_REAP] >= RUNE_EXQ && !G.dead && !KIND_IS(m, KF_UNCOUNTED)) {   /* Exquisite: a little life back */
         G.hp = clampi(G.hp + (G.max_hp + 19) / 20, 0, G.max_hp);
         DBG_COUNT(exq_reaped);
@@ -5388,7 +5763,8 @@ static float slow_factor(void) {                                   /* slowed, th
     if (af_rooted()) return 0.0f;                                  /* frozen, or on the floor */
     return sap_slow() * (G.slow_t > 0.0f ? 1.0f - 0.4f * (1.0f - 0.5f * gear_slow_resist(&RUN.gear)) : 1.0f) * (G.hz_slow > 0.0f ? G.hz_slow : 1.0f)   /* bile and void besides, */
          * tri_wading()                                               /* and a trial's water, */
-         * (1.0f - 0.08f * (float)G.af_n);                            /* and the cold: Chilled, 8% a stack (S4) */
+         * (1.0f - 0.08f * (float)G.af_n)                             /* and the cold: Chilled, 8% a stack (S4), */
+         * (G.rst_on ? 0.5f : 1.0f);                                   /* and Restoration channelled: half pace (D5, 10.3) */
 }
 static float spell_effect(void) { return 1.0f + gear_total(&RUN.gear, ST_EFFECT) / 100.0f; }   /* all a spell does besides damage */
 
@@ -9933,11 +10309,11 @@ static void update_defense(float dt) {
 static void update_status(float dt) {
     splint_tick(dt);                                               /* splinters grow back */
     if (G.poison_t > 0.0f) {
-        G.poison_t -= dt;
+        G.poison_t -= dt * soft_pace();                            /* Survival runs it down sooner */
         G.poison_acc += G.poison_dps * dt;
         while (G.poison_acc >= 1.0f && !G.dead) { G.poison_acc -= 1.0f; G.blame = G.poison_by; hurt_ex(1.0f, HURT_POISON, G.px, G.py); }
     } else G.poison_acc = 0.0f;
-    G.slow_t = fmaxf(0.0f, G.slow_t - dt);
+    G.slow_t = fmaxf(0.0f, G.slow_t - dt * soft_pace());          /* grabs, webs, bile: Survival runs them down sooner */
     G.purify_t = fmaxf(0.0f, G.purify_t - dt);
     if (G.ward_t > 0.0f && (G.ward_t -= dt) <= 0.0f) G.ward_hp = G.ward_shards = 0.0f;   /* it fades unbroken */
     G.decoy_t = fmaxf(0.0f, G.decoy_t - dt);
@@ -10070,7 +10446,7 @@ static float mob_blow(const Mob *m, float *every) {               /* its usual a
  * rank's need; stop, and the grip creeps back. Ten seconds and it lets go by itself; Blink and Swift Dodge throw it off */
 static const float LATCH_T[NRANK] = { 99.0f, 3.0f, 2.4f, 1.8f, 1.2f, 99.0f }, SHAKE_NEED[NRANK] = { 0.0f, 0.6f, 0.9f, 1.2f, 1.6f, 0.0f };
 static int latch_begin(Mob *m) {
-    if (G.latch || G.dead || m->rank < RK_II || m->rank == RK_GILDED || m->contact < LATCH_T[clampi(m->rank, 0, NRANK - 1)] || m->webbed > 0.0f) return 0;
+    if (G.latch || G.dead || m->rank < RK_II || m->rank == RK_GILDED || m->contact < LATCH_T[clampi(m->rank, 0, NRANK - 1)] * soft_pace() || m->webbed > 0.0f) return 0;   /* Survival: rarer */
     G.latch = (int)(m - G.mobs) + 1; G.latch_t = G.shake = G.sap_acc = G.slip_k = 0.0f;
     G.shake_dir = G.strafe_dir = 0; G.shake_last = G.strafe_last = -9.0f; G.shake_ang = G.ang;
     m->contact = 0.0f;
@@ -10101,7 +10477,7 @@ static void update_latch(float dt) {
     if (!m->alive || m->state != MS_WALK || G.dead || G.shop) { G.latch = 0; return; }
     m->x = G.px + cosf(G.ang) * 0.3f; m->y = G.py + sinf(G.ang) * 0.3f; m->cx = m->tx = (int)m->x; m->cy = m->ty = (int)m->y;
     m->contact = 0.0f;
-    if ((G.latch_t += dt) >= 10.0f) { latch_release(2); return; }  /* fed enough */
+    if ((G.latch_t += dt * soft_pace()) >= 10.0f) { latch_release(2); return; }   /* fed enough; Survival, sooner */
     float res = 1.0f - gear_total(&RUN.gear, ST_RES_SPIRIT) / 100.0f, t = (float)G.t;
     float every, bite = mob_blow(m, &every);
     G.sap_acc += 0.2f * bite * res * dt;                           /* its drain: health, a fifth of its bite a second, */
@@ -11474,6 +11850,7 @@ static void update_player(float dt) {
     G.cooldown -= dt;
     G.calm += dt;
     amb_read_tick();                                               /* an ambush's sign, read in passing (step 10) */
+    dream_restore(dt);                                             /* Restoration, out of a fight (D5, 10.3) */
     if ((G.state == PS_AIM || G.state == PS_HOLD || G.state == PS_UNAIM || (G.state == PS_CAST && G.fired) || (G.state == PS_CAST && no_cast()))
         && hz_danger((int)G.px, (int)G.py)) {                      /* the floor warns: it stops aiming and goes on */
         G.hand = 0.0f; G.state = PS_MOVE; G.ang = wrap_pi(G.ang);
@@ -13107,6 +13484,7 @@ static void start_level(void) {
     if (G.corrupt || G.fonted) fprintf(stderr, "EVENT corrupted level %d shown %d fonted %d t=%.2f\n", G.level, G.cshown, G.fonted, G.t);
 #endif
     G.rooms_in = 0;                                                /* a new level's rooms, each worth finding */
+    G.lb_spent = 0; G.lb_at = 0.0;                                 /* Constitution's killing blow, once a level (D5) */
     G.glance = G.corner_on = G.amb_read = G.amb_probed = 0; G.glance_last = -99.0f; G.corner_cd = 0.0f;   /* the dream's counters */
     G.map_on = 0;                                                  /* rolled up between levels */
     memset(G.has_key, 0, sizeof G.has_key);
@@ -13262,6 +13640,7 @@ static void debug_gear(void) {
     if (getenv("CRAWL_PEDS")) RUN.peds = clampi(atoi(getenv("CRAWL_PEDS")), 2, NPED);
     if (getenv("CRAWL_GEAR")) give_gear(atoi(getenv("CRAWL_GEAR")));
     if (getenv("CRAWL_ALIGN")) align_debug(getenv("CRAWL_ALIGN"));   /* the lines opened, to a node and a path */
+    if (getenv("CRAWL_CONF")) conf_debug(getenv("CRAWL_CONF"));    /* each Confession's rank (1.0.0b20) */
     if (getenv("CRAWL_ALPTS")) RUN.al_points = atoi(getenv("CRAWL_ALPTS"));
     if (getenv("CRAWL_CLASS")) { RUN.cls = 0; if (atoi(getenv("CRAWL_CLASS")) > 0) class_take(atoi(getenv("CRAWL_CLASS"))); }   /* 0: asked */
     if (getenv("CRAWL_ATONE")) RUN.atone = clampi(atoi(getenv("CRAWL_ATONE")), 1, 999);   /* the Level of Atonement, nothing bought with it */
@@ -13742,6 +14121,7 @@ static void crawl_enter(uint32_t seed) {
         if (getenv("CRAWL_LEVEL")) RUN.level = atoi(getenv("CRAWL_LEVEL"));
         if (getenv("CRAWL_STAGE")) RUN.shop_next = 0;              /* straight into the level */
         debug_gear();
+        if (RUN.cls) { caster_sync(); RUN.hp = gear_max_hp(&RUN.gear); }   /* a class given here starts whole at its own health (D5) */
         if (getenv("CRAWL_HASMAP")) RUN.has_map = 1;              /* the map, already bought */
         if (getenv("CRAWL_CORNER")) { RUN.corner = atoi(getenv("CRAWL_CORNER")) & ((1 << NCS) - 1); RUN.wind_run = crawl_run(RUN.level); }   /* cornerstones held, a bit each */
         if (getenv("CRAWL_LUCK")) RUN.steps[LN_LUCK] = (uint16_t)clampi((int)((atof(getenv("CRAWL_LUCK")) - LUCK_BASE) * 10.0f + 0.5f), 0, 1000);   /* Luck at this */
@@ -13750,6 +14130,7 @@ static void crawl_enter(uint32_t seed) {
     }
 #ifdef CRAWL_DEBUG
     if (resume && getenv("CRAWL_ALIGN")) align_debug(getenv("CRAWL_ALIGN"));   /* over a loaded run too */
+    if (resume && getenv("CRAWL_CONF")) conf_debug(getenv("CRAWL_CONF"));
     if (resume && getenv("CRAWL_CLASS")) { RUN.cls = 0; if (atoi(getenv("CRAWL_CLASS")) > 0) class_take(atoi(getenv("CRAWL_CLASS"))); }
     if (resume && getenv("CRAWL_SOULS")) RUN.souls = atoi(getenv("CRAWL_SOULS"));
     if (resume && getenv("CRAWL_HASMAP")) RUN.has_map = 1;
@@ -14770,7 +15151,7 @@ static int mirror_sees(const HzSite *s) {                          /* you, withi
     return hypotf(vx, vy) < 3.0f && vx * DX[s->d] + vy * DY[s->d] < -0.2f && line_clear(s->ax - DX[s->d] * 0.1f, s->ay - DY[s->d] * 0.1f, G.px, G.py);
 }
 static void update_sites(float dt) {
-    if (G.snare_t > 0.0f) G.snare_t = fmaxf(0.0f, G.snare_t - dt);
+    if (G.snare_t > 0.0f) G.snare_t = fmaxf(0.0f, G.snare_t - dt * soft_pace());
     if (PK.depth || G.shop || G.tally || !G.nsite) return;
     int px = (int)G.px, py = (int)G.py;
     for (int i = 0; i < G.nsite; i++) {
@@ -18969,6 +19350,7 @@ static void update_human(float dt);
 static float hand_raise(void) {
     float lift = G.rune_lift > 0.0f ? 0.8f * smoothstepf(1.4f, 1.25f, G.rune_lift) * smoothstepf(0.0f, 0.3f, G.rune_lift) : 0.0f;
     if (G.af_shake > 0.0f && G.af[AF_DOWN] > 0.0f) lift = fmaxf(lift, 0.75f);   /* grappled: up against what holds you (PLAN-combat) */
+    lift = fmaxf(lift, 0.72f * G.rst_k);                            /* Restoration channelled: up, glowing (D5) */
     return fmaxf(G.hand, lift);
 }
 /* the hand rises from the bottom right, reaching up and over, Catacomb 3-D / Doom style */
@@ -19894,6 +20276,7 @@ static void begin_shop(void) {
     G.ang = face_of(CAT_X, CAT_Y);
     G.camz = 0.5f; G.hand = 0.0f; G.spd = 0.0f; G.bob = 0.0f; G.bar = 1.0f;
     old_spells_said();                                             /* a page from before the Alignment */
+    old_lines_said();                                              /* or before the Confessions */
     if (!RUN.cls && !LEDGER.yours && !LEDGER.kept) class_take(1 + class_random());   /* the dream: what it was, at random, so every line shows in time */
     line_lend();
     gift_settle();                                                 /* the Lampstand's gift: the dream's at once */
@@ -20867,16 +21250,102 @@ static int aim_target(void) {
     return best;
 }
 
+/* ---- Restoration (1.0.0b20, PLAN-combat 10.3; the dead's track's, D5) ----
+ * Once Restoration's rank I is confessed it is a spell among the others: 8, the wheel and the spells' wheel put it in hand
+ * (G.rst_sel; G.spell stays what it was, for when it is put down). Held, the cast channels it after a breath (RS_WIND): souls
+ * by the second, health by the second (a share of it, Restoration's numbers with the class's weight), walking at half pace
+ * (slow_factor). A blow doesn't end it; a stun, a knock-down, Unbound or the void do, and so do letting go, a menu and the
+ * souls running out. Drawn as a pale glow down the arm (render_restore). The dream channels it out of a fight, hurt, with
+ * souls to spare (dream_restore). It casts nothing, so nothing the dead do hears it as a spell */
+#define RS_ID 100                                                  /* its place among the spells' ids, past every AT_ and SHOT_ */
+#define RS_WIND 0.4f
+static const char *const RESTORE_MARK[11] = { "....###....", "...#...#...", "...#...#...", "....#.#....", ".####o####.", ".....#.....",
+                                              ".....#.....", ".....o.....", ".....#.....", ".....#.....", "..........." };   /* an ankh */
+static int restore_open(void) { return conf_value(CF_RESTORE, CV_HEAL) > 0.0f; }
+static int restore_breaks(void) { return G.dead || no_cast() || af_on(AF_STUN) || af_on(AF_DOWN) || af_on(AF_UNBOUND); }
+static void restore_stop(const char *why) {
+    if (G.rst_on) {
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT restore_end %s healed %d souls %.1f t=%.2f %s\n", why, G.rst_healed, G.rst_spent, G.t, G.player ? "player" : "autopilot");
+#else
+        (void)why;
+#endif
+    }
+    G.rst_on = 0; G.rst_t = 0.0f; G.rst_acc = 0.0f; G.rst_healed = 0; G.rst_spent = 0.0f;
+}
+static void restore_begin(void) {
+    G.rst_on = 1; G.rst_healed = 0; G.rst_spent = 0.0f; G.rst_snd = 0.0f;
+    snd_sfx_ex(SFX_SHIMMER, 0.55f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT restore_begin hp %d/%d souls %.1f t=%.2f %s\n", G.hp, G.max_hp, spirit(), G.t, G.player ? "player" : "autopilot");
+#endif
+}
+static void restore_tick(float dt) {                               /* a channel's second: souls in, health out */
+    if (G.hp >= G.max_hp) { G.rst_acc = 0.0f; return; }             /* whole: it costs nothing to hold */
+    float cost = conf_value(CF_RESTORE, CV_HEAL_SOULS) * dt;
+    if (!spend_spirit(cost)) {
+        if (G.player) say("NO SOULS LEFT TO SPEND");
+        restore_stop("souls");
+        return;
+    }
+    G.rst_spent += cost;
+    G.rst_acc += conf_value(CF_RESTORE, CV_HEAL) * (float)G.max_hp * dt;
+    while (G.rst_acc >= 1.0f && G.hp < G.max_hp) { G.rst_acc -= 1.0f; G.hp++; G.rst_healed++; }
+    if ((G.rst_snd -= dt) <= 0.0f) { G.rst_snd = 1.6f; snd_sfx_ex(SFX_SHIMMER, 0.3f, 0.5f); }   /* a breath of it now and then */
+}
+static void restore_glow_step(float dt) { G.rst_k += ((G.rst_on ? 1.0f : 0.0f) - G.rst_k) * fminf(1.0f, dt * 6.0f); }
+static int restore_cast(float dt, int trig, int may) {              /* a person's, from human_cast: 1 while it has the cast button */
+    if (G.rst_sel && !restore_open()) G.rst_sel = 0;                 /* a death took the Confessions */
+    if (!G.rst_sel) { if (G.rst_on) restore_stop("put down"); restore_glow_step(dt); return 0; }
+    if (!may || !trig || restore_breaks()) restore_stop(!may ? "menu" : !trig ? "let go" : "broken");
+    else if ((G.rst_t += dt) >= RS_WIND) {                           /* a breath, and it flows */
+        if (!G.rst_on) restore_begin();
+        restore_tick(dt);
+    }
+    restore_glow_step(dt);
+    return 1;
+}
+static void dream_restore(float dt) {                              /* the dream's, from update_player: out of a fight, hurt, souls to spare */
+    if (G.player) return;
+    int may = restore_open() && !restore_breaks() && !G.shop && !G.tally && !in_combat() && G.state != PS_CAST && G.state != PS_AIM;
+    if (G.rst_on && (!may || G.hp >= (int)(0.9f * (float)G.max_hp) || spirit() < 4.0f)) restore_stop(!may ? "fight" : "enough");
+    else if (!G.rst_on && may && G.hp < (int)(0.6f * (float)G.max_hp)) {   /* souls enough to mend a fifth of its health, and six over */
+        float heal = conf_value(CF_RESTORE, CV_HEAL), need = heal > 0.0f ? 0.2f / heal * conf_value(CF_RESTORE, CV_HEAL_SOULS) : 1e9f;
+        if (spirit() >= 6.0f + need) { G.rst_t = RS_WIND; restore_begin(); }
+    }
+    if (G.rst_on) restore_tick(dt);
+    restore_glow_step(dt);
+}
+static void pick_restore(void) {
+    if (!restore_open()) { say("RESTORATION IS NOT YET CONFESSED"); return; }
+    if (!G.rst_sel) snd_sfx_ex(SFX_TICK, 0.8f, 0.5f);
+    G.rst_sel = 1;
+    show_bar();
+    say("RESTORATION  RANK %d", imax(1, conf_rank(CF_RESTORE)));
+}
+static void restore_hud(Frame *f, int x, int w, int y0) {          /* the status bar's spell, while it is in hand */
+    static const char *const ANKH[7] = { ".###.", "#...#", ".#.#.", "#####", "..#..", "..#..", "..#.." };
+    const char *nm = "RESTORE";                                    /* as wide as the lightning's name and glyph, which the box allows */
+    if (gfx_text_width(nm, 1) + 7 > w + 18) nm = "HEAL";
+    int nw = gfx_text_width(nm, 1) + 7, nx = x + (w - nw) / 2;
+    for (int r = 0; r < 7; r++) for (int c = 0; c < 5; c++) if (ANKH[r][c] == '#') gfx_px(f, nx + c, y0 + 19 + r, ramp_at(R_GHOST, 13));
+    gfx_text8(f, nx + 7, y0 + 19, nm, ramp_at(R_GHOST, G.rst_on ? 15 : 12), 1);
+    char num[16];
+    snprintf(num, sizeof num, "RANK %d", imax(1, conf_rank(CF_RESTORE)));
+    gfx_text8(f, x + (w - gfx_text_width(num, 1)) / 2, y0 + 30, num, R_IRON + 13, 1);
+}
+
 static const int KEY_SPELL[7] = { AT_FIRE, AT_FROST, AT_CHAIN, AT_FLASK, AT_DRAIN, AT_SPEAR, AT_BFS };   /* 1-7 */
 static void pick_spell(int sp) {
+    if (sp == RS_ID) { pick_restore(); return; }                   /* Restoration (D5) */
     if (sp < 0 || sp >= NATK) return;
     if (RUN.gear.atk[sp] < 0) {
         if (sp == AT_BFS) say("NOT IN YOUR SPELLBOOK");
         else say("%s IS NOT YET OPEN: THE LAMPSTAND", ELEM_NAME[ATK_ELEM[sp]]);
         return;
     }
-    if (sp != G.spell) snd_sfx_ex(SFX_TICK, 0.8f, 0.5f);
-    G.spell = sp;
+    if (sp != G.spell || G.rst_sel) snd_sfx_ex(SFX_TICK, 0.8f, 0.5f);
+    G.spell = sp; G.rst_sel = 0;                                    /* Restoration put down, if it was in hand */
     show_bar();
     if (sp == AT_BFS) say("THE BFS9000");
     else say("%s  RANK %d", ATK_NAME[sp], RUN.gear.atk[sp]);
@@ -20886,11 +21355,11 @@ static void pick_spell(int sp) {
 static void wheel_fill(int kind) {
     WH.n = 0; WH.hi = -1;
     if (kind == WH_SPELLS) {                                       /* the six lines in their places round it, top first, the BFS9000 a seventh */
-        int n = RUN.gear.atk[AT_BFS] >= 0 ? 7 : 6;
+        int nb = RUN.gear.atk[AT_BFS] >= 0 ? 7 : 6, n = nb + restore_open();   /* and Restoration last, once confessed (D5) */
         for (int i = 0; i < n; i++) {
-            int sp = KEY_SPELL[i];
-            WH.s[WH.n] = (WSlot){ WS_SPELL, sp, RUN.gear.atk[sp] >= 0, -PI_F * 0.5f + (float)i * 2.0f * PI_F / (float)n };
-            if (sp == G.spell) WH.hi = WH.n;
+            int sp = i < nb ? KEY_SPELL[i] : RS_ID;
+            WH.s[WH.n] = (WSlot){ WS_SPELL, sp, sp == RS_ID || RUN.gear.atk[sp] >= 0, -PI_F * 0.5f + (float)i * 2.0f * PI_F / (float)n };
+            if (sp == RS_ID ? G.rst_sel : sp == G.spell && !G.rst_sel) WH.hi = WH.n;
             WH.n++;
         }
         return;
@@ -20989,11 +21458,13 @@ static void wheel_input(float dt) {
 
 static void spell_keys(void) {
     for (int k = 0; k < 7; k++) if (IN.hit[KEY_1 + k]) pick_spell(KEY_SPELL[k]);
-    if (IN.wheel) {                                                /* the wheel turns the pages, past what isn't open */
-        int dir = IN.wheel > 0 ? -1 : 1, at = 0;
+    if (IN.hit[KEY_8]) pick_restore();                             /* 8: Restoration (D5) */
+    if (IN.wheel) {                                                /* the wheel turns the pages, past what isn't open; Restoration an eighth */
+        int dir = IN.wheel > 0 ? -1 : 1, at = 0, m = 7 + restore_open();
         for (int k = 0; k < 7; k++) if (KEY_SPELL[k] == G.spell) at = k;
-        for (int n = 0; n < 7; n++) { at = (at + dir + 7) % 7; if (RUN.gear.atk[KEY_SPELL[at]] >= 0) break; }
-        pick_spell(KEY_SPELL[at]);
+        if (G.rst_sel) at = 7;
+        for (int n = 0; n < m; n++) { at = (at + dir + m) % m; if (at == 7 || RUN.gear.atk[KEY_SPELL[at]] >= 0) break; }
+        pick_spell(at == 7 ? RS_ID : KEY_SPELL[at]);
     }
 }
 
@@ -21005,6 +21476,8 @@ static void sprint_recovery(float *wait, float *fill) {
     int n = G.max_hp >= 300 ? imin((G.max_hp - 200) / 100, 40) : 0;
     float k = powf(0.75f, (float)n);
     *wait = fmaxf(0.25f, 1.5f * k); *fill = fmaxf(0.75f, 3.5f * k);
+    float q = 1.0f + (conf_on() ? conf_value(CF_CONST, CV_RECOVER) : 0.0f);   /* Constitution: quicker */
+    *wait /= q; *fill /= q;
     if (G.af_n > 0) { *wait /= 0.4f; *fill /= 0.4f; }              /* Chilled: it comes back at two fifths the pace (S4) */
 }
 static void sprint_tick(float dt, int on, int moved) {
@@ -21130,7 +21603,11 @@ static void open_ui(int which) {
     else if (which == UI_CLASS) { G.vow_sel = cls_el() >= 0 ? (cls_el() + 1) % NELEM : 0; G.vow_arm = -1; snd_sfx_ex(SFX_WHISPER, 0.6f, 0.5f); }
     else if (which == UI_ASCEND) {
         G.ui_sel = 0; G.asc_arm = -1; memset(G.asc_buy, 0, sizeof G.asc_buy); snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f);
-        for (int l = 0; l < NLINE; l++) if (RUN.over[l]) { snd_sfx_ex(SFX_WHISPER, 0.3f, 0.2f); break; }   /* the overlevelled: the dead murmur */
+        G.cf_arm = -1; memset(G.cf_buy, 0, sizeof G.cf_buy); G.cf_rep0 = -1.0f; G.cf_repn = 0;
+        int murmur = 0;
+        for (int l = 0; l < NLINE; l++) murmur |= RUN.over[l] != 0;
+        for (int cf = 0; cf < NCONF; cf++) murmur |= RUN.conf_over[cf] != 0;
+        if (murmur) snd_sfx_ex(SFX_WHISPER, 0.3f, 0.2f);           /* the overlevelled: the dead murmur */
     }
     else if (which == UI_REPO) { G.ui_sel = 0; G.rep_mode = 0; G.sh_note_t = 0.0f; snd_sfx_ex(SFX_UNLOCK, 0.6f, 0.5f); snd_sfx_ex(SFX_CREAK, 0.5f, 0.5f); }
     else if (which == UI_COMP) { G.ui_sel = 0; G.comp_arm = -1; G.sh_note_t = 0.0f; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.4f, 0.5f); }
@@ -21159,6 +21636,7 @@ static void human_cast(float dt, int may) {
     int trig = may && (IN.down[KEY_MOUSE1] || (IN.down[KEY_CAST] && !(WEB && G.map_on)));   /* the map keeps the browser's Space */
     if (trig && no_cast()) { if (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CAST]) hush_say(); trig = 0; }
     if (!may && G.chg_on) { G.chg_on = 0; tether_end(); }          /* a screen opened over it: the charge is let fall */
+    if (restore_cast(dt, trig, may)) trig = 0;                     /* Restoration in hand: held, it channels (D5, 10.3) */
     if (spell_holds(G.spell) || G.chg_on) {                        /* a charging ultimate's spell, or Soul Tether's: held, not repeated */
         if (!G.chg_on && trig && G.pc_t < 0.0f && G.cooldown <= 0.0f && !G.dead && (IN.hit[KEY_MOUSE1] || IN.hit[KEY_CAST])) {
             G.chg_on = 1; G.chg_sp = G.spell; G.chg_t = 0.0f;
@@ -21518,7 +21996,7 @@ static void update_inventory(void) {
     int lr = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
     if (lr) {                                                      /* the wardrobe, the caster, the cornerstones */
         G.inv_page = (G.inv_page + NINV + lr) % NINV; G.cs_arm = -1; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f);
-        if (G.inv_page == 1) for (int l = 0; l < NLINE; l++) if (RUN.over[l]) { snd_sfx_ex(SFX_WHISPER, 0.3f, 0.2f); break; }
+        if (G.inv_page == 1) for (int l = 0; l < NLINE + NCONF; l++) if (l < NLINE ? RUN.over[l] : RUN.conf_over[l - NLINE]) { snd_sfx_ex(SFX_WHISPER, 0.3f, 0.2f); break; }
     }
     if (G.inv_page == 2) { update_stones_core(); return; }
     if (G.inv_page == 3) { update_align(1); return; }               /* the Alignment, to look at */
@@ -22233,7 +22711,7 @@ static void crawl_control(int what) {
     PADX.fresh = 1;                                                /* the button that took over isn't a press */
     LEDGER.yours = 1;                                              /* the dream is over: from now on the run is yours */
     if (!G.quit_line) G.quit_line = 1 + rnd(97);                    /* the crypt's arguments, from somewhere new each time */
-    if (G.shop) { G.sdur = 0.0f; G.shop_look = -1; G.pc_t = -1.0f; old_spells_said(); }   /* no cast left half-made */
+    if (G.shop) { G.sdur = 0.0f; G.shop_look = -1; G.pc_t = -1.0f; old_spells_said(); old_lines_said(); }   /* no cast left half-made */
     else if (!G.exiting && !G.tally && !G.dead) human_begin();
     G.hint_t = 6.0f;
     snd_sfx_ex(SFX_RUNE, 1.0f, 0.5f); snd_sfx_ex(SFX_WHOOSH, 0.6f, 0.5f);
@@ -22554,7 +23032,9 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
 #define LG_CASTER_BYTES (1 + 2 + 4 + 2 + NLINE * 2 + NLINE + 1 + 1 + 2)
 #define LEDGER_MAGIC 0x3147444Cu            /* "LDG1" */
 #define PROGRESS_MAGIC 0x31505648u          /* "HVP1": a progress that names the page to start from */
-enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX, LG_CASTER, LG_ELEM, LG_ALIGN, LG_HALL2, LG_DEEDS, LG_WAYS };
+enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX, LG_CASTER, LG_ELEM, LG_ALIGN, LG_HALL2, LG_DEEDS, LG_WAYS,
+       LG_CONF };                                                  /* 1.0.0b20: the Confessions' points and overlevels, a byte each, and
+                                                                      the old overlevels whose Alignment Points were given */
 #define LG_WAYS_BYTES 20                    /* 1.0.0b18: the dead's ways met and named this run of ten (u32 each), that run (u16), the five
                                                deeds against them (u16 each) */
 #define LG_DEEDS_BYTES 18                   /* 1.0.0b13 (docs/PLAN-b13.md): every hazard met, a bit each (the hall keeps only eight);
@@ -22672,6 +23152,9 @@ static int run_pack(uint8_t *buf, int cap, int why) {
         put16(q, clampi(RUN.wind_run, 0, 65535)); q += 2;
         p = section_end(c, q);
     }
+    c = section_begin(p, LG_CONF);
+    memcpy(c, RUN.conf, NCONF); memcpy(c + NCONF, RUN.conf_over, NCONF); c[2 * NCONF] = (uint8_t)clampi(RUN.ap_overs, 0, 255);
+    p = section_end(c, c + 2 * NCONF + 1);
     c = section_begin(p, LG_ALIGN);
     memcpy(c, RUN.al, sizeof RUN.al); put16(c + NELEM * NNODE, clampi(RUN.al_points, 0, 65535));
     c[NELEM * NNODE + 2] = (uint8_t)RUN.cls; c[NELEM * NNODE + 3] = (uint8_t)clampi(RUN.cls_pts, 0, 255);
@@ -22837,6 +23320,13 @@ static void run_unpack(const uint8_t *buf, int len) {
         RUN.corner = *q++; RUN.wind_spent = *q++ != 0;
         RUN.wind_run = get16(q);
     }
+    c = page_section(buf, len, LG_CONF, &k);                       /* 1.0.0b20 */
+    memset(RUN.conf, 0, sizeof RUN.conf); memset(RUN.conf_over, 0, sizeof RUN.conf_over); RUN.ap_overs = 0;
+    if (c && k >= 2 * NCONF + 1) {
+        for (int cf = 0; cf < NCONF; cf++) { RUN.conf[cf] = (uint8_t)imin(c[cf], CONF_TOP); RUN.conf_over[cf] = c[NCONF + cf]; }
+        RUN.ap_overs = c[2 * NCONF];
+    }
+    lines_payback();                                               /* an older page's lines come back as points */
     if (RUN.old_spells) RUN.al_points = imax(0, RUN.atone - 1);    /* 1.0.0b10 and before: a point for every Level of Atonement (O1) */
     c = page_section(buf, len, LG_REPO, &k);
     RUN.repo_n = 2;
@@ -23082,6 +23572,7 @@ static void death_fall(void) {
     memset(RUN.top_rank, 0, sizeof RUN.top_rank);                  /* the adds' ranks start again */
     RUN.atone = 1; RUN.xp = 0; RUN.points = 0; RUN.corner = 0; RUN.wind_spent = 0;   /* the Level of Atonement and all it bought; */
     memset(RUN.steps, 0, sizeof RUN.steps); memset(RUN.over, 0, sizeof RUN.over);       /* the map stays */
+    memset(RUN.conf, 0, sizeof RUN.conf); memset(RUN.conf_over, 0, sizeof RUN.conf_over); RUN.ap_overs = 0;   /* the Confessions with them (U13) */
     XPF.n = 0; XPF.banner = 0.0f;
     G.level_treasure = G.level_souls = 0;
     RUN.level = 1; RUN.shop_next = 1; RUN.hp = gear_max_hp(g);
@@ -23377,7 +23868,9 @@ static void update_align(int view) {
  * answered (Esc is the question of leaving); another past costs five Cursed Coins, from Level of Atonement 20 */
 #define VOW_COINS 5
 #define VOW_ATONE 20
+static int class_page;                                             /* her question shows the past (0) or what they bring (1) */
 static void update_class(void) {
+    if (IN.hit[KEY_SPACE]) { class_page = !class_page; snd_sfx_ex(SFX_PAGE, 0.6f, 0.5f); return; }   /* (Y on a pad) */
     if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) {
         if (G.vow_change) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
         else if (IN.hit[KEY_ESC]) open_ui(UI_QUIT);
@@ -23387,7 +23880,7 @@ static void update_class(void) {
     for (int k = 0; k < NELEM; k++) if (IN.hit[KEY_1 + k]) { G.vow_sel = k; G.vow_arm = -1; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f); }
     if (d) { G.vow_sel = (G.vow_sel + NELEM + d) % NELEM; G.vow_arm = -1; snd_sfx_ex(SFX_TICK, 0.8f, 0.5f); }
     int c = G.vow_sel = clampi(G.vow_sel, 0, NELEM - 1);
-    if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) return;
+    if (!(IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_MOUSE1])) return;
     if (G.vow_change && (c == cls_el() || RUN.coins < VOW_COINS)) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); G.vow_arm = -1; return; }
     if (!class_offered(c)) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); G.vow_arm = -1; return; }   /* the Headsman, before the first gift */
     if (G.vow_arm != c) { G.vow_arm = c; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }
@@ -23488,7 +23981,47 @@ static void wind_offer(void) {
 /* The caster's screen (docs/PLAN-b9.md, section 4): a row for each line points buy. W/S choose, D or Enter
  * buys a step (a second press when it is at its cap: more is wasted), A or Backspace takes back a step bought
  * since it opened, Tab the cornerstones, Esc leaves. */
+static int conf_capped(int cf, int *all);
+static void update_confess(void) {                                 /* W/S chooses, D confesses a point (held, ten a second after a
+                                                                      breath), A takes one back, Space an overlevel on one at V */
+    if (IN.hit[KEY_ESC]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
+    if (IN.hit[KEY_TAB]) { open_ui(UI_STONES); return; }
+    int ud = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
+    if (ud) { G.ui_sel = (G.ui_sel + NCONF + ud) % NCONF; G.cf_arm = -1; G.cf_rep0 = -1.0f; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    int cf = G.ui_sel = clampi(G.ui_sel, 0, NCONF - 1);
+    if (IN.hit[KEY_SPACE] && over_due() > 0) {
+        if (RUN.conf[cf] < CONF_TOP) { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        if (G.cf_arm != 100 + cf) { G.cf_arm = 100 + cf; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); return; }
+        conf_overlevel(cf, 1); G.cf_arm = -1;
+        snd_sfx_ex(SFX_ATONE, 0.7f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.6f, 0.5f);
+        return;
+    }
+    int fwd = IN.hit[KEY_D] || IN.hit[KEY_RIGHT] || IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_MOUSE1];
+    int back = IN.hit[KEY_A] || IN.hit[KEY_LEFT] || IN.hit[KEY_BACK];
+    int held = IN.down[KEY_D] || IN.down[KEY_RIGHT] ? 1 : IN.down[KEY_A] || IN.down[KEY_LEFT] ? -1 : 0, step = fwd ? 1 : back ? -1 : 0, rep = 0;
+    if (step) { G.cf_rep0 = G.ui_t; G.cf_repn = 0; }
+    else if (held && G.cf_rep0 >= 0.0f) {                          /* held: a point a tenth of a second after the first breath */
+        int want = G.ui_t - G.cf_rep0 > 0.45f ? 1 + (int)((G.ui_t - G.cf_rep0 - 0.45f) / 0.1f) : 0;
+        if (want > G.cf_repn) { G.cf_repn = want; step = held; rep = 1; }
+    } else if (!held) G.cf_rep0 = -1.0f;
+    if (step > 0) {
+        if (RUN.points <= 0 || RUN.conf[cf] >= CONF_TOP) { if (!rep) snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        int all = 0;
+        conf_capped(cf, &all);
+        if (all && G.cf_arm != cf) { if (!rep) { G.cf_arm = cf; snd_sfx_ex(SFX_KNOCK, 0.7f, 0.5f); } G.cf_rep0 = -1.0f; return; }   /* its note warns; again confesses */
+        int r0 = conf_rank(cf);
+        conf_buy(cf, 1); G.cf_buy[cf]++; G.cf_arm = all ? cf : -1;
+        snd_sfx_ex(SFX_TICK, rep ? 0.5f : 0.9f, 0.5f);
+        if (conf_rank(cf) != r0) { snd_sfx_ex(SFX_RUNE, 0.6f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f); }   /* a rank whole */
+    } else if (step < 0) {
+        if (G.cf_buy[cf] <= 0) { if (!rep) snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
+        G.cf_buy[cf]--; RUN.conf[cf]--; RUN.points++; G.cf_arm = -1;
+        caster_sync(); G.max_hp = gear_max_hp(&RUN.gear); G.hp = imin(G.hp, G.max_hp);
+        snd_sfx_ex(SFX_TICK, rep ? 0.4f : 0.6f, 0.5f);
+    }
+}
 static void update_ascend(void) {
+    if (conf_on()) { update_confess(); return; }
     if (IN.hit[KEY_ESC]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
     if (IN.hit[KEY_TAB]) { open_ui(UI_STONES); return; }
     int ud = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
@@ -23986,6 +24519,7 @@ enum { CXS_VESSEL, CXS_BELL, CXS_FONT, CXS_REPLAY, CXS_SAP, NCXS };   /* the sou
     /* the caster's track (C) ends */ \
     /* the dead's track (D): */ \
     + 1 /* the elements' second page, the dead's (D1) */ \
+    + 1 /* the class's second page, what they bring (D5) */ \
     /* the dead's track (D) ends */ \
     )
 enum { CXC_ATONE, CXC_LUCK, CXC_OVER, CXC_CORNER };                /* the caster's own pages: then a cornerstone each, CXC_CORNER + CS_* */
@@ -24026,7 +24560,7 @@ static int codex_entries(CxEntry *e) {
     e[n++] = (CxEntry){ CX_ELEM, 0 };
     if (elem_mode()) e[n++] = (CxEntry){ CX_ELEM, 1 };             /* the dead's elements (1.0.0b19) */
     for (int el = 0; el < NELEM; el++) if (align_open(el)) e[n++] = (CxEntry){ CX_LINE, el };   /* the lines open */
-    if (cls_el() >= 0) e[n++] = (CxEntry){ CX_CLASS, cls_el() };   /* what you were */
+    if (cls_el() >= 0) { e[n++] = (CxEntry){ CX_CLASS, cls_el() }; e[n++] = (CxEntry){ CX_CLASS, NELEM + cls_el() }; }   /* what you were, what they bring */
     e[n++] = (CxEntry){ CX_SOUL, CXS_VESSEL };                     /* the souls, as each is met */
     if (RUN.bell_cursed) e[n++] = (CxEntry){ CX_SOUL, CXS_BELL };
     if (RUN.font_cursed) e[n++] = (CxEntry){ CX_SOUL, CXS_FONT };
@@ -26317,6 +26851,7 @@ static void render_statusbar(Frame *f) {
             break;
         }
         default: {                                                 /* the spell in hand: its element's glyph and its rank */
+            if (G.rst_sel) { restore_hud(f, P[i].x, P[i].w, y0); continue; }   /* or Restoration (D5) */
             int sp = clampi(G.spell, 0, NATK - 1), t = RUN.gear.atk[sp], el = ATK_ELEM[sp];
             uint8_t sc = ramp_at(gear_color(GK_ATK, sp), 13);
             const char *nm = el >= 0 ? (el == EL_LIGHT ? "LIGHTNG" : el == EL_PHYS ? "SPEAR" : ELEM_NAME[el]) : "BFS";
@@ -26851,6 +27386,57 @@ static void render_charge(Frame *f, int ox, int oy) {
     }
 }
 
+/* Restoration (1.0.0b20, PLAN-combat 10.3; the dead's track's, D5): while it is channelled, a pale glow climbs the arm from the
+ * fingers into the sleeve, a band at a time, the hand's own shading kept under it, and motes rise off the fingertips. Drawn
+ * over the hand as it was drawn, from its frame's pixels. restore_glow: how much (G.rst_k, 0 none); CRAWL_RESTSHOW=1 (debug)
+ * at full, for the sheet */
+static float restore_glow(void) {
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_RESTSHOW")) return 1.0f;
+#endif
+    return G.rst_k;
+}
+static void render_restore(Frame *f, int ox, int oy, int hf) {
+    float k = restore_glow();
+    if (k <= 0.0f) return;
+    const uint8_t *hb = hand_fr[hf];
+    int ty = hand_tip[hf][1], tx = hand_tip[hf][0];
+    float t = (float)G.t;
+    for (int y = 0; y < HAND_H; y++) {
+        int sy = oy + y;
+        if (sy < 0 || sy >= H) continue;
+        float u = clampf((float)(y - ty) / (float)imax(1, HAND_H - ty), 0.0f, 1.0f);   /* 0 at the fingers, 1 down in the sleeve */
+        float band = 0.0f;
+        for (int b = 0; b < 3; b++) {                              /* three bands going down the arm, into the caster */
+            float c = fmodf(t * 0.6f + (float)b / 3.0f, 1.0f) * 1.15f - 0.05f, d = (u - c) / 0.07f;
+            band = fmaxf(band, expf(-d * d));
+        }
+        float glow = k * (0.14f * (1.0f - u) * (1.0f - u) + 0.62f * band * (1.0f - 0.6f * u));
+        int cover = (int)(glow * 16.0f + 0.5f);                    /* a dithered wash: the skin shows through it */
+        if (cover <= 0) continue;
+        for (int x = 0; x < HAND_W; x++) {
+            uint8_t c = hb[y * HAND_W + x];
+            if (c == C_CLEAR) continue;
+            int sx = ox + x;
+            if (sx < 0 || sx >= W || BAYER[sy & 3][sx & 3] >= cover) continue;
+            int lum = (crawl_pal[c][0] * 3 + crawl_pal[c][1] * 6 + crawl_pal[c][2]) * 15 / 630;
+            f->pix[sy * W + sx] = ramp_at(R_GHOST, 5 + lum * 2 / 3);
+        }
+    }
+    for (int i = 0; i < 9; i++) {                                  /* motes off the fingertips, rising and thinning */
+        uint32_t h = (uint32_t)i * 2654435761u;
+        float life = 0.9f + 0.6f * (float)(h >> 8 & 255) / 255.0f, ph = fmodf(t / life + (float)(h >> 16 & 255) / 255.0f, 1.0f);
+        float mx = (float)(ox + tx) + ((float)(h & 255) / 255.0f - 0.5f) * 34.0f + 3.0f * sinf(t * 2.3f + (float)i);
+        float my = (float)(oy + ty) + 14.0f - ph * 30.0f;
+        int lv = (int)(k * 15.0f * (1.0f - ph) * fminf(1.0f, ph * 6.0f));
+        if (lv < 4) continue;
+        int px = (int)mx, py = (int)my;
+        for (int q = 0; q < 5; q++) {
+            int qx = px + (q == 1) - (q == 2), qy = py + (q == 3) - (q == 4);
+            if (qx >= 0 && qx < W && qy >= 0 && qy < H && (q == 0 || lv >= 9)) f->pix[qy * W + qx] = ramp_at(R_GHOST, q == 0 ? lv : lv / 2 + 2);
+        }
+    }
+}
 static void render_hand(Frame *f) {
     float hand = hand_raise();
 #ifdef CRAWL_DEBUG
@@ -26898,6 +27484,7 @@ static void render_hand(Frame *f) {
         }
     }
     render_charge(f, ox, oy);
+    render_restore(f, ox, oy, hf);                                 /* Restoration channelled (D5) */
     float ct = -1.0f, fire = 0.0f;                                 /* how far into a cast, and when it lets go */
     if (G.state == PS_CAST) { ct = G.st; fire = G.cast_wind; }
     else if (G.player && G.pc_t >= 0.0f) { ct = G.pc_t; fire = G.pc_wind; }
@@ -27912,9 +28499,18 @@ static void render_caster(Frame *f) {
         if (sp == AT_BFS) snprintf(e, sizeof e, "%d BFS", k + 1); else snprintf(e, sizeof e, "%d   %d", k + 1, g->atk[sp]);
         int w = gfx_text_width(e, 1);
         if (x + w > W - 10) { x = 66; y += 9; }
-        gfx_text8(f, x, y, e, sp == G.spell ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 11), 1);
+        gfx_text8(f, x, y, e, sp == G.spell && !G.rst_sel ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 11), 1);
         if (sp != AT_BFS) elem_glyph(f, x + 12, y, ATK_ELEM[sp], 0);
         x += w + 8;
+    }
+    if (restore_open()) {                                          /* Restoration on 8, once confessed (D5's spell), an ankh for its glyph */
+        static const char *const ANKH[7] = { "..###..", ".#...#.", "..#.#..", "#######", "...#...", "...#...", "...#..." };
+        char e[24];
+        snprintf(e, sizeof e, "8   %d", imax(1, conf_rank(CF_RESTORE)));
+        int w = gfx_text_width(e, 1);
+        if (x + w > W - 10) { x = 66; y += 9; }
+        gfx_text8(f, x, y, e, G.rst_sel ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 11), 1);
+        for (int r = 0; r < 7; r++) for (int c = 0; c < 7; c++) if (ANKH[r][c] == '#') gfx_px(f, x + 12 + c, y + r, ramp_at(R_GHOST, 13));
     }
     y += 10; x = 14;
     gfx_text8(f, x, y, "RUNES", R_GOLD + 10, 1);
@@ -29234,7 +29830,7 @@ static void render_codex(Frame *f) {
     case CX_WAYS: snprintf(name, sizeof name, "%s", WAY_NAME[clampi(c->i, 0, NWAY - 1)]); break;
     case CX_ELEM: snprintf(name, sizeof name, c->i ? "THE DEAD'S ELEMENTS" : "WHAT HURTS WHAT"); break;
     case CX_LINE: snprintf(name, sizeof name, "%s", ALIGN[c->i].name); break;
-    case CX_CLASS: snprintf(name, sizeof name, "%s", CLASSES[c->i].name); break;
+    case CX_CLASS: snprintf(name, sizeof name, "%s", CLASSES[c->i % NELEM].name); break;
     case CX_SOUL: {
         static const char *const SN[NCXS] = { "THE VESSEL", "THE DEAD BELL", "THE WEEPING FONT", "LEVELS REPLAYED", "SOUL SAP" };
         snprintf(name, sizeof name, "%s", SN[clampi(c->i, 0, NCXS - 1)]);
@@ -29356,14 +29952,18 @@ static void render_codex(Frame *f) {
             text_wrap(f, 14, y, line, 36, R_GOLD + 11, 3);
         } else if (c->i == CXC_LUCK) {
             y += text_wrap(f, 14, y, STAT_DOES[ST_LUCK], 36, R_STONE + 13, 3) * 9 + 4;
-            y += text_wrap(f, 14, y, "TWO IN A HUNDRED FOR EVERYONE AT THE START. NO PIECE CARRIES IT: ONLY YOUR LEVELS OF ATONEMENT RAISE IT, A TENTH A POINT.", 36, R_BONE + 11, 4) * 9 + 4;
+            y += text_wrap(f, 14, y, conf_on() ? "TWO IN A HUNDRED FOR EVERYONE AT THE START. NO PIECE CARRIES IT: ONLY THE CONFESSION OF SURVIVAL RAISES IT."
+                                               : "TWO IN A HUNDRED FOR EVERYONE AT THE START. NO PIECE CARRIES IT: ONLY YOUR LEVELS OF ATONEMENT RAISE IT, A TENTH A POINT.", 36, R_BONE + 11, 4) * 9 + 4;
             snprintf(line, sizeof line, "YOURS: %.1f%% OF %.0f%%", gear_total(g, ST_LUCK), gear_stat_cap(ST_LUCK));
             gfx_text8(f, 14, y, line, R_GOLD + 11, 1);
         } else if (c->i == CXC_OVER) {
-            y += text_wrap(f, 14, y, "PAST THE FIFTIETH LEVEL OF ATONEMENT THERE ARE NO MORE POINTS. AT EVERY FIFTH LEVEL AFTER, ONE LINE OF YOUR CHOOSING "
-                           "GOES PAST ITS CAP: FIVE MORE, AND ITS CAP WITH IT (LUCK ONE). THE DEAD SEE WHAT YOU HAVE BECOME.", 36, R_STONE + 13, 7) * 9 + 4;
+            y += text_wrap(f, 14, y, conf_on() ? "PAST THE FIFTIETH LEVEL OF ATONEMENT THERE ARE NO MORE POINTS. AT EVERY FIFTH LEVEL AFTER, ONE CONFESSION "
+                                                 "WHOLE AT V GOES ON TO VI, VII AND BEYOND, AND THE CAPS OF WHAT IT RAISES WITH IT. THE DEAD SEE WHAT YOU HAVE BECOME."
+                                               : "PAST THE FIFTIETH LEVEL OF ATONEMENT THERE ARE NO MORE POINTS. AT EVERY FIFTH LEVEL AFTER, ONE LINE OF YOUR CHOOSING "
+                                                 "GOES PAST ITS CAP: FIVE MORE, AND ITS CAP WITH IT (LUCK ONE). THE DEAD SEE WHAT YOU HAVE BECOME.", 36, R_STONE + 13, 7) * 9 + 4;
             int tot = 0;
             for (int l = 0; l < NLINE; l++) tot += RUN.over[l];
+            for (int cf = 0; cf < NCONF; cf++) tot += RUN.conf_over[cf];
             snprintf(line, sizeof line, "YOURS: %d CHOSEN, %d TO CHOOSE", tot, imax(0, over_due()));
             gfx_text8(f, 14, y, line, R_PURPLE + 13, 1);
         } else {
@@ -29422,10 +30022,30 @@ static void render_codex(Frame *f) {
         break;
     }
     case CX_CLASS: {
+        if (c->i >= NELEM) {                                       /* its second page: what they bring (D5, section 9), the caps it
+                                                                      lifts beside them and the rest after (docs/BRIEF-caps.md), its pair */
+            int e = c->i - NELEM, st, used[3] = { 0, 0, 0 };
+            char nm[40], v[16], cv[16], cn[40];
+            gfx_text8(f, 14, y, "WHAT THEY BRING", R_GOLD + 11, 1); y += 11;
+            for (int i = 0; class_sheet_row(e, i, nm, sizeof nm, v, sizeof v, &st) && i < 10; i++, y += 9) {
+                gfx_text8(f, 14, y, nm, R_STONE + 13, 1);
+                gfx_text8(f, 224 - gfx_text_width(v, 1), y, v, R_GLOW + 12, 1);
+                for (int j = 0; st >= 0 && j < 3 && class_cap_row(e, j, cn, sizeof cn, cv, sizeof cv); j++)
+                    if (!used[j] && !strcmp(cn, STAT_NAME[st])) { used[j] = 1; gfx_text8(f, 232, y, cv, R_GHOST + 12, 1); }
+            }
+            for (int j = 0; j < 4 && class_cap_row(e, j, cn, sizeof cn, cv, sizeof cv); j++) {
+                if (j < 3 && used[j]) continue;
+                gfx_text8(f, 14, y, cn, R_STONE + 13, 1); gfx_text8(f, 232, y, cv, R_GHOST + 12, 1); y += 9;
+            }
+            snprintf(line, sizeof line, "%s HURTS THEM LESS, %s MORE. EACH MAX IS THEIR OWN CAP, OVER EVERYONE'S; "
+                     "A RESIST BELOW NOTHING LETS ITS ELEMENT HURT THE MORE.", ELEM_NAME[CLASS_OWN[e].strong], ELEM_NAME[CLASS_OWN[e].weak]);
+            text_wrap(f, 14, y + 4, line, 36, R_BONE + 11, 5);
+            break;
+        }
         int n2 = text_wrap_ex(f, 14, y, CLASSES[c->i].story, 36, R_STONE + 13, 10, 8);
-        y += n2 * 8 + 6;
-        y += text_wrap_ex(f, 14, y, CLASSES[c->i].gift, 36, R_GOLD + 11, 3, 8) * 8 + 6;
-        text_wrap(f, 14, y, "A LIFE KEEPS ONE. FROM LEVEL OF ATONEMENT 20 SHE WILL HEAR ANOTHER PAST, FOR FIVE CURSED COINS.", 36, R_BONE + 11, 3);
+        y += n2 * 8 + 4;
+        y += text_wrap_ex(f, 14, y, CLASSES[c->i].gift, 36, R_GOLD + 11, 3, 8) * 8 + 4;
+        text_wrap(f, 14, y, "A LIFE KEEPS ONE; ANOTHER FROM ATONEMENT 20, FOR FIVE CURSED COINS. WHAT THEY BRING IS ON THE NEXT PAGE.", 36, R_BONE + 11, 3);
         break;
     }
     case CX_SOUL: {
@@ -29730,12 +30350,13 @@ static void render_xp(Frame *f) {
 /* a Second Wind: a white flash, and its name across the view while nothing can touch you */
 static void render_wind(Frame *f) {
     if (G.wind_t <= 0.0f || G.tally) return;
-    float k = 2.0f - G.wind_t;
+    int lb = lastblow_shown();                                     /* or a killing blow lived (D5): three seconds, and its word */
+    float k = (lb ? 3.0f : 2.0f) - G.wind_t;
     if (k < 0.3f) {                                                /* the flash, thinning */
         int lim = (int)(16.0f * (1.0f - k / 0.3f));
         for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) if (BAYER[y & 3][x & 3] < lim) f->pix[y * W + x] = C_WHITE;
     }
-    const char *t = "SECOND WIND";
+    const char *t = lb ? "UNBROKEN" : "SECOND WIND";
     int w = gfx_text_width(t, 2), y = 54 + (int)(4.0f * sinf(k * 3.0f));
     gfx_text16(f, (W - w) / 2 + 2, y + 2, t, R_STONE + 3, 2);
     gfx_text16(f, (W - w) / 2, y, t, (int)(k * 10.0f) & 1 ? (uint8_t)C_WHITE : (uint8_t)(R_GHOST + 14), 2);
@@ -30000,9 +30621,32 @@ static void render_class(Frame *f) {
         ui_socket_mark(f, 35 + k * 50, 46, 13, CLASS_MARK[k], ELEM_RAMP[k], state, k == c, 0, G.ui_t);
     }
     ui_rule(f, 14, 305, 65, 1);
-    int n = ui_wrap(f, 14, 71, CLASSES[c].story, 36, 8, 11, FACE_BODY, UI_M(13), TX_INLAID);
-    int need = ui_wrap_count(CLASSES[c].story, 36);
-    if (need > 11) ui_overflow("class story", CLASSES[c].name, need - 11);
+    const char *turn = pk(class_page ? "SPACE THEIR PAST" : "SPACE WHAT THEY BRING");   /* the page's other side (D5) */
+    ui_keys(f, 305 - ui_keys_width(turn), 70, turn, UI_M(10));
+    int n;
+    if (!class_page) {
+        n = ui_wrap(f, 14, 81, CLASSES[c].story, 36, 8, 10, FACE_BODY, UI_M(13), TX_INLAID) + 1;
+        int need = ui_wrap_count(CLASSES[c].story, 36);
+        if (need > 10) ui_overflow("class story", CLASSES[c].name, need - 10);
+    } else {                                                       /* the starting sheet (section 9), a row each, and the caps it */
+        char nm[40], v[16], cv[16], cn[40];                        /* lifts beside them (docs/BRIEF-caps.md), the rest after; its pair */
+        int st, used[3] = { 0, 0, 0 };
+        for (n = 0; class_sheet_row(c, n, nm, sizeof nm, v, sizeof v, &st) && n < 10; n++) {
+            ui_text8(f, 22, 81 + n * 8, nm, FACE_BODY, UI_M(13), TX_INLAID);
+            ui_text8(f, 224 - 8 * (int)strlen(v), 81 + n * 8, v, FACE_BODY, R_GLOW + 12, TX_INLAID);
+            for (int j = 0; st >= 0 && j < 3 && class_cap_row(c, j, cn, sizeof cn, cv, sizeof cv); j++)
+                if (!used[j] && !strcmp(cn, STAT_NAME[st])) { used[j] = 1; ui_text8(f, 232, 81 + n * 8, cv, FACE_BODY, R_GHOST + 12, TX_INLAID); }
+        }
+        for (int j = 0; j < 4 && class_cap_row(c, j, cn, sizeof cn, cv, sizeof cv); j++) {
+            if (j < 3 && used[j]) continue;
+            ui_text8(f, 22, 81 + n * 8, cn, FACE_BODY, UI_M(13), TX_INLAID);
+            ui_text8(f, 232, 81 + n * 8, cv, FACE_BODY, R_GHOST + 12, TX_INLAID);
+            n++;
+        }
+        snprintf(cn, sizeof cn, "%s HURTS LESS, %s MORE", ELEM_NAME[CLASS_OWN[c].strong], ELEM_NAME[CLASS_OWN[c].weak]);
+        ui_text8(f, 22, 81 + n * 8, cn, FACE_BODY, ramp_at(ELEM_RAMP[c], 12), TX_INLAID);
+        n += 2;
+    }
     int gy = 71 + n * 8 + 5, gl = ui_wrap_count(CLASSES[c].gift, 36);
     if (gy + gl * 8 > 177) { ui_overflow("class gift", CLASSES[c].name, (gy + gl * 8 - 177 + 7) / 8); gy = 177 - gl * 8; }
     ui_wrap(f, 14, gy, CLASSES[c].gift, 36, 8, 3, FACE_BODY, R_GOLD + 11, TX_INLAID);
@@ -30023,6 +30667,7 @@ static void render_class(Frame *f) {
 static int stat_over(int st) {
     int n = 0;
     for (int l = 0; l < NLINE; l++) if (LINES[l].stat == st) n += RUN.over[l];
+    for (int cf = 0; cf < NCONF; cf++) for (int i = 0; i < CONF[cf].n; i++) if (CONF_STAT[cf][i] == st) n += RUN.conf_over[cf];
     return n;
 }
 static void eerie_text(Frame *f, int x, int y, const char *s) {
@@ -30084,8 +30729,197 @@ static const char *const *line_mark(int l) {
     default: return UI_LMARK[UI_LM_PHYSIC];
     }
 }
+/* ---- the Unholy Confessions' screen (1.0.0b20, docs/PLAN-combat.md section 10): the six down the left, each its rank and
+ * a groove that fills to V with the ranks notched in it; the chosen one's numbers on the right, as you have them and as the
+ * next rank has them, what it does under them. The class's weight is in the numbers and never named ---- */
+enum { CVF_PCT, CVF_PCT1, CVF_SHARE, CVF_CUT, CVF_LESS, CVF_NUM, CVF_SEC, CVF_HEAL, CVF_SOULS, CVF_CHANCE, CVF_CELLS };
+typedef struct { const char *lbl; int fmt; int af[3]; } ConfLbl;   /* a word, or up to three statuses' marks (1 + AF_*) */
+static const ConfLbl CONF_LBL[NCONF][5] = {
+    [CF_RESTORE]  = { { "MENDING", CVF_HEAL, { 0 } }, { "SOULS/S", CVF_SOULS, { 0 } }, { "PHYSIC", CVF_PCT, { 0 } } },
+    [CF_AGILITY]  = { { 0, CVF_CUT, { 1 + AF_DOWN, 1 + AF_STUN, 1 + AF_FROZEN } }, { "DODGE", CVF_PCT1, { 0 } },
+                      { "MOVEMENT", CVF_PCT1, { 0 } }, { "QUIET", CVF_PCT, { 0 } } },
+    [CF_SPIRIT]   = { { "SOULS", CVF_SHARE, { 0 } }, { 0, CVF_CUT, { 1 + AF_UNBOUND } }, { "HASTE", CVF_PCT1, { 0 } },
+                      { "COST", CVF_LESS, { 0 } }, { "EFFECT", CVF_PCT, { 0 } } },
+    [CF_CONST]    = { { "RECOVERY", CVF_SHARE, { 0 } }, { "SPRINT", CVF_SEC, { 0 } }, { "HEALTH", CVF_NUM, { 0 } },
+                      { "REPRIEVE", CVF_CHANCE, { 0 } } },
+    [CF_SURVIVAL] = { { 0, CVF_CUT, { 1 + AF_POISON, 1 + AF_CHILL, 1 + AF_FIRE } }, { "TREASURE", CVF_PCT, { 0 } }, { "LUCK", CVF_PCT1, { 0 } } },
+    [CF_TOUGH]    = { { "ARMOUR", CVF_NUM, { 0 } }, { "OF WORN", CVF_SHARE, { 0 } }, { "CRACKS", CVF_CELLS, { 0 } } },
+};
+static const char *const CONF_DOES[NCONF] = {
+    "A SPELL TO MEND BY, CHOSEN AS THE OTHERS ARE, PAID IN SOULS AS IT RUNS. POTIONS DO MORE.",
+    "KNOCKED DOWN, STUNNED, FROZEN: RARER AND SHORTER. HARDER TO HIT; QUICKER, QUIETER.",
+    "MORE SOULS FROM THE DEAD; UNBOUND RARER AND SHORTER; BETTER SPELLS.",
+    "MORE HEALTH, A LONGER SPRINT AND A QUICKER BREATH. NOW AND THEN A KILLING BLOW IS LIVED.",
+    "POISON, CHILL, FIRE, GRABS, WEBS, BILE AND SAP RARER AND SHORTER. MORE GOLD, MORE LUCK.",
+    "MORE ARMOUR, AND MORE FROM WHAT YOU WEAR. A SHUT SECRET'S CRACKS SHOW FROM FURTHER OFF.",
+};
+static const int AF_LBL_RAMP[NAF] = { R_FLAME, R_GLOW, R_GLOW, R_GOLD, R_MOSS, R_PURPLE, R_BLOOD };   /* as the row over the bar */
+static void conf_fmt(int fmt, float v, int open, char *b, int n) {  /* a number, five characters at most */
+    if (!open) { snprintf(b, (size_t)n, "--"); return; }
+    switch (fmt) {
+    case CVF_PCT: snprintf(b, (size_t)n, "+%.0f%%", v); break;
+    case CVF_PCT1: if (v < 9.95f) snprintf(b, (size_t)n, "+%.1f%%", v); else snprintf(b, (size_t)n, "+%.0f%%", v); break;
+    case CVF_SHARE: snprintf(b, (size_t)n, "+%.0f%%", v * 100.0f); break;
+    case CVF_CUT: snprintf(b, (size_t)n, "-%.0f%%", v * 100.0f); break;
+    case CVF_LESS: snprintf(b, (size_t)n, "-%.0f%%", v); break;
+    case CVF_NUM: if (v < 9.95f) snprintf(b, (size_t)n, "+%.1f", v); else snprintf(b, (size_t)n, "+%.0f", v); break;
+    case CVF_SEC: snprintf(b, (size_t)n, "+%.1fS", v); break;
+    case CVF_HEAL: snprintf(b, (size_t)n, "%.2f%%", v * 100.0f); break;
+    case CVF_SOULS: snprintf(b, (size_t)n, "%.2f", v); break;
+    case CVF_CHANCE: snprintf(b, (size_t)n, "%.0f%%", v * 100.0f); break;
+    default: snprintf(b, (size_t)n, "%.1f", v); break;
+    }
+}
+static void af_mark1(Frame *f, int x, int y, int k) {              /* a status's mark at its own size, nine square */
+    for (int r = 0; r < 9; r++)
+        for (int c = 0; c < 9; c++) {
+            char ch = UI_AFMARK[k][r][c];
+            if (ch == '#') gfx_px(f, x + c, y + r, (uint8_t)(AF_LBL_RAMP[k] + 12));
+            else if (ch == 'o') gfx_px(f, x + c, y + r, (uint8_t)(AF_LBL_RAMP[k] + 15));
+        }
+}
+/* a number of a Confession as the caster has it in all (what is worn, the class's own and every Confession), now and at np points
+ * (and no overlevels), under its cap; the stats' totals, the rest as they stand. Returns its cap, 0 none */
+#define CONF_CAP_K 0.9f                                            /* a status cut's cap, and the killing blow's 0.5 (conf_at) */
+static float conf_total(int cf, int i, int np, int no, float *now, float *next) {
+    *now = *next = 0.0f;
+    if (cf < 0 || cf >= NCONF || i < 0 || i >= CONF[cf].n) return 0.0f;
+    int st = CONF_STAT[cf][i];
+    float d = conf_at(cf, i, np, no) - conf_value(cf, i);
+    if (st < 0) {                                                  /* felt where it is used: as it stands */
+        float extra = cf == CF_SPIRIT && i == CV_SOULS ? class_extra(KX_SOULS) : 0.0f;
+        *now = conf_value(cf, i) + extra; *next = conf_at(cf, i, np, no) + extra;
+        if (cf == CF_TOUGH && i == CV_ARMOUR_WORN) return 0.0f;
+        return (cf == CF_AGILITY && i == CV_HARD) || (cf == CF_SPIRIT && i == CV_UNBOUND) || (cf == CF_SURVIVAL && i == CV_SOFT) ? CONF_CAP_K
+             : cf == CF_CONST && i == CV_LASTBLOW ? 0.3f : 0.0f;
+    }
+    const Gear *g = &RUN.gear;
+    if (st == ST_ARMOR) d += (conf_at(CF_TOUGH, CV_ARMOUR_WORN, np, no) - conf_value(CF_TOUGH, CV_ARMOUR_WORN)) * gear_total_raw(g, ST_ARMOR);
+    float cap = gear_stat_cap(st), up = 0.0f;
+    if (cap > 0.0f && no > RUN.conf_over[cf]) up = (conf_at(cf, i, np, no) - conf_at(cf, i, np, 0)) - (conf_value(cf, i) - conf_at(cf, i, RUN.conf[cf], 0));
+    float free = gear_total_free(g, st);
+    *now = cap > 0.0f ? fminf(free, cap) : free;
+    *next = cap > 0.0f ? fminf(free + d, cap + up) : free + d;
+    if (st == ST_HP) { *now += 100.0f; *next += 100.0f; }         /* as health is shown: the whole of it */
+    if (st == ST_SPRINT) { *now += SPRINT_BASE; *next += SPRINT_BASE; cap += SPRINT_BASE; }
+    return cap > 0.0f ? cap + (st == ST_SPRINT ? 0.0f : 0.0f) : 0.0f;
+}
+static void conf_tfmt(int cf, int i, float v, char *b, int n) {   /* a total, five characters at most */
+    int st = CONF_STAT[cf][i];
+    if (st < 0) { conf_fmt(CONF_LBL[cf][i].fmt, v, 1, b, n); return; }
+    if (st == ST_HP) snprintf(b, (size_t)n, "%.0f", v);
+    else if (st == ST_SPRINT) snprintf(b, (size_t)n, "%.1fS", v);
+    else if (st == ST_THRIFT) snprintf(b, (size_t)n, "-%.0f%%", v);
+    else if (st == ST_ARMOR) { if (v < 9.95f) snprintf(b, (size_t)n, "%.1f", v); else snprintf(b, (size_t)n, "%.0f", v); }
+    else if (v < 9.95f && (st == ST_DODGE || st == ST_MOVE || st == ST_HASTE || st == ST_LUCK)) snprintf(b, (size_t)n, "%.1f%%", v);
+    else snprintf(b, (size_t)n, "%.0f%%", v);
+}
+static int conf_at_cap(float v, float cap) { return cap > 0.0f && v >= cap - 0.05f * (cap < 2.0f ? 0.01f : 1.0f); }
+static int conf_capped(int cf, int *all) {                         /* how many of its numbers are at their cap now; *all: every one */
+    int n = 0, k = 0;
+    for (int i = 0; i < CONF[cf].n; i++) {
+        float now, next, cap = conf_total(cf, i, RUN.conf[cf], RUN.conf_over[cf], &now, &next);
+        if (cap <= 0.0f) continue;
+        k++; n += conf_at_cap(now, cap);
+    }
+    if (all) *all = k > 0 && n == k && k == CONF[cf].n;
+    return n;
+}
+static void cap_lid(Frame *f, int x, int y, int w) {               /* a lid over a number at its cap */
+    for (int i = 0; i < w - 1; i++) gfx_px(f, x + i, y - 2, R_GLOW + 12);
+    gfx_px(f, x, y - 1, R_GLOW + 10); gfx_px(f, x + w - 2, y - 1, R_GLOW + 10);
+}
+static void render_confess(Frame *f) {
+    static char title[32], right[24], buf[40];
+    dim_view(f);
+    int od = over_due(), due = corner_due() + od, sel = clampi(G.ui_sel, 0, NCONF - 1);
+    snprintf(title, sizeof title, "LEVEL OF ATONEMENT %d", RUN.atone);
+    if (due > 0 && ((int)(G.ui_t * 2.0f) & 1)) snprintf(right, sizeof right, "%d TO CHOOSE", due);
+    else snprintf(right, sizeof right, "%d POINT%s", RUN.points, RUN.points == 1 ? "" : "S");
+    ui_screen(f, title, R_PURPLE + 13, right, due > 0 && ((int)(G.ui_t * 2.0f) & 1) ? R_PURPLE + 14 : RUN.points ? R_GOLD + 12 : UI_M(9), 136, G.ui_t);
+    char a[16], b[16];
+    commas(RUN.xp, a, sizeof a); commas(atone_need(RUN.atone + 1), b, sizeof b);
+    snprintf(buf, sizeof buf, "EXP %s/%s", a, b);
+    if (strlen(buf) > 16) snprintf(buf, sizeof buf, "EXP %s", a);
+    ui_text8(f, 14, 32, buf, FACE_BODY, UI_M(11), TX_PLAIN);
+    for (int cf = 0; cf < NCONF; cf++) {                           /* the six: name and rank, the groove under them */
+        int y = 46 + cf * 22, p = RUN.conf[cf], r = conf_rank(cf);
+        ui_row(f, 11, y - 2, 120, 20, cf == sel);
+        ui_text8(f, 16, y, CONF[cf].name, FACE_BODY, cf == sel ? C_WHITE : p ? R_PURPLE + 13 : UI_M(12), TX_INLAID);
+        const char *num = r > 0 ? ROMAN[imin(r, 15)] : "-";
+        if (RUN.conf_over[cf] > 0) eerie_text(f, 127 - 8 * (int)strlen(num), y + 9, num);   /* beside its groove */
+        else ui_text8(f, 127 - 8 * (int)strlen(num), y + 9, num, FACE_INSC, r > 0 ? R_GOLD + 11 : UI_M(10), TX_INLAID);
+        if (conf_capped(cf, 0)) cap_lid(f, 127 - 8 * (int)strlen(num), y + 9, 8 * (int)strlen(num));   /* something of it at its cap */
+        ui_groove(f, 16, y + 11, 93, y + 11, R_PURPLE, (float)p / (float)CONF_TOP);
+        for (int k = 1; k < 5; k++) {                              /* the ranks notched in it, gilt once reached */
+            int x = 16 + 77 * CONF_CUM[k] / CONF_TOP;
+            gfx_px(f, x, y + 9, p >= CONF_CUM[k] ? R_GOLD + 12 : UI_M(13)); gfx_px(f, x, y + 10, p >= CONF_CUM[k] ? R_GOLD + 10 : UI_M(11));
+        }
+        if (G.cf_buy[cf] > 0) for (int k = 0; k < 2; k++) { gfx_px(f, 125, y + 3 + k, R_PURPLE + 13); gfx_px(f, 126, y + 3 + k, R_PURPLE + 13); }   /* confessed just now */
+    }
+    /* the pane: its name, its rank and the points into the next, the numbers now and at the next rank, what it does */
+    int lx = 142, p = RUN.conf[sel], r = conf_rank(sel), whole = p >= CONF_TOP;
+    int nr = whole ? (od > 0 ? r + 1 : 0) : r + 1;                 /* the rank the right-hand column shows: none when whole */
+    ui_text8(f, lx, 33, CONF[sel].name, FACE_INSC, p ? R_PURPLE + 14 : UI_M(13), TX_INLAID);
+    if (r == 0) snprintf(buf, sizeof buf, p ? "TOWARDS I" : "UNCONFESSED");
+    else snprintf(buf, sizeof buf, "RANK %s", ROMAN[imin(r, 15)]);
+    ui_text8(f, lx, 44, buf, FACE_BODY, UI_M(11), TX_PLAIN);
+    if (!whole) {
+        int k = r + 1;
+        snprintf(buf, sizeof buf, "%d/%d", p - CONF_CUM[k - 1], CONF_CUM[k] - CONF_CUM[k - 1]);
+    } else snprintf(buf, sizeof buf, "WHOLE");
+    ui_text8(f, 305 - 8 * (int)strlen(buf), 44, buf, FACE_BODY, R_GOLD + 10, TX_PLAIN);
+    ui_rule(f, lx, 304, 54, 0);
+    ui_text8(f, 256 - 24, 58, "NOW", FACE_BODY, UI_M(10), TX_PLAIN);
+    if (nr) ui_text8(f, 305 - 8 * (int)strlen(ROMAN[imin(nr, 15)]), 58, ROMAN[imin(nr, 15)], FACE_INSC, R_GOLD + 11, TX_INLAID);
+    const char *capw = 0, *capn = 0;                               /* the first at its cap now, and the first the next rank would cap */
+    for (int i = 0; i < CONF[sel].n; i++) {
+        int y = 69 + i * 10;
+        const ConfLbl *l = &CONF_LBL[sel][i];
+        if (l->lbl) ui_text8(f, lx, y, l->lbl, FACE_BODY, UI_M(13), TX_INLAID);
+        else for (int k = 0; k < 3 && l->af[k]; k++) af_mark1(f, lx + k * 11, y - 1, l->af[k] - 1);
+        if (!l->lbl && sel == CF_SURVIVAL) ui_text8(f, lx + 33, y, "+", FACE_BODY, UI_M(12), TX_PLAIN);   /* and the rest, as it says below */
+        int from1 = CONF[sel].v[i].from1, st = CONF_STAT[sel][i], np = nr <= 5 ? CONF_CUM[imax(nr, 1)] : CONF_TOP, no = nr > 5 ? nr - 5 : 0;
+        float now, next, cap = conf_total(sel, i, nr ? np : p, nr ? no : RUN.conf_over[sel], &now, &next);
+        int open = st >= 0 || (p > 0 && (!from1 || p >= CONF_CUM[1])), cn = open && conf_at_cap(now, cap);
+        if (st >= 0) conf_tfmt(sel, i, now, buf, sizeof buf);      /* a stat: all you have of it; the rest: what this gives */
+        else conf_fmt(l->fmt, now, open, buf, sizeof buf);
+        int w = 8 * (int)strlen(buf);
+        ui_text8(f, 256 - w, y, buf, FACE_BODY, cn ? R_GLOW + 12 : open ? C_WHITE : UI_M(11), TX_PLAIN);
+        if (cn) cap_lid(f, 256 - w, y, w);
+        if (nr) {
+            int cx = conf_at_cap(next, cap);
+            if (st >= 0) conf_tfmt(sel, i, next, buf, sizeof buf); else conf_fmt(l->fmt, next, 1, buf, sizeof buf);
+            w = 8 * (int)strlen(buf);
+            ui_text8(f, 305 - w, y, buf, FACE_BODY, cx ? R_GLOW + 12 : R_GOLD + 11, TX_PLAIN);
+            if (cx) cap_lid(f, 305 - w, y, w);
+            if (cx && !cn) capn = capn ? capn : l->lbl ? l->lbl : "THE CUT";   /* the next rank would reach it */
+        }
+        if (cn && !capw) capw = l->lbl ? l->lbl : "THE CUT";
+    }
+    int dy = 69 + CONF[sel].n * 10 + 5;
+    ui_rule(f, lx, 304, dy - 3, 0);
+    const char *note = 0;
+    if (G.cf_arm == 100 + sel) note = "AN OVERLEVEL TAKES IT PAST V, FOR GOOD. AGAIN TO CONFESS IT.";
+    else if (whole && od > 0) note = PADX.used ? "\1Y: AN OVERLEVEL TAKES IT ON." : "SPACE: AN OVERLEVEL TAKES IT ON.";
+    if (G.cf_arm == sel) note = "ALL IT GIVES IS AT ITS CAP: MORE IS WASTED. AGAIN TO CONFESS IT ANYWAY.";
+    const char *say = note ? pkp(note) : CONF_DOES[sel];           /* an overlevel's word or a warning stands in for what it does */
+    int bottom = 178;
+    if (!note && (capw || capn)) {                                 /* the caps, at the foot: lids mark them above */
+        snprintf(buf, sizeof buf, capw ? "CAPPED: %s" : "%s CAPS %s", capw ? capw : ROMAN[imin(nr, 15)], capw ? "" : capn);
+        if (capw) snprintf(buf, sizeof buf, "AT ITS CAP: %s", capw);
+        ui_text8(f, lx, 169, buf, FACE_BODY, R_GLOW + 12, TX_INLAID);
+        bottom = 167;
+    }
+    int dl = (bottom - dy) / 9;
+    if (ui_wrap_count(say, 20) > dl) ui_overflow("confession", CONF[sel].name, ui_wrap_count(say, 20) - dl);
+    ui_wrap(f, lx, dy, say, 20, 9, dl, FACE_BODY, !note ? UI_M(14) : G.cf_arm == 100 + sel || G.cf_arm == sel ? R_BLOOD + 12 : R_PURPLE + 13, TX_INLAID);
+    const char *k = PADX.used ? "\1A CONFESSES  LB BACK  VIEW CORNERSTONES" : "D CONFESSES  A BACK  TAB CORNERSTONES";
+    ui_keys(f, 160 - ui_keys_width(k) / 2, 183, k, UI_M(13));
+}
 static void render_ascend(Frame *f) {
     static char title[32], right[24], kind[32], cost[40], extra[96], note[120], warn[120];
+    if (conf_on()) { render_confess(f); return; }
     dim_view(f);
     int due = corner_due() + over_due(), od = over_due(), sel = clampi(G.ui_sel, 0, NLINE - 1);
     snprintf(title, sizeof title, "LEVEL OF ATONEMENT %d", RUN.atone);
@@ -30571,10 +31405,11 @@ static void wheel_render(Frame *f) {
     for (int i = 0; i < WH.n; i++) {
         const WSlot *w = &WH.s[i];
         int x = cx + (int)lroundf(cosf(w->ang) * (float)R), y = cy + (int)lroundf(sinf(w->ang) * (float)R), sel = i == WH.hi;
-        int cur = (w->kind == WS_SPELL && w->id == G.spell) || (w->kind == WS_RUNE && w->id == rune_readied()) || (w->kind == WS_GIFT && w->id == ab_readied());
+        int cur = (w->kind == WS_SPELL && (w->id == RS_ID ? G.rst_sel : w->id == G.spell && !G.rst_sel)) || (w->kind == WS_RUNE && w->id == rune_readied()) || (w->kind == WS_GIFT && w->id == ab_readied());
         int st = !w->ok ? SK_CLOSED : cur ? SK_HELD : SK_READY, r = sel ? small + 2 : small;
         float fill = 1.0f;
-        if (w->kind == WS_SPELL) {
+        if (w->kind == WS_SPELL && w->id == RS_ID) ui_socket_mark(f, x, y, r, RESTORE_MARK, R_GHOST, st, sel, 0, G.ui_t);   /* Restoration (D5) */
+        else if (w->kind == WS_SPELL) {
             int el = ATK_ELEM[w->id];
             if (el >= 0) ui_socket(f, x, y, r, UI_NODE_ICON[el][ND_OPEN], ELEM_RAMP[el], st, sel, 0, G.ui_t);
             else ui_socket_mark(f, x, y, r, BFS_MARK, R_PURPLE, st, sel, 0, G.ui_t);
@@ -30594,7 +31429,11 @@ static void wheel_render(Frame *f) {
     char a[40] = "", b[40] = "", c[40] = "";                       /* in the middle: what is pointed at */
     if (WH.hi >= 0 && WH.hi < WH.n) {
         const WSlot *w = &WH.s[WH.hi];
-        if (w->kind == WS_SPELL) {
+        if (w->kind == WS_SPELL && w->id == RS_ID) {               /* Restoration (D5) */
+            snprintf(a, sizeof a, "RESTORATION");
+            snprintf(b, sizeof b, "RANK %d", imax(1, conf_rank(CF_RESTORE)));
+            snprintf(c, sizeof c, "HELD, IT HEALS");
+        } else if (w->kind == WS_SPELL) {
             snprintf(a, sizeof a, "%s", w->id == AT_BFS ? "BFS9000" : ELEM_NAME[ATK_ELEM[w->id]]);
             if (!w->ok) snprintf(b, sizeof b, "NOT OPEN");
             else if (w->id == AT_SPEAR) snprintf(b, sizeof b, "RANK %d  %s %d", RUN.gear.atk[w->id], spear_bare() ? "SPLINTERS" : "BONES", spear_bare() ? splint_left() : RUN.gear.bones);
@@ -30633,6 +31472,59 @@ static void wheel_render(Frame *f) {
     const char *KPAD[3] = { hand == 1 ? "R-STICK AIMS" : hand == 2 ? "L-STICK AIMS" : "A STICK AIMS", "RELEASE TAKES", "\1B LEAVES" };   /* as long as it was */
     const char *const *K = PADX.used ? KPAD : WH.src ? KQ : KM;
     for (int i = 0; i < 3; i++) ui_keys(f, 6, cy + 20 + i * 12, K[i], UI_M(13));   /* clear of the words in its middle */
+}
+/* Toughness's cracks (1.0.0b20, PLAN-combat 10.5; D5): motes rising off a shut secret's crack, in the run's colour (the
+ * Order's candle gold, the drowned's ghost-light, the mine's amber, the black glass's violet), seen as far as Toughness's
+ * reach (conf_value: today's two cells and the weighted gain past them, 4 to 8 at full weight), more of them by its rank,
+ * at full brightness through dark and fog, as the eyes are, hidden by the walls. Within two cells the cracks show anyway */
+static int cracks_on(void) {                                       /* in play (the owner approved the sheet); CRAWL_CRACKS=0 (debug) leaves them out */
+#ifdef CRAWL_DEBUG
+    static int on = -1;
+    if (on < 0) on = !(getenv("CRAWL_CRACKS") && atoi(getenv("CRAWL_CRACKS")) == 0);
+    return on;
+#else
+    return 1;
+#endif
+}
+static void render_cracks(Frame *f, float dx, float dy, float horizon) {
+    static const uint8_t RAMP[4] = { R_GOLD, R_GHOST, R_FLAME, R_PURPLE };
+    static const int TOP[4] = { 12, 15, 15, 15 };                  /* the gold ramp is thirteen */
+    float reach = conf_value(CF_TOUGH, CV_CRACKS);
+    if (reach <= 0.0f || !cracks_on() || PK.depth || G.shop || G.dead) return;
+    int run = crawl_set(G.level), n = 3 + 3 * imin(imax(1, conf_rank(CF_TOUGH)), 5);
+    for (int i = 0; i < G.nsecrets; i++) {
+        const Secret *sc = &G.secrets[i];
+        if (sc->state) continue;
+        float nx = (float)(sc->sx - sc->fx), ny = (float)(sc->sy - sc->fy);   /* into the wall */
+        float cx = (float)sc->fx + 0.5f + 0.5f * nx, cy = (float)sc->fy + 0.5f + 0.5f * ny;   /* the crack's face */
+        float d = hypotf(cx - G.px, cy - G.py);
+        if (d > reach || (G.px - cx) * nx + (G.py - cy) * ny > 0.0f) continue;   /* too far, or behind it */
+#ifdef CRAWL_DEBUG
+        { static double said; if (getenv("CRAWL_CRACKS") && atoi(getenv("CRAWL_CRACKS")) >= 2 && G.t - said > 1.0) { said = G.t;   /* CRAWL_CRACKS=2: where */
+            fprintf(stderr, "CRACKS secret %d face (%.1f,%.1f) at %.1f cells, reach %.1f, rank %d t=%.2f\n", i, cx, cy, d, reach, conf_rank(CF_TOUGH), G.t); } }
+#endif
+        float edge = 1.0f - smoothstepf(reach - 1.0f, reach, d);   /* thinning at the edge of its reach */
+        for (int k = 0; k < n; k++) {
+            uint32_t h = hash2(sc->sx * 31 + k, sc->sy * 17 + i);
+            float life = 1.8f + 1.2f * (float)(h & 255) / 255.0f, ph = fmodf((float)G.t / life + (float)(h >> 8 & 255) / 255.0f, 1.0f);
+            float along = ((float)(h >> 16 & 255) / 255.0f - 0.5f) * 0.8f + 0.05f * sinf((float)G.t * 1.3f + (float)k * 2.1f);
+            float out = 0.04f + 0.14f * ph, z = 0.06f + 0.8f * ph;   /* off the stone and up, slowly */
+            float x = cx - nx * out - ny * along, y = cy - ny * out + nx * along, sx, sy, dep;
+            if (!project(x, y, z, dx, dy, horizon, &sx, &sy, &dep)) continue;
+            float a = smoothstepf(0.0f, 0.15f, ph) * (1.0f - smoothstepf(0.55f, 1.0f, ph)) * edge;
+            int lv = (int)(a * 16.0f);
+            if (lv < 3) continue;
+            uint8_t c = (uint8_t)(RAMP[run] + imin(TOP[run], 6 + lv * (TOP[run] - 5) / 16)), halo = (uint8_t)(RAMP[run] + 3 + lv / 4);
+            int px = (int)floorf(sx), py = (int)floorf(sy), sz = FOCAL / dep / 64.0f > 1.6f ? 2 : 1;
+            for (int yy = -1; yy <= sz; yy++)                      /* a bright core, a dim cross about it */
+                for (int xx = -1; xx <= sz; xx++) {
+                    int core = xx >= 0 && xx < sz && yy >= 0 && yy < sz, edge = (xx < 0 || xx >= sz) != (yy < 0 || yy >= sz);
+                    int qx = px + xx, qy = py + yy;
+                    if ((core || (edge && lv >= 6)) && qx >= 0 && qx < W && qy >= 0 && qy < H && dep < zbuf[qx] + 0.02f)
+                        f->pix[qy * W + qx] = core ? c : halo;
+                }
+        }
+    }
 }
 /* a creature near you strong against a line you hold (its rank's, once seen struck; a ward, 1.0.0b16): its element's glyph
  * over its head, barred (docs/PLAN-play.md section 6, PLAN-combat.md 7.3) */
@@ -30682,6 +31574,7 @@ static void render_warded(Frame *f, float dx, float dy, float horizon) {
                 }
         }
     }
+    render_cracks(f, dx, dy, horizon);                             /* and Toughness's motes at a shut secret's crack (D5) */
 }
 /* the seals on things that want a spell, at full brightness through dark and fog, hidden by the walls; never smaller than
  * about half a texel a pixel, so one down a long hall can still be read */

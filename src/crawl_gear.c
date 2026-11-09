@@ -370,6 +370,14 @@ float gear_total(const Gear *g, int st) {
     return STAT_CAP[st] > 0.0f ? fminf(t, STAT_CAP[st] + CAP_UP[st]) : t;
 }
 
+float gear_total_free(const Gear *g, int st) {                     /* as gear_total, before its cap (1.0.0b20: the Confessions' screen) */
+    if (is_elem(st) || STAT_CAP[st] <= 0.0f) return gear_total(g, st);
+    float t = gear_total_raw(g, st);
+    if (st == ST_MOVE) t *= 1.0f + gear_ability(g, AB_SWIFT, 0) / 100.0f;
+    if (st == ST_THRIFT) t *= 1.0f + gear_ability(g, AB_ARCANE, 0) / 100.0f;
+    if (st == ST_TREASURE) t += gear_ability(g, AB_TREASURE, 0);
+    return t + OWN[st];
+}
 int gear_capped(const Gear *g, int st) {
     if (STAT_CAP[st] <= 0.0f) return 0;
     if (is_elem(st)) return gear_total_raw(g, st) > 0.0f && gear_total_raw(g, ST_FIRE) + gear_total_raw(g, ST_FROST) + gear_total_raw(g, ST_SHOCK) >= STAT_CAP[st] - 0.05f;

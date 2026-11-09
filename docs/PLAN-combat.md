@@ -1,6 +1,6 @@
 # The elements' teeth: statuses, elemental creatures, the classes' own, the Unholy Confessions and the spells' augments
 
-**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20 (C5, D5) is next. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
+**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20's C5 and D5 are built and went out early as **1.0.0b19.1** (9 November, harness only, before J20); 1.0.0b20 follows J20. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
 review of how harm is dealt today (section 1), the owner's answers to that review's first four questions, and the owner's
 guide (kept as given in the appendix). The owner's answers to the review: creatures cast through the kinds we have, "mixed
 up a bit" as the guide sets out (Q1 b); their spells use the caster's six elements, so the resists, the Mirror and the wards
@@ -673,6 +673,18 @@ sketches who does what in each).
 outside its two, `start_level`, `begin_shop`, the debug state lines, the Codex's lists, the Makefile, README and the page (track C
 at a release).
 
+### 17.2 b. What each owns (1.0.0b20)
+
+Redrawn by C5's contract commit (8 November). Everything 1.0.0b19's table gave a track stays its own; these are added:
+
+| Track C only | Track D only |
+|---|---|
+| the Confessions: `CONF`, `CONF_W`, `CONF_CUM`, `conf_*`, `RUN.conf`, `RUN.conf_over`, `LG_CONF`; `LINES` and the old lines paid back (`LG_CASTER`'s steps) | the bodies of `class_own`, `class_extra` and `blow_survived` (17.3), in their marked block before `xp_rooms`, and whatever they need |
+| `ascend`, `line_buy`, `over_due`, `auto_ascend`, `update_ascend`, `render_ascend` and the screen's sheet; `caster_sync` (but its one line calling `class_own`) | the classes' words (`CLASSES`), her question (`update_class`, `render_class`), the Codex's class pages |
+| Agility's, Spirituality's and Survival's cuts in C2's statuses (`af_rolls`, `af_put`, `af_hold`); the grabs', webs', bile's and Soul Sap's lengths; `sprint_max`, `sprint_recovery`; the souls from kills (the share on `spawn_mote` in `kill_mob`) | Restoration the spell (10.3), wherever it is chosen, cast, channelled and drawn: its `AT_` number, the spells' turning and wheel, its channel in `human_cast` (C keeps the rest of `human_cast`), the dream's choosing of it |
+| Tab's caster page, the Codex's `CX_CASTER` | the killing blow (10.4) as `blow_survived` gives it, and how it is shown; Toughness's cracks (10.5): the motes at a shut secret's crack |
+| | **Caps by class** (the owner, 8 November: docs/BRIEF-caps.md section 6, given to D): the body of `class_cap`, the sheets' strengths and weaknesses, `armour_keep` (for armour's cap), and showing them on her question's screen and in the Codex |
+
 ### 17.3 What the two tracks share (the contract)
 
 In `src/scene_crawl.c`, after `Mob`, committed with this section:
@@ -687,6 +699,22 @@ In `src/scene_crawl.c`, after `Mob`, committed with this section:
   is under way (the Bone Thrower's flash, `DR_EDGE`). Set by C, cleared by C; the creatures' part of `render_sprites` ORs it into
   the creature's flags, one line, and does nothing else with it. Anything else C draws for its attacks (a charge's after-images,
   the dust of its stamp, the Drowned's spew) C adds in the missiles' part.
+- 1.0.0b20 (C5's contract, 8 November): `CF_*` (the six Confessions, `NCONF`) and each one's numbers (`CV_*`: Restoration's
+  `CV_HEAL`, `CV_HEAL_SOULS`, `CV_PHYSIC`; Agility's `CV_HARD`, `CV_DODGE`, `CV_MOVE`, `CV_QUIET`; Spirituality's `CV_SOULS`,
+  `CV_UNBOUND`, `CV_HASTE`, `CV_THRIFT`, `CV_EFFECT`; Constitution's `CV_RECOVER`, `CV_SPRINT`, `CV_HEALTH`, `CV_LASTBLOW`;
+  Survival's `CV_SOFT`, `CV_TREASURE`, `CV_LUCK`; Toughness's `CV_ARMOUR`, `CV_ARMOUR_WORN`, `CV_CRACKS`). `conf_rank(cf)`: the
+  whole ranks, 0-5, past 5 by overlevels. `conf_value(cf, which)`: the number as the caster has it, the class's weight in it,
+  moved a point at a time; shares as fractions, the rest in their stat's units; 0 with nothing confessed, and Restoration's two,
+  the killing blow's chance and the cracks' reach 0 till rank I is whole (the cracks' reach is today's two cells and the weighted
+  gain past them). Set by C (C5); read by D (D5). `CRAWL_CONF=dddddd` in the debug build sets each Confession's rank (6-9: V and
+  overlevels). D's, called by C: `class_own(own)` adds the class's sheet to `caster_sync`'s own totals (per `ST_*`, in its units,
+  before the caps); `class_extra(KX_AF_CUT)` is a share off every status's chance on the caster (`af_rolls` reads it),
+  `class_extra(KX_SOULS)` a share more souls from kills (C5 reads it beside Spirituality's); `blow_survived(kind)` is asked in
+  `hurt_ex` when a blow that isn't a seep would kill, after Second Wind, and returns 1 if the caster lives (D sets the health and
+  the breath). All three are stubs that do nothing till D5 fills them.
+- 1.0.0b20, added 8 November (the owner's caps by class, docs/BRIEF-caps.md section 6): `class_cap(st)`, D's, the class's lift of
+  stat st's cap in its units; `caster_sync` adds it to the caps (`gear_set_own`'s `cap_up`) for every stat. A stub returning 0
+  till D fills it.
 - To come: at the start of 1.0.0b20, C5's `conf_rank(cf)` and `conf_value(cf, which)`, which D5 reads; at the start of 1.0.0b21,
   C6's augment hooks, which D7 fills for its lines.
 
@@ -911,6 +939,88 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   *From level 1, the first 3,000 s of each run, sixteen seeds a class, this branch against 1.0.0b18 (in brackets) on the same
   runs. Track D's longer runs and deeper starts are in its own table, section 19.*
 
+- **8 November. 1.0.0b20 begun: C5's contract.** **CONTRACT.** At the owner's word the agent that was track D through 1.0.0b19
+  takes track C for 1.0.0b20 (C5), another agent track D (D5); each reads the other's log at every pull, as before. Released
+  1.0.0b19 is merged into the branch (`7d100ca`). The contract (17.3's 1.0.0b20 line, and 17.2 b for who owns what):
+  `conf_rank`, `conf_value` and their `CF_*`/`CV_*`, with the Confessions' table, the classes' shares and `CRAWL_CONF` behind
+  them, working now, though nothing in play reads them yet; `RUN.conf`, `RUN.conf_over` (not yet saved); D's three stubs,
+  `class_own` (called at the end of `caster_sync`), `class_extra` (`af_rolls` takes `KX_AF_CUT` off every status's chance) and
+  `blow_survived` (asked in `hurt_ex` after Second Wind). With the stubs nothing in play changes. Defaults taken here: a run with
+  no past takes each Confession at 75%, the places' mean; past V an overlevel adds a quarter of I-to-V again; a status cut never
+  passes 90%, the killing blow's chance 50%. Next: the screen's sheet for the owner, and what doesn't hang on it.
+- **8 November. C5's sheet, for the owner** (`docs/combat/c5-confessions.png`). The ascend screen as the Confessions would have it,
+  drawn by the game (`render_confess`, shown in place of today's only with `CRAWL_CONFUI=1` in the debug build; play is as it was):
+  the six down the left, each its rank's numeral beside a groove that fills to V with the ranks notched in it; the chosen one on
+  the right, its rank and the points into the next, its numbers as you have them and as the next rank has them (VI and on when an
+  overlevel is due on one at V), what it does under them. Agility's first number and Spirituality's second are the statuses'
+  marks, not words (knocked down, stunned, frozen; Unbound); Survival's are poison, chill and fire and a +. `--` where nothing is
+  confessed, and for Restoration's spell, the killing blow and the cracks till rank I is whole. `CRAWL_CONF` takes six points too
+  (`12,45,0,30,10,150`). Defaults taken: the same marks the old lines had are not used (the names say enough at this size); the
+  class's share shows only in the numbers. Waiting on the owner's word; the rest of C5 goes on meanwhile.
+- **8 November. C5 built, behind its switch till the sheet is approved** (harness only). Everything section 10 gives C5 is in
+  the game but reached only with `CRAWL_CONFUI=1` in the debug build (`conf_on`); once the owner has seen the sheet, it becomes
+  the game's and `CRAWL_LINES=1` puts the old lines back for balance runs. **The points**: `update_confess` (D a point, held ten
+  a second after a breath; A takes back what this opening gave; Space an overlevel on one whole at V, asked twice), more health
+  felt at once as the old line's was, `EVENT confess <name> <rank>` as each rank is made whole. **The numbers**: `conf_own` from
+  `caster_sync` (before D5's `class_own`): Physic, Dodge, Movement, Quiet, Spell Haste, Spirit Cost, Spell Effect, Sprint, Health,
+  Treasure, Luck and armour (with Toughness's share of what is worn) into the caster's own under the same caps; past V the caps
+  rise with what an overlevel adds. **The statuses**: `conf_cut` takes Agility's share off Knocked Down, Stunned and Frozen,
+  Spirituality's off Unbound and Survival's off On Fire, Chilled and Poisoned, both their chance (`af_rolls`) and their length
+  (`af_hold`; `af_ignite` its harm with its length; `af_chill` the fall; `af_poison`); `soft_pace` runs the old clocks down
+  sooner (grabs', webs' and bile's `slow_t`, a web's `snare_t`, the old `poison_t`, the bat's latch, which also needs longer
+  against you to take hold). A forced knock-down (`CRAWL_AF=down`) lasted 1.5 s, 0.21 s with a Galvanist's Agility at V; six
+  seconds of poison 2.4 s with a Plague Doctor's Survival at V. **Souls**: `soul_share` on the motes from kills and spectres
+  (Spirituality, and D5's `KX_SOULS`). **The sprint**: Constitution's recovery divides `sprint_recovery`'s wait and fill.
+  **Overlevels**: `over_due` counts the Confessions' too; an overlevel gives its Alignment Point as before, unless an old line's
+  overlevel paid back already gave it (`RUN.ap_overs`). **Saves**: `LG_CONF` (each Confession's points and overlevels, a byte
+  each, and `ap_overs`); an older page's lines are paid back as it is read (`lines_payback`: every step as the points it cost,
+  every overlevel as one to choose again; `EVENT lines_payback`), and a person is told at her greeting (*THE OLD LINES ARE UNDONE*).
+  Checked by signing a page on the old build (490 points in lines, four overlevels) and opening it on this one: 490 points and four
+  overlevels to choose, and the Confessions saved and read again. A death that costs takes them (U13). **The dream**:
+  `auto_confess`, its class's two best to V and then the lowest, overlevels to the best whole (the Witchfinder Spirituality and
+  Restoration, the Plague Doctor Survival and Agility, the Headsman Constitution and Toughness); with no past, Constitution and
+  Agility. **The Codex**: Luck's page and the overlevels' page in the Confessions' words. With the switch off, a dream of 400 s
+  plays the commit before's 392 events line for line. ASan clean on three sessions with the switch on: a Witchfinder's
+  dream from level 21 for 600 s (eight ranks confessed at its greeting), a Plague Doctor's from level 1 for 600 s, and a person
+  opening the old page above (paid back), confessing held and tapped, taking back and trying an overlevel. Not done: the Codex has no page of the Confessions
+  themselves (the screen says what each does); a number at its cap gives no warning, as the old lines' screen did; balance runs
+  wait for the switch to be the game's (J20).
+- **8 November. The sheet approved; C5 in play.** The owner approved the Confessions' screen as drawn. `conf_on` is now the
+  game's: the Confessions stand in place of the ascend screen's lines for a person and the dream, and an older page's lines are
+  paid back as it is read. `CRAWL_CONFUI` is gone; `CRAWL_LINES=1` in the debug build puts the old lines back (no payback, the old
+  screen, the old dream's buying), for balance runs. **C5 is built.** Track C's part of 1.0.0b20 is done; J20 waits on D5.
+- **8 November. Totals and caps on the Confessions' screen, and a brief on caps** (at the owner's word; harness only). The pane
+  now shows each stat as the caster has it in all (worn, the class's own and every Confession: `conf_total`, from
+  `gear_total_free`, a total before its cap) and as the next rank would leave it; the rest (the cuts, the souls, the spell's)
+  as they stand. A number at its cap is pale blue under a lid (`cap_lid`), as is the list's numeral of a Confession with
+  anything capped; *AT ITS CAP: ...* stands at the pane's foot; D asks twice before confessing one whose every number is
+  capped. Spirituality's words shortened to fit. No overflow for any class on any Confession, all at V with caps reached and an
+  overlevel due. `docs/BRIEF-caps.md`: every cap, what reaches for it, and options for caps by class (CP1-CP5), for the owner;
+  nothing of it built. Any of it would be one contract change (`class_own` handing back a cap lift) and a few lines a side.
+- **8 November. The owner's caps by class, given to D.** **CONTRACT.** The owner answered the brief (docs/BRIEF-caps.md section
+  6): every resist with a cap of its own, armour too; option (a) with every lift at +30%; caps shown on her question's screen;
+  the killing blow capped at 30%; a strength and a weakness for each class (the Galvanist's Lightning and Frost the owner's; the
+  other five worked out in the brief, for the owner's word). The owner gave the work to track D, the class sheets being D's.
+  C's part, done: `class_cap(st)` (17.3; a stub in D's block, added to the caps in `caster_sync`) and the killing blow's cap at
+  30% in `conf_at` (and on the Confessions' screen). 17.2 b gives D `armour_keep` for armour's cap. With the stub, nothing in play
+  changes but the killing blow's cap (25% at Constitution V was already under it; only overlevels reach past). Track D: section 6
+  of the brief is yours, with two things still to the owner's word (the pairs, and whether a resist's lift stops at 90%).
+- **8 November. The owner settled the last two** (docs/BRIEF-caps.md section 6): the pairs as worked out (Witchfinder Fire and
+  Frost, Anatomist Frost and Fire, Galvanist Lightning and Frost, Plague Doctor Poison and Spirit, Sin-Eater Spirit and Poison,
+  Headsman Physical and Lightning; starting resists +15 and -15), and a resist's lift (armour's share too) stops at 90%, Spirit
+  Cost's at 70%; every other cap takes the full +30%. Nothing left to ask: track D, it is yours to build.
+- **9 November. Restoration on Tab's caster page** (at the owner's word; harness only). D's log left it undone, the page being
+  C's: once Restoration is confessed, the spells' row ends with *8*, an ankh in ghost-light and its rank, gold while it is in
+  hand; the spell left in `G.spell` is no longer lit gold while Restoration is (`render_caster`). Frames with it in hand, out
+  of hand and unconfessed (absent); no overflow.
+- **9 November. Released as 1.0.0b19.1; J20 begun.** At the owner's word the branch went out as it stands (C5 and D5 whole,
+  both of D's sheets approved, the cracks in play), squashed onto main as one commit. The owner asked for 1.0.0b19 again; CI
+  publishes only a version that has no release, so it is a point release, and **1.0.0b20 goes out after J20**. The README,
+  the page and the notes say it is not yet weighed against 1.0.0b19. **J20**, as J19 and against 1.0.0b19 (main at `41fe10c`,
+  built in a worktree): track C's half is seeds 1-15 odd, the five classes a fresh run can be given, from level 1 for the first
+  3,000 s (`CRAWL_RUNID` the seed), both builds run here, so neither half leans on J19's numbers; track D's half, seeds 17-31
+  odd and the start from 31 on its eight seeds, as J19's. Under way.
+
 ## 19. Track D's log (the dead's)
 
 *Append only, newest at the bottom.*
@@ -1115,6 +1225,114 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
 
   *From level 1, the first 3,000 s, sixteen seeds a class: with 1.0.0b18.1 merged in; the combat work alone in brackets; 1.0.0b18 in
   square brackets. From level 31, 1,500 s on eight seeds a class: 114 (110) [114] levels cleared, no deaths.*
+
+- **8 November. D5 begun: the classes' own sheets** (harness only; `14b56b5`, before C5 was in play). Section 9's draft, which
+  the owner took for now (K1 b), in D's marked block: `CLASS_OWN` (each class's health against the hundred everyone had, and its
+  stats in their own units), `class_own` (into `caster_sync`'s own, under the same caps), `class_extra` (`KX_AF_CUT`: the Plague
+  Doctor's tenth off every mark's chance, which `af_rolls` takes; `KX_SOULS`: the Sin-Eater's tenth more souls from kills, which
+  C5's `soul_share` reads). Her question has a second page (Space turns between *THEIR PAST* and *WHAT THEY BRING*: the sheet as
+  rows), the Codex's class pages a sentence of it under the story. A class taken (or traded) feels its health at once, as more
+  health from a line was; a debug start with `CRAWL_CLASS` starts whole. `CRAWL_SHEET=0` leaves the sheets out: a dream on it
+  plays released 1.0.0b19's line for line, so J19's merged runs stand as the baseline. **The runs**: from level 1, the first
+  3,000 s on sixteen seeds (1-31 odd) for each of the five classes: 503 levels cleared and 85 deaths (511 and 78), a level's
+  median 356 s (353), deaths on level 1 6 (3). By class, cleared and deaths: the Witchfinder 108 and 5 (106, 7), the Anatomist
+  101 and 11 (99, 18), the Galvanist 99 and 25 (102, 18), the Plague Doctor 91 and 33 (99, 21), the Sin-Eater 104 and 11 (105,
+  14). The Plague Doctor's sheet can do it no harm (a quarter off poison, a tenth off every mark, Luck, Treasure, half a second's
+  sprint), so its twelve more deaths are the noise's size; the Galvanist's seven could be its ninety health, so both were run on
+  sixteen more seeds (33-63 odd), the sheet against `CRAWL_SHEET=0`: on them the Galvanist died 27 times
+  against 13 (52 against 31 over all thirty-two seeds; seventeen more of them to rank I skeletons on levels 1-4), and the Plague
+  Doctor 33 against 29 (66 against 50). The Plague Doctor's is the noise again; the Galvanist's looks real against the dream, and
+  a batch with its health at 100 (the rest of its sheet kept) was run on all thirty-two: 45 deaths (52 at 90, 31 with no sheet),
+  198 levels cleared (202, 208). So its health is a little of it; the rest is near the noise, or in its Movement or Dodge, and
+  wasn't chased, since the owner's caps by class (below, in C's log) reshape the sheets. The table is the owner's draft (K1 b). From level 31, 1,500 s on eight seeds a class
+  (17-31 odd) against `CRAWL_SHEET=0`: 118 levels cleared (114), no deaths in either, a level's median 366 s (366). What the
+  marks did: knocked down 510 times (468), poisoned 80 (70). ASan clean on a Plague Doctor's dream from level 11 for 400 s, a
+  person turning her question's pages, and one taking the Anatomist's vow over the Witchfinder.
+  **A stall found there, older than this branch and neither track's: for the owner.** The one run past 41 s (the Plague
+  Doctor's seed 9, level 5, 121 s by the line and about four minutes in all) was replayed to the line: hurt under two fifths, the
+  dream wants its place to mend (`rest_goal`); one cell on, a shambler still under the earth comes into its sight within seven
+  cells, and `enemies_within` (so `in_combat`) counts the buried (`buried(m)`, which `targetable` refuses), so it doesn't; one
+  cell back the shambler is out of sight and it wants the place again. It went back and forth between (10,14) and (11,14) till it
+  gave the level up at 270 s. `enemies_within` skipping the buried would mend it, but it is called from the runes' triggers and
+  the dream's fights in many places, so it would move both tracks' runs: left for the owner's word.
+- **8 November. The killing blow survived** (10.4; harness only). `blow_survived`: asked by C's `hurt_ex` after Second Wind, for
+  a blow that isn't a seep; D refuses as well what is stood in (`lastblow_can`: fire, bile or a void hazard ticking, a burning
+  floor, a pool, poison, as `windup_blow` has it), a rock, an arc, a stroke and every creature's blow count. Constitution's chance
+  (`conf_value(CF_CONST, CV_LASTBLOW)`, the class's weight in it and C's cap of a half), once a level (`G.lb_spent`, in D's part
+  of `G`, cleared in `start_level`, which is shared; a pocket starts afresh, as a place of its own): health stops at 1, and
+  `G.wind_t` 3 s keeps everything off as a Second Wind's does, with its flash and *UNBROKEN* in place of its name (`render_wind`,
+  two lines, while `lastblow_shown`); the hurt, a heartbeat and a deep chime. What is on the caster stays (the owner's words: the
+  blow connects, one health, three seconds). With nothing confessed nothing is rolled, so a run without Constitution plays as
+  before. Tested: struck down by `CRAWL_KILLAT` with `CRAWL_CONF=000500` on sixteen seeds for three classes, the chances as their
+  weights give them (0.25 the Headsman, 0.22 the Plague Doctor, 0.15 the Galvanist) and 15 of 48 lived; forced (`CRAWL_LASTBLOW=1`)
+  over a Plague Doctor's dream of 2,400 s, once on each of levels 2, 4 and 5, never twice on a level, a retry after a death
+  allowed again; frames of the breath; ASan clean on that dream (1,200 s) and on a person struck down on level 12.
+- **8 November. Toughness's cracks: the sheet, for the owner** (`docs/combat/d5-cracks.png`; 10.5). `render_cracks` (from the
+  end of `render_warded`): motes off each shut secret's crack face, rising and drifting off the stone over two or three seconds,
+  in the run's colour (the Order's candle gold, the drowned's ghost-light, the mine's amber, the black glass's violet), a bright
+  core and a dim cross about it, at full brightness through dark and fog, hidden by walls; seen within Toughness's reach
+  (`conf_value(CF_TOUGH, CV_CRACKS)`: 4 cells at rank I to 8 at V for the Anatomist, 3 to 5 for a class at half weight), thinning
+  over its last cell, six motes at rank I to eighteen at V. The cracks' own texture still shows only within two cells, as today.
+  The sheet: each run at rank V close to, rank I at 3.2 cells, III at 5, V at 7, from the game (`CRAWL_TPAT`). Behind
+  `CRAWL_CRACKS=1` (debug) till it is approved; `CRAWL_CRACKS=2` adds a `CRACKS` line a second (the face, the distance, the reach).
+  Next: Restoration the spell, its glow up the arm on a sheet first.
+- **8 November. Restoration's glow: the sheet, for the owner** (`docs/combat/d5-restoration.png`; 10.3). `render_restore` (from
+  `render_hand`, one line after `render_charge`): while it is channelled, three bands of pale ghost-light go down the arm from the
+  fingers into the sleeve every 1.7 s, dithered over the hand's own shading so the skin shows through, a faint wash at the fingers,
+  and motes rising off them. The sheet shows the hand at rest and the claw, in run I's light and run IV's dark, untouched and at
+  four moments. Nothing in play draws it yet (`restore_glow` is 0 but for `CRAWL_RESTSHOW=1`, debug); the spell itself (its
+  number, the spells' turning and wheel, the channel, the dream's choosing) comes next, built while the sheets wait.
+
+- **8 November. Restoration the spell** (10.3; harness only). Once Restoration's rank I is confessed (`restore_open`) it is a
+  spell among the others: 8 takes it up, the mouse wheel turns to it after the seven, and the spells' wheel (the pad's D-pad down
+  held) has it last, an ankh (`RESTORE_MARK`). It is in hand as `G.rst_sel` (D's part of `G`), with `G.spell` left as it was for
+  when another is taken; its id among the spells is `RS_ID` (100, past every `AT_` and `SHOT_`, so nothing indexed by a spell
+  sees it), not a new `AT_` number, which would have changed the saves' spellbook bytes for nothing kept. Held, the cast button
+  channels it after 0.4 s (`restore_cast`, one line at the head of C's `human_cast`): souls by the second and health by the
+  second as Restoration's numbers give them (`restore_tick`; nothing spent while whole), half pace (one factor in `slow_factor`),
+  the hand up (`hand_raise`) and the glow down the arm (`render_restore`, the sheet's). A blow doesn't end it; letting go, a menu,
+  a stun, a knock-down, Unbound, the void or the souls running out do (`EVENT restore_begin`, `restore_end <why> healed n souls
+  x`). The status bar shows the ankh and *RESTORE* with its rank (`restore_hud`, one line in `render_statusbar`). The dream
+  (`dream_restore`, one line in `update_player`): out of a fight and not casting, under three fifths of its health, with souls to
+  mend a fifth of it and six over, it channels as it walks, to nine tenths or till a fight; at rank I that is 56 souls, so the dream
+  seldom does (once in 25 minutes from level 1 at rank V, as the Sin-Eater). With the owner's numbers (U9 b) it is slow at rank I:
+  a hundred-health caster mends a point every four seconds for 0.7 souls a second; at V a point a second for a tenth. Tested: a
+  person at rank V (the Sin-Eater, at full weight) mended 10 health in 10.6 s for 1.1 souls, walking at half pace, the wheel and
+  the pad's wheel took it up and put it down; frames of the bar and the glow; ASan clean on that and on a dream of 1,200 s that
+  channelled. Not done: Tab's spellbook page doesn't list it (C's page), and balance runs wait for J20.
+
+- **8 November. The owner's caps by class** (docs/BRIEF-caps.md section 6, given to D; harness only). **The sheets**: each class's
+  own element's resist +15 and its weakness's -15 (`CLASS_OWN` now has the pair, `strong` and `weak`): the Witchfinder Resist Burn
+  +15 (it was +10) and Resist Slow (frost) -15, the Anatomist Resist Burn -15 (its Resist Slow +15 as it was), the Galvanist Resist
+  Slow -15, the Plague Doctor Resist Poison +15 (it was +25) and Resist Spirit -15, the Sin-Eater Resist Poison -15, the Headsman
+  (its strength its armour, +4 as it was) Resist Lightning -15. A total may go below nothing, as the brief says `el_resist` and
+  `hurt_ex` already take. **The caps** (`class_cap`, filled: the brief's table in each stat's units, read by C's `caster_sync`):
+  the Witchfinder Resist Burn to 90, Spell Haste and Spell Effect to 65; the Anatomist Resist Slow to 90, Physic to 520; the
+  Galvanist Resist Lightning to 90, Dodge to 45.5, Movement to 52; the Plague Doctor Resist Poison to 90, Luck to 32.5, Treasure
+  to 130; the Sin-Eater Resist Spirit to 90, Vessel to 130, Spirit Cost to 70; the Headsman Sprint to 9.75 s over the base,
+  Damage to 130. **Armour's cap** (`armour_keep`, given to D by 17.2 b): the share of a blow kept off never past 75%
+  (`ARMOUR_CAP`), the Headsman's 90% (`armour_cap`). **Shown**: her question's second page has each lifted cap beside its row in
+  pale blue (*MAX 90%*), the lifted caps the sheet has no row for after (the Sin-Eater's Vessel and Spirit Cost, the Headsman's
+  Damage and *ARMOUR KEEPS OFF*), and the pair in the class's colour (*FIRE HURTS LESS, FROST MORE*); the Codex's class has a
+  second page, *WHAT THEY BRING*, laid out the same with a line on what the caps and a resist below nothing mean (the sentence
+  that had been on the first page had run over the Plague Doctor's long story; `CX_MAX` one more, in D's place). `CRAWL_SHEET=0`
+  leaves the sheets, the lifts and armour's cap out: a dream on it plays the commit before line for line (checked, 500 s). Tested:
+  frames of her question's second page for all six and of both Codex pages for all six, no overflow; ASan clean on her question
+  turned through all six and the Codex's pages, and a Headsman's dream from level 21 for 600 s. **The runs** (on this build, C5 in
+  play, against `CRAWL_SHEET=0` on the same seeds): from level 1, the first 3,000 s on eight seeds (1-15 odd) for each of the five
+  classes, 253 levels cleared and 68 deaths (242 and 71), a level's median 353 s (356); the Witchfinder 4 deaths (2), the
+  Anatomist 6 (16), the Galvanist 21 (13), the Plague Doctor 22 (27), the Sin-Eater 15 (13). From level 31, 1,500 s on four seeds a
+  class (17-23 odd): 60 levels each way, one death each way. The dream channelled Restoration 7 times (13) and lived no killing blow
+  (it confesses Constitution for none of these five). The Galvanist is the one that keeps doing worse with its sheet, in every
+  batch (52 against 31 over thirty-two seeds before the caps, 21 against 13 here); with the caps it also takes Frost 15% harder.
+  Whether that is its ninety health, Frost, or its Dodge and Movement changing how the dream walks is not known; a person may fare
+  otherwise. For the owner.
+
+- **9 November. Both sheets approved; the cracks in play.** The owner approved `docs/combat/d5-cracks.png` and
+  `docs/combat/d5-restoration.png` as drawn. Toughness's motes are now the game's (`cracks_on`; `CRAWL_CRACKS=0` in the debug build
+  leaves them out, `CRAWL_CRACKS=2` still traces); Restoration's glow was already in play with the spell. Checked: a frame of run I's
+  crack at 1.5 cells with Toughness at V shows the motes and one with nothing confessed shows none, so a run without Toughness looks
+  as it did. Nothing of D5 waits on a sheet now. Still the owner's: the Galvanist's sheet, and the stall by a buried shambler.
 
 ## Appendix: the owner's guide (7 November), as given
 
