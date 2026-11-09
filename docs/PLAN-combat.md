@@ -1,6 +1,6 @@
 # The elements' teeth: statuses, elemental creatures, the classes' own, the Unholy Confessions and the spells' augments
 
-**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20 (C5, D5) is next. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
+**Settled** (7 November 2026). **1.0.0b19 is built and released** (8 November, harness only; with 1.0.0b18.1 merged in); 1.0.0b20's C5 and D5 are built and went out early as **1.0.0b19.1** (9 November, harness only, before J20); 1.0.0b20 follows J20. Written on `claude/inspiring-archimedes-dbj5n6` from main at 1.0.0b18, from a
 review of how harm is dealt today (section 1), the owner's answers to that review's first four questions, and the owner's
 guide (kept as given in the appendix). The owner's answers to the review: creatures cast through the kinds we have, "mixed
 up a bit" as the guide sets out (Q1 b); their spells use the caster's six elements, so the resists, the Mirror and the wards
@@ -1013,6 +1013,13 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   C's: once Restoration is confessed, the spells' row ends with *8*, an ankh in ghost-light and its rank, gold while it is in
   hand; the spell left in `G.spell` is no longer lit gold while Restoration is (`render_caster`). Frames with it in hand, out
   of hand and unconfessed (absent); no overflow.
+- **9 November. Released as 1.0.0b19.1; J20 begun.** At the owner's word the branch went out as it stands (C5 and D5 whole,
+  both of D's sheets approved, the cracks in play), squashed onto main as one commit. The owner asked for 1.0.0b19 again; CI
+  publishes only a version that has no release, so it is a point release, and **1.0.0b20 goes out after J20**. The README,
+  the page and the notes say it is not yet weighed against 1.0.0b19. **J20**, as J19 and against 1.0.0b19 (main at `41fe10c`,
+  built in a worktree): track C's half is seeds 1-15 odd, the five classes a fresh run can be given, from level 1 for the first
+  3,000 s (`CRAWL_RUNID` the seed), both builds run here, so neither half leans on J19's numbers; track D's half, seeds 17-31
+  odd and the start from 31 on its eight seeds, as J19's. Under way.
 
 ## 19. Track D's log (the dead's)
 
