@@ -1154,6 +1154,31 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   `e982abf`, built in a worktree): track C's half is seeds 1-15 odd, the five classes a fresh run can be given, from level 1 for
   the first 3,000 s (`CRAWL_RUNID` the seed), both builds run here; track D's half, seeds 17-31 odd and the start from 31 on its
   eight seeds, as J20's. This branch at `8fe7e56` (both tracks' augments on, D6 in). Under way.
+- **9 November. J21, track C's half** (harness only). Seeds 1-15 odd, the five classes, from level 1 for the first 3,000 s, this
+  branch at `8fe7e56` against 1.0.0b20 at `e982abf`, both run here with `CRAWL_RUNID` the seed (1.0.0b20 in brackets):
+
+  | Class | Cleared | Deaths | Augments chosen, ranks gained |
+  |---|---|---|---|
+  | Witchfinder | 51 (51) | 17 (9) | 24, 47 |
+  | Anatomist | 49 (52) | 10 (4) | 24, 47 |
+  | Galvanist | 51 (46) | 13 (27) | 24, 46 |
+  | Plague Doctor | 50 (48) | 24 (20) | 23, 43 |
+  | Sin-Eater | 48 (51) | 19 (9) | 24, 44 |
+  | **all five** | 249 (248) | **83 (69)** | 119, 227 |
+
+  A fifth more deaths, none on a boss's level (3,000 s doesn't reach 10), 8 on level 1 (4); a level's median 349 s (356). Fire's
+  augments left 986 events, D's 2,183. Stalls: three runs stood 40 s (four in 1.0.0b20's), none to 120 s. **Where**: by the opening
+  augment the dream drew at random (A15), the Witchfinder died 11 times on the four seeds it took **Firecracker** (1.0.0b20: none on
+  those seeds) and 6 on the four it took Burning Intensity (9); the Sin-Eater 15 on the four it took Siphon (4) and 4 on Hollowing's
+  (5). Both trade a hit's damage now for something later: the spark is a quarter of the bolt and its burning, at rank I twice the
+  spark's and at III three times (A11: 75% of a bolt over four seconds), never quite a plain bolt's hit and the 10-25% chance of
+  its own burning, and slower, so the early dead live longer; Siphon hurts 15% less for its healing. Four seeds a side, so a lean,
+  not a verdict; track D's half will say more. The Galvanist's 13 against 27 is the noise J20 saw in it. **The pacing** (A2 b),
+  four seeds a class to 7,200 s with the augments on: every run that reached Level of Atonement 18 or more had 300 credits or more
+  on its class's line by then (the Galvanist's four 433-501 at 19-20, the Sin-Eater's three 428-521, the Plague Doctor's one 387,
+  the Anatomist's one 398 at 18), and 300 came at Atonement 13 to 19; the rest stood at the knight with Atonement 10 to 14 and 182
+  to 347, some 20 to 27 a level. So A3's thresholds hold and stay. `LG_AUG` checked: augments chosen and their credits, signed onto
+  a page and read back in a fresh session, show as they were on the Codex's pages.
 
 ## 19. Track D's log (the dead's)
 
