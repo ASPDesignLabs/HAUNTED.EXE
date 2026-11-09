@@ -18,6 +18,7 @@
 #include "gfx.h"
 #include "snd.h"
 #include "crawl_ui.h"
+#include "crawl_title.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -1292,9 +1293,10 @@ static const char *const PAD_WORD[PAD_COUNT] = { "\1A", "\1B", "\1X", "\1Y", "LB
  * first (job[b] == b is today's layout), View and Menu never moved; the sticks swapped, no rumble, the turning in tenths.
  * A person's own, in SLOT_PREFS: "HVQ1", a version, the sixteen jobs, a byte of flags (1 swapped, 2 quiet), the turning.
  * 1.0.0b15's single byte (the sprint's button) reads as today's layout with the sprint traded onto that button. */
-#define PL_BYTES 23
-static struct { uint8_t job[PAD_COUNT]; int swap, quiet, turn, mstick, read; } PL;   /* mstick: the menus' stick, 0 left, 1 right, 2 either */
-static void pl_default(void) { for (int b = 0; b < PAD_COUNT; b++) PL.job[b] = (uint8_t)b; PL.swap = PL.quiet = PL.mstick = 0; PL.turn = 10; }
+#define PL_BYTES 23                                                /* the least a layout is; 1.0.0b21.1 writes one more: */
+#define PL_BYTES_TITLE 24                                          /* the title screen last shown (docs/PLAN-title.md) */
+static struct { uint8_t job[PAD_COUNT]; int swap, quiet, turn, mstick, read, title; } PL;   /* mstick: the menus' stick, 0 left, 1 right, 2 either */
+static void pl_default(void) { for (int b = 0; b < PAD_COUNT; b++) PL.job[b] = (uint8_t)b; PL.swap = PL.quiet = PL.mstick = 0; PL.turn = 10; PL.title = 2; }
 static int pl_fixed(int b) { return b == PAD_VIEW || b == PAD_MENU; }
 static void pl_trade(int a, int b) { if (a == b || pl_fixed(a) || pl_fixed(b)) return; uint8_t t = PL.job[a]; PL.job[a] = PL.job[b]; PL.job[b] = t; }
 static void pl_read(void) {
@@ -1306,14 +1308,16 @@ static void pl_read(void) {
     if (ok && buf[5 + PAD_VIEW] == PAD_VIEW && buf[5 + PAD_MENU] == PAD_MENU) {
         memcpy(PL.job, buf + 5, PAD_COUNT); PL.swap = buf[21] & 1; PL.quiet = buf[21] >> 1 & 1; PL.mstick = clampi(buf[21] >> 2 & 3, 0, 2);
         PL.turn = clampi(buf[22], 5, 20);
+        if (n >= PL_BYTES_TITLE) PL.title = buf[23] % 3;
     } else if (n == 1 && buf[0] < PAD_COUNT) pl_trade(PAD_LS, buf[0]);
 }
 static void pl_write(void) {
-    uint8_t b[PL_BYTES];
+    uint8_t b[PL_BYTES_TITLE];
     memcpy(b, "HVQ1", 4); b[4] = 1;
     memcpy(b + 5, PL.job, PAD_COUNT);
     b[21] = (uint8_t)(PL.swap | PL.quiet << 1 | PL.mstick << 2); b[22] = (uint8_t)PL.turn;
-    slot_write(SLOT_PREFS, b, PL_BYTES);
+    b[23] = (uint8_t)PL.title;
+    slot_write(SLOT_PREFS, b, PL_BYTES_TITLE);
 }
 static int pl_on(int job) { pl_read(); for (int b = 0; b < PAD_COUNT; b++) if (PL.job[b] == job) return b; return job; }   /* the button a job is on */
 static int pad_sprint(void) { return pl_on(PAD_LS); }
@@ -1328,6 +1332,11 @@ static void update_padmenu(void);
 static void render_padmenu(Frame *f);
 static int pad_look_tick(float dt);
 static void pad_look_render(Frame *f);
+static int title_enabled(void);                                    /* the title screen (1.0.0b21.1), further down */
+static void title_open(void);
+static int title_tick(float dt);
+static int title_render(Frame *f);
+static int title_up(void);
 static const char *pad_sprint_hint(void) {
     static char h[48];
     snprintf(h, sizeof h, "%s SPRINTS FORWARD, A WHILE", PAD_WORD[pad_sprint()]);
@@ -20574,6 +20583,7 @@ static void update_mark(float dt);
 static void comp_note(int level);
 static void crawl_update(double dt) {
     float fdt = (float)dt;
+    if (title_tick(fdt)) return;                                   /* the title holds the screen: the crypt waits behind it */
     foot_settle();                                                 /* one born by a prop, into what it leaves free (1.0.0b18.1) */
 #ifdef CRAWL_DEBUG
     dbg_souls(); foot_watch();
@@ -23509,15 +23519,20 @@ static void pad_keys(float dt) {
 #undef PRESS
 }
 
-static void crawl_input(const Input *in, double dt) { IN = *in; IN_DT = dt; pad_keys((float)dt); }
+static void crawl_input(const Input *in, double dt) {
+    IN = *in; IN_DT = dt;
+    if (!title_up()) pad_keys((float)dt);                          /* the title reads its own (1.0.0b21.1) */
+}
 
 static void crawl_control(int what) {
     if (what == CTRL_PAUSE) {
+        if (title_up()) return;                                    /* the title waits as it is */
         if (CON.open) { CON.open = 0; snd_hold(0); }
         if (G.player && !G.ui && G.status_ret != PLAY_QUIT) open_ui(UI_QUIT);
         return;
     }
     if (what == CTRL_PEEK) { if (!G.player) { pop_readout(); G.peek = 0.15f; } return; }
+    if (title_enabled()) { title_open(); return; }                 /* the title first (1.0.0b21.1); a choice there makes it yours */
     show_bar();
     G.player = 1; G.status_ret = PLAY_PLAYER; G.ui = UI_NONE;
     PADX.fresh = 1;                                                /* the button that took over isn't a press */
@@ -24246,7 +24261,7 @@ static void ledger_first(void) {
 
 /* ---- the merchant's ledger: three pages, signed at her menu and opened from Esc ---- */
 
-typedef struct { int used, level, hp, gold, souls, why, mine, old; int64_t when; } Page;
+typedef struct { int used, level, hp, gold, souls, why, mine, old, cls; int64_t when; } Page;
 static Page page_info(int i) {
     static uint8_t buf[SLOT_MAX];
     Page g;
@@ -24263,6 +24278,8 @@ static Page page_info(int i) {
         g.mine = i + 1 == LEDGER.page; g.old = 1;
         if (n >= base + 8) g.when = (int64_t)((uint64_t)(uint32_t)get32(buf + base) | (uint64_t)(uint32_t)get32(buf + base + 4) << 32);   /* 1.0.0b6's graves: when carved */
     }
+    c = page_section(buf, n, LG_ALIGN, &k);                        /* its class, for the title's graves (1.0.0b21.1) */
+    if (c && k >= LG_ALIGN_B11) g.cls = c[NELEM * NNODE + 2] <= NELEM ? c[NELEM * NNODE + 2] : 0;
     return g;
 }
 
@@ -24317,6 +24334,234 @@ static void ledger_open(int i) {
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT ledger_open page %d level %d gold %d shop %d t=%.2f\n", i + 1, G.level, RUN.treasure, G.shop, G.t);
 #endif
+}
+
+
+/* ---- the title screen (1.0.0b21.1, docs/PLAN-title.md section 7): it comes up when a person takes over, before anything
+ * is theirs. Any key or button (not a stick) brings its menu into the middle while the scene goes on and the lament ground
+ * plays; a grave rises from the ledger, a new run begins, the controls or help are shown. Left untouched on its prompt it
+ * gives the screen back to the dream. The art is src/crawl_title.c. ---- */
+enum { TS_PROMPT, TS_MENU, TS_GRAVES, TS_CONTROLS, TS_HELP };
+#define TITLE_IDLE 90.0f                                           /* untouched this long on its prompt: back to the dream */
+#define TITLE_LEVEL 3                                              /* its art is run I's, at level 3, as it was drawn */
+static struct {
+    int on, st, scene, sel, gsel, pad;
+    float t, grace, idle, press, menu, mk[NTM], gk[3], foot_t, sx, sy;
+    const char *foot;
+    TitlePage page[3];
+} TI;
+static int title_enabled(void) {
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_TITLE") && !atoi(getenv("CRAWL_TITLE"))) return 0;   /* testing: H gives the dream's run, as before */
+#endif
+    return 1;
+}
+static int title_next_scene(void) {                                /* A, B and C in turn, once each start of the program */
+    static int chosen = -1;
+    if (chosen < 0) { pl_read(); chosen = (PL.title + 1) % 3; PL.title = chosen; pl_write(); }
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_TITLESCENE")) return clampi(atoi(getenv("CRAWL_TITLESCENE")), 0, 2);   /* testing: this one */
+#endif
+    return chosen;
+}
+static void title_pages(void) {                                    /* the three pages' words, from the ledger */
+    static const char *const SETS[4] = { "CRYPTS", "CATACOMBS", "HOLLOWS", "THE DEEP" };
+    static const char *const MONTH[12] = { "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" };
+    for (int i = 0; i < 3; i++) {
+        Page g = page_info(i);
+        if (!g.used) { title_page_set(&TI.page[i], RUN_ROMAN[i], 0, 0, "UNMARKED", "NOTHING", "WRITTEN", ""); continue; }
+        char lv[16], when[16] = "", who[16], who2[16];
+        const char *why = g.why == PG_DEATH ? "AT A DEATH" : g.why == PG_CLAIM ? "HER CLAIM" : SETS[crawl_set(imax(1, g.level))];
+        snprintf(lv, sizeof lv, "LEVEL %d", g.level);
+        time_t w = (time_t)g.when;
+        struct tm *tm = g.when > 0 ? localtime(&w) : NULL;
+        if (tm) snprintf(when, sizeof when, "%d %s %d", tm->tm_mday, MONTH[tm->tm_mon % 12], tm->tm_year + 1900);
+        const char *name = g.cls >= 1 && g.cls <= NELEM ? CLASS_SHORT[g.cls - 1] : "NO PAST YET";
+        const char *sp = strlen(name) > 11 ? strchr(name, ' ') : NULL;   /* PLAGUE DOCTOR: on two lines, the date given up */
+        if (sp) {
+            snprintf(who, sizeof who, "%.*s", (int)(sp - name), name); snprintf(who2, sizeof who2, "%s", sp + 1);
+            title_page_set(&TI.page[i], RUN_ROMAN[i], 1, g.cls, who, who2, lv, why);
+        } else title_page_set(&TI.page[i], RUN_ROMAN[i], 1, g.cls, name, lv, why, when);
+    }
+}
+static void title_open(void) {
+    memset(&TI, 0, sizeof TI);
+    TI.on = 1; TI.st = TS_PROMPT; TI.scene = title_next_scene(); TI.grace = 0.5f; TI.pad = PADX.used;
+    G.player = 1; G.status_ret = PLAY_PLAYER; G.ui = UI_NONE; G.map_on = 0;
+    PADX.fresh = 1;
+    if (!G.quit_line) G.quit_line = 1 + rnd(97);
+    title_pages();
+    crawl_art_level(TITLE_LEVEL);
+    snd_sfx_ex(SFX_WHOOSH, 0.6f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT title open scene %c t=%.2f\n", 'A' + TI.scene, G.t);
+#endif
+}
+static void title_to_dream(void) {                                 /* untouched: the screen back to the dream, as it was */
+    TI.on = 0;
+    crawl_art_level(G.shop ? 1 : imax(1, G.level));
+    if (PK.depth) crawl_art_theme(G.ptheme, G.level);
+    G.player = 0; G.status_ret = PLAY_AUTO; G.ui = UI_NONE;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT title dream t=%.2f\n", G.t);
+#endif
+}
+static void title_to_play(int page) {                              /* a grave risen (page 0-2), or a new run (-1) */
+    TI.on = 0;
+    LEDGER.yours = 1;                                              /* the dream is over: from now on the run is yours */
+    if (page >= 0) ledger_open(page); else run_new();
+    show_bar(); G.hint_t = 6.0f; PADX.fresh = 1;
+    snd_sfx_ex(SFX_RUNE, 1.0f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT title %s %d level %d shop %d\n", page >= 0 ? "rise" : "new", page + 1, G.level, G.shop);
+#endif
+}
+static int title_any(void) {                                       /* a key or a button: not a stick, nor the mouse moving */
+    for (int b = 0; b < PAD_COUNT; b++) if (IN.pad_hit[b]) { TI.pad = 1; return 1; }
+    for (int k = 0; k < KEY_COUNT; k++) if (IN.hit[k]) { TI.pad = 0; return 1; }
+    return 0;
+}
+static void title_nav(int *dx, int *dy) {                          /* the arrows, WASD, the D-pad, the wheel, a stick pushed */
+    *dx = *dy = 0;
+    if (IN.hit[KEY_W] || IN.hit[KEY_UP] || IN.wheel > 0) *dy = -1;
+    if (IN.hit[KEY_S] || IN.hit[KEY_DOWN] || IN.wheel < 0) *dy = 1;
+    if (IN.hit[KEY_A] || IN.hit[KEY_LEFT]) *dx = -1;
+    if (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) *dx = 1;
+    int pad = IN.pad_hit[PAD_UP] || IN.pad_hit[PAD_DOWN] || IN.pad_hit[PAD_LEFT] || IN.pad_hit[PAD_RIGHT];
+    if (IN.pad_hit[PAD_UP]) *dy = -1;
+    if (IN.pad_hit[PAD_DOWN]) *dy = 1;
+    if (IN.pad_hit[PAD_LEFT]) *dx = -1;
+    if (IN.pad_hit[PAD_RIGHT]) *dx = 1;
+    float sx = fabsf(IN.lx) > fabsf(IN.rx) ? IN.lx : IN.rx, sy = fabsf(IN.ly) > fabsf(IN.ry) ? IN.ly : IN.ry;   /* either stick, y up */
+    if (sy > 0.6f && TI.sy <= 0.6f) { *dy = -1; pad = 1; }
+    if (sy < -0.6f && TI.sy >= -0.6f) { *dy = 1; pad = 1; }
+    if (sx > 0.6f && TI.sx <= 0.6f) { *dx = 1; pad = 1; }
+    if (sx < -0.6f && TI.sx >= -0.6f) { *dx = -1; pad = 1; }
+    TI.sx = sx; TI.sy = sy;
+    if (*dx || *dy) TI.pad = pad;
+}
+static void title_pick(int k) {
+    TI.sel = k;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT title pick %d t=%.2f\n", k, G.t);
+#endif
+    if (k == TM_NEW) { title_to_play(-1); return; }
+    snd_sfx_ex(SFX_KEY, 0.7f, 0.5f);
+    if (k == TM_GRAVE) {
+        title_pages();
+        TI.st = TS_GRAVES; TI.gsel = 0;
+        for (int i = 2; i >= 0; i--) if (TI.page[i].used) TI.gsel = i;   /* the first written */
+        for (int g = 0; g < 3; g++) TI.gk[g] = 0;
+    } else TI.st = k == TM_CONTROLS ? TS_CONTROLS : TS_HELP;
+}
+static int title_tick(float dt) {                                  /* the title's frame: 1 while it holds the screen */
+    if (!TI.on) return 0;
+    TI.t += dt; TI.grace -= dt;
+    if (TI.t < 0.2f) {                                             /* what took over says which words to use */
+        for (int b = 0; b < PAD_COUNT; b++) if (IN.pad_down[b]) TI.pad = 1;
+        if (IN.down[KEY_H]) TI.pad = 0;
+    }
+    int dx = 0, dy = 0, any = 0, sel = 0, back = 0;
+    if (TI.grace <= 0.0f) {
+        title_nav(&dx, &dy);
+        sel = IN.hit[KEY_ENTER] || IN.hit[KEY_SPACE] || IN.hit[KEY_E] || IN.hit[KEY_MOUSE1] || IN.pad_hit[PAD_A];
+        back = IN.hit[KEY_ESC] || IN.hit[KEY_BACK] || IN.hit[KEY_MOUSE2] || IN.pad_hit[PAD_B] || IN.pad_hit[PAD_MENU];
+        any = title_any();
+    }
+    int busy = any || dx || dy || fabsf(IN.lx) + fabsf(IN.ly) + fabsf(IN.rx) + fabsf(IN.ry) > 0.3f || IN.mdx != 0.0f || IN.mdy != 0.0f;
+    TI.idle = busy ? 0.0f : TI.idle + dt;
+    switch (TI.st) {
+    case TS_PROMPT:
+        if (any) {
+            TI.st = TS_MENU; TI.press = 1.0f; TI.sel = TM_GRAVE;
+            snd_sfx_ex(SFX_RUNE, 0.8f, 0.5f); snd_sfx_ex(SFX_WHOOSH, 0.7f, 0.5f);
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT title menu t=%.2f\n", G.t);
+#endif
+        } else if (TI.idle > TITLE_IDLE) { title_to_dream(); return 1; }
+        break;
+    case TS_MENU:
+        if (TI.menu < 0.4f) break;                                 /* let it come in first */
+        if (dy) { TI.sel = (TI.sel + dy + NTM) % NTM; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+        else if (sel) title_pick(TI.sel);
+        else if (back) { TI.st = TS_PROMPT; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
+        break;
+    case TS_GRAVES:
+        if (dx || dy) { int to = clampi(TI.gsel + (dx ? dx : dy), 0, 2); if (to != TI.gsel) { TI.gsel = to; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); } }
+        else if (sel) {
+            if (TI.page[TI.gsel].used) { title_to_play(TI.gsel); return 1; }
+            TI.foot = "NOTHING IS WRITTEN HERE"; TI.foot_t = 2.0f; snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f);
+        } else if (back) { TI.st = TS_MENU; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
+        break;
+    default:                                                       /* the controls, help: back to the menu */
+        if (sel || back) { TI.st = TS_MENU; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
+        break;
+    }
+    float to = TI.st == TS_PROMPT ? 0.0f : 1.0f;                   /* the menu comes in over 0.7 s, goes in 0.6 */
+    TI.menu = to > TI.menu ? fminf(to, TI.menu + dt / 0.7f) : fmaxf(to, TI.menu - dt / 0.6f);
+    TI.press = fmaxf(0.0f, TI.press - dt / 0.35f);
+    for (int k = 0; k < NTM; k++) { float g = k == TI.sel ? 1.0f : 0.0f; TI.mk[k] = g > TI.mk[k] ? fminf(g, TI.mk[k] + dt / 0.3f) : fmaxf(g, TI.mk[k] - dt / 0.3f); }
+    for (int i = 0; i < 3; i++) { float g = TI.st == TS_GRAVES && i == TI.gsel ? 1.0f : 0.0f; TI.gk[i] = g > TI.gk[i] ? fminf(g, TI.gk[i] + dt / 0.35f) : fmaxf(g, TI.gk[i] - dt / 0.35f); }
+    if ((TI.foot_t -= dt) <= 0.0f) TI.foot = NULL;
+    return 1;
+}
+static void dim_view(Frame *f);
+static void pad_fill(UiPad *u);
+static void ui_on(Frame *f, int marble, const char *where);
+static void ui_off(void);
+static void title_controls(Frame *f) {                             /* THE CONTROLS: the keys' whole list, or the controller's own screen */
+    if (TI.pad) {
+        UiPad u;
+        pad_fill(&u);
+        u.t = TI.t; u.title = "THE CONTROLLER";
+        u.about = "TO CHANGE THEM: IN PLAY, MENU, THEN THE CONTROLLER.";
+        u.keys = "\1B BACK";
+        ui_on(f, 0, "title pad"); dim_view(f); ui_pad(f, &u); ui_off();
+        return;
+    }
+    static const char *const L[] = {
+        WEB ? "WASD WALK  MOUSE TURNS  SPACE CASTS" : "WASD WALK  MOUSE TURNS  CLICK CASTS", "SHIFT SPRINTS FORWARD, A WHILE",
+        "1-9 SPELLS  E OPENS, TAKES, SPEAKS", "HOLD A SPELL TO CHARGE ITS ULTIMATE", "RIGHT CLICK USES  Q NEXT, HOLD: WHEEL",
+        "TAP A DIRECTION TWICE TO DODGE", "TAB INVENTORY  B BESTIARY  C THE CODEX", "M THE MAP  L WISPS  H THE STATUS BAR",
+        "TURN OR STRAFE HARD TO SHAKE OFF A BAT", "ESC LEAVE, SLEEPWALK, A NEW RUN" };
+    int n = (int)(sizeof L / sizeof L[0]), widest = 0;
+    for (int i = 0; i < n; i++) widest = imax(widest, hint_width(L[i]));
+    ui_on(f, 0, "title controls");
+    dim_view(f);
+    int bw = imin(W - 8, widest + 28), bh = n * 12 + 50, bx = (W - bw) / 2, by = (H - bh) / 2;
+    ui_slab(f, bx, by, bw, bh, SLAB_LEDGER | SLAB_CALM, ORN_NONE, TI.t);
+    ui_text16(f, (W - 12 * 8) / 2, by + 7, "THE CONTROLS", FACE_INSC, R_GOLD + 12, TX_INLAID, 1);
+    for (int i = 0; i < n; i++) hint8(f, (W - hint_width(L[i])) / 2, by + 28 + i * 12, L[i], R_STONE + 13);
+    ui_keys(f, (W - ui_keys_width("ESC BACK")) / 2, by + bh - 14, "ESC BACK", R_STONE + 12);
+    ui_off();
+}
+static void title_help(Frame *f) {                                 /* HELP: still to be written */
+    ui_on(f, 0, "title help");
+    dim_view(f);
+    int bw = 236, bh = 74, bx = (W - bw) / 2, by = (H - bh) / 2;
+    ui_slab(f, bx, by, bw, bh, SLAB_LEDGER | SLAB_CALM, ORN_NONE, TI.t);
+    ui_text16(f, (W - 4 * 8) / 2, by + 7, "HELP", FACE_INSC, R_GOLD + 12, TX_INLAID, 1);
+    const char *s = "THIS PAGE IS NOT WRITTEN YET.";
+    ui_text8(f, (W - (int)strlen(s) * 8) / 2, by + 32, s, FACE_INSC, R_STONE + 13, TX_INLAID);
+    const char *k = TI.pad ? "\1B BACK" : "ESC BACK";
+    ui_keys(f, (W - ui_keys_width(k)) / 2, by + bh - 16, k, R_STONE + 12);
+    ui_off();
+}
+static int title_up(void) { return TI.on; }
+static int title_render(Frame *f) {
+    if (!TI.on) return 0;
+    static char ver[24];
+    snprintf(ver, sizeof ver, "%s", HVS_VERSION);
+    for (char *c = ver; *c; c++) if (*c >= 'a' && *c <= 'z') *c = (char)(*c - 32);
+    TitleView v;
+    memset(&v, 0, sizeof v);
+    v.scene = TI.scene; v.pad = TI.pad; v.graves = TI.st == TS_GRAVES; v.menu = TI.menu; v.press = TI.press;
+    memcpy(v.mk, TI.mk, sizeof v.mk); memcpy(v.gk, TI.gk, sizeof v.gk); memcpy(v.page, TI.page, sizeof v.page);
+    v.foot = TI.foot; v.version = ver;
+    title_draw(f, TI.t, &v);
+    if (TI.st == TS_CONTROLS) title_controls(f);
+    else if (TI.st == TS_HELP) title_help(f);
+    return 1;
 }
 
 /* ---- death's cost (docs/PLAN-b7.md, section 1) ---- */
@@ -32653,6 +32898,7 @@ static void crawl_render(Frame *f) {
 #ifdef CRAWL_DEBUG
     ui_check = 1; ui_check_frame();
 #endif
+    if (title_render(f)) return;                                   /* the title screen, the whole frame (1.0.0b21.1) */
     if (G.tally) { render_tally(f); if (G.player && G.ui) render_ui(f); pad_look_render(f); con_render(f); return; }   /* toasts wait for the next level */
     g_camfog = fog_at(G.px, G.py);
     fog_tint = G.tri >= 0 && G.tri_state == TRS_ON && in_trial((int)G.px, (int)G.py) ? TRI_FOG[G.tri] : 0;   /* a trial's room, turned */
@@ -32711,6 +32957,11 @@ static int her_screen(int ui) {                                    /* her hall's
            ui == UI_CLASS || ui == UI_HALL2;
 }
 static void music_frame(float dt) {
+    if (title_up()) {                                              /* the title's piece, the lament ground (1.0.0b21.1) */
+        snd_set_menu(3); snd_set_fight(0); snd_set_frail(0);
+        MUS.menu = 3;
+        return;
+    }
     int lv = G.level > 0 ? G.level : imax(1, RUN.level);
     snd_set_track(MU_CRYPTS + crawl_set(lv));
     int place = 0;                                                 /* her room (and the way on), or her back rooms */

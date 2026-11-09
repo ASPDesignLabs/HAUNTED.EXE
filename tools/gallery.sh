@@ -71,7 +71,7 @@ echo "$RECIPES" | while IFS='|' read -r SET NAME ERAS ENVS INPUT AT; do
     for ERA in $ERAS; do
         H=$(host_of "$ERA")
         D=$OUT/$ERA; mkdir -p "$D"
-        ( cd "$D" && rm -f "$NAME"_*.png && env $ENVS HOST_INPUT="$INPUT" "$H" shot crawl "$AT" "$NAME" 1 >/dev/null 2>&1 \
+        ( cd "$D" && rm -f "$NAME"_*.png && env CRAWL_TITLE=0 $ENVS HOST_INPUT="$INPUT" "$H" shot crawl "$AT" "$NAME" 1 >/dev/null 2>&1 \
               && mv "$NAME"_*.png "$ROOT/docs/gallery/$SET-$NAME-$ERA.png" ) || echo "no frame: $SET $NAME $ERA" >&2
     done
 done
