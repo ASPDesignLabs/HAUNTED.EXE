@@ -1699,10 +1699,16 @@ static void add_deco(float x, float y, int spr) {
 
 /* static light: record its contribution to every light-map texel it reaches
  * through open space (and the faces of the walls around that space) */
+static void light_static_ph(float lx, float ly, float power, float radius, float phase);
 static void light_static(float lx, float ly, float power, float radius) {
     if (G.nlights >= MAXLIGHTS) return;
+    light_static_ph(lx, ly, power, radius, rndf() * 10.0f);
+}
+/* a light whose flicker's phase is given, so the dice aren't touched (the portraits' candles: the dream's runs keep step) */
+static void light_static_ph(float lx, float ly, float power, float radius, float phase) {
+    if (G.nlights >= MAXLIGHTS) return;
     Light *L = &G.lights[G.nlights++];
-    L->x = lx; L->y = ly; L->power = power; L->radius = radius; L->phase = rndf() * 10.0f;
+    L->x = lx; L->y = ly; L->power = power; L->radius = radius; L->phase = phase;
     L->cx = (int)lx; L->cy = (int)ly; L->first = G.nlc; L->count = 0;
     static int stamp[MAPN][MAPN], qx[MAPN * MAPN], qy[MAPN * MAPN], dist[MAPN][MAPN];
     static int gen;
@@ -4817,7 +4823,10 @@ static void por_life(void) {
 #define POR_RES 128
 #define NPOR 26                                                    /* the twenty-two kinds' and, in time, the bosses' four */
 typedef struct { int x, y, fd, kind, layout; float ph; } PorAt;
-static struct { int n, frame; PorAt at[NPOR]; int key[NPOR], drawn[NPOR], seen[NPOR]; } POR;
+/* a portrait's candle's flame on the wall: its face (fd), the face's line (x for faces looking east or west, else y), where along it,
+ * how far down (0 the top, 1 the foot), its glow's strength, and its light (for the flicker) */
+typedef struct { int fd, light; float plane, along, z, pw; } PorFlame;
+static struct { int n, frame, nwf; PorAt at[NPOR]; int key[NPOR], drawn[NPOR], seen[NPOR]; PorFlame wf[NPOR * 4]; } POR;
 static uint8_t POR_OV[NPOR][POR_RES * POR_RES];
 static int best_kinds(int *out);
 static int kind_ranks(int k, int *out);
@@ -21050,6 +21059,10 @@ static void ped_arc(void) {                                        /* the pedest
         G.ped_x[i] = SHOP_MID + t * half; G.ped_y[i] = 12.9f + 0.75f * t * t;
     }
 }
+/* a portrait's candles: their light in the room (shared between its flames), how far it goes, and their glow on the wall about them.
+ * A third of a torch's (0.45, as the plan had it) made her room half again as bright: a ninth, and a strong glow on the wall, keeps
+ * it as it was with a pool of light about each candle (CRAWL_PORLIGHT=light,reach,glow to try others) */
+static float POR_LIGHT = 0.15f, POR_REACH = 2.0f, POR_GLOW = 0.8f;
 /* the portraits of the slain hung on her walls (docs/PLAN-portraits.md, section 7), a bestiary page each in its order: the first
  * third on her south wall, read from the left as you face it; the second on her north wall, the spiderling round its corner by its
  * mother; the last in the back room, along its north wall and down its east. A face that carried a banner or a torch gives it up. */
@@ -21060,6 +21073,7 @@ static void por_hang(void) {
         { 7, 11, 1 }, { 8, 11, 1 }, { 9, 12, 2 }, { 9, 14, 2 }, { 9, 15, 2 }, { 9, 16, 2 }, { 9, 17, 2 } };
     int order[NKINDS], nk = best_kinds(order);
 #ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_PORLIGHT")) sscanf(getenv("CRAWL_PORLIGHT"), "%f,%f,%f", &POR_LIGHT, &POR_REACH, &POR_GLOW);   /* testing: light,reach,glow */
     if (getenv("CRAWL_PORTRAITS") && atoi(getenv("CRAWL_PORTRAITS")) >= 0) {   /* testing: every portrait drawn back, n of each kind's
                                                                       ranks unlocked (0: their shadows); below 0 none hung */
         int n = atoi(getenv("CRAWL_PORTRAITS"));
@@ -21071,20 +21085,59 @@ static void por_hang(void) {
         por_fill();
     }
 #endif
-    POR.n = 0;
+    POR.n = 0; POR.nwf = 0;
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_PORTRAITS") && atoi(getenv("CRAWL_PORTRAITS")) < 0) return;   /* testing: none hung, to weigh their cost */
 #endif
     for (int i = 0; i < nk && i < 22; i++) {
         PorAt *a = &POR.at[POR.n];
         a->x = AT[i][0]; a->y = AT[i][1]; a->fd = AT[i][2]; a->kind = order[i];
-        a->layout = i % NPLAYOUT;                                  /* (step 3 deals them, no two neighbours alike) */
         a->ph = -0.83f * (float)i;                                 /* each turns about in its own time */
         Cell *c = &G.map[a->y][a->x];
         if (c->kind != K_WALL || c->por) continue;
         c->por = (uint8_t)(1 + POR.n); c->fover[a->fd] = 0;
         POR.drawn[POR.n++] = 0;
     }
+    /* their candles dealt, the same every visit: never as a neighbour's (side by side, or meeting at a corner), and where it can
+     * be, as none a cell further off either; and two tapestries never tied back against each other: side by side on a wall, a
+     * portrait's goes to its left, but the last's of the run, which may go either way */
+    int drape_left = 0;                                            /* the layouts whose tapestry goes to the left */
+    for (int l = 0; l < NPLAYOUT; l++) if (!portrait_drape_side(l)) drape_left |= 1 << l;
+    for (int i = 0; i < POR.n; i++) {
+        PorAt *a = &POR.at[i];
+        float cx = (float)a->x + 0.5f + 0.5f * (float)DX[a->fd], cy = (float)a->y + 0.5f + 0.5f * (float)DY[a->fd];
+        int nearm = 0, farm = 0, keep = 0, cand[NPLAYOUT], nc = 0;
+        for (int j = 0; j < POR.n; j++) {
+            const PorAt *b = &POR.at[j];
+            float bx = (float)b->x + 0.5f + 0.5f * (float)DX[b->fd], by = (float)b->y + 0.5f + 0.5f * (float)DY[b->fd], d = hypotf(cx - bx, cy - by);
+            if (j < i && d < 1.05f) nearm |= 1 << b->layout; else if (j < i && d < 2.1f) farm |= 1 << b->layout;
+            if (j != i && d < 1.05f && b->fd == a->fd && (bx - cx) * (float)DY[a->fd] - (by - cy) * (float)DX[a->fd] > 0.0f)
+                keep = ~drape_left;                                /* one to its right as seen: its tapestry goes left */
+        }
+        for (int l = 0; l < NPLAYOUT; l++) if (!((nearm | farm | keep) >> l & 1)) cand[nc++] = l;
+        if (!nc) for (int l = 0; l < NPLAYOUT; l++) if (!((nearm | keep) >> l & 1)) cand[nc++] = l;
+        if (!nc) for (int l = 0; l < NPLAYOUT; l++) if (!(nearm >> l & 1)) cand[nc++] = l;
+        uint32_t h = (uint32_t)(a->x * 73 + a->y * 19 + a->fd * 7 + 101) * 2654435761u;   /* not hash2: that has the level in it */
+        h ^= h >> 15; h *= 2246822519u; h ^= h >> 13;
+        a->layout = cand[h % (uint32_t)nc];
+        /* each flame a light of a third of a torch's, shared between its flames, and a glow on the wall about it */
+        float fl[4][3], nx = (float)DX[a->fd], ny = (float)DY[a->fd], rx = ny, ry = -nx;   /* rx, ry: to the right as seen */
+        int nf = portrait_layout_flames(a->layout, fl);
+        for (int k = 0; k < nf && POR.nwf < NPOR * 4; k++) {
+            float u = fl[k][0] / (float)TS - 0.5f, wx = cx + rx * u, wy = cy + ry * u, share = 1.0f / (nf > 1 ? 2.0f : 1.0f);
+            PorFlame *w = &POR.wf[POR.nwf];
+            w->fd = a->fd; w->plane = a->fd == 0 || a->fd == 2 ? cx : cy; w->along = a->fd == 0 || a->fd == 2 ? wy : wx;
+            w->z = fl[k][1] / (float)TS; w->pw = POR_GLOW * share; w->light = G.nlights;
+            light_static_ph(wx + nx * 0.12f, wy + ny * 0.12f, POR_LIGHT * share, POR_REACH, (float)((h >> (4 * k)) % 1000u) * 0.01f);
+            if (G.nlights > w->light) POR.nwf++;                   /* (none if the lights were full) */
+        }
+    }
+#ifdef CRAWL_DEBUG
+    { static int said; if (!said++) {
+        fprintf(stderr, "PORTRAITS hung %d, candles %d, lights %d:", POR.n, POR.nwf, G.nlights);
+        for (int i = 0; i < POR.n; i++) fprintf(stderr, " %d@%d,%d:%d", POR.at[i].kind, POR.at[i].x, POR.at[i].y, POR.at[i].layout);
+        fprintf(stderr, "\n"); } }
+#endif
 }
 
 static void gen_shop(void) {
@@ -26581,8 +26634,8 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
         int sx = rdx < 0 ? -1 : 1, sy = rdy < 0 ? -1 : 1;
         float sdx = rdx < 0 ? (G.px - mx) * ddx : (mx + 1.0f - G.px) * ddx;
         float sdy = rdy < 0 ? (G.py - my) * ddy : (my + 1.0f - G.py) * ddy;
-        int side = 0, tex = T_STONE, texx = 0, hit = 0, over = -1, flip = 0, por = -1, ptx = 0;
-        float perp = 30.0f, cracks = 0.0f;
+        int side = 0, tex = T_STONE, texx = 0, hit = 0, over = -1, flip = 0, por = -1, ptx = 0, ng = 0, gw[8];
+        float perp = 30.0f, cracks = 0.0f, galong = 0.0f;
         for (int i = 0; i < 100 && !hit; i++) {
             if (sdx < sdy) { sdx += ddx; mx += sx; side = 0; } else { sdy += ddy; my += sy; side = 1; }
             Cell *c = cell(mx, my);
@@ -26623,6 +26676,14 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                     if ((side == 0 && rdx > 0) || (side == 1 && rdy < 0)) ptx = POR_RES - 1 - ptx;
                 }
                 if (flip) texx = TS - 1 - texx;
+                if (G.shop && POR.nwf) {                                /* the portraits' candles: their glow on the wall about them */
+                    float plane = side == 0 ? (float)(mx + (fd == 0)) : (float)(my + (fd == 1));
+                    galong = side == 0 ? G.py + perp * rdy : G.px + perp * rdx;
+                    for (int k = 0; k < POR.nwf && ng < 8; k++) {
+                        const PorFlame *w = &POR.wf[k];
+                        if (w->fd == fd && fabsf(w->plane - plane) < 0.01f && fabsf(w->along - galong) < 0.8f) gw[ng++] = k;
+                    }
+                }
                 if (c->secret == 2) cracks = 1.0f - smoothstepf(1.3f, 2.8f, perp);   /* only close up do the cracks show */
                 hit = 1;
             } else if (c->kind == K_DOOR) {
@@ -26677,6 +26738,27 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 int tyi = clampi((int)ty, 0, TS - 1), m = cm[tyi];
                 float L = m && BAYER[y & 3][x & 3] < thr ? (m == 1 ? light * 0.2f : light * 1.3f) : light;
                 f->pix[y * W + x] = fogged(shade(col[tyi], L, x, y), fog, light, x, y);
+            }
+            continue;
+        }
+        if (ng) {                                                   /* a candle's glow, row by row (as the mock-ups light them), worked
+                                                                       out only within its reach, every other row on a portrait's face */
+            static float gl[TS];
+            float lk = atten(perp) * (side ? 0.82f : 1.0f);
+            for (int r = 0; r < TS; r++) gl[r] = 0.0f;
+            for (int q = 0; q < ng; q++) {
+                const PorFlame *w = &POR.wf[gw[q]];
+                float fk = 1.5f * w->pw * torch_flicker(&G.lights[w->light]) * lk, dx = galong - w->along, reach = sqrtf(fmaxf(0.0f, 0.64f - dx * dx)) / 1.1f;
+                int r0 = imax(0, (int)((w->z - reach) * TS)), r1 = imin(TS - 1, (int)((w->z + reach) * TS) + 1);
+                for (int r = r0; r <= r1; r++) {
+                    float dz = (((float)r + 0.5f) / (float)TS - w->z) * 1.1f, d3 = sqrtf(dx * dx + dz * dz);
+                    if (d3 < 0.8f) { float e = 1.0f - d3 / 0.8f; gl[r] += fk * e * e; }
+                }
+            }
+            int gs = tn / TS;                                       /* texels of the column to a row of the glow */
+            for (int y = y0; y < y1; y++, ty += tstep) {
+                int ti = clampi((int)ty, 0, tn - 1);
+                f->pix[y * W + x] = fogged(shade(col[ti], light + gl[ti / gs], x, y), fog, light, x, y);
             }
             continue;
         }

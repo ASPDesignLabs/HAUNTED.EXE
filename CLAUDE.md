@@ -313,7 +313,10 @@ record already past them; debug `PORTRAITS` lines as a run is read and at each v
 only): `src/crawl_portrait.c` in the game's build, the twenty-two hung at section 7's faces by `por_hang` (`POR`, `Cell.por`),
 drawn by `por_view`/`por_frame` into 128-texel overlays (`POR_OV`, by columns, mirrored as the walls are) while in view, laid over
 their faces by `render_walls`; each run's stone kept by `portrait_keep_runs` through `crawl_art_stone`; `CRAWL_PORTRAITS=n`,
-`CRAWL_TPPORTRAIT=k[,d]`. Its art is `src/crawl_portrait.c`, driven by `tools/portraitmock.c` (`make build/portraitmock`); the settled
+`CRAWL_TPPORTRAIT=k[,d]`. **Step 3 is built** (harness only): the layouts dealt in `por_hang` (no neighbour alike, tapestries gathered
+left along a run, `portrait_drape_side`), each flame a static light (`light_static_ph`, its phase given so the dice aren't touched;
+`POR_LIGHT`, `POR_REACH`) and a glow on the wall about it (`POR.wf`, `PorFlame`; gathered per column in `render_walls`, `POR_GLOW`);
+`CRAWL_PORLIGHT=light,reach,glow`, `PORTRAITS hung ...`. Its art is `src/crawl_portrait.c`, driven by `tools/portraitmock.c` (`make build/portraitmock`); the settled
 numbers are `docs/portraits/ranks.csv` and `bosses.csv`, written by `tools/portrait_sheet.py` from `KINDS`.
 
 ## Working with the owner

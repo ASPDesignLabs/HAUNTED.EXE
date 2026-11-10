@@ -488,6 +488,10 @@ static void tapestry(const int r[4], int side, float veil) {
     }
 }
 
+int portrait_drape_side(int layout) {                                   /* gathered away from its candle */
+    static const int SIDE[NPLAYOUT] = { 0, 1, 0, 0, 0, 1, 0 };
+    return SIDE[clampi_(layout, 0, NPLAYOUT - 1)];
+}
 void portrait_face(uint8_t *pix, int stride, int w, int h, int ox, int oy, int s, const PortraitView *v) {
     P = pix; PST = stride; PW = w; PH = h; POX = ox; POY = oy; S = s < 1 ? 1 : s; PT = v->t;
     g_nfl = 0;
@@ -500,11 +504,16 @@ void portrait_face(uint8_t *pix, int stride, int w, int h, int ox, int oy, int s
         static const float LX[NPLAYOUT] = { 54.5f, 9.5f, 32.0f, 32.0f, 32.0f, 9.5f, 55.5f }, LY[NPLAYOUT] = { 24, 24, 20, 5, 47, 26, 22 };
         frame(r, v->frame, LX[v->layout] - fx - 0.0f, LY[v->layout] - fy - 18.0f, v);
     }
-    if (v->veil >= 0.0f) {                                              /* below 0: none at all */
-        static const int SIDE[NPLAYOUT] = { 0, 1, 0, 0, 0, 1, 0 };     /* gathered away from its candle */
-        tapestry(r, SIDE[v->layout], v->veil);
-    }
+    if (v->veil >= 0.0f) tapestry(r, portrait_drape_side(v->layout), v->veil);   /* below 0: none at all */
     layout_lights(v->layout, 0);
+}
+int portrait_layout_flames(int layout, float out[4][3]) {
+    static uint8_t scratch[TS * TS];
+    PortraitView v;
+    memset(&v, 0, sizeof v);
+    v.layout = layout; v.rank = -1; v.frame = -1; v.veil = 1.0f;       /* veiled: only its candles and the tapestry are drawn */
+    portrait_face(scratch, TS, TS, TS, 0, 0, 1, &v);
+    return portrait_flames(&v, out);
 }
 int portrait_flames(const PortraitView *v, float out[4][3]) {
     for (int i = 0; i < g_nfl; i++) { out[i][0] = g_fl[i].x; out[i][1] = g_fl[i].y - g_fl[i].h * 0.4f; out[i][2] = g_fl[i].power; }

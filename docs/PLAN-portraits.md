@@ -1,8 +1,9 @@
 # The portraits of the slain
 
 *Status: settled (10 November 2026), at the owner's request, and being built on `claude/adoring-hopper-h9ivcg` from main at
-1.0.0b21.1: steps 1 (the record) and 2 (the art in the build, hung at section 7's faces) are built, harness only. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (not in the
-game's build yet) and `tools/portraitmock.c` (`make build/portraitmock`, then `build/portraitmock <dir>`). The owner answered every
+1.0.0b21.1: steps 1 (the record), 2 (the art in the build, hung at section 7's faces) and 3 (their candles dealt and lit) are
+built, harness only. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (in
+the game's build since step 2) and `tools/portraitmock.c` (`make build/portraitmock`, then `build/portraitmock <dir>`). The owner answered every
 question in section 9 the same day (marked there, Q15 last, which came of their own edit) and settled the numbers in a Sheet on
 claude.ai, [Portraits of the Slain: Gold](https://claude.ai/artifact/2P9JkVQMBEdhAoa6zwB1N6), brought into sections 3 and 4 as it
 stood at its revision 68: the starts 100, 200 and 300, every row paying but the Wraith's fourth gem, the Spectre's, the Wraith's,
@@ -198,9 +199,9 @@ The owner took A, B and F (10 November, in the Sheet); C, D, E and G are not tak
 
 - **The candles**: a sconce to its right, one to its left, a pair, a pierced iron lamp hung on a chain over it, a ledge of
   church candles under it (one gone out and smoking), a skull on an iron bracket with a candle on its crown, a stand of three on
-  the floor. Flames flicker each their own way. In the game each is a static light of a third of a torch's power on its cell and
-  a glow on its own face (the mock-ups add a small round glow about each flame to the crypt's own light; the game would do the
-  same for those faces).
+  the floor. Flames flicker each their own way. In the game (step 3) each flame is a static light and a glow on the wall about it,
+  as the mock-ups light them: the light a ninth of a torch's, shared between a layout's flames, the glow strong (a third of a
+  torch's made her room half again as bright).
 - **Resolution.** A wall face is 64 texels across. At 64 the creature is drawn at half its size, which reads from across the
   room and is blocky up close; at 128 (one branch in `render_walls` for these faces alone) it is drawn at its own size, as the
   bestiary's niche shows it. `runs.png` puts the two side by side from a cell and two thirds and from three cells. I would take
@@ -231,8 +232,9 @@ The first two thirds in her room, the last in the back room with the Totem, the 
   Lightless.
 
 What stands in front: the pedestals hide the north wall's lower half from the middle of her room, and the urn one of the south's.
-Walking up to a portrait to read it is the way, and the card's A/D makes walking to each needless. Fifteen candles light her room
-and seven the back room; their power can come down until the rooms look as they do now.
+Walking up to a portrait to read it is the way, and the card's A/D makes walking to each needless. Their candles (thirty-six
+flames as dealt) light her rooms at a ninth of a torch each, with a pool of light on the wall about each flame, so the rooms look
+much as they did; the back room, darker, gains the most.
 
 **The bosses' four** hang in the grave plot, through the arch past the shrine, on its far wall (y 27, faces looking north) either
 side of the Accursed Portal at x 16: the knight at x 12-13 and the spider at 14-15, the Deacon at 17-18 and the Wraith Unbound at
@@ -310,7 +312,7 @@ stands before them. Their art is not drawn yet: a mock-up of one comes before th
    only), 10 November.* (harness: pages from 1.0.0b21.1 opened, a death, a new run).
 2. The art in the build: the overlays, `render_walls`, the runs' stone kept; frame time in her room (it is 1.8 ms in the crypt).
    *Built (harness only), 10 November; hung at section 7's faces for it, their layouts not yet dealt nor their candles lit.*
-3. Her room: the faces, the layouts dealt, the candles' light.
+3. Her room: the faces, the layouts dealt, the candles' light. *Built (harness only), 10 November.*
 4. The tapestry and the card, the gold, the prompt in the pad's words.
 5. The Spectre's and the Wraith's achievements and the feats (section 5 A and B), and the bosses' four portraits in the plot
    (5 F), after a mock-up of one.
@@ -396,3 +398,24 @@ stands before them. Their art is not drawn yet: a mock-up of one comes before th
   portrait k, 1 the first, d cells from its cell's middle, 2.1 if not given), `PORTRAITS the runs' stone kept in n ms`. Seen in the
   harness: her north and south walls veiled and drawn back, each kind in its rank's colours on its run's stone, the sconces and
   tapestries on the sides their layouts give them. Next: step 3, the layouts dealt and the candles' light.
+- **10 November, step 3 built** (harness only), at the owner's word. The layouts are dealt in `por_hang`, the same every visit (a hash of
+  the face, not the dice, nor `hash2`, which has the level in it): never as a neighbour's (faces side by side, 1 cell apart, or
+  meeting at a corner), and where it can be as none 2 cells off either; and two tapestries never tied back against each other:
+  side by side on a wall a portrait's tapestry goes to its left (`portrait_drape_side`), but the last's of the run, which may go
+  either way. (A first rule, that a tapestry mustn't go towards a neighbour's, chained down the wall: once one went right all after
+  it did, and the south wall came out as two layouts by turns.) As dealt: the south wall SCONCE_L, PAIR, LEDGE, LAMP, PAIR,
+  SCONCE_R, LEDGE from x 20 to 10; the north wall STAND, SKULL, LAMP, SCONCE_R, LEDGE, PAIR, SCONCE_R from x 10 to 19 and the
+  spiderling's STAND; the back room SCONCE_R, SKULL, PAIR, LAMP, LEDGE, STAND, SKULL (`PORTRAITS hung ...` in the debug build).
+  Each flame (`portrait_layout_flames`: a layout's flames at rest, without a portrait) is a static light in front of its face
+  (`light_static_ph`: `light_static` with its flicker's phase given, so the dice aren't touched and the dream keeps step) and a
+  `PorFlame` in `POR.wf` (its face, the face's line, where along it, how far down): `render_walls` gathers, for any wall column, the
+  flames on the same face line within 0.8 cells and adds their glow row by row (the mock-ups' round glow, flickering with the
+  flame's own light, worked out only within its reach and every other row on a portrait's face), so it runs on onto the stone and
+  the next face. The plan's third of a torch (0.45) made her room half again as bright (the views' mean brightness 66, 41 and 64
+  against 38, 27 and 53 with no candles); a ninth (`POR_LIGHT` 0.15, `POR_REACH` 2.0) with a strong glow (`POR_GLOW` 0.8) gives
+  55, 33 and 61 with a pool of light about each candle, and lights the back room, near black without them (`CRAWL_PORLIGHT=light,
+  reach,glow` to try others). Thirty-six flames as dealt, 55 lights in her rooms (`MAXLIGHTS` 160). Her room's frame (the harness's
+  `bench`, 20 s): the dream's first visit 2.45 and 2.64 ms against 1.0.0b21.1's 2.13 and 2.56; a person before a portrait with two
+  ranks of every kind drawn back 2.50 to 2.61 ms against 1.99 to 2.28 with none hung (the glow was 0.4 ms dearer before it was kept
+  to its reach). The dream from level 1 for 2,400 s is line for line 1.0.0b21.1's still; the mock-ups the same, file for file; ASan
+  clean on a person walking the back room among them. Next: step 4, the tapestry drawn back and the card, the gold and the prompt.

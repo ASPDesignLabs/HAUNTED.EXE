@@ -30,6 +30,10 @@ typedef struct {
 void portrait_face(uint8_t *pix, int stride, int w, int h, int ox, int oy, int s, const PortraitView *v);
 /* its flames as the last portrait_face drew them, in texels of the face (x, y) and their strength: at most four; how many */
 int portrait_flames(const PortraitView *v, float out[4][3]);
+/* the side its tapestry is gathered to once drawn back, as seen: 0 its left, 1 its right */
+int portrait_drape_side(int layout);
+/* a layout's flames at rest, as portrait_flames gives them, without a portrait to draw */
+int portrait_layout_flames(int layout, float out[4][3]);
 /* the frame's rectangle on the face, in texels */
 void portrait_frame_rect(int layout, int r[4]);
 /* each run's main stone and first floor, made once (at its fifth level, a little worn) and kept: it draws over two of the
