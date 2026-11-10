@@ -1,8 +1,8 @@
 # The portraits of the slain
 
 *Status: settled (10 November 2026), at the owner's request, and being built on `claude/adoring-hopper-h9ivcg` from main at
-1.0.0b21.1: steps 1 (the record), 2 (the art in the build, hung at section 7's faces) and 3 (their candles dealt and lit) are
-built, harness only. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (in
+1.0.0b21.1: steps 1 (the record), 2 (the art in the build, hung at section 7's faces), 3 (their candles dealt and lit) and 4
+(the tapestry drawn back, the card, the gold) are built, harness only. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (in
 the game's build since step 2) and `tools/portraitmock.c` (`make build/portraitmock`, then `build/portraitmock <dir>`). The owner answered every
 question in section 9 the same day (marked there, Q15 last, which came of their own edit) and settled the numbers in a Sheet on
 claude.ai, [Portraits of the Slain: Gold](https://claude.ai/artifact/2P9JkVQMBEdhAoa6zwB1N6), brought into sections 3 and 4 as it
@@ -313,7 +313,7 @@ stands before them. Their art is not drawn yet: a mock-up of one comes before th
 2. The art in the build: the overlays, `render_walls`, the runs' stone kept; frame time in her room (it is 1.8 ms in the crypt).
    *Built (harness only), 10 November; hung at section 7's faces for it, their layouts not yet dealt nor their candles lit.*
 3. Her room: the faces, the layouts dealt, the candles' light. *Built (harness only), 10 November.*
-4. The tapestry and the card, the gold, the prompt in the pad's words.
+4. The tapestry and the card, the gold, the prompt in the pad's words. *Built (harness only), 10 November.*
 5. The Spectre's and the Wraith's achievements and the feats (section 5 A and B), and the bosses' four portraits in the plot
    (5 F), after a mock-up of one.
 6. The checks: the dream's runs line for line against 1.0.0b21.1 on the same seeds (it leaves the portraits, so nothing may move);
@@ -419,3 +419,25 @@ stands before them. Their art is not drawn yet: a mock-up of one comes before th
   ranks of every kind drawn back 2.50 to 2.61 ms against 1.99 to 2.28 with none hung (the glow was 0.4 ms dearer before it was kept
   to its reach). The dream from level 1 for 2,400 s is line for line 1.0.0b21.1's still; the mock-ups the same, file for file; ASan
   clean on a person walking the back room among them. Next: step 4, the tapestry drawn back and the card, the gold and the prompt.
+- **10 November, step 4 built** (harness only), at the owner's word. Facing a portrait within 2.8 cells, on its room's side and in
+  sight (`por_facing`, `G.pt_look`: 1 + which; `G.por_look` was already the Portal's), a band at the view's foot says what it is (*A
+  TAPESTRY*, *ONE OF ITS KIND IS SLAIN* or *NONE ...*; drawn back, the kind in its frame's colour and *2 OF 6 RANKS, $380 WAITS*) and
+  what E does, in the pad's words through `hint8`. E at a veiled one whose kind has a kill draws it back (`por_draw_back`: `RUN.por_drawn`,
+  `POR.veil_t` for the moment it takes, `POR_DRAW_T` 1.3 s, a rustle); otherwise it opens its card (`UI_PORTRAIT`, `G.pt_sel`;
+  `update_portrait`, `render_portraitcard` after the mock-up's card.png: the portrait up close on its own face's stone in its candles'
+  light, each rank with an achievement (`por_ranks`) slain against asked, its gold and TAKEN, WAITS or LATER; A/D and the pad's bumpers
+  and D-pad through all twenty-two, E or the pad's A draws a veiled one back or takes all that waits (`por_take`: `RUN.treasure`, a bit
+  in `RUN.por_taken`, *THE PORTRAIT PAYS 380*), Esc or B leaves; her music plays on under it, `her_screen`). The gold (`por_gold`,
+  `por_third`, `por_strength`) is section 4's formula over `KIND_XP`, the shade as rank V, in doubles rounded half up: all 104 ranks
+  match `docs/portraits/ranks.csv`, counts and gold (`CRAWL_PORGOLD=1` prints them). The dream draws one back a visit at most, one visit
+  in two by a hash of its run and the level, a few seconds into the visit, never on a page read from the ledger and never with the dice
+  (`por_dream`, from `begin_shop`); it takes no gold. Until step 5 the Spectre and the Wraith have no rows (*NOTHING SLAYS IT*) and their
+  tapestries stay down. Tested in the harness: a dream's run taken over on its second visit to her room (seed 3), the skeletons'
+  tapestry drawn back at the wall (16 of 20 slain: its shadow, no gold), A/D to the Spectre's card and back; with `CRAWL_PORTRAITS=2` the
+  shambler's ranks I and II paid 380 and the wall skull's 280, then TAKEN, *ITS GOLD IS TAKEN THIS LIFE* on a second E; with the pad,
+  A's prompt and card, the bone hound's 230 taken, the D-pad to the next, B away; the drowned's 660 taken and the page signed with her,
+  read back with its two gems taken and 37 waiting. The facing test first found a portrait through the corner of a wall (the back
+  room's imp from her room) and now asks for a line of sight. The dream from level 1 for 2,400 s is line for line 1.0.0b21.1's (it drew
+  back two tapestries); ASan clean on both rounds; the smoke test passes. Debug: `CRAWL_PORTRAITS=n` now opens her room's gold too,
+  `PORTRAITS ...` counts the gems taken, `EVENT portrait_drawn <kind> by player|dream`, `portrait_paid <kind> gold n ranks x`.
+  Next: step 5, the Spectre's and the Wraith's achievements and the feats, and the bosses' portraits in the plot after a mock-up.

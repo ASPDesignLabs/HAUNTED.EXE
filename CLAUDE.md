@@ -316,7 +316,11 @@ their faces by `render_walls`; each run's stone kept by `portrait_keep_runs` thr
 `CRAWL_TPPORTRAIT=k[,d]`. **Step 3 is built** (harness only): the layouts dealt in `por_hang` (no neighbour alike, tapestries gathered
 left along a run, `portrait_drape_side`), each flame a static light (`light_static_ph`, its phase given so the dice aren't touched;
 `POR_LIGHT`, `POR_REACH`) and a glow on the wall about it (`POR.wf`, `PorFlame`; gathered per column in `render_walls`, `POR_GLOW`);
-`CRAWL_PORLIGHT=light,reach,glow`, `PORTRAITS hung ...`. Its art is `src/crawl_portrait.c`, driven by `tools/portraitmock.c` (`make build/portraitmock`); the settled
+`CRAWL_PORLIGHT=light,reach,glow`, `PORTRAITS hung ...`. **Step 4 is built** (harness only): facing one (`por_facing`, `G.pt_look`; the
+band's prompt in `render_shop_card`), E draws a tapestry back (`por_draw_back`, `POR.veil_t`) or opens its card (`UI_PORTRAIT`,
+`update_portrait`, `render_portraitcard`, A/D through all of them), the gold (`por_gold` from `por_third`/`por_strength`, matching
+`ranks.csv`; `por_take` into `RUN.treasure`), the dream's tapestry now and then (`por_dream`, no dice); `CRAWL_PORGOLD=1`, `EVENT
+portrait_drawn`, `portrait_paid`. Its art is `src/crawl_portrait.c`, driven by `tools/portraitmock.c` (`make build/portraitmock`); the settled
 numbers are `docs/portraits/ranks.csv` and `bosses.csv`, written by `tools/portrait_sheet.py` from `KINDS`.
 
 ## Working with the owner
