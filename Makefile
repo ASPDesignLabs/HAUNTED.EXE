@@ -6,6 +6,7 @@
 #   make cards  - the project page's title cards in site/cards (needs Pillow)
 #   make sheets - CATACOMB's sprite sheets in build/sheets, by rank, for approval
 #   make build/titlemock - the title screen's mock-ups (docs/PLAN-title.md): build/titlemock <dir>
+#   make build/portraitmock - the portraits of the slain (docs/PLAN-portraits.md): build/portraitmock <dir>
 #   make items  - a hundred rolled wares a level as build/items.json, for checking names and numbers
 #   make combat - the balance sheet as build/combat.txt: the dead's harm and the caster's by level (docs/PLAN-combat.md)
 #   make web    - the browser's build in build/web and dist/HAUNTED-<version>-web.zip (needs Emscripten's emcc)
@@ -13,7 +14,8 @@ VERSION := $(shell cat VERSION)
 FILEVER := $(shell sed -E 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*/\1,\2,\3,0/' VERSION)
 PKG      = dist/HAUNTED-$(VERSION)-win64.zip
 
-SRC      = src/app.c src/gfx.c src/font_vga.c src/snd.c src/scene_crawl.c src/crawl_art.c src/hand_img.c src/crawl_gear.c src/face_img.c src/cat_img.c src/scene_haunt.c src/haunt_art.c src/crawl_ui.c src/ui_art.c src/crawl_title.c
+SRC      = src/app.c src/gfx.c src/font_vga.c src/snd.c src/scene_crawl.c src/crawl_art.c src/hand_img.c src/crawl_gear.c src/face_img.c src/cat_img.c src/scene_haunt.c src/haunt_art.c src/crawl_ui.c src/ui_art.c src/crawl_title.c \
+           src/crawl_portrait.c
 CFLAGS  ?= -O2 -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Wno-misleading-indentation
 
 all: host
@@ -83,6 +85,10 @@ build/uisheet: $(ART_SRC) $(UI_SRC) tools/uisheet.c src/*.h
 build/titlemock: $(ART_SRC) $(UI_SRC) src/crawl_title.c tools/titlemock.c src/*.h
 	@mkdir -p build
 	gcc $(CFLAGS) -o $@ $(ART_SRC) $(UI_SRC) src/crawl_title.c tools/titlemock.c -lm -lz
+
+build/portraitmock: $(ART_SRC) $(UI_SRC) src/crawl_portrait.c tools/portraitmock.c src/*.h
+	@mkdir -p build
+	gcc $(CFLAGS) -o $@ $(ART_SRC) $(UI_SRC) src/crawl_portrait.c tools/portraitmock.c -lm -lz
 
 sheets: build/sheet build/uisheet
 	@mkdir -p build/sheets

@@ -275,8 +275,10 @@ The bestiary has no pages for the bosses yet.
 
 Each run keeps a record of what it has killed, by kind, rank and spell, the secrets it has found, the
 levels it has cleared and the bosses it has slain, and it is kept on the run's page in the ledger, so
-each page has its own. Achievements come for 60 kills of a creature's lowest rank, then 40, 25, 15 and
-8 up the ranks and 3 gilded; for 1, 5, 10, 20, 30, 40 and 50 secrets; for each of the forty levels; for
+each page has its own. Achievements come for 20 kills of a creature's lowest rank, then 25, 20, 15 and
+10 up the ranks and 5 gilded (since 1.0.0b21.2; 60, 40, 25, 15, 8 and 3 before, and a record already past the new counts
+earns them as it is read); for laying the Spectre to rest and driving the Wraith back; for a feat of each creature's (below);
+for 1, 5, 10, 20, 30, 40 and 50 secrets; for each of the forty levels; for
 each boss slain, and slain again at each challenge's step; and for each time down past level 40 again.
 Everything counts, the autopilot's kills too, and each one slides in at the upper right with a chime.
 Death doesn't take the record.
@@ -427,6 +429,39 @@ fallen, each stat you have worn, with its cap and the pieces that roll it, each 
 each line open with its nodes, what you were, the souls (the vessel, the bell and the font once cursed,
 replays, Soul Sap once met), and her claim, there from the start. What it does, its numbers by quality or rank, where it comes from, and what
 you have of it now. A and D turn the pages, W and S go between the parts. It is kept through death.
+
+### CATACOMB: the portraits of the slain
+
+![The portraits of the slain: her wall, a portrait and its card, the bestiary's feat, the bosses by the Portal, and a boss's card](docs/preview_catacomb_portraits.png)
+
+Since 1.0.0b21.2 her walls carry a portrait of every creature in the bestiary, the first two thirds in her room and the last in the
+back room. Each hangs under an oxblood tapestry until one of its kind is slain; then E draws the tapestry back, to be tied at the
+side for good, and behind it the creature's shadow walks on the spot. Each rank whose achievement is earned shows it there in that
+rank's colours, standing on the stone of the run where it was earned, the ranks taking turns; the frame takes the colour of the highest
+(bone, green, blue, red, gold for the gilded, black for rank V), and a gem in its foot lights for each. A candle lights each one, in
+one of seven ways, so no two neighbours are alike.
+
+Every rank unlocked **pays its gold once a life**, at any visit to her room once a level has been cleared in that life, or on waking
+after a death that costs, when every portrait's gold is owed again. A gem whose gold waits twinkles. E at a portrait opens its card:
+each rank, slain against what it asks, its gold and whether it is taken, waits, or is still to come; E takes all that waits, and A and D
+go through the rest. The gold runs from 100 for the commonest rank to 1,200, by the creature's place in the bestiary, its rank and its
+strength: everything on her walls comes to 67,240 a life.
+
+* **The Spectre and the Wraith**, which can't be slain, open theirs too: the Spectre laid to rest by Spirit 5, 15 and 40 times, the
+  Wraith driven back 10, 40 and 100 times, and its fourth gem lit when the Wraith Unbound falls (its own portrait pays for that).
+* **A feat for each creature that can be slain**, an achievement of its own and a gold medallion on a ribbon under its frame, paying as
+  its rank III does: skeletons slain before they ever throw, bats shaken off, wall skulls silenced before their scream goes out,
+  shield-bearers slain through a broken shield, web spiders still in their webs, shamblers as they rise, the Drowned whose burst never
+  reaches you, hounds two at a time within five seconds, hunting spiders on the ceiling, ghouls at their meal, knights still in full
+  plate, brood mothers before a sac hatches, two hundred spiderlings, shades as they fade back from your light, imps by Frost, deacons
+  before any rises for them, gargoyles as they wake, the Whipper-In before his horn, the Sexton with his bell unrung, and the Lightless
+  with your lantern shuttered. The bestiary's W and S go past a creature's ranks to its feat.
+* **The bosses' four** hang in the grave plot, two faces wide, either side of the Accursed Portal: the knight and the spider to its left,
+  the Deacon and the Wraith Unbound to its right, each in its own arena with a stand of candles either side, under two tapestries until
+  it has fallen. Their gems are its fall and each step of its challenge, paying 1,500 for the knight's fall up to 9,000 for the Wraith's
+  fifth step, a fifth more a step; with the bosses everything comes to 175,240 a life.
+
+The screensaver draws a tapestry back now and then, but takes no gold.
 
 ### CATACOMB: the Alignment and what you were
 
@@ -1041,6 +1076,9 @@ became HAUNTED.EXE, kept so that settings and saves carry over), `Progress` besi
 start from or holds the unsigned run, and `Mark` is the dead's watch; `uninstall.cmd` removes them with
 the settings. They are written the moment the game changes them, and never on quitting.
 
+**1.0.0b21.2 adds the portraits** (which tapestries are drawn back, where each rank was earned, the gold taken this life, and the
+feats' counts) to each page; 1.0.0b21.1 steps over them, and a page it signs loses them. Achievements earned stay earned.
+
 **1.0.0b21 adds the augments** you have chosen and their credits to each page; 1.0.0b20 steps over them, and a page it
 signs loses them. It also reads a piece carrying one of 1.0.0b21's new stats (a mark's chance, Steadiness) or a class's
 own ability as nothing, so going back would lose such pieces. If you might go back, back up first (below).
@@ -1272,6 +1310,28 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b21.2** (the portraits of the slain: a portrait a creature on her walls, their gold once a life, the Spectre's and the
+Wraith's achievements, a feat for each creature, the bosses' four by the Portal; the kills each rank's achievement asks lowered). Tested
+in the harness only: not yet played by hand, run on Windows or seen on a real screen.
+
+* **Nothing in play moved**: the screensaver from level 1 for 2,400 seconds, logged line for line the same as 1.0.0b21.1 on the same seed,
+  after every step of the work. It draws tapestries back but takes no gold, and the portraits' candles use none of the game's dice.
+* **The gold**: all 131 of the creatures' rows and the bosses' 24 match the numbers settled with the author, counts and gold; every
+  portrait's gold taken in turn by a scripted person came to 175,240, the whole. A person took the skeletons' 130 on their visit to her
+  room, was struck down in the next level, and on the page the death wrote it waited again and was paid again.
+* **The feats**: counted in the screensaver's play from levels 1, 11, 21 and 31: skeletons before they threw, shields broken, bats
+  shaken off, wall skulls silenced, hound pairs, Drowned bursts that missed, hunting spiders overhead, shades fading, deacons before any
+  rose, gargoyles as they woke, and the Wraith driven back. The knight in full plate, the brood before a sac hatched, the Sexton unrung,
+  the Whipper-In before his horn, the Lightless in the dark, a ghoul at its meal, a web spider in its web, a shambler rising and a
+  Spectre laid to rest weren't seen in those runs. A feat's count was written at a death and read back.
+* **What it costs**: in her room with the portraits in view, 2.5 to 3 ms a frame on the test machine (2 ms without them); in the grave
+  plot facing all four bosses, 3.1 ms (2.7 with them veiled).
+* **The art**: the portraits, the tapestry, the candles, the card, the medallion and the knight's portrait were approved by the author as
+  mock-ups first; the knight's name plate was taken off at their word.
+* **Memory safety** (AddressSanitizer): a scripted person taking every portrait's gold and drawing a boss's tapestries back, and dreams
+  from levels 1, 11 and 21: clean. The smoke test passes, and the Windows and browser builds were compiled and smoke-tested by GitHub
+  Actions.
 
 **New in 1.0.0b21.1** (the title screen; and the music pass: her hall's pieces, run I's and run II's, the Lampstand's).
 Tested in the harness only: not yet played by hand, run on Windows or seen on a real screen.

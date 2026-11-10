@@ -14787,6 +14787,45 @@ void crawl_art_run(int level) {
     gen_rest(crawl_set(level));                                     /* a place to mend, on the run's own (1.0.0b15) */
 }
 
+/* a run's main stone (its first look) and first floor at a level, as crawl_art_run lays them, into wall and floor, without the
+ * rest of its art (docs/PLAN-portraits.md: the portraits keep each run's). It draws over those two slots: the caller draws its
+ * own level's art again after it. */
+void crawl_art_stone(int level, uint8_t *wall, uint8_t *floor) {
+    float dk = crawl_decay(level);
+    uint32_t s = 7001u + (uint32_t)level * 7u, field = s + 50u;
+    g_decay = fmaxf(dk, crawl_depth(level));
+    switch (crawl_set(level)) {
+    case 1:
+        gen_slate(T_MATV(M2_SLATE, 0), M2_SLATE, s, 0u);
+        decay_catacomb(T_MATV(M2_SLATE, 0), dk, field, s + 60u + (uint32_t)(M2_SLATE * NVAR) * 3u);
+        gen_floor_wetflags(T_FLOORS + FL2_FLAGS, s + 100, 0);
+        decay_flat2(T_FLOORS + FL2_FLAGS, dk, s + 130u + FL2_FLAGS, 1);
+        memcpy(wall, crawl_tex[T_MATV(M2_SLATE, 0)], TS * TS); memcpy(floor, crawl_tex[T_FLOORS + FL2_FLAGS], TS * TS);
+        break;
+    case 2:
+        gen_granite(T_MATV(M3_GRANITE, 0), M3_GRANITE, s, 0u);
+        decay_hollows(T_MATV(M3_GRANITE, 0), dk, field, s + 60u + (uint32_t)(M3_GRANITE * NVAR) * 3u, 0);
+        gen_floor_gravel(T_FLOORS + FL3_GRAVEL, s + 100, 0);
+        decay_flat(T_FLOORS + FL3_GRAVEL, dk * 0.8f, s + 130u + FL3_GRAVEL);
+        memcpy(wall, crawl_tex[T_MATV(M3_GRANITE, 0)], TS * TS); memcpy(floor, crawl_tex[T_FLOORS + FL3_GRAVEL], TS * TS);
+        break;
+    case 3:
+        gen_obsidian(T_MATV(M4_OBSIDIAN, 0), M4_OBSIDIAN, s, 0u);
+        decay_deep(T_MATV(M4_OBSIDIAN, 0), dk, field, s + 60u + (uint32_t)(M4_OBSIDIAN * NVAR) * 3u, 0);
+        gen_floor_glass(T_FLOORS + FL4_GLASS, s + 100, 0, deep_heat(dk));
+        decay_flat_deep(T_FLOORS + FL4_GLASS, dk * 0.8f, s + 130u + FL4_GLASS);
+        memcpy(wall, crawl_tex[T_MATV(M4_OBSIDIAN, 0)], TS * TS); memcpy(floor, crawl_tex[T_FLOORS + FL4_GLASS], TS * TS);
+        break;
+    default:
+        gen_ashlar(T_MATV(M1_ASHLAR, 0), M1_ASHLAR, s, 0u);
+        decay_wall(T_MATV(M1_ASHLAR, 0), dk, field, s + 60u + (uint32_t)(M1_ASHLAR * NVAR) * 3u);
+        gen_floor_flags(T_FLOORS + 0, s + 100, 0);
+        decay_flat(T_FLOORS + 0, dk, s + 130u);
+        memcpy(wall, crawl_tex[T_MATV(M1_ASHLAR, 0)], TS * TS); memcpy(floor, crawl_tex[T_FLOORS + 0], TS * TS);
+        break;
+    }
+}
+
 void crawl_art_init(void) {
     static int done;
     if (done) return;

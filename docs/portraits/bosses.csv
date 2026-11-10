@@ -1,0 +1,25 @@
+Achievement,Deed,Gold,Pays,Condition
+THE ILL-FATED KNIGHT,Slain,1500,TRUE,Slain on the way down
+THE ILL-FATED KNIGHT,Slain at step 1,1800,TRUE,"At the Accursed Portal, challenge step 1"
+THE ILL-FATED KNIGHT,Slain at step 2,2100,TRUE,"At the Accursed Portal, challenge step 2"
+THE ILL-FATED KNIGHT,Slain at step 3,2400,TRUE,"At the Accursed Portal, challenge step 3"
+THE ILL-FATED KNIGHT,Slain at step 4,2700,TRUE,"At the Accursed Portal, challenge step 4"
+THE ILL-FATED KNIGHT,Slain at step 5,3000,TRUE,"At the Accursed Portal, challenge step 5"
+THE WANDERING SPIDER,Slain,2500,TRUE,Slain on the way down
+THE WANDERING SPIDER,Slain at step 1,3000,TRUE,"At the Accursed Portal, challenge step 1"
+THE WANDERING SPIDER,Slain at step 2,3500,TRUE,"At the Accursed Portal, challenge step 2"
+THE WANDERING SPIDER,Slain at step 3,4000,TRUE,"At the Accursed Portal, challenge step 3"
+THE WANDERING SPIDER,Slain at step 4,4500,TRUE,"At the Accursed Portal, challenge step 4"
+THE WANDERING SPIDER,Slain at step 5,5000,TRUE,"At the Accursed Portal, challenge step 5"
+THE BLACK DEACON,Slain,3500,TRUE,Slain on the way down
+THE BLACK DEACON,Slain at step 1,4200,TRUE,"At the Accursed Portal, challenge step 1"
+THE BLACK DEACON,Slain at step 2,4900,TRUE,"At the Accursed Portal, challenge step 2"
+THE BLACK DEACON,Slain at step 3,5600,TRUE,"At the Accursed Portal, challenge step 3"
+THE BLACK DEACON,Slain at step 4,6300,TRUE,"At the Accursed Portal, challenge step 4"
+THE BLACK DEACON,Slain at step 5,7000,TRUE,"At the Accursed Portal, challenge step 5"
+THE WRAITH UNBOUND,Slain,4500,TRUE,Slain on the way down
+THE WRAITH UNBOUND,Slain at step 1,5400,TRUE,"At the Accursed Portal, challenge step 1"
+THE WRAITH UNBOUND,Slain at step 2,6300,TRUE,"At the Accursed Portal, challenge step 2"
+THE WRAITH UNBOUND,Slain at step 3,7200,TRUE,"At the Accursed Portal, challenge step 3"
+THE WRAITH UNBOUND,Slain at step 4,8100,TRUE,"At the Accursed Portal, challenge step 4"
+THE WRAITH UNBOUND,Slain at step 5,9000,TRUE,"At the Accursed Portal, challenge step 5"

@@ -19,6 +19,7 @@
 #include "snd.h"
 #include "crawl_ui.h"
 #include "crawl_title.h"
+#include "crawl_portrait.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -85,7 +86,7 @@ enum { AW_NONE, AW_SEEK, AW_HOME, AW_REST };   /* its wisp: not woken, at a secr
 #define BLESS_REACH 4.0f                    /* how near a blessed wisp the undead turn */
 
 typedef struct { uint8_t kind, tex, theme, visits; int16_t region, door; uint8_t secret, lamp;
-                 uint8_t face[4], fover[4], fflip, ftorch, flo, cei; } Cell;   /* secret: 1 a hidden closet, 2 its cracked wall; lamp: a pocket's ceiling panel, 1 + its light, 255 dead */
+                 uint8_t face[4], fover[4], fflip, ftorch, flo, cei, por; } Cell;   /* por: 1 + a portrait of the slain hung on one of its faces */   /* secret: 1 a hidden closet, 2 its cracked wall; lamp: a pocket's ceiling panel, 1 + its light, 255 dead */
 /* On a drawn run (docs/PLAN-b10.md) a wall's faces have their own looks: face[d] is the texture of its face
  * toward (DX[d], DY[d]) (0: tex, as before), fover what stands on it, fflip bit d mirrored, ftorch the face a
  * torch is on, + 1. A floor cell's flo and cei are its floor and ceiling (0: plain); fflip bits 5-7 say how
@@ -180,7 +181,11 @@ typedef struct {
     float bld_t, bld_dps, bld_acc;                                 /* D7, Barbed: its bleed's time left, harm a second, harm owed */
     float stb_t; int stb_n;                                        /* D7, Static Build: since lightning last struck it, the strikes */
     /* the dead's track (D) ends */
+    int feat; float feat_t;                                        /* the portraits' feats (docs/PLAN-portraits.md, 5 B): what it has done
+                                                                      that spoils its kind's, or the moment that makes it (FT_*); when a
+                                                                      gargoyle woke */
 } Mob;
+enum { FT_THREW = 1, FT_DROPPED = 2, FT_HATCHED = 4, FT_HORN = 8, FT_RUNG = 16, FT_SHED = 32, FT_BROKE = 64, FT_NOW = 128 };
 /* What the two tracks share (docs/PLAN-combat.md, section 17.3). Change any of it only as that section says. The statuses, the
  * same seven on the caster and on the dead (sections 4-5), and the one each element imparts */
 enum { AF_FIRE, AF_CHILL, AF_FROZEN, AF_STUN, AF_POISON, AF_UNBOUND, AF_DOWN, NAF };
@@ -623,7 +628,8 @@ typedef struct { int alive; float x, y, t, dps; int foe; float life; } Burn;   /
 typedef struct { int alive; float x0, y0, x1, y1, t, dmg; uint64_t hit; } Trail;   /* Ionization: lightning's trail, hanging */
 typedef struct { int alive; float x, y, r, t, life, dose, slow; int rime; } Venom;   /* Seep: a pool of venom where a flask burst;
                                                                                  rime: Winter's Lance's frost on the floor */
-typedef struct { int alive; float x, y, t; } Pool;                         /* what a drowned one leaves: foul, a few seconds */
+typedef struct { int alive; float x, y, t; int feat; } Pool;              /* what a drowned one leaves: foul, a few seconds; feat: it
+                                                                              hasn't reached you yet (the portraits') */
 #define MAXPOOLS 4
 typedef struct { int deco, type, rank; float t; } Remains;         /* what something you slew left: for Grave Call to raise */
 #define MAXREMAINS 12
@@ -703,6 +709,11 @@ static void level_name(int level, char *buf, int n) {
  * in the save with the run (version 2), so each save has its own. Its sizes are fixed so saves keep
  * their shape as the bestiary grows. */
 #define REC_KINDS 24
+#define POR_GEMS 8                          /* a portrait's gems (docs/PLAN-portraits.md): its ranks I to V and gilded (RK_*), its
+                                               feat (POR_FEAT), one spare */
+#define POR_FEAT 6
+_Static_assert(POR_FEAT == PORTRAIT_FEAT, "the feat's gem is the art's");
+enum { POR_CLEARED = 1, POR_WOKEN = 2 };   /* her room pays the portraits' gold this life: a level cleared in it, or woken into it */
 #define ACH_BITS 512                        /* 256 until version 6 */
 typedef struct {
     uint16_t kills[REC_KINDS][NRANK];
@@ -895,6 +906,15 @@ static struct {
     int rune_sel, mouse_rune;               /* the rune RB raises, and whether the right mouse is the rune's or the gift's (not saved) */
     int splint_used; float splint_t;        /* splinters thrown and not yet grown back, and the growing (1.0.0b16; not saved:
                                                a load starts with all eight) */
+    /* the portraits of the slain (docs/PLAN-portraits.md; LG_PORTRAIT): kept through death, the run each gem was unlocked in
+       (1 + its set, 0 not yet) and the tapestries drawn back (a bit a kind); for this life, each portrait's gems whose gold is
+       taken (a bit a gem), each boss's (a bit a deed), and whether her room pays yet (POR_CLEARED, POR_WOKEN) */
+    uint8_t por_run[REC_KINDS][POR_GEMS];
+    uint32_t por_drawn;
+    uint8_t por_taken[REC_KINDS], por_btaken[BOSS_REC];
+    int por_open;
+    uint16_t por_feat[REC_KINDS];           /* kept through death: each kind's feat's deeds; the Spectre's laid to rest, the Wraith's
+                                               times driven back (step 5; the spiderling's and the imp's are the record's) */
 } RUN;
 static int lantern_held(void) { return RUN.corner >> CS_LANTERN & 1; }   /* the Lantern of the Dead (docs/PLAN-ai.md, 26) */
 static int lantern_lit(void) { return lantern_held() && !RUN.lantern_off; }
@@ -1094,6 +1114,7 @@ static struct {
     int tot_look, tot_arm, tot_col;         /* the Hexed Totem: looked at; a sale awaiting a second Enter; raise (0) or sell (1) */
     int lamp_look;                          /* the Lampstand looked at (1.0.0b11) */
     int por_look;                           /* the Accursed Portal, looked at */
+    int pt_look, pt_sel;                    /* a portrait of the slain looked at (1 + which), and the one its card shows */
     int comp_look, comp_page, comp_arm;     /* the Corpus Compendium: looked at; its page; a purchase awaiting a second Enter */
     int comp_tried;                         /* the autopilot has looked in it this visit */
     int auto_chg; float auto_hold;          /* the autopilot charging an ultimate (or holding Soul Tether, so long) (1.0.0b11) */
@@ -1110,6 +1131,7 @@ static struct {
     int led_mode, led_arm, led_msg;             /* the ledger: signing (0) or opening (1); a second Enter's page; why */
     int best_page, best_rank, best_scroll;      /* the bestiary: which creature (or the achievements), which rank, how far down */
     int best_ways;                              /* 1.0.0b18: its ways shown in place of its lore (Space) */
+    int best_feat;                              /* its feat looked at, past its ranks (the portraits', step 5) */
     float ui_t;                                 /* a clock that runs while a menu holds the crypt still */
     float pc_t, pc_len, grab_t, hint_t, msg_t;     /* their cast; reaching for a ware; the hints; a message */
     float pc_wind;                          /* their cast's wind-up: it goes this far in (docs/PLAN-b11.md, section 7) */
@@ -1246,7 +1268,8 @@ static float zbuf[W];
 enum { MM_SIGN, MM_ASCEND, MM_OFFER, MM_VOW, MM_PED, MM_WIND, MM_PAT, MM_LEAVE, NMM };   /* the merchant's menu */
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
 #define NINV 6                              /* Tab's pages */
-enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES, UI_ALIGN, UI_CLASS, UI_HALL2, UI_BSHRINE, UI_RECKON, UI_PAD };   /* the menus a person can open */
+enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES, UI_ALIGN, UI_CLASS, UI_HALL2, UI_BSHRINE, UI_RECKON, UI_PAD,
+       UI_PORTRAIT };                                              /* the menus a person can open; the last a portrait of the slain's card */
 static Input IN;                            /* their keys and mouse, this step */
 static double IN_DT;                        /* and how long the step is */
 static struct {                             /* their game controller, if they have one */
@@ -1517,7 +1540,7 @@ static uint32_t hash2(int x, int y) {
 }
 
 static Cell *cell(int x, int y) {
-    static Cell solid = { K_WALL, T_STONE, 0, 0, -1, -1, 0, 0, { 0 }, { 0 }, 0, 0, 0, 0 };
+    static Cell solid = { K_WALL, T_STONE, 0, 0, -1, -1, 0, 0, { 0 }, { 0 }, 0, 0, 0, 0, 0 };
     if (x < 0 || y < 0 || x >= MAPN || y >= MAPN) return &solid;
     return &G.map[y][x];
 }
@@ -1687,10 +1710,16 @@ static void add_deco(float x, float y, int spr) {
 
 /* static light: record its contribution to every light-map texel it reaches
  * through open space (and the faces of the walls around that space) */
+static void light_static_ph(float lx, float ly, float power, float radius, float phase);
 static void light_static(float lx, float ly, float power, float radius) {
     if (G.nlights >= MAXLIGHTS) return;
+    light_static_ph(lx, ly, power, radius, rndf() * 10.0f);
+}
+/* a light whose flicker's phase is given, so the dice aren't touched (the portraits' candles: the dream's runs keep step) */
+static void light_static_ph(float lx, float ly, float power, float radius, float phase) {
+    if (G.nlights >= MAXLIGHTS) return;
     Light *L = &G.lights[G.nlights++];
-    L->x = lx; L->y = ly; L->power = power; L->radius = radius; L->phase = rndf() * 10.0f;
+    L->x = lx; L->y = ly; L->power = power; L->radius = radius; L->phase = phase;
     L->cx = (int)lx; L->cy = (int)ly; L->first = G.nlc; L->count = 0;
     static int stamp[MAPN][MAPN], qx[MAPN * MAPN], qy[MAPN * MAPN], dist[MAPN][MAPN];
     static int gen;
@@ -4419,6 +4448,7 @@ static void throw_to(const Mob *m, int kind, float tx, float ty, int lob) {
         *b = (Bone){ 1, kind, m->x + cosf(a) * 0.3f, m->y + sinf(a) * 0.3f, cosf(a) * sp, sinf(a) * sp, 4.0f, rndf() * 4.0f,
                      mob_damage(m) * ATTACKS[fa].k, 0.0f, (int)(m - G.mobs), 0, blame_of(m), 1 + (el >= 0 ? el : ATTACKS[fa].el) };
         if (kind == MIS_EMBER || lob) b->life = b->life0 = fminf(4.0f, hypotf(tx - m->x, ty - m->y) / sp);   /* lobbed to where the caster will be */
+        if (kind == MIS_BONE) G.mobs[m - G.mobs].feat |= FT_THREW;   /* its feat spoilt (the portraits') */
         sfx_at(kind == MIS_BONE ? SFX_THROW : SFX_CAST, m->x, m->y, kind == MIS_EMBER ? 0.7f : 1.0f);
         return;
     }
@@ -4587,7 +4617,9 @@ static int spend_spirit(float c) {
 enum { ACH_SECRET0 = REC_KINDS * NRANK, ACH_LEVEL0 = ACH_SECRET0 + 16, ACH_DESCENT0 = ACH_LEVEL0 + 20,   /* bits: slayers by kind and rank, then the rest; */
        ACH_LEVEL21 = 256, ACH_BOSS0 = ACH_LEVEL21 + 20,          /* from version 6: levels 21 to 40, then the bosses */
        ACH_DEED0 = ACH_BOSS0 + 6 * 8,                            /* 1.0.0b13: puzzles at 1, 5, 20; trials at 1, 10, 30; each run's trials all won */
-       ACH_WAY0 = ACH_DEED0 + 10 };                              /* 1.0.0b18: ambushes, hunts shaken, packs beheaded, callers hushed, a file untouched */
+       ACH_WAY0 = ACH_DEED0 + 10,                                /* 1.0.0b18: ambushes, hunts shaken, packs beheaded, callers hushed, a file untouched */
+       ACH_POR0 = ACH_WAY0 + 11,                                 /* the portraits (docs/PLAN-portraits.md, step 5): the Spectre's three, the Wraith's */
+       ACH_FEAT0 = ACH_POR0 + 6 };                               /* three, then a feat for each kind that can be slain (FEATS) */
 static const int PZ_STEP[3] = { 1, 5, 20 }, TRI_STEP[3] = { 1, 10, 30 };
 static const char *const PZ_ACH[3] = { "A KEY OF THOUGHT", "THE PATIENT MIND", "NOTHING SEALED FOR LONG" };
 static const char *const TRI_ACH[3] = { "AGAINST THE SAND", "THE HOURGLASS, BROKEN", "TIME'S OWN ENEMY" };
@@ -4600,15 +4632,16 @@ static const char *const SECRET_NAME[NSECRET_STEPS] = { "A HOLLOW KNOCK", "LISTE
 static const char *const ORDINAL[MAX_DESCENT + 1] = { "", "FIRST", "SECOND", "THIRD", "FOURTH", "FIFTH", "SIXTH", "SEVENTH", "EIGHTH", "NINTH",
     "TENTH", "ELEVENTH", "TWELFTH", "THIRTEENTH", "FOURTEENTH", "FIFTEENTH", "SIXTEENTH", "SEVENTEENTH", "EIGHTEENTH", "NINETEENTH", "TWENTIETH" };
 
-/* how many of a kind in a rank make an achievement: 60 of the lowest rank it comes in, fewer up the
- * ladder, 3 gilded; 0 if it never comes in that rank (or can't be killed) */
+/* how many of a kind in a rank make an achievement: 20 of the lowest rank it comes in, then 25, 20, 15 and 10, 5 gilded (the
+ * owner's, for the portraits: docs/PLAN-portraits.md, Q15; 60, 40, 25, 15, 8 and 3 before); 0 if it never comes in that rank
+ * (or can't be killed) */
 static int slayer_need(int kind, int rank) {
     const Kind *k = &KINDS[kind];
     if (k->flags & (KF_SPIRIT | KF_UNCOUNTED)) return 0;
-    if (k->family < 0) return rank == RK_I ? 60 : 0;               /* off the ladder: one rank, sixty */
-    if (rank == RK_GILDED) return k->gild ? 3 : 0;
+    static const int NEED[5] = { 20, 25, 20, 15, 10 };
+    if (k->family < 0) return rank == RK_I ? NEED[0] : 0;          /* off the ladder: one rank, the first's count */
+    if (rank == RK_GILDED) return k->gild ? 5 : 0;
     int low = crawl_set(k->debut) == 3 ? RK_II : RK_I;             /* the Deep has no rank I */
-    static const int NEED[5] = { 60, 40, 25, 15, 8 };
     return rank < low || rank > k->top ? 0 : NEED[rank - low];
 }
 static const char *rank_word(int kind, int rank) { return KINDS[kind].family == PF_CHITIN && rank == RK_V ? "PALE " : RANK_WORD[rank]; }
@@ -4676,7 +4709,10 @@ static void rec_kill(const Mob *m) {
     if (!need || ach_has(bit)) return;
     char title[32], desc[32];
     snprintf(title, sizeof title, "%s%s", rank_word(m->type, m->rank), KINDS[m->type].plural);
-    if (have >= need) { snprintf(desc, sizeof desc, "%d SLAIN", need); ach_earn(bit, KINDS[m->type].spr, KINDS[m->type].family, m->rank, title, desc); }
+    if (have >= need) {
+        snprintf(desc, sizeof desc, "%d SLAIN", need); ach_earn(bit, KINDS[m->type].spr, KINDS[m->type].family, m->rank, title, desc);
+        if (ach_has(bit)) RUN.por_run[m->type][m->rank] = (uint8_t)(1 + crawl_set(G.level));   /* its portrait shows this run's stone */
+    }
     else if (need >= 8 && have == need / 2) { snprintf(desc, sizeof desc, "%d OF %d SLAIN", have, need); toast(KINDS[m->type].spr, KINDS[m->type].family, m->rank, 1, title, desc); }
 }
 static void rec_seen(const Mob *m) {
@@ -4736,7 +4772,254 @@ static void rec_cleared(void) {
             ach_earn(ACH_DESCENT0 + k - 2, SP_CROWN, -1, 0, t, d);
         }
     }
+    RUN.por_open |= POR_CLEARED;                                   /* her room pays the portraits from now on, this life */
 }
+
+/* The portraits' own achievements (docs/PLAN-portraits.md, 5 A and B, the owner's): the Spectre laid to rest, the Wraith driven back
+ * (its fourth gem is the Wraith Unbound's fall, the boss's own), and a feat for each kind that can be slain, a medallion under its frame */
+typedef struct { int kind, need; const char *name, *did, *rule; } PorFeat;
+#define NPFEAT 20
+static const PorFeat FEATS[NPFEAT] = {
+    { MOB_SKEL, 20, "IT NEVER THREW", "%d BEFORE THEY THREW", "SLAIN BEFORE ITS FIRST THROW." },
+    { MOB_BAT, 20, "SHAKEN OFF", "%d BATS SHAKEN OFF", "LATCHED ON YOU, AND SHAKEN OFF." },
+    { MOB_WSKULL, 20, "BEFORE THE SCREAM", "%d BEFORE THE SCREAM", "SILENCED BEFORE ITS SCREAM GOES OUT." },
+    { MOB_SHIELD, 20, "THROUGH THE SHIELD", "%d THROUGH THE SHIELD", "SLAIN WITH ITS SHIELD BROKEN FIRST." },
+    { MOB_SPIDER, 20, "STILL IN ITS WEB", "%d STILL IN THEIR WEBS", "SLAIN IN ITS WEB, BEFORE IT DROPS." },
+    { MOB_SHAMBLER, 20, "BACK IN THE GROUND", "%d BEFORE THEY STOOD", "SLAIN AS IT RISES, BEFORE IT STANDS." },
+    { MOB_DROWNED, 10, "NOT A DROP", "%d BURST WIDE OF YOU", "SLAIN, AND ITS BURST NEVER REACHES YOU." },
+    { MOB_HOUND, 10, "BOTH OF THEM", "%d PAIRS IN FIVE SECONDS", "TWO SLAIN WITHIN FIVE SECONDS." },
+    { MOB_HUNTER, 20, "OFF THE CEILING", "%d SLAIN OVERHEAD", "SLAIN ON THE CEILING, OR AS IT DROPS." },
+    { MOB_GHOUL, 20, "AT ITS MEAL", "%d SLAIN FEEDING", "SLAIN AT ITS MEAL." },
+    { MOB_KNIGHT, 10, "IN FULL PLATE", "%d IN FULL PLATE", "SLAIN BEFORE IT SHEDS ANY PLATE." },
+    { MOB_BROOD, 5, "NONE HATCHED", "%d BEFORE A SAC HATCHED", "SLAIN BEFORE ANY SAC OF HERS HATCHES." },
+    { MOB_LING, 200, "THE WHOLE BROOD", "%d SLAIN", "TWO HUNDRED OF THEM SLAIN." },
+    { MOB_SHADE, 10, "FACED DOWN", "%d FADING FROM THE LIGHT", "SLAIN AS IT FADES BACK FROM YOUR LIGHT." },
+    { MOB_IMP, 25, "QUENCHED", "%d SLAIN BY FROST", "SLAIN BY FROST." },
+    { MOB_DEACON, 10, "NONE RISE", "%d BEFORE ANY ROSE", "SLAIN BEFORE ANY RISES FOR HIM." },
+    { MOB_GARGOYLE, 10, "STILL STONE", "%d AS THEY WOKE", "SLAIN WITHIN TWO SECONDS OF WAKING." },
+    { MOB_WHIPPER, 5, "NO HORN", "%d BEFORE THE HORN", "SLAIN BEFORE HIS HORN SOUNDS." },
+    { MOB_SEXTON, 10, "UNRUNG", "%d, THE BELL UNRUNG", "SLAIN, HIS BELL NEVER RUNG TO CALL THEM." },
+    { MOB_LIGHTLESS, 10, "IN THE DARK", "%d, THE LANTERN SHUT", "SLAIN WITH YOUR LANTERN SHUTTERED." } };
+static const int GHOST_STEP[3] = { 5, 15, 40 }, WRAITH_STEP[3] = { 10, 40, 100 };
+static const char *const GHOST_ACH[3] = { "LAID TO REST", "A CHILL LIFTED", "THE HALLS GONE QUIET" };
+static const char *const WRAITH_ACH[3] = { "DRIVEN BACK", "KEPT AT BAY", "IT LEARNS FEAR" };
+#define NPORACH (6 + NPFEAT)
+typedef struct { int bit, kind, gem, need; const char *title; char desc[32]; } PorAch;
+static void por_ach(int i, PorAch *a) {                            /* the i-th of them, 0 to NPORACH - 1 */
+    if (i < 6) {
+        int w = i >= 3, j = i % 3;
+        a->bit = ACH_POR0 + i; a->kind = w ? MOB_WRAITH : MOB_GHOST; a->gem = j; a->need = w ? WRAITH_STEP[j] : GHOST_STEP[j];
+        a->title = w ? WRAITH_ACH[j] : GHOST_ACH[j];
+        snprintf(a->desc, sizeof a->desc, w ? "%d TIMES DRIVEN BACK" : "%d LAID TO REST", a->need);
+        return;
+    }
+    const PorFeat *f = &FEATS[i - 6];
+    a->bit = ACH_FEAT0 + i - 6; a->kind = f->kind; a->gem = POR_FEAT; a->need = f->need; a->title = f->name;
+    snprintf(a->desc, sizeof a->desc, f->did, f->need);
+}
+static int feat_of(int k) { for (int i = 0; i < NPFEAT; i++) if (FEATS[i].kind == k) return i; return -1; }
+static int por_count(int k) {                                      /* where a kind's own count stands */
+    if (k < 0 || k >= REC_KINDS) return 0;
+    if (k == MOB_LING) { int n = 0; for (int r = 0; r < NRANK; r++) n += RUN.rec.kills[k][r]; return n; }   /* the record's */
+    if (k == MOB_IMP) return RUN.rec.el_kills[k][EL_FROST];
+    return RUN.por_feat[k];
+}
+/* what kind k's own count reaches now, earned: with a pop-up and the run it was earned in, or quietly (the sweep, under its one
+ * pop-up); halfway, a note of progress; how many earned */
+static int por_reckon(int k, int quiet, PorAch *first) {
+    int have = por_count(k), n = 0;
+    for (int i = 0; i < NPORACH; i++) {
+        PorAch a;
+        por_ach(i, &a);
+        if (a.kind != k || ach_has(a.bit) || CON.used) continue;
+        if (have >= a.need) {
+            if (quiet) { RUN.rec.got[a.bit >> 3] |= (uint8_t)(1 << (a.bit & 7)); if (!n && first) *first = a; }
+            else {
+                ach_earn(a.bit, KINDS[k].spr, KINDS[k].family, RK_I, a.title, a.desc);
+                if (a.gem < NRANK) RUN.por_run[k][a.gem] = (uint8_t)(1 + crawl_set(G.level));   /* its portrait shows this run's stone */
+            }
+            n++;
+#ifdef CRAWL_DEBUG
+            if (quiet) fprintf(stderr, "EVENT achievement %d %s: swept, %d of %d\n", a.bit, a.title, have, a.need);
+#endif
+        } else if (!quiet && a.need >= 8 && have == a.need / 2) {
+            char d[32];
+            snprintf(d, sizeof d, "%d OF %d", have, a.need);
+            toast(KINDS[k].spr, KINDS[k].family, RK_I, 1, a.title, d);
+        }
+    }
+    return n;
+}
+static void por_bump(int k) {                                      /* one more of kind k's own deeds */
+    if (k < 0 || k >= REC_KINDS) return;
+    if (RUN.por_feat[k] < 65535) RUN.por_feat[k]++;
+    por_reckon(k, 0, NULL);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT feat %s %d t=%.2f by %s\n", KINDS[k].plural, por_count(k), G.t, G.player ? "player" : "autopilot");
+#endif
+}
+static void knight_shed(Mob *m);
+/* a kill: whether it was its kind's feat (the record has counted it already) */
+static void por_feat_kill(Mob *m) {
+    int f = 0;
+    switch (m->type) {
+    case MOB_SKEL: f = !(m->feat & FT_THREW); break;
+    case MOB_WSKULL: f = !m->called; break;                       /* its scream not yet down the halls */
+    case MOB_SHIELD: f = (m->feat & FT_BROKE) != 0; break;
+    case MOB_SPIDER: f = !(m->feat & FT_DROPPED); break;
+    case MOB_SHAMBLER: f = m->sub == 2; break;                     /* out of the earth, not yet on its feet */
+    case MOB_HOUND: {                                              /* two within five seconds, a pair at a time */
+        static double last = -1e9;
+        if (G.t - last >= 0.0 && G.t - last <= 5.0) { f = 1; last = -1e9; } else last = G.t;
+        break;
+    }
+    case MOB_HUNTER: case MOB_GHOUL: f = (m->feat & FT_NOW) != 0; break;   /* overhead, or at its meal, as the blow fell */
+    case MOB_KNIGHT: knight_shed(m); f = !(m->feat & FT_SHED); break;
+    case MOB_BROOD: f = !(m->feat & FT_HATCHED); break;
+    case MOB_SHADE: f = m->shy > 0.0f; break;
+    case MOB_DEACON: f = !m->raised; break;
+    case MOB_GARGOYLE: f = m->feat_t > 0.0f && G.level_t - (double)m->feat_t <= 2.0; break;
+    case MOB_WHIPPER: f = !(m->feat & FT_HORN); break;
+    case MOB_SEXTON: f = !(m->feat & FT_RUNG); break;
+    case MOB_LIGHTLESS: f = lantern_held() && RUN.lantern_off; break;
+    case MOB_LING: case MOB_IMP: por_reckon(m->type, 0, NULL); return;   /* counted by the record */
+    default: return;                                               /* the Drowned's when its burst is done (update_pools) */
+    }
+    if (f) por_bump(m->type);
+}
+
+/* ---- the portraits of the slain (docs/PLAN-portraits.md): what the record keeps for them ---- */
+
+/* the run an unlocked rank is shown in when nobody saw where (an older page, or a count lowered): the first run that rank is
+ * common in, rank I the kind's own, II the Catacombs, III the Hollows, IV and V the Deep, gilded the kind's own */
+static int por_guess(int k, int gem) {
+    static const int RUN_OF[POR_GEMS] = { 0, 1, 2, 3, 3, 0, 0, 0 };
+    return imax(crawl_set(KINDS[k].debut), RUN_OF[gem]);
+}
+static int por_unlocked(int k);
+static void por_fill(void) {                                       /* every rank unlocked has a run to be shown in */
+    for (int k = 0; k < NKINDS; k++) for (int r = 0; r < NRANK; r++)
+        if (por_unlocked(k) >> r & 1 && !RUN.por_run[k][r]) RUN.por_run[k][r] = (uint8_t)(1 + por_guess(k, r));
+}
+static const int RANK_COL[NRANK] = { R_BONE + 13, R_MOSS + 13, R_GHOST + 13, R_BLOOD + 13, R_IRON + 11, R_GOLD + 11 };   /* a rank's in words */
+/* the frame's colour is the highest rank unlocked, black over gilded over the rest */
+static int por_high(int unl) {
+    static const int ORD[NRANK] = { 0, 1, 2, 3, 5, 4 };
+    int hi = -1;
+    for (int r = 0; r < NRANK; r++) if (unl >> r & 1 && (hi < 0 || ORD[r] > ORD[hi])) hi = r;
+    return hi;
+}
+static int kind_ranks(int k, int *out);
+static int por_ranks(int k, int *out) {                            /* a portrait's ranks: those of its kind with an achievement */
+    if (k == MOB_GHOST || k == MOB_WRAITH) {                       /* the Spectre's three laid to rest, the Wraith's three and its fall */
+        int n = k == MOB_WRAITH ? 4 : 3;
+        for (int r = 0; r < n; r++) out[r] = r;
+        return n;
+    }
+    int rk[NRANK], nr = kind_ranks(k, rk), n = 0;
+    for (int j = 0; j < nr; j++) if (slayer_need(k, rk[j])) out[n++] = rk[j];
+    return n;
+}
+static int por_unlocked(int k) {                                   /* a portrait's gems unlocked, a bit each (RK_*, and POR_FEAT) */
+    int b = 0;
+    if (k == MOB_GHOST || k == MOB_WRAITH) {
+        for (int r = 0; r < 3; r++) if (ach_has(ACH_POR0 + (k == MOB_WRAITH ? 3 : 0) + r)) b |= 1 << r;
+        if (k == MOB_WRAITH && ach_has(ACH_BOSS0 + 6 * BOSS_WRAITH)) b |= 1 << RK_IV;   /* the Wraith Unbound's fall */
+    } else for (int r = 0; r < NRANK; r++) if (slayer_need(k, r) && ach_has(k * NRANK + r)) b |= 1 << r;
+    int f = feat_of(k);
+    if (f >= 0 && ach_has(ACH_FEAT0 + f)) b |= 1 << POR_FEAT;
+    return b;
+}
+/* of those, the ones whose gold waits at her room (the card's, step 4); the Wraith's fourth lights but pays nothing (Q14) */
+static int por_waiting(int k) {
+    return RUN.por_open ? por_unlocked(k) & ~RUN.por_taken[k] & ~(k == MOB_WRAITH ? 1 << RK_IV : 0) : 0;
+}
+/* a boss's portrait: slain, then each challenge step, a bit each */
+static int boss_unlocked(int b) {
+    int w = 0;
+    for (int s = 0; s < 6; s++) if (ach_has(ACH_BOSS0 + 6 * b + s)) w |= 1 << s;
+    return w;
+}
+static int boss_waiting(int b) { return RUN.por_open ? boss_unlocked(b) & ~RUN.por_btaken[b] : 0; }
+/* what a boss's deed pays, once a life (section 3): its fall on the way down, then a fifth more for each challenge step */
+static int boss_gold(int b, int s) { static const int BASE[NBOSS] = { 1500, 2500, 3500, 4500 }; return b < 0 || b >= NBOSS ? 0 : BASE[b] * (5 + s) / 5; }
+static int boss_wait_gold(int b) { int w = boss_waiting(b), g = 0; for (int s = 0; s < 6; s++) if (w >> s & 1) g += boss_gold(b, s); return g; }
+#define POR_BOSSBIT 24                                             /* a boss's tapestry's bit in RUN.por_drawn, after the kinds' */
+static const int BOSS_GEM[6] = { RK_I, RK_II, RK_III, RK_IV, RK_GILDED, RK_V };   /* a deed's colour: slain bone, the steps green to black */
+static const char *const POR_BOSS_NAME[NBOSS] = { "THE ILL-FATED KNIGHT", "THE WANDERING SPIDER", "THE BLACK DEACON", "THE WRAITH UNBOUND" };   /* as its
+                                                                      achievements and the settled sheet name them */
+/* a count lowered (Q15) leaves a record already past it unearned till its next kill: as a run or page is read, whatever its
+ * counts reach now is earned at once, under one pop-up */
+static void slayer_sweep(void) {
+    if (CON.used) return;
+    int n = 0, k0 = 0, r0 = 0;
+    char title[32], desc[32];
+    for (int k = 0; k < NKINDS; k++) for (int r = 0; r < NRANK; r++) {
+        int need = slayer_need(k, r), bit = k * NRANK + r;
+        if (!need || ach_has(bit) || RUN.rec.kills[k][r] < need) continue;
+        RUN.rec.got[bit >> 3] |= (uint8_t)(1 << (bit & 7));
+        if (!n++) { k0 = k; r0 = r; snprintf(title, sizeof title, "%s%s", rank_word(k, r), KINDS[k].plural); snprintf(desc, sizeof desc, "%d SLAIN", need); }
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT achievement %d %s%s: swept, %d slain of %d\n", bit, rank_word(k, r), KINDS[k].plural, RUN.rec.kills[k][r], need);
+#endif
+    }
+    for (int k = 0; k < NKINDS; k++) {                             /* and the portraits' own (step 5): the spiderlings and imps the record
+                                                                      counted before them */
+        PorAch a;
+        int m = por_reckon(k, 1, &a);
+        if (m && !n) { k0 = k; r0 = RK_I; snprintf(title, sizeof title, "%s", a.title); snprintf(desc, sizeof desc, "%s", a.desc); }
+        n += m;
+    }
+    if (!n) return;
+    por_fill();
+    if (n > 1) { snprintf(title, sizeof title, "THE DEAD RECKONED AGAIN"); snprintf(desc, sizeof desc, "%d ACHIEVEMENTS", n); }
+    toast(KINDS[k0].spr, KINDS[k0].family, r0, 0, title, desc);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT reckoned %d\n", n);
+#endif
+}
+/* a death that costs begins a life: every portrait's gold is owed again, and her room pays it as you wake */
+static void por_life(void) {
+    memset(RUN.por_taken, 0, sizeof RUN.por_taken); memset(RUN.por_btaken, 0, sizeof RUN.por_btaken);
+    RUN.por_open = POR_WOKEN;
+}
+/* the portraits as they hang (gen_shop, por_hang): where, which kind, its candles' layout, its walk's phase; each drawn into an
+ * overlay of POR_RES texels a side, column by column as the walls are, again only while it was in view and its candles or its
+ * creature have moved (por_frame), and render_walls laying it over its face's stone */
+#define POR_RES 128
+#define POR_DRAW_T 1.3f                                            /* a tapestry takes so long to draw back */
+#define NPOR 30                                                    /* the twenty-two kinds', and the bosses' four, two faces each */
+typedef struct { int x, y, fd, kind, layout; float ph; int boss, half; } PorAt;   /* boss: 1 + which (its kind -1); half: 0 its left as seen */
+/* a portrait's candle's flame on the wall: its face (fd), the face's line (x for faces looking east or west, else y), where along it,
+ * how far down (0 the top, 1 the foot), its glow's strength, and its light (for the flicker) */
+typedef struct { int fd, light; float plane, along, z, pw; } PorFlame;
+static struct { int n, frame, nwf; PorAt at[NPOR]; int key[NPOR], drawn[NPOR], seen[NPOR]; PorFlame wf[NPOR * 4];
+                float veil_t[NPOR]; } POR;                         /* veil_t: when its tapestry began to be drawn back (step 4) */
+static uint8_t POR_OV[NPOR][POR_RES * POR_RES];
+static int por_bossof(int i) { return POR.at[i].boss - 1; }       /* the boss a portrait's face is half of, or -1 */
+static int por_head(int i) { return POR.at[i].boss && POR.at[i].half ? i - 1 : i; }   /* a boss's left half stands for it */
+static int por_bit(int i) { return POR.at[i].boss ? POR_BOSSBIT + POR.at[i].boss - 1 : POR.at[i].kind; }   /* its tapestry, in por_drawn */
+static int best_kinds(int *out);
+static int kind_ranks(int k, int *out);
+#ifdef CRAWL_DEBUG
+static void por_trace(const char *why) {                           /* PORTRAITS: the state, as it stands */
+    int drawn = 0, unl = 0, wait = 0, bw = 0, taken = 0;
+    for (int k = 0; k < NKINDS; k++) {
+        drawn += RUN.por_drawn >> k & 1;
+        for (int r = 0; r < POR_GEMS; r++) taken += RUN.por_taken[k] >> r & 1;
+        for (int r = 0; r < POR_GEMS; r++) { unl += por_unlocked(k) >> r & 1; wait += por_waiting(k) >> r & 1; }
+    }
+    for (int b = 0; b < NBOSS; b++) for (int s = 0; s < 6; s++) bw += boss_waiting(b) >> s & 1;
+    fprintf(stderr, "PORTRAITS %s: open %d drawn %d unlocked %d waiting %d taken %d bosses' waiting %d runs", why, RUN.por_open, drawn, unl, wait, taken, bw);
+    for (int k = 0; k < NKINDS; k++) if (por_unlocked(k)) {
+        fprintf(stderr, " %d:", k);
+        for (int r = 0; r < NRANK; r++) if (por_unlocked(k) >> r & 1) fprintf(stderr, "%c%d", "12345G"[r], RUN.por_run[k][r] - 1);
+    }
+    fprintf(stderr, " counts");                                    /* the portraits' own (step 5) */
+    for (int k = 0; k < NKINDS; k++) if (RUN.por_feat[k]) fprintf(stderr, " %d:%d", k, RUN.por_feat[k]);
+    fprintf(stderr, "\n");
+}
+#endif
 
 static Item *add_item(int x, int y, int type);
 static void add_pool(float x, float y);
@@ -6090,7 +6373,7 @@ static void kill_mob(Mob *m) {
         const Ambush *a = &G.amb[m->amb - 1];
         if (in_room(&G.rooms[a->room], (int)m->x, (int)m->y)) amb_spring(m->amb - 1, "bait_slain"); else amb_out(m->amb - 1, m->x, m->y, 0);
     }
-    if (!KIND_IS(m, KF_UNCOUNTED)) { if (!PK.depth) G.kills++; if (!m->boss) rec_kill(m); if (G.player) WELL.k[WELL.i]++; }   /* a pocket's are in the
+    if (!KIND_IS(m, KF_UNCOUNTED)) { if (!PK.depth) G.kills++; if (!m->boss) { rec_kill(m); por_feat_kill(m); } if (G.player) WELL.k[WELL.i]++; }   /* a pocket's are in the
                                                                       record, not the level's tally */
     if (PK.depth && m->gen > 0 && m->gen <= 32) PK.slain[PK.chain][clampi(PK.depth, 0, POCKET_LINKS - 1)] |= 1u << (m->gen - 1);
     sfx_at(KINDS[m->type].sfx_die, m->x, m->y, 1.0f);
@@ -6116,6 +6399,7 @@ static void kill_mob(Mob *m) {
     if (m->boss) return;                                           /* a boss leaves only its scrip */
     if (m->type == MOB_GHOST) {                                    /* a spectre, slain by Spirit: its souls, nothing more */
         spawn_mote(m->x, m->y, spectre_souls() * soul_share());
+        por_bump(MOB_GHOST);                                       /* laid to rest, for its portrait */
 #ifdef CRAWL_DEBUG
         fprintf(stderr, "EVENT spectre slain t=%.2f\n", G.t);
 #endif
@@ -6188,6 +6472,9 @@ static void kill_mob(Mob *m) {
 static int knight_stage(const Mob *m) {
     if (m->boss) return G.bwave <= 0 ? 0 : (G.bwave <= 2 ? 1 : 2);   /* the Ill-Fated Knight sheds plate as its waves come */
     return m->hp > m->maxhp * 0.66f ? 0 : (m->hp > m->maxhp * 0.33f ? 1 : 2);
+}
+static void knight_shed(Mob *m) {                                  /* standing, with plate gone: its feat spoilt (the portraits') */
+    if (m->type == MOB_KNIGHT && !m->boss && m->hp > 0.0f && knight_stage(m)) m->feat |= FT_SHED;
 }
 static float knight_pace(const Mob *m, int st) {                   /* quicker as the plate comes off */
     if (m->boss) return KINDS[MOB_KNIGHT].speed * RANK_SPEED[m->rank] * BOSSES[m->boss - 1].speed * (1.0f + 0.15f * st);
@@ -6538,13 +6825,15 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
     }
     int spectre = m->type == MOB_GHOST && spirit_mastery() && ((flags >> 8) - 1 == AT_DRAIN || (flags >> 8) - 1 == AT_WISPS);   /* Spirit slays spectres */
     if (!m->alive || m->state != MS_WALK || (KIND_IS(m, KF_SPIRIT) && !spectre) || dmg <= 0.0f || buried(m)) return 0;
+    int moment = (m->type == MOB_GHOUL && m->sub == 4) || (m->type == MOB_HUNTER && m->sub <= 1);   /* at its meal, or overhead: a feat if
+                                                                      this blow is the last (the portraits') */
     if (G.player && !(flags & DM_TICK)) { G.look_mob = (int)(m - G.mobs); G.look_t = fmaxf(G.look_t, 3.0f); }   /* what you hit is your target a while */
     if (m->type == MOB_SHIELD && m->shield > 0.0f && !(flags & (DM_PIERCE | DM_ARC))) {
         float a = atan2f(fy - m->y, fx - m->x);
         if (fabsf(wrap_pi(a - m->face)) < 1.25f) {
             float ab = fminf(m->shield, dmg);
             m->shield -= ab; dmg -= ab;
-            if (m->shield <= 0.0f) sfx_at(SFX_SHATTER, m->x, m->y, 1.0f);   /* splinters */
+            if (m->shield <= 0.0f) { sfx_at(SFX_SHATTER, m->x, m->y, 1.0f); m->feat |= FT_BROKE; }   /* splinters */
             else sfx_at(SFX_STEP, m->x, m->y, 1.4f);                       /* a thud on the wood */
             m->misses = 0;                                         /* a blow on the shield still counts */
             if (dmg <= 0.0f) { m->stagger = fmaxf(m->stagger, 0.2f); return 0; }
@@ -6608,6 +6897,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
     }
     if (m->rank == RK_GILDED && m->hp > m->maxhp * 0.5f && m->hp - dmg <= m->maxhp * 0.5f) { m->feared = 6.0f; m->wfeared = 0; }   /* the gilded run, with their gold */
     m->hp -= dmg;
+    knight_shed(m);
     if (m->stun_t > 0.0f && atk >= 0 && atk < NATK && !(flags & DM_TICK)) wire_pass(m, dmg);   /* Live Wire: a fifth arcs on (G5) */
     if (shards) {                                                  /* everything within a cell and a half: half a shard, and a chill */
         shattering = 1;
@@ -6627,6 +6917,7 @@ static int damage_mob(Mob *m, float dmg, int flags, float fx, float fy, float sl
     if (m->hp <= 0.0f) {                                           /* (the augments, 17.3; Shepherd's pace for its motes spent, and a beam
                                                                       held on it let go) */
         if (atk >= 0 && atk < NATK) aug_kill(m, atk, flags);
+        if (moment) m->feat |= FT_NOW;
         kill_mob(m); G.d7_shep = 0.0f;
         if (G.d7_lg == (int)(m - G.mobs) + 1) G.d7_lg = 0;
         return 1;
@@ -7184,7 +7475,7 @@ static void pack_tell(const Pack *p, float x, float y) {          /* its kind's 
     case PACK_WHIP: {                                              /* a hound gives tongue, and his horn answers */
         const Mob *L = p->leader >= 0 ? &G.mobs[p->leader] : NULL;
         if (L && G.mobs[p->caller >= 0 ? p->caller : p->leader].type == MOB_HOUND) sfx_at(SFX_HOWL, x, y, 0.8f);
-        if (L && L->alive) sfx_at(SFX_HORN, L->x, L->y, 1.2f);
+        if (L && L->alive) { sfx_at(SFX_HORN, L->x, L->y, 1.2f); G.mobs[p->leader].feat |= FT_HORN; }
         break;
     }
     case PACK_SCAV: sfx_at(SFX_GROAN, x, y, 1.0f); sfx_at(SFX_BONES, x, y, 0.6f); break;
@@ -7743,6 +8034,7 @@ static void hunt_tick(void) {
             Mob *m = &G.mobs[i];
             if (!m->alive || m->state != MS_WALK || m->hunter != 1) continue;
             m->hunter = G.hunt_kind == HK_WATCH ? 3 : 2; m->home = -1; m->role = RL_ROAM; m->wx = m->cx; m->wy = m->cy;
+            if (m->type == MOB_WHIPPER && G.hunt_whip) m->feat |= FT_HORN;   /* the hunt's horn is his */
             if (m->hunter == 3 && G.noise_t > 0.0f && m->alert <= 0.0f) mind_track(m, G.noise_x, G.noise_y);
             alive++;
         }
@@ -8591,6 +8883,7 @@ static void wraith_back_for(Mob *m, float secs) {
     m->sub = 1; m->sub_t = t0;
     sfx_at(SFX_SHRIEK, m->x, m->y, 1.3f);
     G.chill = fmaxf(G.chill, 0.4f);
+    if (!m->boss) por_bump(MOB_WRAITH);                            /* for its portrait */
     DBG_COUNT(wraith_drives);
 }
 static void wraith_back(Mob *m) { wraith_back_for(m, WRAITH_BACK_T); }
@@ -8689,13 +8982,14 @@ static int update_riser(Mob *m, float dt) {                       /* 1 while it 
 
 /* where a drowned one burst: a foul pool that poisons for a few seconds */
 static void add_pool(float x, float y) {
-    for (int i = 0; i < MAXPOOLS; i++) if (!G.pools[i].alive) { G.pools[i] = (Pool){ 1, x, y, 0.0f }; return; }
+    for (int i = 0; i < MAXPOOLS; i++) if (!G.pools[i].alive) { G.pools[i] = (Pool){ 1, x, y, 0.0f, 1 }; return; }
 }
 static void update_pools(float dt) {
     for (int i = 0; i < MAXPOOLS; i++) {
         Pool *p = &G.pools[i];
         if (!p->alive) continue;
-        if ((p->t += dt) > 5.0f) { p->alive = 0; continue; }
+        if ((p->t += dt) > 5.0f) { p->alive = 0; if (p->feat) por_bump(MOB_DROWNED); continue; }   /* NOT A DROP */
+        if (!G.dead && hypotf(G.px - p->x, G.py - p->y) < 0.9f) p->feat = 0;
         if (!G.dead && G.purify_t <= 0.0f && hypotf(G.px - p->x, G.py - p->y) < 0.9f) {
             float k = 1.0f - gear_poison_resist(&RUN.gear);
             float was = G.poison_t;
@@ -8785,7 +9079,7 @@ static void update_spider(Mob *m, float dt) {
     switch (m->sub) {
     case 0:
         m->x = m->ax; m->y = m->ay; m->z = 0.62f;
-        if (!G.dead && G.wwalk_t <= 0.0f && m->cool <= 0.0f && m->feared <= 0.0f && da < ATTACKS[FA_WEB].go && line_clear(m->ax, m->ay, G.px, G.py)) { m->sub = 1; m->sub_t = 0.0f; elem_arm(m, 1.0f); sfx_at(SFX_SKITTER, m->x, m->y, 1.0f); DBG_COUNT(spider_drops);
+        if (!G.dead && G.wwalk_t <= 0.0f && m->cool <= 0.0f && m->feared <= 0.0f && da < ATTACKS[FA_WEB].go && line_clear(m->ax, m->ay, G.px, G.py)) { m->sub = 1; m->sub_t = 0.0f; m->feat |= FT_DROPPED; elem_arm(m, 1.0f); sfx_at(SFX_SKITTER, m->x, m->y, 1.0f); DBG_COUNT(spider_drops);
             if (m->pack) { pack_call(m); sfx_at(SFX_THRUM, m->ax, m->ay, 1.1f); DBG_COUNT(nest_calls); } }   /* a nest's tripwire: the web thrums */
         break;
     case 1: {                                                      /* down the thread */
@@ -8855,6 +9149,14 @@ static void update_sac(Mob *m, float dt) {
     sfx_at(SFX_SKITTER, m->x, m->y, 1.4f);
     add_deco(m->x, m->y, SP_SAC_OPEN);
     m->alive = 0;
+    if (!m->small) {                                               /* the nearest mother's: NONE HATCHED is spoilt for her (the portraits') */
+        Mob *mo = NULL; float bd = 1e9f;
+        for (int i = 0; i < MAXMOBS; i++) {
+            Mob *o = &G.mobs[i];
+            if (o->alive && o->state == MS_WALK && o->type == MOB_BROOD && hypotf(o->x - m->x, o->y - m->y) < bd) { bd = hypotf(o->x - m->x, o->y - m->y); mo = o; }
+        }
+        if (mo) mo->feat |= FT_HATCHED;
+    }
 }
 
 /* A shade shows only in light: torches, fires, the wisp's pool, a spell going by. For a moment after
@@ -8878,6 +9180,7 @@ static int shade_may_strike(const Mob *m) {                       /* you stand s
 static void garg_wake(Mob *m) {
     if (m->sub != 0) return;
     m->sub = 1; m->sub_t = 0.0f;
+    m->feat_t = (float)G.level_t + 1e-3f;                          /* when (the portraits' STILL STONE) */
     sfx_at(SFX_DIRT, m->x, m->y, 1.2f);
     if (G.map[m->cy][m->cx].kind == K_PROP) G.map[m->cy][m->cx].kind = K_FLOOR;
     DBG_COUNT(garg_wakes);
@@ -9926,7 +10229,7 @@ static void update_mob(Mob *m, float dt) {
         }
         if (fights && sees && pd0 < ATTACKS[FA_LASH].go && m->cool <= 0.0f && G.level_t > 1.5) { m->swing = ATTACKS[FA_LASH].wind; feint_roll(m); elem_arm(m, m->swing); return; }
         if (mind && !m->called && !pack_of(m) && sees && G.level_t > 1.5) {   /* his hounds gone: the horn, for whatever hears it */
-            m->call_t = 1.1f; sfx_at(SFX_HORN, m->x, m->y, 1.2f); alarm_at(m, 10); DBG_COUNT(horns);
+            m->call_t = 1.1f; sfx_at(SFX_HORN, m->x, m->y, 1.2f); alarm_at(m, 10); m->feat |= FT_HORN; DBG_COUNT(horns);
             return;
         }
     }
@@ -9936,7 +10239,7 @@ static void update_mob(Mob *m, float dt) {
         if (m->ring_t > 0.0f) {
             m->ring_t -= dt;
             if (m->rings == 1 && m->ring_t <= 1.2f) {              /* raised, and rung: the widest call on the level, to his place */
-                m->rings = 2; m->ring_cd = 8.0f; m->contact = 0.0f;
+                m->rings = 2; m->ring_cd = 8.0f; m->contact = 0.0f; m->feat |= FT_RUNG;
                 noise(m->x, m->y, 14, NZ_BELL, m->type);
                 way_met(WY_BELL);
                 DBG_COUNT(bell_alarms);
@@ -11261,6 +11564,7 @@ static void latch_release(int thrown) {                           /* it lets go:
     m->feared = 1.6f; m->wfeared = 0; m->attacking = 0; m->contact = 0.0f; m->cool = 1.0f;
     m->x = G.px - cosf(G.ang) * 0.4f; m->y = G.py - sinf(G.ang) * 0.4f;
     sfx_at(SFX_BAT, m->x, m->y, 1.4f);
+    if (thrown != 2) por_bump(MOB_BAT);                            /* shaken or thrown off, not fed: SHAKEN OFF (the portraits') */
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT latch_off %s after %.1f s t=%.2f\n", thrown == 2 ? "itself" : thrown ? "thrown" : "shaken", G.latch_t, G.t);
 #endif
@@ -15379,6 +15683,7 @@ static void hz_harm(Mob *m, float dmg, int el) {
     if (el >= 0) dmg *= KINDS[m->type].weak[el];
     if (dmg <= 0.0f) return;
     m->hp -= dmg;
+    knight_shed(m);
     if (m->hp <= 0.0f) kill_mob(m);
 }
 static void hz_mobs(Hazard *h, int struck, int ph, float dt) {
@@ -20950,6 +21255,152 @@ static void ped_arc(void) {                                        /* the pedest
         G.ped_x[i] = SHOP_MID + t * half; G.ped_y[i] = 12.9f + 0.75f * t * t;
     }
 }
+/* a portrait's candles: their light in the room (shared between its flames), how far it goes, and their glow on the wall about them.
+ * A third of a torch's (0.45, as the plan had it) made her room half again as bright: a ninth, and a strong glow on the wall, keeps
+ * it as it was with a pool of light about each candle (CRAWL_PORLIGHT=light,reach,glow to try others) */
+static float POR_LIGHT = 0.15f, POR_REACH = 2.0f, POR_GLOW = 0.8f;
+/* the portraits of the slain hung on her walls (docs/PLAN-portraits.md, section 7), a bestiary page each in its order: the first
+ * third on her south wall, read from the left as you face it; the second on her north wall, the spiderling round its corner by its
+ * mother; the last in the back room, along its north wall and down its east. A face that carried a banner or a torch gives it up. */
+static int por_gold(int k, int r);
+static void por_hang(void) {
+    static const int8_t AT[22][3] = {
+        { 20, 18, 3 }, { 18, 18, 3 }, { 17, 18, 3 }, { 13, 18, 3 }, { 12, 18, 3 }, { 11, 18, 3 }, { 10, 18, 3 },
+        { 10, 11, 1 }, { 11, 11, 1 }, { 13, 11, 1 }, { 14, 11, 1 }, { 16, 11, 1 }, { 17, 11, 1 }, { 19, 11, 1 }, { 21, 12, 2 },
+        { 7, 11, 1 }, { 8, 11, 1 }, { 9, 12, 2 }, { 9, 14, 2 }, { 9, 15, 2 }, { 9, 16, 2 }, { 9, 17, 2 } };
+    int order[NKINDS], nk = best_kinds(order);
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_PORLIGHT")) sscanf(getenv("CRAWL_PORLIGHT"), "%f,%f,%f", &POR_LIGHT, &POR_REACH, &POR_GLOW);   /* testing: light,reach,glow */
+    if (getenv("CRAWL_PORTRAITS") && atoi(getenv("CRAWL_PORTRAITS")) >= 0) {   /* testing: every portrait drawn back, n of each kind's
+                                                                      ranks unlocked (0: their shadows); below 0 none hung */
+        int n = atoi(getenv("CRAWL_PORTRAITS"));                  /* (7 and over: the feats too) */
+        for (int i = 0; i < nk; i++) {
+            int k = order[i], rk[NRANK], nr = por_ranks(k, rk), fi = feat_of(k);
+            RUN.por_drawn |= 1u << k;
+            for (int j = 0; j < nr && j < n; j++) {
+                int bit = k == MOB_GHOST ? ACH_POR0 + j : k == MOB_WRAITH ? (j < 3 ? ACH_POR0 + 3 + j : ACH_BOSS0 + 6 * BOSS_WRAITH) : k * NRANK + rk[j];
+                RUN.rec.got[bit >> 3] |= (uint8_t)(1 << (bit & 7));
+            }
+            if (n >= 7 && fi >= 0) RUN.rec.got[(ACH_FEAT0 + fi) >> 3] |= (uint8_t)(1 << ((ACH_FEAT0 + fi) & 7));
+        }
+        for (int b = 0; b < NBOSS && n > 0; b++) {                 /* and each boss slain, n - 1 of its steps with it */
+            if (!getenv("CRAWL_PORVEIL")) RUN.por_drawn |= 1u << (POR_BOSSBIT + b);   /* (CRAWL_PORVEIL=1: their tapestries still down) */
+            for (int st = 0; st < imin(n, 6); st++) RUN.rec.got[(ACH_BOSS0 + 6 * b + st) >> 3] |= (uint8_t)(1 << ((ACH_BOSS0 + 6 * b + st) & 7));
+        }
+        por_fill();
+        RUN.por_open |= POR_WOKEN;                                 /* and her room paying */
+    }
+#endif
+    POR.n = 0; POR.nwf = 0;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_PORGOLD")) {                                 /* testing: the gold each rank pays, against docs/portraits/ranks.csv */
+        static const char *const RW[NRANK] = { "I", "II", "III", "IV", "V", "G" };
+        for (int i = 0; i < nk; i++) {
+            int k = order[i];
+            for (int r = 0; r < NRANK; r++)
+                if (slayer_need(k, r)) fprintf(stderr, "PORGOLD %s,%s,%d,%d\n", KINDS[k].name, RW[r], slayer_need(k, r), por_gold(k, r));
+            for (int q = 0; q < NPORACH; q++) {                    /* the Spectre's, the Wraith's (and its fall, paying nothing), the feats */
+                PorAch a;
+                por_ach(q, &a);
+                if (a.kind == k) fprintf(stderr, "PORGOLD %s,%s,%d,%d\n", KINDS[k].name, a.gem == POR_FEAT ? "Feat" : RW[a.gem], a.need, por_gold(k, a.gem));
+            }
+            if (k == MOB_WRAITH) fprintf(stderr, "PORGOLD %s,IV,1,%d\n", KINDS[k].name, por_gold(k, RK_IV));
+        }
+    }
+    if (getenv("CRAWL_PORTRAITS") && atoi(getenv("CRAWL_PORTRAITS")) < 0) return;   /* testing: none hung, to weigh their cost */
+#endif
+    for (int i = 0; i < nk && i < 22; i++) {
+        PorAt *a = &POR.at[POR.n];
+        a->x = AT[i][0]; a->y = AT[i][1]; a->fd = AT[i][2]; a->kind = order[i];
+        a->ph = -0.83f * (float)i;                                 /* each turns about in its own time */
+        Cell *c = &G.map[a->y][a->x];
+        if (c->kind != K_WALL || c->por) continue;
+        c->por = (uint8_t)(1 + POR.n); c->fover[a->fd] = 0;
+        a->boss = a->half = 0;
+        POR.veil_t[POR.n] = -1e9f;                                 /* drawn back long since, or not at all */
+        POR.drawn[POR.n++] = 0;
+    }
+    /* the bosses' four on the grave plot's far wall, two faces each, either side of the Accursed Portal, read from the left as you face
+     * it: the knight, the spider, the Portal, the Deacon, the Wraith Unbound (the mock-up's order, as the owner saw it) */
+    static const int8_t BX[NBOSS] = { 20, 18, 15, 13 };            /* each one's left half; its right the cell west of it */
+    for (int b = 0; b < NBOSS && POR.n + 2 <= NPOR; b++) {
+        Cell *l = &G.map[PORTAL_Y][BX[b]], *r = &G.map[PORTAL_Y][BX[b] - 1];
+        if (l->kind != K_WALL || r->kind != K_WALL || l->por || r->por) continue;
+        for (int h = 0; h < 2; h++) {
+            PorAt *a = &POR.at[POR.n];
+            *a = (PorAt){ BX[b] - h, PORTAL_Y, 3, -1, 0, -0.9f * (float)b, 1 + b, h };
+            Cell *c = h ? r : l;
+            c->por = (uint8_t)(1 + POR.n); c->fover[3] = 0;
+            POR.veil_t[POR.n] = -1e9f; POR.drawn[POR.n++] = 0;
+        }
+    }
+    /* their candles dealt, the same every visit: never as a neighbour's (side by side, or meeting at a corner), and where it can
+     * be, as none a cell further off either; and two tapestries never tied back against each other: side by side on a wall, a
+     * portrait's goes to its left, but the last's of the run, which may go either way */
+    int drape_left = 0;                                            /* the layouts whose tapestry goes to the left */
+    for (int l = 0; l < NPLAYOUT; l++) if (!portrait_drape_side(l)) drape_left |= 1 << l;
+    for (int i = 0; i < POR.n; i++) {
+        PorAt *a = &POR.at[i];
+        if (a->boss) continue;                                     /* theirs below */
+        float cx = (float)a->x + 0.5f + 0.5f * (float)DX[a->fd], cy = (float)a->y + 0.5f + 0.5f * (float)DY[a->fd];
+        int nearm = 0, farm = 0, keep = 0, cand[NPLAYOUT], nc = 0;
+        for (int j = 0; j < POR.n; j++) {
+            const PorAt *b = &POR.at[j];
+            if (b->boss) continue;
+            float bx = (float)b->x + 0.5f + 0.5f * (float)DX[b->fd], by = (float)b->y + 0.5f + 0.5f * (float)DY[b->fd], d = hypotf(cx - bx, cy - by);
+            if (j < i && d < 1.05f) nearm |= 1 << b->layout; else if (j < i && d < 2.1f) farm |= 1 << b->layout;
+            if (j != i && d < 1.05f && b->fd == a->fd && (bx - cx) * (float)DY[a->fd] - (by - cy) * (float)DX[a->fd] > 0.0f)
+                keep = ~drape_left;                                /* one to its right as seen: its tapestry goes left */
+        }
+        for (int l = 0; l < NPLAYOUT; l++) if (!((nearm | farm | keep) >> l & 1)) cand[nc++] = l;
+        if (!nc) for (int l = 0; l < NPLAYOUT; l++) if (!((nearm | keep) >> l & 1)) cand[nc++] = l;
+        if (!nc) for (int l = 0; l < NPLAYOUT; l++) if (!(nearm >> l & 1)) cand[nc++] = l;
+        uint32_t h = (uint32_t)(a->x * 73 + a->y * 19 + a->fd * 7 + 101) * 2654435761u;   /* not hash2: that has the level in it */
+        h ^= h >> 15; h *= 2246822519u; h ^= h >> 13;
+        a->layout = cand[h % (uint32_t)nc];
+        /* each flame a light of a third of a torch's, shared between its flames, and a glow on the wall about it */
+        float fl[4][3], nx = (float)DX[a->fd], ny = (float)DY[a->fd], rx = ny, ry = -nx;   /* rx, ry: to the right as seen */
+        int nf = portrait_layout_flames(a->layout, fl);
+        for (int k = 0; k < nf && POR.nwf < NPOR * 4; k++) {
+            float u = fl[k][0] / (float)TS - 0.5f, wx = cx + rx * u, wy = cy + ry * u, share = 1.0f / (nf > 1 ? 2.0f : 1.0f);
+            PorFlame *w = &POR.wf[POR.nwf];
+            w->fd = a->fd; w->plane = a->fd == 0 || a->fd == 2 ? cx : cy; w->along = a->fd == 0 || a->fd == 2 ? wy : wx;
+            w->z = fl[k][1] / (float)TS; w->pw = POR_GLOW * share; w->light = G.nlights;
+            light_static_ph(wx + nx * 0.12f, wy + ny * 0.12f, POR_LIGHT * share, POR_REACH, (float)((h >> (4 * k)) % 1000u) * 0.01f);
+            if (G.nlights > w->light) POR.nwf++;                   /* (none if the lights were full) */
+        }
+    }
+    float bf[6][3];                                                /* a boss's two stands of three: a light each, a glow a flame */
+    int nbf = portrait_boss_flames(bf);
+    for (int i = 0; i < POR.n; i++) {
+        const PorAt *a = &POR.at[i];
+        if (!a->boss || a->half) continue;
+        float nx = (float)DX[a->fd], ny = (float)DY[a->fd], rx = ny, ry = -nx;
+        float cx = (float)a->x + 0.5f + 0.5f * nx + rx * 0.5f, cy = (float)a->y + 0.5f + 0.5f * ny + ry * 0.5f;   /* between its two faces */
+        for (int st = 0; st < 2; st++) {
+            int light = -1;
+            for (int k = st * 3; k < st * 3 + 3 && k < nbf && POR.nwf < NPOR * 4; k++) {
+                float u = bf[k][0] / (float)TS - 1.0f, wx = cx + rx * u, wy = cy + ry * u;
+                if (light < 0) {
+                    float mu = bf[st * 3 + 1][0] / (float)TS - 1.0f;
+                    light = G.nlights;
+                    light_static_ph(cx + rx * mu + nx * 0.12f, cy + ry * mu + ny * 0.12f, POR_LIGHT * 1.5f, POR_REACH, (float)(a->boss * 7 + st * 3) * 0.37f);
+                    if (G.nlights <= light) break;
+                }
+                PorFlame *w = &POR.wf[POR.nwf++];
+                w->fd = a->fd; w->plane = a->fd == 0 || a->fd == 2 ? cx : cy; w->along = a->fd == 0 || a->fd == 2 ? wy : wx;
+                w->z = bf[k][1] / (float)TS; w->pw = POR_GLOW * 0.5f; w->light = light;
+            }
+        }
+    }
+#ifdef CRAWL_DEBUG
+    { static int said; if (!said++) {
+        fprintf(stderr, "PORTRAITS hung %d, candles %d, lights %d:", POR.n, POR.nwf, G.nlights);
+        for (int i = 0; i < POR.n; i++) fprintf(stderr, " %d@%d,%d:%d", POR.at[i].kind, POR.at[i].x, POR.at[i].y, POR.at[i].layout);
+        fprintf(stderr, "\n"); } }
+#endif
+}
+
 static void gen_shop(void) {
     G.faced = 1; G.look = 0;                                        /* her hall in the Crypts' stone, whatever the run (begin_shop draws level 1's) */
     memset(G.map, 0, sizeof G.map);
@@ -21017,6 +21468,7 @@ static void gen_shop(void) {
     G.ncells = 0;
     for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (G.map[y][x].kind == K_FLOOR) G.ncells++;
     lay_faces();
+    por_hang();                                                    /* the portraits of the slain, over the faces laid */
 }
 
 static void shop_turn(float to, float dur) {
@@ -21068,6 +21520,7 @@ static int shop_choose(void) {
     return best;
 }
 
+static void por_dream(void);
 static void begin_shop(void) {
     hz_clear(); snd_set_boss(0, 0);
     G.pz = -1; G.nthing = 0; G.carry = 0;                          /* nor a puzzle */
@@ -21076,8 +21529,15 @@ static void begin_shop(void) {
     G.bchallenge = 0;
     G.shop = 1; G.state = PS_SHOP; G.nmk = 0;
     memset(G.wisps, 0, sizeof G.wisps);                            /* nor into the merchant's room */
+#ifdef CRAWL_DEBUG
+    { static int once; clock_t c0 = clock(); portrait_keep_runs();
+      if (!once++) fprintf(stderr, "PORTRAITS the runs' stone kept in %.1f ms\n", (double)(clock() - c0) * 1000.0 / CLOCKS_PER_SEC); }
+#else
+    portrait_keep_runs();                                          /* the first time: each run's stone for the portraits behind them */
+#endif
     crawl_art_level(1);                                            /* the antechamber looks the same every time */
     gen_shop();
+    por_dream();                                                   /* the dream draws a tapestry back now and then */
     memset(G.mobs, 0, sizeof G.mobs); G.nroute = 0; G.npacks = 0; memset(G.shots, 0, sizeof G.shots); memset(G.booms, 0, sizeof G.booms);
     memset(G.bones, 0, sizeof G.bones); memset(G.beams, 0, sizeof G.beams); memset(G.burns, 0, sizeof G.burns);
     memset(G.trails, 0, sizeof G.trails); memset(G.venoms, 0, sizeof G.venoms); memset(G.motes, 0, sizeof G.motes);
@@ -21091,6 +21551,9 @@ static void begin_shop(void) {
     G.camz = 0.5f; G.hand = 0.0f; G.spd = 0.0f; G.bob = 0.0f; G.bar = 1.0f;
     old_spells_said();                                             /* a page from before the Alignment */
     old_lines_said();                                              /* or before the Confessions */
+#ifdef CRAWL_DEBUG
+    por_trace("her room");
+#endif
     if (!RUN.cls && !LEDGER.yours && !LEDGER.kept) class_take(1 + class_random());   /* the dream: what it was, at random, so every line shows in time */
     line_lend();
     gift_settle();                                                 /* the Lampstand's gift: the dream's at once */
@@ -22379,7 +22842,7 @@ static void open_ui(int which) {
     G.al_aug = 0;                                                  /* the Lampstand opens on its tree, not a pair (1.0.0b21) */
     show_bar();                                                    /* and it is there when the menu closes */
     if (which == UI_INVENTORY) { G.ui_sel = 0; G.inv_page = 0; G.inv0 = RUN.gear; snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); }
-    else if (which == UI_BESTIARY) { best_default_rank(); snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); }
+    else if (which == UI_BESTIARY) { G.best_feat = 0; best_default_rank(); snd_sfx_ex(SFX_KEY, 0.8f, 0.5f); }
     else if (which == UI_ALTAR) {                                  /* on the first gift it can give you now */
         AltarRow r[3];
         altar_rows(r);
@@ -22648,6 +23111,148 @@ static void update_human(float dt) {
 }
 
 /* in the merchant's room: walk up to a ware to see it, E, Space or a click to buy it */
+/* ---- the portraits of the slain in play (docs/PLAN-portraits.md, step 4): a tapestry drawn back, a portrait looked at and its card,
+ * and the gold each rank unlocked pays once a life ---- */
+
+/* the bestiary's pages in three, the spiderling with its mother: 7, 8 and 7 (0-2); -1 not a page */
+static int por_third(int k) {
+    int order[NKINDS], nk = best_kinds(order);
+    for (int i = 0; i < nk; i++) if (order[i] == k) return i < 7 ? 0 : i < 15 ? 1 : 2;
+    return -1;
+}
+static int por_slayable(int k) { for (int r = 0; r < NRANK; r++) if (slayer_need(k, r)) return 1; return 0; }
+/* its strength: its worth in experience (KIND_XP) against the others of its third that can be slain, 0 the least to 1 the most, to the
+ * hundredth (the Spectre 0, the Wraith 1) */
+static double por_strength(int k) {
+    if (k == MOB_GHOST) return 0.0;
+    if (k == MOB_WRAITH) return 1.0;
+    int t = por_third(k), lo = 1 << 30, hi = -1;
+    for (int j = 0; j < NKINDS; j++) if (por_third(j) == t && por_slayable(j)) { lo = imin(lo, KIND_XP[j]); hi = imax(hi, KIND_XP[j]); }
+    return hi > lo ? floor((double)(KIND_XP[k] - lo) / (double)(hi - lo) * 100.0 + 0.5) / 100.0 : 0.0;
+}
+/* the gold a rank unlocked pays, once a life (section 4, the owner's Sheet): its third's start (100, 200, 300), and 60% more of it for
+ * each rank's step (I 0 to V 4, gilded 3.5) and for its strength, to the nearest ten; a kind of one rank pays as its third's rank V */
+static int por_gold(int k, int r) {
+    static const double START[3] = { 100.0, 200.0, 300.0 }, STEP[NRANK] = { 0.0, 1.0, 2.0, 3.0, 4.0, 3.5 };
+    int t = por_third(k);
+    double step;
+    if (t < 0 || r < 0 || r > POR_FEAT || (k == MOB_WRAITH && r == RK_IV)) return 0;   /* the Wraith's fourth: its boss pays (Q14) */
+    if (r == POR_FEAT) { if (feat_of(k) < 0) return 0; step = STEP[RK_III]; }   /* a feat pays as its rank III (5 B) */
+    else step = STEP[KINDS[k].family < 0 && por_slayable(k) ? RK_V : r];   /* the shade's one rank as its third's V (Q9) */
+    return (int)(START[t] * (1.0 + 0.6 * (step + por_strength(k))) / 10.0 + 0.5 + 1e-9) * 10;
+}
+static int por_drawable(int k) {                                   /* one of its kind slain (or laid, or driven): its tapestry may come down */
+    if (k == MOB_GHOST || k == MOB_WRAITH) return RUN.por_feat[k] > 0 || por_unlocked(k);
+    for (int r = 0; r < NRANK; r++) if (RUN.rec.kills[k][r]) return 1;
+    return 0;
+}
+static int por_can_draw(int i) {                                   /* a portrait's tapestry may come down: one of its kind slain, its boss fallen */
+    int b = por_bossof(i);
+    return b >= 0 ? boss_unlocked(b) != 0 : por_drawable(POR.at[i].kind);
+}
+static int por_is_drawn(int i) { return RUN.por_drawn >> por_bit(i) & 1; }
+static int por_wait_gold(int k) {                                  /* what waits on it now */
+    int w = por_waiting(k), g = 0;
+    for (int r = 0; r < POR_GEMS; r++) if (w >> r & 1) g += por_gold(k, r);
+    return g;
+}
+static void por_face_mid(int i, float *x, float *y) {              /* the middle of its face, on the wall's line */
+    const PorAt *a = &POR.at[i];
+    *x = (float)a->x + 0.5f + 0.5f * (float)DX[a->fd]; *y = (float)a->y + 0.5f + 0.5f * (float)DY[a->fd];
+}
+static int por_facing(void) {                                      /* 1 + the portrait a person faces, near enough to reach; 0 none */
+    int best = 0;
+    float bd = 2.8f;
+    for (int i = 0; i < POR.n; i++) {
+        const PorAt *a = &POR.at[i];
+        float fx, fy;
+        por_face_mid(i, &fx, &fy);
+        float dx = fx - G.px, dy = fy - G.py, d = hypotf(dx, dy);
+        if (d > bd || -(dx * (float)DX[a->fd] + dy * (float)DY[a->fd]) < 0.2f) continue;   /* on the room's side of it */
+        if (!line_clear(G.px, G.py, fx + 0.1f * (float)DX[a->fd], fy + 0.1f * (float)DY[a->fd])) continue;   /* and in sight */
+        if (fabsf(wrap_pi(atan2f(dy, dx) - G.ang)) < 0.3f + 0.35f / fmaxf(d, 0.3f)) { best = i + 1; bd = d; }
+    }
+    return best;
+}
+static void por_draw_back(int i, int dream) {                      /* its tapestry gathered to its side and tied there, for good (a
+                                                                      boss's two, parted) */
+    i = por_head(i);
+    int k = POR.at[i].kind, b = por_bossof(i);
+    float fx, fy;
+    por_face_mid(i, &fx, &fy);
+    RUN.por_drawn |= 1u << por_bit(i);
+    if (!dream) {
+        POR.veil_t[i] = (float)G.t; if (b >= 0) POR.veil_t[i + 1] = (float)G.t;
+        sfx_at(SFX_RUSTLE, fx, fy, 1.0f); snd_sfx_ex(SFX_WHOOSH, 0.25f, 0.5f);
+    }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT portrait_drawn %s by %s t=%.2f\n", b >= 0 ? POR_BOSS_NAME[b] : KINDS[k].plural, dream ? "dream" : "player", G.t);
+#endif
+}
+static int por_take(int i) {                                       /* the gold that waits on portrait i, all of it; how much */
+    i = por_head(i);
+    int b = por_bossof(i);
+    if (b >= 0) {                                                  /* a boss's: its deeds, once a life */
+        int w = boss_waiting(b), g = boss_wait_gold(b);
+        if (!g) return 0;
+        RUN.treasure += g; RUN.por_btaken[b] |= (uint8_t)w;
+        say("THE PORTRAIT PAYS %d", g);
+        snd_sfx_ex(SFX_COIN, 1.1f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.6f, 0.5f);
+        if (G.player) pop_readout();
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT portrait_paid %s gold %d steps %x gold now %d t=%.2f\n", POR_BOSS_NAME[b], g, w, RUN.treasure, G.t);
+#endif
+        return g;
+    }
+    int k = POR.at[i].kind, w = por_waiting(k), g = por_wait_gold(k);
+    if (!g) return 0;
+    RUN.treasure += g; RUN.por_taken[k] |= (uint8_t)w;
+    say("THE PORTRAIT PAYS %d", g);
+    snd_sfx_ex(SFX_COIN, 1.1f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.6f, 0.5f);
+    if (G.player) pop_readout();
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT portrait_paid %s gold %d ranks %x gold now %d t=%.2f\n", KINDS[k].plural, g, w, RUN.treasure, G.t);
+#endif
+    return g;
+}
+/* the dream draws back a tapestry now and then (the owner's Q5): one visit in two, one at most, a moment after it comes in; never on a
+ * page read from the ledger, and not with the dice, so its runs keep step */
+static void por_dream(void) {
+    if (LEDGER.yours || LEDGER.kept || !POR.n) return;
+    uint32_t h = RUN.run_id * 2654435761u ^ (uint32_t)G.level * 40503u;
+    h ^= h >> 15; h *= 2246822519u; h ^= h >> 13;
+    if (h & 1) return;
+    for (int j = 0; j < POR.n; j++) {
+        int i = por_head((int)((h >> 1) % (uint32_t)POR.n + (uint32_t)j) % POR.n);
+        if (por_is_drawn(i) || !por_can_draw(i)) continue;
+        por_draw_back(i, 1);
+        POR.veil_t[i] = (float)G.t + 4.0f + (float)(h >> 8 & 7);   /* while it looks about */
+        if (POR.at[i].boss) POR.veil_t[i + 1] = POR.veil_t[i];
+        return;
+    }
+}
+static void update_portrait(void) {                                /* its card: A/D through every portrait, E draws back or takes */
+    if (!POR.n || IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
+    int lr = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
+    if (lr) {                                                      /* a boss's right half is passed over: its left stands for it */
+        do G.pt_sel = (G.pt_sel + POR.n + lr) % POR.n; while (POR.at[G.pt_sel].boss && POR.at[G.pt_sel].half);
+        snd_sfx_ex(SFX_TICK, 0.7f, 0.5f);
+    }
+    G.pt_sel = por_head(clampi(G.pt_sel, 0, POR.n - 1));
+    if (!(IN.hit[KEY_E] || IN.hit[KEY_ENTER] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) return;
+    int i = G.pt_sel, k = POR.at[i].kind, b = por_bossof(i);
+    if (!por_is_drawn(i)) {
+        if (por_can_draw(i)) por_draw_back(i, 0);
+        else { say(b >= 0 ? "WHAT HANGS HERE IS NOT YET SLAIN" : "NONE OF ITS KIND SLAIN YET"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); }
+    } else if (!por_take(i)) {
+        snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f);
+        if (b >= 0) say(!RUN.por_open ? "IT PAYS AFTER A LEVEL IS CLEARED" : "ITS GOLD IS TAKEN THIS LIFE");
+        else if (!por_unlocked(k)) say("NO RANK OF IT UNLOCKED YET");
+        else if (!RUN.por_open) say("IT PAYS AFTER A LEVEL IS CLEARED");
+        else say("ITS GOLD IS TAKEN THIS LIFE");
+    }
+}
+
 static void shop_human(float dt) {
     if (!RUN.cls) { G.vow_change = 0; open_ui(UI_CLASS); return; }   /* her question, before anything else */
     spell_keys();
@@ -22695,7 +23300,10 @@ static void shop_human(float dt) {
     float mdx = MAP_X - G.px, mdy = MAP_Y - G.py, md = hypotf(mdx, mdy);   /* the map at her left, until it is yours */
     G.map_look = !RUN.has_map && G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0
                  && md < 2.6f && fabsf(wrap_pi(atan2f(mdy, mdx) - G.ang)) < 0.25f + 0.25f / fmaxf(md, 0.3f);
-    G.mer_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0 && !G.map_look && hypotf(G.px - CAT_X, G.py - CAT_Y) < 1.8f;
+    G.pt_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0 && !G.map_look
+                && !G.lamp_look && !G.bell_look && !G.font_look ? por_facing() : 0;   /* a portrait of the slain */
+    G.mer_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0 && !G.map_look
+                 && !G.pt_look && hypotf(G.px - CAT_X, G.py - CAT_Y) < 1.8f;
 #ifdef CRAWL_DEBUG
     if (G.shop_look != was) fprintf(stderr, "EVENT shop_look %d t=%.2f at (%.2f,%.2f) ang %.3f\n", G.shop_look, G.t, G.px, G.py, G.ang);
 #endif
@@ -22723,6 +23331,12 @@ static void shop_human(float dt) {
         else if (G.rep_look) { open_ui(UI_REPO); G.click_spent = CAST_HIT; }
         else if (G.por_look) { open_ui(UI_PORTAL); G.click_spent = CAST_HIT; }
         else if (G.stone_look >= 0) { G.stone_sel = G.stone_look; open_ui(UI_STONE); G.click_spent = CAST_HIT; }
+        else if (G.pt_look) {                                      /* a portrait: its tapestry drawn back, or its card */
+            int p = por_head(G.pt_look - 1);
+            G.click_spent = CAST_HIT;
+            if (!por_is_drawn(p) && por_can_draw(p)) por_draw_back(p, 0);
+            else { G.pt_sel = p; open_ui(UI_PORTRAIT); snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f); }
+        }
         else if (G.map_look) {
             G.click_spent = CAST_HIT;
             if (RUN.treasure < MAP_PRICE) { say("YOU CAN'T AFFORD THAT"); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); }
@@ -23626,6 +24240,19 @@ static void crawl_control(int what) {
         for (int i = 0; i < G.ped_n; i++)
             if (G.offers[i].kind == GK_PIECE && piece_slot(&RUN.gear, G.offers[i].piece.kind) >= 0) { G.shop_letgo = i; G.ui = UI_LETGO; G.ui_sel = 0; break; }
     }
+    if (getenv("CRAWL_TPPORTRAIT") && G.shop && POR.n) {          /* before portrait k (1 the first), facing it, d cells from its
+                                                                      cell's middle (k,d; 2.1 if not given) */
+        int k = 1; float d = 2.1f;
+        sscanf(getenv("CRAWL_TPPORTRAIT"), "%d,%f", &k, &d);
+        const PorAt *a = &POR.at[por_head(clampi(k - 1, 0, POR.n - 1))];
+        float mx = a->boss ? (float)DY[a->fd] * 0.5f : 0.0f, my = a->boss ? -(float)DX[a->fd] * 0.5f : 0.0f;   /* a boss's: between its faces */
+        G.px = (float)a->x + 0.5f + mx + (float)DX[a->fd] * d; G.py = (float)a->y + 0.5f + my + (float)DY[a->fd] * d;
+        G.ang = heading_angle((a->fd + 2) & 3); G.cx = (int)G.px; G.cy = (int)G.py;
+    }
+    if (getenv("CRAWL_TPHALL") && G.shop) {                        /* testing: at x,y facing deg in her hall (the portraits' cost) */
+        float x = 0, y = 0, a = 0;
+        if (sscanf(getenv("CRAWL_TPHALL"), "%f,%f,%f", &x, &y, &a) == 3) { G.px = x; G.py = y; G.ang = a * PI_F / 180.0f; G.cx = (int)x; G.cy = (int)y; }
+    }
     if (getenv("CRAWL_TPCAT") && G.shop) { G.px = CAT_X + 1.3f; G.py = CAT_Y + 0.4f; G.ang = face_of(CAT_X, CAT_Y); G.cx = (int)G.px; G.cy = (int)G.py; }   /* before the merchant */
     if (getenv("CRAWL_TPREPO") && G.shop) { G.px = 5.5f; G.py = 14.5f; G.ang = PI_F; G.cx = 5; G.cy = 14; }   /* before the Repository's niches */
     if (getenv("CRAWL_TPLECTERN") && G.shop) { G.px = LECTERN_X + 0.5f; G.py = LECTERN_Y - 1.6f; G.ang = PI_F * 0.5f; G.cx = LECTERN_X; G.cy = LECTERN_Y - 2; }   /* before the Compendium */
@@ -23862,7 +24489,14 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
 enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX, LG_CASTER, LG_ELEM, LG_ALIGN, LG_HALL2, LG_DEEDS, LG_WAYS,
        LG_CONF,                                                    /* 1.0.0b20: the Confessions' points and overlevels, a byte each, and
                                                                       the old overlevels whose Alignment Points were given */
-       LG_AUG };                                                   /* 1.0.0b21: each line's augments, AUG_LINE_BYTES a line */
+       LG_AUG,                                                     /* 1.0.0b21: each line's augments, AUG_LINE_BYTES a line */
+       LG_PORTRAIT };                                              /* the portraits of the slain (docs/PLAN-portraits.md), below */
+/* LG_PORTRAIT: a byte of how her room pays this life (POR_*), u32 the tapestries drawn back, then for each kind the run each gem
+ * was unlocked in (1 + its set, a byte each), each kind's gems taken this life (a byte, a bit a gem), each boss's (a byte, a bit a
+ * deed); then (step 5) each kind's own count, u16 (RUN.por_feat). A page without one is older: each rank it unlocked is shown in
+ * the first run that rank is common in, its tapestries are down where its kills are counted, and all its gold waits. */
+#define LG_PORTRAIT_B4 (1 + 4 + REC_KINDS * POR_GEMS + REC_KINDS + BOSS_REC)   /* as step 4 wrote it */
+#define LG_PORTRAIT_BYTES (LG_PORTRAIT_B4 + 2 * REC_KINDS)
 #define AUG_LINE_BYTES (NAUGT * 4 + 2)      /* a line's augments: three choices, their order, their credits (u16), its bank (u16) */
 #define LG_WAYS_BYTES 20                    /* 1.0.0b18: the dead's ways met and named this run of ten (u32 each), that run (u16), the five
                                                deeds against them (u16 each) */
@@ -23877,8 +24511,11 @@ enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
 #define STONE_BYTES (8 + 2 + 3 + 4 + 4 + 2 + NATK + NDEF + NSLOT * PIECE_BYTES + 2 + BAG_MAX * PIECE_BYTES)
 #define COMP_BYTES ((NIK - 1) * NQUAL * (1 + COMP_MAX * PIECE_BYTES) + NATK)   /* at the most */
 #define REPO_BYTES (1 + 4 + 2 + REPO_MAX * PIECE_BYTES)
-#define PAGE_BYTES (save_end(6) + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 3 + COMP_BYTES + 3 + REPO_BYTES \
-                    + 3 + 24 + 3 + LG_CASTER_BYTES + 3 + REC_ELEM_BYTES + 3 + LG_ALIGN_BYTES + 3 + LG_HALL2_BYTES + 3 + LG_DEEDS_BYTES + 3 + LG_WAYS_BYTES + 1)   /* the most a page takes so far */
+#define SAVE_END6 (SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA + SAVE_V5_SHRINE + SAVE_V6_EXT)   /* save_end(6) */
+#define PAGE_BYTES (SAVE_END6 + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 3 + COMP_BYTES + 3 + REPO_BYTES \
+                    + 3 + 24 + 3 + LG_CASTER_BYTES + 3 + REC_ELEM_BYTES + 3 + LG_ALIGN_BYTES + 3 + LG_HALL2_BYTES + 3 + LG_DEEDS_BYTES + 3 + LG_WAYS_BYTES \
+                    + 3 + 2 * NCONF + 1 + 3 + NELEM * AUG_LINE_BYTES + 3 + LG_PORTRAIT_BYTES + 1)   /* the most a page takes so far */
+_Static_assert(PAGE_BYTES <= SLOT_MAX, "a page fits its slot");
 static void stone_pack(uint8_t *p, const Stone *st) {
     uint64_t w = (uint64_t)st->when;
     put32(p, (int32_t)(uint32_t)(w & 0xffffffffu)); put32(p + 4, (int32_t)(uint32_t)(w >> 32)); put16(p + 8, st->level);
@@ -24011,6 +24648,12 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     put32(c, (int32_t)RUN.ways); put32(c + 4, (int32_t)RUN.way_said); put16(c + 8, clampi(RUN.way_run, 0, 65535));
     put16(c + 10, RUN.deed_amb); put16(c + 12, RUN.deed_shaken); put16(c + 14, RUN.deed_heads); put16(c + 16, RUN.deed_hush); put16(c + 18, RUN.deed_file);
     p = section_end(c, c + LG_WAYS_BYTES);
+    c = section_begin(p, LG_PORTRAIT);                             /* the portraits of the slain */
+    c[0] = (uint8_t)RUN.por_open; put32(c + 1, (int32_t)RUN.por_drawn);
+    memcpy(c + 5, RUN.por_run, sizeof RUN.por_run); memcpy(c + 5 + sizeof RUN.por_run, RUN.por_taken, sizeof RUN.por_taken);
+    memcpy(c + 5 + sizeof RUN.por_run + sizeof RUN.por_taken, RUN.por_btaken, sizeof RUN.por_btaken);
+    for (int kd = 0; kd < REC_KINDS; kd++) put16(c + LG_PORTRAIT_B4 + 2 * kd, RUN.por_feat[kd]);
+    p = section_end(c, c + LG_PORTRAIT_BYTES);
     c = section_begin(p, LG_ELEM);
     memcpy(c, RUN.rec.el_kills, sizeof RUN.rec.el_kills); memcpy(c + REC_KINDS * NELEM, RUN.rec.el_hits, sizeof RUN.rec.el_hits);
     memcpy(c + 2 * REC_KINDS * NELEM, RUN.rec.harms, sizeof RUN.rec.harms);
@@ -24200,6 +24843,23 @@ static void run_unpack(const uint8_t *buf, int len) {
         if (vs->held >= vs->ped_n || !RUN.gear.has_held) vs->held = -1;
         LEDGER.has_visit = ok;
     }
+    c = page_section(buf, len, LG_PORTRAIT, &k);                   /* the portraits of the slain */
+    if (c && k >= LG_PORTRAIT_B4) {
+        RUN.por_open = c[0] & (POR_CLEARED | POR_WOKEN); RUN.por_drawn = (uint32_t)get32(c + 1) & (((1u << NKINDS) - 1) | (((1u << NBOSS) - 1) << POR_BOSSBIT));
+        if (k >= LG_PORTRAIT_BYTES) for (int kd = 0; kd < REC_KINDS; kd++) RUN.por_feat[kd] = (uint16_t)get16(c + LG_PORTRAIT_B4 + 2 * kd);
+        memcpy(RUN.por_run, c + 5, sizeof RUN.por_run); memcpy(RUN.por_taken, c + 5 + sizeof RUN.por_run, sizeof RUN.por_taken);
+        memcpy(RUN.por_btaken, c + 5 + sizeof RUN.por_run + sizeof RUN.por_taken, sizeof RUN.por_btaken);
+        for (int kd = 0; kd < REC_KINDS; kd++) for (int r = 0; r < POR_GEMS; r++) if (RUN.por_run[kd][r] > 4) RUN.por_run[kd][r] = 0;
+    } else {                                                       /* older: shown where its ranks are common, the tapestries down where it
+                                                                      has slain, every rank's gold waiting */
+        RUN.por_open = POR_WOKEN;
+        for (int kd = 0; kd < NKINDS; kd++) for (int r = 0; r < NRANK; r++) if (RUN.rec.kills[kd][r]) RUN.por_drawn |= 1u << kd;
+    }
+    por_fill();
+    slayer_sweep();                                                /* the counts lowered since it was written */
+#ifdef CRAWL_DEBUG
+    por_trace(c ? "read" : "read, older");
+#endif
 }
 
 /* the next start opens this page */
@@ -24652,6 +25312,7 @@ static void death_fall(void) {
     memset(RUN.steps, 0, sizeof RUN.steps); memset(RUN.over, 0, sizeof RUN.over);       /* the map stays */
     memset(RUN.conf, 0, sizeof RUN.conf); memset(RUN.conf_over, 0, sizeof RUN.conf_over); RUN.ap_overs = 0;   /* the Confessions with them (U13) */
     for (int e = 0; e < NELEM; e++) aug_forget(e);                 /* and the augments with the lines (A14) */
+    por_life();                                                    /* the portraits owe their gold again (docs/PLAN-portraits.md) */
     XPF.n = 0; XPF.banner = 0.0f;
     G.level_treasure = G.level_souls = 0;
     RUN.level = 1; RUN.shop_next = 1; RUN.hp = gear_max_hp(g);
@@ -25831,6 +26492,7 @@ static void update_ui(void) {
     if (G.ui == UI_BSHRINE) { update_bshrine(); return; }
     if (G.ui == UI_RECKON) { update_reckon(); return; }
     if (G.ui == UI_PAD) { update_padmenu(); return; }
+    if (G.ui == UI_PORTRAIT) { update_portrait(); return; }
     if (G.ui == UI_INVENTORY) update_inventory();
     else if (G.ui == UI_LEDGER) update_ledger();
     else if (G.ui == UI_MERCHANT) update_merchantmenu();
@@ -26395,8 +27057,8 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
         int sx = rdx < 0 ? -1 : 1, sy = rdy < 0 ? -1 : 1;
         float sdx = rdx < 0 ? (G.px - mx) * ddx : (mx + 1.0f - G.px) * ddx;
         float sdy = rdy < 0 ? (G.py - my) * ddy : (my + 1.0f - G.py) * ddy;
-        int side = 0, tex = T_STONE, texx = 0, hit = 0, over = -1, flip = 0;
-        float perp = 30.0f, cracks = 0.0f;
+        int side = 0, tex = T_STONE, texx = 0, hit = 0, over = -1, flip = 0, por = -1, ptx = 0, ng = 0, gw[8];
+        float perp = 30.0f, cracks = 0.0f, galong = 0.0f;
         for (int i = 0; i < 100 && !hit; i++) {
             if (sdx < sdy) { sdx += ddx; mx += sx; side = 0; } else { sdy += ddy; my += sy; side = 1; }
             Cell *c = cell(mx, my);
@@ -26416,7 +27078,10 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 tex = c->tex;
                 int pxc = side == 0 ? mx - sx : mx, pyc = side == 1 ? my - sy : my;
                 int fd = side == 0 ? (sx > 0 ? 2 : 0) : (sy > 0 ? 3 : 1);   /* the face looked at */
-                if (cell(pxc, pyc)->kind == K_DOOR) tex = G.faced ? T_RJAMB : T_JAMB;
+                if (c->por && POR.at[c->por - 1].fd == fd) {              /* a portrait of the slain, over its face's own stone */
+                    por = c->por - 1; flip = c->fflip >> fd & 1;
+                    tex = c->face[fd] ? c->face[fd] : plain_tex(tex) ? tex : T_BRICK;
+                } else if (cell(pxc, pyc)->kind == K_DOOR) tex = G.faced ? T_RJAMB : T_JAMB;
                 else if (c->face[fd] && plain_tex(tex)) {
                     tex = c->face[fd]; flip = c->fflip >> fd & 1;
                     if (c->fover[fd]) over = c->fover[fd] == T_FEAT + F1_TORCH ? T_FEAT + F1_TORCH + (int)((tframe + hash2(mx, my)) % 3) : c->fover[fd];
@@ -26429,7 +27094,19 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 wallx -= floorf(wallx);
                 texx = (int)(wallx * TS);
                 if ((side == 0 && rdx > 0) || (side == 1 && rdy < 0)) texx = TS - 1 - texx;
+                if (por >= 0) {                                         /* the portrait's own column, never mirrored */
+                    ptx = clampi((int)(wallx * POR_RES), 0, POR_RES - 1);
+                    if ((side == 0 && rdx > 0) || (side == 1 && rdy < 0)) ptx = POR_RES - 1 - ptx;
+                }
                 if (flip) texx = TS - 1 - texx;
+                if (G.shop && POR.nwf) {                                /* the portraits' candles: their glow on the wall about them */
+                    float plane = side == 0 ? (float)(mx + (fd == 0)) : (float)(my + (fd == 1));
+                    galong = side == 0 ? G.py + perp * rdy : G.px + perp * rdx;
+                    for (int k = 0; k < POR.nwf && ng < 8; k++) {
+                        const PorFlame *w = &POR.wf[k];
+                        if (w->fd == fd && fabsf(w->plane - plane) < 0.01f && fabsf(w->along - galong) < 0.8f) gw[ng++] = k;
+                    }
+                }
                 if (c->secret == 2) cracks = 1.0f - smoothstepf(1.3f, 2.8f, perp);   /* only close up do the cracks show */
                 hit = 1;
             } else if (c->kind == K_DOOR) {
@@ -26469,6 +27146,14 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
             for (int k = 0; k < TS; k++) mix[k] = oc[k] != C_CLEAR ? oc[k] : col[k];
             col = mix;
         }
+        int tn = TS;                                                /* the column's texels */
+        if (por >= 0) {                                             /* a portrait, at twice the walls' texels, over its stone */
+            static uint8_t pmix[POR_RES];
+            const uint8_t *pc = &POR_OV[por][ptx * POR_RES];
+            for (int k = 0; k < POR_RES; k++) pmix[k] = pc[k] != C_CLEAR ? pc[k] : col[k * TS / POR_RES];
+            col = pmix; tn = POR_RES; tstep = POR_RES / lineh; ty = (y0 + 0.5f - top) * tstep;
+            POR.seen[por] = POR.frame;                              /* in view: drawn again as it moves */
+        }
         if (cracks > 0.0f) {
             const uint8_t *cm = &crack_mask[texx * TS];
             int thr = (int)(cracks * 16.0f);
@@ -26479,8 +27164,29 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
             }
             continue;
         }
+        if (ng) {                                                   /* a candle's glow, row by row (as the mock-ups light them), worked
+                                                                       out only within its reach, every other row on a portrait's face */
+            static float gl[TS];
+            float lk = atten(perp) * (side ? 0.82f : 1.0f);
+            for (int r = 0; r < TS; r++) gl[r] = 0.0f;
+            for (int q = 0; q < ng; q++) {
+                const PorFlame *w = &POR.wf[gw[q]];
+                float fk = 1.5f * w->pw * torch_flicker(&G.lights[w->light]) * lk, dx = galong - w->along, reach = sqrtf(fmaxf(0.0f, 0.64f - dx * dx)) / 1.1f;
+                int r0 = imax(0, (int)((w->z - reach) * TS)), r1 = imin(TS - 1, (int)((w->z + reach) * TS) + 1);
+                for (int r = r0; r <= r1; r++) {
+                    float dz = (((float)r + 0.5f) / (float)TS - w->z) * 1.1f, d3 = sqrtf(dx * dx + dz * dz);
+                    if (d3 < 0.8f) { float e = 1.0f - d3 / 0.8f; gl[r] += fk * e * e; }
+                }
+            }
+            int gs = tn / TS;                                       /* texels of the column to a row of the glow */
+            for (int y = y0; y < y1; y++, ty += tstep) {
+                int ti = clampi((int)ty, 0, tn - 1);
+                f->pix[y * W + x] = fogged(shade(col[ti], light + gl[ti / gs], x, y), fog, light, x, y);
+            }
+            continue;
+        }
         for (int y = y0; y < y1; y++, ty += tstep)
-            f->pix[y * W + x] = fogged(shade(col[clampi((int)ty, 0, TS - 1)], light, x, y), fog, light, x, y);
+            f->pix[y * W + x] = fogged(shade(col[clampi((int)ty, 0, tn - 1)], light, x, y), fog, light, x, y);
     }
 }
 
@@ -28061,7 +28767,7 @@ static void draw_coin(Frame *f, int x, int y) {                    /* a Cursed C
 }
 static int shop_carded(void) {                                     /* a person looking at something in her room: its card is up */
     return G.shop && G.player && (G.shop_look >= 0 || G.rep_look || G.comp_look || G.stone_look >= 0 || G.map_look || G.mer_look || G.por_look
-                                  || G.tot_look || G.bell_look || G.font_look || G.lamp_look || G.sh_look);
+                                  || G.tot_look || G.bell_look || G.font_look || G.lamp_look || G.sh_look || G.pt_look);
 }
 static void render_shop_card(Frame *f) {
     if (G.player && WH.k > 0.0f) return;                           /* and the cards: a wheel covers them (1.0.0b18.1) */
@@ -28069,6 +28775,43 @@ static void render_shop_card(Frame *f) {
     if (G.shop_step == SH_LOOK && G.shop_t < 0.35) i = -1;
     if (G.player) i = G.shop_look;
     int y0 = H - 44 - 46;
+    if (G.player && G.pt_look && i < 0 && POR.at[G.pt_look - 1].boss) {   /* a boss's portrait, and what E does there */
+        int p = por_head(G.pt_look - 1), b = por_bossof(p), drawn = por_is_drawn(p), unl = boss_unlocked(b), gold = boss_wait_gold(b);
+        int bw = 264, bx = (W - bw) / 2, ph = 42, hi = -1, steps = 0;
+        for (int st = 0; st < 6; st++) if (unl >> st & 1) { hi = st; steps += st > 0; }
+        y0 = H - 44 - 4 - ph;
+        ui_band(f, bx, y0, bw, ph);
+        gfx_text16(f, bx + 8, y0 + 4, drawn ? POR_BOSS_NAME[b] : "A TAPESTRY", drawn ? (hi >= 0 ? (uint8_t)RANK_COL[BOSS_GEM[hi]] : (uint8_t)(R_STONE + 13)) : (uint8_t)(R_BLOOD + 13), 1);
+        char l2[64];
+        if (!drawn) snprintf(l2, sizeof l2, "%s", por_can_draw(p) ? "WHAT HANGS HERE HAS FALLEN" : "WHAT HANGS HERE IS NOT YET SLAIN");
+        else if (gold && !steps) snprintf(l2, sizeof l2, "SLAIN, $%d WAITS", gold);
+        else if (gold) snprintf(l2, sizeof l2, "%d OF 5 STEPS, $%d WAITS", steps, gold);
+        else snprintf(l2, sizeof l2, "SLAIN, AND %d OF 5 STEPS", steps);
+        gfx_text8(f, bx + 8, y0 + 21, l2, gold ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 12), 1);
+        hint8(f, bx + 8, y0 + 31, !drawn && por_can_draw(p) ? "E DRAW BACK THE TAPESTRIES" : drawn && gold ? "E: ITS CARD, AND ITS GOLD" : drawn ? "E: ITS CARD" : "", R_STONE + 10);
+        return;
+    }
+    if (G.player && G.pt_look && i < 0) {                          /* a portrait of the slain, and what E does there */
+        int p = G.pt_look - 1, k = POR.at[p].kind, drawn = RUN.por_drawn >> k & 1, unl = por_unlocked(k), bw = 264, bx = (W - bw) / 2, ph = 42;
+        int rk[NRANK], nr = por_ranks(k, rk), nu = 0, hi = por_high(unl), gold = por_wait_gold(k);
+        for (int j = 0; j < nr; j++) nu += unl >> rk[j] & 1;
+        y0 = H - 44 - 4 - ph;
+        ui_band(f, bx, y0, bw, ph);
+        gfx_text16(f, bx + 8, y0 + 4, drawn ? KINDS[k].plural : "A TAPESTRY", drawn ? (hi >= 0 ? (uint8_t)RANK_COL[hi] : (uint8_t)(R_STONE + 13)) : (uint8_t)(R_BLOOD + 13), 1);
+        char l2[64];
+        if (!drawn) snprintf(l2, sizeof l2, "%s", por_drawable(k) ? "ONE OF ITS KIND IS SLAIN" : "NONE OF ITS KIND SLAIN YET");
+        else if (!nr) snprintf(l2, sizeof l2, "NOTHING OF ITS KIND IS SLAIN");
+        else if (!nu && !(unl >> POR_FEAT & 1)) snprintf(l2, sizeof l2, "ITS SHADOW: NO RANK UNLOCKED");
+        else if (unl >> POR_FEAT & 1) {                           /* its feat too (step 5) */
+            if (gold) snprintf(l2, sizeof l2, "%d OF %d AND A FEAT, $%d WAITS", nu, nr, gold);
+            else snprintf(l2, sizeof l2, "%d OF %d RANK%s AND A FEAT", nu, nr, nr == 1 ? "" : "S");
+        }
+        else if (gold) snprintf(l2, sizeof l2, "%d OF %d RANK%s, $%d WAITS", nu, nr, nr == 1 ? "" : "S", gold);
+        else snprintf(l2, sizeof l2, "%d OF %d RANK%s UNLOCKED", nu, nr, nr == 1 ? "" : "S");
+        gfx_text8(f, bx + 8, y0 + 21, l2, gold ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 12), 1);
+        hint8(f, bx + 8, y0 + 31, !drawn && por_drawable(k) ? "E DRAW BACK THE TAPESTRY" : gold ? "E: ITS CARD, AND ITS GOLD" : "E: ITS CARD", R_STONE + 10);
+        return;
+    }
     if (G.player && G.rep_look && i < 0) {                         /* the Repository, and what E does there */
         int bw = 264, bx = (W - bw) / 2, ph = 42, full = 0;
         for (int k = 0; k < RUN.repo_n; k++) full += RUN.repo[k].kind != IK_NONE;
@@ -30254,7 +30997,6 @@ static void render_stonemenu(Frame *f) {
 /* ---- the tracker's pop-up, and the bestiary (B) ---- */
 
 static const char *const RANK_ROMAN[NRANK] = { "I", "II", "III", "IV", "V", "GILDED" };
-static const int RANK_COL[NRANK] = { R_BONE + 13, R_MOSS + 13, R_GHOST + 13, R_BLOOD + 13, R_IRON + 11, R_GOLD + 11 };
 
 /* a sprite drawn flat into a box, scaled to size, in a rank's colours, or as a dark shape; flip: facing left */
 static void ui_sprite_ex(Frame *f, int spr, int x0, int y0, int size, const uint8_t *lut, int shadow, int flip) {
@@ -30336,6 +31078,15 @@ static int ach_lines(AchLine *L, int max) {
             else snprintf(l->title, sizeof l->title, "%s???", rank_word(k, rk[j]));
             snprintf(l->prog, sizeof l->prog, "%d/%d", r->kills[k][rk[j]] < need ? r->kills[k][rk[j]] : need, need);
         }
+        for (int q = 0; q < NPORACH && n < max; q++) {             /* its portrait's own: laid to rest, driven back, its feat */
+            PorAch a;
+            por_ach(q, &a);
+            if (a.kind != k) continue;
+            AchLine *l = &L[n++];
+            l->done = ach_has(a.bit); l->known = kind_met(k) || por_count(k) > 0;
+            snprintf(l->title, sizeof l->title, "%s", l->known || l->done ? a.title : "A FEAT: ???");
+            snprintf(l->prog, sizeof l->prog, "%d/%d", imin(por_count(k), a.need), a.need);
+        }
     }
     for (int i = 0; i < NSECRET_STEPS && n < max; i++) {
         AchLine *l = &L[n++];
@@ -30403,13 +31154,16 @@ static void update_bestiary(void) {
     int order[NKINDS], nk = best_kinds(order), pages = nk + 1;
     int dx = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
     int dy = (IN.hit[KEY_S] || IN.hit[KEY_DOWN]) - (IN.hit[KEY_W] || IN.hit[KEY_UP]);
-    if (dx) { G.best_page = (G.best_page + dx + pages) % pages; G.best_scroll = 0; best_default_rank(); snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+    if (dx) { G.best_page = (G.best_page + dx + pages) % pages; G.best_scroll = 0; G.best_feat = 0; best_default_rank(); snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
     if (IN.hit[KEY_SPACE] && G.best_page < nk && mind_on()) { G.best_ways ^= 1; snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f); }   /* its lore, or its ways */
     if (!dy) return;
-    if (G.best_page < nk) {                                        /* through the ranks it comes in */
-        int rk[NRANK], nr = kind_ranks(order[G.best_page], rk), at = 0;
+    if (G.best_page < nk) {                                        /* through the ranks it comes in, then its feat */
+        int k = order[G.best_page], rk[NRANK], nr = kind_ranks(k, rk), at = 0, ft = feat_of(k) >= 0, n = nr + ft;
         for (int j = 0; j < nr; j++) if (rk[j] == G.best_rank) at = j;
-        G.best_rank = rk[(at + dy + nr) % nr];
+        if (G.best_feat && ft) at = nr;
+        at = (at + dy + n) % n;
+        G.best_feat = at == nr;
+        if (!G.best_feat) G.best_rank = rk[at];
     } else {
         static AchLine L[256];
         int n = ach_lines(L, 256);
@@ -30418,6 +31172,7 @@ static void update_bestiary(void) {
     snd_sfx_ex(SFX_TICK, 0.6f, 0.5f);
 }
 
+static void medal_glyph(Frame *f, int x, int y, int on);
 static void render_bestiary(Frame *f) {
     dim_view(f);
     int order[NKINDS], nk = best_kinds(order), pages = nk + 1;
@@ -30459,10 +31214,12 @@ static void render_bestiary(Frame *f) {
     ui_sprite_ex(f, spr, 16, 42, 96, lut, !met || !seen, facing == 3);
     int x0 = 124;
     gfx_text16(f, x0, 38, met ? KINDS[k].name : "???", C_WHITE, 1);
-    if (spirit) snprintf(line, sizeof line, "A SPIRIT: NO RANK");
+    int fi = feat_of(k), feat = G.best_feat && fi >= 0, fdone = fi >= 0 && ach_has(ACH_FEAT0 + fi);   /* its feat (the portraits') */
+    if (feat) snprintf(line, sizeof line, "FEAT: %s", FEATS[fi].name);
+    else if (spirit) snprintf(line, sizeof line, "A SPIRIT: NO RANK");
     else if (seen) snprintf(line, sizeof line, "RANK %s  %s", RANK_ROMAN[G.best_rank], G.best_rank == RK_I ? "" : rank_word(k, G.best_rank));
     else snprintf(line, sizeof line, "RANK %s  NOT MET YET", RANK_ROMAN[G.best_rank]);
-    gfx_text8(f, x0, 57, line, seen || spirit ? (uint8_t)RANK_COL[G.best_rank] : (uint8_t)(R_STONE + 8), 1);
+    gfx_text8(f, x0, 57, line, feat ? (uint8_t)(fdone ? R_GOLD + 13 : R_GOLD + 9) : seen || spirit ? (uint8_t)RANK_COL[G.best_rank] : (uint8_t)(R_STONE + 8), 1);
     /* its ways (1.0.0b18): what it does among the others, written in its voice, on Space in place of its lore */
     static const char *const WAYS[NKINDS] = {
         [MOB_SKEL] = "IT KEEPS A POST OR WALKS A ROUND, MARCHES IN THE FILE, AND THROWS ROUND CORNERS.",
@@ -30489,7 +31246,14 @@ static void render_bestiary(Frame *f) {
         [MOB_LIGHTLESS] = "IT ROAMS, QUICK WHEN IT KNOWS, AND PUTS OUT THE WISPS IT REACHES." };
     const char *ways = met && mind_on() && WAYS[k] ? WAYS[k] : NULL;
     if (!ways) G.best_ways = 0;
-    if (met && G.best_ways) text_wrap(f, x0, 70, ways, 23, R_BONE + 12, 4);
+    if (feat) {                                                    /* what it asks, and how far along */
+        int have = imin(por_count(k), FEATS[fi].need);
+        text_wrap(f, x0, 70, FEATS[fi].rule, 23, R_STONE + 12, 2);
+        if (fdone) snprintf(line, sizeof line, "EARNED: ITS MEDALLION");
+        else snprintf(line, sizeof line, "%d OF %d", have, FEATS[fi].need);
+        gfx_text8(f, x0, 92, line, fdone ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 11), 1);
+    }
+    else if (met && G.best_ways) text_wrap(f, x0, 70, ways, 23, R_BONE + 12, 4);
     else if (met) text_wrap(f, x0, 70, KINDS[k].lore, 23, R_STONE + 12, 4);
     else text_wrap(f, x0, 70, "NOT YET MET. IT IS DOWN THERE SOMEWHERE.", 23, R_STONE + 8, 4);
     if (ways) {                                                    /* which of the two: a pip each at the well's corner */
@@ -30499,20 +31263,31 @@ static void render_bestiary(Frame *f) {
     }
     /* slain, rank by rank, against what each achievement asks; its ranks as lozenges at the niche's foot, the one shown lit */
     int rk[NRANK], nr = kind_ranks(k, rk);
+    int nl = nr + (fi >= 0);                                       /* and its feat's medallion after them */
+    if (!spirit && fi >= 0) medal_glyph(f, 64 - nl * 6 + nr * 12 - 5, 131, feat);
     if (!spirit) for (int j = 0; j < nr; j++) {
-        int lx = 64 - nr * 6 + j * 12, on = rk[j] == G.best_rank, ly = 135;
+        int lx = 64 - nl * 6 + j * 12, on = rk[j] == G.best_rank && !feat, ly = 135;
         for (int d = 0; d < 4; d++) for (int q = -d; q <= d; q++) {
             uint8_t c = on ? (uint8_t)RANK_COL[rk[j]] : UI_W(d == 3 || abs(q) == d ? 0 : 3);
             gfx_px(f, lx + q, ly - 3 + d, c); gfx_px(f, lx + q, ly + 3 - d, c);
         }
     }
-    gfx_text8(f, x0, 108, "SLAIN", R_GOLD + 10, 1);
-    if (spirit) gfx_text8(f, x0 + 48, 108, "IT CANNOT BE", R_STONE + 9, 1);
+    gfx_text8(f, x0, 108, k == MOB_GHOST ? "LAID" : k == MOB_WRAITH ? "DRIVEN" : "SLAIN", R_GOLD + 10, 1);
+    if (k == MOB_GHOST || k == MOB_WRAITH) {                       /* the portraits' own: laid to rest, or driven back */
+        int w = k == MOB_WRAITH, have = por_count(k);
+        for (int j = 0; j < 3 + w; j++) {
+            int need = j == 3 ? 1 : w ? WRAITH_STEP[j] : GHOST_STEP[j], got = j == 3 ? ach_has(ACH_BOSS0 + 6 * BOSS_WRAITH) : have;
+            int done = j == 3 ? got : ach_has(ACH_POR0 + 3 * w + j);
+            snprintf(line, sizeof line, "%-3s%3d/%d", RANK_ROMAN[j], imin(got, 999), need);
+            gfx_text8(f, x0 + (j & 1) * 92, 118 + (j / 2) * 9, line, done ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 11), 1);
+        }
+    }
+    else if (spirit) gfx_text8(f, x0 + 48, 108, "IT CANNOT BE", R_STONE + 9, 1);
     else for (int j = 0; j < nr; j++) {
         int need = slayer_need(k, rk[j]), have = r->kills[k][rk[j]], done = ach_has(k * NRANK + rk[j]);
         snprintf(line, sizeof line, "%-3s%3d/%d", rk[j] == RK_GILDED ? "G" : RANK_ROMAN[rk[j]], have < 999 ? have : 999, need);
         int cx = x0 + (j & 1) * 92, cy = 118 + (j / 2) * 9;
-        gfx_text8(f, cx, cy, line, done ? (uint8_t)(R_GOLD + 12) : (rk[j] == G.best_rank ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 11)), 1);
+        gfx_text8(f, cx, cy, line, done ? (uint8_t)(R_GOLD + 12) : (rk[j] == G.best_rank && !feat ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 11)), 1);
     }
     /* what hurts it and what it does, in glyphs (docs/PLAN-b11.md, section 2): each element learnt from five
      * kills or twelve hits, each harm from three times it has hurt you */
@@ -32560,10 +33335,11 @@ static void render_map(Frame *f) {
 }
 
 static void render_ui_in(Frame *f);
+static void render_portraitcard(Frame *f);
 static void render_ui(Frame *f) {
     static const char *const NAME[] = { "none", "wardrobe", "quit", "ledger", "bestiary", "letgo", "wisps", "altar", "shrine", "totem",
                                         "portal", "merchant", "stone", "compendium", "repository", "codex", "ascend", "cornerstones",
-                                        "alignment", "class", "hall2", "bshrine", "reckon", "controller" };
+                                        "alignment", "class", "hall2", "bshrine", "reckon", "controller", "portrait" };
     ui_on(f, 1, G.ui >= 0 && G.ui < (int)(sizeof NAME / sizeof NAME[0]) ? NAME[G.ui] : "?");
     render_ui_in(f);
     ui_off();
@@ -32585,6 +33361,7 @@ static void render_ui_in(Frame *f) {
     if (G.ui == UI_BSHRINE) { render_bshrine(f); return; }
     if (G.ui == UI_RECKON) { render_reckon(f); return; }
     if (G.ui == UI_PAD) { render_padmenu(f); return; }
+    if (G.ui == UI_PORTRAIT) { render_portraitcard(f); return; }
     if (G.ui == UI_INVENTORY) render_inventory(f);
     else if (G.ui == UI_QUIT) render_quit(f);
     else if (G.ui == UI_LEDGER) render_ledger(f);
@@ -32890,6 +33667,230 @@ static void render_marks(Frame *f, float dx, float dy, float horizon) {
     }
     ward_pips(f, dx, dy, horizon);                                 /* and the soul-lamps' pips (1.0.0b18.1) */
 }
+/* ---- the portraits of the slain, drawn (docs/PLAN-portraits.md): what each shows, from the record, and its overlay kept ---- */
+
+/* portrait i at the clock t: its creature in the rank shown (its unlocked ranks in turn, five seconds each, the next coming
+ * through over the last two thirds of a second: v2 and how far, in *mix), on the stone of the run that rank was unlocked in */
+static void por_view(int i, float t, PortraitView *v, PortraitView *v2, float *mix) {
+    const PorAt *a = &POR.at[i];
+    int k = a->kind, rk[NRANK], nr = por_ranks(k, rk), unl = por_unlocked(k), list[NRANK], n = 0;
+    memset(v, 0, sizeof *v);
+    v->spr[0] = KINDS[k].spr; v->spr[1] = KINDS[k].spr2; v->spr[2] = KINDS[k].side; v->spr[3] = KINDS[k].side2;
+    v->family = KINDS[k].family; v->layout = a->layout; v->t = t; v->walk0 = a->ph;
+    memcpy(v->ranks, rk, sizeof rk); v->nranks = nr;
+    v->unlocked = unl; v->unpaid = por_waiting(k); v->frame = por_high(unl);
+    v->veil = RUN.por_drawn >> k & 1 ? 1.0f - smoothstepf(POR.veil_t[i], POR.veil_t[i] + POR_DRAW_T, t) : 1.0f;   /* drawn back over a moment */
+    for (int j = 0; j < nr; j++) if (unl >> rk[j] & 1) list[n++] = rk[j];
+    float u = (t - a->ph) / 5.0f, fr = u - floorf(u);
+    *v2 = *v; *mix = 0.0f;
+    for (int w = 0; w < 2; w++) {
+        PortraitView *p = w ? v2 : v;
+        int rank = n ? list[((int)floorf(u) + w) % n] : -1;
+        int run = rank >= 0 && RUN.por_run[k][rank] ? RUN.por_run[k][rank] - 1 : por_guess(k, rank >= 0 ? rank : RK_I);
+        p->rank = rank; p->wall = portrait_run_wall(run); p->floor = portrait_run_floor(run);
+        int ec = rank > RK_I && KINDS[k].family >= 0 && EYE_RANK[rank] >= 0 ? EYE_RANK[rank] : EYE_OWN[k];   /* the spirits' never change */
+        p->eye_core = rank >= 0 && crawl_eyes[p->spr[0]].n ? EYE_CORE[ec] : 0; p->eye_glow = EYE_GLOW[ec];
+    }
+    if (n > 1 && fr > 0.87f) *mix = (fr - 0.87f) / 0.13f;
+}
+/* a boss's portrait as it stands: its arena, its sprites, its deeds and its gold, its tapestries */
+static void por_boss_view(int i, float t, BossPortraitView *v) {
+    static const int SPR[NBOSS][5] = {                             /* walking, raising its blow, striking, a pose of its own */
+        { SP_BKNIGHT_A, SP_BKNIGHT_B, SP_BKNIGHT_W, SP_BKNIGHT_S, SP_BKNIGHT_P0 },
+        { SP_BSPIDER_A, SP_BSPIDER_B, SP_BSPIDER_REAR, SP_BSPIDER_LEAP, SP_BSPIDER_REAR },
+        { SP_BDEACON_A, SP_BDEACON_B, SP_BDEACON_CHANT, SP_BDEACON_CHANT, SP_BDEACON_A },
+        { SP_WRAITH_A, SP_WRAITH_B, SP_WRAITH_REACH, SP_WRAITH_REACH, SP_WRAITH_A } };
+    static const int PROP[NBOSS][3] = {                            /* what stands behind it (and its frames), what lies before it */
+        { SP_PILLAR, 1, SP_BROKEN_ARMS }, { SP_PILLAR, 1, SP_PUDDLE_A }, { SP_TIMBER, 1, SP_TOMB_BROKEN }, { SP_BRAZIER_A, 3, SP_OBSIDIAN } };
+    int h = por_head(i), b = por_bossof(h), ec = EYE_OWN[BOSSES[b].kind];
+    memset(v, 0, sizeof *v);
+    memcpy(v->spr, SPR[b], sizeof v->spr);
+    v->prop[0] = PROP[b][0]; v->prop[1] = PROP[b][2]; v->prop_n = PROP[b][1];
+    v->eye_core = ec >= 0 ? EYE_CORE[ec] : 0; v->eye_glow = ec >= 0 ? EYE_GLOW[ec] : 0;
+    v->wall = portrait_run_wall(b); v->floor = portrait_run_floor(b);
+    v->unlocked = boss_unlocked(b); v->unpaid = boss_waiting(b);
+    v->veil = RUN.por_drawn >> por_bit(h) & 1 ? 1.0f - smoothstepf(POR.veil_t[h], POR.veil_t[h] + POR_DRAW_T, t) : 1.0f;
+    v->t = t - POR.at[h].ph; v->scale = 1.25f;
+}
+/* each frame in her rooms: a portrait in view last frame (or never yet drawn) is drawn again when its candles' flames have moved,
+ * twenty times a second, its creature's step and turn with them; the rest wait as they are */
+static void por_frame(void) {
+    if (!G.shop || !POR.n) return;
+    static uint8_t a[POR_RES * POR_RES], b[POR_RES * POR_RES], bb[2 * POR_RES * POR_RES];
+    float t = (float)G.t;
+    for (int i = 0; i < POR.n; i++) {
+        int key = (int)floorf(t * 20.0f + 0.37f * (float)i);       /* their turns spread across the frames */
+        if (POR.at[i].boss) {                                      /* a boss's, both its faces at once from its left half */
+            if (POR.at[i].half || i + 1 >= POR.n) continue;
+            if (POR.drawn[i] && (key == POR.key[i] || (POR.seen[i] < POR.frame - 1 && POR.seen[i + 1] < POR.frame - 1))) continue;
+            BossPortraitView bv;
+            por_boss_view(i, t, &bv);
+            memset(bb, C_CLEAR, sizeof bb);
+            portrait_boss_face(bb, 2 * POR_RES, 2 * POR_RES, POR_RES, 0, 0, POR_RES / TS, &bv);
+            for (int hh = 0; hh < 2; hh++) {
+                uint8_t *o = POR_OV[i + hh];
+                for (int x = 0; x < POR_RES; x++) for (int y = 0; y < POR_RES; y++) o[(POR_RES - 1 - x) * POR_RES + y] = bb[y * 2 * POR_RES + hh * POR_RES + x];
+                POR.key[i + hh] = key; POR.drawn[i + hh] = 1;
+            }
+            continue;
+        }
+        if (POR.drawn[i] && (key == POR.key[i] || POR.seen[i] < POR.frame - 1)) continue;
+        PortraitView v, v2;
+        float mix;
+        por_view(i, t, &v, &v2, &mix);
+        memset(a, C_CLEAR, sizeof a);
+        portrait_face(a, POR_RES, POR_RES, POR_RES, 0, 0, POR_RES / TS, &v);
+        if (mix > 0.0f) {                                          /* the next rank coming through, dithered */
+            memset(b, C_CLEAR, sizeof b);
+            portrait_face(b, POR_RES, POR_RES, POR_RES, 0, 0, POR_RES / TS, &v2);
+            int s = POR_RES / TS;
+            for (int y = 0; y < POR_RES; y++) for (int x = 0; x < POR_RES; x++)
+                if ((float)BAYER[(y / s) & 3][(x / s) & 3] < mix * 16.0f) a[y * POR_RES + x] = b[y * POR_RES + x];
+        }
+        uint8_t *o = POR_OV[i];                                    /* by columns, as the walls are kept: the first on the right as seen */
+        for (int x = 0; x < POR_RES; x++) for (int y = 0; y < POR_RES; y++) o[(POR_RES - 1 - x) * POR_RES + y] = a[y * POR_RES + x];
+        POR.key[i] = key; POR.drawn[i] = 1;
+    }
+    POR.frame++;
+}
+
+static void medal_glyph(Frame *f, int x, int y, int on) {          /* a feat's medallion on its ribbon, 8 by 8 */
+    static const char *const M[8] = { "#....#..", ".#..#...", "..##....", ".####...", "#oooo#..", "#o##o#..", "#oooo#..", ".####..." };
+    for (int r = 0; r < 8; r++) for (int c = 0; c < 8; c++) {
+        char q = M[r][c];
+        if (q == '.') continue;
+        uint8_t col = r < 3 ? (on ? (uint8_t)(R_BLOOD + 9) : (uint8_t)(R_STONE + 6)) : q == 'o' ? (on ? (uint8_t)(R_GOLD + 9) : (uint8_t)(R_STONE + 7))
+                    : on ? (uint8_t)(R_GOLD + 13) : (uint8_t)(R_STONE + 10);
+        gfx_px(f, x + c + 1, y + r, col);
+    }
+}
+/* a portrait's card (section 2, the mock-up's card.png): the portrait up close in its candles' light, and each rank of its kind,
+ * slain against asked, its gold and whether it is taken this life, waits, or is to come */
+static void render_bosscard(Frame *f, int p) {                     /* a boss's: its portrait up close, its six deeds, their gold */
+    int b = por_bossof(p), drawn = por_is_drawn(p), unl = boss_unlocked(b), w = boss_waiting(b), hi = -1;
+    for (int st = 0; st < 6; st++) if (unl >> st & 1) hi = st;
+    ui_slab(f, 6, 8, 308, 184, SLAB_TABLET, ORN_CANDLE, G.ui_t);
+    gfx_text16(f, 16, 14, drawn || hi >= 0 ? POR_BOSS_NAME[b] : "???", drawn && hi >= 0 ? (uint8_t)RANK_COL[BOSS_GEM[hi]] : (uint8_t)(R_GOLD + 12), 1);
+    char right[24];
+    if (!drawn) snprintf(right, sizeof right, "VEILED");
+    else if (hi <= 0) snprintf(right, sizeof right, hi < 0 ? "NOT SLAIN" : "SLAIN");
+    else snprintf(right, sizeof right, "STEP %d", hi);
+    gfx_text8(f, 304 - gfx_text_width(right, 1), 18, right, drawn && hi >= 0 ? (uint8_t)RANK_COL[BOSS_GEM[hi]] : (uint8_t)(R_STONE + 11), 1);
+    ui_well(f, 12, 34, 296, 106);
+    {                                                              /* its portrait, its two faces' stone behind, in its stands' light */
+        static uint8_t ov[2 * POR_RES * POR_RES];
+        BossPortraitView v;
+        float fl[6][3];
+        por_boss_view(p, (float)G.t, &v);
+        memset(ov, C_CLEAR, sizeof ov);
+        portrait_boss_face(ov, 2 * POR_RES, 2 * POR_RES, POR_RES, 0, 0, POR_RES / TS, &v);
+        int nf = portrait_boss_flames(fl);
+        const uint8_t *base[2];
+        for (int h = 0; h < 2; h++) {
+            const PorAt *a = &POR.at[p + h];
+            const Cell *c = &G.map[a->y][a->x];
+            base[h] = crawl_tex[c->face[a->fd] ? c->face[a->fd] : T_BRICK];
+        }
+        for (int y = 0; y < 104; y++) for (int x = 0; x < 2 * POR_RES; x++) {
+            int oy = y + 8;
+            uint8_t o = ov[oy * 2 * POR_RES + x], bs = base[x / POR_RES][((x % POR_RES) / 2) * TS + oy / 2];
+            float l = 0.30f;
+            for (int q = 0; q < nf; q++) { float d = hypotf((float)x / 2.0f - fl[q][0], (float)oy / 2.0f - fl[q][1]) / 64.0f; l += 0.6f * fl[q][2] / (1.0f + 30.0f * d * d); }
+            f->pix[(35 + y) * W + 32 + x] = shade(o != C_CLEAR ? o : bs, l, x, y);
+        }
+    }
+    static const char *const DEED[6] = { "SLAIN", "STEP 1", "STEP 2", "STEP 3", "STEP 4", "STEP 5" };
+    for (int st = 0; st < 6; st++) {                               /* its deeds in two columns: what each pays, and whether it waits */
+        int x = 16 + (st / 3) * 148, y = 145 + (st % 3) * 10, on = unl >> st & 1;
+        char g[16];
+        if (w >> st & 1) ui_row(f, x - 3, y - 1, 146, 10, 1);
+        gfx_text8(f, x, y, DEED[st], on ? (uint8_t)RANK_COL[BOSS_GEM[st]] : (uint8_t)(R_STONE + 9), 1);
+        snprintf(g, sizeof g, "%5d", boss_gold(b, st));
+        gfx_text8(f, x + 52, y, g, on ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 8), 1);
+        const char *ss = !on ? "" : RUN.por_btaken[b] >> st & 1 ? "TAKEN" : w >> st & 1 ? "WAITS" : "LATER";
+        if (ss[0]) gfx_text8(f, x + 100, y, ss, w >> st & 1 ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 10), 1);
+    }
+    char keys[64];
+    int gold = boss_wait_gold(b);
+    if (!drawn && por_can_draw(p)) snprintf(keys, sizeof keys, "E DRAW BACK  A/D ANOTHER  ESC LEAVE");
+    else if (gold) snprintf(keys, sizeof keys, "E TAKE %d  A/D ANOTHER  ESC LEAVE", gold);
+    else snprintf(keys, sizeof keys, "A/D ANOTHER  ESC LEAVE");
+    hall_keys(f, 179, keys);
+}
+static void render_portraitcard(Frame *f) {
+    dim_view(f);
+    if (!POR.n) return;
+    if (POR.at[por_head(clampi(G.pt_sel, 0, POR.n - 1))].boss) { render_bosscard(f, por_head(clampi(G.pt_sel, 0, POR.n - 1))); return; }
+    int p = clampi(G.pt_sel, 0, POR.n - 1), k = POR.at[p].kind, drawn = RUN.por_drawn >> k & 1, unl = por_unlocked(k), w = por_waiting(k);
+    int rk[NRANK], nr = por_ranks(k, rk), hi = por_high(unl), met = kind_met(k);
+    ui_slab(f, 6, 8, 308, 184, SLAB_TABLET, ORN_CANDLE, G.ui_t);
+    gfx_text16(f, 16, 14, drawn || met ? KINDS[k].plural : "???", drawn && hi >= 0 ? (uint8_t)RANK_COL[hi] : (uint8_t)(R_GOLD + 12), 1);
+    char right[24];
+    if (!drawn) snprintf(right, sizeof right, "VEILED");
+    else if (hi < 0) snprintf(right, sizeof right, "ITS SHADOW");
+    else snprintf(right, sizeof right, "RANK %s", hi == RK_GILDED ? "G" : RANK_ROMAN[hi]);
+    gfx_text8(f, 304 - gfx_text_width(right, 1), 18, right, hi >= 0 && drawn ? (uint8_t)RANK_COL[hi] : (uint8_t)(R_STONE + 11), 1);
+    ui_well(f, 12, 34, 124, 140);
+    {                                                              /* the portrait, drawn up close on its own stone, in its candles' light */
+        static uint8_t ov[POR_RES * POR_RES];
+        PortraitView v, v2;
+        float mix, fl[4][3];
+        por_view(p, (float)G.t, &v, &v2, &mix);
+        memset(ov, C_CLEAR, sizeof ov);
+        portrait_face(ov, POR_RES, POR_RES, POR_RES, 0, 0, POR_RES / TS, &v);
+        int nf = portrait_flames(&v, fl);
+        const Cell *c = &G.map[POR.at[p].y][POR.at[p].x];
+        const uint8_t *base = crawl_tex[c->face[POR.at[p].fd] ? c->face[POR.at[p].fd] : T_BRICK];
+        for (int y = 0; y < 128; y++) for (int x = 0; x < 118; x++) {
+            uint8_t o = ov[y * POR_RES + x + 2], b = base[((x + 2) / 2) * TS + y / 2];
+            float l = 0.30f;
+            for (int q = 0; q < nf; q++) { float d = hypotf((float)(x + 2) / 2.0f - fl[q][0], (float)y / 2.0f - fl[q][1]) / 64.0f; l += 0.9f * fl[q][2] / (1.0f + 30.0f * d * d); }
+            f->pix[(40 + y) * W + 15 + x] = shade(o != C_CLEAR ? o : b, l, x, y);
+        }
+    }
+    ui_well(f, 140, 34, 168, 104);
+    int ghost = k == MOB_GHOST, wraith = k == MOB_WRAITH, fi = feat_of(k), rows = imin(nr, 6) + (fi >= 0);
+    int sp = rows > 6 ? 12 : 13, y0 = rows > 6 ? 51 : 53;           /* a seventh row, the feat's, closes them up */
+    gfx_text8(f, 146, 39, ghost ? "RANK LAID   GOLD" : wraith ? "RANK DRIVEN GOLD" : "RANK SLAIN  GOLD", R_GOLD + 10, 1);
+    for (int j = 0; j < rows; j++) {
+        int feat = j == rows - 1 && fi >= 0, r = feat ? POR_FEAT : rk[j], y = y0 + j * sp, on = unl >> r & 1, need, have, gem = wraith && r == RK_IV;
+        if (feat) need = FEATS[fi].need, have = por_count(k);
+        else if (ghost || wraith) need = gem ? 1 : wraith ? WRAITH_STEP[r] : GHOST_STEP[r], have = gem ? on : por_count(k);
+        else need = slayer_need(k, r), have = RUN.rec.kills[k][r];
+        have = on ? need : imin(have, need);
+        char a[16], g[16];
+        if (w >> r & 1) ui_row(f, 142, y - 3, 164, sp, 1);
+        if (feat) medal_glyph(f, 146, y, on);
+        else gfx_text8(f, 146, y, r == RK_GILDED ? "G" : RANK_ROMAN[r], on ? (uint8_t)RANK_COL[r] : (uint8_t)(R_STONE + 9), 1);
+        snprintf(a, sizeof a, "%d/%d", have, need);
+        gfx_text8(f, 222 - gfx_text_width(a, 1), y, a, on ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 11), 1);
+        if (gem) snprintf(g, sizeof g, "   -"); else snprintf(g, sizeof g, "%4d", por_gold(k, r));
+        gfx_text8(f, 226, y, g, on ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 8), 1);
+        const char *st = !on ? "" : gem ? "LIT" : RUN.por_taken[k] >> r & 1 ? "TAKEN" : w >> r & 1 ? "WAITS" : "LATER";
+        if (st[0]) gfx_text8(f, 266, y, st, w >> r & 1 ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 10), 1);
+    }
+    const char *words = !drawn ? (por_drawable(k) ? (ghost ? "ONE IS LAID TO REST. ITS TAPESTRY MAY COME DOWN." : wraith ? "IT HAS BEEN DRIVEN BACK. ITS TAPESTRY MAY COME DOWN."
+                                                         : "ONE OF ITS KIND IS SLAIN. ITS TAPESTRY MAY COME DOWN.")
+                                                : ghost ? "IT WAITS UNDER ITS TAPESTRY TILL ONE IS LAID TO REST, BY SPIRIT ALONE."
+                                                : wraith ? "IT WAITS UNDER ITS TAPESTRY TILL THE WRAITH IS DRIVEN BACK."
+                                                : "IT WAITS UNDER ITS TAPESTRY TILL ONE OF ITS KIND IS SLAIN.")
+                      : !RUN.por_open && unl ? "IT PAYS ONCE A LEVEL IS CLEARED: EACH RANK ONCE A LIFE."
+                      : ghost ? "ONLY SPIRIT LAYS ONE TO REST. EACH RANK PAYS ONCE A LIFE."
+                      : wraith ? "DRIVEN BACK, IT COUNTS. ITS FOURTH: THE UNBOUND SLAIN."
+                      : fi >= 0 ? NULL : "EACH RANK PAYS ONCE A LIFE: AFTER A LEVEL, OR ON WAKING.";
+    if (words) text_wrap(f, 144, 144, words, 20, R_STONE + 12, 3);
+    else {                                                         /* its feat, under its medallion */
+        gfx_text8(f, 144, 144, FEATS[fi].name, unl >> POR_FEAT & 1 ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_GOLD + 9), 1);
+        text_wrap(f, 144, 153, FEATS[fi].rule, 20, R_STONE + 12, 2);
+    }
+    char keys[64];
+    int gold = por_wait_gold(k);
+    if (!drawn && por_drawable(k)) snprintf(keys, sizeof keys, "E DRAW IT BACK  A/D ANOTHER  ESC LEAVE");
+    else if (gold) snprintf(keys, sizeof keys, "E TAKE %d  A/D ANOTHER  ESC LEAVE", gold);
+    else snprintf(keys, sizeof keys, "A/D ANOTHER  ESC LEAVE");
+    hall_keys(f, 179, keys);
+}
+
 static void crawl_render(Frame *f) {
     f->w = W; f->h = H;
     memcpy(f->pal, crawl_pal, sizeof crawl_pal);
@@ -32911,6 +33912,7 @@ static void crawl_render(Frame *f) {
     float camz = G.camz;
     G.camz -= 0.03f * G.hurt + 0.40f * down;
     fm_any = hz_marks();
+    por_frame();                                                   /* her rooms' portraits, as they move */
     render_floor(f, dx, dy, plx, ply, horizon);
     render_walls(f, dx, dy, plx, ply, horizon);
     render_sprites(f, dx, dy, horizon);
@@ -32954,7 +33956,7 @@ static void crawl_render(Frame *f) {
 static int her_screen(int ui) {                                    /* her hall's own screens keep her piece */
     return ui == UI_MERCHANT || ui == UI_LEDGER || ui == UI_LETGO || ui == UI_SHRINE || ui == UI_TOTEM || ui == UI_PORTAL ||
            ui == UI_STONE || ui == UI_COMP || ui == UI_REPO || ui == UI_ASCEND || ui == UI_STONES || ui == UI_ALIGN ||
-           ui == UI_CLASS || ui == UI_HALL2;
+           ui == UI_CLASS || ui == UI_HALL2 || ui == UI_PORTRAIT;
 }
 static void music_frame(float dt) {
     if (title_up()) {                                              /* the title's piece, the lament ground (1.0.0b21.1) */
