@@ -62,14 +62,14 @@ Two scenes are included. They alternate every few minutes (configurable) with a 
 ![CATACOMB's hall: the Accursed Portal in the grave plot's ashlar and its screen, the Hexed Totem, the Corpus Compendium, the Wretched Repository and the Codex of Affixations](docs/preview_catacomb_hall.png)
 ![CATACOMB's Backrooms: a chained room's doorway from the crypt, a corridor under the tubes, a leak, a candlestand hanging from the ceiling, a shambler caught in a loop, and the visportal at a chain's end](docs/preview_catacomb_backrooms.png)
 ![CATACOMB's Severance: the doorway from the crypt, a white hall, a ward door, an office's desks, a skeleton under the panels, and the water cooler at a chain's end](docs/preview_catacomb_severance.png)
-![CATACOMB's Rune Shrine: the shrine in the merchant's room, its screen, a pull's runes coming in, the caster's totals and runes, a Cursed Coin found, and the Black Altar's gifts](docs/preview_catacomb_shrine.png)
+![CATACOMB's Rune Shrine: the shrine in the merchant's room with its prompt, its screen, a pull's runes coming in, the caster's totals and runes, a Cursed Coin found, and the Black Altar's gifts](docs/preview_catacomb_shrine.png)
 ![CATACOMB: the new creatures in the crypt, from the shambler to the gargoyle](docs/preview_catacomb_creatures.png)
 ![CATACOMB: an achievement, the bestiary's pages and the achievements list](docs/preview_catacomb_bestiary.png)
 ![CATACOMB: the merchant in her hall of ashlar, her wares, a burial vault, an ossuary, Fire Bolts at a spectre and a skeleton, a chapter house, and the caster's portrait after a hit](docs/preview_catacomb.png)
 ![CATACOMB: a chandelier over an ossuary's bone walls, a hoard with a crown, a vault strapped in gold, a cracked wall pressed and the secret behind it, and the rune-sealed exit with a wisp before it](docs/preview_catacomb_crypt.png)
 ![CATACOMB's wisps: the L list, a wisp kindling for the silver key, an exit wisp's trail down a hall, the Black Altar's gifts, a skeleton by a blessed wisp's trail, and the blessed wisp waiting at the way out](docs/preview_catacomb_wisps.png)
-![CATACOMB played by hand: holding H, the controls, shopping, casting, the wardrobe and the question at Esc](docs/preview_catacomb_play.png)
-![CATACOMB's wares: an Exquisite hood at the merchant, the caster's numbers, a full bag, Commune's red shapes through the wall, and a Black Altar woken and burning gold](docs/preview_catacomb_items.png)
+![CATACOMB played by hand: holding H, the controls, a ware's prompt at her pedestals, casting, the wardrobe and the question at Esc](docs/preview_catacomb_play.png)
+![CATACOMB's wares: a Rare amulet's buying at the merchant, what it changes, the caster's numbers, a full bag, Commune's red shapes through the wall, and a Black Altar woken and burning gold](docs/preview_catacomb_items.png)
 ![HAUNT.EXE: the jack-o'-lantern and the skull](docs/preview_haunt_art.png)
 ![HAUNT.EXE: the haunted programs](docs/preview_haunt_text.png)
 ![HAUNT.EXE: the other art scenes](docs/preview_haunt.png)
@@ -439,7 +439,8 @@ back room. Each hangs under an oxblood tapestry until one of its kind is slain; 
 side for good, and behind it the creature's shadow walks on the spot. Each rank whose achievement is earned shows it there in that
 rank's colours, standing on the stone of the run where it was earned, the ranks taking turns; the frame takes the colour of the highest
 (bone, green, blue, red, gold for the gilded, black for rank V), and a gem in its foot lights for each. A candle lights each one, in
-one of seven ways, so no two neighbours are alike.
+one of seven ways, so no two neighbours are alike. Since 1.0.0b21.3 the candles stay cold until one of its kind is slain, and burn for good
+after, so a lit candle beside a tapestry still hung means there is one to draw back.
 
 Every rank unlocked **pays its gold once a life**, at any visit to her room once a level has been cleared in that life, or on waking
 after a death that costs, when every portrait's gold is owed again. A gem whose gold waits twinkles. E at a portrait opens its card:
@@ -982,14 +983,20 @@ in an arched niche; Esc's question and the cards are headstones and the tally a 
 status bar and every word over the crypt are set in the run's own stone in place of black boxes.
 
 Your defensive runes still fire on their own, as quickly (and as fallibly) as they do for the
-autopilot. In the merchant's room you shop yourself: walk up to a pedestal to see its card, and press
-E, Space or click to buy it, as many times as the visit allows. A piece is worn at once. If it takes
-the place of one you wear and you have no bag, the card warns in red that the old one will be lost,
-and a second E buys; if your bag is full, you are asked which spare to let go (Esc thinks better of
-it). **Q** holds a ware for the next visit, for a quarter of its price: it comes back on its pedestal
-at the price it showed, and the hold ends when you leave the room the next time, bought or not. One
-ware is held at a time. E at the cat herself opens her menu, where you sign the ledger, ascend and buy
-pedestals. Then leave by the east door.
+autopilot. In the merchant's room you shop yourself. Since 1.0.0b21.3, whatever you face in her rooms
+shows only as a slim line at the foot of the view, its key on a cap, what it is and a word more where
+one helps (a ware's price, gold waiting on a portrait, a gift at the Lampstand), so the thing itself
+stays in sight; its card or menu comes up on the key. Walk up to a pedestal and press E, Space or
+click, and its **buying** opens: the ware and its price, what you wear in its place now, each of your
+numbers it would change, now and after (green where it rises, red where it falls), the abilities gained
+and lost, and what becomes of the old piece. E buys it, as many times as the visit allows; A and D go
+round her other wares and the map. A piece is worn at once. If it takes the place of one you wear and
+you have no bag, the buying warns in red that the old one will be lost, and a second E buys; if your
+bag is full, you are asked which spare to let go (Esc thinks better of it). **Q** holds a ware for the
+next visit, for a quarter of its price, from its buying or from the pedestal: it comes back on its
+pedestal at the price it showed, and the hold ends when you leave the room the next time, bought or
+not. One ware is held at a time. E at the cat herself opens her menu, where you sign the ledger,
+ascend and buy pedestals. Then leave by the east door.
 
 The Wolfenstein status bar shows the level, gold, health, your face, your spirit (the souls, to a
 tenth), the spell in hand, with the bones above it when the spear is in hand, and your keys. Five seconds
@@ -1076,7 +1083,7 @@ became HAUNTED.EXE, kept so that settings and saves carry over), `Progress` besi
 start from or holds the unsigned run, and `Mark` is the dead's watch; `uninstall.cmd` removes them with
 the settings. They are written the moment the game changes them, and never on quitting.
 
-**1.0.0b21.2 adds the portraits** (which tapestries are drawn back, where each rank was earned, the gold taken this life, and the
+**1.0.0b21.3 changes nothing in the saves.** **1.0.0b21.2 adds the portraits** (which tapestries are drawn back, where each rank was earned, the gold taken this life, and the
 feats' counts) to each page; 1.0.0b21.1 steps over them, and a page it signs loses them. Achievements earned stay earned.
 
 **1.0.0b21 adds the augments** you have chosen and their credits to each page; 1.0.0b20 steps over them, and a page it
@@ -1310,6 +1317,20 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b21.3** (her rooms after the author's first look at 1.0.0b21.2: a portrait's candles cold until its tapestry can be drawn
+back, the room's urn moved off the skeletons' portrait, a slim prompt in place of the cards in her rooms, and a ware's buying on a screen
+of its own). Tested in the harness only: not yet played by hand, run on Windows or seen on a real screen.
+
+* **Nothing in play moved**: the screensaver from level 1 for 2,400 seconds logged the same as 1.0.0b21.1 and 1.0.0b21.2 on the same
+  seed, line for line. The candles use none of the game's dice.
+* **The buying**: by keys and by a scripted controller: opened at a pedestal and at the map, gone round the wares, a piece bought with a
+  bag and without one (warned, then bought on the second press), a ware held, a bag bought, too little gold. The numbers it shows come
+  from the caster's own totals with the piece worn in a copy of the gear, so they are the numbers Tab's pages would show after.
+* **Two faults mended on the way**: the shrine's, the Totem's and the Compendium's passing words came out blank in the harness (printed
+  into themselves; on Windows, unknown), and a controller's hints showed *ESC BACK* as *B X*.
+* **Memory safety** (AddressSanitizer): the buying by keys and controller, and the screensaver for 1,500 seconds: clean. The smoke test
+  passes, and the Windows and browser builds were compiled and smoke-tested by GitHub Actions.
 
 **New in 1.0.0b21.2** (the portraits of the slain: a portrait a creature on her walls, their gold once a life, the Spectre's and the
 Wraith's achievements, a feat for each creature, the bosses' four by the Portal; the kills each rank's achievement asks lowered). Tested
