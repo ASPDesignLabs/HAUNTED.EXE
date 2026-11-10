@@ -564,3 +564,14 @@ owner released 1.0.0b21.3 ("Her Wares, Weighed") while this was being planned.
   takeover of its own, so it starts in the dream; the plate asks how you play. Inside claude.ai's frame the window is short (259
   pixels sideways on the owner's phone) and full screen is refused there, so the stones are larger and the picture smaller than on
   the real `/play/` in full screen. Waiting on the owner's report.
+- **10 November, the owner's readout from the first cut** (the Pixel 10a, 479 s, no words with it yet). Full screen was granted this
+  time: 923 x 411 CSS pixels at 2.625, so the crypt stood at 5 device pixels a game pixel on a stage of 484 x 215, the stones' columns
+  82 game pixels a side (about 2.5 cm of glass). Touch was chosen and a held finger took over: the phases came HAUNT.EXE, then *Taken
+  over* (20,724 frames, about three minutes), then the crypt dreaming again for four. Every phase kept 119 frames a second. HAUNT.EXE
+  2.79 ms a frame (0.2% late); the crypt dreaming 5.05 (0.2%); taken over 5.74, p95 9.88, 3.6% late, the most 394 ms, which is the title
+  built the first time as the finger takes over (the untouched title's first frame was 524 ms in step 0's readout). *Taken over* is
+  one bucket, the title, play and menus together, so the stones' own cost isn't apart from the title's; the minute means stayed
+  between 4.9 and 5.7. So the phone runs the touch build at full rate, and the one hitch is a frozen half second as the title comes.
+  A mend if it matters: build the title's still layers while the finger is held. The readout's stage line was HAUNT.EXE's would-be
+  stage (it has none); it now prints the last touch stage in use (`probe.stage`, *The stage by touch: ...*), tried in headless
+  Chromium. Still waiting on how the controls felt.

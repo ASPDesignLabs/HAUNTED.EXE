@@ -142,6 +142,7 @@
     const cw = sw / k, ch = sh / k;
     if (shown.cw !== cw || shown.ch !== ch) { canvas.style.width = cw + "px"; canvas.style.height = ch + "px"; }
     shown = { w, h, cw: (w * s) / dpr, ch: (h * s) / dpr }; stg = { sw, sh };
+    probe.stage = `${sw}x${sh} at ${s} device px, the picture ${w}x${h} in it`;   // the last stage in use, for the readout
     return true;
   }
   function fit() {
@@ -375,7 +376,7 @@
   const hAt = (o, q) => { const need = q * o.n; let c = 0; for (let i = 0; i < 401; i++) { c += o.h[i]; if (c >= need) return i < 400 ? (i + 0.5) / 4 : o.max; } return o.max; };
   const hOver = (o, v) => { let c = 0; for (let i = Math.min(400, Math.floor(v * 4)) + 1; i < 401; i++) c += o.h[i]; return c; };
   const probe = {
-    tapAt: 0, readyAt: 0, bootAt: 0, firstAt: 0, took: 0, held: 0, tries: 0, touched: 0, render: 0,
+    stage: "", tapAt: 0, readyAt: 0, bootAt: 0, firstAt: 0, took: 0, held: 0, tries: 0, touched: 0, render: 0,
     phases: [], byName: {}, now: [], min: { at: 0, sum: 0, n: 0 }, mins: [], shownAt: 0, dev: { model: "", os: "", gpu: "" },
   };
   function probePhase() {
@@ -420,11 +421,9 @@
     if (d.gpu) L.push("GPU " + d.gpu);
     const o = screen.orientation ? screen.orientation.type.replace(/-primary|-secondary/, "") : (innerWidth > innerHeight ? "landscape" : "portrait");
     L.push(`Window ${innerWidth}x${innerHeight} ${o}, ${dpr} to one` + (document.fullscreenElement ? ", full screen" : ""));
-    if (shown.w) {
-      const sw = Math.floor(stage.clientWidth / scale), sh = Math.floor(stage.clientHeight / scale);   // in the picture's own pixels
-      L.push(`Picture ${shown.w}x${shown.h} shown ${Math.round(shown.cw)}x${Math.round(shown.ch)}, ${s} device px each` +
-        (Number.isInteger(s) ? `; stage ${sw}x${sh}` : ""));
-    }
+    if (shown.w) L.push(`Picture ${shown.w}x${shown.h} shown ${Math.round(shown.cw)}x${Math.round(shown.ch)}, ${s} device px each` +
+      (stg.sw ? `, on the stage` : ""));
+    if (probe.stage) L.push(`The stage by touch: ${probe.stage}`);   // HAUNT.EXE has none: its picture is shown alone
     L.push(snd.ctx ? `Sound ${snd.ctx.sampleRate} Hz, ${snd.ctx.state}${snd.ok ? "" : ", no worklet"}` : "Sound: none");
     L.push(`The game ready ${probe.readyAt ? sec(probe.readyAt) : "not yet"} after the page opened` +
       (probe.bootAt ? `; booted ${((probe.bootAt - probe.tapAt) / 1000).toFixed(2)} s after the tap` : ""));
