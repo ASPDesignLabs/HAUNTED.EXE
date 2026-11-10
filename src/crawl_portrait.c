@@ -488,6 +488,54 @@ static void tapestry(const int r[4], int side, float veil) {
     }
 }
 
+/* ---- a feat's medallion (docs/PLAN-portraits.md, 5 B): gold, on an oxblood ribbon over the frame's foot, at the side away from its
+ * tapestry, a skull struck in it; it twinkles while its gold waits ---- */
+static void medallion(const int r[4], int side, int wait) {
+    float cx = side ? (float)r[0] + 8.3f : (float)r[2] - 8.3f, top = (float)(r[3] - MOULD) - 0.4f;
+    float rr = 2.5f, cy = fminf((float)r[3] + 0.6f, 64.0f - rr - 0.1f), bw = 1.35f, bot = cy - rr + 0.7f;
+    for (int y = lo_px(top); y < hi_px(bot); y++)                       /* the ribbon: oxblood, a gold stripe down it, its folds */
+        for (int x = lo_px(cx - bw); x < hi_px(cx + bw); x++) {
+            float u = (TX(x) - cx) / bw, w = (TX(y) - top) / (bot - top);
+            if (fabsf(u) > 1.0f) continue;
+            float v = 0.30f + 0.18f * lit(u * 0.6f, 0.0f, 1.0f) - 0.12f * w + (w > 0.45f && w < 0.55f ? -0.12f : 0.0f);
+            uint8_t c = sh(R_BLOOD, fabsf(u) > 0.8f ? v * 0.45f : v);
+            if (fabsf(u) < 0.22f) c = sh(R_GOLD, 0.45f + 0.3f * (1.0f - w));
+            pp(x, y, c);
+        }
+    for (int y = lo_px(cy - rr); y <= hi_px(cy + rr + 0.6f); y++)       /* its shadow on the frame */
+        for (int x = lo_px(cx - rr); x <= hi_px(cx + rr + 0.6f); x++) {
+            float dx = TX(x) - cx - 0.45f, dy = TX(y) - cy - 0.5f;
+            if (dx * dx + dy * dy <= rr * rr && pget(x, y) != C_CLEAR) pp(x, y, sh(R_IRON, 0.03f));
+        }
+    for (int y = lo_px(cy - rr); y <= hi_px(cy + rr); y++)
+        for (int x = lo_px(cx - rr); x <= hi_px(cx + rr); x++) {
+            float dx = TX(x) - cx, dy = TX(y) - cy, d = sqrtf(dx * dx + dy * dy) / rr, v;
+            if (d > 1.0f) continue;
+            if (d > 0.68f) {                                            /* the rim, raised */
+                float q = (d - 0.84f) / 0.16f, nz = sqrtf(fmaxf(0.0f, 1.0f - q * q)), ux = dx / (d * rr + 1e-6f), uy = dy / (d * rr + 1e-6f);
+                v = 0.30f + 0.85f * lit(ux * q, uy * q, nz);
+            } else v = 0.30f + 0.14f * lit(dx / rr * 0.5f, dy / rr * 0.5f, 1.0f);   /* the field, sunk and darker */
+            pp(x, y, sh(R_GOLD, v));
+        }
+    if (S >= 2) {                                                       /* the skull struck in it, bright on the dark field */
+        static const char *const SK[6] = { ".###.", "#####", "#.#.#", "#####", ".###.", ".#.#." };
+        float ps = 0.5f;
+        for (int yy = 0; yy < 6; yy++) for (int xx = 0; xx < 5; xx++) {
+            float ux = cx + ((float)xx - 2.5f) * ps, uy = cy + ((float)yy - 3.0f) * ps;
+            if (SK[yy][xx] == '#') box(ux, uy, ux + ps, uy + ps, sh(R_GOLD, yy < 2 ? 1.0f : 0.82f));
+        }
+    } else pp(lo_px(cx), lo_px(cy), sh(R_GOLD, 0.9f));
+    pp(lo_px(cx - rr * 0.6f), lo_px(cy - rr * 0.55f), (uint8_t)C_WHITE);   /* its glint */
+    if (wait) {                                                         /* its gold, waiting: a star now and then */
+        float ph = fmodf(PT * 0.9f + 0.7f, 1.6f);
+        if (ph < 0.45f) {
+            int a = (int)((0.45f - fabsf(ph - 0.225f) * 2.0f) * 2.8f * (float)S) + 1, px = lo_px(cx + rr * 0.55f), py = lo_px(cy + rr * 0.5f);
+            for (int k = -a; k <= a; k++) { pp(px + k, py, (uint8_t)(R_GOLD + 12)); pp(px, py + k, (uint8_t)(R_GOLD + 12)); }
+            pp(px, py, (uint8_t)C_WHITE);
+        }
+    }
+}
+
 int portrait_drape_side(int layout) {                                   /* gathered away from its candle */
     static const int SIDE[NPLAYOUT] = { 0, 1, 0, 0, 0, 1, 0 };
     return SIDE[clampi_(layout, 0, NPLAYOUT - 1)];
@@ -503,10 +551,110 @@ void portrait_face(uint8_t *pix, int stride, int w, int h, int ox, int oy, int s
         float fx = (float)(r[0] + r[2]) * 0.5f, fy = (float)(r[1] + r[3]) * 0.5f;
         static const float LX[NPLAYOUT] = { 54.5f, 9.5f, 32.0f, 32.0f, 32.0f, 9.5f, 55.5f }, LY[NPLAYOUT] = { 24, 24, 20, 5, 47, 26, 22 };
         frame(r, v->frame, LX[v->layout] - fx - 0.0f, LY[v->layout] - fy - 18.0f, v);
+        if (v->unlocked >> PORTRAIT_FEAT & 1)                           /* away from its tapestry; on the ledge, away from its candles */
+            medallion(r, v->layout == PL_LEDGE ? 1 : portrait_drape_side(v->layout), v->unpaid >> PORTRAIT_FEAT & 1);
     }
     if (v->veil >= 0.0f) tapestry(r, portrait_drape_side(v->layout), v->veil);   /* below 0: none at all */
     layout_lights(v->layout, 0);
 }
+/* ---- a boss's portrait (step 5, the mock-up): two faces wide; a candle stand either side of a broad frame, the boss in its arena,
+ * a brass plate with its name under it; two tapestries over it till it falls, parted to either side once drawn back ---- */
+static const uint32_t FONT35[29] = {                    /* A to Z, then - ' and a space: three by five, a row a nibble, top first */
+    0x25F55, 0x65656, 0x34443, 0x6D556, 0x74647, 0x74644, 0x3455B, 0x55755, 0x72227, 0x11152, 0x55655, 0x44447, 0x57755,
+    0x65555, 0x25552, 0x65644, 0x25563, 0x65655, 0x34216, 0x72222, 0x55557, 0x55552, 0x55775, 0x55255, 0x55222, 0x71247,
+    0x00700, 0x22000, 0x00000 };
+static int glyph35(char c) { return c >= 'A' && c <= 'Z' ? c - 'A' : c == '-' ? 26 : c == '\'' ? 27 : 28; }
+static void boss_plate(float cx, float y0, const char *name) {
+    int n = (int)strlen(name);
+    float tw = (float)(n * 4 - 1) * 0.5f, w = tw + 4.0f, x0 = cx - w * 0.5f, h = 4.6f;   /* a font pixel is half a texel */
+    for (int y = lo_px(y0); y < hi_px(y0 + h); y++)
+        for (int x = lo_px(x0); x < hi_px(x0 + w); x++) {
+            float u = (TX(x) - x0) / w, v = (TX(y) - y0) / h, e = fminf(fminf(u * w, (1.0f - u) * w), fminf(v * h, (1.0f - v) * h));
+            float val = e < 0.5f ? (u < 0.5f && v < 0.5f ? 0.85f : 0.25f) : 0.62f + 0.12f * (1.0f - v) + 0.04f * (h01(x, y, 131) - 0.5f);
+            pp(x, y, sh(R_GOLD, val));
+        }
+    for (int k = 0; k < 2; k++) ellipse(k ? x0 + w - 1.1f : x0 + 1.1f, y0 + h * 0.5f, 0.45f, 0.45f, R_GOLD, 0.2f, 0.9f);   /* its rivets */
+    float tx = cx - tw * 0.5f, ty = y0 + (h - 2.5f) * 0.5f;
+    for (int i = 0; i < n; i++) {                                       /* its letters cut in it, dark */
+        int gl = FONT35[glyph35(name[i])];
+        for (int r = 0; r < 5; r++) for (int c = 0; c < 3; c++) {
+            if (!(gl >> ((4 - r) * 4 + (2 - c)) & 1)) continue;
+            float ux = tx + (float)(i * 4 + c) * 0.5f, uy = ty + (float)r * 0.5f;
+            box(ux, uy, ux + 0.5f, uy + 0.5f, sh(R_GOLD, 0.0f));
+        }
+    }
+}
+static uint8_t spr_at(int spr, float sx, float sy) {                  /* a sprite's pixel, by its own pixels; clear outside it */
+    int x = (int)floorf(sx), y = (int)floorf(sy);
+    return spr < 0 || x < 0 || y < 0 || x >= TS || y >= TS ? (uint8_t)C_CLEAR : crawl_spr[spr][x * TS + y];
+}
+static void boss_picture(const int r[4], const BossPortraitView *v) {
+    int ix0 = (r[0] + MOULD) * S, iy0 = (r[1] + MOULD) * S, ix1 = (r[2] - MOULD) * S, iy1 = (r[3] - MOULD) * S;
+    float pw = (float)(r[2] - r[0] - 2 * MOULD) * 2.0f, ph = (float)(r[3] - r[1] - 2 * MOULD) * 2.0f;   /* in the sprites' own pixels */
+    float hz = ph * 0.66f, foot = ph - 3.0f, mid = pw * 0.5f, sc = v->scale > 0.0f ? v->scale : 1.0f;
+    float a = fmodf(v->t, 8.0f);                                        /* it walks, raises its blow, strikes, and stands so */
+    int spr = a < 5.2f ? v->spr[(int)(a * 4.0f) & 1] : a < 6.0f ? v->spr[2] : a < 6.6f ? v->spr[3] : v->spr[4];
+    for (int y = iy0; y < iy1; y++)
+        for (int x = ix0; x < ix1; x++) {
+            float qx = ((float)(x - ix0) + 0.5f) * 2.0f / (float)S, qy = ((float)(y - iy0) + 0.5f) * 2.0f / (float)S;
+            uint8_t c = spr_at(spr, (qx - mid) / sc + 32.0f, (qy - foot) / sc + (float)TS);
+            float dx = qx - mid, dy = qy - ph * 0.55f;
+            if (c != C_CLEAR) { pp(x, y, at_light(c, 1.06f - 0.08f * dx / mid, x, y)); continue; }
+            for (int k = 0; k < 2 && c == C_CLEAR; k++)                 /* what lies at its feet, a little in front, either side */
+                c = spr_at(v->prop[1], (qx - (mid + (k ? 1.0f : -1.0f) * pw * 0.27f)) / 0.8f + 32.0f, (qy - (ph - 1.0f)) / 0.8f + (float)TS);
+            if (c != C_CLEAR) { pp(x, y, at_light(c, 0.80f, x, y)); continue; }
+            for (int k = 0; k < 2 && c == C_CLEAR; k++)                 /* its pillars, standing back */
+                c = spr_at(v->prop[0], (qx - (mid + (k ? 1.0f : -1.0f) * pw * 0.38f)) / 0.9f + 32.0f, (qy - (hz + 7.0f)) / 0.9f + (float)TS);
+            float l = 1.02f - 0.62f * (dx * dx / (mid * mid) * 0.8f + dy * dy / (ph * ph) * 1.6f);
+            if (c != C_CLEAR) { pp(x, y, at_light(c, clampf_(l * 0.75f, 0.2f, 1.0f), x, y)); continue; }
+            float ex = fminf(qx, pw - qx), ey = fminf(qy, ph - qy);     /* the frame's shadow at its edge */
+            if (ex < 3.0f || ey < 3.0f) l *= 0.55f + 0.45f * fminf(ex, ey) / 3.0f;
+            uint8_t b;
+            if (qy < hz) b = v->wall[(((int)(qx * 1.25f) + 9) & 63) * TS + (((int)(qy * 1.25f) + 6) & 63)];
+            else {
+                float dz = qy - (hz - 2.0f), depth = 60.0f / dz;
+                int fu = (int)(32.0f + (qx - mid) * depth / 22.0f) & 63, fv = (int)(depth * 3.0f + 9.0f) & 63;
+                b = v->floor[fu * TS + fv];
+                l *= 0.55f + 0.45f * clampf_(dz / 18.0f, 0.0f, 1.0f);
+                float sx = (qx - mid) / (18.0f * sc), sy = (qy - foot + 0.5f) / 3.4f;   /* its shadow */
+                if (sx * sx + sy * sy < 1.0f) l *= 0.5f;
+            }
+            pp(x, y, at_light(b, clampf_(l, 0.2f, 1.0f), x, y));
+        }
+    if (!v->eye_core || fmodf(v->t * 0.37f, 5.0f) < 0.08f) return;    /* its eyes, put back after; and a blink */
+    const EyeAt *e = &crawl_eyes[spr];
+    for (int i = 0; i < e->n; i++) {
+        float ex = ((float)e->x[i] + 0.5f - 32.0f) * sc + mid, ey = ((float)e->y[i] + 0.5f - (float)TS) * sc + foot;
+        int cs = S >= 2 ? S : 1, cx = ix0 + (int)(ex * (float)S / 2.0f) - cs / 2, cy = iy0 + (int)(ey * (float)S / 2.0f) - cs / 2;
+        for (int yy = 0; yy < cs; yy++) for (int xx = 0; xx < cs; xx++) pp(cx + xx, cy + yy, (uint8_t)v->eye_core);
+        if (S >= 2) { pp(cx - 1, cy, (uint8_t)v->eye_glow); pp(cx + cs, cy, (uint8_t)v->eye_glow); }
+    }
+}
+void portrait_boss_face(uint8_t *pix, int stride, int w, int h, int ox, int oy, int s, const BossPortraitView *v) {
+    P = pix; PST = stride; PW = w; PH = h; POX = ox; POY = oy; S = s < 1 ? 1 : s; PT = v->t;
+    g_nfl = 0;
+    static const int R[4] = { 16, 4, 112, 57 }, GEM[6] = { RK_I, RK_II, RK_III, RK_IV, RK_GILDED, RK_V };
+    PortraitView fv;                                                    /* the frame as a kind's, its gems the boss's deeds */
+    memset(&fv, 0, sizeof fv);
+    fv.layout = PL_SCONCE_R; fv.nranks = 6; fv.t = v->t;
+    int hi = -1;
+    for (int i = 0; i < 6; i++) {
+        fv.ranks[i] = GEM[i];
+        if (v->unlocked >> i & 1) { fv.unlocked |= 1 << GEM[i]; hi = GEM[i]; }
+        if (v->unpaid >> i & 1) fv.unpaid |= 1 << GEM[i];
+    }
+    if (v->veil < 1.0f) {
+        boss_picture(R, v);
+        frame(R, hi, 0.0f, -30.0f, &fv);
+        boss_plate(64.0f, 58.4f, v->name ? v->name : "");
+    }
+    if (v->veil >= 0.0f) {                                             /* two tapestries, parting to either side */
+        int L[4] = { R[0], R[1], 64, R[3] }, Rr[4] = { 64, R[1], R[2], R[3] };
+        tapestry(L, 0, v->veil); tapestry(Rr, 1, v->veil);
+    }
+    stand(7.0f, 64.0f, 30.0f, 21); stand(121.0f, 64.0f, 30.0f, 24);  /* a stand of three either side */
+}
+
 int portrait_layout_flames(int layout, float out[4][3]) {
     static uint8_t scratch[TS * TS];
     PortraitView v;

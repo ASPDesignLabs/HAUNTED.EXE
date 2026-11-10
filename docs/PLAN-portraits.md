@@ -1,8 +1,9 @@
 # The portraits of the slain
 
 *Status: settled (10 November 2026), at the owner's request, and being built on `claude/adoring-hopper-h9ivcg` from main at
-1.0.0b21.1: steps 1 (the record), 2 (the art in the build, hung at section 7's faces), 3 (their candles dealt and lit) and 4
-(the tapestry drawn back, the card, the gold) are built, harness only. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (in
+1.0.0b21.1: steps 1 (the record), 2 (the art in the build, hung at section 7's faces), 3 (their candles dealt and lit), 4
+(the tapestry drawn back, the card, the gold) and the first half of 5 (the Spectre's and the Wraith's achievements, the twenty
+feats, their medallions) are built, harness only; the bosses' four wait on the owner's eye for the knight's mock-up. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (in
 the game's build since step 2) and `tools/portraitmock.c` (`make build/portraitmock`, then `build/portraitmock <dir>`). The owner answered every
 question in section 9 the same day (marked there, Q15 last, which came of their own edit) and settled the numbers in a Sheet on
 claude.ai, [Portraits of the Slain: Gold](https://claude.ai/artifact/2P9JkVQMBEdhAoa6zwB1N6), brought into sections 3 and 4 as it
@@ -216,6 +217,21 @@ The owner took A, B and F (10 November, in the Sheet); C, D, E and G are not tak
 The animation asked for, the skeleton's frame with ranks I and II unlocked, I on the Crypts' ashlar and II on the Catacombs'
 slate, each walking five seconds, the frame green for II, II's gold waiting: `portraits/skeleton.gif`.
 
+- **A feat's medallion** (step 5): gold, a skull struck in it, on an oxblood ribbon with a gold stripe hung over the frame's
+  foot at the side away from the tapestry (on the ledge, away from its candles); it twinkles while its gold waits, as a gem does.
+
+![A feat earned: its medallion](portraits/medals.png)
+
+- **The bosses' four** (step 5's mock-up, the knight's; not yet in the game). Two faces wide: a broad frame whose gems are its
+  achievements (slain, then each challenge step) and whose colour is the highest of them, bone for slain, then green, blue, red,
+  gold and black for the steps, as a kind's frame takes its ranks'; a brass plate under it with its name cut in it; a candle stand of
+  three either side; two tapestries over it till it falls, parted to either side once drawn back. In the picture it stands in its
+  arena, a little over its own size, the arena's pillars behind it and what lies broken at its feet, and walks, raises its sword,
+  strikes and plants it, eight seconds round. The other three wait veiled, so only the knight's is drawn. `knight.gif` is the
+  tapestries parting, then the knight with two steps beaten and the second's gold waiting.
+
+![The bosses' four by the Portal: the knight's](portraits/bosses.png)
+
 ## 7. Where they hang (settled, Q7)
 
 The first two thirds in her room, the last in the back room with the Totem, the Compendium and the Repository.
@@ -315,7 +331,8 @@ stands before them. Their art is not drawn yet: a mock-up of one comes before th
 3. Her room: the faces, the layouts dealt, the candles' light. *Built (harness only), 10 November.*
 4. The tapestry and the card, the gold, the prompt in the pad's words. *Built (harness only), 10 November.*
 5. The Spectre's and the Wraith's achievements and the feats (section 5 A and B), and the bosses' four portraits in the plot
-   (5 F), after a mock-up of one.
+   (5 F), after a mock-up of one. *The achievements and feats built (harness only), 10 November; the knight's mock-up drawn
+   (`bosses.png`, `knight.gif`), the bosses not yet hung.*
 6. The checks: the dream's runs line for line against 1.0.0b21.1 on the same seeds (it leaves the portraits, so nothing may move);
    ASan; a person's run in the harness taking gold at the right visits; the README's preview strip and the page's table.
 
@@ -441,3 +458,37 @@ stands before them. Their art is not drawn yet: a mock-up of one comes before th
   back two tapestries); ASan clean on both rounds; the smoke test passes. Debug: `CRAWL_PORTRAITS=n` now opens her room's gold too,
   `PORTRAITS ...` counts the gems taken, `EVENT portrait_drawn <kind> by player|dream`, `portrait_paid <kind> gold n ranks x`.
   Next: step 5, the Spectre's and the Wraith's achievements and the feats, and the bosses' portraits in the plot after a mock-up.
+- **10 November, step 5's first half built** (harness only), at the owner's word, and the knight's mock-up drawn. 26 achievements
+  from bit 345 (`ACH_POR0`: the Spectre's three, the Wraith's three; `ACH_FEAT0`: the twenty feats, `FEATS`, `NPFEAT`, in the order
+  of `por_ach`), each kind's own count in `RUN.por_feat` (u16, kept through death; saved at the end of `LG_PORTRAIT`, which a step-4
+  section, `LG_PORTRAIT_B4`, still reads without them), but the spiderling's (its kills in the record) and the imp's (its kills by
+  Frost, `el_kills`). `por_reckon` earns what a count reaches (a pop-up, the run it was earned in, a note of progress halfway), or
+  quietly in `slayer_sweep`'s one pop-up; `por_bump` counts a deed; `por_feat_kill` (from `kill_mob`, after `rec_kill`) judges a
+  kill. The deeds: `Mob.feat` (`FT_*`: a skeleton's bone thrown in `throw_to`, a web spider's drop, a sac of hers hatched (the
+  nearest mother's, in `update_sac`), the huntsman's horn (his own, his pack's, a hunt's), the Sexton's bell rung hard, the knight's
+  plate shed while it stands (`knight_shed`, after `damage_mob`'s and `hz_harm`'s harm), the shield's splinters, and `FT_NOW`, a
+  ghoul at its meal or a hunting spider overhead or dropping as the last blow fell, taken before `damage_mob` changes either);
+  `Mob.feat_t` a gargoyle's waking (`garg_wake`); a wall skull not yet `called`; a shambler still rising (`sub` 2); a shade's `shy`; a
+  deacon who has `raised` none; a Lightless slain with the lantern held and shuttered; two hounds within five seconds (`G.t`); a
+  Drowned's pool that never reached you (`Pool.feat`, counted as it dries in `update_pools`); a bat shaken or thrown off, not fed
+  (`latch_release`); a spectre laid to rest (`kill_mob`); a Wraith newly driven back (`wraith_back_for`, not the boss). The portraits:
+  `por_ranks` gives the Spectre ranks I to III and the Wraith I to IV, `por_unlocked` their bits and the Wraith Unbound's fall, and
+  the feat as `POR_FEAT` (`PORTRAIT_FEAT` in the art); `por_waiting` never the Wraith's fourth (Q14); `por_gold` a feat as rank III, the
+  shade's rule now for the slayable only (the Spectre and the Wraith are off the ladder too); `por_drawable` the Spectre once laid, the
+  Wraith once driven. All 131 rows match `ranks.csv`, counts and gold (`CRAWL_PORGOLD=1`). The card's seventh row is the feat's (a
+  medallion glyph, `medal_glyph`; the rows close up to 12 pixels), the Spectre's *LAID* and the Wraith's *DRIVEN* columns, its words the
+  feat's name and rule, the band at the wall *6 OF 6 AND A FEAT*; the bestiary's W/S goes past the ranks to the feat (`G.best_feat`: its rule and count, a medallion after the
+  lozenges), the Spectre's and the Wraith's rows in place of *IT CANNOT BE*; `ach_lines` lists each kind's own after its ranks
+  (26 more lines). The art: `medallion` in `src/crawl_portrait.c`. Tested in the harness: the dream from level 1 for 2,400 s is
+  line for line 1.0.0b21.1's and earned IT NEVER THREW at 1,975 s (22 skeletons, 12 shields, 2 bats); deep starts at 11, 21 and 31
+  counted hound pairs, Drowned bursts missed, deacons before any rose, gargoyles as they woke, hunting spiders overhead, shades fading,
+  wall skulls silenced and the Wraith driven back; with `CRAWL_PORTRAITS=7` (the feats too) the skeletons' card paid 1,840 (ranks 0x7f)
+  and the Spectre's 480, and every portrait's gold taken in turn came to 67,240, the sheet's once a life; a feat's count written at
+  a death that costs and read back; ASan clean on that and on the dream from 11 and 21; the smoke test passes. Not seen yet in a run: the knight in full plate,
+  the brood before a sac hatched, the Sexton unrung, the huntsman before his horn, the Lightless in the dark, a ghoul at its meal, a
+  web spider in its web, a shambler still rising, a spectre laid to rest (the dream's runs were short, and it seldom has Spirit's
+  mastery); the spiderlings' and the imps' are the record's counts, earned by the sweep where a record already reaches them. The bosses: `portrait_boss_face` (`BossPortraitView`, two faces at any scale: `boss_picture`, `boss_plate` with
+  a three-by-five face of letters, `frame` with the steps as ranks, two `tapestry` halves, two `stand`s), driven only by
+  `tools/portraitmock.c`'s `bosses` (`bosses.png`, `knight.gif`) and `medals` (`medals.png`); not in the game till the owner has seen it.
+  Debug: `CRAWL_PORTRAITS=n` from 7 the feats too, `EVENT feat <kind> <count>`, `EVENT achievement <bit> ...: swept`, `PORTRAITS ...
+  counts k:n`. Next: the owner's eye on the knight's mock-up and the medallion; then the four hung in the plot, their card and gold.

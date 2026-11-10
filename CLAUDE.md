@@ -320,8 +320,14 @@ left along a run, `portrait_drape_side`), each flame a static light (`light_stat
 band's prompt in `render_shop_card`), E draws a tapestry back (`por_draw_back`, `POR.veil_t`) or opens its card (`UI_PORTRAIT`,
 `update_portrait`, `render_portraitcard`, A/D through all of them), the gold (`por_gold` from `por_third`/`por_strength`, matching
 `ranks.csv`; `por_take` into `RUN.treasure`), the dream's tapestry now and then (`por_dream`, no dice); `CRAWL_PORGOLD=1`, `EVENT
-portrait_drawn`, `portrait_paid`. Its art is `src/crawl_portrait.c`, driven by `tools/portraitmock.c` (`make build/portraitmock`); the settled
-numbers are `docs/portraits/ranks.csv` and `bosses.csv`, written by `tools/portrait_sheet.py` from `KINDS`.
+portrait_drawn`, `portrait_paid`. **Step 5's first half is built** (harness only): the Spectre's and the Wraith's achievements and the twenty feats
+(`ACH_POR0`, `ACH_FEAT0`, bits 345-370; `FEATS`, `NPFEAT`, `por_ach`; each kind's count `RUN.por_feat`, at the end of `LG_PORTRAIT`;
+`por_reckon`, `por_bump`, `por_feat_kill` from `kill_mob`; the deeds as `Mob.feat`'s `FT_*` and `Mob.feat_t`, set where each happens), the
+feat a seventh gem (`POR_FEAT`) paid as rank III and hung as a medallion (`medallion` in the art), the card's and bestiary's rows, `ach_lines`;
+`EVENT feat`. The bosses' four are a mock-up of the knight's only (`portrait_boss_face`, `BossPortraitView`; `build/portraitmock <dir>
+bosses`, `docs/portraits/bosses.png`, `knight.gif`), not in the game till the owner has seen it. Its art is `src/crawl_portrait.c`, driven
+by `tools/portraitmock.c` (`make build/portraitmock`); the settled numbers are `docs/portraits/ranks.csv` and `bosses.csv`, written by
+`tools/portrait_sheet.py` from `KINDS`.
 
 ## Working with the owner
 
@@ -357,7 +363,7 @@ numbers are `docs/portraits/ranks.csv` and `bosses.csv`, written by `tools/portr
 | `tools/items.c` | `make items`: a hundred rolled wares a level as `build/items.json`, for checking names and numbers |
 | `src/hand_img.c`, `src/face_img.c`, `src/cat_img.c` | Traced bitmaps (data) |
 | `src/crawl_title.c/.h`, `tools/titlemock.c` | The title screen's art (docs/PLAN-title.md): `title_draw(Frame *, t, TitleView *)`, its three scenes, menus and graves, the sculpt kit (`sc_*`); and the mock-ups' driver (`make build/titlemock`; `build/titlemock <dir> [a\|b\|c\|menu\|logo\|parts\|overview\|bench]`) |
-| `src/crawl_portrait.c/.h`, `tools/portraitmock.c`, `tools/portrait_sheet.py` | The portraits of the slain (docs/PLAN-portraits.md), in the game's build since its step 2: `portrait_face` draws a portrait as a wall face's overlay at any scale, `portrait_keep_runs` each run's stone; the mock-ups' driver (`make build/portraitmock`; `build/portraitmock <dir> [all\|skeleton\|veil\|room\|sheets\|card\|bench\|check]`, `PM_SCALE=n`); the settled numbers as `docs/portraits/ranks.csv` and `bosses.csv` (`--grid` the plan's table) |
+| `src/crawl_portrait.c/.h`, `tools/portraitmock.c`, `tools/portrait_sheet.py` | The portraits of the slain (docs/PLAN-portraits.md), in the game's build since its step 2: `portrait_face` draws a portrait as a wall face's overlay at any scale (a feat's medallion with it), `portrait_keep_runs` each run's stone, `portrait_boss_face` a boss's two faces (a mock-up so far); the mock-ups' driver (`make build/portraitmock`; `build/portraitmock <dir> [all\|skeleton\|veil\|room\|sheets\|card\|medals\|bosses\|bench\|check]`, `PM_SCALE=n`); the settled numbers as `docs/portraits/ranks.csv` and `bosses.csv` (`--grid` the plan's table) |
 | `src/crawl_ui.c/.h`, `src/ui_art.c` | The carved stone (docs/PLAN-ui.md): the marble, slabs, wells, the faces and their ways, icons, sockets, the Alignment's stone; the faces and icons as strings |
 | `tools/gallery.sh`, `docs/gallery/` | The page's *Then and now*: the same moments in 1.0.0b1, 1.0.0b13 and this build, each from its own build of the harness (old ones in worktrees under `build/gallery/`), as single 320x200 frames; `build_site.sh` copies them to `img/gallery/` |
 | `tools/uisheet.c`, `tools/uishots.sh` | The screens' sheet for approval (`make sheets`; `build/uisheet fit` checks the pane's text fits), and every screen from the harness as contact sheets |

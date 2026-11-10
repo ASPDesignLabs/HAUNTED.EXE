@@ -199,7 +199,7 @@ static PortraitView pv_of(int k, int rank, int frame, int run, int layout, unsig
  * light's power over 1 + 0.9 d squared, out to its reach, on her room's 0.06) and, on a portrait's own face, its candles'
  * glow as well ---- */
 static const uint8_t BAY[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
-enum { FC_STONE, FC_PORTRAIT, FC_TORCH, FC_SIGN };
+enum { FC_STONE, FC_PORTRAIT, FC_TORCH, FC_SIGN, FC_OVERLAY, FC_PORTAL };   /* OVERLAY: drawn already (half a boss's) */
 #define MAXF 12
 #define OVR 192                                          /* the largest overlay: three a texel */
 typedef struct { int kind, mat, res; PortraitView pv, pv2; float mix; uint8_t ov[OVR * OVR]; int nfl; float fl[4][3]; } Face;   /* mix: a
@@ -208,9 +208,9 @@ static Face FACES[MAXF];
 static int NF, FX0;                                     /* how many, and the world x of the first */
 static float AMB = 0.06f, GLOW = 1.0f;
 typedef struct { float x, y, z, power, reach, glow; } Lamp;   /* glow: a portrait's candle's, flickering; its cell's light steady */
-static Lamp LAMPS[48];
-static int NL;
-static void faces_begin(int x0, int n) { memset(FACES, 0, sizeof FACES); FX0 = x0; NF = n; for (int i = 0; i < n; i++) { FACES[i].mat = (x0 + i) & 1; FACES[i].res = TS; } }
+static Lamp LAMPS[48], XL[16];
+static int NL, NXL;                                     /* XL: lamps of the faces drawn already, kept across faces_prepare */
+static void faces_begin(int x0, int n) { memset(FACES, 0, sizeof FACES); FX0 = x0; NF = n; NXL = 0; for (int i = 0; i < n; i++) { FACES[i].mat = (x0 + i) & 1; FACES[i].res = TS; } }
 static void face_portrait(int wx, PortraitView pv, int res) { Face *f = &FACES[wx - FX0]; f->kind = FC_PORTRAIT; f->pv = pv; f->res = res; }
 static void faces_prepare(float t) {
     NL = 0;
@@ -238,6 +238,7 @@ static void faces_prepare(float t) {
         for (int k = 0; k < f->nfl && NL < 48; k++)
             LAMPS[NL++] = (Lamp){ (float)(FX0 + i) + f->fl[k][0] / TS, 0.15f, 1.0f - f->fl[k][1] / TS, 0.45f / (float)(f->nfl > 1 ? 2 : 1), 2.4f, f->fl[k][2] };
     }
+    for (int i = 0; i < NXL && NL < 48; i++) LAMPS[NL++] = XL[i];
 }
 static float light_at(float x, float y, float z, int wallface) {
     float l = AMB;
@@ -273,7 +274,8 @@ static void view_wall(float d, float cx, float t) {
                 Face *f = fi >= 0 && fi < NF ? &FACES[fi] : NULL;
                 int mi = f ? f->mat : ((int)floorf(wx) & 1);
                 c = HALL[mi][clampi_((int)(u * TS), 0, TS - 1) * TS + clampi_((int)(v * TS), 0, TS - 1)];
-                if (f && f->kind == FC_PORTRAIT) {
+                if (f && f->kind == FC_PORTAL) c = crawl_tex[T_PORTAL0 + (tf / 2) % 4][clampi_((int)(u * TS), 0, TS - 1) * TS + clampi_((int)(v * TS), 0, TS - 1)];
+                else if (f && (f->kind == FC_PORTRAIT || f->kind == FC_OVERLAY)) {
                     uint8_t o = f->ov[clampi_((int)(v * f->res), 0, f->res - 1) * f->res + clampi_((int)(u * f->res), 0, f->res - 1)];
                     if (o != C_CLEAR) c = o;
                 } else if (f && f->kind == FC_TORCH) {
@@ -421,6 +423,106 @@ static void sheet_runs(const char *dir) {
     g_res = 128;
     sheet_end(dir, "runs");
 }
+/* a feat earned (step 5): its medallion on a ribbon under the frame, at the side away from the tapestry; on four layouts, and up
+ * close */
+static void sheet_medals(const char *dir) {
+    sheet_begin(4, 2);
+    sheet_label(24, 20, "A FEAT EARNED: A MEDALLION ON ITS RIBBON, UNDER THE FRAME", 3, 235);
+    static const int K[4] = { K_SKEL, K_KNIGHT, K_GHOUL, K_DEACON }, L[4] = { PL_SCONCE_R, PL_LAMP, PL_LEDGE, PL_SKULL };
+    static const int RK[4] = { RK_V, RK_IV, RK_II, RK_III }, RUN[4] = { 3, 3, 1, 2 };
+    static const char *const NM[4] = { "IT NEVER THREW", "IN FULL PLATE", "AT ITS MEAL", "NONE RISE" };
+    for (int i = 0; i < 4; i++) {
+        unsigned un = ((2u << RK[i]) - 1u) | 1u << PORTRAIT_FEAT, wait = i == 0 ? 1u << PORTRAIT_FEAT : 0u;
+        tile_at(CX(i), RY(0), pv_of(K[i], RK[i], RK[i], RUN[i], L[i], un, wait, 0.0f, 1.1f + 0.3f * (float)i), NM[i], i == 0 ? "ITS GOLD WAITING" : PL_NAME[L[i]]);
+    }
+    for (int i = 0; i < 2; i++) {                                   /* up close: the frame's foot, as the card shows it, three times */
+        static uint8_t ov[128 * 128];
+        int k = i * 2;
+        PortraitView v = pv_of(K[k], RK[k], RK[k], RUN[k], L[k], ((2u << RK[k]) - 1u) | 1u << PORTRAIT_FEAT, 0, 0.0f, 1.1f);
+        memset(ov, C_CLEAR, sizeof ov);
+        portrait_face(ov, 128, 128, 128, 0, 0, 2, &v);
+        float fl[4][3]; int nf = portrait_flames(&v, fl);
+        for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) F.pix[y * W + x] = 0;
+        for (int y = 0; y < 64; y++) for (int x = 0; x < 128; x++) {
+            int oy = 64 + y;
+            uint8_t c = ov[oy * 128 + x], base = HALL[0][(x / 2) * TS + oy / 2];
+            float l = 0.30f;
+            for (int q = 0; q < nf; q++) { float d = hypotf((float)x / 2 - fl[q][0], (float)oy / 2 - fl[q][1]) / 64.0f; l += 0.9f * fl[q][2] / (1.0f + 30.0f * d * d); }
+            F.pix[y * W + x] = shade(c != C_CLEAR ? c : base, l, x, y);
+        }
+        sheet_put(CX(i * 2), RY(1) + 40, 0, 0, 128, 64, 6);
+        sheet_label(CX(i * 2), RY(1), i ? "UP CLOSE: THE LEDGE'S" : "UP CLOSE: A SCONCE'S", 2, 220);
+    }
+    sheet_end(dir, "medals");
+}
+/* ---- the bosses' portraits (step 5, a mock-up of the knight's for the owner): two faces wide on the grave plot's far wall, the
+ * Accursed Portal between them ---- */
+static BossPortraitView bv_of(int boss, unsigned un, unsigned wait, float veil, float t) {
+    static const char *const NAME[4] = { "THE ILL-FATED KNIGHT", "THE WANDERING SPIDER", "THE BLACK DEACON", "THE WRAITH UNBOUND" };
+    BossPortraitView v;
+    memset(&v, 0, sizeof v);
+    for (int i = 0; i < 5; i++) v.spr[i] = -1;
+    v.prop[0] = v.prop[1] = -1;
+    if (boss == 0) {                                                /* only the knight's is drawn: the rest wait veiled */
+        static const int SPR[5] = { SP_BKNIGHT_A, SP_BKNIGHT_B, SP_BKNIGHT_W, SP_BKNIGHT_S, SP_BKNIGHT_P0 };
+        memcpy(v.spr, SPR, sizeof SPR); v.prop[0] = SP_PILLAR; v.prop[1] = SP_BROKEN_ARMS;
+        v.eye_core = OWN_CORE[5]; v.eye_glow = OWN_GLOW[5];
+    }
+    v.wall = portrait_run_wall(boss); v.floor = portrait_run_floor(boss);
+    v.unlocked = (int)un; v.unpaid = (int)wait; v.veil = veil; v.t = t; v.scale = 1.25f; v.name = NAME[boss & 3];
+    return v;
+}
+static void face_boss(int wx, BossPortraitView bv) {              /* drawn whole, then halved onto its two faces; its candles' light */
+    static uint8_t ov[128 * 256];
+    memset(ov, C_CLEAR, sizeof ov);
+    portrait_boss_face(ov, 256, 256, 128, 0, 0, 2, &bv);
+    for (int h = 0; h < 2; h++) {
+        Face *f = &FACES[wx + h - FX0];
+        f->kind = FC_OVERLAY; f->res = 128;
+        for (int y = 0; y < 128; y++) memcpy(&f->ov[y * 128], &ov[y * 256 + h * 128], 128);
+    }
+    for (int k = 0; k < 2 && NXL < 16; k++)                         /* a stand of three either side */
+        XL[NXL++] = (Lamp){ (float)wx + (k ? 121.0f : 7.0f) / TS, 0.15f, 1.0f - 25.0f / TS, 0.5f, 2.6f, 1.0f };
+}
+static void plot_wall(float t, unsigned kn, unsigned kw, float kveil) {   /* the far wall: the knight's and the spider's, the Portal,
+                                                                      the Deacon's and the Wraith's */
+    faces_begin(10, 12);
+    FACES[16 - FX0].kind = FC_PORTAL;
+    XL[NXL++] = (Lamp){ 16.5f, 0.3f, 0.45f, 0.9f, 3.2f, 0.0f };     /* its swirl's glow */
+    face_boss(12, bv_of(0, kn, kw, kveil, t));
+    face_boss(14, bv_of(1, 0, 0, 1.0f, t)); face_boss(17, bv_of(2, 0, 0, 1.0f, t)); face_boss(19, bv_of(3, 0, 0, 1.0f, t));
+}
+static void knight_at(float t) {                                   /* the tapestries parting, then the knight in its lists */
+    float k = 1.0f - smooth(1.4f, 2.7f, t);
+    plot_wall(t - 2.7f, 0x07u, 0x04u, k);
+    view_wall(1.9f, 13.0f, t);
+}
+static void sheet_bosses(const char *dir) {
+    sw = 24 + 2 * (640 + 24); sh_ = 72 + 3 * (400 + 64);
+    free(sheet); sheet = calloc((size_t)sw * sh_, 3);
+    for (size_t i = 0; i < (size_t)sw * sh_ * 3; i++) sheet[i] = 18;
+    sheet_label(24, 20, "THE BOSSES' FOUR, BY THE PORTAL: THE KNIGHT'S", 3, 235);
+    static const unsigned UN[4] = { 0x00u, 0x01u, 0x0Fu, 0x3Fu }, WT[4] = { 0x00u, 0x01u, 0x08u, 0x00u };
+    static const char *const L1[4] = { "NOT YET SLAIN", "SLAIN: BONE", "THREE STEPS: RED", "ALL FIVE STEPS: BLACK" };
+    static const char *const L2[4] = { "TWO TAPESTRIES OVER IT", "ITS GOLD WAITING", "STEP 3'S GOLD WAITING", "SLAIN, AND EVERY STEP" };
+    for (int i = 0; i < 4; i++) {
+        int x = 24 + (i & 1) * (640 + 24), y = 72 + (i >> 1) * (400 + 64);
+        plot_wall(1.3f + 0.4f * (float)i, UN[i], WT[i], i ? 0.0f : 1.0f);
+        view_wall(2.1f, 13.0f, 1.3f + 0.4f * (float)i);
+        sheet_put(x, y + 40, 0, 0, W, H, 2);
+        sheet_label(x, y, L1[i], 2, 220); sheet_label(x, y + 20, L2[i], 2, 150);
+    }
+    int y = 72 + 2 * (400 + 64);
+    plot_wall(2.0f, 0x07u, 0x04u, 0.0f);
+    view_wall(6.2f, 16.0f, 2.0f);
+    sheet_put(24, y + 40, 0, 0, W, H, 2);
+    sheet_label(24, y, "THE PLOT'S FAR WALL, FROM ACROSS IT", 2, 220); sheet_label(24, y + 20, "THE KNIGHT'S DRAWN BACK, THE REST VEILED", 2, 150);
+    plot_wall(2.0f, 0x07u, 0x04u, 0.0f);
+    view_wall(3.4f, 14.0f, 2.0f);
+    sheet_put(24 + 640 + 24, y + 40, 0, 0, W, H, 2);
+    sheet_label(24 + 640 + 24, y, "FROM THE STONES' FIRST ROW", 2, 220); sheet_label(24 + 640 + 24, y + 20, "THE KNIGHT'S AND THE SPIDER'S", 2, 150);
+    sheet_end(dir, "bosses");
+}
 /* the card that E opens before it: the portrait up close in its niche, and its ranks with what each has cost and pays */
 static void card(const char *dir) {
     room_at(1.0f);
@@ -476,7 +578,7 @@ static void still(const char *dir, const char *name, void (*fn)(float), float t)
 }
 
 int main(int argc, char **argv) {
-    if (argc < 2) { fprintf(stderr, "usage: portraitmock <dir> [all|skeleton|veil|room|sheets|card|bench|check]\n"); return 2; }
+    if (argc < 2) { fprintf(stderr, "usage: portraitmock <dir> [all|skeleton|veil|room|sheets|card|medals|bosses|bench|check]\n"); return 2; }
     art_setup();
     const char *which = argc > 2 ? argv[2] : "all";
     int all = !strcmp(which, "all"), sc = getenv("PM_SCALE") ? atoi(getenv("PM_SCALE")) : 3;
@@ -488,6 +590,8 @@ int main(int argc, char **argv) {
     if (all || !strcmp(which, "room")) { gif_run(argv[1], "room", room_at, 6.4f, sc); still(argv[1], "room", room_at, 1.0f); }
     if (all || !strcmp(which, "sheets")) { sheet_states(argv[1]); sheet_candles(argv[1]); sheet_runs(argv[1]); }
     if (all || !strcmp(which, "card")) card(argv[1]);
+    if (all || !strcmp(which, "medals")) sheet_medals(argv[1]);
+    if (all || !strcmp(which, "bosses")) { sheet_bosses(argv[1]); gif_run(argv[1], "knight", knight_at, 10.7f, sc); }
     if (!strcmp(which, "check")) {                                      /* the runs' stone made alone, against the whole art */
         int bad = 0;
         for (int r = 0; r < 4; r++) {
