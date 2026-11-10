@@ -1098,7 +1098,7 @@ static struct {
     int offer_gone[NPED], offer_back[NPED]; /* offer_back: held last visit, back as it was */
     float ped_x[NPED], ped_y[NPED];         /* the pedestals, in an arc round the back wall */
     int ped_deco[NPED];                     /* and their stones among the decorations */
-    int ped_n, shop_left, shop_confirm, shop_letgo, shop_held;   /* pedestals; wares still to be had; a ware awaiting a
+    int ped_n, shop_left, shop_confirm, shop_letgo, shop_held, shop_buy;   /* pedestals; wares still to be had; a ware awaiting a
                                                second E; one awaiting room in the bag; the ware held this visit */
     double shop_t;
     float sa0, sa1, sdur, sx0, sy0, sx1, sy1, smove, sparkle;    /* turning and walking: from, to, how long */
@@ -1269,7 +1269,7 @@ enum { MM_SIGN, MM_ASCEND, MM_OFFER, MM_VOW, MM_PED, MM_WIND, MM_PAT, MM_LEAVE, 
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
 #define NINV 6                              /* Tab's pages */
 enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES, UI_ALIGN, UI_CLASS, UI_HALL2, UI_BSHRINE, UI_RECKON, UI_PAD,
-       UI_PORTRAIT };                                              /* the menus a person can open; the last a portrait of the slain's card */
+       UI_PORTRAIT, UI_BUY };                                      /* the menus a person can open; a portrait of the slain's card; a ware's buying */
 static Input IN;                            /* their keys and mouse, this step */
 static double IN_DT;                        /* and how long the step is */
 static struct {                             /* their game controller, if they have one */
@@ -1395,6 +1395,7 @@ static const char *pk(const char *s) {
     static int at;
     if (!PADX.used || !s) return s;
     char *o = buf[at = (at + 1) & 7];
+    const char *s0 = s;
     int n = 0;
     while (*s && n < 230) {
         if (*s == ' ') { o[n++] = *s++; continue; }
@@ -1405,6 +1406,8 @@ static const char *pk(const char *s) {
         int key = -1;
         for (int i = 0; i < (int)(sizeof PK_KEY / sizeof PK_KEY[0]); i++)
             if ((int)strlen(PK_KEY[i]) == (int)(b - a) && !strncmp(a, PK_KEY[i], (size_t)(b - a))) key = i;
+        if (key == 16 && !(s == s0 || (s - s0 >= 2 && s[-1] == ' ' && s[-2] == ' '))) key = -1;   /* BACK is a key only where a
+                                                                      group begins, as in "BACK UNBINDS": not "ESC BACK", "DRAW BACK" */
         if (key < 0) { while (s < e && n < 230) o[n++] = *s++; continue; }
         while (s < a) o[n++] = *s++;
         static const int8_t PK_JOB[17] = { -1, -1, PAD_A, -1, -1, -1, -1, -1, PAD_X, -1, -1, PAD_Y, PAD_DOWN, PAD_RT, PAD_UP, PAD_RB, -1 };
@@ -21263,6 +21266,11 @@ static float POR_LIGHT = 0.15f, POR_REACH = 2.0f, POR_GLOW = 0.8f;
  * third on her south wall, read from the left as you face it; the second on her north wall, the spiderling round its corner by its
  * mother; the last in the back room, along its north wall and down its east. A face that carried a banner or a torch gives it up. */
 static int por_gold(int k, int r);
+static int por_can_draw(int i);
+static int por_is_drawn(int i);
+/* its candles lit: once its tapestry may come down (one of its kind slain, its boss fallen), and for good after; till then
+ * cold, so that a lit candle by a tapestry still hung says there is one to draw back */
+static int por_lit(int i) { return por_can_draw(i) || por_is_drawn(i); }
 static void por_hang(void) {
     static const int8_t AT[22][3] = {
         { 20, 18, 3 }, { 18, 18, 3 }, { 17, 18, 3 }, { 13, 18, 3 }, { 12, 18, 3 }, { 11, 18, 3 }, { 10, 18, 3 },
@@ -21358,6 +21366,7 @@ static void por_hang(void) {
         uint32_t h = (uint32_t)(a->x * 73 + a->y * 19 + a->fd * 7 + 101) * 2654435761u;   /* not hash2: that has the level in it */
         h ^= h >> 15; h *= 2246822519u; h ^= h >> 13;
         a->layout = cand[h % (uint32_t)nc];
+        if (!por_lit(i)) continue;                                 /* its candles cold: no light, no glow */
         /* each flame a light of a third of a torch's, shared between its flames, and a glow on the wall about it */
         float fl[4][3], nx = (float)DX[a->fd], ny = (float)DY[a->fd], rx = ny, ry = -nx;   /* rx, ry: to the right as seen */
         int nf = portrait_layout_flames(a->layout, fl);
@@ -21374,7 +21383,7 @@ static void por_hang(void) {
     int nbf = portrait_boss_flames(bf);
     for (int i = 0; i < POR.n; i++) {
         const PorAt *a = &POR.at[i];
-        if (!a->boss || a->half) continue;
+        if (!a->boss || a->half || !por_lit(i)) continue;          /* (cold till it has fallen) */
         float nx = (float)DX[a->fd], ny = (float)DY[a->fd], rx = ny, ry = -nx;
         float cx = (float)a->x + 0.5f + 0.5f * nx + rx * 0.5f, cy = (float)a->y + 0.5f + 0.5f * ny + ry * 0.5f;   /* between its two faces */
         for (int st = 0; st < 2; st++) {
@@ -21396,7 +21405,7 @@ static void por_hang(void) {
 #ifdef CRAWL_DEBUG
     { static int said; if (!said++) {
         fprintf(stderr, "PORTRAITS hung %d, candles %d, lights %d:", POR.n, POR.nwf, G.nlights);
-        for (int i = 0; i < POR.n; i++) fprintf(stderr, " %d@%d,%d:%d", POR.at[i].kind, POR.at[i].x, POR.at[i].y, POR.at[i].layout);
+        for (int i = 0; i < POR.n; i++) fprintf(stderr, " %d@%d,%d:%d%s", POR.at[i].kind, POR.at[i].x, POR.at[i].y, POR.at[i].layout, por_lit(i) ? "" : "c");
         fprintf(stderr, "\n"); } }
 #endif
 }
@@ -21428,7 +21437,7 @@ static void gen_shop(void) {
     G.map[11][14].tex = G.map[11][16].tex = T_BRICK;
     add_deco(10.4f, 12.4f, SP_CANDLES); light_static(10.45f, 12.45f, 0.9f, 3.0f);
     add_deco(15.5f, 12.3f, SP_CANDLES); light_static(15.5f, 12.35f, 0.8f, 3.2f);   /* under the sign */
-    add_deco(20.55f, 17.55f, SP_URN);
+    add_deco(20.6f, 14.05f, SP_URN);                                /* by the way on, under its torch: it stood before the skeletons' portrait (1.0.0b21.2) */
     G.sh_deco = G.ndecos;                                          /* the Rune Shrine, across from the wares */
     add_deco(SHRINE_X, SHRINE_Y, RUN.shrine ? SP_SHRINE_C : SP_SHRINE_S);
     G.map[(int)SHRINE_Y][(int)SHRINE_X].kind = K_PROP;
@@ -21677,13 +21686,23 @@ static int shrine_count(int filled) { int n = 0; for (int i = 0; i < SHRINE_SLOT
 static int runes_held(void) { int n = 0; for (int k = 0; k < NDEF; k++) n += RUN.gear.def[k] > 0; return n; }
 
 static void shrine_note(const char *fmt, ...) {                    /* a line on the shrine's screen, for a few seconds */
+    char b[sizeof G.sh_note];
     va_list ap;
     va_start(ap, fmt);
-    vsnprintf(G.sh_note, sizeof G.sh_note, fmt, ap);
+    vsnprintf(b, sizeof b, fmt, ap);
     va_end(ap);
-    snprintf(G.sh_note, sizeof G.sh_note, "%s", pkp(G.sh_note));    /* ENTER AGAIN, or A on a controller */
+    snprintf(G.sh_note, sizeof G.sh_note, "%s", pkp(b));            /* ENTER AGAIN, or A on a controller (never printed into itself:
+                                                                      the C library may clear the line before it reads it) */
     G.sh_note_t = 4.0f;
     if (!G.player) say("%s", G.sh_note);                           /* the autopilot's doings, for whoever watches */
+}
+static void shop_say(const char *fmt, ...) {                      /* her wares' words: on the buying screen while it is up, else said */
+    char b[80];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(b, sizeof b, fmt, ap);
+    va_end(ap);
+    if (G.ui == UI_BUY) shrine_note("%s", b); else say("%s", b);
 }
 static void shrine_attune(int k, int q) {                          /* a rune at Rare or better: the shrine knows it */
     if (q < Q_RARE + 1 || (RUN.attuned >> k & 1)) return;
@@ -22683,16 +22702,17 @@ static void wheel_close(int take) {
 }
 /* a ware held for the next visit, for a quarter of its price: Q tapped while looking at it (on letting go since 1.0.0b18.1,
  * so that Q held may open the gifts' wheel in her rooms as anywhere) */
+static void shop_say(const char *fmt, ...);
 static void shop_hold(int i) {
     const Offer *o = &G.offers[i];
     int cost = (o->price + 3) / 4;
-    if (o->price <= 0) say("IT IS FREE: NOTHING TO HOLD");
-    else if (G.shop_held >= 0) say(G.shop_held == i ? "IT IS HELD FOR YOU" : "ONE WARE HELD AT A TIME");
-    else if (cost > RUN.treasure) say("HOLDING IT COSTS $%d", cost);
+    if (o->price <= 0) shop_say("IT IS FREE: NOTHING TO HOLD");
+    else if (G.shop_held >= 0) shop_say(G.shop_held == i ? "IT IS HELD FOR YOU" : "ONE WARE HELD AT A TIME");
+    else if (cost > RUN.treasure) shop_say("HOLDING IT COSTS $%d", cost);
     else {
         RUN.treasure -= cost;
         RUN.gear.held = *o; RUN.gear.has_held = 1; G.shop_held = i;
-        say("HELD FOR NEXT TIME: $%d", cost);
+        shop_say("HELD FOR NEXT TIME: $%d", cost);
         snd_sfx_ex(SFX_COIN, 0.8f, 0.5f); sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.9f); G.cat_slow = 1.2f;
     }
 #ifdef CRAWL_DEBUG
@@ -23178,6 +23198,7 @@ static void por_draw_back(int i, int dream) {                      /* its tapest
                                                                       boss's two, parted) */
     i = por_head(i);
     int k = POR.at[i].kind, b = por_bossof(i);
+    (void)k;
     float fx, fy;
     por_face_mid(i, &fx, &fy);
     RUN.por_drawn |= 1u << por_bit(i);
@@ -23253,6 +23274,8 @@ static void update_portrait(void) {                                /* its card: 
     }
 }
 
+#define BUY_MAP (-2)                        /* the buying screen's map, in place of a pedestal */
+static void buy_open(int i);
 static void shop_human(float dt) {
     if (!RUN.cls) { G.vow_change = 0; open_ui(UI_CLASS); return; }   /* her question, before anything else */
     spell_keys();
@@ -23310,20 +23333,8 @@ static void shop_human(float dt) {
     int i = G.shop_look;
     if (CAST_UP) G.click_spent = 0;
     if (IN.hit[KEY_E] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1]) {
-        if (i >= 0) {
-            G.click_spent = CAST_HIT;
-            const Offer *o = &G.offers[i];
-            int worn = -1;                                         /* buying for a slot already worn */
-            if (o->kind == GK_PIECE && o->piece.kind != IK_BAG) {
-                int sl = piece_slot(&RUN.gear, o->piece.kind);
-                if (RUN.gear.worn[sl].kind != IK_NONE) worn = sl;
-            }
-            if (G.shop_left <= 0) say("NO MORE WARES THIS VISIT");
-            else if (o->price > RUN.treasure) { say("YOU CAN'T AFFORD THAT"); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); }
-            else if (worn >= 0 && !RUN.gear.bag_size && G.shop_confirm != i) { G.shop_confirm = i; snd_sfx_ex(SFX_KNOCK, 0.7f, 0.5f); }   /* the card warns; a second E buys */
-            else if (worn >= 0 && RUN.gear.bag_size && !gear_bag_free(&RUN.gear)) { G.shop_letgo = i; G.ui = UI_LETGO; G.ui_sel = 0; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); }
-            else { shop_purchase(i); G.grab_t = 1.0f; }
-        } else if (G.sh_look) { open_ui(UI_SHRINE); G.click_spent = CAST_HIT; G.grab_t = 1.0f; }
+        if (i >= 0) { G.click_spent = CAST_HIT; buy_open(i); }    /* a ware: its buying, on a screen of its own (after 1.0.0b21.2) */
+        else if (G.sh_look) { open_ui(UI_SHRINE); G.click_spent = CAST_HIT; G.grab_t = 1.0f; }
         else if (G.tot_look) { open_ui(UI_TOTEM); G.click_spent = CAST_HIT; G.grab_t = 1.0f; }
         else if (G.lamp_look) { open_ui(UI_ALIGN); G.click_spent = CAST_HIT; }
         else if (G.bell_look || G.font_look) { G.h2_obj = G.font_look; open_ui(UI_HALL2); G.click_spent = CAST_HIT; }
@@ -23337,19 +23348,7 @@ static void shop_human(float dt) {
             if (!por_is_drawn(p) && por_can_draw(p)) por_draw_back(p, 0);
             else { G.pt_sel = p; open_ui(UI_PORTRAIT); snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f); }
         }
-        else if (G.map_look) {
-            G.click_spent = CAST_HIT;
-            if (RUN.treasure < MAP_PRICE) { say("YOU CAN'T AFFORD THAT"); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); }
-            else {
-                RUN.treasure -= MAP_PRICE; RUN.has_map = 1; G.map_look = 0; G.grab_t = 1.0f;
-                say(PADX.used ? "THE MAP IS YOURS: D-PAD UP OPENS IT" : "THE MAP IS YOURS: M OPENS IT");
-                snd_sfx_ex(SFX_COIN, 1.1f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.8f, 0.5f);
-                sfx_at(SFX_TRILL, CAT_X, CAT_Y, 1.2f); G.cat_trill = 0.5f; G.cat_slow = 1.4f; G.grin_t = 2.0f;
-#ifdef CRAWL_DEBUG
-                fprintf(stderr, "EVENT map_bought left %d t=%.2f\n", RUN.treasure, G.t);
-#endif
-            }
-        }
+        else if (G.map_look) { G.click_spent = CAST_HIT; buy_open(BUY_MAP); }
         else if (!human_use() && G.mer_look) { open_ui(UI_MERCHANT); G.click_spent = CAST_HIT; }   /* her menu: the ledger, a pat */
     }
     human_cast(dt, !G.click_spent);
@@ -23368,6 +23367,64 @@ static void update_letgo(void) {
         G.ui = UI_NONE; G.shop_letgo = -1;
         if (i >= 0 && !G.offer_gone[i] && G.offers[i].price <= RUN.treasure && G.shop_left > 0) { shop_purchase(i); G.grab_t = 1.0f; }
     }
+}
+
+/* A ware's buying (after 1.0.0b21.2, at the owner's word): E at a pedestal, or at the map, opens a screen of its own with what it is,
+ * what is worn there now, what changes in the caster's numbers and what becomes of the old piece. E buys (twice where the old
+ * would be lost), Q holds it, A and D go round the rest of her wares, Esc puts it away. */
+static void buy_open(int i) {
+    G.shop_buy = i; G.shop_confirm = -1; G.sh_note_t = 0.0f;
+    open_ui(UI_BUY);
+    snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f);
+}
+static int buy_live(int i) { return i == BUY_MAP ? !RUN.has_map : i >= 0 && i < G.ped_n && !G.offer_gone[i]; }
+static int buy_next(int from, int dir) {                           /* the next ware still to be had, round the pedestals and the map */
+    int n = G.ped_n + 1, at = from == BUY_MAP ? G.ped_n : from;
+    for (int k = 1; k <= n; k++) {
+        int j = ((at + dir * k) % n + n) % n, w = j == G.ped_n ? BUY_MAP : j;
+        if (buy_live(w)) return w;
+    }
+    return from;
+}
+static void map_buy(void) {
+    if (RUN.treasure < MAP_PRICE) { shop_say("YOU CAN'T AFFORD THAT"); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); return; }
+    RUN.treasure -= MAP_PRICE; RUN.has_map = 1; G.map_look = 0; G.grab_t = 1.0f;
+    G.ui = UI_NONE;
+    say(PADX.used ? "THE MAP IS YOURS: D-PAD UP OPENS IT" : "THE MAP IS YOURS: M OPENS IT");
+    snd_sfx_ex(SFX_COIN, 1.1f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.8f, 0.5f);
+    sfx_at(SFX_TRILL, CAT_X, CAT_Y, 1.2f); G.cat_trill = 0.5f; G.cat_slow = 1.4f; G.grin_t = 2.0f;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT map_bought left %d t=%.2f\n", RUN.treasure, G.t);
+#endif
+}
+static int buy_worn(int i) {                                       /* the slot a ware would be worn in that is worn already; -1 none */
+    const Offer *o = &G.offers[i];
+    if (o->kind != GK_PIECE || o->piece.kind == IK_BAG) return -1;
+    int sl = piece_slot(&RUN.gear, o->piece.kind);
+    return RUN.gear.worn[sl].kind != IK_NONE ? sl : -1;
+}
+static void update_buy(void) {
+    int i = G.shop_buy;
+    if (!buy_live(i)) { G.ui = UI_NONE; G.shop_confirm = -1; return; }
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_TAB] || IN.hit[KEY_MOUSE2]) { G.ui = UI_NONE; G.shop_confirm = -1; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
+    if (IN.hit[KEY_A] || IN.hit[KEY_LEFT] || IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) {
+        int j = buy_next(i, IN.hit[KEY_A] || IN.hit[KEY_LEFT] ? -1 : 1);
+        if (j != i) { G.shop_buy = j; G.shop_confirm = -1; G.sh_note_t = 0.0f; snd_sfx_ex(SFX_TICK, 0.6f, 0.5f); }
+        return;
+    }
+    if (i == BUY_MAP) { if (IN.hit[KEY_E] || IN.hit[KEY_ENTER]) map_buy(); return; }
+    if (IN.hit[KEY_Q] || IN.hit[KEY_SPACE] || IN.hit[KEY_BACK]) {  /* held for the next visit (Y or X on a controller) */
+        if (G.shop_left <= 0) shop_say("NO MORE WARES THIS VISIT"); else shop_hold(i);
+        return;
+    }
+    if (!(IN.hit[KEY_E] || IN.hit[KEY_ENTER])) return;
+    const Offer *o = &G.offers[i];
+    int worn = buy_worn(i);
+    if (G.shop_left <= 0) shop_say("NO MORE WARES THIS VISIT");
+    else if (o->price > RUN.treasure) { shop_say("YOU CAN'T AFFORD THAT"); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); }
+    else if (worn >= 0 && !RUN.gear.bag_size && G.shop_confirm != i) { G.shop_confirm = i; snd_sfx_ex(SFX_KNOCK, 0.7f, 0.5f); }   /* the old would be lost: a second E buys */
+    else if (worn >= 0 && RUN.gear.bag_size && !gear_bag_free(&RUN.gear)) { G.shop_letgo = i; G.ui = UI_LETGO; G.ui_sel = 0; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); }
+    else { G.ui = UI_NONE; shop_purchase(i); G.grab_t = 1.0f; }
 }
 
 /* the person takes over, from wherever the autopilot was */
@@ -26493,6 +26550,7 @@ static void update_ui(void) {
     if (G.ui == UI_RECKON) { update_reckon(); return; }
     if (G.ui == UI_PAD) { update_padmenu(); return; }
     if (G.ui == UI_PORTRAIT) { update_portrait(); return; }
+    if (G.ui == UI_BUY) { update_buy(); return; }
     if (G.ui == UI_INVENTORY) update_inventory();
     else if (G.ui == UI_LEDGER) update_ledger();
     else if (G.ui == UI_MERCHANT) update_merchantmenu();
@@ -28769,183 +28827,77 @@ static int shop_carded(void) {                                     /* a person l
     return G.shop && G.player && (G.shop_look >= 0 || G.rep_look || G.comp_look || G.stone_look >= 0 || G.map_look || G.mer_look || G.por_look
                                   || G.tot_look || G.bell_look || G.font_look || G.lamp_look || G.sh_look || G.pt_look);
 }
+/* In her rooms, for a person (after 1.0.0b21.2, at the owner's word): what is faced on a slim band at the foot of the view, the key
+ * that does something with it on a cap before it and a note after it where one matters (a ware's price, gold waiting); the
+ * card, the menu or a ware's buying comes up on that key, so that the thing itself stays in sight. */
+static void shop_prompt(Frame *f, const char *key, const char *what, int col, const char *note, int ncol) {
+    const char *k = key ? pk(key) : NULL;
+    int kw = k ? ui_keys_width(k) + 10 : 0, ww = gfx_text_width(what, 1), nw = note && *note ? gfx_text_width(note, 1) + 14 : 0;
+    if (kw + ww + nw + 16 > W - 8) nw = 0;                         /* too long: the note gives way */
+    int bw = imin(W - 8, kw + ww + nw + 16), bx = (W - bw) / 2, by = H - 44 - 4 - 15;
+    ui_band(f, bx, by, bw, 15);
+    if (k) ui_keys(f, bx + 10, by + 4, k, UI_M(13));
+    gfx_text8(f, bx + 8 + kw, by + 4, what, col, 1);
+    if (nw) gfx_text8(f, bx + bw - 8 - gfx_text_width(note, 1), by + 4, note, ncol, 1);
+}
+static void render_shop_prompt(Frame *f) {
+    char what[100] = "", note[48] = "";
+    int col = R_STONE + 13, ncol = R_GOLD + 11, i = G.shop_look;
+    const char *key = "E";
+    if (i >= 0 && !G.offer_gone[i]) {                              /* a ware: its name in its quality's colour, its price */
+        const Offer *o = &G.offers[i];
+        if (o->kind == GK_PIECE) { char a[48]; piece_name(&o->piece, a, what, sizeof what); col = qual_text(o->piece.quality); }
+        else { gear_name(o, what, sizeof what); col = ramp_at(offer_color(o), 13); }
+        snprintf(note, sizeof note, o->price ? "$%d" : "FREE", o->price);
+        ncol = o->price <= RUN.treasure ? R_GOLD + 12 : R_BLOOD + 12;
+        if (G.shop_held == i) snprintf(note, sizeof note, "HELD");
+    } else if (G.pt_look) {                                        /* a portrait of the slain */
+        int p = por_head(G.pt_look - 1), b = por_bossof(p);
+        if (!por_is_drawn(p)) {
+            if (por_can_draw(p)) { snprintf(what, sizeof what, b >= 0 ? "DRAW BACK THE TAPESTRIES" : "DRAW BACK THE TAPESTRY"); col = R_BLOOD + 13; }
+            else { key = NULL; snprintf(what, sizeof what, b >= 0 ? "A TAPESTRY: WHAT HANGS HERE STILL STANDS" : "A TAPESTRY: NONE OF ITS KIND SLAIN"); col = R_STONE + 11; }
+        } else if (b >= 0) {
+            int unl = boss_unlocked(b), hi = -1, g = boss_wait_gold(b);
+            for (int st = 0; st < 6; st++) if (unl >> st & 1) hi = st;
+            snprintf(what, sizeof what, "%s", POR_BOSS_NAME[b]); col = hi >= 0 ? RANK_COL[BOSS_GEM[hi]] : R_STONE + 13;
+            if (g) snprintf(note, sizeof note, "$%d WAITS", g);
+        } else {
+            int k = POR.at[p].kind, hi = por_high(por_unlocked(k)), g = por_wait_gold(k);
+            snprintf(what, sizeof what, "%s", KINDS[k].plural); col = hi >= 0 ? RANK_COL[hi] : R_STONE + 13;
+            if (g) snprintf(note, sizeof note, "$%d WAITS", g);
+        }
+    } else if (G.map_look) {
+        snprintf(what, sizeof what, "A MAP OF THE CRYPT"); col = R_BONE + 13;
+        snprintf(note, sizeof note, "$%d", MAP_PRICE); ncol = MAP_PRICE <= RUN.treasure ? R_GOLD + 12 : R_BLOOD + 12;
+    } else if (G.sh_look) {
+        snprintf(what, sizeof what, "THE RUNE SHRINE"); col = R_GOLD + 12;
+        if (!RUN.shrine) snprintf(note, sizeof note, "SANCTIFIED");
+        else if (G.sh_takes > 0) snprintf(note, sizeof note, G.sh_takes == 1 ? "ONE TAKE LEFT" : "%d TAKES LEFT", G.sh_takes);
+    } else if (G.lamp_look) {
+        snprintf(what, sizeof what, "THE LAMPSTAND"); col = R_GOLD + 12;
+        if (gift_due()) snprintf(note, sizeof note, "A GIFT WAITS");
+        else if (RUN.al_points > 0) snprintf(note, sizeof note, RUN.al_points == 1 ? "A POINT" : "%d POINTS", RUN.al_points);
+    } else if (G.tot_look) { snprintf(what, sizeof what, "THE HEXED TOTEM"); col = R_GOLD + 12; }
+    else if (G.comp_look) {
+        snprintf(what, sizeof what, "THE CORPUS COMPENDIUM"); col = R_BONE + 13;
+        snprintf(note, sizeof note, comp_count() == 1 ? "ONE PIECE" : "%d PIECES", comp_count()); ncol = R_STONE + 11;
+    }
+    else if (G.rep_look) { snprintf(what, sizeof what, "THE WRETCHED REPOSITORY"); col = R_IRON + 13; }
+    else if (G.por_look) { snprintf(what, sizeof what, "THE ACCURSED PORTAL"); col = R_PURPLE + 13; }
+    else if (G.bell_look) { snprintf(what, sizeof what, "THE DEAD BELL"); col = R_MOSS + 12; }
+    else if (G.font_look) { snprintf(what, sizeof what, "THE WEEPING FONT"); col = R_BLOOD + 12; }
+    else if (G.stone_look >= 0) {
+        snprintf(what, sizeof what, "A DWELLER'S STONE"); col = R_STONE + 13;
+        snprintf(note, sizeof note, "LEVEL %d", RUN.stones[clampi(G.stone_look, 0, STONES - 1)].level); ncol = R_STONE + 11;
+    } else if (G.mer_look) { snprintf(what, sizeof what, "THE MERCHANT"); col = R_GOLD + 12; }
+    if (what[0]) shop_prompt(f, key, what, col, note, ncol);
+}
 static void render_shop_card(Frame *f) {
     if (G.player && WH.k > 0.0f) return;                           /* and the cards: a wheel covers them (1.0.0b18.1) */
+    if (G.player) { render_shop_prompt(f); return; }               /* a person: the slim prompt; the cards below are the dream's */
     int i = G.shop_step == SH_LOOK || G.shop_step == SH_GO || (G.shop_step == SH_BUY && G.shop_pick >= 0 && !G.offer_gone[G.shop_pick]) ? G.shop_look : -1;
     if (G.shop_step == SH_LOOK && G.shop_t < 0.35) i = -1;
-    if (G.player) i = G.shop_look;
     int y0 = H - 44 - 46;
-    if (G.player && G.pt_look && i < 0 && POR.at[G.pt_look - 1].boss) {   /* a boss's portrait, and what E does there */
-        int p = por_head(G.pt_look - 1), b = por_bossof(p), drawn = por_is_drawn(p), unl = boss_unlocked(b), gold = boss_wait_gold(b);
-        int bw = 264, bx = (W - bw) / 2, ph = 42, hi = -1, steps = 0;
-        for (int st = 0; st < 6; st++) if (unl >> st & 1) { hi = st; steps += st > 0; }
-        y0 = H - 44 - 4 - ph;
-        ui_band(f, bx, y0, bw, ph);
-        gfx_text16(f, bx + 8, y0 + 4, drawn ? POR_BOSS_NAME[b] : "A TAPESTRY", drawn ? (hi >= 0 ? (uint8_t)RANK_COL[BOSS_GEM[hi]] : (uint8_t)(R_STONE + 13)) : (uint8_t)(R_BLOOD + 13), 1);
-        char l2[64];
-        if (!drawn) snprintf(l2, sizeof l2, "%s", por_can_draw(p) ? "WHAT HANGS HERE HAS FALLEN" : "WHAT HANGS HERE IS NOT YET SLAIN");
-        else if (gold && !steps) snprintf(l2, sizeof l2, "SLAIN, $%d WAITS", gold);
-        else if (gold) snprintf(l2, sizeof l2, "%d OF 5 STEPS, $%d WAITS", steps, gold);
-        else snprintf(l2, sizeof l2, "SLAIN, AND %d OF 5 STEPS", steps);
-        gfx_text8(f, bx + 8, y0 + 21, l2, gold ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 12), 1);
-        hint8(f, bx + 8, y0 + 31, !drawn && por_can_draw(p) ? "E DRAW BACK THE TAPESTRIES" : drawn && gold ? "E: ITS CARD, AND ITS GOLD" : drawn ? "E: ITS CARD" : "", R_STONE + 10);
-        return;
-    }
-    if (G.player && G.pt_look && i < 0) {                          /* a portrait of the slain, and what E does there */
-        int p = G.pt_look - 1, k = POR.at[p].kind, drawn = RUN.por_drawn >> k & 1, unl = por_unlocked(k), bw = 264, bx = (W - bw) / 2, ph = 42;
-        int rk[NRANK], nr = por_ranks(k, rk), nu = 0, hi = por_high(unl), gold = por_wait_gold(k);
-        for (int j = 0; j < nr; j++) nu += unl >> rk[j] & 1;
-        y0 = H - 44 - 4 - ph;
-        ui_band(f, bx, y0, bw, ph);
-        gfx_text16(f, bx + 8, y0 + 4, drawn ? KINDS[k].plural : "A TAPESTRY", drawn ? (hi >= 0 ? (uint8_t)RANK_COL[hi] : (uint8_t)(R_STONE + 13)) : (uint8_t)(R_BLOOD + 13), 1);
-        char l2[64];
-        if (!drawn) snprintf(l2, sizeof l2, "%s", por_drawable(k) ? "ONE OF ITS KIND IS SLAIN" : "NONE OF ITS KIND SLAIN YET");
-        else if (!nr) snprintf(l2, sizeof l2, "NOTHING OF ITS KIND IS SLAIN");
-        else if (!nu && !(unl >> POR_FEAT & 1)) snprintf(l2, sizeof l2, "ITS SHADOW: NO RANK UNLOCKED");
-        else if (unl >> POR_FEAT & 1) {                           /* its feat too (step 5) */
-            if (gold) snprintf(l2, sizeof l2, "%d OF %d AND A FEAT, $%d WAITS", nu, nr, gold);
-            else snprintf(l2, sizeof l2, "%d OF %d RANK%s AND A FEAT", nu, nr, nr == 1 ? "" : "S");
-        }
-        else if (gold) snprintf(l2, sizeof l2, "%d OF %d RANK%s, $%d WAITS", nu, nr, nr == 1 ? "" : "S", gold);
-        else snprintf(l2, sizeof l2, "%d OF %d RANK%s UNLOCKED", nu, nr, nr == 1 ? "" : "S");
-        gfx_text8(f, bx + 8, y0 + 21, l2, gold ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 12), 1);
-        hint8(f, bx + 8, y0 + 31, !drawn && por_drawable(k) ? "E DRAW BACK THE TAPESTRY" : gold ? "E: ITS CARD, AND ITS GOLD" : "E: ITS CARD", R_STONE + 10);
-        return;
-    }
-    if (G.player && G.rep_look && i < 0) {                         /* the Repository, and what E does there */
-        int bw = 264, bx = (W - bw) / 2, ph = 42, full = 0;
-        for (int k = 0; k < RUN.repo_n; k++) full += RUN.repo[k].kind != IK_NONE;
-        y0 = H - 44 - 4 - ph;
-        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
-        gfx_text16(f, bx + 8, y0 + 4, "THE WRETCHED REPOSITORY", R_IRON + 13, 1);
-        char l2[48];
-        snprintf(l2, sizeof l2, "%d OF %d FULL, $%d, %d COINS", full, RUN.repo_n, RUN.repo_gold, RUN.repo_coins);
-        gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
-        hint8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10);
-        return;
-    }
-    if (G.player && G.comp_look && i < 0) {                        /* the Compendium, and what E does there */
-        int bw = 264, bx = (W - bw) / 2, ph = 42;
-        y0 = H - 44 - 4 - ph;
-        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
-        gfx_text16(f, bx + 8, y0 + 4, "THE CORPUS COMPENDIUM", R_BONE + 13, 1);
-        char l2[48];
-        snprintf(l2, sizeof l2, "%d PIECES WRITTEN IN IT", comp_count());
-        gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
-        hint8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10);
-        return;
-    }
-    if (G.player && G.stone_look >= 0 && i < 0) {                  /* a stone in the plot */
-        const Stone *st = &RUN.stones[clampi(G.stone_look, 0, STONES - 1)];
-        int bw = 264, bx = (W - bw) / 2, ph = 42;
-        y0 = H - 44 - 4 - ph;
-        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
-        gfx_text16(f, bx + 8, y0 + 4, "A DWELLER'S STONE", R_STONE + 13, 1);
-        char by[64], l2[96];
-        blame_text(&st->by, by, sizeof by);
-        snprintf(l2, sizeof l2, "LEVEL %d: %s", st->level, by);
-        if (gfx_text_width(l2, 1) > bw - 16) snprintf(l2, sizeof l2, "TAKEN ON LEVEL %d", st->level);
-        gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
-        hint8(f, bx + 8, y0 + 31, "E: READ IT", R_STONE + 10);
-        return;
-    }
-    if (G.player && G.map_look && i < 0) {                         /* the map, and what it does */
-        int bw = 264, bx = (W - bw) / 2, ph = 42;
-        y0 = H - 44 - 4 - ph;
-        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
-        gfx_text16(f, bx + 8, y0 + 4, "A MAP OF THE CRYPT", R_BONE + 13, 1);
-        char pr[16];
-        snprintf(pr, sizeof pr, "$%d", MAP_PRICE);
-        gfx_text16(f, bx + bw - 8 - gfx_text_width(pr, 1), y0 + 4, pr, MAP_PRICE <= RUN.treasure ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_BLOOD + 11), 1);
-        gfx_text8(f, bx + 8, y0 + 21, "IT FILLS IN AS YOU WALK", R_STONE + 12, 1);
-        hint8(f, bx + 8, y0 + 31, "E BUYS IT. IT OUTLASTS DEATH", R_STONE + 10);
-        return;
-    }
-    if (G.player && G.mer_look && i < 0) {                         /* the merchant, and what E does with her */
-        int bw = 264, bx = (W - bw) / 2, ph = 42;
-        y0 = H - 44 - 4 - ph;
-        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
-        gfx_text16(f, bx + 8, y0 + 4, "THE MERCHANT", R_GOLD + 12, 1);
-        char l2[48];
-        if (LEDGER.page) snprintf(l2, sizeof l2, "FROM PAGE %s OF HER LEDGER", RUN_ROMAN[LEDGER.page - 1]);
-        else snprintf(l2, sizeof l2, "THIS RUN IS UNSIGNED");
-        gfx_text8(f, bx + 8, y0 + 21, l2, LEDGER.page ? (uint8_t)(R_STONE + 12) : (uint8_t)(R_BLOOD + 12), 1);
-        hint8(f, bx + 8, y0 + 31, "E: SIGN HER LEDGER, OR PAT HER", R_STONE + 10);
-        return;
-    }
-    if (G.player && G.por_look && i < 0) {                         /* the Portal, and what E does there */
-        int bw = 264, bx = (W - bw) / 2, ph = 42, ch = 0;
-        for (int b = 0; b < NBOSS; b++) ch += RUN.rec.boss[b].slain > 0;
-        y0 = H - 44 - 4 - ph;
-        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
-        gfx_text16(f, bx + 8, y0 + 4, "THE ACCURSED PORTAL", R_PURPLE + 13, 1);
-        char l2[48];
-        snprintf(l2, sizeof l2, "%d RUN%s OPEN, %d CHALLENGE%s", RUN.run_top + 1, RUN.run_top ? "S" : "", ch, ch == 1 ? "" : "S");
-        gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
-        hint8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10);
-        return;
-    }
-    if (G.player && G.tot_look && i < 0) {                         /* the Totem, and what E does there */
-        int bw = 264, bx = (W - bw) / 2, ph = 42, known = 0, scrip = 0;
-        for (int b = 0; b < NBOSS; b++) { known += boss_beaten(b); scrip += RUN.scrip[b]; }
-        y0 = H - 44 - 4 - ph;
-        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
-        gfx_text16(f, bx + 8, y0 + 4, "THE HEXED TOTEM", R_GOLD + 12, 1);
-        char l2[48];
-        if (!known) snprintf(l2, sizeof l2, "IT WANTS A BOSS'S ODIOUS SCRIP");
-        else snprintf(l2, sizeof l2, "%d SCRIP HELD", scrip);
-        gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
-        hint8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10);
-        return;
-    }
-    if (G.player && (G.bell_look || G.font_look) && i < 0) {       /* the Dead Bell or the Weeping Font */
-        int bw = 264, bx = (W - bw) / 2, ph = 42, bell = G.bell_look;
-        y0 = H - 44 - 4 - ph;
-        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
-        gfx_text16(f, bx + 8, y0 + 4, bell ? "THE DEAD BELL" : "THE WEEPING FONT", bell ? (uint8_t)(R_MOSS + 12) : (uint8_t)(R_BLOOD + 12), 1);
-        char l2[56];
-        if (bell && !RUN.bell_cursed) snprintf(l2, sizeof l2, "DORMANT. IT WANTS A CURSED COIN");
-        else if (bell && bell_tolled()) snprintf(l2, sizeof l2, "TOLLED: LEVEL %d IS CORRUPTED%s", G.level, RUN.bell_secrets ? ", SHOWN" : "");
-        else if (bell) snprintf(l2, sizeof l2, "%d SOULS CORRUPT LEVEL %d", bell_price(), G.level);
-        else if (!RUN.font_cursed) snprintf(l2, sizeof l2, "DRY. IT WANTS A CURSED COIN");
-        else if (G.font_drunk || RUN.font_next == G.level) snprintf(l2, sizeof l2, "YOU HAVE DRUNK FROM IT TODAY");
-        else snprintf(l2, sizeof l2, "%d SOULS, A TENTH MORE EXPERIENCE", font_price());
-        gfx_text8(f, bx + 8, y0 + 21, l2, R_STONE + 12, 1);
-        hint8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10);
-        return;
-    }
-    if (G.player && G.lamp_look && i < 0) {                        /* the Lampstand, and what E does there */
-        int bw = 264, bx = (W - bw) / 2, ph = 42, open = 0;
-        for (int e = 0; e < NELEM; e++) open += align_open(e);
-        y0 = H - 44 - 4 - ph;
-        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
-        gfx_text16(f, bx + 8, y0 + 4, "THE LAMPSTAND", R_GOLD + 12, 1);
-        char l2[48];
-        if (RUN.al_points > 0) snprintf(l2, sizeof l2, "%d POINT%s TO ALIGN", RUN.al_points, RUN.al_points == 1 ? "" : "S");
-        else snprintf(l2, sizeof l2, "%d OF SIX LINES BURNING", open);
-        gfx_text8(f, bx + 8, y0 + 21, l2, RUN.al_points > 0 ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_STONE + 12), 1);
-        hint8(f, bx + 8, y0 + 31, "E OPENS IT", R_STONE + 10);
-        return;
-    }
-    if (G.player && G.sh_look && i < 0) {                          /* the shrine, and what E does there */
-        int bw = 264, bx = (W - bw) / 2, ph = 42;
-        y0 = H - 44 - 4 - ph;
-        ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
-        char l1[48], l2[48];
-        if (!RUN.shrine) { snprintf(l1, sizeof l1, "SANCTIFIED. IT GIVES NOTHING."); snprintf(l2, sizeof l2, RUN.coins ? "E: CURSE IT WITH A CURSED COIN" : "IT WANTS A CURSED COIN"); }
-        else {
-            snprintf(l1, sizeof l1, "CURSED: RUNES UP TO %s", QUAL_NAME[RUN.shrine - 1]);
-            if (G.sh_takes > 0) snprintf(l2, sizeof l2, "E OPENS IT. %d TAKE%s LEFT", G.sh_takes, G.sh_takes == 1 ? "" : "S");
-            else snprintf(l2, sizeof l2, "E OPENS IT");
-        }
-        gfx_text16(f, bx + 8, y0 + 4, "THE RUNE SHRINE", R_GOLD + 12, 1);
-        char c[16]; snprintf(c, sizeof c, "%d", RUN.coins);
-        gfx_text8(f, bx + bw - 8 - gfx_text_width(c, 1), y0 + 8, c, R_GOLD + 11, 1);
-        draw_coin(f, bx + bw - 19 - gfx_text_width(c, 1), y0 + 8);
-        gfx_text8(f, bx + 8, y0 + 21, l1, RUN.shrine ? ramp_at(QUAL_RAMP[RUN.shrine - 1], 12) : (uint8_t)(R_STONE + 12), 1);
-        hint8(f, bx + 8, y0 + 31, l2, R_STONE + 10);
-        return;
-    }
     if (i < 0 || G.offer_gone[i]) {
         if (!G.player && G.shop_step == SH_THANK && !G.shop_bought) {
             const char *msg = G.shop_saving ? "SAVING UP FOR SOMETHING BETTER" : "NOTHING TAKES ITS FANCY";
@@ -28960,24 +28912,7 @@ static void render_shop_card(Frame *f) {
     if (o->price == 0) snprintf(price, sizeof price, "FREE");
     else snprintf(price, sizeof price, "$%d", o->price);
     int bw = 264, bx = (W - bw) / 2, ph = 42, pw = gfx_text_width(price, 1);
-    char foot[2][48] = { "", "" };                                 /* for a person: what E and Q do here, or a warning */
-    int warn = 0;
-    if (G.player) {
-        if (G.shop_confirm == i) {
-            int sl = piece_slot(&RUN.gear, o->piece.kind);
-            snprintf(foot[0], sizeof foot[0], "YOUR OLD %s WILL BE LOST.", KIND_NAME[RUN.gear.worn[sl].kind]);
-            snprintf(foot[1], sizeof foot[1], "NO GOLD COMES BACK. E AGAIN BUYS.");
-            warn = 1;
-        } else {
-            if (G.shop_left <= 0) snprintf(foot[0], sizeof foot[0], "NO MORE WARES THIS VISIT");
-            else if (o->price > 0 && G.shop_held < 0) snprintf(foot[0], sizeof foot[0], "E BUYS  Q HOLDS FOR $%d", (o->price + 3) / 4);
-            else snprintf(foot[0], sizeof foot[0], "E BUYS");
-            if (G.shop_left > 0) snprintf(foot[1], sizeof foot[1], G.shop_left == 1 ? "ONE MORE WARE THIS VISIT" : "%d MORE WARES THIS VISIT", G.shop_left);
-            if (G.offer_back[i]) snprintf(foot[1], sizeof foot[1], "HELD FOR YOU LAST TIME");
-            if (G.shop_held == i) snprintf(foot[1], sizeof foot[1], "HELD FOR YOUR NEXT VISIT");
-        }
-    }
-    int fl = (foot[0][0] != 0) + (foot[1][0] != 0), body = 42;     /* the footer goes under the body */
+    int body = 42;
     char name[100], l1[48], l2[48], stats[160] = "";
     const Piece *p = &o->piece;
     if (o->kind == GK_PIECE) {                                     /* a piece: its stats under its name */
@@ -28995,11 +28930,9 @@ static void render_shop_card(Frame *f) {
         }
         body = 34 + 9 * text_wrap_ex(NULL, 0, 0, stats, (bw - 16) / 8, 0, 4, 9);
     }
-    ph = body + (fl ? 9 * fl + 2 : 0);
+    ph = body;
     y0 = H - 44 - 4 - ph;
     ui_band(f, bx, y0, bw, ph);                 /* a band of the run's stone */
-    for (int k = 0, fy = y0 + body; k < 2; k++)                    /* the footer, at the bottom of the card */
-        if (foot[k][0]) { hint8(f, bx + 8, fy, foot[k], warn ? (uint8_t)(R_BLOOD + 13) : (k ? (uint8_t)(R_GOLD + 10) : (uint8_t)(R_STONE + 10))); fy += 9; }
     if (o->kind == GK_PIECE) {
         int col = qual_text(p->quality);
         gfx_text8(f, bx + 8, y0 + 5, KIND_NAME[p->kind], R_STONE + 11, 1);
@@ -30268,6 +30201,183 @@ static void render_letgo(Frame *f) {
     }
     piece_card(f, 125, 45, 311 - 5 - 125, &g->bag[sel], NULL, NULL);
     hall_keys(f, 184, "W/S PICK  ENTER LET GO  ESC NOT NOW");
+}
+
+/* a ware's buying (after 1.0.0b21.2): the ware and its price, what is worn there now, each of the caster's numbers that would change
+ * (now and after, green where it rises, red where it falls), the abilities gained and lost, and what becomes of the old piece */
+static void buy_stats(const Piece *p, char *b, int n) {            /* a piece's stats as a line, its ability apart */
+    b[0] = 0;
+    if (p->kind == IK_BAG) { snprintf(b, (size_t)n, "HOLDS %d", bag_capacity(p->quality)); return; }
+    for (int k = 0; k < p->nstat; k++) {
+        char st[40];
+        piece_stat_text(p->stat[k], p->val[k], st, sizeof st);
+        snprintf(b + strlen(b), (size_t)n - strlen(b), "%s%s", k ? ", " : "", st);
+    }
+}
+static int abil_count(const Gear *g, int ab) { int c = 0; for (int s = 0; s < NSLOT; s++) c += g->worn[s].kind != IK_NONE && g->worn[s].ability == ab; return c; }
+static const char *stat_short(int st);
+static void render_buy(Frame *f) {
+    dim_view(f);
+    int i = G.shop_buy, more = buy_live(BUY_MAP);
+    for (int j = 0; j < G.ped_n; j++) more += buy_live(j);
+    char line[400], keys[96], right[32];
+    snprintf(right, sizeof right, "YOU HAVE $%d", RUN.treasure);
+    hall_frame(f, "HER WARES", R_GOLD + 12, right, R_GOLD + 11);
+    if (i == BUY_MAP) {                                            /* the map, at her left */
+        ui_well(f, 9, 26, 302, 153);
+        gfx_text8(f, 14, 31, "A MAP OF THE CRYPT", R_BONE + 13, 1);
+        snprintf(line, sizeof line, "$%d", MAP_PRICE);
+        gfx_text8(f, 306 - gfx_text_width(line, 1), 31, line, MAP_PRICE <= RUN.treasure ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_BLOOD + 12), 1);
+        snprintf(line, sizeof line, "A SCROLL THAT FILLS IN AS YOU WALK: THE HALLS AND ROOMS YOU HAVE SEEN, WHERE YOU HAVE WALKED, THE "
+                 "DOORS, THE KEYS AND THE WAY OUT, AND THE LEVEL'S NUMBERS ACROSS ITS FOOT. %s OPENS IT, AND THE CRYPT RUNS ON UNDER "
+                 "IT. IT OUTLASTS DEATH AND HER CLAIM.", PADX.used ? "D-PAD UP" : "M");
+        text_wrap_ex(f, 14, 45, line, 36, R_STONE + 13, 8, 9);
+        if (G.sh_note_t > 0.0f) gfx_text8(f, 14, 166, G.sh_note, R_GOLD + 11, 1);
+        else if (MAP_PRICE > RUN.treasure) { snprintf(line, sizeof line, "YOU ARE $%d SHORT", MAP_PRICE - RUN.treasure); gfx_text8(f, 14, 166, line, R_BLOOD + 13, 1); }
+        snprintf(keys, sizeof keys, "E BUY  %sESC CLOSE", more > 1 ? "A/D WARES  " : "");
+        hall_keys(f, 184, keys);
+        return;
+    }
+    const Offer *o = &G.offers[i];
+    const Piece *p = &o->piece;
+    int piece = o->kind == GK_PIECE, bag = piece && p->kind == IK_BAG, sl = piece && !bag ? piece_slot(&RUN.gear, p->kind) : -1;
+    const Piece *old = sl >= 0 && RUN.gear.worn[sl].kind != IK_NONE ? &RUN.gear.worn[sl] : NULL;
+    char name[100], stats[200], ab[80] = "", oname[100] = "", ostats[200] = "", price[16];
+    if (piece) { piece_full_name(p, name, sizeof name); buy_stats(p, stats, sizeof stats); if (p->ability) piece_ability_text(p, ab, sizeof ab); }
+    else { gear_name(o, name, sizeof name); snprintf(stats, sizeof stats, "%s", gear_blurb(o)); }
+    if (old) { piece_full_name(old, oname, sizeof oname); buy_stats(old, ostats, sizeof ostats); }
+    if (bag) {                                                     /* a bag: the one carried now, if any */
+        if (RUN.gear.bag_size) snprintf(oname, sizeof oname, "%s %s", QUAL_NAME[RUN.gear.bag_quality], bag_name(RUN.gear.bag_size));
+        snprintf(ostats, sizeof ostats, RUN.gear.bag_size ? "HOLDS %d" : "", RUN.gear.bag_size);
+    }
+    if (o->price) snprintf(price, sizeof price, "$%d", o->price); else snprintf(price, sizeof price, "FREE");
+    int pw = gfx_text_width(price, 1), ncols = (292 - pw - 8) / 8;
+    /* what changes: each number the caster has, before and after, and the abilities */
+    Gear after = RUN.gear;
+    if (piece) { if (bag) gear_take(&after, o); else gear_take_wear(&after, o); }
+    struct { int st; const char *what; int good; } ch[NSTAT + NABIL + 1];
+    int nch = 0;
+    if (piece && !bag) {                                           /* the abilities first, then the numbers in the caster's page's order */
+        static const int FIRST[] = { ST_ARMOR, ST_DODGE, ST_HP, ST_REGEN, ST_PHYSIC, ST_RES_POISON, ST_RES_BURN, ST_RES_SLOW, ST_RES_SPIRIT,
+                                     ST_RES_LIGHT, ST_MOVE, ST_SPRINT, ST_QUIET, ST_HASTE, ST_THRIFT, ST_DAMAGE, ST_FIRE, ST_FROST, ST_SHOCK,
+                                     ST_EFFECT, ST_TREASURE, ST_LUCK, ST_VESSEL };
+        enum { NFIRST = sizeof FIRST / sizeof FIRST[0] };
+        for (int a = 1; a < NABIL; a++) {
+            int c0 = abil_count(&RUN.gear, a), c1 = abil_count(&after, a);
+            if (c0 != c1) { ch[nch].st = -1 - a; ch[nch].what = ABIL_NAME[a]; ch[nch++].good = c1 > c0; }
+        }
+        for (int q = 0; q < NSTAT; q++) {
+            int st = q < NFIRST ? FIRST[q] : -1;
+            if (q >= NFIRST) {                                     /* the rest, in their own order */
+                int k = 0, n = q - NFIRST;
+                for (st = 0; st < NSTAT; st++) {
+                    int listed = 0;
+                    for (int j = 0; j < NFIRST; j++) listed |= FIRST[j] == st;
+                    if (!listed && k++ == n) break;
+                }
+                if (st >= NSTAT) break;
+            }
+            float a = st == ST_HP ? (float)gear_max_hp(&RUN.gear) : gear_total(&RUN.gear, st), b = st == ST_HP ? (float)gear_max_hp(&after) : gear_total(&after, st);
+            if (fabsf(b - a) < (st == ST_REGEN ? 0.005f : 0.05f)) continue;
+            ch[nch].st = st; ch[nch].what = NULL; ch[nch++].good = b > a;
+        }
+    }
+    if (bag && bag_capacity(p->quality) != RUN.gear.bag_size) { ch[nch].st = -1000; ch[nch].what = NULL; ch[nch++].good = bag_capacity(p->quality) > RUN.gear.bag_size; }
+    /* the ware's lines, the old's, and the rows: what fits */
+    int ln = text_wrap_ex(NULL, 0, 0, name, ncols, 0, 2, 9), ls = text_wrap_ex(NULL, 0, 0, stats, 36, 0, 3, 9);
+    const char *lab = bag ? "YOUR BAG: " : "WORN NOW: ";
+    int lw = gfx_text_width(lab, 1), ocols = (292 - lw) / 8;
+    int la = ab[0] ? text_wrap_ex(NULL, 0, 0, ab, 36, 0, 2, 9) : 0, los = ostats[0] ? text_wrap_ex(NULL, 0, 0, ostats, 36, 0, 2, 9) : 0;
+    int lo = oname[0] ? text_wrap_ex(NULL, 0, 0, oname, ocols, 0, 2, 9) : 1;
+    if (!piece) lo = los = 0;
+    int rows_fit, ha, hb;
+    for (;;) {                                                     /* the old's stats give way first, then its name's second line */
+        ha = 9 + 9 * (ln + ls + la) + (lo ? 5 + 9 * (lo + los) : 0);
+        hb = 179 - (26 + ha + 3);
+        rows_fit = (hb - 38) / 8;                                  /* from under the heading to over the two lines at its foot */
+        if (rows_fit >= nch || (los == 0 && lo <= 1 && ls <= 2)) break;
+        if (los > 0) los--; else if (lo > 1) lo--; else ls--;
+    }
+    ui_well(f, 9, 26, 302, ha);
+    int y = 31;
+    text_wrap_ex(f, 14, y, name, ncols, piece ? qual_text(p->quality) : ramp_at(offer_color(o), 13), ln, 9);
+    gfx_text8(f, 306 - pw, y, price, o->price <= RUN.treasure ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_BLOOD + 12), 1);
+    y += 9 * ln;
+    text_wrap_ex(f, 14, y, stats, 36, R_STONE + 13, ls, 9); y += 9 * ls;
+    if (la) { text_wrap_ex(f, 14, y, ab, 36, R_GOLD + 11, la, 9); y += 9 * la; }
+    if (lo) {                                                      /* what it takes the place of */
+        y += 3;
+        ui_rule(f, 14, 305, y - 2, 0);
+        y += 2;
+        gfx_text8(f, 14, y, lab, R_STONE + 10, 1);
+        if (oname[0]) {
+            snprintf(line, sizeof line, "%s", oname);
+            if (lo == 1 && (int)strlen(line) > ocols) { line[ocols - 2] = '.'; line[ocols - 1] = '.'; line[ocols] = 0; }   /* no room: cut short */
+            text_wrap_ex(f, 14 + lw, y, line, ocols, old ? qual_text(old->quality) : (uint8_t)(R_STONE + 12), lo, 9);
+        } else gfx_text8(f, 14 + lw, y, bag ? "NONE" : "NOTHING", R_STONE + 8, 1);
+        y += 9 * lo;
+        if (los) text_wrap_ex(f, 14, y, ostats, 36, R_STONE + 10, los, 9);
+    }
+    int yb = 26 + ha + 3;
+    ui_well(f, 9, yb, 302, 179 - yb);
+    y = yb + 4;
+    if (piece) {
+        gfx_text8(f, 14, y, "WHAT CHANGES", R_GOLD + 10, 1);
+        gfx_text8(f, 236 - gfx_text_width("NOW", 1), y, "NOW", R_STONE + 10, 1);
+        gfx_text8(f, 300 - gfx_text_width("AFTER", 1), y, "AFTER", R_STONE + 10, 1);
+        y += 11;
+        if (!nch) { gfx_text8(f, 14, y, "NOTHING THE CASTER HAS", R_STONE + 9, 1); y += 8; }
+        for (int k = 0; k < nch && k < rows_fit; k++, y += 8) {
+            int c = ch[k].good ? R_MOSS + 13 : R_BLOOD + 13;
+            if (k == rows_fit - 1 && nch > rows_fit) { snprintf(line, sizeof line, "AND %d MORE", nch - k); gfx_text8(f, 14, y, line, R_STONE + 10, 1); break; }
+            if (ch[k].st == -1000) {
+                gfx_text8(f, 14, y, "THE BAG HOLDS", R_STONE + 12, 1);
+                snprintf(line, sizeof line, "%d", RUN.gear.bag_size); gfx_text8(f, 236 - gfx_text_width(line, 1), y, line, R_STONE + 12, 1);
+                snprintf(line, sizeof line, "%d", bag_capacity(p->quality)); gfx_text8(f, 300 - gfx_text_width(line, 1), y, line, c, 1);
+            } else if (ch[k].st < 0) {
+                snprintf(line, sizeof line, "%s %s", ch[k].good ? "GAINS" : "LOSES", ch[k].what);
+                gfx_text8(f, 14, y, line, ch[k].good ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_BLOOD + 13), 1);
+            } else {
+                char a[24], b[24];
+                total_text(&RUN.gear, ch[k].st, a, sizeof a); total_text(&after, ch[k].st, b, sizeof b);
+                gfx_text8(f, 14, y, stat_short(ch[k].st), R_STONE + 12, 1);
+                gfx_text8(f, 236 - gfx_text_width(a, 1), y, a, R_STONE + 12, 1);
+                gfx_text8(f, 300 - gfx_text_width(b, 1), y, b, c, 1);
+            }
+        }
+    } else text_wrap_ex(f, 14, y, "A SPELL OF ITS OWN: NOTHING WORN CHANGES", 36, R_STONE + 11, 2, 9);
+    /* what becomes of the old piece, and how the visit stands */
+    char f1[96] = "", f2[96] = "";
+    int c1 = R_STONE + 11, c2 = R_GOLD + 11, worn = buy_worn(i);
+    if (piece && !bag) {
+        if (worn < 0) snprintf(f1, sizeof f1, "NOTHING IS WORN THERE YET");
+        else if (!RUN.gear.bag_size) {
+            int pl = old->kind == IK_BOOTS || old->kind == IK_ROBE;   /* BOOTS and ROBES are plural */
+            snprintf(f1, sizeof f1, G.shop_confirm == i ? (pl ? "E AGAIN: YOUR OLD %s ARE LOST" : "E AGAIN: YOUR OLD %s IS LOST") : "NO BAG: YOUR OLD %s WILL BE LOST", KIND_NAME[old->kind]);
+            c1 = R_BLOOD + 13;
+        }
+        else if (!gear_bag_free(&RUN.gear)) { snprintf(f1, sizeof f1, "BAG FULL: A SPARE MUST GO FOR IT"); c1 = R_GOLD + 10; }
+        else snprintf(f1, sizeof f1, old->kind == IK_BOOTS || old->kind == IK_ROBE ? "YOUR OLD %s GO INTO YOUR BAG" : "YOUR OLD %s GOES INTO YOUR BAG", KIND_NAME[old->kind]);
+    } else if (bag) snprintf(f1, sizeof f1, RUN.gear.bag_size ? "YOUR SPARES GO INTO IT" : "SPARES ARE KEPT IN IT, NOT LOST");
+    if (G.sh_note_t > 0.0f) snprintf(f2, sizeof f2, "%s", G.sh_note);
+    else if (G.shop_left <= 0) { snprintf(f2, sizeof f2, "NO MORE WARES THIS VISIT"); c2 = R_BLOOD + 13; }
+    else if (o->price > RUN.treasure) { snprintf(f2, sizeof f2, "YOU ARE $%d SHORT", o->price - RUN.treasure); c2 = R_BLOOD + 13; }
+    else if (G.shop_held == i) snprintf(f2, sizeof f2, "HELD FOR YOUR NEXT VISIT");
+    else if (G.offer_back[i]) snprintf(f2, sizeof f2, "HELD FOR YOU LAST TIME");
+    else snprintf(f2, sizeof f2, G.shop_left == 1 ? "ONE MORE WARE THIS VISIT" : "%d MORE WARES THIS VISIT", G.shop_left);
+    hint8(f, 14, 179 - 4 - 18, f1, c1);                           /* (its E the controller's A, asked twice) */
+    gfx_text8(f, 14, 179 - 4 - 9, f2, (uint8_t)c2, 1);
+    int hold = G.shop_left > 0 && o->price > 0 && G.shop_held < 0;
+    if (hold) {                                                    /* what holding it costs, at the right of that line */
+        snprintf(line, sizeof line, "HOLD $%d", (o->price + 3) / 4);
+        if (gfx_text_width(f2, 1) + 16 + gfx_text_width(line, 1) <= 292) gfx_text8(f, 306 - gfx_text_width(line, 1), 179 - 4 - 9, line, R_STONE + 11, 1);
+    }
+    keys[0] = 0;
+    if (G.shop_left > 0) snprintf(keys, sizeof keys, "E BUY  ");
+    if (hold) snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%s HOLD  ", PADX.used ? "SPACE" : "Q");
+    if (more > 1) snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "A/D WARES  ");
+    snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "ESC CLOSE");   /* (not BACK: a controller's X) */
+    hall_keys(f, 184, keys);
 }
 
 /* Tab, the fifth page (1.0.0b11): each element's Power, Efficiency and Insight, the line's and what is worn together,
@@ -33339,7 +33449,7 @@ static void render_portraitcard(Frame *f);
 static void render_ui(Frame *f) {
     static const char *const NAME[] = { "none", "wardrobe", "quit", "ledger", "bestiary", "letgo", "wisps", "altar", "shrine", "totem",
                                         "portal", "merchant", "stone", "compendium", "repository", "codex", "ascend", "cornerstones",
-                                        "alignment", "class", "hall2", "bshrine", "reckon", "controller", "portrait" };
+                                        "alignment", "class", "hall2", "bshrine", "reckon", "controller", "portrait", "buy" };
     ui_on(f, 1, G.ui >= 0 && G.ui < (int)(sizeof NAME / sizeof NAME[0]) ? NAME[G.ui] : "?");
     render_ui_in(f);
     ui_off();
@@ -33362,6 +33472,7 @@ static void render_ui_in(Frame *f) {
     if (G.ui == UI_RECKON) { render_reckon(f); return; }
     if (G.ui == UI_PAD) { render_padmenu(f); return; }
     if (G.ui == UI_PORTRAIT) { render_portraitcard(f); return; }
+    if (G.ui == UI_BUY) { render_buy(f); return; }
     if (G.ui == UI_INVENTORY) render_inventory(f);
     else if (G.ui == UI_QUIT) render_quit(f);
     else if (G.ui == UI_LEDGER) render_ledger(f);
@@ -33678,7 +33789,7 @@ static void por_view(int i, float t, PortraitView *v, PortraitView *v2, float *m
     v->spr[0] = KINDS[k].spr; v->spr[1] = KINDS[k].spr2; v->spr[2] = KINDS[k].side; v->spr[3] = KINDS[k].side2;
     v->family = KINDS[k].family; v->layout = a->layout; v->t = t; v->walk0 = a->ph;
     memcpy(v->ranks, rk, sizeof rk); v->nranks = nr;
-    v->unlocked = unl; v->unpaid = por_waiting(k); v->frame = por_high(unl);
+    v->unlocked = unl; v->unpaid = por_waiting(k); v->frame = por_high(unl); v->unlit = !por_lit(i);
     v->veil = RUN.por_drawn >> k & 1 ? 1.0f - smoothstepf(POR.veil_t[i], POR.veil_t[i] + POR_DRAW_T, t) : 1.0f;   /* drawn back over a moment */
     for (int j = 0; j < nr; j++) if (unl >> rk[j] & 1) list[n++] = rk[j];
     float u = (t - a->ph) / 5.0f, fr = u - floorf(u);
@@ -33710,7 +33821,7 @@ static void por_boss_view(int i, float t, BossPortraitView *v) {
     v->wall = portrait_run_wall(b); v->floor = portrait_run_floor(b);
     v->unlocked = boss_unlocked(b); v->unpaid = boss_waiting(b);
     v->veil = RUN.por_drawn >> por_bit(h) & 1 ? 1.0f - smoothstepf(POR.veil_t[h], POR.veil_t[h] + POR_DRAW_T, t) : 1.0f;
-    v->t = t - POR.at[h].ph; v->scale = 1.25f;
+    v->t = t - POR.at[h].ph; v->scale = 1.25f; v->unlit = !por_lit(h);
 }
 /* each frame in her rooms: a portrait in view last frame (or never yet drawn) is drawn again when its candles' flames have moved,
  * twenty times a second, its creature's step and turn with them; the rest wait as they are */
@@ -33956,7 +34067,7 @@ static void crawl_render(Frame *f) {
 static int her_screen(int ui) {                                    /* her hall's own screens keep her piece */
     return ui == UI_MERCHANT || ui == UI_LEDGER || ui == UI_LETGO || ui == UI_SHRINE || ui == UI_TOTEM || ui == UI_PORTAL ||
            ui == UI_STONE || ui == UI_COMP || ui == UI_REPO || ui == UI_ASCEND || ui == UI_STONES || ui == UI_ALIGN ||
-           ui == UI_CLASS || ui == UI_HALL2 || ui == UI_PORTRAIT;
+           ui == UI_CLASS || ui == UI_HALL2 || ui == UI_PORTRAIT || ui == UI_BUY;
 }
 static void music_frame(float dt) {
     if (title_up()) {                                              /* the title's piece, the lament ground (1.0.0b21.1) */

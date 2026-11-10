@@ -528,3 +528,13 @@ face). The plot's stones stand in rows 22 and 24, so nothing stands before them.
   page a paragraph in her hall's section, a row in its table and the upgrade's note; the strip is `docs/preview_catacomb_portraits.png`
   (her south wall, the skeletons' portrait and card, the bestiary's feat, the plot's far wall, the knight's card). Debug added for the
   frames: `CRAWL_TPHALL=x,y,deg` (`CRAWL_TPAT` works only on a level).
+- **10 November, after the release: the candles cold till asked.** The owner, on their first look: the candles should stay unlit until a
+  tapestry may be drawn back, so a lit one says there is something to see (they could not find the skeletons'; it hangs at the left of
+  her south wall as you face it, by the arch to the plot, and her room's urn stood before it, hiding its sconce: the urn stands by the
+  way on now, under the east wall's torch). `por_lit` (`por_can_draw` or `por_is_drawn`): cold, `por_hang` gives a portrait no light
+  and no glow on the wall, and the art no flame (`PortraitView.unlit` and the boss's; the wicks bare, the hung lamp's glass dark, the
+  ledge's smoke gone). Once drawn back it stays lit. The layouts are dealt as before, so nothing else moves. The dream from level 1 for
+  2,400 s is still line for line 1.0.0b21.1's. In the same round her rooms' cards became a slim prompt and a ware's buying a screen of
+  its own (CLAUDE.md, *After 1.0.0b21.2*), and the portraits' band with them: *E DRAW BACK THE TAPESTRY*, *A TAPESTRY: NONE OF ITS
+  KIND SLAIN*, or its name in its highest rank's colour with *$300 WAITS*. Released as **1.0.0b21.3**, "Her Wares, Weighed", at the
+  owner's word the same day.
