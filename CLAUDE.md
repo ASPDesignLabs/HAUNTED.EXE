@@ -371,8 +371,8 @@ the same day; on `claude/brave-albattani-sqvb5n`, fast-forwarded from the touch 
 stone a monument cut with the graves' sculpt kit (*Touch's stones* at the end of `src/crawl_title.c`: `TStone`, `TsInfo`, `tstone_draw`,
 `tstone_ring`), weathered, broken and grown over, with places cut for what the game says (a socket, a ring for a time, a tablet with
 handles, a groove), filled each frame by `crawl_stage` (`use_word` for what E would do); the sheet and the contrast check are
-`build/titlemock <dir> touch` (`docs/touch/`). The private test page is kept at the owner's word. The plan's section 11 is the hand-off
-log.
+`build/titlemock <dir> touch` (`docs/touch/`). The first private test page is kept at the owner's word (this session couldn't write to
+it); the art pass is on a second, https://claude.ai/artifact/L28ZMsohLh2N4vjdx9dnuB. The plan's section 11 is the hand-off log.
 
 ## Working with the owner
 

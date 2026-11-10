@@ -47,9 +47,11 @@ the browser's shell sets, and the prefs record grew from 24 bytes to 26 (`PL_BYT
 5. **Check it went out:** the Build run on main, the release through the REST API (`gh api
    repos/ASPDesignLabs/HAUNTED.EXE/releases/tags/v1.0.0b21.4`; `gh release view` is blocked in cloud sessions), each asset, the live page
    and `/play/` on a phone-shaped Playwright page (the plate asks; Touch boots).
-6. **Tell the owner** it is out, and what was and wasn't tried. The private test page
-   (https://claude.ai/artifact/V5ALUvTRsvhGq3eHey5C4Z) stays: the owner asked (10 November) to keep it, and it is where each touch build
-   goes for their phone (`python3 tools/probe_page.py <dir> perf`, republished to the same address with the wasm as `application/wasm`).
+6. **Tell the owner** it is out, and what was and wasn't tried. The private test pages stay: the owner asked (10 November) to keep the
+   first (https://claude.ai/artifact/V5ALUvTRsvhGq3eHey5C4Z, the touch branch's session's, which a session in another organisation can't
+   update), and the stones' art pass is on https://claude.ai/artifact/L28ZMsohLh2N4vjdx9dnuB. A new touch build for their phone goes to
+   whichever the session can write (`python3 tools/probe_page.py <dir> perf`, republished to the same address, the wasm as
+   `application/wasm`); a read of the page says whether it can.
 
 What isn't done, for the notes' honesty and for the work after the release, in order: THE BESTIARY and THE CODEX can't be reached by
 touch (rows of Esc's question, `quit_rows`); the title's THE CONTROLS lists the keys, not touch; the harness's fingers (`HOST_STAGE`,
@@ -692,4 +694,7 @@ owner released 1.0.0b21.3 ("Her Wares, Weighed") while this was being planned.
   thumb on the walk and one on CAST facing the merchant, Esc's rows), and the first cut's frame for comparison. Tried: `make smoke`,
   `tools/web_smoke.js`, `tools/touch_smoke.js` (no errors) and a walk with two thumbs; ASan clean on the sheet (it found an overrun in
   the sheet's own short stage, mended). Not tried: on the phone; the harness still drives no fingers, so ASan hasn't run the game's
-  side of it (`crawl_stage`, `use_word`). The private page republished with this build (section 11's address).
+  side of it (`crawl_stage`, `use_word`). The private page couldn't take this build: from this session it reads as made outside the
+  organisation, with no edit access, and the publish was refused (it was put up from the touch branch's session). It is kept as it was,
+  untouched, at the owner's word; this build went up as a new private page, https://claude.ai/artifact/L28ZMsohLh2N4vjdx9dnuB (from
+  `tools/probe_page.py <dir> perf`, the wasm as `application/wasm`), for the owner's phone.
