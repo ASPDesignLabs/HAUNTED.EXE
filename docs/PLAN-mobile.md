@@ -575,3 +575,20 @@ owner released 1.0.0b21.3 ("Her Wares, Weighed") while this was being planned.
   A mend if it matters: build the title's still layers while the finger is held. The readout's stage line was HAUNT.EXE's would-be
   stage (it has none); it now prints the last touch stage in use (`probe.stage`, *The stage by touch: ...*), tried in headless
   Chromium. Still waiting on how the controls felt.
+- **10 November, the owner's first report by touch** (a screenshot from the phone in the crypt, full screen). Two faults:
+  1. *The stones cover the picture* (a no-go). The phone keeps a strip at its left for the camera (about 63 CSS pixels, the safe
+     area), and the picture was still placed in the middle of the whole stage, so the margin left of it was under 60 game pixels and
+     `touch_geo`'s fallback made the columns `sw / 5` wide, over the picture's edges (the status bar's ends hidden). Some words don't
+     fit their stones and aren't drawn: the half stones WISPS and MAP, the corners' *HOLD: PAUSE* and *HOLD: WHEELS*. The mend: the
+     picture in the middle of the safe area (`app_stage_place` reads the insets), the columns never wider than the margin beside it,
+     and the page's `fitStage` taking a smaller whole scale when a margin would be under about 80 CSS pixels; WISPS and MAP one above
+     the other, full width; a shorter word where one doesn't fit.
+  2. *Turning is off.* The right stick turned by the finger's travel only within its ring (`touch_ring`, about 0.7 cm), then at a
+     rate while the finger stayed past it, however still. The owner's way: slide a finger on the play field and the view follows it.
+     Built as: a finger landing in play on the right half (outside the stones), and the cast strip's finger, turn the view by how far
+     they slide, a full picture's width 150 degrees at 100%; no ring and no rate. Smoothing that falls off as the finger's speed rises
+     (a 1-euro filter: steady when slow or held, little lag when quick), and on lifting what the smoothing still owed is turned at
+     once, so a flick lands where the finger went ("trick shots"). Two settings, by touch, as rows in Esc's question in place of THE
+     CONTROLLER (D or a drag right raises, A or a drag left lowers, ENTER steps round): *TURNING* 30% to 300% (`PL.tturn`, tenths)
+     and *SMOOTHING* 0 to 10 (`PL.tsmooth`), kept in the prefs record's bytes 24 and 25 (`PL_BYTES_TOUCH` 26; older readers stop at
+     24). If the owner meant the view coasting on after a flick, that is a few lines more.
