@@ -24,9 +24,9 @@ the browser's shell sets, and the prefs record grew from 24 bytes to 26 (`PL_BYT
    container: section 11's *Next: the first cut* says how to fetch it (about two minutes).
 2. **Check.** `make smoke`; `make web`, then `tools/web_smoke.js` on a site folder with the build in `play/` (`sh tools/build_site.sh
    <dir>` and `cp -r build/web <dir>/play`; it fails on `build/web` itself, which has no `/play/`); `make scr` if the cross compiler is
-   there (CI builds and smoke-tests Windows anyway). The scratchpad's touch scripts are gone with this session; a new one is a few
-   lines of Playwright as section 11 describes (`devices["Pixel 7 landscape"]`, fingers by CDP's `Input.dispatchTouchEvent`, a camera
-   strip faked with `#safe { padding-left: 63px }`). Nothing in the harness drives fingers yet (`HOST_STAGE` and `T` are still to do),
+   there (CI builds and smoke-tests Windows anyway). `node tools/touch_smoke.js build/web <shots dir>` walks the touch build as a
+   Pixel 7 held sideways with a faked camera strip (fingers by CDP), prints its errors (none) and writes frames to look at: the stones
+   clear of the picture (`t-a-room.png`), a turn (`t-b-turned.png`), Esc's rows (`t-e-raised.png`, TURNING at 110%). Nothing in the harness drives fingers yet (`HOST_STAGE` and `T` are still to do),
    so ASan can't reach the touch code; say so rather than claim it.
 3. **Write it up** (CLAUDE.md's *Releasing*): `VERSION` to `1.0.0b21.4`. The README: what touch is (a phone or tablet held sideways;
    the plate asks Keyboard and mouse, Controller or Touch; a finger held three seconds takes over; the stones and what each does,

@@ -411,6 +411,7 @@ log.
 | `tools/music.sh` | CATACOMB's pieces for the ear (docs/PLAN-music.md): each piece, and each run's through a fight, the failing and a menu, into `build/music/`; `hall`, her hall's pieces and the Lampstand's; `spare`, run I's attempts kept unused (docs/PLAN-music-work.md) |
 | `src/web_main.c`, `web/` | The browser's shell (docs/PLAN-web.md): the game's exported door, and the play page, its script and the sound worklet; `make web` (Emscripten) builds `build/web`, `make webzip` the release's `HAUNTED-<version>-web.zip`; `HVS_WEB` makes Space the cast key in `scene_crawl.c` |
 | `tools/web_smoke.js` | The browser build's smoke test in Playwright's Chromium (`node tools/web_smoke.js <site> [secs] [shots]`; CI runs it) |
+| `tools/touch_smoke.js` | The touch build walked in Playwright's Chromium as a Pixel 7 held sideways (docs/PLAN-mobile.md): `node tools/touch_smoke.js build/web <shots>` |
 | `tools/probe_page.py` | The phone probe's page (docs/PLAN-mobile.md, step 0): `build/web` made over for a host that wraps the page and passes no query, the probe on (`python3 tools/probe_page.py [out] [take\|perf]`) |
 | `tools/build_site.sh` | Assembles the Pages site from `site/` and `docs/*.png`, fills `@VERSION@` and the title card |
 | `tools/make_cards.py`, `site/card.txt`, `site/cards/` | X/Open Graph title cards; `card.txt` picks one per version (`* a-boot` is the default) |
