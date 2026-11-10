@@ -559,3 +559,8 @@ owner released 1.0.0b21.3 ("Her Wares, Weighed") while this was being planned.
   question by touch; the title's THE CONTROLS in touch's words (it shows the keys' list); the harness's `HOST_STAGE` and `T` fingers;
   the contrast check and a sheet; THE TOUCH CONTROLS' settings; the map dragged to pan; Part A's hot list (rows, caps and her rooms'
   prompt tapped); the README, the page and the notes for 1.0.0b21.4.
+- **10 November, the first cut on the owner's phone's page.** Republished to the same private page
+  (https://claude.ai/artifact/V5ALUvTRsvhGq3eHey5C4Z, its version 2) from `tools/probe_page.py <dir> perf`: the readout on, no
+  takeover of its own, so it starts in the dream; the plate asks how you play. Inside claude.ai's frame the window is short (259
+  pixels sideways on the owner's phone) and full screen is refused there, so the stones are larger and the picture smaller than on
+  the real `/play/` in full screen. Waiting on the owner's report.
