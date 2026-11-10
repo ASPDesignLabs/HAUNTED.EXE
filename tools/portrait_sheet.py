@@ -1,4 +1,4 @@
-"""The portraits' numbers (docs/PLAN-portraits.md) as the owner settled them in the Sheet on 10 November (its revision 67): every slayer achievement,
+"""The portraits' numbers (docs/PLAN-portraits.md) as the owner settled them in the Sheet on 10 November (its revision 68): every slayer achievement,
 read from KINDS in src/scene_crawl.c, the Spectre's and the Wraith's own, a feat for each kind, and the bosses', with the gold
 each pays once a life. Writes docs/portraits/ranks.csv and bosses.csv, a snapshot of the Sheet to build from; the Sheet on
 claude.ai is where they are changed, and this is brought in step with it by hand.
@@ -18,7 +18,8 @@ RK = ['RK_I', 'RK_II', 'RK_III', 'RK_IV', 'RK_V', 'RK_GILDED']
 ROMAN = ['I', 'II', 'III', 'IV', 'V', 'G', 'Feat']
 WORD = ['', 'ROTTEN ', 'COLD ', 'BLOODY ', 'BLACK ', 'GILDED ']
 STEP = {'I': 0, 'II': 1, 'III': 2, 'IV': 3, 'V': 4, 'G': 3.5, 'Feat': 2}   # gilded just below black; a feat pays as rank III
-NEED = [60, 40, 25, 15, 8]
+NEED = [20, 25, 20, 15, 10]                              # the owner's (Q15), the game's 60, 40, 25, 15, 8 till built
+GILD = 5                                                 # the gilded (3 in the game till built)
 START = [100, 200, 300]                                  # the owner's (the plan first had 250, 500, 750)
 SHARE = 0.6                                              # each rank step adds 60% of the start; strength up to 60% more
 ROUND = 10
@@ -52,10 +53,10 @@ for lv in range(1, 41):
         if k['debut'] == lv and 'KF_PAGE' in k['flags']: order.append(k)
 for i, k in enumerate(order): k['third'] = 0 if i < 7 else (1 if i < 15 else 2)   # 7, 8, 7: the spiderling with its mother
 
-def slayer_need(k, r):
+def slayer_need(k, r):                                   # as the game's will read once built (Q15)
     if 'KF_SPIRIT' in k['flags'] or 'KF_UNCOUNTED' in k['flags']: return 0
-    if k['family'] == '-1': return 60 if r == 0 else 0
-    if r == 5: return 3 if k['gild'] else 0
+    if k['family'] == '-1': return NEED[0] if r == 0 else 0  # off the ladder: one rank, rank I's count
+    if r == 5: return GILD if k['gild'] else 0
     low = 1 if (k['debut'] - 1) // 10 % 4 == 3 else 0      # the Deep has no rank I
     return 0 if r < low or r > k['top'] else NEED[r - low]
 

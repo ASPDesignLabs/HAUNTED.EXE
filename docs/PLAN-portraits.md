@@ -3,10 +3,11 @@
 *Status: a draft (10 November 2026), at the owner's request, on `claude/adoring-hopper-h9ivcg` from main at 1.0.0b21.1. Nothing is in
 the game. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (not in the
 game's build yet) and `tools/portraitmock.c` (`make build/portraitmock`, then `build/portraitmock <dir>`). The owner answered every
-question in section 9 the same day (marked there; one more, Q15, came of their last edit) and settled the numbers in a Sheet on
+question in section 9 the same day (marked there, Q15 last, which came of their own edit) and settled the numbers in a Sheet on
 claude.ai, [Portraits of the Slain: Gold](https://claude.ai/artifact/2P9JkVQMBEdhAoa6zwB1N6), brought into sections 3 and 4 as it
-stood at its revision 67: the starts 100, 200 and 300, every row paying but the Wraith's fourth gem, the Spectre's, the Wraith's,
-the twenty feats and the bosses' with them, and the shade's one rank paying as rank V. `docs/portraits/ranks.csv` and `bosses.csv`
+stood at its revision 68: the starts 100, 200 and 300, every row paying but the Wraith's fourth gem, the Spectre's, the Wraith's,
+the twenty feats and the bosses' with them, the shade's one rank paying as rank V, and the kills each rank asks lowered to 20, 25,
+20, 15 and 10, and 5 gilded, for the game's own achievements too. `docs/portraits/ranks.csv` and `bosses.csv`
 are that revision's numbers, written by `tools/portrait_sheet.py` from `KINDS` and checked against the Sheet. If the Sheet changes
 again, bring it in the same way before building.*
 
@@ -56,9 +57,12 @@ the skeleton's frame with ranks I and II unlocked, each walking five seconds in 
 
 ## 3. The sheet: every achievement for kills (settled)
 
-**The portraits' rows.** One achievement for each rank of each kind (`slayer_need`): 60 slain of its lowest rank, then 40, 25, 15
-and 8; 3 gilded; the Deep's kinds start at rank II, the shade has one rank, bats stop at IV. Each is named by its rank's word and
-the kind (*ROTTEN SKELETONS*, *COLD*, *BLOODY*, *BLACK*, *GILDED*; chitin's rank V is *PALE*): 104 of them, in the game today.
+**The portraits' rows.** One achievement for each rank of each kind (`slayer_need`), 104 of them in the game today, each named
+by its rank's word and the kind (*ROTTEN SKELETONS*, *COLD*, *BLOODY*, *BLACK*, *GILDED*; chitin's rank V is *PALE*). The game
+asks 60 slain of a kind's lowest rank, then 40, 25, 15 and 8, and 3 gilded; the owner lowered them to **20, 25, 20, 15 and 10, and
+5 gilded** (Q15), for the game's own achievements as well as the portraits (section 8). The Sheet's rank rows read them from its
+Formula tab. The Deep's kinds start at rank II and take rank I's count for it, the next rank II's, and so on, as the game does; the
+shade's one rank asks rank I's; bats stop at IV. Rank II asking more than rank I is as the owner set it.
 To them the owner added, from section 5, the Spectre's three (laid to rest), the Wraith's four (driven back, and the Wraith
 Unbound's fall) and a feat for each of the twenty kinds that can be slain: 27 new achievements, 131 rows in all, every one paying.
 Each cell is *needed: gold*, the gold by the formula in section 4; a feat's needed count is of its own deed (section 5 B). The shade's
@@ -66,28 +70,28 @@ one rank pays as its third's rank V (Q9), and the Wraith's fourth gem lights but
 
 | # | Kind | Third | Strength | I | II | III | IV | V | Gilded | Feat | All |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | Skeleton | 1 | 0.43 | 60: 130 | 40: 190 | 25: 250 | 15: 310 | 8: 370 | 3: 340 | 20: 250 | 1,840 |
+| 1 | Skeleton | 1 | 0.43 | 20: 130 | 25: 190 | 20: 250 | 15: 310 | 10: 370 | 5: 340 | 20: 250 | 1,840 |
 | 2 | Spectre | 1 | 0.00 | 5: 100 | 15: 160 | 40: 220 | - | - | - | - | 480 |
-| 3 | Bat | 1 | 0.00 | 60: 100 | 40: 160 | 25: 220 | 15: 280 | - | - | 20: 220 | 980 |
-| 4 | Shambler | 1 | 1.00 | 60: 160 | 40: 220 | 25: 280 | 15: 340 | 8: 400 | 3: 370 | 20: 280 | 2,050 |
-| 5 | Wall Skull | 1 | 0.14 | 60: 110 | 40: 170 | 25: 230 | 15: 290 | 8: 350 | - | 20: 230 | 1,380 |
-| 6 | Shield-Bearer | 1 | 1.00 | 60: 160 | 40: 220 | 25: 280 | 15: 340 | 8: 400 | 3: 370 | 20: 280 | 2,050 |
-| 7 | Spider | 1 | 0.29 | 60: 120 | 40: 180 | 25: 240 | 15: 300 | 8: 360 | - | 20: 240 | 1,440 |
-| 8 | Drowned | 2 | 0.60 | 60: 270 | 40: 390 | 25: 510 | 15: 630 | 8: 750 | 3: 690 | 10: 510 | 3,750 |
-| 9 | Bone Hound | 2 | 0.28 | 60: 230 | 40: 350 | 25: 470 | 15: 590 | 8: 710 | - | 10: 470 | 2,820 |
+| 3 | Bat | 1 | 0.00 | 20: 100 | 25: 160 | 20: 220 | 15: 280 | - | - | 20: 220 | 980 |
+| 4 | Shambler | 1 | 1.00 | 20: 160 | 25: 220 | 20: 280 | 15: 340 | 10: 400 | 5: 370 | 20: 280 | 2,050 |
+| 5 | Wall Skull | 1 | 0.14 | 20: 110 | 25: 170 | 20: 230 | 15: 290 | 10: 350 | - | 20: 230 | 1,380 |
+| 6 | Shield-Bearer | 1 | 1.00 | 20: 160 | 25: 220 | 20: 280 | 15: 340 | 10: 400 | 5: 370 | 20: 280 | 2,050 |
+| 7 | Spider | 1 | 0.29 | 20: 120 | 25: 180 | 20: 240 | 15: 300 | 10: 360 | - | 20: 240 | 1,440 |
+| 8 | Drowned | 2 | 0.60 | 20: 270 | 25: 390 | 20: 510 | 15: 630 | 10: 750 | 5: 690 | 10: 510 | 3,750 |
+| 9 | Bone Hound | 2 | 0.28 | 20: 230 | 25: 350 | 20: 470 | 15: 590 | 10: 710 | - | 10: 470 | 2,820 |
 | 10 | Wraith | 2 | 1.00 | 10: 320 | 40: 440 | 100: 560 | 1: gem only | - | - | - | 1,320 |
-| 11 | Hunting Spider | 2 | 0.44 | 60: 250 | 40: 370 | 25: 490 | 15: 610 | 8: 730 | - | 20: 490 | 2,940 |
-| 12 | Ghoul | 2 | 0.52 | 60: 260 | 40: 380 | 25: 500 | 15: 620 | 8: 740 | 3: 680 | 20: 500 | 3,680 |
-| 13 | Skeleton Knight | 2 | 0.92 | 60: 310 | 40: 430 | 25: 550 | 15: 670 | 8: 790 | 3: 730 | 10: 550 | 4,030 |
-| 14 | Brood Mother | 2 | 1.00 | 60: 320 | 40: 440 | 25: 560 | 15: 680 | 8: 800 | - | 5: 560 | 3,360 |
-| 15 | Spiderling | 2 | 0.00 | 60: 200 | 40: 320 | 25: 440 | 15: 560 | 8: 680 | - | 200: 440 | 2,640 |
-| 16 | Shade | 3 | 0.29 | 60: 1,070 | - | - | - | - | - | 10: 710 | 1,780 |
-| 17 | Ember Imp | 3 | 0.00 | 60: 300 | 40: 480 | 25: 660 | 15: 840 | 8: 1,020 | - | 25: 660 | 3,960 |
-| 18 | Deacon | 3 | 0.57 | 60: 400 | 40: 580 | 25: 760 | 15: 940 | 8: 1,120 | 3: 1,030 | 10: 760 | 5,590 |
-| 19 | Gargoyle | 3 | 0.43 | 60: 380 | 40: 560 | 25: 740 | 15: 920 | 8: 1,100 | - | 10: 740 | 4,440 |
-| 20 | Whipper-In | 3 | 0.71 | 60: 430 | 40: 610 | 25: 790 | 15: 970 | 8: 1,150 | 3: 1,060 | 5: 790 | 5,800 |
-| 21 | Sexton | 3 | 0.29 | 60: 350 | 40: 530 | 25: 710 | 15: 890 | 8: 1,070 | 3: 980 | 10: 710 | 5,240 |
-| 22 | Lightless | 3 | 1.00 | - | 60: 660 | 40: 840 | 25: 1,020 | 15: 1,200 | 3: 1,110 | 10: 840 | 5,670 |
+| 11 | Hunting Spider | 2 | 0.44 | 20: 250 | 25: 370 | 20: 490 | 15: 610 | 10: 730 | - | 20: 490 | 2,940 |
+| 12 | Ghoul | 2 | 0.52 | 20: 260 | 25: 380 | 20: 500 | 15: 620 | 10: 740 | 5: 680 | 20: 500 | 3,680 |
+| 13 | Skeleton Knight | 2 | 0.92 | 20: 310 | 25: 430 | 20: 550 | 15: 670 | 10: 790 | 5: 730 | 10: 550 | 4,030 |
+| 14 | Brood Mother | 2 | 1.00 | 20: 320 | 25: 440 | 20: 560 | 15: 680 | 10: 800 | - | 5: 560 | 3,360 |
+| 15 | Spiderling | 2 | 0.00 | 20: 200 | 25: 320 | 20: 440 | 15: 560 | 10: 680 | - | 200: 440 | 2,640 |
+| 16 | Shade | 3 | 0.29 | 20: 1,070 | - | - | - | - | - | 10: 710 | 1,780 |
+| 17 | Ember Imp | 3 | 0.00 | 20: 300 | 25: 480 | 20: 660 | 15: 840 | 10: 1,020 | - | 25: 660 | 3,960 |
+| 18 | Deacon | 3 | 0.57 | 20: 400 | 25: 580 | 20: 760 | 15: 940 | 10: 1,120 | 5: 1,030 | 10: 760 | 5,590 |
+| 19 | Gargoyle | 3 | 0.43 | 20: 380 | 25: 560 | 20: 740 | 15: 920 | 10: 1,100 | - | 10: 740 | 4,440 |
+| 20 | Whipper-In | 3 | 0.71 | 20: 430 | 25: 610 | 20: 790 | 15: 970 | 10: 1,150 | 5: 1,060 | 5: 790 | 5,800 |
+| 21 | Sexton | 3 | 0.29 | 20: 350 | 25: 530 | 20: 710 | 15: 890 | 10: 1,070 | 5: 980 | 10: 710 | 5,240 |
+| 22 | Lightless | 3 | 1.00 | - | 20: 660 | 25: 840 | 20: 1,020 | 15: 1,200 | 5: 1,110 | 10: 840 | 5,670 |
 
 Once a life, all of it: **67,240** gold (the first third 10,220, the second 24,540, the last 32,480).
 
@@ -127,13 +131,14 @@ on 40, and wares are priced against it. A death that costs leaves a person with 
 again after each level cleared, everything unlocked, once a life. With the first third whole and half the second, about 22,500:
 a level-20 haul in the hand before level 1. With every creature's row, 67,240, nine tenths of a level-40 haul; with the bosses'
 too, 175,240, more than two. The bosses' rows are three fifths of it, and their challenge steps most of those: a first descent's
-four falls pay 12,000. Her wares are limited to one to three a visit, but the Corpus Compendium sells back every piece worn
+four falls pay 12,000. The lower counts (Q15) change none of these sums, only how soon in a career they are reached: a
+kind's first portrait opens after 20 of it, not 60, and its five ranks after 90 kills in all, not 148. Her wares are limited to one to three a visit, but the Corpus Compendium sells back every piece worn
 before at 1.2 times its price, as many as can be paid for: a person who dies deep will buy much of their kit back at once. If
 that proves too much, the levers, in the order I would reach for them: a portrait pays only its highest rank's gold each life;
 or one portrait's gold a visit; or the bosses' steps lowered. The dream takes no gold, so nothing in its runs measures this;
 only playing does.
 
-**The shade** has one rank, so it pays as its third's rank V (settled, Q9): 1,070 for its 60 slain, beside its feat's 710.
+**The shade** has one rank, so it pays as its third's rank V (settled, Q9): 1,070 for its 20 slain, beside its feat's 710.
 
 ## 5. Suggestions for more
 
@@ -250,6 +255,13 @@ stands before them. Their art is not drawn yet: a mock-up of one comes before th
   before they stand, a Drowned whose burst missed, a pair of hounds within five seconds, a hunter overhead, a knight in full
   plate, a brood mother before a sac hatches, a shade fading, a deacon before any rises, a gargoyle within two seconds of waking,
   a Lightless slain with the lantern shuttered). A feat hangs as a gold medallion under its frame.
+- **The counts** (Q15). `slayer_need`'s `NEED` becomes 20, 25, 20, 15, 10, the gilded 5 and a kind off the ladder (the shade)
+  20; `ach_lines`, the bestiary's ranks and their toasts read it, so they follow. A bit earned stays earned. `rec_kill` tests the
+  count only at a kill, so a record already past a new count would earn it on its next kill of that kind and rank; a sweep as a run
+  or page is read (and at the first `crawl_enter`) earns them at once, in one toast (*THE DEAD RECKONED AGAIN: n ACHIEVEMENTS*)
+  rather than a queue of them. The halfway note (`need >= 8`) comes at 10, 12, 10, 7 and 5 of them; none for the gilded's 5, as
+  none came for 3. Nothing in play reads the slayer bits but the bestiary, the achievements' list and the portraits, so the dream's
+  runs keep step with 1.0.0b21.1's.
 - **A life.** `death_fall` (a death that costs) and `run_new` clear the gold taken; every visit to her room pays what waits.
 - **The art.** `src/crawl_portrait.c` into the build; the runs' stone and floor kept at start; an overlay a portrait (22 x 64 x 64,
   or 128 x 128 each at 128: 360 KB), drawn again only while its face is in view, its creature's frame changing four times a second
@@ -287,15 +299,14 @@ stands before them. Their art is not drawn yet: a mock-up of one comes before th
 13. **The card's A/D through every portrait.** *Settled: (a).* (a) Yes. (b) Only E at each, walked to.
 14. **The Wraith Unbound's fall, twice** (section 3). *Settled: (a).* (a) Only the boss's portrait pays for it: the Wraith's fourth gem lights
     but pays nothing. (b) Both pay. (c) The Wraith's fourth gem becomes another deed.
-15. **The kills each rank asks.** The owner changed the Formula tab's *Slain, as the game asks* to I 20, II 25, III 20, IV 15,
-    V 10, gilded 5 (the game asks 60, 40, 25, 15, 8 and 3). That column is a reference only: the Ranks rows still ask the game's
-    counts, and so do sections 3 and the CSVs. (a) The new counts for every kind's ranks, the Ranks rows made to read them from
+15. **The kills each rank asks.** *Settled: (a).* The owner changed the Formula tab's *Slain, as the game asks* to I 20, II 25,
+    III 20, IV 15, V 10, gilded 5 (the game asks 60, 40, 25, 15, 8 and 3), and nothing read it. (a) The new counts for every kind's ranks, the Ranks rows made to read them from
     the Formula tab (the Deep's kinds, which start at II, taking I's count for their first rank, as the game does now), and
     `slayer_need` changed to match. (b) Leave the game's counts; the column was a trial.
 
 ## 10. Steps, once it is settled
 
-1. The record's new section, a life, and older pages read (harness: pages from 1.0.0b21.1 opened, a death, a new run).
+1. The record's new section, a life, older pages read, and the counts lowered with their sweep (section 8) (harness: pages from 1.0.0b21.1 opened, a death, a new run).
 2. The art in the build: the overlays, `render_walls`, the runs' stone kept; frame time in her room (it is 1.8 ms in the crypt).
 3. Her room: the faces, the layouts dealt, the candles' light.
 4. The tapestry and the card, the gold, the prompt in the pad's words.
@@ -331,3 +342,9 @@ stands before them. Their art is not drawn yet: a mock-up of one comes before th
   over the cartouche, the lamp and the ledge moved to make room), and every mock-up was drawn again; the room's view shows the
   second third on her north wall. Section 7 places the last third in the back room. Found in the Sheet and asked as Q15: the
   Formula tab's kill counts were changed, but nothing reads them.
+- **10 November, Q15.** The owner answered (a): the kills each rank asks are 20, 25, 20, 15 and 10, and 5 gilded, for the game's
+  own achievements too. The Sheet (revision 68): every rank row's *Slain* reads the Formula tab (`VLOOKUP` on its rank; the
+  Lightless's five by hand, a rank down, with a note), its *Condition* is built from it, and a line under the Formula tab's
+  settled notes says so; the feats, the Spectre's and the Wraith's keep their own counts. No gold moved: 67,240 and 108,000.
+  `tools/portrait_sheet.py` (`NEED`, `GILD`) and `ranks.csv` match it. Section 8 has what the build changes in `slayer_need`, and
+  the sweep a record already past a new count wants. Every question is now answered; nothing is built.

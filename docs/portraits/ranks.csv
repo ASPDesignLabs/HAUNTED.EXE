@@ -1,132 +1,132 @@
 Kind,Rank,Slain,Gold,Achievement,Condition,Pays,Source,Third,Strength,Kind XP
-Skeleton,I,60,130,SKELETONS,Slay 60 at rank I,TRUE,In the game,1,0.43,8
-Skeleton,II,40,190,ROTTEN SKELETONS,Slay 40 at rank II,TRUE,In the game,1,0.43,8
-Skeleton,III,25,250,COLD SKELETONS,Slay 25 at rank III,TRUE,In the game,1,0.43,8
+Skeleton,I,20,130,SKELETONS,Slay 20 at rank I,TRUE,In the game,1,0.43,8
+Skeleton,II,25,190,ROTTEN SKELETONS,Slay 25 at rank II,TRUE,In the game,1,0.43,8
+Skeleton,III,20,250,COLD SKELETONS,Slay 20 at rank III,TRUE,In the game,1,0.43,8
 Skeleton,IV,15,310,BLOODY SKELETONS,Slay 15 at rank IV,TRUE,In the game,1,0.43,8
-Skeleton,V,8,370,BLACK SKELETONS,Slay 8 at rank V,TRUE,In the game,1,0.43,8
-Skeleton,G,3,340,GILDED SKELETONS,Slay 3 gilded,TRUE,In the game,1,0.43,8
+Skeleton,V,10,370,BLACK SKELETONS,Slay 10 at rank V,TRUE,In the game,1,0.43,8
+Skeleton,G,5,340,GILDED SKELETONS,Slay 5 gilded,TRUE,In the game,1,0.43,8
 Skeleton,Feat,20,250,IT NEVER THREW,Slay 20 before their first throw,TRUE,Suggested,1,0.43,8
 Spectre,I,5,100,LAID TO REST,Lay 5 to rest (only Spirit reaches them),TRUE,Suggested,1,0.0,0
 Spectre,II,15,160,A CHILL LIFTED,Lay 15 to rest (only Spirit reaches them),TRUE,Suggested,1,0.0,0
 Spectre,III,40,220,THE HALLS GONE QUIET,Lay 40 to rest (only Spirit reaches them),TRUE,Suggested,1,0.0,0
-Bat,I,60,100,BATS,Slay 60 at rank I,TRUE,In the game,1,0.0,5
-Bat,II,40,160,ROTTEN BATS,Slay 40 at rank II,TRUE,In the game,1,0.0,5
-Bat,III,25,220,COLD BATS,Slay 25 at rank III,TRUE,In the game,1,0.0,5
+Bat,I,20,100,BATS,Slay 20 at rank I,TRUE,In the game,1,0.0,5
+Bat,II,25,160,ROTTEN BATS,Slay 25 at rank II,TRUE,In the game,1,0.0,5
+Bat,III,20,220,COLD BATS,Slay 20 at rank III,TRUE,In the game,1,0.0,5
 Bat,IV,15,280,BLOODY BATS,Slay 15 at rank IV,TRUE,In the game,1,0.0,5
 Bat,Feat,20,220,SHAKEN OFF,Shake off 20 latched bats,TRUE,Suggested,1,0.0,5
-Shambler,I,60,160,SHAMBLERS,Slay 60 at rank I,TRUE,In the game,1,1.0,12
-Shambler,II,40,220,ROTTEN SHAMBLERS,Slay 40 at rank II,TRUE,In the game,1,1.0,12
-Shambler,III,25,280,COLD SHAMBLERS,Slay 25 at rank III,TRUE,In the game,1,1.0,12
+Shambler,I,20,160,SHAMBLERS,Slay 20 at rank I,TRUE,In the game,1,1.0,12
+Shambler,II,25,220,ROTTEN SHAMBLERS,Slay 25 at rank II,TRUE,In the game,1,1.0,12
+Shambler,III,20,280,COLD SHAMBLERS,Slay 20 at rank III,TRUE,In the game,1,1.0,12
 Shambler,IV,15,340,BLOODY SHAMBLERS,Slay 15 at rank IV,TRUE,In the game,1,1.0,12
-Shambler,V,8,400,BLACK SHAMBLERS,Slay 8 at rank V,TRUE,In the game,1,1.0,12
-Shambler,G,3,370,GILDED SHAMBLERS,Slay 3 gilded,TRUE,In the game,1,1.0,12
+Shambler,V,10,400,BLACK SHAMBLERS,Slay 10 at rank V,TRUE,In the game,1,1.0,12
+Shambler,G,5,370,GILDED SHAMBLERS,Slay 5 gilded,TRUE,In the game,1,1.0,12
 Shambler,Feat,20,280,BACK IN THE GROUND,Slay 20 before they stand,TRUE,Suggested,1,1.0,12
-Wall Skull,I,60,110,WALL SKULLS,Slay 60 at rank I,TRUE,In the game,1,0.14,6
-Wall Skull,II,40,170,ROTTEN WALL SKULLS,Slay 40 at rank II,TRUE,In the game,1,0.14,6
-Wall Skull,III,25,230,COLD WALL SKULLS,Slay 25 at rank III,TRUE,In the game,1,0.14,6
+Wall Skull,I,20,110,WALL SKULLS,Slay 20 at rank I,TRUE,In the game,1,0.14,6
+Wall Skull,II,25,170,ROTTEN WALL SKULLS,Slay 25 at rank II,TRUE,In the game,1,0.14,6
+Wall Skull,III,20,230,COLD WALL SKULLS,Slay 20 at rank III,TRUE,In the game,1,0.14,6
 Wall Skull,IV,15,290,BLOODY WALL SKULLS,Slay 15 at rank IV,TRUE,In the game,1,0.14,6
-Wall Skull,V,8,350,BLACK WALL SKULLS,Slay 8 at rank V,TRUE,In the game,1,0.14,6
+Wall Skull,V,10,350,BLACK WALL SKULLS,Slay 10 at rank V,TRUE,In the game,1,0.14,6
 Wall Skull,Feat,20,230,BEFORE THE SCREAM,Silence 20 before they scream,TRUE,Suggested,1,0.14,6
-Shield-Bearer,I,60,160,SHIELD-BEARERS,Slay 60 at rank I,TRUE,In the game,1,1.0,12
-Shield-Bearer,II,40,220,ROTTEN SHIELD-BEARERS,Slay 40 at rank II,TRUE,In the game,1,1.0,12
-Shield-Bearer,III,25,280,COLD SHIELD-BEARERS,Slay 25 at rank III,TRUE,In the game,1,1.0,12
+Shield-Bearer,I,20,160,SHIELD-BEARERS,Slay 20 at rank I,TRUE,In the game,1,1.0,12
+Shield-Bearer,II,25,220,ROTTEN SHIELD-BEARERS,Slay 25 at rank II,TRUE,In the game,1,1.0,12
+Shield-Bearer,III,20,280,COLD SHIELD-BEARERS,Slay 20 at rank III,TRUE,In the game,1,1.0,12
 Shield-Bearer,IV,15,340,BLOODY SHIELD-BEARERS,Slay 15 at rank IV,TRUE,In the game,1,1.0,12
-Shield-Bearer,V,8,400,BLACK SHIELD-BEARERS,Slay 8 at rank V,TRUE,In the game,1,1.0,12
-Shield-Bearer,G,3,370,GILDED SHIELD-BEARERS,Slay 3 gilded,TRUE,In the game,1,1.0,12
+Shield-Bearer,V,10,400,BLACK SHIELD-BEARERS,Slay 10 at rank V,TRUE,In the game,1,1.0,12
+Shield-Bearer,G,5,370,GILDED SHIELD-BEARERS,Slay 5 gilded,TRUE,In the game,1,1.0,12
 Shield-Bearer,Feat,20,280,THROUGH THE SHIELD,Slay 20 after breaking the shield,TRUE,Suggested,1,1.0,12
-Spider,I,60,120,SPIDERS,Slay 60 at rank I,TRUE,In the game,1,0.29,7
-Spider,II,40,180,ROTTEN SPIDERS,Slay 40 at rank II,TRUE,In the game,1,0.29,7
-Spider,III,25,240,COLD SPIDERS,Slay 25 at rank III,TRUE,In the game,1,0.29,7
+Spider,I,20,120,SPIDERS,Slay 20 at rank I,TRUE,In the game,1,0.29,7
+Spider,II,25,180,ROTTEN SPIDERS,Slay 25 at rank II,TRUE,In the game,1,0.29,7
+Spider,III,20,240,COLD SPIDERS,Slay 20 at rank III,TRUE,In the game,1,0.29,7
 Spider,IV,15,300,BLOODY SPIDERS,Slay 15 at rank IV,TRUE,In the game,1,0.29,7
-Spider,V,8,360,PALE SPIDERS,Slay 8 at rank V,TRUE,In the game,1,0.29,7
+Spider,V,10,360,PALE SPIDERS,Slay 10 at rank V,TRUE,In the game,1,0.29,7
 Spider,Feat,20,240,STILL IN ITS WEB,Slay 20 before they drop,TRUE,Suggested,1,0.29,7
-Drowned,I,60,270,DROWNED,Slay 60 at rank I,TRUE,In the game,2,0.6,16
-Drowned,II,40,390,ROTTEN DROWNED,Slay 40 at rank II,TRUE,In the game,2,0.6,16
-Drowned,III,25,510,COLD DROWNED,Slay 25 at rank III,TRUE,In the game,2,0.6,16
+Drowned,I,20,270,DROWNED,Slay 20 at rank I,TRUE,In the game,2,0.6,16
+Drowned,II,25,390,ROTTEN DROWNED,Slay 25 at rank II,TRUE,In the game,2,0.6,16
+Drowned,III,20,510,COLD DROWNED,Slay 20 at rank III,TRUE,In the game,2,0.6,16
 Drowned,IV,15,630,BLOODY DROWNED,Slay 15 at rank IV,TRUE,In the game,2,0.6,16
-Drowned,V,8,750,BLACK DROWNED,Slay 8 at rank V,TRUE,In the game,2,0.6,16
-Drowned,G,3,690,GILDED DROWNED,Slay 3 gilded,TRUE,In the game,2,0.6,16
+Drowned,V,10,750,BLACK DROWNED,Slay 10 at rank V,TRUE,In the game,2,0.6,16
+Drowned,G,5,690,GILDED DROWNED,Slay 5 gilded,TRUE,In the game,2,0.6,16
 Drowned,Feat,10,510,NOT A DROP,Slay 10 without their burst reaching you,TRUE,Suggested,2,0.6,16
-Bone Hound,I,60,230,BONE HOUNDS,Slay 60 at rank I,TRUE,In the game,2,0.28,8
-Bone Hound,II,40,350,ROTTEN BONE HOUNDS,Slay 40 at rank II,TRUE,In the game,2,0.28,8
-Bone Hound,III,25,470,COLD BONE HOUNDS,Slay 25 at rank III,TRUE,In the game,2,0.28,8
+Bone Hound,I,20,230,BONE HOUNDS,Slay 20 at rank I,TRUE,In the game,2,0.28,8
+Bone Hound,II,25,350,ROTTEN BONE HOUNDS,Slay 25 at rank II,TRUE,In the game,2,0.28,8
+Bone Hound,III,20,470,COLD BONE HOUNDS,Slay 20 at rank III,TRUE,In the game,2,0.28,8
 Bone Hound,IV,15,590,BLOODY BONE HOUNDS,Slay 15 at rank IV,TRUE,In the game,2,0.28,8
-Bone Hound,V,8,710,BLACK BONE HOUNDS,Slay 8 at rank V,TRUE,In the game,2,0.28,8
+Bone Hound,V,10,710,BLACK BONE HOUNDS,Slay 10 at rank V,TRUE,In the game,2,0.28,8
 Bone Hound,Feat,10,470,BOTH OF THEM,Slay 10 pairs within five seconds,TRUE,Suggested,2,0.28,8
 Wraith,I,10,320,DRIVEN BACK,Drive it back 10 times,TRUE,Suggested,2,1.0,0
 Wraith,II,40,440,KEPT AT BAY,Drive it back 40 times,TRUE,Suggested,2,1.0,0
 Wraith,III,100,560,IT LEARNS FEAR,Drive it back 100 times,TRUE,Suggested,2,1.0,0
 Wraith,IV,1,680,THE WRAITH UNBOUND,The Wraith Unbound slain (its boss achievement),FALSE,Suggested,2,1.0,0
-Hunting Spider,I,60,250,HUNTING SPIDERS,Slay 60 at rank I,TRUE,In the game,2,0.44,12
-Hunting Spider,II,40,370,ROTTEN HUNTING SPIDERS,Slay 40 at rank II,TRUE,In the game,2,0.44,12
-Hunting Spider,III,25,490,COLD HUNTING SPIDERS,Slay 25 at rank III,TRUE,In the game,2,0.44,12
+Hunting Spider,I,20,250,HUNTING SPIDERS,Slay 20 at rank I,TRUE,In the game,2,0.44,12
+Hunting Spider,II,25,370,ROTTEN HUNTING SPIDERS,Slay 25 at rank II,TRUE,In the game,2,0.44,12
+Hunting Spider,III,20,490,COLD HUNTING SPIDERS,Slay 20 at rank III,TRUE,In the game,2,0.44,12
 Hunting Spider,IV,15,610,BLOODY HUNTING SPIDERS,Slay 15 at rank IV,TRUE,In the game,2,0.44,12
-Hunting Spider,V,8,730,BLACK HUNTING SPIDERS,Slay 8 at rank V,TRUE,In the game,2,0.44,12
+Hunting Spider,V,10,730,BLACK HUNTING SPIDERS,Slay 10 at rank V,TRUE,In the game,2,0.44,12
 Hunting Spider,Feat,20,490,OFF THE CEILING,Slay 20 overhead,TRUE,Suggested,2,0.44,12
-Ghoul,I,60,260,GHOULS,Slay 60 at rank I,TRUE,In the game,2,0.52,14
-Ghoul,II,40,380,ROTTEN GHOULS,Slay 40 at rank II,TRUE,In the game,2,0.52,14
-Ghoul,III,25,500,COLD GHOULS,Slay 25 at rank III,TRUE,In the game,2,0.52,14
+Ghoul,I,20,260,GHOULS,Slay 20 at rank I,TRUE,In the game,2,0.52,14
+Ghoul,II,25,380,ROTTEN GHOULS,Slay 25 at rank II,TRUE,In the game,2,0.52,14
+Ghoul,III,20,500,COLD GHOULS,Slay 20 at rank III,TRUE,In the game,2,0.52,14
 Ghoul,IV,15,620,BLOODY GHOULS,Slay 15 at rank IV,TRUE,In the game,2,0.52,14
-Ghoul,V,8,740,BLACK GHOULS,Slay 8 at rank V,TRUE,In the game,2,0.52,14
-Ghoul,G,3,680,GILDED GHOULS,Slay 3 gilded,TRUE,In the game,2,0.52,14
+Ghoul,V,10,740,BLACK GHOULS,Slay 10 at rank V,TRUE,In the game,2,0.52,14
+Ghoul,G,5,680,GILDED GHOULS,Slay 5 gilded,TRUE,In the game,2,0.52,14
 Ghoul,Feat,20,500,AT ITS MEAL,Slay 20 while feeding,TRUE,Suggested,2,0.52,14
-Skeleton Knight,I,60,310,SKELETON KNIGHTS,Slay 60 at rank I,TRUE,In the game,2,0.92,24
-Skeleton Knight,II,40,430,ROTTEN SKELETON KNIGHTS,Slay 40 at rank II,TRUE,In the game,2,0.92,24
-Skeleton Knight,III,25,550,COLD SKELETON KNIGHTS,Slay 25 at rank III,TRUE,In the game,2,0.92,24
+Skeleton Knight,I,20,310,SKELETON KNIGHTS,Slay 20 at rank I,TRUE,In the game,2,0.92,24
+Skeleton Knight,II,25,430,ROTTEN SKELETON KNIGHTS,Slay 25 at rank II,TRUE,In the game,2,0.92,24
+Skeleton Knight,III,20,550,COLD SKELETON KNIGHTS,Slay 20 at rank III,TRUE,In the game,2,0.92,24
 Skeleton Knight,IV,15,670,BLOODY SKELETON KNIGHTS,Slay 15 at rank IV,TRUE,In the game,2,0.92,24
-Skeleton Knight,V,8,790,BLACK SKELETON KNIGHTS,Slay 8 at rank V,TRUE,In the game,2,0.92,24
-Skeleton Knight,G,3,730,GILDED SKELETON KNIGHTS,Slay 3 gilded,TRUE,In the game,2,0.92,24
+Skeleton Knight,V,10,790,BLACK SKELETON KNIGHTS,Slay 10 at rank V,TRUE,In the game,2,0.92,24
+Skeleton Knight,G,5,730,GILDED SKELETON KNIGHTS,Slay 5 gilded,TRUE,In the game,2,0.92,24
 Skeleton Knight,Feat,10,550,IN FULL PLATE,Slay 10 before they shed any plate,TRUE,Suggested,2,0.92,24
-Brood Mother,I,60,320,BROOD MOTHERS,Slay 60 at rank I,TRUE,In the game,2,1.0,26
-Brood Mother,II,40,440,ROTTEN BROOD MOTHERS,Slay 40 at rank II,TRUE,In the game,2,1.0,26
-Brood Mother,III,25,560,COLD BROOD MOTHERS,Slay 25 at rank III,TRUE,In the game,2,1.0,26
+Brood Mother,I,20,320,BROOD MOTHERS,Slay 20 at rank I,TRUE,In the game,2,1.0,26
+Brood Mother,II,25,440,ROTTEN BROOD MOTHERS,Slay 25 at rank II,TRUE,In the game,2,1.0,26
+Brood Mother,III,20,560,COLD BROOD MOTHERS,Slay 20 at rank III,TRUE,In the game,2,1.0,26
 Brood Mother,IV,15,680,BLOODY BROOD MOTHERS,Slay 15 at rank IV,TRUE,In the game,2,1.0,26
-Brood Mother,V,8,800,PALE BROOD MOTHERS,Slay 8 at rank V,TRUE,In the game,2,1.0,26
+Brood Mother,V,10,800,PALE BROOD MOTHERS,Slay 10 at rank V,TRUE,In the game,2,1.0,26
 Brood Mother,Feat,5,560,NONE HATCHED,Slay 5 before a sac hatches,TRUE,Suggested,2,1.0,26
-Spiderling,I,60,200,SPIDERLINGS,Slay 60 at rank I,TRUE,In the game,2,0.0,1
-Spiderling,II,40,320,ROTTEN SPIDERLINGS,Slay 40 at rank II,TRUE,In the game,2,0.0,1
-Spiderling,III,25,440,COLD SPIDERLINGS,Slay 25 at rank III,TRUE,In the game,2,0.0,1
+Spiderling,I,20,200,SPIDERLINGS,Slay 20 at rank I,TRUE,In the game,2,0.0,1
+Spiderling,II,25,320,ROTTEN SPIDERLINGS,Slay 25 at rank II,TRUE,In the game,2,0.0,1
+Spiderling,III,20,440,COLD SPIDERLINGS,Slay 20 at rank III,TRUE,In the game,2,0.0,1
 Spiderling,IV,15,560,BLOODY SPIDERLINGS,Slay 15 at rank IV,TRUE,In the game,2,0.0,1
-Spiderling,V,8,680,PALE SPIDERLINGS,Slay 8 at rank V,TRUE,In the game,2,0.0,1
+Spiderling,V,10,680,PALE SPIDERLINGS,Slay 10 at rank V,TRUE,In the game,2,0.0,1
 Spiderling,Feat,200,440,THE WHOLE BROOD,Slay 200,TRUE,Suggested,2,0.0,1
-Shade,I,60,1070,SHADES,Slay 60,TRUE,In the game,3,0.29,16
+Shade,I,20,1070,SHADES,Slay 20,TRUE,In the game,3,0.29,16
 Shade,Feat,10,710,FACED DOWN,Slay 10 while they fade from your light,TRUE,Suggested,3,0.29,16
-Ember Imp,I,60,300,EMBER IMPS,Slay 60 at rank I,TRUE,In the game,3,0.0,12
-Ember Imp,II,40,480,ROTTEN EMBER IMPS,Slay 40 at rank II,TRUE,In the game,3,0.0,12
-Ember Imp,III,25,660,COLD EMBER IMPS,Slay 25 at rank III,TRUE,In the game,3,0.0,12
+Ember Imp,I,20,300,EMBER IMPS,Slay 20 at rank I,TRUE,In the game,3,0.0,12
+Ember Imp,II,25,480,ROTTEN EMBER IMPS,Slay 25 at rank II,TRUE,In the game,3,0.0,12
+Ember Imp,III,20,660,COLD EMBER IMPS,Slay 20 at rank III,TRUE,In the game,3,0.0,12
 Ember Imp,IV,15,840,BLOODY EMBER IMPS,Slay 15 at rank IV,TRUE,In the game,3,0.0,12
-Ember Imp,V,8,1020,BLACK EMBER IMPS,Slay 8 at rank V,TRUE,In the game,3,0.0,12
+Ember Imp,V,10,1020,BLACK EMBER IMPS,Slay 10 at rank V,TRUE,In the game,3,0.0,12
 Ember Imp,Feat,25,660,QUENCHED,Slay 25 by Frost,TRUE,Suggested,3,0.0,12
-Deacon,I,60,400,DEACONS,Slay 60 at rank I,TRUE,In the game,3,0.57,20
-Deacon,II,40,580,ROTTEN DEACONS,Slay 40 at rank II,TRUE,In the game,3,0.57,20
-Deacon,III,25,760,COLD DEACONS,Slay 25 at rank III,TRUE,In the game,3,0.57,20
+Deacon,I,20,400,DEACONS,Slay 20 at rank I,TRUE,In the game,3,0.57,20
+Deacon,II,25,580,ROTTEN DEACONS,Slay 25 at rank II,TRUE,In the game,3,0.57,20
+Deacon,III,20,760,COLD DEACONS,Slay 20 at rank III,TRUE,In the game,3,0.57,20
 Deacon,IV,15,940,BLOODY DEACONS,Slay 15 at rank IV,TRUE,In the game,3,0.57,20
-Deacon,V,8,1120,BLACK DEACONS,Slay 8 at rank V,TRUE,In the game,3,0.57,20
-Deacon,G,3,1030,GILDED DEACONS,Slay 3 gilded,TRUE,In the game,3,0.57,20
+Deacon,V,10,1120,BLACK DEACONS,Slay 10 at rank V,TRUE,In the game,3,0.57,20
+Deacon,G,5,1030,GILDED DEACONS,Slay 5 gilded,TRUE,In the game,3,0.57,20
 Deacon,Feat,10,760,NONE RISE,Slay 10 before any rises for him,TRUE,Suggested,3,0.57,20
-Gargoyle,I,60,380,GARGOYLES,Slay 60 at rank I,TRUE,In the game,3,0.43,18
-Gargoyle,II,40,560,ROTTEN GARGOYLES,Slay 40 at rank II,TRUE,In the game,3,0.43,18
-Gargoyle,III,25,740,COLD GARGOYLES,Slay 25 at rank III,TRUE,In the game,3,0.43,18
+Gargoyle,I,20,380,GARGOYLES,Slay 20 at rank I,TRUE,In the game,3,0.43,18
+Gargoyle,II,25,560,ROTTEN GARGOYLES,Slay 25 at rank II,TRUE,In the game,3,0.43,18
+Gargoyle,III,20,740,COLD GARGOYLES,Slay 20 at rank III,TRUE,In the game,3,0.43,18
 Gargoyle,IV,15,920,BLOODY GARGOYLES,Slay 15 at rank IV,TRUE,In the game,3,0.43,18
-Gargoyle,V,8,1100,BLACK GARGOYLES,Slay 8 at rank V,TRUE,In the game,3,0.43,18
+Gargoyle,V,10,1100,BLACK GARGOYLES,Slay 10 at rank V,TRUE,In the game,3,0.43,18
 Gargoyle,Feat,10,740,STILL STONE,Slay 10 within two seconds of waking,TRUE,Suggested,3,0.43,18
-Whipper-In,I,60,430,WHIPPERS-IN,Slay 60 at rank I,TRUE,In the game,3,0.71,22
-Whipper-In,II,40,610,ROTTEN WHIPPERS-IN,Slay 40 at rank II,TRUE,In the game,3,0.71,22
-Whipper-In,III,25,790,COLD WHIPPERS-IN,Slay 25 at rank III,TRUE,In the game,3,0.71,22
+Whipper-In,I,20,430,WHIPPERS-IN,Slay 20 at rank I,TRUE,In the game,3,0.71,22
+Whipper-In,II,25,610,ROTTEN WHIPPERS-IN,Slay 25 at rank II,TRUE,In the game,3,0.71,22
+Whipper-In,III,20,790,COLD WHIPPERS-IN,Slay 20 at rank III,TRUE,In the game,3,0.71,22
 Whipper-In,IV,15,970,BLOODY WHIPPERS-IN,Slay 15 at rank IV,TRUE,In the game,3,0.71,22
-Whipper-In,V,8,1150,BLACK WHIPPERS-IN,Slay 8 at rank V,TRUE,In the game,3,0.71,22
-Whipper-In,G,3,1060,GILDED WHIPPERS-IN,Slay 3 gilded,TRUE,In the game,3,0.71,22
+Whipper-In,V,10,1150,BLACK WHIPPERS-IN,Slay 10 at rank V,TRUE,In the game,3,0.71,22
+Whipper-In,G,5,1060,GILDED WHIPPERS-IN,Slay 5 gilded,TRUE,In the game,3,0.71,22
 Whipper-In,Feat,5,790,NO HORN,Slay 5 before his horn,TRUE,Suggested,3,0.71,22
-Sexton,I,60,350,SEXTONS,Slay 60 at rank I,TRUE,In the game,3,0.29,16
-Sexton,II,40,530,ROTTEN SEXTONS,Slay 40 at rank II,TRUE,In the game,3,0.29,16
-Sexton,III,25,710,COLD SEXTONS,Slay 25 at rank III,TRUE,In the game,3,0.29,16
+Sexton,I,20,350,SEXTONS,Slay 20 at rank I,TRUE,In the game,3,0.29,16
+Sexton,II,25,530,ROTTEN SEXTONS,Slay 25 at rank II,TRUE,In the game,3,0.29,16
+Sexton,III,20,710,COLD SEXTONS,Slay 20 at rank III,TRUE,In the game,3,0.29,16
 Sexton,IV,15,890,BLOODY SEXTONS,Slay 15 at rank IV,TRUE,In the game,3,0.29,16
-Sexton,V,8,1070,BLACK SEXTONS,Slay 8 at rank V,TRUE,In the game,3,0.29,16
-Sexton,G,3,980,GILDED SEXTONS,Slay 3 gilded,TRUE,In the game,3,0.29,16
+Sexton,V,10,1070,BLACK SEXTONS,Slay 10 at rank V,TRUE,In the game,3,0.29,16
+Sexton,G,5,980,GILDED SEXTONS,Slay 5 gilded,TRUE,In the game,3,0.29,16
 Sexton,Feat,10,710,UNRUNG,Slay 10 with his bell never rung,TRUE,Suggested,3,0.29,16
-Lightless,II,60,660,ROTTEN LIGHTLESS,Slay 60 at rank II,TRUE,In the game,3,1.0,26
-Lightless,III,40,840,COLD LIGHTLESS,Slay 40 at rank III,TRUE,In the game,3,1.0,26
-Lightless,IV,25,1020,BLOODY LIGHTLESS,Slay 25 at rank IV,TRUE,In the game,3,1.0,26
+Lightless,II,20,660,ROTTEN LIGHTLESS,Slay 20 at rank II,TRUE,In the game,3,1.0,26
+Lightless,III,25,840,COLD LIGHTLESS,Slay 25 at rank III,TRUE,In the game,3,1.0,26
+Lightless,IV,20,1020,BLOODY LIGHTLESS,Slay 20 at rank IV,TRUE,In the game,3,1.0,26
 Lightless,V,15,1200,PALE LIGHTLESS,Slay 15 at rank V,TRUE,In the game,3,1.0,26
-Lightless,G,3,1110,GILDED LIGHTLESS,Slay 3 gilded,TRUE,In the game,3,1.0,26
+Lightless,G,5,1110,GILDED LIGHTLESS,Slay 5 gilded,TRUE,In the game,3,1.0,26
 Lightless,Feat,10,840,IN THE DARK,Slay 10 with the lantern shuttered,TRUE,Suggested,3,1.0,26
