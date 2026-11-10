@@ -21,7 +21,7 @@ typedef struct {
     int layout;                 /* PL_* */
     int ranks[6], nranks;       /* the ranks it comes in, for the gems on the frame's foot */
     int unlocked, unpaid;       /* bits by RK_*: the ranks unlocked; of those, the ones whose gold waits this life */
-    float veil;                 /* the tapestry: 1 over it, 0.15 drawn back to its side, then fading out; 0 gone */
+    float veil;                 /* the tapestry: 1 over it, 0 drawn back and tied at its side; below 0 none */
     float t;                    /* the clock: its walk, the candles */
     float walk0;                /* when its walk began (the bestiary's turn about starts here) */
 } PortraitView;

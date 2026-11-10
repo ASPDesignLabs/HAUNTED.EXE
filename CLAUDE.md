@@ -302,9 +302,11 @@ shaded under a hash of the piece (`SCC`), and the still earth, crypt and ground 
 `claude/adoring-hopper-h9ivcg` from main at 1.0.0b21.1; nothing built): a portrait for each bestiary page on her walls, under a
 tapestry till one is slain, then its shadow, then each rank unlocked by its slayer achievement walking in its colours on the stone
 of the run it was unlocked in; the frame's colour the highest rank, a candle beside each in one of seven layouts; each rank's gold
-paid once a life, at every visit to her room; and the bosses' four, two faces wide, by the Accursed Portal. The owner settled most
+paid once a life, at every visit to her room; the first two thirds in her room, the last in the back room; the tapestry left
+tied at the side once drawn back; and the bosses' four, two faces wide, by the Accursed Portal. The owner settled most
 of its questions and the numbers (in a Sheet on claude.ai that its status links: starts of 100, 200 and 300, the Spectre's, the
-Wraith's and twenty feats added, the bosses' rows, every row paying); Q7-Q9, Q13 and Q14 are open. The art for the mock-ups is
+Wraith's and twenty feats added, the bosses' rows, every row paying but the Wraith's fourth gem, the shade at rank V); every
+question is answered but Q15 (the kills each rank asks), which came of the owner's last edit. The art for the mock-ups is
 `src/crawl_portrait.c` (not in the game's build), driven by `tools/portraitmock.c` (`make build/portraitmock`); the settled
 numbers are `docs/portraits/ranks.csv` and `bosses.csv`, written by `tools/portrait_sheet.py` from `KINDS`.
 

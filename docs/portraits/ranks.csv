@@ -56,7 +56,7 @@ Bone Hound,Feat,10,470,BOTH OF THEM,Slay 10 pairs within five seconds,TRUE,Sugge
 Wraith,I,10,320,DRIVEN BACK,Drive it back 10 times,TRUE,Suggested,2,1.0,0
 Wraith,II,40,440,KEPT AT BAY,Drive it back 40 times,TRUE,Suggested,2,1.0,0
 Wraith,III,100,560,IT LEARNS FEAR,Drive it back 100 times,TRUE,Suggested,2,1.0,0
-Wraith,IV,1,680,THE WRAITH UNBOUND,The Wraith Unbound slain (its boss achievement),TRUE,Suggested,2,1.0,0
+Wraith,IV,1,680,THE WRAITH UNBOUND,The Wraith Unbound slain (its boss achievement),FALSE,Suggested,2,1.0,0
 Hunting Spider,I,60,250,HUNTING SPIDERS,Slay 60 at rank I,TRUE,In the game,2,0.44,12
 Hunting Spider,II,40,370,ROTTEN HUNTING SPIDERS,Slay 40 at rank II,TRUE,In the game,2,0.44,12
 Hunting Spider,III,25,490,COLD HUNTING SPIDERS,Slay 25 at rank III,TRUE,In the game,2,0.44,12
@@ -89,7 +89,7 @@ Spiderling,III,25,440,COLD SPIDERLINGS,Slay 25 at rank III,TRUE,In the game,2,0.
 Spiderling,IV,15,560,BLOODY SPIDERLINGS,Slay 15 at rank IV,TRUE,In the game,2,0.0,1
 Spiderling,V,8,680,PALE SPIDERLINGS,Slay 8 at rank V,TRUE,In the game,2,0.0,1
 Spiderling,Feat,200,440,THE WHOLE BROOD,Slay 200,TRUE,Suggested,2,0.0,1
-Shade,I,60,350,SHADES,Slay 60,TRUE,In the game,3,0.29,16
+Shade,I,60,1070,SHADES,Slay 60,TRUE,In the game,3,0.29,16
 Shade,Feat,10,710,FACED DOWN,Slay 10 while they fade from your light,TRUE,Suggested,3,0.29,16
 Ember Imp,I,60,300,EMBER IMPS,Slay 60 at rank I,TRUE,In the game,3,0.0,12
 Ember Imp,II,40,480,ROTTEN EMBER IMPS,Slay 40 at rank II,TRUE,In the game,3,0.0,12

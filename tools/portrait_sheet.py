@@ -1,4 +1,4 @@
-"""The portraits' numbers (docs/PLAN-portraits.md) as the owner settled them in the Sheet on 10 November: every slayer achievement,
+"""The portraits' numbers (docs/PLAN-portraits.md) as the owner settled them in the Sheet on 10 November (its revision 67): every slayer achievement,
 read from KINDS in src/scene_crawl.c, the Spectre's and the Wraith's own, a feat for each kind, and the bosses', with the gold
 each pays once a life. Writes docs/portraits/ranks.csv and bosses.csv, a snapshot of the Sheet to build from; the Sheet on
 claude.ai is where they are changed, and this is brought in step with it by hand.
@@ -69,11 +69,16 @@ for k in order:
 
 def gold(third, rank, strength):                         # half up, as the Sheet's ROUND
     return int(START[third] * (1 + SHARE * (STEP[rank] + strength)) / ROUND + 0.5 + 1e-9) * ROUND
+# the owner's Q9 and Q14: a kind of one rank pays as its third's rank V; the Wraith's fourth gem (the Wraith Unbound's fall) lights
+# but pays nothing, the boss's own portrait paying for it
+PAYS_AS = {('SHADE', 'I'): 'V'}
+GEM_ONLY = {('WRAITH', 'IV')}
 
 rows = []
 def add(k, rank, need, title, cond, source, note=''):
-    rows.append(dict(kind=k['name'].title(), rank=rank, need=need, gold=gold(k['third'], rank, k['str']), title=title, cond=cond,
-                     source=source, third=k['third'] + 1, str=k['str'], xp=k['xp'], note=note))
+    pays = (k['name'], rank) not in GEM_ONLY
+    rows.append(dict(kind=k['name'].title(), rank=rank, need=need, gold=gold(k['third'], PAYS_AS.get((k['name'], rank), rank), k['str']),
+                     title=title, cond=cond, source=source, third=k['third'] + 1, str=k['str'], xp=k['xp'], note=note, pays=pays))
 for k in order:
     nm = k['name']
     if nm == 'SPECTRE':
@@ -98,10 +103,11 @@ if '--grid' in sys.argv:
         cells, tot = [], 0
         for r in ROMAN:
             x = [y for y in rows if y['kind'] == k['name'].title() and y['rank'] == r]
-            if x: cells.append('%d: %s' % (x[0]['need'], format(x[0]['gold'], ','))); tot += x[0]['gold']
+            if x and not x[0]['pays']: cells.append('%d: gem only' % x[0]['need'])
+            elif x: cells.append('%d: %s' % (x[0]['need'], format(x[0]['gold'], ','))); tot += x[0]['gold']
             else: cells.append('-')
         print('| %d | %s | %d | %.2f | %s | %s |' % (i + 1, k['name'].title(), k['third'] + 1, k['str'], ' | '.join(cells), format(tot, ',')))
-    tot = [sum(x['gold'] for x in rows if x['third'] == t) for t in (1, 2, 3)]
+    tot = [sum(x['gold'] for x in rows if x['third'] == t and x['pays']) for t in (1, 2, 3)]
     b = sum(g * (1 + 0.2 * s) for _, g in BOSSES for s in range(6))
     print('\nrows %d; by third %s; all %s; bosses %s' % (len(rows), [format(v, ',') for v in tot], format(sum(tot), ','), format(int(b), ',')))
     sys.exit(0)
@@ -111,7 +117,7 @@ if '--md' in sys.argv:
 with open(os.path.join(ROOT, 'docs/portraits/ranks.csv'), 'w', newline='') as f:
     w = csv.writer(f)
     w.writerow(['Kind', 'Rank', 'Slain', 'Gold', 'Achievement', 'Condition', 'Pays', 'Source', 'Third', 'Strength', 'Kind XP'])
-    for x in rows: w.writerow([x['kind'], x['rank'], x['need'], x['gold'], x['title'], x['cond'], 'TRUE', x['source'], x['third'], x['str'], x['xp']])
+    for x in rows: w.writerow([x['kind'], x['rank'], x['need'], x['gold'], x['title'], x['cond'], 'TRUE' if x['pays'] else 'FALSE', x['source'], x['third'], x['str'], x['xp']])
 with open(os.path.join(ROOT, 'docs/portraits/bosses.csv'), 'w', newline='') as f:
     w = csv.writer(f)
     w.writerow(['Achievement', 'Deed', 'Gold', 'Pays', 'Condition'])

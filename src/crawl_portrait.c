@@ -41,9 +41,7 @@ static uint8_t at_light(uint8_t c, float l, int x, int y) {
 }
 
 /* ---- pixels, and shapes in texels ---- */
-static float g_fade;                                    /* while set, a dithered share of what is drawn is left out */
 static void pp(int x, int y, uint8_t c) {               /* a pixel, in the face's own pixels */
-    if (g_fade > 0.0f && (float)BAY[y & 3][x & 3] < g_fade * 16.0f) return;
     x += POX; y += POY;
     if ((unsigned)x < (unsigned)PW && (unsigned)y < (unsigned)PH) P[y * PST + x] = c;
 }
@@ -135,7 +133,7 @@ static void smoke(float x, float y, float h, uint32_t seed) {      /* a thread f
 
 /* ---- the layouts: where the frame hangs on the face, and its candles ---- */
 static const int FRAME_AT[NPLAYOUT][4] = {             /* x0, y0, x1, y1: forty-two texels by forty-eight, the picture 32 by 38 */
-    { 4, 8, 46, 56 }, { 18, 8, 60, 56 }, { 11, 8, 53, 56 }, { 11, 15, 53, 63 }, { 11, 3, 53, 51 }, { 18, 8, 60, 56 }, { 5, 8, 47, 56 } };
+    { 4, 8, 46, 56 }, { 18, 8, 60, 56 }, { 11, 8, 53, 56 }, { 11, 15, 53, 63 }, { 11, 4, 53, 52 }, { 18, 8, 60, 56 }, { 5, 8, 47, 56 } };
 void portrait_frame_rect(int layout, int r[4]) { memcpy(r, FRAME_AT[clampi_(layout, 0, NPLAYOUT - 1)], sizeof FRAME_AT[0]); }
 #define MOULD 5                                         /* the frame's width, in texels */
 
@@ -233,8 +231,8 @@ static void layout_lights(int layout, int behind) {                 /* the candl
     case PL_SCONCE_R: if (!behind) sconce(54.5f, 35.0f, 8.0f, 1); break;
     case PL_SCONCE_L: if (!behind) sconce(9.5f, 35.0f, 8.0f, 2); break;
     case PL_PAIR: if (!behind) { sconce(5.0f, 31.0f, 6.0f, 3); sconce(59.0f, 31.0f, 6.0f, 4); } break;
-    case PL_LAMP: if (behind) hung_lamp(32.0f, -0.5f, 9.0f, 5); break;
-    case PL_LEDGE: if (!behind) ledge(9.0f, 55.0f, 56.5f, 6); break;
+    case PL_LAMP: if (behind) hung_lamp(32.0f, -0.5f, 7.0f, 5); break;
+    case PL_LEDGE: if (!behind) ledge(9.0f, 55.0f, 57.0f, 6); break;
     case PL_SKULL: if (!behind) skull_bracket(9.5f, 37.0f, 9); break;
     case PL_STAND: if (!behind) stand(56.0f, 64.0f, 30.0f, 10); break;
     }
@@ -444,12 +442,10 @@ static void picture(const int r[4], const PortraitView *v) {
 }
 
 /* ---- the tapestry: oxblood, pleated, a border of gold thread and a skull worked in it, a fringe; hung from an iron rod over
- * the frame, drawn back to the side away from the candle and gathered there, then gone (veil under 0.15: fading out) ---- */
-static void tapestry(const int r[4], int side, float veil_in) {
-    float veil = veil_in >= 0.15f ? (veil_in - 0.15f) / 0.85f : 0.0f;
-    g_fade = veil_in >= 0.15f ? 0.0f : 1.0f - veil_in / 0.15f;
-    float X0 = (float)r[0] - 1.5f, X1 = (float)r[2] + 1.5f, Y0 = (float)r[1] - 2.2f, Y1 = (float)r[3] + 2.4f, Wc = X1 - X0;
-    float Wv = Wc * (0.17f + 0.83f * veil), deep = 1.0f - veil;
+ * the frame and its cartouche, drawn back to the side away from the candle and left there, gathered and tied (the owner's Q8) ---- */
+static void tapestry(const int r[4], int side, float veil) {
+    float X0 = (float)r[0] - 1.5f, X1 = (float)r[2] + 1.5f, Y0 = (float)r[1] - 3.2f, Y1 = (float)r[3] + 2.4f, Wc = X1 - X0;
+    float Wv = Wc * (0.14f + 0.86f * veil), deep = 1.0f - veil;   /* gathered, it covers the frame's side and no more */
     static const char *const SK[7] = { ".#####.", "#######", "#..#..#", "#######", ".##.##.", ".#.#.#.", "......." };
     for (int y = lo_px(Y0); y < hi_px(Y1 + 2.4f); y++)
         for (int x = lo_px(X0); x < hi_px(X1); x++) {
@@ -487,7 +483,6 @@ static void tapestry(const int r[4], int side, float veil_in) {
         float rx = side ? X1 - Wv * ((float)k + 0.5f) / 5.0f : X0 + Wv * ((float)k + 0.5f) / 5.0f;
         ellipse(rx, Y0 - 0.2f, 0.7f, 0.9f, R_IRON, 0.2f, 0.7f);
     }
-    g_fade = 0.0f;
 }
 
 void portrait_face(uint8_t *pix, int stride, int w, int h, int ox, int oy, int s, const PortraitView *v) {
@@ -498,9 +493,9 @@ void portrait_face(uint8_t *pix, int stride, int w, int h, int ox, int oy, int s
     layout_lights(v->layout, 1);
     picture(r, v);
     float fx = (float)(r[0] + r[2]) * 0.5f, fy = (float)(r[1] + r[3]) * 0.5f;
-    static const float LX[NPLAYOUT] = { 54.5f, 9.5f, 32.0f, 32.0f, 32.0f, 9.5f, 55.5f }, LY[NPLAYOUT] = { 24, 24, 20, 6, 46, 26, 22 };
+    static const float LX[NPLAYOUT] = { 54.5f, 9.5f, 32.0f, 32.0f, 32.0f, 9.5f, 55.5f }, LY[NPLAYOUT] = { 24, 24, 20, 5, 47, 26, 22 };
     frame(r, v->frame, LX[v->layout] - fx - 0.0f, LY[v->layout] - fy - 18.0f, v);
-    if (v->veil > 0.0f) {
+    if (v->veil >= 0.0f) {                                              /* below 0: none at all */
         static const int SIDE[NPLAYOUT] = { 0, 1, 0, 0, 0, 1, 0 };     /* gathered away from its candle */
         tapestry(r, SIDE[v->layout], v->veil);
     }

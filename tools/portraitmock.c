@@ -326,7 +326,7 @@ static void skel_at(float t) {
 /* the tapestry: hung over it, a prompt; drawn back; one slain, so its shadow walks there */
 static void veil_at(float t) {
     faces_begin(13, 7);
-    float k = 1.0f - 0.85f * smooth(1.6f, 2.8f, t) - 0.15f * smooth(3.1f, 3.6f, t);   /* gathered aside, then gone */
+    float k = 1.0f - smooth(1.6f, 2.9f, t);                     /* gathered aside, and tied there */
     PortraitView v = pv_of(K_SHAMB, -1, -1, 0, PL_PAIR, 0, 0, k, t);
     v.walk0 = 2.2f;
     face_portrait(16, v, g_res);
@@ -338,14 +338,14 @@ static void veil_at(float t) {
         ui_keys(&F, x, 181, s, R_STONE + 13);
     }
 }
-/* her north wall from the middle of her room: the torches, the sign, four portraits in four states */
+/* her north wall from the middle of her room, where the second third hangs: the torches, the sign, four portraits in four states */
 static void room_at(float t) {
     faces_begin(11, 9);
     FACES[12 - FX0].kind = FC_TORCH; FACES[18 - FX0].kind = FC_TORCH; FACES[15 - FX0].kind = FC_SIGN;
-    PortraitView a = pv_of(K_SKEL, RK_II, RK_II, 1, PL_SCONCE_L, 3, 2, 0.0f, t);
-    PortraitView b = pv_of(K_BAT, RK_I, -1, 0, PL_LEDGE, 0, 0, 1.0f, t);
-    PortraitView c = pv_of(K_SHIELD, RK_IV, RK_IV, 3, PL_LAMP, 15, 0, 0.0f, t);
-    PortraitView d = pv_of(K_SHAMB, -1, -1, 0, PL_PAIR, 0, 0, 0.0f, t);
+    PortraitView a = pv_of(K_DROWN, RK_II, RK_II, 1, PL_SCONCE_L, 3, 2, 0.0f, t);
+    PortraitView b = pv_of(K_HOUND, RK_I, -1, 1, PL_LEDGE, 0, 0, 1.0f, t);
+    PortraitView c = pv_of(K_KNIGHT, RK_IV, RK_IV, 3, PL_LAMP, 15, 0, 0.0f, t);
+    PortraitView d = pv_of(K_GHOUL, -1, -1, 1, PL_PAIR, 0, 0, 0.0f, t);
     a.walk0 = 0.0f; c.walk0 = 0.8f; d.walk0 = 2.4f;
     face_portrait(13, a, g_res); face_portrait(14, b, g_res); face_portrait(16, c, g_res); face_portrait(17, d, g_res);
     view_wall(3.6f, 15.5f, t);
