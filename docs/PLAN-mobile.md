@@ -334,7 +334,10 @@ screen are as they are.
 
 0. **The probe on the owner's Android phone.** Today's `/play/` with `?perf` (a corner readout of ms a frame from
    `window.HAUNTED.perf`) and `?take` (H held for three seconds as it boots, since a phone can't take over yet): the dream, the crypt in
-   play, the title. If the title is too slow there (8-14 ms natively might be 30-40 ms), it gets a cheaper way to draw first.
+   play, the title. If the title is too slow there (8-14 ms natively might be 30-40 ms), it gets a cheaper way to draw first. Pages
+   serves only the release named in `VERSION`, so the probe can't go to `/play/`: CI builds the branch's web zip, and it goes up as a
+   private page the phone can open. Failing that, Chrome's remote debugging over USB reads `window.HAUNTED.perf` from today's
+   `/play/`, for the dream at least.
 1. **The input's shape.** `Input` gains the pointer, up to five fingers (id, place in stage pixels, down, moved, up) and the stage
    (size, the picture's place, the safe area); `AppConfig.input`. `web_main.c` exports them; `tools/host.c` reads `p` (a pointer's
    place), `T` (a finger: `T0d40,150`, `T0m60,150`, `T0u`), `HOST_STAGE` and `HOST_MODE`. Nothing behaves differently yet.
