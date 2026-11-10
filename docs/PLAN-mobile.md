@@ -592,3 +592,15 @@ owner released 1.0.0b21.3 ("Her Wares, Weighed") while this was being planned.
      CONTROLLER (D or a drag right raises, A or a drag left lowers, ENTER steps round): *TURNING* 30% to 300% (`PL.tturn`, tenths)
      and *SMOOTHING* 0 to 10 (`PL.tsmooth`), kept in the prefs record's bytes 24 and 25 (`PL_BYTES_TOUCH` 26; older readers stop at
      24). If the owner meant the view coasting on after a flick, that is a few lines more.
+- **10 November, built: the turning and the stones kept off the picture** (as the entry above designed; commit `8f06774`). In
+  `scene_crawl.c`: `touch_follow` (the 1-euro filter and the flush on lifting, into `IN.mdx`), used by `TF_TURN` and `TF_CAST`
+  fingers in play; the ring and the rate gone from the turn (`TCH.turn` and its ring drawing gone; the walking stick keeps its ring);
+  `PL.tturn`/`PL.tsmooth` in the prefs (`PL_BYTES_TOUCH`); Esc's question by touch (`quit_touch`, `Q_TTURN`, `Q_TSMOOTH`,
+  `quit_tune`; seven rows at 13 pixels apart). `touch_geo`'s columns from the safe area and never over the picture (none drawn under
+  20 pixels), WISPS over MAP, `stone_put`'s colon split and GEAR. In `app.c`: `app_stage_place` in the safe area's middle, still while
+  the stones are up. In `web/haunted.js`: `fitStage` steps the scale down until each side has 80 CSS pixels. Tried in headless
+  Chromium as a Pixel 7 held sideways with a 63-pixel camera strip put on by hand (the scratchpad's `touch2.js`): the picture clear of
+  the stones, the status bar whole, a slide of 120 stage pixels to the left turned the view about 55 degrees, Esc's rows read and a
+  slide right raised TURNING to 110%; `make smoke` and `tools/web_smoke.js` pass. The private page republished (its version 3).
+  Not tried: how it feels on the phone (the 150 degrees and the filter's numbers are first guesses), the smoothing's effect by hand.
+  Next, after the owner's word on it: the rest of *Still to do after this cut*.
