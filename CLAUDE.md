@@ -356,20 +356,18 @@ Tested in the harness only: the dream from level 1 for 2,400 s line for line 1.0
 warned, bought, held, the map, too poor, round the wares); ASan clean on that and on the dream for 1,500 s; the smoke test passes.
 
 **Touch, the mouse in menus and asking how you play** are planned in [`docs/PLAN-mobile.md`](docs/PLAN-mobile.md) (10 November,
-on `claude/funny-meitner-yn953c`, with main at 1.0.0b21.3 merged in; settled: the owner answered T1-T14 the same day; nothing built):
-**1.0.0b21.4**, for the browser only. The owner's layout for a phone held sideways (two sticks, the edge strips for use and cast, the
-corners for the rune and the pause, the gift and the wheels, MAP, WARDROBE and WISPS), drawn by the game in the margins as headstones
-with marks and words that pass a contrast check; a pointer in the browser's menus (a hot list the kit fills as it draws, `ptr_keys`
-beside `pad_keys`, a cursor of the game's own under the lock; Windows keeps its keys and pad as they are); and the browser's plate asking
-Keyboard and mouse, Controller or Touch. Tested by the owner on Android. Its section 11 is the hand-off log. **Step 0 is built** (the
-page's script only; the game untouched): `?perf`/`#perf` shows a readout of each frame's cost by what is on the screen, `?take`/`#take`
-holds H after 20 s so a phone reaches the title, `window.HAUNTED.probe()` the text; `tools/probe_page.py` makes `build/web` into a page
-for claude.ai's private pages, where it is published for the owner's phone (the address is in the log). Step 0 is done: the owner's
-Pixel 10a is fast enough (HAUNT.EXE 3 ms a frame, the title 5.7 once its cache fills). **The touch controls are being built now,
-ahead of Part A, at the owner's word**: the plumbing is in (`Finger` and the stage in `Input`, `Scene.stage`, a held finger taking
-over, `app_present_stage`, `web_touch`/`web_stage`/`web_stage_frame`), unused so far; the plan's section 11 lists the first cut's
-design and its remaining steps in order (`TCH` and `touch_keys` in `scene_crawl.c`, the stones in `crawl_stage`, the page's side, the
-plate's question). Read it before going on.
+on `claude/funny-meitner-yn953c`, with main at 1.0.0b21.3 merged in; settled: the owner answered T1-T14 the same day):
+**1.0.0b21.4**, for the browser only. **Built: the touch controls and the plate's question; the owner tried them on their Pixel 10a
+and said they work well enough to publish. Releasing them is the next task: the plan's *Start here* section is the whole of it.**
+Part A (a pointer in the browser's menus) is not built. Step 0, the probe: `?perf`/`#perf` shows a readout of each frame's cost by
+what is on the screen, `?take`/`#take` holds H after 20 s, `window.HAUNTED.probe()` the text; `tools/probe_page.py` makes `build/web`
+into a page for claude.ai's private pages (the owner's test page is in the plan's log). Touch, in brief: `Finger` and the stage in
+`Input`, `Scene.stage`, a held finger taking over (`app.c`, `app_present_stage`, the picture in the safe area's middle by
+`app_stage_place`), `web_touch`/`web_stage`/`web_stage_frame`; in `scene_crawl.c` `TCH` and `touch_keys` (the walking stick on the
+left, the view following a finger slid on the right through `touch_follow`'s 1-euro filter, the stones' taps and holds), `touch_geo`,
+the stones drawn by `crawl_stage`, Esc's TURNING and SMOOTHING by touch (`PL.tturn`, `PL.tsmooth`, `PL_BYTES_TOUCH`); in
+`web/haunted.js` `cfg.controls` asked on the plate, `fitStage`, `finger()` on Pointer Events. The plan's section 11 is the hand-off
+log.
 
 ## Working with the owner
 

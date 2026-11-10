@@ -1,13 +1,59 @@
 # 1.0.0b21.4: touch, the mouse in menus, and asking how you play
 
-**Status (10 November 2026): settled; step 0 done (the owner's Pixel 10a measured); the touch controls being built, before
-Part A at the owner's need. Read section 11's last entries first: they hand the work on.** On `claude/funny-meitner-yn953c`, with main at 1.0.0b21.3 merged in. The
+**Status (10 November 2026): the touch controls and the plate's question are built and tried by the owner on their Pixel 10a,
+who said they work well enough to publish. Releasing them as 1.0.0b21.4 is the next task, for another agent: *Start here*, below,
+is all of it. Part A (the mouse in menus) is not built.** On `claude/funny-meitner-yn953c`, with main at 1.0.0b21.3 merged in. The
 owner asked for a plan to play the browser build on a phone or tablet, with a layout of their own, formal mouse support, and a
 question on the browser's page of how a person is playing. They answered T1-T14 the same day (section 10, kept for the record):
 the recommended answer to each but T10 (the mouse in menus in the browser only, not on Windows) and T13 (it goes out as **1.0.0b21.4**,
 after their 1.0.0b21.3). It will be tested on **Android**. They added one thing: the new controls at the edges keep the game's
 gravestone look, with enough contrast that their words and marks are easy to read (section 6.5). The art pass's rest stays 1.0.0b22 and
 the lower storey 1.0.0b23.
+
+## Start here: releasing 1.0.0b21.4 (the next agent)
+
+The owner (10 November, after trying the touch build on their phone): *"This works well enough to publish."* So what is on
+`claude/funny-meitner-yn953c` goes out as **1.0.0b21.4**, as it stands: the touch controls, the plate's question, the probe. Part A, the
+mouse in menus, is not in it; say so in the notes, and ask the owner which number it takes when it is built (the plan's own order
+had it first; the owner moved touch ahead of it). Nothing on the branch changes Windows' play: touch is behind `IN.touch`, which only
+the browser's shell sets, and the prefs record grew from 24 bytes to 26 (`PL_BYTES_TOUCH`), which `win_main.c` reads (it takes up to
+64, `pmn >= 23`) and 1.0.0b21.3 reads too (it stops at 24).
+
+1. **Bring main in.** `git fetch origin main`; main was at `9873164` (1.0.0b21.3) when this was written and is merged into the branch.
+   If it has moved, merge it into the branch and build (`make host`, `make web`) before anything else. Emscripten 6.0.13 isn't in the
+   container: section 11's *Next: the first cut* says how to fetch it (about two minutes).
+2. **Check.** `make smoke`; `make web`, then `tools/web_smoke.js` on a site folder with the build in `play/` (`sh tools/build_site.sh
+   <dir>` and `cp -r build/web <dir>/play`; it fails on `build/web` itself, which has no `/play/`); `make scr` if the cross compiler is
+   there (CI builds and smoke-tests Windows anyway). The scratchpad's touch scripts are gone with this session; a new one is a few
+   lines of Playwright as section 11 describes (`devices["Pixel 7 landscape"]`, fingers by CDP's `Input.dispatchTouchEvent`, a camera
+   strip faked with `#safe { padding-left: 63px }`). Nothing in the harness drives fingers yet (`HOST_STAGE` and `T` are still to do),
+   so ASan can't reach the touch code; say so rather than claim it.
+3. **Write it up** (CLAUDE.md's *Releasing*): `VERSION` to `1.0.0b21.4`. The README: what touch is (a phone or tablet held sideways;
+   the plate asks Keyboard and mouse, Controller or Touch; a finger held three seconds takes over; the stones and what each does,
+   section 6.1-6.2 and the controls card's lines; sliding on the picture's right half turns; Esc's TURNING and SMOOTHING), and under
+   *What has been verified*: headless Chromium as a Pixel 7 held sideways, and the owner's Pixel 10a by hand (the probe's numbers in
+   section 11: 119 frames a second in every phase; the owner's verdict), no iPhone or iPad, no tablet's stage, no mouse in menus.
+   `site/index.html`: the BROWSER cell's words and the *Beta status* table, for the released build only. `.github/release-notes.md`
+   rewritten for a player (no technicals or debug switches, as 1.0.0b14's notes set out). CLAUDE.md: the current release line, and
+   the touch paragraph's state. A preview strip isn't needed; if one is wanted, a phone-shaped frame from Playwright shows the stones.
+4. **Publish**, at the owner's word, given above: squash the branch onto main as one commit, as every beta has gone
+   (`git checkout main && git merge --squash claude/funny-meitner-yn953c`, one commit titled *1.0.0b21.4: ...*; ask the owner for
+   the release's name if none is given; *Touch* will do), push main, and let CI make the tag (pushed tags are dropped by the proxy).
+   CI builds, smoke-tests and publishes the release when `VERSION` has none; Pages then serves `/play/` from the release's web zip,
+   which is how touch reaches the public page.
+5. **Check it went out:** the Build run on main, the release through the REST API (`gh api
+   repos/ASPDesignLabs/HAUNTED.EXE/releases/tags/v1.0.0b21.4`; `gh release view` is blocked in cloud sessions), each asset, the live page
+   and `/play/` on a phone-shaped Playwright page (the plate asks; Touch boots).
+6. **Tell the owner** it is out, what was and wasn't tried, and that the private test page
+   (https://claude.ai/artifact/V5ALUvTRsvhGq3eHey5C4Z) can be deleted or kept at their word (only they can open it).
+
+What isn't done, for the notes' honesty and for the work after the release, in order: THE BESTIARY and THE CODEX can't be reached by
+touch (rows of Esc's question, `quit_rows`); the title's THE CONTROLS lists the keys, not touch; the harness's fingers (`HOST_STAGE`,
+`T`); the stones' contrast check and their sheet (`build/uisheet touch`); THE TOUCH CONTROLS' other settings (section 6.7: the stones'
+strength, left-handed); the map panned by a drag; Part A (the mouse in menus, rows, caps and her rooms' prompt tapped); a tablet's
+stage (a 4:3 screen takes a smaller picture so the stones fit; untried); HAUNT.EXE has no stage (its picture alone); the turning's 150
+degrees and the smoothing's numbers are first guesses the owner hasn't tuned further. The owner may also want a flick to coast on
+(momentum), which section 11's last entries leave open.
 
 ## Decided
 
