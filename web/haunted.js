@@ -132,6 +132,8 @@
   function fitStage(w, h, dpr, aw, ah) {                         // by touch: the stage, the picture's pixels over the whole window
     let s = Math.floor(Math.min(aw / w, ah / h));
     if (s < 1) return false;
+    const [l0, , r0] = insets(), room = aw - (l0 + r0) * dpr;     // the stones want 80 CSS pixels a side beside the picture
+    while (s > 1 && (room - w * s) / 2 < 80 * dpr) s--;
     let sw = Math.floor(aw / s), sh = Math.floor(ah / s);
     while (sw * sh > 288000) { s++; sw = Math.floor(aw / s); sh = Math.floor(ah / s); }
     if (sw < w || sh < h) return false;

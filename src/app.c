@@ -223,11 +223,15 @@ void app_present(uint32_t *dst, int bgr) {
 /* The stage (docs/PLAN-mobile.md, 6.5): the picture placed in a field of its own pixels as wide and tall as the window, the
  * slow drift moving it within, and the scene's controls drawn around it. */
 static Frame STAGE;
-void app_stage_place(int sw, int sh, int *px, int *py) {
-    int dx, dy, mx = (sw - A.frame.w) / 2, my = (sh - A.frame.h) / 2;
+void app_stage_place(int sw, int sh, int *px, int *py) {      /* in the middle of what the device keeps clear */
+    int l = A.in ? A.in->safe_l : 0, t = A.in ? A.in->safe_t : 0, r = A.in ? A.in->safe_r : 0, b = A.in ? A.in->safe_b : 0;
+    if (sw - l - r < A.frame.w) l = r = 0;
+    if (sh - t - b < A.frame.h) t = b = 0;
+    int ex = (sw - l - r - A.frame.w) / 2, ey = (sh - t - b - A.frame.h) / 2, dx, dy;
     app_pixel_shift(&dx, &dy);
-    *px = mx + clampi(dx, -mx, mx);
-    *py = my + clampi(dy, -my, my);
+    if (A.control && A.in && A.in->touch) dx = dy = 0;             /* the stones stand in the margins: it keeps still */
+    *px = l + ex + clampi(dx, -ex, ex);
+    *py = t + ey + clampi(dy, -ey, ey);
 }
 int app_present_stage(uint32_t *dst, int sw, int sh, int bgr) {
     if (sw < A.frame.w || sh < A.frame.h || (size_t)sw * (size_t)sh > sizeof STAGE.pix) { app_present(dst, bgr); return 0; }
