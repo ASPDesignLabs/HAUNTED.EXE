@@ -2,7 +2,9 @@
 
 **Status (10 November 2026): the touch controls and the plate's question are built and tried by the owner on their Pixel 10a,
 who said they work well enough to publish. Releasing them as 1.0.0b21.4 is the next task, for another agent: *Start here*, below,
-is all of it. Part A (the mouse in menus) is not built.** On `claude/funny-meitner-yn953c`, with main at 1.0.0b21.3 merged in. The
+is all of it. Part A (the mouse in menus) is not built.** On `claude/funny-meitner-yn953c`, with main at 1.0.0b21.3 merged in; then
+carried on to `claude/brave-albattani-sqvb5n` (a fast-forward), where the stones had their art pass at the owner's word (section 11's last
+entry), so that branch is the one to release from now. The
 owner asked for a plan to play the browser build on a phone or tablet, with a layout of their own, formal mouse support, and a
 question on the browser's page of how a person is playing. They answered T1-T14 the same day (section 10, kept for the record):
 the recommended answer to each but T10 (the mouse in menus in the browser only, not on Windows) and T13 (it goes out as **1.0.0b21.4**,
@@ -13,7 +15,8 @@ the lower storey 1.0.0b23.
 ## Start here: releasing 1.0.0b21.4 (the next agent)
 
 The owner (10 November, after trying the touch build on their phone): *"This works well enough to publish."* So what is on
-`claude/funny-meitner-yn953c` goes out as **1.0.0b21.4**, as it stands: the touch controls, the plate's question, the probe. Part A, the
+`claude/brave-albattani-sqvb5n` goes out as **1.0.0b21.4**: the touch controls, the plate's question, the probe, and the stones' art pass
+(asked for after that word; ask the owner whether they want to try it on the phone first). Part A, the
 mouse in menus, is not in it; say so in the notes, and ask the owner which number it takes when it is built (the plan's own order
 had it first; the owner moved touch ahead of it). Nothing on the branch changes Windows' play: touch is behind `IN.touch`, which only
 the browser's shell sets, and the prefs record grew from 24 bytes to 26 (`PL_BYTES_TOUCH`), which `win_main.c` reads (it takes up to
@@ -37,19 +40,20 @@ the browser's shell sets, and the prefs record grew from 24 bytes to 26 (`PL_BYT
    rewritten for a player (no technicals or debug switches, as 1.0.0b14's notes set out). CLAUDE.md: the current release line, and
    the touch paragraph's state. A preview strip isn't needed; if one is wanted, a phone-shaped frame from Playwright shows the stones.
 4. **Publish**, at the owner's word, given above: squash the branch onto main as one commit, as every beta has gone
-   (`git checkout main && git merge --squash claude/funny-meitner-yn953c`, one commit titled *1.0.0b21.4: ...*; ask the owner for
+   (`git checkout main && git merge --squash claude/brave-albattani-sqvb5n`, one commit titled *1.0.0b21.4: ...*; ask the owner for
    the release's name if none is given; *Touch* will do), push main, and let CI make the tag (pushed tags are dropped by the proxy).
    CI builds, smoke-tests and publishes the release when `VERSION` has none; Pages then serves `/play/` from the release's web zip,
    which is how touch reaches the public page.
 5. **Check it went out:** the Build run on main, the release through the REST API (`gh api
    repos/ASPDesignLabs/HAUNTED.EXE/releases/tags/v1.0.0b21.4`; `gh release view` is blocked in cloud sessions), each asset, the live page
    and `/play/` on a phone-shaped Playwright page (the plate asks; Touch boots).
-6. **Tell the owner** it is out, what was and wasn't tried, and that the private test page
-   (https://claude.ai/artifact/V5ALUvTRsvhGq3eHey5C4Z) can be deleted or kept at their word (only they can open it).
+6. **Tell the owner** it is out, and what was and wasn't tried. The private test page
+   (https://claude.ai/artifact/V5ALUvTRsvhGq3eHey5C4Z) stays: the owner asked (10 November) to keep it, and it is where each touch build
+   goes for their phone (`python3 tools/probe_page.py <dir> perf`, republished to the same address with the wasm as `application/wasm`).
 
 What isn't done, for the notes' honesty and for the work after the release, in order: THE BESTIARY and THE CODEX can't be reached by
 touch (rows of Esc's question, `quit_rows`); the title's THE CONTROLS lists the keys, not touch; the harness's fingers (`HOST_STAGE`,
-`T`); the stones' contrast check and their sheet (`build/uisheet touch`); THE TOUCH CONTROLS' other settings (section 6.7: the stones'
+`T`); THE TOUCH CONTROLS' other settings (section 6.7: the stones'
 strength, left-handed); the map panned by a drag; Part A (the mouse in menus, rows, caps and her rooms' prompt tapped); a tablet's
 stage (a 4:3 screen takes a smaller picture so the stones fit; untried); HAUNT.EXE has no stage (its picture alone); the turning's 150
 degrees and the smoothing's numbers are first guesses the owner hasn't tuned further. The owner may also want a flick to coast on
@@ -650,3 +654,42 @@ owner released 1.0.0b21.3 ("Her Wares, Weighed") while this was being planned.
   slide right raised TURNING to 110%; `make smoke` and `tools/web_smoke.js` pass. The private page republished (its version 3).
   Not tried: how it feels on the phone (the 150 degrees and the filter's numbers are first guesses), the smoothing's effect by hand.
   Next, after the owner's word on it: the rest of *Still to do after this cut*.
+- **10 November, the stones' art pass** (the owner: the touch assets *"are too plain. They need the same attention to detail as our
+  other gravestones, with intentionally designed spaces for contextual UI information to appear on them. They should appear more
+  weathered, cracked, and damaged with more detail overall while retaining our same look as the game"*; and keep the private page).
+  On `claude/brave-albattani-sqvb5n`, fast-forwarded from `claude/funny-meitner-yn953c`. The stones are now built with the title's
+  graves' sculpt kit (`sc_*`), at the end of `src/crawl_title.c` (*Touch's stones*), declared in `crawl_title.h`: `TStone` (its kind
+  `TSK_*`, size, column, blank, pressed, the mark inlaid in its socket `TSM_*`, seed, word, the plinth's word and mark), `TsInfo` (what
+  fills its places each frame), `tstone_draw`, `tstone_places`, `tstone_word_fits`, `tstone_ring` (the walking stick). Each a monument of
+  its own: the left strip a round-headed stone with scrolled shoulders and a hand inlaid in a sunk roundel, crossed bones cut low when
+  there is room; the right a gothic stele, pinnacles with blind lancets when the column is wide enough, a gable with crockets and a
+  cross for its finial, a blind lancet under it all and an iron cramp across its big crack; the corners broad stones on plinths, a
+  low arch (left) or a gable with acroteria (right), dentils under the head, paterae, the hold's word cut along the plinth after an
+  hourglass (PAUSE) or a wheel (WHEELS); the small ones tablets hung by iron pins, dentils at their foot, a scroll, a wisp or a robe
+  inlaid in a roundel. All of them broken at an outer shoulder or corner and at the plinth's far corner, cracked from the breaks, chipped
+  along every edge, with lichen in clumps (gold at its heart, grey-green round it, thickest on the outer side and the top), pits, water's
+  streaks, rust run down from the iron, damp and moss at the foot, grass in front of the plinths, ivy up the strips' outer sides. The
+  places cut for what the game says (`ts_lay`): a socket (sunk, a moulded ring round it) for what is in hand; a ring groove round it
+  for its time; a tablet with dovetail handles (a tabula ansata) for a word or a number; a groove for a fill. What fills them
+  (`crawl_stage` in `scene_crawl.c`, by touch's context): USE, the word for what E would do now (`use_word`, human_use's order: OPEN,
+  ENTER, PUSH, DRINK, KNEEL or RISE, KINDLE, LEAVE, PRAY, SEARCH, LIGHT, DROP, a thing's TAKE, PLACE, TURN, PULL, STRIKE, READ; in her
+  rooms BUY, DRAW, LOOK, SPEAK, READ, OPEN) and the sprint's breath in its groove (gold while sprinting); CAST, the spell in hand in the
+  socket (the element's icon; Restoration's ankh), its time round the ring, its price in souls (red when it can't be paid; FREE; the
+  spear's bones, or its splinters), a charge filling the groove in gold; RUNE, the rune readied, its time round the ring, its quality's
+  tag (C to EX) in its colour, struck through (`SK_CLOSED`) when the void or a status bars it, NONE when there is none; the top right,
+  the gift (its mark, its wait round the ring, its rank in pips) or the rune if Q readied one last; WISPS the souls held (red under a
+  wisp's price); MAP the level's secrets found of all (gold when all are), worn blank till it is bought; WARDROBE (GEAR where it won't
+  fit) the bag's places used (red when full). In a menu, the title or a wheel the stones are the keys they press, with marks (a tick,
+  a cross, an arrow back, a space bar) and ACCEPT, CHOOSE, BACK or AWAY in the strips' tablets. Pressed, a stone sinks a pixel and its
+  words and marks go from bone to gold; blank, its socket is empty and cracked, its words worn nearly smooth and moss over its foot.
+  Each is built once for its size and state and kept (`TSC`, forty stones, the least used going first; it doesn't touch the title's
+  own cache, `SCC`), so a frame only copies them and fills their places: in headless Chromium as a Pixel 7 the frames ran 4.1-4.8 ms
+  (5.1 before). The sheet is `build/titlemock <dir> touch` (`docs/touch/stones.png`: each run's stone in play, pressed, blank and full,
+  and in a menu; `docs/touch/sizes.png`: a narrow, a wide and a short stage, where the narrow tablets drop their roundels and the
+  plinths' marks give way before their words), and it prints each run's contrast: the words' and marks' darkest inlay (bone 13, gold
+  10) against the lightest quarter of the stones as drawn, 5.5 to 7.7 to 1 across the four runs (the plan's bar is 4.5). The stone was
+  darkened a little and the inlay raised to the top of its ramp to get there. `docs/touch/frames.png`: the build in Chromium (a room, a
+  thumb on the walk and one on CAST facing the merchant, Esc's rows), and the first cut's frame for comparison. Tried: `make smoke`,
+  `tools/web_smoke.js`, `tools/touch_smoke.js` (no errors) and a walk with two thumbs; ASan clean on the sheet (it found an overrun in
+  the sheet's own short stage, mended). Not tried: on the phone; the harness still drives no fingers, so ASan hasn't run the game's
+  side of it (`crawl_stage`, `use_word`). The private page republished with this build (section 11's address).

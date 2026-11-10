@@ -22467,6 +22467,51 @@ static int human_use(void) {
     return 0;
 }
 
+/* what E would do now, in a word, for the hollow cut in touch's left stone (docs/PLAN-mobile.md 6.5): human_use's order,
+ * and her rooms' looks; 0 when it would do nothing */
+static const char *use_word(void) {
+    if (!G.player || G.dead || G.tally || G.exiting) return 0;
+    if (G.shop) {
+        if ((G.shop_look >= 0 && !G.offer_gone[G.shop_look]) || G.map_look) return "BUY";
+        if (G.pt_look) { int p = por_head(G.pt_look - 1); return por_is_drawn(p) ? "LOOK" : por_can_draw(p) ? "DRAW" : 0; }
+        if (G.mer_look) return "SPEAK";
+        if (G.stone_look >= 0) return "READ";
+        if (G.sh_look || G.lamp_look || G.tot_look || G.comp_look || G.rep_look || G.por_look || G.bell_look || G.font_look) return "OPEN";
+        return 0;
+    }
+    int cx = (int)floorf(G.px + cosf(G.ang) * 0.8f), cy = (int)floorf(G.py + sinf(G.ang) * 0.8f);
+    const Cell *c = cell(cx, cy);
+    if (!PK.depth) {
+        int ti = thing_facing();
+        if (ti >= 0) {
+            static const char *const VERB[] = { "TAKE", "PLACE", "TURN", "PULL", "LIGHT", "STRIKE", "STAND", "READ" };
+            int r = G.thing[ti].role;
+            return G.carry && r == TR_PLACE ? "PLACE" : r >= 0 && r < (int)(sizeof VERB / sizeof VERB[0]) ? VERB[r] : "TOUCH";
+        }
+    }
+    if (c->kind == K_DOOR) return "OPEN";
+    if (c->kind == K_WALL && c->secret == 3) return "ENTER";
+    if (PK.depth && cx == G.vis_x && cy == G.vis_y) return G.ptheme == PT_SEVERANCE ? "DRINK" : "TOUCH";
+    if (!PK.depth && altar_callable()) {
+        const Wisp *w = &G.wisps[1];
+        float d = hypotf(w->x - G.px, w->y - G.py);
+        if (w->on && d < 2.2f && fabsf(wrap_pi(atan2f(w->y - G.py, w->x - G.px) - G.ang)) < 0.35f + 0.4f / fmaxf(d, 0.5f)) return "CALL";
+    }
+    if (c->kind == K_WALL && c->secret == 2)
+        for (int i = 0; i < G.nsecrets; i++) if (G.secrets[i].sx == cx && G.secrets[i].sy == cy && !G.secrets[i].state) return "PUSH";
+    if (font_facing() >= 0) return "DRINK";
+    if (!PK.depth && rest_facing(1.3f) >= 0) return G.rest_on ? "RISE" : "KNEEL";
+    if (G.boss == BOSS_WRAITH && brazier_facing() >= 0) return "KINDLE";
+    if (G.exit_fx >= 0 && cx == G.exit_wx && cy == G.exit_wy && hypotf(G.exit_fx + 0.5f - G.px, G.exit_fy + 0.5f - G.py) < 1.0f) return boss_sealed() ? 0 : "LEAVE";
+    if (G.altar_x >= 0 && hypotf(G.altar_x + 0.5f - G.px, G.altar_y + 0.5f - G.py) < 1.6f
+        && fabsf(wrap_pi(atan2f(G.altar_y + 0.5f - G.py, G.altar_x + 0.5f - G.px) - G.ang)) < 0.7f) return "PRAY";
+    if (bshrine_facing()) return "PRAY";
+    if (G.srch_deco < 0 && hide_facing() >= 0) return "SEARCH";
+    if (!PK.depth && ward_facing() >= 0) return "LIGHT";
+    if (!PK.depth && G.carry && c->kind != K_DOOR) return "DROP";
+    return 0;
+}
+
 static int body_blocked(float x, float y, int *bx, int *by) {
     float xs[2] = { x - BODY, x + BODY }, ys[2] = { y - BODY, y + BODY };
     for (int i = 0; i < 2; i++)
@@ -34360,88 +34405,131 @@ static void music_frame(float dt) {
 }
 static void crawl_frame(double dt) { crawl_update(dt); music_frame((float)dt); }
 
-/* ---- touch's stones on the stage (docs/PLAN-mobile.md, 6.5): headstones and tablets of the run's stone in the margins, each
- * drawn on a scratch of the picture's size (the kit's marble and fit checks are 320 x 200) and set where it stands ---- */
-static Frame TSCR;
-static void stone_put(Frame *st, const TRect *r, int k, int head, const char *word, const char *sub, int pressed, int blank, int mark, int id) {
-    if (r->w < 20 || r->h < 12) return;
-    int w = imin(r->w, W - 4), h = imin(r->h, H - 4), sx = 2 + (k * 53) % imax(1, W - w - 4), sy = 2 + (k * 37) % imax(1, H - h - 4);
-    for (int y = sy - 1; y <= sy + h; y++) for (int x = sx - 1; x <= sx + w; x++) if (x >= 0 && y >= 0 && x < W && y < H) TSCR.pix[y * W + x] = C_CLEAR;
-    TSCR.w = W; TSCR.h = H;
-    ui_on(&TSCR, 0, "touch");
-    ui_slab(&TSCR, sx, sy, w, h, (head ? SLAB_HEAD : SLAB_TABLET) | SLAB_CALM, ORN_NONE, G.ui_t);
-    if (!blank) {
-        int cx = sx + w / 2, col = pressed ? R_GOLD + 12 : R_BONE + 14;
-        int hasmark = mark && h >= 34, my = head ? sy + imax(14, h * 2 / 5) : sy + 12, wy = hasmark ? my + 14 : sy + (h - 8) / 2 + (head ? 6 : 0);
-        if (hasmark) {
-            if (mark == 1 && id >= 0) {                            /* the spell in hand */
-                int el = ATK_ELEM[id];
-                if (G.rst_sel) ui_socket_mark(&TSCR, cx, my, 9, RESTORE_MARK, R_GHOST, SK_READY, pressed, 0, G.ui_t);
-                else if (el >= 0) ui_socket(&TSCR, cx, my, 9, UI_NODE_ICON[el][ND_OPEN], ELEM_RAMP[el], SK_READY, pressed, 0, G.ui_t);
-                else ui_socket_mark(&TSCR, cx, my, 9, BFS_MARK, R_PURPLE, SK_READY, pressed, 0, G.ui_t);
-            } else if (mark == 2 && id >= 0) ui_socket_mark(&TSCR, cx, my, 9, RUNE_MARK[id], gear_color(GK_DEF, id), SK_READY, pressed, 0, G.ui_t);
-            else if (mark == 3 && id >= 0) ui_mark(&TSCR, cx - 5, my - 5, BA_MARK[id], pressed ? R_GOLD : R_BONE, IM_INLAID, 1);
-            else wy = sy + (h - 8) / 2;
-        }
-        int ww = (int)strlen(word) * 8;
-        if (ww <= w - 6) ui_text8(&TSCR, cx - ww / 2, wy, word, FACE_INSC, col, TX_INLAID);
-        int sw2 = sub ? (int)strlen(sub) * 8 : 0;
-        const char *colon = sub ? strstr(sub, ": ") : NULL;
-        if (sub && sw2 > w - 6 && colon) {                         /* too wide: what follows the colon, under what comes before */
-            char a[16]; int n = imin((int)(colon - sub) + 1, 15);
-            memcpy(a, sub, (size_t)n); a[n] = 0;
-            const char *bw2 = colon + 2;
-            int aw = n * 8, bww = (int)strlen(bw2) * 8;
-            if (wy + 34 <= sy + h - 3 && aw <= w - 6 && bww <= w - 6) {
-                ui_text8(&TSCR, cx - aw / 2, wy + 12, a, FACE_INSC, R_BONE + 10, TX_INLAID);
-                ui_text8(&TSCR, cx - bww / 2, wy + 24, bw2, FACE_INSC, R_BONE + 10, TX_INLAID);
-            } else if (bww <= w - 6 && wy + 22 <= sy + h - 3) ui_text8(&TSCR, cx - bww / 2, wy + 12, bw2, FACE_INSC, R_BONE + 10, TX_INLAID);
-        } else if (sub && sw2 <= w - 6 && wy + 22 <= sy + h - 3) ui_text8(&TSCR, cx - sw2 / 2, wy + 12, sub, FACE_INSC, R_BONE + 10, TX_INLAID);
-    }
-    ui_off();
-    int dy = pressed ? 1 : 0;                                      /* pressed, it sinks a pixel */
-    for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
-        uint8_t c = TSCR.pix[(sy + y) * W + sx + x];
-        int X = r->x + x, Y = r->y + y + dy;
-        if (c != C_CLEAR && X >= 0 && Y >= 0 && X < st->w && Y < st->h) st->pix[Y * st->w + X] = c;
-    }
-}
-static void ring_put(Frame *st, float bx, float by, float fx, float fy, int ring) {   /* a stick down: its roundel, a knob of bone */
-    for (int a = 0; a < 64; a++) {
-        float t = (float)a * TAU_F / 64.0f;
-        int x = (int)lroundf(bx + cosf(t) * (float)ring), y = (int)lroundf(by + sinf(t) * (float)ring);
-        if (x >= 0 && y >= 0 && x < st->w && y < st->h && (a & 1)) st->pix[y * st->w + x] = (uint8_t)(R_BONE + 9);
-    }
-    for (int y = -4; y <= 4; y++) for (int x = -4; x <= 4; x++) {
-        if (x * x + y * y > 16) continue;
-        int X = (int)fx + x, Y = (int)fy + y;
-        if (X >= 0 && Y >= 0 && X < st->w && Y < st->h) st->pix[Y * st->w + X] = (uint8_t)(x * x + y * y > 9 ? R_BONE + 7 : R_BONE + 13);
-    }
+/* ---- touch's stones on the stage (docs/PLAN-mobile.md, 6.5): a monument for each control in the margins, cut with the
+ * graves' kit (tstone_draw in crawl_title.c), in the run's stone; what each has to say goes in the places cut for it: the
+ * spell, rune or gift in hand in its socket, its time round the ring, a word or a number in the tablet with handles, a fill
+ * in the groove. Pressed, a stone sinks a pixel and its words go to gold ---- */
+static void stone_info_rune(TsInfo *in, int k) {                   /* a rune in a socket: its quality's tag, its time */
+    int q = clampi(RUN.gear.def[k], 1, NQUAL), hush = no_cast() || rune_barred(k);
+    float cd = def_cooldown(q);
+    in->sock = 2; in->mark = RUNE_MARK[k]; in->ramp = gear_color(GK_DEF, k);
+    in->state = hush ? SK_CLOSED : G.def_cd[k] > 0.0f ? SK_PART : SK_READY;
+    in->ring = cd > 0.0f ? 1.0f - clampf(G.def_cd[k] / cd, 0.0f, 1.0f) : 1.0f; in->ring_ramp = in->ramp;
+    in->text = Q_TAG[q - 1]; in->text_col = qual_text(q - 1);
 }
 static void crawl_stage(Frame *st, int px, int py) {
     (void)px; (void)py;
     if (!IN.touch || !IN.stage_w || CON.open) return;
     TRect R[NTB];
     touch_geo(R);
-    int ctx = touch_ctx();
-    static const char *const MENU_W[NTB] = { "ENTER", "ESC", "BACK", "SPACE", "", "", "TAB" };
+    int ctx = touch_ctx(), run = crawl_set(imax(1, G.level));
     int rr = rune_readied(), gr = ab_readied();
     int rmark = RUN.mouse_rune && rr >= 0;                         /* the top right uses what was readied last */
+    static char num[3][16];
+    static const char *const MENU_W[NTB] = { "ENTER", "ESC", "BACK", "SPACE", "", "", "TAB" };
+    static const int MENU_M[NTB] = { TSM_ENTER, TSM_ESC, TSM_BACK, TSM_SPACE, TSM_NONE, TSM_NONE, TSM_ROBE };
     for (int k = 0; k < NTB; k++) {
-        if (!touch_shown(k, ctx)) continue;
-        int head = k == TB_STRIP_L || k == TB_STRIP_R, pr = TCH.press[k];
-        if (ctx != TC_PLAY) { stone_put(st, &R[k], k, head, MENU_W[k], NULL, pr, 0, 0, -1); continue; }
-        switch (k) {
-        case TB_STRIP_L: stone_put(st, &R[k], k, 1, "USE", "TAP", pr, 0, 0, -1); break;
-        case TB_STRIP_R: stone_put(st, &R[k], k, 1, "CAST", "HOLD", pr, 0, 1, G.spell); break;
-        case TB_CORNER_L: stone_put(st, &R[k], k, 0, "RUNE", "HOLD: PAUSE", pr, 0, rr >= 0 ? 2 : 0, rr); break;
-        case TB_CORNER_R: stone_put(st, &R[k], k, 0, "GIFT", "HOLD: WHEELS", pr, 0, rmark ? 2 : gr >= 0 ? 3 : 0, rmark ? rr : gr); break;
-        case TB_WISPS: stone_put(st, &R[k], k, 0, "WISPS", NULL, pr, 0, 0, -1); break;
-        case TB_MAP: stone_put(st, &R[k], k, 0, "MAP", NULL, pr, !RUN.has_map, 0, -1); break;
-        case TB_WARD: stone_put(st, &R[k], k, 0, R[k].w >= 70 ? "WARDROBE" : "GEAR", NULL, pr, 0, 0, -1); break;
+        if (!touch_shown(k, ctx) || R[k].w < 20 || R[k].h < 12) continue;
+        static const int KIND[NTB] = { TSK_USE, TSK_CAST, TSK_CORNER, TSK_CORNER, TSK_TABLET, TSK_TABLET, TSK_TABLET };
+        static const int RIGHT[NTB] = { 0, 1, 0, 1, 0, 0, 1 };
+        TStone s = { KIND[k], R[k].w, R[k].h, RIGHT[k], 0, TCH.press[k], TSM_NONE, (unsigned)(k * 101 + run * 17), NULL, NULL, 0 };
+        TsInfo in;
+        memset(&in, 0, sizeof in); in.ring = in.fill = -1.0f;
+        int y = R[k].y;
+        if (s.h > 200) { y += s.h - 200; s.h = 200; }                  /* a tall stage: the stone at its foot */
+        if (ctx != TC_PLAY) {                                      /* a menu, the title or a wheel: the stones are the keys they press */
+            s.word = MENU_W[k]; s.mark = MENU_M[k];
+            if (k == TB_STRIP_L) { in.text = ctx == TC_TITLE ? "CHOOSE" : "ACCEPT"; in.text_col = R_BONE + 14; }
+            if (k == TB_STRIP_R) { in.text = ctx == TC_WHEEL ? "AWAY" : "BACK"; in.text_col = R_BONE + 14; }
+            if (k == TB_WARD) { s.word = "TAB"; }
+            tstone_draw(st, R[k].x, y, &s, &in, G.ui_t);
+            continue;
         }
+        switch (k) {
+        case TB_STRIP_L: {                                         /* E: what it would do now; the sprint's breath in the groove */
+            s.word = "USE"; s.mark = TSM_HAND;
+            const char *v = use_word();
+            if (v) { in.text = v; in.text_col = R_GOLD + 12; }
+            float mx = fmaxf(0.1f, sprint_max());
+            in.fill = clampf(G.spr_set ? G.spr / mx : 1.0f, 0.0f, 1.0f);
+            in.fill_ramp = G.spr_on ? R_GOLD : G.spr_wait > 0.0f && !G.spr_on ? R_STONE : R_BONE;
+            break;
+        }
+        case TB_STRIP_R: {                                         /* the spell in hand, its time, its price; a charge in the groove */
+            s.word = "CAST";
+            int sp = G.spell, hush = no_cast();
+            if (G.rst_sel) { in.sock = 2; in.mark = RESTORE_MARK; in.ramp = R_GHOST; in.state = hush ? SK_CLOSED : SK_READY; in.ring_ramp = R_GHOST; }
+            else if (sp >= 0 && sp < NATK) {
+                int el = ATK_ELEM[sp];
+                in.ramp = el >= 0 ? ELEM_RAMP[el] : R_PURPLE;
+                if (el >= 0) { in.sock = 1; in.icon = UI_NODE_ICON[el][ND_OPEN]; } else { in.sock = 2; in.mark = BFS_MARK; }
+                float cyc = fmaxf(0.05f, cast_cycle(sp));
+                in.state = hush ? SK_CLOSED : SK_READY;
+                in.ring = 1.0f - clampf(G.cooldown / cyc, 0.0f, 1.0f); in.ring_ramp = in.ramp;
+                if (sp == AT_SPEAR) {                              /* bones, or splinters when there are none */
+                    snprintf(num[0], sizeof num[0], "%d", spear_bare() ? splint_left() : RUN.gear.bones);
+                    in.text = num[0]; in.text_col = spear_bare() ? R_STONE + 12 : R_BONE + 14;
+                    if (spear_bare()) { in.fill = (float)splint_left() / SPLINTER_MAX; in.fill_ramp = R_BONE; }
+                } else if (sp != AT_BFS) {
+                    float c = spell_cost(&RUN.gear, sp, spell_tier(sp)) * (1.0f + aug_cost(sp));
+                    if (c < 0.05f) { in.text = "FREE"; in.text_col = R_BONE + 14; }
+                    else {
+                        snprintf(num[0], sizeof num[0], c < 10.0f ? "%.1f" : "%.0f", c);
+                        in.text = num[0]; in.glyph = TS_GLYPH_SOUL; in.glyph_ramp = R_GHOST;
+                        in.text_col = spirit() >= c ? R_GHOST + 13 : R_BLOOD + 12;
+                    }
+                }
+                if (G.chg_on) { in.fill = clampf(G.chg_t / hold_span(G.chg_sp), 0.0f, 1.0f); in.fill_ramp = R_GOLD; in.ring = 1.0f; in.ring_ramp = R_GOLD; }
+            }
+            break;
+        }
+        case TB_CORNER_L:                                          /* the rune readied; held, the pause */
+            s.word = "RUNE"; s.foot = "PAUSE"; s.foot_mark = 1;
+            if (rr >= 0) stone_info_rune(&in, rr);
+            else { in.text = "NONE"; in.text_col = R_STONE + 10; }
+            break;
+        case TB_CORNER_R:                                          /* the right mouse's: a gift, or a rune; held, the wheels */
+            s.word = rmark ? "RUNE" : "GIFT"; s.foot = "WHEELS"; s.foot_mark = 2;
+            if (rmark) stone_info_rune(&in, rr);
+            else if (gr >= 0) {
+                float wait = ab_wait(gr);
+                in.sock = 2; in.mark = BA_MARK[gr]; in.ramp = BA_RAMP[gr];
+                in.state = no_cast() ? SK_CLOSED : G.ab_cd[gr] > 0.0f ? SK_PART : SK_READY;
+                in.ring = wait > 0.0f ? 1.0f - clampf(G.ab_cd[gr] / wait, 0.0f, 1.0f) : 1.0f; in.ring_ramp = in.ramp;
+                in.pips = RUN.abil[gr]; in.maxpips = ABIL_TOP; in.pip_ramp = R_GOLD;
+            } else { in.text = "NONE"; in.text_col = R_STONE + 10; }
+            break;
+        case TB_WISPS:                                             /* a soul a wisp: the souls held */
+            s.word = "WISPS"; s.mark = TSM_WISP;
+            spirit_text(num[1], sizeof num[1]);
+            in.text = num[1]; in.glyph = TS_GLYPH_SOUL; in.glyph_ramp = R_GHOST;
+            in.text_col = spirit() >= WISP_COST ? R_GHOST + 13 : R_BLOOD + 12;
+            break;
+        case TB_MAP:                                               /* the level's secrets found; worn blank till it is bought */
+            s.word = "MAP"; s.mark = TSM_SCROLL; s.blank = !RUN.has_map;
+            if (!G.shop && G.nlinks > 0) {
+                snprintf(num[2], sizeof num[2], "%d/%d", imin(G.links_found, G.nlinks), G.nlinks);
+                in.text = num[2]; in.glyph = TS_GLYPH_SECRET; in.glyph_ramp = R_BONE;
+                in.text_col = G.links_found >= G.nlinks ? R_GOLD + 12 : R_BONE + 14;
+            }
+            break;
+        case TB_WARD: {                                            /* the bag, how full */
+            s.word = "WARDROBE"; s.mark = TSM_ROBE;
+            if (!tstone_word_fits(&s)) s.word = "GEAR";
+            int n = RUN.gear.bag_size;
+            if (n > 0) {
+                static char bag[24];
+                int used = n - gear_bag_free(&RUN.gear);
+                snprintf(bag, sizeof bag, "%d/%d", used, n);
+                in.text = bag; in.glyph = TS_GLYPH_BAG; in.glyph_ramp = R_BONE;
+                in.text_col = used >= n ? R_BLOOD + 12 : R_BONE + 14;
+            }
+            break;
+        }
+        }
+        tstone_draw(st, R[k].x, y, &s, &in, G.ui_t);
     }
-    if (ctx == TC_PLAY && TCH.walk) ring_put(st, TCH.wbx, TCH.wby, TCH.wx, TCH.wy, touch_ring());
+    if (ctx == TC_PLAY && TCH.walk) tstone_ring(st, TCH.wbx, TCH.wby, TCH.wx, TCH.wy, touch_ring(), G.spr_on);
 }
 
 const Scene scene_crawl = { "CATACOMB", W, H, SND_PROG_CRAWL, crawl_enter, crawl_frame, crawl_render,

@@ -366,7 +366,12 @@ into a page for claude.ai's private pages (the owner's test page is in the plan'
 `app_stage_place`), `web_touch`/`web_stage`/`web_stage_frame`; in `scene_crawl.c` `TCH` and `touch_keys` (the walking stick on the
 left, the view following a finger slid on the right through `touch_follow`'s 1-euro filter, the stones' taps and holds), `touch_geo`,
 the stones drawn by `crawl_stage`, Esc's TURNING and SMOOTHING by touch (`PL.tturn`, `PL.tsmooth`, `PL_BYTES_TOUCH`); in
-`web/haunted.js` `cfg.controls` asked on the plate, `fitStage`, `finger()` on Pointer Events. The plan's section 11 is the hand-off
+`web/haunted.js` `cfg.controls` asked on the plate, `fitStage`, `finger()` on Pointer Events. **The stones' art pass** (the owner's,
+the same day; on `claude/brave-albattani-sqvb5n`, fast-forwarded from the touch branch, which is now the one to release from): each
+stone a monument cut with the graves' sculpt kit (*Touch's stones* at the end of `src/crawl_title.c`: `TStone`, `TsInfo`, `tstone_draw`,
+`tstone_ring`), weathered, broken and grown over, with places cut for what the game says (a socket, a ring for a time, a tablet with
+handles, a groove), filled each frame by `crawl_stage` (`use_word` for what E would do); the sheet and the contrast check are
+`build/titlemock <dir> touch` (`docs/touch/`). The private test page is kept at the owner's word. The plan's section 11 is the hand-off
 log.
 
 ## Working with the owner
@@ -402,7 +407,7 @@ log.
 | `src/crawl_gear.c/.h` | Spells by tier and runes by quality (`rune_tier`, `rune_from_tier`, `RUNE_EXQ`); pieces to wear (`Piece`: kind, quality, level, anointed, ability, rolled stats) and bags; rolls, names, prices, the caster's totals and their caps |
 | `tools/items.c` | `make items`: a hundred rolled wares a level as `build/items.json`, for checking names and numbers |
 | `src/hand_img.c`, `src/face_img.c`, `src/cat_img.c` | Traced bitmaps (data) |
-| `src/crawl_title.c/.h`, `tools/titlemock.c` | The title screen's art (docs/PLAN-title.md): `title_draw(Frame *, t, TitleView *)`, its three scenes, menus and graves, the sculpt kit (`sc_*`); and the mock-ups' driver (`make build/titlemock`; `build/titlemock <dir> [a\|b\|c\|menu\|logo\|parts\|overview\|bench]`) |
+| `src/crawl_title.c/.h`, `tools/titlemock.c` | The title screen's art (docs/PLAN-title.md): `title_draw(Frame *, t, TitleView *)`, its three scenes, menus and graves, the sculpt kit (`sc_*`); touch's stones cut with the same kit (docs/PLAN-mobile.md 6.5: `tstone_draw`, `tstone_ring`); and the mock-ups' driver (`make build/titlemock`; `build/titlemock <dir> [a\|b\|c\|menu\|logo\|parts\|overview\|bench\|touch]`, `touch` the stones' sheet and their contrast) |
 | `src/crawl_portrait.c/.h`, `tools/portraitmock.c`, `tools/portrait_sheet.py` | The portraits of the slain (docs/PLAN-portraits.md), in the game's build since its step 2: `portrait_face` draws a portrait as a wall face's overlay at any scale (a feat's medallion with it), `portrait_keep_runs` each run's stone, `portrait_boss_face` a boss's two faces; the mock-ups' driver (`make build/portraitmock`; `build/portraitmock <dir> [all\|skeleton\|veil\|room\|sheets\|card\|medals\|bosses\|bench\|check]`, `PM_SCALE=n`); the settled numbers as `docs/portraits/ranks.csv` and `bosses.csv` (`--grid` the plan's table) |
 | `src/crawl_ui.c/.h`, `src/ui_art.c` | The carved stone (docs/PLAN-ui.md): the marble, slabs, wells, the faces and their ways, icons, sockets, the Alignment's stone; the faces and icons as strings |
 | `tools/gallery.sh`, `docs/gallery/` | The page's *Then and now*: the same moments in 1.0.0b1, 1.0.0b13 and this build, each from its own build of the harness (old ones in worktrees under `build/gallery/`), as single 320x200 frames; `build_site.sh` copies them to `img/gallery/` |

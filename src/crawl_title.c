@@ -2356,3 +2356,519 @@ void title_page_set(TitlePage *p, const char *num, int used, int cls, const char
     snprintf(p->line[2], sizeof p->line[2], "%s", l2 ? l2 : "");
     snprintf(p->line[3], sizeof p->line[3], "%s", l3 ? l3 : "");
 }
+
+/* ======================================================================================================================
+ * Touch's stones (docs/PLAN-mobile.md, 6.5): the controls in a phone's margins, cut with the graves' kit. Each is a monument
+ * of its own: the left strip a round-headed stone with a hand in its head, the right a gothic stele with a ring for the
+ * spell's time, the corners broad stones on plinths with their holds cut along the foot, the small ones tablets. Breaks,
+ * cracks, chips, lichen, damp and moss as the graves have them, ivy up one, an iron cramp across another's crack, grass at
+ * their feet. And places cut for what the game has to say: a socket for what is in hand, a ring round it for its time, a
+ * tablet with handles (a tabula ansata) for a word or a number, a groove for a fill. The stone is built once for its size
+ * and state and kept (TSC); the places are filled each frame by tstone_draw, with the kit's sockets and inlaid words.
+ * ====================================================================================================================== */
+static const char *const TSM_ART[NTSM][11] = {
+    { 0 },
+    { "....#.#....", "..#.#.#....", "..#.#.#.#..", "..#.#.#.#..", "..#.#.#.#..", "#.#######..",     /* a hand, open */
+      "##########.", ".#########.", "..########.", "...######..", "....####..." },
+    { ".....#.....", "....##.....", "....###....", "...####.#..", "..######...", "..#######..",     /* a wisp */
+      ".########..", ".###..###..", ".##....##..", "..##..##...", "...####...." },
+    { ".#########.", "#.#######.#", ".#########.", "..#.....#..", "..#.###.#..", "..#.....#..",     /* a scroll */
+      "..#.##..#..", "..#.....#..", ".#########.", "#.#######.#", ".#########." },
+    { "...##.##...", "..#..#..#..", ".##.....##.", "##.#...#.##", "#..#...#..#", "...#...#...",     /* a robe */
+      "...#...#...", "..#.....#..", "..#.....#..", ".#.......#.", ".#########." },
+    { "......#", ".....##", "#...##.", "##.##..", ".###...", "..#....", "......." },                 /* ENTER: so be it */
+    { "##...##", "###.###", ".#####.", "..###..", ".#####.", "###.###", "##...##" },                 /* ESC: away */
+    { "...#...", "..##...", ".######", "#######", ".######", "..##...", "...#..." },                 /* BACK */
+    { ".......", ".......", "#.....#", "#.....#", "#######", ".......", "......." },                 /* SPACE */
+};
+static const int TSM_N[NTSM] = { 0, 11, 11, 11, 11, 7, 7, 7, 7 };
+static const char *const TS_HOURGLASS[7] = { "#######", ".#...#.", "..#.#..", "...#...", "..#.#..", ".#####.", "#######" };
+static const char *const TS_WHEEL[7] = { "..###..", ".#.#.#.", "#..#..#", "#######", "#..#..#", ".#.#.#.", "..###.." };
+static const char *const TS_BONES[9] = { "##.....##", "##.....##", "..#...#..", "...#.#...", "....#....", "...#.#...",
+                                         "..#...#..", "##.....##", "##.....##" };
+const char *const TS_GLYPH_SOUL[5] = { "..#..", ".###.", "#####", "#####", ".###." };
+const char *const TS_GLYPH_SECRET[5] = { "##.##", "#.#.#", "##.##", "#.#.#", "##.##" };
+const char *const TS_GLYPH_BAG[5] = { ".###.", "..#..", ".###.", "#####", ".###." };
+
+/* a mark cut and filled, as the words are: gilt (sc_gk) unless the stone is worn blank */
+static void ts_inlay(int x, int y, const char *const *m, int n, int gild, uint32_t seed) {
+    for (int j = 0; j < n; j++) for (int i = 0; m[j][i]; i++) {
+        if (m[j][i] == '.' || !sc_solid(x + i, y + j)) continue;
+        if (!gild && h01(x + i, y + j, seed) < 0.3f) continue;          /* worn: a third of it gone */
+        S.ht[y + j][x + i] = -1;
+        S.f[y + j][x + i] |= SF_CALM;
+        if (gild) { S.f[y + j][x + i] |= SF_GILD; S.gk[y + j][x + i] = sc_gk; }
+    }
+}
+/* words cut as sc_text cuts them, worn harder on a blank stone */
+static void ts_words(int cx, int y, const char *s, int gild, uint32_t seed, int maxw) {
+    if (!s || !*s) return;
+    int adv = sc_text_w(s, 8) > maxw ? 7 : 8;
+    sc_text(cx - sc_text_w(s, adv) / 2, y, s, 0, adv, gild, seed);
+    if (gild) return;
+    int x0 = cx - sc_text_w(s, adv) / 2;
+    for (int j = y; j < y + 8; j++) for (int i = x0; i < x0 + (int)strlen(s) * adv; i++)
+        if (sc_solid(i, j) && S.ht[j][i] < 0 && h01(i, j, seed + 3) < 0.28f) S.ht[j][i] = 0;   /* weathered nearly smooth */
+}
+/* a disc sunk for a socket, a raised moulding round it, and (ring) a groove outside that for a time */
+static void ts_pit(int cx, int cy, int r, int ring) {
+    float fx = cx + 0.5f, fy = cy + 0.5f;
+    if (ring) {
+        for (int j = cy - ring - 3; j <= cy + ring + 3; j++) for (int i = cx - ring - 3; i <= cx + ring + 3; i++) {
+            if (!sc_solid(i, j)) continue;
+            float d = hypotf(i + 0.5f - fx, j + 0.5f - fy);
+            if (d > ring + 2.2f) continue;
+            if (d >= ring - 1.0f) { S.ht[j][i] = -1; S.f[j][i] |= SF_CALM; }   /* the groove */
+            else if (d >= r + 1.6f) { S.ht[j][i] = 1; S.f[j][i] |= SF_CALM; }  /* the moulding between */
+        }
+    }
+    for (int j = cy - r - 3; j <= cy + r + 3; j++) for (int i = cx - r - 3; i <= cx + r + 3; i++) {
+        if (!sc_solid(i, j)) continue;
+        float d = hypotf(i + 0.5f - fx, j + 0.5f - fy);
+        if (d <= r + 1.5f) { S.ht[j][i] = -1; S.f[j][i] |= SF_CALM; }
+        else if (!ring && d <= r + 2.6f) { S.ht[j][i] = 1; S.f[j][i] |= SF_CALM; }
+    }
+}
+/* the tablet with handles: a sunk field, a dovetail at each end, quiet stone for the words to come */
+static void ts_tabula(int x, int y, int w, int h) {
+    int ear = w >= 40 ? 4 : 0;
+    for (int j = 0; j < h; j++) for (int i = 0; i < w; i++) {
+        int X = x + i, Y = y + j, in = 1;
+        if (i < ear || i >= w - ear) {
+            int c = i < ear ? i : w - 1 - i;                             /* 0 the outer end */
+            float half = (h - 1) * 0.5f, reach = half * (1.0f - 0.55f * c / (float)ear);
+            in = fabsf(j - half) <= reach;
+        } else if ((i == ear || i == w - 1 - ear) && (j == 0 || j == h - 1)) in = 0;   /* the field's corners cut */
+        if (!in || !sc_solid(X, Y)) continue;
+        S.ht[Y][X] = -1; S.f[Y][X] |= SF_CALM;
+    }
+}
+/* a groove for a fill: a channel three rows deep */
+static void ts_channel(int x, int y, int w) {
+    for (int j = 0; j < 3; j++) for (int i = 0; i < w; i++) if (sc_solid(x + i, y + j)) { S.ht[y + j][x + i] = -1; S.f[y + j][x + i] |= SF_CALM; }
+}
+/* grass at the foot, blades in front of the plinth */
+static void ts_grass(int w, int h, uint32_t seed) {
+    for (int i = 0; i < w; i++) {
+        float n = vnoise(i * 0.22f, 1.0f, seed);
+        if (n < 0.45f || h01(i, 3, seed) < 0.35f) continue;
+        int tall = 1 + (int)((n - 0.45f) * 9.0f * h01(i, 4, seed));
+        for (int k = 0; k < tall && k < 6; k++) {
+            int X = i + (k > 1 && h01(i, 5, seed) < 0.5f ? (h01(i, 6, seed) < 0.5f ? -1 : 1) : 0);
+            sc_px(X, h - 1 - k, 200, 2, SM_IVY, -0.06f + 0.05f * k);
+        }
+    }
+}
+static int ts_npin, ts_pin[8][2];                                  /* iron set in the stone, for its rust */
+/* an iron cramp across a crack: a bar and its two leaded ends */
+static void ts_cramp(int x, int y, int len, int vert) {
+    for (int k = -1; k <= len; k++) {
+        int X = vert ? x : x + k, Y = vert ? y + k : y;
+        int end = k == -1 || k == len;
+        sc_px(X, Y, 210, 1, SM_IRON, end ? -0.05f : 0.05f);
+        if (end && ts_npin < 8) { ts_pin[ts_npin][0] = X; ts_pin[ts_npin][1] = Y; ts_npin++; }
+        if (end) sc_px(X + (vert ? 1 : 0), Y + (vert ? 0 : 1), 210, 1, SM_IRON, -0.08f);
+    }
+}
+
+static int imin2(int a, int b) { return a < b ? a : b; }
+typedef struct { TsPlaces p; int wx, wy, wmax, fy, deco_y, deco_h; } TsLay;
+static void ts_lay(const TStone *s, TsLay *L) {
+    memset(L, 0, sizeof *L);
+    int w = s->w, h = s->h, mid = w / 2;
+    if (s->kind == TSK_USE || s->kind == TSK_CAST) {
+        int cast = s->kind == TSK_CAST, pb = clampi(h / 12, 5, 9), pin = cast && w >= 66 ? clampi(w / 9, 6, 10) : 0;
+        int x0 = pin ? pin - 1 : 4, sw = w - 2 * x0, sr = clampi(sw / 7, 6, 10), ring = cast ? sr + 4 : 0;
+        int rise = cast ? clampi((int)(sw * 0.6f), 10, h * 3 / 10) : clampi(sw / 2, 8, h / 4);
+        int yb = cast ? rise + 4 : rise + 1;                              /* where the head springs */
+        int sy = cast ? yb - 6 : yb - 2, top = (ring ? ring + 2 : sr + 3) + 5;
+        if (sy < top) sy = top;
+        int y_end = h - pb - 4;                                           /* the shaft's foot, on its course */
+        L->p.sx = mid; L->p.sy = sy; L->p.sr = sr; L->p.ring = ring;
+        L->wx = mid; L->wy = sy + (ring ? ring + 4 : sr + 5); L->wmax = sw - 8;
+        int py = L->wy + 11, ph = 12;
+        if (py + ph <= y_end - 2) { L->p.px = x0 + 4; L->p.py = py; L->p.pw = sw - 8; L->p.ph = ph; }
+        int gy = py + ph + 4;
+        if (L->p.pw && gy + 3 <= y_end - 3) { L->p.gx = x0 + 6; L->p.gy = gy; L->p.gw = sw - 12; }
+        int dy = (L->p.gw ? gy + 3 : L->p.pw ? py + ph : L->wy + 8) + 4;
+        if (y_end - 3 - dy >= 11) { L->deco_y = dy; L->deco_h = y_end - 3 - dy; }
+    } else if (s->kind == TSK_CORNER) {
+        int pb = h >= 44 ? 12 : clampi(h / 8, 4, 6), rise = clampi(h / 10, 3, 6), body = h - pb - rise;
+        L->fy = h - pb + 2;
+        if (w >= 64 && body >= 26) {                                      /* the socket at the outer end, the words inward */
+            int sr = clampi(body / 2 - 8, 6, 9), ring = sr + 4, ox = 4 + ring + 2;
+            int sx = s->right ? w - 1 - ox : ox, sy = rise + body / 2;
+            L->p.sx = sx; L->p.sy = sy; L->p.sr = sr; L->p.ring = ring;
+            int tx0 = s->right ? 5 : sx + ring + 4, tx1 = s->right ? sx - ring - 4 : w - 5;
+            L->wx = (tx0 + tx1) / 2; L->wmax = tx1 - tx0; L->wy = sy - 11;
+            if (sy + 13 <= h - pb - 2) { L->p.px = tx0; L->p.py = sy + 1; L->p.pw = tx1 - tx0; L->p.ph = 11; }
+        } else {                                                          /* narrow or short: one above the other */
+            int sr = clampi(imin2(w, body) / 4, 5, 8);
+            L->p.sx = mid; L->p.sy = rise + 3 + sr + 2; L->p.sr = sr;
+            L->wx = mid; L->wy = L->p.sy + sr + 4; L->wmax = w - 8;
+        }
+        if (pb < 12) L->fy = 0;
+    } else {                                                              /* a tablet */
+        int rr = clampi(h / 2 - 7, 5, 8), ox = 5 + rr;
+        L->p.sx = s->right ? w - 1 - ox : ox; L->p.sy = h / 2; L->p.sr = rr;
+        int tx0 = s->right ? 5 : L->p.sx + rr + 5, tx1 = s->right ? L->p.sx - rr - 5 : w - 5;
+        if (tx1 - tx0 < 38) { L->p.sr = 0; tx0 = 5; tx1 = w - 5; }        /* narrow: no socket, the words across it */
+        L->wx = (tx0 + tx1) / 2; L->wmax = tx1 - tx0;
+        if (h >= 26) { L->wy = 4 + (h - 26) / 3; L->p.px = tx0 - 1; L->p.py = L->wy + 10; L->p.pw = tx1 - tx0 + 2; L->p.ph = clampi(h - L->wy - 14, 9, 12); }
+        else L->wy = (h - 8) / 2;
+    }
+}
+
+/* ---- the stones, built ---- */
+/* the left strip: a round-headed stone with scrolled shoulders, on a plinth and a course; the hand in its head */
+static void ts_build_use(const TStone *s, const TsLay *L, uint32_t seed) {
+    int w = s->w, h = s->h, pb = clampi(h / 12, 5, 9), yb = clampi((w - 8) / 2, 8, h / 4) + 1;
+    sc_rect(0, h - pb, w, pb, 1, 0, SM_STONE, 0.0f);                       /* the plinth */
+    sc_rect(2, h - pb - 4, w - 4, 4, 2, 0, SM_STONE, 0.03f);              /* its course */
+    sc_rect(4, yb, w - 8, h - pb - 4 - yb, 3, 0, SM_STONE, 0.04f);        /* the stone, */
+    sc_arch(4, w - 4, yb + 1, (float)(yb - 1), 0, 3, 0, SM_STONE, 0.04f); /* its head round */
+    sc_groove(1u << 3, 3);                                                /* the moulding */
+    sc_disc(4.5f, yb + 0.5f, 2.6f, 4, 1, SM_STONE, 0.07f);                /* the shoulders' scrolls */
+    sc_disc(w - 4.5f, yb + 0.5f, 2.6f, 5, 1, SM_STONE, 0.07f);
+    sc_px(4, yb, 4, 0, SM_STONE, 0.0f); sc_px(w - 5, yb, 5, 0, SM_STONE, 0.0f);
+    for (int k = 0; k < 2; k++) {                                         /* a fillet of leaves along the course */
+        for (int i = 6 + k * 3; i < w - 6; i += 6) sc_px(i, h - pb - 2 - k, 2, -1, SM_STONE, 0.0f);
+    }
+    if (L->deco_h) {                                                     /* bones crossed, cut under it all */
+        int x = w / 2 - 4, y = L->deco_y + (L->deco_h - 9) / 2;
+        for (int j = 0; j < 9; j++) for (int i = 0; i < 9; i++) if (TS_BONES[j][i] == '#' && sc_solid(x + i, y + j)) S.ht[y + j][x + i] = -1;
+    }
+}
+/* the right strip: a gothic stele, pinnacles at its shoulders when there is room, a pointed gable with crockets and a cross
+ * for its finial; the spell's socket and ring in the gable */
+static void ts_build_cast(const TStone *s, const TsLay *L, uint32_t seed) {
+    int w = s->w, h = s->h, pb = clampi(h / 12, 5, 9), pin = w >= 66 ? clampi(w / 9, 6, 10) : 0;
+    int x0 = pin ? pin - 1 : 4, x1 = w - x0, sw = x1 - x0, rise = clampi((int)(sw * 0.6f), 10, h * 3 / 10), yb = rise + 4;
+    sc_rect(0, h - pb, w, pb, 1, 0, SM_STONE, 0.0f);
+    sc_rect(1, h - pb - 4, w - 2, 4, 2, 0, SM_STONE, 0.03f);
+    sc_rect(x0, yb, sw, h - pb - 4 - yb, 3, 0, SM_STONE, 0.04f);
+    sc_arch(x0, x1, yb + 1, (float)rise, 2, 3, 0, SM_STONE, 0.04f);
+    sc_groove(1u << 3, 3);
+    for (int k = 1; k < 5; k++) for (int e = 0; e < 2; e++) {             /* crockets up the gable */
+        float u = k / 5.0f, x = e ? x1 - u * sw * 0.5f : x0 + u * sw * 0.5f;
+        int top = 0;
+        while (top < yb && !sc_solid((int)x, top)) top++;
+        if (top < yb) sc_disc(x + (e ? 1.2f : -1.2f), top + 0.5f, 1.5f, 6, 1, SM_STONE, 0.08f);
+    }
+    int cx = w / 2;                                                       /* the finial's cross */
+    sc_rect(cx - 1, 0, 2, 6, 7, 1, SM_STONE, 0.08f);
+    sc_rect(cx - 3, 1, 6, 2, 7, 1, SM_STONE, 0.08f);
+    for (int k = 0; pin && k < 2; k++) {                                  /* the pinnacles, standing proud */
+        int x = k ? w - pin : 0, ty = yb + 2;
+        sc_rect(x, ty, pin, h - pb - 4 - ty, 8 + k, 1, SM_STONE, 0.02f);
+        float p[6] = { (float)x - 0.5f, (float)ty, (float)x + pin + 0.5f, (float)ty, x + pin * 0.5f, (float)ty - pin * 1.4f };
+        sc_poly(p, 3, 8 + k, 1, SM_STONE, 0.02f);
+        sc_disc(x + pin * 0.5f, ty - pin * 1.4f - 1.0f, 1.8f, 8 + k, 1, SM_STONE, 0.05f);
+        sc_rect(x, ty, pin, 2, 8 + k, 1, SM_STONE, 0.1f);                 /* a string course */
+        int lh = (h - pb - 4 - ty) - 10;
+        if (lh > 8) sc_rect(x + pin / 2 - 1, ty + 5, 2, lh, 8 + k, -1, SM_STONE, 0.0f);   /* a blind lancet in each */
+    }
+    if (L->deco_h >= 14) {                                                /* a blind lancet, pointed, under it all */
+        int lw = 8, lx = cx - lw / 2, ly = L->deco_y + 1, lh = L->deco_h - 2;
+        for (int j = 0; j < lh; j++) for (int i = 0; i < lw; i++) {
+            float u = (i + 0.5f) / lw - 0.5f, top = 5.0f * powf(fmaxf(0.0f, 1.0f - fabsf(u) * 2.0f), 0.6f);
+            if (j < 5.0f - top) continue;
+            if (sc_solid(lx + i, ly + j)) S.ht[ly + j][lx + i] = -1;
+        }
+    }
+}
+/* a corner's: a broad stone, its head a low arch (the left) or a low gable (the right), on a plinth whose band carries the
+ * hold's word */
+static void ts_build_corner(const TStone *s, const TsLay *L, uint32_t seed) {
+    int w = s->w, h = s->h, pb = h >= 44 ? 12 : clampi(h / 8, 4, 6), rise = clampi(h / 10, 3, 6);
+    sc_rect(0, h - pb, w, pb, 1, 0, SM_STONE, 0.0f);
+    sc_rect(2, rise, w - 4, h - pb - rise, 3, 0, SM_STONE, 0.04f);
+    if (s->right) { float p[6] = { 2, rise + 0.5f, (float)w - 2, rise + 0.5f, w * 0.5f, 0 }; sc_poly(p, 3, 3, 0, SM_STONE, 0.04f); }
+    else sc_arch(2, w - 2, rise + 1, (float)rise, 0, 3, 0, SM_STONE, 0.04f);
+    sc_groove(1u << 3, 2);
+    sc_groove(1u << 1, 2);
+    for (int i = 4; i < w - 4; i++) if (sc_solid(i, h - pb)) S.ht[h - pb][i] = 1;   /* the plinth's top edge, a lip */
+    for (int i = 5; i < w - 5; i += 3) if (sc_solid(i, rise + 3) && S.ht[rise + 3][i] == 0) S.ht[rise + 3][i] = -1;   /* dentils under the head */
+    if (s->right) { sc_disc(3.5f, rise - 0.5f, 2.2f, 4, 1, SM_STONE, 0.06f); sc_disc(w - 3.5f, rise - 0.5f, 2.2f, 5, 1, SM_STONE, 0.06f); sc_disc(w * 0.5f, 1.5f, 2.0f, 4, 1, SM_STONE, 0.08f); }
+    for (int k = 0; k < 2; k++) {                                         /* small paterae in the head's corners */
+        int px = k ? w - 9 : 8, py = rise + 4;
+        if (s->right == k) continue;                                     /* not over the socket's side */
+        sc_disc(px + 0.5f, py + 0.5f, 2.2f, 4, 1, SM_STONE, 0.06f);
+        sc_px(px, py, 4, -1, SM_STONE, 0.0f);
+    }
+}
+/* iron set in the stone (pins, a cramp's ends): rust runs down from each */
+static void ts_pin_at(int x, int y) {
+    if (!sc_solid(x, y)) return;
+    sc_px(x, y, 210, 1, SM_IRON, 0.02f);
+    if (ts_npin < 8) { ts_pin[ts_npin][0] = x; ts_pin[ts_npin][1] = y; ts_npin++; }
+}
+/* a tablet: a slab chamfered at its corners, a moulding round it, hung on the wall by two iron pins at its outer end */
+static void ts_build_tablet(const TStone *s, const TsLay *L, uint32_t seed) {
+    int w = s->w, h = s->h;
+    float p[16] = { 3, 0, (float)w - 3, 0, (float)w, 3, (float)w, (float)h - 2, (float)w - 2, (float)h, 2, (float)h, 0, (float)h - 2, 0, 3 };
+    sc_poly(p, 8, 3, 0, SM_STONE, 0.04f);
+    sc_groove(1u << 3, 2);
+    for (int i = 5; i < w - 5; i += 3) if (sc_solid(i, h - 4) && (i < L->p.px - 2 || i > L->p.px + L->p.pw + 1)) S.ht[h - 4][i] = -1;   /* dentils along its foot */
+    int ix = s->right ? w - 4 : 3;
+    ts_pin_at(ix, 4); ts_pin_at(ix, h - 6);
+    ts_pin_at(s->right ? 3 : w - 4, h / 2);
+}
+
+/* the weathering, by the stone's own seed: a break at its outer top, cracks from it, chips; ivy on the strips */
+static void ts_weather(const TStone *s, const TsLay *L, uint32_t seed) {
+    int w = s->w, h = s->h, out = s->right ? w - 3 : 2;
+    float side = s->right ? -1.0f : 1.0f;                                  /* inward */
+    if (s->kind == TSK_USE || s->kind == TSK_CAST) {
+        int pin = s->kind == TSK_CAST && w >= 66 ? clampi(w / 9, 6, 10) : 0;
+        int yb = s->kind == TSK_CAST ? clampi((int)((w - 2 * (pin ? pin - 1 : 4)) * 0.6f), 10, h * 3 / 10) + 4 : clampi((w - 8) / 2, 8, h / 4) + 1;
+        sc_break((float)out + side * (pin ? 1.0f : 2.0f), (float)(pin ? yb - 6 : yb - 4), pin ? 6.0f : 6.5f, seed + 1);   /* a shoulder gone */
+        sc_break((float)(w - 1 - out) - side * 1.0f, (float)(h - 2), 3.0f, seed + 21);                      /* the plinth's far corner */
+        float ang = s->right ? 1.95f : 1.2f;
+        sc_crack(out + side * 6.0f, yb + 2.0f, ang, h * 2 / 3, seed + 2, 3);
+        sc_crack(w * 0.5f + side * 8.0f, (float)(h - 8), -1.4f, 18, seed + 3, 2);
+        sc_crack(w - out + side * -3.0f, h * 0.55f, s->right ? 0.3f : PI - 0.3f, 14, seed + 4, 1);
+        sc_crack(w * 0.5f - side * 4.0f, 2.0f, 1.6f, 10, seed + 22, 1);
+        if (s->kind == TSK_CAST && L->p.gw) {                             /* the big crack held by a cramp, low down */
+            int cy = L->p.gy + 6;
+            if (cy + 3 < h - 10) {
+                sc_crack(out + side * 3.0f, cy - 4.0f, s->right ? 2.6f : 0.55f, w * 2 / 3, seed + 5, 0);
+                ts_cramp(w / 2 - 3 + (int)(side * 4), cy, 6, 0);
+            }
+        }
+        if (s->kind == TSK_USE) sc_ivy((float)out + side * 1.0f, (float)h - 2, h / 3, seed + 6);
+        else sc_ivy((float)out + side * 0.5f, (float)h - 2, h / 4, seed + 6);
+        sc_chips(0.42f, seed + 7);
+        ts_grass(w, h, seed + 8);
+    } else if (s->kind == TSK_CORNER) {
+        sc_break((float)out, 2.0f, 5.0f, seed + 1);
+        sc_break((float)(w - 1 - out), (float)(h - 3), 2.5f, seed + 21);
+        sc_crack(out + side * 4.0f, 5.0f, s->right ? 2.2f : 0.9f, h, seed + 2, 2);
+        sc_crack(w * 0.5f, (float)(h - 1), -1.7f, h / 2, seed + 3, 1);
+        sc_crack(w - out - side * 2.0f, h * 0.4f, s->right ? 0.2f : PI - 0.2f, w / 3, seed + 4, 1);
+        sc_chips(0.4f, seed + 7);
+        ts_grass(w, h, seed + 8);
+    } else {
+        sc_break((float)(w - out - 1), (float)h - 1.0f, 3.6f, seed + 1);
+        sc_crack(w * 0.5f + side * 6.0f, 0.0f, 1.7f, h, seed + 2, 1);
+        sc_crack((float)(w - out - 1) - side * 3.0f, (float)h - 4.0f, s->right ? -0.4f : PI + 0.4f, w / 3, seed + 3, 1);
+        sc_chips(0.45f, seed + 7);
+    }
+    if (s->blank) {                                                       /* given up: moss over its foot, a crack through its socket */
+        if (L->p.sr) sc_crack((float)(L->p.sx - L->p.sr - 1), (float)L->p.sy - 2.0f, 0.35f, L->p.sr * 2 + 3, seed + 9, 0);
+        for (int j = 0; j < h; j++) for (int i = 0; i < w; i++)
+            if (sc_solid(i, j) && S.ht[j][i] >= 0 && j > h * 2 / 3 && fbm(i * 0.2f, j * 0.2f, seed + 10) > 0.6f) { S.m[j][i] = SM_IVY; S.dv[j][i] = -0.12f; }
+    }
+}
+
+/* the cut and the words: the socket, its ring, the tablet, the groove, the word and the plinth's */
+static void ts_cut(const TStone *s, const TsLay *L, uint32_t seed) {
+    int gild = !s->blank;
+    if (L->p.sr) ts_pit(L->p.sx, L->p.sy, L->p.sr, L->p.ring);
+    if (L->p.pw) ts_tabula(L->p.px, L->p.py, L->p.pw, L->p.ph);
+    if (L->p.gw) ts_channel(L->p.gx, L->p.gy, L->p.gw);
+    sc_gk = 1.0f + 1.55f;                                                 /* the words and marks at the top of their ramp, for contrast */
+    if (s->mark > TSM_NONE && s->mark < NTSM && L->p.sr) {
+        int n = TSM_N[s->mark];
+        ts_inlay(L->p.sx - n / 2, L->p.sy - n / 2, TSM_ART[s->mark], n, gild, seed + 11);
+    }
+    ts_words(L->wx, L->wy, s->word, gild, seed + 12, L->wmax);
+    if (s->foot && L->fy) {
+        sc_gk = 1.0f + 1.15f;
+        int room = s->w - 8, adv = 8, fm = s->foot_mark ? 10 : 0;
+        if (sc_text_w(s->foot, 8) + fm > room) fm = 0;                  /* narrow: the mark gives way, then the letters close up */
+        if (sc_text_w(s->foot, 8) > room) adv = 7;
+        int tw = sc_text_w(s->foot, adv) + fm, x = (s->w - tw) / 2;
+        if (tw <= room) {
+            if (fm) ts_inlay(x, L->fy, s->foot_mark == 1 ? TS_HOURGLASS : TS_WHEEL, 7, gild, seed + 13);
+            sc_text(x + fm, L->fy, s->foot, 0, adv, gild, seed + 14);
+        }
+    }
+}
+
+/* age, after the shading: lichen in patches (gold at its heart, grey-green round it), thickest towards the stone's top and
+ * its outer side, never on what is cut for words; pits; rust run down from iron; damp darkening the foot's corners */
+static void ts_age(const TStone *s, uint32_t seed) {
+    int w = s->w, h = s->h;
+    for (int j = 0; j < h; j++) for (int i = 0; i < w; i++) {
+        if (!S.id[j][i] || S.d[j][i] || S.m[j][i] != SM_STONE || S.ht[j][i] < 0 || (S.f[j][i] & (SF_CALM | SF_CRACK))) continue;
+        float outer = s->right ? (float)i / w : 1.0f - (float)i / w, up = 1.0f - (float)j / h;
+        float n = fbm(i * 0.17f + 5.0f, j * 0.17f, seed + 40) + 0.07f * outer + 0.04f * up;
+        if (n > 0.72f && h01(i, j, seed + 41) > 0.1f) {
+            int core = n > 0.775f;
+            S.r[j][i] = (uint8_t)(core ? R_GOLD : R_MOSS);
+            S.v[j][i] = core ? 0.30f + 0.3f * (n - 0.775f) / 0.2f : 0.28f + 0.1f * h01(i, j, seed + 42);
+            continue;
+        }
+        if (n > 0.69f && h01(i, j, seed + 43) < 0.3f) { S.r[j][i] = R_MOSS; S.v[j][i] = 0.22f + 0.08f * h01(i, j, seed + 44); continue; }
+        if (h01(i, j, seed + 45) < 0.05f) S.v[j][i] -= 0.1f;                       /* pits */
+        float st = fbm(i * 0.6f, j * 0.05f, seed + 46);                             /* water's streaks */
+        if (st > 0.62f) S.v[j][i] -= 0.08f * (st - 0.62f) / 0.38f * up;
+    }
+    for (int k = 0; k < ts_npin; k++) {                                            /* rust */
+        int x = ts_pin[k][0], y0 = ts_pin[k][1] + 1, len = 3 + (int)(h01(k, 1, seed + 47) * 6);
+        for (int j = y0; j < y0 + len && j < h; j++) {
+            int X = x + (j - y0 > 2 && h01(k, j, seed + 48) < 0.3f ? (h01(k, j, seed + 49) < 0.5f ? -1 : 1) : 0);
+            if (!sc_solid(X, j) || S.d[j][X] || (S.f[j][X] & SF_CALM) || S.m[j][X] != SM_STONE) continue;
+            if (h01(X, j, seed + 50) < (float)(j - y0) / len * 0.7f) continue;
+            S.r[j][X] = R_BRICK; S.v[j][X] = 0.42f - 0.15f * (j - y0) / len;
+        }
+    }
+}
+
+/* the stones kept, each as its pixels (C_CLEAR where there is none) and its places */
+#define TSC_N 40
+static struct { uint64_t key; int w, h; uint8_t *pix; TsLay lay; unsigned use; } TSC[TSC_N];
+static unsigned tsc_clock;
+static uint64_t ts_key(const TStone *s) {
+    uint64_t k = 1469598103934665603ull;
+#define MIXK(x) do { k ^= (uint64_t)(x); k *= 1099511628211ull; } while (0)
+    MIXK(s->kind); MIXK(s->w); MIXK(s->h); MIXK(s->right); MIXK(s->blank); MIXK(s->pressed); MIXK(s->mark); MIXK(s->seed); MIXK(s->foot_mark);
+    for (const char *c = s->word ? s->word : ""; *c; c++) MIXK(*c);
+    MIXK(0x2F);
+    for (const char *c = s->foot ? s->foot : ""; *c; c++) MIXK(*c);
+#undef MIXK
+    return k;
+}
+static int ts_get(const TStone *s0) {
+    TStone sv = *s0, *s = &sv;
+    s->w = clampi(s->w, 12, SCW); s->h = clampi(s->h, 12, SCH);
+    uint64_t key = ts_key(s);
+    int free_i = 0;
+    for (int i = 0; i < TSC_N; i++) {
+        if (TSC[i].pix && TSC[i].key == key) { TSC[i].use = ++tsc_clock; return i; }
+        if (TSC[i].use < TSC[free_i].use || !TSC[i].pix) free_i = TSC[free_i].pix ? i : free_i;
+    }
+    int i = free_i;
+    for (int k = 0; k < TSC_N; k++) if (!TSC[k].pix) { i = k; break; }
+    uint8_t *pix = realloc(TSC[i].pix, (size_t)s->w * s->h);
+    if (!pix) return -1;
+    TSC[i].pix = pix; TSC[i].key = key; TSC[i].w = s->w; TSC[i].h = s->h; TSC[i].use = ++tsc_clock;
+    TsLay *L = &TSC[i].lay;
+    ts_lay(s, L);
+    uint32_t seed = s->seed * 2654435761u + 977u;
+    sc_begin(s->w, s->h);
+    ts_npin = 0;
+    if (s->kind == TSK_USE) ts_build_use(s, L, seed);
+    else if (s->kind == TSK_CAST) ts_build_cast(s, L, seed);
+    else if (s->kind == TSK_CORNER) ts_build_corner(s, L, seed);
+    else ts_build_tablet(s, L, seed);
+    ts_cut(s, L, seed);
+    ts_weather(s, L, seed);
+    sc_shade_now(0.41f, seed + 20, 1.0f, s->pressed ? R_GOLD : R_BONE);
+    ts_age(s, seed);
+    for (int j = 0; j < s->h; j++) for (int x = 0; x < s->w; x++) {
+        uint8_t c = C_CLEAR;
+        if (S.id[j][x]) {
+            if (S.d[j][x]) c = S.d[j][x];
+            else {
+                int r = S.r[j][x], n = r == R_GOLD ? NGOLD : 16;
+                float l = 1.02f - 0.16f * j / s->h, v = S.v[j][x] * l;   /* lit from above, a little */
+                int k = (int)(v * (n - 1) + 0.5f);
+                c = (uint8_t)(k <= 0 && v * 15.0f < 0.35f ? 0 : r + clampi(k, 0, n - 1));
+            }
+        }
+        pix[j * s->w + x] = c;
+    }
+    return i;
+}
+
+void tstone_places(const TStone *s, TsPlaces *p) {
+    int i = ts_get(s);
+    if (i < 0) { memset(p, 0, sizeof *p); return; }
+    *p = TSC[i].lay.p;
+}
+int tstone_word_fits(const TStone *s) {
+    TsLay L;
+    TStone sv = *s;
+    sv.w = clampi(sv.w, 12, SCW); sv.h = clampi(sv.h, 12, SCH);
+    ts_lay(&sv, &L);
+    return s->word && sc_text_w(s->word, 7) <= L.wmax - 6;   /* a little clear of the socket */
+}
+
+/* words inlaid in a place: centred, closed up a little if they must be, cut short if even that won't do */
+static void ts_text(Frame *f, int cx, int y, int maxw, const char *s, int col) {
+    char b[32];
+    snprintf(b, sizeof b, "%s", s);
+    int n = (int)strlen(b), adv = 8;
+    while (n > 0 && n * 8 - 1 > maxw && n * 7 - 1 > maxw) b[--n] = 0;
+    if (n * 8 - 1 > maxw) adv = 7;
+    int x = cx - (n * adv - 1) / 2;
+    for (int k = 0; k < n; k++) ui_glyph8(f, x + k * adv, y, (uint8_t)b[k], FACE_INSC, col, TX_INLAID);
+}
+void tstone_draw(Frame *f, int x, int y, const TStone *s, const TsInfo *in, float t) {
+    int i = ts_get(s);
+    if (i < 0) return;
+    const TsLay *L = &TSC[i].lay;
+    int w = TSC[i].w, h = TSC[i].h, dy = s->pressed ? 1 : 0;
+    const uint8_t *pix = TSC[i].pix;
+    for (int j = 0; j < h; j++) for (int k = 0; k < w; k++) { uint8_t c = pix[j * w + k]; if (c != C_CLEAR) gfx_px(f, x + k, y + j + dy, c); }
+    if (!in || s->blank) return;
+    int was = ui_check; ui_check = 0;                                     /* the fit checks know the 320 by 200 picture only */
+    ui_ramps(0);
+    int ox = x, oy = y + dy;
+    const TsPlaces *p = &L->p;
+    if (p->ring && in->ring >= 0.0f) {                                   /* the time, round the ring from the top, clockwise */
+        float k = clampf(in->ring, 0.0f, 1.0f), br = 0.5f + 0.5f * sinf(t * 3.0f);
+        int top = in->ring_ramp == R_GOLD ? 12 : 15;
+        for (int jj = -p->ring - 2; jj <= p->ring + 2; jj++) for (int ii = -p->ring - 2; ii <= p->ring + 2; ii++) {
+            float d = hypotf(ii + 0.5f - 0.5f, jj + 0.5f - 0.5f);
+            if (d < p->ring - 0.6f || d > p->ring + 0.9f) continue;
+            float a = atan2f((float)ii, (float)-jj); if (a < 0) a += 2.0f * PI;
+            if (a / (2.0f * PI) > k) continue;
+            int lv = k >= 1.0f ? (int)(10 + 3 * br) : 11;
+            if (d > p->ring + 0.2f) lv -= 3;                              /* the groove's far wall, darker */
+            gfx_px(f, ox + p->sx + ii, oy + p->sy + jj, (uint8_t)(in->ring_ramp + clampi(lv, 0, top)));
+        }
+    }
+    if (p->sr && in->sock == 1) ui_socket(f, ox + p->sx, oy + p->sy, p->sr, in->icon, in->ramp, in->state, in->sel, 0, t);
+    else if (p->sr && in->sock == 2 && in->mark) ui_socket_mark(f, ox + p->sx, oy + p->sy, p->sr, in->mark, in->ramp, in->state, in->sel, 0, t);
+    if (p->pw) {
+        int ty = oy + p->py + (p->ph - 8) / 2, cx = ox + p->px + p->pw / 2, room = p->pw - (p->pw >= 40 ? 10 : 4);
+        if (in->text && *in->text) {
+            int n = (int)strlen(in->text), gw = in->glyph && n * 7 - 1 + 7 <= room ? 7 : 0, tw = imin2(n * 8 - 1, room - gw);   /* the
+                                                                      glyph gives way before the words do */
+            if (gw) ui_mark(f, cx - (tw + gw) / 2, ty + 2, in->glyph, in->glyph_ramp, IM_INLAID, 1);
+            ts_text(f, cx + gw / 2, ty, room - gw, in->text, in->text_col);
+        } else if (in->maxpips > 0) {
+            int pw = in->maxpips * 4 - 1, px0 = cx - pw / 2;
+            for (int k = 0; k < in->maxpips; k++) {
+                uint8_t c = k < in->pips ? (uint8_t)(in->pip_ramp + (in->pip_ramp == R_GOLD ? 12 : 14)) : UI_W(1);
+                gfx_rect(f, px0 + k * 4, ty + 3, 3, 3, c);
+                if (k < in->pips) gfx_px(f, px0 + k * 4, ty + 3, (uint8_t)(in->pip_ramp + (in->pip_ramp == R_GOLD ? 12 : 15)));
+            }
+        }
+    }
+    if (p->gw && in->fill >= 0.0f) {                                    /* the groove's fill, from its left */
+        int n = (int)(clampf(in->fill, 0.0f, 1.0f) * (p->gw - 2) + 0.5f), top = in->fill_ramp == R_GOLD ? 12 : 15;
+        for (int k = 0; k < n; k++) {
+            gfx_px(f, ox + p->gx + 1 + k, oy + p->gy + 1, (uint8_t)(in->fill_ramp + clampi(top, 0, top)));
+            gfx_px(f, ox + p->gx + 1 + k, oy + p->gy + 2, (uint8_t)(in->fill_ramp + clampi(top - 4, 0, top)));
+        }
+    }
+    ui_check = was;
+}
+
+/* a stick down: a roundel where the thumb came down, cut as the sockets are (shadowed on the upper left, its lip lit below)
+ * with a dark ring outside it so it reads over a lit crypt; a boss of bone where the thumb is; gold while it sprints */
+void tstone_ring(Frame *f, float bx, float by, float fx, float fy, int ring, int lit) {
+    int base = lit ? R_GOLD : R_BONE, top = lit ? 12 : 15;
+    for (int a = 0; a < 128; a++) {
+        float th = a * 2.0f * PI / 128.0f, c = cosf(th), sn = sinf(th), lk = (c + sn) * 0.7071f;   /* 1 lower right, -1 upper left */
+        gfx_px(f, (int)lroundf(bx + c * (ring + 1)), (int)lroundf(by + sn * (ring + 1)), 0);
+        int k = lk > 0.3f ? top : lk > -0.3f ? top - 3 : top - 6;
+        gfx_px(f, (int)lroundf(bx + c * ring), (int)lroundf(by + sn * ring), (uint8_t)(base + clampi(k, 0, top)));
+        if (a % 3 == 0) gfx_px(f, (int)lroundf(bx + c * (ring - 1)), (int)lroundf(by + sn * (ring - 1)), (uint8_t)(R_STONE + (lk > 0 ? 3 : 1)));
+    }
+    for (int k = 0; k < 4; k++) {                                         /* notches at the four quarters, cut in */
+        float th = k * PI * 0.5f;
+        for (int d = 2; d <= 4; d++) gfx_px(f, (int)lroundf(bx + cosf(th) * (ring - d)), (int)lroundf(by + sinf(th) * (ring - d)), (uint8_t)(base + top - 2 - d));
+    }
+    for (int y = -6; y <= 6; y++) for (int x = -6; x <= 6; x++) {         /* the boss: shaded round, its light on the upper left */
+        int d2 = x * x + y * y;
+        if (d2 > 36) continue;
+        int k = d2 > 25 ? -1 : top - 1 - (int)((x + y + 7) * 0.55f) - (d2 > 16 ? 2 : 0);
+        if ((x == -2 || x == -3) && (y == -2 || y == -3)) k = top;
+        gfx_px(f, (int)fx + x, (int)fy + y, k < 0 ? (uint8_t)0 : (uint8_t)(base + clampi(k, 0, top)));
+    }
+}
