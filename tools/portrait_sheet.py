@@ -1,10 +1,11 @@
-"""The portraits' sheet (docs/PLAN-portraits.md): every slayer achievement, read from KINDS in src/scene_crawl.c, with the gold
-each rank's portrait would pay by the plan's formula. Writes docs/portraits/achievements.xlsx (live formulas: change the
-starting gold, the share a rank adds or a kind's strength and the gold follows) and prints the plan's table as Markdown.
+"""The portraits' numbers (docs/PLAN-portraits.md) as the owner settled them in the Sheet on 10 November: every slayer achievement,
+read from KINDS in src/scene_crawl.c, the Spectre's and the Wraith's own, a feat for each kind, and the bosses', with the gold
+each pays once a life. Writes docs/portraits/ranks.csv and bosses.csv, a snapshot of the Sheet to build from; the Sheet on
+claude.ai is where they are changed, and this is brought in step with it by hand.
 
-    python3 tools/portrait_sheet.py [--md | --grid]     (--md: the rows; --grid: a kind a row)
+    python3 tools/portrait_sheet.py [--grid | --md]     (--grid: the plan's table, a kind a row; --md: a row an unlock)
 """
-import re, sys, os
+import csv, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 src = open(os.path.join(ROOT, 'src/scene_crawl.c')).read()
@@ -14,12 +15,32 @@ ROW = re.compile(r'\[(MOB_\w+)\] = \{ "([^"]*)", "([^"]*)", "[^"]*",\s*\w+, \w+,
 xpb = src[src.index('static const int KIND_XP[] = {'):]
 XP = {k: int(v) for k, v in re.findall(r'\[(MOB_\w+)\] = (\d+)', xpb[:xpb.index('};')])}
 RK = ['RK_I', 'RK_II', 'RK_III', 'RK_IV', 'RK_V', 'RK_GILDED']
-ROMAN = ['I', 'II', 'III', 'IV', 'V', 'G']
+ROMAN = ['I', 'II', 'III', 'IV', 'V', 'G', 'Feat']
 WORD = ['', 'ROTTEN ', 'COLD ', 'BLOODY ', 'BLACK ', 'GILDED ']
-STEP = [0, 1, 2, 3, 4, 3.5]                              # gilded: just below black, as its frame is
+STEP = {'I': 0, 'II': 1, 'III': 2, 'IV': 3, 'V': 4, 'G': 3.5, 'Feat': 2}   # gilded just below black; a feat pays as rank III
 NEED = [60, 40, 25, 15, 8]
-START = [250, 500, 750]
-SHARE = 0.6                                              # each rank adds 60% of the start; strength up to 60% more
+START = [100, 200, 300]                                  # the owner's (the plan first had 250, 500, 750)
+SHARE = 0.6                                              # each rank step adds 60% of the start; strength up to 60% more
+ROUND = 10
+
+# the suggested rows the owner took: the two that cannot be slain, and a feat for each kind (name, needed, condition)
+SPECTRE = [('I', 5, 'LAID TO REST'), ('II', 15, 'A CHILL LIFTED'), ('III', 40, 'THE HALLS GONE QUIET')]
+WRAITH = [('I', 10, 'DRIVEN BACK', 'Drive it back 10 times'), ('II', 40, 'KEPT AT BAY', 'Drive it back 40 times'),
+          ('III', 100, 'IT LEARNS FEAR', 'Drive it back 100 times'),
+          ('IV', 1, 'THE WRAITH UNBOUND', 'The Wraith Unbound slain (its boss achievement)')]
+FEAT = {'SKELETON': ('IT NEVER THREW', 20, 'Slay 20 before their first throw'), 'BAT': ('SHAKEN OFF', 20, 'Shake off 20 latched bats'),
+        'WALL SKULL': ('BEFORE THE SCREAM', 20, 'Silence 20 before they scream'),
+        'SHIELD-BEARER': ('THROUGH THE SHIELD', 20, 'Slay 20 after breaking the shield'),
+        'SPIDER': ('STILL IN ITS WEB', 20, 'Slay 20 before they drop'), 'SHAMBLER': ('BACK IN THE GROUND', 20, 'Slay 20 before they stand'),
+        'DROWNED': ('NOT A DROP', 10, 'Slay 10 without their burst reaching you'),
+        'BONE HOUND': ('BOTH OF THEM', 10, 'Slay 10 pairs within five seconds'), 'HUNTING SPIDER': ('OFF THE CEILING', 20, 'Slay 20 overhead'),
+        'GHOUL': ('AT ITS MEAL', 20, 'Slay 20 while feeding'), 'SKELETON KNIGHT': ('IN FULL PLATE', 10, 'Slay 10 before they shed any plate'),
+        'BROOD MOTHER': ('NONE HATCHED', 5, 'Slay 5 before a sac hatches'), 'SPIDERLING': ('THE WHOLE BROOD', 200, 'Slay 200'),
+        'SHADE': ('FACED DOWN', 10, 'Slay 10 while they fade from your light'), 'EMBER IMP': ('QUENCHED', 25, 'Slay 25 by Frost'),
+        'DEACON': ('NONE RISE', 10, 'Slay 10 before any rises for him'), 'GARGOYLE': ('STILL STONE', 10, 'Slay 10 within two seconds of waking'),
+        'WHIPPER-IN': ('NO HORN', 5, 'Slay 5 before his horn'), 'SEXTON': ('UNRUNG', 10, 'Slay 10 with his bell never rung'),
+        'LIGHTLESS': ('IN THE DARK', 10, 'Slay 10 with the lantern shuttered')}
+BOSSES = [('THE ILL-FATED KNIGHT', 1500), ('THE WANDERING SPIDER', 2500), ('THE BLACK DEACON', 3500), ('THE WRAITH UNBOUND', 4500)]
 
 kinds = []
 for m, name, plural, fam, debut, top, gild, flags in ROW.findall(blk):
@@ -29,8 +50,7 @@ order = []                                               # the bestiary's order:
 for lv in range(1, 41):
     for k in kinds:
         if k['debut'] == lv and 'KF_PAGE' in k['flags']: order.append(k)
-# thirds of the 22 pages: the spiderling goes with its mother (7, 8, 7)
-for i, k in enumerate(order): k['third'] = 0 if i < 7 else (1 if i < 15 else 2)
+for i, k in enumerate(order): k['third'] = 0 if i < 7 else (1 if i < 15 else 2)   # 7, 8, 7: the spiderling with its mother
 
 def slayer_need(k, r):
     if 'KF_SPIRIT' in k['flags'] or 'KF_UNCOUNTED' in k['flags']: return 0
@@ -43,85 +63,59 @@ for t in range(3):                                       # strength: the kind's 
     ks = [k for k in order if k['third'] == t and any(slayer_need(k, r) for r in range(6))]
     lo, hi = min(k['xp'] for k in ks), max(k['xp'] for k in ks)
     for k in ks: k['str'] = round((k['xp'] - lo) / (hi - lo), 2) if hi > lo else 0.0
+for k in order:
+    if k['name'] == 'SPECTRE': k['str'] = 0.0
+    if k['name'] == 'WRAITH': k['str'] = 1.0
 
-def gold(k, r):
-    return int(START[k["third"]] * (1 + SHARE * (STEP[r] + k["str"])) / 10.0 + 0.5 + 1e-9) * 10   # half up, as MROUND
+def gold(third, rank, strength):                         # half up, as the Sheet's ROUND
+    return int(START[third] * (1 + SHARE * (STEP[rank] + strength)) / ROUND + 0.5 + 1e-9) * ROUND
 
 rows = []
-for i, k in enumerate(order):
+def add(k, rank, need, title, cond, source, note=''):
+    rows.append(dict(kind=k['name'].title(), rank=rank, need=need, gold=gold(k['third'], rank, k['str']), title=title, cond=cond,
+                     source=source, third=k['third'] + 1, str=k['str'], xp=k['xp'], note=note))
+for k in order:
+    nm = k['name']
+    if nm == 'SPECTRE':
+        for r, n, t in SPECTRE: add(k, r, n, t, 'Lay %d to rest (only Spirit reaches them)' % n, 'Suggested')
+        continue
+    if nm == 'WRAITH':
+        for r, n, t, c in WRAITH: add(k, r, n, t, c, 'Suggested')
+        continue
     for r in range(6):
         n = slayer_need(k, r)
         if not n: continue
         word = 'PALE ' if k['family'] == 'PF_CHITIN' and r == 4 else WORD[r]
-        rows.append(dict(order=i + 1, kind=k['name'], third=k['third'] + 1, rank=ROMAN[r], step=STEP[r], title=word + k['plural'],
-                         need=n, xp=k['xp'], str=k['str'], gold=gold(k, r)))
+        cond = 'Slay %d gilded' % n if r == 5 else ('Slay %d' % n if k['family'] == '-1' else 'Slay %d at rank %s' % (n, ROMAN[r]))
+        add(k, ROMAN[r], n, word + k['plural'], cond, 'In the game')
+    f = FEAT[nm]
+    add(k, 'Feat', f[1], f[0], f[2], 'Suggested')
 
-if '--grid' in sys.argv:                                 # a kind a row: each rank's kills and gold
-    print('| # | Kind | Third | Strength | I | II | III | IV | V | Gilded | All |')
-    print('|---|---|---|---|---|---|---|---|---|---|---|')
+if '--grid' in sys.argv:
+    print('| # | Kind | Third | Strength | I | II | III | IV | V | Gilded | Feat | All |')
+    print('|---|---|---|---|---|---|---|---|---|---|---|---|')
     for i, k in enumerate(order):
         cells, tot = [], 0
-        for r in (0, 1, 2, 3, 4, 5):
-            x = [y for y in rows if y['kind'] == k['name'] and y['rank'] == ROMAN[r]]
+        for r in ROMAN:
+            x = [y for y in rows if y['kind'] == k['name'].title() and y['rank'] == r]
             if x: cells.append('%d: %s' % (x[0]['need'], format(x[0]['gold'], ','))); tot += x[0]['gold']
             else: cells.append('-')
-        print('| %d | %s | %d | %s | %s | %s |' % (i + 1, k['name'].title(), k['third'] + 1, '%.2f' % k['str'] if 'str' in k else '-', ' | '.join(cells), format(tot, ',') if tot else '-'))
+        print('| %d | %s | %d | %.2f | %s | %s |' % (i + 1, k['name'].title(), k['third'] + 1, k['str'], ' | '.join(cells), format(tot, ',')))
+    tot = [sum(x['gold'] for x in rows if x['third'] == t) for t in (1, 2, 3)]
+    b = sum(g * (1 + 0.2 * s) for _, g in BOSSES for s in range(6))
+    print('\nrows %d; by third %s; all %s; bosses %s' % (len(rows), [format(v, ',') for v in tot], format(sum(tot), ','), format(int(b), ',')))
     sys.exit(0)
 if '--md' in sys.argv:
-    print('| # | Kind | Third | Rank | Achievement | Slain | Strength | Gold |')
-    print('|---|---|---|---|---|---|---|---|')
-    for x in rows:
-        print('| %d | %s | %d | %s | %s | %d | %.2f | %s |' % (x['order'], x['kind'].title(), x['third'], x['rank'], x['title'], x['need'], x['str'], format(x['gold'], ',')))
-    tot = [sum(x['gold'] for x in rows if x['third'] == t) for t in (1, 2, 3)]
-    print('\nrows %d; by third %s; all %s' % (len(rows), [format(v, ',') for v in tot], format(sum(tot), ',')))
-    for k in order:
-        g = [x['gold'] for x in rows if x['kind'] == k['name']]
-        print('%s: %d ranks, %s' % (k['name'], len(g), format(sum(g), ',')))
+    for x in rows: print('| %s | %s | %d | %s | %s | %s |' % (x['kind'], x['rank'], x['need'], format(x['gold'], ','), x['title'], x['cond']))
     sys.exit(0)
-
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
-wb = Workbook()
-P = wb.active; P.title = 'Formula'
-P['A1'] = 'THE PORTRAITS OF THE SLAIN: WHAT EACH RANK PAYS, ONCE A LIFE'; P['A1'].font = Font(bold=True, size=13)
-P['A2'] = 'Gold = start of its third x (1 + share x (rank step + strength)), rounded to the nearest 10. Change the blue cells.'
-P['A4'] = 'Start, first third (Skeleton to Spider)'; P['B4'] = START[0]
-P['A5'] = 'Start, second third (Drowned to Spiderling)'; P['B5'] = START[1]
-P['A6'] = 'Start, third third (Shade to Lightless)'; P['B6'] = START[2]
-P['A7'] = 'Share of the start each rank step adds'; P['B7'] = SHARE
-P['A8'] = 'Strength counts (1 yes, 0 no)'; P['B8'] = 1
-P['A9'] = 'Round to'; P['B9'] = 10
-P['A11'] = 'Rank steps: I 0, II 1, III 2, IV 3, V 4, Gilded 3.5 (just below black). With strength on, the weakest kind\'s rank I pays the start and the strongest\'s rank V four times it.'
-for r in range(4, 10):
-    P.cell(r, 2).fill = PatternFill('solid', fgColor='DDEBF7'); P.cell(r, 2).font = Font(color='1F4E79', bold=True)
-P.column_dimensions['A'].width = 46; P.column_dimensions['B'].width = 10
-S = wb.create_sheet('Slayers')
-head = ['#', 'Kind', 'Third', 'Rank', 'Step', 'Achievement', 'Slain', 'Kind XP', 'Strength', 'Gold']
-S.append(head)
-for c in range(1, len(head) + 1): S.cell(1, c).font = Font(bold=True)
-for i, x in enumerate(rows, start=2):
-    S.append([x['order'], x['kind'].title(), x['third'], x['rank'], x['step'], x['title'], x['need'], x['xp'], x['str']])
-    S.cell(i, 10).value = ('=MROUND(CHOOSE(C{r},Formula!$B$4,Formula!$B$5,Formula!$B$6)*(1+Formula!$B$7*(E{r}+Formula!$B$8*I{r})),Formula!$B$9)').format(r=i)
-    S.cell(i, 9).fill = PatternFill('solid', fgColor='DDEBF7'); S.cell(i, 7).fill = PatternFill('solid', fgColor='DDEBF7')
-n = len(rows) + 1
-S.cell(n + 2, 6).value = 'All of them, once a life'; S.cell(n + 2, 6).font = Font(bold=True)
-S.cell(n + 2, 10).value = '=SUM(J2:J%d)' % n
-for t in (1, 2, 3):
-    S.cell(n + 2 + t, 6).value = 'Third %d' % t
-    S.cell(n + 2 + t, 10).value = '=SUMIF(C2:C%d,%d,J2:J%d)' % (n, t, n)
-for col, w in zip('ABCDEFGHIJ', (4, 18, 6, 6, 6, 30, 7, 8, 9, 9)): S.column_dimensions[col].width = w
-S.freeze_panes = 'A2'
-# the bosses' and the ways' deeds that are kills, and the suggestions, for the owner to weigh
-B = wb.create_sheet('Bosses and deeds')
-B.append(['Achievement', 'Kind of deed', 'Now', 'Suggested gold (a boss portrait, two faces wide)'])
-for c in range(1, 5): B.cell(1, c).font = Font(bold=True)
-BOSSES = [('THE ILL-FATED KNIGHT', 1500), ('THE WANDERING SPIDER', 2500), ('THE BLACK DEACON', 3500), ('THE WRAITH UNBOUND', 4500)]
-for name, g in BOSSES:
-    B.append([name, 'slain', 'an achievement', g])
-    for st in range(1, 6): B.append([name, 'slain at challenge step %d' % st, 'an achievement', int(g * (1 + 0.2 * st))])
-for name, need in (('CUT OFF THE HEAD', 1), ('SHEPHERD OF NONE', 10), ('THE LEADERLESS DEAD', 50), ('BEFORE THE CRY', 1), ('A HOUSE OF SILENCE', 10)):
-    B.append([name, 'a pack\'s leader slain first' if 'HEAD' in name or 'SHEPHERD' in name or 'LEADERLESS' in name else 'a caller slain before it calls', 'an achievement (%d)' % need, 'none: not a portrait\'s'])
-for col, w in zip('ABCD', (26, 30, 18, 44)): B.column_dimensions[col].width = w
-out = os.path.join(ROOT, 'docs/portraits/achievements.xlsx')
-wb.save(out)
-print(out, len(rows), 'rows')
+with open(os.path.join(ROOT, 'docs/portraits/ranks.csv'), 'w', newline='') as f:
+    w = csv.writer(f)
+    w.writerow(['Kind', 'Rank', 'Slain', 'Gold', 'Achievement', 'Condition', 'Pays', 'Source', 'Third', 'Strength', 'Kind XP'])
+    for x in rows: w.writerow([x['kind'], x['rank'], x['need'], x['gold'], x['title'], x['cond'], 'TRUE', x['source'], x['third'], x['str'], x['xp']])
+with open(os.path.join(ROOT, 'docs/portraits/bosses.csv'), 'w', newline='') as f:
+    w = csv.writer(f)
+    w.writerow(['Achievement', 'Deed', 'Gold', 'Pays', 'Condition'])
+    for name, g in BOSSES:
+        w.writerow([name, 'Slain', g, 'TRUE', 'Slain on the way down'])
+        for s in range(1, 6): w.writerow([name, 'Slain at step %d' % s, int(g * (1 + 0.2 * s)), 'TRUE', 'At the Accursed Portal, challenge step %d' % s])
+print('docs/portraits/ranks.csv: %d rows; bosses.csv: %d' % (len(rows), 24))

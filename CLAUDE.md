@@ -299,13 +299,14 @@ shaded under a hash of the piece (`SCC`), and the still earth, crypt and ground 
 `tools/web_smoke.js` passes the title (a key, then BEGIN A NEW RUN) and judges its frame apart, under 40 ms.
 
 **The portraits of the slain** are planned in [`docs/PLAN-portraits.md`](docs/PLAN-portraits.md) (10 November, a draft on
-`claude/adoring-hopper-h9ivcg` from main at 1.0.0b21.1; nothing built; five of its section 9's questions answered, the numbers
-being worked out by the owner in a Sheet on claude.ai that its status links): a
-portrait for each bestiary page on her walls, under a tapestry till one is slain, then its shadow, then each rank unlocked by its
-slayer achievement walking in its colours on the stone of the run it was unlocked in; the frame's colour the highest rank, a
-candle beside each in one of seven layouts; each rank's gold paid once a life, after a level cleared. The art for the mock-ups is
-`src/crawl_portrait.c` (not in the game's build), driven by `tools/portraitmock.c` (`make build/portraitmock`); the sheet of all 104
-slayer achievements and their gold is `docs/portraits/achievements.xlsx`, written by `tools/portrait_sheet.py` from `KINDS`.
+`claude/adoring-hopper-h9ivcg` from main at 1.0.0b21.1; nothing built): a portrait for each bestiary page on her walls, under a
+tapestry till one is slain, then its shadow, then each rank unlocked by its slayer achievement walking in its colours on the stone
+of the run it was unlocked in; the frame's colour the highest rank, a candle beside each in one of seven layouts; each rank's gold
+paid once a life, at every visit to her room; and the bosses' four, two faces wide, by the Accursed Portal. The owner settled most
+of its questions and the numbers (in a Sheet on claude.ai that its status links: starts of 100, 200 and 300, the Spectre's, the
+Wraith's and twenty feats added, the bosses' rows, every row paying); Q7-Q9, Q13 and Q14 are open. The art for the mock-ups is
+`src/crawl_portrait.c` (not in the game's build), driven by `tools/portraitmock.c` (`make build/portraitmock`); the settled
+numbers are `docs/portraits/ranks.csv` and `bosses.csv`, written by `tools/portrait_sheet.py` from `KINDS`.
 
 ## Working with the owner
 
@@ -341,7 +342,7 @@ slayer achievements and their gold is `docs/portraits/achievements.xlsx`, writte
 | `tools/items.c` | `make items`: a hundred rolled wares a level as `build/items.json`, for checking names and numbers |
 | `src/hand_img.c`, `src/face_img.c`, `src/cat_img.c` | Traced bitmaps (data) |
 | `src/crawl_title.c/.h`, `tools/titlemock.c` | The title screen's art (docs/PLAN-title.md): `title_draw(Frame *, t, TitleView *)`, its three scenes, menus and graves, the sculpt kit (`sc_*`); and the mock-ups' driver (`make build/titlemock`; `build/titlemock <dir> [a\|b\|c\|menu\|logo\|parts\|overview\|bench]`) |
-| `src/crawl_portrait.c/.h`, `tools/portraitmock.c`, `tools/portrait_sheet.py` | The portraits of the slain (docs/PLAN-portraits.md), a mock-up's art not yet in the game: `portrait_face` draws a portrait as a wall face's overlay at any scale; the mock-ups' driver (`make build/portraitmock`; `build/portraitmock <dir> [all\|skeleton\|veil\|room\|sheets\|card]`, `PM_SCALE=n`); the workbook of slayer achievements and their gold |
+| `src/crawl_portrait.c/.h`, `tools/portraitmock.c`, `tools/portrait_sheet.py` | The portraits of the slain (docs/PLAN-portraits.md), a mock-up's art not yet in the game: `portrait_face` draws a portrait as a wall face's overlay at any scale; the mock-ups' driver (`make build/portraitmock`; `build/portraitmock <dir> [all\|skeleton\|veil\|room\|sheets\|card]`, `PM_SCALE=n`); the settled numbers as `docs/portraits/ranks.csv` and `bosses.csv` (`--grid` the plan's table) |
 | `src/crawl_ui.c/.h`, `src/ui_art.c` | The carved stone (docs/PLAN-ui.md): the marble, slabs, wells, the faces and their ways, icons, sockets, the Alignment's stone; the faces and icons as strings |
 | `tools/gallery.sh`, `docs/gallery/` | The page's *Then and now*: the same moments in 1.0.0b1, 1.0.0b13 and this build, each from its own build of the harness (old ones in worktrees under `build/gallery/`), as single 320x200 frames; `build_site.sh` copies them to `img/gallery/` |
 | `tools/uisheet.c`, `tools/uishots.sh` | The screens' sheet for approval (`make sheets`; `build/uisheet fit` checks the pane's text fits), and every screen from the harness as contact sheets |

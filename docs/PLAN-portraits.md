@@ -2,12 +2,12 @@
 
 *Status: a draft (10 November 2026), at the owner's request, on `claude/adoring-hopper-h9ivcg` from main at 1.0.0b21.1. Nothing is in
 the game. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (not in the
-game's build yet) and `tools/portraitmock.c` (`make build/portraitmock`, then `build/portraitmock <dir>`). The owner answered five
-of section 9's questions the same day (marked there). The numbers are now worked out in a Sheet on claude.ai,
-[Portraits of the Slain: Gold](https://claude.ai/artifact/2P9JkVQMBEdhAoa6zwB1N6): one row per unlock (its kind, rank, kills,
-gold, achievement, condition, whether it pays), the formula's inputs on a tab of their own, and the bosses' rows. What it holds
-when the owner settles it is what gets built; `docs/portraits/achievements.xlsx` (written by `tools/portrait_sheet.py` from
-`KINDS`) was its starting point and is not kept in step with it.*
+game's build yet) and `tools/portraitmock.c` (`make build/portraitmock`, then `build/portraitmock <dir>`). The owner answered most
+of section 9 the same day (marked there), and settled the numbers in a Sheet on claude.ai,
+[Portraits of the Slain: Gold](https://claude.ai/artifact/2P9JkVQMBEdhAoa6zwB1N6), brought into sections 3 and 4 as it stood at
+its revision 60: the starts 100, 200 and 300, and every row paying, the Spectre's, the Wraith's, the twenty feats and the
+bosses' with them. `docs/portraits/ranks.csv` and `bosses.csv` are that revision's numbers, written by `tools/portrait_sheet.py`
+from `KINDS` and checked against the Sheet row by row. If the Sheet changes again, bring it in the same way before building.*
 
 ## 1. What was asked
 
@@ -52,89 +52,96 @@ the skeleton's frame with ranks I and II unlocked, each walking five seconds in 
   no gold (my assumption, as before: the owner's answer spoke of the tapestries only), so its balance runs stay comparable with
   the builds before. A person who takes over a dream's run finds its kills counted and some tapestries already down.
 
-## 3. The sheet: every achievement for kills
+## 3. The sheet: every achievement for kills (settled)
 
-**The slayers.** One achievement for each rank of each kind (`slayer_need`): 60 slain of its lowest rank, then 40, 25, 15 and
-8; 3 gilded; the Deep's kinds start at rank II, the shade has one rank, bats stop at IV, and spirits and egg sacs have none. Each
-is named by its rank's word and the kind (*ROTTEN SKELETONS*, *COLD SKELETONS*, *BLOODY*, *BLACK*, *GILDED*; chitin's rank V is
-*PALE*). 104 achievements on twenty kinds. Each cell is *slain needed: gold* by the formula in section 4.
+**The portraits' rows.** One achievement for each rank of each kind (`slayer_need`): 60 slain of its lowest rank, then 40, 25, 15
+and 8; 3 gilded; the Deep's kinds start at rank II, the shade has one rank, bats stop at IV. Each is named by its rank's word and
+the kind (*ROTTEN SKELETONS*, *COLD*, *BLOODY*, *BLACK*, *GILDED*; chitin's rank V is *PALE*): 104 of them, in the game today.
+To them the owner added, from section 5, the Spectre's three (laid to rest), the Wraith's four (driven back, and the Wraith
+Unbound's fall) and a feat for each of the twenty kinds that can be slain: 27 new achievements, 131 rows in all, every one paying.
+Each cell is *needed: gold*, the gold by the formula in section 4; a feat's needed count is of its own deed (section 5 B).
 
-| # | Kind | Third | Strength | I | II | III | IV | V | Gilded | All |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | Skeleton | 1 | 0.43 | 60: 310 | 40: 460 | 25: 610 | 15: 760 | 8: 910 | 3: 840 | 3,890 |
-| 2 | Spectre | 1 | - | - | - | - | - | - | - | - |
-| 3 | Bat | 1 | 0.00 | 60: 250 | 40: 400 | 25: 550 | 15: 700 | - | - | 1,900 |
-| 4 | Shambler | 1 | 1.00 | 60: 400 | 40: 550 | 25: 700 | 15: 850 | 8: 1,000 | 3: 930 | 4,430 |
-| 5 | Wall Skull | 1 | 0.14 | 60: 270 | 40: 420 | 25: 570 | 15: 720 | 8: 870 | - | 2,850 |
-| 6 | Shield-Bearer | 1 | 1.00 | 60: 400 | 40: 550 | 25: 700 | 15: 850 | 8: 1,000 | 3: 930 | 4,430 |
-| 7 | Spider | 1 | 0.29 | 60: 290 | 40: 440 | 25: 590 | 15: 740 | 8: 890 | - | 2,950 |
-| 8 | Drowned | 2 | 0.60 | 60: 680 | 40: 980 | 25: 1,280 | 15: 1,580 | 8: 1,880 | 3: 1,730 | 8,130 |
-| 9 | Bone Hound | 2 | 0.28 | 60: 580 | 40: 880 | 25: 1,180 | 15: 1,480 | 8: 1,780 | - | 5,900 |
-| 10 | Wraith | 2 | - | - | - | - | - | - | - | - |
-| 11 | Hunting Spider | 2 | 0.44 | 60: 630 | 40: 930 | 25: 1,230 | 15: 1,530 | 8: 1,830 | - | 6,150 |
-| 12 | Ghoul | 2 | 0.52 | 60: 660 | 40: 960 | 25: 1,260 | 15: 1,560 | 8: 1,860 | 3: 1,710 | 8,010 |
-| 13 | Skeleton Knight | 2 | 0.92 | 60: 780 | 40: 1,080 | 25: 1,380 | 15: 1,680 | 8: 1,980 | 3: 1,830 | 8,730 |
-| 14 | Brood Mother | 2 | 1.00 | 60: 800 | 40: 1,100 | 25: 1,400 | 15: 1,700 | 8: 2,000 | - | 7,000 |
-| 15 | Spiderling | 2 | 0.00 | 60: 500 | 40: 800 | 25: 1,100 | 15: 1,400 | 8: 1,700 | - | 5,500 |
-| 16 | Shade | 3 | 0.29 | 60: 880 | - | - | - | - | - | 880 |
-| 17 | Ember Imp | 3 | 0.00 | 60: 750 | 40: 1,200 | 25: 1,650 | 15: 2,100 | 8: 2,550 | - | 8,250 |
-| 18 | Deacon | 3 | 0.57 | 60: 1,010 | 40: 1,460 | 25: 1,910 | 15: 2,360 | 8: 2,810 | 3: 2,580 | 12,130 |
-| 19 | Gargoyle | 3 | 0.43 | 60: 940 | 40: 1,390 | 25: 1,840 | 15: 2,290 | 8: 2,740 | - | 9,200 |
-| 20 | Whipper-In | 3 | 0.71 | 60: 1,070 | 40: 1,520 | 25: 1,970 | 15: 2,420 | 8: 2,870 | 3: 2,640 | 12,490 |
-| 21 | Sexton | 3 | 0.29 | 60: 880 | 40: 1,330 | 25: 1,780 | 15: 2,230 | 8: 2,680 | 3: 2,460 | 11,360 |
-| 22 | Lightless | 3 | 1.00 | - | 60: 1,650 | 40: 2,100 | 25: 2,550 | 15: 3,000 | 3: 2,780 | 12,080 |
+| # | Kind | Third | Strength | I | II | III | IV | V | Gilded | Feat | All |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | Skeleton | 1 | 0.43 | 60: 130 | 40: 190 | 25: 250 | 15: 310 | 8: 370 | 3: 340 | 20: 250 | 1,840 |
+| 2 | Spectre | 1 | 0.00 | 5: 100 | 15: 160 | 40: 220 | - | - | - | - | 480 |
+| 3 | Bat | 1 | 0.00 | 60: 100 | 40: 160 | 25: 220 | 15: 280 | - | - | 20: 220 | 980 |
+| 4 | Shambler | 1 | 1.00 | 60: 160 | 40: 220 | 25: 280 | 15: 340 | 8: 400 | 3: 370 | 20: 280 | 2,050 |
+| 5 | Wall Skull | 1 | 0.14 | 60: 110 | 40: 170 | 25: 230 | 15: 290 | 8: 350 | - | 20: 230 | 1,380 |
+| 6 | Shield-Bearer | 1 | 1.00 | 60: 160 | 40: 220 | 25: 280 | 15: 340 | 8: 400 | 3: 370 | 20: 280 | 2,050 |
+| 7 | Spider | 1 | 0.29 | 60: 120 | 40: 180 | 25: 240 | 15: 300 | 8: 360 | - | 20: 240 | 1,440 |
+| 8 | Drowned | 2 | 0.60 | 60: 270 | 40: 390 | 25: 510 | 15: 630 | 8: 750 | 3: 690 | 10: 510 | 3,750 |
+| 9 | Bone Hound | 2 | 0.28 | 60: 230 | 40: 350 | 25: 470 | 15: 590 | 8: 710 | - | 10: 470 | 2,820 |
+| 10 | Wraith | 2 | 1.00 | 10: 320 | 40: 440 | 100: 560 | 1: 680 | - | - | - | 2,000 |
+| 11 | Hunting Spider | 2 | 0.44 | 60: 250 | 40: 370 | 25: 490 | 15: 610 | 8: 730 | - | 20: 490 | 2,940 |
+| 12 | Ghoul | 2 | 0.52 | 60: 260 | 40: 380 | 25: 500 | 15: 620 | 8: 740 | 3: 680 | 20: 500 | 3,680 |
+| 13 | Skeleton Knight | 2 | 0.92 | 60: 310 | 40: 430 | 25: 550 | 15: 670 | 8: 790 | 3: 730 | 10: 550 | 4,030 |
+| 14 | Brood Mother | 2 | 1.00 | 60: 320 | 40: 440 | 25: 560 | 15: 680 | 8: 800 | - | 5: 560 | 3,360 |
+| 15 | Spiderling | 2 | 0.00 | 60: 200 | 40: 320 | 25: 440 | 15: 560 | 8: 680 | - | 200: 440 | 2,640 |
+| 16 | Shade | 3 | 0.29 | 60: 350 | - | - | - | - | - | 10: 710 | 1,060 |
+| 17 | Ember Imp | 3 | 0.00 | 60: 300 | 40: 480 | 25: 660 | 15: 840 | 8: 1,020 | - | 25: 660 | 3,960 |
+| 18 | Deacon | 3 | 0.57 | 60: 400 | 40: 580 | 25: 760 | 15: 940 | 8: 1,120 | 3: 1,030 | 10: 760 | 5,590 |
+| 19 | Gargoyle | 3 | 0.43 | 60: 380 | 40: 560 | 25: 740 | 15: 920 | 8: 1,100 | - | 10: 740 | 4,440 |
+| 20 | Whipper-In | 3 | 0.71 | 60: 430 | 40: 610 | 25: 790 | 15: 970 | 8: 1,150 | 3: 1,060 | 5: 790 | 5,800 |
+| 21 | Sexton | 3 | 0.29 | 60: 350 | 40: 530 | 25: 710 | 15: 890 | 8: 1,070 | 3: 980 | 10: 710 | 5,240 |
+| 22 | Lightless | 3 | 1.00 | - | 60: 660 | 40: 840 | 25: 1,020 | 15: 1,200 | 3: 1,110 | 10: 840 | 5,670 |
 
-All of them, once a life: **136,260** gold (the first third 20,450, the second 49,420, the last 66,390).
+Once a life, all of it: **67,200** gold (the first third 10,220, the second 25,220, the last 31,760).
 
-**The other achievements that are kills**, today:
+**The bosses' portraits** (section 5 F, taken), each boss's achievements as its gems, every one paying:
 
-| Achievement | What | Now | For the portraits |
-|---|---|---|---|
-| *THE ILL-FATED KNIGHT*, *THE WANDERING SPIDER*, *THE BLACK DEACON*, *THE WRAITH UNBOUND* | each boss slain (`ACH_BOSS0 + 6b`) | achievements | a boss's own portrait (5 F); the sheet's second tab suggests 1,500, 2,500, 3,500 and 4,500 |
-| the same, *SLAIN AT STEP 1* to *5* | each challenge step at the Accursed Portal (`ACH_BOSS0 + 6b + step`) | achievements | the boss's portrait's gems, a fifth more gold a step |
-| *CUT OFF THE HEAD*, *SHEPHERD OF NONE*, *THE LEADERLESS DEAD* | a pack's leader slain first: 1, 10, 50 | achievements | none: they belong to no one kind |
-| *BEFORE THE CRY*, *A HOUSE OF SILENCE* | a caller slain before it calls: 1, 10 | achievements | none, or as the feats in 5 B |
+| Boss | Slain | Step 1 | Step 2 | Step 3 | Step 4 | Step 5 | All |
+|---|---|---|---|---|---|---|---|
+| The Ill-Fated Knight | 1,500 | 1,800 | 2,100 | 2,400 | 2,700 | 3,000 | 13,500 |
+| The Wandering Spider | 2,500 | 3,000 | 3,500 | 4,000 | 4,500 | 5,000 | 22,500 |
+| The Black Deacon | 3,500 | 4,200 | 4,900 | 5,600 | 6,300 | 7,000 | 31,500 |
+| The Wraith Unbound | 4,500 | 5,400 | 6,300 | 7,200 | 8,100 | 9,000 | 40,500 |
 
-The workbook (`docs/portraits/achievements.xlsx`) has all 104 slayer rows with the formula live: change a third's starting gold,
-the share each rank adds, whether strength counts, a kind's strength or the rounding on its first tab and every figure follows.
-`python3 tools/portrait_sheet.py` writes it again from the code (`--grid` prints the table above, `--md` the rows).
+*Slain* is the boss's achievement on the way down (`ACH_BOSS0 + 6b`); a step is its fall at that challenge step at the Accursed
+Portal (`ACH_BOSS0 + 6b + step`), a fifth more a step. Once a life, all of it: **108,000**. Everything together: **175,200**.
 
-## 4. The gold, and what it weighs
+**Not the portraits'**: *CUT OFF THE HEAD*, *SHEPHERD OF NONE* and *THE LEADERLESS DEAD* (a pack's leader slain first, 1, 10, 50)
+and *BEFORE THE CRY* and *A HOUSE OF SILENCE* (a caller slain before it calls, 1, 10) stay achievements and pay nothing.
 
-**The formula.** Gold = the third's start x (1 + 0.6 x (rank + strength)), to the nearest 10.
+**Doubled, to settle.** The Wraith's fourth gem is *THE WRAITH UNBOUND* slain, which is also the Wraith Unbound's own portrait's
+first gem: as the Sheet stands, that one fall pays 680 on the Wraith's portrait and 4,500 on the boss's, every life. Q14 asks.
 
-- *The third*: the bestiary's pages in the order met, in three. The spiderling goes with its mother, so 7, 8 and 7: Skeleton to
-  Spider (levels 1-6), Drowned to Spiderling (7-14), Shade to Lightless (16-32). Starts 250, 500 and 750.
-- *Rank*: I 0, II 1, III 2, IV 3, V 4; gilded 3.5, between IV and V as its frame is. A rank II is worth the same step whatever
-  kind it is (the Lightless, which starts at II, begins at step 1).
-- *Strength*: the kind's worth in experience (`KIND_XP`, the game's own measure) against the others in its third, from 0 for the
-  weakest to 1 for the strongest. So the weakest kind's rank I pays the start exactly and the strongest kind's rank V pays four
-  times it: 250 to 1,000, 500 to 2,000, 750 to 3,000, as asked. Each rank adds 60% of the start; strength adds up to 60% more.
-  With strength left out (the workbook's switch) every kind of a third pays alike and rank V only 3.4 times the start (2,550
-  in the last third); 0.75 a step would bring it back to four times.
+## 4. The gold, and what it weighs (settled)
+
+**The formula.** Gold = the third's start x (1 + 0.6 x (rank step + strength)), to the nearest 10. The owner set the starts.
+
+- *The third*: the bestiary's pages in the order met, in three, the spiderling with its mother: 7, 8 and 7, Skeleton to Spider
+  (levels 1-6), Drowned to Spiderling (7-14), Shade to Lightless (16-32). Starts **100, 200 and 300** (the plan had begun at 250,
+  500 and 750). So the weakest kind's rank I pays 100, 200 or 300 and the strongest's rank V four times that.
+- *Rank step*: I 0, II 1, III 2, IV 3, V 4; gilded 3.5, between IV and V as its frame is; a feat 2, as rank III. A rank II is
+  worth the same step whatever kind it is (the Lightless, which starts at II, begins at step 1).
+- *Strength*: the kind's worth in experience (`KIND_XP`) against the others in its third, from 0 for the weakest to 1 for the
+  strongest; the Spectre counts as 0 in the first third, the Wraith as 1 in the second.
+- *The bosses* are set by hand, not by the formula: 1,500, 2,500, 3,500 and 4,500 slain, and a fifth more for each challenge step.
 
 **What it weighs.** A level's haul is `gear_haul`: about 700 gold on level 2, 5,500 on 10, 19,600 on 20, 42,700 on 30 and 74,800
-on 40, and wares are priced against it. A death that costs leaves a person with nothing on level 1. The portraits then pay
-everything unlocked after the first level cleared: with the first third whole and half the second, about 45,000, a level-30
-haul in the hand on level 2; with everything, 136,260, nearly two of the Deep's. Her wares are limited to one to three a visit,
-but the Corpus Compendium sells back every piece worn before at 1.2 times its price, as many as you can pay for. So a person who
-dies deep will buy much of their kit back on level 2: that is the progression asked for, and it is large. If it proves too
-large, the levers, in the order I would reach for them: a portrait pays only its highest rank's gold each life, not every
-rank's; or one portrait's gold a visit; or the starts halved. Nothing in the dream's runs measures it, since the dream leaves the
-portraits alone; it can only be judged by playing.
+on 40, and wares are priced against it. A death that costs leaves a person with nothing; the portraits pay at once on waking and
+again after each level cleared, everything unlocked, once a life. With the first third whole and half the second, about 22,800:
+a level-20 haul in the hand before level 1. With every creature's row, 67,200, nine tenths of a level-40 haul; with the bosses'
+too, 175,200, more than two. The bosses' rows are three fifths of it, and their challenge steps most of those: a first descent's
+four falls pay 12,000. Her wares are limited to one to three a visit, but the Corpus Compendium sells back every piece worn
+before at 1.2 times its price, as many as can be paid for: a person who dies deep will buy much of their kit back at once. If
+that proves too much, the levers, in the order I would reach for them: a portrait pays only its highest rank's gold each life;
+or one portrait's gold a visit; or the bosses' steps lowered. The dream takes no gold, so nothing in its runs measures this;
+only playing does.
 
-**The shade** has one rank, so its whole portrait pays 880. Its one achievement asks 60, the most of any rank. Q9 asks whether
-it should count as its third's rank V instead (2,680).
+**The shade** has one rank: 350 for its 60 slain, half what its feat pays (710). Q9 asks whether its one rank should pay as its
+third's rank V (1,070).
 
 ## 5. Suggestions for more
 
-**A. The two that cannot be slain**, so that all twenty-two portraits can open. *The Spectre*, laid to rest: only Spirit
+**A. The two that cannot be slain** (*taken*), so that all twenty-two portraits can open. *The Spectre*, laid to rest: only Spirit
 Mastery's Spirit reaches it, and it is uncounted (`KF_UNCOUNTED`); count it apart, 5, 15 and 40 laid to rest, three gems, paid as
-a first-third kind of strength 0 (250, 400, 550). *The Wraith*, driven back: 10, 40 and 100 times (`wraith_back` already knows),
-and the Wraith Unbound's fall as a fourth gem; paid as a second-third kind of strength 1 (800 to 1,700). Its tapestry would come
+a first-third kind of strength 0 (100, 160, 220 at the settled starts). *The Wraith*, driven back: 10, 40 and 100 times
+(`wraith_back` already knows), and the Wraith Unbound's fall as a fourth gem; paid as a second-third kind of strength 1 (320 to 680). Its tapestry would come
 down the first time it is driven back.
 
-**B. A feat for each kind**: one deed particular to it, a gold medallion on a ribbon hung from the frame's foot when earned,
+**B. A feat for each kind** (*taken*): one deed particular to it, a gold medallion on a ribbon hung from the frame's foot when earned,
 paid once a life as its rank III is. Those marked * are counted already in some form.
 
 | Kind | Feat | Kind | Feat |
@@ -155,11 +162,11 @@ paid once a life as its rank III is. Those marked * are counted already in some 
 life) twice its rank V. **D. A wall whole.** Every portrait in a third showing rank I or better: a candle in her chandelier for
 each third, and a Cursed Coin each, once. **E. Born to an element.** 25 slain of the dead born to each element, six achievements
 over all kinds (`Mob.elem`): the cartouche's skull takes that element's colour in its eyes, one at a time. **F. The bosses' own
-portraits**, two faces wide, over the arches to the plot and the Lampstand's room: the existing boss achievements as their gems,
-the gold on the workbook's second tab. **G. The pockets.** 50 slain in the Backrooms, 50 in Severance: a portrait may then be hung
+portraits** (*taken*), two faces wide, on the grave plot's far wall either side of the Accursed Portal where they are challenged
+(section 7): the existing boss achievements as their gems, the gold in section 3. **G. The pockets.** 50 slain in the Backrooms, 50 in Severance: a portrait may then be hung
 with that pocket's look behind it, chosen at its card, for the joke of it.
 
-I would take A with the portraits, and B after them as a step of its own; the rest wait for the owner's word.
+The owner took A, B and F (10 November, in the Sheet); C, D, E and G are not taken up.
 
 ## 6. The art
 
@@ -216,6 +223,11 @@ What stands in front: the pedestals hide the north wall's lower half from the mi
 west's and the urn before one. Walking up to a portrait to read it is the way, and the card's A/D makes walking to each needless.
 Twenty-two candles brighten her room; their power can come down until it looks as it does now.
 
+**The bosses' four** hang in the grave plot, through the arch past the shrine, on its far wall (y 27, faces looking north) either
+side of the Accursed Portal at x 16: the knight at x 12-13 and the spider at 14-15, the Deacon at 17-18 and the Wraith Unbound at
+19-20, each two faces wide (256 by 128 at the settled 128 texels a face). The plot's stones stand in rows 22 and 24, so nothing
+stands before them. Their art is not drawn yet: a mock-up of one comes before they are built.
+
 ## 8. What it touches
 
 - **The record.** `Record.kills` and the slayer bits are there already, kept through death and with the page. New: for each
@@ -224,11 +236,20 @@ Twenty-two candles brighten her room; their power can come down until it looks a
   A ledger section of its own (`LG_PORTRAIT`, about 200 bytes), so no save version. An older page reads with each unlocked rank's
   run as the first run that rank is common in (I the kind's own, II the Catacombs, III the Mine, IV and V the Glass), its
   tapestries down where kills are counted, and every rank's gold waiting.
-- **A life.** `death_fall` (a death that costs) and `run_new` clear the gold taken and the level cleared; `rec_cleared` sets it.
+- **The new achievements.** 27 more bits (the Spectre's 3, the Wraith's 4, the feats' 20), after the ways' (`ACH_WAY0 + 11`
+  is bit 345 of `ACH_BITS` 512), shown in `ach_lines` and the bestiary. Each needs counting: spectres laid to rest (kept apart from
+  the kills, since they are `KF_UNCOUNTED`); the Wraith driven back (`wraith_back`); and each feat's deed, of which the bats shaken
+  off, the callers silenced, the ghouls slain feeding, the spiderlings and the imps slain by Frost are counted already in some form
+  and the rest are new (a skeleton slain before its first throw, a shield broken first, a spider still in its web, the buried
+  before they stand, a Drowned whose burst missed, a pair of hounds within five seconds, a hunter overhead, a knight in full
+  plate, a brood mother before a sac hatches, a shade fading, a deacon before any rises, a gargoyle within two seconds of waking,
+  a Lightless slain with the lantern shuttered). A feat hangs as a gold medallion under its frame.
+- **A life.** `death_fall` (a death that costs) and `run_new` clear the gold taken; every visit to her room pays what waits.
 - **The art.** `src/crawl_portrait.c` into the build; the runs' stone and floor kept at start; an overlay a portrait (22 x 64 x 64,
   or 128 x 128 each at 128: 360 KB), drawn again only while its face is in view, its creature's frame changing four times a second
   and its flames twenty; `render_walls` takes them as overlays (`fover`), or at 128 by their own branch.
-- **Her room.** `gen_shop` hangs them (the faces in section 7, layouts dealt so no neighbours match) and lights their candles.
+- **Her room and the plot.** `gen_shop` hangs them (the faces in section 7, layouts dealt so no neighbours match) and lights their
+  candles; the bosses' four in the plot, two faces each.
 - **The card.** `UI_PORTRAIT`: the prompt through `pk`, E and the pad's A, A/D, the gold through `RUN.treasure` with
   `SFX_COIN`, a caption (*THE PORTRAIT PAYS 440*).
 - **The Codex** could gain a part, *THE PORTRAITS*, with the rule written down; the bestiary's ranks could show their gold.
@@ -239,7 +260,7 @@ Twenty-two candles brighten her room; their power can come down until it looks a
 
 1. **The thirds.** *Settled: (a).* (a) The bestiary's order, the spiderling with its mother: 7, 8, 7 (as the sheet). (b) Straight thirds, 7, 7, 8,
    the spiderling in the last.
-2. **The formula.** *Being worked out in the Sheet.* (a) Start x (1 + 0.6 x (rank + strength)), strength by `KIND_XP`
+2. **The formula.** *Settled in the Sheet: (a), the starts 100, 200 and 300.* (a) Start x (1 + 0.6 x (rank + strength)), strength by `KIND_XP`
    within the third. (b) By rank alone, start x (1 + 0.75 x rank). (c) Yours: the Sheet takes any.
 3. **What a portrait pays.** *Settled: (a).* (a) Every rank unlocked, once a life each. (b) Only its highest rank's, once a life.
 4. **When.** *Settled: both, so (b).* (a) On a visit to her room after a level cleared in that life; not on waking after a
@@ -250,12 +271,16 @@ Twenty-two candles brighten her room; their power can come down until it looks a
 7. **Where.** (a) All twenty-two on her four walls, as section 7. (b) The last third in the back room with the Totem.
    (c) A long gallery of their own off her room.
 8. **The tapestry, drawn back.** (a) Gone. (b) Left gathered and tied at the side.
-9. **The shade's one rank.** (a) Pays as its third's rank V (2,680), since it is all there is. (b) As the formula (880).
-10. **The Spectre and the Wraith** (5 A). (a) Achievements of their own, so their portraits open. (b) Their portraits stay
+9. **The shade's one rank.** (a) Pays as its third's rank V (1,070), since it is all there is. (b) As the formula (350, as the Sheet
+   stands).
+10. **The Spectre and the Wraith** (5 A). *Settled: (a).* (a) Achievements of their own, so their portraits open. (b) Their portraits stay
     veiled; a joke in itself. (c) Twenty portraits, not twenty-two.
-11. **Feats** (5 B). (a) Yes, a step after the portraits. (b) Not now.
-12. **The bosses' portraits** (5 F). (a) Later, with the boss pages the bestiary still lacks. (b) With these.
+11. **Feats** (5 B). *Settled: yes, all twenty, paying.* (a) Yes, a step after the portraits. (b) Not now.
+12. **The bosses' portraits** (5 F). *Settled: with these, paying.* (a) Later, with the boss pages the bestiary still lacks.
+    (b) With these.
 13. **The card's A/D through every portrait.** (a) Yes. (b) Only E at each, walked to.
+14. **The Wraith Unbound's fall, twice** (section 3). (a) Only the boss's portrait pays for it: the Wraith's fourth gem lights
+    but pays nothing. (b) Both pay, as the Sheet stands. (c) The Wraith's fourth gem becomes another deed.
 
 ## 10. Steps, once it is settled
 
@@ -263,7 +288,8 @@ Twenty-two candles brighten her room; their power can come down until it looks a
 2. The art in the build: the overlays, `render_walls`, the runs' stone kept; frame time in her room (it is 1.8 ms in the crypt).
 3. Her room: the faces, the layouts dealt, the candles' light.
 4. The tapestry and the card, the gold, the prompt in the pad's words.
-5. What section 5 adds that the owner takes.
+5. The Spectre's and the Wraith's achievements and the feats (section 5 A and B), and the bosses' four portraits in the plot
+   (5 F), after a mock-up of one.
 6. The checks: the dream's runs line for line against 1.0.0b21.1 on the same seeds (it leaves the portraits, so nothing may move);
    ASan; a person's run in the harness taking gold at the right visits; the README's preview strip and the page's table.
 
@@ -281,3 +307,9 @@ Twenty-two candles brighten her room; their power can come down until it looks a
   the numbers out in: the Sheet named in the status, three tabs (Ranks, Formula, Bosses), with the suggested rows (the Spectre,
   the Wraith, a feat for each kind) in it unticked. They were already tuning it as it was built: the thirds' starts at 100, 200
   and 300, and every boss row ticked. Read the Sheet, not the workbook in the repo, before building anything from its numbers.
+- **10 November, later still.** The owner settled the Sheet (revision 60) and asked for it in the plan: the starts 100, 200 and 300,
+  the rest of the formula as it was, no gold typed over it, and every row paying, the suggested ones too (the Spectre, the Wraith,
+  the feats) and all of the bosses'. Sections 3, 4, 5, 7, 8, 9 and 10 now say so. `tools/portrait_sheet.py` reproduces the
+  Sheet (the starts, the suggested rows) and writes `docs/portraits/ranks.csv` and `bosses.csv`, checked against the Sheet's 131
+  golds and its totals; the workbook it wrote before is gone. Two things found in the numbers went to section 9: the Wraith
+  Unbound's fall pays twice (Q14), and the shade's one rank pays half its feat (Q9).
