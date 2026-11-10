@@ -703,6 +703,10 @@ static void level_name(int level, char *buf, int n) {
  * in the save with the run (version 2), so each save has its own. Its sizes are fixed so saves keep
  * their shape as the bestiary grows. */
 #define REC_KINDS 24
+#define POR_GEMS 8                          /* a portrait's gems (docs/PLAN-portraits.md): its ranks I to V and gilded (RK_*), its
+                                               feat (POR_FEAT), one spare */
+#define POR_FEAT 6
+enum { POR_CLEARED = 1, POR_WOKEN = 2 };   /* her room pays the portraits' gold this life: a level cleared in it, or woken into it */
 #define ACH_BITS 512                        /* 256 until version 6 */
 typedef struct {
     uint16_t kills[REC_KINDS][NRANK];
@@ -895,6 +899,13 @@ static struct {
     int rune_sel, mouse_rune;               /* the rune RB raises, and whether the right mouse is the rune's or the gift's (not saved) */
     int splint_used; float splint_t;        /* splinters thrown and not yet grown back, and the growing (1.0.0b16; not saved:
                                                a load starts with all eight) */
+    /* the portraits of the slain (docs/PLAN-portraits.md; LG_PORTRAIT): kept through death, the run each gem was unlocked in
+       (1 + its set, 0 not yet) and the tapestries drawn back (a bit a kind); for this life, each portrait's gems whose gold is
+       taken (a bit a gem), each boss's (a bit a deed), and whether her room pays yet (POR_CLEARED, POR_WOKEN) */
+    uint8_t por_run[REC_KINDS][POR_GEMS];
+    uint32_t por_drawn;
+    uint8_t por_taken[REC_KINDS], por_btaken[BOSS_REC];
+    int por_open;
 } RUN;
 static int lantern_held(void) { return RUN.corner >> CS_LANTERN & 1; }   /* the Lantern of the Dead (docs/PLAN-ai.md, 26) */
 static int lantern_lit(void) { return lantern_held() && !RUN.lantern_off; }
@@ -4600,15 +4611,16 @@ static const char *const SECRET_NAME[NSECRET_STEPS] = { "A HOLLOW KNOCK", "LISTE
 static const char *const ORDINAL[MAX_DESCENT + 1] = { "", "FIRST", "SECOND", "THIRD", "FOURTH", "FIFTH", "SIXTH", "SEVENTH", "EIGHTH", "NINTH",
     "TENTH", "ELEVENTH", "TWELFTH", "THIRTEENTH", "FOURTEENTH", "FIFTEENTH", "SIXTEENTH", "SEVENTEENTH", "EIGHTEENTH", "NINETEENTH", "TWENTIETH" };
 
-/* how many of a kind in a rank make an achievement: 60 of the lowest rank it comes in, fewer up the
- * ladder, 3 gilded; 0 if it never comes in that rank (or can't be killed) */
+/* how many of a kind in a rank make an achievement: 20 of the lowest rank it comes in, then 25, 20, 15 and 10, 5 gilded (the
+ * owner's, for the portraits: docs/PLAN-portraits.md, Q15; 60, 40, 25, 15, 8 and 3 before); 0 if it never comes in that rank
+ * (or can't be killed) */
 static int slayer_need(int kind, int rank) {
     const Kind *k = &KINDS[kind];
     if (k->flags & (KF_SPIRIT | KF_UNCOUNTED)) return 0;
-    if (k->family < 0) return rank == RK_I ? 60 : 0;               /* off the ladder: one rank, sixty */
-    if (rank == RK_GILDED) return k->gild ? 3 : 0;
+    static const int NEED[5] = { 20, 25, 20, 15, 10 };
+    if (k->family < 0) return rank == RK_I ? NEED[0] : 0;          /* off the ladder: one rank, the first's count */
+    if (rank == RK_GILDED) return k->gild ? 5 : 0;
     int low = crawl_set(k->debut) == 3 ? RK_II : RK_I;             /* the Deep has no rank I */
-    static const int NEED[5] = { 60, 40, 25, 15, 8 };
     return rank < low || rank > k->top ? 0 : NEED[rank - low];
 }
 static const char *rank_word(int kind, int rank) { return KINDS[kind].family == PF_CHITIN && rank == RK_V ? "PALE " : RANK_WORD[rank]; }
@@ -4676,7 +4688,10 @@ static void rec_kill(const Mob *m) {
     if (!need || ach_has(bit)) return;
     char title[32], desc[32];
     snprintf(title, sizeof title, "%s%s", rank_word(m->type, m->rank), KINDS[m->type].plural);
-    if (have >= need) { snprintf(desc, sizeof desc, "%d SLAIN", need); ach_earn(bit, KINDS[m->type].spr, KINDS[m->type].family, m->rank, title, desc); }
+    if (have >= need) {
+        snprintf(desc, sizeof desc, "%d SLAIN", need); ach_earn(bit, KINDS[m->type].spr, KINDS[m->type].family, m->rank, title, desc);
+        if (ach_has(bit)) RUN.por_run[m->type][m->rank] = (uint8_t)(1 + crawl_set(G.level));   /* its portrait shows this run's stone */
+    }
     else if (need >= 8 && have == need / 2) { snprintf(desc, sizeof desc, "%d OF %d SLAIN", have, need); toast(KINDS[m->type].spr, KINDS[m->type].family, m->rank, 1, title, desc); }
 }
 static void rec_seen(const Mob *m) {
@@ -4736,7 +4751,81 @@ static void rec_cleared(void) {
             ach_earn(ACH_DESCENT0 + k - 2, SP_CROWN, -1, 0, t, d);
         }
     }
+    RUN.por_open |= POR_CLEARED;                                   /* her room pays the portraits from now on, this life */
 }
+
+/* ---- the portraits of the slain (docs/PLAN-portraits.md): what the record keeps for them ---- */
+
+/* the run an unlocked rank is shown in when nobody saw where (an older page, or a count lowered): the first run that rank is
+ * common in, rank I the kind's own, II the Catacombs, III the Hollows, IV and V the Deep, gilded the kind's own */
+static int por_guess(int k, int gem) {
+    static const int RUN_OF[POR_GEMS] = { 0, 1, 2, 3, 3, 0, 0, 0 };
+    return imax(crawl_set(KINDS[k].debut), RUN_OF[gem]);
+}
+static void por_fill(void) {                                       /* every rank unlocked has a run to be shown in */
+    for (int k = 0; k < NKINDS; k++) for (int r = 0; r < NRANK; r++)
+        if (slayer_need(k, r) && ach_has(k * NRANK + r) && !RUN.por_run[k][r]) RUN.por_run[k][r] = (uint8_t)(1 + por_guess(k, r));
+}
+static int por_unlocked(int k) {                                   /* a portrait's ranks unlocked, a bit each (RK_*) */
+    int b = 0;
+    for (int r = 0; r < NRANK; r++) if (slayer_need(k, r) && ach_has(k * NRANK + r)) b |= 1 << r;
+    return b;
+}
+/* of those, the ones whose gold waits at her room (the card's, step 4) */
+__attribute__((unused)) static int por_waiting(int k) {
+    return RUN.por_open ? por_unlocked(k) & ~RUN.por_taken[k] : 0;
+}
+/* a boss's portrait: slain, then each challenge step, a bit each */
+__attribute__((unused)) static int boss_waiting(int b) {
+    int w = 0;
+    for (int s = 0; s < 6; s++) if (ach_has(ACH_BOSS0 + 6 * b + s)) w |= 1 << s;
+    return RUN.por_open ? w & ~RUN.por_btaken[b] : 0;
+}
+/* a count lowered (Q15) leaves a record already past it unearned till its next kill: as a run or page is read, whatever its
+ * counts reach now is earned at once, under one pop-up */
+static void slayer_sweep(void) {
+    if (CON.used) return;
+    int n = 0, k0 = 0, r0 = 0;
+    for (int k = 0; k < NKINDS; k++) for (int r = 0; r < NRANK; r++) {
+        int need = slayer_need(k, r), bit = k * NRANK + r;
+        if (!need || ach_has(bit) || RUN.rec.kills[k][r] < need) continue;
+        RUN.rec.got[bit >> 3] |= (uint8_t)(1 << (bit & 7));
+        if (!n++) { k0 = k; r0 = r; }
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT achievement %d %s%s: swept, %d slain of %d\n", bit, rank_word(k, r), KINDS[k].plural, RUN.rec.kills[k][r], need);
+#endif
+    }
+    if (!n) return;
+    por_fill();
+    char title[32], desc[32];
+    if (n == 1) { snprintf(title, sizeof title, "%s%s", rank_word(k0, r0), KINDS[k0].plural); snprintf(desc, sizeof desc, "%d SLAIN", slayer_need(k0, r0)); }
+    else { snprintf(title, sizeof title, "THE DEAD RECKONED AGAIN"); snprintf(desc, sizeof desc, "%d ACHIEVEMENTS", n); }
+    toast(KINDS[k0].spr, KINDS[k0].family, r0, 0, title, desc);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT reckoned %d\n", n);
+#endif
+}
+/* a death that costs begins a life: every portrait's gold is owed again, and her room pays it as you wake */
+static void por_life(void) {
+    memset(RUN.por_taken, 0, sizeof RUN.por_taken); memset(RUN.por_btaken, 0, sizeof RUN.por_btaken);
+    RUN.por_open = POR_WOKEN;
+}
+#ifdef CRAWL_DEBUG
+static void por_trace(const char *why) {                           /* PORTRAITS: the state, as it stands */
+    int drawn = 0, unl = 0, wait = 0, bw = 0;
+    for (int k = 0; k < NKINDS; k++) {
+        drawn += RUN.por_drawn >> k & 1;
+        for (int r = 0; r < NRANK; r++) { unl += por_unlocked(k) >> r & 1; wait += por_waiting(k) >> r & 1; }
+    }
+    for (int b = 0; b < NBOSS; b++) for (int s = 0; s < 6; s++) bw += boss_waiting(b) >> s & 1;
+    fprintf(stderr, "PORTRAITS %s: open %d drawn %d unlocked %d waiting %d bosses' waiting %d runs", why, RUN.por_open, drawn, unl, wait, bw);
+    for (int k = 0; k < NKINDS; k++) if (por_unlocked(k)) {
+        fprintf(stderr, " %d:", k);
+        for (int r = 0; r < NRANK; r++) if (por_unlocked(k) >> r & 1) fprintf(stderr, "%c%d", "12345G"[r], RUN.por_run[k][r] - 1);
+    }
+    fprintf(stderr, "\n");
+}
+#endif
 
 static Item *add_item(int x, int y, int type);
 static void add_pool(float x, float y);
@@ -21091,6 +21180,9 @@ static void begin_shop(void) {
     G.camz = 0.5f; G.hand = 0.0f; G.spd = 0.0f; G.bob = 0.0f; G.bar = 1.0f;
     old_spells_said();                                             /* a page from before the Alignment */
     old_lines_said();                                              /* or before the Confessions */
+#ifdef CRAWL_DEBUG
+    por_trace("her room");
+#endif
     if (!RUN.cls && !LEDGER.yours && !LEDGER.kept) class_take(1 + class_random());   /* the dream: what it was, at random, so every line shows in time */
     line_lend();
     gift_settle();                                                 /* the Lampstand's gift: the dream's at once */
@@ -23862,7 +23954,13 @@ static void shrine_unpack(const uint8_t *p) {                      /* anything o
 enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX, LG_CASTER, LG_ELEM, LG_ALIGN, LG_HALL2, LG_DEEDS, LG_WAYS,
        LG_CONF,                                                    /* 1.0.0b20: the Confessions' points and overlevels, a byte each, and
                                                                       the old overlevels whose Alignment Points were given */
-       LG_AUG };                                                   /* 1.0.0b21: each line's augments, AUG_LINE_BYTES a line */
+       LG_AUG,                                                     /* 1.0.0b21: each line's augments, AUG_LINE_BYTES a line */
+       LG_PORTRAIT };                                              /* the portraits of the slain (docs/PLAN-portraits.md), below */
+/* LG_PORTRAIT: a byte of how her room pays this life (POR_*), u32 the tapestries drawn back, then for each kind the run each gem
+ * was unlocked in (1 + its set, a byte each), each kind's gems taken this life (a byte, a bit a gem), each boss's (a byte, a bit a
+ * deed). A page without one is older: each rank it unlocked is shown in the first run that rank is common in, its tapestries are
+ * down where its kills are counted, and all its gold waits. */
+#define LG_PORTRAIT_BYTES (1 + 4 + REC_KINDS * POR_GEMS + REC_KINDS + BOSS_REC)
 #define AUG_LINE_BYTES (NAUGT * 4 + 2)      /* a line's augments: three choices, their order, their credits (u16), its bank (u16) */
 #define LG_WAYS_BYTES 20                    /* 1.0.0b18: the dead's ways met and named this run of ten (u32 each), that run (u16), the five
                                                deeds against them (u16 each) */
@@ -23877,8 +23975,11 @@ enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
 #define STONE_BYTES (8 + 2 + 3 + 4 + 4 + 2 + NATK + NDEF + NSLOT * PIECE_BYTES + 2 + BAG_MAX * PIECE_BYTES)
 #define COMP_BYTES ((NIK - 1) * NQUAL * (1 + COMP_MAX * PIECE_BYTES) + NATK)   /* at the most */
 #define REPO_BYTES (1 + 4 + 2 + REPO_MAX * PIECE_BYTES)
-#define PAGE_BYTES (save_end(6) + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 3 + COMP_BYTES + 3 + REPO_BYTES \
-                    + 3 + 24 + 3 + LG_CASTER_BYTES + 3 + REC_ELEM_BYTES + 3 + LG_ALIGN_BYTES + 3 + LG_HALL2_BYTES + 3 + LG_DEEDS_BYTES + 3 + LG_WAYS_BYTES + 1)   /* the most a page takes so far */
+#define SAVE_END6 (SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA + SAVE_V5_SHRINE + SAVE_V6_EXT)   /* save_end(6) */
+#define PAGE_BYTES (SAVE_END6 + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 3 + COMP_BYTES + 3 + REPO_BYTES \
+                    + 3 + 24 + 3 + LG_CASTER_BYTES + 3 + REC_ELEM_BYTES + 3 + LG_ALIGN_BYTES + 3 + LG_HALL2_BYTES + 3 + LG_DEEDS_BYTES + 3 + LG_WAYS_BYTES \
+                    + 3 + 2 * NCONF + 1 + 3 + NELEM * AUG_LINE_BYTES + 3 + LG_PORTRAIT_BYTES + 1)   /* the most a page takes so far */
+_Static_assert(PAGE_BYTES <= SLOT_MAX, "a page fits its slot");
 static void stone_pack(uint8_t *p, const Stone *st) {
     uint64_t w = (uint64_t)st->when;
     put32(p, (int32_t)(uint32_t)(w & 0xffffffffu)); put32(p + 4, (int32_t)(uint32_t)(w >> 32)); put16(p + 8, st->level);
@@ -24011,6 +24112,11 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     put32(c, (int32_t)RUN.ways); put32(c + 4, (int32_t)RUN.way_said); put16(c + 8, clampi(RUN.way_run, 0, 65535));
     put16(c + 10, RUN.deed_amb); put16(c + 12, RUN.deed_shaken); put16(c + 14, RUN.deed_heads); put16(c + 16, RUN.deed_hush); put16(c + 18, RUN.deed_file);
     p = section_end(c, c + LG_WAYS_BYTES);
+    c = section_begin(p, LG_PORTRAIT);                             /* the portraits of the slain */
+    c[0] = (uint8_t)RUN.por_open; put32(c + 1, (int32_t)RUN.por_drawn);
+    memcpy(c + 5, RUN.por_run, sizeof RUN.por_run); memcpy(c + 5 + sizeof RUN.por_run, RUN.por_taken, sizeof RUN.por_taken);
+    memcpy(c + 5 + sizeof RUN.por_run + sizeof RUN.por_taken, RUN.por_btaken, sizeof RUN.por_btaken);
+    p = section_end(c, c + LG_PORTRAIT_BYTES);
     c = section_begin(p, LG_ELEM);
     memcpy(c, RUN.rec.el_kills, sizeof RUN.rec.el_kills); memcpy(c + REC_KINDS * NELEM, RUN.rec.el_hits, sizeof RUN.rec.el_hits);
     memcpy(c + 2 * REC_KINDS * NELEM, RUN.rec.harms, sizeof RUN.rec.harms);
@@ -24200,6 +24306,22 @@ static void run_unpack(const uint8_t *buf, int len) {
         if (vs->held >= vs->ped_n || !RUN.gear.has_held) vs->held = -1;
         LEDGER.has_visit = ok;
     }
+    c = page_section(buf, len, LG_PORTRAIT, &k);                   /* the portraits of the slain */
+    if (c && k >= LG_PORTRAIT_BYTES) {
+        RUN.por_open = c[0] & (POR_CLEARED | POR_WOKEN); RUN.por_drawn = (uint32_t)get32(c + 1) & ((1u << NKINDS) - 1);
+        memcpy(RUN.por_run, c + 5, sizeof RUN.por_run); memcpy(RUN.por_taken, c + 5 + sizeof RUN.por_run, sizeof RUN.por_taken);
+        memcpy(RUN.por_btaken, c + 5 + sizeof RUN.por_run + sizeof RUN.por_taken, sizeof RUN.por_btaken);
+        for (int kd = 0; kd < REC_KINDS; kd++) for (int r = 0; r < POR_GEMS; r++) if (RUN.por_run[kd][r] > 4) RUN.por_run[kd][r] = 0;
+    } else {                                                       /* older: shown where its ranks are common, the tapestries down where it
+                                                                      has slain, every rank's gold waiting */
+        RUN.por_open = POR_WOKEN;
+        for (int kd = 0; kd < NKINDS; kd++) for (int r = 0; r < NRANK; r++) if (RUN.rec.kills[kd][r]) RUN.por_drawn |= 1u << kd;
+    }
+    por_fill();
+    slayer_sweep();                                                /* the counts lowered since it was written */
+#ifdef CRAWL_DEBUG
+    por_trace(c ? "read" : "read, older");
+#endif
 }
 
 /* the next start opens this page */
@@ -24652,6 +24774,7 @@ static void death_fall(void) {
     memset(RUN.steps, 0, sizeof RUN.steps); memset(RUN.over, 0, sizeof RUN.over);       /* the map stays */
     memset(RUN.conf, 0, sizeof RUN.conf); memset(RUN.conf_over, 0, sizeof RUN.conf_over); RUN.ap_overs = 0;   /* the Confessions with them (U13) */
     for (int e = 0; e < NELEM; e++) aug_forget(e);                 /* and the augments with the lines (A14) */
+    por_life();                                                    /* the portraits owe their gold again (docs/PLAN-portraits.md) */
     XPF.n = 0; XPF.banner = 0.0f;
     G.level_treasure = G.level_souls = 0;
     RUN.level = 1; RUN.shop_next = 1; RUN.hp = gear_max_hp(g);

@@ -298,16 +298,19 @@ away, as before, and the debug teleports (`CRAWL_TP*`) want it. `tools/uishots.s
 shaded under a hash of the piece (`SCC`), and the still earth, crypt and ground are drawn once (`layer_get`, `layer_put`).
 `tools/web_smoke.js` passes the title (a key, then BEGIN A NEW RUN) and judges its frame apart, under 40 ms.
 
-**The portraits of the slain** are planned in [`docs/PLAN-portraits.md`](docs/PLAN-portraits.md) (10 November, a draft on
-`claude/adoring-hopper-h9ivcg` from main at 1.0.0b21.1; nothing built): a portrait for each bestiary page on her walls, under a
+**The portraits of the slain** are planned in [`docs/PLAN-portraits.md`](docs/PLAN-portraits.md) (10 November, settled, being
+built on `claude/adoring-hopper-h9ivcg` from main at 1.0.0b21.1, at the owner's word; its section 11 is the hand-off log): a portrait for each bestiary page on her walls, under a
 tapestry till one is slain, then its shadow, then each rank unlocked by its slayer achievement walking in its colours on the stone
 of the run it was unlocked in; the frame's colour the highest rank, a candle beside each in one of seven layouts; each rank's gold
 paid once a life, at every visit to her room; the first two thirds in her room, the last in the back room; the tapestry left
 tied at the side once drawn back; and the bosses' four, two faces wide, by the Accursed Portal. The owner settled every
 question and the numbers (in a Sheet on claude.ai that its status links: starts of 100, 200 and 300, the Spectre's, the
 Wraith's and twenty feats added, the bosses' rows, every row paying but the Wraith's fourth gem, the shade at rank V, and the
-kills each rank asks lowered to 20, 25, 20, 15, 10 and 5 gilded, which `slayer_need` takes when it is built: its section 8). The art for the mock-ups is
-`src/crawl_portrait.c` (not in the game's build), driven by `tools/portraitmock.c` (`make build/portraitmock`); the settled
+kills each rank asks lowered to 20, 25, 20, 15, 10 and 5 gilded, for the game's own achievements too). **Step 1 is built**
+(harness only): the record's part, `RUN.por_*` saved as `LG_PORTRAIT` (`por_fill`, `por_guess` for an older page), a life
+(`por_life` from `death_fall`, `POR_CLEARED` from `rec_cleared`), the counts lowered in `slayer_need` and `slayer_sweep` for a
+record already past them; debug `PORTRAITS` lines as a run is read and at each visit to her room. The art for the mock-ups is
+`src/crawl_portrait.c` (not in the game's build yet), driven by `tools/portraitmock.c` (`make build/portraitmock`); the settled
 numbers are `docs/portraits/ranks.csv` and `bosses.csv`, written by `tools/portrait_sheet.py` from `KINDS`.
 
 ## Working with the owner
@@ -490,9 +493,12 @@ by spell empty, and an older record's go into their elements, a spell learnt sta
 `LG_CASTER_BYTES`: a byte of flags (1 the map, 2 the lantern shuttered), u16 the Level of Atonement, u32 the experience since the last
 death, u16 points unspent, a u16 of steps bought in each of the lines (twelve, thirteen from 1.0.0b11 with Resist
 Spirit's; a reader counts them from the length), a byte of overlevels in each, a byte of cornerstones, a byte for Second Wind spent, u16 the run it last came back on; an older page reads as
-Level of Atonement 1 with no map): about
-1,800 bytes with a little in the Compendium and the Repository and no stones, under 15.5 KB at the most
-(`PAGE_BYTES`). A
+Level of Atonement 1 with no map), and `LG_PORTRAIT` (the portraits of the slain, docs/PLAN-portraits.md, `LG_PORTRAIT_BYTES`
+229: a byte of how her room pays this life, `POR_*`, u32 the tapestries drawn back, the run each kind's gem was unlocked in, a
+byte each, eight a kind, then each kind's gems taken this life and each boss's, a byte each; an older page reads with its ranks
+shown where they are common, tapestries down where it has slain and all its gold waiting): about
+2,000 bytes with a little in the Compendium and the Repository and no stones, 16,153 at the most
+(`PAGE_BYTES`, checked against `SLOT_MAX` as it compiles). A
 reader steps over sections it doesn't know, so the hall's parts can come as sections of their own. The
 progress (`SLOT_PROGRESS`) is either a whole run (unsigned: 1.0.0b6's, or a fresh one's) or `"HVP1"`, the
 page to open (a byte, 1-3), the run's id and signatures. Version 5 is the same without version 6's part; its
@@ -726,7 +732,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
 - **The record and achievements** (`Record` in `RUN.rec`, saved with the run, so each save and grave
   has its own). `rec_kill`, `rec_seen`, `rec_secret` and `rec_cleared` keep it, the autopilot's
   doings included. Achievements are bits (`ach_bit` layout: kind x rank, then secrets, levels,
-  descents): 60 kills of a kind's lowest rank, then 40, 25, 15, 8; gilded 3 (`slayer_need`);
+  descents): 20 kills of a kind's lowest rank, then 25, 20, 15, 10; gilded 5 (`slayer_need`; 60, 40, 25, 15, 8 and 3 till
+  the portraits' step 1, docs/PLAN-portraits.md; `slayer_sweep` earns what a record read already reaches);
   secrets 1-50; each of levels 1-40 (`ach_level`: 21-40 from bit 256); each descent after the first
   (level 80, 120 ...). `toast` queues the
   pop-up at the upper right (`render_toasts`), with a progress note halfway.

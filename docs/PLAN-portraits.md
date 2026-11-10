@@ -1,7 +1,7 @@
 # The portraits of the slain
 
-*Status: a draft (10 November 2026), at the owner's request, on `claude/adoring-hopper-h9ivcg` from main at 1.0.0b21.1. Nothing is in
-the game. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (not in the
+*Status: settled (10 November 2026), at the owner's request, and being built on `claude/adoring-hopper-h9ivcg` from main at
+1.0.0b21.1: step 1 (the record) is built, harness only; nothing of it shows yet. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (not in the
 game's build yet) and `tools/portraitmock.c` (`make build/portraitmock`, then `build/portraitmock <dir>`). The owner answered every
 question in section 9 the same day (marked there, Q15 last, which came of their own edit) and settled the numbers in a Sheet on
 claude.ai, [Portraits of the Slain: Gold](https://claude.ai/artifact/2P9JkVQMBEdhAoa6zwB1N6), brought into sections 3 and 4 as it
@@ -306,7 +306,8 @@ stands before them. Their art is not drawn yet: a mock-up of one comes before th
 
 ## 10. Steps, once it is settled
 
-1. The record's new section, a life, older pages read, and the counts lowered with their sweep (section 8) (harness: pages from 1.0.0b21.1 opened, a death, a new run).
+1. The record's new section, a life, older pages read, and the counts lowered with their sweep (section 8). *Built (harness
+   only), 10 November.* (harness: pages from 1.0.0b21.1 opened, a death, a new run).
 2. The art in the build: the overlays, `render_walls`, the runs' stone kept; frame time in her room (it is 1.8 ms in the crypt).
 3. Her room: the faces, the layouts dealt, the candles' light.
 4. The tapestry and the card, the gold, the prompt in the pad's words.
@@ -348,3 +349,21 @@ stands before them. Their art is not drawn yet: a mock-up of one comes before th
   settled notes says so; the feats, the Spectre's and the Wraith's keep their own counts. No gold moved: 67,240 and 108,000.
   `tools/portrait_sheet.py` (`NEED`, `GILD`) and `ranks.csv` match it. Section 8 has what the build changes in `slayer_need`, and
   the sweep a record already past a new count wants. Every question is now answered; nothing is built.
+- **10 November, step 1 built** (harness only), at the owner's word. `slayer_need` asks 20, 25, 20, 15, 10 and 5 gilded (the shade's
+  one rank 20). `RUN.por_run[kind][gem]` (1 + the run's set, `POR_GEMS` 8 a kind: the six ranks, `POR_FEAT`, a spare), `por_drawn`
+  (a bit a kind), `por_taken` and `por_btaken` (this life's, a bit a gem or a boss's deed) and `por_open` (`POR_CLEARED` from
+  `rec_cleared`, `POR_WOKEN` from `por_life`, which `death_fall` calls for a death that costs), saved as `LG_PORTRAIT`
+  (`LG_PORTRAIT_BYTES` 229; `PAGE_BYTES` now counts the Confessions' and the augments' sections too, 16,153 at the most, and is
+  checked against `SLOT_MAX` as it compiles). `rec_kill` sets a rank's run as it is earned; an older page's ranks take `por_guess`
+  (`por_fill`), its tapestries are down where it has slain, and it pays as if woken. `slayer_sweep`, at the end of `run_unpack`,
+  earns what a record read already reaches, under one pop-up (*THE DEAD RECKONED AGAIN*, or the one achievement's own).
+  `por_waiting` and `boss_waiting` are the card's, for step 4. Debug: `PORTRAITS read|read, older|her room: ...` (how it pays, the
+  tapestries, the ranks unlocked and waiting, each kind's ranks and their runs), `EVENT achievement n ...: swept`, `EVENT reckoned n`.
+  Tested: a page written by 1.0.0b21.1 (seed 3, a person taking over at 1,500 s and struck down on level 4: 38 rank I skeletons, no
+  slayer achievement) read here earns *SKELETONS* on reading, on the Crypts, five tapestries down, open as woken; the dream clearing
+  a level makes it 3; a person's death in this build makes it 2 again and writes a page of 3,056 bytes that this build reads back
+  as it was and 1.0.0b21.1 reads without complaint; a fresh run is 0 till its first level is cleared; a run from level 11 earned the
+  Drowned's and the skeletons' rank I on levels 15 and 18, both shown on run II's stone. The dream from level 1 for 2,400 s (seed 5,
+  `CRAWL_RUNID=4242` for both) is line for line 1.0.0b21.1's: nothing in play reads the slayer bits. ASan clean on two sessions (the
+  old page read, a death and its page written; the new page read and played 700 s). `README.md` and the page still give the old
+  counts: they describe the released build, so they change with the release. Next: step 2, the art in the build.
