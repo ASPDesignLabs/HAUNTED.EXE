@@ -458,18 +458,20 @@ static void sheet_medals(const char *dir) {
 /* ---- the bosses' portraits (step 5, a mock-up of the knight's for the owner): two faces wide on the grave plot's far wall, the
  * Accursed Portal between them ---- */
 static BossPortraitView bv_of(int boss, unsigned un, unsigned wait, float veil, float t) {
-    static const char *const NAME[4] = { "THE ILL-FATED KNIGHT", "THE WANDERING SPIDER", "THE BLACK DEACON", "THE WRAITH UNBOUND" };
+    static const int SPR[4][5] = {                                  /* walking, raising its blow, striking, a pose of its own */
+        { SP_BKNIGHT_A, SP_BKNIGHT_B, SP_BKNIGHT_W, SP_BKNIGHT_S, SP_BKNIGHT_P0 },
+        { SP_BSPIDER_A, SP_BSPIDER_B, SP_BSPIDER_REAR, SP_BSPIDER_LEAP, SP_BSPIDER_REAR },
+        { SP_BDEACON_A, SP_BDEACON_B, SP_BDEACON_CHANT, SP_BDEACON_CHANT, SP_BDEACON_A },
+        { SP_WRAITH_A, SP_WRAITH_B, SP_WRAITH_REACH, SP_WRAITH_REACH, SP_WRAITH_A } };
+    static const int PROP[4][2] = { { SP_PILLAR, SP_BROKEN_ARMS }, { SP_PILLAR, SP_PUDDLE_A }, { SP_TIMBER, SP_TOMB_BROKEN }, { SP_BRAZIER_A, SP_OBSIDIAN } };
+    static const int EYE[4] = { 5, 3, 6, 1 };                      /* the knight's crimson, the spider's ember, the deacon's pale, the Wraith's cold */
     BossPortraitView v;
     memset(&v, 0, sizeof v);
-    for (int i = 0; i < 5; i++) v.spr[i] = -1;
-    v.prop[0] = v.prop[1] = -1;
-    if (boss == 0) {                                                /* only the knight's is drawn: the rest wait veiled */
-        static const int SPR[5] = { SP_BKNIGHT_A, SP_BKNIGHT_B, SP_BKNIGHT_W, SP_BKNIGHT_S, SP_BKNIGHT_P0 };
-        memcpy(v.spr, SPR, sizeof SPR); v.prop[0] = SP_PILLAR; v.prop[1] = SP_BROKEN_ARMS;
-        v.eye_core = OWN_CORE[5]; v.eye_glow = OWN_GLOW[5];
-    }
+    boss &= 3;
+    memcpy(v.spr, SPR[boss], sizeof v.spr); v.prop[0] = PROP[boss][0]; v.prop[1] = PROP[boss][1]; v.prop_n = boss == 3 ? 3 : 1;
+    v.eye_core = OWN_CORE[EYE[boss]]; v.eye_glow = OWN_GLOW[EYE[boss]];
     v.wall = portrait_run_wall(boss); v.floor = portrait_run_floor(boss);
-    v.unlocked = (int)un; v.unpaid = (int)wait; v.veil = veil; v.t = t; v.scale = 1.25f; v.name = NAME[boss & 3];
+    v.unlocked = (int)un; v.unpaid = (int)wait; v.veil = veil; v.t = t; v.scale = 1.25f;
     return v;
 }
 static void face_boss(int wx, BossPortraitView bv) {              /* drawn whole, then halved onto its two faces; its candles' light */
@@ -484,43 +486,49 @@ static void face_boss(int wx, BossPortraitView bv) {              /* drawn whole
     for (int k = 0; k < 2 && NXL < 16; k++)                         /* a stand of three either side */
         XL[NXL++] = (Lamp){ (float)wx + (k ? 121.0f : 7.0f) / TS, 0.15f, 1.0f - 25.0f / TS, 0.5f, 2.6f, 1.0f };
 }
-static void plot_wall(float t, unsigned kn, unsigned kw, float kveil) {   /* the far wall: the knight's and the spider's, the Portal,
-                                                                      the Deacon's and the Wraith's */
+static void plot_wall(float t, const unsigned un[4], const unsigned wt[4], const float veil[4]) {   /* the far wall: the knight's and the
+                                                                      spider's, the Portal, the Deacon's and the Wraith's */
+    static const int WX[4] = { 12, 14, 17, 19 };
     faces_begin(10, 12);
     FACES[16 - FX0].kind = FC_PORTAL;
     XL[NXL++] = (Lamp){ 16.5f, 0.3f, 0.45f, 0.9f, 3.2f, 0.0f };     /* its swirl's glow */
-    face_boss(12, bv_of(0, kn, kw, kveil, t));
-    face_boss(14, bv_of(1, 0, 0, 1.0f, t)); face_boss(17, bv_of(2, 0, 0, 1.0f, t)); face_boss(19, bv_of(3, 0, 0, 1.0f, t));
+    for (int b = 0; b < 4; b++) face_boss(WX[b], bv_of(b, un[b], wt[b], veil[b], t + 0.9f * (float)b));
 }
 static void knight_at(float t) {                                   /* the tapestries parting, then the knight in its lists */
     float k = 1.0f - smooth(1.4f, 2.7f, t);
-    plot_wall(t - 2.7f, 0x07u, 0x04u, k);
+    static const unsigned UN[4] = { 0x07u, 0, 0, 0 }, WT[4] = { 0x04u, 0, 0, 0 };
+    float V[4] = { k, 1.0f, 1.0f, 1.0f };
+    plot_wall(t - 2.7f, UN, WT, V);
     view_wall(1.9f, 13.0f, t);
 }
 static void sheet_bosses(const char *dir) {
     sw = 24 + 2 * (640 + 24); sh_ = 72 + 3 * (400 + 64);
     free(sheet); sheet = calloc((size_t)sw * sh_, 3);
     for (size_t i = 0; i < (size_t)sw * sh_ * 3; i++) sheet[i] = 18;
-    sheet_label(24, 20, "THE BOSSES' FOUR, BY THE PORTAL: THE KNIGHT'S", 3, 235);
-    static const unsigned UN[4] = { 0x00u, 0x01u, 0x0Fu, 0x3Fu }, WT[4] = { 0x00u, 0x01u, 0x08u, 0x00u };
-    static const char *const L1[4] = { "NOT YET SLAIN", "SLAIN: BONE", "THREE STEPS: RED", "ALL FIVE STEPS: BLACK" };
-    static const char *const L2[4] = { "TWO TAPESTRIES OVER IT", "ITS GOLD WAITING", "STEP 3'S GOLD WAITING", "SLAIN, AND EVERY STEP" };
+    sheet_label(24, 20, "THE BOSSES' FOUR, BY THE PORTAL", 3, 235);
+    static const unsigned UN[4] = { 0x3Fu, 0x01u, 0x0Fu, 0x07u }, WT[4] = { 0x00u, 0x01u, 0x08u, 0x04u };
+    static const float CX4[4] = { 13.0f, 15.0f, 18.0f, 20.0f };
+    static const char *const L1[4] = { "THE ILL-FATED KNIGHT", "THE WANDERING SPIDER", "THE BLACK DEACON", "THE WRAITH UNBOUND" };
+    static const char *const L2[4] = { "EVERY STEP: BLACK", "SLAIN: BONE, ITS GOLD WAITING", "THREE STEPS: RED, THE THIRD'S WAITING", "TWO STEPS: BLUE" };
+    float V[4] = { 0, 0, 0, 0 };
     for (int i = 0; i < 4; i++) {
         int x = 24 + (i & 1) * (640 + 24), y = 72 + (i >> 1) * (400 + 64);
-        plot_wall(1.3f + 0.4f * (float)i, UN[i], WT[i], i ? 0.0f : 1.0f);
-        view_wall(2.1f, 13.0f, 1.3f + 0.4f * (float)i);
+        plot_wall(1.3f + 0.4f * (float)i, UN, WT, V);
+        view_wall(2.1f, CX4[i], 1.3f + 0.4f * (float)i);
         sheet_put(x, y + 40, 0, 0, W, H, 2);
         sheet_label(x, y, L1[i], 2, 220); sheet_label(x, y + 20, L2[i], 2, 150);
     }
     int y = 72 + 2 * (400 + 64);
-    plot_wall(2.0f, 0x07u, 0x04u, 0.0f);
+    plot_wall(2.0f, UN, WT, V);
     view_wall(6.2f, 16.0f, 2.0f);
     sheet_put(24, y + 40, 0, 0, W, H, 2);
-    sheet_label(24, y, "THE PLOT'S FAR WALL, FROM ACROSS IT", 2, 220); sheet_label(24, y + 20, "THE KNIGHT'S DRAWN BACK, THE REST VEILED", 2, 150);
-    plot_wall(2.0f, 0x07u, 0x04u, 0.0f);
-    view_wall(3.4f, 14.0f, 2.0f);
+    sheet_label(24, y, "THE PLOT'S FAR WALL, FROM ACROSS IT", 2, 220); sheet_label(24, y + 20, "ALL FOUR DRAWN BACK", 2, 150);
+    static const unsigned U0[4] = { 0x01u, 0, 0, 0 }, W0[4] = { 0, 0, 0, 0 };
+    float V0[4] = { 0.0f, 1.0f, 1.0f, 1.0f };
+    plot_wall(2.0f, U0, W0, V0);
+    view_wall(3.4f, 15.0f, 2.0f);
     sheet_put(24 + 640 + 24, y + 40, 0, 0, W, H, 2);
-    sheet_label(24 + 640 + 24, y, "FROM THE STONES' FIRST ROW", 2, 220); sheet_label(24 + 640 + 24, y + 20, "THE KNIGHT'S AND THE SPIDER'S", 2, 150);
+    sheet_label(24 + 640 + 24, y, "THE KNIGHT SLAIN, THE REST NOT YET", 2, 220); sheet_label(24 + 640 + 24, y + 20, "THEIR TAPESTRIES DRAWN", 2, 150);
     sheet_end(dir, "bosses");
 }
 /* the card that E opens before it: the portrait up close in its niche, and its ranks with what each has cost and pays */

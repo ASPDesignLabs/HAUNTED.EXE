@@ -28,20 +28,22 @@ typedef struct {
     float walk0;                /* when its walk began (the bestiary's turn about starts here) */
 } PortraitView;
 
-/* a boss's portrait (step 5; a mock-up first, for the owner): two faces wide, 128 by 64 texels, on the grave plot's far wall by the
- * Accursed Portal. Its gems are its achievements: slain, then each challenge step; the frame takes the highest's colour, bone for
+/* a boss's portrait (step 5): two faces wide, 128 by 64 texels, on the grave plot's far wall by the Accursed Portal. Its gems
+ * are its achievements: slain, then each challenge step; the frame takes the highest's colour, bone for
  * slain, then green, blue, red, gold and black for the steps, as a kind's frame takes its ranks' */
 typedef struct {
     int spr[5];                 /* walking (two), raising its blow, striking, and a pose of its own */
     int prop[2];                /* its arena behind it: what stands (a pillar), and what lies (on the floor) */
+    int prop_n;                 /* what stands, its frames after prop[0] (a brazier's three burning); 0 or 1 still */
     const uint8_t *wall, *floor;   /* its run's stone and floor, 64 x 64 column-major */
     int eye_core, eye_glow;     /* its eyes (palette indices); 0 none */
     int unlocked, unpaid;       /* bits: slain, then challenge steps 1 to 5; of those, the ones whose gold waits */
     float veil;                 /* its tapestries: 1 drawn over it, 0 parted and tied at either side */
     float t, scale;             /* the clock; its size in the picture, 1 its own */
-    const char *name;           /* on the brass plate under it */
 } BossPortraitView;
 void portrait_boss_face(uint8_t *pix, int stride, int w, int h, int ox, int oy, int s, const BossPortraitView *v);
+/* its stands' six flames at rest, as portrait_flames gives a kind's, in texels of the two faces (128 by 64); how many */
+int portrait_boss_flames(float out[6][3]);
 
 /* the overlay into pix (a byte a pixel, rows of stride), its top left at ox, oy */
 void portrait_face(uint8_t *pix, int stride, int w, int h, int ox, int oy, int s, const PortraitView *v);

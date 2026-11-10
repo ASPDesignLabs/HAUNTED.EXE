@@ -138,9 +138,9 @@ static const int FRAME_AT[NPLAYOUT][4] = {             /* x0, y0, x1, y1: forty-
 void portrait_frame_rect(int layout, int r[4]) { memcpy(r, FRAME_AT[clampi_(layout, 0, NPLAYOUT - 1)], sizeof FRAME_AT[0]); }
 #define MOULD 5                                         /* the frame's width, in texels */
 
-static Flame g_fl[4];
+static Flame g_fl[8];
 static int g_nfl;
-static void keep_flame(Flame f) { if (g_nfl < 4) g_fl[g_nfl++] = f; }
+static void keep_flame(Flame f) { if (g_nfl < 8) g_fl[g_nfl++] = f; }
 
 /* an iron sconce on the wall: a backplate, its finial, the arm out to a drip pan, a candle in it */
 static void sconce(float x, float y, float h, int k) {
@@ -557,33 +557,9 @@ void portrait_face(uint8_t *pix, int stride, int w, int h, int ox, int oy, int s
     if (v->veil >= 0.0f) tapestry(r, portrait_drape_side(v->layout), v->veil);   /* below 0: none at all */
     layout_lights(v->layout, 0);
 }
-/* ---- a boss's portrait (step 5, the mock-up): two faces wide; a candle stand either side of a broad frame, the boss in its arena,
- * a brass plate with its name under it; two tapestries over it till it falls, parted to either side once drawn back ---- */
-static const uint32_t FONT35[29] = {                    /* A to Z, then - ' and a space: three by five, a row a nibble, top first */
-    0x25F55, 0x65656, 0x34443, 0x6D556, 0x74647, 0x74644, 0x3455B, 0x55755, 0x72227, 0x11152, 0x55655, 0x44447, 0x57755,
-    0x65555, 0x25552, 0x65644, 0x25563, 0x65655, 0x34216, 0x72222, 0x55557, 0x55552, 0x55775, 0x55255, 0x55222, 0x71247,
-    0x00700, 0x22000, 0x00000 };
-static int glyph35(char c) { return c >= 'A' && c <= 'Z' ? c - 'A' : c == '-' ? 26 : c == '\'' ? 27 : 28; }
-static void boss_plate(float cx, float y0, const char *name) {
-    int n = (int)strlen(name);
-    float tw = (float)(n * 4 - 1) * 0.5f, w = tw + 4.0f, x0 = cx - w * 0.5f, h = 4.6f;   /* a font pixel is half a texel */
-    for (int y = lo_px(y0); y < hi_px(y0 + h); y++)
-        for (int x = lo_px(x0); x < hi_px(x0 + w); x++) {
-            float u = (TX(x) - x0) / w, v = (TX(y) - y0) / h, e = fminf(fminf(u * w, (1.0f - u) * w), fminf(v * h, (1.0f - v) * h));
-            float val = e < 0.5f ? (u < 0.5f && v < 0.5f ? 0.85f : 0.25f) : 0.62f + 0.12f * (1.0f - v) + 0.04f * (h01(x, y, 131) - 0.5f);
-            pp(x, y, sh(R_GOLD, val));
-        }
-    for (int k = 0; k < 2; k++) ellipse(k ? x0 + w - 1.1f : x0 + 1.1f, y0 + h * 0.5f, 0.45f, 0.45f, R_GOLD, 0.2f, 0.9f);   /* its rivets */
-    float tx = cx - tw * 0.5f, ty = y0 + (h - 2.5f) * 0.5f;
-    for (int i = 0; i < n; i++) {                                       /* its letters cut in it, dark */
-        int gl = FONT35[glyph35(name[i])];
-        for (int r = 0; r < 5; r++) for (int c = 0; c < 3; c++) {
-            if (!(gl >> ((4 - r) * 4 + (2 - c)) & 1)) continue;
-            float ux = tx + (float)(i * 4 + c) * 0.5f, uy = ty + (float)r * 0.5f;
-            box(ux, uy, ux + 0.5f, uy + 0.5f, sh(R_GOLD, 0.0f));
-        }
-    }
-}
+/* ---- a boss's portrait (step 5): two faces wide; a candle stand either side of a broad frame, the boss in its arena; two
+ * tapestries over it till it falls, parted to either side once drawn back. Its name is the band's and the card's, not the art's:
+ * cut in the frame it could not be read (the owner) ---- */
 static uint8_t spr_at(int spr, float sx, float sy) {                  /* a sprite's pixel, by its own pixels; clear outside it */
     int x = (int)floorf(sx), y = (int)floorf(sy);
     return spr < 0 || x < 0 || y < 0 || x >= TS || y >= TS ? (uint8_t)C_CLEAR : crawl_spr[spr][x * TS + y];
@@ -604,7 +580,8 @@ static void boss_picture(const int r[4], const BossPortraitView *v) {
                 c = spr_at(v->prop[1], (qx - (mid + (k ? 1.0f : -1.0f) * pw * 0.27f)) / 0.8f + 32.0f, (qy - (ph - 1.0f)) / 0.8f + (float)TS);
             if (c != C_CLEAR) { pp(x, y, at_light(c, 0.80f, x, y)); continue; }
             for (int k = 0; k < 2 && c == C_CLEAR; k++)                 /* its pillars, standing back */
-                c = spr_at(v->prop[0], (qx - (mid + (k ? 1.0f : -1.0f) * pw * 0.38f)) / 0.9f + 32.0f, (qy - (hz + 7.0f)) / 0.9f + (float)TS);
+                c = spr_at(v->prop[0] < 0 ? -1 : v->prop[0] + (v->prop_n > 1 ? ((int)(v->t * 8.0f) + k) % v->prop_n : 0),
+                           (qx - (mid + (k ? 1.0f : -1.0f) * pw * 0.38f)) / 0.9f + 32.0f, (qy - (hz + 7.0f)) / 0.9f + (float)TS);
             float l = 1.02f - 0.62f * (dx * dx / (mid * mid) * 0.8f + dy * dy / (ph * ph) * 1.6f);
             if (c != C_CLEAR) { pp(x, y, at_light(c, clampf_(l * 0.75f, 0.2f, 1.0f), x, y)); continue; }
             float ex = fminf(qx, pw - qx), ey = fminf(qy, ph - qy);     /* the frame's shadow at its edge */
@@ -646,7 +623,6 @@ void portrait_boss_face(uint8_t *pix, int stride, int w, int h, int ox, int oy, 
     if (v->veil < 1.0f) {
         boss_picture(R, v);
         frame(R, hi, 0.0f, -30.0f, &fv);
-        boss_plate(64.0f, 58.4f, v->name ? v->name : "");
     }
     if (v->veil >= 0.0f) {                                             /* two tapestries, parting to either side */
         int L[4] = { R[0], R[1], 64, R[3] }, Rr[4] = { 64, R[1], R[2], R[3] };
@@ -664,8 +640,17 @@ int portrait_layout_flames(int layout, float out[4][3]) {
     return portrait_flames(&v, out);
 }
 int portrait_flames(const PortraitView *v, float out[4][3]) {
-    for (int i = 0; i < g_nfl; i++) { out[i][0] = g_fl[i].x; out[i][1] = g_fl[i].y - g_fl[i].h * 0.4f; out[i][2] = g_fl[i].power; }
-    return g_nfl;
+    for (int i = 0; i < g_nfl && i < 4; i++) { out[i][0] = g_fl[i].x; out[i][1] = g_fl[i].y - g_fl[i].h * 0.4f; out[i][2] = g_fl[i].power; }
+    return g_nfl < 4 ? g_nfl : 4;
+}
+int portrait_boss_flames(float out[6][3]) {                             /* a boss's stands' six, at rest, in texels of its two faces */
+    static uint8_t scratch[128 * 64];
+    BossPortraitView v;
+    memset(&v, 0, sizeof v);
+    v.veil = 1.0f;                                                      /* veiled: only the tapestries and the stands are drawn */
+    portrait_boss_face(scratch, 128, 128, 64, 0, 0, 1, &v);
+    for (int i = 0; i < g_nfl && i < 6; i++) { out[i][0] = g_fl[i].x; out[i][1] = g_fl[i].y - g_fl[i].h * 0.4f; out[i][2] = g_fl[i].power; }
+    return g_nfl < 6 ? g_nfl : 6;
 }
 
 /* ---- each run's stone and floor, kept: her hall is always drawn in level 1's art, so the others are made once and kept ---- */

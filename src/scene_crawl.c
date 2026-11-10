@@ -4935,11 +4935,19 @@ static int por_waiting(int k) {
     return RUN.por_open ? por_unlocked(k) & ~RUN.por_taken[k] & ~(k == MOB_WRAITH ? 1 << RK_IV : 0) : 0;
 }
 /* a boss's portrait: slain, then each challenge step, a bit each */
-__attribute__((unused)) static int boss_waiting(int b) {
+static int boss_unlocked(int b) {
     int w = 0;
     for (int s = 0; s < 6; s++) if (ach_has(ACH_BOSS0 + 6 * b + s)) w |= 1 << s;
-    return RUN.por_open ? w & ~RUN.por_btaken[b] : 0;
+    return w;
 }
+static int boss_waiting(int b) { return RUN.por_open ? boss_unlocked(b) & ~RUN.por_btaken[b] : 0; }
+/* what a boss's deed pays, once a life (section 3): its fall on the way down, then a fifth more for each challenge step */
+static int boss_gold(int b, int s) { static const int BASE[NBOSS] = { 1500, 2500, 3500, 4500 }; return b < 0 || b >= NBOSS ? 0 : BASE[b] * (5 + s) / 5; }
+static int boss_wait_gold(int b) { int w = boss_waiting(b), g = 0; for (int s = 0; s < 6; s++) if (w >> s & 1) g += boss_gold(b, s); return g; }
+#define POR_BOSSBIT 24                                             /* a boss's tapestry's bit in RUN.por_drawn, after the kinds' */
+static const int BOSS_GEM[6] = { RK_I, RK_II, RK_III, RK_IV, RK_GILDED, RK_V };   /* a deed's colour: slain bone, the steps green to black */
+static const char *const POR_BOSS_NAME[NBOSS] = { "THE ILL-FATED KNIGHT", "THE WANDERING SPIDER", "THE BLACK DEACON", "THE WRAITH UNBOUND" };   /* as its
+                                                                      achievements and the settled sheet name them */
 /* a count lowered (Q15) leaves a record already past it unearned till its next kill: as a run or page is read, whatever its
  * counts reach now is earned at once, under one pop-up */
 static void slayer_sweep(void) {
@@ -4980,14 +4988,17 @@ static void por_life(void) {
  * creature have moved (por_frame), and render_walls laying it over its face's stone */
 #define POR_RES 128
 #define POR_DRAW_T 1.3f                                            /* a tapestry takes so long to draw back */
-#define NPOR 26                                                    /* the twenty-two kinds' and, in time, the bosses' four */
-typedef struct { int x, y, fd, kind, layout; float ph; } PorAt;
+#define NPOR 30                                                    /* the twenty-two kinds', and the bosses' four, two faces each */
+typedef struct { int x, y, fd, kind, layout; float ph; int boss, half; } PorAt;   /* boss: 1 + which (its kind -1); half: 0 its left as seen */
 /* a portrait's candle's flame on the wall: its face (fd), the face's line (x for faces looking east or west, else y), where along it,
  * how far down (0 the top, 1 the foot), its glow's strength, and its light (for the flicker) */
 typedef struct { int fd, light; float plane, along, z, pw; } PorFlame;
 static struct { int n, frame, nwf; PorAt at[NPOR]; int key[NPOR], drawn[NPOR], seen[NPOR]; PorFlame wf[NPOR * 4];
                 float veil_t[NPOR]; } POR;                         /* veil_t: when its tapestry began to be drawn back (step 4) */
 static uint8_t POR_OV[NPOR][POR_RES * POR_RES];
+static int por_bossof(int i) { return POR.at[i].boss - 1; }       /* the boss a portrait's face is half of, or -1 */
+static int por_head(int i) { return POR.at[i].boss && POR.at[i].half ? i - 1 : i; }   /* a boss's left half stands for it */
+static int por_bit(int i) { return POR.at[i].boss ? POR_BOSSBIT + POR.at[i].boss - 1 : POR.at[i].kind; }   /* its tapestry, in por_drawn */
 static int best_kinds(int *out);
 static int kind_ranks(int k, int *out);
 #ifdef CRAWL_DEBUG
@@ -21272,6 +21283,10 @@ static void por_hang(void) {
             }
             if (n >= 7 && fi >= 0) RUN.rec.got[(ACH_FEAT0 + fi) >> 3] |= (uint8_t)(1 << ((ACH_FEAT0 + fi) & 7));
         }
+        for (int b = 0; b < NBOSS && n > 0; b++) {                 /* and each boss slain, n - 1 of its steps with it */
+            if (!getenv("CRAWL_PORVEIL")) RUN.por_drawn |= 1u << (POR_BOSSBIT + b);   /* (CRAWL_PORVEIL=1: their tapestries still down) */
+            for (int st = 0; st < imin(n, 6); st++) RUN.rec.got[(ACH_BOSS0 + 6 * b + st) >> 3] |= (uint8_t)(1 << ((ACH_BOSS0 + 6 * b + st) & 7));
+        }
         por_fill();
         RUN.por_open |= POR_WOKEN;                                 /* and her room paying */
     }
@@ -21301,8 +21316,23 @@ static void por_hang(void) {
         Cell *c = &G.map[a->y][a->x];
         if (c->kind != K_WALL || c->por) continue;
         c->por = (uint8_t)(1 + POR.n); c->fover[a->fd] = 0;
+        a->boss = a->half = 0;
         POR.veil_t[POR.n] = -1e9f;                                 /* drawn back long since, or not at all */
         POR.drawn[POR.n++] = 0;
+    }
+    /* the bosses' four on the grave plot's far wall, two faces each, either side of the Accursed Portal, read from the left as you face
+     * it: the knight, the spider, the Portal, the Deacon, the Wraith Unbound (the mock-up's order, as the owner saw it) */
+    static const int8_t BX[NBOSS] = { 20, 18, 15, 13 };            /* each one's left half; its right the cell west of it */
+    for (int b = 0; b < NBOSS && POR.n + 2 <= NPOR; b++) {
+        Cell *l = &G.map[PORTAL_Y][BX[b]], *r = &G.map[PORTAL_Y][BX[b] - 1];
+        if (l->kind != K_WALL || r->kind != K_WALL || l->por || r->por) continue;
+        for (int h = 0; h < 2; h++) {
+            PorAt *a = &POR.at[POR.n];
+            *a = (PorAt){ BX[b] - h, PORTAL_Y, 3, -1, 0, -0.9f * (float)b, 1 + b, h };
+            Cell *c = h ? r : l;
+            c->por = (uint8_t)(1 + POR.n); c->fover[3] = 0;
+            POR.veil_t[POR.n] = -1e9f; POR.drawn[POR.n++] = 0;
+        }
     }
     /* their candles dealt, the same every visit: never as a neighbour's (side by side, or meeting at a corner), and where it can
      * be, as none a cell further off either; and two tapestries never tied back against each other: side by side on a wall, a
@@ -21311,10 +21341,12 @@ static void por_hang(void) {
     for (int l = 0; l < NPLAYOUT; l++) if (!portrait_drape_side(l)) drape_left |= 1 << l;
     for (int i = 0; i < POR.n; i++) {
         PorAt *a = &POR.at[i];
+        if (a->boss) continue;                                     /* theirs below */
         float cx = (float)a->x + 0.5f + 0.5f * (float)DX[a->fd], cy = (float)a->y + 0.5f + 0.5f * (float)DY[a->fd];
         int nearm = 0, farm = 0, keep = 0, cand[NPLAYOUT], nc = 0;
         for (int j = 0; j < POR.n; j++) {
             const PorAt *b = &POR.at[j];
+            if (b->boss) continue;
             float bx = (float)b->x + 0.5f + 0.5f * (float)DX[b->fd], by = (float)b->y + 0.5f + 0.5f * (float)DY[b->fd], d = hypotf(cx - bx, cy - by);
             if (j < i && d < 1.05f) nearm |= 1 << b->layout; else if (j < i && d < 2.1f) farm |= 1 << b->layout;
             if (j != i && d < 1.05f && b->fd == a->fd && (bx - cx) * (float)DY[a->fd] - (by - cy) * (float)DX[a->fd] > 0.0f)
@@ -21336,6 +21368,29 @@ static void por_hang(void) {
             w->z = fl[k][1] / (float)TS; w->pw = POR_GLOW * share; w->light = G.nlights;
             light_static_ph(wx + nx * 0.12f, wy + ny * 0.12f, POR_LIGHT * share, POR_REACH, (float)((h >> (4 * k)) % 1000u) * 0.01f);
             if (G.nlights > w->light) POR.nwf++;                   /* (none if the lights were full) */
+        }
+    }
+    float bf[6][3];                                                /* a boss's two stands of three: a light each, a glow a flame */
+    int nbf = portrait_boss_flames(bf);
+    for (int i = 0; i < POR.n; i++) {
+        const PorAt *a = &POR.at[i];
+        if (!a->boss || a->half) continue;
+        float nx = (float)DX[a->fd], ny = (float)DY[a->fd], rx = ny, ry = -nx;
+        float cx = (float)a->x + 0.5f + 0.5f * nx + rx * 0.5f, cy = (float)a->y + 0.5f + 0.5f * ny + ry * 0.5f;   /* between its two faces */
+        for (int st = 0; st < 2; st++) {
+            int light = -1;
+            for (int k = st * 3; k < st * 3 + 3 && k < nbf && POR.nwf < NPOR * 4; k++) {
+                float u = bf[k][0] / (float)TS - 1.0f, wx = cx + rx * u, wy = cy + ry * u;
+                if (light < 0) {
+                    float mu = bf[st * 3 + 1][0] / (float)TS - 1.0f;
+                    light = G.nlights;
+                    light_static_ph(cx + rx * mu + nx * 0.12f, cy + ry * mu + ny * 0.12f, POR_LIGHT * 1.5f, POR_REACH, (float)(a->boss * 7 + st * 3) * 0.37f);
+                    if (G.nlights <= light) break;
+                }
+                PorFlame *w = &POR.wf[POR.nwf++];
+                w->fd = a->fd; w->plane = a->fd == 0 || a->fd == 2 ? cx : cy; w->along = a->fd == 0 || a->fd == 2 ? wy : wx;
+                w->z = bf[k][1] / (float)TS; w->pw = POR_GLOW * 0.5f; w->light = light;
+            }
         }
     }
 #ifdef CRAWL_DEBUG
@@ -23091,6 +23146,11 @@ static int por_drawable(int k) {                                   /* one of its
     for (int r = 0; r < NRANK; r++) if (RUN.rec.kills[k][r]) return 1;
     return 0;
 }
+static int por_can_draw(int i) {                                   /* a portrait's tapestry may come down: one of its kind slain, its boss fallen */
+    int b = por_bossof(i);
+    return b >= 0 ? boss_unlocked(b) != 0 : por_drawable(POR.at[i].kind);
+}
+static int por_is_drawn(int i) { return RUN.por_drawn >> por_bit(i) & 1; }
 static int por_wait_gold(int k) {                                  /* what waits on it now */
     int w = por_waiting(k), g = 0;
     for (int r = 0; r < POR_GEMS; r++) if (w >> r & 1) g += por_gold(k, r);
@@ -23114,17 +23174,36 @@ static int por_facing(void) {                                      /* 1 + the po
     }
     return best;
 }
-static void por_draw_back(int i, int dream) {                      /* its tapestry gathered to its side and tied there, for good */
-    int k = POR.at[i].kind;
+static void por_draw_back(int i, int dream) {                      /* its tapestry gathered to its side and tied there, for good (a
+                                                                      boss's two, parted) */
+    i = por_head(i);
+    int k = POR.at[i].kind, b = por_bossof(i);
     float fx, fy;
     por_face_mid(i, &fx, &fy);
-    RUN.por_drawn |= 1u << k;
-    if (!dream) { POR.veil_t[i] = (float)G.t; sfx_at(SFX_RUSTLE, fx, fy, 1.0f); snd_sfx_ex(SFX_WHOOSH, 0.25f, 0.5f); }
+    RUN.por_drawn |= 1u << por_bit(i);
+    if (!dream) {
+        POR.veil_t[i] = (float)G.t; if (b >= 0) POR.veil_t[i + 1] = (float)G.t;
+        sfx_at(SFX_RUSTLE, fx, fy, 1.0f); snd_sfx_ex(SFX_WHOOSH, 0.25f, 0.5f);
+    }
 #ifdef CRAWL_DEBUG
-    fprintf(stderr, "EVENT portrait_drawn %s by %s t=%.2f\n", KINDS[k].plural, dream ? "dream" : "player", G.t);
+    fprintf(stderr, "EVENT portrait_drawn %s by %s t=%.2f\n", b >= 0 ? POR_BOSS_NAME[b] : KINDS[k].plural, dream ? "dream" : "player", G.t);
 #endif
 }
 static int por_take(int i) {                                       /* the gold that waits on portrait i, all of it; how much */
+    i = por_head(i);
+    int b = por_bossof(i);
+    if (b >= 0) {                                                  /* a boss's: its deeds, once a life */
+        int w = boss_waiting(b), g = boss_wait_gold(b);
+        if (!g) return 0;
+        RUN.treasure += g; RUN.por_btaken[b] |= (uint8_t)w;
+        say("THE PORTRAIT PAYS %d", g);
+        snd_sfx_ex(SFX_COIN, 1.1f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.6f, 0.5f);
+        if (G.player) pop_readout();
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT portrait_paid %s gold %d steps %x gold now %d t=%.2f\n", POR_BOSS_NAME[b], g, w, RUN.treasure, G.t);
+#endif
+        return g;
+    }
     int k = POR.at[i].kind, w = por_waiting(k), g = por_wait_gold(k);
     if (!g) return 0;
     RUN.treasure += g; RUN.por_taken[k] |= (uint8_t)w;
@@ -23144,26 +23223,31 @@ static void por_dream(void) {
     h ^= h >> 15; h *= 2246822519u; h ^= h >> 13;
     if (h & 1) return;
     for (int j = 0; j < POR.n; j++) {
-        int i = (int)((h >> 1) % (uint32_t)POR.n + (uint32_t)j) % POR.n, k = POR.at[i].kind;
-        if (RUN.por_drawn >> k & 1 || !por_drawable(k)) continue;
+        int i = por_head((int)((h >> 1) % (uint32_t)POR.n + (uint32_t)j) % POR.n);
+        if (por_is_drawn(i) || !por_can_draw(i)) continue;
         por_draw_back(i, 1);
         POR.veil_t[i] = (float)G.t + 4.0f + (float)(h >> 8 & 7);   /* while it looks about */
+        if (POR.at[i].boss) POR.veil_t[i + 1] = POR.veil_t[i];
         return;
     }
 }
 static void update_portrait(void) {                                /* its card: A/D through every portrait, E draws back or takes */
     if (!POR.n || IN.hit[KEY_ESC] || IN.hit[KEY_TAB]) { G.ui = UI_NONE; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); return; }
     int lr = (IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) - (IN.hit[KEY_A] || IN.hit[KEY_LEFT]);
-    if (lr) { G.pt_sel = (G.pt_sel + POR.n + lr) % POR.n; snd_sfx_ex(SFX_TICK, 0.7f, 0.5f); }
-    G.pt_sel = clampi(G.pt_sel, 0, POR.n - 1);
+    if (lr) {                                                      /* a boss's right half is passed over: its left stands for it */
+        do G.pt_sel = (G.pt_sel + POR.n + lr) % POR.n; while (POR.at[G.pt_sel].boss && POR.at[G.pt_sel].half);
+        snd_sfx_ex(SFX_TICK, 0.7f, 0.5f);
+    }
+    G.pt_sel = por_head(clampi(G.pt_sel, 0, POR.n - 1));
     if (!(IN.hit[KEY_E] || IN.hit[KEY_ENTER] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1])) return;
-    int i = G.pt_sel, k = POR.at[i].kind;
-    if (!(RUN.por_drawn >> k & 1)) {
-        if (por_drawable(k)) por_draw_back(i, 0);
-        else { say("NONE OF ITS KIND SLAIN YET"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); }
+    int i = G.pt_sel, k = POR.at[i].kind, b = por_bossof(i);
+    if (!por_is_drawn(i)) {
+        if (por_can_draw(i)) por_draw_back(i, 0);
+        else { say(b >= 0 ? "WHAT HANGS HERE IS NOT YET SLAIN" : "NONE OF ITS KIND SLAIN YET"); snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); }
     } else if (!por_take(i)) {
         snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f);
-        if (!por_unlocked(k)) say("NO RANK OF IT UNLOCKED YET");
+        if (b >= 0) say(!RUN.por_open ? "IT PAYS AFTER A LEVEL IS CLEARED" : "ITS GOLD IS TAKEN THIS LIFE");
+        else if (!por_unlocked(k)) say("NO RANK OF IT UNLOCKED YET");
         else if (!RUN.por_open) say("IT PAYS AFTER A LEVEL IS CLEARED");
         else say("ITS GOLD IS TAKEN THIS LIFE");
     }
@@ -23248,9 +23332,9 @@ static void shop_human(float dt) {
         else if (G.por_look) { open_ui(UI_PORTAL); G.click_spent = CAST_HIT; }
         else if (G.stone_look >= 0) { G.stone_sel = G.stone_look; open_ui(UI_STONE); G.click_spent = CAST_HIT; }
         else if (G.pt_look) {                                      /* a portrait: its tapestry drawn back, or its card */
-            int p = G.pt_look - 1, k = POR.at[p].kind;
+            int p = por_head(G.pt_look - 1);
             G.click_spent = CAST_HIT;
-            if (!(RUN.por_drawn >> k & 1) && por_drawable(k)) por_draw_back(p, 0);
+            if (!por_is_drawn(p) && por_can_draw(p)) por_draw_back(p, 0);
             else { G.pt_sel = p; open_ui(UI_PORTRAIT); snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f); }
         }
         else if (G.map_look) {
@@ -24160,9 +24244,14 @@ static void crawl_control(int what) {
                                                                       cell's middle (k,d; 2.1 if not given) */
         int k = 1; float d = 2.1f;
         sscanf(getenv("CRAWL_TPPORTRAIT"), "%d,%f", &k, &d);
-        const PorAt *a = &POR.at[clampi(k - 1, 0, POR.n - 1)];
-        G.px = (float)a->x + 0.5f + (float)DX[a->fd] * d; G.py = (float)a->y + 0.5f + (float)DY[a->fd] * d;
+        const PorAt *a = &POR.at[por_head(clampi(k - 1, 0, POR.n - 1))];
+        float mx = a->boss ? (float)DY[a->fd] * 0.5f : 0.0f, my = a->boss ? -(float)DX[a->fd] * 0.5f : 0.0f;   /* a boss's: between its faces */
+        G.px = (float)a->x + 0.5f + mx + (float)DX[a->fd] * d; G.py = (float)a->y + 0.5f + my + (float)DY[a->fd] * d;
         G.ang = heading_angle((a->fd + 2) & 3); G.cx = (int)G.px; G.cy = (int)G.py;
+    }
+    if (getenv("CRAWL_TPHALL") && G.shop) {                        /* testing: at x,y facing deg in her hall (the portraits' cost) */
+        float x = 0, y = 0, a = 0;
+        if (sscanf(getenv("CRAWL_TPHALL"), "%f,%f,%f", &x, &y, &a) == 3) { G.px = x; G.py = y; G.ang = a * PI_F / 180.0f; G.cx = (int)x; G.cy = (int)y; }
     }
     if (getenv("CRAWL_TPCAT") && G.shop) { G.px = CAT_X + 1.3f; G.py = CAT_Y + 0.4f; G.ang = face_of(CAT_X, CAT_Y); G.cx = (int)G.px; G.cy = (int)G.py; }   /* before the merchant */
     if (getenv("CRAWL_TPREPO") && G.shop) { G.px = 5.5f; G.py = 14.5f; G.ang = PI_F; G.cx = 5; G.cy = 14; }   /* before the Repository's niches */
@@ -24756,7 +24845,7 @@ static void run_unpack(const uint8_t *buf, int len) {
     }
     c = page_section(buf, len, LG_PORTRAIT, &k);                   /* the portraits of the slain */
     if (c && k >= LG_PORTRAIT_B4) {
-        RUN.por_open = c[0] & (POR_CLEARED | POR_WOKEN); RUN.por_drawn = (uint32_t)get32(c + 1) & ((1u << NKINDS) - 1);
+        RUN.por_open = c[0] & (POR_CLEARED | POR_WOKEN); RUN.por_drawn = (uint32_t)get32(c + 1) & (((1u << NKINDS) - 1) | (((1u << NBOSS) - 1) << POR_BOSSBIT));
         if (k >= LG_PORTRAIT_BYTES) for (int kd = 0; kd < REC_KINDS; kd++) RUN.por_feat[kd] = (uint16_t)get16(c + LG_PORTRAIT_B4 + 2 * kd);
         memcpy(RUN.por_run, c + 5, sizeof RUN.por_run); memcpy(RUN.por_taken, c + 5 + sizeof RUN.por_run, sizeof RUN.por_taken);
         memcpy(RUN.por_btaken, c + 5 + sizeof RUN.por_run + sizeof RUN.por_taken, sizeof RUN.por_btaken);
@@ -28686,6 +28775,22 @@ static void render_shop_card(Frame *f) {
     if (G.shop_step == SH_LOOK && G.shop_t < 0.35) i = -1;
     if (G.player) i = G.shop_look;
     int y0 = H - 44 - 46;
+    if (G.player && G.pt_look && i < 0 && POR.at[G.pt_look - 1].boss) {   /* a boss's portrait, and what E does there */
+        int p = por_head(G.pt_look - 1), b = por_bossof(p), drawn = por_is_drawn(p), unl = boss_unlocked(b), gold = boss_wait_gold(b);
+        int bw = 264, bx = (W - bw) / 2, ph = 42, hi = -1, steps = 0;
+        for (int st = 0; st < 6; st++) if (unl >> st & 1) { hi = st; steps += st > 0; }
+        y0 = H - 44 - 4 - ph;
+        ui_band(f, bx, y0, bw, ph);
+        gfx_text16(f, bx + 8, y0 + 4, drawn ? POR_BOSS_NAME[b] : "A TAPESTRY", drawn ? (hi >= 0 ? (uint8_t)RANK_COL[BOSS_GEM[hi]] : (uint8_t)(R_STONE + 13)) : (uint8_t)(R_BLOOD + 13), 1);
+        char l2[64];
+        if (!drawn) snprintf(l2, sizeof l2, "%s", por_can_draw(p) ? "WHAT HANGS HERE HAS FALLEN" : "WHAT HANGS HERE IS NOT YET SLAIN");
+        else if (gold && !steps) snprintf(l2, sizeof l2, "SLAIN, $%d WAITS", gold);
+        else if (gold) snprintf(l2, sizeof l2, "%d OF 5 STEPS, $%d WAITS", steps, gold);
+        else snprintf(l2, sizeof l2, "SLAIN, AND %d OF 5 STEPS", steps);
+        gfx_text8(f, bx + 8, y0 + 21, l2, gold ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 12), 1);
+        hint8(f, bx + 8, y0 + 31, !drawn && por_can_draw(p) ? "E DRAW BACK THE TAPESTRIES" : drawn && gold ? "E: ITS CARD, AND ITS GOLD" : drawn ? "E: ITS CARD" : "", R_STONE + 10);
+        return;
+    }
     if (G.player && G.pt_look && i < 0) {                          /* a portrait of the slain, and what E does there */
         int p = G.pt_look - 1, k = POR.at[p].kind, drawn = RUN.por_drawn >> k & 1, unl = por_unlocked(k), bw = 264, bx = (W - bw) / 2, ph = 42;
         int rk[NRANK], nr = por_ranks(k, rk), nu = 0, hi = por_high(unl), gold = por_wait_gold(k);
@@ -33588,14 +33693,47 @@ static void por_view(int i, float t, PortraitView *v, PortraitView *v2, float *m
     }
     if (n > 1 && fr > 0.87f) *mix = (fr - 0.87f) / 0.13f;
 }
+/* a boss's portrait as it stands: its arena, its sprites, its deeds and its gold, its tapestries */
+static void por_boss_view(int i, float t, BossPortraitView *v) {
+    static const int SPR[NBOSS][5] = {                             /* walking, raising its blow, striking, a pose of its own */
+        { SP_BKNIGHT_A, SP_BKNIGHT_B, SP_BKNIGHT_W, SP_BKNIGHT_S, SP_BKNIGHT_P0 },
+        { SP_BSPIDER_A, SP_BSPIDER_B, SP_BSPIDER_REAR, SP_BSPIDER_LEAP, SP_BSPIDER_REAR },
+        { SP_BDEACON_A, SP_BDEACON_B, SP_BDEACON_CHANT, SP_BDEACON_CHANT, SP_BDEACON_A },
+        { SP_WRAITH_A, SP_WRAITH_B, SP_WRAITH_REACH, SP_WRAITH_REACH, SP_WRAITH_A } };
+    static const int PROP[NBOSS][3] = {                            /* what stands behind it (and its frames), what lies before it */
+        { SP_PILLAR, 1, SP_BROKEN_ARMS }, { SP_PILLAR, 1, SP_PUDDLE_A }, { SP_TIMBER, 1, SP_TOMB_BROKEN }, { SP_BRAZIER_A, 3, SP_OBSIDIAN } };
+    int h = por_head(i), b = por_bossof(h), ec = EYE_OWN[BOSSES[b].kind];
+    memset(v, 0, sizeof *v);
+    memcpy(v->spr, SPR[b], sizeof v->spr);
+    v->prop[0] = PROP[b][0]; v->prop[1] = PROP[b][2]; v->prop_n = PROP[b][1];
+    v->eye_core = ec >= 0 ? EYE_CORE[ec] : 0; v->eye_glow = ec >= 0 ? EYE_GLOW[ec] : 0;
+    v->wall = portrait_run_wall(b); v->floor = portrait_run_floor(b);
+    v->unlocked = boss_unlocked(b); v->unpaid = boss_waiting(b);
+    v->veil = RUN.por_drawn >> por_bit(h) & 1 ? 1.0f - smoothstepf(POR.veil_t[h], POR.veil_t[h] + POR_DRAW_T, t) : 1.0f;
+    v->t = t - POR.at[h].ph; v->scale = 1.25f;
+}
 /* each frame in her rooms: a portrait in view last frame (or never yet drawn) is drawn again when its candles' flames have moved,
  * twenty times a second, its creature's step and turn with them; the rest wait as they are */
 static void por_frame(void) {
     if (!G.shop || !POR.n) return;
-    static uint8_t a[POR_RES * POR_RES], b[POR_RES * POR_RES];
+    static uint8_t a[POR_RES * POR_RES], b[POR_RES * POR_RES], bb[2 * POR_RES * POR_RES];
     float t = (float)G.t;
     for (int i = 0; i < POR.n; i++) {
         int key = (int)floorf(t * 20.0f + 0.37f * (float)i);       /* their turns spread across the frames */
+        if (POR.at[i].boss) {                                      /* a boss's, both its faces at once from its left half */
+            if (POR.at[i].half || i + 1 >= POR.n) continue;
+            if (POR.drawn[i] && (key == POR.key[i] || (POR.seen[i] < POR.frame - 1 && POR.seen[i + 1] < POR.frame - 1))) continue;
+            BossPortraitView bv;
+            por_boss_view(i, t, &bv);
+            memset(bb, C_CLEAR, sizeof bb);
+            portrait_boss_face(bb, 2 * POR_RES, 2 * POR_RES, POR_RES, 0, 0, POR_RES / TS, &bv);
+            for (int hh = 0; hh < 2; hh++) {
+                uint8_t *o = POR_OV[i + hh];
+                for (int x = 0; x < POR_RES; x++) for (int y = 0; y < POR_RES; y++) o[(POR_RES - 1 - x) * POR_RES + y] = bb[y * 2 * POR_RES + hh * POR_RES + x];
+                POR.key[i + hh] = key; POR.drawn[i + hh] = 1;
+            }
+            continue;
+        }
         if (POR.drawn[i] && (key == POR.key[i] || POR.seen[i] < POR.frame - 1)) continue;
         PortraitView v, v2;
         float mix;
@@ -33628,9 +33766,61 @@ static void medal_glyph(Frame *f, int x, int y, int on) {          /* a feat's m
 }
 /* a portrait's card (section 2, the mock-up's card.png): the portrait up close in its candles' light, and each rank of its kind,
  * slain against asked, its gold and whether it is taken this life, waits, or is to come */
+static void render_bosscard(Frame *f, int p) {                     /* a boss's: its portrait up close, its six deeds, their gold */
+    int b = por_bossof(p), drawn = por_is_drawn(p), unl = boss_unlocked(b), w = boss_waiting(b), hi = -1;
+    for (int st = 0; st < 6; st++) if (unl >> st & 1) hi = st;
+    ui_slab(f, 6, 8, 308, 184, SLAB_TABLET, ORN_CANDLE, G.ui_t);
+    gfx_text16(f, 16, 14, drawn || hi >= 0 ? POR_BOSS_NAME[b] : "???", drawn && hi >= 0 ? (uint8_t)RANK_COL[BOSS_GEM[hi]] : (uint8_t)(R_GOLD + 12), 1);
+    char right[24];
+    if (!drawn) snprintf(right, sizeof right, "VEILED");
+    else if (hi <= 0) snprintf(right, sizeof right, hi < 0 ? "NOT SLAIN" : "SLAIN");
+    else snprintf(right, sizeof right, "STEP %d", hi);
+    gfx_text8(f, 304 - gfx_text_width(right, 1), 18, right, drawn && hi >= 0 ? (uint8_t)RANK_COL[BOSS_GEM[hi]] : (uint8_t)(R_STONE + 11), 1);
+    ui_well(f, 12, 34, 296, 106);
+    {                                                              /* its portrait, its two faces' stone behind, in its stands' light */
+        static uint8_t ov[2 * POR_RES * POR_RES];
+        BossPortraitView v;
+        float fl[6][3];
+        por_boss_view(p, (float)G.t, &v);
+        memset(ov, C_CLEAR, sizeof ov);
+        portrait_boss_face(ov, 2 * POR_RES, 2 * POR_RES, POR_RES, 0, 0, POR_RES / TS, &v);
+        int nf = portrait_boss_flames(fl);
+        const uint8_t *base[2];
+        for (int h = 0; h < 2; h++) {
+            const PorAt *a = &POR.at[p + h];
+            const Cell *c = &G.map[a->y][a->x];
+            base[h] = crawl_tex[c->face[a->fd] ? c->face[a->fd] : T_BRICK];
+        }
+        for (int y = 0; y < 104; y++) for (int x = 0; x < 2 * POR_RES; x++) {
+            int oy = y + 8;
+            uint8_t o = ov[oy * 2 * POR_RES + x], bs = base[x / POR_RES][((x % POR_RES) / 2) * TS + oy / 2];
+            float l = 0.30f;
+            for (int q = 0; q < nf; q++) { float d = hypotf((float)x / 2.0f - fl[q][0], (float)oy / 2.0f - fl[q][1]) / 64.0f; l += 0.6f * fl[q][2] / (1.0f + 30.0f * d * d); }
+            f->pix[(35 + y) * W + 32 + x] = shade(o != C_CLEAR ? o : bs, l, x, y);
+        }
+    }
+    static const char *const DEED[6] = { "SLAIN", "STEP 1", "STEP 2", "STEP 3", "STEP 4", "STEP 5" };
+    for (int st = 0; st < 6; st++) {                               /* its deeds in two columns: what each pays, and whether it waits */
+        int x = 16 + (st / 3) * 148, y = 145 + (st % 3) * 10, on = unl >> st & 1;
+        char g[16];
+        if (w >> st & 1) ui_row(f, x - 3, y - 1, 146, 10, 1);
+        gfx_text8(f, x, y, DEED[st], on ? (uint8_t)RANK_COL[BOSS_GEM[st]] : (uint8_t)(R_STONE + 9), 1);
+        snprintf(g, sizeof g, "%5d", boss_gold(b, st));
+        gfx_text8(f, x + 52, y, g, on ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 8), 1);
+        const char *ss = !on ? "" : RUN.por_btaken[b] >> st & 1 ? "TAKEN" : w >> st & 1 ? "WAITS" : "LATER";
+        if (ss[0]) gfx_text8(f, x + 100, y, ss, w >> st & 1 ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_STONE + 10), 1);
+    }
+    char keys[64];
+    int gold = boss_wait_gold(b);
+    if (!drawn && por_can_draw(p)) snprintf(keys, sizeof keys, "E DRAW BACK  A/D ANOTHER  ESC LEAVE");
+    else if (gold) snprintf(keys, sizeof keys, "E TAKE %d  A/D ANOTHER  ESC LEAVE", gold);
+    else snprintf(keys, sizeof keys, "A/D ANOTHER  ESC LEAVE");
+    hall_keys(f, 179, keys);
+}
 static void render_portraitcard(Frame *f) {
     dim_view(f);
     if (!POR.n) return;
+    if (POR.at[por_head(clampi(G.pt_sel, 0, POR.n - 1))].boss) { render_bosscard(f, por_head(clampi(G.pt_sel, 0, POR.n - 1))); return; }
     int p = clampi(G.pt_sel, 0, POR.n - 1), k = POR.at[p].kind, drawn = RUN.por_drawn >> k & 1, unl = por_unlocked(k), w = por_waiting(k);
     int rk[NRANK], nr = por_ranks(k, rk), hi = por_high(unl), met = kind_met(k);
     ui_slab(f, 6, 8, 308, 184, SLAB_TABLET, ORN_CANDLE, G.ui_t);

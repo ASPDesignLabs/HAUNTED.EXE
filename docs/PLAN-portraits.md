@@ -2,8 +2,8 @@
 
 *Status: settled (10 November 2026), at the owner's request, and being built on `claude/adoring-hopper-h9ivcg` from main at
 1.0.0b21.1: steps 1 (the record), 2 (the art in the build, hung at section 7's faces), 3 (their candles dealt and lit), 4
-(the tapestry drawn back, the card, the gold) and the first half of 5 (the Spectre's and the Wraith's achievements, the twenty
-feats, their medallions) are built, harness only; the bosses' four wait on the owner's eye for the knight's mock-up. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (in
+(the tapestry drawn back, the card, the gold) and 5 (the Spectre's and the Wraith's achievements, the twenty feats and their
+medallions, the bosses' four in the plot after the owner saw the knight's mock-up) are built, harness only; step 6, the checks, is left. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (in
 the game's build since step 2) and `tools/portraitmock.c` (`make build/portraitmock`, then `build/portraitmock <dir>`). The owner answered every
 question in section 9 the same day (marked there, Q15 last, which came of their own edit) and settled the numbers in a Sheet on
 claude.ai, [Portraits of the Slain: Gold](https://claude.ai/artifact/2P9JkVQMBEdhAoa6zwB1N6), brought into sections 3 and 4 as it
@@ -222,13 +222,15 @@ slate, each walking five seconds, the frame green for II, II's gold waiting: `po
 
 ![A feat earned: its medallion](portraits/medals.png)
 
-- **The bosses' four** (step 5's mock-up, the knight's; not yet in the game). Two faces wide: a broad frame whose gems are its
+- **The bosses' four** (step 5; the knight's mock-up seen by the owner, and the name plate it had taken off at their word, since it
+  could not be read: the name is the band's at the wall and the card's). Two faces wide: a broad frame whose gems are its
   achievements (slain, then each challenge step) and whose colour is the highest of them, bone for slain, then green, blue, red,
-  gold and black for the steps, as a kind's frame takes its ranks'; a brass plate under it with its name cut in it; a candle stand of
-  three either side; two tapestries over it till it falls, parted to either side once drawn back. In the picture it stands in its
-  arena, a little over its own size, the arena's pillars behind it and what lies broken at its feet, and walks, raises its sword,
-  strikes and plants it, eight seconds round. The other three wait veiled, so only the knight's is drawn. `knight.gif` is the
-  tapestries parting, then the knight with two steps beaten and the second's gold waiting.
+  gold and black for the steps, as a kind's frame takes its ranks'; a candle stand of three either side; two tapestries over it till
+  it falls, parted to either side once drawn back. In the picture it stands in its arena on its run's stone, a little over its own
+  size, what stands in its arena behind it (the knight's and the spider's pillars, the Deacon's timbers, the Wraith's braziers
+  burning) and what lies before it (broken arms, still water, broken tombs, black glass), and walks, raises its blow, strikes and
+  holds a pose of its own (the knight plants its sword, the spider rears, the Deacon chants, the Wraith reaches), eight seconds
+  round. `knight.gif` is the knight's tapestries parting, then the knight with two steps beaten and the second's gold waiting.
 
 ![The bosses' four by the Portal: the knight's](portraits/bosses.png)
 
@@ -253,9 +255,9 @@ flames as dealt) light her rooms at a ninth of a torch each, with a pool of ligh
 much as they did; the back room, darker, gains the most.
 
 **The bosses' four** hang in the grave plot, through the arch past the shrine, on its far wall (y 27, faces looking north) either
-side of the Accursed Portal at x 16: the knight at x 12-13 and the spider at 14-15, the Deacon at 17-18 and the Wraith Unbound at
-19-20, each two faces wide (256 by 128 at the settled 128 texels a face). The plot's stones stand in rows 22 and 24, so nothing
-stands before them. Their art is not drawn yet: a mock-up of one comes before they are built.
+side of the Accursed Portal at x 16, read from the left as you face it, as the mock-up had them: the knight at x 20-19, the spider at
+18-17, the Portal, the Deacon at 15-14 and the Wraith Unbound at 13-12, each two faces wide (256 by 128 at the settled 128 texels a
+face). The plot's stones stand in rows 22 and 24, so nothing stands before them.
 
 ## 8. What it touches
 
@@ -331,8 +333,8 @@ stands before them. Their art is not drawn yet: a mock-up of one comes before th
 3. Her room: the faces, the layouts dealt, the candles' light. *Built (harness only), 10 November.*
 4. The tapestry and the card, the gold, the prompt in the pad's words. *Built (harness only), 10 November.*
 5. The Spectre's and the Wraith's achievements and the feats (section 5 A and B), and the bosses' four portraits in the plot
-   (5 F), after a mock-up of one. *The achievements and feats built (harness only), 10 November; the knight's mock-up drawn
-   (`bosses.png`, `knight.gif`), the bosses not yet hung.*
+   (5 F), after a mock-up of one. *Built (harness only), 10 November: the achievements and feats, then the bosses' four once the
+   owner had seen the knight's mock-up (its name plate taken off at their word: it couldn't be read).*
 6. The checks: the dream's runs line for line against 1.0.0b21.1 on the same seeds (it leaves the portraits, so nothing may move);
    ASan; a person's run in the harness taking gold at the right visits; the README's preview strip and the page's table.
 
@@ -492,3 +494,26 @@ stands before them. Their art is not drawn yet: a mock-up of one comes before th
   `tools/portraitmock.c`'s `bosses` (`bosses.png`, `knight.gif`) and `medals` (`medals.png`); not in the game till the owner has seen it.
   Debug: `CRAWL_PORTRAITS=n` from 7 the feats too, `EVENT feat <kind> <count>`, `EVENT achievement <bit> ...: swept`, `PORTRAITS ...
   counts k:n`. Next: the owner's eye on the knight's mock-up and the medallion; then the four hung in the plot, their card and gold.
+- **10 November, step 5's second half built** (harness only). The owner found everything golden but the knight's name plate, which
+  couldn't be read: it is gone, and a boss's name is the band's when you face it and its card's, in the game's own letters
+  (`POR_BOSS_NAME`, as the settled sheet names them: `BossDef.short_name` has the Wraith as *THE WRAITH*). The other three drawn
+  as the knight was (`por_boss_view`: each one's sprites, what stands behind it and what lies before it, `BossPortraitView.prop_n` for
+  the Wraith's braziers' three frames burning), and the four hung in the plot by `por_hang` as `PorAt.boss` (1 + which) and `half` (0
+  its left as seen), two entries a boss (`NPOR` 30), `por_head` the left half that stands for it; `por_frame` draws both faces at once
+  from the left half (`portrait_boss_face` into 256 by 128, halved into `POR_OV`), while either is in view. Their candles: a light a
+  stand at its middle candle (`POR_LIGHT` x 1.5) and a glow a flame on the wall (`portrait_boss_flames`, the stands' six at rest; the
+  art keeps eight flames now, the kinds' call still four). The tapestries are `RUN.por_drawn`'s bits from 24 (`POR_BOSSBIT`,
+  `por_bit`; a page's reading keeps them), down till its boss has fallen (`por_can_draw`, `boss_unlocked`), E drawing both back
+  (`por_draw_back` gives both halves the moment); the dream draws them back now and then as it does the kinds'. The gold:
+  `boss_gold` (1,500, 2,500, 3,500 and 4,500 for the fall, a fifth more a step), `boss_wait_gold`, `por_take` into
+  `RUN.por_btaken`. The band: *A TAPESTRY* and *WHAT HANGS HERE HAS FALLEN* or *IS NOT YET SLAIN*; drawn back, its name in the
+  highest deed's colour (`BOSS_GEM`) and *SLAIN, $1500 WAITS* or *2 OF 5 STEPS, $5400 WAITS*. Its card (`render_bosscard`, from
+  `render_portraitcard` for a boss): the portrait across the well on its two faces' stone in its stands' light, its six deeds in two
+  columns with their gold and TAKEN, WAITS or LATER; A/D passes a boss's right half over. Tested in the harness: every portrait's gold
+  taken in turn came to 175,240, the sheet's whole (the bosses 13,500, 22,500, 31,500 and 40,500); the spider's tapestries drawn back
+  at E and its 2,500 taken; the band and card for each. Facing the four from the plot, 3.1 ms a frame (2.7 with them veiled, 2.1 with
+  no portraits hung). The dream from level 1 for 2,400 s is still line for line 1.0.0b21.1's; ASan clean on a person taking all 26
+  portraits' gold, a boss's tapestries and card, and the dream from 11; the smoke test passes. Debug: `CRAWL_PORTRAITS=n` gives each
+  boss its fall and n - 1 steps and draws theirs back (`CRAWL_PORVEIL=1`
+  leaves them down), `CRAWL_TPPORTRAIT=k` before a boss's middle (23, 25, 27, 29 the knight, the spider, the Deacon, the Wraith),
+  `CRAWL_TPHALL=x,y,deg` (at a place in her hall), `EVENT portrait_drawn` and `portrait_paid ... steps x` with a boss's name.
