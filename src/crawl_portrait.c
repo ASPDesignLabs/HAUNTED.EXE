@@ -103,6 +103,7 @@ static Flame flame_of(float x, float top, float h, int k) {
     return f;
 }
 /* a church candle on (x, by), h tall and r round: its wax lit from the left, a cup at its top, wax run down its front */
+static int g_unlit;                                              /* its candles never yet lit: nothing of its kind slain */
 static void candle(float x, float by, float h, float r, int k, int lit_, Flame *out) {
     for (int y = lo_px(by - h); y < hi_px(by); y++)
         for (int xx = lo_px(x - r); xx <= hi_px(x + r); xx++) {
@@ -117,11 +118,11 @@ static void candle(float x, float by, float h, float r, int k, int lit_, Flame *
             for (int xx = lo_px(dx - 0.3f); xx < hi_px(dx + 0.3f); xx++) pp(xx, y, sh(R_BONE, 0.96f));
     }
     box(x - 0.2f, by - h - 0.9f, x + 0.25f, by - h, sh(R_IRON, 0.12f));   /* the wick */
-    if (lit_) {
+    if (lit_ && !g_unlit) {
         Flame f = flame_of(x, by - h - 0.6f, 2.6f + 0.9f * fminf(1.0f, r), k);
         flame(f.x, f.y, f.h, f.w, f.sway);
         if (out) *out = f;
-    }
+    } else if (out) memset(out, 0, sizeof *out);
 }
 static void smoke(float x, float y, float h, uint32_t seed) {      /* a thread from a candle gone out */
     for (int k = 0; k < (int)(h * S); k++) {
@@ -140,7 +141,7 @@ void portrait_frame_rect(int layout, int r[4]) { memcpy(r, FRAME_AT[clampi_(layo
 
 static Flame g_fl[8];
 static int g_nfl;
-static void keep_flame(Flame f) { if (g_nfl < 8) g_fl[g_nfl++] = f; }
+static void keep_flame(Flame f) { if (!g_unlit && g_nfl < 8) g_fl[g_nfl++] = f; }
 
 /* an iron sconce on the wall: a backplate, its finial, the arm out to a drip pan, a candle in it */
 static void sconce(float x, float y, float h, int k) {
@@ -182,13 +183,14 @@ static void hung_lamp(float x, float y0, float y1, int k) {         /* an iron l
     float cy = y1;                                                     /* the lantern's middle */
     ellipse(x, cy - 4.2f, 2.8f, 1.2f, R_IRON, 0.12f, 0.6f);           /* its cap */
     ellipse(x, cy - 5.2f, 0.9f, 0.8f, R_IRON, 0.2f, 0.7f);
-    for (int y = lo_px(cy - 3.2f); y < hi_px(cy + 3.0f); y++)          /* the glass, its glow behind the bars */
+    for (int y = lo_px(cy - 3.2f); y < hi_px(cy + 3.0f); y++)          /* the glass, its glow behind the bars (dark and sooted, cold) */
         for (int xx = lo_px(x - 2.6f); xx < hi_px(x + 2.6f); xx++) {
             float u = (TX(xx) - x) / 2.6f, v = (TX(y) - cy) / 3.0f;
-            pp(xx, y, (uint8_t)(R_FLAME + clampi_((int)(10.0f - 6.0f * (u * u + v * v)), 3, 12)));
+            pp(xx, y, g_unlit ? sh(R_IRON, 0.06f + 0.10f * (1.0f - u * u) * (v < -0.3f ? 0.4f : 1.0f))
+                              : (uint8_t)(R_FLAME + clampi_((int)(10.0f - 6.0f * (u * u + v * v)), 3, 12)));
         }
     Flame f = flame_of(x, cy + 1.6f, 3.0f, k);
-    flame(f.x, f.y, f.h, f.w * 0.8f, f.sway * 0.4f);
+    if (!g_unlit) flame(f.x, f.y, f.h, f.w * 0.8f, f.sway * 0.4f);
     for (int b = -1; b <= 1; b++) box(x + (float)b * 1.7f - 0.3f, cy - 3.2f, x + (float)b * 1.7f + 0.3f, cy + 3.0f, sh(R_IRON, 0.22f));   /* its bars */
     capsule(x - 2.8f, cy + 3.2f, x + 2.8f, cy + 3.2f, 0.7f, R_IRON, 0.1f, 0.55f);   /* its foot */
     ellipse(x, cy + 4.4f, 0.8f, 0.8f, R_IRON, 0.15f, 0.6f);
@@ -209,7 +211,7 @@ static void ledge(float x0, float x1, float y, int k) {              /* an iron 
     candle(x0 + 5.5f, y - 0.6f, 6.5f, 1.15f, k, 1, &f); keep_flame(f);
     candle(x1 - 6.0f, y - 0.6f, 9.0f, 1.2f, k + 1, 1, &f); keep_flame(f);
     candle(x1 - 11.0f, y - 0.6f, 2.5f, 1.0f, k + 2, 0, NULL);
-    smoke(x1 - 11.0f, y - 4.0f, 6.0f, 61);
+    if (!g_unlit) smoke(x1 - 11.0f, y - 4.0f, 6.0f, 61);
 }
 static void stand(float x, float y_floor, float y_tray, int k) {     /* the candle stand on the floor: tripod, twisted shaft, tray */
     for (int s = -1; s <= 1; s++) capsule(x, y_floor - 3.0f, x + (float)s * 3.2f, y_floor - 0.4f, 0.6f, R_IRON, 0.12f, 0.6f);
@@ -542,7 +544,7 @@ int portrait_drape_side(int layout) {                                   /* gathe
 }
 void portrait_face(uint8_t *pix, int stride, int w, int h, int ox, int oy, int s, const PortraitView *v) {
     P = pix; PST = stride; PW = w; PH = h; POX = ox; POY = oy; S = s < 1 ? 1 : s; PT = v->t;
-    g_nfl = 0;
+    g_nfl = 0; g_unlit = v->unlit;
     int r[4];
     portrait_frame_rect(v->layout, r);
     layout_lights(v->layout, 1);
@@ -609,7 +611,7 @@ static void boss_picture(const int r[4], const BossPortraitView *v) {
 }
 void portrait_boss_face(uint8_t *pix, int stride, int w, int h, int ox, int oy, int s, const BossPortraitView *v) {
     P = pix; PST = stride; PW = w; PH = h; POX = ox; POY = oy; S = s < 1 ? 1 : s; PT = v->t;
-    g_nfl = 0;
+    g_nfl = 0; g_unlit = v->unlit;
     static const int R[4] = { 16, 4, 112, 57 }, GEM[6] = { RK_I, RK_II, RK_III, RK_IV, RK_GILDED, RK_V };
     PortraitView fv;                                                    /* the frame as a kind's, its gems the boss's deeds */
     memset(&fv, 0, sizeof fv);

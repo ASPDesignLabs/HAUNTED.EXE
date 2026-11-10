@@ -26,6 +26,7 @@ typedef struct {
     float veil;                 /* the tapestry: 1 over it, 0 drawn back and tied at its side; below 0 none */
     float t;                    /* the clock: its walk, the candles */
     float walk0;                /* when its walk began (the bestiary's turn about starts here) */
+    int unlit;                  /* its candles cold: none of its kind slain yet, so nothing behind its tapestry to see */
 } PortraitView;
 
 /* a boss's portrait (step 5): two faces wide, 128 by 64 texels, on the grave plot's far wall by the Accursed Portal. Its gems
@@ -40,6 +41,7 @@ typedef struct {
     int unlocked, unpaid;       /* bits: slain, then challenge steps 1 to 5; of those, the ones whose gold waits */
     float veil;                 /* its tapestries: 1 drawn over it, 0 parted and tied at either side */
     float t, scale;             /* the clock; its size in the picture, 1 its own */
+    int unlit;                  /* its stands cold: the boss not yet fallen */
 } BossPortraitView;
 void portrait_boss_face(uint8_t *pix, int stride, int w, int h, int ox, int oy, int s, const BossPortraitView *v);
 /* its stands' six flames at rest, as portrait_flames gives a kind's, in texels of the two faces (128 by 64); how many */
