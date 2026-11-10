@@ -1,4 +1,4 @@
-/* The portraits of the slain on her walls (docs/PLAN-portraits.md): a mock-up's art, not yet in the game. Each is drawn as
+/* The portraits of the slain on her walls (docs/PLAN-portraits.md), the game's and the mock-ups' art. Each is drawn as
  * a wall face's overlay (C_CLEAR where the face's own stone shows), at s pixels a texel: 1 for the walls' own 64 x 64, 2
  * for 128 x 128 (the creature at its full drawing) or a card up close. */
 #ifndef CRAWL_PORTRAIT_H
@@ -32,5 +32,10 @@ void portrait_face(uint8_t *pix, int stride, int w, int h, int ox, int oy, int s
 int portrait_flames(const PortraitView *v, float out[4][3]);
 /* the frame's rectangle on the face, in texels */
 void portrait_frame_rect(int layout, int r[4]);
+/* each run's main stone and first floor, made once (at its fifth level, a little worn) and kept: it draws over two of the
+ * walls' textures, so the caller draws its own level's art again after it */
+void portrait_keep_runs(void);
+const uint8_t *portrait_run_wall(int run);
+const uint8_t *portrait_run_floor(int run);
 
 #endif

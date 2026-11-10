@@ -309,8 +309,11 @@ Wraith's and twenty feats added, the bosses' rows, every row paying but the Wrai
 kills each rank asks lowered to 20, 25, 20, 15, 10 and 5 gilded, for the game's own achievements too). **Step 1 is built**
 (harness only): the record's part, `RUN.por_*` saved as `LG_PORTRAIT` (`por_fill`, `por_guess` for an older page), a life
 (`por_life` from `death_fall`, `POR_CLEARED` from `rec_cleared`), the counts lowered in `slayer_need` and `slayer_sweep` for a
-record already past them; debug `PORTRAITS` lines as a run is read and at each visit to her room. The art for the mock-ups is
-`src/crawl_portrait.c` (not in the game's build yet), driven by `tools/portraitmock.c` (`make build/portraitmock`); the settled
+record already past them; debug `PORTRAITS` lines as a run is read and at each visit to her room. **Step 2 is built** (harness
+only): `src/crawl_portrait.c` in the game's build, the twenty-two hung at section 7's faces by `por_hang` (`POR`, `Cell.por`),
+drawn by `por_view`/`por_frame` into 128-texel overlays (`POR_OV`, by columns, mirrored as the walls are) while in view, laid over
+their faces by `render_walls`; each run's stone kept by `portrait_keep_runs` through `crawl_art_stone`; `CRAWL_PORTRAITS=n`,
+`CRAWL_TPPORTRAIT=k[,d]`. Its art is `src/crawl_portrait.c`, driven by `tools/portraitmock.c` (`make build/portraitmock`); the settled
 numbers are `docs/portraits/ranks.csv` and `bosses.csv`, written by `tools/portrait_sheet.py` from `KINDS`.
 
 ## Working with the owner
@@ -347,7 +350,7 @@ numbers are `docs/portraits/ranks.csv` and `bosses.csv`, written by `tools/portr
 | `tools/items.c` | `make items`: a hundred rolled wares a level as `build/items.json`, for checking names and numbers |
 | `src/hand_img.c`, `src/face_img.c`, `src/cat_img.c` | Traced bitmaps (data) |
 | `src/crawl_title.c/.h`, `tools/titlemock.c` | The title screen's art (docs/PLAN-title.md): `title_draw(Frame *, t, TitleView *)`, its three scenes, menus and graves, the sculpt kit (`sc_*`); and the mock-ups' driver (`make build/titlemock`; `build/titlemock <dir> [a\|b\|c\|menu\|logo\|parts\|overview\|bench]`) |
-| `src/crawl_portrait.c/.h`, `tools/portraitmock.c`, `tools/portrait_sheet.py` | The portraits of the slain (docs/PLAN-portraits.md), a mock-up's art not yet in the game: `portrait_face` draws a portrait as a wall face's overlay at any scale; the mock-ups' driver (`make build/portraitmock`; `build/portraitmock <dir> [all\|skeleton\|veil\|room\|sheets\|card]`, `PM_SCALE=n`); the settled numbers as `docs/portraits/ranks.csv` and `bosses.csv` (`--grid` the plan's table) |
+| `src/crawl_portrait.c/.h`, `tools/portraitmock.c`, `tools/portrait_sheet.py` | The portraits of the slain (docs/PLAN-portraits.md), in the game's build since its step 2: `portrait_face` draws a portrait as a wall face's overlay at any scale, `portrait_keep_runs` each run's stone; the mock-ups' driver (`make build/portraitmock`; `build/portraitmock <dir> [all\|skeleton\|veil\|room\|sheets\|card\|bench\|check]`, `PM_SCALE=n`); the settled numbers as `docs/portraits/ranks.csv` and `bosses.csv` (`--grid` the plan's table) |
 | `src/crawl_ui.c/.h`, `src/ui_art.c` | The carved stone (docs/PLAN-ui.md): the marble, slabs, wells, the faces and their ways, icons, sockets, the Alignment's stone; the faces and icons as strings |
 | `tools/gallery.sh`, `docs/gallery/` | The page's *Then and now*: the same moments in 1.0.0b1, 1.0.0b13 and this build, each from its own build of the harness (old ones in worktrees under `build/gallery/`), as single 320x200 frames; `build_site.sh` copies them to `img/gallery/` |
 | `tools/uisheet.c`, `tools/uishots.sh` | The screens' sheet for approval (`make sheets`; `build/uisheet fit` checks the pane's text fits), and every screen from the harness as contact sheets |

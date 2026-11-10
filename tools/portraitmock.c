@@ -2,7 +2,8 @@
  * wall, seen straight on with the crypt's own textures, palette and light, written as animated GIFs (each frame with its own
  * palette) and sheets of stills.
  *
- *   portraitmock <dir> [all|skeleton|veil|room|sheets|card]     PM_SCALE=n: the GIFs at n times (3)
+ *   portraitmock <dir> [all|skeleton|veil|room|sheets|card|bench|check]     PM_SCALE=n: the GIFs at n times (3)
+ *   (bench: what a portrait costs to draw; check: the runs' stone made alone against the whole art)
  *
  *   make build/portraitmock
  */
@@ -14,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <zlib.h>
 
 #define W 320
@@ -145,16 +147,10 @@ static void sheet_label(int x, int y, const char *s, int sc, int grey) {
 }
 
 /* ---- the art the mock-ups borrow: each run's stone and floor, her hall's own ---- */
-static uint8_t RUNWALL[4][TS * TS], RUNFLOOR[4][TS * TS];
 static uint8_t HALL[2][TS * TS], HFLOOR[TS * TS], HCEIL[TS * TS], TORCH[3][TS * TS], SIGN[TS * TS];
 static void art_setup(void) {
     crawl_art_init();
-    static const int LV[4] = { 1, 11, 21, 31 }, MAT[4] = { M1_ASHLAR, M2_SLATE, M3_GRANITE, M4_OBSIDIAN };
-    for (int r = 0; r < 4; r++) {                                   /* each run at its fifth level, a little worn */
-        crawl_art_level(LV[r] + 4);
-        memcpy(RUNWALL[r], crawl_tex[T_MATV(MAT[r], 0)], TS * TS);
-        memcpy(RUNFLOOR[r], crawl_tex[T_FLOORS + 0], TS * TS);
-    }
+    portrait_keep_runs();                                           /* each run's stone and floor, as the game keeps them */
     crawl_art_level(1);                                             /* her hall: always level 1's look (begin_shop) */
     memcpy(HALL[0], crawl_tex[T_MATV(M1_ASHLAR, 0)], TS * TS); memcpy(HALL[1], crawl_tex[T_MATV(M1_ASHLAR, 1)], TS * TS);
     memcpy(HFLOOR, crawl_tex[T_FLOORS + FL1_FLAGS], TS * TS); memcpy(HCEIL, crawl_tex[T_CEILS + CE1_VAULT], TS * TS);
@@ -193,7 +189,7 @@ static PortraitView pv_of(int k, int rank, int frame, int run, int layout, unsig
     memcpy(v.spr, K->spr, sizeof v.spr);
     v.family = K->family; v.rank = rank; v.frame = frame; v.layout = layout;
     v.eye_core = rank <= RK_I ? OWN_CORE[K->eye] : RANK_CORE[rank]; v.eye_glow = rank <= RK_I ? OWN_GLOW[K->eye] : RANK_GLOW[rank];
-    v.wall = RUNWALL[run]; v.floor = RUNFLOOR[run];
+    v.wall = portrait_run_wall(run); v.floor = portrait_run_floor(run);
     memcpy(v.ranks, K->ranks, sizeof v.ranks); v.nranks = K->nranks;
     v.unlocked = (int)unlocked; v.unpaid = (int)unpaid; v.veil = veil; v.t = t;
     return v;
@@ -480,7 +476,7 @@ static void still(const char *dir, const char *name, void (*fn)(float), float t)
 }
 
 int main(int argc, char **argv) {
-    if (argc < 2) { fprintf(stderr, "usage: portraitmock <dir> [all|skeleton|veil|room|sheets|card]\n"); return 2; }
+    if (argc < 2) { fprintf(stderr, "usage: portraitmock <dir> [all|skeleton|veil|room|sheets|card|bench|check]\n"); return 2; }
     art_setup();
     const char *which = argc > 2 ? argv[2] : "all";
     int all = !strcmp(which, "all"), sc = getenv("PM_SCALE") ? atoi(getenv("PM_SCALE")) : 3;
@@ -492,6 +488,35 @@ int main(int argc, char **argv) {
     if (all || !strcmp(which, "room")) { gif_run(argv[1], "room", room_at, 6.4f, sc); still(argv[1], "room", room_at, 1.0f); }
     if (all || !strcmp(which, "sheets")) { sheet_states(argv[1]); sheet_candles(argv[1]); sheet_runs(argv[1]); }
     if (all || !strcmp(which, "card")) card(argv[1]);
+    if (!strcmp(which, "check")) {                                      /* the runs' stone made alone, against the whole art */
+        int bad = 0;
+        for (int r = 0; r < 4; r++) {
+            static uint8_t w[TS * TS], fl[TS * TS];
+            static const int MAT[4] = { M1_ASHLAR, M2_SLATE, M3_GRANITE, M4_OBSIDIAN };
+            crawl_art_level(5 + 10 * r);
+            crawl_art_stone(5 + 10 * r, w, fl);
+            crawl_art_level(5 + 10 * r);
+            int dw = 0, df = 0;
+            for (int i = 0; i < TS * TS; i++) { dw += w[i] != crawl_tex[T_MATV(MAT[r], 0)][i]; df += fl[i] != crawl_tex[T_FLOORS][i]; }
+            printf("run %d: stone %d texels apart, floor %d\n", r + 1, dw, df);
+            bad += dw + df;
+        }
+        return bad != 0;
+    }
+    if (!strcmp(which, "bench")) {                                      /* what a portrait costs to draw, at 128 and at 64 */
+        static uint8_t ov[OVR * OVR];
+        for (int res = 128; res >= 64; res /= 2)
+            for (int part = 0; part < 3; part++) {
+                int n = 0; clock_t c0 = clock();
+                for (; n < 400; n++) {
+                    PortraitView v = pv_of(n % NK, part == 0 ? -1 : RK_II, RK_II, n & 3, n % NPLAYOUT, 3, 2, part == 2 ? 1.0f : 0.0f, (float)n * 0.05f);
+                    memset(ov, C_CLEAR, sizeof ov);
+                    portrait_face(ov, res, res, res, 0, 0, res / TS, &v);
+                }
+                printf("bench %d texels, %s: %.3f ms a portrait\n", res, part == 0 ? "its shadow" : part == 1 ? "a rank, drawn back" : "veiled",
+                       (double)(clock() - c0) * 1000.0 / CLOCKS_PER_SEC / n);
+            }
+    }
     if (!strcmp(which, "s") && argc > 3) {                              /* one still of the skeleton's, for looking at */
         still(argv[1], "s_skeleton", skel_at, (float)atof(argv[3]));
     }

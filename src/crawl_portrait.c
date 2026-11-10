@@ -1,5 +1,6 @@
 /* The portraits of the slain (docs/PLAN-portraits.md): each kind's picture in a frame on her walls, its candle beside it,
- * a tapestry over it until one is slain. A mock-up's art: tools/portraitmock.c drives it; the game doesn't yet.
+ * a tapestry over it until one is slain. The game draws them into its walls' overlays (scene_crawl.c, por_frame), and
+ * tools/portraitmock.c the mock-ups.
  *
  * Everything is placed in texels of a wall face (64 x 64) and drawn at s pixels a texel, so the same drawing makes the
  * walls' own overlay (s 1), a finer one (s 2) and the card up close. Shapes are worked out at each pixel's middle, so a
@@ -447,31 +448,33 @@ static void tapestry(const int r[4], int side, float veil) {
     float X0 = (float)r[0] - 1.5f, X1 = (float)r[2] + 1.5f, Y0 = (float)r[1] - 3.2f, Y1 = (float)r[3] + 2.4f, Wc = X1 - X0;
     float Wv = Wc * (0.14f + 0.86f * veil), deep = 1.0f - veil;   /* gathered, it covers the frame's side and no more */
     static const char *const SK[7] = { ".#####.", "#######", "#..#..#", "#######", ".##.##.", ".#.#.#.", "......." };
-    for (int y = lo_px(Y0); y < hi_px(Y1 + 2.4f); y++)
-        for (int x = lo_px(X0); x < hi_px(X1); x++) {
-            float u = TX(x), w = TX(y), p = side ? X1 - u : u - X0;
-            if (p < 0.0f || p > Wv) continue;
-            float c = p / Wv * Wc, cy = w - Y0, hem = Y1 - deep * 3.5f * powf(p / Wv, 1.5f);
+    for (int x = lo_px(X0); x < hi_px(X1); x++) {                     /* a column at a time: its pleat and hem are the column's */
+        float u = TX(x), p = side ? X1 - u : u - X0;
+        if (p < 0.0f || p > Wv) continue;
+        float c = p / Wv * Wc, hem = Y1 - deep * 3.5f * powf(p / Wv, 1.5f);
+        float ph = c * 6.2832f / 4.2f, amp = 0.05f + 0.08f * deep, sph = sinf(ph);
+        for (int y = lo_px(Y0); y < hi_px(Y1 + 2.4f); y++) {
+            float w = TX(y), cy = w - Y0;
             if (w > hem) {                                              /* the fringe */
                 int th = (int)(c * 2.0f);
                 if ((th & 1) || w > hem + 1.2f + 1.0f * h01(th, 3, 91)) continue;
                 pp(x, y, sh(R_GOLD, 0.20f + 0.12f * h01(th, 5, 93)));
                 continue;
             }
-            float ph = c * 6.2832f / 4.2f, amp = 0.05f + 0.08f * deep;
-            float val = 0.13f + amp * sinf(ph) - 0.06f * cy / (Y1 - Y0) + 0.03f * (h01((int)(c * 3.0f), (int)(cy * 3.0f), 95) - 0.5f);
+            float val = 0.13f + amp * sph - 0.06f * cy / (Y1 - Y0) + 0.03f * (h01((int)(c * 3.0f), (int)(cy * 3.0f), 95) - 0.5f);
             uint8_t col = sh(R_BLOOD, val);
             float bc = fminf(c, Wc - c), bh = fminf(cy, hem - w);
             if ((bc > 1.3f && bc < 2.0f && bh > 1.3f) || (bh > 1.3f && bh < 2.0f && bc > 1.3f))   /* the border, gold thread */
-                col = sh(R_GOLD, 0.26f + 0.18f * fmaxf(0.0f, sinf(ph)) + 0.08f * h01((int)(c * 4.0f), (int)(cy * 4.0f), 97));
+                col = sh(R_GOLD, 0.26f + 0.18f * fmaxf(0.0f, sph) + 0.08f * h01((int)(c * 4.0f), (int)(cy * 4.0f), 97));
             float mx = (c - (Wc * 0.5f - 7.0f)) / 2.0f, my = (cy - ((Y1 - Y0) * 0.45f - 7.0f)) / 2.0f;   /* the skull worked in it */
             if (mx >= 0.0f && my >= 0.0f && mx < 7.0f && my < 7.0f && SK[(int)my][(int)mx] == '#')
-                col = sh(R_GOLD, 0.18f + 0.14f * fmaxf(0.0f, sinf(ph)) + 0.06f * (((x + y) & 1) ? 1.0f : 0.0f));
+                col = sh(R_GOLD, 0.18f + 0.14f * fmaxf(0.0f, sph) + 0.06f * (((x + y) & 1) ? 1.0f : 0.0f));
             if (Wv - p < 0.6f) col = sh(R_BLOOD, 0.04f);                /* its leading edge */
             if (veil < 0.6f && fabsf(cy - (Y1 - Y0) * 0.6f) < 0.65f)    /* the cord that holds it back */
                 col = sh(R_GOLD, 0.45f + 0.4f * (cy < (Y1 - Y0) * 0.6f ? 1.0f : 0.0f));
             pp(x, y, col);
         }
+    }
     if (veil < 0.6f) {                                                  /* the cord's tassel */
         float tx = side ? X1 - Wv : X0 + Wv, ty = Y0 + (Y1 - Y0) * 0.6f;
         capsule(tx, ty, tx + (side ? -0.6f : 0.6f), ty + 3.5f, 0.5f, R_GOLD, 0.3f, 0.9f);
@@ -491,10 +494,12 @@ void portrait_face(uint8_t *pix, int stride, int w, int h, int ox, int oy, int s
     int r[4];
     portrait_frame_rect(v->layout, r);
     layout_lights(v->layout, 1);
-    picture(r, v);
-    float fx = (float)(r[0] + r[2]) * 0.5f, fy = (float)(r[1] + r[3]) * 0.5f;
-    static const float LX[NPLAYOUT] = { 54.5f, 9.5f, 32.0f, 32.0f, 32.0f, 9.5f, 55.5f }, LY[NPLAYOUT] = { 24, 24, 20, 5, 47, 26, 22 };
-    frame(r, v->frame, LX[v->layout] - fx - 0.0f, LY[v->layout] - fy - 18.0f, v);
+    if (v->veil < 1.0f) {                                               /* the tapestry, all the way down, hides both */
+        picture(r, v);
+        float fx = (float)(r[0] + r[2]) * 0.5f, fy = (float)(r[1] + r[3]) * 0.5f;
+        static const float LX[NPLAYOUT] = { 54.5f, 9.5f, 32.0f, 32.0f, 32.0f, 9.5f, 55.5f }, LY[NPLAYOUT] = { 24, 24, 20, 5, 47, 26, 22 };
+        frame(r, v->frame, LX[v->layout] - fx - 0.0f, LY[v->layout] - fy - 18.0f, v);
+    }
     if (v->veil >= 0.0f) {                                              /* below 0: none at all */
         static const int SIDE[NPLAYOUT] = { 0, 1, 0, 0, 0, 1, 0 };     /* gathered away from its candle */
         tapestry(r, SIDE[v->layout], v->veil);
@@ -505,3 +510,14 @@ int portrait_flames(const PortraitView *v, float out[4][3]) {
     for (int i = 0; i < g_nfl; i++) { out[i][0] = g_fl[i].x; out[i][1] = g_fl[i].y - g_fl[i].h * 0.4f; out[i][2] = g_fl[i].power; }
     return g_nfl;
 }
+
+/* ---- each run's stone and floor, kept: her hall is always drawn in level 1's art, so the others are made once and kept ---- */
+static uint8_t RUN_WALL[4][TS * TS], RUN_FLOOR[4][TS * TS];
+void portrait_keep_runs(void) {
+    static int kept;
+    if (kept) return;
+    kept = 1;
+    for (int r = 0; r < 4; r++) crawl_art_stone(5 + 10 * r, RUN_WALL[r], RUN_FLOOR[r]);   /* each run at its fifth level, a little worn */
+}
+const uint8_t *portrait_run_wall(int run) { return RUN_WALL[clampi_(run, 0, 3)]; }
+const uint8_t *portrait_run_floor(int run) { return RUN_FLOOR[clampi_(run, 0, 3)]; }

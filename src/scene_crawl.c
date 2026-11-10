@@ -19,6 +19,7 @@
 #include "snd.h"
 #include "crawl_ui.h"
 #include "crawl_title.h"
+#include "crawl_portrait.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -85,7 +86,7 @@ enum { AW_NONE, AW_SEEK, AW_HOME, AW_REST };   /* its wisp: not woken, at a secr
 #define BLESS_REACH 4.0f                    /* how near a blessed wisp the undead turn */
 
 typedef struct { uint8_t kind, tex, theme, visits; int16_t region, door; uint8_t secret, lamp;
-                 uint8_t face[4], fover[4], fflip, ftorch, flo, cei; } Cell;   /* secret: 1 a hidden closet, 2 its cracked wall; lamp: a pocket's ceiling panel, 1 + its light, 255 dead */
+                 uint8_t face[4], fover[4], fflip, ftorch, flo, cei, por; } Cell;   /* por: 1 + a portrait of the slain hung on one of its faces */   /* secret: 1 a hidden closet, 2 its cracked wall; lamp: a pocket's ceiling panel, 1 + its light, 255 dead */
 /* On a drawn run (docs/PLAN-b10.md) a wall's faces have their own looks: face[d] is the texture of its face
  * toward (DX[d], DY[d]) (0: tex, as before), fover what stands on it, fflip bit d mirrored, ftorch the face a
  * torch is on, + 1. A floor cell's flo and cei are its floor and ceiling (0: plain); fflip bits 5-7 say how
@@ -1528,7 +1529,7 @@ static uint32_t hash2(int x, int y) {
 }
 
 static Cell *cell(int x, int y) {
-    static Cell solid = { K_WALL, T_STONE, 0, 0, -1, -1, 0, 0, { 0 }, { 0 }, 0, 0, 0, 0 };
+    static Cell solid = { K_WALL, T_STONE, 0, 0, -1, -1, 0, 0, { 0 }, { 0 }, 0, 0, 0, 0, 0 };
     if (x < 0 || y < 0 || x >= MAPN || y >= MAPN) return &solid;
     return &G.map[y][x];
 }
@@ -4810,6 +4811,16 @@ static void por_life(void) {
     memset(RUN.por_taken, 0, sizeof RUN.por_taken); memset(RUN.por_btaken, 0, sizeof RUN.por_btaken);
     RUN.por_open = POR_WOKEN;
 }
+/* the portraits as they hang (gen_shop, por_hang): where, which kind, its candles' layout, its walk's phase; each drawn into an
+ * overlay of POR_RES texels a side, column by column as the walls are, again only while it was in view and its candles or its
+ * creature have moved (por_frame), and render_walls laying it over its face's stone */
+#define POR_RES 128
+#define NPOR 26                                                    /* the twenty-two kinds' and, in time, the bosses' four */
+typedef struct { int x, y, fd, kind, layout; float ph; } PorAt;
+static struct { int n, frame; PorAt at[NPOR]; int key[NPOR], drawn[NPOR], seen[NPOR]; } POR;
+static uint8_t POR_OV[NPOR][POR_RES * POR_RES];
+static int best_kinds(int *out);
+static int kind_ranks(int k, int *out);
 #ifdef CRAWL_DEBUG
 static void por_trace(const char *why) {                           /* PORTRAITS: the state, as it stands */
     int drawn = 0, unl = 0, wait = 0, bw = 0;
@@ -21039,6 +21050,43 @@ static void ped_arc(void) {                                        /* the pedest
         G.ped_x[i] = SHOP_MID + t * half; G.ped_y[i] = 12.9f + 0.75f * t * t;
     }
 }
+/* the portraits of the slain hung on her walls (docs/PLAN-portraits.md, section 7), a bestiary page each in its order: the first
+ * third on her south wall, read from the left as you face it; the second on her north wall, the spiderling round its corner by its
+ * mother; the last in the back room, along its north wall and down its east. A face that carried a banner or a torch gives it up. */
+static void por_hang(void) {
+    static const int8_t AT[22][3] = {
+        { 20, 18, 3 }, { 18, 18, 3 }, { 17, 18, 3 }, { 13, 18, 3 }, { 12, 18, 3 }, { 11, 18, 3 }, { 10, 18, 3 },
+        { 10, 11, 1 }, { 11, 11, 1 }, { 13, 11, 1 }, { 14, 11, 1 }, { 16, 11, 1 }, { 17, 11, 1 }, { 19, 11, 1 }, { 21, 12, 2 },
+        { 7, 11, 1 }, { 8, 11, 1 }, { 9, 12, 2 }, { 9, 14, 2 }, { 9, 15, 2 }, { 9, 16, 2 }, { 9, 17, 2 } };
+    int order[NKINDS], nk = best_kinds(order);
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_PORTRAITS") && atoi(getenv("CRAWL_PORTRAITS")) >= 0) {   /* testing: every portrait drawn back, n of each kind's
+                                                                      ranks unlocked (0: their shadows); below 0 none hung */
+        int n = atoi(getenv("CRAWL_PORTRAITS"));
+        for (int i = 0; i < nk; i++) {
+            int k = order[i], rk[NRANK], nr = kind_ranks(k, rk);
+            RUN.por_drawn |= 1u << k;
+            for (int j = 0; j < nr && j < n; j++) if (slayer_need(k, rk[j])) RUN.rec.got[(k * NRANK + rk[j]) >> 3] |= (uint8_t)(1 << ((k * NRANK + rk[j]) & 7));
+        }
+        por_fill();
+    }
+#endif
+    POR.n = 0;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_PORTRAITS") && atoi(getenv("CRAWL_PORTRAITS")) < 0) return;   /* testing: none hung, to weigh their cost */
+#endif
+    for (int i = 0; i < nk && i < 22; i++) {
+        PorAt *a = &POR.at[POR.n];
+        a->x = AT[i][0]; a->y = AT[i][1]; a->fd = AT[i][2]; a->kind = order[i];
+        a->layout = i % NPLAYOUT;                                  /* (step 3 deals them, no two neighbours alike) */
+        a->ph = -0.83f * (float)i;                                 /* each turns about in its own time */
+        Cell *c = &G.map[a->y][a->x];
+        if (c->kind != K_WALL || c->por) continue;
+        c->por = (uint8_t)(1 + POR.n); c->fover[a->fd] = 0;
+        POR.drawn[POR.n++] = 0;
+    }
+}
+
 static void gen_shop(void) {
     G.faced = 1; G.look = 0;                                        /* her hall in the Crypts' stone, whatever the run (begin_shop draws level 1's) */
     memset(G.map, 0, sizeof G.map);
@@ -21106,6 +21154,7 @@ static void gen_shop(void) {
     G.ncells = 0;
     for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (G.map[y][x].kind == K_FLOOR) G.ncells++;
     lay_faces();
+    por_hang();                                                    /* the portraits of the slain, over the faces laid */
 }
 
 static void shop_turn(float to, float dur) {
@@ -21165,6 +21214,12 @@ static void begin_shop(void) {
     G.bchallenge = 0;
     G.shop = 1; G.state = PS_SHOP; G.nmk = 0;
     memset(G.wisps, 0, sizeof G.wisps);                            /* nor into the merchant's room */
+#ifdef CRAWL_DEBUG
+    { static int once; clock_t c0 = clock(); portrait_keep_runs();
+      if (!once++) fprintf(stderr, "PORTRAITS the runs' stone kept in %.1f ms\n", (double)(clock() - c0) * 1000.0 / CLOCKS_PER_SEC); }
+#else
+    portrait_keep_runs();                                          /* the first time: each run's stone for the portraits behind them */
+#endif
     crawl_art_level(1);                                            /* the antechamber looks the same every time */
     gen_shop();
     memset(G.mobs, 0, sizeof G.mobs); G.nroute = 0; G.npacks = 0; memset(G.shots, 0, sizeof G.shots); memset(G.booms, 0, sizeof G.booms);
@@ -23717,6 +23772,14 @@ static void crawl_control(int what) {
         for (int i = 0; i < RUN.gear.bag_size; i++) if (RUN.gear.bag[i].kind == IK_NONE) RUN.gear.bag[i] = piece_roll(IK_RING, 4, Q_RARE, &rs);
         for (int i = 0; i < G.ped_n; i++)
             if (G.offers[i].kind == GK_PIECE && piece_slot(&RUN.gear, G.offers[i].piece.kind) >= 0) { G.shop_letgo = i; G.ui = UI_LETGO; G.ui_sel = 0; break; }
+    }
+    if (getenv("CRAWL_TPPORTRAIT") && G.shop && POR.n) {          /* before portrait k (1 the first), facing it, d cells from its
+                                                                      cell's middle (k,d; 2.1 if not given) */
+        int k = 1; float d = 2.1f;
+        sscanf(getenv("CRAWL_TPPORTRAIT"), "%d,%f", &k, &d);
+        const PorAt *a = &POR.at[clampi(k - 1, 0, POR.n - 1)];
+        G.px = (float)a->x + 0.5f + (float)DX[a->fd] * d; G.py = (float)a->y + 0.5f + (float)DY[a->fd] * d;
+        G.ang = heading_angle((a->fd + 2) & 3); G.cx = (int)G.px; G.cy = (int)G.py;
     }
     if (getenv("CRAWL_TPCAT") && G.shop) { G.px = CAT_X + 1.3f; G.py = CAT_Y + 0.4f; G.ang = face_of(CAT_X, CAT_Y); G.cx = (int)G.px; G.cy = (int)G.py; }   /* before the merchant */
     if (getenv("CRAWL_TPREPO") && G.shop) { G.px = 5.5f; G.py = 14.5f; G.ang = PI_F; G.cx = 5; G.cy = 14; }   /* before the Repository's niches */
@@ -26518,7 +26581,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
         int sx = rdx < 0 ? -1 : 1, sy = rdy < 0 ? -1 : 1;
         float sdx = rdx < 0 ? (G.px - mx) * ddx : (mx + 1.0f - G.px) * ddx;
         float sdy = rdy < 0 ? (G.py - my) * ddy : (my + 1.0f - G.py) * ddy;
-        int side = 0, tex = T_STONE, texx = 0, hit = 0, over = -1, flip = 0;
+        int side = 0, tex = T_STONE, texx = 0, hit = 0, over = -1, flip = 0, por = -1, ptx = 0;
         float perp = 30.0f, cracks = 0.0f;
         for (int i = 0; i < 100 && !hit; i++) {
             if (sdx < sdy) { sdx += ddx; mx += sx; side = 0; } else { sdy += ddy; my += sy; side = 1; }
@@ -26539,7 +26602,10 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 tex = c->tex;
                 int pxc = side == 0 ? mx - sx : mx, pyc = side == 1 ? my - sy : my;
                 int fd = side == 0 ? (sx > 0 ? 2 : 0) : (sy > 0 ? 3 : 1);   /* the face looked at */
-                if (cell(pxc, pyc)->kind == K_DOOR) tex = G.faced ? T_RJAMB : T_JAMB;
+                if (c->por && POR.at[c->por - 1].fd == fd) {              /* a portrait of the slain, over its face's own stone */
+                    por = c->por - 1; flip = c->fflip >> fd & 1;
+                    tex = c->face[fd] ? c->face[fd] : plain_tex(tex) ? tex : T_BRICK;
+                } else if (cell(pxc, pyc)->kind == K_DOOR) tex = G.faced ? T_RJAMB : T_JAMB;
                 else if (c->face[fd] && plain_tex(tex)) {
                     tex = c->face[fd]; flip = c->fflip >> fd & 1;
                     if (c->fover[fd]) over = c->fover[fd] == T_FEAT + F1_TORCH ? T_FEAT + F1_TORCH + (int)((tframe + hash2(mx, my)) % 3) : c->fover[fd];
@@ -26552,6 +26618,10 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 wallx -= floorf(wallx);
                 texx = (int)(wallx * TS);
                 if ((side == 0 && rdx > 0) || (side == 1 && rdy < 0)) texx = TS - 1 - texx;
+                if (por >= 0) {                                         /* the portrait's own column, never mirrored */
+                    ptx = clampi((int)(wallx * POR_RES), 0, POR_RES - 1);
+                    if ((side == 0 && rdx > 0) || (side == 1 && rdy < 0)) ptx = POR_RES - 1 - ptx;
+                }
                 if (flip) texx = TS - 1 - texx;
                 if (c->secret == 2) cracks = 1.0f - smoothstepf(1.3f, 2.8f, perp);   /* only close up do the cracks show */
                 hit = 1;
@@ -26592,6 +26662,14 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
             for (int k = 0; k < TS; k++) mix[k] = oc[k] != C_CLEAR ? oc[k] : col[k];
             col = mix;
         }
+        int tn = TS;                                                /* the column's texels */
+        if (por >= 0) {                                             /* a portrait, at twice the walls' texels, over its stone */
+            static uint8_t pmix[POR_RES];
+            const uint8_t *pc = &POR_OV[por][ptx * POR_RES];
+            for (int k = 0; k < POR_RES; k++) pmix[k] = pc[k] != C_CLEAR ? pc[k] : col[k * TS / POR_RES];
+            col = pmix; tn = POR_RES; tstep = POR_RES / lineh; ty = (y0 + 0.5f - top) * tstep;
+            POR.seen[por] = POR.frame;                              /* in view: drawn again as it moves */
+        }
         if (cracks > 0.0f) {
             const uint8_t *cm = &crack_mask[texx * TS];
             int thr = (int)(cracks * 16.0f);
@@ -26603,7 +26681,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
             continue;
         }
         for (int y = y0; y < y1; y++, ty += tstep)
-            f->pix[y * W + x] = fogged(shade(col[clampi((int)ty, 0, TS - 1)], light, x, y), fog, light, x, y);
+            f->pix[y * W + x] = fogged(shade(col[clampi((int)ty, 0, tn - 1)], light, x, y), fog, light, x, y);
     }
 }
 
@@ -33013,6 +33091,67 @@ static void render_marks(Frame *f, float dx, float dy, float horizon) {
     }
     ward_pips(f, dx, dy, horizon);                                 /* and the soul-lamps' pips (1.0.0b18.1) */
 }
+/* ---- the portraits of the slain, drawn (docs/PLAN-portraits.md): what each shows, from the record, and its overlay kept ---- */
+
+/* the frame's colour is the highest rank unlocked, black over gilded over the rest */
+static int por_high(int unl) {
+    static const int ORD[NRANK] = { 0, 1, 2, 3, 5, 4 };
+    int hi = -1;
+    for (int r = 0; r < NRANK; r++) if (unl >> r & 1 && (hi < 0 || ORD[r] > ORD[hi])) hi = r;
+    return hi;
+}
+/* portrait i at the clock t: its creature in the rank shown (its unlocked ranks in turn, five seconds each, the next coming
+ * through over the last two thirds of a second: v2 and how far, in *mix), on the stone of the run that rank was unlocked in */
+static void por_view(int i, float t, PortraitView *v, PortraitView *v2, float *mix) {
+    const PorAt *a = &POR.at[i];
+    int k = a->kind, rk[NRANK], nr = kind_ranks(k, rk), unl = por_unlocked(k), list[NRANK], n = 0;
+    memset(v, 0, sizeof *v);
+    v->spr[0] = KINDS[k].spr; v->spr[1] = KINDS[k].spr2; v->spr[2] = KINDS[k].side; v->spr[3] = KINDS[k].side2;
+    v->family = KINDS[k].family; v->layout = a->layout; v->t = t; v->walk0 = a->ph;
+    memcpy(v->ranks, rk, sizeof rk); v->nranks = nr;
+    v->unlocked = unl; v->unpaid = por_waiting(k); v->frame = por_high(unl);
+    v->veil = RUN.por_drawn >> k & 1 ? 0.0f : 1.0f;
+    for (int j = 0; j < nr; j++) if (unl >> rk[j] & 1) list[n++] = rk[j];
+    float u = (t - a->ph) / 5.0f, fr = u - floorf(u);
+    *v2 = *v; *mix = 0.0f;
+    for (int w = 0; w < 2; w++) {
+        PortraitView *p = w ? v2 : v;
+        int rank = n ? list[((int)floorf(u) + w) % n] : -1;
+        int run = rank >= 0 && RUN.por_run[k][rank] ? RUN.por_run[k][rank] - 1 : por_guess(k, rank >= 0 ? rank : RK_I);
+        p->rank = rank; p->wall = portrait_run_wall(run); p->floor = portrait_run_floor(run);
+        int ec = rank > RK_I && EYE_RANK[rank] >= 0 ? EYE_RANK[rank] : EYE_OWN[k];
+        p->eye_core = rank >= 0 && crawl_eyes[p->spr[0]].n ? EYE_CORE[ec] : 0; p->eye_glow = EYE_GLOW[ec];
+    }
+    if (n > 1 && fr > 0.87f) *mix = (fr - 0.87f) / 0.13f;
+}
+/* each frame in her rooms: a portrait in view last frame (or never yet drawn) is drawn again when its candles' flames have moved,
+ * twenty times a second, its creature's step and turn with them; the rest wait as they are */
+static void por_frame(void) {
+    if (!G.shop || !POR.n) return;
+    static uint8_t a[POR_RES * POR_RES], b[POR_RES * POR_RES];
+    float t = (float)G.t;
+    for (int i = 0; i < POR.n; i++) {
+        int key = (int)floorf(t * 20.0f + 0.37f * (float)i);       /* their turns spread across the frames */
+        if (POR.drawn[i] && (key == POR.key[i] || POR.seen[i] < POR.frame - 1)) continue;
+        PortraitView v, v2;
+        float mix;
+        por_view(i, t, &v, &v2, &mix);
+        memset(a, C_CLEAR, sizeof a);
+        portrait_face(a, POR_RES, POR_RES, POR_RES, 0, 0, POR_RES / TS, &v);
+        if (mix > 0.0f) {                                          /* the next rank coming through, dithered */
+            memset(b, C_CLEAR, sizeof b);
+            portrait_face(b, POR_RES, POR_RES, POR_RES, 0, 0, POR_RES / TS, &v2);
+            int s = POR_RES / TS;
+            for (int y = 0; y < POR_RES; y++) for (int x = 0; x < POR_RES; x++)
+                if ((float)BAYER[(y / s) & 3][(x / s) & 3] < mix * 16.0f) a[y * POR_RES + x] = b[y * POR_RES + x];
+        }
+        uint8_t *o = POR_OV[i];                                    /* by columns, as the walls are kept: the first on the right as seen */
+        for (int x = 0; x < POR_RES; x++) for (int y = 0; y < POR_RES; y++) o[(POR_RES - 1 - x) * POR_RES + y] = a[y * POR_RES + x];
+        POR.key[i] = key; POR.drawn[i] = 1;
+    }
+    POR.frame++;
+}
+
 static void crawl_render(Frame *f) {
     f->w = W; f->h = H;
     memcpy(f->pal, crawl_pal, sizeof crawl_pal);
@@ -33034,6 +33173,7 @@ static void crawl_render(Frame *f) {
     float camz = G.camz;
     G.camz -= 0.03f * G.hurt + 0.40f * down;
     fm_any = hz_marks();
+    por_frame();                                                   /* her rooms' portraits, as they move */
     render_floor(f, dx, dy, plx, ply, horizon);
     render_walls(f, dx, dy, plx, ply, horizon);
     render_sprites(f, dx, dy, horizon);

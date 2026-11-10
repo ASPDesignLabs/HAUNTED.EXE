@@ -14,7 +14,8 @@ VERSION := $(shell cat VERSION)
 FILEVER := $(shell sed -E 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*/\1,\2,\3,0/' VERSION)
 PKG      = dist/HAUNTED-$(VERSION)-win64.zip
 
-SRC      = src/app.c src/gfx.c src/font_vga.c src/snd.c src/scene_crawl.c src/crawl_art.c src/hand_img.c src/crawl_gear.c src/face_img.c src/cat_img.c src/scene_haunt.c src/haunt_art.c src/crawl_ui.c src/ui_art.c src/crawl_title.c
+SRC      = src/app.c src/gfx.c src/font_vga.c src/snd.c src/scene_crawl.c src/crawl_art.c src/hand_img.c src/crawl_gear.c src/face_img.c src/cat_img.c src/scene_haunt.c src/haunt_art.c src/crawl_ui.c src/ui_art.c src/crawl_title.c \
+           src/crawl_portrait.c
 CFLAGS  ?= -O2 -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Wno-misleading-indentation
 
 all: host

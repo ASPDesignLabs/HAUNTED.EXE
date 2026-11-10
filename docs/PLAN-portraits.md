@@ -1,7 +1,7 @@
 # The portraits of the slain
 
 *Status: settled (10 November 2026), at the owner's request, and being built on `claude/adoring-hopper-h9ivcg` from main at
-1.0.0b21.1: step 1 (the record) is built, harness only; nothing of it shows yet. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (not in the
+1.0.0b21.1: steps 1 (the record) and 2 (the art in the build, hung at section 7's faces) are built, harness only. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (not in the
 game's build yet) and `tools/portraitmock.c` (`make build/portraitmock`, then `build/portraitmock <dir>`). The owner answered every
 question in section 9 the same day (marked there, Q15 last, which came of their own edit) and settled the numbers in a Sheet on
 claude.ai, [Portraits of the Slain: Gold](https://claude.ai/artifact/2P9JkVQMBEdhAoa6zwB1N6), brought into sections 3 and 4 as it
@@ -309,6 +309,7 @@ stands before them. Their art is not drawn yet: a mock-up of one comes before th
 1. The record's new section, a life, older pages read, and the counts lowered with their sweep (section 8). *Built (harness
    only), 10 November.* (harness: pages from 1.0.0b21.1 opened, a death, a new run).
 2. The art in the build: the overlays, `render_walls`, the runs' stone kept; frame time in her room (it is 1.8 ms in the crypt).
+   *Built (harness only), 10 November; hung at section 7's faces for it, their layouts not yet dealt nor their candles lit.*
 3. Her room: the faces, the layouts dealt, the candles' light.
 4. The tapestry and the card, the gold, the prompt in the pad's words.
 5. The Spectre's and the Wraith's achievements and the feats (section 5 A and B), and the bosses' four portraits in the plot
@@ -367,3 +368,31 @@ stands before them. Their art is not drawn yet: a mock-up of one comes before th
   `CRAWL_RUNID=4242` for both) is line for line 1.0.0b21.1's: nothing in play reads the slayer bits. ASan clean on two sessions (the
   old page read, a death and its page written; the new page read and played 700 s). `README.md` and the page still give the old
   counts: they describe the released build, so they change with the release. Next: step 2, the art in the build.
+- **10 November, step 2 built** (harness only), at the owner's word. `src/crawl_portrait.c` is in the game's build (`SRC`, so the
+  Windows and browser builds too; neither was built here). `por_hang` (the end of `gen_shop`, after `lay_faces`) hangs the
+  twenty-two, a bestiary page each in its order, at section 7's faces (the south wall read from the left as you face it, x 20 to
+  10; the north wall x 10 to 19 and the spiderling at (21, 12); the back room's north wall x 7, 8 and its east wall y 12 to 17):
+  `POR.at[i]` (cell, face, kind, layout, the walk's phase), `Cell.por` 1 + its index, the face's own overlay taken off. The
+  layouts go by turn (`i % NPLAYOUT`) till step 3 deals them, and the candles light nothing yet. `por_view` builds a `PortraitView`
+  from the record (the frame's colour the highest rank unlocked, black over gilded; the unlocked ranks in turn, five seconds each,
+  the next dithered in over the last two thirds of a second; each on the stone of the run its rank was unlocked in; the eyes as
+  `render_eyes` colours them; the gems by `kind_ranks`, twinkling by `por_waiting`; the tapestry down unless drawn back). `por_frame`
+  (in `crawl_render`, before the walls) draws a portrait into its overlay, `POR_OV[i]`, 128 texels a side, again only when it was
+  in view the frame before and twenty times a second (its flames; its creature steps and turns with them), their turns spread
+  across the frames; kept by columns and mirrored, as the walls keep a texture's first column on the right as seen. `render_walls`
+  takes a portrait's face's stone and lays the overlay's column over it at 128 texels (`POR.seen` marks it in view). The runs'
+  stone: `portrait_keep_runs` (in `begin_shop`, before her level 1 art) keeps each run's at its fifth level through
+  `crawl_art_stone` (`crawl_art.c`), which makes only a run's main stone and first floor: byte for byte what the whole art makes
+  (`build/portraitmock <dir> check`), in 10 ms where four whole levels' art took 420. The drawing was made cheaper without
+  changing a pixel (the mock-ups' sheets and card the same, file for file): a tapestry all the way down hides the picture and the
+  frame, so they aren't drawn under it, and its pleats are worked out a column at a time; at 128 texels a portrait costs 0.20 ms
+  as a shadow, 0.22 ms with a rank, 0.12 ms veiled (`build/portraitmock <dir> bench`; 0.26, 0.24 and 0.47 before). Her room's frame
+  (the harness's `bench`, 20 s, each case twice; these wander by about 0.2 ms): the dream's first visit, every portrait veiled,
+  2.29 and 2.33 ms against 1.0.0b21.1's 2.04 and 2.27; a person before a portrait with two ranks of every kind drawn back, 2.16 to
+  2.63 ms against 1.95 to 2.22 with none hung (`CRAWL_PORTRAITS=-1`), the back room's three in view the dearest. Elsewhere the walls
+  are as they were (frames from levels 1 and 2 the same as 1.0.0b21.1's, file for file), and the dream from level 1 for 2,400 s is
+  line for line 1.0.0b21.1's again. ASan clean on a person walking her room among them. Debug: `CRAWL_PORTRAITS=n` (every portrait
+  drawn back and n of each kind's ranks unlocked from its lowest, 0 its shadow; below 0 none hung), `CRAWL_TPPORTRAIT=k[,d]` (before
+  portrait k, 1 the first, d cells from its cell's middle, 2.1 if not given), `PORTRAITS the runs' stone kept in n ms`. Seen in the
+  harness: her north and south walls veiled and drawn back, each kind in its rank's colours on its run's stone, the sconces and
+  tapestries on the sides their layouts give them. Next: step 3, the layouts dealt and the candles' light.

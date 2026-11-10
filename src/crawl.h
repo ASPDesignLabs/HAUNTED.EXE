@@ -409,6 +409,7 @@ typedef struct {
 } RunLook;
 extern const RunLook crawl_looks[4];
 void crawl_art_run(int level);                  /* that run's own textures and keys, at the level's rot (after crawl_art_level) */
+void crawl_art_stone(int level, uint8_t *wall, uint8_t *floor);   /* a run's main stone and first floor alone (docs/PLAN-portraits.md) */
 
 /* A document's page (1.0.0b13, docs/PLAN-b13.md section 6a), a run each: a leaf of the Order's vellum, a letter's paper,
  * a scrap of sacking, beaten gold leaf. Drawn into pix (stride across) at x0, y0, w by h, left as it was where it is torn
