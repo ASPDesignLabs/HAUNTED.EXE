@@ -299,7 +299,8 @@ shaded under a hash of the piece (`SCC`), and the still earth, crypt and ground 
 `tools/web_smoke.js` passes the title (a key, then BEGIN A NEW RUN) and judges its frame apart, under 40 ms.
 
 **The portraits of the slain** are planned in [`docs/PLAN-portraits.md`](docs/PLAN-portraits.md) (10 November, a draft on
-`claude/adoring-hopper-h9ivcg` from main at 1.0.0b21.1; nothing built, questions in its section 9 waiting for the owner): a
+`claude/adoring-hopper-h9ivcg` from main at 1.0.0b21.1; nothing built; five of its section 9's questions answered, the numbers
+being worked out by the owner in a Sheet on claude.ai that its status links): a
 portrait for each bestiary page on her walls, under a tapestry till one is slain, then its shadow, then each rank unlocked by its
 slayer achievement walking in its colours on the stone of the run it was unlocked in; the frame's colour the highest rank, a
 candle beside each in one of seven layouts; each rank's gold paid once a life, after a level cleared. The art for the mock-ups is

@@ -2,9 +2,12 @@
 
 *Status: a draft (10 November 2026), at the owner's request, on `claude/adoring-hopper-h9ivcg` from main at 1.0.0b21.1. Nothing is in
 the game. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (not in the
-game's build yet) and `tools/portraitmock.c` (`make build/portraitmock`, then `build/portraitmock <dir>`); the sheet of
-achievements is `docs/portraits/achievements.xlsx`, written by `tools/portrait_sheet.py` from `KINDS` itself. The questions in
-section 9 wait for the owner; each has the answer I would take marked first.*
+game's build yet) and `tools/portraitmock.c` (`make build/portraitmock`, then `build/portraitmock <dir>`). The owner answered five
+of section 9's questions the same day (marked there). The numbers are now worked out in a Sheet on claude.ai,
+[Portraits of the Slain: Gold](https://claude.ai/artifact/2P9JkVQMBEdhAoa6zwB1N6): one row per unlock (its kind, rank, kills,
+gold, achievement, condition, whether it pays), the formula's inputs on a tab of their own, and the bosses' rows. What it holds
+when the owner settles it is what gets built; `docs/portraits/achievements.xlsx` (written by `tools/portrait_sheet.py` from
+`KINDS`) was its starting point and is not kept in step with it.*
 
 ## 1. What was asked
 
@@ -41,13 +44,13 @@ the skeleton's frame with ranks I and II unlocked, each walking five seconds in 
 - **E at a portrait** opens its card (`card.png`): the picture up close, each rank's slain and needed, its gold and whether it
   was taken this life, waits, or isn't yet earned. E takes all that waits on that portrait at once; A/D go to the next
   portrait without walking to it; Esc leaves.
-- **Paid once a life.** Each unlocked rank pays its gold once a life: on any visit to her room that follows a level cleared in
-  that life. A life runs from waking after a death that costs (`death_fall`), or a new run, to the next such death. So the
-  waking visit pays nothing; the first visit after clearing a level pays everything unlocked; a rank unlocked in the middle of a
-  level is ready on the next visit. Her claim takes no portrait's gold and doesn't start a life.
-- **The dream** leaves them alone, as it leaves the Repository: no tapestries drawn back, no gold taken. Its balance runs stay
-  comparable with the builds before, line for line. A person who takes over a dream's run finds its kills already counted, its
-  tapestries waiting for them.
+- **Paid once a life** (settled). Every rank unlocked pays its gold once a life, at any visit to her room: the visit after a
+  level cleared in that life, and the one on waking after a death too. A life runs from waking after a death that costs
+  (`death_fall`), or a new run, to the next such death. A rank unlocked in the middle of a level is ready on the next visit.
+  Her claim takes no portrait's gold and doesn't start a life.
+- **The dream** (settled) draws back a tapestry now and then, so the screensaver's runs show the wall opening over time. It takes
+  no gold (my assumption, as before: the owner's answer spoke of the tapestries only), so its balance runs stay comparable with
+  the builds before. A person who takes over a dream's run finds its kills counted and some tapestries already down.
 
 ## 3. The sheet: every achievement for kills
 
@@ -234,15 +237,16 @@ Twenty-two candles brighten her room; their power can come down until it looks a
 
 ## 9. Questions for the owner
 
-1. **The thirds.** (a) The bestiary's order, the spiderling with its mother: 7, 8, 7 (as the sheet). (b) Straight thirds, 7, 7, 8,
+1. **The thirds.** *Settled: (a).* (a) The bestiary's order, the spiderling with its mother: 7, 8, 7 (as the sheet). (b) Straight thirds, 7, 7, 8,
    the spiderling in the last.
-2. **The formula.** (a) Start x (1 + 0.6 x (rank + strength)), strength by `KIND_XP` within the third. (b) By rank alone,
-   start x (1 + 0.75 x rank). (c) Yours: the workbook takes any.
-3. **What a portrait pays.** (a) Every rank unlocked, once a life each. (b) Only its highest rank's, once a life.
-4. **When.** (a) On a visit to her room after a level cleared in that life; not on waking after a death. (b) At any visit,
-   waking too.
-5. **The dream.** (a) Leaves them alone: no tapestries, no gold. (b) Draws back tapestries but takes no gold. (c) Both.
-6. **Resolution.** (a) 128 texels a face, the creature at its own size. (b) The walls' own 64.
+2. **The formula.** *Being worked out in the Sheet.* (a) Start x (1 + 0.6 x (rank + strength)), strength by `KIND_XP`
+   within the third. (b) By rank alone, start x (1 + 0.75 x rank). (c) Yours: the Sheet takes any.
+3. **What a portrait pays.** *Settled: (a).* (a) Every rank unlocked, once a life each. (b) Only its highest rank's, once a life.
+4. **When.** *Settled: both, so (b).* (a) On a visit to her room after a level cleared in that life; not on waking after a
+   death. (b) At any visit, waking too.
+5. **The dream.** *Settled: it draws back a tapestry now and then* (its gold not said; taken as none). (a) Leaves them alone:
+   no tapestries, no gold. (b) Draws back tapestries but takes no gold. (c) Both.
+6. **Resolution.** *Settled: (a).* (a) 128 texels a face, the creature at its own size. (b) The walls' own 64.
 7. **Where.** (a) All twenty-two on her four walls, as section 7. (b) The last third in the back room with the Totem.
    (c) A long gallery of their own off her room.
 8. **The tapestry, drawn back.** (a) Gone. (b) Left gathered and tied at the side.
@@ -272,3 +276,8 @@ Twenty-two candles brighten her room; their power can come down until it looks a
   `candles.png`, `runs.png`, `room.png` and `card.png` into `docs/portraits/` (`PM_SCALE=2`; `all` or one of `skeleton`,
   `veil`, `room`, `sheets`, `card`). `tools/portrait_sheet.py` writes the workbook (LibreOffice can fill its formulas'
   values: `soffice --headless --calc --convert-to xlsx`). Not looked at in the game, nor by the owner: the next step is theirs.
+- **10 November, later.** The owner answered Q1 (the spiderling with its mother), Q3 (every rank), Q4 (after a level cleared and on
+  waking), Q5 (the dream draws back a tapestry now and then) and Q6 (128 texels), and asked for the workbook as something to work
+  the numbers out in: the Sheet named in the status, three tabs (Ranks, Formula, Bosses), with the suggested rows (the Spectre,
+  the Wraith, a feat for each kind) in it unticked. They were already tuning it as it was built: the thirds' starts at 100, 200
+  and 300, and every boss row ticked. Read the Sheet, not the workbook in the repo, before building anything from its numbers.
