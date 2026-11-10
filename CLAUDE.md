@@ -333,6 +333,13 @@ commit, harness only (CI compiled and smoke-tested the Windows and browser build
 by `tools/portraitmock.c` (`make build/portraitmock`); the settled numbers are `docs/portraits/ranks.csv` and `bosses.csv`, written by
 `tools/portrait_sheet.py` from `KINDS`.
 
+**Touch, the mouse in menus and asking how you play** are planned in [`docs/PLAN-mobile.md`](docs/PLAN-mobile.md) (10 November,
+a draft on `claude/funny-meitner-yn953c`; nothing built): the owner's layout for a phone in the browser (two sticks, the edge
+strips for use and cast, the corners for the rune and the pause, the cast and the wheels, MAP and WARDROBE), a pointer in the
+game's menus for every build (a hot list the kit fills as it draws, `ptr_keys` beside `pad_keys`, a cursor of its own), and
+the browser's plate asking Keyboard, Controller or Touch. Its questions T1-T14 wait for the owner; its section 11 is the
+hand-off log.
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture
