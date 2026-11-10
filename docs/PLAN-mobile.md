@@ -1,6 +1,7 @@
 # 1.0.0b21.4: touch, the mouse in menus, and asking how you play
 
-**Status: settled (10 November 2026); step 0, the probe, is built and waits for the owner's phone.** On `claude/funny-meitner-yn953c`, with main at 1.0.0b21.3 merged in. The
+**Status (10 November 2026): settled; step 0 done (the owner's Pixel 10a measured); the touch controls being built, before
+Part A at the owner's need. Read section 11's last entries first: they hand the work on.** On `claude/funny-meitner-yn953c`, with main at 1.0.0b21.3 merged in. The
 owner asked for a plan to play the browser build on a phone or tablet, with a layout of their own, formal mouse support, and a
 question on the browser's page of how a person is playing. They answered T1-T14 the same day (section 10, kept for the record):
 the recommended answer to each but T10 (the mouse in menus in the browser only, not on Windows) and T13 (it goes out as **1.0.0b21.4**,
@@ -436,3 +437,106 @@ owner released 1.0.0b21.3 ("Her Wares, Weighed") while this was being planned.
   content policy with WebAssembly allowed and refused, and `tools/web_smoke.js` (passes). This container's numbers (a server's CPU, no
   GPU; not a phone's): HAUNT.EXE 0.9 ms a frame, the title 15-16 ms (15 of it drawing the picture), the crypt's dream 4.4-4.6 ms, all at
   60 Hz. So even here the title costs three to four times the crypt.
+- **10 November, the probe's numbers** (the owner's phone, inside claude.ai's private page). A Pixel 10a, Android 17, eight cores,
+  8 GB, a Mali-G715; the window 866 x 259 held sideways (the page's own bars take the rest), so the picture ran at three to one
+  (366 x 229) on a stage of 757 x 226. Ready 0.4 s after the page opened, booted 0.1 s after the tap. HAUNT.EXE: 3.1 ms a frame
+  (p95 4.9), 60 Hz. The title: 6.9 ms a frame (p95 20.4; the 524 ms frame is the one that builds it), 5.9 of it the picture drawn,
+  119 Hz, 7% of frames late; a minute's means 13.1, 11.8, then 5.7 from the third minute on. The first two minutes cost twice as
+  much because the title's shading cache (`SCC`, `SCC_N` 48 in `crawl_title.c`) fills as its loop comes round (this container showed
+  the same 13.7, 12.1); nothing slowed as the phone warmed. **Verdict: the phone is fast enough, and the title needs no cheaper way to
+  draw.** The half-second hold as the title opens could be smoothed one day. The crypt wasn't measured, since the title never gave
+  the screen back.
+- **10 November, the title stuck.** The owner: it stuck on the title when it should go back to the dream. Not proven, but the
+  likeliest: today's page asks for the mouse on any tap of the picture (`takeMouse` from the stage's `mousedown`); if Android's
+  Chrome granted the lock, the next tap was MOUSE1, which `title_any` counts as a key, so the title's menu opened, and `TS_MENU`
+  never times out, nor can a phone back out of it (Esc, Backspace or the right mouse). The probe counted only key presses and the pad
+  as touching, so it still said *untouched*. The touch build answers it: no mouse taken in Touch, and its right stone is Esc
+  everywhere, the title's menu included. To do as well: the probe should count every input that reaches the game.
+- **10 November, the order changed.** The owner needs touch to test further on the phone, so the touch controls (Part C) come before
+  the mouse in menus (Part A). Menus are worked first by the sticks and the stones, as the pad works them; tapping rows comes with
+  Part A's hot list after. The owner also warned that the week's use is nearly spent: keep this log current enough to hand on.
+- **10 November, built: the touch plumbing** (committed; harness and CI only; nothing calls it yet, so with touch off all is as
+  before: `make smoke` passes, `make web` builds).
+  - `src/core.h`: `Finger` (id, place in stage pixels, `down` the step it lands, `up` the step it lifts), `TOUCH_MAX` 5; `Input.touch`,
+    `nfinger`, `finger[]`, `stage_w/h` (0 no stage), `pic_x/y` (kept by the app), `safe_l/t/r/b`; `Scene.stage(Frame *st, px, py)`, the
+    controls drawn round the picture (`scene_haunt` NULL; `scene_crawl` NULL until step 5 below).
+  - `src/app.c/.h`: a finger held anywhere takes over as H does (`A.hold_pad` 2; the plate *HOLD A FINGER DOWN TO TAKE CONTROL*, in
+    HAUNT.EXE *... TO ENTER THE CRYPT*); after each step a lifted finger is dropped and the rest lose `down`; `app_stage_place` (the
+    picture centred, the slow drift within the margins) fills `pic_x/y` each step a stage is set; `app_present_stage(dst, sw, sh, bgr)`
+    lays the picture on a `Frame` the stage's size (`STAGE`, w x h at most 288,000, else it falls back to `app_present` and returns 0),
+    calls the scene's `stage` hook while a person has it by touch, and puts the hold plate at the picture's place (`hold_overlay`
+    takes a stride and an offset now).
+  - `src/web_main.c`: `web_touch_mode(on)`, `web_stage(sw, sh, l, t, r, b)`, `web_touch(id, x, y, phase)` (0 landed, 1 moved, 2 lifted
+    or cancelled; a landing and a lift in one step make a tap the game sees whole), `web_stage_frame()` (RGBA, or 0); `web_release`
+    keeps touch and the stage.
+- **Next: the first cut of touch for the owner's phone**, designed as follows. Do them in this order; each wants committing.
+  1. `src/scene_crawl.c`: a `TCH` block beside `PADX` (about line 1296) so every part can see it: `fresh`, `used`, each finger
+     tracked by id (`role`, `btn`, `moved`, `spent`, where it landed, the stick's base, its time), the walking finger's last lift (for
+     the dodge), the menus' repeat timers (as `PADX.rep/on`), what to draw pressed, the rings. Set `TCH.fresh = 1` wherever
+     `PADX.fresh = 1` is (the takeover in `crawl_control`, `title_open`, `title_to_play`): fingers down then count once lifted.
+  2. `touch_geo`, from `IN.stage_w/h`, `pic_x/y`, `safe_*`: a column each side, `col` the black margin if 60 or more, else the larger
+     of a fifth of the stage and 60, never over 112; in it from the top a corner stone (height clamp(sh/4, 38, 60)), the small stones
+     (left WISPS and MAP side by side, right WARDROBE; clamp(sh/7, 24, 34)), then the strip to the foot; the ring's radius
+     clamp(sh/9, 18, 30) stage pixels.
+  3. `touch_keys`, called from `crawl_input` after `pad_keys`, and while `title_up()` too (the title skips `pad_keys`); by context:
+     the title, a wheel (`WH.open`), a menu (`G.ui`), play; nothing while the console is down.
+     - A finger landing: on a stone, that stone; in the left strip, pending (a tap if it lifts within 0.25 s and 6 pixels, else the
+       walking stick from where it landed); elsewhere in the left half, the walking stick; in the right strip, the cast (MOUSE1 down
+       from the touch, a hit on landing; dragged, it turns by `IN.mdx`); elsewhere in the right half, the turning stick.
+     - Walking: `IN.lx/ly` from the offset over the ring (up the screen is forward), at most 1, a dead sixth; past 1.35 rings and
+       mostly forward, `IN.down[KEY_SHIFT]` (the sprint); the base drawn along past 1.8 rings. Landing within 0.3 s of the walking
+       finger's last lift arms Swift Dodge, done once the lean passes 0.6 (`PADX.dodge`, `PADX.dodge_a = G.ang + atan2f(lx, ly)`).
+     - Turning: inside the ring the finger's travel, `IN.mdx` (8 counts a stage pixel times `PL.turn` / 10, to tune by hand); past it
+       `IN.rx` = the side x min(1, (|dx| - ring) / ring), through `pad_turn`'s curve.
+     - Play's stones: the top left tapped `PADX.rune_hit`, held 0.35 s Esc; the top right tapped MOUSE2 (`use_right`), held the
+       spells' wheel, kept open (set `PADX.wheel_req` and a `TCH` flag, and have `wheel_input`'s `wheel_open(PADX.wheel_req, ...)` pass
+       src 2, which no letting go closes); WISPS L's hit on landing and L down while held (the key's own tap and hold); MAP M, only
+       with `RUN.has_map` (a worn blank stone without); WARDROBE Tab; a quick still tap on the picture's lowest 36 rows H.
+     - A menu: the left strip Enter, the right Esc, the top left Back (Backspace), the top right Space, WARDROBE Tab; any drag a
+       direction (W/S/A/D) with the pad's repeat (0.4 s, then 0.12).
+     - A wheel: no walking or turning; a tap, in the picture's pixels (x - `pic_x`, y - `pic_y`), against the wheel's middle (160, 88;
+       R 54 for the spells, 60 for the gifts): within 0.45 R the hub, turning between the spells and the runes and gifts
+       (`wheel_close(0)`, `wheel_open(other, 2)`); within R + 24 the nearest slot by its angle (`WH.hi`, `wheel_close(1)`); beyond,
+       or the right strip, puts it away.
+     - The title: at its prompt any tap is Enter (`title_at_prompt()`, defined after `TI`, which comes after `crawl_input`); then the
+       left stone Enter, the right Esc, drags W/S/A/D. In `crawl_title.c` `PADMODE` 2 is touch: `any_prompt` gives *TOUCH THE
+       SCREEN*, and `PADMODE ? ...` at its key captions (about lines 1062, 1083, 1095, 1112) becomes `PADMODE == 1 ? ...`; `title_render`
+       passes `v.pad = TCH.used ? 2 : TI.pad`.
+     - `TCH.used` while a finger was the last thing used; a key, the mouse or the pad clears it, as with `PADX.used`.
+  4. The words. In play (`G.ui == UI_NONE`), with `TCH.used` and not `PADX.used`, `pk` gives touch's: ENTER and E USE, ESC PAUSE,
+     W/S, WASD and A/D WALK, TAB WARDROBE, SPACE and CLICK CAST, Q and 1-9 WHEELS, B and C PAUSE, L WISPS, M MAP, RIGHT-CLICK GIFT,
+     BACK as it is. In menus the keys' names stand, since there the stones carry the keys they press (ENTER, ESC, BACK, SPACE, TAB; the
+     stick W/S A/D). The controls card (`render_messages`, its `HINT` and `more[]`, about line 30068) gets touch's lines, with no lone
+     letters, which `pk` would turn: *LEFT THUMB WALKS, RIGHT THUMB TURNS*, *THE RIGHT STONE CASTS; HELD, AGAIN*, *TAP THE LEFT STONE TO
+     USE*, *HOLD TOP LEFT: PAUSE; TOP RIGHT: WHEELS*, *PUSH THE WALK PAST ITS RING: SPRINT*, *TOUCH TWICE AND PUSH: DODGE*.
+  5. `crawl_stage(Frame *st, int px, int py)`, the scene's `stage` hook (in `scene_crawl`'s initialiser in place of the NULL). Each
+     stone is drawn into a 320 x 200 scratch `Frame` filled with `C_CLEAR` (the kit's marble and fit checks are 320 x 200), at a place
+     that differs stone to stone so the veins do, between `ui_on(scratch, 0, "touch")` and `ui_off()` (the run's stone, as the cards
+     over the crypt), then copied onto the stage where not `C_CLEAR`. The strips `SLAB_HEAD | SLAB_CALM`, the rest `SLAB_TABLET |
+     SLAB_CALM`; the words `ui_text8(..., FACE_INSC, R_BONE + 14, TX_INLAID)`, gold (`R_GOLD + 12`) and the stone a pixel lower while
+     pressed. Marks: CAST the spell in hand (`ui_socket` with `UI_NODE_ICON[el][ND_OPEN]` and `ELEM_RAMP[el]`, as `wheel_render`
+     draws it); the top left the rune readied (`ui_socket_mark` with `RUNE_MARK[k]`, `gear_color(GK_DEF, k)`); the top right the gift
+     (`BA_MARK[b]` through `ui_mark`, as at about line 32280). A stick down: a roundel where it landed and a knob of bone. The words
+     by context: play USE, CAST, RUNE (small: HOLD: PAUSE), GIFT (HOLD: WHEELS), MAP, WISPS, WARDROBE; a menu ENTER, ESC, BACK,
+     SPACE, TAB; the title ENTER and ESC only; a wheel ESC only. The dream draws none (the app calls the hook only while a person has
+     it). The contrast check (`build/uisheet touch`, section 6.5) comes with the sheet for the owner.
+  6. `web/haunted.js`, in Touch: `web_touch_mode(1)`; `fit()` makes the stage (the scale as now, whole device pixels a picture pixel;
+     `sw = floor(clientWidth * dpr / s)`, `sh` likewise, s raised till sw x sh is at most 288,000), the canvas sw x sh, and
+     `web_stage(sw, sh, ...)` with the safe area in stage pixels (read from an element padded by `env(safe-area-inset-*)`); `draw()`
+     takes `web_stage_frame()` (or `web_frame()` if 0) and drops the CSS drift; Pointer Events on `#stage` whose `pointerType` is touch
+     or pen: `setPointerCapture`, the place by the canvas's rectangle in stage pixels, `web_touch(id, x, y, 0, 1 or 2)` (a cancel is 2);
+     no `takeMouse` and no mouse buttons from a touch; the probe's readout to the top middle.
+  7. The plate's question (Part B): three buttons, KEYBOARD AND MOUSE, CONTROLLER and TOUCH, the likely one marked; kept as
+     `settings().controls`, and in the Settings panel; afterwards *PLAYING BY TOUCH: CHANGE*. Touch's tap asks for full screen and
+     `screen.orientation.lock("landscape")`, each allowed to fail (claude.ai's frame refuses both).
+  8. Try it in Playwright's Chromium as a Pixel 7 held sideways (`devices["Pixel 7 landscape"]`, `hasTouch`; two fingers at once
+     want CDP's `Input.dispatchTouchEvent`), then publish: `make web && python3 tools/probe_page.py <dir> perf` (perf, not take: it
+     should start in the dream and stay there till a finger is held), republished to the same private page,
+     https://claude.ai/artifact/V5ALUvTRsvhGq3eHey5C4Z, with the same `files` map (the wasm as `application/wasm`).
+  9. After the first cut: the probe counting every input that reaches the game but its own H (in `key()`, and the mouse and the
+     wheel); THE BESTIARY and THE CODEX as rows of Esc's question by touch (`quit_rows`, its spacing at about line 30595); the
+     harness's `HOST_STAGE` and `T` fingers; the contrast check and the sheet; THE TOUCH CONTROLS' settings; then Part A's hot list,
+     so rows, caps and her rooms' prompt can be tapped.
+  - Emscripten 6.0.13 isn't in the container's image: `git clone --depth 1 https://github.com/emscripten-core/emsdk.git`, `./emsdk
+    install 6.0.13`, `./emsdk activate 6.0.13`, `. ./emsdk_env.sh` (about two minutes; CI does the same).
+

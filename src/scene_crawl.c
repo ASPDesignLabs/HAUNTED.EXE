@@ -34140,4 +34140,4 @@ static void music_frame(float dt) {
 static void crawl_frame(double dt) { crawl_update(dt); music_frame((float)dt); }
 
 const Scene scene_crawl = { "CATACOMB", W, H, SND_PROG_CRAWL, crawl_enter, crawl_frame, crawl_render,
-                            crawl_control, crawl_status, crawl_input };
+                            crawl_control, crawl_status, crawl_input, NULL };   /* the stage's controls: docs/PLAN-mobile.md, still to come */

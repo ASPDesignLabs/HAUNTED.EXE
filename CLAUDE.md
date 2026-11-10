@@ -364,7 +364,12 @@ beside `pad_keys`, a cursor of the game's own under the lock; Windows keeps its 
 Keyboard and mouse, Controller or Touch. Tested by the owner on Android. Its section 11 is the hand-off log. **Step 0 is built** (the
 page's script only; the game untouched): `?perf`/`#perf` shows a readout of each frame's cost by what is on the screen, `?take`/`#take`
 holds H after 20 s so a phone reaches the title, `window.HAUNTED.probe()` the text; `tools/probe_page.py` makes `build/web` into a page
-for claude.ai's private pages, where it is published for the owner's phone (the address is in the log). Waiting on their numbers.
+for claude.ai's private pages, where it is published for the owner's phone (the address is in the log). Step 0 is done: the owner's
+Pixel 10a is fast enough (HAUNT.EXE 3 ms a frame, the title 5.7 once its cache fills). **The touch controls are being built now,
+ahead of Part A, at the owner's word**: the plumbing is in (`Finger` and the stage in `Input`, `Scene.stage`, a held finger taking
+over, `app_present_stage`, `web_touch`/`web_stage`/`web_stage_frame`), unused so far; the plan's section 11 lists the first cut's
+design and its remaining steps in order (`TCH` and `touch_keys` in `scene_crawl.c`, the stones in `crawl_stage`, the page's side, the
+plate's question). Read it before going on.
 
 ## Working with the owner
 

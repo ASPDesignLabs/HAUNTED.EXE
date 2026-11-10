@@ -45,5 +45,9 @@ int  app_quit_requested(void);      /* the player chose to leave: write what cha
 void app_slot_load(int i, const uint8_t *buf, int len);   /* a stored slot (SLOT_*), before app_init */
 int  app_slot_take(int i, uint8_t *buf, int cap);         /* a slot written since last asked: its length, else 0 */
 void app_pad_motors(float *low, float *high);             /* the rumble asked for, now, 0..1 each */
+/* By touch (docs/PLAN-mobile.md): the stage, sw x sh of the picture's own pixels, the picture placed in it and the scene's
+ * controls drawn round it, as RGBA (bgr 0) into dst; 0 if it couldn't (too small or too big), and then the picture alone. */
+int  app_present_stage(uint32_t *dst, int sw, int sh, int bgr);
+void app_stage_place(int sw, int sh, int *px, int *py);   /* where the picture lies on such a stage, the drift in it */
 
 #endif

@@ -31,6 +31,10 @@ enum { KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_W, KEY_A, KEY_S, KEY_D, KEY_E,
 /* A game controller, by XInput's layout; the triggers count as buttons past a third of the way. */
 enum { PAD_A, PAD_B, PAD_X, PAD_Y, PAD_LB, PAD_RB, PAD_VIEW, PAD_MENU, PAD_LS, PAD_RS,
        PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT, PAD_LT, PAD_RT, PAD_COUNT };
+/* Fingers on a touch screen (docs/PLAN-mobile.md), by the stage's pixels: the picture's pixels laid over the whole window,
+ * the picture somewhere inside it. A finger is down the step it lands, up the step it lifts, and gone the step after. */
+#define TOUCH_MAX 5
+typedef struct { int id; float x, y; uint8_t down, up; } Finger;
 typedef struct Input {
     uint8_t down[KEY_COUNT];        /* held now */
     uint8_t hit[KEY_COUNT];         /* went down since the last update */
@@ -42,6 +46,12 @@ typedef struct Input {
     uint8_t pad_down[PAD_COUNT], pad_hit[PAD_COUNT];
     float lx, ly, rx, ry;           /* the sticks past their dead zones, -1..1, y up */
     float lt, rt;                   /* the triggers, 0..1 */
+    int touch;                      /* the shell plays by touch: the fingers and the stage below mean something */
+    int nfinger;
+    Finger finger[TOUCH_MAX];
+    int stage_w, stage_h;           /* the stage, in the picture's pixels (0: no stage, the picture alone) */
+    int pic_x, pic_y;               /* where the picture lies on it (kept by the app) */
+    int safe_l, safe_t, safe_r, safe_b;   /* what the device keeps for itself at each edge (a camera's cut-out, a gesture bar) */
 } Input;
 void pad_rumble(float low, float high, float seconds);   /* the controller's motors, 0..1 each, for a while */
 enum { CTRL_TAKE = 1, CTRL_PAUSE = 2, CTRL_PEEK = 3 };  /* Scene.control */
@@ -59,6 +69,7 @@ typedef struct Scene {
     void (*control)(int what);                    /* CTRL_TAKE: a person takes over; CTRL_PAUSE: the window lost focus; CTRL_PEEK: H held, not yet taken */
     int  (*status)(void);                         /* PLAY_AUTO once handed back, PLAY_QUIT when the player chose to leave */
     void (*input)(const Input *in, double dt);    /* before each update while a person has it */
+    void (*stage)(Frame *st, int px, int py);     /* by touch, the controls drawn on the stage around the picture at px,py; NULL: none */
 } Scene;
 
 /* Save slots: the merchant's ledger, three pages, and beside them the progress (which page to start
