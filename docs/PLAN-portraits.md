@@ -1,9 +1,10 @@
 # The portraits of the slain
 
-*Status: settled (10 November 2026), at the owner's request, and being built on `claude/adoring-hopper-h9ivcg` from main at
-1.0.0b21.1: steps 1 (the record), 2 (the art in the build, hung at section 7's faces), 3 (their candles dealt and lit), 4
-(the tapestry drawn back, the card, the gold) and 5 (the Spectre's and the Wraith's achievements, the twenty feats and their
-medallions, the bosses' four in the plot after the owner saw the knight's mock-up) are built, harness only; step 6, the checks, is left. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (in
+*Status: settled (10 November 2026), at the owner's request, built on `claude/adoring-hopper-h9ivcg` from main at 1.0.0b21.1:
+steps 1 (the record), 2 (the art in the build, hung at section 7's faces), 3 (their candles dealt and lit), 4 (the tapestry drawn
+back, the card, the gold), 5 (the Spectre's and the Wraith's achievements, the twenty feats and their medallions, the bosses' four in
+the plot after the owner saw the knight's mock-up) and 6 (the checks), harness only, and released as **1.0.0b21.2**, "The Portraits
+of the Slain", at the owner's word (10 November), a pre-release, squashed onto main as one commit. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (in
 the game's build since step 2) and `tools/portraitmock.c` (`make build/portraitmock`, then `build/portraitmock <dir>`). The owner answered every
 question in section 9 the same day (marked there, Q15 last, which came of their own edit) and settled the numbers in a Sheet on
 claude.ai, [Portraits of the Slain: Gold](https://claude.ai/artifact/2P9JkVQMBEdhAoa6zwB1N6), brought into sections 3 and 4 as it
@@ -336,7 +337,8 @@ face). The plot's stones stand in rows 22 and 24, so nothing stands before them.
    (5 F), after a mock-up of one. *Built (harness only), 10 November: the achievements and feats, then the bosses' four once the
    owner had seen the knight's mock-up (its name plate taken off at their word: it couldn't be read).*
 6. The checks: the dream's runs line for line against 1.0.0b21.1 on the same seeds (it leaves the portraits, so nothing may move);
-   ASan; a person's run in the harness taking gold at the right visits; the README's preview strip and the page's table.
+   ASan; a person's run in the harness taking gold at the right visits; the README's preview strip and the page's table. *Done,
+   10 November, and released as 1.0.0b21.2.*
 
 ## 11. Hand-off log
 
@@ -517,3 +519,12 @@ face). The plot's stones stand in rows 22 and 24, so nothing stands before them.
   boss its fall and n - 1 steps and draws theirs back (`CRAWL_PORVEIL=1`
   leaves them down), `CRAWL_TPPORTRAIT=k` before a boss's middle (23, 25, 27, 29 the knight, the spider, the Deacon, the Wraith),
   `CRAWL_TPHALL=x,y,deg` (at a place in her hall), `EVENT portrait_drawn` and `portrait_paid ... steps x` with a boss's name.
+- **10 November, step 6 done and released as 1.0.0b21.2** at the owner's word. The dream from level 1 for 2,400 s was line for line
+  1.0.0b21.1's after every step (the last on the build released). A person's run in the harness (seed 5, `CRAWL_RUNID=4242`): taken over in
+  her room after level 2, the skeletons' rank I paid 130; walked out into level 3 and struck down (`CRAWL_KILLAT`), the death wrote the
+  page with its gold owed again (`PORTRAITS read: open 2 ... waiting 1 taken 0`); read back, her question answered, it paid 130 again.
+  After a death that costs she asks what you were before anything else, so a script must answer her first. The Windows and browser builds
+  were compiled and smoke-tested by CI on the branch (a run started by hand). The README has a section and *What has been verified*, the
+  page a paragraph in her hall's section, a row in its table and the upgrade's note; the strip is `docs/preview_catacomb_portraits.png`
+  (her south wall, the skeletons' portrait and card, the bestiary's feat, the plot's far wall, the knight's card). Debug added for the
+  frames: `CRAWL_TPHALL=x,y,deg` (`CRAWL_TPAT` works only on a level).
