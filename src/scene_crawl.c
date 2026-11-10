@@ -1293,6 +1293,20 @@ static struct {                             /* their game controller, if they ha
     int wheel_req, wheel_rel, wheel_cancel; /* this step: a wheel to open (WH_*), the one let go, B or Menu */
     int rune_hit, abil_hit;                 /* RB, the rune readied; LB, the boss's gift readied */
 } PADX;
+/* Touch (docs/PLAN-mobile.md, Part C): the fingers turned into keys and sticks by where they land and what is up, as PADX does
+ * for the pad. The stones are laid out by touch_geo; touch_keys reads the fingers; crawl_stage draws the stones. */
+enum { TB_STRIP_L, TB_STRIP_R, TB_CORNER_L, TB_CORNER_R, TB_WISPS, TB_MAP, TB_WARD, NTB };
+enum { TF_NONE, TF_PEND, TF_WALK, TF_TURN, TF_CAST, TF_BTN, TF_TAP };   /* a finger's part: pending in the left strip (a tap or the
+                                                                      walk), the sticks, the cast, a stone, a tap anywhere else */
+typedef struct { int x, y, w, h; } TRect;
+static struct {
+    int fresh, used, wheel;                 /* just taken over: fingers down count once lifted; a finger was last; a wheel asked */
+    struct { int id, role, btn, moved, spent, held; float x0, y0, px, py, bx, by, t; } f[TOUCH_MAX];
+    int nf;
+    float walk_up, rep[4]; uint8_t on[4];   /* since the walking finger last lifted; a menu's direction held and its repeat */
+    int dodge_arm, press[NTB];              /* a second touch may dodge; the stones pressed now, to draw */
+    int walk, turn; float wbx, wby, wx, wy, tbx, tby, tx, ty;   /* the sticks down, their bases and fingers, to draw */
+} TCH;
 /* The wheels (1.0.0b16, docs/PLAN-play.md section 7a): held open, the world goes grey and slow, the stick (or the mouse)
  * points, and letting go takes what it points at. Spells on the D-pad held down; runes and the bosses' gifts on it held up
  * (or Q held), the runes on the right half (RB), the gifts on the left (LB). */
@@ -1393,7 +1407,8 @@ static const char *const PK_PAD[] = { "\1A", "\1B", "\1A", "D-PAD", "D-PAD", "LB
 static const char *pk(const char *s) {
     static char buf[8][240];
     static int at;
-    if (!PADX.used || !s) return s;
+    int touch = !PADX.used && TCH.used && G.ui == UI_NONE;           /* by touch, in play: the stones' own words (docs/PLAN-mobile.md) */
+    if ((!PADX.used && !touch) || !s) return s;
     char *o = buf[at = (at + 1) & 7];
     const char *s0 = s;
     int n = 0;
@@ -1411,8 +1426,11 @@ static const char *pk(const char *s) {
         if (key < 0) { while (s < e && n < 230) o[n++] = *s++; continue; }
         while (s < a) o[n++] = *s++;
         static const int8_t PK_JOB[17] = { -1, -1, PAD_A, -1, -1, -1, -1, -1, PAD_X, -1, -1, PAD_Y, PAD_DOWN, PAD_RT, PAD_UP, PAD_RB, -1 };
+        static const char *const PK_TOUCH[17] = { "USE", "PAUSE", "USE", "WALK", "WALK", "WALK", "WARDROBE", "CAST", "WHEELS", "PAUSE",
+                                                  "PAUSE", "WISPS", "WHEELS", "CAST", "MAP", "GIFT", "BACK" };
         const char *pw = PK_PAD[key];                              /* in play, the button that has the key's job now (1.0.0b18.1) */
-        if (G.ui == UI_NONE && PK_JOB[key] >= 0) pw = PAD_WORD[pl_on(PK_JOB[key])];
+        if (touch) pw = PK_TOUCH[key];
+        else if (G.ui == UI_NONE && PK_JOB[key] >= 0) pw = PAD_WORD[pl_on(PK_JOB[key])];
         for (const char *p = pw; *p && n < 230; p++) o[n++] = *p;
         for (s = b; s < e && n < 230; ) o[n++] = *s++;
     }
@@ -22730,7 +22748,8 @@ static void wheel_input(float dt) {
         }
         WH.q_t = 0.0f; WH.q_w = 0;
     }
-    if (PADX.wheel_req && !WH.open) wheel_open(PADX.wheel_req, 0);
+    if (PADX.wheel_req && !WH.open) wheel_open(PADX.wheel_req, TCH.wheel ? 2 : 0);   /* by touch it stays till a tap (src 2) */
+    TCH.wheel = 0;
     if (!WH.open) return;
     if (!WH.src && PADX.wheel_rel == WH.open) { wheel_close(1); return; }
     if (PADX.wheel_cancel || IN.hit[KEY_ESC]) { IN.hit[KEY_ESC] = 0; wheel_close(0); snd_sfx_ex(SFX_KEY, 0.5f, 0.5f); return; }
@@ -24190,9 +24209,170 @@ static void pad_keys(float dt) {
 #undef PRESS
 }
 
+/* ---- touch (docs/PLAN-mobile.md, Part C): the stones' places on the stage, and the fingers into keys and sticks ---- */
+static int title_at_prompt(void);
+static int touch_ring(void) { return clampi(IN.stage_h / 9, 18, 30); }
+static void touch_geo(TRect r[NTB]) {
+    int sw = IN.stage_w, sh = IN.stage_h, l = IN.safe_l, t = IN.safe_t, rr = IN.safe_r, b = IN.safe_b;
+    int margin = imin(IN.pic_x - l, sw - rr - IN.pic_x - W);       /* the black either side of the picture */
+    int col = margin >= 60 ? imin(margin, 112) : clampi(imax(sw / 5, 60), 60, 112);
+    int cw = col - 6, ch = clampi(sh / 4, 38, 60), bh = clampi(sh / 7, 24, 34), gap = 3;
+    int lx = l + 3, rx = sw - rr - 3 - cw, y2 = t + 3 + ch + gap, y3 = y2 + bh + gap;
+    r[TB_CORNER_L] = (TRect){ lx, t + 3, cw, ch };
+    r[TB_CORNER_R] = (TRect){ rx, t + 3, cw, ch };
+    r[TB_WISPS] = (TRect){ lx, y2, (cw - gap) / 2, bh };
+    r[TB_MAP] = (TRect){ lx + (cw + gap) / 2, y2, cw - (cw + gap) / 2, bh };
+    r[TB_WARD] = (TRect){ rx, y2, cw, bh };
+    r[TB_STRIP_L] = (TRect){ lx, y3, cw, imax(24, sh - b - 3 - y3) };
+    r[TB_STRIP_R] = (TRect){ rx, y3, cw, imax(24, sh - b - 3 - y3) };
+}
+enum { TC_PLAY, TC_MENU, TC_TITLE, TC_WHEEL };
+static int touch_ctx(void) { return title_up() ? TC_TITLE : WH.open ? TC_WHEEL : G.ui != UI_NONE ? TC_MENU : TC_PLAY; }
+static int touch_shown(int k, int ctx) {                           /* which stones there are, by what is up */
+    if (ctx == TC_WHEEL) return k == TB_STRIP_R;
+    if (ctx == TC_TITLE) return k == TB_STRIP_L || k == TB_STRIP_R;
+    if (ctx == TC_MENU) return k != TB_WISPS && k != TB_MAP;
+    return 1;
+}
+static int in_rect(const TRect *r, float x, float y) { return x >= r->x && y >= r->y && x < r->x + r->w && y < r->y + r->h; }
+static void touch_wheel_tap(float x, float y) {                    /* a tap with a wheel up: a slot, the hub, or away */
+    float fx = x - (float)IN.pic_x, fy = y - (float)IN.pic_y, R = WH.open == WH_GIFTS ? 60.0f : 54.0f;
+    float d = hypotf(fx - (float)(W / 2), fy - 88.0f), a = atan2f(fy - 88.0f, fx - (float)(W / 2));
+    if (d < R * 0.45f) {                                           /* the hub: the other wheel */
+        int other = WH.open == WH_GIFTS ? WH_SPELLS : WH_GIFTS;
+        wheel_close(0); wheel_open(other, 2);
+        return;
+    }
+    if (d > R + 24.0f || WH.n <= 0) { wheel_close(0); snd_sfx_ex(SFX_KEY, 0.5f, 0.5f); return; }
+    int best = 0; float bd = 1e9f;
+    for (int i = 0; i < WH.n; i++) { float e = fabsf(wrap_pi(a - WH.s[i].ang)); if (e < bd) { bd = e; best = i; } }
+    WH.hi = best;
+    wheel_close(1);
+}
+static void touch_keys(float dt) {
+    if (!IN.touch || !IN.stage_w) { TCH.nf = 0; TCH.used = 0; return; }
+    int keys = IN.ntext > 0 || IN.wheel || fabsf(IN.mdx) + fabsf(IN.mdy) > 4.0f;
+    for (int k = 0; k < KEY_COUNT && !keys; k++) keys = IN.hit[k];
+    if (keys || PADX.used) TCH.used = 0;
+    if (IN.nfinger) TCH.used = 1;                                  /* the finger that took over counts too */
+    TRect R[NTB];
+    touch_geo(R);
+    int ctx = touch_ctx(), ring = touch_ring();
+    float rg = (float)ring;
+    memset(TCH.press, 0, sizeof TCH.press);
+    TCH.walk = TCH.turn = 0;
+    TCH.walk_up += dt;
+    if (CON.open) { TCH.nf = 0; return; }
+#define PRESS(k) (IN.hit[k] = IN.down[k] = 1)
+    for (int i = 0; i < IN.nfinger; i++) {                         /* each finger the shell has, matched to what we keep of it */
+        const Finger *fg = &IN.finger[i];
+        int j = 0;
+        while (j < TCH.nf && TCH.f[j].id != fg->id) j++;
+        if (j == TCH.nf) {
+            if (!fg->down || TCH.nf >= TOUCH_MAX) continue;
+            TCH.nf++;
+            memset(&TCH.f[j], 0, sizeof TCH.f[j]);
+            TCH.f[j].id = fg->id; TCH.f[j].x0 = TCH.f[j].px = TCH.f[j].bx = fg->x; TCH.f[j].y0 = TCH.f[j].py = TCH.f[j].by = fg->y;
+            TCH.f[j].spent = TCH.fresh;
+            TCH.used = 1;
+            int role = TF_TAP, btn = -1;
+            for (int k = 0; k < NTB && btn < 0; k++) if (k != TB_STRIP_L && k != TB_STRIP_R && touch_shown(k, ctx) && in_rect(&R[k], fg->x, fg->y)) btn = k;
+            if (btn >= 0) role = TF_BTN;
+            else if (ctx == TC_PLAY && in_rect(&R[TB_STRIP_R], fg->x, fg->y)) { role = TF_CAST; IN.hit[KEY_MOUSE1] = 1; }
+            else if (ctx == TC_PLAY && in_rect(&R[TB_STRIP_L], fg->x, fg->y)) role = TF_PEND;
+            else if (ctx == TC_PLAY) role = fg->x < IN.stage_w * 0.5f ? TF_WALK : TF_TURN;
+            else if (in_rect(&R[TB_STRIP_L], fg->x, fg->y)) btn = TB_STRIP_L;
+            else if (in_rect(&R[TB_STRIP_R], fg->x, fg->y)) btn = TB_STRIP_R;
+            if (btn == TB_STRIP_L || btn == TB_STRIP_R) role = TF_BTN;
+            TCH.f[j].role = role; TCH.f[j].btn = btn;
+            if ((role == TF_WALK || role == TF_PEND) && TCH.walk_up < 0.3f) TCH.dodge_arm = 1;   /* touched twice: a dodge, once it leans */
+        }
+        typeof(TCH.f[0]) *f = &TCH.f[j];
+        f->t += dt;
+        float dx = fg->x - f->x0, dy = fg->y - f->y0;
+        if (dx * dx + dy * dy > 36.0f) f->moved = 1;
+        if (f->spent) { f->px = fg->x; f->py = fg->y; continue; }
+        if (f->role == TF_PEND && (f->moved || f->t > 0.25f)) f->role = TF_WALK;   /* it stayed or slid: the walking stick */
+        if (f->role == TF_BTN && f->btn >= 0) TCH.press[f->btn] = 1;
+        if (f->role == TF_BTN && !f->held && f->t >= 0.35f && ctx == TC_PLAY) {   /* the corners held */
+            if (f->btn == TB_CORNER_L) { f->held = 1; PRESS(KEY_ESC); }
+            else if (f->btn == TB_CORNER_R) { f->held = 1; PADX.wheel_req = WH_SPELLS; TCH.wheel = 1; }
+        }
+        if (f->role == TF_BTN && f->btn == TB_WISPS && ctx == TC_PLAY) { IN.down[KEY_L] = 1; if (fg->down) IN.hit[KEY_L] = 1; }
+        if (ctx == TC_PLAY && f->role == TF_CAST) {
+            IN.down[KEY_MOUSE1] = 1;
+            IN.mdx += (fg->x - f->px) * 0.8f * (float)PL.turn;      /* aim while casting */
+            TCH.press[TB_STRIP_R] = 1;
+        }
+        if (f->role == TF_WALK || (f->role == TF_TURN && ctx != TC_PLAY) || (f->role == TF_TAP && ctx != TC_PLAY && f->moved)) {
+            float ox = fg->x - f->bx, oy = fg->y - f->by, d = hypotf(ox, oy);
+            if (d > rg * 1.8f && f->role == TF_WALK) { f->bx = fg->x - ox / d * rg * 1.8f; f->by = fg->y - oy / d * rg * 1.8f; ox = fg->x - f->bx; oy = fg->y - f->by; d = rg * 1.8f; }
+            float lx = ox / rg, ly = -oy / rg, m = hypotf(lx, ly);
+            if (m > 1.0f) { lx /= m; ly /= m; }
+            if (m < 0.17f) lx = ly = 0.0f;
+            if (ctx == TC_PLAY) {
+                IN.lx = lx; IN.ly = ly;
+                if (d > rg * 1.35f && -oy > d * 0.75f) IN.down[KEY_SHIFT] = 1;   /* pushed forward past the ring: the sprint */
+                if (TCH.dodge_arm && m > 0.6f) { TCH.dodge_arm = 0; PADX.dodge = 1; PADX.dodge_a = G.ang + atan2f(lx, ly); }
+                TCH.walk = 1; TCH.wbx = f->bx; TCH.wby = f->by; TCH.wx = fg->x; TCH.wy = fg->y;
+            } else {                                               /* a menu: a direction, repeating as the pad's */
+                static const int DIRK[4] = { KEY_W, KEY_S, KEY_A, KEY_D };
+                int want[4] = { ly > 0.6f, ly < -0.6f, lx < -0.6f, lx > 0.6f };
+                for (int k = 0; k < 4; k++) {
+                    if (!want[k]) { TCH.on[k] = 0; continue; }
+                    IN.down[DIRK[k]] = 1;
+                    if (!TCH.on[k]) { TCH.on[k] = 1; TCH.rep[k] = 0.4f; IN.hit[DIRK[k]] = 1; }
+                    else if ((TCH.rep[k] -= dt) <= 0.0f) { TCH.rep[k] = 0.12f; IN.hit[DIRK[k]] = 1; }
+                }
+            }
+        }
+        if (f->role == TF_TURN && ctx == TC_PLAY) {               /* travel near the middle, and on past the ring */
+            float ox = fg->x - f->bx;
+            if (fabsf(ox) <= rg) IN.mdx += (fg->x - f->px) * 0.8f * (float)PL.turn;
+            else IN.rx = (ox > 0 ? 1.0f : -1.0f) * fminf(1.0f, (fabsf(ox) - rg) / rg);
+            TCH.turn = 1; TCH.tbx = f->bx; TCH.tby = f->by; TCH.tx = fg->x; TCH.ty = fg->y;
+        }
+        f->px = fg->x; f->py = fg->y;
+        if (!fg->up) continue;
+        int tap = !f->moved && f->t < 0.25f;                       /* lifted: a tap does its stone's thing */
+        if (f->role == TF_WALK || f->role == TF_PEND) TCH.walk_up = 0.0f;
+        if (f->role == TF_PEND && tap) PRESS(KEY_E);
+        if (ctx == TC_WHEEL && tap && f->role != TF_BTN) touch_wheel_tap(fg->x, fg->y);
+        if (ctx == TC_TITLE && tap && f->role == TF_TAP && title_at_prompt()) PRESS(KEY_ENTER);
+        if (ctx == TC_PLAY && tap && f->role == TF_TAP && fg->y >= IN.pic_y + H - 36 && fg->y < IN.pic_y + H) PRESS(KEY_H);
+        if (f->role == TF_BTN && !f->held && f->t < 0.6f) {
+            int b = f->btn;
+            if (ctx == TC_PLAY) {
+                if (b == TB_CORNER_L) PADX.rune_hit = 1;
+                else if (b == TB_CORNER_R) PRESS(KEY_MOUSE2);
+                else if (b == TB_MAP && RUN.has_map) PRESS(KEY_M);
+                else if (b == TB_WARD) PRESS(KEY_TAB);
+            } else if (ctx == TC_WHEEL) { if (b == TB_STRIP_R) { wheel_close(0); snd_sfx_ex(SFX_KEY, 0.5f, 0.5f); } }
+            else {                                                 /* a menu or the title: the stones are the keys they say */
+                if (b == TB_STRIP_L) PRESS(KEY_ENTER);
+                else if (b == TB_STRIP_R) PRESS(KEY_ESC);
+                else if (b == TB_CORNER_L) PRESS(KEY_BACK);
+                else if (b == TB_CORNER_R) PRESS(KEY_SPACE);
+                else if (b == TB_WARD) PRESS(KEY_TAB);
+            }
+        }
+    }
+#undef PRESS
+    int n = 0;                                                     /* what is kept of the fingers lifted, or gone, goes */
+    for (int j = 0; j < TCH.nf; j++) {
+        int alive = 0;
+        for (int i = 0; i < IN.nfinger; i++) if (IN.finger[i].id == TCH.f[j].id && !IN.finger[i].up) alive = 1;
+        if (alive) TCH.f[n++] = TCH.f[j];
+    }
+    TCH.nf = n;
+    TCH.fresh = 0;
+    if (ctx != TC_PLAY) for (int k = 0; k < 4; k++) if (!IN.down[k == 0 ? KEY_W : k == 1 ? KEY_S : k == 2 ? KEY_A : KEY_D]) TCH.on[k] = 0;
+}
+
 static void crawl_input(const Input *in, double dt) {
     IN = *in; IN_DT = dt;
     if (!title_up()) pad_keys((float)dt);                          /* the title reads its own (1.0.0b21.1) */
+    touch_keys((float)dt);                                         /* and by touch, the fingers (docs/PLAN-mobile.md) */
 }
 
 static void crawl_control(int what) {
@@ -24206,7 +24386,7 @@ static void crawl_control(int what) {
     if (title_enabled()) { title_open(); return; }                 /* the title first (1.0.0b21.1); a choice there makes it yours */
     show_bar();
     G.player = 1; G.status_ret = PLAY_PLAYER; G.ui = UI_NONE;
-    PADX.fresh = 1;                                                /* the button that took over isn't a press */
+    PADX.fresh = 1; TCH.fresh = 1;                                 /* the button (or finger) that took over isn't a press */
     LEDGER.yours = 1;                                              /* the dream is over: from now on the run is yours */
     if (!G.quit_line) G.quit_line = 1 + rnd(97);                    /* the crypt's arguments, from somewhere new each time */
     if (G.shop) { G.sdur = 0.0f; G.shop_look = -1; G.pc_t = -1.0f; old_spells_said(); old_lines_said(); }   /* no cast left half-made */
@@ -25105,7 +25285,7 @@ static void title_open(void) {
     memset(&TI, 0, sizeof TI);
     TI.on = 1; TI.st = TS_PROMPT; TI.scene = title_next_scene(); TI.grace = 0.5f; TI.pad = PADX.used;
     G.player = 1; G.status_ret = PLAY_PLAYER; G.ui = UI_NONE; G.map_on = 0;
-    PADX.fresh = 1;
+    PADX.fresh = 1; TCH.fresh = 1;
     if (!G.quit_line) G.quit_line = 1 + rnd(97);
     title_pages();
     crawl_art_level(TITLE_LEVEL);
@@ -25127,7 +25307,7 @@ static void title_to_play(int page) {                              /* a grave ri
     TI.on = 0;
     LEDGER.yours = 1;                                              /* the dream is over: from now on the run is yours */
     if (page >= 0) ledger_open(page); else run_new();
-    show_bar(); G.hint_t = 6.0f; PADX.fresh = 1;
+    show_bar(); G.hint_t = 6.0f; PADX.fresh = 1; TCH.fresh = 1;
     snd_sfx_ex(SFX_RUNE, 1.0f, 0.5f);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT title %s %d level %d shop %d\n", page >= 0 ? "rise" : "new", page + 1, G.level, G.shop);
@@ -25265,6 +25445,7 @@ static void title_help(Frame *f) {                                 /* HELP: stil
     ui_off();
 }
 static int title_up(void) { return TI.on; }
+static int title_at_prompt(void) { return TI.on && TI.st == TS_PROMPT; }
 static int title_render(Frame *f) {
     if (!TI.on) return 0;
     static char ver[24];
@@ -25272,7 +25453,7 @@ static int title_render(Frame *f) {
     for (char *c = ver; *c; c++) if (*c >= 'a' && *c <= 'z') *c = (char)(*c - 32);
     TitleView v;
     memset(&v, 0, sizeof v);
-    v.scene = TI.scene; v.pad = TI.pad; v.graves = TI.st == TS_GRAVES; v.menu = TI.menu; v.press = TI.press;
+    v.scene = TI.scene; v.pad = TI.pad ? TI.pad : IN.touch && !PADX.used ? 2 : 0; v.graves = TI.st == TS_GRAVES;   /* 2: by touch */ v.menu = TI.menu; v.press = TI.press;
     memcpy(v.mk, TI.mk, sizeof v.mk); memcpy(v.gk, TI.gk, sizeof v.gk); memcpy(v.page, TI.page, sizeof v.page);
     v.foot = TI.foot; v.version = ver;
     title_draw(f, TI.t, &v);
@@ -30090,15 +30271,21 @@ static void render_messages(Frame *f) {
                                 charges ? (PADX.used ? pm[3] : ults ? "HOLD A SPELL TO CHARGE ITS ULTIMATE" : "HOLD THE FIRE BOLT AND IT GROWS") : NULL,   /* 1.0.0b11 */
                                 bats ? (PADX.used ? pm[4] : "TURN OR STRAFE HARD TO SHAKE OFF A BAT") : NULL,
                                 G.shop || RUN.al_points > 0 ? "THE LAMPSTAND NORTH OF HER: THE LINES" : NULL };
+        int touch = TCH.used && !PADX.used;                        /* by touch, its own lines (docs/PLAN-mobile.md) */
+        const char *TL[7] = { "LEFT THUMB WALKS, RIGHT THUMB TURNS", "THE RIGHT STONE CASTS; HELD, AGAIN", "TAP THE LEFT STONE TO USE",
+                              "HOLD THE TOP LEFT TO PAUSE", "HOLD THE TOP RIGHT FOR THE WHEELS", "PUSH THE WALK PAST ITS RING: SPRINT",
+                              RUN.abil[BOSS_KNIGHT] ? "TOUCH TWICE AND PUSH: DODGE" : NULL };
+        #define HLINE(i) (touch ? ((i) < 7 ? TL[i] : NULL) : (i) < 4 ? (PADX.used ? PADHINT[i] : HINT[i]) : more[(i) - 4])
         int rows = 0, widest = 0;                                  /* one band of stone behind them all */
-        for (int i = 0; i < 11; i++) { const char *h = i < 4 ? (PADX.used ? PADHINT[i] : HINT[i]) : more[i - 4]; if (h) { rows++; widest = imax(widest, hint_width(h)); } }
+        for (int i = 0; i < 11; i++) { const char *h = HLINE(i); if (h) { rows++; widest = imax(widest, hint_width(h)); } }
         ui_band(f, (W - widest) / 2 - 6, 30, widest + 12, rows * 11 + 5);
         for (int i = 0, row = 0; i < 11; i++) {
-            const char *h = i < 4 ? (PADX.used ? PADHINT[i] : HINT[i]) : more[i - 4];
+            const char *h = HLINE(i);
             if (!h) continue;
             int w = hint_width(h), x = (W - w) / 2, y = 34 + row++ * 11;
             hint8(f, x, y, h, R_STONE + 13);
         }
+        #undef HLINE
     }
 }
 
@@ -34139,5 +34326,79 @@ static void music_frame(float dt) {
 }
 static void crawl_frame(double dt) { crawl_update(dt); music_frame((float)dt); }
 
+/* ---- touch's stones on the stage (docs/PLAN-mobile.md, 6.5): headstones and tablets of the run's stone in the margins, each
+ * drawn on a scratch of the picture's size (the kit's marble and fit checks are 320 x 200) and set where it stands ---- */
+static Frame TSCR;
+static void stone_put(Frame *st, const TRect *r, int k, int head, const char *word, const char *sub, int pressed, int blank, int mark, int id) {
+    int w = imin(r->w, W - 4), h = imin(r->h, H - 4), sx = 2 + (k * 53) % imax(1, W - w - 4), sy = 2 + (k * 37) % imax(1, H - h - 4);
+    for (int y = sy - 1; y <= sy + h; y++) for (int x = sx - 1; x <= sx + w; x++) if (x >= 0 && y >= 0 && x < W && y < H) TSCR.pix[y * W + x] = C_CLEAR;
+    TSCR.w = W; TSCR.h = H;
+    ui_on(&TSCR, 0, "touch");
+    ui_slab(&TSCR, sx, sy, w, h, (head ? SLAB_HEAD : SLAB_TABLET) | SLAB_CALM, ORN_NONE, G.ui_t);
+    if (!blank) {
+        int cx = sx + w / 2, col = pressed ? R_GOLD + 12 : R_BONE + 14;
+        int hasmark = mark && h >= 34, my = head ? sy + imax(14, h * 2 / 5) : sy + 12, wy = hasmark ? my + 14 : sy + (h - 8) / 2 + (head ? 6 : 0);
+        if (hasmark) {
+            if (mark == 1 && id >= 0) {                            /* the spell in hand */
+                int el = ATK_ELEM[id];
+                if (G.rst_sel) ui_socket_mark(&TSCR, cx, my, 9, RESTORE_MARK, R_GHOST, SK_READY, pressed, 0, G.ui_t);
+                else if (el >= 0) ui_socket(&TSCR, cx, my, 9, UI_NODE_ICON[el][ND_OPEN], ELEM_RAMP[el], SK_READY, pressed, 0, G.ui_t);
+                else ui_socket_mark(&TSCR, cx, my, 9, BFS_MARK, R_PURPLE, SK_READY, pressed, 0, G.ui_t);
+            } else if (mark == 2 && id >= 0) ui_socket_mark(&TSCR, cx, my, 9, RUNE_MARK[id], gear_color(GK_DEF, id), SK_READY, pressed, 0, G.ui_t);
+            else if (mark == 3 && id >= 0) ui_mark(&TSCR, cx - 5, my - 5, BA_MARK[id], pressed ? R_GOLD : R_BONE, IM_INLAID, 1);
+            else wy = sy + (h - 8) / 2;
+        }
+        int ww = (int)strlen(word) * 8;
+        if (ww <= w - 6) ui_text8(&TSCR, cx - ww / 2, wy, word, FACE_INSC, col, TX_INLAID);
+        int sw2 = sub ? (int)strlen(sub) * 8 : 0;
+        if (sub && sw2 <= w - 6 && wy + 22 <= sy + h - 3) ui_text8(&TSCR, cx - sw2 / 2, wy + 12, sub, FACE_INSC, R_BONE + 10, TX_INLAID);
+    }
+    ui_off();
+    int dy = pressed ? 1 : 0;                                      /* pressed, it sinks a pixel */
+    for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
+        uint8_t c = TSCR.pix[(sy + y) * W + sx + x];
+        int X = r->x + x, Y = r->y + y + dy;
+        if (c != C_CLEAR && X >= 0 && Y >= 0 && X < st->w && Y < st->h) st->pix[Y * st->w + X] = c;
+    }
+}
+static void ring_put(Frame *st, float bx, float by, float fx, float fy, int ring) {   /* a stick down: its roundel, a knob of bone */
+    for (int a = 0; a < 64; a++) {
+        float t = (float)a * TAU_F / 64.0f;
+        int x = (int)lroundf(bx + cosf(t) * (float)ring), y = (int)lroundf(by + sinf(t) * (float)ring);
+        if (x >= 0 && y >= 0 && x < st->w && y < st->h && (a & 1)) st->pix[y * st->w + x] = (uint8_t)(R_BONE + 9);
+    }
+    for (int y = -4; y <= 4; y++) for (int x = -4; x <= 4; x++) {
+        if (x * x + y * y > 16) continue;
+        int X = (int)fx + x, Y = (int)fy + y;
+        if (X >= 0 && Y >= 0 && X < st->w && Y < st->h) st->pix[Y * st->w + X] = (uint8_t)(x * x + y * y > 9 ? R_BONE + 7 : R_BONE + 13);
+    }
+}
+static void crawl_stage(Frame *st, int px, int py) {
+    (void)px; (void)py;
+    if (!IN.touch || !IN.stage_w || CON.open) return;
+    TRect R[NTB];
+    touch_geo(R);
+    int ctx = touch_ctx();
+    static const char *const MENU_W[NTB] = { "ENTER", "ESC", "BACK", "SPACE", "", "", "TAB" };
+    int rr = rune_readied(), gr = ab_readied();
+    int rmark = RUN.mouse_rune && rr >= 0;                         /* the top right uses what was readied last */
+    for (int k = 0; k < NTB; k++) {
+        if (!touch_shown(k, ctx)) continue;
+        int head = k == TB_STRIP_L || k == TB_STRIP_R, pr = TCH.press[k];
+        if (ctx != TC_PLAY) { stone_put(st, &R[k], k, head, MENU_W[k], NULL, pr, 0, 0, -1); continue; }
+        switch (k) {
+        case TB_STRIP_L: stone_put(st, &R[k], k, 1, "USE", "TAP", pr, 0, 0, -1); break;
+        case TB_STRIP_R: stone_put(st, &R[k], k, 1, "CAST", "HOLD", pr, 0, 1, G.spell); break;
+        case TB_CORNER_L: stone_put(st, &R[k], k, 0, "RUNE", "HOLD: PAUSE", pr, 0, rr >= 0 ? 2 : 0, rr); break;
+        case TB_CORNER_R: stone_put(st, &R[k], k, 0, "GIFT", "HOLD: WHEELS", pr, 0, rmark ? 2 : gr >= 0 ? 3 : 0, rmark ? rr : gr); break;
+        case TB_WISPS: stone_put(st, &R[k], k, 0, "WISPS", NULL, pr, 0, 0, -1); break;
+        case TB_MAP: stone_put(st, &R[k], k, 0, "MAP", NULL, pr, !RUN.has_map, 0, -1); break;
+        case TB_WARD: stone_put(st, &R[k], k, 0, "WARDROBE", NULL, pr, 0, 0, -1); break;
+        }
+    }
+    if (ctx == TC_PLAY && TCH.walk) ring_put(st, TCH.wbx, TCH.wby, TCH.wx, TCH.wy, touch_ring());
+    if (ctx == TC_PLAY && TCH.turn) ring_put(st, TCH.tbx, TCH.tby, TCH.tx, TCH.ty, touch_ring());
+}
+
 const Scene scene_crawl = { "CATACOMB", W, H, SND_PROG_CRAWL, crawl_enter, crawl_frame, crawl_render,
-                            crawl_control, crawl_status, crawl_input, NULL };   /* the stage's controls: docs/PLAN-mobile.md, still to come */
+                            crawl_control, crawl_status, crawl_input, crawl_stage };   /* the stage: touch's stones (docs/PLAN-mobile.md) */

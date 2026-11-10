@@ -58,6 +58,17 @@
   #needmouse { position: fixed; left: 50%; top: 14%; transform: translateX(-50%); z-index: 2; pointer-events: none;
                background: rgba(0, 0, 0, .8); color: var(--accent); padding: 6px 14px; border: 1px solid var(--line); }
 
+  /* how you play (docs/PLAN-mobile.md, Part B), asked on the plate */
+  #how .how { display: flex; flex-wrap: wrap; gap: 8px; margin: .6em 0 1em; }
+  #how button, #chosen button { font: inherit; color: var(--fg); background: #000; border: 1px solid var(--line); padding: 8px 14px; cursor: pointer; }
+  #how button.likely { border-color: var(--accent); color: #fff; }
+  #how button:hover, #chosen button:hover { border-color: var(--accent); }
+  /* by touch: nothing on the stage selects, calls out or zooms */
+  body.touchmode, body.touchmode #stage { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  body.touchmode #probe { left: 50%; transform: translateX(-50%); top: max(4px, env(safe-area-inset-top)); bottom: auto; }
+  #safe { position: fixed; visibility: hidden; pointer-events: none; padding: env(safe-area-inset-top) env(safe-area-inset-right)
+          env(safe-area-inset-bottom) env(safe-area-inset-left); }
+
   /* the probe (docs/PLAN-mobile.md, step 0): what each frame costs, to copy and send */
   #probe { position: fixed; z-index: 4; left: max(8px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom));
            max-width: calc(100vw - 16px); background: rgba(0, 0, 0, .84); border: 1px solid var(--line); padding: 6px 8px;
@@ -99,6 +110,15 @@
     <p id="watch" class="note" hidden>On this device you can watch. To play, you need a keyboard and mouse, or a controller.</p>
     <p id="probe-note" class="note" hidden>THE PROBE. Once it boots, a readout at the lower left counts what each frame
       costs.<span id="probe-take"></span> Leave it three minutes or so, then Copy or Share the readout and send it.</p>
+    <div id="how" hidden>
+      <p class="note">How will you play?</p>
+      <div class="how">
+        <button type="button" data-how="keys">Keyboard and mouse</button>
+        <button type="button" data-how="pad">Controller</button>
+        <button type="button" data-how="touch">Touch</button>
+      </div>
+    </div>
+    <p id="chosen" class="note" hidden>Playing with <span id="chosen-how"></span>. <button type="button" id="change">Change</button></p>
     <p class="press" id="press">Loading...</p>
     <details>
       <summary>Controls</summary>
@@ -127,6 +147,7 @@
 </div>
 
 <div id="needmouse" hidden>CLICK TO TAKE THE MOUSE</div>
+<div id="safe"></div>
 
 <div id="probe" class="small" hidden>
   <pre id="probe-text"></pre>

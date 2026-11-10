@@ -27,7 +27,8 @@
   const fromB64 = (s) => { const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
 
   // The settings dialog's, as the registry has them on Windows, and the mouse's sensitivity.
-  const DEFAULTS = { sound: 1, volume: 60, music: 100, effects: 100, brightness: 85, haunt: 1, crawl: 1, stay: 4, shift: 1, pad: 1, sens: 1.0 };
+  const DEFAULTS = { sound: 1, volume: 60, music: 100, effects: 100, brightness: 85, haunt: 1, crawl: 1, stay: 4, shift: 1, pad: 1, sens: 1.0,
+                     controls: "" };                      // how a person plays (docs/PLAN-mobile.md): keys, pad or touch; "" not asked yet
   function settings() {
     let s = {};
     try { s = JSON.parse(store.get("settings") || "{}") || {}; } catch (e) { s = {}; }
@@ -121,11 +122,35 @@
   function soundWake() { if (snd.ctx && snd.ctx.state !== "running") snd.ctx.resume().catch(() => {}); }
 
   // ---- the picture ---------------------------------------------------------------------------------
-  let img = null, scale = 1, shown = { w: 0, h: 0, cw: 0, ch: 0 };
+  let img = null, scale = 1, shown = { w: 0, h: 0, cw: 0, ch: 0 }, stg = { sw: 0, sh: 0 };
+  const touchMode = () => cfg.controls === "touch";
+  function insets() {                                            // what the device keeps at its edges, in CSS pixels
+    const e = $("safe"); if (!e) return [0, 0, 0, 0];
+    const c = getComputedStyle(e);
+    return [c.paddingLeft, c.paddingTop, c.paddingRight, c.paddingBottom].map((v) => parseFloat(v) || 0);
+  }
+  function fitStage(w, h, dpr, aw, ah) {                         // by touch: the stage, the picture's pixels over the whole window
+    let s = Math.floor(Math.min(aw / w, ah / h));
+    if (s < 1) return false;
+    let sw = Math.floor(aw / s), sh = Math.floor(ah / s);
+    while (sw * sh > 288000) { s++; sw = Math.floor(aw / s); sh = Math.floor(ah / s); }
+    if (sw < w || sh < h) return false;
+    scale = s / dpr;
+    const k = dpr / s, [l, t, r, b] = insets();
+    M._web_stage(sw, sh, Math.ceil(l * k), Math.ceil(t * k), Math.ceil(r * k), Math.ceil(b * k));
+    if (canvas.width !== sw || canvas.height !== sh) { canvas.width = sw; canvas.height = sh; img = ctx2d.createImageData(sw, sh); }
+    const cw = sw / k, ch = sh / k;
+    if (shown.cw !== cw || shown.ch !== ch) { canvas.style.width = cw + "px"; canvas.style.height = ch + "px"; }
+    shown = { w, h, cw: (w * s) / dpr, ch: (h * s) / dpr }; stg = { sw, sh };
+    return true;
+  }
   function fit() {
     const w = M ? M._web_width() : 320, h = M ? M._web_height() : 200;
     const dpr = window.devicePixelRatio || 1;
     const aw = stage.clientWidth * dpr, ah = stage.clientHeight * dpr;
+    if (M && booted && touchMode() && fitStage(w, h, dpr, aw, ah)) return;
+    stg = { sw: 0, sh: 0 };
+    if (M && booted && touchMode()) M._web_stage(0, 0, 0, 0, 0, 0);
     let s = Math.floor(Math.min(aw / w, ah / h)), cw, ch;
     if (s >= 1) { cw = (w * s) / dpr; ch = (h * s) / dpr; }      // whole device pixels, every one alike
     else { const f = Math.min(aw / w, ah / h); cw = (w * f) / dpr; ch = (h * f) / dpr; s = f; }
@@ -135,13 +160,16 @@
     shown = { w, h, cw, ch };
   }
   function draw() {
+    const w0 = M._web_width(), h0 = M._web_height();
+    if (w0 !== shown.w || h0 !== shown.h || !img) fit();
     const r0 = performance.now();
-    const p = M._web_frame(), w = M._web_width(), h = M._web_height();
+    let p = stg.sw ? M._web_stage_frame() : 0, w = stg.sw, h = stg.sh;   // by touch, the stage with its stones
+    if (!p) { if (stg.sw) { stg = { sw: 0, sh: 0 }; fit(); } p = M._web_frame(); w = M._web_width(); h = M._web_height(); }
     probe.render = performance.now() - r0;
-    if (w !== shown.w || h !== shown.h || !img) fit();
+    if (!img || img.width !== w || img.height !== h) { canvas.width = w; canvas.height = h; img = ctx2d.createImageData(w, h); }
     img.data.set(M.HEAPU8.subarray(p, p + w * h * 4));
     ctx2d.putImageData(img, 0, 0);
-    if (cfg.shift) {                                             // the slow drift, kept inside the black margin
+    if (cfg.shift && !stg.sw) {                                  // the slow drift, kept inside the black margin (the stage drifts its own)
       const mx = (stage.clientWidth - shown.cw) / 2, my = (stage.clientHeight - shown.ch) / 2;
       const dx = Math.max(-mx, Math.min(mx, M._web_shift_x() * scale)), dy = Math.max(-my, Math.min(my, M._web_shift_y() * scale));
       canvas.style.transform = "translate(" + dx + "px," + dy + "px)";
@@ -162,7 +190,10 @@
   const locked = () => document.pointerLockElement === stage;
   let escAt = -1e9, escSent = -1e9, freeing = false;
 
-  function key(name, down) { if (M && booted && name in KEY) M._web_key(KEY[name], down ? 1 : 0); }
+  function key(name, down, own) {
+    if (!own && down && probe.took) probe.touched = 1;           // anything but the probe's own H counts as touching
+    if (M && booted && name in KEY) M._web_key(KEY[name], down ? 1 : 0);
+  }
   function takeMouse() {
     if (locked() || !stage.requestPointerLock) return;
     let r;
@@ -200,7 +231,7 @@
     key(name, false);
   });
   stage.addEventListener("mousedown", (e) => {
-    if (!booted) return;
+    if (!booted || touchMode()) return;                          // by touch the mouse is never taken (docs/PLAN-mobile.md)
     soundWake();
     if (state !== APP_PLAYER) return;
     if (!locked()) { takeMouse(); return; }                      // the click that takes the mouse casts nothing
@@ -223,6 +254,20 @@
     while (wheelAcc <= -1) { M._web_wheel(1); wheelAcc += 1; }   // + away from you
     while (wheelAcc >= 1) { M._web_wheel(-1); wheelAcc -= 1; }
   }, { passive: false });
+
+  // Fingers (docs/PLAN-mobile.md): by touch, each one in the stage's pixels to the game, which reads them as it likes; the
+  // first tap counts for the sound too.
+  function finger(e, phase) {
+    if (!booted || !touchMode() || e.pointerType === "mouse") return;
+    e.preventDefault();
+    if (phase === 0) { soundWake(); try { stage.setPointerCapture(e.pointerId); } catch (err) { /* not this one */ } if (probe.took) probe.touched = 1; }
+    const r = canvas.getBoundingClientRect(), sw = stg.sw || canvas.width, sh = stg.sh || canvas.height;
+    M._web_touch(e.pointerId, (e.clientX - r.left) * sw / r.width, (e.clientY - r.top) * sh / r.height, phase);
+  }
+  stage.addEventListener("pointerdown", (e) => finger(e, 0), { passive: false });
+  stage.addEventListener("pointermove", (e) => finger(e, 1), { passive: false });
+  stage.addEventListener("pointerup", (e) => finger(e, 2), { passive: false });
+  stage.addEventListener("pointercancel", (e) => finger(e, 2), { passive: false });
 
   // Esc frees the mouse before the page hears it: freed while a person plays, and not by the page itself or by
   // going to another window, it counts as Esc (which opens the question in play, and goes back in a menu).
@@ -342,9 +387,9 @@
     if (!probe.firstAt) probe.firstAt = ts;
     if (TAKE_AT >= 0 && !probe.took) {                             // the takeover, as a held H; tried again if it didn't come
       const since = (ts - probe.bootAt) / 1000;
-      if (!probe.held && since >= TAKE_AT + probe.tries * 8) { key("H", true); probe.held = ts; probe.tries++; }
-      if (probe.held && ts - probe.held >= HOLD_MS) { key("H", false); probe.held = 0; }
-      if (state === APP_PLAYER) { probe.took = ts; if (probe.held) { key("H", false); probe.held = 0; } }
+      if (!probe.held && since >= TAKE_AT + probe.tries * 8) { key("H", true, 1); probe.held = ts; probe.tries++; }
+      if (probe.held && ts - probe.held >= HOLD_MS) { key("H", false, 1); probe.held = 0; }
+      if (state === APP_PLAYER) { probe.took = ts; if (probe.held) { key("H", false, 1); probe.held = 0; } }
     }
     const name = probePhase(), work = step + sound + pic;
     let p = probe.byName[name];
@@ -478,7 +523,7 @@
     state = M._web_state();
     if (state !== was) document.body.classList.toggle("playing", state === APP_PLAYER);
     if (was === APP_PLAYER && state !== APP_PLAYER) freeMouse();  // handed back to the dream
-    $("needmouse").hidden = !(state === APP_PLAYER && !locked() && performance.now() - padTouched > 3000 && TAKE_AT < 0);
+    $("needmouse").hidden = !(state === APP_PLAYER && !locked() && performance.now() - padTouched > 3000 && TAKE_AT < 0 && !touchMode());
     draw();
     const t3 = performance.now();
     perf.n++; perf.step += t1 - t0; perf.sound += t2 - t1; perf.draw += t3 - t2;
@@ -509,6 +554,8 @@
     loadSlots();
     M._web_config(cfg.sound, cfg.volume, cfg.brightness, cfg.haunt, cfg.crawl, Math.round(cfg.stay * 60), cfg.shift, cfg.pad, cfg.music, cfg.effects);
     M._web_start();
+    M._web_touch_mode(touchMode() ? 1 : 0);
+    document.body.classList.toggle("touchmode", touchMode());
     booted = true;
     probe.bootAt = performance.now();
     if (PROBE) probeStart();
@@ -523,12 +570,39 @@
     plate.classList.add("ready");
     if (session.get("fled")) $("fled").hidden = false;
     const coarse = matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches;
-    if (coarse && !PROBE) $("watch").hidden = false;
     if (PROBE) $("probe-note").hidden = false;
     if (TAKE_AT >= 0) $("probe-take").textContent = ` Then it holds H for you after ${TAKE_AT} seconds, so the title comes up and waits ` +
       "a minute and a half before the dream comes back.";
-    $("press").textContent = coarse ? "Tap to boot" : "Press a key or click to boot";
-    const go = (e) => { if (e.target.closest && e.target.closest("#bar, #panel, #plate details")) return; boot(); };
+    // How you play (docs/PLAN-mobile.md, Part B): asked the first time, then remembered, with a way to change it. The choice is the
+    // press that boots it; Touch asks for full screen held sideways, which a browser may refuse.
+    const SAY = { keys: "the keyboard and mouse", pad: "a controller", touch: "touch" };
+    const likely = coarse ? "touch" : pads().length ? "pad" : "keys";
+    const choose = (m) => {
+      cfg.controls = m;
+      const keep = Object.assign(settings(), { controls: m });
+      store.set("settings", JSON.stringify(keep));
+      if (m === "touch") {
+        const el = document.documentElement;
+        if (el.requestFullscreen) el.requestFullscreen({ navigationUI: "hide" })
+          .then(() => (screen.orientation && screen.orientation.lock ? screen.orientation.lock("landscape") : null)).catch(() => {});
+      }
+      boot();
+    };
+    const ask = () => {
+      $("how").hidden = false; $("chosen").hidden = true; $("press").hidden = true;
+      document.querySelectorAll("#how button").forEach((b) => b.classList.toggle("likely", b.dataset.how === likely));
+    };
+    document.querySelectorAll("#how button").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); choose(b.dataset.how); }));
+    $("change").addEventListener("click", (e) => { e.stopPropagation(); ask(); });
+    if (!cfg.controls) ask();
+    else { $("chosen-how").textContent = SAY[cfg.controls] || cfg.controls; $("chosen").hidden = false; }
+    $("press").textContent = cfg.controls === "touch" || coarse ? "Tap to boot" : "Press a key or click to boot";
+    const go = (e) => {
+      if (e.target.closest && e.target.closest("#bar, #panel, #plate details, #how, #chosen")) return;
+      if (!cfg.controls) { if (e.type === "keydown") choose("keys"); return; }   // a key is an answer; a tap or click must choose
+      if (cfg.controls === "touch") { choose("touch"); return; } // the tap that boots asks for full screen again
+      boot();
+    };
     window.addEventListener("keydown", (e) => {                  // a key boots it, but not Tab and Enter about the controls
       if (e.ctrlKey || e.metaKey || e.altKey || $("panel").open) return;
       if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#plate details") && /^(Tab|Enter|Space)$/.test(e.code)) return;
@@ -537,7 +611,10 @@
     window.addEventListener("pointerdown", go);
     const padWait = () => {                                      // a pad can boot it too, though the sound waits for a key or a click
       if (booted) return;
-      if (pads().some((g) => g.buttons.some((b) => (typeof b === "object" ? b.pressed : b > 0.5)))) { boot(); return; }
+      if (pads().some((g) => g.buttons.some((b) => (typeof b === "object" ? b.pressed : b > 0.5)))) {
+        if (!cfg.controls) { $("how").hidden || choose("pad"); return; }
+        boot(); return;
+      }
       requestAnimationFrame(padWait);
     };
     requestAnimationFrame(padWait);

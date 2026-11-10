@@ -539,4 +539,23 @@ owner released 1.0.0b21.3 ("Her Wares, Weighed") while this was being planned.
      so rows, caps and her rooms' prompt can be tapped.
   - Emscripten 6.0.13 isn't in the container's image: `git clone --depth 1 https://github.com/emscripten-core/emsdk.git`, `./emsdk
     install 6.0.13`, `./emsdk activate 6.0.13`, `. ./emsdk_env.sh` (about two minutes; CI does the same).
-
+- **10 November, built: touch's first cut** (steps 1-7 of the list above, as designed there; harness and headless Chromium only,
+  nothing on a real phone yet). In `scene_crawl.c`: `TCH` beside `PADX` (its finger roles are `TF_*`, since `TR_*` are the things'),
+  `touch_geo`, `touch_ctx`, `touch_shown`, `touch_wheel_tap`, `touch_keys` (from `crawl_input`, after `pad_keys`), `title_at_prompt`;
+  `wheel_input` opens a wheel asked by touch with src 2 (`TCH.wheel`); `TCH.fresh` beside each `PADX.fresh`; `pk`'s touch words
+  (`PK_TOUCH`) in play; the controls card's touch lines (`HLINE`); the stones, `stone_put` on a scratch `TSCR` and `ring_put`, in
+  `crawl_stage`, the scene's `stage` hook. In `crawl_title.c` `PADMODE` 2 says *TOUCH THE SCREEN*. In `web/haunted.js`: `cfg.controls`
+  (asked on the plate by three buttons, `#how`, then *Playing with touch. Change*; a key on the plate answers *keyboard and mouse*, a
+  pad's button *controller*, so the smoke test still boots with Enter); in Touch, `fitStage` (the canvas the stage's size, `web_stage`
+  with the safe area from `#safe`), `draw` from `web_stage_frame`, `finger()` on Pointer Events, no mouse taken, the readout at the
+  top middle, full screen and the sideways lock asked at the choice; `key()` marks the probe touched for anything but its own H. Tried:
+  `make smoke` and `tools/web_smoke.js` pass; Playwright as a Pixel 7 held sideways with CDP fingers (the scratchpad's `touch.js`):
+  Touch chosen, a finger held three seconds took over from HAUNT.EXE, the title said *TOUCH THE SCREEN*, a tap opened its menu, a drag
+  moved down it, the left stone took BEGIN A NEW RUN, her question and her menu were worked by the stones, no errors. Not tried: the
+  sticks' feel and numbers (the turning's 8 counts a pixel, the ring), the wheel by touch, the dodge, the sprint, the map's stone with a
+  map, a tablet's stage (controls over the picture), HAUNT.EXE's stage (it shows the picture alone: its 720 x 400 wants a stage too
+  big), and every real phone.
+- **Still to do after this cut**, in order: the owner's report from the phone, and tuning; THE BESTIARY and THE CODEX in Esc's
+  question by touch; the title's THE CONTROLS in touch's words (it shows the keys' list); the harness's `HOST_STAGE` and `T` fingers;
+  the contrast check and a sheet; THE TOUCH CONTROLS' settings; the map dragged to pan; Part A's hot list (rows, caps and her rooms'
+  prompt tapped); the README, the page and the notes for 1.0.0b21.4.

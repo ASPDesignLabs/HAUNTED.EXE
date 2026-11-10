@@ -21,7 +21,7 @@ static Frame *TF;                                       /* the frame drawn into 
 /* the input in use: the prompt and the hints follow it (the owner, 9 November) */
 static int PADMODE;
 static const char *ver_word;                            /* the build, in A's corner, or 0 */
-static const char *any_prompt(void) { return PADMODE ? "PRESS ANY BUTTON" : "PRESS ANY KEY"; }
+static const char *any_prompt(void) { return PADMODE == 2 ? "TOUCH THE SCREEN" : PADMODE ? "PRESS ANY BUTTON" : "PRESS ANY KEY"; }
 static float LOOP;                                      /* the scene's loop: everything that moves comes round in it */
 static uint8_t BASEPAL[256][3];                         /* the game's palette as it stands */
 
@@ -1059,7 +1059,7 @@ static void ui_keys_worn(int y, const char *const keys[], const char *const says
         sc_poly(p, 6, 1, 1, SM_STONE, 0.1f);
         sc_text(4, 3, keys[k], 0, 8, 1, 60 + (uint32_t)k);
         sc_chips(0.25f, 70 + (uint32_t)k);
-        int capr = !PADMODE ? R_BONE : !strcmp(keys[k], "A") ? R_MOSS : !strcmp(keys[k], "B") ? R_BLOOD : !strcmp(keys[k], "X") ? R_GLOW : !strcmp(keys[k], "Y") ? R_GOLD : R_BONE;
+        int capr = PADMODE != 1 ? R_BONE : !strcmp(keys[k], "A") ? R_MOSS : !strcmp(keys[k], "B") ? R_BLOOD : !strcmp(keys[k], "X") ? R_GLOW : !strcmp(keys[k], "Y") ? R_GOLD : R_BONE;
         sc_shade(0.42f, 80 + (uint32_t)k, 1.0f, capr);
         sc_draw(x + cw / 2, y + 11, 0);
         x += cw + 4;
@@ -1080,7 +1080,7 @@ static void ui_keys_words(int y, const char *const keys[], const char *const say
 static void ui_light(int y0, int y1, float v) { for (int y = y0; y < y1 && y < H; y++) for (int x = 0; x < W; x++) LC[y][x] = fmaxf(LC[y][x], v); }
 static const char *KEYS3[3] = { "A/D", "ENTER", "ESC" }, *SAYS3[3] = { "MOVES", "RISES", "BACK" };
 static const char *PADK3[3] = { "D-PAD", "A", "B" };
-#define GKEYS (PADMODE ? PADK3 : KEYS3)
+#define GKEYS (PADMODE == 1 ? PADK3 : KEYS3)
 /* a vignette: the light falling off towards the corners, to hold the eye */
 static void vignette(float k) {
     for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) {
@@ -1092,7 +1092,7 @@ static void vignette(float k) {
 
 static struct { int on; float appear, press, k[4]; } MN;
 static const char *MKEYS[3] = { "W/S", "ENTER", "ESC" }, *MPADK[3] = { "D-PAD", "A", "B" }, *MSAYS[3] = { "MOVES", "SELECTS", "BACK" };
-#define MENUKEYS (PADMODE ? MPADK : MKEYS)
+#define MENUKEYS (PADMODE == 1 ? MPADK : MKEYS)
 static void title_foot_pre(void) { if (MN.on && MN.appear > 0.5f) { ui_keys_worn(185, MENUKEYS, MSAYS, 3); ui_light(182, H, 0.62f); } }
 static void title_foot(int y, int band, float t) {
     if (MN.on && MN.appear > 0.5f) { ui_keys_words(185, MENUKEYS, MSAYS, 3); return; }
@@ -1109,7 +1109,7 @@ static void title_foot(int y, int band, float t) {
 static const char *const MENU_ROWS[4] = { "CHOOSE A GRAVE", "BEGIN A NEW RUN", "THE CONTROLS", "HELP" };
 static const char *menu_note(int i) {
     static const char *const N[4] = { "ONE OF HER PAGES", "FROM THE BEGINNING", "WHAT EACH KEY DOES", "NOT WRITTEN YET" };
-    return i == 2 && PADMODE ? "WHAT EACH BUTTON DOES" : N[i];
+    return i == 2 && PADMODE == 1 ? "WHAT EACH BUTTON DOES" : N[i];
 }
 static int menu_sel(void) { int b = 0; for (int k = 1; k < 4; k++) if (MN.k[k] > MN.k[b]) b = k; return b; }
 /* the four, cut and gilding one by one, with a gilt notch either side of the chosen; then a rule and the note */
