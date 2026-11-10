@@ -50,10 +50,20 @@
     printErr: (s) => console.log(s),
   }).then((mod) => {
     M = mod;
+    probe.readyAt = performance.now();
     const keys = M.UTF8ToString(M._web_key_names()).split(" ");
     keys.forEach((n, i) => { KEY[n] = i; });
     M.UTF8ToString(M._web_pad_names()).split(" ").forEach((n, i) => { PADB[n] = i; });
     return mod;
+  });
+  let coreFailed = "";
+  coreReady.catch((e) => {                                         // the game itself refused to start (no WebAssembly here, say)
+    console.warn("HAUNTED.EXE: the game couldn't start", e);
+    const why = String((e && e.message) || e);
+    coreFailed = /Content Security|unsafe-eval/.test(why) ? "The game couldn't start here: this page's host doesn't allow WebAssembly."
+                                                          : "The game couldn't start in this browser: " + why.slice(0, 160);
+    plate.hidden = false; plate.classList.remove("ready");
+    $("press").textContent = coreFailed;
   });
 
   function loadSlots() {
@@ -125,7 +135,9 @@
     shown = { w, h, cw, ch };
   }
   function draw() {
+    const r0 = performance.now();
     const p = M._web_frame(), w = M._web_width(), h = M._web_height();
+    probe.render = performance.now() - r0;
     if (w !== shown.w || h !== shown.h || !img) fit();
     img.data.set(M.HEAPU8.subarray(p, p + w * h * 4));
     ctx2d.putImageData(img, 0, 0);
@@ -161,6 +173,7 @@
 
   window.addEventListener("keydown", (e) => {
     if (!booted) return;
+    if (probe.took && e.isTrusted) probe.touched = 1;
     soundWake();
     if (e.ctrlKey || e.metaKey || e.altKey) return;             // the browser's own
     const name = CODE[e.code];
@@ -264,7 +277,7 @@
       if (Math.abs(x2) + Math.abs(y2) > Math.abs(rx) + Math.abs(ry)) { rx = x2; ry = y2; }
     }
     M._web_pad(1, bits, lx, ly, rx, ry, lt, rt);
-    if (bits || lx || ly || rx || ry) padTouched = performance.now();
+    if (bits || lx || ly || rx || ry) { padTouched = performance.now(); if (probe.took) probe.touched = 1; }
     rumble(list);
     return bits;
   }
@@ -299,6 +312,142 @@
     if (M) fit();
   });
 
+  // ---- the probe (docs/PLAN-mobile.md, step 0) -----------------------------------------------------
+  // ?perf shows what each frame costs, kept apart by what is on the screen, with the device's own facts, to copy and send.
+  // ?take (or ?take=s) holds H for three seconds once the dream has run s seconds (20 by default), so a phone, which can't
+  // take over yet, reaches the title; left untouched there for 90 s, the title gives the screen back to the dream. Neither
+  // changes the game: ?take presses nothing but H.
+  // (#perf, #take and #take-s do the same, for a host that passes no query; a page that sets window.HAUNTED_PROBE to "take"
+  // or "perf" before this script has it on from the start.)
+  const QS = new URLSearchParams(location.search);
+  const HASH = (location.hash.match(/^#(perf|take)(?:-(\d+))?$/) || []);
+  const ASKED = window.HAUNTED_PROBE || (QS.has("take") || HASH[1] === "take" ? "take" : QS.has("perf") || HASH[1] === "perf" ? "perf" : "");
+  const PROBE = !!ASKED;
+  const TAKE_AT = ASKED === "take" ? Math.max(3, Number(QS.get("take") || HASH[2]) || 20) : -1;
+  const HOLD_MS = 3300;                                            // a little past the game's three seconds
+  const Hist = () => ({ h: new Uint32Array(401), n: 0, sum: 0, max: 0 });   // quarter-millisecond bins to 100 ms
+  const hAdd = (o, v) => { o.h[Math.min(400, Math.floor(v * 4))]++; o.n++; o.sum += v; if (v > o.max) o.max = v; };
+  const hAt = (o, q) => { const need = q * o.n; let c = 0; for (let i = 0; i < 401; i++) { c += o.h[i]; if (c >= need) return i < 400 ? (i + 0.5) / 4 : o.max; } return o.max; };
+  const hOver = (o, v) => { let c = 0; for (let i = Math.min(400, Math.floor(v * 4)) + 1; i < 401; i++) c += o.h[i]; return c; };
+  const probe = {
+    tapAt: 0, readyAt: 0, bootAt: 0, firstAt: 0, took: 0, held: 0, tries: 0, touched: 0, render: 0,
+    phases: [], byName: {}, now: [], min: { at: 0, sum: 0, n: 0 }, mins: [], shownAt: 0, dev: { model: "", os: "", gpu: "" },
+  };
+  function probePhase() {
+    if (M._web_width() > 400) return "HAUNT.EXE, dreaming";
+    if (state !== APP_PLAYER) return "The crypt, dreaming";
+    return probe.took && !probe.touched ? "The title, untouched" : "Taken over";
+  }
+  function probeFrame(ts, gap, step, sound, pic) {
+    if (!probe.firstAt) probe.firstAt = ts;
+    if (TAKE_AT >= 0 && !probe.took) {                             // the takeover, as a held H; tried again if it didn't come
+      const since = (ts - probe.bootAt) / 1000;
+      if (!probe.held && since >= TAKE_AT + probe.tries * 8) { key("H", true); probe.held = ts; probe.tries++; }
+      if (probe.held && ts - probe.held >= HOLD_MS) { key("H", false); probe.held = 0; }
+      if (state === APP_PLAYER) { probe.took = ts; if (probe.held) { key("H", false); probe.held = 0; } }
+    }
+    const name = probePhase(), work = step + sound + pic;
+    let p = probe.byName[name];
+    if (!p) { p = probe.byName[name] = { name, work: Hist(), gap: Hist(), step: 0, sound: 0, pic: 0, render: 0 }; probe.phases.push(p); }
+    hAdd(p.work, work); hAdd(p.gap, gap); p.step += step; p.sound += sound; p.pic += pic; p.render += probe.render;
+    probe.now.push([ts, work, gap]);
+    while (probe.now.length && ts - probe.now[0][0] > 5000) probe.now.shift();
+    if (!probe.min.at) probe.min.at = ts;
+    probe.min.sum += work; probe.min.n++;
+    if (ts - probe.min.at >= 60000) { probe.mins.push(probe.min.sum / probe.min.n); probe.min = { at: ts, sum: 0, n: 0 }; }
+    if (ts - probe.shownAt >= 500) {
+      probe.shownAt = ts;
+      const nw = probe.now, span = nw.length > 1 ? (nw[nw.length - 1][0] - nw[0][0]) / 1000 : 0;
+      $("probe-line").textContent = `${((ts - probe.bootAt) / 1000).toFixed(0)} s, ${name.toLowerCase()}: ` +
+        `${f1(nw.reduce((a, b) => a + b[1], 0) / Math.max(1, nw.length))} ms, ${span ? (nw.length / span).toFixed(0) : "?"} frames a second`;
+      if (!$("probe").classList.contains("small")) $("probe-text").textContent = probeText();
+    }
+  }
+  const f1 = (v) => (v < 10 ? v.toFixed(2) : v.toFixed(1));
+  const cell = (s, n) => (s + " ".repeat(n)).slice(0, Math.max(n, s.length));
+  function probeText() {
+    const dpr = window.devicePixelRatio || 1, s = Math.round(scale * dpr * 1000) / 1000, L = [];
+    const sec = (t) => (t / 1000).toFixed(1) + " s";                // from the page's opening
+    L.push(`HAUNTED.EXE ${VERSION}, the probe, ${sec(performance.now())}`);
+    const d = probe.dev;
+    L.push([d.model || "(model not told)", d.os].filter(Boolean).join(", ") + `; ${navigator.hardwareConcurrency || "?"} cores` +
+      (navigator.deviceMemory ? `, ${navigator.deviceMemory} GB` : ""));
+    if (d.gpu) L.push("GPU " + d.gpu);
+    const o = screen.orientation ? screen.orientation.type.replace(/-primary|-secondary/, "") : (innerWidth > innerHeight ? "landscape" : "portrait");
+    L.push(`Window ${innerWidth}x${innerHeight} ${o}, ${dpr} to one` + (document.fullscreenElement ? ", full screen" : ""));
+    if (shown.w) {
+      const sw = Math.floor(stage.clientWidth / scale), sh = Math.floor(stage.clientHeight / scale);   // in the picture's own pixels
+      L.push(`Picture ${shown.w}x${shown.h} shown ${Math.round(shown.cw)}x${Math.round(shown.ch)}, ${s} device px each` +
+        (Number.isInteger(s) ? `; stage ${sw}x${sh}` : ""));
+    }
+    L.push(snd.ctx ? `Sound ${snd.ctx.sampleRate} Hz, ${snd.ctx.state}${snd.ok ? "" : ", no worklet"}` : "Sound: none");
+    L.push(`The game ready ${probe.readyAt ? sec(probe.readyAt) : "not yet"} after the page opened` +
+      (probe.bootAt ? `; booted ${((probe.bootAt - probe.tapAt) / 1000).toFixed(2)} s after the tap` : ""));
+    if (TAKE_AT >= 0) L.push(probe.took ? `Took over ${((probe.took - probe.bootAt) / 1000).toFixed(1)} s after the tap` + (probe.touched ? ", then touched" : "")
+                                       : `Takes over ${TAKE_AT} s after the tap` + (probe.tries ? ` (try ${probe.tries})` : ""));
+    L.push("");
+    L.push("Each frame's own work, ms; Hz the frames shown");
+    for (const p of probe.phases) {
+      const n = p.work.n, med = hAt(p.gap, 0.5);
+      L.push(`${cell(p.name, 22)} ${n} frames`);
+      L.push(`  mean ${f1(p.work.sum / n)}  p95 ${f1(hAt(p.work, 0.95))}  max ${f1(p.work.max)}`);
+      L.push(`  game ${f1(p.step / n)}  sound ${f1(p.sound / n)}  picture ${f1(p.pic / n)}`);
+      L.push(`  (the picture drawn ${f1(p.render / n)}, put on the page ${f1((p.pic - p.render) / n)})`);
+      L.push(`  ${(1000 / Math.max(1, med)).toFixed(0)} Hz, ${(100 * hOver(p.gap, med * 1.5) / n).toFixed(1)}% late, ` +
+        `${hOver(p.gap, 50)} over 50 ms`);
+    }
+    if (probe.now.length > 1) {
+      const nw = probe.now, span = (nw[nw.length - 1][0] - nw[0][0]) / 1000;
+      L.push(`Now: ${f1(nw.reduce((a, b) => a + b[1], 0) / nw.length)} ms, ${(nw.length / Math.max(0.01, span)).toFixed(0)} frames a second`);
+    }
+    if (probe.mins.length) L.push("Each minute: " + probe.mins.map(f1).join(" "));
+    L.push("");
+    L.push(navigator.userAgent);
+    return L.join("\n");
+  }
+  function probeStart() {
+    $("probe").hidden = false;
+    const ua = navigator.userAgentData;
+    if (ua && ua.getHighEntropyValues)
+      ua.getHighEntropyValues(["model", "platformVersion"]).then((v) => {
+        probe.dev.model = v.model || "";
+        probe.dev.os = (ua.platform || "") + (v.platformVersion ? " " + v.platformVersion : "");
+      }).catch(() => {});
+    try {
+      const g = document.createElement("canvas").getContext("webgl"), e = g && g.getExtension("WEBGL_debug_renderer_info");
+      if (e) probe.dev.gpu = String(g.getParameter(e.UNMASKED_RENDERER_WEBGL));
+      const lose = g && g.getExtension("WEBGL_lose_context");
+      if (lose) lose.loseContext();
+    } catch (e) { /* no WebGL to ask */ }
+    const said = (s) => { $("probe-said").textContent = s; setTimeout(() => { $("probe-said").textContent = ""; }, 2500); };
+    const pick = () => {                                           // no clipboard: the text opened and selected, to copy by hand
+      $("probe").classList.remove("small"); $("probe-fold").textContent = "Fold";
+      const pre = $("probe-text"); pre.textContent = probeText();
+      const r = document.createRange(); r.selectNodeContents(pre);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      said("Selected: copy it by hand");
+    };
+    $("probe-copy").addEventListener("click", () => {
+      const t = probeText();
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => said("Copied"), pick);
+      else pick();
+    });
+    if (navigator.share) {
+      $("probe-share").hidden = false;
+      $("probe-share").addEventListener("click", () => {
+        navigator.share({ title: "HAUNTED.EXE probe", text: probeText() }).catch((e) => {
+          if (e && e.name === "AbortError") return;                // put away by the person
+          $("probe-share").hidden = true; said("Sharing isn't allowed here: Copy instead");
+        });
+      });
+    }
+    $("probe-fold").addEventListener("click", () => {                // folded, one line and the picture in view; open, all of it
+      const small = $("probe").classList.toggle("small");
+      $("probe-fold").textContent = small ? "Open" : "Fold";
+      if (!small) $("probe-text").textContent = probeText();
+    });
+  }
+
   // ---- the loop ------------------------------------------------------------------------------------
   let last = 0;
   const perf = { n: 0, step: 0, sound: 0, draw: 0, worst: 0 };   // ms in each part, for the smoke test and the curious
@@ -311,10 +460,12 @@
       return { w: img.width, h: img.height, dark: n / (d.length / 4) };
     },
     state: () => state,
+    probe: () => (PROBE ? probeText() : ""),
   };
   function frame(ts) {
     if (fleeing) return;
-    const dt = last ? Math.min(0.1, (ts - last) / 1000) : 1 / 60;
+    const gap = last ? ts - last : 1000 / 60;
+    const dt = Math.min(0.1, gap / 1000);
     last = ts;
     const t0 = performance.now();
     pollPad();
@@ -327,11 +478,12 @@
     state = M._web_state();
     if (state !== was) document.body.classList.toggle("playing", state === APP_PLAYER);
     if (was === APP_PLAYER && state !== APP_PLAYER) freeMouse();  // handed back to the dream
-    $("needmouse").hidden = !(state === APP_PLAYER && !locked() && performance.now() - padTouched > 3000);
+    $("needmouse").hidden = !(state === APP_PLAYER && !locked() && performance.now() - padTouched > 3000 && TAKE_AT < 0);
     draw();
     const t3 = performance.now();
     perf.n++; perf.step += t1 - t0; perf.sound += t2 - t1; perf.draw += t3 - t2;
     perf.worst = Math.max(perf.worst, t3 - t0);
+    if (PROBE) probeFrame(ts, gap, t1 - t0, t2 - t1, t3 - t2);
     if (quit) { flee(); return; }
     requestAnimationFrame(frame);
   }
@@ -347,16 +499,19 @@
   // ---- booting -------------------------------------------------------------------------------------
   async function boot() {
     if (booted || !plate.classList.contains("ready")) return;
+    probe.tapAt = performance.now();
     plate.classList.remove("ready");
     $("press").textContent = "Loading...";
     await soundStart();                                           // inside the press: the browser allows sound now
-    await coreReady;
+    try { await coreReady; } catch (e) { $("press").textContent = coreFailed; return; }
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     session.del("fled");
     loadSlots();
     M._web_config(cfg.sound, cfg.volume, cfg.brightness, cfg.haunt, cfg.crawl, Math.round(cfg.stay * 60), cfg.shift, cfg.pad, cfg.music, cfg.effects);
     M._web_start();
     booted = true;
+    probe.bootAt = performance.now();
+    if (PROBE) probeStart();
     plate.hidden = true;
     document.body.classList.add("booted");
     fit();
@@ -364,10 +519,14 @@
     requestAnimationFrame(frame);
   }
   function plateReady() {
+    if (coreFailed) return;                                       // its words stand
     plate.classList.add("ready");
     if (session.get("fled")) $("fled").hidden = false;
     const coarse = matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches;
-    if (coarse) $("watch").hidden = false;
+    if (coarse && !PROBE) $("watch").hidden = false;
+    if (PROBE) $("probe-note").hidden = false;
+    if (TAKE_AT >= 0) $("probe-take").textContent = ` Then it holds H for you after ${TAKE_AT} seconds, so the title comes up and waits ` +
+      "a minute and a half before the dream comes back.";
     $("press").textContent = coarse ? "Tap to boot" : "Press a key or click to boot";
     const go = (e) => { if (e.target.closest && e.target.closest("#bar, #panel, #plate details")) return; boot(); };
     window.addEventListener("keydown", (e) => {                  // a key boots it, but not Tab and Enter about the controls
@@ -390,7 +549,7 @@
       if (!lock) { $("busy").hidden = false; $("press").textContent = ""; return null; }
       plateReady();
       return new Promise(() => {});                              // held while the page is open
-    });
+    }).catch(() => plateReady());                                // locks refused here (a sandboxed frame): one tab is trusted to
   } else plateReady();
 
   // ---- settings and the ledger ---------------------------------------------------------------------

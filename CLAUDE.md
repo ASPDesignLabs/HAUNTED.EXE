@@ -361,7 +361,10 @@ on `claude/funny-meitner-yn953c`, with main at 1.0.0b21.3 merged in; settled: th
 corners for the rune and the pause, the gift and the wheels, MAP, WARDROBE and WISPS), drawn by the game in the margins as headstones
 with marks and words that pass a contrast check; a pointer in the browser's menus (a hot list the kit fills as it draws, `ptr_keys`
 beside `pad_keys`, a cursor of the game's own under the lock; Windows keeps its keys and pad as they are); and the browser's plate asking
-Keyboard and mouse, Controller or Touch. Tested by the owner on Android. Its section 11 is the hand-off log.
+Keyboard and mouse, Controller or Touch. Tested by the owner on Android. Its section 11 is the hand-off log. **Step 0 is built** (the
+page's script only; the game untouched): `?perf`/`#perf` shows a readout of each frame's cost by what is on the screen, `?take`/`#take`
+holds H after 20 s so a phone reaches the title, `window.HAUNTED.probe()` the text; `tools/probe_page.py` makes `build/web` into a page
+for claude.ai's private pages, where it is published for the owner's phone (the address is in the log). Waiting on their numbers.
 
 ## Working with the owner
 
@@ -405,6 +408,7 @@ Keyboard and mouse, Controller or Touch. Tested by the owner on Android. Its sec
 | `tools/music.sh` | CATACOMB's pieces for the ear (docs/PLAN-music.md): each piece, and each run's through a fight, the failing and a menu, into `build/music/`; `hall`, her hall's pieces and the Lampstand's; `spare`, run I's attempts kept unused (docs/PLAN-music-work.md) |
 | `src/web_main.c`, `web/` | The browser's shell (docs/PLAN-web.md): the game's exported door, and the play page, its script and the sound worklet; `make web` (Emscripten) builds `build/web`, `make webzip` the release's `HAUNTED-<version>-web.zip`; `HVS_WEB` makes Space the cast key in `scene_crawl.c` |
 | `tools/web_smoke.js` | The browser build's smoke test in Playwright's Chromium (`node tools/web_smoke.js <site> [secs] [shots]`; CI runs it) |
+| `tools/probe_page.py` | The phone probe's page (docs/PLAN-mobile.md, step 0): `build/web` made over for a host that wraps the page and passes no query, the probe on (`python3 tools/probe_page.py [out] [take\|perf]`) |
 | `tools/build_site.sh` | Assembles the Pages site from `site/` and `docs/*.png`, fills `@VERSION@` and the title card |
 | `tools/make_cards.py`, `site/card.txt`, `site/cards/` | X/Open Graph title cards; `card.txt` picks one per version (`* a-boot` is the default) |
 | `tools/package.py` | Builds the release zip |

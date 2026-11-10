@@ -1,6 +1,6 @@
 # 1.0.0b21.4: touch, the mouse in menus, and asking how you play
 
-**Status: settled (10 November 2026), nothing built.** On `claude/funny-meitner-yn953c`, with main at 1.0.0b21.3 merged in. The
+**Status: settled (10 November 2026); step 0, the probe, is built and waits for the owner's phone.** On `claude/funny-meitner-yn953c`, with main at 1.0.0b21.3 merged in. The
 owner asked for a plan to play the browser build on a phone or tablet, with a layout of their own, formal mouse support, and a
 question on the browser's page of how a person is playing. They answered T1-T14 the same day (section 10, kept for the record):
 the recommended answer to each but T10 (the mouse in menus in the browser only, not on Windows) and T13 (it goes out as **1.0.0b21.4**,
@@ -332,12 +332,13 @@ screen are as they are.
 
 ## 8. Steps
 
-0. **The probe on the owner's Android phone.** Today's `/play/` with `?perf` (a corner readout of ms a frame from
-   `window.HAUNTED.perf`) and `?take` (H held for three seconds as it boots, since a phone can't take over yet): the dream, the crypt in
-   play, the title. If the title is too slow there (8-14 ms natively might be 30-40 ms), it gets a cheaper way to draw first. Pages
-   serves only the release named in `VERSION`, so the probe can't go to `/play/`: CI builds the branch's web zip, and it goes up as a
-   private page the phone can open. Failing that, Chrome's remote debugging over USB reads `window.HAUNTED.perf` from today's
-   `/play/`, for the dream at least.
+0. **The probe on the owner's Android phone** (**built**, 10 November; waiting for the phone's numbers). Today's page with `?perf`
+   (a readout at the lower left) and `?take` (H held for three seconds once the dream has run 20 s, `?take=s` for another wait, since
+   a phone can't take over yet): the dream (HAUNT.EXE), the title, and the crypt's dream after it. If the title is too slow there
+   (8-14 ms natively might be 30-40 ms), it gets a cheaper way to draw first. The crypt in play isn't measured: the probe presses
+   nothing but H, and a person's crypt draws what the dream's does with a status bar more. Pages serves only the release named in
+   `VERSION`, so the probe went up as a private page on claude.ai (section 11). Failing that, Chrome's remote debugging over USB reads
+   `window.HAUNTED.perf` from today's `/play/`, for the dream at least.
 1. **The input's shape.** `Input` gains the pointer, up to five fingers (id, place in stage pixels, down, moved, up) and the stage
    (size, the picture's place, the safe area); `AppConfig.input`. `web_main.c` exports them; `tools/host.c` reads `p` (a pointer's
    place), `T` (a finger: `T0d40,150`, `T0m60,150`, `T0u`), `HOST_STAGE` and `HOST_MODE`. Nothing behaves differently yet.
@@ -415,3 +416,23 @@ owner released 1.0.0b21.3 ("Her Wares, Weighed") while this was being planned.
   Android, and asked for the edge controls in the gravestone theme with good contrast. Main at 1.0.0b21.3 merged into the branch, and the
   plan read against it: the slim prompt in her rooms, the buying screen (`UI_BUY`), `pk`'s BACK, Q's hold at a pedestal. Settled;
   nothing built. Next: step 0, the probe on the owner's phone.
+- **10 November, step 0 built.** In `web/haunted.js` only (the game is 1.0.0b21.3's, untouched): `?perf` or `#perf`, `?take[=s]` or
+  `#take[-s]`, or `window.HAUNTED_PROBE` set before the script. The readout (`#probe` in `web/index.html`; `probeFrame`, `probeText`,
+  `probeStart`) keeps each frame's own work (the game's step, the sound, the picture, and the picture split into the game drawing it,
+  `web_frame`, and the page putting it up) in quarter-millisecond histograms by what is on the screen (HAUNT.EXE dreaming, the crypt
+  dreaming, the title untouched, taken over once a person touches something), with the frames' gaps (the display's Hz from the median,
+  late past one and a half times it, over 50 ms), the last five seconds, a mean a minute (for heat), and the device: its model where
+  Chrome tells it (`userAgentData`), cores, memory, the GPU's name, the window, the picture's scale and the stage in the picture's pixels,
+  the sound's rate. It starts folded to one line, opens on a tap; Copy (or, refused, the text selected), Share where allowed.
+  `window.HAUNTED.probe()` gives the text. The take presses H and lets go after 3.3 s, trying again 8 s later if no takeover came; *CLICK TO
+  TAKE THE MOUSE* is kept off. Three things for any page as well: a game that can't start (WebAssembly refused) says so on the plate in
+  place of *Loading...*; a browser that refuses Web Locks boots anyway; and the plate's words wait on neither. `tools/probe_page.py` makes
+  `build/web` into a page for a host that wraps the page and passes no query (no `<html>`, `<head>` or `<body>`, the probe on, the fonts
+  inline, the link home absolute). Published privately on claude.ai as *HAUNTED.EXE Phone Probe*:
+  https://claude.ai/artifact/V5ALUvTRsvhGq3eHey5C4Z (the owner's to open; the WebAssembly file served as `application/wasm`). Whether
+  that host lets WebAssembly run is untried: if not, its plate says so, and the fallbacks are Chrome's remote debugging on today's
+  `/play/`, or the probe's two switches put on the live page in a point release, the owner's call. Tried here only: headless Chromium
+  as a Pixel 7 held sideways (tapped to boot, `?take=5` and `#take-4`, the title for 90 s and the dream back after it), under a strict
+  content policy with WebAssembly allowed and refused, and `tools/web_smoke.js` (passes). This container's numbers (a server's CPU, no
+  GPU; not a phone's): HAUNT.EXE 0.9 ms a frame, the title 15-16 ms (15 of it drawing the picture), the crypt's dream 4.4-4.6 ms, all at
+  60 Hz. So even here the title costs three to four times the crypt.
