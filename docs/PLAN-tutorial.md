@@ -1002,4 +1002,13 @@ key).
   (`open_door`). `CRAWL_DRAWN=0` gives the generated level 1 back; the debug build prints `DRAWN level n: ...`. Checked: the debug map
   (8 doors, 39 items, 11 rank I skeletons, 22 lights, 39 decorations, every lane reachable), the dream clearing level 1 on four seeds
   (167-187 s, the key taken, 85-92% of the gold, no stall), ASan clean through level 1, the smoke test. The burning floor is plain
-  floor till step 3. Next: step 3.
+  floor till step 3.
+- **Step 3 built** (harness only). The burning floor is `DF` beside the lane mask (`DFIRE_*`): its cells from the map's `F`/`f`,
+  `drawn_fire_tick` from `update_hazards` (whoever plays: the first touch sets you alight, `af_ignite`, a fifth of your health to
+  come; then 17% of it each half second in it, by `hurt_ex` as a Fire stroke, `HURT_ELEM`; never under a quarter, what is still to
+  burn counted), `drawn_fire_lights` (a light a row), two flames a cell (`SP_BURN_A/B`, in `render_sprites`; the list grew by
+  `DFIRE_CELLS * 2`), a crackle near it, and `drawn_fire_dmarks` (soft on `hz_dmap`, so the dream crosses). Two cells past it (the
+  drawing's y 8.0) it starts to go out over twenty seconds (`DFIRE_OUT`), harmless once under a third. Tried by a person taken over
+  on level 1 (`CRAWL_TITLE=0`, `CRAWL_TPAT=15.5,6.5,90`, E at the door, W through): a walk leaves 44% once the burning is done (the
+  far side 53%), a sprint 56% (69%), standing in it holds at 26%. Debug: `EVENT drawn_fire hurt|past|out`. The scorched floor it
+  leaves is not drawn yet. The lesson waits for the page (step 5/6); for now it goes out once you are past, page or none.

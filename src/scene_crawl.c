@@ -1805,6 +1805,19 @@ static int in_mroom(int r, int x, int y) { return x >= mroom[r][0] && y >= mroom
 /* a drawn level (docs/PLAN-tutorial.md) isn't on the plan's grid: its lanes are drawn with it, and each cell's steps to one kept */
 static int g_drawn;                                                /* 1 or 2: the drawn level in play; 0 any other place */
 static uint8_t g_lane[MAPN][MAPN], g_ldist[MAPN][MAPN];
+/* level 1's burning floor (docs/PLAN-tutorial.md, section 6): lamp oil spilled across the hall and alight, crossed to go on */
+#define DFIRE_CELLS 16
+#define DFIRE_OUT 20.0f                                            /* it burns low and goes out this long after you are past */
+#define DFIRE_TICK 0.5f                                            /* its harm comes this often while you stand in it */
+#define DFIRE_SHARE 0.17f                                          /* a share of your health each time */
+#define DFIRE_AFTER 0.20f                                          /* and On Fire's harm after, at the first touch */
+#define DFIRE_FLOOR 0.25f                                          /* never under this share of health, the burning after included */
+static struct {
+    int n, inside, cx[DFIRE_CELLS], cy[DFIRE_CELLS];
+    float fade, out_t, tick, crackle, past_y;                      /* past_y: two cells beyond it, where it starts to go out */
+    uint8_t at[MAPN][MAPN];
+} DF;
+static void drawn_fire_lights(void);
 static int lane(int x, int y) {
     if (g_drawn) return x >= 0 && y >= 0 && x < MAPN && y < MAPN && g_lane[y][x];
     return (x & 3) == 2 || (y & 3) == 2;
@@ -3666,6 +3679,7 @@ static void build_lightmap(void) {
     }
     for (int i = 0; i < MAXBURNS; i++)
         if (G.burns[i].alive) light_dynamic(G.burns[i].x, G.burns[i].y, (G.burns[i].foe == 2 ? 0.8f : 1.5f) * (1.0f - smoothstepf(G.burns[i].life - 0.7f, G.burns[i].life, G.burns[i].t)) * (0.85f + 0.15f * sinf((float)G.t * 17.0f + i)), 3.2f);
+    drawn_fire_lights();                                           /* a drawn level's burning floor */
     for (int i = 0; i < MAXBEAMS; i++)
         if (G.beams[i].alive) light_dynamic((G.beams[i].x0 + G.beams[i].x1) * 0.5f, (G.beams[i].y0 + G.beams[i].y1) * 0.5f, 1.6f * (1.0f - G.beams[i].t / 0.3f), 3.5f);
     for (int i = 0; i < MAXMOBS; i++) {                            /* a wall skull gathering its fire; the bones a deacon calls */
@@ -14739,6 +14753,7 @@ static void gen_drawn(void) {
     G.tri = -1; G.tri_room = G.tri_door = -1; G.lairs = 0;
     G.nsecrets = G.secrets_found = G.nlinks = G.links_found = G.trials_failed = 0; G.slide = -1;
     memset(g_lane, 0, sizeof g_lane);
+    memset(&DF, 0, sizeof DF);
     for (int r = 0; r < D->nroom && r < 12; r++) {
         const DrawnRoom *dr = &D->room[r];
         G.rooms[r] = (Room){ D->ox + dr->x, D->oy + dr->y, dr->w, dr->h, r, RTYPES[dr->rtype].theme, dr->rtype };
@@ -14755,6 +14770,10 @@ static void gen_drawn(void) {
             carve(mx, my, rg, th);
             if (ch == 'D' || ch == 'G') G.map[my][mx].kind = K_DOOR;
             if (ch == '+' || ch == 'f' || ch == 'D' || ch == 'G' || ch == 'S') g_lane[my][mx] = 1;
+            if ((ch == 'F' || ch == 'f') && DF.n < DFIRE_CELLS) {
+                DF.cx[DF.n] = mx; DF.cy[DF.n] = my; DF.n++; DF.at[my][mx] = 1;
+                DF.fade = 1.0f; DF.past_y = (float)my + 3.0f;      /* the last row's far edge and two cells more (south: the drawing's way on) */
+            }
         }
     for (int y = 0; y < MAPN; y++)                                 /* the doors; a gold door is the vault's */
         for (int x = 0; x < MAPN; x++) {
@@ -14837,6 +14856,52 @@ static void drawn_dead(void) {                                     /* the dead w
         set_rank(m, RK_I);
         m->home = G.map[m->cy][m->cx].region;
     }
+}
+
+static void drawn_fire_lights(void) {                              /* a light a row, flickering, low as it goes out */
+    if (!g_drawn || !DF.n || DF.fade <= 0.02f) return;
+    for (int i = 0; i < DF.n; i++) {
+        if (i && DF.cy[i] == DF.cy[i - 1]) continue;               /* the first cell of each row */
+        float sx = 0.0f; int k = 0;
+        for (int j = i; j < DF.n && DF.cy[j] == DF.cy[i]; j++) { sx += (float)DF.cx[j] + 0.5f; k++; }
+        light_dynamic(sx / (float)k, (float)DF.cy[i] + 0.5f, 1.6f * DF.fade * (0.82f + 0.18f * sinf((float)G.t * (13.0f + (float)i) + (float)i)), 3.6f);
+    }
+}
+static void drawn_fire_tick(float dt) {                            /* every frame, whoever plays */
+    if (!g_drawn || !DF.n || DF.fade <= 0.0f) return;
+    if (DF.out_t > 0.0f) {                                         /* past: burning low, then out */
+        DF.out_t -= dt; DF.fade = fmaxf(0.0f, DF.out_t / DFIRE_OUT);
+#ifdef CRAWL_DEBUG
+        if (DF.fade <= 0.0f) fprintf(stderr, "EVENT drawn_fire out t=%.2f\n", G.t);
+#endif
+    } else if (!G.dead && G.py >= DF.past_y) {
+        DF.out_t = DFIRE_OUT;
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT drawn_fire past hp=%d/%d burn=%.1f t=%.2f\n", G.hp, G.max_hp, G.af_burn, G.t);
+#endif
+    }
+    if ((DF.crackle -= dt) <= 0.0f) {                              /* heard near it */
+        DF.crackle = 0.8f + 0.6f * rndf();
+        int i = rnd(DF.n);
+        sfx_at(SFX_CRACKLE, (float)DF.cx[i] + 0.5f, (float)DF.cy[i] + 0.5f, 0.9f * DF.fade);
+    }
+    int cx = (int)floorf(G.px), cy = (int)floorf(G.py);
+    int in = cx >= 0 && cy >= 0 && cx < MAPN && cy < MAPN && DF.at[cy][cx];
+    if (!in || G.dead || DF.fade < 0.35f || G.shop) { DF.inside = 0; return; }
+    float floor_hp = DFIRE_FLOOR * (float)G.max_hp;
+    if (!DF.inside) {                                              /* the first touch: alight */
+        DF.inside = 1; DF.tick = 0.0f;
+        G.blame = (Blame){ BL_HAZARD, HZ_FIRE, 0 };
+        if (af_can(AF_FIRE)) af_ignite(fminf(DFIRE_AFTER * (float)G.max_hp, fmaxf(0.0f, (float)G.hp - floor_hp)));
+    }
+    if ((DF.tick -= dt) > 0.0f) return;
+    DF.tick += DFIRE_TICK;
+    float room = (float)G.hp - floor_hp - G.af_burn, dmg = fminf(DFIRE_SHARE * (float)G.max_hp * DF.fade, room);
+    if (dmg >= 1.0f) { G.blame = (Blame){ BL_HAZARD, HZ_FIRE, 0 }; harm_next = EL_FIRE; hurt_ex(dmg, HURT_ELEM, G.px, G.py); }
+    G.af_burn = fminf(G.af_burn, fmaxf(0.0f, (float)G.hp - floor_hp));   /* nor the burning after, below the floor */
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT drawn_fire hurt %.1f hp=%d/%d burn=%.1f %s t=%.2f\n", dmg, G.hp, G.max_hp, G.af_burn, G.player ? "player" : "autopilot", G.t);
+#endif
 }
 
 static void start_level(void) {
@@ -15996,6 +16061,10 @@ static void hz_dput(int x, int y, int c) {                         /* the worse 
     if (c == HZ_SOFT) { if (!*d) *d = HZ_SOFT; }
     else if (c && (*d == HZ_SOFT || c > *d)) *d = (uint8_t)c;
 }
+static void drawn_fire_dmarks(void) {                              /* the dream crosses it, there being no other way */
+    if (!g_drawn || !DF.n || DF.fade < 0.35f) return;
+    for (int i = 0; i < DF.n; i++) hz_dput(DF.cx[i], DF.cy[i], HZ_SOFT);
+}
 static void update_hazards(float dt) {
     int was = G.silenced;
     G.silenced = 0; G.hz_slow = 1.0f;
@@ -16003,6 +16072,8 @@ static void update_hazards(float dt) {
     if (PK.depth || G.shop || G.tally) { if (was) snd_set_muffle(0); return; }
     mk_dmarks();                                                   /* the steam vents (1.0.0b16) */
     c4_dmarks();                                                   /* a charge's lane, a spew's cone (C4) */
+    drawn_fire_tick(dt);                                           /* a drawn level's burning floor (docs/PLAN-tutorial.md) */
+    drawn_fire_dmarks();
     int px = (int)G.px, py = (int)G.py, mhp = G.max_hp > 0 ? G.max_hp : 100;
     for (int i = 0; i < MAXHAZ; i++) {
         Hazard *h = &G.haz[i];
@@ -28325,7 +28396,7 @@ static int deco_look(const Deco *dc) {
     return look;
 }
 static void render_sprites(Frame *f, float dx, float dy, float horizon) {
-    static Draw list[MAXDECO + MAXMOBS + MAXSHOTS + MAXBOOMS + MAXBONES + MAXITEMS + MAXBURNS + MAXPOOLS + MAXHAZ * 4 + MAXSITE * 4 + 16];   /* and wisps, a double, after-images */
+    static Draw list[MAXDECO + MAXMOBS + MAXSHOTS + MAXBOOMS + MAXBONES + MAXITEMS + MAXBURNS + MAXPOOLS + MAXHAZ * 4 + MAXSITE * 4 + 16 + DFIRE_CELLS * 2];   /* and wisps, a double, after-images */
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
@@ -28655,6 +28726,14 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         ADD(b->x, b->y, 0.0f, ((int)(G.t * 9.0) + i) & 1 ? SP_BURN_B : SP_BURN_A, 1.0f - smoothstepf(b->life - 0.9f, b->life, b->t));
         if (n > n0) list[n - 1].scale = b->foe == 2 ? 0.55f : 0.9f;   /* Firestarter's: lower flames, in a line */
     }
+    if (g_drawn && DF.n && DF.fade > 0.02f)                        /* a drawn level's burning floor: two flames a cell, low as it goes */
+        for (int i = 0; i < DF.n; i++)
+            for (int k = 0; k < 2; k++) {
+                int n0 = n;
+                float fx = (float)DF.cx[i] + (k ? 0.72f : 0.28f), fy = (float)DF.cy[i] + (((i + k) & 1) ? 0.7f : 0.3f);
+                ADD(fx, fy, 0.0f, (((int)(G.t * 9.0)) + i + k) & 1 ? SP_BURN_B : SP_BURN_A, fminf(1.0f, DF.fade * 1.5f));
+                if (n > n0) list[n - 1].scale = (0.85f + 0.15f * sinf((float)G.t * 7.0f + (float)(i * 2 + k))) * (0.35f + 0.65f * DF.fade);
+            }
     for (int i = 0; i < MAXVENOM; i++) {                           /* Seep's pools, green; the Lance's rime */
         const Venom *v = &G.venoms[i];
         if (!v->alive) continue;
