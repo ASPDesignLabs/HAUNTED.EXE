@@ -851,10 +851,10 @@ CRYPT DOES NOT WAIT FOR YOU.
 ```
 IT DRAWS WHAT YOU SEE, AND
 DARKENS WHERE YOU HAVE WALKED.
-THE ARROWS MOVE IT; SPACE BRINGS
-IT BACK TO YOU. AT ITS FOOT: THE
-DEAD, THE GOLD AND THE SECRETS
-LEFT ON THE LEVEL.
+IT MOVES WITH THE ARROWS, AND
+COMES BACK TO YOU AFTER. AT ITS
+FOOT: THE DEAD, THE GOLD AND THE
+SECRETS LEFT ON THE LEVEL.
 ```
 ```
 THE ICE HAS CLOSED BEHIND YOU.
@@ -1012,3 +1012,12 @@ key).
   on level 1 (`CRAWL_TITLE=0`, `CRAWL_TPAT=15.5,6.5,90`, E at the door, W through): a walk leaves 44% once the burning is done (the
   far side 53%), a sprint 56% (69%), standing in it holds at 26%. Debug: `EVENT drawn_fire hurt|past|out`. The scorched floor it
   leaves is not drawn yet. The lesson waits for the page (step 5/6); for now it goes out once you are past, page or none.
+- **Step 4, the lessons' sheet, drawn** (for the owner's approval). The words are `src/crawl_tutor.c` now (`TUT`, by lesson `TL_*`:
+  each page's heading and lines, keys in brackets, `{CLASS}` and `{SPELL}` filled by `tut_lines`/`tut_head`; the past's names, spells
+  and B4's lines; the shorter words for a second time), shared by the game and the sheet, and so is the page, `ui_tutor` (`UiTutor`: a
+  tablet in the run's stone, the heading inscribed, each line's keys on caps as `ui_keys` sets them, a lozenge a page, the keys to go
+  on at its foot). `tut_wrap` sets a page's lines again only when another voice's longer words (a pad's buttons, touch's stones)
+  outgrow one. `build/uisheet tutor <dir>` (in `make sheets`) draws every page, a few in a pad's and touch's words, and fails on any
+  overflow (none): `docs/tutorial/pages1.png` (level 1 and her room) and `pages2.png` (level 2). B16's second page was reworded so it
+  reads in every voice (*IT MOVES WITH THE ARROWS, AND COMES BACK TO YOU AFTER*; the map's Space has no pad button). The level 2 art
+  sheet (the ice, the switch, the gate's seal, the map on the floor) comes with step 7, before it is in play.
