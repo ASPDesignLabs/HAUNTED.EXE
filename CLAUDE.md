@@ -376,15 +376,18 @@ handles, a groove), filled each frame by `crawl_stage` (`use_word` for what E wo
 `build/titlemock <dir> touch` (`docs/touch/`). The first private test page is kept at the owner's word (this session couldn't write to
 it); the art pass is on a second, https://claude.ai/artifact/L28ZMsohLh2N4vjdx9dnuB. The plan's section 11 is the hand-off log.
 
-**The tutorial** is planned in [`docs/PLAN-tutorial.md`](docs/PLAN-tutorial.md) (11 November, a draft on `claude/sweet-carson-qxvyfi`
-from main at 1.0.0b21.3; nothing built; its section 13 is the hand-off log): levels 1 and 2 of the first run laid out the same every
-time from the owner's drawings, a paged screen that pauses the crypt and teaches as you go (`UI_TUTOR`), the view taken and turned at
-a few moments, and triggers in the floor that teach or turn a person back until the level's lesson is done. Level 1's drawing is
-`docs/tutorial/level1-master.png`; its reading in whole cells, beside it, `level1-read.png` (`tools/tutorial_read.py` reads a drawing;
-level 2's, with the map as loot, is to come). The game's walls are cells and the drawing's are lines, so two thin walls became stone
-and doors became the neck cells beside them; the drawing is off the generator's 4-cell lanes, so the plan gives the dream a lane mask
-drawn with the level. Found on the way: `open_door` spends a key on the door it opens, so the drawn vault's two gold doors want one
-lock (its T19). Its questions (section 12) wait for the owner.
+**The tutorial** is planned in [`docs/PLAN-tutorial.md`](docs/PLAN-tutorial.md) (11 November, on `claude/sweet-carson-qxvyfi` from main
+at 1.0.0b21.3, with 1.0.0b21.4 merged in since; nothing built; its section 14 is the hand-off log): levels 1 and 2 of the first run
+laid out the same every time from the owner's drawings, for everyone, the dream too; a paged screen that pauses the crypt and teaches
+as you go (`UI_TUTOR`), on a person's first run on the computer, no skip, again from the title's HELP; the view taken and turned at a
+few moments; triggers in the floor that teach or turn a person back. It is **1.0.0b21.5**. Level 1 (settled: the owner answered
+T1-T19) teaches walking, a burning floor and mending, the class's spell, souls, keys and the way out; level 2 (read, its questions
+T20-T24 open) an ice field taken down by a switch struck three times, a one-way gate, two keys, a secret, and the map, without which
+the way out won't open while the lessons run. The drawings are `docs/tutorial/level1-master.png` and `level2-master.png`, their
+readings in whole cells beside them `level1-read.png` and `level2-read.png` (`tools/tutorial_read.py` reads such a drawing). The
+game's walls are cells and the drawings' are lines, so thin walls became stone and doors the neck cells beside them; the drawings are
+off the generator's 4-cell lanes, so each gets a lane mask drawn with it. `open_door` spends a key on the door it opens, so level 1's
+vault's two gold doors are made one lock (T19 a). The prefs byte for the lessons is the 27th, after touch's.
 
 ## Working with the owner
 

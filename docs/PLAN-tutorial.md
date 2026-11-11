@@ -1,39 +1,57 @@
 # The tutorial: the first two levels, drawn and taught
 
-**A draft; nothing built** (11 November 2026, on `claude/sweet-carson-qxvyfi` from main at 1.0.0b21.3). The owner gave the brief
-and run I level 1's drawing the same day; level 2's drawing is to come. The drawing has been read cell by cell (section 2) and
-put beside the game's terms; the questions are in section 12, each with the answer I'd take marked *(recommended)*. Every number
-here that isn't the owner's is a default, to be changed by playing. Nothing of it has been played.
+**Level 1 settled; level 2 read, with a second round of questions; nothing built** (11 November 2026, on `claude/sweet-carson-qxvyfi`,
+from main at 1.0.0b21.3 with 1.0.0b21.4 merged in since). The owner gave the brief and run I level 1's drawing, answered the first
+round (T1-T19, section 13) the same day, and gave level 2's drawing and brief with the answers. It is **1.0.0b21.5** (T14). Both
+drawings are read cell by cell (sections 2 and 3); level 2 raises the questions T20-T24 (section 13), each with the answer I'd
+take marked *(recommended)*, and a few defaults I took are listed with them. Every number here that isn't the owner's is a default,
+to be changed by playing. Nothing of it has been played.
 
 *The brief, in a line: levels 1 and 2 of the first run laid out the same every time, from the owner's drawings; a paged screen
 that pauses the crypt and teaches as you go; the view taken and turned at a few moments; triggers in the floor that teach, or
-turn you back until you have done what the level asks.*
+turn you back until you have done what the level asks; on level 2, an ice field, a switch, a one-way gate, two keys, a secret and
+the map, which you must have to leave.*
 
 ## 1. What was asked
 
-The owner's words, cut to their substance:
+The owner's words, cut to their substance.
 
-- **Fixed levels.** "The first level needs to be modified to be the same exact layout, every time, regardless of seed. Same with
-  the second level, as that will be where we introduce the Map as a loot item placed somewhere specific." The drawings are
-  "the defining guide": enemies, gold, the key, the healing fountain, locked doors, triggers and the exit are marked on them.
-- **A tutorial screen.** "A pop-up Tutorial UI that explains these steps to the player, pausing crypt activity while viewing and
-  reading", with several pages and a way to move through them. "The player is largely autonomous outside of the moments when a
-  window needs to appear or they pass a specific trigger."
-- **Run 1, level 1: the basics.** Movement, interactions, healing, dealing damage, gold, resource management and leaving.
-  1. *Set to a path.* The caster opens a door and is asked to walk through flames, which should hurt enough to send them to the
-     healing fountain at the hall's end. A free wisp guides them there, and they are pointed that way once past the fire. The
-     screen says how to use the fountain with their controls, and that fountains alert the dead. *Covers: navigation, sprint,
-     health and status damage, opening doors, basic interactions, the dead's ways.*
-  2. *After healing* the view is taken and turned to the hall on their left, and the screen tells them, by their class, to be
-     ready to fight what is ahead with their named spell: the button, and how to aim. At the first kill: souls power spells and
-     come from many places, the dead among them. *Covers: combat, resources.*
-  3. *Exploring.* At trigger 1: explore everywhere; more gold and secrets lie off the way; a locked door's key lies somewhere.
-     Taking the gold key: do you remember a locked door? (trigger 2 goes off). Crossing trigger 2 without it: check again, the
-     key is near, and the view is turned towards the door that holds it; again each time. Unlocking either gold door turns
-     trigger 3 off; crossing it before then: go and find that door, turned round; again each time. Then: leave. *Covers: keys,
-     key doors, backtracking.*
+**Both levels.** "The first level needs to be modified to be the same exact layout, every time, regardless of seed. Same with the
+second level, as that will be where we introduce the Map as a loot item placed somewhere specific." The drawings are "the defining
+guide". "A pop-up Tutorial UI that explains these steps to the player, pausing crypt activity while viewing and reading", with
+several pages and a way to move through them. "The player is largely autonomous outside of the moments when a window needs to
+appear or they pass a specific trigger."
 
-## 2. The drawing, read
+**Run 1, level 1: the basics** (movement, interactions, healing, dealing damage, gold, resource management, leaving).
+
+1. *Set to a path.* The caster opens a door and is asked to walk through flames, which should hurt enough to send them to the
+   healing fountain at the hall's end. A free wisp guides them there, and they are pointed that way once past the fire. The screen
+   says how to use the fountain with their controls, and that fountains alert the dead. *Covers: navigation, sprint, health and
+   status damage, opening doors, basic interactions, the dead's ways.*
+2. *After healing* the view is taken and turned to the hall on their left, and the screen tells them, by their class, to be ready to
+   fight what is ahead with their named spell: the button, and how to aim. At the first kill: souls power spells and come from many
+   places, the dead among them. *Covers: combat, resources.*
+3. *Exploring.* At trigger 1: explore everywhere; more gold and secrets lie off the way; a locked door's key lies somewhere. Taking
+   the gold key: do you remember a locked door? (trigger 2 goes off). Crossing trigger 2 without it: check again, the key is near,
+   and the view is turned towards the door that holds it; again each time. Unlocking either gold door turns trigger 3 off; crossing
+   it before then: go and find that door, turned round; again each time. Then: leave. *Covers: keys, key doors, backtracking.*
+
+**Run 1, level 2** (elemental switches and objects, more of the dead, two keys, the map, minor scripted events, secret areas).
+
+- "This level starts like any other, without an intense walkthrough at the start, just a UI that suggests the named class explore
+  the area."
+- "Two keys act as the suggested path through the level, encouraging more backtracking."
+- "The player can only leave once the Map has been acquired; a trigger in front of the exit door should tell the player to go back
+  and look for it if they have not found it yet."
+- "The Map room is designed to only be accessed via the southern entrance, with a one-way gate at the north. An elemental switch
+  allows the player to deactivate the ice field after they strike it three times. Once the player acquires the Map the ice field is
+  re-enabled, turning the player to face it as it does, taking movement from them for two seconds while it settles, then turning
+  them back toward the gate at the north. We then offer a Tutorial UI that explains how to use the map and its functions. Trigger 2
+  acts as a stop, routing the player back to the edge of the ice damage area from where they entered, before they freeze."
+- "When the player picks up the Gold Key we turn them toward the secret entrance's cracks, alerting them to their presence and asking
+  them to inspect them closer."
+
+## 2. Level 1's drawing, read
 
 The drawing is kept as [`docs/tutorial/level1-master.png`](tutorial/level1-master.png), and my reading of it, beside it, as
 [`docs/tutorial/level1-read.png`](tutorial/level1-read.png): **look at the second first**, since everything below follows from it.
@@ -67,7 +85,7 @@ The game's walls are whole cells; the drawing's are lines. So:
        0123456789012345678901
  y  0  ##S..#################      S  the start, facing east
     1  ####D#################      .  floor
-    2  ##FFF#################      F  the burning floor (section 5)
+    2  ##FFF#################      F  the burning floor (section 6)
     3  ##FFF#################      D  a door
     4  ##FFF#################      G  a gold door (locked; the gold key)
     5  ##FFF#################      h  the fountain, in the wall, faced from above
@@ -122,7 +140,7 @@ Both gold doors open on the one vault (six cells in a column, its hoard strewn d
 
 ### The dead
 
-Eleven, all drawn the same but four drawn larger (question T5).
+Eleven, all drawn the same but four drawn larger (ordinary, T5 a).
 
 | # | Where | Place | Note |
 |---|---|---|---|
@@ -170,84 +188,213 @@ Measured on the cells (steps, doors open):
 - Only the first of the dead hears the fountain (13 steps; the next nearest is 18).
 - The start faces east down a passage three cells long, with the door on the right at its end: the first page says so.
 
-## 3. Where it sits
+## 3. Level 2's drawing, read
+
+Kept as [`docs/tutorial/level2-master.png`](tutorial/level2-master.png), my reading beside it as
+[`docs/tutorial/level2-read.png`](tutorial/level2-read.png) (look at it first). A grid of 48.3 pixels a cell: **15 cells across, 35
+down**, north up as the drawing's arrow says. In the game's map it sits at **(15, 5)**. It has no thin walls: every wall is a whole
+cell already, so only the doors move onto their necks.
+
+### The map
+
+```
+     x 0         1
+       012345678901234
+ y  0  ##S...#########      S  the start, facing east
+    1  ####..#########      .  floor
+    2  ###...#########      I  the ice field (section 7)
+    3  ##.....########      G  the gold door;  C  the crimson door;  D  a plain door
+    4  #.......#######      =  the elemental gate, one way: opens from the south only
+    5  #...#.........#      h  the fountain, in the wall, faced from above
+    6  #..###........#      X  the exit, in the wall, faced from below
+    7  #...#.........#      c  the secret's cracked wall, faced from above
+    8  #...#...####..#      #  stone
+    9  ##..#..#####..#
+   10  ###.#.##X####=#      triggers: 1 (12,9) (13,9), entered from the north
+   11  ..G.#.#...#....                2 the line between rows 17 and 18 across the ice
+   12  ..###.#...#....                x (7,12) (8,12) (9,12): mine, the exit's (T20)
+   13  ..#...#...#....
+   14  ..#.#.#...#....      K  the gold key (7.6, 30.8); the crimson key (1.0, 19.6)
+   15  ..#.#.#...#....      M  the map (12.8, 15.4)
+   16  ..#...#...#IIII      sw the elemental switch (14.3, 11.6)
+   17  ..#..##...#IIII
+   18  ..#.h##...#IIII
+   19  ..#.#.C...#IIII
+   20  ..#.#.######II#
+   21  ##..#..#####II#
+   22  #...#...####II#
+   23  #...#.........#
+   24  #..###........#
+   25  #..###........#
+   26  #...#.........#
+   27  #.......#####D#
+   28  ##.....##.....#
+   29  ###...##......#
+   30  ###...#.......#
+   31  ###...#.......#
+   32  #######c#######
+   33  #######...#####
+   34  #######...#####
+```
+
+Its places: **the start** (rows 0-4), **the west passage** (x 1-3, rows 5-10, down to the gold door), **the cross** (the stone plus
+at x 3-5, rows 5-7, and its twin at rows 23-26), **the east hall** (rows 5-7), **the gate passage** (x 12-13, rows 8-10), **the map
+room** (x 11-14, rows 11-15), **the ice** (rows 16-22), **the west room** (x 0-1, rows 11-20, behind the gold door: the crimson key),
+**the middle way** (x 3-5 down from row 8, past the fountain), **the exit room** (x 7-9, rows 11-19, behind the crimson door), **the
+great hall** (rows 23-26), **the south-west lobe** (rows 27-31, x 1-7), **the south-east room** (x 7-13, rows 28-31: the gold key)
+and **the secret** (x 7-9, rows 32-34).
+
+### Doors and the rest
+
+| What | Where | Leads |
+|---|---|---|
+| gold door | (2,11), the west passage's foot | the west room, and the crimson key |
+| crimson door | (6,19), reached from (5,20) below it | the exit room |
+| plain door | (13,27), the great hall's east end | the south-east room, and the gold key |
+| the elemental gate | (13,10), the gate passage's foot | the map room; it opens only from the room's side |
+| the secret's wall | (7,32), the south-east room's south wall, beside the gold key | the secret: four pieces of gold |
+| the fountain | the wall (4,18), faced from (4,17), on the middle way | |
+| the exit | the wall (8,10), faced from (8,11), the exit room's north end | |
+| the switch | (14.3, 11.6), the map room's north-east corner | seen from the ice's south edge, up the ice passage |
+
+### The dead
+
+Fifteen (eleven on level 1).
+
+| # | Where | Place | | # | Where | Place |
+|---|---|---|---|---|---|---|
+| 1 | (2.3, 5.0) | the start, west | | 9 | (1.4, 18.2) | the west room |
+| 2 | (13.0, 5.7) | the east hall's end | | 10 | (7.1, 22.6) | the middle way's foot |
+| 3 | (3.4, 9.4) | the west passage | | 11 | (3.1, 22.9) | the middle way's foot |
+| 4 | (11.7, 12.6) | the map room | | 12 | (11.6, 26.3) | the great hall |
+| 5 | (7.9, 13.1) | the exit room | | 13 | (12.9, 28.8) | the south-east room |
+| 6 | (3.5, 15.0) | the middle way, by the fountain | | 14 | (9.3, 30.8) | the south-east room |
+| 7 | (9.5, 16.4) | the exit room | | 15 | (3.6, 31.3) | the south-west lobe |
+| 8 | (14.3, 17.6) | **in the ice** | | | | |
+
+The fountain calls two (6 at 3 steps, 11 at 6; 15 is at 17, just out of its sixteen).
+
+### Gold
+
+Thirty pieces: twenty-six in the open, four in the secret.
+
+| Place | Pieces |
+|---|---|
+| the start | (5.3, 2.5), (2.5, 3.5) |
+| the west passage | (1.4, 7.0), (1.3, 7.9) |
+| the east hall | (11.1, 6.4) |
+| the middle way | (7.4, 8.7) in the nook, (5.6, 12.5), (3.3, 13.6), (5.7, 15.5) |
+| the map room and the ice | (11.3, 13.9); (11.3, 17.4) on the ice |
+| the exit room | (7.6, 11.3), (9.3, 11.4), (9.6, 18.6) |
+| the west room | (1.6, 14.9); (0.4, 20.6), (1.6, 20.6) by the crimson key |
+| the great hall | (9.6, 24.1), (12.2, 25.4) |
+| the south-west lobe | (1.3, 27.5), (7.7, 27.7), (2.8, 28.8), (4.0, 30.5), (4.9, 31.7) |
+| the south-east room | (9.4, 28.5), (8.6, 29.3) |
+| **the secret** | (9.4, 33.5), (8.5, 33.6), (8.5, 34.5), (9.5, 34.5), all off the sliding stone's path |
+
+### The elemental interactions
+
+Ten grey squares, each a thing that wants a spell (1.0.0b16's `Marked`; which kinds is T22): **a** (5.5, 4.4) the start; **b**
+(11.8, 7.6) the east hall; **c** (2.4, 9.5) the west passage; **d** (7.3, 14.8) the exit room; **e** (0.3, 16.2) the west room; **f**
+(3.2, 16.5) by the fountain; **g** (11.7, 23.3) the great hall, at the ice passage's mouth; **h** (3.7, 26.3) the great hall's west;
+**i** (5.5, 31.4) the south-west lobe; **j** (11.1, 31.6) the south-east room. With the switch and the gate that is twelve, which is
+`MAXMK` exactly.
+
+### What the layout already does
+
+Steps, doors open: the start to the fountain 23; to trigger 1 19; to the gold key 47. The gold key to the gold door 52, the crimson
+key nine beyond it; the crimson key back to the crimson door 61, to the exit 71. The backtracking is long, as asked. The way from the
+great hall to the map room is only through the ice; the gate is the map room's only other way, and opens only from inside. The
+switch can be seen and struck from the ice's south edge. Trigger 2's line spans the ice from wall to wall, so nobody crosses without
+meeting it. The gold key lies two cells from the secret's wall, so the cracks show from where it is taken (they show within about
+two cells).
+
+## 4. Where it sits (settled)
 
 - **Which levels.** Levels 1 and 2, the first time down. Past level 40 the runs come round; levels 41 and 42 are generated as
   today. A replay of level 1 or 2 at the Accursed Portal is the drawn level, with no lessons.
-- **Whose.** A person's run: BEGIN A NEW RUN on the title, her room (her question, the class, first), then level 1. A page
-  opened at level 1, and a death (back to her room before level 1), meet the drawn level again; the lessons come again only as
-  T2 settles. Whether the dream gets the drawn levels too is T1.
-- **Her room before level 1** is as it is (T13 asks about a page after level 1).
-- **The release** is T14.
+- **Whose** (T1 a). Everyone's: the dream plays the drawn levels too, on hand-drawn lanes (5.5), with no lessons, triggers or
+  turnings. A person's run reaches them from BEGIN A NEW RUN: her room (her question, the class, first), then level 1. A page opened
+  at level 1 or 2, and a death (back to her room before level 1), meet the drawn levels again.
+- **When the lessons come** (T2 a, T3 b). On a person's first run on this computer, all of them, with no skip; and again on a new
+  run whenever *THE LESSONS ON A NEW RUN* is set under the title's HELP. Without them the drawn levels are the same, their
+  mechanics too (the fire, the ice, the switch, the gate, the secret), but nothing is turned, no trigger fires and the exit doesn't
+  ask for the map.
+- **Her room after level 1** (T13 a) has one page as it opens, on gold and her wares. While the lessons run she keeps the map off
+  her wares until level 2 is behind (it is waiting down there).
+- **The release** (T14): **1.0.0b21.5**, after 1.0.0b21.4's touch controls; the art pass and the lower storey keep 1.0.0b22 and b23.
 
-## 4. A level from a drawing
+## 5. A level from a drawing
 
-### In the source
+### 5.1 In the source
 
 Each drawn level is a map as strings in `scene_crawl.c`, as the bosses' arenas are (`BossDef.map`, `stamp_arena`), with the
-legend above (`#`, `.`, `F`, `D`, `G`, `h`, `X`, `S` and a lane mark), and a table beside it of what stands in it in cells
-(the dead, the gold, the key, the triggers, the lights, room types), so that the drawing and the source can be laid side by side.
-`drawn_level(level)` says whether a level is one: 1 and 2 of the first descent, and not under `CRAWL_DRAWN=0` in the debug build
-(the generated levels back, for balance runs against an older build).
+legend above (sections 2 and 3's letters and a lane mark), and a table beside it of what stands in it in cells (the dead, the gold,
+the keys, the things that want a spell, the triggers, the lights, the room types), so that the drawing and the source can be laid
+side by side. `drawn_level(level)` says whether a level is one: 1 and 2 of the first descent, and not under `CRAWL_DRAWN=0` in the
+debug build (the generated levels back, for balance runs against an older build).
 
-### The build
+### 5.2 The build
 
 `start_level` calls `gen_drawn()` in place of `gen_level()` on a drawn level. What `start_level` does after `gen_level` is kept,
 skipped or answered from the drawing:
 
 | Pass | On a drawn level |
 |---|---|
-| the start (`G.cx`, `G.cy`, `G.h` at random) | the drawing's S, facing as drawn (east) |
-| `place_items` | the drawing's gold, of fixed kinds and worth; the key; **no potion** |
+| the start (`G.cx`, `G.cy`, `G.h` at random) | the drawing's S, facing as drawn (east, on both) |
+| `place_items` | the drawing's gold, of fixed kinds and worth; the keys; the map (level 2); **no potion** |
 | `place_exit` | the drawing's X |
 | `place_altar`, `place_sites`, `pz_make`, `pz_hide`, `tri_place` | none (today levels 1 and 2 have none of these but one of the run's fixed hazards, a site) |
-| `place_rests` | the drawing's fountain only (section 6.6, T15) |
-| `place_marked`, `place_fights` | none |
+| `place_rests` | the drawing's fountain only (8.6) |
+| `place_marked`, `place_fights` | level 1 none; level 2 the drawing's ten, the switch and the gate (section 7) |
 | `ward_make` | none (no Wraith before level 9) |
 | `spectres_set` | none |
 | `place_creatures` (the budget) | the drawing's dead, rank I, each a resident at its post (`RL_POST`, facing its room's way in); no wanderers |
-| the respawn ("something wakes ahead") | none while the level is drawn |
-| secrets (`place_secrets`, three links on level 1 today) | none (T7) |
+| the respawn ("something wakes ahead"), the lull's watch | none while the level is drawn |
+| secrets (`place_secrets`) | level 1 none (T7 a); level 2 the drawing's one, laid by hand (7.5) |
 | wall skulls (from 3), the gilded (from 7) | not on these levels anyway |
 
-`G.nlinks` is 0, so "every link found" must not pay a coin (`COIN_ALL`) nor count as a level's secrets all found, on a level that
-had none; the tally's and the reckoning's secret lines say nothing.
+The dead on the drawn levels take every element alike (T6 a): `weak_el` gives 1 for them, so each class's first fights are fair;
+the bestiary still shows the kind's own. On level 1 `G.nlinks` is 0, so "every link found" must not pay a coin (`COIN_ALL`) nor
+count as a level's secrets all found; the tally's and the reckoning's secret lines say nothing there.
 
-### The look
+### 5.3 The look
 
 Run I's look as any of its levels (`G.faced`): rooms are `Room` records with their run I types, the halls `TH_CORRIDOR`, and
-`lay_faces` lays the walls; `dress_level` lays bones, chains, props and torches. **Its dice are a fixed seed** for the drawn level
+`lay_faces` lays the walls; `dress_level` lays bones, chains, props and torches. **Its dice are a fixed seed** for each drawn level
 (the run's `G.rs` kept and put back after), so the props and torches lie the same every time and nothing else changes. The room
 types, for the owner to change:
 
-| Place | Type |
-|---|---|
-| the east room | burial vault |
-| the side room | ossuary |
-| the key room | ossuary |
-| the west room | undercroft |
-| the big room | chapter house |
-| the vault | knights' vault |
-| the halls, the start, the exit's hall | halls |
+| Level 1 | Type | | Level 2 | Type |
+|---|---|---|---|---|
+| the east room | burial vault | | the west room | ossuary |
+| the side room | ossuary | | the map room | knights' vault |
+| the key room | ossuary | | the exit room | chapter house |
+| the west room | undercroft | | the south-east room | burial vault |
+| the big room | chapter house | | the great hall, the south-west lobe | undercroft |
+| the vault | knights' vault | | the secret | a closet (`CLOSET`), as secrets are |
+| the halls, the start, the exit's hall | halls | | the start, the passages, the middle way | halls |
 
-Lights beside the generator's torches: the burning floor's own (section 5), the fountain's candles, a lamp in the key room so the
-key is seen from its door, the exit's runes. Fog as level 1 has it (little).
+Lights beside the generator's torches: level 1's burning floor (section 6), the fountains' candles, a lamp where each key lies so it
+is seen from the room's door, the map's own glow, the switch's and the gate's seals, the exits' runes. Fog as these levels have it
+(little).
 
-### The vault
+### 5.4 Level 1's vault
 
 One vault (`G.nvaults` 1, gold) with **two doors**: both `locked` 1, colour gold; `G.vault_door[0]` is the one at (4,31), nearer
-the key, which is the one the dream and a key wisp go by (`past_vaults`). But `open_door` **spends the key** on the door it opens
-(`G.has_key` cleared), so today one gold key would open one of the two and leave the other shut for good, from both sides. I'd
-make the two one lock: opening either unlocks both (T19).
+the key, which is the one the dream and a key wisp go by (`past_vaults`). `open_door` **spends the key** on the door it opens
+(`G.has_key` cleared), so the two are made one lock (T19 a): opening either unlocks both.
 
-### The dream's lanes
+### 5.5 The dream's lanes
 
 The dream walks only lanes (`apass`), and lanes are every cell with x or y = 2 (mod 4) on the generator's grid of blocks. The
-drawing isn't on that grid, and can't be put on it: its doors need lanes on rows 15, 17, 23, 26 and 31, which no one offset gives.
-So on a drawn level `lane()` reads a mask drawn with the level (`G.lane_mask`) and `lane_dist` a field made from it, and the
-generator's placers that do sums on the grid (sites, puzzles, the arena's) aren't run there. The mask I'd draw (`+`), connected
-from the start, through every door, to the fountain's front, the key and the exit's front, with every floor cell within a step of
-it (so every piece of gold is in the dream's reach, `lane_dist` 1):
+drawings aren't on that grid and can't be put on it (level 1's doors want lanes on rows 15, 17, 23, 26 and 31, which no one offset
+gives). So on a drawn level `lane()` reads a mask drawn with the level (`G.lane_mask`) and `lane_dist` a field made from it, and the
+generator's placers that do sums on the grid (sites, puzzles, the arena's) aren't run there. The masks I'd draw (`+`; `f` through
+the fire, `i` through the ice), each connected from the start through every door to the fountain's front, the keys, the map and the
+exit's front, with every floor cell within a step of a lane (so every piece of gold is in the dream's reach, `lane_dist` 1):
+
+Level 1:
 
 ```
        0123456789012345678901
@@ -285,105 +432,236 @@ it (so every piece of gold is in the dream's reach, `lane_dist` 1):
    31  .+#+G++++++++++D++++++
 ```
 
+Level 2:
+
+```
+       012345678901234
+    0  ##S++.#########
+    1  ####+.#########
+    2  ###.+.#########
+    3  ##..+..########
+    4  #+++++++#######
+    5  #.+.#.+.......#
+    6  #.+###++++++++#
+    7  #.+.#.+......+#
+    8  #.++#.+.####.+#
+    9  ##.+#++#####.+#
+   10  ###+#+##X####=#
+   11  ++G+#+#.+.#.++.
+   12  .+###+#.+.#.++.
+   13  .+#+++#.+.#.++.
+   14  .+#+#+#.+.#.++.
+   15  .+#+#+#.+.#.++.
+   16  .+#+++#.+.#IiiI
+   17  .+#++##.+.#IiiI
+   18  .+#+h##.+.#IiiI
+   19  .+#+#+C+++#IiiI
+   20  .+#+#+######ii#
+   21  ##.+#+.#####ii#
+   22  #..+#+..####ii#
+   23  #+++#+++++++++#
+   24  #.+###........#
+   25  #.+###........#
+   26  #+++#+++++++++#
+   27  #+++++++#####D#
+   28  ##..+..##....+#
+   29  ###.+.##++++++#
+   30  ###.+.#+++++++#
+   31  ###.+.#+.....+#
+   32  #######c#######
+   33  #######+++#####
+   34  #######...#####
+```
+
 The debug map (`CRAWL_MAP=1`) prints the lanes as it does, and its `MAP lanes reachable` line is the check.
 
-## 5. The burning floor
+
+## 6. Level 1's burning floor (T9 a)
 
 - **What it is.** In the Order's crypts: lamp oil spilled across the hall and alight, the whole width of it for four cells. Drawn
   with the floor fires the game has (`Burn`'s flames, the ember imps' and the cask's), thicker, over a scorched floor; lit by its
   own flickering light, so it shows through the door's crack before it opens; a crackle and a roar heard near it.
 - **What it does.** A share of the caster's health each half second the body is in it, and On Fire on the first touch (C2's
-  `af_ignite`: the harm again over four seconds after leaving). The targets (defaults): a walk through, about **three fifths of
-  health left at the far side and two fifths once the burning is done**; a sprint through, about half again of what a walk leaves.
-  **It never takes you under a quarter of your health**, the burning after included: the page says it will hurt, and it must not
-  kill. The numbers are set in the harness.
-- **After.** Once you are past it and its page is shut, it burns low and goes out over twenty seconds, leaving the scorch:
-  nothing lies behind it, and it shouldn't punish a person who goes back to look.
+  `af_ignite`: the harm again over four seconds after leaving). The targets: a walk through, about **three fifths of health left at
+  the far side and two fifths once the burning is done**; a sprint through, about half again of what a walk leaves. **It never
+  takes you under a quarter of your health**, the burning after included: the page says it will not kill. Set in the harness.
+- **After.** Once you are past it and its page is shut, it burns low and goes out over twenty seconds, leaving the scorch.
 - **The dead** keep out of it (none are near). **The dream** walks through it: it is marked soft (`HZ_SOFT`) on `hz_dmap`, as a
   stope's firedamp is, so `decide` takes it, there being no other way.
 
-## 6. The lessons
+## 7. Level 2's ice, switch, gate, map and secret
 
-### 6.1 State
+### 7.1 The ice field
+
+- **Its cells**: rows 16-19 across the map room's width (x 11-14) and rows 20-22 of the passage (x 12-13); twenty-two, within a
+  hazard's twenty-four (`HZ_CELLS`). Live as the level opens.
+- **Its look**: the floor rimed blue-white with a low mist over it, as run I's cold patch (`HZ_COLD`, `T_HZ_COLD`) and Winter's
+  Lance's rime (`SP_RIME`) are drawn; a cold breath heard near it (`SFX_FROST`). Going down, it thaws in two seconds (steam, drips);
+  coming back, it creeps in from the walls over two.
+- **What it does** (a default; the owner's words are "before they freeze"): a Chilled stack (C2's `af_chill`) every 0.4 s on it,
+  each slowing 8%, **held at three on these levels**, so it never freezes a person; it hurts nothing else. That is enough to reach
+  three by the middle from either side.
+- **Trigger 2** is the line between rows 17 and 18, from wall to wall. Crossing it while the ice is live (either way) **leads the
+  caster back** (a default for the owner's *routing*): the view taken (8.3), turned to the side they came in by, and walked back at a walk to the first
+  cell off the ice there ((12,23) or (13,23) from the south; row 15 from the north), no stack added while led; then the page. Again
+  each time.
+- **The one in the ice** (the dead 8, a default): held in it, drawn frozen (`DR_ICE`), out of every fight till the ice goes down;
+  then it stands and comes. So a person striking the switch from the edge isn't shot at from the ice.
+- **The dream** keeps off the live ice (it marks harm on `hz_dmap`), strikes the switch as it answers any thing that wants a spell
+  near its lane, and crosses when it is down.
+
+### 7.2 The switch
+
+A thing that wants a spell (`Marked`), a kind of its own: *A RIMED SEAL* in the map room's north-east corner, a frost-white seal of
+three pips. Three strikes of **any spell** (a default) and the ice goes down; a strike that lands counts, from anywhere it can be
+seen (from the ice's south edge it can, up the passage). It is new art (a sprite and its done state), on the level 2 sheet. Once the
+map is taken and the ice is back, **it is spent** (a default: its seal cracks and goes dark), so the gate is the way on.
+
+### 7.3 The gate
+
+(13,10), one way (T21): a portcullis in the gate passage. Its seal is on the south face only. From the map room, a person sees the
+seal and strikes it with any spell, and the gate rises and stays up. From the north it is bare iron, which says *IT OPENS FROM THE
+OTHER SIDE* to E. It uses the door locks the gated things already have (`GATED`, `mk_gate_up`, the hearth's way: up for good).
+
+### 7.4 The map
+
+`IT_MAP`, a new item, drawn as her map ware is (`SP_MAPWARE`, the floating scroll) with its own glow, at (12.8, 15.4) by the ice.
+Taking it sets `RUN.has_map` (kept through death and her claim, as a bought one is), so she no longer sells it. Held already when
+level 2 comes, its place holds gold instead (T18 a, taken as the default since it wasn't answered).
+
+**The scripted moment** (B16), while the lessons run: as it is taken the ice comes back. The view is taken and turned to face the
+ice (south), held there **two seconds** while it creeps in and settles, with no movement; then turned to face the gate (north); then
+the map's pages. Without the lessons the ice comes back all the same, and nothing is turned.
+
+### 7.5 The secret
+
+One `Secret` laid by hand: its wall (7,32), stood before from (7,31), pressed south; its room (7..9, 33..34), carved as a secret's
+(`Cell.secret` 1 the room, 2 the wall); the stone slides two cells, to (7,34), and the four pieces of gold lie off its path. It is
+the level's one link (`G.nlinks` 1), so finding it counts a secret (its caption, the tally and the record), and, every link found, brings the
+run's first Cursed Coin (`COIN_ALL`, *FOR THE SHRINE*). Its cracks show within about two cells, as every secret's do; the gold key lies two
+cells from it.
+
+### 7.6 The things that want a spell (T22)
+
+Ten (a-j in section 3), placed as drawn, of kinds chosen as the level is laid (`place_marked` isn't run). On level 2 a person holds
+one line, their class's, so every one must answer it: the four on the main way (a, b, g, j) **take any line** (the bound coffer, the
+hanging cage), and the other six are **the class's own kind** (the pricket or the votive rack for Fire; the keeper's urn for Frost;
+the galvanic coil for Lightning; the knot of roots for Poison; the bound soul for Spirit; the bone barricade for Physical), each the
+same kind every time for the same class. Their rewards are their kinds' own.
+
+### 7.7 Two keys
+
+The gold key (7.6, 30.8) in the south-east room, by the secret; the crimson (1.0, 19.6) at the west room's foot, behind the gold
+door. Each is spent on its door, as any key is.
+
+## 8. The lessons
+
+### 8.1 State
 
 `TU`, static, kept while the program runs: which lessons are shown this level, which triggers are on, a beat waiting, the page.
-A level isn't saved part way through (the game saves at her room), so a person who quits half way through level 1 comes back to
-her room before it, and the level's lessons start again. What lasts is a byte in the prefs record (6.7).
+A level isn't saved part way through (the game saves at her room), so a person who quits half way through a level comes back to her
+room before it, and the level's lessons start again. What lasts is a byte in the prefs record (8.7).
 
-### 6.2 Beats
+### 8.2 Beats
 
 A beat is a moment that opens a lesson (a screen of one or more pages). Each comes once unless marked *again*.
+
+**Level 1.**
 
 | Beat | When | The game | Lesson |
 |---|---|---|---|
 | B1 arrival | level 1 opens, its card gone | | WALKING, DOORS (2 pages) |
 | B2 the door | the door at (4,1) opens | | FIRE |
 | B3 through | the body two cells past the flames (y 7.0) | the view turned south; a free wisp to the fountain | HEALTH, BURNING, MENDING (3) |
-| B4 mended | mending ends having mended some (any way: full, moved, a blow); or, not mended, the body four cells east of the burning hall (x 9) | the view turned east | the class's (2) |
+| B4 mended | mending ends having mended some (any way: full, moved, a blow); or, not mended, the body four cells east of the burning hall (x 9) (T10 a) | the view turned east | the class's (2) |
 | B5 first blood | the first of the dead slain by the caster | | SOULS |
 | B6 trigger 1 | into its cells | | EVERYWHERE, LOCKS (2) |
 | B7 the key | the gold key taken | trigger 2 off | THE GOLD KEY |
 | B8 trigger 2 *again* | into its cells, the key not held | the view turned to the key room's door (11,26), set back half a cell | NOT YET (shorter after the first) |
-| B9 the gold door | a gold door opened | trigger 3 off | THE HOARD, AND THE WAY OUT |
+| B9 out of the vault | a gold door opened (trigger 3 off at once), then the body out of the vault having been in it (T12 b) | | THE HOARD, AND THE WAY OUT |
 | B10 trigger 3 *again* | into its cells, no gold door opened | the view turned west, set back half a cell | THE GOLD DOOR (shorter after the first) |
 
+**Her room after level 1:** B10a, as it opens: HER WARES.
+
+**Level 2.**
+
+| Beat | When | The game | Lesson |
+|---|---|---|---|
+| B11 arrival | level 2 opens, its card gone | | the class's name (1 page) |
+| B12 a thing that wants a spell (T24) | the first of them within four cells and in sight | | THE CRYPT ANSWERS |
+| B13 trigger 1 (T20) | into its cells, the map not held | | BEYOND THE GATE |
+| B14 trigger 2 *again* | across its line while the ice is live, the map not held | led back to the side they came in by (7.1) | THE ICE (shorter after the first) |
+| B15 the switch | its third strike | the ice goes down | a caption only: *THE ICE DRAINS AWAY* |
+| B16 the map | taken | the ice comes back: the view to it two seconds, then to the gate (7.4) | THE MAP (3 pages) |
+| B17 trigger 2 after *again* | across its line while the ice is live, the map held | led back north | THE WAY ON |
+| B18 the gold key | taken | the view turned to the secret's cracks (7,32) | CRACKS |
+| B19 the crimson key (T24) | taken | | A SECOND KEY |
+| B20 trigger x *again* (T20) | into its cells, the map not held | the view turned south, set back half a cell | NOT WITHOUT THE MAP (shorter after the first) |
+
 Lessons that fall together come one after the other. A trigger that turns you back fires again only once you have been out of its
-cells. **The turnings wait while anything hunts you within six cells**: a person isn't turned away from a fight; the beat comes
-when it is over. Level 1's lessons are counted done when the level is cleared.
+cells. **The turnings wait while anything hunts you within six cells**: a person isn't turned away from a fight; the beat comes when
+it is over. A level's lessons are counted done when it is cleared.
 
-### 6.3 Taking the view
+### 8.3 Taking the view
 
-`tu_steer(angle, back)`: for half a second the person's keys, mouse and sticks move nothing; the view eases round to the angle
-(smooth at both ends), and with `back` the body steps back half a cell, out of the trigger; a sprint, a charge and a mend in
-progress are let go. Then the page. It is the only time the game turns a person's head, and it is short.
+`tu_steer(angle, back)`: for half a second the person's keys, mouse, sticks and fingers move nothing; the view eases round to the
+angle (smooth at both ends), and with `back` the body steps back half a cell, out of the trigger; a sprint, a charge and a mend in
+progress are let go. `tu_hold(seconds)` keeps it so (the map's two seconds); `tu_lead(x, y)` walks the body to a cell at a walk
+(the ice's way back). Then the page. These are the only times the game moves a person, and each is short.
 
-### 6.4 The screen
+### 8.4 The screen
 
-`UI_TUTOR`, a menu like the rest, so the crypt waits under it as it does under the L list or the wardrobe. A slab in the run's
-stone (docs/PLAN-ui.md's kit: `ui_slab`, the heading in the inscribed face, the words in the small one), in the middle of the
-view, the crypt dimmed round it; up to eight lines a page, about 32 letters a line; keys drawn as caps by `hint8`, so a pad's
-person reads buttons (`pk`, and `PK_JOB` for the layout they chose); a pip a page; a small picture where one helps (the class's
-spell, the key, a soul, the wisp), from the icons the kit has. At its foot: *A/D PAGES  E ON* (a pad: the D-pad or bumpers, A),
-*ESC* (B) shuts the lesson. It takes no key for its first 0.4 s, so a key already down can't skip it unread. Sheet first (step 4).
+`UI_TUTOR`, a menu like the rest, so the crypt waits under it as it does under the L list or the wardrobe. A slab in the run's stone
+(docs/PLAN-ui.md's kit: `ui_slab`, the heading in the inscribed face, the words in the small one), in the middle of the view, the
+crypt dimmed round it; up to eight lines a page, about 32 letters a line; a pip a page; a small picture where one helps (the class's
+spell, a key, a soul, the wisp, the map), from the icons the kit has. At its foot: *A/D PAGES  E ON*, *ESC* shuts the lesson. It
+takes no key for its first 0.4 s, so a key already down can't skip it unread. There is no skip (T3 b). Sheet first (step 4).
 
-**Skipping.** The first lesson's foot also offers *Q NO LESSONS* (the pad's X), asked twice; it ends them for good (6.7).
+**Three voices.** Keys are written as on the keyboard. A pad's person reads buttons in their place (`pk`, and `PK_JOB` for the
+layout they chose). By touch (1.0.0b21.4) `pk` speaks the stones' words only in play (`G.ui == UI_NONE`), and the lessons are a
+menu, so they take the touch words through a `pk` of their own that keeps them under `UI_TUTOR`; a slide turns the pages and a tap
+goes on, as touch drives any menu (docs/PLAN-mobile.md).
 
-### 6.5 The wisp to the fountain
+### 8.5 The wisp to the fountain
 
 A wisp kind of its own, `WK_MEND` (the place to mend's front cell; free; the candles' warm white), kindled at B3 in front of the
 caster: *A WISP KINDLES. IT KNOWS WHERE TO MEND*. It hovers there until you are within a cell and a half, as the exit's does.
 Nothing else casts it.
 
-### 6.6 The fountain
+### 8.6 The fountains
 
-The drawing's healing fountain is the run's **place to mend** (`T_REST`, docs/PLAN-ai.md section 28): in run I an arched niche
-with a ledge of candles and a seep. It already does what the brief asks: E facing it kneels, standing still mends you to three
-quarters over twenty seconds from nothing, and **every second of it is a noise sixteen steps off that tells the dead where you
-are**. A walk through the fire leaves enough to mend. (T15 asks whether the owner wants a fountain of its own.)
+The drawings' healing fountains are the run's **places to mend** (T15 a; `T_REST`, docs/PLAN-ai.md section 28): in run I an arched
+niche with a ledge of candles and a seep. E facing one kneels; standing still mends you to three quarters over twenty seconds from
+nothing; and **every second of it is a noise sixteen steps off that tells the dead where you are**.
 
-### 6.7 What lasts
+### 8.7 What lasts
 
-The prefs record (`SLOT_PREFS`: the pad's layout, the title's scene) gains a byte, `PL.tut`: level 1's lessons done, level 2's,
-skipped, and *again* (the lessons asked for on the next new run). `PL_BYTES_TUT` 25; an older build reads its first 24 bytes and
-writes 24, which drops it, as the title's byte was dropped going back. Windows keeps the record as `PadMap`; the browser's page
-reads and writes the same record (`web/haunted.js`) and must keep the extra byte; the harness writes `prefs.bin`.
+The prefs record (`SLOT_PREFS`: the pad's layout, the title's scene, touch's turning and smoothing) gains a byte, `PL.tut`: level
+1's lessons done, level 2's, and *again* (the lessons asked for on the next new run). `PL_BYTES_TUT` 27, after touch's 26; an older
+build reads what it knows and writes 26, which drops it, as each byte before it was dropped going back. Windows keeps the record as
+`PadMap`; the browser's page reads and writes the same record (`web/haunted.js`) and must keep the extra byte; the harness writes
+`prefs.bin`.
 
-The title's **HELP** (still *to be written*, `title_help`) becomes the lessons to read again, page by page, and a row *THE
-LESSONS ON A NEW RUN: YES / NO*.
+The title's **HELP** (still *to be written*, `title_help`) becomes the lessons to read again, page by page, and a row *THE LESSONS
+ON A NEW RUN: YES / NO*.
 
-### 6.8 Beside it
+### 8.8 Beside it
 
 - The controls card (the hints shown six seconds as a person takes over) is held back on level 1 while the lessons run: the first
   page says the same.
 - A creature's caption (`name_newcomers`), toasts and the level's card wait while a page is up.
-- Death while the lessons run: T4.
+- **Death while the lessons run** (T4 a): on a drawn level, until its lessons are done, the old mercy: the level again from its
+  start, nothing lost; the lessons already shown aren't shown again.
 - Debug: `CRAWL_TUT=0|1` (no lessons, or lessons whatever the prefs say), `CRAWL_TUTBEAT=k` (begin at beat k, set where it
-  happens), `CRAWL_DRAWN=0`; `EVENT tut beat <k>`, `tut page <lesson> <n>`, `tut steer`, `tut skip`, `tut trigger <n> on|off`.
+  happens), `CRAWL_DRAWN=0`, `CRAWL_ICE=0` (level 2's ice down from the start); `EVENT tut beat <k>`, `tut page <lesson> <n>`,
+  `tut steer`, `tut lead`, `tut trigger <n> on|off`, `ice down|up`, `map_taken`.
 
-## 7. The lessons' words
+## 9. The lessons' words
 
-Drafts, mine, in the game's voice, for the owner to change. In capitals, as the game prints them; 32 letters a line at most.
-Keys are written as on the keyboard; a pad's person reads their buttons in their place (`pk`). *LESSON* is the heading.
+Drafts, mine, in the game's voice, taken to be changed by playing (T16 a). In capitals, as the game prints them; 32 letters a line
+at most. Keys are written as on the keyboard; a pad's or a finger's person reads their own (8.4). *LESSON* is the heading.
+
+### Level 1
 
 **B1. WALKING**
 ```
@@ -392,7 +670,7 @@ SHIFT SPRINTS FORWARD, A WHILE:
 A SLIM BAR OVER THE TABLET SAYS
 HOW LONG, AND FILLS AGAIN AFTER.
 ```
-**B1. DOORS** (with *Q NO LESSONS* at its foot)
+**B1. DOORS**
 ```
 E OPENS DOORS, TAKES WHAT LIES
 ABOUT AND USES WHAT CAN BE USED.
@@ -450,7 +728,7 @@ and last:
 CLICK CASTS.
 ```
 (The Headsman isn't offered at the start, Physical being shut till the Lampstand's first gift, but a page of his may come back to
-level 1 by a death if T2 lets the lessons come again; his lines are there for that.)
+level 1 by a death with the lessons asked for again under HELP; his lines are there for that.)
 
 **B4. THE DEAD**
 ```
@@ -503,14 +781,14 @@ NOT YET. THERE IS A KEY ON THIS
 LEVEL, AND IT IS NEAR: BEHIND A
 DOOR YOU HAVE NOT OPENED.
 ```
-**B9. THE HOARD, AND THE WAY OUT**
+**B9. THE HOARD, AND THE WAY OUT** (as they come out of the vault, T12 b)
 ```
 WHAT WAS LOCKED AWAY IS YOURS.
-WHEN YOU HAVE IT, THE WAY OUT IS
-EAST, PAST THE LAST DOOR: RUNES
-IN THE WALL. FACE THEM, PRESS E.
-WHAT YOU LEAVE BEHIND IS SHOWN
-YOU BEFORE YOU GO.
+THE WAY OUT IS EAST, PAST THE
+LAST DOOR: RUNES IN THE WALL.
+FACE THEM AND PRESS E. WHAT YOU
+LEAVE BEHIND IS SHOWN YOU
+BEFORE YOU GO.
 ```
 **B10. THE GOLD DOOR** (then, each time after: `THE GOLD DOOR IS STILL SHUT.`)
 ```
@@ -518,7 +796,7 @@ YOU HOLD THE GOLD KEY AND HAVE
 NOT USED IT. GO BACK: THE DOOR
 IT OPENS IS WEST OF HERE.
 ```
-**After level 1, in her room** (if T13 takes it). **HER WARES**
+**B10a. HER WARES** (her room, after level 1)
 ```
 GOLD BUYS WHAT STANDS ON HER
 PEDESTALS. FACE ONE AND PRESS E
@@ -526,116 +804,201 @@ TO SEE WHAT IT WOULD CHANGE.
 THE WAY ON IS THE FAR DOOR.
 ```
 
-## 8. Level 2 (its drawing to come)
+### Level 2
 
-What is known: it is drawn as level 1 is, read the same way (`tools/tutorial_read.py`), built by the same code, and **the map lies
-in it as loot, somewhere drawn**.
-
-- **The map as a thing on the floor.** A new item, `IT_MAP`, drawn as her map ware is (`SP_MAPWARE`, the floating scroll), lit so
-  it is seen. Taking it sets `RUN.has_map` (kept through death and her claim, as a bought one is), so she no longer sells it.
-  If the map is already held (bought, or a later run's death and return), its place holds gold instead (T18). Its lesson, **THE
-  MAP**:
+**B11. THE WITCHFINDER** (the class's name)
 ```
-A MAP. M UNROLLS IT, AND YOU
-WALK ON WITH IT OPEN. IT DRAWS
-WHAT YOU SEE AND WHERE YOU HAVE
-WALKED. THE ARROWS MOVE IT. IT
-IS YOURS NOW, THROUGH DEATH.
+THE DEAD ARE MORE HERE, AND THE
+WAY IS LESS PLAIN. LOOK IN EVERY
+ROOM: SOMEWHERE ON THIS LEVEL
+LIES A MAP, AND YOU WILL NOT
+LEAVE WITHOUT IT.
 ```
-- **What else level 2 teaches** is the owner's (T17). Candidates, from what a person meets early and isn't told: the L list of
-  wisps (a soul each, now that they have souls); a cracked wall and a secret; the bestiary (B) once a second kind is met; the
-  wardrobe (Tab) once a piece is worn; the reckoning at the exit. Whatever the drawing marks, I'd teach that and no more.
+**B12. THE CRYPT ANSWERS**
+```
+SOME THINGS HERE WANT A SPELL.
+A SEAL SHOWS ON THEM, AND ITS
+PIPS SAY HOW MANY STRIKES.
+STRIKE ONE WITH YOUR FIRE BOLT
+AND SEE WHAT IT GIVES.
+```
+(the spell's name by the class.)
 
-## 9. The dream
+**B13. BEYOND THE GATE** (T20 a)
+```
+THE MAP LIES BEYOND THIS GATE,
+AND IT OPENS ONLY FROM THE FAR
+SIDE. THE WAY IN IS FROM THE
+SOUTH, ACROSS THE ICE.
+```
+**B14. THE ICE** (then, each time after: `STRIKE THE SWITCH FIRST.`)
+```
+THE ICE FREEZES WHAT STANDS ON
+IT. IN THE FAR CORNER OF THE
+ROOM BEYOND IT IS A SWITCH:
+STRIKE IT THREE TIMES FROM HERE
+AND THE ICE GOES DOWN.
+```
+**B16. THE MAP** (three pages)
+```
+THE MAP IS YOURS, AND STAYS
+YOURS, THROUGH DEATH AND ALL.
+M UNROLLS IT. YOU WALK, TURN
+AND CAST WITH IT OPEN: THE
+CRYPT DOES NOT WAIT FOR YOU.
+```
+```
+IT DRAWS WHAT YOU SEE, AND
+DARKENS WHERE YOU HAVE WALKED.
+THE ARROWS MOVE IT; SPACE BRINGS
+IT BACK TO YOU. AT ITS FOOT: THE
+DEAD, THE GOLD AND THE SECRETS
+LEFT ON THE LEVEL.
+```
+```
+THE ICE HAS CLOSED BEHIND YOU.
+THE GATE TO THE NORTH OPENS
+FROM THIS SIDE: STRIKE ITS SEAL.
+```
+(The arrows are the D-pad on a pad, and by touch the map's stone; the pad's and touch's voices of these pages are written with
+them.)
 
-If the drawn levels are the dream's too (T1 a), it walks them on the lanes of section 4, crosses the fire (section 5), mends at
-the fountain when under two fifths as it does anywhere (`rest_goal`), takes the key and opens the vault (`key_goal`, both doors
-gold), and leaves. It has no lessons, triggers or turnings. Its balance runs from level 1 change for those two levels only; a new
-baseline is made in the checks (step 8), and `CRAWL_DRAWN=0` gives the old levels back to compare with older builds.
+**B17. THE WAY ON**
+```
+THE ICE HAS CLOSED. THE WAY ON
+IS THE GATE TO THE NORTH.
+```
+**B18. CRACKS**
+```
+LOOK AT THE WALL BEFORE YOU.
+CRACKS IN THE STONE MEAN A
+SECRET: WALK UP TO IT AND PRESS
+E, AND IT GIVES. THEY SHOW ONLY
+WHEN YOU ARE CLOSE.
+```
+**B19. A SECOND KEY**
+```
+A CRIMSON KEY. A KEY IS SPENT
+ON THE DOOR IT OPENS, SO THE
+GOLD ONE IS GONE. THIS ONE IS
+FOR A DOOR BANDED IN CRIMSON.
+```
+**B20. NOT WITHOUT THE MAP** (then, each time after: `THE MAP IS STILL OUT THERE.`)
+```
+NOT YET. YOU WILL NOT LEAVE
+WITHOUT THE MAP. IT LIES IN THE
+ROOM PAST THE ICE.
+```
 
-## 10. What it touches
+## 10. The dream
 
-- `start_level`: the drawn branch, and the passes it skips (section 4); `gen_drawn` and the maps and tables, new.
-- `lane`, `lane_dist`: the mask on a drawn level.
-- The burning floor: a hazard of its own or `Burn`s that never go out on their own (built as whichever reads more plainly), its
-  floor on health, `hz_dmap`'s soft mark.
+It plays the drawn levels (T1 a) on the lanes of 5.5. Level 1: it crosses the fire, mends at the fountain when under two fifths
+as it does anywhere (`rest_goal`), takes the key and opens the vault (`key_goal`, the two doors one lock), and leaves. Level 2: it
+answers the things that want a spell near its lanes, strikes the switch from the ice's edge and crosses when the ice is down, takes
+the map if it comes to it (a thing on the floor, as gold is), strikes the gate's seal from inside, takes the keys in turn and
+leaves; the exit doesn't ask it for the map. It has no lessons, triggers or turnings. Its balance runs from level 1 change for these
+two levels only; a new baseline is made in the checks (step 9), and `CRAWL_DRAWN=0` gives the old levels back to compare with older
+builds.
+
+## 11. What it touches
+
+- `start_level`: the drawn branch, and the passes it skips (5.2); `gen_drawn` and the maps and tables, new.
+- `lane`, `lane_dist`: the masks on a drawn level.
+- `weak_el`: every element alike for the drawn levels' dead.
+- Level 1's burning floor: a hazard of its own, or `Burn`s that never go out on their own (built as whichever reads more plainly),
+  its floor on health, `hz_dmap`'s soft mark.
+- Level 2's ice field (a hazard of its own that holds, with the cold's harm held at three stacks), the switch and the gate's seal (two
+  `MKK` kinds, their sprites), the gate (`GATED`), `IT_MAP` (`collect`, its sprite and glow), the secret laid by hand (`Secret`,
+  `Cell.secret`), the dead one held in the ice.
+- `open_door`: the vault's two doors one lock (T19 a).
 - `wisp_target`, `summon_wisp`: `WK_MEND`.
-- The lessons: `TU`, `UI_TUTOR` (`update_tutor`, `render_tutor`), `tu_steer` (in `update_human`, before the walk), the beats'
-  hooks in `open_door` (B2, B9), `rest_end` (B4), `kill_mob` (B5), `collect` (B7) and a cell check each frame (B3, B4, triggers).
-- `human_begin` (the controls card held back), `name_newcomers` and `toast` (waiting under a page).
+- The lessons: `TU`, `UI_TUTOR` (`update_tutor`, `render_tutor`), `tu_steer`, `tu_hold`, `tu_lead` (in `update_human`, before the
+  walk), the beats' hooks in `open_door` (B2, B9), `rest_end` (B4), `kill_mob` (B5), `collect` (B7, B16, B18, B19), the switch's
+  strikes (B15) and a cell check each frame (B3, B4, B9, the triggers); `begin_shop` (B10a, and the map kept off her wares).
+- `human_begin` (the controls card held back), `name_newcomers` and `toast` (waiting under a page), `pk` (the touch voice in a menu).
 - `pl_read`, `pl_write`, `web/haunted.js` (the prefs byte); `title_help` (HELP).
-- `death_costs` (T4); the coin and the secrets' lines with no links (section 4).
-- Level 2: `IT_MAP` (`collect`, the sprite, the item's light).
+- `death_costs` (T4 a); the coin and the secrets' lines with no links (5.2).
 - No save format changes: nothing of it is in a run's save, only the prefs byte.
 
-## 11. Steps, once it is settled
+## 12. Steps
 
-1. **The reading settled.** The owner looks at `docs/tutorial/level1-read.png` and answers section 12.
-2. **The drawn level in play** (level 1): the map and table, `gen_drawn`, the skipped passes, room types, the fixed seed, the
-   lanes, the vault with two doors; `CRAWL_DRAWN=0`. Frames from the game for the owner: the debug map, and the start, the
-   burning hall, the fountain, the key room, the vault and the exit.
+1. **The readings settled.** The owner looks at `docs/tutorial/level1-read.png` and `level2-read.png` and answers T20-T24.
+2. **Level 1 in play**: the map and table, `gen_drawn`, the skipped passes, room types, the fixed seed, the lanes, the vault with
+   two doors as one lock, every element alike; `CRAWL_DRAWN=0`. Frames from the game for the owner: the debug map, and the start,
+   the burning hall, the fountain, the key room, the vault and the exit.
 3. **The burning floor**, its numbers set in the harness by a scripted walk and sprint through it.
-4. **The screen's sheet** (`build/uisheet tutor`, in `make sheets`): every page of section 7 in keys and in a pad's buttons, with
-   the fit checks failing on any overflow; `docs/tutorial/pages.png`, for approval.
-5. **The machinery**: `TU`, the beats, triggers, `tu_steer`, `WK_MEND`, the prefs byte, skipping, the title's HELP, the debug
-   switches.
-6. **The words in**, every lesson, the classes' lines, her room's page if wanted.
-7. **Level 2**, once drawn: read, built, the map as loot, its lessons.
-8. **The checks**: a scripted person (keys, and a scripted pad) through every branch: the key first; trigger 2 without it, twice;
-   trigger 3 without a gold door, twice; through each gold door; a fight under a turning (it waits); skipping; the lessons again
-   from HELP; a death under T4's answer; frames of every page. The dream on the drawn levels on sixteen seeds (no stall, every
-   level cleared, the median time), and from level 1 against 1.0.0b21.3 for the first 3,000 s, five classes, as J21 was. ASan on
-   a scripted person and on the dream. The smoke test, the browser's smoke test, and the Windows build by CI. The README's *What
-   has been verified*, the page's *Beta status*, a preview strip of the lessons, and the release notes.
+4. **The sheets** for approval: the lessons' screen (`build/uisheet tutor`, in `make sheets`: every page of section 9 in keys, in a
+   pad's buttons and by touch, the fit checks failing on any overflow; `docs/tutorial/pages.png`), and level 2's new art (the ice
+   field on the floor, the switch and its done state, the gate's seal from both sides, the map lying on the floor;
+   `docs/tutorial/level2-art.png`).
+5. **The machinery**: `TU`, the beats, triggers, `tu_steer`, `tu_hold`, `tu_lead`, `WK_MEND`, the prefs byte, the title's HELP, the
+   old mercy while the lessons run, the debug switches.
+6. **Level 1's lessons in**, every page, the classes' lines, her room's page.
+7. **Level 2 in play**: its map and table, the ice, the switch, the gate, the map, the secret, the ten things, the dead one in the
+   ice; frames from the game.
+8. **Level 2's lessons in**, the scripted moment at the map.
+9. **The checks**: a scripted person (keys, a scripted pad, and touch in the browser's build) through every branch of both levels:
+   level 1's key first; trigger 2 without it, twice; trigger 3 without a gold door, twice; through each gold door; a fight under a
+   turning (it waits); level 2's ice from the south before the switch (led back), the switch, the map and its moment, the ice from
+   the north after (led back), the gate, trigger 1, the exit without the map (turned back, twice), the gold key's turning, the secret
+   and its coin, the crimson key; the lessons again from HELP; a death on each level under T4 a; frames of every page. The dream on
+   the drawn levels on sixteen seeds (no stall, every level cleared, the median time), and from level 1 against 1.0.0b21.4 for the
+   first 3,000 s, five classes, as J21 was. ASan on a scripted person and on the dream. The smoke test, the browser's smoke test,
+   and the Windows build by CI. The README's *What has been verified*, the page's *Beta status*, a preview strip of the lessons, and
+   the release notes, for **1.0.0b21.5**.
 
-## 12. Questions for the owner
+## 13. Questions for the owner
 
-1. **T1. Whose levels.** (a) Everyone's: the dream plays the drawn levels too, on the lanes of section 4, so level 1 is level 1
-   whoever plays it *(recommended: what "every time, regardless of seed" says, and sleepwalking needs the lanes anyway)*. (b) A
-   person's runs only; the dream's levels 1 and 2 stay generated, and the screensaver keeps its variety there.
-2. **T2. When the lessons come.** (a) On a person's first run on this computer, and again whenever *THE LESSONS ON A NEW RUN*
-   is set under the title's HELP *(recommended)*. (b) On every new run, with the skip. (c) Every time levels 1 and 2 are played.
-3. **T3. Skipping.** (a) The first lesson offers *Q NO LESSONS*, asked twice *(recommended)*. (b) No skip.
-4. **T4. Dying while the lessons run** (the dead can still kill a careless first-timer). (a) The old mercy on a drawn level until
-   its lessons are done: the level again from its start, nothing lost, the lessons already shown not shown again *(recommended)*.
-   (b) Death's cost, as on any person's run.
-5. **T5. The four larger marks** (the dead 1, 4, 6 and 7). (a) Ordinary, all alike; the first is the one the fountain calls
-   *(recommended)*. (b) They mean something (stronger, a pair, waiting asleep): say what.
-6. **T6. Which dead, and the Plague Doctor.** Skeletons are the run's own, and shrug off poison (x0.5), so the Plague Doctor's
-   first fight is the hardest of the five. (a) Skeletons, rank I, and on the drawn levels every element bites them alike, so each
-   class's first fight is fair; the bestiary still shows the kind's own *(recommended)*. (b) Skeletons as they are, and the
-   Plague Doctor's page says they shrug off poison. (c) Some marks bats (weak to poison): say which.
-7. **T7. Secrets on level 1.** (a) None, as drawn; B6's page mentions them for deeper down *(recommended)*. (b) One, where the
-   owner marks it.
-8. **T8. The rest of a level 1** (things that want a spell, the potion, spectres, the run's fixed hazards). (a) None of it: the
-   drawing is the whole level, with the run's dressing laid on a fixed seed *(recommended)*. (b) Keep the potion.
-9. **T9. The fire.** (a) As section 5: about two fifths of health left after a walk through, more for a sprint, never under a
-   quarter, and out twenty seconds after you're past *(recommended)*. (b) It burns all level. (c) Other numbers: say.
-10. **T10. "After healing."** (a) As B4: when mending ends having mended some, or four cells on if they walked past it unmended
-    *(recommended)*. (b) Only once they have mended; until then nothing more comes.
-11. **T11. Turning back.** (a) As B8 and B10: the view turned in half a second, the body set back half a cell, then the page;
-    again each time, waiting while anything hunts within six cells *(recommended)*. (b) A door that won't open instead of a
-    turning.
-12. **T12. "Then advise them to leave."** (a) At once, as the gold door opens (B9) *(recommended)*. (b) As they come out of the
-    vault.
-13. **T13. Her room after level 1.** (a) One page as it opens, on gold and her wares (section 7's last) *(recommended)*. (b)
-    Nothing: her prompts already say it. (c) A page before her question at the start as well.
-14. **T14. The release.** (a) A point release, **1.0.0b21.4**, when level 2 is drawn and built; the art pass and the lower storey
-    keep 1.0.0b22 and b23 *(recommended)*. (b) **1.0.0b22**, ahead of the art pass (which moves to b23, the lower storey to b24).
-    (c) After the art pass.
-15. **T15. The fountain.** (a) The run's place to mend, as section 6.6: it already mends and calls the dead *(recommended)*. (b) A
-    fountain of its own (new art), mending at once to full.
-16. **T16. The words.** Section 7's are drafts; change any, or (a) take them and change them by playing.
-17. **T17. What level 2 teaches** beside the map: (a) whatever its drawing marks, no more *(recommended)*. (b) Some of section
-    8's candidates: say which.
-18. **T18. The map already held** when level 2 comes: (a) its place holds gold *(recommended)*. (b) Nothing there.
-19. **T19. The vault's two gold doors and one key.** A key is spent on the door it opens. (a) The two doors are one lock: either
-    opened, both are *(recommended)*. (b) The other stays shut: the vault is left by the door you came in by. (c) A second gold
-    key somewhere: say where.
+### The first round (answered 11 November)
 
-## 13. Hand-off log
+T1 a (everyone's levels), T2 a (the lessons on a person's first run here, and again from HELP), **T3 b (no skip)**, T4 a (the old
+mercy while the lessons run), T5 a (the four larger marks are ordinary), T6 a (skeletons at rank I, every element alike), T7 a (no
+secret on level 1), T8 a (the drawing is the whole level), T9 a (the fire as section 6), T10 a (B4 as written), T11 a (turnings, set
+back half a cell, waiting while hunted), **T12 b (the way out told as they come out of the vault)**, T13 a (a page in her room after
+level 1), **T14: 1.0.0b21.5** (1.0.0b21.4 went out with touch since), T15 a (the places to mend), T16 a (the words as drafted, to be
+changed by playing), T17 a (level 2 teaches what its drawing marks; the owner gave its scripted moment), T19 a (the vault's two doors
+one lock). **T18 wasn't answered**; I've taken (a): the map already held, its place holds gold.
+
+### The second round: level 2
+
+20. **T20. Trigger 1, and the exit.** Your words put a trigger *in front of the exit door* that sends a person back for the map; the
+    drawing's trigger 1 is in the passage north of the map room's gate, and nothing is drawn by the exit. (a) Both: trigger 1 where
+    it is drawn, telling a person who comes to the gate from the north before the map that it lies beyond and the way in is from the
+    south (once, no turning); and a trigger of mine, **x**, across the exit room a row before the exit, turning back a person without
+    the map, again each time *(recommended)*. (b) Trigger 1 is the exit's: moved into the exit room, and nothing by the gate. (c)
+    Something else: say.
+21. **T21. The one-way gate.** (a) A seal on its south face only: struck with any spell from the map room it rises and stays up;
+    from the north it is bare iron and says it opens from the other side *(recommended: the drawing calls it elemental)*. (b) E opens
+    it from the south, and from the north it won't.
+22. **T22. The ten grey squares.** On level 2 a person holds only their class's line. (a) Each a thing that wants a spell: the four
+    on the main way take any line (the coffer, the cage), the other six the class's own kind, the same every time for the same class
+    *(recommended)*. (b) Say a kind for each square (a-j on the reading).
+23. **T23. Level 2's dead.** Today level 2 brings the shambler, the run's newcomer, risen from a grave. (a) Fifteen skeletons at rank
+    I, as T6 a, the one in the ice held there frozen till the ice goes down *(recommended)*. (b) The same, but one mark a shambler
+    under turned earth: say which.
+24. **T24. Two pages the brief didn't name.** (a) Both: at the first thing that wants a spell seen (B12, since the level is about
+    them) and at the crimson key (B19, keys being spent on their doors) *(recommended)*. (b) Only the brief's.
+
+### Defaults taken on level 2 (change any)
+
+- The ice: a Chilled stack every 0.4 s on it, held at three on these levels, so it never freezes a person; trigger 2 leads them
+  back at a walk to the side they came in by, then the page (7.1).
+- The switch: any spell, three strikes; spent once the map is taken and the ice is back (7.2).
+- The one in the ice: frozen in it till the ice goes down (7.1).
+- Without the lessons the level is the same (ice, switch, gate, secret; the ice back when the map is taken), but nothing is turned
+  and the exit doesn't ask for the map (section 4).
+- While the lessons run, she keeps the map off her wares until level 2 is behind.
+- The room types (5.3).
+
+## 14. Hand-off log
 
 - **11 November** (`claude/sweet-carson-qxvyfi`, from main at 1.0.0b21.3). The owner gave the brief and run I level 1's drawing.
   Read it cell by cell (`tools/tutorial_read.py`, written for it; the reading drawn as `docs/tutorial/level1-read.png` beside
-  the drawing, kept as `level1-master.png`), fitted it to whole cells (section 2), measured it, drew the dream's lanes, and wrote
-  this draft with its questions. Nothing built. Next: the owner's answers, and level 2's drawing.
+  the drawing, kept as `level1-master.png`), fitted it to whole cells, measured it, drew the dream's lanes, and wrote the draft
+  with its questions. Nothing built.
+- **11 November, later.** The owner answered T1-T19 (T18 left; (a) taken) and gave level 2's drawing and brief. Main at 1.0.0b21.4
+  ("By Touch") merged in (one conflict, CLAUDE.md's paragraphs, both kept), so the prefs byte is the 27th, after touch's two, and
+  the lessons speak touch's words too. The reader taught level 2's colours (peach floor, ice, the grey elemental marks, crimson,
+  magenta) and to find a grid whose walls skip lines; level 2 read (`level2-master.png`, `level2-read.png`), its lanes drawn, the
+  plan rewritten with both levels, the second round T20-T24 and the defaults taken. Nothing built. Next: the owner's answers, then
+  step 2.
