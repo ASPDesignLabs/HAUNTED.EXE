@@ -19,7 +19,7 @@ static struct {
     Input *in;
     int control, quit;              /* a person has the scene; they chose to leave */
     double hold_t, hold_show, grace;   /* H held this long; the bar as drawn; a moment's calm after handing back */
-    int hold_pad;                   /* a controller's button is what is held */
+    int hold_pad;                   /* a controller's button is what is held (2: a finger, docs/PLAN-mobile.md) */
     float rum_lo, rum_hi, rum_t;    /* the rumble asked for, and how long it has left */
 } A;
 
@@ -106,8 +106,9 @@ void app_update(double dt) {
     if (A.in && !A.control && !A.quit) {
         int button = 0;                                            /* any button of a controller, the sticks aside */
         for (int b = 0; b < PAD_COUNT && A.cfg.pad; b++) button |= A.in->pad_down[b];
-        if ((A.in->down[KEY_H] || button) && playable_scene() >= 0) {
-            A.hold_pad = !A.in->down[KEY_H];
+        int finger = A.in->touch && A.in->nfinger > 0;                 /* by touch, a finger held anywhere */
+        if ((A.in->down[KEY_H] || button || finger) && playable_scene() >= 0) {
+            A.hold_pad = A.in->down[KEY_H] ? 0 : button ? 1 : 2;
             A.hold_t += dt;
             if (A.cur == playable_scene() && SCENES[A.cur]->control) SCENES[A.cur]->control(CTRL_PEEK);   /* a look at where things stand */
             if (A.hold_t >= HOLD_SECONDS) take_control();
@@ -116,6 +117,7 @@ void app_update(double dt) {
     A.hold_show = A.hold_t > A.hold_show ? A.hold_t : (A.hold_show - dt * 4.0 > 0 ? A.hold_show - dt * 4.0 : 0);
 
     const Scene *sc = SCENES[A.cur];
+    if (A.in && A.in->stage_w) app_stage_place(A.in->stage_w, A.in->stage_h, &A.in->pic_x, &A.in->pic_y);
     if (A.control && sc->input && A.in) sc->input(A.in, dt);
     sc->update(dt);
     if (!A.audio_external) snd_advance(dt);
@@ -124,7 +126,12 @@ void app_update(double dt) {
         if (st == PLAY_AUTO) { A.control = 0; A.scene_t = 0; A.grace = 1.5; }   /* back to the autopilot */
         else if (st == PLAY_QUIT) A.quit = 1;
     }
-    if (A.in) { memset(A.in->hit, 0, sizeof A.in->hit); memset(A.in->pad_hit, 0, sizeof A.in->pad_hit); A.in->mdx = A.in->mdy = 0.0f; A.in->wheel = 0; A.in->ntext = 0; }
+    if (A.in) {
+        memset(A.in->hit, 0, sizeof A.in->hit); memset(A.in->pad_hit, 0, sizeof A.in->pad_hit); A.in->mdx = A.in->mdy = 0.0f; A.in->wheel = 0; A.in->ntext = 0;
+        int n = 0;                                                 /* a finger lifted is gone; the rest are no longer new */
+        for (int i = 0; i < A.in->nfinger; i++) if (!A.in->finger[i].up) { A.in->finger[n] = A.in->finger[i]; A.in->finger[n++].down = 0; }
+        A.in->nfinger = n;
+    }
 
     switch (A.phase) {
     case PH_FADEIN:
@@ -173,11 +180,13 @@ static void build_lut(uint32_t lut[256], int bgr) {
 }
 
 /* "HOLD H" and a bar filling over three seconds, drawn over whichever scene is up */
-static void hold_overlay(uint32_t *dst, int bgr) {
+static void hold_overlay(uint32_t *dst0, int bgr, int dw, int ox, int oy) {   /* into a picture dw wide, the frame at ox,oy */
     if (A.hold_show <= 0.0 || A.control) return;
     int w = A.frame.w, h = A.frame.h, s = w > 400 ? 2 : 1;
-    const char *msg = A.cur == playable_scene() ? (A.hold_pad ? "HOLD ANY BUTTON TO TAKE CONTROL" : "HOLD H TO TAKE CONTROL")
-                                                : (A.hold_pad ? "HOLD ANY BUTTON TO ENTER THE CRYPT" : "HOLD H TO ENTER THE CRYPT");
+    #define dst(i) dst0[((i) / w + oy) * dw + (i) % w + ox]
+    static const char *const TAKE[3] = { "HOLD H TO TAKE CONTROL", "HOLD ANY BUTTON TO TAKE CONTROL", "HOLD A FINGER DOWN TO TAKE CONTROL" };
+    static const char *const ENTER[3] = { "HOLD H TO ENTER THE CRYPT", "HOLD ANY BUTTON TO ENTER THE CRYPT", "HOLD A FINGER DOWN TO ENTER THE CRYPT" };
+    const char *msg = A.cur == playable_scene() ? TAKE[A.hold_pad] : ENTER[A.hold_pad];
     int tw = (int)strlen(msg) * 8 * s, bw = tw, bh = 4 * s;
     int x0 = (w - tw) / 2, y0 = h - 30 * s;
     float k = (float)(A.hold_show / HOLD_SECONDS); if (k > 1.0f) k = 1.0f;
@@ -186,18 +195,19 @@ static void hold_overlay(uint32_t *dst, int bgr) {
                               : (uint32_t)((int)((r) * br) | ((int)((g) * br) << 8) | ((int)((b) * br) << 16) | 0xFF000000u))
     for (int y = y0 - 4 * s; y < y0 + 8 * s + 6 * s + bh; y++)       /* a dark plate behind it */
         for (int x = x0 - 6 * s; x < x0 + tw + 6 * s; x++)
-            if (x >= 0 && y >= 0 && x < w && y < h) dst[y * w + x] = RGBX(8, 6, 12);
+            if (x >= 0 && y >= 0 && x < w && y < h) dst(y * w + x) = RGBX(8, 6, 12);
     for (size_t c = 0; msg[c]; c++)
         for (int gy = 0; gy < 8; gy++)
             for (int gx = 0; gx < 8; gx++)
                 if (font_bios8[(unsigned char)msg[c]][gy] & (0x80 >> gx))
                     for (int yy = 0; yy < s; yy++) for (int xx = 0; xx < s; xx++)
-                        dst[(y0 + gy * s + yy) * w + x0 + ((int)c * 8 + gx) * s + xx] = RGBX(230, 220, 200);
+                        dst((y0 + gy * s + yy) * w + x0 + ((int)c * 8 + gx) * s + xx) = RGBX(230, 220, 200);
     int by = y0 + 12 * s;
     for (int y = by; y < by + bh; y++)
         for (int x = x0; x < x0 + bw; x++)
-            dst[y * w + x] = x < x0 + (int)(bw * k) ? RGBX(232, 110, 24) : RGBX(48, 40, 56);
+            dst(y * w + x) = x < x0 + (int)(bw * k) ? RGBX(232, 110, 24) : RGBX(48, 40, 56);
     #undef RGBX
+    #undef dst
 }
 
 void app_present(uint32_t *dst, int bgr) {
@@ -207,7 +217,37 @@ void app_present(uint32_t *dst, int bgr) {
     int n = A.frame.w * A.frame.h;
     const uint8_t *src = A.frame.pix;
     for (int i = 0; i < n; i++) dst[i] = lut[src[i]];
-    hold_overlay(dst, bgr);
+    hold_overlay(dst, bgr, A.frame.w, 0, 0);
+}
+
+/* The stage (docs/PLAN-mobile.md, 6.5): the picture placed in a field of its own pixels as wide and tall as the window, the
+ * slow drift moving it within, and the scene's controls drawn around it. */
+static Frame STAGE;
+void app_stage_place(int sw, int sh, int *px, int *py) {      /* in the middle of what the device keeps clear */
+    int l = A.in ? A.in->safe_l : 0, t = A.in ? A.in->safe_t : 0, r = A.in ? A.in->safe_r : 0, b = A.in ? A.in->safe_b : 0;
+    if (sw - l - r < A.frame.w) l = r = 0;
+    if (sh - t - b < A.frame.h) t = b = 0;
+    int ex = (sw - l - r - A.frame.w) / 2, ey = (sh - t - b - A.frame.h) / 2, dx, dy;
+    app_pixel_shift(&dx, &dy);
+    if (A.control && A.in && A.in->touch) dx = dy = 0;             /* the stones stand in the margins: it keeps still */
+    *px = l + ex + clampi(dx, -ex, ex);
+    *py = t + ey + clampi(dy, -ey, ey);
+}
+int app_present_stage(uint32_t *dst, int sw, int sh, int bgr) {
+    if (sw < A.frame.w || sh < A.frame.h || (size_t)sw * (size_t)sh > sizeof STAGE.pix) { app_present(dst, bgr); return 0; }
+    uint32_t lut[256];
+    int px, py;
+    SCENES[A.cur]->render(&A.frame);
+    app_stage_place(sw, sh, &px, &py);
+    STAGE.w = sw; STAGE.h = sh; STAGE.fade = A.frame.fade;
+    memcpy(STAGE.pal, A.frame.pal, sizeof STAGE.pal);
+    memset(STAGE.pix, 0, (size_t)sw * (size_t)sh);
+    for (int y = 0; y < A.frame.h; y++) memcpy(STAGE.pix + (size_t)(y + py) * sw + px, A.frame.pix + (size_t)y * A.frame.w, (size_t)A.frame.w);
+    if (A.control && SCENES[A.cur]->stage && A.in && A.in->touch) SCENES[A.cur]->stage(&STAGE, px, py);
+    build_lut(lut, bgr);
+    for (int i = 0, n = sw * sh; i < n; i++) dst[i] = lut[STAGE.pix[i]];
+    hold_overlay(dst, bgr, sw, px, py);
+    return 1;
 }
 
 void app_set_input(Input *in) { A.in = in; }

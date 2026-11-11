@@ -4,6 +4,9 @@
  *   titlemock <dir> [which]     which: a, b, c (each title, and its graves), menu (the three menus), logo, parts, overview,
  *                               flash (the lightning's frames); all but flash by default. TM_SCALE=n: the GIFs at n times
  *   titlemock <dir> s <A|Ag|Am|B|Bg|Bm|C|Cg|Cm> <seconds>      one still, doubled (TM_PAD=1: the pad's words)
+ *   titlemock <dir> touch       touch's stones (docs/PLAN-mobile.md 6.5) on a Pixel 7's stage, each run's stone, in play, pressed
+ *                               and blank, and in a menu, as touch.png (TM_SCALE=n, 3 by default), three stages' sizes as
+ *                               touch_sizes.png, and each run's contrast printed (words and marks against the stone)
  *
  *   make build/titlemock
  */
@@ -212,6 +215,136 @@ static void parts_sheet(const char *path) {
     write_png(path, sheet, sw, sh);
     free(sheet);
 }
+/* ---- touch's stones (docs/PLAN-mobile.md 6.5): a Pixel 7's stage held sideways, the stones in its margins, by run ---- */
+static Frame ST;
+typedef struct { int x, y, w, h; } SRect;
+static void stage_geo(int sw, int sh, SRect r[7]) {           /* as touch_geo has it: corners, WISPS, MAP, WARDROBE, the strips */
+    int col = clampi((sw - W) / 2, 0, 112), cw = col - 6, ch = clampi(sh / 4, 38, 60), bh = clampi(sh / 7, 24, 34), gap = 3;
+    int lx = 3, rx = sw - 3 - cw, y2 = 3 + ch + gap, y3 = y2 + bh + gap, y4 = y3 + bh + gap;
+    r[0] = (SRect){ lx, 3, cw, ch }; r[1] = (SRect){ rx, 3, cw, ch };
+    r[2] = (SRect){ lx, y2, cw, bh }; r[3] = (SRect){ lx, y3, cw, bh }; r[4] = (SRect){ rx, y2, cw, bh };
+    r[5] = (SRect){ lx, y4, cw, sh - 3 - y4 }; r[6] = (SRect){ rx, y3, cw, sh - 3 - y3 };
+}
+static void stone_at(const SRect *r, int kind, int right, int k, const char *word, const char *foot, int fm, int mark, int pressed, int blank, const TsInfo *in, int run) {
+    TStone s = { kind, r->w, r->h, right, blank, pressed, mark, (unsigned)(k * 101 + run * 17), word, foot, fm };
+    if (kind == TSK_TABLET && word && !strcmp(word, "WARDROBE") && !tstone_word_fits(&s)) s.word = "GEAR";
+    tstone_draw(&ST, r->x, r->y, &s, in, 0.6f);
+}
+/* ctx: 0 play, 1 a menu, 2 play with things pressed, blank and full */
+static void stage_panel(int sw, int sh, int ctx, int run) {
+    ST.w = sw; ST.h = sh;
+    memcpy(ST.pal, crawl_pal, sizeof ST.pal);
+    memset(ST.pix, 0, sizeof ST.pix);
+    int px = (sw - W) / 2, py = (sh - H) / 2;
+    for (int y = 0; y < H; y++) for (int x = 0; x < W; x++)                  /* the picture: a dark crypt's wall, for scale */
+        ST.pix[(py + y) * sw + px + x] = (uint8_t)(R_STONE + 2 + (((x / 16 + (y / 8) % 2) + y / 8) % 3 == 0) + ((x % 16 == 0 || y % 8 == 0) ? -1 : 0));
+    SRect r[7];
+    stage_geo(sw, sh, r);
+    TsInfo in;
+    if (ctx == 1) {
+        memset(&in, 0, sizeof in); in.ring = in.fill = -1;
+        stone_at(&r[0], TSK_CORNER, 0, 2, "BACK", 0, 0, TSM_BACK, 0, 0, &in, run);
+        stone_at(&r[1], TSK_CORNER, 1, 3, "SPACE", 0, 0, TSM_SPACE, 0, 0, &in, run);
+        stone_at(&r[4], TSK_TABLET, 1, 6, "TAB", 0, 0, TSM_ROBE, 0, 0, &in, run);
+        in.text = "ACCEPT"; in.text_col = R_BONE + 14;
+        stone_at(&r[5], TSK_USE, 0, 0, "ENTER", 0, 0, TSM_ENTER, 1, 0, &in, run);
+        in.text = "CLOSE";
+        stone_at(&r[6], TSK_CAST, 1, 1, "ESC", 0, 0, TSM_ESC, 0, 0, &in, run);
+        return;
+    }
+    int pr = ctx == 2;
+    memset(&in, 0, sizeof in);                                               /* the rune readied, cooling */
+    in.sock = 2; in.mark = UI_AFMARK[1]; in.ramp = R_GHOST; in.state = SK_READY; in.ring = pr ? 1.0f : 0.62f; in.ring_ramp = R_GHOST;
+    in.text = pr ? "EX" : "RARE"; in.text_col = pr ? R_GOLD + 12 : R_PURPLE + 13; in.fill = -1;
+    stone_at(&r[0], TSK_CORNER, 0, 2, "RUNE", "PAUSE", 1, TSM_NONE, pr, 0, &in, run);
+    memset(&in, 0, sizeof in);                                               /* a boss's gift, its rank in pips */
+    in.sock = 1; in.icon = IC_FIREWALL; in.ramp = R_BLOOD; in.state = SK_READY; in.ring = pr ? 0.25f : 1.0f; in.ring_ramp = R_BLOOD;
+    in.pips = 2; in.maxpips = 3; in.pip_ramp = R_GOLD; in.fill = -1;
+    stone_at(&r[1], TSK_CORNER, 1, 3, "GIFT", "WHEELS", 2, TSM_NONE, 0, pr, &in, run);
+    memset(&in, 0, sizeof in); in.ring = in.fill = -1;
+    in.text = pr ? "0.4" : "12.5"; in.text_col = pr ? R_BLOOD + 12 : R_GHOST + 13; in.glyph = TS_GLYPH_SOUL; in.glyph_ramp = R_GHOST;
+    stone_at(&r[2], TSK_TABLET, 0, 4, "WISPS", 0, 0, TSM_WISP, pr, 0, &in, run);
+    in.text = "2/5"; in.text_col = R_BONE + 14; in.glyph = TS_GLYPH_SECRET; in.glyph_ramp = R_BONE;
+    stone_at(&r[3], TSK_TABLET, 0, 5, "MAP", 0, 0, TSM_SCROLL, 0, pr, &in, run);
+    in.text = pr ? "5/5" : "3/5"; in.text_col = pr ? R_BLOOD + 12 : R_BONE + 14; in.glyph = TS_GLYPH_BAG; in.glyph_ramp = R_BONE;
+    stone_at(&r[4], TSK_TABLET, 1, 6, "WARDROBE", 0, 0, TSM_ROBE, 0, 0, &in, run);
+    memset(&in, 0, sizeof in); in.ring = -1;
+    in.text = pr ? "" : "OPEN"; in.text_col = R_GOLD + 12; in.fill = pr ? 0.35f : 1.0f; in.fill_ramp = pr ? R_STONE : R_BONE;
+    stone_at(&r[5], TSK_USE, 0, 0, "USE", 0, 0, TSM_HAND, pr, 0, &in, run);
+    memset(&in, 0, sizeof in);
+    in.sock = 1; in.icon = UI_NODE_ICON[pr ? 1 : 0][0]; in.ramp = pr ? R_GHOST : R_FLAME; in.state = SK_READY; in.ring = pr ? 0.4f : 1.0f; in.ring_ramp = pr ? R_GHOST : R_FLAME;
+    in.text = pr ? "1.5" : "FREE"; in.text_col = pr ? R_GHOST + 13 : R_BONE + 14; in.glyph = pr ? TS_GLYPH_SOUL : 0; in.glyph_ramp = R_GHOST;
+    in.fill = pr ? 0.7f : -1; in.fill_ramp = R_GOLD;
+    stone_at(&r[6], TSK_CAST, 1, 1, "CAST", 0, 0, TSM_NONE, pr, 0, &in, run);
+    if (pr) tstone_ring(&ST, 150, 150, 156, 140, 24, 0);           /* the walking stick down, over the picture's edge */
+    else tstone_ring(&ST, 150, 160, 152, 138, 24, 1);
+}
+static void stage_put(int ox, int oy, int sc) {
+    for (int y = 0; y < ST.h * sc; y++) for (int x = 0; x < ST.w * sc; x++) {
+        int X = ox + x, Y = oy + y;
+        if (X < 0 || Y < 0 || X >= sw || Y >= sh) continue;
+        const uint8_t *p = ST.pal[ST.pix[(y / sc) * ST.w + x / sc]];
+        uint8_t *q = &sheet[((size_t)Y * sw + X) * 3];
+        for (int c = 0; c < 3; c++) q[c] = (uint8_t)(p[c] * 255 / 63);
+    }
+}
+static double lin(int v) { double c = v / 63.0; return c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4); }
+static double lum(const uint8_t *p) { return 0.2126 * lin(p[0]) + 0.7152 * lin(p[1]) + 0.0722 * lin(p[2]); }
+static void touch_sheet(const char *dir, int sc) {
+    static const int LV[4] = { 3, 15, 25, 35 };
+    static const char *const RN[4] = { "RUN I, THE CRYPTS", "RUN II, THE CATACOMBS", "RUN III, THE HOLLOWS", "RUN IV, THE DEEP" };
+    int pw = 484, ph = 215, G = 12 * sc / 2, Lh = 24;
+    sw = G + 3 * (pw * sc + G); sh = 4 * (ph * sc + Lh + G) + G;
+    sheet = calloc((size_t)sw * sh, 3);
+    for (int i = 0; i < 4; i++) {
+        crawl_art_level(LV[i]); crawl_art_run(LV[i]);
+        for (int c = 0; c < 3; c++) {
+            int x = G + c * (pw * sc + G), y = G + i * (ph * sc + Lh + G);
+            char lab[96];
+            snprintf(lab, sizeof lab, "%s: %s", RN[i], c == 0 ? "IN PLAY" : c == 1 ? "PRESSED, BLANK, FULL" : "A MENU");
+            sheet_label(x, y, lab);
+            stage_panel(pw, ph, c == 0 ? 0 : c == 1 ? 2 : 1, i);
+            stage_put(x, y + Lh, sc);
+        }
+    }
+    char p[512];
+    snprintf(p, sizeof p, "%s/touch.png", dir);
+    /* the contrast (as the browser's rules reckon it): the darkest tone a word or mark is inlaid in, bone or gold, against the
+     * lightest quarter of each run's stone as the stones are drawn; under 4.5 to 1 fails */
+    int fails = 0;
+    for (int i = 0; i < 4; i++) {
+        crawl_art_level(LV[i]); crawl_art_run(LV[i]);
+        stage_panel(pw, ph, 0, i);
+        int hist[16] = { 0 }, n = 0;
+        for (int k = 0; k < pw * ph; k++) { int c = ST.pix[k]; if (c >= R_STONE && c < R_STONE + 16 && (k % pw < 82 || k % pw >= 402)) { hist[c - R_STONE]++; n++; } }
+        int q = 15, acc = 0;
+        while (q > 0 && (acc += hist[q]) < n / 4) q--;
+        double ls = lum(crawl_pal[R_STONE + q]), lb = lum(crawl_pal[R_BONE + 13]), lg = lum(crawl_pal[R_GOLD + 10]);
+        double cb = (lb + 0.05) / (ls + 0.05), cg = (lg + 0.05) / (ls + 0.05);
+        printf("%s: stone's lightest quarter from tone %d; bone 13 at %.1f to 1, gold 10 at %.1f to 1%s\n", RN[i], q, cb, cg, cb < 4.5 || cg < 4.5 ? "  FAILS" : "");
+        fails += cb < 4.5 || cg < 4.5;
+    }
+    if (fails) printf("CONTRAST: %d runs under 4.5 to 1\n", fails);
+    write_png(p, sheet, sw, sh);
+    free(sheet);
+    /* sizes: the narrowest and widest columns a phone gives, and a short stage */
+    static const int SW[3] = { 440, 552, 520 }, SH[3] = { 215, 226, 204 };   /* a stage is never shorter than the picture */
+    sw = G + 3 * (SW[1] * sc + G); sh = ph * sc + Lh + 2 * G + 40;
+    sheet = calloc((size_t)sw * sh, 3);
+    crawl_art_level(3); crawl_art_run(3);
+    for (int c = 0, x = G; c < 3; c++) {
+        char lab[64];
+        snprintf(lab, sizeof lab, "STAGE %dX%d", SW[c], SH[c]);
+        sheet_label(x, G, lab);
+        stage_panel(SW[c], SH[c], 0, c);
+        stage_put(x, G + Lh, sc);
+        x += SW[c] * sc + G;
+    }
+    snprintf(p, sizeof p, "%s/touch_sizes.png", dir);
+    write_png(p, sheet, sw, sh);
+    free(sheet);
+}
+
 /* a mock-up run round its loop into a GIF, with four stills from it into <name>.png */
 static void run(const char *dir, const char *name, void (*fn)(float), float loop) {
     char p[512];
@@ -291,6 +424,7 @@ int main(int argc, char **argv) {
         run(argv[1], "C_menu", scene_c_menu, 16.0f);
     }
     if (!strcmp(which, "overview") || all) overview(argv[1]);
+    if (!strcmp(which, "touch")) touch_sheet(argv[1], getenv("TM_SCALE") ? atoi(getenv("TM_SCALE")) : 3);
     if (!strcmp(which, "parts") || all) { char p[512]; snprintf(p, sizeof p, "%s/parts.png", argv[1]); parts_sheet(p); }
     if (!strcmp(which, "s") && argc > 4) {                              /* one still */
         static const struct { const char *n; void (*fn)(float); float loop; } SS[9] = {

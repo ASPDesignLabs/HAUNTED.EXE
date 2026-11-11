@@ -71,10 +71,35 @@ KEEP void web_text(int c) {
     if (c >= 'a' && c <= 'z') c -= 32;
     if (((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) && g_in.ntext < (int)sizeof g_in.text) g_in.text[g_in.ntext++] = (char)c;
 }
-KEEP void web_release(void) {
-    int pad = g_in.pad;
+KEEP void web_release(void) {                                     /* all let go; the pad, touch and the stage stay as they are */
+    Input keep = g_in;
     memset(&g_in, 0, sizeof g_in);
-    g_in.pad = pad;
+    g_in.pad = keep.pad; g_in.touch = keep.touch;
+    g_in.stage_w = keep.stage_w; g_in.stage_h = keep.stage_h; g_in.pic_x = keep.pic_x; g_in.pic_y = keep.pic_y;
+    g_in.safe_l = keep.safe_l; g_in.safe_t = keep.safe_t; g_in.safe_r = keep.safe_r; g_in.safe_b = keep.safe_b;
+}
+
+/* touch (docs/PLAN-mobile.md): playing by touch or not; the stage, in the picture's pixels, and what the device keeps at its
+ * edges; a finger by its id, where it is on the stage, and whether it landed (0), moved (1) or lifted (2) */
+KEEP void web_touch_mode(int on) { g_in.touch = on; if (!on) { g_in.nfinger = 0; g_in.stage_w = g_in.stage_h = 0; } }
+KEEP void web_stage(int sw, int sh, int l, int t, int r, int b) {
+    g_in.stage_w = sw; g_in.stage_h = sh; g_in.safe_l = l; g_in.safe_t = t; g_in.safe_r = r; g_in.safe_b = b;
+}
+KEEP void web_touch(int id, float x, float y, int phase) {
+    int i = 0;
+    while (i < g_in.nfinger && g_in.finger[i].id != id) i++;
+    if (i == g_in.nfinger) {
+        if (phase != 0 || g_in.nfinger >= TOUCH_MAX) return;       /* only a landing begins a finger */
+        g_in.finger[i] = (Finger){ id, x, y, 1, 0 };
+        g_in.nfinger++;
+        return;
+    }
+    g_in.finger[i].x = x; g_in.finger[i].y = y;
+    if (phase == 2) g_in.finger[i].up = 1;
+}
+static uint32_t g_spix[FB_MAX_W * FB_MAX_H];
+KEEP uint32_t *web_stage_frame(void) {                             /* the stage as RGBA bytes, web_stage's size; 0 if it couldn't */
+    return app_present_stage(g_spix, g_in.stage_w, g_in.stage_h, 0) ? g_spix : 0;
 }
 /* the pad: buttons a bit each (PAD_*), the sticks past their dead zones, y up, the triggers 0..1; present 0 when none */
 KEEP void web_pad(int present, int buttons, float lx, float ly, float rx, float ry, float lt, float rt) {
