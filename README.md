@@ -4,7 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/ASPDesignLabs/HAUNTED.EXE?include_prereleases&label=release)](https://github.com/ASPDesignLabs/HAUNTED.EXE/releases)
 
 A retro Halloween screensaver for Windows, built for OLED screens, with a crypt you can take over
-and play, with the keyboard and mouse or a game controller. It renders in genuine VGA modes, scales them by a whole number to fit a 4K display, and
+and play, with the keyboard and mouse or a game controller (or, in the browser, by touch). It renders in genuine VGA modes, scales them by a whole number to fit a 4K display, and
 makes its own sound with an FM synthesiser, so there are no audio files. It's one program of about 1.4 MB
 with no installer and no runtime to install.
 
@@ -38,7 +38,27 @@ takes the crypt. It is the same code compiled to WebAssembly, and a browser keep
 * **The ledger is kept in the browser**, not the registry, and is lost if the site's data is cleared (Safari clears
   it after a week without a visit). Settings writes it to a file and reads it back. Pages don't cross between the
   browser and Windows.
-* Phones and tablets can watch; playing needs a keyboard and mouse, or a controller.
+* **Phones and tablets can play**, held sideways (since 1.0.0b21.4). The page asks first how you will play:
+  *Keyboard and mouse*, *Controller* or *Touch*, and remembers it (*Change* on the page, or Settings). By touch:
+  * **A finger held anywhere** for three seconds takes the crypt, as H does. On Android, Touch asks for full screen,
+    held sideways.
+  * **The controls are headstones** in the margins either side of the picture, cut in the run's own stone, broken,
+    weathered and grown over, with places carved in them for what the game has to say: the spell in hand, its time and
+    its price, the rune readied and its quality, what a tap would do (OPEN, TAKE, DRINK ...), the souls held, the secrets
+    found, the bag's places.
+  * **The left thumb walks**: a stick wherever it lands on the left; pushed past its ring, it sprints; touched twice
+    and pushed, it dodges (once the knight's gift is yours). **A tap on the left stone** uses what is before you, or
+    takes what is chosen in a menu.
+  * **The right thumb turns**: slide a finger on the right half of the picture and the view follows it. **The right
+    stone casts** from the moment it is touched, again as the spell comes round while held, or charges; slid, it turns
+    as well, so you aim as you cast. In a menu it goes back.
+  * **The corners**: the top left readies the rune (the Mirror is raised by it), held it pauses; the top right uses the
+    gift or rune readied, held it opens the wheels, which stay up until a slot is tapped. Below them: **WISPS** (a tap
+    the exit wisp, held the list), **MAP** once bought, and **WARDROBE**.
+  * **Esc's question** (the top left held) has two rows of touch's own: *TURNING*, how far a slide turns, and
+    *SMOOTHING*, how steady the view keeps under a slow finger.
+  * Not yet by touch: the bestiary and the Codex, the map dragged to pan, a pointer in the menus, and the title's
+    controls page, which lists the keys.
 * Fleeing to the surface goes back to the dream. One tab at a time keeps the ledger.
 
 Releases from 1.0.0b14 carry the page as `HAUNTED-<version>-web.zip`, to serve yourself from any web server.
@@ -1083,7 +1103,8 @@ became HAUNTED.EXE, kept so that settings and saves carry over), `Progress` besi
 start from or holds the unsigned run, and `Mark` is the dead's watch; `uninstall.cmd` removes them with
 the settings. They are written the moment the game changes them, and never on quitting.
 
-**1.0.0b21.3 changes nothing in the saves.** **1.0.0b21.2 adds the portraits** (which tapestries are drawn back, where each rank was earned, the gold taken this life, and the
+**1.0.0b21.4 changes nothing in the saves.** It adds two bytes to the settings kept with the controller's layout
+(touch's turning and smoothing), which earlier betas ignore. **1.0.0b21.3 changes nothing in the saves.** **1.0.0b21.2 adds the portraits** (which tapestries are drawn back, where each rank was earned, the gold taken this life, and the
 feats' counts) to each page; 1.0.0b21.1 steps over them, and a page it signs loses them. Achievements earned stay earned.
 
 **1.0.0b21 adds the augments** you have chosen and their credits to each page; 1.0.0b20 steps over them, and a page it
@@ -1317,6 +1338,23 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b21.4** (touch: the browser's page asks how you will play, and a phone or tablet held sideways plays by headstones in the
+margins; for the browser only, so Windows plays as before). Tested in headless Chromium and on the author's own phone.
+
+* **Nothing in play moved**: the screensaver from level 1 for 2,400 seconds logged the same as 1.0.0b21.3 on the same seed, line for line.
+* **On a phone by hand**: the author played the first cut on their Pixel 10a (Android, Chrome, full screen) and said it works well enough
+  to publish; their report mended two faults first (the stones covered the picture beside the camera's strip, and turning didn't follow
+  the finger). The page's probe there: 119 frames a second in every phase, 2.8 ms a frame in HAUNT.EXE, 5 in the crypt dreaming, 5.7
+  taken over by touch, the one hitch a frozen half second as the title is first built. The stones' carved look came after that report,
+  and has been tried in Chromium only.
+* **In headless Chromium**, as a Pixel 7 held sideways with a camera strip faked at its left: a finger held to take over, the title,
+  walking with one thumb and casting with the other, a slide turning the view, Esc's rows and TURNING raised by a slide; the stones
+  clear of the picture and no errors. Frames 4.1 to 4.8 ms there. The stones' words and marks against their stone, measured on their
+  sheet for each run: 5.5 to 7.7 to 1 (the aim was 4.5).
+* **Not tried**: an iPhone or iPad, a tablet's wider stage, Firefox. The test harness drives no fingers yet, so AddressSanitizer has not
+  reached the touch code. Nothing on Windows changed: touch is set only by the browser's page. The smoke test passes, and the Windows and
+  browser builds were compiled and smoke-tested by GitHub Actions.
 
 **New in 1.0.0b21.3** (her rooms after the author's first look at 1.0.0b21.2: a portrait's candles cold until its tapestry can be drawn
 back, the room's urn moved off the skeletons' portrait, a slim prompt in place of the cards in her rooms, and a ware's buying on a screen
@@ -1555,8 +1593,8 @@ smoke-tested by CI on the work branches.
   dream. The page's own work is 6 to 8 ms a frame there (the game 4.5 ms under Node, against 2.7 natively), and
   frames came at 30 to 60 a second, the rest of the time going to Chromium's compositing in software; a browser
   with a graphics card does that part itself. In the harness, a build with the browser's switch casts on Space and
-  not Ctrl, the Windows build the other way. Not yet played by hand in any browser: the mouse's feel, the sound,
-  full screen, Esc's two ways and the rumble are each browser's own and untried, and Firefox and Safari haven't been
+  not Ctrl, the Windows build the other way. With a keyboard and mouse, not yet played by hand in any browser (by touch, see
+  1.0.0b21.4 above, whose sound wasn't reported): the mouse's feel, the sound, Esc's two ways and the rumble are each browser's own and untried, and Firefox and Safari haven't been
   tried at all. The download is 2.2 MB, about 0.7 MB as served.
 * **The art and the screens move nothing but the look.** For every creature, boss and prop redrawn, and every
   step of the screens, the autopilot (and for the screens, scripted sessions of a person) logged the same events,
