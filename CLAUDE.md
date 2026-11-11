@@ -355,6 +355,16 @@ anywhere (1.0.0b21's X in a menu), so a pad saw *ESC BACK* as *B X*: it is a key
 Tested in the harness only: the dream from level 1 for 2,400 s line for line 1.0.0b21.1's; buying by keys and by a scripted pad (opened,
 warned, bought, held, the map, too poor, round the wares); ASan clean on that and on the dream for 1,500 s; the smoke test passes.
 
+**The tutorial** is planned in [`docs/PLAN-tutorial.md`](docs/PLAN-tutorial.md) (11 November, a draft on `claude/sweet-carson-qxvyfi`
+from main at 1.0.0b21.3; nothing built; its section 13 is the hand-off log): levels 1 and 2 of the first run laid out the same every
+time from the owner's drawings, a paged screen that pauses the crypt and teaches as you go (`UI_TUTOR`), the view taken and turned at
+a few moments, and triggers in the floor that teach or turn a person back until the level's lesson is done. Level 1's drawing is
+`docs/tutorial/level1-master.png`; its reading in whole cells, beside it, `level1-read.png` (`tools/tutorial_read.py` reads a drawing;
+level 2's, with the map as loot, is to come). The game's walls are cells and the drawing's are lines, so two thin walls became stone
+and doors became the neck cells beside them; the drawing is off the generator's 4-cell lanes, so the plan gives the dream a lane mask
+drawn with the level. Found on the way: `open_door` spends a key on the door it opens, so the drawn vault's two gold doors want one
+lock (its T19). Its questions (section 12) wait for the owner.
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture
@@ -393,6 +403,7 @@ warned, bought, held, the map, too poor, round the wares); ASan clean on that an
 | `src/crawl_ui.c/.h`, `src/ui_art.c` | The carved stone (docs/PLAN-ui.md): the marble, slabs, wells, the faces and their ways, icons, sockets, the Alignment's stone; the faces and icons as strings |
 | `tools/gallery.sh`, `docs/gallery/` | The page's *Then and now*: the same moments in 1.0.0b1, 1.0.0b13 and this build, each from its own build of the harness (old ones in worktrees under `build/gallery/`), as single 320x200 frames; `build_site.sh` copies them to `img/gallery/` |
 | `tools/uisheet.c`, `tools/uishots.sh` | The screens' sheet for approval (`make sheets`; `build/uisheet fit` checks the pane's text fits), and every screen from the harness as contact sheets |
+| `docs/PLAN-tutorial.md`, `docs/tutorial/`, `tools/tutorial_read.py` | The tutorial's plan; the owner's level drawings and their readings in whole cells; the reader (`python3 -I tools/tutorial_read.py <png>`: the grid, cells, coloured edges and dots) |
 | `tools/host.c` | The headless test harness (Linux): PNG frames, WAV audio, benchmarks, scripted input |
 | `tools/music.sh` | CATACOMB's pieces for the ear (docs/PLAN-music.md): each piece, and each run's through a fight, the failing and a menu, into `build/music/`; `hall`, her hall's pieces and the Lampstand's; `spare`, run I's attempts kept unused (docs/PLAN-music-work.md) |
 | `src/web_main.c`, `web/` | The browser's shell (docs/PLAN-web.md): the game's exported door, and the play page, its script and the sound worklet; `make web` (Emscripten) builds `build/web`, `make webzip` the release's `HAUNTED-<version>-web.zip`; `HVS_WEB` makes Space the cast key in `scene_crawl.c` |
