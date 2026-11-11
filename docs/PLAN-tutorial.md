@@ -1021,3 +1021,26 @@ key).
   overflow (none): `docs/tutorial/pages1.png` (level 1 and her room) and `pages2.png` (level 2). B16's second page was reworded so it
   reads in every voice (*IT MOVES WITH THE ARROWS, AND COMES BACK TO YOU AFTER*; the map's Space has no pad button). The level 2 art
   sheet (the ice, the switch, the gate's seal, the map on the floor) comes with step 7, before it is in play.
+- **Steps 5 and 6 built** (harness only; the sheet approved, *Looks incredible! Go for it*). The machinery is the lessons' block in
+  `scene_crawl.c` after the drawn levels' (`TU`, `TB_*`, `tu_level_begin` from `start_level`, `tu_beat`, `tu_queue`, `tu_show`,
+  `tu_tick` and `tu_steering` at the head of `update_human`, `tu_trig` the drawing's trigger cells, `tu_hunted`, `tu_steer`, `tu_close`,
+  `tu_after`, `tu_cleared` from the level's clearing, `tu_shop_begin` from `begin_shop`); the page is `UI_TUTOR` (`update_tutor`,
+  `render_tutor` with `ui_tutor`), the crypt waiting under it as under any menu, taking no key its first 0.4 s; `tu_voice` puts a
+  pad's buttons (by the layout, `pk`'s `PK_JOB`) or touch's stones in the brackets' place, and `tut_wrap` sets the lines again when
+  they outgrow one; a tap on the screen goes on. Level 1's beats B1-B10 are in as section 8.2 has them, with the view turned (0.5 s,
+  eased) at B3, B4 and the two triggers that turn back (set back to the last place outside their cells), the turnings waiting while
+  anything hunts within six cells; B3's free wisp is `WK_MEND` (gold, to the place to mend's front). Her room's page (B10a) comes
+  once, after level 1. The prefs byte is `PL.tut` (the 27th, `PL_BYTES_TUT`: `TUT_L1`, `TUT_L2`, `TUT_HER`, `TUT_AGAIN`), written as
+  a level's lessons are cleared; the title's HELP is a page of its own now (`title_help`), its E toggling *THE LESSONS AGAIN ON A NEW
+  RUN* once they have been given, and a new run with it set clears the byte (`run_new`). While the lessons run a death costs nothing
+  (`death_costs` asks `tu_mercy`, T4 a). The controls card is put away while they run. The tally's SECRETS row says *NONE HERE* on a
+  drawn level with none. Debug: `CRAWL_TUT=0|1` (none, or on whatever the prefs say), `CRAWL_TUTBEAT=k` (the beats before k counted
+  shown), `CRAWL_TUTKEY=1` (the gold key held; 2, and the dead gone), `CRAWL_TUTCALM=1` (as if nothing hunted), `CRAWL_TUTAUTO=s`
+  (each page turned after s seconds); `EVENT tut beat`, `tut page`, `tut steer`, `tut closed`, `tut done level n prefs p`. Tried by a
+  person taken over in the harness, each beat from its place (`CRAWL_TPAT`): B1 to B4 in order with the wisp and a mend, trigger 1,
+  trigger 2 twice (the shorter words the second time), trigger 3, the key, out of the vault, the exit (`tut done level 1 prefs 1`,
+  the 27 bytes written) and her page; a scripted person dying four times under the mercy (nothing lost, no lesson shown twice;
+  her claim's mark is kept off while the lessons run, since a death then costs nothing); the dream clearing level 1 (158 s, no
+  lessons for it). ASan clean on a person through the lessons and those deaths, a person to her room, and the dream for 600 s; the
+  smoke test.
+  Not yet: `tu_hold` and `tu_lead` (level 2's), the HELP's paging through the lessons (it toggles only), the scorched floor.

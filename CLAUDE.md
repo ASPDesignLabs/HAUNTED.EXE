@@ -391,7 +391,9 @@ vault's two gold doors are made one lock (T19 a). The prefs byte for the lessons
 answered); **step 2 is built** (harness only): level 1 drawn in play, everyone's (`g_drawn`, `DRAWN`, `gen_drawn` and its kin before
 `start_level`; `gen_level`'s tail is `gen_dress`, shared; `lane()` reads `g_lane` on a drawn level; `CRAWL_DRAWN=0` the generated level
 back), **step 3** (level 1's burning floor, `DF`, `drawn_fire_tick`) and **step 4's sheet** of the lessons' pages (`src/crawl_tutor.c`,
-`docs/tutorial/pages1.png`, `pages2.png`, sent for approval). The plan's log says what comes next.
+`docs/tutorial/pages1.png`, `pages2.png`, approved), **steps 5 and 6** (the lessons in play on level 1 and in her room after it: `TU`,
+`tu_tick`, `tu_steer`, `UI_TUTOR`, `WK_MEND`, `PL.tut`, the title's HELP; `CRAWL_TUT`, `CRAWL_TUTBEAT`, `CRAWL_TUTKEY`, `CRAWL_TUTCALM`,
+`CRAWL_TUTAUTO`). Level 2 (its art sheet first) comes next; the plan's log says where it stands.
 
 ## Working with the owner
 

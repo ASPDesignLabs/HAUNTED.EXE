@@ -20,6 +20,7 @@
 #include "crawl_ui.h"
 #include "crawl_title.h"
 #include "crawl_portrait.h"
+#include "crawl_tutor.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -644,7 +645,8 @@ typedef struct { int fx, fy, d, sx, sy, tex, state, rolled, len, links, door_x, 
 #define WISP_MOTE_T 12.0f                   /* how long a mote of it hangs there */
 #define WISP_PACE (1.5f * WALK)             /* how fast it goes on ahead */
 #define WISP_COST 1.0f                      /* a soul a wisp */
-enum { WK_EXIT, WK_KEY, WK_ALTAR };         /* where a wisp leads: the way out, a key, the altar's secrets */
+enum { WK_EXIT, WK_KEY, WK_ALTAR, WK_MEND };   /* where a wisp leads: the way out, a key, the altar's secrets; a place to mend
+                                               (the lessons', docs/PLAN-tutorial.md 8.5) */
 enum { WS_KINDLE, WS_FLY, WS_HOVER, WS_GONE };
 typedef struct { float x, y, z, t; } Mote;
 typedef struct {
@@ -1269,7 +1271,7 @@ enum { MM_SIGN, MM_ASCEND, MM_OFFER, MM_VOW, MM_PED, MM_WIND, MM_PAT, MM_LEAVE, 
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
 #define NINV 6                              /* Tab's pages */
 enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES, UI_ALIGN, UI_CLASS, UI_HALL2, UI_BSHRINE, UI_RECKON, UI_PAD,
-       UI_PORTRAIT, UI_BUY };                                      /* the menus a person can open; a portrait of the slain's card; a ware's buying */
+       UI_PORTRAIT, UI_BUY, UI_TUTOR };                                      /* the menus a person can open; a portrait of the slain's card; a ware's buying */
 static Input IN;                            /* their keys and mouse, this step */
 static double IN_DT;                        /* and how long the step is */
 static struct {                             /* their game controller, if they have one */
@@ -1334,8 +1336,10 @@ static const char *const PAD_WORD[PAD_COUNT] = { "\1A", "\1B", "\1X", "\1Y", "LB
 #define PL_BYTES 23                                                /* the least a layout is; 1.0.0b21.1 writes one more: */
 #define PL_BYTES_TITLE 24                                          /* the title screen last shown (docs/PLAN-title.md) */
 #define PL_BYTES_TOUCH 26                                          /* and touch's turning and its smoothing (docs/PLAN-mobile.md) */
-static struct { uint8_t job[PAD_COUNT]; int swap, quiet, turn, mstick, read, title, tturn, tsmooth; } PL;   /* mstick: the menus' stick, 0 left, 1 right, 2 either */
-static void pl_default(void) { for (int b = 0; b < PAD_COUNT; b++) PL.job[b] = (uint8_t)b; PL.swap = PL.quiet = PL.mstick = 0; PL.turn = 10; PL.title = 2; PL.tturn = 10; PL.tsmooth = 5; }
+#define PL_BYTES_TUT 27                                            /* and the lessons, done or asked again (docs/PLAN-tutorial.md) */
+enum { TUT_L1 = 1, TUT_L2 = 2, TUT_HER = 4, TUT_AGAIN = 8 };      /* PL.tut: level 1's, level 2's and her room's lessons given; again */
+static struct { uint8_t job[PAD_COUNT]; int swap, quiet, turn, mstick, read, title, tturn, tsmooth, tut; } PL;   /* mstick: the menus' stick, 0 left, 1 right, 2 either */
+static void pl_default(void) { for (int b = 0; b < PAD_COUNT; b++) PL.job[b] = (uint8_t)b; PL.swap = PL.quiet = PL.mstick = 0; PL.turn = 10; PL.title = 2; PL.tturn = 10; PL.tsmooth = 5; PL.tut = 0; }
 static int pl_fixed(int b) { return b == PAD_VIEW || b == PAD_MENU; }
 static void pl_trade(int a, int b) { if (a == b || pl_fixed(a) || pl_fixed(b)) return; uint8_t t = PL.job[a]; PL.job[a] = PL.job[b]; PL.job[b] = t; }
 static void pl_read(void) {
@@ -1349,15 +1353,16 @@ static void pl_read(void) {
         PL.turn = clampi(buf[22], 5, 20);
         if (n >= PL_BYTES_TITLE) PL.title = buf[23] % 3;
         if (n >= PL_BYTES_TOUCH) { PL.tturn = clampi(buf[24], 3, 30); PL.tsmooth = clampi(buf[25], 0, 10); }
+        if (n >= PL_BYTES_TUT) PL.tut = buf[26] & 15;
     } else if (n == 1 && buf[0] < PAD_COUNT) pl_trade(PAD_LS, buf[0]);
 }
 static void pl_write(void) {
-    uint8_t b[PL_BYTES_TOUCH];
+    uint8_t b[PL_BYTES_TUT];
     memcpy(b, "HVQ1", 4); b[4] = 1;
     memcpy(b + 5, PL.job, PAD_COUNT);
     b[21] = (uint8_t)(PL.swap | PL.quiet << 1 | PL.mstick << 2); b[22] = (uint8_t)PL.turn;
-    b[23] = (uint8_t)PL.title; b[24] = (uint8_t)PL.tturn; b[25] = (uint8_t)PL.tsmooth;
-    slot_write(SLOT_PREFS, b, PL_BYTES_TOUCH);
+    b[23] = (uint8_t)PL.title; b[24] = (uint8_t)PL.tturn; b[25] = (uint8_t)PL.tsmooth; b[26] = (uint8_t)PL.tut;
+    slot_write(SLOT_PREFS, b, PL_BYTES_TUT);
 }
 static int pl_on(int job) { pl_read(); for (int b = 0; b < PAD_COUNT; b++) if (PL.job[b] == job) return b; return job; }   /* the button a job is on */
 static int pad_sprint(void) { return pl_on(PAD_LS); }
@@ -1818,6 +1823,11 @@ static struct {
     uint8_t at[MAPN][MAPN];
 } DF;
 static void drawn_fire_lights(void);
+static void tu_level_begin(void);                                 /* the lessons (docs/PLAN-tutorial.md), further down */
+static void tu_shop_begin(void);
+static void tu_cleared(void);
+static int tu_mercy(void);
+static void tu_show(void);
 static int lane(int x, int y) {
     if (g_drawn) return x >= 0 && y >= 0 && x < MAPN && y < MAPN && g_lane[y][x];
     return (x & 3) == 2 || (y & 3) == 2;
@@ -13153,6 +13163,7 @@ static void update_player(float dt) {
             G.tally = 1; G.tally_t = 0.0; G.clear_time = G.level_t; G.retries = 0;
             snd_sfx_ex(SFX_FANFARE, 1.0f, 0.5f);
             rec_cleared();
+            tu_cleared();                                          /* a drawn level's lessons given, for good */
             char lc[36]; snprintf(lc, sizeof lc, "LEVEL %d CLEARED", G.level);
             xp_gain(30.0f * xp_level(), lc);
 #ifdef CRAWL_DEBUG
@@ -15034,6 +15045,7 @@ static void start_level(void) {
     G.readout = READOUT_T + 1.5f;                                  /* show where things stand as the level opens */
     G.bar = 1.0f; show_bar();
     if (G.player) human_begin();
+    tu_level_begin();                                              /* the lessons, on a drawn level (docs/PLAN-tutorial.md) */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_MAP")) debug_map(0);
 #endif
@@ -20853,7 +20865,7 @@ static const char *const KEY_COLOR[NKEYS];
  * the way to what it seeks, in that thing's colour, and hovers there till you come. It leaves a trail of
  * motes hanging in the air, to follow round a corner. */
 static const int KEY_RAMP[NKEYS] = { R_GOLD, R_BONE, R_BLOOD };
-static int wisp_ramp_of(const Wisp *w) { return w->kind == WK_ALTAR ? R_PURPLE : (w->kind == WK_KEY ? KEY_RAMP[w->color] : R_GLOW); }
+static int wisp_ramp_of(const Wisp *w) { return w->kind == WK_ALTAR ? R_PURPLE : w->kind == WK_MEND ? R_GOLD : (w->kind == WK_KEY ? KEY_RAMP[w->color] : R_GLOW); }
 
 /* what a wisp of this kind seeks now: the cell, where it hovers there, and whether that is the end of
  * it (or a key it must fetch first); 0 if there is nothing left to seek */
@@ -20878,6 +20890,11 @@ static int wisp_target(int kind, int color, int *gx, int *gy, float *hx, float *
         if (i < 0) return 0;
         x = G.items[i].cx; y = G.items[i].cy; px = G.items[i].x; py = G.items[i].y;   /* over the key */
         *gx = x; *gy = y; past_vaults(gx, gy, vault_of_room(x, y));
+    } else if (kind == WK_MEND) {                                  /* the lessons': before the place to mend */
+        if (G.nrest <= 0) return 0;
+        x = G.rest_fx[0]; y = G.rest_fy[0];
+        px = x + 0.5f + (G.rest_x[0] - x) * 0.3f; py = y + 0.5f + (G.rest_y[0] - y) * 0.3f;
+        *gx = x; *gy = y;
     } else if (G.altar_wisp == AW_HOME || G.altar_wisp == AW_REST) {   /* home: over the altar */
         if (G.altar_x < 0) return 0;
         int d = 0;
@@ -20949,6 +20966,7 @@ static int summon_wisp(int kind, int color, float cost) {
     if (!is_open((int)w->x, (int)w->y) && kind != WK_ALTAR) { w->x = G.px; w->y = G.py; }
     snd_sfx_ex(SFX_SHIMMER, 0.7f, 0.5f);
     if (kind == WK_EXIT) say("A WISP KINDLES. IT KNOWS THE WAY OUT");
+    else if (kind == WK_MEND) say("A WISP KINDLES. IT KNOWS WHERE TO MEND");
     else if (kind == WK_KEY) say("A WISP GOES FOR THE %s KEY", KEY_COLOR[color]);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT wisp %d %d t=%.2f\n", kind, color, G.t);
@@ -21934,6 +21952,7 @@ static void begin_shop(void) {
         G.shop_left = v->left; G.shop_bought = v->bought; G.sh_takes = v->takes; G.shop_held = v->held < G.ped_n ? v->held : -1;
     }
     LEDGER.has_visit = 0;
+    tu_shop_begin();                                               /* after level 1, the first time: a page on her wares */
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "SHOP level %d gold %d souls %d:", G.level, RUN.treasure, RUN.souls);
     for (int p = 0; p < G.ped_n; p++) { char nm[80]; gear_name(&G.offers[p], nm, sizeof nm); fprintf(stderr, " [%s $%d%s%s%s]", nm, G.offers[p].price, G.offers[p].rare ? " RARE" : "", G.offer_back[p] ? " HELD" : "", G.offer_gone[p] ? " GONE" : ""); }
@@ -23283,6 +23302,7 @@ static void open_ui(int which) {
         if (gift_due()) for (int e = 0; e < NELEM; e++) if (!align_open(e)) { G.al_el = e; break; }   /* a gift: the first line it may be */
     }
     else if (which == UI_HALL2) { G.ui_sel = 0; G.h2_arm = -1; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); }
+    else if (which == UI_TUTOR) { }                                /* a lesson's page: its own sound, in tu_show */
     else if (which == UI_CLASS) { G.vow_sel = cls_el() >= 0 ? (cls_el() + 1) % NELEM : 0; G.vow_arm = -1; snd_sfx_ex(SFX_WHISPER, 0.6f, 0.5f); }
     else if (which == UI_ASCEND) {
         G.ui_sel = 0; G.asc_arm = -1; memset(G.asc_buy, 0, sizeof G.asc_buy); snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f);
@@ -23427,8 +23447,256 @@ static void pilgrim_step(float dt) {
 #endif
 }
 
+/* ---- The lessons (docs/PLAN-tutorial.md, section 8): on the drawn levels, while a person's first run here is on them (or
+ * they asked for them again under the title's HELP), pages that stop the crypt at moments (beats), triggers in the floor, and
+ * the view turned a moment where a beat says. TU lasts while the program runs; a death on the level keeps what was shown. ---- */
+enum { TB_ARRIVE, TB_DOOR, TB_THROUGH, TB_MENDED, TB_BLOOD, TB_TRIG1, TB_KEY, TB_TRIG2, TB_HOARD, TB_TRIG3, NTBEAT };
+#define TU_Q 8
+#define TU_STEER 0.5f                                              /* the view eased round in half a second */
+static struct {
+    int on, level;                                                 /* this level's lessons run; the level they are for */
+    uint32_t done;                                                 /* beats shown on it, a bit each (kept through a death on it) */
+    int q[TU_Q], qa[TU_Q], nq;                                     /* lessons waiting, and their shorter words */
+    int lesson, page, alt;                                         /* the one up */
+    float fresh;                                                   /* no key for its first moment */
+    int steer, back; float st_t, st_a0, st_a1, st_x0, st_y0, st_x1, st_y1;   /* the view taken */
+    int trig_in;                                                   /* the trigger the body stood in last frame (0 none) */
+    float lx, ly;                                                  /* the last place it stood out of every trigger */
+    int key_taken, gold_open, vault_been, mend_on, mend_hp, wisp_due, again[4];
+} TU;
+static int tu_due(int level) {                                     /* a drawn level's lessons, for a person, if not yet given */
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_TUT")) return atoi(getenv("CRAWL_TUT")) != 0 && drawn_level(level);
+#endif
+    pl_read();
+    return drawn_level(level) && !(PL.tut & (level == 1 ? TUT_L1 : TUT_L2));
+}
+static void tu_level_begin(void) {                                 /* from start_level */
+    int on = G.player && g_drawn && tu_due(G.level);
+    if (G.level != TU.level || !on) { memset(&TU, 0, sizeof TU); TU.level = G.level; }
+    else { TU.nq = 0; TU.steer = 0; TU.trig_in = 0; TU.mend_on = 0; TU.wisp_due = 0; TU.key_taken = TU.gold_open = TU.vault_been = 0; }
+    TU.on = on;
+    TU.lx = G.px; TU.ly = G.py;
+#ifdef CRAWL_DEBUG
+    if (on && getenv("CRAWL_TUTBEAT")) TU.done |= (1u << clampi(atoi(getenv("CRAWL_TUTBEAT")), 0, 31)) - 1u;   /* testing: the beats before k shown */
+    if (on && getenv("CRAWL_TUTKEY")) {                            /* testing: the gold key held; 2, and the dead gone */
+        G.has_key[0] = 1; TU.key_taken = 1; TU.done |= 1u << TB_KEY;
+        if (atoi(getenv("CRAWL_TUTKEY")) >= 2) for (int i = 0; i < MAXMOBS; i++) G.mobs[i].alive = 0;
+    }
+#endif
+    if (on) G.hint_t = 0.0f;                                       /* the first page says what the controls card would */
+}
+static int tu_mercy(void) { return g_drawn && TU.on; }             /* a death while they run costs nothing (T4 a) */
+static int tu_cls(void) { int e = cls_el(); return e < 0 ? 0 : e; }
+/* a key put in the voice the person plays in: the keyboard's as written, a pad's buttons by their layout, touch's stones */
+static void tu_voice(const char *in, char *out, size_t n) {
+    int pad = PADX.used, touch = !pad && TCH.used;
+    size_t o = 0;
+    while (*in && o + 1 < n) {
+        if (*in != '[' || (!pad && !touch)) { out[o++] = *in++; continue; }
+        const char *e = strchr(in, ']');
+        if (!e) { out[o++] = *in++; continue; }
+        char key[24];
+        snprintf(key, sizeof key, "%.*s", (int)(e - in - 1), in + 1);
+        const char *w = key;
+        static char b[24];
+        if (pad) {
+            if (!strcmp(key, "WASD")) w = PL.swap ? "R-STICK" : "L-STICK";
+            else if (!strcmp(key, "THE MOUSE")) w = PL.swap ? "L-STICK" : "R-STICK";
+            else if (!strcmp(key, "SHIFT")) { snprintf(b, sizeof b, "%s", PAD_WORD[pad_sprint()]); w = b; }
+            else if (!strcmp(key, "E")) w = PAD_WORD[pl_on(PAD_A)];
+            else if (!strcmp(key, "H")) w = PAD_WORD[pl_on(PAD_DOWN)];
+            else if (!strcmp(key, "CLICK")) w = PAD_WORD[pl_on(PAD_RT)];
+            else if (!strcmp(key, "L")) w = PAD_WORD[pl_on(PAD_Y)];
+            else if (!strcmp(key, "M")) w = PAD_WORD[pl_on(PAD_UP)];
+            else if (!strcmp(key, "ARROWS")) w = "D-PAD";
+        } else {
+            if (!strcmp(key, "WASD")) w = "THE WALKING STICK";
+            else if (!strcmp(key, "THE MOUSE")) w = "A FINGER SLID ON THE RIGHT";
+            else if (!strcmp(key, "SHIFT")) w = "THE STICK PUSHED PAST ITS RING";
+            else if (!strcmp(key, "E")) w = "USE";
+            else if (!strcmp(key, "H")) w = "A TAP AT THE PICTURE'S FOOT";
+            else if (!strcmp(key, "CLICK")) w = "CAST";
+            else if (!strcmp(key, "L")) w = "WISPS";
+            else if (!strcmp(key, "M")) w = "MAP";
+            else if (!strcmp(key, "ARROWS")) w = "A DRAG";
+        }
+        o += (size_t)snprintf(out + o, n - o, "[%s]", w);
+        if (o >= n) o = n - 1;
+        in = e + 1;
+    }
+    out[o] = 0;
+}
+static void tu_show(void) {                                        /* the next lesson waiting, if nothing else is up */
+    if (!TU.nq || G.ui != UI_NONE || TU.steer || G.dead || G.tally) return;
+    TU.lesson = TU.q[0]; TU.alt = TU.qa[0]; TU.page = 0;
+    TU.nq--; memmove(TU.q, TU.q + 1, sizeof TU.q[0] * (size_t)TU.nq); memmove(TU.qa, TU.qa + 1, sizeof TU.qa[0] * (size_t)TU.nq);
+    open_ui(UI_TUTOR);
+    TU.fresh = 0.4f;
+    snd_sfx_ex(SFX_PAGE, 0.7f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT tut page %d alt %d t=%.2f\n", TU.lesson, TU.alt, G.t);
+#endif
+}
+static void tu_queue(int lesson, int alt) { if (TU.nq < TU_Q) { TU.q[TU.nq] = lesson; TU.qa[TU.nq++] = alt; } }
+static int tu_hunted(void) {                                       /* something hunting within six cells: a person isn't turned from a fight */
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_TUTCALM")) return 0;                         /* testing: as if nothing hunted */
+#endif
+    for (int i = 0; i < MAXMOBS; i++) {
+        const Mob *m = &G.mobs[i];
+        if (m->alive && m->state == MS_WALK && m->alert > 0.0f && !m->ally && hypotf(m->x - G.px, m->y - G.py) < 6.0f) return 1;
+    }
+    return 0;
+}
+static void tu_steer(float ang, int back) {                        /* the view eased round, and with back the body set back out of a trigger */
+    TU.steer = 1; TU.st_t = 0.0f; TU.st_a0 = G.ang; TU.st_a1 = G.ang + wrap_pi(ang - G.ang); TU.back = back;
+    TU.st_x0 = G.px; TU.st_y0 = G.py; TU.st_x1 = back ? TU.lx : G.px; TU.st_y1 = back ? TU.ly : G.py;
+    PADX.run = 0; G.chg_on = 0;
+    if (G.rest_on) rest_end("turned");
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT tut steer %.2f back %d t=%.2f\n", ang, back, G.t);
+#endif
+}
+static int tu_beat(int b, int lesson, int alt) {                   /* a beat, once: its lesson queued */
+    if (TU.done >> b & 1) return 0;
+    TU.done |= 1u << b;
+    tu_queue(lesson, alt);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT tut beat %d t=%.2f\n", b, G.t);
+#endif
+    return 1;
+}
+static int tu_trig(int cx, int cy) {                               /* the trigger a cell is, on level 1's drawing (0 none) */
+    if (g_drawn != 1) return 0;
+    const Drawn *D = drawn();
+    int x = cx - D->ox, y = cy - D->oy;
+    if (y == 23 && (x == 4 || x == 5)) return 1;
+    if ((x == 14 && y == 30) || (x == 13 && y == 31) || (x == 14 && y == 31)) return 2;
+    if (x == 19 && (y == 30 || y == 31)) return 3;
+    return 0;
+}
+static int tu_steering(float dt) {                                 /* from update_human: 1 while the view is taken */
+    if (!TU.steer) return 0;
+    TU.st_t += dt;
+    float k = smoothstepf(0.0f, TU_STEER, TU.st_t);
+    G.ang = TU.st_a0 + (TU.st_a1 - TU.st_a0) * k;
+    if (TU.back) { G.px = TU.st_x0 + (TU.st_x1 - TU.st_x0) * k; G.py = TU.st_y0 + (TU.st_y1 - TU.st_y0) * k; G.cx = (int)G.px; G.cy = (int)G.py; }
+    G.spd = 0.0f; G.pvx = G.pvy = 0.0f;
+    if (TU.st_t < TU_STEER) return 1;
+    TU.steer = 0; TU.trig_in = tu_trig((int)floorf(G.px), (int)floorf(G.py));
+    tu_show();
+    return 1;
+}
+static void tu_after(int lesson) {                                 /* a lesson read: what follows it */
+    if (lesson == TL_THROUGH && G.nrest > 0) summon_wisp(WK_MEND, 0, 0.0f);   /* free: the way to the place to mend */
+}
+static void tu_tick(float dt) {                                    /* from update_human, while no menu is up: the beats */
+    if (!TU.on || !g_drawn || G.dead || G.tally || G.exiting) return;
+    const Drawn *D = drawn();
+    int cx = (int)floorf(G.px), cy = (int)floorf(G.py), dx = cx - D->ox, dy = cy - D->oy, trig = tu_trig(cx, cy);
+    (void)dx; (void)dy;
+    if (g_drawn == 1) {
+        if (G.card > 3.6f && G.level_t > 1.0) tu_beat(TB_ARRIVE, TL_WALK, 0);
+        for (int i = 0; i < G.ndoors; i++)                         /* the first door, open */
+            if (G.doors[i].x == D->ox + 4 && G.doors[i].y == D->oy + 1 && G.doors[i].open > 0.5f && (TU.done >> TB_ARRIVE & 1)) tu_beat(TB_DOOR, TL_FIRE, 0);
+        if (!(TU.done >> TB_THROUGH & 1) && G.py >= (float)D->oy + 7.0f && !tu_hunted()) {   /* through the fire: to the place to mend */
+            tu_beat(TB_THROUGH, TL_THROUGH, 0); tu_steer(PI_F * 0.5f, 0);
+        }
+        if (G.rest_on && !TU.mend_on) { TU.mend_on = 1; TU.mend_hp = G.hp; }
+        int mended = !G.rest_on && TU.mend_on && G.hp > TU.mend_hp;
+        if (!G.rest_on) TU.mend_on = 0;
+        int walked_on = G.px >= (float)D->ox + 9.0f && G.py >= (float)D->oy + 9.0f && G.py < (float)D->oy + 12.0f;
+        if (!(TU.done >> TB_MENDED & 1) && (TU.done >> TB_THROUGH & 1) && (mended || walked_on) && !tu_hunted()) {
+            tu_beat(TB_MENDED, TL_CLASS, !mended); tu_steer(0.0f, 0);   /* the hall on the left: east */
+        }
+        if (G.kills > 0) tu_beat(TB_BLOOD, TL_SOULS, 0);
+        if (G.has_key[0] && !TU.key_taken) { TU.key_taken = 1; tu_beat(TB_KEY, TL_KEY, 0); }
+        for (int i = 0; i < G.ndoors; i++) if (G.doors[i].color == 0 && G.doors[i].locked == 2) TU.gold_open = 1;
+        int in_vault = G.nvaults > 0 && G.vault_room[0] >= 0 && in_room(&G.rooms[G.vault_room[0]], cx, cy);
+        if (in_vault && TU.gold_open) TU.vault_been = 1;
+        if (TU.vault_been && !in_vault) tu_beat(TB_HOARD, TL_HOARD, 0);   /* out of the vault: the way out (T12 b) */
+        if (trig && trig != TU.trig_in) {                          /* into a trigger's cells */
+            if (trig == 1) tu_beat(TB_TRIG1, TL_EVERY, 0);
+            else if (trig == 2 && !TU.key_taken && !tu_hunted()) {  /* not yet: turned to the key room's door, again each time */
+                tu_queue(TL_NOTYET, TU.again[2]++ > 0); tu_steer(atan2f((float)D->oy + 26.5f - G.py, (float)D->ox + 11.5f - G.px), 1);
+            } else if (trig == 3 && !TU.gold_open && !tu_hunted()) {   /* the gold door unused: turned back west, again each time */
+                tu_queue(TL_GOLDDOOR, TU.again[3]++ > 0); tu_steer(PI_F, 1);
+            }
+        }
+    }
+    if (!TU.steer) { TU.trig_in = trig; if (!trig) { TU.lx = G.px; TU.ly = G.py; } }
+    tu_show();
+}
+static void tu_close(void) {
+    int l = TU.lesson;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT tut closed %d page %d t=%.2f\n", l, TU.page, G.t);
+#endif
+    G.ui = UI_NONE; G.click_spent = 1;
+    snd_sfx_ex(SFX_KEY, 0.6f, 0.5f);
+    tu_after(l);
+    tu_show();
+}
+static void update_tutor(void) {
+    if ((TU.fresh -= (float)IN_DT) > 0.0f) return;
+#ifdef CRAWL_DEBUG
+    static float auto_t;                                           /* testing: CRAWL_TUTAUTO=s, each page turned after s seconds */
+    if (getenv("CRAWL_TUTAUTO") && (auto_t += (float)IN_DT) >= (float)atof(getenv("CRAWL_TUTAUTO"))) { auto_t = 0.0f; IN.hit[KEY_E] = 1; }
+#endif
+    int n = TU.alt && (TU.lesson == TL_NOTYET || TU.lesson == TL_GOLDDOOR || TU.lesson == TL_ICE || TU.lesson == TL_NOMAP) ? 1 : tut_pages(TU.lesson);
+    if ((IN.hit[KEY_A] || IN.hit[KEY_LEFT]) && TU.page > 0) { TU.page--; snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f); }
+    if ((IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) && TU.page + 1 < n) { TU.page++; snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f); }
+    if (IN.hit[KEY_E] || IN.hit[KEY_ENTER] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1]) {
+        if (TU.page + 1 < n) { TU.page++; snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f); }
+        else tu_close();
+        return;
+    }
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_BACK]) tu_close();
+}
+static void render_tutor(Frame *f) {
+    dim_view(f);
+    const char *in[TUT_LINES], *vp[TUT_LINES];
+    char v[TUT_LINES][96], wr[TUT_LINES][96];
+    int cls = tu_cls(), n = tut_lines(TU.lesson, TU.page, cls, TU.alt, in);
+    for (int i = 0; i < n; i++) { tu_voice(in[i], v[i], sizeof v[i]); vp[i] = v[i]; }
+    n = tut_wrap(vp, n, wr, 34);
+    UiTutor u;
+    memset(&u, 0, sizeof u);
+    u.head = tut_head(TU.lesson, TU.page, cls);
+    for (int i = 0; i < n; i++) u.line[i] = wr[i];
+    int pages = TU.alt && (TU.lesson == TL_NOTYET || TU.lesson == TL_GOLDDOOR || TU.lesson == TL_ICE || TU.lesson == TL_NOMAP) ? 1 : tut_pages(TU.lesson);
+    u.nline = n; u.page = TU.page; u.npage = pages; u.t = G.ui_t;
+    int last = TU.page + 1 >= pages, pad = PADX.used, touch = !pad && TCH.used;
+    u.keys = pages < 2 ? (pad ? "\1A DONE" : touch ? "USE DONE" : "E DONE")
+           : pad ? (last ? "D-PAD PAGES  \1A DONE" : "D-PAD PAGES  \1A ON") : touch ? (last ? "SLIDE PAGES  USE DONE" : "SLIDE PAGES  USE ON")
+           : last ? "A/D PAGES  E DONE" : "A/D PAGES  E ON";
+    ui_tutor(f, &u);
+}
+static void tu_cleared(void) {                                     /* a drawn level cleared with its lessons: given, for good */
+    if (!TU.on || !g_drawn) return;
+    pl_read(); PL.tut |= G.level == 1 ? TUT_L1 : TUT_L2; pl_write();
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT tut done level %d prefs %d\n", G.level, PL.tut);
+#endif
+}
+static void tu_shop_begin(void) {                                  /* her room after level 1, the first time: her wares (T13 a) */
+    pl_read();
+    int due = G.player && G.level == 2 && (PL.tut & TUT_L1) && !(PL.tut & TUT_HER);
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_TUT")) due = G.player && G.level == 2 && atoi(getenv("CRAWL_TUT")) != 0;
+#endif
+    memset(&TU, 0, sizeof TU); TU.level = -1;
+    if (!due) return;
+    tu_queue(TL_WARES, 0);
+    PL.tut |= TUT_HER; pl_write();
+}
+
 static void update_human(float dt) {
     G.calm += dt;
+    if (tu_steering(dt)) return;                                   /* the lessons turn the view: a moment, nothing of yours moves it */
+    tu_tick(dt);
+    if (G.ui) return;                                              /* a lesson's page came up */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_FACEFOE")) {                                 /* for frames: the view turned to the nearest creature within eight cells, */
         G.hint_t = 0.0f;                                           /* and the controls card put away */
@@ -23662,6 +23930,7 @@ static void update_portrait(void) {                                /* its card: 
 static void buy_open(int i);
 static void shop_human(float dt) {
     if (!RUN.cls) { G.vow_change = 0; open_ui(UI_CLASS); return; }   /* her question, before anything else */
+    tu_show(); if (G.ui) return;                                   /* a lesson waiting: her wares (docs/PLAN-tutorial.md) */
     spell_keys();
     if (IN.hit[KEY_TAB]) { open_ui(UI_INVENTORY); return; }
     if (IN.hit[KEY_B]) { open_ui(UI_BESTIARY); return; }
@@ -23813,6 +24082,7 @@ static void update_buy(void) {
 
 /* the person takes over, from wherever the autopilot was */
 static void human_begin(void) {
+    if (g_drawn && !TU.on && !G.shop) tu_level_begin();          /* taken over on a drawn level: its lessons too */
     G.state = PS_PLAYER; G.pc_t = -1.0f; G.u = 1.0f; G.spd = 0.0f; G.seek_secret = -1; G.dash_t = 0.0f; G.tap_key = -1;
     G.cx = G.tx = (int)G.px; G.cy = G.ty = (int)G.py;
     if (RUN.gear.atk[G.spell] < 0) G.spell = own_spell();
@@ -23916,6 +24186,8 @@ static void open_ledger(int mode);
  * and what was not signed is lost, as in fleeing */
 static void run_new(void) {
     uint32_t seed = G.rs * 1664525u + 1013904223u;
+    pl_read();
+    if (PL.tut & TUT_AGAIN) { PL.tut = 0; pl_write(); }            /* the lessons asked for again: this run has them */
     int ql = G.quit_line;
     RUN.active = 0;                                                /* crawl_enter makes it fresh */
     pocket_reset_level();                                          /* out of any pocket, its hum with it */
@@ -24730,6 +25002,7 @@ static void touch_keys(float dt) {
         if (f->role == TF_PEND && tap) PRESS(KEY_E);
         if (ctx == TC_WHEEL && tap && f->role != TF_BTN) touch_wheel_tap(fg->x, fg->y);
         if (ctx == TC_TITLE && tap && f->role == TF_TAP && title_at_prompt()) PRESS(KEY_ENTER);
+        if (ctx == TC_MENU && tap && f->role == TF_TAP && G.ui == UI_TUTOR) PRESS(KEY_ENTER);   /* a lesson's page: a tap goes on */
         if (ctx == TC_PLAY && tap && (f->role == TF_TURN || f->role == TF_WALK) && fg->y >= IN.pic_y + H - 36 && fg->y < IN.pic_y + H
             && fg->x >= IN.pic_x && fg->x < IN.pic_x + W) PRESS(KEY_H);   /* a tap on the bar's place: the bar */
         if (f->role == TF_BTN && !f->held && f->t < 0.6f) {
@@ -25783,6 +26056,12 @@ static int title_tick(float dt) {                                  /* the title'
         } else if (back) { TI.st = TS_MENU; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
         break;
     default:                                                       /* the controls, help: back to the menu */
+        if (TI.st == TS_HELP && sel && !back) {                    /* the lessons on a new run, once they have been given */
+            pl_read();
+            if (PL.tut & TUT_L1) { PL.tut ^= TUT_AGAIN; pl_write(); snd_sfx_ex(SFX_TICK, 0.7f, 0.5f); }
+            else snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f);
+            break;
+        }
         if (sel || back) { TI.st = TS_MENU; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
         break;
     }
@@ -25824,15 +26103,20 @@ static void title_controls(Frame *f) {                             /* THE CONTRO
     ui_keys(f, (W - ui_keys_width("ESC BACK")) / 2, by + bh - 14, "ESC BACK", R_STONE + 12);
     ui_off();
 }
-static void title_help(Frame *f) {                                 /* HELP: still to be written */
+static void title_help(Frame *f) {                                 /* HELP: the lessons (docs/PLAN-tutorial.md 8.7) */
     ui_on(f, 0, "title help");
     dim_view(f);
-    int bw = 236, bh = 74, bx = (W - bw) / 2, by = (H - bh) / 2;
+    pl_read();
+    int given = PL.tut & TUT_L1, on = !given || (PL.tut & TUT_AGAIN);
+    int bw = 296, bh = 110, bx = (W - bw) / 2, by = (H - bh) / 2;
     ui_slab(f, bx, by, bw, bh, SLAB_LEDGER | SLAB_CALM, ORN_NONE, TI.t);
     ui_text16(f, (W - 4 * 8) / 2, by + 7, "HELP", FACE_INSC, R_GOLD + 12, TX_INLAID, 1);
-    const char *s = "THIS PAGE IS NOT WRITTEN YET.";
-    ui_text8(f, (W - (int)strlen(s) * 8) / 2, by + 32, s, FACE_INSC, R_STONE + 13, TX_INLAID);
-    const char *k = TI.pad ? "\1B BACK" : "ESC BACK";
+    static const char *const L[3] = { "THE FIRST TWO LEVELS OF A RUN TEACH", "AS YOU GO, ON YOUR FIRST RUN HERE.",
+                                      "THEIR LESSONS, AGAIN ON A NEW RUN:" };
+    for (int i = 0; i < 3; i++) ui_text8(f, (W - (int)strlen(L[i]) * 8) / 2, by + 30 + i * 12, L[i], FACE_INSC, R_STONE + 13, TX_INLAID);
+    const char *v = !given ? "THEY COME ON YOUR FIRST RUN" : on ? "YES" : "NO";
+    ui_text8(f, (W - (int)strlen(v) * 8) / 2, by + 70, v, FACE_INSC, on ? R_GOLD + 12 : R_STONE + 11, TX_INLAID);
+    const char *k = !given ? (TI.pad ? "\1B BACK" : "ESC BACK") : TI.pad ? "\1A CHANGES  \1B BACK" : "E CHANGES  ESC BACK";
     ui_keys(f, (W - ui_keys_width(k)) / 2, by + bh - 16, k, R_STONE + 12);
     ui_off();
 }
@@ -25879,7 +26163,7 @@ static void blame_text(const Blame *b, char *buf, int n) {
     }
 }
 
-static int death_costs(void) { return LEDGER.yours && !CON.used && !PK.depth; }   /* in the dream, with a code used, or in a pocket: the old mercy */
+static int death_costs(void) { return LEDGER.yours && !CON.used && !PK.depth && !tu_mercy(); }   /* nor while the lessons run (docs/PLAN-tutorial.md, T4 a) */   /* in the dream, with a code used, or in a pocket: the old mercy */
 static void death_write(void) {                                    /* the page it came from, or the unsigned run */
     static uint8_t buf[SLOT_MAX];
     RUN.signs++;
@@ -26039,6 +26323,7 @@ static int in_danger(void) {
 }
 static void update_mark(float dt) {
     if (!LEDGER.yours || CON.used || !RUN.active) return;
+    if (tu_mercy()) { if (LEDGER.marked) mark_write(0); return; }   /* the lessons' levels: a death costs nothing, so she has no claim */
     if (in_danger()) { LEDGER.calm_t = 8.0f; if (!LEDGER.marked) mark_write(1); }
     else if (LEDGER.marked && (LEDGER.calm_t -= dt) <= 0.0f) mark_write(0);
 }
@@ -27124,6 +27409,7 @@ static void update_ui(void) {
     if (G.ui == UI_PAD) { update_padmenu(); return; }
     if (G.ui == UI_PORTRAIT) { update_portrait(); return; }
     if (G.ui == UI_BUY) { update_buy(); return; }
+    if (G.ui == UI_TUTOR) { update_tutor(); return; }
     if (G.ui == UI_INVENTORY) update_inventory();
     else if (G.ui == UI_LEDGER) update_ledger();
     else if (G.ui == UI_MERCHANT) update_merchantmenu();
@@ -30280,6 +30566,7 @@ static void render_tally_in(Frame *f) {
             gfx_text16(f, 30, y, LABEL[r], r == 5 ? (uint8_t)(R_PURPLE + 13) : (uint8_t)C_WHITE, 1);
             if (r == 0 || r == 6) snprintf(line, sizeof line, "%d:%02d", v / 60, v % 60);
             else if (r == 3 || r == 5) snprintf(line, sizeof line, "+%d", v);
+            else if (r == 4 && !totals[r]) snprintf(line, sizeof line, "NONE HERE");   /* a drawn level with none (docs/PLAN-tutorial.md) */
             else snprintf(line, sizeof line, "%d / %d", v, totals[r]);
             int done = t >= TALLY_ROW0 + r * TALLY_ROW_GAP + TALLY_COUNT, lw = gfx_text_width(line, 1);
             gfx_text16(f, 290 - lw, y, line, done ? R_GOLD + 12 : R_GOLD + 8, 1);
@@ -34040,7 +34327,7 @@ static void render_portraitcard(Frame *f);
 static void render_ui(Frame *f) {
     static const char *const NAME[] = { "none", "wardrobe", "quit", "ledger", "bestiary", "letgo", "wisps", "altar", "shrine", "totem",
                                         "portal", "merchant", "stone", "compendium", "repository", "codex", "ascend", "cornerstones",
-                                        "alignment", "class", "hall2", "bshrine", "reckon", "controller", "portrait", "buy" };
+                                        "alignment", "class", "hall2", "bshrine", "reckon", "controller", "portrait", "buy", "tutor" };
     ui_on(f, 1, G.ui >= 0 && G.ui < (int)(sizeof NAME / sizeof NAME[0]) ? NAME[G.ui] : "?");
     render_ui_in(f);
     ui_off();
@@ -34064,6 +34351,7 @@ static void render_ui_in(Frame *f) {
     if (G.ui == UI_PAD) { render_padmenu(f); return; }
     if (G.ui == UI_PORTRAIT) { render_portraitcard(f); return; }
     if (G.ui == UI_BUY) { render_buy(f); return; }
+    if (G.ui == UI_TUTOR) { render_tutor(f); return; }
     if (G.ui == UI_INVENTORY) render_inventory(f);
     else if (G.ui == UI_QUIT) render_quit(f);
     else if (G.ui == UI_LEDGER) render_ledger(f);
