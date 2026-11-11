@@ -387,7 +387,10 @@ the way out won't open while the lessons run. The drawings are `docs/tutorial/le
 readings in whole cells beside them `level1-read.png` and `level2-read.png` (`tools/tutorial_read.py` reads such a drawing). The
 game's walls are cells and the drawings' are lines, so thin walls became stone and doors the neck cells beside them; the drawings are
 off the generator's 4-cell lanes, so each gets a lane mask drawn with it. `open_door` spends a key on the door it opens, so level 1's
-vault's two gold doors are made one lock (T19 a). The prefs byte for the lessons is the 27th, after touch's.
+vault's two gold doors are made one lock (T19 a). The prefs byte for the lessons is the 27th, after touch's. Settled (T20-T24
+answered); **step 2 is built** (harness only): level 1 drawn in play, everyone's (`g_drawn`, `DRAWN`, `gen_drawn` and its kin before
+`start_level`; `gen_level`'s tail is `gen_dress`, shared; `lane()` reads `g_lane` on a drawn level; `CRAWL_DRAWN=0` the generated level
+back). The plan's log says what comes next.
 
 ## Working with the owner
 

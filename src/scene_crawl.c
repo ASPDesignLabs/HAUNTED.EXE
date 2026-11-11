@@ -1802,8 +1802,17 @@ static void mcarve(int x, int y, int region, int theme, int room) {
     c->kind = K_FLOOR; c->region = (int16_t)region; c->theme = (uint8_t)theme; c->room = (int8_t)room;
 }
 static int in_mroom(int r, int x, int y) { return x >= mroom[r][0] && y >= mroom[r][1] && x < mroom[r][0] + mroom[r][2] && y < mroom[r][1] + mroom[r][3]; }
-static int lane(int x, int y) { return (x & 3) == 2 || (y & 3) == 2; }
-static int lane_dist(int x, int y) { int a = abs((x & 3) - 2), b = abs((y & 3) - 2); return a < b ? a : b; }
+/* a drawn level (docs/PLAN-tutorial.md) isn't on the plan's grid: its lanes are drawn with it, and each cell's steps to one kept */
+static int g_drawn;                                                /* 1 or 2: the drawn level in play; 0 any other place */
+static uint8_t g_lane[MAPN][MAPN], g_ldist[MAPN][MAPN];
+static int lane(int x, int y) {
+    if (g_drawn) return x >= 0 && y >= 0 && x < MAPN && y < MAPN && g_lane[y][x];
+    return (x & 3) == 2 || (y & 3) == 2;
+}
+static int lane_dist(int x, int y) {
+    if (g_drawn) return x >= 0 && y >= 0 && x < MAPN && y < MAPN ? g_ldist[y][x] : 9;
+    int a = abs((x & 3) - 2), b = abs((y & 3) - 2); return a < b ? a : b;
+}
 /* where the autopilot may walk: the middle lanes */
 static int apass(int x, int y) { return lane(x, y) && passable(x, y); }
 
@@ -2418,6 +2427,93 @@ static void con_carve(int x, int y, int a, int b) {             /* a wall betwee
 }
 static int mind_on(void);
 static int since(int level);
+/* what follows the plan on every level: the walls' stone by the room beside them, colonnades, torches, the dressing, what
+ * the autopilot can walk, fog, a boss's arena and the faces; a drawn level (docs/PLAN-tutorial.md) shares it */
+static void gen_dress(void) {
+    /* wall textures from the neighbouring room's theme, or the corridor zone */
+    for (int y = 0; y < MAPN; y++)
+        for (int x = 0; x < MAPN; x++) {
+            Cell *c = &G.map[y][x];
+            if (c->kind != K_WALL) continue;
+            int theme = -1;
+            for (int d = 0; d < 4; d++) {
+                Cell *n = cell(x + DX[d], y + DY[d]);
+                if (n->kind == K_FLOOR && n->theme != TH_CORRIDOR) theme = n->theme;
+            }
+            if (theme < 0) {
+                uint32_t z = hash2(x / 9 + 101, y / 9 + 57) % 10;
+                theme = z < 6 ? TH_CORRIDOR : (z < 8 ? TH_MOSS : TH_OSSUARY);
+            }
+            c->tex = (uint8_t)theme_tex(theme, hash2(x, y));
+        }
+    for (int i = 0; i < G.nsecrets; i++) {                       /* a plain stone for the cracks to show in */
+        Secret *sc = &G.secrets[i];
+        Cell *w = &G.map[sc->sy][sc->sx];
+        if (w->tex == T_NICHE || w->tex == T_BANNER || w->tex == T_SKULLS) w->tex = T_STONE;
+        sc->tex = w->tex;
+        if (sc->door_x >= 0) G.map[sc->door_y][sc->door_x].tex = T_PASSAGE;
+    }
+
+    /* colonnades down some of the big rooms: a pillar where four of their blocks meet */
+    for (int r = 0; r < G.nrooms; r++) {
+        if (mroom[r][2] < 3 || mroom[r][3] < 3 || rnd(10) >= 4) continue;
+        for (int my = mroom[r][1] + 1; my < mroom[r][1] + mroom[r][3] - 1; my += 2)
+            for (int mx = mroom[r][0] + 1; mx < mroom[r][0] + mroom[r][2] - 1; mx += 2) {
+                int x = mstart(mx), y = mstart(my);
+                G.map[y][x].kind = K_PILLAR;
+                add_deco(x + 0.5f, y + 0.5f, SP_PILLAR);
+            }
+    }
+
+    /* torches along the halls */
+    static int order[MAPN * MAPN];
+    int no = 0;
+    for (int i = 0; i < MAPN * MAPN; i++) order[no++] = i;
+    for (int i = no - 1; i > 0; i--) { int j = rnd(i + 1), t = order[i]; order[i] = order[j]; order[j] = t; }
+    for (int i = 0; i < no && G.nlights < MAXLIGHTS - 40; i++) {
+        int x = order[i] % MAPN, y = order[i] / MAPN;
+        if (G.map[y][x].kind != K_FLOOR || G.map[y][x].secret) continue;
+        int near = 0;
+        for (int l = 0; l < G.nlights; l++) if (abs(G.lights[l].cx - x) + abs(G.lights[l].cy - y) < 6) near = 1;
+        if (near || rndf() > 0.68f - 0.22f * depth()) continue;     /* fewer torches the deeper you go */
+        int d = rnd(4);
+        for (int k = 0; k < 4; k++, d = (d + 1) & 3) {
+            int wx = x + DX[d], wy = y + DY[d];
+            Cell *w = cell(wx, wy);
+            if (w->kind != K_WALL || w->secret || wx <= 0 || wy <= 0 || wx >= MAPN - 1 || wy >= MAPN - 1) continue;
+            int bydoor = 0;
+            for (int e = 0; e < 4; e++) if (cell(wx + DX[e], wy + DY[e])->kind == K_DOOR) bydoor = 1;
+            if (bydoor) continue;
+            w->tex = T_TORCH0; w->ftorch = (uint8_t)(((d + 2) & 3) + 1);   /* on the face toward the hall */
+            light_static(x + 0.5f + DX[d] * 0.42f, y + 0.5f + DY[d] * 0.42f, 1.55f, 4.6f);
+            break;
+        }
+    }
+
+    dress_level();
+
+    G.ncells = 0;                                                  /* what the autopilot can walk */
+    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (G.map[y][x].kind == K_FLOOR && lane(x, y) && !G.map[y][x].secret) G.ncells++;
+
+    /* fog banks: smooth blobs from a coarse random lattice; a few wisps at first, thick in the Deep */
+    #define FOGL (MAPN * 10 / 48 + 3)
+    float lat[FOGL][FOGL];
+    for (int j = 0; j < FOGL; j++) for (int i = 0; i < FOGL; i++) lat[j][i] = rndf();
+    float dk = clampf(0.45f * decay() + 0.55f * depth(), 0.0f, 1.0f), thr = 0.72f - 0.32f * dk, amt = 0.4f + 0.45f * dk;
+    for (int y = 0; y < MAPN; y++)
+        for (int x = 0; x < MAPN; x++) {
+            float fx = x / 4.8f, fy = y / 4.8f;
+            int ix = (int)fx, iy = (int)fy;
+            float ax = fx - ix, ay = fy - iy;
+            ax = ax * ax * (3 - 2 * ax); ay = ay * ay * (3 - 2 * ay);
+            float n = lerpf(lerpf(lat[iy][ix], lat[iy][ix + 1], ax), lerpf(lat[iy + 1][ix], lat[iy + 1][ix + 1], ax), ay);
+            G.fog[y][x] = clampf((n - thr) * 3.2f, 0.0f, 1.0f) * amt;
+        }
+    #undef FOGL
+    if (G.boss >= 0) stamp_arena();
+    if (G.faced) lay_faces();
+}
+
 static void gen_level(void) {
     G.faced = crawl_drawn(G.level); G.look = crawl_set(G.level);
     memset(nr_type, 0, sizeof nr_type);
@@ -2600,89 +2696,7 @@ static void gen_level(void) {
         }
 
     place_secrets();
-
-    /* wall textures from the neighbouring room's theme, or the corridor zone */
-    for (int y = 0; y < MAPN; y++)
-        for (int x = 0; x < MAPN; x++) {
-            Cell *c = &G.map[y][x];
-            if (c->kind != K_WALL) continue;
-            int theme = -1;
-            for (int d = 0; d < 4; d++) {
-                Cell *n = cell(x + DX[d], y + DY[d]);
-                if (n->kind == K_FLOOR && n->theme != TH_CORRIDOR) theme = n->theme;
-            }
-            if (theme < 0) {
-                uint32_t z = hash2(x / 9 + 101, y / 9 + 57) % 10;
-                theme = z < 6 ? TH_CORRIDOR : (z < 8 ? TH_MOSS : TH_OSSUARY);
-            }
-            c->tex = (uint8_t)theme_tex(theme, hash2(x, y));
-        }
-    for (int i = 0; i < G.nsecrets; i++) {                       /* a plain stone for the cracks to show in */
-        Secret *sc = &G.secrets[i];
-        Cell *w = &G.map[sc->sy][sc->sx];
-        if (w->tex == T_NICHE || w->tex == T_BANNER || w->tex == T_SKULLS) w->tex = T_STONE;
-        sc->tex = w->tex;
-        if (sc->door_x >= 0) G.map[sc->door_y][sc->door_x].tex = T_PASSAGE;
-    }
-
-    /* colonnades down some of the big rooms: a pillar where four of their blocks meet */
-    for (int r = 0; r < G.nrooms; r++) {
-        if (mroom[r][2] < 3 || mroom[r][3] < 3 || rnd(10) >= 4) continue;
-        for (int my = mroom[r][1] + 1; my < mroom[r][1] + mroom[r][3] - 1; my += 2)
-            for (int mx = mroom[r][0] + 1; mx < mroom[r][0] + mroom[r][2] - 1; mx += 2) {
-                int x = mstart(mx), y = mstart(my);
-                G.map[y][x].kind = K_PILLAR;
-                add_deco(x + 0.5f, y + 0.5f, SP_PILLAR);
-            }
-    }
-
-    /* torches along the halls */
-    static int order[MAPN * MAPN];
-    int no = 0;
-    for (int i = 0; i < MAPN * MAPN; i++) order[no++] = i;
-    for (int i = no - 1; i > 0; i--) { int j = rnd(i + 1), t = order[i]; order[i] = order[j]; order[j] = t; }
-    for (int i = 0; i < no && G.nlights < MAXLIGHTS - 40; i++) {
-        int x = order[i] % MAPN, y = order[i] / MAPN;
-        if (G.map[y][x].kind != K_FLOOR || G.map[y][x].secret) continue;
-        int near = 0;
-        for (int l = 0; l < G.nlights; l++) if (abs(G.lights[l].cx - x) + abs(G.lights[l].cy - y) < 6) near = 1;
-        if (near || rndf() > 0.68f - 0.22f * depth()) continue;     /* fewer torches the deeper you go */
-        int d = rnd(4);
-        for (int k = 0; k < 4; k++, d = (d + 1) & 3) {
-            int wx = x + DX[d], wy = y + DY[d];
-            Cell *w = cell(wx, wy);
-            if (w->kind != K_WALL || w->secret || wx <= 0 || wy <= 0 || wx >= MAPN - 1 || wy >= MAPN - 1) continue;
-            int bydoor = 0;
-            for (int e = 0; e < 4; e++) if (cell(wx + DX[e], wy + DY[e])->kind == K_DOOR) bydoor = 1;
-            if (bydoor) continue;
-            w->tex = T_TORCH0; w->ftorch = (uint8_t)(((d + 2) & 3) + 1);   /* on the face toward the hall */
-            light_static(x + 0.5f + DX[d] * 0.42f, y + 0.5f + DY[d] * 0.42f, 1.55f, 4.6f);
-            break;
-        }
-    }
-
-    dress_level();
-
-    G.ncells = 0;                                                  /* what the autopilot can walk */
-    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (G.map[y][x].kind == K_FLOOR && lane(x, y) && !G.map[y][x].secret) G.ncells++;
-
-    /* fog banks: smooth blobs from a coarse random lattice; a few wisps at first, thick in the Deep */
-    #define FOGL (MAPN * 10 / 48 + 3)
-    float lat[FOGL][FOGL];
-    for (int j = 0; j < FOGL; j++) for (int i = 0; i < FOGL; i++) lat[j][i] = rndf();
-    float dk = clampf(0.45f * decay() + 0.55f * depth(), 0.0f, 1.0f), thr = 0.72f - 0.32f * dk, amt = 0.4f + 0.45f * dk;
-    for (int y = 0; y < MAPN; y++)
-        for (int x = 0; x < MAPN; x++) {
-            float fx = x / 4.8f, fy = y / 4.8f;
-            int ix = (int)fx, iy = (int)fy;
-            float ax = fx - ix, ay = fy - iy;
-            ax = ax * ax * (3 - 2 * ax); ay = ay * ay * (3 - 2 * ay);
-            float n = lerpf(lerpf(lat[iy][ix], lat[iy][ix + 1], ax), lerpf(lat[iy + 1][ix], lat[iy + 1][ix + 1], ax), ay);
-            G.fog[y][x] = clampf((n - thr) * 3.2f, 0.0f, 1.0f) * amt;
-        }
-    #undef FOGL
-    if (G.boss >= 0) stamp_arena();
-    if (G.faced) lay_faces();
+    gen_dress();
 }
 
 /* set dressing: bones, webs, chains and roots in the halls, a totem at some crossings; each room a
@@ -6551,6 +6565,7 @@ static float ward_str(void);
 static float weak_el(const Mob *m, int el) {
     if (m->type == MOB_GHOST) return el == EL_SPIRIT && spirit_mastery() ? 1.0f : 0.0f;   /* a spectre: Spirit Mastery's alone */
     if (m->type == MOB_WRAITH && m->boss) return el == EL_FIRE ? 1.2f : 1.0f;   /* the Wraith Unbound, in light */
+    if (g_drawn) return 1.0f;                                      /* the drawn levels' dead take every element alike (T6 a) */
     int strong = m->ward[0] == el + 1 || m->ward[1] == el + 1;
     if (!elem_mode()) {                                            /* the old: a knight down to its breastplate has nothing left
                                                                       to keep fire off; a ward keeps 60% to 90% off (1.0.0b16) */
@@ -14580,7 +14595,7 @@ static void lull_tick(float dt) {
     static double lull_why;
     if (getenv("CRAWL_LULLTRACE") && G.t >= lull_why) { lull_why = G.t + 5.0; fprintf(stderr, "LULL gate player=%d dead=%d ui=%d exiting=%d ok=%d\n", G.player, G.dead, G.ui, G.exiting, mk_level_ok()); }
 #endif
-    if (!G.player || G.dead || G.ui || G.exiting || !mk_level_ok()) { G.lull_t = 0.0f; return; }
+    if (!G.player || G.dead || G.ui || G.exiting || !mk_level_ok() || g_drawn) { G.lull_t = 0.0f; return; }   /* not on a drawn level */
     G.lull_cd = fmaxf(0.0f, G.lull_cd - dt);
     int quiet = !in_combat() && G.items_got == G.lull_items && G.links_found == G.lull_links;
     if (quiet && (G.lull_look -= dt) <= 0.0f) {                    /* a creature in sight ends it too */
@@ -14607,6 +14622,221 @@ static void lull_tick(float dt) {
     static double lull_say;
     if (getenv("CRAWL_LULLTRACE") && G.t >= lull_say) { lull_say = G.t + 2.0; fprintf(stderr, "LULL t=%.1f quiet=%d lull=%.1f cd=%.1f v=%.2f\n", G.t, quiet, G.lull_t, G.lull_cd, hypotf(G.pvx, G.pvy)); }
 #endif
+}
+
+/* ---- Drawn levels (docs/PLAN-tutorial.md): levels 1 and 2 of the first descent are the owner's drawings, the same every
+ * time, for everyone, the dream too. Each is a map of letters, its rooms by type, and what stands in it, in the drawing's own
+ * cells (x east from its corner, y south, as docs/tutorial/level*-read.png has them), laid at (ox, oy) in the level's map.
+ * The look, the dressing and the torches are the generator's, laid on a seed of the drawing's own, so they lie the same each
+ * time too. The letters: # stone, . floor, + floor on a lane, F the burning floor, f on a lane, D a door, G a gold door,
+ * S the start (on a lane), h the place to mend and X the exit (walls, used from their one open side). Doors are on lanes. ---- */
+typedef struct { int x, y, w, h, rtype; } DrawnRoom;
+enum { DT_GOLD, DT_KEY, DT_DEAD };
+typedef struct { int what, kind; float x, y; } DrawnThing;          /* kind: an IT_* for gold, a key's colour, a MOB_* */
+typedef struct {
+    const char *const *map; int w, h, ox, oy, face;                 /* face: the heading at the start, as G.h */
+    const DrawnRoom *room; int nroom, vault;                       /* vault: the room the gold doors keep, -1 none */
+    const DrawnThing *thing; int nthing;
+    uint32_t seed;                                                 /* the dice its look is laid with */
+} Drawn;
+static const char *const DRAWN1_MAP[32] = {
+    "##S++#################",    /*  0 */
+    "####D#################",    /*  1 */
+    "##Fff#################",    /*  2 */
+    "##FfF#################",    /*  3 */
+    "##FfF#################",    /*  4 */
+    "##FfF#################",    /*  5 */
+    "##.+.#################",    /*  6 */
+    "##.+.#################",    /*  7 */
+    "##.+.#################",    /*  8 */
+    "##.+.............#####",    /*  9 */
+    "##.++++++++++++++#####",    /* 10 */
+    "##.+...........+.#####",    /* 11 */
+    "###h##########.+.#.+..",    /* 12 */
+    "##############.+.#++++",    /* 13 */
+    "##############.+.#.+..",    /* 14 */
+    "##############.++D++++",    /* 15 */
+    "##########.+.#.+.#####",    /* 16 */
+    "##########+++D++.#####",    /* 17 */
+    "##########.+.#.+.#####",    /* 18 */
+    "##############.+.#####",    /* 19 */
+    "####...........+.#####",    /* 20 */
+    "####+++++++++++++#####",    /* 21 */
+    "####+............#####",    /* 22 */
+    ".++D++################",    /* 23 */
+    ".+.#.+####.+.#########",    /* 24 */
+    ".+##.+####.+.#########",    /* 25 */
+    ".+G+#+#####D##########",    /* 26 */
+    ".+#+#+##...+...#######",    /* 27 */
+    ".+#+#+##+++++++#######",    /* 28 */
+    ".+#+#+##...+...#####X#",    /* 29 */
+    ".+#+#+.....+...#....+.",    /* 30 */
+    ".+#+G++++++++++D++++++",    /* 31 */
+};
+static const DrawnThing DRAWN1_THING[] = {
+    { DT_GOLD, IT_COINS, 4.01f, 7.02f }, { DT_GOLD, IT_COINS, 6.01f, 10.02f }, { DT_GOLD, IT_COINS, 12.03f, 10.02f },
+    { DT_GOLD, IT_CHALICE, 16.04f, 10.02f }, { DT_GOLD, IT_COINS, 3.01f, 11.03f }, { DT_GOLD, IT_COINS, 9.09f, 11.09f },
+    { DT_GOLD, IT_GEMS, 20.98f, 14.03f }, { DT_GOLD, IT_COINS, 14.97f, 14.10f }, { DT_GOLD, IT_CHALICE, 20.11f, 15.03f },
+    { DT_GOLD, IT_COINS, 20.98f, 15.03f }, { DT_GOLD, IT_GEMS, 11.02f, 17.10f }, { DT_GOLD, IT_CHALICE, 12.67f, 18.04f },
+    { DT_GOLD, IT_COINS, 16.03f, 18.04f }, { DT_GOLD, IT_CHALICE, 16.04f, 19.04f }, { DT_GOLD, IT_COINS, 8.08f, 21.04f },
+    { DT_GOLD, IT_CHALICE, 13.03f, 22.05f }, { DT_GOLD, IT_CHALICE, 0.94f, 24.05f }, { DT_GOLD, IT_COINS, 4.95f, 24.05f },
+    { DT_GOLD, IT_GEMS, 10.96f, 25.05f }, { DT_GOLD, IT_CHALICE, 12.03f, 25.12f }, { DT_GOLD, IT_COINS, 5.31f, 25.90f },
+    { DT_GOLD, IT_CHEST, 3.44f, 26.54f }, { DT_GOLD, IT_CROWN, 3.35f, 26.96f }, { DT_GOLD, IT_COINS, 0.94f, 27.06f },
+    { DT_GOLD, IT_GEMS, 3.63f, 27.37f }, { DT_GOLD, IT_CHALICE, 9.08f, 28.06f }, { DT_GOLD, IT_COINS, 13.10f, 28.06f },
+    { DT_GOLD, IT_GEMS, 3.43f, 28.41f }, { DT_GOLD, IT_GEMS, 1.00f, 29.06f }, { DT_GOLD, IT_CHALICE, 3.67f, 29.22f },
+    { DT_GOLD, IT_COINS, 3.33f, 29.82f }, { DT_GOLD, IT_COINS, 1.01f, 30.06f }, { DT_GOLD, IT_COINS, 12.03f, 30.06f },
+    { DT_GOLD, IT_COINS, 19.98f, 31.00f }, { DT_GOLD, IT_COINS, 7.02f, 31.06f }, { DT_GOLD, IT_CHALICE, 14.06f, 31.06f },
+    { DT_GOLD, IT_CHALICE, 18.95f, 31.09f }, { DT_GOLD, IT_GEMS, 21.11f, 31.13f }, { DT_KEY, 0, 11.20f, 24.57f },
+    { DT_DEAD, MOB_SKEL, 15.10f, 12.96f }, { DT_DEAD, MOB_SKEL, 20.98f, 13.10f }, { DT_DEAD, MOB_SKEL, 19.04f, 14.97f },
+    { DT_DEAD, MOB_SKEL, 16.04f, 16.04f }, { DT_DEAD, MOB_SKEL, 11.03f, 18.04f }, { DT_DEAD, MOB_SKEL, 14.97f, 20.04f },
+    { DT_DEAD, MOB_SKEL, 5.08f, 21.98f }, { DT_DEAD, MOB_SKEL, 1.00f, 28.12f }, { DT_DEAD, MOB_SKEL, 5.95f, 31.06f },
+    { DT_DEAD, MOB_SKEL, 9.09f, 31.07f }, { DT_DEAD, MOB_SKEL, 1.00f, 31.13f },
+};
+static const DrawnRoom DRAWN1_ROOM[] = {
+    { 18, 12, 4, 4, RT_BURIAL }, { 10, 16, 3, 3, RT_OSSUARY }, { 10, 24, 3, 2, RT_OSSUARY },   /* the east room, the side room, the key room */
+    { 0, 23, 3, 9, RT_UNDER }, { 8, 27, 7, 3, RT_CHAPTER }, { 3, 26, 1, 6, RT_KNIGHTS },     /* the west room, the big room, the vault */
+};
+#define NDRAWN 1
+static const Drawn DRAWN[NDRAWN] = {
+    { DRAWN1_MAP, 22, 32, 11, 6, 0, DRAWN1_ROOM, (int)(sizeof DRAWN1_ROOM / sizeof DRAWN1_ROOM[0]), 5,
+      DRAWN1_THING, (int)(sizeof DRAWN1_THING / sizeof DRAWN1_THING[0]), 0x7D1A0001u },
+};
+#define DRAWN_HALL 40                                              /* the halls' region on a drawn level */
+static int drawn_level(int level) {                                /* which drawing a level is, 1-based; 0 none */
+#ifdef CRAWL_DEBUG
+    static int off = -1;
+    if (off < 0) { const char *e = getenv("CRAWL_DRAWN"); off = e && atoi(e) == 0; }   /* 0: the generated levels, as before */
+    if (off) return 0;
+#endif
+    return level >= 1 && level <= NDRAWN && !PK.depth ? level : 0;
+}
+static const Drawn *drawn(void) { return &DRAWN[g_drawn - 1]; }
+static char drawn_ch(int x, int y) {                               /* the letter at a cell of the level's map */
+    const Drawn *D = drawn();
+    x -= D->ox; y -= D->oy;
+    return x < 0 || y < 0 || x >= D->w || y >= D->h ? '#' : D->map[y][x];
+}
+static int drawn_front(int wx, int wy, int *fx, int *fy) {         /* a wall's one open side: the cell it is used from, and the way */
+    for (int d = 0; d < 4; d++)
+        if (is_open(wx + DX[d], wy + DY[d])) { *fx = wx + DX[d]; *fy = wy + DY[d]; return (d + 2) & 3; }
+    *fx = *fy = -1;
+    return 0;
+}
+static void gen_drawn(void) {
+    const Drawn *D = drawn();
+    G.faced = crawl_drawn(G.level); G.look = crawl_set(G.level);
+    memset(nr_type, 0, sizeof nr_type);
+    memset(G.map, 0, sizeof G.map);
+    for (int y = 0; y < MAPN; y++)
+        for (int x = 0; x < MAPN; x++) { G.map[y][x].kind = K_WALL; G.map[y][x].region = -1; G.map[y][x].door = -1; }
+    memset(MM, 0, sizeof MM);                                      /* no plan: the dressing's crossings find none */
+    for (int y = 0; y < MG; y++) for (int x = 0; x < MG; x++) { MM[y][x].kind = K_WALL; MM[y][x].region = -1; MM[y][x].room = -1; }
+    G.nrooms = 0; G.ndoors = 0; G.nlights = 0; G.nlc = 0; G.ndecos = 0;
+    memset(G.bulky, 0, sizeof G.bulky); memset(G.mapped, 0, sizeof G.mapped); memset(G.foot, 0, sizeof G.foot);
+    G.nvaults = 0;
+    for (int k = 0; k < NKEYS; k++) G.vault_room[k] = G.vault_door[k] = -1;
+    G.pz = -1; G.pz_room = G.pz_door = -1; G.pz_exit = 0;           /* no puzzle, trial, lair or secret */
+    G.tri = -1; G.tri_room = G.tri_door = -1; G.lairs = 0;
+    G.nsecrets = G.secrets_found = G.nlinks = G.links_found = G.trials_failed = 0; G.slide = -1;
+    memset(g_lane, 0, sizeof g_lane);
+    for (int r = 0; r < D->nroom && r < 12; r++) {
+        const DrawnRoom *dr = &D->room[r];
+        G.rooms[r] = (Room){ D->ox + dr->x, D->oy + dr->y, dr->w, dr->h, r, RTYPES[dr->rtype].theme, dr->rtype };
+        mroom[r][0] = mroom[r][1] = 0; mroom[r][2] = mroom[r][3] = 1;   /* a block each, so nothing laid by the plan's blocks */
+        nr_type[dr->rtype]++; G.nrooms++;
+    }
+    for (int y = 0; y < D->h; y++)
+        for (int x = 0; x < D->w; x++) {
+            char ch = D->map[y][x];
+            int mx = D->ox + x, my = D->oy + y, rg = DRAWN_HALL, th = TH_CORRIDOR;
+            if (ch == '#' || ch == 'h' || ch == 'X') continue;
+            if (ch != 'D' && ch != 'G')
+                for (int r = 0; r < G.nrooms; r++) if (in_room(&G.rooms[r], mx, my)) { rg = r; th = G.rooms[r].theme; }
+            carve(mx, my, rg, th);
+            if (ch == 'D' || ch == 'G') G.map[my][mx].kind = K_DOOR;
+            if (ch == '+' || ch == 'f' || ch == 'D' || ch == 'G' || ch == 'S') g_lane[my][mx] = 1;
+        }
+    for (int y = 0; y < MAPN; y++)                                 /* the doors; a gold door is the vault's */
+        for (int x = 0; x < MAPN; x++) {
+            if (G.map[y][x].kind != K_DOOR || G.ndoors >= MAXDOORS) continue;
+            int gold = drawn_ch(x, y) == 'G', ax = is_open(x - 1, y) && is_open(x + 1, y);
+            G.map[y][x].door = (int16_t)G.ndoors;
+            G.doors[G.ndoors++] = (Door){ x, y, ax, 0.0f, 0.0f, 0, gold, 0, 0 };
+            if (gold) G.vault_door[0] = G.ndoors - 1;
+        }
+    if (D->vault >= 0) { G.nvaults = 1; G.vault_room[0] = D->vault; }
+    gen_dress();
+    static int qx[MAPN * MAPN], qy[MAPN * MAPN];                   /* each cell's steps to a lane, for what lies within reach of one */
+    int qh = 0, qt = 0;
+    for (int y = 0; y < MAPN; y++)
+        for (int x = 0; x < MAPN; x++) {
+            g_ldist[y][x] = g_lane[y][x] ? 0 : 9;
+            if (g_lane[y][x]) { qx[qt] = x; qy[qt] = y; qt++; }
+        }
+    while (qh < qt) {
+        int x = qx[qh], y = qy[qh]; qh++;
+        for (int d = 0; d < 4; d++) {
+            int nx = x + DX[d], ny = y + DY[d];
+            if (!is_open(nx, ny) || g_ldist[ny][nx] <= g_ldist[y][x] + 1) continue;
+            g_ldist[ny][nx] = (uint8_t)(g_ldist[y][x] + 1); qx[qt] = nx; qy[qt] = ny; qt++;
+        }
+    }
+}
+static void drawn_start(void) {
+    const Drawn *D = drawn();
+    for (int y = 0; y < D->h; y++) for (int x = 0; x < D->w; x++) if (D->map[y][x] == 'S') { G.cx = D->ox + x; G.cy = D->oy + y; }
+}
+static void drawn_items(void) {                                    /* the gold and the keys where drawn: no potion */
+    const Drawn *D = drawn();
+    G.nitems = 0; G.items_total = 0; G.items_got = 0; G.value_total = G.value_got = 0;
+    for (int i = 0; i < D->nthing; i++) {
+        const DrawnThing *t = &D->thing[i];
+        if (t->what != DT_GOLD && t->what != DT_KEY) continue;
+        float x = D->ox + t->x, y = D->oy + t->y;
+        Item *it = add_item((int)x, (int)y, t->what == DT_KEY ? IT_KEY : t->kind);
+        if (!it) continue;
+        it->x = x; it->y = y;
+        if (t->what == DT_KEY) it->color = t->kind;
+    }
+}
+static void drawn_walls(void) {                                    /* the exit and the places to mend, in the walls drawn */
+    const Drawn *D = drawn();
+    G.exit_fx = G.exit_fy = -1; G.exit_in_vault = -1;
+    G.nrest = 0; G.rest_on = 0; G.rest_goal = -1;
+    for (int y = 0; y < D->h; y++)
+        for (int x = 0; x < D->w; x++) {
+            char ch = D->map[y][x];
+            int wx = D->ox + x, wy = D->oy + y, fx, fy, d;
+            if (ch == 'X') {
+                d = drawn_front(wx, wy, &fx, &fy);
+                if (fx < 0) continue;
+                G.exit_fx = fx; G.exit_fy = fy; G.exit_dir = d; G.exit_wx = wx; G.exit_wy = wy;
+                G.map[wy][wx].tex = T_EXIT0;
+                light_static(fx + 0.5f + DX[d] * 0.35f, fy + 0.5f + DY[d] * 0.35f, 0.9f, 3.2f);   /* its runes light the stone */
+            } else if (ch == 'h' && G.nrest < 2) {
+                d = drawn_front(wx, wy, &fx, &fy);
+                if (fx < 0) continue;
+                G.map[wy][wx].tex = T_REST;
+                G.rest_x[G.nrest] = wx; G.rest_y[G.nrest] = wy; G.rest_fx[G.nrest] = fx; G.rest_fy[G.nrest] = fy; G.nrest++;
+                light_static(fx + 0.5f + DX[d] * 0.38f, fy + 0.5f + DY[d] * 0.38f, 0.75f, 2.8f);   /* its candles */
+            }
+        }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "DRAWN level %d: exit (%d,%d) before (%d,%d), %d to mend, %d rooms, %d doors\n", G.level, G.exit_wx, G.exit_wy, G.exit_fx, G.exit_fy, G.nrest, G.nrooms, G.ndoors);
+#endif
+}
+static void drawn_dead(void) {                                     /* the dead where drawn, rank I, each at its post */
+    const Drawn *D = drawn();
+    for (int i = 0; i < D->nthing; i++) {
+        const DrawnThing *t = &D->thing[i];
+        if (t->what != DT_DEAD) continue;
+        float x = D->ox + t->x, y = D->oy + t->y;
+        Mob *m = spawn_mob((int)x, (int)y, t->kind);
+        if (!m) continue;
+        m->x = x; m->y = y;
+        set_rank(m, RK_I);
+        m->home = G.map[m->cy][m->cx].region;
+    }
 }
 
 static void start_level(void) {
@@ -14640,7 +14870,9 @@ static void start_level(void) {
     G.bstep = G.bchallenge && G.boss >= 0 ? RUN.bstep[G.boss] : 0;
     crawl_art_level(G.level);
     ui_marble_make(0x51ABu ^ (unsigned)G.level * 7919u); ui_marble_lv = G.level;   /* the menus' marble, made now, not on a frame in play */
-    gen_level();
+    g_drawn = drawn_level(G.level);                                /* the owner's drawing (docs/PLAN-tutorial.md), laid on its own dice */
+    uint32_t run_rs = G.rs;
+    if (g_drawn) { G.rs = drawn()->seed; gen_drawn(); } else gen_level();
     memset(G.mobs, 0, sizeof G.mobs); G.nroute = 0; G.npacks = 0; G.gathered = 0;   /* and the patrols' rounds, the packs */
     memset(G.scent, 0, sizeof G.scent); G.namb = 0; G.hunt_kind = G.hunt_on = G.hunt_said = 0; G.noise_t = -1.0f; G.still_t = 0.0f;   /* the trail */
     memset(G.shots, 0, sizeof G.shots);
@@ -14655,39 +14887,48 @@ static void start_level(void) {
     G.cx = R->x + R->w / 2; G.cy = R->y + R->h / 2;
     G.cx -= ((G.cx - 2) % 4 + 4) % 4; G.cy -= ((G.cy - 2) % 4 + 4) % 4;   /* where two lanes cross */
     if (G.map[G.cy][G.cx].kind != K_FLOOR) { G.cx = R->x + 1; G.cy = R->y + 1; }
+    if (g_drawn) drawn_start();
     G.exit_seen = G.leaving = G.exiting = 0; G.exit_open = G.exit_t = 0.0f; G.seek_secret = -1;
     G.kills = G.kills_total = 0; G.tally = 0; G.tally_t = 0.0; G.tally_done = 0;
     memset(G.tally_shown, 0, sizeof G.tally_shown);
-    place_items(G.cx, G.cy);
-    if (G.boss < 0) place_exit(G.cx, G.cy);                        /* a boss level's way out is beyond its boss */
+    if (g_drawn) { drawn_items(); drawn_walls(); }                 /* where drawn: no potion, sites, things or spectres */
+    else {
+        place_items(G.cx, G.cy);
+        if (G.boss < 0) place_exit(G.cx, G.cy);                    /* a boss level's way out is beyond its boss */
+    }
     place_altar();
-    place_sites();                                                 /* the run's fixed hazards (1.0.0b13) */
+    if (g_drawn) { G.nsite = 0; G.snare_t = 0.0f; G.arise_t = 1e9f; }
+    else place_sites();                                            /* the run's fixed hazards (1.0.0b13) */
     G.nthing = 0; G.carry = 0; G.read_t = 0.0f;                    /* a puzzle's things are its level's */
     docs_clear();                                                  /* and what was read on the last */
     pz_make();
     pz_hide();                                                     /* its answer, written down and hidden; the Black Shrine */
     tri_place(); snd_set_trial(0);                                 /* the trial's door, its lights */
-    place_rests();                                                 /* the places to mend (1.0.0b15) */
-    place_marked();                                                /* things that want a spell (1.0.0b16) */
-    place_fights();                                                /* and things for fights (step 8) */
+    if (!g_drawn) {
+        place_rests();                                             /* the places to mend (1.0.0b15) */
+        place_marked();                                            /* things that want a spell (1.0.0b16) */
+        place_fights();                                            /* and things for fights (step 8) */
+    } else { G.nmk = 0; G.ward_said = 0; }
     ward_make();                                                   /* a soul-lamp by each challenge, out (1.0.0b18.1) */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_THINGS")) things_test();
 #endif
     G.level_treasure = 0; G.level_souls = 0; G.dead = 0; G.dead_t = 0.0; G.spirit_said = G.splint_said = 0;
     G.wraith_done = G.wraith_now = 0; G.wraith_try = 0.0f;          /* the Wraith comes once a level, and again after a death */
-    spectres_set();
+    if (g_drawn) { G.spec_n = 0; G.spec_t = 1e9f; } else spectres_set();
     memset(G.wisps, 0, sizeof G.wisps);                            /* wisps don't go down the stairs with you */
     G.hurt = G.gold = G.kick = G.chill = 0.0f; G.pvx = G.pvy = 0.0f;
     G.px = G.cx + 0.5f; G.py = G.cy + 0.5f;
     G.h = rnd(4);
     for (int k = 0; k < 4 && !apass(G.cx + DX[G.h], G.cy + DY[G.h]); k++) G.h = (G.h + 1) & 3;
+    if (g_drawn) G.h = drawn()->face;
     G.ang = heading_angle(G.h);
     G.map[G.cy][G.cx].visits = 1; G.explored = 1;
     G.spd = 0.0f; G.bobph = 0.0f; G.camz = 0.5f; G.hand = 0.0f; G.cooldown = 2.0f; G.calm = 0.0f;
     start_move();
     memset(G.spawned, 0, sizeof G.spawned); memset(G.named, 0, sizeof G.named);
-    if (mind_on()) place_creatures(); else place_creatures_old();   /* step 8: one budget spent on set pieces */
+    if (g_drawn) drawn_dead();
+    else if (mind_on()) place_creatures(); else place_creatures_old();   /* step 8: one budget spent on set pieces */
     if (G.corrupt) snd_sfx_ex(SFX_DEEPCHIME, 0.45f, 0.5f);         /* and the bell heard as you come */
     if (G.boss >= 0) boss_spawn();
     hunt_cx = -1;
@@ -14700,6 +14941,7 @@ static void start_level(void) {
         if (np) set_rank(&G.mobs[pick[rnd(np)]], RK_GILDED);
         amb_gild();                                                /* and one time in two it runs to a kill room when hurt (L2) */
     }
+    if (g_drawn) G.rs = run_rs;                                    /* the drawing laid: the run's own dice again */
 #ifdef CRAWL_DEBUG
     { int nt[NKINDS] = { 0 }, nr[NRANK] = { 0 }; for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive) { nt[G.mobs[i].type]++; nr[G.mobs[i].rank]++; }
       fprintf(stderr, "LEVEL %d mobs:", G.level);
@@ -21092,7 +21334,8 @@ static void crawl_update(double dt) {
     name_newcomers();
 
     /* keep the action coming: if nothing has happened for a while, wake something up ahead */
-    if (G.calm > (G.player ? 35.0f : 11.0f) && !PK.depth) {        /* a person clears a level for good, mostly */
+    if (G.calm > (G.player ? 35.0f : 11.0f) && !PK.depth && !g_drawn) {   /* a person clears a level for good, mostly; a drawn
+                                                                      level holds what was drawn */
         int x, y, alive = 0;
         for (int i = 0; i < MAXMOBS; i++) { const Mob *m = &G.mobs[i]; alive += m->alive && !m->guard && !m->ally && !KIND_IS(m, KF_UNCOUNTED) && m->type != MOB_WSKULL && m->type != MOB_SPIDER && m->type != MOB_GARGOYLE && m->type != MOB_LING; }
         int old_calm = !mind_on();
@@ -21553,6 +21796,7 @@ static int shop_choose(void) {
 static void por_dream(void);
 static void begin_shop(void) {
     hz_clear(); snd_set_boss(0, 0);
+    g_drawn = 0;                                                   /* her rooms are on the plan's grid */
     G.pz = -1; G.nthing = 0; G.carry = 0;                          /* nor a puzzle */
     G.msg_deco = G.srch_deco = G.bsh_x = -1; docs_clear();
     G.tri = G.tri_room = G.tri_door = -1; G.work_i = 0; snd_set_trial(0);
@@ -22285,6 +22529,8 @@ static int open_door(Door *d) {
     if (d->locked == 1) {
         if (!G.has_key[d->color]) { say("THE %s DOOR IS LOCKED", KEY_COLOR[d->color]); return 0; }
         d->locked = 2; G.has_key[d->color] = 0; G.unlock_t = G.level_t; snd_sfx(SFX_UNLOCK); pop_readout();
+        if (g_drawn) for (int i = 0; i < G.ndoors; i++) if (G.doors[i].locked == 1 && G.doors[i].color == d->color) G.doors[i].locked = 2;   /* a drawn
+                                                                      vault's doors are one lock (docs/PLAN-tutorial.md, T19 a) */
     }
     if (!d->opening && d->open < 0.95f) d->opening = 1;
     return 1;

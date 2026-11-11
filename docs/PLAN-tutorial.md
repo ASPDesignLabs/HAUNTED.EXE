@@ -1,11 +1,10 @@
 # The tutorial: the first two levels, drawn and taught
 
-**Level 1 settled; level 2 read, with a second round of questions; nothing built** (11 November 2026, on `claude/sweet-carson-qxvyfi`,
-from main at 1.0.0b21.3 with 1.0.0b21.4 merged in since). The owner gave the brief and run I level 1's drawing, answered the first
-round (T1-T19, section 13) the same day, and gave level 2's drawing and brief with the answers. It is **1.0.0b21.5** (T14). Both
-drawings are read cell by cell (sections 2 and 3); level 2 raises the questions T20-T24 (section 13), each with the answer I'd
-take marked *(recommended)*, and a few defaults I took are listed with them. Every number here that isn't the owner's is a default,
-to be changed by playing. Nothing of it has been played.
+**Settled; being built** (11 November 2026, on `claude/sweet-carson-qxvyfi`, from main at 1.0.0b21.3 with 1.0.0b21.4 merged in
+since). The owner gave the brief and run I level 1's drawing, answered the first round (T1-T19, section 13), gave level 2's drawing
+and brief, and answered the second round (T20-T24) the same day. It is **1.0.0b21.5** (T14). Both drawings are read cell by cell
+(sections 2 and 3). Every number here that isn't the owner's is a default, to be changed by playing; the defaults taken on level 2
+are listed in section 13. Section 12's steps are being built in order; the hand-off log (section 14) says how far.
 
 *The brief, in a line: levels 1 and 2 of the first run laid out the same every time, from the owner's drawings; a paged screen
 that pauses the crypt and teaches as you go; the view taken and turned at a few moments; triggers in the floor that teach, or
@@ -259,20 +258,22 @@ and **the secret** (x 7-9, rows 32-34).
 
 ### The dead
 
-Fifteen (eleven on level 1).
+Fifteen (eleven on level 1): half skeletons, a quarter shamblers, a quarter bats (T23), all rank I, so that no more than one
+thrower stands in any one place. Shamblers wait under turned earth before a grave laid for each, as they do today, and rise when
+you come near.
 
-| # | Where | Place | | # | Where | Place |
-|---|---|---|---|---|---|---|
-| 1 | (2.3, 5.0) | the start, west | | 9 | (1.4, 18.2) | the west room |
-| 2 | (13.0, 5.7) | the east hall's end | | 10 | (7.1, 22.6) | the middle way's foot |
-| 3 | (3.4, 9.4) | the west passage | | 11 | (3.1, 22.9) | the middle way's foot |
-| 4 | (11.7, 12.6) | the map room | | 12 | (11.6, 26.3) | the great hall |
-| 5 | (7.9, 13.1) | the exit room | | 13 | (12.9, 28.8) | the south-east room |
-| 6 | (3.5, 15.0) | the middle way, by the fountain | | 14 | (9.3, 30.8) | the south-east room |
-| 7 | (9.5, 16.4) | the exit room | | 15 | (3.6, 31.3) | the south-west lobe |
-| 8 | (14.3, 17.6) | **in the ice** | | | | |
+| # | Where | Place | Kind | | # | Where | Place | Kind |
+|---|---|---|---|---|---|---|---|---|
+| 1 | (2.3, 5.0) | the start, west | skeleton | | 9 | (1.4, 18.2) | the west room | shambler |
+| 2 | (13.0, 5.7) | the east hall's end | bat | | 10 | (7.1, 22.6) | the middle way's foot | skeleton |
+| 3 | (3.4, 9.4) | the west passage | skeleton | | 11 | (3.1, 22.9) | the middle way's foot | shambler |
+| 4 | (11.7, 12.6) | the map room | skeleton | | 12 | (11.6, 26.3) | the great hall | skeleton |
+| 5 | (7.9, 13.1) | the exit room | shambler | | 13 | (12.9, 28.8) | the south-east room | bat |
+| 6 | (3.5, 15.0) | the middle way, by the fountain | skeleton | | 14 | (9.3, 30.8) | the south-east room | skeleton |
+| 7 | (9.5, 16.4) | the exit room | skeleton | | 15 | (3.6, 31.3) | the south-west lobe | shambler |
+| 8 | (14.3, 17.6) | **in the ice** | bat | | | | | |
 
-The fountain calls two (6 at 3 steps, 11 at 6; 15 is at 17, just out of its sixteen).
+The fountain calls the skeleton 6 (3 steps); the shambler 11 (6 steps) lies buried, and the buried hear nothing.
 
 ### Gold
 
@@ -349,7 +350,7 @@ skipped or answered from the drawing:
 | `place_marked`, `place_fights` | level 1 none; level 2 the drawing's ten, the switch and the gate (section 7) |
 | `ward_make` | none (no Wraith before level 9) |
 | `spectres_set` | none |
-| `place_creatures` (the budget) | the drawing's dead, rank I, each a resident at its post (`RL_POST`, facing its room's way in); no wanderers |
+| `place_creatures` (the budget) | the drawing's dead, rank I (level 1 skeletons, T6 a; level 2 as T23), each a resident at its post (`RL_POST`, facing its room's way in), level 2's shamblers buried; no wanderers |
 | the respawn ("something wakes ahead"), the lull's watch | none while the level is drawn |
 | secrets (`place_secrets`) | level 1 none (T7 a); level 2 the drawing's one, laid by hand (7.5) |
 | wall skulls (from 3), the gilded (from 7) | not on these levels anyway |
@@ -505,8 +506,8 @@ The debug map (`CRAWL_MAP=1`) prints the lanes as it does, and its `MAP lanes re
   caster back** (a default for the owner's *routing*): the view taken (8.3), turned to the side they came in by, and walked back at a walk to the first
   cell off the ice there ((12,23) or (13,23) from the south; row 15 from the north), no stack added while led; then the page. Again
   each time.
-- **The one in the ice** (the dead 8, a default): held in it, drawn frozen (`DR_ICE`), out of every fight till the ice goes down;
-  then it stands and comes. So a person striking the switch from the edge isn't shot at from the ice.
+- **The one in the ice** (the dead 8, a bat; a default): held in it, drawn frozen (`DR_ICE`), out of every fight till the ice goes
+  down; then it comes free. So a person striking the switch from the edge has nothing coming at them from the ice.
 - **The dream** keeps off the live ice (it marks harm on `hz_dmap`), strikes the switch as it answers any thing that wants a spell
   near its lane, and crosses when it is down.
 
@@ -519,7 +520,7 @@ map is taken and the ice is back, **it is spent** (a default: its seal cracks an
 
 ### 7.3 The gate
 
-(13,10), one way (T21): a portcullis in the gate passage. Its seal is on the south face only. From the map room, a person sees the
+(13,10), one way (T21 a): a portcullis in the gate passage. Its seal is on the south face only. From the map room, a person sees the
 seal and strikes it with any spell, and the gate rises and stays up. From the north it is bare iron, which says *IT OPENS FROM THE
 OTHER SIDE* to E. It uses the door locks the gated things already have (`GATED`, `mk_gate_up`, the hearth's way: up for good).
 
@@ -541,7 +542,7 @@ the level's one link (`G.nlinks` 1), so finding it counts a secret (its caption,
 run's first Cursed Coin (`COIN_ALL`, *FOR THE SHRINE*). Its cracks show within about two cells, as every secret's do; the gold key lies two
 cells from it.
 
-### 7.6 The things that want a spell (T22)
+### 7.6 The things that want a spell (T22 a)
 
 Ten (a-j in section 3), placed as drawn, of kinds chosen as the level is laid (`place_marked` isn't run). On level 2 a person holds
 one line, their class's, so every one must answer it: the four on the main way (a, b, g, j) **take any line** (the bound coffer, the
@@ -588,15 +589,15 @@ A beat is a moment that opens a lesson (a screen of one or more pages). Each com
 | Beat | When | The game | Lesson |
 |---|---|---|---|
 | B11 arrival | level 2 opens, its card gone | | the class's name (1 page) |
-| B12 a thing that wants a spell (T24) | the first of them within four cells and in sight | | THE CRYPT ANSWERS |
-| B13 trigger 1 (T20) | into its cells, the map not held | | BEYOND THE GATE |
+| B12 a thing that wants a spell (T24 a) | the first of them within four cells and in sight | | THE CRYPT ANSWERS |
+| B13 trigger 1 (T20 a) | into its cells, the map not held | | BEYOND THE GATE |
 | B14 trigger 2 *again* | across its line while the ice is live, the map not held | led back to the side they came in by (7.1) | THE ICE (shorter after the first) |
 | B15 the switch | its third strike | the ice goes down | a caption only: *THE ICE DRAINS AWAY* |
 | B16 the map | taken | the ice comes back: the view to it two seconds, then to the gate (7.4) | THE MAP (3 pages) |
 | B17 trigger 2 after *again* | across its line while the ice is live, the map held | led back north | THE WAY ON |
 | B18 the gold key | taken | the view turned to the secret's cracks (7,32) | CRACKS |
-| B19 the crimson key (T24) | taken | | A SECOND KEY |
-| B20 trigger x *again* (T20) | into its cells, the map not held | the view turned south, set back half a cell | NOT WITHOUT THE MAP (shorter after the first) |
+| B19 the crimson key (T24 a) | taken | | A SECOND KEY |
+| B20 trigger x *again* (T20 a) | into its cells, the map not held | the view turned south, set back half a cell | NOT WITHOUT THE MAP (shorter after the first) |
 
 Lessons that fall together come one after the other. A trigger that turns you back fires again only once you have been out of its
 cells. **The turnings wait while anything hunts you within six cells**: a person isn't turned away from a fight; the beat comes when
@@ -922,7 +923,7 @@ builds.
 
 ## 12. Steps
 
-1. **The readings settled.** The owner looks at `docs/tutorial/level1-read.png` and `level2-read.png` and answers T20-T24.
+1. **The readings settled.** Done (11 November).
 2. **Level 1 in play**: the map and table, `gen_drawn`, the skipped passes, room types, the fixed seed, the lanes, the vault with
    two doors as one lock, every element alike; `CRAWL_DRAWN=0`. Frames from the game for the owner: the debug map, and the start,
    the burning hall, the fountain, the key room, the vault and the exit.
@@ -959,32 +960,20 @@ level 1), **T14: 1.0.0b21.5** (1.0.0b21.4 went out with touch since), T15 a (the
 changed by playing), T17 a (level 2 teaches what its drawing marks; the owner gave its scripted moment), T19 a (the vault's two doors
 one lock). **T18 wasn't answered**; I've taken (a): the map already held, its place holds gold.
 
-### The second round: level 2
+### The second round: level 2 (answered 11 November)
 
-20. **T20. Trigger 1, and the exit.** Your words put a trigger *in front of the exit door* that sends a person back for the map; the
-    drawing's trigger 1 is in the passage north of the map room's gate, and nothing is drawn by the exit. (a) Both: trigger 1 where
-    it is drawn, telling a person who comes to the gate from the north before the map that it lies beyond and the way in is from the
-    south (once, no turning); and a trigger of mine, **x**, across the exit room a row before the exit, turning back a person without
-    the map, again each time *(recommended)*. (b) Trigger 1 is the exit's: moved into the exit room, and nothing by the gate. (c)
-    Something else: say.
-21. **T21. The one-way gate.** (a) A seal on its south face only: struck with any spell from the map room it rises and stays up;
-    from the north it is bare iron and says it opens from the other side *(recommended: the drawing calls it elemental)*. (b) E opens
-    it from the south, and from the north it won't.
-22. **T22. The ten grey squares.** On level 2 a person holds only their class's line. (a) Each a thing that wants a spell: the four
-    on the main way take any line (the coffer, the cage), the other six the class's own kind, the same every time for the same class
-    *(recommended)*. (b) Say a kind for each square (a-j on the reading).
-23. **T23. Level 2's dead.** Today level 2 brings the shambler, the run's newcomer, risen from a grave. (a) Fifteen skeletons at rank
-    I, as T6 a, the one in the ice held there frozen till the ice goes down *(recommended)*. (b) The same, but one mark a shambler
-    under turned earth: say which.
-24. **T24. Two pages the brief didn't name.** (a) Both: at the first thing that wants a spell seen (B12, since the level is about
-    them) and at the crimson key (B19, keys being spent on their doors) *(recommended)*. (b) Only the brief's.
+T20 a (trigger 1 where drawn, pointing to the way in from the south; and a trigger of mine, **x**, across the exit room, turning back
+a person without the map), T21 a (the gate's seal on its south face only), T22 a (four things that take any line on the main way,
+six of the class's own kind), **T23: half skeletons, a quarter shamblers, a quarter bats**, so the player doesn't juggle many
+missiles at once (section 3's table; level 1 stays as T6 a), T24 a (the pages at the first thing that wants a spell and at the crimson
+key).
 
 ### Defaults taken on level 2 (change any)
 
 - The ice: a Chilled stack every 0.4 s on it, held at three on these levels, so it never freezes a person; trigger 2 leads them
   back at a walk to the side they came in by, then the page (7.1).
 - The switch: any spell, three strikes; spent once the map is taken and the ice is back (7.2).
-- The one in the ice: frozen in it till the ice goes down (7.1).
+- The one in the ice (a bat): frozen in it till the ice goes down (7.1).
 - Without the lessons the level is the same (ice, switch, gate, secret; the ice back when the map is taken), but nothing is turned
   and the exit doesn't ask for the map (section 4).
 - While the lessons run, she keeps the map off her wares until level 2 is behind.
@@ -1000,5 +989,17 @@ one lock). **T18 wasn't answered**; I've taken (a): the map already held, its pl
   ("By Touch") merged in (one conflict, CLAUDE.md's paragraphs, both kept), so the prefs byte is the 27th, after touch's two, and
   the lessons speak touch's words too. The reader taught level 2's colours (peach floor, ice, the grey elemental marks, crimson,
   magenta) and to find a grid whose walls skip lines; level 2 read (`level2-master.png`, `level2-read.png`), its lanes drawn, the
-  plan rewritten with both levels, the second round T20-T24 and the defaults taken. Nothing built. Next: the owner's answers, then
-  step 2.
+  plan rewritten with both levels, the second round T20-T24 and the defaults taken. Nothing built.
+- **11 November, later still.** The owner answered T20-T24 (T23: half skeletons, a quarter shamblers, a quarter bats on level 2;
+  assigned by mark so that no two throwers stand together). Settled. The owner asked that the drawn levels keep their dressing
+  (decorations, seeded or placed): they keep the generator's whole dressing, laid on the drawing's own seed (5.3).
+- **Step 2 built** (harness only). `gen_level`'s tail is `gen_dress` now, shared (the dream from level 1 for 400 s line for line
+  1.0.0b21.4's on the same seed and run id). `g_drawn`, `g_lane`, `g_ldist` beside `lane()`; `DRAWN` (`Drawn`, `DrawnRoom`,
+  `DrawnThing`; level 1's map with its lanes, `DRAWN1_MAP`, its rooms and its 50 things) before `start_level`, built by `gen_drawn`,
+  `drawn_start`, `drawn_items`, `drawn_walls` (the exit and the place to mend), `drawn_dead`; `start_level` lays it on the drawing's
+  seed and gives the run its own dice back after; `begin_shop` clears `g_drawn`. Skipped on a drawn level: the potion, sites, things
+  that want a spell, spectres, the respawn, the lull's watch; every element alike (`weak_el`); the vault's doors one lock
+  (`open_door`). `CRAWL_DRAWN=0` gives the generated level 1 back; the debug build prints `DRAWN level n: ...`. Checked: the debug map
+  (8 doors, 39 items, 11 rank I skeletons, 22 lights, 39 decorations, every lane reachable), the dream clearing level 1 on four seeds
+  (167-187 s, the key taken, 85-92% of the gold, no stall), ASan clean through level 1, the smoke test. The burning floor is plain
+  floor till step 3. Next: step 3.
