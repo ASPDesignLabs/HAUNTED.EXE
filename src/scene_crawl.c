@@ -1842,6 +1842,10 @@ static struct {
 } IC;
 static void ice_down(void);
 static void ice_up(void);
+static int tu_taken(void);                                         /* the lessons have the body (a turning, a hold, a lead) */
+static int tu_exit_barred(void);                                   /* level 2's way out, shut while the lessons want the map */
+static void tu_map_taken(void);
+static int g_map_kept;                                             /* her room keeps the map off her wares (level 2's lessons to come) */
 static void tu_level_begin(void);                                 /* the lessons (docs/PLAN-tutorial.md), further down */
 static void tu_shop_begin(void);
 static void tu_cleared(void);
@@ -4338,6 +4342,7 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
     if (G.dead || G.ending || G.exiting || G.tally || G.shop || G.level_t < 1.5) return 0;
     if (G.dash_t > 0.0f) return 0;                                 /* Swift Dodge: nothing touches you while you dart */
     if (G.wind_t > 0.0f) return 0;                                 /* a Second Wind: a breath when nothing touches you */
+    if (G.player && tu_taken()) return 0;                          /* nor while the lessons hold you (docs/PLAN-tutorial.md 8.3) */
     if (G.rest_on) rest_end("struck");                             /* a blow ends the mending */
     const Gear *g = &RUN.gear;
     int seeping = kind == HURT_POISON || kind == HURT_VOID;        /* nothing turns these: no dodge, armour or ward */
@@ -15123,7 +15128,7 @@ static void ice_tick(float dt) {                                   /* every fram
         Mob *m = &G.mobs[j];
         if (m->alive && m->state == MS_WALK && !KIND_IS(m, KF_SPIRIT) && !buried(m) && ice_at((int)m->x, (int)m->y)) m->frozen = fmaxf(m->frozen, 0.3f);
     }
-    if (G.dead || G.shop || !ice_at((int)floorf(G.px), (int)floorf(G.py))) { IC.stack = 0.0f; return; }
+    if (G.dead || G.shop || tu_taken() || !ice_at((int)floorf(G.px), (int)floorf(G.py))) { IC.stack = 0.0f; return; }   /* none while led */
     if ((IC.stack -= dt) > 0.0f) return;
     IC.stack = ICE_STACK;
     if (!af_can(AF_CHILL)) return;
@@ -15860,7 +15865,7 @@ static void collect(Item *it) {
 #ifdef CRAWL_DEBUG
         fprintf(stderr, "EVENT map_taken by %s t=%.2f\n", G.player ? "player" : "autopilot", G.t);
 #endif
-        if (g_drawn == 2) ice_up();                                /* and the ice comes back behind you */
+        if (g_drawn == 2) { ice_up(); tu_map_taken(); }           /* and the ice comes back behind you; the lessons show it */
         break;
     case IT_BONE:                                                  /* for the spear */
         if (RUN.gear.bones < bones_max()) RUN.gear.bones++;
@@ -22896,6 +22901,7 @@ static int reckon_lines(char out[NRK][48], int glyph[NRK]) {
 /* E at the exit, or walking into it: the reckoning first, if anything is left */
 static void human_leave(void) {
     char l[NRK][48]; int g[NRK];
+    if (tu_exit_barred()) return;                                  /* not without the map, while level 2's lessons run */
     if (G.bchallenge || G.replay || PK.depth || !reckon_lines(l, g)) { human_exit(); return; }
     open_ui(UI_RECKON);
     G.ui_sel = 1; G.rk_fresh = 1;                                  /* on NOT YET; the press that opened it is spent */
@@ -23682,8 +23688,12 @@ static void pilgrim_step(float dt) {
  * they asked for them again under the title's HELP), pages that stop the crypt at moments (beats), triggers in the floor, and
  * the view turned a moment where a beat says. TU lasts while the program runs; a death on the level keeps what was shown. ---- */
 enum { TB_ARRIVE, TB_DOOR, TB_THROUGH, TB_MENDED, TB_BLOOD, TB_TRIG1, TB_KEY, TB_TRIG2, TB_HOARD, TB_TRIG3, NTBEAT };
+enum { TB2_ARRIVE, TB2_THING, TB2_TRIG1, TB2_MAP, TB2_GOLD, TB2_CRIMSON };   /* level 2's (B11, B12, B13, B16, B18, B19) */
+enum { MV_TURN, MV_HOLD, MV_LEAD };                                /* what the lessons do with the body, in turn */
 #define TU_Q 8
+#define TU_MV 6
 #define TU_STEER 0.5f                                              /* the view eased round in half a second */
+#define TU_LEAD 2.4f                                               /* led at a walk, cells a second */
 static struct {
     int on, level;                                                 /* this level's lessons run; the level they are for */
     uint32_t done;                                                 /* beats shown on it, a bit each (kept through a death on it) */
@@ -23691,6 +23701,9 @@ static struct {
     int lesson, page, alt;                                         /* the one up */
     float fresh;                                                   /* no key for its first moment */
     int steer, back; float st_t, st_a0, st_a1, st_x0, st_y0, st_x1, st_y1;   /* the view taken */
+    struct { int kind, back; float a, x, y, t; } mv[TU_MV]; int nmv;   /* the turnings, holds and leads to come, the first under way */
+    float prev_y;                                                  /* level 2: last frame's row in the drawing's cells (trigger 2's line) */
+    int crimson;                                                   /* level 2: the crimson key taken */
     int trig_in;                                                   /* the trigger the body stood in last frame (0 none) */
     float lx, ly;                                                  /* the last place it stood out of every trigger */
     int key_taken, gold_open, vault_been, mend_on, mend_hp, wisp_due, again[4];
@@ -23705,7 +23718,8 @@ static int tu_due(int level) {                                     /* a drawn le
 static void tu_level_begin(void) {                                 /* from start_level */
     int on = G.player && g_drawn && tu_due(G.level);
     if (G.level != TU.level || !on) { memset(&TU, 0, sizeof TU); TU.level = G.level; }
-    else { TU.nq = 0; TU.steer = 0; TU.trig_in = 0; TU.mend_on = 0; TU.wisp_due = 0; TU.key_taken = TU.gold_open = TU.vault_been = 0; }
+    else { TU.nq = 0; TU.steer = 0; TU.nmv = 0; TU.trig_in = 0; TU.mend_on = 0; TU.wisp_due = 0; TU.key_taken = TU.gold_open = TU.vault_been = 0; TU.crimson = 0; }
+    TU.prev_y = -1.0f;
     TU.on = on;
     TU.lx = G.px; TU.ly = G.py;
 #ifdef CRAWL_DEBUG
@@ -23780,15 +23794,28 @@ static int tu_hunted(void) {                                       /* something 
     }
     return 0;
 }
-static void tu_steer(float ang, int back) {                        /* the view eased round, and with back the body set back out of a trigger */
-    TU.steer = 1; TU.st_t = 0.0f; TU.st_a0 = G.ang; TU.st_a1 = G.ang + wrap_pi(ang - G.ang); TU.back = back;
-    TU.st_x0 = G.px; TU.st_y0 = G.py; TU.st_x1 = back ? TU.lx : G.px; TU.st_y1 = back ? TU.ly : G.py;
-    PADX.run = 0; G.chg_on = 0;
+static void tu_move_begin(void) {                                  /* the first move to come, from where the body is now */
+    TU.st_t = 0.0f; TU.st_a0 = G.ang; TU.st_x0 = G.px; TU.st_y0 = G.py;
+    TU.back = TU.mv[0].back; TU.st_a1 = G.ang + wrap_pi(TU.mv[0].a - G.ang);
+    TU.st_x1 = TU.mv[0].kind == MV_LEAD ? TU.mv[0].x : TU.back ? TU.lx : G.px;
+    TU.st_y1 = TU.mv[0].kind == MV_LEAD ? TU.mv[0].y : TU.back ? TU.ly : G.py;
+    if (TU.mv[0].kind == MV_LEAD) TU.mv[0].t = fmaxf(0.1f, hypotf(TU.st_x1 - G.px, TU.st_y1 - G.py) / TU_LEAD);
+}
+static void tu_move(int kind, float a, float x, float y, float t, int back) {
+    if (TU.nmv >= TU_MV) return;
+    TU.mv[TU.nmv].kind = kind; TU.mv[TU.nmv].a = a; TU.mv[TU.nmv].x = x; TU.mv[TU.nmv].y = y; TU.mv[TU.nmv].t = t; TU.mv[TU.nmv].back = back;
+    if (TU.nmv++ == 0) tu_move_begin();
+    TU.steer = 1; PADX.run = 0; G.chg_on = 0;
     if (G.rest_on) rest_end("turned");
 #ifdef CRAWL_DEBUG
-    fprintf(stderr, "EVENT tut steer %.2f back %d t=%.2f\n", ang, back, G.t);
+    fprintf(stderr, "EVENT tut %s %.2f (%.2f,%.2f) %.1f back %d t=%.2f\n", kind == MV_TURN ? "steer" : kind == MV_HOLD ? "hold" : "lead", a, x, y, t, back, G.t);
 #endif
 }
+static void tu_steer(float ang, int back) { tu_move(MV_TURN, ang, 0.0f, 0.0f, TU_STEER, back); }   /* the view eased round, and with back the
+                                                                      body set back out of a trigger */
+static void tu_hold(float t) { tu_move(MV_HOLD, 0.0f, 0.0f, 0.0f, t, 0); }   /* kept still, looking */
+static void tu_lead(float x, float y) { tu_move(MV_LEAD, 0.0f, x, y, 0.0f, 0); }   /* walked there, the view as it is */
+static int tu_taken(void) { return TU.steer; }
 static int tu_beat(int b, int lesson, int alt) {                   /* a beat, once: its lesson queued */
     if (TU.done >> b & 1) return 0;
     TU.done |= 1u << b;
@@ -23798,10 +23825,11 @@ static int tu_beat(int b, int lesson, int alt) {                   /* a beat, on
 #endif
     return 1;
 }
-static int tu_trig(int cx, int cy) {                               /* the trigger a cell is, on level 1's drawing (0 none) */
-    if (g_drawn != 1) return 0;
+static int tu_trig(int cx, int cy) {                               /* the trigger a cell is, on the level's drawing (0 none) */
+    if (!g_drawn) return 0;
     const Drawn *D = drawn();
     int x = cx - D->ox, y = cy - D->oy;
+    if (g_drawn == 2) return y == 9 && (x == 12 || x == 13) ? 1 : y == 12 && x >= 7 && x <= 9 ? 4 : 0;   /* level 2's 1 and x (T20 a) */
     if (y == 23 && (x == 4 || x == 5)) return 1;
     if ((x == 14 && y == 30) || (x == 13 && y == 31) || (x == 14 && y == 31)) return 2;
     if (x == 19 && (y == 30 || y == 31)) return 3;
@@ -23809,14 +23837,32 @@ static int tu_trig(int cx, int cy) {                               /* the trigge
 }
 static int tu_steering(float dt) {                                 /* from update_human: 1 while the view is taken */
     if (!TU.steer) return 0;
+    if (!TU.nmv) { TU.steer = 0; return 0; }
     TU.st_t += dt;
-    float k = smoothstepf(0.0f, TU_STEER, TU.st_t);
-    G.ang = TU.st_a0 + (TU.st_a1 - TU.st_a0) * k;
-    if (TU.back) { G.px = TU.st_x0 + (TU.st_x1 - TU.st_x0) * k; G.py = TU.st_y0 + (TU.st_y1 - TU.st_y0) * k; G.cx = (int)G.px; G.cy = (int)G.py; }
+    int kind = TU.mv[0].kind;
+    float dur = TU.mv[0].t, k = kind == MV_LEAD ? clampf(TU.st_t / dur, 0.0f, 1.0f) : smoothstepf(0.0f, dur, TU.st_t);
+    if (kind == MV_TURN) G.ang = TU.st_a0 + (TU.st_a1 - TU.st_a0) * k;
+    if (kind == MV_LEAD || (kind == MV_TURN && TU.back)) {
+        G.px = TU.st_x0 + (TU.st_x1 - TU.st_x0) * k; G.py = TU.st_y0 + (TU.st_y1 - TU.st_y0) * k; G.cx = (int)G.px; G.cy = (int)G.py;
+        if (kind == MV_LEAD) G.bobph += dt * 6.0f;                 /* a walk's sway */
+    }
     G.spd = 0.0f; G.pvx = G.pvy = 0.0f;
-    if (TU.st_t < TU_STEER) return 1;
-    TU.steer = 0; TU.trig_in = tu_trig((int)floorf(G.px), (int)floorf(G.py));
+    if (TU.st_t < dur) return 1;
+    memmove(TU.mv, TU.mv + 1, sizeof TU.mv[0] * (size_t)(TU.nmv - 1));
+    if (--TU.nmv > 0) { tu_move_begin(); return 1; }
+    TU.steer = 0; TU.trig_in = tu_trig((int)floorf(G.px), (int)floorf(G.py)); TU.prev_y = -1.0f;
     tu_show();
+    return 1;
+}
+static void tu_map_taken(void) {                                   /* B16: the ice comes back, watched, then the gate, then the pages */
+    if (!TU.on || g_drawn != 2 || !tu_beat(TB2_MAP, TL_MAP, 0)) return;
+    tu_steer(PI_F * 0.5f, 0); tu_hold(2.0f);
+    const Marked *g = IC.gate >= 0 && IC.gate < G.nmk ? &G.mk[IC.gate] : NULL;
+    tu_steer(g ? atan2f(g->y - G.py, g->x - G.px) : -PI_F * 0.5f, 0);
+}
+static int tu_exit_barred(void) {                                  /* B20 at the door itself: not without the map */
+    if (!TU.on || g_drawn != 2 || RUN.has_map) return 0;
+    if (!TU.steer && !TU.nq && G.ui == UI_NONE) { tu_queue(TL_NOMAP, TU.again[1]++ > 0); tu_steer(PI_F * 0.5f, 0); }
     return 1;
 }
 static void tu_after(int lesson) {                                 /* a lesson read: what follows it */
@@ -23854,6 +23900,35 @@ static void tu_tick(float dt) {                                    /* from updat
             } else if (trig == 3 && !TU.gold_open && !tu_hunted()) {   /* the gold door unused: turned back west, again each time */
                 tu_queue(TL_GOLDDOOR, TU.again[3]++ > 0); tu_steer(PI_F, 1);
             }
+        }
+    } else if (g_drawn == 2) {
+        float fx = G.px - (float)D->ox, fy = G.py - (float)D->oy;   /* in the drawing's cells */
+        if (G.card > 3.6f && G.level_t > 1.0) tu_beat(TB2_ARRIVE, TL_L2, 0);
+        if (!(TU.done >> TB2_THING & 1) && (TU.done >> TB2_ARRIVE & 1))   /* B12: the first thing that wants a spell, near and in sight */
+            for (int i = 0; i < G.nmk; i++) {
+                const Marked *m = &G.mk[i];
+                if (m->done || m->kind == MKK_RSEAL || m->kind == MKK_GSEAL || hypotf(m->x - G.px, m->y - G.py) > 4.0f || !line_clear(G.px, G.py, m->x, m->y)) continue;
+                tu_beat(TB2_THING, TL_CRYPT, 0);
+                break;
+            }
+        if (G.has_key[0] && !TU.key_taken) {                       /* B18: the gold key, and the cracks two cells off */
+            TU.key_taken = 1;
+            if (tu_beat(TB2_GOLD, TL_CRACKS, 0) && G.nsecrets && !G.secrets[0].state) tu_steer(atan2f((float)G.secrets[0].sy + 0.5f - G.py, (float)G.secrets[0].sx + 0.5f - G.px), 0);
+        }
+        if (G.has_key[2] && !TU.crimson) { TU.crimson = 1; tu_beat(TB2_CRIMSON, TL_CRIMSON, 0); }   /* B19 */
+        if (TU.prev_y > 0.0f && fx >= 11.0f && fx < 15.0f && IC.live && !TU.steer && (TU.prev_y >= 18.0f) != (fy >= 18.0f)) {   /* trigger 2's line */
+            int from_south = TU.prev_y >= 18.0f;
+            if (!RUN.has_map || !from_south) {                     /* B14 without the map, B17 with it going south: led back */
+                if (!RUN.has_map) tu_queue(TL_ICE, TU.again[0]++ > 0); else tu_queue(TL_WAYON, 0);
+                tu_steer(from_south ? PI_F * 0.5f : -PI_F * 0.5f, 0);
+                if (from_south) { float tx = (float)D->ox + clampf(fx, 12.3f, 13.7f); tu_lead(tx, G.py); tu_lead(tx, (float)D->oy + 23.5f); }
+                else tu_lead(G.px, (float)D->oy + 15.5f);
+            }
+        }
+        if (!TU.steer) TU.prev_y = fy;
+        if (trig && trig != TU.trig_in && !TU.steer) {
+            if (trig == 1 && !RUN.has_map) tu_beat(TB2_TRIG1, TL_GATE, 0);   /* B13: the map beyond the gate, the way in from the south */
+            else if (trig == 4 && !RUN.has_map && !tu_hunted()) { tu_queue(TL_NOMAP, TU.again[1]++ > 0); tu_steer(PI_F * 0.5f, 1); }   /* B20 */
         }
     }
     if (!TU.steer) { TU.trig_in = trig; if (!trig) { TU.lx = G.px; TU.ly = G.py; } }
@@ -23912,6 +23987,10 @@ static void tu_cleared(void) {                                     /* a drawn le
 #endif
 }
 static void tu_shop_begin(void) {                                  /* her room after level 1, the first time: her wares (T13 a) */
+    g_map_kept = G.level == 2 && LEDGER.yours && tu_due(2);        /* level 2's lessons find it there for you */
+#ifdef CRAWL_DEBUG
+    if (g_map_kept) fprintf(stderr, "EVENT tut map_kept level %d t=%.2f\n", G.level, G.t);
+#endif
     pl_read();
     int due = G.player && G.level == 2 && (PL.tut & TUT_L1) && !(PL.tut & TUT_HER);
 #ifdef CRAWL_DEBUG
@@ -24208,7 +24287,7 @@ static void shop_human(float dt) {
             && (G.stone_look < 0 || d < hypotf(STONE_AT[G.stone_look][0] + 0.5f - G.px, STONE_AT[G.stone_look][1] + 0.5f - G.py))) G.stone_look = k;
     }
     float mdx = MAP_X - G.px, mdy = MAP_Y - G.py, md = hypotf(mdx, mdy);   /* the map at her left, until it is yours */
-    G.map_look = !RUN.has_map && G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0
+    G.map_look = !RUN.has_map && !g_map_kept && G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0
                  && md < 2.6f && fabsf(wrap_pi(atan2f(mdy, mdx) - G.ang)) < 0.25f + 0.25f / fmaxf(md, 0.3f);
     G.pt_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0 && !G.map_look
                 && !G.lamp_look && !G.bell_look && !G.font_look ? por_facing() : 0;   /* a portrait of the slain */
@@ -24264,7 +24343,7 @@ static void buy_open(int i) {
     open_ui(UI_BUY);
     snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f);
 }
-static int buy_live(int i) { return i == BUY_MAP ? !RUN.has_map : i >= 0 && i < G.ped_n && !G.offer_gone[i]; }
+static int buy_live(int i) { return i == BUY_MAP ? !RUN.has_map && !g_map_kept : i >= 0 && i < G.ped_n && !G.offer_gone[i]; }
 static int buy_next(int from, int dir) {                           /* the next ware still to be had, round the pedestals and the map */
     int n = G.ped_n + 1, at = from == BUY_MAP ? G.ped_n : from;
     for (int k = 1; k <= n; k++) {
@@ -29409,7 +29488,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         int n0 = n;
         ADD(CAT_X, CAT_Y, 0.0f, SP_PEDESTAL, 0);
         if (n > n0) { list[n - 1].scale = CAT_S; list[n - 1].flags = DR_CAT; }
-        if (!RUN.has_map) {                                        /* the map, floating at her left until it is yours */
+        if (!RUN.has_map && !g_map_kept) {                         /* the map, floating at her left until it is yours */
             n0 = n;
             ADD(MAP_X, MAP_Y, 0.42f + 0.04f * sinf((float)G.t * 1.6f), SP_MAPWARE, 0);
             if (n > n0) { float u = (float)G.t * 0.4f; u -= floorf(u); list[n - 1].scale = 0.5f; list[n - 1].twinkle = u < 0.1f ? sinf(u / 0.1f * PI_F) : 0.0f; }
@@ -29724,7 +29803,7 @@ static void render_shop_tags(Frame *f, float dx, float dy, float horizon) {
         if (over) { int rw = gfx_text_width(over, 1); gfx_text8(f, x - rw / 2 + 1, ty - 9, over, 0, 1); gfx_text8(f, x - rw / 2, ty - 10, over, over[0] == 'H' ? (uint8_t)(R_GLOW + 12) : (uint8_t)C_WHITE, 1); }
     }
     float sx, sy, dep;                                             /* the map's price, over it */
-    if (!RUN.has_map && project(MAP_X, MAP_Y, 0.95f, dx, dy, horizon, &sx, &sy, &dep) && sx >= 0 && sx < W && dep < zbuf[(int)sx] + 0.3f && dep < 6.0f) {
+    if (!RUN.has_map && !g_map_kept && project(MAP_X, MAP_Y, 0.95f, dx, dy, horizon, &sx, &sy, &dep) && sx >= 0 && sx < W && dep < zbuf[(int)sx] + 0.3f && dep < 6.0f) {
         char tag[16];
         snprintf(tag, sizeof tag, "$%d", MAP_PRICE);
         int w = gfx_text_width(tag, 1), tx = (int)sx - w / 2, ty = (int)sy - 10, hit = 0;

@@ -1081,3 +1081,21 @@ key).
   through the switch, the map, the ice and the gate, on the secret, and on the dream twice (once with `CRAWL_ICE=0`); the smoke test.
   Level 1, its one prop gone, still clears (174 s on two seeds). Not yet: trigger x and the exit's refusal without the map, her room
   keeping the map off her wares, and the scripted moment at the map (all lessons, step 8).
+- **Step 8 built** (harness only): level 2's lessons. The turnings are a short queue now (`tu_move`, `MV_TURN`, `MV_HOLD`, `MV_LEAD`;
+  `tu_steer`, `tu_hold`, `tu_lead`, `tu_move_begin`, run by `tu_steering`), and while the lessons hold the body nothing hurts it
+  (`hurt_ex` asks `tu_taken`) and the ice adds no stack. Level 2's beats in `tu_tick` (`TB2_*`): B11 its page as it opens, B12 the
+  first thing that wants a spell within four cells and in sight, B13 trigger 1 north of the gate without the map (`tu_trig` knows
+  level 2's 1 and x), B14 the line across the ice (the drawing's y 18, x 11-14) crossed while it is live and the map not held:
+  turned to the side come in by and walked off the ice there at a walk (`TU_LEAD` 2.4 cells a second; from the south first into
+  the passage's width, then to row 23), then THE ICE (its shorter words after the first); B16 the map taken (`tu_map_taken`, from
+  `collect`): turned to the ice, held two seconds while it creeps in, turned to the gate's seal, then THE MAP's three pages; B17
+  the line crossed southward with the map: walked back north to row 15, THE WAY ON; B18 the gold key: turned to the secret's
+  cracks, CRACKS; B19 the crimson key, A SECOND KEY; B20 trigger x without the map (set back half a cell, turned south), and the
+  exit itself refused the same way (`tu_exit_barred`, from `human_leave`). B15's words are the switch's own caption. Her room keeps
+  the map off her wares while level 2's lessons are to come for a person (`g_map_kept`, set in `tu_shop_begin`). Debug: `EVENT tut
+  steer|hold|lead`, `tut map_kept`. Tried by a person in the harness, each beat from its place: the line crossed onto live ice twice
+  (led back both times, the shorter words the second), the switch, the map's moment (no harm taken in it; a skeleton that followed
+  onto the ice frozen there as it came back), the line crossed southward with the map (led north), trigger 1, the gold key (turned to
+  the cracks), the crimson key, trigger x and the exit refused, her room with the map kept back; level 1's turnings and its wisp as
+  before. ASan clean on two runs through them. Not yet: the title's HELP paging through the lessons (it toggles only), the scorched
+  floor, and step 9's checks.

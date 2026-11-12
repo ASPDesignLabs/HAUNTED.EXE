@@ -396,8 +396,9 @@ back), **step 3** (level 1's burning floor, `DF`, `drawn_fire_tick`) and **step 
 `CRAWL_TUTAUTO`), level 2's art sheet (`docs/tutorial/level2-art.png`, `make sheets`' `tutorial2`: the rimed seal `SP_MK_RSEAL0..2`,
 the gate's face `T_GATE_SEAL`, the map lying `SP_MAPFLOOR`, the ice `T_ICE` laid by `crawl_ice_at`; sent for approval) and **step 7**
 (level 2 in play: `DRAWN2_MAP`, `IC` and `ice_*`, `MKK_RSEAL` and `MKK_GSEAL` that any spell answers, `IT_MAP`, the secret laid by
-hand, `drawn_marks`, `drawn_clear`; `CRAWL_ICE=0`, `CRAWL_WHERE=1`). Level 2's lessons (step 8) come next; the plan's log says where it
-stands.
+hand, `drawn_marks`, `drawn_clear`; `CRAWL_ICE=0`, `CRAWL_WHERE=1`) and **step 8** (level 2's lessons: the turnings a queue, `tu_move`,
+`tu_hold`, `tu_lead`, nothing hurting while they hold you; `TB2_*`; the map's moment, `tu_map_taken`; `tu_exit_barred`; `g_map_kept`).
+Step 9, the checks and the release notes for 1.0.0b21.5, comes next; the plan's log says where it stands.
 
 ## Working with the owner
 
