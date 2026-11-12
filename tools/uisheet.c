@@ -5,9 +5,12 @@
  *   uisheet <out.png> [level]       level picks the run's stone (default 1)
  *   uisheet all <dir>               ui.png at level 1, ui_runs.png the marble's lean in each run
  *   uisheet fit                     every node in the pane with the longest foot; fails on any overflow
+ *   uisheet tutor <dir>             the lessons' pages (docs/PLAN-tutorial.md): pages1.png level 1's and her room's,
+ *                                   pages2.png level 2's, a few in a pad's and touch's words; fails on any overflow
  */
 #include "../src/crawl.h"
 #include "../src/crawl_ui.h"
+#include "../src/crawl_tutor.h"
 #include "../src/gfx.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -491,6 +494,85 @@ static int fit_all(void) {
     return ui_overflows;
 }
 
+/* ---- the lessons' pages (docs/PLAN-tutorial.md), for approval: each as the game cuts it over the dimmed crypt ---- */
+typedef struct { int lesson, page, cls, alt; const char *label; const char *const *voice; int nvoice; } TutCase;
+static void tutor_panel(const TutCase *c, float t) {
+    const char *in[TUT_LINES];
+    char wr[TUT_LINES][96];
+    int n = c->voice ? c->nvoice : tut_lines(c->lesson, c->page, c->cls, c->alt, in);
+    if (c->voice) for (int i = 0; i < n; i++) in[i] = c->voice[i];
+    n = tut_wrap(in, n, wr, 34);
+    UiTutor u;
+    memset(&u, 0, sizeof u);
+    u.head = tut_head(c->lesson, c->page, c->cls);
+    for (int i = 0; i < n; i++) u.line[i] = wr[i];
+    u.nline = n; u.page = c->page; u.npage = tut_pages(c->lesson); u.t = t;
+    u.keys = c->voice && strstr(c->label, "PAD") ? "D-PAD PAGES  \1A ON" : c->voice ? "SLIDE PAGES  TAP ON" : u.npage < 2 ? "E DONE" : u.page + 1 < u.npage ? "A/D PAGES  E ON" : "A/D PAGES  E DONE";
+    frame_begin(1);
+    ui_where = c->label; ui_check_frame();
+    ui_tutor(&F, &u);
+}
+static int tutor_sheet(const char *path, const TutCase *cs, int n, const char *title) {
+    const int S = 2, P = 640, Q = 400, G = 12, H = 30, cols = 4, rows = (n + cols - 1) / cols;
+    iw = G + cols * (P + G); ih = rows * (Q + H + G) + 40;
+    img = calloc((size_t)iw * ih, 3);
+    for (size_t i = 0; i < (size_t)iw * ih * 3; i++) img[i] = 12;
+    label(G, 10, title);
+    for (int i = 0; i < n; i++) {
+        int x = G + (i % cols) * (P + G), y = 40 + (i / cols) * (Q + H + G);
+        tutor_panel(&cs[i], 0.3f + 0.2f * i);
+        blit(x, y + H, S);
+        label(x, y + 6, cs[i].label);
+    }
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+static int tutor_sheets(const char *dir) {
+    static const char *const PAD_WALK[4] = { "[L-STICK] WALKS. [R-STICK] TURNS YOU.", "[L-STICK] PRESSED SPRINTS FORWARD, A",
+                                             "WHILE: A SLIM BAR OVER THE TABLET", "SAYS HOW LONG, AND FILLS AGAIN AFTER." };
+    static const char *const PAD_HEALTH[5] = { "THE TABLET UNDER THE VIEW HOLDS", "YOUR HEALTH, YOUR SOULS, YOUR",
+                                               "KEYS AND THE SPELL IN HAND. IT", "SLIDES AWAY WHEN NOTHING",
+                                               "CHANGES; [D-PAD DOWN] BRINGS IT BACK." };
+    static const char *const TOUCH_WALK[4] = { "[THE WALKING STICK] WALKS. A FINGER", "SLID ON THE RIGHT TURNS YOU. THE",
+                                               "STICK PUSHED PAST ITS RING SPRINTS,", "A WHILE: A SLIM BAR SAYS HOW LONG." };
+    static const char *const PAD_MAP[5] = { "THE MAP IS YOURS, AND STAYS", "YOURS, THROUGH DEATH AND ALL.",
+                                            "[D-PAD UP] UNROLLS IT. YOU WALK, TURN", "AND CAST WITH IT OPEN: THE",
+                                            "CRYPT DOES NOT WAIT FOR YOU." };
+    static const TutCase L1[] = {
+        { TL_WALK, 0, 0, 0, "B1 WALKING", 0, 0 }, { TL_WALK, 1, 0, 0, "B1 DOORS", 0, 0 },
+        { TL_WALK, 0, 0, 0, "B1 WALKING, BY A PAD", PAD_WALK, 4 }, { TL_WALK, 0, 0, 0, "B1 WALKING, BY TOUCH", TOUCH_WALK, 4 },
+        { TL_FIRE, 0, 0, 0, "B2 FIRE", 0, 0 }, { TL_THROUGH, 0, 0, 0, "B3 HEALTH", 0, 0 },
+        { TL_THROUGH, 0, 0, 0, "B3 HEALTH, BY A PAD", PAD_HEALTH, 5 }, { TL_THROUGH, 1, 0, 0, "B3 BURNING", 0, 0 },
+        { TL_THROUGH, 2, 0, 0, "B3 MENDING", 0, 0 }, { TL_CLASS, 0, 0, 0, "B4 THE WITCHFINDER", 0, 0 },
+        { TL_CLASS, 0, 2, 0, "B4 THE GALVANIST", 0, 0 }, { TL_CLASS, 0, 4, 1, "B4 THE SIN-EATER, UNMENDED", 0, 0 },
+        { TL_CLASS, 1, 3, 0, "B4 THE DEAD", 0, 0 }, { TL_SOULS, 0, 3, 0, "B5 SOULS (THE PLAGUE DOCTOR)", 0, 0 },
+        { TL_EVERY, 0, 0, 0, "B6 EVERYWHERE", 0, 0 }, { TL_EVERY, 1, 0, 0, "B6 LOCKS", 0, 0 },
+        { TL_KEY, 0, 0, 0, "B7 THE GOLD KEY", 0, 0 }, { TL_NOTYET, 0, 0, 0, "B8 NOT YET", 0, 0 },
+        { TL_NOTYET, 0, 0, 1, "B8 NOT YET, AGAIN", 0, 0 }, { TL_HOARD, 0, 0, 0, "B9 THE HOARD", 0, 0 },
+        { TL_GOLDDOOR, 0, 0, 0, "B10 THE GOLD DOOR", 0, 0 }, { TL_WARES, 0, 0, 0, "B10A HER WARES", 0, 0 },
+    };
+    static const TutCase L2[] = {
+        { TL_L2, 0, 1, 0, "B11 THE ANATOMIST", 0, 0 }, { TL_CRYPT, 0, 3, 0, "B12 THE CRYPT ANSWERS", 0, 0 },
+        { TL_GATE, 0, 0, 0, "B13 BEYOND THE GATE", 0, 0 }, { TL_ICE, 0, 0, 0, "B14 THE ICE", 0, 0 },
+        { TL_ICE, 0, 0, 1, "B14 THE ICE, AGAIN", 0, 0 }, { TL_MAP, 0, 0, 0, "B16 THE MAP", 0, 0 },
+        { TL_MAP, 0, 0, 0, "B16 THE MAP, BY A PAD", PAD_MAP, 5 }, { TL_MAP, 1, 0, 0, "B16 WHAT IT SHOWS", 0, 0 },
+        { TL_MAP, 2, 0, 0, "B16 THE WAY ON", 0, 0 }, { TL_WAYON, 0, 0, 0, "B17 THE WAY ON", 0, 0 },
+        { TL_CRACKS, 0, 0, 0, "B18 CRACKS", 0, 0 }, { TL_CRIMSON, 0, 0, 0, "B19 A SECOND KEY", 0, 0 },
+        { TL_NOMAP, 0, 0, 0, "B20 NOT WITHOUT THE MAP", 0, 0 }, { TL_NOMAP, 0, 0, 1, "B20 AGAIN", 0, 0 },
+    };
+    char p[512];
+    ui_check = 1; ui_overflows = 0;
+    crawl_art_level(1); crawl_art_run(1); ui_marble_make(8u);
+    snprintf(p, sizeof p, "%s/pages1.png", dir);
+    int ok = tutor_sheet(p, L1, (int)(sizeof L1 / sizeof L1[0]), "THE LESSONS, LEVEL 1 AND HER ROOM, FOR APPROVAL (PLAN-TUTORIAL STEP 4)");
+    crawl_art_level(2); crawl_art_run(2); ui_marble_make(9u);
+    snprintf(p, sizeof p, "%s/pages2.png", dir);
+    ok &= tutor_sheet(p, L2, (int)(sizeof L2 / sizeof L2[0]), "THE LESSONS, LEVEL 2, FOR APPROVAL (PLAN-TUTORIAL STEP 4)");
+    printf("UI fit (tutor): %d overflows\n", ui_overflows);
+    return ok && !ui_overflows;
+}
+
 int main(int argc, char **argv) {
     if (argc < 2) { fprintf(stderr, "usage: uisheet <out.png> [level] | uisheet all <dir>\n"); return 2; }
     crawl_art_init();
@@ -505,6 +587,7 @@ int main(int argc, char **argv) {
         snprintf(p, sizeof p, "%s/ui_runs.png", d);
         return runs_sheet(p) ? 0 : 1;
     }
+    if (!strcmp(argv[1], "tutor")) return tutor_sheets(argc > 2 ? argv[2] : ".") ? 0 : 1;
     if (!strcmp(argv[1], "pad")) { ui_check = 1; ui_overflows = 0; int ok = pad_sheet(argc > 2 ? argv[2] : "pad.png"); printf("UI fit (pad): %d overflows\n", ui_overflows); return ok && !ui_overflows ? 0 : 1; }
     return sheet(argv[1], argc > 2 ? atoi(argv[2]) : 1) ? 0 : 1;
 }

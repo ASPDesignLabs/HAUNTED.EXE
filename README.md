@@ -933,8 +933,35 @@ doesn't. A menu then comes into the middle while the scene goes on. In Beneath i
 The Walk a tablet let down on chains, and in The Risen the headstone's face cut again under a dither. It offers
 **CHOOSE A GRAVE** (the ledger's three pages as graves, two built of stone and an unmarked one of timber; a page's stone
 gives its class, level and date, and Enter raises it), **BEGIN A NEW RUN**, **THE CONTROLS** (the keys' whole list, or the
-controller's own screen) and **HELP** (not written yet). Esc goes back a step. Left untouched on its prompt for a minute and
+controller's own screen) and **HELP** (since 1.0.0b21.5, whether a new run brings the lessons again: below). Esc goes back a step. Left untouched on its prompt for a minute and
 a half, the title gives the screen back to the screensaver. The run the screensaver was dreaming is not one of the choices.
+
+### CATACOMB: the first two levels, and the lessons
+
+![The first two levels: the burning hall, a lesson's page, the wisp to the fountain; level 2's ice, the ice draining after the switch, and the ice come back with a skeleton frozen in it](docs/preview_catacomb_tutorial.png)
+
+Since 1.0.0b21.5 the first two levels of the first run are laid out by hand, the same every time and for everyone, the
+screensaver too. **Level 1** opens on a door with lamp oil burning across the hall behind it: walking through it hurts enough
+to want mending, and a place to mend waits at the hall's end (mending is heard by the dead). Then a hall of skeletons for the
+class's spell, a gold key in a side room, a vault with two gold doors and one lock, and the way out past it. **Level 2** has
+more of the dead (skeletons, shamblers under turned earth, bats), ten things that want a spell, and a room at the back behind
+an ice field that holds what stands on it. A rimed seal in that room's far corner takes the ice down after three strikes of any
+spell, which can be thrown from the ice's edge. The map lies by the ice: it is yours for good, and as you take it the ice
+comes back. The way out of that room is a gate that opens only from its side, by the seal on it. There are two keys, gold and
+crimson, each spent on its door, and a secret by the gold key whose finding pays the run's first Cursed Coin.
+
+On a person's **first run on the computer** these levels teach as they go. A page cut in stone stops the crypt at a moment
+(the first door, the fire, the place to mend, the class's spell, the first soul, a key, a lock, the map, the cracks of a secret)
+and says what is going on, in the keys, a controller's buttons or touch's stones, whichever is in use. A few times the view is
+turned for you: towards the place to mend once you are through the fire, where a free wisp kindles to lead you; towards the hall
+your spell is for; back from a door you have no key for yet; off the ice before the switch is struck; towards the ice as it
+returns behind the map, then the gate. Nothing can hurt you while the lessons hold the view. There is no skip. While the lessons
+run, a death costs nothing (the level starts again, nothing lost), her room keeps the map off her wares until level 2 is behind
+you, and level 2's way out stays shut until the map is yours. Without the lessons the levels are the same, fire, ice, switch,
+gate and secret, but nothing is turned and the way out doesn't ask for the map.
+
+The lessons are remembered with the settings. Whoever had played here before 1.0.0b21.5 (with settings of their own or a page
+in the ledger) counts as having had them; the title's **HELP** turns *THE LESSONS ON A NEW RUN* on, and the next new run has them.
 
 ### Playing CATACOMB yourself
 
@@ -1338,6 +1365,28 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b21.5** (the tutorial: the first two levels laid out by hand from the author's drawings, the lessons that teach on
+them, the ice, the switch, the one-way gate and the map lying on level 2). Tested in the harness only: not yet played by hand, run
+on Windows or seen on a real screen.
+
+* **A person, scripted, through every lesson**, each from its own place on the level: on level 1 the door, the fire walked and
+  sprinted through (44% and 56% of health left; never under a quarter, standing in it), the place to mend and its wisp, the class's
+  spell, the first soul, the key, both turnings back (and their shorter words a second time), the vault and the way out, then her
+  room's page; on level 2 the ice crossed before the switch (walked back off it, twice), the switch struck three times from the ice's
+  edge, the map taken (the ice watched coming back, then the gate, then the map's pages; no harm taken while the view was held), the
+  ice crossed back with the map (walked back north), the gate's seal struck from inside and nothing from the north, the gold key
+  (turned to the secret's cracks), the secret pressed and its coin, the crimson key, and the way out refused without the map. Deaths
+  under the lessons cost nothing. The lessons in a controller's buttons and touch's stones are on their sheet; in play they were
+  tried with the keyboard only.
+* **The screensaver on the drawn levels**: level 1 cleared on every seed tried (158 to 222 seconds), level 2 on eight seeds (250 to
+  334 seconds), no deaths there and no stalls. It plays them with no lessons. On level 2 it never wanders into the map's room, so it
+  leaves the switch and the map alone; it found the secret on none of those eight seeds.
+* **Not measured**: the screensaver's runs from level 1 against 1.0.0b21.4 over many seeds and classes, as the betas before had; the
+  first two levels are new, so its early numbers will differ.
+* **Memory safety** (AddressSanitizer): a person through level 1's lessons (with deaths), into her room, and through level 2's
+  switch, map, ice, gate, secret and lessons; the screensaver on both levels: clean. The smoke test passes, and the Windows and
+  browser builds were compiled and smoke-tested by GitHub Actions.
 
 **New in 1.0.0b21.4** (touch: the browser's page asks how you will play, and a phone or tablet held sideways plays by headstones in the
 margins; for the browser only, so Windows plays as before). Tested in headless Chromium and on the author's own phone.

@@ -388,6 +388,74 @@ static void gen_gate(int t, uint32_t seed) {
         }
 }
 
+/* the tutorial's one-way gate (docs/PLAN-tutorial.md 7.3), its south face: the same portcullis, and riveted across its middle
+ * bars an iron plate with a round boss sunk in it, ringed with cut marks, where the seal shows; the north face is the bare gate */
+static void gen_gate_seal(int t, uint32_t seed) {
+    gen_gate(t, seed);
+    for (int y = 25; y <= 44; y++)
+        for (int x = 21; x <= 43; x++) {
+            float dx = x + 0.5f - 32.0f, dy = y + 0.5f - 34.5f, r = sqrtf(dx * dx + dy * dy);
+            int rim = x == 21 || x == 43 || y == 25 || y == 44;
+            uint8_t c = sh(R_IRON, (rim ? 0.62f : 0.3f) + 0.12f * (x < 23) - 0.1f * (y > 42) + 0.07f * h01(x / 2, y, seed + 5));
+            if ((x == 23 || x == 41) && (y == 27 || y == 42)) c = sh(R_IRON, 0.85f);   /* its rivets */
+            if (r < 8.5f) c = sh(R_IRON, 0.08f + 0.18f * fmaxf(0.0f, 0.45f * dx / 8.5f + 0.65f * dy / 8.5f + 0.37f));   /* the boss, sunk: lit from below-right */
+            if (r >= 6.4f && r < 7.4f) {                           /* the ring of cut marks round it */
+                float a = atan2f(dy, dx) + 3.1416f;
+                if (((int)(a * 12.0f / 6.2832f)) & 1) c = sh(R_IRON, 0.7f);
+            }
+            if (r < 2.0f) c = sh(R_IRON, 0.5f);
+            tput(t, x, y, c);
+        }
+    for (int x = 21; x <= 43; x++) tput(t, x, 45, sh(R_IRON, 0.05f));   /* its shadow on the bars below */
+}
+/* the tutorial's ice field (7.1): a sheet of old ice, pale and a little green in its depths, cracked across, bubbles caught in it,
+ * rime feathered over; it tiles, and the floor shows none of itself under it (the game lays it a texel at a time as it creeps) */
+static void gen_ice(int t, uint32_t seed) {
+    for (int x = 0; x < TS; x++)
+        for (int y = 0; y < TS; y++) {
+            float v = 0.66f + 0.2f * (fbm(x / 16.0f, y / 16.0f, 4, seed) - 0.5f) + 0.08f * (fbm(x / 4.0f, y / 4.0f, 16, seed + 3) - 0.5f);
+            if (fbm(x / 8.0f, y / 8.0f, 8, seed + 9) < 0.36f) v -= 0.14f;   /* deeper, clearer patches */
+            tput(t, x, y, sh(R_GHOST, v));
+        }
+    for (int i = 0; i < 6; i++) {                                  /* the cracks: a dark line, a bright lip on its lit side */
+        float x = h01(i, 1, seed) * 64.0f, y = h01(i, 2, seed) * 64.0f, a = h01(i, 3, seed) * 6.2832f;
+        int len = 18 + (int)(h01(i, 4, seed) * 26.0f);
+        for (int k = 0; k < len; k++) {
+            a += (h01(i * 64 + k, 5, seed) - 0.5f) * 0.7f;
+            x += cosf(a); y += sinf(a);
+            tput(t, (int)floorf(x), (int)floorf(y), sh(R_GHOST, 0.36f));
+            tput(t, (int)floorf(x) - 1, (int)floorf(y) - 1, sh(R_GHOST, 0.97f));
+            if (k == len / 2 && (i & 1)) {                          /* a branch */
+                float bx = x, by = y, ba = a + 1.2f;
+                for (int j = 0; j < 9; j++) { bx += cosf(ba); by += sinf(ba); tput(t, (int)floorf(bx), (int)floorf(by), sh(R_GHOST, 0.42f)); }
+            }
+        }
+    }
+    for (int i = 0; i < 14; i++) {                                 /* bubbles caught in it */
+        int bx = (int)(h01(i, 7, seed) * 64.0f), by = (int)(h01(i, 8, seed) * 64.0f), r = 1 + (h01(i, 9, seed) > 0.7f);
+        for (int dy = -r; dy <= r; dy++) for (int dx = -r; dx <= r; dx++) if (dx * dx + dy * dy <= r * r) tput(t, bx + dx, by + dy, sh(R_GHOST, dx + dy < 0 ? 0.95f : 0.7f));
+    }
+    for (int i = 0; i < 160; i++) {                                /* rime feathered over it, and glints */
+        int fx = (int)(h01(i, 10, seed) * 64.0f), fy = (int)(h01(i, 11, seed) * 64.0f);
+        tput(t, fx, fy, i % 23 == 0 ? (uint8_t)C_WHITE : sh(R_GHOST, 0.82f + 0.15f * h01(i, 12, seed)));
+        if (i & 1) tput(t, fx + 1, fy + (i & 2 ? 1 : -1), sh(R_GHOST, 0.78f));
+    }
+}
+
+/* the ice over the floor at a world place, laid k of the way (0 none, 1 all): each texel comes in at its own moment, larger
+ * flakes first, a fringe of rime ahead of the sheet; what isn't covered keeps the floor's own texel */
+uint8_t crawl_ice_at(float wx, float wy, float k, uint8_t under) {
+    if (k <= 0.0f) return under;
+    int tx = (int)floorf(wx * TS), ty = (int)floorf(wy * TS);
+    uint8_t ice = crawl_tex[T_ICE][(tx & (TS - 1)) * TS + (ty & (TS - 1))];
+    if (k >= 1.0f) return ice;
+    float th = 0.8f * fbm(wx * 2.5f, wy * 2.5f, 1 << 20, 831) + 0.2f * h01(tx, ty, 833);   /* in drifts, their edges frayed */
+    th = clampf((th - 0.2f) / 0.6f, 0.0f, 1.0f);
+    if (th < k) return ice;
+    if (th < k + 0.07f) return sh(R_GHOST, 0.82f);                 /* the rime running ahead */
+    return under;
+}
+
 /* the Accursed Portal, in the grave plot's far wall: a stone arch, and in it a slow swirl of red and
  * violet turning in on itself, a few sparks caught in it; four frames, a quarter turn apart */
 static void gen_portal(int t, int frame, uint32_t seed) {
@@ -4174,6 +4242,102 @@ static void spr_lectern(void) {
     static const int MOTE[5][2] = { { 26, 17 }, { 35, 14 }, { 41, 19 }, { 30, 10 }, { 22, 21 } };
     for (int i = 0; i < 5; i++) cv_px(MOTE[i][0], MOTE[i][1], (uint8_t)(R_GLOW + 11 + (i & 1) * 3));   /* after the rim: they float free */
     cv_store(SP_LECTERN);
+}
+
+/* the tutorial's switch (docs/PLAN-tutorial.md 7.2): a squat stele on a stepped foot, a round seal sunk in its face with a
+ * six-armed sigil cut in it. Rimed (0): furred white, icicles from its head and the seal's lip, frost on the floor, the sigil
+ * pale with cold; thawed (1): dark and running wet, drips, a pool at its foot, a breath of steam; spent (2): the seal split
+ * across, a piece of its head gone, dull and dry */
+static void spr_mk_rseal(int id, int st) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 62, 18, 1.8f, R_WARM + 1);
+    if (st == 0) cv_flat(32, 61, 21, 2.6f, sh(R_GHOST, 0.62f));   /* frost spread on the floor */
+    if (st == 1) cv_flat(33, 62, 17, 1.6f, sh(R_GHOST, 0.22f));   /* the pool */
+    float wet = st == 1 ? -0.08f : 0.0f;
+    for (int y = 54; y <= 62; y++) for (int x = 17; x <= 47; x++) {   /* the foot, two steps */
+        if (y < 58 && (x < 20 || x > 44)) continue;
+        int edge = y == 54 || y == 58;
+        cv_px(x, y, sh(R_STONE, (edge ? 0.52f : 0.28f) + 0.12f * (x < 21) - 0.08f * (x > 43) + 0.06f * h01(x / 2, y, 801) + wet));
+    }
+    for (int y = 4; y < 54; y++) for (int x = 21; x <= 43; x++) {   /* the shaft, its head a pointed arch */
+        float dx = x + 0.5f - 32.0f, top = 18.0f - g_arch(dx, 11.0f);
+        if (fabsf(dx) > 11.0f || y < top) continue;
+        if (st == 2 && y < 16.0f - 0.7f * dx && dx > -3.0f) continue;   /* a piece of its head gone */
+        int edge = fabsf(dx) > 9.5f || y < top + 1.6f;
+        float v = (edge ? 0.42f : 0.27f) + 0.15f * (dx < -8.5f) - 0.1f * (dx > 8.5f) + 0.07f * h01(x / 2, y / 3, 803) + wet;
+        if (st == 1 && h01(x, y / 4, 805) > 0.86f) v += 0.25f;      /* wet streaks catching the light */
+        cv_px(x, y, sh(R_STONE, v));
+    }
+    for (int y = 23; y <= 41; y++) for (int x = 23; x <= 41; x++) {   /* the seal, sunk, and its sigil */
+        float dx = x + 0.5f - 32.0f, dy = y + 0.5f - 32.0f, r = sqrtf(dx * dx + dy * dy);
+        if (r > 9.0f) continue;
+        float v = r > 7.8f ? 0.55f : 0.16f + 0.14f * lit(dx / 9.0f, dy / 9.0f, 0.5f);
+        int ramp = R_STONE;
+        float a = atan2f(dy, dx), arm = fabsf(sinf(3.0f * a));     /* six arms */
+        if (r < 6.6f && (arm < 0.16f || (r > 3.6f && r < 4.4f && arm < 0.5f))) {   /* cut, with little cross-twigs */
+            if (st == 0) { ramp = R_GHOST; v = 0.9f; } else v = st == 1 ? 0.05f : 0.08f;
+        }
+        cv_px(x, y, sh(ramp, v + (ramp == R_STONE ? wet : 0.0f)));
+    }
+    if (st == 2) {                                                 /* split across, the halves a little apart */
+        int x = 24;
+        for (int y = 22; y <= 53; y++) { x += (int)(h01(y, 1, 807) * 3.0f) - 1; if (y > 26) x = x < 26 ? 26 : x > 40 ? 40 : x; cv_px(x, y, sh(R_STONE, 0.02f)); cv_px(x + 1, y, sh(R_STONE, 0.08f)); }
+        cv_flat(50, 59, 4.5f, 2.6f, sh(R_STONE, 0.3f)); cv_flat(49, 58, 2.0f, 1.0f, sh(R_STONE, 0.45f));   /* the piece fallen */
+        for (int i = 0; i < 7; i++) cv_flat(12 + h01(i, 2, 809) * 40, 60 + h01(i, 3, 809) * 2, 1.4f, 0.9f, sh(R_STONE, 0.25f + 0.2f * h01(i, 4, 809)));
+    }
+    if (st == 0) {                                                 /* rime on its head and lips, icicles */
+        for (int i = 0; i < 90; i++) {
+            int x = 21 + (int)(h01(i, 5, 811) * 23.0f), y = 4 + (int)(h01(i, 6, 811) * 50.0f);
+            float dx = x + 0.5f - 32.0f, top = 18.0f - g_arch(dx, 11.0f);
+            int nearlip = y < top + 3.0f || fabsf(dx) > 9.0f || (fabsf(hypotf(dx, y + 0.5f - 32.0f) - 9.0f) < 1.2f);
+            if (y >= top && (nearlip || h01(i, 7, 811) > 0.6f)) cv_px(x, y, sh(R_GHOST, 0.7f + 0.3f * h01(i, 8, 811)));
+        }
+        static const int IC[7][2] = { { 22, 17 }, { 25, 19 }, { 40, 18 }, { 43, 16 }, { 28, 41 }, { 32, 42 }, { 36, 41 } };
+        for (int i = 0; i < 7; i++) {
+            int len = 3 + (int)(h01(i, 9, 811) * 5.0f);
+            for (int k = 0; k < len; k++) cv_px(IC[i][0], IC[i][1] + k, sh(R_GHOST, 0.95f - 0.5f * k / len));
+        }
+        for (int x = 18; x <= 46; x++) if (h01(x, 10, 811) > 0.4f) cv_px(x, 54, sh(R_GHOST, 0.85f));   /* the foot's step rimed */
+    }
+    if (st == 1) {                                                 /* drips where the icicles were, at full brightness */
+        static const int DR[5][2] = { { 22, 20 }, { 40, 21 }, { 43, 19 }, { 28, 44 }, { 36, 44 } };
+        for (int i = 0; i < 5; i++) { cv_px(DR[i][0], DR[i][1], sh(R_GHOST, 0.75f)); cv_px(DR[i][0], DR[i][1] + 3, sh(R_GHOST, 0.55f)); }
+    }
+    cv_outline(0);
+    if (st == 1)                                                   /* a breath of steam, after the rim */
+        for (int i = 0; i < 9; i++) cv_px(26 + (int)(h01(i, 11, 811) * 12.0f), 1 + (int)(h01(i, 12, 811) * 6.0f), sh(R_GHOST, 0.45f + 0.2f * (i & 1)));
+    cv_store(id);
+}
+/* the tutorial's map (7.4), lying on the floor where it fell: the scroll's sheet half unrolled towards you, foreshortened, the
+ * maze in brown ink, its near roller and red seal, the rest still rolled; motes over it, as over hers */
+static void spr_mapfloor(void) {
+    cv_begin(cv_sprite, TS, TS);
+    cv_flat(32, 59, 22, 3.4f, R_WARM + 1);                         /* its shadow */
+    for (int y = 49; y <= 59; y++) {                               /* the sheet, wider as it comes nearer */
+        float u = (float)(y - 49) / 10.0f, half = 14.0f + 5.0f * u;
+        for (int x = (int)(32 - half); x <= (int)(32 + half); x++) {
+            float v = 0.74f + 0.12f * (fbm(x / 6.0f, y / 3.0f, 16, 821) - 0.5f) - 0.08f * (x <= (int)(32 - half) + 0 || x >= (int)(32 + half));
+            if (h01(x, y, 823) > 0.93f && (x < 32 - half + 2 || x > 32 + half - 2)) continue;   /* its edges a little torn */
+            cv_px(x, y, sh(R_BONE, v));
+        }
+    }
+    for (int i = 0; i < 8; i++) {                                  /* the maze, foreshortened */
+        float y0 = 50.5f + h01(i, 1, 825) * 7.5f, u = (y0 - 49.0f) / 10.0f, half = 12.0f + 5.0f * u;
+        float x0 = 32.0f + (h01(i, 2, 825) - 0.5f) * 2.0f * half * 0.9f;
+        if (i & 1) cv_line(x0, y0, fminf(x0 + 4 + h01(i, 3, 825) * 6, 32 + half), y0, sh(R_WOOD, 0.12f));
+        else cv_line(x0, y0, x0 + (x0 - 32.0f) * 0.15f, fminf(y0 + 2.0f + h01(i, 3, 825) * 3.0f, 58.0f), sh(R_WOOD, 0.12f));
+    }
+    cv_px(36, 55, sh(R_BLOOD, 0.75f)); cv_px(37, 55, sh(R_BLOOD, 0.75f));   /* a mark on it */
+    cv_capsule(17, 47.5f, 47, 47.5f, 2.6f, R_BONE, 0.32f, 0.7f);   /* the rest, rolled, at the far edge */
+    cv_ellipse(15.5f, 47.5f, 1.6f, 2.0f, R_WOOD, 0.1f, 0.45f); cv_ellipse(48.5f, 47.5f, 1.6f, 2.0f, R_WOOD, 0.1f, 0.45f);
+    cv_capsule(12, 60.5f, 52, 60.5f, 1.6f, R_WOOD, 0.12f, 0.5f);   /* its near roller */
+    cv_ellipse(11, 60.5f, 1.4f, 1.6f, R_WOOD, 0.1f, 0.5f); cv_ellipse(53, 60.5f, 1.4f, 1.6f, R_WOOD, 0.1f, 0.5f);
+    cv_line(40, 61, 43, 62, sh(R_BLOOD, 0.4f));                    /* the ribbon, and its seal on the floor */
+    cv_ellipse(45, 62, 2.6f, 1.5f, R_BLOOD, 0.15f, 0.55f);
+    cv_outline(0);
+    static const int MOTE[5][2] = { { 22, 40 }, { 33, 35 }, { 44, 41 }, { 28, 31 }, { 39, 28 } };
+    for (int i = 0; i < 5; i++) cv_px(MOTE[i][0], MOTE[i][1], (uint8_t)(R_GLOW + 10 + (i & 1) * 3));
+    cv_store(SP_MAPFLOOR);
 }
 
 /* The merchant's map (1.0.0b9): a scroll half unrolled between its two rollers, a maze drawn on it in
@@ -14379,7 +14543,7 @@ static void specials_plain(void) {
     gen_sign(T_SIGN, 91);
     gen_repository(T_REPOSITORY);
     for (int f = 0; f < 4; f++) gen_portal(T_PORTAL0 + f, f, 107);
-    gen_gate(T_GATE, 97);
+    gen_gate(T_GATE, 97); gen_gate_seal(T_GATE_SEAL, 97);
     gen_font(T_FONT, 101, 1); gen_font(T_FONT_DRY, 101, 0);
     gen_grate(T_GRATE, 103);
     hz_walls();
@@ -14388,7 +14552,7 @@ static void specials_on(int base) {
     specials_plain();
     rebase(T_SIGN, 91, base); rebase(T_REPOSITORY, 233, base);
     for (int f = 0; f < 4; f++) rebase(T_PORTAL0 + f, 107, base);
-    rebase(T_GATE, 97, base); rebase(T_FONT, 101, base); rebase(T_FONT_DRY, 101, base); rebase(T_GRATE, 103, base);
+    rebase(T_GATE, 97, base); rebase(T_GATE_SEAL, 97, base); rebase(T_FONT, 101, base); rebase(T_FONT_DRY, 101, base); rebase(T_GRATE, 103, base);
     static const uint32_t HZS[] = { 109, 109, 113, 127, 127, 131, 131, 137, 137, 139, 139, 149, 149, 151 };
     for (int i = 0; i < 14; i++) rebase(T_HZ_SLAB + i, HZS[i], base);
 }
@@ -14848,7 +15012,7 @@ void crawl_art_init(void) {
     gen_locked(T_LOCKED_S, 85, R_IRON);
     gen_locked(T_LOCKED_C, 87, R_BLOOD);
     gen_sign(T_SIGN, 91);
-    gen_gate(T_GATE, 97);
+    gen_gate(T_GATE, 97); gen_gate_seal(T_GATE_SEAL, 97); gen_ice(T_ICE, 829);
     gen_font(T_FONT, 101, 1); gen_font(T_FONT_DRY, 101, 0);
     gen_grate(T_GRATE, 103);
     hz_walls();
@@ -14917,6 +15081,7 @@ void crawl_art_init(void) {
     spr_phial();
     spr_tomb(SP_TOMB_FRESH, 4);                                     /* her plot's newest (the four kinds are props_level's) */
     spr_lectern(); spr_mapware(); spr_lampstand();
+    for (int k = 0; k < 3; k++) spr_mk_rseal(SP_MK_RSEAL0 + k, k); spr_mapfloor();   /* the tutorial's (docs/PLAN-tutorial.md) */
     spr_mk_pricket(SP_MK_PRICKET0, 0); spr_mk_pricket(SP_MK_PRICKET1, 1); spr_mk_coffer(SP_MK_COFFER0, 0); spr_mk_coffer(SP_MK_COFFER1, 1);   /* 1.0.0b16 */
     spr_mk_cage(SP_MK_CAGE0, 0); spr_mk_cage(SP_MK_CAGE1, 1); spr_mk_rack(SP_MK_RACK0, 0); spr_mk_rack(SP_MK_RACK1, 1);
     spr_mk_urn(SP_MK_URN0, 0); spr_mk_urn(SP_MK_URN1, 1); spr_mk_coil(SP_MK_COIL0, 0); spr_mk_coil(SP_MK_COIL1, 1);

@@ -20,6 +20,7 @@
 #include "crawl_ui.h"
 #include "crawl_title.h"
 #include "crawl_portrait.h"
+#include "crawl_tutor.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -52,7 +53,8 @@ enum { MOB_SKEL, MOB_GHOST, MOB_BAT, MOB_WSKULL, MOB_SHIELD, MOB_SPIDER,
        MOB_SHADE, MOB_IMP, MOB_DEACON, MOB_GARGOYLE,
        MOB_WHIPPER, MOB_SEXTON, MOB_LIGHTLESS };   /* kept in saves (the record): new kinds go at the end (REC_KINDS 24 at most) */
 enum { MS_WALK, MS_DIE, MS_RECOIL, MS_FLEE };   /* the last two: wraiths only */
-enum { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_KEY, IT_POTION, IT_URN, IT_RING, IT_BONE, IT_SCRIP };   /* IT_SCRIP: color is its boss */
+enum { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_KEY, IT_POTION, IT_URN, IT_RING, IT_BONE, IT_SCRIP, IT_MAP };   /* IT_SCRIP: color is its boss;
+                                                                      IT_MAP the tutorial's (docs/PLAN-tutorial.md 7.4) */
 static const int ITEM_VALUE[] = { 10, 25, 50, 100, 250, 0, 0, 0, 0, 0, 0 };
 enum { MIS_BONE, MIS_FIRE, MIS_EMBER, MIS_TURNED, MIS_WEB };   /* what the dead throw: bones, a wall skull's fireball, an imp's
                                                                     ember; a spell of yours the Ill-Fated Knight's Mirror Rune
@@ -644,7 +646,8 @@ typedef struct { int fx, fy, d, sx, sy, tex, state, rolled, len, links, door_x, 
 #define WISP_MOTE_T 12.0f                   /* how long a mote of it hangs there */
 #define WISP_PACE (1.5f * WALK)             /* how fast it goes on ahead */
 #define WISP_COST 1.0f                      /* a soul a wisp */
-enum { WK_EXIT, WK_KEY, WK_ALTAR };         /* where a wisp leads: the way out, a key, the altar's secrets */
+enum { WK_EXIT, WK_KEY, WK_ALTAR, WK_MEND };   /* where a wisp leads: the way out, a key, the altar's secrets; a place to mend
+                                               (the lessons', docs/PLAN-tutorial.md 8.5) */
 enum { WS_KINDLE, WS_FLY, WS_HOVER, WS_GONE };
 typedef struct { float x, y, z, t; } Mote;
 typedef struct {
@@ -782,7 +785,9 @@ enum { MKK_PRICKET, MKK_RACK, MKK_COFFER, MKK_CAGE, MKK_URN, MKK_COIL, MKK_VINE,
        /* step 6 (section 4.3, from level 5, and the runs' own, 4.6) */
        MKK_CLIGHT, MKK_RSKULL, MKK_HSEAL, MKK_BELL, MKK_WINCH, MKK_HEARTH, MKK_VENT, MKK_WEB, MKK_CART, MKK_LODE, MKK_PRISM, MKK_GEODE,
        /* step 8: sequences (section 4.4, from level 13) and things for fights (4.5, from 5) */
-       MKK_TABLET, MKK_PLINTH, MKK_RELIQ, MKK_WSTONE, MKK_RELAY, MKK_CASK, MKK_PILLAR, MKK_PFONT, MKK_DRUM, MKK_WATER, MKK_ICEF, MKK_DAMP, NMKK };
+       MKK_TABLET, MKK_PLINTH, MKK_RELIQ, MKK_WSTONE, MKK_RELAY, MKK_CASK, MKK_PILLAR, MKK_PFONT, MKK_DRUM, MKK_WATER, MKK_ICEF, MKK_DAMP,
+       MKK_RSEAL, MKK_GSEAL,                                    /* the tutorial's level 2 (docs/PLAN-tutorial.md 7.2, 7.3): any spell */
+       NMKK };
 typedef struct {
     int kind, el, pips, got, done, deco, tried, said;   /* said: 1 named, 2 its want told, 4 first answered; done 2: lost */
     int st, grp, door, times;               /* st: its state (hot, rolling, up, iced); grp: 1 + a bell's first; door: a gate's */
@@ -826,6 +831,9 @@ static const MkKind MKK[NMKK] = {                                   /* el -1: an
     { -1, -1, EL_LIGHT, 1, 32, 50, 32, 50, "STANDING WATER", "THE WATER CRACKLES", 4, 2, 2 },
     { -1, -1, EL_FROST, 1, 32, 50, 32, 50, "A COLD FLOOR", "THE FLOOR RIMES OVER", 4, 15, 0 },
     { -1, -1, EL_FIRE, 1, 32, 40, 32, 40, "FIREDAMP", "THE FIREDAMP GOES UP", 4, 4, 4 },
+    /* the tutorial's, laid only by its drawing (tier 9): the switch that holds the ice, and the one-way gate's seal */
+    { SP_MK_RSEAL0, SP_MK_RSEAL1, -1, 3, 32, 32, 32, 32, "A RIMED SEAL", "THE ICE DRAINS AWAY", 9, 0, 0 },
+    { -1, -1, -1, 1, 32, 34, 32, 34, "THE GATE'S SEAL", "THE GATE RISES", 9, 0, 0 },
 };
 #define MK_FROM 5                           /* section 4.3's things from this level of a run */
 #define BELL_RING 6.5f                      /* a bell rings this long: all three at once to answer them (a spell comes round
@@ -1269,7 +1277,7 @@ enum { MM_SIGN, MM_ASCEND, MM_OFFER, MM_VOW, MM_PED, MM_WIND, MM_PAT, MM_LEAVE, 
 static const int PED_PRICE[NPED + 1] = { 0, 0, 0, 500, 1250, 3125, 7815, 19530 };   /* the third pedestal to the seventh */
 #define NINV 6                              /* Tab's pages */
 enum { UI_NONE, UI_INVENTORY, UI_QUIT, UI_LEDGER, UI_BESTIARY, UI_LETGO, UI_WISPS, UI_ALTAR, UI_SHRINE, UI_TOTEM, UI_PORTAL, UI_MERCHANT, UI_STONE, UI_COMP, UI_REPO, UI_CODEX, UI_ASCEND, UI_STONES, UI_ALIGN, UI_CLASS, UI_HALL2, UI_BSHRINE, UI_RECKON, UI_PAD,
-       UI_PORTRAIT, UI_BUY };                                      /* the menus a person can open; a portrait of the slain's card; a ware's buying */
+       UI_PORTRAIT, UI_BUY, UI_TUTOR };                                      /* the menus a person can open; a portrait of the slain's card; a ware's buying */
 static Input IN;                            /* their keys and mouse, this step */
 static double IN_DT;                        /* and how long the step is */
 static struct {                             /* their game controller, if they have one */
@@ -1334,8 +1342,10 @@ static const char *const PAD_WORD[PAD_COUNT] = { "\1A", "\1B", "\1X", "\1Y", "LB
 #define PL_BYTES 23                                                /* the least a layout is; 1.0.0b21.1 writes one more: */
 #define PL_BYTES_TITLE 24                                          /* the title screen last shown (docs/PLAN-title.md) */
 #define PL_BYTES_TOUCH 26                                          /* and touch's turning and its smoothing (docs/PLAN-mobile.md) */
-static struct { uint8_t job[PAD_COUNT]; int swap, quiet, turn, mstick, read, title, tturn, tsmooth; } PL;   /* mstick: the menus' stick, 0 left, 1 right, 2 either */
-static void pl_default(void) { for (int b = 0; b < PAD_COUNT; b++) PL.job[b] = (uint8_t)b; PL.swap = PL.quiet = PL.mstick = 0; PL.turn = 10; PL.title = 2; PL.tturn = 10; PL.tsmooth = 5; }
+#define PL_BYTES_TUT 27                                            /* and the lessons, done or asked again (docs/PLAN-tutorial.md) */
+enum { TUT_L1 = 1, TUT_L2 = 2, TUT_HER = 4, TUT_AGAIN = 8 };      /* PL.tut: level 1's, level 2's and her room's lessons given; again */
+static struct { uint8_t job[PAD_COUNT]; int swap, quiet, turn, mstick, read, title, tturn, tsmooth, tut; } PL;   /* mstick: the menus' stick, 0 left, 1 right, 2 either */
+static void pl_default(void) { for (int b = 0; b < PAD_COUNT; b++) PL.job[b] = (uint8_t)b; PL.swap = PL.quiet = PL.mstick = 0; PL.turn = 10; PL.title = 2; PL.tturn = 10; PL.tsmooth = 5; PL.tut = 0; }
 static int pl_fixed(int b) { return b == PAD_VIEW || b == PAD_MENU; }
 static void pl_trade(int a, int b) { if (a == b || pl_fixed(a) || pl_fixed(b)) return; uint8_t t = PL.job[a]; PL.job[a] = PL.job[b]; PL.job[b] = t; }
 static void pl_read(void) {
@@ -1349,15 +1359,24 @@ static void pl_read(void) {
         PL.turn = clampi(buf[22], 5, 20);
         if (n >= PL_BYTES_TITLE) PL.title = buf[23] % 3;
         if (n >= PL_BYTES_TOUCH) { PL.tturn = clampi(buf[24], 3, 30); PL.tsmooth = clampi(buf[25], 0, 10); }
+        if (n >= PL_BYTES_TUT) PL.tut = buf[26] & 15;
     } else if (n == 1 && buf[0] < PAD_COUNT) pl_trade(PAD_LS, buf[0]);
+    if (n < PL_BYTES_TUT) {                                        /* no lessons byte yet (before 1.0.0b21.5): someone who has played here
+                                                                      already, with settings of their own or a page in the ledger, is past
+                                                                      their first run; HELP gives the lessons back (docs/PLAN-tutorial.md T2 a) */
+        static uint8_t pg[SLOT_MAX];
+        int played = n > 0;
+        for (int k = 0; k <= SLOT_PROGRESS && !played; k++) played = slot_read(k, pg, sizeof pg) > 0;
+        if (played) PL.tut = TUT_L1 | TUT_L2 | TUT_HER;
+    }
 }
 static void pl_write(void) {
-    uint8_t b[PL_BYTES_TOUCH];
+    uint8_t b[PL_BYTES_TUT];
     memcpy(b, "HVQ1", 4); b[4] = 1;
     memcpy(b + 5, PL.job, PAD_COUNT);
     b[21] = (uint8_t)(PL.swap | PL.quiet << 1 | PL.mstick << 2); b[22] = (uint8_t)PL.turn;
-    b[23] = (uint8_t)PL.title; b[24] = (uint8_t)PL.tturn; b[25] = (uint8_t)PL.tsmooth;
-    slot_write(SLOT_PREFS, b, PL_BYTES_TOUCH);
+    b[23] = (uint8_t)PL.title; b[24] = (uint8_t)PL.tturn; b[25] = (uint8_t)PL.tsmooth; b[26] = (uint8_t)PL.tut;
+    slot_write(SLOT_PREFS, b, PL_BYTES_TUT);
 }
 static int pl_on(int job) { pl_read(); for (int b = 0; b < PAD_COUNT; b++) if (PL.job[b] == job) return b; return job; }   /* the button a job is on */
 static int pad_sprint(void) { return pl_on(PAD_LS); }
@@ -1802,8 +1821,52 @@ static void mcarve(int x, int y, int region, int theme, int room) {
     c->kind = K_FLOOR; c->region = (int16_t)region; c->theme = (uint8_t)theme; c->room = (int8_t)room;
 }
 static int in_mroom(int r, int x, int y) { return x >= mroom[r][0] && y >= mroom[r][1] && x < mroom[r][0] + mroom[r][2] && y < mroom[r][1] + mroom[r][3]; }
-static int lane(int x, int y) { return (x & 3) == 2 || (y & 3) == 2; }
-static int lane_dist(int x, int y) { int a = abs((x & 3) - 2), b = abs((y & 3) - 2); return a < b ? a : b; }
+/* a drawn level (docs/PLAN-tutorial.md) isn't on the plan's grid: its lanes are drawn with it, and each cell's steps to one kept */
+static int g_drawn;                                                /* 1 or 2: the drawn level in play; 0 any other place */
+static uint8_t g_lane[MAPN][MAPN], g_ldist[MAPN][MAPN];
+/* level 1's burning floor (docs/PLAN-tutorial.md, section 6): lamp oil spilled across the hall and alight, crossed to go on */
+#define DFIRE_CELLS 16
+#define DFIRE_OUT 20.0f                                            /* it burns low and goes out this long after you are past */
+#define DFIRE_TICK 0.5f                                            /* its harm comes this often while you stand in it */
+#define DFIRE_SHARE 0.17f                                          /* a share of your health each time */
+#define DFIRE_AFTER 0.20f                                          /* and On Fire's harm after, at the first touch */
+#define DFIRE_FLOOR 0.25f                                          /* never under this share of health, the burning after included */
+static struct {
+    int n, inside, cx[DFIRE_CELLS], cy[DFIRE_CELLS];
+    float fade, out_t, tick, crackle, past_y;                      /* past_y: two cells beyond it, where it starts to go out */
+    uint8_t at[MAPN][MAPN];
+} DF;
+static void drawn_fire_lights(void);
+/* level 2's ice field (docs/PLAN-tutorial.md, section 7.1): it freezes what stands on it and holds the caster at three stacks; the
+ * rimed seal in the far room takes it down, and it comes back, for good, as the map is taken */
+#define ICE_CELLS 24
+#define ICE_TURN 0.8f                                              /* a cell turns over this long, after its wait (up to 1.2 s) */
+#define ICE_STACK 0.4f                                             /* a Chilled stack this often on it */
+static struct {
+    int n, live, spent, sw, gate, gate_door;                       /* sw, gate: the switch's and the gate's things; gate_door, -1 none */
+    int cx[ICE_CELLS], cy[ICE_CELLS];
+    float wait[ICE_CELLS], t, stack, breath;                       /* each cell's wait as it turns; since it last turned */
+    uint8_t at[MAPN][MAPN];                                        /* 1 + its index */
+} IC;
+static void ice_down(void);
+static void ice_up(void);
+static int tu_taken(void);                                         /* the lessons have the body (a turning, a hold, a lead) */
+static int tu_exit_barred(void);                                   /* level 2's way out, shut while the lessons want the map */
+static void tu_map_taken(void);
+static int g_map_kept;                                             /* her room keeps the map off her wares (level 2's lessons to come) */
+static void tu_level_begin(void);                                 /* the lessons (docs/PLAN-tutorial.md), further down */
+static void tu_shop_begin(void);
+static void tu_cleared(void);
+static int tu_mercy(void);
+static void tu_show(void);
+static int lane(int x, int y) {
+    if (g_drawn) return x >= 0 && y >= 0 && x < MAPN && y < MAPN && g_lane[y][x];
+    return (x & 3) == 2 || (y & 3) == 2;
+}
+static int lane_dist(int x, int y) {
+    if (g_drawn) return x >= 0 && y >= 0 && x < MAPN && y < MAPN ? g_ldist[y][x] : 9;
+    int a = abs((x & 3) - 2), b = abs((y & 3) - 2); return a < b ? a : b;
+}
 /* where the autopilot may walk: the middle lanes */
 static int apass(int x, int y) { return lane(x, y) && passable(x, y); }
 
@@ -2418,6 +2481,93 @@ static void con_carve(int x, int y, int a, int b) {             /* a wall betwee
 }
 static int mind_on(void);
 static int since(int level);
+/* what follows the plan on every level: the walls' stone by the room beside them, colonnades, torches, the dressing, what
+ * the autopilot can walk, fog, a boss's arena and the faces; a drawn level (docs/PLAN-tutorial.md) shares it */
+static void gen_dress(void) {
+    /* wall textures from the neighbouring room's theme, or the corridor zone */
+    for (int y = 0; y < MAPN; y++)
+        for (int x = 0; x < MAPN; x++) {
+            Cell *c = &G.map[y][x];
+            if (c->kind != K_WALL) continue;
+            int theme = -1;
+            for (int d = 0; d < 4; d++) {
+                Cell *n = cell(x + DX[d], y + DY[d]);
+                if (n->kind == K_FLOOR && n->theme != TH_CORRIDOR) theme = n->theme;
+            }
+            if (theme < 0) {
+                uint32_t z = hash2(x / 9 + 101, y / 9 + 57) % 10;
+                theme = z < 6 ? TH_CORRIDOR : (z < 8 ? TH_MOSS : TH_OSSUARY);
+            }
+            c->tex = (uint8_t)theme_tex(theme, hash2(x, y));
+        }
+    for (int i = 0; i < G.nsecrets; i++) {                       /* a plain stone for the cracks to show in */
+        Secret *sc = &G.secrets[i];
+        Cell *w = &G.map[sc->sy][sc->sx];
+        if (w->tex == T_NICHE || w->tex == T_BANNER || w->tex == T_SKULLS) w->tex = T_STONE;
+        sc->tex = w->tex;
+        if (sc->door_x >= 0) G.map[sc->door_y][sc->door_x].tex = T_PASSAGE;
+    }
+
+    /* colonnades down some of the big rooms: a pillar where four of their blocks meet */
+    for (int r = 0; r < G.nrooms; r++) {
+        if (mroom[r][2] < 3 || mroom[r][3] < 3 || rnd(10) >= 4) continue;
+        for (int my = mroom[r][1] + 1; my < mroom[r][1] + mroom[r][3] - 1; my += 2)
+            for (int mx = mroom[r][0] + 1; mx < mroom[r][0] + mroom[r][2] - 1; mx += 2) {
+                int x = mstart(mx), y = mstart(my);
+                G.map[y][x].kind = K_PILLAR;
+                add_deco(x + 0.5f, y + 0.5f, SP_PILLAR);
+            }
+    }
+
+    /* torches along the halls */
+    static int order[MAPN * MAPN];
+    int no = 0;
+    for (int i = 0; i < MAPN * MAPN; i++) order[no++] = i;
+    for (int i = no - 1; i > 0; i--) { int j = rnd(i + 1), t = order[i]; order[i] = order[j]; order[j] = t; }
+    for (int i = 0; i < no && G.nlights < MAXLIGHTS - 40; i++) {
+        int x = order[i] % MAPN, y = order[i] / MAPN;
+        if (G.map[y][x].kind != K_FLOOR || G.map[y][x].secret) continue;
+        int near = 0;
+        for (int l = 0; l < G.nlights; l++) if (abs(G.lights[l].cx - x) + abs(G.lights[l].cy - y) < 6) near = 1;
+        if (near || rndf() > 0.68f - 0.22f * depth()) continue;     /* fewer torches the deeper you go */
+        int d = rnd(4);
+        for (int k = 0; k < 4; k++, d = (d + 1) & 3) {
+            int wx = x + DX[d], wy = y + DY[d];
+            Cell *w = cell(wx, wy);
+            if (w->kind != K_WALL || w->secret || wx <= 0 || wy <= 0 || wx >= MAPN - 1 || wy >= MAPN - 1) continue;
+            int bydoor = 0;
+            for (int e = 0; e < 4; e++) if (cell(wx + DX[e], wy + DY[e])->kind == K_DOOR) bydoor = 1;
+            if (bydoor) continue;
+            w->tex = T_TORCH0; w->ftorch = (uint8_t)(((d + 2) & 3) + 1);   /* on the face toward the hall */
+            light_static(x + 0.5f + DX[d] * 0.42f, y + 0.5f + DY[d] * 0.42f, 1.55f, 4.6f);
+            break;
+        }
+    }
+
+    dress_level();
+
+    G.ncells = 0;                                                  /* what the autopilot can walk */
+    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (G.map[y][x].kind == K_FLOOR && lane(x, y) && !G.map[y][x].secret) G.ncells++;
+
+    /* fog banks: smooth blobs from a coarse random lattice; a few wisps at first, thick in the Deep */
+    #define FOGL (MAPN * 10 / 48 + 3)
+    float lat[FOGL][FOGL];
+    for (int j = 0; j < FOGL; j++) for (int i = 0; i < FOGL; i++) lat[j][i] = rndf();
+    float dk = clampf(0.45f * decay() + 0.55f * depth(), 0.0f, 1.0f), thr = 0.72f - 0.32f * dk, amt = 0.4f + 0.45f * dk;
+    for (int y = 0; y < MAPN; y++)
+        for (int x = 0; x < MAPN; x++) {
+            float fx = x / 4.8f, fy = y / 4.8f;
+            int ix = (int)fx, iy = (int)fy;
+            float ax = fx - ix, ay = fy - iy;
+            ax = ax * ax * (3 - 2 * ax); ay = ay * ay * (3 - 2 * ay);
+            float n = lerpf(lerpf(lat[iy][ix], lat[iy][ix + 1], ax), lerpf(lat[iy + 1][ix], lat[iy + 1][ix + 1], ax), ay);
+            G.fog[y][x] = clampf((n - thr) * 3.2f, 0.0f, 1.0f) * amt;
+        }
+    #undef FOGL
+    if (G.boss >= 0) stamp_arena();
+    if (G.faced) lay_faces();
+}
+
 static void gen_level(void) {
     G.faced = crawl_drawn(G.level); G.look = crawl_set(G.level);
     memset(nr_type, 0, sizeof nr_type);
@@ -2600,89 +2750,7 @@ static void gen_level(void) {
         }
 
     place_secrets();
-
-    /* wall textures from the neighbouring room's theme, or the corridor zone */
-    for (int y = 0; y < MAPN; y++)
-        for (int x = 0; x < MAPN; x++) {
-            Cell *c = &G.map[y][x];
-            if (c->kind != K_WALL) continue;
-            int theme = -1;
-            for (int d = 0; d < 4; d++) {
-                Cell *n = cell(x + DX[d], y + DY[d]);
-                if (n->kind == K_FLOOR && n->theme != TH_CORRIDOR) theme = n->theme;
-            }
-            if (theme < 0) {
-                uint32_t z = hash2(x / 9 + 101, y / 9 + 57) % 10;
-                theme = z < 6 ? TH_CORRIDOR : (z < 8 ? TH_MOSS : TH_OSSUARY);
-            }
-            c->tex = (uint8_t)theme_tex(theme, hash2(x, y));
-        }
-    for (int i = 0; i < G.nsecrets; i++) {                       /* a plain stone for the cracks to show in */
-        Secret *sc = &G.secrets[i];
-        Cell *w = &G.map[sc->sy][sc->sx];
-        if (w->tex == T_NICHE || w->tex == T_BANNER || w->tex == T_SKULLS) w->tex = T_STONE;
-        sc->tex = w->tex;
-        if (sc->door_x >= 0) G.map[sc->door_y][sc->door_x].tex = T_PASSAGE;
-    }
-
-    /* colonnades down some of the big rooms: a pillar where four of their blocks meet */
-    for (int r = 0; r < G.nrooms; r++) {
-        if (mroom[r][2] < 3 || mroom[r][3] < 3 || rnd(10) >= 4) continue;
-        for (int my = mroom[r][1] + 1; my < mroom[r][1] + mroom[r][3] - 1; my += 2)
-            for (int mx = mroom[r][0] + 1; mx < mroom[r][0] + mroom[r][2] - 1; mx += 2) {
-                int x = mstart(mx), y = mstart(my);
-                G.map[y][x].kind = K_PILLAR;
-                add_deco(x + 0.5f, y + 0.5f, SP_PILLAR);
-            }
-    }
-
-    /* torches along the halls */
-    static int order[MAPN * MAPN];
-    int no = 0;
-    for (int i = 0; i < MAPN * MAPN; i++) order[no++] = i;
-    for (int i = no - 1; i > 0; i--) { int j = rnd(i + 1), t = order[i]; order[i] = order[j]; order[j] = t; }
-    for (int i = 0; i < no && G.nlights < MAXLIGHTS - 40; i++) {
-        int x = order[i] % MAPN, y = order[i] / MAPN;
-        if (G.map[y][x].kind != K_FLOOR || G.map[y][x].secret) continue;
-        int near = 0;
-        for (int l = 0; l < G.nlights; l++) if (abs(G.lights[l].cx - x) + abs(G.lights[l].cy - y) < 6) near = 1;
-        if (near || rndf() > 0.68f - 0.22f * depth()) continue;     /* fewer torches the deeper you go */
-        int d = rnd(4);
-        for (int k = 0; k < 4; k++, d = (d + 1) & 3) {
-            int wx = x + DX[d], wy = y + DY[d];
-            Cell *w = cell(wx, wy);
-            if (w->kind != K_WALL || w->secret || wx <= 0 || wy <= 0 || wx >= MAPN - 1 || wy >= MAPN - 1) continue;
-            int bydoor = 0;
-            for (int e = 0; e < 4; e++) if (cell(wx + DX[e], wy + DY[e])->kind == K_DOOR) bydoor = 1;
-            if (bydoor) continue;
-            w->tex = T_TORCH0; w->ftorch = (uint8_t)(((d + 2) & 3) + 1);   /* on the face toward the hall */
-            light_static(x + 0.5f + DX[d] * 0.42f, y + 0.5f + DY[d] * 0.42f, 1.55f, 4.6f);
-            break;
-        }
-    }
-
-    dress_level();
-
-    G.ncells = 0;                                                  /* what the autopilot can walk */
-    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (G.map[y][x].kind == K_FLOOR && lane(x, y) && !G.map[y][x].secret) G.ncells++;
-
-    /* fog banks: smooth blobs from a coarse random lattice; a few wisps at first, thick in the Deep */
-    #define FOGL (MAPN * 10 / 48 + 3)
-    float lat[FOGL][FOGL];
-    for (int j = 0; j < FOGL; j++) for (int i = 0; i < FOGL; i++) lat[j][i] = rndf();
-    float dk = clampf(0.45f * decay() + 0.55f * depth(), 0.0f, 1.0f), thr = 0.72f - 0.32f * dk, amt = 0.4f + 0.45f * dk;
-    for (int y = 0; y < MAPN; y++)
-        for (int x = 0; x < MAPN; x++) {
-            float fx = x / 4.8f, fy = y / 4.8f;
-            int ix = (int)fx, iy = (int)fy;
-            float ax = fx - ix, ay = fy - iy;
-            ax = ax * ax * (3 - 2 * ax); ay = ay * ay * (3 - 2 * ay);
-            float n = lerpf(lerpf(lat[iy][ix], lat[iy][ix + 1], ax), lerpf(lat[iy + 1][ix], lat[iy + 1][ix + 1], ax), ay);
-            G.fog[y][x] = clampf((n - thr) * 3.2f, 0.0f, 1.0f) * amt;
-        }
-    #undef FOGL
-    if (G.boss >= 0) stamp_arena();
-    if (G.faced) lay_faces();
+    gen_dress();
 }
 
 /* set dressing: bones, webs, chains and roots in the halls, a totem at some crossings; each room a
@@ -3652,6 +3720,7 @@ static void build_lightmap(void) {
     }
     for (int i = 0; i < MAXBURNS; i++)
         if (G.burns[i].alive) light_dynamic(G.burns[i].x, G.burns[i].y, (G.burns[i].foe == 2 ? 0.8f : 1.5f) * (1.0f - smoothstepf(G.burns[i].life - 0.7f, G.burns[i].life, G.burns[i].t)) * (0.85f + 0.15f * sinf((float)G.t * 17.0f + i)), 3.2f);
+    drawn_fire_lights();                                           /* a drawn level's burning floor */
     for (int i = 0; i < MAXBEAMS; i++)
         if (G.beams[i].alive) light_dynamic((G.beams[i].x0 + G.beams[i].x1) * 0.5f, (G.beams[i].y0 + G.beams[i].y1) * 0.5f, 1.6f * (1.0f - G.beams[i].t / 0.3f), 3.5f);
     for (int i = 0; i < MAXMOBS; i++) {                            /* a wall skull gathering its fire; the bones a deacon calls */
@@ -4281,6 +4350,7 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
     if (G.dead || G.ending || G.exiting || G.tally || G.shop || G.level_t < 1.5) return 0;
     if (G.dash_t > 0.0f) return 0;                                 /* Swift Dodge: nothing touches you while you dart */
     if (G.wind_t > 0.0f) return 0;                                 /* a Second Wind: a breath when nothing touches you */
+    if (G.player && tu_taken()) return 0;                          /* nor while the lessons hold you (docs/PLAN-tutorial.md 8.3) */
     if (G.rest_on) rest_end("struck");                             /* a blow ends the mending */
     const Gear *g = &RUN.gear;
     int seeping = kind == HURT_POISON || kind == HURT_VOID;        /* nothing turns these: no dodge, armour or ward */
@@ -6551,6 +6621,7 @@ static float ward_str(void);
 static float weak_el(const Mob *m, int el) {
     if (m->type == MOB_GHOST) return el == EL_SPIRIT && spirit_mastery() ? 1.0f : 0.0f;   /* a spectre: Spirit Mastery's alone */
     if (m->type == MOB_WRAITH && m->boss) return el == EL_FIRE ? 1.2f : 1.0f;   /* the Wraith Unbound, in light */
+    if (g_drawn) return 1.0f;                                      /* the drawn levels' dead take every element alike (T6 a) */
     int strong = m->ward[0] == el + 1 || m->ward[1] == el + 1;
     if (!elem_mode()) {                                            /* the old: a knight down to its breastplate has nothing left
                                                                       to keep fire off; a ward keeps 60% to 90% off (1.0.0b16) */
@@ -12031,7 +12102,7 @@ static void update_doors(float dt) {
         if (d->opening) {
             d->open = fminf(1.0f, d->open + dt / 0.85f);
             if (d->open >= 1.0f) { d->opening = 0; d->idle = 0.0f; }
-        } else if (d->open > 0.0f) {
+        } else if (d->open > 0.0f && !(g_drawn == 2 && i == IC.gate_door && !d->locked)) {   /* the tutorial's gate, risen, stays up */
             int busy = pdist < 1.6f || (d->locked == 2 && vault_of_room((int)G.px, (int)G.py) == d->color);
             if (d->locked == SEALED || d->locked == TRIALED || d->locked == GATED) busy = door_body(d);   /* it shuts behind you, not on you */
             for (int m = 0; m < MAXMOBS; m++)
@@ -12572,7 +12643,7 @@ static int dream_looks(void) {                                     /* at a lane 
                                                                       as one; things for fights are a person's */
         if (m->kind == MKK_HSEAL && (RUN.gear.atk[LINE_ATK[EL_FIRE]] < 0 || RUN.gear.atk[LINE_ATK[EL_FROST]] < 0)) continue;
         float d = hypotf(m->x - G.px, m->y - G.py);
-        if (d > 6.5f || d < 1.0f || !line_clear(G.px, G.py, m->x, m->y)) continue;
+        if (d > (m->kind == MKK_RSEAL ? 13.0f : 6.5f) || d < 1.0f || !line_clear(G.px, G.py, m->x, m->y)) continue;   /* the switch from the ice's edge */
         int sp = LINE_ATK[m->el];
         if (RUN.gear.atk[sp] < 0 || (sp == AT_SPEAR && !spear_ready()) || in_combat()) continue;
         m->tried++;
@@ -13124,6 +13195,7 @@ static void update_player(float dt) {
             G.tally = 1; G.tally_t = 0.0; G.clear_time = G.level_t; G.retries = 0;
             snd_sfx_ex(SFX_FANFARE, 1.0f, 0.5f);
             rec_cleared();
+            tu_cleared();                                          /* a drawn level's lessons given, for good */
             char lc[36]; snprintf(lc, sizeof lc, "LEVEL %d CLEARED", G.level);
             xp_gain(30.0f * xp_level(), lc);
 #ifdef CRAWL_DEBUG
@@ -13335,11 +13407,15 @@ static void debug_map(int seen) {
                 for (int d = 0; d < 4; d++) {
                     int nx = x + DX[d], ny = y + DY[d];
                     if (st[ny][nx] || !is_open(nx, ny) || !lane(nx, ny)) continue;
+                    if (G.map[ny][nx].kind == K_DOOR && G.doors[G.map[ny][nx].door].locked == GATED) continue;   /* a barred gate is shut */
                     st[ny][nx] = 1; qx[qt] = nx; qy[qt] = ny; qt++;
                 }
             }
             for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) total += is_open(x, y) && lane(x, y);
             fprintf(stderr, "MAP lanes reachable %d of %d\n", qt, total);
+            for (int y = 0, n = 0; y < MAPN && n < 16; y++)        /* and the first few that aren't */
+                for (int x = 0; x < MAPN && n < 16; x++)
+                    if (is_open(x, y) && lane(x, y) && !st[y][x]) { fprintf(stderr, "MAP lane cut off (%d,%d)%s\n", x, y, G.map[y][x].secret ? " secret" : ""); n++; }
         }
     }
 }
@@ -14129,6 +14205,8 @@ static void mk_finish(int k) {
     case MKK_HEARTH: if (m->door >= 0) { Door *d = &G.doors[m->door]; d->locked = 0; d->opening = 1; sfx_at(SFX_RUMBLE, d->x + 0.5f, d->y + 0.5f, 1.0f); } mk_deco(m, MKK[m->kind].s1, 1); break;
     case MKK_VENT: m->t = 0.0f; mk_deco(m, MKK[m->kind].s1, 1); break;
     case MKK_WSTONE: if (m->door >= 0) { Door *d = &G.doors[m->door]; d->locked = 0; d->opening = 1; sfx_at(SFX_RUMBLE, d->x + 0.5f, d->y + 0.5f, 1.0f); } mk_deco(m, MKK[m->kind].s1, 1); break;
+    case MKK_RSEAL: mk_deco(m, MKK[m->kind].s1, 1); ice_down(); break;   /* the tutorial's: the ice goes down */
+    case MKK_GSEAL: if (m->door >= 0) { Door *d = &G.doors[m->door]; d->locked = 0; d->opening = 1; sfx_at(SFX_RUMBLE, d->x + 0.5f, d->y + 0.5f, 1.2f); } break;   /* up for good */
     default: mk_deco(m, MKK[m->kind].s1, 1); break;
     }
     mk_fight(k);                                                   /* what a thing for fights does */
@@ -14177,6 +14255,7 @@ static void mk_strike(int k, int el) {
     Marked *m = &G.mk[k];
     G.lull_t = 0.0f;                                               /* a thing struck is something happening */
     if (m->done || m->kind == MKK_TABLET) return;
+    if (m->kind == MKK_RSEAL || m->kind == MKK_GSEAL) el = m->el;  /* the tutorial's switch and gate: any spell answers them */
     if (m->kind == MKK_PLINTH) {                                   /* the tablet's order */
         if (el != m->el) { mk_wrong(m, el, NULL); return; }
         Marked *t = &G.mk[m->grp - 1];
@@ -14580,7 +14659,7 @@ static void lull_tick(float dt) {
     static double lull_why;
     if (getenv("CRAWL_LULLTRACE") && G.t >= lull_why) { lull_why = G.t + 5.0; fprintf(stderr, "LULL gate player=%d dead=%d ui=%d exiting=%d ok=%d\n", G.player, G.dead, G.ui, G.exiting, mk_level_ok()); }
 #endif
-    if (!G.player || G.dead || G.ui || G.exiting || !mk_level_ok()) { G.lull_t = 0.0f; return; }
+    if (!G.player || G.dead || G.ui || G.exiting || !mk_level_ok() || g_drawn) { G.lull_t = 0.0f; return; }   /* not on a drawn level */
     G.lull_cd = fmaxf(0.0f, G.lull_cd - dt);
     int quiet = !in_combat() && G.items_got == G.lull_items && G.links_found == G.lull_links;
     if (quiet && (G.lull_look -= dt) <= 0.0f) {                    /* a creature in sight ends it too */
@@ -14609,6 +14688,461 @@ static void lull_tick(float dt) {
 #endif
 }
 
+/* ---- Drawn levels (docs/PLAN-tutorial.md): levels 1 and 2 of the first descent are the owner's drawings, the same every
+ * time, for everyone, the dream too. Each is a map of letters, its rooms by type, and what stands in it, in the drawing's own
+ * cells (x east from its corner, y south, as docs/tutorial/level*-read.png has them), laid at (ox, oy) in the level's map.
+ * The look, the dressing and the torches are the generator's, laid on a seed of the drawing's own, so they lie the same each
+ * time too. The letters: # stone, . floor, + floor on a lane, F the burning floor, f on a lane, D a door, G a gold door,
+ * C a crimson door, = the one-way gate, S the start (on a lane), h the place to mend and X the exit (walls, used from their open
+ * side, north first), I the ice, i on a lane, c a secret's wall, q its room, Q on a lane. Doors are on lanes. ---- */
+typedef struct { int x, y, w, h, rtype; } DrawnRoom;
+enum { DT_GOLD, DT_KEY, DT_DEAD, DT_SGOLD, DT_MARK, DT_SWITCH, DT_GSEAL, DT_MAP };   /* SGOLD: in the secret; MARK's kind 0 a coffer,
+                                                                      1 a cage (any line), 2 the class's own */
+typedef struct { int what, kind; float x, y; } DrawnThing;          /* kind: an IT_* for gold, a key's colour, a MOB_* */
+typedef struct {
+    const char *const *map; int w, h, ox, oy, face;                 /* face: the heading at the start, as G.h */
+    const DrawnRoom *room; int nroom, vault[NKEYS];                /* vault: the room each colour's doors keep, -1 none */
+    const DrawnThing *thing; int nthing;
+    uint32_t seed;                                                 /* the dice its look is laid with */
+} Drawn;
+static const char *const DRAWN1_MAP[32] = {
+    "##S++#################",    /*  0 */
+    "####D#################",    /*  1 */
+    "##Fff#################",    /*  2 */
+    "##FfF#################",    /*  3 */
+    "##FfF#################",    /*  4 */
+    "##FfF#################",    /*  5 */
+    "##.+.#################",    /*  6 */
+    "##.+.#################",    /*  7 */
+    "##.+.#################",    /*  8 */
+    "##.+.............#####",    /*  9 */
+    "##.++++++++++++++#####",    /* 10 */
+    "##.+...........+.#####",    /* 11 */
+    "###h##########.+.#.+..",    /* 12 */
+    "##############.+.#++++",    /* 13 */
+    "##############.+.#.+..",    /* 14 */
+    "##############.++D++++",    /* 15 */
+    "##########.+.#.+.#####",    /* 16 */
+    "##########+++D++.#####",    /* 17 */
+    "##########.+.#.+.#####",    /* 18 */
+    "##############.+.#####",    /* 19 */
+    "####...........+.#####",    /* 20 */
+    "####+++++++++++++#####",    /* 21 */
+    "####+............#####",    /* 22 */
+    ".++D++################",    /* 23 */
+    ".+.#.+####.+.#########",    /* 24 */
+    ".+##.+####.+.#########",    /* 25 */
+    ".+G+#+#####D##########",    /* 26 */
+    ".+#+#+##...+...#######",    /* 27 */
+    ".+#+#+##+++++++#######",    /* 28 */
+    ".+#+#+##...+...#####X#",    /* 29 */
+    ".+#+#+.....+...#....+.",    /* 30 */
+    ".+#+G++++++++++D++++++",    /* 31 */
+};
+static const DrawnThing DRAWN1_THING[] = {
+    { DT_GOLD, IT_COINS, 4.01f, 7.02f }, { DT_GOLD, IT_COINS, 6.01f, 10.02f }, { DT_GOLD, IT_COINS, 12.03f, 10.02f },
+    { DT_GOLD, IT_CHALICE, 16.04f, 10.02f }, { DT_GOLD, IT_COINS, 3.01f, 11.03f }, { DT_GOLD, IT_COINS, 9.09f, 11.09f },
+    { DT_GOLD, IT_GEMS, 20.98f, 14.03f }, { DT_GOLD, IT_COINS, 14.97f, 14.10f }, { DT_GOLD, IT_CHALICE, 20.11f, 15.03f },
+    { DT_GOLD, IT_COINS, 20.98f, 15.03f }, { DT_GOLD, IT_GEMS, 11.02f, 17.10f }, { DT_GOLD, IT_CHALICE, 12.67f, 18.04f },
+    { DT_GOLD, IT_COINS, 16.03f, 18.04f }, { DT_GOLD, IT_CHALICE, 16.04f, 19.04f }, { DT_GOLD, IT_COINS, 8.08f, 21.04f },
+    { DT_GOLD, IT_CHALICE, 13.03f, 22.05f }, { DT_GOLD, IT_CHALICE, 0.94f, 24.05f }, { DT_GOLD, IT_COINS, 4.95f, 24.05f },
+    { DT_GOLD, IT_GEMS, 10.96f, 25.05f }, { DT_GOLD, IT_CHALICE, 12.03f, 25.12f }, { DT_GOLD, IT_COINS, 5.31f, 25.90f },
+    { DT_GOLD, IT_CHEST, 3.44f, 26.54f }, { DT_GOLD, IT_CROWN, 3.35f, 26.96f }, { DT_GOLD, IT_COINS, 0.94f, 27.06f },
+    { DT_GOLD, IT_GEMS, 3.63f, 27.37f }, { DT_GOLD, IT_CHALICE, 9.08f, 28.06f }, { DT_GOLD, IT_COINS, 13.10f, 28.06f },
+    { DT_GOLD, IT_GEMS, 3.43f, 28.41f }, { DT_GOLD, IT_GEMS, 1.00f, 29.06f }, { DT_GOLD, IT_CHALICE, 3.67f, 29.22f },
+    { DT_GOLD, IT_COINS, 3.33f, 29.82f }, { DT_GOLD, IT_COINS, 1.01f, 30.06f }, { DT_GOLD, IT_COINS, 12.03f, 30.06f },
+    { DT_GOLD, IT_COINS, 19.98f, 31.00f }, { DT_GOLD, IT_COINS, 7.02f, 31.06f }, { DT_GOLD, IT_CHALICE, 14.06f, 31.06f },
+    { DT_GOLD, IT_CHALICE, 18.95f, 31.09f }, { DT_GOLD, IT_GEMS, 21.11f, 31.13f }, { DT_KEY, 0, 11.20f, 24.57f },
+    { DT_DEAD, MOB_SKEL, 15.10f, 12.96f }, { DT_DEAD, MOB_SKEL, 20.98f, 13.10f }, { DT_DEAD, MOB_SKEL, 19.04f, 14.97f },
+    { DT_DEAD, MOB_SKEL, 16.04f, 16.04f }, { DT_DEAD, MOB_SKEL, 11.03f, 18.04f }, { DT_DEAD, MOB_SKEL, 14.97f, 20.04f },
+    { DT_DEAD, MOB_SKEL, 5.08f, 21.98f }, { DT_DEAD, MOB_SKEL, 1.00f, 28.12f }, { DT_DEAD, MOB_SKEL, 5.95f, 31.06f },
+    { DT_DEAD, MOB_SKEL, 9.09f, 31.07f }, { DT_DEAD, MOB_SKEL, 1.00f, 31.13f },
+};
+static const DrawnRoom DRAWN1_ROOM[] = {
+    { 18, 12, 4, 4, RT_BURIAL }, { 10, 16, 3, 3, RT_OSSUARY }, { 10, 24, 3, 2, RT_OSSUARY },   /* the east room, the side room, the key room */
+    { 0, 23, 3, 9, RT_UNDER }, { 8, 27, 7, 3, RT_CHAPTER }, { 3, 26, 1, 6, RT_KNIGHTS },     /* the west room, the big room, the vault */
+};
+static const char *const DRAWN2_MAP[35] = {
+    "##S++.#########",    /*  0 */
+    "####+.#########",    /*  1 */
+    "###.+.#########",    /*  2 */
+    "##..+..########",    /*  3 */
+    "#+++++++#######",    /*  4 */
+    "#.+.#.+.......#",    /*  5 */
+    "#.+###++++++++#",    /*  6 */
+    "#.+.#.+......+#",    /*  7 */
+    "#.++#.+.####.+#",    /*  8 */
+    "##.+#++#####.+#",    /*  9 */
+    "###+#+##X####=#",    /* 10 */
+    "++G+#+#.+.#.++.",    /* 11 */
+    ".+###+#.+.#.++.",    /* 12 */
+    ".+#+++#.+.#.++.",    /* 13 */
+    ".+#+#+#.+.#.++.",    /* 14 */
+    ".+#+#+#.+.#.++.",    /* 15 */
+    ".+#+++#.+.#IiiI",    /* 16 */
+    ".+#++##.+.#IiiI",    /* 17 */
+    ".+#+h##.+.#IiiI",    /* 18 */
+    ".+#+#+C+++#IiiI",    /* 19 */
+    ".+#+#+######ii#",    /* 20 */
+    "##.+#+.#####ii#",    /* 21 */
+    "#..+#+..####ii#",    /* 22 */
+    "#+++#+++++++++#",    /* 23 */
+    "#.+###...+....#",    /* 24 */
+    "#.+###...+....#",    /* 25 */
+    "#+++#+++++++++#",    /* 26 */
+    "#+++++++#####D#",    /* 27 */
+    "##..+..##....+#",    /* 28 */
+    "###.+.##++++++#",    /* 29 */
+    "###.+.#+++++++#",    /* 30 */
+    "###.+.#+.....+#",    /* 31 */
+    "#######c#######",    /* 32 */
+    "#######QQQ#####",    /* 33 */
+    "#######qqq#####",    /* 34 */
+};
+static const DrawnThing DRAWN2_THING[] = {
+    { DT_GOLD, IT_COINS, 5.30f, 2.50f }, { DT_GOLD, IT_CHALICE, 2.50f, 3.50f },                                     /* the start */
+    { DT_GOLD, IT_COINS, 1.40f, 7.00f }, { DT_GOLD, IT_GEMS, 1.30f, 7.90f },                                        /* the west passage */
+    { DT_GOLD, IT_COINS, 11.10f, 6.40f },                                                                           /* the east hall */
+    { DT_GOLD, IT_CHALICE, 7.40f, 8.70f }, { DT_GOLD, IT_COINS, 5.60f, 12.50f }, { DT_GOLD, IT_COINS, 3.30f, 13.60f },
+    { DT_GOLD, IT_GEMS, 5.70f, 15.50f },                                                                            /* the middle way */
+    { DT_GOLD, IT_CHALICE, 11.30f, 13.90f }, { DT_GOLD, IT_GEMS, 11.30f, 17.40f },                                  /* the map room, the ice */
+    { DT_GOLD, IT_COINS, 7.60f, 11.30f }, { DT_GOLD, IT_CHALICE, 9.30f, 11.40f }, { DT_GOLD, IT_CROWN, 9.60f, 18.60f },   /* the exit room */
+    { DT_GOLD, IT_COINS, 1.60f, 14.90f }, { DT_GOLD, IT_CHEST, 0.40f, 20.60f }, { DT_GOLD, IT_GEMS, 1.60f, 20.60f },     /* the west room */
+    { DT_GOLD, IT_COINS, 9.60f, 24.10f }, { DT_GOLD, IT_CHALICE, 12.20f, 25.40f },                                  /* the great hall */
+    { DT_GOLD, IT_COINS, 1.30f, 27.50f }, { DT_GOLD, IT_COINS, 7.70f, 27.70f }, { DT_GOLD, IT_CHALICE, 2.80f, 28.80f },
+    { DT_GOLD, IT_COINS, 4.00f, 30.50f }, { DT_GOLD, IT_GEMS, 4.90f, 31.70f },                                      /* the south-west lobe */
+    { DT_GOLD, IT_COINS, 9.40f, 28.50f }, { DT_GOLD, IT_CHALICE, 8.60f, 29.30f },                                   /* the south-east room */
+    { DT_SGOLD, IT_CHEST, 9.40f, 33.50f }, { DT_SGOLD, IT_GEMS, 8.50f, 33.60f }, { DT_SGOLD, IT_CROWN, 8.50f, 34.50f },
+    { DT_SGOLD, IT_GEMS, 9.50f, 34.50f },                                                                           /* the secret */
+    { DT_KEY, 0, 7.60f, 30.80f }, { DT_KEY, 2, 1.00f, 19.60f }, { DT_MAP, 0, 12.80f, 15.40f },
+    { DT_DEAD, MOB_SKEL, 2.30f, 5.00f }, { DT_DEAD, MOB_BAT, 13.00f, 5.70f }, { DT_DEAD, MOB_SKEL, 3.40f, 9.40f },
+    { DT_DEAD, MOB_SKEL, 11.70f, 12.60f }, { DT_DEAD, MOB_SHAMBLER, 7.90f, 13.10f }, { DT_DEAD, MOB_SKEL, 3.50f, 15.00f },
+    { DT_DEAD, MOB_SKEL, 9.50f, 16.40f }, { DT_DEAD, MOB_BAT, 14.30f, 17.60f }, { DT_DEAD, MOB_SHAMBLER, 1.40f, 18.20f },
+    { DT_DEAD, MOB_SKEL, 7.10f, 22.60f }, { DT_DEAD, MOB_SHAMBLER, 3.10f, 22.90f }, { DT_DEAD, MOB_SKEL, 11.60f, 26.30f },
+    { DT_DEAD, MOB_BAT, 12.90f, 28.80f }, { DT_DEAD, MOB_SKEL, 9.30f, 30.80f }, { DT_DEAD, MOB_SHAMBLER, 3.60f, 31.30f },
+    /* the things that want a spell (T22 a): a, b, g, j any line on the main way; c, d, e, f, h, i the class's own. a is moved a
+     * row north and f, g, h set to their walls, off the lanes they were drawn on */
+    { DT_MARK, 0, 5.50f, 3.50f }, { DT_MARK, 1, 11.80f, 7.60f }, { DT_MARK, 2, 2.40f, 9.50f }, { DT_MARK, 2, 7.30f, 14.80f },
+    { DT_MARK, 2, 0.30f, 16.20f }, { DT_MARK, 2, 3.20f, 16.50f }, { DT_MARK, 0, 11.70f, 23.20f }, { DT_MARK, 2, 3.70f, 26.20f },
+    { DT_MARK, 2, 5.50f, 31.40f }, { DT_MARK, 1, 11.10f, 31.60f },
+    { DT_SWITCH, 0, 14.30f, 11.60f }, { DT_GSEAL, 0, 13.50f, 11.06f },
+};
+static const DrawnRoom DRAWN2_ROOM[] = {
+    { 0, 11, 2, 10, RT_OSSUARY }, { 11, 11, 4, 5, RT_KNIGHTS }, { 7, 11, 3, 9, RT_CHAPTER },   /* the west room, the map room, the exit room */
+    { 7, 28, 7, 4, RT_BURIAL }, { 5, 23, 9, 4, RT_UNDER }, { 1, 27, 5, 5, RT_UNDER },          /* the south-east room, the great hall, the lobe */
+};
+#define NDRAWN 2
+static const Drawn DRAWN[NDRAWN] = {
+    { DRAWN1_MAP, 22, 32, 11, 6, 0, DRAWN1_ROOM, (int)(sizeof DRAWN1_ROOM / sizeof DRAWN1_ROOM[0]), { 5, -1, -1 },
+      DRAWN1_THING, (int)(sizeof DRAWN1_THING / sizeof DRAWN1_THING[0]), 0x7D1A0001u },
+    { DRAWN2_MAP, 15, 35, 15, 5, 0, DRAWN2_ROOM, (int)(sizeof DRAWN2_ROOM / sizeof DRAWN2_ROOM[0]), { 0, -1, 2 },
+      DRAWN2_THING, (int)(sizeof DRAWN2_THING / sizeof DRAWN2_THING[0]), 0x7D1A0002u },
+};
+#define DRAWN_HALL 40                                              /* the halls' region on a drawn level */
+static int drawn_level(int level) {                                /* which drawing a level is, 1-based; 0 none */
+#ifdef CRAWL_DEBUG
+    static int off = -1;
+    if (off < 0) { const char *e = getenv("CRAWL_DRAWN"); off = e && atoi(e) == 0; }   /* 0: the generated levels, as before */
+    if (off) return 0;
+#endif
+    return level >= 1 && level <= NDRAWN && !PK.depth ? level : 0;
+}
+static const Drawn *drawn(void) { return &DRAWN[g_drawn - 1]; }
+static char drawn_ch(int x, int y) {                               /* the letter at a cell of the level's map */
+    const Drawn *D = drawn();
+    x -= D->ox; y -= D->oy;
+    return x < 0 || y < 0 || x >= D->w || y >= D->h ? '#' : D->map[y][x];
+}
+static int drawn_front(int wx, int wy, int *fx, int *fy) {         /* a wall's open side (north, south, west, east first): the cell
+                                                                      it is used from, and the way */
+    static const int ORDER[4] = { 3, 1, 2, 0 };
+    for (int k = 0; k < 4; k++) {
+        int d = ORDER[k];
+        if (is_open(wx + DX[d], wy + DY[d]) && !G.map[wy + DY[d]][wx + DX[d]].secret) { *fx = wx + DX[d]; *fy = wy + DY[d]; return (d + 2) & 3; }
+    }
+    *fx = *fy = -1;
+    return 0;
+}
+static void drawn_clear(int x, int y) {                            /* the dressing taken off a cell the drawing wants */
+    if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1) return;
+    if (G.map[y][x].kind == K_PROP) G.map[y][x].kind = K_FLOOR;
+    G.foot[y][x] = 0; G.bulky[y][x] = 0;
+    for (int d = 0; d < G.ndecos; d++) if ((int)G.decos[d].x == x && (int)G.decos[d].y == y) G.decos[d].spr = -1;
+}
+static void gen_drawn(void) {
+    const Drawn *D = drawn();
+    G.faced = crawl_drawn(G.level); G.look = crawl_set(G.level);
+    memset(nr_type, 0, sizeof nr_type);
+    memset(G.map, 0, sizeof G.map);
+    for (int y = 0; y < MAPN; y++)
+        for (int x = 0; x < MAPN; x++) { G.map[y][x].kind = K_WALL; G.map[y][x].region = -1; G.map[y][x].door = -1; }
+    memset(MM, 0, sizeof MM);                                      /* no plan: the dressing's crossings find none */
+    for (int y = 0; y < MG; y++) for (int x = 0; x < MG; x++) { MM[y][x].kind = K_WALL; MM[y][x].region = -1; MM[y][x].room = -1; }
+    G.nrooms = 0; G.ndoors = 0; G.nlights = 0; G.nlc = 0; G.ndecos = 0;
+    memset(G.bulky, 0, sizeof G.bulky); memset(G.mapped, 0, sizeof G.mapped); memset(G.foot, 0, sizeof G.foot);
+    G.nvaults = 0;
+    for (int k = 0; k < NKEYS; k++) G.vault_room[k] = G.vault_door[k] = -1;
+    G.pz = -1; G.pz_room = G.pz_door = -1; G.pz_exit = 0;           /* no puzzle, trial, lair or secret */
+    G.tri = -1; G.tri_room = G.tri_door = -1; G.lairs = 0;
+    G.nsecrets = G.secrets_found = G.nlinks = G.links_found = G.trials_failed = 0; G.slide = -1;
+    memset(g_lane, 0, sizeof g_lane);
+    memset(&DF, 0, sizeof DF);
+    memset(&IC, 0, sizeof IC); IC.sw = IC.gate = IC.gate_door = -1; IC.live = 1; IC.t = 99.0f;   /* the ice, laid */
+    for (int r = 0; r < D->nroom && r < 12; r++) {
+        const DrawnRoom *dr = &D->room[r];
+        G.rooms[r] = (Room){ D->ox + dr->x, D->oy + dr->y, dr->w, dr->h, r, RTYPES[dr->rtype].theme, dr->rtype };
+        mroom[r][0] = mroom[r][1] = 0; mroom[r][2] = mroom[r][3] = 1;   /* a block each, so nothing laid by the plan's blocks */
+        nr_type[dr->rtype]++; G.nrooms++;
+    }
+    for (int y = 0; y < D->h; y++)
+        for (int x = 0; x < D->w; x++) {
+            char ch = D->map[y][x];
+            int mx = D->ox + x, my = D->oy + y, rg = DRAWN_HALL, th = TH_CORRIDOR, door = ch == 'D' || ch == 'G' || ch == 'C' || ch == '=';
+            if (ch == 'c') { G.map[my][mx].secret = 2; g_lane[my][mx] = 1; }   /* a secret's wall: a lane once it has slid */
+            if (ch == '#' || ch == 'h' || ch == 'X' || ch == 'c') continue;
+            if (ch == 'q' || ch == 'Q') {                          /* the secret's room, carved as a secret's is */
+                carve(mx, my, -2, TH_CORRIDOR); G.map[my][mx].secret = 1;
+                if (ch == 'Q') g_lane[my][mx] = 1;
+                continue;
+            }
+            if (!door)
+                for (int r = 0; r < G.nrooms; r++) if (in_room(&G.rooms[r], mx, my)) { rg = r; th = G.rooms[r].theme; }
+            carve(mx, my, rg, th);
+            if (door) G.map[my][mx].kind = K_DOOR;
+            if (ch == '+' || ch == 'f' || ch == 'i' || door || ch == 'S') g_lane[my][mx] = 1;
+            if ((ch == 'I' || ch == 'i') && IC.n < ICE_CELLS) { IC.cx[IC.n] = mx; IC.cy[IC.n] = my; IC.n++; IC.at[my][mx] = (uint8_t)IC.n; }
+            if ((ch == 'F' || ch == 'f') && DF.n < DFIRE_CELLS) {
+                DF.cx[DF.n] = mx; DF.cy[DF.n] = my; DF.n++; DF.at[my][mx] = 1;
+                DF.fade = 1.0f; DF.past_y = (float)my + 3.0f;      /* the last row's far edge and two cells more (south: the drawing's way on) */
+            }
+        }
+    for (int y = 0; y < MAPN; y++)                                 /* the doors; a gold door is the vault's */
+        for (int x = 0; x < MAPN; x++) {
+            if (G.map[y][x].kind != K_DOOR || G.ndoors >= MAXDOORS) continue;
+            char ch = drawn_ch(x, y);
+            int lk = ch == 'G' || ch == 'C', col = ch == 'C' ? 2 : 0, ax = is_open(x - 1, y) && is_open(x + 1, y);
+            G.map[y][x].door = (int16_t)G.ndoors;
+            G.doors[G.ndoors++] = (Door){ x, y, ax, 0.0f, 0.0f, 0, ch == '=' ? GATED : lk, col, 0 };
+            if (lk) G.vault_door[col] = G.ndoors - 1;
+            if (ch == '=') IC.gate_door = G.ndoors - 1;            /* the one-way gate: barred till its seal is struck from the south */
+        }
+    for (int k = 0; k < NKEYS; k++) if (D->vault[k] >= 0) { G.vault_room[k] = D->vault[k]; G.nvaults = k + 1; }
+    for (int y = 0; y < D->h; y++)                                 /* the secret, laid by hand (7.5) */
+        for (int x = 0; x < D->w && G.nsecrets < MAXSECRETS; x++) {
+            if (D->map[y][x] != 'c') continue;
+            int sx = D->ox + x, sy = D->oy + y, in = -1, len = 0, x0 = MAPN, y0 = MAPN, x1 = -1, y1 = -1;
+            for (int d = 0; d < 4 && in < 0; d++) if (is_open(sx - DX[d], sy - DY[d]) && !G.map[sy - DY[d]][sx - DX[d]].secret) in = d;
+            if (in < 0) continue;
+            while (G.map[sy + DY[in] * (len + 1)][sx + DX[in] * (len + 1)].secret == 1) len++;
+            for (int yy = 0; yy < D->h; yy++)
+                for (int xx = 0; xx < D->w; xx++)
+                    if (D->map[yy][xx] == 'q' || D->map[yy][xx] == 'Q') { x0 = imin(x0, D->ox + xx); y0 = imin(y0, D->oy + yy); x1 = imax(x1, D->ox + xx); y1 = imax(y1, D->oy + yy); }
+            G.secrets[G.nsecrets++] = (Secret){ sx - DX[in], sy - DY[in], in, sx, sy, 0, 0, 0, len, 1, -1, -1, x0, y0, x1, y1, D->seed | 1u, 0 };
+            G.nlinks++;
+        }
+    gen_dress();
+    for (int i = 0; i < D->nthing; i++)                            /* what the drawing sets down, and the ice, clear of the dressing */
+        if (D->thing[i].what >= DT_SGOLD) drawn_clear(D->ox + (int)D->thing[i].x, D->oy + (int)D->thing[i].y);
+    for (int i = 0; i < IC.n; i++) drawn_clear(IC.cx[i], IC.cy[i]);
+    for (int y = 0; y < MAPN; y++)                                 /* and no prop on a lane: the dressing doesn't know the drawn ones */
+        for (int x = 0; x < MAPN; x++) if (g_lane[y][x] && G.map[y][x].kind == K_PROP) drawn_clear(x, y);
+    for (int i = 0; i < IC.n; i++) {                               /* each cell's wait as the ice turns: by the walls first */
+        int open = 0;
+        for (int d = 0; d < 4; d++) open += IC.at[IC.cy[i] + DY[d]][IC.cx[i] + DX[d]] != 0;
+        IC.wait[i] = 0.3f * (float)open + 0.15f * (float)(hash2(IC.cx[i], IC.cy[i]) & 3);
+    }
+    static int qx[MAPN * MAPN], qy[MAPN * MAPN];                   /* each cell's steps to a lane, for what lies within reach of one */
+    int qh = 0, qt = 0;
+    for (int y = 0; y < MAPN; y++)
+        for (int x = 0; x < MAPN; x++) {
+            g_ldist[y][x] = g_lane[y][x] ? 0 : 9;
+            if (g_lane[y][x]) { qx[qt] = x; qy[qt] = y; qt++; }
+        }
+    while (qh < qt) {
+        int x = qx[qh], y = qy[qh]; qh++;
+        for (int d = 0; d < 4; d++) {
+            int nx = x + DX[d], ny = y + DY[d];
+            if (!is_open(nx, ny) || g_ldist[ny][nx] <= g_ldist[y][x] + 1) continue;
+            g_ldist[ny][nx] = (uint8_t)(g_ldist[y][x] + 1); qx[qt] = nx; qy[qt] = ny; qt++;
+        }
+    }
+}
+static void drawn_start(void) {
+    const Drawn *D = drawn();
+    for (int y = 0; y < D->h; y++) for (int x = 0; x < D->w; x++) if (D->map[y][x] == 'S') { G.cx = D->ox + x; G.cy = D->oy + y; }
+}
+static void drawn_items(void) {                                    /* the gold and the keys where drawn: no potion */
+    const Drawn *D = drawn();
+    G.nitems = 0; G.items_total = 0; G.items_got = 0; G.value_total = G.value_got = 0;
+    for (int i = 0; i < D->nthing; i++) {
+        const DrawnThing *t = &D->thing[i];
+        if (t->what != DT_GOLD && t->what != DT_KEY && t->what != DT_SGOLD && t->what != DT_MAP) continue;
+        float x = D->ox + t->x, y = D->oy + t->y;
+        int type = t->what == DT_KEY ? IT_KEY : t->what == DT_MAP ? (RUN.has_map ? IT_CHALICE : IT_MAP) : t->kind;   /* the map held: gold (T18 a) */
+        Item *it = add_item((int)x, (int)y, type);
+        if (!it) continue;
+        it->x = x; it->y = y;
+        if (t->what == DT_KEY) it->color = t->kind;
+        if (t->what == DT_SGOLD) { it->secret = 1; G.items_total--; G.value_total -= treasure_value(type); }   /* the secret's, out of the count */
+        if (type == IT_MAP) { int nl = G.nlights; light_static(x, y, 0.55f, 2.2f); if (G.nlights > nl) G.lights[nl].phase = -1000.0f; }   /* its glow */
+    }
+}
+static void drawn_walls(void) {                                    /* the exit and the places to mend, in the walls drawn */
+    const Drawn *D = drawn();
+    G.exit_fx = G.exit_fy = -1; G.exit_in_vault = -1;
+    G.nrest = 0; G.rest_on = 0; G.rest_goal = -1;
+    for (int y = 0; y < D->h; y++)
+        for (int x = 0; x < D->w; x++) {
+            char ch = D->map[y][x];
+            int wx = D->ox + x, wy = D->oy + y, fx, fy, d;
+            if (ch == 'X') {
+                d = drawn_front(wx, wy, &fx, &fy);
+                if (fx < 0) continue;
+                G.exit_fx = fx; G.exit_fy = fy; G.exit_dir = d; G.exit_wx = wx; G.exit_wy = wy;
+                G.exit_in_vault = vault_of_room(fx, fy);           /* level 2's is behind the crimson door */
+                G.map[wy][wx].tex = T_EXIT0;
+                light_static(fx + 0.5f + DX[d] * 0.35f, fy + 0.5f + DY[d] * 0.35f, 0.9f, 3.2f);   /* its runes light the stone */
+            } else if (ch == 'h' && G.nrest < 2) {
+                d = drawn_front(wx, wy, &fx, &fy);
+                if (fx < 0) continue;
+                G.map[wy][wx].tex = T_REST;
+                G.rest_x[G.nrest] = wx; G.rest_y[G.nrest] = wy; G.rest_fx[G.nrest] = fx; G.rest_fy[G.nrest] = fy; G.nrest++;
+                light_static(fx + 0.5f + DX[d] * 0.38f, fy + 0.5f + DY[d] * 0.38f, 0.75f, 2.8f);   /* its candles */
+            }
+        }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "DRAWN level %d: exit (%d,%d) before (%d,%d), %d to mend, %d rooms, %d doors\n", G.level, G.exit_wx, G.exit_wy, G.exit_fx, G.exit_fy, G.nrest, G.nrooms, G.ndoors);
+#endif
+}
+static void drawn_dead(void) {                                     /* the dead where drawn, rank I, each at its post */
+    const Drawn *D = drawn();
+    for (int i = 0; i < D->nthing; i++) {
+        const DrawnThing *t = &D->thing[i];
+        if (t->what != DT_DEAD) continue;
+        float x = D->ox + t->x, y = D->oy + t->y;
+        Mob *m = t->kind == MOB_SHAMBLER ? riser_make(t->kind, (int)x, (int)y, -1) : spawn_mob((int)x, (int)y, t->kind);   /* under turned earth */
+        if (!m) continue;
+        m->x = x; m->y = y;
+        set_rank(m, RK_I);
+        m->home = G.map[m->cy][m->cx].region;
+    }
+}
+static void drawn_marks(void) {                                    /* level 2's things that want a spell, its switch and its gate's seal */
+    const Drawn *D = drawn();
+    G.nmk = 0; G.ward_said = 0;
+    int own = cls_el() >= 0 ? cls_el() : LEDGER.lent - 1;          /* the line held: the class's, or one lent */
+    for (int e = 0; e < NELEM && (own < 0 || !align_open(own)); e++) if (align_open(e)) own = e;
+    if (own < 0 || !align_open(own)) own = -1;
+    for (int i = 0, n = 0; i < D->nthing; i++) {
+        const DrawnThing *t = &D->thing[i];
+        if (t->what != DT_MARK && t->what != DT_SWITCH && t->what != DT_GSEAL) continue;
+        float x = D->ox + t->x, y = D->oy + t->y;
+        int kind = t->what == DT_SWITCH ? MKK_RSEAL : t->what == DT_GSEAL ? MKK_GSEAL : t->kind == 0 ? MKK_COFFER : t->kind == 1 ? MKK_CAGE : -1;
+        int el = own >= 0 ? own : EL_PHYS;                         /* the switch and the gate take any spell, whatever is held */
+        if (kind < 0) { if (own < 0) continue; kind = own == EL_FIRE && (n++ & 1) ? MKK_RACK : MK_OWN[own]; }
+        else if (t->what == DT_MARK && own < 0) continue;
+        Marked *m = mk_add(kind, el, (int)x, (int)y);
+        if (!m) continue;
+        m->x = m->hx = m->vx = x; m->y = m->hy = m->vy = y;
+        if (m->deco >= 0) mk_deco(m, MKK[kind].s0, 1);
+        if (kind == MKK_RSEAL) { m->pips = 3; IC.sw = G.nmk - 1; }
+        if (kind == MKK_GSEAL) { m->pips = 1; m->door = IC.gate_door; IC.gate = G.nmk - 1; }
+    }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "DRAWN level %d: %d things that want a spell (line %d), the switch %d, the gate's seal %d (door %d), %d ice\n", G.level, G.nmk, own, IC.sw, IC.gate, IC.gate_door, IC.n);
+    if (getenv("CRAWL_ICE") && !atoi(getenv("CRAWL_ICE"))) IC.live = 0;   /* testing: the ice down from the start */
+#endif
+}
+
+static void drawn_fire_lights(void) {                              /* a light a row, flickering, low as it goes out */
+    if (!g_drawn || !DF.n || DF.fade <= 0.02f) return;
+    for (int i = 0; i < DF.n; i++) {
+        if (i && DF.cy[i] == DF.cy[i - 1]) continue;               /* the first cell of each row */
+        float sx = 0.0f; int k = 0;
+        for (int j = i; j < DF.n && DF.cy[j] == DF.cy[i]; j++) { sx += (float)DF.cx[j] + 0.5f; k++; }
+        light_dynamic(sx / (float)k, (float)DF.cy[i] + 0.5f, 1.6f * DF.fade * (0.82f + 0.18f * sinf((float)G.t * (13.0f + (float)i) + (float)i)), 3.6f);
+    }
+}
+static void drawn_fire_tick(float dt) {                            /* every frame, whoever plays */
+    if (!g_drawn || !DF.n || DF.fade <= 0.0f) return;
+    if (DF.out_t > 0.0f) {                                         /* past: burning low, then out */
+        DF.out_t -= dt; DF.fade = fmaxf(0.0f, DF.out_t / DFIRE_OUT);
+#ifdef CRAWL_DEBUG
+        if (DF.fade <= 0.0f) fprintf(stderr, "EVENT drawn_fire out t=%.2f\n", G.t);
+#endif
+    } else if (!G.dead && G.py >= DF.past_y) {
+        DF.out_t = DFIRE_OUT;
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT drawn_fire past hp=%d/%d burn=%.1f t=%.2f\n", G.hp, G.max_hp, G.af_burn, G.t);
+#endif
+    }
+    if ((DF.crackle -= dt) <= 0.0f) {                              /* heard near it */
+        DF.crackle = 0.8f + 0.6f * rndf();
+        int i = rnd(DF.n);
+        sfx_at(SFX_CRACKLE, (float)DF.cx[i] + 0.5f, (float)DF.cy[i] + 0.5f, 0.9f * DF.fade);
+    }
+    int cx = (int)floorf(G.px), cy = (int)floorf(G.py);
+    int in = cx >= 0 && cy >= 0 && cx < MAPN && cy < MAPN && DF.at[cy][cx];
+    if (!in || G.dead || DF.fade < 0.35f || G.shop) { DF.inside = 0; return; }
+    float floor_hp = DFIRE_FLOOR * (float)G.max_hp;
+    if (!DF.inside) {                                              /* the first touch: alight */
+        DF.inside = 1; DF.tick = 0.0f;
+        G.blame = (Blame){ BL_HAZARD, HZ_FIRE, 0 };
+        if (af_can(AF_FIRE)) af_ignite(fminf(DFIRE_AFTER * (float)G.max_hp, fmaxf(0.0f, (float)G.hp - floor_hp)));
+    }
+    if ((DF.tick -= dt) > 0.0f) return;
+    DF.tick += DFIRE_TICK;
+    float room = (float)G.hp - floor_hp - G.af_burn, dmg = fminf(DFIRE_SHARE * (float)G.max_hp * DF.fade, room);
+    if (dmg >= 1.0f) { G.blame = (Blame){ BL_HAZARD, HZ_FIRE, 0 }; harm_next = EL_FIRE; hurt_ex(dmg, HURT_ELEM, G.px, G.py); }
+    G.af_burn = fminf(G.af_burn, fmaxf(0.0f, (float)G.hp - floor_hp));   /* nor the burning after, below the floor */
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT drawn_fire hurt %.1f hp=%d/%d burn=%.1f %s t=%.2f\n", dmg, G.hp, G.max_hp, G.af_burn, G.player ? "player" : "autopilot", G.t);
+#endif
+}
+
+/* level 2's ice (docs/PLAN-tutorial.md 7.1) */
+static float ice_k(int i) {                                        /* how far a cell is laid: 0 bare, 1 ice */
+    float u = clampf((IC.t - (IC.live ? IC.wait[i] : 1.2f - IC.wait[i])) / ICE_TURN, 0.0f, 1.0f);
+    return IC.live ? u : 1.0f - u;
+}
+static int ice_at(int x, int y) {                                  /* ice to stand on here */
+    return g_drawn == 2 && x >= 0 && y >= 0 && x < MAPN && y < MAPN && IC.at[y][x] && ice_k(IC.at[y][x] - 1) > 0.5f;
+}
+static void ice_down(void) {                                       /* the switch struck: it thaws */
+    IC.live = 0; IC.t = 0.0f;
+    if (IC.n) { sfx_at(SFX_HISS, (float)IC.cx[IC.n / 2] + 0.5f, (float)IC.cy[IC.n / 2] + 0.5f, 1.1f); sfx_at(SFX_SHATTER, (float)IC.cx[0] + 0.5f, (float)IC.cy[0] + 0.5f, 0.5f); }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ice down by %s t=%.2f\n", G.player ? "player" : "autopilot", G.t);
+#endif
+}
+static void ice_up(void) {                                         /* the map taken: it creeps back in, and the switch is spent */
+    if (!IC.n || IC.spent) return;
+    IC.live = 1; IC.spent = 1; IC.t = 0.0f;
+    if (IC.sw >= 0 && IC.sw < G.nmk) { Marked *m = &G.mk[IC.sw]; m->done = 1; m->done_t = 9.0f; mk_deco(m, SP_MK_RSEAL2, 1); sfx_at(SFX_SHATTER, m->x, m->y, 0.8f); }
+    sfx_at(SFX_FROST, (float)IC.cx[IC.n / 2] + 0.5f, (float)IC.cy[IC.n / 2] + 0.5f, 1.2f); snd_sfx_ex(SFX_DEEPCHIME, 0.5f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ice up t=%.2f\n", G.t);
+#endif
+}
+static void ice_tick(float dt) {                                   /* every frame, whoever plays */
+    if (g_drawn != 2 || !IC.n) return;
+    IC.t += dt;
+    if (IC.live && (IC.breath -= dt) <= 0.0f) {                    /* a cold breath, heard near it */
+        IC.breath = 2.5f + 2.0f * rndf();
+        int i = rnd(IC.n);
+        sfx_at(SFX_FROST, (float)IC.cx[i] + 0.5f, (float)IC.cy[i] + 0.5f, 0.3f);
+    }
+    for (int j = 0; j < MAXMOBS; j++) {                            /* what stands on it is held in it */
+        Mob *m = &G.mobs[j];
+        if (m->alive && m->state == MS_WALK && !KIND_IS(m, KF_SPIRIT) && !buried(m) && ice_at((int)m->x, (int)m->y)) m->frozen = fmaxf(m->frozen, 0.3f);
+    }
+    if (G.dead || G.shop || tu_taken() || !ice_at((int)floorf(G.px), (int)floorf(G.py))) { IC.stack = 0.0f; return; }   /* none while led */
+    if ((IC.stack -= dt) > 0.0f) return;
+    IC.stack = ICE_STACK;
+    if (!af_can(AF_CHILL)) return;
+    if (G.af_n < 3) af_chill(1, 0);                                /* held at three on it: it never freezes a person */
+    else G.af[AF_CHILL] = G.af0[AF_CHILL];
+}
 static void start_level(void) {
     line_lend();
     pocket_reset_level();
@@ -14640,7 +15174,9 @@ static void start_level(void) {
     G.bstep = G.bchallenge && G.boss >= 0 ? RUN.bstep[G.boss] : 0;
     crawl_art_level(G.level);
     ui_marble_make(0x51ABu ^ (unsigned)G.level * 7919u); ui_marble_lv = G.level;   /* the menus' marble, made now, not on a frame in play */
-    gen_level();
+    g_drawn = drawn_level(G.level);                                /* the owner's drawing (docs/PLAN-tutorial.md), laid on its own dice */
+    uint32_t run_rs = G.rs;
+    if (g_drawn) { G.rs = drawn()->seed; gen_drawn(); } else gen_level();
     memset(G.mobs, 0, sizeof G.mobs); G.nroute = 0; G.npacks = 0; G.gathered = 0;   /* and the patrols' rounds, the packs */
     memset(G.scent, 0, sizeof G.scent); G.namb = 0; G.hunt_kind = G.hunt_on = G.hunt_said = 0; G.noise_t = -1.0f; G.still_t = 0.0f;   /* the trail */
     memset(G.shots, 0, sizeof G.shots);
@@ -14655,39 +15191,48 @@ static void start_level(void) {
     G.cx = R->x + R->w / 2; G.cy = R->y + R->h / 2;
     G.cx -= ((G.cx - 2) % 4 + 4) % 4; G.cy -= ((G.cy - 2) % 4 + 4) % 4;   /* where two lanes cross */
     if (G.map[G.cy][G.cx].kind != K_FLOOR) { G.cx = R->x + 1; G.cy = R->y + 1; }
+    if (g_drawn) drawn_start();
     G.exit_seen = G.leaving = G.exiting = 0; G.exit_open = G.exit_t = 0.0f; G.seek_secret = -1;
     G.kills = G.kills_total = 0; G.tally = 0; G.tally_t = 0.0; G.tally_done = 0;
     memset(G.tally_shown, 0, sizeof G.tally_shown);
-    place_items(G.cx, G.cy);
-    if (G.boss < 0) place_exit(G.cx, G.cy);                        /* a boss level's way out is beyond its boss */
+    if (g_drawn) { drawn_items(); drawn_walls(); }                 /* where drawn: no potion, sites, things or spectres */
+    else {
+        place_items(G.cx, G.cy);
+        if (G.boss < 0) place_exit(G.cx, G.cy);                    /* a boss level's way out is beyond its boss */
+    }
     place_altar();
-    place_sites();                                                 /* the run's fixed hazards (1.0.0b13) */
+    if (g_drawn) { G.nsite = 0; G.snare_t = 0.0f; G.arise_t = 1e9f; }
+    else place_sites();                                            /* the run's fixed hazards (1.0.0b13) */
     G.nthing = 0; G.carry = 0; G.read_t = 0.0f;                    /* a puzzle's things are its level's */
     docs_clear();                                                  /* and what was read on the last */
     pz_make();
     pz_hide();                                                     /* its answer, written down and hidden; the Black Shrine */
     tri_place(); snd_set_trial(0);                                 /* the trial's door, its lights */
-    place_rests();                                                 /* the places to mend (1.0.0b15) */
-    place_marked();                                                /* things that want a spell (1.0.0b16) */
-    place_fights();                                                /* and things for fights (step 8) */
+    if (!g_drawn) {
+        place_rests();                                             /* the places to mend (1.0.0b15) */
+        place_marked();                                            /* things that want a spell (1.0.0b16) */
+        place_fights();                                            /* and things for fights (step 8) */
+    } else drawn_marks();                                         /* level 2's (docs/PLAN-tutorial.md 7.2, 7.3, 7.6); level 1 has none */
     ward_make();                                                   /* a soul-lamp by each challenge, out (1.0.0b18.1) */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_THINGS")) things_test();
 #endif
     G.level_treasure = 0; G.level_souls = 0; G.dead = 0; G.dead_t = 0.0; G.spirit_said = G.splint_said = 0;
     G.wraith_done = G.wraith_now = 0; G.wraith_try = 0.0f;          /* the Wraith comes once a level, and again after a death */
-    spectres_set();
+    if (g_drawn) { G.spec_n = 0; G.spec_t = 1e9f; } else spectres_set();
     memset(G.wisps, 0, sizeof G.wisps);                            /* wisps don't go down the stairs with you */
     G.hurt = G.gold = G.kick = G.chill = 0.0f; G.pvx = G.pvy = 0.0f;
     G.px = G.cx + 0.5f; G.py = G.cy + 0.5f;
     G.h = rnd(4);
     for (int k = 0; k < 4 && !apass(G.cx + DX[G.h], G.cy + DY[G.h]); k++) G.h = (G.h + 1) & 3;
+    if (g_drawn) G.h = drawn()->face;
     G.ang = heading_angle(G.h);
     G.map[G.cy][G.cx].visits = 1; G.explored = 1;
     G.spd = 0.0f; G.bobph = 0.0f; G.camz = 0.5f; G.hand = 0.0f; G.cooldown = 2.0f; G.calm = 0.0f;
     start_move();
     memset(G.spawned, 0, sizeof G.spawned); memset(G.named, 0, sizeof G.named);
-    if (mind_on()) place_creatures(); else place_creatures_old();   /* step 8: one budget spent on set pieces */
+    if (g_drawn) drawn_dead();
+    else if (mind_on()) place_creatures(); else place_creatures_old();   /* step 8: one budget spent on set pieces */
     if (G.corrupt) snd_sfx_ex(SFX_DEEPCHIME, 0.45f, 0.5f);         /* and the bell heard as you come */
     if (G.boss >= 0) boss_spawn();
     hunt_cx = -1;
@@ -14700,6 +15245,7 @@ static void start_level(void) {
         if (np) set_rank(&G.mobs[pick[rnd(np)]], RK_GILDED);
         amb_gild();                                                /* and one time in two it runs to a kill room when hurt (L2) */
     }
+    if (g_drawn) G.rs = run_rs;                                    /* the drawing laid: the run's own dice again */
 #ifdef CRAWL_DEBUG
     { int nt[NKINDS] = { 0 }, nr[NRANK] = { 0 }; for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive) { nt[G.mobs[i].type]++; nr[G.mobs[i].rank]++; }
       fprintf(stderr, "LEVEL %d mobs:", G.level);
@@ -14727,6 +15273,7 @@ static void start_level(void) {
     G.readout = READOUT_T + 1.5f;                                  /* show where things stand as the level opens */
     G.bar = 1.0f; show_bar();
     if (G.player) human_begin();
+    tu_level_begin();                                              /* the lessons, on a drawn level (docs/PLAN-tutorial.md) */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_MAP")) debug_map(0);
 #endif
@@ -15319,6 +15866,15 @@ static void collect(Item *it) {
 #endif
         break;
     }
+    case IT_MAP:                                                   /* the tutorial's (docs/PLAN-tutorial.md 7.4): yours for good */
+        RUN.has_map = 1;
+        snd_sfx(SFX_KEYGET); snd_sfx_ex(SFX_SHIMMER, 0.7f, 0.5f); G.gold = 1.0f; G.grin_t = 1.6f;
+        if (G.player) say("THE MAP IS YOURS: M UNROLLS IT");
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT map_taken by %s t=%.2f\n", G.player ? "player" : "autopilot", G.t);
+#endif
+        if (g_drawn == 2) { ice_up(); tu_map_taken(); }           /* and the ice comes back behind you; the lessons show it */
+        break;
     case IT_BONE:                                                  /* for the spear */
         if (RUN.gear.bones < bones_max()) RUN.gear.bones++;
         snd_sfx_ex(SFX_BONES, 0.5f, 0.5f);
@@ -15754,6 +16310,10 @@ static void hz_dput(int x, int y, int c) {                         /* the worse 
     if (c == HZ_SOFT) { if (!*d) *d = HZ_SOFT; }
     else if (c && (*d == HZ_SOFT || c > *d)) *d = (uint8_t)c;
 }
+static void drawn_fire_dmarks(void) {                              /* the dream crosses it, there being no other way */
+    if (!g_drawn || !DF.n || DF.fade < 0.35f) return;
+    for (int i = 0; i < DF.n; i++) hz_dput(DF.cx[i], DF.cy[i], HZ_SOFT);
+}
 static void update_hazards(float dt) {
     int was = G.silenced;
     G.silenced = 0; G.hz_slow = 1.0f;
@@ -15761,6 +16321,10 @@ static void update_hazards(float dt) {
     if (PK.depth || G.shop || G.tally) { if (was) snd_set_muffle(0); return; }
     mk_dmarks();                                                   /* the steam vents (1.0.0b16) */
     c4_dmarks();                                                   /* a charge's lane, a spew's cone (C4) */
+    drawn_fire_tick(dt);                                           /* a drawn level's burning floor (docs/PLAN-tutorial.md) */
+    drawn_fire_dmarks();
+    ice_tick(dt);                                                  /* and level 2's ice: the dream crosses it if it must */
+    for (int i = 0; i < IC.n && g_drawn == 2 && IC.live; i++) hz_dput(IC.cx[i], IC.cy[i], HZ_SOFT);
     int px = (int)G.px, py = (int)G.py, mhp = G.max_hp > 0 ? G.max_hp : 100;
     for (int i = 0; i < MAXHAZ; i++) {
         Hazard *h = &G.haz[i];
@@ -20540,7 +21104,7 @@ static const char *const KEY_COLOR[NKEYS];
  * the way to what it seeks, in that thing's colour, and hovers there till you come. It leaves a trail of
  * motes hanging in the air, to follow round a corner. */
 static const int KEY_RAMP[NKEYS] = { R_GOLD, R_BONE, R_BLOOD };
-static int wisp_ramp_of(const Wisp *w) { return w->kind == WK_ALTAR ? R_PURPLE : (w->kind == WK_KEY ? KEY_RAMP[w->color] : R_GLOW); }
+static int wisp_ramp_of(const Wisp *w) { return w->kind == WK_ALTAR ? R_PURPLE : w->kind == WK_MEND ? R_GOLD : (w->kind == WK_KEY ? KEY_RAMP[w->color] : R_GLOW); }
 
 /* what a wisp of this kind seeks now: the cell, where it hovers there, and whether that is the end of
  * it (or a key it must fetch first); 0 if there is nothing left to seek */
@@ -20565,6 +21129,11 @@ static int wisp_target(int kind, int color, int *gx, int *gy, float *hx, float *
         if (i < 0) return 0;
         x = G.items[i].cx; y = G.items[i].cy; px = G.items[i].x; py = G.items[i].y;   /* over the key */
         *gx = x; *gy = y; past_vaults(gx, gy, vault_of_room(x, y));
+    } else if (kind == WK_MEND) {                                  /* the lessons': before the place to mend */
+        if (G.nrest <= 0) return 0;
+        x = G.rest_fx[0]; y = G.rest_fy[0];
+        px = x + 0.5f + (G.rest_x[0] - x) * 0.3f; py = y + 0.5f + (G.rest_y[0] - y) * 0.3f;
+        *gx = x; *gy = y;
     } else if (G.altar_wisp == AW_HOME || G.altar_wisp == AW_REST) {   /* home: over the altar */
         if (G.altar_x < 0) return 0;
         int d = 0;
@@ -20636,6 +21205,7 @@ static int summon_wisp(int kind, int color, float cost) {
     if (!is_open((int)w->x, (int)w->y) && kind != WK_ALTAR) { w->x = G.px; w->y = G.py; }
     snd_sfx_ex(SFX_SHIMMER, 0.7f, 0.5f);
     if (kind == WK_EXIT) say("A WISP KINDLES. IT KNOWS THE WAY OUT");
+    else if (kind == WK_MEND) say("A WISP KINDLES. IT KNOWS WHERE TO MEND");
     else if (kind == WK_KEY) say("A WISP GOES FOR THE %s KEY", KEY_COLOR[color]);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT wisp %d %d t=%.2f\n", kind, color, G.t);
@@ -21092,7 +21662,8 @@ static void crawl_update(double dt) {
     name_newcomers();
 
     /* keep the action coming: if nothing has happened for a while, wake something up ahead */
-    if (G.calm > (G.player ? 35.0f : 11.0f) && !PK.depth) {        /* a person clears a level for good, mostly */
+    if (G.calm > (G.player ? 35.0f : 11.0f) && !PK.depth && !g_drawn) {   /* a person clears a level for good, mostly; a drawn
+                                                                      level holds what was drawn */
         int x, y, alive = 0;
         for (int i = 0; i < MAXMOBS; i++) { const Mob *m = &G.mobs[i]; alive += m->alive && !m->guard && !m->ally && !KIND_IS(m, KF_UNCOUNTED) && m->type != MOB_WSKULL && m->type != MOB_SPIDER && m->type != MOB_GARGOYLE && m->type != MOB_LING; }
         int old_calm = !mind_on();
@@ -21198,6 +21769,7 @@ static void crawl_update(double dt) {
     }
     int pending = 0;
     for (int k = 0; k < G.nvaults; k++) {
+        if (G.vault_door[k] < 0) continue;                         /* a drawn level's gold and crimson, and no silver */
         const Door *d = &G.doors[G.vault_door[k]];
         if (k == G.exit_in_vault) continue;
         if (G.has_key[k] && d->locked == 1) pending = 1;
@@ -21553,6 +22125,7 @@ static int shop_choose(void) {
 static void por_dream(void);
 static void begin_shop(void) {
     hz_clear(); snd_set_boss(0, 0);
+    g_drawn = 0;                                                   /* her rooms are on the plan's grid */
     G.pz = -1; G.nthing = 0; G.carry = 0;                          /* nor a puzzle */
     G.msg_deco = G.srch_deco = G.bsh_x = -1; docs_clear();
     G.tri = G.tri_room = G.tri_door = -1; G.work_i = 0; snd_set_trial(0);
@@ -21619,6 +22192,7 @@ static void begin_shop(void) {
         G.shop_left = v->left; G.shop_bought = v->bought; G.sh_takes = v->takes; G.shop_held = v->held < G.ped_n ? v->held : -1;
     }
     LEDGER.has_visit = 0;
+    tu_shop_begin();                                               /* after level 1, the first time: a page on her wares */
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "SHOP level %d gold %d souls %d:", G.level, RUN.treasure, RUN.souls);
     for (int p = 0; p < G.ped_n; p++) { char nm[80]; gear_name(&G.offers[p], nm, sizeof nm); fprintf(stderr, " [%s $%d%s%s%s]", nm, G.offers[p].price, G.offers[p].rare ? " RARE" : "", G.offer_back[p] ? " HELD" : "", G.offer_gone[p] ? " GONE" : ""); }
@@ -22273,7 +22847,11 @@ static int open_door(Door *d) {
     if (d->locked == GATED) {                                      /* a winch's or a hearth's gate */
         if (G.msg_t <= 0.0f) {
             for (int i = 0; i < G.nmk; i++)
-                if (G.mk[i].door == d - G.doors) { say(G.mk[i].kind == MKK_HEARTH ? "IT RISES WHILE THE HEARTH BURNS" : "%s IS NEAR: IT WANTS LIGHTNING", mk_name(&G.mk[i])); break; }
+                if (G.mk[i].door == d - G.doors) {
+                    if (G.mk[i].kind == MKK_GSEAL) say("%s", G.py < d->y + 0.5f ? "IT OPENS FROM THE OTHER SIDE" : "STRIKE ITS SEAL WITH A SPELL");   /* the tutorial's */
+                    else say(G.mk[i].kind == MKK_HEARTH ? "IT RISES WHILE THE HEARTH BURNS" : "%s IS NEAR: IT WANTS LIGHTNING", mk_name(&G.mk[i]));
+                    break;
+                }
             sfx_at(SFX_KNOCK, d->x + 0.5f, d->y + 0.5f, 0.7f);
         }
         return 0;
@@ -22285,6 +22863,8 @@ static int open_door(Door *d) {
     if (d->locked == 1) {
         if (!G.has_key[d->color]) { say("THE %s DOOR IS LOCKED", KEY_COLOR[d->color]); return 0; }
         d->locked = 2; G.has_key[d->color] = 0; G.unlock_t = G.level_t; snd_sfx(SFX_UNLOCK); pop_readout();
+        if (g_drawn) for (int i = 0; i < G.ndoors; i++) if (G.doors[i].locked == 1 && G.doors[i].color == d->color) G.doors[i].locked = 2;   /* a drawn
+                                                                      vault's doors are one lock (docs/PLAN-tutorial.md, T19 a) */
     }
     if (!d->opening && d->open < 0.95f) d->opening = 1;
     return 1;
@@ -22329,6 +22909,7 @@ static int reckon_lines(char out[NRK][48], int glyph[NRK]) {
 /* E at the exit, or walking into it: the reckoning first, if anything is left */
 static void human_leave(void) {
     char l[NRK][48]; int g[NRK];
+    if (tu_exit_barred()) return;                                  /* not without the map, while level 2's lessons run */
     if (G.bchallenge || G.replay || PK.depth || !reckon_lines(l, g)) { human_exit(); return; }
     open_ui(UI_RECKON);
     G.ui_sel = 1; G.rk_fresh = 1;                                  /* on NOT YET; the press that opened it is spent */
@@ -22966,6 +23547,7 @@ static void open_ui(int which) {
         if (gift_due()) for (int e = 0; e < NELEM; e++) if (!align_open(e)) { G.al_el = e; break; }   /* a gift: the first line it may be */
     }
     else if (which == UI_HALL2) { G.ui_sel = 0; G.h2_arm = -1; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); }
+    else if (which == UI_TUTOR) { }                                /* a lesson's page: its own sound, in tu_show */
     else if (which == UI_CLASS) { G.vow_sel = cls_el() >= 0 ? (cls_el() + 1) % NELEM : 0; G.vow_arm = -1; snd_sfx_ex(SFX_WHISPER, 0.6f, 0.5f); }
     else if (which == UI_ASCEND) {
         G.ui_sel = 0; G.asc_arm = -1; memset(G.asc_buy, 0, sizeof G.asc_buy); snd_sfx_ex(SFX_WHISPER, 0.5f, 0.5f);
@@ -23110,8 +23692,332 @@ static void pilgrim_step(float dt) {
 #endif
 }
 
+/* ---- The lessons (docs/PLAN-tutorial.md, section 8): on the drawn levels, while a person's first run here is on them (or
+ * they asked for them again under the title's HELP), pages that stop the crypt at moments (beats), triggers in the floor, and
+ * the view turned a moment where a beat says. TU lasts while the program runs; a death on the level keeps what was shown. ---- */
+enum { TB_ARRIVE, TB_DOOR, TB_THROUGH, TB_MENDED, TB_BLOOD, TB_TRIG1, TB_KEY, TB_TRIG2, TB_HOARD, TB_TRIG3, NTBEAT };
+enum { TB2_ARRIVE, TB2_THING, TB2_TRIG1, TB2_MAP, TB2_GOLD, TB2_CRIMSON };   /* level 2's (B11, B12, B13, B16, B18, B19) */
+enum { MV_TURN, MV_HOLD, MV_LEAD };                                /* what the lessons do with the body, in turn */
+#define TU_Q 8
+#define TU_MV 6
+#define TU_STEER 0.5f                                              /* the view eased round in half a second */
+#define TU_LEAD 2.4f                                               /* led at a walk, cells a second */
+static struct {
+    int on, level;                                                 /* this level's lessons run; the level they are for */
+    uint32_t done;                                                 /* beats shown on it, a bit each (kept through a death on it) */
+    int q[TU_Q], qa[TU_Q], nq;                                     /* lessons waiting, and their shorter words */
+    int lesson, page, alt;                                         /* the one up */
+    float fresh;                                                   /* no key for its first moment */
+    int steer, back; float st_t, st_a0, st_a1, st_x0, st_y0, st_x1, st_y1;   /* the view taken */
+    struct { int kind, back; float a, x, y, t; } mv[TU_MV]; int nmv;   /* the turnings, holds and leads to come, the first under way */
+    float prev_y;                                                  /* level 2: last frame's row in the drawing's cells (trigger 2's line) */
+    int crimson;                                                   /* level 2: the crimson key taken */
+    int trig_in;                                                   /* the trigger the body stood in last frame (0 none) */
+    float lx, ly;                                                  /* the last place it stood out of every trigger */
+    int key_taken, gold_open, vault_been, mend_on, mend_hp, wisp_due, again[4];
+} TU;
+static int tu_due(int level) {                                     /* a drawn level's lessons, for a person, if not yet given */
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_TUT")) return atoi(getenv("CRAWL_TUT")) != 0 && drawn_level(level);
+#endif
+    pl_read();
+    return drawn_level(level) && !(PL.tut & (level == 1 ? TUT_L1 : TUT_L2));
+}
+static void tu_level_begin(void) {                                 /* from start_level */
+    int on = G.player && g_drawn && tu_due(G.level);
+    if (G.level != TU.level || !on) { memset(&TU, 0, sizeof TU); TU.level = G.level; }
+    else { TU.nq = 0; TU.steer = 0; TU.nmv = 0; TU.trig_in = 0; TU.mend_on = 0; TU.wisp_due = 0; TU.key_taken = TU.gold_open = TU.vault_been = 0; TU.crimson = 0; }
+    TU.prev_y = -1.0f;
+    TU.on = on;
+    TU.lx = G.px; TU.ly = G.py;
+#ifdef CRAWL_DEBUG
+    if (on && getenv("CRAWL_TUTBEAT")) TU.done |= (1u << clampi(atoi(getenv("CRAWL_TUTBEAT")), 0, 31)) - 1u;   /* testing: the beats before k shown */
+    if (on && getenv("CRAWL_TUTKEY")) {                            /* testing: the gold key held; 2, and the dead gone */
+        G.has_key[0] = 1; TU.key_taken = 1; TU.done |= 1u << TB_KEY;
+        if (atoi(getenv("CRAWL_TUTKEY")) >= 2) for (int i = 0; i < MAXMOBS; i++) G.mobs[i].alive = 0;
+    }
+#endif
+    if (on) G.hint_t = 0.0f;                                       /* the first page says what the controls card would */
+}
+static int tu_mercy(void) { return g_drawn && TU.on; }             /* a death while they run costs nothing (T4 a) */
+static int tu_cls(void) { int e = cls_el(); return e < 0 ? 0 : e; }
+/* a key put in the voice the person plays in: the keyboard's as written, a pad's buttons by their layout, touch's stones */
+static void tu_voice(const char *in, char *out, size_t n) {
+    int pad = PADX.used, touch = !pad && TCH.used;
+    size_t o = 0;
+    while (*in && o + 1 < n) {
+        if (*in != '[' || (!pad && !touch)) { out[o++] = *in++; continue; }
+        const char *e = strchr(in, ']');
+        if (!e) { out[o++] = *in++; continue; }
+        char key[24];
+        snprintf(key, sizeof key, "%.*s", (int)(e - in - 1), in + 1);
+        const char *w = key;
+        static char b[24];
+        if (pad) {
+            if (!strcmp(key, "WASD")) w = PL.swap ? "R-STICK" : "L-STICK";
+            else if (!strcmp(key, "THE MOUSE")) w = PL.swap ? "L-STICK" : "R-STICK";
+            else if (!strcmp(key, "SHIFT")) { snprintf(b, sizeof b, "%s", PAD_WORD[pad_sprint()]); w = b; }
+            else if (!strcmp(key, "E")) w = PAD_WORD[pl_on(PAD_A)];
+            else if (!strcmp(key, "H")) w = PAD_WORD[pl_on(PAD_DOWN)];
+            else if (!strcmp(key, "CLICK")) w = PAD_WORD[pl_on(PAD_RT)];
+            else if (!strcmp(key, "L")) w = PAD_WORD[pl_on(PAD_Y)];
+            else if (!strcmp(key, "M")) w = PAD_WORD[pl_on(PAD_UP)];
+            else if (!strcmp(key, "ARROWS")) w = "D-PAD";
+        } else {
+            if (!strcmp(key, "WASD")) w = "THE WALKING STICK";
+            else if (!strcmp(key, "THE MOUSE")) w = "A FINGER SLID ON THE RIGHT";
+            else if (!strcmp(key, "SHIFT")) w = "THE STICK PUSHED PAST ITS RING";
+            else if (!strcmp(key, "E")) w = "USE";
+            else if (!strcmp(key, "H")) w = "A TAP AT THE PICTURE'S FOOT";
+            else if (!strcmp(key, "CLICK")) w = "CAST";
+            else if (!strcmp(key, "L")) w = "WISPS";
+            else if (!strcmp(key, "M")) w = "MAP";
+            else if (!strcmp(key, "ARROWS")) w = "A DRAG";
+        }
+        o += (size_t)snprintf(out + o, n - o, "[%s]", w);
+        if (o >= n) o = n - 1;
+        in = e + 1;
+    }
+    out[o] = 0;
+}
+static void tu_show(void) {                                        /* the next lesson waiting, if nothing else is up */
+    if (!TU.nq || G.ui != UI_NONE || TU.steer || G.dead || G.tally) return;
+    TU.lesson = TU.q[0]; TU.alt = TU.qa[0]; TU.page = 0;
+    TU.nq--; memmove(TU.q, TU.q + 1, sizeof TU.q[0] * (size_t)TU.nq); memmove(TU.qa, TU.qa + 1, sizeof TU.qa[0] * (size_t)TU.nq);
+    open_ui(UI_TUTOR);
+    TU.fresh = 0.4f;
+    snd_sfx_ex(SFX_PAGE, 0.7f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT tut page %d alt %d t=%.2f\n", TU.lesson, TU.alt, G.t);
+#endif
+}
+static void tu_queue(int lesson, int alt) { if (TU.nq < TU_Q) { TU.q[TU.nq] = lesson; TU.qa[TU.nq++] = alt; } }
+static int tu_hunted(void) {                                       /* something hunting within six cells: a person isn't turned from a fight */
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_TUTCALM")) return 0;                         /* testing: as if nothing hunted */
+#endif
+    for (int i = 0; i < MAXMOBS; i++) {
+        const Mob *m = &G.mobs[i];
+        if (m->alive && m->state == MS_WALK && m->alert > 0.0f && !m->ally && hypotf(m->x - G.px, m->y - G.py) < 6.0f) return 1;
+    }
+    return 0;
+}
+static void tu_move_begin(void) {                                  /* the first move to come, from where the body is now */
+    TU.st_t = 0.0f; TU.st_a0 = G.ang; TU.st_x0 = G.px; TU.st_y0 = G.py;
+    TU.back = TU.mv[0].back; TU.st_a1 = G.ang + wrap_pi(TU.mv[0].a - G.ang);
+    TU.st_x1 = TU.mv[0].kind == MV_LEAD ? TU.mv[0].x : TU.back ? TU.lx : G.px;
+    TU.st_y1 = TU.mv[0].kind == MV_LEAD ? TU.mv[0].y : TU.back ? TU.ly : G.py;
+    if (TU.mv[0].kind == MV_LEAD) TU.mv[0].t = fmaxf(0.1f, hypotf(TU.st_x1 - G.px, TU.st_y1 - G.py) / TU_LEAD);
+}
+static void tu_move(int kind, float a, float x, float y, float t, int back) {
+    if (TU.nmv >= TU_MV) return;
+    TU.mv[TU.nmv].kind = kind; TU.mv[TU.nmv].a = a; TU.mv[TU.nmv].x = x; TU.mv[TU.nmv].y = y; TU.mv[TU.nmv].t = t; TU.mv[TU.nmv].back = back;
+    if (TU.nmv++ == 0) tu_move_begin();
+    TU.steer = 1; PADX.run = 0; G.chg_on = 0;
+    if (G.rest_on) rest_end("turned");
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT tut %s %.2f (%.2f,%.2f) %.1f back %d t=%.2f\n", kind == MV_TURN ? "steer" : kind == MV_HOLD ? "hold" : "lead", a, x, y, t, back, G.t);
+#endif
+}
+static void tu_steer(float ang, int back) { tu_move(MV_TURN, ang, 0.0f, 0.0f, TU_STEER, back); }   /* the view eased round, and with back the
+                                                                      body set back out of a trigger */
+static void tu_hold(float t) { tu_move(MV_HOLD, 0.0f, 0.0f, 0.0f, t, 0); }   /* kept still, looking */
+static void tu_lead(float x, float y) { tu_move(MV_LEAD, 0.0f, x, y, 0.0f, 0); }   /* walked there, the view as it is */
+static int tu_taken(void) { return TU.steer; }
+static int tu_beat(int b, int lesson, int alt) {                   /* a beat, once: its lesson queued */
+    if (TU.done >> b & 1) return 0;
+    TU.done |= 1u << b;
+    tu_queue(lesson, alt);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT tut beat %d t=%.2f\n", b, G.t);
+#endif
+    return 1;
+}
+static int tu_trig(int cx, int cy) {                               /* the trigger a cell is, on the level's drawing (0 none) */
+    if (!g_drawn) return 0;
+    const Drawn *D = drawn();
+    int x = cx - D->ox, y = cy - D->oy;
+    if (g_drawn == 2) return y == 9 && (x == 12 || x == 13) ? 1 : y == 12 && x >= 7 && x <= 9 ? 4 : 0;   /* level 2's 1 and x (T20 a) */
+    if (y == 23 && (x == 4 || x == 5)) return 1;
+    if ((x == 14 && y == 30) || (x == 13 && y == 31) || (x == 14 && y == 31)) return 2;
+    if (x == 19 && (y == 30 || y == 31)) return 3;
+    return 0;
+}
+static int tu_steering(float dt) {                                 /* from update_human: 1 while the view is taken */
+    if (!TU.steer) return 0;
+    if (!TU.nmv) { TU.steer = 0; return 0; }
+    TU.st_t += dt;
+    int kind = TU.mv[0].kind;
+    float dur = TU.mv[0].t, k = kind == MV_LEAD ? clampf(TU.st_t / dur, 0.0f, 1.0f) : smoothstepf(0.0f, dur, TU.st_t);
+    if (kind == MV_TURN) G.ang = TU.st_a0 + (TU.st_a1 - TU.st_a0) * k;
+    if (kind == MV_LEAD || (kind == MV_TURN && TU.back)) {
+        G.px = TU.st_x0 + (TU.st_x1 - TU.st_x0) * k; G.py = TU.st_y0 + (TU.st_y1 - TU.st_y0) * k; G.cx = (int)G.px; G.cy = (int)G.py;
+        if (kind == MV_LEAD) G.bobph += dt * 6.0f;                 /* a walk's sway */
+    }
+    G.spd = 0.0f; G.pvx = G.pvy = 0.0f;
+    if (TU.st_t < dur) return 1;
+    memmove(TU.mv, TU.mv + 1, sizeof TU.mv[0] * (size_t)(TU.nmv - 1));
+    if (--TU.nmv > 0) { tu_move_begin(); return 1; }
+    TU.steer = 0; TU.trig_in = tu_trig((int)floorf(G.px), (int)floorf(G.py)); TU.prev_y = -1.0f;
+    tu_show();
+    return 1;
+}
+static void tu_map_taken(void) {                                   /* B16: the ice comes back, watched, then the gate, then the pages */
+    if (!TU.on || g_drawn != 2 || !tu_beat(TB2_MAP, TL_MAP, 0)) return;
+    tu_steer(PI_F * 0.5f, 0); tu_hold(2.0f);
+    const Marked *g = IC.gate >= 0 && IC.gate < G.nmk ? &G.mk[IC.gate] : NULL;
+    tu_steer(g ? atan2f(g->y - G.py, g->x - G.px) : -PI_F * 0.5f, 0);
+}
+static int tu_exit_barred(void) {                                  /* B20 at the door itself: not without the map */
+    if (!TU.on || g_drawn != 2 || RUN.has_map) return 0;
+    if (!TU.steer && !TU.nq && G.ui == UI_NONE) { tu_queue(TL_NOMAP, TU.again[1]++ > 0); tu_steer(PI_F * 0.5f, 0); }
+    return 1;
+}
+static void tu_after(int lesson) {                                 /* a lesson read: what follows it */
+    if (lesson == TL_THROUGH && G.nrest > 0) summon_wisp(WK_MEND, 0, 0.0f);   /* free: the way to the place to mend */
+}
+static void tu_tick(float dt) {                                    /* from update_human, while no menu is up: the beats */
+    if (!TU.on || !g_drawn || G.dead || G.tally || G.exiting) return;
+    const Drawn *D = drawn();
+    int cx = (int)floorf(G.px), cy = (int)floorf(G.py), dx = cx - D->ox, dy = cy - D->oy, trig = tu_trig(cx, cy);
+    (void)dx; (void)dy;
+    if (g_drawn == 1) {
+        if (G.card > 3.6f && G.level_t > 1.0) tu_beat(TB_ARRIVE, TL_WALK, 0);
+        for (int i = 0; i < G.ndoors; i++)                         /* the first door, open */
+            if (G.doors[i].x == D->ox + 4 && G.doors[i].y == D->oy + 1 && G.doors[i].open > 0.5f && (TU.done >> TB_ARRIVE & 1)) tu_beat(TB_DOOR, TL_FIRE, 0);
+        if (!(TU.done >> TB_THROUGH & 1) && G.py >= (float)D->oy + 7.0f && !tu_hunted()) {   /* through the fire: to the place to mend */
+            tu_beat(TB_THROUGH, TL_THROUGH, 0); tu_steer(PI_F * 0.5f, 0);
+        }
+        if (G.rest_on && !TU.mend_on) { TU.mend_on = 1; TU.mend_hp = G.hp; }
+        int mended = !G.rest_on && TU.mend_on && G.hp > TU.mend_hp;
+        if (!G.rest_on) TU.mend_on = 0;
+        int walked_on = G.px >= (float)D->ox + 9.0f && G.py >= (float)D->oy + 9.0f && G.py < (float)D->oy + 12.0f;
+        if (!(TU.done >> TB_MENDED & 1) && (TU.done >> TB_THROUGH & 1) && (mended || walked_on) && !tu_hunted()) {
+            tu_beat(TB_MENDED, TL_CLASS, !mended); tu_steer(0.0f, 0);   /* the hall on the left: east */
+        }
+        if (G.kills > 0) tu_beat(TB_BLOOD, TL_SOULS, 0);
+        if (G.has_key[0] && !TU.key_taken) { TU.key_taken = 1; tu_beat(TB_KEY, TL_KEY, 0); }
+        for (int i = 0; i < G.ndoors; i++) if (G.doors[i].color == 0 && G.doors[i].locked == 2) TU.gold_open = 1;
+        int in_vault = G.nvaults > 0 && G.vault_room[0] >= 0 && in_room(&G.rooms[G.vault_room[0]], cx, cy);
+        if (in_vault && TU.gold_open) TU.vault_been = 1;
+        if (TU.vault_been && !in_vault) tu_beat(TB_HOARD, TL_HOARD, 0);   /* out of the vault: the way out (T12 b) */
+        if (trig && trig != TU.trig_in) {                          /* into a trigger's cells */
+            if (trig == 1) tu_beat(TB_TRIG1, TL_EVERY, 0);
+            else if (trig == 2 && !TU.key_taken && !tu_hunted()) {  /* not yet: turned to the key room's door, again each time */
+                tu_queue(TL_NOTYET, TU.again[2]++ > 0); tu_steer(atan2f((float)D->oy + 26.5f - G.py, (float)D->ox + 11.5f - G.px), 1);
+            } else if (trig == 3 && !TU.gold_open && !tu_hunted()) {   /* the gold door unused: turned back west, again each time */
+                tu_queue(TL_GOLDDOOR, TU.again[3]++ > 0); tu_steer(PI_F, 1);
+            }
+        }
+    } else if (g_drawn == 2) {
+        float fx = G.px - (float)D->ox, fy = G.py - (float)D->oy;   /* in the drawing's cells */
+        if (G.card > 3.6f && G.level_t > 1.0) tu_beat(TB2_ARRIVE, TL_L2, 0);
+        if (!(TU.done >> TB2_THING & 1) && (TU.done >> TB2_ARRIVE & 1))   /* B12: the first thing that wants a spell, near and in sight */
+            for (int i = 0; i < G.nmk; i++) {
+                const Marked *m = &G.mk[i];
+                if (m->done || m->kind == MKK_RSEAL || m->kind == MKK_GSEAL || hypotf(m->x - G.px, m->y - G.py) > 4.0f || !line_clear(G.px, G.py, m->x, m->y)) continue;
+                tu_beat(TB2_THING, TL_CRYPT, 0);
+                break;
+            }
+        if (G.has_key[0] && !TU.key_taken) {                       /* B18: the gold key, and the cracks two cells off */
+            TU.key_taken = 1;
+            if (tu_beat(TB2_GOLD, TL_CRACKS, 0) && G.nsecrets && !G.secrets[0].state) tu_steer(atan2f((float)G.secrets[0].sy + 0.5f - G.py, (float)G.secrets[0].sx + 0.5f - G.px), 0);
+        }
+        if (G.has_key[2] && !TU.crimson) { TU.crimson = 1; tu_beat(TB2_CRIMSON, TL_CRIMSON, 0); }   /* B19 */
+        if (TU.prev_y > 0.0f && fx >= 11.0f && fx < 15.0f && IC.live && !TU.steer && (TU.prev_y >= 18.0f) != (fy >= 18.0f)) {   /* trigger 2's line */
+            int from_south = TU.prev_y >= 18.0f;
+            if (!RUN.has_map || !from_south) {                     /* B14 without the map, B17 with it going south: led back */
+                if (!RUN.has_map) tu_queue(TL_ICE, TU.again[0]++ > 0); else tu_queue(TL_WAYON, 0);
+                tu_steer(from_south ? PI_F * 0.5f : -PI_F * 0.5f, 0);
+                if (from_south) { float tx = (float)D->ox + clampf(fx, 12.3f, 13.7f); tu_lead(tx, G.py); tu_lead(tx, (float)D->oy + 23.5f); }
+                else tu_lead(G.px, (float)D->oy + 15.5f);
+            }
+        }
+        if (!TU.steer) TU.prev_y = fy;
+        if (trig && trig != TU.trig_in && !TU.steer) {
+            if (trig == 1 && !RUN.has_map) tu_beat(TB2_TRIG1, TL_GATE, 0);   /* B13: the map beyond the gate, the way in from the south */
+            else if (trig == 4 && !RUN.has_map && !tu_hunted()) { tu_queue(TL_NOMAP, TU.again[1]++ > 0); tu_steer(PI_F * 0.5f, 1); }   /* B20 */
+        }
+    }
+    if (!TU.steer) { TU.trig_in = trig; if (!trig) { TU.lx = G.px; TU.ly = G.py; } }
+    tu_show();
+}
+static void tu_close(void) {
+    int l = TU.lesson;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT tut closed %d page %d t=%.2f\n", l, TU.page, G.t);
+#endif
+    G.ui = UI_NONE; G.click_spent = 1;
+    snd_sfx_ex(SFX_KEY, 0.6f, 0.5f);
+    tu_after(l);
+    tu_show();
+}
+static void update_tutor(void) {
+    if ((TU.fresh -= (float)IN_DT) > 0.0f) return;
+#ifdef CRAWL_DEBUG
+    static float auto_t;                                           /* testing: CRAWL_TUTAUTO=s, each page turned after s seconds */
+    if (getenv("CRAWL_TUTAUTO") && (auto_t += (float)IN_DT) >= (float)atof(getenv("CRAWL_TUTAUTO"))) { auto_t = 0.0f; IN.hit[KEY_E] = 1; }
+#endif
+    int n = TU.alt && (TU.lesson == TL_NOTYET || TU.lesson == TL_GOLDDOOR || TU.lesson == TL_ICE || TU.lesson == TL_NOMAP) ? 1 : tut_pages(TU.lesson);
+    if ((IN.hit[KEY_A] || IN.hit[KEY_LEFT]) && TU.page > 0) { TU.page--; snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f); }
+    if ((IN.hit[KEY_D] || IN.hit[KEY_RIGHT]) && TU.page + 1 < n) { TU.page++; snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f); }
+    if (IN.hit[KEY_E] || IN.hit[KEY_ENTER] || IN.hit[KEY_SPACE] || IN.hit[KEY_MOUSE1]) {
+        if (TU.page + 1 < n) { TU.page++; snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f); }
+        else tu_close();
+        return;
+    }
+    if (IN.hit[KEY_ESC] || IN.hit[KEY_BACK]) tu_close();
+}
+static void render_tutor(Frame *f) {
+    dim_view(f);
+    const char *in[TUT_LINES], *vp[TUT_LINES];
+    char v[TUT_LINES][96], wr[TUT_LINES][96];
+    int cls = tu_cls(), n = tut_lines(TU.lesson, TU.page, cls, TU.alt, in);
+    for (int i = 0; i < n; i++) { tu_voice(in[i], v[i], sizeof v[i]); vp[i] = v[i]; }
+    n = tut_wrap(vp, n, wr, 34);
+    UiTutor u;
+    memset(&u, 0, sizeof u);
+    u.head = tut_head(TU.lesson, TU.page, cls);
+    for (int i = 0; i < n; i++) u.line[i] = wr[i];
+    int pages = TU.alt && (TU.lesson == TL_NOTYET || TU.lesson == TL_GOLDDOOR || TU.lesson == TL_ICE || TU.lesson == TL_NOMAP) ? 1 : tut_pages(TU.lesson);
+    u.nline = n; u.page = TU.page; u.npage = pages; u.t = G.ui_t;
+    int last = TU.page + 1 >= pages, pad = PADX.used, touch = !pad && TCH.used;
+    u.keys = pages < 2 ? (pad ? "\1A DONE" : touch ? "USE DONE" : "E DONE")
+           : pad ? (last ? "D-PAD PAGES  \1A DONE" : "D-PAD PAGES  \1A ON") : touch ? (last ? "SLIDE PAGES  USE DONE" : "SLIDE PAGES  USE ON")
+           : last ? "A/D PAGES  E DONE" : "A/D PAGES  E ON";
+    ui_tutor(f, &u);
+}
+static void tu_cleared(void) {                                     /* a drawn level cleared with its lessons: given, for good */
+    if (!TU.on || !g_drawn) return;
+    pl_read(); PL.tut |= G.level == 1 ? TUT_L1 : TUT_L2; pl_write();
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT tut done level %d prefs %d\n", G.level, PL.tut);
+#endif
+}
+static void tu_shop_begin(void) {                                  /* her room after level 1, the first time: her wares (T13 a) */
+    g_map_kept = G.level == 2 && LEDGER.yours && tu_due(2);        /* level 2's lessons find it there for you */
+#ifdef CRAWL_DEBUG
+    if (g_map_kept) fprintf(stderr, "EVENT tut map_kept level %d t=%.2f\n", G.level, G.t);
+#endif
+    pl_read();
+    int due = G.player && G.level == 2 && (PL.tut & TUT_L1) && !(PL.tut & TUT_HER);
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_TUT")) due = G.player && G.level == 2 && atoi(getenv("CRAWL_TUT")) != 0;
+#endif
+    memset(&TU, 0, sizeof TU); TU.level = -1;
+    if (!due) return;
+    tu_queue(TL_WARES, 0);
+    PL.tut |= TUT_HER; pl_write();
+}
+
 static void update_human(float dt) {
     G.calm += dt;
+#ifdef CRAWL_DEBUG
+    { static double wt; if (getenv("CRAWL_WHERE") && G.t - wt >= 0.5) { wt = G.t; fprintf(stderr, "WHERE t=%.1f at (%.2f,%.2f) ang %.0f hp %d\n", G.t, G.px, G.py, G.ang * 57.2958f, G.hp); } }   /* a person, twice a second */
+#endif
+    if (tu_steering(dt)) return;                                   /* the lessons turn the view: a moment, nothing of yours moves it */
+    tu_tick(dt);
+    if (G.ui) return;                                              /* a lesson's page came up */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_FACEFOE")) {                                 /* for frames: the view turned to the nearest creature within eight cells, */
         G.hint_t = 0.0f;                                           /* and the controls card put away */
@@ -23345,6 +24251,7 @@ static void update_portrait(void) {                                /* its card: 
 static void buy_open(int i);
 static void shop_human(float dt) {
     if (!RUN.cls) { G.vow_change = 0; open_ui(UI_CLASS); return; }   /* her question, before anything else */
+    tu_show(); if (G.ui) return;                                   /* a lesson waiting: her wares (docs/PLAN-tutorial.md) */
     spell_keys();
     if (IN.hit[KEY_TAB]) { open_ui(UI_INVENTORY); return; }
     if (IN.hit[KEY_B]) { open_ui(UI_BESTIARY); return; }
@@ -23388,7 +24295,7 @@ static void shop_human(float dt) {
             && (G.stone_look < 0 || d < hypotf(STONE_AT[G.stone_look][0] + 0.5f - G.px, STONE_AT[G.stone_look][1] + 0.5f - G.py))) G.stone_look = k;
     }
     float mdx = MAP_X - G.px, mdy = MAP_Y - G.py, md = hypotf(mdx, mdy);   /* the map at her left, until it is yours */
-    G.map_look = !RUN.has_map && G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0
+    G.map_look = !RUN.has_map && !g_map_kept && G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0
                  && md < 2.6f && fabsf(wrap_pi(atan2f(mdy, mdx) - G.ang)) < 0.25f + 0.25f / fmaxf(md, 0.3f);
     G.pt_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0 && !G.map_look
                 && !G.lamp_look && !G.bell_look && !G.font_look ? por_facing() : 0;   /* a portrait of the slain */
@@ -23444,7 +24351,7 @@ static void buy_open(int i) {
     open_ui(UI_BUY);
     snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f);
 }
-static int buy_live(int i) { return i == BUY_MAP ? !RUN.has_map : i >= 0 && i < G.ped_n && !G.offer_gone[i]; }
+static int buy_live(int i) { return i == BUY_MAP ? !RUN.has_map && !g_map_kept : i >= 0 && i < G.ped_n && !G.offer_gone[i]; }
 static int buy_next(int from, int dir) {                           /* the next ware still to be had, round the pedestals and the map */
     int n = G.ped_n + 1, at = from == BUY_MAP ? G.ped_n : from;
     for (int k = 1; k <= n; k++) {
@@ -23496,6 +24403,7 @@ static void update_buy(void) {
 
 /* the person takes over, from wherever the autopilot was */
 static void human_begin(void) {
+    if (g_drawn && !TU.on && !G.shop) tu_level_begin();          /* taken over on a drawn level: its lessons too */
     G.state = PS_PLAYER; G.pc_t = -1.0f; G.u = 1.0f; G.spd = 0.0f; G.seek_secret = -1; G.dash_t = 0.0f; G.tap_key = -1;
     G.cx = G.tx = (int)G.px; G.cy = G.ty = (int)G.py;
     if (RUN.gear.atk[G.spell] < 0) G.spell = own_spell();
@@ -23599,6 +24507,8 @@ static void open_ledger(int mode);
  * and what was not signed is lost, as in fleeing */
 static void run_new(void) {
     uint32_t seed = G.rs * 1664525u + 1013904223u;
+    pl_read();
+    if (PL.tut & TUT_AGAIN) { PL.tut = 0; pl_write(); }            /* the lessons asked for again: this run has them */
     int ql = G.quit_line;
     RUN.active = 0;                                                /* crawl_enter makes it fresh */
     pocket_reset_level();                                          /* out of any pocket, its hum with it */
@@ -24413,6 +25323,7 @@ static void touch_keys(float dt) {
         if (f->role == TF_PEND && tap) PRESS(KEY_E);
         if (ctx == TC_WHEEL && tap && f->role != TF_BTN) touch_wheel_tap(fg->x, fg->y);
         if (ctx == TC_TITLE && tap && f->role == TF_TAP && title_at_prompt()) PRESS(KEY_ENTER);
+        if (ctx == TC_MENU && tap && f->role == TF_TAP && G.ui == UI_TUTOR) PRESS(KEY_ENTER);   /* a lesson's page: a tap goes on */
         if (ctx == TC_PLAY && tap && (f->role == TF_TURN || f->role == TF_WALK) && fg->y >= IN.pic_y + H - 36 && fg->y < IN.pic_y + H
             && fg->x >= IN.pic_x && fg->x < IN.pic_x + W) PRESS(KEY_H);   /* a tap on the bar's place: the bar */
         if (f->role == TF_BTN && !f->held && f->t < 0.6f) {
@@ -24466,7 +25377,7 @@ static void crawl_control(int what) {
     if (!G.quit_line) G.quit_line = 1 + rnd(97);                    /* the crypt's arguments, from somewhere new each time */
     if (G.shop) { G.sdur = 0.0f; G.shop_look = -1; G.pc_t = -1.0f; old_spells_said(); old_lines_said(); }   /* no cast left half-made */
     else if (!G.exiting && !G.tally && !G.dead) human_begin();
-    G.hint_t = 6.0f;
+    G.hint_t = TU.on && g_drawn ? 0.0f : 6.0f;                     /* the lessons' first page says what the card would */
     snd_sfx_ex(SFX_RUNE, 1.0f, 0.5f); snd_sfx_ex(SFX_WHOOSH, 0.6f, 0.5f);
     say("THE CONTROLS ARE YOURS");
 #ifdef CRAWL_DEBUG
@@ -25466,6 +26377,12 @@ static int title_tick(float dt) {                                  /* the title'
         } else if (back) { TI.st = TS_MENU; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
         break;
     default:                                                       /* the controls, help: back to the menu */
+        if (TI.st == TS_HELP && sel && !back) {                    /* the lessons on a new run, once they have been given */
+            pl_read();
+            if (PL.tut & TUT_L1) { PL.tut ^= TUT_AGAIN; pl_write(); snd_sfx_ex(SFX_TICK, 0.7f, 0.5f); }
+            else snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f);
+            break;
+        }
         if (sel || back) { TI.st = TS_MENU; snd_sfx_ex(SFX_KEY, 0.6f, 0.5f); }
         break;
     }
@@ -25507,15 +26424,20 @@ static void title_controls(Frame *f) {                             /* THE CONTRO
     ui_keys(f, (W - ui_keys_width("ESC BACK")) / 2, by + bh - 14, "ESC BACK", R_STONE + 12);
     ui_off();
 }
-static void title_help(Frame *f) {                                 /* HELP: still to be written */
+static void title_help(Frame *f) {                                 /* HELP: the lessons (docs/PLAN-tutorial.md 8.7) */
     ui_on(f, 0, "title help");
     dim_view(f);
-    int bw = 236, bh = 74, bx = (W - bw) / 2, by = (H - bh) / 2;
+    pl_read();
+    int given = PL.tut & TUT_L1, on = !given || (PL.tut & TUT_AGAIN);
+    int bw = 296, bh = 110, bx = (W - bw) / 2, by = (H - bh) / 2;
     ui_slab(f, bx, by, bw, bh, SLAB_LEDGER | SLAB_CALM, ORN_NONE, TI.t);
     ui_text16(f, (W - 4 * 8) / 2, by + 7, "HELP", FACE_INSC, R_GOLD + 12, TX_INLAID, 1);
-    const char *s = "THIS PAGE IS NOT WRITTEN YET.";
-    ui_text8(f, (W - (int)strlen(s) * 8) / 2, by + 32, s, FACE_INSC, R_STONE + 13, TX_INLAID);
-    const char *k = TI.pad ? "\1B BACK" : "ESC BACK";
+    static const char *const L[3] = { "THE FIRST TWO LEVELS OF A RUN TEACH", "AS YOU GO, ON YOUR FIRST RUN HERE.",
+                                      "THEIR LESSONS, AGAIN ON A NEW RUN:" };
+    for (int i = 0; i < 3; i++) ui_text8(f, (W - (int)strlen(L[i]) * 8) / 2, by + 30 + i * 12, L[i], FACE_INSC, R_STONE + 13, TX_INLAID);
+    const char *v = !given ? "THEY COME ON YOUR FIRST RUN" : on ? "YES" : "NO";
+    ui_text8(f, (W - (int)strlen(v) * 8) / 2, by + 70, v, FACE_INSC, on ? R_GOLD + 12 : R_STONE + 11, TX_INLAID);
+    const char *k = !given ? (TI.pad ? "\1B BACK" : "ESC BACK") : TI.pad ? "\1A CHANGES  \1B BACK" : "E CHANGES  ESC BACK";
     ui_keys(f, (W - ui_keys_width(k)) / 2, by + bh - 16, k, R_STONE + 12);
     ui_off();
 }
@@ -25562,7 +26484,7 @@ static void blame_text(const Blame *b, char *buf, int n) {
     }
 }
 
-static int death_costs(void) { return LEDGER.yours && !CON.used && !PK.depth; }   /* in the dream, with a code used, or in a pocket: the old mercy */
+static int death_costs(void) { return LEDGER.yours && !CON.used && !PK.depth && !tu_mercy(); }   /* nor while the lessons run (docs/PLAN-tutorial.md, T4 a) */   /* in the dream, with a code used, or in a pocket: the old mercy */
 static void death_write(void) {                                    /* the page it came from, or the unsigned run */
     static uint8_t buf[SLOT_MAX];
     RUN.signs++;
@@ -25722,6 +26644,7 @@ static int in_danger(void) {
 }
 static void update_mark(float dt) {
     if (!LEDGER.yours || CON.used || !RUN.active) return;
+    if (tu_mercy()) { if (LEDGER.marked) mark_write(0); return; }   /* the lessons' levels: a death costs nothing, so she has no claim */
     if (in_danger()) { LEDGER.calm_t = 8.0f; if (!LEDGER.marked) mark_write(1); }
     else if (LEDGER.marked && (LEDGER.calm_t -= dt) <= 0.0f) mark_write(0);
 }
@@ -26807,6 +27730,7 @@ static void update_ui(void) {
     if (G.ui == UI_PAD) { update_padmenu(); return; }
     if (G.ui == UI_PORTRAIT) { update_portrait(); return; }
     if (G.ui == UI_BUY) { update_buy(); return; }
+    if (G.ui == UI_TUTOR) { update_tutor(); return; }
     if (G.ui == UI_INVENTORY) update_inventory();
     else if (G.ui == UI_LEDGER) update_ledger();
     else if (G.ui == UI_MERCHANT) update_merchantmenu();
@@ -26959,6 +27883,7 @@ enum { FM_NONE, FM_SHADOW, FM_CRACK, FM_FIRE, FM_EMBER, FM_SHEEN, FM_BILE, FM_VR
        FM_VAPOUR, FM_WAX, FM_RIME, FM_SURGE, FM_SPARK, FM_BUBBLE, FM_POOL, FM_DUST, FM_SHIMMER, FM_SRING, FM_ASH, FM_STAR,
        FM_CHALK, FM_HAZE,                                       /* the runs' own (1.0.0b13) */
        FM_PLATE, FM_PIPE,                                       /* a puzzle's flagstone, stone or glass, and its channels (1.0.0b13) */
+       FM_ICE,                                                  /* the tutorial's ice field (docs/PLAN-tutorial.md 7.1) */
        FM_WARD };                                               /* a soul-lamp's ward, at its edge (1.0.0b18.1) */
 typedef struct { uint8_t kind, prio; float k, ax, ay, r, ang; } FMark;
 static FMark fmark[MAPN][MAPN];
@@ -27066,10 +27991,19 @@ static int ward_marks(void) {                                      /* the soul-l
         }
     return any;
 }
+static int ice_marks(void) {                                       /* level 2's ice over its floor, as far as each cell is laid */
+    int any = 0;
+    for (int i = 0; i < IC.n && g_drawn == 2; i++) {
+        float k = ice_k(i);
+        if (k > 0.0f) { fm_set(IC.cx[i], IC.cy[i], FM_ICE, 1, k, 0.0f, 0.0f, 0.0f, 0.0f); any = 1; }
+    }
+    return any;
+}
 static int hz_marks(void) {
     memset(fmark, 0, sizeof fmark);
     if (G.shop) return 0;
     int any = omen_marks();
+    any |= ice_marks();
     for (int i = 0; i < MAXHAZ && !PK.depth; i++) {
         const Hazard *h = &G.haz[i];
         if (!h->alive) continue;
@@ -27200,6 +28134,10 @@ static int fm_pixel(const FMark *m, float wx, float wy, float fx, float fy, int 
         if (m->kind == FM_POOL && k > 0.5f && (hash2((int)(wx * 9.0f), (int)(wy * 9.0f)) & 63) == 0) return R_PURPLE + 12;   /* a violet glint */
         return -1;
     }
+    case FM_ICE:                                                   /* the tutorial's ice: laid texel by texel, catching the light */
+        *base = crawl_ice_at(wx, wy, k, *base);
+        *lmul *= 1.0f + 0.15f * k;
+        return -1;
     case FM_RIME: {                                                /* frost feathering over the floor */
         uint32_t hh = hash2((int)(wx * 16.0f), (int)(wy * 16.0f));
         if ((float)(hh & 255) / 255.0f < k * 0.75f) *base = (uint8_t)(R_GHOST + 10 + (hh >> 10 & 3) + ((hh >> 12 & 7) == 0 ? 2 : 0));
@@ -27437,7 +28375,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 }
                 if (t <= 0.0f || u < 0.0f || u >= 1.0f || u < d->open) continue;
                 static const int LOCKTEX[NKEYS] = { T_LOCKED, T_LOCKED_S, T_LOCKED_C }, RLOCKTEX[NKEYS] = { T_RLOCKED, T_RLOCKED_S, T_RLOCKED_C };
-                perp = t; tex = d->locked == WINGED ? T_WINGDOOR : d->locked == GATED ? T_GATE : G.tri >= 0 && d - G.doors == G.tri_door ? T_TRDOOR : d->locked ? (G.faced ? RLOCKTEX[d->color] : LOCKTEX[d->color]) : (G.faced ? T_RDOOR : T_DOOR); side = d->along_x ? 0 : 1;
+                perp = t; tex = d->locked == WINGED ? T_WINGDOOR : g_drawn == 2 && d - G.doors == IC.gate_door ? (d->locked == GATED && G.py > d->y + 0.5f ? T_GATE_SEAL : T_GATE) : d->locked == GATED ? T_GATE : G.tri >= 0 && d - G.doors == G.tri_door ? T_TRDOOR : d->locked ? (G.faced ? RLOCKTEX[d->color] : LOCKTEX[d->color]) : (G.faced ? T_RDOOR : T_DOOR); side = d->along_x ? 0 : 1;
                 texx = clampi((int)((u - d->open) * TS), 0, TS - 1);
                 hit = 1;
             }
@@ -28079,7 +29017,7 @@ static int deco_look(const Deco *dc) {
     return look;
 }
 static void render_sprites(Frame *f, float dx, float dy, float horizon) {
-    static Draw list[MAXDECO + MAXMOBS + MAXSHOTS + MAXBOOMS + MAXBONES + MAXITEMS + MAXBURNS + MAXPOOLS + MAXHAZ * 4 + MAXSITE * 4 + 16];   /* and wisps, a double, after-images */
+    static Draw list[MAXDECO + MAXMOBS + MAXSHOTS + MAXBOOMS + MAXBONES + MAXITEMS + MAXBURNS + MAXPOOLS + MAXHAZ * 4 + MAXSITE * 4 + 16 + DFIRE_CELLS * 2];   /* and wisps, a double, after-images */
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
@@ -28409,6 +29347,14 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         ADD(b->x, b->y, 0.0f, ((int)(G.t * 9.0) + i) & 1 ? SP_BURN_B : SP_BURN_A, 1.0f - smoothstepf(b->life - 0.9f, b->life, b->t));
         if (n > n0) list[n - 1].scale = b->foe == 2 ? 0.55f : 0.9f;   /* Firestarter's: lower flames, in a line */
     }
+    if (g_drawn && DF.n && DF.fade > 0.02f)                        /* a drawn level's burning floor: two flames a cell, low as it goes */
+        for (int i = 0; i < DF.n; i++)
+            for (int k = 0; k < 2; k++) {
+                int n0 = n;
+                float fx = (float)DF.cx[i] + (k ? 0.72f : 0.28f), fy = (float)DF.cy[i] + (((i + k) & 1) ? 0.7f : 0.3f);
+                ADD(fx, fy, 0.0f, (((int)(G.t * 9.0)) + i + k) & 1 ? SP_BURN_B : SP_BURN_A, fminf(1.0f, DF.fade * 1.5f));
+                if (n > n0) list[n - 1].scale = (0.85f + 0.15f * sinf((float)G.t * 7.0f + (float)(i * 2 + k))) * (0.35f + 0.65f * DF.fade);
+            }
     for (int i = 0; i < MAXVENOM; i++) {                           /* Seep's pools, green; the Lance's rime */
         const Venom *v = &G.venoms[i];
         if (!v->alive) continue;
@@ -28516,7 +29462,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     for (int i = 0; i < G.nitems; i++) {
         const Item *it = &G.items[i];
         if (!it->alive) continue;
-        static const int SPR[] = { SP_COINS_A, SP_CHALICE, SP_GEMS, SP_CROWN, SP_CHEST, SP_KEY0, SP_POTION, SP_SOULURN, SP_RINGITEM, SP_ITEM_BONE, SP_SCRIP };
+        static const int SPR[] = { SP_COINS_A, SP_CHALICE, SP_GEMS, SP_CROWN, SP_CHEST, SP_KEY0, SP_POTION, SP_SOULURN, SP_RINGITEM, SP_ITEM_BONE, SP_SCRIP, SP_MAPFLOOR };
         float ph = (float)G.t + it->phase, z = 0.0f;
         int sp = SPR[it->type];
         if (it->type == IT_COINS && ((int)(ph * 2.5f) & 1)) sp = SP_COINS_B;
@@ -28550,7 +29496,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         int n0 = n;
         ADD(CAT_X, CAT_Y, 0.0f, SP_PEDESTAL, 0);
         if (n > n0) { list[n - 1].scale = CAT_S; list[n - 1].flags = DR_CAT; }
-        if (!RUN.has_map) {                                        /* the map, floating at her left until it is yours */
+        if (!RUN.has_map && !g_map_kept) {                         /* the map, floating at her left until it is yours */
             n0 = n;
             ADD(MAP_X, MAP_Y, 0.42f + 0.04f * sinf((float)G.t * 1.6f), SP_MAPWARE, 0);
             if (n > n0) { float u = (float)G.t * 0.4f; u -= floorf(u); list[n - 1].scale = 0.5f; list[n - 1].twinkle = u < 0.1f ? sinf(u / 0.1f * PI_F) : 0.0f; }
@@ -28865,7 +29811,7 @@ static void render_shop_tags(Frame *f, float dx, float dy, float horizon) {
         if (over) { int rw = gfx_text_width(over, 1); gfx_text8(f, x - rw / 2 + 1, ty - 9, over, 0, 1); gfx_text8(f, x - rw / 2, ty - 10, over, over[0] == 'H' ? (uint8_t)(R_GLOW + 12) : (uint8_t)C_WHITE, 1); }
     }
     float sx, sy, dep;                                             /* the map's price, over it */
-    if (!RUN.has_map && project(MAP_X, MAP_Y, 0.95f, dx, dy, horizon, &sx, &sy, &dep) && sx >= 0 && sx < W && dep < zbuf[(int)sx] + 0.3f && dep < 6.0f) {
+    if (!RUN.has_map && !g_map_kept && project(MAP_X, MAP_Y, 0.95f, dx, dy, horizon, &sx, &sy, &dep) && sx >= 0 && sx < W && dep < zbuf[(int)sx] + 0.3f && dep < 6.0f) {
         char tag[16];
         snprintf(tag, sizeof tag, "$%d", MAP_PRICE);
         int w = gfx_text_width(tag, 1), tx = (int)sx - w / 2, ty = (int)sy - 10, hit = 0;
@@ -29955,6 +30901,7 @@ static void render_tally_in(Frame *f) {
             gfx_text16(f, 30, y, LABEL[r], r == 5 ? (uint8_t)(R_PURPLE + 13) : (uint8_t)C_WHITE, 1);
             if (r == 0 || r == 6) snprintf(line, sizeof line, "%d:%02d", v / 60, v % 60);
             else if (r == 3 || r == 5) snprintf(line, sizeof line, "+%d", v);
+            else if (r == 4 && !totals[r]) snprintf(line, sizeof line, "NONE HERE");   /* a drawn level with none (docs/PLAN-tutorial.md) */
             else snprintf(line, sizeof line, "%d / %d", v, totals[r]);
             int done = t >= TALLY_ROW0 + r * TALLY_ROW_GAP + TALLY_COUNT, lw = gfx_text_width(line, 1);
             gfx_text16(f, 290 - lw, y, line, done ? R_GOLD + 12 : R_GOLD + 8, 1);
@@ -33715,7 +34662,7 @@ static void render_portraitcard(Frame *f);
 static void render_ui(Frame *f) {
     static const char *const NAME[] = { "none", "wardrobe", "quit", "ledger", "bestiary", "letgo", "wisps", "altar", "shrine", "totem",
                                         "portal", "merchant", "stone", "compendium", "repository", "codex", "ascend", "cornerstones",
-                                        "alignment", "class", "hall2", "bshrine", "reckon", "controller", "portrait", "buy" };
+                                        "alignment", "class", "hall2", "bshrine", "reckon", "controller", "portrait", "buy", "tutor" };
     ui_on(f, 1, G.ui >= 0 && G.ui < (int)(sizeof NAME / sizeof NAME[0]) ? NAME[G.ui] : "?");
     render_ui_in(f);
     ui_off();
@@ -33739,6 +34686,7 @@ static void render_ui_in(Frame *f) {
     if (G.ui == UI_PAD) { render_padmenu(f); return; }
     if (G.ui == UI_PORTRAIT) { render_portraitcard(f); return; }
     if (G.ui == UI_BUY) { render_buy(f); return; }
+    if (G.ui == UI_TUTOR) { render_tutor(f); return; }
     if (G.ui == UI_INVENTORY) render_inventory(f);
     else if (G.ui == UI_QUIT) render_quit(f);
     else if (G.ui == UI_LEDGER) render_ledger(f);

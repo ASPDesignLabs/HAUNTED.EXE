@@ -15,7 +15,7 @@ FILEVER := $(shell sed -E 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*/\1,\2,\3,0/' VERSIO
 PKG      = dist/HAUNTED-$(VERSION)-win64.zip
 
 SRC      = src/app.c src/gfx.c src/font_vga.c src/snd.c src/scene_crawl.c src/crawl_art.c src/hand_img.c src/crawl_gear.c src/face_img.c src/cat_img.c src/scene_haunt.c src/haunt_art.c src/crawl_ui.c src/ui_art.c src/crawl_title.c \
-           src/crawl_portrait.c
+           src/crawl_portrait.c src/crawl_tutor.c
 CFLAGS  ?= -O2 -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Wno-misleading-indentation
 
 all: host
@@ -76,7 +76,7 @@ build/sheet: $(ART_SRC) tools/sheet.c src/*.h
 	@mkdir -p build
 	gcc $(CFLAGS) -o $@ $(ART_SRC) tools/sheet.c -lm -lz
 
-UI_SRC   = src/crawl_ui.c src/ui_art.c src/gfx.c
+UI_SRC   = src/crawl_ui.c src/ui_art.c src/gfx.c src/crawl_tutor.c
 
 build/uisheet: $(ART_SRC) $(UI_SRC) tools/uisheet.c src/*.h
 	@mkdir -p build
@@ -95,6 +95,7 @@ sheets: build/sheet build/uisheet
 	./build/sheet all build/sheets 1
 	./build/uisheet all build/sheets
 	./build/uisheet pad build/sheets/pad.png
+	./build/uisheet tutor build/sheets
 
 build/items: src/crawl_gear.c src/crawl_gear.h src/crawl.h tools/items.c
 	@mkdir -p build
