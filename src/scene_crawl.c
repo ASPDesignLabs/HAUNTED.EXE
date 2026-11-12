@@ -1361,6 +1361,14 @@ static void pl_read(void) {
         if (n >= PL_BYTES_TOUCH) { PL.tturn = clampi(buf[24], 3, 30); PL.tsmooth = clampi(buf[25], 0, 10); }
         if (n >= PL_BYTES_TUT) PL.tut = buf[26] & 15;
     } else if (n == 1 && buf[0] < PAD_COUNT) pl_trade(PAD_LS, buf[0]);
+    if (n < PL_BYTES_TUT) {                                        /* no lessons byte yet (before 1.0.0b21.5): someone who has played here
+                                                                      already, with settings of their own or a page in the ledger, is past
+                                                                      their first run; HELP gives the lessons back (docs/PLAN-tutorial.md T2 a) */
+        static uint8_t pg[SLOT_MAX];
+        int played = n > 0;
+        for (int k = 0; k <= SLOT_PROGRESS && !played; k++) played = slot_read(k, pg, sizeof pg) > 0;
+        if (played) PL.tut = TUT_L1 | TUT_L2 | TUT_HER;
+    }
 }
 static void pl_write(void) {
     uint8_t b[PL_BYTES_TUT];
@@ -25369,7 +25377,7 @@ static void crawl_control(int what) {
     if (!G.quit_line) G.quit_line = 1 + rnd(97);                    /* the crypt's arguments, from somewhere new each time */
     if (G.shop) { G.sdur = 0.0f; G.shop_look = -1; G.pc_t = -1.0f; old_spells_said(); old_lines_said(); }   /* no cast left half-made */
     else if (!G.exiting && !G.tally && !G.dead) human_begin();
-    G.hint_t = 6.0f;
+    G.hint_t = TU.on && g_drawn ? 0.0f : 6.0f;                     /* the lessons' first page says what the card would */
     snd_sfx_ex(SFX_RUNE, 1.0f, 0.5f); snd_sfx_ex(SFX_WHOOSH, 0.6f, 0.5f);
     say("THE CONTROLS ARE YOURS");
 #ifdef CRAWL_DEBUG

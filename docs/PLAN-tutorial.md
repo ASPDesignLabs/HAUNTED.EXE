@@ -1099,3 +1099,11 @@ key).
   the cracks), the crimson key, trigger x and the exit refused, her room with the map kept back; level 1's turnings and its wisp as
   before. ASan clean on two runs through them. Not yet: the title's HELP paging through the lessons (it toggles only), the scorched
   floor, and step 9's checks.
+- **12 November: released as 1.0.0b21.5, "First Steps"**, at the owner's word, before step 9 ("first, go ahead and offer it as a b21.5
+  release, then we will gauge the testing need"). For it: the README's section and *What has been verified*, the page's paragraph,
+  its tested row, the upgrade note and the beta status, the notes, a preview strip (`docs/preview_catacomb_tutorial.png`: the burning
+  hall, a lesson's page, the wisp, level 2's ice, the ice draining, the ice back with a skeleton frozen in it). Two things found on the
+  way: the controls card came up over level 1 when taken over mid-level (the takeover set it after the lessons had put it away; it
+  stays away now while they run), and a player upgrading would have met the lessons, with no skip, the next time a death sent them to
+  level 1: when the settings carry no lessons byte yet but someone has played here (settings of their own, or a page or progress in
+  the ledger), `pl_read` counts them as given, so the title's HELP gives them back. Step 9's checks are still to do.
