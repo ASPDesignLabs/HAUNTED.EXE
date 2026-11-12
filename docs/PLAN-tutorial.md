@@ -461,8 +461,8 @@ Level 2:
    21  ##.+#+.#####ii#
    22  #..+#+..####ii#
    23  #+++#+++++++++#
-   24  #.+###........#
-   25  #.+###........#
+   24  #.+###...+....#
+   25  #.+###...+....#
    26  #+++#+++++++++#
    27  #+++++++#####D#
    28  ##..+..##....+#
@@ -1044,3 +1044,40 @@ key).
   lessons for it). ASan clean on a person through the lessons and those deaths, a person to her room, and the dream for 600 s; the
   smoke test.
   Not yet: `tu_hold` and `tu_lead` (level 2's), the HELP's paging through the lessons (it toggles only), the scorched floor.
+- **Level 2's art sheet, drawn** (for the owner's approval; sent, and level 2 built with it meanwhile, to be redrawn at their word):
+  `docs/tutorial/level2-art.png` (`make sheets`' `tutorial2`, `draw_tutorial2` in `tools/sheet.c`). The switch is a squat stele with a
+  six-armed seal sunk in its face, rimed and hung with icicles (`spr_mk_rseal`, `SP_MK_RSEAL0`), thawed and running wet (`1`), split
+  and dull once spent (`2`); the gate's south face is the portcullis with a riveted plate and a sunk boss for the seal
+  (`gen_gate_seal`, `T_GATE_SEAL`, laid on the run's stone as `T_GATE` is), its north face the bare `T_GATE`; the map lies where it
+  fell, half unrolled towards you (`spr_mapfloor`, `SP_MAPFLOOR`); the ice is a tile of old ice, cracked, bubbles in it, rime over it
+  (`gen_ice`, `T_ICE`), laid over the floor texel by texel in drifts as it creeps (`crawl_ice_at`, shared by the game and the sheet).
+- **Step 7 built** (harness only). Level 2 is `DRAWN2_MAP` and `DRAWN2_THING` (the drawing's letters grown by C a crimson door, = the
+  gate, I and i the ice, c the secret's wall, q and Q its room), `DRAWN2_ROOM`, and `Drawn.vault` a room for each key's colour (gold
+  and crimson, no silver: the vault loops step over a gap). `gen_drawn` lays the gate (`GATED`, `IC.gate_door`), the ice (`IC`), the
+  secret by hand (a `Secret` of one link, its stone sliding two cells), the walls' fronts north first (`drawn_front`), the exit's
+  vault (`G.exit_in_vault`); after the dressing, `drawn_clear` takes what it laid off the ice, off what the drawing sets down and off
+  every lane (an undercroft's prop had stood on level 2's great hall lane and cut its east end off; level 1 lost one prop on a lane
+  in its east room too, its only change). `drawn_items` lays the secret's gold out of the count and the map (`IT_MAP`, gold in its
+  place when the map is held, T18 a) with a glow; `drawn_dead` lays T23's kinds, the shamblers buried under turned earth
+  (`riser_make`); `drawn_marks` the ten things (T22 a: a coffer or a cage on the main way, the class's own kind elsewhere, a rack for
+  every other of Fire's) and the two new kinds, `MKK_RSEAL` (the switch, three strikes) and `MKK_GSEAL` (the gate's seal, one, drawn
+  only as its seal over the plate), which any spell answers (`mk_strike`), never placed by the generator (tier 9). Things drawn on a
+  lane were set off it: a a row north, f, g and h against their walls. The ice: `ice_k` (each cell turning over `ICE_TURN` after a
+  wait, the walls' side first), `ice_down` (the switch's `mk_finish`), `ice_up` (the map taken: back for good, the switch spent),
+  `ice_tick` (a Chilled stack every 0.4 s on it, held at three, never Frozen; whatever else stands on it is held frozen, so the bat
+  drawn in it waits there), its floor mark `FM_ICE` (`ice_marks` in `hz_marks`), soft on the dream's map. The gate: its face by
+  which side you stand (`render_walls`), up for good once risen (`update_doors`), E from the north says *IT OPENS FROM THE OTHER
+  SIDE*. The dream answers the switch from 13 cells (the ice's south edge); the rest of things from 6.5 as before. The lane mask
+  grew a lane down the great hall's middle (x 9, rows 24-25; 5.5): without it the hall's north row and the crimson door's way were
+  an island while the gate was shut, and the dream, holding the crimson key, paced the start's hall; the debug map's lane check now
+  counts a barred gate shut and names the lanes it can't reach (`MAP lane cut off`). Debug: `CRAWL_ICE=0` (the ice down from the
+  start), `CRAWL_WHERE=1` (a person's place and angle twice a second), `DRAWN level 2: ... things`, `EVENT ice down|up`, `map_taken`.
+  Tried in the harness by a person (the Witchfinder): three bolts at the switch from the ice's edge, the ice thawing, the walk across,
+  the map taken and the ice back behind, the gate's seal struck from inside and the gate up, the north face bare and a bolt from there
+  doing nothing, the secret pressed (*A SECRET! 1 OF 1*, the run's first Cursed Coin); frames in `docs/tutorial/level2-frames.png`
+  (the ice from its south edge, the switch by the gate, the map at the ice's edge, the gate's sealed face). The dream from level 2's
+  room on eight seeds (1-15 odd, four pasts): every one cleared it, 250-334 s, no death, no stall; none went into the map room, so
+  none struck the switch or took the map (section 10 lets it), and none found the secret on these seeds. ASan clean on a person
+  through the switch, the map, the ice and the gate, on the secret, and on the dream twice (once with `CRAWL_ICE=0`); the smoke test.
+  Level 1, its one prop gone, still clears (174 s on two seeds). Not yet: trigger x and the exit's refusal without the map, her room
+  keeping the map off her wares, and the scripted moment at the map (all lessons, step 8).

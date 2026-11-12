@@ -69,6 +69,8 @@ enum {
     T_RJAMB, T_RLOCKED, T_RLOCKED_S, T_RLOCKED_C,
     T_TRDOOR,                                     /* a trial's door (1.0.0b13): the run's own, its skull and crossed bones */
     T_REST,                                       /* a place to mend (1.0.0b15, docs/PLAN-ai.md, 28): the run's own, set in its stone */
+    T_GATE_SEAL,                                  /* the tutorial's one-way gate (docs/PLAN-tutorial.md 7.3): its south face, a plate for the seal */
+    T_ICE,                                        /* its ice field: a sheet laid over the floor, as a mark (C_CLEAR nowhere) */
     NTEX
 };
 #define NMAT 5
@@ -303,6 +305,9 @@ enum {
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     /* the dead's track (D) ends */
+    /* the tutorial (docs/PLAN-tutorial.md, section 7): level 2's rimed seal, the switch that holds the ice (rimed, thawed, spent),
+     * and the map lying on the floor */
+    SP_MK_RSEAL0, SP_MK_RSEAL1, SP_MK_RSEAL2, SP_MAPFLOOR,
     NSPR
 };
 
@@ -388,7 +393,8 @@ static inline float crawl_depth(int level) {                                /* h
 extern const char *const RUNE_GLYPH[9][7];      /* the runes' marks, 5 by 7, by DF_* (the hand's tattoos, the shrine) */
 extern const char *const ELEM_GLYPH[6][7];      /* the elements' glyphs, 7 by 7, by EL_*: '#' the colour, 'o' bright (1.0.0b11) */
 enum { MK_WAIT, MK_HIT, MK_WRONG, MK_DONE };      /* a marked thing's mark (1.0.0b16): waiting, just struck, the wrong spell, done */
-void crawl_mark(uint8_t *buf, int w, int h, int cx, int cy, int el, int state, int pips, int lit_n, float t);   /* row-major, at full brightness */
+void crawl_mark(uint8_t *buf, int w, int h, int cx, int cy, int el, int state, int pips, int lit_n, float t);
+uint8_t crawl_ice_at(float wx, float wy, float k, uint8_t under);   /* the tutorial's ice over a floor texel, k of the way laid */   /* row-major, at full brightness */
 extern const char *const RUNE_MARK[9][11];      /* the runes' marks for their sockets, 11 by 11, by DF_* */
 extern const char *const CLASS_MARK[6][11];     /* the classes' marks, 11 by 11, by the class's element */
 extern const char *const PZ_MARKS[16][7];       /* the marks carved on puzzles' things, 7 by 7 (1.0.0b13): mitre, helm, tonsure, crown,

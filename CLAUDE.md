@@ -393,7 +393,11 @@ answered); **step 2 is built** (harness only): level 1 drawn in play, everyone's
 back), **step 3** (level 1's burning floor, `DF`, `drawn_fire_tick`) and **step 4's sheet** of the lessons' pages (`src/crawl_tutor.c`,
 `docs/tutorial/pages1.png`, `pages2.png`, approved), **steps 5 and 6** (the lessons in play on level 1 and in her room after it: `TU`,
 `tu_tick`, `tu_steer`, `UI_TUTOR`, `WK_MEND`, `PL.tut`, the title's HELP; `CRAWL_TUT`, `CRAWL_TUTBEAT`, `CRAWL_TUTKEY`, `CRAWL_TUTCALM`,
-`CRAWL_TUTAUTO`). Level 2 (its art sheet first) comes next; the plan's log says where it stands.
+`CRAWL_TUTAUTO`), level 2's art sheet (`docs/tutorial/level2-art.png`, `make sheets`' `tutorial2`: the rimed seal `SP_MK_RSEAL0..2`,
+the gate's face `T_GATE_SEAL`, the map lying `SP_MAPFLOOR`, the ice `T_ICE` laid by `crawl_ice_at`; sent for approval) and **step 7**
+(level 2 in play: `DRAWN2_MAP`, `IC` and `ice_*`, `MKK_RSEAL` and `MKK_GSEAL` that any spell answers, `IT_MAP`, the secret laid by
+hand, `drawn_marks`, `drawn_clear`; `CRAWL_ICE=0`, `CRAWL_WHERE=1`). Level 2's lessons (step 8) come next; the plan's log says where it
+stands.
 
 ## Working with the owner
 

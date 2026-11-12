@@ -53,7 +53,8 @@ enum { MOB_SKEL, MOB_GHOST, MOB_BAT, MOB_WSKULL, MOB_SHIELD, MOB_SPIDER,
        MOB_SHADE, MOB_IMP, MOB_DEACON, MOB_GARGOYLE,
        MOB_WHIPPER, MOB_SEXTON, MOB_LIGHTLESS };   /* kept in saves (the record): new kinds go at the end (REC_KINDS 24 at most) */
 enum { MS_WALK, MS_DIE, MS_RECOIL, MS_FLEE };   /* the last two: wraiths only */
-enum { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_KEY, IT_POTION, IT_URN, IT_RING, IT_BONE, IT_SCRIP };   /* IT_SCRIP: color is its boss */
+enum { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_KEY, IT_POTION, IT_URN, IT_RING, IT_BONE, IT_SCRIP, IT_MAP };   /* IT_SCRIP: color is its boss;
+                                                                      IT_MAP the tutorial's (docs/PLAN-tutorial.md 7.4) */
 static const int ITEM_VALUE[] = { 10, 25, 50, 100, 250, 0, 0, 0, 0, 0, 0 };
 enum { MIS_BONE, MIS_FIRE, MIS_EMBER, MIS_TURNED, MIS_WEB };   /* what the dead throw: bones, a wall skull's fireball, an imp's
                                                                     ember; a spell of yours the Ill-Fated Knight's Mirror Rune
@@ -784,7 +785,9 @@ enum { MKK_PRICKET, MKK_RACK, MKK_COFFER, MKK_CAGE, MKK_URN, MKK_COIL, MKK_VINE,
        /* step 6 (section 4.3, from level 5, and the runs' own, 4.6) */
        MKK_CLIGHT, MKK_RSKULL, MKK_HSEAL, MKK_BELL, MKK_WINCH, MKK_HEARTH, MKK_VENT, MKK_WEB, MKK_CART, MKK_LODE, MKK_PRISM, MKK_GEODE,
        /* step 8: sequences (section 4.4, from level 13) and things for fights (4.5, from 5) */
-       MKK_TABLET, MKK_PLINTH, MKK_RELIQ, MKK_WSTONE, MKK_RELAY, MKK_CASK, MKK_PILLAR, MKK_PFONT, MKK_DRUM, MKK_WATER, MKK_ICEF, MKK_DAMP, NMKK };
+       MKK_TABLET, MKK_PLINTH, MKK_RELIQ, MKK_WSTONE, MKK_RELAY, MKK_CASK, MKK_PILLAR, MKK_PFONT, MKK_DRUM, MKK_WATER, MKK_ICEF, MKK_DAMP,
+       MKK_RSEAL, MKK_GSEAL,                                    /* the tutorial's level 2 (docs/PLAN-tutorial.md 7.2, 7.3): any spell */
+       NMKK };
 typedef struct {
     int kind, el, pips, got, done, deco, tried, said;   /* said: 1 named, 2 its want told, 4 first answered; done 2: lost */
     int st, grp, door, times;               /* st: its state (hot, rolling, up, iced); grp: 1 + a bell's first; door: a gate's */
@@ -828,6 +831,9 @@ static const MkKind MKK[NMKK] = {                                   /* el -1: an
     { -1, -1, EL_LIGHT, 1, 32, 50, 32, 50, "STANDING WATER", "THE WATER CRACKLES", 4, 2, 2 },
     { -1, -1, EL_FROST, 1, 32, 50, 32, 50, "A COLD FLOOR", "THE FLOOR RIMES OVER", 4, 15, 0 },
     { -1, -1, EL_FIRE, 1, 32, 40, 32, 40, "FIREDAMP", "THE FIREDAMP GOES UP", 4, 4, 4 },
+    /* the tutorial's, laid only by its drawing (tier 9): the switch that holds the ice, and the one-way gate's seal */
+    { SP_MK_RSEAL0, SP_MK_RSEAL1, -1, 3, 32, 32, 32, 32, "A RIMED SEAL", "THE ICE DRAINS AWAY", 9, 0, 0 },
+    { -1, -1, -1, 1, 32, 34, 32, 34, "THE GATE'S SEAL", "THE GATE RISES", 9, 0, 0 },
 };
 #define MK_FROM 5                           /* section 4.3's things from this level of a run */
 #define BELL_RING 6.5f                      /* a bell rings this long: all three at once to answer them (a spell comes round
@@ -1823,6 +1829,19 @@ static struct {
     uint8_t at[MAPN][MAPN];
 } DF;
 static void drawn_fire_lights(void);
+/* level 2's ice field (docs/PLAN-tutorial.md, section 7.1): it freezes what stands on it and holds the caster at three stacks; the
+ * rimed seal in the far room takes it down, and it comes back, for good, as the map is taken */
+#define ICE_CELLS 24
+#define ICE_TURN 0.8f                                              /* a cell turns over this long, after its wait (up to 1.2 s) */
+#define ICE_STACK 0.4f                                             /* a Chilled stack this often on it */
+static struct {
+    int n, live, spent, sw, gate, gate_door;                       /* sw, gate: the switch's and the gate's things; gate_door, -1 none */
+    int cx[ICE_CELLS], cy[ICE_CELLS];
+    float wait[ICE_CELLS], t, stack, breath;                       /* each cell's wait as it turns; since it last turned */
+    uint8_t at[MAPN][MAPN];                                        /* 1 + its index */
+} IC;
+static void ice_down(void);
+static void ice_up(void);
 static void tu_level_begin(void);                                 /* the lessons (docs/PLAN-tutorial.md), further down */
 static void tu_shop_begin(void);
 static void tu_cleared(void);
@@ -12070,7 +12089,7 @@ static void update_doors(float dt) {
         if (d->opening) {
             d->open = fminf(1.0f, d->open + dt / 0.85f);
             if (d->open >= 1.0f) { d->opening = 0; d->idle = 0.0f; }
-        } else if (d->open > 0.0f) {
+        } else if (d->open > 0.0f && !(g_drawn == 2 && i == IC.gate_door && !d->locked)) {   /* the tutorial's gate, risen, stays up */
             int busy = pdist < 1.6f || (d->locked == 2 && vault_of_room((int)G.px, (int)G.py) == d->color);
             if (d->locked == SEALED || d->locked == TRIALED || d->locked == GATED) busy = door_body(d);   /* it shuts behind you, not on you */
             for (int m = 0; m < MAXMOBS; m++)
@@ -12611,7 +12630,7 @@ static int dream_looks(void) {                                     /* at a lane 
                                                                       as one; things for fights are a person's */
         if (m->kind == MKK_HSEAL && (RUN.gear.atk[LINE_ATK[EL_FIRE]] < 0 || RUN.gear.atk[LINE_ATK[EL_FROST]] < 0)) continue;
         float d = hypotf(m->x - G.px, m->y - G.py);
-        if (d > 6.5f || d < 1.0f || !line_clear(G.px, G.py, m->x, m->y)) continue;
+        if (d > (m->kind == MKK_RSEAL ? 13.0f : 6.5f) || d < 1.0f || !line_clear(G.px, G.py, m->x, m->y)) continue;   /* the switch from the ice's edge */
         int sp = LINE_ATK[m->el];
         if (RUN.gear.atk[sp] < 0 || (sp == AT_SPEAR && !spear_ready()) || in_combat()) continue;
         m->tried++;
@@ -13375,11 +13394,15 @@ static void debug_map(int seen) {
                 for (int d = 0; d < 4; d++) {
                     int nx = x + DX[d], ny = y + DY[d];
                     if (st[ny][nx] || !is_open(nx, ny) || !lane(nx, ny)) continue;
+                    if (G.map[ny][nx].kind == K_DOOR && G.doors[G.map[ny][nx].door].locked == GATED) continue;   /* a barred gate is shut */
                     st[ny][nx] = 1; qx[qt] = nx; qy[qt] = ny; qt++;
                 }
             }
             for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) total += is_open(x, y) && lane(x, y);
             fprintf(stderr, "MAP lanes reachable %d of %d\n", qt, total);
+            for (int y = 0, n = 0; y < MAPN && n < 16; y++)        /* and the first few that aren't */
+                for (int x = 0; x < MAPN && n < 16; x++)
+                    if (is_open(x, y) && lane(x, y) && !st[y][x]) { fprintf(stderr, "MAP lane cut off (%d,%d)%s\n", x, y, G.map[y][x].secret ? " secret" : ""); n++; }
         }
     }
 }
@@ -14169,6 +14192,8 @@ static void mk_finish(int k) {
     case MKK_HEARTH: if (m->door >= 0) { Door *d = &G.doors[m->door]; d->locked = 0; d->opening = 1; sfx_at(SFX_RUMBLE, d->x + 0.5f, d->y + 0.5f, 1.0f); } mk_deco(m, MKK[m->kind].s1, 1); break;
     case MKK_VENT: m->t = 0.0f; mk_deco(m, MKK[m->kind].s1, 1); break;
     case MKK_WSTONE: if (m->door >= 0) { Door *d = &G.doors[m->door]; d->locked = 0; d->opening = 1; sfx_at(SFX_RUMBLE, d->x + 0.5f, d->y + 0.5f, 1.0f); } mk_deco(m, MKK[m->kind].s1, 1); break;
+    case MKK_RSEAL: mk_deco(m, MKK[m->kind].s1, 1); ice_down(); break;   /* the tutorial's: the ice goes down */
+    case MKK_GSEAL: if (m->door >= 0) { Door *d = &G.doors[m->door]; d->locked = 0; d->opening = 1; sfx_at(SFX_RUMBLE, d->x + 0.5f, d->y + 0.5f, 1.2f); } break;   /* up for good */
     default: mk_deco(m, MKK[m->kind].s1, 1); break;
     }
     mk_fight(k);                                                   /* what a thing for fights does */
@@ -14217,6 +14242,7 @@ static void mk_strike(int k, int el) {
     Marked *m = &G.mk[k];
     G.lull_t = 0.0f;                                               /* a thing struck is something happening */
     if (m->done || m->kind == MKK_TABLET) return;
+    if (m->kind == MKK_RSEAL || m->kind == MKK_GSEAL) el = m->el;  /* the tutorial's switch and gate: any spell answers them */
     if (m->kind == MKK_PLINTH) {                                   /* the tablet's order */
         if (el != m->el) { mk_wrong(m, el, NULL); return; }
         Marked *t = &G.mk[m->grp - 1];
@@ -14654,13 +14680,15 @@ static void lull_tick(float dt) {
  * cells (x east from its corner, y south, as docs/tutorial/level*-read.png has them), laid at (ox, oy) in the level's map.
  * The look, the dressing and the torches are the generator's, laid on a seed of the drawing's own, so they lie the same each
  * time too. The letters: # stone, . floor, + floor on a lane, F the burning floor, f on a lane, D a door, G a gold door,
- * S the start (on a lane), h the place to mend and X the exit (walls, used from their one open side). Doors are on lanes. ---- */
+ * C a crimson door, = the one-way gate, S the start (on a lane), h the place to mend and X the exit (walls, used from their open
+ * side, north first), I the ice, i on a lane, c a secret's wall, q its room, Q on a lane. Doors are on lanes. ---- */
 typedef struct { int x, y, w, h, rtype; } DrawnRoom;
-enum { DT_GOLD, DT_KEY, DT_DEAD };
+enum { DT_GOLD, DT_KEY, DT_DEAD, DT_SGOLD, DT_MARK, DT_SWITCH, DT_GSEAL, DT_MAP };   /* SGOLD: in the secret; MARK's kind 0 a coffer,
+                                                                      1 a cage (any line), 2 the class's own */
 typedef struct { int what, kind; float x, y; } DrawnThing;          /* kind: an IT_* for gold, a key's colour, a MOB_* */
 typedef struct {
     const char *const *map; int w, h, ox, oy, face;                 /* face: the heading at the start, as G.h */
-    const DrawnRoom *room; int nroom, vault;                       /* vault: the room the gold doors keep, -1 none */
+    const DrawnRoom *room; int nroom, vault[NKEYS];                /* vault: the room each colour's doors keep, -1 none */
     const DrawnThing *thing; int nthing;
     uint32_t seed;                                                 /* the dice its look is laid with */
 } Drawn;
@@ -14721,10 +14749,81 @@ static const DrawnRoom DRAWN1_ROOM[] = {
     { 18, 12, 4, 4, RT_BURIAL }, { 10, 16, 3, 3, RT_OSSUARY }, { 10, 24, 3, 2, RT_OSSUARY },   /* the east room, the side room, the key room */
     { 0, 23, 3, 9, RT_UNDER }, { 8, 27, 7, 3, RT_CHAPTER }, { 3, 26, 1, 6, RT_KNIGHTS },     /* the west room, the big room, the vault */
 };
-#define NDRAWN 1
+static const char *const DRAWN2_MAP[35] = {
+    "##S++.#########",    /*  0 */
+    "####+.#########",    /*  1 */
+    "###.+.#########",    /*  2 */
+    "##..+..########",    /*  3 */
+    "#+++++++#######",    /*  4 */
+    "#.+.#.+.......#",    /*  5 */
+    "#.+###++++++++#",    /*  6 */
+    "#.+.#.+......+#",    /*  7 */
+    "#.++#.+.####.+#",    /*  8 */
+    "##.+#++#####.+#",    /*  9 */
+    "###+#+##X####=#",    /* 10 */
+    "++G+#+#.+.#.++.",    /* 11 */
+    ".+###+#.+.#.++.",    /* 12 */
+    ".+#+++#.+.#.++.",    /* 13 */
+    ".+#+#+#.+.#.++.",    /* 14 */
+    ".+#+#+#.+.#.++.",    /* 15 */
+    ".+#+++#.+.#IiiI",    /* 16 */
+    ".+#++##.+.#IiiI",    /* 17 */
+    ".+#+h##.+.#IiiI",    /* 18 */
+    ".+#+#+C+++#IiiI",    /* 19 */
+    ".+#+#+######ii#",    /* 20 */
+    "##.+#+.#####ii#",    /* 21 */
+    "#..+#+..####ii#",    /* 22 */
+    "#+++#+++++++++#",    /* 23 */
+    "#.+###...+....#",    /* 24 */
+    "#.+###...+....#",    /* 25 */
+    "#+++#+++++++++#",    /* 26 */
+    "#+++++++#####D#",    /* 27 */
+    "##..+..##....+#",    /* 28 */
+    "###.+.##++++++#",    /* 29 */
+    "###.+.#+++++++#",    /* 30 */
+    "###.+.#+.....+#",    /* 31 */
+    "#######c#######",    /* 32 */
+    "#######QQQ#####",    /* 33 */
+    "#######qqq#####",    /* 34 */
+};
+static const DrawnThing DRAWN2_THING[] = {
+    { DT_GOLD, IT_COINS, 5.30f, 2.50f }, { DT_GOLD, IT_CHALICE, 2.50f, 3.50f },                                     /* the start */
+    { DT_GOLD, IT_COINS, 1.40f, 7.00f }, { DT_GOLD, IT_GEMS, 1.30f, 7.90f },                                        /* the west passage */
+    { DT_GOLD, IT_COINS, 11.10f, 6.40f },                                                                           /* the east hall */
+    { DT_GOLD, IT_CHALICE, 7.40f, 8.70f }, { DT_GOLD, IT_COINS, 5.60f, 12.50f }, { DT_GOLD, IT_COINS, 3.30f, 13.60f },
+    { DT_GOLD, IT_GEMS, 5.70f, 15.50f },                                                                            /* the middle way */
+    { DT_GOLD, IT_CHALICE, 11.30f, 13.90f }, { DT_GOLD, IT_GEMS, 11.30f, 17.40f },                                  /* the map room, the ice */
+    { DT_GOLD, IT_COINS, 7.60f, 11.30f }, { DT_GOLD, IT_CHALICE, 9.30f, 11.40f }, { DT_GOLD, IT_CROWN, 9.60f, 18.60f },   /* the exit room */
+    { DT_GOLD, IT_COINS, 1.60f, 14.90f }, { DT_GOLD, IT_CHEST, 0.40f, 20.60f }, { DT_GOLD, IT_GEMS, 1.60f, 20.60f },     /* the west room */
+    { DT_GOLD, IT_COINS, 9.60f, 24.10f }, { DT_GOLD, IT_CHALICE, 12.20f, 25.40f },                                  /* the great hall */
+    { DT_GOLD, IT_COINS, 1.30f, 27.50f }, { DT_GOLD, IT_COINS, 7.70f, 27.70f }, { DT_GOLD, IT_CHALICE, 2.80f, 28.80f },
+    { DT_GOLD, IT_COINS, 4.00f, 30.50f }, { DT_GOLD, IT_GEMS, 4.90f, 31.70f },                                      /* the south-west lobe */
+    { DT_GOLD, IT_COINS, 9.40f, 28.50f }, { DT_GOLD, IT_CHALICE, 8.60f, 29.30f },                                   /* the south-east room */
+    { DT_SGOLD, IT_CHEST, 9.40f, 33.50f }, { DT_SGOLD, IT_GEMS, 8.50f, 33.60f }, { DT_SGOLD, IT_CROWN, 8.50f, 34.50f },
+    { DT_SGOLD, IT_GEMS, 9.50f, 34.50f },                                                                           /* the secret */
+    { DT_KEY, 0, 7.60f, 30.80f }, { DT_KEY, 2, 1.00f, 19.60f }, { DT_MAP, 0, 12.80f, 15.40f },
+    { DT_DEAD, MOB_SKEL, 2.30f, 5.00f }, { DT_DEAD, MOB_BAT, 13.00f, 5.70f }, { DT_DEAD, MOB_SKEL, 3.40f, 9.40f },
+    { DT_DEAD, MOB_SKEL, 11.70f, 12.60f }, { DT_DEAD, MOB_SHAMBLER, 7.90f, 13.10f }, { DT_DEAD, MOB_SKEL, 3.50f, 15.00f },
+    { DT_DEAD, MOB_SKEL, 9.50f, 16.40f }, { DT_DEAD, MOB_BAT, 14.30f, 17.60f }, { DT_DEAD, MOB_SHAMBLER, 1.40f, 18.20f },
+    { DT_DEAD, MOB_SKEL, 7.10f, 22.60f }, { DT_DEAD, MOB_SHAMBLER, 3.10f, 22.90f }, { DT_DEAD, MOB_SKEL, 11.60f, 26.30f },
+    { DT_DEAD, MOB_BAT, 12.90f, 28.80f }, { DT_DEAD, MOB_SKEL, 9.30f, 30.80f }, { DT_DEAD, MOB_SHAMBLER, 3.60f, 31.30f },
+    /* the things that want a spell (T22 a): a, b, g, j any line on the main way; c, d, e, f, h, i the class's own. a is moved a
+     * row north and f, g, h set to their walls, off the lanes they were drawn on */
+    { DT_MARK, 0, 5.50f, 3.50f }, { DT_MARK, 1, 11.80f, 7.60f }, { DT_MARK, 2, 2.40f, 9.50f }, { DT_MARK, 2, 7.30f, 14.80f },
+    { DT_MARK, 2, 0.30f, 16.20f }, { DT_MARK, 2, 3.20f, 16.50f }, { DT_MARK, 0, 11.70f, 23.20f }, { DT_MARK, 2, 3.70f, 26.20f },
+    { DT_MARK, 2, 5.50f, 31.40f }, { DT_MARK, 1, 11.10f, 31.60f },
+    { DT_SWITCH, 0, 14.30f, 11.60f }, { DT_GSEAL, 0, 13.50f, 11.06f },
+};
+static const DrawnRoom DRAWN2_ROOM[] = {
+    { 0, 11, 2, 10, RT_OSSUARY }, { 11, 11, 4, 5, RT_KNIGHTS }, { 7, 11, 3, 9, RT_CHAPTER },   /* the west room, the map room, the exit room */
+    { 7, 28, 7, 4, RT_BURIAL }, { 5, 23, 9, 4, RT_UNDER }, { 1, 27, 5, 5, RT_UNDER },          /* the south-east room, the great hall, the lobe */
+};
+#define NDRAWN 2
 static const Drawn DRAWN[NDRAWN] = {
-    { DRAWN1_MAP, 22, 32, 11, 6, 0, DRAWN1_ROOM, (int)(sizeof DRAWN1_ROOM / sizeof DRAWN1_ROOM[0]), 5,
+    { DRAWN1_MAP, 22, 32, 11, 6, 0, DRAWN1_ROOM, (int)(sizeof DRAWN1_ROOM / sizeof DRAWN1_ROOM[0]), { 5, -1, -1 },
       DRAWN1_THING, (int)(sizeof DRAWN1_THING / sizeof DRAWN1_THING[0]), 0x7D1A0001u },
+    { DRAWN2_MAP, 15, 35, 15, 5, 0, DRAWN2_ROOM, (int)(sizeof DRAWN2_ROOM / sizeof DRAWN2_ROOM[0]), { 0, -1, 2 },
+      DRAWN2_THING, (int)(sizeof DRAWN2_THING / sizeof DRAWN2_THING[0]), 0x7D1A0002u },
 };
 #define DRAWN_HALL 40                                              /* the halls' region on a drawn level */
 static int drawn_level(int level) {                                /* which drawing a level is, 1-based; 0 none */
@@ -14741,11 +14840,21 @@ static char drawn_ch(int x, int y) {                               /* the letter
     x -= D->ox; y -= D->oy;
     return x < 0 || y < 0 || x >= D->w || y >= D->h ? '#' : D->map[y][x];
 }
-static int drawn_front(int wx, int wy, int *fx, int *fy) {         /* a wall's one open side: the cell it is used from, and the way */
-    for (int d = 0; d < 4; d++)
-        if (is_open(wx + DX[d], wy + DY[d])) { *fx = wx + DX[d]; *fy = wy + DY[d]; return (d + 2) & 3; }
+static int drawn_front(int wx, int wy, int *fx, int *fy) {         /* a wall's open side (north, south, west, east first): the cell
+                                                                      it is used from, and the way */
+    static const int ORDER[4] = { 3, 1, 2, 0 };
+    for (int k = 0; k < 4; k++) {
+        int d = ORDER[k];
+        if (is_open(wx + DX[d], wy + DY[d]) && !G.map[wy + DY[d]][wx + DX[d]].secret) { *fx = wx + DX[d]; *fy = wy + DY[d]; return (d + 2) & 3; }
+    }
     *fx = *fy = -1;
     return 0;
+}
+static void drawn_clear(int x, int y) {                            /* the dressing taken off a cell the drawing wants */
+    if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1) return;
+    if (G.map[y][x].kind == K_PROP) G.map[y][x].kind = K_FLOOR;
+    G.foot[y][x] = 0; G.bulky[y][x] = 0;
+    for (int d = 0; d < G.ndecos; d++) if ((int)G.decos[d].x == x && (int)G.decos[d].y == y) G.decos[d].spr = -1;
 }
 static void gen_drawn(void) {
     const Drawn *D = drawn();
@@ -14765,6 +14874,7 @@ static void gen_drawn(void) {
     G.nsecrets = G.secrets_found = G.nlinks = G.links_found = G.trials_failed = 0; G.slide = -1;
     memset(g_lane, 0, sizeof g_lane);
     memset(&DF, 0, sizeof DF);
+    memset(&IC, 0, sizeof IC); IC.sw = IC.gate = IC.gate_door = -1; IC.live = 1; IC.t = 99.0f;   /* the ice, laid */
     for (int r = 0; r < D->nroom && r < 12; r++) {
         const DrawnRoom *dr = &D->room[r];
         G.rooms[r] = (Room){ D->ox + dr->x, D->oy + dr->y, dr->w, dr->h, r, RTYPES[dr->rtype].theme, dr->rtype };
@@ -14774,13 +14884,20 @@ static void gen_drawn(void) {
     for (int y = 0; y < D->h; y++)
         for (int x = 0; x < D->w; x++) {
             char ch = D->map[y][x];
-            int mx = D->ox + x, my = D->oy + y, rg = DRAWN_HALL, th = TH_CORRIDOR;
-            if (ch == '#' || ch == 'h' || ch == 'X') continue;
-            if (ch != 'D' && ch != 'G')
+            int mx = D->ox + x, my = D->oy + y, rg = DRAWN_HALL, th = TH_CORRIDOR, door = ch == 'D' || ch == 'G' || ch == 'C' || ch == '=';
+            if (ch == 'c') { G.map[my][mx].secret = 2; g_lane[my][mx] = 1; }   /* a secret's wall: a lane once it has slid */
+            if (ch == '#' || ch == 'h' || ch == 'X' || ch == 'c') continue;
+            if (ch == 'q' || ch == 'Q') {                          /* the secret's room, carved as a secret's is */
+                carve(mx, my, -2, TH_CORRIDOR); G.map[my][mx].secret = 1;
+                if (ch == 'Q') g_lane[my][mx] = 1;
+                continue;
+            }
+            if (!door)
                 for (int r = 0; r < G.nrooms; r++) if (in_room(&G.rooms[r], mx, my)) { rg = r; th = G.rooms[r].theme; }
             carve(mx, my, rg, th);
-            if (ch == 'D' || ch == 'G') G.map[my][mx].kind = K_DOOR;
-            if (ch == '+' || ch == 'f' || ch == 'D' || ch == 'G' || ch == 'S') g_lane[my][mx] = 1;
+            if (door) G.map[my][mx].kind = K_DOOR;
+            if (ch == '+' || ch == 'f' || ch == 'i' || door || ch == 'S') g_lane[my][mx] = 1;
+            if ((ch == 'I' || ch == 'i') && IC.n < ICE_CELLS) { IC.cx[IC.n] = mx; IC.cy[IC.n] = my; IC.n++; IC.at[my][mx] = (uint8_t)IC.n; }
             if ((ch == 'F' || ch == 'f') && DF.n < DFIRE_CELLS) {
                 DF.cx[DF.n] = mx; DF.cy[DF.n] = my; DF.n++; DF.at[my][mx] = 1;
                 DF.fade = 1.0f; DF.past_y = (float)my + 3.0f;      /* the last row's far edge and two cells more (south: the drawing's way on) */
@@ -14789,13 +14906,38 @@ static void gen_drawn(void) {
     for (int y = 0; y < MAPN; y++)                                 /* the doors; a gold door is the vault's */
         for (int x = 0; x < MAPN; x++) {
             if (G.map[y][x].kind != K_DOOR || G.ndoors >= MAXDOORS) continue;
-            int gold = drawn_ch(x, y) == 'G', ax = is_open(x - 1, y) && is_open(x + 1, y);
+            char ch = drawn_ch(x, y);
+            int lk = ch == 'G' || ch == 'C', col = ch == 'C' ? 2 : 0, ax = is_open(x - 1, y) && is_open(x + 1, y);
             G.map[y][x].door = (int16_t)G.ndoors;
-            G.doors[G.ndoors++] = (Door){ x, y, ax, 0.0f, 0.0f, 0, gold, 0, 0 };
-            if (gold) G.vault_door[0] = G.ndoors - 1;
+            G.doors[G.ndoors++] = (Door){ x, y, ax, 0.0f, 0.0f, 0, ch == '=' ? GATED : lk, col, 0 };
+            if (lk) G.vault_door[col] = G.ndoors - 1;
+            if (ch == '=') IC.gate_door = G.ndoors - 1;            /* the one-way gate: barred till its seal is struck from the south */
         }
-    if (D->vault >= 0) { G.nvaults = 1; G.vault_room[0] = D->vault; }
+    for (int k = 0; k < NKEYS; k++) if (D->vault[k] >= 0) { G.vault_room[k] = D->vault[k]; G.nvaults = k + 1; }
+    for (int y = 0; y < D->h; y++)                                 /* the secret, laid by hand (7.5) */
+        for (int x = 0; x < D->w && G.nsecrets < MAXSECRETS; x++) {
+            if (D->map[y][x] != 'c') continue;
+            int sx = D->ox + x, sy = D->oy + y, in = -1, len = 0, x0 = MAPN, y0 = MAPN, x1 = -1, y1 = -1;
+            for (int d = 0; d < 4 && in < 0; d++) if (is_open(sx - DX[d], sy - DY[d]) && !G.map[sy - DY[d]][sx - DX[d]].secret) in = d;
+            if (in < 0) continue;
+            while (G.map[sy + DY[in] * (len + 1)][sx + DX[in] * (len + 1)].secret == 1) len++;
+            for (int yy = 0; yy < D->h; yy++)
+                for (int xx = 0; xx < D->w; xx++)
+                    if (D->map[yy][xx] == 'q' || D->map[yy][xx] == 'Q') { x0 = imin(x0, D->ox + xx); y0 = imin(y0, D->oy + yy); x1 = imax(x1, D->ox + xx); y1 = imax(y1, D->oy + yy); }
+            G.secrets[G.nsecrets++] = (Secret){ sx - DX[in], sy - DY[in], in, sx, sy, 0, 0, 0, len, 1, -1, -1, x0, y0, x1, y1, D->seed | 1u, 0 };
+            G.nlinks++;
+        }
     gen_dress();
+    for (int i = 0; i < D->nthing; i++)                            /* what the drawing sets down, and the ice, clear of the dressing */
+        if (D->thing[i].what >= DT_SGOLD) drawn_clear(D->ox + (int)D->thing[i].x, D->oy + (int)D->thing[i].y);
+    for (int i = 0; i < IC.n; i++) drawn_clear(IC.cx[i], IC.cy[i]);
+    for (int y = 0; y < MAPN; y++)                                 /* and no prop on a lane: the dressing doesn't know the drawn ones */
+        for (int x = 0; x < MAPN; x++) if (g_lane[y][x] && G.map[y][x].kind == K_PROP) drawn_clear(x, y);
+    for (int i = 0; i < IC.n; i++) {                               /* each cell's wait as the ice turns: by the walls first */
+        int open = 0;
+        for (int d = 0; d < 4; d++) open += IC.at[IC.cy[i] + DY[d]][IC.cx[i] + DX[d]] != 0;
+        IC.wait[i] = 0.3f * (float)open + 0.15f * (float)(hash2(IC.cx[i], IC.cy[i]) & 3);
+    }
     static int qx[MAPN * MAPN], qy[MAPN * MAPN];                   /* each cell's steps to a lane, for what lies within reach of one */
     int qh = 0, qt = 0;
     for (int y = 0; y < MAPN; y++)
@@ -14821,12 +14963,15 @@ static void drawn_items(void) {                                    /* the gold a
     G.nitems = 0; G.items_total = 0; G.items_got = 0; G.value_total = G.value_got = 0;
     for (int i = 0; i < D->nthing; i++) {
         const DrawnThing *t = &D->thing[i];
-        if (t->what != DT_GOLD && t->what != DT_KEY) continue;
+        if (t->what != DT_GOLD && t->what != DT_KEY && t->what != DT_SGOLD && t->what != DT_MAP) continue;
         float x = D->ox + t->x, y = D->oy + t->y;
-        Item *it = add_item((int)x, (int)y, t->what == DT_KEY ? IT_KEY : t->kind);
+        int type = t->what == DT_KEY ? IT_KEY : t->what == DT_MAP ? (RUN.has_map ? IT_CHALICE : IT_MAP) : t->kind;   /* the map held: gold (T18 a) */
+        Item *it = add_item((int)x, (int)y, type);
         if (!it) continue;
         it->x = x; it->y = y;
         if (t->what == DT_KEY) it->color = t->kind;
+        if (t->what == DT_SGOLD) { it->secret = 1; G.items_total--; G.value_total -= treasure_value(type); }   /* the secret's, out of the count */
+        if (type == IT_MAP) { int nl = G.nlights; light_static(x, y, 0.55f, 2.2f); if (G.nlights > nl) G.lights[nl].phase = -1000.0f; }   /* its glow */
     }
 }
 static void drawn_walls(void) {                                    /* the exit and the places to mend, in the walls drawn */
@@ -14841,6 +14986,7 @@ static void drawn_walls(void) {                                    /* the exit a
                 d = drawn_front(wx, wy, &fx, &fy);
                 if (fx < 0) continue;
                 G.exit_fx = fx; G.exit_fy = fy; G.exit_dir = d; G.exit_wx = wx; G.exit_wy = wy;
+                G.exit_in_vault = vault_of_room(fx, fy);           /* level 2's is behind the crimson door */
                 G.map[wy][wx].tex = T_EXIT0;
                 light_static(fx + 0.5f + DX[d] * 0.35f, fy + 0.5f + DY[d] * 0.35f, 0.9f, 3.2f);   /* its runes light the stone */
             } else if (ch == 'h' && G.nrest < 2) {
@@ -14861,12 +15007,38 @@ static void drawn_dead(void) {                                     /* the dead w
         const DrawnThing *t = &D->thing[i];
         if (t->what != DT_DEAD) continue;
         float x = D->ox + t->x, y = D->oy + t->y;
-        Mob *m = spawn_mob((int)x, (int)y, t->kind);
+        Mob *m = t->kind == MOB_SHAMBLER ? riser_make(t->kind, (int)x, (int)y, -1) : spawn_mob((int)x, (int)y, t->kind);   /* under turned earth */
         if (!m) continue;
         m->x = x; m->y = y;
         set_rank(m, RK_I);
         m->home = G.map[m->cy][m->cx].region;
     }
+}
+static void drawn_marks(void) {                                    /* level 2's things that want a spell, its switch and its gate's seal */
+    const Drawn *D = drawn();
+    G.nmk = 0; G.ward_said = 0;
+    int own = cls_el() >= 0 ? cls_el() : LEDGER.lent - 1;          /* the line held: the class's, or one lent */
+    for (int e = 0; e < NELEM && (own < 0 || !align_open(own)); e++) if (align_open(e)) own = e;
+    if (own < 0 || !align_open(own)) own = -1;
+    for (int i = 0, n = 0; i < D->nthing; i++) {
+        const DrawnThing *t = &D->thing[i];
+        if (t->what != DT_MARK && t->what != DT_SWITCH && t->what != DT_GSEAL) continue;
+        float x = D->ox + t->x, y = D->oy + t->y;
+        int kind = t->what == DT_SWITCH ? MKK_RSEAL : t->what == DT_GSEAL ? MKK_GSEAL : t->kind == 0 ? MKK_COFFER : t->kind == 1 ? MKK_CAGE : -1;
+        int el = own >= 0 ? own : EL_PHYS;                         /* the switch and the gate take any spell, whatever is held */
+        if (kind < 0) { if (own < 0) continue; kind = own == EL_FIRE && (n++ & 1) ? MKK_RACK : MK_OWN[own]; }
+        else if (t->what == DT_MARK && own < 0) continue;
+        Marked *m = mk_add(kind, el, (int)x, (int)y);
+        if (!m) continue;
+        m->x = m->hx = m->vx = x; m->y = m->hy = m->vy = y;
+        if (m->deco >= 0) mk_deco(m, MKK[kind].s0, 1);
+        if (kind == MKK_RSEAL) { m->pips = 3; IC.sw = G.nmk - 1; }
+        if (kind == MKK_GSEAL) { m->pips = 1; m->door = IC.gate_door; IC.gate = G.nmk - 1; }
+    }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "DRAWN level %d: %d things that want a spell (line %d), the switch %d, the gate's seal %d (door %d), %d ice\n", G.level, G.nmk, own, IC.sw, IC.gate, IC.gate_door, IC.n);
+    if (getenv("CRAWL_ICE") && !atoi(getenv("CRAWL_ICE"))) IC.live = 0;   /* testing: the ice down from the start */
+#endif
 }
 
 static void drawn_fire_lights(void) {                              /* a light a row, flickering, low as it goes out */
@@ -14915,6 +15087,49 @@ static void drawn_fire_tick(float dt) {                            /* every fram
 #endif
 }
 
+/* level 2's ice (docs/PLAN-tutorial.md 7.1) */
+static float ice_k(int i) {                                        /* how far a cell is laid: 0 bare, 1 ice */
+    float u = clampf((IC.t - (IC.live ? IC.wait[i] : 1.2f - IC.wait[i])) / ICE_TURN, 0.0f, 1.0f);
+    return IC.live ? u : 1.0f - u;
+}
+static int ice_at(int x, int y) {                                  /* ice to stand on here */
+    return g_drawn == 2 && x >= 0 && y >= 0 && x < MAPN && y < MAPN && IC.at[y][x] && ice_k(IC.at[y][x] - 1) > 0.5f;
+}
+static void ice_down(void) {                                       /* the switch struck: it thaws */
+    IC.live = 0; IC.t = 0.0f;
+    if (IC.n) { sfx_at(SFX_HISS, (float)IC.cx[IC.n / 2] + 0.5f, (float)IC.cy[IC.n / 2] + 0.5f, 1.1f); sfx_at(SFX_SHATTER, (float)IC.cx[0] + 0.5f, (float)IC.cy[0] + 0.5f, 0.5f); }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ice down by %s t=%.2f\n", G.player ? "player" : "autopilot", G.t);
+#endif
+}
+static void ice_up(void) {                                         /* the map taken: it creeps back in, and the switch is spent */
+    if (!IC.n || IC.spent) return;
+    IC.live = 1; IC.spent = 1; IC.t = 0.0f;
+    if (IC.sw >= 0 && IC.sw < G.nmk) { Marked *m = &G.mk[IC.sw]; m->done = 1; m->done_t = 9.0f; mk_deco(m, SP_MK_RSEAL2, 1); sfx_at(SFX_SHATTER, m->x, m->y, 0.8f); }
+    sfx_at(SFX_FROST, (float)IC.cx[IC.n / 2] + 0.5f, (float)IC.cy[IC.n / 2] + 0.5f, 1.2f); snd_sfx_ex(SFX_DEEPCHIME, 0.5f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ice up t=%.2f\n", G.t);
+#endif
+}
+static void ice_tick(float dt) {                                   /* every frame, whoever plays */
+    if (g_drawn != 2 || !IC.n) return;
+    IC.t += dt;
+    if (IC.live && (IC.breath -= dt) <= 0.0f) {                    /* a cold breath, heard near it */
+        IC.breath = 2.5f + 2.0f * rndf();
+        int i = rnd(IC.n);
+        sfx_at(SFX_FROST, (float)IC.cx[i] + 0.5f, (float)IC.cy[i] + 0.5f, 0.3f);
+    }
+    for (int j = 0; j < MAXMOBS; j++) {                            /* what stands on it is held in it */
+        Mob *m = &G.mobs[j];
+        if (m->alive && m->state == MS_WALK && !KIND_IS(m, KF_SPIRIT) && !buried(m) && ice_at((int)m->x, (int)m->y)) m->frozen = fmaxf(m->frozen, 0.3f);
+    }
+    if (G.dead || G.shop || !ice_at((int)floorf(G.px), (int)floorf(G.py))) { IC.stack = 0.0f; return; }
+    if ((IC.stack -= dt) > 0.0f) return;
+    IC.stack = ICE_STACK;
+    if (!af_can(AF_CHILL)) return;
+    if (G.af_n < 3) af_chill(1, 0);                                /* held at three on it: it never freezes a person */
+    else G.af[AF_CHILL] = G.af0[AF_CHILL];
+}
 static void start_level(void) {
     line_lend();
     pocket_reset_level();
@@ -14984,7 +15199,7 @@ static void start_level(void) {
         place_rests();                                             /* the places to mend (1.0.0b15) */
         place_marked();                                            /* things that want a spell (1.0.0b16) */
         place_fights();                                            /* and things for fights (step 8) */
-    } else { G.nmk = 0; G.ward_said = 0; }
+    } else drawn_marks();                                         /* level 2's (docs/PLAN-tutorial.md 7.2, 7.3, 7.6); level 1 has none */
     ward_make();                                                   /* a soul-lamp by each challenge, out (1.0.0b18.1) */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_THINGS")) things_test();
@@ -15638,6 +15853,15 @@ static void collect(Item *it) {
 #endif
         break;
     }
+    case IT_MAP:                                                   /* the tutorial's (docs/PLAN-tutorial.md 7.4): yours for good */
+        RUN.has_map = 1;
+        snd_sfx(SFX_KEYGET); snd_sfx_ex(SFX_SHIMMER, 0.7f, 0.5f); G.gold = 1.0f; G.grin_t = 1.6f;
+        if (G.player) say("THE MAP IS YOURS: M UNROLLS IT");
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT map_taken by %s t=%.2f\n", G.player ? "player" : "autopilot", G.t);
+#endif
+        if (g_drawn == 2) ice_up();                                /* and the ice comes back behind you */
+        break;
     case IT_BONE:                                                  /* for the spear */
         if (RUN.gear.bones < bones_max()) RUN.gear.bones++;
         snd_sfx_ex(SFX_BONES, 0.5f, 0.5f);
@@ -16086,6 +16310,8 @@ static void update_hazards(float dt) {
     c4_dmarks();                                                   /* a charge's lane, a spew's cone (C4) */
     drawn_fire_tick(dt);                                           /* a drawn level's burning floor (docs/PLAN-tutorial.md) */
     drawn_fire_dmarks();
+    ice_tick(dt);                                                  /* and level 2's ice: the dream crosses it if it must */
+    for (int i = 0; i < IC.n && g_drawn == 2 && IC.live; i++) hz_dput(IC.cx[i], IC.cy[i], HZ_SOFT);
     int px = (int)G.px, py = (int)G.py, mhp = G.max_hp > 0 ? G.max_hp : 100;
     for (int i = 0; i < MAXHAZ; i++) {
         Hazard *h = &G.haz[i];
@@ -21530,6 +21756,7 @@ static void crawl_update(double dt) {
     }
     int pending = 0;
     for (int k = 0; k < G.nvaults; k++) {
+        if (G.vault_door[k] < 0) continue;                         /* a drawn level's gold and crimson, and no silver */
         const Door *d = &G.doors[G.vault_door[k]];
         if (k == G.exit_in_vault) continue;
         if (G.has_key[k] && d->locked == 1) pending = 1;
@@ -22607,7 +22834,11 @@ static int open_door(Door *d) {
     if (d->locked == GATED) {                                      /* a winch's or a hearth's gate */
         if (G.msg_t <= 0.0f) {
             for (int i = 0; i < G.nmk; i++)
-                if (G.mk[i].door == d - G.doors) { say(G.mk[i].kind == MKK_HEARTH ? "IT RISES WHILE THE HEARTH BURNS" : "%s IS NEAR: IT WANTS LIGHTNING", mk_name(&G.mk[i])); break; }
+                if (G.mk[i].door == d - G.doors) {
+                    if (G.mk[i].kind == MKK_GSEAL) say("%s", G.py < d->y + 0.5f ? "IT OPENS FROM THE OTHER SIDE" : "STRIKE ITS SEAL WITH A SPELL");   /* the tutorial's */
+                    else say(G.mk[i].kind == MKK_HEARTH ? "IT RISES WHILE THE HEARTH BURNS" : "%s IS NEAR: IT WANTS LIGHTNING", mk_name(&G.mk[i]));
+                    break;
+                }
             sfx_at(SFX_KNOCK, d->x + 0.5f, d->y + 0.5f, 0.7f);
         }
         return 0;
@@ -23694,6 +23925,9 @@ static void tu_shop_begin(void) {                                  /* her room a
 
 static void update_human(float dt) {
     G.calm += dt;
+#ifdef CRAWL_DEBUG
+    { static double wt; if (getenv("CRAWL_WHERE") && G.t - wt >= 0.5) { wt = G.t; fprintf(stderr, "WHERE t=%.1f at (%.2f,%.2f) ang %.0f hp %d\n", G.t, G.px, G.py, G.ang * 57.2958f, G.hp); } }   /* a person, twice a second */
+#endif
     if (tu_steering(dt)) return;                                   /* the lessons turn the view: a moment, nothing of yours moves it */
     tu_tick(dt);
     if (G.ui) return;                                              /* a lesson's page came up */
@@ -27562,6 +27796,7 @@ enum { FM_NONE, FM_SHADOW, FM_CRACK, FM_FIRE, FM_EMBER, FM_SHEEN, FM_BILE, FM_VR
        FM_VAPOUR, FM_WAX, FM_RIME, FM_SURGE, FM_SPARK, FM_BUBBLE, FM_POOL, FM_DUST, FM_SHIMMER, FM_SRING, FM_ASH, FM_STAR,
        FM_CHALK, FM_HAZE,                                       /* the runs' own (1.0.0b13) */
        FM_PLATE, FM_PIPE,                                       /* a puzzle's flagstone, stone or glass, and its channels (1.0.0b13) */
+       FM_ICE,                                                  /* the tutorial's ice field (docs/PLAN-tutorial.md 7.1) */
        FM_WARD };                                               /* a soul-lamp's ward, at its edge (1.0.0b18.1) */
 typedef struct { uint8_t kind, prio; float k, ax, ay, r, ang; } FMark;
 static FMark fmark[MAPN][MAPN];
@@ -27669,10 +27904,19 @@ static int ward_marks(void) {                                      /* the soul-l
         }
     return any;
 }
+static int ice_marks(void) {                                       /* level 2's ice over its floor, as far as each cell is laid */
+    int any = 0;
+    for (int i = 0; i < IC.n && g_drawn == 2; i++) {
+        float k = ice_k(i);
+        if (k > 0.0f) { fm_set(IC.cx[i], IC.cy[i], FM_ICE, 1, k, 0.0f, 0.0f, 0.0f, 0.0f); any = 1; }
+    }
+    return any;
+}
 static int hz_marks(void) {
     memset(fmark, 0, sizeof fmark);
     if (G.shop) return 0;
     int any = omen_marks();
+    any |= ice_marks();
     for (int i = 0; i < MAXHAZ && !PK.depth; i++) {
         const Hazard *h = &G.haz[i];
         if (!h->alive) continue;
@@ -27803,6 +28047,10 @@ static int fm_pixel(const FMark *m, float wx, float wy, float fx, float fy, int 
         if (m->kind == FM_POOL && k > 0.5f && (hash2((int)(wx * 9.0f), (int)(wy * 9.0f)) & 63) == 0) return R_PURPLE + 12;   /* a violet glint */
         return -1;
     }
+    case FM_ICE:                                                   /* the tutorial's ice: laid texel by texel, catching the light */
+        *base = crawl_ice_at(wx, wy, k, *base);
+        *lmul *= 1.0f + 0.15f * k;
+        return -1;
     case FM_RIME: {                                                /* frost feathering over the floor */
         uint32_t hh = hash2((int)(wx * 16.0f), (int)(wy * 16.0f));
         if ((float)(hh & 255) / 255.0f < k * 0.75f) *base = (uint8_t)(R_GHOST + 10 + (hh >> 10 & 3) + ((hh >> 12 & 7) == 0 ? 2 : 0));
@@ -28040,7 +28288,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 }
                 if (t <= 0.0f || u < 0.0f || u >= 1.0f || u < d->open) continue;
                 static const int LOCKTEX[NKEYS] = { T_LOCKED, T_LOCKED_S, T_LOCKED_C }, RLOCKTEX[NKEYS] = { T_RLOCKED, T_RLOCKED_S, T_RLOCKED_C };
-                perp = t; tex = d->locked == WINGED ? T_WINGDOOR : d->locked == GATED ? T_GATE : G.tri >= 0 && d - G.doors == G.tri_door ? T_TRDOOR : d->locked ? (G.faced ? RLOCKTEX[d->color] : LOCKTEX[d->color]) : (G.faced ? T_RDOOR : T_DOOR); side = d->along_x ? 0 : 1;
+                perp = t; tex = d->locked == WINGED ? T_WINGDOOR : g_drawn == 2 && d - G.doors == IC.gate_door ? (d->locked == GATED && G.py > d->y + 0.5f ? T_GATE_SEAL : T_GATE) : d->locked == GATED ? T_GATE : G.tri >= 0 && d - G.doors == G.tri_door ? T_TRDOOR : d->locked ? (G.faced ? RLOCKTEX[d->color] : LOCKTEX[d->color]) : (G.faced ? T_RDOOR : T_DOOR); side = d->along_x ? 0 : 1;
                 texx = clampi((int)((u - d->open) * TS), 0, TS - 1);
                 hit = 1;
             }
@@ -29127,7 +29375,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     for (int i = 0; i < G.nitems; i++) {
         const Item *it = &G.items[i];
         if (!it->alive) continue;
-        static const int SPR[] = { SP_COINS_A, SP_CHALICE, SP_GEMS, SP_CROWN, SP_CHEST, SP_KEY0, SP_POTION, SP_SOULURN, SP_RINGITEM, SP_ITEM_BONE, SP_SCRIP };
+        static const int SPR[] = { SP_COINS_A, SP_CHALICE, SP_GEMS, SP_CROWN, SP_CHEST, SP_KEY0, SP_POTION, SP_SOULURN, SP_RINGITEM, SP_ITEM_BONE, SP_SCRIP, SP_MAPFLOOR };
         float ph = (float)G.t + it->phase, z = 0.0f;
         int sp = SPR[it->type];
         if (it->type == IT_COINS && ((int)(ph * 2.5f) & 1)) sp = SP_COINS_B;

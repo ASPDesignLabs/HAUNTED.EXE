@@ -1541,6 +1541,63 @@ static int draw_marked2(const char *path) {
     return ok;
 }
 
+/* the tutorial's level 2 (docs/PLAN-tutorial.md, section 7): the switch, the one-way gate, the map on the floor, the ice */
+static void tex_frame(int ox, int oy, int t, int el, int state, int pips, int lit_n, float tm, int k) {   /* a wall face, its seal over it */
+    static uint8_t over[TS * TS];
+    memset(over, C_CLEAR, sizeof over);
+    if (el >= 0) crawl_mark(over, TS, TS, 32, 34, el, state, pips, lit_n, tm);
+    for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) {
+        uint8_t c = over[y * TS + x] != C_CLEAR ? over[y * TS + x] : crawl_cmap[LIGHT][crawl_tex[t][x * TS + y]];
+        rect(ox + x * k, oy + y * k, k, k, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+    }
+}
+static void ice_frame(int ox, int oy, int floor, float kl, float kr) {   /* two cells by two of floor, the ice laid kl..kr across */
+    for (int y = 0; y < 2 * TS; y++) for (int x = 0; x < 2 * TS; x++) {
+        float wx = (float)x / TS, wy = (float)y / TS, kk = kl + (kr - kl) * wx / 2.0f;
+        uint8_t c = crawl_cmap[LIGHT][crawl_ice_at(wx, wy, kk, crawl_tex[floor][(x & (TS - 1)) * TS + (y & (TS - 1))])];
+        put(ox + x, oy + y, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+    }
+}
+static int draw_tutorial2(const char *path) {
+    enum { K = 2, FW = 96 * K, FH = 88 * K, CW = FW + 40, NR = 4 };
+    iw = PAD + 4 * CW + PAD;
+    ih = PAD + LABEL_H + 8 + NR * (LABEL_H + FH + 2 * LABEL_H + 10) + 2 * LABEL_H + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    crawl_art_level(2); crawl_art_run(2);
+    text(PAD, PAD, "THE TUTORIAL, LEVEL 2: ITS NEW THINGS", 230, 230, 230);
+    int y = PAD + LABEL_H + 8, x;
+#define CAP2(a, b) do { text(x + 2, y + FH + 2, a, 150, 150, 150); text(x + 2, y + FH + 2 + LABEL_H - 6, b, 120, 120, 120); } while (0)
+    text(PAD, y, "THE SWITCH: A RIMED SEAL, ANY SPELL, THREE STRIKES", 220, 210, 190); y += LABEL_H;
+    static const struct { int spr, el, st, lit; const char *cap, *cap2; } SW[4] = {
+        { SP_MK_RSEAL0, 0, MK_WAIT, 0, "WAITING", "A FIRE BOLT'S" }, { SP_MK_RSEAL0, 0, MK_HIT, 2, "STRUCK TWICE", "" },
+        { SP_MK_RSEAL1, 0, MK_DONE, 3, "THAWED", "THE ICE DOWN" }, { SP_MK_RSEAL2, -1, 0, 0, "SPENT", "THE ICE BACK" } };
+    for (int c = 0; c < 4; c++) { x = PAD + c * CW; mk_frame(x, y, SW[c].spr, 32, 32, SW[c].el, SW[c].st, 3, SW[c].lit, 0.4f + 0.7f * c, K); CAP2(SW[c].cap, SW[c].cap2); }
+    y += FH + 2 * LABEL_H + 10;
+    text(PAD, y, "THE GATE: ITS SEAL ON THE SOUTH FACE ONLY", 220, 210, 190); y += LABEL_H;
+    x = PAD; tex_frame(x + 32, y + 24, T_GATE_SEAL, 0, MK_WAIT, 1, 0, 0.6f, K); CAP2("SOUTH", "WAITING");
+    x += CW; tex_frame(x + 32, y + 24, T_GATE_SEAL, 0, MK_DONE, 1, 1, 1.1f, K); CAP2("SOUTH", "STRUCK, RISES");
+    x += CW; tex_frame(x + 32, y + 24, T_GATE, -1, 0, 0, 0, 0.0f, K); CAP2("NORTH", "BARE IRON");
+    x += CW; tex_frame(x + 32, y + 24, T_GATE_SEAL, -1, 0, 0, 0, 0.0f, K); CAP2("SOUTH", "ITS PLATE ALONE");
+    y += FH + 2 * LABEL_H + 10;
+    text(PAD, y, "THE MAP, LYING WHERE IT FELL BY THE ICE", 220, 210, 190); y += LABEL_H;
+    x = PAD; mk_frame(x, y, SP_MAPFLOOR, 32, 32, -1, 0, 0, 0, 0.0f, K); CAP2("ON THE FLOOR", "");
+    x += CW; mk_frame(x, y, SP_MAPWARE, 32, 32, -1, 0, 0, 0, 0.0f, K); CAP2("HER WARE", "AS IT WAS");
+    y += FH + 2 * LABEL_H + 10;
+    text(PAD, y, "THE ICE ON RUN I'S FLOOR, TWO CELLS BY TWO", 220, 210, 190); y += LABEL_H;
+    static const struct { float kl, kr; const char *cap, *cap2; } IC[4] = { { 0.55f, 0.0f, "COMING", "FROM THE LEFT" }, { 1.0f, 0.4f, "COMING", "TWO THIRDS" },
+                                                                           { 1.0f, 1.0f, "LAID", "" }, { 0.45f, 0.45f, "THAWING", "STEAM IN PLAY" } };
+    for (int c = 0; c < 4; c++) { x = PAD + c * CW; ice_frame(x + 32, y + 24, T_FLOORS, IC[c].kl, IC[c].kr); CAP2(IC[c].cap, IC[c].cap2); }
+#undef CAP2
+    y += FH + 2 * LABEL_H + 10;
+    text(PAD, y, "SHADED AS NEAR A TORCH; SEALS AND MOTES AT FULL", 120, 120, 120);
+    text(PAD, y + LABEL_H - 6, "BRIGHTNESS. IN PLAY A LOW MIST HANGS OVER THE ICE.", 120, 120, 120);
+    int ok = write_png(path);
+    free(img);
+    crawl_art_level(1);
+    return ok;
+}
+
 /* 1.0.0b18: the minds shown (docs/PLAN-ai.md, Part H): backs, the roost, the ambushes' signs */
 static int draw_minds(const char *path) {
     crawl_art_level(5);
@@ -1899,6 +1956,7 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "backs", "1.0.0B18: THE BACKS, KIND BY KIND");
         printf("%-12s %s\n", "minds", "1.0.0B18: THE MINDS SHOWN: BACKS, THE ROOST, THE AMBUSHES' SIGNS");
         printf("%-12s %s\n", "footprints", "1.0.0B18.1: EVERY PROP WITH THE PART OF ITS CELL ITS ART GIVES IT");
+        printf("%-12s %s\n", "tutorial2", "THE TUTORIAL'S LEVEL 2: THE SWITCH, THE GATE, THE MAP, THE ICE");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -2031,6 +2089,13 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/marked2.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_marked2(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "tutorial2")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/tutorial2.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_tutorial2(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         done++;
     }
     if (!strcmp(argv[1], "all") || !strcmp(argv[1], "footprints")) {
