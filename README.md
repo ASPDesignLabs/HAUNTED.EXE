@@ -1303,7 +1303,8 @@ Layout:
 src/core/      core.h  gfx.[ch]  app.[ch]      shared types, drawing, scene rotation / fades / palette conversion
                snd.[ch]                        FM synth, effects, the two music programs
 src/haunt/     scene_haunt.c  haunt_art.[ch]   HAUNT.EXE: text engine, script runner, acts, art pieces
-src/crawl/     scene_crawl.c  crawl.h          CATACOMB: level generator, autopilot, raycaster, sprites, light map
+src/crawl/     scene_crawl.c  crawl.h          CATACOMB: level generator, autopilot, raycaster, sprites, light map;
+               game/  draw/                    scene_crawl.c lists its parts, the game's in game/ and the drawing's in draw/
                crawl_gear.[ch]                 CATACOMB's wares: spells, runes by quality, things to wear, bags, prices
                crawl_tutor.[ch]                the lessons' words and their page
 src/art/       crawl_art.c                     CATACOMB palette, light colormap, procedural textures and sprites

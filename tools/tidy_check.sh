@@ -22,7 +22,7 @@ UNITS="scene_crawl crawl_art app gfx font_vga snd hand_img crawl_gear face_img c
 BINS="build/host build/host_debug build/sheet build/uisheet build/titlemock build/portraitmock build/items"
 
 if [ "${1:-}" = --one ]; then                       # --one <config> <unit>: a single object, called back by xargs
-    f=$(find "$TREE/src" "$TREE/tools" -name "$3.c" | head -1)
+    f=$(find "$TREE/src" "$TREE/tools" -maxdepth 2 -name "$3.c" | head -1)   # not deeper: there lie the parts of a file
     [ -n "$f" ] || { echo "no $3.c in $TREE" > "$TMP/warn-$2-$3.txt"; exit 0; }
     d=""; [ "$2" = debug ] && d="-DHAUNT_DEBUG -DCRAWL_DEBUG"
     cd "$(dirname "$f")"                            # from the file's own folder, under its bare name

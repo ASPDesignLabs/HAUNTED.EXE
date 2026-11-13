@@ -2,7 +2,8 @@
 
 Status (13 November 2026): **settled with the owner the same day. Steps 0 to 3 are done (the baseline; the pictures out of
 `docs/`; `src/` sorted by kind; object files); the owner has given their word for the cuts
-as listed (section 5a) and for `CLAUDE.md` as outlined (section 5b), and steps 4 to 6 are being built.** Nothing here changes the game: no version is
+as listed (section 5a) and for `CLAUDE.md` as outlined (section 5b), step 4 is done (`scene_crawl.c` in 70 parts),
+and steps 5 and 6 are being built.** Nothing here changes the game: no version is
 bumped, nothing is released, and main is left alone until the owner says.
 
 Read the hand-off log (section 9) first. It says where the last session stopped.
@@ -359,3 +360,13 @@ mentions in fifteen documents, the folder alone, so every source a plan names is
   and, changing what was agreed at the start, **rewrite the plans' old paths**. That last is done: 103 mentions in
   fifteen documents now give the sources' folders; every path a document names exists, but for the two that never did
   (section 8) and `web/haunted.js`'s comment.
+- **13 November, session 1, step 4 done.** `scene_crawl.c` is cut: it keeps its 29 opening lines and lists its 70
+  parts, 55 in `src/crawl/game/` and 15 in `src/crawl/draw/`, each a comment on what it holds and its `#include`. A
+  part begins with three lines of its own and is otherwise the old text. Proved: the parts, less those lines, joined in
+  the list's order are the old file byte for byte (35,484 lines, 2,278,359 bytes); `sh tools/tidy_check.sh all`: all
+  alike. The compiler's lists name every part: touching `game/minds.c` compiles `scene_crawl.o` again (release and
+  debug) and nothing else. With it: the Makefile's `PARTS` (a wildcard over `src/*/*/*.c`) tells the Windows and browser
+  rules what they depend on; `tools/portrait_sheet.py` reads `KINDS` and `KIND_XP` from the parts in `game/` and writes
+  the same two tables; `tools/tidy_check.sh` looks for a unit no deeper than `src/<kind>/`, so a part is never taken for
+  one. The scripts that made and proved the cut (`cut.py` and the spec) were the session's own; the proof stands in
+  this entry and in the objects' check, which anyone can run again.

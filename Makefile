@@ -19,9 +19,13 @@ PKG      = dist/HAUNTED-$(VERSION)-win64.zip
 
 # The sources, by kind (docs/PLAN-tidy.md): core/ what both scenes stand on, haunt/ and crawl/ the two scenes, art/ what only
 # draws, data/ traced and generated bitmaps, platform/ the Windows and browser shells. The compiler is given the folders, so a
-# file asks for a header by its name. The order here is the order they are linked in: keep it.
+# file asks for a header by its name. The order here is the order they are linked in: keep it. A part of a file is not a
+# source of its own and never goes in SRC.
 INC      = -I. -Isrc/core -Isrc/haunt -Isrc/crawl -Isrc/art
 HDR      = $(wildcard src/*/*.h)
+# The parts of a file cut into parts (docs/PLAN-tidy.md): scene_crawl.c #includes its own from src/crawl/game and draw. On Linux
+# the compiler's lists (below) say which object read which; the Windows and browser builds keep no lists, so they are told here.
+PARTS    = $(wildcard src/*/*/*.c)
 SRC      = src/core/app.c src/core/gfx.c src/data/font_vga.c src/core/snd.c src/crawl/scene_crawl.c src/art/crawl_art.c src/data/hand_img.c \
            src/crawl/crawl_gear.c src/data/face_img.c src/data/cat_img.c src/haunt/scene_haunt.c src/haunt/haunt_art.c src/art/crawl_ui.c \
            src/art/ui_art.c src/art/crawl_title.c src/art/crawl_portrait.c src/crawl/crawl_tutor.c
@@ -73,7 +77,7 @@ build/version.h: VERSION
 build/saver_res.o: res/saver.rc res/saver.manifest build/version.h
 	$(WINDRES) -I. res/saver.rc -O coff -o $@
 
-dist/HAUNTED.scr: $(SRC) src/platform/win_main.c $(HDR) build/saver_res.o build/version.h
+dist/HAUNTED.scr: $(SRC) $(PARTS) src/platform/win_main.c $(HDR) build/saver_res.o build/version.h
 	@mkdir -p dist
 	$(MINGW) $(CFLAGS) $(INC) -mwindows -static -o $@ $(SRC) src/platform/win_main.c build/saver_res.o \
 	    -lopengl32 -lgdi32 -luser32 -lwinmm -ladvapi32 -lcomctl32 -lkernel32 -lm
@@ -150,7 +154,7 @@ WEBFLAGS  = -O2 -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Wno-misleading-i
             -sMODULARIZE=1 -sEXPORT_NAME=HauntedCore -sENVIRONMENT=web -sINITIAL_MEMORY=64MB -sSTACK_SIZE=1MB \
             -sFILESYSTEM=0 -sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPF32,UTF8ToString
 
-build/web/haunted-core.js: $(SRC) src/platform/web_main.c $(HDR) build/version.h
+build/web/haunted-core.js: $(SRC) $(PARTS) src/platform/web_main.c $(HDR) build/version.h
 	@mkdir -p build/web
 	$(EMCC) $(WEBFLAGS) -o $@ $(SRC) src/platform/web_main.c
 

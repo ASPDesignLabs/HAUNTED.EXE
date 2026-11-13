@@ -1,14 +1,14 @@
 """The portraits' numbers (docs/PLAN-portraits.md) as the owner settled them in the Sheet on 10 November (its revision 68): every slayer achievement,
-read from KINDS in src/crawl/scene_crawl.c, the Spectre's and the Wraith's own, a feat for each kind, and the bosses', with the gold
+read from KINDS in src/crawl/scene_crawl.c's parts, the Spectre's and the Wraith's own, a feat for each kind, and the bosses', with the gold
 each pays once a life. Writes docs/portraits/ranks.csv and bosses.csv, a snapshot of the Sheet to build from; the Sheet on
 claude.ai is where they are changed, and this is brought in step with it by hand.
 
     python3 tools/portrait_sheet.py [--grid | --md]     (--grid: the plan's table, a kind a row; --md: a row an unlock)
 """
-import csv, os, re, sys
+import csv, glob, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-src = open(os.path.join(ROOT, 'src/crawl/scene_crawl.c')).read()
+src = ''.join(open(f).read() for f in sorted(glob.glob(os.path.join(ROOT, 'src/crawl/game/*.c'))))   # scene_crawl.c's parts: KINDS, KIND_XP
 blk = src[src.index('static const Kind KINDS[] = {'):]
 blk = blk[:blk.index('\n};')]
 ROW = re.compile(r'\[(MOB_\w+)\] = \{ "([^"]*)", "([^"]*)", "[^"]*",\s*\w+, \w+, \w+, \w+, (-?\w+), (\d+), (RK_\w+), (\d), ([^,]+),')
