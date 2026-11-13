@@ -24,8 +24,8 @@ PKG      = dist/HAUNTED-$(VERSION)-win64.zip
 INC      = -I. -Isrc/core -Isrc/haunt -Isrc/crawl -Isrc/art
 HDR      = $(wildcard src/*/*.h)
 # The parts of a file cut into parts (docs/PLAN-tidy.md): scene_crawl.c #includes its own from src/crawl/game and draw, and
-# crawl_art.c its own from src/art/parts. On Linux
-# the compiler's lists (below) say which object read which; the Windows and browser builds keep no lists, so they are told here.
+# crawl_art.c its own from src/art/parts. On Linux the compiler's lists (below) say which object read which; the Windows and
+# browser builds keep no lists, so they are told here.
 PARTS    = $(wildcard src/*/*/*.c)
 SRC      = src/core/app.c src/core/gfx.c src/data/font_vga.c src/core/snd.c src/crawl/scene_crawl.c src/art/crawl_art.c src/data/hand_img.c \
            src/crawl/crawl_gear.c src/data/face_img.c src/data/cat_img.c src/haunt/scene_haunt.c src/haunt/haunt_art.c src/art/crawl_ui.c \

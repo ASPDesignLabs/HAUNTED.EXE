@@ -2,8 +2,8 @@
 
 Status (13 November 2026): **settled with the owner the same day. Steps 0 to 3 are done (the baseline; the pictures out of
 `docs/`; `src/` sorted by kind; object files); the owner has given their word for the cuts
-as listed (section 5a) and for `CLAUDE.md` as outlined (section 5b), steps 4 and 5 are done (`scene_crawl.c` in 70
-parts, `crawl_art.c` in 31), and step 6 is being built.** Nothing here changes the game: no version is
+as listed (section 5a) and for `CLAUDE.md` as outlined (section 5b), steps 4 to 6 are done (`scene_crawl.c` in 70
+parts, `crawl_art.c` in 31, `CLAUDE.md` slimmed), and step 7, the last checks, is under way.** Nothing here changes the game: no version is
 bumped, nothing is released, and main is left alone until the owner says.
 
 Read the hand-off log (section 9) first. It says where the last session stopped.
@@ -376,3 +376,20 @@ mentions in fifteen documents, the folder alone, so every source a plan names is
   `sh tools/tidy_check.sh all`: all alike, the 84 sheets among them. No script read `crawl_art.c`'s text. The two great
   files are now 101 parts, the longest 1,273 lines (`draw/sprites.c`, which is mostly `render_sprites`), half of them
   under 500.
+- **13 November, session 1, step 6 done.** `CLAUDE.md` is slimmed as section 5b outlined: 250,051 bytes to 26,921,
+  about 6,700 tokens where it was 62,000. That is more than the 15 KB the outline guessed: the repository map alone is
+  9 KB, and it stays whole. Moved word for word: the opening's account of each release to `docs/HISTORY.md` (46 KB); the
+  harness, its switches, the long runs, the sanitizers and Wine to `docs/HARNESS.md` (10 KB); the save's format to
+  `docs/SAVES.md` (5 KB); the known issues to `docs/KNOWN-ISSUES.md` (28 KB); and *How CATACOMB works*, its 73 bullets
+  whole, to fourteen files under `docs/catacomb/` (3 to 29 KB each: `levels`, `creatures`, `minds`, `combat`, `bosses`,
+  `hazards`, `b18-1`, `dream`, `player`, `caster`, `secrets`, `hall`, `drawing`, `music`). Kept in `CLAUDE.md` as they
+  were: what the project is, *Working with the owner*, the repository map, the commands that build, *Releasing*. New
+  writing in it: how to use the notes, the standing rules gathered from where they were first written, three harness
+  commands, the table of where to read about each system and where its code is, and where the work stands with a
+  table of the plans. Proved by script: each of the old file's 2,175 lines of text (blank lines, headings, code fences
+  and tables' rules aside) is in exactly one of the nineteen files, as often as the old file had it; only links'
+  targets changed, since the files moved (25 links, all found). Every path the new files name exists. Three things a
+  reader should know: a mixed bullet moved whole to the file of its main subject (1.0.0b18.1's has a file to itself);
+  within a file the bullets are in reading order, not the order they stood in; and the title screen, the portraits,
+  her wares' buying, touch and the lessons were written up in the opening, so their reference is `docs/HISTORY.md` and
+  their plans, which `CLAUDE.md` says. **The new `CLAUDE.md` is the owner's to read and amend.**
