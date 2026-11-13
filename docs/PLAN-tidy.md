@@ -1,7 +1,8 @@
 # Tidying the repository: plan and hand-off
 
 Status (13 November 2026): **settled with the owner the same day. Steps 0 to 3 are done (the baseline; the pictures out of
-`docs/`; `src/` sorted by kind; object files); step 4 waits for the owner's word on its list of cuts, and step 6 for their word on its outline.** Nothing here changes the game: no version is
+`docs/`; `src/` sorted by kind; object files); steps 4 and 5 wait for the owner's word on
+their lists of cuts (section 5a), and step 6 for their word on its outline (section 5b).** Nothing here changes the game: no version is
 bumped, nothing is released, and main is left alone until the owner says.
 
 Read the hand-off log (section 9) first. It says where the last session stopped.
@@ -96,6 +97,167 @@ Each step is one commit on `claude/peaceful-ritchie-fmeoal`, pushed as it is don
    and a report. Merging to main waits for the owner's word; with `VERSION` as it is, a push to main releases nothing
    and the page is rebuilt the same.
 
+## 5a. The cuts proposed (steps 4 and 5): waiting for the owner's word
+
+Drawn up on 13 November from the two files as they stand, and not yet made. The files' own banners turned out not to
+mark where the subject changes (under *the soul-lamps' ward* come the Wraith, the buried, the wall skull and three
+bosses), so the cuts follow the sequence of functions instead, and there are more of them than the "about 35 and 20"
+the plan first said: **70 parts for `scene_crawl.c`** (137 to 1,273 lines, half of them under 480) and **31 for
+`crawl_art.c`** (97 to 902 lines). Every cut falls where no brace, no `#if` and no comment is open; a script checked
+each. The longest parts are long because one function is: `render_sprites` is 750 lines, `update_mob` 648.
+
+How a part looks, and how the cut is proved:
+
+- A part is a `.c` file that is never compiled on its own. It begins with three lines of its own (a comment naming it,
+  the file it is a part of, and what it holds; then a blank line) and is otherwise the old file's text, untouched.
+- `scene_crawl.c` keeps its opening comment and its `#include`s of headers (lines 1 to 29), then lists its parts in
+  order, one `#include "game/defs.c"` a line, each with a few words beside it. `crawl_art.c` keeps lines 1 to 13 (its
+  comment, its headers and the art's five arrays) and does the same. So each is the map of itself.
+- A part sees everything in the parts above it, as now. Nothing is reordered, renamed or made visible outside the file.
+- Proved three ways: the parts, less their three lines, joined in the list's order are the old file from its first cut
+  to its end, byte for byte; `sh tools/tidy_check.sh all` finds every object and binary alike; and the compiler's own
+  dependency lists then name every part, so changing one compiles its file again and nothing else.
+- Names in `game/` and `draw/` sometimes answer one another (`game/menus.c` is what the menus do, `draw/menus.c` how
+  they look), and likewise `game/hazards.c` and `src/art/parts/hazards.c`.
+
+### `src/crawl/scene_crawl.c`: the game in `game/`, the drawing in `draw/`
+
+| Part | Lines of the old file | Lines | What it holds |
+|---|---|---|---|
+| `src/crawl/game/defs.c` | 30-380 | 351 | Sizes and paces; the kinds of cell, creature, item, missile and harm; cells, doors, lights; the creature (`Mob`); the contracts between combat's two tracks; packs and ambushes; `KINDS` and the ranks' tables |
+| `src/crawl/game/state.c` | 381-1280 | 900 | The bosses' arenas and `BOSSES`; hazards, things, puzzles and trials as structs; shots, secrets, items; the levels' names; the record, a stone, the Alignment's lines; `RUN`; the console's and the ledger's state; `G` |
+| `src/crawl/game/input.c` | 1281-1488 | 208 | `IN` and the pad (`PADX`), touch's and the wheels' state, the pad's layout (`PL`) and its saving, rumble, the hints in the pad's words (`pk`) |
+| `src/crawl/game/attacks.c` | 1489-1647 | 159 | The pockets' state (`PK`, `G_LEVEL`); a creature's blow by level; `ATTACKS`; footprints; what a cell blocks (light, a body, a step) |
+| `src/crawl/game/generate.c` | 1648-2219 | 572 | Level generation: carving, themes and room types, decorations and static lights; the plan (maze, vaults, widths); secrets placed; the sliding wall's box |
+| `src/crawl/game/faces.c` | 2220-2473 | 254 | A drawn run's walls by face: materials by the stretch, blends, what stands on the wall (`lay_faces`) |
+| `src/crawl/game/gen_level.c` | 2474-3011 | 538 | `gen_level` itself (with `con_carve` and `gen_dress`), then the dressing: props and their footprints, crystals, fires, litter (`dress_level`) |
+| `src/crawl/game/place.c` | 3012-3605 | 594 | What a level is given: the arena stamped, treasure, keys and the exit, and the creatures that wait in their places (wall skulls, spiders, the buried, imps, gargoyles, guardians) |
+| `src/crawl/game/light.c` | 3606-3776 | 171 | The light map: dynamic lights, the torch's flicker, `build_lightmap` |
+| `src/crawl/game/spawn.c` | 3777-4146 | 370 | Lines of sight, ranks picked, `spawn_mob`, what comes on a level (`random_type`), wanderers, the file and the roost placed, the readout's pop-up |
+| `src/crawl/game/harm.c` | 4147-4708 | 562 | Harm that reaches the caster: its one road (`el_resist`, `armour_keep`), the caster's statuses (af_*), `hurt_ex`, the dead's blows and bones (`foe_hit`, `throw_to`, `update_bones`); then souls: the vessel, motes, spirit spent |
+| `src/crawl/game/record.c` | 4709-5213 | 505 | The record and its achievements, the portraits' part of it, experience, Levels of Atonement |
+| `src/crawl/game/caster.c` | 5214-5890 | 677 | The caster's own: the Unholy Confessions, the Alignment (align_*, `caster_sync`), confessing, the classes' sheets and caps |
+| `src/crawl/game/augments.c` | 5891-6452 | 562 | The spells' augments: the other five lines' (augd_*), then the frame and Fire's (aug_*, fire_*) |
+| `src/crawl/game/damage.c` | 6453-7415 | 963 | Harm that reaches the dead: `kill_mob`, weaknesses and strengths, elemental creatures, `damage_mob`, the dead's statuses and their gate (`mob_gate`), trails, venoms, blasts; the spectre; the hunt field (`build_hunt`, `alert_near`) |
+| `src/crawl/game/minds.c` | 7416-8272 | 857 | How the dead think: senses and memory, packs (calls, turns, flanks, morale), roles and rounds, hunters on the trail, the dead's ways named and their deeds |
+| `src/crawl/game/ambush.c` | 8273-8587 | 315 | Lures and ambushes: kill rooms, teeth, bait, the spring |
+| `src/crawl/game/noise.c` | 8588-8878 | 291 | Noise and who hears it, alarms, the Sexton's bell, searching, `mind_tick`, `mind_goal`, `mind_frame`, footsteps |
+| `src/crawl/game/creatures.c` | 8879-9594 | 716 | Each kind's own ways: the Wraith (and the wards' field it walks by), the buried, pools, wall skulls, spiders and leaps, sacs, shades, gargoyles; then the bosses' own: the knight, the spider, the Wraith Unbound |
+| `src/crawl/game/cunning.c` | 9595-9933 | 339 | Cunning by rank (dodges, cover, doorways held, feints), and the new attacks (the Bone Thrower, the charge, the spew, the grapple) |
+| `src/crawl/game/update_mob.c` | 9934-10581 | 648 | `update_mob`: one creature's step, every kind's branch |
+| `src/crawl/game/spells.c` | 10582-11277 | 696 | The caster's spells: shots, lightning, the BFS9000, the flask, `cast_spell`; charging and the ultimates; `update_shots` |
+| `src/crawl/game/runes.c` | 11278-11539 | 262 | The caster's defences: runes, each waiting for its moment (`def_trigger`, `cast_defense`), `update_status` |
+| `src/crawl/game/abilities.c` | 11540-12118 | 579 | The balance sheet (`crawl_combat_sheet`); a creature's blow; the bat's latch; the caster's boss abilities (web, Grave Call and allies, Wraithwalk, Swift Dodge); runes raised by hand; doors (`update_doors`) |
+| `src/crawl/game/goals.c` | 12119-12532 | 414 | The dream's goals: secrets pushed, keys, the altar, chains, a boss, motes; places to mend |
+| `src/crawl/game/dream.c` | 12533-13350 | 818 | The dream (the autopilot): its counters, `pick_goal`, decide, its steps and turns, `find_target`, `choose_spell`, aim, `update_player` |
+| `src/crawl/game/budget.c` | 13351-13712 | 362 | A level's creatures placed: the caster's state reset, the debug map, the Black Altar's place, the old placements, bands, and the encounter budget (`place_creatures`) |
+| `src/crawl/game/marked.c` | 13713-14690 | 978 | Things that want a spell: their kinds, where they go, what a strike does, sequences and gates, things for fights; the lull's watch |
+| `src/crawl/game/drawn.c` | 14691-15145 | 455 | Drawn levels (the tutorial's two): the maps, `gen_drawn`, their items, dead and marks; the burning floor; the ice |
+| `src/crawl/game/start_level.c` | 15146-15393 | 248 | `start_level`: a level begun; the debug build's gear and gifts |
+| `src/crawl/game/pockets.c` | 15394-15917 | 524 | Pockets: the caster carried across, `gen_pocket`, the way in and back; `crawl_enter`; collect (what picking a thing up does) |
+| `src/crawl/game/hazards.c` | 15918-16608 | 691 | Hazards: the bosses' six, the runs' own by element, what they mark for the dream, their harm to the caster and to the dead, `update_hazards`, `af_tick` |
+| `src/crawl/game/sites.c` | 16609-17053 | 445 | The fixed hazards: where they stand (`place_sites`), `update_sites`, the arising ones, their lights |
+| `src/crawl/game/things.c` | 17054-17241 | 188 | Ways to touch the world: things carried, set down and used (`thing_use`) |
+| `src/crawl/game/puzzles.c` | 17242-17969 | 728 | Puzzles: which a level has, where the pieces go, solved and wrong, the shapes they take; the Crypts' (`pz_make_run1`); `pz_make`, `pz_touched`; the dream at a puzzle |
+| `src/crawl/game/puzzles_runs.c` | 17970-18972 | 1003 | The Catacombs' puzzles, the Hollows', the Deep's, and the two of any run |
+| `src/crawl/game/message.c` | 18973-19233 | 261 | The hidden message, Tab's documents, the Black Shrine |
+| `src/crawl/game/trials.c` | 19234-20017 | 784 | Trials: kinds, waves, `tri_begin`, `tri_run`, the reward, `tri_end`, slow work, where a trial is placed |
+| `src/crawl/game/lamps.c` | 20018-20287 | 270 | The soul-lamps: laid with the level, lit by souls, `ward_tick` |
+| `src/crawl/game/omens.c` | 20288-20535 | 248 | The dream at a trial (`tri_next`, `tri_goal`); omens; a boss's hazards |
+| `src/crawl/game/boss.c` | 20536-20832 | 297 | A boss's fight: fonts, `boss_begin`, waves and adds, `boss_fall`, `update_boss` |
+| `src/crawl/game/altar.c` | 20833-20969 | 137 | The Black Altar: its wisp called home, `update_altar`, waking, sending, blessing, anointing; `update_abilities` |
+| `src/crawl/game/wisps.c` | 20970-21377 | 408 | The map's noting (`map_note`), items and the tally, the hand raised, wisps (targets, routes, `summon_wisp`, `update_wisps`), the L list's choices, the altar's rows, undead turned |
+| `src/crawl/game/update.c` | 21378-21826 | 449 | The debug build's stages (`CRAWL_MEET`, `CRAWL_PACK`, `CRAWL_STAGE`), and `crawl_update`: the frame's order of things |
+| `src/crawl/game/merchant.c` | 21827-22259 | 433 | The merchant's rooms: her wares' sprites, the pedestals' arc, the portraits hung, `gen_shop`, the dream's shopping, `begin_shop`, purchases |
+| `src/crawl/game/hall.c` | 22260-22796 | 537 | Her hall's things: the Rune Shrine, the Hexed Totem, the Accursed Portal (runs, replays, challenges), the bell's and font's errands, `update_shop` |
+| `src/crawl/game/human.c` | 22797-23694 | 898 | A person at the controls: captions, doors, the exit and the reckoning, E (`human_use`), the body against walls, the target looked at; Restoration; the wheels; the sprint, `human_walk`, `open_ui`, `human_cast` |
+| `src/crawl/game/lessons.c` | 23695-24106 | 412 | The lessons (`TU`): their moments, the view turned, the page; `update_human` |
+| `src/crawl/game/her_rooms.c` | 24107-24707 | 601 | A person in her rooms: the portraits in play, `shop_human`, the full bag's question, the buying; taking over and letting go (`human_begin`, `human_end`); Tab's actions; Esc's question and a new run; the debug build's teleports |
+| `src/crawl/game/console.c` | 24708-25037 | 330 | The console |
+| `src/crawl/game/controls.c` | 25038-25516 | 479 | The pad into keys (`pad_keys`), touch into keys (`touch_keys`), `crawl_input`, `crawl_control` |
+| `src/crawl/game/save.c` | 25517-26144 | 628 | Saves: the gear, the record, the hall, the shrine and the stones packed and unpacked, a page's sections, `run_pack`, `run_unpack`, the progress, the mark, `ledger_first` |
+| `src/crawl/game/ledger.c` | 26145-26710 | 566 | The ledger's pages (signing, opening); the title screen's logic (`TI`); death's cost; her claim and the mark; the ledger's and the cornerstones' menus |
+| `src/crawl/game/menus.c` | 26711-27255 | 545 | The menus' logic: the Alignment and its gifts and augments, the class, the bell and font, confessing and ascending, her menu, a stone, the L list, the altar, the shrine |
+| `src/crawl/game/menus_hall.c` | 27256-27742 | 487 | More menus' logic: the Compendium, the Repository, the Codex, the Totem, the Portal; the map's keys; `update_ui` |
+| `src/crawl/draw/floor.c` | 27743-28284 | 542 | Rendering begins: shading and fog, the floor and ceiling (`render_floor`), secrets' cracks, the floor's marks (hazards, omens, wards, ice: `fm_pixel`) |
+| `src/crawl/draw/walls.c` | 28285-28497 | 213 | The walls: the sliding secret's ray, `render_walls` |
+| `src/crawl/draw/sprites.c` | 28498-29770 | 1273 | Sprites: eyes and vapour, beams, the cat, which sprite a creature shows (`mob_sprite`, `mob_side`), `render_sprites` |
+| `src/crawl/draw/hud.c` | 29771-30211 | 441 | Her wares' tags, the portrait's face, glyphs, the status bar, text wrapped, her prompts and cards, the wards' rings |
+| `src/crawl/draw/hand.c` | 30212-30650 | 439 | The hand: built and posed, the charge, Restoration's glow, `render_hand`; the latched bat, the vessel's slip, wisps |
+| `src/crawl/draw/cards.c` | 30651-31313 | 663 | The carved stone's hooks; cards (the level's, a boss's, her claim), the web, the boss's bar, the trial's glass, the tally, the readout, the statuses, sockets, the sprint, the view's tint, what is carried and read, messages |
+| `src/crawl/draw/tab.c` | 31314-31943 | 630 | Tab's and her hall's frames; a piece's card, the full bag's question, the buying, Tab's pages (elements, the caster, documents, the wardrobe), the Black Shrine, Esc's question |
+| `src/crawl/draw/screens.c` | 31944-32319 | 376 | The controller's screen (its logic too) and the look; the ledger, her menu, a stone's page |
+| `src/crawl/draw/bestiary.c` | 32320-32645 | 326 | Pop-ups (toasts); the bestiary: its logic and its pages |
+| `src/crawl/draw/menus.c` | 32646-33602 | 957 | Menus drawn: the L list, the altar, the shrine, the Compendium, the Repository, the Codex, the Totem, the Portal |
+| `src/crawl/draw/caster.c` | 33603-34298 | 696 | Experience and Second Wind shown; the target's health; the cornerstones, the Alignment, the bell and font, the class; the Confessions and ascending |
+| `src/crawl/draw/map.c` | 34299-34661 | 363 | The map on its scroll |
+| `src/crawl/draw/overlays.c` | 34662-34994 | 333 | `render_ui` (which screen is drawn); the wheels; Toughness's cracks; the warded; the things that want a spell |
+| `src/crawl/draw/portraits.c` | 34995-35218 | 224 | The portraits of the slain, drawn: what each shows, their overlays, their cards |
+| `src/crawl/draw/frame.c` | 35219-35484 | 266 | `crawl_render`: the frame's order; the music's side (`music_frame`); touch's stones (`crawl_stage`); the scene itself |
+
+### `src/art/crawl_art.c`: in `src/art/parts/`
+
+| Part | Lines of the old file | Lines | What it holds |
+|---|---|---|---|
+| `src/art/parts/palette.c` | 14-110 | 97 | The palette's ramps, the light colormap, and noise (hsh, vnoise, fbm) |
+| `src/art/parts/walls.c` | 111-650 | 540 | Wall textures: stone, rubble, brick, moss, the skull wall, niches, banners, torches, doors and locks, gates, the ice, the Portal, fonts, the sign, a secret's passage, the sealed doorway, the Repository |
+| `src/art/parts/pockets.c` | 651-910 | 260 | The pockets' walls, floors and ceilings: the Backrooms and Severance; the exit |
+| `src/art/parts/canvas.c` | 911-1226 | 316 | The sprite canvas (cv_*), the master skull and its stamps; the caster's hand in motion (`crawl_hand_frame`) |
+| `src/art/parts/skeleton.c` | 1227-1917 | 691 | Flame; the skeleton and the shield-bearer; the dressing a rank puts on a creature (kit_*); their backs; the wall skull; the web spider |
+| `src/art/parts/spells.c` | 1918-2484 | 567 | Spells and what they leave (bolts, shards, the spear, wisps, the flask, the orb, the lance, rime, motes, burns); the pedestal and the items; the altar's fire; the Rune Shrine and its runes; the Cursed Coin |
+| `src/art/parts/hazards.c` | 2485-2731 | 247 | The runs' hazards: what stands in the wall, and their sprites (grit, the censer, votives, snares, spikes, ash) |
+| `src/art/parts/puzzles.c` | 2732-3215 | 484 | The puzzles' things; the things a message hides among; the Black Shrine |
+| `src/art/parts/documents.c` | 3216-3410 | 195 | A document's page and its ink; the bosses' hazards (rock, rubble, the eruption, the void, the hands); the scrip; the Hexed Totem |
+| `src/art/parts/marked.c` | 3411-4096 | 686 | Things that want a spell: run I's and one for each line, the moving and timed ones, sequences and things for fights; `crawl_mark` (the seal and its motes) |
+| `src/art/parts/hall.c` | 4097-4486 | 390 | Her hall's things: the Lampstand, the Dead Bell, the Weeping Font, the lectern; the tutorial's rimed seal and its map; the map on sale; Severance's desks and cooler; the caster's double |
+| `src/art/parts/first_kinds.c` | 4487-4807 | 321 | The spectre and the bat; fire, the blast, a bone in flight; gems and the key; a chain, the tombstone |
+| `src/art/parts/risen.c` | 4808-5275 | 468 | The bestiary begins: rot and soil; the shambler and the Drowned; the shield-bearer's charge, the spew, dust |
+| `src/art/parts/hunters.c` | 5276-5912 | 637 | The ghoul, the bone hound, the skeleton knight, the deacon, with their backs and dressing |
+| `src/art/parts/bosses.c` | 5913-6257 | 345 | The Ill-Fated Knight and the Black Deacon |
+| `src/art/parts/newkinds.c` | 6258-7159 | 902 | The Whipper-In, the Sexton and the Lightless, with their side views; the bestiary's bones |
+| `src/art/parts/spiders.c` | 7160-7684 | 525 | The hunting spider; the Wandering Spider; the brood mother, her sacs and spiderlings |
+| `src/art/parts/wraith.c` | 7685-8194 | 510 | The Wraith, the shade, the ember imp and its ember, the gargoyle |
+| `src/art/parts/dressing.c` | 8195-8425 | 231 | The dressing that comes in as you go down: carcasses, armour stands, timber, mine lamps, carts, fungus, crystal, magma, obsidian, the altar |
+| `src/art/parts/sides.c` | 8426-9039 | 614 | Side views: each creature walking in profile; the glints found |
+| `src/art/parts/ageing.c` | 9040-9172 | 133 | Ranks' colours (`build_rank_luts`); each level's age: `decay_tex`, `level_palette`; a pocket's theme (`crawl_art_theme`) |
+| `src/art/parts/props_bones.c` | 9173-9720 | 548 | Props: bones, litter, heaps and skull stacks; the totem post; candles, prickets, the corona, hearths, braziers, lanterns |
+| `src/art/parts/props_graves.c` | 9721-10374 | 654 | Props: graves and what is carved on them; chains, manacles, the hook beam, the gibbet, the bronze bell |
+| `src/art/parts/props_bells.c` | 10375-10671 | 297 | The bell puzzles' four bells, run II's dead bell, the soul-lamp |
+| `src/art/parts/props_growth.c` | 10672-11314 | 643 | Props: hanging roots, webs and cocoons, ice, the gothic pillar, flowstone, the altar stone, urns, broken arms, the spiked collar; the roost asleep |
+| `src/art/parts/treasure.c` | 11315-11953 | 639 | The ambushes' signs; the pool; treasure (coins, the chalice, gems, the crown, the chest), the phial, the soul urn, the ring; `props_level`; footprints measured; `crawl_art_level` |
+| `src/art/parts/run_crypts.c` | 11954-12722 | 769 | Each run's own look begins: the course grid; the Crypts' materials, blends, what stands on their walls, floors, ceilings, doors and keys |
+| `src/art/parts/run_catacombs.c` | 12723-13437 | 715 | The Catacombs' materials, what stands on their walls, floors and ceilings, doors, keys and treasure |
+| `src/art/parts/run_hollows.c` | 13438-13947 | 510 | The Hollows' materials, what stands on their walls, floors and ceilings, doors, keys and treasure |
+| `src/art/parts/run_deep.c` | 13948-14499 | 552 | The Deep's materials, what stands on its walls, floors, ceilings, doors, keys and treasure |
+| `src/art/parts/runs.c` | 14500-15174 | 675 | Each run's set made (`crypts_run`, `catacombs_run`, `hollows_run`, `deep_run`); the specials on the run's stone; the trials' doors and things; the places to mend; `crawl_art_run`, `crawl_art_stone`, `crawl_art_init` |
+
+## 5b. The outline proposed for `CLAUDE.md` (step 6): waiting for the owner's word
+
+`CLAUDE.md` is read whole by every session before it does anything, and by every helper a session starts. Today that is
+252 KB, about 60,000 tokens. Most of it is reference that a given session needs a tenth of. The proposal is to keep in
+it only what every session needs, and to move the rest, word for word, into files that are read when wanted.
+
+| New home | What goes there | From today's section | Size |
+|---|---|---|---|
+| `CLAUDE.md` | What the project is and where it stands; the standing rules; where things are (the map, with the parts); the commands to build and test; **where to read about each system** (a table: the system, its source parts, its reference, its plan); how to release | new writing, from all of them | about 15 KB |
+| `docs/HISTORY.md` | The account of each release and plan, from 1.0.0b18.1 back to 1.0.0b4 and on to the tidy-up, as it stands | the opening | 47 KB |
+| `docs/HARNESS.md` | The harness's commands and environment, every debug switch, the events it logs, how the long runs are made and read, the sanitizers, Windows under Wine | *Building and testing* | 12 KB |
+| `docs/SAVES.md` | The save's format, version by version, and the ledger's sections | *Building and testing* | 5 KB |
+| `docs/catacomb/` | *How CATACOMB works*, a file a subject, each bullet whole: `levels.md` (state, the generator, runs and their looks, laying the walls), `creatures.md` (the kinds, ranks, how the dead think), `combat.md` (PLAN-combat's two tracks), `bosses.md`, `hazards.md` (hazards, puzzles, trials, things that want a spell), `dream.md` (the autopilot), `player.md` (a person at the controls, the pad, the wheels, the lessons), `caster.md` (items, spirit, runes, the Alignment, classes, experience, cornerstones), `secrets.md` (secrets, pockets, wisps, the Black Altars), `hall.md` (the merchant, the ledger, death's cost, her claim, the shrine, the Compendium, the Repository, the Codex, the portraits), `drawing.md` (rendering, the art, the map), `music.md` | *How CATACOMB works* | 148 KB, in about twelve files |
+| `docs/KNOWN-ISSUES.md` | Known issues and loose ends, with the balance runs' numbers | the last section | 27 KB |
+
+The rules of the move:
+
+- Every paragraph and bullet moves whole and unreworded. A script must find each line of the old file in exactly one
+  new file; nothing is dropped, and nothing is said twice.
+- The standing rules stay in `CLAUDE.md` itself, gathered where a session will see them, since they are instructions and
+  not reference: how the owner works; honest status; British spelling and the house voice; no model identifiers; work
+  goes to main as one squashed commit; the console's codes are never written down; release notes say only what a player
+  needs; the sanitizers stay clean; the page describes the released build only; read a plan's hand-off log first.
+- The slim `CLAUDE.md` is the only new writing. It is shown to the owner with the step's report, to amend.
+- Later sessions then pay about 4,000 tokens for it, not 60,000, and read one file of ten to twenty for the system
+  they are working on.
+
 ## 6. Where things went
 
 Filled in as each step is done. File names never change; only folders do.
@@ -186,3 +348,8 @@ The plans' older logs still name files as `src/<name>`; the name is right and th
   waits for the owner's word.** For it: the Windows and browser rules name their sources and `$(HDR)`; give them the
   parts too (a wildcard over `src/*/*/*.c`), since those two builds keep no lists of what they read.
   `tools/portrait_sheet.py` reads `KINDS` out of `scene_crawl.c`'s text: point it at the part that holds it.
+- **13 November, session 1, the big steps proposed.** The lists of cuts for both files (section 5a: 70 parts and 31,
+  every cut checked safe) and the outline for `CLAUDE.md` (section 5b) are written here and put to the owner. Nothing of
+  either is done. The lists were resolved by scripts kept in the session's scratchpad (`cuts.py`, `funcs.py`,
+  `resolve.py`, with the two specs); if that is gone, section 5a's tables are the specs: each part's first line in the
+  old file is its cut.
