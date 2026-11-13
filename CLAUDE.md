@@ -185,8 +185,9 @@ PLAN-ui (`src/art/crawl_ui.c`, `draw/cards.c`, `tab.c`), the browser's build in 
 ## Where the work stands
 
 - **Released:** 1.0.0b21.5, "First Steps", 12 November 2026.
-- **On `claude/peaceful-ritchie-fmeoal`, not on main:** the tidy-up (docs/PLAN-tidy.md), which changes nothing of the
-  game and bumps no version. Its log says what is left.
+- **On `claude/peaceful-ritchie-fmeoal`, not on main:** the tidy-up (docs/PLAN-tidy.md), done and proved (13 November).
+  It changes nothing of the game and bumps no version: the Windows binary is 1.0.0b21.5's but for its link time, the
+  browser's build the same files. It waits for the owner's word to go to main, and for their reading of this file.
 - **Left open by the tutorial** (docs/PLAN-tutorial.md's log): step 9's checks (a pad and touch through the lessons in
   play; the dream against 1.0.0b21.4 over many seeds), the title's HELP paging through the lessons, the scorched floor,
   the owner's look at level 2's art.

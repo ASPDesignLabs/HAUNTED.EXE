@@ -244,3 +244,10 @@ wrong or untried, and the numbers from each round of the dream's runs. Add to it
   (`piece_unpack`), so going back loses such pieces; the notes say so. The tables are in docs/PLAN-combat.md, sections 18 and 19.
 - The harness isn't quite deterministic between `shot` runs that end at different times or scales
   (the same seed and input can part ways after a minute or so); compare runs made the same way.
+- The tidy-up (docs/PLAN-tidy.md, 13 November) left these as it found them: `tools/package.py` has never packed `web/` or
+  `site/`, so the zip's source can't `make web` or `make cards`; the page's *Then and now* has 27 frames of "this build"
+  that the game has since moved on from (`tools/gallery.sh` retakes them, and needs main's whole history to build its two
+  old versions); `web/haunted.js` names `src/web_main.c` in a comment (it is `src/platform/web_main.c`), left so the
+  browser's page stayed the same files. The two great files are cut into parts but each is still one translation unit, so
+  `scene_crawl.c` takes 35 s to compile when any of its 70 parts changes: separate modules would mend that, and would
+  change the binary (the plan's section 7).

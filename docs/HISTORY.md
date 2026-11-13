@@ -405,4 +405,8 @@ pictures go out of `docs/` into `media/`, `src/` is sorted into folders by kind,
 files (`scene_crawl.c`, `crawl_art.c`) are cut into parts that they `#include`, and this file is slimmed to a map with the rest
 moved word for word into `docs/`. Each step must leave every object the same file, byte for byte, as 1.0.0b21.5's:
 `sh tools/tidy_check.sh` proves it (`all` adds the binaries, the sheets, the site and the dream's runs). The plan's section 6
-says where each thing went.
+says where each thing went. ("This file" was `CLAUDE.md`, where this account stood till that last step.) All seven steps were
+done the same day, each proved: 289 pictures to `media/`, `src/` in six folders, objects kept (all seven binaries from nothing in
+43 s, 226 s before), `scene_crawl.c` in 70 parts and `crawl_art.c` in 31, `CLAUDE.md` from 250 KB to 27. CI built the branch: the
+Windows binary is 1.0.0b21.5's but for the five bytes of its link time, the browser's build the same eight files, and the win64
+zip 9.6 MB where it was 73.7. Clean under the sanitizers. It waits on its branch for the owner's word to go to main.

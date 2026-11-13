@@ -1,10 +1,10 @@
 # Tidying the repository: plan and hand-off
 
-Status (13 November 2026): **settled with the owner the same day. Steps 0 to 3 are done (the baseline; the pictures out of
-`docs/`; `src/` sorted by kind; object files); the owner has given their word for the cuts
-as listed (section 5a) and for `CLAUDE.md` as outlined (section 5b), steps 4 to 6 are done (`scene_crawl.c` in 70
-parts, `crawl_art.c` in 31, `CLAUDE.md` slimmed), and step 7, the last checks, is under way.** Nothing here changes the game: no version is
-bumped, nothing is released, and main is left alone until the owner says.
+Status (13 November 2026): **done, all seven steps, the same day it was settled, and proved at each. It is on
+`claude/peaceful-ritchie-fmeoal`, eleven commits from main at 1.0.0b21.5; merging it waits for the owner's word.**
+Nothing here changes the game: no version is bumped, nothing is released, and main is as it was. The Windows
+binary CI builds from this branch is 1.0.0b21.5's but for the five bytes of its link time; the browser's build is
+the same eight files.
 
 Read the hand-off log (section 9) first. It says where the last session stopped.
 
@@ -309,6 +309,11 @@ mentions in fifteen documents, the folder alone, so every source a plan names is
   the browser's page stays the same three files; mend it with the next change to that file.
 - `docs/PLAN-ui.md` names a `src/font_ui.c` that was never made, and `docs/PLAN-tutorial.md` a `pages.png` that
   became `pages1.png` and `pages2.png`. Both left as written.
+- The page's *Then and now* shows 29 frames of "this build" that are older than this build: run again,
+  `tools/gallery.sh` gives the 26 frames of 1.0.0b1 and 1.0.0b13 byte for byte and changes 27 of the 29 (the game
+  has moved on since they were taken). Not retaken here, since the page is a release's to change.
+- `tools/gallery.sh` needs main's whole history (it builds 1.0.0b1 and 1.0.0b13 in worktrees); a cloud session's
+  clone is shallow, and `git fetch --deepen=400 origin main` mends that.
 
 ## 9. Hand-off log
 
@@ -393,3 +398,19 @@ mentions in fifteen documents, the folder alone, so every source a plan names is
   within a file the bullets are in reading order, not the order they stood in; and the title screen, the portraits,
   her wares' buying, touch and the lessons were written up in the opening, so their reference is `docs/HISTORY.md` and
   their plans, which `CLAUDE.md` says. **The new `CLAUDE.md` is the owner's to read and amend.**
+- **13 November, session 1, step 7 done: the last checks.** *From nothing:* `make clean`, then `sh tools/tidy_check.sh
+  all`, which measured 1.0.0b21.5 afresh in its worktree: 46 objects, 7 binaries, 10 smoke frames, 84 sheets, the
+  site's 98 files and the dream's two runs, all alike (427 s). *The sanitizers:* `make asan`, then the dream from
+  level 1 for 1,500 s and from level 31 for 900 s, a scripted person (walking, casting, Tab, the bestiary, Esc), the
+  title screen into a new run, and HAUNT.EXE: no reports. *CI on the branch* (Build, run 133, started by hand at
+  `e0282df`): the Windows build and its smoke test passed, the browser's build and its smoke test in Chromium passed,
+  and nothing was released (that job runs only for main). **The Windows binary it made was compared with the released
+  1.0.0b21.5's: the same 2,894,273 bytes but for five, the link's time in the header and the checksum that follows
+  from it; every section alike. The browser's zip: all eight files alike, `haunted-core.wasm` among them.** The
+  win64 zip it made is 9.6 MB and 239 files (73.7 MB before). *The scripts whose paths changed, each run:*
+  `build_site.sh` (in the check), `portrait_sheet.py` (the same two tables), `uishots.sh` (a sheet written to
+  `media/sheets/uipass/`, then removed), `gallery.sh` (section 8 has what it showed). Every script in `tools/` parses.
+  **What is left is the owner's:** to read the new `CLAUDE.md` and amend it; to say when this goes to main (as one
+  squashed commit, like the rest; with `VERSION` as it is, CI releases nothing and the page is rebuilt the same); and
+  whether separate modules (section 7) are wanted. A session taking this up afresh: the branch's tip is the whole of
+  it, and `sh tools/tidy_check.sh all` proves it again in about seven minutes.
