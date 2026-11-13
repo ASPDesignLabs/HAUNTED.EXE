@@ -409,4 +409,5 @@ says where each thing went. ("This file" was `CLAUDE.md`, where this account sto
 done the same day, each proved: 289 pictures to `media/`, `src/` in six folders, objects kept (all seven binaries from nothing in
 43 s, 226 s before), `scene_crawl.c` in 70 parts and `crawl_art.c` in 31, `CLAUDE.md` from 250 KB to 27. CI built the branch: the
 Windows binary is 1.0.0b21.5's but for the five bytes of its link time, the browser's build the same eight files, and the win64
-zip 9.6 MB where it was 73.7. Clean under the sanitizers. It waits on its branch for the owner's word to go to main.
+zip 9.6 MB where it was 73.7. Clean under the sanitizers. Folded into main at the owner's word the same day, squashed as one
+commit like the releases, with no version bumped and nothing released.

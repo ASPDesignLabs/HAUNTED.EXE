@@ -1,10 +1,10 @@
 # Tidying the repository: plan and hand-off
 
-Status (13 November 2026): **done, all seven steps, the same day it was settled, and proved at each. It is on
-`claude/peaceful-ritchie-fmeoal`, eleven commits from main at 1.0.0b21.5; merging it waits for the owner's word.**
-Nothing here changes the game: no version is bumped, nothing is released, and main is as it was. The Windows
-binary CI builds from this branch is 1.0.0b21.5's but for the five bytes of its link time; the browser's build is
-the same eight files.
+Status (13 November 2026): **done, all seven steps, the same day it was settled, and proved at each; folded into main
+at the owner's word that day, squashed as one commit like the releases.** Nothing here changes the game: no version
+is bumped and nothing is released. The Windows binary CI builds from it is 1.0.0b21.5's but for the five bytes of its
+link time; the browser's build is the same eight files. It was built on `claude/peaceful-ritchie-fmeoal`, twelve
+commits from main at 1.0.0b21.5.
 
 Read the hand-off log (section 9) first. It says where the last session stopped.
 
@@ -422,4 +422,9 @@ mentions in fifteen documents, the folder alone, so every source a plan names is
   documents. Noted in `docs/KNOWN-ISSUES.md`, since a release's build would fail the same way on a slow runner. Also at
   the tip: a fresh checkout builds and passes `make smoke` from nothing in 46 s and draws its 84 sheets, so nothing
   leans on a file outside git; both cuts join to the old files again; `sh tools/tidy_check.sh`: all 46 objects alike.
+- **13 November, session 1, folded into main.** The owner, shown the report: "Go ahead and fold it into main." Squashed
+  onto main as one commit, as the releases are; `VERSION` stays 1.0.0b21.5, so CI publishes nothing and the page is
+  rebuilt the same. The owner did not speak of the new `CLAUDE.md`, so its *Standing rules* stand as the session wrote
+  them until they are amended. **Left for another day:** separate modules for the two great files (section 7), and the
+  things found on the way (section 8). The next release's notes may say the zip is a seventh the size it was.
 
