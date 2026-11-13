@@ -12,8 +12,7 @@ own palette (level 3), run I's textures, the light table, and the carved stone's
 and 18 MB doubled. To make them again:
 
 ```sh
-gcc -O2 -std=gnu11 -o build/titlemock src/crawl_art.c src/hand_img.c src/face_img.c src/cat_img.c src/font_vga.c \
-    src/crawl_ui.c src/ui_art.c src/gfx.c tools/titlemock.c -lm -lz
+make build/titlemock
 build/titlemock <dir>                # every GIF (doubled), its four stills, overview.png and logo.png
 TM_SCALE=1 build/titlemock <dir> a   # one of them, at native size
 build/titlemock <dir> flash          # the lightning's frames, to check them

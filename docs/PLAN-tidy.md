@@ -1,7 +1,7 @@
 # Tidying the repository: plan and hand-off
 
-Status (13 November 2026): **settled with the owner the same day. Steps 0 and 1 are done (the baseline; the pictures out of
-`docs/`); steps 2 and 3 are being built; steps 4 and 6 each wait for the owner's word before they begin.** Nothing here changes the game: no version is
+Status (13 November 2026): **settled with the owner the same day. Steps 0 to 2 are done (the baseline; the pictures out of
+`docs/`; `src/` sorted by kind); step 3 is being built; steps 4 and 6 each wait for the owner's word before they begin.** Nothing here changes the game: no version is
 bumped, nothing is released, and main is left alone until the owner says.
 
 Read the hand-off log (section 9) first. It says where the last session stopped.
@@ -141,6 +141,10 @@ The plans' older logs still name files as `src/<name>`; the name is right and th
 - `tools/package.py` has never packed `web/` or `site/`, so the zip's "full source" can't `make web` or `make cards`.
   Left as it is; the owner's to decide.
 - `CLAUDE.md`'s repository map said `scene_crawl.c` was "about 15,300 lines". It is 35,484.
+- `web/haunted.js` names `src/web_main.c` in a comment (it is `src/platform/web_main.c` now). Left as it is, so that
+  the browser's page stays the same three files; mend it with the next change to that file.
+- `docs/PLAN-ui.md` names a `src/font_ui.c` that was never made, and `docs/PLAN-tutorial.md` a `pages.png` that
+  became `pages1.png` and `pages2.png`. Both left as written.
 
 ## 9. Hand-off log
 
@@ -160,3 +164,12 @@ The plans' older logs still name files as `src/<name>`; the name is right and th
   both ways with the same stand-ins for the Windows binaries, the zip went from 70.4 MB and 384 files to 9.1 MB and
   120, so the next release's should be about 12 MB against 1.0.0b21.5's 73.7. The page says nothing of the zip's size,
   and the README's line on what the zip holds is still true.
+- **13 November, session 1, step 2 done.** `src/` is sorted: thirty files moved with `git mv` into `core/`, `platform/`,
+  `haunt/`, `crawl/`, `art/` and `data/` (section 6), none left in `src/` itself. The Makefile gives the compiler the
+  folders (`INC`), keeps `SRC` in the order it was (the order of linking), and takes its headers from `src/*/*.h`. Three
+  kinds of line changed in the code, none of them code: `scene_crawl.c` asks for `build/version.h` (it was
+  `../build/version.h`); the six tools ask for `crawl.h` and the rest by name (they said `../src/`); four comments
+  name a file's new place. `tools/portrait_sheet.py` reads `KINDS` from `src/crawl/scene_crawl.c` and writes the same two
+  tables. `CLAUDE.md` (its map and 33 mentions), the README's layout and the title mock-ups' caption say the new
+  places. `sh tools/tidy_check.sh all`: all alike. The plans' logs still name 105 files the old way, in sixteen
+  documents, as section 6 says; a pass over them would be mechanical, and is the owner's to ask for.

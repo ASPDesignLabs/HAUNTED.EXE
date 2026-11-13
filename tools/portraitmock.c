@@ -1,4 +1,4 @@
-/* Mock-ups of the portraits of the slain on her walls (docs/PLAN-portraits.md): src/crawl_portrait.c's faces set in her north
+/* Mock-ups of the portraits of the slain on her walls (docs/PLAN-portraits.md): src/art/crawl_portrait.c's faces set in her north
  * wall, seen straight on with the crypt's own textures, palette and light, written as animated GIFs (each frame with its own
  * palette) and sheets of stills.
  *
@@ -7,10 +7,10 @@
  *
  *   make build/portraitmock
  */
-#include "../src/crawl.h"
-#include "../src/crawl_portrait.h"
-#include "../src/crawl_ui.h"
-#include "../src/gfx.h"
+#include "crawl.h"
+#include "crawl_portrait.h"
+#include "crawl_ui.h"
+#include "gfx.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>

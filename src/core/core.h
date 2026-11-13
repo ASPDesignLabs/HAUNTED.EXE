@@ -86,7 +86,7 @@ void slot_write(int i, const uint8_t *buf, int len);
 extern const Scene scene_haunt;     /* HAUNT.EXE   - 80x25 text mode, 720x400 */
 extern const Scene scene_crawl;     /* CATACOMB    - mode 13h, 320x200        */
 
-/* VGA bitmap fonts (src/font_vga.c, generated). */
+/* VGA bitmap fonts (src/data/font_vga.c, generated). */
 extern const unsigned char font_vga16[256][16];
 extern const unsigned char font_bios8[256][8];
 

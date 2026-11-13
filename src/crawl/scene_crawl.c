@@ -25,7 +25,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <time.h>
-#include "../build/version.h"
+#include "build/version.h"
 
 /* a thing of paper or ink inside a menu keeps its own letters */
 #define UI_PLAIN_BEGIN void (*hk8_)(Frame *, int, int, uint8_t, int, int) = gfx_hook8, (*hk16_)(Frame *, int, int, uint8_t, int, int) = gfx_hook16; gfx_hook8 = 0; gfx_hook16 = 0
@@ -26223,7 +26223,7 @@ static void ledger_open(int i) {
 /* ---- the title screen (1.0.0b21.1, docs/PLAN-title.md section 7): it comes up when a person takes over, before anything
  * is theirs. Any key or button (not a stick) brings its menu into the middle while the scene goes on and the lament ground
  * plays; a grave rises from the ledger, a new run begins, the controls or help are shown. Left untouched on its prompt it
- * gives the screen back to the dream. The art is src/crawl_title.c. ---- */
+ * gives the screen back to the dream. The art is src/art/crawl_title.c. ---- */
 enum { TS_PROMPT, TS_MENU, TS_GRAVES, TS_CONTROLS, TS_HELP };
 #define TITLE_IDLE 90.0f                                           /* untouched this long on its prompt: back to the dream */
 #define TITLE_LEVEL 3                                              /* its art is run I's, at level 3, as it was drawn */

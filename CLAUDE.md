@@ -176,11 +176,11 @@ Step 11, showing it (sounds, captions, the bestiary's lines, the Codex, achievem
 
 A pass over the screens is planned in [`docs/PLAN-ui.md`](docs/PLAN-ui.md) (3 November, a draft on
 `claude/gifted-rubin-q8up37`; nothing built): every menu cut in weathered marble (ledger stones, headstones, tablets),
-three faces of our own at today's sizes, a kit of structured pieces (`src/crawl_ui.c`), the Alignment redrawn as a skill
+three faces of our own at today's sizes, a kit of structured pieces (`src/art/crawl_ui.c`), the Alignment redrawn as a skill
 tree with an icon to each node and a pane beside it, and the other screens after it. Visual only. Settled the same day (the
 owner took every answer marked but U7, this pass whole before PLAN-ai's step 11, and U10, full screens keeping the dimmed
 crypt in a 4 px margin); step 0 is done (`tools/uishots.sh`, the before sheets in `media/sheets/uipass/`), and step 1's sheet is
-drawn (`src/crawl_ui.c`, `src/ui_art.c`, `tools/uisheet.c`; `media/sheets/uipass/sheet-ui.png`) and approved. Step 2 is built
+drawn (`src/art/crawl_ui.c`, `src/art/ui_art.c`, `tools/uisheet.c`; `media/sheets/uipass/sheet-ui.png`) and approved. Step 2 is built
 (harness only; the Windows build compiled and smoke-tested by CI on the branch): every menu, card and the tally cut in the stone through `gfx_hook8/16` and `ui_on`/`ui_off` (menus lend
 the floor's and ceiling's ramps for the frame; cards over the live crypt use the run's stone), with the fit checks'
 `UI overflow` lines in the debug build. Step 3 is built (harness only; CI compiled the Windows build): the Alignment at the Lampstand and on Tab's
@@ -201,7 +201,7 @@ Its section 10 is the hand-off log: read it first.
 A browser build for the page is planned in [`docs/PLAN-web.md`](docs/PLAN-web.md), settled, **built** and deployed (3 November,
 on `claude/vibrant-mccarthy-9hk3fi`, squashed onto main as one commit at the owner's word; tested in headless Chromium and
 the harness only, and by CI's smoke test): Emscripten and a
-JavaScript shell (`src/web_main.c`, `web/`) beside `win_main.c` and `tools/host.c`, at `/play/` on the page, saves in
+JavaScript shell (`src/platform/web_main.c`, `web/`) beside `win_main.c` and `tools/host.c`, at `/play/` on the page, saves in
 `localStorage`. The owner took every recommended answer but W3 (Space casts in the browser, Ctrl does nothing: a few
 lines behind `HVS_WEB`, the only change to the game's code) and W7 (it goes out as part of 1.0.0b14: CI uploads the web zip to that
 release from main without a bump, and Pages serves `/play/` from it). The link is the *BROWSER* cell under *EVERYTHING*,
@@ -212,7 +212,7 @@ The music is planned in [`docs/PLAN-music.md`](docs/PLAN-music.md) (3 November, 
 `claude/vibrant-keller-bdeun7` from main at 1.0.0b14 with the browser's build): a piece for each run, her hall's, the menus'
 lullaby in each run's guise, a fight's layers and quickening, the failing's muffle and heartbeat, Music and Effects sliders;
 the march retired. It is **1.0.0b15** (the owner, 4 November); the minds' showing and the rest of the art pass move up to
-1.0.0b16, the lower storey to 1.0.0b17 (since moved on again, to 1.0.0b18, 1.0.0b19 and 1.0.0b20, by PLAN-play below and 1.0.0b18's release, and to 1.0.0b23 by PLAN-combat). Steps 1-2 (the engine and the pieces, in `src/snd.c` after the bosses' waltzes; `sh
+1.0.0b16, the lower storey to 1.0.0b17 (since moved on again, to 1.0.0b18, 1.0.0b19 and 1.0.0b20, by PLAN-play below and 1.0.0b18's release, and to 1.0.0b23 by PLAN-combat). Steps 1-2 (the engine and the pieces, in `src/core/snd.c` after the bosses' waltzes; `sh
 tools/music.sh` renders them into `build/music/`) were sent to the owner, who said to wire them in; steps 3-4 (the game's side,
 `music_frame` at the end of `scene_crawl.c`, and the sliders) and step 5's checks were done, harness only (CI compiled and
 smoke-tested the Windows and browser builds on the branch), and it was released as **1.0.0b15** at the owner's word (4 November),
@@ -288,7 +288,7 @@ record (`PL.title`, `PL_BYTES_TITLE`). PRESS ANY KEY / PRESS ANY BUTTON follows 
 but not a stick. A menu then comes into the middle while the scene goes on: CHOOSE A GRAVE (the ledger's pages as graves,
 from `page_info`, which now reads a page's class from `LG_ALIGN`; `ledger_open`), BEGIN A NEW RUN (`run_new`), THE
 CONTROLS (the keys' list, or `ui_pad` read-only), HELP (a page still to write). The music is the lament ground
-(`snd_set_menu(3)`). 90 s untouched on the prompt gives the screen back to the dream. The art is `src/crawl_title.c`
+(`snd_set_menu(3)`). 90 s untouched on the prompt gives the screen back to the dream. The art is `src/art/crawl_title.c`
 (`title_draw` with a `TitleView`), drawn with a sculpt kit (`sc_*`) and the game's palette, textures and sprites. The logic
 is the `TI` block in `scene_crawl.c` before "death's cost". `tools/titlemock.c` (`make build/titlemock`) drives the same art
 for mock-ups, sheets and a bench. It went out with main's music pass (docs/PLAN-music-work.md), squashed onto main as one
@@ -310,7 +310,7 @@ kills each rank asks lowered to 20, 25, 20, 15, 10 and 5 gilded, for the game's 
 (harness only): the record's part, `RUN.por_*` saved as `LG_PORTRAIT` (`por_fill`, `por_guess` for an older page), a life
 (`por_life` from `death_fall`, `POR_CLEARED` from `rec_cleared`), the counts lowered in `slayer_need` and `slayer_sweep` for a
 record already past them; debug `PORTRAITS` lines as a run is read and at each visit to her room. **Step 2 is built** (harness
-only): `src/crawl_portrait.c` in the game's build, the twenty-two hung at section 7's faces by `por_hang` (`POR`, `Cell.por`),
+only): `src/art/crawl_portrait.c` in the game's build, the twenty-two hung at section 7's faces by `por_hang` (`POR`, `Cell.por`),
 drawn by `por_view`/`por_frame` into 128-texel overlays (`POR_OV`, by columns, mirrored as the walls are) while in view, laid over
 their faces by `render_walls`; each run's stone kept by `portrait_keep_runs` through `crawl_art_stone`; `CRAWL_PORTRAITS=n`,
 `CRAWL_TPPORTRAIT=k[,d]`. **Step 3 is built** (harness only): the layouts dealt in `por_hang` (no neighbour alike, tapestries gathered
@@ -329,7 +329,7 @@ four in the plot, two faces each (`PorAt.boss`/`half`, `NPOR` 30, `por_head`, `p
 tapestries, `boss_gold`, `render_bosscard`, `POR_BOSS_NAME`; `media/sheets/portraits/bosses.png`, `knight.gif`). **Step 6, the checks, is done**, and all
 of it was released as **1.0.0b21.2**, "The Portraits of the Slain", at the owner's word (10 November), a pre-release, squashed onto main as one
 commit, harness only (CI compiled and smoke-tested the Windows and browser builds on the branch first). The README's strip is
-`media/previews/preview_catacomb_portraits.png`. Its art is `src/crawl_portrait.c`, driven
+`media/previews/preview_catacomb_portraits.png`. Its art is `src/art/crawl_portrait.c`, driven
 by `tools/portraitmock.c` (`make build/portraitmock`); the settled numbers are `docs/portraits/ranks.csv` and `bosses.csv`, written by
 `tools/portrait_sheet.py` from `KINDS`.
 
@@ -370,7 +370,7 @@ left, the view following a finger slid on the right through `touch_follow`'s 1-e
 the stones drawn by `crawl_stage`, Esc's TURNING and SMOOTHING by touch (`PL.tturn`, `PL.tsmooth`, `PL_BYTES_TOUCH`); in
 `web/haunted.js` `cfg.controls` asked on the plate, `fitStage`, `finger()` on Pointer Events. **The stones' art pass** (the owner's,
 the same day; on `claude/brave-albattani-sqvb5n`, fast-forwarded from the touch branch, which is now the one to release from): each
-stone a monument cut with the graves' sculpt kit (*Touch's stones* at the end of `src/crawl_title.c`: `TStone`, `TsInfo`, `tstone_draw`,
+stone a monument cut with the graves' sculpt kit (*Touch's stones* at the end of `src/art/crawl_title.c`: `TStone`, `TsInfo`, `tstone_draw`,
 `tstone_ring`), weathered, broken and grown over, with places cut for what the game says (a socket, a ring for a time, a tablet with
 handles, a groove), filled each frame by `crawl_stage` (`use_word` for what E would do); the sheet and the contrast check are
 `build/titlemock <dir> touch` (`media/sheets/touch/`). The first private test page is kept at the owner's word (this session couldn't write to
@@ -390,7 +390,7 @@ off the generator's 4-cell lanes, so each gets a lane mask drawn with it. `open_
 vault's two gold doors are made one lock (T19 a). The prefs byte for the lessons is the 27th, after touch's. Settled (T20-T24
 answered); **step 2 is built** (harness only): level 1 drawn in play, everyone's (`g_drawn`, `DRAWN`, `gen_drawn` and its kin before
 `start_level`; `gen_level`'s tail is `gen_dress`, shared; `lane()` reads `g_lane` on a drawn level; `CRAWL_DRAWN=0` the generated level
-back), **step 3** (level 1's burning floor, `DF`, `drawn_fire_tick`) and **step 4's sheet** of the lessons' pages (`src/crawl_tutor.c`,
+back), **step 3** (level 1's burning floor, `DF`, `drawn_fire_tick`) and **step 4's sheet** of the lessons' pages (`src/crawl/crawl_tutor.c`,
 `media/sheets/tutorial/pages1.png`, `pages2.png`, approved), **steps 5 and 6** (the lessons in play on level 1 and in her room after it: `TU`,
 `tu_tick`, `tu_steer`, `UI_TUTOR`, `WK_MEND`, `PL.tut`, the title's HELP; `CRAWL_TUT`, `CRAWL_TUTBEAT`, `CRAWL_TUTKEY`, `CRAWL_TUTCALM`,
 `CRAWL_TUTAUTO`), level 2's art sheet (`media/sheets/tutorial/level2-art.png`, `make sheets`' `tutorial2`: the rimed seal `SP_MK_RSEAL0..2`,
@@ -435,28 +435,29 @@ says where each thing went.
 
 | Path | What it is |
 |---|---|
-| `src/core.h` | The `Scene` interface (enter/update/render, plus control/status/input for a playable scene), `Frame` (8-bit pixels + 6-bit VGA DAC palette), `Input`, the slots API (the ledger's pages, the progress, the mark) |
-| `src/app.c/.h` | Scene rotation and fades, settings, input routing, the slots (`app_slot_load/take`) |
-| `src/win_main.c` | The Windows shell: `/s` saver, `/p` preview, `/c` settings dialog, `/w` window (the default when run as `HAUNTED.EXE` with no arguments), `/f` capture window; OpenGL presentation with a GDI fallback (`HVS_NOGL=1`); raw mouse; the game controller (`pad_open`, `pad_poll`, `pad_motors`: XInput loaded at run time); registry |
-| `src/gfx.c/.h`, `src/font_vga.c` | Drawing helpers and the VGA 8x16 font (generated by `tools/gen_font.py`) |
-| `src/snd.c/.h` | OPL2-style FM synth, sequencer, reverb/delay, the two music programs (`SND_PROG_HAUNT`, `SND_PROG_CRAWL`) and the SFX list; scored pieces read from text (docs/PLAN-music-work.md) |
-| `src/scene_haunt.c`, `src/haunt_art.c/.h` | HAUNT.EXE: BIOS POST, DOS prompt, the haunted programs, seven half-block ANSI art scenes, the crash |
-| `src/scene_crawl.c` | CATACOMB: generator, autopilot, player mode, combat, spells and runes, merchant, secrets, wisps, Black Altars, lightmap, raycaster, sprites, HUD, tally, menus, the console, save/load and the ledger, creatures, the record and the bestiary, the map and Levels of Atonement (about 15,300 lines; see below) |
-| `src/crawl_art.c`, `src/crawl.h` | CATACOMB's palette, colormap, procedural wall textures (`T_*`) and sprites (`SP_*`), `crawl_art_level()` per-level tint and decay |
-| `src/crawl_gear.c/.h` | Spells by tier and runes by quality (`rune_tier`, `rune_from_tier`, `RUNE_EXQ`); pieces to wear (`Piece`: kind, quality, level, anointed, ability, rolled stats) and bags; rolls, names, prices, the caster's totals and their caps |
+| `src/` | Sorted by kind (docs/PLAN-tidy.md): `core/` what both scenes stand on, `haunt/` and `crawl/` the two scenes, `art/` what only draws, `data/` traced and generated bitmaps (never worth reading or searching), `platform/` the Windows and browser shells. The Makefile gives the compiler the folders (`INC`), so a file asks for a header by its name; a new source file goes in `SRC`, in the order it is to be linked |
+| `src/core/core.h` | The `Scene` interface (enter/update/render, plus control/status/input for a playable scene), `Frame` (8-bit pixels + 6-bit VGA DAC palette), `Input`, the slots API (the ledger's pages, the progress, the mark) |
+| `src/core/app.c/.h` | Scene rotation and fades, settings, input routing, the slots (`app_slot_load/take`) |
+| `src/platform/win_main.c` | The Windows shell: `/s` saver, `/p` preview, `/c` settings dialog, `/w` window (the default when run as `HAUNTED.EXE` with no arguments), `/f` capture window; OpenGL presentation with a GDI fallback (`HVS_NOGL=1`); raw mouse; the game controller (`pad_open`, `pad_poll`, `pad_motors`: XInput loaded at run time); registry |
+| `src/core/gfx.c/.h`, `src/data/font_vga.c` | Drawing helpers and the VGA 8x16 font (generated by `tools/gen_font.py`) |
+| `src/core/snd.c/.h` | OPL2-style FM synth, sequencer, reverb/delay, the two music programs (`SND_PROG_HAUNT`, `SND_PROG_CRAWL`) and the SFX list; scored pieces read from text (docs/PLAN-music-work.md) |
+| `src/haunt/scene_haunt.c`, `src/haunt/haunt_art.c/.h` | HAUNT.EXE: BIOS POST, DOS prompt, the haunted programs, seven half-block ANSI art scenes, the crash |
+| `src/crawl/scene_crawl.c` | CATACOMB: generator, autopilot, player mode, combat, spells and runes, merchant, secrets, wisps, Black Altars, lightmap, raycaster, sprites, HUD, tally, menus, the console, save/load and the ledger, creatures, the record and the bestiary, the map and Levels of Atonement (about 35,500 lines; see below) |
+| `src/art/crawl_art.c`, `src/crawl/crawl.h` | CATACOMB's palette, colormap, procedural wall textures (`T_*`) and sprites (`SP_*`), `crawl_art_level()` per-level tint and decay |
+| `src/crawl/crawl_gear.c/.h` | Spells by tier and runes by quality (`rune_tier`, `rune_from_tier`, `RUNE_EXQ`); pieces to wear (`Piece`: kind, quality, level, anointed, ability, rolled stats) and bags; rolls, names, prices, the caster's totals and their caps |
 | `tools/items.c` | `make items`: a hundred rolled wares a level as `build/items.json`, for checking names and numbers |
-| `src/hand_img.c`, `src/face_img.c`, `src/cat_img.c` | Traced bitmaps (data) |
-| `src/crawl_title.c/.h`, `tools/titlemock.c` | The title screen's art (docs/PLAN-title.md): `title_draw(Frame *, t, TitleView *)`, its three scenes, menus and graves, the sculpt kit (`sc_*`); touch's stones cut with the same kit (docs/PLAN-mobile.md 6.5: `tstone_draw`, `tstone_ring`); and the mock-ups' driver (`make build/titlemock`; `build/titlemock <dir> [a\|b\|c\|menu\|logo\|parts\|overview\|bench\|touch]`, `touch` the stones' sheet and their contrast) |
-| `src/crawl_portrait.c/.h`, `tools/portraitmock.c`, `tools/portrait_sheet.py` | The portraits of the slain (docs/PLAN-portraits.md), in the game's build since its step 2: `portrait_face` draws a portrait as a wall face's overlay at any scale (a feat's medallion with it), `portrait_keep_runs` each run's stone, `portrait_boss_face` a boss's two faces; the mock-ups' driver (`make build/portraitmock`; `build/portraitmock <dir> [all\|skeleton\|veil\|room\|sheets\|card\|medals\|bosses\|bench\|check]`, `PM_SCALE=n`); the settled numbers as `docs/portraits/ranks.csv` and `bosses.csv` (`--grid` the plan's table) |
-| `src/crawl_ui.c/.h`, `src/ui_art.c` | The carved stone (docs/PLAN-ui.md): the marble, slabs, wells, the faces and their ways, icons, sockets, the Alignment's stone; the faces and icons as strings |
+| `src/data/hand_img.c`, `src/data/face_img.c`, `src/data/cat_img.c` | Traced bitmaps (data) |
+| `src/art/crawl_title.c/.h`, `tools/titlemock.c` | The title screen's art (docs/PLAN-title.md): `title_draw(Frame *, t, TitleView *)`, its three scenes, menus and graves, the sculpt kit (`sc_*`); touch's stones cut with the same kit (docs/PLAN-mobile.md 6.5: `tstone_draw`, `tstone_ring`); and the mock-ups' driver (`make build/titlemock`; `build/titlemock <dir> [a\|b\|c\|menu\|logo\|parts\|overview\|bench\|touch]`, `touch` the stones' sheet and their contrast) |
+| `src/art/crawl_portrait.c/.h`, `tools/portraitmock.c`, `tools/portrait_sheet.py` | The portraits of the slain (docs/PLAN-portraits.md), in the game's build since its step 2: `portrait_face` draws a portrait as a wall face's overlay at any scale (a feat's medallion with it), `portrait_keep_runs` each run's stone, `portrait_boss_face` a boss's two faces; the mock-ups' driver (`make build/portraitmock`; `build/portraitmock <dir> [all\|skeleton\|veil\|room\|sheets\|card\|medals\|bosses\|bench\|check]`, `PM_SCALE=n`); the settled numbers as `docs/portraits/ranks.csv` and `bosses.csv` (`--grid` the plan's table) |
+| `src/art/crawl_ui.c/.h`, `src/art/ui_art.c` | The carved stone (docs/PLAN-ui.md): the marble, slabs, wells, the faces and their ways, icons, sockets, the Alignment's stone; the faces and icons as strings |
 | `tools/gallery.sh`, `media/gallery/` | The page's *Then and now*: the same moments in 1.0.0b1, 1.0.0b13 and this build, each from its own build of the harness (old ones in worktrees under `build/gallery/`), as single 320x200 frames; `build_site.sh` copies them to `img/gallery/` |
 | `tools/uisheet.c`, `tools/uishots.sh` | The screens' sheet for approval (`make sheets`; `build/uisheet fit` checks the pane's text fits), and every screen from the harness as contact sheets |
 | `docs/PLAN-tutorial.md`, `media/sheets/tutorial/`, `tools/tutorial_read.py` | The tutorial's plan; the owner's level drawings and their readings in whole cells, the lessons' sheets; the reader (`python3 -I tools/tutorial_read.py <png>`: the grid, cells, coloured edges and dots) |
-| `src/crawl_tutor.c/.h` | The lessons' words (`TUT`, `tut_lines`, `tut_head`, `tut_wrap`) and their page (`ui_tutor`), shared by the game and `build/uisheet tutor <dir>` |
+| `src/crawl/crawl_tutor.c/.h` | The lessons' words (`TUT`, `tut_lines`, `tut_head`, `tut_wrap`) and their page (`ui_tutor`), shared by the game and `build/uisheet tutor <dir>` |
 | `tools/host.c` | The headless test harness (Linux): PNG frames, WAV audio, benchmarks, scripted input |
 | `tools/tidy_check.sh` | Proves a change moved nothing of the game (docs/PLAN-tidy.md): this tree's objects against another commit's, byte for byte (`sh tools/tidy_check.sh [objects\|all] [rev]`; `all` adds the binaries, smoke frames, sheets, site and the dream's fixed runs) |
 | `tools/music.sh` | CATACOMB's pieces for the ear (docs/PLAN-music.md): each piece, and each run's through a fight, the failing and a menu, into `build/music/`; `hall`, her hall's pieces and the Lampstand's; `spare`, run I's attempts kept unused (docs/PLAN-music-work.md) |
-| `src/web_main.c`, `web/` | The browser's shell (docs/PLAN-web.md): the game's exported door, and the play page, its script and the sound worklet; `make web` (Emscripten) builds `build/web`, `make webzip` the release's `HAUNTED-<version>-web.zip`; `HVS_WEB` makes Space the cast key in `scene_crawl.c` |
+| `src/platform/web_main.c`, `web/` | The browser's shell (docs/PLAN-web.md): the game's exported door, and the play page, its script and the sound worklet; `make web` (Emscripten) builds `build/web`, `make webzip` the release's `HAUNTED-<version>-web.zip`; `HVS_WEB` makes Space the cast key in `scene_crawl.c` |
 | `tools/web_smoke.js` | The browser build's smoke test in Playwright's Chromium (`node tools/web_smoke.js <site> [secs] [shots]`; CI runs it) |
 | `tools/touch_smoke.js` | The touch build walked in Playwright's Chromium as a Pixel 7 held sideways (docs/PLAN-mobile.md): `node tools/touch_smoke.js build/web <shots>` |
 | `tools/probe_page.py` | The phone probe's page (docs/PLAN-mobile.md, step 0): `build/web` made over for a host that wraps the page and passes no query, the probe on (`python3 tools/probe_page.py [out] [take\|perf]`) |
@@ -759,7 +760,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   Every voice, drum and scheduled note belongs to a bus (`BUS_RUN`, `BUS_MUZAK`, `BUS_BOSS`, `BUS_SFX`, `BUS_SHOP`,
   `BUS_MENU`, set by `g_vbus` when it starts): the run's piece gives way to the waltz as it does to a pocket's room, and the
   fanfare and the stinger (`BUS_SFX`) play over either.
-- **The music** (1.0.0b15, docs/PLAN-music.md; `src/snd.c` after the waltzes). A piece (`Piece`: pace, metre, root, four
+- **The music** (1.0.0b15, docs/PLAN-music.md; `src/core/snd.c` after the waltzes). A piece (`Piece`: pace, metre, root, four
   sections of eight bars as `MSec`, chords and a tune as `MNote`, an order, a step function, a gain) runs on a `Player` of
   its own clock and bus: the run's (`PL_RUN`, `BUS_RUN`; runs I and II are scored pieces since docs/PLAN-music-work.md,
   `gothic_step` and `descent_step`, runs III and IV still `hollows_step`, `deep_step`), her hall's (`habanera_step`, or
@@ -1934,7 +1935,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   The names `warded`, `ward_cracked`, `ward_give`, `ward_str` are still the warded creatures', `ward_shards` the Bone Ward's.
   Debug: `CRAWL_LAMPS=0` (not `CRAWL_WARD`, the warded creatures'), `CRAWL_WARDLIT=n`, `CRAWL_TPWARD=k`, `CRAWL_WARDMAP=1`, `CRAWL_WARDTRACE=1`, `WARD level n:`, `EVENT
   ward_offer`, `ward_lit`, `ward_out`, `ward_held`, `ward_driven`, `ward_breach` (never, or a fault). *The controller* (step 7;
-  its sheet `media/sheets/b18-1/pad.png`, approved): `ui_pad` (`UiPad`, `UI_PAD_NAME`) at the end of `src/crawl_ui.c` draws the pad,
+  its sheet `media/sheets/b18-1/pad.png`, approved): `ui_pad` (`UiPad`, `UI_PAD_NAME`) at the end of `src/art/crawl_ui.c` draws the pad,
   each button's job on a leader, the chosen one lit, the options, the jobs to trade and the look; `build/uisheet pad <png>` (in
   `make sheets`) draws it and fails on any overflow. The layout is `PL` (`job[b]`: the job button b has, a job named by the
   button it began on, so `job[b] == b` is the first layout; `swap`, `quiet`, `turn` in tenths): `pl_read` (SLOT_PREFS, or 1.0.0b15's

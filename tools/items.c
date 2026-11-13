@@ -6,8 +6,8 @@
  * ITEMS_LINES=a,b,c,d,e,f gives the lines' ranks (Fire to Physical) the wares lean to, ITEMS_CLASS=k the class (1-6 by
  * element) and ITEMS_OLD=1 the rolls before 1.0.0b21 (docs/PLAN-combat.md section 12)
  */
-#include "../src/crawl_gear.h"
-#include "../src/crawl.h"
+#include "crawl_gear.h"
+#include "crawl.h"
 #include <stdio.h>
 #include <stdlib.h>
 
