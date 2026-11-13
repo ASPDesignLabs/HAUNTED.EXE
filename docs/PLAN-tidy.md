@@ -1,7 +1,7 @@
 # Tidying the repository: plan and hand-off
 
-Status (13 November 2026): **settled with the owner the same day. Steps 0 to 2 are done (the baseline; the pictures out of
-`docs/`; `src/` sorted by kind); step 3 is being built; steps 4 and 6 each wait for the owner's word before they begin.** Nothing here changes the game: no version is
+Status (13 November 2026): **settled with the owner the same day. Steps 0 to 3 are done (the baseline; the pictures out of
+`docs/`; `src/` sorted by kind; object files); step 4 waits for the owner's word on its list of cuts, and step 6 for their word on its outline.** Nothing here changes the game: no version is
 bumped, nothing is released, and main is left alone until the owner says.
 
 Read the hand-off log (section 9) first. It says where the last session stopped.
@@ -173,3 +173,16 @@ The plans' older logs still name files as `src/<name>`; the name is right and th
   tables. `CLAUDE.md` (its map and 33 mentions), the README's layout and the title mock-ups' caption say the new
   places. `sh tools/tidy_check.sh all`: all alike. The plans' logs still name 105 files the old way, in sixteen
   documents, as section 6 says; a pass over them would be mechanical, and is the owner's to ask for.
+- **13 November, session 1, step 3 done.** The Makefile keeps objects: `build/obj/<rel|debug|asan>/<the file's path>.o`,
+  each with the compiler's own list of what it read (`-MMD -MP`), linked in `SRC`'s order; `MAKEFLAGS` asks for as many
+  jobs as cores unless `clean` is a goal, and `make -j1` still gives one. Every target keeps its name. New: `make asan`
+  (`build/host_asan`), so the sanitizers' command is no longer put together by hand; `make clean` prunes git's record
+  of worktrees it removed (`tools/gallery.sh` and `tools/tidy_check.sh` keep theirs under `build/`). The Windows and
+  browser rules are untouched but for their lists' paths. Measured here (four cores): all seven binaries from nothing
+  43 s, against 226 s for the old Makefile, which compiled all of it again after any change; after a change now,
+  `gfx.c` 0.3 s, `crawl_title.c` 4 s, `crawl_art.c` 18 s, `scene_crawl.c` 35 s (release and debug at once), a header
+  35 s when `scene_crawl.c` reads it, nothing changed 0.0 s. `sh tools/tidy_check.sh all`: all alike, the seven
+  binaries byte for byte. `make asan` 101 s, no warnings; the dream 300 s on it, no reports. **Next: step 4, which
+  waits for the owner's word.** For it: the Windows and browser rules name their sources and `$(HDR)`; give them the
+  parts too (a wildcard over `src/*/*/*.c`), since those two builds keep no lists of what they read.
+  `tools/portrait_sheet.py` reads `KINDS` out of `scene_crawl.c`'s text: point it at the part that holds it.

@@ -476,12 +476,21 @@ says where each thing went.
 ```sh
 make host                 # build/host: the harness (needs gcc, zlib)
 make build/host_debug     # with -DHAUNT_DEBUG -DCRAWL_DEBUG: debug switches and event logging
+make asan                 # build/host_asan: the debug harness under AddressSanitizer and UBSan
 make smoke                # both scenes, a scripted player, a 60 s benchmark (CI runs this)
 make scr                  # dist/HAUNTED.scr (needs x86_64-w64-mingw32-gcc); make zip for the package
 make cards                # title cards (needs Pillow)
 make web                  # the browser's build in build/web (needs emcc: Emscripten 6.0.13, as CI pins)
 sh tools/build_site.sh /tmp/site   # the page, as Pages will publish it
+sh tools/tidy_check.sh    # proves a change that should move nothing moved nothing: every object against 1.0.0b21.5's
 ```
+
+On Linux the Makefile keeps each file's object in `build/obj/<rel|debug|asan>/` and compiles as many at once as there are
+cores (docs/PLAN-tidy.md, step 3), so a change compiles only what it touched: `scene_crawl.c` 35 s, `crawl_art.c` 18 s, most
+others under 5 s, and nothing else with them (before, any change compiled everything: 71 s for the harness, 226 s for all seven
+binaries; now 43 s from nothing). The compiler records what each file `#include`d, so a header compiles again exactly what
+reads it. `make -j1` for one at a time; `make clean` after changing `CFLAGS`. The Windows and browser builds are still single
+commands.
 
 The harness (`tools/host.c`):
 
@@ -618,9 +627,9 @@ and 2 (the old 46-byte raw `Gear`; version 1 without a record) still load: their
 pieces of their tier (`gear_from_old`). A few lines of Python writing version 1 are still the quickest
 way to start a test at a given level with given spells.
 
-Memory safety: build the harness with `-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer
--DHAUNT_DEBUG -DCRAWL_DEBUG` (same sources as `build/host`) and run long autopilot and scripted player
-sessions with `ASAN_OPTIONS=detect_leaks=0`. Every round so far has been clean; keep it that way.
+Memory safety: `make asan` builds `build/host_asan` (`-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer`
+with the debug switches); run long autopilot and scripted player sessions on it
+with `ASAN_OPTIONS=detect_leaks=0`. Every round so far has been clean; keep it that way.
 
 Windows under Wine (in a container with `wine` and `xvfb-run`): set `WINEPREFIX`, run `wineserver -w`
 before `xvfb-run -a -s "-screen 0 1920x1080x24"` (a wineserver started outside the display gives black
@@ -1061,8 +1070,8 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   waits and `snd_hold` holds the game's sounds while the music plays on. Its codes are secret: they are
   in the source only as hashes (`CON_CODES`) and a scrambled list (`CON_HELP`). Never write them in the
   repo, the README, the page, a commit message or a comment; the owner keeps the list. A code that
-  works sets `CON.used` until the program closes: no achievements, and nothing signed or written. `build/version.h` gives it the version (`make host` makes it; build it first
-  for the ASan command below). The debug build logs each console line as `CONSOLE ...`.
+  works sets `CON.used` until the program closes: no achievements, and nothing signed or written. `build/version.h` gives it the version (any `make` of the harness
+  makes it). The debug build logs each console line as `CONSOLE ...`.
 - **Saves: the merchant's ledger** (docs/PLAN-b7.md sections 2, 3 and 11; `run_pack`/`run_unpack`,
   format above; the gear is packed field by field, so adding to `Gear` means adding to
   `gear_pack`/`gear_unpack` and a new version that still loads the old ones; `REC_KINDS` is fixed at 24

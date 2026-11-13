@@ -1,5 +1,6 @@
 # HAUNTED.EXE - a Halloween VGA screensaver
-#   make host   - test harness for Linux (PNG frames + WAV audio)
+#   make host   - test harness for Linux (PNG frames + WAV audio); build/host_debug has the debug switches and event log
+#   make asan   - build/host_asan: the debug harness under AddressSanitizer and UBSan (run with ASAN_OPTIONS=detect_leaks=0)
 #   make scr    - Windows screensaver (needs x86_64-w64-mingw32-gcc)
 #   make zip    - the release package
 #   make smoke  - a short headless run of both scenes in the test harness
@@ -10,6 +11,8 @@
 #   make items  - a hundred rolled wares a level as build/items.json, for checking names and numbers
 #   make combat - the balance sheet as build/combat.txt: the dead's harm and the caster's by level (docs/PLAN-combat.md)
 #   make web    - the browser's build in build/web and dist/HAUNTED-<version>-web.zip (needs Emscripten's emcc)
+# On Linux each file is compiled once into build/obj/ and kept, as many at a time as there are cores, so a change compiles
+# only what it touched (make -j1 for one at a time; make clean after changing CFLAGS).
 VERSION := $(shell cat VERSION)
 FILEVER := $(shell sed -E 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*/\1,\2,\3,0/' VERSION)
 PKG      = dist/HAUNTED-$(VERSION)-win64.zip
@@ -23,12 +26,38 @@ SRC      = src/core/app.c src/core/gfx.c src/data/font_vga.c src/core/snd.c src/
            src/crawl/crawl_gear.c src/data/face_img.c src/data/cat_img.c src/haunt/scene_haunt.c src/haunt/haunt_art.c src/art/crawl_ui.c \
            src/art/ui_art.c src/art/crawl_title.c src/art/crawl_portrait.c src/crawl/crawl_tutor.c
 CFLAGS  ?= -O2 -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Wno-misleading-indentation
+DEBUG    = -DHAUNT_DEBUG -DCRAWL_DEBUG
+ASAN     = -O1 -g -std=gnu11 -fsanitize=address,undefined -fno-omit-frame-pointer
+
+ifeq (,$(filter clean,$(MAKECMDGOALS)))
+MAKEFLAGS += -j$(shell nproc 2>/dev/null || echo 2)
+endif
 
 all: host
 
-build/host: $(SRC) tools/host.c $(HDR) build/version.h
-	@mkdir -p build
-	gcc $(CFLAGS) $(INC) -o $@ $(SRC) tools/host.c -lm -lz
+# Objects (docs/PLAN-tidy.md, step 3). A file is compiled once for each way it is built: rel as it ships, debug with the debug
+# switches, asan for the sanitizers; into build/obj/<way>/<its own path>.o. The compiler writes beside each what it #included
+# (-MMD), so a header, or a part of a file cut into parts, compiles again exactly what read it. objs gives a list of sources
+# its objects, in the same order: the order they are linked in.
+OBJ      = build/obj
+objs     = $(patsubst %.c,$(OBJ)/$(1)/%.o,$(2))
+
+$(OBJ)/rel/%.o: %.c | build/version.h
+	@mkdir -p $(@D)
+	gcc $(CFLAGS) $(INC) -MMD -MP -c -o $@ $<
+
+$(OBJ)/debug/%.o: %.c | build/version.h
+	@mkdir -p $(@D)
+	gcc $(CFLAGS) $(DEBUG) $(INC) -MMD -MP -c -o $@ $<
+
+$(OBJ)/asan/%.o: %.c | build/version.h
+	@mkdir -p $(@D)
+	gcc $(ASAN) $(DEBUG) $(INC) -MMD -MP -c -o $@ $<
+
+-include $(shell find $(OBJ) -name '*.d' 2>/dev/null)
+
+build/host: $(call objs,rel,$(SRC) tools/host.c)
+	gcc $(CFLAGS) -o $@ $^ -lm -lz
 
 host: build/host
 
@@ -66,9 +95,13 @@ smoke: build/host
 	    ./build/host shot crawl 3,6,9.5,12 build/smoke/play
 	./build/host bench crawl 60
 
-build/host_debug: $(SRC) tools/host.c $(HDR) build/version.h
-	@mkdir -p build
-	gcc $(CFLAGS) $(INC) -DHAUNT_DEBUG -DCRAWL_DEBUG -o $@ $(SRC) tools/host.c -lm -lz
+build/host_debug: $(call objs,debug,$(SRC) tools/host.c)
+	gcc $(CFLAGS) -o $@ $^ -lm -lz
+
+build/host_asan: $(call objs,asan,$(SRC) tools/host.c)
+	gcc $(ASAN) -o $@ $^ -lm -lz
+
+asan: build/host_asan
 
 cards: build/host_debug
 	@mkdir -p build/cards
@@ -78,23 +111,19 @@ cards: build/host_debug
 
 ART_SRC  = src/art/crawl_art.c src/data/hand_img.c src/data/face_img.c src/data/cat_img.c src/data/font_vga.c
 
-build/sheet: $(ART_SRC) tools/sheet.c $(HDR)
-	@mkdir -p build
-	gcc $(CFLAGS) $(INC) -o $@ $(ART_SRC) tools/sheet.c -lm -lz
+build/sheet: $(call objs,rel,$(ART_SRC) tools/sheet.c)
+	gcc $(CFLAGS) -o $@ $^ -lm -lz
 
 UI_SRC   = src/art/crawl_ui.c src/art/ui_art.c src/core/gfx.c src/crawl/crawl_tutor.c
 
-build/uisheet: $(ART_SRC) $(UI_SRC) tools/uisheet.c $(HDR)
-	@mkdir -p build
-	gcc $(CFLAGS) $(INC) -o $@ $(ART_SRC) $(UI_SRC) tools/uisheet.c -lm -lz
+build/uisheet: $(call objs,rel,$(ART_SRC) $(UI_SRC) tools/uisheet.c)
+	gcc $(CFLAGS) -o $@ $^ -lm -lz
 
-build/titlemock: $(ART_SRC) $(UI_SRC) src/art/crawl_title.c tools/titlemock.c $(HDR)
-	@mkdir -p build
-	gcc $(CFLAGS) $(INC) -o $@ $(ART_SRC) $(UI_SRC) src/art/crawl_title.c tools/titlemock.c -lm -lz
+build/titlemock: $(call objs,rel,$(ART_SRC) $(UI_SRC) src/art/crawl_title.c tools/titlemock.c)
+	gcc $(CFLAGS) -o $@ $^ -lm -lz
 
-build/portraitmock: $(ART_SRC) $(UI_SRC) src/art/crawl_portrait.c tools/portraitmock.c $(HDR)
-	@mkdir -p build
-	gcc $(CFLAGS) $(INC) -o $@ $(ART_SRC) $(UI_SRC) src/art/crawl_portrait.c tools/portraitmock.c -lm -lz
+build/portraitmock: $(call objs,rel,$(ART_SRC) $(UI_SRC) src/art/crawl_portrait.c tools/portraitmock.c)
+	gcc $(CFLAGS) -o $@ $^ -lm -lz
 
 sheets: build/sheet build/uisheet
 	@mkdir -p build/sheets
@@ -103,9 +132,8 @@ sheets: build/sheet build/uisheet
 	./build/uisheet pad build/sheets/pad.png
 	./build/uisheet tutor build/sheets
 
-build/items: src/crawl/crawl_gear.c src/crawl/crawl_gear.h src/crawl/crawl.h tools/items.c
-	@mkdir -p build
-	gcc $(CFLAGS) $(INC) -o $@ src/crawl/crawl_gear.c tools/items.c -lm
+build/items: $(call objs,rel,src/crawl/crawl_gear.c tools/items.c)
+	gcc $(CFLAGS) -o $@ $^ -lm
 
 items: build/items
 	./build/items > build/items.json
@@ -144,4 +172,5 @@ webzip: $(WEBPKG)
 
 clean:
 	rm -rf build dist/HAUNTED.scr dist/HAUNTED.EXE dist/*.zip
-.PHONY: all host scr zip smoke cards sheets items combat web webzip clean
+	-@git worktree prune 2>/dev/null
+.PHONY: all host asan scr zip smoke cards sheets items combat web webzip clean
