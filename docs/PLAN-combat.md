@@ -22,7 +22,7 @@ augments, earned by using it.*
 ## 1. Where it stands today (from the review)
 
 - **The caster's spells**: base x (1 + 0.07 a Level of Atonement) x the line's rank (+4% a rank to 11, +8% after) x (1 +
-  Damage + the element's Power) (`spell_damage_at`, `src/crawl_gear.c`). Bases: Fire 10, Frost 7, Lightning 8, the flask
+  Damage + the element's Power) (`spell_damage_at`, `src/crawl/crawl_gear.c`). Bases: Fire 10, Frost 7, Lightning 8, the flask
   10, Soul Drain 9, the spear 12. On the hit, `hit_mult` multiplies by the creature's weakness and adds the worn "ADDS %"
   stats and the Masteries' Additions. Nothing ever misses but by flying wide.
 - **The dead**: health is the kind's base x 1.04 a level x the rank's (1.0 to 5.0); every blow is (4 + 0.8 x level) x the
@@ -710,7 +710,7 @@ C6's contract commit (9 November) adds these:
 
 ### 17.3 What the two tracks share (the contract)
 
-In `src/scene_crawl.c`, after `Mob`, committed with this section:
+In `src/crawl/scene_crawl.c`, after `Mob`, committed with this section:
 
 - `Mob.elem`: 1 + the element a creature was born to, 0 none. Set by D (D2), read by C's attacks (C3).
 - `Mob.elem_on`: the attack under way carries the element. Set by C (C3), read by D's eyes (D2), which flare in its colour.
@@ -771,10 +771,10 @@ put a line starting **CONTRACT** in your log. Each agent reads the other's log a
 Lists both tracks add to have a pair of marks: add only just above your own track's end mark, so the two never touch the same
 lines and git merges them by itself.
 
-- `src/snd.h`: the `SFX_*` enum, before `SFX_COUNT`. `src/snd.c`: the `SFXDEF` table's end, and the synth's switch before its
+- `src/core/snd.h`: the `SFX_*` enum, before `SFX_COUNT`. `src/core/snd.c`: the `SFXDEF` table's end, and the synth's switch before its
   `default`.
-- `src/crawl.h`: the `SP_*` enum, before `NSPR`. `src/crawl_art.c`: the end of the sprite list in `crawl_art_init`.
-- `src/scene_crawl.c`: the end of `Mob`, the end of `G` (what the caster carries into a pocket goes in `carry_caster`'s spans
+- `src/crawl/crawl.h`: the `SP_*` enum, before `NSPR`. `src/art/crawl_art.c`: the end of the sprite list in `crawl_art_init`.
+- `src/crawl/scene_crawl.c`: the end of `Mob`, the end of `G` (what the caster carries into a pocket goes in `carry_caster`'s spans
   instead: C's by `poison_t`), the debug counters before `hurt_by`.
 - `CLAUDE.md`: each track has one bullet of its own under *How CATACOMB works* (C's after *The lull's watch*, D's after *Warded
   creatures*) and writes its notes there; track C keeps the paragraph at the top.

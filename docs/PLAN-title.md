@@ -26,7 +26,7 @@ Read the hand-off log (section 6) first. It says where the last session stopped.
   of the assets for this, just modify a few so they allow for this selection screen to appear in the middle."
 - 9 November: **the music for the title is Shop4 on `claude/beautiful-einstein-tzed36`.** That is the fourth of her hall's
   five attempts, *the lament ground* (G minor, 3/4, 72, a passacaglia on the falling bass G, F, E-flat, D, 2:40). That
-  branch already gives it to a title screen: `MU_TITLE`, `SC_GROUND`, `ground_step` in its `src/snd.c`, played for now when
+  branch already gives it to a title screen: `MU_TITLE`, `SC_GROUND`, `ground_step` in its `src/core/snd.c`, played for now when
   the ledger is opened to choose a page, and `snd_set_menu(3)` / `g_menu_mu` let a menu play the title's piece. Its
   `docs/PLAN-music-work.md` describes it. `build/host music title <secs> out.wav` on that branch renders it. The mock-ups'
   MP4 previews were made that way, with the branch built in a detached worktree in the scratchpad, then removed.
@@ -42,8 +42,8 @@ Read the hand-off log (section 6) first. It says where the last session stopped.
   each, `overview.png` (one still of each of the six) and `logo.png`.
 
   ```sh
-  gcc -O2 -std=gnu11 -o build/titlemock src/crawl_art.c src/hand_img.c src/face_img.c src/cat_img.c src/font_vga.c \
-      src/crawl_ui.c src/ui_art.c src/gfx.c tools/titlemock.c -lm -lz
+  gcc -O2 -std=gnu11 -o build/titlemock src/art/crawl_art.c src/data/hand_img.c src/data/face_img.c src/data/cat_img.c src/data/font_vga.c \
+      src/art/crawl_ui.c src/art/ui_art.c src/core/gfx.c tools/titlemock.c -lm -lz
   build/titlemock <dir>                # everything, the GIFs doubled
   build/titlemock <dir> a              # a, b or c: one title and its graves; logo; overview; flash (the lightning's frames)
   TM_SCALE=1 build/titlemock <dir> b   # the GIFs at native size
@@ -198,12 +198,12 @@ title as 1.0.0b21.1, "The Title Screen Update". Decisions taken as defaults (say
 - **Debug.** `CRAWL_TITLE=0` skips the title in the debug build (as before: H gives the dream's run). `tools/uishots.sh`
   and `tools/gallery.sh` set it.
 
-G1. **The art as a module**: `src/crawl_title.c/.h` (`title_draw(Frame *, float t, const TitleView *)`), moved out of
+G1. **The art as a module**: `src/art/crawl_title.c/.h` (`title_draw(Frame *, float t, const TitleView *)`), moved out of
     `tools/titlemock.c`, which becomes its driver for the mock-ups. **Done** (9 November): `make build/titlemock` remakes
     the approved mock-ups from the module, frame for frame (the overview checked by eye). `title_debug_frame` serves the
     logo and parts sheets. The view (`TitleView`) carries the scene, the pad, the graves or not, the menu's coming,
     the key's flare, each choice's and each grave's chosen-ness, the pages' words (`title_page_set`), a foot word and the
-    version. `src/crawl_title.c` is in the Makefile's `SRC`, so the Windows and web builds take it.
+    version. `src/art/crawl_title.c` is in the Makefile's `SRC`, so the Windows and web builds take it.
 G2. **The title in the game**: its state (`TI` in `scene_crawl.c`), input (any key or button, not a stick), render, music
     (`snd_set_menu(3)`), the rotation, the idle return. **Done** (9 November, harness only). The block sits just
     before "death's cost" in `scene_crawl.c` (`TI`, `title_enabled`, `title_next_scene`, `title_pages`, `title_open`,

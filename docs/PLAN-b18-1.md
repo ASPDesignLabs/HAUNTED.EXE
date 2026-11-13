@@ -327,7 +327,7 @@ scripted pad in the harness: a trade, the defaults, the look from play, a menu a
 read. Untried with a real controller until the owner plays it (there is none here).
 
 *As drawn* (step 7's sheet, `media/sheets/b18-1/pad.png`; `build/uisheet pad <png>`, also in `make sheets`, failing on any overflow):
-a kit piece the game will draw too, `ui_pad` (`UiPad`, `UI_PAD_NAME`) at the end of `src/crawl_ui.c`, so the sheet is the screen.
+a kit piece the game will draw too, `ui_pad` (`UiPad`, `UI_PAD_NAME`) at the end of `src/art/crawl_ui.c`, so the sheet is the screen.
 - The pad is cut from the wells' stone, lit from above, in the Xbox layout with no mark on it: the bumpers a band along each
   shoulder's curve, the triggers above them, the left stick high and the D-pad low on the left, the face buttons high and the
   right stick low on the right, View and Menu small in the middle. Face buttons in their colours (A green, B red, X blue, Y yellow).
@@ -542,7 +542,7 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
 
 - **After step 1** (7 November): this branch's changes from main (`git diff main`), applied with `git apply --3way` onto a scratch
   worktree of their branch at `d87d2dc` (*PLAN-combat: marks on the sprite sheet's groups*): `CLAUDE.md`, this plan and
-  `src/scene_crawl.c` went in cleanly, none of the names added (`door_body`, `unstick`, `TRI_IN`) is used on their branch, and
+  `src/crawl/scene_crawl.c` went in cleanly, none of the names added (`door_body`, `unstick`, `TRI_IN`) is used on their branch, and
   `make host` built it with no warnings. Nothing was committed there or pushed. Nothing for them to do yet.
 - **After step 2** (7 November, their branch still at `d87d2dc`): the first try conflicted in `crawl_render`, where step 2 had
   put the wheel's test on the call of `render_shop_tags`, the line above the one track C changed for C2 (`render_af_view` added

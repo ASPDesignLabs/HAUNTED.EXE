@@ -1012,7 +1012,7 @@ key).
   on level 1 (`CRAWL_TITLE=0`, `CRAWL_TPAT=15.5,6.5,90`, E at the door, W through): a walk leaves 44% once the burning is done (the
   far side 53%), a sprint 56% (69%), standing in it holds at 26%. Debug: `EVENT drawn_fire hurt|past|out`. The scorched floor it
   leaves is not drawn yet. The lesson waits for the page (step 5/6); for now it goes out once you are past, page or none.
-- **Step 4, the lessons' sheet, drawn** (for the owner's approval). The words are `src/crawl_tutor.c` now (`TUT`, by lesson `TL_*`:
+- **Step 4, the lessons' sheet, drawn** (for the owner's approval). The words are `src/crawl/crawl_tutor.c` now (`TUT`, by lesson `TL_*`:
   each page's heading and lines, keys in brackets, `{CLASS}` and `{SPELL}` filled by `tut_lines`/`tut_head`; the past's names, spells
   and B4's lines; the shorter words for a second time), shared by the game and the sheet, and so is the page, `ui_tutor` (`UiTutor`: a
   tablet in the run's stone, the heading inscribed, each line's keys on caps as `ui_keys` sets them, a lozenge a page, the keys to go

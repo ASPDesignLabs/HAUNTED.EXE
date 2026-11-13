@@ -1,8 +1,8 @@
 # Tidying the repository: plan and hand-off
 
 Status (13 November 2026): **settled with the owner the same day. Steps 0 to 3 are done (the baseline; the pictures out of
-`docs/`; `src/` sorted by kind; object files); steps 4 and 5 wait for the owner's word on
-their lists of cuts (section 5a), and step 6 for their word on its outline (section 5b).** Nothing here changes the game: no version is
+`docs/`; `src/` sorted by kind; object files); the owner has given their word for the cuts
+as listed (section 5a) and for `CLAUDE.md` as outlined (section 5b), and steps 4 to 6 are being built.** Nothing here changes the game: no version is
 bumped, nothing is released, and main is left alone until the owner says.
 
 Read the hand-off log (section 9) first. It says where the last session stopped.
@@ -97,7 +97,7 @@ Each step is one commit on `claude/peaceful-ritchie-fmeoal`, pushed as it is don
    and a report. Merging to main waits for the owner's word; with `VERSION` as it is, a push to main releases nothing
    and the page is rebuilt the same.
 
-## 5a. The cuts proposed (steps 4 and 5): waiting for the owner's word
+## 5a. The cuts (steps 4 and 5): approved by the owner as listed, 13 November
 
 Drawn up on 13 November from the two files as they stand, and not yet made. The files' own banners turned out not to
 mark where the subject changes (under *the soul-lamps' ward* come the Wraith, the buried, the wall skull and three
@@ -231,7 +231,7 @@ How a part looks, and how the cut is proved:
 | `src/art/parts/run_deep.c` | 13948-14499 | 552 | The Deep's materials, what stands on its walls, floors, ceilings, doors, keys and treasure |
 | `src/art/parts/runs.c` | 14500-15174 | 675 | Each run's set made (`crypts_run`, `catacombs_run`, `hollows_run`, `deep_run`); the specials on the run's stone; the trials' doors and things; the places to mend; `crawl_art_run`, `crawl_art_stone`, `crawl_art_init` |
 
-## 5b. The outline proposed for `CLAUDE.md` (step 6): waiting for the owner's word
+## 5b. The outline for `CLAUDE.md` (step 6): approved by the owner as outlined, 13 November
 
 `CLAUDE.md` is read whole by every session before it does anything, and by every helper a session starts. Today that is
 252 KB, about 60,000 tokens. Most of it is reference that a given session needs a tenth of. The proposal is to keep in
@@ -286,7 +286,8 @@ drawings. `media/sheets/titlepass/README.md`, the mock-ups' own caption, went wi
 | `src/crawl_art.c`, `crawl_title.c/h`, `crawl_portrait.c/h`, `crawl_ui.c/h`, `ui_art.c` | `src/art/` | CATACOMB's art: what only draws |
 | `src/face_img.c`, `hand_img.c`, `cat_img.c`, `font_vga.c` | `src/data/` | Traced and generated bitmaps: never read, never searched |
 
-The plans' older logs still name files as `src/<name>`; the name is right and the folder is in this table.
+The plans' older logs named files as `src/<name>`. At the owner's word (13 November) they were rewritten too: 103
+mentions in fifteen documents, the folder alone, so every source a plan names is where it says.
 
 ## 7. What is left alone, and why
 
@@ -353,3 +354,8 @@ The plans' older logs still name files as `src/<name>`; the name is right and th
   either is done. The lists were resolved by scripts kept in the session's scratchpad (`cuts.py`, `funcs.py`,
   `resolve.py`, with the two specs); if that is gone, section 5a's tables are the specs: each part's first line in the
   old file is its cut.
+- **13 November, session 1, the owner's word.** Asked with the lists and the outline before them: **cut as listed** (70
+  and 31 parts, though more than first said); **slim `CLAUDE.md` as outlined**, *How CATACOMB works* in files by subject;
+  and, changing what was agreed at the start, **rewrite the plans' old paths**. That last is done: 103 mentions in
+  fifteen documents now give the sources' folders; every path a document names exists, but for the two that never did
+  (section 8) and `web/haunted.js`'s comment.

@@ -158,7 +158,7 @@ Eight 30-minute autopilot runs from level 16, everything at tier 2, against the 
 
 ## 1. What the game does today
 
-From the code at 1.0.0b2 (`src/scene_crawl.c`, `src/crawl_art.c`):
+From the code at 1.0.0b2 (`src/crawl/scene_crawl.c`, `src/art/crawl_art.c`):
 
 | Creature | From | HP | Speed | What it does | Today's counter |
 |---|---|---|---|---|---|

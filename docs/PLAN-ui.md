@@ -164,7 +164,7 @@ tally's title at scale 2. What changes is the faces and how they are cut.
 - A face is chosen by a switch (`gfx_face8`, `gfx_face16`) that `render_ui` sets and puts back, so the many
   `gfx_text8` calls in the menus pick up the new faces without each being touched, and the HUD and console keep theirs.
 
-### 2.4 The kit (`src/crawl_ui.c`)
+### 2.4 The kit (`src/art/crawl_ui.c`)
 
 The structured elements the owner asked for, one file, used by every screen, so that each screen is laid from the same
 pieces and no screen draws its own lines again:
@@ -430,9 +430,9 @@ My answer is marked **(mine)**; the owner's take it over.
   (no switch stands you before it), a stone's page (a fresh run has none), the ledger, the class question, the L list,
   the altar, the Black Shrine, the full bag and the cards; they are added as their steps come. They showed three faults
   more (section 1.2: ascend's rows, the controls card over the shop's, a toast over the tally).
-- 3 November 2026, step 1: the kit is `src/crawl_ui.c` (`crawl_ui.h`: the marble's ramps and picture, `ui_lend`, slabs,
+- 3 November 2026, step 1: the kit is `src/art/crawl_ui.c` (`crawl_ui.h`: the marble's ramps and picture, `ui_lend`, slabs,
   wells, plates, rules, ornaments, the faces' ways, wrapping, key caps, icons, sockets, grooves, and `ui_tree`, the
-  Alignment's stone laid from a `UiTree` the game or the sheet fills) and `src/ui_art.c` (the two 8x8 faces and the icons
+  Alignment's stone laid from a `UiTree` the game or the sheet fills) and `src/art/ui_art.c` (the two 8x8 faces and the icons
   as strings; `ui_face_init` builds the tables and stretches the inscription face to 8x16). Both are in the game's build,
   not yet called. `make sheets` now also runs `build/uisheet all`, drawing `ui.png` (six Alignments in their states, the
   faces, the stones and sockets, the icons cut and inlaid, the marble) and `ui_runs.png` (the marble's lean at levels 1,

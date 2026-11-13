@@ -16,7 +16,7 @@ that whoever picks the work up can follow it: what the owner asked, what they ch
 - **Merged into main, unreleased** (9 November, at the owner's word), squashed as one commit, so that a title screen can be
   built on main with the music in. `VERSION` stays 1.0.0b21, so no release comes of it.
 
-**For whoever builds the title screen.** The music is reached through `snd_set_menu` (`src/snd.h`), called each frame from
+**For whoever builds the title screen.** The music is reached through `snd_set_menu` (`src/core/snd.h`), called each frame from
 `music_frame` at the end of `scene_crawl.c` with whatever screen is up: 3 the lament ground (`MU_TITLE`: "press start,
 select a grave"; today the ledger opened from Esc), 5 the waltz (`MU_SPECIAL`, for a special screen), 6 the nocturne
 (`MU_ENDING`, for an ending), 4 the estampie (the Lampstand), 1 or 2 the menus' tune; 0 lets the run's piece back. One
@@ -46,7 +46,7 @@ the level: `level_perfect`); *the run after* is the next level (her hall comes b
 gives one visit of the alley cat. The lament ground plays wherever the ledger is opened to choose a page (Esc's OPEN THE
 LEDGER), in the crypt or in her hall; signing the ledger in her hall keeps her piece.
 
-## The engine (`src/snd.c`)
+## The engine (`src/core/snd.c`)
 
 What 1.0.0b15's pieces left unused of an OPL, and a few things a tracker did with one:
 

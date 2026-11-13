@@ -344,7 +344,7 @@ same as the build it began from.
 - **Three faces of our own,** at today's sizes: an inscription face for titles at sixteen pixels, a body face for words
   at eight, both inlaid (set into the stone with its shadow), and the BIOS's own. Every menu's words go through them,
   but for paper (the documents' pages and the reckoning's slip keep their own ink).
-- **A kit of carved pieces** (`src/crawl_ui.c`, `src/ui_art.c`): ledger stones, headstones and tablets with their
+- **A kit of carved pieces** (`src/art/crawl_ui.c`, `src/art/ui_art.c`): ledger stones, headstones and tablets with their
   mouldings; wells cut into them; plates; rules with a lozenge; arched niches; rows lit as chosen with gold notches;
   scroll grooves and thumbs; key caps for the hints (a pad's face buttons in their colours); sockets in six states
   (out of reach, ready, short, part bought, held, closed); grooves that fill; forty-eight icons, sixteen pixels square,
