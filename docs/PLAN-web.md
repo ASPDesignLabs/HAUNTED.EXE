@@ -93,7 +93,7 @@ Emscripten SDK was not allowed in this session. That is step 0 below, and the go
 
 ## How it would work
 
-A new `src/web_main.c` (the C side: a handful of exported functions over `app.h`) and a `web/` folder (a page,
+A new `src/platform/web_main.c` (the C side: a handful of exported functions over `app.h`) and a `web/` folder (a page,
 its script and an audio worklet), built by `make web` with Emscripten. Each Windows piece and the browser's
 stand-in:
 
@@ -167,7 +167,7 @@ These are the real work, and where the owner's answers are wanted.
   `CAST_UP` for `G.click_spent` wherever a click spends itself, E alone using things in play, Space not casting
   while the map is up, the card's line. A harness build with `HVS_WEB` casts on Space and not Ctrl; the Windows
   build the other way (checked on the same input).
-- **`src/web_main.c`**: exported functions over `app.h` (`web_config`, `web_slot_load/take` through one buffer,
+- **`src/platform/web_main.c`**: exported functions over `app.h` (`web_config`, `web_slot_load/take` through one buffer,
   `web_start`, `web_key/mouse/wheel/text/pad`, `web_step`, `web_frame`, `web_audio`, `web_motor`), and the keys' and
   buttons' names in `core.h`'s order, so the page finds their numbers by name.
 - **`web/`**: `index.html` (the plate, the bar, the settings dialog, the controls), `haunted.js` (the shell),
@@ -222,7 +222,7 @@ device, a real controller and its rumble, Firefox, Safari, a phone, and the rele
 0. **The probe (the go/no-go).** Emscripten pinned, the fourteen sources compiled as they are with a
    bare-bones shell: the frame size, the download, ms a frame in Chrome and Firefox on a desktop, and if the
    owner can, on a phone. A short report, then the owner decides.
-1. **The picture and the loop.** `src/web_main.c`, `web/index.html`, `web/haunted.js`, `make web`: both
+1. **The picture and the loop.** `src/platform/web_main.c`, `web/index.html`, `web/haunted.js`, `make web`: both
    scenes rotating, the dream, integer scaling, full screen.
 2. **Sound.** The worklet and its queue, the click to begin, quiet in a hidden tab.
 3. **Keys, mouse and the takeover.** Pointer lock, Esc as *Decided* 2, Space casting and Ctrl dropped

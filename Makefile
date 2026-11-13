@@ -1,5 +1,6 @@
 # HAUNTED.EXE - a Halloween VGA screensaver
-#   make host   - test harness for Linux (PNG frames + WAV audio)
+#   make host   - test harness for Linux (PNG frames + WAV audio); build/host_debug has the debug switches and event log
+#   make asan   - build/host_asan: the debug harness under AddressSanitizer and UBSan (run with ASAN_OPTIONS=detect_leaks=0)
 #   make scr    - Windows screensaver (needs x86_64-w64-mingw32-gcc)
 #   make zip    - the release package
 #   make smoke  - a short headless run of both scenes in the test harness
@@ -10,19 +11,58 @@
 #   make items  - a hundred rolled wares a level as build/items.json, for checking names and numbers
 #   make combat - the balance sheet as build/combat.txt: the dead's harm and the caster's by level (docs/PLAN-combat.md)
 #   make web    - the browser's build in build/web and dist/HAUNTED-<version>-web.zip (needs Emscripten's emcc)
+# On Linux each file is compiled once into build/obj/ and kept, as many at a time as there are cores, so a change compiles
+# only what it touched (make -j1 for one at a time; make clean after changing CFLAGS).
 VERSION := $(shell cat VERSION)
 FILEVER := $(shell sed -E 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*/\1,\2,\3,0/' VERSION)
 PKG      = dist/HAUNTED-$(VERSION)-win64.zip
 
-SRC      = src/app.c src/gfx.c src/font_vga.c src/snd.c src/scene_crawl.c src/crawl_art.c src/hand_img.c src/crawl_gear.c src/face_img.c src/cat_img.c src/scene_haunt.c src/haunt_art.c src/crawl_ui.c src/ui_art.c src/crawl_title.c \
-           src/crawl_portrait.c src/crawl_tutor.c
+# The sources, by kind (docs/PLAN-tidy.md): core/ what both scenes stand on, haunt/ and crawl/ the two scenes, art/ what only
+# draws, data/ traced and generated bitmaps, platform/ the Windows and browser shells. The compiler is given the folders, so a
+# file asks for a header by its name. The order here is the order they are linked in: keep it. A part of a file is not a
+# source of its own and never goes in SRC.
+INC      = -I. -Isrc/core -Isrc/haunt -Isrc/crawl -Isrc/art
+HDR      = $(wildcard src/*/*.h)
+# The parts of a file cut into parts (docs/PLAN-tidy.md): scene_crawl.c #includes its own from src/crawl/game and draw, and
+# crawl_art.c its own from src/art/parts. On Linux the compiler's lists (below) say which object read which; the Windows and
+# browser builds keep no lists, so they are told here.
+PARTS    = $(wildcard src/*/*/*.c)
+SRC      = src/core/app.c src/core/gfx.c src/data/font_vga.c src/core/snd.c src/crawl/scene_crawl.c src/art/crawl_art.c src/data/hand_img.c \
+           src/crawl/crawl_gear.c src/data/face_img.c src/data/cat_img.c src/haunt/scene_haunt.c src/haunt/haunt_art.c src/art/crawl_ui.c \
+           src/art/ui_art.c src/art/crawl_title.c src/art/crawl_portrait.c src/crawl/crawl_tutor.c
 CFLAGS  ?= -O2 -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Wno-misleading-indentation
+DEBUG    = -DHAUNT_DEBUG -DCRAWL_DEBUG
+ASAN     = -O1 -g -std=gnu11 -fsanitize=address,undefined -fno-omit-frame-pointer
+
+ifeq (,$(filter clean,$(MAKECMDGOALS)))
+MAKEFLAGS += -j$(shell nproc 2>/dev/null || echo 2)
+endif
 
 all: host
 
-build/host: $(SRC) tools/host.c src/*.h build/version.h
-	@mkdir -p build
-	gcc $(CFLAGS) -o $@ $(SRC) tools/host.c -lm -lz
+# Objects (docs/PLAN-tidy.md, step 3). A file is compiled once for each way it is built: rel as it ships, debug with the debug
+# switches, asan for the sanitizers; into build/obj/<way>/<its own path>.o. The compiler writes beside each what it #included
+# (-MMD), so a header, or a part of a file cut into parts, compiles again exactly what read it. objs gives a list of sources
+# its objects, in the same order: the order they are linked in.
+OBJ      = build/obj
+objs     = $(patsubst %.c,$(OBJ)/$(1)/%.o,$(2))
+
+$(OBJ)/rel/%.o: %.c | build/version.h
+	@mkdir -p $(@D)
+	gcc $(CFLAGS) $(INC) -MMD -MP -c -o $@ $<
+
+$(OBJ)/debug/%.o: %.c | build/version.h
+	@mkdir -p $(@D)
+	gcc $(CFLAGS) $(DEBUG) $(INC) -MMD -MP -c -o $@ $<
+
+$(OBJ)/asan/%.o: %.c | build/version.h
+	@mkdir -p $(@D)
+	gcc $(ASAN) $(DEBUG) $(INC) -MMD -MP -c -o $@ $<
+
+-include $(shell find $(OBJ) -name '*.d' 2>/dev/null)
+
+build/host: $(call objs,rel,$(SRC) tools/host.c)
+	gcc $(CFLAGS) -o $@ $^ -lm -lz
 
 host: build/host
 
@@ -38,9 +78,9 @@ build/version.h: VERSION
 build/saver_res.o: res/saver.rc res/saver.manifest build/version.h
 	$(WINDRES) -I. res/saver.rc -O coff -o $@
 
-dist/HAUNTED.scr: $(SRC) src/win_main.c src/*.h build/saver_res.o build/version.h
+dist/HAUNTED.scr: $(SRC) $(PARTS) src/platform/win_main.c $(HDR) build/saver_res.o build/version.h
 	@mkdir -p dist
-	$(MINGW) $(CFLAGS) -I. -mwindows -static -o $@ $(SRC) src/win_main.c build/saver_res.o \
+	$(MINGW) $(CFLAGS) $(INC) -mwindows -static -o $@ $(SRC) src/platform/win_main.c build/saver_res.o \
 	    -lopengl32 -lgdi32 -luser32 -lwinmm -ladvapi32 -lcomctl32 -lkernel32 -lm
 	$(STRIP) --strip-unneeded $@
 
@@ -60,9 +100,13 @@ smoke: build/host
 	    ./build/host shot crawl 3,6,9.5,12 build/smoke/play
 	./build/host bench crawl 60
 
-build/host_debug: $(SRC) tools/host.c src/*.h build/version.h
-	@mkdir -p build
-	gcc $(CFLAGS) -DHAUNT_DEBUG -DCRAWL_DEBUG -o $@ $(SRC) tools/host.c -lm -lz
+build/host_debug: $(call objs,debug,$(SRC) tools/host.c)
+	gcc $(CFLAGS) -o $@ $^ -lm -lz
+
+build/host_asan: $(call objs,asan,$(SRC) tools/host.c)
+	gcc $(ASAN) -o $@ $^ -lm -lz
+
+asan: build/host_asan
 
 cards: build/host_debug
 	@mkdir -p build/cards
@@ -70,25 +114,21 @@ cards: build/host_debug
 	    && CRAWL_SEED=7 CRAWL_LEVEL=3 ../host_debug shot crawl 75,110 c 1 >/dev/null
 	python3 tools/make_cards.py build/cards site/cards
 
-ART_SRC  = src/crawl_art.c src/hand_img.c src/face_img.c src/cat_img.c src/font_vga.c
+ART_SRC  = src/art/crawl_art.c src/data/hand_img.c src/data/face_img.c src/data/cat_img.c src/data/font_vga.c
 
-build/sheet: $(ART_SRC) tools/sheet.c src/*.h
-	@mkdir -p build
-	gcc $(CFLAGS) -o $@ $(ART_SRC) tools/sheet.c -lm -lz
+build/sheet: $(call objs,rel,$(ART_SRC) tools/sheet.c)
+	gcc $(CFLAGS) -o $@ $^ -lm -lz
 
-UI_SRC   = src/crawl_ui.c src/ui_art.c src/gfx.c src/crawl_tutor.c
+UI_SRC   = src/art/crawl_ui.c src/art/ui_art.c src/core/gfx.c src/crawl/crawl_tutor.c
 
-build/uisheet: $(ART_SRC) $(UI_SRC) tools/uisheet.c src/*.h
-	@mkdir -p build
-	gcc $(CFLAGS) -o $@ $(ART_SRC) $(UI_SRC) tools/uisheet.c -lm -lz
+build/uisheet: $(call objs,rel,$(ART_SRC) $(UI_SRC) tools/uisheet.c)
+	gcc $(CFLAGS) -o $@ $^ -lm -lz
 
-build/titlemock: $(ART_SRC) $(UI_SRC) src/crawl_title.c tools/titlemock.c src/*.h
-	@mkdir -p build
-	gcc $(CFLAGS) -o $@ $(ART_SRC) $(UI_SRC) src/crawl_title.c tools/titlemock.c -lm -lz
+build/titlemock: $(call objs,rel,$(ART_SRC) $(UI_SRC) src/art/crawl_title.c tools/titlemock.c)
+	gcc $(CFLAGS) -o $@ $^ -lm -lz
 
-build/portraitmock: $(ART_SRC) $(UI_SRC) src/crawl_portrait.c tools/portraitmock.c src/*.h
-	@mkdir -p build
-	gcc $(CFLAGS) -o $@ $(ART_SRC) $(UI_SRC) src/crawl_portrait.c tools/portraitmock.c -lm -lz
+build/portraitmock: $(call objs,rel,$(ART_SRC) $(UI_SRC) src/art/crawl_portrait.c tools/portraitmock.c)
+	gcc $(CFLAGS) -o $@ $^ -lm -lz
 
 sheets: build/sheet build/uisheet
 	@mkdir -p build/sheets
@@ -97,9 +137,8 @@ sheets: build/sheet build/uisheet
 	./build/uisheet pad build/sheets/pad.png
 	./build/uisheet tutor build/sheets
 
-build/items: src/crawl_gear.c src/crawl_gear.h src/crawl.h tools/items.c
-	@mkdir -p build
-	gcc $(CFLAGS) -o $@ src/crawl_gear.c tools/items.c -lm
+build/items: $(call objs,rel,src/crawl/crawl_gear.c tools/items.c)
+	gcc $(CFLAGS) -o $@ $^ -lm
 
 items: build/items
 	./build/items > build/items.json
@@ -108,17 +147,17 @@ combat: build/host_debug
 	./build/host_debug combat > build/combat.txt
 	@echo build/combat.txt
 
-# The browser's build (docs/PLAN-web.md): the same sources with Space casting (HVS_WEB) and src/web_main.c, as
+# The browser's build (docs/PLAN-web.md): the same sources with Space casting (HVS_WEB) and src/platform/web_main.c, as
 # haunted-core.js and .wasm, beside the page and its script. Served from /play/ on the project page.
 EMCC     ?= emcc
 WEBPKG    = dist/HAUNTED-$(VERSION)-web.zip
-WEBFLAGS  = -O2 -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Wno-misleading-indentation -DHVS_WEB -I. \
+WEBFLAGS  = -O2 -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Wno-misleading-indentation -DHVS_WEB $(INC) \
             -sMODULARIZE=1 -sEXPORT_NAME=HauntedCore -sENVIRONMENT=web -sINITIAL_MEMORY=64MB -sSTACK_SIZE=1MB \
             -sFILESYSTEM=0 -sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPF32,UTF8ToString
 
-build/web/haunted-core.js: $(SRC) src/web_main.c src/*.h build/version.h
+build/web/haunted-core.js: $(SRC) $(PARTS) src/platform/web_main.c $(HDR) build/version.h
 	@mkdir -p build/web
-	$(EMCC) $(WEBFLAGS) -o $@ $(SRC) src/web_main.c
+	$(EMCC) $(WEBFLAGS) -o $@ $(SRC) src/platform/web_main.c
 
 build/web/index.html: web/index.html web/haunted.js web/audio.js VERSION third_party/font/*
 	@mkdir -p build/web
@@ -138,4 +177,5 @@ webzip: $(WEBPKG)
 
 clean:
 	rm -rf build dist/HAUNTED.scr dist/HAUNTED.EXE dist/*.zip
-.PHONY: all host scr zip smoke cards sheets items combat web webzip clean
+	-@git worktree prune 2>/dev/null
+.PHONY: all host asan scr zip smoke cards sheets items combat web webzip clean

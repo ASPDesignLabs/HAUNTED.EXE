@@ -8,7 +8,7 @@
 # Tab on View, Space and L on Y, the D-pad for W/S/A/D in menus and B, C and H in play), so the hints come in its words;
 # recipes that walk are left out. HOST=path runs another build of the harness (an ASan one, say).
 #
-# Frames go to build/uishots/<label>/, the sheets to docs/uipass/<label>-L<level>.png; what the fit checks found
+# Frames go to build/uishots/<label>/, the sheets to media/sheets/uipass/<label>-L<level>.png; what the fit checks found
 # (text over text, or out of its stone) to build/uishots/<label>/L<level>/fit.txt.
 set -e
 LABEL=${1:-now}
@@ -17,7 +17,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 HOST=${HOST:-$ROOT/build/host_debug}
 OUT=$ROOT/build/uishots/$LABEL
 [ -x "$HOST" ] || { echo "make build/host_debug first" >&2; exit 1; }
-mkdir -p "$OUT" "$ROOT/docs/uipass"
+mkdir -p "$OUT" "$ROOT/media/sheets/uipass"
 T="1:+H;4.3:-H"                                   # take over, then the key that opens the screen at 5 s
 E="$T;5:+E;5.1:-E"
 # name | environment | input | time of the shot
@@ -83,6 +83,6 @@ for L in $LEVELS; do
     cat "$D"/*.log | grep "^UI overflow" | sort -u > "$D/fit.txt" || true   # the fit checks' findings
     echo "L$L: $(wc -l < "$D/fit.txt") fit findings (build/uishots/$LABEL/L$L/fit.txt)"
     montage -label '%t' "$D"/*.png -tile 4x -geometry 640x400+6+18 -pointsize 14 -fill '#ccc' -background '#161616' \
-        "$ROOT/docs/uipass/$LABEL-L$L.png"
-    echo "docs/uipass/$LABEL-L$L.png"
+        "$ROOT/media/sheets/uipass/$LABEL-L$L.png"
+    echo "media/sheets/uipass/$LABEL-L$L.png"
 done

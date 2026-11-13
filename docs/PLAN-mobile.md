@@ -109,9 +109,9 @@ degrees and the smoothing's numbers are first guesses the owner hasn't tuned fur
   the slots in `localStorage`. `#stage` already has `touch-action: none`, but nothing listens for touches. A device with only a
   coarse pointer gets *On this device you can watch* and *Tap to boot*. A finger held on the glass is nothing to the game, so a phone
   can't take over.
-- **What reaches the game** (`Input` in `src/core.h`): keys held and hit, the mouse's movement in counts (relative only), the wheel,
+- **What reaches the game** (`Input` in `src/core/core.h`): keys held and hit, the mouse's movement in counts (relative only), the wheel,
   typed letters (for the console), the pad. There is no pointer position anywhere, and the game draws no cursor.
-- **The takeover** (`app_update` in `src/app.c`): H, or any pad button, held for `HOLD_SECONDS`. `A.hold_pad` picks the plate's
+- **The takeover** (`app_update` in `src/core/app.c`): H, or any pad button, held for `HOLD_SECONDS`. `A.hold_pad` picks the plate's
   words.
 - **The pad as keys.** `pad_keys` turns the pad into the keys each place reads, by context. In a menu the D-pad and stick are
   W/S/A/D with repeat, A is Enter, B is Esc, and so on; in play, each button's state goes to its job (`PL`). Walking reads
@@ -509,20 +509,20 @@ owner released 1.0.0b21.3 ("Her Wares, Weighed") while this was being planned.
   Part A's hot list after. The owner also warned that the week's use is nearly spent: keep this log current enough to hand on.
 - **10 November, built: the touch plumbing** (committed; harness and CI only; nothing calls it yet, so with touch off all is as
   before: `make smoke` passes, `make web` builds).
-  - `src/core.h`: `Finger` (id, place in stage pixels, `down` the step it lands, `up` the step it lifts), `TOUCH_MAX` 5; `Input.touch`,
+  - `src/core/core.h`: `Finger` (id, place in stage pixels, `down` the step it lands, `up` the step it lifts), `TOUCH_MAX` 5; `Input.touch`,
     `nfinger`, `finger[]`, `stage_w/h` (0 no stage), `pic_x/y` (kept by the app), `safe_l/t/r/b`; `Scene.stage(Frame *st, px, py)`, the
     controls drawn round the picture (`scene_haunt` NULL; `scene_crawl` NULL until step 5 below).
-  - `src/app.c/.h`: a finger held anywhere takes over as H does (`A.hold_pad` 2; the plate *HOLD A FINGER DOWN TO TAKE CONTROL*, in
+  - `src/core/app.c/.h`: a finger held anywhere takes over as H does (`A.hold_pad` 2; the plate *HOLD A FINGER DOWN TO TAKE CONTROL*, in
     HAUNT.EXE *... TO ENTER THE CRYPT*); after each step a lifted finger is dropped and the rest lose `down`; `app_stage_place` (the
     picture centred, the slow drift within the margins) fills `pic_x/y` each step a stage is set; `app_present_stage(dst, sw, sh, bgr)`
     lays the picture on a `Frame` the stage's size (`STAGE`, w x h at most 288,000, else it falls back to `app_present` and returns 0),
     calls the scene's `stage` hook while a person has it by touch, and puts the hold plate at the picture's place (`hold_overlay`
     takes a stride and an offset now).
-  - `src/web_main.c`: `web_touch_mode(on)`, `web_stage(sw, sh, l, t, r, b)`, `web_touch(id, x, y, phase)` (0 landed, 1 moved, 2 lifted
+  - `src/platform/web_main.c`: `web_touch_mode(on)`, `web_stage(sw, sh, l, t, r, b)`, `web_touch(id, x, y, phase)` (0 landed, 1 moved, 2 lifted
     or cancelled; a landing and a lift in one step make a tap the game sees whole), `web_stage_frame()` (RGBA, or 0); `web_release`
     keeps touch and the stage.
 - **Next: the first cut of touch for the owner's phone**, designed as follows. Do them in this order; each wants committing.
-  1. `src/scene_crawl.c`: a `TCH` block beside `PADX` (about line 1296) so every part can see it: `fresh`, `used`, each finger
+  1. `src/crawl/scene_crawl.c`: a `TCH` block beside `PADX` (about line 1296) so every part can see it: `fresh`, `used`, each finger
      tracked by id (`role`, `btn`, `moved`, `spent`, where it landed, the stick's base, its time), the walking finger's last lift (for
      the dodge), the menus' repeat timers (as `PADX.rep/on`), what to draw pressed, the rings. Set `TCH.fresh = 1` wherever
      `PADX.fresh = 1` is (the takeover in `crawl_control`, `title_open`, `title_to_play`): fingers down then count once lifted.
@@ -660,7 +660,7 @@ owner released 1.0.0b21.3 ("Her Wares, Weighed") while this was being planned.
   other gravestones, with intentionally designed spaces for contextual UI information to appear on them. They should appear more
   weathered, cracked, and damaged with more detail overall while retaining our same look as the game"*; and keep the private page).
   On `claude/brave-albattani-sqvb5n`, fast-forwarded from `claude/funny-meitner-yn953c`. The stones are now built with the title's
-  graves' sculpt kit (`sc_*`), at the end of `src/crawl_title.c` (*Touch's stones*), declared in `crawl_title.h`: `TStone` (its kind
+  graves' sculpt kit (`sc_*`), at the end of `src/art/crawl_title.c` (*Touch's stones*), declared in `crawl_title.h`: `TStone` (its kind
   `TSK_*`, size, column, blank, pressed, the mark inlaid in its socket `TSM_*`, seed, word, the plinth's word and mark), `TsInfo` (what
   fills its places each frame), `tstone_draw`, `tstone_places`, `tstone_word_fits`, `tstone_ring` (the walking stick). Each a monument of
   its own: the left strip a round-headed stone with scrolled shoulders and a hand inlaid in a sunk roundel, crossed bones cut low when
@@ -686,11 +686,11 @@ owner released 1.0.0b21.3 ("Her Wares, Weighed") while this was being planned.
   words and marks go from bone to gold; blank, its socket is empty and cracked, its words worn nearly smooth and moss over its foot.
   Each is built once for its size and state and kept (`TSC`, forty stones, the least used going first; it doesn't touch the title's
   own cache, `SCC`), so a frame only copies them and fills their places: in headless Chromium as a Pixel 7 the frames ran 4.1-4.8 ms
-  (5.1 before). The sheet is `build/titlemock <dir> touch` (`docs/touch/stones.png`: each run's stone in play, pressed, blank and full,
-  and in a menu; `docs/touch/sizes.png`: a narrow, a wide and a short stage, where the narrow tablets drop their roundels and the
+  (5.1 before). The sheet is `build/titlemock <dir> touch` (`media/sheets/touch/stones.png`: each run's stone in play, pressed, blank and full,
+  and in a menu; `media/sheets/touch/sizes.png`: a narrow, a wide and a short stage, where the narrow tablets drop their roundels and the
   plinths' marks give way before their words), and it prints each run's contrast: the words' and marks' darkest inlay (bone 13, gold
   10) against the lightest quarter of the stones as drawn, 5.5 to 7.7 to 1 across the four runs (the plan's bar is 4.5). The stone was
-  darkened a little and the inlay raised to the top of its ramp to get there. `docs/touch/frames.png`: the build in Chromium (a room, a
+  darkened a little and the inlay raised to the top of its ramp to get there. `media/sheets/touch/frames.png`: the build in Chromium (a room, a
   thumb on the walk and one on CAST facing the merchant, Esc's rows), and the first cut's frame for comparison. Tried: `make smoke`,
   `tools/web_smoke.js`, `tools/touch_smoke.js` (no errors) and a walk with two thumbs; ASan clean on the sheet (it found an overrun in
   the sheet's own short stage, mended). Not tried: on the phone; the harness still drives no fingers, so ASan hasn't run the game's

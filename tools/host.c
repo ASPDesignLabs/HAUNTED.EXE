@@ -19,9 +19,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <zlib.h>
-#include "../src/core.h"
-#include "../src/snd.h"
-#include "../src/app.h"
+#include "core.h"
+#include "snd.h"
+#include "app.h"
 
 static void put32(FILE *f, uint32_t v) { fputc(v >> 24, f); fputc(v >> 16, f); fputc(v >> 8, f); fputc(v, f); }
 static void chunk(FILE *f, const char *type, const uint8_t *data, uint32_t len) {

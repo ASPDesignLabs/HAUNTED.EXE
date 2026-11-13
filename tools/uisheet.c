@@ -8,10 +8,10 @@
  *   uisheet tutor <dir>             the lessons' pages (docs/PLAN-tutorial.md): pages1.png level 1's and her room's,
  *                                   pages2.png level 2's, a few in a pad's and touch's words; fails on any overflow
  */
-#include "../src/crawl.h"
-#include "../src/crawl_ui.h"
-#include "../src/crawl_tutor.h"
-#include "../src/gfx.h"
+#include "crawl.h"
+#include "crawl_ui.h"
+#include "crawl_tutor.h"
+#include "gfx.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

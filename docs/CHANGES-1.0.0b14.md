@@ -344,7 +344,7 @@ same as the build it began from.
 - **Three faces of our own,** at today's sizes: an inscription face for titles at sixteen pixels, a body face for words
   at eight, both inlaid (set into the stone with its shadow), and the BIOS's own. Every menu's words go through them,
   but for paper (the documents' pages and the reckoning's slip keep their own ink).
-- **A kit of carved pieces** (`src/crawl_ui.c`, `src/ui_art.c`): ledger stones, headstones and tablets with their
+- **A kit of carved pieces** (`src/art/crawl_ui.c`, `src/art/ui_art.c`): ledger stones, headstones and tablets with their
   mouldings; wells cut into them; plates; rules with a lozenge; arched niches; rows lit as chosen with gold notches;
   scroll grooves and thumbs; key caps for the hints (a pad's face buttons in their colours); sockets in six states
   (out of reach, ready, short, part bought, held, closed); grooves that fill; forty-eight icons, sixteen pixels square,
@@ -467,8 +467,8 @@ Everything in the harness only. The Windows build compiled and smoke-tested by G
 
 ## Part 9. Known issues and what is still to come
 
-- None of it has been played by hand or seen on a real screen. The new art (`docs/artpass/review/`) and the new screens
-  (`docs/uipass/`) still wait for the owner's eye on a real monitor.
+- None of it has been played by hand or seen on a real screen. The new art (`media/sheets/artpass/review/`) and the new screens
+  (`media/sheets/uipass/`) still wait for the owner's eye on a real monitor.
 - Two of the dream's long runs stood within a cell of one place for about four minutes, casting at nothing it could kill,
   near where a Wraith had just been driven back. One cause was found and mended (the broken pack still calling); whether
   that was all of it isn't known. Runs by a sluice have stood still too (up to five and a half minutes, rarely).

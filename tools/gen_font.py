@@ -6,7 +6,7 @@ see third_party/font/. The Px437 TrueType outlines follow the original pixel
 grid, so rendering them at their native pixel height with anti-aliasing off
 gives the original bitmaps back exactly.
 
-Usage:  python3 tools/gen_font.py > src/font_vga.c
+Usage:  python3 tools/gen_font.py > src/data/font_vga.c
 """
 import os
 import sys

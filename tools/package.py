@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Build the release zip: HAUNTED.scr and HAUNTED.EXE, helper scripts, README, previews and the full source."""
+"""Build the release zip: HAUNTED.scr and HAUNTED.EXE, helper scripts, README and its previews, the plans and the full source.
+
+The pictures made for approval along the way (media/sheets) and the page's gallery (media/gallery) stay in the
+repository and out of the zip: they were 70 MB of a 73 MB download (docs/PLAN-tidy.md)."""
 import os, sys, zipfile
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
@@ -9,7 +12,7 @@ TOP = "HAUNTED-%s" % VERSION
 
 files = ["dist/HAUNTED.scr", "dist/HAUNTED.EXE", "install.cmd", "test-windowed.cmd", "capture.cmd", "settings.cmd", "uninstall.cmd",
          "README.md", "LICENSE", "VERSION", "Makefile"]
-for d in ("docs", "src", "tools", "res", "third_party"):
+for d in ("docs", "media/previews", "src", "tools", "res", "third_party"):
     for dp, _, fn in os.walk(os.path.join(ROOT, d)):
         for f in fn:
             files.append(os.path.relpath(os.path.join(dp, f), ROOT))

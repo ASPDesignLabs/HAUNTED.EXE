@@ -3,7 +3,7 @@
 **Status: settled (3 November 2026). The owner took my answer to every question but two: U7 (b), this pass whole
 before PLAN-ai's step 11, and U10 (b), full screens keep the crypt dimmed in a 4 px margin round them. Being built on
 `claude/gifted-rubin-q8up37` from main (1.0.0b13 with the art pass so far and PLAN-ai's steps 0-10). Step 0 is done (the
-before sheets in `docs/uipass/`). Step 1's sheet was approved by the owner (3 November). Step 2 is built (harness only): every menu, card and the tally
+before sheets in `media/sheets/uipass/`). Step 1's sheet was approved by the owner (3 November). Step 2 is built (harness only): every menu, card and the tally
 wear the stone. Step 3 is built (harness only): the Alignment, at the Lampstand and on Tab's fourth page, is the
 approved stone. Step 4 is built (harness only): the cornerstones, the Hexed Totem, ascend and her question of what you were. Step 5 is built (harness only): Tab's pages, the bestiary and the Codex. Step 6 is built (harness only): her hall's screens. Step 7 is built (harness only): the crypt's screens, the cards and the tally. Step 8 is built (harness only): the HUD in the run's stone. Step 9, the checks, is done: the pass is built. Like the art pass, it is visual only: nothing in the simulation, the saves or the
 autopilot's numbers may move.**
@@ -164,7 +164,7 @@ tally's title at scale 2. What changes is the faces and how they are cut.
 - A face is chosen by a switch (`gfx_face8`, `gfx_face16`) that `render_ui` sets and puts back, so the many
   `gfx_text8` calls in the menus pick up the new faces without each being touched, and the HUD and console keep theirs.
 
-### 2.4 The kit (`src/crawl_ui.c`)
+### 2.4 The kit (`src/art/crawl_ui.c`)
 
 The structured elements the owner asked for, one file, used by every screen, so that each screen is laid from the same
 pieces and no screen draws its own lines again:
@@ -364,7 +364,7 @@ Each step committed, pushed and logged at the end of this plan, so it can be han
 
 0. **Before.** A script (`tools/uishots.sh`) that opens every screen in the harness with the debug switches (the Lampstand,
    the Totem, her hall, the bestiary with everything met, the tally with every note, Esc with a pad), at each run's palette
-   (levels 1, 11, 21, 31), and lays them out as contact sheets in `docs/uipass/`. Run now for the *before*, and after each
+   (levels 1, 11, 21, 31), and lays them out as contact sheets in `media/sheets/uipass/`. Run now for the *before*, and after each
    step.
 1. **The sheet** (approved). `make sheets` draws `ui.png`: the two marble ramps (and the run's stone beside, for U1), the slab, well,
    headstone and tablet with their mouldings and ornaments, the three faces in each way of setting them beside the BIOS
@@ -425,18 +425,18 @@ My answer is marked **(mine)**; the owner's take it over.
 - 3 November 2026, step 0: `tools/uishots.sh <label> [levels]` opens eighteen screens in the debug harness (the
   Lampstand, the Totem, the Portal, the Compendium, the Repository, her menu, ascend, the bell, the font, Esc's question,
   Tab's wardrobe, caster, cornerstones and Alignment pages, the bestiary, the Codex, the controls card, the tally on a
-  corrupted level) at the palettes of levels 1, 11, 21 and 31, and lays them out as `docs/uipass/<label>-L<level>.png`
-  (frames in `build/uishots/`). The *before* sheets are `docs/uipass/before-L*.png`. Not reached by it yet: the shrine
+  corrupted level) at the palettes of levels 1, 11, 21 and 31, and lays them out as `media/sheets/uipass/<label>-L<level>.png`
+  (frames in `build/uishots/`). The *before* sheets are `media/sheets/uipass/before-L*.png`. Not reached by it yet: the shrine
   (no switch stands you before it), a stone's page (a fresh run has none), the ledger, the class question, the L list,
   the altar, the Black Shrine, the full bag and the cards; they are added as their steps come. They showed three faults
   more (section 1.2: ascend's rows, the controls card over the shop's, a toast over the tally).
-- 3 November 2026, step 1: the kit is `src/crawl_ui.c` (`crawl_ui.h`: the marble's ramps and picture, `ui_lend`, slabs,
+- 3 November 2026, step 1: the kit is `src/art/crawl_ui.c` (`crawl_ui.h`: the marble's ramps and picture, `ui_lend`, slabs,
   wells, plates, rules, ornaments, the faces' ways, wrapping, key caps, icons, sockets, grooves, and `ui_tree`, the
-  Alignment's stone laid from a `UiTree` the game or the sheet fills) and `src/ui_art.c` (the two 8x8 faces and the icons
+  Alignment's stone laid from a `UiTree` the game or the sheet fills) and `src/art/ui_art.c` (the two 8x8 faces and the icons
   as strings; `ui_face_init` builds the tables and stretches the inscription face to 8x16). Both are in the game's build,
   not yet called. `make sheets` now also runs `build/uisheet all`, drawing `ui.png` (six Alignments in their states, the
   faces, the stones and sockets, the icons cut and inlaid, the marble) and `ui_runs.png` (the marble's lean at levels 1,
-  15, 25 and 38); copies are `docs/uipass/sheet-ui.png` and `sheet-ui-runs.png`. `build/uisheet fit` lays every node of
+  15, 25 and 38); copies are `media/sheets/uipass/sheet-ui.png` and `sheet-ui-runs.png`. `build/uisheet fit` lays every node of
   every line in the pane with its longest note and each warning and fails on any line that doesn't fit (0 now). Choices
   of mine, for the owner to overrule: words cut into the stone read only at 16 px on a smooth plate (`ui_plate`), so the
   8x8 is always inlaid and cutting is kept for titles; a warning takes the description's place in the pane, as it does
@@ -468,7 +468,7 @@ My answer is marked **(mine)**; the owner's take it over.
   Tab, Esc and the bestiary give the same `EVENT` lines as step 1's build, line for line; ASan clean over the menus, the
   tally and a 400 s dream; `make smoke` 1.39 ms a frame, 1.6-1.7 ms with a menu up. The Windows build was compiled and
   smoke-tested by CI on the branch (run 81, started by hand). The after sheets are
-  `docs/uipass/step2-L*.png`. Nothing played by hand. Next: step 3, the Alignment.
+  `media/sheets/uipass/step2-L*.png`. Nothing played by hand. Next: step 3, the Alignment.
 - 3 November 2026, step 3: the Alignment. `render_align(f, view)` fills a `UiTree` from the line as it stands and hands it
   to `ui_tree`; `align_box` and the old tree are gone. A node's state comes from the functions the old screen used: held
   (the opening by `align_open`, so Fire and the class's line show bought), closed (`align_chained`, the other path taken),
@@ -486,7 +486,7 @@ My answer is marked **(mine)**; the owner's take it over.
   line, as at step 2); `build/uisheet fit` still 0 over the sixty nodes; a person buying an opening and Efficiency's two
   points, then unbinding the line (with `CRAWL_ALPTS=200`, `CRAWL_COINS=3`), and a 900 s dream give the same `EVENT` lines
   as step 2's build; ASan clean over that session and 200 s of the dream from level 21; the Windows build compiled and smoke-tested by CI on
-  the branch (run 82, started by hand). Frames: `docs/uipass/step3-L*.png`
+  the branch (run 82, started by hand). Frames: `media/sheets/uipass/step3-L*.png`
   (`lamp` and `alignment`). Nothing played by hand. Next: step 4, the cornerstones, the Totem, ascend and the class.
 - 3 November 2026, step 4: the cornerstones, the Totem, ascend and the class. The kit gained `ui_screen` (the slab, a title
   and a figure across the top, a well and the pane's well from a split), `ui_pane` (the pane taken out of `ui_tree`, which
@@ -511,7 +511,7 @@ My answer is marked **(mine)**; the owner's take it over.
   palettes (`tools/uishots.sh` now opens the class question too, and gives the Totem scrip); a 900 s dream and a person's
   sessions (ascending and buying steps, another past for five coins, a rank raised and scrip sold at the Totem, a
   cornerstone chosen) give the same `EVENT` lines as step 3's build; ASan clean over those, an overlevel and the Totem with
-  nothing to teach; the Windows build compiled and smoke-tested by CI on the branch (run 83). Frames: `docs/uipass/step4-L*.png`. Nothing played by hand. Next: step 5, Tab's wardrobe and pages, the
+  nothing to teach; the Windows build compiled and smoke-tested by CI on the branch (run 83). Frames: `media/sheets/uipass/step4-L*.png`. Nothing played by hand. Next: step 5, Tab's wardrobe and pages, the
   bestiary, the Codex.
 - 3 November 2026, step 5: Tab's pages, the bestiary and the Codex. Tab's six pages share a frame (`tab_frame`: the slab,
   the page's title and its figure across the top, the hint on caps under them, where the hints were, since these pages are
@@ -533,7 +533,7 @@ My answer is marked **(mine)**; the owner's take it over.
   Checked: the fit checks at four palettes find only the tally's line, as before (`tools/uishots.sh` now opens the elements,
   documents and achievements pages too); a 900 s dream and a person's session through every Tab page, the wardrobe's moves,
   the bestiary's creatures and ranks, the achievements and the Codex's parts give the same `EVENT` lines as step 4's build;
-  ASan clean over three such sessions (levels 1, 21 and 31). Frames: `docs/uipass/step5-L*.png`. Nothing played by hand.
+  ASan clean over three such sessions (levels 1, 21 and 31). Frames: `media/sheets/uipass/step5-L*.png`. Nothing played by hand.
   Next: step 6, her hall's menus.
 - 3 November 2026, step 6: her hall's screens. The kit gained `ui_row` (a list's chosen row: the well's stone pressed paler, gold
   notches at its ends, as ascend's had been) and `ui_scroll` (a groove and its thumb). The game has `hall_frame` (the slab, its
@@ -567,7 +567,7 @@ My answer is marked **(mine)**; the owner's take it over.
   the Portal to run III, and a level replayed; a pull and a take at the shrine; the bell corrupted, the font cursed; a stone's
   page; a spare let go) give the same `EVENT` lines as step 5's build (given the same three switches), and the signed page and
   the progress are the same bytes; a 900 s dream the same; ASan clean over the ten and a 300 s dream from level 21. Frames:
-  `docs/uipass/step6-L*.png` (and `before6-L1.png`, the newly reached screens as they were). Nothing played by hand. Next: step 7,
+  `media/sheets/uipass/step6-L*.png` (and `before6-L1.png`, the newly reached screens as they were). Nothing played by hand. Next: step 7,
   the crypt's screens.
 - 3 November 2026, step 7: the crypt's screens. *Esc's question*: a headstone, LEAVE THE CRYPT? in its arch, her line under it,
   the rows in a well (seventeen pixels apart, fifteen with the pad's sixth), the chosen one lit with its two candles, a rule
@@ -596,7 +596,7 @@ My answer is marked **(mine)**; the owner's take it over.
   Checked: the fit checks at four palettes find nothing, the first time since step 2; nine sessions of a person (Esc's rows
   and back; sleepwalking; the L list with its toggle and a cast; the altar woken; the Black Shrine; a death and the waking;
   her claim read; the tally and the reckoning; a boss's antechamber) and a 900 s dream give the same `EVENT` lines as step 6's
-  build (given the same two switches); ASan clean over the nine. Frames: `docs/uipass/step7-L*.png` (and `before7-L1.png`,
+  build (given the same two switches); ASan clean over the nine. Frames: `media/sheets/uipass/step7-L*.png` (and `before7-L1.png`,
   `before7-L21.png`). Nothing played by hand. Next: step 8, the HUD.
 - 3 November 2026, step 8: the HUD, a light pass in the run's stone (U11), nothing moved and no figure changed. The frame starts
   with the kit's ramps on the run's stone (`ui_ramps(0)` in `crawl_render`; a menu lends the marble as before), so whatever the
@@ -621,12 +621,12 @@ My answer is marked **(mine)**; the owner's take it over.
   ability; a boss's fight; her room at the start; a target struck) and a 900 s dream give the same `EVENT` lines as step 7's
   build; ASan clean over the four and a 300 s dream from level 31. A frame costs a little more: a person walking with the bar
   up 1.74-1.82 ms against 1.61-1.67 (two runs of `bench` each), the dream 1.52-1.55 against 1.41-1.44. Frames:
-  `docs/uipass/step8-L*.png`. Nothing played by hand. Next: step 9, the checks, with keys and with a pad, and the README's
+  `media/sheets/uipass/step8-L*.png`. Nothing played by hand. Next: step 9, the checks, with keys and with a pad, and the README's
   previews where they show a menu.
 - 3 November 2026, step 9: the checks. `tools/uishots.sh` gained `PAD=1` (every recipe played on a pad: the takeover held on X, E and
   Enter on A, Esc on Menu, Tab on View, Space and L on Y, the D-pad for W/S/A/D in menus and for B, C and H in play; the recipes
   that walk are left out) and `HOST=` (another build, an ASan one), and a recipe for the wardrobe in a Backrooms pocket, the
-  brightest crypt behind a menu. Every screen at the four palettes, with keys (`docs/uipass/step9-L*.png`) and with a pad
+  brightest crypt behind a menu. Every screen at the four palettes, with keys (`media/sheets/uipass/step9-L*.png`) and with a pad
   (`step9pad-L*.png`): the fit checks find nothing. In a pocket the menu reads, the yellow carpet and paper go grey in the 4 px
   margin while the marble is lent, and come back as the menu closes. One more fault, mended: a toast went on being drawn over a
   menu's corner and over the tally's title (section 1.2 had found it there at step 0); toasts now wait while a menu or the tally is

@@ -1,14 +1,14 @@
 #!/bin/sh
 # The page's gallery (site/index.html, "Then and now"): the same moments in the first beta (1.0.0b1), the thirteenth
 # (1.0.0b13) and this build, each from its own build of the harness, as single frames of the game's own 320x200 in
-# docs/gallery/<set>-<name>-<era>.png. The old builds are made in worktrees under build/gallery/; the thirteenth is given
+# media/gallery/<set>-<name>-<era>.png. The old builds are made in worktrees under build/gallery/; the thirteenth is given
 # one switch it lacks, CRAWL_SEENALL (every kind met, for the bestiary's pages), which changes nothing it draws.
 #
 #   sh tools/gallery.sh            needs gcc, zlib, git and python3
 set -e
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 OUT=$ROOT/build/gallery
-mkdir -p "$OUT" "$ROOT/docs/gallery"
+mkdir -p "$OUT" "$ROOT/media/gallery"
 host_of() {                                                        # the harness of an era, built once
     case "$1" in now) echo "$ROOT/build/host_debug"; return ;; b1) rev=98c26ad ;; b13) rev=31ab8d5 ;; esac
     wt=$OUT/wt-$1
@@ -72,7 +72,7 @@ echo "$RECIPES" | while IFS='|' read -r SET NAME ERAS ENVS INPUT AT; do
         H=$(host_of "$ERA")
         D=$OUT/$ERA; mkdir -p "$D"
         ( cd "$D" && rm -f "$NAME"_*.png && env CRAWL_TITLE=0 $ENVS HOST_INPUT="$INPUT" "$H" shot crawl "$AT" "$NAME" 1 >/dev/null 2>&1 \
-              && mv "$NAME"_*.png "$ROOT/docs/gallery/$SET-$NAME-$ERA.png" ) || echo "no frame: $SET $NAME $ERA" >&2
+              && mv "$NAME"_*.png "$ROOT/media/gallery/$SET-$NAME-$ERA.png" ) || echo "no frame: $SET $NAME $ERA" >&2
     done
 done
-ls "$ROOT/docs/gallery" | wc -l
+ls "$ROOT/media/gallery" | wc -l

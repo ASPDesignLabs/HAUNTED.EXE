@@ -5,7 +5,7 @@ you'd like, and section 3 drafts class-specific caps for you to look into.
 
 ## 1. How a cap works today
 
-- **One table.** Every capped stat has its cap in `STAT_CAP` (`src/crawl_gear.c`). A stat's total is what is worn (with
+- **One table.** Every capped stat has its cap in `STAT_CAP` (`src/crawl/crawl_gear.c`). A stat's total is what is worn (with
   the abilities that lift it: Swiftness on Movement, Arcane Knowledge on Spirit Cost, Treasure Hunter on Treasure) plus the
   caster's own, and the whole is held to the cap. The caster's own is the class's sheet (D5, the innate stats a run starts
   with) and the Unholy Confessions (C5), all summed before the cap.
@@ -94,7 +94,7 @@ A draft for (a), to start from (every number is yours to change):
 
 ## 5. Who would build it
 
-The caps live in `src/crawl_gear.c` (shared by both tracks); the class sheets are track D's (D5); the Confessions' screen
+The caps live in `src/crawl/crawl_gear.c` (shared by both tracks); the class sheets are track D's (D5); the Confessions' screen
 and its cap marks are track C's. Option (a) or (b) would be one contract change (17.3), then a few lines on each side. It
 could go into 1.0.0b20 with D5, or wait for 1.0.0b21. Tested in the harness only, as everything in 1.0.0b20 so far.
 

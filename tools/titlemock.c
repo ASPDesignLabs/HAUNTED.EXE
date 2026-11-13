@@ -1,4 +1,4 @@
-/* Mock-ups of the title screen (docs/PLAN-title.md): src/crawl_title.c's scenes driven round loops with made-up pages,
+/* Mock-ups of the title screen (docs/PLAN-title.md): src/art/crawl_title.c's scenes driven round loops with made-up pages,
  * written as animated GIFs (each frame with the palette it was drawn in, twice size) and sheets of stills.
  *
  *   titlemock <dir> [which]     which: a, b, c (each title, and its graves), menu (the three menus), logo, parts, overview,
@@ -10,10 +10,10 @@
  *
  *   make build/titlemock
  */
-#include "../src/crawl.h"
-#include "../src/crawl_title.h"
-#include "../src/crawl_ui.h"
-#include "../src/gfx.h"
+#include "crawl.h"
+#include "crawl_title.h"
+#include "crawl_ui.h"
+#include "gfx.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>

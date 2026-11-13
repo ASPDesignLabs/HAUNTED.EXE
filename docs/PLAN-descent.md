@@ -19,12 +19,12 @@ answers before the work starts. Section 8 lists the code it touches.
 
 ## 1. What the game does today
 
-- **Look per level.** `crawl_art_level(level)` (in `src/crawl_art.c`) retints the stone, floor,
+- **Look per level.** `crawl_art_level(level)` (in `src/art/crawl_art.c`) retints the stone, floor,
   ceiling and bone ramps with one of eight tints (blue-grey, damp green, sandstone, cold blue, rust,
   violet, ash, bone-pale), cycling every eight levels. It dims slightly each level up to level 9 and
   regenerates the wall textures with a level seed. `decay_tex` then adds grime, creeping moss, drips
   and cracks, scaled by `decay()`, which goes from 0 on level 1 to 1 by level 8.
-- **Wall textures** (`T_*` in `src/crawl.h`, 64x64, procedural): stone, rubble, skull wall, red brick,
+- **Wall textures** (`T_*` in `src/crawl/crawl.h`, 64x64, procedural): stone, rubble, skull wall, red brick,
   moss, burial niche, banner (one design: red with a skull and crossbones), three torch frames, doors,
   jambs, vault doors, the exit runes, the merchant's sign.
 - **Room themes** (`TH_*`): corridor, ossuary, crypt, brick, moss. `theme_tex` picks a wall texture per

@@ -4,7 +4,7 @@
 steps 1 (the record), 2 (the art in the build, hung at section 7's faces), 3 (their candles dealt and lit), 4 (the tapestry drawn
 back, the card, the gold), 5 (the Spectre's and the Wraith's achievements, the twenty feats and their medallions, the bosses' four in
 the plot after the owner saw the knight's mock-up) and 6 (the checks), harness only, and released as **1.0.0b21.2**, "The Portraits
-of the Slain", at the owner's word (10 November), a pre-release, squashed onto main as one commit. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/crawl_portrait.c` (in
+of the Slain", at the owner's word (10 November), a pre-release, squashed onto main as one commit. The mock-ups are drawn with the game's own textures, sprites, palette and light by `src/art/crawl_portrait.c` (in
 the game's build since step 2) and `tools/portraitmock.c` (`make build/portraitmock`, then `build/portraitmock <dir>`). The owner answered every
 question in section 9 the same day (marked there, Q15 last, which came of their own edit) and settled the numbers in a Sheet on
 claude.ai, [Portraits of the Slain: Gold](https://claude.ai/artifact/2P9JkVQMBEdhAoa6zwB1N6), brought into sections 3 and 4 as it
@@ -180,7 +180,7 @@ The owner took A, B and F (10 November, in the Sheet); C, D, E and G are not tak
 
 ## 6. The art
 
-![The tapestry, then the frame by the highest rank unlocked](portraits/states.png)
+![The tapestry, then the frame by the highest rank unlocked](../media/sheets/portraits/states.png)
 
 - **The frame**, 42 by 48 texels of a wall face, the picture inside 32 by 38. A moulding five texels wide, shaded across its
   profile (lip, flat, cove, bead, the step down to the picture) by where the candle is, its bead worked into pearls; a block at
@@ -197,7 +197,7 @@ The owner took A, B and F (10 November, in the Sheet); C, D, E and G are not tak
   drawn aside to the side away from the candle and tied there with a gold cord, where it stays, over the frame's side moulding.
   `tapestry.gif` is the moment; every revealed portrait in the sheets wears its drape.
 
-![Seven candles](portraits/candles.png)
+![Seven candles](../media/sheets/portraits/candles.png)
 
 - **The candles**: a sconce to its right, one to its left, a pair, a pierced iron lamp hung on a chain over it, a ledge of
   church candles under it (one gone out and smoking), a skull on an iron bracket with a candle on its crown, a stand of three on
@@ -209,19 +209,19 @@ The owner took A, B and F (10 November, in the Sheet); C, D, E and G are not tak
   bestiary's niche shows it. `runs.png` puts the two side by side from a cell and two thirds and from three cells. I would take
   128.
 
-![Behind it, the run; the walls' own 64 against 128](portraits/runs.png)
+![Behind it, the run; the walls' own 64 against 128](../media/sheets/portraits/runs.png)
 
-![Her north wall from the middle of the room](portraits/room.png)
+![Her north wall from the middle of the room](../media/sheets/portraits/room.png)
 
-![The card](portraits/card.png)
+![The card](../media/sheets/portraits/card.png)
 
 The animation asked for, the skeleton's frame with ranks I and II unlocked, I on the Crypts' ashlar and II on the Catacombs'
-slate, each walking five seconds, the frame green for II, II's gold waiting: `portraits/skeleton.gif`.
+slate, each walking five seconds, the frame green for II, II's gold waiting: `media/sheets/portraits/skeleton.gif`.
 
 - **A feat's medallion** (step 5): gold, a skull struck in it, on an oxblood ribbon with a gold stripe hung over the frame's
   foot at the side away from the tapestry (on the ledge, away from its candles); it twinkles while its gold waits, as a gem does.
 
-![A feat earned: its medallion](portraits/medals.png)
+![A feat earned: its medallion](../media/sheets/portraits/medals.png)
 
 - **The bosses' four** (step 5; the knight's mock-up seen by the owner, and the name plate it had taken off at their word, since it
   could not be read: the name is the band's at the wall and the card's). Two faces wide: a broad frame whose gems are its
@@ -233,7 +233,7 @@ slate, each walking five seconds, the frame green for II, II's gold waiting: `po
   holds a pose of its own (the knight plants its sword, the spider rears, the Deacon chants, the Wraith reaches), eight seconds
   round. `knight.gif` is the knight's tapestries parting, then the knight with two steps beaten and the second's gold waiting.
 
-![The bosses' four by the Portal: the knight's](portraits/bosses.png)
+![The bosses' four by the Portal: the knight's](../media/sheets/portraits/bosses.png)
 
 ## 7. Where they hang (settled, Q7)
 
@@ -284,7 +284,7 @@ face). The plot's stones stand in rows 22 and 24, so nothing stands before them.
   none came for 3. Nothing in play reads the slayer bits but the bestiary, the achievements' list and the portraits, so the dream's
   runs keep step with 1.0.0b21.1's.
 - **A life.** `death_fall` (a death that costs) and `run_new` clear the gold taken; every visit to her room pays what waits.
-- **The art.** `src/crawl_portrait.c` into the build; the runs' stone and floor kept at start; an overlay a portrait (22 x 64 x 64,
+- **The art.** `src/art/crawl_portrait.c` into the build; the runs' stone and floor kept at start; an overlay a portrait (22 x 64 x 64,
   or 128 x 128 each at 128: 360 KB), drawn again only while its face is in view, its creature's frame changing four times a second
   and its flames twenty; `render_walls` takes them as overlays (`fover`), or at 128 by their own branch.
 - **Her rooms and the plot.** `gen_shop` hangs them (the faces in section 7: her room, the back room, layouts dealt so no
@@ -343,10 +343,10 @@ face). The plot's stones stand in rows 22 and 24, so nothing stands before them.
 ## 11. Hand-off log
 
 - **10 November.** Drafted. Read the achievements (`slayer_need`, `ach_lines`), the bestiary's drawing, the eyes, the ranks'
-  colours and dressing, her room (`gen_shop`) and the runs' looks. `src/crawl_portrait.c` draws a portrait at any scale;
+  colours and dressing, her room (`gen_shop`) and the runs' looks. `src/art/crawl_portrait.c` draws a portrait at any scale;
   `tools/portraitmock.c` sets them in her north wall straight on with the crypt's projection (`FOCAL`, `PLANE_LEN`), textures,
   palette, colourmap and light formula (`light_static`'s), and writes `skeleton.gif`, `tapestry.gif`, `states.png`,
-  `candles.png`, `runs.png`, `room.png` and `card.png` into `docs/portraits/` (`PM_SCALE=2`; `all` or one of `skeleton`,
+  `candles.png`, `runs.png`, `room.png` and `card.png` into `media/sheets/portraits/` (`PM_SCALE=2`; `all` or one of `skeleton`,
   `veil`, `room`, `sheets`, `card`). `tools/portrait_sheet.py` writes the workbook (LibreOffice can fill its formulas'
   values: `soffice --headless --calc --convert-to xlsx`). Not looked at in the game, nor by the owner: the next step is theirs.
 - **10 November, later.** The owner answered Q1 (the spiderling with its mother), Q3 (every rank), Q4 (after a level cleared and on
@@ -391,7 +391,7 @@ face). The plot's stones stand in rows 22 and 24, so nothing stands before them.
   `CRAWL_RUNID=4242` for both) is line for line 1.0.0b21.1's: nothing in play reads the slayer bits. ASan clean on two sessions (the
   old page read, a death and its page written; the new page read and played 700 s). `README.md` and the page still give the old
   counts: they describe the released build, so they change with the release. Next: step 2, the art in the build.
-- **10 November, step 2 built** (harness only), at the owner's word. `src/crawl_portrait.c` is in the game's build (`SRC`, so the
+- **10 November, step 2 built** (harness only), at the owner's word. `src/art/crawl_portrait.c` is in the game's build (`SRC`, so the
   Windows and browser builds too; neither was built here). `por_hang` (the end of `gen_shop`, after `lay_faces`) hangs the
   twenty-two, a bestiary page each in its order, at section 7's faces (the south wall read from the left as you face it, x 20 to
   10; the north wall x 10 to 19 and the spiderling at (21, 12); the back room's north wall x 7, 8 and its east wall y 12 to 17):
@@ -483,7 +483,7 @@ face). The plot's stones stand in rows 22 and 24, so nothing stands before them.
   medallion glyph, `medal_glyph`; the rows close up to 12 pixels), the Spectre's *LAID* and the Wraith's *DRIVEN* columns, its words the
   feat's name and rule, the band at the wall *6 OF 6 AND A FEAT*; the bestiary's W/S goes past the ranks to the feat (`G.best_feat`: its rule and count, a medallion after the
   lozenges), the Spectre's and the Wraith's rows in place of *IT CANNOT BE*; `ach_lines` lists each kind's own after its ranks
-  (26 more lines). The art: `medallion` in `src/crawl_portrait.c`. Tested in the harness: the dream from level 1 for 2,400 s is
+  (26 more lines). The art: `medallion` in `src/art/crawl_portrait.c`. Tested in the harness: the dream from level 1 for 2,400 s is
   line for line 1.0.0b21.1's and earned IT NEVER THREW at 1,975 s (22 skeletons, 12 shields, 2 bats); deep starts at 11, 21 and 31
   counted hound pairs, Drowned bursts missed, deacons before any rose, gargoyles as they woke, hunting spiders overhead, shades fading,
   wall skulls silenced and the Wraith driven back; with `CRAWL_PORTRAITS=7` (the feats too) the skeletons' card paid 1,840 (ranks 0x7f)
@@ -525,7 +525,7 @@ face). The plot's stones stand in rows 22 and 24, so nothing stands before them.
   page with its gold owed again (`PORTRAITS read: open 2 ... waiting 1 taken 0`); read back, her question answered, it paid 130 again.
   After a death that costs she asks what you were before anything else, so a script must answer her first. The Windows and browser builds
   were compiled and smoke-tested by CI on the branch (a run started by hand). The README has a section and *What has been verified*, the
-  page a paragraph in her hall's section, a row in its table and the upgrade's note; the strip is `docs/preview_catacomb_portraits.png`
+  page a paragraph in her hall's section, a row in its table and the upgrade's note; the strip is `media/previews/preview_catacomb_portraits.png`
   (her south wall, the skeletons' portrait and card, the bestiary's feat, the plot's far wall, the knight's card). Debug added for the
   frames: `CRAWL_TPHALL=x,y,deg` (`CRAWL_TPAT` works only on a level).
 - **10 November, after the release: the candles cold till asked.** The owner, on their first look: the candles should stay unlit until a

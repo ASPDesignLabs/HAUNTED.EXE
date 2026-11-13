@@ -10,7 +10,7 @@ retired) and the sliders. The owner had the renders and said to wire them in (4 
 
 ## What there was
 
-One piece for the whole crypt, the march (`crawl_step` in `src/snd.c`): 32 bars at 92 BPM, about 83 seconds, organ chords,
+One piece for the whole crypt, the march (`crawl_step` in `src/core/snd.c`): 32 bars at 92 BPM, about 83 seconds, organ chords,
 a marching bass, harpsichord arpeggios, a flute tune then a brass one and a snare roll back to the top. A level of six
 minutes hears it four times. Beside it on their own buses: Severance's muzak, the four bosses' waltzes (on their own
 clock) and the notes of the fanfare and the stinger. A trial made the march a quarter quicker with harder drums; the void
@@ -51,7 +51,7 @@ Lampstand, the plot) thin her piece to its bass and music box.
 New instruments in the synth: glass harmonica, hammered dulcimer (two courses, a hair apart), low strings, pizzicato, an
 anvil, a celesta. Voices go from 36 to 48 so that the crossfades don't cut notes off.
 
-## The engine (`src/snd.c`)
+## The engine (`src/core/snd.c`)
 
 - **Players.** A piece is data (`Piece`: pace, metre, key, sections, order) and a step function; a player (`Player`) runs
   one on its own clock and bus. Three players: the run's (`BUS_RUN`, which the march shares while it lives), her hall's
@@ -110,7 +110,7 @@ The Windows dialog's *Volume* stays as the overall one, with *Music* and *Effect
 
 ## The hand-off log
 
-- **Steps 1-2** (3 November): the engine and the pieces in `src/snd.c` after the bosses' waltzes; `build/host music`. Renders
+- **Steps 1-2** (3 November): the engine and the pieces in `src/core/snd.c` after the bosses' waltzes; `build/host music`. Renders
   are made with `tools/music.sh` into `build/music/` (MP3 by ffmpeg when it is there). Not yet heard by the owner, and not by
   me: what was checked was measured. Calm, the pieces sit 1-3 dB under the march (-18.5 dB RMS; it had hats throughout),
   each with a gain of its own (`Piece.gain`) to get there; a fight at its third level brings them 2-4 dB up, nothing clips.

@@ -72,27 +72,27 @@ Two scenes are included. They alternate every few minutes (configurable) with a 
 | **HAUNT.EXE** | 80x25 text mode, 720x400 | A possessed 486 PC: BIOS POST, a DOS prompt, and a ghost that types back. Between the gags it runs DOS programs that have been got at: EDIT rewriting AUTOEXEC.BAT for a seance, DEFRAG consuming souls and moving the remains to the front of the disk, a modem call to a BBS on the other side, a virus scan that cannot clean a dead host, MSD finding GHOST.SYS on IRQ 13, a thirteen-disk SETUP, a QBasic program that writes itself, and a file manager moving the dead from GRAVES to SOULS, until a file with your name turns up. Art materialises in between, seven full-screen half-block ANSI scenes with their own stories: the jack-o'-lantern in the pumpkin patch, the talking skull in the ossuary, the manor in a thunderstorm, the spider in the candle-lit corner, zombies digging out of a graveyard, skeletons dancing out of their coffins, and a ghost that rushes down a hallway to say boo. It ends in a fatal error and a CRT power-off, then reboots. |
 | **CATACOMB** | mode 13h, 320x200, 256 colours | A Catacomb 3-D / Wolfenstein 3-D style crypt crawl on autopilot. Forty levels in four runs of ten, the Crypts, the Catacombs, the Hollows and the Deep, each rotting further towards its tenth level, where a boss waits in an arena of its own: the Ill-Fated Skeleton Knight, the Wandering Hunting Spider, the Black Deacon and the Wraith Unbound; then the runs come round again. Before each level the caster visits the merchant, the owner's cat, draped over a treasure chest, purring, and chooses among the wares on her pedestals for the gold it carries: spells, and things to wear that are rolled like loot, each in its quality's colour. Her room has grown into a hall: a back room with the Hexed Totem, where a beaten boss's scrip buys its ability, the Corpus Compendium and the Wretched Repository, and a grave plot with the Accursed Portal in its far wall. Runes come from the Rune Shrine across her room, for Cursed Coins. She sells a map that fills in as you walk, and turns what you have slain and found into Levels of Atonement: points to spend on the caster, and at every tenth a cornerstone. Each level is generated anew: main halls two and three cells wide, big chambers, colonnades and narrow side passages, walked with quick 90-degree turns. Each run is a place of its own, built in its own stone with its own rooms, doors, keys, light and treasure: the Order's burial vaults in dressed ashlar and bone, the drowned catacombs in wet slate under a climbing flood line, a mine the dead were tipped into, and black glass and magma at the bottom. The crypt is dressed: chains and meat hooks swaying from the ceiling, gibbet cages (some still occupied), candle chandeliers, roots and cobweb curtains, bone piles, graveyards of tombstones, fire pits and lit totems. Every level hides three to six secrets behind cracked walls, some of them chains whose deeper links lead out of the crypt altogether: into the Backrooms in the first two runs, and Severance in the next two. Locked vaults are colour-coded (gold from level 1, silver from 3, crimson from 5), each with its own key and a richer hoard, and the deeper ones are guarded. From level 6 a Black Altar stands deep in each level: for souls it sends its wisp to a secret, one at a time, or blesses your wisps against the dead, and once every secret is found it anoints something you wear. Will-o'-wisps, a soul each, fly ahead through the halls to the way out or a key and leave a trail of light to follow. The autopilot remembers treasure it has seen and goes back for it, and leaves through a rune-sealed exit for a Wolfenstein-style tally. Twenty kinds of creature come in over the first two runs, about one new kind a level, and three more in the last two, all drawn by hand, each in ranks you can tell by its colour and its marks; they see and hear, remember and forget, keep posts and walk rounds, hunt in packs, follow your trail and lie in wait, and on the last levels of each run its boss's hazards come into the halls as omens. Each run has hazards of its own besides, in its walls and rooms; on its even levels a sealed wing opens only to a puzzle worked out with things in the world, its answer hidden somewhere on the level; and from the third level a door marked with skull and bones holds a trial against an hourglass. Your face, Wolfenstein-style, pops up when you are hurt. Hold H, or any button on a game controller, for three seconds to play it yourself: then death costs, and only the merchant's ledger keeps what you have (see below). |
 
-![CATACOMB's four runs: a chapter house with its plaster falling away and a knight's slab with candles in the Crypts; a shield-bearer wading through a cistern and a spinners' gallery of bone and webs in the Catacombs; a timbered gallery with mine carts and a lamp, and a fossil hall with a fire, in the Hollows; a geode under a roof of amethyst, and a glass hall with its cracks alight, in the Deep](docs/preview_catacomb_runs.png)
-![CATACOMB's trials and puzzles: a trial's door marked with skull and crossed bones in the Catacombs, Rising Water under way with its hourglass and the drowned wading in, the magma's beam through two glass prisms in a Deep puzzle, the hidden message found in a candle-box, the documents page with the leaf's text, and the reckoning's slip at the exit, THE DEAD KEEP COUNT](docs/preview_catacomb_trials.png)
-![CATACOMB's Alignment and souls: the Lampstand's tree (as it was before 1.0.0b21's augment slots) with Fire at rank 17 and Firestarter chosen, a flame spirit circling the caster's hand, her question of another past at the Anatomist, the map open while walking with violet ink across a hole burnt in the parchment, a shield-bearer's health with the glyphs of what hurts it, and a bat latched across the view](docs/preview_catacomb_alignment.png)
-![CATACOMB's map and Levels of Atonement: the map floating beside the merchant with its card, the map unrolled in the Ossuary, a shield-bearer's health with the spells that hurt it most and least, a Level of Atonement banked as it falls, the caster's screen, and the cornerstones](docs/preview_catacomb_atonement.png)
-![CATACOMB with a game controller: holding a button over HAUNT.EXE's pumpkin patch, the controls in the pad's words, the merchant's prompt, the wardrobe, the bestiary and the Codex with their buttons in colour](docs/preview_catacomb_pad.png)
-![CATACOMB's bosses: the Ill-Fated Skeleton Knight's card in the knights' vault, the knight raising its blade, the Wandering Hunting Spider's card in its gallery, the Black Deacon in his chapel in a green light with his ward's shards about him, a fire bursting on him, and a Fire Bolt bursting on the Wraith Unbound on its throne beside a void](docs/preview_catacomb_bosses.png)
-![CATACOMB's ledger: the merchant's menu, signing a page, a death and what it cost, a stone's page in the grave plot, a trial failed in a pocket, and the merchant's claim](docs/preview_catacomb_ledger.png)
-![CATACOMB's hall: the Accursed Portal in the grave plot's ashlar and its screen, the Hexed Totem, the Corpus Compendium, the Wretched Repository and the Codex of Affixations](docs/preview_catacomb_hall.png)
-![CATACOMB's Backrooms: a chained room's doorway from the crypt, a corridor under the tubes, a leak, a candlestand hanging from the ceiling, a shambler caught in a loop, and the visportal at a chain's end](docs/preview_catacomb_backrooms.png)
-![CATACOMB's Severance: the doorway from the crypt, a white hall, a ward door, an office's desks, a skeleton under the panels, and the water cooler at a chain's end](docs/preview_catacomb_severance.png)
-![CATACOMB's Rune Shrine: the shrine in the merchant's room with its prompt, its screen, a pull's runes coming in, the caster's totals and runes, a Cursed Coin found, and the Black Altar's gifts](docs/preview_catacomb_shrine.png)
-![CATACOMB: the new creatures in the crypt, from the shambler to the gargoyle](docs/preview_catacomb_creatures.png)
-![CATACOMB: an achievement, the bestiary's pages and the achievements list](docs/preview_catacomb_bestiary.png)
-![CATACOMB: the merchant in her hall of ashlar, her wares, a burial vault, an ossuary, Fire Bolts at a spectre and a skeleton, a chapter house, and the caster's portrait after a hit](docs/preview_catacomb.png)
-![CATACOMB: a chandelier over an ossuary's bone walls, a hoard with a crown, a vault strapped in gold, a cracked wall pressed and the secret behind it, and the rune-sealed exit with a wisp before it](docs/preview_catacomb_crypt.png)
-![CATACOMB's wisps: the L list, a wisp kindling for the silver key, an exit wisp's trail down a hall, the Black Altar's gifts, a skeleton by a blessed wisp's trail, and the blessed wisp waiting at the way out](docs/preview_catacomb_wisps.png)
-![CATACOMB played by hand: holding H, the controls, a ware's prompt at her pedestals, casting, the wardrobe and the question at Esc](docs/preview_catacomb_play.png)
-![CATACOMB's wares: a Rare amulet's buying at the merchant, what it changes, the caster's numbers, a full bag, Commune's red shapes through the wall, and a Black Altar woken and burning gold](docs/preview_catacomb_items.png)
-![HAUNT.EXE: the jack-o'-lantern and the skull](docs/preview_haunt_art.png)
-![HAUNT.EXE: the haunted programs](docs/preview_haunt_text.png)
-![HAUNT.EXE: the other art scenes](docs/preview_haunt.png)
+![CATACOMB's four runs: a chapter house with its plaster falling away and a knight's slab with candles in the Crypts; a shield-bearer wading through a cistern and a spinners' gallery of bone and webs in the Catacombs; a timbered gallery with mine carts and a lamp, and a fossil hall with a fire, in the Hollows; a geode under a roof of amethyst, and a glass hall with its cracks alight, in the Deep](media/previews/preview_catacomb_runs.png)
+![CATACOMB's trials and puzzles: a trial's door marked with skull and crossed bones in the Catacombs, Rising Water under way with its hourglass and the drowned wading in, the magma's beam through two glass prisms in a Deep puzzle, the hidden message found in a candle-box, the documents page with the leaf's text, and the reckoning's slip at the exit, THE DEAD KEEP COUNT](media/previews/preview_catacomb_trials.png)
+![CATACOMB's Alignment and souls: the Lampstand's tree (as it was before 1.0.0b21's augment slots) with Fire at rank 17 and Firestarter chosen, a flame spirit circling the caster's hand, her question of another past at the Anatomist, the map open while walking with violet ink across a hole burnt in the parchment, a shield-bearer's health with the glyphs of what hurts it, and a bat latched across the view](media/previews/preview_catacomb_alignment.png)
+![CATACOMB's map and Levels of Atonement: the map floating beside the merchant with its card, the map unrolled in the Ossuary, a shield-bearer's health with the spells that hurt it most and least, a Level of Atonement banked as it falls, the caster's screen, and the cornerstones](media/previews/preview_catacomb_atonement.png)
+![CATACOMB with a game controller: holding a button over HAUNT.EXE's pumpkin patch, the controls in the pad's words, the merchant's prompt, the wardrobe, the bestiary and the Codex with their buttons in colour](media/previews/preview_catacomb_pad.png)
+![CATACOMB's bosses: the Ill-Fated Skeleton Knight's card in the knights' vault, the knight raising its blade, the Wandering Hunting Spider's card in its gallery, the Black Deacon in his chapel in a green light with his ward's shards about him, a fire bursting on him, and a Fire Bolt bursting on the Wraith Unbound on its throne beside a void](media/previews/preview_catacomb_bosses.png)
+![CATACOMB's ledger: the merchant's menu, signing a page, a death and what it cost, a stone's page in the grave plot, a trial failed in a pocket, and the merchant's claim](media/previews/preview_catacomb_ledger.png)
+![CATACOMB's hall: the Accursed Portal in the grave plot's ashlar and its screen, the Hexed Totem, the Corpus Compendium, the Wretched Repository and the Codex of Affixations](media/previews/preview_catacomb_hall.png)
+![CATACOMB's Backrooms: a chained room's doorway from the crypt, a corridor under the tubes, a leak, a candlestand hanging from the ceiling, a shambler caught in a loop, and the visportal at a chain's end](media/previews/preview_catacomb_backrooms.png)
+![CATACOMB's Severance: the doorway from the crypt, a white hall, a ward door, an office's desks, a skeleton under the panels, and the water cooler at a chain's end](media/previews/preview_catacomb_severance.png)
+![CATACOMB's Rune Shrine: the shrine in the merchant's room with its prompt, its screen, a pull's runes coming in, the caster's totals and runes, a Cursed Coin found, and the Black Altar's gifts](media/previews/preview_catacomb_shrine.png)
+![CATACOMB: the new creatures in the crypt, from the shambler to the gargoyle](media/previews/preview_catacomb_creatures.png)
+![CATACOMB: an achievement, the bestiary's pages and the achievements list](media/previews/preview_catacomb_bestiary.png)
+![CATACOMB: the merchant in her hall of ashlar, her wares, a burial vault, an ossuary, Fire Bolts at a spectre and a skeleton, a chapter house, and the caster's portrait after a hit](media/previews/preview_catacomb.png)
+![CATACOMB: a chandelier over an ossuary's bone walls, a hoard with a crown, a vault strapped in gold, a cracked wall pressed and the secret behind it, and the rune-sealed exit with a wisp before it](media/previews/preview_catacomb_crypt.png)
+![CATACOMB's wisps: the L list, a wisp kindling for the silver key, an exit wisp's trail down a hall, the Black Altar's gifts, a skeleton by a blessed wisp's trail, and the blessed wisp waiting at the way out](media/previews/preview_catacomb_wisps.png)
+![CATACOMB played by hand: holding H, the controls, a ware's prompt at her pedestals, casting, the wardrobe and the question at Esc](media/previews/preview_catacomb_play.png)
+![CATACOMB's wares: a Rare amulet's buying at the merchant, what it changes, the caster's numbers, a full bag, Commune's red shapes through the wall, and a Black Altar woken and burning gold](media/previews/preview_catacomb_items.png)
+![HAUNT.EXE: the jack-o'-lantern and the skull](media/previews/preview_haunt_art.png)
+![HAUNT.EXE: the haunted programs](media/previews/preview_haunt_text.png)
+![HAUNT.EXE: the other art scenes](media/previews/preview_haunt.png)
 
 *The menus in the strips were taken again for 1.0.0b14, cut in the stone; the frames of the crypt beside
 them are older, and the creatures in them are as they were drawn before 1.0.0b14's art. The strips of
@@ -452,7 +452,7 @@ you have of it now. A and D turn the pages, W and S go between the parts. It is 
 
 ### CATACOMB: the portraits of the slain
 
-![The portraits of the slain: her wall, a portrait and its card, the bestiary's feat, the bosses by the Portal, and a boss's card](docs/preview_catacomb_portraits.png)
+![The portraits of the slain: her wall, a portrait and its card, the bestiary's feat, the bosses by the Portal, and a boss's card](media/previews/preview_catacomb_portraits.png)
 
 Since 1.0.0b21.2 her walls carry a portrait of every creature in the bestiary, the first two thirds in her room and the last in the
 back room. Each hangs under an oxblood tapestry until one of its kind is slain; then E draws the tapestry back, to be tied at the
@@ -918,7 +918,7 @@ try now and then, and takes every trial it finds.
 
 ### CATACOMB: the title screen
 
-![The title screen's three scenes, and each with its menu up](docs/preview_catacomb_title.png)
+![The title screen's three scenes, and each with its menu up](media/previews/preview_catacomb_title.png)
 
 Since 1.0.0b21.1, taking over brings up a title screen first, drawn as the game draws, in mode 13h's terms. There are three
 scenes, and each start of the program shows the next of them in turn. **Beneath** is a graveyard in cross-section under a
@@ -938,7 +938,7 @@ a half, the title gives the screen back to the screensaver. The run the screensa
 
 ### CATACOMB: the first two levels, and the lessons
 
-![The first two levels: the burning hall, a lesson's page, the wisp to the fountain; level 2's ice, the ice draining after the switch, and the ice come back with a skeleton frozen in it](docs/preview_catacomb_tutorial.png)
+![The first two levels: the burning hall, a lesson's page, the wisp to the fountain; level 2's ice, the ice draining after the switch, and the ice come back with a skeleton frozen in it](media/previews/preview_catacomb_tutorial.png)
 
 Since 1.0.0b21.5 the first two levels of the first run are laid out by hand, the same every time and for everyone, the
 screensaver too. **Level 1** opens on a door with lamp oil burning across the hall behind it: walking through it hurts enough
@@ -1300,17 +1300,25 @@ make web          # the browser's build in build/web (needs Emscripten's emcc); 
 Layout:
 
 ```
-src/core.h  gfx.[ch]  app.[ch]      shared types, drawing, scene rotation / fades / palette conversion
-src/snd.[ch]                        FM synth, effects, the two music programs
-src/scene_haunt.c  haunt_art.[ch]   HAUNT.EXE: text engine, script runner, acts, art pieces
-src/scene_crawl.c                   CATACOMB: level generator, autopilot, raycaster, sprites, light map
-src/crawl_art.c  crawl.h            CATACOMB palette, light colormap, procedural textures and sprites
-src/crawl_gear.[ch]                 CATACOMB's wares: spells, runes by quality, things to wear, bags, prices
-src/hand_img.c  face_img.c  cat_img.c   the hand, the face and the merchant, converted once from photographs
-src/win_main.c                      Win32 shell: /s /c /p /w /f, OpenGL+GDI, waveOut, settings dialog
-src/font_vga.c                      generated by tools/gen_font.py from third_party/font
+src/core/      core.h  gfx.[ch]  app.[ch]      shared types, drawing, scene rotation / fades / palette conversion
+               snd.[ch]                        FM synth, effects, the two music programs
+src/haunt/     scene_haunt.c  haunt_art.[ch]   HAUNT.EXE: text engine, script runner, acts, art pieces
+src/crawl/     scene_crawl.c  crawl.h          CATACOMB: level generator, autopilot, raycaster, sprites, light map;
+               game/  draw/                    scene_crawl.c lists its parts, the game's in game/ and the drawing's in draw/
+               crawl_gear.[ch]                 CATACOMB's wares: spells, runes by quality, things to wear, bags, prices
+               crawl_tutor.[ch]                the lessons' words and their page
+src/art/       crawl_art.c  parts/             CATACOMB palette, light colormap, procedural textures and sprites;
+                                               crawl_art.c lists its parts, which are in parts/
+               crawl_ui.[ch]  ui_art.c         the menus' carved stone
+               crawl_title.[ch]  crawl_portrait.[ch]   the title screen, the portraits of the slain
+src/data/      hand_img.c  face_img.c  cat_img.c   the hand, the face and the merchant, converted once from photographs
+               font_vga.c                      generated by tools/gen_font.py from third_party/font
+src/platform/  win_main.c                      Win32 shell: /s /c /p /w /f, OpenGL+GDI, waveOut, settings dialog
+               web_main.c                      the browser's shell, with the page in web/
 tools/host.c                        host harness
 tools/sheet.c                       sprite sheets: every creature in every rank, side views, the dressing
+docs/                               the plans, as text
+media/                              pictures: previews/ (this README's), gallery/ (the page's), sheets/ (made for approval)
 site/                               the project page, published to GitHub Pages
 site/cards/  site/card.txt          its link-preview cards for X and others (make cards), and which one is shown
 .github/workflows/                  build.yml (build, smoke test, release on v* tags), pages.yml

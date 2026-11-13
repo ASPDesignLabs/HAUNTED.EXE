@@ -181,7 +181,7 @@ drawn *in* towards it, slowly, as if it were breathing them: it wants that. Lit 
 The same colours mark warded creatures (section 6), so the two languages must not cross: a thing *draws motes in*; a
 warded creature *wears a hard rim* of the colour and its glyph is barred.
 
-**Drawn** (step 4, for the owner's eye: `docs/play/marked.png`, `make sheets`' `marked.png`). The mark is `crawl_mark` in
+**Drawn** (step 4, for the owner's eye: `media/sheets/play/marked.png`, `make sheets`' `marked.png`). The mark is `crawl_mark` in
 `crawl_art.c` (row-major, at full brightness, so the game and the sheet draw it alike): a seal of dark iron eleven pixels
 across with the element's glyph (`ELEM_GLYPH`) in its colour, eight motes of that colour spiralling in to it, a row of pips
 under it for a thing that wants more than one hit, lit as they land; just struck, the glyph white-hot and a ring of its
@@ -223,7 +223,7 @@ and the rimed door for fire) come where they can.
 
 Each class's first thing comes on level 2 or 3, so every caster sees early that their own line has a use outside a fight.
 
-**In the game** (step 5, run I, harness only; frames in `docs/play/frames-run1.png`). `place_marked` (in `start_level`, run I's
+**In the game** (step 5, run I, harness only; frames in `media/sheets/play/frames-run1.png`). `place_marked` (in `start_level`, run I's
 levels but the boss's, never a pocket or a challenge) walks the way from the start to the exit's doorstep and, wherever it
 has run `MK_STRETCH` (14) hall steps with no room or door, sets a thing beside it (`mk_spot`: floor off the lanes, clear of
 doors, dressing, items and other things), then fills up anywhere along the way: four to six on levels 1-4, three to five
@@ -278,13 +278,13 @@ at a pricket; a Plague Doctor's dream).
     throw, and they ring together. Any spell rings them one at a time, and they must all ring within two seconds: easy for
     the spear and lightning's Arc, a race for the rest.
 
-**Drawn** (step 6, for the owner's eye: `docs/play/marked2.png`, `make sheets`' `marked2.png`; none of it in the game yet): a
+**Drawn** (step 6, for the owner's eye: `media/sheets/play/marked2.png`, `make sheets`' `marked2.png`; none of it in the game yet): a
 corpse-light (two frames), a rolling skull (two), the heat-and-shatter seal (cold, hot, broken), a bell (still, ringing), the
 winch (still, wound: the portcullis's in run I, a sluice's in run II), the dying hearth (dying, fed), the steam vent (venting,
 iced), run II's ice for the crossing, run III's ore cart (two) and lodestone (dull, charged); run IV's prism and geode are
 1.0.0b13's puzzle things, and its seal the run I one in the Deep's colours. A timed thing's seal counts down in its pips.
 
-**In the game** (step 6, harness only; frames in `docs/play/frames-step6.png`, each thing waiting and answered). Every run now
+**In the game** (step 6, harness only; frames in `media/sheets/play/frames-step6.png`, each thing waiting and answered). Every run now
 (`mk_level_ok`: not a boss's level, a pocket or a challenge), and section 4.3's things from a run's fifth level (`MK_FROM`;
 `MkKind.tier`). `mk_pick` takes the run's own half the time (`MkKind.own`) and a 4.3 thing three times in five once they may
 come; section 4.2's come in every run, in the run's stone. `MAXMK` is 12; three bells count as one thing (`mk_count`).
@@ -358,7 +358,7 @@ make the next fight a different fight.
 32. **The Order's drum.** A war drum in an ossuary, marked with the wisp: Soul Drain silences it, and the file (PLAN-ai's
     packs) loses its order for half a minute.
 
-**Drawn** (step 8, for the owner's eye: `docs/play/marked3.png`, `make sheets`' `marked3.png`; none of it in the game yet): the
+**Drawn** (step 8, for the owner's eye: `media/sheets/play/marked3.png`, `make sheets`' `marked3.png`; none of it in the game yet): the
 tablet with three sockets for its glyphs and the plinths it orders (waiting, struck in turn, out of turn), the turning
 reliquary (its face to you, turning, open), the ward-stone before its door (a new glyph after each hit, then broken), the
 relay's lamp (dead, lit, frozen) with the galvanic coil in its line, lamp oil (casks, then burst and burning), loose masonry
@@ -368,7 +368,7 @@ water, firedamp and the ice floor take the seal on what is already there.
 Redrawn in a gothic hand at the owner's word (lancets, crockets and finials, tracery, a Calvary cross, a capital of skulls,
 a blind arcade, spikes and bone sticks), and approved with that.
 
-**In the game** (step 8, harness only; frames in `docs/play/frames-step8.png`, each before and after). The sequences are
+**In the game** (step 8, harness only; frames in `media/sheets/play/frames-step8.png`, each before and after). The sequences are
 `MkKind.tier` 3, from level 13 with three lines held (the ward-stone two, the relay fire), chosen one time in four there
 (`mk_pick`'s `want_seq`); `MAXMK` holds them.
 
@@ -510,7 +510,7 @@ of breaking glass and the rim gone, dropping it to the kind's own weakness: then
 **Balance.** The dream sees wards through `hit_mult`, so it switches spells as it should; the cost is time, which shows in
 the runs. Eight seeds is too few here (CLAUDE.md's step-2 note); compare sixteen against `CRAWL_WARD=0`.
 
-**In the game** (step 7, harness only; frames in `docs/play/frames-step7.png`: a skeleton knight warded against fire, near,
+**In the game** (step 7, harness only; frames in `media/sheets/play/frames-step7.png`: a skeleton knight warded against fire, near,
 struck by fire and named, then after; a skeleton warded against frost, struck by fire; a shambler the same). `Mob.ward[2]` (1 +
 the element), `wdmg`, `wring`, `wset`; `Pack.ward`, `wset`. `ward_give` the first time a creature moves (`update_mob`), never
 saved: the chance by run (one in six, four, three, three), half again for a pack or rank III and up; a pack's first member

@@ -7,7 +7,7 @@ All eighteen steps are built and were released as 1.0.0b7 (27 October 2026), tes
 only; the steps at the end say what each did. Still to do: the bestiary's boss pages, new art for the
 Deacon and the Wraith, and tuning.**
 
-A mock-up of the ability socket is in [`plan-b7/ability_socket.png`](plan-b7/ability_socket.png).
+A mock-up of the ability socket is in [`media/sheets/plan-b7/ability_socket.png`](../media/sheets/plan-b7/ability_socket.png).
 
 ## What the owner asked for
 
@@ -713,7 +713,7 @@ plot (stones from the graveyard sprites we have, a new one for the freshest, tur
 
 ### The ability socket
 
-![Where the ability socket could go](plan-b7/ability_socket.png)
+![Where the ability socket could go](../media/sheets/plan-b7/ability_socket.png)
 
 From the left: **A** with the bar up, **A** with the bar away, **B** in the top corner. **A is taken**.
 

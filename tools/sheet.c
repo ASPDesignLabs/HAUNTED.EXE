@@ -6,7 +6,7 @@
  *   sheet <group> out.png [level]       one group; level picks the palette and decay (default 1)
  *   sheet all <dir> [level]             every group, as <dir>/<group>.png
  */
-#include "../src/crawl.h"
+#include "crawl.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
