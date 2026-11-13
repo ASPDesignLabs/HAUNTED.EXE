@@ -404,6 +404,15 @@ counts the lessons as given (`pl_read`), so a player who had played before isn't
 touch through the lessons in play, the dream against 1.0.0b21.4 over many seeds), the title's HELP paging through the lessons, the
 scorched floor, and the owner's look at level 2's art; the plan's log says where it stands.
 
+**The tidy-up** is planned and logged in [`docs/PLAN-tidy.md`](docs/PLAN-tidy.md) (13 November, settled with the owner the same
+day, on `claude/peaceful-ritchie-fmeoal` from main at 1.0.0b21.5; its section 9 is the hand-off log: read it first). The owner
+found code and pictures intermingled, and sessions short of context for it. Nothing of the game changes and nothing is released:
+pictures go out of `docs/` into `media/`, `src/` is sorted into folders by kind, the Makefile keeps object files, the two great
+files (`scene_crawl.c`, `crawl_art.c`) are cut into parts that they `#include`, and this file is slimmed to a map with the rest
+moved word for word into `docs/`. Each step must leave every object the same file, byte for byte, as 1.0.0b21.5's:
+`sh tools/tidy_check.sh` proves it (`all` adds the binaries, the sheets, the site and the dream's runs). The plan's section 6
+says where each thing went.
+
 ## Working with the owner
 
 - They play it by hand on their own Windows PC and report back. Mouse feel, sound and input capture
@@ -445,6 +454,7 @@ scorched floor, and the owner's look at level 2's art; the plan's log says where
 | `docs/PLAN-tutorial.md`, `docs/tutorial/`, `tools/tutorial_read.py` | The tutorial's plan; the owner's level drawings and their readings in whole cells, the lessons' sheets; the reader (`python3 -I tools/tutorial_read.py <png>`: the grid, cells, coloured edges and dots) |
 | `src/crawl_tutor.c/.h` | The lessons' words (`TUT`, `tut_lines`, `tut_head`, `tut_wrap`) and their page (`ui_tutor`), shared by the game and `build/uisheet tutor <dir>` |
 | `tools/host.c` | The headless test harness (Linux): PNG frames, WAV audio, benchmarks, scripted input |
+| `tools/tidy_check.sh` | Proves a change moved nothing of the game (docs/PLAN-tidy.md): this tree's objects against another commit's, byte for byte (`sh tools/tidy_check.sh [objects\|all] [rev]`; `all` adds the binaries, smoke frames, sheets, site and the dream's fixed runs) |
 | `tools/music.sh` | CATACOMB's pieces for the ear (docs/PLAN-music.md): each piece, and each run's through a fight, the failing and a menu, into `build/music/`; `hall`, her hall's pieces and the Lampstand's; `spare`, run I's attempts kept unused (docs/PLAN-music-work.md) |
 | `src/web_main.c`, `web/` | The browser's shell (docs/PLAN-web.md): the game's exported door, and the play page, its script and the sound worklet; `make web` (Emscripten) builds `build/web`, `make webzip` the release's `HAUNTED-<version>-web.zip`; `HVS_WEB` makes Space the cast key in `scene_crawl.c` |
 | `tools/web_smoke.js` | The browser build's smoke test in Playwright's Chromium (`node tools/web_smoke.js <site> [secs] [shots]`; CI runs it) |
