@@ -1307,7 +1307,8 @@ src/crawl/     scene_crawl.c  crawl.h          CATACOMB: level generator, autopi
                game/  draw/                    scene_crawl.c lists its parts, the game's in game/ and the drawing's in draw/
                crawl_gear.[ch]                 CATACOMB's wares: spells, runes by quality, things to wear, bags, prices
                crawl_tutor.[ch]                the lessons' words and their page
-src/art/       crawl_art.c                     CATACOMB palette, light colormap, procedural textures and sprites
+src/art/       crawl_art.c  parts/             CATACOMB palette, light colormap, procedural textures and sprites;
+                                               crawl_art.c lists its parts, which are in parts/
                crawl_ui.[ch]  ui_art.c         the menus' carved stone
                crawl_title.[ch]  crawl_portrait.[ch]   the title screen, the portraits of the slain
 src/data/      hand_img.c  face_img.c  cat_img.c   the hand, the face and the merchant, converted once from photographs

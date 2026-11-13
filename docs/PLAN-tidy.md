@@ -2,8 +2,8 @@
 
 Status (13 November 2026): **settled with the owner the same day. Steps 0 to 3 are done (the baseline; the pictures out of
 `docs/`; `src/` sorted by kind; object files); the owner has given their word for the cuts
-as listed (section 5a) and for `CLAUDE.md` as outlined (section 5b), step 4 is done (`scene_crawl.c` in 70 parts),
-and steps 5 and 6 are being built.** Nothing here changes the game: no version is
+as listed (section 5a) and for `CLAUDE.md` as outlined (section 5b), steps 4 and 5 are done (`scene_crawl.c` in 70
+parts, `crawl_art.c` in 31), and step 6 is being built.** Nothing here changes the game: no version is
 bumped, nothing is released, and main is left alone until the owner says.
 
 Read the hand-off log (section 9) first. It says where the last session stopped.
@@ -370,3 +370,9 @@ mentions in fifteen documents, the folder alone, so every source a plan names is
   the same two tables; `tools/tidy_check.sh` looks for a unit no deeper than `src/<kind>/`, so a part is never taken for
   one. The scripts that made and proved the cut (`cut.py` and the spec) were the session's own; the proof stands in
   this entry and in the objects' check, which anyone can run again.
+- **13 November, session 1, step 5 done.** `crawl_art.c` is cut the same way: it keeps its 13 opening lines (its
+  comment, its headers, the art's five arrays) and lists its 31 parts in `src/art/parts/`. Proved: the parts, less
+  their three lines, joined in the list's order are the old file byte for byte (15,174 lines, 1,000,050 bytes);
+  `sh tools/tidy_check.sh all`: all alike, the 84 sheets among them. No script read `crawl_art.c`'s text. The two great
+  files are now 101 parts, the longest 1,273 lines (`draw/sprites.c`, which is mostly `render_sprites`), half of them
+  under 500.
