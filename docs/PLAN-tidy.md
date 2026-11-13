@@ -414,3 +414,12 @@ mentions in fifteen documents, the folder alone, so every source a plan names is
   squashed commit, like the rest; with `VERSION` as it is, CI releases nothing and the page is rebuilt the same); and
   whether separate modules (section 7) are wanted. A session taking this up afresh: the branch's tip is the whole of
   it, and `sh tools/tidy_check.sh all` proves it again in about seven minutes.
+- **13 November, session 1, the branch's tip.** CI was run once more on the commit that holds the entry above (Build,
+  run 134, `32adb7c`). The Windows build and its smoke test passed. The browser's smoke test failed once and passed when
+  its job was run again, nothing changed between: it had measured 14.3 frames a second in play on that runner, against
+  the floor of 15 that `tools/web_smoke.js` sets, with every other check in it passing (booted, the dream on the screen,
+  taken over, the settings kept across a reload, the pad). The commit differs from the one run 133 passed only in four
+  documents. Noted in `docs/KNOWN-ISSUES.md`, since a release's build would fail the same way on a slow runner. Also at
+  the tip: a fresh checkout builds and passes `make smoke` from nothing in 46 s and draws its 84 sheets, so nothing
+  leans on a file outside git; both cuts join to the old files again; `sh tools/tidy_check.sh`: all 46 objects alike.
+

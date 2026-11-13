@@ -251,3 +251,8 @@ wrong or untried, and the numbers from each round of the dream's runs. Add to it
   browser's page stayed the same files. The two great files are cut into parts but each is still one translation unit, so
   `scene_crawl.c` takes 35 s to compile when any of its 70 parts changes: separate modules would mend that, and would
   change the binary (the plan's section 7).
+- The browser's smoke test (`tools/web_smoke.js`) fails a build that plays at under 15 frames a second in CI's headless
+  Chromium. On 13 November a run measured 14.3 on a commit that changed only documents, and passed when the job was run
+  again (docs/PLAN-tidy.md's log). The game's own work in that frame was 0.33 ms; the runner was slow. If a release's
+  build fails there, run the failed job again before looking further.
+
