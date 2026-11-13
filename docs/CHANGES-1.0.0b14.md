@@ -467,8 +467,8 @@ Everything in the harness only. The Windows build compiled and smoke-tested by G
 
 ## Part 9. Known issues and what is still to come
 
-- None of it has been played by hand or seen on a real screen. The new art (`docs/artpass/review/`) and the new screens
-  (`docs/uipass/`) still wait for the owner's eye on a real monitor.
+- None of it has been played by hand or seen on a real screen. The new art (`media/sheets/artpass/review/`) and the new screens
+  (`media/sheets/uipass/`) still wait for the owner's eye on a real monitor.
 - Two of the dream's long runs stood within a cell of one place for about four minutes, casting at nothing it could kill,
   near where a Wraith had just been driven back. One cause was found and mended (the broken pack still calling); whether
   that was all of it isn't known. Runs by a sluice have stood still too (up to five and a half minutes, rarely).

@@ -1,6 +1,6 @@
 # 1.0.0b18.1: the trial's door, and the crypt made kinder
 
-**Settled; steps 1-8 built** (harness only; 7-8 November 2026), the sheets of steps 4, 7 and 8 (`docs/b18-1/bells.png`,
+**Settled; steps 1-8 built** (harness only; 7-8 November 2026), the sheets of steps 4, 7 and 8 (`media/sheets/b18-1/bells.png`,
 `lamps.png`, `pad.png`, `footprints.png`) approved by the owner. **At the owner's word (8 November) it went out with 1.0.0b19, not alone** (released the same day): merged into
 `claude/inspiring-archimedes-dbj5n6`, its step 9 folded into PLAN-combat's J19 (run over both together), its step 10 that
 release's (section 15's last entry). Written on `claude/funny-lamport-onhkrp` from main at 1.0.0b18, while the two
@@ -142,7 +142,7 @@ a broken one is only there. The Toll's four small bells keep `SP_BELL` (they are
 ones, still and rung, in each run's light, and the dead bell beside today's decoration. To the owner before anything goes in.
 
 *As drawn* (step 4; `spr_pbell`, `bell_body`, `bell_r`, `cut_numeral`, `cv_swing`, `spr_bell_dead`; `SP_PBELL0..3`, `SP_PBELL0R..3R`,
-`SP_BELL_DEAD`; `make sheets`' `b181bells`, and `docs/b18-1/bells.png` in run I's light at level 6 over run II's at 16; the
+`SP_BELL_DEAD`; `make sheets`' `b181bells`, and `media/sheets/b18-1/bells.png` in run I's light at level 6 over run II's at 16; the
 sheet tool draws each sprite at one size, so the knell's sizes and the drowned bells' depths are left to step 5's frames):
 - Silver is the iron ramp's brightest steps, not the ghost ramp, which came out icy blue. So the four darken in order, I to IV,
   with bronze between: another way to tell them, besides shape, bands and numeral.
@@ -184,7 +184,7 @@ Each then grows a ring of one cell, the cells immediately round it, through floo
   being cornered and coming again. Souls offered before it comes wait. Anything that stops the level (a pocket, a menu) stops it.
 - Defaults: not saved; a level begun again begins with every lamp out, the souls offered gone.
 - *As drawn* (step 4; `spr_wlamp`, `lamp_flame`, `lamp_pips`; `SP_WLAMP0 + 3 x run + state`, 0 out, 1 and 2 lit; `make sheets`'
-  `b181lamps`, and `docs/b18-1/lamps.png` with each run's three in its own run's light, levels 5, 15, 25 and 35): run I an iron
+  `b181lamps`, and `media/sheets/b18-1/lamps.png` with each run's three in its own run's light, levels 5, 15, 25 and 35): run I an iron
   cage under a plate pierced with the Order's cross; run II a bronze bowl on three chains from a bracket, dripping; run III a
   miner's lantern on a hook from a timber bracket, its horn panes glowing; run IV an obsidian vessel glinting violet, the flame
   seen through it. The soul's flame is the full-bright magic ramp, which is blue (the plan said pale violet), and so plainly not
@@ -326,7 +326,7 @@ The screen and the look drawn with today's layout for the owner (`tools/uisheet.
 scripted pad in the harness: a trade, the defaults, the look from play, a menu and her rooms, a save and its reading, an old byte
 read. Untried with a real controller until the owner plays it (there is none here).
 
-*As drawn* (step 7's sheet, `docs/b18-1/pad.png`; `build/uisheet pad <png>`, also in `make sheets`, failing on any overflow):
+*As drawn* (step 7's sheet, `media/sheets/b18-1/pad.png`; `build/uisheet pad <png>`, also in `make sheets`, failing on any overflow):
 a kit piece the game will draw too, `ui_pad` (`UiPad`, `UI_PAD_NAME`) at the end of `src/crawl_ui.c`, so the sheet is the screen.
 - The pad is cut from the wells' stone, lit from above, in the Xbox layout with no mark on it: the bumpers a band along each
   shoulder's curve, the triggers above them, the left stick high and the D-pad low on the left, the face buttons high and the
@@ -358,7 +358,7 @@ we have ... Holding a d-pad button should cause the right stick to move through 
   only, so X held only readied the next.
 - **THE MENUS** (a fifth option, *MENUS: LEFT*, *RIGHT* or *BOTH*): the stick that moves through the list menus with the
   D-pad. Left at first, as before. Saved in the flags' byte (bits 2-3). The options are now three down the left (sticks,
-  turning, menus) and two down the right (rumble, the defaults), and the sheet was drawn again so (`docs/b18-1/pad.png`).
+  turning, menus) and two down the right (rumble, the defaults), and the sheet was drawn again so (`media/sheets/b18-1/pad.png`).
 
 *As built* (step 7, in the game):
 - **The layout** (`PL`): each button's job, a job named by the button it began on, so today's layout is each button its own; the
@@ -421,7 +421,7 @@ skull piles, candles) block nothing but keep anything else out of their cell (`G
 `make sheets` draws `footprints.png`: every prop with the footprint its art gives it drawn at its foot. F1 b lets the art decide;
 the sheet shows the owner what it decided. Then frames from levels 1, 15, 25 and 35.
 
-*The sheet as drawn* (8 November; `docs/b18-1/footprints.png`, `make sheets`' `footprints`). The measure is `crawl_foot[NSPR]`
+*The sheet as drawn* (8 November; `media/sheets/b18-1/footprints.png`, `make sheets`' `footprints`). The measure is `crawl_foot[NSPR]`
 with `crawl_prop_foot` (the widest frame or look) and `crawl_foot_part` in `crawl_art.c`, taken at the end of
 `crawl_art_level`, not `crawl_art_init`: the props are drawn there, a level at a time (`props_level`, then the run's own), so a
 redrawn prop brings its own. All four runs give the same widths today. What the art decided, of the props `dress_level` lays:
@@ -776,7 +776,7 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
   - *CI:* run 42436508177 on the branch (started by hand): the Windows build (with `PadMap`) and the browser's compiled, and both
     smoke tests passed.
 - **8 November. Step 8's sheet, footprints: drawn** (for the owner's eye; nothing of it in the game yet).
-  - *Drawn:* `docs/b18-1/footprints.png` (`build/sheet footprints`, and in `make sheets`): every prop `dress_level` lays, each with
+  - *Drawn:* `media/sheets/b18-1/footprints.png` (`build/sheet footprints`, and in `make sheets`): every prop `dress_level` lays, each with
     its foot on a ruler marked at 0.45 and 0.70, the share, the verdict and the cell from above with the part it takes; then
     those left as they are, with their feet for interest. The measure (`crawl_foot`, `crawl_prop_foot`, `crawl_foot_part`) is in
     `crawl_art.c`, at the end of `crawl_art_level` (section 8's *sheet as drawn*). Five props come out whole, seven half, two a
@@ -787,7 +787,7 @@ keyboard layouts), F1 b (every prop by its drawn width), F2 a (the art pass's P7
 - **8 November. Step 8, footprints: built** (harness only), the sheet approved by the owner.
   - *Built:* as section 8's *as built* note says. Two changes from section 8's text, both for safety: the cell keeps its kind
     (`K_PROP`) and only what walks reads the mask; and `mk_free` and `pz_free` were not taught, only the rooms' treasure and the
-    potion. The frames (`docs/b18-1/footprint-frames.png`: a candlestand and a cross on level 1, an obelisk on 15, a brazier on 25,
+    potion. The frames (`media/sheets/b18-1/footprint-frames.png`: a candlestand and a cross on level 1, an obelisk on 15, a brazier on 25,
     obsidian on 35, each with every prop whole on the left and its footprint on the right, from the same place) were taken
     standing beside each prop.
   - *Laid* (seed 3): level 1, 15 whole (6 of them in the open), 11 half, 1 a quarter; level 15, 10, 29 and none; level 25, 7, 8

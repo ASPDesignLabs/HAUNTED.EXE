@@ -1,7 +1,7 @@
 # Tidying the repository: plan and hand-off
 
-Status (13 November 2026): **settled with the owner the same day. Step 0 (the baseline) is done; steps 1 to 3 are being
-built; steps 4 and 6 each wait for the owner's word before they begin.** Nothing here changes the game: no version is
+Status (13 November 2026): **settled with the owner the same day. Steps 0 and 1 are done (the baseline; the pictures out of
+`docs/`); steps 2 and 3 are being built; steps 4 and 6 each wait for the owner's word before they begin.** Nothing here changes the game: no version is
 bumped, nothing is released, and main is left alone until the owner says.
 
 Read the hand-off log (section 9) first. It says where the last session stopped.
@@ -148,3 +148,15 @@ The plans' older logs still name files as `src/<name>`; the name is right and th
   baseline taken from the untouched tree: 46 objects, 7 binaries, 10 smoke frames, 84 sheets, 98 site files, the
   dream's runs; no compiler warnings. `tools/tidy_check.sh` written so the proof outlives the container: it measures
   `a38b19c` again in a worktree whenever its kept numbers are gone.
+- **13 November, session 1, step 1 done.** The pictures are out of `docs/`: 290 files moved with `git mv`, every one a
+  pure rename (289 pictures and the title mock-ups' caption), into `media/previews/`, `media/gallery/` and
+  `media/sheets/<pass>/`. `docs/` went from 80 MB to 1.4 MB: 27 documents and the portraits' two tables of numbers.
+  181 mentions rewritten in 20 files (the README's 24 previews, `CLAUDE.md`, fourteen plans, `tools/build_site.sh`,
+  `gallery.sh`, `uishots.sh`, `tutorial_read.py`, one comment in `scene_crawl.c`), and the links said from inside
+  `docs/` now climb out (`../media/sheets/...`). Checked: every picture and document named anywhere exists, but for one
+  mention that was already dangling (`PLAN-tutorial.md` names the lessons' sheet `pages.png`; it has been `pages1.png`
+  and `pages2.png` since it was split; left as written). `sh tools/tidy_check.sh all`: all alike, the site's 98 files
+  among them. `tools/package.py` now packs `docs/` and `media/previews/` and leaves the sheets and the gallery out: made
+  both ways with the same stand-ins for the Windows binaries, the zip went from 70.4 MB and 384 files to 9.1 MB and
+  120, so the next release's should be about 12 MB against 1.0.0b21.5's 73.7. The page says nothing of the zip's size,
+  and the README's line on what the zip holds is still true.

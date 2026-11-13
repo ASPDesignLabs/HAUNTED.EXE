@@ -839,7 +839,7 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   level's median time 355, 368 and 366 s (356, 371, 365). Inside the noise everywhere, then; the knight's level is the noisiest
   number there is (28 to 48 deaths between builds that never touched him). No contract changed. Next: C2, its sheet first (the
   status glyphs and the knock-down's frames), for the owner.
-- **7 November. C2's sheet, for the owner** (`docs/combat/c2-statuses.png`). The look of the seven, built and shown, nothing that
+- **7 November. C2's sheet, for the owner** (`media/sheets/combat/c2-statuses.png`). The look of the seven, built and shown, nothing that
   plays: `G.af[NAF]`, `af0`, `af_n`, `af_k`, `af_shake`, `af_by` in `carry_caster`'s span by `poison_t`; `af_tick` (beside
   `update_hazards`) runs their clocks and how far a knock-down has the view down; nothing sets one yet but `CRAWL_AFSHOW` (the
   debug build: `k` an `AF_*`, `1:n` Chilled with n stacks, `7` the grapple, `all` four at once; the knock-down every 3 s). The
@@ -907,7 +907,7 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
 - **7 November. CONTRACT: `Mob.c_flags`** (17.3): draw flags track C asks a creature drawn with while one of its attacks is under
   way (first the Bone Thrower's flash, `DR_EDGE`); set and cleared by C, ORed in by one line in the creatures' part of
   `render_sprites` (D's), which does nothing else with it. Nothing sets it yet, so nothing is drawn differently.
-- **7 November. C4's sheet, for the owner** (`docs/combat/c4-attacks.png`). The new attacks built behind `CRAWL_C4=1` (the debug
+- **7 November. C4's sheet, for the owner** (`media/sheets/combat/c4-attacks.png`). The new attacks built behind `CRAWL_C4=1` (the debug
   build) and off in play, so the frames are the game's own: the Bone Thrower (rank II up, a 0.6 s flash through `Mob.c_flags`,
   then three bones lobbed half a second apart over twenty degrees), the shield-bearer's charge (the stamp with the shield up and
   dust, then the rush up to five cells along a clear lane; struck, knocked down 1.2 s, M4's mitigation), the Drowned's spew
@@ -993,7 +993,7 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   `blow_survived` (asked in `hurt_ex` after Second Wind). With the stubs nothing in play changes. Defaults taken here: a run with
   no past takes each Confession at 75%, the places' mean; past V an overlevel adds a quarter of I-to-V again; a status cut never
   passes 90%, the killing blow's chance 50%. Next: the screen's sheet for the owner, and what doesn't hang on it.
-- **8 November. C5's sheet, for the owner** (`docs/combat/c5-confessions.png`). The ascend screen as the Confessions would have it,
+- **8 November. C5's sheet, for the owner** (`media/sheets/combat/c5-confessions.png`). The ascend screen as the Confessions would have it,
   drawn by the game (`render_confess`, shown in place of today's only with `CRAWL_CONFUI=1` in the debug build; play is as it was):
   the six down the left, each its rank's numeral beside a groove that fills to V with the ranks notched in it; the chosen one on
   the right, its rank and the points into the next, its numbers as you have them and as the next rank has them (VI and on when an
@@ -1110,7 +1110,7 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   `cast_spell` is C's now. Checked: the dream from level 1 for 600 s on seed 5 as the Witchfinder (661 events) and the Plague
   Doctor (603) plays the build before line for line. Next: the frame (the slots at the Lampstand, credits, ranks, `LG_AUG`, the
   dream's choices) and Fire's six, behind a debug switch till their sheet is approved. Track D: D7 can begin on `augd_*` now.
-- **9 November. C6's frame and Fire's six, and their sheet, for the owner** (`docs/combat/c6-augments.png`; harness only). All of
+- **9 November. C6's frame and Fire's six, and their sheet, for the owner** (`media/sheets/combat/c6-augments.png`; harness only). All of
   it behind `CRAWL_AUG=1` in the debug build (`aug_on`, 0 in the release build), so play is the build before's: with it unset four
   600 s dreams (seeds 1 and 3, the Witchfinder and the Sin-Eater) give the previous commit's events line for line. *The frame*
   (`a47c96a`): `RUN.aug` (the choice at each step, 1 or 2), `aug_ord` (the order chosen), `aug_cr` (each one's credits),
@@ -1452,7 +1452,7 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   weights give them (0.25 the Headsman, 0.22 the Plague Doctor, 0.15 the Galvanist) and 15 of 48 lived; forced (`CRAWL_LASTBLOW=1`)
   over a Plague Doctor's dream of 2,400 s, once on each of levels 2, 4 and 5, never twice on a level, a retry after a death
   allowed again; frames of the breath; ASan clean on that dream (1,200 s) and on a person struck down on level 12.
-- **8 November. Toughness's cracks: the sheet, for the owner** (`docs/combat/d5-cracks.png`; 10.5). `render_cracks` (from the
+- **8 November. Toughness's cracks: the sheet, for the owner** (`media/sheets/combat/d5-cracks.png`; 10.5). `render_cracks` (from the
   end of `render_warded`): motes off each shut secret's crack face, rising and drifting off the stone over two or three seconds,
   in the run's colour (the Order's candle gold, the drowned's ghost-light, the mine's amber, the black glass's violet), a bright
   core and a dim cross about it, at full brightness through dark and fog, hidden by walls; seen within Toughness's reach
@@ -1461,7 +1461,7 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   The sheet: each run at rank V close to, rank I at 3.2 cells, III at 5, V at 7, from the game (`CRAWL_TPAT`). Behind
   `CRAWL_CRACKS=1` (debug) till it is approved; `CRAWL_CRACKS=2` adds a `CRACKS` line a second (the face, the distance, the reach).
   Next: Restoration the spell, its glow up the arm on a sheet first.
-- **8 November. Restoration's glow: the sheet, for the owner** (`docs/combat/d5-restoration.png`; 10.3). `render_restore` (from
+- **8 November. Restoration's glow: the sheet, for the owner** (`media/sheets/combat/d5-restoration.png`; 10.3). `render_restore` (from
   `render_hand`, one line after `render_charge`): while it is channelled, three bands of pale ghost-light go down the arm from the
   fingers into the sleeve every 1.7 s, dithered over the hand's own shading so the skin shows through, a faint wash at the fingers,
   and motes rising off them. The sheet shows the hand at rest and the claw, in run I's light and run IV's dark, untouched and at
@@ -1513,8 +1513,8 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   Whether that is its ninety health, Frost, or its Dodge and Movement changing how the dream walks is not known; a person may fare
   otherwise. For the owner.
 
-- **9 November. Both sheets approved; the cracks in play.** The owner approved `docs/combat/d5-cracks.png` and
-  `docs/combat/d5-restoration.png` as drawn. Toughness's motes are now the game's (`cracks_on`; `CRAWL_CRACKS=0` in the debug build
+- **9 November. Both sheets approved; the cracks in play.** The owner approved `media/sheets/combat/d5-cracks.png` and
+  `media/sheets/combat/d5-restoration.png` as drawn. Toughness's motes are now the game's (`cracks_on`; `CRAWL_CRACKS=0` in the debug build
   leaves them out, `CRAWL_CRACKS=2` still traces); Restoration's glow was already in play with the spell. Checked: a frame of run I's
   crack at 1.5 cells with Toughness at V shows the motes and one with nothing confessed shows none, so a run without Toughness looks
   as it did. Nothing of D5 waits on a sheet now. Still the owner's: the Galvanist's sheet, and the stall by a buried shambler.
@@ -1646,7 +1646,7 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
   Heavy Haft (the first struck staggers 0.5 s x k), Skewer (15% x k more for each pierced), Bone Rain (a kill bursts into three
   splinters at the nearest, 35% x k each; a splinter's own hits bleed, leave and rain nothing). The fixed costs (Hoarbite's fifth,
   Siphon's 15%, Overcharge's quarter) don't move with rank. Brittle, Rot and Exorcism count whatever strikes; the rest are the
-  line's own spell. **The sheet** (`docs/combat/d7-augments.png`, sent to the owner): what is new to the eye is three things,
+  line's own spell. **The sheet** (`media/sheets/combat/d7-augments.png`, sent to the owner): what is new to the eye is three things,
   Barbed's bleed (`DR_BLEED`), Static Build's gold bolts and Miasma's green vapour; Thunderclap and Cold Snap use the orb's flash and
   the frost's burst; the rest what is drawn already. Till it is approved `augd_built` says none (`CRAWL_D7=1` offers them, with C's
   `CRAWL_AUG=1`). **Checked**: with nothing chosen, the dream plays the build before line for line (two seeds, 600 and 900 s);
@@ -1662,7 +1662,7 @@ For track C in a fresh session, the same with C, C1 to C4 and section 18.
 - **9 November. D7's sheet approved; D's augments switched on.** At the owner's word ("I approve the sheet, switch them on"):
   `d7_on` is on in every build (`CRAWL_D7=0` in the debug build takes them out, for the balance runs), so `augd_built` says the five
   lines are built. They come into play wherever C6's frame is: with `aug_on` still off in the release build (C6's own sheet,
-  `docs/combat/c6-augments.png`, with the owner), nothing is chosen yet and play is the build before line for line (checked, 900 s);
+  `media/sheets/combat/c6-augments.png`, with the owner), nothing is chosen yet and play is the build before line for line (checked, 900 s);
   with `CRAWL_AUG=1` alone the dream now chooses D's at the Lampstand beside Fire's. **Track C**: once the owner approves your sheet,
   turning `aug_on` on brings all six lines in at once; nothing more is needed on D's side.
 - **9 November. J21, track D's half** (harness only), as track C's entry set it out: this branch at `14adf0d` (code as `8fe7e56`:

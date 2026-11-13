@@ -686,11 +686,11 @@ owner released 1.0.0b21.3 ("Her Wares, Weighed") while this was being planned.
   words and marks go from bone to gold; blank, its socket is empty and cracked, its words worn nearly smooth and moss over its foot.
   Each is built once for its size and state and kept (`TSC`, forty stones, the least used going first; it doesn't touch the title's
   own cache, `SCC`), so a frame only copies them and fills their places: in headless Chromium as a Pixel 7 the frames ran 4.1-4.8 ms
-  (5.1 before). The sheet is `build/titlemock <dir> touch` (`docs/touch/stones.png`: each run's stone in play, pressed, blank and full,
-  and in a menu; `docs/touch/sizes.png`: a narrow, a wide and a short stage, where the narrow tablets drop their roundels and the
+  (5.1 before). The sheet is `build/titlemock <dir> touch` (`media/sheets/touch/stones.png`: each run's stone in play, pressed, blank and full,
+  and in a menu; `media/sheets/touch/sizes.png`: a narrow, a wide and a short stage, where the narrow tablets drop their roundels and the
   plinths' marks give way before their words), and it prints each run's contrast: the words' and marks' darkest inlay (bone 13, gold
   10) against the lightest quarter of the stones as drawn, 5.5 to 7.7 to 1 across the four runs (the plan's bar is 4.5). The stone was
-  darkened a little and the inlay raised to the top of its ramp to get there. `docs/touch/frames.png`: the build in Chromium (a room, a
+  darkened a little and the inlay raised to the top of its ramp to get there. `media/sheets/touch/frames.png`: the build in Chromium (a room, a
   thumb on the walk and one on CAST facing the merchant, Esc's rows), and the first cut's frame for comparison. Tried: `make smoke`,
   `tools/web_smoke.js`, `tools/touch_smoke.js` (no errors) and a walk with two thumbs; ASan clean on the sheet (it found an overrun in
   the sheet's own short stage, mended). Not tried: on the phone; the harness still drives no fingers, so ASan hasn't run the game's

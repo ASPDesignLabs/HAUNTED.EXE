@@ -10,7 +10,7 @@ walls), the lines on the edge of stone that aren't plain wall (the fountain, the
 dots (E the dead, G gold, Y the gold key's letter, C the crimson's, M magenta, g an
  elemental mark: a square an interaction, a circle a switch), in cells: a whole number is a grid line, so a dot
 at 6.0, 10.0 stands on the corner of four cells. What it reads is a first reading, to be checked
-against the drawing by eye: docs/tutorial/level1-read.png was made the same way.
+against the drawing by eye: media/sheets/tutorial/level1-read.png was made the same way.
 Needs Pillow."""
 import sys
 from collections import deque

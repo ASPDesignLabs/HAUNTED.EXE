@@ -14690,7 +14690,7 @@ static void lull_tick(float dt) {
 
 /* ---- Drawn levels (docs/PLAN-tutorial.md): levels 1 and 2 of the first descent are the owner's drawings, the same every
  * time, for everyone, the dream too. Each is a map of letters, its rooms by type, and what stands in it, in the drawing's own
- * cells (x east from its corner, y south, as docs/tutorial/level*-read.png has them), laid at (ox, oy) in the level's map.
+ * cells (x east from its corner, y south, as media/sheets/tutorial/level*-read.png has them), laid at (ox, oy) in the level's map.
  * The look, the dressing and the torches are the generator's, laid on a seed of the drawing's own, so they lie the same each
  * time too. The letters: # stone, . floor, + floor on a lane, F the burning floor, f on a lane, D a door, G a gold door,
  * C a crimson door, = the one-way gate, S the start (on a lane), h the place to mend and X the exit (walls, used from their open

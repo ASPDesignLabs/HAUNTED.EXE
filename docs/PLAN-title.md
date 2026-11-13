@@ -48,7 +48,7 @@ Read the hand-off log (section 6) first. It says where the last session stopped.
   build/titlemock <dir> a              # a, b or c: one title and its graves; logo; overview; flash (the lightning's frames)
   TM_SCALE=1 build/titlemock <dir> b   # the GIFs at native size
   ```
-- `docs/titlepass/`: the stills, `overview.png`, `logo.png` and a README describing the first mock-ups. The GIFs aren't
+- `media/sheets/titlepass/`: the stills, `overview.png`, `logo.png` and a README describing the first mock-ups. The GIFs aren't
   committed: they come to about 8 MB at native size and 18 MB doubled. Send them to the owner instead, and keep them out of
   git unless the owner asks.
 - How the tool works (`titlemock.c`, top to bottom):
@@ -136,8 +136,8 @@ Mark each step as it lands (**done**, with the date), and add a line to the log 
    `KEY_SKULL`, volutes, the left shoulder broken off and its pieces at the foot, MEMENTO MORI on the plinth), `grass_fg`,
    the hand's shroud cuff and knuckles (`hand_lift` brightens it where it is small).
 8. **Checks and hand-over.** Render everything. Look at each still: the words readable, nothing over the name, the loops
-   clean. Update `docs/titlepass/` (stills, overview, logo, README), commit and push, and send the GIFs to the owner with
-   short notes. **Done** (9 November): the stills, `overview.png`, `logo.png` and `parts.png` in `docs/titlepass/`, and its
+   clean. Update `media/sheets/titlepass/` (stills, overview, logo, README), commit and push, and send the GIFs to the owner with
+   short notes. **Done** (9 November): the stills, `overview.png`, `logo.png` and `parts.png` in `media/sheets/titlepass/`, and its
    README rewritten for this pass. The GIFs (about 20 MB doubled) went to the owner, not into git.
 9. **Later, not this pass: into the game.** Its own plan: a title scene between the screensaver and play, the rotation,
    the music hook, the graves read from the ledger (`page_info`), and the questions below. It wants the owner's answers
@@ -171,7 +171,7 @@ M3. **The menu scenes**: a second of the title, the key, the menu coming in, the
     HER PAGES, FROM THE BEGINNING, WHAT EACH KEY DOES (or BUTTON), NOT WRITTEN YET.
 M4. **Checks and hand-over**: a still of each with the pad's words, the overview, docs, commit and push, sent to the owner.
     **Done**: `overview.png` (each scene's title, menu and graves), `pad.png` (the pad's words), the stills in
-    `docs/titlepass/`, and MP4 previews of the three menus with the lament ground under them, sent to the owner (not in git).
+    `media/sheets/titlepass/`, and MP4 previews of the three menus with the lament ground under them, sent to the owner (not in git).
 
 THE CONTROLS in the game: the controls card the game already has (`render_hud`'s `more[]`), or the controller's own screen
 (`UI_PAD`, `ui_pad`) while a pad is the input. HELP leads to a page saying it isn't written yet. Neither is drawn in these
@@ -227,7 +227,7 @@ G4. **The checks**: frames of every state in the harness; scripted input down ev
     once (`LY_*`, `layer_get`/`layer_put`), 8-14 ms, the pictures unchanged. Not run: the Windows and browser builds (no MinGW or Emscripten here;
     CI compiles them), nothing by hand on Windows.
 G5. **The docs**: README (features, what was verified), CLAUDE.md, the page, the release notes (the music pass's too).
-    **Done** (9 November): README's *CATACOMB: the title screen* (with `docs/preview_catacomb_title.png`), the play
+    **Done** (9 November): README's *CATACOMB: the title screen* (with `media/previews/preview_catacomb_title.png`), the play
     section, the music and *New in 1.0.0b21.1*; the page's play section, figure, music, upgrading and beta status; the release
     notes rewritten; CLAUDE.md's release line, a paragraph and the map.
 G6. **The release**: VERSION 1.0.0b21.1, squashed onto main as one commit; CI publishes it; check the release and the page.
@@ -239,7 +239,7 @@ None open now (answered 9 November: see section 1).
 ## 6. Hand-off log
 
 - **9 November, session 1.** First mock-ups: three titles (A Beneath, B The Walk, C The Risen) and their graves, in
-  `tools/titlemock.c`, with stills in `docs/titlepass/`. Committed as "Title screen mock-ups ..." on
+  `tools/titlemock.c`, with stills in `media/sheets/titlepass/`. Committed as "Title screen mock-ups ..." on
   `claude/compassionate-dirac-6ui1wb`. The owner liked all three, asked for them to rotate per start, and asked for the
   refinement pass above. The graves were their main complaint ("two shapes"). Plan written (step 1). Step 2 begun.
 - **9 November, session 1, later.** Steps 2-4 done and pushed: the sculpt kit, the weathered UI, the graves rebuilt in all

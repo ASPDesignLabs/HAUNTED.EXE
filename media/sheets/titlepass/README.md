@@ -1,7 +1,7 @@
 # A title screen for CATACOMB: mock-ups
 
 Mock-ups only (9 November 2026): nothing here is in the game, and the game's code is untouched. The plan and its
-hand-off log are in [`docs/PLAN-title.md`](../PLAN-title.md). The owner kept all three, to come round in turn at each
+hand-off log are in [`docs/PLAN-title.md`](../../../docs/PLAN-title.md). The owner kept all three, to come round in turn at each
 start, and asked for a refinement pass. These stills are from after it. Asked for by the owner:
 a title screen that comes up when a person holds H (or a button) to enter the crypts, the name in a gothic, bloody hand,
 "press a button", then the graves to choose from. The owner already has the music.

@@ -52,8 +52,8 @@ appear or they pass a specific trigger."
 
 ## 2. Level 1's drawing, read
 
-The drawing is kept as [`docs/tutorial/level1-master.png`](tutorial/level1-master.png), and my reading of it, beside it, as
-[`docs/tutorial/level1-read.png`](tutorial/level1-read.png): **look at the second first**, since everything below follows from it.
+The drawing is kept as [`media/sheets/tutorial/level1-master.png`](../media/sheets/tutorial/level1-master.png), and my reading of it, beside it, as
+[`media/sheets/tutorial/level1-read.png`](../media/sheets/tutorial/level1-read.png): **look at the second first**, since everything below follows from it.
 `tools/tutorial_read.py` reads a drawing like it (`python3 -I tools/tutorial_read.py <png>`: the grid, the cells, the coloured
 edges, the dots), for level 2's.
 
@@ -189,8 +189,8 @@ Measured on the cells (steps, doors open):
 
 ## 3. Level 2's drawing, read
 
-Kept as [`docs/tutorial/level2-master.png`](tutorial/level2-master.png), my reading beside it as
-[`docs/tutorial/level2-read.png`](tutorial/level2-read.png) (look at it first). A grid of 48.3 pixels a cell: **15 cells across, 35
+Kept as [`media/sheets/tutorial/level2-master.png`](../media/sheets/tutorial/level2-master.png), my reading beside it as
+[`media/sheets/tutorial/level2-read.png`](../media/sheets/tutorial/level2-read.png) (look at it first). A grid of 48.3 pixels a cell: **15 cells across, 35
 down**, north up as the drawing's arrow says. In the game's map it sits at **(15, 5)**. It has no thin walls: every wall is a whole
 cell already, so only the doors move onto their necks.
 
@@ -929,9 +929,9 @@ builds.
    the burning hall, the fountain, the key room, the vault and the exit.
 3. **The burning floor**, its numbers set in the harness by a scripted walk and sprint through it.
 4. **The sheets** for approval: the lessons' screen (`build/uisheet tutor`, in `make sheets`: every page of section 9 in keys, in a
-   pad's buttons and by touch, the fit checks failing on any overflow; `docs/tutorial/pages.png`), and level 2's new art (the ice
+   pad's buttons and by touch, the fit checks failing on any overflow; `media/sheets/tutorial/pages.png`), and level 2's new art (the ice
    field on the floor, the switch and its done state, the gate's seal from both sides, the map lying on the floor;
-   `docs/tutorial/level2-art.png`).
+   `media/sheets/tutorial/level2-art.png`).
 5. **The machinery**: `TU`, the beats, triggers, `tu_steer`, `tu_hold`, `tu_lead`, `WK_MEND`, the prefs byte, the title's HELP, the
    old mercy while the lessons run, the debug switches.
 6. **Level 1's lessons in**, every page, the classes' lines, her room's page.
@@ -982,7 +982,7 @@ key).
 ## 14. Hand-off log
 
 - **11 November** (`claude/sweet-carson-qxvyfi`, from main at 1.0.0b21.3). The owner gave the brief and run I level 1's drawing.
-  Read it cell by cell (`tools/tutorial_read.py`, written for it; the reading drawn as `docs/tutorial/level1-read.png` beside
+  Read it cell by cell (`tools/tutorial_read.py`, written for it; the reading drawn as `media/sheets/tutorial/level1-read.png` beside
   the drawing, kept as `level1-master.png`), fitted it to whole cells, measured it, drew the dream's lanes, and wrote the draft
   with its questions. Nothing built.
 - **11 November, later.** The owner answered T1-T19 (T18 left; (a) taken) and gave level 2's drawing and brief. Main at 1.0.0b21.4
@@ -1018,7 +1018,7 @@ key).
   tablet in the run's stone, the heading inscribed, each line's keys on caps as `ui_keys` sets them, a lozenge a page, the keys to go
   on at its foot). `tut_wrap` sets a page's lines again only when another voice's longer words (a pad's buttons, touch's stones)
   outgrow one. `build/uisheet tutor <dir>` (in `make sheets`) draws every page, a few in a pad's and touch's words, and fails on any
-  overflow (none): `docs/tutorial/pages1.png` (level 1 and her room) and `pages2.png` (level 2). B16's second page was reworded so it
+  overflow (none): `media/sheets/tutorial/pages1.png` (level 1 and her room) and `pages2.png` (level 2). B16's second page was reworded so it
   reads in every voice (*IT MOVES WITH THE ARROWS, AND COMES BACK TO YOU AFTER*; the map's Space has no pad button). The level 2 art
   sheet (the ice, the switch, the gate's seal, the map on the floor) comes with step 7, before it is in play.
 - **Steps 5 and 6 built** (harness only; the sheet approved, *Looks incredible! Go for it*). The machinery is the lessons' block in
@@ -1045,7 +1045,7 @@ key).
   smoke test.
   Not yet: `tu_hold` and `tu_lead` (level 2's), the HELP's paging through the lessons (it toggles only), the scorched floor.
 - **Level 2's art sheet, drawn** (for the owner's approval; sent, and level 2 built with it meanwhile, to be redrawn at their word):
-  `docs/tutorial/level2-art.png` (`make sheets`' `tutorial2`, `draw_tutorial2` in `tools/sheet.c`). The switch is a squat stele with a
+  `media/sheets/tutorial/level2-art.png` (`make sheets`' `tutorial2`, `draw_tutorial2` in `tools/sheet.c`). The switch is a squat stele with a
   six-armed seal sunk in its face, rimed and hung with icicles (`spr_mk_rseal`, `SP_MK_RSEAL0`), thawed and running wet (`1`), split
   and dull once spent (`2`); the gate's south face is the portcullis with a riveted plate and a sunk boss for the seal
   (`gen_gate_seal`, `T_GATE_SEAL`, laid on the run's stone as `T_GATE` is), its north face the bare `T_GATE`; the map lies where it
@@ -1074,7 +1074,7 @@ key).
   start), `CRAWL_WHERE=1` (a person's place and angle twice a second), `DRAWN level 2: ... things`, `EVENT ice down|up`, `map_taken`.
   Tried in the harness by a person (the Witchfinder): three bolts at the switch from the ice's edge, the ice thawing, the walk across,
   the map taken and the ice back behind, the gate's seal struck from inside and the gate up, the north face bare and a bolt from there
-  doing nothing, the secret pressed (*A SECRET! 1 OF 1*, the run's first Cursed Coin); frames in `docs/tutorial/level2-frames.png`
+  doing nothing, the secret pressed (*A SECRET! 1 OF 1*, the run's first Cursed Coin); frames in `media/sheets/tutorial/level2-frames.png`
   (the ice from its south edge, the switch by the gate, the map at the ice's edge, the gate's sealed face). The dream from level 2's
   room on eight seeds (1-15 odd, four pasts): every one cleared it, 250-334 s, no death, no stall; none went into the map room, so
   none struck the switch or took the map (section 10 lets it), and none found the secret on these seeds. ASan clean on a person
@@ -1101,7 +1101,7 @@ key).
   floor, and step 9's checks.
 - **12 November: released as 1.0.0b21.5, "First Steps"**, at the owner's word, before step 9 ("first, go ahead and offer it as a b21.5
   release, then we will gauge the testing need"). For it: the README's section and *What has been verified*, the page's paragraph,
-  its tested row, the upgrade note and the beta status, the notes, a preview strip (`docs/preview_catacomb_tutorial.png`: the burning
+  its tested row, the upgrade note and the beta status, the notes, a preview strip (`media/previews/preview_catacomb_tutorial.png`: the burning
   hall, a lesson's page, the wisp, level 2's ice, the ice draining, the ice back with a skeleton frozen in it). Two things found on the
   way: the controls card came up over level 1 when taken over mid-level (the takeover set it after the lessons had put it away; it
   stays away now while they run), and a player upgrading would have met the lessons, with no skip, the next time a death sent them to

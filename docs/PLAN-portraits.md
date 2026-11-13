@@ -180,7 +180,7 @@ The owner took A, B and F (10 November, in the Sheet); C, D, E and G are not tak
 
 ## 6. The art
 
-![The tapestry, then the frame by the highest rank unlocked](portraits/states.png)
+![The tapestry, then the frame by the highest rank unlocked](../media/sheets/portraits/states.png)
 
 - **The frame**, 42 by 48 texels of a wall face, the picture inside 32 by 38. A moulding five texels wide, shaded across its
   profile (lip, flat, cove, bead, the step down to the picture) by where the candle is, its bead worked into pearls; a block at
@@ -197,7 +197,7 @@ The owner took A, B and F (10 November, in the Sheet); C, D, E and G are not tak
   drawn aside to the side away from the candle and tied there with a gold cord, where it stays, over the frame's side moulding.
   `tapestry.gif` is the moment; every revealed portrait in the sheets wears its drape.
 
-![Seven candles](portraits/candles.png)
+![Seven candles](../media/sheets/portraits/candles.png)
 
 - **The candles**: a sconce to its right, one to its left, a pair, a pierced iron lamp hung on a chain over it, a ledge of
   church candles under it (one gone out and smoking), a skull on an iron bracket with a candle on its crown, a stand of three on
@@ -209,19 +209,19 @@ The owner took A, B and F (10 November, in the Sheet); C, D, E and G are not tak
   bestiary's niche shows it. `runs.png` puts the two side by side from a cell and two thirds and from three cells. I would take
   128.
 
-![Behind it, the run; the walls' own 64 against 128](portraits/runs.png)
+![Behind it, the run; the walls' own 64 against 128](../media/sheets/portraits/runs.png)
 
-![Her north wall from the middle of the room](portraits/room.png)
+![Her north wall from the middle of the room](../media/sheets/portraits/room.png)
 
-![The card](portraits/card.png)
+![The card](../media/sheets/portraits/card.png)
 
 The animation asked for, the skeleton's frame with ranks I and II unlocked, I on the Crypts' ashlar and II on the Catacombs'
-slate, each walking five seconds, the frame green for II, II's gold waiting: `portraits/skeleton.gif`.
+slate, each walking five seconds, the frame green for II, II's gold waiting: `media/sheets/portraits/skeleton.gif`.
 
 - **A feat's medallion** (step 5): gold, a skull struck in it, on an oxblood ribbon with a gold stripe hung over the frame's
   foot at the side away from the tapestry (on the ledge, away from its candles); it twinkles while its gold waits, as a gem does.
 
-![A feat earned: its medallion](portraits/medals.png)
+![A feat earned: its medallion](../media/sheets/portraits/medals.png)
 
 - **The bosses' four** (step 5; the knight's mock-up seen by the owner, and the name plate it had taken off at their word, since it
   could not be read: the name is the band's at the wall and the card's). Two faces wide: a broad frame whose gems are its
@@ -233,7 +233,7 @@ slate, each walking five seconds, the frame green for II, II's gold waiting: `po
   holds a pose of its own (the knight plants its sword, the spider rears, the Deacon chants, the Wraith reaches), eight seconds
   round. `knight.gif` is the knight's tapestries parting, then the knight with two steps beaten and the second's gold waiting.
 
-![The bosses' four by the Portal: the knight's](portraits/bosses.png)
+![The bosses' four by the Portal: the knight's](../media/sheets/portraits/bosses.png)
 
 ## 7. Where they hang (settled, Q7)
 
@@ -346,7 +346,7 @@ face). The plot's stones stand in rows 22 and 24, so nothing stands before them.
   colours and dressing, her room (`gen_shop`) and the runs' looks. `src/crawl_portrait.c` draws a portrait at any scale;
   `tools/portraitmock.c` sets them in her north wall straight on with the crypt's projection (`FOCAL`, `PLANE_LEN`), textures,
   palette, colourmap and light formula (`light_static`'s), and writes `skeleton.gif`, `tapestry.gif`, `states.png`,
-  `candles.png`, `runs.png`, `room.png` and `card.png` into `docs/portraits/` (`PM_SCALE=2`; `all` or one of `skeleton`,
+  `candles.png`, `runs.png`, `room.png` and `card.png` into `media/sheets/portraits/` (`PM_SCALE=2`; `all` or one of `skeleton`,
   `veil`, `room`, `sheets`, `card`). `tools/portrait_sheet.py` writes the workbook (LibreOffice can fill its formulas'
   values: `soffice --headless --calc --convert-to xlsx`). Not looked at in the game, nor by the owner: the next step is theirs.
 - **10 November, later.** The owner answered Q1 (the spiderling with its mother), Q3 (every rank), Q4 (after a level cleared and on
@@ -525,7 +525,7 @@ face). The plot's stones stand in rows 22 and 24, so nothing stands before them.
   page with its gold owed again (`PORTRAITS read: open 2 ... waiting 1 taken 0`); read back, her question answered, it paid 130 again.
   After a death that costs she asks what you were before anything else, so a script must answer her first. The Windows and browser builds
   were compiled and smoke-tested by CI on the branch (a run started by hand). The README has a section and *What has been verified*, the
-  page a paragraph in her hall's section, a row in its table and the upgrade's note; the strip is `docs/preview_catacomb_portraits.png`
+  page a paragraph in her hall's section, a row in its table and the upgrade's note; the strip is `media/previews/preview_catacomb_portraits.png`
   (her south wall, the skeletons' portrait and card, the bestiary's feat, the plot's far wall, the knight's card). Debug added for the
   frames: `CRAWL_TPHALL=x,y,deg` (`CRAWL_TPAT` works only on a level).
 - **10 November, after the release: the candles cold till asked.** The owner, on their first look: the candles should stay unlit until a

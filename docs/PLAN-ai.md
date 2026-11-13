@@ -1133,7 +1133,7 @@ The order of the steps is the building's; what a person meets, and where, is sec
    bestiary: each kind's ways in its voice, on Space in place of its lore (`G.best_ways`). Debug: `CRAWL_WAYS=1`, `EVENT way`,
    `EVENT deed`. The dream's events are those of 1.0.0b17 line for line but the new achievements (a 700 s run, a fixed run id);
    ASan clean on three sessions. The art (a roosting bat, the ambushes' signs, backs) is on a sheet for the owner first:
-   `docs/minds/minds.png` (`make sheets`' `minds`): the skeleton's and the shield-bearer's backs (`SP_SKEL_BKA/B`,
+   `media/sheets/minds/minds.png` (`make sheets`' `minds`): the skeleton's and the shield-bearer's backs (`SP_SKEL_BKA/B`,
    `SP_SHIELD_BKA/B`; `skel_draw` with `g_back`, `SKULL_BACK`, `cv_mirror`, `skel_dress_back`), the roost asleep and stirring
    (`SP_BAT_ROOST`, `SP_BAT_ROOST2`), and the signs by run (`SP_SIGN_RAKE`, `_DRAG`, `_SCREE`, `_CINDER`, `_EYES`). Drawn,
    approved by the owner (5 November) and in play: `mob_side` turns to a back past 135 degrees (its dressing and vapour, no
@@ -1143,9 +1143,9 @@ The order of the steps is the building's; what a person meets, and where, is sec
    the buried); a run's first ambush with its torch snuffed has eyes in the dark one cell inside its door (`Ambush.eyes`, a
    decoration set without the random stream), gone when it springs or comes out. The scree and the cinders were drawn again in
    the iron's greys after the first frames: in the stone's tint of runs III and IV they read as gold. The dream's events are
-   1.0.0b17's line for line. Frames: `docs/minds/backs_game.png`, `roost_game.png`. Debug: `CRAWL_TPAMBUSH=1` (two cells
+   1.0.0b17's line for line. Frames: `media/sheets/minds/backs_game.png`, `roost_game.png`. Debug: `CRAWL_TPAMBUSH=1` (two cells
    outside the first ambush's door, facing in), `CRAWL_STAGESLEEP=1` (a staged bat asleep). The other kinds' backs follow, kind
-   by kind, on `make sheets`' `backs` (`docs/minds/backs.png`): the knight in each state of its plate (`KNIGHT_HELM_BACK`), the
+   by kind, on `make sheets`' `backs` (`media/sheets/minds/backs.png`): the knight in each state of its plate (`KNIGHT_HELM_BACK`), the
    Whipper-In (`SKULL_SMALL_BACK`), the deacon, the Sexton, the shambler, the Drowned, the ghoul (`spr_ghoul_back`), the bone hound
    (`spr_hound_back`), the imp, the gargoyle in flight, the hunting spider and the brood mother: every kind that turns. A back is
    drawn as the front is with `g_back` set: the skeleton family's are turned at once (`cv_mirror`) with a dressing of their own;

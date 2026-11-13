@@ -179,8 +179,8 @@ A pass over the screens is planned in [`docs/PLAN-ui.md`](docs/PLAN-ui.md) (3 No
 three faces of our own at today's sizes, a kit of structured pieces (`src/crawl_ui.c`), the Alignment redrawn as a skill
 tree with an icon to each node and a pane beside it, and the other screens after it. Visual only. Settled the same day (the
 owner took every answer marked but U7, this pass whole before PLAN-ai's step 11, and U10, full screens keeping the dimmed
-crypt in a 4 px margin); step 0 is done (`tools/uishots.sh`, the before sheets in `docs/uipass/`), and step 1's sheet is
-drawn (`src/crawl_ui.c`, `src/ui_art.c`, `tools/uisheet.c`; `docs/uipass/sheet-ui.png`) and approved. Step 2 is built
+crypt in a 4 px margin); step 0 is done (`tools/uishots.sh`, the before sheets in `media/sheets/uipass/`), and step 1's sheet is
+drawn (`src/crawl_ui.c`, `src/ui_art.c`, `tools/uisheet.c`; `media/sheets/uipass/sheet-ui.png`) and approved. Step 2 is built
 (harness only; the Windows build compiled and smoke-tested by CI on the branch): every menu, card and the tally cut in the stone through `gfx_hook8/16` and `ui_on`/`ui_off` (menus lend
 the floor's and ceiling's ramps for the frame; cards over the live crypt use the run's stone), with the fit checks'
 `UI overflow` lines in the debug build. Step 3 is built (harness only; CI compiled the Windows build): the Alignment at the Lampstand and on Tab's
@@ -190,7 +190,7 @@ icons for the kinds of piece), the bestiary (`ui_niche`) and the Codex. Step 6 i
 build): her hall's screens (`hall_frame`, `hall_keys`, `ui_row`, `ui_scroll`). Step 7 is built (harness only; CI compiled the Windows build):
 the crypt's screens, the cards as headstones (`card_box`), the tally as a memorial tablet. Step 8 is built (harness only; CI compiled the
 Windows build): the HUD in the run's stone (the bar a tablet, `bevel` a well, `ui_band` behind words over the crypt). Step 9, the checks, is done
-(`PAD=1` and `HOST=` for `tools/uishots.sh`; the README's menu previews taken again): the pass is built, harness only. The page has *Then and now* (`tools/gallery.sh`, `docs/gallery/`).
+(`PAD=1` and `HOST=` for `tools/uishots.sh`; the README's menu previews taken again): the pass is built, harness only. The page has *Then and now* (`tools/gallery.sh`, `media/gallery/`).
 This pass, the art pass so far and the minds' steps 0-10 were released together as **1.0.0b14** at the owner's word (3 November),
 a pre-release as before with nothing pinned as Latest, squashed onto main as one commit; `docs/CHANGES-1.0.0b14.md` is the full
 record of everything since 1.0.0b13, and the release notes were cut from it to what a player needs to know (no background work,
@@ -252,7 +252,7 @@ logs, the README and the page). Released as **1.0.0b19** at the owner's word (8 
 onto main as one commit with 1.0.0b18.1's work. 1.0.0b20 is begun (8 November): C5 (the Confessions) and D5 (the classes' own); C5's contract is in (its 17.2 b and 17.3:
 `conf_rank`, `conf_value`, and D5's hooks `class_own`, `class_extra`, `blow_survived`), and C5 is built and in play (the
 Confessions' sheet approved; harness only); D5 is built (harness only): the classes' sheets, the killing blow, Toughness's cracks and
-Restoration (both sheets approved, `docs/combat/d5-cracks.png`, `d5-restoration.png`), and the owner's caps by class
+Restoration (both sheets approved, `media/sheets/combat/d5-cracks.png`, `d5-restoration.png`), and the owner's caps by class
 (docs/BRIEF-caps.md, given to D). All of it was released as **1.0.0b19.1** at the owner's word (9 November), a point
 release before J20's runs (the owner asked for b19 again; CI publishes only a version with no release, so a new number),
 squashed onto main as one commit. J20, the joint checks against 1.0.0b19, is done (9 November; the Galvanist's Frost at -10 and
@@ -326,10 +326,10 @@ portrait_drawn`, `portrait_paid`. **Step 5's first half is built** (harness only
 feat a seventh gem (`POR_FEAT`) paid as rank III and hung as a medallion (`medallion` in the art), the card's and bestiary's rows, `ach_lines`;
 `EVENT feat`. **Its second half is built** (harness only; the knight's mock-up seen by the owner, its name plate taken off): the bosses'
 four in the plot, two faces each (`PorAt.boss`/`half`, `NPOR` 30, `por_head`, `por_boss_view`, `portrait_boss_face`, `POR_BOSSBIT` for their
-tapestries, `boss_gold`, `render_bosscard`, `POR_BOSS_NAME`; `docs/portraits/bosses.png`, `knight.gif`). **Step 6, the checks, is done**, and all
+tapestries, `boss_gold`, `render_bosscard`, `POR_BOSS_NAME`; `media/sheets/portraits/bosses.png`, `knight.gif`). **Step 6, the checks, is done**, and all
 of it was released as **1.0.0b21.2**, "The Portraits of the Slain", at the owner's word (10 November), a pre-release, squashed onto main as one
 commit, harness only (CI compiled and smoke-tested the Windows and browser builds on the branch first). The README's strip is
-`docs/preview_catacomb_portraits.png`. Its art is `src/crawl_portrait.c`, driven
+`media/previews/preview_catacomb_portraits.png`. Its art is `src/crawl_portrait.c`, driven
 by `tools/portraitmock.c` (`make build/portraitmock`); the settled numbers are `docs/portraits/ranks.csv` and `bosses.csv`, written by
 `tools/portrait_sheet.py` from `KINDS`.
 
@@ -373,7 +373,7 @@ the same day; on `claude/brave-albattani-sqvb5n`, fast-forwarded from the touch 
 stone a monument cut with the graves' sculpt kit (*Touch's stones* at the end of `src/crawl_title.c`: `TStone`, `TsInfo`, `tstone_draw`,
 `tstone_ring`), weathered, broken and grown over, with places cut for what the game says (a socket, a ring for a time, a tablet with
 handles, a groove), filled each frame by `crawl_stage` (`use_word` for what E would do); the sheet and the contrast check are
-`build/titlemock <dir> touch` (`docs/touch/`). The first private test page is kept at the owner's word (this session couldn't write to
+`build/titlemock <dir> touch` (`media/sheets/touch/`). The first private test page is kept at the owner's word (this session couldn't write to
 it); the art pass is on a second, https://claude.ai/artifact/L28ZMsohLh2N4vjdx9dnuB. The plan's section 11 is the hand-off log.
 
 **The tutorial** is planned in [`docs/PLAN-tutorial.md`](docs/PLAN-tutorial.md) (11 November, on `claude/sweet-carson-qxvyfi` from main
@@ -383,7 +383,7 @@ as you go (`UI_TUTOR`), on a person's first run on the computer, no skip, again 
 few moments; triggers in the floor that teach or turn a person back. It is **1.0.0b21.5**. Level 1 (settled: the owner answered
 T1-T19) teaches walking, a burning floor and mending, the class's spell, souls, keys and the way out; level 2 (read, its questions
 T20-T24 open) an ice field taken down by a switch struck three times, a one-way gate, two keys, a secret, and the map, without which
-the way out won't open while the lessons run. The drawings are `docs/tutorial/level1-master.png` and `level2-master.png`, their
+the way out won't open while the lessons run. The drawings are `media/sheets/tutorial/level1-master.png` and `level2-master.png`, their
 readings in whole cells beside them `level1-read.png` and `level2-read.png` (`tools/tutorial_read.py` reads such a drawing). The
 game's walls are cells and the drawings' are lines, so thin walls became stone and doors the neck cells beside them; the drawings are
 off the generator's 4-cell lanes, so each gets a lane mask drawn with it. `open_door` spends a key on the door it opens, so level 1's
@@ -391,9 +391,9 @@ vault's two gold doors are made one lock (T19 a). The prefs byte for the lessons
 answered); **step 2 is built** (harness only): level 1 drawn in play, everyone's (`g_drawn`, `DRAWN`, `gen_drawn` and its kin before
 `start_level`; `gen_level`'s tail is `gen_dress`, shared; `lane()` reads `g_lane` on a drawn level; `CRAWL_DRAWN=0` the generated level
 back), **step 3** (level 1's burning floor, `DF`, `drawn_fire_tick`) and **step 4's sheet** of the lessons' pages (`src/crawl_tutor.c`,
-`docs/tutorial/pages1.png`, `pages2.png`, approved), **steps 5 and 6** (the lessons in play on level 1 and in her room after it: `TU`,
+`media/sheets/tutorial/pages1.png`, `pages2.png`, approved), **steps 5 and 6** (the lessons in play on level 1 and in her room after it: `TU`,
 `tu_tick`, `tu_steer`, `UI_TUTOR`, `WK_MEND`, `PL.tut`, the title's HELP; `CRAWL_TUT`, `CRAWL_TUTBEAT`, `CRAWL_TUTKEY`, `CRAWL_TUTCALM`,
-`CRAWL_TUTAUTO`), level 2's art sheet (`docs/tutorial/level2-art.png`, `make sheets`' `tutorial2`: the rimed seal `SP_MK_RSEAL0..2`,
+`CRAWL_TUTAUTO`), level 2's art sheet (`media/sheets/tutorial/level2-art.png`, `make sheets`' `tutorial2`: the rimed seal `SP_MK_RSEAL0..2`,
 the gate's face `T_GATE_SEAL`, the map lying `SP_MAPFLOOR`, the ice `T_ICE` laid by `crawl_ice_at`; sent for approval) and **step 7**
 (level 2 in play: `DRAWN2_MAP`, `IC` and `ice_*`, `MKK_RSEAL` and `MKK_GSEAL` that any spell answers, `IT_MAP`, the secret laid by
 hand, `drawn_marks`, `drawn_clear`; `CRAWL_ICE=0`, `CRAWL_WHERE=1`) and **step 8** (level 2's lessons: the turnings a queue, `tu_move`,
@@ -449,9 +449,9 @@ says where each thing went.
 | `src/crawl_title.c/.h`, `tools/titlemock.c` | The title screen's art (docs/PLAN-title.md): `title_draw(Frame *, t, TitleView *)`, its three scenes, menus and graves, the sculpt kit (`sc_*`); touch's stones cut with the same kit (docs/PLAN-mobile.md 6.5: `tstone_draw`, `tstone_ring`); and the mock-ups' driver (`make build/titlemock`; `build/titlemock <dir> [a\|b\|c\|menu\|logo\|parts\|overview\|bench\|touch]`, `touch` the stones' sheet and their contrast) |
 | `src/crawl_portrait.c/.h`, `tools/portraitmock.c`, `tools/portrait_sheet.py` | The portraits of the slain (docs/PLAN-portraits.md), in the game's build since its step 2: `portrait_face` draws a portrait as a wall face's overlay at any scale (a feat's medallion with it), `portrait_keep_runs` each run's stone, `portrait_boss_face` a boss's two faces; the mock-ups' driver (`make build/portraitmock`; `build/portraitmock <dir> [all\|skeleton\|veil\|room\|sheets\|card\|medals\|bosses\|bench\|check]`, `PM_SCALE=n`); the settled numbers as `docs/portraits/ranks.csv` and `bosses.csv` (`--grid` the plan's table) |
 | `src/crawl_ui.c/.h`, `src/ui_art.c` | The carved stone (docs/PLAN-ui.md): the marble, slabs, wells, the faces and their ways, icons, sockets, the Alignment's stone; the faces and icons as strings |
-| `tools/gallery.sh`, `docs/gallery/` | The page's *Then and now*: the same moments in 1.0.0b1, 1.0.0b13 and this build, each from its own build of the harness (old ones in worktrees under `build/gallery/`), as single 320x200 frames; `build_site.sh` copies them to `img/gallery/` |
+| `tools/gallery.sh`, `media/gallery/` | The page's *Then and now*: the same moments in 1.0.0b1, 1.0.0b13 and this build, each from its own build of the harness (old ones in worktrees under `build/gallery/`), as single 320x200 frames; `build_site.sh` copies them to `img/gallery/` |
 | `tools/uisheet.c`, `tools/uishots.sh` | The screens' sheet for approval (`make sheets`; `build/uisheet fit` checks the pane's text fits), and every screen from the harness as contact sheets |
-| `docs/PLAN-tutorial.md`, `docs/tutorial/`, `tools/tutorial_read.py` | The tutorial's plan; the owner's level drawings and their readings in whole cells, the lessons' sheets; the reader (`python3 -I tools/tutorial_read.py <png>`: the grid, cells, coloured edges and dots) |
+| `docs/PLAN-tutorial.md`, `media/sheets/tutorial/`, `tools/tutorial_read.py` | The tutorial's plan; the owner's level drawings and their readings in whole cells, the lessons' sheets; the reader (`python3 -I tools/tutorial_read.py <png>`: the grid, cells, coloured edges and dots) |
 | `src/crawl_tutor.c/.h` | The lessons' words (`TUT`, `tut_lines`, `tut_head`, `tut_wrap`) and their page (`ui_tutor`), shared by the game and `build/uisheet tutor <dir>` |
 | `tools/host.c` | The headless test harness (Linux): PNG frames, WAV audio, benchmarks, scripted input |
 | `tools/tidy_check.sh` | Proves a change moved nothing of the game (docs/PLAN-tidy.md): this tree's objects against another commit's, byte for byte (`sh tools/tidy_check.sh [objects\|all] [rev]`; `all` adds the binaries, smoke frames, sheets, site and the dream's fixed runs) |
@@ -460,11 +460,12 @@ says where each thing went.
 | `tools/web_smoke.js` | The browser build's smoke test in Playwright's Chromium (`node tools/web_smoke.js <site> [secs] [shots]`; CI runs it) |
 | `tools/touch_smoke.js` | The touch build walked in Playwright's Chromium as a Pixel 7 held sideways (docs/PLAN-mobile.md): `node tools/touch_smoke.js build/web <shots>` |
 | `tools/probe_page.py` | The phone probe's page (docs/PLAN-mobile.md, step 0): `build/web` made over for a host that wraps the page and passes no query, the probe on (`python3 tools/probe_page.py [out] [take\|perf]`) |
-| `tools/build_site.sh` | Assembles the Pages site from `site/` and `docs/*.png`, fills `@VERSION@` and the title card |
+| `tools/build_site.sh` | Assembles the Pages site from `site/` and `media/previews/*.png`, fills `@VERSION@` and the title card |
 | `tools/make_cards.py`, `site/card.txt`, `site/cards/` | X/Open Graph title cards; `card.txt` picks one per version (`* a-boot` is the default) |
 | `tools/package.py` | Builds the release zip |
 | `site/index.html` | The project page (always dark; describes the **released** build) |
-| `docs/*.png` | Preview strips used by the README and the page (`preview_catacomb_creatures.png` and `preview_catacomb_bestiary.png` were rendered with `CRAWL_MEET`, and with a save whose record had met everything) |
+| `media/` | Pictures, apart from the text in `docs/` (docs/PLAN-tidy.md): `previews/` the README's and the page's strips, `gallery/` the page's *Then and now*, `sheets/<pass>/` what each plan's pass made or was given (approval sheets, mock-ups, frames, the owner's level drawings). Only `previews/` goes in the release zip |
+| `media/previews/*.png` | Preview strips used by the README and the page (`preview_catacomb_creatures.png` and `preview_catacomb_bestiary.png` were rendered with `CRAWL_MEET`, and with a save whose record had met everything) |
 | `.github/workflows/build.yml` | Builds on every push/PR, runs the smoke test, and **publishes a release when `VERSION` on main has none yet** |
 | `.github/workflows/pages.yml` | Deploys the page after each successful Build of a push to main, with `/play/` from the web zip on the release named in `VERSION` |
 | `.github/release-notes.md` | The release body CI uses; rewrite it for each release |
@@ -1678,7 +1679,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   alias) is cut by its element's own resist alone (`el_resist`) and by half the armour; armour keeps off a share (`armour_keep`:
   a / (a + 4 + 0.8 x level), half as much against the elements; P2); `throw_interval` never under 0.6 s (P1). `CRAWL_OLDHARM=1`
   puts back 1.0.0b18's harm. `make combat` (`build/host_debug combat`, `crawl_combat_sheet`) writes the balance sheet to
-  `build/combat.txt`. **C2 is built** (harness only; its sheet `docs/combat/c2-statuses.png`, approved): the caster's statuses,
+  `build/combat.txt`. **C2 is built** (harness only; its sheet `media/sheets/combat/c2-statuses.png`, approved): the caster's statuses,
   `G.af[NAF]` (time left), `af0` (what it began at), `af_n` (Chilled's stacks), `af_by` (1 + the knocker), `af_lock`/`af_hardt`
   (S1: a hard control can't land within 3 s of the same ending, nor any within 1 s), `af_burn`/`af_acc`/`af_fire_by` (On Fire's
   harm still to come, a point at a time), `af_cold`/`af_cold_t`, all in `carry_caster`'s span, cleared by `af_clear` (deaths,
@@ -1712,7 +1713,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   and orange) with three motes trailing at its height; D's eyes flare while `elem_on`. Ordinary physical blows knock nobody
   down: Knocked Down comes from physical hazards (C2), and the charge and the grapple (C4). `CRAWL_AF=0` takes C3 out too
   (C2's events line for line); `CRAWL_ELEMON=1` (every attack of an elemental creature carries it, for frames); `EVENT
-  elem_hits`, `elem_throws`. **C4 is built** (harness only; its sheet `docs/combat/c4-attacks.png`, approved): the new attacks,
+  elem_hits`, `elem_throws`. **C4 is built** (harness only; its sheet `media/sheets/combat/c4-attacks.png`, approved): the new attacks,
   in play (`c4_on`; the debug build's `CRAWL_C4=0` or `CRAWL_AF=0` takes them out, and nothing is drawn from the dice then, so play
   is the previous build's line for line). `FA_VOLLEY`, `FA_CHARGE`, `FA_SPEW` in `ATTACKS`; `Mob.c4` (`C4_*`), `c4n`, `c4_t`, `c4_cd`, `c4a`, `c4x/c4y`;
   `c4_ready`, `c4_wait`, `c4_stop`. The Bone Thrower (`c4_thrower`, in the skeleton's branch: rank II up, 2.5-9 cells, a 0.6 s
@@ -1730,7 +1731,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   counters (8.6): `c4_tells` (in `incoming`: a Bone Thrower's flash or a stamp in its sight counts as a missile on its way, for its
   runes and Swift Dodge) and `c4_dmarks` (in `update_hazards`, after `mk_dmarks`: the charge's lane and the spew's cone as warnings
   on `hz_dmap`, so `decide` steps off them and `auto_abilities` dodges out).
-  **C5, the Unholy Confessions** (1.0.0b20, section 10; harness only; the screen's sheet `docs/combat/c5-confessions.png`, approved;
+  **C5, the Unholy Confessions** (1.0.0b20, section 10; harness only; the screen's sheet `media/sheets/combat/c5-confessions.png`, approved;
   `conf_on`, and `CRAWL_LINES=1` in the debug build puts the old lines back): six Confessions (`CF_*`, `CONF`: each
   number at rank I and V, `ConfNum.zero`, `from1`) in place of the ascend screen's lines, bought a point at a time (`CONF_CUM` 10,
   30, 60, 100, 150; `RUN.conf`, `RUN.conf_over`), the class's share (`CONF_W`, 75% with no past) in every number; the contract's
@@ -1752,7 +1753,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   twice before confessing one whose every number is capped (`G.cf_arm` the Confession). The caps and the owner's caps by class
   are in `docs/BRIEF-caps.md` (section 6 settled, built by D). Tab's caster page lists D's Restoration on 8 once confessed
   (`render_caster`: an ankh, its rank, gold while `G.rst_sel`).
-  **C6, the augments' frame and Fire's six** (1.0.0b21, section 11; harness only; its sheet, `docs/combat/c6-augments.png`,
+  **C6, the augments' frame and Fire's six** (1.0.0b21, section 11; harness only; its sheet, `media/sheets/combat/c6-augments.png`,
   approved, and in play: `aug_on`, `CRAWL_AUG=0` in the debug build takes it out). `RUN.aug`/`aug_ord`/`aug_cr`/`aug_bank`, saved as `LG_AUG`;
   `aug_of`, `aug_rank`, `aug_k` (0 till rank I), `aug_credit` (kills 1, things 2 in `mk_finish`, a boss 10 in `boss_fall`),
   `aug_feed`, `aug_choose`, `aug_forget`, `auto_augment`; the dispatchers `aug_*` hand Fire to `fire_cost`, `fire_dmg`,
@@ -1834,10 +1835,10 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   chance (`conf_value(CF_CONST, CV_LASTBLOW)`), once a level (`G.lb_spent`, cleared in `start_level`; a pocket is a place of its
   own): 1 health and `G.wind_t` 3 s, drawn by `render_wind` with *UNBROKEN* while `lastblow_shown`. Toughness's cracks (10.5):
   `render_cracks` (from the end of `render_warded`), motes off each shut secret's crack face in the run's colour within
-  `conf_value(CF_TOUGH, CV_CRACKS)`, more by rank (its sheet `docs/combat/d5-cracks.png`, approved; `cracks_on`). Restoration (10.3): in hand as `G.rst_sel` (id `RS_ID`, not an `AT_`; 8, the wheel, the spells'
+  `conf_value(CF_TOUGH, CV_CRACKS)`, more by rank (its sheet `media/sheets/combat/d5-cracks.png`, approved; `cracks_on`). Restoration (10.3): in hand as `G.rst_sel` (id `RS_ID`, not an `AT_`; 8, the wheel, the spells'
   wheel's ankh `RESTORE_MARK`), `restore_cast` (its channel, from `human_cast`), `restore_tick`, half pace in `slow_factor`,
   `restore_hud` (the status bar), `dream_restore` (from `update_player`), and the glow `render_restore` (from `render_hand`,
-  `G.rst_k`; its sheet `docs/combat/d5-restoration.png`, approved); `EVENT restore_begin`, `restore_end`. The owner's caps by class
+  `G.rst_k`; its sheet `media/sheets/combat/d5-restoration.png`, approved); `EVENT restore_begin`, `restore_end`. The owner's caps by class
   (docs/BRIEF-caps.md section 6): `CLASS_OWN`'s `strong`/`weak` (its own element's resist +15, one other's -15, the Galvanist's
   Frost -10) and `cap[3]`
   (`class_cap`, each lift in its stat's units), `armour_cap` in `armour_keep` (75%, the Headsman's 90%), `class_cap_row` and
@@ -1858,7 +1859,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   added to Agility's cut, under 0.9), `abil_short`, Tab's elements page with ADDS and ODDS (`render_elements`), the Codex's words
   (`stat_does`, `ABIL_DOES`). Debug: `CRAWL_D6=0` (the build before, line for line), `make items` with `ITEMS_LINES`,
   `ITEMS_CLASS`, `ITEMS_OLD`; `EVENT wire_arcs`, `sin_souls`, `block_bones`.
-  **D7, the other five lines' augments** (1.0.0b21, section 11.4's drafts; harness only; its sheet `docs/combat/d7-augments.png`
+  **D7, the other five lines' augments** (1.0.0b21, section 11.4's drafts; harness only; its sheet `media/sheets/combat/d7-augments.png`
   sent to the owner). The contract's `augd_name`/`augd_does` (`AUGD_NAME`; the words with the rank's numbers) and the bodies of
   `augd_*` in D's marked block, each reading `dk(e, t, w)` (C's `aug_k`, the rank's share 0.5/0.75/1): `augd_cost` (Overcharge),
   `augd_dmg` (Hoarbite, Overcharge, Siphon), `augd_cast` (Glacial Weight's slower heavier shard, `target` -3; Forked and Grounding
@@ -1917,7 +1918,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   the owner): the bell puzzles' four bells (`spr_pbell`, `bell_body`, `cut_numeral`, `cv_swing`; `SP_PBELL0..3`, swung
   `SP_PBELL0R..3R`), run II's dead bell (`spr_bell_dead`, `SP_BELL_DEAD`; `spr_deadbell` is her hall's Dead Bell, another
   thing) and the soul-lamp by run (`spr_wlamp`, `SP_WLAMP0 + 3 x run + state`), in the `SP_*` enum after the things that want a
-  spell; `make sheets`' `b181bells` and `b181lamps`, kept as `docs/b18-1/bells.png` and `lamps.png`; approved. *The bells* (step
+  spell; `make sheets`' `b181bells` and `b181lamps`, kept as `media/sheets/b18-1/bells.png` and `lamps.png`; approved. *The bells* (step
   5): the knell's and the drowned bells' are `SP_PBELL0 + k`, drawn rung (`SP_PBELL0R + k`, then mirrored) for 0.8 s after a
   strike; their names and readings carry the numerals (THE LEAST BELL (I)); run II's hanging bell is `SP_BELL_DEAD`, still.
   The Toll keeps `SP_BELL`. Debug: `CRAWL_PZTHINGS=1`, `CRAWL_TPAT=x,y,deg`. *The ward* (step 6): `ward_make` (end of `start_level`'s placements; only on levels the Wraith comes to) lays a
@@ -1933,7 +1934,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   The names `warded`, `ward_cracked`, `ward_give`, `ward_str` are still the warded creatures', `ward_shards` the Bone Ward's.
   Debug: `CRAWL_LAMPS=0` (not `CRAWL_WARD`, the warded creatures'), `CRAWL_WARDLIT=n`, `CRAWL_TPWARD=k`, `CRAWL_WARDMAP=1`, `CRAWL_WARDTRACE=1`, `WARD level n:`, `EVENT
   ward_offer`, `ward_lit`, `ward_out`, `ward_held`, `ward_driven`, `ward_breach` (never, or a fault). *The controller* (step 7;
-  its sheet `docs/b18-1/pad.png`, approved): `ui_pad` (`UiPad`, `UI_PAD_NAME`) at the end of `src/crawl_ui.c` draws the pad,
+  its sheet `media/sheets/b18-1/pad.png`, approved): `ui_pad` (`UiPad`, `UI_PAD_NAME`) at the end of `src/crawl_ui.c` draws the pad,
   each button's job on a leader, the chosen one lit, the options, the jobs to trade and the look; `build/uisheet pad <png>` (in
   `make sheets`) draws it and fails on any overflow. The layout is `PL` (`job[b]`: the job button b has, a job named by the
   button it began on, so `job[b] == b` is the first layout; `swap`, `quiet`, `turn` in tenths): `pl_read` (SLOT_PREFS, or 1.0.0b15's
@@ -1950,7 +1951,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
   and RIGHT-CLICK the button their job is on in play (`PK_JOB`), and the controls card's pad lines are built from it (`pad_short`).
   Windows keeps `PadMap` (binary) and `PadSprint` (for the settings dialog, whose choice is traded in on loading); the browser's
   page reads and trades the sprint in the same record (`web/haunted.js`); the harness prints it on `PREFS`. Debug: `EVENT pad_trade`,
-  `pad_keep`, `pad_option`, `pad_look`; `CRAWL_PADTRACE=1` (where you are, your angle and the sticks, twice a second). *Footprints* (step 8; its sheet `docs/b18-1/footprints.png`,
+  `pad_keep`, `pad_option`, `pad_look`; `CRAWL_PADTRACE=1` (where you are, your angle and the sticks, twice a second). *Footprints* (step 8; its sheet `media/sheets/b18-1/footprints.png`,
   approved; frames `footprint-frames.png`): `crawl_foot[NSPR]` (each sprite's foot, the lowest eighth of its drawn rows, measured
   at the end of `crawl_art_level`), `crawl_prop_foot` (a prop's widest frame or look), `crawl_foot_part` (`FOOT_WHOLE` from 45 texels,
   `FOOT_HALF` from 29, `FOOT_QUARTER`), in `crawl_art.c`. While `dress_level` lays a level (`g_foot`; its old body is
@@ -1969,7 +1970,7 @@ screenshots with ImageMagick `import -window root`. Settings, progress, the ledg
 
 1. Update `README.md` (features, "What has been verified" with real numbers), `site/index.html` (the
    page describes the released build only, so change it in the release commit), `.github/release-notes.md`,
-   and any preview in `docs/` that shows outdated things (frames are 640x400 = native pixels doubled,
+   and any preview in `media/previews/` that shows outdated things (frames are 640x400 = native pixels doubled,
    6 px black gaps).
 2. Bump `VERSION` (e.g. `1.0.0b3`) and push to `main`. CI builds, smoke-tests and creates release
    `v<VERSION>` (a, b or rc makes it a pre-release) with `HAUNTED.EXE`, `HAUNTED.scr`, the zip and
