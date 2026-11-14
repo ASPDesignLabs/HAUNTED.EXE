@@ -207,3 +207,9 @@ and fangs before them, chevrons down the abdomen behind the mark. The sheet was 
   spiders on the walls; built as section 8, its defaults taken as listed there, with a first round of balance runs finding the spiders
   running too far to tell (now within 36 steps). The proof (levels 1-10 as the build before), the balance from 11 and from 15 within
   the noise, the sanitizers and CI are in docs/KNOWN-ISSUES.md. Left: the owner's hand on the spiders and on the mice since the fix.
+- **14 November, after the owner played the spiders.** They floated and flew; built as sections 8.1 and 8.2, the stone's ways and
+  the spiders painted on it, with a new picture of the spiderling from above (pushed as a4be3b5, CI run 140). The owner: the legs
+  were wrongly placed; redrawn (section 8.2), the sheet made again, committed (7b7bf49) and held back from the branch until the owner
+  passes the sheet. The proof, the balance from 11 and 15 (within the noise), the frames unchanged with the spiders off, and the
+  sanitizers are in docs/KNOWN-ISSUES.md. Left: the owner's word on the redrawn art, then their hand on it; whether the spiders
+  should keep off painted faces and shut doors (both in docs/KNOWN-ISSUES.md).

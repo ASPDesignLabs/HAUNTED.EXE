@@ -289,5 +289,23 @@ wrong or untried, and the numbers from each round of the dream's runs. Add to it
   chasing a hunter that kept moving; they now run only to one within 36 steps (1 give-up since). Clean under ASan and UBSan (the
   dream from levels 2, 7, 12 and 16, a person by a spider on 6, and level 12 again on the final code). CI built and smoke-tested
   the Windows and browser builds on the branch (run 138).
-- The wall spiders are dark in the crypt's dark: on an unlit wall they are their two ember eyes. They are drawn with the spiderling's
-  frames, paler and without her red mark; a sprite of their own would need a sheet first.
+- **The wall spiders kept to the stone** (docs/PLAN-mice.md sections 8.1 and 8.2, 14 November; harness only). The owner saw them
+  float and fly: they walked the floor and were drawn pushed toward a wall that slid across the air at every corner and opening. They
+  now go only along the stone's own ways and are painted on it. Levels 1-10 on four seeds log as the build before the mice, 19 of 20
+  pairs whole and the 20th (seed 7 from level 2) but for its closing picture level, 14.6% against 14.5%. With the wall spiders off,
+  20 frames of four levels match the commit before byte for byte, before and after the art was redrawn. Eight seeds of 3,000 s from
+  level 11, against the build before the mice and the spiders' first build: deaths 149 against 155 and 133 (18.6 a run against 19.4
+  and 16.6), levels reached 12.50 against 12.62 and 13.00, cleared 12 against 12 and 15; seven of the eight seeds died as often as
+  before the mice. From 15: deaths 266 against 250 and 251 (33.2 a run against 31.2 and 31.4), 10 by a charnel rat, levels reached
+  15.00 in all three (the dream stalls there). All within the noise of eight seeds. The spiders ran to tell less often (118 runs from
+  11 against 184, 204 from 15 against 319): a spider in reach across the floor can be further round the stone, past the 36 cells' crawl.
+  They told 7 and 19 hunting spiders (9 and 25 before). No spider moved more than 0.3 of a cell in a frame in 48,000 s of the dream
+  and the proof's 12,000, through 128 tracings again as secret walls slid; one gave up. Clean under ASan and UBSan (the dream from 3,
+  12 and 16 for 1,500 s each, and a spider at each kind of corner with every frame drawn, on both versions of the art). CI built and
+  smoke-tested the Windows and browser builds (run 140, before the art was redrawn).
+- The wall spiders are dark in the crypt's dark: on an unlit wall they are their two ember eyes. Their art from above (`spr_skit`)
+  was redrawn at the owner's word that its legs were wrongly placed; the second drawing waits on their word.
+- A wall spider crawls over whatever is painted on its wall: a saint in her niche, a portrait's frame. Those are pictures on flat
+  stone. If they should keep off them, the faces with a `face` or `fover` overlay are the ones to leave out of the stone's ways.
+- The spiders slip past a shut door along its jamb, through the crack it leaves. If doors should stop them, the loops can be broken
+  at a shut door's cell.
