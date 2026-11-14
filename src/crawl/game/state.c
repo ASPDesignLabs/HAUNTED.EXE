@@ -597,6 +597,53 @@ static struct {
                                                choose for): never saved, ended by a class taken */
 } LEDGER;
 
+/* The mice (docs/PLAN-mice.md): not creatures, a list of their own, on their own dice. A mouse's state (MO_*): sitting a moment,
+ * walking somewhere, preening by a light, running for a hole, in the wall, its eyes at a hole before it comes out, carrying word,
+ * telling (or being told), slain (a messenger, from level 15). Its way is a path of cells (y * MAPN + x). */
+enum { MO_IDLE, MO_WALK, MO_PREEN, MO_FLEE, MO_WALL, MO_PEEK, MO_RUN, MO_TELL, MO_DEAD };
+#define MAXMICE 16
+#define MAXMHOLES 8
+#define MPATH 96
+#define MAXMLIT 24
+typedef struct {
+    int alive, st, hole, out, light, msg, tgt, rat, h1, h2, role;   /* hole: going into; out: coming out of; light: the one it sits by;
+                                                                      msg: carrying word; tgt: the mouse it goes to tell, rat: 1 + the
+                                                                      charnel rat; h1, h2: through which holes (-1 on foot); role in a
+                                                                      telling: 1 telling, 2 told */
+    float x, y, face, t, wait, pace, side, hide, msg_t, ax, ay, sing_t, plan_t;   /* wait: a pause, or its time in the wall; side: how
+                                                                      far off the middle it runs; hide: how long it stays in after; ax, ay:
+                                                                      where you were seen, the word it carries */
+    int16_t path[MPATH]; int npath, ip;
+    float stall; int stall_ip, p0;                                 /* how long it has been on the same step of its way, and which; the
+                                                                      cell its way began in (y * MAPN + x) */
+    int word, heard; float cower;                                  /* the alarm it carries, the last it heard (G.malarm's numbers: a
+                                                                      word never comes back round to one that has had it); frozen
+                                                                      where it is, with no hole to run to */
+} Mouse;
+typedef struct { int wx, wy, d, fx, fy; float mx, my; } MHole;   /* the wall, its face towards the floor cell (fx, fy), its mouth */
+/* The wall spiders (docs/PLAN-mice.md, section 8): set dressing, on dice of their own. They crawl the walls, rest, and when you come
+ * near run to tell the nearest web or hunting spider, or failing one hide in a corner web. SK_*: resting on a wall, crawling, running
+ * (to tell, or for a web), sat in a web, slain (one carrying word, hit). They never leave the stone: their place is a face of the
+ * stone's ways (skitters.c, WF), how far along it and how high, and they go only along those ways and up and down them. */
+enum { SK_IDLE, SK_CRAWL, SK_RUN, SK_WEB, SK_DEAD };
+#define MAXSKIT 10
+#define MAXWP 12
+typedef struct {
+    int alive, st, spider, web, seek;                              /* spider: 1 + the creature it runs to tell; web: 1 + the deco it
+                                                                      makes for or sits in; seek: wandering in search of one */
+    int f, tf, onpic;                                              /* the face it is on; the one it makes for, -1 none; on a picture
+                                                                      (the debug build's check) */
+    float u, h, tu, ht;                                            /* how far along its face and how high; where it makes for */
+    float x, y, z, vz, head;                                       /* where that is; slain, its fall; head: its heading on the stone
+                                                                      (0 along its face's way, a quarter turn up) */
+    float t, wait, pace, ax, ay, seek_t, plan_t, lx, ly, lz;       /* seek_t: how long it has looked for a web, or run; plan_t: its
+                                                                      way after a hunter, again now and then; lx, ly, lz: where it was
+                                                                      a frame ago (the jump check) */
+    float calm_t;                                                  /* scurried to no end: not again till this is out */
+    float wps[MAXWP], wph[MAXWP]; int nwp, iwp, wpmore;            /* its way round what is painted on the stone: each turn, how far
+                                                                      round its loop and how high (skitters.c, sk_plan) */
+} Skitter;
+
 static struct {
     uint32_t rs;
     double t, level_t;
@@ -892,6 +939,12 @@ static struct {
     float d7_drained, d7_zap, d7_spear, d7_shep;                   /* the drain's last hit, the bolt's, the spear's; Shepherd's pace for */
     int d7_splint;                                                 /* the motes a kill now leaves; a splinter striking */
     /* the dead's track (D) ends */
+    Mouse mice[MAXMICE]; int nmice;                                /* the mice (docs/PLAN-mice.md), their holes, the warm lights they */
+    MHole mholes[MAXMHOLES]; int nmholes;                          /* sit by (cells beside them); their dice; their size; whether a */
+    int16_t mlit[MAXMLIT][2]; int nmlit;                           /* boss's fight has sent them in for good */
+    uint8_t mh_dist[MAXMHOLES][MAXMHOLES];                         /* steps between two holes, doors counted open (255 or more) */
+    uint32_t mrs; int mstage, mboss, malarm;
+    Skitter skit[MAXSKIT]; int nskit; uint32_t srs;                /* the wall spiders, on dice of their own */
 } G;
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
        BP_LITANY };                                 /* the Deacon's censer raised, the green light growing */

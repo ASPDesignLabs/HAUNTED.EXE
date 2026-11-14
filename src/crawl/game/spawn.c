@@ -142,6 +142,7 @@ static int random_type(void) {
     w[MOB_WHIPPER] = mind_on() && may_spawn(MOB_WHIPPER) ? 1 : 0;   /* the new kinds (step 9): only with the new minds, for they */
     w[MOB_SEXTON] = mind_on() && may_spawn(MOB_SEXTON) ? 2 : 0;     /* are made for them */
     w[MOB_LIGHTLESS] = mind_on() && may_spawn(MOB_LIGHTLESS) ? 2 : 0;
+    w[MOB_RAT] = may_spawn(MOB_RAT) ? 3 : 0;                       /* the mice grown (docs/PLAN-mice.md): from level 15 */
     for (int i = 0; i < NKINDS; i++) total += w[i];
     int r = rnd(total), k = 0;
     while (r >= w[k]) r -= w[k++];

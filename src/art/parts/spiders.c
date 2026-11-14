@@ -526,3 +526,58 @@ static void spr_ling(int id, int frame) {
     cv_store(id);
 }
 
+/* the same from above, as one flat on a wall shows itself (docs/PLAN-mice.md, section 8): its head up the picture. Its eight legs
+ * come from under the sides of its shell, front to back: the first two pairs reach forward, the third out and back, the fourth back
+ * along its abdomen; the first and fourth longest, the third shortest. Each is a thigh, rising, and the rest of the leg on past the
+ * knee, curling forward in front and back behind, banded pale at the knee and the next joint as its front's are. A pear of a shell
+ * with a waist before the abdomen; its eyes a cluster at the shell's front edge, the fangs and palps before them; its mother's
+ * mark on its back. frame: the other step, each side's legs taken in turn (the first and third of one side with the second and
+ * fourth of the other) */
+static void spr_skit(int id, int frame) {
+    static const struct { float hy, hx, a1, a2, l1, l2; } LEG[4] = {   /* from under the shell at (32 +- hx, hy); the thigh's way
+                                                                      and the rest's, from straight ahead; their lengths from above */
+        { 25.0f, 4.0f, 0.72f, 0.32f, 10.0f, 15.0f },
+        { 28.0f, 5.0f, 1.22f, 0.88f, 9.0f, 13.0f },
+        { 31.0f, 5.0f, 1.95f, 2.28f, 8.0f, 11.0f },
+        { 33.5f, 4.0f, 2.45f, 2.84f, 10.0f, 15.0f } };
+    cv_begin(cv_sprite, TS, TS);
+    for (int s = -1; s <= 1; s += 2)
+        for (int l = 3; l >= 0; l--) {
+            int grp = (l + (s > 0)) & 1;
+            float sw = (frame ? 1.0f : -1.0f) * (grp ? 0.12f : -0.12f), a1 = LEG[l].a1 + sw, a2 = LEG[l].a2 + sw;
+            float hx = 32 + s * LEG[l].hx, hy = LEG[l].hy;
+            float kx = hx + s * LEG[l].l1 * sinf(a1), ky = hy - LEG[l].l1 * cosf(a1);
+            float fx = kx + s * LEG[l].l2 * sinf(a2), fy = ky - LEG[l].l2 * cosf(a2);
+            float jx = kx + (fx - kx) * 0.55f, jy = ky + (fy - ky) * 0.55f;
+            cv_capsule(hx, hy, kx, ky, 2.1f, R_IRON, 0.05f, 0.4f);    /* the thigh */
+            cv_capsule(kx, ky, jx, jy, 1.7f, R_IRON, 0.05f, 0.38f);   /* the shin */
+            cv_capsule(jx, jy, fx, fy, 1.3f, R_IRON, 0.05f, 0.32f);   /* and the foot, finer */
+            cv_ellipse(kx, ky, 2.3f, 2.3f, R_IRON, 0.35f, 0.6f);   /* pale at the knee */
+            cv_ellipse(jx, jy, 1.8f, 1.8f, R_IRON, 0.3f, 0.55f);   /* and at the next joint */
+        }
+    for (int k = -1; k <= 1; k += 2) {                             /* its palps: little legs before the fangs, clubbed */
+        cv_capsule(32 + k * 2.5f, 21.5f, 32 + k * 4.5f, 16.5f, 1.1f, R_IRON, 0.1f, 0.45f);
+        cv_ellipse(32 + k * 4.8f, 15.8f, 1.4f, 1.4f, R_IRON, 0.2f, 0.5f);
+    }
+    cv_ellipse(32, 47, 8.5f, 10.5f, R_IRON, 0.06f, 0.45f);         /* its abdomen, behind the waist */
+    for (int k = 0; k < 7; k++) { int w = k < 3 ? 3 - k : k - 3; for (int q = -w; q <= w; q++) cv_px(32 + q, 42 + k, (uint8_t)(R_BLOOD + 8)); }   /* its mother's mark */
+    for (int k = 0; k < 3; k++)                                    /* and the chevrons down its back behind it */
+        for (int q = -(3 - k); q <= 3 - k; q++) cv_px(32 + q, 51 + k * 2 + abs(q) / 2 - (3 - k) / 2, sh(R_IRON, 0.14f));
+    cv_ellipse(32, 29, 6.5f, 8.0f, R_IRON, 0.08f, 0.5f);           /* its shell, over the legs' roots */
+    cv_ellipse(32, 23.5f, 4.6f, 3.2f, R_IRON, 0.14f, 0.55f);       /* the head's end of it, narrower */
+    for (int k = 0; k < 3; k++) cv_px(32, 29 + k, sh(R_IRON, 0.12f));   /* the groove at its middle */
+    for (int k = 20; k <= 23; k++) { cv_px(31, k, sh(R_IRON, 0.1f)); cv_px(32, k, sh(R_IRON, 0.1f)); }   /* the seam between its eyes */
+    for (int k = -1; k <= 1; k += 2) {
+        cv_ellipse(32 + k * 1.6f, 19.6f, 1.4f, 1.8f, R_IRON, 0.05f, 0.3f);   /* the fangs' roots, before the shell */
+        cv_px((int)(32 + k * 1.6f), 18, sh(R_BONE, 0.45f));        /* and their tips */
+        int ex = k < 0 ? 29 : 33;                                  /* its great eyes, a dark seam between them */
+        cv_px(ex, 21, (uint8_t)(R_FLAME + 5)); cv_px(ex + 1, 21, (uint8_t)(R_FLAME + 5));
+        cv_px(ex, 22, (uint8_t)(R_FLAME + 4)); cv_px(ex + 1, 22, (uint8_t)(R_FLAME + 4));
+        cv_eye_mark(ex + (k > 0), 21);
+        cv_px(k < 0 ? 27 : 36, 23, (uint8_t)(R_FLAME + 2));        /* and the small ones, out at the sides and behind */
+        cv_px(k < 0 ? 29 : 34, 25, (uint8_t)(R_FLAME + 2));
+    }
+    cv_outline(0);
+    cv_store(id);
+}
+

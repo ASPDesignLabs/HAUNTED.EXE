@@ -255,4 +255,68 @@ wrong or untried, and the numbers from each round of the dream's runs. Add to it
   Chromium. On 13 November a run measured 14.3 on a commit that changed only documents, and passed when the job was run
   again (docs/PLAN-tidy.md's log). The game's own work in that frame was 0.33 ms; the runner was slow. If a release's
   build fails there, run the failed job again before looking further.
-
+- **The mice and the charnel rat** (docs/PLAN-mice.md, 14 November, harness only; nothing played by hand, nothing under Wine; CI
+  compiled the Windows build). The proof that they move nothing before level 15: the dream from levels 1, 2, 4, 7, 10 and 13 on seeds
+  3, 5, 7 and 11, 600 s each, logs line for line as the build before (35eaa6f) up to level 15, their own `EVENT mice`/`mouse` lines
+  aside; 23 of the 24 pairs whole, the 24th differing only in its closing picture level (14.6% against 14.5%: the mice and holes are
+  drawn). Every kind's portrait gold (`CRAWL_PORGOLD`) is the same 131 lines. From level 15, eight seeds of 3,000 s each against the
+  build before: levels reached 15.25 in both (the dream stalls on 15 in both: 2 levels cleared in each, so treasure and time a level
+  can't be weighed); deaths 243 (30.4 a run) against 250 (31.3), within the noise; 15 of the 243 by a charnel rat; 38 rats told by
+  a messenger, 21 messengers killed by spells in passing (the dream never aims at them). A first round found the word could go round
+  three mice in a ring for good where no hole was in reach (145 tells in one visit to the tutorial's level 2): each alarm now has a
+  number a mouse hears once, and a mouse with no hole to reach cowers where it is (7 tells there since). Clean under ASan and UBSan:
+  the dream from levels 1, 10, 13 and 16, a person by the mice on 4 and 17. A frame costs about 3% more natively (1.90-1.97 ms
+  against 1.96-2.06 in three alternate runs of `bench crawl 60`); sound the same. CI's first browser smoke on the branch failed at
+  14.3 frames a second against main's 55.9, its title screen (which draws no mice) as much slower: the runner. The next, on
+  723c09f, passed whole: Windows built and smoke-tested, the browser's play at 60.3 frames a second, its own work 4.64 ms a frame
+  (main's last 5.08).
+- The early mice are small at their true size: on levels 1-4 a mouse is two or three pixels across at three cells and its eyes a pixel
+  each, as the sheets said. If they are too easily missed in play, the boxes in `crawl_mouse_box` are the place to change it.
+- The charnel rat has no portrait in her hall and no feat: her hall's twenty-two places are all taken. The portraits leave it out
+  (`por_kinds`), so every other kind's stays as it was. Where it hangs is the owner's to choose.
+- The record (`REC_KINDS`) is full: the next new kind needs it widened, a new save version.
+- **The mice's running, fixed; the spiders on the walls** (docs/PLAN-mice.md section 8, 14 November; the spiders and the fix harness
+  only, the owner having played the mice before it). The owner saw a mouse spin in place, its mark up: a mouse aimed a little off the
+  middle of each step of its way, across the line from itself to the cell's middle, a point that turned as it came and that it could
+  never reach. Counted with `EVENT mouse_stall`, 871 and 919 in 300 s of level 5 on two seeds; none since, in 48,000 s of the dream.
+  The proof again: levels 1-10 on four seeds log as the build before (35eaa6f), 19 of 20 pairs whole and the 20th but for its
+  closing picture level; four of them again on the final code, whole. Eight seeds of 3,000 s from level 11 against the build before:
+  levels reached 13.00 against 12.62, 15 cleared against 12, deaths 133 against 155 (16.6 a run against 19.4), 5 of them by hunting
+  spiders against 4; the spiders made 184 runs, told 9 hunting spiders and 159 web spiders, and 4 were killed carrying word. From 15
+  the same: deaths 251 against 250, 9 by a charnel rat; levels reached 15.00 against 15.25 and none cleared against 2, the dream
+  stalling on 15 in both. With the mice now reaching whom they run to, they told rats 131 times where they had told them 38 before
+  the fix. A first round of the spiders found 99 of 685 runs to a spider ending in their 20 s give-up, for spiders 100 cells off or
+  chasing a hunter that kept moving; they now run only to one within 36 steps (1 give-up since). Clean under ASan and UBSan (the
+  dream from levels 2, 7, 12 and 16, a person by a spider on 6, and level 12 again on the final code). CI built and smoke-tested
+  the Windows and browser builds on the branch (run 138).
+- **The wall spiders kept to the stone** (docs/PLAN-mice.md sections 8.1 and 8.2, 14 November; harness only). The owner saw them
+  float and fly: they walked the floor and were drawn pushed toward a wall that slid across the air at every corner and opening. They
+  now go only along the stone's own ways and are painted on it. Levels 1-10 on four seeds log as the build before the mice, 19 of 20
+  pairs whole and the 20th (seed 7 from level 2) but for its closing picture level, 14.6% against 14.5%. With the wall spiders off,
+  20 frames of four levels match the commit before byte for byte, before and after the art was redrawn. Eight seeds of 3,000 s from
+  level 11, against the build before the mice and the spiders' first build: deaths 149 against 155 and 133 (18.6 a run against 19.4
+  and 16.6), levels reached 12.50 against 12.62 and 13.00, cleared 12 against 12 and 15; seven of the eight seeds died as often as
+  before the mice. From 15: deaths 266 against 250 and 251 (33.2 a run against 31.2 and 31.4), 10 by a charnel rat, levels reached
+  15.00 in all three (the dream stalls there). All within the noise of eight seeds. The spiders ran to tell less often (118 runs from
+  11 against 184, 204 from 15 against 319): a spider in reach across the floor can be further round the stone, past the 36 cells' crawl.
+  They told 7 and 19 hunting spiders (9 and 25 before). No spider moved more than 0.3 of a cell in a frame in 48,000 s of the dream
+  and the proof's 12,000, through 128 tracings again as secret walls slid; one gave up. Clean under ASan and UBSan (the dream from 3,
+  12 and 16 for 1,500 s each, and a spider at each kind of corner with every frame drawn, on both versions of the art). CI built and
+  smoke-tested the Windows and browser builds (run 140, before the art was redrawn).
+- **The wall spiders round the pictures; past doors** (docs/PLAN-mice.md section 8.3, 14 November; harness only). The owner:
+  spiders go past doors open or shut, as they did, and round what is painted on the walls. A first try, routing round one picture
+  at a time, crossed the tops of banners where niches stood either side (14 events in level 10's crypt of niches); the way is now
+  searched on a grid of the stone. Levels 1-10 on four seeds log as the build before the mice, 19 of 20 pairs whole and the 20th
+  but for its closing picture level, 14.6% against 14.5%. Eight seeds of 3,000 s from level 11: deaths 154 against 155 before the
+  mice (19.2 a run against 19.4), levels reached 12.62 and cleared 12 as before; seven seeds died as often as before the mice and
+  the eighth once less. From 15: deaths 271 against 250 (33.9 a run against 31.2), 16 by a charnel rat, levels reached 15.12
+  against 15.25; within the noise, and the rise is the rats', not the spiders'. The spiders told fewer (from 15, 6 hunting spiders
+  and 126 web spiders against 19 and 161 on the stone alone): pictures wall some off, and a spider with no way to a mark does not
+  go (`skitter_noway`, about once every 40 s of a run). No spider on a picture or moving more than 0.3 of a cell in a frame in
+  those 48,000 s and the proof's 12,000. Clean under ASan and UBSan (the dream from 10, 13 and 16 for 1,500 s each; a spider at a
+  picture and at three together, on levels 3 and 17, every frame drawn).
+- The wall spiders are dark in the crypt's dark: on an unlit wall they are their two ember eyes. Their art from above (`spr_skit`)
+  was redrawn at the owner's word that its legs were wrongly placed, and went to main at their word.
+- In rooms walled with pictures from floor to lintel (level 10's crypt of niches, run II's saints' rooms) a spider can be shut in
+  a short stretch of stone and wanders only there. That is the rule as given; if they should cross a niche's lintel, `door_tex`'s
+  way over the top could be given to niches too.

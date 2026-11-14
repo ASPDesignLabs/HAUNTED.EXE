@@ -46,7 +46,7 @@ static void por_hang(void) {
         { 20, 18, 3 }, { 18, 18, 3 }, { 17, 18, 3 }, { 13, 18, 3 }, { 12, 18, 3 }, { 11, 18, 3 }, { 10, 18, 3 },
         { 10, 11, 1 }, { 11, 11, 1 }, { 13, 11, 1 }, { 14, 11, 1 }, { 16, 11, 1 }, { 17, 11, 1 }, { 19, 11, 1 }, { 21, 12, 2 },
         { 7, 11, 1 }, { 8, 11, 1 }, { 9, 12, 2 }, { 9, 14, 2 }, { 9, 15, 2 }, { 9, 16, 2 }, { 9, 17, 2 } };
-    int order[NKINDS], nk = best_kinds(order);
+    int order[NKINDS], nk = por_kinds(order);
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_PORLIGHT")) sscanf(getenv("CRAWL_PORLIGHT"), "%f,%f,%f", &POR_LIGHT, &POR_REACH, &POR_GLOW);   /* testing: light,reach,glow */
     if (getenv("CRAWL_PORTRAITS") && atoi(getenv("CRAWL_PORTRAITS")) >= 0) {   /* testing: every portrait drawn back, n of each kind's

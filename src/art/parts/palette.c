@@ -37,6 +37,7 @@ static void build_palette(void) {
     RAMP(R_FLAME, 26, 3, 0,  63, 26,  0,  63, 63, 44);
     RAMP(R_GLOW,   2, 8, 22, 14, 38, 63,  54, 63, 63);
     crawl_pal[C_WHITE][0] = crawl_pal[C_WHITE][1] = crawl_pal[C_WHITE][2] = 63;
+    crawl_pal[C_MOUSE_EYE][0] = 30; crawl_pal[C_MOUSE_EYE][1] = 63; crawl_pal[C_MOUSE_EYE][2] = 25;   /* the mice's eyes (C_CLEAR's own: never drawn) */
     static const int GA[3] = { 5, 3, 0 }, GM[3] = { 40, 25, 3 }, GB[3] = { 63, 59, 32 };
     for (int i = 0; i < NGOLD; i++) {                                  /* gold, 13 steps */
         float t = i / (float)(NGOLD - 1), u = t < 0.5f ? t * 2.0f : (t - 0.5f) * 2.0f;

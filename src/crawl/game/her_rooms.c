@@ -6,7 +6,7 @@
 
 /* the bestiary's pages in three, the spiderling with its mother: 7, 8 and 7 (0-2); -1 not a page */
 static int por_third(int k) {
-    int order[NKINDS], nk = best_kinds(order);
+    int order[NKINDS], nk = por_kinds(order);
     for (int i = 0; i < nk; i++) if (order[i] == k) return i < 7 ? 0 : i < 15 ? 1 : 2;
     return -1;
 }

@@ -4,6 +4,9 @@ From `CLAUDE.md`'s *Building and testing*, moved here word for word when that fi
 How the ledger uses it (pages, the progress, the mark, signing and opening) is under *Saves: the merchant's ledger* in
 `docs/catacomb/hall.md`. The code is `src/crawl/game/save.c`.
 
+The record's kinds (`REC_KINDS`) are full since the charnel rat took the 24th place (docs/PLAN-mice.md): the next new kind needs the
+record widened, which is a new save version. The mice themselves are never saved.
+
 A save blob (for `HOST_LOAD`) is `"HVS1"` (u32 0x31535648 LE), version 7 (1.0.0b11; the same shape as version 6,
 its changes in ledger sections), then little-endian int32
 level, hp, gold, souls (in tenths), shop-first flag, then the gear packed field by field (`gear_pack`:

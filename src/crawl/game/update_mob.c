@@ -223,6 +223,19 @@ static void update_mob(Mob *m, float dt) {
         }
         if (sees && pd0 < ATTACKS[FA_HBITE].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_HBITE].wind; elem_arm(m, m->swing); return; }
     }
+    if (m->type == MOB_RAT && fights && !afraid) {                 /* the charnel rat: in low, a bite, a scuttle back (docs/PLAN-mice.md) */
+        m->cool -= dt;
+        if (m->swing > 0.0f) {
+            m->swing -= dt;
+            if (m->swing <= 0.0f) {
+                m->swing = 0.0f; m->cool = ATTACKS[FA_RBITE].cool + ATTACKS[FA_RBITE].cool_rnd * rndf(); m->feared = 0.45f; m->wfeared = 0;
+                sfx_at(SFX_RAT_SQUEAL, m->x, m->y, 0.45f);
+                if (pd0 < ATTACKS[FA_RBITE].reach && foe_hit(m, FA_RBITE, 1.0f) > 0) thorns(m);
+            }
+            return;
+        }
+        if (sees && pd0 < ATTACKS[FA_RBITE].go && m->cool <= 0.0f) { m->swing = ATTACKS[FA_RBITE].wind; elem_arm(m, m->swing); return; }
+    }
     if (m->boss == 1 + BOSS_SPIDER && spider_boss(m, dt, pd0, sees)) return;
     if (m->type == MOB_HUNTER && !G.dead) {                        /* along the ceiling, down a thread, and a leap */
         if (update_leap(m, dt)) return;

@@ -82,3 +82,47 @@ harness `docs/HARNESS.md`, the known issues `docs/KNOWN-ISSUES.md`, and each rel
   shaking by the view's turns and the feet's strafes, `SHAKE_NEED`, `G.shake`), `latch_release` (shaken, thrown by Blink
   or Swift Dodge, or after ten seconds), `sap_slow` in `slow_factor`, `render_latch`. Untargetable while latched. Debug:
   `CRAWL_LATCH=1`, `EVENT latch`, `latch_off`, `shakes`.
+
+- **The mice and the charnel rat** (docs/PLAN-mice.md; harness only, not yet released). The mice are not creatures: `Mouse` in
+  `G.mice` (`MAXMICE` 16), their holes `MHole` in `G.mholes` (`MAXMHOLES` 8), the warm lights they sit by `G.mlit`, on their own dice
+  `G.mrs` (seeded from the level, never `G.rs`), outside `MAXMOBS`, the hunt, the budget, the tally, the map and the autopilot's aim;
+  `game/mice.c`. A size every two levels (`crawl_mouse_stage`, `crawl_mouse_box`, `MOUSE_STAGES` 7 in `crawl.h`), the spurt on 13, the
+  charnel rat (`MOB_RAT`, the record's 24th and last kind) from 15 (`MOUSE_DEBUT`), the small ones from then on at 11-12's size. Per
+  level (`mice_level`, at the end of `start_level`): four to eight holes on plain stretches of the run's wall (the face becomes
+  `T_MHOLE` + its material's slot, `crawl_art_mice`), at least six steps apart, `G.mh_dist` between them with doors counted open;
+  three to twelve mice by the run's step (three on a drawn level, four on a boss's). Their states (`MO_*`): `IDLE`, `WALK` (a few
+  cells off, `mo_wander`), `PREEN` (by a warm light, `mo_warm`), `FLEE` (to the nearest hole, `mo_flee`), `WALL` (a tenth of the walk
+  between the holes, more if hiding; `mo_into`), `PEEK` (its eyes in the far hole, 0.6 s; `mo_emerge`), `RUN` (carrying word,
+  `mo_carry`, `mo_plan`: the nearest calm one on foot or through two holes, a rat first from 15), `TELL` (1.3 s nose to nose; the one
+  told carries it on), `DEAD` (a messenger hit, from 15: `mice_shot` from `update_shots`, `mice_blast` from `explode`). Scared
+  (`mo_scare`) by you within 2.5 cells (4 in sight and moving), a hunting creature within 3, a noise (`mice_hear` from `noise`) within
+  six tenths of its reach, a blast; a boss's fight sends them in for good (`G.mboss`). A rat told (`mo_tell_rat`): `Mob.told_t`, the
+  rearing sprite, `mind_track` to where you were seen. From level 16 one or two rats roam each level, three from 21 (`budget.c`).
+  Drawn in `render_sprites` (their poses by state and view, `DR_EYES` in a hole's mouth), the eye pass in `EC_GREEN` (core
+  `C_MOUSE_EYE`, the palette's last entry, C_CLEAR's own, never drawn otherwise), `render_mflag` the mark over a messenger. Sounds
+  `SFX_SQUEAK`, `SFX_MTELL` (by `snd_sfx_pitch`, falling as they grow), `SFX_RAT_HISS`, `SFX_RAT_SQUEAL`. The rat's bestiary page is
+  held back until it is met (`best_kinds`), with their growth over it (`best_growth`); the portraits leave it out (`por_kinds`): her
+  hall has no place for it yet. `make sheets`' `mice`.
+  The way: a path of floor cells (`mo_path`, `p0` its first cell), off the middle of each step by `side` across the step from the cell
+  before (`mo_step`; until its fix on 14 November it was across the line from the mouse to the cell's middle, which a mouse could never reach,
+  and many span in place); `stall` steps one held two seconds on to its next cell. A messenger at its target's cell goes straight to it.
+- **The wall spiders** (docs/PLAN-mice.md, section 8; harness only): `Skitter` in `G.skit` (`MAXSKIT` 10), `game/skitters.c`, on
+  `G.srs`; `skit_level` (after `mice_level`), `skit_update`, `skit_hear`/`skit_shot`/`skit_blast` (from the mice's own), `skit_tp`.
+  `SK_IDLE`, `SK_CRAWL` (`sk_wander`, `sk_crawl`), `SK_RUN` (to a spider, `sk_find_spider`, or a web, `sk_find_web`/`sk_for_web`;
+  `seek` wandering for one), `SK_WEB` (in the corner behind a `SP_COBWEB`), `SK_DEAD` (dropped off the stone). Told (`sk_tell`):
+  `Mob.told_t`; a hunting spider `mind_track`, a web spider's eyes unblinking (`Draw.estate` on its `DR_EYES`) and a nest's
+  `pack_call`. Since their second build (14 November) they never leave the stone (its sections 8.1, 8.2): the stone's ways are every face where open floor
+  meets `K_WALL`, traced with the wall on the left into closed loops (`WFace` in `WF`, `wf_at[y][x][d]`, `wf_build` at `skit_level`
+  and again in `skit_rebuild` when `wf_layout`'s hash of the walls changes; joints `WJ_ON`, `WJ_IN`, `WJ_OUT`; `lo`, `hi` how far
+  along a face its way runs, `WF_IN` off the stone). A spider's place is `f`, `u`, `h` (face, along, height), its mark `tf`, `tu`,
+  `ht`; `wf_pos` where that is, `wf_move` on round its loop, `wf_gap` the shorter way round to another place on it, `wf_near` the
+  place on the stone nearest a point through the open floor. Drawn as a decal (`skit_decal` in `draw/sprites.c`, from `Draw.skit`):
+  `SP_SKIT_A/B` (`spr_skit`, the spiderling from above) laid on its face's plane column by column and on the faces either side where
+  it reaches over a joint, turned to `head`, through `sk_lut`; its eyes by `eyes_put` (the eye pass's drawing, cut from
+  `render_eyes`); `Draw.mflag` 2 its mark in ember. Slain, `SP_LING_A` turned over, falling. They go round what is painted on the
+  stone and past doors open or shut (its section 8.3): `wf_pic` each face's picture (`wf_pictures`, from the overlay's texels, a
+  hole's, or a special wall's whole; `door_tex` leaves a door's top free), `PIC_MU`/`PIC_MH` the berth they keep, `wf_occ` each
+  loop's grid of taken cells (`GS`, `GNR`, `wf_gs`, `wf_col0`, `wf_ncol`), `sk_flood` the search through it, `sk_plan` a way to a
+  mark pulled straight between turns (`sk_los`; `Skitter.wps`, `wph`, `nwp`, `iwp`, `wpmore`), `sk_free_h` a clear height,
+  `sk_at` the face at a place round a loop (`wf_seq`, `wf_seq0`), `sk_wander` somewhere reachable; `calm_t` the wait after a
+  scurry to no end; `SK_HLO`, `SK_HHI` how low and high they go.

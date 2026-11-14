@@ -77,7 +77,21 @@ vault, 3 chapter house, 4 knights' vault, 5 undercroft; run II's 8 saints' catac
 chapel; run IV's 18 geode, 19 glass hall, 20 cinder field, 21 magma vent, 22 the throne), `CRAWL_RANK=r` (every creature at rank r), `CRAWL_WRAITH=s`
 (the Wraith at s seconds), `CRAWL_MEET=k`
 (one creature of kind k, the `MOB_*` number, a few cells ahead of the caster five seconds into each level,
-and into each pocket).
+and into each pocket). The mice (docs/PLAN-mice.md): `CRAWL_MICE=0` (none), `CRAWL_MICESTAGE=n` (the small ones at size n, 0-6,
+whatever the level, their holes too), `CRAWL_TPMICE=1` (three of them preening by the nearest warm light, you three steps off facing
+it, once you take control; 2: two cells before a hole, a mouse looking out of it ten seconds later); `EVENT mice level n stage s mice
+m holes h lights l`, `EVENT mouse_tell i at x,y to mouse|rat j via h1,h2` (the holes it goes through, -1 on foot), `EVENT
+mouse_told_rat`, `EVENT mouse_slain`, `EVENT mouse_gaveup`, `EVENT mouse_stall` (never, since it was fixed), `EVENT mice_hide boss`.
+The charnel rat is `CRAWL_MEET=23`. The wall spiders (its section 8): `CRAWL_SKIT=0` (none), `CRAWL_TPSKIT=1` (two cells from one on
+its wall, once you take control; `CRAWL_SKITGO=1` it crawls off at once), `CRAWL_TPSKIT=2` (one put a little short of a wall's edge,
+crawling slowly round it and back, you where both faces show; it minds nothing, and the controls card is put away), `CRAWL_TPSKIT=3`
+(the same into a corner), `CRAWL_TPSKIT=4` (one crawling at a picture on the wall, at its height, and round it; `5` at three pictures
+together), `CRAWL_PICS=1` (every picture on the stone and its keeping, each time it is traced); `EVENT skitters level n count c faces
+f pictures p`, `skitter_noway` (a mark with no way to it round the pictures), `skitter_run`, `skitter_told`, `skitter_web`, `skitter_slain`, `skitter_ways` (the stone's ways
+traced again, a wall having moved), `skitter_jump` (one moved more than 0.3 of a cell in a frame), `skitter_ways_broken` (a loop that
+did not close) and `skitter_onpic` (one within half its legs' reach of a picture), the last three never yet. `CRAWL_STAGE=1` with `CRAWL_LEVEL` starts in the level, not
+her hall, so the teleports apply.
+`CRAWL_BUDGET=0` gives a level with next to no creatures, for looking at them.
 `HAUNT_DEBUG` adds `HAUNT_PLAN=10,11,...` to force HAUNT.EXE acts (numbers in the README).
 
 The debug build prints the autopilot's state once a second (`lvl=... t=... hp=... items=a/b val=a/b

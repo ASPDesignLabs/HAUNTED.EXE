@@ -221,7 +221,7 @@ static const char *PIECE_NAME[NSET] = { "none", "wanderers", "newcomer", "posts"
 static const float KIND_COST[NKINDS] = { [MOB_SKEL] = 1.0f, [MOB_BAT] = 0.75f, [MOB_WSKULL] = 0.75f, [MOB_SHIELD] = 1.25f,
     [MOB_SPIDER] = 0.5f, [MOB_SHAMBLER] = 0.75f, [MOB_DROWNED] = 1.0f, [MOB_HOUND] = 1.0f, [MOB_HUNTER] = 1.0f, [MOB_GHOUL] = 1.25f,
     [MOB_KNIGHT] = 2.0f, [MOB_BROOD] = 2.0f, [MOB_SAC] = 0.25f, [MOB_SHADE] = 1.5f, [MOB_IMP] = 1.0f, [MOB_DEACON] = 1.5f,
-    [MOB_GARGOYLE] = 1.25f, [MOB_WHIPPER] = 1.5f, [MOB_SEXTON] = 1.0f, [MOB_LIGHTLESS] = 2.0f };
+    [MOB_GARGOYLE] = 1.25f, [MOB_WHIPPER] = 1.5f, [MOB_SEXTON] = 1.0f, [MOB_LIGHTLESS] = 2.0f, [MOB_RAT] = 0.9f };
 static float rank_cost(int rank) { return rank == RK_GILDED ? 1.4f : 1.0f + 0.2f * (float)imin(rank, RK_V); }
 static float set_spent(int *heads) {
     float c = 0.0f; int n = 0;
@@ -271,9 +271,12 @@ static void place_creatures(void) {
     set_cap = 1 << 20;
     place_guardians(); set_tag(SET_GUARD);                         /* the vaults keep their guards */
     static const int WANDERS[] = { MOB_SHIELD, MOB_SHAMBLER, MOB_HOUND, MOB_HUNTER, MOB_GHOUL, MOB_KNIGHT, MOB_SHADE, MOB_IMP, MOB_DEACON,
-                                   MOB_WHIPPER, MOB_SEXTON, MOB_LIGHTLESS };   /* the new kinds too (step 9): with the new minds only */
+                                   MOB_WHIPPER, MOB_SEXTON, MOB_LIGHTLESS, MOB_RAT };   /* the new kinds too (step 9): with the new minds only */
     for (int i = 0; i < (int)(sizeof WANDERS / sizeof WANDERS[0]); i++)   /* a newcomer's first level always brings one, alone */
         if (G.level == KINDS[WANDERS[i]].debut && !G.spawned[WANDERS[i]] && pick_cell_at_depth(G.cx, G.cy, 8, 30, 1, &x, &y)) spawn_wanderer_type(x, y, WANDERS[i]);
+    if (G.level > MOUSE_DEBUT)                                     /* the mice grown (docs/PLAN-mice.md): after their first level, one or two */
+        for (int k = 0, nr = 1 + rnd(2) + (G.level > 20); k < nr; k++)   /* roam every level, three from the Hollows, for the mice to fetch */
+            if (pick_cell_at_depth(G.cx, G.cy, 10, 40, 1, &x, &y)) spawn_wanderer_type(x, y, MOB_RAT);
     set_tag(SET_NEW);
     /* the set pieces: the one this level shows first, then the rest in a shuffled order while the budget lasts */
     int order[NSET], n = 0;
