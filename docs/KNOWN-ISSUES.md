@@ -255,4 +255,21 @@ wrong or untried, and the numbers from each round of the dream's runs. Add to it
   Chromium. On 13 November a run measured 14.3 on a commit that changed only documents, and passed when the job was run
   again (docs/PLAN-tidy.md's log). The game's own work in that frame was 0.33 ms; the runner was slow. If a release's
   build fails there, run the failed job again before looking further.
-
+- **The mice and the charnel rat** (docs/PLAN-mice.md, 14 November, harness only; nothing played by hand, nothing under Wine; CI
+  compiled the Windows build). The proof that they move nothing before level 15: the dream from levels 1, 2, 4, 7, 10 and 13 on seeds
+  3, 5, 7 and 11, 600 s each, logs line for line as the build before (35eaa6f) up to level 15, their own `EVENT mice`/`mouse` lines
+  aside; 23 of the 24 pairs whole, the 24th differing only in its closing picture level (14.6% against 14.5%: the mice and holes are
+  drawn). Every kind's portrait gold (`CRAWL_PORGOLD`) is the same 131 lines. From level 15, eight seeds of 3,000 s each against the
+  build before: levels reached 15.25 in both (the dream stalls on 15 in both: 2 levels cleared in each, so treasure and time a level
+  can't be weighed); deaths 243 (30.4 a run) against 250 (31.3), within the noise; 15 of the 243 by a charnel rat; 38 rats told by
+  a messenger, 21 messengers killed by spells in passing (the dream never aims at them). A first round found the word could go round
+  three mice in a ring for good where no hole was in reach (145 tells in one visit to the tutorial's level 2): each alarm now has a
+  number a mouse hears once, and a mouse with no hole to reach cowers where it is (7 tells there since). Clean under ASan and UBSan:
+  the dream from levels 1, 10, 13 and 16, a person by the mice on 4 and 17. A frame costs about 3% more natively (1.90-1.97 ms
+  against 1.96-2.06 in three alternate runs of `bench crawl 60`); sound the same. CI's first browser smoke on the branch failed at
+  14.3 frames a second against main's 55.9, its title screen (which draws no mice) as much slower, so most likely the runner.
+- The early mice are small at their true size: on levels 1-4 a mouse is two or three pixels across at three cells and its eyes a pixel
+  each, as the sheets said. If they are too easily missed in play, the boxes in `crawl_mouse_box` are the place to change it.
+- The charnel rat has no portrait in her hall and no feat: her hall's twenty-two places are all taken. The portraits leave it out
+  (`por_kinds`), so every other kind's stays as it was. Where it hangs is the owner's to choose.
+- The record (`REC_KINDS`) is full: the next new kind needs it widened, a new save version.

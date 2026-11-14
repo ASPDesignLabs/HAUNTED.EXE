@@ -614,6 +614,9 @@ typedef struct {
                                                                       far off the middle it runs; hide: how long it stays in after; ax, ay:
                                                                       where you were seen, the word it carries */
     int16_t path[MPATH]; int npath, ip;
+    int word, heard; float cower;                                  /* the alarm it carries, the last it heard (G.malarm's numbers: a
+                                                                      word never comes back round to one that has had it); frozen
+                                                                      where it is, with no hole to run to */
 } Mouse;
 typedef struct { int wx, wy, d, fx, fy; float mx, my; } MHole;   /* the wall, its face towards the floor cell (fx, fy), its mouth */
 
@@ -916,7 +919,7 @@ static struct {
     MHole mholes[MAXMHOLES]; int nmholes;                          /* sit by (cells beside them); their dice; their size; whether a */
     int16_t mlit[MAXMLIT][2]; int nmlit;                           /* boss's fight has sent them in for good */
     uint8_t mh_dist[MAXMHOLES][MAXMHOLES];                         /* steps between two holes, doors counted open (255 or more) */
-    uint32_t mrs; int mstage, mboss;
+    uint32_t mrs; int mstage, mboss, malarm;
 } G;
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
        BP_LITANY };                                 /* the Deacon's censer raised, the green light growing */

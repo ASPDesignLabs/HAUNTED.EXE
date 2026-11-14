@@ -78,7 +78,7 @@ static int mo_nearest_hole(const Mouse *o) {                       /* by foot as
     return best;
 }
 static int mo_out_now(const Mouse *o) { return o->alive && o->st != MO_WALL && o->st != MO_PEEK && o->st != MO_DEAD; }
-static int mo_calm(const Mouse *o) { return o->alive && (o->st == MO_IDLE || o->st == MO_WALK || o->st == MO_PREEN) && !o->msg; }
+static int mo_calm(const Mouse *o) { return o->alive && (o->st == MO_IDLE || o->st == MO_WALK || o->st == MO_PREEN) && !o->msg && o->cower <= 0.0f; }
 static int mo_carriers(void) { int n = 0; for (int i = 0; i < G.nmice; i++) n += G.mice[i].alive && G.mice[i].msg; return n; }
 
 /* running for its nearest hole, to stay in a while */
@@ -86,7 +86,7 @@ static void mo_flee(Mouse *o, float hide) {
     o->msg = 0; o->tgt = -1; o->rat = 0; o->role = 0; o->light = -1;
     o->hide = hide;
     int h = mo_nearest_hole(o);
-    if (h < 0) { o->st = MO_IDLE; o->wait = 2.0f; return; }        /* nowhere to go: it freezes where it is */
+    if (h < 0) { o->st = MO_IDLE; o->wait = 2.0f; o->cower = fminf(hide, 15.0f); return; }   /* nowhere to go: it freezes where it is */
     o->hole = h;
     mo_go(o, G.mholes[h].fx, G.mholes[h].fy, MO_FLEE, mo_run_pace());
 }
@@ -115,7 +115,7 @@ static int mo_plan(Mouse *o) {
             if (pass == 0) { const Mob *m = &G.mobs[i]; if (!mo_rat_calm(m)) continue; tx = m->cx; ty = m->cy; }
             else {                                                 /* a mouse away from where you were seen: those near it know */
                 const Mouse *t = &G.mice[i];
-                if (i == self || !mo_calm(t) || hypotf(t->x - o->ax, t->y - o->ay) < 4.5f) continue;
+                if (i == self || !mo_calm(t) || t->heard == o->word || hypotf(t->x - o->ax, t->y - o->ay) < 4.5f) continue;
                 tx = (int)t->x; ty = (int)t->y;
             }
             if (tx <= 0 || ty <= 0 || tx >= MAPN - 1 || ty >= MAPN - 1) continue;
@@ -141,8 +141,9 @@ static int mo_plan(Mouse *o) {
     return 1;
 }
 /* it carries word of you: where you were seen, to the next one */
-static int mo_carry(Mouse *o, float ax, float ay) {
+static int mo_carry(Mouse *o, float ax, float ay, int word) {    /* word 0: a new alarm */
     if (mo_carriers() >= 2) return 0;                              /* two at once at most */
+    o->word = o->heard = word ? word : ++G.malarm;
     o->msg = 1; o->msg_t = 0.0f; o->ax = ax; o->ay = ay; o->role = 0; o->light = -1;
     if (!mo_plan(o)) { o->msg = 0; return 0; }
 #ifdef CRAWL_DEBUG
@@ -158,7 +159,7 @@ static void mo_scare(Mouse *o) {
     if (G.mboss) { mo_flee(o, 1e9f); return; }
     int known = 0;                                                 /* word of this already going: it only runs */
     for (int i = 0; i < G.nmice; i++) { const Mouse *c = &G.mice[i]; known |= c->alive && c->msg && hypotf(c->ax - G.px, c->ay - G.py) < 6.0f; }
-    if (known || !mo_carry(o, G.px, G.py)) { mo_flee(o, 18.0f + 20.0f * mrndf()); mo_sfx(SFX_SQUEAK, o->x, o->y, 0.5f); }
+    if (known || !mo_carry(o, G.px, G.py, 0)) { mo_flee(o, 18.0f + 20.0f * mrndf()); mo_sfx(SFX_SQUEAK, o->x, o->y, 0.5f); }
 }
 
 /* into its hole: out of another, a tenth of the walk later, and after a while in there if it is hiding */
@@ -238,7 +239,7 @@ static void mo_wander(Mouse *o) {                                  /* a few cell
 /* it tells: they sit up nose to nose and chirp; then the one told carries it on */
 static void mo_tell_begin(Mouse *o, Mouse *t) {
     o->st = t->st = MO_TELL; o->t = t->t = 0.0f; o->role = 1; t->role = 2;
-    t->msg = 0; t->ax = o->ax; t->ay = o->ay; t->light = -1;
+    t->msg = 0; t->ax = o->ax; t->ay = o->ay; t->light = -1; t->word = t->heard = o->word;
     o->face = atan2f(t->y - o->y, t->x - o->x); t->face = o->face + PI_F;
     mo_sfx(SFX_MTELL, o->x, o->y, 0.9f);
 }
@@ -430,6 +431,7 @@ static void mice_update(float dt) {
         if (!o->alive) continue;
         o->t += dt;
         if (o->msg) o->msg_t += dt;
+        if (o->cower > 0.0f) o->cower -= dt;
         if (mo_calm(o)) {                                          /* you near, or a fight */
             float d = hypotf(o->x - G.px, o->y - G.py);
             if (!G.dead && (d < 2.5f || (d < 4.0f && G.spd > 0.4f && line_clear(o->x, o->y, G.px, G.py)))) { mo_scare(o); continue; }
@@ -516,7 +518,7 @@ static void mice_update(float dt) {
             if (o->t >= 1.3f) {
                 int told = o->role == 2;
                 o->role = 0;
-                if (told) { if (!mo_carry(o, o->ax, o->ay)) mo_flee(o, 20.0f + 20.0f * mrndf()); }   /* and on it goes */
+                if (told) { if (!mo_carry(o, o->ax, o->ay, o->word)) mo_flee(o, 20.0f + 20.0f * mrndf()); }   /* and on it goes */
                 else mo_flee(o, 20.0f + 20.0f * mrndf());
             }
             break;

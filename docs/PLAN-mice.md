@@ -125,3 +125,13 @@ mouse_tell`, `mouse_told_rat`, `mouse_slain`, `mice_hide`.
 ## 8. Hand-off log
 
 - **14 November.** The brief, the sheets, the questions; the owner took the defaults. This plan written.
+- **14 November, later.** Built, steps 1 to 6, on `claude/gallant-dijkstra-9x79xe` (harness only; nothing played by hand). The art
+  (`src/art/parts/mice.c`: the small ones made for the level's stage, the rat at init, the holes on each material, `make sheets`'
+  `mice`, kept as `media/sheets/mice/game.png` beside the mock-ups the owner saw); the rat in every kind table but the portraits
+  (section 5); the mice (`src/crawl/game/mice.c`); drawn in play with the eye pass and the mark; the chirps (`snd_sfx_pitch`); the rat's
+  page held back and its growth strip; `CRAWL_MICE`, `CRAWL_MICESTAGE`, `CRAWL_TPMICE`. The green is the palette's last entry, C_CLEAR's
+  own: thirty frames of the title, the menus, the bestiary, her room, the crypt and HAUNT.EXE with it painted magenta and the mice off
+  showed none of it, so nothing else draws it. From level 16 one or two rats roam each level (section 5). The proof, the balance runs
+  and the sanitizers are in docs/KNOWN-ISSUES.md: levels 1-14 log as the build before; from 15 the deaths are within the noise. Found
+  and fixed on the way: the word going round three mice in a ring where no hole was in reach. Left: the owner's hand on it (how small
+  the early ones read, how often they tell, the chirps); the rat's portrait; CI's browser smoke to see pass on the branch.
