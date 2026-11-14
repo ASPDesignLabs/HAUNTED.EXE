@@ -241,3 +241,9 @@ The owner, 14 November: "Spiders can slide under/over doors, open or closed. The
   passes the sheet. The proof, the balance from 11 and 15 (within the noise), the frames unchanged with the spiders off, and the
   sanitizers are in docs/KNOWN-ISSUES.md. Left: the owner's word on the redrawn art, then their hand on it; whether the spiders
   should keep off painted faces and shut doors (both in docs/KNOWN-ISSUES.md).
+- **14 November, the owner's word on both, and to main.** "Spiders can slide under/over doors, open or closed. They should navigate
+  around pictures. Go ahead and merge with main." Built as section 8.3: a first try routed round one picture at a time and crossed
+  banners' tops between niches, so the way is searched on a grid of the stone. The proof (levels 1-10 as the build before), the
+  balance from 11 and 15 (within the noise), the sanitizers: docs/KNOWN-ISSUES.md. Folded into main as one squashed commit, no
+  version bumped. Left: the owner's hand on the spiders since their first build (kept to the stone, redrawn, round the pictures);
+  whether niches' lintels should be crossed as doors' are; the rat's portrait.

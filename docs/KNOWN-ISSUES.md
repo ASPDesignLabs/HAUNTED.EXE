@@ -303,9 +303,20 @@ wrong or untried, and the numbers from each round of the dream's runs. Add to it
   and the proof's 12,000, through 128 tracings again as secret walls slid; one gave up. Clean under ASan and UBSan (the dream from 3,
   12 and 16 for 1,500 s each, and a spider at each kind of corner with every frame drawn, on both versions of the art). CI built and
   smoke-tested the Windows and browser builds (run 140, before the art was redrawn).
+- **The wall spiders round the pictures; past doors** (docs/PLAN-mice.md section 8.3, 14 November; harness only). The owner:
+  spiders go past doors open or shut, as they did, and round what is painted on the walls. A first try, routing round one picture
+  at a time, crossed the tops of banners where niches stood either side (14 events in level 10's crypt of niches); the way is now
+  searched on a grid of the stone. Levels 1-10 on four seeds log as the build before the mice, 19 of 20 pairs whole and the 20th
+  but for its closing picture level, 14.6% against 14.5%. Eight seeds of 3,000 s from level 11: deaths 154 against 155 before the
+  mice (19.2 a run against 19.4), levels reached 12.62 and cleared 12 as before; seven seeds died as often as before the mice and
+  the eighth once less. From 15: deaths 271 against 250 (33.9 a run against 31.2), 16 by a charnel rat, levels reached 15.12
+  against 15.25; within the noise, and the rise is the rats', not the spiders'. The spiders told fewer (from 15, 6 hunting spiders
+  and 126 web spiders against 19 and 161 on the stone alone): pictures wall some off, and a spider with no way to a mark does not
+  go (`skitter_noway`, about once every 40 s of a run). No spider on a picture or moving more than 0.3 of a cell in a frame in
+  those 48,000 s and the proof's 12,000. Clean under ASan and UBSan (the dream from 10, 13 and 16 for 1,500 s each; a spider at a
+  picture and at three together, on levels 3 and 17, every frame drawn).
 - The wall spiders are dark in the crypt's dark: on an unlit wall they are their two ember eyes. Their art from above (`spr_skit`)
-  was redrawn at the owner's word that its legs were wrongly placed; the second drawing waits on their word.
-- A wall spider crawls over whatever is painted on its wall: a saint in her niche, a portrait's frame. Those are pictures on flat
-  stone. If they should keep off them, the faces with a `face` or `fover` overlay are the ones to leave out of the stone's ways.
-- The spiders slip past a shut door along its jamb, through the crack it leaves. If doors should stop them, the loops can be broken
-  at a shut door's cell.
+  was redrawn at the owner's word that its legs were wrongly placed, and went to main at their word.
+- In rooms walled with pictures from floor to lintel (level 10's crypt of niches, run II's saints' rooms) a spider can be shut in
+  a short stretch of stone and wanders only there. That is the rule as given; if they should cross a niche's lintel, `door_tex`'s
+  way over the top could be given to niches too.
