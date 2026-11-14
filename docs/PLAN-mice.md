@@ -118,11 +118,37 @@ Where it hangs is the owner's to choose.
 
 ## 7. Debug switches
 
-`CRAWL_MICE=0` none; `CRAWL_MICESTAGE=n` the small ones at stage n whatever the level; `CRAWL_TPMICE=1` stood before the nearest
-gathering when you take over; `CRAWL_MICEDBG=1` their states on stderr. `EVENT mice` (the level's count and holes), `EVENT
-mouse_tell`, `mouse_told_rat`, `mouse_slain`, `mice_hide`.
+`CRAWL_MICE=0` none (the wall spiders too); `CRAWL_MICESTAGE=n` the small ones at stage n whatever the level; `CRAWL_TPMICE=1`
+stood before the nearest gathering when you take over (2: before a hole, a mouse looking out); `CRAWL_SKIT=0` no wall spiders;
+`CRAWL_TPSKIT=1` stood two cells from one on its wall. `EVENT mice` (the level's count and holes), `EVENT mouse_tell`,
+`mouse_told_rat`, `mouse_slain`, `mouse_gaveup` (a messenger giving its word up after 25 s), `mouse_stall` (two seconds on one step
+of its way, stepped on: it should never come), `mice_hide`; `EVENT skitters`, `skitter_run`, `skitter_told`, `skitter_web`,
+`skitter_slain`.
 
-## 8. Hand-off log
+## 8. The wall spiders
+
+The owner's, after playing the mice (14 November): "spiders that trawl along the wall in much the same way as the mice, acting as a
+background character for a bit that can alert other spiders to your presence. They run to the nearest web spider or hunting spider
+if present. If not they wander around until they find a web in a corner. This doesn't need to be a new kind, these are purely for
+world building and set dressing." Defaults taken, each easy to change:
+
+- **Not a kind, and no new art.** `Skitter` in `G.skit` (`MAXSKIT` 10), on dice of their own (`G.srs`); drawn with the spiderling's
+  two frames at half its size (`SK_SCALE` 0.11), her red mark turned to iron by a table, its eyes through the eye pass in ember.
+- **Where.** Every level the mice are on: two on a run's first levels to five on its ninth, two more in the Catacombs; two on a drawn
+  level and on a boss's.
+- **Their days.** They cling to a wall beside their cell (`side`), crawl along it a few cells (`sk_wander`, only to cells with a wall
+  beside them), climb and come down it (`zt`, a sixth of a cell to three quarters), rest; across a room's open floor they walk it.
+- **Scurried** by you within two cells (three and a half in sight and moving), a noise within half its reach, a blast, a fight within
+  three cells: to the nearest calm web or hunting spider by its way there (`sk_find_spider`), carrying word (the mark, in ember).
+  Told (`sk_tell`): a hunting spider goes where you were seen (`mind_track`), as a told rat does; a web spider, which cannot leave its
+  web, watches 30 seconds (`Mob.told_t`: its eyes stop blinking) and its web thrums, and if it is a nest's (from level 15) it calls
+  the nest, as its tripwire does. With no spider to tell it makes for the nearest corner web (`SP_COBWEB`), or wanders until one is
+  within six steps (giving up after 25 seconds), and sits in it 30 to 60 seconds.
+- **Killed** only while carrying word, by one hit, and the word dies with it; not a kill.
+- **On a boss level** they go into the nearest web when the fight begins, for good.
+- **The simulation.** A web spider told only shows it, so before level 11 (the hunting spider's first) nothing they do reaches it.
+
+## 9. Hand-off log
 
 - **14 November.** The brief, the sheets, the questions; the owner took the defaults. This plan written.
 - **14 November, later.** Built, steps 1 to 6, on `claude/gallant-dijkstra-9x79xe` (harness only; nothing played by hand). The art

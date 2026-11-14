@@ -59,7 +59,7 @@ static int mo_path(Mouse *o, int tx, int ty) {
     if (mo_dist[ty][tx] < 0) return 0;
     int n = mo_dist[ty][tx], c = ty * MAPN + tx;
     while (n > MPATH) { c = mo_par[c / MAPN][c % MAPN]; n--; }   /* too far: the first part of it, and again from there */
-    o->npath = n; o->ip = 0;
+    o->npath = n; o->ip = 0; o->p0 = sy * MAPN + sx; o->stall = 0.0f; o->stall_ip = 0;
     for (int i = n - 1; i >= 0; i--) { o->path[i] = (int16_t)c; c = mo_par[c / MAPN][c % MAPN]; }
     return 1;
 }
@@ -197,14 +197,24 @@ static void mo_emerge(Mouse *o) {
 /* along its path; 1 when there */
 static int mo_step(Mouse *o, float dt) {
     if (o->ip >= o->npath) return 1;
+    if (o->ip != o->stall_ip) { o->stall_ip = o->ip; o->stall = 0.0f; }
     int c = o->path[o->ip], cx = c % MAPN, cy = c / MAPN;
     if (!mo_pass(cx, cy, 0)) { o->npath = o->ip; return 1; }       /* a door shut in its way */
-    float gx = cx + 0.5f, gy = cy + 0.5f, dx = gx - o->x, dy = gy - o->y, d = sqrtf(dx * dx + dy * dy);
-    if (o->ip + 1 < o->npath) {                                    /* off the middle of the way, along its side */
-        float ux = d > 1e-3f ? dx / d : 0.0f, uy = d > 1e-3f ? dy / d : 0.0f;
-        gx += -uy * o->side; gy += ux * o->side;
-        dx = gx - o->x; dy = gy - o->y; d = sqrtf(dx * dx + dy * dy);
+    if ((o->stall += dt) > 2.0f) {                                 /* two seconds on one step: something holds it; on to the next */
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT mouse_stall %d st %d at %.2f,%.2f step %d of %d t=%.2f\n", (int)(o - G.mice), o->st, o->x, o->y, o->ip, o->npath, G.t);
+#endif
+        o->x = cx + 0.5f; o->y = cy + 0.5f; o->ip++;
+        return o->ip >= o->npath;
     }
+    float gx = cx + 0.5f, gy = cy + 0.5f;
+    if (o->ip + 1 < o->npath) {                                    /* off the middle of the way, along its side: across the step from
+                                                                      the cell before, so the point stays put and can be reached */
+        int pc = o->ip > 0 ? o->path[o->ip - 1] : o->p0;
+        float sx = (float)(cx - pc % MAPN), sy = (float)(cy - pc / MAPN), sl = sqrtf(sx * sx + sy * sy);
+        if (sl > 1e-3f) { gx += -sy / sl * o->side; gy += sx / sl * o->side; }
+    }
+    float dx = gx - o->x, dy = gy - o->y, d = sqrtf(dx * dx + dy * dy);
     float s = o->pace * dt;
     if (d <= s || d < 0.05f) { o->x = gx; o->y = gy; o->ip++; return o->ip >= o->npath; }
     o->x += dx / d * s; o->y += dy / d * s;
@@ -262,11 +272,16 @@ static void mo_slay(Mouse *o) {
     fprintf(stderr, "EVENT mouse_slain %d at %.1f,%.1f t=%.2f\n", (int)(o - G.mice), o->x, o->y, G.t);
 #endif
 }
+static void skit_shot(float x, float y);                        /* the wall spiders' own (skitters.c) */
+static void skit_blast(float x, float y, float r);
+static void skit_hear(float x, float y, int steps, int what);
 static int mo_open(const Mouse *o) { return G.level >= MOUSE_DEBUT && o->alive && o->msg && (o->st == MO_RUN || o->st == MO_TELL); }
 static void mice_shot(float x, float y) {                         /* a spell going by (update_shots) */
+    skit_shot(x, y);
     for (int i = 0; i < G.nmice; i++) { Mouse *o = &G.mice[i]; if (mo_open(o) && hypotf(o->x - x, o->y - y) < 0.35f) mo_slay(o); }
 }
 static void mice_blast(float x, float y, float r) {                /* a blast (explode): it scatters them; a messenger in it dies */
+    skit_blast(x, y, r);
     for (int i = 0; i < G.nmice; i++) {
         Mouse *o = &G.mice[i];
         if (!mo_out_now(o)) continue;
@@ -276,6 +291,7 @@ static void mice_blast(float x, float y, float r) {                /* a blast (e
     }
 }
 static void mice_hear(float x, float y, int steps, int what) {    /* a noise the dead would hear (noise) */
+    skit_hear(x, y, steps, what);
     if (what == NZ_STEP) return;                                   /* footsteps: they see you instead */
     for (int i = 0; i < G.nmice; i++) {
         Mouse *o = &G.mice[i];
@@ -495,7 +511,12 @@ static void mice_update(float dt) {
             }
             break;
         case MO_RUN:
-            if (o->msg_t > 25.0f) { mo_flee(o, 15.0f); break; }     /* it gives it up */
+            if (o->msg_t > 25.0f) {                                /* it gives it up */
+#ifdef CRAWL_DEBUG
+                fprintf(stderr, "EVENT mouse_gaveup %d at %.1f,%.1f t=%.2f\n", i, o->x, o->y, G.t);
+#endif
+                mo_flee(o, 15.0f); break;
+            }
             if (o->rat) {
                 Mob *m = &G.mobs[o->rat - 1];
                 if (!mo_rat_calm(m)) { if (!mo_plan(o)) mo_flee(o, 15.0f); break; }
@@ -507,7 +528,16 @@ static void mice_update(float dt) {
             }
             if (mo_step(o, dt)) {
                 if (o->h1 >= 0 && o->hole == o->h1 && (int)o->x == G.mholes[o->h1].fx && (int)o->y == G.mholes[o->h1].fy) { mo_into(o); break; }
-                if (!mo_plan(o)) mo_flee(o, 15.0f);                /* there, and it has moved on: again */
+                float tx = o->rat ? G.mobs[o->rat - 1].x : o->tgt >= 0 ? G.mice[o->tgt].x : o->x;
+                float ty = o->rat ? G.mobs[o->rat - 1].y : o->tgt >= 0 ? G.mice[o->tgt].y : o->y;
+                float dd = hypotf(tx - o->x, ty - o->y);
+                if (o->h1 < 0 && dd < 1.6f && dd > 1e-3f) {        /* in its cell, or the next: straight to it */
+                    float s = fminf(dd, o->pace * dt);
+                    o->x += (tx - o->x) / dd * s; o->y += (ty - o->y) / dd * s; o->face = atan2f(ty - o->y, tx - o->x);
+                } else if ((o->plan_t -= dt) <= 0.0f) {            /* there, and it has moved on: again, not every frame */
+                    if (!mo_plan(o)) mo_flee(o, 15.0f);
+                    o->plan_t = 0.5f;
+                }
             } else if ((o->plan_t -= dt) <= 0.0f && o->h1 < 0) {  /* on foot after one that moves: its way again now and then */
                 o->plan_t = 1.5f;
                 if (o->rat) mo_go(o, G.mobs[o->rat - 1].cx, G.mobs[o->rat - 1].cy, MO_RUN, o->pace);

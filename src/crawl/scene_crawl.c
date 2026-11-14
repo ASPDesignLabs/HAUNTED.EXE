@@ -121,6 +121,9 @@
 /* The mice (docs/PLAN-mice.md): their holes, their days, scurrying, the holes as ways through, the tell; the charnel rats told */
 #include "game/mice.c"
 
+/* The wall spiders (docs/PLAN-mice.md, section 8): set dressing on the walls that runs to tell a web or hunting spider of you */
+#include "game/skitters.c"
+
 /* start_level: a level begun; the debug build's gear and gifts */
 #include "game/start_level.c"
 

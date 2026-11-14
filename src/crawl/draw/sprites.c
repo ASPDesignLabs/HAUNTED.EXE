@@ -15,7 +15,8 @@ static void render_mflag(Frame *f, const Draw *d, float left, float top, float s
             if (MARK[y][x] != '#') continue;
             int inner = x > 2 && x < 8;
             if (!inner && ring) continue;                          /* the sound going out, now and again */
-            uint8_t c = inner ? (uint8_t)C_MOUSE_EYE : (uint8_t)(R_MOSS + 12);
+            uint8_t c = d->mflag == 2 ? (inner ? (uint8_t)(R_FLAME + 12) : (uint8_t)(R_BLOOD + 12))   /* a wall spider's, in ember */
+                                      : inner ? (uint8_t)C_MOUSE_EYE : (uint8_t)(R_MOSS + 12);
             for (int yy = 0; yy < k; yy++) for (int xx = 0; xx < k; xx++) eye_px(f, cx + (x - 5) * k + xx, cy + (y - 2) * k + yy, c, d->depth);
         }
 }
@@ -546,7 +547,7 @@ static int deco_look(const Deco *dc) {
 }
 static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     static Draw list[MAXDECO + MAXMOBS + MAXSHOTS + MAXBOOMS + MAXBONES + MAXITEMS + MAXBURNS + MAXPOOLS + MAXHAZ * 4 + MAXSITE * 4 + 16 + DFIRE_CELLS * 2
-                     + MAXMICE];   /* and wisps, a double, after-images; the mice */
+                     + MAXMICE + MAXSKIT];   /* and wisps, a double, after-images; the mice, the spiders on the walls */
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
@@ -637,6 +638,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (m->rank != RK_I && KINDS[m->type].family >= 0 && !statue) d->lut = crawl_rank_lut[KINDS[m->type].family][m->rank];
         if (m->type == MOB_SPIDER && m->state == MS_WALK && m->sub == 0) {
             d->flags = DR_EYES;
+            if (m->told_t > 0.0f) d->estate = 1;                     /* told of you by a wall spider: it watches, unblinking */
             if (m->elem > 0 && m->elem <= EL_PHYS) d->ecol = 1 + EC_EL0 + m->elem - 1;   /* born to an element: its points in its colour */
         }
         if (m->type == MOB_HUNTER && m->state == MS_WALK && m->sub == 0) d->flags = DR_FLIPV;
@@ -747,6 +749,24 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             d->eye = 1; d->etype = MOB_RAT; d->erank = RK_I; d->estate = o->st == MO_FLEE || o->msg ? 1 : 0;
         }
         d->mflag = o->msg && (o->st == MO_RUN || o->st == MO_TELL);
+    }
+    static uint8_t sk_lut[256];                                     /* the spiderling paler, the dust of the walls on it, and without its */
+    if (!sk_lut[1]) {                                               /* mother's mark: her red and its iron both the warm grey */
+        for (int c = 0; c < 256; c++) sk_lut[c] = (uint8_t)c;
+        for (int k = 0; k < 16; k++) { sk_lut[R_BLOOD + k] = (uint8_t)(R_WARM + (k + 2 < 15 ? k + 2 : 15)); sk_lut[R_IRON + k] = (uint8_t)(R_WARM + (k + 4 < 15 ? k + 4 : 15)); }
+    }
+    for (int i = 0; i < G.nskit && !PK.depth && !G.shop; i++) {    /* the spiders on the walls (docs/PLAN-mice.md, section 8) */
+        const Skitter *o = &G.skit[i];
+        if (!o->alive) continue;
+        int moving = o->st == SK_CRAWL || o->st == SK_RUN, s = moving && (((int)((float)G.t * (o->st == SK_RUN ? 16.0f : 8.0f)) + i) & 1) ? SP_LING_B : SP_LING_A;
+        int n0 = n;
+        ADD(o->x + o->ox, o->y + o->oy, o->z - SK_SCALE * 0.6f, s, o->st == SK_DEAD ? fmaxf(0.05f, 1.0f - o->t) : 0.0f);
+        if (n == n0) continue;
+        Draw *d = &list[n - 1];
+        d->scale = SK_SCALE; d->lut = sk_lut;
+        if (o->st == SK_DEAD) d->flags |= DR_FLIPV;
+        else { d->eye = 1; d->etype = MOB_LING; d->erank = RK_I; d->estate = o->st == SK_RUN ? 1 : 0; }
+        if (o->st == SK_RUN && o->spider) d->mflag = 2;           /* carrying word to a spider: its mark, in ember */
     }
     for (int i = 0; i < MAXHAZ && !PK.depth && !G.shop; i++) {      /* the hazards standing up off the floor */
         const Hazard *h = &G.haz[i];
@@ -1092,7 +1112,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         float top = horizon - (d->scale - G.camz + d->z) * FOCAL / d->depth;
         float left = scx - size / 2;
         if (d->flags & DR_EYES) {                                  /* two red points, blinking now and then */
-            if (fmodf((float)G.t * 0.7f + d->x * 3.1f, 4.0f) < 0.12f) continue;
+            if (!d->estate && fmodf((float)G.t * 0.7f + d->x * 3.1f, 4.0f) < 0.12f) continue;
             int big = size > 40.0f, gap = (int)fmaxf(1.0f, 3.0f * size / TS);
             for (int e = 0; e < 2; e++) {
                 int sx = (int)(left + 32.0f * size / TS) + (e ? gap : -gap - big), sy = (int)(top + 30.5f * size / TS);

@@ -161,7 +161,8 @@ typedef struct {
     int feat; float feat_t;                                        /* the portraits' feats (docs/PLAN-portraits.md, 5 B): what it has done
                                                                       that spoils its kind's, or the moment that makes it (FT_*); when a
                                                                       gargoyle woke */
-    float told_t;                                                  /* a charnel rat told of you by a mouse (docs/PLAN-mice.md): rearing */
+    float told_t;                                                  /* told of you (docs/PLAN-mice.md): a charnel rat by a mouse, rearing;
+                                                                      a spider by a wall spider, watchful */
 } Mob;
 enum { FT_THREW = 1, FT_DROPPED = 2, FT_HATCHED = 4, FT_HORN = 8, FT_RUNG = 16, FT_SHED = 32, FT_BROKE = 64, FT_NOW = 128 };
 /* What the two tracks share (docs/PLAN-combat.md, section 17.3). Change any of it only as that section says. The statuses, the

@@ -103,3 +103,12 @@ harness `docs/HARNESS.md`, the known issues `docs/KNOWN-ISSUES.md`, and each rel
   `SFX_SQUEAK`, `SFX_MTELL` (by `snd_sfx_pitch`, falling as they grow), `SFX_RAT_HISS`, `SFX_RAT_SQUEAL`. The rat's bestiary page is
   held back until it is met (`best_kinds`), with their growth over it (`best_growth`); the portraits leave it out (`por_kinds`): her
   hall has no place for it yet. `make sheets`' `mice`.
+  The way: a path of floor cells (`mo_path`, `p0` its first cell), off the middle of each step by `side` across the step from the cell
+  before (`mo_step`; before 15 November it was across the line from the mouse to the cell's middle, which a mouse could never reach,
+  and many span in place); `stall` steps one held two seconds on to its next cell. A messenger at its target's cell goes straight to it.
+- **The wall spiders** (docs/PLAN-mice.md, section 8; harness only): `Skitter` in `G.skit` (`MAXSKIT` 10), `game/skitters.c`, on
+  `G.srs`; `skit_level` (after `mice_level`), `skit_update`, `skit_hear`/`skit_shot`/`skit_blast` (from the mice's own), `skit_tp`.
+  `SK_IDLE`, `SK_CRAWL` (`sk_wander`, `sk_step`: cell to cell, `side` the wall it clings to, `zt` its height on it), `SK_RUN` (to a
+  spider, `sk_find_spider`, or a web, `sk_find_web`; `seek` wandering for one), `SK_WEB` (sat in a `SP_COBWEB`), `SK_DEAD`. Told
+  (`sk_tell`): `Mob.told_t`; a hunting spider `mind_track`, a web spider's eyes unblinking (`Draw.estate` on its `DR_EYES`) and a nest's
+  `pack_call`. Drawn with `SP_LING_A/B` through a table that turns her red mark to iron, `SK_SCALE`; `Draw.mflag` 2 its mark in ember.

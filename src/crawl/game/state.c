@@ -614,11 +614,26 @@ typedef struct {
                                                                       far off the middle it runs; hide: how long it stays in after; ax, ay:
                                                                       where you were seen, the word it carries */
     int16_t path[MPATH]; int npath, ip;
+    float stall; int stall_ip, p0;                                 /* how long it has been on the same step of its way, and which; the
+                                                                      cell its way began in (y * MAPN + x) */
     int word, heard; float cower;                                  /* the alarm it carries, the last it heard (G.malarm's numbers: a
                                                                       word never comes back round to one that has had it); frozen
                                                                       where it is, with no hole to run to */
 } Mouse;
 typedef struct { int wx, wy, d, fx, fy; float mx, my; } MHole;   /* the wall, its face towards the floor cell (fx, fy), its mouth */
+/* The wall spiders (docs/PLAN-mice.md, section 8): set dressing, on dice of their own. They crawl the walls, rest, and when you come
+ * near run to tell the nearest web or hunting spider, or failing one hide in a corner web. SK_*: resting on a wall, crawling, running
+ * (to tell, or for a web), sat in a web, slain (one carrying word, hit). Their way is a path of floor cells; side the wall beside it
+ * they cling to (DX/DY's index, -1 the floor), and ox, oy, z where it is drawn. */
+enum { SK_IDLE, SK_CRAWL, SK_RUN, SK_WEB, SK_DEAD };
+#define MAXSKIT 10
+typedef struct {
+    int alive, st, side, spider, web, seek;                        /* spider: 1 + the creature it runs to tell; web: 1 + the deco it
+                                                                      makes for or sits in; seek: wandering in search of one */
+    float x, y, ox, oy, z, zt, face, t, wait, pace, ax, ay, stall, seek_t, plan_t;   /* seek_t: how long it has looked for a web;
+                                                                      plan_t: its way after a hunter, again now and then */
+    int16_t path[MPATH]; int npath, ip, stall_ip;
+} Skitter;
 
 static struct {
     uint32_t rs;
@@ -920,6 +935,7 @@ static struct {
     int16_t mlit[MAXMLIT][2]; int nmlit;                           /* boss's fight has sent them in for good */
     uint8_t mh_dist[MAXMHOLES][MAXMHOLES];                         /* steps between two holes, doors counted open (255 or more) */
     uint32_t mrs; int mstage, mboss, malarm;
+    Skitter skit[MAXSKIT]; int nskit; uint32_t srs;                /* the wall spiders, on dice of their own */
 } G;
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
        BP_LITANY };                                 /* the Deacon's censer raised, the green light growing */
