@@ -275,3 +275,19 @@ wrong or untried, and the numbers from each round of the dream's runs. Add to it
 - The charnel rat has no portrait in her hall and no feat: her hall's twenty-two places are all taken. The portraits leave it out
   (`por_kinds`), so every other kind's stays as it was. Where it hangs is the owner's to choose.
 - The record (`REC_KINDS`) is full: the next new kind needs it widened, a new save version.
+- **The mice's running, fixed; the spiders on the walls** (docs/PLAN-mice.md section 8, 14 November; the spiders and the fix harness
+  only, the owner having played the mice before it). The owner saw a mouse spin in place, its mark up: a mouse aimed a little off the
+  middle of each step of its way, across the line from itself to the cell's middle, a point that turned as it came and that it could
+  never reach. Counted with `EVENT mouse_stall`, 871 and 919 in 300 s of level 5 on two seeds; none since, in 48,000 s of the dream.
+  The proof again: levels 1-10 on four seeds log as the build before (35eaa6f), 19 of 20 pairs whole and the 20th but for its
+  closing picture level; four of them again on the final code, whole. Eight seeds of 3,000 s from level 11 against the build before:
+  levels reached 13.00 against 12.62, 15 cleared against 12, deaths 133 against 155 (16.6 a run against 19.4), 5 of them by hunting
+  spiders against 4; the spiders made 184 runs, told 9 hunting spiders and 159 web spiders, and 4 were killed carrying word. From 15
+  the same: deaths 251 against 250, 9 by a charnel rat; levels reached 15.00 against 15.25 and none cleared against 2, the dream
+  stalling on 15 in both. With the mice now reaching whom they run to, they told rats 131 times where they had told them 38 before
+  the fix. A first round of the spiders found 99 of 685 runs to a spider ending in their 20 s give-up, for spiders 100 cells off or
+  chasing a hunter that kept moving; they now run only to one within 36 steps (1 give-up since). Clean under ASan and UBSan (the
+  dream from levels 2, 7, 12 and 16, a person by a spider on 6, and level 12 again on the final code). CI built and smoke-tested
+  the Windows and browser builds on the branch (run 138).
+- The wall spiders are dark in the crypt's dark: on an unlit wall they are their two ember eyes. They are drawn with the spiderling's
+  frames, paler and without her red mark; a sprite of their own would need a sheet first.

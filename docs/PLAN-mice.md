@@ -161,3 +161,8 @@ world building and set dressing." Defaults taken, each easy to change:
   and the sanitizers are in docs/KNOWN-ISSUES.md: levels 1-14 log as the build before; from 15 the deaths are within the noise. Found
   and fixed on the way: the word going round three mice in a ring where no hole was in reach. Left: the owner's hand on it (how small
   the early ones read, how often they tell, the chirps); the rat's portrait. CI built and smoke-tested both the Windows and the browser's builds on the branch (run 137).
+- **14 November, after the owner played the mice.** They "seem to scatter around properly", but now and then one span in place with
+  its mark up: the mice's running was wrong (docs/KNOWN-ISSUES.md has how and the counts), and is fixed. The owner asked for the
+  spiders on the walls; built as section 8, its defaults taken as listed there, with a first round of balance runs finding the spiders
+  running too far to tell (now within 36 steps). The proof (levels 1-10 as the build before), the balance from 11 and from 15 within
+  the noise, the sanitizers and CI are in docs/KNOWN-ISSUES.md. Left: the owner's hand on the spiders and on the mice since the fix.

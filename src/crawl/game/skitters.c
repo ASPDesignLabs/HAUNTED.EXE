@@ -53,9 +53,9 @@ static int sk_cell(const Mob *m, int *x, int *y) {                /* where a spi
     *x = m->type == MOB_SPIDER ? (int)m->ax : m->cx; *y = m->type == MOB_SPIDER ? (int)m->ay : m->cy;
     return mo_pass(*x, *y, 0);
 }
-static int sk_find_spider(const Skitter *o) {                     /* the nearest calm spider by its way there: 1 + it, 0 none */
-    mo_bfs((int)o->x, (int)o->y, 0);
-    int best = 0, bd = 1 << 20;
+static int sk_find_spider(const Skitter *o) {                     /* the nearest calm spider by its way there, within 36 steps (about */
+    mo_bfs((int)o->x, (int)o->y, 0);                               /* fourteen seconds' run): 1 + it, 0 none */
+    int best = 0, bd = 37;
     for (int i = 0; i < MAXMOBS; i++) {
         const Mob *m = &G.mobs[i];
         int x, y;
@@ -255,7 +255,8 @@ static void skit_update(float dt) {
                 if (sd < 0.8f) { sk_tell(o, m); break; }
                 if ((o->seek_t += dt) > 20.0f) {                   /* it gives it up, on a clock of its own */
 #ifdef CRAWL_DEBUG
-                    fprintf(stderr, "EVENT skitter_gaveup %d t=%.2f\n", i, G.t);
+                    fprintf(stderr, "EVENT skitter_gaveup %d to %s %.1f away, step %d of %d, at %.1f,%.1f t=%.2f\n", i, m->type == MOB_HUNTER ? "hunter" : "web",
+                            sd, o->ip, o->npath, o->x, o->y, G.t);
 #endif
                     o->spider = 0; o->st = SK_IDLE; o->wait = 2.0f; break;
                 }
