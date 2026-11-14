@@ -181,7 +181,13 @@ a joint is drawn on the next face, folded into the corner or round the wall's ed
 drawn by the eye pass's own code (`eyes_put`, cut from `render_eyes`, which keeps the billboards' part). The picture is new: the
 spiderling from above, its own legs, shell, mark and eyes (`spr_skit`, in `parts/spiders.c`). It is the last row of `make sheets`'
 `mice`, and is kept with frames of one going round each kind of corner as `media/sheets/mice/wallspiders.png`. It went in
-before the owner had seen it, since the fix needed it; it is theirs to pass or change.
+before the owner had seen it, since the fix needed it. The owner's word on it: "The legs for it are not accurately placed." They had
+all come from one point in the middle of the shell, like a star, the back pair out from under the abdomen, all one length and
+bunched in forks, the eyes too big and mid-shell. Redrawn as a spider is made: the legs from under the sides of the shell, front to
+back, the first two pairs forward, the third out and back, the fourth back along the abdomen, the first and fourth longest and the
+third shortest; each a thigh, a shin and a finer foot, banded at the knee and the next joint, curling forward in front and back
+behind; a pear of a shell with a waist, the eyes a pair with a seam between at its front edge and the small ones behind, the palps
+and fangs before them, chevrons down the abdomen behind the mark. The sheet was made again from it.
 
 ## 9. Hand-off log
 
