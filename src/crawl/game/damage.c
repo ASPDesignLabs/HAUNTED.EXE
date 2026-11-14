@@ -154,7 +154,7 @@ static const float OLD_WEAK[][NELEM] = {                           /* 1.0.0b18's
     [MOB_SHADE] = { 1.25f, 0.5f, 1.0f, 0.0f, 1.5f, 0.75f },      [MOB_IMP] = { 0.5f, 1.5f, 1.0f, 1.0f, 1.0f, 1.0f },
     [MOB_DEACON] = { 1.25f, 1.0f, 1.0f, 0.75f, 0.75f, 1.25f },   [MOB_GARGOYLE] = { 0.5f, 0.5f, 1.5f, 0.0f, 0.0f, 1.5f },
     [MOB_WHIPPER] = { 1.0f, 0.75f, 1.25f, 0.5f, 0.75f, 1.25f },  [MOB_SEXTON] = { 1.5f, 1.0f, 1.0f, 0.75f, 1.0f, 1.0f },
-    [MOB_LIGHTLESS] = { 0.75f, 1.25f, 1.0f, 0.0f, 0.75f, 1.5f },
+    [MOB_LIGHTLESS] = { 0.75f, 1.25f, 1.0f, 0.0f, 0.75f, 1.5f }, [MOB_RAT] = { 1.5f, 1.0f, 1.0f, 0.5f, 1.0f, 1.0f },
 };
 _Static_assert(sizeof OLD_WEAK / sizeof OLD_WEAK[0] == sizeof KINDS / sizeof KINDS[0], "a row for every kind");
 #endif
@@ -277,6 +277,7 @@ static int elem_kind(int type) {
     switch (type) {
     case MOB_SKEL: case MOB_BAT: case MOB_SHIELD: case MOB_SPIDER: case MOB_SHAMBLER: case MOB_DROWNED: case MOB_HOUND:
     case MOB_HUNTER: case MOB_GHOUL: case MOB_KNIGHT: case MOB_BROOD: case MOB_SAC: case MOB_LING: case MOB_GARGOYLE: case MOB_WHIPPER:
+    case MOB_RAT:
         return 1;
     default: return 0;
     }
@@ -845,15 +846,18 @@ static void ward_burst(void) {
 #endif
 }
 
+static void mice_blast(float x, float y, float r);
 static void explode(float x, float y) {
     for (int i = 0; i < MAXBOOMS; i++)
         if (!G.booms[i].alive) { G.booms[i] = (Boom){ 1, x, y, 0.0f, 1.0f, 0 }; break; }
     sfx_at(SFX_EXPLODE, x, y, 1.0f);
+    mice_blast(x, y, 1.0f);                                        /* it scatters the mice (docs/PLAN-mice.md) */
 }
 static void explode_big(float x, float y, float r) {
     for (int i = 0; i < MAXBOOMS; i++)
         if (!G.booms[i].alive) { G.booms[i] = (Boom){ 1, x, y, 0.0f, r, 1 }; break; }
     sfx_at(SFX_EXPLODE, x, y, 1.4f); sfx_at(SFX_BOOM, x, y, 0.6f);
+    mice_blast(x, y, r);
 }
 
 /* everything within r of (x, y) takes dmg, but not `skip` (it took the direct hit) */

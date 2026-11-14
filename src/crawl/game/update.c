@@ -207,6 +207,7 @@ static void crawl_update(double dt) {
     }
 #endif
     for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive) { mob_afflict(&G.mobs[i], fdt); if (G.mobs[i].alive) update_mob(&G.mobs[i], fdt); }
+    mice_update(fdt);                                              /* the mice (docs/PLAN-mice.md): on their own dice */
     if (G.spec_n > 0 && !G.tally && !G.exiting && !G.dead && (G.spec_t -= fdt) <= 0.0f) {   /* a spectre drifts in */
         int x, y;
         G.spec_t = 5.0f;

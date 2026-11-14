@@ -674,5 +674,6 @@ void crawl_art_init(void) {
     spr_crystal(SP_CRYSTAL_A, 0); spr_crystal(SP_CRYSTAL_B, 1); spr_obsidian();
     spr_altar(SP_ALTAR_A, 0); spr_altar(SP_ALTAR_B, 1);
     spr_sides();
+    spr_rats();                                                     /* the charnel rat (docs/PLAN-mice.md) */
     find_glints();
 }

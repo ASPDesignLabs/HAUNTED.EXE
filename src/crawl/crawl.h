@@ -71,6 +71,8 @@ enum {
     T_REST,                                       /* a place to mend (1.0.0b15, docs/PLAN-ai.md, 28): the run's own, set in its stone */
     T_GATE_SEAL,                                  /* the tutorial's one-way gate (docs/PLAN-tutorial.md 7.3): its south face, a plate for the seal */
     T_ICE,                                        /* its ice field: a sheet laid over the floor, as a mark (C_CLEAR nowhere) */
+    T_MHOLE,                                      /* the mice's holes (docs/PLAN-mice.md): each of the run's materials, both looks, with a hole */
+    T_MHOLE_LAST = T_MHOLE + 9,                   /* at the foot at the level's size (NMAT x NVAR; crawl_art_mice) */
     NTEX
 };
 #define NMAT 5
@@ -80,6 +82,7 @@ enum {
 #define NFLOORS 5
 #define NCEILS 3
 #define T_MATV(m, v) (T_MAT + (m) * NVAR + (v))
+_Static_assert(T_MHOLE_LAST - T_MHOLE + 1 == NMAT * NVAR, "a hole for each material's each look");
 /* run I's slots, by name: its materials, what stands on its walls (the torch's three frames from F1_TORCH),
  * its floors and its ceilings */
 enum { M1_ASHLAR, M1_RUBBLE, M1_PLASTER, M1_BEDROCK, M1_BONES };
@@ -308,6 +311,11 @@ enum {
     /* the tutorial (docs/PLAN-tutorial.md, section 7): level 2's rimed seal, the switch that holds the ice (rimed, thawed, spent),
      * and the map lying on the floor */
     SP_MK_RSEAL0, SP_MK_RSEAL1, SP_MK_RSEAL2, SP_MAPFLOOR,
+    /* the mice (docs/PLAN-mice.md): the small ones at the level's size, made again each level (crawl_art_mice): running (its side),
+     * facing you, from behind, sat up preening and telling; the charnel rat: walking towards you, its side, its back, the bite,
+     * rearing as it is told, dead */
+    SP_MOUSE_SA, SP_MOUSE_SB, SP_MOUSE_F, SP_MOUSE_BK, SP_MOUSE_PREEN, SP_MOUSE_TELL,
+    SP_RAT_A, SP_RAT_B, SP_RAT_SA, SP_RAT_SB, SP_RAT_BKA, SP_RAT_BKB, SP_RAT_BITE, SP_RAT_REAR, SP_RAT_D,
     NSPR
 };
 
@@ -389,6 +397,30 @@ static inline float crawl_depth(int level) {                                /* h
     float d = (float)(crawl_set(level) + 4 * crawl_loop(level)) / 3.0f;
     return d < 1.0f ? d : 1.0f;
 }
+
+/* The mice (docs/PLAN-mice.md): a size every two levels, the spurt on run II's third, the charnel rat from its fifth; the small
+ * ones from then on as on run II's first. Stage 0-6 the small ones, 7 the rat. Its box: the sprite's 64 pixels in cells. */
+#define MOUSE_STAGES 7
+#define MOUSE_DEBUT 15                          /* the charnel rat's first level (KINDS) */
+static inline int crawl_mouse_stage(int level) {
+    return level <= 10 ? (level < 1 ? 0 : (level - 1) / 2) : level <= 12 ? 5 : level <= 14 ? 6 : 5;
+}
+static inline int crawl_mhole_stage(int level) { return level >= 13 ? 6 : crawl_mouse_stage(level); }   /* the holes stay torn wide */
+static inline float crawl_mouse_box(int stage) {
+    switch (stage) {
+    case 0: return 0.080f; case 1: return 0.095f; case 2: return 0.110f; case 3: return 0.130f;
+    case 4: return 0.155f; case 5: return 0.185f; case 6: return 0.320f; default: return 0.620f;
+    }
+}
+static inline void crawl_mhole_size(int stage, int *w, int *h) {   /* a hole's width and height in a wall's 64 texels */
+    static const signed char WH[MOUSE_STAGES][2] = { { 6, 5 }, { 7, 6 }, { 8, 7 }, { 10, 8 }, { 12, 9 }, { 13, 11 }, { 22, 18 } };
+    int s = stage < 0 ? 0 : stage >= MOUSE_STAGES ? MOUSE_STAGES - 1 : stage;
+    *w = WH[s][0]; *h = WH[s][1];
+}
+enum { MP_RUNA, MP_RUNB, MP_FRONT, MP_FRONT2, MP_BACK, MP_BACK2, MP_PREEN, MP_TELL, MP_BITE, MP_DEAD, NMPOSE };
+#define C_MOUSE_EYE C_CLEAR                     /* their eyes' green, in the palette's last entry: C_CLEAR's colour is never drawn */
+void crawl_art_mice(int level);                 /* the level's small ones and its holes (crawl_art_level, after crawl_art_run) */
+void crawl_mouse_sprite(int stage, int pose, uint8_t *out, EyeAt *eyes);   /* a pose at a size, row-major (the bestiary, sheets) */
 
 extern const char *const RUNE_GLYPH[9][7];      /* the runes' marks, 5 by 7, by DF_* (the hand's tattoos, the shrine) */
 extern const char *const ELEM_GLYPH[6][7];      /* the elements' glyphs, 7 by 7, by EL_*: '#' the colour, 'o' bright (1.0.0b11) */

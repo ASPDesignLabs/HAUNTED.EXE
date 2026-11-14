@@ -52,7 +52,7 @@ static float throw_interval(void) { return fmaxf(old_harm() ? 0.0f : 0.6f, 1.5f 
 enum { AK_BLOW, AK_BITE, AK_THROW, AK_LEAP, AK_TOUCH, AK_CAST, AK_SPEW, AK_CHARGE };
 typedef struct { int type, ak, el; float k, add, wind, cool, cool_rnd, go, go2, reach, slow; } FoeAtk;
 enum { FA_BONE, FA_SWORD, FA_GRAB, FA_DGRAB, FA_HBITE, FA_HLEAP, FA_GLEAP, FA_KNIGHT, FA_BROOD, FA_LING, FA_SHADE, FA_EMBER,
-       FA_FIREBALL, FA_CLAW, FA_SWOOP, FA_BAT, FA_LASH, FA_GLASS, FA_WTOUCH, FA_WBOSS, FA_WEB,
+       FA_FIREBALL, FA_CLAW, FA_SWOOP, FA_BAT, FA_LASH, FA_GLASS, FA_WTOUCH, FA_WBOSS, FA_WEB, FA_RBITE,
        FA_VOLLEY, FA_CHARGE, FA_SPEW, NFA };                       /* C4's: after each kind's usual, so fa_main finds that first */
 static const FoeAtk ATTACKS[NFA] = {
     /*               kind            what      element    k      add   wind   cool  rnd   go    go2   reach  slow */
@@ -77,6 +77,7 @@ static const FoeAtk ATTACKS[NFA] = {
     [FA_WTOUCH]   = { MOB_WRAITH,    AK_TOUCH, EL_FROST,  1.5f,  0.0f, 0.0f,  2.0f, 0.0f, 1.1f,  0.0f, 1.1f,  2.0f },
     [FA_WBOSS]    = { MOB_WRAITH,    AK_TOUCH, EL_FROST,  1.2f,  0.0f, 0.0f,  2.5f, 0.0f, 1.1f,  0.0f, 1.1f,  2.0f },   /* the Wraith Unbound's */
     [FA_WEB]      = { MOB_SPIDER,    AK_BITE,  EL_POISON, 0.0f,  0.0f, 0.25f, 3.0f, 0.0f, 2.0f,  0.0f, 1.05f, 4.0f },   /* poison, no blow */
+    [FA_RBITE]    = { MOB_RAT,       AK_BITE,  EL_PHYS,   0.8f,  0.0f, 0.25f, 1.2f, 0.4f, 1.1f,  0.0f, 1.25f, 0.0f },   /* docs/PLAN-mice.md */
     /* C4 (section 8): the Bone Thrower's three (each a bone's), the shield-bearer's charge, the Drowned's spew */
     [FA_VOLLEY]   = { MOB_SKEL,      AK_THROW, EL_PHYS,   1.0f,  0.0f, 0.6f,  12.0f, 6.0f, 2.5f, 9.0f, 0.9f,  0.0f },
     [FA_CHARGE]   = { MOB_SHIELD,    AK_CHARGE,EL_PHYS,   1.2f,  0.0f, 0.5f,  8.0f, 8.0f, 2.0f,  5.0f, 0.95f, 0.0f },

@@ -104,6 +104,7 @@ static void start_level(void) {
         amb_gild();                                                /* and one time in two it runs to a kill room when hurt (L2) */
     }
     if (g_drawn) G.rs = run_rs;                                    /* the drawing laid: the run's own dice again */
+    mice_level();                                                  /* the mice and their holes, on their own dice (docs/PLAN-mice.md) */
 #ifdef CRAWL_DEBUG
     { int nt[NKINDS] = { 0 }, nr[NRANK] = { 0 }; for (int i = 0; i < MAXMOBS; i++) if (G.mobs[i].alive) { nt[G.mobs[i].type]++; nr[G.mobs[i].rank]++; }
       fprintf(stderr, "LEVEL %d mobs:", G.level);

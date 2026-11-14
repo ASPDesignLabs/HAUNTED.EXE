@@ -25,7 +25,8 @@ enum { PS_MOVE, PS_TURN, PS_DOOR, PS_AIM, PS_CAST, PS_UNAIM, PS_HOLD, PS_EXIT, P
 enum { MOB_SKEL, MOB_GHOST, MOB_BAT, MOB_WSKULL, MOB_SHIELD, MOB_SPIDER,
        MOB_SHAMBLER, MOB_DROWNED, MOB_HOUND, MOB_WRAITH, MOB_HUNTER, MOB_GHOUL, MOB_KNIGHT, MOB_BROOD, MOB_LING, MOB_SAC,
        MOB_SHADE, MOB_IMP, MOB_DEACON, MOB_GARGOYLE,
-       MOB_WHIPPER, MOB_SEXTON, MOB_LIGHTLESS };   /* kept in saves (the record): new kinds go at the end (REC_KINDS 24 at most) */
+       MOB_WHIPPER, MOB_SEXTON, MOB_LIGHTLESS,
+       MOB_RAT };   /* kept in saves (the record): new kinds go at the end (REC_KINDS 24 at most: the charnel rat took the last) */
 enum { MS_WALK, MS_DIE, MS_RECOIL, MS_FLEE };   /* the last two: wraiths only */
 enum { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_KEY, IT_POTION, IT_URN, IT_RING, IT_BONE, IT_SCRIP, IT_MAP };   /* IT_SCRIP: color is its boss;
                                                                       IT_MAP the tutorial's (docs/PLAN-tutorial.md 7.4) */
@@ -160,6 +161,7 @@ typedef struct {
     int feat; float feat_t;                                        /* the portraits' feats (docs/PLAN-portraits.md, 5 B): what it has done
                                                                       that spoils its kind's, or the moment that makes it (FT_*); when a
                                                                       gargoyle woke */
+    float told_t;                                                  /* a charnel rat told of you by a mouse (docs/PLAN-mice.md): rearing */
 } Mob;
 enum { FT_THREW = 1, FT_DROPPED = 2, FT_HATCHED = 4, FT_HORN = 8, FT_RUNG = 16, FT_SHED = 32, FT_BROKE = 64, FT_NOW = 128 };
 /* What the two tracks share (docs/PLAN-combat.md, section 17.3). Change any of it only as that section says. The statuses, the
@@ -340,8 +342,12 @@ static const Kind KINDS[] = {
     [MOB_LIGHTLESS] = { "LIGHTLESS", "LIGHTLESS", "BLACK GLASS, NO EYES. IT FEELS LIGHT AND COMES TO IT, SILENT. SHUTTER THE LANTERN.",
         SP_LIGHT_A, SP_LIGHT_B, SP_LIGHT_SA, SP_LIGHT_SB, PF_CHITIN, 32, RK_V, 1, KF_SOLID | KF_PAGE | KF_DOORS | KF_MELEE, SFX_SHATTER, SP_LIGHT_D,
         50, 1.3f, 1.2f, 0.40f,                          { 1.0f, 1.0f, 1.0f, 1.0f, 0.5f, 1.5f }, H_PHYS },
+    /* the mice grown (docs/PLAN-mice.md): living, so no Dread or Grave Call; no doors, as the mice could open none */
+    [MOB_RAT] = { "CHARNEL RAT", "CHARNEL RATS", "THE MICE AT THE TORCHES, GROWN ON WHAT THE CRYPT FEEDS THEM. A SMALL ONE FETCHES THEM.",
+        SP_RAT_A, SP_RAT_B, SP_RAT_SA, SP_RAT_SB, PF_HIDE, MOUSE_DEBUT, RK_V, 1, KF_SOLID | KF_PAGE | KF_MELEE, SFX_RAT_SQUEAL, SP_RAT_D,
+        16, 1.8f, 0.62f, 0.32f,                         { 1.5f, 1.0f, 1.0f, 0.5f, 1.0f, 1.0f }, H_PHYS },
 };
-_Static_assert(MOB_LIGHTLESS < 24, "the record keeps 24 kinds (REC_KINDS)");
+_Static_assert(MOB_RAT < 24, "the record keeps 24 kinds (REC_KINDS), and the charnel rat is the last of them");
 #define NKINDS ((int)(sizeof KINDS / sizeof KINDS[0]))
 #define KIND_IS(m, f) (KINDS[(m)->type].flags & (f))
 /* the ladder: a rank means about the same strength at any depth; depth shows in which ranks come */

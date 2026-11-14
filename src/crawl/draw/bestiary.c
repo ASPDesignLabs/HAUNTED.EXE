@@ -16,6 +16,23 @@ static void ui_sprite_ex(Frame *f, int spr, int x0, int y0, int size, const uint
         }
 }
 static void ui_sprite(Frame *f, int spr, int x0, int y0, int size, const uint8_t *lut, int shadow) { ui_sprite_ex(f, spr, x0, y0, size, lut, shadow, 0); }
+/* the charnel rat's page (docs/PLAN-mice.md, M5): what it grew from, the seven sizes of the mice running in a row over it, each at
+ * its size against the others, the house mouse on the left to the spurt on the right, their feet on one line */
+static void best_growth(Frame *f, int x0, int base) {
+    static uint8_t spr[MOUSE_STAGES][TS * TS];
+    static int made;
+    if (!made) { for (int s = 0; s < MOUSE_STAGES; s++) crawl_mouse_sprite(s, MP_RUNA, spr[s], NULL); made = 1; }
+    int x = x0;
+    for (int s = 0; s < MOUSE_STAGES; s++) {
+        int size = (int)(crawl_mouse_box(s) * 75.0f + 0.5f);
+        for (int y = 0; y < size; y++)
+            for (int xx = 0; xx < size; xx++) {
+                uint8_t c = spr[s][(y * TS / size) * TS + xx * TS / size];
+                if (c != C_CLEAR) gfx_px(f, x + xx, base - size + y, c);
+            }
+        x += size + 2;
+    }
+}
 
 static int toast_showing(void) { return TOASTS.n > 0 && TOASTS.t >= 0.0f && !boss_fighting(); }
 
@@ -55,7 +72,21 @@ static void render_toasts(Frame *f) {
 /* the bestiary's pages: the kinds in the order you meet them, then the achievements */
 static int best_kinds(int *out) {
     int n = 0;
-    for (int lv = 1; lv <= DESCENT_LEN; lv++) for (int k = 0; k < NKINDS; k++) if (KINDS[k].debut == lv && (KINDS[k].flags & KF_PAGE)) out[n++] = k;   /* by first level, to the Deep's */
+    for (int lv = 1; lv <= DESCENT_LEN; lv++) for (int k = 0; k < NKINDS; k++) if (KINDS[k].debut == lv && (KINDS[k].flags & KF_PAGE)) {   /* by first */
+        if (k == MOB_RAT) {                                        /* level, to the Deep's; the rat a secret till it is met (docs/PLAN-mice.md, M5) */
+            int met = RUN.rec.seen[k] != 0;
+            for (int r = 0; r < NRANK; r++) met |= RUN.rec.kills[k][r] != 0;
+            if (!met) continue;
+        }
+        out[n++] = k;
+    }
+    return n;
+}
+/* the portraits' kinds (docs/PLAN-portraits.md): the bestiary's but the charnel rat, which has no place in her hall yet, so that
+ * every other kind's portrait, third and gold stay as they were (docs/PLAN-mice.md, section 5) */
+static int por_kinds(int *out) {
+    int n = 0;
+    for (int lv = 1; lv <= DESCENT_LEN; lv++) for (int k = 0; k < NKINDS; k++) if (KINDS[k].debut == lv && (KINDS[k].flags & KF_PAGE) && k != MOB_RAT) out[n++] = k;
     return n;
 }
 static int kind_ranks(int k, int *out) {                           /* the ranks a kind comes in */
@@ -219,6 +250,7 @@ static void render_bestiary(Frame *f) {
     int step = (int)(G.ui_t * 4.0f) & 1, facing = (int)(ph / 1.6f);   /* 0 front, 1 right, 2 front, 3 left */
     int spr = facing & 1 ? (step ? KINDS[k].side2 : KINDS[k].side) : (step ? KINDS[k].spr2 : KINDS[k].spr);
     ui_sprite_ex(f, spr, 16, 42, 96, lut, !met || !seen, facing == 3);
+    if (k == MOB_RAT && met) best_growth(f, 17, 72);               /* what it grew from (docs/PLAN-mice.md) */
     int x0 = 124;
     gfx_text16(f, x0, 38, met ? KINDS[k].name : "???", C_WHITE, 1);
     int fi = feat_of(k), feat = G.best_feat && fi >= 0, fdone = fi >= 0 && ach_has(ACH_FEAT0 + fi);   /* its feat (the portraits') */
@@ -250,7 +282,8 @@ static void render_bestiary(Frame *f) {
         [MOB_GARGOYLE] = "SENTINELS: WAKE ONE AND EVERY STATUE NEAR IT WAKES.",
         [MOB_WHIPPER] = "HE KEEPS BACK AND SENDS HIS HOUNDS IN ONE BY ONE TO THE CRACK OF THE WHIP.",
         [MOB_SEXTON] = "HE NEVER HUNTS. HIS BELL BRINGS EVERYTHING THAT HEARS IT TO HIS PLACE.",
-        [MOB_LIGHTLESS] = "IT ROAMS, QUICK WHEN IT KNOWS, AND PUTS OUT THE WISPS IT REACHES." };
+        [MOB_LIGHTLESS] = "IT ROAMS, QUICK WHEN IT KNOWS, AND PUTS OUT THE WISPS IT REACHES.",
+        [MOB_RAT] = "IT ROAMS ALONE. A MOUSE RUNS THROUGH THE WALLS TO TELL IT OF YOU; KILL THE ONE THAT RUNS." };
     const char *ways = met && mind_on() && WAYS[k] ? WAYS[k] : NULL;
     if (!ways) G.best_ways = 0;
     if (feat) {                                                    /* what it asks, and how far along */

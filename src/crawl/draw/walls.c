@@ -164,7 +164,8 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
 /* alpha < 1: dithered see-through. remap: the ramp R_PURPLE turns into. flags: how it is drawn.
  * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
 typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; float web, mg; int mgw;
-                 int eye, etype, erank, estate; const uint8_t *ov; float vap; int ecol, ward; } Draw;   /* ecol: 1 + EC_*, its eyes' colour whatever its rank */   /* ov: its rank's dressing (crawl_dress);
+                 int eye, etype, erank, estate; const uint8_t *ov; float vap; int ecol, ward, mflag; } Draw;   /* ecol: 1 + EC_*, its eyes' colour whatever its rank; mflag: a
+                                                                                                mouse carrying word, its mark over it (docs/PLAN-mice.md) */   /* ov: its rank's dressing (crawl_dress);
                                                                                                 vap: its spirit vapour, 0 none, 1 full */   /* eye: a creature's eyes go on after it (render_eyes), as its kind, rank and state */   /* mg: the hidden
                                                                                                    message's glint, mgw through the walls; glint: a key's
                                                                                                    ramp, for Keymaker's sparkle; web: how much of yours holds it */
@@ -196,21 +197,22 @@ _Static_assert(C4_EDGE == DR_EDGE, "C4's flash is DR_EDGE");
  * the rank's from II, and a form for each rank: II a glow beside, III a cold slit, IV a streak to the temple, V a white
  * flare, gilded a small gold cross. Alerted they gain a halo and stop blinking; striking they flare. The Shade has none. */
 enum { EC_AMBER, EC_COLD, EC_SULPHUR, EC_EMBER, EC_WGOLD, EC_CRIMSON, EC_PALE, EC_ROT, EC_CHILL, EC_BLOOD, EC_HOT, EC_GILT, EC_ASH, EC_FIRE,
-       EC_EL0, EC_EL_LAST = EC_EL0 + EL_PHYS - 1, NEC };          /* 1.0.0b19: born to an element (docs/PLAN-combat.md 7.4), by EL_*,
-                                                                      in tones apart from the ranks' own (the rank keeps its form) */
+       EC_EL0, EC_EL_LAST = EC_EL0 + EL_PHYS - 1, EC_GREEN, NEC };   /* 1.0.0b19: born to an element (docs/PLAN-combat.md 7.4), by EL_*,
+                                                                      in tones apart from the ranks' own (the rank keeps its form); GREEN
+                                                                      the mice's and the charnel rat's (docs/PLAN-mice.md) */
 static const uint8_t EYE_CORE[NEC] = { R_FLAME + 12, R_GLOW + 15, R_FLAME + 15, R_BLOOD + 15, C_WHITE, R_BLOOD + 15, C_WHITE,
                                        R_MOSS + 15, R_GLOW + 15, R_FLAME + 8, C_WHITE, R_GOLD + 12, R_FLAME + 5, R_FLAME + 15,
-                                       R_FLAME + 15, C_WHITE, C_WHITE, R_GOLD + 11, R_PURPLE + 15 };   /* fire, frost (white in cyan, not the
+                                       R_FLAME + 15, C_WHITE, C_WHITE, R_GOLD + 11, R_PURPLE + 15, C_MOUSE_EYE };   /* fire, frost (white in cyan, not the
                                                                       third rank's blue), lightning (white in gold), poison (bile over
                                                                       green), spirit */
 static const uint8_t EYE_GLOW[NEC] = { R_FLAME + 7, R_GLOW + 10, R_MOSS + 13, R_BLOOD + 10, R_FLAME + 12, R_BLOOD + 11, R_GHOST + 11,
                                        R_MOSS + 11, R_GLOW + 11, R_BLOOD + 13, R_PURPLE + 14, R_GOLD + 8, R_FLAME + 1, R_FLAME + 9,
-                                       R_FLAME + 10, R_GHOST + 11, R_GOLD + 12, R_MOSS + 10, R_PURPLE + 10 };
+                                       R_FLAME + 10, R_GHOST + 11, R_GOLD + 12, R_MOSS + 10, R_PURPLE + 10, R_MOSS + 12 };
 static const int8_t EYE_OWN[NKINDS] = {                            /* each kind's own, at rank I */
     [MOB_SKEL] = EC_AMBER, [MOB_GHOST] = EC_COLD, [MOB_BAT] = EC_EMBER, [MOB_WSKULL] = EC_AMBER, [MOB_SHIELD] = EC_AMBER,
     [MOB_SPIDER] = EC_EMBER, [MOB_SHAMBLER] = EC_SULPHUR, [MOB_DROWNED] = EC_COLD, [MOB_HOUND] = EC_AMBER, [MOB_WRAITH] = EC_COLD,
     [MOB_HUNTER] = EC_EMBER, [MOB_GHOUL] = EC_SULPHUR, [MOB_KNIGHT] = EC_CRIMSON, [MOB_BROOD] = EC_EMBER, [MOB_LING] = EC_EMBER,
     [MOB_SAC] = EC_EMBER, [MOB_SHADE] = EC_COLD, [MOB_IMP] = EC_WGOLD, [MOB_DEACON] = EC_PALE, [MOB_GARGOYLE] = EC_WGOLD,
-    [MOB_WHIPPER] = EC_AMBER, [MOB_SEXTON] = EC_WGOLD };   /* the Lightless has none */
+    [MOB_WHIPPER] = EC_AMBER, [MOB_SEXTON] = EC_WGOLD, [MOB_RAT] = EC_GREEN };   /* the Lightless has none */
 static const int8_t EYE_RANK[NRANK] = { -1, EC_ROT, EC_CHILL, EC_BLOOD, EC_HOT, EC_GILT };
 

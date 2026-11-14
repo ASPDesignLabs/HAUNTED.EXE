@@ -428,6 +428,7 @@ static void update_ultimates(float dt) {
 
 static void web_miss(float x, float y);
 static void web_land(Shot *s, Mob *m);
+static void mice_shot(float x, float y);
 static void update_shots(float dt) {
     const Gear *g = &RUN.gear;
     aug_show_tick(dt);                                             /* CRAWL_AUGSHOW's, for the sheet (D7; nothing otherwise) */
@@ -524,6 +525,7 @@ static void update_shots(float dt) {
                 break;
             }
             s->x = nx; s->y = ny;
+            if (s->tier >= 0) mice_shot(s->x, s->y);                /* from level 15 a messenger in its way dies (docs/PLAN-mice.md) */
             if (mk_shot(s)) {                                      /* a thing that wants a spell takes it */
                 s->alive = 0;
                 if (s->kind == AT_FIRE || s->kind == AT_HELL) explode(s->x, s->y); else sfx_at(s->kind == AT_FROST || s->kind == SHOT_LANCE ? SFX_FROST : SFX_BONES, s->x, s->y, 0.5f);

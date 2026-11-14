@@ -1432,6 +1432,38 @@ static float sfx_sample(Sfx *s) {
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     /* the dead's track (D) ends */
+    case SFX_SQUEAK: case SFX_MTELL: {              /* chirps: a tone bent up and down, quick; lower, and rough with breath, as they grow */
+        float p = s->f0 > 0.0f ? s->f0 : 1.0f, gapt = s->type == SFX_MTELL ? 0.075f : 0.085f, len = 0.045f;
+        int n = s->type == SFX_MTELL ? 6 : 2, k = (int)(t / gapt);
+        float u = fmodf(t, gapt) / len;
+        if (k < n && u < 1.0f) {
+            float up = s->type == SFX_MTELL ? (k & 1 ? 0.9f : 1.08f) : (k ? 0.94f : 1.0f);
+            float f = p * up * (4600.0f + 1900.0f * sinf(PI_F * u));
+            s->ph[0] += f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+            float env = sinf(PI_F * u), rasp = clampf((1.0f - p) * 1.6f, 0.0f, 0.8f);
+            float br = svf_band(nz(&s->rng), f * 0.7f, 0.3f, &s->lo1, &s->bp1);
+            x = (sin_cyc(s->ph[0]) * (1.0f - rasp * 0.6f) + br * rasp) * env * 0.24f;
+        }
+        break;
+    }
+    case SFX_RAT_HISS: {                            /* a hiss through the teeth, swelling and cut off; a growl under it */
+        float u = t / s->dur, w = sinf(PI_F * fminf(1.0f, u * 1.4f)) * (1.0f - u * 0.5f);
+        float hiss = svf_band(nz(&s->rng), 3600.0f + 900.0f * sinf(t * 23.0f), 0.3f, &s->lo1, &s->bp1);
+        s->ph[0] += (95.0f + 25.0f * sinf(t * 40.0f)) / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        float growl = svf_band((s->ph[0] < 0.5f ? 1.0f : -1.0f) * (0.6f + 0.4f * nz(&s->rng)), 420.0f, 0.4f, &s->lo2, &s->bp2);
+        x = (hiss * 0.55f + growl * 0.45f) * w;
+        break;
+    }
+    case SFX_RAT_SQUEAL: {                          /* a harsh squeal: up, held a moment, falling away, rough with breath */
+        float u = t / s->dur;
+        float f = u < 0.2f ? 1500.0f + 4500.0f * u : 2400.0f - 1500.0f * (u - 0.2f);
+        f *= 1.0f + 0.04f * sinf(t * 90.0f);
+        s->ph[0] += f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        float saw = s->ph[0] * 2.0f - 1.0f, br = svf_band(nz(&s->rng), f * 1.3f, 0.35f, &s->lo1, &s->bp1);
+        float v = svf_band(saw, f * 1.1f, 0.5f, &s->lo2, &s->bp2);
+        x = (v * 0.6f + br * 0.4f) * sinf(PI_F * fminf(1.0f, u)) * 0.8f;
+        break;
+    }
     default: break;
     }
     s->t += 1.0f / SR;
@@ -3381,6 +3413,10 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     /* the dead's track (D) ends */
+    [SFX_SQUEAK]     = { 0.20f, 0.55f,  0.50f, 0.25f },
+    [SFX_MTELL]      = { 0.48f, 0.55f,  0.50f, 0.30f },
+    [SFX_RAT_HISS]   = { 0.60f, 0.70f,  0.50f, 0.25f },
+    [SFX_RAT_SQUEAL] = { 0.45f, 0.75f,  0.50f, 0.30f },
 };
 
 void snd_tone(int glass, int midi, float gain, float pan) {      /* a struck bell or a singing crystal, at its own note */
@@ -3442,6 +3478,16 @@ void snd_sfx_ex(int id, float gain, float pan) {
 }
 
 void snd_sfx(int id) { snd_sfx_ex(id, 1.0f, -1.0f); }
+void snd_sfx_pitch(int id, float gain, float pan, float pitch) {   /* an effect at a pitch (the drums' f0): the mice by their size */
+    if (id < 0 || id >= SFX_COUNT) return;
+    LOCK();
+    const SfxDef *d = &SFXDEF[id];
+    g_vbus = BUS_SFX;
+    Sfx *s = sfx_start(id, d->dur, d->gain * gain, clampf(pan, 0.0f, 1.0f), d->rev);
+    s->f0 = pitch;
+    g_vbus = BUS_RUN;
+    UNLOCK();
+}
 
 static inline float softclip(float x) {
     if (x > 3.0f) x = 3.0f; else if (x < -3.0f) x = -3.0f;

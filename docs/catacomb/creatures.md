@@ -82,3 +82,24 @@ harness `docs/HARNESS.md`, the known issues `docs/KNOWN-ISSUES.md`, and each rel
   shaking by the view's turns and the feet's strafes, `SHAKE_NEED`, `G.shake`), `latch_release` (shaken, thrown by Blink
   or Swift Dodge, or after ten seconds), `sap_slow` in `slow_factor`, `render_latch`. Untargetable while latched. Debug:
   `CRAWL_LATCH=1`, `EVENT latch`, `latch_off`, `shakes`.
+
+- **The mice and the charnel rat** (docs/PLAN-mice.md; harness only, not yet released). The mice are not creatures: `Mouse` in
+  `G.mice` (`MAXMICE` 16), their holes `MHole` in `G.mholes` (`MAXMHOLES` 8), the warm lights they sit by `G.mlit`, on their own dice
+  `G.mrs` (seeded from the level, never `G.rs`), outside `MAXMOBS`, the hunt, the budget, the tally, the map and the autopilot's aim;
+  `game/mice.c`. A size every two levels (`crawl_mouse_stage`, `crawl_mouse_box`, `MOUSE_STAGES` 7 in `crawl.h`), the spurt on 13, the
+  charnel rat (`MOB_RAT`, the record's 24th and last kind) from 15 (`MOUSE_DEBUT`), the small ones from then on at 11-12's size. Per
+  level (`mice_level`, at the end of `start_level`): four to eight holes on plain stretches of the run's wall (the face becomes
+  `T_MHOLE` + its material's slot, `crawl_art_mice`), at least six steps apart, `G.mh_dist` between them with doors counted open;
+  three to twelve mice by the run's step (three on a drawn level, four on a boss's). Their states (`MO_*`): `IDLE`, `WALK` (a few
+  cells off, `mo_wander`), `PREEN` (by a warm light, `mo_warm`), `FLEE` (to the nearest hole, `mo_flee`), `WALL` (a tenth of the walk
+  between the holes, more if hiding; `mo_into`), `PEEK` (its eyes in the far hole, 0.6 s; `mo_emerge`), `RUN` (carrying word,
+  `mo_carry`, `mo_plan`: the nearest calm one on foot or through two holes, a rat first from 15), `TELL` (1.3 s nose to nose; the one
+  told carries it on), `DEAD` (a messenger hit, from 15: `mice_shot` from `update_shots`, `mice_blast` from `explode`). Scared
+  (`mo_scare`) by you within 2.5 cells (4 in sight and moving), a hunting creature within 3, a noise (`mice_hear` from `noise`) within
+  six tenths of its reach, a blast; a boss's fight sends them in for good (`G.mboss`). A rat told (`mo_tell_rat`): `Mob.told_t`, the
+  rearing sprite, `mind_track` to where you were seen. From level 16 one or two rats roam each level, three from 21 (`budget.c`).
+  Drawn in `render_sprites` (their poses by state and view, `DR_EYES` in a hole's mouth), the eye pass in `EC_GREEN` (core
+  `C_MOUSE_EYE`, the palette's last entry, C_CLEAR's own, never drawn otherwise), `render_mflag` the mark over a messenger. Sounds
+  `SFX_SQUEAK`, `SFX_MTELL` (by `snd_sfx_pitch`, falling as they grow), `SFX_RAT_HISS`, `SFX_RAT_SQUEAL`. The rat's bestiary page is
+  held back until it is met (`best_kinds`), with their growth over it (`best_growth`); the portraits leave it out (`por_kinds`): her
+  hall has no place for it yet. `make sheets`' `mice`.

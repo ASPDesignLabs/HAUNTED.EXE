@@ -389,6 +389,7 @@ static int por_bossof(int i) { return POR.at[i].boss - 1; }       /* the boss a 
 static int por_head(int i) { return POR.at[i].boss && POR.at[i].half ? i - 1 : i; }   /* a boss's left half stands for it */
 static int por_bit(int i) { return POR.at[i].boss ? POR_BOSSBIT + POR.at[i].boss - 1 : POR.at[i].kind; }   /* its tapestry, in por_drawn */
 static int best_kinds(int *out);
+static int por_kinds(int *out);
 static int kind_ranks(int k, int *out);
 #ifdef CRAWL_DEBUG
 static void por_trace(const char *why) {                           /* PORTRAITS: the state, as it stands */
@@ -427,7 +428,7 @@ static const int KIND_XP[] = {
     [MOB_SKEL] = 8, [MOB_GHOST] = 0, [MOB_BAT] = 5, [MOB_WSKULL] = 6, [MOB_SHIELD] = 12, [MOB_SPIDER] = 7,
     [MOB_SHAMBLER] = 12, [MOB_DROWNED] = 16, [MOB_HOUND] = 8, [MOB_WRAITH] = 0, [MOB_HUNTER] = 12, [MOB_GHOUL] = 14,
     [MOB_KNIGHT] = 24, [MOB_BROOD] = 26, [MOB_LING] = 1, [MOB_SAC] = 0, [MOB_SHADE] = 16, [MOB_IMP] = 12,
-    [MOB_DEACON] = 20, [MOB_GARGOYLE] = 18, [MOB_WHIPPER] = 22, [MOB_SEXTON] = 16, [MOB_LIGHTLESS] = 26 };
+    [MOB_DEACON] = 20, [MOB_GARGOYLE] = 18, [MOB_WHIPPER] = 22, [MOB_SEXTON] = 16, [MOB_LIGHTLESS] = 26, [MOB_RAT] = 10 };
 static const float RANK_XP[NRANK] = { 1.0f, 1.4f, 1.9f, 2.5f, 3.2f, 4.0f };
 static const int BOSS_XP[NBOSS] = { 24, 22, 22, 26 };              /* forty of these, at the boss's level */
 #define ATONE_TOP 50                        /* past it, overlevels */

@@ -4,6 +4,21 @@
 static void eye_px(Frame *f, int x, int y, uint8_t c, float depth) {
     if (x >= 0 && x < W && y >= 0 && y < H && depth < zbuf[x]) f->pix[y * W + x] = c;
 }
+/* the mark over a mouse carrying word of you (docs/PLAN-mice.md, M9): a point with sound going out either side, in their green, the
+ * rings pulsing; bigger near. Hidden only by walls, as the eyes are. */
+static void render_mflag(Frame *f, const Draw *d, float left, float top, float size) {
+    static const char *const MARK[5] = { ".#.......#.", "#...###...#", "#..#####..#", "#...###...#", ".#.......#." };
+    int k = size > 90.0f ? 2 : 1, cx = (int)(left + size * 0.5f), cy = (int)(top + size * 0.52f) - 5 * k - 6;
+    int ring = ((int)((float)G.t * 5.0f)) & 1;
+    for (int y = 0; y < 5; y++)
+        for (int x = 0; x < 11; x++) {
+            if (MARK[y][x] != '#') continue;
+            int inner = x > 2 && x < 8;
+            if (!inner && ring) continue;                          /* the sound going out, now and again */
+            uint8_t c = inner ? (uint8_t)C_MOUSE_EYE : (uint8_t)(R_MOSS + 12);
+            for (int yy = 0; yy < k; yy++) for (int xx = 0; xx < k; xx++) eye_px(f, cx + (x - 5) * k + xx, cy + (y - 2) * k + yy, c, d->depth);
+        }
+}
 static void render_eyes(Frame *f, const Draw *d, float left, float top, float size) {
     const EyeAt *e = &crawl_eyes[d->spr];
     if (!e->n || d->alpha < 0.3f) return;
@@ -404,6 +419,11 @@ static int mob_sprite(const Mob *m, float *scale) {
         if (m->swing > 0.0f) return SP_LIGHT_STRIKE;
         if (m->wait > 0.0f && m->alert <= 0.0f && m->aware != MA_CALM) return SP_LIGHT_LISTEN;   /* lost in the dark, listening */
         return fr ? SP_LIGHT_B : SP_LIGHT_A;
+    case MOB_RAT:                                                  /* the charnel rat (docs/PLAN-mice.md) */
+        if (m->state == MS_DIE) return SP_RAT_D;
+        if (m->swing > 0.0f) return SP_RAT_BITE;
+        if (m->told_t > 0.0f) return SP_RAT_REAR;                   /* told: up on its haunches, squealing */
+        return ((int)(m->t * 9.0f)) & 1 ? SP_RAT_B : SP_RAT_A;
     case MOB_SAC: return m->state == MS_DIE ? SP_SAC_OPEN : (m->sub_t > 5.0f && ((int)(m->t * 6.0f) & 1) ? SP_SAC_B : SP_SAC_A);
     case MOB_WRAITH:
         if (m->sub == 1) return SP_WRAITH_BACK;
@@ -446,7 +466,8 @@ static int mob_sprite(const Mob *m, float *scale) {
 /* S1: a creature looking across your line of sight shows its side, turned to the way it faces; one looking away shows
  * its side too, until there are backs to show (docs/PLAN-ai.md, section 1). Only its walk: a blow or a cast faces you. */
 static int is_back(int s) {                                        /* 1.0.0b18: a back view: no eyes, the vapour from the head */
-    return (s >= SP_SKEL_BKA && s <= SP_SHIELD_BKB) || (s >= SP_KNIGHT_BKA && s <= SP_GARG_BKB) || (s >= SP_HUNTER_BKA && s <= SP_BROOD_BKB);
+    return (s >= SP_SKEL_BKA && s <= SP_SHIELD_BKB) || (s >= SP_KNIGHT_BKA && s <= SP_GARG_BKB) || (s >= SP_HUNTER_BKA && s <= SP_BROOD_BKB)
+        || s == SP_RAT_BKA || s == SP_RAT_BKB || s == SP_MOUSE_BK;
 }
 static int mob_side(const Mob *m, int spr, int *flip) {
     *flip = 0;
@@ -472,6 +493,7 @@ static int mob_side(const Mob *m, int spr, int *flip) {
         if (m->type == MOB_GARGOYLE) return spr == k->spr2 ? SP_GARG_BKB : SP_GARG_BKA;
         if (m->type == MOB_HUNTER) return spr == k->spr2 ? SP_HUNTER_BKB : SP_HUNTER_BKA;
         if (m->type == MOB_BROOD) return spr == k->spr2 ? SP_BROOD_BKB : SP_BROOD_BKA;
+        if (m->type == MOB_RAT) return spr == k->spr2 ? SP_RAT_BKB : SP_RAT_BKA;
     }
     *flip = sinf(m->face - G.ang) < 0.0f;
     return spr == k->spr2 ? k->side2 : k->side;
@@ -523,11 +545,12 @@ static int deco_look(const Deco *dc) {
     return look;
 }
 static void render_sprites(Frame *f, float dx, float dy, float horizon) {
-    static Draw list[MAXDECO + MAXMOBS + MAXSHOTS + MAXBOOMS + MAXBONES + MAXITEMS + MAXBURNS + MAXPOOLS + MAXHAZ * 4 + MAXSITE * 4 + 16 + DFIRE_CELLS * 2];   /* and wisps, a double, after-images */
+    static Draw list[MAXDECO + MAXMOBS + MAXSHOTS + MAXBOOMS + MAXBONES + MAXITEMS + MAXBURNS + MAXPOOLS + MAXHAZ * 4 + MAXSITE * 4 + 16 + DFIRE_CELLS * 2
+                     + MAXMICE];   /* and wisps, a double, after-images; the mice */
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
-        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0, 0, 0, 0, 0, NULL, 0.0f, 0, 0 }; } while (0)
+        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0, 0, 0, 0, 0, NULL, 0.0f, 0, 0, 0 }; } while (0)
     for (int i = 0; i < G.ndecos; i++) {
         const Deco *dc = &G.decos[i];
         static const float FPS[4] = { 0.0f, 0.0f, 3.0f, 9.0f };    /* by frame count: candles flicker, fire roars */
@@ -691,6 +714,39 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             float k = smoothstepf(0.1f, 0.75f, m->t);
             d->z += sc * 0.5f * k; d->scale = sc * (1.0f - k) + 0.02f; d->flags = DR_IMPLODE;
         }
+    }
+    for (int i = 0; i < G.nmice && !PK.depth && !G.shop; i++) {    /* the mice (docs/PLAN-mice.md): by what they do and which way */
+        const Mouse *o = &G.mice[i];                               /* they face you; their eyes as every creature's */
+        if (!o->alive || o->st == MO_WALL) continue;
+        float sc = crawl_mouse_box(G.mstage);
+        if (o->st == MO_PEEK) {                                    /* only its eyes, in the hole's mouth */
+            const MHole *mh = &G.mholes[o->out];
+            int w, hg, n0 = n;
+            crawl_mhole_size(G.level >= 13 && G.mstage == crawl_mouse_stage(G.level) ? crawl_mhole_stage(G.level) : G.mstage, &w, &hg);
+            float es = 0.0583f * (float)w, ez = (float)hg * 0.45f / TS - 0.5234f * es;
+            ADD(mh->mx + DX[mh->d] * 0.03f, mh->my + DY[mh->d] * 0.03f, ez, SP_MOUSE_F, 0);
+            if (n > n0) { list[n - 1].scale = es; list[n - 1].flags = DR_EYES; list[n - 1].ecol = 1 + EC_GREEN; }
+            continue;
+        }
+        float off = fabsf(wrap_pi(o->face - atan2f(G.py - o->y, G.px - o->x)));
+        int moving = o->st == MO_WALK || o->st == MO_FLEE || o->st == MO_RUN, s, side = 0, flags = 0;
+        float z = 0.0f, a = 0.0f;
+        if (o->st == MO_DEAD) { s = SP_MOUSE_F; flags = DR_FLIPV; z = -0.62f * sc; a = fmaxf(0.05f, 1.0f - o->t / 1.5f); }   /* on its back */
+        else if (o->st == MO_TELL) { s = SP_MOUSE_TELL; side = 1; }
+        else if (o->st == MO_PREEN && ((int)(o->t * 0.4f + (float)i) % 3) != 2) { s = SP_MOUSE_PREEN; side = 1; }
+        else if (off < 0.79f) s = SP_MOUSE_F;
+        else if (off > 2.36f) s = SP_MOUSE_BK;
+        else { s = moving && (((int)((float)G.t * 14.0f) + i) & 1) ? SP_MOUSE_SB : SP_MOUSE_SA; side = 1; }
+        int n0 = n;
+        ADD(o->x, o->y, z, s, a);
+        if (n == n0) continue;
+        Draw *d = &list[n - 1];
+        d->scale = sc; d->flags |= flags;
+        if (side && sinf(o->face - G.ang) < 0.0f) d->flags |= DR_FLIPH;
+        if (o->st != MO_DEAD && crawl_eyes[s].n && !is_back(s)) {
+            d->eye = 1; d->etype = MOB_RAT; d->erank = RK_I; d->estate = o->st == MO_FLEE || o->msg ? 1 : 0;
+        }
+        d->mflag = o->msg && (o->st == MO_RUN || o->st == MO_TELL);
     }
     for (int i = 0; i < MAXHAZ && !PK.depth && !G.shop; i++) {      /* the hazards standing up off the floor */
         const Hazard *h = &G.haz[i];
@@ -1263,6 +1319,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         }
         if (d->vap > 0.0f) render_vapour(f, d, left, top, size, fog_amount(d->x, d->y, 1.0f - expf(-d->depth * 0.28f)));
         if (d->eye) render_eyes(f, d, left, top, size);           /* its eyes, whatever the light (docs/InitialArtPass.md) */
+        if (d->mflag) render_mflag(f, d, left, top, size);         /* a mouse carrying word: its mark (docs/PLAN-mice.md, M9) */
     }
     for (int i = 0; i < MAXMOBS; i++) {                            /* spiders hang by a thread */
         const Mob *m = &G.mobs[i];

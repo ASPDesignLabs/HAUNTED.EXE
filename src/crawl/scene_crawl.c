@@ -118,6 +118,9 @@
 /* Drawn levels (the tutorial's two): the maps, gen_drawn, their items, dead and marks; the burning floor; the ice */
 #include "game/drawn.c"
 
+/* The mice (docs/PLAN-mice.md): their holes, their days, scurrying, the holes as ways through, the tell; the charnel rats told */
+#include "game/mice.c"
+
 /* start_level: a level begun; the debug build's gear and gifts */
 #include "game/start_level.c"
 

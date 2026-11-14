@@ -4,7 +4,9 @@
 /* A noise at a place, heard so many steps off down the halls (S3). The caster's own come from where it stands; a
  * creature's death is heard twice as far by its own kind; Wraithwalk makes no sound of you. With the old minds, only
  * the caster's own are heard, and they tell where it is (alert_near). */
+static void mice_hear(float x, float y, int steps, int what);
 static void noise(float x, float y, int steps, int what, int kind) {
+    mice_hear(x, y, steps, what);                                  /* the mice hear it too (docs/PLAN-mice.md) */
     int caster = what < NZ_LAND;
     if (caster && G.wwalk_t > 0.0f) return;
     if (caster && what != NZ_STEP) { G.noise_x = x; G.noise_y = y; G.noise_t = (float)G.level_t; }   /* what the watch goes to */

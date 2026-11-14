@@ -1558,6 +1558,72 @@ static void ice_frame(int ox, int oy, int floor, float kl, float kr) {   /* two 
         put(ox + x, oy + y, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
     }
 }
+/* the mice (docs/PLAN-mice.md): each size in each pose as the game draws it, the charnel rat in its ranks' colours, and the holes in
+ * each run's stone as the levels go down; the eyes in the moss's top step, as the pages show them */
+static int draw_mice(const char *path) {
+    static const int POSES[6] = { MP_RUNA, MP_RUNB, MP_FRONT, MP_BACK, MP_PREEN, MP_TELL };
+    static const char *const PN[6] = { "RUN A", "RUN B", "FACING", "BEHIND", "PREENING", "TELLING" };
+    static const char *const SN[MOUSE_STAGES] = { "LEVELS 1-2", "LEVELS 3-4", "LEVELS 5-6", "LEVELS 7-8", "LEVELS 9-10", "11-12, 15 ON", "LEVELS 13-14" };
+    static const int HL[] = { 1, 4, 7, 10, 11, 13, 15, 23, 33 };
+    const int NH = (int)(sizeof HL / sizeof HL[0]), k = 2, cs = TS * k, gap = 8, top = PAD + LABEL_H + 8 * TXT + 16, rowh = cs + 8 * TXT + 8;
+    iw = PAD * 2 + ROWHEAD + 9 * (cs + gap);
+    ih = top + MOUSE_STAGES * rowh + 2 * (cs + LABEL_H + 2 * 8 * TXT + 16) + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "THE MICE: EACH SIZE IN EACH POSE, THE CHARNEL RAT, THEIR HOLES", 230, 230, 230);
+    uint8_t spr[TS * TS];
+    int y = top, x0 = PAD + ROWHEAD;
+    for (int st = 0; st < MOUSE_STAGES; st++, y += rowh) {
+        char lb[32]; snprintf(lb, sizeof lb, "BOX %.3f", crawl_mouse_box(st));
+        text(PAD, y + cs / 2 - 8 * TXT, SN[st], 200, 200, 200);
+        text(PAD, y + cs / 2 + 4, lb, 140, 140, 140);
+        for (int p = 0; p < 6; p++) {
+            int x = x0 + p * (cs + gap);
+            rect(x, y, cs, cs, 22, 21, 24);
+            crawl_mouse_sprite(st, POSES[p], spr, NULL);
+            for (int yy = 0; yy < cs; yy++) for (int xx = 0; xx < cs; xx++) {
+                uint8_t c = spr[(yy / k) * TS + xx / k];
+                if (c == C_CLEAR) continue;
+                c = crawl_cmap[LIGHT][c];
+                put(x + xx, y + yy, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+            }
+            if (st == 0) text(x, y - 8 * TXT - 2, PN[p], 170, 170, 170);
+        }
+    }
+    static const int RAT[9] = { SP_RAT_A, SP_RAT_B, SP_RAT_SA, SP_RAT_SB, SP_RAT_BKA, SP_RAT_BKB, SP_RAT_BITE, SP_RAT_REAR, SP_RAT_D };
+    static const char *const RN[9] = { "WALK A", "WALK B", "SIDE A", "SIDE B", "BACK A", "BACK B", "BITE", "TOLD", "DEAD" };
+    text(PAD, y + cs / 2 - 8 * TXT, "THE RAT,", 200, 200, 200);
+    text(PAD, y + cs / 2 + 4, "BY RANK", 200, 200, 200);
+    for (int i = 0; i < 9; i++) {
+        int x = x0 + i * (cs + gap), r = i % NRANK;
+        const uint8_t *lut = r ? crawl_rank_lut[PF_HIDE][r] : NULL;
+        rect(x, y, cs, cs, 22, 21, 24);
+        for (int yy = 0; yy < cs; yy++) for (int xx = 0; xx < cs; xx++) {
+            uint8_t c = crawl_spr[RAT[i]][(xx / k) * TS + yy / k];
+            if (c == C_CLEAR) continue;
+            c = crawl_cmap[LIGHT][lut ? lut[c] : c];
+            put(x + xx, y + yy, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+        }
+        text(x, y + cs + 4, RN[i], 170, 170, 170);
+        text(x, y + cs + 4 + 8 * TXT + 2, RANK_NAME[r], 120, 120, 120);
+    }
+    y += cs + LABEL_H + 2 * 8 * TXT + 16;
+    text(PAD, y + cs / 2 - 8, "THEIR HOLES", 200, 200, 200);
+    for (int i = 0; i < NH; i++) {
+        int x = x0 + i * (cs + gap);
+        crawl_art_level(HL[i]);
+        for (int yy = 0; yy < cs; yy++) for (int xx = 0; xx < cs; xx++) {
+            uint8_t c = crawl_cmap[24][crawl_tex[T_MHOLE][(xx / k) * TS + yy / k]];
+            put(x + xx, y + yy, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+        }
+        char lb[16]; snprintf(lb, sizeof lb, "LEVEL %d", HL[i]);
+        text(x, y + cs + 4, lb, 170, 170, 170);
+    }
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
 static int draw_tutorial2(const char *path) {
     enum { K = 2, FW = 96 * K, FH = 88 * K, CW = FW + 40, NR = 4 };
     iw = PAD + 4 * CW + PAD;
@@ -1957,6 +2023,7 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "minds", "1.0.0B18: THE MINDS SHOWN: BACKS, THE ROOST, THE AMBUSHES' SIGNS");
         printf("%-12s %s\n", "footprints", "1.0.0B18.1: EVERY PROP WITH THE PART OF ITS CELL ITS ART GIVES IT");
         printf("%-12s %s\n", "tutorial2", "THE TUTORIAL'S LEVEL 2: THE SWITCH, THE GATE, THE MAP, THE ICE");
+        printf("%-12s %s\n", "mice", "THE MICE: EACH SIZE IN EACH POSE, THE CHARNEL RAT, THEIR HOLES (DOCS/PLAN-MICE.MD)");
         return 0;
     }
     if (argc < 3) { fprintf(stderr, "usage: sheet list | sheet <group|all> <out.png|dir> [level]\n"); return 2; }
@@ -2096,6 +2163,14 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/tutorial2.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_tutorial2(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "mice")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/mice.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_mice(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        crawl_art_level(level < 1 ? 1 : level);
         done++;
     }
     if (!strcmp(argv[1], "all") || !strcmp(argv[1], "footprints")) {

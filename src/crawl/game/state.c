@@ -597,6 +597,26 @@ static struct {
                                                choose for): never saved, ended by a class taken */
 } LEDGER;
 
+/* The mice (docs/PLAN-mice.md): not creatures, a list of their own, on their own dice. A mouse's state (MO_*): sitting a moment,
+ * walking somewhere, preening by a light, running for a hole, in the wall, its eyes at a hole before it comes out, carrying word,
+ * telling (or being told), slain (a messenger, from level 15). Its way is a path of cells (y * MAPN + x). */
+enum { MO_IDLE, MO_WALK, MO_PREEN, MO_FLEE, MO_WALL, MO_PEEK, MO_RUN, MO_TELL, MO_DEAD };
+#define MAXMICE 16
+#define MAXMHOLES 8
+#define MPATH 96
+#define MAXMLIT 24
+typedef struct {
+    int alive, st, hole, out, light, msg, tgt, rat, h1, h2, role;   /* hole: going into; out: coming out of; light: the one it sits by;
+                                                                      msg: carrying word; tgt: the mouse it goes to tell, rat: 1 + the
+                                                                      charnel rat; h1, h2: through which holes (-1 on foot); role in a
+                                                                      telling: 1 telling, 2 told */
+    float x, y, face, t, wait, pace, side, hide, msg_t, ax, ay, sing_t, plan_t;   /* wait: a pause, or its time in the wall; side: how
+                                                                      far off the middle it runs; hide: how long it stays in after; ax, ay:
+                                                                      where you were seen, the word it carries */
+    int16_t path[MPATH]; int npath, ip;
+} Mouse;
+typedef struct { int wx, wy, d, fx, fy; float mx, my; } MHole;   /* the wall, its face towards the floor cell (fx, fy), its mouth */
+
 static struct {
     uint32_t rs;
     double t, level_t;
@@ -892,6 +912,11 @@ static struct {
     float d7_drained, d7_zap, d7_spear, d7_shep;                   /* the drain's last hit, the bolt's, the spear's; Shepherd's pace for */
     int d7_splint;                                                 /* the motes a kill now leaves; a splinter striking */
     /* the dead's track (D) ends */
+    Mouse mice[MAXMICE]; int nmice;                                /* the mice (docs/PLAN-mice.md), their holes, the warm lights they */
+    MHole mholes[MAXMHOLES]; int nmholes;                          /* sit by (cells beside them); their dice; their size; whether a */
+    int16_t mlit[MAXMLIT][2]; int nmlit;                           /* boss's fight has sent them in for good */
+    uint8_t mh_dist[MAXMHOLES][MAXMHOLES];                         /* steps between two holes, doors counted open (255 or more) */
+    uint32_t mrs; int mstage, mboss;
 } G;
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */
        BP_LITANY };                                 /* the Deacon's censer raised, the green light growing */

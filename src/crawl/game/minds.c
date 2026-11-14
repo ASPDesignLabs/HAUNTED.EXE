@@ -96,6 +96,7 @@ static void mind_tell(Mob *m) {                                    /* a wary cre
     case MOB_IMP: case MOB_GARGOYLE: sfx = SFX_SHATTER; break;
     case MOB_SEXTON: sfx = SFX_GROAN; break;
     case MOB_LIGHTLESS: sfx_at(SFX_GLASS, m->x, m->y, 0.25f); return;   /* it makes no sound but its glass */
+    case MOB_RAT: sfx = SFX_RAT_HISS; break;
     default: break;
     }
     sfx_at(sfx, m->x, m->y, 0.45f);
@@ -627,7 +628,7 @@ static void role_give(Mob *m) {                                    /* the first 
         DBG_COUNT(posted);
         return;
     }
-    if (m->type == MOB_BAT || m->type == MOB_HUNTER || m->type == MOB_LIGHTLESS) { m->role = RL_ROAM; roam_next(m); return; }
+    if (m->type == MOB_BAT || m->type == MOB_HUNTER || m->type == MOB_LIGHTLESS || m->type == MOB_RAT) { m->role = RL_ROAM; roam_next(m); return; }
     const Pack *p = pack_of(m);
     if (p && p->leader != (int)(m - G.mobs) && follow_of(m)) { m->role = RL_FOLLOW; return; }   /* a pack walks its leader's round */
     m->role = RL_PATROL;
