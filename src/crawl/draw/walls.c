@@ -164,8 +164,9 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
 /* alpha < 1: dithered see-through. remap: the ramp R_PURPLE turns into. flags: how it is drawn.
  * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
 typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; float web, mg; int mgw;
-                 int eye, etype, erank, estate; const uint8_t *ov; float vap; int ecol, ward, mflag; } Draw;   /* ecol: 1 + EC_*, its eyes' colour whatever its rank; mflag: a
-                                                                                                mouse carrying word, its mark over it (docs/PLAN-mice.md) */   /* ov: its rank's dressing (crawl_dress);
+                 int eye, etype, erank, estate; const uint8_t *ov; float vap; int ecol, ward, mflag, skit; } Draw;   /* ecol: 1 + EC_*, its eyes' colour whatever its rank; mflag: a
+                                                                                                mouse carrying word, its mark over it (docs/PLAN-mice.md);
+                                                                                                skit: 1 + the wall spider painted on the stone */   /* ov: its rank's dressing (crawl_dress);
                                                                                                 vap: its spirit vapour, 0 none, 1 full */   /* eye: a creature's eyes go on after it (render_eyes), as its kind, rank and state */   /* mg: the hidden
                                                                                                    message's glint, mgw through the walls; glint: a key's
                                                                                                    ramp, for Keymaker's sparkle; web: how much of yours holds it */

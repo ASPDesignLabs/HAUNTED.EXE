@@ -1567,10 +1567,10 @@ static int draw_mice(const char *path) {
     static const int HL[] = { 1, 4, 7, 10, 11, 13, 15, 23, 33 };
     const int NH = (int)(sizeof HL / sizeof HL[0]), k = 2, cs = TS * k, gap = 8, top = PAD + LABEL_H + 8 * TXT + 16, rowh = cs + 8 * TXT + 8;
     iw = PAD * 2 + ROWHEAD + 9 * (cs + gap);
-    ih = top + MOUSE_STAGES * rowh + 2 * (cs + LABEL_H + 2 * 8 * TXT + 16) + PAD;
+    ih = top + MOUSE_STAGES * rowh + 3 * (cs + LABEL_H + 2 * 8 * TXT + 16) + PAD;
     img = calloc((size_t)iw * ih, 3);
     rect(0, 0, iw, ih, 10, 10, 12);
-    text(PAD, PAD, "THE MICE: EACH SIZE IN EACH POSE, THE CHARNEL RAT, THEIR HOLES", 230, 230, 230);
+    text(PAD, PAD, "THE MICE: EACH SIZE IN EACH POSE, THE CHARNEL RAT, THEIR HOLES, THE WALL SPIDERS", 230, 230, 230);
     uint8_t spr[TS * TS];
     int y = top, x0 = PAD + ROWHEAD;
     for (int st = 0; st < MOUSE_STAGES; st++, y += rowh) {
@@ -1618,6 +1618,36 @@ static int draw_mice(const char *path) {
         }
         char lb[16]; snprintf(lb, sizeof lb, "LEVEL %d", HL[i]);
         text(x, y + cs + 4, lb, 170, 170, 170);
+    }
+    y += cs + LABEL_H + 2 * 8 * TXT + 16;                          /* the wall spiders (its section 8): the front they had, then the
+                                                                      back they show flat on the stone, turned as they crawl; in the
+                                                                      wall's dust, as the game's sk_lut has them */
+    uint8_t lut[256];
+    for (int c = 0; c < 256; c++) lut[c] = (uint8_t)c;
+    for (int q = 0; q < 16; q++) { lut[R_BLOOD + q] = (uint8_t)(R_WARM + (q + 2 < 15 ? q + 2 : 15)); lut[R_IRON + q] = (uint8_t)(R_WARM + (q + 4 < 15 ? q + 4 : 15)); }
+    static const struct { int spr, turn; const char *a, *b; } SK[7] = {
+        { SP_LING_A, 0, "BEFORE", "FRONT" }, { SP_SKIT_A, 0, "ITS BACK", "A STEP" }, { SP_SKIT_B, 0, "THE NEXT", "STEP" },
+        { SP_SKIT_A, 1, "ALONG", "THE WALL" }, { SP_SKIT_A, 2, "DOWN IT", "" }, { SP_SKIT_B, 3, "BACK", "ALONG" }, { SP_LING_A, 4, "SLAIN", "FALLING" } };
+    text(PAD, y + cs / 2 - 8 * TXT, "THE WALL", 200, 200, 200);
+    text(PAD, y + cs / 2 + 4, "SPIDERS", 200, 200, 200);
+    for (int i = 0; i < 7; i++) {
+        int x = x0 + i * (cs + gap);
+        rect(x, y, cs, cs, 22, 21, 24);
+        for (int yy = 0; yy < cs; yy++) for (int xx = 0; xx < cs; xx++) {
+            int tx = xx / k, ty = yy / k, sx = tx, sy = ty;
+            switch (SK[i].turn) {                                  /* the picture's top turned to its heading */
+            case 1: sx = ty; sy = TS - 1 - tx; break;
+            case 2: sx = TS - 1 - tx; sy = TS - 1 - ty; break;
+            case 3: sx = TS - 1 - ty; sy = tx; break;
+            case 4: sy = TS - 1 - ty; break;
+            }
+            uint8_t c = crawl_spr[SK[i].spr][sx * TS + sy];
+            if (c == C_CLEAR) continue;
+            c = crawl_cmap[LIGHT][lut[c]];
+            put(x + xx, y + yy, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+        }
+        text(x, y + cs + 4, SK[i].a, 170, 170, 170);
+        text(x, y + cs + 4 + 8 * TXT + 2, SK[i].b, 120, 120, 120);
     }
     int ok = write_png(path);
     free(img);

@@ -104,11 +104,19 @@ harness `docs/HARNESS.md`, the known issues `docs/KNOWN-ISSUES.md`, and each rel
   held back until it is met (`best_kinds`), with their growth over it (`best_growth`); the portraits leave it out (`por_kinds`): her
   hall has no place for it yet. `make sheets`' `mice`.
   The way: a path of floor cells (`mo_path`, `p0` its first cell), off the middle of each step by `side` across the step from the cell
-  before (`mo_step`; before 15 November it was across the line from the mouse to the cell's middle, which a mouse could never reach,
+  before (`mo_step`; until its fix on 14 November it was across the line from the mouse to the cell's middle, which a mouse could never reach,
   and many span in place); `stall` steps one held two seconds on to its next cell. A messenger at its target's cell goes straight to it.
 - **The wall spiders** (docs/PLAN-mice.md, section 8; harness only): `Skitter` in `G.skit` (`MAXSKIT` 10), `game/skitters.c`, on
   `G.srs`; `skit_level` (after `mice_level`), `skit_update`, `skit_hear`/`skit_shot`/`skit_blast` (from the mice's own), `skit_tp`.
-  `SK_IDLE`, `SK_CRAWL` (`sk_wander`, `sk_step`: cell to cell, `side` the wall it clings to, `zt` its height on it), `SK_RUN` (to a
-  spider, `sk_find_spider`, or a web, `sk_find_web`; `seek` wandering for one), `SK_WEB` (sat in a `SP_COBWEB`), `SK_DEAD`. Told
-  (`sk_tell`): `Mob.told_t`; a hunting spider `mind_track`, a web spider's eyes unblinking (`Draw.estate` on its `DR_EYES`) and a nest's
-  `pack_call`. Drawn with `SP_LING_A/B` through a table that turns her red mark to iron, `SK_SCALE`; `Draw.mflag` 2 its mark in ember.
+  `SK_IDLE`, `SK_CRAWL` (`sk_wander`, `sk_crawl`), `SK_RUN` (to a spider, `sk_find_spider`, or a web, `sk_find_web`/`sk_for_web`;
+  `seek` wandering for one), `SK_WEB` (in the corner behind a `SP_COBWEB`), `SK_DEAD` (dropped off the stone). Told (`sk_tell`):
+  `Mob.told_t`; a hunting spider `mind_track`, a web spider's eyes unblinking (`Draw.estate` on its `DR_EYES`) and a nest's
+  `pack_call`. Since their second build (14 November) they never leave the stone (its sections 8.1, 8.2): the stone's ways are every face where open floor
+  meets `K_WALL`, traced with the wall on the left into closed loops (`WFace` in `WF`, `wf_at[y][x][d]`, `wf_build` at `skit_level`
+  and again in `skit_rebuild` when `wf_layout`'s hash of the walls changes; joints `WJ_ON`, `WJ_IN`, `WJ_OUT`; `lo`, `hi` how far
+  along a face its way runs, `WF_IN` off the stone). A spider's place is `f`, `u`, `h` (face, along, height), its mark `tf`, `tu`,
+  `ht`; `wf_pos` where that is, `wf_move` on round its loop, `wf_gap` the shorter way round to another place on it, `wf_near` the
+  place on the stone nearest a point through the open floor. Drawn as a decal (`skit_decal` in `draw/sprites.c`, from `Draw.skit`):
+  `SP_SKIT_A/B` (`spr_skit`, the spiderling from above) laid on its face's plane column by column and on the faces either side where
+  it reaches over a joint, turned to `head`, through `sk_lut`; its eyes by `eyes_put` (the eye pass's drawing, cut from
+  `render_eyes`); `Draw.mflag` 2 its mark in ember. Slain, `SP_LING_A` turned over, falling.

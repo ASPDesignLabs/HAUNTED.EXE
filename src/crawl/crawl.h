@@ -316,6 +316,8 @@ enum {
      * rearing as it is told, dead */
     SP_MOUSE_SA, SP_MOUSE_SB, SP_MOUSE_F, SP_MOUSE_BK, SP_MOUSE_PREEN, SP_MOUSE_TELL,
     SP_RAT_A, SP_RAT_B, SP_RAT_SA, SP_RAT_SB, SP_RAT_BKA, SP_RAT_BKB, SP_RAT_BITE, SP_RAT_REAR, SP_RAT_D,
+    /* the wall spiders (its section 8): a spiderling from above, as one flat on the stone shows itself, at one step and the next */
+    SP_SKIT_A, SP_SKIT_B,
     NSPR
 };
 

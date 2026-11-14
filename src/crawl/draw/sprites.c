@@ -20,9 +20,8 @@ static void render_mflag(Frame *f, const Draw *d, float left, float top, float s
             for (int yy = 0; yy < k; yy++) for (int xx = 0; xx < k; xx++) eye_px(f, cx + (x - 5) * k + xx, cy + (y - 2) * k + yy, c, d->depth);
         }
 }
-static void render_eyes(Frame *f, const Draw *d, float left, float top, float size) {
-    const EyeAt *e = &crawl_eyes[d->spr];
-    if (!e->n || d->alpha < 0.3f) return;
+static void eyes_put(Frame *f, const Draw *d, int *sx, int *sy, int n, float es) {   /* a creature's eyes, drawn where they fall
+                                                                      (sx, sy) at es pixels a texel: as its kind, rank and state */
     int st = d->estate, rank = d->erank, ec = EYE_OWN[d->etype];
     if (st == 3) ec = EC_ASH;                                      /* asleep: an ember */
     else if (d->ecol) ec = d->ecol - 1;                            /* its own, whatever its rank (the Wandering Spider's fire) */
@@ -39,12 +38,6 @@ static void render_eyes(Frame *f, const Draw *d, float left, float top, float si
     if (st == 4) st = 2;                                           /* striking with its element (Mob.elem_on): they flare in its colour */
     if (st == 5) { core = R_STONE + 11; glow = R_STONE + 6; born = 0; st = 1; }   /* Unbound (1.0.0b19): the fire gone out of them, grey,
                                                                       and its element with it */
-    float es = size / TS;
-    int sx[2], sy[2], n = e->n;
-    for (int i = 0; i < n; i++) {
-        int ty = (d->flags & DR_FLIPV) ? TS - 1 - e->y[i] : e->y[i], tx = (d->flags & DR_FLIPH) ? TS - 1 - e->x[i] : e->x[i];
-        sx[i] = (int)floorf(left + (tx + 0.5f) * es); sy[i] = (int)floorf(top + (ty + 0.5f) * es);
-    }
     if (n == 2 && abs(sx[1] - sx[0]) < 2) {                        /* far off: two points with a pixel between */
         int c = (sx[0] + sx[1]) / 2, l = sx[0] <= sx[1] ? 0 : 1;
         sx[l] = c - 1; sx[1 - l] = c + 1; sy[1] = sy[0] = (sy[0] + sy[1]) / 2;
@@ -95,6 +88,18 @@ static void render_eyes(Frame *f, const Draw *d, float left, float top, float si
         }
         for (int y = 0; y < cs; y++) for (int x = 0; x < cs; x++) eye_px(f, x0 + x, y0 + y, core, d->depth);
     }
+}
+
+static void render_eyes(Frame *f, const Draw *d, float left, float top, float size) {   /* a billboard's: its eyes through its box */
+    const EyeAt *e = &crawl_eyes[d->spr];
+    if (!e->n || d->alpha < 0.3f) return;
+    float es = size / TS;
+    int sx[2], sy[2], n = e->n;
+    for (int i = 0; i < n; i++) {
+        int ty = (d->flags & DR_FLIPV) ? TS - 1 - e->y[i] : e->y[i], tx = (d->flags & DR_FLIPH) ? TS - 1 - e->x[i] : e->x[i];
+        sx[i] = (int)floorf(left + (tx + 0.5f) * es); sy[i] = (int)floorf(top + (ty + 0.5f) * es);
+    }
+    eyes_put(f, d, sx, sy, n, es);
 }
 
 /* Spirit vapour (docs/InitialArtPass.md section 7): the soul showing, more of it the higher the rank. III a thread from the
@@ -545,13 +550,87 @@ static int deco_look(const Deco *dc) {
     }
     return look;
 }
+/* A wall spider painted on the stone (docs/PLAN-mice.md, section 8.2): its picture laid flat on the face it is on and drawn column
+ * by column as the walls are, so that it narrows as the wall turns away and never stands off it; what of it reaches past a joint goes
+ * on the next face, folded into the corner or round the wall's edge. The picture's top is its heading. */
+static void skit_decal(Frame *f, const Draw *d, float dx, float dy, float horizon, float dark) {
+    const Skitter *o = &G.skit[d->skit - 1];
+    const uint8_t *img = crawl_spr[d->spr];
+    float rx = -dy, ry = dx, w = d->scale, ext = w * 0.72f, ch = cosf(o->head), sn = sinf(o->head);
+    float light = lm_at(o->x, o->y) * atten(d->depth) * (1.0f - 0.85f * dark), fog = fog_amount(o->x, o->y, 1.0f - expf(-d->depth * 0.28f));
+    int fs[3] = { WF[o->f].prev, o->f, WF[o->f].next };
+    float off[3];                                                  /* along the stone from it to where each face's way begins */
+    off[1] = WF[o->f].lo - o->u;
+    off[0] = off[1] - (WF[fs[0]].hi - WF[fs[0]].lo);
+    off[2] = off[1] + (WF[o->f].hi - WF[o->f].lo);
+    for (int k = 0; k < 3; k++) {
+        const WFace *wf = &WF[fs[k]];
+        float ua = fmaxf(wf->lo, wf->lo - ext - off[k]), ub = fminf(wf->hi, wf->lo + ext - off[k]);
+        if (ua >= ub) continue;
+        int t = (wf->d + 1) & 3, xa = W, xb = -1;
+        float bx = wf->x + 0.5f + DX[wf->d] * (0.5f - WF_IN), by = wf->y + 0.5f + DY[wf->d] * (0.5f - WF_IN), ex[2], ey[2], ep[2];
+        for (int e = 0; e < 2; e++) {                              /* the part of the face it covers, on the screen */
+            float uu = e ? ub : ua;
+            ex[e] = bx + DX[t] * (uu - 0.5f) - G.px; ey[e] = by + DY[t] * (uu - 0.5f) - G.py; ep[e] = ex[e] * dx + ey[e] * dy;
+        }
+        if (ep[0] < 0.05f && ep[1] < 0.05f) continue;
+        for (int e = 0; e < 2; e++) {                              /* an end behind you: brought up to just before you */
+            if (ep[e] >= 0.05f) continue;
+            float kk = (0.05f - ep[e]) / (ep[1 - e] - ep[e]);
+            ex[e] += (ex[1 - e] - ex[e]) * kk; ey[e] += (ey[1 - e] - ey[e]) * kk; ep[e] = 0.05f;
+        }
+        for (int e = 0; e < 2; e++) {
+            float sxp = W / 2 + FOCAL * (ex[e] * rx + ey[e] * ry) / ep[e];
+            xa = imin(xa, (int)floorf(sxp) - 1); xb = imax(xb, (int)ceilf(sxp) + 1);
+        }
+        xa = imax(xa, 0); xb = imin(xb, W - 1);
+        for (int x = xa; x <= xb; x++) {                           /* where each column's ray meets the face, and how far along */
+            float kk = (x + 0.5f - W / 2) / FOCAL, rdx = dx + rx * kk, rdy = dy + ry * kk, s, uu;
+            if (DX[wf->d]) { if (fabsf(rdx) < 1e-6f) continue; s = (bx - G.px) / rdx; uu = (G.py + s * rdy - by) * DY[t] + 0.5f; }
+            else { if (fabsf(rdy) < 1e-6f) continue; s = (by - G.py) / rdy; uu = (G.px + s * rdx - bx) * DX[t] + 0.5f; }
+            if (s < 0.05f || s >= zbuf[x] || uu < ua || uu > ub) continue;
+            float a = off[k] + uu - wf->lo, sc = FOCAL / s;
+            int y0 = clampi((int)floorf(horizon - (o->z + ext - G.camz) * sc), 0, H), y1 = clampi((int)ceilf(horizon - (o->z - ext - G.camz) * sc), 0, H);
+            for (int y = y0; y < y1; y++) {
+                float b = G.camz + (horizon - (y + 0.5f)) / sc - o->z, fw = a * ch + b * sn, rt = a * sn - b * ch;
+                int tx = (int)floorf((rt / w + 0.5f) * TS), ty = (int)floorf((0.5f - fw / w) * TS);
+                if (tx < 0 || tx >= TS || ty < 0 || ty >= TS) continue;
+                uint8_t c = img[tx * TS + ty];
+                if (c == C_CLEAR) continue;
+                if (d->lut) c = d->lut[c];
+                f->pix[y * W + x] = fogged(shade(c, light, x, y), fog, light, x, y);
+            }
+        }
+    }
+    const EyeAt *e = &crawl_eyes[d->spr];                          /* its eyes, whatever the light, where they fall on the stone */
+    if (d->eye && e->n) {
+        int sx[2], sy[2], n = 0;
+        Draw de = *d;
+        for (int i = 0; i < e->n && i < 2; i++) {
+            float rt = ((e->x[i] + 0.5f) / TS - 0.5f) * w, fw = (0.5f - (e->y[i] + 0.5f) / TS) * w, a = fw * ch + rt * sn, b = fw * sn - rt * ch, uu = o->u + a, qx, qy;
+            int g = o->f;
+            wf_move(&g, &uu); wf_pos(g, uu, &qx, &qy);
+            qx -= G.px; qy -= G.py;
+            float dp = qx * dx + qy * dy;
+            if (dp < 0.05f) break;
+            de.depth = i ? fminf(de.depth, dp - 0.01f) : dp - 0.01f;
+            sx[n] = (int)floorf(W / 2 + FOCAL * (qx * rx + qy * ry) / dp); sy[n] = (int)floorf(horizon - (o->z + b - G.camz) * FOCAL / dp); n++;
+        }
+        if (n == e->n) eyes_put(f, &de, sx, sy, n, FOCAL / d->depth * w / TS);
+    }
+    if (d->mflag) {                                                /* carrying word: its mark, over it */
+        float size = FOCAL / d->depth * w, scx = W / 2 + FOCAL * ((o->x - G.px) * rx + (o->y - G.py) * ry) / d->depth;
+        render_mflag(f, d, scx - size * 0.5f, horizon - (o->z - G.camz) * FOCAL / d->depth - size * 0.97f, size);
+    }
+}
+
 static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     static Draw list[MAXDECO + MAXMOBS + MAXSHOTS + MAXBOOMS + MAXBONES + MAXITEMS + MAXBURNS + MAXPOOLS + MAXHAZ * 4 + MAXSITE * 4 + 16 + DFIRE_CELLS * 2
                      + MAXMICE + MAXSKIT];   /* and wisps, a double, after-images; the mice, the spiders on the walls */
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
-        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0, 0, 0, 0, 0, NULL, 0.0f, 0, 0, 0 }; } while (0)
+        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0, 0, 0, 0, 0, NULL, 0.0f, 0, 0, 0, 0 }; } while (0)
     for (int i = 0; i < G.ndecos; i++) {
         const Deco *dc = &G.decos[i];
         static const float FPS[4] = { 0.0f, 0.0f, 3.0f, 9.0f };    /* by frame count: candles flicker, fire roars */
@@ -758,14 +837,18 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     for (int i = 0; i < G.nskit && !PK.depth && !G.shop; i++) {    /* the spiders on the walls (docs/PLAN-mice.md, section 8) */
         const Skitter *o = &G.skit[i];
         if (!o->alive) continue;
-        int moving = o->st == SK_CRAWL || o->st == SK_RUN, s = moving && (((int)((float)G.t * (o->st == SK_RUN ? 16.0f : 8.0f)) + i) & 1) ? SP_LING_B : SP_LING_A;
         int n0 = n;
-        ADD(o->x + o->ox, o->y + o->oy, o->z - SK_SCALE * 0.6f, s, o->st == SK_DEAD ? fmaxf(0.05f, 1.0f - o->t) : 0.0f);
+        if (o->st == SK_DEAD) {                                    /* fallen off the stone, on its back */
+            ADD(o->x, o->y, o->z, SP_LING_A, fmaxf(0.05f, 1.0f - o->t));
+            if (n > n0) { list[n - 1].scale = SK_SCALE; list[n - 1].lut = sk_lut; list[n - 1].flags |= DR_FLIPV; }
+            continue;
+        }
+        int moving = o->tf >= 0 && (o->st == SK_CRAWL || o->st == SK_RUN), s = moving && (((int)((float)G.t * (o->st == SK_RUN ? 16.0f : 8.0f)) + i) & 1) ? SP_SKIT_B : SP_SKIT_A;
+        ADD(o->x, o->y, o->z, s, 0);
         if (n == n0) continue;
         Draw *d = &list[n - 1];
-        d->scale = SK_SCALE; d->lut = sk_lut;
-        if (o->st == SK_DEAD) d->flags |= DR_FLIPV;
-        else { d->eye = 1; d->etype = MOB_LING; d->erank = RK_I; d->estate = o->st == SK_RUN ? 1 : 0; }
+        d->scale = SK_SIZE; d->lut = sk_lut; d->skit = 1 + i;     /* painted on the stone (skit_decal) */
+        d->eye = 1; d->etype = MOB_LING; d->erank = RK_I; d->estate = o->st == SK_RUN ? 1 : 0;
         if (o->st == SK_RUN && o->spider) d->mflag = 2;           /* carrying word to a spider: its mark, in ember */
     }
     for (int i = 0; i < MAXHAZ && !PK.depth && !G.shop; i++) {      /* the hazards standing up off the floor */
@@ -1105,6 +1188,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     float bfs_dark = G.bfs_t > 0.0f ? 1.0f - smoothstepf(0.3f, 1.4f, G.bfs_t) : 0.0f;
     for (int i = 0; i < n; i++) {
         Draw *d = &list[i];
+        if (d->skit) { skit_decal(f, d, dx, dy, horizon, bfs_dark); continue; }   /* a wall spider, on the stone */
         float vx = d->x - G.px, vy = d->y - G.py;
         float lat = vx * rx + vy * ry;
         float size = FOCAL / d->depth * d->scale;

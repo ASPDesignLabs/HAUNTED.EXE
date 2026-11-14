@@ -623,16 +623,20 @@ typedef struct {
 typedef struct { int wx, wy, d, fx, fy; float mx, my; } MHole;   /* the wall, its face towards the floor cell (fx, fy), its mouth */
 /* The wall spiders (docs/PLAN-mice.md, section 8): set dressing, on dice of their own. They crawl the walls, rest, and when you come
  * near run to tell the nearest web or hunting spider, or failing one hide in a corner web. SK_*: resting on a wall, crawling, running
- * (to tell, or for a web), sat in a web, slain (one carrying word, hit). Their way is a path of floor cells; side the wall beside it
- * they cling to (DX/DY's index, -1 the floor), and ox, oy, z where it is drawn. */
+ * (to tell, or for a web), sat in a web, slain (one carrying word, hit). They never leave the stone: their place is a face of the
+ * stone's ways (skitters.c, WF), how far along it and how high, and they go only along those ways and up and down them. */
 enum { SK_IDLE, SK_CRAWL, SK_RUN, SK_WEB, SK_DEAD };
 #define MAXSKIT 10
 typedef struct {
-    int alive, st, side, spider, web, seek;                        /* spider: 1 + the creature it runs to tell; web: 1 + the deco it
+    int alive, st, spider, web, seek;                              /* spider: 1 + the creature it runs to tell; web: 1 + the deco it
                                                                       makes for or sits in; seek: wandering in search of one */
-    float x, y, ox, oy, z, zt, face, t, wait, pace, ax, ay, stall, seek_t, plan_t;   /* seek_t: how long it has looked for a web;
-                                                                      plan_t: its way after a hunter, again now and then */
-    int16_t path[MPATH]; int npath, ip, stall_ip;
+    int f, tf;                                                     /* the face it is on; the one it makes for, -1 none */
+    float u, h, tu, ht;                                            /* how far along its face and how high; where it makes for */
+    float x, y, z, vz, head;                                       /* where that is; slain, its fall; head: its heading on the stone
+                                                                      (0 along its face's way, a quarter turn up) */
+    float t, wait, pace, ax, ay, seek_t, plan_t, lx, ly, lz;       /* seek_t: how long it has looked for a web, or run; plan_t: its
+                                                                      way after a hunter, again now and then; lx, ly, lz: where it was
+                                                                      a frame ago (the jump check) */
 } Skitter;
 
 static struct {

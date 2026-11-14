@@ -526,3 +526,33 @@ static void spr_ling(int id, int frame) {
     cv_store(id);
 }
 
+/* the same from above, as one flat on a wall shows itself (docs/PLAN-mice.md, section 8): its head up the picture, its legs spread
+ * round it and banded at the knee, the front ones reaching forward and the back ones back, its mother's mark on its back and its
+ * eyes at the front of its head. frame: the other step, each side's legs taken in turn */
+static void spr_skit(int id, int frame) {
+    static const float ANG[4] = { 0.62f, 1.18f, 1.86f, 2.45f };    /* each leg's way out, from straight ahead */
+    cv_begin(cv_sprite, TS, TS);
+    for (int s = -1; s <= 1; s += 2)
+        for (int l = 0; l < 4; l++) {
+            int grp = (l + (s > 0)) & 1;
+            float sw = (frame ? 1.0f : -1.0f) * (grp ? 0.16f : -0.16f), a = ANG[l] + sw, a2 = a + (l < 2 ? -0.3f : 0.3f);
+            float hx = 32 + s * 4.0f * sinf(a), hy = 30 - 4.0f * cosf(a);
+            float kx = 32 + s * 15.0f * sinf(a), ky = 30 - 15.0f * cosf(a), fx = kx + s * 13.0f * sinf(a2), fy = ky - 13.0f * cosf(a2);
+            cv_capsule(hx, hy, kx, ky, 2.2f, R_IRON, 0.05f, 0.4f);
+            cv_capsule(kx, ky, fx, fy, 1.8f, R_IRON, 0.05f, 0.35f);
+            cv_ellipse(kx, ky, 2.5f, 2.5f, R_IRON, 0.35f, 0.6f);   /* a pale band at the knee */
+            cv_ellipse((kx + fx) * 0.5f, (ky + fy) * 0.5f, 2.0f, 2.0f, R_IRON, 0.3f, 0.55f);
+        }
+    for (int k = -1; k <= 1; k += 2) cv_capsule(32 + k * 3.0f, 23, 32 + k * 6.0f, 17, 1.3f, R_IRON, 0.1f, 0.45f);   /* its palps */
+    cv_ellipse(32, 44, 10, 12, R_IRON, 0.06f, 0.45f);              /* its back */
+    for (int k = 0; k < 7; k++) { int w = k < 3 ? 3 - k : k - 3; for (int q = -w; q <= w; q++) cv_px(32 + q, 40 + k, (uint8_t)(R_BLOOD + 8)); }   /* its mother's mark */
+    cv_ellipse(32, 28, 8, 8, R_IRON, 0.08f, 0.5f);                 /* its head and the shell over it */
+    for (int k = -1; k <= 1; k += 2) {
+        cv_flat(32 + k * 3.0f, 23, 2.0f, 2.0f, (uint8_t)(R_FLAME + 5)); cv_eye_mark((int)(32 + k * 3.0f), 23);
+        cv_flat(32 + k * 6.0f, 25, 1.0f, 1.0f, (uint8_t)(R_FLAME + 2));
+        cv_line(32 + k * 1.5f, 20, 32 + k * 1.5f, 18, sh(R_BONE, 0.45f));   /* fang tips */
+    }
+    cv_outline(0);
+    cv_store(id);
+}
+

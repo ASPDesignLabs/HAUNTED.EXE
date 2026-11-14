@@ -120,10 +120,13 @@ Where it hangs is the owner's to choose.
 
 `CRAWL_MICE=0` none (the wall spiders too); `CRAWL_MICESTAGE=n` the small ones at stage n whatever the level; `CRAWL_TPMICE=1`
 stood before the nearest gathering when you take over (2: before a hole, a mouse looking out); `CRAWL_SKIT=0` no wall spiders;
-`CRAWL_TPSKIT=1` stood two cells from one on its wall. `EVENT mice` (the level's count and holes), `EVENT mouse_tell`,
+`CRAWL_TPSKIT=1` stood two cells from one on its wall (`CRAWL_SKITGO=1`: it crawls off at once); `CRAWL_TPSKIT=2` one put a
+little short of a wall's edge and crawling slowly round it and back, you where both faces show, `3` the same into a corner (that
+one minds nothing, and the controls card is put away). `EVENT mice` (the level's count and holes), `EVENT mouse_tell`,
 `mouse_told_rat`, `mouse_slain`, `mouse_gaveup` (a messenger giving its word up after 25 s), `mouse_stall` (two seconds on one step
 of its way, stepped on: it should never come), `mice_hide`; `EVENT skitters`, `skitter_run`, `skitter_told`, `skitter_web`,
-`skitter_slain`.
+`skitter_slain`, `skitter_ways` (the loops traced again), `skitter_jump` (one moved more than 0.3 of a cell in a frame: it should
+never come), `skitter_ways_broken` (a loop that did not close: it should never come).
 
 ## 8. The wall spiders
 
@@ -132,21 +135,53 @@ background character for a bit that can alert other spiders to your presence. Th
 if present. If not they wander around until they find a web in a corner. This doesn't need to be a new kind, these are purely for
 world building and set dressing." Defaults taken, each easy to change:
 
-- **Not a kind, and no new art.** `Skitter` in `G.skit` (`MAXSKIT` 10), on dice of their own (`G.srs`); drawn with the spiderling's
-  two frames at half its size (`SK_SCALE` 0.11), her red mark turned to iron by a table, its eyes through the eye pass in ember.
+- **Not a kind.** `Skitter` in `G.skit` (`MAXSKIT` 10), on dice of their own (`G.srs`). Drawn from the spiderling's own pieces: on
+  the stone its back (`SP_SKIT_A`, `SP_SKIT_B`, section 8.2, `SK_SIZE` 0.17), slain its front turned over (`SP_LING_A`, `SK_SCALE`
+  0.14); her red mark and its iron turned to the walls' dust by a table (`sk_lut`), its eyes through the eye pass in ember.
 - **Where.** Every level the mice are on: two on a run's first levels to five on its ninth, two more in the Catacombs; two on a drawn
   level and on a boss's.
-- **Their days.** They cling to a wall beside their cell (`side`), crawl along it a few cells (`sk_wander`, only to cells with a wall
-  beside them), climb and come down it (`zt`, a sixth of a cell to three quarters), rest; across a room's open floor they walk it.
+- **Their days.** They never leave the stone (section 8.1). They crawl a few faces on round it (`sk_wander`), up and down it (a tenth
+  of the wall's height to nine tenths), and rest.
 - **Scurried** by you within two cells (three and a half in sight and moving), a noise within half its reach, a blast, a fight within
-  three cells: to the nearest calm web or hunting spider by its way there (`sk_find_spider`), carrying word (the mark, in ember).
-  Told (`sk_tell`): a hunting spider goes where you were seen (`mind_track`), as a told rat does; a web spider, which cannot leave its
-  web, watches 30 seconds (`Mob.told_t`: its eyes stop blinking) and its web thrums, and if it is a nest's (from level 15) it calls
-  the nest, as its tripwire does. With no spider to tell it makes for the nearest corner web (`SP_COBWEB`), or wanders until one is
-  within six steps (giving up after 25 seconds), and sits in it 30 to 60 seconds.
-- **Killed** only while carrying word, by one hit, and the word dies with it; not a kill.
+  three cells: to the nearest calm web or hunting spider within 36 cells' crawl round the stone (`sk_find_spider`), carrying word
+  (the mark, in ember). Told (`sk_tell`): a hunting spider goes where you were seen (`mind_track`), as a told rat does; a web spider,
+  which cannot leave its web, watches 30 seconds (`Mob.told_t`: its eyes stop blinking) and its web thrums, and if it is a nest's
+  (from level 15) it calls the nest, as its tripwire does. A web spider is told from the corner behind its web; a hunting spider from
+  the wall nearest it, once within 2.2 cells and in sight. With no spider to tell it makes for the nearest corner web (`SP_COBWEB`)
+  within 40 cells' crawl, or wanders until one is within six (giving up after 25 seconds), and sits in the corner behind it 30 to 60
+  seconds.
+- **Killed** only while carrying word, by one hit, and the word dies with it; not a kill. It drops off the stone to the floor.
 - **On a boss level** they go into the nearest web when the fight begins, for good.
 - **The simulation.** A web spider told only shows it, so before level 11 (the hunting spider's first) nothing they do reaches it.
+
+### 8.1 The stone's ways
+
+The owner, after playing them (14 November): "Spiders we are using for this are not actually sticking to the walls. We might need to
+develop a pathing system for them to do this. They kind of float and fly around, which looks a bit odd." They had walked the floor's
+ways from one cell's middle to the next and were only drawn pushed toward a wall beside the cell. Where the wall changed side or
+stopped (a corner, an opening, a doorway) the drawing slid across open air to the other wall, or sank to the middle of the floor.
+
+Now every face where open floor meets a wall (`K_WALL`) is traced, with the wall on the left, into closed loops (`wf_build`, `WF`):
+one round each room's and corridor's edge, out through every doorway along its jambs (a spider fits the crack a door leaves), and
+one round each block standing free. A face is its open cell and the side its wall is on, and its joints with the faces either side
+go straight on, into a corner (the same cell's next face) or round the wall's edge (onto the wall's other side). A spider's place is
+its face, how far along it and how high, held `WF_IN` (0.02 of a cell) off the stone. Its way stops that short of an inner corner and
+goes that far past an outer one, so the way is unbroken all round. A spider goes only along its loop, the shorter way round
+(`wf_gap`), and up and down the stone, in a straight line in those two (`sk_crawl`), so it cannot leave the stone. They are put only
+on loops of twelve cells or more, since one on a block standing free could only go round it. Whom a spider is told from, and webs,
+are found through the open floor to the nearest place on the stone (`wf_near`). When a wall moves (a secret's block), the loops are
+traced again and each spider put back on its face or the nearest (`skit_rebuild`).
+
+### 8.2 Painted on the stone
+
+A picture standing 0.04 off a wall stands out from it as soon as the wall turns away, and its far half goes into the stone. So a
+wall spider is drawn as the walls are (`skit_decal`): each column's ray is met with its face's plane, and the picture's texel is
+found by how far along the stone and how high, turned to its heading. It narrows as the wall turns away, and what of it reaches past
+a joint is drawn on the next face, folded into the corner or round the wall's edge. Its eyes are put where they fall on the stone and
+drawn by the eye pass's own code (`eyes_put`, cut from `render_eyes`, which keeps the billboards' part). The picture is new: the
+spiderling from above, its own legs, shell, mark and eyes (`spr_skit`, in `parts/spiders.c`). It is the last row of `make sheets`'
+`mice`, and is kept with frames of one going round each kind of corner as `media/sheets/mice/wallspiders.png`. It went in
+before the owner had seen it, since the fix needed it; it is theirs to pass or change.
 
 ## 9. Hand-off log
 

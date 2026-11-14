@@ -83,7 +83,12 @@ it, once you take control; 2: two cells before a hole, a mouse looking out of it
 m holes h lights l`, `EVENT mouse_tell i at x,y to mouse|rat j via h1,h2` (the holes it goes through, -1 on foot), `EVENT
 mouse_told_rat`, `EVENT mouse_slain`, `EVENT mouse_gaveup`, `EVENT mouse_stall` (never, since it was fixed), `EVENT mice_hide boss`.
 The charnel rat is `CRAWL_MEET=23`. The wall spiders (its section 8): `CRAWL_SKIT=0` (none), `CRAWL_TPSKIT=1` (two cells from one on
-its wall, once you take control); `EVENT skitters level n count c`, `skitter_run`, `skitter_told`, `skitter_web`, `skitter_slain`.
+its wall, once you take control; `CRAWL_SKITGO=1` it crawls off at once), `CRAWL_TPSKIT=2` (one put a little short of a wall's edge,
+crawling slowly round it and back, you where both faces show; it minds nothing, and the controls card is put away), `CRAWL_TPSKIT=3`
+(the same into a corner); `EVENT skitters level n count c faces f`, `skitter_run`, `skitter_told`, `skitter_web`, `skitter_slain`,
+`skitter_ways` (the stone's ways traced again, a wall having moved), `skitter_jump` (one moved more than 0.3 of a cell in a frame) and
+`skitter_ways_broken` (a loop that did not close), the last two never yet. `CRAWL_STAGE=1` with `CRAWL_LEVEL` starts in the level, not
+her hall, so the teleports apply.
 `CRAWL_BUDGET=0` gives a level with next to no creatures, for looking at them.
 `HAUNT_DEBUG` adds `HAUNT_PLAN=10,11,...` to force HAUNT.EXE acts (numbers in the README).
 

@@ -191,8 +191,9 @@ PLAN-ui (`src/art/crawl_ui.c`, `draw/cards.c`, `tab.c`), the browser's build in 
   the browser's build the same files. The next release's zip is 9.6 MB where 1.0.0b21.5's was 73.7, which its notes may
   say. This file's *Standing rules* were gathered by the session that slimmed it; the owner may yet amend them.
 - **Being built:** the mice and the charnel rat (docs/PLAN-mice.md), on `claude/gallant-dijkstra-9x79xe`, the owner having taken
-  every default on 14 November, and the spiders on the walls after them (its section 8). The owner has played the mice; the spiders
-  and the fix to the mice's running are harness only. Its log says how far.
+  every default on 14 November, and the spiders on the walls after them (its section 8). The owner has played the mice, and the
+  spiders before they were kept to the stone; the stone's ways, the spiders painted on it and their new art (waiting on the owner's
+  word) are harness only. Its log says how far.
 - **Left open by the tutorial** (docs/PLAN-tutorial.md's log): step 9's checks (a pad and touch through the lessons in
   play; the dream against 1.0.0b21.4 over many seeds), the title's HELP paging through the lessons, the scorched floor,
   the owner's look at level 2's art.
@@ -229,7 +230,7 @@ The plans, each with its hand-off log (`docs/HISTORY.md` has the account of each
 | `PLAN-mobile.md` | Touch, and asking how you play | 1.0.0b21.4; the mouse in menus not built |
 | `PLAN-tutorial.md` | The first two levels drawn, and the lessons | 1.0.0b21.5; step 9 open |
 | `PLAN-tidy.md` | Code and pictures apart; the great files cut; this file slimmed | On main since 13 November, unreleased; done |
-| `PLAN-mice.md` | The mice in the walls, their holes and their telling; the charnel rat they grow into; the spiders on the walls | Being built; the mice played by the owner |
+| `PLAN-mice.md` | The mice in the walls, their holes and their telling; the charnel rat they grow into; the spiders on the walls | Being built; the mice played by the owner, the spiders' second build not yet |
 | `CHANGES-1.0.0b14.md` | The full record of everything between 1.0.0b13 and 1.0.0b14 | |
 
 ## Releasing
