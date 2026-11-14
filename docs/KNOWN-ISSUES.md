@@ -267,7 +267,9 @@ wrong or untried, and the numbers from each round of the dream's runs. Add to it
   number a mouse hears once, and a mouse with no hole to reach cowers where it is (7 tells there since). Clean under ASan and UBSan:
   the dream from levels 1, 10, 13 and 16, a person by the mice on 4 and 17. A frame costs about 3% more natively (1.90-1.97 ms
   against 1.96-2.06 in three alternate runs of `bench crawl 60`); sound the same. CI's first browser smoke on the branch failed at
-  14.3 frames a second against main's 55.9, its title screen (which draws no mice) as much slower, so most likely the runner.
+  14.3 frames a second against main's 55.9, its title screen (which draws no mice) as much slower: the runner. The next, on
+  723c09f, passed whole: Windows built and smoke-tested, the browser's play at 60.3 frames a second, its own work 4.64 ms a frame
+  (main's last 5.08).
 - The early mice are small at their true size: on levels 1-4 a mouse is two or three pixels across at three cells and its eyes a pixel
   each, as the sheets said. If they are too easily missed in play, the boxes in `crawl_mouse_box` are the place to change it.
 - The charnel rat has no portrait in her hall and no feat: her hall's twenty-two places are all taken. The portraits leave it out

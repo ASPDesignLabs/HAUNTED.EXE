@@ -134,4 +134,4 @@ mouse_tell`, `mouse_told_rat`, `mouse_slain`, `mice_hide`.
   showed none of it, so nothing else draws it. From level 16 one or two rats roam each level (section 5). The proof, the balance runs
   and the sanitizers are in docs/KNOWN-ISSUES.md: levels 1-14 log as the build before; from 15 the deaths are within the noise. Found
   and fixed on the way: the word going round three mice in a ring where no hole was in reach. Left: the owner's hand on it (how small
-  the early ones read, how often they tell, the chirps); the rat's portrait; CI's browser smoke to see pass on the branch.
+  the early ones read, how often they tell, the chirps); the rat's portrait. CI built and smoke-tested both the Windows and the browser's builds on the branch (run 137).
