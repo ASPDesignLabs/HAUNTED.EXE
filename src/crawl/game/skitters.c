@@ -285,11 +285,43 @@ static int sk_los(int L, float s0, float xa, float ha, float xb, float hb, int c
     }
     return 1;
 }
-static int sk_plan(Skitter *o) {
-    enum { NCELL = (2 * GCW + 1) * GNR };
-    static uint16_t seen[NCELL], stamp;
-    static int32_t par[NCELL], q[NCELL];
+enum { SK_NCELL = (2 * GCW + 1) * GNR };
+static uint16_t sk_seen[SK_NCELL], sk_stamp;
+static int32_t sk_par[SK_NCELL], sk_q[SK_NCELL];
+static int sk_flood(int L, int ca, int rs, int cw, int goal) {     /* the search out from column ca, row rs, cw columns either way:
+                                                                      the cells reached in sk_q (each (dc + GCW) * GNR + row), how
+                                                                      many; it stops at goal (>= 0) once reached */
     static const int KX[8] = { 1, -1, 0, 0, 1, 1, -1, -1 }, KY[8] = { 0, 0, 1, -1, 1, -1, 1, -1 };
+    if (++sk_stamp == 0) { memset(sk_seen, 0, sizeof sk_seen); sk_stamp = 1; }
+    int qh = 0, qt = 0, start = GCW * GNR + rs;
+    sk_seen[start] = sk_stamp; sk_par[start] = -1; sk_q[qt++] = start;
+    if (start == goal) return qt;
+    while (qh < qt) {
+        int id = sk_q[qh++], dc = id / GNR - GCW, r = id % GNR;
+        for (int k = 0; k < 8; k++) {
+            int nd = dc + KX[k], nr = r + KY[k];
+            if (nd < -cw || nd > cw || nr < 0 || nr >= GNR) continue;
+            int nid = (nd + GCW) * GNR + nr;
+            if (sk_seen[nid] == sk_stamp || sk_occ(L, ca + nd, nr)) continue;
+            if (KX[k] && KY[k] && (sk_occ(L, ca + nd, r) || sk_occ(L, ca + dc, nr))) continue;   /* no corner cut */
+            sk_seen[nid] = sk_stamp; sk_par[nid] = id; sk_q[qt++] = nid;
+            if (nid == goal) return qt;
+        }
+    }
+    return qt;
+}
+static int sk_at(int L, float s, float *u) {                       /* the face of loop L that s round it falls on, and how far along */
+    float Ls = wf_len[L];
+    s = fmodf(s, Ls);
+    if (s < 0.0f) s += Ls;
+    int lo = wf_seq0[L], hi = wf_seq0[L + 1] - 1;
+    while (lo < hi) { int mid = (lo + hi + 1) / 2; if (WF[wf_seq[mid]].s0 <= s) lo = mid; else hi = mid - 1; }
+    int f = wf_seq[lo];
+    *u = clampf(WF[f].lo + (s - WF[f].s0), WF[f].lo, WF[f].hi);
+    return f;
+}
+static int sk_plan(Skitter *o) {
+    int32_t *q = sk_q;
     o->nwp = o->iwp = o->wpmore = 0;
     if (o->tf < 0) return 0;
     int L = WF[o->f].loop, n = wf_ncol[L];
@@ -305,24 +337,11 @@ static int sk_plan(Skitter *o) {
         if (h < 0.0f) return 0;
         o->ht = h; re = sk_row(h);
     }
-    if (++stamp == 0) { memset(seen, 0, sizeof seen); stamp = 1; }
-    int qh = 0, qt = 0, start = GCW * GNR + rs, goal = (dce + GCW) * GNR + re, found = start == goal;
-    seen[start] = stamp; par[start] = -1; q[qt++] = start;
-    while (qh < qt && !found) {
-        int id = q[qh++], dc = id / GNR - GCW, r = id % GNR;
-        for (int k = 0; k < 8; k++) {
-            int nd = dc + KX[k], nr = r + KY[k];
-            if (nd < -cw || nd > cw || nr < 0 || nr >= GNR) continue;
-            int nid = (nd + GCW) * GNR + nr;
-            if (seen[nid] == stamp || sk_occ(L, ca + nd, nr)) continue;
-            if (KX[k] && KY[k] && (sk_occ(L, ca + nd, r) || sk_occ(L, ca + dc, nr))) continue;
-            seen[nid] = stamp; par[nid] = id; q[qt++] = nid;
-            if (nid == goal) { found = 1; break; }
-        }
-    }
-    if (!found) return 0;
+    int goal = (dce + GCW) * GNR + re;
+    sk_flood(L, ca, rs, cw, goal);
+    if (sk_seen[goal] != sk_stamp) return 0;
     int m = 0;                                                     /* the way, start to mark, in q (the search is done with it) */
-    for (int id = goal; id >= 0 && m < NCELL; id = par[id]) q[m++] = id;
+    for (int id = goal; id >= 0 && m < SK_NCELL; id = sk_par[id]) q[m++] = id;
     for (int i = 0; i < m / 2; i++) { int t = q[i]; q[i] = q[m - 1 - i]; q[m - 1 - i] = t; }
     #define CX(id) (((float)(ca + (id) / GNR - GCW) + 0.5f) * gs - s0)
     #define CH(id) (SK_HLO + (float)((id) % GNR) * GH)
@@ -434,7 +453,7 @@ static void sk_to_web(Skitter *o, int web) {                       /* into the c
 }
 /* scurried: to tell the nearest spider; with none, off to find a web; it carries word only to a spider */
 static void sk_scare(Skitter *o) {
-    if (!sk_calm(o)) return;
+    if (!sk_calm(o) || o->calm_t > 0.0f) return;
     o->ax = G.px; o->ay = G.py;
     int sp = G.mboss ? 0 : sk_find_spider(o);
     if (sp) {
@@ -453,8 +472,8 @@ static void sk_scare(Skitter *o) {
     }
     o->spider = 0;
     if (sk_for_web(o, 40.0f, 2.2f)) return;
-    o->seek = 1; o->web = 0; o->seek_t = 0.0f;                     /* none known: it wanders, looking for one */
-    o->st = SK_IDLE; o->wait = 0.0f;
+    o->seek = 1; o->web = 0; o->seek_t = 0.0f;                     /* none known: it wanders, looking for one, */
+    o->st = SK_IDLE; o->wait = 0.0f; o->calm_t = 1.5f;             /* not to be scurried again a while */
 }
 static void sk_tell(Skitter *o, Mob *m) {                          /* the word given: a hunter comes; a web spider watches, a nest's calls */
     if (m->type == MOB_HUNTER) {
@@ -497,11 +516,25 @@ static void skit_hear(float x, float y, int steps, int what) {
     for (int i = 0; i < G.nskit; i++) { Skitter *o = &G.skit[i]; if (sk_calm(o) && hypotf(o->x - x, o->y - y) <= (float)steps * 0.5f) sk_scare(o); }
 }
 
-static void sk_wander(Skitter *o, int reach) {                    /* a few faces on round its loop, up or down the stone */
-    int g = o->f, k = 1 + srnd(reach), fwd = srnd(2);
-    for (int i = 0; i < k; i++) g = fwd ? WF[g].next : WF[g].prev;
-    float lo = WF[g].lo, hi = WF[g].hi;
-    sk_go(o, g, lo + (hi - lo) * srndf(), 0.1f + 0.75f * srndf(), SK_CRAWL, o->seek ? 2.0f : 0.5f + 0.3f * srndf());
+static void sk_wander(Skitter *o, int reach) {                    /* somewhere it can get to, a few cells on or back round its loop
+                                                                      and up or down the stone, at least a little way off */
+    int L = WF[o->f].loop, n = wf_ncol[L];
+    float pace = o->seek ? 2.0f : 0.5f + 0.3f * srndf();
+    if (n <= 0) { o->st = SK_IDLE; o->wait = 2.0f; return; }
+    float gs = wf_gs[L], s0 = sk_s(o->f, o->u);
+    int span = (int)((float)reach / gs), cw = span < n / 2 ? span : n / 2, ca = sk_colw(L, s0), rs = sk_row(o->h), near = (int)(0.6f / gs);
+    int nq = sk_flood(L, ca, rs, cw, -1), cnt = 0, pick = -1;
+    for (int pass = 0; pass < 2; pass++)                           /* how many there are, then one of them */
+        for (int i = 0, k = pass ? srnd(cnt) : -1; i < nq; i++) {
+            int dc = sk_q[i] / GNR - GCW, dr = sk_q[i] % GNR - rs;
+            if (abs(dc) < near && abs(dr) < 4) continue;
+            if (!pass) cnt++; else if (k-- == 0) { pick = sk_q[i]; break; }
+            if (pass && !cnt) break;
+        }
+    if (pick < 0) { o->st = SK_IDLE; o->wait = 2.0f + 2.0f * srndf(); return; }
+    float u;
+    int f = sk_at(L, ((float)(ca + pick / GNR - GCW) + 0.5f) * gs, &u);
+    sk_go(o, f, u, SK_HLO + (float)(pick % GNR) * GH, SK_CRAWL, pace);
 }
 
 static void skit_level(void) {
@@ -688,7 +721,10 @@ static void skit_update(float dt) {
         Skitter *o = &G.skit[i];
         if (!o->alive) continue;
         o->t += dt;
-        if (G.mboss && o->st != SK_WEB && o->st != SK_DEAD && !o->web) {   /* a boss's fight: into the nearest web, for good */
+        o->calm_t -= dt;
+        if (G.mboss && o->st != SK_WEB && o->st != SK_DEAD && !o->web && (o->plan_t -= dt) <= 0.0f) {   /* a boss's fight: into the
+                                                                      nearest web, for good; looked for again now and then */
+            o->plan_t = 2.0f;
             if (sk_for_web(o, 44.0f, 2.4f)) continue;
         }
         if (sk_calm(o) && !(sk_tame && i == 0)) {                  /* you near, or a fight */

@@ -123,12 +123,14 @@ stood before the nearest gathering when you take over (2: before a hole, a mouse
 `CRAWL_TPSKIT=1` stood two cells from one on its wall (`CRAWL_SKITGO=1`: it crawls off at once); `CRAWL_TPSKIT=2` one put a
 little short of a wall's edge and crawling slowly round it and back, you where both faces show, `3` the same into a corner (that
 one minds nothing, and the controls card is put away); `CRAWL_TPSKIT=4` one on the face before a picture with bare stone either
-side, crawling at the picture's own height to two faces past it and back, you two cells off. `EVENT mice` (the level's count and holes), `EVENT mouse_tell`,
+side, crawling at the picture's own height to two faces past it and back, you two cells off; `5` the same before three pictures
+together; `CRAWL_PICS=1` lists every picture and its keeping each time the stone is traced. `EVENT mice` (the level's count and holes), `EVENT mouse_tell`,
 `mouse_told_rat`, `mouse_slain`, `mouse_gaveup` (a messenger giving its word up after 25 s), `mouse_stall` (two seconds on one step
 of its way, stepped on: it should never come), `mice_hide`; `EVENT skitters`, `skitter_run`, `skitter_told`, `skitter_web`,
 `skitter_slain`, `skitter_ways` (the loops traced again), `skitter_jump` (one moved more than 0.3 of a cell in a frame: it should
 never come), `skitter_ways_broken` (a loop that did not close: it should never come), `skitter_onpic` (one within half its
-legs' reach of a picture: it should never come); `EVENT skitters` counts the faces and the pictures.
+legs' reach of a picture: it should never come), `skitter_noway` (a mark it has no way to); `EVENT skitters` counts the faces and
+the pictures.
 
 ## 8. The wall spiders
 
@@ -200,13 +202,20 @@ The owner, 14 November: "Spiders can slide under/over doors, open or closed. The
   on its stone (`fover`: a niche, a saint, a banner, a frame, a torch and its three flames), a mice's hole at its foot (the hole
   against the stone it was cut in), or a wall that is a thing of its own whole (the way out, a vault's door, a hazard's alcove, an
   unfaced niche or torch). Its width is taken either way round, since a face may be drawn mirrored. A painted web (run II's
-  `F2_WEB`) is not one: they are spiders. A spider keeps `PIC_M` (0.09, its legs' reach) clear of a picture. Where there is no way
-  over or under (a door the height of the wall), it goes along the picture's very top, over the lintel.
-- **The way round** (`sk_round`, every frame in `sk_crawl`): the pictures it would pass, from the face behind it to a little past its
-  mark, joined where they touch; the first its straight line to its mark crosses; and the shortest way round that one by its
-  corners: over, under, or round an end when its mark is above or below it. It aims at the next corner of that way, and at its mark
-  once the line is clear. Every height it makes for or rests at, its first place included, is kept off pictures and their
-  neighbours' reaching over a joint (`sk_clear_h`). On level 3 of seed 3, 117 of the 712 faces have a picture.
+  `F2_WEB`) is not one: they are spiders. A spider keeps `PIC_MU` (0.06) along the stone and `PIC_MH` (0.085) up it clear of a
+  picture: its legs' reach. A door (`door_tex`) leaves its top row free, so they go over doors; any other picture that leaves no
+  way past (a floor-to-lintel niche, a saint in her alcove) is not passed.
+- **Finding the way** (`sk_plan`). Each loop's stone is a grid (`wf_occ`): 18 rows from 0.06 of the wall's height to 0.94, and
+  columns as near 0.05 wide as divide the loop evenly, so it closes round; a cell is taken if its middle is within a picture's
+  keeping. A spider's way to its mark is searched out from its cell through the free cells (`sk_flood`: eight ways, no corner cut,
+  up to 45 cells' crawl either way round), then pulled straight from turn to turn as far as each can be seen from the last
+  (`sk_los`). Its turns are kept as waypoints (`wps`, `wph`, twelve, planned again when they run out) and it crawls from one to
+  the next (`sk_crawl`). So it goes under a torch, over a low tablet, down the gap between two pictures and along under the next,
+  or back the other way round the room when the pictures leave no way. A mark on a picture is moved to the nearest clear height
+  there (`sk_free_h`); one with no way to it is not made for (`EVENT skitter_noway`), and a spider scurried to no end is not
+  scurried again for 1.5 seconds, nor looks for a web in a boss's fight more than every two.
+- **Wandering** (`sk_wander`) is to somewhere it can reach: a cell the search found within a few cells either way round, at least
+  0.6 of a cell along or four rows up or down from where it is. On level 3 of seed 3, 117 of the 712 faces have a picture.
 
 ## 9. Hand-off log
 

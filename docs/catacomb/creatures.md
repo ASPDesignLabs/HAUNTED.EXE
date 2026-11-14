@@ -121,5 +121,8 @@ harness `docs/HARNESS.md`, the known issues `docs/KNOWN-ISSUES.md`, and each rel
   it reaches over a joint, turned to `head`, through `sk_lut`; its eyes by `eyes_put` (the eye pass's drawing, cut from
   `render_eyes`); `Draw.mflag` 2 its mark in ember. Slain, `SP_LING_A` turned over, falling. They go round what is painted on the
   stone and past doors open or shut (its section 8.3): `wf_pic` each face's picture (`wf_pictures`, from the overlay's texels, a
-  hole's, or a special wall's whole), `PIC_M` the berth they keep, `sk_round` the way round the first picture in their line (corners,
-  over, under or round an end), `sk_clear_h` a height kept off pictures for every mark; `SK_HLO`, `SK_HHI` how low and high they go.
+  hole's, or a special wall's whole; `door_tex` leaves a door's top free), `PIC_MU`/`PIC_MH` the berth they keep, `wf_occ` each
+  loop's grid of taken cells (`GS`, `GNR`, `wf_gs`, `wf_col0`, `wf_ncol`), `sk_flood` the search through it, `sk_plan` a way to a
+  mark pulled straight between turns (`sk_los`; `Skitter.wps`, `wph`, `nwp`, `iwp`, `wpmore`), `sk_free_h` a clear height,
+  `sk_at` the face at a place round a loop (`wf_seq`, `wf_seq0`), `sk_wander` somewhere reachable; `calm_t` the wait after a
+  scurry to no end; `SK_HLO`, `SK_HHI` how low and high they go.

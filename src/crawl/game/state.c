@@ -639,6 +639,7 @@ typedef struct {
     float t, wait, pace, ax, ay, seek_t, plan_t, lx, ly, lz;       /* seek_t: how long it has looked for a web, or run; plan_t: its
                                                                       way after a hunter, again now and then; lx, ly, lz: where it was
                                                                       a frame ago (the jump check) */
+    float calm_t;                                                  /* scurried to no end: not again till this is out */
     float wps[MAXWP], wph[MAXWP]; int nwp, iwp, wpmore;            /* its way round what is painted on the stone: each turn, how far
                                                                       round its loop and how high (skitters.c, sk_plan) */
 } Skitter;

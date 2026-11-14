@@ -85,8 +85,9 @@ mouse_told_rat`, `EVENT mouse_slain`, `EVENT mouse_gaveup`, `EVENT mouse_stall` 
 The charnel rat is `CRAWL_MEET=23`. The wall spiders (its section 8): `CRAWL_SKIT=0` (none), `CRAWL_TPSKIT=1` (two cells from one on
 its wall, once you take control; `CRAWL_SKITGO=1` it crawls off at once), `CRAWL_TPSKIT=2` (one put a little short of a wall's edge,
 crawling slowly round it and back, you where both faces show; it minds nothing, and the controls card is put away), `CRAWL_TPSKIT=3`
-(the same into a corner), `CRAWL_TPSKIT=4` (one crawling at a picture on the wall, at its height, and round it); `EVENT skitters
-level n count c faces f pictures p`, `skitter_run`, `skitter_told`, `skitter_web`, `skitter_slain`, `skitter_ways` (the stone's ways
+(the same into a corner), `CRAWL_TPSKIT=4` (one crawling at a picture on the wall, at its height, and round it; `5` at three pictures
+together), `CRAWL_PICS=1` (every picture on the stone and its keeping, each time it is traced); `EVENT skitters level n count c faces
+f pictures p`, `skitter_noway` (a mark with no way to it round the pictures), `skitter_run`, `skitter_told`, `skitter_web`, `skitter_slain`, `skitter_ways` (the stone's ways
 traced again, a wall having moved), `skitter_jump` (one moved more than 0.3 of a cell in a frame), `skitter_ways_broken` (a loop that
 did not close) and `skitter_onpic` (one within half its legs' reach of a picture), the last three never yet. `CRAWL_STAGE=1` with `CRAWL_LEVEL` starts in the level, not
 her hall, so the teleports apply.
