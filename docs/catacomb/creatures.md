@@ -119,4 +119,7 @@ harness `docs/HARNESS.md`, the known issues `docs/KNOWN-ISSUES.md`, and each rel
   place on the stone nearest a point through the open floor. Drawn as a decal (`skit_decal` in `draw/sprites.c`, from `Draw.skit`):
   `SP_SKIT_A/B` (`spr_skit`, the spiderling from above) laid on its face's plane column by column and on the faces either side where
   it reaches over a joint, turned to `head`, through `sk_lut`; its eyes by `eyes_put` (the eye pass's drawing, cut from
-  `render_eyes`); `Draw.mflag` 2 its mark in ember. Slain, `SP_LING_A` turned over, falling.
+  `render_eyes`); `Draw.mflag` 2 its mark in ember. Slain, `SP_LING_A` turned over, falling. They go round what is painted on the
+  stone and past doors open or shut (its section 8.3): `wf_pic` each face's picture (`wf_pictures`, from the overlay's texels, a
+  hole's, or a special wall's whole), `PIC_M` the berth they keep, `sk_round` the way round the first picture in their line (corners,
+  over, under or round an end), `sk_clear_h` a height kept off pictures for every mark; `SK_HLO`, `SK_HHI` how low and high they go.

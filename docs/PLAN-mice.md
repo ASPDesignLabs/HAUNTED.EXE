@@ -122,11 +122,13 @@ Where it hangs is the owner's to choose.
 stood before the nearest gathering when you take over (2: before a hole, a mouse looking out); `CRAWL_SKIT=0` no wall spiders;
 `CRAWL_TPSKIT=1` stood two cells from one on its wall (`CRAWL_SKITGO=1`: it crawls off at once); `CRAWL_TPSKIT=2` one put a
 little short of a wall's edge and crawling slowly round it and back, you where both faces show, `3` the same into a corner (that
-one minds nothing, and the controls card is put away). `EVENT mice` (the level's count and holes), `EVENT mouse_tell`,
+one minds nothing, and the controls card is put away); `CRAWL_TPSKIT=4` one on the face before a picture with bare stone either
+side, crawling at the picture's own height to two faces past it and back, you two cells off. `EVENT mice` (the level's count and holes), `EVENT mouse_tell`,
 `mouse_told_rat`, `mouse_slain`, `mouse_gaveup` (a messenger giving its word up after 25 s), `mouse_stall` (two seconds on one step
 of its way, stepped on: it should never come), `mice_hide`; `EVENT skitters`, `skitter_run`, `skitter_told`, `skitter_web`,
 `skitter_slain`, `skitter_ways` (the loops traced again), `skitter_jump` (one moved more than 0.3 of a cell in a frame: it should
-never come), `skitter_ways_broken` (a loop that did not close: it should never come).
+never come), `skitter_ways_broken` (a loop that did not close: it should never come), `skitter_onpic` (one within half its
+legs' reach of a picture: it should never come); `EVENT skitters` counts the faces and the pictures.
 
 ## 8. The wall spiders
 
@@ -188,6 +190,23 @@ back, the first two pairs forward, the third out and back, the fourth back along
 third shortest; each a thigh, a shin and a finer foot, banded at the knee and the next joint, curling forward in front and back
 behind; a pear of a shell with a waist, the eyes a pair with a seam between at its front edge and the small ones behind, the palps
 and fangs before them, chevrons down the abdomen behind the mark. The sheet was made again from it.
+
+### 8.3 Round the pictures; past the doors
+
+The owner, 14 November: "Spiders can slide under/over doors, open or closed. They should navigate around pictures."
+
+- **Doors.** Settled as built: the stone's ways run through every doorway along its jambs, so a spider goes past a door open or shut.
+- **Pictures** (`wf_pic`, `wf_pictures` when the ways are traced). Each face's picture is measured from its own texels: what stands
+  on its stone (`fover`: a niche, a saint, a banner, a frame, a torch and its three flames), a mice's hole at its foot (the hole
+  against the stone it was cut in), or a wall that is a thing of its own whole (the way out, a vault's door, a hazard's alcove, an
+  unfaced niche or torch). Its width is taken either way round, since a face may be drawn mirrored. A painted web (run II's
+  `F2_WEB`) is not one: they are spiders. A spider keeps `PIC_M` (0.09, its legs' reach) clear of a picture. Where there is no way
+  over or under (a door the height of the wall), it goes along the picture's very top, over the lintel.
+- **The way round** (`sk_round`, every frame in `sk_crawl`): the pictures it would pass, from the face behind it to a little past its
+  mark, joined where they touch; the first its straight line to its mark crosses; and the shortest way round that one by its
+  corners: over, under, or round an end when its mark is above or below it. It aims at the next corner of that way, and at its mark
+  once the line is clear. Every height it makes for or rests at, its first place included, is kept off pictures and their
+  neighbours' reaching over a joint (`sk_clear_h`). On level 3 of seed 3, 117 of the 712 faces have a picture.
 
 ## 9. Hand-off log
 

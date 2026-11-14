@@ -411,3 +411,14 @@ done the same day, each proved: 289 pictures to `media/`, `src/` in six folders,
 Windows binary is 1.0.0b21.5's but for the five bytes of its link time, the browser's build the same eight files, and the win64
 zip 9.6 MB where it was 73.7. Clean under the sanitizers. Folded into main at the owner's word the same day, squashed as one
 commit like the releases, with no version bumped and nothing released.
+
+**The mice** are planned and logged in [`docs/PLAN-mice.md`](PLAN-mice.md) (14 November, on `claude/gallant-dijkstra-9x79xe` from
+main at the tidy-up; its section 9 is the hand-off log). The owner asked for a secret creature to give the crypts some life until
+it became something to fight: small mice in the walls, their chirps deepening as they grow every two levels, green eyes seen from
+afar, holes in the walls they go through, warm lights they gather and preen by, and word of you carried from one to the next and
+shown. From Run 2 Level 5 (level 15) the grown ones are the charnel rat, the 24th kind, which fills the record. The owner took
+every default and played them. Then they asked for spiders on the walls as set dressing that tell the web and hunting spiders of
+you. Played, these floated; they were kept to the stone (its ways traced into loops, the spiders painted on it from above), their
+legs redrawn at the owner's word, and set to go round what is painted on the walls and past doors open or shut. Levels 1-10 log
+as the build before; the balance from 11 and 15 within the noise; clean under the sanitizers. Folded into main at the owner's word
+the same day, squashed as one commit, with no version bumped and nothing released.

@@ -24,7 +24,9 @@ typedef struct { int8_t x, y, d, jp, jn; int16_t prev, next, loop; float s0, lo,
 static WFace WF[MAXWF];
 static float wf_len[MAXWF];                                        /* each loop's length */
 static int16_t wf_at[MAPN][MAPN][4];                               /* the face of (x, y) toward d, -1 none */
-static int nwf;
+static int nwf, wf_nloops;
+static int16_t wf_seq[MAXWF];                                      /* the faces loop by loop, each in its order round */
+static int wf_seq0[MAXWF + 1];                                     /* where each loop begins in wf_seq */
 static uint32_t wf_hash;                                           /* the walls they were traced from */
 
 static int wf_solid(int x, int y) { return x < 0 || y < 0 || x >= MAPN || y >= MAPN || G.map[y][x].kind == K_WALL; }
@@ -42,6 +44,7 @@ static int wf_after(int x, int y, int d, int *nx, int *ny, int *nd) {   /* the f
     *nx = x1 + DX[d]; *ny = y1 + DY[d]; *nd = (t + 2) & 3;        /* round the wall's edge, onto its other side */
     return WJ_OUT;
 }
+static void wf_pictures(void);
 static void wf_build(void) {
     nwf = 0;
     memset(wf_at, 0xFF, sizeof wf_at);
@@ -64,20 +67,150 @@ static void wf_build(void) {
         w->lo = w->jp == WJ_IN ? WF_IN : w->jp == WJ_OUT ? -WF_IN : 0.0f;
         w->hi = w->jn == WJ_IN ? 1.0f - WF_IN : w->jn == WJ_OUT ? 1.0f + WF_IN : 1.0f;
     }
-    int nl = 0, bad = 0;
+    int nl = 0, bad = 0, ns = 0;
     for (int f = 0; f < nwf; f++) {
         if (WF[f].loop >= 0) continue;
         float s = 0.0f;
         int g = f, k = 0;
-        do { WF[g].loop = (int16_t)nl; WF[g].s0 = s; s += WF[g].hi - WF[g].lo; g = WF[g].next; } while (g >= 0 && g != f && ++k < MAXWF);
+        wf_seq0[nl] = ns;
+        do { WF[g].loop = (int16_t)nl; WF[g].s0 = s; s += WF[g].hi - WF[g].lo; wf_seq[ns++] = (int16_t)g; g = WF[g].next; } while (g >= 0 && g != f && ++k < MAXWF && ns < MAXWF);
         if (g != f) bad++;
         wf_len[nl++] = s;
     }
+    wf_seq0[nl] = ns; wf_nloops = nl;
     wf_hash = wf_layout();
+    wf_pictures();
 #ifdef CRAWL_DEBUG
     if (bad) fprintf(stderr, "EVENT skitter_ways_broken %d loops level %d\n", bad, G.level);
 #endif
 }
+/* What is painted on the stone (the owner, 14 November: "They should navigate around pictures"). Each face's picture, as how far
+ * along it and how high it reaches (wf_pic; h1 < 0 none): what stands on its stone (fover: a niche, a saint, a banner, a torch and
+ * its three flames), a mice's hole at its foot, or a wall that is a thing of its own whole (the way out, a vault's door, a hazard's
+ * alcove, an unfaced niche or torch). Measured from its own texels, either way round, since a face may be drawn mirrored. A painted
+ * web is not one: they are spiders. A spider keeps PIC_MU along the stone and PIC_MH up it clear of a picture (its legs' reach),
+ * finds its way round them (sk_plan), and never rests on one. A door the height of the wall leaves a way along its top: they go
+ * over doors (the owner's word); any other picture that leaves no way past is not passed. */
+typedef struct { float u0, u1, h0, h1; } WPic;
+static WPic wf_pic[MAXWF];
+#define PIC_MU 0.06f
+#define PIC_MH 0.085f
+#define SK_HLO 0.06f                                               /* how low and high on the stone a spider goes */
+#define SK_HHI 0.94f
+static void pic_box(const uint8_t *t, const uint8_t *base, int *x0, int *x1, int *y0, int *y1) {   /* the texels that are the
+                                                                      picture: not clear (an overlay), or not the stone it was cut in */
+    for (int x = 0; x < TS; x++)
+        for (int y = 0; y < TS; y++) {
+            uint8_t c = t[x * TS + y];
+            if (base ? c == base[x * TS + y] : c == C_CLEAR) continue;
+            if (x < *x0) *x0 = x;
+            if (x > *x1) *x1 = x;
+            if (y < *y0) *y0 = y;
+            if (y > *y1) *y1 = y;
+        }
+}
+static int door_tex(int t) {                                       /* a wall that is a door or a doorway */
+    return t == T_DOOR || t == T_LOCKED || (t >= T_EXIT0 && t <= T_LOCKED_C) || t == T_PASSAGE || t == T_BDOOR || (t >= T_VISPORT0 && t <= T_VISPORT3)
+        || t == T_SDOOR || t == T_GATE || t == T_SEALED || t == T_REPOSITORY || t == T_WINGDOOR || t == T_HZ_SLUICE || t == T_HZ_SLUICE_OPEN;
+}
+static int pic_at(int f, float u, float h) {                       /* (u, h) on face f within a picture's keeping: its own, or a
+                                                                      neighbour's reaching over the joint */
+    int g[3] = { f, WF[f].next, WF[f].prev };
+    float v[3] = { u, WF[g[1]].lo + (u - WF[f].hi), WF[g[2]].hi - (WF[f].lo - u) };
+    for (int k = 0; k < 3; k++) {
+        const WPic *p = &wf_pic[g[k]];
+        if (p->h1 >= 0.0f && v[k] > p->u0 - PIC_MU && v[k] < p->u1 + PIC_MU && h > p->h0 - PIC_MH && h < p->h1 + PIC_MH) return 1;
+    }
+    return 0;
+}
+/* The stone as a grid for finding a way on it: each loop in GNR rows from SK_HLO to SK_HHI and in columns as near GS wide as divide
+ * it evenly (wf_gs), so the grid closes round on itself; wf_occ a column's rows within a picture's keeping, a bit each. */
+#define GS 0.05f
+#define GNR 18
+#define GH ((SK_HHI - SK_HLO) / (float)(GNR - 1))
+#define MAXGC 60000
+static uint32_t wf_occ[MAXGC];
+static int wf_col0[MAXWF], wf_ncol[MAXWF];
+static float wf_gs[MAXWF];
+static void wf_pictures(void) {
+    for (int f = 0; f < nwf; f++) {
+        const WFace *w = &WF[f];
+        WPic *p = &wf_pic[f];
+        p->h1 = -1.0f;
+        if (G.map[w->y][w->x].kind == K_DOOR) continue;            /* a doorway's jambs: bare */
+        int wx = w->x + DX[w->d], wy = w->y + DY[w->d], fd = (w->d + 2) & 3, x0 = TS, x1 = -1, y0 = TS, y1 = -1, door = 0;
+        if (wx < 0 || wy < 0 || wx >= MAPN || wy >= MAPN) continue;
+        const Cell *c = &G.map[wy][wx];
+        if (c->face[fd] && plain_tex(c->tex)) {                    /* its face, as the walls draw it */
+            int ov = c->fover[fd];
+            if (ov && !(G.look == 1 && ov == T_FEAT + F2_WEB))
+                for (int k = 0; k < (ov == T_FEAT + F1_TORCH ? 3 : 1); k++) pic_box(crawl_tex[ov + k], NULL, &x0, &x1, &y0, &y1);
+            if (c->face[fd] >= T_MHOLE && c->face[fd] <= T_MHOLE_LAST)
+                pic_box(crawl_tex[c->face[fd]], crawl_tex[T_MAT + (c->face[fd] - T_MHOLE)], &x0, &x1, &y0, &y1);
+        } else if (c->tex > T_MOSS) { x0 = y0 = 0; x1 = y1 = TS - 1; door = door_tex(c->tex); }   /* a thing of its own, whole */
+        if (x1 < 0) continue;
+        int a = x0 < TS - 1 - x1 ? x0 : TS - 1 - x1, b = x1 > TS - 1 - x0 ? x1 : TS - 1 - x0;
+        p->u0 = (float)a / TS; p->u1 = (float)(b + 1) / TS;
+        p->h0 = 1.0f - (float)(y1 + 1) / TS; p->h1 = 1.0f - (float)y0 / TS;
+        if (door) p->h1 = SK_HHI - GH * 0.5f - PIC_MH;             /* a door: its top row left, to go over it */
+    }
+    int col = 0;
+    for (int L = 0; L < wf_nloops; L++) {
+        int n = (int)ceilf(wf_len[L] / GS - 1e-3f);
+        if (n < 1) n = 1;
+        wf_ncol[L] = 0;
+        if (col + n > MAXGC) continue;                             /* (never: a level's stone is some 600 cells) */
+        wf_col0[L] = col; wf_ncol[L] = n; wf_gs[L] = wf_len[L] / (float)n;
+        int k = wf_seq0[L], k1 = wf_seq0[L + 1];
+        for (int c = 0; c < n; c++) {
+            float sc = ((float)c + 0.5f) * wf_gs[L];
+            while (k + 1 < k1 && WF[wf_seq[k + 1]].s0 <= sc) k++;
+            int f = wf_seq[k];
+            uint32_t bits = 0;
+            for (int r = 0; r < GNR; r++) if (pic_at(f, WF[f].lo + (sc - WF[f].s0), SK_HLO + (float)r * GH)) bits |= 1u << r;
+            wf_occ[col + c] = bits;
+        }
+        col += n;
+    }
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_PICS"))                                      /* CRAWL_PICS=1: every picture's face, place and keeping */
+        for (int f = 0; f < nwf; f++)
+            if (wf_pic[f].h1 >= 0.0f) {
+                const WFace *w = &WF[f];
+                const Cell *c = &G.map[w->y + DY[w->d]][w->x + DX[w->d]];
+                fprintf(stderr, "PIC %d (%d,%d d%d) tex %d face %d over %d u %.2f-%.2f h %.2f-%.2f prev %d next %d\n", f, w->x, w->y, w->d, c->tex,
+                        c->face[(w->d + 2) & 3], c->fover[(w->d + 2) & 3], wf_pic[f].u0, wf_pic[f].u1, wf_pic[f].h0, wf_pic[f].h1, w->prev, w->next);
+            }
+#endif
+}
+static float sk_s(int f, float u) { return WF[f].s0 + (u - WF[f].lo); }   /* how far round its loop (f, u) is */
+static int sk_row(float h) { int r = (int)floorf((h - SK_HLO) / GH + 0.5f); return r < 0 ? 0 : r >= GNR ? GNR - 1 : r; }
+static int sk_colw(int L, float s) {                               /* the column of the loop's grid s round it falls in */
+    float Ls = wf_len[L];
+    s = fmodf(s, Ls);
+    if (s < 0.0f) s += Ls;
+    int c = (int)(s / wf_gs[L]);
+    return c >= wf_ncol[L] ? wf_ncol[L] - 1 : c;
+}
+static int sk_occ(int L, int c, int r) {                           /* a cell of the grid within a picture's keeping; c any way round */
+    int n = wf_ncol[L];
+    c %= n;
+    if (c < 0) c += n;
+    return (int)(wf_occ[wf_col0[L] + c] >> r & 1u);
+}
+static float sk_free_h(int f, float u, float h) {                  /* the height nearest h at (f, u) clear of pictures; -1 none */
+    int L = WF[f].loop;
+    if (wf_ncol[L] <= 0) return h;
+    int c = sk_colw(L, sk_s(f, u)), r0 = sk_row(h);
+    if (!sk_occ(L, c, r0)) return h;
+    for (int d = 1; d < GNR; d++)
+        for (int sg = -1; sg <= 1; sg += 2) {
+            int r = r0 + sg * d;
+            if (r >= 0 && r < GNR && !sk_occ(L, c, r)) return SK_HLO + (float)r * GH;
+        }
+    return -1.0f;
+}
+
 static void wf_pos(int f, float u, float *x, float *y) {           /* where (f, u) is: WF_IN off the stone */
     const WFace *w = &WF[f];
     int t = (w->d + 1) & 3;
@@ -136,19 +269,111 @@ static int wf_near(float px, float py, float *u, int reach, int corner) {
     return best;
 }
 
+/* A spider's way to its mark round what is painted on the stone (sk_plan): out from its cell through the grid's free cells, at most
+ * GCW columns either way and no corner cut (a search, each step one cell any of eight ways), then pulled straight from turn to turn
+ * of it as far as each can be seen from the last; its turns kept (wps round its loop, wph up it, MAXWP; wpmore: more to plan when
+ * those are done). Where the pictures leave no way, it has none. */
+#define GCW 900                                                    /* 45 cells' crawl either way */
+static int sk_los(int L, float s0, float xa, float ha, float xb, float hb, int cs, int rs) {   /* nothing painted between two points
+                                                                      (x round the loop from s0); the cell it begins in let be */
+    float dx = xb - xa, dh = hb - ha;
+    int k = (int)(sqrtf(dx * dx + dh * dh) / (GS * 0.4f)) + 1;
+    for (int i = 1; i <= k; i++) {
+        float t = (float)i / (float)k;
+        int c = sk_colw(L, s0 + xa + dx * t), r = sk_row(ha + dh * t);
+        if ((c != cs || r != rs) && sk_occ(L, c, r)) return 0;
+    }
+    return 1;
+}
+static int sk_plan(Skitter *o) {
+    enum { NCELL = (2 * GCW + 1) * GNR };
+    static uint16_t seen[NCELL], stamp;
+    static int32_t par[NCELL], q[NCELL];
+    static const int KX[8] = { 1, -1, 0, 0, 1, 1, -1, -1 }, KY[8] = { 0, 0, 1, -1, 1, -1, 1, -1 };
+    o->nwp = o->iwp = o->wpmore = 0;
+    if (o->tf < 0) return 0;
+    int L = WF[o->f].loop, n = wf_ncol[L];
+    if (WF[o->tf].loop != L) return 0;
+    float Ls = wf_len[L], gs = n > 0 ? wf_gs[L] : 1.0f, s0 = sk_s(o->f, o->u), gx = sk_s(o->tf, o->tu) - s0;
+    if (gx > Ls * 0.5f) gx -= Ls; else if (gx < -Ls * 0.5f) gx += Ls;   /* the mark, the shorter way round */
+    if (n <= 0) { o->wps[0] = s0 + gx; o->wph[0] = o->ht; o->nwp = 1; return 1; }
+    int cw = GCW < n / 2 ? GCW : n / 2, ca = sk_colw(L, s0), rs = sk_row(o->h);
+    int dce = (int)floorf((s0 + gx) / gs) - (int)floorf(s0 / gs), re = sk_row(o->ht);
+    if (dce > cw || dce < -cw) return 0;
+    if (sk_occ(L, ca + dce, re)) {                                 /* its mark on a picture: the nearest clear height there */
+        float h = sk_free_h(o->tf, o->tu, o->ht);
+        if (h < 0.0f) return 0;
+        o->ht = h; re = sk_row(h);
+    }
+    if (++stamp == 0) { memset(seen, 0, sizeof seen); stamp = 1; }
+    int qh = 0, qt = 0, start = GCW * GNR + rs, goal = (dce + GCW) * GNR + re, found = start == goal;
+    seen[start] = stamp; par[start] = -1; q[qt++] = start;
+    while (qh < qt && !found) {
+        int id = q[qh++], dc = id / GNR - GCW, r = id % GNR;
+        for (int k = 0; k < 8; k++) {
+            int nd = dc + KX[k], nr = r + KY[k];
+            if (nd < -cw || nd > cw || nr < 0 || nr >= GNR) continue;
+            int nid = (nd + GCW) * GNR + nr;
+            if (seen[nid] == stamp || sk_occ(L, ca + nd, nr)) continue;
+            if (KX[k] && KY[k] && (sk_occ(L, ca + nd, r) || sk_occ(L, ca + dc, nr))) continue;
+            seen[nid] = stamp; par[nid] = id; q[qt++] = nid;
+            if (nid == goal) { found = 1; break; }
+        }
+    }
+    if (!found) return 0;
+    int m = 0;                                                     /* the way, start to mark, in q (the search is done with it) */
+    for (int id = goal; id >= 0 && m < NCELL; id = par[id]) q[m++] = id;
+    for (int i = 0; i < m / 2; i++) { int t = q[i]; q[i] = q[m - 1 - i]; q[m - 1 - i] = t; }
+    #define CX(id) (((float)(ca + (id) / GNR - GCW) + 0.5f) * gs - s0)
+    #define CH(id) (SK_HLO + (float)((id) % GNR) * GH)
+    float px = 0.0f, ph = o->h;
+    int i = 0;
+    while (i < m - 1) {                                            /* from turn to turn, as far as it can see */
+        int best = -1;
+        for (int j = i + 1; j < m; j++) {
+            int turn = j == m - 1 || (q[j] - q[j - 1]) != (q[j + 1] - q[j]);
+            if (!turn) continue;
+            if (sk_los(L, s0, px, ph, CX(q[j]), CH(q[j]), ca, rs)) best = j; else break;
+        }
+        if (best < 0) for (best = i + 1; best < m - 1 && (q[best + 1] - q[best]) == (q[best] - q[best - 1]); best++) ;   /* the next turn */
+        if (best == m - 1) break;
+        if (o->nwp >= MAXWP - 1) { o->wpmore = 1; break; }
+        px = CX(q[best]); ph = CH(q[best]);
+        o->wps[o->nwp] = s0 + px; o->wph[o->nwp++] = ph;
+        i = best;
+    }
+    if (!o->wpmore) {
+        if (!sk_los(L, s0, px, ph, gx, o->ht, ca, rs) && m > 1) { o->wps[o->nwp] = s0 + CX(q[m - 1]); o->wph[o->nwp++] = CH(q[m - 1]); }
+        o->wps[o->nwp] = s0 + gx; o->wph[o->nwp++] = o->ht;        /* and the mark itself */
+    }
+    #undef CX
+    #undef CH
+    return 1;
+}
 static void sk_go(Skitter *o, int f, float u, float h, int st, float pace) {
     if (f < 0 || WF[f].loop != WF[o->f].loop) { o->tf = -1; o->st = SK_IDLE; o->wait = 1.0f + srndf(); return; }
-    o->tf = f; o->tu = u; o->ht = clampf(h, 0.06f, 0.94f); o->st = st; o->pace = pace; o->t = 0.0f;
+    o->tf = f; o->tu = u; o->ht = clampf(h, SK_HLO, SK_HHI);
+    if (!sk_plan(o)) {                                             /* no way there */
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT skitter_noway %d t=%.2f\n", (int)(o - G.skit), G.t);
+#endif
+        o->tf = -1; o->st = SK_IDLE; o->wait = 1.0f + srndf(); return;
+    }
+    o->st = st; o->pace = pace; o->t = 0.0f;
 }
 static float sk_ang(float a) { while (a > PI_F) a -= TAU_F; while (a < -PI_F) a += TAU_F; return a; }
-static int sk_crawl(Skitter *o, float dt) {                        /* along the stone and up or down it toward its mark; 1 there */
+static int sk_crawl(Skitter *o, float dt) {                        /* along its way, turn to turn, to its mark; 1 there */
     if (o->tf < 0) return 1;
-    float ds = wf_gap(o->f, o->u, o->tf, o->tu);
-    if (ds > 1e8f) { o->tf = -1; return 1; }
-    float dh = o->ht - o->h, dist = sqrtf(ds * ds + dh * dh), s = o->pace * dt;
+    if (o->iwp >= o->nwp && (!o->wpmore || !sk_plan(o))) { o->tf = -1; return 1; }
+    float Ls = wf_len[WF[o->f].loop], ds = o->wps[o->iwp] - sk_s(o->f, o->u);
+    ds = fmodf(ds, Ls);
+    if (ds > Ls * 0.5f) ds -= Ls; else if (ds < -Ls * 0.5f) ds += Ls;
+    float dh = o->wph[o->iwp] - o->h, dist = sqrtf(ds * ds + dh * dh), s = o->pace * dt;
     if (dist > 1e-4f) o->head += sk_ang(atan2f(dh, ds) - o->head) * fminf(1.0f, dt * 10.0f);
-    if (dist <= s) { o->f = o->tf; o->u = o->tu; o->h = o->ht; o->tf = -1; return 1; }
-    o->u += ds / dist * s; o->h += dh / dist * s;
+    if (dist <= s) {
+        if (++o->iwp >= o->nwp && !o->wpmore) { o->f = o->tf; o->u = o->tu; o->h = o->ht; o->tf = -1; return 1; }
+        o->u += ds; o->h += dh;                                    /* a turn of its way: there, and on */
+    } else { o->u += ds / dist * s; o->h += dh / dist * s; }
     wf_move(&o->f, &o->u);
     return 0;
 }
@@ -300,13 +525,17 @@ static void skit_level(void) {
         if (pick < 0) break;
         Skitter *o = &G.skit[G.nskit++];
         o->alive = 1; o->f = pick; o->tf = -1;
-        o->u = WF[pick].lo + (WF[pick].hi - WF[pick].lo) * srndf(); o->h = 0.15f + 0.6f * srndf();
+        o->u = WF[pick].lo + (WF[pick].hi - WF[pick].lo) * srndf(); o->h = sk_free_h(pick, o->u, 0.15f + 0.6f * srndf());
+        if (o->h < 0.0f) { o->alive = 0; G.nskit--; continue; }   /* a place all picture: none here */
         o->head = srndf() * TAU_F - PI_F; o->lz = -9.0f;
         wf_pos(o->f, o->u, &o->x, &o->y); o->z = o->h;
         o->st = SK_IDLE; o->wait = 4.0f * srndf();
     }
 #ifdef CRAWL_DEBUG
-    fprintf(stderr, "EVENT skitters level %d count %d faces %d\n", G.level, G.nskit, nwf);
+    int npic = 0;
+    for (int f = 0; f < nwf; f++) npic += wf_pic[f].h1 >= 0.0f;
+    fprintf(stderr, "EVENT skitters level %d count %d faces %d pictures %d\n", G.level, G.nskit, nwf, npic);
+
 #endif
 }
 
@@ -357,9 +586,54 @@ static int skit_tp_corner(int jt) {                                /* CRAWL_TPSK
     G.hint_t = 0.0f; sk_tame = 1;                                  /* the card put away; it minds you not, to be looked at close */
     return 1;
 }
+static int skit_tp_picture(void) {                                 /* CRAWL_TPSKIT=4: one on the face before the nearest-lit picture
+                                                                      with bare stone either side, its mark two faces past it at its
+                                                                      own height; you two cells off facing the picture */
+    int bf = -1, bx = 0, by = 0;
+    float bl = -1.0f;
+    for (int f = 0; f < nwf; f++) {
+        const WFace *w = &WF[f];
+        int a = w->prev, b = w->next;
+        if (getenv("CRAWL_TPSKIT")[0] == '5') {                    /* =5: three pictures together, bare stone either side */
+            b = WF[WF[f].next].next;
+            if (wf_pic[f].h1 < 0.0f || wf_pic[WF[f].next].h1 < 0.0f || wf_pic[b].h1 < 0.0f || wf_pic[a].h1 >= 0.0f || wf_pic[WF[b].next].h1 >= 0.0f) continue;
+            if (WF[WF[f].next].jn != WJ_ON || WF[b].jn != WJ_ON) continue;
+        } else if (wf_pic[f].h1 < 0.0f || wf_pic[a].h1 >= 0.0f || wf_pic[b].h1 >= 0.0f || wf_pic[WF[b].next].h1 >= 0.0f) continue;
+        if (w->jp != WJ_ON || w->jn != WJ_ON || G.map[w->y][w->x].kind != K_FLOOR) continue;
+        float px, py;
+        wf_pos(f, 0.5f, &px, &py);
+        float l = lm_at(px, py);
+        if (l <= bl) continue;
+        int x = w->x - DX[w->d] * 2, y = w->y - DY[w->d] * 2, hid = 0;
+        if (x <= 0 || y <= 0 || x >= MAPN - 1 || y >= MAPN - 1 || G.map[y][x].kind != K_FLOOR || !line_clear(x + 0.5f, y + 0.5f, px, py)) continue;
+        for (int k = 0; k < G.ndecos && !hid; k++) {               /* nothing standing before the three faces */
+            float ddx = G.decos[k].x - px, ddy = G.decos[k].y - py, along = ddx * DX[(w->d + 1) & 3] + ddy * DY[(w->d + 1) & 3], out = -(ddx * DX[w->d] + ddy * DY[w->d]);
+            hid = fabsf(along) < 1.8f && out > -0.2f && out < 2.2f && G.decos[k].spr != SP_COBWEB;
+        }
+        if (hid) continue;
+        bl = l; bf = f; bx = x; by = y;
+    }
+    if (bf < 0 || !G.nskit) return 0;
+    Skitter *o = &G.skit[0];
+    const WPic *p = &wf_pic[bf];
+    int a = WF[bf].prev, b = WF[WF[bf].next].next;
+    if (getenv("CRAWL_TPSKIT")[0] == '5') b = WF[WF[WF[b].next].next].prev;   /* past the three */
+    float h = clampf((p->h0 + p->h1) * 0.5f, SK_HLO, SK_HHI);      /* at the picture's own height, either side */
+    o->f = a; o->u = 0.5f; o->h = h; o->head = 0.0f; o->lz = -9.0f;
+    sk_go(o, b, 0.5f, h, SK_CRAWL, 0.3f);
+    wf_pos(o->f, o->u, &o->x, &o->y); o->z = o->h;
+    float px, py;
+    wf_pos(bf, 0.5f, &px, &py);
+    G.cx = bx; G.cy = by; G.px = bx + 0.5f; G.py = by + 0.5f; G.ang = atan2f(py - G.py, px - G.px);
+    fprintf(stderr, "TPSKIT picture face %d (%d,%d d%d) u %.2f-%.2f h %.2f-%.2f you at %d,%d\n", bf, WF[bf].x, WF[bf].y, WF[bf].d, p->u0, p->u1, p->h0, p->h1, bx, by);
+    human_begin();
+    G.hint_t = 0.0f; sk_tame = 1;
+    return 1;
+}
 static void skit_tp(void) {                                        /* CRAWL_TPSKIT: two cells from the best lit on a wall, facing it */
     int mode = atoi(getenv("CRAWL_TPSKIT"));
-    if (mode >= 2 && skit_tp_corner(mode == 2 ? WJ_OUT : WJ_IN)) return;
+    if ((mode == 4 || mode == 5) && skit_tp_picture()) return;
+    if (mode >= 2 && mode <= 3 && skit_tp_corner(mode == 2 ? WJ_OUT : WJ_IN)) return;
     int order[MAXSKIT], n = 0;
     for (int i = 0; i < G.nskit; i++) if (G.skit[i].alive) order[n++] = i;
     for (int a = 1; a < n; a++) { int v = order[a], b = a - 1; while (b >= 0 && lm_at(G.skit[order[b]].x, G.skit[order[b]].y) < lm_at(G.skit[v].x, G.skit[v].y)) { order[b + 1] = order[b]; b--; } order[b + 1] = v; }
@@ -397,7 +671,9 @@ static void skit_rebuild(void) {                                   /* the walls 
         if (o->tf >= 0) {
             int h = wf_at[ty[i]][tx[i]][td[i]];
             if (h >= 0 && WF[h].loop == WF[g].loop) { o->tf = h; o->tu = clampf(o->tu, WF[h].lo, WF[h].hi); }
-            else { o->tf = -1; if (o->st != SK_WEB) { o->st = SK_IDLE; o->wait = 0.5f; o->spider = o->web = 0; } }
+            else o->tf = -1;
+            if (o->tf >= 0 && !sk_plan(o)) o->tf = -1;                 /* its way again, the walls being others */
+            if (o->tf < 0 && o->st != SK_WEB) { o->st = SK_IDLE; o->wait = 0.5f; o->spider = o->web = 0; }
         }
     }
 #ifdef CRAWL_DEBUG
@@ -413,7 +689,7 @@ static void skit_update(float dt) {
         if (!o->alive) continue;
         o->t += dt;
         if (G.mboss && o->st != SK_WEB && o->st != SK_DEAD && !o->web) {   /* a boss's fight: into the nearest web, for good */
-            if (sk_for_web(o, 60.0f, 2.4f)) continue;
+            if (sk_for_web(o, 44.0f, 2.4f)) continue;
         }
         if (sk_calm(o) && !(sk_tame && i == 0)) {                  /* you near, or a fight */
             float d = hypotf(o->x - G.px, o->y - G.py);
@@ -437,7 +713,11 @@ static void skit_update(float dt) {
             break;
         case SK_CRAWL:
             if (o->seek) o->seek_t += dt;
-            if (sk_crawl(o, dt) && sk_tame && i == 0) { int g = WF[o->f].prev; sk_go(o, WF[g].prev, WF[WF[g].prev].lo + 0.5f, 0.35f, SK_CRAWL, 0.3f); break; }   /* and back */
+            if (sk_crawl(o, dt) && sk_tame && i == 0) {               /* and back */
+                int g = WF[WF[WF[WF[o->f].prev].prev].prev].prev;
+                sk_go(o, g, 0.5f, o->h, SK_CRAWL, 0.3f);
+                break;
+            }
             else if (o->tf < 0) { o->st = SK_IDLE; o->wait = o->seek ? 0.2f : 2.0f + 6.0f * srndf(); }
             break;
         case SK_RUN:
@@ -484,5 +764,15 @@ static void skit_update(float dt) {
             fprintf(stderr, "EVENT skitter_jump %d from %.2f,%.2f,%.2f to %.2f,%.2f,%.2f t=%.2f\n", i, o->lx, o->ly, o->lz, o->x, o->y, o->z, G.t);
 #endif
         o->lx = o->x; o->ly = o->y; o->lz = o->z;
+#ifdef CRAWL_DEBUG
+        int g[3] = { o->f, WF[o->f].next, WF[o->f].prev }, on = 0;   /* on a picture: half its legs' reach into its keeping */
+        float v[3] = { o->u, WF[g[1]].lo + (o->u - WF[o->f].hi), WF[g[2]].hi - (WF[o->f].lo - o->u) };
+        for (int k = 0; k < 3; k++) {
+            const WPic *p = &wf_pic[g[k]];
+            if (p->h1 >= 0.0f && v[k] > p->u0 - PIC_MU * 0.5f && v[k] < p->u1 + PIC_MU * 0.5f && o->h > p->h0 - PIC_MH * 0.5f && o->h < p->h1 + PIC_MH * 0.5f) on = 1 + k;
+        }
+        if (on && !o->onpic) fprintf(stderr, "EVENT skitter_onpic %d face %d u %.2f h %.2f st %d in face %d's picture t=%.2f\n", i, o->f, o->u, o->h, o->st, g[on - 1], G.t);
+        o->onpic = on;
+#endif
     }
 }

@@ -627,16 +627,20 @@ typedef struct { int wx, wy, d, fx, fy; float mx, my; } MHole;   /* the wall, it
  * stone's ways (skitters.c, WF), how far along it and how high, and they go only along those ways and up and down them. */
 enum { SK_IDLE, SK_CRAWL, SK_RUN, SK_WEB, SK_DEAD };
 #define MAXSKIT 10
+#define MAXWP 12
 typedef struct {
     int alive, st, spider, web, seek;                              /* spider: 1 + the creature it runs to tell; web: 1 + the deco it
                                                                       makes for or sits in; seek: wandering in search of one */
-    int f, tf;                                                     /* the face it is on; the one it makes for, -1 none */
+    int f, tf, onpic;                                              /* the face it is on; the one it makes for, -1 none; on a picture
+                                                                      (the debug build's check) */
     float u, h, tu, ht;                                            /* how far along its face and how high; where it makes for */
     float x, y, z, vz, head;                                       /* where that is; slain, its fall; head: its heading on the stone
                                                                       (0 along its face's way, a quarter turn up) */
     float t, wait, pace, ax, ay, seek_t, plan_t, lx, ly, lz;       /* seek_t: how long it has looked for a web, or run; plan_t: its
                                                                       way after a hunter, again now and then; lx, ly, lz: where it was
                                                                       a frame ago (the jump check) */
+    float wps[MAXWP], wph[MAXWP]; int nwp, iwp, wpmore;            /* its way round what is painted on the stone: each turn, how far
+                                                                      round its loop and how high (skitters.c, sk_plan) */
 } Skitter;
 
 static struct {
