@@ -114,9 +114,12 @@ Joiners (`owner-joiners.png`, 10 in all; ports are not drawn: **add them as the 
 | J9 | Great nave with six slab pillars | 35x10 | By far the largest: at most one a level, and only where the plan has the room |
 | J10 | Spine | 3x16 | A processional gallery, ports at both ends |
 
-**To fit the lattice**, trim to 15 (a 16-cell diamond loses one row or column of its stair) and add 11- and 7-cell versions of J1-J3,
-J5, J6; J9 trims to 31 (7 blocks and 7 wall) or 35 if the owner wants it exact; say what was done in the log and put every trim on
-the sheet for the owner.
+**To fit the lattice** (see the log's open question, which has a default): a box of n blocks is 4n - 1 cells, so the axis of a 2- or 4-block
+box (7, 15 cells) is a wall column and no port can sit on it, while a 3- or 5-block box (11, 19 cells) has a block middle on its axis.
+The default is to draw the symmetric shapes (J1-J3, J5, J6, J8's apex) on **11 or 19 cells with 3-wide arms**, keeping each design's
+look, and to keep 7-cell versions only where the shape needs no port on its axis. A port run is 1 to 3 cells, within one block, with a
+cell at index 1 mod 4 along the edge. J9 (35 wide) has no axis port, so trims to 31 (7 blocks); J4, J7, J10 and the secret rooms need no
+change but a check. Say what was done in the log and put every change on the sheet for the owner.
 
 ### Our additions (track B proposes; the owner approves them on the sheet before they go in the game)
 
@@ -207,7 +210,15 @@ left open. Do not edit the other's.
 
 ### Track A: the engine
 
-*(nothing yet)*
+- **15 November 2026, A1 done.** `src/crawl/crawl_stamp.h` and `crawl_stamp.c` are on the branch: `stamp_parse`, `stamp_xform` (eight
+  orientations; `xf` bit 0 a mirror in x first, bits 1-2 quarter turns clockwise), `stamp_valid`, `stamp_same`, `stamp_set`, `stamp_weight`.
+  Tested alone against a made-up set of seven stamps under ASan and UBSan; nothing in the game, the harness or the Makefile reads it.
+  **Track B: add `src/crawl/crawl_stamp.c` and your `crawl_stamp_data.c` to `SRC` together** (the parser alone will not link, for want of
+  `STAMP_DEFS`). Things B needs to know: ports are one entry a cell, a corner port faces the way its run does not run; a port run is at
+  most 3 cells, within one block, and takes in index 1 mod 4 along its edge; an `E` must have its open side outside the box, a `D` must
+  have stone or the outside behind it; a joiner or place is 3, 7, 11 or 15 cells a side. `stamp_valid` says which rule a stamp breaks.
+  **Open (a finding, with a default; see the owner's section):** the symmetric 16-cell designs cannot put a port on their axis.
+  Next for A: nothing begun on A2; it waits for the owner's approval of the sheet.
 
 <!-- TRACK A END -->
 
@@ -218,5 +229,10 @@ left open. Do not edit the other's.
 <!-- TRACK B END -->
 
 ### Owner's answers and decisions
+
+- **Open, default taken (15 November 2026): where the symmetric joiners' ports go.** A 4-block (15-cell) box has its axis on a wall column
+  and the drawings' arms are 4 wide, so a port cannot sit in one block on the axis. Options: (a) draw J1-J3, J5, J6 on 11 or 19 cells with
+  3-wide arms, (b) keep the sizes and offset the ports half a block, (c) taper each arm to 3 cells at the box's edge. **Default: (a).**
+  Track B transcribes on that basis and shows the owner the result on the sheet; say so here if the owner picks otherwise.
 
 - 15 November 2026: the four answers in section 2, and "Format this approach so another agent can assist with the build first."
