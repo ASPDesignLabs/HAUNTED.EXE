@@ -23,6 +23,8 @@ static struct {
     float rum_lo, rum_hi, rum_t;    /* the rumble asked for, and how long it has left */
 } A;
 
+int g_life_move = 2, g_life_sound = 2;
+
 void app_default_config(AppConfig *c) {
     memset(c, 0, sizeof *c);
     c->sound = 1;
@@ -35,6 +37,7 @@ void app_default_config(AppConfig *c) {
     c->first_scene = 0;
     c->start_fade = 1;
     c->pad = 1;
+    c->life_move = c->life_sound = 2;
 }
 
 static void enter_scene(int idx) {
@@ -61,6 +64,8 @@ static int next_enabled(int from) {
 
 void app_init(const AppConfig *cfg, int audio_driven_externally) {
     A.cfg = *cfg;
+    g_life_move = cfg->life_move < 0 || cfg->life_move > 2 ? 2 : cfg->life_move;
+    g_life_sound = cfg->life_sound < 0 || cfg->life_sound > 2 ? 2 : cfg->life_sound;
     A.audio_external = audio_driven_externally;
     A.total_t = 0;
     A.seed = 0xC0FFEEu ^ (uint32_t)(cfg->first_scene * 7919);

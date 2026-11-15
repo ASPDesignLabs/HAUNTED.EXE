@@ -73,12 +73,16 @@ static void settings_load(Settings *s) {
     s->app.scene_enabled[1] = (int)reg_get(k, "SceneDemo", 1);
     s->largest_monitor = (int)reg_get(k, "LargestMonitor", 1);
     s->app.pad = (int)reg_get(k, "Controller", 1);
+    s->app.life_move = (int)reg_get(k, "LifeMove", 2);
+    s->app.life_sound = (int)reg_get(k, "LifeSound", 2);
     {                                                              /* the pad's sprint button, as the game keeps it */
         DWORD b = reg_get(k, "PadSprint", PAD_LS);
         s->pad_sprint = 0;
         for (int i = 0; i < PAD_COUNT; i++) if ((DWORD)PAD_SPRINT_ORDER[i] == b) s->pad_sprint = i;
     }
     RegCloseKey(k);
+    if (s->app.life_move < 0 || s->app.life_move > 2) s->app.life_move = 2;
+    if (s->app.life_sound < 0 || s->app.life_sound > 2) s->app.life_sound = 2;
     if (s->app.volume < 0) s->app.volume = 0;
     if (s->app.volume > 100) s->app.volume = 100;
     if (s->app.music < 0 || s->app.music > 100) s->app.music = 100;
@@ -145,6 +149,8 @@ static void slots_flush(void) {
 static void settings_save(const Settings *s) {
     HKEY k;
     if (RegCreateKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, NULL, 0, KEY_WRITE, NULL, &k, NULL) != ERROR_SUCCESS) return;
+    reg_set(k, "LifeMove", (DWORD)s->app.life_move);
+    reg_set(k, "LifeSound", (DWORD)s->app.life_sound);
     reg_set(k, "Sound", (DWORD)s->app.sound);
     reg_set(k, "Volume", (DWORD)s->app.volume);
     reg_set(k, "MusicVolume", (DWORD)s->app.music);
@@ -824,7 +830,7 @@ static int run_preview(HINSTANCE hi, HWND parent) {
 /* ------------------------------------------------------------------ */
 
 enum { ID_SOUND = 100, ID_VOL, ID_VOLTXT, ID_BRIGHT, ID_BRIGHTTXT, ID_SC0, ID_SC1, ID_STAY, ID_STAYTXT,
-       ID_SHIFT, ID_MON, ID_PAD, ID_PADSPRINT, ID_MUSIC, ID_MUSICTXT, ID_FX, ID_FXTXT };
+       ID_SHIFT, ID_MON, ID_PAD, ID_PADSPRINT, ID_LIFEMOVE, ID_LIFESOUND, ID_MUSIC, ID_MUSICTXT, ID_FX, ID_FXTXT };
 
 static Settings g_cfg;
 static HWND g_cfgwnd, g_cfgparent;
@@ -865,6 +871,8 @@ static void cfg_apply_and_close(void) {
     g_cfg.largest_monitor = (int)SendDlgItemMessageA(g_cfgwnd, ID_MON, CB_GETCURSEL, 0, 0) == 1;
     g_cfg.app.pad = IsDlgButtonChecked(g_cfgwnd, ID_PAD) == BST_CHECKED;
     g_cfg.pad_sprint = (int)SendDlgItemMessageA(g_cfgwnd, ID_PADSPRINT, CB_GETCURSEL, 0, 0);
+    g_cfg.app.life_move = 2 - (int)SendDlgItemMessageA(g_cfgwnd, ID_LIFEMOVE, CB_GETCURSEL, 0, 0);
+    g_cfg.app.life_sound = 2 - (int)SendDlgItemMessageA(g_cfgwnd, ID_LIFESOUND, CB_GETCURSEL, 0, 0);
     settings_save(&g_cfg);
     DestroyWindow(g_cfgwnd);
 }
@@ -898,7 +906,7 @@ static int run_config(HINSTANCE hi, HWND parent) {
     wc.hCursor = LoadCursorA(NULL, IDC_ARROW); wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
     RegisterClassA(&wc);
 
-    const int W = 440, H = 512;
+    const int W = 440, H = 576;
     RECT r = { 0, 0, W, H };
     AdjustWindowRect(&r, WS_CAPTION | WS_SYSMENU, FALSE);
     int ww = r.right - r.left, wh = r.bottom - r.top;
@@ -963,6 +971,19 @@ static int run_config(HINSTANCE hi, HWND parent) {
     for (int i = 0; i < PAD_COUNT; i++) SendMessageA(sc, CB_ADDSTRING, 0, (LPARAM)PAD_SPRINT_NAME[i]);
     SendMessageA(sc, CB_SETCURSEL, g_cfg.pad_sprint, 0);
     y += 34;
+    {                                                              /* the crypt's small life (docs/PLAN-ambience.md): each can be turned down */
+        static const char *LV[3] = { "On", "Reduced (only what keeps still)", "Off" };
+        ctl("STATIC", "Small life: movement", 0, 16, y + 4, 140, 18, 0);
+        HWND lm = ctl("COMBOBOX", "", CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL, 160, y, 260, 100, ID_LIFEMOVE);
+        for (int i = 0; i < 3; i++) SendMessageA(lm, CB_ADDSTRING, 0, (LPARAM)LV[i]);
+        SendMessageA(lm, CB_SETCURSEL, 2 - g_cfg.app.life_move, 0);
+        y += 30;
+        ctl("STATIC", "Small life: sound", 0, 16, y + 4, 140, 18, 0);
+        HWND ls = ctl("COMBOBOX", "", CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL, 160, y, 260, 100, ID_LIFESOUND);
+        for (int i = 0; i < 3; i++) SendMessageA(ls, CB_ADDSTRING, 0, (LPARAM)LV[i]);
+        SendMessageA(ls, CB_SETCURSEL, 2 - g_cfg.app.life_sound, 0);
+        y += 34;
+    }
     ctl("STATIC", "Show on", 0, 16, y + 4, 60, 18, 0);
     HWND cb = ctl("COMBOBOX", "", CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL, 100, y, 320, 100, ID_MON);
     SendMessageA(cb, CB_ADDSTRING, 0, (LPARAM)"The primary monitor");
