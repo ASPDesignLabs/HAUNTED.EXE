@@ -91,6 +91,7 @@ static void start_level(void) {
     memset(G.spawned, 0, sizeof G.spawned); memset(G.named, 0, sizeof G.named);
     if (g_drawn) drawn_dead();
     else if (mind_on()) place_creatures(); else place_creatures_old();   /* step 8: one budget spent on set pieces */
+    if (!g_drawn) place_stamp_spawns();                            /* and the dead a drawn room asks for */
     if (G.corrupt) snd_sfx_ex(SFX_DEEPCHIME, 0.45f, 0.5f);         /* and the bell heard as you come */
     if (G.boss >= 0) boss_spawn();
     hunt_cx = -1;

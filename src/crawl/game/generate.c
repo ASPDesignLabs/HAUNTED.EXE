@@ -754,7 +754,7 @@ static void place_level_stamps(int *nreg) {
 #endif
 }
 /* the autopilot's lanes, counted from the first room: a drawn room's lane cells that the lanes do not join are not its to see */
-static void st_count_lanes(void) {
+static int st_lane_reach(void) {
     static uint8_t seen[MAPN][MAPN]; static int qx[MAPN * MAPN], qy[MAPN * MAPN];
     int qh = 0, qt = 0;
     memset(seen, 0, sizeof seen);
@@ -772,9 +772,11 @@ static void st_count_lanes(void) {
             seen[ny][nx] = 1; qx[qt] = nx; qy[qt++] = ny;
         }
     }
-    G.ncells = 0;
-    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) G.ncells += seen[y][x] && G.map[y][x].kind == K_FLOOR;
+    int n = 0;
+    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) n += seen[y][x] && G.map[y][x].kind == K_FLOOR;
+    return n;
 }
+static void st_count_lanes(void) { G.ncells = st_lane_reach(); }
 /* can every open cell of the map be walked to from the first room (doors, locked or not, count as open) */
 static int st_cells_connected(int *reached, int *total) {
     static uint8_t seen[MAPN][MAPN]; static int qx[MAPN * MAPN], qy[MAPN * MAPN];
@@ -846,6 +848,10 @@ static void st_impose(void) {
                 }
                 c->kind = K_WALL; c->region = -1; c->door = -1;
             }
+        for (int k = 0; k < s->nmark; k++) {                       /* what the drawing asks to stand in it, kept on the cells for the dressing, the loot and the dead */
+            int mx = ox + s->mark[k].x, my = oy + s->mark[k].y;
+            if (mx > 0 && my > 0 && mx < MAPN - 1 && my < MAPN - 1) G.map[my][mx].xmark = (uint8_t)s->mark[k].glyph;
+        }
 #ifdef CRAWL_DEBUG
         if (getenv("CRAWL_STAMPLOG")) {                            /* what each port opens on */
             fprintf(stderr, "STAMP %s x%d at (%d,%d):", s->name, s->xf, ox, oy);

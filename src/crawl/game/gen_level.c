@@ -442,9 +442,62 @@ static int hall_litter(void) {
 }
 
 static void dress_level_props(void);
+/* A drawn room's marks (docs/PLAN-stamps.md, A4): a an altar, b a brazier, t a torch on the nearest wall. A prop keeps off the lanes the
+ * autopilot walks, but for a dead end's last cell, and off the ways in; if its cell will not do, a neighbour's does. */
+static int st_prop_ok(int x, int y, int slack) {
+    if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1) return 0;
+    const Cell *c = &G.map[y][x];
+    if (c->kind != K_FLOOR || c->secret || G.bulky[y][x] || by_way(x, y)) return 0;
+    if (!lane(x, y)) return 1;
+    int before = st_lane_reach(), ok;                              /* on a lane: only if the lanes lose next to nothing by it */
+    G.map[y][x].kind = K_PROP;
+    ok = before - st_lane_reach() <= slack;
+    G.map[y][x].kind = K_FLOOR;
+    return ok;
+}
+static void st_dress_marks(void) {
+    int na = 0, nb = 0, nt = 0;
+    for (int y = 1; y < MAPN - 1; y++)
+        for (int x = 1; x < MAPN - 1; x++) {
+            char g = (char)G.map[y][x].xmark;
+            if (g == 'a' || g == 'b') {
+                int px = x, py = y;
+                int slack = g == 'a' ? 16 : 4;                              /* (an altar is a room's centre: it may cost the lanes a few more) */
+                if (!st_prop_ok(px, py, slack)) {
+                    int found = 0;
+                    for (int d = 0; d < 4 && !found; d++) if (!G.map[y + DY[d]][x + DX[d]].xmark && st_prop_ok(x + DX[d], y + DY[d], slack)) { px = x + DX[d]; py = y + DY[d]; found = 1; }
+                    if (!found) {
+#ifdef CRAWL_DEBUG
+                        if (getenv("CRAWL_STAMPLOG")) fprintf(stderr, "STAMP mark %c at (%d,%d) dropped: kind %d lane %d byway %d bulky %d open %d\n", g, x, y, G.map[y][x].kind, lane(x, y), by_way(x, y), G.bulky[y][x], is_open(x + 1, y) + is_open(x - 1, y) + is_open(x, y + 1) + is_open(x, y - 1));
+#endif
+                        continue;
+                    }
+                }
+                if (g == 'a') { solid_prop(px, py, SP_ALTAR_A, 2, K_PROP); light_static(prop_lx, prop_ly, 0.8f, 3.2f); na++; }
+                else { brazier(px, py); nb++; }
+            } else if (g == 't' && G.nlights < MAXLIGHTS - 4) {
+                for (int k = 0, d = (int)(hash2(x, y) & 3); k < 4; k++, d = (d + 1) & 3) {
+                    int wx = x + DX[d], wy = y + DY[d];
+                    Cell *w = cell(wx, wy);
+                    if (w->kind != K_WALL || w->secret || w->ftorch || w->tex == T_TORCH0 || wx <= 0 || wy <= 0 || wx >= MAPN - 1 || wy >= MAPN - 1) continue;
+                    int bydoor = 0;
+                    for (int e = 0; e < 4; e++) if (cell(wx + DX[e], wy + DY[e])->kind == K_DOOR) bydoor = 1;
+                    if (bydoor) continue;
+                    w->tex = T_TORCH0; w->ftorch = (uint8_t)(((d + 2) & 3) + 1);
+                    light_static(x + 0.5f + DX[d] * 0.42f, y + 0.5f + DY[d] * 0.42f, 1.55f, 4.6f);
+                    nt++;
+                    break;
+                }
+            }
+        }
+#ifdef CRAWL_DEBUG
+    if ((na || nb || nt) && getenv("CRAWL_STAMPLOG")) fprintf(stderr, "STAMPS level %d marks: %d altars, %d braziers, %d torches\n", G.level, na, nb, nt);
+#endif
+}
 static void dress_level(void) {                                    /* the props laid with their footprints (1.0.0b18.1) */
     g_foot = 1; memset(g_foot_n, 0, sizeof g_foot_n);
     dress_level_props();
+    st_dress_marks();
     g_foot = 0;
 #ifdef CRAWL_DEBUG
     if (!PK.depth) fprintf(stderr, "FOOT level %d: %d whole (%d of them in the open), %d half, %d a quarter\n", G.level, g_foot_n[0], g_foot_n[3], g_foot_n[1], g_foot_n[2]);
