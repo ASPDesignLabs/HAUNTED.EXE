@@ -65,4 +65,9 @@ ask nothing of you, hurt nothing, and are never in your way.*
   fungus carry `LF` in their names since a roosting bat and a fungus already stood in the props) and its sheet made
   (`build/sheet life <png>`, kept as `media/sheets/ambience/life.png`). Sent to the owner; none of it is drawn in the game yet, and
   none will be till they have passed the sheet.
+- **15 November, L1 again.** The owner: the art "seems a bit basic with too much of a focus on simple shapes". Redrawn from each
+  creature's anatomy with the surface worked over (`life.c`'s `lf_*`: a key light laid over the whole last, `lf_relight`; grain,
+  fur and scale in strokes; a wing painted by its distance from its root, with veins and bands; the bat's arm, wrist and four
+  fanned fingers with a scalloped membrane; the beetle's grooved elytra and spined legs; the toad's glands and warts; a skull with
+  sutures and a crack, a hand of every small bone with a tarnished ring), nothing quite alike on its two sides. The sheet made again.
 - **15 November.** The twelve offered; the owner took them all. This plan written; no code yet. Next: L0, then L1 and the sheet.
