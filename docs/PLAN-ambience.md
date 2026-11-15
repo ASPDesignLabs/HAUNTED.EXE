@@ -1,6 +1,6 @@
 # The crypt's small life: things that notice you
 
-**Settled in outline; the core, the art and the floor built (L0 to L2)** (15 November 2026, on `claude/gallant-dijkstra-9x79xe`, from main after the mice). The owner
+**Settled in outline; the core, the art, the floor and the air built (L0 to L3)** (15 November 2026, on `claude/gallant-dijkstra-9x79xe`, from main after the mice). The owner
 asked for "world building elements ... that react to the player's presence and do not require the player to do much of anything.
 Stuff that brings life to these dead, damp, and dark crypts", was offered twelve, and took them all: "every single suggestion sounds
 great". Nothing here is built or tested by hand.
@@ -81,4 +81,15 @@ ask nothing of you, hurt nothing, and are never in your way.*
   UBSan clean on two 900 s dreams and a staged run; the smoke at 1.53 ms a frame. Not heard by anyone: the drip is `SFX_DRIP`, the
   crunch `SFX_CHEW` high, the croak `SFX_SQUEAK` low, borrowed till the owner says they will do. Left: the owner's eye on them in
   play, and A5 to A12.
+- **15 November, L3, the air** (harness only). A5: moths (and, where `crawl_decay` is over 0.35, flies) orbit each warm light, ten lights
+  at the most, one to three moths a light; they scatter into the dark when you come within a cell and a half (or two and a half
+  and moving), wait, and return. A6: each torch's wall cell guttering when you pass within two and a third cells moving, and when a
+  door within five cells swings, harder: its flame held to the two leaning frames, alternating quickly, for 0.9 s or 1.3 s, then
+  five seconds' rest (`torch_frame`, read by `draw/walls.c`; nothing of the light itself changes, since what the dead see of a
+  torch is in the simulation). A2: bats, on levels 1 to 10 only (from 11 a roost of the dead's own is the warning, and a harmless
+  one would blur it), two to four roosts by walls, one to three bats in each; within two and a half cells some drop, circle for four to
+  seven seconds, never come at you, and settle in another roost in sight. Their eyes pale, not the real bats' ember. Reduced
+  movement draws none of these. Proved as L2 was: 12 dream logs (levels 1, 3, 5, 8, 10, 13, seeds 3 and 5, 600 s) line for line the
+  commit before's but for a timing summary; frames with `CRAWL_LIFE=0` 9 of 9; ASan and UBSan clean on three 900 s dreams and
+  three staged runs; the smoke 1.6 ms a frame. Left: A1, A3, A4, A12 (the stone), A10, A11 (the damp), the owner's eye.
 - **15 November.** The twelve offered; the owner took them all. This plan written; no code yet. Next: L0, then L1 and the sheet.

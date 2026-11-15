@@ -55,9 +55,9 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 } else if (cell(pxc, pyc)->kind == K_DOOR) tex = G.faced ? T_RJAMB : T_JAMB;
                 else if (c->face[fd] && plain_tex(tex)) {
                     tex = c->face[fd]; flip = c->fflip >> fd & 1;
-                    if (c->fover[fd]) over = c->fover[fd] == T_FEAT + F1_TORCH ? T_FEAT + F1_TORCH + (int)((tframe + hash2(mx, my)) % 3) : c->fover[fd];
+                    if (c->fover[fd]) over = c->fover[fd] == T_FEAT + F1_TORCH ? T_FEAT + F1_TORCH + torch_frame(mx, my, tframe) : c->fover[fd];
                 }
-                if (tex == T_TORCH0) tex = T_TORCH0 + (int)((tframe + hash2(mx, my)) % 3);
+                if (tex == T_TORCH0) tex = T_TORCH0 + torch_frame(mx, my, tframe);
                 if (tex == T_EXIT0) tex = boss_sealed() ? T_GATE : G.exit_open > 0.3f ? T_EXIT_OPEN : T_EXIT0 + ((int)(G.t * 2.5) & 1);   /* barred while a boss lives */
                 if (tex == T_VISPORT0) tex = T_VISPORT0 + (PK.vis_used[PK.chain] ? 0 : ((int)(G.t * 5.0) & 3));
                 if (tex == T_PORTAL0) tex = T_PORTAL0 + ((int)(G.t * 3.0) & 3);   /* the Accursed Portal, turning */

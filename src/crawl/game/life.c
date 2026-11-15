@@ -98,16 +98,83 @@ static void life_floor(void) {
             }
 }
 
+/* the air: moths and flies round the warm lights, bats roosting in the corners of the first ten levels' rooms (from the eleventh a roost of
+ * the dead's own is the warning, and ours would blur it), and the torches, which gutter when you pass or a door swings */
+static float lf_gut[MAPN][MAPN];                                   /* a torch's wall cell: how long its flame is guttering yet */
+static int lf_ntorch; static int8_t lf_torch[64][2];
+static int lf_nroost; static float lf_roost[16][2];                /* where a bat may hang: a floor cell's edge by a wall */
+static float lf_door_was[MAXDOORS];
+static int torch_frame(int mx, int my, int tframe) {               /* a flame's frame: its own cycle, or in a gutter the two leaning ones, quick */
+    if (g_life_move == 2 && (unsigned)mx < MAPN && (unsigned)my < MAPN && lf_gut[my][mx] > 0.0f) return 1 + (((int)(G.t * 15.0) + (int)hash2(mx, my)) & 1);
+    return (int)((tframe + hash2(mx, my)) % 3);
+}
+static void life_air(void) {
+    int step = crawl_step(G.level), thin = g_drawn || G.boss >= 0;
+    memset(lf_gut, 0, sizeof lf_gut); memset(lf_door_was, 0, sizeof lf_door_was); lf_ntorch = 0; lf_nroost = 0;
+    for (int y = 1; y < MAPN - 1; y++)
+        for (int x = 1; x < MAPN - 1; x++) {
+            const Cell *c = &G.map[y][x];
+            if (c->kind != K_WALL || lf_ntorch >= 64) continue;
+            int torch = c->tex == T_TORCH0;
+            for (int d = 0; d < 4; d++) if (c->fover[d] == T_FEAT + F1_TORCH) torch = 1;
+            if (torch) { lf_torch[lf_ntorch][0] = (int8_t)x; lf_torch[lf_ntorch][1] = (int8_t)y; lf_ntorch++; }
+        }
+    int nm = 0, nlit = 0;
+    float decay = crawl_decay(G.level);
+    for (int l = 0; l < G.nlights && nlit < 10; l++) {             /* moths, and flies where it is foul, about each warm light */
+        const Light *L = &G.lights[l];
+        if (!mo_warm(L)) continue;
+        float cx = L->x, cy = L->y;
+        int lx = (int)L->x, ly = (int)L->y;
+        if (G.map[ly][lx].kind == K_WALL) {                        /* a torch in its wall: the air before it, on its open side */
+            int got = 0;
+            for (int d = 0; d < 4 && !got; d++) if (mo_pass(lx + DX[d], ly + DY[d], 0)) { cx = lx + 0.5f + DX[d] * 0.75f; cy = ly + 0.5f + DY[d] * 0.75f; got = 1; }
+            if (!got) continue;
+        }
+        nlit++;
+        int moths = thin ? 1 : 1 + lrnd(3), flies = decay > 0.35f && !thin ? lrnd(3) : 0;
+        for (int k = 0; k < moths + flies && nm < 40; k++) {
+            int i = life_add(k < moths ? LF_MOTH : LF_FLY, cx, cy, 0.5f);
+            if (i < 0) break;
+            Life *o = &G.life[i];
+            o->vx = cx; o->vy = cy; o->ref = l; o->a = TAU_F * lrndf();
+            o->b = (k < moths ? 0.2f : 0.28f) + 0.14f * lrndf();   /* its orbit's radius, its speed, its height, its own time */
+            o->c = (k < moths ? 1.3f : 2.6f) * (0.8f + 0.5f * lrndf()) * (lrnd(2) ? 1.0f : -1.0f);
+            o->d = 0.42f + 0.22f * lrndf(); o->vz = TAU_F * lrndf();
+            nm++;
+        }
+    }
+    if (G.level <= 10 && !thin) {                                  /* the bats: a few roosts, each by a wall */
+        int want = clampi(2 + step / 3, 2, 4);
+        for (int k = 0; k < 120 && lf_nroost < want; k++) {
+            int cx = 1 + lrnd(MAPN - 2), cy = 1 + lrnd(MAPN - 2);
+            if (!life_cell_ok(cx, cy) || G.map[cy][cx].kind != K_FLOOR) continue;
+            int d = lrnd(4);
+            if (G.map[cy + DY[d]][cx + DX[d]].kind != K_WALL) continue;
+            float x = cx + 0.5f + DX[d] * 0.4f, y = cy + 0.5f + DY[d] * 0.4f;
+            if (hypotf(x - (G.cx + 0.5f), y - (G.cy + 0.5f)) < 7.0f) continue;
+            lf_roost[lf_nroost][0] = x; lf_roost[lf_nroost][1] = y; lf_nroost++;
+        }
+        for (int r = 0; r < lf_nroost; r++)
+            for (int k = 0, n = 1 + lrnd(3); k < n; k++) {
+                int i = life_add(LF_BAT, lf_roost[r][0] + (lrndf() - 0.5f) * 0.18f * (float)(DX[0] == 0), lf_roost[r][1] + (lrndf() - 0.5f) * 0.18f, 0.84f);
+                if (i < 0) break;
+                G.life[i].st = 0; G.life[i].a = (float)r; G.life[i].wait = 10.0f * lrndf();   /* a: the roost it hangs in */
+            }
+    }
+}
+
 static void life_level(void) {
-    G.nlife = 0; memset(G.life, 0, sizeof G.life);
+    G.nlife = 0; memset(G.life, 0, sizeof G.life); memset(lf_gut, 0, sizeof lf_gut); lf_ntorch = 0; lf_nroost = 0;
     G.lrs = ((G.rs ^ 0x1F3D5Bu) * 2654435769u + (uint32_t)G.level * 40503u) | 1u;   /* its own dice: G.rs read, never drawn on */
     lf_n_puddles = 0;
     if (life_off() || !life_level_ok()) return;
     life_floor();
+    life_air();
 #ifdef CRAWL_DEBUG
     int c[LF_NKINDS] = { 0 };
     for (int i = 0; i < G.nlife; i++) if (G.life[i].alive) c[G.life[i].kind]++;
-    fprintf(stderr, "EVENT life level %d puddles %d beetles %d lice %d toads %d\n", G.level, c[LF_PUDDLE], c[LF_BEETLE], c[LF_LOUSE], c[LF_TOAD]);
+    fprintf(stderr, "EVENT life level %d puddles %d beetles %d lice %d toads %d moths %d flies %d bats %d roosts %d torches %d\n", G.level, c[LF_PUDDLE], c[LF_BEETLE], c[LF_LOUSE], c[LF_TOAD], c[LF_MOTH], c[LF_FLY], c[LF_BAT], lf_nroost, lf_ntorch);
 #endif
 }
 
@@ -180,15 +247,116 @@ static void lf_toady(Life *o, float dt) {                          /* a toad: si
     else o->wait = 1.0f;
 }
 
+/* a moth or a fly: round its light, wobbling; from you, when you come near it, out into the dark, then back */
+static void lf_flier(Life *o, float dt) {
+    int fly = o->kind == LF_FLY;
+    float d = hypotf(o->vx - G.px, o->vy - G.py), pd = hypotf(o->x - G.px, o->y - G.py);
+    o->t += dt;
+    if (o->st == 0) {                                              /* in its orbit */
+        o->a += o->c * dt;
+        float wob = fly ? 0.07f * sinf(o->t * 9.0f + o->vz) : 0.03f * sinf(o->t * 3.0f + o->vz);
+        float r = o->b + wob + (fly ? 0.05f * sinf(o->t * 17.0f) : 0.0f);
+        o->x = o->vx + cosf(o->a) * r; o->y = o->vy + sinf(o->a) * r * 0.8f;
+        o->z = o->d + 0.1f * sinf(o->t * (fly ? 4.0f : 1.7f) + o->vz);
+        if (!mo_pass((int)o->x, (int)o->y, 0)) { o->x = o->vx; o->y = o->vy; }
+        if (!G.dead && (d < 1.5f || (pd < 2.4f && G.spd > 0.5f))) {   /* you near it: off, away from you, into the dark */
+            float h = atan2f(o->vy - G.py, o->vx - G.px) + (lrndf() - 0.5f) * 1.6f;
+            o->st = 1; o->t = 0.0f; o->head = h; o->wait = 1.4f + 1.4f * lrndf();
+        }
+        return;
+    }
+    if (o->st == 1) {                                              /* fleeing */
+        float sp = fly ? 3.2f : 2.1f;
+        float nx = o->x + cosf(o->head) * sp * dt, ny = o->y + sinf(o->head) * sp * dt + 0.0f;
+        if (mo_pass((int)nx, (int)ny, 0)) { o->x = nx; o->y = ny; } else o->head += 1.9f + lrndf();
+        o->head += (lrndf() - 0.5f) * 5.0f * dt;
+        o->z = fminf(0.85f, o->z + 0.25f * dt) + 0.02f * sinf(o->t * 20.0f);
+        if ((o->wait -= dt) <= 0.0f) { o->st = 2; o->wait = 2.5f + 3.5f * lrndf(); }
+        return;
+    }
+    if (o->st == 2) {                                              /* waiting out of sight of you, in the dark */
+        o->x += (lrndf() - 0.5f) * 0.4f * dt; o->z = o->d + 0.2f * sinf(o->t * 2.0f);
+        if ((o->wait -= dt) <= 0.0f && (G.dead || d > 2.4f)) o->st = 3;
+        return;
+    }
+    {                                                              /* going back to its light */
+        float dx = o->vx - o->x, dy = o->vy - o->y, L = hypotf(dx, dy) + 0.001f, sp = fly ? 1.8f : 1.2f;
+        float nx = o->x + dx / L * sp * dt, ny = o->y + dy / L * sp * dt;
+        if (mo_pass((int)nx, (int)ny, 0)) { o->x = nx; o->y = ny; } else { o->x = o->vx; o->y = o->vy; }
+        o->z += (o->d - o->z) * fminf(1.0f, 1.5f * dt);
+        if (L < o->b + 0.1f) { o->st = 0; o->a = atan2f(o->y - o->vy, o->x - o->vx); }
+        if (!G.dead && (d < 1.5f)) { o->st = 1; o->t = 0.0f; o->head = atan2f(o->y - G.py, o->x - G.px); o->wait = 1.0f; }
+    }
+}
+/* a bat: hangs by its roost; some of those near it drop when you come within two and a half cells, circle the room for a few
+ * seconds and settle in another roost (or the same). It never comes near you: it flies off from you and from the walls. */
+static void lf_batty(Life *o, float dt) {
+    float d = hypotf(o->x - G.px, o->y - G.py);
+    o->t += dt;
+    if (o->st == 0) {                                              /* roosting */
+        o->wait -= dt;
+        if (o->wait <= 0.0f && !G.dead && d < 2.6f) {
+            if (lrnd(3) == 0) { o->wait = 20.0f + 20.0f * lrndf(); return; }   /* this one stays */
+            o->st = 1; o->t = 0.0f; o->c = 4.0f + 3.0f * lrndf();   /* c: how long it flies */
+            o->head = atan2f(o->y - G.py, o->x - G.px) + (lrndf() - 0.5f) * 1.4f; o->z = 0.84f; o->vz = 0.0f;
+            life_sfx(SFX_BAT, o->x, o->y, 0.5f, 1.4f, 2); LEVENT("bat drops d %.1f", d);
+        }
+        return;
+    }
+    if (o->st == 1) {                                              /* on the wing */
+        float sp = 1.9f, ph = o->t;
+        o->z += (0.58f + 0.12f * sinf(ph * 1.7f) - o->z) * fminf(1.0f, 2.0f * dt);
+        o->head += (lrndf() - 0.5f) * 3.0f * dt + 0.35f * dt * (o->vz < 0.0f ? -1.0f : 1.0f);
+        if (!G.dead && d < 1.4f) o->head += wrap_pi(atan2f(o->y - G.py, o->x - G.px) - o->head) * fminf(1.0f, 5.0f * dt);   /* from you, never at you */
+        float nx = o->x + cosf(o->head) * sp * dt, ny = o->y + sinf(o->head) * sp * dt;
+        if (mo_pass((int)nx, (int)ny, 0)) { o->x = nx; o->y = ny; }
+        else { o->head += 1.5f + 1.2f * lrndf(); o->vz = lrndf() < 0.5f ? -1.0f : 1.0f; }
+        if ((o->c -= dt) <= 0.0f) {                                 /* to a roost: the nearest of the others in sight, else its own */
+            int best = (int)o->a; float bd = 1e9f;
+            for (int r = 0; r < lf_nroost; r++) {
+                float rd = hypotf(lf_roost[r][0] - o->x, lf_roost[r][1] - o->y);
+                if (rd > 1.0f && rd < bd && line_clear(o->x, o->y, lf_roost[r][0], lf_roost[r][1]) && lrnd(2)) { bd = rd; best = r; }
+            }
+            o->a = (float)best; o->st = 2; o->t = 0.0f;
+        }
+        return;
+    }
+    {                                                              /* coming home */
+        float tx = lf_roost[(int)o->a][0], ty = lf_roost[(int)o->a][1], dx = tx - o->x, dy = ty - o->y, L = hypotf(dx, dy) + 0.001f;
+        float nx = o->x + dx / L * 1.7f * dt, ny = o->y + dy / L * 1.7f * dt;
+        if (mo_pass((int)nx, (int)ny, 0) || L < 0.6f) { o->x = nx; o->y = ny; } else { o->x = tx; o->y = ty; }
+        o->z += (0.84f - o->z) * fminf(1.0f, 2.5f * dt);
+        if (L < 0.12f || o->t > 12.0f) { o->x = tx + (lrndf() - 0.5f) * 0.15f; o->y = ty + (lrndf() - 0.5f) * 0.15f; o->z = 0.84f; o->st = 0; o->wait = 12.0f + 18.0f * lrndf(); }
+    }
+}
+/* the torches: gutter when you pass near and moving, and when a door close to them swings */
+static void lf_torches(float dt) {
+    for (int t = 0; t < lf_ntorch; t++) {
+        int x = lf_torch[t][0], y = lf_torch[t][1];
+        float *g = &lf_gut[y][x];                                   /* guttering while above nought; below it, a rest of five seconds first */
+        if (*g > 0.0f) { *g -= dt; if (*g <= 0.0f) *g = -5.0f; }
+        else if (*g < 0.0f) { *g += dt; if (*g > 0.0f) *g = 0.0f; }
+        else if (!G.dead && G.spd > 0.3f && hypotf(x + 0.5f - G.px, y + 0.5f - G.py) < 2.3f) { *g = 0.9f; LEVENT("torch gutters"); }
+    }
+    for (int k = 0; k < G.ndoors; k++) {
+        float o = G.doors[k].open;
+        if (fabsf(o - lf_door_was[k]) > 0.002f && o > 0.01f && o < 0.99f)   /* a door moving: every torch within five cells gutters, harder */
+            for (int t = 0; t < lf_ntorch; t++)
+                if (hypotf(lf_torch[t][0] - G.doors[k].x, lf_torch[t][1] - G.doors[k].y) < 5.0f && lf_gut[(int)lf_torch[t][1]][(int)lf_torch[t][0]] < 1.3f && lf_gut[(int)lf_torch[t][1]][(int)lf_torch[t][0]] >= 0.0f)
+                    lf_gut[(int)lf_torch[t][1]][(int)lf_torch[t][0]] = 1.3f;
+        lf_door_was[k] = o;
+    }
+}
+
 #ifdef CRAWL_DEBUG
 static void human_begin(void);
-/* CRAWL_TPLIFE=1: two and a half cells from the first puddle, facing it, a beetle, a woodlouse and (if there is one) a toad set about it;
+/* CRAWL_TPLIFE=1: three cells from the first puddle, facing it, a beetle, a woodlouse and (if there is one) a toad set about it;
  * the player may then be moved on by HOST_INPUT. 2: as 1, with the beetle and louse on the floor a step before you. */
 static void life_tp(void) {
-    int pu = -1;
-    for (int i = 0; i < G.nlife && pu < 0; i++) if (G.life[i].alive && G.life[i].kind == LF_PUDDLE) pu = i;
+    int mode = atoi(getenv("CRAWL_TPLIFE")), pu = -1, want = mode == 3 ? LF_MOTH : mode == 4 ? LF_BAT : LF_PUDDLE;   /* 3: before a light's moths; 4: before a roost */
+    for (int i = 0; i < G.nlife && pu < 0; i++) if (G.life[i].alive && G.life[i].kind == want) pu = i;
     if (pu < 0) return;
-    float lx = G.life[pu].x, ly = G.life[pu].y;
+    float lx = want == LF_MOTH ? G.life[pu].vx : G.life[pu].x, ly = want == LF_MOTH ? G.life[pu].vy : G.life[pu].y;
     mo_bfs((int)lx, (int)ly, 0);
     for (int y = 1; y < MAPN - 1; y++)
         for (int x = 1; x < MAPN - 1; x++)
@@ -197,7 +365,7 @@ static void life_tp(void) {
                 int k = 0;
                 for (int i = 0; i < G.nlife; i++) {                  /* the crawlers nearest the puddle are brought to it */
                     Life *o = &G.life[i];
-                    if (!o->alive || (o->kind != LF_BEETLE && o->kind != LF_LOUSE) || k >= 3) continue;
+                    if (mode >= 3 || !o->alive || (o->kind != LF_BEETLE && o->kind != LF_LOUSE) || k >= 3) continue;
                     float ax = lx + 0.3f * (k - 1), ay = ly + 0.55f + 0.2f * k;
                     if (mo_pass((int)ax, (int)ay, 0)) { o->x = ax; o->y = ay; o->st = 1; o->wait = 30.0f; o->head = G.ang + PI_F; k++; }
                 }
@@ -239,9 +407,12 @@ static void life_update(float dt) {
         case LF_PRINT: if ((o->t += dt) > 14.0f) o->alive = 0; break;
         case LF_BEETLE: case LF_LOUSE: if (mobile) lf_crawler(o, i, dt); break;
         case LF_TOAD: if (mobile) lf_toady(o, dt); break;
+        case LF_MOTH: case LF_FLY: if (mobile) lf_flier(o, dt); break;
+        case LF_BAT: if (mobile) lf_batty(o, dt); break;
         default: break;
         }
     }
+    if (mobile) lf_torches(dt);
     (void)wet_r2;
     if (lf_wet > 0 && !G.dead) {                                   /* wet boots: a print each half-cell, a little paler each, till they are dry */
         float mv = hypotf(G.px - lf_pr_x, G.py - lf_pr_y);

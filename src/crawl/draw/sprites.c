@@ -1021,6 +1021,18 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             if (sinf(o->head - G.ang) >= 0.0f) flags |= DR_FLIPH;  /* drawn facing your left; turned when it faces your right */
             break; }
         case LF_TOAD: s = o->st == 1 ? SP_TOAD_HOP : SP_TOAD_SIT; sc = 0.13f; z = o->z; eyes = 1; break;
+        case LF_MOTH: case LF_FLY: {
+            if (!mobile) continue;
+            int fl = ((int)(o->t * (o->kind == LF_MOTH ? (o->st == 0 ? 8.0f : 14.0f) : 22.0f)) + i) & 1;
+            s = o->kind == LF_MOTH ? (fl ? SP_MOTH_B : SP_MOTH_A) : (fl ? SP_FLY_B : SP_FLY_A);
+            sc = o->kind == LF_MOTH ? 0.09f : 0.045f; z = o->z;
+            break; }
+        case LF_BAT:
+            if (!mobile) continue;
+            if (o->st == 0) { s = SP_LF_BATROOST; sc = 0.17f; z = o->z; }
+            else { s = ((int)(o->t * 7.0f) + i) & 1 ? SP_LF_BAT_B : SP_LF_BAT_A; sc = 0.26f; z = o->z - 0.13f; }
+            eyes = 2;
+            break;
         default: break;
         }
         if (s < 0) continue;
@@ -1028,7 +1040,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (n == n0) continue;
         Draw *d = &list[n - 1];
         d->scale = sc; d->flags |= flags;
-        if (eyes && crawl_eyes[s].n) { d->eye = 1; d->etype = MOB_SKEL; d->erank = RK_I; d->ecol = 1 + EC_AMBER; d->estate = 0; }
+        if (eyes && crawl_eyes[s].n) { d->eye = 1; d->etype = MOB_SKEL; d->erank = RK_I; d->ecol = 1 + (eyes == 2 ? EC_PALE : EC_AMBER); d->estate = 0; }
     }
     for (int i = 0; i < MAXPOOLS; i++) {                           /* a drowned one's foul pool */
         const Pool *p = &G.pools[i];
