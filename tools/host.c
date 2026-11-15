@@ -335,10 +335,10 @@ int main(int argc, char **argv) {
         /* host apl <scene> <seconds>: average picture level (mean luma, % of white), sampled twice a second */
         double secs = atof(argv[3]), sum = 0.0, peak = 0.0, peak_t = 0.0;
         input_init();
-        app_init(&cfg, 0);
+        app_init(&cfg, getenv("HOST_NOSOUND") != NULL);            /* HOST_NOSOUND=1: the sound is not synthesised (most of the run's time); the dream's log must be the same */
         uint8_t *rgb = malloc(FB_MAX_W * FB_MAX_H * 3);
-        /* HOST_HZ=n: the steps per second of the dream's time (70, the VGA refresh, unless set): fewer is faster to run and a rougher
-         * simulation, so a number weighed against another is weighed at the same HOST_HZ in both builds (docs/PLAN-stamps.md, B4) */
+        /* HOST_HZ=n: the steps per second of the dream's time (70, the VGA refresh, unless set). It does not make a run faster (the time goes on
+         * the sound: HOST_NOSOUND=1 below) and it changes what the dream does, so leave it be for a number that is to be weighed (docs/PLAN-stamps.md) */
         double hz = getenv("HOST_HZ") ? atof(getenv("HOST_HZ")) : 70.0;
         if (hz < 10.0 || hz > 240.0) hz = 70.0;
         const double dt = 1.0 / hz;
