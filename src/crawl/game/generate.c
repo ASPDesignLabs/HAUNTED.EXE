@@ -463,6 +463,7 @@ static int secret_door(Secret *sc) {
             for (int n = 0; n < 4; n++) {                          /* n: outwards from the room */
                 int ix = x - DX[n], iy = y - DY[n], bx = x + DX[n], by = y + DY[n];
                 if (ix < sc->x0 || ix > sc->x1 || iy < sc->y0 || iy > sc->y1 || (ix == rx && iy == ry)) continue;
+                if (sc->stamp && (G.map[iy][ix].kind != K_FLOOR || G.map[iy][ix].secret != 1)) continue;   /* a bent room's box has stone in its corners: the doorway touches floor */
                 if (n == ((sc->d + 2) & 3) || G.map[y][x].kind != K_WALL || G.map[y][x].secret) continue;   /* not the front */
                 if (bx < 1 || by < 1 || bx >= MAPN - 1 || by >= MAPN - 1 || G.map[by][bx].kind != K_WALL || G.map[by][bx].secret) continue;
                 int along = (ix - sc->sx) * DX[sc->d] + (iy - sc->sy) * DY[sc->d];
@@ -581,6 +582,12 @@ static int stamp_try(const Stamp *s, int ei, int d, int sx, int sy, int links, S
         int bx = dx + DX[D->d], by = dy + DY[D->d];
         if ((bx & 3) && (by & 3)) MM[(by - 1) / 4 * 2 + 1][(bx - 1) / 4 * 2 + 1].trunk = 1;   /* the rock behind it stays rock */
     }
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_STAMPLOG")) {
+        fprintf(stderr, "SECRET stamp %s x%d at (%d,%d), entrance (%d,%d), door %d:\n", s->name, s->xf, ox, oy, sx, sy, door);
+        for (int y = 0; y < s->h; y++) { fprintf(stderr, "  "); for (int x = 0; x < s->w; x++) fprintf(stderr, "%c", s->g[y][x]); fprintf(stderr, "\n"); }
+    }
+#endif
     *out = (Secret){ sx + DX[E->d], sy + DY[E->d], (E->d + 2) & 3, sx, sy, 0, 0, 0, 1, links, dx, dy, x0, y0, x1, y1, rng_next(&G.rs) | 1u, 0, slide + 1, s->def + 1 };
     return 1;
 }
