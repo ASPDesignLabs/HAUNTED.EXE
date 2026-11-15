@@ -194,6 +194,8 @@ PLAN-ui (`src/art/crawl_ui.c`, `draw/cards.c`, `tab.c`), the browser's build in 
   `claude/gallant-dijkstra-9x79xe` and folded in at the owner's word on 14 November as one squashed commit, no version bumped. The
   owner has played the mice and the spiders' first build; the spiders kept to the stone, their art redrawn and their way round
   the pictures are harness only. The record (`REC_KINDS`) is full since the rat. Its log says what is left.
+- **On the branch, not on main:** the crypt's small life (docs/PLAN-ambience.md): moths, flies, bats, beetles, woodlice, toads, puddles that drip,
+  glowing fungus, eyes in niches and more, twelve things that notice you. All built, harness only; its log says what is left.
 - **Left open by the tutorial** (docs/PLAN-tutorial.md's log): step 9's checks (a pad and touch through the lessons in
   play; the dream against 1.0.0b21.4 over many seeds), the title's HELP paging through the lessons, the scorched floor,
   the owner's look at level 2's art.
@@ -230,6 +232,7 @@ The plans, each with its hand-off log (`docs/HISTORY.md` has the account of each
 | `PLAN-mobile.md` | Touch, and asking how you play | 1.0.0b21.4; the mouse in menus not built |
 | `PLAN-tutorial.md` | The first two levels drawn, and the lessons | 1.0.0b21.5; step 9 open |
 | `PLAN-tidy.md` | Code and pictures apart; the great files cut; this file slimmed | On main since 13 November, unreleased; done |
+| `PLAN-ambience.md` | The crypt's small life: twelve things that notice you, none of them creatures | Built, harness only, on `claude/gallant-dijkstra-9x79xe`; not on main |
 | `PLAN-mice.md` | The mice in the walls, their holes and their telling; the charnel rat they grow into; the spiders on the walls | On main since 14 November, unreleased; the mice played by the owner, the spiders' last changes not yet |
 | `CHANGES-1.0.0b14.md` | The full record of everything between 1.0.0b13 and 1.0.0b14 | |
 

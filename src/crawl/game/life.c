@@ -185,6 +185,61 @@ static void lf_swing(float dt) {                                   /* hanging th
     }
 }
 
+/* the damp: glowing fungus at the feet of some walls, more where it is foul, sending spores up as you pass; and the webs, which shiver
+ * when you pass (as every hanging thing does) and tear when you walk through, and grow back */
+static float lf_torn[MAXDECO];                                     /* a web torn: how long till it is whole again; 0 whole */
+static int lf_web(int i) {                                         /* a web hung of the level's own, not a thing that wants a spell */
+    if (i < 0 || i >= G.ndecos || G.decos[i].spr != SP_WEBSHEET) return 0;
+    for (int k = 0; k < G.nmk; k++) if (G.mk[k].deco == i) return 0;
+    return 1;
+}
+static float lf_torn_of(int i) { return g_life_move == 2 && i >= 0 && i < MAXDECO ? lf_torn[i] : 0.0f; }
+static void life_damp(void) {
+    memset(lf_torn, 0, sizeof lf_torn);
+    int step = crawl_step(G.level), thin = g_drawn || G.boss >= 0;
+    int want = thin ? 1 : clampi(1 + (int)(crawl_decay(G.level) * 6.0f) + step / 3, 1, 7), made = 0;
+    for (int k = 0; k < 160 && made < want; k++) {
+        int cx = 1 + lrnd(MAPN - 2), cy = 1 + lrnd(MAPN - 2);
+        if (!life_cell_ok(cx, cy) || G.map[cy][cx].kind != K_FLOOR) continue;
+        int d = lrnd(4);
+        if (G.map[cy + DY[d]][cx + DX[d]].kind != K_WALL) continue;
+        float x = cx + 0.5f + DX[d] * 0.36f, y = cy + 0.5f + DY[d] * 0.36f;
+        if (hypotf(x - (G.cx + 0.5f), y - (G.cy + 0.5f)) < 4.0f) continue;
+        int i = life_add(LF_FUNGUS, x, y, 0.0f);
+        if (i < 0) break;
+        G.life[i].b = 0.26f + 0.12f * lrndf(); G.life[i].ref = lrnd(2); G.life[i].c = TAU_F * lrndf(); G.life[i].a = 0.0f;
+        made++;
+    }
+}
+static void lf_dampen(Life *o, float dt) {
+    if (o->kind == LF_SPORE) {                                     /* a spore: up, and sideways a little, and out */
+        o->t += dt;
+        o->z += o->vz * dt; o->x += sinf(o->t * 1.7f + o->c) * 0.05f * dt; o->y += cosf(o->t * 1.3f + o->c) * 0.05f * dt;
+        if (o->t > o->a || o->z > 0.95f) o->alive = 0;
+        return;
+    }
+    o->t += dt;                                                    /* a cluster: breathes; a puff of spores as you pass */
+    if (o->a > 0.0f) o->a -= dt;
+    float d = hypotf(o->x - G.px, o->y - G.py);
+    if (o->a <= 0.0f && !G.dead && G.spd > 0.3f && d < 2.2f) {
+        o->a = 7.0f;
+        for (int k = 0, n = 3 + lrnd(3); k < n; k++) {
+            int i = life_add(LF_SPORE, o->x + (lrndf() - 0.5f) * 0.25f, o->y + (lrndf() - 0.5f) * 0.25f, 0.1f + 0.1f * lrndf());
+            if (i < 0) break;
+            Life *sp = &G.life[i];
+            sp->vz = 0.09f + 0.08f * lrndf(); sp->a = 3.5f + 3.0f * lrndf(); sp->c = TAU_F * lrndf();
+        }
+        LEVENT("fungus puffs d %.1f", d);
+    }
+}
+static void lf_webs(float dt) {                                    /* torn when walked through; whole again in a minute or so */
+    for (int i = 0; i < G.ndecos && i < MAXDECO; i++) {
+        if (lf_torn[i] > 0.0f) { lf_torn[i] -= dt; continue; }
+        if (!lf_web(i) || G.dead || G.spd < 0.3f) continue;
+        if (hypotf(G.decos[i].x - G.px, G.decos[i].y - G.py) < 0.4f) { lf_torn[i] = 45.0f + 40.0f * lrndf(); lf_kick[i] = 1.0f; LEVENT("web tears"); }
+    }
+}
+
 static void life_air(void) {
     int step = crawl_step(G.level), thin = g_drawn || G.boss >= 0;
     memset(lf_gut, 0, sizeof lf_gut); memset(lf_door_was, 0, sizeof lf_door_was); lf_ntorch = 0; lf_nroost = 0;
@@ -246,7 +301,7 @@ static void life_level(void) {
     if (getenv("CRAWL_LIFEMOVE")) g_life_move = atoi(getenv("CRAWL_LIFEMOVE"));     /* the settings, from the harness: 0 off, 1 reduced, 2 on */
     if (getenv("CRAWL_LIFESOUND")) g_life_sound = atoi(getenv("CRAWL_LIFESOUND"));
 #endif
-    G.nlife = 0; memset(G.life, 0, sizeof G.life); memset(lf_kick, 0, sizeof lf_kick); memset(lf_gut, 0, sizeof lf_gut); lf_ntorch = 0; lf_nroost = 0;
+    G.nlife = 0; memset(G.life, 0, sizeof G.life); memset(lf_kick, 0, sizeof lf_kick); memset(lf_torn, 0, sizeof lf_torn); memset(lf_gut, 0, sizeof lf_gut); lf_ntorch = 0; lf_nroost = 0;
     G.lrs = ((G.rs ^ 0x1F3D5Bu) * 2654435769u + (uint32_t)G.level * 40503u) | 1u;   /* its own dice: G.rs read, never drawn on */
     lf_n_puddles = 0; lf_watch = 0;
     if (life_off() || !life_level_ok()) return;
@@ -254,6 +309,7 @@ static void life_level(void) {
     life_floor();
     life_air();
     life_stone();
+    life_damp();
 #ifdef CRAWL_DEBUG
     int c[LF_NKINDS] = { 0 };
     for (int i = 0; i < G.nlife; i++) if (G.life[i].alive) c[G.life[i].kind]++;
@@ -452,14 +508,29 @@ static void life_tp(void) {
                 }
         return;
     }
-    int mode = atoi(getenv("CRAWL_TPLIFE")), pu = -1, want = mode == 3 ? LF_MOTH : mode == 4 ? LF_BAT : mode == 5 ? LF_NEYES : mode == 6 ? LF_SLEEP : LF_PUDDLE;   /* 3: before a light's moths; 4: a roost; 5: eyes in a niche; 6: a sleeper */
+    if (atoi(getenv("CRAWL_TPLIFE")) == 9) {                         /* 9: three cells from the first web of the level's own, facing it */
+        for (int i = 0; i < G.ndecos; i++) {
+            if (!lf_web(i)) continue;
+            float lx = G.decos[i].x, ly = G.decos[i].y;
+            mo_bfs((int)lx, (int)ly, 0);
+            for (int y = 1; y < MAPN - 1; y++)
+                for (int x = 1; x < MAPN - 1; x++)
+                    if (mo_dist[y][x] == 3 && G.map[y][x].kind == K_FLOOR && line_clear(x + 0.5f, y + 0.5f, lx, ly)) {
+                        G.cx = x; G.cy = y; G.px = x + 0.5f; G.py = y + 0.5f; G.ang = atan2f(ly - G.py, lx - G.px);
+                        human_begin(); G.hint_t = 0.0f;
+                        return;
+                    }
+        }
+        return;
+    }
+    int mode = atoi(getenv("CRAWL_TPLIFE")), pu = -1, want = mode == 3 ? LF_MOTH : mode == 4 ? LF_BAT : mode == 5 ? LF_NEYES : mode == 6 ? LF_SLEEP : mode == 8 ? LF_FUNGUS : LF_PUDDLE;   /* 8: a fungus */   /* 3: before a light's moths; 4: a roost; 5: eyes in a niche; 6: a sleeper */
     for (int i = 0; i < G.nlife && pu < 0; i++) if (G.life[i].alive && G.life[i].kind == want) pu = i;
     if (pu < 0) return;
     float lx = want == LF_MOTH ? G.life[pu].vx : G.life[pu].x, ly = want == LF_MOTH ? G.life[pu].vy : G.life[pu].y;
     mo_bfs((int)lx, (int)ly, 0);
     for (int y = 1; y < MAPN - 1; y++)
         for (int x = 1; x < MAPN - 1; x++)
-            if (mo_dist[y][x] == (mode == 5 ? 5 : 3) && G.map[y][x].kind == K_FLOOR && line_clear(x + 0.5f, y + 0.5f, lx, ly)) {
+            if (mo_dist[y][x] == (mode == 5 ? 5 : mode == 8 ? 2 : 3) && G.map[y][x].kind == K_FLOOR && line_clear(x + 0.5f, y + 0.5f, lx, ly)) {
                 G.cx = x; G.cy = y; G.px = x + 0.5f; G.py = y + 0.5f; G.ang = atan2f(ly - G.py, lx - G.px);
                 int k = 0;
                 for (int i = 0; i < G.nlife; i++) {                  /* the crawlers nearest the puddle are brought to it */
@@ -510,10 +581,11 @@ static void life_update(float dt) {
         case LF_MOTH: case LF_FLY: if (mobile) lf_flier(o, dt); break;
         case LF_BAT: if (mobile) lf_batty(o, dt); break;
         case LF_NEYES: case LF_SLEEP: if (mobile) lf_stoned(o, dt); break;
+        case LF_FUNGUS: case LF_SPORE: if (mobile) lf_dampen(o, dt); break;
         default: break;
         }
     }
-    if (mobile) { lf_torches(dt); lf_swing(dt); }
+    if (mobile) { lf_torches(dt); lf_swing(dt); lf_webs(dt); }
     (void)wet_r2;
     if (lf_wet > 0 && !G.dead) {                                   /* wet boots: a print each half-cell, a little paler each, till they are dry */
         float mv = hypotf(G.px - lf_pr_x, G.py - lf_pr_y);

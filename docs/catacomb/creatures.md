@@ -126,3 +126,11 @@ harness `docs/HARNESS.md`, the known issues `docs/KNOWN-ISSUES.md`, and each rel
   mark pulled straight between turns (`sk_los`; `Skitter.wps`, `wph`, `nwp`, `iwp`, `wpmore`), `sk_free_h` a clear height,
   `sk_at` the face at a place round a loop (`wf_seq`, `wf_seq0`), `sk_wander` somewhere reachable; `calm_t` the wait after a
   scurry to no end; `SK_HLO`, `SK_HHI` how low and high they go.
+
+## The crypt's small life (docs/PLAN-ambience.md)
+
+Set dressing that notices you, outside `MAXMOBS`, the hunt, the budget, the tally and the autopilot's aim, on dice of its own (`G.lrs`) and not
+saved: `src/crawl/game/life.c` (`life_level`, `life_update`; `life_floor`, `life_air`, `life_stone`, `life_damp` set each level; `lf_crawler`,
+`lf_toady`, `lf_flier`, `lf_batty`, `lf_stoned`, `lf_dampen`, `lf_torches`, `lf_swing`, `lf_webs` move them), drawn in `draw/sprites.c` after the wall
+spiders, art in `src/art/parts/life.c`, `SP_MOTH_A` to `SP_SLHAND_B`. The torches' frames (`torch_frame`) and the saints' eyes are in `draw/walls.c`.
+The settings are `g_life_move` and `g_life_sound` (`core/app.h`).

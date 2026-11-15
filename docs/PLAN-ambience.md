@@ -1,6 +1,6 @@
 # The crypt's small life: things that notice you
 
-**Settled in outline; the core, the art, the floor, the air and the stone built (L0 to L4)** (15 November 2026, on `claude/gallant-dijkstra-9x79xe`, from main after the mice). The owner
+**Built, harness only; all twelve built (L0 to L5), harness only** (15 November 2026, on `claude/gallant-dijkstra-9x79xe`, from main after the mice). The owner
 asked for "world building elements ... that react to the player's presence and do not require the player to do much of anything.
 Stuff that brings life to these dead, damp, and dark crypts", was offered twelve, and took them all: "every single suggestion sounds
 great". Nothing here is built or tested by hand.
@@ -106,4 +106,16 @@ ask nothing of you, hurt nothing, and are never in your way.*
   fifth moving, its swing dying away over some seconds. Proved: 12 dream logs line for line the commit before's (the APL timing line
   aside); frames with `CRAWL_LIFE=0` and with `CRAWL_LIFEMOVE=0` 12 of 12 each; reduced movement and sound run; ASan and UBSan clean on
   four 900 s dreams and six staged runs; the smoke 1.56 ms a frame. Left: A10 (webs), A11 (fungus), the owner's eye.
+- **15 November, L5, the damp** (harness only). A10: the level's own webs (`SP_WEBSHEET` decos not held by a thing that wants a spell)
+  shiver as every hanging thing does (A4), and tear when you walk within two-fifths of a cell of one moving: gone, then
+  growing back over its last three seconds, 45 to 85 seconds after. Drawn only (`lf_torn`, read by the deco loop): nothing of the
+  game's decos changes. **Not built: the spider that comes to mend it**; the wall spiders' ways go only along the stone, and a web
+  hangs in the cell, so it grows back by itself. A11: glowing fungus (the new sprite, not the pale `SP_FUNGUS` prop) in
+  clumps at the feet of walls, one to seven a level, more where `crawl_decay` is high; brighter and breathing (`DR_LIT`) within three
+  and a half cells; a puff of three to five spores (a mote that rises, drifts and fades in three and a half to six and a half seconds)
+  when you pass within two cells and a fifth moving, once in seven seconds a clump. Reduced movement keeps the clumps still; off
+  shows none. Proved: 12 dream logs line for line the commit before's; frames with `CRAWL_LIFE=0` and `CRAWL_LIFEMOVE=0` 12 of 12 each;
+  reduced runs; ASan and UBSan clean on four 900 s dreams and seven staged runs; the smoke 1.59 ms a frame. No balance runs: nothing
+  here reaches the simulation, which the logs show. All twelve are in; what is left is the owner's eye and ear on them in play,
+  the sounds (borrowed ones), the browser's two settings (it runs both on), and main at their word.
 - **15 November.** The twelve offered; the owner took them all. This plan written; no code yet. Next: L0, then L1 and the sheet.

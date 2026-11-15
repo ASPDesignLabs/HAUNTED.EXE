@@ -647,7 +647,10 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                 if ((int)dc->phase & 1) ox = k; else oy = k;
             }
         }
+        float torn = lf_torn_of(i);
+        if (torn > 3.0f) continue;                                 /* a torn web: gone, till it grows back (docs/PLAN-ambience.md, A10) */
         ADD(dc->x + ox, dc->y + oy, zx, spr, 0);
+        if (n > n0 && torn > 0.0f) list[n - 1].alpha = fmaxf(0.05f, 1.0f - torn / 3.0f);   /* growing back */
         if (n > n0 && (dc->flags & (DF_FLIP | DF_FLOAT | DF_SINK | DF_LOOP))) {
             list[n - 1].flags = ((dc->flags & DF_FLIP) ? DR_FLIPV : 0) | ((dc->flags & DF_SINK) ? DR_CLIP : 0) | ((dc->flags & DF_LOOP) ? DR_GLITCH | DR_LOOPED : 0);
         }
@@ -1028,6 +1031,14 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             s = o->kind == LF_MOTH ? (fl ? SP_MOTH_B : SP_MOTH_A) : (fl ? SP_FLY_B : SP_FLY_A);
             sc = o->kind == LF_MOTH ? 0.09f : 0.045f; z = o->z;
             break; }
+        case LF_FUNGUS:                                            /* glowing in the damp: brighter, breathing, as you come near */
+            s = o->ref ? SP_LF_FUNGUS_BIG : SP_LF_FUNGUS_SMALL; sc = o->b;
+            if (mobile && hypotf(o->x - G.px, o->y - G.py) < 3.6f && sinf((float)G.t * 1.6f + o->c) > -0.3f) flags |= DR_LIT;
+            break;
+        case LF_SPORE:
+            if (!mobile) continue;
+            s = SP_SPORE; sc = 0.04f; z = o->z; flags |= DR_BRIGHT; al = smoothstepf(0.0f, 0.8f, o->t) * (1.0f - smoothstepf(o->a - 1.2f, o->a, o->t));
+            break;
         case LF_NEYES:
             if (!mobile || o->a <= 0.01f || (G.px - o->x) * o->vx + (G.py - o->y) * o->vy <= 0.0f) continue;
             s = o->st == 2 || fmodf(o->t + o->b, 5.0f) > 4.82f ? SP_NEYES_B : SP_NEYES_A; sc = o->c; z = o->z; al = o->a; eyes = 1;
