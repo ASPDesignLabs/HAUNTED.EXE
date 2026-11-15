@@ -84,7 +84,10 @@ def one(host, seed, level, nostamps, timeout):
     entr = [(x, y) for y in range(n) for x in range(n) if rows[y][x] == "?"]
     r["entr"] = len(entr); r["entr_bad"] = sum(1 for p in entr if not near(p, closed))
     secret_cells = [p for p in cells if ch(p) in SECRET_ROOM]
-    r["secret_cells_bad"] = sum(1 for p in secret_cells if p not in opened)
+    bad_cells = [p for p in secret_cells if p not in opened]
+    r["secret_cells_bad"] = len(bad_cells); r["bad_cells"] = bad_cells[:6]
+    doors = [p for p in cells if ch(p) == "&"]
+    r["door_loose"] = [p for p in doors if not any(rows[p[1] + dy][p[0] + dx] == ":" for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)) if 0 <= p[0] + dx < n and 0 <= p[1] + dy < n)]
     stranded = [p for p in cells if p not in opened and ch(p) not in SECRET_ROOM]
     r["stranded"] = len(stranded)
     return r
@@ -114,8 +117,9 @@ def main():
         if r.get("keys_bad"): why.append("key not reached")
         if r.get("locked_bad"): why.append("locked door not reached")
         if r.get("entr_bad"): why.append("secret entrance not reached")
-        if r.get("secret_cells_bad"): why.append("secret room/doorway not reached")
-        for w in why: bad[w] += 1
+        if r.get("door_loose"): why.append("doorway touches no room floor %s" % (r["door_loose"],))
+        if r.get("secret_cells_bad"): why.append("secret room/doorway not reached %s" % (r["bad_cells"],))
+        for w in why: bad[w.split(" (")[0].split(" [")[0]] += 1
         if why: fails.append((r["seed"], r["level"], why))
     fb = sum(1 for r in res if r.get("fallback"))
     withst = [r for r in res if r.get("rooms")]

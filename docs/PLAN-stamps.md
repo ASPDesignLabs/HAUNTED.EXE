@@ -281,6 +281,30 @@ left open. Do not edit the other's.
 
 ### Track B: the content and the proof
 
+- **15 November 2026, B4, the generation sweep: it finds two faults in A's work.** New tool `tools/stampsweep.py` (`python3 tools/stampsweep.py
+  [--seeds 1-200] [--levels 1,5,10,11,20,21,30,31,40] [--nostamps] [--list]`; needs `make build/host_debug`): generates each (seed, level)
+  with `CRAWL_STAGE=1 CRAWL_MAP=1`, then works out from the printed map whether the exit, every key, every locked door, every secret
+  entrance and every secret room and doorway can be reached (locked doors passable, secret walls shut, then open), and counts hangs, crashes
+  and fallbacks. **Note: the harness ORs the seed with 1, so 1-200 is 100 different seeds, and a seed gives the same layout at every
+  level**, so these are 100 layouts, not 1,800. **Results, 1,800 levels each (harness only):** `CRAWL_NOSTAMPS=1`: no hang, no crash, nothing
+  unreachable, no stranded floor. Stamps on: no hang or crash; 16 levels (0.9 per cent) were made again without stamps (the A3 safety
+  nets); **52 failures, in two groups.** (1) **Boss levels (10, 20, 30, 40): the exit cannot be reached in 6 of the 100 seeds (seeds 55, 59,
+  87, 91, 103, 143; all four boss levels each, 48 levels), and the arena's floor is stranded.** Seed 55 level 10: the hall to the boss arena is
+  a 1-wide passage going north from (6,48) to a hall near y=29 in the unstamped level; with stamps its north end at (6,48) meets stone
+  (a stamp's stone, or the plan, closes it). It only happens with joiners and places (`CRAWL_NOJOINERS=1`: none). Repro: `CRAWL_SEED=55
+  CRAWL_LEVEL=10 CRAWL_STAGE=1 CRAWL_MAP=1 CRAWL_STAMPLOG=1 build/host_debug apl crawl 1`. Stamps there: broken ring 19 at plan (3,5), tee 19
+  at (5,1), octagon 7 at (17,3). (2) **A secret's doorway (`&`) touching no floor of its room: 3 layouts (seeds 8/9 and 64/65 level 5
+  with `secret_arrow`; 2/3 level 31 with `secret_l_turned`; the same bug is probably what fails seeds 110/111 at levels 11 and 21 with
+  joiners on).** Seed 9 level 5: the doorway is at (39,7) and the arrow's nearest floor is (37,8): all four neighbours of the doorway are
+  stone, so the chain beyond it cannot be reached; the box version put it at (38,8) touching its room. Repro (secrets only): `CRAWL_NOJOINERS=1
+  CRAWL_SEED=9 CRAWL_LEVEL=5 CRAWL_STAGE=1 CRAWL_MAP=1 build/host_debug apl crawl 1`. All three have a chain of 2 or 3; `build/stampsheet check`
+  is clean, so the stamp's `D` is right in all eight turns: the fault is in how a room is laid. Both are A's to fix; I have not touched the
+  generator. Not tested by the sweep: a stamp overlapping a vault, wing, trial or arena (not tested directly: a vault door or key it covered
+  would show as unreached, and none did). Stamps used (1,800 levels): shrine spur 1156, dogleg 852, octagon 7 481, gallery 382, chevron 321,
+  and down to the gauntlet hall 16 and the cloister 48; the antechamber none yet (A has left it out). Secret rooms: box 1749, wide 1045,
+  strip 369, L 106, L turned 32, arrow 26, C 24, J 22, long 14, spiral 6. **Next:** the autopilot's balance runs (B4's other half) on 16
+  seeds against a 1.0.0b21.6 worktree; they will be run again once these two are fixed.
+
 - **15 November 2026, B3: the six places drawn.** In `crawl_stamp_data.c` as `ST_PLACE`: cloister (15x15), antechamber (11x11),
   gauntlet hall (15x11), alcove hall (15x11), shrine spur (3x11), sunken ring (19x19). `build/stampsheet <dir> places` draws them (`all`
   does too, and `extras` now takes ours, joiners and places together); sheet: `media/sheets/stamps/proposed-places.png`. The approved
