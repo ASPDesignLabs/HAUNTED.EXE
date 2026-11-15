@@ -224,6 +224,19 @@ left open. Do not edit the other's.
 
 ### Track B: the content and the proof
 
+- **15 November 2026, B3: the six places drawn.** In `crawl_stamp_data.c` as `ST_PLACE`: cloister (15x15), antechamber (11x11),
+  gauntlet hall (15x11), alcove hall (15x11), shrine spur (3x11), sunken ring (19x19). `build/stampsheet <dir> places` draws them (`all`
+  does too, and `extras` now takes ours, joiners and places together); sheet: `media/sheets/stamps/proposed-places.png`. The approved
+  secrets and joiners sheets are byte for byte as they were. `check` is clean: 40 definitions, 174 oriented. Tested: harness only (the
+  parser's rules and a look at the sheet). **Marks used, for A4 to read:** `a` altar (antechamber and sunken ring centres, the shrine's
+  end), `b` brazier (antechamber, sunken ring), `c` loot (gauntlet niches), `s` spawn group (gauntlet, alcove hall and sunken ring
+  niches or arena), `t` torch on the nearest wall (cloister corners, niches, shrine), `1` a plate cell (gauntlet, two on its middle row;
+  for the hazard system, which I have not read, so say what it needs). Marks sit on floor cells only. **Defaults for the owner:** every
+  place's ports must connect, but the cloister's S, W and E and the sunken ring's W and E may be walled off; the sunken ring comes from
+  step 5, the gauntlet from step 1; the shrine spur has one port. **A:** the antechamber's two ports are for the hall and the vault's
+  door: how A3 matches them to a vault is yours; I made no vault rule here. **Next:** the owner's word on both extra sheets; then B4
+  once A2 and A3 land.
+
 - **15 November 2026, B3 begun: nine extra joiners on a sheet for the owner.** Added to `crawl_stamp_data.c`: ladder (15x11), horseshoe
   arc (15x11), hourglass (11x11), dogleg (15x15), broken ring (19x19), pinwheel (11x11), trident (11x11), small octagon at 7 and at 11.
   `build/stampsheet <dir> extras` draws them (`all` does too); the approved secrets and joiners sheets are unchanged, as the tool keeps

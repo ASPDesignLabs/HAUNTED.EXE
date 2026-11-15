@@ -453,6 +453,97 @@ const StampDef STAMP_DEFS[] = {
     "...........\n"
     "#.........#\n"
     "###.PPP.###" },
+    /* ---- ours, for the owner to approve (B3): places, with marks (a altar, b brazier, c loot, s spawn, t torch, 1 a plate) ---- */
+    /* ours: cloister, a loop round a solid yard; torches at the inner corners */
+    { "place_cloister_15", ST_PLACE, 15, 15, 0, 9, 4, 0,
+    "....PPP........\n"
+    "...............\n"
+    "..t.........t..\n"
+    "...#########...\n"
+    "p..#########..p\n"
+    "p..#########..p\n"
+    "p..#########..p\n"
+    "...#########...\n"
+    "...#########...\n"
+    "...#########...\n"
+    "...#########...\n"
+    "...#########...\n"
+    "..t.........t..\n"
+    "...............\n"
+    "....ppp........" },
+    /* ours: antechamber, a vestibule before a vault: altar, two braziers */
+    { "place_antechamber_11", ST_PLACE, 11, 11, 0, 9, 5, 0,
+    "###########\n"
+    "##.......##\n"
+    "#.........#\n"
+    "#..#...#..#\n"
+    "P.........P\n"
+    "P.b..a..b.P\n"
+    "P.........P\n"
+    "#..#...#..#\n"
+    "#.........#\n"
+    "##.......##\n"
+    "###########" },
+    /* ours: gauntlet hall for the hazards: plate cells, spawn and loot in niches, torches */
+    { "place_gauntlet_15", ST_PLACE, 15, 11, 1, 9, 4, 0,
+    "###############\n"
+    "###############\n"
+    "###s###t###s###\n"
+    "###.###.###.###\n"
+    "P.............P\n"
+    "P....1...1....P\n"
+    "P.............P\n"
+    "###.###.###.###\n"
+    "###c###t###c###\n"
+    "###############\n"
+    "###############" },
+    /* ours: alcove hall, 1-cell recesses down both sides: torches and ambushes */
+    { "place_alcove_hall_15", ST_PLACE, 15, 11, 0, 9, 4, 0,
+    "###############\n"
+    "###############\n"
+    "#.#t#s#t#s#t#.#\n"
+    "...............\n"
+    "P.............P\n"
+    "P.............P\n"
+    "P.............P\n"
+    "...............\n"
+    "#s#t#.#t#.#t#s#\n"
+    "###############\n"
+    "###############" },
+    /* ours: shrine spur, a 1-wide dead end ending in an altar */
+    { "place_shrine_spur_3", ST_PLACE, 3, 11, 0, 9, 4, 0,
+    "#P#\n"
+    "#.#\n"
+    "#.#\n"
+    "#.#\n"
+    "#.#\n"
+    "#.#\n"
+    "#.#\n"
+    "#.#\n"
+    "t.t\n"
+    ".a.\n"
+    "..." },
+    /* ours: sunken ring, a ring wall with four gates round an arena: altar, spawn, braziers */
+    { "place_sunken_ring_19", ST_PLACE, 19, 19, 5, 9, 2, 0,
+    "#####...PPP...#####\n"
+    "####...........####\n"
+    "###......b......###\n"
+    "##....##...##....##\n"
+    "#....##.....##....#\n"
+    "....##.......##....\n"
+    "...##.s.....s.##...\n"
+    "...#...........#...\n"
+    "p.................p\n"
+    "p.b......a......b.p\n"
+    "p.................p\n"
+    "...#...........#...\n"
+    "...##.s.....s.##...\n"
+    "....##.......##....\n"
+    "#....##.....##....#\n"
+    "##....##...##....##\n"
+    "###......b......###\n"
+    "####...........####\n"
+    "#####...PPP...#####" },
 };
 
 const int NSTAMP_DEFS = (int)(sizeof STAMP_DEFS / sizeof STAMP_DEFS[0]);

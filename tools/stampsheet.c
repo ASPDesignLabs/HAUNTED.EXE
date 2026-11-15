@@ -92,6 +92,12 @@ static const Note NOTES[] = {
     { "joiner_trident_11", "Ours: three prongs from one wall; the middle prong must connect." },
     { "joiner_octagon_7", "Ours: small octagon with a pillar; the two ports off its axis must connect." },
     { "joiner_octagon_11", "Ours: small octagon with a central pillar (N and S must connect)." },
+    { "place_cloister_15", "Ours: a loop round a solid yard; torches at the inner corners. N must connect." },
+    { "place_antechamber_11", "Ours: a vestibule before a vault, with an altar and two braziers. Both ends must connect." },
+    { "place_gauntlet_15", "Ours: a hall for the hazards: plate cells (1), spawn and loot in niches, torches. Both ends must connect." },
+    { "place_alcove_hall_15", "Ours: 1-cell recesses down both sides, for torches and ambushes. Both ends must connect." },
+    { "place_shrine_spur_3", "Ours: a 1-wide dead end ending in an altar. Its one port must connect." },
+    { "place_sunken_ring_19", "Ours: a ring wall with four gates round an arena: altar, spawn, braziers. N and S must connect." },
 };
 static const char *note_for(const char *name) {
     for (size_t i = 0; i < sizeof NOTES / sizeof NOTES[0]; i++) if (!strcmp(NOTES[i].name, name)) return NOTES[i].note;
@@ -190,6 +196,15 @@ static int sheet(int kind) {
     snprintf(line, sizeof line, "STAMPS: %s. Each shape in every orientation it has (a turn or a mirror that looks the same is not shown twice).", kind_title(kind));
     text(MARGIN, y, line, C_TEXT); y += 22;
     legend(y + 2, kind); y += 24;
+    if (kind == ST_PLACE) {
+        static const struct { char g; const char *w; } M[] = { { 'a', "altar" }, { 'b', "brazier" }, { 'c', "loot" }, { 's', "spawn" }, { 't', "torch" }, { '1', "a number (a plate)" } };
+        int x = MARGIN;
+        for (int i = 0; i < 6; i++) {
+            rect(x, y + 2, 14, 14, C_FLOOR); rect(x + 4, y + 6, 6, 6, mark_col(M[i].g));
+            text(x + 20, y + 1, M[i].w, C_DIM); x += 20 + 8 * (int)strlen(M[i].w) + 24;
+        }
+        y += 22;
+    }
     text(MARGIN, y, "Nothing here is in the game until the sheet is approved.", C_DIM); y += 28;
     for (int i = 0; i < NSTAMP_DEFS; i++) {
         if ((kind >= 0 && STAMP_DEFS[i].kind != kind) || is_ours(STAMP_DEFS[i].name) != FILTER) continue;
@@ -275,7 +290,7 @@ int main(int argc, char **argv) {
     if (!strcmp(which, "extras") || all) { FILTER = 1; ok &= write_sheet(dir, -1); FILTER = 0; }
     if (all || !strcmp(which, "secrets")) ok &= write_sheet(dir, ST_SECRET);
     if (all || !strcmp(which, "joiners")) ok &= write_sheet(dir, ST_JOINER);
-    if (all || !strcmp(which, "places")) ok &= write_sheet(dir, ST_PLACE);
+    if (all || !strcmp(which, "places")) { FILTER = 1; ok &= write_sheet(dir, ST_PLACE); FILTER = 0; }
     if (all && check()) return 1;
     return ok ? 0 : 1;
 }
