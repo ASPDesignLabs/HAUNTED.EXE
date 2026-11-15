@@ -14,6 +14,7 @@ typedef struct {
     int scene;                      /* 0 A, beneath; 1 B, the walk; 2 C, the risen */
     int pad;                        /* the pad is the input: its words */
     int graves;                     /* the grave screen, not the title */
+    int bare;                       /* the scene alone: no name, no words (the page's backdrops) */
     float menu, press;              /* the menu come in, 0..1; the key's flare, 1 going to 0 */
     float mk[4], gk[3];             /* how chosen each of the menu's four is, and each grave, 0..1 */
     TitlePage page[3];

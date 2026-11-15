@@ -158,7 +158,8 @@ static void mock_pages(void) {                         /* made up: two runs sign
     title_page_set(&V.page[1], "II", 1, 2, "ANATOMIST", "LEVEL 1", "AT A DEATH", "9 NOV 2026");
     title_page_set(&V.page[2], "III", 0, 0, "UNMARKED", "NOTHING", "WRITTEN", "");
 }
-static void view_begin(int scene) { memset(&V, 0, sizeof V); mock_pages(); V.scene = scene; V.pad = PADMODE; V.version = "1.0.0B21.1"; }
+static int BAREMODE;
+static void view_begin(int scene) { memset(&V, 0, sizeof V); mock_pages(); V.scene = scene; V.bare = BAREMODE; V.pad = PADMODE; V.version = "1.0.0B21.1"; }
 /* the graves: each chosen in turn, coming up over a third of a second and going as fast */
 static float sel_k(float t, int k) {
     float per = LOOP / 3, u = t - k * per;
@@ -413,6 +414,7 @@ int main(int argc, char **argv) {
     ui_ramps(0);
     F.w = W; F.h = H;
     const char *which = argc > 2 ? argv[2] : "all";
+    BAREMODE = getenv("TM_BARE") != NULL;                               /* TM_BARE=1: the scenes without their name or words */
     int all = !strcmp(which, "all");
     if (!strcmp(which, "logo") || all) logo_sheet(argv[1]);
     if (!strcmp(which, "a") || all) { run(argv[1], "A_beneath", scene_a, 12.0f); run(argv[1], "A_graves", a_graves, 12.0f); }
