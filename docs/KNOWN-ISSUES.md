@@ -334,10 +334,11 @@ wrong or untried, and the numbers from each round of the dream's runs. Add to it
   death in both, level reached 7.8 against 7.6, secret rooms found 52.9 against 48.1 (mean), the median level 329 s against 339 s, gold at
   the end about the same (6,508 against 6,436); no crash or timeout. With 16 seeds the noise is about a quarter either way, so this says
   the stamps made the autopilot no worse, not that they made it better. **What it does not cover:** 3,000 s reaches levels 8 to 9, so the
-  boss levels (10, 20, 30, 40), the Deep and the lower runs were not played; the numbers are of the first eight levels only. **Open faults
-  found by `tools/stampsweep.py`** (1,800 levels, 100 different seeds, since the harness ORs the seed with 1; with `CRAWL_NOSTAMPS=1` none):
-  on 6 of 100 seeds the boss levels' exit cannot be reached with joiners and places on (the hall to the arena is closed by stone), and on 3
-  layouts a bent secret room's doorway touches none of its room's floor (`secret_arrow` twice, `secret_l_turned` once), so the chain beyond
-  it cannot be reached; 16 levels in 1,800 were made again without stamps. Track A has both. The balance runs are to be done again once
-  they are fixed.
+  boss levels (10, 20, 30, 40), the Deep and the lower runs were not played; the numbers are of the first eight levels only. **Faults found by `tools/stampsweep.py`** (1,800 levels, 100 different seeds, since the harness ORs the seed with 1; with `CRAWL_NOSTAMPS=1`
+  none). First sweep: on 6 of 100 seeds the boss levels' exit could not be reached (the hall to the arena closed by stone), and on 3 layouts a
+  bent secret room's doorway touched none of its room's floor; both fixed by Track A (the sweep at `400d8bf`: no boss level fails, no doorway
+  is loose). **Still open (second sweep, same commit):** on 11 of 100 seeds (26 of 1,800 levels) a secret room's entrance cannot be reached,
+  seen so far to be a prop standing on the one hall cell in front of the cracked wall (seed 97 level 10, entrance (2,20), prop at (2,19)); on 2
+  seeds (35 at level 31, 167 at level 21) the exit is not reached, 3 floor cells stranded; 22 levels in 1,800 were made again without stamps.
+  The balance runs are to be done again once these are fixed.
 

@@ -298,6 +298,16 @@ left open. Do not edit the other's.
 
 ### Track B: the content and the proof
 
+- **15 November 2026, B4, the sweep again at `400d8bf`: A's two faults are fixed; a third has come.** Same 1,800 levels (100 seeds):
+  **boss levels: the exit is reached in every one; no doorway touches no floor.** New: **26 levels (11 seeds: 35, 89, 97, 103, 107, 115,
+  127, 131, 143, 167, 173) where a secret room's entrance is not reached**, and 2 seeds where the exit is not (seed 35 level 31, seed 167
+  level 21: 3 floor cells stranded); 22 levels made again without stamps (16 before). None of the new ones happens with `CRAWL_NOSTAMPS=1`
+  (checked on seeds 35, 97 and 103). Seed 97 level 10 (`CRAWL_SEED=97 CRAWL_LEVEL=10 CRAWL_STAGE=1 CRAWL_MAP=1 build/host_debug apl crawl 1`):
+  the second `secret_box`'s cracked wall is at (2,20) and the only hall cell in front of it, (2,19), holds a prop (`p` in the map), so the
+  entrance cannot be reached; the first sweep, before your last two commits, had none of these, so it is likely to come from the props'
+  new rule or the change of order (the place first). **A:** over to you; `python3 tools/stampsweep.py --seeds 35,97,103,167 --levels
+  10,21,31` shows them in seconds. Harness only. I have not rerun the balance since: it waits for this.
+
 - **15 November 2026, B4, the balance (first round, before A's two faults are fixed).** `tools/stampbal.py --old <a 1.0.0b21.6 harness>`
   runs the dream on the same seeds in two builds and tabulates them; the old build is a `git worktree` at `f1ef1d7` with `make
   build/host_debug` (under `build/bal/`, which is not tracked). 16 seeds (1 to 31 odd), 3,000 s of the dream's time each, from level 1:
