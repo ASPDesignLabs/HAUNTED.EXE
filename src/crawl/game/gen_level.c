@@ -368,8 +368,9 @@ static int foot_on(void) {
 #endif
 }
 static void solid_prop(int x, int y, int spr, int nfr, int kind) {
-    G.map[y][x].kind = (uint8_t)kind;
     prop_lx = x + 0.5f; prop_ly = y + 0.5f;
+    if ((kind == K_PROP || kind == K_PILLAR) && st_seals(x, y)) return;   /* in a drawn room, not where it would shut a way (its light is still laid) */
+    G.map[y][x].kind = (uint8_t)kind;
     int part = FOOT_WHOLE, walls = 0;
     if (g_foot && kind == K_PROP && foot_on() && !lane(x, y) && !in_band(y)) {
         part = crawl_foot_part(crawl_prop_foot(spr, nfr));

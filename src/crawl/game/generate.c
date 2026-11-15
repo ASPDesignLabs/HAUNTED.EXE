@@ -165,6 +165,8 @@ static void dress_level(void);
 typedef struct { uint8_t kind, theme, w, lo, trunk; int8_t room; int16_t region; uint8_t keep; } MCell;   /* keep: not filled as a dead end */
 static MCell MM[MG][MG];
 static int mroom[12][4];                                         /* the rooms on the plan: x, y, w, h */
+#define ARENA_PLAN 15                       /* plan rows from here on are a boss's (cells from BAND_Y0) */
+#define ARENA_DOOR_MX 3                     /* and the way down to it: plan column 3, cell x 6 */
 static int8_t st_room[12];                                       /* a drawn room's place in st_placed, plus one; 0 a chamber (docs/PLAN-stamps.md) */
 static int mstart(int m) { return (m & 1) ? 2 * m - 1 : 2 * m; }  /* the first cell of plan row/column m */
 static MCell *mc(int x, int y) {
@@ -741,6 +743,7 @@ static int st_place_one(int cls, int *nreg) {
  * ones have room to fit), then one big joiner and two or three small ones, no two of a family */
 static void place_level_stamps(int *nreg) {
     int want[7], nw = 0;
+    if (G.boss >= 0) st_resv[ARENA_PLAN - 2][ARENA_DOOR_MX] = st_resv[ARENA_PLAN - 1][ARENA_DOOR_MX] = 1;   /* the way down to a boss's arena is theirs to leave alone */
     if (rnd(100) < 55) { want[nw++] = 3; want[nw++] = 2; } else want[nw++] = 2;   /* (a spur instead, if no large one fits) */
     want[nw++] = 0; want[nw++] = 1; want[nw++] = 1; if (rnd(2)) want[nw++] = 1;
 #ifdef CRAWL_DEBUG
@@ -979,8 +982,6 @@ static int slide_covers(int x, int y) {
     return bx < x + 1 - 0.02f && bx + 1 > x + 0.02f && by < y + 1 - 0.02f && by + 1 > y + 0.02f;
 }
 
-#define ARENA_PLAN 15                       /* plan rows from here on are a boss's (cells from BAND_Y0) */
-#define ARENA_DOOR_MX 3                     /* and the way down to it: plan column 3, cell x 6 */
 static void stamp_arena(void);
 static int in_band(int y);
 static float decay(void);
