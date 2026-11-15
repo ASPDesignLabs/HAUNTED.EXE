@@ -224,6 +224,16 @@ left open. Do not edit the other's.
 
 ### Track B: the content and the proof
 
+- **15 November 2026, B3 begun: nine extra joiners on a sheet for the owner.** Added to `crawl_stamp_data.c`: ladder (15x11), horseshoe
+  arc (15x11), hourglass (11x11), dogleg (15x15), broken ring (19x19), pinwheel (11x11), trident (11x11), small octagon at 7 and at 11.
+  `build/stampsheet <dir> extras` draws them (`all` does too); the approved secrets and joiners sheets are unchanged, as the tool keeps
+  ours apart by their notes. Sheet: `media/sheets/stamps/proposed-extra-joiners.png`. `check` is clean: 34 definitions, 150 oriented.
+  Tested: harness only (the parser's rules and a look at the sheet); nothing in the game reads them. **Not drawn yet: the six places**
+  (cloister, antechamber, gauntlet hall, alcove hall, shrine spur, sunken ring), which wait for the owner's word on these, and need
+  A's marks (A4). Defaults for the owner to change: the ladder's bottom ports and the trident's side ports may be walled off, the rest
+  must connect; the dogleg's feet are a block-width apart; the broken ring is pinched at its north-east and south-west corners.
+  **A:** none of these need an engine change; the octagon at 7 has its two ports off the axis, which the validator accepts.
+
 - **15 November 2026, the sheet is approved.** The owner saw `proposed-secrets.png` and `proposed-joiners.png` and said "Those look great!"
   I take that as approval of the sheet as it stands, the regridded joiners included. The three questions in the entry below it were not
   answered, so their defaults stand (two required ports on the hubs; the steps and weights as set; no marks in the monument rooms).

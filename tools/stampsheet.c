@@ -1,7 +1,7 @@
 /* The stamps' sheet (docs/PLAN-stamps.md, track B): every stamp in src/crawl/crawl_stamp_data.c drawn in each of its distinct
  * orientations, for the owner to approve before the game uses any of them, and a check that runs the parser's own rules on all eight.
  *
- *   stampsheet <dir> [secrets|joiners|places|all|check]
+ *   stampsheet <dir> [secrets|joiners|places|extras|all|check]
  *
  * secrets, joiners and places each write <dir>/stamps_<kind>.png (a kind with no stamps writes nothing); all (the default) writes
  * those and then runs check; check prints each stamp that breaks a rule, and the counts, and exits 1 if any did.
@@ -83,11 +83,23 @@ static const Note NOTES[] = {
     { "joiner_fork_11", "J8, drawn 14x10. Regridded to 11x11. Feet must connect; the apex may be walled off." },
     { "joiner_nave_35", "J9, drawn 35x10, kept 35 wide; one row added (11 tall) so its end ports sit on a block's middle. At most one a level." },
     { "joiner_gallery_15", "J10, drawn 3x16. Trimmed to 15 long. Both ends must connect." },
+    { "joiner_ladder_15", "Ours: two halls (ports at the top must connect) joined by two 1-wide rungs." },
+    { "joiner_horseshoe_15", "Ours: a bend round solid stone, 3 wide; both feet must connect." },
+    { "joiner_hourglass_11", "Ours: two chambers and a 1-wide neck, for a boss, a vault or a trial. Both ends must connect." },
+    { "joiner_dogleg_15", "Ours: a 3-wide diagonal joining halls a block-width apart." },
+    { "joiner_broken_ring_19", "Ours: a ring road pinched to 1 wide at two corners, four spokes (N and S must connect)." },
+    { "joiner_pinwheel_11", "Ours: four blades turning the way in to a core room (N and S must connect)." },
+    { "joiner_trident_11", "Ours: three prongs from one wall; the middle prong must connect." },
+    { "joiner_octagon_7", "Ours: small octagon with a pillar; the two ports off its axis must connect." },
+    { "joiner_octagon_11", "Ours: small octagon with a central pillar (N and S must connect)." },
 };
 static const char *note_for(const char *name) {
     for (size_t i = 0; i < sizeof NOTES / sizeof NOTES[0]; i++) if (!strcmp(NOTES[i].name, name)) return NOTES[i].note;
     return "";
 }
+
+static int FILTER;                                      /* 0: the owner's drawings, 1: ours (their notes begin "Ours") */
+static int is_ours(const char *name) { return !strncmp(note_for(name), "Ours", 4); }
 
 /* ---- drawing one stamp ---- */
 static Col mark_col(char g) {
@@ -148,6 +160,7 @@ static void draw_stamp(const Stamp *s, int ox, int oy, int cs) {
 #define MARGIN 16
 #define GAP 18
 static const char *KIND_NAME[ST_KINDS] = { "secret rooms", "joiners", "places" };
+static const char *kind_title(int kind) { return kind < 0 ? "ours, for approval" : KIND_NAME[kind]; }
 
 static void legend(int y, int kind) {
     int x = MARGIN;
@@ -174,12 +187,12 @@ static int sheet(int kind) {
     int n = stamp_set(kind, all, 400);
     int y = MARGIN;
     char line[256];
-    snprintf(line, sizeof line, "STAMPS: %s. Each shape in every orientation it has (a turn or a mirror that looks the same is not shown twice).", KIND_NAME[kind]);
+    snprintf(line, sizeof line, "STAMPS: %s. Each shape in every orientation it has (a turn or a mirror that looks the same is not shown twice).", kind_title(kind));
     text(MARGIN, y, line, C_TEXT); y += 22;
     legend(y + 2, kind); y += 24;
     text(MARGIN, y, "Nothing here is in the game until the sheet is approved.", C_DIM); y += 28;
     for (int i = 0; i < NSTAMP_DEFS; i++) {
-        if (STAMP_DEFS[i].kind != kind) continue;
+        if ((kind >= 0 && STAMP_DEFS[i].kind != kind) || is_ours(STAMP_DEFS[i].name) != FILTER) continue;
         int first = -1, count = 0;
         for (int k = 0; k < n; k++) if (all[k].def == i) { if (first < 0) first = k; count++; }
         const StampDef *d = &STAMP_DEFS[i];
@@ -191,7 +204,7 @@ static int sheet(int kind) {
         text(MARGIN, y, note_for(d->name), C_DIM); y += 22;
         if (!count) { y += 8; continue; }
         int big = d->w > d->h ? d->w : d->h;
-        int cs = kind == ST_SECRET ? 14 : (big > 20 ? 8 : 12);
+        int cs = d->kind == ST_SECRET ? 14 : (big > 20 ? 8 : 12);
         int x = MARGIN, rowh = 0;
         for (int k = first; k < first + count; k++) {
             const Stamp *s = &all[k];
@@ -209,14 +222,14 @@ static int sheet(int kind) {
 
 static int write_sheet(const char *dir, int kind) {
     int have = 0;
-    for (int i = 0; i < NSTAMP_DEFS; i++) have |= STAMP_DEFS[i].kind == kind;
+    for (int i = 0; i < NSTAMP_DEFS; i++) have |= (kind < 0 || STAMP_DEFS[i].kind == kind) && is_ours(STAMP_DEFS[i].name) == FILTER;
     if (!have) return 1;
     px = NULL; cw = SHW; ch = 0;
     int h = sheet(kind);                                    /* measure */
     ch = h; px = malloc((size_t)cw * ch * 3);
     for (int i = 0; i < cw * ch; i++) { px[i * 3] = C_BG.r; px[i * 3 + 1] = C_BG.g; px[i * 3 + 2] = C_BG.b; }
     sheet(kind);                                            /* draw */
-    char path[512]; snprintf(path, sizeof path, "%s/stamps_%s.png", dir, kind == ST_SECRET ? "secrets" : kind == ST_JOINER ? "joiners" : "places");
+    char path[512]; snprintf(path, sizeof path, "%s/stamps_%s.png", dir, kind < 0 ? "extras" : kind == ST_SECRET ? "secrets" : kind == ST_JOINER ? "joiners" : "places");
     int ok = write_png(path);
     free(px); px = NULL;
     if (ok) printf("%s  %dx%d\n", path, cw, ch); else fprintf(stderr, "cannot write %s\n", path);
@@ -254,11 +267,12 @@ static int check(void) {
 }
 
 int main(int argc, char **argv) {
-    if (argc < 2) { fprintf(stderr, "usage: stampsheet <dir> [secrets|joiners|places|all|check]\n"); return 2; }
+    if (argc < 2) { fprintf(stderr, "usage: stampsheet <dir> [secrets|joiners|places|extras|all|check]\n"); return 2; }
     const char *dir = argv[1], *which = argc > 2 ? argv[2] : "all";
     if (!strcmp(which, "check")) return check() ? 1 : 0;
     int all = !strcmp(which, "all"), ok = 1;
-    if (!all && strcmp(which, "secrets") && strcmp(which, "joiners") && strcmp(which, "places")) { fprintf(stderr, "stampsheet: unknown '%s'\n", which); return 2; }
+    if (!all && strcmp(which, "secrets") && strcmp(which, "joiners") && strcmp(which, "places") && strcmp(which, "extras")) { fprintf(stderr, "stampsheet: unknown '%s'\n", which); return 2; }
+    if (!strcmp(which, "extras") || all) { FILTER = 1; ok &= write_sheet(dir, -1); FILTER = 0; }
     if (all || !strcmp(which, "secrets")) ok &= write_sheet(dir, ST_SECRET);
     if (all || !strcmp(which, "joiners")) ok &= write_sheet(dir, ST_JOINER);
     if (all || !strcmp(which, "places")) ok &= write_sheet(dir, ST_PLACE);

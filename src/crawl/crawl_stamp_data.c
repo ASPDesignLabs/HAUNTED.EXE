@@ -327,6 +327,132 @@ const StampDef STAMP_DEFS[] = {
     "...\n"
     "...\n"
     "PPP" },
+    /* ---- ours, for the owner to approve (docs/PLAN-stamps.md, B3): more joiners ---- */
+    /* ours: ladder, two halls joined by two 1-wide rungs */
+    { "joiner_ladder_15", ST_JOINER, 15, 11, 1, 9, 4, 0,
+    "PPP#########PPP\n"
+    "...#########...\n"
+    "...#########...\n"
+    "...............\n"
+    "...#########...\n"
+    "...#########...\n"
+    "...#########...\n"
+    "...............\n"
+    "...#########...\n"
+    "...#########...\n"
+    "ppp#########ppp" },
+    /* ours: horseshoe arc, a bend round solid stone; both feet connect */
+    { "joiner_horseshoe_15", ST_JOINER, 15, 11, 0, 9, 4, 0,
+    "###.........###\n"
+    "#.............#\n"
+    "...............\n"
+    "...#########...\n"
+    "...#########...\n"
+    "...#########...\n"
+    "...#########...\n"
+    "...#########...\n"
+    "...#########...\n"
+    "...#########...\n"
+    "PPP#########PPP" },
+    /* ours: hourglass, two chambers and a 1-wide neck (for a boss, a vault or a trial) */
+    { "joiner_hourglass_11", ST_JOINER, 11, 11, 0, 9, 4, 0,
+    "##..PPP..##\n"
+    "...........\n"
+    "...........\n"
+    "#.........#\n"
+    "#####.#####\n"
+    "#####.#####\n"
+    "#####.#####\n"
+    "#.........#\n"
+    "...........\n"
+    "...........\n"
+    "##..PPP..##" },
+    /* ours: dogleg, a 3-wide diagonal joining halls a block-width apart */
+    { "joiner_dogleg_15", ST_JOINER, 15, 15, 0, 9, 4, 0,
+    "PPP############\n"
+    "...############\n"
+    "#...###########\n"
+    "##...##########\n"
+    "###...#########\n"
+    "####...########\n"
+    "#####...#######\n"
+    "######...######\n"
+    "#######...#####\n"
+    "########...####\n"
+    "#########...###\n"
+    "##########...##\n"
+    "###########...#\n"
+    "############...\n"
+    "############PPP" },
+    /* ours: broken ring, a ring road pinched to 1 wide at two corners, with four spokes */
+    { "joiner_broken_ring_19", ST_JOINER, 19, 19, 2, 9, 3, 0,
+    "########PPP########\n"
+    "########...########\n"
+    "########...########\n"
+    "########...########\n"
+    "####...........####\n"
+    "####........##.####\n"
+    "####........##.####\n"
+    "####...#####...####\n"
+    "p......#####......p\n"
+    "p......#####......p\n"
+    "p......#####......p\n"
+    "####...#####...####\n"
+    "####.##........####\n"
+    "####.##........####\n"
+    "####...........####\n"
+    "########...########\n"
+    "########...########\n"
+    "########...########\n"
+    "########PPP########" },
+    /* ours: pinwheel, four blades turning the way in to a core room */
+    { "joiner_pinwheel_11", ST_JOINER, 11, 11, 0, 9, 4, 0,
+    "####PPP####\n"
+    "####...####\n"
+    "##....#..##\n"
+    "##....#..##\n"
+    "p.###.#...p\n"
+    "p.........p\n"
+    "p...#.###.p\n"
+    "##..#....##\n"
+    "##..#....##\n"
+    "####...####\n"
+    "####PPP####" },
+    /* ours: trident, three prongs from one wall */
+    { "joiner_trident_11", ST_JOINER, 11, 11, 0, 9, 4, 0,
+    "ppp#PPP#ppp\n"
+    "...#...#...\n"
+    "...#...#...\n"
+    "...#...#...\n"
+    "...#...#...\n"
+    "...#...#...\n"
+    "...#...#...\n"
+    "...........\n"
+    "...........\n"
+    "...........\n"
+    "....ppp...." },
+    /* ours: small octagon with a pillar; two ports off its axis connect */
+    { "joiner_octagon_7", ST_JOINER, 7, 7, 0, 9, 5, 0,
+    "#PP...#\n"
+    "p......\n"
+    "p......\n"
+    "...#...\n"
+    "......p\n"
+    "......p\n"
+    "#...PP#" },
+    /* ours: small octagon with a central pillar */
+    { "joiner_octagon_11", ST_JOINER, 11, 11, 0, 9, 5, 0,
+    "###.PPP.###\n"
+    "#.........#\n"
+    "...........\n"
+    "...........\n"
+    "p...###...p\n"
+    "p...###...p\n"
+    "p...###...p\n"
+    "...........\n"
+    "...........\n"
+    "#.........#\n"
+    "###.PPP.###" },
 };
 
 const int NSTAMP_DEFS = (int)(sizeof STAMP_DEFS / sizeof STAMP_DEFS[0]);
