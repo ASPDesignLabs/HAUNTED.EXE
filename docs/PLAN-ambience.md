@@ -1,6 +1,6 @@
 # The crypt's small life: things that notice you
 
-**Settled in outline; not begun in code** (15 November 2026, on `claude/gallant-dijkstra-9x79xe`, from main after the mice). The owner
+**Settled in outline; the core built (L0), no kind yet** (15 November 2026, on `claude/gallant-dijkstra-9x79xe`, from main after the mice). The owner
 asked for "world building elements ... that react to the player's presence and do not require the player to do much of anything.
 Stuff that brings life to these dead, damp, and dark crypts", was offered twelve, and took them all: "every single suggestion sounds
 great". Nothing here is built or tested by hand.
@@ -56,4 +56,9 @@ ask nothing of you, hurt nothing, and are never in your way.*
 
 ## 4. Hand-off log
 
+- **15 November, L0.** The core built: `src/crawl/game/life.c` (the `Life` list, `G.lrs`, `life_level`, `life_update`, the
+  settings' gates), the two calm settings (`AppConfig.life_move`, `life_sound`; the registry's `LifeMove`, `LifeSound`; two
+  drop-downs in the Windows dialog; the browser has no menu for them yet and runs both on), `CRAWL_LIFE=0`. No kind is made yet.
+  Proved to move nothing: the dream on seed 3 at levels 3 and 12 logs as the commit before, but for its timing line. The Windows
+  build is compiled only by CI (no mingw here).
 - **15 November.** The twelve offered; the owner took them all. This plan written; no code yet. Next: L0, then L1 and the sheet.
