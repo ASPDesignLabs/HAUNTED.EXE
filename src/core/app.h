@@ -19,7 +19,10 @@ typedef struct AppConfig {
     int first_scene;                /* scene to start with */
     int start_fade;                 /* fade in from black at start */
     int pad;                        /* a game controller may take over and play */
+    int life_move, life_sound;      /* the crypt's small life (docs/PLAN-ambience.md): 0 off, 1 reduced, 2 on */
 } AppConfig;
+
+extern int g_life_move, g_life_sound;   /* the settings as the scenes read them; 2 until app_init says otherwise */
 
 void app_default_config(AppConfig *c);
 

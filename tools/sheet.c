@@ -1654,6 +1654,41 @@ static int draw_mice(const char *path) {
     return ok;
 }
 
+/* the crypt's small life (docs/PLAN-ambience.md): every new sprite as the game will draw it, at three times, each in the light it would
+ * mostly be seen in; eyes are drawn by the game's eye pass, so here they are the pixels the sprites mark, and shown bright */
+static int draw_life(const char *path) {
+    static const struct { int spr; const char *a, *b; int lit; } L[] = {
+        { SP_MOTH_A, "MOTH", "WINGS OUT", 14 }, { SP_MOTH_B, "MOTH", "WINGS UP", 14 }, { SP_FLY_A, "FLY", "WINGS OUT", 14 }, { SP_FLY_B, "FLY", "WINGS UP", 14 },
+        { SP_LF_BATROOST, "BAT", "ROOSTING", 8 }, { SP_LF_BAT_A, "BAT", "WINGS DOWN", 8 }, { SP_LF_BAT_B, "BAT", "WINGS UP", 8 }, { SP_TOAD_SIT, "TOAD", "SITTING", 12 },
+        { SP_TOAD_HOP, "TOAD", "IN A HOP", 12 }, { SP_BEETLE_A, "BEETLE", "STEP", 12 }, { SP_BEETLE_B, "BEETLE", "NEXT STEP", 12 }, { SP_LOUSE_A, "WOODLOUSE", "STEP", 12 },
+        { SP_LOUSE_B, "WOODLOUSE", "NEXT STEP", 12 }, { SP_LF_FUNGUS_BIG, "FUNGUS", "A CLUSTER", 6 }, { SP_LF_FUNGUS_SMALL, "FUNGUS", "A FEW", 6 }, { SP_SPORE, "SPORE", "DRIFTING", 6 },
+        { SP_PUDDLE, "PUDDLE", "", 14 }, { SP_RING_0, "RING", "FIRST", 14 }, { SP_RING_1, "RING", "SPREADING", 14 }, { SP_RING_2, "RING", "FADING", 14 },
+        { SP_PRINT_L, "WET PRINT", "LEFT", 14 }, { SP_PRINT_R, "WET PRINT", "RIGHT", 14 }, { SP_DRIP, "DRIP", "FALLING", 14 }, { SP_NEYES_A, "NICHE EYES", "OPEN", 24 },
+        { SP_NEYES_B, "NICHE EYES", "HALF SHUT", 24 }, { SP_SLSKULL_A, "SLEEPER", "JAW SHUT", 12 }, { SP_SLSKULL_B, "SLEEPER", "JAW AJAR", 12 },
+        { SP_SLHAND_A, "SLEEPER", "HAND OPEN", 12 }, { SP_SLHAND_B, "SLEEPER", "A FINGER CURLED", 12 } };
+    const int N = (int)(sizeof L / sizeof L[0]), cols = 8, k = 3, cs = TS * k, gap = 10, rows = (N + cols - 1) / cols;
+    iw = PAD * 2 + cols * (cs + gap);
+    ih = PAD + LABEL_H + 8 + rows * (cs + 2 * LABEL_H + 8) + PAD;
+    img = calloc((size_t)iw * ih, 3);
+    rect(0, 0, iw, ih, 10, 10, 12);
+    text(PAD, PAD, "THE CRYPT'S SMALL LIFE: EVERYTHING NEW, FOR APPROVAL (DOCS/PLAN-AMBIENCE.MD)", 230, 230, 230);
+    for (int i = 0; i < N; i++) {
+        int x = PAD + (i % cols) * (cs + gap), y = PAD + LABEL_H + 8 + (i / cols) * (cs + 2 * LABEL_H + 8);
+        rect(x, y, cs, cs, 22, 21, 24);
+        for (int yy = 0; yy < cs; yy++) for (int xx = 0; xx < cs; xx++) {
+            uint8_t c = crawl_spr[L[i].spr][(xx / k) * TS + yy / k];
+            if (c == C_CLEAR) continue;
+            c = crawl_cmap[L[i].lit][c];
+            put(x + xx, y + yy, crawl_pal[c][0] * 255 / 63, crawl_pal[c][1] * 255 / 63, crawl_pal[c][2] * 255 / 63);
+        }
+        text(x, y + cs + 4, L[i].a, 170, 170, 170);
+        text(x, y + cs + 4 + LABEL_H - 6, L[i].b, 120, 120, 120);
+    }
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
 static int draw_tutorial2(const char *path) {
     enum { K = 2, FW = 96 * K, FH = 88 * K, CW = FW + 40, NR = 4 };
     iw = PAD + 4 * CW + PAD;
@@ -2053,6 +2088,7 @@ int main(int argc, char **argv) {
         printf("%-12s %s\n", "minds", "1.0.0B18: THE MINDS SHOWN: BACKS, THE ROOST, THE AMBUSHES' SIGNS");
         printf("%-12s %s\n", "footprints", "1.0.0B18.1: EVERY PROP WITH THE PART OF ITS CELL ITS ART GIVES IT");
         printf("%-12s %s\n", "tutorial2", "THE TUTORIAL'S LEVEL 2: THE SWITCH, THE GATE, THE MAP, THE ICE");
+        printf("%-12s %s\n", "life", "THE CRYPT'S SMALL LIFE: EVERYTHING NEW (DOCS/PLAN-AMBIENCE.MD)");
         printf("%-12s %s\n", "mice", "THE MICE: EACH SIZE IN EACH POSE, THE CHARNEL RAT, THEIR HOLES (DOCS/PLAN-MICE.MD)");
         return 0;
     }
@@ -2200,6 +2236,14 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/mice.png", argv[2]);
         else snprintf(path, sizeof path, "%s", argv[2]);
         if (!draw_mice(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
+        crawl_art_level(level < 1 ? 1 : level);
+        done++;
+    }
+    if (!strcmp(argv[1], "all") || !strcmp(argv[1], "life")) {
+        char path[512];
+        if (!strcmp(argv[1], "all")) snprintf(path, sizeof path, "%s/life.png", argv[2]);
+        else snprintf(path, sizeof path, "%s", argv[2]);
+        if (!draw_life(path)) { fprintf(stderr, "can't write %s\n", path); return 1; }
         crawl_art_level(level < 1 ? 1 : level);
         done++;
     }

@@ -124,6 +124,9 @@
 /* The wall spiders (docs/PLAN-mice.md, section 8): set dressing on the walls that runs to tell a web or hunting spider of you */
 #include "game/skitters.c"
 
+/* The crypt's small life (docs/PLAN-ambience.md): moths, bats, beetles, toads, drips and the rest, that notice you and ask nothing */
+#include "game/life.c"
+
 /* start_level: a level begun; the debug build's gear and gifts */
 #include "game/start_level.c"
 

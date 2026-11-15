@@ -320,3 +320,10 @@ wrong or untried, and the numbers from each round of the dream's runs. Add to it
 - In rooms walled with pictures from floor to lintel (level 10's crypt of niches, run II's saints' rooms) a spider can be shut in
   a short stretch of stone and wanders only there. That is the rule as given; if they should cross a niche's lintel, `door_tex`'s
   way over the top could be given to niches too.
+
+- **The crypt's small life** (docs/PLAN-ambience.md, 15 November, harness only; nothing played by hand, no sound heard, the Windows dialog
+  compiled only by CI). Proved to move nothing of the simulation: dream logs on levels 1, 3, 5, 8, 10 and 13 of seeds 3 and 5 (600 s each)
+  line for line the commit before's but for the timing summary; frames with the life off byte for byte. ASan and UBSan clean. Known: the
+  drip, the crunch, the croak and the bat's wing borrow other effects' sounds (`SFX_DRIP`, `SFX_CHEW`, `SFX_SQUEAK`, `SFX_BAT`, `SFX_BONES`);
+  the browser has no menu for the two settings; the saints' eyes follow only run II's, not the portraits of the slain; no spider mends a
+  torn web; the bats are on levels 1 to 10 only. Nothing was weighed on the balance, since nothing reaches it.

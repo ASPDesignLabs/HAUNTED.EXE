@@ -626,7 +626,7 @@ static void skit_decal(Frame *f, const Draw *d, float dx, float dy, float horizo
 
 static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     static Draw list[MAXDECO + MAXMOBS + MAXSHOTS + MAXBOOMS + MAXBONES + MAXITEMS + MAXBURNS + MAXPOOLS + MAXHAZ * 4 + MAXSITE * 4 + 16 + DFIRE_CELLS * 2
-                     + MAXMICE + MAXSKIT];   /* and wisps, a double, after-images; the mice, the spiders on the walls */
+                     + MAXMICE + MAXSKIT + MAXLIFE];   /* and wisps, a double, after-images; the mice, the spiders on the walls */
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
@@ -647,13 +647,17 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                 if ((int)dc->phase & 1) ox = k; else oy = k;
             }
         }
+        float torn = lf_torn_of(i);
+        if (torn > 3.0f) continue;                                 /* a torn web: gone, till it grows back (docs/PLAN-ambience.md, A10) */
         ADD(dc->x + ox, dc->y + oy, zx, spr, 0);
+        if (n > n0 && torn > 0.0f) list[n - 1].alpha = fmaxf(0.05f, 1.0f - torn / 3.0f);   /* growing back */
         if (n > n0 && (dc->flags & (DF_FLIP | DF_FLOAT | DF_SINK | DF_LOOP))) {
             list[n - 1].flags = ((dc->flags & DF_FLIP) ? DR_FLIPV : 0) | ((dc->flags & DF_SINK) ? DR_CLIP : 0) | ((dc->flags & DF_LOOP) ? DR_GLITCH | DR_LOOPED : 0);
         }
         if (n > n0 && (dc->flags & DF_SWAY)) {                     /* a slow swing, and a shiver on top of it */
             list[n - 1].flags = DR_SWAY;
-            list[n - 1].sway = 2.6f * sinf((float)G.t * 0.9f + dc->phase) + 0.6f * sinf((float)G.t * 2.3f + dc->phase * 1.7f);
+            list[n - 1].sway = 2.6f * sinf((float)G.t * 0.9f + dc->phase) + 0.6f * sinf((float)G.t * 2.3f + dc->phase * 1.7f)
+                               + 6.0f * lf_kick_of(i) * sinf((float)G.t * 3.3f + dc->phase);   /* kicked as you passed (docs/PLAN-ambience.md, A4) */
         }
         if (n > n0 && i == G.msg_deco) {                           /* what holds the hidden message (1.0.0b13): its glint; the shrine's showing */
             list[n - 1].mg = msg_glint(&list[n - 1].mgw);
@@ -1000,6 +1004,64 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                                                                        : SP_BOOM1 + clampi((int)(b->t / 0.2f), 0, 2), b->big == 4 ? 1.0f - b->t / 0.6f : 0);
         if (n > n0) { list[n - 1].scale = b->big == 4 ? 0.8f + b->t * 1.5f : sc; if (b->big == 2) list[n - 1].flags |= DR_VENOM | DR_BRIGHT;
                       if (b->big >= 3) list[n - 1].flags |= DR_BRIGHT | (b->big == 3 ? DR_ICE : 0); }
+    }
+    for (int i = 0; i < G.nlife && !PK.depth && !G.shop; i++) {    /* the crypt's small life (docs/PLAN-ambience.md): what keeps still, and what moves */
+        const Life *o = &G.life[i];
+        int mobile = g_life_move == 2;
+        if (!o->alive || g_life_move == 0) continue;
+        int s = -1, flags = 0, n0 = n, eyes = 0;
+        float sc = 0.1f, z = 0.0f, al = 1.0f;
+        switch (o->kind) {
+        case LF_PUDDLE: s = SP_PUDDLE; sc = o->a; break;
+        case LF_DRIP: s = SP_DRIP; sc = 0.07f; z = o->z; break;
+        case LF_RING: s = SP_RING_0 + clampi((int)(o->t / 0.45f), 0, 2); sc = o->a; al = 1.0f - smoothstepf(0.7f, 1.35f, o->t); break;
+        case LF_PRINT: s = o->b > 0.5f ? SP_PRINT_R : SP_PRINT_L; sc = 0.22f; al = (1.0f - o->t / 14.0f) * (0.3f + 0.7f * o->a); break;
+        case LF_BEETLE: case LF_LOUSE: {
+            if (!mobile || o->st == 4) continue;
+            int moving = o->st == 0 || o->st == 2, step = moving && (((int)((float)G.t * (o->st == 2 ? 12.0f : 5.0f)) + i) & 1);
+            s = o->kind == LF_BEETLE ? (step ? SP_BEETLE_B : SP_BEETLE_A) : (step ? SP_LOUSE_B : SP_LOUSE_A);
+            sc = o->kind == LF_BEETLE ? 0.075f : 0.07f;
+            if (o->st == 3) al = 1.0f - o->c;
+            if (sinf(o->head - G.ang) >= 0.0f) flags |= DR_FLIPH;  /* drawn facing your left; turned when it faces your right */
+            break; }
+        case LF_TOAD: s = o->st == 1 ? SP_TOAD_HOP : SP_TOAD_SIT; sc = 0.13f; z = o->z; eyes = 1; break;
+        case LF_MOTH: case LF_FLY: {
+            if (!mobile) continue;
+            int fl = ((int)(o->t * (o->kind == LF_MOTH ? (o->st == 0 ? 8.0f : 14.0f) : 22.0f)) + i) & 1;
+            s = o->kind == LF_MOTH ? (fl ? SP_MOTH_B : SP_MOTH_A) : (fl ? SP_FLY_B : SP_FLY_A);
+            sc = o->kind == LF_MOTH ? 0.09f : 0.045f; z = o->z;
+            break; }
+        case LF_FUNGUS:                                            /* glowing in the damp: brighter, breathing, as you come near */
+            s = o->ref ? SP_LF_FUNGUS_BIG : SP_LF_FUNGUS_SMALL; sc = o->b;
+            if (mobile && hypotf(o->x - G.px, o->y - G.py) < 3.6f && sinf((float)G.t * 1.6f + o->c) > -0.3f) flags |= DR_LIT;
+            break;
+        case LF_SPORE:
+            if (!mobile) continue;
+            s = SP_SPORE; sc = 0.04f; z = o->z; flags |= DR_BRIGHT; al = smoothstepf(0.0f, 0.8f, o->t) * (1.0f - smoothstepf(o->a - 1.2f, o->a, o->t));
+            break;
+        case LF_NEYES:
+            if (!mobile || o->a <= 0.01f || (G.px - o->x) * o->vx + (G.py - o->y) * o->vy <= 0.0f) continue;
+            s = o->st == 2 || fmodf(o->t + o->b, 5.0f) > 4.82f ? SP_NEYES_B : SP_NEYES_A; sc = o->c; z = o->z; al = o->a; eyes = 1;
+            break;
+        case LF_SLEEP:
+            if (!mobile || (G.px - o->x) * o->vx + (G.py - o->y) * o->vy <= 0.0f) continue;
+            s = o->ref ? (o->st ? SP_SLHAND_B : SP_SLHAND_A) : (o->st ? SP_SLSKULL_B : SP_SLSKULL_A); sc = o->c; z = o->z;
+            break;
+        case LF_BAT:
+            if (!mobile) continue;
+            if (o->st == 0) { s = SP_LF_BATROOST; sc = 0.17f; z = o->z; }
+            else { s = ((int)(o->t * 7.0f) + i) & 1 ? SP_LF_BAT_B : SP_LF_BAT_A; sc = 0.26f; z = o->z - 0.13f; }
+            eyes = 2;
+            break;
+        default: break;
+        }
+        if (s < 0) continue;
+        ADD(o->x, o->y, z, s, fmaxf(0.04f, al));
+        if (n == n0) continue;
+        Draw *d = &list[n - 1];
+        if (o->kind == LF_NEYES || o->kind == LF_SLEEP) d->depth -= 0.03f;   /* against the wall, in front of it */
+        d->scale = sc; d->flags |= flags;
+        if (eyes && crawl_eyes[s].n) { d->eye = 1; d->etype = MOB_SKEL; d->erank = RK_I; d->ecol = 1 + (eyes == 2 ? EC_PALE : EC_AMBER); d->estate = 0; }
     }
     for (int i = 0; i < MAXPOOLS; i++) {                           /* a drowned one's foul pool */
         const Pool *p = &G.pools[i];

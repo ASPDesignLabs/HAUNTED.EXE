@@ -660,6 +660,13 @@ void crawl_art_init(void) {
     for (int f = 0; f < 3; f++) spr_sac(SP_SAC_A + f, f);
     spr_ling(SP_LING_A, 0); spr_ling(SP_LING_B, 1);
     spr_skit(SP_SKIT_A, 0); spr_skit(SP_SKIT_B, 1);                /* and from above, for the wall spiders (docs/PLAN-mice.md) */
+    spr_moth(SP_MOTH_A, 0); spr_moth(SP_MOTH_B, 1); spr_fly(SP_FLY_A, 0); spr_fly(SP_FLY_B, 1);   /* the crypt's small life (docs/PLAN-ambience.md) */
+    spr_lf_bat_roost(SP_LF_BATROOST); spr_lf_bat(SP_LF_BAT_A, 0); spr_lf_bat(SP_LF_BAT_B, 1);
+    spr_beetle(SP_BEETLE_A, 0); spr_beetle(SP_BEETLE_B, 1); spr_louse(SP_LOUSE_A, 0); spr_louse(SP_LOUSE_B, 1);
+    spr_toad(SP_TOAD_SIT, 0); spr_toad(SP_TOAD_HOP, 1); spr_lf_fungus(SP_LF_FUNGUS_BIG, 1); spr_lf_fungus(SP_LF_FUNGUS_SMALL, 0); spr_spore(SP_SPORE);
+    spr_puddle(SP_PUDDLE); for (int r = 0; r < 3; r++) spr_ring(SP_RING_0 + r, r);
+    spr_print(SP_PRINT_L, 0); spr_print(SP_PRINT_R, 1); spr_drip(SP_DRIP); spr_niche_eyes(SP_NEYES_A, 0); spr_niche_eyes(SP_NEYES_B, 1);
+    spr_sleep_skull(SP_SLSKULL_A, 0); spr_sleep_skull(SP_SLSKULL_B, 1); spr_sleep_hand(SP_SLHAND_A, 0); spr_sleep_hand(SP_SLHAND_B, 1);
     spr_wraith_big(SP_WRAITH_A, 0.0f, 0); spr_wraith_big(SP_WRAITH_B, PI_F, 1); spr_wraith_big(SP_WRAITH_REACH, 1.0f, 2); spr_wraith_big(SP_WRAITH_BACK, 2.0f, 3);
     spr_shade(SP_SHADE_A, 0.0f, 0); spr_shade(SP_SHADE_B, PI_F, 1); spr_shade(SP_SHADE_TOUCH, 1.0f, 2); spr_shade(SP_SHADE_D, 2.0f, 3);
     for (int f = 0; f < 4; f++) { spr_imp(SP_IMP_A + f, f); if (f < 3) imp_dress(SP_IMP_A + f); }

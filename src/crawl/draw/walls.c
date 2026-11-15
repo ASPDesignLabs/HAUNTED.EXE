@@ -55,9 +55,9 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 } else if (cell(pxc, pyc)->kind == K_DOOR) tex = G.faced ? T_RJAMB : T_JAMB;
                 else if (c->face[fd] && plain_tex(tex)) {
                     tex = c->face[fd]; flip = c->fflip >> fd & 1;
-                    if (c->fover[fd]) over = c->fover[fd] == T_FEAT + F1_TORCH ? T_FEAT + F1_TORCH + (int)((tframe + hash2(mx, my)) % 3) : c->fover[fd];
+                    if (c->fover[fd]) over = c->fover[fd] == T_FEAT + F1_TORCH ? T_FEAT + F1_TORCH + torch_frame(mx, my, tframe) : c->fover[fd];
                 }
-                if (tex == T_TORCH0) tex = T_TORCH0 + (int)((tframe + hash2(mx, my)) % 3);
+                if (tex == T_TORCH0) tex = T_TORCH0 + torch_frame(mx, my, tframe);
                 if (tex == T_EXIT0) tex = boss_sealed() ? T_GATE : G.exit_open > 0.3f ? T_EXIT_OPEN : T_EXIT0 + ((int)(G.t * 2.5) & 1);   /* barred while a boss lives */
                 if (tex == T_VISPORT0) tex = T_VISPORT0 + (PK.vis_used[PK.chain] ? 0 : ((int)(G.t * 5.0) & 3));
                 if (tex == T_PORTAL0) tex = T_PORTAL0 + ((int)(G.t * 3.0) & 3);   /* the Accursed Portal, turning */
@@ -115,6 +115,19 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
             static uint8_t mix[TS];
             const uint8_t *oc = &crawl_tex[over][texx * TS];
             for (int k = 0; k < TS; k++) mix[k] = oc[k] != C_CLEAR ? oc[k] : col[k];
+            if (over == T_FEAT + F2_SAINT && G.look == 1 && lf_watch && g_life_move == 2 && (texx == 29 || texx == 30 || texx == 31 || texx == 32 || texx == 33 || texx == 34)) {
+                /* her eyes follow you (docs/PLAN-ambience.md, A1): a pale point in each dark socket, a pixel toward where you stand */
+                float pl = (side == 0 ? G.py - (float)my : G.px - (float)mx) * (float)TS;    /* you, along this face, in texels as sampled */
+                if ((side == 0 && rdx > 0) || (side == 1 && rdy < 0)) pl = (float)(TS - 1) - pl;
+                if (flip) pl = (float)(TS - 1) - pl;
+                int lean = pl < 14.0f ? -1 : pl > 50.0f ? 1 : 0;
+                if (texx == 30 + lean || texx == 33 + lean) {
+                    mix[20] = (uint8_t)(R_BONE + 13);
+#ifdef CRAWL_DEBUG
+                    static int seen; if (!seen++) fprintf(stderr, "EVENT life saint watches lean %d t=%.1f\n", lean, G.level_t);
+#endif
+                }
+            }
             col = mix;
         }
         int tn = TS;                                                /* the column's texels */

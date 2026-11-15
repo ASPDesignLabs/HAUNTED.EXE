@@ -644,6 +644,19 @@ typedef struct {
                                                                       round its loop and how high (skitters.c, sk_plan) */
 } Skitter;
 
+/* The crypt's small life (docs/PLAN-ambience.md): set dressing that notices you, on dice of their own (G.lrs), outside MAXMOBS, the hunt,
+ * the budget, the tally, the map and the autopilot's aim. Nothing here is saved, hurt, counted or in the way. One shape for all of them
+ * (what each of a, b, c, d means is said where its kind is made, in life.c); LF_* are the kinds. */
+enum { LF_NONE, LF_MOTH, LF_FLY, LF_BAT, LF_BEETLE, LF_LOUSE, LF_TOAD, LF_DRIP, LF_PUDDLE, LF_PRINT, LF_FUNGUS, LF_SPORE, LF_RING, LF_NEYES, LF_SLEEP, LF_NKINDS };   /* LF_FUNGUS: a glowing cluster; LF_SPORE: a mote it sends up */
+#define MAXLIFE 120
+typedef struct {
+    int alive, kind, st;
+    float x, y, z, vx, vy, vz, head;                               /* where, how it moves, which way it faces */
+    float t, wait;                                                 /* its clock; how long till it next does something */
+    float a, b, c, d;                                              /* the kind's own */
+    int ref;                                                       /* a light, a hole, a puddle, a wall: whatever it is bound to; -1 none */
+} Life;
+
 static struct {
     uint32_t rs;
     double t, level_t;
@@ -944,6 +957,7 @@ static struct {
     int16_t mlit[MAXMLIT][2]; int nmlit;                           /* boss's fight has sent them in for good */
     uint8_t mh_dist[MAXMHOLES][MAXMHOLES];                         /* steps between two holes, doors counted open (255 or more) */
     uint32_t mrs; int mstage, mboss, malarm;
+    Life life[MAXLIFE]; int nlife; uint32_t lrs;                   /* the crypt's small life, on dice of its own */
     Skitter skit[MAXSKIT]; int nskit; uint32_t srs;                /* the wall spiders, on dice of their own */
 } G;
 enum { BP_NONE, BP_PLANT, BP_RAISE, BP_STRIKE,      /* the knight's: sword planted with a shout, raised, swept; */

@@ -318,6 +318,13 @@ enum {
     SP_RAT_A, SP_RAT_B, SP_RAT_SA, SP_RAT_SB, SP_RAT_BKA, SP_RAT_BKB, SP_RAT_BITE, SP_RAT_REAR, SP_RAT_D,
     /* the wall spiders (its section 8): a spiderling from above, as one flat on the stone shows itself, at one step and the next */
     SP_SKIT_A, SP_SKIT_B,
+    /* the crypt's small life (docs/PLAN-ambience.md): moth, fly (wings out, lifted), the bat roosting and on the wing (down, up), a beetle
+     * and a woodlouse (two steps each), a toad sat and in a hop, the glowing fungus (a cluster, a few), a spore, a puddle, a ring
+     * spreading (three stages), a wet print (left, right), a drop, eyes in a niche (open, half shut), a sleeper's skull (shut, ajar) and
+     * hand (open, a finger curled) */
+    SP_MOTH_A, SP_MOTH_B, SP_FLY_A, SP_FLY_B, SP_LF_BATROOST, SP_LF_BAT_A, SP_LF_BAT_B, SP_BEETLE_A, SP_BEETLE_B, SP_LOUSE_A, SP_LOUSE_B,
+    SP_TOAD_SIT, SP_TOAD_HOP, SP_LF_FUNGUS_BIG, SP_LF_FUNGUS_SMALL, SP_SPORE, SP_PUDDLE, SP_RING_0, SP_RING_1, SP_RING_2, SP_PRINT_L, SP_PRINT_R,
+    SP_DRIP, SP_NEYES_A, SP_NEYES_B, SP_SLSKULL_A, SP_SLSKULL_B, SP_SLHAND_A, SP_SLHAND_B,
     NSPR
 };
 
