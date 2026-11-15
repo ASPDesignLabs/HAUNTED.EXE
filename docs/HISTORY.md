@@ -422,3 +422,11 @@ you. Played, these floated; they were kept to the stone (its ways traced into lo
 legs redrawn at the owner's word, and set to go round what is painted on the walls and past doors open or shut. Levels 1-10 log
 as the build before; the balance from 11 and 15 within the noise; clean under the sanitizers. Folded into main at the owner's word
 the same day, squashed as one commit, with no version bumped and nothing released.
+
+**The crypt's small life** was offered as twelve examples at the owner's word (15 November) and taken whole ("every single suggestion sounds
+great"), planned and logged in [`docs/PLAN-ambience.md`](PLAN-ambience.md) on `claude/gallant-dijkstra-9x79xe`. Its art (29 sprites) went to
+the owner as a sheet, and was drawn again from each creature's anatomy when they found it "a bit basic with too much of a focus on simple
+shapes"; "much better", they said. Built in six steps, harness only; moves nothing of the simulation (the logs match the build before, line
+for line); two settings turn its movement and sound down or off. Folded into main at the owner's word the same day as one squashed commit
+(e692b4d), and released with the mice and the spiders as **1.0.0b21.6**, "Small Life", at their word: "merge it into main then release it as
+the next minor b21 release".

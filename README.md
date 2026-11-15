@@ -225,6 +225,32 @@ eleven new achievements: ambushes come through without a death (1, 5, 20), hunts
 broken by their leader's fall (1, 10, 50), callers killed before they called (1, 10), and a file of the
 Order beaten without a hurt.
 
+### CATACOMB: the crypt's small life
+
+Since 1.0.0b21.6 the crypt is not empty of things that are not out to kill you. None of them can be hurt (but for one, below) or hurts
+you, none blocks a way, none is counted, and none is saved: they are set dressing that notices you.
+
+* **Mice** live in the walls of every level but her hall, the Backrooms and Severance: a few at a run's start, more by its end, and a
+  few on the tutorial's two levels, kept off its lessons. They grow a little every two levels, most of all on the second run's third
+  (a sudden spurt), their chirps deepening as they do, and their eyes are green and bright from anywhere. They wander, cannot open
+  doors, go through holes in the walls in a tenth of the walk's time, gather and preen by warm lights, and run for the nearest hole
+  when frightened or on a whim. Word of you goes from one to the next through the holes, and a mark shows over a mouse carrying it.
+  Spells pass through them; from level 15 a messenger dies to one hit, and is not a kill.
+* **The charnel rat**, the twenty-fourth kind (the record, `REC_KINDS`, is full with it), is what the mice grow into on the second
+  run's fifth level: told where you were by a mouse that reaches it, it comes. From level 15 one or two roam each level.
+* **Spiders on the walls**: small ones that crawl the stone, never leaving it (its faces are traced into loops round each room and
+  corridor, and the spiders are painted on it from above, folding round its corners), past doors open or shut, and round whatever is
+  painted on it by a way searched on a grid. They run to tell the nearest web or hunting spider of you, or hide in a corner's web.
+* **Twelve things that notice you**: moths round the warm lights (flies where it is foul), scattering as you pass; torches that gutter
+  as you pass or a door swings near; bats roosting in the first ten levels' corners that drop, circle and settle again (from level 11
+  the dead's own roost is the warning, and these keep out of its way); beetles and woodlice that run from you into the stone and crunch
+  if trodden on; puddles that drip and ring, and leave wet prints where you walked through; toads by the water from the sixth level;
+  the saints of the second run, whose eyes follow you; eyes in the dark of some of the first run's burial niches that shut when your
+  light finds them; a hand on a niche's sill that settles as you pass; hanging things that swing after you; webs that shiver, tear
+  and grow back; glowing fungus that breathes as you near and sends up spores.
+* **Two settings** (Settings, 1.0.0b21.6): *Small life: movement* and *Small life: sound*, each on, reduced (only what keeps still:
+  the puddles, the prints, the fungus at rest) or off. Off draws and sounds exactly as the build before.
+
 ### CATACOMB: the bosses
 
 The tenth level of each run is an ordinary level with an arena set into its far end in place of the
@@ -1130,7 +1156,8 @@ became HAUNTED.EXE, kept so that settings and saves carry over), `Progress` besi
 start from or holds the unsigned run, and `Mark` is the dead's watch; `uninstall.cmd` removes them with
 the settings. They are written the moment the game changes them, and never on quitting.
 
-**1.0.0b21.4 changes nothing in the saves.** It adds two bytes to the settings kept with the controller's layout
+**1.0.0b21.6 changes nothing in the saves.** It adds two numbers to the settings (the small life's movement and sound: `LifeMove`, `LifeSound`),
+which earlier betas ignore. **1.0.0b21.4 changes nothing in the saves.** It adds two bytes to the settings kept with the controller's layout
 (touch's turning and smoothing), which earlier betas ignore. **1.0.0b21.3 changes nothing in the saves.** **1.0.0b21.2 adds the portraits** (which tapestries are drawn back, where each rank was earned, the gold taken this life, and the
 feats' counts) to each page; 1.0.0b21.1 steps over them, and a page it signs loses them. Achievements earned stay earned.
 
@@ -1206,6 +1233,8 @@ eight characters), and today's date. Keep that in mind before you share a record
 * **Sprint button** (1.0.0b14): the controller's button that toggles the sprint, the left stick's click
   unless you choose another; a choice here trades places with that button's job in the layout laid out
   at Esc (1.0.0b19).
+* **Small life: movement** and **Small life: sound** (1.0.0b21.6): on, reduced (only what keeps still) or off, for the things in
+  the crypt that notice you. The browser has no menu for them yet and plays with both on.
 
 Settings are stored in `HKEY_CURRENT_USER\Software\HalloweenVGASaver`.
 
@@ -1373,6 +1402,28 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b21.6** (the mice and the charnel rat; the spiders on the walls; the crypt's small life; the tidy-up of the source). The mice and
+the spiders' first build were played by hand by the author on Windows, and mended after; everything else is tested in the harness only:
+not yet played by hand, heard, or run under Wine.
+
+* **The mice and the charnel rat**: the screensaver from levels 1 to 10 logged the build before's, line for line, but for one closing
+  line (a picture level's share, 14.6% against 14.5%, since the mice and their holes are drawn); the spiders off, 20 frames matched byte
+  for byte. Eight seeds of 3,000 seconds against the build before: from level 11, 154 deaths against 155 (reached 12.62 on average,
+  12 cleared); from level 15, 271 against 250 (16 of them by a rat), within the noise of eight seeds (about a quarter either way).
+  The author's hand found a mouse that span in place with its mark up when frightened (mended), and the spiders floating off the
+  walls (they are painted on the stone now, and the legs of their picture were drawn again at the author's word).
+* **The spiders**: no spider moved more than a third of a cell in a frame, or came within half its legs' reach of a picture, in 60,000
+  seconds of the screensaver; staged before corners, pictures and doors, and the pictures' sheet looked at.
+* **The small life**: the screensaver's logs on levels 1, 3, 5, 8, 10 and 13 of two seeds, 600 seconds each, match the build before
+  line for line, but for a line of timing; with it off, or its movement set to off, twelve frames of the same match to the byte. No
+  balance runs: nothing in it reaches the simulation, which the logs show. Staged before each thing and looked at in frames (the dark
+  of a crypt makes most of them hard to see: the harness lights them). **Not heard**: the drip, the crunch, the croak, a wing and a bone's tick
+  borrow other effects' sounds.
+* **The tidy-up**: every object of the game compiled the same, byte for byte, as 1.0.0b21.5's.
+* **Memory safety** (AddressSanitizer and UBSan): the screensaver for 900 to 1,500 seconds on levels 3 to 16 and each thing staged in turn
+  and walked past: clean. The smoke test passes at about 1.6 ms a frame, and the Windows and browser builds were compiled and
+  smoke-tested by GitHub Actions. The settings dialog's two new menus were compiled there and by nothing else.
 
 **New in 1.0.0b21.5** (the tutorial: the first two levels laid out by hand from the author's drawings, the lessons that teach on
 them, the ice, the switch, the one-way gate and the map lying on level 2). Tested in the harness only: not yet played by hand, run
