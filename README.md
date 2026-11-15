@@ -137,6 +137,30 @@ The merchant's hall is rebuilt once in the Crypts' ashlar under the Order's bann
 run; the red brick has gone. The pockets keep their own looks. Building from source, `make sheets` draws each
 run's materials, blends, wall pieces, floors, ceilings, doors, keys and treasure, and a stretch of each room.
 
+### CATACOMB: drawn rooms
+
+Since 1.0.0b21.7 a level from the third on is no longer rectangles scattered over a maze. Rooms of a shape someone drew are laid first,
+and the halls are made to reach them, so most of what you walk through stands where it does on purpose. The first two levels (hand-drawn
+already) and her hall are as they were, and a boss's level keeps its arena.
+
+* **A place.** The first thing laid on a level, and one a level. A *shrine spur*: a way one cell wide that ends at an altar. A *cloister*:
+  a loop of hall round a solid yard. A *gauntlet hall* (from the second level of a run): long and narrow, with niches in its walls for
+  treasure and for the dead. An *alcove hall*: recesses down both sides. And from the sixth level of a run a *sunken ring*: stepped rings
+  round a floor, braziers on them and an altar in the middle. About half the levels get one of the larger four, the rest a spur. Altars,
+  braziers and torches stand where the drawing puts them; treasure lies in the niches, and about two in three of the niches that hold the
+  dead hold one, which keeps to its room until it knows you are there.
+* **Joiners.** Where halls branch there is a large room of a shape: one big and two or three small a level, no two of a kind. Stepped
+  diamonds with a cross, a ring, four pillars or a star standing in the middle (the big ones from the third level), a transept, a
+  pinwheel, a trident, a horseshoe, a ladder of two halls, an hourglass with a narrow neck, a dogleg stair, a chevron, a gallery three wide,
+  and from the sixth level a great nave with six slabs standing in it.
+* **Secret rooms.** Ten shapes, drawn by the author: a box, a wide box, a strip; an L, its mirror and an arrowhead; from the third level a
+  C, a spiral and a J; from the fifth a long one-cell approach to a room. The cracked wall no longer slides through the room: it slides one
+  cell sideways into the stone beside it, and the room is left empty to walk. Chains still end in a doorway on into the Backrooms or
+  Severance.
+* The screensaver walks all of it, and the maps (**M**) show it whole once drawn.
+
+![CATACOMB's drawn rooms on six levels, each as the game's own map with the whole level shown: a sunken ring's stepped rings; a great nave of slabs beside an alcove hall; a cloister; a gauntlet hall with a pinwheel; a diamond with four pillars; and a large ring](media/previews/preview_catacomb_drawn.png)
+
 ### CATACOMB: who lives down there
 
 New kinds come in a level or two after their sign (a broken shield, a collar among gnawed bones, an
@@ -1156,7 +1180,7 @@ became HAUNTED.EXE, kept so that settings and saves carry over), `Progress` besi
 start from or holds the unsigned run, and `Mark` is the dead's watch; `uninstall.cmd` removes them with
 the settings. They are written the moment the game changes them, and never on quitting.
 
-**1.0.0b21.6 changes nothing in the saves.** It adds two numbers to the settings (the small life's movement and sound: `LifeMove`, `LifeSound`),
+**1.0.0b21.7 changes nothing in the saves** (a level is made afresh each time and is never kept). **1.0.0b21.6 changes nothing in the saves.** It adds two numbers to the settings (the small life's movement and sound: `LifeMove`, `LifeSound`),
 which earlier betas ignore. **1.0.0b21.4 changes nothing in the saves.** It adds two bytes to the settings kept with the controller's layout
 (touch's turning and smoothing), which earlier betas ignore. **1.0.0b21.3 changes nothing in the saves.** **1.0.0b21.2 adds the portraits** (which tapestries are drawn back, where each rank was earned, the gold taken this life, and the
 feats' counts) to each page; 1.0.0b21.1 steps over them, and a page it signs loses them. Achievements earned stay earned.
@@ -1402,6 +1426,22 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b21.7** (drawn rooms: the places, the joiners and the secret rooms). The author played the Windows build GitHub made of it
+and said it "plays well"; that is all that has been said of it by hand, and nothing in it was timed or listed by hand. The rest is tested
+in the harness only: not run under Wine, and the Windows and browser builds compiled and smoke-tested by GitHub Actions.
+
+* **Generation**: 1,800 levels (200 seeds on levels 1, 5, 10, 11, 20, 21, 30, 31 and 40; the harness ORs the seed with 1, so 100 differ),
+  with every exit, key, locked door and secret room tested for being reached, and the floor for being stranded even with the secrets open:
+  no failure and no stranded floor. 22 of the 1,800 levels were made again without drawn rooms, because a drawn room had cut the plan in two.
+  With the drawn rooms switched off the screensaver logged the build before's line for line (two seeds, 600 s).
+* **The screensaver**: the dream for 3,000 seconds of its time on sixteen seeds from level 1, twice, against 1.0.0b21.6 (it reaches level 8
+  or 9, no further): levels cleared 6.6 and 6.2 on the old build against 6.6 and 6.9 on the new, deaths 47 and 47 against 32 and 27, the
+  median level 342 and 339 seconds against 334 and 333; no crash or timeout. The old build's own numbers move between runs (a run's
+  identity is not fixed), so this says the drawn rooms made the screensaver no worse, not that they made it safer. Nothing of it was weighed
+  on a boss's level, or in the Hollows and the Deep, beyond that levels there make without a fault.
+* **Sanitizers**: clean under AddressSanitizer and UBSan on the dream for 1,200 s of its time on four seeds.
+* **Not tried**: a person's own play on the later runs and on a boss's level; the altar's, braziers' and torches' look in a dark level.
 
 **New in 1.0.0b21.6** (the mice and the charnel rat; the spiders on the walls; the crypt's small life; the tidy-up of the source). The mice and
 the spiders' first build were played by hand by the author on Windows, and mended after; everything else is tested in the harness only:

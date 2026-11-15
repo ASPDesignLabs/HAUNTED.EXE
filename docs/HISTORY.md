@@ -430,3 +430,14 @@ shapes"; "much better", they said. Built in six steps, harness only; moves nothi
 for line); two settings turn its movement and sound down or off. Folded into main at the owner's word the same day as one squashed commit
 (e692b4d), and released with the mice and the spiders as **1.0.0b21.6**, "Small Life", at their word: "merge it into main then release it as
 the next minor b21 release".
+
+**1.0.0b21.7**, "Drawn Rooms", is [`docs/PLAN-stamps.md`](PLAN-stamps.md): the owner drew ten secret rooms and ten joiners (15 November) and asked for
+input, more joiners and other room types; they settled four questions (a bent room's wall block slides one cell sideways into the stone; the
+drawings' sizes are cells; one big joiner and two or three small ones a level, with intended elements over empty rooms; every stamp in all
+eight turns). Two agents built it on `claude/ecstatic-heisenberg-0ljx7r`, a track each: A the parser (`src/crawl/crawl_stamp.c`), the
+generator and the dressing, B the data (`crawl_stamp_data.c`), the sheets the owner approved ("Those look great!"), the sweeps and the
+balance. The owner then asked for three changes after ten maps: the place laid first, a family once a level, a large place on half the
+levels. Tested in the harness only: 1,800 levels with nothing stranded, the screensaver on sixteen seeds twice (no worse), the sanitizers
+clean. The owner played the Windows build GitHub made of it and said "Plays well! Go ahead and release this as a minor update", and later
+asked that the page be cut: "greatly reduce the rest of the text on the page ... consuming an insane amount of context per pass". Folded
+into main as one squashed commit of the tree they played; the antechamber with a vault behind it, written after, was left on the branch.
