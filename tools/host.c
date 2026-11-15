@@ -337,13 +337,18 @@ int main(int argc, char **argv) {
         input_init();
         app_init(&cfg, 0);
         uint8_t *rgb = malloc(FB_MAX_W * FB_MAX_H * 3);
-        const double dt = 1.0 / 70.0;
+        /* HOST_HZ=n: the steps per second of the dream's time (70, the VGA refresh, unless set): fewer is faster to run and a rougher
+         * simulation, so a number weighed against another is weighed at the same HOST_HZ in both builds (docs/PLAN-stamps.md, B4) */
+        double hz = getenv("HOST_HZ") ? atof(getenv("HOST_HZ")) : 70.0;
+        if (hz < 10.0 || hz > 240.0) hz = 70.0;
+        const double dt = 1.0 / hz;
+        const int every = (int)(hz / 2.0 + 0.5);                   /* a sample twice a second, as ever */
         int frames = (int)(secs / dt), n = 0, w, h;
         static double hist[101];
         for (int i = 1; i <= frames; i++) {
             input_step((i - 1) * dt);                              /* HOST_INPUT plays here too */
             app_update(dt);
-            if (i % 35) continue;
+            if (i % every) continue;
             app_present_rgb(rgb, &w, &h);
             double acc = 0.0;
             for (int p = 0; p < w * h; p++) acc += 0.2126 * rgb[p * 3] + 0.7152 * rgb[p * 3 + 1] + 0.0722 * rgb[p * 3 + 2];
