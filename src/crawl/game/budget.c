@@ -84,7 +84,7 @@ static void debug_map(int seen) {
                 if (getenv("CRAWL_STAMPLOG") && ft < ftot)
                     for (int y = 0; y < MAPN; y++) {
                         char r[MAPN + 1];
-                        for (int x = 0; x < MAPN; x++) r[x] = !is_open(x, y) ? (G.map[y][x].kind == K_WALL ? '#' : 'o') : (fs[y][x] ? '.' : '~');
+                        for (int x = 0; x < MAPN; x++) r[x] = !is_open(x, y) ? (G.map[y][x].kind == K_WALL ? '#' : 'o') : (fs[y][x] ? '.' : (G.map[y][x].secret ? 's' : '~'));
                         r[MAPN] = 0; fprintf(stderr, "MAPR %s\n", r);
                     }
             }
