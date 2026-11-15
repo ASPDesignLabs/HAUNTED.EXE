@@ -66,6 +66,28 @@ static void debug_map(int seen) {
             }
             for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) total += is_open(x, y) && lane(x, y);
             fprintf(stderr, "MAP lanes reachable %d of %d\n", qt, total);
+            {                                                      /* and the floor, lanes or not (a drawn room can cut a hall off without a lane's showing it) */
+                static int fs[MAPN][MAPN]; int fh = 0, ft = 0, ftot = 0;
+                memset(fs, 0, sizeof fs);
+                fs[G.cy][G.cx] = 1; qx[ft] = G.cx; qy[ft++] = G.cy;
+                while (fh < ft) {
+                    int x = qx[fh], y = qy[fh]; fh++;
+                    for (int d = 0; d < 4; d++) {
+                        int nx = x + DX[d], ny = y + DY[d];
+                        if (fs[ny][nx] || !is_open(nx, ny)) continue;
+                        if (G.map[ny][nx].kind == K_DOOR && G.doors[G.map[ny][nx].door].locked == GATED) continue;
+                        fs[ny][nx] = 1; qx[ft] = nx; qy[ft++] = ny;
+                    }
+                }
+                for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) ftot += is_open(x, y) && !G.map[y][x].secret;
+                fprintf(stderr, "MAP floor reachable %d of %d\n", ft, ftot);
+                if (getenv("CRAWL_STAMPLOG") && ft < ftot)
+                    for (int y = 0; y < MAPN; y++) {
+                        char r[MAPN + 1];
+                        for (int x = 0; x < MAPN; x++) r[x] = !is_open(x, y) ? (G.map[y][x].kind == K_WALL ? '#' : 'o') : (fs[y][x] ? '.' : '~');
+                        r[MAPN] = 0; fprintf(stderr, "MAPR %s\n", r);
+                    }
+            }
             for (int y = 0, n = 0; y < MAPN && n < 16; y++)        /* and the first few that aren't */
                 for (int x = 0; x < MAPN && n < 16; x++)
                     if (is_open(x, y) && lane(x, y) && !st[y][x]) { fprintf(stderr, "MAP lane cut off (%d,%d)%s\n", x, y, G.map[y][x].secret ? " secret" : ""); n++; }

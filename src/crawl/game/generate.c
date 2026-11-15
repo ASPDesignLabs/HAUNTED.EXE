@@ -609,7 +609,7 @@ static int st_join_n = -1, st_place_n = -1;
 typedef struct { const Stamp *s; int px, py; } StPlaced;
 static StPlaced st_placed[ST_PLACED_MAX];
 static int st_nplaced, st_nmust, st_must[ST_PLACED_MAX * 8][2];
-static uint8_t st_port[MG][MG], st_resv[MG][MG];                   /* wall squares a port opens (1 may, 2 must); blocks kept for a hall */
+static uint8_t st_port[MG][MG], st_resv[MG][MG], st_pbits[MG][MG];  /* wall squares a port opens (1 may, 2 must); blocks kept for a hall; which drawn rooms have a port in it */
 
 static int st_lane_ok(const Stamp *s) {                            /* the autopilot walks lanes: every port's middle must join the rest */
     static uint8_t seen[STAMP_MAXH][STAMP_MAXW];
@@ -679,7 +679,7 @@ static int st_fits(const Stamp *s, int px, int py) {
     return 1;
 }
 static void st_lay(const Stamp *s, int px, int py, int *nreg) {
-    int pw = (s->w - 1) / 2, ph = (s->h - 1) / 2, ox = mstart(px), oy = mstart(py), theme = 1 + rnd(TH_COUNT - 1), rtype = 0;
+    int pw = (s->w - 1) / 2, ph = (s->h - 1) / 2, ox = mstart(px), oy = mstart(py), theme = 1 + rnd(TH_COUNT - 1), rtype = 0, si = st_nplaced;
     if (G.faced) { rtype = pick_rtype(pw, ph); theme = RTYPES[rtype].theme; }
     for (int y = py; y < py + ph; y++) for (int x = px; x < px + pw; x++) mcarve(x, y, *nreg, theme, G.nrooms);
     mroom[G.nrooms][0] = px; mroom[G.nrooms][1] = py; mroom[G.nrooms][2] = pw; mroom[G.nrooms][3] = ph;
@@ -691,6 +691,7 @@ static void st_lay(const Stamp *s, int px, int py, int *nreg) {
         const StampPort *p = &s->port[i];
         int wx = plan_of(ox + p->x + DX[p->d]), wy = plan_of(oy + p->y + DY[p->d]);
         if (st_port[wy][wx] < 1 + p->must) st_port[wy][wx] = (uint8_t)(1 + p->must);
+        st_pbits[wy][wx] |= (uint8_t)(1 << si);
         if (p->must) {
             int bx = wx + DX[p->d], by = wy + DY[p->d];
             st_resv[by][bx] = 1;
@@ -774,6 +775,30 @@ static void st_count_lanes(void) {
     G.ncells = 0;
     for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) G.ncells += seen[y][x] && G.map[y][x].kind == K_FLOOR;
 }
+/* can every open cell of the map be walked to from the first room (doors, locked or not, count as open) */
+static int st_cells_connected(int *reached, int *total) {
+    static uint8_t seen[MAPN][MAPN]; static int qx[MAPN * MAPN], qy[MAPN * MAPN];
+    int qh = 0, qt = 0, tot = 0;
+    memset(seen, 0, sizeof seen);
+    const Room *R = &G.rooms[0];
+    for (int y = R->y; y < R->y + R->h && !qt; y++)
+        for (int x = R->x; x < R->x + R->w && !qt; x++)
+            if (G.map[y][x].kind == K_FLOOR) { seen[y][x] = 1; qx[qt] = x; qy[qt++] = y; }
+    while (qh < qt) {
+        int x = qx[qh], y = qy[qh++];
+        for (int d = 0; d < 4; d++) {
+            int nx = x + DX[d], ny = y + DY[d];
+            if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || seen[ny][nx]) continue;
+            int k = G.map[ny][nx].kind;
+            if (k != K_FLOOR && k != K_DOOR) continue;
+            seen[ny][nx] = 1; qx[qt] = nx; qy[qt++] = ny;
+        }
+    }
+    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) tot += G.map[y][x].kind == K_FLOOR || G.map[y][x].kind == K_DOOR;
+    if (reached) *reached = qt;
+    if (total) *total = tot;
+    return qt == tot;
+}
 /* can the whole plan be walked from the first room: a stamp that is reached only at its ports can cut a hall off */
 static int st_plan_connected(void) {
     static uint8_t seen[MG][MG]; static int qx[MG * MG], qy[MG * MG];
@@ -792,9 +817,12 @@ static int st_plan_connected(void) {
     return qt == total;
 }
 /* the wall between two blocks, one a stamp's, that is not one of its ports stays shut */
-static int st_wall_blocked(int x, int y) {
-    if (!st_nplaced || st_port[y][x]) return 0;
-    for (int d = 0; d < 4; d++) { int r = mc(x + DX[d], y + DY[d])->room; if (r >= 0 && st_room[r] > 0) return 1; }
+static int st_wall_blocked(int x, int y) {                         /* (and every drawn room beside it must have a port there: else its stone would close it) */
+    if (!st_nplaced) return 0;
+    for (int d = 0; d < 4; d++) {
+        int r = mc(x + DX[d], y + DY[d])->room;
+        if (r >= 0 && st_room[r] > 0 && !(st_pbits[y][x] >> (st_room[r] - 1) & 1)) return 1;
+    }
     return 0;
 }
 /* after the plan is cells: the stamp's stone, and no opening that leads into it */

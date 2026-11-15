@@ -110,7 +110,7 @@ static void gen_level(void) {
     if (G.boss >= 0)                                               /* the boss's strip of the plan: kept out of the rest */
         for (int y = ARENA_PLAN; y < MG; y++) for (int x = 0; x < MG; x++) MM[y][x].kind = K_PILLAR;
     G.nrooms = 0; G.ndoors = 0; G.nlights = 0; G.nlc = 0; G.ndecos = 0;
-    st_nplaced = st_nmust = 0; memset(st_port, 0, sizeof st_port); memset(st_resv, 0, sizeof st_resv);   /* stamps (docs/PLAN-stamps.md) */
+    st_nplaced = st_nmust = 0; memset(st_port, 0, sizeof st_port); memset(st_resv, 0, sizeof st_resv); memset(st_pbits, 0, sizeof st_pbits);   /* stamps (docs/PLAN-stamps.md) */
     memset(st_room, 0, sizeof st_room);
     memset(G.bulky, 0, sizeof G.bulky); memset(G.mapped, 0, sizeof G.mapped); memset(G.foot, 0, sizeof G.foot);
     int nreg = 0;
@@ -281,7 +281,20 @@ static void gen_level(void) {
         R->x = mstart(mroom[r][0]); R->y = mstart(mroom[r][1]);
         R->w = mstart(mroom[r][0] + mroom[r][2] - 1) + 3 - R->x; R->h = mstart(mroom[r][1] + mroom[r][3] - 1) + 3 - R->y;
     }
+#ifdef CRAWL_DEBUG
+    int rb = 0, tb = 0; if (st_nplaced && getenv("CRAWL_STAMPLOG")) st_cells_connected(&rb, &tb);
+#endif
     st_impose();                                                   /* the drawn rooms' stone, before the doors are judged */
+#ifdef CRAWL_DEBUG
+    if (st_nplaced && getenv("CRAWL_STAMPLOG")) { int ra = 0, ta = 0; st_cells_connected(&ra, &ta); fprintf(stderr, "STAMPS cells reached before impose %d of %d, after %d of %d\n", rb, tb, ra, ta); }
+#endif
+    if (st_nplaced && !st_cells_connected(0, 0)) {                 /* the stone cut a hall off after all: the level again, without them */
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "STAMPS level %d: the stone cut the level in two; made again without them\n", G.level);
+#endif
+        st_veto = 1; gen_level(); st_veto = 0;
+        return;
+    }
 
     /* doors: only where they sit between two walls, never next to each other */
     for (int y = 1; y < MAPN - 1; y++)
