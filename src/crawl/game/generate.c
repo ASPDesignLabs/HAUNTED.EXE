@@ -699,17 +699,29 @@ static void st_lay(const Stamp *s, int px, int py, int *nreg) {
         }
     }
 }
-/* class 0 a big joiner, 1 a small one, 2 a place. 1 if one was laid */
-static int st_place_one(int cls, int *nreg, const int *used, int nused) {
+/* a stamp's family: its name without the size it is drawn at (joiner_octagon_7 and joiner_octagon_11 are one), so a level has each once */
+static int st_family_len(const char *name) {
+    int n = (int)strlen(name);
+    while (n > 0 && name[n - 1] >= '0' && name[n - 1] <= '9') n--;
+    return n > 0 && name[n - 1] == '_' ? n - 1 : (int)strlen(name);
+}
+static int st_family_laid(const Stamp *s) {
+    int n = st_family_len(s->name);
+    for (int i = 0; i < st_nplaced; i++)
+        if (st_family_len(st_placed[i].s->name) == n && !strncmp(st_placed[i].s->name, s->name, (size_t)n)) return 1;
+    return 0;
+}
+/* class 0 a big joiner, 1 a small one, 2 a small place (a spur: under 150 cells), 3 a large one (a hall, a cloister, a ring). 1 if one was laid */
+static int st_place_one(int cls, int *nreg) {
     int step = crawl_step(G.level), n = 0, tot = 0;
     static int pick[ST_LVL_MAX * 2], wt[ST_LVL_MAX * 2];
-    const Stamp *set = cls == 2 ? ST_PLACES : ST_JOINS;
-    for (int i = 0; i < (cls == 2 ? st_place_n : st_join_n); i++) {
+    const Stamp *set = cls >= 2 ? ST_PLACES : ST_JOINS;
+    for (int i = 0; i < (cls >= 2 ? st_place_n : st_join_n); i++) {
         const Stamp *s = &set[i];
-        if ((cls != 2 && (st_big(s) != (cls == 0))) || s->w * s->h > 800) continue;
-        int w = stamp_weight(s, step, G.look), dup = 0;
-        for (int u = 0; u < nused; u++) dup |= used[u] == s->def + (cls == 2 ? 1000 : 0);
-        if (!w || dup) continue;
+        if (s->w * s->h > 800) continue;
+        if (cls < 2 ? st_big(s) != (cls == 0) : (s->w * s->h >= 150) != (cls == 3)) continue;
+        int w = stamp_weight(s, step, G.look);
+        if (!w || st_family_laid(s)) continue;
         pick[n] = i; wt[n] = w; tot += w; n++;
     }
     for (int tries = 0; tries < 8 && n > 0; tries++) {
@@ -725,10 +737,12 @@ static int st_place_one(int cls, int *nreg, const int *used, int nused) {
     }
     return 0;
 }
-/* one big joiner, two or three small ones and a place: the level's drawn rooms, laid after its first chamber */
+/* the level's drawn rooms, laid after its first chamber: first its place (a large one on about half the levels, else a spur, so the great
+ * ones have room to fit), then one big joiner and two or three small ones, no two of a family */
 static void place_level_stamps(int *nreg) {
-    int used[ST_PLACED_MAX], nused = 0, want[6], nw = 0;
-    want[nw++] = 0; want[nw++] = 1; want[nw++] = 1; if (rnd(2)) want[nw++] = 1; want[nw++] = 2;
+    int want[7], nw = 0;
+    if (rnd(100) < 55) { want[nw++] = 3; want[nw++] = 2; } else want[nw++] = 2;   /* (a spur instead, if no large one fits) */
+    want[nw++] = 0; want[nw++] = 1; want[nw++] = 1; if (rnd(2)) want[nw++] = 1;
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_STAMP")) {                                   /* testing: this one first */
         const char *nm = getenv("CRAWL_STAMP");
@@ -740,13 +754,16 @@ static void place_level_stamps(int *nreg) {
             int pw = (s->w - 1) / 2, ph = (s->h - 1) / 2;
             for (int t = 0; t < 200; t++) {
                 int px = 1 + 2 * rnd((MG - pw - 1) / 2 + 1), py = 1 + 2 * rnd((MG - ph - 1) / 2 + 1);
-                if (st_fits(s, px, py)) { st_lay(s, px, py, nreg); used[nused++] = s->def + (pass ? 1000 : 0); break; }
+                if (st_fits(s, px, py)) { st_lay(s, px, py, nreg); break; }
             }
         }
     }
 #endif
-    for (int i = 0; i < nw && st_nplaced < ST_PLACED_MAX; i++)
-        if (st_place_one(want[i], nreg, used, nused) && nused < ST_PLACED_MAX) used[nused++] = st_placed[st_nplaced - 1].s->def + (st_placed[st_nplaced - 1].s->kind == ST_PLACE ? 1000 : 0);
+    int have_place = 0;
+    for (int i = 0; i < nw && st_nplaced < ST_PLACED_MAX; i++) {
+        if (want[i] >= 2 && have_place) continue;                  /* one place: the spur is only the large one's fall-back */
+        if (st_place_one(want[i], nreg) && want[i] >= 2) have_place = 1;
+    }
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "STAMPS level %d: %d rooms:", G.level, st_nplaced);
     for (int i = 0; i < st_nplaced; i++) fprintf(stderr, " [%s x%d plan (%d,%d) %dx%d]", st_placed[i].s->name, st_placed[i].s->xf, st_placed[i].px, st_placed[i].py, st_placed[i].s->w, st_placed[i].s->h);
