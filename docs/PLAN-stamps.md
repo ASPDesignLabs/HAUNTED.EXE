@@ -210,6 +210,13 @@ left open. Do not edit the other's.
 
 ### Track A: the engine
 
+- **15 November 2026, the bent secret rooms' weights raised, at the owner's word ("Raise the bent rooms' weights").** This edits track B's
+  file, `crawl_stamp_data.c`, which the plan keeps to B: seven weights only (secret_l, secret_l_turned, secret_arrow 4 to 9; secret_c,
+  secret_spiral, secret_j 3 to 9; secret_long 2 to 9, the most a weight may be); no stamp's cells, steps or runs changed, and `build/stampsheet
+  check` is still clean. Over the same 800 secret rooms (24 seeds, 15 levels) the bent ones went from 82 to 167 (a tenth to a fifth):
+  L 52, J 38, L turned 26, arrow 22, C 11, long 10, spiral 8; boxes, wide boxes and strips still 340, 179 and 88, because a big room
+  often does not fit beside a hall. If the owner wants more, the plain three's weights come down next (6 each now). Harness only.
+
 - **15 November 2026, A2 done (secret rooms from stamps); the owner approved B's secret sheet first.** `place_secrets` (`game/generate.c`)
   now tries a stamp for each wall the old box would have used (`stamps_on`, `place_stamp_secret`, `stamp_try`): the stamp's chosen `E`
   stands on that wall cell and its room hangs off it in the stone; it is laid only where every floor cell is untouched stone on solid plan

@@ -28,7 +28,7 @@ const StampDef STAMP_DEFS[] = {
     "E.......#\n"
     "#.......D" },
     /* S4: L: a 2-wide leg of 3 and a foot of 4x2; doorway at the foot's end */
-    { "secret_l", ST_SECRET, 6, 6, 0, 9, 4, 0,
+    { "secret_l", ST_SECRET, 6, 6, 0, 9, 9, 0,
     "#E####\n"
     "E..###\n"
     "#..###\n"
@@ -36,7 +36,7 @@ const StampDef STAMP_DEFS[] = {
     "#....D\n"
     "#....#" },
     /* S5: L turned: a 4x2 bar and a 2-wide leg of 3; doorway at the leg's foot */
-    { "secret_l_turned", ST_SECRET, 5, 7, 0, 9, 4, 0,
+    { "secret_l_turned", ST_SECRET, 5, 7, 0, 9, 9, 0,
     "#E###\n"
     "E....\n"
     "#....\n"
@@ -45,7 +45,7 @@ const StampDef STAMP_DEFS[] = {
     "###..\n"
     "###D#" },
     /* S6: arrowhead, stepped; doorway at the point */
-    { "secret_arrow", ST_SECRET, 6, 7, 0, 9, 4, 0,
+    { "secret_arrow", ST_SECRET, 6, 7, 0, 9, 9, 0,
     "#E####\n"
     "E..###\n"
     "#...##\n"
@@ -54,7 +54,7 @@ const StampDef STAMP_DEFS[] = {
     "#...##\n"
     "#..###" },
     /* S7: C: the doorway is in the notch, on the inner face of the lower arm */
-    { "secret_c", ST_SECRET, 6, 7, 2, 9, 3, 0,
+    { "secret_c", ST_SECRET, 6, 7, 2, 9, 9, 0,
     "#E####\n"
     "E.....\n"
     "#.....\n"
@@ -63,7 +63,7 @@ const StampDef STAMP_DEFS[] = {
     "#.....\n"
     "#....." },
     /* S8: spiral with an inner stub; doorway at the far foot */
-    { "secret_spiral", ST_SECRET, 6, 7, 2, 9, 3, 0,
+    { "secret_spiral", ST_SECRET, 6, 7, 2, 9, 9, 0,
     "#E####\n"
     "E.....\n"
     "#..#..\n"
@@ -72,7 +72,7 @@ const StampDef STAMP_DEFS[] = {
     "#.....\n"
     "D....." },
     /* S9: J: a 1-wide leg of 4 and a foot of 4x2; doorway at the foot's west end */
-    { "secret_j", ST_SECRET, 5, 7, 2, 9, 3, 0,
+    { "secret_j", ST_SECRET, 5, 7, 2, 9, 9, 0,
     "####E\n"
     "####.\n"
     "####.\n"
@@ -81,7 +81,7 @@ const StampDef STAMP_DEFS[] = {
     "D....\n"
     "#...." },
     /* S10: 1-wide approach of 9, then a 6x2 foot with a step; doorway on the raised part */
-    { "secret_long", ST_SECRET, 6, 12, 4, 9, 2, 0,
+    { "secret_long", ST_SECRET, 6, 12, 4, 9, 9, 0,
     "E#####\n"
     ".#####\n"
     ".#####\n"
