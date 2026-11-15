@@ -210,6 +210,32 @@ left open. Do not edit the other's.
 
 ### Track A: the engine
 
+- **15 November 2026, A3 done for joiners and places (not the antechamber, not the marks).** After a level's first chamber, `gen_level`
+  lays one big joiner (area 200 cells or more), two or three small ones and one place (`place_level_stamps`, `st_place_one`, `st_fits`,
+  `st_lay`, in `game/generate.c`). Each is a room on the plan; the halls reach it only at its ports, and **a wall between two drawn rooms
+  opens only where both have a port** (`st_wall_blocked`, `st_pbits`: the first cut of this had one room's port open a wall the other's
+  stone then closed, which cut 14 of 320 levels in two). Required ports are forced open (`st_must`) and the block beyond each is kept
+  for a hall (`st_resv`); after `mz_draw`, `st_impose` puts the stamp's stone back and closes openings that lead into it. A drawn room is
+  never the start, a vault, a wing or a trial's room, and has no colonnade of the old kind. **Two safety nets:** a plan the stamps leave
+  in pieces (`st_plan_connected`), or cells the stone cuts apart (`st_cells_connected`), make the level again without any stamps (4 of 320
+  levels did). **The autopilot's lanes:** many drawings' lane cells (x or y = 2 mod 4) are not joined by lane cells alone, so
+  `crawl_stamp.c` bridges them (`bridge_lanes`, a shortest walkable path from each piece to the first port's), the bridge is `Cell.xlane`
+  (`lane()` and `lane_dist()` read it; props keep off it through `block_corner`), and the autopilot's explored count (`G.ncells`) takes
+  only what the lanes join (`st_count_lanes`). `SF_LANE` in `crawl_stamp.h` now means formula plus bridges. **Debug switches** (add to
+  `docs/HARNESS.md`, B5): `CRAWL_NOJOINERS=1` (stamps for secrets only), `CRAWL_NOSTAMPS=1` (all off), `CRAWL_STAMP=name` (this one
+  first), `CRAWL_STAMPLOG=1` (what each port opens on, stamps left out, cells reached before and after the stone, and `MAPR`, the reach
+  map); `STAMPS level n:` names each room. **Tested, harness only (nothing by hand, nothing under Wine):** with `CRAWL_NOSTAMPS=1` the
+  dream's logs match 1.0.0b21.6 line for line on seeds 3 and 8 (600 s); 40 seeds on levels 1, 4, 7, 10, 14, 22, 30 and 38: 280 of 320
+  levels have stamps (3 rooms in 37, 4 in 101, 5 in 132 of an earlier sweep; the first chamber is never one), lanes the autopilot cannot
+  reach per level median 11, 90th percentile 22, worst 39 (the build before stamps: 14, 26, 40; none over 40), floor fully connected
+  except **3 cells sealed by props in a narrow nook in 71 of the 280 levels** (known, minor); the dream for 1,500 s of its time on seeds
+  3, 8, 12 and 16 finishes without a death (levels cleared 3, 3, 4 and 2; the build before cleared 3, 4 and 3 on the first three: no
+  balance claim, that is B4's); `make asan` runs of the dream on four seeds are clean. **Not done:** the antechamber and its vault (left
+  out of the places for now), the marks (A4: altars, braziers, loot, spawns, torches read from a stamp), the stamps' look in play (no
+  frames of a joiner yet: B or A to render a few with `CRAWL_STAMP=` and `CRAWL_TPSTAMP`), and the balance. **For B:** the places' `1`
+  plate marks and every mark are ignored so far; `tools/tidy_check.sh` still does not know the new units. **Next for A:** A4, then the
+  owner's look at frames.
+
 - **15 November 2026, the bent secret rooms' weights raised, at the owner's word ("Raise the bent rooms' weights").** This edits track B's
   file, `crawl_stamp_data.c`, which the plan keeps to B: seven weights only (secret_l, secret_l_turned, secret_arrow 4 to 9; secret_c,
   secret_spiral, secret_j 3 to 9; secret_long 2 to 9, the most a weight may be); no stamp's cells, steps or runs changed, and `build/stampsheet
