@@ -210,6 +210,21 @@ left open. Do not edit the other's.
 
 ### Track A: the engine
 
+- **15 November 2026, the owner's three fixes to what a level gets (from ten maps they were shown).** At their word: (1) the place is laid
+  first (`place_level_stamps`), so a large one has room to fit; (2) no two stamps of a family on a level (`st_family_laid`: a name without
+  its size, so `joiner_octagon_7` and `_11` are one); (3) a large place (150 cells or more: cloister, gauntlet, alcove hall, sunken ring)
+  on about 55 of 100 levels, else the spur (the spur is also its fall-back). **Found and fixed on the way:** with the place first, one could
+  cover the plan squares of a boss's way down to the arena, and the arena, stamped after the safety nets, was then walled off (375 cells on
+  boss levels): those squares are now reserved (`ARENA_PLAN`, `ARENA_DOOR_MX` moved up in `generate.c`); and `solid_prop` now refuses a
+  prop in a drawn room that would seal floor off (`st_seals`), which also took out most sealed nooks. **Tested, harness only:** over 40
+  seeds on 8 levels (320): 280 have stamps (2 rooms on 8, 3 on 62, 4 on 127, 5 on 83), no level repeats a family, 0 remade without stamps; places:
+  spur 133, gauntlet 47, cloister 46, alcove hall 38, sunken ring 16 (it was spur 110, alcove 12, gauntlet 6, none of the others); lanes
+  unreached per level median 11, 90th percentile 21, worst 42 (two levels over 40); floor sealed off in 63 levels, worst 6 cells; the
+  dream for 1,500 s on seeds 3, 8, 12 and 16: no death, 4 levels cleared on each; `make asan` on the dream, four seeds, clean; with
+  `CRAWL_NOSTAMPS=1` the logs still match 1.0.0b21.6 (seeds 3 and 8, 600 s). The owner saw the ten maps before and after
+  (`ten_maps.png`, `ten_maps_2.png`, in the session's scratchpad, not the repo). **Not done:** the balance (B4's `tools/stampbal.py` is
+  there to run), the marks in frames, the antechamber; the few sealed cells left come from something other than `solid_prop`.
+
 - **15 November 2026, A4 done: a drawn room's marks (and a correction to A3's log below).** `st_impose` keeps each mark on its cell
   (`Cell.xmark`, so nothing goes stale on a shop, a pocket or a drawn level). `a` an altar and `b` a brazier are laid with the dressing
   (`st_dress_marks`, called in `dress_level` while footprints are on); `t` a torch on the nearest wall, as the halls' are; `c` treasure
