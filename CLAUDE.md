@@ -228,6 +228,7 @@ The plans, each with its hand-off log (`docs/HISTORY.md` has the account of each
 | `PLAN-tidy.md` | Code and pictures apart; the great files cut; this file slimmed | 1.0.0b21.6; done |
 | `PLAN-ambience.md` | The crypt's small life: twelve things that notice you, none of them creatures | 1.0.0b21.6, harness only |
 | `PLAN-mice.md` | The mice in the walls, their holes and their telling; the charnel rat they grow into; the spiders on the walls | 1.0.0b21.6; the mice played by the owner, the spiders' last changes not yet |
+| `PLAN-stamps.md` | Drawn secret rooms, joiners and intended places, as stamps; two agents on `claude/ecstatic-heisenberg-0ljx7r`, a track each | Settled, being built; A1 (the parser) done, nothing in the game yet |
 | `CHANGES-1.0.0b14.md` | The full record of everything between 1.0.0b13 and 1.0.0b14 | |
 
 ## Releasing
