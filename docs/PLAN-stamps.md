@@ -210,6 +210,23 @@ left open. Do not edit the other's.
 
 ### Track A: the engine
 
+- **15 November 2026, A4 done: a drawn room's marks (and a correction to A3's log below).** `st_impose` keeps each mark on its cell
+  (`Cell.xmark`, so nothing goes stale on a shop, a pocket or a drawn level). `a` an altar and `b` a brazier are laid with the dressing
+  (`st_dress_marks`, called in `dress_level` while footprints are on); `t` a torch on the nearest wall, as the halls' are; `c` treasure
+  (`random_treasure`, in `place_items`); `s` one of the dead at about two marks in three, keeping to its room as the residents do, not
+  within 8 cells of the start (`place_stamp_spawns`, `game/place.c`). A prop is passed over (a neighbouring cell is tried) where it
+  would seal floor off, or on a lane where it would cost the lanes more than 4 cells (16 for an altar, a room's centre); the dressing's
+  own props in a drawn room obey the first rule too (`st_seals`, in `block_corner`). Debug: `CRAWL_TPMARK=letter` (two to four cells from
+  the first such mark, facing it), and `CRAWL_STAMPLOG` says what was laid. **Tested, harness only:** with `CRAWL_NOSTAMPS=1` the dream's
+  logs still match 1.0.0b21.6 (seeds 3 and 8, 600 s); 40 seeds on 8 levels: lanes unreached median 14, 90th percentile 23, worst 30; 4 levels
+  made again without stamps; floor sealed off in 69 of 320 levels (median 1 cell, worst 8: the first cut of the marks took it to 168 until
+  the guard went in); the dream for 1,500 s of its time on seeds 3, 8, 12 and 16: no death (levels cleared 4, 4, 4, 2); `make asan` on the
+  dream, four seeds, clean (before the guard; the guard's own rerun is not done). **Correction to the entry below:** its "3 cells sealed
+  by props in 71 of 280 levels" was read from the first ten entries only; the truth was 71 of 320 levels, worst 10. **Not seen:** the
+  marks in frames (those taken were too dark to judge). **Seen in ten whole-level maps (`media/sheets/stamps/`, none yet):** the places
+  are nearly always the shrine spur (110 of 280 levels; the alcove hall 12, the gauntlet 6, the cloister and the sunken ring none,
+  because the big joiners take the room first) and the small joiners are mostly octagons (153): for the owner to say.
+
 - **15 November 2026, A3 done for joiners and places (not the antechamber, not the marks).** After a level's first chamber, `gen_level`
   lays one big joiner (area 200 cells or more), two or three small ones and one place (`place_level_stamps`, `st_place_one`, `st_fits`,
   `st_lay`, in `game/generate.c`). Each is a room on the plan; the halls reach it only at its ports, and **a wall between two drawn rooms
