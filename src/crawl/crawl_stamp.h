@@ -44,12 +44,14 @@ extern const int NSTAMP_DEFS;
 
 /* per-cell flags in Stamp.fl */
 enum { SF_FLOOR = 1,                                    /* walkable: '.', a port, a mark or a number */
-       SF_LANE = 2,                                     /* floor with x or y = 2 (mod 4) from the stamp's origin: the hall lane */
+       SF_LANE = 2,                                     /* floor at index 1 (mod 4) in x or y from the stamp's origin: the hall lane */
        SF_PORT = 4,                                     /* on a P or p */
        SF_ENTRY = 8,                                    /* an E */
        SF_DOOR = 16 };                                  /* a D */
 
-typedef struct { int8_t x, y; uint8_t d; uint8_t must; } StampPort;   /* d: the way out of the stamp; must: a 'P' */
+/* d: the way out of the stamp (a corner port faces the way its run does not run); must: a 'P'. One entry a cell: a wider arm is several
+ * adjacent ports, at most 3, within one block, one of them at index 1 mod 4 along the edge, which is the arm's centre */
+typedef struct { int8_t x, y; uint8_t d; uint8_t must; } StampPort;
 typedef struct { int8_t x, y; char glyph; } StampMark;               /* a, b, c, s, t or a digit */
 typedef struct { int8_t x, y, d; } StampSpot;                        /* an entrance or a doorway; d: the way out of the room into it */
 
