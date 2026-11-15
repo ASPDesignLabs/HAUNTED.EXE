@@ -63,9 +63,18 @@
   *, *::before, *::after { box-sizing: border-box; }
   img { max-width: 100%; }
   [hidden] { display: none !important; }
+  /* The backdrop: the title screen's three scenes (the crypt beneath, the walk, the risen), without their name, each played
+     through once and handed to the next. Native 320x200 pixels doubled, scaled to cover the window with hard edges, and
+     veiled in the page's own black so the words stay readable. */
+  html { background: var(--bg); }
+  .bgfx { position: fixed; inset: 0; z-index: -2; background: var(--bg); overflow: hidden; }
+  .bgfx video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; opacity: 0; transition: opacity 1.6s ease; }
+  .bgfx video.on { opacity: 1; }
+  .bgfx::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 40%, rgba(13, 12, 16, .55), rgba(13, 12, 16, .86)); }
+  @media (prefers-reduced-motion: reduce) { .bgfx video { transition: none; } }
   body {
     margin: 0;
-    background: var(--bg);
+    background: transparent;
     color: var(--fg);
     font-family: var(--font-body);
     font-size: 17px;
@@ -292,6 +301,11 @@
 </style>
 </head>
 <body>
+<div class="bgfx" id="bgfx" aria-hidden="true">
+  <video muted playsinline preload="none" data-poster="bg/a.png"><source src="bg/a.webm" type="video/webm"><source src="bg/a.mp4" type="video/mp4"></video>
+  <video muted playsinline preload="none" data-poster="bg/b.png"><source src="bg/b.webm" type="video/webm"><source src="bg/b.mp4" type="video/mp4"></video>
+  <video muted playsinline preload="none" data-poster="bg/c.png"><source src="bg/c.webm" type="video/webm"><source src="bg/c.mp4" type="video/mp4"></video>
+</div>
 <div class="page">
 
   <header>
@@ -487,6 +501,25 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
       document.getElementById("edition").textContent = "WINDOWS SCREENSAVER \u00b7 " + tag + (rel.prerelease ? " \u00b7 BETA" : "");
     })
     .catch(function () { /* the links above already point at this version */ });
+})();
+</script>
+<script>
+/* The backdrop: a scene at a time in a random order, each through once, then a crossfade to the next. Without motion
+   (the reader's setting) or without video, the first scene stands as a still. */
+(function () {
+  var box = document.getElementById("bgfx"); if (!box) return;
+  var v = [].slice.call(box.querySelectorAll("video")), i = Math.floor(Math.random() * v.length);
+  v.forEach(function (e) { e.poster = e.getAttribute("data-poster"); });
+  var still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function show(n) {
+    v.forEach(function (e, k) { e.classList.toggle("on", k === n); if (k !== n) e.pause(); });
+    var e = v[n]; e.preload = "auto"; if (still) return;
+    try { e.currentTime = 0; } catch (x) {}
+    var p = e.play(); if (p && p.catch) p.catch(function () {});
+    v[(n + 1) % v.length].preload = "auto";
+  }
+  v.forEach(function (e, k) { e.addEventListener("ended", function () { i = (k + 1) % v.length; show(i); }); });
+  show(i);
 })();
 </script>
 </body>

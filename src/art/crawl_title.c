@@ -1091,10 +1091,12 @@ static void vignette(float k) {
 }
 
 static struct { int on; float appear, press, k[4]; } MN;
+static int BARE;                                                       /* the page's backdrops: no name, no words */
 static const char *MKEYS[3] = { "W/S", "ENTER", "ESC" }, *MPADK[3] = { "D-PAD", "A", "B" }, *MSAYS[3] = { "MOVES", "SELECTS", "BACK" };
 #define MENUKEYS (PADMODE == 1 ? MPADK : MKEYS)
 static void title_foot_pre(void) { if (MN.on && MN.appear > 0.5f) { ui_keys_worn(185, MENUKEYS, MSAYS, 3); ui_light(182, H, 0.62f); } }
 static void title_foot(int y, int band, float t) {
+    if (BARE) return;
     if (MN.on && MN.appear > 0.5f) { ui_keys_words(185, MENUKEYS, MSAYS, 3); return; }
     if (MN.on && MN.appear > 0.02f) return;
     if (MN.on && MN.press > 0) {                                          /* the key taken: the words flare and are gone */
@@ -1508,12 +1510,12 @@ static void scene_a(float t) {
     }
     vignette(0.35f);
     logo_build("HAUNTED", 0.95f, ".EXE", 0.84f, 1, 11);
-    logo_draw((W - LG.w) / 2, 10, LS_BLOOD, 1.0f + 0.25f * flash, A_GROUND - 1, t);
+    if (!BARE) logo_draw((W - LG.w) / 2, 10, LS_BLOOD, 1.0f + 0.25f * flash, A_GROUND - 1, t);
     resolve();
     if (eyes) { F.pix[(int)ey * W + (int)ex] = R_BLOOD + 15; F.pix[(int)ey * W + (int)ex + 2] = R_BLOOD + 15; }
     for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) if (MR[y][x] == R_GLOW && (MF[y][x] & MF_FLAT) && y < A_GROUND) F.pix[y * W + x] = C_WHITE;
     title_foot(189, 0, t);
-    if (ver_word && MN.appear < 0.02f) gfx_text8(&F, W - 2 - 8 * (int)strlen(ver_word), 191, ver_word, R_STONE + 4, 1);
+    if (ver_word && !BARE && MN.appear < 0.02f) gfx_text8(&F, W - 2 - 8 * (int)strlen(ver_word), 191, ver_word, R_STONE + 4, 1);
 }
 
 /* ---- the graves to choose from: what the ledger's pages would say (made up for the mock-ups) ---- */
@@ -1864,7 +1866,7 @@ static void scene_b(float t) {
     light_add(14, 176, 60, 0.7f * flick(t, 31), 1); light_add(306, 176, 60, 0.7f * flick(t, 32), 1);
     for (int i = 0; i < 6; i++) flame(CA[i], 186 - 7 - CH[i], 5, t, i + 40);
     logo_build("HAUNTED", 0.95f, ".EXE", 0.84f, 1, 21);
-    logo_draw((W - LG.w) / 2, 6, LS_CARVED, 1.05f + 0.1f * flick(t, 4), H - 2, t);
+    if (!BARE) logo_draw((W - LG.w) / 2, 6, LS_CARVED, 1.05f + 0.1f * flick(t, 4), H - 2, t);
     resolve();
     title_foot(190, 0, t);
 }
@@ -2197,7 +2199,8 @@ static void scene_c(float t) {
     grass_fg(t);
     vignette(0.35f);
     for (int i = 0; i < 6; i++) flame(CA[i], G + 4 - 10 - CH[i], 6, t, i);
-    if (!C_FACE) { logo_build("HAUNTED", 0.8f, ".EXE", 0.76f, 0, 31); logo_draw((W - LG.w) / 2, SB - 150 + 50, LS_CARVED, 1.0f + 0.2f * flash, G + 1, t); }
+    if (BARE) { /* the scene alone */ }
+    else if (!C_FACE) { logo_build("HAUNTED", 0.8f, ".EXE", 0.76f, 0, 31); logo_draw((W - LG.w) / 2, SB - 150 + 50, LS_CARVED, 1.0f + 0.2f * flash, G + 1, t); }
     else {                                                              /* the name on one line over the four */
         lg_dripmax = 5;
         logo_build("HAUNTED", 0.56f, ".EXE", 0.5f, 1, 31);
@@ -2297,7 +2300,7 @@ void title_draw(Frame *f, float t, const TitleView *v) {
     TF = f; f->w = W; f->h = H; f->fade = 1.0f;
     memcpy(BASEPAL, crawl_pal, sizeof BASEPAL);
     ui_ramps(0);
-    PADMODE = v->pad;
+    PADMODE = v->pad; BARE = v->bare;
     MN.on = 1; MN.appear = clampf(v->menu, 0, 1); MN.press = clampf(v->press, 0, 1);
     for (int k = 0; k < 4; k++) MN.k[k] = clampf(v->mk[k], 0, 1);
     for (int g = 0; g < 3; g++) { GK[g] = clampf(v->gk[g], 0, 1); TP[g] = v->page[g]; }
