@@ -469,6 +469,133 @@ static int secret_door(Secret *sc) {
     G.map[y][x].secret = 3;
     return 1;
 }
+/* A secret's room from a stamp (docs/PLAN-stamps.md, A2). The stamp's chosen entrance stands on the wall cell the old box would have
+ * used, so its room hangs off the plan wherever its drawing says, in the stone, with stone round it. The wall block slides one cell into
+ * the stone beside it (Secret.slide), so the room is left empty to walk. A stamp that does not fit is passed over; the old boxes remain. */
+#define ST_SEC_MAX 160
+static Stamp ST_SEC[ST_SEC_MAX];
+static int st_sec_n = -1;
+static int stamps_on(void) {
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_NOSTAMPS")) return 0;                        /* today's boxes, for the proofs */
+#endif
+    if (st_sec_n < 0) { st_sec_n = stamp_set(ST_SECRET, ST_SEC, ST_SEC_MAX); if (st_sec_n < 0) st_sec_n = 0; }
+    return st_sec_n > 0;
+}
+static int plan_of(int v) { return (v & 3) == 0 ? v / 2 : 2 * (v / 4) + 1; }   /* the plan's square a map cell lies in */
+static int st_wall(int x, int y) { return x >= 0 && y >= 0 && x < MAPN && y < MAPN && G.map[y][x].kind == K_WALL && !G.map[y][x].secret; }
+static int st_solid(int x, int y) {                                /* stone of no room's, on plan squares nothing has taken */
+    if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1 || !st_wall(x, y)) return 0;
+    int px = plan_of(x), py = plan_of(y);
+    if (MM[py][px].kind != K_WALL) return 0;
+    return !((px & 1) && (py & 1) && MM[py][px].trunk);
+}
+
+static int stamp_try(const Stamp *s, int ei, int d, int sx, int sy, int links, Secret *out) {
+    const StampSpot *E = &s->entry[ei];
+    int ox = sx - E->x, oy = sy - E->y;
+    for (int y = 0; y < s->h; y++)                                 /* the floor on stone, and stone round it */
+        for (int x = 0; x < s->w; x++) {
+            if (!(s->fl[y][x] & SF_FLOOR)) continue;
+            if (!st_solid(ox + x, oy + y)) return 0;
+            for (int k = 0; k < 4; k++) {
+                int nx = x + DX[k], ny = y + DY[k];
+                if (nx >= 0 && ny >= 0 && nx < s->w && ny < s->h && (s->fl[ny][nx] & SF_FLOOR)) continue;
+                if (!st_wall(ox + nx, oy + ny)) return 0;
+            }
+        }
+    /* what the autopilot can walk: the lane cells joined to the first cell inside */
+    static uint8_t reach[STAMP_MAXH][STAMP_MAXW];
+    static int qx[STAMP_MAXH * STAMP_MAXW], qy[STAMP_MAXH * STAMP_MAXW];
+    int qh = 0, qt = 0, fx0 = E->x - DX[E->d], fy0 = E->y - DY[E->d];
+    memset(reach, 0, sizeof reach);
+    reach[fy0][fx0] = 1; qx[qt] = fx0; qy[qt++] = fy0;
+    while (qh < qt) {
+        int x = qx[qh], y = qy[qh++];
+        for (int k = 0; k < 4; k++) {
+            int nx = x + DX[k], ny = y + DY[k];
+            if (nx < 0 || ny < 0 || nx >= s->w || ny >= s->h || reach[ny][nx] || !(s->fl[ny][nx] & SF_FLOOR)) continue;
+            if (!lane(ox + nx, oy + ny)) continue;
+            reach[ny][nx] = 1; qx[qt] = nx; qy[qt++] = ny;
+        }
+    }
+    int door = -1;                                                 /* a doorway on, for a chain: stone all round but the room, and in reach */
+    if (links >= 2) {
+        int ok[STAMP_MAXENTR], nok = 0;
+        for (int i = 0; i < s->ndoor; i++) {
+            const StampSpot *D = &s->door[i];
+            if (D->d < 0 || D->d > 3 || !st_wall(ox + D->x, oy + D->y)) continue;
+            int bx = ox + D->x + DX[D->d], by = oy + D->y + DY[D->d], good = bx >= 1 && by >= 1 && bx < MAPN - 1 && by < MAPN - 1 && st_wall(bx, by);
+            for (int k = 0; k < 4 && good; k++) {
+                if (k == ((D->d + 2) & 3)) continue;               /* the room's side */
+                good = st_wall(ox + D->x + DX[k], oy + D->y + DY[k]);
+            }
+            int inreach = 0;
+            for (int k = 0; k < 4 && good && !inreach; k++) {
+                int nx = D->x + DX[k], ny = D->y + DY[k];
+                if (nx < 0 || ny < 0 || nx >= s->w || ny >= s->h || !(s->fl[ny][nx] & SF_FLOOR)) continue;
+                if (reach[ny][nx]) inreach = 1;
+                for (int e = 0; e < 4 && !inreach; e++) {
+                    int mx = nx + DX[e], my = ny + DY[e];
+                    if (mx >= 0 && my >= 0 && mx < s->w && my < s->h && reach[my][mx]) inreach = 1;
+                }
+            }
+            if (good && inreach) ok[nok++] = i;
+        }
+        if (!nok) return 0;
+        door = ok[rnd(nok)];
+    }
+    int side[2], ns = 0;                                           /* where the wall block goes: into the stone along the wall */
+    for (int k = 0; k < 2; k++) {
+        int p = k ? (d + 3) & 3 : (d + 1) & 3, tx = sx + DX[p], ty = sy + DY[p], bx = tx - ox, by = ty - oy;
+        if (!st_wall(tx, ty) || tx < 1 || ty < 1 || tx >= MAPN - 1 || ty >= MAPN - 1) continue;
+        if (bx >= 0 && by >= 0 && bx < s->w && by < s->h && (s->fl[by][bx] & (SF_FLOOR | SF_DOOR))) continue;
+        side[ns++] = p;
+    }
+    if (!ns) return 0;
+    int slide = side[ns > 1 ? rnd(ns) : 0];
+
+    int x0 = MAPN, y0 = MAPN, x1 = -1, y1 = -1;                    /* it fits: lay it */
+    for (int y = 0; y < s->h; y++)
+        for (int x = 0; x < s->w; x++) {
+            if (!(s->fl[y][x] & SF_FLOOR)) continue;
+            int mx = ox + x, my = oy + y, px = plan_of(mx), py = plan_of(my);
+            carve(mx, my, -2, TH_CORRIDOR); G.map[my][mx].secret = 1;
+            if ((px & 1) && (py & 1)) MM[py][px].trunk = 1;
+            x0 = imin(x0, mx); y0 = imin(y0, my); x1 = imax(x1, mx); y1 = imax(y1, my);
+        }
+    G.map[sy][sx].secret = 2;
+    int dx = -1, dy = -1;
+    if (door >= 0) {
+        const StampSpot *D = &s->door[door];
+        dx = ox + D->x; dy = oy + D->y;
+        G.map[dy][dx].secret = 3;
+        int bx = dx + DX[D->d], by = dy + DY[D->d];
+        if ((bx & 3) && (by & 3)) MM[(by - 1) / 4 * 2 + 1][(bx - 1) / 4 * 2 + 1].trunk = 1;   /* the rock behind it stays rock */
+    }
+    *out = (Secret){ sx + DX[E->d], sy + DY[E->d], (E->d + 2) & 3, sx, sy, 0, 0, 0, 1, links, dx, dy, x0, y0, x1, y1, rng_next(&G.rs) | 1u, 0, slide + 1, s->def + 1 };
+    return 1;
+}
+
+/* a stamp for the wall at (sx,sy); d from the room toward the hall; a chain of links. 1 if one was laid (into *out), else 0 */
+static int place_stamp_secret(int d, int sx, int sy, int links, Secret *out) {
+    int step = crawl_step(G.level), n = 0, tot = 0;
+    static int pick[ST_SEC_MAX * STAMP_MAXENTR], wt[ST_SEC_MAX * STAMP_MAXENTR];
+    for (int i = 0; i < st_sec_n; i++) {
+        int w = stamp_weight(&ST_SEC[i], step, G.look);
+        if (!w) continue;
+        for (int e = 0; e < ST_SEC[i].nentry; e++)
+            if (ST_SEC[i].entry[e].d == d) { pick[n] = i * STAMP_MAXENTR + e; wt[n] = w; tot += w; n++; }
+    }
+    while (n > 0) {                                                /* by weight, and the next if it will not fit */
+        int r = rnd(tot), k = 0;
+        while (k < n - 1 && r >= wt[k]) { r -= wt[k]; k++; }
+        if (stamp_try(&ST_SEC[pick[k] / STAMP_MAXENTR], pick[k] % STAMP_MAXENTR, d, sx, sy, links, out)) return 1;
+        tot -= wt[k]; pick[k] = pick[n - 1]; wt[k] = wt[n - 1]; n--;
+    }
+    return 0;
+}
+
 static void place_secrets(void) {
     static const int LINKS[RUN_LEN] = { 3, 3, 4, 4, 4, 5, 5, 5, 6, 6 };
     G.nsecrets = G.secrets_found = G.nlinks = G.links_found = G.trials_failed = 0; G.slide = -1;
@@ -506,6 +633,10 @@ static void place_secrets(void) {
         int clash = MM[my][mx].trunk;                              /* trunk marks a room already taken */
         for (int k = 0; k < G.nsecrets; k++) clash |= abs(G.secrets[k].sx - sx) + abs(G.secrets[k].sy - sy) < 8;
         if (clash) continue;
+        if (stamps_on()) {                                         /* a drawn room, if one fits here */
+            Secret ns;
+            if (place_stamp_secret(d, sx, sy, chain[placed], &ns)) { G.secrets[G.nsecrets++] = ns; placed++; continue; }
+        }
         /* how big: two by two, two side by side, or the one block, as the plan allows */
         int px = DY[in], py = DX[in], side = rnd(2) ? 1 : -1, bx[4] = { mx }, by[4] = { my }, nb = 1;
         float r = rndf();
@@ -529,7 +660,7 @@ static void place_secrets(void) {
             for (int x = x0; x <= x1; x++) { carve(x, y, -2, TH_CORRIDOR); G.map[y][x].secret = 1; }
         G.map[sy][sx].secret = 2;
         Secret *sc = &G.secrets[G.nsecrets++];
-        *sc = (Secret){ sx + DX[d], sy + DY[d], in, sx, sy, 0, 0, 0, nb == 4 ? 7 : 3, chain[placed++], -1, -1, x0, y0, x1, y1, rng_next(&G.rs) | 1u, 0 };
+        *sc = (Secret){ sx + DX[d], sy + DY[d], in, sx, sy, 0, 0, 0, nb == 4 ? 7 : 3, chain[placed++], -1, -1, x0, y0, x1, y1, rng_next(&G.rs) | 1u, 0, 0, 0 };
         if (sc->links >= 2 && !secret_door(sc)) { left += sc->links - 1; sc->links = 1; }   /* nowhere for a doorway: alone after all */
     }
     for (int k = placed; k < nch; k++) left += chain[k];
@@ -541,15 +672,19 @@ static void place_secrets(void) {
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "SECRETS level %d: %d links in %d rooms:", G.level, G.nlinks, G.nsecrets);
     for (int k = 0; k < G.nsecrets; k++)
-        fprintf(stderr, " [%dx%d chain %d door (%d,%d)]", G.secrets[k].x1 - G.secrets[k].x0 + 1, G.secrets[k].y1 - G.secrets[k].y0 + 1, G.secrets[k].links, G.secrets[k].door_x, G.secrets[k].door_y);
+        fprintf(stderr, " [%dx%d chain %d door (%d,%d)%s%s]", G.secrets[k].x1 - G.secrets[k].x0 + 1, G.secrets[k].y1 - G.secrets[k].y0 + 1, G.secrets[k].links, G.secrets[k].door_x, G.secrets[k].door_y,
+                G.secrets[k].stamp ? " " : "", G.secrets[k].stamp ? STAMP_DEFS[G.secrets[k].stamp - 1].name : "");
     fprintf(stderr, "\n");
 #endif
 }
 
 /* the sliding wall: a block of stone at its cell plus how far it has come */
+static int slide_way(const Secret *sc) { return sc->slide ? sc->slide - 1 : sc->d; }   /* which way the wall block goes, and how far */
+static int slide_len(const Secret *sc) { return sc->slide ? 1 : sc->len; }
 static void slide_box(float *bx, float *by) {
     const Secret *sc = &G.secrets[G.slide];
-    *bx = sc->sx + DX[sc->d] * G.slide_t; *by = sc->sy + DY[sc->d] * G.slide_t;
+    int w = slide_way(sc);
+    *bx = sc->sx + DX[w] * G.slide_t; *by = sc->sy + DY[w] * G.slide_t;
 }
 static int slide_covers(int x, int y) {
     float bx, by;

@@ -304,14 +304,17 @@ static void place_items(int sx, int sy) {
         int ns = 0;
         for (int y = sc->y0; y <= sc->y1; y++)
             for (int x = sc->x0; x <= sc->x1; x++) {
+                if (sc->stamp && (G.map[y][x].kind != K_FLOOR || G.map[y][x].secret != 1)) continue;   /* a stamp's room is not its box */
                 int along = (x - sc->sx) * DX[sc->d] + (y - sc->sy) * DY[sc->d], across = (x - sc->sx) * DY[sc->d] + (y - sc->sy) * DX[sc->d];
-                if (across == 0 || lane_dist(x, y) > 1 || ns >= 64) continue;   /* the stone's way, and out of reach */
+                if ((across == 0 && !sc->slide) || lane_dist(x, y) > 1 || ns >= 64) continue;   /* the stone's way (a stamp's stone goes aside), and out of reach */
                 if (sc->door_x >= 0 && abs(x - sc->door_x) + abs(y - sc->door_y) <= 1) continue;
                 if (along < 2 && sc->len > 3) continue;            /* a big room keeps its front clear */
                 spots[ns][0] = x; spots[ns][1] = y; ns++;
             }
         for (int i = ns - 1; i > 0; i--) { int j = rnd(i + 1); int t0 = spots[i][0], t1 = spots[i][1]; spots[i][0] = spots[j][0]; spots[i][1] = spots[j][1]; spots[j][0] = t0; spots[j][1] = t1; }
-        int big = (sc->x1 - sc->x0 + 1) * (sc->y1 - sc->y0 + 1), n = 2 + (G.level >= 4) + (rnd(3) == 0) + (big > 9) + (big > 21);
+        int big = (sc->x1 - sc->x0 + 1) * (sc->y1 - sc->y0 + 1);
+        if (sc->stamp) { big = 0; for (int y = sc->y0; y <= sc->y1; y++) for (int x = sc->x0; x <= sc->x1; x++) big += G.map[y][x].kind == K_FLOOR && G.map[y][x].secret == 1; }
+        int n = 2 + (G.level >= 4) + (rnd(3) == 0) + (big > 9) + (big > 21);
         for (int i = 0; i < n && i < ns; i++) {
             int type = (i == n - 1 && rnd(10) < 6) ? IT_POTION : LOOT[rnd(6)];
             Item *it = add_item(spots[i][0], spots[i][1], type);

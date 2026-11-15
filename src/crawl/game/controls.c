@@ -373,6 +373,10 @@ static void crawl_control(int what) {
     }
     if (getenv("CRAWL_TPEXIT") && !G.shop && G.exit_fx >= 0) tp_exit();    /* testing: straight to the exit, facing it */
     if (getenv("CRAWL_TPSECRET") && !G.shop && G.nsecrets) tp_secret(atoi(getenv("CRAWL_TPSECRET")) % G.nsecrets);
+    if (getenv("CRAWL_TPSTAMP") && !G.shop && G.nsecrets) {       /* testing (docs/PLAN-stamps.md): on the hall's cell before secret n, facing it */
+        const Secret *sc = &G.secrets[atoi(getenv("CRAWL_TPSTAMP")) % G.nsecrets];
+        G.px = sc->fx + 0.5f; G.py = sc->fy + 0.5f; G.ang = heading_angle(sc->d); human_begin();
+    }
     if (getenv("CRAWL_TPALTAR") && !G.shop) tp_altar();
     if (getenv("CRAWL_TPHZ") && !G.shop) tp_hz();                  /* before the first fixed hazard (1.0.0b13) */
     if (getenv("CRAWL_TPPUZZLE") && !G.shop) tp_puzzle();          /* before the puzzle's first piece */

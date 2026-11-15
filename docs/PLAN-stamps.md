@@ -210,6 +210,30 @@ left open. Do not edit the other's.
 
 ### Track A: the engine
 
+- **15 November 2026, A2 done (secret rooms from stamps); the owner approved B's secret sheet first.** `place_secrets` (`game/generate.c`)
+  now tries a stamp for each wall the old box would have used (`stamps_on`, `place_stamp_secret`, `stamp_try`): the stamp's chosen `E`
+  stands on that wall cell and its room hangs off it in the stone; it is laid only where every floor cell is untouched stone on solid plan
+  squares and every outside neighbour is stone; a chain of two or more also needs a `D` with stone round it and in reach of the lanes the
+  autopilot walks (a lane-only walk from the first cell inside), else that stamp is passed over; the old box is the fallback. **Option B
+  is in:** `Secret` gained `slide` (0: the wall runs `len` cells back along `d`, as before; n: it slides one cell into the stone toward
+  n - 1) and `stamp` (the stamp's index + 1); `slide_way`/`slide_len` (generate.c) are read by `slide_box`, `open_secret` and
+  `update_slide` (goals.c, which now clears only a stamp room's own floor, so a doorway inside its bounding box survives); loot
+  (`game/place.c`) keeps to the room's floor and counts floor, not box. Also touched: the two positional `Secret` initializers (the
+  tutorial's `drawn.c`, one token), `crawl_stamp.h` included in `scene_crawl.c`, and the debug build's `CRAWL_NOSTAMPS=1` (today's boxes,
+  byte for byte) and `CRAWL_TPSTAMP=n` (stand on the hall's cell before secret n, facing it); the `SECRETS` log line names the stamp.
+  **Tested, harness only (nothing by hand, nothing under Wine):** with `CRAWL_NOSTAMPS=1` the dream's logs match a build of 1.0.0b21.6
+  line for line on seven seeds from levels 1, 12, 17, 21, 31 and 40 (300 to 600 s of its time each); 800 secret rooms over 24 seeds and
+  15 levels: 774 from stamps, 26 fell back to boxes (3 per cent); lane reachability (`CRAWL_MAP`) shows no cut-off lane outside a closed
+  secret that the boxes did not also show, over 320 levels; frames show the block sliding sideways and the long room's one-wide approach with
+  its chest; the dream for 1,500 s of its time on three seeds finishes without a death, and in the rooms it opened it used every
+  doorway; `make asan` runs of the dream on four seeds (1,200 s of its time each) were still running when this was pushed: their result is in the next entry. **Not measured: the balance** (B4's: whether the
+  autopilot opens fewer secrets now; three seeds opened 4 of 15 chained rooms against 6 of 13, which is noise at that size). **Seen:**
+  the weights make the plain boxes, wide boxes and the strip most of what lands (369, 214 and 109 of 800); the bent ones are rare (L 34,
+  L turned, J and arrow 12 each, spiral, C and long 4 each) because they come in from step 2 or 4 with weights 2 to 4 and need room; the
+  weights are B's to set and the owner's to ask for more of. **For B (docs, B5):** `CRAWL_NOSTAMPS` and `CRAWL_TPSTAMP` for
+  `docs/HARNESS.md`; `levels.md`/`secrets.md` for what changed; `tools/tidy_check.sh` still does not know the new units. **Next for A:**
+  A3 (joiners and places); B's log says the owner approved the joiner sheet with the secrets'. Nothing of A3 is begun.
+
 - **15 November 2026, A1 done.** `src/crawl/crawl_stamp.h` and `crawl_stamp.c` are on the branch: `stamp_parse`, `stamp_xform` (eight
   orientations; `xf` bit 0 a mirror in x first, bits 1-2 quarter turns clockwise), `stamp_valid`, `stamp_same`, `stamp_set`, `stamp_weight`.
   Tested alone against a made-up set of seven stamps under ASan and UBSan; nothing in the game, the harness or the Makefile reads it.

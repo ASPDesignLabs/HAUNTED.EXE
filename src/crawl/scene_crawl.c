@@ -21,6 +21,7 @@
 #include "crawl_title.h"
 #include "crawl_portrait.h"
 #include "crawl_tutor.h"
+#include "crawl_stamp.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
