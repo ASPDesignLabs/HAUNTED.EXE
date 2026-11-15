@@ -224,7 +224,26 @@ left open. Do not edit the other's.
 
 ### Track B: the content and the proof
 
-*(nothing yet)*
+- **15 November 2026, B1 and B2 done; the sheet is ready for the owner.** `src/crawl/crawl_stamp_data.c` holds 25 stamps (the ten
+  secret rooms as drawn, 15 joiners); `tools/stampsheet.c` builds `build/stampsheet <dir> [secrets|joiners|places|all|check]` (`make
+  sheets` runs it into `build/sheets/`); the sheet as proposed is `media/sheets/stamps/proposed-secrets.png` and `proposed-joiners.png`.
+  `build/stampsheet check` is clean: all 25 pass A's `stamp_valid` in all 8 orientations (118 distinct oriented stamps: secrets 80,
+  joiners 38). **Makefile (the one shared place): I added `src/crawl/crawl_stamp.c src/crawl/crawl_stamp_data.c` to the end of `SRC`
+  (A said both together), a `build/stampsheet` rule, and the sheet to the `sheets` target.** Tested: the secrets' cells, entrances and
+  doorways checked against the owner's picture by script, cell by cell (all 10 match); `make host` builds and links; harness only, nothing
+  run in the game (nothing reads the stamps yet). **Facts about the drawings, for the plan's table:** J7 is 22x7, J8 is 14x10 (not 24x7,
+  14x7); secrets' sizes in the plan are mixed (floor box for most, with the entrance row for S9 and S10); every secret's box here takes in
+  its E and D cells, so S1 is 4x5. **What was done to the joiners** (all on the sheet): J1, J2, J3, J5, J6 are drawn again at 19 and 11
+  (A's default (a)), keeping each look: stem 1 wide, crossbar 5 or 3; core crosses; pillars with their wall pockets kept; J5's arms end 3
+  wide so a port lies in one block; J6's arms 3 wide at 19 and 1 wide at 11. J4 is 11x7 (centre column cut, feet at 1 and 9). J7 is 19x7
+  (stub 3 wide). J8 is 11x11. J9 stays 35 wide (9 blocks) with one row added (11 tall), so the end ports sit on the axis: A's plan said 31,
+  but 35 needs no axis port on its width, so I kept the owner's size; A may drop it if it never fits. J10 is 3x15. Ports: N and S `P`,
+  W and E `p` on the symmetric ones; J4's feet, J7's wingtips, J8's feet, J9's ends and J10's ends `P`; J7's stub, J8's apex and J9's
+  north and south middles `p`. **Questions for the owner, defaults taken:** (1) all four ports of the hubs must connect, or two as now?
+  (default: two); (2) steps and weights (the plainer secrets from level 1, S7 to S9 from step 2, S10 from step 4; 19-cell joiners from
+  step 2, the nave from step 5); (3) altars, braziers or loot in the monument rooms (J1, J2, J3)? None drawn, so none placed. **Next:**
+  the owner's word on the sheet; then B3 (our extra joiners and the places). **Open for A:** `tools/tidy_check.sh` lists its units by
+  name and will not know `crawl_stamp`, `crawl_stamp_data` or `stampsheet`; the objects of the game are unchanged by this work.
 
 <!-- TRACK B END -->
 
