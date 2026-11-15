@@ -108,6 +108,83 @@ static int torch_frame(int mx, int my, int tframe) {               /* a flame's 
     if (g_life_move == 2 && (unsigned)mx < MAPN && (unsigned)my < MAPN && lf_gut[my][mx] > 0.0f) return 1 + (((int)(G.t * 15.0) + (int)hash2(mx, my)) & 1);
     return (int)((tframe + hash2(mx, my)) % 3);
 }
+/* the stone: eyes in some niches' dark, sleepers (a hand) on some niches' sills, both set on the niche's face; and the hanging
+ * things' swing kicked when you pass (lf_kick). Niches are slot 0 of runs I and II's features (look 0 and 1). */
+static float lf_kick[MAXDECO];
+static int lf_watch;                                               /* the saints' eyes (draw/walls.c): on while the small life is, and moving */
+static float lf_kick_of(int i) { return g_life_move == 2 && i >= 0 && i < MAXDECO ? lf_kick[i] : 0.0f; }
+static void life_stone(void) {
+    memset(lf_kick, 0, sizeof lf_kick);
+    if (!G.faced || G.look != 0 || g_drawn) return;                 /* run I's burial niches: four to a face, two by two, each cut 18 wide and 19 tall at
+                                                                      (7, 6), (39, 6), (7, 38), (39, 38) with a skull or a shroud in it (gen_feat_niche) */
+    int ne = 0, ns = 0, maxe = G.boss >= 0 ? 2 : 5, maxs = G.boss >= 0 ? 2 : 6;
+    for (int y = 1; y < MAPN - 1; y++)
+        for (int x = 1; x < MAPN - 1; x++) {
+            const Cell *c = &G.map[y][x];
+            if (c->kind != K_WALL || c->secret) continue;
+            for (int d = 0; d < 4; d++) {
+                if (c->fover[d] != T_FEAT + 0) continue;
+                int ox = x + DX[d], oy = y + DY[d];
+                if (!life_cell_ok(ox, oy) || G.map[oy][ox].kind != K_FLOOR) continue;
+                if (hypotf(ox + 0.5f - (G.cx + 0.5f), oy + 0.5f - (G.cy + 0.5f)) < 5.0f) continue;
+                float r = lrndf();
+                int nx = lrnd(2), ny = lrnd(2), flip = c->fflip >> d & 1;
+                float u = ((float)(nx * 32 + 16) / (float)TS - 0.5f) * (flip ? -1.0f : 1.0f);   /* along the face: its tangent runs (-DY, DX) as the texture's x does */
+                float wx = x + 0.5f + DX[d] * 0.53f - DY[d] * u, wy = y + 0.5f + DY[d] * 0.53f + DX[d] * u;
+                if (r < 0.16f && ne < maxe) {                      /* eyes: in the dark above the skull in its niche */
+                    int i = life_add(LF_NEYES, wx, wy, 0.0f);
+                    if (i < 0) return;
+                    Life *o = &G.life[i];
+                    o->vx = (float)DX[d]; o->vy = (float)DY[d]; o->c = 0.28f;
+                    o->z = (1.0f - (float)(ny * 32 + 12) / (float)TS) - (1.0f - 33.0f / 64.0f) * o->c;
+                    o->st = 0; o->wait = 3.0f * lrndf(); o->a = 0.0f; o->b = 2.0f + 4.0f * lrndf();
+                    ne++;
+                } else if (r < 0.34f && ns < maxs) {               /* a sleeper: a hand lying on the niche's sill */
+                    int i = life_add(LF_SLEEP, wx, wy, 0.0f);
+                    if (i < 0) return;
+                    Life *o = &G.life[i];
+                    o->vx = (float)DX[d]; o->vy = (float)DY[d]; o->c = 0.24f; o->ref = 1;
+                    o->z = (1.0f - (float)(ny * 32 + 26) / (float)TS) - (1.0f - 56.0f / 64.0f) * o->c;
+                    o->st = 0; o->wait = 0.0f;
+                    ns++;
+                }
+                break;
+            }
+        }
+}
+static void lf_stoned(Life *o, float dt) {
+    float dx = G.px - o->x, dy = G.py - o->y, d = hypotf(dx, dy);
+    int front = dx * o->vx + dy * o->vy > 0.0f;
+    o->t += dt;
+    if (o->kind == LF_NEYES) {
+        float bear = fabsf(wrap_pi(atan2f(o->y - G.py, o->x - G.px) - G.ang));   /* how squarely you face it */
+        if (o->st == 0) {                                          /* unseen: waits for you to be in view, a few cells off */
+            o->a = 0.0f;
+            if ((o->wait -= dt) <= 0.0f && !G.dead && front && d > 3.8f && d < 10.0f && bear < 1.1f) { o->st = 1; o->t = 0.0f; LEVENT("niche eyes open d %.1f", d); }
+        } else if (o->st == 1) {                                   /* open, blinking now and then */
+            o->a = fminf(1.0f, o->a + dt * 1.3f);
+            if (G.dead || !front || d < 3.4f || (bear < 0.2f && d < 6.5f) || d > 12.0f) { o->st = 2; o->t = 0.0f; LEVENT("niche eyes shut d %.1f", d); }
+        } else {                                                   /* withdrawing: shut, fading; gone a good while */
+            o->a -= dt * 2.0f;
+            if (o->a <= 0.0f) { o->a = 0.0f; o->st = 0; o->wait = 25.0f + 25.0f * lrndf(); }
+        }
+        return;
+    }
+    if (o->wait > 0.0f) o->wait -= dt;                             /* a sleeper: settles, once, as you pass near */
+    if (o->wait <= 0.0f && !G.dead && G.spd > 0.3f && d < 2.4f && front) {
+        o->st ^= 1; o->wait = 8.0f;
+        life_sfx(SFX_BONES, o->x, o->y, 0.25f, 1.8f, 2); LEVENT("sleeper settles %s", o->ref ? "hand" : "skull");
+    }
+}
+static void lf_swing(float dt) {                                   /* hanging things: a kick when you pass, dying away */
+    for (int i = 0; i < G.ndecos && i < MAXDECO; i++) {
+        const Deco *dc = &G.decos[i];
+        if (lf_kick[i] > 0.0f) lf_kick[i] = lf_kick[i] > 0.02f ? lf_kick[i] * expf(-0.9f * dt) : 0.0f;
+        if (!(dc->flags & DF_SWAY) || dc->spr < 0 || lf_kick[i] > 0.25f || G.dead) continue;
+        if (G.spd > 0.4f && fabsf(dc->x - G.px) < 1.2f && fabsf(dc->y - G.py) < 1.2f) { lf_kick[i] = 1.0f; LEVENT("hanging swings"); }
+    }
+}
+
 static void life_air(void) {
     int step = crawl_step(G.level), thin = g_drawn || G.boss >= 0;
     memset(lf_gut, 0, sizeof lf_gut); memset(lf_door_was, 0, sizeof lf_door_was); lf_ntorch = 0; lf_nroost = 0;
@@ -165,12 +242,18 @@ static void life_air(void) {
 }
 
 static void life_level(void) {
-    G.nlife = 0; memset(G.life, 0, sizeof G.life); memset(lf_gut, 0, sizeof lf_gut); lf_ntorch = 0; lf_nroost = 0;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_LIFEMOVE")) g_life_move = atoi(getenv("CRAWL_LIFEMOVE"));     /* the settings, from the harness: 0 off, 1 reduced, 2 on */
+    if (getenv("CRAWL_LIFESOUND")) g_life_sound = atoi(getenv("CRAWL_LIFESOUND"));
+#endif
+    G.nlife = 0; memset(G.life, 0, sizeof G.life); memset(lf_kick, 0, sizeof lf_kick); memset(lf_gut, 0, sizeof lf_gut); lf_ntorch = 0; lf_nroost = 0;
     G.lrs = ((G.rs ^ 0x1F3D5Bu) * 2654435769u + (uint32_t)G.level * 40503u) | 1u;   /* its own dice: G.rs read, never drawn on */
-    lf_n_puddles = 0;
+    lf_n_puddles = 0; lf_watch = 0;
     if (life_off() || !life_level_ok()) return;
+    lf_watch = 1;
     life_floor();
     life_air();
+    life_stone();
 #ifdef CRAWL_DEBUG
     int c[LF_NKINDS] = { 0 };
     for (int i = 0; i < G.nlife; i++) if (G.life[i].alive) c[G.life[i].kind]++;
@@ -353,14 +436,30 @@ static void human_begin(void);
 /* CRAWL_TPLIFE=1: three cells from the first puddle, facing it, a beetle, a woodlouse and (if there is one) a toad set about it;
  * the player may then be moved on by HOST_INPUT. 2: as 1, with the beetle and louse on the floor a step before you. */
 static void life_tp(void) {
-    int mode = atoi(getenv("CRAWL_TPLIFE")), pu = -1, want = mode == 3 ? LF_MOTH : mode == 4 ? LF_BAT : LF_PUDDLE;   /* 3: before a light's moths; 4: before a roost */
+    if (atoi(getenv("CRAWL_TPLIFE")) == 7) {                         /* 7: two cells before a saint, run II's, a little to one side of her */
+        for (int y = 1; y < MAPN - 1; y++)
+            for (int x = 1; x < MAPN - 1; x++)
+                for (int d = 0; d < 4; d++) {
+                    const Cell *c = &G.map[y][x];
+                    if (c->kind != K_WALL || c->fover[d] != T_FEAT + F2_SAINT || G.look != 1) continue;
+                    int ox = x + DX[d] * 2, oy = y + DY[d] * 2;
+                    if (!mo_pass(ox, oy, 0) || !mo_pass(x + DX[d], y + DY[d], 0)) continue;
+                    float side = mo_pass(ox - DY[d], oy + DX[d], 0) ? 0.35f : 0.0f;
+                    G.cx = ox; G.cy = oy; G.px = ox + 0.5f - DY[d] * side; G.py = oy + 0.5f + DX[d] * side;
+                    G.ang = atan2f(y + 0.5f - G.py, x + 0.5f - G.px);
+                    human_begin(); G.hint_t = 0.0f;
+                    return;
+                }
+        return;
+    }
+    int mode = atoi(getenv("CRAWL_TPLIFE")), pu = -1, want = mode == 3 ? LF_MOTH : mode == 4 ? LF_BAT : mode == 5 ? LF_NEYES : mode == 6 ? LF_SLEEP : LF_PUDDLE;   /* 3: before a light's moths; 4: a roost; 5: eyes in a niche; 6: a sleeper */
     for (int i = 0; i < G.nlife && pu < 0; i++) if (G.life[i].alive && G.life[i].kind == want) pu = i;
     if (pu < 0) return;
     float lx = want == LF_MOTH ? G.life[pu].vx : G.life[pu].x, ly = want == LF_MOTH ? G.life[pu].vy : G.life[pu].y;
     mo_bfs((int)lx, (int)ly, 0);
     for (int y = 1; y < MAPN - 1; y++)
         for (int x = 1; x < MAPN - 1; x++)
-            if (mo_dist[y][x] == 3 && G.map[y][x].kind == K_FLOOR && line_clear(x + 0.5f, y + 0.5f, lx, ly)) {
+            if (mo_dist[y][x] == (mode == 5 ? 5 : 3) && G.map[y][x].kind == K_FLOOR && line_clear(x + 0.5f, y + 0.5f, lx, ly)) {
                 G.cx = x; G.cy = y; G.px = x + 0.5f; G.py = y + 0.5f; G.ang = atan2f(ly - G.py, lx - G.px);
                 int k = 0;
                 for (int i = 0; i < G.nlife; i++) {                  /* the crawlers nearest the puddle are brought to it */
@@ -369,6 +468,7 @@ static void life_tp(void) {
                     float ax = lx + 0.3f * (k - 1), ay = ly + 0.55f + 0.2f * k;
                     if (mo_pass((int)ax, (int)ay, 0)) { o->x = ax; o->y = ay; o->st = 1; o->wait = 30.0f; o->head = G.ang + PI_F; k++; }
                 }
+                if (mode == 5) { G.life[pu].st = 1; G.life[pu].a = 1.0f; G.life[pu].b = 0.0f; G.ang += 0.45f; }   /* a little off: face it squarely and it shuts */
                 human_begin(); G.hint_t = 0.0f;                      /* the controls card put away, to see */
                 return;
             }
@@ -409,10 +509,11 @@ static void life_update(float dt) {
         case LF_TOAD: if (mobile) lf_toady(o, dt); break;
         case LF_MOTH: case LF_FLY: if (mobile) lf_flier(o, dt); break;
         case LF_BAT: if (mobile) lf_batty(o, dt); break;
+        case LF_NEYES: case LF_SLEEP: if (mobile) lf_stoned(o, dt); break;
         default: break;
         }
     }
-    if (mobile) lf_torches(dt);
+    if (mobile) { lf_torches(dt); lf_swing(dt); }
     (void)wet_r2;
     if (lf_wet > 0 && !G.dead) {                                   /* wet boots: a print each half-cell, a little paler each, till they are dry */
         float mv = hypotf(G.px - lf_pr_x, G.py - lf_pr_y);

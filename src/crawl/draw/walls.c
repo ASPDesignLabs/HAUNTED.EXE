@@ -115,6 +115,19 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
             static uint8_t mix[TS];
             const uint8_t *oc = &crawl_tex[over][texx * TS];
             for (int k = 0; k < TS; k++) mix[k] = oc[k] != C_CLEAR ? oc[k] : col[k];
+            if (over == T_FEAT + F2_SAINT && G.look == 1 && lf_watch && g_life_move == 2 && (texx == 29 || texx == 30 || texx == 31 || texx == 32 || texx == 33 || texx == 34)) {
+                /* her eyes follow you (docs/PLAN-ambience.md, A1): a pale point in each dark socket, a pixel toward where you stand */
+                float pl = (side == 0 ? G.py - (float)my : G.px - (float)mx) * (float)TS;    /* you, along this face, in texels as sampled */
+                if ((side == 0 && rdx > 0) || (side == 1 && rdy < 0)) pl = (float)(TS - 1) - pl;
+                if (flip) pl = (float)(TS - 1) - pl;
+                int lean = pl < 14.0f ? -1 : pl > 50.0f ? 1 : 0;
+                if (texx == 30 + lean || texx == 33 + lean) {
+                    mix[20] = (uint8_t)(R_BONE + 13);
+#ifdef CRAWL_DEBUG
+                    static int seen; if (!seen++) fprintf(stderr, "EVENT life saint watches lean %d t=%.1f\n", lean, G.level_t);
+#endif
+                }
+            }
             col = mix;
         }
         int tn = TS;                                                /* the column's texels */

@@ -647,7 +647,7 @@ typedef struct {
 /* The crypt's small life (docs/PLAN-ambience.md): set dressing that notices you, on dice of their own (G.lrs), outside MAXMOBS, the hunt,
  * the budget, the tally, the map and the autopilot's aim. Nothing here is saved, hurt, counted or in the way. One shape for all of them
  * (what each of a, b, c, d means is said where its kind is made, in life.c); LF_* are the kinds. */
-enum { LF_NONE, LF_MOTH, LF_FLY, LF_BAT, LF_BEETLE, LF_LOUSE, LF_TOAD, LF_DRIP, LF_PUDDLE, LF_PRINT, LF_FUNGUS, LF_SPORE, LF_RING, LF_NKINDS };
+enum { LF_NONE, LF_MOTH, LF_FLY, LF_BAT, LF_BEETLE, LF_LOUSE, LF_TOAD, LF_DRIP, LF_PUDDLE, LF_PRINT, LF_FUNGUS, LF_SPORE, LF_RING, LF_NEYES, LF_SLEEP, LF_NKINDS };
 #define MAXLIFE 120
 typedef struct {
     int alive, kind, st;

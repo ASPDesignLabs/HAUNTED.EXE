@@ -653,7 +653,8 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         }
         if (n > n0 && (dc->flags & DF_SWAY)) {                     /* a slow swing, and a shiver on top of it */
             list[n - 1].flags = DR_SWAY;
-            list[n - 1].sway = 2.6f * sinf((float)G.t * 0.9f + dc->phase) + 0.6f * sinf((float)G.t * 2.3f + dc->phase * 1.7f);
+            list[n - 1].sway = 2.6f * sinf((float)G.t * 0.9f + dc->phase) + 0.6f * sinf((float)G.t * 2.3f + dc->phase * 1.7f)
+                               + 6.0f * lf_kick_of(i) * sinf((float)G.t * 3.3f + dc->phase);   /* kicked as you passed (docs/PLAN-ambience.md, A4) */
         }
         if (n > n0 && i == G.msg_deco) {                           /* what holds the hidden message (1.0.0b13): its glint; the shrine's showing */
             list[n - 1].mg = msg_glint(&list[n - 1].mgw);
@@ -1027,6 +1028,14 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             s = o->kind == LF_MOTH ? (fl ? SP_MOTH_B : SP_MOTH_A) : (fl ? SP_FLY_B : SP_FLY_A);
             sc = o->kind == LF_MOTH ? 0.09f : 0.045f; z = o->z;
             break; }
+        case LF_NEYES:
+            if (!mobile || o->a <= 0.01f || (G.px - o->x) * o->vx + (G.py - o->y) * o->vy <= 0.0f) continue;
+            s = o->st == 2 || fmodf(o->t + o->b, 5.0f) > 4.82f ? SP_NEYES_B : SP_NEYES_A; sc = o->c; z = o->z; al = o->a; eyes = 1;
+            break;
+        case LF_SLEEP:
+            if (!mobile || (G.px - o->x) * o->vx + (G.py - o->y) * o->vy <= 0.0f) continue;
+            s = o->ref ? (o->st ? SP_SLHAND_B : SP_SLHAND_A) : (o->st ? SP_SLSKULL_B : SP_SLSKULL_A); sc = o->c; z = o->z;
+            break;
         case LF_BAT:
             if (!mobile) continue;
             if (o->st == 0) { s = SP_LF_BATROOST; sc = 0.17f; z = o->z; }
@@ -1039,6 +1048,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         ADD(o->x, o->y, z, s, fmaxf(0.04f, al));
         if (n == n0) continue;
         Draw *d = &list[n - 1];
+        if (o->kind == LF_NEYES || o->kind == LF_SLEEP) d->depth -= 0.03f;   /* against the wall, in front of it */
         d->scale = sc; d->flags |= flags;
         if (eyes && crawl_eyes[s].n) { d->eye = 1; d->etype = MOB_SKEL; d->erank = RK_I; d->ecol = 1 + (eyes == 2 ? EC_PALE : EC_AMBER); d->estate = 0; }
     }

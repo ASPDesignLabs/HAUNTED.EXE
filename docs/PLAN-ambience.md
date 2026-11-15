@@ -1,6 +1,6 @@
 # The crypt's small life: things that notice you
 
-**Settled in outline; the core, the art, the floor and the air built (L0 to L3)** (15 November 2026, on `claude/gallant-dijkstra-9x79xe`, from main after the mice). The owner
+**Settled in outline; the core, the art, the floor, the air and the stone built (L0 to L4)** (15 November 2026, on `claude/gallant-dijkstra-9x79xe`, from main after the mice). The owner
 asked for "world building elements ... that react to the player's presence and do not require the player to do much of anything.
 Stuff that brings life to these dead, damp, and dark crypts", was offered twelve, and took them all: "every single suggestion sounds
 great". Nothing here is built or tested by hand.
@@ -92,4 +92,18 @@ ask nothing of you, hurt nothing, and are never in your way.*
   movement draws none of these. Proved as L2 was: 12 dream logs (levels 1, 3, 5, 8, 10, 13, seeds 3 and 5, 600 s) line for line the
   commit before's but for a timing summary; frames with `CRAWL_LIFE=0` 9 of 9; ASan and UBSan clean on three 900 s dreams and
   three staged runs; the smoke 1.6 ms a frame. Left: A1, A3, A4, A12 (the stone), A10, A11 (the damp), the owner's eye.
+- **15 November, L4, the stone** (harness only). A1: run II's saints (the hooded skull in her alcove) have a pale point in each
+  socket that moves a texel toward where you stand (`draw/walls.c`, over the overlay's column: exact at any angle, nothing drawn
+  on top). Run I's portraits of the slain and the banners are not done: a banner has no eyes, and a portrait's are another
+  system's. A3: eyes in the dark above the skull in some run I burial niches (up to five a level), a pair of amber, blinking;
+  they open when you are four to ten cells off and in view, and shut and fade when you come within three and a half or face
+  them squarely within six and a half, and stay gone for 25 to 50 seconds. A12: a hand lying on the sill of some niches
+  (up to six), which settles, a finger curling or uncurling, when you pass within two and a half cells moving, with a dry
+  tick; once in eight seconds at the most. The skull for a sleeper is not used: run I's niches already hold painted ones (gen_feat_niche
+  cuts four to a face, two by two, each with a skull or a shroud), and run II's are flooded and empty. Both are set on one of the
+  four niches by the texture's own geometry, the texture's direction along a wall worked out from the raycaster (tangent
+  (-DY, DX), mirrored by a face's `fflip`). A4: any hanging thing (`DF_SWAY`) takes a kick when you pass within a cell and a
+  fifth moving, its swing dying away over some seconds. Proved: 12 dream logs line for line the commit before's (the APL timing line
+  aside); frames with `CRAWL_LIFE=0` and with `CRAWL_LIFEMOVE=0` 12 of 12 each; reduced movement and sound run; ASan and UBSan clean on
+  four 900 s dreams and six staged runs; the smoke 1.56 ms a frame. Left: A10 (webs), A11 (fungus), the owner's eye.
 - **15 November.** The twelve offered; the owner took them all. This plan written; no code yet. Next: L0, then L1 and the sheet.
