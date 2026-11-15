@@ -107,6 +107,7 @@ int8_t crawl_glint[NSPR][2];
 
 /* The mice (docs/PLAN-mice.md): the small ones at the level's size, the charnel rat they grow into, the holes in the run's walls */
 #include "parts/mice.c"
+#include "parts/life.c"
 
 /* Each run's set made (crypts_run, catacombs_run, hollows_run, deep_run); the specials on the run's stone; the trials' doors and things; the places to mend; crawl_art_run, crawl_art_stone, crawl_art_init */
 #include "parts/runs.c"

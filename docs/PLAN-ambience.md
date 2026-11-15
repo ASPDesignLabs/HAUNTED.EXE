@@ -61,4 +61,8 @@ ask nothing of you, hurt nothing, and are never in your way.*
   drop-downs in the Windows dialog; the browser has no menu for them yet and runs both on), `CRAWL_LIFE=0`. No kind is made yet.
   Proved to move nothing: the dream on seed 3 at levels 3 and 12 logs as the commit before, but for its timing line. The Windows
   build is compiled only by CI (no mingw here).
+- **15 November, L1.** The art drawn (`src/art/parts/life.c`, 29 sprites, `SP_MOTH_A` to `SP_SLHAND_B` before `NSPR`; the bat and
+  fungus carry `LF` in their names since a roosting bat and a fungus already stood in the props) and its sheet made
+  (`build/sheet life <png>`, kept as `media/sheets/ambience/life.png`). Sent to the owner; none of it is drawn in the game yet, and
+  none will be till they have passed the sheet.
 - **15 November.** The twelve offered; the owner took them all. This plan written; no code yet. Next: L0, then L1 and the sheet.
