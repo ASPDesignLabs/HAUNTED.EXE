@@ -210,6 +210,25 @@ left open. Do not edit the other's.
 
 ### Track A: the engine
 
+- **15 November 2026, the balance (sixteen seeds) and two faults of A's, fixed.** **Harness:** `HOST_NOSOUND=1` for `apl` (the sound's
+  synthesis was most of a run: 600 s of dream time took 21.8 s, now 4.6 s) with the dream's log identical line for line on seeds 3, 8, 12
+  and 16 (stamps on and off); `HOST_HZ=n` (default 70) was tried as a faster step and is **not** one: the same wall time at 35 as at 70, and
+  it changed the outcomes (seed 3: 4 deaths at 70, 2 at 35), so it is for nothing that is to be weighed. **Balance, `tools/stampbal.py`,
+  `HOST_NOSOUND=1`, seeds 1 to 31 odd, 3,000 s, 1.0.0b21.6 against this build, twice (once at `e445e06`, once at `0b89c64`):** levels cleared
+  (mean) old 6.6 and 6.2, new 6.6 and 6.9; level reached old 7.6 and 7.1, new 7.6 and 7.9; deaths (total) old 47 and 47, new 32 and 27;
+  seeds with a death old 16 and 15, new 13 and 11; median level 342 and 339 s old, 334 and 333 s new; gold at the end old 6,488 and 6,697,
+  new 6,151 and 7,722; no crash or timeout. With B's run at an earlier commit (new 35 deaths, old 42) that is three runs with the new build's
+  deaths at 27 to 35 and the old's at 42 to 47. The old build's own numbers move between runs (no `CRAWL_RUNID` is fixed), so read it as: no
+  worse, perhaps a little safer; not as a third fewer deaths. It covers levels 1 to 9 only (3,000 s), and the dream only. (B's "secret rooms
+  found" counts every "A ROOM FOUND", any room entered, so it rises with the number of rooms.) **Two faults B's sweep found, mine, fixed at
+  `0b89c64`:** an altar mark could stand on the one cell before a secret's cracked wall (26 of 1,800 levels): props now keep off it
+  (`st_prop_ok`); and the sites' and puzzles' props, laid after the level was made, were not checked for sealing a way off, because the check
+  knew the drawn rooms only while the level was made: it now reads `Cell.xroom` (set in `st_impose`). **Then:** B's `tools/stampsweep.py`
+  over 1,800 levels (200 seeds, 9 levels): no failure, no floor stranded even with the secrets open, 22 levels made again without stamps,
+  drawn rooms on 1,600; with `CRAWL_NOSTAMPS=1` the dream's logs still match 1.0.0b21.6 (seeds 3 and 8, 600 s); `make asan` on the dream,
+  four seeds, 1,200 s, clean. **Not done, and the owner's to say:** the antechamber and its vault; whether the places and joiners are right
+  once walked (nothing here has been played by hand); the boss levels and the later runs under the dream (the balance reaches level 9).
+
 - **15 November 2026, the owner's three fixes to what a level gets (from ten maps they were shown).** At their word: (1) the place is laid
   first (`place_level_stamps`), so a large one has room to fit; (2) no two stamps of a family on a level (`st_family_laid`: a name without
   its size, so `joiner_octagon_7` and `_11` are one); (3) a large place (150 cells or more: cloister, gauntlet, alcove hall, sunken ring)
