@@ -332,8 +332,25 @@ static int by_way(int x, int y) {                                  /* next to a 
     }
     return 0;
 }
-static int block_corner(int x, int y) {                            /* (never a drawn room's lane bridge: a prop there would cut the lane) */
-    return ((x & 3) == 1 || (x & 3) == 3) && ((y & 3) == 1 || (y & 3) == 3) && !(x >= 0 && y >= 0 && x < MAPN && y < MAPN && G.map[y][x].xlane);
+/* would a prop standing here seal floor off, in a drawn room (whose nooks the plan's blocks do not foresee) */
+static int st_seals(int x, int y) {
+    if (!st_nplaced || x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1 || G.map[y][x].kind != K_FLOOR) return 0;
+    int in = 0;
+    for (int i = 0; i < st_nplaced && !in; i++) {
+        const Stamp *s = st_placed[i].s;
+        int ox = mstart(st_placed[i].px), oy = mstart(st_placed[i].py);
+        in = x >= ox && y >= oy && x < ox + s->w && y < oy + s->h;
+    }
+    if (!in) return 0;
+    int fb = 0, fa = 0;
+    st_cells_connected(&fb, NULL);
+    G.map[y][x].kind = K_PROP;
+    st_cells_connected(&fa, NULL);
+    G.map[y][x].kind = K_FLOOR;
+    return fb - fa > 1;
+}
+static int block_corner(int x, int y) {                            /* (never a drawn room's lane bridge: a prop there would cut the lane; nor where it would seal a nook) */
+    return ((x & 3) == 1 || (x & 3) == 3) && ((y & 3) == 1 || (y & 3) == 3) && !(x >= 0 && y >= 0 && x < MAPN && y < MAPN && G.map[y][x].xlane) && !st_seals(x, y);
 }
 /* Footprints (1.0.0b18.1): while dress_level lays a level (g_foot), a low prop takes the part of its cell its art gives it
  * (crawl_prop_foot, crawl_foot_part): the whole from 0.7 of a cell, and always with no wall beside it; the half against a
@@ -448,11 +465,15 @@ static int st_prop_ok(int x, int y, int slack) {
     if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1) return 0;
     const Cell *c = &G.map[y][x];
     if (c->kind != K_FLOOR || c->secret || G.bulky[y][x] || by_way(x, y)) return 0;
-    if (!lane(x, y)) return 1;
-    int before = st_lane_reach(), ok;                              /* on a lane: only if the lanes lose next to nothing by it */
+    int fb = 0, fa = 0, lb = 0, la = 0, ok;
+    st_cells_connected(&fb, NULL);                                 /* a prop may not seal a cell off, nor (on a lane) cost the lanes more than slack */
+    if (lane(x, y)) lb = st_lane_reach();
     G.map[y][x].kind = K_PROP;
-    ok = before - st_lane_reach() <= slack;
+    st_cells_connected(&fa, NULL);
+    if (lane(x, y)) la = st_lane_reach();
     G.map[y][x].kind = K_FLOOR;
+    ok = fb - fa <= 1;
+    if (lane(x, y)) ok = ok && lb - la <= slack;
     return ok;
 }
 static void st_dress_marks(void) {
