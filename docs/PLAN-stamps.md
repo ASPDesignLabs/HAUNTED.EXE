@@ -298,6 +298,16 @@ left open. Do not edit the other's.
 
 ### Track B: the content and the proof
 
+- **15 November 2026, B4, the balance (first round, before A's two faults are fixed).** `tools/stampbal.py --old <a 1.0.0b21.6 harness>`
+  runs the dream on the same seeds in two builds and tabulates them; the old build is a `git worktree` at `f1ef1d7` with `make
+  build/host_debug` (under `build/bal/`, which is not tracked). 16 seeds (1 to 31 odd), 3,000 s of the dream's time each, from level 1:
+  **levels cleared 6.8 against 6.7, deaths 35 against 42, secret rooms found 52.9 against 48.1, median level 329 s against 339 s, level
+  reached 7.8 against 7.6, no crash or timeout: the stamps made the autopilot no worse** (16 seeds carry noise of about a quarter, so no
+  better is claimed either). Harness only. **Not covered:** these runs end at level 8 or 9, so none reached a boss level, where the sweep
+  found the exit fault; `CRAWL_LEVEL=10` runs would, and are next once A's fix is in. Numbers are in `docs/KNOWN-ISSUES.md`; the README
+  and the page say nothing yet (they describe the released build). **Still to do:** the asan runs of the dream and a scripted player
+  (`make asan`, `ASAN_OPTIONS=detect_leaks=0`), the docs (B5), and the balance and the sweep again after A's fixes and A4's marks.
+
 - **15 November 2026, B4, the generation sweep: it finds two faults in A's work.** New tool `tools/stampsweep.py` (`python3 tools/stampsweep.py
   [--seeds 1-200] [--levels 1,5,10,11,20,21,30,31,40] [--nostamps] [--list]`; needs `make build/host_debug`): generates each (seed, level)
   with `CRAWL_STAGE=1 CRAWL_MAP=1`, then works out from the printed map whether the exit, every key, every locked door, every secret
