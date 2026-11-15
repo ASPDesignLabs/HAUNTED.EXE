@@ -313,6 +313,30 @@ left open. Do not edit the other's.
 
 ### Track B: the content and the proof
 
+- **15 November 2026, B4 and B5 done: the sanitizers and the docs; where the build stands for the owner's release.** **Sanitizers (`make
+  asan`, `ASAN_OPTIONS=detect_leaks=0`, at `22c040c`; the generator has not changed since, only the logs): clean.** (1) The dream for 1,200 s
+  of its time on seeds 3, 9, 13 and 17: all exit 0, no AddressSanitizer or UBSan report (3 levels cleared each, 3 deaths in all). These reach
+  levels 3 to 4 only, since a sanitized run is slow. (2) Level generation under them, `tools/stampsweep.py --host build/host_asan`, 480
+  levels (seeds 1-80, levels 5, 10, 11, 20, 31, 40): no crash, no hang, no report; 13 made again without stamps; the only failures are the two
+  exit cases below. (3) A scripted person (`HOST_INPUT`: takes over, walks, turns, fires, opens the map and the bag; `CRAWL_TITLE=0`) put on
+  stamped levels 11, 22 and 31 with `CRAWL_STAGE=1`: about 143 s of play each, then my script's TAB opened a menu and the clock stood; exit 0,
+  no report. So the sanitizers have seen the stamps' generation widely (480 levels), but the play only briefly. **Docs (B5), `69b04d7`:**
+  `docs/HARNESS.md` (*Stamps*: every switch, the log lines, the sheet, the sweep and the balance tools), `docs/catacomb/levels.md` (what a
+  stamp is, how the generator lays them, the marks, the data), `docs/catacomb/secrets.md` (secret rooms from stamps, option B).
+  **For the owner's release, what is true and what is open** (harness only throughout: nothing played by hand, nothing under Wine; CI alone
+  compiles the Windows and browser builds): *Proved:* with `CRAWL_NOSTAMPS=1` the generator is today's (A's line-for-line dream logs); the
+  autopilot is no worse over 16 seeds and the first eight levels (levels cleared 6.8 against 6.7, deaths 35 against 42, secret rooms found 52.9
+  against 48.1; numbers in `docs/KNOWN-ISSUES.md`); sanitizers clean; 1,800 levels with no hang or crash. *Open, in this build:* (a) on 11 of
+  100 seeds (26 of 1,800 levels, 1.4 per cent) a secret room's entrance cannot be reached, seen to be a prop standing on the one hall cell before
+  the cracked wall; (b) on 2 seeds the exit is not reached (3 floor cells stranded); (c) 22 levels in 1,800 (1.2 per cent) are made again
+  without stamps, which is the safety net working, not a fault; (d) **the balance was not run from level 10, so no boss level or the Deep has
+  been weighed, and it was not rerun after A's last fixes**; (e) **the 24 stamps of ours (nine joiners, six places and the J-sizes of
+  ours) were sent to the owner as sheets and have not been approved, yet the generator lays them (the shrine spur is in about 4 levels in
+  10)**: under the rule that new art goes to the owner first, that needs their word before a release; (f) the antechamber is not placed;
+  (g) the stamps' look in play has not been seen in frames; (h) the README's "What has been verified", the page and the release notes say
+  nothing of stamps, as they describe the released build and change in the release commit. **Next, if wanted:** A's fix for (a) and (b), then
+  the sweep and the balance again from levels 1 and 10; the owner's word on the sheets of ours; frames of a few stamped rooms.
+
 - **15 November 2026, B4, the sweep again at `400d8bf`: A's two faults are fixed; a third has come.** Same 1,800 levels (100 seeds):
   **boss levels: the exit is reached in every one; no doorway touches no floor.** New: **26 levels (11 seeds: 35, 89, 97, 103, 107, 115,
   127, 131, 143, 167, 173) where a secret room's entrance is not reached**, and 2 seeds where the exit is not (seed 35 level 31, seed 167

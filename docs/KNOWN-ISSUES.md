@@ -341,4 +341,7 @@ wrong or untried, and the numbers from each round of the dream's runs. Add to it
   seen so far to be a prop standing on the one hall cell in front of the cracked wall (seed 97 level 10, entrance (2,20), prop at (2,19)); on 2
   seeds (35 at level 31, 167 at level 21) the exit is not reached, 3 floor cells stranded; 22 levels in 1,800 were made again without stamps.
   The balance runs are to be done again once these are fixed.
+  **Sanitizers** (`make asan`, `ASAN_OPTIONS=detect_leaks=0`): clean on the dream for 1,200 s of its time on four seeds, on level generation for
+  480 levels (levels 5 to 40) and on a scripted person for about 143 s on each of levels 11, 22 and 31. **Of ours, unapproved:** the nine
+  extra joiners and six places were sent to the owner as sheets and have not been approved, though the generator lays them.
 
