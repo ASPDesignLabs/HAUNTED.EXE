@@ -470,21 +470,21 @@ static void spr_spore(int id) {                                      /* a mote: 
  * side of each brighter); a boot's wet print with its tread; a drop with its streak and a spark of the light in it */
 static void spr_puddle(int id) {
     cv_begin(cv_sprite, TS, TS);
-    for (int y = 34; y < 58; y++) for (int x = 2; x < 62; x++) {
-        float nx = (x + 0.5f - 32.0f) / 29.0f, ny = (y + 0.5f - 46.0f) / 9.0f, e = nx * nx + ny * ny;
+    for (int y = 44; y < 64; y++) for (int x = 2; x < 62; x++) {
+        float nx = (x + 0.5f - 32.0f) / 29.0f, ny = (y + 0.5f - 55.0f) / 8.0f, e = nx * nx + ny * ny;
         float n = 0.12f * (fbm(x * 0.2f, y * 0.4f, 64, 821) - 0.9f), lim = 1.0f + n * 2.0f;
         if (e < lim * 1.0f) {
             if (e > lim * 0.78f) cv_px(x, y, sh(R_STONE, 0.1f + 0.18f * (1.0f - (e - lim * 0.78f) / (lim * 0.22f))));                   /* the wet rim, darker stone */
-            else cv_px(x, y, sh(R_FLOOR, 0.1f + 0.1f * (ny + 1.0f)));                                                                  /* the water */
+            else cv_px(x, y, sh(R_FLOOR, 0.16f + 0.1f * (ny + 1.0f)));                                                                  /* the water */
         }
     }
-    for (int y = 40; y < 52; y++) for (int x = 6; x < 58; x++) {     /* the ceiling in it, in bars; a flare */
+    for (int y = 49; y < 61; y++) for (int x = 6; x < 58; x++) {     /* the ceiling in it, in bars; a flare */
         if (cv_sprite[y * TS + x] < R_FLOOR || cv_sprite[y * TS + x] >= R_FLOOR + 16) continue;
         float w = sinf(x * 0.35f + y * 1.7f) + 0.6f * sinf(x * 0.11f);
         if (w > 1.0f && (y & 1)) cv_px(x, y, sh(R_GHOST, 0.3f + 0.1f * (w - 1.0f)));
     }
-    for (int k = 0; k < 6; k++) cv_px(40 + k, 44 + (k & 1), sh(R_FLAME, 0.4f + 0.1f * k)), cv_px(41 + k, 45, sh(R_FLAME, 0.2f));        /* the torch's flare */
-    for (int k = 0; k < 9; k++) { int x = 8 + (int)(h01(k, 1, 822) * 48), y = 40 + (int)(h01(k, 2, 822) * 12); if (cv_sprite[y * TS + x] != C_CLEAR) cv_px(x, y, sh(R_STONE, 0.4f)); }   /* grit */
+    for (int k = 0; k < 6; k++) cv_px(40 + k, 53 + (k & 1), sh(R_GHOST, 0.5f + 0.06f * k)), cv_px(41 + k, 54, sh(R_GHOST, 0.3f));        /* a light in it, pale, not a flame */        /* the torch's flare */
+    for (int k = 0; k < 9; k++) { int x = 8 + (int)(h01(k, 1, 822) * 48), y = 49 + (int)(h01(k, 2, 822) * 11); if (cv_sprite[y * TS + x] != C_CLEAR) cv_px(x, y, sh(R_STONE, 0.4f)); }   /* grit */
     cv_store(id);
 }
 static void spr_ring(int id, int stage) {
@@ -497,26 +497,26 @@ static void spr_ring(int id, int stage) {
             float a = TAU_F * k / 160.0f, far = 0.5f - 0.5f * sinf(a);              // the far side (up the page) is brighter
             float v = (0.82f - 0.2f * stage - 0.18f * pass) * (0.45f + 0.55f * far);
             if (v < 0.22f || (stage == 2 && (k % 5) < 2)) continue;
-            cv_px((int)(32 + cosf(a) * rx), (int)(46 + sinf(a) * ry), sh(R_GHOST, v));
-            if (far > 0.8f && stage < 2) cv_px((int)(32 + cosf(a) * rx), (int)(45 + sinf(a) * ry), sh(R_GHOST, v * 0.5f));
+            cv_px((int)(32 + cosf(a) * rx), (int)(56 + sinf(a) * ry), sh(R_GHOST, v));
+            if (far > 0.8f && stage < 2) cv_px((int)(32 + cosf(a) * rx), (int)(55 + sinf(a) * ry), sh(R_GHOST, v * 0.5f));
         }
     }
     cv_store(id);
 }
-static void spr_print(int id, int right) {                           /* a boot's: the sole with its tread, the heel apart, the arch narrow, a few drops flung */
+static void spr_print(int id, int right) {                           /* a boot's, seen low so it lies flat: the toe and the heel, a gap at the arch, tread in the toe, a sheen, drops flung */
     cv_begin(cv_sprite, TS, TS);
     int d = right ? 1 : -1;
-    for (int y = 30; y < 62; y++) {
-        float w = y < 46 ? 4.6f - 0.22f * fabsf(y - 39.0f) : (y < 51 ? 1.2f : 3.5f);                  // toe, arch, heel
-        if (y < 33) w *= 0.55f + 0.14f * (y - 30);
-        if (y > 58) w = 3.5f - 0.9f * (y - 58.0f);
-        float cx = 32.0f + d * (y < 46 ? 0.8f : 0.0f);
-        for (int x = (int)(cx - w); x <= (int)(cx + w); x++) cv_px(x, y, sh(R_FLOOR, 0.05f + 0.03f * h01(x, y, 831)));
-        if (y < 46 && (y % 4) == 0) for (int x = (int)(cx - w) + 1; x < (int)(cx + w); x++) cv_px(x, y, sh(R_FLOOR, 0.0f));   // the tread
-        if (y > 52 && (y % 3) == 0) cv_px((int)cx, y, sh(R_FLOOR, 0.0f));
+    for (int y = 50; y < 64; y++) for (int x = 6; x < 58; x++) {
+        float tx = (x + 0.5f - (24.0f + d * 2.0f)) / 15.0f, ty = (y + 0.5f - 56.5f) / 6.2f;        // the toe: a broad oval
+        float hx = (x + 0.5f - (47.0f - d * 1.0f)) / 8.0f, hy = (y + 0.5f - 57.5f) / 5.0f;         // the heel: a small one
+        int in = tx * tx + ty * ty < 1.0f || hx * hx + hy * hy < 1.0f;
+        if (!in) continue;
+        float v = 0.04f + 0.04f * h01(x, y, 831);
+        if (tx * tx + ty * ty < 1.0f && ((x - 9) % 4) == 0) v = 0.0f;                              // the tread
+        cv_px(x, y, sh(R_FLOOR, v));
     }
-    for (int y = 33; y < 44; y++) cv_px(32 + d + (y > 40), y, sh(R_GHOST, 0.2f));                            // a sheen
-    for (int k = 0; k < 5; k++) cv_px(32 + d * (7 + k * 2), 36 + ((k * 7) % 9), sh(R_FLOOR, 0.1f));         // drops flung
+    for (int x = 14; x < 30; x++) cv_px(x, 53 + (x > 22), sh(R_GHOST, 0.2f + 0.05f * (x & 1)));    // a sheen along the far edge
+    for (int k = 0; k < 6; k++) cv_px(8 + (int)(h01(k, 1, 832) * 48), 49 + (int)(h01(k, 2, 832) * 4), sh(R_FLOOR, 0.12f));   // drops flung
     cv_store(id);
 }
 static void spr_drip(int id) {                                       /* a drop in the air: a bead drawn out above, the streak behind it, the sky in it */

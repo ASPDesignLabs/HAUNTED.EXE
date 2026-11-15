@@ -414,6 +414,7 @@ static void crawl_control(int what) {
     if (getenv("CRAWL_TPDOOR") && !G.shop) tp_door();              /* before a secret's doorway, its room open */
     if (getenv("CRAWL_TPROOM") && !G.shop) tp_room(atoi(getenv("CRAWL_TPROOM")));   /* at the end of the first room of that type, RT_* */
     if (getenv("CRAWL_TPMICE") && !G.shop) mice_tp();              /* before mice preening by a light (docs/PLAN-mice.md) */
+    if (getenv("CRAWL_TPLIFE") && !G.shop) life_tp();               /* before the crypt's small life (docs/PLAN-ambience.md) */
     if (getenv("CRAWL_TPSKIT") && !G.shop) skit_tp();              /* before a spider on a wall (its section 8) */
     if (getenv("CRAWL_TPHOLD") && !G.shop) tp_hold(atoi(getenv("CRAWL_TPHOLD")));   /* holding a doorway (step 7) */
     if (getenv("CRAWL_TPPORTAL") && G.shop) { G.px = PORTAL_X + 0.5f; G.py = PORTAL_Y - 1.4f; G.ang = PI_F * 0.5f; G.cx = PORTAL_X; G.cy = PORTAL_Y - 2; }   /* before the Portal */

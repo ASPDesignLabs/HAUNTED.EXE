@@ -1,6 +1,6 @@
 # The crypt's small life: things that notice you
 
-**Settled in outline; the core built (L0), no kind yet** (15 November 2026, on `claude/gallant-dijkstra-9x79xe`, from main after the mice). The owner
+**Settled in outline; the core, the art and the floor built (L0 to L2)** (15 November 2026, on `claude/gallant-dijkstra-9x79xe`, from main after the mice). The owner
 asked for "world building elements ... that react to the player's presence and do not require the player to do much of anything.
 Stuff that brings life to these dead, damp, and dark crypts", was offered twelve, and took them all: "every single suggestion sounds
 great". Nothing here is built or tested by hand.
@@ -70,4 +70,15 @@ ask nothing of you, hurt nothing, and are never in your way.*
   fur and scale in strokes; a wing painted by its distance from its root, with veins and bands; the bat's arm, wrist and four
   fanned fingers with a scalloped membrane; the beetle's grooved elytra and spined legs; the toad's glands and warts; a skull with
   sutures and a crack, a hand of every small bone with a tarnished ring), nothing quite alike on its two sides. The sheet made again.
+- **15 November, L2, the floor** (harness only). Built in `src/crawl/game/life.c` and drawn in `draw/sprites.c` (after the wall spiders):
+  A8 puddles that drip (a drop forms above one, falls, rings spread and fade; wet boots leave a print each half-cell for eight, paler
+  each, gone in 14 s), A7 beetles and woodlice that wander, stop, run from you inside two cells (a cell and a half the louse) and
+  slip into the stone, or are crunched if stepped on and come back elsewhere after a long while, A9 toads by the puddles from level 6
+  that hop off, three at the most, with a croak. Counts by the run's step (3 to 8 puddles, 5 to 12 beetles, 3 to 8 lice), two,
+  three and two on boss and drawn levels, no toads there. Reduced movement keeps the puddles and the prints and the sat toads;
+  off shows none. The water and prints were redrawn lying low on the box's floor. Proved: dream logs on levels 1, 3, 5, 8, 10 and 13
+  of seeds 3 and 5, 600 s each, line for line the commit before's; frames with `CRAWL_LIFE=0` byte for byte (9 of 9); ASan and
+  UBSan clean on two 900 s dreams and a staged run; the smoke at 1.53 ms a frame. Not heard by anyone: the drip is `SFX_DRIP`, the
+  crunch `SFX_CHEW` high, the croak `SFX_SQUEAK` low, borrowed till the owner says they will do. Left: the owner's eye on them in
+  play, and A5 to A12.
 - **15 November.** The twelve offered; the owner took them all. This plan written; no code yet. Next: L0, then L1 and the sheet.

@@ -82,6 +82,11 @@ whatever the level, their holes too), `CRAWL_TPMICE=1` (three of them preening b
 it, once you take control; 2: two cells before a hole, a mouse looking out of it ten seconds later); `EVENT mice level n stage s mice
 m holes h lights l`, `EVENT mouse_tell i at x,y to mouse|rat j via h1,h2` (the holes it goes through, -1 on foot), `EVENT
 mouse_told_rat`, `EVENT mouse_slain`, `EVENT mouse_gaveup`, `EVENT mouse_stall` (never, since it was fixed), `EVENT mice_hide boss`.
+The crypt'"'"'s small life (docs/PLAN-ambience.md): `CRAWL_LIFE=0` (none), `CRAWL_TPLIFE=1` (three cells from the first puddle, facing it, a few
+crawlers set about it; once you take control, the controls card put away), `CRAWL_LIFELIT=1` (a light of the harness'"'"'s own on you, to see
+them by: they are a dark crypt'"'"'s); `EVENT life level n puddles p beetles b lice l toads t`, `life drip`, `life print wet n` (a wet
+print left), `life flee beetle|louse d` (it ran from you), `life crack` (it slipped into the stone), `life crunch` (stepped on), `life hop
+toad d`. The settings: `g_life_move`, `g_life_sound` (0 off, 1 reduced, 2 on), from the config and the registry; the harness runs both on.
 The charnel rat is `CRAWL_MEET=23`. The wall spiders (its section 8): `CRAWL_SKIT=0` (none), `CRAWL_TPSKIT=1` (two cells from one on
 its wall, once you take control; `CRAWL_SKITGO=1` it crawls off at once), `CRAWL_TPSKIT=2` (one put a little short of a wall's edge,
 crawling slowly round it and back, you where both faces show; it minds nothing, and the controls card is put away), `CRAWL_TPSKIT=3`

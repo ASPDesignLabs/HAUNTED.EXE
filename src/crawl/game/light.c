@@ -66,6 +66,9 @@ static void build_lightmap(void) {
         light_dynamic(G.px, G.py, 0.62f, 2.8f);                    /* the caster's own faint glow */
         G.glow_here = lm_at(G.px, G.py) - pre;                     /* what the dead see of it is apart (S2) */
     }
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_LIFELIT") && !G.shop) light_dynamic(G.px, G.py, 1.5f, 6.0f);   /* a light of the harness's own, to see the small life by (docs/PLAN-ambience.md) */
+#endif
     if (lantern_lit() && !G.shop) light_dynamic_ex(G.px, G.py, 0.9f + 0.06f * sinf((float)G.t * 3.1f), 2.6f, 1);   /* the Lantern of the Dead */
     for (int b = 0; b < G.bbz_n && G.boss == BOSS_WRAITH && !PK.depth && !G.shop; b++)   /* the Wraith's braziers, those still lit */
         if (G.bbz_lit[b]) light_dynamic(G.bbz_x[b] + 0.5f, G.bbz_y[b] + 0.5f, 1.5f * (0.92f + 0.08f * sinf((float)G.t * 9.0f + b)), 5.2f);
