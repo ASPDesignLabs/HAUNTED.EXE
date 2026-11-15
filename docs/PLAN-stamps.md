@@ -224,6 +224,12 @@ left open. Do not edit the other's.
 
 ### Track B: the content and the proof
 
+- **15 November 2026, the sheet is approved.** The owner saw `proposed-secrets.png` and `proposed-joiners.png` and said "Those look great!"
+  I take that as approval of the sheet as it stands, the regridded joiners included. The three questions in the entry below it were not
+  answered, so their defaults stand (two required ports on the hubs; the steps and weights as set; no marks in the monument rooms).
+  **A2 may now turn on.** Next for B: B3, our extra joiners and places, as new stamps on a second sheet for the owner to approve.
+  Not run: nothing new was built or tested.
+
 - **15 November 2026, B1 and B2 done; the sheet is ready for the owner.** `src/crawl/crawl_stamp_data.c` holds 25 stamps (the ten
   secret rooms as drawn, 15 joiners); `tools/stampsheet.c` builds `build/stampsheet <dir> [secrets|joiners|places|all|check]` (`make
   sheets` runs it into `build/sheets/`); the sheet as proposed is `media/sheets/stamps/proposed-secrets.png` and `proposed-joiners.png`.
