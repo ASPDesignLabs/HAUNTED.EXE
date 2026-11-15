@@ -99,7 +99,7 @@ static uint32_t hash2(int x, int y) {
 }
 
 static Cell *cell(int x, int y) {
-    static Cell solid = { K_WALL, T_STONE, 0, 0, -1, -1, 0, 0, { 0 }, { 0 }, 0, 0, 0, 0, 0 };
+    static Cell solid = { K_WALL, T_STONE, 0, 0, -1, -1, 0, 0, { 0 }, { 0 }, 0, 0, 0, 0, 0, 0, 0, 0 };
     if (x < 0 || y < 0 || x >= MAPN || y >= MAPN) return &solid;
     return &G.map[y][x];
 }

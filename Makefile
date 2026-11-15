@@ -29,7 +29,8 @@ HDR      = $(wildcard src/*/*.h)
 PARTS    = $(wildcard src/*/*/*.c)
 SRC      = src/core/app.c src/core/gfx.c src/data/font_vga.c src/core/snd.c src/crawl/scene_crawl.c src/art/crawl_art.c src/data/hand_img.c \
            src/crawl/crawl_gear.c src/data/face_img.c src/data/cat_img.c src/haunt/scene_haunt.c src/haunt/haunt_art.c src/art/crawl_ui.c \
-           src/art/ui_art.c src/art/crawl_title.c src/art/crawl_portrait.c src/crawl/crawl_tutor.c
+           src/art/ui_art.c src/art/crawl_title.c src/art/crawl_portrait.c src/crawl/crawl_tutor.c \
+           src/crawl/crawl_stamp.c src/crawl/crawl_stamp_data.c
 CFLAGS  ?= -O2 -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Wno-misleading-indentation
 DEBUG    = -DHAUNT_DEBUG -DCRAWL_DEBUG
 ASAN     = -O1 -g -std=gnu11 -fsanitize=address,undefined -fno-omit-frame-pointer
@@ -130,12 +131,16 @@ build/titlemock: $(call objs,rel,$(ART_SRC) $(UI_SRC) src/art/crawl_title.c tool
 build/portraitmock: $(call objs,rel,$(ART_SRC) $(UI_SRC) src/art/crawl_portrait.c tools/portraitmock.c)
 	gcc $(CFLAGS) -o $@ $^ -lm -lz
 
-sheets: build/sheet build/uisheet
+build/stampsheet: $(call objs,rel,src/crawl/crawl_stamp.c src/crawl/crawl_stamp_data.c src/data/font_vga.c tools/stampsheet.c)
+	gcc $(CFLAGS) -o $@ $^ -lz
+
+sheets: build/sheet build/uisheet build/stampsheet
 	@mkdir -p build/sheets
 	./build/sheet all build/sheets 1
 	./build/uisheet all build/sheets
 	./build/uisheet pad build/sheets/pad.png
 	./build/uisheet tutor build/sheets
+	./build/stampsheet build/sheets
 
 build/items: $(call objs,rel,src/crawl/crawl_gear.c tools/items.c)
 	gcc $(CFLAGS) -o $@ $^ -lm

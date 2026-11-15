@@ -165,6 +165,9 @@ static void dress_level(void);
 typedef struct { uint8_t kind, theme, w, lo, trunk; int8_t room; int16_t region; uint8_t keep; } MCell;   /* keep: not filled as a dead end */
 static MCell MM[MG][MG];
 static int mroom[12][4];                                         /* the rooms on the plan: x, y, w, h */
+#define ARENA_PLAN 15                       /* plan rows from here on are a boss's (cells from BAND_Y0) */
+#define ARENA_DOOR_MX 3                     /* and the way down to it: plan column 3, cell x 6 */
+static int8_t st_room[12];                                       /* a drawn room's place in st_placed, plus one; 0 a chamber (docs/PLAN-stamps.md) */
 static int mstart(int m) { return (m & 1) ? 2 * m - 1 : 2 * m; }  /* the first cell of plan row/column m */
 static MCell *mc(int x, int y) {
     static MCell solid = { K_WALL, 0, 0, 0, 0, -1, -1, 0 };
@@ -217,10 +220,11 @@ static int tu_mercy(void);
 static void tu_show(void);
 static int lane(int x, int y) {
     if (g_drawn) return x >= 0 && y >= 0 && x < MAPN && y < MAPN && g_lane[y][x];
-    return (x & 3) == 2 || (y & 3) == 2;
+    return (x & 3) == 2 || (y & 3) == 2 || (x >= 0 && y >= 0 && x < MAPN && y < MAPN && G.map[y][x].xlane);
 }
 static int lane_dist(int x, int y) {
     if (g_drawn) return x >= 0 && y >= 0 && x < MAPN && y < MAPN ? g_ldist[y][x] : 9;
+    if (x >= 0 && y >= 0 && x < MAPN && y < MAPN && G.map[y][x].xlane) return 0;
     int a = abs((x & 3) - 2), b = abs((y & 3) - 2); return a < b ? a : b;
 }
 /* where the autopilot may walk: the middle lanes */
@@ -277,7 +281,7 @@ static int mz_vault(int *kx, int *ky, int *room) {
     for (int r = 1; r < G.nrooms; r++) {
         int taken = 0;
         for (int k = 0; k < G.nvaults; k++) taken |= G.vault_room[k] == r;
-        taken |= r == G.pz_room || r == G.tri_room;                 /* nor the wing, nor a trial's room */
+        taken |= r == G.pz_room || r == G.tri_room || st_room[r] > 0;   /* nor the wing, nor a trial's room, nor a drawn room */
         if (!taken) order[no++] = r;
     }
     for (int i = no - 1; i > 0; i--) { int j = rnd(i + 1), t = order[i]; order[i] = order[j]; order[j] = t; }
@@ -469,6 +473,420 @@ static int secret_door(Secret *sc) {
     G.map[y][x].secret = 3;
     return 1;
 }
+/* A secret's room from a stamp (docs/PLAN-stamps.md, A2). The stamp's chosen entrance stands on the wall cell the old box would have
+ * used, so its room hangs off the plan wherever its drawing says, in the stone, with stone round it. The wall block slides one cell into
+ * the stone beside it (Secret.slide), so the room is left empty to walk. A stamp that does not fit is passed over; the old boxes remain. */
+#define ST_SEC_MAX 160
+static Stamp ST_SEC[ST_SEC_MAX];
+static int st_sec_n = -1;
+static int stamps_on(void) {
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_NOSTAMPS")) return 0;                        /* today's boxes, for the proofs */
+#endif
+    if (st_sec_n < 0) { st_sec_n = stamp_set(ST_SECRET, ST_SEC, ST_SEC_MAX); if (st_sec_n < 0) st_sec_n = 0; }
+    return st_sec_n > 0;
+}
+static int plan_of(int v) { return (v & 3) == 0 ? v / 2 : 2 * (v / 4) + 1; }   /* the plan's square a map cell lies in */
+static int st_wall(int x, int y) { return x >= 0 && y >= 0 && x < MAPN && y < MAPN && G.map[y][x].kind == K_WALL && !G.map[y][x].secret; }
+static int st_solid(int x, int y) {                                /* stone of no room's, on plan squares nothing has taken */
+    if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1 || !st_wall(x, y)) return 0;
+    int px = plan_of(x), py = plan_of(y);
+    if (MM[py][px].kind != K_WALL) return 0;
+    return !((px & 1) && (py & 1) && MM[py][px].trunk);
+}
+
+static int stamp_try(const Stamp *s, int ei, int d, int sx, int sy, int links, Secret *out) {
+    const StampSpot *E = &s->entry[ei];
+    int ox = sx - E->x, oy = sy - E->y;
+    for (int y = 0; y < s->h; y++)                                 /* the floor on stone, and stone round it */
+        for (int x = 0; x < s->w; x++) {
+            if (!(s->fl[y][x] & SF_FLOOR)) continue;
+            if (!st_solid(ox + x, oy + y)) return 0;
+            for (int k = 0; k < 4; k++) {
+                int nx = x + DX[k], ny = y + DY[k];
+                if (nx >= 0 && ny >= 0 && nx < s->w && ny < s->h && (s->fl[ny][nx] & SF_FLOOR)) continue;
+                if (!st_wall(ox + nx, oy + ny)) return 0;
+            }
+        }
+    /* what the autopilot can walk: the lane cells joined to the first cell inside */
+    static uint8_t reach[STAMP_MAXH][STAMP_MAXW];
+    static int qx[STAMP_MAXH * STAMP_MAXW], qy[STAMP_MAXH * STAMP_MAXW];
+    int qh = 0, qt = 0, fx0 = E->x - DX[E->d], fy0 = E->y - DY[E->d];
+    memset(reach, 0, sizeof reach);
+    reach[fy0][fx0] = 1; qx[qt] = fx0; qy[qt++] = fy0;
+    while (qh < qt) {
+        int x = qx[qh], y = qy[qh++];
+        for (int k = 0; k < 4; k++) {
+            int nx = x + DX[k], ny = y + DY[k];
+            if (nx < 0 || ny < 0 || nx >= s->w || ny >= s->h || reach[ny][nx] || !(s->fl[ny][nx] & SF_FLOOR)) continue;
+            if (!lane(ox + nx, oy + ny)) continue;
+            reach[ny][nx] = 1; qx[qt] = nx; qy[qt++] = ny;
+        }
+    }
+    int door = -1;                                                 /* a doorway on, for a chain: stone all round but the room, and in reach */
+    if (links >= 2) {
+        int ok[STAMP_MAXENTR], nok = 0;
+        for (int i = 0; i < s->ndoor; i++) {
+            const StampSpot *D = &s->door[i];
+            if (D->d < 0 || D->d > 3 || !st_wall(ox + D->x, oy + D->y)) continue;
+            int bx = ox + D->x + DX[D->d], by = oy + D->y + DY[D->d], good = bx >= 1 && by >= 1 && bx < MAPN - 1 && by < MAPN - 1 && st_wall(bx, by);
+            for (int k = 0; k < 4 && good; k++) {
+                if (k == ((D->d + 2) & 3)) continue;               /* the room's side */
+                good = st_wall(ox + D->x + DX[k], oy + D->y + DY[k]);
+            }
+            int inreach = 0;
+            for (int k = 0; k < 4 && good && !inreach; k++) {
+                int nx = D->x + DX[k], ny = D->y + DY[k];
+                if (nx < 0 || ny < 0 || nx >= s->w || ny >= s->h || !(s->fl[ny][nx] & SF_FLOOR)) continue;
+                if (reach[ny][nx]) inreach = 1;
+                for (int e = 0; e < 4 && !inreach; e++) {
+                    int mx = nx + DX[e], my = ny + DY[e];
+                    if (mx >= 0 && my >= 0 && mx < s->w && my < s->h && reach[my][mx]) inreach = 1;
+                }
+            }
+            if (good && inreach) ok[nok++] = i;
+        }
+        if (!nok) return 0;
+        door = ok[rnd(nok)];
+    }
+    int side[2], ns = 0;                                           /* where the wall block goes: into the stone along the wall */
+    for (int k = 0; k < 2; k++) {
+        int p = k ? (d + 3) & 3 : (d + 1) & 3, tx = sx + DX[p], ty = sy + DY[p], bx = tx - ox, by = ty - oy;
+        if (!st_wall(tx, ty) || tx < 1 || ty < 1 || tx >= MAPN - 1 || ty >= MAPN - 1) continue;
+        if (bx >= 0 && by >= 0 && bx < s->w && by < s->h && (s->fl[by][bx] & (SF_FLOOR | SF_DOOR))) continue;
+        side[ns++] = p;
+    }
+    if (!ns) return 0;
+    int slide = side[ns > 1 ? rnd(ns) : 0];
+
+    int x0 = MAPN, y0 = MAPN, x1 = -1, y1 = -1;                    /* it fits: lay it */
+    for (int y = 0; y < s->h; y++)
+        for (int x = 0; x < s->w; x++) {
+            if (!(s->fl[y][x] & SF_FLOOR)) continue;
+            int mx = ox + x, my = oy + y, px = plan_of(mx), py = plan_of(my);
+            carve(mx, my, -2, TH_CORRIDOR); G.map[my][mx].secret = 1;
+            if ((px & 1) && (py & 1)) MM[py][px].trunk = 1;
+            x0 = imin(x0, mx); y0 = imin(y0, my); x1 = imax(x1, mx); y1 = imax(y1, my);
+        }
+    G.map[sy][sx].secret = 2;
+    int dx = -1, dy = -1;
+    if (door >= 0) {
+        const StampSpot *D = &s->door[door];
+        dx = ox + D->x; dy = oy + D->y;
+        G.map[dy][dx].secret = 3;
+        int bx = dx + DX[D->d], by = dy + DY[D->d];
+        if ((bx & 3) && (by & 3)) MM[(by - 1) / 4 * 2 + 1][(bx - 1) / 4 * 2 + 1].trunk = 1;   /* the rock behind it stays rock */
+    }
+    *out = (Secret){ sx + DX[E->d], sy + DY[E->d], (E->d + 2) & 3, sx, sy, 0, 0, 0, 1, links, dx, dy, x0, y0, x1, y1, rng_next(&G.rs) | 1u, 0, slide + 1, s->def + 1 };
+    return 1;
+}
+
+/* a stamp for the wall at (sx,sy); d from the room toward the hall; a chain of links. 1 if one was laid (into *out), else 0 */
+static int place_stamp_secret(int d, int sx, int sy, int links, Secret *out) {
+    int step = crawl_step(G.level), n = 0, tot = 0;
+    static int pick[ST_SEC_MAX * STAMP_MAXENTR], wt[ST_SEC_MAX * STAMP_MAXENTR];
+    for (int i = 0; i < st_sec_n; i++) {
+        int w = stamp_weight(&ST_SEC[i], step, G.look);
+        if (!w) continue;
+        for (int e = 0; e < ST_SEC[i].nentry; e++)
+            if (ST_SEC[i].entry[e].d == d) { pick[n] = i * STAMP_MAXENTR + e; wt[n] = w; tot += w; n++; }
+    }
+    while (n > 0) {                                                /* by weight, and the next if it will not fit */
+        int r = rnd(tot), k = 0;
+        while (k < n - 1 && r >= wt[k]) { r -= wt[k]; k++; }
+        if (stamp_try(&ST_SEC[pick[k] / STAMP_MAXENTR], pick[k] % STAMP_MAXENTR, d, sx, sy, links, out)) return 1;
+        tot -= wt[k]; pick[k] = pick[n - 1]; wt[k] = wt[n - 1]; n--;
+    }
+    return 0;
+}
+
+/* Joiners and places from stamps (docs/PLAN-stamps.md, A3). A stamp is a room on the plan: its footprint is whole blocks, carved as a
+ * room, and the halls reach it only at its ports (the walls between its blocks and a hall's are opened nowhere else). After the plan is
+ * drawn into cells, st_impose puts the stamp's stone back and closes the openings that lead into stone. A level that has none of them,
+ * or whose stamps do not fit, is the old generator. */
+#define ST_LVL_MAX 128
+#define ST_PLACED_MAX 8
+static Stamp ST_JOINS[ST_LVL_MAX], ST_PLACES[ST_LVL_MAX];
+static int st_join_n = -1, st_place_n = -1;
+typedef struct { const Stamp *s; int px, py; } StPlaced;
+static StPlaced st_placed[ST_PLACED_MAX];
+static int st_nplaced, st_nmust, st_must[ST_PLACED_MAX * 8][2];
+static uint8_t st_port[MG][MG], st_resv[MG][MG], st_pbits[MG][MG];  /* wall squares a port opens (1 may, 2 must); blocks kept for a hall; which drawn rooms have a port in it */
+
+static int st_lane_ok(const Stamp *s) {                            /* the autopilot walks lanes: every port's middle must join the rest */
+    static uint8_t seen[STAMP_MAXH][STAMP_MAXW];
+    static int qx[STAMP_MAXH * STAMP_MAXW], qy[STAMP_MAXH * STAMP_MAXW];
+    int qh = 0, qt = 0;
+    memset(seen, 0, sizeof seen);
+    for (int i = 0; i < s->nport && !qt; i++) {
+        const StampPort *p = &s->port[i];
+        if (s->fl[p->y][p->x] & SF_LANE) { seen[p->y][p->x] = 1; qx[qt] = p->x; qy[qt++] = p->y; }
+    }
+    if (!qt) return 0;
+    while (qh < qt) {
+        int x = qx[qh], y = qy[qh++];
+        for (int k = 0; k < 4; k++) {
+            int nx = x + DX[k], ny = y + DY[k];
+            if (nx < 0 || ny < 0 || nx >= s->w || ny >= s->h || seen[ny][nx] || (s->fl[ny][nx] & (SF_FLOOR | SF_LANE)) != (SF_FLOOR | SF_LANE)) continue;
+            seen[ny][nx] = 1; qx[qt] = nx; qy[qt++] = ny;
+        }
+    }
+    for (int i = 0; i < s->nport; i++) { const StampPort *p = &s->port[i]; if ((s->fl[p->y][p->x] & SF_LANE) && !seen[p->y][p->x]) return 0; }
+    int lanes = 0, joined = 0;                                     /* and most of the rest: what the autopilot cannot reach it never sees */
+    for (int y = 0; y < s->h; y++)
+        for (int x = 0; x < s->w; x++)
+            if ((s->fl[y][x] & (SF_FLOOR | SF_LANE)) == (SF_FLOOR | SF_LANE)) { lanes++; joined += seen[y][x]; }
+    return joined * 100 >= lanes * 85;
+}
+static int st_load(int kind, Stamp *out) {                         /* the oriented stamps of a kind that the autopilot can cross */
+    int n = stamp_set(kind, out, ST_LVL_MAX), k = 0;
+    if (n < 0) return 0;
+    for (int i = 0; i < n; i++) {
+        if (!st_lane_ok(&out[i])) {
+#ifdef CRAWL_DEBUG
+            if (getenv("CRAWL_STAMPLOG")) fprintf(stderr, "STAMP left out: %s x%d (lane cells not joined)\n", out[i].name, out[i].xf);
+#endif
+            continue;
+        }
+        if (kind == ST_PLACE && !strncmp(out[i].name, "place_antechamber", 17)) continue;   /* it waits for a vault to stand before (not yet) */
+        if (k != i) out[k] = out[i];
+        k++;
+    }
+    return k;
+}
+static int st_veto;                                                /* set while a level is made again without its stamps */
+static int lvl_stamps_on(void) {
+    if (st_veto) return 0;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_NOSTAMPS") || getenv("CRAWL_NOJOINERS")) return 0;
+#endif
+    if (st_join_n < 0) { st_join_n = st_load(ST_JOINER, ST_JOINS); st_place_n = st_load(ST_PLACE, ST_PLACES); }
+    return st_join_n > 0 || st_place_n > 0;
+}
+static int st_big(const Stamp *s) { return s->w * s->h >= 200; }
+
+/* does it fit with its top left block at plan (px,py): stone all round it, and a free block beyond each port that must connect */
+static int st_fits(const Stamp *s, int px, int py) {
+    int pw = (s->w - 1) / 2, ph = (s->h - 1) / 2, ox = mstart(px), oy = mstart(py);
+    if (px < 1 || py < 1 || px + pw >= MG - 1 || py + ph >= MG - 1) return 0;
+    for (int y = py - 1; y <= py + ph; y++)
+        for (int x = px - 1; x <= px + pw; x++)
+            if (MM[y][x].kind != K_WALL || st_resv[y][x]) return 0;
+    for (int i = 0; i < s->nport; i++) {
+        const StampPort *p = &s->port[i];
+        if (!p->must) continue;
+        int bx = plan_of(ox + p->x + DX[p->d]) + DX[p->d], by = plan_of(oy + p->y + DY[p->d]) + DY[p->d];
+        if (bx < 1 || by < 1 || bx >= MG - 1 || by >= MG - 1 || MM[by][bx].kind != K_WALL || st_resv[by][bx]) return 0;
+    }
+    return 1;
+}
+static void st_lay(const Stamp *s, int px, int py, int *nreg) {
+    int pw = (s->w - 1) / 2, ph = (s->h - 1) / 2, ox = mstart(px), oy = mstart(py), theme = 1 + rnd(TH_COUNT - 1), rtype = 0, si = st_nplaced;
+    if (G.faced) { rtype = pick_rtype(pw, ph); theme = RTYPES[rtype].theme; }
+    for (int y = py; y < py + ph; y++) for (int x = px; x < px + pw; x++) mcarve(x, y, *nreg, theme, G.nrooms);
+    mroom[G.nrooms][0] = px; mroom[G.nrooms][1] = py; mroom[G.nrooms][2] = pw; mroom[G.nrooms][3] = ph;
+    G.rooms[G.nrooms] = (Room){ 0, 0, 0, 0, *nreg, theme, rtype };
+    st_room[G.nrooms] = (int8_t)(st_nplaced + 1);
+    st_placed[st_nplaced++] = (StPlaced){ s, px, py };
+    G.nrooms++; (*nreg)++;
+    for (int i = 0; i < s->nport; i++) {
+        const StampPort *p = &s->port[i];
+        int wx = plan_of(ox + p->x + DX[p->d]), wy = plan_of(oy + p->y + DY[p->d]);
+        if (st_port[wy][wx] < 1 + p->must) st_port[wy][wx] = (uint8_t)(1 + p->must);
+        st_pbits[wy][wx] |= (uint8_t)(1 << si);
+        if (p->must) {
+            int bx = wx + DX[p->d], by = wy + DY[p->d];
+            st_resv[by][bx] = 1;
+            if (st_nmust < ST_PLACED_MAX * 8) { st_must[st_nmust][0] = wx; st_must[st_nmust][1] = wy; st_nmust++; }
+        }
+    }
+}
+/* a stamp's family: its name without the size it is drawn at (joiner_octagon_7 and joiner_octagon_11 are one), so a level has each once */
+static int st_family_len(const char *name) {
+    int n = (int)strlen(name);
+    while (n > 0 && name[n - 1] >= '0' && name[n - 1] <= '9') n--;
+    return n > 0 && name[n - 1] == '_' ? n - 1 : (int)strlen(name);
+}
+static int st_family_laid(const Stamp *s) {
+    int n = st_family_len(s->name);
+    for (int i = 0; i < st_nplaced; i++)
+        if (st_family_len(st_placed[i].s->name) == n && !strncmp(st_placed[i].s->name, s->name, (size_t)n)) return 1;
+    return 0;
+}
+/* class 0 a big joiner, 1 a small one, 2 a small place (a spur: under 150 cells), 3 a large one (a hall, a cloister, a ring). 1 if one was laid */
+static int st_place_one(int cls, int *nreg) {
+    int step = crawl_step(G.level), n = 0, tot = 0;
+    static int pick[ST_LVL_MAX * 2], wt[ST_LVL_MAX * 2];
+    const Stamp *set = cls >= 2 ? ST_PLACES : ST_JOINS;
+    for (int i = 0; i < (cls >= 2 ? st_place_n : st_join_n); i++) {
+        const Stamp *s = &set[i];
+        if (s->w * s->h > 800) continue;
+        if (cls < 2 ? st_big(s) != (cls == 0) : (s->w * s->h >= 150) != (cls == 3)) continue;
+        int w = stamp_weight(s, step, G.look);
+        if (!w || st_family_laid(s)) continue;
+        pick[n] = i; wt[n] = w; tot += w; n++;
+    }
+    for (int tries = 0; tries < 8 && n > 0; tries++) {
+        int r = rnd(tot), k = 0;
+        while (k < n - 1 && r >= wt[k]) { r -= wt[k]; k++; }
+        const Stamp *s = &set[pick[k]];
+        int pw = (s->w - 1) / 2, ph = (s->h - 1) / 2;
+        for (int at = 0; at < 50; at++) {
+            int px = 1 + 2 * rnd((MG - pw - 1) / 2 + 1), py = 1 + 2 * rnd((MG - ph - 1) / 2 + 1);
+            if (st_fits(s, px, py)) { st_lay(s, px, py, nreg); return 1; }
+        }
+        tot -= wt[k]; pick[k] = pick[n - 1]; wt[k] = wt[n - 1]; n--;
+    }
+    return 0;
+}
+/* the level's drawn rooms, laid after its first chamber: first its place (a large one on about half the levels, else a spur, so the great
+ * ones have room to fit), then one big joiner and two or three small ones, no two of a family */
+static void place_level_stamps(int *nreg) {
+    int want[7], nw = 0;
+    if (G.boss >= 0) st_resv[ARENA_PLAN - 2][ARENA_DOOR_MX] = st_resv[ARENA_PLAN - 1][ARENA_DOOR_MX] = 1;   /* the way down to a boss's arena is theirs to leave alone */
+    if (rnd(100) < 55) { want[nw++] = 3; want[nw++] = 2; } else want[nw++] = 2;   /* (a spur instead, if no large one fits) */
+    want[nw++] = 0; want[nw++] = 1; want[nw++] = 1; if (rnd(2)) want[nw++] = 1;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_STAMP")) {                                   /* testing: this one first */
+        const char *nm = getenv("CRAWL_STAMP");
+        for (int pass = 0; pass < 2; pass++) {
+            const Stamp *set = pass ? ST_PLACES : ST_JOINS; int cnt = pass ? st_place_n : st_join_n, m = 0, at[ST_LVL_MAX];
+            for (int i = 0; i < cnt; i++) if (!strcmp(set[i].name, nm)) at[m++] = i;
+            if (!m) continue;
+            const Stamp *s = &set[at[rnd(m)]];
+            int pw = (s->w - 1) / 2, ph = (s->h - 1) / 2;
+            for (int t = 0; t < 200; t++) {
+                int px = 1 + 2 * rnd((MG - pw - 1) / 2 + 1), py = 1 + 2 * rnd((MG - ph - 1) / 2 + 1);
+                if (st_fits(s, px, py)) { st_lay(s, px, py, nreg); break; }
+            }
+        }
+    }
+#endif
+    int have_place = 0;
+    for (int i = 0; i < nw && st_nplaced < ST_PLACED_MAX; i++) {
+        if (want[i] >= 2 && have_place) continue;                  /* one place: the spur is only the large one's fall-back */
+        if (st_place_one(want[i], nreg) && want[i] >= 2) have_place = 1;
+    }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "STAMPS level %d: %d rooms:", G.level, st_nplaced);
+    for (int i = 0; i < st_nplaced; i++) fprintf(stderr, " [%s x%d plan (%d,%d) %dx%d]", st_placed[i].s->name, st_placed[i].s->xf, st_placed[i].px, st_placed[i].py, st_placed[i].s->w, st_placed[i].s->h);
+    fprintf(stderr, "\n");
+#endif
+}
+/* the autopilot's lanes, counted from the first room: a drawn room's lane cells that the lanes do not join are not its to see */
+static int st_lane_reach(void) {
+    static uint8_t seen[MAPN][MAPN]; static int qx[MAPN * MAPN], qy[MAPN * MAPN];
+    int qh = 0, qt = 0;
+    memset(seen, 0, sizeof seen);
+    const Room *R = &G.rooms[0];
+    for (int y = R->y; y < R->y + R->h && !qt; y++)
+        for (int x = R->x; x < R->x + R->w && !qt; x++)
+            if (G.map[y][x].kind == K_FLOOR && lane(x, y)) { seen[y][x] = 1; qx[qt] = x; qy[qt++] = y; }
+    while (qh < qt) {
+        int x = qx[qh], y = qy[qh++];
+        for (int d = 0; d < 4; d++) {
+            int nx = x + DX[d], ny = y + DY[d];
+            if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || seen[ny][nx] || !lane(nx, ny)) continue;
+            int k = G.map[ny][nx].kind;
+            if ((k != K_FLOOR && k != K_DOOR) || G.map[ny][nx].secret) continue;
+            seen[ny][nx] = 1; qx[qt] = nx; qy[qt++] = ny;
+        }
+    }
+    int n = 0;
+    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) n += seen[y][x] && G.map[y][x].kind == K_FLOOR;
+    return n;
+}
+static void st_count_lanes(void) { G.ncells = st_lane_reach(); }
+/* can every open cell of the map be walked to from the first room (doors, locked or not, count as open) */
+static int st_cells_connected(int *reached, int *total) {
+    static uint8_t seen[MAPN][MAPN]; static int qx[MAPN * MAPN], qy[MAPN * MAPN];
+    int qh = 0, qt = 0, tot = 0;
+    memset(seen, 0, sizeof seen);
+    const Room *R = &G.rooms[0];
+    for (int y = R->y; y < R->y + R->h && !qt; y++)
+        for (int x = R->x; x < R->x + R->w && !qt; x++)
+            if (G.map[y][x].kind == K_FLOOR) { seen[y][x] = 1; qx[qt] = x; qy[qt++] = y; }
+    while (qh < qt) {
+        int x = qx[qh], y = qy[qh++];
+        for (int d = 0; d < 4; d++) {
+            int nx = x + DX[d], ny = y + DY[d];
+            if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || seen[ny][nx]) continue;
+            int k = G.map[ny][nx].kind;
+            if (k != K_FLOOR && k != K_DOOR) continue;
+            seen[ny][nx] = 1; qx[qt] = nx; qy[qt++] = ny;
+        }
+    }
+    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) tot += G.map[y][x].kind == K_FLOOR || G.map[y][x].kind == K_DOOR;
+    if (reached) *reached = qt;
+    if (total) *total = tot;
+    return qt == tot;
+}
+/* can the whole plan be walked from the first room: a stamp that is reached only at its ports can cut a hall off */
+static int st_plan_connected(void) {
+    static uint8_t seen[MG][MG]; static int qx[MG * MG], qy[MG * MG];
+    int qh = 0, qt = 0, total = 0;
+    memset(seen, 0, sizeof seen);
+    for (int y = 0; y < MG; y++) for (int x = 0; x < MG; x++) total += mopen(x, y);
+    seen[mroom[0][1]][mroom[0][0]] = 1; qx[qt] = mroom[0][0]; qy[qt++] = mroom[0][1];
+    while (qh < qt) {
+        int x = qx[qh], y = qy[qh++];
+        for (int d = 0; d < 4; d++) {
+            int nx = x + DX[d], ny = y + DY[d];
+            if (!mopen(nx, ny) || seen[ny][nx]) continue;
+            seen[ny][nx] = 1; qx[qt] = nx; qy[qt++] = ny;
+        }
+    }
+    return qt == total;
+}
+/* the wall between two blocks, one a stamp's, that is not one of its ports stays shut */
+static int st_wall_blocked(int x, int y) {                         /* (and every drawn room beside it must have a port there: else its stone would close it) */
+    if (!st_nplaced) return 0;
+    for (int d = 0; d < 4; d++) {
+        int r = mc(x + DX[d], y + DY[d])->room;
+        if (r >= 0 && st_room[r] > 0 && !(st_pbits[y][x] >> (st_room[r] - 1) & 1)) return 1;
+    }
+    return 0;
+}
+/* after the plan is cells: the stamp's stone, and no opening that leads into it */
+static void st_impose(void) {
+    for (int i = 0; i < st_nplaced; i++) {
+        const Stamp *s = st_placed[i].s;
+        int ox = mstart(st_placed[i].px), oy = mstart(st_placed[i].py);
+        for (int y = -1; y <= s->h; y++)
+            for (int x = -1; x <= s->w; x++) {
+                int mx = ox + x, my = oy + y;
+                if (mx < 1 || my < 1 || mx >= MAPN - 1 || my >= MAPN - 1) continue;
+                int inside = x >= 0 && y >= 0 && x < s->w && y < s->h;
+                Cell *c = &G.map[my][mx];
+                if (inside) c->xroom = 1;                          /* kept on the cell, for what is laid after the level's made (the sites', the puzzles') */
+                if (inside) {
+                    if (s->fl[y][x] & SF_FLOOR) { if (s->fl[y][x] & SF_LANE) c->xlane = 1; continue; }
+                } else {                                           /* the ring: open only where the stamp's own floor lies inside it */
+                    if (c->kind != K_FLOOR && c->kind != K_DOOR) continue;
+                    int ix = x < 0 ? 0 : (x >= s->w ? s->w - 1 : x), iy = y < 0 ? 0 : (y >= s->h ? s->h - 1 : y);
+                    if ((x < 0 || x >= s->w) && (y < 0 || y >= s->h)) { c->kind = K_WALL; c->region = -1; c->door = -1; continue; }   /* a corner */
+                    if (s->fl[iy][ix] & SF_FLOOR) continue;
+                }
+                c->kind = K_WALL; c->region = -1; c->door = -1;
+            }
+        for (int k = 0; k < s->nmark; k++) {                       /* what the drawing asks to stand in it, kept on the cells for the dressing, the loot and the dead */
+            int mx = ox + s->mark[k].x, my = oy + s->mark[k].y;
+            if (mx > 0 && my > 0 && mx < MAPN - 1 && my < MAPN - 1) G.map[my][mx].xmark = (uint8_t)s->mark[k].glyph;
+        }
+#ifdef CRAWL_DEBUG
+        if (getenv("CRAWL_STAMPLOG")) {                            /* what each port opens on */
+            fprintf(stderr, "STAMP %s x%d at (%d,%d):", s->name, s->xf, ox, oy);
+            for (int k = 0; k < s->nport; k++) {
+                const StampPort *pp = &s->port[k];
+                int rx = ox + pp->x + DX[pp->d], ry = oy + pp->y + DY[pp->d];
+                fprintf(stderr, " %c(%d,%d)%s", pp->must ? 'P' : 'p', pp->x, pp->y, G.map[ry][rx].kind == K_FLOOR ? "=open" : G.map[ry][rx].kind == K_DOOR ? "=door" : "=shut");
+            }
+            fprintf(stderr, "\n");
+        }
+#endif
+    }
+}
+
 static void place_secrets(void) {
     static const int LINKS[RUN_LEN] = { 3, 3, 4, 4, 4, 5, 5, 5, 6, 6 };
     G.nsecrets = G.secrets_found = G.nlinks = G.links_found = G.trials_failed = 0; G.slide = -1;
@@ -506,6 +924,10 @@ static void place_secrets(void) {
         int clash = MM[my][mx].trunk;                              /* trunk marks a room already taken */
         for (int k = 0; k < G.nsecrets; k++) clash |= abs(G.secrets[k].sx - sx) + abs(G.secrets[k].sy - sy) < 8;
         if (clash) continue;
+        if (stamps_on()) {                                         /* a drawn room, if one fits here */
+            Secret ns;
+            if (place_stamp_secret(d, sx, sy, chain[placed], &ns)) { G.secrets[G.nsecrets++] = ns; placed++; continue; }
+        }
         /* how big: two by two, two side by side, or the one block, as the plan allows */
         int px = DY[in], py = DX[in], side = rnd(2) ? 1 : -1, bx[4] = { mx }, by[4] = { my }, nb = 1;
         float r = rndf();
@@ -529,7 +951,7 @@ static void place_secrets(void) {
             for (int x = x0; x <= x1; x++) { carve(x, y, -2, TH_CORRIDOR); G.map[y][x].secret = 1; }
         G.map[sy][sx].secret = 2;
         Secret *sc = &G.secrets[G.nsecrets++];
-        *sc = (Secret){ sx + DX[d], sy + DY[d], in, sx, sy, 0, 0, 0, nb == 4 ? 7 : 3, chain[placed++], -1, -1, x0, y0, x1, y1, rng_next(&G.rs) | 1u, 0 };
+        *sc = (Secret){ sx + DX[d], sy + DY[d], in, sx, sy, 0, 0, 0, nb == 4 ? 7 : 3, chain[placed++], -1, -1, x0, y0, x1, y1, rng_next(&G.rs) | 1u, 0, 0, 0 };
         if (sc->links >= 2 && !secret_door(sc)) { left += sc->links - 1; sc->links = 1; }   /* nowhere for a doorway: alone after all */
     }
     for (int k = placed; k < nch; k++) left += chain[k];
@@ -541,15 +963,19 @@ static void place_secrets(void) {
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "SECRETS level %d: %d links in %d rooms:", G.level, G.nlinks, G.nsecrets);
     for (int k = 0; k < G.nsecrets; k++)
-        fprintf(stderr, " [%dx%d chain %d door (%d,%d)]", G.secrets[k].x1 - G.secrets[k].x0 + 1, G.secrets[k].y1 - G.secrets[k].y0 + 1, G.secrets[k].links, G.secrets[k].door_x, G.secrets[k].door_y);
+        fprintf(stderr, " [%dx%d chain %d door (%d,%d)%s%s]", G.secrets[k].x1 - G.secrets[k].x0 + 1, G.secrets[k].y1 - G.secrets[k].y0 + 1, G.secrets[k].links, G.secrets[k].door_x, G.secrets[k].door_y,
+                G.secrets[k].stamp ? " " : "", G.secrets[k].stamp ? STAMP_DEFS[G.secrets[k].stamp - 1].name : "");
     fprintf(stderr, "\n");
 #endif
 }
 
 /* the sliding wall: a block of stone at its cell plus how far it has come */
+static int slide_way(const Secret *sc) { return sc->slide ? sc->slide - 1 : sc->d; }   /* which way the wall block goes, and how far */
+static int slide_len(const Secret *sc) { return sc->slide ? 1 : sc->len; }
 static void slide_box(float *bx, float *by) {
     const Secret *sc = &G.secrets[G.slide];
-    *bx = sc->sx + DX[sc->d] * G.slide_t; *by = sc->sy + DY[sc->d] * G.slide_t;
+    int w = slide_way(sc);
+    *bx = sc->sx + DX[w] * G.slide_t; *by = sc->sy + DY[w] * G.slide_t;
 }
 static int slide_covers(int x, int y) {
     float bx, by;
@@ -557,8 +983,6 @@ static int slide_covers(int x, int y) {
     return bx < x + 1 - 0.02f && bx + 1 > x + 0.02f && by < y + 1 - 0.02f && by + 1 > y + 0.02f;
 }
 
-#define ARENA_PLAN 15                       /* plan rows from here on are a boss's (cells from BAND_Y0) */
-#define ARENA_DOOR_MX 3                     /* and the way down to it: plan column 3, cell x 6 */
 static void stamp_arena(void);
 static int in_band(int y);
 static float decay(void);
@@ -571,5 +995,6 @@ static void swap_rooms(int a, int b) {                             /* rooms a an
         }
     for (int k = 0; k < 4; k++) { int t = mroom[a][k]; mroom[a][k] = mroom[b][k]; mroom[b][k] = t; }
     Room t = G.rooms[a]; G.rooms[a] = G.rooms[b]; G.rooms[b] = t;
+    int8_t sr = st_room[a]; st_room[a] = st_room[b]; st_room[b] = sr;
 }
 

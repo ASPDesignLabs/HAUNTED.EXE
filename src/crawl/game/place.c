@@ -219,6 +219,23 @@ static int room_cell(int room, int *ox, int *oy) {                 /* a free flo
     return 0;
 }
 
+/* A drawn room's spawn marks: one of the dead at each, keeping to its room till it knows you are there, as the residents do; not near the
+ * start, and as many as the level's kinds allow (docs/PLAN-stamps.md, A4) */
+static void place_stamp_spawns(void) {
+    int made = 0;
+    for (int y = 1; y < MAPN - 1; y++)
+        for (int x = 1; x < MAPN - 1; x++) {
+            if (G.map[y][x].xmark != 's' || G.map[y][x].kind != K_FLOOR || G.map[y][x].secret || abs(x - G.cx) + abs(y - G.cy) < 8 || occupied(x, y, NULL)) continue;
+            if (rnd(100) >= 65) continue;                          /* not every niche holds one */
+            int type = rnd(3) == 0 ? (may_spawn(MOB_KNIGHT) && rnd(2) ? MOB_KNIGHT : (may_spawn(MOB_SHIELD) ? MOB_SHIELD : MOB_SKEL)) : MOB_SKEL;
+            Mob *m = spawn_mob(x, y, type);
+            if (m) { m->home = G.map[y][x].region; made++; }
+        }
+#ifdef CRAWL_DEBUG
+    if (made && getenv("CRAWL_STAMPLOG")) fprintf(stderr, "STAMPS level %d marks: %d of the dead\n", G.level, made);
+#endif
+}
+
 static void place_items(int sx, int sy) {
     G.nitems = 0; G.items_total = 0; G.items_got = 0; G.value_total = G.value_got = 0;
     static int dist[MAPN][MAPN], qx[MAPN * MAPN], qy[MAPN * MAPN];
@@ -245,6 +262,9 @@ static void place_items(int sx, int sy) {
             add_item(x, y, random_treasure()); k++;
         }
     }
+    for (int y = 1; y < MAPN - 1; y++)                             /* what a drawn room asks for (docs/PLAN-stamps.md): treasure where its drawing puts it */
+        for (int x = 1; x < MAPN - 1; x++)
+            if (G.map[y][x].xmark == 'c' && G.map[y][x].kind == K_FLOOR && !G.map[y][x].secret && !item_at(x, y)) add_item(x, y, random_treasure());
     for (int i = 0, placed = 0; i < 400 && placed < 7 + G.level / 2; i++) {   /* and along the halls */
         int x = 1 + rnd(MAPN - 2), y = 1 + rnd(MAPN - 2);
         if (G.map[y][x].theme != TH_CORRIDOR || dist[y][x] < 4 || !free_floor(x, y)) continue;
@@ -304,14 +324,17 @@ static void place_items(int sx, int sy) {
         int ns = 0;
         for (int y = sc->y0; y <= sc->y1; y++)
             for (int x = sc->x0; x <= sc->x1; x++) {
+                if (sc->stamp && (G.map[y][x].kind != K_FLOOR || G.map[y][x].secret != 1)) continue;   /* a stamp's room is not its box */
                 int along = (x - sc->sx) * DX[sc->d] + (y - sc->sy) * DY[sc->d], across = (x - sc->sx) * DY[sc->d] + (y - sc->sy) * DX[sc->d];
-                if (across == 0 || lane_dist(x, y) > 1 || ns >= 64) continue;   /* the stone's way, and out of reach */
+                if ((across == 0 && !sc->slide) || lane_dist(x, y) > 1 || ns >= 64) continue;   /* the stone's way (a stamp's stone goes aside), and out of reach */
                 if (sc->door_x >= 0 && abs(x - sc->door_x) + abs(y - sc->door_y) <= 1) continue;
                 if (along < 2 && sc->len > 3) continue;            /* a big room keeps its front clear */
                 spots[ns][0] = x; spots[ns][1] = y; ns++;
             }
         for (int i = ns - 1; i > 0; i--) { int j = rnd(i + 1); int t0 = spots[i][0], t1 = spots[i][1]; spots[i][0] = spots[j][0]; spots[i][1] = spots[j][1]; spots[j][0] = t0; spots[j][1] = t1; }
-        int big = (sc->x1 - sc->x0 + 1) * (sc->y1 - sc->y0 + 1), n = 2 + (G.level >= 4) + (rnd(3) == 0) + (big > 9) + (big > 21);
+        int big = (sc->x1 - sc->x0 + 1) * (sc->y1 - sc->y0 + 1);
+        if (sc->stamp) { big = 0; for (int y = sc->y0; y <= sc->y1; y++) for (int x = sc->x0; x <= sc->x1; x++) big += G.map[y][x].kind == K_FLOOR && G.map[y][x].secret == 1; }
+        int n = 2 + (G.level >= 4) + (rnd(3) == 0) + (big > 9) + (big > 21);
         for (int i = 0; i < n && i < ns; i++) {
             int type = (i == n - 1 && rnd(10) < 6) ? IT_POTION : LOOT[rnd(6)];
             Item *it = add_item(spots[i][0], spots[i][1], type);

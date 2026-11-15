@@ -327,3 +327,21 @@ wrong or untried, and the numbers from each round of the dream's runs. Add to it
   drip, the crunch, the croak and the bat's wing borrow other effects' sounds (`SFX_DRIP`, `SFX_CHEW`, `SFX_SQUEAK`, `SFX_BAT`, `SFX_BONES`);
   the browser has no menu for the two settings; the saints' eyes follow only run II's, not the portraits of the slain; no spider mends a
   torn web; the bats are on levels 1 to 10 only. Nothing was weighed on the balance, since nothing reaches it.
+
+- **Stamps** (docs/PLAN-stamps.md, 15 November, harness only; nothing played by hand, nothing run under Wine, the Windows and browser builds
+  compiled only by CI). **The balance:** the dream for 3,000 s of its time from level 1 on the same 16 seeds (1 to 31 odd), against
+  1.0.0b21.6 in a `git worktree` (`tools/stampbal.py`): levels cleared 6.8 against 6.7 (mean), deaths 35 against 42, 14 seeds of 16 with a
+  death in both, level reached 7.8 against 7.6, secret rooms found 52.9 against 48.1 (mean), the median level 329 s against 339 s, gold at
+  the end about the same (6,508 against 6,436); no crash or timeout. With 16 seeds the noise is about a quarter either way, so this says
+  the stamps made the autopilot no worse, not that they made it better. **What it does not cover:** 3,000 s reaches levels 8 to 9, so the
+  boss levels (10, 20, 30, 40), the Deep and the lower runs were not played; the numbers are of the first eight levels only. **Faults found by `tools/stampsweep.py`** (1,800 levels, 100 different seeds, since the harness ORs the seed with 1; with `CRAWL_NOSTAMPS=1`
+  none). First sweep: on 6 of 100 seeds the boss levels' exit could not be reached (the hall to the arena closed by stone), and on 3 layouts a
+  bent secret room's doorway touched none of its room's floor; both fixed by Track A (the sweep at `400d8bf`: no boss level fails, no doorway
+  is loose). **Still open (second sweep, same commit):** on 11 of 100 seeds (26 of 1,800 levels) a secret room's entrance cannot be reached,
+  seen so far to be a prop standing on the one hall cell in front of the cracked wall (seed 97 level 10, entrance (2,20), prop at (2,19)); on 2
+  seeds (35 at level 31, 167 at level 21) the exit is not reached, 3 floor cells stranded; 22 levels in 1,800 were made again without stamps.
+  The balance runs are to be done again once these are fixed.
+  **Sanitizers** (`make asan`, `ASAN_OPTIONS=detect_leaks=0`): clean on the dream for 1,200 s of its time on four seeds, on level generation for
+  480 levels (levels 5 to 40) and on a scripted person for about 143 s on each of levels 11, 22 and 31. **Of ours, unapproved:** the nine
+  extra joiners and six places were sent to the owner as sheets and have not been approved, though the generator lays them.
+

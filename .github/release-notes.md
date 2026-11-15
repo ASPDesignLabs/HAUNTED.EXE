@@ -1,10 +1,10 @@
-Small Life: the sixth point release of the twenty-first beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
+Drawn Rooms: the seventh point release of the twenty-first beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
 
-It fills the crypt with small things that live in it, and notice you.
+It lays the crypt's rooms by shape, so that what you walk through was put where it is.
 
 ### Before you upgrade
 
-Your saves carry over, and nothing in them has changed. The settings gain two entries (below), which earlier betas ignore. A copy of your saves costs a moment, and this is as good a time as any; from a Command Prompt:
+Your saves carry over, and nothing in them has changed. The settings are as they were. A copy of your saves costs a moment, and this is as good a time as any; from a Command Prompt:
 
 ```
 reg export "HKCU\Software\HalloweenVGASaver" "%USERPROFILE%\Desktop\haunted-saves-backup.reg"
@@ -12,34 +12,18 @@ reg export "HKCU\Software\HalloweenVGASaver" "%USERPROFILE%\Desktop\haunted-save
 
 ### New in this release
 
-**Mice.** They live in the walls of every level but her hall, the Backrooms and Severance: a few at a run's start and more by its end. They wander, cannot open doors, and go through holes in the walls, which is quicker than walking. They gather and preen by warm lights, and run for the nearest hole when you frighten them. They grow every two levels, most of all at the third level of the second run, and their chirps deepen as they do. Their eyes are green and bright from anywhere. They cannot hurt you and you cannot hurt them, until later.
+From the third level, a level is built round rooms of a drawn shape, and the halls are made to reach them. The first two levels, her hall and a boss's arena are as they were.
 
-**They tell.** A mouse that sees you carries word of you to the next through the holes, and a mark shows over each that carries it.
+**A place on every level.** A shrine spur: a way one cell wide that ends at an altar. A cloister: a loop of hall round a solid yard. A gauntlet hall (from the second level of a run): long and narrow, with niches for treasure and the dead. An alcove hall: recesses down both sides. From the sixth level of a run, a sunken ring: stepped rings round a floor, braziers and an altar in the middle. About half the levels get one of the larger four, and the rest a spur. Altars, braziers and torches stand where the drawing puts them, treasure lies in the niches, and some of the niches hold one of the dead, which keeps to its room until it knows you are there.
 
-**The charnel rat.** From the fifth level of the second run the grown ones are rats the size of a hound. A mouse that reaches one tells it where you are, and it comes. It is the twenty-fourth kind in the bestiary, which is now full.
+**Rooms where halls branch.** One big and two or three small a level, no two of a kind: stepped diamonds with a cross, a ring, four pillars or a star in the middle, a transept, a pinwheel, a trident, a horseshoe, a ladder of two halls, an hourglass with a narrow neck, a dogleg stair, a chevron, a gallery three wide, and from the sixth level a great nave with six slabs standing in it.
 
-**Spiders on the walls.** Small ones crawl the stone of every level, never leaving it, round the corners and past the doors, open or shut, and round whatever is painted on the walls. They hurt no one. When you come near they run to tell the nearest web or hunting spider, or hide in a web in a corner.
+**New secret rooms.** Ten shapes: boxes and a strip, an L and its mirror, an arrowhead, from the third level a C, a spiral and a J, and from the fifth a long, narrow approach. The cracked wall now slides one cell sideways into the stone beside it, and leaves the room empty to walk.
 
-**The crypt's small life.** Twelve things that notice you, and ask nothing of you:
-- Moths circle the warm lights, and flies where the level is foul; they scatter as you pass and drift back.
-- Torches gutter as you pass, and harder when a door swings near them.
-- Bats roost in the corners of the first ten levels. Some drop as you come near, circle the room and settle somewhere else. (From the eleventh level a roost of the dead's own is a warning, and these keep out of its way.)
-- Beetles and woodlice scuttle from you into cracks in the stone, and crunch if you tread on one.
-- Water drips into puddles and rings spread; step in one and your boots leave wet prints that dry.
-- Toads sit by the water from the sixth level and hop off with a croak.
-- The saints of the second run follow you with their eyes.
-- Eyes open in the dark of some burial niches, and shut when your light finds them.
-- A hand on the sill of a niche settles as you pass.
-- Chains, lamps and the rest swing after you.
-- Webs shiver as you pass, tear if you walk through, and grow back.
-- Glowing fungus breathes as you near, and sends up spores.
-
-**Two new settings.** *Small life: movement* and *Small life: sound*, each *On*, *Reduced* (only what keeps still) or *Off*, under Settings. Off draws and sounds exactly as before. The browser has no menu for them yet and plays with both on.
-
-**A smaller download.** The program's source was tidied this release, and the download is much smaller for it. Nothing in the game changed with it.
+The screensaver walks all of it, and the map shows it whole once you have drawn it.
 
 ### What has been tested
 
-The mice and the spiders' first build were played by hand by the author on their own Windows PC, and mended after: the mice at first span on the spot when frightened, and the spiders floated off the walls. Everything since is tested in the test harness only: the spiders kept to the stone and round the pictures, the charnel rat's growth, and all the small life. None of it has been played by hand, none of the new sounds has been heard (the drip, the crunch, the croak and the rest borrow other effects), nothing has been run under Wine, and the Windows settings dialog and the browser build were compiled and smoke-tested by GitHub Actions and by nothing else.
+The author played the Windows build GitHub made of this and said it plays well; that is all that has been said of it by hand. Everything else is tested in the test harness only: nothing has been run under Wine, and the Windows and browser builds were compiled and smoke-tested by GitHub Actions and by nothing else.
 
-In the harness the screensaver's runs from level 1 to 10 log line for line as the build before, and eight seeds of 3,000 seconds from levels 11 and 15 died within the noise of it (154 deaths against 155, and 271 against 250, of which the extra are the charnel rats'). The small life moves nothing of the game: its runs match the build before line for line, and with it switched off the frames match to the byte. Clean under AddressSanitizer.
+In the harness, 1,800 levels were made with every exit, key, locked door and secret room tested for being reached, and no floor stranded: none failed. On 22 of them a drawn room had cut the level in two, and it was made again without. The screensaver played sixteen seeds for 3,000 seconds of its time, twice, against the build before: it cleared as many levels (6.6 and 6.9 against 6.6 and 6.2) and died less (32 and 27 against 47 and 47), but the old build's own numbers move between runs, so read that as no worse, not as safer. It reaches level 8 or 9 in that time and no further. With the drawn rooms switched off it logs the build before's line for line. Clean under AddressSanitizer.

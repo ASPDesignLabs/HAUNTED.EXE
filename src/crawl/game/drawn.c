@@ -250,7 +250,7 @@ static void gen_drawn(void) {
             for (int yy = 0; yy < D->h; yy++)
                 for (int xx = 0; xx < D->w; xx++)
                     if (D->map[yy][xx] == 'q' || D->map[yy][xx] == 'Q') { x0 = imin(x0, D->ox + xx); y0 = imin(y0, D->oy + yy); x1 = imax(x1, D->ox + xx); y1 = imax(y1, D->oy + yy); }
-            G.secrets[G.nsecrets++] = (Secret){ sx - DX[in], sy - DY[in], in, sx, sy, 0, 0, 0, len, 1, -1, -1, x0, y0, x1, y1, D->seed | 1u, 0 };
+            G.secrets[G.nsecrets++] = (Secret){ sx - DX[in], sy - DY[in], in, sx, sy, 0, 0, 0, len, 1, -1, -1, x0, y0, x1, y1, D->seed | 1u, 0, 0, 0 };
             G.nlinks++;
         }
     gen_dress();

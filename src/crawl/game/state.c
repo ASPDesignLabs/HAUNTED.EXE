@@ -261,7 +261,9 @@ typedef struct { int deco, type, rank; float t; } Remains;         /* what somet
 typedef struct { int x, y, w, h, region, theme, rtype; } Room;   /* rtype: its run's room type, RT_* */
 /* stand at f, press d: the wall at s slides len cells back into its room (x0..x1, y0..y1). links: the chain
  * it begins (1, a room alone); door: the doorway at the back of its room into the pockets (x -1: none) */
-typedef struct { int fx, fy, d, sx, sy, tex, state, rolled, len, links, door_x, door_y, x0, y0, x1, y1; uint32_t seed; int sealed; } Secret;   /* seed: its pockets'; sealed: a trial failed in them */
+typedef struct { int fx, fy, d, sx, sy, tex, state, rolled, len, links, door_x, door_y, x0, y0, x1, y1; uint32_t seed; int sealed;
+                 int slide, stamp; } Secret;   /* seed: its pockets'; sealed: a trial failed in them; slide: 0, the wall runs len cells back along d; n, a stamp's room
+                                                  (docs/PLAN-stamps.md): it slides one cell into the stone toward n - 1; stamp: its stamp's index + 1, 0 for a box */
 #define MAXSECRETS 6
 #define SLIDE_TIME 2.3f                     /* how long a secret wall takes to slide right through its room */
 #define MAXWISPS 2                          /* the one you summon, and the Black Altar's */

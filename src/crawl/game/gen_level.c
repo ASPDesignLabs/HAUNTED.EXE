@@ -40,7 +40,7 @@ static void gen_dress(void) {
 
     /* colonnades down some of the big rooms: a pillar where four of their blocks meet */
     for (int r = 0; r < G.nrooms; r++) {
-        if (mroom[r][2] < 3 || mroom[r][3] < 3 || rnd(10) >= 4) continue;
+        if (st_room[r] > 0 || mroom[r][2] < 3 || mroom[r][3] < 3 || rnd(10) >= 4) continue;   /* (a drawn room has its own pillars) */
         for (int my = mroom[r][1] + 1; my < mroom[r][1] + mroom[r][3] - 1; my += 2)
             for (int mx = mroom[r][0] + 1; mx < mroom[r][0] + mroom[r][2] - 1; mx += 2) {
                 int x = mstart(mx), y = mstart(my);
@@ -78,6 +78,7 @@ static void gen_dress(void) {
 
     G.ncells = 0;                                                  /* what the autopilot can walk */
     for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (G.map[y][x].kind == K_FLOOR && lane(x, y) && !G.map[y][x].secret) G.ncells++;
+    if (st_nplaced) st_count_lanes();                              /* (drawn rooms: only what the lanes join) */
 
     /* fog banks: smooth blobs from a coarse random lattice; a few wisps at first, thick in the Deep */
     #define FOGL (MAPN * 10 / 48 + 3)
@@ -109,12 +110,16 @@ static void gen_level(void) {
     if (G.boss >= 0)                                               /* the boss's strip of the plan: kept out of the rest */
         for (int y = ARENA_PLAN; y < MG; y++) for (int x = 0; x < MG; x++) MM[y][x].kind = K_PILLAR;
     G.nrooms = 0; G.ndoors = 0; G.nlights = 0; G.nlc = 0; G.ndecos = 0;
+    st_nplaced = st_nmust = 0; memset(st_port, 0, sizeof st_port); memset(st_resv, 0, sizeof st_resv); memset(st_pbits, 0, sizeof st_pbits);   /* stamps (docs/PLAN-stamps.md) */
+    memset(st_room, 0, sizeof st_room);
     memset(G.bulky, 0, sizeof G.bulky); memset(G.mapped, 0, sizeof G.mapped); memset(G.foot, 0, sizeof G.foot);
     int nreg = 0;
 
     /* rooms: chambers of one to four blocks a side, a few of them big halls */
     static const int SPAN[10] = { 1, 1, 3, 3, 3, 3, 5, 5, 5, 7 };
+    int st_done = 0;
     for (int tries = 0; tries < 400 && G.nrooms < 9; tries++) {
+        if (G.nrooms == 1 && !st_done) { st_done = 1; if (lvl_stamps_on()) place_level_stamps(&nreg); if (G.nrooms >= 9) break; }   /* the drawn rooms, after the first chamber */
         int w = SPAN[rnd(10)], h = SPAN[rnd(10)];
         if (w * h > 35 || (w == 1 && h == 1 && rnd(2))) continue;
         int x = 1 + 2 * rnd((MG - w - 1) / 2 + 1), y = 1 + 2 * rnd((MG - h - 1) / 2 + 1);
@@ -133,6 +138,7 @@ static void gen_level(void) {
     if (G.boss >= 0) {                                             /* the start as far from the arena as the rooms allow */
         int far = 0, fd = -1;
         for (int r = 0; r < G.nrooms; r++) {
+            if (st_room[r] > 0) continue;                          /* a drawn room is never the start */
             int d = abs(mroom[r][0] + mroom[r][2] / 2 - ARENA_DOOR_MX) + abs(mroom[r][1] + mroom[r][3] / 2 - (ARENA_PLAN - 2));
             if (d > fd) { fd = d; far = r; }
         }
@@ -152,6 +158,7 @@ static void gen_level(void) {
     for (int y = 1; y < MG - 1; y++)
         for (int x = 1; x < MG - 1; x++) {
             if (MM[y][x].kind != K_WALL || !((x ^ y) & 1)) continue;   /* only a wall between two blocks */
+            if (st_wall_blocked(x, y)) continue;                       /* and not into a drawn room but at its ports */
             int a = -1, b = -1;
             if (mopen(x - 1, y) && mopen(x + 1, y)) { a = MM[y][x - 1].region; b = MM[y][x + 1].region; }
             else if (mopen(x, y - 1) && mopen(x, y + 1)) { a = MM[y - 1][x].region; b = MM[y + 1][x].region; }
@@ -198,6 +205,13 @@ static void gen_level(void) {
             uf[ra] = rb;
             con_carve(x, y, a, b);
         }
+    for (int i = 0; i < st_nmust; i++) {                           /* a drawn room's ports that must connect */
+        int x = st_must[i][0], y = st_must[i][1], a = -1, b = -1;
+        if (MM[y][x].kind != K_WALL) continue;
+        if (mopen(x - 1, y) && mopen(x + 1, y)) { a = MM[y][x - 1].region; b = MM[y][x + 1].region; }
+        else if (mopen(x, y - 1) && mopen(x, y + 1)) { a = MM[y - 1][x].region; b = MM[y + 1][x].region; }
+        if (a >= 0 && b >= 0) con_carve(x, y, a, b);
+    }
     for (int r = 1; r < G.nrooms; r++) {                          /* a lair with one way in: another, if the plan allows */
         if (!(G.lairs >> r & 1)) continue;
         int ways = 0, cand[64], n = 0;
@@ -218,6 +232,13 @@ static void gen_level(void) {
         con_carve(con[i][0], con[i][1], con[i][2], con[i][3]);
     }
     mz_fill_dead_ends();
+    if (st_nplaced && !st_plan_connected()) {                      /* a drawn room cut a hall off: the level again, without them */
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "STAMPS level %d: a hall was cut off; made again without them\n", G.level);
+#endif
+        st_veto = 1; gen_level(); st_veto = 0;
+        return;
+    }
 
     /* the locked rooms: gold always, silver from level 3, crimson from level 5 */
     int want = G.level >= 5 ? 3 : (G.level >= 3 ? 2 : 1), vkx[NKEYS], vky[NKEYS];
@@ -260,6 +281,20 @@ static void gen_level(void) {
         R->x = mstart(mroom[r][0]); R->y = mstart(mroom[r][1]);
         R->w = mstart(mroom[r][0] + mroom[r][2] - 1) + 3 - R->x; R->h = mstart(mroom[r][1] + mroom[r][3] - 1) + 3 - R->y;
     }
+#ifdef CRAWL_DEBUG
+    int rb = 0, tb = 0; if (st_nplaced && getenv("CRAWL_STAMPLOG")) st_cells_connected(&rb, &tb);
+#endif
+    st_impose();                                                   /* the drawn rooms' stone, before the doors are judged */
+#ifdef CRAWL_DEBUG
+    if (st_nplaced && getenv("CRAWL_STAMPLOG")) { int ra = 0, ta = 0; st_cells_connected(&ra, &ta); fprintf(stderr, "STAMPS cells reached before impose %d of %d, after %d of %d\n", rb, tb, ra, ta); }
+#endif
+    if (st_nplaced && !st_cells_connected(0, 0)) {                 /* the stone cut a hall off after all: the level again, without them */
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "STAMPS level %d: the stone cut the level in two; made again without them\n", G.level);
+#endif
+        st_veto = 1; gen_level(); st_veto = 0;
+        return;
+    }
 
     /* doors: only where they sit between two walls, never next to each other */
     for (int y = 1; y < MAPN - 1; y++)
@@ -281,6 +316,7 @@ static void gen_level(void) {
 
     place_secrets();
     gen_dress();
+    st_nplaced = 0; memset(st_room, 0, sizeof st_room);              /* kept only while this level was made: a drawn level or a shop is none of its */
 }
 
 /* set dressing: bones, webs, chains and roots in the halls, a totem at some crossings; each room a
@@ -296,7 +332,19 @@ static int by_way(int x, int y) {                                  /* next to a 
     }
     return 0;
 }
-static int block_corner(int x, int y) { return ((x & 3) == 1 || (x & 3) == 3) && ((y & 3) == 1 || (y & 3) == 3); }
+/* would a prop standing here seal floor off, in a drawn room (whose nooks the plan's blocks do not foresee) */
+static int st_seals(int x, int y) {
+    if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1 || G.map[y][x].kind != K_FLOOR || !G.map[y][x].xroom) return 0;
+    int fb = 0, fa = 0;
+    st_cells_connected(&fb, NULL);
+    G.map[y][x].kind = K_PROP;
+    st_cells_connected(&fa, NULL);
+    G.map[y][x].kind = K_FLOOR;
+    return fb - fa > 1;
+}
+static int block_corner(int x, int y) {                            /* (never a drawn room's lane bridge: a prop there would cut the lane; nor where it would seal a nook) */
+    return ((x & 3) == 1 || (x & 3) == 3) && ((y & 3) == 1 || (y & 3) == 3) && !(x >= 0 && y >= 0 && x < MAPN && y < MAPN && G.map[y][x].xlane) && !st_seals(x, y);
+}
 /* Footprints (1.0.0b18.1): while dress_level lays a level (g_foot), a low prop takes the part of its cell its art gives it
  * (crawl_prop_foot, crawl_foot_part): the whole from 0.7 of a cell, and always with no wall beside it; the half against a
  * wall it stands by, its long side along it, from 0.45; the quarter in its corner under that, the corner's open side the
@@ -313,8 +361,9 @@ static int foot_on(void) {
 #endif
 }
 static void solid_prop(int x, int y, int spr, int nfr, int kind) {
-    G.map[y][x].kind = (uint8_t)kind;
     prop_lx = x + 0.5f; prop_ly = y + 0.5f;
+    if ((kind == K_PROP || kind == K_PILLAR) && st_seals(x, y)) return;   /* in a drawn room, not where it would shut a way (its light is still laid) */
+    G.map[y][x].kind = (uint8_t)kind;
     int part = FOOT_WHOLE, walls = 0;
     if (g_foot && kind == K_PROP && foot_on() && !lane(x, y) && !in_band(y)) {
         part = crawl_foot_part(crawl_prop_foot(spr, nfr));
@@ -404,9 +453,67 @@ static int hall_litter(void) {
 }
 
 static void dress_level_props(void);
+/* A drawn room's marks (docs/PLAN-stamps.md, A4): a an altar, b a brazier, t a torch on the nearest wall. A prop keeps off the lanes the
+ * autopilot walks, but for a dead end's last cell, and off the ways in; if its cell will not do, a neighbour's does. */
+static int st_prop_ok(int x, int y, int slack) {
+    if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1) return 0;
+    for (int i = 0; i < G.nsecrets; i++) if (G.secrets[i].fx == x && G.secrets[i].fy == y) return 0;   /* the cell before a cracked wall stays free to stand on */
+    const Cell *c = &G.map[y][x];
+    if (c->kind != K_FLOOR || c->secret || G.bulky[y][x] || by_way(x, y)) return 0;
+    int fb = 0, fa = 0, lb = 0, la = 0, ok;
+    st_cells_connected(&fb, NULL);                                 /* a prop may not seal a cell off, nor (on a lane) cost the lanes more than slack */
+    if (lane(x, y)) lb = st_lane_reach();
+    G.map[y][x].kind = K_PROP;
+    st_cells_connected(&fa, NULL);
+    if (lane(x, y)) la = st_lane_reach();
+    G.map[y][x].kind = K_FLOOR;
+    ok = fb - fa <= 1;
+    if (lane(x, y)) ok = ok && lb - la <= slack;
+    return ok;
+}
+static void st_dress_marks(void) {
+    int na = 0, nb = 0, nt = 0;
+    for (int y = 1; y < MAPN - 1; y++)
+        for (int x = 1; x < MAPN - 1; x++) {
+            char g = (char)G.map[y][x].xmark;
+            if (g == 'a' || g == 'b') {
+                int px = x, py = y;
+                int slack = g == 'a' ? 16 : 4;                              /* (an altar is a room's centre: it may cost the lanes a few more) */
+                if (!st_prop_ok(px, py, slack)) {
+                    int found = 0;
+                    for (int d = 0; d < 4 && !found; d++) if (!G.map[y + DY[d]][x + DX[d]].xmark && st_prop_ok(x + DX[d], y + DY[d], slack)) { px = x + DX[d]; py = y + DY[d]; found = 1; }
+                    if (!found) {
+#ifdef CRAWL_DEBUG
+                        if (getenv("CRAWL_STAMPLOG")) fprintf(stderr, "STAMP mark %c at (%d,%d) dropped: kind %d lane %d byway %d bulky %d open %d\n", g, x, y, G.map[y][x].kind, lane(x, y), by_way(x, y), G.bulky[y][x], is_open(x + 1, y) + is_open(x - 1, y) + is_open(x, y + 1) + is_open(x, y - 1));
+#endif
+                        continue;
+                    }
+                }
+                if (g == 'a') { solid_prop(px, py, SP_ALTAR_A, 2, K_PROP); light_static(prop_lx, prop_ly, 0.8f, 3.2f); na++; }
+                else { brazier(px, py); nb++; }
+            } else if (g == 't' && G.nlights < MAXLIGHTS - 4) {
+                for (int k = 0, d = (int)(hash2(x, y) & 3); k < 4; k++, d = (d + 1) & 3) {
+                    int wx = x + DX[d], wy = y + DY[d];
+                    Cell *w = cell(wx, wy);
+                    if (w->kind != K_WALL || w->secret || w->ftorch || w->tex == T_TORCH0 || wx <= 0 || wy <= 0 || wx >= MAPN - 1 || wy >= MAPN - 1) continue;
+                    int bydoor = 0;
+                    for (int e = 0; e < 4; e++) if (cell(wx + DX[e], wy + DY[e])->kind == K_DOOR) bydoor = 1;
+                    if (bydoor) continue;
+                    w->tex = T_TORCH0; w->ftorch = (uint8_t)(((d + 2) & 3) + 1);
+                    light_static(x + 0.5f + DX[d] * 0.42f, y + 0.5f + DY[d] * 0.42f, 1.55f, 4.6f);
+                    nt++;
+                    break;
+                }
+            }
+        }
+#ifdef CRAWL_DEBUG
+    if ((na || nb || nt) && getenv("CRAWL_STAMPLOG")) fprintf(stderr, "STAMPS level %d marks: %d altars, %d braziers, %d torches\n", G.level, na, nb, nt);
+#endif
+}
 static void dress_level(void) {                                    /* the props laid with their footprints (1.0.0b18.1) */
     g_foot = 1; memset(g_foot_n, 0, sizeof g_foot_n);
     dress_level_props();
+    st_dress_marks();
     g_foot = 0;
 #ifdef CRAWL_DEBUG
     if (!PK.depth) fprintf(stderr, "FOOT level %d: %d whole (%d of them in the open), %d half, %d a quarter\n", G.level, g_foot_n[0], g_foot_n[3], g_foot_n[1], g_foot_n[2]);

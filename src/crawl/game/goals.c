@@ -18,7 +18,13 @@ static void open_secret(int i) {
     G.map[sc->sy][sc->sx].kind = K_FLOOR;                          /* the block is drawn by itself while it moves */
     int nl = G.nlights;
     light_static(sc->sx + 0.5f + DX[sc->d] * 1.5f, sc->sy + 0.5f + DY[sc->d] * 1.5f, 0.75f, 3.4f);   /* the hoard's own glow */
-    if (sc->len > 3 || sc->x1 - sc->x0 + sc->y1 - sc->y0 > 4)     /* a bigger room: the far end too */
+    if (sc->slide) {                                               /* a stamp's room: the far end too, at its farthest cell */
+        int fx = -1, fy = -1, fd = 4;
+        for (int y = sc->y0; y <= sc->y1; y++)
+            for (int x = sc->x0; x <= sc->x1; x++)
+                if (G.map[y][x].secret == 1 && abs(x - sc->sx) + abs(y - sc->sy) > fd) { fd = abs(x - sc->sx) + abs(y - sc->sy); fx = x; fy = y; }
+        if (fx >= 0) light_static(fx + 0.5f, fy + 0.5f, 0.7f, 4.0f);
+    } else if (sc->len > 3 || sc->x1 - sc->x0 + sc->y1 - sc->y0 > 4)     /* a bigger room: the far end too */
         light_static((sc->x0 + sc->x1 + 1) * 0.5f + DX[sc->d] * 1.0f, (sc->y0 + sc->y1 + 1) * 0.5f + DY[sc->d] * 1.0f, 0.7f, 4.0f);
     if (sc->door_x >= 0)                                           /* what comes through the doorway */
         light_static(sc->door_x + 0.5f - (sc->door_x - imin(imax(sc->door_x, sc->x0), sc->x1)) * 0.6f,
@@ -38,12 +44,13 @@ static void open_secret(int i) {
 static void update_slide(float dt) {
     if (G.slide < 0) return;
     Secret *sc = &G.secrets[G.slide];
-    G.slide_t += dt * (float)sc->len / SLIDE_TIME;
-    if (G.slide_t < (float)sc->len) return;
-    int ex = sc->sx + DX[sc->d] * sc->len, ey = sc->sy + DY[sc->d] * sc->len;   /* it comes to rest at the back */
+    int sw = slide_way(sc), sl = slide_len(sc);
+    G.slide_t += dt * (float)sl / SLIDE_TIME;
+    if (G.slide_t < (float)sl) return;
+    int ex = sc->sx + DX[sw] * sl, ey = sc->sy + DY[sw] * sl;      /* it comes to rest at the back, or in the stone beside */
     G.map[ey][ex].kind = K_WALL; G.map[ey][ex].tex = (uint8_t)sc->tex;
     G.map[sc->sy][sc->sx].secret = 0;
-    for (int y = sc->y0; y <= sc->y1; y++) for (int x = sc->x0; x <= sc->x1; x++) G.map[y][x].secret = 0;
+    for (int y = sc->y0; y <= sc->y1; y++) for (int x = sc->x0; x <= sc->x1; x++) if (!sc->stamp || G.map[y][x].secret == 1) G.map[y][x].secret = 0;   /* (not a stamp's doorway) */
     sc->state = 2; G.slide = -1;
     for (int i = 0; i < MAXWISPS; i++) G.wisps[i].gx = -1;        /* the closet is part of the crypt now: map the ways again */
 }
