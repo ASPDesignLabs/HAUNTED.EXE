@@ -119,3 +119,32 @@ screenshots), run `HAUNTED.scr /s`, wait about 25 s for it to come up, then driv
 Python `ctypes` (`libXtst.so.6`: `XTestFakeKeyEvent`, `XTestFakeRelativeMotionEvent`) and take
 screenshots with ImageMagick `import -window root`. Settings, progress, the ledger and the mark live under
 `HKCU\Software\HalloweenVGASaver` (`wine reg query` to check).
+
+**Stamps** (docs/PLAN-stamps.md; harness only until the owner has played them). The generator's secret rooms, joiners and places come from
+drawn stamps (`src/crawl/crawl_stamp_data.c`); the debug build's switches: `CRAWL_NOSTAMPS=1` (today's generator, byte for byte: the dream's
+logs match 1.0.0b21.6 line for line, which is how a change is proved to move nothing), `CRAWL_NOJOINERS=1` (stamps for secret rooms only: no
+joiners or places), `CRAWL_STAMP=name` (this stamp is tried first, wherever it fits), `CRAWL_STAMPLOG=1` (what each port opens on, the stamps
+left out and why, the cells reached before and after the stone, and `MAPR`, the reach map when floor is cut off), `CRAWL_TPSTAMP=n` (stand
+on the hall's cell before secret n, facing it, once you take control), `CRAWL_TPMARK=letter` (two to four cells from the first stamp mark
+of that letter, facing it: `a b c s t`). Lines: `STAMPS level n: k rooms: [name xT plan (x,y) WxH] ...` (T the orientation, 0 to 7, as
+`Stamp.xf`), `STAMPS level n: ...; made again without them` (a safety net fired: the level is made again with no stamps), `STAMPS level n
+marks: ...` (what the marks became), and the `SECRETS` line names the stamp of each room. The sheet and its check:
+`make build/stampsheet`, `build/stampsheet <dir> [secrets|joiners|places|extras|all|check]` (`check` runs the parser's rules on every stamp in
+all eight orientations and exits 1 on a failure; `make sheets` runs it). Two proofs, in `tools/`:
+
+```sh
+make build/host_debug && python3 tools/stampsweep.py [--seeds 1-200] [--levels 1,5,10,11,20,21,30,31,40] [--nostamps] [--list]
+python3 tools/stampbal.py --old build/bal/b216/build/host_debug [--new build/host_debug] [--seeds 1,3,5,...] [--secs 3000] [--reuse]
+```
+
+`stampsweep.py` generates each (seed, level) with `CRAWL_STAGE=1 CRAWL_MAP=1` and reads the printed map: it rebuilds reachability from it
+(locked doors passable, secret walls shut, then open) and fails a level whose exit, a key, a locked door, a secret entrance, a secret room or a
+doorway cannot be reached, or whose doorway touches no floor of its room; it counts hangs, crashes and the levels made again without stamps
+(the exit code is 1 on any failure). It also takes `--host build/host_asan` (with `ASAN_OPTIONS=detect_leaks=0`) to run the same under the
+sanitizers. **The harness ORs the seed with 1, so seeds 1-200 are 100 layouts, and a seed gives the same layout at every level.** A stamp
+overlapping a vault, a wing, a trial's room or the arena is not tested directly (a vault door or key it covered would show as unreached).
+`stampbal.py` runs the dream on the same seeds in this build and in an older one (a `git worktree` at the commit to weigh against, with
+`make build/host_debug` in it; keep it under `build/bal/`, which is not tracked) and prints levels cleared, deaths, the median seconds a
+level took, secret rooms found and gold, per seed and in all; 16 seeds of 3,000 s take about 17 minutes on four cores. Eight seeds carry
+noise of about a quarter either way: read the means.
+

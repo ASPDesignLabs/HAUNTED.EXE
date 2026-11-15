@@ -118,3 +118,16 @@ harness `docs/HARNESS.md`, the known issues `docs/KNOWN-ISSUES.md`, and each rel
   level whatever deaths come between (`RUN.coin_level/coin_bits`, saved), and comes in as a pop-up headed
   FOR THE SHRINE. Shown under the keys on the status bar (in `small_digits`), in the readout, and at the
   top of the caster's page. The debug build logs `EVENT coin`.
+
+- **Secret rooms from stamps** (`place_secrets`, `stamps_on`, `place_stamp_secret`, `stamp_try`, `slide_way`, `slide_len`; docs/PLAN-stamps.md). For each
+  wall the old box would have used, `place_secrets` tries a secret stamp (weighted by step and run): the stamp's chosen `E` stands on that wall
+  cell and its room hangs off it in the stone, laid only where every floor cell is untouched stone on solid plan squares and every outside
+  neighbour is stone. A chain of two or more links also needs a `D`, a stone cell touching the room's floor with solid rock behind it, in reach of
+  the lanes the autopilot walks, else that stamp is passed over; a chain of one gets no doorway even where its drawing has one. If nothing fits,
+  the old box is the fallback (about 3 in 100 rooms). **How the wall opens (option B, the owner's choice):** `Secret.slide` is 0 for the old
+  slide (the wall runs `len` cells back along `d`), or n for a stamp room: the stone retracts one cell sideways into the rock beside the entrance
+  toward n - 1 and the room is left empty to walk. `slide_box`, `open_secret`, `update_slide` (`goals.c`, which clears only a stamp room's own
+  floor, so a doorway inside its bounding box survives) and the drawing of the wall read it; `Secret.stamp` is the stamp's index + 1; loot keeps
+  to the room's floor. The bent rooms (L, arrow, C, spiral, J, the long approach) are weighted up at the owner's word, so they are about a fifth
+  of the rooms. Debug: `CRAWL_TPSTAMP=n`; the `SECRETS` log line names the stamp; `docs/HARNESS.md`, *Stamps*. Faults found by the sweep
+  (`tools/stampsweep.py`) and still open are in `docs/KNOWN-ISSUES.md`.
