@@ -40,7 +40,7 @@ static void gen_dress(void) {
 
     /* colonnades down some of the big rooms: a pillar where four of their blocks meet */
     for (int r = 0; r < G.nrooms; r++) {
-        if (mroom[r][2] < 3 || mroom[r][3] < 3 || rnd(10) >= 4) continue;
+        if (st_room[r] > 0 || mroom[r][2] < 3 || mroom[r][3] < 3 || rnd(10) >= 4) continue;   /* (a drawn room has its own pillars) */
         for (int my = mroom[r][1] + 1; my < mroom[r][1] + mroom[r][3] - 1; my += 2)
             for (int mx = mroom[r][0] + 1; mx < mroom[r][0] + mroom[r][2] - 1; mx += 2) {
                 int x = mstart(mx), y = mstart(my);
@@ -109,12 +109,16 @@ static void gen_level(void) {
     if (G.boss >= 0)                                               /* the boss's strip of the plan: kept out of the rest */
         for (int y = ARENA_PLAN; y < MG; y++) for (int x = 0; x < MG; x++) MM[y][x].kind = K_PILLAR;
     G.nrooms = 0; G.ndoors = 0; G.nlights = 0; G.nlc = 0; G.ndecos = 0;
+    st_nplaced = st_nmust = 0; memset(st_port, 0, sizeof st_port); memset(st_resv, 0, sizeof st_resv);   /* stamps (docs/PLAN-stamps.md) */
+    memset(st_room, 0, sizeof st_room);
     memset(G.bulky, 0, sizeof G.bulky); memset(G.mapped, 0, sizeof G.mapped); memset(G.foot, 0, sizeof G.foot);
     int nreg = 0;
 
     /* rooms: chambers of one to four blocks a side, a few of them big halls */
     static const int SPAN[10] = { 1, 1, 3, 3, 3, 3, 5, 5, 5, 7 };
+    int st_done = 0;
     for (int tries = 0; tries < 400 && G.nrooms < 9; tries++) {
+        if (G.nrooms == 1 && !st_done) { st_done = 1; if (lvl_stamps_on()) place_level_stamps(&nreg); if (G.nrooms >= 9) break; }   /* the drawn rooms, after the first chamber */
         int w = SPAN[rnd(10)], h = SPAN[rnd(10)];
         if (w * h > 35 || (w == 1 && h == 1 && rnd(2))) continue;
         int x = 1 + 2 * rnd((MG - w - 1) / 2 + 1), y = 1 + 2 * rnd((MG - h - 1) / 2 + 1);
@@ -133,6 +137,7 @@ static void gen_level(void) {
     if (G.boss >= 0) {                                             /* the start as far from the arena as the rooms allow */
         int far = 0, fd = -1;
         for (int r = 0; r < G.nrooms; r++) {
+            if (st_room[r] > 0) continue;                          /* a drawn room is never the start */
             int d = abs(mroom[r][0] + mroom[r][2] / 2 - ARENA_DOOR_MX) + abs(mroom[r][1] + mroom[r][3] / 2 - (ARENA_PLAN - 2));
             if (d > fd) { fd = d; far = r; }
         }
@@ -152,6 +157,7 @@ static void gen_level(void) {
     for (int y = 1; y < MG - 1; y++)
         for (int x = 1; x < MG - 1; x++) {
             if (MM[y][x].kind != K_WALL || !((x ^ y) & 1)) continue;   /* only a wall between two blocks */
+            if (st_wall_blocked(x, y)) continue;                       /* and not into a drawn room but at its ports */
             int a = -1, b = -1;
             if (mopen(x - 1, y) && mopen(x + 1, y)) { a = MM[y][x - 1].region; b = MM[y][x + 1].region; }
             else if (mopen(x, y - 1) && mopen(x, y + 1)) { a = MM[y - 1][x].region; b = MM[y + 1][x].region; }
@@ -198,6 +204,13 @@ static void gen_level(void) {
             uf[ra] = rb;
             con_carve(x, y, a, b);
         }
+    for (int i = 0; i < st_nmust; i++) {                           /* a drawn room's ports that must connect */
+        int x = st_must[i][0], y = st_must[i][1], a = -1, b = -1;
+        if (MM[y][x].kind != K_WALL) continue;
+        if (mopen(x - 1, y) && mopen(x + 1, y)) { a = MM[y][x - 1].region; b = MM[y][x + 1].region; }
+        else if (mopen(x, y - 1) && mopen(x, y + 1)) { a = MM[y - 1][x].region; b = MM[y + 1][x].region; }
+        if (a >= 0 && b >= 0) con_carve(x, y, a, b);
+    }
     for (int r = 1; r < G.nrooms; r++) {                          /* a lair with one way in: another, if the plan allows */
         if (!(G.lairs >> r & 1)) continue;
         int ways = 0, cand[64], n = 0;
@@ -260,6 +273,7 @@ static void gen_level(void) {
         R->x = mstart(mroom[r][0]); R->y = mstart(mroom[r][1]);
         R->w = mstart(mroom[r][0] + mroom[r][2] - 1) + 3 - R->x; R->h = mstart(mroom[r][1] + mroom[r][3] - 1) + 3 - R->y;
     }
+    st_impose();                                                   /* the drawn rooms' stone, before the doors are judged */
 
     /* doors: only where they sit between two walls, never next to each other */
     for (int y = 1; y < MAPN - 1; y++)
@@ -281,6 +295,7 @@ static void gen_level(void) {
 
     place_secrets();
     gen_dress();
+    st_nplaced = 0; memset(st_room, 0, sizeof st_room);              /* kept only while this level was made: a drawn level or a shop is none of its */
 }
 
 /* set dressing: bones, webs, chains and roots in the halls, a totem at some crossings; each room a
