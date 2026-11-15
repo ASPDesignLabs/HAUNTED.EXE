@@ -44,7 +44,8 @@ extern const int NSTAMP_DEFS;
 
 /* per-cell flags in Stamp.fl */
 enum { SF_FLOOR = 1,                                    /* walkable: '.', a port, a mark or a number */
-       SF_LANE = 2,                                     /* floor at index 1 (mod 4) in x or y from the stamp's origin: the hall lane */
+       SF_LANE = 2,                                     /* floor at index 1 (mod 4) in x or y from the stamp's origin: the hall lane, and the
+                                                  bridges that join the lane's pieces (the autopilot walks lanes only) */
        SF_PORT = 4,                                     /* on a P or p */
        SF_ENTRY = 8,                                    /* an E */
        SF_DOOR = 16 };                                  /* a D */

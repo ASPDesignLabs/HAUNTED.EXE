@@ -18,13 +18,59 @@ static int is_mark(char c) { return c == 'a' || c == 'b' || c == 'c' || c == 's'
 static int in_box(const Stamp *s, int x, int y) { return x >= 0 && y >= 0 && x < s->w && y < s->h; }
 static int is_floor(const Stamp *s, int x, int y) { return in_box(s, x, y) && (s->fl[y][x] & SF_FLOOR); }
 
-/* the lane: floor at index 1 mod 4 along either side of the box, which is the middle of a block when the box starts on the plan's lattice */
+/* the lane cells the lanes alone leave apart are joined to the first port's, each by the shortest way over floor (the autopilot walks only
+ * lane cells, and a drawn room's walls need not lie on the plan's lanes) */
+static void bridge_lanes(Stamp *s) {
+    static uint8_t comp[STAMP_MAXH][STAMP_MAXW], prev[STAMP_MAXH][STAMP_MAXW];
+    static int qx[STAMP_MAXH * STAMP_MAXW], qy[STAMP_MAXH * STAMP_MAXW];
+    int sx = -1, sy = -1;
+    for (int i = 0; i < s->nport && sx < 0; i++) if (s->fl[s->port[i].y][s->port[i].x] & SF_LANE) { sx = s->port[i].x; sy = s->port[i].y; }
+    for (int y = 0; y < s->h && sx < 0; y++) for (int x = 0; x < s->w && sx < 0; x++) if (s->fl[y][x] & SF_LANE) { sx = x; sy = y; }
+    if (sx < 0) return;
+    for (int round = 0; round < 64; round++) {
+        int qh = 0, qt = 0, total = 0;                            /* the lane cells joined to the first, then the way to the nearest that is not */
+        memset(comp, 0, sizeof comp);
+        comp[sy][sx] = 1; qx[qt] = sx; qy[qt++] = sy;
+        while (qh < qt) {
+            int x = qx[qh], y = qy[qh++];
+            for (int k = 0; k < 4; k++) {
+                int nx = x + DXS[k], ny = y + DYS[k];
+                if (!in_box(s, nx, ny) || comp[ny][nx] || !(s->fl[ny][nx] & SF_LANE)) continue;
+                comp[ny][nx] = 1; qx[qt] = nx; qy[qt++] = ny;
+            }
+        }
+        for (int y = 0; y < s->h; y++) for (int x = 0; x < s->w; x++) total += (s->fl[y][x] & SF_LANE) != 0;
+        if (qt == total) return;                                   /* all joined */
+        qh = 0; qt = 0;                                            /* breadth first over floor from every joined cell */
+        memset(prev, 0, sizeof prev);
+        for (int y = 0; y < s->h; y++) for (int x = 0; x < s->w; x++) if (comp[y][x]) { prev[y][x] = 5; qx[qt] = x; qy[qt++] = y; }
+        int hx = -1, hy = -1;
+        while (qh < qt && hx < 0) {
+            int x = qx[qh], y = qy[qh++];
+            for (int k = 0; k < 4; k++) {
+                int nx = x + DXS[k], ny = y + DYS[k];
+                if (!is_floor(s, nx, ny) || prev[ny][nx]) continue;
+                prev[ny][nx] = (uint8_t)(k + 1); qx[qt] = nx; qy[qt++] = ny;
+                if (s->fl[ny][nx] & SF_LANE) { hx = nx; hy = ny; break; }
+            }
+        }
+        if (hx < 0) return;                                        /* the floor is in pieces: stamp_valid says so */
+        for (int x = hx, y = hy; prev[y][x] != 5; ) {              /* walk back to the joined cells, making the way lane */
+            s->fl[y][x] |= SF_LANE;
+            int k = prev[y][x] - 1, nx = x - DXS[k], ny = y - DYS[k];
+            x = nx; y = ny;
+        }
+    }
+}
+/* the lane: floor at index 1 mod 4 along either side of the box, which is the middle of a block when the box starts on the plan's lattice,
+ * and the bridges that join its pieces */
 static void set_lane(Stamp *s) {
     for (int y = 0; y < s->h; y++)
         for (int x = 0; x < s->w; x++) {
             s->fl[y][x] &= (uint8_t)~SF_LANE;
             if ((s->fl[y][x] & SF_FLOOR) && ((x & 3) == 1 || (y & 3) == 1)) s->fl[y][x] |= SF_LANE;
         }
+    bridge_lanes(s);
 }
 
 /* which way out of the box a cell on its edge faces: 0..3, or 4 if it is not on exactly one edge. A port in a corner is on two; it faces the

@@ -218,10 +218,11 @@ static int tu_mercy(void);
 static void tu_show(void);
 static int lane(int x, int y) {
     if (g_drawn) return x >= 0 && y >= 0 && x < MAPN && y < MAPN && g_lane[y][x];
-    return (x & 3) == 2 || (y & 3) == 2;
+    return (x & 3) == 2 || (y & 3) == 2 || (x >= 0 && y >= 0 && x < MAPN && y < MAPN && G.map[y][x].xlane);
 }
 static int lane_dist(int x, int y) {
     if (g_drawn) return x >= 0 && y >= 0 && x < MAPN && y < MAPN ? g_ldist[y][x] : 9;
+    if (x >= 0 && y >= 0 && x < MAPN && y < MAPN && G.map[y][x].xlane) return 0;
     int a = abs((x & 3) - 2), b = abs((y & 3) - 2); return a < b ? a : b;
 }
 /* where the autopilot may walk: the middle lanes */
@@ -629,20 +630,31 @@ static int st_lane_ok(const Stamp *s) {                            /* the autopi
         }
     }
     for (int i = 0; i < s->nport; i++) { const StampPort *p = &s->port[i]; if ((s->fl[p->y][p->x] & SF_LANE) && !seen[p->y][p->x]) return 0; }
-    return 1;
+    int lanes = 0, joined = 0;                                     /* and most of the rest: what the autopilot cannot reach it never sees */
+    for (int y = 0; y < s->h; y++)
+        for (int x = 0; x < s->w; x++)
+            if ((s->fl[y][x] & (SF_FLOOR | SF_LANE)) == (SF_FLOOR | SF_LANE)) { lanes++; joined += seen[y][x]; }
+    return joined * 100 >= lanes * 85;
 }
 static int st_load(int kind, Stamp *out) {                         /* the oriented stamps of a kind that the autopilot can cross */
     int n = stamp_set(kind, out, ST_LVL_MAX), k = 0;
     if (n < 0) return 0;
     for (int i = 0; i < n; i++) {
-        if (!st_lane_ok(&out[i])) continue;
+        if (!st_lane_ok(&out[i])) {
+#ifdef CRAWL_DEBUG
+            if (getenv("CRAWL_STAMPLOG")) fprintf(stderr, "STAMP left out: %s x%d (lane cells not joined)\n", out[i].name, out[i].xf);
+#endif
+            continue;
+        }
         if (kind == ST_PLACE && !strncmp(out[i].name, "place_antechamber", 17)) continue;   /* it waits for a vault to stand before (not yet) */
         if (k != i) out[k] = out[i];
         k++;
     }
     return k;
 }
+static int st_veto;                                                /* set while a level is made again without its stamps */
 static int lvl_stamps_on(void) {
+    if (st_veto) return 0;
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_NOSTAMPS") || getenv("CRAWL_NOJOINERS")) return 0;
 #endif
@@ -740,6 +752,45 @@ static void place_level_stamps(int *nreg) {
     fprintf(stderr, "\n");
 #endif
 }
+/* the autopilot's lanes, counted from the first room: a drawn room's lane cells that the lanes do not join are not its to see */
+static void st_count_lanes(void) {
+    static uint8_t seen[MAPN][MAPN]; static int qx[MAPN * MAPN], qy[MAPN * MAPN];
+    int qh = 0, qt = 0;
+    memset(seen, 0, sizeof seen);
+    const Room *R = &G.rooms[0];
+    for (int y = R->y; y < R->y + R->h && !qt; y++)
+        for (int x = R->x; x < R->x + R->w && !qt; x++)
+            if (G.map[y][x].kind == K_FLOOR && lane(x, y)) { seen[y][x] = 1; qx[qt] = x; qy[qt++] = y; }
+    while (qh < qt) {
+        int x = qx[qh], y = qy[qh++];
+        for (int d = 0; d < 4; d++) {
+            int nx = x + DX[d], ny = y + DY[d];
+            if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || seen[ny][nx] || !lane(nx, ny)) continue;
+            int k = G.map[ny][nx].kind;
+            if ((k != K_FLOOR && k != K_DOOR) || G.map[ny][nx].secret) continue;
+            seen[ny][nx] = 1; qx[qt] = nx; qy[qt++] = ny;
+        }
+    }
+    G.ncells = 0;
+    for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) G.ncells += seen[y][x] && G.map[y][x].kind == K_FLOOR;
+}
+/* can the whole plan be walked from the first room: a stamp that is reached only at its ports can cut a hall off */
+static int st_plan_connected(void) {
+    static uint8_t seen[MG][MG]; static int qx[MG * MG], qy[MG * MG];
+    int qh = 0, qt = 0, total = 0;
+    memset(seen, 0, sizeof seen);
+    for (int y = 0; y < MG; y++) for (int x = 0; x < MG; x++) total += mopen(x, y);
+    seen[mroom[0][1]][mroom[0][0]] = 1; qx[qt] = mroom[0][0]; qy[qt++] = mroom[0][1];
+    while (qh < qt) {
+        int x = qx[qh], y = qy[qh++];
+        for (int d = 0; d < 4; d++) {
+            int nx = x + DX[d], ny = y + DY[d];
+            if (!mopen(nx, ny) || seen[ny][nx]) continue;
+            seen[ny][nx] = 1; qx[qt] = nx; qy[qt++] = ny;
+        }
+    }
+    return qt == total;
+}
 /* the wall between two blocks, one a stamp's, that is not one of its ports stays shut */
 static int st_wall_blocked(int x, int y) {
     if (!st_nplaced || st_port[y][x]) return 0;
@@ -758,7 +809,7 @@ static void st_impose(void) {
                 int inside = x >= 0 && y >= 0 && x < s->w && y < s->h;
                 Cell *c = &G.map[my][mx];
                 if (inside) {
-                    if (s->fl[y][x] & SF_FLOOR) continue;
+                    if (s->fl[y][x] & SF_FLOOR) { if (s->fl[y][x] & SF_LANE) c->xlane = 1; continue; }
                 } else {                                           /* the ring: open only where the stamp's own floor lies inside it */
                     if (c->kind != K_FLOOR && c->kind != K_DOOR) continue;
                     int ix = x < 0 ? 0 : (x >= s->w ? s->w - 1 : x), iy = y < 0 ? 0 : (y >= s->h ? s->h - 1 : y);
@@ -767,6 +818,17 @@ static void st_impose(void) {
                 }
                 c->kind = K_WALL; c->region = -1; c->door = -1;
             }
+#ifdef CRAWL_DEBUG
+        if (getenv("CRAWL_STAMPLOG")) {                            /* what each port opens on */
+            fprintf(stderr, "STAMP %s x%d at (%d,%d):", s->name, s->xf, ox, oy);
+            for (int k = 0; k < s->nport; k++) {
+                const StampPort *pp = &s->port[k];
+                int rx = ox + pp->x + DX[pp->d], ry = oy + pp->y + DY[pp->d];
+                fprintf(stderr, " %c(%d,%d)%s", pp->must ? 'P' : 'p', pp->x, pp->y, G.map[ry][rx].kind == K_FLOOR ? "=open" : G.map[ry][rx].kind == K_DOOR ? "=door" : "=shut");
+            }
+            fprintf(stderr, "\n");
+        }
+#endif
     }
 }
 

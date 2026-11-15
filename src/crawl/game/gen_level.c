@@ -78,6 +78,7 @@ static void gen_dress(void) {
 
     G.ncells = 0;                                                  /* what the autopilot can walk */
     for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (G.map[y][x].kind == K_FLOOR && lane(x, y) && !G.map[y][x].secret) G.ncells++;
+    if (st_nplaced) st_count_lanes();                              /* (drawn rooms: only what the lanes join) */
 
     /* fog banks: smooth blobs from a coarse random lattice; a few wisps at first, thick in the Deep */
     #define FOGL (MAPN * 10 / 48 + 3)
@@ -231,6 +232,13 @@ static void gen_level(void) {
         con_carve(con[i][0], con[i][1], con[i][2], con[i][3]);
     }
     mz_fill_dead_ends();
+    if (st_nplaced && !st_plan_connected()) {                      /* a drawn room cut a hall off: the level again, without them */
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "STAMPS level %d: a hall was cut off; made again without them\n", G.level);
+#endif
+        st_veto = 1; gen_level(); st_veto = 0;
+        return;
+    }
 
     /* the locked rooms: gold always, silver from level 3, crimson from level 5 */
     int want = G.level >= 5 ? 3 : (G.level >= 3 ? 2 : 1), vkx[NKEYS], vky[NKEYS];
@@ -311,7 +319,9 @@ static int by_way(int x, int y) {                                  /* next to a 
     }
     return 0;
 }
-static int block_corner(int x, int y) { return ((x & 3) == 1 || (x & 3) == 3) && ((y & 3) == 1 || (y & 3) == 3); }
+static int block_corner(int x, int y) {                            /* (never a drawn room's lane bridge: a prop there would cut the lane) */
+    return ((x & 3) == 1 || (x & 3) == 3) && ((y & 3) == 1 || (y & 3) == 3) && !(x >= 0 && y >= 0 && x < MAPN && y < MAPN && G.map[y][x].xlane);
+}
 /* Footprints (1.0.0b18.1): while dress_level lays a level (g_foot), a low prop takes the part of its cell its art gives it
  * (crawl_prop_foot, crawl_foot_part): the whole from 0.7 of a cell, and always with no wall beside it; the half against a
  * wall it stands by, its long side along it, from 0.45; the quarter in its corner under that, the corner's open side the
