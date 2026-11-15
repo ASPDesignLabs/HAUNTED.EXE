@@ -63,7 +63,7 @@ enum { AW_NONE, AW_SEEK, AW_HOME, AW_REST };   /* its wisp: not woken, at a secr
 #define BLESS_REACH 4.0f                    /* how near a blessed wisp the undead turn */
 
 typedef struct { uint8_t kind, tex, theme, visits; int16_t region, door; uint8_t secret, lamp;
-                 uint8_t face[4], fover[4], fflip, ftorch, flo, cei, por, xlane, xmark; } Cell;   /* por: 1 + a portrait of the slain hung on one of its faces */   /* xlane: a lane cell besides the plan's own (a drawn room's bridge, docs/PLAN-stamps.md); xmark: what a drawn room asks to stand here (a b c s t) */   /* secret: 1 a hidden closet, 2 its cracked wall; lamp: a pocket's ceiling panel, 1 + its light, 255 dead */
+                 uint8_t face[4], fover[4], fflip, ftorch, flo, cei, por, xlane, xmark, xroom; } Cell;   /* por: 1 + a portrait of the slain hung on one of its faces */   /* xlane: a lane cell besides the plan's own (a drawn room's bridge, docs/PLAN-stamps.md); xmark: what a drawn room asks to stand here (a b c s t); xroom: inside a drawn room's box */   /* secret: 1 a hidden closet, 2 its cracked wall; lamp: a pocket's ceiling panel, 1 + its light, 255 dead */
 /* On a drawn run (docs/PLAN-b10.md) a wall's faces have their own looks: face[d] is the texture of its face
  * toward (DX[d], DY[d]) (0: tex, as before), fover what stands on it, fflip bit d mirrored, ftorch the face a
  * torch is on, + 1. A floor cell's flo and cei are its floor and ceiling (0: plain); fflip bits 5-7 say how

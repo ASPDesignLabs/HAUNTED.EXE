@@ -858,6 +858,7 @@ static void st_impose(void) {
                 if (mx < 1 || my < 1 || mx >= MAPN - 1 || my >= MAPN - 1) continue;
                 int inside = x >= 0 && y >= 0 && x < s->w && y < s->h;
                 Cell *c = &G.map[my][mx];
+                if (inside) c->xroom = 1;                          /* kept on the cell, for what is laid after the level's made (the sites', the puzzles') */
                 if (inside) {
                     if (s->fl[y][x] & SF_FLOOR) { if (s->fl[y][x] & SF_LANE) c->xlane = 1; continue; }
                 } else {                                           /* the ring: open only where the stamp's own floor lies inside it */

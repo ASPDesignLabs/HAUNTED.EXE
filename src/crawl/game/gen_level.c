@@ -334,14 +334,7 @@ static int by_way(int x, int y) {                                  /* next to a 
 }
 /* would a prop standing here seal floor off, in a drawn room (whose nooks the plan's blocks do not foresee) */
 static int st_seals(int x, int y) {
-    if (!st_nplaced || x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1 || G.map[y][x].kind != K_FLOOR) return 0;
-    int in = 0;
-    for (int i = 0; i < st_nplaced && !in; i++) {
-        const Stamp *s = st_placed[i].s;
-        int ox = mstart(st_placed[i].px), oy = mstart(st_placed[i].py);
-        in = x >= ox && y >= oy && x < ox + s->w && y < oy + s->h;
-    }
-    if (!in) return 0;
+    if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1 || G.map[y][x].kind != K_FLOOR || !G.map[y][x].xroom) return 0;
     int fb = 0, fa = 0;
     st_cells_connected(&fb, NULL);
     G.map[y][x].kind = K_PROP;
@@ -464,6 +457,7 @@ static void dress_level_props(void);
  * autopilot walks, but for a dead end's last cell, and off the ways in; if its cell will not do, a neighbour's does. */
 static int st_prop_ok(int x, int y, int slack) {
     if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1) return 0;
+    for (int i = 0; i < G.nsecrets; i++) if (G.secrets[i].fx == x && G.secrets[i].fy == y) return 0;   /* the cell before a cracked wall stays free to stand on */
     const Cell *c = &G.map[y][x];
     if (c->kind != K_FLOOR || c->secret || G.bulky[y][x] || by_way(x, y)) return 0;
     int fb = 0, fa = 0, lb = 0, la = 0, ok;
