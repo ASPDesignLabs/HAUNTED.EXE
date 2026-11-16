@@ -36,7 +36,7 @@ lost when you wake in the merchant's room after a death.*
 
 ## 3. For whoever plays it (the owner dogfoods this)
 
-- The needle is not read by colour alone: each objective has its own tip (the exit a diamond, a key a notch, the altar a ring) as well as
+- The needle is not read by colour alone: each objective has its own tip (the exit a wisp's flame, a key its bit, the altar an eye) as well as
   its ramp, and the readout says the same in words.
 - The dial turns smoothly but **never jitters or spins for show**: it eases to the bearing, and when the bearing is a wall's length off
   it does not hunt. With the small-life movement setting on *reduced* or *off* (docs/PLAN-ambience.md) the dial still turns, since it
@@ -49,8 +49,7 @@ lost when you wake in the merchant's room after a death.*
 New art goes to the owner as a sheet before it goes in the game (`make sheets`). Three pieces, in the carved stone of docs/PLAN-ui.md,
 cut with the `sc_*` kit:
 
-1. **The dial** for the HUD's stone: a ring with a sun-worn N tick, four cardinal points, a needle with the three tips above, in the
-   stone's own sockets. A mark `TSM_COMPASS` beside `TSM_SCROLL` in the stones' list (`NTSM`).
+1. **The dial** for the HUD's stone: a disc of old stone, chipped, cracked and mossed (they turn with it), bone studs set in its rim for the winds and a gilt one for north, a needle of bone whose tip carries the colour (the exit a wisp's flame, a key its bit, the altar an eye), a skull for its pin. The first sheet drew a clean modern dial, which did not belong; the second pass is this. A mark `TSM_COMPASS` beside `TSM_SCROLL` in the stones' list (`NTSM`).
 2. **The prop** in her room, floating at her right as the map floats at her left (`draw/sprites.c` 1226; `draw/hud.c` 47 for its tag).
 3. **The shop pane** card in `draw/tab.c` beside the map's: the price in gold or "YOU ARE $n SHORT", and "BUY THE MAP FIRST" while
    there is no map.
@@ -82,4 +81,4 @@ against `controls.c` when step 4 is reached.
 
 ## 7. Hand-off log
 
-*Step 0: the plan, and the sheet (16 November 2026): `build/uisheet compass <out.png>`, the dial drawn in the mock-up (`dial()` in `tools/uisheet.c`, to move into `crawl_ui.c` once approved; `build/uisheet` now links `crawl_title.c` for the touch tablet). Kept as `media/sheets/compass/compass.png`: the HUD plate, the dial turning, the three tips and rest, the touch tablet, the prop, her wares' page. Waiting on the owner's look; nothing in the game has changed.*
+*Step 0: the plan, and the sheet (16 November 2026): `build/uisheet compass <out.png>`, the dial drawn in the mock-up (`dial()` in `tools/uisheet.c`, to move into `crawl_ui.c` once approved; `build/uisheet` now links `crawl_title.c` for the touch tablet). Redrawn once (the first dial looked like a watch; now a relic). Kept as `media/sheets/compass/compass.png`: the HUD plate, the dial turning, the three tips and rest, the touch tablet, the prop, her wares' page. Waiting on the owner's look; nothing in the game has changed.*
