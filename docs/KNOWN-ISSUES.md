@@ -345,3 +345,15 @@ wrong or untried, and the numbers from each round of the dream's runs. Add to it
   480 levels (levels 5 to 40) and on a scripted person for about 143 s on each of levels 11, 22 and 31. **Of ours, unapproved:** the nine
   extra joiners and six places were sent to the owner as sheets and have not been approved, though the generator lays them.
 
+- The compass (docs/PLAN-compass.md, 16 November 2026, on `claude/stoic-ramanujan-3iqb3m`), harness only: nobody has played it by
+  hand, nor touched the tablet with a finger, and the Windows and browser builds were left to CI. Against the build before it
+  (1.0.0b21.7's game code), eight dreams of 3,000 s each (seeds 1, 3, 5, 7, 9, 11, 13, 15, the run id fixed) logged the same
+  lines, to the line, on both: about 11,000 lines a run. The autopilot never buys the map or the compass, so the dream cannot move.
+  `make asan` stayed clean on the selftests, a dream with a compass held (1,500 s) and a person's run through the L list, touch's
+  stage, a death that costs and the wake. What 2500 is worth is not measured by hand, only by what the dream gathers: gold taken on
+  a level, less what it spent in her room, over those eight runs: level 1 about 1,050, level 2 about 980, level 3 about 1,960,
+  level 4 about 3,820, level 5 about 3,610, level 6 about 3,980 (the spread is wide: level 4 from 2,580 to 5,620). So the map
+  (1,000) and the compass (2,500) together are some three and a half levels of the dream's early gold, or most of one level of its
+  later; a ware at levels 2 to 4 costs 300 to 1,700. A person gathers less than the dream, which takes nearly everything, and loses
+  all of it at a death along with the compass, so the price will be felt more by hand than here. It is the owner's number; if it is
+  too steep the knob is `COMPASS_PRICE` in `src/crawl/game/wisps.c`.

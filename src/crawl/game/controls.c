@@ -397,9 +397,6 @@ static void crawl_control(int what) {
     if (getenv("CRAWL_TPMSG") && !G.shop && G.msg_deco >= 0) tp_near(G.decos[G.msg_deco].x, G.decos[G.msg_deco].y);   /* before what hides its message */
     if (getenv("CRAWL_TPBSHRINE") && !G.shop && G.bsh_x >= 0) tp_near(G.bsh_x + 0.5f, G.bsh_y + 0.5f);   /* before the Black Shrine */
     if (getenv("CRAWL_TPTRIAL") && !G.shop) tp_trial();            /* before a trial's door */
-    if (getenv("CRAWL_DIEAT") && G.player && !G.dead && !G.shop && G.level_t > atof(getenv("CRAWL_DIEAT"))) {   /* testing: a death, by the void, at that level time */
-        G.blame = (Blame){ BL_HAZARD, HZ_VOID, 0 }; hurt_ex(1e6f, HURT_ELEM, G.px, G.py);
-    }
     if (getenv("CRAWL_HP")) G.hp = clampi(atoi(getenv("CRAWL_HP")), 1, G.max_hp);   /* hurt, for testing (1.0.0b15) */
     if (getenv("CRAWL_TPMEND") && !G.shop && G.nrest) {            /* before a place to mend, facing it (1.0.0b15) */
         G.px = G.rest_fx[0] + 0.5f; G.py = G.rest_fy[0] + 0.5f;
