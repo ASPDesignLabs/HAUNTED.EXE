@@ -819,7 +819,13 @@ static void place_level_stamps(int *nreg) {
     for (int i = 0; i < nw && st_nplaced < ST_PLACED_MAX; i++) {
         if (want[i] >= 2 && have_place) continue;                  /* one place: the spur is only the large one's fall-back */
         if (st_place_one(want[i], nreg) && want[i] >= 2) have_place = 1;
-        if (i == 0 && rnd(100) < 45) st_place_ante(nreg);          /* and, on about half the levels, a vestibule with the first vault behind it */
+        if (i == 0 && rnd(100) < 45) {                             /* and, on about half the levels, a vestibule with the first vault behind it */
+#ifdef CRAWL_DEBUG
+            if (!getenv("CRAWL_NOANTE")) st_place_ante(nreg);       /* (CRAWL_NOANTE=1: not, for the weighing) */
+#else
+            st_place_ante(nreg);
+#endif
+        }
     }
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "STAMPS level %d: %d rooms:", G.level, st_nplaced);
