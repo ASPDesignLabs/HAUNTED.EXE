@@ -187,7 +187,7 @@ static void update_class(void) {
     class_take(c + 1);
     G.ui = UI_NONE; G.vow_arm = -1; G.vow_change = 0;
     snd_sfx_ex(SFX_ATONE, 0.6f, 0.5f); snd_sfx_ex(SFX_WHISPER, 0.7f, 0.5f); sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.7f); G.cat_slow = 1.4f;
-    say("YOU WERE %s", CLASSES[c].name);
+    say("YOU PREVIOUSLY LIVED AS %s %s", strchr("AEIOU", CLASSES[c].name[0]) ? "AN" : "A", CLASSES[c].name);
 }
 
 /* The Dead Bell and the Weeping Font (docs/PLAN-b11.md, section 12), in the room north of hers. The bell: a Cursed Coin

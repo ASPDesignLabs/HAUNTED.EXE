@@ -72,7 +72,7 @@ static int rune_barred(int k) {                                    /* Blink brea
     return af_on(AF_DOWN) && k != DF_BLINK;
 }
 static const char *hush_word(void) {
-    return G.silenced ? "THE VOID TAKES THE WORDS FROM YOU" : af_on(AF_FROZEN) ? "FROZEN FAST: NOTHING WILL COME"
+    return G.silenced ? "VOID ENERGIES PREVENT YOUR CASTING" : af_on(AF_FROZEN) ? "FROZEN FAST: NOTHING WILL COME"
          : af_on(AF_DOWN) ? "ON THE FLOOR: NOTHING WILL COME" : af_on(AF_UNBOUND) ? "UNBOUND: THE WORDS WON'T COME"
          : "STUNNED: NOTHING WILL GATHER";
 }
@@ -469,7 +469,7 @@ static void update_bones(float dt) {
                 else if (b->kind == MIS_EMBER) { bone_hurt(b); ember_land(b); DBG_COUNT(ember_hits); }
                 else if (b->kind == MIS_WEB) {                     /* held fast */
                     G.web_max = G.web_hp = (float)G.max_hp / 3.0f; G.web_idle = 0.0f;
-                    snd_sfx_ex(SFX_DIRT, 0.9f, 0.5f); say("CAUGHT IN THE WEB: CAST TO TEAR IT");
+                    snd_sfx_ex(SFX_DIRT, 0.9f, 0.5f); say("CAUGHT IN A WEB! ATTACK TO TEAR AT IT");
                     DBG_COUNT(webbed);
                 }
                 else if (b->kind == MIS_TURNED) {                  /* your own spell, at half strength */
@@ -503,7 +503,7 @@ static void soul_cap(int quiet) {                                  /* what is ov
     RUN.souls = cap; RUN.soul_frac = 0.0f;
     if (quiet || !over) return;
     G.vslip_t = 1.0f;
-    if (!G.full_said && G.player) { G.full_said = 1; say("THE VESSEL IS FULL"); }
+    if (!G.full_said && G.player) { G.full_said = 1; say("YOUR SOUL VESSEL IS FULL"); }
 #ifdef CRAWL_DEBUG
     DBG_COUNT(souls_slipped);
 #endif

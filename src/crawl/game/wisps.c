@@ -231,10 +231,10 @@ static int summon_wisp(int kind, int color, float cost) {
     int gx, gy, fin;
     float hx, hy;
     if (!wisp_target(kind, color, &gx, &gy, &hx, &hy, &fin)) {
-        say(kind == WK_KEY ? "THAT KEY LIES NOWHERE NOW" : "THERE IS NOTHING LEFT FOR IT TO FIND");
+        say(kind == WK_KEY ? "YOU HAVE ALREADY LOCATED THIS KEY" : "THE SPIRITS HAVE NOTHING TO UNCOVER");
         return 0;
     }
-    if (cost > 0.0f && !spend_spirit(cost)) { say("A WISP COSTS A SOUL"); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 0; }
+    if (cost > 0.0f && !spend_spirit(cost)) { say("OFFER A SOUL FOR AN ETHEREAL GUIDE?"); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 0; }
     Wisp *w = &G.wisps[kind == WK_ALTAR ? 1 : 0];                  /* casting another sends the first out */
     memset(w, 0, sizeof *w);
     w->on = 1; w->kind = kind; w->color = color; w->state = WS_KINDLE; w->gx = -1;
@@ -242,9 +242,9 @@ static int summon_wisp(int kind, int color, float cost) {
     else { w->x = G.px + cosf(G.ang) * 0.3f; w->y = G.py + sinf(G.ang) * 0.3f; w->z = 0.4f; }
     if (!is_open((int)w->x, (int)w->y) && kind != WK_ALTAR) { w->x = G.px; w->y = G.py; }
     snd_sfx_ex(SFX_SHIMMER, 0.7f, 0.5f);
-    if (kind == WK_EXIT) say("A WISP KINDLES. IT KNOWS THE WAY OUT");
+    if (kind == WK_EXIT) say("A DESPERATE SOUL HURRIES FOR THE ESCAPE.");
     else if (kind == WK_MEND) say("A WISP KINDLES. IT KNOWS WHERE TO MEND");
-    else if (kind == WK_KEY) say("A WISP GOES FOR THE %s KEY", KEY_COLOR[color]);
+    else if (kind == WK_KEY) say("THE DEAD HAVE LOCATED THE %s KEY", KEY_COLOR[color]);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT wisp %d %d t=%.2f\n", kind, color, G.t);
 #endif
@@ -382,21 +382,21 @@ typedef struct { const char *what, *cost, *note; int ok, price; } AltarRow;
 static void altar_rows(AltarRow *r) {
     static char found[40];
     static char price[24];
-    if (G.altar_state == ALTAR_DORMANT) r[0] = (AltarRow){ "WAKE ITS WISP", "10 SOULS", "IT LEADS YOU TO A SECRET", 1, ALTAR_SOULS };
+    if (G.altar_state == ALTAR_DORMANT) r[0] = (AltarRow){ "SUMMON A SPIRIT TO FIND HIDDEN SECRETS", "10 SOULS", "A SPIRIT HEADS TO THE NEAREST SECRET", 1, ALTAR_SOULS };
     else if (G.altar_state == ALTAR_AWAKE && G.altar_wisp == AW_REST && nearest_shut(G.px, G.py) >= 0) {
         snprintf(price, sizeof price, "%d SOULS", altar_price());
-        r[0] = (AltarRow){ "SEND ITS WISP ON", price, "TO THE NEAREST SECRET STILL SHUT", 1, altar_price() };
+        r[0] = (AltarRow){ "SEND ITS WISP ON", price, "SUMMON ANOTHER SPIRIT TO FIND SECRETS", 1, altar_price() };
     }
-    else if (G.altar_state == ALTAR_AWAKE && G.altar_wisp == AW_REST) r[0] = (AltarRow){ "ITS WISP RESTS", "", "NO SECRET WALL IS LEFT SHUT", 0, 0 };
-    else if (G.altar_state == ALTAR_AWAKE) r[0] = (AltarRow){ "ITS WISP IS OUT", "", "IN, OUT, THEN E SENDS IT HOME", 0, 0 };
+    else if (G.altar_state == ALTAR_AWAKE && G.altar_wisp == AW_REST) r[0] = (AltarRow){ "ITS WISP RESTS", "", "ALL SECRETS HAVE BEEN DISCOVERED", 0, 0 };
+    else if (G.altar_state == ALTAR_AWAKE) r[0] = (AltarRow){ "A SPIRIT IS CURRENTLY LOCATING A SECRET", "", "E ON A SPIRIT RETURNS IT TO THE ALTAR", 0, 0 };
     else r[0] = (AltarRow){ "ITS WISP HAS DONE ITS WORK", "", "EVERY SECRET HERE IS FOUND", 0, 0 };
     r[1] = G.blessed ? (AltarRow){ "YOUR EXIT WISPS ARE BLESSED", "", "UNTIL YOU LEAVE THIS LEVEL", 0, 0 }
-                     : (AltarRow){ "BLESS YOUR EXIT WISPS", "25 SOULS", "THEY TURN THE UNDEAD, THIS LEVEL", 1, ALTAR_BLESS };
-    if (G.altar_state == ALTAR_READY) r[2] = (AltarRow){ "ANOINT WHAT YOU WEAR", "FREE", "ONE WORN PIECE GROWS STRONGER", 1, 0 };
-    else if (G.altar_state == ALTAR_SPENT) r[2] = (AltarRow){ "IT HAS ANOINTED ALREADY", "", "IT HAS GIVEN WHAT IT HAD", 0, 0 };
+                     : (AltarRow){ "IMBUE WISPS WITH TURN UNDEAD", "25 SOULS", "WISPS REPEL THE DEAD FOR THIS LEVEL", 1, ALTAR_BLESS };
+    if (G.altar_state == ALTAR_READY) r[2] = (AltarRow){ "ANOINT YOUR EQUIPMENT", "FREE", "ONE WORN PIECE GROWS STRONGER", 1, 0 };
+    else if (G.altar_state == ALTAR_SPENT) r[2] = (AltarRow){ "THE ALTAR BURNS BRIGHT, BUT COOL.", "", "IT HAS GIVEN WHAT IT HAD", 0, 0 };
     else {
         snprintf(found, sizeof found, "FIND EVERY SECRET: %d OF %d SO FAR", G.links_found, G.nlinks);
-        r[2] = (AltarRow){ "ANOINT WHAT YOU WEAR", "", found, 0, 0 };
+        r[2] = (AltarRow){ "ANOINT YOUR EQUIPMENT", "", found, 0, 0 };
     }
 }
 

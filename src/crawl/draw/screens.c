@@ -223,7 +223,7 @@ static void render_merchantmenu(Frame *f) {
     static const char *const ROW[NMM] = { "SIGN THE LEDGER", "ASCEND", "OFFER SOULS", "ANOTHER PAST", "ANOTHER PEDESTAL", "OFFER A COIN", "PAT HER", "LEAVE" };
     int sel = clampi(G.ui_sel, 0, NMM - 1);
     dim_view(f);
-    char line[160];
+    char line[256];
     if (LEDGER.page) snprintf(line, sizeof line, "PAGE %s", RUN_ROMAN[LEDGER.page - 1]); else snprintf(line, sizeof line, "UNSIGNED");
     hall_frame(f, "THE MERCHANT", R_GOLD + 12, line, LEDGER.page ? R_BONE + 12 : R_BLOOD + 13);
     ui_well(f, 9, 28, 302, NMM * 11 + 6);                          /* her rows in one well, what the chosen one means in another */
@@ -258,19 +258,19 @@ static void render_merchantmenu(Frame *f) {
     int ty = 28 + NMM * 11 + 10;
     ui_well(f, 9, ty - 4, 302, 181 - (ty - 4));
     if (sel == MM_SIGN && CON.used) snprintf(line, sizeof line, "THE DEAD TOOK NOTE. SHE WILL SIGN NOTHING WHILE THIS LASTS.");
-    else if (sel == MM_SIGN && LEDGER.page) snprintf(line, sizeof line, "SHE KEEPS YOUR RUN AS IT STANDS, ON A PAGE OF YOUR CHOOSING. YOU CAME FROM PAGE %s.", RUN_ROMAN[LEDGER.page - 1]);
-    else if (sel == MM_SIGN) snprintf(line, sizeof line, "SHE KEEPS YOUR RUN AS IT STANDS, ON A PAGE OF YOUR CHOOSING. THIS RUN IS UNSIGNED: FLEE NOW AND IT IS LOST.");
+    else if (sel == MM_SIGN && LEDGER.page) snprintf(line, sizeof line, "THE MERCHANT WELCOMES YOU BACK, READING THE INFORMATION SHE HAS STORED ON YOU IN THE LEDGER, PAGE %s", RUN_ROMAN[LEDGER.page - 1]);
+    else if (sel == MM_SIGN) snprintf(line, sizeof line, "THE MERCHANT HAS NOT BEEN UPDATED WITH YOUR PROGRESS YET, REQUIRING YOUR SIGNATURE BEFORE PROGRESS CAN BE SAVED.");
     else if (sel == MM_ASCEND && atone_reach() > RUN.atone)
         snprintf(line, sizeof line, "WHAT YOU HAVE DONE BUYS LEVEL OF ATONEMENT %d: TEN POINTS A LEVEL, TO SPEND AS YOU WILL. A DEATH TAKES IT ALL.", atone_reach());
     else if (sel == MM_ASCEND && (RUN.points > 0 || corner_due() > 0 || over_due() > 0)) snprintf(line, sizeof line, "LEVEL OF ATONEMENT %d. %d POINTS STILL TO SPEND.", RUN.atone, RUN.points);
     else if (sel == MM_ASCEND) snprintf(line, sizeof line, "LEVEL OF ATONEMENT %d. %d MORE EXPERIENCE FOR THE NEXT.", RUN.atone, atone_need(RUN.atone + 1) - RUN.xp);
-    else if (sel == MM_OFFER) snprintf(line, sizeof line, "TEN SOULS, AND SHE GIVES YOU %.0f EXPERIENCE FOR THEM. YOU HOLD %d OF %d.", offer_xp(), RUN.souls, vessel());
-    else if (sel == MM_VOW && !RUN.cls) snprintf(line, sizeof line, "SHE ASKS WHAT YOU WERE BEFORE. A LIFE KEEPS ONE ANSWER.");
-    else if (sel == MM_VOW && RUN.atone < VOW_ATONE) snprintf(line, sizeof line, "YOU WERE %s. AT LEVEL OF ATONEMENT %d SHE WILL HEAR ANOTHER PAST, FOR FIVE CURSED COINS.", CLASSES[cls_el()].name, VOW_ATONE);
-    else if (sel == MM_VOW) snprintf(line, sizeof line, "YOU WERE %s. FIVE CURSED COINS AND SHE WILL HEAR ANOTHER PAST; WHAT YOUR LINE HOLDS STAYS, NO LONGER FREE.", CLASSES[cls_el()].name);
+    else if (sel == MM_OFFER) snprintf(line, sizeof line, "OFFER HER TEN SOULS, IN EXCHANGE SHE WILL PURCHASE KNOWLEDGE FROM THE DEAD, GRANTING YOU %.0f EXP. YOU CURRENTLY HAVE %d OF %d SOULS.", offer_xp(), RUN.souls, vessel());
+    else if (sel == MM_VOW && !RUN.cls) snprintf(line, sizeof line, "YOU LED AN INFAMOUS PAST LIFE, ONE FLUSH WITH OPPORTUNITY TO DEVELOP SKILLS NEEDED TO FERRY MANY SOULS TO DAMNATION IN A VARIETY OF WAYS. PICK A NEW STARTING CLASS.");
+    else if (sel == MM_VOW && RUN.atone < VOW_ATONE) snprintf(line, sizeof line, "YOU WERE THE %s. AT LEVEL OF ATONEMENT %d SHE WILL HEAR ANOTHER PAST, FOR FIVE CURSED COINS.", CLASSES[cls_el()].name, VOW_ATONE);
+    else if (sel == MM_VOW) snprintf(line, sizeof line, "YOU WERE THE %s. FIVE CURSED COINS AND SHE WILL HEAR ANOTHER PAST; WHAT YOUR LINE HOLDS STAYS, NO LONGER FREE.", CLASSES[cls_el()].name);
     else if (sel == MM_WIND && wind_restorable()) snprintf(line, sizeof line, "YOUR SECOND WIND IS SPENT. A CURSED COIN AND IT IS YOURS AGAIN.");
-    else if (sel == MM_WIND && (RUN.corner >> CS_WIND & 1)) snprintf(line, sizeof line, "YOUR SECOND WIND IS WAITING. SHE WANTS NOTHING FOR IT YET.");
-    else if (sel == MM_WIND) snprintf(line, sizeof line, "SHE TAKES A CURSED COIN TO RESTORE A SECOND WIND, ONCE YOU HAVE ONE.");
+    else if (sel == MM_WIND && (RUN.corner >> CS_WIND & 1)) snprintf(line, sizeof line, "YOUR SECOND WIND IS STILL PROTECTING YOU. BE THANKFUL.");
+    else if (sel == MM_WIND) snprintf(line, sizeof line, "A CURSED OFFERING CAN BE USED TO TEMPT THE DEAD INTO OFFERING THE PROTECTION OF ANOTHER SECOND WIND.");
     else if (sel == MM_PED && RUN.peds >= NPED) snprintf(line, sizeof line, "ALL SEVEN STAND. SHE HAS NO MORE TO SET OUT.");
     else if (sel == MM_PED) snprintf(line, sizeof line, "A %s PEDESTAL, AND A WARE ON IT FROM NOW ON, EVERY VISIT. KEPT THROUGH DEATH.",
                                      RUN.peds == 2 ? "THIRD" : RUN.peds == 3 ? "FOURTH" : RUN.peds == 4 ? "FIFTH" : RUN.peds == 5 ? "SIXTH" : "SEVENTH");

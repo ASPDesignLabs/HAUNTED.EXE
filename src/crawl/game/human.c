@@ -49,8 +49,8 @@ static void fizzle(int sp) {                                      /* chain or dr
 }
 
 static int open_door(Door *d) {
-    if (d->locked == SEALED) { say("IT IS SEALED UNTIL THE BOSS FALLS"); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 0; }
-    if (d->locked == TRIALED) { if (G.msg_t <= 0.0f) { say("THE TRIAL HOLDS IT SHUT"); sfx_at(SFX_KNOCK, d->x + 0.5f, d->y + 0.5f, 0.7f); } return 0; }
+    if (d->locked == SEALED) { say("EXIT SEALED UNTIL BOSS HAS BEEN DEFEATED"); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 0; }
+    if (d->locked == TRIALED) { if (G.msg_t <= 0.0f) { say("EXIT SEALED WHILE TRIAL IS IN PROGRESS"); sfx_at(SFX_KNOCK, d->x + 0.5f, d->y + 0.5f, 0.7f); } return 0; }
     if (d->locked == GATED) {                                      /* a winch's or a hearth's gate */
         if (G.msg_t <= 0.0f) {
             for (int i = 0; i < G.nmk; i++)
@@ -64,7 +64,7 @@ static int open_door(Door *d) {
         return 0;
     }
     if (d->locked == WINGED) {                                     /* the wing's: only its puzzle opens it */
-        if (G.msg_t <= 0.0f) { say("%s", G.pz_exit ? "THE WAY ON LIES BEYOND" : "SEALED, AND NO KEY FITS IT"); sfx_at(SFX_KNOCK, d->x + 0.5f, d->y + 0.5f, 0.7f); }
+        if (G.msg_t <= 0.0f) { say("%s", G.pz_exit ? "THE WAY ON LIES BEYOND" : "COMPLETE THE CHALLENGE TO UNLOCK"); sfx_at(SFX_KNOCK, d->x + 0.5f, d->y + 0.5f, 0.7f); }
         return 0;
     }
     if (d->locked == 1) {
@@ -531,7 +531,7 @@ static void wheel_fill(int kind) {
     }
 }
 static void wheel_open(int kind, int src) {
-    if (G.silenced && kind == WH_GIFTS) { say("THE VOID TAKES THE WORDS FROM YOU"); return; }
+    if (G.silenced && kind == WH_GIFTS) { say("VOID ENERGIES PREVENT YOUR CASTING"); return; }
     wheel_fill(kind);
     WH.open = kind; WH.src = src; WH.t = 0.0f; WH.mx = WH.my = 0.0f;
     G.map_on = 0;
@@ -560,13 +560,13 @@ static void shop_say(const char *fmt, ...);
 static void shop_hold(int i) {
     const Offer *o = &G.offers[i];
     int cost = (o->price + 3) / 4;
-    if (o->price <= 0) shop_say("IT IS FREE: NOTHING TO HOLD");
-    else if (G.shop_held >= 0) shop_say(G.shop_held == i ? "IT IS HELD FOR YOU" : "ONE WARE HELD AT A TIME");
-    else if (cost > RUN.treasure) shop_say("HOLDING IT COSTS $%d", cost);
+    if (o->price <= 0) shop_say("THIS ITEM IS FREE, AND CANNOT BE HELD");
+    else if (G.shop_held >= 0) shop_say(G.shop_held == i ? "THIS ITEM HAS BEEN HELD FOR YOU" : "ONLY ONE HELD ITEM PER LEVEL");
+    else if (cost > RUN.treasure) shop_say("HOLDING THIS ITEM COSTS $%d", cost);
     else {
         RUN.treasure -= cost;
         RUN.gear.held = *o; RUN.gear.has_held = 1; G.shop_held = i;
-        shop_say("HELD FOR NEXT TIME: $%d", cost);
+        shop_say("HOLD THIS ITEM FOR NEXT LEVEL");
         snd_sfx_ex(SFX_COIN, 0.8f, 0.5f); sfx_at(SFX_TRILL, CAT_X, CAT_Y, 0.9f); G.cat_slow = 1.2f;
     }
 #ifdef CRAWL_DEBUG

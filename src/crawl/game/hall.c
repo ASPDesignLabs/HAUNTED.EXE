@@ -200,7 +200,7 @@ static void auto_take(void) {
         if (v > bs) { bs = v; best = i; }
     }
     if (best >= 0) shrine_take(best);
-    else { G.sh_takes = 0; shrine_note("NOTHING IN THE SLOTS IT WANTS"); }
+    else { G.sh_takes = 0; shrine_note("NOTHING VALUABLE THIS TIME.."); }
 }
 /* whether the autopilot has business at the shrine: cursing it with its first coin, raising it when it
  * can, otherwise pulling with three coins while it holds few runes, at the top rank, or once it has
@@ -248,15 +248,15 @@ static void totem_sell(int b) {
 }
 /* what an ability does at a rank, in a few lines */
 static void ab_text(int b, int r, char *buf, int n) {
-    static const char *const HOLD[ABIL_TOP] = { "A THIRD OF", "TWO THIRDS OF", "ALL OF" };
+    static const char *const HOLD[ABIL_TOP] = { "A THIRD", "TWO THIRDS", "ALL" };
     r = clampi(r, 1, ABIL_TOP);
     float wait = BA_WAIT[b][r - 1];
     switch (b) {
-    case BOSS_KNIGHT: snprintf(buf, (size_t)n, PADX.used ? "B, AND THE WAY THE LEFT STICK LEANS: DART UP TO FIVE CELLS, UNTOUCHABLE. AGAIN IN %.0f S."
-                                                       : "TAP W, A, S OR D TWICE: DART UP TO FIVE CELLS THAT WAY, UNTOUCHABLE. AGAIN IN %.0f S.", wait); break;
-    case BOSS_SPIDER: snprintf(buf, (size_t)n, PADX.used ? "LT: A WEB HOLDS WHAT YOU AIM AT, AND IT CLAWS AT THAT, NOT YOU. IT HOLDS %s YOUR HEALTH, %d AT ONCE. AGAIN IN %.0f S." : "RIGHT CLICK: A WEB HOLDS WHAT YOU AIM AT, AND IT CLAWS AT THAT, NOT YOU. IT HOLDS %s YOUR HEALTH, %d AT ONCE. AGAIN IN %.0f S.",
+    case BOSS_KNIGHT: snprintf(buf, (size_t)n, PADX.used ? "STICK DIRECTION + B CAUSES THE PLAYER TO QUICKLY WARP, UNTOUCHABLE, UP TO FIVE SPACES AWAY. %.0fS COOLDOWN"
+                                                       : "TAP W,A,S,D TWICE: CAUSES THE PLAYER TO QUICKLY WARP, UNTOUCHABLE, UP TO FIVE SPACES AWAY. %.0fS COOLDOWN", wait); break;
+    case BOSS_SPIDER: snprintf(buf, (size_t)n, PADX.used ? "LT: RELEASE A WEB THAT ENSNARES AN ENEMY, FORCING IT TO ATTACK THE WEBBING TO FREE THEMSELVES FOR %s OF YOUR HP. %d AT A TIME, RELEASED ON A %.0fS COOLDOWN." : "RMB: RELEASE A WEB THAT ENSNARES AN ENEMY, FORCING IT TO ATTACK THE WEBBING TO FREE THEMSELVES FOR %s OF YOUR HP. %d AT A TIME, RELEASED ON A %.0fS COOLDOWN.",
                                HOLD[r - 1], r, wait); break;
-    case BOSS_DEACON: snprintf(buf, (size_t)n, PADX.used ? "LT AT THE REMAINS OF WHAT YOU SLEW: IT RISES AND FIGHTS FOR YOU %d S, %d AT ONCE. AGAIN IN %.0f S." : "RIGHT CLICK ON THE REMAINS OF WHAT YOU SLEW: IT RISES AND FIGHTS FOR YOU %d S, %d AT ONCE. AGAIN IN %.0f S.",
+    case BOSS_DEACON: snprintf(buf, (size_t)n, PADX.used ? "LT CAST ON A PILE OF REMAINS SUMMONS THEM TO YOUR AID FOR %dS. UP TO %d AT A TIME. RELEASED ON A %.0fS COOLDOWN." : "RMB CAST ON A PILE OF REMAINS SUMMONS THEM TO YOUR AID FOR %dS. UP TO %d AT A TIME. RELEASED ON A %.0fS COOLDOWN.",
                                8 + 4 * r, r, wait); break;
     default: snprintf(buf, (size_t)n, PADX.used ? "LT: %.1f S THROUGH CREATURES AND THEIR MISSILES, AND THEY LOSE YOU. AGAIN IN %.0f S." : "RIGHT CLICK: %.1f S THROUGH CREATURES AND THEIR MISSILES, AND THEY LOSE YOU. AGAIN IN %.0f S.", 1.0f + 0.5f * (float)r, wait); break;
     }

@@ -342,7 +342,7 @@ static void update_human(float dt) {
     if (G.pilgrim == 1) {                                          /* a key touched: the feet are the caster's again */
         int touched = IN.ntext > 0;
         for (int k = 0; k < KEY_COUNT && !touched; k++) touched = IN.hit[k];
-        if (touched) { G.pilgrim = 0; say("YOUR FEET ARE YOUR OWN AGAIN"); }
+        if (touched) { G.pilgrim = 0; say("YOU CAN MOVE AGAIN"); }
     }
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_FOLLOWWISP")) G.pilgrim = 2;                 /* testing: go the way the wisp went, to its end */
@@ -357,7 +357,7 @@ static void update_human(float dt) {
     if (IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
     if (IN.hit[KEY_M]) {
         if (RUN.has_map) map_up();
-        else say("YOU HAVE NO MAP. THE MERCHANT SELLS ONE");
+        else say("HEAD TO THE MERCHANT TO PURCHASE A MAP");
     }
     if (TCH.compass_tap) { TCH.compass_tap = 0; if (RUN.has_compass) { open_ui(UI_WISPS); return; } }   /* touch's compass: the list, where it is aimed */
     if (lantern_held()) {                                          /* a hold shutters or lights it; a tap is the wisps' (S6 a) */

@@ -242,15 +242,15 @@ static void take_piece(const Offer *o, int wear) {
     const char *was = slot >= 0 ? KIND_NAME[RUN.gear.worn[slot].kind] : "";
     int old = G.max_hp;
     switch (wear ? gear_take_wear(&RUN.gear, o) : gear_take(&RUN.gear, o)) {
-    case TAKE_WORN: say("NOW WEARING %s", b); break;
-    case TAKE_WORN_OLD_BAGGED: say("%s ON; THE OLD %s IN THE BAG", KIND_NAME[p->kind], was); break;
-    case TAKE_WORN_OLD_LOST: say("%s ON; THE OLD %s LOST", KIND_NAME[p->kind], was); break;
-    case TAKE_BAGGED: say("INTO THE BAG: %s", b); break;
-    case TAKE_LOST: say("NO ROOM FOR IT: %s LEFT", KIND_NAME[p->kind]); break;
+    case TAKE_WORN: say("YOU EQUIPPED %s", b); break;
+    case TAKE_WORN_OLD_BAGGED: say("%s IS WORN, %s STORED.", KIND_NAME[p->kind], was); break;
+    case TAKE_WORN_OLD_LOST: say("%s IS WORN, %s IS LOST", KIND_NAME[p->kind], was); break;
+    case TAKE_BAGGED: say("STORED: %s", b); break;
+    case TAKE_LOST: say("NO ROOM. %s HAS BEEN ABANDONED", KIND_NAME[p->kind]); break;
     case TAKE_BAG: say("A %s: ROOM FOR %d", bag_name(RUN.gear.bag_size), RUN.gear.bag_size); break;
     default: break;
     }
-    if (p->ability == AB_KEYMAKER && G.player) say("KEYMAKER: KEY WISPS IN THE L MENU");   /* on every purchase */
+    if (p->ability == AB_KEYMAKER && G.player) say("KEYMAKER: LOCATE KEYS WITH L");   /* on every purchase */
     G.max_hp = gear_max_hp(&RUN.gear);
     if (G.max_hp > old) G.hp += G.max_hp - old;                    /* new strength comes with it */
     if (G.hp > G.max_hp) G.hp = G.max_hp;

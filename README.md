@@ -1202,7 +1202,7 @@ became HAUNTED.EXE, kept so that settings and saves carry over), `Progress` besi
 start from or holds the unsigned run, and `Mark` is the dead's watch; `uninstall.cmd` removes them with
 the settings. They are written the moment the game changes them, and never on quitting.
 
-**1.0.0b21.9 adds a compass to a page** in a byte of its fixed part, after the wisp's, that every earlier build wrote as 0 and none read: bit 0 held, bits 1 and 2 the kind of wisp it leans toward, bits 3 and 4 the key. An earlier page reads as no compass, and a page from this build opens in an earlier one without it. A death clears it before the page is written. **1.0.0b21.8 changes nothing in the saves.** **1.0.0b21.7 changes nothing in the saves** (a level is made afresh each time and is never kept). **1.0.0b21.6 changes nothing in the saves.** It adds two numbers to the settings (the small life's movement and sound: `LifeMove`, `LifeSound`),
+**1.0.0b21.10 changes nothing in the saves.** **1.0.0b21.9 adds a compass to a page** in a byte of its fixed part, after the wisp's, that every earlier build wrote as 0 and none read: bit 0 held, bits 1 and 2 the kind of wisp it leans toward, bits 3 and 4 the key. An earlier page reads as no compass, and a page from this build opens in an earlier one without it. A death clears it before the page is written. **1.0.0b21.8 changes nothing in the saves.** **1.0.0b21.7 changes nothing in the saves** (a level is made afresh each time and is never kept). **1.0.0b21.6 changes nothing in the saves.** It adds two numbers to the settings (the small life's movement and sound: `LifeMove`, `LifeSound`),
 which earlier betas ignore. **1.0.0b21.4 changes nothing in the saves.** It adds two bytes to the settings kept with the controller's layout
 (touch's turning and smoothing), which earlier betas ignore. **1.0.0b21.3 changes nothing in the saves.** **1.0.0b21.2 adds the portraits** (which tapestries are drawn back, where each rank was earned, the gold taken this life, and the
 feats' counts) to each page; 1.0.0b21.1 steps over them, and a page it signs loses them. Achievements earned stay earned.
@@ -1448,6 +1448,21 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b21.10** (the author's wording put in). Nobody has played it by hand. All of it is tested in the harness only: not run under Wine,
+and the Windows and browser builds compiled and smoke-tested by GitHub Actions and by nothing else.
+
+* **The words**: about 240 lines from the author's CATACOMB Words page (captions, creatures, bosses, classes, the Codex, the merchant, the altar,
+  the shrine, the wisps, each node and ability), with spelling slips mended. FIRE is FLAME in the element's name, its line and its stats; the
+  classes lose their THE; SHAMBLER and SHIELD-BEARER read UNDEAD and SKELETON GUARD. Three flagged lines and two whose place no longer exists
+  (the bells' dormant and dry) were left. The lines for Shatter, Deep Chill, Impale, Ossified, Harvest, Wisp Host, the Major Soul Tether and the
+  lightning's stun describe what the code does now, not the mechanics the author's notes asked for.
+* **The screensaver**: seeds 3 and 5 for 600 seconds of its time against 1.0.0b21.9: the same lines to the line but for the renamed names (a
+  class, an augment, an achievement). Four seeds for 1,500 seconds under AddressSanitizer and UBSan: clean. Fewer seeds than a change to the
+  balance would be weighed on; this moves none.
+* **The fit**: `build/uisheet fit` finds no overflow. The longer lines overran four buffers (the merchant's page, an ability's line in the
+  HUD and on the buying screen, the Codex's boss pages); they are wider now.
+* **Not tried**: a hand on any of it; each boss's, shop's and controller's line read in place; the Windows and browser builds beyond compiling.
 
 **New in 1.0.0b21.9** (the compass; the controls list taken off). Nobody has played it by hand: not the compass, not a finger on its tablet, not the
 list's going. All of it is tested in the harness only: not run under Wine, and the Windows and browser builds compiled and smoke-tested by

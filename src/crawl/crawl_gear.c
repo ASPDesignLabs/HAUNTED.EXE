@@ -10,7 +10,7 @@ const char *const DEF_NAME[NDEF] = { "BONE WARD", "BLINK", "MIRROR VEIL", "MEND"
                                      "DREAD", "TIME SLIP", "SOUL REAPING" };
 /* Hellfire burns, the wisps are spirit, the sparks lightning, as their lines will have them */
 const int8_t ATK_ELEM[NATK] = { EL_FIRE, EL_FROST, EL_LIGHT, EL_PHYS, EL_SPIRIT, EL_FIRE, EL_SPIRIT, EL_POISON, -1 };
-const char *const ELEM_NAME[NELEM] = { "FIRE", "FROST", "LIGHTNING", "POISON", "SPIRIT", "PHYSICAL" };
+const char *const ELEM_NAME[NELEM] = { "FLAME", "FROST", "LIGHTNING", "POISON", "SPIRIT", "PHYSICAL" };
 const int ELEM_RAMP[NELEM] = { R_FLAME, R_GLOW, R_GOLD, R_MOSS, R_PURPLE, R_BONE };
 static const char *const ATK_BLURB[NATK] = { "THE FIREBALL, HOTTER", "SLOWS WHAT IT HITS", "STRIKES AT ONCE", "PIERCES ALL IN A LINE",
                                              "HEALS YOU AS IT HURTS", "THE FLOOR BURNS", "HOMING, ROUND CORNERS",
@@ -22,13 +22,13 @@ static const char *const DEF_BLURB[NDEF] = { "ABSORBS THE NEXT BLOWS", "STEP AWA
 const char *const QUAL_NAME[NQUAL] = { "COMMON", "UNCOMMON", "RARE", "ULTRA-RARE", "EXQUISITE" };
 const int QUAL_RAMP[NQUAL] = { R_BONE, R_MOSS, R_GLOW, R_PURPLE, R_GOLD };   /* white, green, blue, purple, gold */
 const char *const KIND_NAME[NIK] = { "", "BRACER", "BOOTS", "AMULET", "HOOD", "ROBES", "RING", "BAG" };
-const char *const STAT_NAME[NSTAT] = { "ARMOR", "DODGE", "HEALTH", "RESTORES", "RESIST POISON", "RESIST BURN", "RESIST SLOW",
-                                       "MOVEMENT", "QUIET", "SPELL HASTE", "SPIRIT COST", "DAMAGE", "FIRE", "FROST", "LIGHTNING",
-                                       "SPELL EFFECT", "TREASURE", "LUCK", "RESIST SPIRIT", "VESSEL",
-                                       "FIRE POWER", "FROST POWER", "LIGHTNING POWER", "POISON POWER", "SPIRIT POWER", "PHYSICAL POWER",
-                                       "FIRE EFFICIENCY", "FROST EFFICIENCY", "LIGHTNING EFFICIENCY", "POISON EFFICIENCY",
+const char *const STAT_NAME[NSTAT] = { "ARMOR", "DODGE", "HEALTH", "RESTORE HP", "RESIST POISON", "RESIST BURN", "RESIST SLOW",
+                                       "MOVEMENT", "QUIET", "SPELL HASTE", "SPIRIT COST", "DAMAGE", "FLAME", "FROST", "LIGHTNING",
+                                       "SPELL EFFECT", "TREASURE", "LUCK", "RESIST SPIRIT", "SPIRIT VESSEL",
+                                       "FLAME POWER", "FROST POWER", "LIGHTNING POWER", "POISON POWER", "SPIRIT POWER", "PHYSICAL POWER",
+                                       "FLAME EFFICIENCY", "FROST EFFICIENCY", "LIGHTNING EFFICIENCY", "POISON EFFICIENCY",
                                        "SPIRIT EFFICIENCY", "PHYSICAL EFFICIENCY",
-                                       "FIRE INSIGHT", "FROST INSIGHT", "LIGHTNING INSIGHT", "POISON INSIGHT", "SPIRIT INSIGHT", "PHYSICAL INSIGHT",
+                                       "FLAME INSIGHT", "FROST INSIGHT", "LIGHTNING INSIGHT", "POISON INSIGHT", "SPIRIT INSIGHT", "PHYSICAL INSIGHT",
                                        "RESIST LIGHTNING", "SPRINT", "PHYSIC",
                                        "POISON", "SPIRIT", "PHYSICAL",   /* 1.0.0b21: "ADDS %", as FIRE, FROST and LIGHTNING */
                                        "IGNITION", "RIME", "STATIC", "BLIGHT", "HUSH", "STEADINESS" };
@@ -359,11 +359,11 @@ void piece_stat_text(int st, int val, char *buf, int n) {
     float v = (float)val / STAT_SCALE[st];
     switch (st) {
     case ST_ARMOR: case ST_HP: snprintf(buf, (size_t)n, "%s +%.0f", STAT_NAME[st], v); break;
-    case ST_REGEN: snprintf(buf, (size_t)n, "RESTORES %.2f/S", v); break;
+    case ST_REGEN: snprintf(buf, (size_t)n, "RESTORES HP %.2f/S", v); break;
     case ST_THRIFT: snprintf(buf, (size_t)n, "SPIRIT COST -%.0f%%", v); break;
     case ST_FIRE: case ST_FROST: case ST_SHOCK: case ST_ADD_POISON: case ST_ADD_SPIRIT: case ST_ADD_PHYS:
         snprintf(buf, (size_t)n, "ADDS %.0f%% %s", v, STAT_NAME[st]); break;
-    case ST_VESSEL: snprintf(buf, (size_t)n, "VESSEL +%.0f", v); break;
+    case ST_VESSEL: snprintf(buf, (size_t)n, "SPIRIT VESSEL +%.0f", v); break;
     case ST_SPRINT: snprintf(buf, (size_t)n, "SPRINT +%.1fS", v); break;
     default: snprintf(buf, (size_t)n, "%s +%.0f%%", STAT_NAME[st], v); break;
     }
@@ -372,13 +372,13 @@ void piece_stat_text(int st, int val, char *buf, int n) {
 void piece_ability_text(const Piece *p, char *buf, int n) {
     int q = p->quality, a = piece_grade(p->ability, q, p->level, 0), b = piece_grade(p->ability, q, p->level, 1);
     switch (p->ability) {
-    case AB_SWIFT: snprintf(buf, (size_t)n, "SWIFTNESS: MOVEMENT +%d%% MORE", a); break;
-    case AB_ARCANE: snprintf(buf, (size_t)n, "ARCANE KNOWLEDGE: SPIRIT SAVED +%d%% MORE", a); break;
-    case AB_TREASURE: snprintf(buf, (size_t)n, "TREASURE HUNTER: TREASURE +%d%%", a); break;
-    case AB_KEYMAKER: snprintf(buf, (size_t)n, "KEYMAKER: KEYS SHOWN %d CELLS OFF, L FOR THE WISP", a); break;
+    case AB_SWIFT: snprintf(buf, (size_t)n, "SWIFTNESS: MOVEMENT SPEED INCREASED %d%%", a); break;
+    case AB_ARCANE: snprintf(buf, (size_t)n, "ARCANE KNOWLEDGE: CONSUME -%d%% SPIRIT", a); break;
+    case AB_TREASURE: snprintf(buf, (size_t)n, "TREASURE HUNTER: GATHER +%d%% MORE GOLD", a); break;
+    case AB_KEYMAKER: snprintf(buf, (size_t)n, "KEYMAKER: REVEALS KEYS AT A DISTANCE OF %d. SUMMON SPIRITS TO ASSIST WITH L", a); break;
     case AB_COMMUNE: snprintf(buf, (size_t)n, "COMMUNE: FOES WITHIN %d CELLS SHOWN FOR %d.%d S, EVERY 15 S", a, b / 10, b % 10); break;
-    case AB_THORNS: snprintf(buf, (size_t)n, "THORNS: %d BACK TO WHAT STRIKES YOU", a); break;
-    case AB_MIRRORED: snprintf(buf, (size_t)n, "MIRRORED: %d%% OF MISSILES SENT BACK AT %d%%", a, b); break;
+    case AB_THORNS: snprintf(buf, (size_t)n, "THORNS: %d PHYS DAMAGE TO ATTACKERS", a); break;
+    case AB_MIRRORED: snprintf(buf, (size_t)n, "MIRRORED: %d%% OF PROJECTILES RET AT %d%%", a, b); break;
     default:
         if (p->ability >= AB_CLASS && p->ability < NABIL && p->ability - AB_CLASS != g_class)   /* another's: it does nothing for you */
             snprintf(buf, (size_t)n, "%s: FOR THE %s", ABIL_NAME[p->ability], CLASS_FOR[p->ability - AB_CLASS]);

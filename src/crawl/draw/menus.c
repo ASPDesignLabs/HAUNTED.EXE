@@ -3,7 +3,7 @@
 
 /* the L menu: a small plate over the crypt, a wisp of each kind that can be cast now and its price */
 static void render_wispmenu(Frame *f) {
-    static const char *const KEYW[NKEYS] = { "THE GOLD KEY", "THE SILVER KEY", "THE CRIMSON KEY" };
+    static const char *const KEYW[NKEYS] = { "GOLD KEY", "SILVER KEY", "CRIMSON KEY" };
     WispChoice c[WISP_CHOICES];
     int n = wisp_choices(c), rows = n + lantern_held(), sel = clampi(G.ui_sel, 0, rows - 1);
     dim_view(f);
@@ -93,7 +93,7 @@ static void render_shrinemenu(Frame *f) {
     hall_frame(f, "THE RUNE SHRINE", R_GOLD + 12, line, R_GOLD + 11);
     draw_coin(f, 308 - 11 - lw, 12);
     int rank = RUN.shrine, ramp = rank ? QUAL_RAMP[rank - 1] : R_STONE;
-    if (!rank) gfx_text8(f, 14, 28, "SANCTIFIED: IT GIVES NOTHING", R_STONE + 11, 1);
+    if (!rank) gfx_text8(f, 14, 28, "A BLESSED SHRINE OFFERS NOTHING", R_STONE + 11, 1);
     else { snprintf(line, sizeof line, "CURSED: RUNES UP TO %s", QUAL_NAME[rank - 1]); gfx_text8(f, 14, 28, line, ramp_at(ramp, 12), 1); }
     ui_well(f, 9, 39, 115, 107);                                   /* the slots; what to do with them; what you hold */
     ui_well(f, 127, 39, 184, 107);
@@ -167,12 +167,12 @@ static void render_shrinemenu(Frame *f) {
             if (k < 0) snprintf(note, sizeof note, "AN EMPTY SLOT");
             else if (RUN.gear.def[k] > 0) snprintf(note, sizeof note, "%s %s. YOU HOLD %s.", QUAL_NAME[q - 1], DEF_NAME[k], QUAL_NAME[RUN.gear.def[k] - 1]);
             else snprintf(note, sizeof note, "%s %s. YOU HAVE NONE.", QUAL_NAME[q - 1], DEF_NAME[k]);
-        } else if (!rank) snprintf(note, sizeof note, RUN.coins ? "ONE CURSED COIN WAKES IT, AND THEN IT GIVES RUNES." : "CURSED COINS LIE DEEP IN THE SECRETS.");
+        } else if (!rank) snprintf(note, sizeof note, RUN.coins ? "A CURSED WARE CAN WARP THIS SHRINE, OFFERING A CHANCE AT ITS POWER." : "CURSED COINS LIE DEEP IN THE SECRETS.");
         else switch (G.ui_sel) {
         case SR_PULL: { int lo = G.sh_coins == 3 ? 3 : G.sh_coins, hi = pull_most(G.sh_coins);
             snprintf(note, sizeof note, "SHOWS %d TO %d RUNES. ONE TAKE A PULL.", lo, hi); break; }
         case SR_FAVOUR: snprintf(note, sizeof note, RUN.attuned ? "EACH COIN, ADDED TO THE PULL, MAKES IT A THIRD LIKELIER." : "IT LEARNS A KIND WHEN YOU HOLD ONE AT RARE."); break;
-        case SR_RAISE: snprintf(note, sizeof note, "RAISED, IT GIVES BETTER RUNES."); break;
+        case SR_RAISE: snprintf(note, sizeof note, "INFLUENCE THE DEAD WITH A COIN OFFERING?"); break;
         case SR_TAKE: snprintf(note, sizeof note, "UNUSED TAKES ARE LOST WHEN YOU LEAVE THE ROOM."); break;
         case SR_LETGO: snprintf(note, sizeof note, "FREES A SLOT. THE RUNE IS GONE."); break;
         default: snprintf(note, sizeof note, "THE SLOTS KEEP THEIR RUNES FOR NEXT TIME."); break;
@@ -220,7 +220,7 @@ static void render_compmenu(Frame *f) {
     ui_well(f, 9, 39, 302, rows * 9 + 6);                          /* the entries, and the chosen one's card under them */
     ui_well(f, 9, 39 + rows * 9 + 9, 302, 181 - (39 + rows * 9 + 9));
     if (!n) {
-        text_wrap(f, 14, 44, "NOTHING OF THIS KIND IS WRITTEN HERE YET. WHAT YOU WEAR, IT KEEPS.", 36, R_STONE + 11, 3);
+        text_wrap(f, 14, 44, "THE COMPENDIUM MAKES NOTE OF ALL EQUIPMENT YOU WEAR, ONLY ONCE EQUIPPED.", 36, R_STONE + 11, 3);
         return;
     }
     int top = clampi(sel - rows / 2, 0, imax(0, n - rows)), y = 43;
@@ -370,13 +370,13 @@ static void stat_does(int st, char *buf, int n) {                  /* the elemen
 }
 static void render_codex(Frame *f) {
     static const char *const ABIL_DOES[NABIL] = { "",
-        "YOUR MOVEMENT, RAISED ONCE MORE BY THIS SHARE OF IT.",
-        "THE SPIRIT YOUR SPELLS SAVE, RAISED ONCE MORE BY THIS SHARE OF IT.",
-        "MORE GOLD FROM TREASURE YOU PICK UP, AND A WHISPER FROM AN UNOPENED SECRET WALL WITHIN THREE CELLS.",
-        "KEYS WITHIN ITS REACH SPARKLE THROUGH THE WALLS, AND THE L MENU OFFERS A WISP TO EACH.",
-        "EVERY FIFTEEN SECONDS, CREATURES WITHIN ITS REACH SHOW AS RED SHAPES THROUGH THE WALLS FOR A MOMENT.",
-        "WHATEVER STRIKES OR BITES YOU TAKES SO MUCH BACK, WHATEVER YOUR ARMOUR TOOK.",
-        "A CHANCE THAT A MISSILE IS SENT BACK, HOMING ON ITS THROWER ROUND CORNERS.",
+        "INCREASES YOUR BASE MOVEMENT SPEED BY A PERCENTAGE WHEN WORN.",
+        "OVERALL SPELL EFFICIENCY. REDUCES SOUL COST.",
+        "INCREASES THE AMOUNT OF GOLD YOU ACQUIRE BY A PERCENTAGE. OFFERS WHISPERS WHEN NEAR SECRET AREAS",
+        "CAUSES KEYS TO SHIMMER THROUGH NEARBY WALLS. USE L TO OFFER A SOUL TO SUMMON A WISP TO LOCATE THEM",
+        "CONFERS THE ABILITY TO VIEW ALL UNDEAD AROUND THE PLAYER, THROUGH WALLS AND OBSTACLES, FOR A TIME.",
+        "RETURNS A SET AMOUNT OF DAMAGE, BASED ON YOUR ARMOR, WHEN AN ENEMY ATTACKS YOU WITH PHYSICAL DAMAGE",
+        "A CHANCE THAT A PROJECTILE IS RETURNED TO ITS SENDER. HIGHER RANKS ALLOW FOR HOMING",
         "YOUR FIRE SETS THE DEAD ALIGHT MORE OFTEN, BY THIS SHARE, AND THEY BURN A SECOND LONGER.",   /* the classes' (1.0.0b21) */
         "THE CHILL YOU LAY ON THE DEAD LASTS A SECOND LONGER, AND THE FROZEN TAKE THIS SHARE MORE FROM YOU.",
         "YOUR LIGHTNING STUNS MORE OFTEN, BY THIS SHARE; STRIKE A STUNNED ONE AND A FIFTH OF THE HIT ARCS TO THE NEAREST WITHIN TWO CELLS.",
@@ -415,13 +415,13 @@ static void render_codex(Frame *f) {
         "A BURIAL SLAB CRACKS WITH A HISS AND A SEAM OF LIGHT, AND A GREY-GREEN VAPOUR SETTLES BEFORE ITS NICHE FOR FOUR SECONDS. IT POISONS.",
         "A RACK OF VOTIVE CANDLES GOES OVER NEAR YOU. THE WAX RUNS ALONG THE FLOOR, THEN BURNS THERE A WHILE.",
         "A CRACK IN THE WALL BREATHES COLD. RIME CREEPS OVER THE FLOOR BEFORE IT, AND ON IT YOU ARE CHILLED AND SLOWED.",
-        "A GILDED RELIQUARY LIFTS ITS LID WHEN YOU COME NEAR. ITS VIOLET HAZE DRINKS A SOUL A SECOND AND A LITTLE HEALTH, AND SLOWS YOU, TILL YOU LEAVE IT OR IT HAS FED.",
+        "ENCASED IN GOLD, GLITTERING IN THE DISTANCE, DRAWING YOUR ATTENTION WITH A PULL THAT FRIGHTENS YOU. GET TOO CLOSE AND THE LID SWINGS OPEN, STEALING SOULS AND LIFE FORCE FROM ALL WITHIN REACH.",
         "A SLUICE CLANKS OPEN IN THE WALL AND A SURGE RUNS DOWN THE HALL. IT CHILLS, SLOWS AND CARRIES YOU TWO CELLS ALONG.",
         "LIGHTNING COMES DOWN INTO STANDING WATER. THE WATER GLOWS AND CRACKLES, THEN EVERYONE IN IT IS SHOCKED, AND A SPELL BEING GATHERED MAY BREAK.",
         "A WEB ACROSS A DOORWAY, ALL BUT UNSEEN. WALK INTO IT AND IT HOLDS YOU A MOMENT, AND THE SPIDERS NEAR WAKE.",
         "BUBBLES RISE FROM THE SILT AND A CLOUD HANGS THERE, POISONING. A FIRE SPELL THROUGH IT SENDS IT UP IN FLAME.",
         "A SAINT WEEPS IN HER ALCOVE. THE POOL SPREADING BEFORE HER DRAWS YOUR SOULS WHILE YOU STAND IN IT, AND HER EYES BURN BRIGHTER.",
-        "THE PROPS CREAK AND DUST SIFTS DOWN, THEN THE ROOF COMES DOWN ALONG A STRIP, AND THE RUBBLE CLOSES IT A WHILE.",
+        "A CAVE-IN BLOCKS YOUR WAY.",
         "GAS POOLS IN THE STOPES, A SHIMMER OVER THE FLOOR. BREATHING IT POISONS. FIRE SENDS IT UP, AND IT GATHERS AGAIN.",
         "A CART COMES DOWN THE RAILS WITH A RUMBLE BEFORE IT. IT STRIKES WHATEVER STANDS IN ITS WAY, AND THROWS YOU ASIDE.",
         "A GREEN-VEINED SEAM IN THE ROCK CRACKLES, THEN ARCS TO ANYTHING NEAR IT. A SPELL BEING GATHERED MAY BREAK.",
@@ -572,9 +572,7 @@ static void render_codex(Frame *f) {
     case CX_CASTER: {
         char a[16], b[16];
         if (c->i == CXC_ATONE) {
-            y += text_wrap(f, 14, y, "WHAT YOU SLAY, THE SECRETS YOU FIND, THE TRIALS YOU END, A BOSS, A LEVEL CLEARED AND EACH ROOM FIRST ENTERED "
-                           "ALL COUNT AS EXPERIENCE. THE MERCHANT TURNS IT INTO LEVELS OF ATONEMENT, TEN POINTS EACH TO THE FIFTIETH, "
-                           "TO SPEND ON WHAT YOU ARE: ADDED TO WHAT YOU WEAR, UNDER THE SAME CAPS. A DEATH TAKES IT ALL.", 36, R_STONE + 13, 9) * 9 + 4;
+            y += text_wrap(f, 14, y, "EXPERIENCE IS GAINED BY TRAVELING THE CRYPTS, ELIMINATING ENEMIES, COMPLETING CHALLENGES AND TRIALS, UNCOVERING SECRETS IN THE CRYPTS.", 36, R_STONE + 13, 9) * 9 + 4;
             commas(RUN.xp, a, sizeof a); commas(atone_need(RUN.atone + 1), b, sizeof b);
             snprintf(line, sizeof line, "YOURS: %d, %d POINTS. EXPERIENCE %s, THE NEXT AT %s", RUN.atone, RUN.points, a, b);
             text_wrap(f, 14, y, line, 36, R_GOLD + 11, 3);
@@ -700,12 +698,8 @@ static void render_codex(Frame *f) {
     }
     case CX_SOUL: {
         static const char *const SD[NCXS] = {
-            "SOULS ARE YOUR SPIRIT, AND SPELLS SPEND IT BY THEIR RANK. THE VESSEL HOLDS TWENTY AND TWO A LEVEL OF ATONEMENT, MORE "
-            "FROM THE SIN-EATER, THE VESSEL WORN, COMMUNION AND SPIRIT MASTERY; WHAT IS OVER IT SLIPS AWAY. THE DEAD LEAVE THEIR SOULS "
-            "WHERE THEY FALL, FOR SIX SECONDS: WALK THROUGH THEM. SHE TAKES TEN FOR EXPERIENCE.",
-            "A CURSED COIN TURNS IT BLACK, FOR GOOD. THEN SOULS TOLL IT FOR THE NEXT LEVEL: TWO FIFTHS MORE OF THE DEAD AND OF THEIR "
-            "GOLD, HALF THE EXPERIENCE, A BOSS'S WAVES A THIRD LARGER AND A SCRIP MORE. ONE ATTEMPT. ON A LEVEL CLEARED BEFORE, MORE "
-            "SOULS SHOW ITS SECRETS FROM THE START.",
+            "SOULS ARE A MEASURE OF SPIRITUAL POWER. DROPPED BY ENEMIES, CONSUMED BY SPELLS. YOUR SPIRIT VESSEL RETAINS THE REMNANTS FROM YOUR SLAIN FOES AND THE WANDERERS FOUND BELOW. DEFEAT AN ENEMY IN COMBAT THEN RUSH TO ACQUIRE ANY REMAINING SOUL ENERGY THEY LEAVE BEHIND. CAIRNS, URNS, AND HAUNTED REMAINS SCATTERED AROUND CAN CONTAIN SOULS.",
+            "CURSING THIS BELL WITH AN OFFERING OF A COIN GRANTS THE WARY DWELLER THE ABILITY TO CURSE THEIR NEXT LEVEL, INCREASING THE AMOUNT OF GOLD PRESENT. THIS COMES WITH A COST, AS THE DEAD ARE MORE NUMEROUS WHILE EXPERIENCE GAIN IS CUT IN HALF.",
             "A CURSED COIN AND IT WEEPS RED, FOR GOOD. THEN, ONCE A VISIT, SOULS FOR A TENTH MORE EXPERIENCE ON THE NEXT LEVEL.",
             "AT THE ACCURSED PORTAL, A LEVEL CLEARED BEFORE, AGAIN, FOR FIVE SOULS AND ITS NUMBER: HER ROOM BEFORE IT, THE LEVEL NEW, "
             "THEN BACK. GOLD, SOULS AND EXPERIENCE AS EVER; NO CURSED COINS.",
@@ -732,8 +726,7 @@ static void render_codex(Frame *f) {
             "VENTS OPENED QUICKLY, IN AN ORDER THAT CRUSTS A PATH OVER THE MAGMA.", "NINE NUMBERED STONES LAID SO EVERY LINE ADDS TO THE SAME.",
             "DIALS OF LETTERS SET TO A WORD CUT IN PIECES ROUND THE ROOM." };
         y += text_wrap(f, 14, y, PZ_DOES[c->i], 36, R_STONE + 13, 4) * 9 + 4;
-        y += text_wrap(f, 14, y, "IT OPENS A SEALED WING, A HOARD BEHIND IT; ON ONE PUZZLE LEVEL IN THREE, THE WAY ON. ONLY THOUGHT OPENS IT, "
-                       "NEVER A SPELL. THE ANSWER IS WRITTEN DOWN SOMEWHERE ON THE LEVEL.", 36, R_STONE + 11, 7) * 9 + 4;
+        y += text_wrap(f, 14, y, "CHALLENGES ARE SCATTERED THROUGHOUT THE DEPTHS THAT OFFER THE DWELLER A CHANCE TO UNCOVER MORE RICHES WITH LESS COMBAT RISK. LOST ARTIFACTS, RITES LONG PASSED, SECRETS SHARED AMONG THE ORDER EXIST WITHIN EACH LEVEL TO ASSIST, IF YOU FIND THEM.", 36, R_STONE + 11, 7) * 9 + 4;
         snprintf(line, sizeof line, "PUZZLES SOLVED: %d", RUN.deed_pz);
         text_wrap(f, 14, y, line, 36, R_BONE + 11, 1);
         break;
@@ -798,9 +791,7 @@ static void render_codex(Frame *f) {
         snprintf(line, sizeof line, "%s. %s.", RUN_OF[tri_run_of(c->i)], TRI_TASK[c->i]);
         y += text_wrap(f, 14, y, line, 36, R_STONE + 13, 4) * 9 + 4;
         y += text_wrap(f, 14, y, TRI_HOLD[c->i] ? "HELD TO THE END OF THE SAND, IT IS WON." : "DONE BEFORE THE SAND RUNS OUT, IT IS WON.", 36, R_STONE + 11, 2) * 9 + 4;
-        y += text_wrap(f, 14, y, "A SKULL AND CROSSED BONES ON THE DOOR. A STEP AND A HALF IN, IT SEALS: SIXTY SECONDS. WON, IT LEAVES A HOARD AND "
-                       "A DRAUGHT TO MAKE YOU WHOLE, SPIRIT TO HALF THE VESSEL, AND THE BOON: A FIFTH MORE FROM WHAT YOU SLAY. RUN OUT, THE "
-                       "CURSE TAKES A FIFTH OF EVERYTHING.", 36, R_STONE + 11, 9) * 9 + 4;   /* (1.0.0b18.1: the step, the reward) */
+        y += text_wrap(f, 14, y, "TRIALS ARE AN ASSORTMENT OF TIMED CHALLENGES MEANT TO TEST YOUR ABILITIES FURTHER AS YOU EXPLORE THE DEPTHS. COMPLETING THESE TRIALS OFFERS A BOON TO THE EXPERIENCE GAINED FOR THE REST OF THE LEVEL, ALONG WITH A HOARD OF GOLD.", 36, R_STONE + 11, 9) * 9 + 4;   /* (1.0.0b18.1: the step, the reward) */
         snprintf(line, sizeof line, "TRIALS WON: %d   LOST: %d", RUN.deed_tri, RUN.deed_lost);
         text_wrap(f, 14, y, line, 36, R_BONE + 11, 1);
         break;
@@ -823,10 +814,7 @@ static void render_codex(Frame *f) {
         break;
     }
     default:
-        text_wrap(f, 14, y, "ONLY SHE SIGNS THE LEDGER. WHILE YOU ARE IN DANGER (A CREATURE HUNTING YOU, A MISSILE COMING, HEALTH UNDER A QUARTER, "
-                  "POISON, FIRE, SOMETHING HOLDING YOU, A HAZARD, A BOSS'S HALL) YOUR PAGE IS MARKED, AND A RED EYE SHOWS BY YOUR KEYS. "
-                  "IT CLEARS EIGHT SECONDS AFTER. OPEN A MARKED PAGE, OR START AGAIN FROM ONE, AND SHE TAKES THE DEAD'S CLAIM: A QUARTER "
-                  "TO A HALF OF YOUR GOLD, AND ONE THING YOU WEAR OR THE LAST NODE BOUGHT IN A LINE. WHATEVER YOU MEANT BY IT.", 36, R_STONE + 13, 15);
+        text_wrap(f, 14, y, "THE MERCHANT OBSERVES ALL. YOUR TRIALS, YOUR PROGRESS, AND HOW YOU APPROACH YOUR CHALLENGES. SHE MANAGES THE LEDGER, THE MASTER RECORD THAT DOCUMENTS YOUR CRUSADE AGAINST THE DEAD. OFFERINGS BRING GREATER CHANCE AT BETTER REWARDS, RETRAINING, AND KNOWLEDGE. ONCE YOU'VE GATHERED ENOUGH EXPERIENCE RETURN TO THE MERCHANT TO ASCEND TO THE NEXT LEVEL OF POWER. BE WARNED, THE MERCHANT OBSERVES ALL. DO NOT ATTEMPT TO CHEAT THE DEAD OF THEIR JUST REWARD, SHE WILL COLLECT.", 36, R_STONE + 13, 15);
         break;
     }
     const char *keys = pk("A/D PAGES  W/S PARTS  C CLOSES");
@@ -838,7 +826,7 @@ static void render_codex(Frame *f) {
  * for a pane at the side) */
 static void render_totemmenu(Frame *f) {
     static const char *const RANK[ABIL_TOP + 1] = { "NOT KNOWN", "RANK I", "RANK II", "RANK III" };
-    static char right[24], cost[40], does[200], warn[64];
+    static char right[24], cost[40], does[320], warn[64];
     dim_view(f);
     snprintf(right, sizeof right, "$%d", RUN.treasure);
     ui_slab(f, 4, 4, 312, 192, SLAB_LEDGER, ORN_NONE, G.ui_t);
@@ -873,7 +861,7 @@ static void render_totemmenu(Frame *f) {
     }
     if (!n) {
         UiPane pn = { -1, 0, R_GOLD, SK_REACH, 0, "NOTHING TO TEACH YET", 0, 0, 0,
-                      "IT WANTS A BOSS'S ODIOUS SCRIP, AND NONE HAS FALLEN TO YOU YET. BEAT ONE ON THE WAY DOWN AND IT WILL TEACH YOU WHAT THAT ONE KNEW.",
+                      "POWERFUL ENERGIES ENSNARED WITHIN EACH CHAMPION'S HOLY DIRECTIVE CAN BE HARNESSED, UNLOCKING DARK AUGMENTS TO ASSIST WITH YOUR CRUSADE.",
                       0, 0, 0, 0, 0 };
         ui_pane_wide(f, 9, 94, 302, 86, &pn);
         const char *k = pk("ESC CLOSES");
@@ -886,7 +874,7 @@ static void render_totemmenu(Frame *f) {
         snprintf(does, sizeof does, "YOU HOLD %d MORE OF ITS SCRIP THAN THE TOTEM WILL EVER ASK. EACH SELLS FOR $%d.", extra_n, SCRIP_PRICE);
     } else {
         if (top) snprintf(cost, sizeof cost, "HIGHEST"); else snprintf(cost, sizeof cost, rk ? "RAISE: %d SCRIP" : "UNLOCK: %d SCRIP", need);
-        char d[160];
+        char d[256];
         int shown = rk < ABIL_TOP ? rk + 1 : rk;
         ab_text(b, shown, d, sizeof d);
         snprintf(does, sizeof does, "%s %s: %s", rk < ABIL_TOP ? (rk ? "NEXT," : "TO LEARN,") : "AT", RANK[shown], d);

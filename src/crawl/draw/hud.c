@@ -394,7 +394,7 @@ static void render_shop_card(Frame *f) {
         }
         if (p->kind == IK_BAG) snprintf(stats, sizeof stats, "HOLDS %d. %s", bag_capacity(p->quality), gear_blurb(o));
         if (p->ability) {
-            char ab[64];
+            char ab[128];
             piece_ability_text(p, ab, sizeof ab);
             snprintf(stats + strlen(stats), sizeof stats - strlen(stats), ". %s", ab);
         }

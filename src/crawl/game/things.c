@@ -79,8 +79,8 @@ static int thing_use(int i) {
     case TR_PLACE:
         if (G.carry) {
             int it = G.carry - 1;
-            if (t->in >= 0 && (t->cap <= 1 || pile_count(i) >= t->cap)) { say("THERE IS NO MORE ROOM THERE"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); return 1; }
-            if (!pz_takes(i, it)) { say("IT WILL NOT GO THERE"); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 1; }
+            if (t->in >= 0 && (t->cap <= 1 || pile_count(i) >= t->cap)) { say("THERE IS NO ROOM TO PLACE THIS HERE"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); return 1; }
+            if (!pz_takes(i, it)) { say("CANNOT PLACE THIS HERE"); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 1; }
             G.carry = 0;
             thing_put(it, i);
             sfx_at(SFX_KNOCK, x, y, 0.5f); sfx_at(SFX_BONES, x, y, 0.3f);

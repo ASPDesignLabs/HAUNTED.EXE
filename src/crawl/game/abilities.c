@@ -108,7 +108,7 @@ static int latch_begin(Mob *m) {
     G.shake_dir = G.strafe_dir = 0; G.shake_last = G.strafe_last = -9.0f; G.shake_ang = G.ang;
     m->contact = 0.0f;
     sfx_at(SFX_BAT, m->x, m->y, 1.3f); snd_sfx_ex(SFX_WHISPER, 0.7f, 0.5f);
-    if (G.player && !RUN.latch_said) { RUN.latch_said = 1; say("THE BAT FEEDS. SHAKE IT OFF."); }
+    if (G.player && !RUN.latch_said) { RUN.latch_said = 1; say("A BAT HAS LATCHED ON. SHAKE IT OFF!"); }
     RUN.cx_more |= CXM_SAP;                                        /* and into the Codex */
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT latch rank %d by %s t=%.2f\n", m->rank, G.player ? "player" : "autopilot", G.t);
@@ -181,7 +181,7 @@ static int webs_out(void) {
 }
 static int web_spit(int t) {
     if (webs_out() >= RUN.abil[BOSS_SPIDER]) {
-        if (G.player) { say(RUN.abil[BOSS_SPIDER] > 1 ? "ALL YOUR WEBS ARE OUT" : "YOUR WEB IS OUT"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); }
+        if (G.player) { say(RUN.abil[BOSS_SPIDER] > 1 ? "YOU CANNOT CAST MORE WEB RIGHT NOW" : "AN ENEMY IS ALREADY ENSNARED BY YOUR WEB"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); }
         return 0;
     }
     float a = t >= 0 && !G.player ? atan2f(G.mobs[t].y - G.py, G.mobs[t].x - G.px) : G.ang;   /* a person's goes where they look */
@@ -206,7 +206,7 @@ static void web_land(Shot *s, Mob *m) {
     s->alive = 0;
     if (!web_holds(m)) {                                           /* it falls away, torn */
         sfx_at(SFX_SKITTER, m->x, m->y, 1.0f); sfx_at(SFX_SHATTER, m->x, m->y, 0.4f);
-        if (G.player && m->boss) say("THE WEB TEARS AWAY FROM IT");
+        if (G.player && m->boss) say("AN ENEMY FREES ITSELF FROM YOUR WEB");
         web_miss(m->x, m->y);
         return;
     }
@@ -275,7 +275,7 @@ static int allies_out(void) {
 static int grave_call(int ri) {
     int rank = RUN.abil[BOSS_DEACON];
     if (allies_out() >= rank) {
-        if (G.player) { say(rank > 1 ? "ALL WHO WOULD ANSWER STAND ALREADY" : "ONE STANDS FOR YOU ALREADY"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); }
+        if (G.player) { say(rank > 1 ? "NO CORPSES LEFT TO RESPOND" : "YOU ALREADY COMMAND AN UNDEAD!"); snd_sfx_ex(SFX_KNOCK, 0.4f, 0.5f); }
         return 0;
     }
     Remains *r = &G.remains[ri];
@@ -284,7 +284,7 @@ static int grave_call(int ri) {
     if (G.map[y][x].kind != K_FLOOR || occupied(x, y, NULL)) {      /* the floor beside it, if something stands on it */
         int d = 0;
         for (; d < 4; d++) if (cell(x + DX[d], y + DY[d])->kind == K_FLOOR && !occupied(x + DX[d], y + DY[d], NULL)) break;
-        if (d == 4) { if (G.player) say("NO ROOM FOR IT TO RISE"); return 0; }
+        if (d == 4) { if (G.player) say("THERE IS NO ROOM FOR THE SUMMONED"); return 0; }
         x += DX[d]; y += DY[d];
     }
     Mob *m = spawn_mob(x, y, r->type);
@@ -460,7 +460,7 @@ static void use_readied(void) {
     if (b == BOSS_SPIDER) web_spit(aim_target());
     else if (b == BOSS_DEACON) {
         int ri = remains_near(1);
-        if (ri < 0) { say("NO REMAINS OF YOURS IN REACH"); snd_sfx_ex(SFX_KNOCK, 0.35f, 0.5f); }
+        if (ri < 0) { say("LOCATE A RECENTLY SAVED CORPSE TO SUMMON"); snd_sfx_ex(SFX_KNOCK, 0.35f, 0.5f); }
         else grave_call(ri);
     } else wraithwalk();
 }
