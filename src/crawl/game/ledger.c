@@ -152,7 +152,7 @@ static void title_to_play(int page) {                              /* a grave ri
     TI.on = 0;
     LEDGER.yours = 1;                                              /* the dream is over: from now on the run is yours */
     if (page >= 0) ledger_open(page); else run_new();
-    show_bar(); G.hint_t = 6.0f; PADX.fresh = 1; TCH.fresh = 1;
+    show_bar(); G.hint_t = CONTROLS_CARD_T; PADX.fresh = 1; TCH.fresh = 1;
     snd_sfx_ex(SFX_RUNE, 1.0f, 0.5f);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT title %s %d level %d shop %d\n", page >= 0 ? "rise" : "new", page + 1, G.level, G.shop);

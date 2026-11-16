@@ -1,10 +1,10 @@
-Drawn Rooms: the seventh point release of the twenty-first beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
+A Needle of Bone: the eighth point release of the twenty-first beta of **HAUNTED.EXE**, a Halloween screensaver for Windows in real VGA modes: a possessed 486 PC (HAUNT.EXE) and a Wolfenstein-style crypt crawl (CATACOMB) that you can take over and play by holding **H**, or any button on a game controller, for three seconds.
 
-It lays the crypt's rooms by shape, so that what you walk through was put where it is.
+It sells you a compass, and takes the list of controls off the screen for now.
 
 ### Before you upgrade
 
-Your saves carry over, and nothing in them has changed. The settings are as they were. A copy of your saves costs a moment, and this is as good a time as any; from a Command Prompt:
+Your saves carry over. A page now remembers a compass if you hold one; an earlier build reads a page from this one as having none, and this one reads an earlier page the same way. The settings are as they were. A copy of your saves costs a moment, and this is as good a time as any; from a Command Prompt:
 
 ```
 reg export "HKCU\Software\HalloweenVGASaver" "%USERPROFILE%\Desktop\haunted-saves-backup.reg"
@@ -12,18 +12,18 @@ reg export "HKCU\Software\HalloweenVGASaver" "%USERPROFILE%\Desktop\haunted-save
 
 ### New in this release
 
-From the third level, a level is built round rooms of a drawn shape, and the halls are made to reach them. The first two levels, her hall and a boss's arena are as they were.
+**The compass.** Once the map is yours, the merchant sells a compass for 2,500 gold: a disc of old stone, chipped and mossed, with a needle of bone, hanging at her right. It leans toward whatever you have asked it to find, and says how far: `GOLD KEY  36 S`. It knows the direction and the distance, not the route, so it will point through a wall and leave the way round to you. The disc turns as you do, and the gilt stud on its rim is always north.
 
-**A place on every level.** A shrine spur: a way one cell wide that ends at an altar. A cloister: a loop of hall round a solid yard. A gauntlet hall (from the second level of a run): long and narrow, with niches for treasure and the dead. An alcove hall: recesses down both sides. From the sixth level of a run, a sunken ring: stepped rings round a floor, braziers and an altar in the middle. About half the levels get one of the larger four, and the rest a spur. Altars, braziers and torches stand where the drawing puts them, treasure lies in the niches, and some of the niches hold one of the dead, which keeps to its room until it knows you are there.
+You choose what it leans toward in the L list, where the wisps are: **Back** (Backspace; X on a controller; the BACK stone by touch) aims it at the row chosen, and a small dial marks the row it is aimed at. It begins on the way out. The keys are there for Keymaker, as they are for the wisps, and the altar's secret while its wisp is out. When what it leans toward is gone, a key taken or a secret found, it turns back to the way out and says so. An exit behind a locked vault leans toward the key that vault wants first, as the exit wisp goes.
 
-**Rooms where halls branch.** One big and two or three small a level, no two of a kind: stepped diamonds with a cross, a ring, four pillars or a star in the middle, a transept, a pinwheel, a trident, a horseshoe, a ladder of two halls, an hourglass with a narrow neck, a dogleg stair, a chevron, a gallery three wide, and from the sixth level a great nave with six slabs standing in it.
+It sits in a plate at the top right of the view, below the news. By touch it is a tablet under MAP, worn blank until you have bought it; tap it to open the list.
 
-**New secret rooms.** Ten shapes: boxes and a strip, an L and its mirror, an arrowhead, from the third level a C, a spiral and a J, and from the fifth a long, narrow approach. The cracked wall now slides one cell sideways into the stone beside it, and leaves the room empty to walk.
+A death that wakes you in her room takes it, with the rest; the map stays. The card says so. The screensaver does not use it.
 
-The screensaver walks all of it, and the map shows it whole once you have drawn it.
+**The controls list is gone, for now.** The list of keys that stood on the screen for six seconds when you took over, or opened a page, no longer appears. It will be back.
 
 ### What has been tested
 
-The author played the Windows build GitHub made of this and said it plays well; that is all that has been said of it by hand. Everything else is tested in the test harness only: nothing has been run under Wine, and the Windows and browser builds were compiled and smoke-tested by GitHub Actions and by nothing else.
+Nobody has played this by hand: not the compass, not a finger on its tablet, not the list's going. Everything is tested in the test harness only; nothing has been run under Wine, and the Windows and browser builds were compiled and smoke-tested by GitHub Actions and by nothing else.
 
-In the harness, 1,800 levels were made with every exit, key, locked door and secret room tested for being reached, and no floor stranded: none failed. On 22 of them a drawn room had cut the level in two, and it was made again without. The screensaver played sixteen seeds for 3,000 seconds of its time, twice, against the build before: it cleared as many levels (6.6 and 6.9 against 6.6 and 6.2) and died less (32 and 27 against 47 and 47), but the old build's own numbers move between runs, so read that as no worse, not as safer. It reaches level 8 or 9 in that time and no further. With the drawn rooms switched off it logs the build before's line for line. Clean under AddressSanitizer.
+In the harness, the bearing was checked from eight places round the exit and each key on levels 1, 4, 5, 12 and 23, and the saved page read back for every compass it can hold: none failed. The screensaver played eight seeds for 3,000 seconds of its time, against the build before, and logged the same lines to the line, about 11,000 of them a run; it cannot buy the compass, so it could not have moved. Scripted players bought one, aimed it, died and woke, and the lot ran clean under AddressSanitizer. What 2,500 is worth is not known by hand. The screensaver gathers about a thousand gold a level at first and about three and a half thousand from the fourth, and takes nearly everything it sees, so a person will find it dearer.

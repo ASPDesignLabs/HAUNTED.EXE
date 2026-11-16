@@ -1,6 +1,6 @@
 # The compass: a needle for what you have asked to find
 
-**Planned, nothing built** (16 November 2026, on `claude/stoic-ramanujan-3iqb3m`, from main after 1.0.0b21.7). The owner asked for
+**Built and released as 1.0.0b21.8, "A Needle of Bone", harness only** (16 November 2026, on `claude/stoic-ramanujan-3iqb3m`, from main after 1.0.0b21.7). The owner asked for
 "a compass item, that directs the player north and to one 'objective' they wish to track, should their skills or gear allow for it.
 Keymaker pointing to keys, a wisp called for an exit pointing to it", art that "feels like it belongs in the UI", bought from the
 merchant once the map is, for 2500g, and not kept through death. Settled by the owner on the first round of questions: see section 1.

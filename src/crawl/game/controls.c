@@ -345,7 +345,7 @@ static void crawl_control(int what) {
     if (!G.quit_line) G.quit_line = 1 + rnd(97);                    /* the crypt's arguments, from somewhere new each time */
     if (G.shop) { G.sdur = 0.0f; G.shop_look = -1; G.pc_t = -1.0f; old_spells_said(); old_lines_said(); }   /* no cast left half-made */
     else if (!G.exiting && !G.tally && !G.dead) human_begin();
-    G.hint_t = TU.on && g_drawn ? 0.0f : 6.0f;                     /* the lessons' first page says what the card would */
+    G.hint_t = TU.on && g_drawn ? 0.0f : CONTROLS_CARD_T;                     /* the lessons' first page says what the card would */
     snd_sfx_ex(SFX_RUNE, 1.0f, 0.5f); snd_sfx_ex(SFX_WHOOSH, 0.6f, 0.5f);
     say("THE CONTROLS ARE YOURS");
 #ifdef CRAWL_DEBUG

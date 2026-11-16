@@ -441,3 +441,13 @@ levels. Tested in the harness only: 1,800 levels with nothing stranded, the scre
 clean. The owner played the Windows build GitHub made of it and said "Plays well! Go ahead and release this as a minor update", and later
 asked that the page be cut: "greatly reduce the rest of the text on the page ... consuming an insane amount of context per pass". Folded
 into main as one squashed commit of the tree they played; the antechamber with a vault behind it, written after, was left on the branch.
+
+**1.0.0b21.8**, "A Needle of Bone", is [`docs/PLAN-compass.md`](PLAN-compass.md): the owner asked for "a compass item, that directs the player north and to one
+'objective' they wish to track, should their skills or gear allow for it", art that "feels like it belongs in the UI", bought after the map for
+2,500 gold and not kept through death. They settled four questions (it is lost only on a death that reloads into the Item Shop; 2,500; the L
+menu is where it is aimed; the dial rotates), and the first sheet, which drew a clean modern dial, was sent back: "the compass itself doesn't
+look like it fits with the theme of the game". The second, a relic of stone and bone, was approved. Built in seven steps on
+`claude/stoic-ramanujan-3iqb3m` (the state and its saved byte; her room's sale; the bearing; aiming it in the L list; the HUD plate, touch's
+tablet and the dial on her page; death; the proof), at the owner's word one step at a time, and harness only. The death card names it, last in its
+line, left so at their word. They also asked for the list of controls that appears on taking over or loading a save to be disabled for the time
+being, and for the release as "another minor update"; it went to main as one squashed commit.

@@ -384,9 +384,8 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
   </section>
 
   <section aria-labelledby="new">
-    <h2 id="new">New in this release: drawn rooms</h2>
-    <p>From the third level, a level is built round rooms of a shape someone drew, and the halls are made to reach them. Every level gets a <em>place</em>: a shrine spur ending at an altar, a cloister round a solid yard, a gauntlet hall with niches for treasure and for the dead, an alcove hall, and from the sixth level of a run a sunken ring with braziers and an altar. Where halls branch there is a larger room of a set shape, a diamond with a cross or four pillars in it, a pinwheel, a horseshoe, a great nave of slabs. The secret rooms are ten new shapes, and the cracked wall now slides sideways into the stone and leaves the room empty to walk. The first two levels, her hall and the bosses' arenas are as they were.</p>
-    <figure><img src="img/preview_catacomb_drawn.png" loading="lazy" width="1932" height="806" alt="Six frames of the game's own map with whole levels shown: a sunken ring's stepped rings; a great nave of slabs beside an alcove hall; a cloister; a gauntlet hall with a pinwheel; a diamond with four pillars; and a large ring"></figure>
+    <h2 id="new">New in this release: a compass</h2>
+    <p>Once you own the map, the merchant sells a compass for 2,500 gold: a disc of old stone, chipped and mossed, with a needle of bone. It leans toward what you ask it to find in the L list (the way out, a key you can see, the altar's secret) and says how far: <em>GOLD KEY 36 S</em>. It knows the direction, not the route. The disc turns with you, and its gilt stud is north. A death takes it, as it takes your gold; the map stays. The list of controls that stood on the screen when you took over is off for now.</p>
   </section>
 
   <section aria-labelledby="game">
@@ -398,7 +397,7 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
       <li>Twenty-four kinds of the dead, drawn by hand, that sense, remember and hunt in packs; a portrait of each you slay.</li>
       <li>Hazards, puzzles, trials, and secrets in chains that lead into the Backrooms and Severance.</li>
       <li>Mice in the walls, spiders on the stone, and twelve small things that notice you.</li>
-      <li>A map, a game controller, touch in the browser, and two hand-drawn levels that teach as you go.</li>
+      <li>A map, a compass, a game controller, touch in the browser, and two hand-drawn levels that teach as you go.</li>
       <li>Every picture, texture, note and sound is made by the code.</li>
     </ul>
     <p>Everything, level by level, is in the <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE#readme">README</a>.</p>
@@ -433,11 +432,12 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
 
   <section aria-labelledby="beta">
     <h2 id="beta">Beta status</h2>
-    <p>This is the twenty-first beta's seventh point release, 1.0.0b21.7, "Drawn Rooms". The author played the Windows build of it and said it plays well. Everything else is tested in the test harness, not under Wine, and the Windows and browser builds were compiled and smoke-tested by GitHub Actions. What each release was tested with, and how, is under <em>What has been verified</em> in the <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE#what-has-been-verified">README</a>.</p>
+    <p>This is the twenty-first beta's eighth point release, 1.0.0b21.8, "A Needle of Bone". Nobody has played it by hand: it is tested in the test harness, not under Wine, and the Windows and browser builds were compiled and smoke-tested by GitHub Actions. The release before it, "Drawn Rooms", was played on Windows by the author, who said it plays well. Everything else is tested in the test harness, not under Wine, and the Windows and browser builds were compiled and smoke-tested by GitHub Actions. What each release was tested with, and how, is under <em>What has been verified</em> in the <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE#what-has-been-verified">README</a>.</p>
     <div class="scroll">
       <table>
         <thead><tr><th>Area</th><th>Evidence</th><th>Confidence</th></tr></thead>
         <tbody>
+          <tr><td>The compass</td><td>Not played by hand. In the harness: the bearing from eight places round the exit and each key on five levels, the saved page read back for every compass it can hold, scripted players who bought one, aimed it, died and woke, clean under AddressSanitizer. The screensaver on eight seeds for 3,000 seconds logged the same lines as the build before, but it cannot buy one. 2,500 gold is the author's number and is not weighed by hand.</td><td><span class="tag low">LOW</span></td></tr>
           <tr><td>The drawn rooms</td><td>Played by the author, who said it plays well. In the harness: 1,800 levels with every exit, key, locked door and secret room reached and no floor stranded; 22 made again without drawn rooms. The screensaver on sixteen seeds for 3,000 seconds, twice, against the build before: 6.6 and 6.9 levels cleared against 6.6 and 6.2, and 32 and 27 deaths against 47 and 47, which is no worse (the old build's own numbers move between runs). It reaches level 8 or 9 in that time. Clean under AddressSanitizer. Boss levels and the later runs were not played.</td><td><span class="tag mid">MID</span></td></tr>
           <tr><td>The mice, the spiders and the small life</td><td>The mice and the spiders' first build were played by the author; the rest in the harness only. Its sounds borrow other effects'.</td><td><span class="tag low">LOW</span></td></tr>
           <tr><td>Everything older</td><td>Played by hand up to the third beta and the fourth to twenty-first in part; the rest in the harness only, and none of it under Wine. The README lists each release's evidence.</td><td><span class="tag low">LOW</span></td></tr>

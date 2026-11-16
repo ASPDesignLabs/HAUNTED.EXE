@@ -401,6 +401,8 @@ enum { CS_WIND, CS_OMEN, CS_CARTO, CS_LANTERN, CS_SENSE, NCS };
 #define BELL_Y 5                            /* the Dead Bell, in the east half of the room north of hers (1.0.0b11) */
 #define FONT_X 17
 #define FONT_Y 5                            /* the Weeping Font, in its west half */
+#define CONTROLS_CARD_T 0.0f                /* how long the controls list stands when you take over or open a page: 6.0f puts it back (taken off for the
+                                               time being at the owner's word, 16 November 2026; the toasts that wait on it wait on nothing) */
 #define LAMP_X 20
 #define LAMP_Y 3                            /* the Lampstand (1.0.0b11), against the far wall of the room north of hers */
 static const int8_t STONE_AT[10][2] = { { 20, 22 }, { 18, 22 }, { 16, 22 }, { 14, 22 }, { 12, 22 },   /* the plot's stones, */
