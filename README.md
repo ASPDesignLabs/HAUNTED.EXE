@@ -157,6 +157,9 @@ already) and her hall are as they were, and a boss's level keeps its arena.
   C, a spiral and a J; from the fifth a long one-cell approach to a room. The cracked wall no longer slides through the room: it slides one
   cell sideways into the stone beside it, and the room is left empty to walk. Chains still end in a doorway on into the Backrooms or
   Severance.
+* **A vestibule before the first vault** (1.0.0b21.8). On about half the levels the first vault, the gold one, has an antechamber: an
+  eleven-cell chamber with an altar at its heart and a brazier either side, the hall in one wall and the vault's locked door in the
+  opposite one. The vault is a small room of two blocks behind it, and the key is found as before.
 * The screensaver walks all of it, and the maps (**M**) show it whole once drawn.
 
 ![CATACOMB's drawn rooms on six levels, each as the game's own map with the whole level shown: a sunken ring's stepped rings; a great nave of slabs beside an alcove hall; a cloister; a gauntlet hall with a pinwheel; a diamond with four pillars; and a large ring](media/previews/preview_catacomb_drawn.png)
@@ -1180,7 +1183,7 @@ became HAUNTED.EXE, kept so that settings and saves carry over), `Progress` besi
 start from or holds the unsigned run, and `Mark` is the dead's watch; `uninstall.cmd` removes them with
 the settings. They are written the moment the game changes them, and never on quitting.
 
-**1.0.0b21.7 changes nothing in the saves** (a level is made afresh each time and is never kept). **1.0.0b21.6 changes nothing in the saves.** It adds two numbers to the settings (the small life's movement and sound: `LifeMove`, `LifeSound`),
+**1.0.0b21.8 changes nothing in the saves.** **1.0.0b21.7 changes nothing in the saves** (a level is made afresh each time and is never kept). **1.0.0b21.6 changes nothing in the saves.** It adds two numbers to the settings (the small life's movement and sound: `LifeMove`, `LifeSound`),
 which earlier betas ignore. **1.0.0b21.4 changes nothing in the saves.** It adds two bytes to the settings kept with the controller's layout
 (touch's turning and smoothing), which earlier betas ignore. **1.0.0b21.3 changes nothing in the saves.** **1.0.0b21.2 adds the portraits** (which tapestries are drawn back, where each rank was earned, the gold taken this life, and the
 feats' counts) to each page; 1.0.0b21.1 steps over them, and a page it signs loses them. Achievements earned stay earned.
@@ -1426,6 +1429,22 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b21.8** (a vestibule before the first vault; a doorway mended). Not played by hand: the author played 1.0.0b21.7 and asked
+for this one on the strength of its checks in the harness; nothing was run under Wine, and the Windows and browser builds are compiled
+and smoke-tested by GitHub Actions only.
+
+* **Generation**: 1,800 levels (200 seeds on levels 1, 5, 10, 11, 20, 21, 30, 31 and 40) with every exit, key, locked door and secret room
+  tested for being reached, and the floor for being stranded even with the secrets open: no failure, no stranded floor, 8 made again
+  without drawn rooms; 300 more on the final build, the same. On the test levels that rolled a vestibule (43), the room behind it was
+  the first vault 41 times; the other two kept it as a small room.
+* **The screensaver**: this build against itself with the vestibule left out and put in, the same sixteen seeds for 3,000 seconds of its
+  time, three times over: deaths 120 without it and 99 with it, levels cleared 6.8 and 6.8, so the vestibule is not what moves them.
+  Against 1.0.0b21.7 the same way (three runs): deaths 99 for 1.0.0b21.7 and 130 for this, levels cleared 6.9 and 6.6, run totals of 27 to 49
+  for the same build. That gap is not explained, and the owner released it knowing it; it is probably the noise (the same build's total
+  moves by that much between runs), and if it is not it is nothing the vestibule does.
+* **With the drawn rooms switched off** the screensaver logs 1.0.0b21.6's line for line (two seeds, 600 s). Sanitizers: clean under AddressSanitizer and UBSan on the dream for 1,200 s of its time on four seeds.
+* **Not tried**: a person's play through a vestibule, the dream's play on a boss's level and in the later runs.
 
 **New in 1.0.0b21.7** (drawn rooms: the places, the joiners and the secret rooms). The author played the Windows build GitHub made of it
 and said it "plays well"; that is all that has been said of it by hand, and nothing in it was timed or listed by hand. The rest is tested
