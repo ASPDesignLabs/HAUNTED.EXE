@@ -442,7 +442,17 @@ clean. The owner played the Windows build GitHub made of it and said "Plays well
 asked that the page be cut: "greatly reduce the rest of the text on the page ... consuming an insane amount of context per pass". Folded
 into main as one squashed commit of the tree they played; the antechamber with a vault behind it, written after, was left on the branch.
 
-**1.0.0b21.8**, "A Needle of Bone", is [`docs/PLAN-compass.md`](PLAN-compass.md): the owner asked for "a compass item, that directs the player north and to one
+
+**1.0.0b21.8**, "The Antechamber", is the antechamber of [`docs/PLAN-stamps.md`](PLAN-stamps.md), built after 1.0.0b21.7 on the same branch: a vestibule laid on about
+half the levels with a room of two blocks beyond one of its ports that becomes the first vault, and a late doorway that touched no floor
+in a bent secret room mended. Weighed three times over on sixteen seeds against 1.0.0b21.7 (130 deaths against 99, levels cleared 6.6
+against 6.9) and then, to find the cause, against itself with the vestibule left out (120 deaths) and put in (99): the vestibule is not
+what moves them, and the gap against 1.0.0b21.7 is unexplained and probably noise. The owner asked for it released if the repeat runs
+looked fine ("Release it if the repeat runs look fine"), and it went out unplayed by them, as one squashed commit on top of their page's
+title-scene backdrops (PR #1).
+\n
+
+**1.0.0b21.9**, "A Needle of Bone", is [`docs/PLAN-compass.md`](PLAN-compass.md): the owner asked for "a compass item, that directs the player north and to one
 'objective' they wish to track, should their skills or gear allow for it", art that "feels like it belongs in the UI", bought after the map for
 2,500 gold and not kept through death. They settled four questions (it is lost only on a death that reloads into the Item Shop; 2,500; the L
 menu is where it is aimed; the dial rotates), and the first sheet, which drew a clean modern dial, was sent back: "the compass itself doesn't

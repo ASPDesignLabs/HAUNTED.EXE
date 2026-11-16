@@ -291,7 +291,7 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     rec_pack(buf + SAVE_V3, &RUN.rec);
     uint8_t *x = buf + SAVE_V3 + REC_BYTES;
     x[0] = (uint8_t)RUN.wisp_kind; x[1] = (uint8_t)RUN.wisp_color; x[2] = (uint8_t)(RUN.wisp_auto != 0);
-    x[3] = (uint8_t)(RUN.has_compass ? 1 | (clampi(RUN.compass_kind, WK_EXIT, WK_ALTAR) << 1) | (clampi(RUN.compass_color, 0, NKEYS - 1) << 3) : 0);   /* the compass: bit 0 held, 1-2 its wisp's kind, 3-4 its key (until 1.0.0b21.8 always 0) */
+    x[3] = (uint8_t)(RUN.has_compass ? 1 | (clampi(RUN.compass_kind, WK_EXIT, WK_ALTAR) << 1) | (clampi(RUN.compass_color, 0, NKEYS - 1) << 3) : 0);   /* the compass: bit 0 held, 1-2 its wisp's kind, 3-4 its key (until 1.0.0b21.9 always 0) */
     shrine_pack(x + SAVE_V4_EXTRA);
     rec_pack_extra(x + SAVE_V4_EXTRA + SAVE_V5_SHRINE, &RUN.rec);
     hall_pack(x + SAVE_V4_EXTRA + SAVE_V5_SHRINE + REC_EXTRA);

@@ -111,7 +111,7 @@ static void gen_level(void) {
         for (int y = ARENA_PLAN; y < MG; y++) for (int x = 0; x < MG; x++) MM[y][x].kind = K_PILLAR;
     G.nrooms = 0; G.ndoors = 0; G.nlights = 0; G.nlc = 0; G.ndecos = 0;
     st_nplaced = st_nmust = 0; memset(st_port, 0, sizeof st_port); memset(st_resv, 0, sizeof st_resv); memset(st_pbits, 0, sizeof st_pbits);   /* stamps (docs/PLAN-stamps.md) */
-    memset(st_room, 0, sizeof st_room);
+    memset(st_room, 0, sizeof st_room); st_ante_room = 0;
     memset(G.bulky, 0, sizeof G.bulky); memset(G.mapped, 0, sizeof G.mapped); memset(G.foot, 0, sizeof G.foot);
     int nreg = 0;
 
@@ -251,6 +251,9 @@ static void gen_level(void) {
         vkx[k] = mstart(px) + (px & 1); vky[k] = mstart(py) + (py & 1);
         mz_fill_dead_ends();
     }
+#ifdef CRAWL_DEBUG
+    if (st_ante_room > 0 && getenv("CRAWL_STAMPLOG")) fprintf(stderr, "STAMPS level %d: a vestibule's room %d %s a vault\n", G.level, st_ante_room, G.vault_room[0] == st_ante_room ? "is" : "is NOT");
+#endif
     int wkx = -1, wky = -1;                                        /* a puzzle's sealed wing (1.0.0b13): a vault the puzzle holds */
     G.pz = pz_level(G.level) ? pz_kind_of(G.level) : -1; G.pz_room = G.pz_door = -1; G.pz_exit = 0;
     if (G.pz >= 0) {

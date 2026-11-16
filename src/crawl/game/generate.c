@@ -167,6 +167,7 @@ static MCell MM[MG][MG];
 static int mroom[12][4];                                         /* the rooms on the plan: x, y, w, h */
 #define ARENA_PLAN 15                       /* plan rows from here on are a boss's (cells from BAND_Y0) */
 #define ARENA_DOOR_MX 3                     /* and the way down to it: plan column 3, cell x 6 */
+static int st_ante_room, st_ante_wx, st_ante_wy;                  /* a vestibule's vault room (0 none), and the plan wall between them (docs/PLAN-stamps.md) */
 static int8_t st_room[12];                                       /* a drawn room's place in st_placed, plus one; 0 a chamber (docs/PLAN-stamps.md) */
 static int mstart(int m) { return (m & 1) ? 2 * m - 1 : 2 * m; }  /* the first cell of plan row/column m */
 static MCell *mc(int x, int y) {
@@ -285,6 +286,7 @@ static int mz_vault(int *kx, int *ky, int *room) {
         if (!taken) order[no++] = r;
     }
     for (int i = no - 1; i > 0; i--) { int j = rnd(i + 1), t = order[i]; order[i] = order[j]; order[j] = t; }
+    for (int i = 1; i < no && st_ante_room > 0; i++) if (order[i] == st_ante_room) { order[i] = order[0]; order[0] = st_ante_room; }   /* the room behind a vestibule is the first vault */
     int sx = mroom[0][0], sy = mroom[0][1];
     for (int oi = 0; oi < no; oi++) {
         int r = order[oi], *R = mroom[r];
@@ -306,6 +308,8 @@ static int mz_vault(int *kx, int *ky, int *room) {
             if (!mopen(ex[i] + DX[ed[i]], ey[i] + DY[ed[i]])) continue;
             if (keep < 0 || MM[ey[i]][ex[i]].kind == K_DOOR) keep = i;
         }
+        if (r == st_ante_room)                                     /* and its door the one into the vestibule */
+            for (int i = 0; i < ne; i++) if (ex[i] == st_ante_wx && ey[i] == st_ante_wy && mopen(ex[i] + DX[ed[i]], ey[i] + DY[ed[i]])) keep = i;
         if (keep < 0) continue;
         uint8_t saved[24];
         for (int i = 0; i < ne; i++) { saved[i] = MM[ey[i]][ex[i]].kind; if (i != keep) MM[ey[i]][ex[i]].kind = K_WALL; }
@@ -459,6 +463,7 @@ static int secret_door(Secret *sc) {
             for (int n = 0; n < 4; n++) {                          /* n: outwards from the room */
                 int ix = x - DX[n], iy = y - DY[n], bx = x + DX[n], by = y + DY[n];
                 if (ix < sc->x0 || ix > sc->x1 || iy < sc->y0 || iy > sc->y1 || (ix == rx && iy == ry)) continue;
+                if (sc->stamp && (G.map[iy][ix].kind != K_FLOOR || G.map[iy][ix].secret != 1)) continue;   /* a bent room's box has stone in its corners: the doorway touches floor */
                 if (n == ((sc->d + 2) & 3) || G.map[y][x].kind != K_WALL || G.map[y][x].secret) continue;   /* not the front */
                 if (bx < 1 || by < 1 || bx >= MAPN - 1 || by >= MAPN - 1 || G.map[by][bx].kind != K_WALL || G.map[by][bx].secret) continue;
                 int along = (ix - sc->sx) * DX[sc->d] + (iy - sc->sy) * DY[sc->d];
@@ -577,6 +582,12 @@ static int stamp_try(const Stamp *s, int ei, int d, int sx, int sy, int links, S
         int bx = dx + DX[D->d], by = dy + DY[D->d];
         if ((bx & 3) && (by & 3)) MM[(by - 1) / 4 * 2 + 1][(bx - 1) / 4 * 2 + 1].trunk = 1;   /* the rock behind it stays rock */
     }
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_STAMPLOG")) {
+        fprintf(stderr, "SECRET stamp %s x%d at (%d,%d), entrance (%d,%d), door %d:\n", s->name, s->xf, ox, oy, sx, sy, door);
+        for (int y = 0; y < s->h; y++) { fprintf(stderr, "  "); for (int x = 0; x < s->w; x++) fprintf(stderr, "%c", s->g[y][x]); fprintf(stderr, "\n"); }
+    }
+#endif
     *out = (Secret){ sx + DX[E->d], sy + DY[E->d], (E->d + 2) & 3, sx, sy, 0, 0, 0, 1, links, dx, dy, x0, y0, x1, y1, rng_next(&G.rs) | 1u, 0, slide + 1, s->def + 1 };
     return 1;
 }
@@ -607,6 +618,8 @@ static int place_stamp_secret(int d, int sx, int sy, int links, Secret *out) {
 #define ST_LVL_MAX 128
 #define ST_PLACED_MAX 8
 static Stamp ST_JOINS[ST_LVL_MAX], ST_PLACES[ST_LVL_MAX];
+static Stamp ST_ANTES[16];                                         /* the vestibules, apart from the places: each has a vault laid behind it */
+static int st_ante_n = -1;
 static int st_join_n = -1, st_place_n = -1;
 typedef struct { const Stamp *s; int px, py; } StPlaced;
 static StPlaced st_placed[ST_PLACED_MAX];
@@ -660,7 +673,13 @@ static int lvl_stamps_on(void) {
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_NOSTAMPS") || getenv("CRAWL_NOJOINERS")) return 0;
 #endif
-    if (st_join_n < 0) { st_join_n = st_load(ST_JOINER, ST_JOINS); st_place_n = st_load(ST_PLACE, ST_PLACES); }
+    if (st_join_n < 0) {
+        int n = stamp_set(ST_PLACE, ST_PLACES, ST_LVL_MAX);        /* (the places' own array, as scratch, for the vestibules) */
+        st_ante_n = 0;
+        for (int i = 0; i < n && st_ante_n < 16; i++)
+            if (!strncmp(ST_PLACES[i].name, "place_antechamber", 17) && st_lane_ok(&ST_PLACES[i])) ST_ANTES[st_ante_n++] = ST_PLACES[i];
+        st_join_n = st_load(ST_JOINER, ST_JOINS); st_place_n = st_load(ST_PLACE, ST_PLACES);
+    }
     return st_join_n > 0 || st_place_n > 0;
 }
 static int st_big(const Stamp *s) { return s->w * s->h >= 200; }
@@ -739,6 +758,40 @@ static int st_place_one(int cls, int *nreg) {
     }
     return 0;
 }
+/* A vestibule with a vault laid behind one of its two ports: a room of two blocks and the wall between them, in line with the port, which
+ * the vault's selection then takes first (st_ante_room) and whose door is the one into the vestibule. 1 if laid */
+static int st_place_ante(int *nreg) {
+    if (st_ante_n <= 0) return 0;
+    for (int tries = 0; tries < 40; tries++) {
+        const Stamp *s = &ST_ANTES[rnd(st_ante_n)];
+        int pw = (s->w - 1) / 2, ph = (s->h - 1) / 2, px = 1 + 2 * rnd((MG - pw - 1) / 2 + 1), py = 1 + 2 * rnd((MG - ph - 1) / 2 + 1);
+        int dirs[4], nd = 0;
+        for (int i = 0; i < s->nport; i++) { int d = s->port[i].d, dup = 0; for (int k = 0; k < nd; k++) dup |= dirs[k] == d; if (!dup && nd < 4) dirs[nd++] = d; }
+        if (!nd || !st_fits(s, px, py)) continue;
+        int vd = dirs[rnd(nd)], ox = mstart(px), oy = mstart(py), wx = -1, wy = -1;
+        for (int i = 0; i < s->nport && wx < 0; i++)
+            if (s->port[i].d == vd) { wx = plan_of(ox + s->port[i].x + DX[vd]); wy = plan_of(oy + s->port[i].y + DY[vd]); }
+        int b0x = wx + DX[vd], b0y = wy + DY[vd], ok = 1;           /* the vault's first block, and room for the three plan squares and their walls */
+        for (int k = -1; k <= 3 && ok; k++)
+            for (int j = -1; j <= 1 && ok; j++) {
+                int x = b0x + DX[vd] * k + DY[vd] * j, y = b0y + DY[vd] * k + DX[vd] * j;
+                if (k == -1 && j == 0) continue;                    /* the wall between, the vestibule's own ring */
+                if (x < 1 || y < 1 || x >= MG - 1 || y >= MG - 1 || MM[y][x].kind != K_WALL || st_resv[y][x]) ok = 0;
+            }
+        if (!ok) continue;
+        int cx0 = vd == 0 ? b0x : vd == 2 ? b0x - 2 : b0x, cy0 = vd == 1 ? b0y : vd == 3 ? b0y - 2 : b0y, cw = (vd & 1) ? 1 : 3, ch = (vd & 1) ? 3 : 1;
+        st_lay(s, px, py, nreg);
+        int rtype = 0, theme = 1 + rnd(TH_COUNT - 1);
+        if (G.faced) { rtype = pick_rtype(cw, ch); theme = RTYPES[rtype].theme; }
+        for (int y = cy0; y < cy0 + ch; y++) for (int x = cx0; x < cx0 + cw; x++) mcarve(x, y, *nreg, theme, G.nrooms);
+        mroom[G.nrooms][0] = cx0; mroom[G.nrooms][1] = cy0; mroom[G.nrooms][2] = cw; mroom[G.nrooms][3] = ch;
+        G.rooms[G.nrooms] = (Room){ 0, 0, 0, 0, *nreg, theme, rtype };
+        st_room[G.nrooms] = 0; st_ante_room = G.nrooms; st_ante_wx = wx; st_ante_wy = wy;
+        G.nrooms++; (*nreg)++;
+        return 1;
+    }
+    return 0;
+}
 /* the level's drawn rooms, laid after its first chamber: first its place (a large one on about half the levels, else a spur, so the great
  * ones have room to fit), then one big joiner and two or three small ones, no two of a family */
 static void place_level_stamps(int *nreg) {
@@ -766,6 +819,13 @@ static void place_level_stamps(int *nreg) {
     for (int i = 0; i < nw && st_nplaced < ST_PLACED_MAX; i++) {
         if (want[i] >= 2 && have_place) continue;                  /* one place: the spur is only the large one's fall-back */
         if (st_place_one(want[i], nreg) && want[i] >= 2) have_place = 1;
+        if (i == 0 && rnd(100) < 45) {                             /* and, on about half the levels, a vestibule with the first vault behind it */
+#ifdef CRAWL_DEBUG
+            if (!getenv("CRAWL_NOANTE")) st_place_ante(nreg);       /* (CRAWL_NOANTE=1: not, for the weighing) */
+#else
+            st_place_ante(nreg);
+#endif
+        }
     }
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "STAMPS level %d: %d rooms:", G.level, st_nplaced);
@@ -996,5 +1056,6 @@ static void swap_rooms(int a, int b) {                             /* rooms a an
     for (int k = 0; k < 4; k++) { int t = mroom[a][k]; mroom[a][k] = mroom[b][k]; mroom[b][k] = t; }
     Room t = G.rooms[a]; G.rooms[a] = G.rooms[b]; G.rooms[b] = t;
     int8_t sr = st_room[a]; st_room[a] = st_room[b]; st_room[b] = sr;
+    if (st_ante_room == a) st_ante_room = b; else if (st_ante_room == b) st_ante_room = a;
 }
 

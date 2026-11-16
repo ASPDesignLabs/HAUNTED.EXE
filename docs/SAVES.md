@@ -7,7 +7,7 @@ How the ledger uses it (pages, the progress, the mark, signing and opening) is u
 The record's kinds (`REC_KINDS`) are full since the charnel rat took the 24th place (docs/PLAN-mice.md): the next new kind needs the
 record widened, which is a new save version. The mice themselves are never saved.
 
-A save blob (for `HOST_LOAD`) is `"HVS1"` (u32 0x31535648 LE), version 7 (1.0.0b11; the same shape as version 6, and the byte after the wisp's three, always 0 until 1.0.0b21.8, keeps the compass: bit 0 held, bits 1-2 its wisp's kind, bits 3-4 its key (docs/PLAN-compass.md); an older page reads as none, and a death clears it before the page is written;
+A save blob (for `HOST_LOAD`) is `"HVS1"` (u32 0x31535648 LE), version 7 (1.0.0b11; the same shape as version 6, and the byte after the wisp's three, always 0 until 1.0.0b21.9, keeps the compass: bit 0 held, bits 1-2 its wisp's kind, bits 3-4 its key (docs/PLAN-compass.md); an older page reads as none, and a death clears it before the page is written;
 its changes in ledger sections), then little-endian int32
 level, hp, gold, souls (in tenths), shop-first flag, then the gear packed field by field (`gear_pack`:
 attack tiers and rune qualities, the seven worn pieces, bag size and quality, five bag places, bones, a held ware;

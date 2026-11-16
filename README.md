@@ -139,7 +139,7 @@ run's materials, blends, wall pieces, floors, ceilings, doors, keys and treasure
 
 ### CATACOMB: the compass
 
-Since 1.0.0b21.8 the merchant sells a compass, once the map is yours, for 2,500 gold: a disc of old stone, chipped, cracked and mossed, with
+Since 1.0.0b21.9 the merchant sells a compass, once the map is yours, for 2,500 gold: a disc of old stone, chipped, cracked and mossed, with
 bone studs set round its rim and a gilt one for north, a needle of bone, and a little skull for its pin. It floats at her right, as the map
 floats at her left. It leans toward one thing you have asked it to find and says how far, in cells, and which wind: `GOLD KEY  36 S`. It
 is a bearing, never a route: it points through walls, and a wisp is for the way round.
@@ -176,6 +176,9 @@ already) and her hall are as they were, and a boss's level keeps its arena.
   C, a spiral and a J; from the fifth a long one-cell approach to a room. The cracked wall no longer slides through the room: it slides one
   cell sideways into the stone beside it, and the room is left empty to walk. Chains still end in a doorway on into the Backrooms or
   Severance.
+* **A vestibule before the first vault** (1.0.0b21.8). On about half the levels the first vault, the gold one, has an antechamber: an
+  eleven-cell chamber with an altar at its heart and a brazier either side, the hall in one wall and the vault's locked door in the
+  opposite one. The vault is a small room of two blocks behind it, and the key is found as before.
 * The screensaver walks all of it, and the maps (**M**) show it whole once drawn.
 
 ![CATACOMB's drawn rooms on six levels, each as the game's own map with the whole level shown: a sunken ring's stepped rings; a great nave of slabs beside an alcove hall; a cloister; a gauntlet hall with a pinwheel; a diamond with four pillars; and a large ring](media/previews/preview_catacomb_drawn.png)
@@ -1034,7 +1037,7 @@ in the ledger) counts as having had them; the title's **HELP** turns *THE LESSON
 
 ### Playing CATACOMB yourself
 
-Hold **H** for three seconds, in either scene, or any button on a game controller. (Since 1.0.0b21.8 the list of controls that used to stand on the screen for six seconds when you took over, or opened a page, no longer appears; one constant brings it back.) A bar fills at the
+Hold **H** for three seconds, in either scene, or any button on a game controller. (Since 1.0.0b21.9 the list of controls that used to stand on the screen for six seconds when you took over, or opened a page, no longer appears; one constant brings it back.) A bar fills at the
 bottom of the screen; let go early and nothing happens (any other key still ends the screensaver as
 usual; a controller's buttons never do). When it fills, the title screen comes up (above); choose a grave or a new run, and
 the crypt is yours, and the scenes stop switching until you hand it back. HAUNT.EXE cuts straight to the crypt.
@@ -1199,7 +1202,7 @@ became HAUNTED.EXE, kept so that settings and saves carry over), `Progress` besi
 start from or holds the unsigned run, and `Mark` is the dead's watch; `uninstall.cmd` removes them with
 the settings. They are written the moment the game changes them, and never on quitting.
 
-**1.0.0b21.8 adds a compass to a page** in a byte of its fixed part, after the wisp's, that every earlier build wrote as 0 and none read: bit 0 held, bits 1 and 2 the kind of wisp it leans toward, bits 3 and 4 the key. An earlier page reads as no compass, and a page from this build opens in an earlier one without it. A death clears it before the page is written. **1.0.0b21.7 changes nothing in the saves** (a level is made afresh each time and is never kept). **1.0.0b21.6 changes nothing in the saves.** It adds two numbers to the settings (the small life's movement and sound: `LifeMove`, `LifeSound`),
+**1.0.0b21.9 adds a compass to a page** in a byte of its fixed part, after the wisp's, that every earlier build wrote as 0 and none read: bit 0 held, bits 1 and 2 the kind of wisp it leans toward, bits 3 and 4 the key. An earlier page reads as no compass, and a page from this build opens in an earlier one without it. A death clears it before the page is written. **1.0.0b21.8 changes nothing in the saves.** **1.0.0b21.7 changes nothing in the saves** (a level is made afresh each time and is never kept). **1.0.0b21.6 changes nothing in the saves.** It adds two numbers to the settings (the small life's movement and sound: `LifeMove`, `LifeSound`),
 which earlier betas ignore. **1.0.0b21.4 changes nothing in the saves.** It adds two bytes to the settings kept with the controller's layout
 (touch's turning and smoothing), which earlier betas ignore. **1.0.0b21.3 changes nothing in the saves.** **1.0.0b21.2 adds the portraits** (which tapestries are drawn back, where each rank was earned, the gold taken this life, and the
 feats' counts) to each page; 1.0.0b21.1 steps over them, and a page it signs loses them. Achievements earned stay earned.
@@ -1446,14 +1449,14 @@ The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.p
 
 ## What has been verified
 
-**New in 1.0.0b21.8** (the compass; the controls list taken off). Nobody has played it by hand: not the compass, not a finger on its tablet, not the
+**New in 1.0.0b21.9** (the compass; the controls list taken off). Nobody has played it by hand: not the compass, not a finger on its tablet, not the
 list's going. All of it is tested in the harness only: not run under Wine, and the Windows and browser builds compiled and smoke-tested by
 GitHub Actions and by nothing else.
 
 * **The bearing**: from eight places five cells round the exit and each key lying, on levels 1, 4, 5, 12 and 23, the angle and the distance
   came back; a key lying nowhere sent the needle back to the way out; the saved page was packed and read back for every compass it can hold
   (none, and each kind with each key), and an older page read as none: no case failed.
-* **The screensaver**: eight seeds (1, 3, 5, 7, 9, 11, 13 and 15) for 3,000 seconds of its time against 1.0.0b21.7's game code, the run
+* **The screensaver**: eight seeds (1, 3, 5, 7, 9, 11, 13 and 15) for 3,000 seconds of its time against 1.0.0b21.8's game code, the run
   identity fixed: the same lines to the line on both, about 11,000 a run. It never buys the map or the compass, so it could not have moved;
   the controls list belongs to a person.
 * **A person**, scripted: the L list, aiming at a key and then the way out, the plate, touch's stage in two sizes (the tablet live, and worn
@@ -1465,6 +1468,22 @@ GitHub Actions and by nothing else.
   person gathers less, and loses it all at a death.
 * **Not tried**: a hand on any of it; a finger on the tablet; the plate over a fight in the view's corner; the Windows and browser builds beyond
   compiling.
+
+**New in 1.0.0b21.8** (a vestibule before the first vault; a doorway mended). Not played by hand: the author played 1.0.0b21.7 and asked
+for this one on the strength of its checks in the harness; nothing was run under Wine, and the Windows and browser builds are compiled
+and smoke-tested by GitHub Actions only.
+
+* **Generation**: 1,800 levels (200 seeds on levels 1, 5, 10, 11, 20, 21, 30, 31 and 40) with every exit, key, locked door and secret room
+  tested for being reached, and the floor for being stranded even with the secrets open: no failure, no stranded floor, 8 made again
+  without drawn rooms; 300 more on the final build, the same. On the test levels that rolled a vestibule (43), the room behind it was
+  the first vault 41 times; the other two kept it as a small room.
+* **The screensaver**: this build against itself with the vestibule left out and put in, the same sixteen seeds for 3,000 seconds of its
+  time, three times over: deaths 120 without it and 99 with it, levels cleared 6.8 and 6.8, so the vestibule is not what moves them.
+  Against 1.0.0b21.7 the same way (three runs): deaths 99 for 1.0.0b21.7 and 130 for this, levels cleared 6.9 and 6.6, run totals of 27 to 49
+  for the same build. That gap is not explained, and the owner released it knowing it; it is probably the noise (the same build's total
+  moves by that much between runs), and if it is not it is nothing the vestibule does.
+* **With the drawn rooms switched off** the screensaver logs 1.0.0b21.6's line for line (two seeds, 600 s). Sanitizers: clean under AddressSanitizer and UBSan on the dream for 1,200 s of its time on four seeds.
+* **Not tried**: a person's play through a vestibule, the dream's play on a boss's level and in the later runs.
 
 **New in 1.0.0b21.7** (drawn rooms: the places, the joiners and the secret rooms). The author played the Windows build GitHub made of it
 and said it "plays well"; that is all that has been said of it by hand, and nothing in it was timed or listed by hand. The rest is tested

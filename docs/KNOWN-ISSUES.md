@@ -344,6 +344,13 @@ wrong or untried, and the numbers from each round of the dream's runs. Add to it
   **Sanitizers** (`make asan`, `ASAN_OPTIONS=detect_leaks=0`): clean on the dream for 1,200 s of its time on four seeds, on level generation for
   480 levels (levels 5 to 40) and on a scripted person for about 143 s on each of levels 11, 22 and 31. **Of ours, unapproved:** the nine
   extra joiners and six places were sent to the owner as sheets and have not been approved, though the generator lays them.
+- **The antechamber's balance** (1.0.0b21.8, harness only, `tools/stampbal.py`, `HOST_NOSOUND=1`, seeds 1 to 31 odd, 3,000 s, three runs each).
+  Against 1.0.0b21.7: deaths 39, 49 and 42 against 45, 27 and 27 (130 against 99), levels cleared 6.7, 6.4 and 6.6 against 6.7, 7.0 and 7.0
+  (6.6 against 6.9), the deaths on levels 3 to 6 (90 against 54), 7 and 8 alike. The same build with the antechamber left out (`CRAWL_NOANTE=1`)
+  against put in: deaths 47, 34 and 39 against 35, 31 and 33 (120 against 99), levels cleared 6.8 against 6.8. So the antechamber is not what
+  moves them, and the gap against 1.0.0b21.7 is **unexplained**: that build's own run totals move between 27 and 49, so it may be noise, but
+  three runs do not show it. A first run of the antechamber build against 1.0.0b21.6 (49 deaths against 33) is in the same gap. To do: more
+  runs, or a look at the early levels' deaths by cause, before anything is said of it.
 
 - The compass (docs/PLAN-compass.md, 16 November 2026, on `claude/stoic-ramanujan-3iqb3m`), harness only: nobody has played it by
   hand, nor touched the tablet with a finger, and the Windows and browser builds were left to CI. Against the build before it
