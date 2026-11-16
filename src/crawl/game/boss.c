@@ -163,7 +163,7 @@ static void boss_fall(Mob *m) {
     else if (RUN.bstep[G.boss] < 5) RUN.bstep[G.boss]++;           /* the next challenge a step harder */
     snd_sfx_ex(SFX_FANFARE, 0.9f, 0.5f); snd_sfx_ex(SFX_SHATTER, 1.0f, 0.5f);
     snd_boss_fall();
-    say("THE WAY OUT IS OPEN");
+    say("THE EXIT HAS OPENED. EXPLORE OR LEAVE.");
     xp_gain(40.0f * (float)BOSS_XP[G.boss] * xp_level() * (G.tri_boon > 0 ? 1.2f : 1.0f), B->short_name);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT boss_fall %s in %d s t=%.2f by %s\n", B->name, secs, G.t, G.player ? "player" : "autopilot");

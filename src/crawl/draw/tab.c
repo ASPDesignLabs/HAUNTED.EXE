@@ -141,7 +141,7 @@ static void render_buy(Frame *f) {
     const Piece *p = &o->piece;
     int piece = o->kind == GK_PIECE, bag = piece && p->kind == IK_BAG, sl = piece && !bag ? piece_slot(&RUN.gear, p->kind) : -1;
     const Piece *old = sl >= 0 && RUN.gear.worn[sl].kind != IK_NONE ? &RUN.gear.worn[sl] : NULL;
-    char name[100], stats[200], ab[80] = "", oname[100] = "", ostats[200] = "", price[16];
+    char name[100], stats[200], ab[128] = "", oname[100] = "", ostats[200] = "", price[16];
     if (piece) { piece_full_name(p, name, sizeof name); buy_stats(p, stats, sizeof stats); if (p->ability) piece_ability_text(p, ab, sizeof ab); }
     else { gear_name(o, name, sizeof name); snprintf(stats, sizeof stats, "%s", gear_blurb(o)); }
     if (old) { piece_full_name(old, oname, sizeof oname); buy_stats(old, ostats, sizeof ostats); }
@@ -304,18 +304,16 @@ static void render_elements(Frame *f) {
         }
     }
     ui_rule(f, 14, 305, 129, 0);
-    text_wrap(f, 14, 134, "POWER: MORE OF ITS DAMAGE. EFF.: LESS SPIRIT, OR NO BONE SPENT. INS.: A SHORTER WIND-UP. "
-                          "ADDS: SO MUCH MORE OF EVERY SPELL, AS IT. ODDS: ITS MARK ON THE DEAD MORE OFTEN. GOLD: WORN. "
-                          "BLUE: AT ITS CAP.", 36, R_STONE + 11, 6);
+    text_wrap(f, 14, 134, "POWER: DAM+ EFFICIENCY: -SPIRIT COST PHYS: NO COST CHANCE INSIGHT: SMALLER CASTING TIME WINDOW GOLD: STAT BOOST BY EQUIPMENT BLUE: STAT AT THE CAP", 36, R_STONE + 11, 6);
 }
 
 /* a stat's name, short enough for a column of the caster's numbers */
 static const char *stat_short(int st) {
     if (st == ST_PHYSIC) return "PHYSIC";
     if (st == ST_SPRINT) return "SPRINT";
-    static const char *const SHORT[ST_POW] = { "ARMOR", "DODGE", "HEALTH", "RESTORES", "POISON WARD", "BURN WARD", "SLOW WARD",
-                                              "MOVEMENT", "QUIET", "SPELL HASTE", "SPIRIT COST", "DAMAGE", "FIRE", "FROST",
-                                              "LIGHTNING", "EFFECT", "TREASURE", "LUCK", "SPIRIT WARD", "VESSEL" };
+    static const char *const SHORT[ST_POW] = { "ARMOR", "DODGE", "HEALTH", "RESTORE HP", "POISON WARD", "BURN WARD", "SLOW WARD",
+                                              "MOVEMENT", "QUIET", "SPELL HASTE", "SPIRIT COST", "DAMAGE", "FLAME", "FROST",
+                                              "LIGHTNING", "EFFECT", "TREASURE", "LUCK", "SPIRIT WARD", "SPIRIT VESSEL" };
     return st == ST_RES_LIGHT ? "LIGHTNING WARD" : st >= 0 && st < ST_POW ? SHORT[st] : STAT_NAME[clampi(st, 0, NSTAT - 1)];
 }
 /* Tab, the second page: the caster's numbers (what abilities add in gold beside them) and the spellbook */
@@ -356,7 +354,7 @@ static void render_caster(Frame *f) {
         gfx_text8(f, x + w - vw, y, v, c, 1);
         if (add >= 0.5f) { snprintf(extra, sizeof extra, "+%.0f", add); gfx_text8(f, x + w - vw - 4 - gfx_text_width(extra, 1), y, extra, R_GOLD + 11, 1); }
     }
-    if (capped) gfx_text8(f, 308 - gfx_text_width("BLUE: AT ITS CAP", 1), 27, "BLUE: AT ITS CAP", R_GLOW + 12, 1);
+    if (capped) gfx_text8(f, 308 - gfx_text_width("BLUE: STAT IS AT ITS CURRENT CAPACITY", 1), 27, "BLUE: STAT IS AT ITS CURRENT CAPACITY", R_GLOW + 12, 1);
     /* the abilities, summed and capped */
     int n = 0, y = 136;
     for (int ab = 1; ab < NABIL; ab++) {
@@ -497,7 +495,7 @@ static void render_bshrine(Frame *f) {
     gfx_text8(f, px + 28, y, "SHOW WHERE IT IS HIDDEN", done ? (uint8_t)(R_STONE + 8) : (uint8_t)C_WHITE, 1);
     snprintf(line, sizeof line, "%d SOULS", price);
     if (!done) gfx_text8(f, px + pw - 12 - gfx_text_width(line, 1), y, line, pay ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_BLOOD + 13), 1);
-    const char *note = done ? "IT HAS NOTHING MORE TO SHOW" : !pay ? "IT WANTS MORE SOULS THAN YOU HAVE"
+    const char *note = done ? "IT HAS NOTHING MORE TO SHOW" : !pay ? "GATHER MORE SOULS TO CONTINUE"
                      : G.bsh_arm ? "ENTER AGAIN TO PAY" : G.bsh_show > 0.0f ? "IT IS SHOWING NOW. PAYING AGAIN STARTS IT OVER"
                      : "FOR TWO AND A HALF MINUTES: THROUGH THE WALLS, AND ON THE MAP";
     text_wrap(f, px + 12, py + 50, note, 34, G.bsh_arm ? R_GOLD + 12 : R_STONE + 12, 2);
@@ -555,7 +553,7 @@ static void render_inventory(Frame *f) {
     ui_wrap(f, 210, 46, line, 12, 9, 2, FACE_INSC, UI_M(13), TX_INLAID);
     static const char *const WHY[] = { "", "NOTHING THERE", "NO BAG TO HOLD IT", "THE BAG IS FULL" };
     int act = inv_action(sel);
-    const char *what = act == INV_TO_BAG ? "ENTER: INTO THE BAG" : (act == INV_TO_WEAR ? "ENTER: WEAR IT" : WHY[-act]);
+    const char *what = act == INV_TO_BAG ? "STORE IN BAG" : (act == INV_TO_WEAR ? "EQUIP" : WHY[-act]);
     ui_wrap(f, 210, 66, pkp(what), 12, 9, 2, FACE_BODY, act > 0 ? R_GOLD + 11 : UI_M(9), TX_INLAID);
     ui_rule(f, 168, 305, 87, 0);
     piece_card(f, 168, 92, 138, p, g, &G.inv0);

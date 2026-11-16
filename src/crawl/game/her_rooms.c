@@ -154,7 +154,7 @@ static void shop_human(float dt) {
     if (IN.hit[KEY_B]) { open_ui(UI_BESTIARY); return; }
     if (IN.hit[KEY_C]) { open_ui(UI_CODEX); return; }
     if (IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
-    if (IN.hit[KEY_M]) say(RUN.has_map ? "NOTHING HERE TO MAP" : "YOU HAVE NO MAP. SHE SELLS ONE");
+    if (IN.hit[KEY_M]) say(RUN.has_map ? "CANNOT USE THE MAP HERE" : "YOU DO NOT HAVE A MAP");
     if (gift_due() && !G.gift_said) { G.gift_said = 1; say("THE LAMPSTAND IS LIT FOR YOU: A GIFT WAITS"); }
     human_walk(dt);
     if (gift_due() && G.px > SHOP_DOOR - 0.55f && G.py > 13.0f && G.py < 18.0f) {   /* the way on is held till the gift is taken */
@@ -258,10 +258,10 @@ static int buy_next(int from, int dir) {                           /* the next w
     return from;
 }
 static void map_buy(void) {
-    if (RUN.treasure < MAP_PRICE) { shop_say("YOU CAN'T AFFORD THAT"); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); return; }
+    if (RUN.treasure < MAP_PRICE) { shop_say("ACQUIRE MORE GOLD TO PURCHASE THIS"); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); return; }
     RUN.treasure -= MAP_PRICE; RUN.has_map = 1; G.map_look = 0; G.grab_t = 1.0f;
     G.ui = UI_NONE;
-    say(PADX.used ? "THE MAP IS YOURS: D-PAD UP OPENS IT" : "THE MAP IS YOURS: M OPENS IT");
+    say(PADX.used ? "MAP PURCHASED! USE D-PAD UP TO OPEN IT" : "MAP PURCHASED! USE \"M\" TO OPEN IT");
     snd_sfx_ex(SFX_COIN, 1.1f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.8f, 0.5f);
     sfx_at(SFX_TRILL, CAT_X, CAT_Y, 1.2f); G.cat_trill = 0.5f; G.cat_slow = 1.4f; G.grin_t = 2.0f;
 #ifdef CRAWL_DEBUG
@@ -292,7 +292,7 @@ static void update_buy(void) {
     const Offer *o = &G.offers[i];
     int worn = buy_worn(i);
     if (G.shop_left <= 0) shop_say("NO MORE WARES THIS VISIT");
-    else if (o->price > RUN.treasure) { shop_say("YOU CAN'T AFFORD THAT"); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); }
+    else if (o->price > RUN.treasure) { shop_say("ACQUIRE MORE GOLD TO PURCHASE THIS"); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); }
     else if (worn >= 0 && !RUN.gear.bag_size && G.shop_confirm != i) { G.shop_confirm = i; snd_sfx_ex(SFX_KNOCK, 0.7f, 0.5f); }   /* the old would be lost: a second E buys */
     else if (worn >= 0 && RUN.gear.bag_size && !gear_bag_free(&RUN.gear)) { G.shop_letgo = i; G.ui = UI_LETGO; G.ui_sel = 0; snd_sfx_ex(SFX_KEY, 0.7f, 0.5f); }
     else { G.ui = UI_NONE; shop_purchase(i); G.grab_t = 1.0f; }
@@ -380,7 +380,7 @@ static void update_inventory(void) {
     } else if (act == INV_TO_WEAR) {
         int bi = r - NSLOT, slot = piece_slot(g, g->bag[bi].kind);
         gear_wear(g, slot, bi);
-        if (g->worn[slot].ability == AB_KEYMAKER) say("KEYMAKER: KEY WISPS IN THE L MENU");   /* and every time it is put on */
+        if (g->worn[slot].ability == AB_KEYMAKER) say("KEYMAKER: LOCATE KEYS WITH L");   /* and every time it is put on */
     } else { snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); return; }
     G.max_hp = gear_max_hp(g);
     if (G.hp > G.max_hp) G.hp = G.max_hp;

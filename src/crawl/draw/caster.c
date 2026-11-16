@@ -258,14 +258,14 @@ static void render_align(Frame *f, int view) {
         if (e == al_buy_e && m == al_buy_n && G.ui_t - al_buy_t < 0.33f && G.ui_t >= al_buy_t)
             u->grow = fmaxf(0.02f, (G.ui_t - al_buy_t) / 0.33f);   /* the colour runs down its groove */
     }
-    if (!view && G.al_arm == -2) snprintf(warn, sizeof warn, "UNBIND %s FOR TWO CURSED COINS: EVERY NODE GOES, AND %d POINTS COME BACK. AGAIN TO UNBIND.", ALIGN[e].name, align_refund(e));
-    else if (!view && G.al_arm == -3) snprintf(warn, sizeof warn, "UNBINDING A LINE TAKES TWO CURSED COINS. YOU HAVE %d.", RUN.coins);
-    else if (!view && G.al_arm == n) snprintf(warn, sizeof warn, "THE OTHER PATH WILL CLOSE. AGAIN TO TAKE THIS ONE.");
+    if (!view && G.al_arm == -2) snprintf(warn, sizeof warn, "UNLEARN %s, RESETS THE SKILL TREE TO 0, REFUNDING %d POINTS. COSTS TWO CURSED COINS", ALIGN[e].name, align_refund(e));
+    else if (!view && G.al_arm == -3) snprintf(warn, sizeof warn, "UNLEARNING A LINE REQUIRES TWO CURSED COINS. YOU HAVE %d.", RUN.coins);
+    else if (!view && G.al_arm == n) snprintf(warn, sizeof warn, "PICKING THIS PATH CLOSES THE OTHER. ARE YOU SURE?");
     else if (!view && G.al_arm == AL_GIFT + e) snprintf(warn, sizeof warn, "%s, THE LAMPSTAND'S GIFT. ENTER AGAIN TO TAKE IT.", ALIGN[e].name);
     else if (!view && gift_due()) snprintf(warn, sizeof warn, "THE DEAD ASK YOU TO CARRY ANOTHER: ANY LINE NOT YET OPEN, FREE. ITS OPENING, ENTER TWICE.");
     else warn[0] = 0;
     tr.warn = warn[0] ? warn : 0;
-    tr.keys = pk(view ? "A/D PAGE  1-6 LINE  W/S NODE  TAB" : !aug_on() ? "1-6  WASD  ENTER BUYS  SPACE UNBINDS"
+    tr.keys = pk(view ? "A/D PAGE  1-6 LINE  W/S NODE  TAB" : !aug_on() ? "1-6  WASD  ENTER BUYS  SPACE UNLEARNS"
                  : al_aug_step(e, n) >= 0 && aug_built(e) && aug_step_open(e, al_aug_step(e, n)) ? "ENTER BUYS  SPACE AUGMENTS"
                  : "1-6  WASD  ENTER BUYS  BACK UNBINDS");      /* a pad's buttons marked; Space where it means something */
     if (!view && G.al_aug) tr.keys = 0;                            /* the pair's tablet has its own */
@@ -337,7 +337,7 @@ static void render_hall2(Frame *f) {
 static void render_class(Frame *f) {
     dim_view(f);
     int c = clampi(G.vow_sel, 0, NELEM - 1), mine = cls_el();
-    const char *title = G.vow_change ? "ANOTHER PAST" : "WHAT WERE YOU?";
+    const char *title = G.vow_change ? "ANOTHER PAST" : "WHAT LIFE DID YOU PREVIOUSLY LIVE?";
     ui_screen(f, title, R_GOLD + 12, CLASSES[c].name, ramp_at(ELEM_RAMP[c], 13), 0, G.ui_t);
     for (int k = 0; k < NELEM; k++) {
         int state = k == mine ? SK_HELD : !class_offered(k) ? SK_CLOSED : k == c ? (G.vow_change && RUN.coins < VOW_COINS ? SK_SHORT : SK_READY) : SK_REACH;
@@ -376,7 +376,7 @@ static void render_class(Frame *f) {
     const char *note;
     char buf[96];
     int keys = 0;
-    if (G.vow_change && c == mine) note = "WHAT YOU ARE NOW";
+    if (G.vow_change && c == mine) note = "YOUR CURRENT CLASS";
     else if (!class_offered(c)) note = "SHUT TILL THE LAMPSTAND'S FIRST GIFT";
     else if (G.vow_change && RUN.coins < VOW_COINS) { snprintf(buf, sizeof buf, "FIVE CURSED COINS. YOU HAVE %d", RUN.coins); note = buf; }
     else if (G.vow_arm == c) note = G.vow_change ? "ENTER AGAIN: FIVE COINS, AND THE VOW" : "ENTER AGAIN TO TAKE THE VOW";
@@ -684,7 +684,7 @@ static void render_ascend(Frame *f) {
     else if (od > 0) snprintf(note, sizeof note, "%d OVERLEVEL%s TO CHOOSE: %s PUTS %s %s PAST ITS CAP.", od, od == 1 ? "" : "S", PADX.used ? "Y" : "SPACE",
                               sel == LN_LUCK ? "ONE" : "FIVE", LINES[sel].name);
     warn[0] = 0;
-    if (G.asc_arm == sel) snprintf(warn, sizeof warn, "IT IS AT ITS CAP: MORE IS WASTED. AGAIN TO BUY IT ANYWAY.");
+    if (G.asc_arm == sel) snprintf(warn, sizeof warn, "STAT CAP REACHED. CONFESS YOUR SINS TO GROW YOUR CHARACTER TO GROW FURTHER.");
     else if (G.asc_arm == 100 + sel) snprintf(warn, sizeof warn, "%s PAST ITS CAP, FOR GOOD: %s AGAIN TO OVERLEVEL IT.", LINES[sel].name, PADX.used ? "Y" : "SPACE");
     int afford = RUN.points >= LINES[sel].cost;
     UiPane pn = { -1, RUN.over[sel] > 0 ? UI_LMARK[UI_LM_LUCK] : line_mark(sel), R_PURPLE,

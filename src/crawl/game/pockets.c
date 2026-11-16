@@ -469,7 +469,7 @@ static void collect(Item *it) {
     case IT_SCRIP: {                                               /* a boss's: to the Hexed Totem's account at once */
         int b = clampi(it->color, 0, BOSS_REC - 1), n = (G.bstep >= 3 ? 2 : 1) + (G.corrupt != 0);   /* the bell's one more */
         RUN.scrip[b] += n; RUN.rec.boss[b].scrip = (uint16_t)imin(65535, RUN.rec.boss[b].scrip + n);
-        toast(SP_SCRIP, -1, RK_I, 0, b < NBOSS ? BOSSES[b].short_name : "A BOSS", n > 2 ? "THREE OF ITS ODIOUS SCRIP" : n > 1 ? "TWO OF ITS ODIOUS SCRIP" : "ITS ODIOUS SCRIP");
+        toast(SP_SCRIP, -1, RK_I, 0, b < NBOSS ? BOSSES[b].short_name : "A BOSS", n > 2 ? "THREE OF THEIR ODIOUS SCRIP" : n > 1 ? "TWO OF THEIR ODIOUS SCRIP" : "A SINGLE ODIOUS SCRIP");
         snd_sfx(SFX_KEYGET); G.gold = 1.0f; G.grin_t = 1.6f;
 #ifdef CRAWL_DEBUG
         fprintf(stderr, "EVENT scrip %d +%d = %d t=%.2f\n", b, n, RUN.scrip[b], G.t);

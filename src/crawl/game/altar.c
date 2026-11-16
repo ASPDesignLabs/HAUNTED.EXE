@@ -25,7 +25,7 @@ static int altar_callable(void) {                                  /* been in, a
 static void altar_call_home(void) {
     G.altar_wisp = AW_HOME; G.wisps[1].retarget = 0.0f;
     sfx_at(SFX_SHIMMER, G.wisps[1].x, G.wisps[1].y, 0.8f);
-    if (G.player) say("THE WISP GOES HOME TO ITS ALTAR");
+    if (G.player) say("THE SPIRIT RETURNS TO ITS ALTAR");
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT altar wisp home t=%.2f\n", G.t);
 #endif
@@ -37,7 +37,7 @@ static void update_altar(void) {
         if (G.wisps[1].on && G.wisps[1].state != WS_GONE) wisp_out(&G.wisps[1]);   /* its work done */
         G.altar_wisp = AW_NONE;
         sfx_at(SFX_SHIMMER, G.altar_x + 0.5f, G.altar_y + 0.5f, 1.2f);
-        if (G.player) say("THE BLACK ALTAR BURNS GOLD");
+        if (G.player) say("THE ALTAR IS READY TO ANOINT YOUR GEAR");
         return;
     }
     if (G.altar_wisp == AW_SEEK && G.altar_seek >= 0) {
@@ -53,9 +53,9 @@ static void update_altar(void) {
  * blessing on your exit wisps for twenty-five, and when it burns gold, an anointing */
 static int altar_wake(void) {
     if (G.altar_state != ALTAR_DORMANT) return 0;
-    if (!spend_spirit((float)ALTAR_SOULS)) { if (G.player) say("THE ALTAR WANTS %d SOULS", ALTAR_SOULS); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 0; }
+    if (!spend_spirit((float)ALTAR_SOULS)) { if (G.player) say("THE ALTAR SEEKS AN OFFERING OF %d SOULS", ALTAR_SOULS); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 0; }
     G.altar_state = ALTAR_AWAKE; G.altar_seek = nearest_shut(G.px, G.py); G.altar_wisp = AW_SEEK; G.altar_inside = 0;
-    if (G.player) say("THE ALTAR'S WISP SEEKS WHAT IS HIDDEN");
+    if (G.player) say("FOLLOW THE SUMMONED SPIRIT TO..");
     snd_sfx_ex(SFX_WHISPER, 0.9f, 0.5f); sfx_at(SFX_SHIMMER, G.altar_x + 0.5f, G.altar_y + 0.5f, 1.0f);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT altar wakes t=%.2f\n", G.t);
@@ -65,9 +65,9 @@ static int altar_wake(void) {
 }
 static int altar_send(void) {                                      /* its wisp, resting, sent on to the next secret */
     if (G.altar_state != ALTAR_AWAKE || G.altar_wisp != AW_REST || nearest_shut(G.px, G.py) < 0) return 0;
-    if (!spend_spirit((float)altar_price())) { if (G.player) say("SENDING IT ON WANTS %d SOULS", altar_price()); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 0; }
+    if (!spend_spirit((float)altar_price())) { if (G.player) say("AN OFFERING OF %d SOULS IS NEEDED", altar_price()); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 0; }
     G.altar_seek = nearest_shut(G.px, G.py); G.altar_wisp = AW_SEEK; G.altar_inside = 0; G.wisps[1].retarget = 0.0f;
-    if (G.player) say("THE WISP GOES TO THE NEXT SECRET");
+    if (G.player) say("THE SPIRIT IS ON TO THE NEXT HIDDEN..");
     snd_sfx_ex(SFX_WHISPER, 0.9f, 0.5f); sfx_at(SFX_SHIMMER, G.altar_x + 0.5f, G.altar_y + 0.5f, 1.0f);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT altar sends price=%d t=%.2f\n", altar_price(), G.t);
@@ -76,9 +76,9 @@ static int altar_send(void) {                                      /* its wisp, 
 }
 static int altar_bless(void) {
     if (G.blessed) return 0;
-    if (!spend_spirit((float)ALTAR_BLESS)) { if (G.player) say("THE BLESSING WANTS %d SOULS", ALTAR_BLESS); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 0; }
+    if (!spend_spirit((float)ALTAR_BLESS)) { if (G.player) say("THIS CURSE REQUIRES %d SOULS", ALTAR_BLESS); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); return 0; }
     G.blessed = 1;
-    if (G.player) say("YOUR EXIT WISPS WILL TURN THE DEAD");
+    if (G.player) say("WISPS NOW TURN THE DEAD WHEN ENCOUNTERED");
     snd_sfx_ex(SFX_RUNE, 0.8f, 0.5f); snd_sfx_ex(SFX_MOAN, 0.7f, 0.5f); sfx_at(SFX_SHIMMER, G.altar_x + 0.5f, G.altar_y + 0.5f, 1.2f);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT altar blesses t=%.2f\n", G.t);
@@ -89,7 +89,7 @@ static int altar_anoint(void) {
     if (G.altar_state != ALTAR_READY) return 0;
     int can[NSLOT], n = 0, worn = 0;                               /* one worn piece, at random, not anointed yet */
     for (int s = 0; s < NSLOT; s++) if (RUN.gear.worn[s].kind) { worn++; if (!RUN.gear.worn[s].anointed) can[n++] = s; }
-    if (!n) { if (G.player) say(worn ? "ALL YOU WEAR IS ANOINTED ALREADY" : "YOU WEAR NOTHING FOR IT TO BLESS"); return 0; }
+    if (!n) { if (G.player) say(worn ? "EVERYTHING YOU WEAR IS ANOINTED" : "YOU WEAR NOTHING FOR IT TO BLESS"); return 0; }
     Piece *p = &RUN.gear.worn[can[rnd(n)]];
     piece_anoint(p);
     G.altar_state = ALTAR_SPENT;
