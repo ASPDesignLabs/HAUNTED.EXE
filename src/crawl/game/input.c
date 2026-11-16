@@ -26,7 +26,7 @@ static struct {                             /* their game controller, if they ha
 } PADX;
 /* Touch (docs/PLAN-mobile.md, Part C): the fingers turned into keys and sticks by where they land and what is up, as PADX does
  * for the pad. The stones are laid out by touch_geo; touch_keys reads the fingers; crawl_stage draws the stones. */
-enum { TB_STRIP_L, TB_STRIP_R, TB_CORNER_L, TB_CORNER_R, TB_WISPS, TB_MAP, TB_WARD, NTB };
+enum { TB_STRIP_L, TB_STRIP_R, TB_CORNER_L, TB_CORNER_R, TB_WISPS, TB_MAP, TB_WARD, TB_COMPASS, NTB };
 enum { TF_NONE, TF_PEND, TF_WALK, TF_TURN, TF_CAST, TF_BTN, TF_TAP };   /* a finger's part: pending in the left strip (a tap or the
                                                                       walk), the sticks, the cast, a stone, a tap anywhere else */
 typedef struct { int x, y, w, h; } TRect;
@@ -38,6 +38,7 @@ static struct {
     float walk_up, rep[4]; uint8_t on[4];   /* since the walking finger last lifted; a menu's direction held and its repeat */
     int dodge_arm, press[NTB];              /* a second touch may dodge; the stones pressed now, to draw */
     int walk; float wbx, wby, wx, wy;       /* the walking stick down, its base and finger, to draw */
+    int compass_tap;                        /* the compass tablet tapped: the L list, where the needle is aimed (docs/PLAN-compass.md) */
 } TCH;
 /* The wheels (1.0.0b16, docs/PLAN-play.md section 7a): held open, the world goes grey and slow, the stick (or the mouse)
  * points, and letting go takes what it points at. Spells on the D-pad held down; runes and the bosses' gifts on it held up

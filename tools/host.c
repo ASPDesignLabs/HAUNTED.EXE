@@ -367,6 +367,10 @@ int main(int argc, char **argv) {
         const char *prefix = argv[4];
         int scale = argc > 5 ? atoi(argv[5]) : 0;
         input_init();
+        int stw = 0, sth = 0;                                       /* HOST_STAGE=WxH: touch's stage too, written beside each frame as _stage (docs/PLAN-mobile.md) */
+        if (getenv("HOST_STAGE") && sscanf(getenv("HOST_STAGE"), "%dx%d", &stw, &sth) == 2 && stw > 0 && sth > 0) {
+            g_in.touch = 1; g_in.stage_w = stw; g_in.stage_h = sth;
+        } else stw = sth = 0;
         app_init(&cfg, 0);
         uint8_t *rgb = malloc(FB_MAX_W * FB_MAX_H * 3);
         const double dt = 1.0 / 70.0;
@@ -382,6 +386,16 @@ int main(int argc, char **argv) {
             char name[512];
             snprintf(name, sizeof name, "%s_%06.2f.png", prefix, target);
             write_png(name, rgb, w, h, scale ? scale : (w <= 320 ? 3 : 1));
+            if (stw) {
+                uint32_t *sp = malloc((size_t)stw * sth * 4);
+                uint8_t *sr = malloc((size_t)stw * sth * 3);
+                if (sp && sr && app_present_stage(sp, stw, sth, 0)) {
+                    for (int i = 0; i < stw * sth; i++) { const uint8_t *q = (const uint8_t *)&sp[i]; sr[i * 3] = q[0]; sr[i * 3 + 1] = q[1]; sr[i * 3 + 2] = q[2]; }
+                    snprintf(name, sizeof name, "%s_%06.2f_stage.png", prefix, target);
+                    write_png(name, sr, stw, sth, 2);
+                }
+                free(sp); free(sr);
+            }
         }
         free(rgb);
         return 0;

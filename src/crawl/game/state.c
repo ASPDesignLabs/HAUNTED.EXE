@@ -401,6 +401,8 @@ enum { CS_WIND, CS_OMEN, CS_CARTO, CS_LANTERN, CS_SENSE, NCS };
 #define BELL_Y 5                            /* the Dead Bell, in the east half of the room north of hers (1.0.0b11) */
 #define FONT_X 17
 #define FONT_Y 5                            /* the Weeping Font, in its west half */
+#define CONTROLS_CARD_T 0.0f                /* how long the controls list stands when you take over or open a page: 6.0f puts it back (taken off for the
+                                               time being at the owner's word, 16 November 2026; the toasts that wait on it wait on nothing) */
 #define LAMP_X 20
 #define LAMP_Y 3                            /* the Lampstand (1.0.0b11), against the far wall of the room north of hers */
 static const int8_t STONE_AT[10][2] = { { 20, 22 }, { 18, 22 }, { 16, 22 }, { 14, 22 }, { 12, 22 },   /* the plot's stones, */
@@ -478,6 +480,8 @@ static struct {
     int loaded;                             /* just read from a save: nothing in G to carry over */
     Record rec;
     int wisp_kind, wisp_color, wisp_auto;   /* the wisp L casts at a tap, once the menu's toggle is on */
+    int has_compass, compass_kind, compass_color;   /* the compass (docs/PLAN-compass.md): bought, and the wisp's kind and key it leans toward (WK_*);
+                                               gone with a death, in the run's save (the spare byte after the wisp's), not the ledger's page */
     int coins, shrine, attuned;             /* Cursed Coins; the Rune Shrine's rank (0 sanctified, 1-5 the best quality
                                                it gives); the rune kinds it is attuned to, a bit each */
     uint8_t slot_def[SHRINE_SLOTS], slot_q[SHRINE_SLOTS];   /* the shrine's slots: rune kind + 1 (0 empty), quality 1-5 */
@@ -816,6 +820,8 @@ static struct {
     int cx_page;                            /* the Codex's page open */
     int mer_look;                           /* the merchant herself, close enough for E */
     int map_look;                           /* the map floating beside her, looked at */
+    int compass_look;                       /* the compass floating at her right, looked at */
+    float compass_bear; int compass_init;   /* the needle as it is drawn: the bearing it has eased to (degrees clockwise from north), and whether it has one yet */
     int stone_look, stone_sel;              /* a stone in the plot looked at (-1 none); the one whose page is open */
 
     /* a person at the controls */

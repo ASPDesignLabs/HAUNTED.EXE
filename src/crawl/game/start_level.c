@@ -1,6 +1,10 @@
 /* A part of scene_crawl.c (docs/PLAN-tidy.md): it is #included there in its place and never compiled on its own.
  * start_level: a level begun; the debug build's gear and gifts. */
 
+#ifdef CRAWL_DEBUG
+static void save_selftest(void);                                   /* save.c, further down the list */
+static void compass_selftest(void);                                /* wisps.c, and the same */
+#endif
 static void start_level(void) {
     line_lend();
     pocket_reset_level();
@@ -138,6 +142,8 @@ static void start_level(void) {
     tu_level_begin();                                              /* the lessons, on a drawn level (docs/PLAN-tutorial.md) */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_MAP")) debug_map(0);
+    if (getenv("CRAWL_SAVETEST")) save_selftest();
+    if (getenv("CRAWL_COMPASSTEST")) compass_selftest();
 #endif
 }
 

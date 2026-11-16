@@ -1228,6 +1228,11 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             ADD(MAP_X, MAP_Y, 0.42f + 0.04f * sinf((float)G.t * 1.6f), SP_MAPWARE, 0);
             if (n > n0) { float u = (float)G.t * 0.4f; u -= floorf(u); list[n - 1].scale = 0.5f; list[n - 1].twinkle = u < 0.1f ? sinf(u / 0.1f * PI_F) : 0.0f; }
         }
+        if (COMPASS_FOR_SALE()) {                                  /* the compass, floating at her right once the map is yours */
+            n0 = n;
+            ADD(COMPASS_X, COMPASS_Y, 0.42f + 0.04f * sinf((float)G.t * 1.6f + 1.3f), SP_COMPASSWARE, 0);
+            if (n > n0) list[n - 1].scale = 0.5f;
+        }
         for (int i = 0; i < G.ped_n; i++) {
             if (G.offer_gone[i]) continue;
             const Offer *o = &G.offers[i];

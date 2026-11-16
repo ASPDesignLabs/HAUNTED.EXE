@@ -43,7 +43,18 @@ static void render_shop_tags(Frame *f, float dx, float dy, float horizon) {
         const char *over = G.shop_held == i || G.offer_back[i] ? "HELD" : (o->rare && ((int)(G.t * 3.0) & 1) ? "RARE" : NULL);
         if (over) { int rw = gfx_text_width(over, 1); gfx_text8(f, x - rw / 2 + 1, ty - 9, over, 0, 1); gfx_text8(f, x - rw / 2, ty - 10, over, over[0] == 'H' ? (uint8_t)(R_GLOW + 12) : (uint8_t)C_WHITE, 1); }
     }
-    float sx, sy, dep;                                             /* the map's price, over it */
+    float sx, sy, dep;
+    if (COMPASS_FOR_SALE() && project(COMPASS_X, COMPASS_Y, 0.95f, dx, dy, horizon, &sx, &sy, &dep) && sx >= 0 && sx < W && dep < zbuf[(int)sx] + 0.3f && dep < 6.0f) {   /* the compass's price, over it */
+        char tag[16];
+        snprintf(tag, sizeof tag, "$%d", COMPASS_PRICE);
+        int w = gfx_text_width(tag, 1), tx = (int)sx - w / 2, ty = (int)sy - 10, hit = 0;
+        for (int k = 0; k < nb; k++) hit |= tx < box[k][2] + 3 && tx + w + 3 > box[k][0] && ty - 10 < box[k][3] && ty + 9 > box[k][1];
+        if (!hit && ty >= 0 && ty <= H - 60) {
+            gfx_text8(f, tx + 1, ty + 1, tag, 0, 1);
+            gfx_text8(f, tx, ty, tag, COMPASS_PRICE <= RUN.treasure ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_BLOOD + 11), 1);
+        }
+    }
+                                                                   /* the map's price, over it */
     if (!RUN.has_map && !g_map_kept && project(MAP_X, MAP_Y, 0.95f, dx, dy, horizon, &sx, &sy, &dep) && sx >= 0 && sx < W && dep < zbuf[(int)sx] + 0.3f && dep < 6.0f) {
         char tag[16];
         snprintf(tag, sizeof tag, "$%d", MAP_PRICE);
@@ -144,6 +155,27 @@ static int small_digits(Frame *f, int x, int y, int n, uint8_t c) {   /* 3 by 5 
     for (int i = 0; b[i] && f; i++)
         for (int k = 0; k < 15; k++) if (D[b[i] - '0'][k] == '#') gfx_px(f, x + i * 4 + k % 3, y + k / 3, c);
     return w;
+}
+/* The compass on the HUD (docs/PLAN-compass.md): a plate at the top right of the view, below the news, with the dial and, beside it, what
+ * it leans toward and how far. By touch the tablet in the margin stands for it. The needle is the eased bearing; the disc turns with you. */
+static int compass_on_stone(void) {                                /* touch's tablet is up in the margin */
+    if (!IN.touch || !IN.stage_w) return 0;
+    TRect R[NTB];
+    touch_geo(R);
+    return R[TB_COMPASS].w >= 20 && R[TB_COMPASS].h >= 12;
+}
+static void render_compass(Frame *f) {
+    if (!RUN.has_compass || !G.player || G.shop || G.dead || G.tally || G.ui || compass_on_stone()) return;
+    CompassRead c;
+    int on = compass_read(&c);
+    char l[24], n[24];
+    if (on) compass_words(&c, l, sizeof l, n, sizeof n); else { snprintf(l, sizeof l, "NOTHING"); snprintf(n, sizeof n, "TO FIND"); }
+    int tw = imax(gfx_text_width(l, 1), gfx_text_width(n, 1)), w = 40 + tw + 4, h = 36, x = W - 4 - w, y = 26;
+    ui_plate(f, x, y, w, h);
+    ui_compass(f, x + 20, y + 18, 14, compass_heading(), on ? G.compass_bear : 0.0f, on ? compass_tip(c.kind) : UI_CT_EXIT,
+               on ? compass_ramp(c.kind, c.color) : R_GLOW, !on, 0);
+    gfx_text8(f, x + 38, y + 8, l, on ? (uint8_t)(compass_ramp(c.kind, c.color) + 12) : (uint8_t)(R_STONE + 10), 1);
+    gfx_text8(f, x + 38, y + 20, n, on ? (uint8_t)(R_BONE + 13) : (uint8_t)(R_STONE + 10), 1);
 }
 static void render_statusbar(Frame *f) {
     int y0 = H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f);   /* it slides down out of sight */
@@ -259,7 +291,7 @@ static void draw_coin(Frame *f, int x, int y) {                    /* a Cursed C
             else if (r == 2 || r == 4) gfx_px(f, x + c, y + r, 0);
 }
 static int shop_carded(void) {                                     /* a person looking at something in her room: its card is up */
-    return G.shop && G.player && (G.shop_look >= 0 || G.rep_look || G.comp_look || G.stone_look >= 0 || G.map_look || G.mer_look || G.por_look
+    return G.shop && G.player && (G.shop_look >= 0 || G.rep_look || G.comp_look || G.stone_look >= 0 || G.map_look || G.compass_look || G.mer_look || G.por_look
                                   || G.tot_look || G.bell_look || G.font_look || G.lamp_look || G.sh_look || G.pt_look);
 }
 /* In her rooms, for a person (after 1.0.0b21.2, at the owner's word): what is faced on a slim band at the foot of the view, the key
@@ -304,6 +336,9 @@ static void render_shop_prompt(Frame *f) {
     } else if (G.map_look) {
         snprintf(what, sizeof what, "A MAP OF THE CRYPT"); col = R_BONE + 13;
         snprintf(note, sizeof note, "$%d", MAP_PRICE); ncol = MAP_PRICE <= RUN.treasure ? R_GOLD + 12 : R_BLOOD + 12;
+    } else if (G.compass_look) {
+        snprintf(what, sizeof what, "A COMPASS"); col = R_BONE + 13;
+        snprintf(note, sizeof note, "$%d", COMPASS_PRICE); ncol = COMPASS_PRICE <= RUN.treasure ? R_GOLD + 12 : R_BLOOD + 12;
     } else if (G.sh_look) {
         snprintf(what, sizeof what, "THE RUNE SHRINE"); col = R_GOLD + 12;
         if (!RUN.shrine) snprintf(note, sizeof note, "SANCTIFIED");

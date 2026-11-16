@@ -451,3 +451,14 @@ what moves them, and the gap against 1.0.0b21.7 is unexplained and probably nois
 looked fine ("Release it if the repeat runs look fine"), and it went out unplayed by them, as one squashed commit on top of their page's
 title-scene backdrops (PR #1).
 \n
+
+**1.0.0b21.9**, "A Needle of Bone", is [`docs/PLAN-compass.md`](PLAN-compass.md): the owner asked for "a compass item, that directs the player north and to one
+'objective' they wish to track, should their skills or gear allow for it", art that "feels like it belongs in the UI", bought after the map for
+2,500 gold and not kept through death. They settled four questions (it is lost only on a death that reloads into the Item Shop; 2,500; the L
+menu is where it is aimed; the dial rotates), and the first sheet, which drew a clean modern dial, was sent back: "the compass itself doesn't
+look like it fits with the theme of the game". The second, a relic of stone and bone, was approved. Built in seven steps on
+`claude/stoic-ramanujan-3iqb3m` (the state and its saved byte; her room's sale; the bearing; aiming it in the L list; the HUD plate, touch's
+tablet and the dial on her page; death; the proof), at the owner's word one step at a time, and harness only. The death card names it, last in its
+line, left so at their word. They also asked for the list of controls that appears on taking over or loading a save to be disabled for the time
+being, and for the release as "another minor update"; it went to main as one squashed commit. It was written as 1.0.0b21.8, and by the time
+it was to go out "The Antechamber" had taken that number from main, so it was merged on top of it and released as 1.0.0b21.9.

@@ -152,7 +152,7 @@ static void title_to_play(int page) {                              /* a grave ri
     TI.on = 0;
     LEDGER.yours = 1;                                              /* the dream is over: from now on the run is yours */
     if (page >= 0) ledger_open(page); else run_new();
-    show_bar(); G.hint_t = 6.0f; PADX.fresh = 1; TCH.fresh = 1;
+    show_bar(); G.hint_t = CONTROLS_CARD_T; PADX.fresh = 1; TCH.fresh = 1;
     snd_sfx_ex(SFX_RUNE, 1.0f, 0.5f);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT title %s %d level %d shop %d\n", page >= 0 ? "rise" : "new", page + 1, G.level, G.shop);
@@ -388,6 +388,7 @@ static void death_fall(void) {
     if (RUN.souls) LOST("%s%d SOULS", d > G.dlost ? ", " : "", RUN.souls);
     if (RUN.coins) LOST("%s%d COIN%s", d > G.dlost ? ", " : "", RUN.coins, RUN.coins > 1 ? "S" : "");
     if (RUN.atone > 1) LOST("%sATONEMENT %d", d > G.dlost ? ", " : "", RUN.atone);
+    if (RUN.has_compass) LOST("%sA COMPASS", d > G.dlost ? ", " : "");   /* last: the card's line is 64 long and the first things named are the dearer (docs/PLAN-compass.md) */
     #undef LOST
     if (d > G.dlost) snprintf(d, (size_t)left, " GONE WITH YOU"); else snprintf(G.dlost, sizeof G.dlost, "YOU HAD NOTHING TO LOSE");
 #ifdef CRAWL_DEBUG
@@ -395,6 +396,7 @@ static void death_fall(void) {
     fprintf(stderr, "EVENT death_cost level %d by %s: %s t=%.2f\n", G.level, by, G.dlost, G.t);
 #endif
     RUN.treasure = 0; RUN.souls = 0; RUN.soul_frac = 0.0f; RUN.coins = 0; RUN.goal = 0;
+    RUN.has_compass = 0; RUN.compass_kind = WK_EXIT; RUN.compass_color = 0; G.compass_init = 0;   /* before the page is written: a death page must not keep it */
     g->atk[AT_BFS] = -1;                                           /* the lines' spells follow them (align_sync) */
     memset(RUN.al, 0, sizeof RUN.al); RUN.al_points = 0;           /* the lines go, every one; */
     RUN.cls = RUN.cls_pts = RUN.cls_spent = 0; RUN.al_gift = 0; RUN.gifts = 0; RUN.gifted = 0;   /* the next life is asked what it was, and given again */

@@ -5,6 +5,10 @@
 #define MAP_PRICE 1000
 #define MAP_X 10.75f
 #define MAP_Y 14.1f                         /* where it floats in her room, at her left */
+#define COMPASS_PRICE 2500                  /* the compass (docs/PLAN-compass.md): sold once the map is yours, gone with a death */
+#define COMPASS_X 10.75f
+#define COMPASS_Y 16.8f                     /* where it floats in her room, at her right: the map's mirror across her */
+#define COMPASS_FOR_SALE() (RUN.has_map && !RUN.has_compass && !g_map_kept)
 #define MAP_REACH 1.5f                      /* what lies this near the caster fills in, through walls (3.2 until 1.0.0b11) */
 #define MAP_SIGHT 16.0f                     /* and what is seen, out to where the dark closes */
 static void map_carto(void) {                                      /* the Cartographer: the shape of it all, known at once */
@@ -275,6 +279,103 @@ static int wisp_choice_at(const WispChoice *c, int n, int kind, int color) {
 static void cast_choice(const WispChoice *c) {
     if (summon_wisp(c->kind, c->color, c->cost)) { RUN.wisp_kind = c->kind; RUN.wisp_color = c->color; }
 }
+
+/* ---- the compass (docs/PLAN-compass.md, step 3): a bearing and a distance, never a route ----
+ * It leans toward what the wisps would: wisp_target's own answer, the exit, a key, the altar's secret, so gear and skills gate it as they
+ * gate the wisps, and an exit behind a vault leans toward the key that vault needs first, as the exit wisp goes. North is up the map
+ * (y falls), so a bearing is atan2(east, -south) in degrees from there, clockwise. */
+static float deg180(float a) { a = fmodf(a, 360.0f); if (a > 180.0f) a -= 360.0f; else if (a < -180.0f) a += 360.0f; return a; }
+static const char *wind_name(float deg) {                          /* sixteen winds */
+    static const char *const Q[16] = { "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW" };
+    return Q[(int)(fmodf(fmodf(deg, 360.0f) + 360.0f, 360.0f) / 22.5f + 0.5f) % 16];
+}
+typedef struct { int kind, color; float bear, dist; } CompassRead;  /* kind, color: what the needle shows now (WK_KEY when an exit's vault wants its key first) */
+static int compass_read(CompassRead *c) {                          /* 0: nothing to lean toward (the needle rests) */
+    int gx, gy, fin;
+    float hx, hy;
+    memset(c, 0, sizeof *c);
+    if (!RUN.has_compass || G.shop || G.dead) return 0;
+    if (!wisp_target(RUN.compass_kind, RUN.compass_color, &gx, &gy, &hx, &hy, &fin)) return 0;
+    c->kind = RUN.compass_kind; c->color = RUN.compass_color;
+    if (c->kind == WK_EXIT && !fin)                                /* behind a vault: the key it wants */
+        for (int i = 0; i < G.nitems; i++)
+            if (G.items[i].alive && G.items[i].type == IT_KEY && G.items[i].cx == gx && G.items[i].cy == gy) { c->kind = WK_KEY; c->color = G.items[i].color; break; }
+    float dx = hx - G.px, dy = hy - G.py;
+    c->dist = hypotf(dx, dy);
+    c->bear = c->dist < 0.01f ? G.compass_bear : atan2f(dx, -dy) * 57.29578f;
+    if (c->bear < 0.0f) c->bear += 360.0f;
+    return 1;
+}
+static void compass_words(const CompassRead *c,  char *label, int ln, char *num, int nn) {   /* the two lines under the dial */
+    if (c->kind == WK_KEY) snprintf(label, (size_t)ln, "%s KEY", KEY_COLOR[clampi(c->color, 0, NKEYS - 1)]);
+    else snprintf(label, (size_t)ln, c->kind == WK_ALTAR ? "ALTAR" : "EXIT");
+    if (c->dist < 1.5f) snprintf(num, (size_t)nn, "HERE"); else snprintf(num, (size_t)nn, "%d %s", (int)(c->dist + 0.5f), wind_name(c->bear));
+}
+static int compass_tip(int kind) { return kind == WK_KEY ? UI_CT_KEY : kind == WK_ALTAR ? UI_CT_ALTAR : UI_CT_EXIT; }   /* the dial's own needle tips */
+static int compass_ramp(int kind, int color) { return kind == WK_KEY ? KEY_RAMP[clampi(color, 0, NKEYS - 1)] : kind == WK_ALTAR ? R_PURPLE : R_GLOW; }
+static float compass_heading(void) { return atan2f(cosf(G.ang), -sinf(G.ang)) * 57.29578f; }   /* the way you face, degrees clockwise from north */
+static void compass_tick(float dt) {                               /* each frame: a thing gone falls back to the exit; the needle eases */
+    CompassRead c;
+    if (!RUN.has_compass) { G.compass_init = 0; return; }
+    if (!compass_read(&c)) {
+        if (RUN.compass_kind != WK_EXIT && !G.shop && !G.dead) {   /* the key taken, the secret found: back to the way out */
+            RUN.compass_kind = WK_EXIT; RUN.compass_color = 0;
+            if (G.player) say("THE NEEDLE TURNS BACK TO THE WAY OUT");
+        }
+        G.compass_init = 0;
+        return;
+    }
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_COMPASSLOG")) {                              /* what it would say, every five seconds */
+        static int last = -1;
+        int tk = (int)(G.t / 5.0);
+        if (tk != last) { char l[24], n[24]; compass_words(&c, l, sizeof l, n, sizeof n); fprintf(stderr, "EVENT compass %s | %s bear %.0f eased %.0f t=%.2f\n", l, n, c.bear, G.compass_bear, G.t); last = tk; }
+    }
+#endif
+    if (!G.compass_init || dt <= 0.0f) { G.compass_bear = c.bear; G.compass_init = 1; return; }
+    G.compass_bear += deg180(c.bear - G.compass_bear) * (1.0f - expf(-8.0f * dt));   /* it eases to the bearing, and stays */
+    G.compass_bear = fmodf(G.compass_bear + 360.0f, 360.0f);
+}
+static void compass_track(const WispChoice *c) {                  /* the L menu's Back: the needle leans toward this one from now on */
+    RUN.compass_kind = c->kind; RUN.compass_color = c->kind == WK_KEY ? c->color : 0;
+    G.compass_init = 0;                                            /* it turns at once, not by way of the other side of the dial */
+    if (c->kind == WK_EXIT) say("THE NEEDLE LEANS TOWARD THE WAY OUT");
+    else if (c->kind == WK_KEY) say("THE NEEDLE LEANS TOWARD THE %s KEY", KEY_COLOR[clampi(c->color, 0, NKEYS - 1)]);
+    else say("THE NEEDLE LEANS TOWARD WHAT THE ALTAR HIDES");
+    snd_sfx_ex(SFX_KEY, 0.7f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT compass_track kind %d colour %d t=%.2f\n", c->kind, c->color, G.t);
+#endif
+}
+#ifdef CRAWL_DEBUG
+/* the bearing from eight places round each thing it can lean toward, at five cells: the angle must come back, and the distance */
+static void compass_selftest(void) {
+    int bad = 0, cases = 0, has = RUN.has_compass, kind = RUN.compass_kind, col = RUN.compass_color, shop = G.shop;
+    float px = G.px, py = G.py;
+    G.shop = 0; RUN.has_compass = 1;
+    for (int w = 0; w < 1 + NKEYS; w++) {
+        RUN.compass_kind = w ? WK_KEY : WK_EXIT; RUN.compass_color = w ? w - 1 : 0;
+        int gx, gy, fin; float hx, hy;
+        if (!wisp_target(RUN.compass_kind, RUN.compass_color, &gx, &gy, &hx, &hy, &fin) || (w == 0 && !fin)) continue;
+        for (int k = 0; k < 8; k++) {
+            float th = k * 45.0f * 0.0174533f;
+            G.px = hx - 5.0f * sinf(th); G.py = hy + 5.0f * cosf(th);
+            CompassRead c;
+            cases++;
+            if (!compass_read(&c) || fabsf(deg180(c.bear - k * 45.0f)) > 0.5f || fabsf(c.dist - 5.0f) > 0.05f || c.kind != RUN.compass_kind) bad++;
+        }
+    }
+    for (int k = 0; k < NKEYS; k++) {                              /* a key that lies nowhere: the needle falls back to the way out */
+        if (key_lying(k) >= 0) continue;
+        RUN.compass_kind = WK_KEY; RUN.compass_color = k; G.compass_init = 1;
+        compass_tick(0.016f);
+        cases++;
+        if (RUN.compass_kind != WK_EXIT || RUN.compass_color != 0) bad++;
+    }
+    G.px = px; G.py = py; G.shop = shop; RUN.has_compass = has; RUN.compass_kind = kind; RUN.compass_color = col;
+    fprintf(stderr, "EVENT compass_selftest cases %d bad %d\n", cases, bad);
+}
+#endif
 
 /* the altar's menu: its three gifts, what each costs, and why one can't be had */
 typedef struct { const char *what, *cost, *note; int ok, price; } AltarRow;

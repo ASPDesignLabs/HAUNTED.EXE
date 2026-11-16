@@ -290,7 +290,8 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     gear_pack(buf + 28, &RUN.gear);
     rec_pack(buf + SAVE_V3, &RUN.rec);
     uint8_t *x = buf + SAVE_V3 + REC_BYTES;
-    x[0] = (uint8_t)RUN.wisp_kind; x[1] = (uint8_t)RUN.wisp_color; x[2] = (uint8_t)(RUN.wisp_auto != 0); x[3] = 0;
+    x[0] = (uint8_t)RUN.wisp_kind; x[1] = (uint8_t)RUN.wisp_color; x[2] = (uint8_t)(RUN.wisp_auto != 0);
+    x[3] = (uint8_t)(RUN.has_compass ? 1 | (clampi(RUN.compass_kind, WK_EXIT, WK_ALTAR) << 1) | (clampi(RUN.compass_color, 0, NKEYS - 1) << 3) : 0);   /* the compass: bit 0 held, 1-2 its wisp's kind, 3-4 its key (until 1.0.0b21.9 always 0) */
     shrine_pack(x + SAVE_V4_EXTRA);
     rec_pack_extra(x + SAVE_V4_EXTRA + SAVE_V5_SHRINE, &RUN.rec);
     hall_pack(x + SAVE_V4_EXTRA + SAVE_V5_SHRINE + REC_EXTRA);
@@ -415,6 +416,12 @@ static void run_unpack(const uint8_t *buf, int len) {
     if (v >= 4) {
         const uint8_t *x = buf + SAVE_V3 + REC_BYTES;
         RUN.wisp_kind = clampi(x[0], WK_EXIT, WK_ALTAR); RUN.wisp_color = clampi(x[1], 0, NKEYS - 1); RUN.wisp_auto = x[2] != 0;
+        RUN.has_compass = x[3] & 1;                                /* an older run wrote 0 here: no compass */
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT run_loaded compass %d\n", RUN.has_compass);
+#endif
+        RUN.compass_kind = RUN.has_compass ? clampi(x[3] >> 1 & 3, WK_EXIT, WK_ALTAR) : WK_EXIT;
+        RUN.compass_color = RUN.has_compass ? clampi(x[3] >> 3 & 3, 0, NKEYS - 1) : 0;
         if (v >= 5) shrine_unpack(x + SAVE_V4_EXTRA);
         if (v >= 6) { rec_unpack_extra(x + SAVE_V4_EXTRA + SAVE_V5_SHRINE, &RUN.rec); hall_unpack(x + SAVE_V4_EXTRA + SAVE_V5_SHRINE + REC_EXTRA); }
     }
@@ -571,6 +578,34 @@ static void run_unpack(const uint8_t *buf, int len) {
     por_trace(c ? "read" : "read, older");
 #endif
 }
+
+#ifdef CRAWL_DEBUG
+/* a page packed and read back must keep what it was given (CRAWL_SAVETEST=1; for each compass there is: none, and each kind and key) */
+static void save_selftest(void) {
+    static uint8_t buf[SLOT_MAX];
+    static typeof(RUN) keep;
+    keep = RUN;
+    int bad = 0, cases = 0;
+    for (int c = 0; c < 1 + 3 * 3; c++) {
+        RUN = keep;
+        RUN.has_compass = c > 0; RUN.compass_kind = c < 1 ? WK_EXIT : (c - 1) / 3; RUN.compass_color = c < 1 ? 0 : (c - 1) % 3;   /* WK_EXIT, WK_KEY, WK_ALTAR, each with each key */
+        int has = RUN.has_compass, kind = RUN.compass_kind, col = RUN.compass_color, gold = RUN.treasure, map = RUN.has_map, wk = RUN.wisp_kind;
+        int n = run_pack(buf, sizeof buf, PG_SIGNED);
+        if (n <= 0) { bad++; continue; }
+        run_unpack(buf, n);
+        cases++;
+        if (RUN.has_compass != has || (has && (RUN.compass_kind != kind || RUN.compass_color != col)) || (!has && (RUN.compass_kind || RUN.compass_color))
+            || RUN.treasure != gold || RUN.has_map != map || RUN.wisp_kind != wk) bad++;
+    }
+    RUN = keep;
+    /* an older run wrote 0 where the compass is kept: it must read as none */
+    RUN.has_compass = 0;
+    int n = run_pack(buf, sizeof buf, PG_SIGNED);
+    if (n > 0) { RUN.has_compass = 1; run_unpack(buf, n); cases++; if (RUN.has_compass) bad++; }
+    RUN = keep;
+    fprintf(stderr, "EVENT save_selftest cases %d bad %d\n", cases, bad);
+}
+#endif
 
 /* the next start opens this page */
 static void progress_point(void) {

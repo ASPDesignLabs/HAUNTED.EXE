@@ -359,6 +359,7 @@ static void update_human(float dt) {
         if (RUN.has_map) map_up();
         else say("YOU HAVE NO MAP. THE MERCHANT SELLS ONE");
     }
+    if (TCH.compass_tap) { TCH.compass_tap = 0; if (RUN.has_compass) { open_ui(UI_WISPS); return; } }   /* touch's compass: the list, where it is aimed */
     if (lantern_held()) {                                          /* a hold shutters or lights it; a tap is the wisps' (S6 a) */
         if (IN.hit[KEY_L]) { G.l_down = 1; G.l_t = 0.0f; }
         if (G.l_down && IN.down[KEY_L]) {

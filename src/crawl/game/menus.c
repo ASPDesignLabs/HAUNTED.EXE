@@ -415,7 +415,7 @@ static void update_stonemenu(void) {
     G.ui_sel = clampi(G.ui_sel, 0, rows - 1);
 }
 
-/* the L menu: W/S choose, Enter casts, Space the toggle, Esc or L closes */
+/* the L menu: W/S choose, Enter casts, Space the toggle, Back tracks it with the compass (docs/PLAN-compass.md), Esc or L closes */
 static void update_wispmenu(void) {
     WispChoice c[WISP_CHOICES];
     int n = wisp_choices(c), rows = n + lantern_held();             /* the lantern's row under the wisps */
@@ -427,6 +427,7 @@ static void update_wispmenu(void) {
         if (IN.hit[KEY_ENTER] || IN.hit[KEY_E] || IN.hit[KEY_MOUSE1] || IN.hit[KEY_SPACE]) lantern_toggle();
         return;
     }
+    if (RUN.has_compass && IN.hit[KEY_BACK]) { compass_track(&c[G.ui_sel]); return; }   /* the compass leans toward this one: free, and no wisp */
     if (IN.hit[KEY_SPACE]) {
         RUN.wisp_auto ^= 1;
         if (RUN.wisp_auto) { RUN.wisp_kind = c[G.ui_sel].kind; RUN.wisp_color = c[G.ui_sel].color; }

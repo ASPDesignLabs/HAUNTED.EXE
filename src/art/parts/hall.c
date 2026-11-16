@@ -279,6 +279,72 @@ static void spr_mapware(void) {
     cv_store(SP_MAPWARE);
 }
 
+/* The merchant's compass (docs/PLAN-compass.md; the sheet is media/sheets/compass/): a disc of old stone, chipped, cracked and
+ * mossed, bone studs set round its rim and a gilt one for north, a bone needle with a wisp's flame for its tip, a skull for the pin,
+ * and a loop of bone above it. It floats beside her, so it casts no shadow. */
+static float cw_wrap(float a) { while (a > 180.0f) a -= 360.0f; while (a < -180.0f) a += 360.0f; return a; }
+static int cw_needle(float s, float t, float L) {                  /* 1 bone, 2 the flame, 3 its core */
+    float at = fabsf(t), s0 = L - 7.5f;
+    if (s < -4.0f || s > L) return 0;
+    if (s < 0.0f) return (at <= 0.9f || (s < -2.2f && at <= 1.6f)) ? 1 : 0;
+    if (s <= s0) return at <= 0.85f ? 1 : 0;
+    float w = s <= L - 4.5f ? 3.2f * (s - s0) / 3.0f : 3.2f * (L - s) / 4.5f;
+    if (at > w) return 0;
+    return at < 0.7f && s > L - 6.0f && s < L - 1.8f ? 3 : 2;
+}
+static void spr_compassware(void) {
+    cv_begin(cv_sprite, TS, TS);
+    const float cx = 32.0f, cy = 36.0f, r = 16.0f, L = r - 3.0f, ux = 0.7071f, uy = -0.7071f;
+    for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) {
+        float dx = x + 0.5f - cx, dy = y + 0.5f - cy, d = hypotf(dx, dy), tw = atan2f(dx, -dy) * 57.29578f;
+        if (tw < 0.0f) tw += 360.0f;
+        float edge = r;
+        if (h01((int)(tw / 15.0f), 3, 611) < 0.13f) edge -= 1.0f + h01((int)(tw / 15.0f), 4, 611) * 0.8f;   /* a chip bitten out */
+        if (d > edge) continue;
+        float lk = (dx + dy) * 0.7071f / (d + 0.001f);
+        uint8_t c;
+        if (d >= r - 3.0f) {                                       /* the rim, worn stone, lit from the upper left */
+            float v = 0.52f - lk * 0.2f + (h01(x, y, 613) - 0.5f) * 0.14f - (d > r - 1.0f ? 0.12f : 0.0f);
+            c = sh(R_STONE, v);
+            if (lk > 0.0f && h01(x, y, 615) < 0.3f && h01((int)(tw / 20.0f), 7, 615) < 0.55f) c = sh(R_MOSS, 0.32f + 0.2f * h01(x, y, 617));
+            for (int k = 0; k < 16; k++) {                         /* the studs, a wind each, gilt at north */
+                int card = k % 4 == 0;
+                float dl = fabsf(cw_wrap(tw - k * 22.5f)) * 0.01745f * d, hw = card ? 1.5f : 0.9f;
+                if (fabsf(d - (r - 1.6f)) <= hw && dl <= hw) c = k == 0 ? sh(R_GOLD, 0.82f + (lk < 0 ? 0.1f : 0.0f)) : sh(R_BONE, (card ? 0.82f : 0.62f) + (lk < 0 ? 0.1f : 0.0f));
+            }
+        } else {
+            c = sh(R_STONE, h01(x, y, 619) < 0.07f ? 0.24f : 0.17f);   /* the face, dark and pitted */
+            if (fabsf(d - r * 0.55f) < 0.5f) c = sh(R_STONE, 0.28f);
+            static const float CK[2] = { 118.0f, 247.0f };
+            for (int k = 0; k < 2; k++) {
+                float ctr = CK[k] + 9.0f * sinf(d * 0.8f + k * 2.0f);
+                if (d > r * 0.42f && fabsf(cw_wrap(tw - ctr)) * 0.01745f * d < 0.55f) c = sh(R_STONE, 0.02f);
+            }
+        }
+        cv_px(x, y, c);
+    }
+    for (int a = 0; a < 24; a++) {                                 /* the loop of bone it is hung from */
+        float th = a * 0.2618f;
+        cv_px((int)lroundf(cx + sinf(th) * 3.4f), (int)lroundf(cy - r - 4.0f + cosf(th) * 3.4f), sh(R_BONE, 0.78f));
+    }
+    for (int y = 0; y < TS; y++) for (int x = 0; x < TS; x++) {    /* the needle's shadow, then the needle */
+        for (int pass = 0; pass < 2; pass++) {
+            float dx = x + 0.5f - cx - (pass == 0 ? 1.0f : 0.0f), dy = y + 0.5f - cy - (pass == 0 ? 1.0f : 0.0f);
+            if (hypotf(x + 0.5f - cx, y + 0.5f - cy) >= r - 3.0f) continue;
+            int h = cw_needle(dx * ux + dy * uy, -dx * uy + dy * ux, L);
+            if (!h) continue;
+            if (pass == 0) { cv_px(x, y, sh(R_STONE, 0.02f)); continue; }
+            cv_px(x, y, h == 1 ? sh(R_BONE, 0.9f) : (uint8_t)(R_GLOW + (h == 3 ? 15 : 12)));
+        }
+    }
+    static const char *const SK[5] = { ".###.", "#####", "#.#.#", ".###.", ".#.#." };   /* the pin, a little skull */
+    for (int j = 0; j < 5; j++) for (int i = 0; i < 5; i++) if (SK[j][i] == '#') cv_px((int)cx - 2 + i, (int)cy - 2 + j, (j == 2 && (i == 1 || i == 3)) ? sh(R_STONE, 0.02f) : sh(R_BONE, 0.9f));
+    cv_outline(0);
+    static const int MOTE[4][2] = { { 14, 32 }, { 50, 28 }, { 22, 54 }, { 44, 52 } };
+    for (int i = 0; i < 4; i++) cv_px(MOTE[i][0], MOTE[i][1], (uint8_t)(R_GLOW + 10 + (i & 1) * 3));
+    cv_store(SP_COMPASSWARE);
+}
+
 /* Severance: four desks pushed together behind low green partitions, an old terminal on each, numbers
  * on their dark screens. Drawn in R_FLOOR and R_CEIL, so only a Severance pocket shows it true. */
 static void spr_desks(void) {

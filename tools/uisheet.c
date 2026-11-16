@@ -4,12 +4,14 @@
  *
  *   uisheet <out.png> [level]       level picks the run's stone (default 1)
  *   uisheet all <dir>               ui.png at level 1, ui_runs.png the marble's lean in each run
+ *   uisheet compass <out.png>       the compass, for approval (docs/PLAN-compass.md)
  *   uisheet fit                     every node in the pane with the longest foot; fails on any overflow
  *   uisheet tutor <dir>             the lessons' pages (docs/PLAN-tutorial.md): pages1.png level 1's and her room's,
  *                                   pages2.png level 2's, a few in a pad's and touch's words; fails on any overflow
  */
 #include "crawl.h"
 #include "crawl_ui.h"
+#include "crawl_title.h"
 #include "crawl_tutor.h"
 #include "gfx.h"
 #include <stdio.h>
@@ -573,6 +575,119 @@ static int tutor_sheets(const char *dir) {
     return ok && !ui_overflows;
 }
 
+/* ---- the compass (docs/PLAN-compass.md, step 0), for approval: the dial is the game's own (ui_compass, crawl_ui.c) ---- */
+static const char *wind(float b) { int k = (int)(fmodf(fmodf(b, 360.0f) + 360.0f, 360.0f) / 22.5f + 0.5f) % 16; static const char *const Q[16] = { "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW" }; return Q[k]; }
+
+static void compass_panel(int which) {
+    static const int TIPRAMP[3] = { R_GLOW, R_GOLD, R_PURPLE };
+    char b[64];
+    frame_begin(1);
+    ui_ramps(0);
+    if (which == 0) {                                                 /* the desktop's HUD: the plate beside the health's */
+        ui_plate(&F, 7, 176, 113, 20);
+        gfx_text8(&F, 14, 181, "105   $2700", R_BONE + 13, 1);
+        gfx_text8(&F, 8, 8, "TOP RIGHT, BELOW THE NEWS (THE BOTTOM", R_BONE + 13, 1);
+        gfx_text8(&F, 8, 20, "CORNERS HOLD THE SOCKETS). BY TOUCH: A TABLET.", R_STONE + 13, 1);
+        ui_plate(&F, 228, 54, 88, 36);
+        ui_compass(&F, 248, 72, 14, 20.0f, 52.0f, UI_CT_EXIT, R_GLOW, 0, 0);
+        gfx_text8(&F, 266, 62, "EXIT", R_GLOW + 12, 1);
+        snprintf(b, sizeof b, "34 %s", wind(52.0f));
+        gfx_text8(&F, 266, 74, b, R_BONE + 13, 1);
+    } else if (which == 1) {                                          /* the same bearing, four ways of facing */
+        static const float HEAD[4] = { 0.0f, 90.0f, 180.0f, 270.0f };
+        static const char *const FACE[4] = { "FACING N", "FACING E", "FACING S", "FACING W" };
+        for (int k = 0; k < 4; k++) {
+            ui_compass(&F, 40 + k * 80, 78, 34, HEAD[k], 45.0f, UI_CT_EXIT, R_GLOW, 0, 0);
+            gfx_text8(&F, 40 + k * 80 - (int)strlen(FACE[k]) * 4, 122, FACE[k], R_BONE + 12, 1);
+            gfx_text8(&F, 40 + k * 80 - 12, 134, "NE", R_GLOW + 12, 1);
+        }
+        gfx_text8(&F, 8, 8, "THE GILT STUD IS NORTH. THE EXIT, NE.", R_BONE + 13, 1);
+        gfx_text8(&F, 8, 160, "IT EASES TO THE BEARING AND STAYS.", R_STONE + 13, 1);
+        gfx_text8(&F, 8, 172, "NOTHING SPINS OR HUNTS FOR SHOW.", R_STONE + 13, 1);
+    } else if (which == 2) {                                          /* the tips, and rest */
+        static const int T[6] = { UI_CT_EXIT, UI_CT_KEY, UI_CT_KEY, UI_CT_KEY, UI_CT_ALTAR, UI_CT_EXIT };
+        static const int RP[6] = { R_GLOW, R_GOLD, R_BONE, R_BLOOD, R_PURPLE, R_GLOW };
+        static const char *const NM[6] = { "EXIT", "GOLD", "BONE", "RED", "ALTAR", "NONE" };
+        for (int k = 0; k < 6; k++) {
+            ui_compass(&F, 26 + k * 52, 70, 22, 0.0f, 35.0f + k * 40.0f, T[k], RP[k], k == 5, 0);
+            gfx_text8(&F, 26 + k * 52 - (int)strlen(NM[k]) * 4, 102, NM[k], k == 5 ? R_STONE + 12 : RP[k] + 12, 1);
+        }
+        gfx_text8(&F, 8, 8, "EACH HAS ITS OWN TIP AS WELL AS COLOUR:", R_BONE + 13, 1);
+        gfx_text8(&F, 8, 20, "A WISP'S FLAME, A KEY'S BIT, AN EYE.", R_STONE + 13, 1);
+        gfx_text8(&F, 8, 130, "SMALLER: THE TOUCH SOCKET IS 8 TO 10.", R_STONE + 13, 1);
+        for (int k = 0; k < 3; k++) ui_compass(&F, 40 + k * 28, 168, 8 + k, 0.0f, 50.0f, UI_CT_EXIT, R_GLOW, 0, 0);
+        ui_compass(&F, 140, 168, 12, 0.0f, 50.0f, UI_CT_KEY, R_GOLD, 0, 0);
+        ui_compass(&F, 172, 168, 12, 0.0f, 50.0f, UI_CT_ALTAR, R_PURPLE, 0, 0);
+    } else if (which == 3) {                                          /* touch: the stone beside WISPS and MAP's */
+        TStone s = { TSK_TABLET, 100, 32, 0, 0, 0, TSM_NONE, 31u, "COMPASS", 0, 0 };
+        TsInfo in; TsPlaces pl;
+        gfx_text8(&F, 8, 8, "A TABLET LIKE THE MAP'S, AT THE LEFT:", R_BONE + 13, 1);
+        for (int k = 0; k < 3; k++) {
+            s.blank = k == 2; s.seed = 31u + (unsigned)k;
+            int x = 4 + k * 104, y = 40;
+            tstone_places(&s, &pl);
+            memset(&in, 0, sizeof in);
+            snprintf(b, sizeof b, k == 0 ? "34 %s" : "9 %s", wind(k == 0 ? 52.0f : 200.0f));
+            in.text = b; in.text_col = k == 0 ? R_GLOW + 12 : R_GOLD + 12; in.fill = -1.0f; in.ring = -1.0f;
+            tstone_draw(&F, x, y, &s, &in, 0.0f);
+            ui_compass(&F, x + pl.sx, y + pl.sy, pl.sr, 20.0f, k == 0 ? 52.0f : 200.0f, k == 0 ? UI_CT_EXIT : UI_CT_KEY, k == 0 ? R_GLOW : R_GOLD, 0, k == 2);
+            gfx_text8(&F, x, y + 40, k == 0 ? "THE EXIT" : k == 1 ? "A KEY" : "NOT BOUGHT", R_STONE + 13, 1);
+        }
+        gfx_text8(&F, 8, 120, "WORN BLANK UNTIL BOUGHT, AS THE", R_STONE + 13, 1);
+        gfx_text8(&F, 8, 132, "MAP'S IS: NO TICKS, THE WORD WORN.", R_STONE + 13, 1);
+        TStone big = { TSK_CORNER, 64, 66, 0, 0, 0, TSM_NONE, 77u, "COMPASS", 0, 0 };
+        (void)big;
+    } else if (which == 4) {                                          /* her room: the prop, and 3x */
+        for (int j = 40; j < 110; j++) for (int i = 20; i < 100; i++) {   /* the glow it hangs in */
+            float d = hypotf(i - 60.0f, j - 76.0f);
+            if (d < 30.0f && ((i + j) & 1) == 0 && d > 14.0f) gfx_px(&F, i, j, (uint8_t)(R_GLOW + clampi(5 - (int)(d / 6.0f), 0, 4)));
+        }
+        for (int k = 0; k < 7; k++) { gfx_px(&F, 60 + (k & 1), 36 + k * 2, (uint8_t)(R_IRON + 9)); gfx_px(&F, 60 + (k & 1), 37 + k * 2, (uint8_t)(R_IRON + 5)); }   /* its chain, from the dark above */
+        for (int a = 0; a < 20; a++) gfx_px(&F, 60 + (int)lroundf(sinf(a * 0.314f) * 2.6f), 53 + (int)lroundf(cosf(a * 0.314f) * 2.6f), (uint8_t)(R_BONE + 12));   /* its ring, of bone */
+        ui_compass(&F, 60, 76, 12, 0.0f, 30.0f, UI_CT_EXIT, R_GLOW, 0, 0);
+        gfx_text8(&F, 36, 100, "$2500", R_GOLD + 12, 1);
+        uint8_t t[34][34];
+        for (int j = 0; j < 34; j++) for (int i = 0; i < 34; i++) t[j][i] = F.pix[(59 + j) * 320 + 43 + i];
+        for (int j = 0; j < 34; j++) for (int i = 0; i < 34; i++) gfx_rect(&F, 150 + i * 4, 30 + j * 4, 4, 4, t[j][i]);
+        gfx_text8(&F, 8, 8, "AT HER RIGHT, AS THE MAP IS AT HER LEFT", R_BONE + 13, 1);
+        gfx_text8(&F, 8, 120, "ONLY ONCE THE MAP IS YOURS. 1X, 4X.", R_STONE + 13, 1);
+    } else {                                                          /* her wares: the compass's page */
+        ui_slab(&F, 3, 10, 314, 185, SLAB_LEDGER, 0, 0.0f);
+        ui_text8(&F, 14, 15, "HER WARES", FACE_INSC, R_GOLD + 12, TX_INLAID);
+        ui_text8(&F, 190, 15, "YOU HAVE $3100", FACE_BIOS, R_GOLD + 11, TX_PLAIN);
+        ui_well(&F, 9, 26, 302, 153);
+        gfx_text8(&F, 14, 31, "A COMPASS", R_BONE + 13, 1);
+        gfx_text8(&F, 306 - gfx_text_width("$2500", 1), 31, "$2500", R_GOLD + 12, 1);
+        ui_wrap(&F, 14, 45, "A DISC OF OLD STONE AND A NEEDLE OF BONE, THAT LEANS TOWARD WHAT YOU HAVE ASKED THE L MENU TO FIND: THE WAY OUT, A KEY YOU HAVE SEEN, "
+                "A SECRET THE ALTAR SENDS YOU TO. IT KNOWS THE DIRECTION AND THE DISTANCE, NOT THE ROUTE. THE DISC TURNS WITH YOU, "
+                "AND ITS GILT STUD IS NORTH. DEATH TAKES IT BACK.", 27, 9, 99, FACE_BIOS, R_STONE + 13, TX_PLAIN);
+        ui_compass(&F, 272, 100, 30, 300.0f, 345.0f, UI_CT_EXIT, R_GLOW, 0, 0);
+        gfx_text8(&F, 14, 156, "SOLD ONCE THE MAP IS YOURS.", R_STONE + 11, 1);
+        gfx_text8(&F, 14, 168, "OR: YOU ARE $400 SHORT", R_BLOOD + 13, 1);
+        ui_keys(&F, 14, 184, "E BUY  ESC CLOSE", R_STONE + 13);
+        (void)TIPRAMP;
+    }
+}
+static int compass_sheet(const char *path) {
+    const int S = 2, P = 640, Q = 400, G = 12, H = 30;
+    static const char *const CL[6] = { "THE HUD: A PLATE, TOP RIGHT", "THE DIAL TURNS WITH YOU", "THE TIPS, AND REST",
+                                       "TOUCH: ITS STONE", "HER ROOM: THE PROP", "HER WARES: THE PAGE" };
+    iw = G + 2 * (P + G); ih = 40 + 3 * (Q + H + G);
+    img = calloc((size_t)iw * ih, 3);
+    for (size_t i = 0; i < (size_t)iw * ih * 3; i++) img[i] = 12;
+    crawl_art_level(3); crawl_art_run(3); ui_marble_make(10u);
+    label(G, 10, "THE COMPASS, FOR APPROVAL (PLAN-COMPASS 0)");
+    for (int k = 0; k < 6; k++) {
+        int x = G + (k % 2) * (P + G), y = 40 + (k / 2) * (Q + H + G);
+        compass_panel(k);
+        blit(x, y + H, S);
+        label(x, y + 6, CL[k]);
+    }
+    int ok = write_png(path);
+    free(img);
+    return ok;
+}
+
 int main(int argc, char **argv) {
     if (argc < 2) { fprintf(stderr, "usage: uisheet <out.png> [level] | uisheet all <dir>\n"); return 2; }
     crawl_art_init();
@@ -587,6 +702,7 @@ int main(int argc, char **argv) {
         snprintf(p, sizeof p, "%s/ui_runs.png", d);
         return runs_sheet(p) ? 0 : 1;
     }
+    if (!strcmp(argv[1], "compass")) return compass_sheet(argc > 2 ? argv[2] : "compass.png") ? 0 : 1;
     if (!strcmp(argv[1], "tutor")) return tutor_sheets(argc > 2 ? argv[2] : ".") ? 0 : 1;
     if (!strcmp(argv[1], "pad")) { ui_check = 1; ui_overflows = 0; int ok = pad_sheet(argc > 2 ? argv[2] : "pad.png"); printf("UI fit (pad): %d overflows\n", ui_overflows); return ok && !ui_overflows ? 0 : 1; }
     return sheet(argv[1], argc > 2 ? atoi(argv[2]) : 1) ? 0 : 1;

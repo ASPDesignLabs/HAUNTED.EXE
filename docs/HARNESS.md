@@ -24,14 +24,14 @@ Environment for the harness: `HOST_INPUT="1:+H;4.3:-H;5:+W;7:-W;8:m400,0;9:+MOUS
 (press `+`, release `-`, mouse counts `m`, wheel `w`, typed letters and digits `t`, as `6:tWORD`; key names
 as in `core.h` without `KEY_`, so `CONSOLE`, `BACK`, `PGUP`, `PGDN` too),
 `HOST_LOAD=file` (the progress to start from: a run, or the page it names; stands in for the registry),
-`HOST_SAVE=file` (the progress, each time the game writes it), `HOST_SLOTS=dir` (the ledger's pages as
+`HOST_SAVE=file` (the progress, each time the game writes it), `HOST_STAGE=WxH` (with `shot`: touch's stage of that size too, each frame's written beside it as `_stage.png`; no fingers, so the stones as they stand), `HOST_SLOTS=dir` (the ledger's pages as
 `slot1.bin`..`slot3.bin`, the dead's mark as `mark.bin`, the pad's layout as `prefs.bin`), `BOTH=1` (scene rotation), `STAY=n`. A game
 controller in `HOST_INPUT`: buttons `+PAD_A` ... `-PAD_RT` (names as `PAD_*` in `core.h`), sticks `aLX0.8`,
 `aLY1`, `aRX-0.5`, `aRY0` (y up); any of them makes a pad plugged in. The harness prints `RUMBLE lo hi`
 and `RUMBLE off` as the motors start and stop. `M` is the map's key (1.0.0b9).
 
 Debug build switches (`CRAWL_DEBUG`): `CRAWL_SEED=n` (seeds are OR-ed with 1, so 2 and 3 are the
-same), `CRAWL_LEVEL=n` (start deeper; you start at the merchant), `CRAWL_GEAR=t` (every spell at
+same), `CRAWL_HASCOMPASS=1` (the compass, already bought), `CRAWL_COMPASSTEST=1` (at a level's start, the bearing from eight places round the exit and each key lying: `EVENT compass_selftest cases n bad n`), `CRAWL_COMPASSLOG=1` (with the compass, what its readout says every five seconds: `EVENT compass LABEL | NUM bear eased`) and `CRAWL_SAVETEST=1` (at a level's start, a page packed and read back for each compass it can hold; prints `EVENT save_selftest cases n bad n`), `CRAWL_LEVEL=n` (start deeper; you start at the merchant), `CRAWL_GEAR=t` (every spell at
 tier t, every rune at the quality an old save's tier t becomes, and an Uncommon piece of level 2t in every
 slot), `CRAWL_RUNES=q` (every rune at quality q, 1 Common to 5 Exquisite), `CRAWL_COINS=n` (Cursed Coins),
 `CRAWL_SHRINE=r` (the Rune Shrine's rank, 0 sanctified to 5), `CRAWL_BAG=q` (a bag of quality q, all
@@ -51,7 +51,7 @@ wisp, follows it home and sends it on from the altar's menu; it can't be hurt), 
 put there as the level opens, already leaving), `CRAWL_BOSSHP=f` (a boss's health times f), `CRAWL_OMEN=s` (the
 level's omens on any level, every s seconds, the first at once), `CRAWL_TOTEM=dddd` (each boss ability's rank, a digit
 each in boss order, and that boss counted beaten), `CRAWL_SCRIP=n` (n scrip of each boss, all four counted beaten),
-`CRAWL_PEDS=n` (the merchant's pedestals), `CRAWL_TPCAT=1` (before the merchant herself), `CRAWL_TPSTONE=1` (before the plot's newest stone), `CRAWL_STONE=n` (n stones in the plot, from what is held), `CRAWL_TPSHRINE=1`
+`CRAWL_PEDS=n` (the merchant's pedestals), `CRAWL_TPCAT=1` (before the merchant herself), `CRAWL_TPCOMPASS=1` (before the compass, once you take control), `CRAWL_TPSTONE=1` (before the plot's newest stone), `CRAWL_STONE=n` (n stones in the plot, from what is held), `CRAWL_TPSHRINE=1`
 (before the Rune Shrine), `CRAWL_LETGO=1` (the full bag's question as you take over in her room, with a bag), `CRAWL_HOLDCARD=1` (a level's card and a boss's held
 up once shown), `CRAWL_CLAIM=1` (her claim's card as you take over, its words only, nothing taken), `CRAWL_TOAST=1` (a pop-up as you take over), `CRAWL_SEENALL=1` (every kind met and some slain, for the bestiary), `CRAWL_TPLECTERN=1` (before the Compendium), `CRAWL_TPREPO=1` (before the Repository), `CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_TPPORTAL=1` (in the
 grave plot facing the Accursed Portal), `CRAWL_RUNTOP=n` (the runs it opens: 0 only run I), `CRAWL_BSTEP=s` (every

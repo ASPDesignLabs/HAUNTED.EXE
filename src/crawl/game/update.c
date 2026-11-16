@@ -247,6 +247,7 @@ static void crawl_update(double dt) {
     update_doors(fdt);
     update_slide(fdt);
     update_wisps(fdt);
+    compass_tick(fdt);
 #ifdef CRAWL_DEBUG
     static int wisp_level = -1;                                    /* testing: an exit wisp, free, as the level opens */
     if (getenv("CRAWL_BLESS") && !G.shop) G.blessed = 1;          /* testing: the altar's blessing on every level */

@@ -137,6 +137,25 @@ The merchant's hall is rebuilt once in the Crypts' ashlar under the Order's bann
 run; the red brick has gone. The pockets keep their own looks. Building from source, `make sheets` draws each
 run's materials, blends, wall pieces, floors, ceilings, doors, keys and treasure, and a stretch of each room.
 
+### CATACOMB: the compass
+
+Since 1.0.0b21.9 the merchant sells a compass, once the map is yours, for 2,500 gold: a disc of old stone, chipped, cracked and mossed, with
+bone studs set round its rim and a gilt one for north, a needle of bone, and a little skull for its pin. It floats at her right, as the map
+floats at her left. It leans toward one thing you have asked it to find and says how far, in cells, and which wind: `GOLD KEY  36 S`. It
+is a bearing, never a route: it points through walls, and a wisp is for the way round.
+
+* **What it leans toward** is what the wisps can be asked for: the way out always, each key lying with Keymaker, and the altar's secret while its
+  wisp is out. The tip says which, as well as the colour: a wisp's flame for the way out, a key's bit (gold, silver or crimson) for a key,
+  an eye for the altar. An exit behind a locked vault leans toward the key that vault wants first, as the exit wisp goes. With nothing to
+  lean toward, in her hall or in a place with no wisp to ask for, the needle rests and says so.
+* **Choosing** is done in the L list: **Back** (Backspace; X on a controller; the BACK stone by touch) aims the needle at the row chosen, and
+  that row wears a small dial. It costs nothing and casts no wisp, and leaves what L casts as it was. It begins on the way out; when what it
+  leans toward is gone it turns back to the way out and says so.
+* **The dial** turns with you, so north is true whichever way you face; the needle eases to its bearing and does not hunt. It stands in a
+  plate at the top right of the view; by touch, in a tablet under MAP, worn blank until bought (a tap opens the L list).
+* **Death takes it,** the death that wakes you in her room: with the gold, the pieces and the lines, and the card says so (last in its line).
+  The map stays. A death that costs nothing (the screensaver's, a pocket, the lessons) leaves it. The screensaver never uses it.
+
 ### CATACOMB: drawn rooms
 
 Since 1.0.0b21.7 a level from the third on is no longer rectangles scattered over a maze. Rooms of a shape someone drew are laid first,
@@ -1018,7 +1037,7 @@ in the ledger) counts as having had them; the title's **HELP** turns *THE LESSON
 
 ### Playing CATACOMB yourself
 
-Hold **H** for three seconds, in either scene, or any button on a game controller. A bar fills at the
+Hold **H** for three seconds, in either scene, or any button on a game controller. (Since 1.0.0b21.9 the list of controls that used to stand on the screen for six seconds when you took over, or opened a page, no longer appears; one constant brings it back.) A bar fills at the
 bottom of the screen; let go early and nothing happens (any other key still ends the screensaver as
 usual; a controller's buttons never do). When it fills, the title screen comes up (above); choose a grave or a new run, and
 the crypt is yours, and the scenes stop switching until you hand it back. HAUNT.EXE cuts straight to the crypt.
@@ -1033,7 +1052,7 @@ the crypt is yours, and the scenes stop switching until you hand it back. HAUNT.
 | E or Space | Open the door ahead, unlock a vault with its key, press a cracked wall, step through the exit runes, drink from a boss's font, kindle a brazier, take, set down, turn, pull, light, strike or read a puzzle's or a trial's things, search a thing that may hold the hidden message, use a Black Shrine, or mend at a place in the wall (keep still while it mends you, to three quarters of your health, or all of it with Physic at its cap), or use the merchant (her menu), the Rune Shrine, the Hexed Totem, the Compendium, the Repository, a gravestone, the Accursed Portal, the Lampstand, the Dead Bell, the Weeping Font, a Black Altar or its wisp, a visportal or a water cooler. Walking into a door opens it too, and walking into a chain's doorway takes you through |
 | Tab | The wardrobe: W and S choose a place, worn or in the bag, and Enter moves a piece between them. A and D turn to the caster's page: every total, what abilities add (in gold) and what is at its cap (in blue), and the lines' ranks; then the cornerstones, the Alignment's tree, the elements, and the documents found and read on the level |
 | B | The bestiary and the achievements. A and D turn the pages, W and S choose a rank or scroll |
-| L | The wisps: a list of what can be summoned now and at what price (see below). W and S choose, Enter casts, Space sets L to cast that one at a tap; then holding L brings the list back. With the Lantern of the Dead, holding L shutters or lights it |
+| L | The wisps: a list of what can be summoned now and at what price (see below). W and S choose, Enter casts, Space sets L to cast that one at a tap; then holding L brings the list back. With a compass, Back (Backspace; X on a controller) aims it at the row chosen. With the Lantern of the Dead, holding L shutters or lights it |
 | C | The Codex of Affixations. A and D turn the pages, W and S go between its parts |
 | M | The map, once bought from the merchant, while you walk on. The arrow keys pan it, Space brings it back to you, M, Esc or Tab rolls it up |
 | Turn or strafe hard, back and forth | Shake off a bat that has latched on to your face |
@@ -1183,7 +1202,7 @@ became HAUNTED.EXE, kept so that settings and saves carry over), `Progress` besi
 start from or holds the unsigned run, and `Mark` is the dead's watch; `uninstall.cmd` removes them with
 the settings. They are written the moment the game changes them, and never on quitting.
 
-**1.0.0b21.8 changes nothing in the saves.** **1.0.0b21.7 changes nothing in the saves** (a level is made afresh each time and is never kept). **1.0.0b21.6 changes nothing in the saves.** It adds two numbers to the settings (the small life's movement and sound: `LifeMove`, `LifeSound`),
+**1.0.0b21.9 adds a compass to a page** in a byte of its fixed part, after the wisp's, that every earlier build wrote as 0 and none read: bit 0 held, bits 1 and 2 the kind of wisp it leans toward, bits 3 and 4 the key. An earlier page reads as no compass, and a page from this build opens in an earlier one without it. A death clears it before the page is written. **1.0.0b21.8 changes nothing in the saves.** **1.0.0b21.7 changes nothing in the saves** (a level is made afresh each time and is never kept). **1.0.0b21.6 changes nothing in the saves.** It adds two numbers to the settings (the small life's movement and sound: `LifeMove`, `LifeSound`),
 which earlier betas ignore. **1.0.0b21.4 changes nothing in the saves.** It adds two bytes to the settings kept with the controller's layout
 (touch's turning and smoothing), which earlier betas ignore. **1.0.0b21.3 changes nothing in the saves.** **1.0.0b21.2 adds the portraits** (which tapestries are drawn back, where each rank was earned, the gold taken this life, and the
 feats' counts) to each page; 1.0.0b21.1 steps over them, and a page it signs loses them. Achievements earned stay earned.
@@ -1429,6 +1448,26 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b21.9** (the compass; the controls list taken off). Nobody has played it by hand: not the compass, not a finger on its tablet, not the
+list's going. All of it is tested in the harness only: not run under Wine, and the Windows and browser builds compiled and smoke-tested by
+GitHub Actions and by nothing else.
+
+* **The bearing**: from eight places five cells round the exit and each key lying, on levels 1, 4, 5, 12 and 23, the angle and the distance
+  came back; a key lying nowhere sent the needle back to the way out; the saved page was packed and read back for every compass it can hold
+  (none, and each kind with each key), and an older page read as none: no case failed.
+* **The screensaver**: eight seeds (1, 3, 5, 7, 9, 11, 13 and 15) for 3,000 seconds of its time against 1.0.0b21.8's game code, the run
+  identity fixed: the same lines to the line on both, about 11,000 a run. It never buys the map or the compass, so it could not have moved;
+  the controls list belongs to a person.
+* **A person**, scripted: the L list, aiming at a key and then the way out, the plate, touch's stage in two sizes (the tablet live, and worn
+  blank), a death that costs (the card read `$416, 7 PIECES, 1 LINE, A COMPASS GONE WITH YOU`; the page it wrote opened with no compass), the wake
+  (the compass on sale again at 2,500, the map kept) and the vow. Clean under AddressSanitizer and UBSan.
+* **The price**: 2,500 is the author's number and is not weighed by hand. The screensaver, which takes nearly everything it sees, gathered
+  about 1,050 gold on level 1, 980 on level 2, 1,960 on level 3, 3,820 on level 4, 3,610 on level 5 and 3,980 on level 6 (level 4 from 2,580
+  to 5,620), less what it spent in her room: the map and the compass together are three and a half early levels or most of a later one, and a
+  person gathers less, and loses it all at a death.
+* **Not tried**: a hand on any of it; a finger on the tablet; the plate over a fight in the view's corner; the Windows and browser builds beyond
+  compiling.
 
 **New in 1.0.0b21.8** (a vestibule before the first vault; a doorway mended). Not played by hand: the author played 1.0.0b21.7 and asked
 for this one on the strength of its checks in the harness; nothing was run under Wine, and the Windows and browser builds are compiled

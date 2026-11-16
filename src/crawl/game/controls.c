@@ -83,7 +83,7 @@ static void pad_keys(float dt) {
         if (hit[PAD_A]) PRESS(KEY_ENTER);
         if (hit[PAD_B] || hit[PAD_MENU]) PRESS(KEY_ESC);
         if (hit[PAD_Y]) PRESS(KEY_SPACE);
-        if (hit[PAD_X] && aug_on()) PRESS(KEY_BACK);               /* X: back, with the augments (unbinding a line, taking back: 1.0.0b21) */
+        if (hit[PAD_X] && (aug_on() || (G.ui == UI_WISPS && RUN.has_compass))) PRESS(KEY_BACK);               /* X: back, with the augments (unbinding a line, taking back: 1.0.0b21) */
         if (hit[PAD_RB]) PRESS(G.ui == UI_ALIGN ? KEY_PGDN : KEY_D);   /* at the Lampstand, the lines */
         if (hit[PAD_LB]) PRESS(G.ui == UI_ALIGN ? KEY_PGUP : KEY_A);
         if (hit[PAD_VIEW]) PRESS(KEY_TAB);
@@ -154,13 +154,14 @@ static void touch_geo(TRect r[NTB]) {
     if (sw - l - rr < W) l = rr = 0;                                /* as app_stage_place has it, the drift aside */
     int col = clampi((sw - l - rr - W) / 2, 0, 112);               /* the black beside the picture: never over it */
     int cw = col - 6, ch = clampi(sh / 4, 38, 60), bh = clampi(sh / 7, 24, 34), gap = 3;
-    int lx = l + 3, rx = sw - rr - 3 - cw, y2 = t + 3 + ch + gap, y3 = y2 + bh + gap, y4 = y3 + bh + gap;
+    int lx = l + 3, rx = sw - rr - 3 - cw, y2 = t + 3 + ch + gap, y3 = y2 + bh + gap, y4 = y3 + bh + gap, y5 = y4 + bh + gap;
     r[TB_CORNER_L] = (TRect){ lx, t + 3, cw, ch };
     r[TB_CORNER_R] = (TRect){ rx, t + 3, cw, ch };
     r[TB_WISPS] = (TRect){ lx, y2, cw, bh };                      /* WISPS over MAP on the left, WARDROBE on the right */
     r[TB_MAP] = (TRect){ lx, y3, cw, bh };
     r[TB_WARD] = (TRect){ rx, y2, cw, bh };
-    r[TB_STRIP_L] = (TRect){ lx, y4, cw, imax(24, sh - b - 3 - y4) };
+    r[TB_COMPASS] = (TRect){ lx, y4, cw, bh };                    /* and the compass under the map, worn blank till it is bought */
+    r[TB_STRIP_L] = (TRect){ lx, y5, cw, imax(24, sh - b - 3 - y5) };
     r[TB_STRIP_R] = (TRect){ rx, y3, cw, imax(24, sh - b - 3 - y3) };
     if (cw < 20) for (int k = 0; k < NTB; k++) r[k].w = 0;         /* no room: no stones (the page leaves room) */
 }
@@ -169,7 +170,7 @@ static int touch_ctx(void) { return title_up() ? TC_TITLE : WH.open ? TC_WHEEL :
 static int touch_shown(int k, int ctx) {                           /* which stones there are, by what is up */
     if (ctx == TC_WHEEL) return k == TB_STRIP_R;
     if (ctx == TC_TITLE) return k == TB_STRIP_L || k == TB_STRIP_R;
-    if (ctx == TC_MENU) return k != TB_WISPS && k != TB_MAP;
+    if (ctx == TC_MENU) return k != TB_WISPS && k != TB_MAP && k != TB_COMPASS;
     return 1;
 }
 static int in_rect(const TRect *r, float x, float y) { return x >= r->x && y >= r->y && x < r->x + r->w && y < r->y + r->h; }
@@ -298,6 +299,7 @@ static void touch_keys(float dt) {
                 if (b == TB_CORNER_L) PADX.rune_hit = 1;
                 else if (b == TB_CORNER_R) PRESS(KEY_MOUSE2);
                 else if (b == TB_MAP && RUN.has_map) PRESS(KEY_M);
+                else if (b == TB_COMPASS && RUN.has_compass) TCH.compass_tap = 1;   /* the list, to aim it */
                 else if (b == TB_WARD) PRESS(KEY_TAB);
             } else if (ctx == TC_WHEEL) { if (b == TB_STRIP_R) { wheel_close(0); snd_sfx_ex(SFX_KEY, 0.5f, 0.5f); } }
             else {                                                 /* a menu or the title: the stones are the keys they say */
@@ -343,7 +345,7 @@ static void crawl_control(int what) {
     if (!G.quit_line) G.quit_line = 1 + rnd(97);                    /* the crypt's arguments, from somewhere new each time */
     if (G.shop) { G.sdur = 0.0f; G.shop_look = -1; G.pc_t = -1.0f; old_spells_said(); old_lines_said(); }   /* no cast left half-made */
     else if (!G.exiting && !G.tally && !G.dead) human_begin();
-    G.hint_t = TU.on && g_drawn ? 0.0f : 6.0f;                     /* the lessons' first page says what the card would */
+    G.hint_t = TU.on && g_drawn ? 0.0f : CONTROLS_CARD_T;                     /* the lessons' first page says what the card would */
     snd_sfx_ex(SFX_RUNE, 1.0f, 0.5f); snd_sfx_ex(SFX_WHOOSH, 0.6f, 0.5f);
     say("THE CONTROLS ARE YOURS");
 #ifdef CRAWL_DEBUG
@@ -461,6 +463,7 @@ static void crawl_control(int what) {
         float x = 0, y = 0, a = 0;
         if (sscanf(getenv("CRAWL_TPHALL"), "%f,%f,%f", &x, &y, &a) == 3) { G.px = x; G.py = y; G.ang = a * PI_F / 180.0f; G.cx = (int)x; G.cy = (int)y; }
     }
+    if (getenv("CRAWL_TPCOMPASS") && G.shop) { G.px = COMPASS_X + 1.6f; G.py = COMPASS_Y + 0.1f; G.ang = face_of(COMPASS_X, COMPASS_Y); G.cx = (int)G.px; G.cy = (int)G.py; }   /* before the compass */
     if (getenv("CRAWL_TPCAT") && G.shop) { G.px = CAT_X + 1.3f; G.py = CAT_Y + 0.4f; G.ang = face_of(CAT_X, CAT_Y); G.cx = (int)G.px; G.cy = (int)G.py; }   /* before the merchant */
     if (getenv("CRAWL_TPREPO") && G.shop) { G.px = 5.5f; G.py = 14.5f; G.ang = PI_F; G.cx = 5; G.cy = 14; }   /* before the Repository's niches */
     if (getenv("CRAWL_TPLECTERN") && G.shop) { G.px = LECTERN_X + 0.5f; G.py = LECTERN_Y - 1.6f; G.ang = PI_F * 0.5f; G.cx = LECTERN_X; G.cy = LECTERN_Y - 2; }   /* before the Compendium */
