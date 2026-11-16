@@ -144,7 +144,8 @@ static void render_buy(Frame *f) {
         gfx_text8(f, 306 - gfx_text_width(line, 1), 31, line, COMPASS_PRICE <= RUN.treasure ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_BLOOD + 12), 1);
         text_wrap_ex(f, 14, 45, "A DISC OF OLD STONE AND A NEEDLE OF BONE, THAT LEANS TOWARD WHAT YOU HAVE ASKED THE L MENU TO FIND: THE WAY OUT, "
                      "A KEY YOU HAVE SEEN, A SECRET THE ALTAR SENDS YOU TO. IT KNOWS THE DIRECTION AND THE DISTANCE, NOT THE ROUTE. THE DISC TURNS "
-                     "WITH YOU, AND ITS GILT STUD IS NORTH. DEATH TAKES IT BACK.", 36, R_STONE + 13, 12, 9);
+                     "WITH YOU, AND ITS GILT STUD IS NORTH. DEATH TAKES IT BACK.", 27, R_STONE + 13, 12, 9);
+        ui_compass(f, 272, 100, 30, 300.0f, 345.0f, UI_CT_EXIT, R_GLOW, 0, 0);   /* as it will turn: the exit, north by west, you facing north-west */
         if (G.sh_note_t > 0.0f) gfx_text8(f, 14, 166, G.sh_note, R_GOLD + 11, 1);
         else if (COMPASS_PRICE > RUN.treasure) { snprintf(line, sizeof line, "YOU ARE $%d SHORT", COMPASS_PRICE - RUN.treasure); gfx_text8(f, 14, 166, line, R_BLOOD + 13, 1); }
         snprintf(keys, sizeof keys, "E BUY  %sESC CLOSE", more > 1 ? "A/D WARES  " : "");

@@ -44,6 +44,7 @@ static void crawl_render(Frame *f) {
     render_runesockets(f);
     render_carry(f);
     render_dash(f);
+    render_compass(f);
     if (G.player && !G.shop && G.bar <= 0.0f) render_readout(f);   /* and the small one while it is away */
     if (!G.shop && !G.player) { render_readout(f); render_face_popup(f); }
     if (!G.dead) render_af_row(f);                                 /* what is on you (PLAN-combat, section 4.2) */
@@ -159,12 +160,12 @@ static void crawl_stage(Frame *st, int px, int py) {
     int rr = rune_readied(), gr = ab_readied();
     int rmark = RUN.mouse_rune && rr >= 0;                         /* the top right uses what was readied last */
     static char num[3][16];
-    static const char *const MENU_W[NTB] = { "ENTER", "ESC", "BACK", "SPACE", "", "", "TAB" };
-    static const int MENU_M[NTB] = { TSM_ENTER, TSM_ESC, TSM_BACK, TSM_SPACE, TSM_NONE, TSM_NONE, TSM_ROBE };
+    static const char *const MENU_W[NTB] = { "ENTER", "ESC", "BACK", "SPACE", "", "", "TAB", "" };
+    static const int MENU_M[NTB] = { TSM_ENTER, TSM_ESC, TSM_BACK, TSM_SPACE, TSM_NONE, TSM_NONE, TSM_ROBE, TSM_NONE };
     for (int k = 0; k < NTB; k++) {
         if (!touch_shown(k, ctx) || R[k].w < 20 || R[k].h < 12) continue;
-        static const int KIND[NTB] = { TSK_USE, TSK_CAST, TSK_CORNER, TSK_CORNER, TSK_TABLET, TSK_TABLET, TSK_TABLET };
-        static const int RIGHT[NTB] = { 0, 1, 0, 1, 0, 0, 1 };
+        static const int KIND[NTB] = { TSK_USE, TSK_CAST, TSK_CORNER, TSK_CORNER, TSK_TABLET, TSK_TABLET, TSK_TABLET, TSK_TABLET };
+        static const int RIGHT[NTB] = { 0, 1, 0, 1, 0, 0, 1, 0 };
         TStone s = { KIND[k], R[k].w, R[k].h, RIGHT[k], 0, TCH.press[k], TSM_NONE, (unsigned)(k * 101 + run * 17), NULL, NULL, 0 };
         TsInfo in;
         memset(&in, 0, sizeof in); in.ring = in.fill = -1.0f;
@@ -246,6 +247,18 @@ static void crawl_stage(Frame *st, int px, int py) {
                 in.text_col = G.links_found >= G.nlinks ? R_GOLD + 12 : R_BONE + 14;
             }
             break;
+        case TB_COMPASS: {                                         /* the needle's word and its bearing; worn blank till it is bought */
+            s.word = "COMPASS"; s.blank = !RUN.has_compass;
+            if (!tstone_word_fits(&s)) s.word = "NORTH";
+            if (!tstone_word_fits(&s)) s.word = "N";
+            CompassRead cr;
+            if (compass_read(&cr)) {
+                static char cl[2][24];
+                compass_words(&cr, cl[0], sizeof cl[0], cl[1], sizeof cl[1]);
+                in.text = cl[1]; in.text_col = compass_ramp(cr.kind, cr.color) + 12;
+            } else if (RUN.has_compass) { in.text = "NONE"; in.text_col = R_STONE + 10; }
+            break;
+        }
         case TB_WARD: {                                            /* the bag, how full */
             s.word = "WARDROBE"; s.mark = TSM_ROBE;
             if (!tstone_word_fits(&s)) s.word = "GEAR";
@@ -261,6 +274,14 @@ static void crawl_stage(Frame *st, int px, int py) {
         }
         }
         tstone_draw(st, R[k].x, y, &s, &in, G.ui_t);
+        if (k == TB_COMPASS) {                                     /* the dial, in the socket the stone has for it */
+            TsPlaces pl;
+            CompassRead cr;
+            int on = compass_read(&cr);
+            tstone_places(&s, &pl);
+            if (pl.sr) ui_compass(st, R[k].x + pl.sx, y + pl.sy, pl.sr, compass_heading(), on ? G.compass_bear : 0.0f, on ? compass_tip(cr.kind) : UI_CT_EXIT,
+                                  on ? compass_ramp(cr.kind, cr.color) : R_GLOW, !on, s.blank);
+        }
     }
     if (ctx == TC_PLAY && TCH.walk) tstone_ring(st, TCH.wbx, TCH.wby, TCH.wx, TCH.wy, touch_ring(), G.spr_on);
 }

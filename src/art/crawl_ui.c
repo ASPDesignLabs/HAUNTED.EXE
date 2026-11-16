@@ -923,3 +923,110 @@ void ui_pad(Frame *f, const UiPad *p) {
         }
     }
 }
+
+/* ---- the compass's dial (docs/PLAN-compass.md; the sheet is media/sheets/compass/) ----
+ * A relic, not an instrument: a disc of old stone, chipped, cracked and mossed, bone studs set round its rim (the dial's own cardinals),
+ * a gilt one for north; a needle of bone whose tip carries the colour (the exit a wisp's flame, a key its bit, the altar an eye); and a
+ * skull for its pin. The disc turns with you: head is the way you face and bear the way the thing lies, both in degrees clockwise from
+ * north, and the needle leans bear - head from the top. Chips, cracks and moss belong to the stone, so they turn with it. */
+static float cp_hash(int a, int b, int s) { unsigned h = (unsigned)a * 374761393u + (unsigned)b * 668265263u + (unsigned)s * 2246822519u; h = (h ^ (h >> 13)) * 1274126177u; return (float)((h ^ (h >> 16)) & 0xFFFF) / 65535.0f; }
+static float cp_wrap(float a) { while (a > 180.0f) a -= 360.0f; while (a < -180.0f) a += 360.0f; return a; }
+static int cp_needle(float s, float t, int tip, float L) {      /* 1 bone, 2 bone in shadow, 3 the tip, 4 its bright core */
+    float at = fabsf(t);
+    if (s < -4.0f) return 0;
+    if (s < 0.0f) return (at <= 0.9f || (s < -2.2f && at <= 1.6f)) ? 2 : 0;    /* the tail, ending in a joint */
+    if (s > L) return 0;
+    if (tip == UI_CT_EXIT) {                                         /* a wisp's flame: round below, drawn out to a point */
+        float s0 = L - 7.5f;
+        if (s <= s0) return at <= 0.85f ? 1 : 0;
+        float w = s <= L - 4.5f ? 3.2f * (s - s0) / 3.0f : 3.2f * (L - s) / 4.5f;
+        if (at > w) return 0;
+        return at < 0.7f && s > L - 6.0f && s < L - 1.8f ? 4 : 3;
+    }
+    if (tip == UI_CT_KEY) {                                          /* a key's bit: a stem and three teeth */
+        if (s <= L - 5.5f) return at <= 0.85f ? 1 : 0;
+        if (s <= L - 3.8f) return at <= 2.4f ? 3 : 0;
+        if (at >= 1.3f && at <= 2.4f) return s <= L ? 3 : 0;      /* the two outer teeth, longer */
+        if (at <= 0.6f) return s <= L - 1.4f ? 3 : 0;            /* the middle one, shorter */
+        return 0;
+    }
+    float ds = s - (L - 3.4f), rr = hypotf(ds, t);                /* an eye: lid, and the pupil lit */
+    if (rr < 1.3f) return 4;
+    if (rr <= 3.4f && rr >= 2.0f) return 3;
+    return s <= L - 6.4f && at <= 0.85f ? 1 : 0;
+}
+void ui_compass(Frame *f, int cx, int cy, int r, float head, float bear, int tip, int ramp, int rest, int blank) {
+    const float RD = 3.14159265f / 180.0f;
+    float phi = (bear - head) * RD, ux = sinf(phi), uy = -cosf(phi), L = (float)r - 3.0f;
+    int big = r >= 12;
+    for (int j = -r - 2; j <= r + 2; j++) for (int i = -r - 2; i <= r + 2; i++) {
+        float dx = i + 0.5f, dy = j + 0.5f, d = hypotf(dx, dy);
+        float th = atan2f(dx, -dy) / RD + head;                       /* where on the stone this lies, in its own turning */
+        float tw = th < 0 ? th + 360.0f : th, edge = (float)r;
+        if (big && cp_hash((int)(tw / 15.0f), 3, 11) < 0.13f) edge -= 1.0f + cp_hash((int)(tw / 15.0f), 4, 11) * 0.8f;   /* a chip bitten out */
+        if (d > edge + 1.2f) continue;
+        if (d > edge + 0.3f) { gfx_px(f, cx + i, cy + j, 0); continue; }
+        float lk = (dx + dy) * 0.7071f / (d + 0.001f);               /* 1 lower right, -1 upper left */
+        int c;
+        float rim = r - 2.4f;
+        if (d >= rim) {                                               /* the rim: worn stone, raised, lit from the upper left */
+            int k = 8 - (int)lroundf(lk * 3.5f) + (int)(cp_hash(i, j, 5) * 3.0f) - 1;
+            if (d > r - 0.7f) k -= 2;
+            c = R_STONE + clampi(k, 2, 14);
+            if (big && lk > 0.0f && cp_hash(i, j, 9) < 0.3f && cp_hash((int)(tw / 20.0f), 7, 9) < 0.55f) c = R_MOSS + 5 + (int)(cp_hash(i, j, 2) * 4.0f);   /* moss in the damp low side */
+            for (int k2 = 0; k2 < 16 && !blank; k2++) {                /* the bone studs set in it, a wind each */
+                int card = k2 % 4 == 0;
+                if (r < 12 && !card) continue;
+                float dl = fabsf(cp_wrap(tw - k2 * 22.5f)) * RD * d, rr = r - 1.2f, hw = card ? 1.2f : 0.7f;
+                if (fabsf(d - rr) <= hw * 1.2f && dl <= hw) c = k2 == 0 ? R_GOLD + 10 + (lk < 0 ? 2 : 0) : R_BONE + (card ? 11 : 8) + (lk < 0 ? 2 : 0);
+            }
+            if (blank) c = R_STONE + clampi(k - 2, 1, 11);
+        } else {
+            c = R_STONE + 2 + (cp_hash(i, j, 3) < 0.07f ? 1 : 0);        /* the face: dark, pitted */
+            if (big && fabsf(d - r * 0.55f) < 0.5f) c = R_STONE + 3;   /* a groove cut round it */
+            if (big) {                                                 /* two cracks, from the rim inward */
+                static const float CK[2] = { 118.0f, 247.0f };
+                for (int k = 0; k < 2; k++) {
+                    float ctr = CK[k] + 9.0f * sinf(d * 0.8f + k * 2.0f);
+                    if (d > r * 0.42f && fabsf(cp_wrap(tw - ctr)) * RD * d < 0.55f) c = R_STONE + 0;
+                }
+            }
+            if (lk < -0.6f && d > r - 5.0f) c += 1;                    /* the lip, catching what light there is */
+        }
+        gfx_px(f, cx + i, cy + j, (uint8_t)c);
+    }
+    if (r >= 24 && !blank && fabsf(cp_wrap(bear - 0.0f)) > 40.0f) {                                          /* north, cut in the face where a hand would read it */
+        float pa = -head * RD;
+        ui_glyph8(f, cx + (int)lroundf(sinf(pa) * (r - 8.0f)) - 4, cy - (int)lroundf(cosf(pa) * (r - 8.0f)) - 4, 'N', FACE_INSC, R_GOLD + 11, TX_INLAID);
+    }
+    if (rest || blank) {
+        if (!blank) for (int k = 0; k < 8; k++) gfx_px(f, cx + (int)lroundf(sinf(k * 0.7854f) * 2.0f), cy - (int)lroundf(cosf(k * 0.7854f) * 2.0f), R_STONE + 7);
+        return;
+    }
+    float gx = ux * (L - 2.5f), gy = uy * (L - 2.5f);                  /* a light round the tip */
+    for (int j = -r; j <= r; j++) for (int i = -r; i <= r; i++) {
+        float dd = hypotf(i + 0.5f - gx, j + 0.5f - gy);
+        if (hypotf(i + 0.5f, j + 0.5f) >= r - 2.4f || dd > 5.5f || dd < 2.0f || ((i + j) & 1)) continue;
+        gfx_px(f, cx + i, cy + j, (uint8_t)(ramp + clampi(5 - (int)(dd * 0.9f), 0, 4)));
+    }
+    for (int pass = 0; pass < 2; pass++) {                             /* its shadow, then the needle */
+        for (int j = -r; j <= r; j++) for (int i = -r; i <= r; i++) {
+            float dx = i + 0.5f - (pass == 0 ? 1.0f : 0.0f), dy = j + 0.5f - (pass == 0 ? 1.0f : 0.0f);
+            if (hypotf(i + 0.5f, j + 0.5f) >= r - 2.4f) continue;
+            float s = dx * ux + dy * uy, t = -dx * uy + dy * ux;
+            int h = cp_needle(s, t, tip, L);
+            if (!h) continue;
+            if (pass == 0) { gfx_px(f, cx + i, cy + j, (uint8_t)(R_STONE + 0)); continue; }
+            int col = h == 1 ? R_BONE + (t > 0.0f ? 12 : 15) : h == 2 ? R_BONE + 7 : h == 3 ? ramp + (t > 0.0f ? 11 : 13) : ramp + 15;
+            gfx_px(f, cx + i, cy + j, (uint8_t)col);
+        }
+    }
+    if (r >= 14) {                                                     /* the pin: a little skull */
+        static const char *const SK[5] = { ".###.", "#####", "#.#.#", ".###.", ".#.#." };
+        for (int j = 0; j < 5; j++) for (int i = 0; i < 5; i++) if (SK[j][i] == '#') gfx_px(f, cx - 2 + i, cy - 2 + j, (uint8_t)(R_BONE + (j == 2 && (i == 1 || i == 3) ? 3 : 12)));
+        for (int i = 0; i < 5; i += 2) gfx_px(f, cx - 2 + i, cy, (uint8_t)(R_STONE + 0));   /* its sockets */
+    } else for (int j = -2; j <= 1; j++) for (int i = -2; i <= 1; i++) {
+        float dx = i + 0.5f, dy = j + 0.5f;
+        if (hypotf(dx, dy) < 1.8f) gfx_px(f, cx + i, cy + j, (uint8_t)(R_BONE + (dx + dy < 0 ? 14 : 9)));
+    }
+}

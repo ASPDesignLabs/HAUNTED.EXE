@@ -156,6 +156,27 @@ static int small_digits(Frame *f, int x, int y, int n, uint8_t c) {   /* 3 by 5 
         for (int k = 0; k < 15; k++) if (D[b[i] - '0'][k] == '#') gfx_px(f, x + i * 4 + k % 3, y + k / 3, c);
     return w;
 }
+/* The compass on the HUD (docs/PLAN-compass.md): a plate at the top right of the view, below the news, with the dial and, beside it, what
+ * it leans toward and how far. By touch the tablet in the margin stands for it. The needle is the eased bearing; the disc turns with you. */
+static int compass_on_stone(void) {                                /* touch's tablet is up in the margin */
+    if (!IN.touch || !IN.stage_w) return 0;
+    TRect R[NTB];
+    touch_geo(R);
+    return R[TB_COMPASS].w >= 20 && R[TB_COMPASS].h >= 12;
+}
+static void render_compass(Frame *f) {
+    if (!RUN.has_compass || !G.player || G.shop || G.dead || G.tally || G.ui || compass_on_stone()) return;
+    CompassRead c;
+    int on = compass_read(&c);
+    char l[24], n[24];
+    if (on) compass_words(&c, l, sizeof l, n, sizeof n); else { snprintf(l, sizeof l, "NOTHING"); snprintf(n, sizeof n, "TO FIND"); }
+    int tw = imax(gfx_text_width(l, 1), gfx_text_width(n, 1)), w = 40 + tw + 4, h = 36, x = W - 4 - w, y = 26;
+    ui_plate(f, x, y, w, h);
+    ui_compass(f, x + 20, y + 18, 14, compass_heading(), on ? G.compass_bear : 0.0f, on ? compass_tip(c.kind) : UI_CT_EXIT,
+               on ? compass_ramp(c.kind, c.color) : R_GLOW, !on, 0);
+    gfx_text8(f, x + 38, y + 8, l, on ? (uint8_t)(compass_ramp(c.kind, c.color) + 12) : (uint8_t)(R_STONE + 10), 1);
+    gfx_text8(f, x + 38, y + 20, n, on ? (uint8_t)(R_BONE + 13) : (uint8_t)(R_STONE + 10), 1);
+}
 static void render_statusbar(Frame *f) {
     int y0 = H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f);   /* it slides down out of sight */
     if (y0 >= H) return;

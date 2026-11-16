@@ -306,12 +306,14 @@ static int compass_read(CompassRead *c) {                          /* 0: nothing
     if (c->bear < 0.0f) c->bear += 360.0f;
     return 1;
 }
-__attribute__((unused)) static void compass_words(const CompassRead *c,   /* the HUD's from step 5; till then the debug log's */
-                                                   char *label, int ln, char *num, int nn) {   /* the two lines under the dial */
+static void compass_words(const CompassRead *c,  char *label, int ln, char *num, int nn) {   /* the two lines under the dial */
     if (c->kind == WK_KEY) snprintf(label, (size_t)ln, "%s KEY", KEY_COLOR[clampi(c->color, 0, NKEYS - 1)]);
     else snprintf(label, (size_t)ln, c->kind == WK_ALTAR ? "ALTAR" : "EXIT");
     if (c->dist < 1.5f) snprintf(num, (size_t)nn, "HERE"); else snprintf(num, (size_t)nn, "%d %s", (int)(c->dist + 0.5f), wind_name(c->bear));
 }
+static int compass_tip(int kind) { return kind == WK_KEY ? UI_CT_KEY : kind == WK_ALTAR ? UI_CT_ALTAR : UI_CT_EXIT; }   /* the dial's own needle tips */
+static int compass_ramp(int kind, int color) { return kind == WK_KEY ? KEY_RAMP[clampi(color, 0, NKEYS - 1)] : kind == WK_ALTAR ? R_PURPLE : R_GLOW; }
+static float compass_heading(void) { return atan2f(cosf(G.ang), -sinf(G.ang)) * 57.29578f; }   /* the way you face, degrees clockwise from north */
 static void compass_tick(float dt) {                               /* each frame: a thing gone falls back to the exit; the needle eases */
     CompassRead c;
     if (!RUN.has_compass) { G.compass_init = 0; return; }

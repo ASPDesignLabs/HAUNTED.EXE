@@ -24,7 +24,7 @@ Environment for the harness: `HOST_INPUT="1:+H;4.3:-H;5:+W;7:-W;8:m400,0;9:+MOUS
 (press `+`, release `-`, mouse counts `m`, wheel `w`, typed letters and digits `t`, as `6:tWORD`; key names
 as in `core.h` without `KEY_`, so `CONSOLE`, `BACK`, `PGUP`, `PGDN` too),
 `HOST_LOAD=file` (the progress to start from: a run, or the page it names; stands in for the registry),
-`HOST_SAVE=file` (the progress, each time the game writes it), `HOST_SLOTS=dir` (the ledger's pages as
+`HOST_SAVE=file` (the progress, each time the game writes it), `HOST_STAGE=WxH` (with `shot`: touch's stage of that size too, each frame's written beside it as `_stage.png`; no fingers, so the stones as they stand), `HOST_SLOTS=dir` (the ledger's pages as
 `slot1.bin`..`slot3.bin`, the dead's mark as `mark.bin`, the pad's layout as `prefs.bin`), `BOTH=1` (scene rotation), `STAY=n`. A game
 controller in `HOST_INPUT`: buttons `+PAD_A` ... `-PAD_RT` (names as `PAD_*` in `core.h`), sticks `aLX0.8`,
 `aLY1`, `aRX-0.5`, `aRY0` (y up); any of them makes a pad plugged in. The harness prints `RUMBLE lo hi`

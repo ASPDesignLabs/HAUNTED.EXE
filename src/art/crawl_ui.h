@@ -153,4 +153,7 @@ typedef struct {
 extern const char *const UI_PAD_NAME[PAD_COUNT];   /* A ... RT, the D-pad as arrows */
 void ui_pad(Frame *f, const UiPad *p);
 
+enum { UI_CT_EXIT, UI_CT_KEY, UI_CT_ALTAR };       /* the compass's needle tips: a wisp's flame, a key's bit, an eye */
+void ui_compass(Frame *f, int cx, int cy, int r, float head, float bear, int tip, int ramp, int rest, int blank);   /* rest: no needle; blank: unbought, worn */
+
 #endif
