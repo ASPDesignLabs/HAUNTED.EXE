@@ -82,4 +82,4 @@ against `controls.c` when step 4 is reached.
 
 ## 7. Hand-off log
 
-*Step 0 is the plan; no sheet yet, no code. Next: the sheet.*
+*Step 0: the plan, and the sheet (16 November 2026): `build/uisheet compass <out.png>`, the dial drawn in the mock-up (`dial()` in `tools/uisheet.c`, to move into `crawl_ui.c` once approved; `build/uisheet` now links `crawl_title.c` for the touch tablet). Kept as `media/sheets/compass/compass.png`: the HUD plate, the dial turning, the three tips and rest, the touch tablet, the prop, her wares' page. Waiting on the owner's look; nothing in the game has changed.*

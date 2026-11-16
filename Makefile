@@ -122,7 +122,7 @@ build/sheet: $(call objs,rel,$(ART_SRC) tools/sheet.c)
 
 UI_SRC   = src/art/crawl_ui.c src/art/ui_art.c src/core/gfx.c src/crawl/crawl_tutor.c
 
-build/uisheet: $(call objs,rel,$(ART_SRC) $(UI_SRC) tools/uisheet.c)
+build/uisheet: $(call objs,rel,$(ART_SRC) $(UI_SRC) src/art/crawl_title.c tools/uisheet.c)
 	gcc $(CFLAGS) -o $@ $^ -lm -lz
 
 build/titlemock: $(call objs,rel,$(ART_SRC) $(UI_SRC) src/art/crawl_title.c tools/titlemock.c)
