@@ -7,7 +7,7 @@ static void render_wispmenu(Frame *f) {
     WispChoice c[WISP_CHOICES];
     int n = wisp_choices(c), rows = n + lantern_held(), sel = clampi(G.ui_sel, 0, rows - 1);
     dim_view(f);
-    int pw = 296, ph = 24 + rows * 13 + 5 + (RUN.wisp_auto ? 26 : 16) + 18, px = (W - pw) / 2, py = 24;
+    int pw = 296, ph = 24 + rows * 13 + 5 + (RUN.wisp_auto ? 26 : 16) + 18 + (RUN.has_compass ? 11 : 0), px = (W - pw) / 2, py = 24;
     ui_slab(f, px, py, pw, ph, SLAB_TABLET, ORN_NONE, G.ui_t);       /* a tablet: the wisps in a well, the choice under it, the keys at its foot */
     gfx_text16(f, px + 10, py + 6, "WISPS", R_GOLD + 12, 1);
     char sp[24], line[40];
@@ -25,6 +25,10 @@ static void render_wispmenu(Frame *f) {
         for (int pass = 0; pass < 2; pass++) wisp_ball(f, px + 17, y + 3.5f, 3.2f + 0.3f * sinf(t), 0.8f, pass, 0.0f);
         const char *what = c[r].kind == WK_EXIT ? "THE WAY OUT" : (c[r].kind == WK_KEY ? KEYW[c[r].color] : "WHAT THE ALTAR HIDES");
         gfx_text8(f, px + 28, y, what, r == sel ? (uint8_t)C_WHITE : (uint8_t)(R_STONE + 12), 1);
+        if (RUN.has_compass && RUN.compass_kind == c[r].kind && (c[r].kind != WK_KEY || RUN.compass_color == c[r].color)) {   /* the needle leans here */
+            static const char *const DIAL[7] = { "..###..", ".#...#.", "#...#.#", "#..#..#", "#.#...#", ".#...#.", "..###.." };
+            ui_mark(f, px + 204, y, DIAL, wisp_ramp, IM_INLAID, 1);
+        }
         const char *cost = c[r].cost <= 0.0f ? "FREE" : "1 SOUL";
         gfx_text8(f, px + pw - 12 - gfx_text_width(cost, 1), y, cost, ok ? (uint8_t)(R_GOLD + 11) : (uint8_t)(R_BLOOD + 13), 1);
     }
@@ -41,6 +45,7 @@ static void render_wispmenu(Frame *f) {
     if (RUN.wisp_auto) for (int k = 1; k < 7; k++) { gfx_px(f, px + 12 + k, ty + k, R_GOLD + 12); gfx_px(f, px + 19 - k, ty + k, R_GOLD + 12); }
     hint8(f, px + 28, ty, "L ALWAYS CASTS THIS  (SPACE)", R_STONE + 12);
     if (RUN.wisp_auto) gfx_text8(f, px + 28, ty + 10, lantern_held() ? "TAP L TWICE FOR THIS LIST" : "HOLD L FOR THIS LIST", R_STONE + 9, 1);
+    if (RUN.has_compass) hall_keys(f, py + ph - 25, "BACK AIMS THE COMPASS");   /* the needle leans to the row chosen */
     hall_keys(f, py + ph - 14, "W/S CHOOSE  ENTER CASTS  ESC CLOSES");
 }
 

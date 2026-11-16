@@ -83,7 +83,7 @@ static void pad_keys(float dt) {
         if (hit[PAD_A]) PRESS(KEY_ENTER);
         if (hit[PAD_B] || hit[PAD_MENU]) PRESS(KEY_ESC);
         if (hit[PAD_Y]) PRESS(KEY_SPACE);
-        if (hit[PAD_X] && aug_on()) PRESS(KEY_BACK);               /* X: back, with the augments (unbinding a line, taking back: 1.0.0b21) */
+        if (hit[PAD_X] && (aug_on() || (G.ui == UI_WISPS && RUN.has_compass))) PRESS(KEY_BACK);               /* X: back, with the augments (unbinding a line, taking back: 1.0.0b21) */
         if (hit[PAD_RB]) PRESS(G.ui == UI_ALIGN ? KEY_PGDN : KEY_D);   /* at the Lampstand, the lines */
         if (hit[PAD_LB]) PRESS(G.ui == UI_ALIGN ? KEY_PGUP : KEY_A);
         if (hit[PAD_VIEW]) PRESS(KEY_TAB);

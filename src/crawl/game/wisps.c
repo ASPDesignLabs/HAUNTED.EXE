@@ -334,6 +334,17 @@ static void compass_tick(float dt) {                               /* each frame
     G.compass_bear += deg180(c.bear - G.compass_bear) * (1.0f - expf(-8.0f * dt));   /* it eases to the bearing, and stays */
     G.compass_bear = fmodf(G.compass_bear + 360.0f, 360.0f);
 }
+static void compass_track(const WispChoice *c) {                  /* the L menu's Back: the needle leans toward this one from now on */
+    RUN.compass_kind = c->kind; RUN.compass_color = c->kind == WK_KEY ? c->color : 0;
+    G.compass_init = 0;                                            /* it turns at once, not by way of the other side of the dial */
+    if (c->kind == WK_EXIT) say("THE NEEDLE LEANS TOWARD THE WAY OUT");
+    else if (c->kind == WK_KEY) say("THE NEEDLE LEANS TOWARD THE %s KEY", KEY_COLOR[clampi(c->color, 0, NKEYS - 1)]);
+    else say("THE NEEDLE LEANS TOWARD WHAT THE ALTAR HIDES");
+    snd_sfx_ex(SFX_KEY, 0.7f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT compass_track kind %d colour %d t=%.2f\n", c->kind, c->color, G.t);
+#endif
+}
 #ifdef CRAWL_DEBUG
 /* the bearing from eight places round each thing it can lean toward, at five cells: the angle must come back, and the distance */
 static void compass_selftest(void) {
@@ -351,6 +362,13 @@ static void compass_selftest(void) {
             cases++;
             if (!compass_read(&c) || fabsf(deg180(c.bear - k * 45.0f)) > 0.5f || fabsf(c.dist - 5.0f) > 0.05f || c.kind != RUN.compass_kind) bad++;
         }
+    }
+    for (int k = 0; k < NKEYS; k++) {                              /* a key that lies nowhere: the needle falls back to the way out */
+        if (key_lying(k) >= 0) continue;
+        RUN.compass_kind = WK_KEY; RUN.compass_color = k; G.compass_init = 1;
+        compass_tick(0.016f);
+        cases++;
+        if (RUN.compass_kind != WK_EXIT || RUN.compass_color != 0) bad++;
     }
     G.px = px; G.py = py; G.shop = shop; RUN.has_compass = has; RUN.compass_kind = kind; RUN.compass_color = col;
     fprintf(stderr, "EVENT compass_selftest cases %d bad %d\n", cases, bad);
