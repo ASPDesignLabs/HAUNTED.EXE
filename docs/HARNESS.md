@@ -31,7 +31,7 @@ controller in `HOST_INPUT`: buttons `+PAD_A` ... `-PAD_RT` (names as `PAD_*` in 
 and `RUMBLE off` as the motors start and stop. `M` is the map's key (1.0.0b9).
 
 Debug build switches (`CRAWL_DEBUG`): `CRAWL_SEED=n` (seeds are OR-ed with 1, so 2 and 3 are the
-same), `CRAWL_HASCOMPASS=1` (the compass, already bought) and `CRAWL_SAVETEST=1` (at a level's start, a page packed and read back for each compass it can hold; prints `EVENT save_selftest cases n bad n`), `CRAWL_LEVEL=n` (start deeper; you start at the merchant), `CRAWL_GEAR=t` (every spell at
+same), `CRAWL_HASCOMPASS=1` (the compass, already bought), `CRAWL_COMPASSTEST=1` (at a level's start, the bearing from eight places round the exit and each key lying: `EVENT compass_selftest cases n bad n`), `CRAWL_COMPASSLOG=1` (with the compass, what its readout says every five seconds: `EVENT compass LABEL | NUM bear eased`) and `CRAWL_SAVETEST=1` (at a level's start, a page packed and read back for each compass it can hold; prints `EVENT save_selftest cases n bad n`), `CRAWL_LEVEL=n` (start deeper; you start at the merchant), `CRAWL_GEAR=t` (every spell at
 tier t, every rune at the quality an old save's tier t becomes, and an Uncommon piece of level 2t in every
 slot), `CRAWL_RUNES=q` (every rune at quality q, 1 Common to 5 Exquisite), `CRAWL_COINS=n` (Cursed Coins),
 `CRAWL_SHRINE=r` (the Rune Shrine's rank, 0 sanctified to 5), `CRAWL_BAG=q` (a bag of quality q, all

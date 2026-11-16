@@ -3,6 +3,7 @@
 
 #ifdef CRAWL_DEBUG
 static void save_selftest(void);                                   /* save.c, further down the list */
+static void compass_selftest(void);                                /* wisps.c, and the same */
 #endif
 static void start_level(void) {
     line_lend();
@@ -142,6 +143,7 @@ static void start_level(void) {
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_MAP")) debug_map(0);
     if (getenv("CRAWL_SAVETEST")) save_selftest();
+    if (getenv("CRAWL_COMPASSTEST")) compass_selftest();
 #endif
 }
 

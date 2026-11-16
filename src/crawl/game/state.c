@@ -819,6 +819,7 @@ static struct {
     int mer_look;                           /* the merchant herself, close enough for E */
     int map_look;                           /* the map floating beside her, looked at */
     int compass_look;                       /* the compass floating at her right, looked at */
+    float compass_bear; int compass_init;   /* the needle as it is drawn: the bearing it has eased to (degrees clockwise from north), and whether it has one yet */
     int stone_look, stone_sel;              /* a stone in the plot looked at (-1 none); the one whose page is open */
 
     /* a person at the controls */
