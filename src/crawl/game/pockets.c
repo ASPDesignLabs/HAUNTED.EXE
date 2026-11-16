@@ -419,6 +419,7 @@ static void crawl_enter(uint32_t seed) {
         debug_gear();
         if (RUN.cls) { caster_sync(); RUN.hp = gear_max_hp(&RUN.gear); }   /* a class given here starts whole at its own health (D5) */
         if (getenv("CRAWL_HASMAP")) RUN.has_map = 1;              /* the map, already bought */
+        if (getenv("CRAWL_HASCOMPASS")) RUN.has_compass = 1;      /* the compass too (the map is not asked for here) */
         if (getenv("CRAWL_CORNER")) { RUN.corner = atoi(getenv("CRAWL_CORNER")) & ((1 << NCS) - 1); RUN.wind_run = crawl_run(RUN.level); }   /* cornerstones held, a bit each */
         if (getenv("CRAWL_LUCK")) RUN.steps[LN_LUCK] = (uint16_t)clampi((int)((atof(getenv("CRAWL_LUCK")) - LUCK_BASE) * 10.0f + 0.5f), 0, 1000);   /* Luck at this */
         if (getenv("CRAWL_LEARNT")) { memset(RUN.rec.el_kills, 5, sizeof RUN.rec.el_kills); memset(RUN.rec.harms, 3, sizeof RUN.rec.harms); }   /* every element and harm learnt on every kind */
@@ -431,6 +432,7 @@ static void crawl_enter(uint32_t seed) {
     if (resume && getenv("CRAWL_CLASS")) { RUN.cls = 0; if (atoi(getenv("CRAWL_CLASS")) > 0) class_take(atoi(getenv("CRAWL_CLASS"))); }
     if (resume && getenv("CRAWL_SOULS")) RUN.souls = atoi(getenv("CRAWL_SOULS"));
     if (resume && getenv("CRAWL_HASMAP")) RUN.has_map = 1;
+    if (resume && getenv("CRAWL_HASCOMPASS")) RUN.has_compass = 1;
     if (resume && getenv("CRAWL_LEARNT")) { memset(RUN.rec.el_kills, 5, sizeof RUN.rec.el_kills); memset(RUN.rec.harms, 3, sizeof RUN.rec.harms); }
     if (getenv("CRAWL_SEED")) G.rs = (uint32_t)atoi(getenv("CRAWL_SEED")) | 1u;
 #endif

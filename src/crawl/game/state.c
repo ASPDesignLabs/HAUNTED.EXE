@@ -478,6 +478,8 @@ static struct {
     int loaded;                             /* just read from a save: nothing in G to carry over */
     Record rec;
     int wisp_kind, wisp_color, wisp_auto;   /* the wisp L casts at a tap, once the menu's toggle is on */
+    int has_compass, compass_kind, compass_color;   /* the compass (docs/PLAN-compass.md): bought, and the wisp's kind and key it leans toward (WK_*);
+                                               gone with a death, in the run's save (the spare byte after the wisp's), not the ledger's page */
     int coins, shrine, attuned;             /* Cursed Coins; the Rune Shrine's rank (0 sanctified, 1-5 the best quality
                                                it gives); the rune kinds it is attuned to, a bit each */
     uint8_t slot_def[SHRINE_SLOTS], slot_q[SHRINE_SLOTS];   /* the shrine's slots: rune kind + 1 (0 empty), quality 1-5 */

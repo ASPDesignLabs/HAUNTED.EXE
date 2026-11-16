@@ -61,12 +61,12 @@ The sheet comes first, on its own, and nothing else is built until it is approve
 | | Step | Proof |
 |---|---|---|
 | 0 | This plan; the sheet (section 4). **Stop for the owner** | the sheet |
-| 1 | `RUN.has_compass`, `compass_kind`, `compass_color`; saved in bit 2 of the byte at `save.c` 321 with the map (bit 0) and the lantern (bit 1), with `compass_kind/color` and a ledger note in `docs/SAVES.md`. Every older save loads as "no compass" | an old save loads; the save round-trips |
+| 1 | **Done.** `RUN.has_compass`, `compass_kind`, `compass_color`, saved in the byte after the wisp's three in the page's fixed part (bit 0 held, 1-2 the wisp's kind, 3-4 its key): not in `LG_CASTER`'s flags, which are the ledger's kept-through-death state, so what a death clears is written with the page. That byte was always written 0 and never read, so no new version is needed; an older page reads as none. `docs/SAVES.md` and `docs/HARNESS.md` say so | `CRAWL_SAVETEST=1`: 11 cases, 0 bad; the dream's log matches the build before on seeds 3 and 5 for 1200 s, line for line |
 | 2 | Buying: `BUY_COMPASS` in `her_rooms.c` (live only with a map and no compass), price, say-lines, the prop, the pane, `EVENT compass_bought left n` | harness frames; `HOST_INPUT` buys it |
 | 3 | The bearing: `compass_bearing()` from `wisp_target()`; the readout's words | a test level, each objective |
 | 4 | The L menu's TRACK; falling back to the exit | scripted input; every run's keys |
 | 5 | The HUD stone and dial (`draw/frame.c` `TB_MAP` neighbourhood; touch stones in `crawl_title.c` `tstone_draw`; the pad's layout) | frames in the three input modes |
-| 6 | Death: cleared in `death_wake`; the death card lists `A COMPASS` among what is gone only if the owner wants it (an open question, section 6) | `death_wake` log; compass gone, map kept |
+| 6 | Death: cleared in `death_wake`, **and in `death_fall` before `death_write`** (a page written by a death is the page a death left: it must not keep the compass); the death card lists `A COMPASS` among what is gone only if the owner wants it (an open question, section 6) | `death_wake` log; compass gone, map kept |
 | 7 | Proof: `sh tools/tidy_check.sh` for the parts that should move nothing; the dream's logs match the build before on 8 seeds, line for line; `make asan` and a long run | logs, sanitizers |
 
 Touch has no L menu of its own beyond the wisps' stone, so TRACK goes where the wisps' choices already are on touch; to be confirmed
@@ -80,5 +80,7 @@ against `controls.c` when step 4 is reached.
   (how many levels of a typical run it takes to afford, with and without dying).
 
 ## 7. Hand-off log
+
+*Step 1 done (16 November 2026): the state and the save, see the table. Debug switches `CRAWL_HASCOMPASS=1`, `CRAWL_SAVETEST=1`. Next: step 2, buying.*
 
 *Step 0: the plan, and the sheet (16 November 2026): `build/uisheet compass <out.png>`, the dial drawn in the mock-up (`dial()` in `tools/uisheet.c`, to move into `crawl_ui.c` once approved; `build/uisheet` now links `crawl_title.c` for the touch tablet). Redrawn once (the first dial looked like a watch; now a relic). Kept as `media/sheets/compass/compass.png`: the HUD plate, the dial turning, the three tips and rest, the touch tablet, the prop, her wares' page. Waiting on the owner's look; nothing in the game has changed.*
